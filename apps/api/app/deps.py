@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from fastapi import Depends, Header, HTTPException
+from fastapi import Depends, Header, HTTPException, Query
 from sqlmodel import Session
 
 from app.comfy.client import ComfyUIClient
@@ -31,12 +31,22 @@ def resolve_worker(worker: str) -> ComfyUIClient:
 
 def get_current_user(
     authorization: str | None = Header(default=None),
+    token: str | None = Query(default=None),
     session: Session = Depends(get_session),
 ) -> User:
-    """从 Bearer JWT 解析当前用户;失败抛 401。"""
-    if not authorization or not authorization.lower().startswith("bearer "):
+    """从 Bearer JWT 解析当前用户。
+
+    令牌优先取请求头 `Authorization: Bearer`,其次取 `?token=` 查询参数
+    （<img>/原生 EventSource 无法附带请求头，只能走查询参数）。失败抛 401。
+    """
+    raw: str | None = None
+    if authorization and authorization.lower().startswith("bearer "):
+        raw = authorization.split(" ", 1)[1]
+    elif token:
+        raw = token
+    if not raw:
         raise HTTPException(status_code=401, detail="未认证")
-    user_id = decode_token(authorization.split(" ", 1)[1])
+    user_id = decode_token(raw)
     if not user_id:
         raise HTTPException(status_code=401, detail="令牌无效或已过期")
     user = session.get(User, user_id)

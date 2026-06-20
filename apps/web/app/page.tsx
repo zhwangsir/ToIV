@@ -2,15 +2,20 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { AuthScreen } from "@/components/auth/AuthScreen";
 import { PromptForm } from "@/components/generate/PromptForm";
 import { ProgressBar } from "@/components/generate/ProgressBar";
 import { ResultGallery } from "@/components/generate/ResultGallery";
 import {
+  fetchMe,
   generateTxt2img,
+  getToken,
   imageUrl,
   jobEventsUrl,
   listModels,
+  setToken,
 } from "@/lib/api";
+import type { AuthResult } from "@/lib/api";
 import type {
   GenResult,
   GenStatus,
@@ -31,7 +36,24 @@ const DEFAULT_PARAMS: Txt2ImgParams = {
   scheduler: "normal",
 };
 
+type AuthState = "loading" | "in" | "out";
+
+interface Account {
+  email: string;
+  credits: number;
+}
+
+const MODALITIES = [
+  { key: "image", label: "图像", active: true },
+  { key: "video", label: "视频", active: false },
+  { key: "3d", label: "3D", active: false },
+  { key: "audio", label: "音频", active: false },
+];
+
 export default function Home() {
+  const [auth, setAuth] = useState<AuthState>("loading");
+  const [account, setAccount] = useState<Account | null>(null);
+
   const [params, setParams] = useState<Txt2ImgParams>(DEFAULT_PARAMS);
   const [seedInput, setSeedInput] = useState("");
   const [models, setModels] = useState<ModelsResponse | null>(null);
@@ -43,18 +65,47 @@ export default function Home() {
   const esRef = useRef<EventSource | null>(null);
   const doneRef = useRef(false);
 
+  // 启动时校验已存令牌
   useEffect(() => {
+    if (!getToken()) {
+      setAuth("out");
+      return;
+    }
+    fetchMe()
+      .then((me) => {
+        setAccount({ email: me.user.email, credits: me.credits });
+        setAuth("in");
+      })
+      .catch(() => {
+        setToken(null);
+        setAuth("out");
+      });
+  }, []);
+
+  // 登录后加载模型
+  useEffect(() => {
+    if (auth !== "in") return;
     listModels()
       .then((m) => {
         setModels(m);
-        // 用 ComfyUI 实际可用值校正默认项
-        setParams((p) => ({
-          ...p,
-          ckpt_name: m.checkpoints[0] ?? p.ckpt_name,
-        }));
+        setParams((p) => ({ ...p, ckpt_name: m.checkpoints[0] ?? p.ckpt_name }));
       })
       .catch((e: Error) => setError(e.message));
     return () => esRef.current?.close();
+  }, [auth]);
+
+  const onAuthed = useCallback((result: AuthResult) => {
+    setAccount({ email: result.user.email, credits: result.credits });
+    setAuth("in");
+  }, []);
+
+  const onLogout = useCallback(() => {
+    esRef.current?.close();
+    setToken(null);
+    setAccount(null);
+    setResults([]);
+    setModels(null);
+    setAuth("out");
   }, []);
 
   const patch = useCallback(
@@ -62,78 +113,86 @@ export default function Home() {
     [],
   );
 
-  const onSubmit = useCallback(async (overridePositive?: string) => {
-    const positive = (overridePositive ?? params.positive).trim();
-    if (!positive) return;
-    if (overridePositive) patch({ positive: overridePositive });
+  const onSubmit = useCallback(
+    async (overridePositive?: string) => {
+      const positive = (overridePositive ?? params.positive).trim();
+      if (!positive) return;
+      if (overridePositive) patch({ positive: overridePositive });
 
-    esRef.current?.close();
-    doneRef.current = false;
-    setError(null);
-    setStatus("queued");
-    setProgress({ value: 0, max: 0 });
+      esRef.current?.close();
+      doneRef.current = false;
+      setError(null);
+      setStatus("queued");
+      setProgress({ value: 0, max: 0 });
 
-    const seed = seedInput.trim() === "" ? null : Number(seedInput);
+      const seed = seedInput.trim() === "" ? null : Number(seedInput);
 
-    try {
-      const res = await generateTxt2img({ ...params, positive, seed });
-      setStatus("running");
+      try {
+        const res = await generateTxt2img({ ...params, positive, seed });
+        setStatus("running");
 
-      const es = new EventSource(
-        jobEventsUrl(res.prompt_id, res.client_id, res.worker),
-      );
-      esRef.current = es;
+        const es = new EventSource(
+          jobEventsUrl(res.prompt_id, res.client_id, res.worker),
+        );
+        esRef.current = es;
 
-      es.addEventListener("progress", (e) => {
-        const d = JSON.parse((e as MessageEvent).data);
-        setProgress({ value: d.value ?? 0, max: d.max ?? 0 });
-      });
+        es.addEventListener("progress", (e) => {
+          const d = JSON.parse((e as MessageEvent).data);
+          setProgress({ value: d.value ?? 0, max: d.max ?? 0 });
+        });
 
-      es.addEventListener("done", (e) => {
-        const d = JSON.parse((e as MessageEvent).data);
-        const shots: GenResult[] = (d.images as string[]).map((path, i) => ({
-          id: `${res.prompt_id}-${i}`,
-          url: imageUrl(path),
-          prompt: positive,
-          seed: res.seed,
-          ckpt: params.ckpt_name,
-        }));
-        setResults((prev) => [...shots, ...prev]);
-        doneRef.current = true;
-        setStatus("idle");
-        es.close();
-      });
+        es.addEventListener("done", (e) => {
+          const d = JSON.parse((e as MessageEvent).data);
+          const shots: GenResult[] = (d.images as string[]).map((path, i) => ({
+            id: `${res.prompt_id}-${i}`,
+            url: imageUrl(path),
+            prompt: positive,
+            seed: res.seed,
+            ckpt: params.ckpt_name,
+          }));
+          setResults((prev) => [...shots, ...prev]);
+          doneRef.current = true;
+          setStatus("idle");
+          es.close();
+        });
 
-      es.addEventListener("error", (e) => {
-        const data = (e as MessageEvent).data;
-        if (data) {
-          try {
-            setError(JSON.parse(data).message);
-          } catch {
-            setError("生成出错");
+        es.addEventListener("error", (e) => {
+          const data = (e as MessageEvent).data;
+          if (data) {
+            try {
+              setError(JSON.parse(data).message);
+            } catch {
+              setError("生成出错");
+            }
+            setStatus("error");
+            es.close();
+          } else if (!doneRef.current) {
+            setError("与服务器的连接中断");
+            setStatus("error");
+            es.close();
           }
-          setStatus("error");
-          es.close();
-        } else if (!doneRef.current) {
-          setError("与服务器的连接中断");
-          setStatus("error");
-          es.close();
-        }
-      });
-    } catch (err) {
-      setError((err as Error).message);
-      setStatus("error");
-    }
-  }, [params, seedInput, patch]);
+        });
+      } catch (err) {
+        setError((err as Error).message);
+        setStatus("error");
+      }
+    },
+    [params, seedInput, patch],
+  );
 
   const busy = status === "queued" || status === "running";
 
-  const MODALITIES = [
-    { key: "image", label: "图像", active: true },
-    { key: "video", label: "视频", active: false },
-    { key: "3d", label: "3D", active: false },
-    { key: "audio", label: "音频", active: false },
-  ];
+  if (auth === "loading") {
+    return (
+      <div className="splash">
+        <div className="hero-orb" aria-hidden="true" />
+      </div>
+    );
+  }
+
+  if (auth === "out") {
+    return <AuthScreen onAuthed={onAuthed} />;
+  }
 
   return (
     <div className="app-shell">
@@ -158,14 +217,23 @@ export default function Home() {
           ))}
         </nav>
 
-        <span
-          className={`status-pill${busy ? " is-busy" : ""}${
-            status === "error" ? " is-error" : ""
-          }`}
-        >
-          <span className="led" />
-          {busy ? "运行中" : status === "error" ? "出错" : "就绪"}
-        </span>
+        <div className="account">
+          <span
+            className={`status-pill${busy ? " is-busy" : ""}${
+              status === "error" ? " is-error" : ""
+            }`}
+          >
+            <span className="led" />
+            {busy ? "运行中" : status === "error" ? "出错" : "就绪"}
+          </span>
+          <span className="user-chip" title={account?.email}>
+            {account?.email}
+            <em>{account?.credits} 积分</em>
+          </span>
+          <button type="button" className="logout" onClick={onLogout}>
+            退出
+          </button>
+        </div>
       </header>
 
       <div className="studio">

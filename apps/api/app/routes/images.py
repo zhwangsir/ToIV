@@ -5,7 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 
 from app.comfy.client import ComfyUIClient, ComfyUIError
-from app.deps import resolve_worker
+from app.deps import get_current_user, resolve_worker
+from app.models import User
 
 router = APIRouter()
 
@@ -20,6 +21,7 @@ async def get_image(
     subfolder: str = "",
     type_: str = Query(default="output", alias="type"),
     client: ComfyUIClient = Depends(_worker_dep),
+    user: User = Depends(get_current_user),
 ):
     try:
         content, content_type = await client.get_image_bytes(filename, subfolder, type_)

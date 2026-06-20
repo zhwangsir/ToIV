@@ -9,11 +9,14 @@ import json
 from urllib.parse import urlencode
 
 import websockets
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlmodel import Session, select
 from sse_starlette.sse import EventSourceResponse
 
 from app.comfy.client import ComfyUIClient, ComfyUIError
-from app.deps import resolve_worker
+from app.db import get_session
+from app.deps import get_current_user, resolve_worker
+from app.models import Job, User
 
 router = APIRouter()
 
@@ -37,7 +40,14 @@ async def job_events(
     client_id: str,
     request: Request,
     client: ComfyUIClient = Depends(_worker_dep),
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
 ):
+    # 租户隔离:本作业必须属于当前用户的租户
+    job = session.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
+    if job and job.tenant_id != user.tenant_id:
+        raise HTTPException(status_code=403, detail="无权访问该作业")
+
     async def stream():
         # 防竞态：若任务在 WS 连接前已完成，直接回推结果
         try:

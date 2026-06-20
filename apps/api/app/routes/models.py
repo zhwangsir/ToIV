@@ -5,7 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.comfy.client import ComfyUIError
 from app.comfy.pool import WorkerPool
-from app.deps import get_pool
+from app.deps import get_current_user, get_pool
+from app.models import User
 
 router = APIRouter()
 
@@ -17,7 +18,10 @@ def _enum(info: dict, node: str, field: str) -> list[str]:
 
 
 @router.get("/models")
-async def list_models(pool: WorkerPool = Depends(get_pool)):
+async def list_models(
+    pool: WorkerPool = Depends(get_pool),
+    user: User = Depends(get_current_user),
+):
     client = pool.clients[0]
     try:
         ckpt_info = await client.object_info("CheckpointLoaderSimple")

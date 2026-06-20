@@ -5,11 +5,14 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlmodel import Session
 
 from app.comfy.client import ComfyUIError
 from app.comfy.pool import WorkerPool
 from app.config import get_settings
-from app.deps import get_pool
+from app.db import get_session
+from app.deps import get_current_user, get_pool
+from app.models import Job, User
 from app.workflows.txt2img import Txt2ImgParams, build_txt2img_graph
 
 
@@ -35,7 +38,12 @@ def _snap8(v: int) -> int:
 
 
 @router.post("/generate/txt2img")
-async def generate_txt2img(req: Txt2ImgRequest, pool: WorkerPool = Depends(get_pool)):
+async def generate_txt2img(
+    req: Txt2ImgRequest,
+    pool: WorkerPool = Depends(get_pool),
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
     settings = get_settings()
     params = Txt2ImgParams(
         positive=req.positive,
@@ -56,6 +64,21 @@ async def generate_txt2img(req: Txt2ImgRequest, pool: WorkerPool = Depends(get_p
         prompt_id = await client.queue_prompt(graph, client_id)
     except ComfyUIError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
+
+    # 按租户记录作业(隔离 / 历史;P2 只隔离不计费)
+    job = Job(
+        tenant_id=user.tenant_id,
+        user_id=user.id,
+        prompt_id=prompt_id,
+        worker=client.base_url,
+        kind="txt2img",
+        status="queued",
+        prompt=params.positive,
+        seed=params.seed,
+    )
+    session.add(job)
+    session.commit()
+
     return {
         "prompt_id": prompt_id,
         "client_id": client_id,
