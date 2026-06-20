@@ -32,6 +32,22 @@ export interface GenResult {
   ckpt: string;
 }
 
+export type GenMode = "txt2img" | "img2img";
+
+export interface Img2ImgGenParams {
+  positive: string;
+  negative: string;
+  ckpt_name: string;
+  image: string;
+  worker: string;
+  denoise: number;
+  steps: number;
+  cfg: number;
+  sampler: string;
+  scheduler: string;
+  seed?: number | null;
+}
+
 export type GenStatus = "idle" | "queued" | "running" | "error";
 
 export interface Progress {

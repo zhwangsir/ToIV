@@ -11,9 +11,10 @@ from app.comfy.client import ComfyUIError
 from app.comfy.pool import WorkerPool
 from app.config import get_settings
 from app.db import get_session
-from app.deps import get_current_user, get_pool
+from app.deps import get_current_user, get_pool, resolve_worker
 from app.models import Job, User
 from app.ratelimit import enforce_generation_rate_limit
+from app.workflows.img2img import Img2ImgParams, build_img2img_graph
 from app.workflows.txt2img import Txt2ImgParams, build_txt2img_graph
 
 
@@ -27,7 +28,7 @@ class Txt2ImgRequest(BaseModel):
     cfg: float = Field(default=7.0, ge=0.0, le=30.0)
     sampler: str = Field(default="euler", max_length=64)
     scheduler: str = Field(default="normal", max_length=64)
-    seed: int | None = Field(default=None, ge=0)
+    seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
 
 
 router = APIRouter()
@@ -79,6 +80,70 @@ async def generate_txt2img(
         seed=params.seed,
     )
     session.add(job)
+    session.commit()
+
+    return {
+        "prompt_id": prompt_id,
+        "client_id": client_id,
+        "worker": client.base_url,
+        "seed": params.seed,
+    }
+
+
+class Img2ImgRequest(BaseModel):
+    positive: str = Field(min_length=1, max_length=2000)
+    image: str = Field(min_length=1, max_length=512)  # 上传后得到的文件名
+    worker: str  # 图片上传到的 worker
+    negative: str = Field(default="", max_length=2000)
+    ckpt_name: str | None = None
+    denoise: float = Field(default=0.6, ge=0.1, le=1.0)
+    steps: int = Field(default=20, ge=1, le=150)
+    cfg: float = Field(default=7.0, ge=0.0, le=30.0)
+    sampler: str = Field(default="euler", max_length=64)
+    scheduler: str = Field(default="normal", max_length=64)
+    seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
+
+
+@router.post("/generate/img2img")
+async def generate_img2img(
+    req: Img2ImgRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    enforce_generation_rate_limit(user)
+    settings = get_settings()
+    client = resolve_worker(req.worker)  # 必须用图片所在的 worker
+    params = Img2ImgParams(
+        positive=req.positive,
+        image=req.image,
+        negative=req.negative,
+        ckpt_name=req.ckpt_name or settings.default_ckpt,
+        denoise=req.denoise,
+        steps=req.steps,
+        cfg=req.cfg,
+        sampler=req.sampler,
+        scheduler=req.scheduler,
+        **({"seed": req.seed} if req.seed is not None else {}),
+    )
+    graph = build_img2img_graph(params)
+    client_id = uuid.uuid4().hex
+    try:
+        prompt_id = await client.queue_prompt(graph, client_id)
+    except ComfyUIError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+    session.add(
+        Job(
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            prompt_id=prompt_id,
+            worker=client.base_url,
+            kind="img2img",
+            status="queued",
+            prompt=params.positive,
+            seed=params.seed,
+        )
+    )
     session.commit()
 
     return {

@@ -49,6 +49,19 @@ class ComfyUIClient:
                 )
         return images
 
+    async def upload_image(self, content: bytes, filename: str) -> str:
+        """上传图片到 ComfyUI input 目录，返回其文件名(供 LoadImage 使用)。"""
+        files = {"image": (filename, content, "application/octet-stream")}
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                resp = await client.post(
+                    f"{self.base_url}/upload/image", files=files, data={"overwrite": "false"}
+                )
+                resp.raise_for_status()
+                return resp.json()["name"]
+        except (httpx.HTTPError, KeyError) as e:
+            raise ComfyUIError(f"上传图片失败: {e}") from e
+
     async def get_image_bytes(self, filename: str, subfolder: str, type_: str) -> tuple[bytes, str]:
         qs = urlencode({"filename": filename, "subfolder": subfolder, "type": type_})
         try:

@@ -8,15 +8,18 @@ import { ProgressBar } from "@/components/generate/ProgressBar";
 import { ResultGallery } from "@/components/generate/ResultGallery";
 import {
   fetchMe,
+  generateImg2img,
   generateTxt2img,
   getToken,
   imageUrl,
   jobEventsUrl,
   listModels,
   setToken,
+  uploadImage,
 } from "@/lib/api";
 import type { AuthResult } from "@/lib/api";
 import type {
+  GenMode,
   GenResult,
   GenStatus,
   ModelsResponse,
@@ -56,6 +59,10 @@ export default function Home() {
 
   const [params, setParams] = useState<Txt2ImgParams>(DEFAULT_PARAMS);
   const [seedInput, setSeedInput] = useState("");
+  const [mode, setMode] = useState<GenMode>("txt2img");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [denoise, setDenoise] = useState(0.6);
   const [models, setModels] = useState<ModelsResponse | null>(null);
   const [status, setStatus] = useState<GenStatus>("idle");
   const [progress, setProgress] = useState<Progress>({ value: 0, max: 0 });
@@ -94,6 +101,17 @@ export default function Home() {
     return () => esRef.current?.close();
   }, [auth]);
 
+  // 源图预览（对象 URL 需回收）
+  useEffect(() => {
+    if (!imageFile) {
+      setImagePreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(imageFile);
+    setImagePreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [imageFile]);
+
   const onAuthed = useCallback((result: AuthResult) => {
     setAccount({ email: result.user.email, credits: result.credits });
     setAuth("in");
@@ -128,7 +146,30 @@ export default function Home() {
       const seed = seedInput.trim() === "" ? null : Number(seedInput);
 
       try {
-        const res = await generateTxt2img({ ...params, positive, seed });
+        let res;
+        if (mode === "img2img") {
+          if (!imageFile) {
+            setError("请先上传图片");
+            setStatus("error");
+            return;
+          }
+          const up = await uploadImage(imageFile);
+          res = await generateImg2img({
+            positive,
+            negative: params.negative,
+            ckpt_name: params.ckpt_name,
+            image: up.filename,
+            worker: up.worker,
+            denoise,
+            steps: params.steps,
+            cfg: params.cfg,
+            sampler: params.sampler,
+            scheduler: params.scheduler,
+            seed,
+          });
+        } else {
+          res = await generateTxt2img({ ...params, positive, seed });
+        }
         setStatus("running");
 
         const es = new EventSource(
@@ -177,7 +218,7 @@ export default function Home() {
         setStatus("error");
       }
     },
-    [params, seedInput, patch],
+    [params, seedInput, patch, mode, imageFile, denoise],
   );
 
   const busy = status === "queued" || status === "running";
@@ -242,6 +283,12 @@ export default function Home() {
           models={models}
           busy={busy}
           seedInput={seedInput}
+          mode={mode}
+          denoise={denoise}
+          imagePreview={imagePreview}
+          onModeChange={setMode}
+          onImageChange={setImageFile}
+          onDenoise={setDenoise}
           onPatch={patch}
           onSeedInput={setSeedInput}
           onSubmit={onSubmit}

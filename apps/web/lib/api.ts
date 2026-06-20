@@ -1,4 +1,9 @@
-import type { GenerateResponse, ModelsResponse, Txt2ImgParams } from "./types";
+import type {
+  GenerateResponse,
+  Img2ImgGenParams,
+  ModelsResponse,
+  Txt2ImgParams,
+} from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8080";
 const TOKEN_KEY = "toiv_token";
@@ -70,6 +75,38 @@ export async function generateTxt2img(
   params: Txt2ImgParams,
 ): Promise<GenerateResponse> {
   const res = await fetch(`${API_BASE}/api/generate/txt2img`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `生成请求失败 (${res.status})`);
+  }
+  return res.json();
+}
+
+export async function uploadImage(
+  file: File,
+): Promise<{ filename: string; worker: string }> {
+  const fd = new FormData();
+  fd.append("image", file);
+  const res = await fetch(`${API_BASE}/api/upload`, {
+    method: "POST",
+    headers: authHeaders(), // 不要手动设 Content-Type，让浏览器带 boundary
+    body: fd,
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `上传失败 (${res.status})`);
+  }
+  return res.json();
+}
+
+export async function generateImg2img(
+  params: Img2ImgGenParams,
+): Promise<GenerateResponse> {
+  const res = await fetch(`${API_BASE}/api/generate/img2img`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(params),

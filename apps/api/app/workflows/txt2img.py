@@ -8,7 +8,8 @@ from __future__ import annotations
 import secrets
 from dataclasses import dataclass, field
 
-MAX_SEED = 2**64 - 1
+# SQLite 有符号 64 位上限;ComfyUI 接受此范围,且仍有 9.2e18 种可能
+MAX_SEED = 2**63 - 1
 
 
 def _random_seed() -> int:

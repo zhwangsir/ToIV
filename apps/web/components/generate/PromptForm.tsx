@@ -1,10 +1,16 @@
-import type { ModelsResponse, Txt2ImgParams } from "@/lib/types";
+import type { GenMode, ModelsResponse, Txt2ImgParams } from "@/lib/types";
 
 interface Props {
   params: Txt2ImgParams;
   models: ModelsResponse | null;
   busy: boolean;
   seedInput: string;
+  mode: GenMode;
+  denoise: number;
+  imagePreview: string | null;
+  onModeChange: (mode: GenMode) => void;
+  onImageChange: (file: File | null) => void;
+  onDenoise: (v: number) => void;
   onPatch: (patch: Partial<Txt2ImgParams>) => void;
   onSeedInput: (value: string) => void;
   onSubmit: () => void;
@@ -26,11 +32,18 @@ export function PromptForm({
   models,
   busy,
   seedInput,
+  mode,
+  denoise,
+  imagePreview,
+  onModeChange,
+  onImageChange,
+  onDenoise,
   onPatch,
   onSeedInput,
   onSubmit,
 }: Props) {
-  const canSubmit = params.positive.trim().length > 0 && !busy;
+  const needsImage = mode === "img2img" && !imagePreview;
+  const canSubmit = params.positive.trim().length > 0 && !needsImage && !busy;
 
   return (
     <form
@@ -45,6 +58,42 @@ export function PromptForm({
         创作参数
       </div>
 
+      <div className="seg seg-2" role="group" aria-label="生成模式">
+        <button
+          type="button"
+          className={mode === "txt2img" ? "active" : ""}
+          onClick={() => onModeChange("txt2img")}
+        >
+          文生图
+        </button>
+        <button
+          type="button"
+          className={mode === "img2img" ? "active" : ""}
+          onClick={() => onModeChange("img2img")}
+        >
+          图生图
+        </button>
+      </div>
+
+      {mode === "img2img" && (
+        <div className="field">
+          <label>源图</label>
+          <label className="dropzone">
+            {imagePreview ? (
+              <img src={imagePreview} alt="源图预览" />
+            ) : (
+              <span>点击上传图片</span>
+            )}
+            <input
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(e) => onImageChange(e.target.files?.[0] ?? null)}
+            />
+          </label>
+        </div>
+      )}
+
       <div className="field">
         <label htmlFor="positive">
           提示词
@@ -52,10 +101,14 @@ export function PromptForm({
         </label>
         <textarea
           id="positive"
-          placeholder="描述你想要的画面，例如：a cute corgi puppy on grass, masterpiece"
+          placeholder={
+            mode === "img2img"
+              ? "描述你想把图片变成什么样"
+              : "描述你想要的画面，例如：a cute corgi puppy on grass, masterpiece"
+          }
           value={params.positive}
           onChange={(e) => onPatch({ positive: e.target.value })}
-          rows={4}
+          rows={3}
         />
       </div>
 
@@ -85,31 +138,52 @@ export function PromptForm({
         </select>
       </div>
 
-      <div className="field">
-        <label>
-          画幅比例
-          <span className="hint">
-            {params.width} × {params.height}
-          </span>
-        </label>
-        <div className="seg" role="group" aria-label="画幅比例">
-          {ASPECTS.map((a) => (
-            <button
-              key={a.key}
-              type="button"
-              className={params.width === a.w && params.height === a.h ? "active" : ""}
-              onClick={() => onPatch({ width: a.w, height: a.h })}
-            >
-              <span
-                className="glyph"
-                style={{ width: 16 * (a.w / Math.max(a.w, a.h)), height: 16 * (a.h / Math.max(a.w, a.h)) }}
-                aria-hidden="true"
-              />
-              {a.label}
-            </button>
-          ))}
+      {mode === "txt2img" ? (
+        <div className="field">
+          <label>
+            画幅比例
+            <span className="hint">
+              {params.width} × {params.height}
+            </span>
+          </label>
+          <div className="seg" role="group" aria-label="画幅比例">
+            {ASPECTS.map((a) => (
+              <button
+                key={a.key}
+                type="button"
+                className={params.width === a.w && params.height === a.h ? "active" : ""}
+                onClick={() => onPatch({ width: a.w, height: a.h })}
+              >
+                <span
+                  className="glyph"
+                  style={{
+                    width: 16 * (a.w / Math.max(a.w, a.h)),
+                    height: 16 * (a.h / Math.max(a.w, a.h)),
+                  }}
+                  aria-hidden="true"
+                />
+                {a.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="field">
+          <label htmlFor="denoise">
+            重绘强度 <span className="hint">{denoise.toFixed(2)}</span>
+          </label>
+          <input
+            id="denoise"
+            type="range"
+            min={0.1}
+            max={1}
+            step={0.05}
+            value={denoise}
+            style={{ ["--pct" as string]: pct(denoise, 0.1, 1) }}
+            onChange={(e) => onDenoise(Number(e.target.value))}
+          />
+        </div>
+      )}
 
       <div className="row-2">
         <div className="field">
@@ -189,7 +263,7 @@ export function PromptForm({
       </div>
 
       <button type="submit" className="generate-btn" disabled={!canSubmit}>
-        {busy ? "生成中…" : "生成"}
+        {busy ? "生成中…" : needsImage ? "请先上传图片" : "生成"}
       </button>
     </form>
   );
