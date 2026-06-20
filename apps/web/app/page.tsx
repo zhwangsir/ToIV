@@ -10,6 +10,7 @@ import { AdminPanel } from "@/components/admin/AdminPanel";
 import { LibraryView } from "@/components/library/LibraryView";
 import { ModelLibrary } from "@/components/models/ModelLibrary";
 import { ThreeDStudio } from "@/components/threed/ThreeDStudio";
+import { NavIcon } from "@/components/ui/NavIcon";
 import { VideoStudio } from "@/components/video/VideoStudio";
 import {
   fetchMe,
@@ -231,16 +232,16 @@ export default function Home() {
 
   const busy = status === "queued" || status === "running";
 
-  const navItems: { key: string; label: string; view?: View; active: boolean }[] = [
-    { key: "image", label: "图像", view: "image", active: true },
-    { key: "video", label: "视频", view: "video", active: true },
-    { key: "models", label: "模型", view: "models", active: true },
-    { key: "3d", label: "3D", view: "threed", active: true },
-    { key: "library", label: "作品库", view: "library", active: true },
+  const navItems: { key: string; label: string; icon: string; view?: View; active: boolean }[] = [
+    { key: "image", label: "图像", icon: "image", view: "image", active: true },
+    { key: "video", label: "视频", icon: "video", view: "video", active: true },
+    { key: "3d", label: "3D", icon: "threed", view: "threed", active: true },
+    { key: "library", label: "作品库", icon: "library", view: "library", active: true },
+    { key: "models", label: "模型", icon: "models", view: "models", active: true },
     ...(account?.role === "admin"
-      ? [{ key: "admin", label: "管理", view: "admin" as View, active: true }]
+      ? [{ key: "admin", label: "管理", icon: "admin", view: "admin" as View, active: true }]
       : []),
-    { key: "audio", label: "音频", active: false },
+    { key: "audio", label: "音频", icon: "audio", active: false },
   ];
 
   if (auth === "loading") {
@@ -273,6 +274,7 @@ export default function Home() {
               onClick={() => m.view && setView(m.view)}
               aria-current={m.view && view === m.view ? "page" : undefined}
             >
+              <NavIcon name={m.icon} />
               {m.label}
               {!m.active && <span className="soon">soon</span>}
             </button>
