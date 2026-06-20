@@ -27,7 +27,7 @@ def ctx():
     app.dependency_overrides[get_session] = override
 
     with Session(engine) as s:
-        tenant = Tenant(name="t", credits=100)
+        tenant = Tenant(name="t")
         s.add(tenant)
         s.commit()
         s.refresh(tenant)

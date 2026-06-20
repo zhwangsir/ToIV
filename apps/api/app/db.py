@@ -19,6 +19,40 @@ def init_db() -> None:
     SQLModel.metadata.create_all(engine)
 
 
+def bootstrap_admin() -> None:
+    """按环境变量引导管理员:不存在则建,存在则提升为 admin。"""
+    settings = get_settings()
+    if not (settings.admin_email and settings.admin_password):
+        return
+    from sqlmodel import select
+
+    from app.models import Tenant, User
+    from app.security import hash_password
+
+    email = settings.admin_email.strip().lower()
+    with Session(engine) as session:
+        user = session.exec(select(User).where(User.email == email)).first()
+        if user:
+            if user.role != "admin":
+                user.role = "admin"
+                session.add(user)
+                session.commit()
+            return
+        tenant = Tenant(name=email.split("@")[0])
+        session.add(tenant)
+        session.commit()
+        session.refresh(tenant)
+        session.add(
+            User(
+                email=email,
+                hashed_password=hash_password(settings.admin_password),
+                tenant_id=tenant.id,
+                role="admin",
+            )
+        )
+        session.commit()
+
+
 def get_session() -> Iterator[Session]:
     with Session(engine) as session:
         yield session

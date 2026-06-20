@@ -22,7 +22,6 @@ def _now() -> datetime:
 class Tenant(SQLModel, table=True):
     id: str = Field(default_factory=_uid, primary_key=True)
     name: str
-    credits: int = 0
     created_at: datetime = Field(default_factory=_now)
 
 
@@ -31,6 +30,7 @@ class User(SQLModel, table=True):
     email: str = Field(index=True, unique=True)
     hashed_password: str
     tenant_id: str = Field(foreign_key="tenant.id", index=True)
+    role: str = "user"  # "user" | "admin"
     created_at: datetime = Field(default_factory=_now)
 
 

@@ -21,13 +21,16 @@ class Settings(BaseSettings):
     )
     request_timeout: float = 30.0
 
-    # 多租户 / 鉴权（P2）。开发期用 SQLite，生产切 Postgres：
+    # 鉴权 / 账号。开发期用 SQLite，生产切 Postgres：
     #   TOIV_DATABASE_URL=postgresql+psycopg://user:pass@host/db
     database_url: str = "sqlite:///./toiv.db"
     jwt_secret: str = "dev-insecure-change-me-in-production-please-set-TOIV_JWT_SECRET"
     jwt_expire_minutes: int = 10080  # 7 天
-    signup_credits: int = 100        # 注册赠送积分
-    cost_per_image: int = 1          # 每张图扣费
+
+    # 启动时引导管理员账号(密码经环境变量/.env 提供，不入仓库)。
+    # 二者皆非空时：不存在则创建该 admin；存在则提升为 admin。
+    admin_email: str = ""
+    admin_password: str = ""
 
     @property
     def worker_urls(self) -> list[str]:

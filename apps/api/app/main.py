@@ -7,8 +7,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.db import init_db
+from app.db import bootstrap_admin, init_db
 from app.routes import (
+    admin,
     auth,
     generate,
     images,
@@ -23,6 +24,7 @@ from app.routes import (
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    bootstrap_admin()
     yield
 
 
@@ -41,7 +43,17 @@ def create_app() -> FastAPI:
     async def health() -> dict:
         return {"status": "ok", "workers": settings.worker_urls}
 
-    for module in (auth, models, marketplace, generate, video, upload, jobs, images):
+    for module in (
+        auth,
+        admin,
+        models,
+        marketplace,
+        generate,
+        video,
+        upload,
+        jobs,
+        images,
+    ):
         app.include_router(module.router, prefix="/api")
 
     return app

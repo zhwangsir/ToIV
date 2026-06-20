@@ -1,19 +1,26 @@
 import type {
+  AdminUser,
   GenerateResponse,
   Img2ImgGenParams,
   LocalModels,
   MarketItem,
   ModelsResponse,
   Txt2ImgParams,
+  Usage,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8080";
 const TOKEN_KEY = "toiv_token";
 
+export interface AppUser {
+  id: string;
+  email: string;
+  role: string;
+}
+
 export interface AuthResult {
   token: string;
-  user: { id: string; email: string };
-  credits: number;
+  user: AppUser;
 }
 
 // ---------- 令牌存储 ----------
@@ -60,10 +67,27 @@ export function register(email: string, password: string): Promise<AuthResult> {
 export function login(email: string, password: string): Promise<AuthResult> {
   return postAuth("/api/auth/login", { email, password });
 }
-export async function fetchMe(): Promise<{ user: { id: string; email: string }; credits: number }> {
+export async function fetchMe(): Promise<{ user: AppUser; usage: Usage }> {
   const res = await fetch(`${API_BASE}/api/auth/me`, { headers: authHeaders() });
   if (!res.ok) throw new Error("会话已过期");
   return res.json();
+}
+
+export async function listUsers(): Promise<AdminUser[]> {
+  const res = await fetch(`${API_BASE}/api/admin/users`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(`加载用户失败 (${res.status})`);
+  return res.json();
+}
+
+export async function deleteUser(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/admin/users/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `删除失败 (${res.status})`);
+  }
 }
 
 // ---------- 生成 ----------

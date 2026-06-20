@@ -48,6 +48,19 @@ export interface Img2ImgGenParams {
   seed?: number | null;
 }
 
+export interface Usage {
+  total: number;
+  by_kind: Record<string, number>;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  role: string;
+  created_at: string;
+  usage: Usage;
+}
+
 export type LocalModels = Record<string, string[]>;
 
 export interface MarketItem {

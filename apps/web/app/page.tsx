@@ -6,6 +6,7 @@ import { AuthScreen } from "@/components/auth/AuthScreen";
 import { PromptForm } from "@/components/generate/PromptForm";
 import { ProgressBar } from "@/components/generate/ProgressBar";
 import { ResultGallery } from "@/components/generate/ResultGallery";
+import { AdminPanel } from "@/components/admin/AdminPanel";
 import { ModelLibrary } from "@/components/models/ModelLibrary";
 import { VideoStudio } from "@/components/video/VideoStudio";
 import {
@@ -43,20 +44,13 @@ const DEFAULT_PARAMS: Txt2ImgParams = {
 
 type AuthState = "loading" | "in" | "out";
 
+type View = "image" | "video" | "models" | "admin";
+
 interface Account {
   email: string;
-  credits: number;
+  role: string;
+  usageTotal: number;
 }
-
-type View = "image" | "video" | "models";
-
-const NAV: { key: string; label: string; view?: View; active: boolean }[] = [
-  { key: "image", label: "图像", view: "image", active: true },
-  { key: "video", label: "视频", view: "video", active: true },
-  { key: "models", label: "模型", view: "models", active: true },
-  { key: "3d", label: "3D", active: false },
-  { key: "audio", label: "音频", active: false },
-];
 
 export default function Home() {
   const [auth, setAuth] = useState<AuthState>("loading");
@@ -86,7 +80,7 @@ export default function Home() {
     }
     fetchMe()
       .then((me) => {
-        setAccount({ email: me.user.email, credits: me.credits });
+        setAccount({ email: me.user.email, role: me.user.role, usageTotal: me.usage.total });
         setAuth("in");
       })
       .catch(() => {
@@ -119,8 +113,13 @@ export default function Home() {
   }, [imageFile]);
 
   const onAuthed = useCallback((result: AuthResult) => {
-    setAccount({ email: result.user.email, credits: result.credits });
+    setAccount({ email: result.user.email, role: result.user.role, usageTotal: 0 });
     setAuth("in");
+    fetchMe()
+      .then((me) =>
+        setAccount({ email: me.user.email, role: me.user.role, usageTotal: me.usage.total }),
+      )
+      .catch(() => {});
   }, []);
 
   const onLogout = useCallback(() => {
@@ -198,6 +197,7 @@ export default function Home() {
             ckpt: params.ckpt_name,
           }));
           setResults((prev) => [...shots, ...prev]);
+          setAccount((a) => (a ? { ...a, usageTotal: a.usageTotal + 1 } : a));
           doneRef.current = true;
           setStatus("idle");
           es.close();
@@ -229,6 +229,17 @@ export default function Home() {
 
   const busy = status === "queued" || status === "running";
 
+  const navItems: { key: string; label: string; view?: View; active: boolean }[] = [
+    { key: "image", label: "图像", view: "image", active: true },
+    { key: "video", label: "视频", view: "video", active: true },
+    { key: "models", label: "模型", view: "models", active: true },
+    ...(account?.role === "admin"
+      ? [{ key: "admin", label: "管理", view: "admin" as View, active: true }]
+      : []),
+    { key: "3d", label: "3D", active: false },
+    { key: "audio", label: "音频", active: false },
+  ];
+
   if (auth === "loading") {
     return (
       <div className="splash">
@@ -250,7 +261,7 @@ export default function Home() {
         </span>
 
         <nav className="modal-nav" aria-label="模块导航">
-          {NAV.map((m) => (
+          {navItems.map((m) => (
             <button
               key={m.key}
               type="button"
@@ -276,7 +287,7 @@ export default function Home() {
           </span>
           <span className="user-chip" title={account?.email}>
             {account?.email}
-            <em>{account?.credits} 积分</em>
+            <em>{account?.usageTotal ?? 0} 次生成</em>
           </span>
           <button type="button" className="logout" onClick={onLogout}>
             退出
@@ -284,7 +295,11 @@ export default function Home() {
         </div>
       </header>
 
-      {view === "models" ? (
+      {view === "admin" ? (
+        <div className="single-view">
+          <AdminPanel />
+        </div>
+      ) : view === "models" ? (
         <div className="single-view">
           <ModelLibrary />
         </div>

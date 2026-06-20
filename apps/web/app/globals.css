@@ -1136,3 +1136,82 @@ input[type="range"]::-webkit-slider-thumb:hover {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* ---------- 管理后台表格 ---------- */
+.admin-table {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--glass);
+}
+.admin-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 0.8fr 2fr 1.1fr 0.9fr;
+  gap: 0.8rem;
+  align-items: center;
+  padding: 0.75rem 1.1rem;
+  font-size: 0.84rem;
+  border-bottom: 1px solid var(--hairline);
+}
+.admin-row:last-child {
+  border-bottom: none;
+}
+.admin-head {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-faint);
+  background: rgba(0, 0, 0, 0.25);
+}
+.admin-email {
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-row .num {
+  font-variant-numeric: tabular-nums;
+  color: var(--v4);
+  font-weight: 600;
+}
+.admin-usage {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+}
+.role-badge {
+  font-style: normal;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  border: 1px solid var(--hairline-2);
+  border-radius: 999px;
+  padding: 0.12rem 0.55rem;
+}
+.role-badge.admin {
+  color: #07060c;
+  background: var(--aurora);
+  border: none;
+  font-weight: 600;
+}
+.btn-danger {
+  font: inherit;
+  font-size: 0.78rem;
+  color: #ffc0c6;
+  background: rgba(255, 107, 122, 0.12);
+  border: 1px solid rgba(255, 107, 122, 0.4);
+  border-radius: var(--radius-xs);
+  padding: 0.32rem 0.8rem;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease);
+}
+.btn-danger:hover {
+  background: rgba(255, 107, 122, 0.22);
+}
+@media (max-width: 760px) {
+  .admin-row {
+    grid-template-columns: 1.5fr 0.8fr 1fr;
+  }
+  .admin-row > span:nth-child(4),
+  .admin-row > span:nth-child(5) {
+    display: none;
+  }
+}

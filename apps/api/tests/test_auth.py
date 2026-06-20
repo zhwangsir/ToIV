@@ -54,7 +54,7 @@ def test_jwt_tampered_rejected():
 
 
 # ---------- 集成：注册 / 登录 / me ----------
-def test_register_grants_token_and_credits(client):
+def test_register_grants_token_and_default_role(client):
     r = client.post(
         "/api/auth/register",
         json={"email": "a@toiv.ai", "password": "password1"},
@@ -63,7 +63,8 @@ def test_register_grants_token_and_credits(client):
     body = r.json()
     assert body["token"]
     assert body["user"]["email"] == "a@toiv.ai"
-    assert body["credits"] == 100
+    assert body["user"]["role"] == "user"
+    assert "credits" not in body
 
 
 def test_register_duplicate_rejected(client):
@@ -94,14 +95,16 @@ def test_me_requires_auth(client):
     assert client.get("/api/auth/me").status_code == 401
 
 
-def test_me_returns_profile(client):
+def test_me_returns_profile_and_usage(client):
     reg = client.post(
         "/api/auth/register", json={"email": "d@toiv.ai", "password": "password1"}
     ).json()
     r = client.get("/api/auth/me", headers={"Authorization": f"Bearer {reg['token']}"})
     assert r.status_code == 200
-    assert r.json()["user"]["email"] == "d@toiv.ai"
-    assert r.json()["credits"] == 100
+    body = r.json()
+    assert body["user"]["email"] == "d@toiv.ai"
+    assert body["user"]["role"] == "user"
+    assert body["usage"]["total"] == 0
 
 
 def test_email_normalized_case_insensitive(client):
