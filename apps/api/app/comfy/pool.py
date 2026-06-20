@@ -17,13 +17,15 @@ class WorkerPool:
         if not clients:
             raise ValueError("WorkerPool 至少需要一个 ComfyUI worker")
         self._clients = list(clients)
+        self._rr = 0  # 轮询计数,用于在负载相同的 worker 间均匀分配
 
     @property
     def clients(self) -> list[ComfyUIClient]:
         return list(self._clients)
 
     async def pick(self) -> ComfyUIClient:
-        """返回当前队列最短的 worker；查询失败的 worker 视为最忙、排到最后。"""
+        """选队列最短的 worker;若多个并列(如都空闲),则在它们之间轮询,
+        确保并发任务真正分散到多张 GPU,而非总落到第一个。"""
         if len(self._clients) == 1:
             return self._clients[0]
 
@@ -34,8 +36,11 @@ class WorkerPool:
                 return _UNREACHABLE
 
         loads = await asyncio.gather(*(load(c) for c in self._clients))
-        best = min(range(len(self._clients)), key=lambda i: loads[i])
-        return self._clients[best]
+        min_load = min(loads)
+        candidates = [i for i, value in enumerate(loads) if value == min_load]
+        chosen = candidates[self._rr % len(candidates)]
+        self._rr += 1
+        return self._clients[chosen]
 
     @classmethod
     def from_urls(cls, urls: list[str], timeout: float = 30.0) -> "WorkerPool":

@@ -36,6 +36,15 @@ async def test_picks_least_busy_worker():
     assert (await pool.pick()) is idle
 
 
+async def test_round_robin_on_ties():
+    a = FakeClient("a", qlen=0)
+    b = FakeClient("b", qlen=0)
+    c = FakeClient("c", qlen=0)
+    pool = WorkerPool([a, b, c])
+    picks = [await pool.pick() for _ in range(4)]
+    assert picks == [a, b, c, a]  # 负载相同则轮询分散
+
+
 async def test_unreachable_worker_deprioritized():
     dead = FakeClient("dead", qlen=0, fail=True)
     alive = FakeClient("alive", qlen=7)
