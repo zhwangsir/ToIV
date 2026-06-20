@@ -62,9 +62,6 @@ async function postAuth(path: string, body: object): Promise<AuthResult> {
   }
   return res.json();
 }
-export function register(email: string, password: string): Promise<AuthResult> {
-  return postAuth("/api/auth/register", { email, password });
-}
 export function login(email: string, password: string): Promise<AuthResult> {
   return postAuth("/api/auth/login", { email, password });
 }
@@ -77,6 +74,23 @@ export async function fetchMe(): Promise<{ user: AppUser; usage: Usage }> {
 export async function listUsers(): Promise<AdminUser[]> {
   const res = await fetch(`${API_BASE}/api/admin/users`, { headers: authHeaders() });
   if (!res.ok) throw new Error(`加载用户失败 (${res.status})`);
+  return res.json();
+}
+
+export async function createUser(
+  email: string,
+  password: string,
+  role: string,
+): Promise<AdminUser> {
+  const res = await fetch(`${API_BASE}/api/admin/users`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ email, password, role }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `创建账号失败 (${res.status})`);
+  }
   return res.json();
 }
 

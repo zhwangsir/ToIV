@@ -74,6 +74,30 @@ def test_admin_deletes_user(ctx):
     assert {u["email"] for u in remaining} == {"admin@toiv.ai"}
 
 
+def test_admin_creates_account(ctx):
+    client, admin_token, _, _ = ctx
+    h = {"Authorization": f"Bearer {admin_token}"}
+    r = client.post("/api/admin/users", headers=h, json={"email": "newbie", "password": "password1", "role": "user"})
+    assert r.status_code == 200, r.text
+    assert r.json()["email"] == "newbie"
+    # 重复账号 409
+    dup = client.post("/api/admin/users", headers=h, json={"email": "newbie", "password": "password1"})
+    assert dup.status_code == 409
+    # 新账号可登录
+    login = client.post("/api/auth/login", json={"email": "newbie", "password": "password1"})
+    assert login.status_code == 200
+
+
+def test_regular_user_cannot_create_account(ctx):
+    client, _, user_token, _ = ctx
+    r = client.post(
+        "/api/admin/users",
+        headers={"Authorization": f"Bearer {user_token}"},
+        json={"email": "hacker", "password": "password1"},
+    )
+    assert r.status_code == 403
+
+
 def test_admin_cannot_delete_self(ctx):
     client, admin_token, _, _ = ctx
     me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {admin_token}"}).json()

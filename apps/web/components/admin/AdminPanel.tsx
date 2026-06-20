@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { deleteUser, listUsers } from "@/lib/api";
+import { createUser, deleteUser, listUsers } from "@/lib/api";
 import type { AdminUser } from "@/lib/types";
 
 const KIND_LABELS: Record<string, string> = {
@@ -20,12 +20,34 @@ export function AdminPanel() {
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [acct, setAcct] = useState("");
+  const [pwd, setPwd] = useState("");
+  const [role, setRole] = useState("user");
+  const [creating, setCreating] = useState(false);
+
   const load = useCallback(() => {
     setError(null);
     listUsers()
       .then(setUsers)
       .catch((e: Error) => setError(e.message));
   }, []);
+
+  const onCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setCreating(true);
+    try {
+      await createUser(acct.trim(), pwd, role);
+      setAcct("");
+      setPwd("");
+      setRole("user");
+      load();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setCreating(false);
+    }
+  };
 
   useEffect(() => {
     load();
@@ -49,6 +71,32 @@ export function AdminPanel() {
         </h1>
         <span className="count">{users?.length ?? 0} 个账号</span>
       </div>
+
+      <form className="admin-create" onSubmit={onCreate}>
+        <input
+          type="text"
+          placeholder="新账号(3-64 位)"
+          value={acct}
+          onChange={(e) => setAcct(e.target.value)}
+        />
+        <input
+          type="text"
+          placeholder="初始密码(≥6 位)"
+          value={pwd}
+          onChange={(e) => setPwd(e.target.value)}
+        />
+        <select value={role} onChange={(e) => setRole(e.target.value)}>
+          <option value="user">用户</option>
+          <option value="admin">管理员</option>
+        </select>
+        <button
+          type="submit"
+          className="generate-btn"
+          disabled={creating || acct.trim().length < 3 || pwd.length < 6}
+        >
+          {creating ? "创建中…" : "发放账号"}
+        </button>
+      </form>
 
       {error && <div className="alert">⚠ {error}</div>}
 

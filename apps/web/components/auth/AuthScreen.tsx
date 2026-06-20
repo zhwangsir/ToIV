@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { login, register, setToken } from "@/lib/api";
+import { login, setToken } from "@/lib/api";
 import type { AuthResult } from "@/lib/api";
 
 interface Props {
@@ -10,8 +10,7 @@ interface Props {
 }
 
 export function AuthScreen({ onAuthed }: Props) {
-  const [mode, setMode] = useState<"login" | "register">("login");
-  const [email, setEmail] = useState("");
+  const [account, setAccount] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -21,8 +20,7 @@ export function AuthScreen({ onAuthed }: Props) {
     setError(null);
     setBusy(true);
     try {
-      const fn = mode === "login" ? login : register;
-      const result = await fn(email.trim(), password);
+      const result = await login(account.trim(), password);
       setToken(result.token);
       onAuthed(result);
     } catch (err) {
@@ -40,34 +38,16 @@ export function AuthScreen({ onAuthed }: Props) {
         </div>
         <p className="auth-tagline">极光 · AI 创作平台</p>
 
-        <div className="auth-tabs">
-          <button
-            type="button"
-            className={mode === "login" ? "active" : ""}
-            onClick={() => setMode("login")}
-          >
-            登录
-          </button>
-          <button
-            type="button"
-            className={mode === "register" ? "active" : ""}
-            onClick={() => setMode("register")}
-          >
-            注册
-          </button>
-        </div>
-
         <form onSubmit={submit} className="auth-form">
           <div className="field">
-            <label htmlFor="email">邮箱</label>
+            <label htmlFor="account">账号</label>
             <input
-              id="email"
+              id="account"
               type="text"
-              inputMode="email"
-              autoComplete="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="username"
+              placeholder="请输入账号"
+              value={account}
+              onChange={(e) => setAccount(e.target.value)}
             />
           </div>
           <div className="field">
@@ -75,8 +55,8 @@ export function AuthScreen({ onAuthed }: Props) {
             <input
               id="password"
               type="password"
-              autoComplete={mode === "login" ? "current-password" : "new-password"}
-              placeholder={mode === "register" ? "至少 6 位" : "••••••••"}
+              autoComplete="current-password"
+              placeholder="请输入密码"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -87,24 +67,13 @@ export function AuthScreen({ onAuthed }: Props) {
           <button
             type="submit"
             className="generate-btn"
-            disabled={busy || !email.trim() || password.length < 6}
+            disabled={busy || account.trim().length < 3 || password.length < 6}
           >
-            {busy ? "请稍候…" : mode === "login" ? "登录" : "注册并进入"}
+            {busy ? "登录中…" : "登录"}
           </button>
         </form>
 
-        <p className="auth-switch">
-          {mode === "login" ? "还没有账号？" : "已有账号？"}
-          <button
-            type="button"
-            onClick={() => {
-              setMode(mode === "login" ? "register" : "login");
-              setError(null);
-            }}
-          >
-            {mode === "login" ? "去注册" : "去登录"}
-          </button>
-        </p>
+        <p className="auth-switch">账号由管理员统一发放,如需开通请联系管理员。</p>
       </div>
     </div>
   );

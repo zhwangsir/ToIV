@@ -1263,6 +1263,27 @@ input[type="range"]::-webkit-slider-thumb:hover {
   gap: 0.5rem;
 }
 
+/* ---------- 管理后台:新建账号 ---------- */
+.admin-create {
+  display: grid;
+  grid-template-columns: 1.4fr 1.4fr 0.7fr auto;
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: var(--glass);
+}
+.admin-create .generate-btn {
+  padding: 0.6rem 1.3rem;
+  font-size: 0.9rem;
+}
+@media (max-width: 720px) {
+  .admin-create {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 /* ---------- 管理后台表格 ---------- */
 .admin-table {
   border: 1px solid var(--hairline);
