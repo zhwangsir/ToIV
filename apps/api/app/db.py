@@ -33,10 +33,11 @@ def bootstrap_admin() -> None:
     with Session(engine) as session:
         user = session.exec(select(User).where(User.email == email)).first()
         if user:
-            if user.role != "admin":
-                user.role = "admin"
-                session.add(user)
-                session.commit()
+            # .env 为准:同步角色与密码(改 .env 密码后重启即生效)
+            user.role = "admin"
+            user.hashed_password = hash_password(settings.admin_password)
+            session.add(user)
+            session.commit()
             return
         tenant = Tenant(name=email.split("@")[0])
         session.add(tenant)
