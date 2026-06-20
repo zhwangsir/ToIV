@@ -7,6 +7,7 @@ import { PromptForm } from "@/components/generate/PromptForm";
 import { ProgressBar } from "@/components/generate/ProgressBar";
 import { ResultGallery } from "@/components/generate/ResultGallery";
 import { ModelLibrary } from "@/components/models/ModelLibrary";
+import { VideoStudio } from "@/components/video/VideoStudio";
 import {
   fetchMe,
   generateImg2img,
@@ -47,12 +48,12 @@ interface Account {
   credits: number;
 }
 
-type View = "image" | "models";
+type View = "image" | "video" | "models";
 
 const NAV: { key: string; label: string; view?: View; active: boolean }[] = [
   { key: "image", label: "图像", view: "image", active: true },
+  { key: "video", label: "视频", view: "video", active: true },
   { key: "models", label: "模型", view: "models", active: true },
-  { key: "video", label: "视频", active: false },
   { key: "3d", label: "3D", active: false },
   { key: "audio", label: "音频", active: false },
 ];
@@ -287,6 +288,8 @@ export default function Home() {
         <div className="single-view">
           <ModelLibrary />
         </div>
+      ) : view === "video" ? (
+        <VideoStudio />
       ) : (
         <div className="studio">
           <PromptForm

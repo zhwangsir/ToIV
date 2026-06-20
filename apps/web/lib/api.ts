@@ -143,6 +143,32 @@ export async function generateImg2img(
   return res.json();
 }
 
+export interface WanI2VGenParams {
+  positive: string;
+  image: string;
+  worker: string;
+  width: number;
+  height: number;
+  length: number;
+  fps: number;
+  seed?: number | null;
+}
+
+export async function generateVideo(
+  params: WanI2VGenParams,
+): Promise<GenerateResponse> {
+  const res = await fetch(`${API_BASE}/api/generate/video`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `视频生成请求失败 (${res.status})`);
+  }
+  return res.json();
+}
+
 export function jobEventsUrl(
   promptId: string,
   clientId: string,
