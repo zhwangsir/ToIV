@@ -193,6 +193,28 @@ export async function generateVideo(
   return res.json();
 }
 
+export interface Gen3DParams {
+  image: string;
+  worker: string;
+  steps: number;
+  cfg: number;
+  octree_resolution: number;
+  seed?: number | null;
+}
+
+export async function generate3D(params: Gen3DParams): Promise<GenerateResponse> {
+  const res = await fetch(`${API_BASE}/api/generate/3d`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `3D 生成请求失败 (${res.status})`);
+  }
+  return res.json();
+}
+
 export function jobEventsUrl(
   promptId: string,
   clientId: string,

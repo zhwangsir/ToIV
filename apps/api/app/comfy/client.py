@@ -62,6 +62,28 @@ class ComfyUIClient:
         except (httpx.HTTPError, KeyError) as e:
             raise ComfyUIError(f"上传图片失败: {e}") from e
 
+    async def get_result_files(self, prompt_id: str) -> list[dict]:
+        """提取 history 中所有产物文件(图片/动图/3D glb/音频…),扫描全部输出键。"""
+        history = await self.get_history(prompt_id)
+        entry = history.get(prompt_id)
+        if not entry:
+            return []
+        files: list[dict] = []
+        for node_out in entry.get("outputs", {}).values():
+            for value in node_out.values():
+                if not isinstance(value, list):
+                    continue
+                for item in value:
+                    if isinstance(item, dict) and "filename" in item:
+                        files.append(
+                            {
+                                "filename": item["filename"],
+                                "subfolder": item.get("subfolder", ""),
+                                "type": item.get("type", "output"),
+                            }
+                        )
+        return files
+
     async def get_image_bytes(self, filename: str, subfolder: str, type_: str) -> tuple[bytes, str]:
         qs = urlencode({"filename": filename, "subfolder": subfolder, "type": type_})
         try:

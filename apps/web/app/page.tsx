@@ -8,6 +8,7 @@ import { ProgressBar } from "@/components/generate/ProgressBar";
 import { ResultGallery } from "@/components/generate/ResultGallery";
 import { AdminPanel } from "@/components/admin/AdminPanel";
 import { ModelLibrary } from "@/components/models/ModelLibrary";
+import { ThreeDStudio } from "@/components/threed/ThreeDStudio";
 import { VideoStudio } from "@/components/video/VideoStudio";
 import {
   fetchMe,
@@ -44,7 +45,7 @@ const DEFAULT_PARAMS: Txt2ImgParams = {
 
 type AuthState = "loading" | "in" | "out";
 
-type View = "image" | "video" | "models" | "admin";
+type View = "image" | "video" | "threed" | "models" | "admin";
 
 interface Account {
   email: string;
@@ -233,10 +234,10 @@ export default function Home() {
     { key: "image", label: "图像", view: "image", active: true },
     { key: "video", label: "视频", view: "video", active: true },
     { key: "models", label: "模型", view: "models", active: true },
+    { key: "3d", label: "3D", view: "threed", active: true },
     ...(account?.role === "admin"
       ? [{ key: "admin", label: "管理", view: "admin" as View, active: true }]
       : []),
-    { key: "3d", label: "3D", active: false },
     { key: "audio", label: "音频", active: false },
   ];
 
@@ -305,6 +306,8 @@ export default function Home() {
         </div>
       ) : view === "video" ? (
         <VideoStudio />
+      ) : view === "threed" ? (
+        <ThreeDStudio />
       ) : (
         <div className="studio">
           <PromptForm

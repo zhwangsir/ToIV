@@ -63,8 +63,8 @@ def list_jobs(
 
 
 async def _emit_done(client: ComfyUIClient, prompt_id: str) -> dict:
-    images = await client.get_images(prompt_id)
-    return {"event": "done", "data": json.dumps({"images": [_image_url(client.base_url, im) for im in images]})}
+    files = await client.get_result_files(prompt_id)
+    return {"event": "done", "data": json.dumps({"images": [_image_url(client.base_url, f) for f in files]})}
 
 
 @router.get("/jobs/{prompt_id}/events")
@@ -84,7 +84,7 @@ async def job_events(
     async def stream():
         # 防竞态：若任务在 WS 连接前已完成，直接回推结果
         try:
-            if await client.get_images(prompt_id):
+            if await client.get_result_files(prompt_id):
                 _mark_status(prompt_id, "done")
                 yield await _emit_done(client, prompt_id)
                 return

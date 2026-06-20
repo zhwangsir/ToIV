@@ -1137,6 +1137,34 @@ input[type="range"]::-webkit-slider-thumb:hover {
   cursor: not-allowed;
 }
 
+/* ---------- 3D 预览器 ---------- */
+.viewer-3d {
+  position: relative;
+  min-height: clamp(380px, 58vh, 640px);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background:
+    radial-gradient(60% 60% at 50% 40%, rgba(139, 108, 255, 0.12), transparent 70%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.3));
+  overflow: hidden;
+}
+.viewer-3d model-viewer {
+  width: 100%;
+  height: 100%;
+  min-height: clamp(380px, 58vh, 640px);
+}
+.viewer-dl {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 2;
+}
+.model3d-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 /* ---------- 管理后台表格 ---------- */
 .admin-table {
   border: 1px solid var(--hairline);

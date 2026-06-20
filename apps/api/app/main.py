@@ -16,6 +16,7 @@ from app.routes import (
     jobs,
     marketplace,
     models,
+    threed,
     upload,
     video,
 )
@@ -50,6 +51,7 @@ def create_app() -> FastAPI:
         marketplace,
         generate,
         video,
+        threed,
         upload,
         jobs,
         images,
