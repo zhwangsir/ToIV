@@ -21,6 +21,14 @@ class Settings(BaseSettings):
     )
     request_timeout: float = 30.0
 
+    # 多租户 / 鉴权（P2）。开发期用 SQLite，生产切 Postgres：
+    #   TOIV_DATABASE_URL=postgresql+psycopg://user:pass@host/db
+    database_url: str = "sqlite:///./toiv.db"
+    jwt_secret: str = "dev-insecure-change-me-in-production-please-set-TOIV_JWT_SECRET"
+    jwt_expire_minutes: int = 10080  # 7 天
+    signup_credits: int = 100        # 注册赠送积分
+    cost_per_image: int = 1          # 每张图扣费
+
     @property
     def worker_urls(self) -> list[str]:
         return [u.strip().rstrip("/") for u in self.comfy_workers.split(",") if u.strip()]

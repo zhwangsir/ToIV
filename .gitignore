@@ -12,6 +12,10 @@ out/
 next-env.d.ts
 *.tsbuildinfo
 
+# 本地数据库
+*.db
+*.db-journal
+
 # 环境与密钥
 .env
 .env.local

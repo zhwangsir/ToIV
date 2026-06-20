@@ -10,6 +10,8 @@ dependencies = [
     "websockets>=13",
     "sse-starlette>=2.1",
     "pydantic-settings>=2.5",
+    "sqlmodel>=0.0.22",
+    "pyjwt>=2.9",
 ]
 
 [project.optional-dependencies]

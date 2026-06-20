@@ -1,16 +1,25 @@
 """FastAPI 应用装配。"""
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routes import generate, images, jobs, models
+from app.db import init_db
+from app.routes import auth, generate, images, jobs, models
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title="ToIV API", version="0.0.1")
+    app = FastAPI(title="ToIV API", version="0.0.1", lifespan=lifespan)
 
     app.add_middleware(
         CORSMiddleware,
@@ -23,7 +32,7 @@ def create_app() -> FastAPI:
     async def health() -> dict:
         return {"status": "ok", "workers": settings.worker_urls}
 
-    for module in (models, generate, jobs, images):
+    for module in (auth, models, generate, jobs, images):
         app.include_router(module.router, prefix="/api")
 
     return app
