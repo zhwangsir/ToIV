@@ -62,7 +62,11 @@ export default function Home() {
     [],
   );
 
-  const onSubmit = useCallback(async () => {
+  const onSubmit = useCallback(async (overridePositive?: string) => {
+    const positive = (overridePositive ?? params.positive).trim();
+    if (!positive) return;
+    if (overridePositive) patch({ positive: overridePositive });
+
     esRef.current?.close();
     doneRef.current = false;
     setError(null);
@@ -72,7 +76,7 @@ export default function Home() {
     const seed = seedInput.trim() === "" ? null : Number(seedInput);
 
     try {
-      const res = await generateTxt2img({ ...params, seed });
+      const res = await generateTxt2img({ ...params, positive, seed });
       setStatus("running");
 
       const es = new EventSource(
@@ -90,7 +94,7 @@ export default function Home() {
         const shots: GenResult[] = (d.images as string[]).map((path, i) => ({
           id: `${res.prompt_id}-${i}`,
           url: imageUrl(path),
-          prompt: params.positive,
+          prompt: positive,
           seed: res.seed,
           ckpt: params.ckpt_name,
         }));
@@ -120,7 +124,7 @@ export default function Home() {
       setError((err as Error).message);
       setStatus("error");
     }
-  }, [params, seedInput]);
+  }, [params, seedInput, patch]);
 
   const busy = status === "queued" || status === "running";
 
@@ -184,7 +188,7 @@ export default function Home() {
           </div>
           <ProgressBar status={status} progress={progress} />
           {error && <div className="alert">⚠ {error}</div>}
-          <ResultGallery results={results} />
+          <ResultGallery results={results} onExample={(t) => onSubmit(t)} />
         </main>
       </div>
     </div>

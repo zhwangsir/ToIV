@@ -10,7 +10,16 @@ interface Props {
   onSubmit: () => void;
 }
 
-const SIZES = [512, 640, 768, 1024];
+const ASPECTS = [
+  { key: "1:1", w: 512, h: 512, label: "1:1" },
+  { key: "2:3", w: 512, h: 768, label: "2:3" },
+  { key: "3:2", w: 768, h: 512, label: "3:2" },
+  { key: "hd", w: 768, h: 768, label: "大图" },
+];
+
+function pct(value: number, min: number, max: number): string {
+  return `${((value - min) / (max - min)) * 100}%`;
+}
 
 export function PromptForm({
   params,
@@ -37,7 +46,10 @@ export function PromptForm({
       </div>
 
       <div className="field">
-        <label htmlFor="positive">提示词</label>
+        <label htmlFor="positive">
+          提示词
+          <span className="hint">{params.positive.length}</span>
+        </label>
         <textarea
           id="positive"
           placeholder="描述你想要的画面，例如：a cute corgi puppy on grass, masterpiece"
@@ -73,6 +85,32 @@ export function PromptForm({
         </select>
       </div>
 
+      <div className="field">
+        <label>
+          画幅比例
+          <span className="hint">
+            {params.width} × {params.height}
+          </span>
+        </label>
+        <div className="seg" role="group" aria-label="画幅比例">
+          {ASPECTS.map((a) => (
+            <button
+              key={a.key}
+              type="button"
+              className={params.width === a.w && params.height === a.h ? "active" : ""}
+              onClick={() => onPatch({ width: a.w, height: a.h })}
+            >
+              <span
+                className="glyph"
+                style={{ width: 16 * (a.w / Math.max(a.w, a.h)), height: 16 * (a.h / Math.max(a.w, a.h)) }}
+                aria-hidden="true"
+              />
+              {a.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="row-2">
         <div className="field">
           <label htmlFor="sampler">采样器</label>
@@ -105,39 +143,6 @@ export function PromptForm({
       </div>
 
       <div className="field">
-        <label>
-          尺寸
-          <span className="hint">
-            {params.width} × {params.height}
-          </span>
-        </label>
-        <div className="row-2">
-          <select
-            aria-label="宽"
-            value={params.width}
-            onChange={(e) => onPatch({ width: Number(e.target.value) })}
-          >
-            {SIZES.map((s) => (
-              <option key={s} value={s}>
-                宽 {s}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label="高"
-            value={params.height}
-            onChange={(e) => onPatch({ height: Number(e.target.value) })}
-          >
-            {SIZES.map((s) => (
-              <option key={s} value={s}>
-                高 {s}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="field">
         <label htmlFor="steps">
           步数 <span className="hint">{params.steps}</span>
         </label>
@@ -146,7 +151,9 @@ export function PromptForm({
           type="range"
           min={1}
           max={50}
+          step={1}
           value={params.steps}
+          style={{ ["--pct" as string]: pct(params.steps, 1, 50) }}
           onChange={(e) => onPatch({ steps: Number(e.target.value) })}
         />
       </div>
@@ -162,6 +169,7 @@ export function PromptForm({
           max={20}
           step={0.5}
           value={params.cfg}
+          style={{ ["--pct" as string]: pct(params.cfg, 1, 20) }}
           onChange={(e) => onPatch({ cfg: Number(e.target.value) })}
         />
       </div>
