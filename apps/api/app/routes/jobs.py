@@ -14,7 +14,7 @@ from sqlmodel import Session, select
 from sse_starlette.sse import EventSourceResponse
 
 from app.comfy.client import ComfyUIClient, ComfyUIError
-from app.db import get_session
+from app.db import engine, get_session
 from app.deps import get_current_user, resolve_worker
 from app.models import Job, User
 
@@ -27,6 +27,39 @@ def _worker_dep(worker: str) -> ComfyUIClient:
 
 def _image_url(worker: str, image: dict) -> str:
     return f"/api/images?{urlencode({**image, 'worker': worker})}"
+
+
+def _mark_status(prompt_id: str, status: str) -> None:
+    """用独立短会话更新作业状态(SSE 流期间不复用请求会话)。"""
+    with Session(engine) as session:
+        job = session.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
+        if job:
+            job.status = status
+            session.add(job)
+            session.commit()
+
+
+@router.get("/jobs")
+def list_jobs(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> list[dict]:
+    """当前用户的作业历史(最新在前)。"""
+    rows = session.exec(
+        select(Job).where(Job.user_id == user.id).order_by(Job.created_at.desc()).limit(50)
+    ).all()
+    return [
+        {
+            "id": j.id,
+            "prompt_id": j.prompt_id,
+            "kind": j.kind,
+            "status": j.status,
+            "prompt": j.prompt,
+            "seed": j.seed,
+            "created_at": j.created_at.isoformat(),
+        }
+        for j in rows
+    ]
 
 
 async def _emit_done(client: ComfyUIClient, prompt_id: str) -> dict:
@@ -52,6 +85,7 @@ async def job_events(
         # 防竞态：若任务在 WS 连接前已完成，直接回推结果
         try:
             if await client.get_images(prompt_id):
+                _mark_status(prompt_id, "done")
                 yield await _emit_done(client, prompt_id)
                 return
         except ComfyUIError:
@@ -70,12 +104,15 @@ async def job_events(
                     if mtype == "progress":
                         yield {"event": "progress", "data": json.dumps({"value": data.get("value"), "max": data.get("max")})}
                     elif mtype == "executing" and data.get("node") is None and data.get("prompt_id") == prompt_id:
+                        _mark_status(prompt_id, "done")
                         yield await _emit_done(client, prompt_id)
                         break
                     elif mtype == "execution_error" and data.get("prompt_id") == prompt_id:
+                        _mark_status(prompt_id, "error")
                         yield {"event": "error", "data": json.dumps({"message": data.get("exception_message", "执行失败")})}
                         break
         except (OSError, ComfyUIError, websockets.WebSocketException) as e:
+            _mark_status(prompt_id, "error")
             yield {"event": "error", "data": json.dumps({"message": str(e)})}
 
     return EventSourceResponse(stream())

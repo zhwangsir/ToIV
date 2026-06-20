@@ -13,6 +13,7 @@ from app.config import get_settings
 from app.db import get_session
 from app.deps import get_current_user, get_pool
 from app.models import Job, User
+from app.ratelimit import enforce_generation_rate_limit
 from app.workflows.txt2img import Txt2ImgParams, build_txt2img_graph
 
 
@@ -44,6 +45,7 @@ async def generate_txt2img(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
+    enforce_generation_rate_limit(user)
     settings = get_settings()
     params = Txt2ImgParams(
         positive=req.positive,
