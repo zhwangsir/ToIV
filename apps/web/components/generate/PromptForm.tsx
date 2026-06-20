@@ -31,6 +31,11 @@ export function PromptForm({
         if (canSubmit) onSubmit();
       }}
     >
+      <div className="panel-head">
+        <span className="accent" aria-hidden="true" />
+        创作参数
+      </div>
+
       <div className="field">
         <label htmlFor="positive">提示词</label>
         <textarea

@@ -7,8 +7,13 @@ interface Props {
 export function ResultGallery({ results }: Props) {
   if (results.length === 0) {
     return (
-      <div className="empty-canvas">
-        还没有作品。在左侧输入提示词，点击「生成」即可由你的 ComfyUI 出图。
+      <div className="hero-canvas">
+        <div className="hero-orb" aria-hidden="true" />
+        <h2>把想象渲染成画面</h2>
+        <p>
+          在左侧描述你想要的画面，点击「生成」，由你的 ComfyUI 集群即时出图。
+          视频、3D、音频模态即将上线。
+        </p>
       </div>
     );
   }

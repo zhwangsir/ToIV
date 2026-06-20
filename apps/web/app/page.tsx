@@ -124,13 +124,36 @@ export default function Home() {
 
   const busy = status === "queued" || status === "running";
 
+  const MODALITIES = [
+    { key: "image", label: "图像", active: true },
+    { key: "video", label: "视频", active: false },
+    { key: "3d", label: "3D", active: false },
+    { key: "audio", label: "音频", active: false },
+  ];
+
   return (
     <div className="app-shell">
       <header className="topbar">
         <span className="brand">
-          To<span className="dot">IV</span>
+          To<span className="mark">IV</span>
+          <span className="sub">极光 · AI 创作平台</span>
         </span>
-        <span className="tagline">AI 创作工作台 · ComfyUI 驱动</span>
+
+        <nav className="modal-nav" aria-label="生成模态">
+          {MODALITIES.map((m) => (
+            <button
+              key={m.key}
+              type="button"
+              className={m.active ? "active" : ""}
+              disabled={!m.active}
+              aria-current={m.active ? "page" : undefined}
+            >
+              {m.label}
+              {!m.active && <span className="soon">soon</span>}
+            </button>
+          ))}
+        </nav>
+
         <span
           className={`status-pill${busy ? " is-busy" : ""}${
             status === "error" ? " is-error" : ""
@@ -153,12 +176,14 @@ export default function Home() {
         />
 
         <main className="stage">
+          <div className="stage-head">
+            <h1>
+              创作 <span className="grad">图像</span>
+            </h1>
+            <span className="count">{results.length} 张作品</span>
+          </div>
           <ProgressBar status={status} progress={progress} />
           {error && <div className="alert">⚠ {error}</div>}
-          <div className="stage-head">
-            <h2>作品</h2>
-            <span className="count">{results.length} 张</span>
-          </div>
           <ResultGallery results={results} />
         </main>
       </div>
