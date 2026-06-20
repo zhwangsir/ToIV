@@ -362,7 +362,7 @@ export default function Home() {
             </div>
             <ProgressBar status={status} progress={progress} />
             {error && <div className="alert">⚠ {error}</div>}
-            <ResultGallery results={results} onExample={(t) => onSubmit(t)} />
+            <ResultGallery results={results} onExample={(t) => onSubmit(t)} loading={busy} />
           </main>
         </div>
       )}

@@ -1,18 +1,23 @@
 :root {
   color-scheme: dark;
 
-  --bg-0: #060509;
-  --bg-1: #0a0911;
-  --bg-2: #100e1a;
+  --bg-0: #070710;
+  --bg-1: #0c0c17;
+  --bg-2: #13131f;
 
-  --glass: rgba(255, 255, 255, 0.04);
-  --glass-2: rgba(255, 255, 255, 0.07);
-  --hairline: rgba(255, 255, 255, 0.08);
-  --hairline-2: rgba(255, 255, 255, 0.16);
+  --glass: rgba(255, 255, 255, 0.045);
+  --glass-2: rgba(255, 255, 255, 0.08);
+  --hairline: rgba(255, 255, 255, 0.085);
+  --hairline-2: rgba(255, 255, 255, 0.18);
 
-  --ink: rgba(255, 255, 255, 0.96);
-  --ink-soft: rgba(255, 255, 255, 0.58);
-  --ink-faint: rgba(255, 255, 255, 0.34);
+  --ink: rgba(255, 255, 255, 0.95);
+  --ink-soft: rgba(255, 255, 255, 0.66);
+  --ink-faint: rgba(255, 255, 255, 0.44);
+
+  --space-1: 0.5rem;
+  --space-2: 0.75rem;
+  --space-3: 1rem;
+  --space-4: 1.5rem;
 
   --v1: #8b6cff;
   --v2: #c04bff;
@@ -90,7 +95,7 @@ body::after {
   position: fixed;
   inset: 0;
   z-index: 0;
-  opacity: 0.04;
+  opacity: 0.025;
   pointer-events: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
@@ -325,13 +330,24 @@ select,
 input[type="text"],
 input[type="number"] {
   font: inherit;
+  font-size: 0.9rem;
   color: var(--ink);
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.22);
   border: 1px solid var(--hairline);
   border-radius: var(--radius-xs);
-  padding: 0.66rem 0.75rem;
+  padding: 0.62rem 0.8rem;
   width: 100%;
-  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  transition:
+    border-color 0.2s var(--ease),
+    box-shadow 0.2s var(--ease),
+    background 0.2s var(--ease);
+}
+textarea:hover,
+select:hover,
+input[type="text"]:hover,
+input[type="number"]:hover {
+  border-color: var(--hairline-2);
+  background: rgba(0, 0, 0, 0.3);
 }
 select {
   appearance: none;
@@ -359,8 +375,11 @@ textarea:focus,
 select:focus,
 input:focus {
   outline: none;
-  border-color: rgba(139, 108, 255, 0.75);
-  box-shadow: 0 0 0 3px rgba(139, 108, 255, 0.2);
+  border-color: rgba(139, 108, 255, 0.85);
+  background: rgba(0, 0, 0, 0.32);
+  box-shadow:
+    0 0 0 3.5px rgba(139, 108, 255, 0.16),
+    0 0 18px rgba(139, 108, 255, 0.12);
 }
 
 .row-2 {
@@ -1415,6 +1434,33 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 .model-card:hover .model-thumb img {
   transform: scale(1.07);
+}
+
+/* 生成中骨架占位 */
+.skel-tile {
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius);
+  border: 1px solid var(--hairline);
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.03);
+}
+.skel-tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    rgba(139, 108, 255, 0.14) 50%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  animation: skel 1.5s ease-in-out infinite;
+}
+@keyframes skel {
+  from { background-position: 180% 0; }
+  to { background-position: -120% 0; }
 }
 
 /* 尊重"减少动效"偏好 */

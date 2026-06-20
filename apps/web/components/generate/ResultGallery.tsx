@@ -7,6 +7,7 @@ import type { GenResult } from "@/lib/types";
 interface Props {
   results: GenResult[];
   onExample: (prompt: string) => void;
+  loading?: boolean;
 }
 
 const EXAMPLES = [
@@ -20,10 +21,10 @@ function shortModel(ckpt: string): string {
   return ckpt.replace(/\.safetensors$/, "");
 }
 
-export function ResultGallery({ results, onExample }: Props) {
+export function ResultGallery({ results, onExample, loading = false }: Props) {
   const [active, setActive] = useState<GenResult | null>(null);
 
-  if (results.length === 0) {
+  if (results.length === 0 && !loading) {
     return (
       <div className="hero-canvas">
         <div className="hero-orb" aria-hidden="true" />
@@ -46,6 +47,7 @@ export function ResultGallery({ results, onExample }: Props) {
   return (
     <>
       <div className="gallery">
+        {loading && <div className="skel-tile" aria-label="生成中" />}
         {results.map((r) => (
           <figure className="shot" key={r.id} onClick={() => setActive(r)}>
             <img src={r.url} alt={r.prompt} loading="lazy" width={512} height={512} />
