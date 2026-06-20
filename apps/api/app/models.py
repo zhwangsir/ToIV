@@ -44,4 +44,5 @@ class Job(SQLModel, table=True):
     status: str = "queued"
     prompt: str = ""
     seed: int = 0
+    result: str = ""  # 完成后的产物 URL 列表(JSON)
     created_at: datetime = Field(default_factory=_now)

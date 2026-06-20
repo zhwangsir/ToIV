@@ -39,6 +39,17 @@ def _mark_status(prompt_id: str, status: str) -> None:
             session.commit()
 
 
+def _mark_done(prompt_id: str, urls: list[str]) -> None:
+    """完成时持久化状态与产物 URL(供作品库)。"""
+    with Session(engine) as session:
+        job = session.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
+        if job:
+            job.status = "done"
+            job.result = json.dumps(urls)
+            session.add(job)
+            session.commit()
+
+
 @router.get("/jobs")
 def list_jobs(
     user: User = Depends(get_current_user),
@@ -57,6 +68,7 @@ def list_jobs(
             "prompt": j.prompt,
             "seed": j.seed,
             "created_at": j.created_at.isoformat(),
+            "results": json.loads(j.result) if j.result else [],
         }
         for j in rows
     ]
@@ -64,7 +76,9 @@ def list_jobs(
 
 async def _emit_done(client: ComfyUIClient, prompt_id: str) -> dict:
     files = await client.get_result_files(prompt_id)
-    return {"event": "done", "data": json.dumps({"images": [_image_url(client.base_url, f) for f in files]})}
+    urls = [_image_url(client.base_url, f) for f in files]
+    _mark_done(prompt_id, urls)
+    return {"event": "done", "data": json.dumps({"images": urls})}
 
 
 @router.get("/jobs/{prompt_id}/events")
@@ -85,7 +99,6 @@ async def job_events(
         # 防竞态：若任务在 WS 连接前已完成，直接回推结果
         try:
             if await client.get_result_files(prompt_id):
-                _mark_status(prompt_id, "done")
                 yield await _emit_done(client, prompt_id)
                 return
         except ComfyUIError:
@@ -104,7 +117,6 @@ async def job_events(
                     if mtype == "progress":
                         yield {"event": "progress", "data": json.dumps({"value": data.get("value"), "max": data.get("max")})}
                     elif mtype == "executing" and data.get("node") is None and data.get("prompt_id") == prompt_id:
-                        _mark_status(prompt_id, "done")
                         yield await _emit_done(client, prompt_id)
                         break
                     elif mtype == "execution_error" and data.get("prompt_id") == prompt_id:

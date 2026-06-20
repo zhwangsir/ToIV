@@ -7,6 +7,7 @@ import { PromptForm } from "@/components/generate/PromptForm";
 import { ProgressBar } from "@/components/generate/ProgressBar";
 import { ResultGallery } from "@/components/generate/ResultGallery";
 import { AdminPanel } from "@/components/admin/AdminPanel";
+import { LibraryView } from "@/components/library/LibraryView";
 import { ModelLibrary } from "@/components/models/ModelLibrary";
 import { ThreeDStudio } from "@/components/threed/ThreeDStudio";
 import { VideoStudio } from "@/components/video/VideoStudio";
@@ -45,7 +46,7 @@ const DEFAULT_PARAMS: Txt2ImgParams = {
 
 type AuthState = "loading" | "in" | "out";
 
-type View = "image" | "video" | "threed" | "models" | "admin";
+type View = "image" | "video" | "threed" | "library" | "models" | "admin";
 
 interface Account {
   email: string;
@@ -235,6 +236,7 @@ export default function Home() {
     { key: "video", label: "视频", view: "video", active: true },
     { key: "models", label: "模型", view: "models", active: true },
     { key: "3d", label: "3D", view: "threed", active: true },
+    { key: "library", label: "作品库", view: "library", active: true },
     ...(account?.role === "admin"
       ? [{ key: "admin", label: "管理", view: "admin" as View, active: true }]
       : []),
@@ -299,6 +301,10 @@ export default function Home() {
       {view === "admin" ? (
         <div className="single-view">
           <AdminPanel />
+        </div>
+      ) : view === "library" ? (
+        <div className="single-view">
+          <LibraryView />
         </div>
       ) : view === "models" ? (
         <div className="single-view">

@@ -2,6 +2,7 @@ import type {
   AdminUser,
   GenerateResponse,
   Img2ImgGenParams,
+  JobItem,
   LocalModels,
   MarketItem,
   ModelsResponse,
@@ -109,6 +110,12 @@ export async function generateTxt2img(
     const detail = await res.json().catch(() => null);
     throw new Error(detail?.detail ?? `生成请求失败 (${res.status})`);
   }
+  return res.json();
+}
+
+export async function listJobs(): Promise<JobItem[]> {
+  const res = await fetch(`${API_BASE}/api/jobs`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(`加载作品失败 (${res.status})`);
   return res.json();
 }
 

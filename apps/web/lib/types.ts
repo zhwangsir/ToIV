@@ -61,6 +61,17 @@ export interface AdminUser {
   usage: Usage;
 }
 
+export interface JobItem {
+  id: string;
+  prompt_id: string;
+  kind: string;
+  status: string;
+  prompt: string;
+  seed: number;
+  created_at: string;
+  results: string[];
+}
+
 export type LocalModels = Record<string, string[]>;
 
 export interface MarketItem {

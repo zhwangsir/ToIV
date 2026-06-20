@@ -706,6 +706,38 @@ input[type="range"]::-webkit-slider-thumb:hover {
   font-variant-numeric: tabular-nums;
 }
 
+/* ---------- 作品库 GLB 卡片 ---------- */
+.glb-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  aspect-ratio: 1 / 1;
+  text-decoration: none;
+  background:
+    radial-gradient(60% 60% at 50% 45%, rgba(139, 108, 255, 0.22), transparent 70%),
+    var(--bg-2);
+  transition: background var(--dur) var(--ease);
+}
+.glb-tile:hover {
+  background:
+    radial-gradient(60% 60% at 50% 45%, rgba(139, 108, 255, 0.35), transparent 70%),
+    var(--bg-2);
+}
+.glb-badge {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #07060c;
+  background: var(--aurora);
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+}
+.glb-hint {
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+}
+
 /* ---------- 灯箱 ---------- */
 .lightbox {
   position: fixed;
