@@ -33,3 +33,29 @@ async def list_models(
         "samplers": _enum(ks_info, "KSampler", "sampler_name"),
         "schedulers": _enum(ks_info, "KSampler", "scheduler"),
     }
+
+
+# (分类标签, 节点, 字段)
+_LOCAL_SPECS = [
+    ("checkpoints", "CheckpointLoaderSimple", "ckpt_name"),
+    ("loras", "LoraLoader", "lora_name"),
+    ("vae", "VAELoader", "vae_name"),
+    ("controlnet", "ControlNetLoader", "control_net_name"),
+    ("upscale", "UpscaleModelLoader", "model_name"),
+]
+
+
+@router.get("/models/local")
+async def local_models(
+    pool: WorkerPool = Depends(get_pool),
+    user: User = Depends(get_current_user),
+) -> dict[str, list[str]]:
+    """按类型列出 worker 上已安装的本地模型。"""
+    client = pool.clients[0]
+    out: dict[str, list[str]] = {}
+    for key, node, field in _LOCAL_SPECS:
+        try:
+            out[key] = _enum(await client.object_info(node), node, field)
+        except ComfyUIError:
+            out[key] = []
+    return out

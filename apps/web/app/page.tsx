@@ -6,6 +6,7 @@ import { AuthScreen } from "@/components/auth/AuthScreen";
 import { PromptForm } from "@/components/generate/PromptForm";
 import { ProgressBar } from "@/components/generate/ProgressBar";
 import { ResultGallery } from "@/components/generate/ResultGallery";
+import { ModelLibrary } from "@/components/models/ModelLibrary";
 import {
   fetchMe,
   generateImg2img,
@@ -46,8 +47,11 @@ interface Account {
   credits: number;
 }
 
-const MODALITIES = [
-  { key: "image", label: "图像", active: true },
+type View = "image" | "models";
+
+const NAV: { key: string; label: string; view?: View; active: boolean }[] = [
+  { key: "image", label: "图像", view: "image", active: true },
+  { key: "models", label: "模型", view: "models", active: true },
   { key: "video", label: "视频", active: false },
   { key: "3d", label: "3D", active: false },
   { key: "audio", label: "音频", active: false },
@@ -57,6 +61,7 @@ export default function Home() {
   const [auth, setAuth] = useState<AuthState>("loading");
   const [account, setAccount] = useState<Account | null>(null);
 
+  const [view, setView] = useState<View>("image");
   const [params, setParams] = useState<Txt2ImgParams>(DEFAULT_PARAMS);
   const [seedInput, setSeedInput] = useState("");
   const [mode, setMode] = useState<GenMode>("txt2img");
@@ -243,14 +248,15 @@ export default function Home() {
           <span className="sub">极光 · AI 创作平台</span>
         </span>
 
-        <nav className="modal-nav" aria-label="生成模态">
-          {MODALITIES.map((m) => (
+        <nav className="modal-nav" aria-label="模块导航">
+          {NAV.map((m) => (
             <button
               key={m.key}
               type="button"
-              className={m.active ? "active" : ""}
+              className={m.view && view === m.view ? "active" : ""}
               disabled={!m.active}
-              aria-current={m.active ? "page" : undefined}
+              onClick={() => m.view && setView(m.view)}
+              aria-current={m.view && view === m.view ? "page" : undefined}
             >
               {m.label}
               {!m.active && <span className="soon">soon</span>}
@@ -277,35 +283,41 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="studio">
-        <PromptForm
-          params={params}
-          models={models}
-          busy={busy}
-          seedInput={seedInput}
-          mode={mode}
-          denoise={denoise}
-          imagePreview={imagePreview}
-          onModeChange={setMode}
-          onImageChange={setImageFile}
-          onDenoise={setDenoise}
-          onPatch={patch}
-          onSeedInput={setSeedInput}
-          onSubmit={onSubmit}
-        />
+      {view === "models" ? (
+        <div className="single-view">
+          <ModelLibrary />
+        </div>
+      ) : (
+        <div className="studio">
+          <PromptForm
+            params={params}
+            models={models}
+            busy={busy}
+            seedInput={seedInput}
+            mode={mode}
+            denoise={denoise}
+            imagePreview={imagePreview}
+            onModeChange={setMode}
+            onImageChange={setImageFile}
+            onDenoise={setDenoise}
+            onPatch={patch}
+            onSeedInput={setSeedInput}
+            onSubmit={onSubmit}
+          />
 
-        <main className="stage">
-          <div className="stage-head">
-            <h1>
-              创作 <span className="grad">图像</span>
-            </h1>
-            <span className="count">{results.length} 张作品</span>
-          </div>
-          <ProgressBar status={status} progress={progress} />
-          {error && <div className="alert">⚠ {error}</div>}
-          <ResultGallery results={results} onExample={(t) => onSubmit(t)} />
-        </main>
-      </div>
+          <main className="stage">
+            <div className="stage-head">
+              <h1>
+                创作 <span className="grad">图像</span>
+              </h1>
+              <span className="count">{results.length} 张作品</span>
+            </div>
+            <ProgressBar status={status} progress={progress} />
+            {error && <div className="alert">⚠ {error}</div>}
+            <ResultGallery results={results} onExample={(t) => onSubmit(t)} />
+          </main>
+        </div>
+      )}
     </div>
   );
 }

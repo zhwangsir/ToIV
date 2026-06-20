@@ -48,6 +48,19 @@ export interface Img2ImgGenParams {
   seed?: number | null;
 }
 
+export type LocalModels = Record<string, string[]>;
+
+export interface MarketItem {
+  id: string;
+  name: string;
+  type: string | null;
+  creator: string | null;
+  thumbnail: string | null;
+  downloads: number | null;
+  url: string;
+  source: string;
+}
+
 export type GenStatus = "idle" | "queued" | "running" | "error";
 
 export interface Progress {

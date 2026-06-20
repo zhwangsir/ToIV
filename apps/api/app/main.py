@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.db import init_db
-from app.routes import auth, generate, images, jobs, models, upload
+from app.routes import auth, generate, images, jobs, marketplace, models, upload
 
 
 @asynccontextmanager
@@ -32,7 +32,7 @@ def create_app() -> FastAPI:
     async def health() -> dict:
         return {"status": "ok", "workers": settings.worker_urls}
 
-    for module in (auth, models, generate, upload, jobs, images):
+    for module in (auth, models, marketplace, generate, upload, jobs, images):
         app.include_router(module.router, prefix="/api")
 
     return app

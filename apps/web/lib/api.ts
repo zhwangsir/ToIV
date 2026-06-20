@@ -1,6 +1,8 @@
 import type {
   GenerateResponse,
   Img2ImgGenParams,
+  LocalModels,
+  MarketItem,
   ModelsResponse,
   Txt2ImgParams,
 } from "./types";
@@ -82,6 +84,29 @@ export async function generateTxt2img(
   if (!res.ok) {
     const detail = await res.json().catch(() => null);
     throw new Error(detail?.detail ?? `生成请求失败 (${res.status})`);
+  }
+  return res.json();
+}
+
+export async function listLocalModels(): Promise<LocalModels> {
+  const res = await fetch(`${API_BASE}/api/models/local`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(`加载本地模型失败 (${res.status})`);
+  return res.json();
+}
+
+export async function searchMarketplace(
+  source: string,
+  query: string,
+  type?: string,
+): Promise<{ items: MarketItem[]; source: string }> {
+  const qs = new URLSearchParams({ source, query });
+  if (type) qs.set("type", type);
+  const res = await fetch(`${API_BASE}/api/marketplace/search?${qs.toString()}`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `搜索失败 (${res.status})`);
   }
   return res.json();
 }
