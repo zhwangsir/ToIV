@@ -1263,6 +1263,33 @@ input[type="range"]::-webkit-slider-thumb:hover {
   gap: 0.5rem;
 }
 
+/* ---------- 音频轨道 ---------- */
+.track-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+.track-card {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: var(--glass);
+  padding: 0.95rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+.track-tags {
+  font-size: 0.85rem;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.track-card audio {
+  width: 100%;
+  height: 38px;
+}
+
 /* ---------- 管理后台:新建账号 ---------- */
 .admin-create {
   display: grid;

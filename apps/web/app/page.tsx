@@ -7,6 +7,7 @@ import { PromptForm } from "@/components/generate/PromptForm";
 import { ProgressBar } from "@/components/generate/ProgressBar";
 import { ResultGallery } from "@/components/generate/ResultGallery";
 import { AdminPanel } from "@/components/admin/AdminPanel";
+import { AudioStudio } from "@/components/audio/AudioStudio";
 import { LibraryView } from "@/components/library/LibraryView";
 import { ModelLibrary } from "@/components/models/ModelLibrary";
 import { ThreeDStudio } from "@/components/threed/ThreeDStudio";
@@ -47,7 +48,7 @@ const DEFAULT_PARAMS: Txt2ImgParams = {
 
 type AuthState = "loading" | "in" | "out";
 
-type View = "image" | "video" | "threed" | "library" | "models" | "admin";
+type View = "image" | "video" | "threed" | "audio" | "library" | "models" | "admin";
 
 interface Account {
   email: string;
@@ -260,7 +261,7 @@ export default function Home() {
     ...(account?.role === "admin"
       ? [{ key: "admin", label: "管理", icon: "admin", view: "admin" as View, active: true }]
       : []),
-    { key: "audio", label: "音频", icon: "audio", active: false },
+    { key: "audio", label: "音频", icon: "audio", view: "audio", active: true },
   ];
 
   if (auth === "loading") {
@@ -335,6 +336,8 @@ export default function Home() {
         <VideoStudio />
       ) : view === "threed" ? (
         <ThreeDStudio />
+      ) : view === "audio" ? (
+        <AudioStudio />
       ) : (
         <div className="studio">
           <PromptForm

@@ -236,6 +236,26 @@ export async function generate3D(params: Gen3DParams): Promise<GenerateResponse>
   return res.json();
 }
 
+export interface AudioGenParams {
+  tags: string;
+  lyrics: string;
+  seconds: number;
+  seed?: number | null;
+}
+
+export async function generateAudio(params: AudioGenParams): Promise<GenerateResponse> {
+  const res = await fetch(`${API_BASE}/api/generate/audio`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `音频生成请求失败 (${res.status})`);
+  }
+  return res.json();
+}
+
 export function jobEventsUrl(
   promptId: string,
   clientId: string,

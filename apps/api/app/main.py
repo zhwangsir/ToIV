@@ -10,6 +10,7 @@ from app.config import get_settings
 from app.db import bootstrap_admin, init_db
 from app.routes import (
     admin,
+    audio,
     auth,
     generate,
     images,
@@ -52,6 +53,7 @@ def create_app() -> FastAPI:
         generate,
         video,
         threed,
+        audio,
         upload,
         jobs,
         images,
