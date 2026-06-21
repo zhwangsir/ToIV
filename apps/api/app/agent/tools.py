@@ -9,6 +9,7 @@ import time
 import uuid
 from urllib.parse import urlencode
 
+from app.agent.rag import get_kb
 from app.capabilities import required_models
 from app.comfy.client import ComfyUIError
 from app.comfy.pool import WorkerPool
@@ -77,7 +78,64 @@ TOOL_SCHEMAS = [
             "parameters": {"type": "object", "properties": {}},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_knowledge",
+            "description": "检索平台知识库(ComfyUI 节点/工作流配方/模型清单/提示词技巧)。搭自定义工作流前、或不确定模型名/参数/节点用法时先调用查证,避免编造。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "要查的问题或关键词,如「文生图工作流模板」「img2img 怎么搭」「有哪些视频模型」"},
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_workflow",
+            "description": "提交一张自定义的 ComfyUI API 格式工作流图并展示产物。用于标准工具(generate_image/video/music)满足不了的定制需求(指定 seed/批量/特定模型/特殊节点组合)。搭图前务必先 search_knowledge 查配方与真实模型名。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "graph": {
+                        "type": "object",
+                        "description": "ComfyUI API 格式:{节点id: {class_type, inputs}};节点间引用用 [\"id\", 输出序号]。需含一个 Save 类节点。",
+                        "additionalProperties": True,
+                    },
+                    "summary": {"type": "string", "description": "一句话说明这张图做什么(给用户看)"},
+                },
+                "required": ["graph"],
+            },
+        },
+    },
 ]
+
+# 工作流里指向模型文件的输入键 → 用于挑选具备这些模型的 worker
+_MODEL_INPUT_KEYS = {
+    "ckpt_name", "unet_name", "lora_name", "vae_name", "clip_name",
+    "control_net_name", "model_name", "style_model_name",
+}
+
+
+def _extract_required(graph: dict) -> set[str]:
+    req: set[str] = set()
+    for node in graph.values():
+        if not isinstance(node, dict):
+            continue
+        for key, val in (node.get("inputs") or {}).items():
+            if key in _MODEL_INPUT_KEYS and isinstance(val, str):
+                req.add(val)
+    return req
+
+
+_MEDIA_BY_EXT = {
+    "png": "image", "jpg": "image", "jpeg": "image", "gif": "image", "webp": "image",
+    "mp4": "video", "webm": "video",
+    "mp3": "audio", "flac": "audio", "wav": "audio", "ogg": "audio",
+}
 
 
 def _url(worker: str, f: dict) -> str:
@@ -209,5 +267,46 @@ async def execute(name: str, args: dict, pool: WorkerPool, user: User, session) 
             return "视频生成超时(Wan 14B 较慢),请稍后重试。", []
         urls = [_url(client.base_url, f) for f in vfiles]
         return f"已生成 {length} 帧短视频并展示给用户。", [{"type": "video", "urls": urls}]
+
+    if name == "search_knowledge":
+        chunks = await get_kb().retrieve(args.get("query") or "", k=4)
+        if not chunks:
+            return "知识库暂无相关内容(或检索暂不可用),请凭通用知识谨慎作答。", []
+        return "知识库检索结果:\n\n" + "\n\n---\n\n".join(c.text for c in chunks), []
+
+    if name == "run_workflow":
+        graph = args.get("graph")
+        if not isinstance(graph, dict) or not graph:
+            return "graph 为空或格式不对(需 {节点id:{class_type,inputs}} 的 API 格式)。", []
+        bad = [k for k, v in graph.items() if not (isinstance(v, dict) and v.get("class_type"))]
+        if bad:
+            return f"节点 {bad[:5]} 缺少 class_type,请修正后重试。", []
+        req = _extract_required(graph)
+        try:
+            client = await pool.pick(required=req)
+        except ComfyUIError as e:
+            return f"暂无具备所需模型 {sorted(req)} 的 worker: {e}", []
+        try:
+            pid = await client.queue_prompt(graph, uuid.uuid4().hex)
+        except ComfyUIError as e:
+            return f"工作流提交失败(图可能有误,请用 search_knowledge 核对节点/参数): {e}", []
+        _record(session, user, pid, client.base_url, "agent_workflow", (args.get("summary") or "custom")[:200], 0)
+        files = await _wait_files(client, pid, timeout=320)
+        if not files:
+            return "工作流执行超时或无产物,请确认图里含 Save 类节点(SaveImage/SaveAnimatedWEBP/SaveAudioMP3)。", []
+        by_kind: dict[str, list[str]] = {}
+        notes: list[str] = []
+        for f in files:
+            ext = f["filename"].rsplit(".", 1)[-1].lower() if "." in f["filename"] else ""
+            kind = _MEDIA_BY_EXT.get(ext)
+            if kind:
+                by_kind.setdefault(kind, []).append(_url(client.base_url, f))
+            else:
+                notes.append(f"{f['filename']}({_url(client.base_url, f)})")
+        events = [{"type": kind, "urls": urls} for kind, urls in by_kind.items()]
+        msg = f"自定义工作流已执行,产出 {len(files)} 个文件并展示。"
+        if notes:
+            msg += " 非媒体产物(可下载): " + ", ".join(notes)
+        return msg, events
 
     return f"未知工具: {name}", []

@@ -19,6 +19,8 @@ const TOOL_LABEL: Record<string, string> = {
   generate_video: "正在生成视频…(约 1-2 分钟,请稍候)",
   generate_music: "正在作曲…",
   list_models: "正在查询模型…",
+  search_knowledge: "正在查阅知识库…",
+  run_workflow: "正在运行自定义工作流…",
 };
 
 const SUGGESTIONS = [

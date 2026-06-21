@@ -37,6 +37,14 @@ class Settings(BaseSettings):
     llm_api_key: str = "lm-studio"
     llm_model: str = "qwen/qwen3.6-35b-a3b"
 
+    # 向量 RAG 的 embedding 模型(同一 OpenAI 兼容端点;留空则复用 llm_base_url)
+    embed_base_url: str = ""
+    embed_model: str = "text-embedding-nomic-embed-text-v1.5"
+
+    @property
+    def embed_url(self) -> str:
+        return (self.embed_base_url or self.llm_base_url).rstrip("/")
+
     @property
     def worker_urls(self) -> list[str]:
         return [u.strip().rstrip("/") for u in self.comfy_workers.split(",") if u.strip()]
