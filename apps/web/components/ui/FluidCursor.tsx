@@ -11,11 +11,12 @@ import { useEffect, useRef } from "react";
  * - 全屏 fixed、pointer-events:none、低 z 作背景层,不挡交互。
  * - 仅桌面 fine 指针启用;reduced-motion / 触屏自动关闭;切后台暂停。
  */
+// 降亮降饱和的极光色(避免霓虹刺眼)
 const COLORS: [number, number, number][] = [
-  [139, 108, 255], // --v1 紫
-  [192, 75, 255], // --v2
-  [255, 77, 157], // --v3 粉
-  [47, 230, 200], // --v4 青
+  [96, 84, 168], // 柔紫
+  [120, 92, 175], // 紫
+  [150, 96, 158], // 柔藕粉
+  [72, 150, 158], // 雾青
 ];
 
 interface Particle {
@@ -35,8 +36,8 @@ function makeSprite(color: [number, number, number]): HTMLCanvasElement {
   c.width = c.height = size;
   const g = c.getContext("2d")!;
   const grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-  grad.addColorStop(0, `rgba(${color[0]},${color[1]},${color[2]},1)`);
-  grad.addColorStop(0.4, `rgba(${color[0]},${color[1]},${color[2]},0.35)`);
+  grad.addColorStop(0, `rgba(${color[0]},${color[1]},${color[2]},0.5)`);
+  grad.addColorStop(0.35, `rgba(${color[0]},${color[1]},${color[2]},0.16)`);
   grad.addColorStop(1, `rgba(${color[0]},${color[1]},${color[2]},0)`);
   g.fillStyle = grad;
   g.fillRect(0, 0, size, size);
@@ -93,8 +94,8 @@ export function FluidCursor() {
           vx: Math.cos(ang) * sp + dx * 0.02,
           vy: Math.sin(ang) * sp + dy * 0.02,
           life: 0,
-          max: 55 + Math.random() * 55,
-          r: 22 + Math.random() * 42,
+          max: 60 + Math.random() * 60,
+          r: 32 + Math.random() * 56,
           sprite: sprites[(colorIdx + i) % sprites.length],
         });
       }
@@ -107,7 +108,7 @@ export function FluidCursor() {
     const tick = () => {
       // 逐帧抹掉一点 alpha → 烟雾自然消散
       ctx.globalCompositeOperation = "destination-out";
-      ctx.fillStyle = "rgba(0,0,0,0.055)";
+      ctx.fillStyle = "rgba(0,0,0,0.05)";
       ctx.fillRect(0, 0, W, H);
       // 加色累积绘制染料
       ctx.globalCompositeOperation = "lighter";
@@ -124,7 +125,7 @@ export function FluidCursor() {
         p.vy *= 0.95;
         p.r *= 1.013; // 缓慢扩散
         const k = 1 - p.life / p.max;
-        ctx.globalAlpha = k * k * 0.55;
+        ctx.globalAlpha = k * k * 0.09;
         ctx.drawImage(p.sprite, p.x - p.r, p.y - p.r, p.r * 2, p.r * 2);
       }
       ctx.globalAlpha = 1;
