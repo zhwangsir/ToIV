@@ -12,6 +12,7 @@ import { AudioStudio } from "@/components/audio/AudioStudio";
 import { LibraryView } from "@/components/library/LibraryView";
 import { ModelLibrary } from "@/components/models/ModelLibrary";
 import { ThreeDStudio } from "@/components/threed/ThreeDStudio";
+import { FluidCursor } from "@/components/ui/FluidCursor";
 import { NavIcon } from "@/components/ui/NavIcon";
 import { VideoStudio } from "@/components/video/VideoStudio";
 import {
@@ -264,12 +265,19 @@ export default function Home() {
   }
 
   if (auth === "out") {
-    return <AuthScreen onAuthed={onAuthed} />;
+    return (
+      <>
+        <FluidCursor />
+        <AuthScreen onAuthed={onAuthed} />
+      </>
+    );
   }
 
   return (
-    <div className="app-shell">
-      <header className="topbar">
+    <>
+      {view === "assistant" && <FluidCursor />}
+      <div className="app-shell">
+        <header className="topbar">
         <span className="brand">
           To<span className="mark">IV</span>
           <span className="sub">极光 · AI 创作平台</span>
@@ -364,6 +372,7 @@ export default function Home() {
           </main>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }

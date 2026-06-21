@@ -158,6 +158,20 @@ body::after {
   }
 }
 
+/* 极光流体烟雾背景层(门面页) */
+.fluid-cursor {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fluid-cursor {
+    display: none;
+  }
+}
+
 .app-shell {
   position: relative;
   z-index: 1;
