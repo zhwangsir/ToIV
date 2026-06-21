@@ -257,6 +257,57 @@ export async function generateAudio(params: AudioGenParams): Promise<GenerateRes
   return res.json();
 }
 
+export interface AgentEvent {
+  type: string;
+  content?: string;
+  name?: string;
+  urls?: string[];
+  args?: Record<string, unknown>;
+}
+
+export async function agentChat(
+  messages: { role: string; content: string }[],
+  onEvent: (ev: AgentEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/agent/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ messages }),
+    signal,
+  });
+  if (!res.ok || !res.body) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `对话失败 (${res.status})`);
+  }
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const parts = buf.split("\n\n");
+    buf = parts.pop() ?? "";
+    for (const block of parts) {
+      let event = "message";
+      let data = "";
+      for (const line of block.split("\n")) {
+        if (line.startsWith("event:")) event = line.slice(6).trim();
+        else if (line.startsWith("data:")) data += line.slice(5).trim();
+      }
+      if (event === "done") return;
+      if (data) {
+        try {
+          onEvent(JSON.parse(data) as AgentEvent);
+        } catch {
+          /* ignore malformed chunk */
+        }
+      }
+    }
+  }
+}
+
 export function jobEventsUrl(
   promptId: string,
   clientId: string,

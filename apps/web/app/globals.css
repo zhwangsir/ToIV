@@ -1263,6 +1263,147 @@ input[type="range"]::-webkit-slider-thumb:hover {
   gap: 0.5rem;
 }
 
+/* ---------- AI 助手对话 ---------- */
+.assistant {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 140px);
+  max-width: 920px;
+  margin: 0 auto;
+  width: 100%;
+}
+.chat-scroll {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 0.5rem 0.25rem 1rem;
+}
+.chat-empty {
+  margin: auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--ink-soft);
+}
+.chat-empty h2 {
+  margin: 0.4rem 0 0;
+  font-size: 1.3rem;
+  color: var(--ink);
+}
+.chat-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 0.8rem;
+  max-width: 36rem;
+}
+.chat-suggest button {
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  background: var(--glass);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  padding: 0.5rem 0.95rem;
+  cursor: pointer;
+  transition: all var(--dur) var(--ease);
+}
+.chat-suggest button:hover {
+  color: var(--ink);
+  border-color: var(--hairline-2);
+  transform: translateY(-1px);
+}
+.bubble {
+  max-width: 80%;
+  padding: 0.7rem 0.95rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  animation: rise var(--dur) var(--ease) both;
+}
+.bubble.user {
+  align-self: flex-end;
+  color: #07060c;
+  background: var(--aurora);
+  font-weight: 500;
+}
+.bubble.assistant {
+  align-self: flex-start;
+  color: var(--ink);
+  background: var(--glass-2);
+  border: 1px solid var(--hairline);
+}
+.bubble.tool {
+  align-self: flex-start;
+  font-size: 0.8rem;
+  color: var(--v4);
+  background: rgba(40, 224, 200, 0.08);
+  border: 1px solid rgba(40, 224, 200, 0.25);
+}
+.bubble.error {
+  align-self: flex-start;
+  color: #ffb9c0;
+  background: rgba(255, 93, 108, 0.12);
+  border: 1px solid rgba(255, 93, 108, 0.4);
+}
+.bubble.media {
+  align-self: flex-start;
+  max-width: 92%;
+  background: transparent;
+  padding: 0;
+}
+.chat-images {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.6rem;
+}
+.chat-images img {
+  width: 100%;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--hairline);
+  display: block;
+}
+.bubble.media audio {
+  width: 380px;
+  max-width: 100%;
+}
+.chat-typing {
+  align-self: flex-start;
+  font-size: 0.8rem;
+  color: var(--ink-faint);
+  padding: 0.2rem 0.5rem;
+}
+.chat-input {
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.7rem 0;
+  border-top: 1px solid var(--hairline);
+}
+.chat-input input {
+  flex: 1;
+  font: inherit;
+  color: var(--ink);
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  padding: 0.7rem 0.95rem;
+}
+.chat-input input:focus {
+  outline: none;
+  border-color: rgba(139, 108, 255, 0.8);
+  box-shadow: 0 0 0 3px rgba(139, 108, 255, 0.16);
+}
+.chat-input .generate-btn {
+  padding: 0.7rem 1.4rem;
+}
+
 /* ---------- 音频轨道 ---------- */
 .track-list {
   display: flex;

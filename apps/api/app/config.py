@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     admin_email: str = ""
     admin_password: str = ""
 
+    # AI 智能体的 LLM 大脑(OpenAI 兼容端点;默认 LM Studio @ GPU 机)
+    llm_base_url: str = "http://192.168.71.100:1234/v1"
+    llm_api_key: str = "lm-studio"
+    llm_model: str = "qwen/qwen3.6-35b-a3b"
+
     @property
     def worker_urls(self) -> list[str]:
         return [u.strip().rstrip("/") for u in self.comfy_workers.split(",") if u.strip()]

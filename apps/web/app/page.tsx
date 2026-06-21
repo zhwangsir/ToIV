@@ -7,6 +7,7 @@ import { PromptForm } from "@/components/generate/PromptForm";
 import { ProgressBar } from "@/components/generate/ProgressBar";
 import { ResultGallery } from "@/components/generate/ResultGallery";
 import { AdminPanel } from "@/components/admin/AdminPanel";
+import { AssistantView } from "@/components/assistant/AssistantView";
 import { AudioStudio } from "@/components/audio/AudioStudio";
 import { LibraryView } from "@/components/library/LibraryView";
 import { ModelLibrary } from "@/components/models/ModelLibrary";
@@ -48,7 +49,15 @@ const DEFAULT_PARAMS: Txt2ImgParams = {
 
 type AuthState = "loading" | "in" | "out";
 
-type View = "image" | "video" | "threed" | "audio" | "library" | "models" | "admin";
+type View =
+  | "assistant"
+  | "image"
+  | "video"
+  | "threed"
+  | "audio"
+  | "library"
+  | "models"
+  | "admin";
 
 interface Account {
   email: string;
@@ -60,7 +69,7 @@ export default function Home() {
   const [auth, setAuth] = useState<AuthState>("loading");
   const [account, setAccount] = useState<Account | null>(null);
 
-  const [view, setView] = useState<View>("image");
+  const [view, setView] = useState<View>("assistant");
   const [params, setParams] = useState<Txt2ImgParams>(DEFAULT_PARAMS);
   const [seedInput, setSeedInput] = useState("");
   const [mode, setMode] = useState<GenMode>("txt2img");
@@ -253,6 +262,7 @@ export default function Home() {
   const busy = status === "queued" || status === "running";
 
   const navItems: { key: string; label: string; icon: string; view?: View; active: boolean }[] = [
+    { key: "assistant", label: "AI 助手", icon: "assistant", view: "assistant", active: true },
     { key: "image", label: "图像", icon: "image", view: "image", active: true },
     { key: "video", label: "视频", icon: "video", view: "video", active: true },
     { key: "3d", label: "3D", icon: "threed", view: "threed", active: true },
@@ -320,7 +330,11 @@ export default function Home() {
         </div>
       </header>
 
-      {view === "admin" ? (
+      {view === "assistant" ? (
+        <div className="single-view">
+          <AssistantView />
+        </div>
+      ) : view === "admin" ? (
         <div className="single-view">
           <AdminPanel />
         </div>
