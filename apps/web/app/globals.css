@@ -1443,6 +1443,72 @@ input[type="range"]::-webkit-slider-thumb:hover {
   border: 1px solid var(--hairline);
   border-radius: 999px;
 }
+.chat-model3d {
+  width: min(420px, 100%);
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--hairline);
+  background:
+    radial-gradient(60% 60% at 50% 40%, rgba(139, 108, 255, 0.12), transparent 70%),
+    var(--bg-1);
+  overflow: hidden;
+}
+/* 用户气泡里附带的上传图缩略图 */
+.bubble.user .bubble-attach {
+  display: block;
+  max-width: 180px;
+  max-height: 180px;
+  border-radius: var(--radius-xs);
+  margin-bottom: 0.4rem;
+  border: 1px solid var(--hairline-2);
+}
+/* 上传按钮 + 待发送附件缩略图 */
+.chat-attach-btn {
+  flex: 0 0 auto;
+  padding: 0 0.85rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--hairline);
+  background: var(--glass);
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+  cursor: pointer;
+  transition: border-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.chat-attach-btn:hover:not(:disabled) {
+  border-color: var(--hairline-2);
+  color: var(--ink);
+}
+.chat-attach-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.chat-attach {
+  position: relative;
+  flex: 0 0 auto;
+}
+.chat-attach img {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--hairline-2);
+  display: block;
+}
+.chat-attach button {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.62rem;
+  line-height: 18px;
+  cursor: pointer;
+}
 .chat-typing {
   align-self: flex-start;
   font-size: 0.8rem;

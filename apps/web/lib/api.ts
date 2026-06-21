@@ -265,15 +265,21 @@ export interface AgentEvent {
   args?: Record<string, unknown>;
 }
 
+export interface AgentImageRef {
+  filename: string;
+  worker: string;
+}
+
 export async function agentChat(
   messages: { role: string; content: string }[],
   onEvent: (ev: AgentEvent) => void,
+  image?: AgentImageRef | null,
   signal?: AbortSignal,
 ): Promise<void> {
   const res = await fetch(`${API_BASE}/api/agent/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ messages }),
+    body: JSON.stringify(image ? { messages, image } : { messages }),
     signal,
   });
   if (!res.ok || !res.body) {

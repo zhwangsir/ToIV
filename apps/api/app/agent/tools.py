@@ -16,6 +16,8 @@ from app.comfy.pool import WorkerPool
 from app.config import get_settings
 from app.models import Job, User
 from app.workflows.ace_step import AceStepParams, build_ace_step_graph
+from app.workflows.hunyuan3d import Hunyuan3DParams, build_hunyuan3d_graph
+from app.workflows.img2img import Img2ImgParams, build_img2img_graph
 from app.workflows.txt2img import Txt2ImgParams, build_txt2img_graph
 from app.workflows.wan_i2v import WanI2VParams, build_wan_i2v_graph
 
@@ -67,6 +69,34 @@ TOOL_SCHEMAS = [
                     "seconds": {"type": "number", "description": "时长秒,默认 3(范围 1-6)"},
                 },
                 "required": ["prompt"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "edit_image",
+            "description": "对用户上传的图片做重绘/编辑(图生图)。仅当用户本轮上传了图片、且想修改它(换风格/改细节/重绘)时调用。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "prompt": {"type": "string", "description": "想要的画面/修改方向,英文效果最佳"},
+                    "strength": {"type": "number", "description": "重绘强度 0-1,越大改动越大;默认 0.6(0.4 轻改/0.8 大改)"},
+                },
+                "required": ["prompt"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_3d",
+            "description": "生成可旋转查看的 3D 模型(GLB)。用户想要 3D/模型/手办时调用。若本轮上传了图片则直接用该图转 3D;否则先按描述出图再转 3D。耗时约 1-3 分钟。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "prompt": {"type": "string", "description": "无上传图时,用于先出底图的描述(英文最佳)。有上传图时可省略"},
+                },
             },
         },
     },
@@ -164,7 +194,15 @@ def _record(session, user: User, prompt_id: str, worker: str, kind: str, prompt:
         session.rollback()
 
 
-async def execute(name: str, args: dict, pool: WorkerPool, user: User, session) -> tuple[str, list[dict]]:
+def _client_for(pool: WorkerPool, base_url: str):
+    """按 base_url 在池内找 client(白名单内才用,防 SSRF)。"""
+    norm = (base_url or "").rstrip("/")
+    return next((c for c in pool.clients if c.base_url == norm), None)
+
+
+async def execute(
+    name: str, args: dict, pool: WorkerPool, user: User, session, attachment: dict | None = None
+) -> tuple[str, list[dict]]:
     settings = get_settings()
 
     if name == "list_models":
@@ -308,5 +346,82 @@ async def execute(name: str, args: dict, pool: WorkerPool, user: User, session) 
         if notes:
             msg += " 非媒体产物(可下载): " + ", ".join(notes)
         return msg, events
+
+    if name == "edit_image":
+        if not attachment or not attachment.get("filename"):
+            return "请先在对话框上传一张图片,再让我编辑/重绘它。", []
+        client = _client_for(pool, attachment.get("worker", ""))
+        if client is None:
+            return "上传图片所在的 worker 不可用,请重新上传图片。", []
+        p = Img2ImgParams(
+            positive=args["prompt"],
+            image=attachment["filename"],
+            negative="blurry, lowres, deformed, watermark",
+            ckpt_name=settings.default_ckpt,
+            denoise=max(0.1, min(1.0, float(args.get("strength") or 0.6))),
+        )
+        try:
+            pid = await client.queue_prompt(build_img2img_graph(p), uuid.uuid4().hex)
+        except ComfyUIError as e:
+            return f"图生图提交失败: {e}", []
+        _record(session, user, pid, client.base_url, "agent_img2img", p.positive, p.seed)
+        files = await _wait_files(client, pid)
+        if not files:
+            return "重绘超时,请稍后重试。", []
+        urls = [_url(client.base_url, f) for f in files]
+        return f"已按要求重绘并展示(强度 {p.denoise})。", [{"type": "image", "urls": urls}]
+
+    if name == "generate_3d":
+        threed_req = required_models("threed")
+        if attachment and attachment.get("filename"):
+            # 用上传图:取字节 → 转存到具备 3D 模型的 worker
+            src = _client_for(pool, attachment.get("worker", ""))
+            if src is None:
+                return "上传图片所在 worker 不可用,请重新上传图片。", []
+            try:
+                client = await pool.pick(required=threed_req)
+            except ComfyUIError as e:
+                return f"暂无具备 3D 模型的 worker: {e}", []
+            try:
+                content, _ = await src.get_image_bytes(attachment["filename"], "", "input")
+                input_name = await client.upload_image(content, attachment["filename"])
+            except ComfyUIError as e:
+                return f"源图转存失败: {e}", []
+        else:
+            prompt = args.get("prompt")
+            if not prompt:
+                return "请描述你想要的 3D 物体,或上传一张图片。", []
+            try:
+                client = await pool.pick(required={settings.default_ckpt} | threed_req)
+            except ComfyUIError as e:
+                return f"暂无同时具备出图+3D模型的 worker: {e}", []
+            base = Txt2ImgParams(
+                positive=prompt, negative="blurry, lowres, deformed, watermark",
+                ckpt_name=settings.default_ckpt, width=768, height=768, steps=20,
+            )
+            try:
+                bpid = await client.queue_prompt(build_txt2img_graph(base), uuid.uuid4().hex)
+            except ComfyUIError as e:
+                return f"3D 底图提交失败: {e}", []
+            bfiles = await _wait_files(client, bpid, timeout=200)
+            if not bfiles:
+                return "3D 底图生成超时,请稍后重试。", []
+            bf = bfiles[0]
+            try:
+                content, _ = await client.get_image_bytes(bf["filename"], bf.get("subfolder", ""), bf.get("type", "output"))
+                input_name = await client.upload_image(content, bf["filename"])
+            except ComfyUIError as e:
+                return f"3D 底图转存失败: {e}", []
+        tp = Hunyuan3DParams(image=input_name)
+        try:
+            tpid = await client.queue_prompt(build_hunyuan3d_graph(tp), uuid.uuid4().hex)
+        except ComfyUIError as e:
+            return f"3D 提交失败: {e}", []
+        _record(session, user, tpid, client.base_url, "agent_3d", (args.get("prompt") or "image-to-3d")[:200], tp.seed)
+        files = await _wait_files(client, tpid, timeout=400)
+        if not files:
+            return "3D 生成超时(Hunyuan3D 较慢),请稍后重试。", []
+        glb = next((f for f in files if f["filename"].lower().endswith(".glb")), files[0])
+        return "已生成 3D 模型并展示(可旋转查看)。", [{"type": "model3d", "urls": [_url(client.base_url, glb)]}]
 
     return f"未知工具: {name}", []
