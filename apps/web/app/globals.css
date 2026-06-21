@@ -1,35 +1,41 @@
 :root {
   color-scheme: dark;
 
-  --bg-0: #070710;
-  --bg-1: #0c0c17;
-  --bg-2: #13131f;
+  /* 冷中性近黑,层次细腻 */
+  --bg-0: #0a0a0e;
+  --bg-1: #101016;
+  --bg-2: #17171f;
 
-  --glass: rgba(255, 255, 255, 0.045);
-  --glass-2: rgba(255, 255, 255, 0.08);
-  --hairline: rgba(255, 255, 255, 0.085);
-  --hairline-2: rgba(255, 255, 255, 0.18);
+  --glass: rgba(255, 255, 255, 0.035);
+  --glass-2: rgba(255, 255, 255, 0.06);
+  --hairline: rgba(255, 255, 255, 0.08);
+  --hairline-2: rgba(255, 255, 255, 0.15);
 
-  --ink: rgba(255, 255, 255, 0.95);
-  --ink-soft: rgba(255, 255, 255, 0.66);
-  --ink-faint: rgba(255, 255, 255, 0.44);
+  --ink: rgba(255, 255, 255, 0.93);
+  --ink-soft: rgba(255, 255, 255, 0.58);
+  --ink-faint: rgba(255, 255, 255, 0.38);
 
   --space-1: 0.5rem;
   --space-2: 0.75rem;
   --space-3: 1rem;
   --space-4: 1.5rem;
+  --space-5: 2.5rem;
+  --space-6: 4rem;
 
-  --v1: #8b6cff;
-  --v2: #c04bff;
-  --v3: #ff4d9d;
-  --v4: #2fe6c8;
-  --aurora: linear-gradient(120deg, #8b6cff 0%, #c04bff 34%, #ff4d9d 62%, #2fe6c8 100%);
+  /* 单一自信强调色:靛紫;辅助:克制青绿(仅状态/数值)。同色系渐变,不再霓虹彩虹 */
+  --v1: #7468f0;
+  --v2: #9166ef;
+  --v3: #b06ce8;
+  --v4: #3fc9ad;
+  --accent: #7468f0;
+  --success: #3fc9ad;
+  --aurora: linear-gradient(135deg, #7468f0 0%, #9166ef 52%, #b06ce8 100%);
 
-  --danger: #ff6b7a;
+  --danger: #f0596a;
 
-  --radius: 18px;
-  --radius-sm: 12px;
-  --radius-xs: 9px;
+  --radius: 16px;
+  --radius-sm: 11px;
+  --radius-xs: 8px;
   --dur: 0.42s;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
@@ -78,9 +84,9 @@ body::before {
   inset: -12%;
   z-index: 0;
   background:
-    radial-gradient(38% 34% at 16% 10%, rgba(139, 108, 255, 0.26), transparent 60%),
-    radial-gradient(40% 34% at 96% 12%, rgba(255, 77, 157, 0.18), transparent 60%),
-    radial-gradient(46% 44% at 82% 98%, rgba(47, 230, 200, 0.16), transparent 62%);
+    radial-gradient(38% 34% at 16% 10%, rgba(116, 104, 240, 0.26), transparent 60%),
+    radial-gradient(40% 34% at 96% 12%, rgba(176, 108, 232, 0.18), transparent 60%),
+    radial-gradient(46% 44% at 82% 98%, rgba(63, 201, 173, 0.16), transparent 62%);
   pointer-events: none;
   will-change: transform;
   animation: drift 30s ease-in-out infinite alternate;
@@ -118,9 +124,9 @@ body::after {
   border-radius: 50%;
   background: radial-gradient(
     circle,
-    rgba(139, 108, 255, 0.16) 0%,
-    rgba(192, 75, 255, 0.09) 32%,
-    rgba(47, 230, 200, 0.05) 55%,
+    rgba(116, 104, 240, 0.16) 0%,
+    rgba(145, 102, 239, 0.09) 32%,
+    rgba(63, 201, 173, 0.05) 55%,
     transparent 70%
   );
   mix-blend-mode: screen;
@@ -131,7 +137,7 @@ body::after {
   height: 26px;
   border: 1.5px solid rgba(255, 255, 255, 0.55);
   border-radius: 50%;
-  box-shadow: 0 0 14px rgba(139, 108, 255, 0.45);
+  box-shadow: 0 0 14px rgba(116, 104, 240, 0.45);
   transition:
     opacity 0.3s ease,
     width 0.28s var(--ease),
@@ -142,14 +148,14 @@ body::after {
 .cursor-ring.is-hover {
   width: 46px;
   height: 46px;
-  border-color: rgba(47, 230, 200, 0.8);
-  background-color: rgba(139, 108, 255, 0.1);
-  box-shadow: 0 0 22px rgba(47, 230, 200, 0.4);
+  border-color: rgba(63, 201, 173, 0.8);
+  background-color: rgba(116, 104, 240, 0.1);
+  box-shadow: 0 0 22px rgba(63, 201, 173, 0.4);
 }
 .cursor-ring.is-down {
   width: 20px;
   height: 20px;
-  border-color: rgba(255, 77, 157, 0.85);
+  border-color: rgba(176, 108, 232, 0.85);
 }
 @media (prefers-reduced-motion: reduce) {
   .cursor-glow,
@@ -472,11 +478,11 @@ textarea:focus,
 select:focus,
 input:focus {
   outline: none;
-  border-color: rgba(139, 108, 255, 0.85);
+  border-color: rgba(116, 104, 240, 0.85);
   background: rgba(0, 0, 0, 0.32);
   box-shadow:
-    0 0 0 3.5px rgba(139, 108, 255, 0.16),
-    0 0 18px rgba(139, 108, 255, 0.12);
+    0 0 0 3.5px rgba(116, 104, 240, 0.16),
+    0 0 18px rgba(116, 104, 240, 0.12);
 }
 
 .row-2 {
@@ -519,8 +525,8 @@ input:focus {
 }
 .seg button.active {
   color: var(--ink);
-  border-color: rgba(139, 108, 255, 0.8);
-  background: rgba(139, 108, 255, 0.12);
+  border-color: rgba(116, 104, 240, 0.8);
+  background: rgba(116, 104, 240, 0.12);
 }
 
 /* 模式切换(两段) */
@@ -561,7 +567,7 @@ input:focus {
   transition: border-color var(--dur) var(--ease);
 }
 .dropzone:hover {
-  border-color: rgba(139, 108, 255, 0.7);
+  border-color: rgba(116, 104, 240, 0.7);
 }
 .dropzone img {
   width: 100%;
@@ -593,7 +599,7 @@ input[type="range"]::-webkit-slider-thumb {
   border-radius: 50%;
   background: #fff;
   border: none;
-  box-shadow: 0 0 0 4px rgba(139, 108, 255, 0.32), 0 0 16px rgba(192, 75, 255, 0.6);
+  box-shadow: 0 0 0 4px rgba(116, 104, 240, 0.32), 0 0 16px rgba(145, 102, 239, 0.6);
   transition: transform var(--dur) var(--ease);
 }
 input[type="range"]::-webkit-slider-thumb:hover {
@@ -622,7 +628,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 .generate-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 14px 38px rgba(192, 75, 255, 0.5);
+  box-shadow: 0 14px 38px rgba(145, 102, 239, 0.5);
   animation: shimmer 3s ease-in-out infinite;
 }
 .generate-btn:active:not(:disabled) {
@@ -729,9 +735,9 @@ input[type="range"]::-webkit-slider-thumb:hover {
   border-radius: 50%;
   background:
     radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.85), transparent 42%),
-    conic-gradient(from 200deg, #8b6cff, #c04bff, #ff4d9d, #2fe6c8, #8b6cff);
+    conic-gradient(from 200deg, #7468f0, #9166ef, #b06ce8, #3fc9ad, #7468f0);
   box-shadow:
-    0 0 70px 6px rgba(192, 75, 255, 0.38),
+    0 0 70px 6px rgba(145, 102, 239, 0.38),
     inset 0 0 40px rgba(255, 255, 255, 0.15);
   animation: float 7s ease-in-out infinite, hue 12s linear infinite;
 }
@@ -775,8 +781,8 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 .chip:hover {
   color: var(--ink);
-  border-color: rgba(139, 108, 255, 0.7);
-  background: rgba(139, 108, 255, 0.12);
+  border-color: rgba(116, 104, 240, 0.7);
+  background: rgba(116, 104, 240, 0.12);
   transform: translateY(-2px);
 }
 
@@ -803,8 +809,8 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 .shot:hover {
   transform: translateY(-6px);
-  border-color: rgba(139, 108, 255, 0.45);
-  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(139, 108, 255, 0.25);
+  border-color: rgba(116, 104, 240, 0.45);
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(116, 104, 240, 0.25);
 }
 .shot img {
   display: block;
@@ -879,13 +885,13 @@ input[type="range"]::-webkit-slider-thumb:hover {
   aspect-ratio: 1 / 1;
   text-decoration: none;
   background:
-    radial-gradient(60% 60% at 50% 45%, rgba(139, 108, 255, 0.22), transparent 70%),
+    radial-gradient(60% 60% at 50% 45%, rgba(116, 104, 240, 0.22), transparent 70%),
     var(--bg-2);
   transition: background var(--dur) var(--ease);
 }
 .glb-tile:hover {
   background:
-    radial-gradient(60% 60% at 50% 45%, rgba(139, 108, 255, 0.35), transparent 70%),
+    radial-gradient(60% 60% at 50% 45%, rgba(116, 104, 240, 0.35), transparent 70%),
     var(--bg-2);
 }
 .glb-badge {
@@ -910,7 +916,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   aspect-ratio: 1 / 1;
   padding: 0 0.8rem;
   background:
-    radial-gradient(60% 60% at 50% 40%, rgba(47, 230, 200, 0.18), transparent 70%),
+    radial-gradient(60% 60% at 50% 40%, rgba(63, 201, 173, 0.18), transparent 70%),
     var(--bg-2);
 }
 .audio-badge {
@@ -994,7 +1000,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   transition: background var(--dur) var(--ease), transform var(--dur) var(--ease);
 }
 .btn-ghost:hover {
-  background: rgba(139, 108, 255, 0.18);
+  background: rgba(116, 104, 240, 0.18);
   transform: translateY(-1px);
 }
 .lightbox-close {
@@ -1214,8 +1220,8 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 .modlib-search input:focus {
   outline: none;
-  border-color: rgba(139, 108, 255, 0.75);
-  box-shadow: 0 0 0 3px rgba(139, 108, 255, 0.2);
+  border-color: rgba(116, 104, 240, 0.75);
+  box-shadow: 0 0 0 3px rgba(116, 104, 240, 0.2);
 }
 
 .type-chips {
@@ -1236,8 +1242,8 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 .type-chips button.active {
   color: var(--ink);
-  border-color: rgba(139, 108, 255, 0.8);
-  background: rgba(139, 108, 255, 0.14);
+  border-color: rgba(116, 104, 240, 0.8);
+  background: rgba(116, 104, 240, 0.14);
 }
 
 /* 本地模型 */
@@ -1364,7 +1370,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   border: 1px solid var(--hairline);
   border-radius: var(--radius);
   background:
-    radial-gradient(60% 60% at 50% 40%, rgba(139, 108, 255, 0.12), transparent 70%),
+    radial-gradient(60% 60% at 50% 40%, rgba(116, 104, 240, 0.12), transparent 70%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.3));
   overflow: hidden;
 }
@@ -1513,7 +1519,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   border-radius: var(--radius-sm);
   border: 1px solid var(--hairline);
   background:
-    radial-gradient(60% 60% at 50% 40%, rgba(139, 108, 255, 0.12), transparent 70%),
+    radial-gradient(60% 60% at 50% 40%, rgba(116, 104, 240, 0.12), transparent 70%),
     var(--bg-1);
   overflow: hidden;
 }
@@ -1596,8 +1602,8 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 .chat-input input:focus {
   outline: none;
-  border-color: rgba(139, 108, 255, 0.8);
-  box-shadow: 0 0 0 3px rgba(139, 108, 255, 0.16);
+  border-color: rgba(116, 104, 240, 0.8);
+  box-shadow: 0 0 0 3px rgba(116, 104, 240, 0.16);
 }
 .chat-input .generate-btn {
   padding: 0.7rem 1.4rem;
@@ -1778,7 +1784,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
 
 /* 运行中状态灯呼吸更明显 */
 .status-pill.is-busy {
-  border-color: rgba(47, 230, 200, 0.5);
+  border-color: rgba(63, 201, 173, 0.5);
 }
 
 /* 英雄球:旋转光环 + 更强脉冲 */
@@ -1790,9 +1796,9 @@ input[type="range"]::-webkit-slider-thumb:hover {
   position: absolute;
   inset: -22px;
   border-radius: 50%;
-  border: 1px solid rgba(139, 108, 255, 0.35);
-  border-top-color: rgba(255, 77, 157, 0.7);
-  border-right-color: rgba(47, 230, 200, 0.6);
+  border: 1px solid rgba(116, 104, 240, 0.35);
+  border-top-color: rgba(176, 108, 232, 0.7);
+  border-right-color: rgba(63, 201, 173, 0.6);
   animation: spin 7s linear infinite;
 }
 @keyframes spin {
@@ -1840,7 +1846,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   background: linear-gradient(
     100deg,
     transparent 30%,
-    rgba(139, 108, 255, 0.14) 50%,
+    rgba(116, 104, 240, 0.14) 50%,
     transparent 70%
   );
   background-size: 200% 100%;
