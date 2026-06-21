@@ -1432,6 +1432,17 @@ input[type="range"]::-webkit-slider-thumb:hover {
   width: 380px;
   max-width: 100%;
 }
+.media-tag {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 0.4rem;
+  padding: 0.16rem 0.5rem;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  background: var(--glass);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+}
 .chat-typing {
   align-self: flex-start;
   font-size: 0.8rem;

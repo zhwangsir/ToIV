@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { agentChat, imageUrl } from "@/lib/api";
 import type { AgentEvent } from "@/lib/api";
 
-type ItemKind = "user" | "assistant" | "tool" | "image" | "audio" | "error";
+type ItemKind = "user" | "assistant" | "tool" | "image" | "video" | "audio" | "error";
 
 interface ChatItem {
   id: string;
@@ -16,14 +16,15 @@ interface ChatItem {
 
 const TOOL_LABEL: Record<string, string> = {
   generate_image: "正在生成图片…",
+  generate_video: "正在生成视频…(约 1-2 分钟,请稍候)",
   generate_music: "正在作曲…",
   list_models: "正在查询模型…",
 };
 
 const SUGGESTIONS = [
   "画一只赛博朋克风格的猫,霓虹灯,电影感",
+  "生成一段 3 秒的樱花飘落短视频",
   "生成一段 lofi 学习背景音乐",
-  "有哪些可用的模型?",
   "做 3 张不同风格的山水画",
 ];
 
@@ -61,6 +62,7 @@ export function AssistantView() {
         if (ev.type === "text" && ev.content) add({ kind: "assistant", text: ev.content });
         else if (ev.type === "tool") add({ kind: "tool", text: TOOL_LABEL[ev.name ?? ""] ?? "处理中…" });
         else if (ev.type === "image" && ev.urls) add({ kind: "image", urls: ev.urls.map(imageUrl) });
+        else if (ev.type === "video" && ev.urls) add({ kind: "video", urls: ev.urls.map(imageUrl) });
         else if (ev.type === "audio" && ev.urls) add({ kind: "audio", urls: ev.urls.map(imageUrl) });
         else if (ev.type === "error") add({ kind: "error", text: ev.content });
       };
@@ -131,6 +133,15 @@ function ChatBubble({ item }: { item: ChatItem }) {
         <div className="chat-images">
           {item.urls?.map((u) => <img key={u} src={u} alt="生成结果" loading="lazy" />)}
         </div>
+      </div>
+    );
+  if (item.kind === "video")
+    return (
+      <div className="bubble media">
+        <div className="chat-images">
+          {item.urls?.map((u) => <img key={u} src={u} alt="生成视频" loading="lazy" />)}
+        </div>
+        <span className="media-tag">▶ 动态视频</span>
       </div>
     );
   if (item.kind === "audio")

@@ -9,12 +9,14 @@ import time
 import uuid
 from urllib.parse import urlencode
 
+from app.capabilities import required_models
 from app.comfy.client import ComfyUIError
 from app.comfy.pool import WorkerPool
 from app.config import get_settings
 from app.models import Job, User
 from app.workflows.ace_step import AceStepParams, build_ace_step_graph
 from app.workflows.txt2img import Txt2ImgParams, build_txt2img_graph
+from app.workflows.wan_i2v import WanI2VParams, build_wan_i2v_graph
 
 _ASPECTS = {"1:1": (512, 512), "2:3": (512, 768), "3:2": (768, 512), "hd": (768, 768)}
 
@@ -49,6 +51,21 @@ TOOL_SCHEMAS = [
                     "seconds": {"type": "number", "description": "时长秒,默认 30"},
                 },
                 "required": ["tags"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_video",
+            "description": "根据文字生成一段短视频(用户想要视频/动画/动起来时调用)。内部会先出底图再驱动其运动,耗时约 1-2 分钟。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "prompt": {"type": "string", "description": "画面与运动的描述,英文效果最佳"},
+                    "seconds": {"type": "number", "description": "时长秒,默认 3(范围 1-6)"},
+                },
+                "required": ["prompt"],
             },
         },
     },
@@ -146,5 +163,51 @@ async def execute(name: str, args: dict, pool: WorkerPool, user: User, session) 
             return "音乐生成超时,请稍后重试。", []
         urls = [_url(client.base_url, f) for f in files]
         return "已生成音乐并展示给用户。", [{"type": "audio", "urls": urls}]
+
+    if name == "generate_video":
+        prompt = args["prompt"]
+        seconds = max(1.0, min(6.0, float(args.get("seconds") or 3)))
+        fps, vw, vh = 16, 640, 480
+        frames = int(seconds * fps)
+        length = max(9, min(121, frames - (frames % 4) + 1))  # Wan 需 4n+1 帧
+        # 选一个同时具备「出底图 + Wan 视频」全部模型的 worker
+        req = {settings.default_ckpt} | required_models("video")
+        try:
+            client = await pool.pick(required=req)
+        except ComfyUIError as e:
+            return f"暂无同时具备出图+视频模型的 worker: {e}", []
+        # 1) 文生底图(视频首帧)
+        base = Txt2ImgParams(
+            positive=prompt,
+            negative="blurry, lowres, deformed, watermark",
+            ckpt_name=settings.default_ckpt,
+            width=vw, height=vh, steps=20,
+        )
+        try:
+            bpid = await client.queue_prompt(build_txt2img_graph(base), uuid.uuid4().hex)
+        except ComfyUIError as e:
+            return f"视频底图提交失败: {e}", []
+        base_files = await _wait_files(client, bpid, timeout=200)
+        if not base_files:
+            return "视频底图生成超时,请稍后重试。", []
+        bf = base_files[0]
+        # 2) 取底图字节 → 送进同一 worker 的 input 目录
+        try:
+            content, _ = await client.get_image_bytes(bf["filename"], bf.get("subfolder", ""), bf.get("type", "output"))
+            input_name = await client.upload_image(content, bf["filename"])
+        except ComfyUIError as e:
+            return f"视频底图转存失败: {e}", []
+        # 3) 图生视频(Wan 2.2 i2v)
+        vp = WanI2VParams(positive=prompt, image=input_name, width=vw, height=vh, length=length, fps=fps)
+        try:
+            vpid = await client.queue_prompt(build_wan_i2v_graph(vp), uuid.uuid4().hex)
+        except ComfyUIError as e:
+            return f"视频提交失败: {e}", []
+        _record(session, user, vpid, client.base_url, "agent_video", prompt, vp.seed)
+        vfiles = await _wait_files(client, vpid, timeout=320)
+        if not vfiles:
+            return "视频生成超时(Wan 14B 较慢),请稍后重试。", []
+        urls = [_url(client.base_url, f) for f in vfiles]
+        return f"已生成 {length} 帧短视频并展示给用户。", [{"type": "video", "urls": urls}]
 
     return f"未知工具: {name}", []
