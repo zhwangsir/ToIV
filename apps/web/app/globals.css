@@ -886,6 +886,31 @@ input[type="range"]::-webkit-slider-thumb:hover {
   font-size: 0.72rem;
   color: var(--ink-soft);
 }
+/* 音频作品瓦片(库内用播放器,不再当图片显示) */
+.audio-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  aspect-ratio: 1 / 1;
+  padding: 0 0.8rem;
+  background:
+    radial-gradient(60% 60% at 50% 40%, rgba(47, 230, 200, 0.18), transparent 70%),
+    var(--bg-2);
+}
+.audio-badge {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #07060c;
+  background: var(--aurora);
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+}
+.audio-tile audio {
+  width: 100%;
+  max-width: 240px;
+}
 
 /* ---------- 灯箱 ---------- */
 .lightbox {

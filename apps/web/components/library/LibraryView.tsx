@@ -18,10 +18,22 @@ const KIND_LABELS: Record<string, string> = {
   img2img: "图生图",
   wan_i2v: "视频",
   hunyuan3d: "3D",
+  ace_step: "音乐",
+  ace_audio: "音乐",
+  agent_audio: "音乐",
+  agent_image: "文生图",
+  agent_img2img: "图生图",
+  agent_video: "视频",
+  agent_3d: "3D",
+  agent_workflow: "工作流",
 };
 
-function assetType(url: string): "glb" | "media" {
-  return url.includes(".glb") ? "glb" : "media";
+function assetType(url: string): "glb" | "audio" | "media" {
+  const u = url.toLowerCase();
+  if (u.includes(".glb")) return "glb";
+  if (u.includes(".mp3") || u.includes(".flac") || u.includes(".wav") || u.includes(".ogg"))
+    return "audio";
+  return "media";
 }
 
 export function LibraryView() {
@@ -87,6 +99,11 @@ export function LibraryView() {
                   <span className="glb-badge">3D · GLB</span>
                   <span className="glb-hint">下载模型</span>
                 </a>
+              ) : assetType(a.url) === "audio" ? (
+                <div className="audio-tile" onClick={(e) => e.stopPropagation()}>
+                  <span className="audio-badge">♪ 音乐</span>
+                  <audio controls preload="none" src={a.url} />
+                </div>
               ) : (
                 <img src={a.url} alt={a.prompt} loading="lazy" />
               )}
