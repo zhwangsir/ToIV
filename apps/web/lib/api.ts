@@ -293,12 +293,13 @@ export async function agentChat(
     const { done, value } = await reader.read();
     if (done) break;
     buf += dec.decode(value, { stream: true });
-    const parts = buf.split("\n\n");
+    // 事件以空行分隔;兼容 \r\n\r\n(sse-starlette/反代)与 \n\n
+    const parts = buf.split(/\r?\n\r?\n/);
     buf = parts.pop() ?? "";
     for (const block of parts) {
       let event = "message";
       let data = "";
-      for (const line of block.split("\n")) {
+      for (const line of block.split(/\r?\n/)) {
         if (line.startsWith("event:")) event = line.slice(6).trim();
         else if (line.startsWith("data:")) data += line.slice(5).trim();
       }
