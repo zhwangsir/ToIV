@@ -5,7 +5,8 @@ services:
     build:
       context: ../apps/api
     environment:
-      TOIV_COMFY_WORKERS: "http://192.168.71.100:8000,http://192.168.71.100:8002,http://192.168.71.100:8003,http://192.168.71.100:8004"
+      # 4卡 PRO6000(8000/8002/8003/8004)+ PC01 5090(Tailscale 8188);可在 deploy/.env 覆盖
+      TOIV_COMFY_WORKERS: "${TOIV_COMFY_WORKERS:-http://192.168.71.100:8000,http://192.168.71.100:8002,http://192.168.71.100:8003,http://192.168.71.100:8004,http://100.82.102.43:8188}"
       TOIV_DATABASE_URL: "sqlite:////data/toiv.db"
       TOIV_JWT_SECRET: "${TOIV_JWT_SECRET:?set TOIV_JWT_SECRET in deploy/.env}"
       TOIV_ADMIN_EMAIL: "${TOIV_ADMIN_EMAIL:-admin}"
