@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ProgressBar } from "@/components/generate/ProgressBar";
+import { OptimizeButton } from "@/components/ui/OptimizeButton";
 import { generateVideo, imageUrl, jobEventsUrl, uploadImage } from "@/lib/api";
 import type { GenStatus, Progress } from "@/lib/types";
 
@@ -143,7 +144,10 @@ export function VideoStudio() {
         </div>
 
         <div className="field">
-          <label htmlFor="vprompt">运动描述</label>
+          <label htmlFor="vprompt">
+            运动描述
+            <OptimizeButton value={positive} kind="video" onResult={setPositive} disabled={busy} />
+          </label>
           <textarea
             id="vprompt"
             placeholder="描述画面如何运动，例如：镜头缓慢推进，人物转头微笑"

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ProgressBar } from "@/components/generate/ProgressBar";
+import { OptimizeButton } from "@/components/ui/OptimizeButton";
 import { generateAudio, imageUrl, jobEventsUrl } from "@/lib/api";
 import type { GenStatus, Progress } from "@/lib/types";
 
@@ -97,7 +98,10 @@ export function AudioStudio() {
         </div>
 
         <div className="field">
-          <label htmlFor="tags">风格 / 标签</label>
+          <label htmlFor="tags">
+            风格 / 标签
+            <OptimizeButton value={tags} kind="audio" onResult={setTags} disabled={busy} />
+          </label>
           <textarea
             id="tags"
             placeholder="如:lofi hip hop, chill, piano, 90 bpm"

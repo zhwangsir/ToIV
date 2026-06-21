@@ -1,3 +1,4 @@
+import { OptimizeButton } from "@/components/ui/OptimizeButton";
 import type { GenMode, ModelsResponse, Txt2ImgParams } from "@/lib/types";
 
 interface Props {
@@ -97,6 +98,12 @@ export function PromptForm({
       <div className="field">
         <label htmlFor="positive">
           提示词
+          <OptimizeButton
+            value={params.positive}
+            kind={mode === "img2img" ? "image_edit" : "image"}
+            onResult={(s) => onPatch({ positive: s })}
+            disabled={busy}
+          />
           <span className="hint">{params.positive.length}</span>
         </label>
         <textarea

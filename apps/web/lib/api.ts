@@ -314,6 +314,19 @@ export async function agentChat(
   }
 }
 
+export async function optimizePrompt(prompt: string, kind: string): Promise<string> {
+  const res = await fetch(`${API_BASE}/api/optimize`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ prompt, kind }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `优化失败 (${res.status})`);
+  }
+  return ((await res.json()).optimized as string) ?? prompt;
+}
+
 export function jobEventsUrl(
   promptId: string,
   clientId: string,
