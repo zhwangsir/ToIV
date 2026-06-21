@@ -158,10 +158,11 @@ export async function searchMarketplace(
 
 export async function uploadImage(
   file: File,
+  kind: string = "img2img",
 ): Promise<{ filename: string; worker: string }> {
   const fd = new FormData();
   fd.append("image", file);
-  const res = await fetch(`${API_BASE}/api/upload`, {
+  const res = await fetch(`${API_BASE}/api/upload?kind=${encodeURIComponent(kind)}`, {
     method: "POST",
     headers: authHeaders(), // 不要手动设 Content-Type，让浏览器带 boundary
     body: fd,

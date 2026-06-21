@@ -71,7 +71,7 @@ export function ThreeDStudio() {
     setStatus("queued");
     setProgress({ value: 0, max: 0 });
     try {
-      const up = await uploadImage(imageFile);
+      const up = await uploadImage(imageFile, "threed");
       const res = await generate3D({
         image: up.filename,
         worker: up.worker,

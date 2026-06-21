@@ -181,7 +181,7 @@ export default function Home() {
             setStatus("error");
             return;
           }
-          const up = await uploadImage(imageFile);
+          const up = await uploadImage(imageFile, "img2img");
           res = await generateImg2img({
             positive,
             negative: params.negative,

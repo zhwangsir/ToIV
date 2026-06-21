@@ -44,7 +44,10 @@ async def generate_audio(
         **({"seed": req.seed} if req.seed is not None else {}),
     )
     graph = build_ace_step_graph(params)
-    client = await pool.pick()
+    try:
+        client = await pool.pick(required={params.ckpt_name})
+    except ComfyUIError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
     client_id = uuid.uuid4().hex
     try:
         prompt_id = await client.queue_prompt(graph, client_id)

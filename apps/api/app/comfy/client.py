@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import time
 from urllib.parse import urlencode, urlsplit
 
 import httpx
@@ -14,10 +15,24 @@ class ComfyUIError(RuntimeError):
     """与 ComfyUI 交互失败时抛出。"""
 
 
+# 各类模型加载器的 (节点, 字段),用于汇总该 worker 实际拥有的模型文件名
+_MODEL_LOADERS = [
+    ("CheckpointLoaderSimple", "ckpt_name"),
+    ("UNETLoader", "unet_name"),
+    ("VAELoader", "vae_name"),
+    ("CLIPLoader", "clip_name"),
+    ("LoraLoaderModelOnly", "lora_name"),
+    ("ControlNetLoader", "control_net_name"),
+]
+_MODELS_TTL = 120.0
+
+
 class ComfyUIClient:
     def __init__(self, base_url: str, timeout: float = 30.0):
         self.base_url = base_url.rstrip("/")
         self._timeout = timeout
+        self._models_cache: set[str] | None = None
+        self._models_ts = 0.0
 
     # ---------- 工作流提交与结果 ----------
     async def queue_prompt(self, graph: dict, client_id: str) -> str:
@@ -96,11 +111,30 @@ class ComfyUIClient:
 
     # ---------- 调度与元信息 ----------
     async def queue_len(self) -> int:
-        data = await self._get_json("/queue")
+        # 短超时:死/挂起的 worker 快速降级,避免拖慢 pick 调度
+        data = await self._get_json("/queue", timeout=4.0)
         return len(data.get("queue_running", [])) + len(data.get("queue_pending", []))
 
     async def object_info(self, node: str) -> dict:
         return await self._get_json(f"/object_info/{node}")
+
+    async def model_names(self) -> set[str]:
+        """该 worker 实际拥有的所有模型文件名(跨类型汇总,缓存 120s)。"""
+        now = time.monotonic()
+        if self._models_cache is not None and now - self._models_ts < _MODELS_TTL:
+            return self._models_cache
+        names: set[str] = set()
+        for node, field in _MODEL_LOADERS:
+            try:
+                info = await self.object_info(node)
+                opts = info.get(node, {}).get("input", {}).get("required", {}).get(field, [[]])
+                if opts and isinstance(opts[0], list):
+                    names.update(opts[0])
+            except ComfyUIError:
+                pass
+        self._models_cache = names
+        self._models_ts = now
+        return names
 
     def ws_url(self, client_id: str) -> str:
         parts = urlsplit(self.base_url)
@@ -117,9 +151,9 @@ class ComfyUIClient:
         except httpx.HTTPError as e:
             raise ComfyUIError(f"请求 {path} 失败: {e}") from e
 
-    async def _get_json(self, path: str) -> dict:
+    async def _get_json(self, path: str, timeout: float | None = None) -> dict:
         try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
+            async with httpx.AsyncClient(timeout=timeout or self._timeout) as client:
                 resp = await client.get(f"{self.base_url}{path}")
                 resp.raise_for_status()
                 return resp.json()

@@ -60,7 +60,7 @@ export function VideoStudio() {
     setStatus("queued");
     setProgress({ value: 0, max: 0 });
     try {
-      const up = await uploadImage(imageFile);
+      const up = await uploadImage(imageFile, "video");
       const res = await generateVideo({
         positive: positive.trim(),
         image: up.filename,

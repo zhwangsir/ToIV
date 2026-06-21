@@ -57,3 +57,33 @@ def test_from_urls_builds_one_client_per_url():
         ["http://a:8000", "http://b:8001/"], timeout=5.0
     )
     assert [c.base_url for c in pool.clients] == ["http://a:8000", "http://b:8001"]
+
+
+class ModelClient:
+    """带模型清单的替身,用于测试模型感知调度。"""
+
+    def __init__(self, name: str, qlen: int, models):
+        self.name = name
+        self._q = qlen
+        self._m = set(models)
+
+    async def queue_len(self) -> int:
+        return self._q
+
+    async def model_names(self):
+        return self._m
+
+
+async def test_pick_routes_to_capable_worker():
+    a = ModelClient("a", 0, {"other.safetensors"})       # 更闲但缺模型
+    b = ModelClient("b", 9, {"target.safetensors"})      # 较忙但有模型
+    pool = WorkerPool([a, b])
+    assert (await pool.pick(required={"target.safetensors"})) is b
+
+
+async def test_pick_raises_when_no_capable_worker():
+    from app.comfy.client import ComfyUIError
+
+    pool = WorkerPool([ModelClient("a", 0, {"x"})])
+    with pytest.raises(ComfyUIError):
+        await pool.pick(required={"missing.safetensors"})
