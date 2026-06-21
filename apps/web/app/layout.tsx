@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { CursorGlow } from "@/components/ui/CursorGlow";
 
 export const metadata: Metadata = {
   title: "ToIV — 极光 AI 创作平台",
@@ -25,7 +26,10 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <CursorGlow />
+        {children}
+      </body>
     </html>
   );
 }

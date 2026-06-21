@@ -85,25 +85,6 @@ export default function Home() {
   const esRef = useRef<EventSource | null>(null);
   const doneRef = useRef(false);
 
-  // 背景极光跟随鼠标(rAF 节流)
-  useEffect(() => {
-    let raf = 0;
-    const onMove = (e: PointerEvent) => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        const x = (e.clientX / window.innerWidth) * 100;
-        const y = (e.clientY / window.innerHeight) * 100;
-        document.documentElement.style.setProperty("--mx", `${x}%`);
-        document.documentElement.style.setProperty("--my", `${y}%`);
-      });
-    };
-    window.addEventListener("pointermove", onMove);
-    return () => {
-      window.removeEventListener("pointermove", onMove);
-      cancelAnimationFrame(raf);
-    };
-  }, []);
-
   // 启动时校验已存令牌
   useEffect(() => {
     if (!getToken()) {
