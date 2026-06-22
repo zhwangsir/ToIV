@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 
 import { AuthScreen } from "@/components/auth/AuthScreen";
 import { AdminPanel } from "@/components/admin/AdminPanel";
@@ -12,6 +13,8 @@ import { ManjuStudio } from "@/components/manju/ManjuStudio";
 import { ModelLibrary } from "@/components/models/ModelLibrary";
 import { ThreeDStudio } from "@/components/threed/ThreeDStudio";
 import { NavIcon } from "@/components/ui/NavIcon";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
+import { viewVariants } from "@/lib/motion";
 import { fetchMe, getToken, setToken } from "@/lib/api";
 import type { AuthResult } from "@/lib/api";
 

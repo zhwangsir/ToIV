@@ -2,34 +2,35 @@
   color-scheme: dark;
 
   /* ──────────────────────────────────────────────────────────
-     ToIV 设计系统 — 克制的高级感(Linear / Vercel / Stripe 那一面)
-     纪律性暗色 · 单一强调色 · 细描边 + 柔阴影 + 干净表面出层次
-     不靠渐变辉光 / 霓虹 / 特效。深色但精炼,不是科幻驾驶舱。
+     ToIV 设计系统 v5 — 静奢编辑感(Linear / Stripe / Krea 的工艺面)
+     冷暖平衡的近黑画布 · 一个有性格的暖琥珀强调 · 一抹冷板岩做状态
+     真景深(分层表面 + 定向柔阴影 + 极细颗粒)· 编辑式排版与节奏
+     艺术与交互靠工艺,不靠霓虹辉光 / 极光 / 赛博特效。
      ────────────────────────────────────────────────────────── */
 
-  /* 表面层级:近黑中性,层层抬升而非花哨 */
-  --bg-0: #0b0b0d;   /* 页面底 */
-  --bg-1: #111114;   /* 一级表面(卡片/输入底) */
-  --bg-2: #17171b;   /* 二级表面(抬升卡片) */
-  --bg-3: #1d1d22;   /* 悬停/选中底 */
+  /* 表面层级:暖调近黑,层层抬升带一点点温度(非死黑、非纯灰) */
+  --bg-0: #0c0b0d;   /* 页面底 —— 极暖黑 */
+  --bg-1: #131216;   /* 一级表面(卡片/输入底) */
+  --bg-2: #19171c;   /* 二级表面(抬升卡片) */
+  --bg-3: #221f26;   /* 悬停/选中底 */
 
-  /* 表面填充(用于浮层、chip 等;不再是「玻璃辉光」而是干净抬升) */
-  --surface: #141417;
-  --surface-hover: #1a1a1f;
-  --glass: rgba(255, 255, 255, 0.024);
-  --glass-2: rgba(255, 255, 255, 0.045);
+  /* 表面填充:干净抬升,带极轻暖膜 */
+  --surface: #151318;
+  --surface-hover: #1c1a20;
+  --glass: rgba(255, 252, 248, 0.026);
+  --glass-2: rgba(255, 252, 248, 0.05);
 
-  /* 描边:细而清晰,做层次的主力 */
-  --hairline: rgba(255, 255, 255, 0.07);
-  --hairline-2: rgba(255, 255, 255, 0.12);
-  --hairline-strong: rgba(255, 255, 255, 0.18);
+  /* 描边:细而清晰,做层次的主力(略偏暖白) */
+  --hairline: rgba(255, 250, 244, 0.075);
+  --hairline-2: rgba(255, 250, 244, 0.13);
+  --hairline-strong: rgba(255, 250, 244, 0.2);
 
-  /* 文字:三档对比,纪律分明 */
-  --ink: rgba(255, 255, 255, 0.92);
-  --ink-soft: rgba(255, 255, 255, 0.62);
-  --ink-faint: rgba(255, 255, 255, 0.4);
+  /* 文字:四档对比,纪律分明,暖白 */
+  --ink: rgba(252, 249, 245, 0.94);
+  --ink-soft: rgba(252, 249, 245, 0.63);
+  --ink-faint: rgba(252, 249, 245, 0.4);
 
-  /* 间距阶 */
+  /* 间距阶 —— 有呼吸的节奏,非均匀 padding */
   --space-1: 0.5rem;
   --space-2: 0.75rem;
   --space-3: 1rem;
@@ -37,39 +38,47 @@
   --space-5: 2.5rem;
   --space-6: 4rem;
 
-  /* 单一强调色:克制靛蓝。点到为止,不铺满。
-     v1..v3 收敛到同一蓝,移除彩虹渐变;v4 保留低饱和青作状态/数值。 */
-  --accent: #5b6ef5;
-  --accent-hover: #6b7cf7;
-  --accent-quiet: rgba(91, 110, 245, 0.14);
-  --accent-line: rgba(91, 110, 245, 0.42);
-  --accent-ink: #ffffff;          /* 强调底上的文字(白,不再用近黑) */
-  --v1: #5b6ef5;
-  --v2: #5b6ef5;
-  --v3: #8b93f8;
-  --v4: #4cc5a8;                  /* 低调青:状态点 / 数值,克制使用 */
-  --success: #4cc5a8;
-  /* 「aurora」仅为兼容历史选择器保留:现在是接近纯色的极轻渐变,非彩虹辉光 */
-  --aurora: linear-gradient(180deg, #6173f6 0%, #5b6ef5 100%);
+  /* 强调色:暖琥珀金 —— 有态度、有温度,点到为止不铺满。
+     状态/数值用冷板岩青做冷暖对照。v1..v3 收敛到同一暖调梯度。 */
+  --accent: #e0a45c;             /* 琥珀金 */
+  --accent-hover: #ecb673;
+  --accent-deep: #c4863c;
+  --accent-quiet: rgba(224, 164, 92, 0.13);
+  --accent-line: rgba(224, 164, 92, 0.45);
+  --accent-ink: #1a1206;         /* 暖金底上用近黑暖墨,对比更高级 */
+  --accent-glow: rgba(224, 164, 92, 0.28);
+  --v1: #e0a45c;
+  --v2: #d99450;
+  --v3: #ecc79a;                 /* 浅金:次级强调文字 */
+  --v4: #7fb4c4;                 /* 冷板岩青:状态点 / 数值,克制使用 */
+  --cool: #7fb4c4;
+  --success: #7fb4c4;
+  /* 「aurora」兼容历史选择器:现为暖金极轻渐变,非彩虹辉光 */
+  --aurora: linear-gradient(135deg, #ecb673 0%, #d99450 100%);
 
-  --danger: #e5596b;
+  --danger: #e0726f;
 
-  /* 圆角:克制一致,略收一点更专业 */
-  --radius: 12px;
-  --radius-sm: 9px;
+  /* 圆角:克制一致 */
+  --radius: 14px;
+  --radius-sm: 10px;
   --radius-xs: 7px;
 
-  /* 动效:更短、更克制 */
-  --dur: 0.16s;
-  --dur-2: 0.24s;
+  /* 动效:CSS 侧短过渡 + 编辑式缓动(JS 弹性物理交给 framer-motion) */
+  --dur: 0.18s;
+  --dur-2: 0.32s;
   --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
 
-  /* 阴影:柔和小阴影,不做大范围辉光 */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.32);
-  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.42);
+  /* 阴影:定向柔阴影做真景深(顶光,带极轻暖色环境光) */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 6px 20px -4px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 20px 48px -12px rgba(0, 0, 0, 0.62), 0 6px 16px rgba(0, 0, 0, 0.4);
+  --shadow-edge: inset 0 1px 0 rgba(255, 252, 248, 0.05);
 
-  --font-display: "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif;
+  /* 排版:编辑式衬线 display + 中性 sans 正文 的真配对 */
+  --font-display: "Fraunces", "Space Grotesk", Georgia, ui-serif, serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system,
+    "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
 * {
@@ -85,9 +94,7 @@ body {
   min-height: 100vh;
   background: var(--bg-0);
   color: var(--ink);
-  font-family:
-    "Inter", ui-sans-serif, system-ui, -apple-system,
-    "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.55;
@@ -101,17 +108,34 @@ body {
 .hero-canvas h2,
 .auth-brand {
   font-family: var(--font-display);
+  font-optical-sizing: auto;
 }
 
-/* 背景:一道极轻的顶部冷光,几乎不可察觉 —— 只为避免纯黑死板,绝不是辉光。 */
+/* ---------- 氛围层:暖色定向天光 + 极细颗粒,做真景深与质感 ---------- */
+/* (1) 顶部一道极轻暖光 —— 给画布温度与方向感,绝非辉光 */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   z-index: 0;
   background:
-    radial-gradient(120% 60% at 50% -10%, rgba(91, 110, 245, 0.05), transparent 60%);
+    radial-gradient(130% 80% at 15% -10%, rgba(224, 164, 92, 0.055), transparent 55%),
+    radial-gradient(120% 90% at 90% 8%, rgba(127, 180, 196, 0.03), transparent 50%);
   pointer-events: none;
+}
+/* (2) 极细颗粒:一层几乎不可见的胶片噪点,消除数码塑料感 */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.5;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.42'/%3E%3C/svg%3E");
+}
+@media (prefers-reduced-motion: reduce) {
+  body::after { opacity: 0.32; }
 }
 
 /* ---------- 自定义光标:克制版,默认不渲染辉光层(由 CursorGlow 控制可见) ---------- */
@@ -124,22 +148,23 @@ body::before {
   left: 0;
   pointer-events: none;
   z-index: 90;
-  width: 22px;
-  height: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(252, 249, 245, 0.3);
   border-radius: 50%;
   opacity: 0;
   will-change: transform, opacity;
   transition:
     opacity var(--dur-2) ease,
-    width var(--dur-2) var(--ease),
-    height var(--dur-2) var(--ease),
+    width var(--dur-2) var(--ease-expo),
+    height var(--dur-2) var(--ease-expo),
     border-color var(--dur-2) var(--ease);
 }
 .cursor-ring.is-hover {
-  width: 34px;
-  height: 34px;
+  width: 38px;
+  height: 38px;
   border-color: var(--accent-line);
+  box-shadow: 0 0 0 1px var(--accent-quiet);
 }
 .cursor-ring.is-down {
   width: 18px;
@@ -161,49 +186,70 @@ body::before {
   flex-direction: column;
 }
 
-/* ---------- 顶栏 ---------- */
+/* ---------- 顶栏:编辑式品牌头 + 内嵌药丸导航 ---------- */
 .topbar {
   position: sticky;
   top: 0;
   z-index: 20;
   display: flex;
   align-items: center;
-  gap: clamp(1rem, 3vw, 2.2rem);
-  padding: 0.7rem clamp(1.1rem, 3vw, 2rem);
+  gap: clamp(1rem, 3vw, 2.4rem);
+  padding: 0.75rem clamp(1.1rem, 3vw, 2.2rem);
   border-bottom: 1px solid var(--hairline);
-  background: color-mix(in oklab, var(--bg-0) 78%, transparent);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  background: color-mix(in oklab, var(--bg-0) 72%, transparent);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+}
+/* 顶栏底缘一道极细暖高光,做"边沿受光"的真实感 */
+.topbar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent-quiet) 35%, transparent 75%);
+  pointer-events: none;
 }
 .brand {
   display: flex;
   align-items: baseline;
   gap: 0.6rem;
-  font-size: 1.18rem;
-  font-weight: 700;
-  letter-spacing: -0.03em;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
   color: var(--ink);
+  line-height: 1;
 }
 .brand .mark {
   color: var(--accent);
+  font-style: italic;        /* Fraunces 斜体大写,签名感 */
 }
 .brand .sub {
-  font-size: 0.68rem;
-  font-weight: 400;
+  align-self: center;
+  font-family: var(--font-sans);
+  font-size: 0.62rem;
+  font-weight: 500;
+  text-transform: uppercase;
   color: var(--ink-faint);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.16em;
+  padding-left: 0.7rem;
+  border-left: 1px solid var(--hairline-2);
 }
-@media (max-width: 720px) {
+@media (max-width: 760px) {
   .brand .sub { display: none; }
+  .brand { font-size: 1.3rem; }
 }
 
 .modal-nav {
+  position: relative;
   display: flex;
   gap: 0.1rem;
-  padding: 0.2rem;
+  padding: 0.28rem;
   border: 1px solid var(--hairline);
-  border-radius: var(--radius-sm);
+  border-radius: 999px;
   background: var(--bg-1);
+  box-shadow: var(--shadow-sm), var(--shadow-edge);
   max-width: 100%;
   overflow-x: auto;
   scrollbar-width: none;
@@ -212,41 +258,52 @@ body::before {
   display: none;
 }
 .modal-nav button {
+  position: relative;
   font: inherit;
   font-size: 0.82rem;
   font-weight: 500;
   color: var(--ink-soft);
   background: transparent;
   border: none;
-  border-radius: var(--radius-xs);
-  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  padding: 0.45rem 0.95rem;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 0.42rem;
   white-space: nowrap;
-  transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
+  z-index: 1;
+  transition: color var(--dur) var(--ease);
 }
 .nav-ico {
   flex-shrink: 0;
-  opacity: 0.7;
-  transition: opacity var(--dur) var(--ease);
+  opacity: 0.65;
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease-expo);
 }
 .modal-nav button:hover:not(:disabled) {
   color: var(--ink);
-  background: var(--glass-2);
 }
 .modal-nav button:hover:not(:disabled) .nav-ico {
-  opacity: 0.9;
+  opacity: 0.95;
+  transform: scale(1.08);
 }
 .modal-nav button.active {
   color: var(--ink);
-  background: var(--bg-3);
-  box-shadow: inset 0 0 0 1px var(--hairline-2);
 }
 .modal-nav button.active .nav-ico {
   opacity: 1;
   color: var(--accent);
+}
+/* framer-motion 滑动指示器(layoutId) —— 编辑式的"墨块"在标签间滑移 */
+.nav-pill {
+  position: absolute;
+  inset: 0.28rem auto 0.28rem;
+  top: 0.28rem;
+  bottom: 0.28rem;
+  border-radius: 999px;
+  background: var(--bg-3);
+  box-shadow: inset 0 0 0 1px var(--hairline-2), var(--shadow-sm);
+  z-index: 0;
 }
 .modal-nav .soon {
   font-size: 0.58rem;
@@ -313,18 +370,30 @@ body::before {
   }
 }
 
-/* 控制面板:干净抬升表面,靠细描边 + 柔阴影出层次,不堆玻璃辉光 */
+/* 控制面板:抬升表面,定向柔阴影 + 边沿受光做真材质,顶端一道暖描边 */
 .panel {
   position: sticky;
-  top: calc(56px + clamp(1rem, 2vw, 1.6rem));
+  top: calc(64px + clamp(1rem, 2vw, 1.6rem));
   border: 1px solid var(--hairline);
   border-radius: var(--radius);
-  background: var(--bg-1);
-  padding: clamp(1.05rem, 1.5vw, 1.4rem);
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--bg-2) 70%, transparent), var(--bg-1) 30%);
+  padding: clamp(1.1rem, 1.5vw, 1.5rem);
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-md), var(--shadow-edge);
+}
+/* 面板顶缘暖高光,像受光面 */
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: linear-gradient(90deg, transparent, var(--accent-line) 50%, transparent);
+  opacity: 0.5;
+  pointer-events: none;
 }
 .panel-head {
   display: flex;
@@ -570,8 +639,8 @@ input:focus {
 }
 .create-feed {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 0.9rem;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 1rem;
 }
 .create-card {
   position: relative;
@@ -580,12 +649,14 @@ input:focus {
   overflow: hidden;
   border: 1px solid var(--hairline);
   background: var(--bg-2);
-  box-shadow: var(--shadow-sm);
-  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  box-shadow: var(--shadow-sm), var(--shadow-edge);
+  transition:
+    border-color var(--dur) var(--ease),
+    box-shadow var(--dur-2) var(--ease-expo);
 }
 .create-card:hover {
-  border-color: var(--hairline-strong);
-  box-shadow: var(--shadow-md);
+  border-color: var(--accent-line);
+  box-shadow: var(--shadow-lg);
 }
 .create-card > img {
   width: 100%;
@@ -679,35 +750,59 @@ input[type="range"]::-webkit-slider-thumb:hover {
   transform: scale(1.15);
 }
 
-/* ---------- 生成按钮:干净的主操作,单色强调,不做渐变流动 ---------- */
+/* ---------- 生成按钮:签名主操作,暖金渐变 + 受光高光 + 按压回弹 ---------- */
 .generate-btn {
   position: relative;
+  overflow: hidden;
   font: inherit;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   color: var(--accent-ink);
-  background: var(--accent);
-  border: 1px solid transparent;
+  background: linear-gradient(180deg, var(--accent-hover), var(--accent-deep));
+  border: 1px solid var(--accent-deep);
   border-radius: var(--radius-sm);
-  padding: 0.75rem 1rem;
+  padding: 0.8rem 1rem;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  letter-spacing: 0;
-  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.14);
-  transition: background var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease);
+  letter-spacing: -0.01em;
+  box-shadow:
+    0 4px 14px -4px var(--accent-glow),
+    var(--shadow-sm),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  transition:
+    background var(--dur) var(--ease),
+    box-shadow var(--dur-2) var(--ease-expo),
+    transform var(--dur) var(--ease-expo),
+    opacity var(--dur) var(--ease);
+}
+/* 滑过的一道高光扫边,克制(仅 hover 触发一次,非循环) */
+.generate-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.28) 50%, transparent 70%);
+  transform: translateX(-130%);
+  transition: transform 0.6s var(--ease-expo);
 }
 .generate-btn:hover:not(:disabled) {
-  background: var(--accent-hover);
-  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  background: linear-gradient(180deg, #f2c184, var(--accent));
+  box-shadow:
+    0 8px 22px -6px var(--accent-glow),
+    var(--shadow-md),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+.generate-btn:hover:not(:disabled)::after {
+  transform: translateX(130%);
 }
 .generate-btn:active:not(:disabled) {
-  box-shadow: var(--shadow-sm);
+  transform: scale(0.98);
+  box-shadow: 0 2px 8px -3px var(--accent-glow), var(--shadow-sm);
 }
 .generate-btn:disabled {
-  opacity: 0.4;
+  opacity: 0.38;
   cursor: not-allowed;
 }
 
@@ -756,80 +851,108 @@ input[type="range"]::-webkit-slider-thumb:hover {
   font-size: 0.85rem;
 }
 
-/* ---------- 舞台标题 ---------- */
+/* ---------- 舞台标题:编辑式大字号对比 + 衬线强调 ---------- */
 .stage-head {
   display: flex;
   align-items: baseline;
   gap: 0.7rem;
+  padding-bottom: 0.2rem;
 }
 .stage-head h1 {
   margin: 0;
-  font-size: clamp(1.35rem, 2.4vw, 1.9rem);
-  font-weight: 700;
-  letter-spacing: -0.03em;
+  font-family: var(--font-display);
+  font-size: clamp(1.7rem, 3.4vw, 2.7rem);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.02;
 }
 .stage-head h1 .grad {
-  color: var(--ink-soft);
-  font-weight: 600;
+  color: var(--accent);
+  font-style: italic;          /* 衬线斜体强调当前模式,杂志感 */
+  font-weight: 400;
 }
 .stage-head .count {
   margin-left: auto;
-  font-size: 0.78rem;
+  align-self: center;
+  font-size: 0.72rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
   color: var(--ink-faint);
   border: 1px solid var(--hairline);
   border-radius: 999px;
-  padding: 0.22rem 0.75rem;
+  padding: 0.28rem 0.8rem;
   font-variant-numeric: tabular-nums;
+  background: var(--glass);
 }
 
-/* ---------- 空画布:克制的引导区,不做发光球 ---------- */
+/* ---------- 空画布:编辑式作品集占位,有氛围有引导 ---------- */
 .hero-canvas {
   position: relative;
   min-height: clamp(360px, 56vh, 600px);
-  border: 1px dashed var(--hairline-2);
+  border: 1px solid var(--hairline);
   border-radius: var(--radius);
-  background: var(--bg-1);
+  background:
+    radial-gradient(120% 90% at 50% 0%, color-mix(in oklab, var(--accent) 6%, transparent), transparent 60%),
+    var(--bg-1);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
+  gap: 1.1rem;
   text-align: center;
   padding: 2.5rem;
+  box-shadow: var(--shadow-edge);
+}
+/* 极轻的网格刻度,像设计稿台面,而非赛博网格 */
+.hero-canvas::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--hairline) 1px, transparent 1px),
+    linear-gradient(90deg, var(--hairline) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, #000 10%, transparent 75%);
+  opacity: 0.4;
+  pointer-events: none;
 }
 .hero-orb {
-  width: 56px;
-  height: 56px;
-  border-radius: var(--radius);
-  background: var(--bg-3);
-  border: 1px solid var(--hairline-2);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   position: relative;
+  width: 60px;
+  height: 60px;
+  border-radius: 16px;
+  background: linear-gradient(155deg, var(--bg-3), var(--bg-1));
+  border: 1px solid var(--hairline-2);
+  box-shadow: var(--shadow-md), var(--shadow-edge);
 }
 .hero-orb::before {
   content: "";
   position: absolute;
   inset: 0;
   margin: auto;
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
   border: 1.5px solid var(--accent);
-  opacity: 0.85;
+  box-shadow: 0 0 18px -2px var(--accent-glow);
+  opacity: 0.95;
 }
 .hero-canvas h2 {
+  position: relative;
   margin: 0.3rem 0 0;
-  font-size: clamp(1.2rem, 2.2vw, 1.6rem);
-  font-weight: 600;
+  font-size: clamp(1.5rem, 2.8vw, 2.1rem);
+  font-weight: 500;
   letter-spacing: -0.02em;
 }
 .hero-canvas p {
+  position: relative;
   margin: 0;
-  max-width: 32rem;
+  max-width: 33rem;
   color: var(--ink-soft);
-  font-size: 0.9rem;
-  line-height: 1.6;
+  font-size: 0.92rem;
+  line-height: 1.65;
 }
 .example-chips {
   display: flex;
@@ -1648,9 +1771,25 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 .chat-typing {
   align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   font-size: 0.8rem;
-  color: var(--ink-faint);
-  padding: 0.2rem 0.5rem;
+  color: var(--ink-soft);
+  padding: 0.32rem 0.85rem;
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  background: var(--accent-quiet);
+  width: fit-content;
+}
+.chat-typing::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
+  animation: pulse 1.2s ease-in-out infinite;
 }
 .chat-input {
   display: flex;
@@ -1860,14 +1999,21 @@ input[type="range"]::-webkit-slider-thumb:hover {
   transform: scale(1.03);
 }
 
-/* 生成中骨架占位 */
+/* 生成中骨架占位:暖金扫光,呼应"显影中"的签名语言 */
 .skel-tile {
   aspect-ratio: 1 / 1;
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   border: 1px solid var(--hairline);
   position: relative;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-2);
+}
+.skel-tile::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(60% 60% at 50% 40%, var(--accent-quiet), transparent 70%);
+  opacity: 0.6;
 }
 .skel-tile::after {
   content: "";
@@ -1876,11 +2022,11 @@ input[type="range"]::-webkit-slider-thumb:hover {
   background: linear-gradient(
     100deg,
     transparent 30%,
-    rgba(255, 255, 255, 0.06) 50%,
+    rgba(236, 199, 154, 0.1) 50%,
     transparent 70%
   );
   background-size: 200% 100%;
-  animation: skel 1.5s ease-in-out infinite;
+  animation: skel 1.6s ease-in-out infinite;
 }
 @keyframes skel {
   from { background-position: 180% 0; }
@@ -2424,10 +2570,11 @@ input[type="range"]::-webkit-slider-thumb:hover {
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  padding: 0.2rem;
+  padding: 0.25rem;
   border: 1px solid var(--hairline);
-  border-radius: var(--radius-sm);
+  border-radius: 999px;
   background: var(--bg-0);
+  box-shadow: var(--shadow-edge);
 }
 .tier-switch button {
   font: inherit;
@@ -2436,8 +2583,8 @@ input[type="range"]::-webkit-slider-thumb:hover {
   color: var(--ink-soft);
   background: transparent;
   border: none;
-  border-radius: var(--radius-xs);
-  padding: 0.42rem 1.1rem;
+  border-radius: 999px;
+  padding: 0.44rem 1.2rem;
   cursor: pointer;
   transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
 }
@@ -2452,10 +2599,11 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 .tier-hint {
   margin-left: auto;
-  padding-right: 0.5rem;
-  font-size: 0.7rem;
+  padding-right: 0.6rem;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
   color: var(--ink-faint);
-  letter-spacing: 0.02em;
 }
 
 /* ---------- 简易版 ---------- */
