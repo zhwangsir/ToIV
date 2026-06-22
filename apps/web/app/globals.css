@@ -564,6 +564,104 @@ input:focus {
   display: block;
 }
 
+/* ---------- 统一创作台 ---------- */
+.link-clear {
+  margin-left: auto;
+  font: inherit;
+  font-size: 0.72rem;
+  color: var(--ink-faint);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.link-clear:hover {
+  color: var(--danger);
+}
+.ref-preview {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.28);
+}
+.ref-preview img {
+  width: 100%;
+  max-height: 13rem;
+  object-fit: contain;
+  display: block;
+}
+.create-feed {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.9rem;
+}
+.create-card {
+  position: relative;
+  margin: 0;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  background: var(--bg-1);
+}
+.create-card > img {
+  width: 100%;
+  display: block;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+}
+.create-card .chat-model3d {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border: none;
+  border-radius: 0;
+}
+.create-card .media-tag {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  margin: 0;
+}
+/* 续创作动作:悬停浮现 */
+.card-actions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  gap: 0.3rem;
+  padding: 0.5rem;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.78), transparent);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.create-card:hover .card-actions {
+  opacity: 1;
+  transform: translateY(0);
+}
+.card-actions button,
+.card-actions a {
+  flex: 1;
+  text-align: center;
+  font: inherit;
+  font-size: 0.72rem;
+  text-decoration: none;
+  color: var(--ink);
+  background: var(--glass-2);
+  border: 1px solid var(--hairline-2);
+  border-radius: var(--radius-xs);
+  padding: 0.3rem 0.2rem;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease);
+}
+.card-actions button:hover,
+.card-actions a:hover {
+  background: color-mix(in oklab, var(--v1) 30%, transparent);
+}
+.card-actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* 渐变填充滑块 */
 input[type="range"] {
   -webkit-appearance: none;

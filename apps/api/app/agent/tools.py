@@ -262,7 +262,7 @@ async def execute(
 
     if name == "generate_video":
         prompt = args["prompt"]
-        seconds = max(1.0, min(6.0, float(args.get("seconds") or 3)))
+        seconds = max(1.0, min(7.5, float(args.get("seconds") or 3)))
         fps, vw, vh = 16, 640, 480
         frames = int(seconds * fps)
         length = max(9, min(121, frames - (frames % 4) + 1))  # Wan 需 4n+1 帧

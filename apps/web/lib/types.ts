@@ -15,6 +15,7 @@ export interface Txt2ImgParams {
   sampler: string;
   scheduler: string;
   seed?: number | null;
+  batch_size?: number;
 }
 
 export interface GenerateResponse {

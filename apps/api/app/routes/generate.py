@@ -29,6 +29,7 @@ class Txt2ImgRequest(BaseModel):
     sampler: str = Field(default="euler", max_length=64)
     scheduler: str = Field(default="normal", max_length=64)
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
+    batch_size: int = Field(default=1, ge=1, le=8)
 
 
 router = APIRouter()
@@ -58,6 +59,7 @@ async def generate_txt2img(
         cfg=req.cfg,
         sampler=req.sampler,
         scheduler=req.scheduler,
+        batch_size=req.batch_size,
         **({"seed": req.seed} if req.seed is not None else {}),
     )
     graph = build_txt2img_graph(params)

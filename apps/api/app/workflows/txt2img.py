@@ -28,6 +28,7 @@ class Txt2ImgParams:
     sampler: str = "euler"
     scheduler: str = "normal"
     seed: int = field(default_factory=_random_seed)
+    batch_size: int = 1
     filename_prefix: str = "ToIV"
 
 
@@ -55,7 +56,7 @@ def build_txt2img_graph(p: Txt2ImgParams) -> dict:
         },
         "5": {
             "class_type": "EmptyLatentImage",
-            "inputs": {"width": p.width, "height": p.height, "batch_size": 1},
+            "inputs": {"width": p.width, "height": p.height, "batch_size": p.batch_size},
         },
         "6": {
             "class_type": "CLIPTextEncode",
