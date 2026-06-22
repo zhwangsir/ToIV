@@ -23,8 +23,27 @@ import sys
 
 import requests
 
-MODELS_BASE = r"F:\ComfyUIModel\models"
+# 模型落盘根目录:默认 NAS(所有模型归一到 NAS);可用 TOIV_MODELS_BASE 覆盖。
+# 指向 NAS UNC 时,会先 net use 认证(凭据走 TOIV_NAS_PASS,不入仓库)。
+MODELS_BASE = os.environ.get(
+    "TOIV_MODELS_BASE", r"\\100.80.237.96\NAS\Windows\ComfyUI\ComfyUIModel\models"
+)
 HF_MIRROR = os.environ.get("HF_ENDPOINT", "https://hf-mirror.com")
+
+
+def _ensure_nas_auth() -> None:
+    """落盘到 NAS UNC 前先认证(同会话内才能写 UNC)。"""
+    if not MODELS_BASE.startswith(r"\\"):
+        return
+    import subprocess
+
+    host = MODELS_BASE.lstrip("\\").split("\\")[0]  # 100.80.237.96
+    pw = os.environ.get("TOIV_NAS_PASS", "")
+    if pw:
+        subprocess.run(
+            ["net", "use", rf"\\{host}\NAS", f"/user:dgmt-nas", pw, "/persistent:no"],
+            capture_output=True, text=True,
+        )
 
 # 显式类型(含 Civitai 的 type)→ 子目录
 TYPE_DIR = {
@@ -127,6 +146,7 @@ def main() -> int:
                           "dest": dest}, ensure_ascii=False))
         return 0
 
+    _ensure_nas_auth()
     os.makedirs(target_dir, exist_ok=True)
     if os.path.exists(dest):
         print(json.dumps({"ok": True, "skipped": "exists", "category": category, "dest": dest},
