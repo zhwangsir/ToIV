@@ -342,3 +342,66 @@ export function jobEventsUrl(
   const qs = new URLSearchParams({ client_id: clientId, worker });
   return withToken(`${API_BASE}/api/jobs/${promptId}/events?${qs.toString()}`);
 }
+
+// ---------- 漫剧工作室 ----------
+export interface ManjuCharacter {
+  name: string;
+  desc?: string;
+}
+
+export interface StoryboardParams {
+  premise: string;
+  num_shots?: number;
+  style?: string;
+  characters?: ManjuCharacter[];
+}
+
+export interface StoryboardShot {
+  id: string;
+  scene: string;
+  description: string;
+  characters: string[];
+  camera: string;
+  dialogue: string;
+  duration_sec: number;
+}
+
+export async function generateStoryboard(
+  params: StoryboardParams,
+): Promise<{ shots: StoryboardShot[] }> {
+  const res = await fetch(`${API_BASE}/api/manju/storyboard`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `分镜生成失败 (${res.status})`);
+  }
+  return res.json();
+}
+
+// ---------- 创作引擎 HUD:实时遥测 ----------
+
+export interface LiveGpuStat {
+  id: string;
+  load: number;
+  vram?: number;
+}
+
+export interface LiveTelemetry {
+  gpus: LiveGpuStat[];
+  queueDepth: number;
+  outputCount: number;
+}
+
+/** 拉取 4 卡实时遥测(显存负载/队列);失败返回 null → 前端回落 MOCK。 */
+export async function getGpuStats(signal?: AbortSignal): Promise<LiveTelemetry | null> {
+  try {
+    const res = await fetch(`${API_BASE}/api/system/gpu`, { signal });
+    if (!res.ok) return null;
+    return (await res.json()) as LiveTelemetry;
+  } catch {
+    return null;
+  }
+}

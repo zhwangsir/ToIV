@@ -8,6 +8,7 @@ import { AssistantView } from "@/components/assistant/AssistantView";
 import { AudioStudio } from "@/components/audio/AudioStudio";
 import { CreateStudio } from "@/components/create/CreateStudio";
 import { LibraryView } from "@/components/library/LibraryView";
+import { ManjuStudio } from "@/components/manju/ManjuStudio";
 import { ModelLibrary } from "@/components/models/ModelLibrary";
 import { ThreeDStudio } from "@/components/threed/ThreeDStudio";
 import { NavIcon } from "@/components/ui/NavIcon";
@@ -16,7 +17,7 @@ import type { AuthResult } from "@/lib/api";
 
 type AuthState = "loading" | "in" | "out";
 
-type View = "assistant" | "create" | "threed" | "audio" | "library" | "models" | "admin";
+type View = "assistant" | "create" | "manju" | "threed" | "audio" | "library" | "models" | "admin";
 
 interface Account {
   email: string;
@@ -65,6 +66,7 @@ export default function Home() {
   const navItems: { key: string; label: string; icon: string; view: View }[] = [
     { key: "assistant", label: "AI 助手", icon: "assistant", view: "assistant" },
     { key: "create", label: "创作", icon: "image", view: "create" },
+    { key: "manju", label: "🎬 漫剧", icon: "video", view: "manju" },
     { key: "3d", label: "3D", icon: "threed", view: "threed" },
     { key: "library", label: "作品库", icon: "library", view: "library" },
     { key: "models", label: "模型", icon: "models", view: "models" },
@@ -126,6 +128,8 @@ export default function Home() {
         </div>
       ) : view === "create" ? (
         <CreateStudio />
+      ) : view === "manju" ? (
+        <ManjuStudio />
       ) : view === "admin" ? (
         <div className="single-view">
           <AdminPanel />

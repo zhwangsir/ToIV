@@ -1960,3 +1960,518 @@ input[type="range"]::-webkit-slider-thumb:hover {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ============================================================
+   漫剧工作室(导演台)—— 顶栏 + 左流程轨 + 中分镜板 + 右属性面板
+   ============================================================ */
+.manju-studio {
+  flex: 1;
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: clamp(0.9rem, 1.6vw, 1.5rem);
+  gap: clamp(0.8rem, 1.4vw, 1.2rem);
+}
+
+/* ---------- 顶栏 ---------- */
+.manju-topbar {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  padding: 0.7rem 1rem;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+  backdrop-filter: blur(20px) saturate(120%);
+  -webkit-backdrop-filter: blur(20px) saturate(120%);
+}
+.manju-project-name {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 600;
+  width: auto;
+  min-width: 12ch;
+  max-width: 28ch;
+  flex: 0 1 auto;
+  padding: 0.3rem 0.55rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
+}
+.manju-project-name:hover,
+.manju-project-name:focus {
+  border-color: var(--hairline);
+  background: rgba(0, 0, 0, 0.25);
+}
+.manju-mode {
+  margin-left: auto;
+}
+.manju-progress-chip {
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+/* ---------- 三栏主体 ---------- */
+.manju-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 168px 1fr minmax(280px, 340px);
+  gap: clamp(0.8rem, 1.4vw, 1.2rem);
+  align-items: start;
+  min-width: 0;
+}
+@media (max-width: 1100px) {
+  .manju-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- 左侧流程轨 ---------- */
+.manju-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  position: sticky;
+  top: 0.5rem;
+}
+@media (max-width: 1100px) {
+  .manju-rail {
+    flex-direction: row;
+    overflow-x: auto;
+    position: static;
+  }
+}
+.manju-rail-step {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 0.55rem;
+  text-align: left;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: var(--glass);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition:
+    border-color var(--dur) var(--ease),
+    background var(--dur) var(--ease),
+    color var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
+}
+.manju-rail-step:hover {
+  border-color: var(--hairline-2);
+  color: var(--ink);
+  transform: translateX(2px);
+}
+.manju-rail-step.active {
+  border-color: color-mix(in oklab, var(--v1) 55%, transparent);
+  background: color-mix(in oklab, var(--v1) 14%, transparent);
+  color: var(--ink);
+}
+.manju-rail-no {
+  grid-row: 1 / span 2;
+  align-self: center;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--hairline-2);
+}
+.manju-rail-step.active .manju-rail-no {
+  background: var(--aurora);
+  border-color: transparent;
+  color: #fff;
+}
+.manju-rail-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.manju-rail-hint {
+  grid-column: 2;
+  font-size: 0.72rem;
+  color: var(--ink-faint);
+}
+
+/* ---------- 中间:配置 / 分镜板 ---------- */
+.manju-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+.manju-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 1.05rem;
+  padding: clamp(1.1rem, 1.6vw, 1.6rem);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+  backdrop-filter: blur(22px) saturate(120%);
+  -webkit-backdrop-filter: blur(22px) saturate(120%);
+  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.manju-setup h2,
+.manju-board-head h2 {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  margin: 0;
+}
+.manju-setup .grad,
+.manju-board-head .grad {
+  background: var(--aurora);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.manju-setup-row {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 0.9rem;
+}
+@media (max-width: 560px) {
+  .manju-setup-row {
+    grid-template-columns: 1fr;
+  }
+}
+.manju-setup-hint {
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+  margin: 0;
+}
+.manju-add-char {
+  margin-left: auto;
+  font-size: 0.74rem;
+  color: var(--v1);
+  background: color-mix(in oklab, var(--v1) 12%, transparent);
+  border: 1px solid color-mix(in oklab, var(--v1) 38%, transparent);
+  border-radius: 999px;
+  padding: 0.1rem 0.6rem;
+  cursor: pointer;
+}
+.manju-char-row {
+  display: grid;
+  grid-template-columns: minmax(80px, 1fr) 2fr auto;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.45rem;
+}
+.manju-char-del {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--hairline);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.manju-char-del:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* ---------- 分镜板 ---------- */
+.manju-board-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+.manju-board-head {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+.manju-board-tools {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.manju-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.9rem;
+}
+
+.manju-shot {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--glass);
+  cursor: pointer;
+  transition:
+    border-color var(--dur) var(--ease),
+    transform var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+.manju-shot:hover {
+  border-color: var(--hairline-2);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
+.manju-shot.is-selected {
+  border-color: color-mix(in oklab, var(--v1) 70%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--v1) 50%, transparent), var(--shadow-md);
+}
+.manju-shot-thumb {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+.manju-shot-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.manju-shot-empty {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(60% 60% at 50% 40%, rgba(116, 104, 240, 0.1), transparent 70%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.018) 0 12px, transparent 12px 24px);
+}
+.manju-shot-no {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+.manju-shot-spinner {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(255, 255, 255, 0.15);
+  border-top-color: var(--v1);
+  animation: manju-spin 0.8s linear infinite;
+}
+@keyframes manju-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.manju-shot-badge {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--hairline-2);
+}
+.manju-shot-badge.st-error {
+  color: var(--danger);
+  border-color: color-mix(in oklab, var(--danger) 50%, transparent);
+}
+.manju-shot-badge.st-video {
+  color: var(--v4);
+  border-color: color-mix(in oklab, var(--v4) 50%, transparent);
+}
+.manju-shot-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.7rem 0.8rem 0.8rem;
+}
+.manju-shot-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+}
+.manju-shot-id {
+  font-weight: 600;
+  color: var(--ink);
+}
+.manju-shot-cam {
+  color: var(--ink-soft);
+}
+.manju-shot-dur {
+  margin-left: auto;
+  color: var(--v4);
+  font-variant-numeric: tabular-nums;
+}
+.manju-shot-chars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.manju-char-tag {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  color: var(--v3);
+  background: color-mix(in oklab, var(--v3) 14%, transparent);
+  border: 1px solid color-mix(in oklab, var(--v3) 36%, transparent);
+}
+.manju-shot-line {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.manju-shot-actions {
+  display: flex;
+  gap: 0.45rem;
+  margin-top: 0.15rem;
+}
+.manju-shot-actions button {
+  flex: 1;
+  font-size: 0.76rem;
+  padding: 0.32rem 0.5rem;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+  cursor: pointer;
+  width: auto;
+  transition:
+    border-color var(--dur) var(--ease),
+    background var(--dur) var(--ease);
+}
+.manju-shot-actions button:hover:not(:disabled) {
+  border-color: var(--hairline-2);
+  background: rgba(255, 255, 255, 0.08);
+}
+.manju-shot-actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.manju-shot-err {
+  font-size: 0.72rem;
+  color: var(--danger);
+  margin: 0;
+}
+
+/* ---------- 右侧属性面板 ---------- */
+.manju-inspector {
+  position: sticky;
+  top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: clamp(0.9rem, 1.3vw, 1.3rem);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+  backdrop-filter: blur(22px) saturate(120%);
+  -webkit-backdrop-filter: blur(22px) saturate(120%);
+  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.manju-inspector.is-empty {
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+}
+.manju-inspector-hint {
+  font-size: 0.82rem;
+  color: var(--ink-faint);
+  text-align: center;
+  margin: 0;
+}
+.manju-inspector-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.manju-inspector-head h3 {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  margin: 0;
+}
+.manju-inspector-dur {
+  font-size: 0.8rem;
+  color: var(--v4);
+  font-variant-numeric: tabular-nums;
+}
+.manju-inspector-preview {
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  aspect-ratio: 16 / 9;
+}
+.manju-inspector-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.manju-inspector-scene,
+.manju-inspector-cam {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  margin: 0;
+}
+.manju-inspector-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 0.2rem;
+}
+
+/* ---------- 通用次级 / 幽灵按钮 ---------- */
+.manju-secondary-btn,
+.manju-ghost-btn {
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 0.5rem 0.95rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  width: auto;
+  transition:
+    border-color var(--dur) var(--ease),
+    background var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
+}
+.manju-secondary-btn {
+  color: var(--ink);
+  background: color-mix(in oklab, var(--v1) 14%, transparent);
+  border: 1px solid color-mix(in oklab, var(--v1) 42%, transparent);
+}
+.manju-secondary-btn:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--v1) 22%, transparent);
+}
+.manju-ghost-btn {
+  color: var(--ink-soft);
+  background: transparent;
+  border: 1px solid var(--hairline);
+}
+.manju-ghost-btn:hover:not(:disabled) {
+  border-color: var(--hairline-2);
+  color: var(--ink);
+}
+.manju-secondary-btn:disabled,
+.manju-ghost-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
