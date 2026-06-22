@@ -14,6 +14,14 @@ export const spring: Transition = {
   mass: 0.9,
 };
 
+/** 导航墨块:在标签间滑移的 layout 弹性 —— 快而稳,带一点点过冲的张力。 */
+export const navPillSpring: Transition = {
+  type: "spring",
+  stiffness: 520,
+  damping: 40,
+  mass: 0.8,
+};
+
 /** 软弹性:大块视图切换,慢半拍更从容。 */
 export const springSoft: Transition = {
   type: "spring",

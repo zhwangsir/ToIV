@@ -75,21 +75,28 @@ export function LibraryView() {
       {!assets ? (
         <p className="muted">加载中…</p>
       ) : assets.length === 0 ? (
-        <div className="hero-canvas">
+        <div className="hero-canvas lib-empty">
           <div className="hero-orb" aria-hidden="true" />
-          <h2>还没有作品</h2>
-          <p>去图像 / 视频 / 3D 模块创作,生成的作品会自动汇集到这里。</p>
+          <h2>
+            空白的<br />
+            <em>第一页</em>
+          </h2>
+          <p>去图像 / 视频 / 3D 模块创作,生成的每一件作品都会自动汇集到这里,成为你的作品集。</p>
         </div>
       ) : (
         <div className="gallery">
-          {assets.map((a) => (
+          {assets.map((a, i) => {
+            const type = assetType(a.url);
+            // 编辑式 bento:每隔几张把图片格拉成焦点大格,制造视觉重心
+            const feature = type === "media" && i % 7 === 3;
+            return (
             <figure
-              className="shot"
+              className={`shot${feature ? " feature" : ""}`}
               key={a.key}
-              onClick={() => assetType(a.url) === "media" && setActive(a)}
-              style={assetType(a.url) === "glb" ? { cursor: "default" } : undefined}
+              onClick={() => type === "media" && setActive(a)}
+              style={type === "glb" ? { cursor: "default" } : undefined}
             >
-              {assetType(a.url) === "glb" ? (
+              {type === "glb" ? (
                 <a
                   className="glb-tile"
                   href={a.url}
@@ -99,7 +106,7 @@ export function LibraryView() {
                   <span className="glb-badge">3D · GLB</span>
                   <span className="glb-hint">下载模型</span>
                 </a>
-              ) : assetType(a.url) === "audio" ? (
+              ) : type === "audio" ? (
                 <div className="audio-tile" onClick={(e) => e.stopPropagation()}>
                   <span className="audio-badge">♪ 音乐</span>
                   <audio controls preload="none" src={a.url} />
@@ -116,7 +123,8 @@ export function LibraryView() {
                 </span>
               </figcaption>
             </figure>
-          ))}
+            );
+          })}
         </div>
       )}
 

@@ -1,6 +1,9 @@
 "use client";
 
+import { motion } from "framer-motion";
+
 import { ModelViewer } from "@/components/ui/ModelViewer";
+import { developVariants } from "@/lib/motion";
 
 import type { ResultItem } from "./types";
 
@@ -40,7 +43,13 @@ export function ResultFeed({ results, busy, onReuse, onToVideo, onTo3D }: Result
   return (
     <div className="create-feed">
       {results.map((r) => (
-        <figure className="create-card" key={r.id}>
+        <motion.figure
+          className="create-card"
+          key={r.id}
+          variants={developVariants}
+          initial="initial"
+          animate="enter"
+        >
           <MediaTile item={r} />
 
           {r.kind === "image" && (
@@ -79,7 +88,7 @@ export function ResultFeed({ results, busy, onReuse, onToVideo, onTo3D }: Result
 
           {r.kind === "video" && <span className="media-tag">▶ 视频</span>}
           {r.kind === "model3d" && <span className="media-tag">⬢ 3D · 可旋转</span>}
-        </figure>
+        </motion.figure>
       ))}
     </div>
   );

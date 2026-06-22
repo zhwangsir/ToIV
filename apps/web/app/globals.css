@@ -38,18 +38,21 @@
   --space-5: 2.5rem;
   --space-6: 4rem;
 
-  /* 强调色:暖琥珀金 —— 有态度、有温度,点到为止不铺满。
+  /* 强调色:暖琥珀金 —— 大胆、有存在感、敢做主张。
+     editorial bold:金本身就是版面语言,而非点缀。
      状态/数值用冷板岩青做冷暖对照。v1..v3 收敛到同一暖调梯度。 */
-  --accent: #e0a45c;             /* 琥珀金 */
-  --accent-hover: #ecb673;
+  --accent: #ecaa56;             /* 琥珀金,更亮更饱和,更敢 */
+  --accent-hover: #f4bd72;
   --accent-deep: #c4863c;
-  --accent-quiet: rgba(224, 164, 92, 0.13);
-  --accent-line: rgba(224, 164, 92, 0.45);
+  --accent-soft: #f6d6a4;        /* 浅奶金:大字反白/强调描边 */
+  --accent-quiet: rgba(236, 170, 86, 0.14);
+  --accent-wash: rgba(236, 170, 86, 0.07);
+  --accent-line: rgba(236, 170, 86, 0.5);
   --accent-ink: #1a1206;         /* 暖金底上用近黑暖墨,对比更高级 */
-  --accent-glow: rgba(224, 164, 92, 0.28);
-  --v1: #e0a45c;
+  --accent-glow: rgba(236, 170, 86, 0.3);
+  --v1: #ecaa56;
   --v2: #d99450;
-  --v3: #ecc79a;                 /* 浅金:次级强调文字 */
+  --v3: #f1cf9b;                 /* 浅金:次级强调文字 */
   --v4: #7fb4c4;                 /* 冷板岩青:状态点 / 数值,克制使用 */
   --cool: #7fb4c4;
   --success: #7fb4c4;
@@ -79,6 +82,14 @@
   --font-display: "Fraunces", "Space Grotesk", Georgia, ui-serif, serif;
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system,
     "PingFang SC", "Microsoft YaHei", sans-serif;
+
+  /* ── editorial bold:杂志大标题字阶 + 微排版 ──
+     强烈对比 —— display 敢上巨号,标签压到极小全大写做对照。 */
+  --text-display: clamp(2.2rem, 1rem + 4.6vw, 4.4rem);    /* 区块大标题 */
+  --text-title: clamp(1.7rem, 1rem + 2.6vw, 2.9rem);      /* 视图标题 */
+  --tracking-tight: -0.045em;   /* 大字收紧字距,更紧致有力 */
+  --tracking-label: 0.22em;     /* 全大写小标签的张力字距 */
+  --leading-statement: 0.92;    /* 大标题压紧行高,块面感 */
 }
 
 * {
@@ -186,6 +197,14 @@ body::after {
   flex-direction: column;
 }
 
+/* 视图切换容器:AnimatePresence 包裹,占满主区宽度 */
+.view-root {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
 /* ---------- 顶栏:编辑式品牌头 + 内嵌药丸导航 ---------- */
 .topbar {
   position: sticky;
@@ -214,31 +233,33 @@ body::after {
 .brand {
   display: flex;
   align-items: baseline;
-  gap: 0.6rem;
-  font-size: 1.5rem;
+  gap: 0.55rem;
+  font-size: 1.85rem;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.04em;
   color: var(--ink);
   line-height: 1;
 }
 .brand .mark {
   color: var(--accent);
   font-style: italic;        /* Fraunces 斜体大写,签名感 */
+  font-weight: 500;
 }
 .brand .sub {
   align-self: center;
   font-family: var(--font-sans);
-  font-size: 0.62rem;
-  font-weight: 500;
+  font-size: 0.6rem;
+  font-weight: 600;
   text-transform: uppercase;
   color: var(--ink-faint);
-  letter-spacing: 0.16em;
-  padding-left: 0.7rem;
+  letter-spacing: var(--tracking-label);
+  padding-left: 0.85rem;
+  margin-left: 0.15rem;
   border-left: 1px solid var(--hairline-2);
 }
 @media (max-width: 760px) {
   .brand .sub { display: none; }
-  .brand { font-size: 1.3rem; }
+  .brand { font-size: 1.45rem; }
 }
 
 .modal-nav {
@@ -288,22 +309,24 @@ body::after {
   transform: scale(1.08);
 }
 .modal-nav button.active {
-  color: var(--ink);
+  color: var(--accent-ink);     /* 暖金墨块上用近黑暖墨,高对比 */
+  font-weight: 600;
 }
 .modal-nav button.active .nav-ico {
   opacity: 1;
-  color: var(--accent);
+  color: var(--accent-ink);
 }
-/* framer-motion 滑动指示器(layoutId) —— 编辑式的"墨块"在标签间滑移 */
+/* framer-motion 滑动指示器(layoutId)—— 编辑式暖金「墨块」在标签间滑移,
+   现渲染在 active 按钮内部(inset:0),受光高光 + 暖金存在感。 */
 .nav-pill {
   position: absolute;
-  inset: 0.28rem auto 0.28rem;
-  top: 0.28rem;
-  bottom: 0.28rem;
+  inset: 0;
   border-radius: 999px;
-  background: var(--bg-3);
-  box-shadow: inset 0 0 0 1px var(--hairline-2), var(--shadow-sm);
-  z-index: 0;
+  background: linear-gradient(180deg, var(--accent-hover), var(--accent-deep));
+  box-shadow:
+    0 3px 12px -3px var(--accent-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  z-index: -1;
 }
 .modal-nav .soon {
   font-size: 0.58rem;
@@ -352,16 +375,16 @@ body::after {
   50% { opacity: 0.3; transform: scale(0.6); }
 }
 
-/* ---------- 两栏 ---------- */
+/* ---------- 两栏:editorial 不对称 —— 控制台收窄,舞台占主导 ---------- */
 .studio {
   flex: 1;
   width: 100%;
-  max-width: 1500px;
+  max-width: 1560px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: minmax(330px, 390px) 1fr;
-  gap: clamp(1rem, 2vw, 1.6rem);
-  padding: clamp(1rem, 2vw, 1.6rem);
+  grid-template-columns: minmax(320px, 374px) 1fr;
+  gap: clamp(1.2rem, 2.6vw, 2.6rem);
+  padding: clamp(1.1rem, 2.4vw, 2.4rem) clamp(1.1rem, 2.4vw, 2.6rem);
   align-items: start;
 }
 @media (max-width: 920px) {
@@ -384,15 +407,15 @@ body::after {
   gap: 1rem;
   box-shadow: var(--shadow-md), var(--shadow-edge);
 }
-/* 面板顶缘暖高光,像受光面 */
+/* 面板顶缘暖高光,像受光面 —— 更亮更宽,存在感更强 */
 .panel::before {
   content: "";
   position: absolute;
   inset: 0 0 auto;
   height: 2px;
   border-radius: var(--radius) var(--radius) 0 0;
-  background: linear-gradient(90deg, transparent, var(--accent-line) 50%, transparent);
-  opacity: 0.5;
+  background: linear-gradient(90deg, transparent, var(--accent) 50%, transparent);
+  opacity: 0.7;
   pointer-events: none;
 }
 .panel-head {
@@ -650,13 +673,16 @@ input:focus {
   border: 1px solid var(--hairline);
   background: var(--bg-2);
   box-shadow: var(--shadow-sm), var(--shadow-edge);
+  will-change: transform, clip-path;
   transition:
     border-color var(--dur) var(--ease),
+    transform var(--dur-2) var(--ease-expo),
     box-shadow var(--dur-2) var(--ease-expo);
 }
 .create-card:hover {
   border-color: var(--accent-line);
-  box-shadow: var(--shadow-lg);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg), 0 0 0 1px var(--accent-quiet);
 }
 .create-card > img {
   width: 100%;
@@ -851,61 +877,77 @@ input[type="range"]::-webkit-slider-thumb:hover {
   font-size: 0.85rem;
 }
 
-/* ---------- 舞台标题:编辑式大字号对比 + 衬线强调 ---------- */
+/* ---------- 舞台标题:杂志大标题「主张」—— 巨号衬线 + 强烈层级对比 ---------- */
 .stage-head {
   display: flex;
-  align-items: baseline;
-  gap: 0.7rem;
-  padding-bottom: 0.2rem;
+  align-items: flex-end;
+  gap: 0.9rem;
+  padding: clamp(0.4rem, 1.4vw, 1.2rem) 0 clamp(0.5rem, 1.2vw, 1rem);
+  position: relative;
+}
+/* 标题前一道短粗暖金标尺,编辑式起手 */
+.stage-head::before {
+  content: "";
+  align-self: stretch;
+  flex: 0 0 auto;
+  width: 4px;
+  margin: 0.35rem 0.1rem 0.45rem 0;
+  border-radius: 4px;
+  background: linear-gradient(180deg, var(--accent), var(--accent-deep));
+  box-shadow: 0 0 22px -4px var(--accent-glow);
 }
 .stage-head h1 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(1.7rem, 3.4vw, 2.7rem);
-  font-weight: 500;
-  letter-spacing: -0.025em;
-  line-height: 1.02;
+  font-size: var(--text-title);
+  font-weight: 540;
+  letter-spacing: var(--tracking-tight);
+  line-height: 0.98;
+  text-wrap: balance;
 }
 .stage-head h1 .grad {
   color: var(--accent);
   font-style: italic;          /* 衬线斜体强调当前模式,杂志感 */
-  font-weight: 400;
+  font-weight: 420;
+  letter-spacing: -0.03em;
 }
 .stage-head .count {
   margin-left: auto;
-  align-self: center;
-  font-size: 0.72rem;
-  font-weight: 500;
+  align-self: flex-end;
+  margin-bottom: 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--ink-faint);
-  border: 1px solid var(--hairline);
+  letter-spacing: var(--tracking-label);
+  color: var(--ink-soft);
+  border: 1px solid var(--hairline-2);
   border-radius: 999px;
-  padding: 0.28rem 0.8rem;
+  padding: 0.32rem 0.85rem;
   font-variant-numeric: tabular-nums;
   background: var(--glass);
 }
 
-/* ---------- 空画布:编辑式作品集占位,有氛围有引导 ---------- */
+/* ---------- 空画布:editorial 大胆签名 —— 巨号衬线主张 + 不对称构图 ---------- */
 .hero-canvas {
   position: relative;
-  min-height: clamp(360px, 56vh, 600px);
+  min-height: clamp(420px, 62vh, 680px);
   border: 1px solid var(--hairline);
   border-radius: var(--radius);
   background:
-    radial-gradient(120% 90% at 50% 0%, color-mix(in oklab, var(--accent) 6%, transparent), transparent 60%),
+    radial-gradient(125% 100% at 12% -6%, color-mix(in oklab, var(--accent) 11%, transparent), transparent 52%),
+    radial-gradient(90% 70% at 96% 108%, var(--accent-wash), transparent 60%),
     var(--bg-1);
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;       /* 左对齐 —— 编辑式,不安全居中 */
   justify-content: center;
-  gap: 1.1rem;
-  text-align: center;
-  padding: 2.5rem;
-  box-shadow: var(--shadow-edge);
+  gap: 1.15rem;
+  text-align: left;
+  padding: clamp(2.2rem, 5vw, 4.4rem) clamp(1.8rem, 5vw, 4rem);
+  box-shadow: var(--shadow-edge), var(--shadow-md);
 }
-/* 极轻的网格刻度,像设计稿台面,而非赛博网格 */
+/* 极轻的网格刻度,像设计稿台面,而非赛博网格 —— 偏置到右下做层叠 */
 .hero-canvas::before {
   content: "";
   position: absolute;
@@ -913,16 +955,36 @@ input[type="range"]::-webkit-slider-thumb:hover {
   background-image:
     linear-gradient(var(--hairline) 1px, transparent 1px),
     linear-gradient(90deg, var(--hairline) 1px, transparent 1px);
-  background-size: 56px 56px;
-  mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, #000 10%, transparent 75%);
-  opacity: 0.4;
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse 80% 75% at 88% 78%, #000 4%, transparent 70%);
+  opacity: 0.5;
   pointer-events: none;
+}
+/* 一个巨号、半出血、极淡的衬线序数,做版面的「水印主张」 */
+.hero-canvas::after {
+  content: "01";
+  position: absolute;
+  right: clamp(-1rem, -1vw, 0rem);
+  bottom: clamp(-2.2rem, -4vw, -1rem);
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(8rem, 22vw, 18rem);
+  line-height: 0.7;
+  letter-spacing: -0.05em;
+  color: color-mix(in oklab, var(--accent) 9%, transparent);
+  pointer-events: none;
+  user-select: none;
+}
+/* 作品库空态:换一个序数水印,呼应「作品集第一页」 */
+.hero-canvas.lib-empty::after {
+  content: "00";
 }
 .hero-orb {
   position: relative;
-  width: 60px;
-  height: 60px;
-  border-radius: 16px;
+  width: 56px;
+  height: 56px;
+  border-radius: 15px;
   background: linear-gradient(155deg, var(--bg-3), var(--bg-1));
   border: 1px solid var(--hairline-2);
   box-shadow: var(--shadow-md), var(--shadow-edge);
@@ -932,8 +994,8 @@ input[type="range"]::-webkit-slider-thumb:hover {
   position: absolute;
   inset: 0;
   margin: auto;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border-radius: 7px;
   border: 1.5px solid var(--accent);
   box-shadow: 0 0 18px -2px var(--accent-glow);
@@ -941,49 +1003,75 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 .hero-canvas h2 {
   position: relative;
-  margin: 0.3rem 0 0;
-  font-size: clamp(1.5rem, 2.8vw, 2.1rem);
-  font-weight: 500;
-  letter-spacing: -0.02em;
+  margin: 0.4rem 0 0;
+  max-width: 14ch;
+  font-family: var(--font-display);
+  font-size: clamp(2.8rem, 1rem + 7vw, 6.4rem);  /* 巨号主张,杂志大标题 */
+  font-weight: 540;
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-statement);
+  text-wrap: balance;
+}
+.hero-canvas h2 em {
+  font-style: italic;
+  font-weight: 420;
+  color: var(--accent);
 }
 .hero-canvas p {
   position: relative;
   margin: 0;
-  max-width: 33rem;
+  max-width: 38rem;
   color: var(--ink-soft);
-  font-size: 0.92rem;
-  line-height: 1.65;
+  font-size: 1rem;
+  line-height: 1.66;
 }
 .example-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  justify-content: center;
-  max-width: 34rem;
-  margin-top: 0.4rem;
+  justify-content: flex-start;
+  max-width: 38rem;
+  margin-top: 0.7rem;
 }
 .chip {
   font: inherit;
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   color: var(--ink-soft);
   background: var(--bg-2);
   border: 1px solid var(--hairline-2);
   border-radius: 999px;
-  padding: 0.42rem 0.9rem;
+  padding: 0.46rem 1rem;
   cursor: pointer;
-  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+  transition:
+    color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    background var(--dur) var(--ease),
+    transform var(--dur) var(--ease-expo);
 }
 .chip:hover {
-  color: var(--ink);
-  border-color: var(--hairline-strong);
-  background: var(--bg-3);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+  background: var(--accent);
+  transform: translateY(-2px);
 }
 
-/* ---------- 画廊 ---------- */
+/* ---------- 画廊:editorial bento —— 不等大、有节奏,打破均匀网格 ---------- */
 .gallery {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(248px, 1fr));
-  gap: 1.15rem;
+  grid-auto-flow: dense;
+  gap: clamp(0.9rem, 1.4vw, 1.35rem);
+}
+/* 每第 7 张拉成 2×2 焦点格,制造杂志式视觉重心(仅图片格,GLB/音频维持 1×1) */
+.gallery .shot.feature {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+@media (max-width: 620px) {
+  .gallery .shot.feature {
+    grid-column: span 1;
+    grid-row: span 1;
+  }
 }
 .shot {
   position: relative;
@@ -993,7 +1081,11 @@ input[type="range"]::-webkit-slider-thumb:hover {
   border: 1px solid var(--hairline);
   box-shadow: var(--shadow-sm);
   cursor: zoom-in;
-  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  will-change: transform;
+  transition:
+    border-color var(--dur) var(--ease),
+    transform var(--dur-2) var(--ease-expo),
+    box-shadow var(--dur-2) var(--ease-expo);
   animation: rise var(--dur-2) var(--ease) both;
 }
 @keyframes rise {
@@ -1001,19 +1093,25 @@ input[type="range"]::-webkit-slider-thumb:hover {
   to { opacity: 1; transform: translateY(0); }
 }
 .shot:hover {
-  border-color: var(--hairline-strong);
-  box-shadow: var(--shadow-md);
+  border-color: var(--accent-line);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg), 0 0 0 1px var(--accent-quiet);
+  z-index: 2;
 }
 .shot img {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
   aspect-ratio: 1 / 1;
   object-fit: cover;
-  transition: transform var(--dur-2) var(--ease);
+  transition: transform var(--dur-2) var(--ease-expo);
+}
+.shot.feature img {
+  aspect-ratio: auto;
+  min-height: 100%;
 }
 .shot:hover img {
-  transform: scale(1.03);
+  transform: scale(1.05);
 }
 .shot-overlay {
   position: absolute;
@@ -1048,12 +1146,12 @@ input[type="range"]::-webkit-slider-thumb:hover {
   transform: scale(1.1);
 }
 .shot .meta {
-  padding: 0.65rem 0.75rem 0.75rem;
+  padding: 0.6rem 0.78rem 0.7rem;
   font-size: 0.72rem;
   color: var(--ink-soft);
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.18rem;
   border-top: 1px solid var(--hairline);
 }
 .shot .meta .prompt {
@@ -1065,6 +1163,28 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .shot .meta .sub {
   color: var(--ink-faint);
   font-variant-numeric: tabular-nums;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.64rem;
+}
+/* 焦点大格:标题压在底部做杂志式 caption,衬线斜体强调 */
+.shot.feature .meta {
+  position: absolute;
+  inset: auto 0 0 0;
+  border-top: none;
+  padding: 1.4rem 1rem 0.85rem;
+  background: linear-gradient(to top, rgba(8, 7, 9, 0.86) 12%, transparent);
+}
+.shot.feature .meta .prompt {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 1.05rem;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  letter-spacing: -0.01em;
 }
 
 /* ---------- 作品库 GLB 卡片 ---------- */
@@ -1274,26 +1394,55 @@ input[type="range"]::-webkit-slider-thumb:hover {
   padding: 1.5rem;
 }
 .auth-card {
-  width: min(100%, 400px);
+  position: relative;
+  width: min(100%, 440px);
   border: 1px solid var(--hairline);
   border-radius: var(--radius);
-  background: var(--bg-1);
+  background:
+    radial-gradient(120% 80% at 8% -10%, var(--accent-quiet), transparent 50%),
+    var(--bg-1);
   box-shadow: var(--shadow-lg);
-  padding: clamp(1.6rem, 4vw, 2.4rem);
+  padding: clamp(2rem, 5vw, 3rem) clamp(1.8rem, 4vw, 2.6rem);
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  overflow: hidden;
+}
+/* 卡片顶缘暖金受光描边,签名感 */
+.auth-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent) 45%, transparent);
+  opacity: 0.7;
+}
+.auth-eyebrow {
+  font-size: 0.64rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--accent);
 }
 .auth-brand {
-  justify-content: center;
-  font-size: 2rem;
+  justify-content: flex-start;
+  font-size: clamp(3rem, 12vw, 4.2rem);
+  letter-spacing: -0.05em;
+  margin-top: -0.3rem;
 }
 .auth-tagline {
-  margin: -0.4rem 0 0.6rem;
-  text-align: center;
-  color: var(--ink-faint);
-  font-size: 0.82rem;
-  letter-spacing: 0.06em;
+  margin: -0.2rem 0 1rem;
+  text-align: left;
+  color: var(--ink-soft);
+  font-size: 1.05rem;
+  line-height: 1.55;
+  letter-spacing: -0.01em;
+}
+.auth-tagline em {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 500;
+  color: var(--accent);
 }
 .auth-tabs {
   display: grid;
@@ -1602,11 +1751,12 @@ input[type="range"]::-webkit-slider-thumb:hover {
   color: var(--ink-soft);
 }
 .chat-empty h2 {
-  margin: 0.9rem 0 0;
+  margin: 1.1rem 0 0;
   font-family: var(--font-display);
-  font-size: clamp(1.6rem, 3vw, 2.4rem);
-  font-weight: 700;
-  letter-spacing: -0.03em;
+  font-size: var(--text-display);
+  font-weight: 560;
+  letter-spacing: var(--tracking-tight);
+  line-height: 0.98;
   color: var(--ink);
 }
 .chat-empty p {
@@ -2645,8 +2795,12 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 .mode-tabs button.active {
   color: var(--ink);
-  border-color: var(--accent-line);
+  border-color: var(--accent);
   background: var(--accent-quiet);
+  box-shadow: inset 0 0 0 1px var(--accent-line), 0 4px 14px -8px var(--accent-glow);
+}
+.mode-tabs button.active .mode-ico {
+  transform: scale(1.12);
 }
 
 /* 简易参考图 */

@@ -33,10 +33,14 @@ export function AuthScreen({ onAuthed }: Props) {
   return (
     <div className="auth-screen">
       <div className="auth-card">
+        <span className="auth-eyebrow">AI 创作平台</span>
         <div className="brand auth-brand">
           To<span className="mark">IV</span>
         </div>
-        <p className="auth-tagline">极光 · AI 创作平台</p>
+        <p className="auth-tagline">
+          一句话，<em>造一个世界</em>。<br />
+          图像 · 视频 · 3D · 音乐，同一个创作台。
+        </p>
 
         <form onSubmit={submit} className="auth-form">
           <div className="field">

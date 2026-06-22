@@ -14,7 +14,7 @@ import { ModelLibrary } from "@/components/models/ModelLibrary";
 import { ThreeDStudio } from "@/components/threed/ThreeDStudio";
 import { NavIcon } from "@/components/ui/NavIcon";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
-import { viewVariants } from "@/lib/motion";
+import { navPillSpring, viewVariants } from "@/lib/motion";
 import { fetchMe, getToken, setToken } from "@/lib/api";
 import type { AuthResult } from "@/lib/api";
 
@@ -92,64 +92,88 @@ export default function Home() {
   }
 
   return (
-    <div className="app-shell">
-      <header className="topbar">
-        <span className="brand">
-          To<span className="mark">IV</span>
-          <span className="sub">极光 · AI 创作平台</span>
-        </span>
-
-        <nav className="modal-nav" aria-label="模块导航">
-          {navItems.map((m) => (
-            <button
-              key={m.key}
-              type="button"
-              className={view === m.view ? "active" : ""}
-              onClick={() => setView(m.view)}
-              aria-current={view === m.view ? "page" : undefined}
-            >
-              <NavIcon name={m.icon} />
-              {m.label}
-            </button>
-          ))}
-        </nav>
-
-        <div className="account">
-          <span className="user-chip" title={account?.email}>
-            {account?.email}
-            <em>{account?.usageTotal ?? 0} 次生成</em>
+    <MotionConfig reducedMotion="user">
+      <div className="app-shell">
+        <header className="topbar">
+          <span className="brand">
+            To<span className="mark">IV</span>
+            <span className="sub">编辑式 · AI 创作平台</span>
           </span>
-          <button type="button" className="logout" onClick={onLogout}>
-            退出
-          </button>
-        </div>
-      </header>
 
-      {view === "assistant" ? (
-        <div className="single-view">
-          <AssistantView />
-        </div>
-      ) : view === "create" ? (
-        <CreateStudio />
-      ) : view === "manju" ? (
-        <ManjuStudio />
-      ) : view === "admin" ? (
-        <div className="single-view">
-          <AdminPanel />
-        </div>
-      ) : view === "library" ? (
-        <div className="single-view">
-          <LibraryView />
-        </div>
-      ) : view === "models" ? (
-        <div className="single-view">
-          <ModelLibrary />
-        </div>
-      ) : view === "threed" ? (
-        <ThreeDStudio />
-      ) : (
-        <AudioStudio />
-      )}
-    </div>
+          <nav className="modal-nav" aria-label="模块导航">
+            {navItems.map((m) => {
+              const isActive = view === m.view;
+              return (
+                <button
+                  key={m.key}
+                  type="button"
+                  className={isActive ? "active" : ""}
+                  onClick={() => setView(m.view)}
+                  aria-current={isActive ? "page" : undefined}
+                >
+                  {isActive && (
+                    <motion.span
+                      className="nav-pill"
+                      layoutId="nav-pill"
+                      aria-hidden="true"
+                      transition={navPillSpring}
+                    />
+                  )}
+                  <NavIcon name={m.icon} />
+                  {m.label}
+                </button>
+              );
+            })}
+          </nav>
+
+          <div className="account">
+            <span className="user-chip" title={account?.email}>
+              {account?.email}
+              <em>{account?.usageTotal ?? 0} 次生成</em>
+            </span>
+            <button type="button" className="logout" onClick={onLogout}>
+              退出
+            </button>
+          </div>
+        </header>
+
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={view}
+            className="view-root"
+            variants={viewVariants}
+            initial="initial"
+            animate="enter"
+            exit="exit"
+          >
+            {view === "assistant" ? (
+              <div className="single-view">
+                <AssistantView />
+              </div>
+            ) : view === "create" ? (
+              <CreateStudio />
+            ) : view === "manju" ? (
+              <ManjuStudio />
+            ) : view === "admin" ? (
+              <div className="single-view">
+                <AdminPanel />
+              </div>
+            ) : view === "library" ? (
+              <div className="single-view">
+                <LibraryView />
+              </div>
+            ) : view === "models" ? (
+              <div className="single-view">
+                <ModelLibrary />
+              </div>
+            ) : view === "threed" ? (
+              <ThreeDStudio />
+            ) : (
+              <AudioStudio />
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+    </MotionConfig>
   );
 }
