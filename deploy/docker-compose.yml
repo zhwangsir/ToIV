@@ -16,6 +16,8 @@ services:
       TOIV_ADMIN_EMAIL: "${TOIV_ADMIN_EMAIL:-admin}"
       TOIV_ADMIN_PASSWORD: "${TOIV_ADMIN_PASSWORD:-admin123}"
       TOIV_CORS_ORIGINS: "${TOIV_CORS_ORIGINS:-*}"
+      # 模型市场:Civitai 走 civitai.red 镜像;API key(成人模型/高限额)走 deploy/.env,不入仓库
+      TOIV_CIVITAI_API_KEY: "${TOIV_CIVITAI_API_KEY:-}"
     volumes:
       - toiv-data:/data
     ports:

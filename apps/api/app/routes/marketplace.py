@@ -4,6 +4,8 @@
 """
 from __future__ import annotations
 
+import os
+
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -12,13 +14,18 @@ from app.models import User
 
 router = APIRouter()
 
-_CIVITAI = "https://civitai.com/api/v1/models"
+# Civitai 走可达镜像 civitai.red(civitai.com 在 CN 被墙);可用 env 覆盖。
+# NSFW/成人模型需 API key 鉴权才能搜到/下载;key 走 env(TOIV_CIVITAI_API_KEY),不入仓库。
+_CIVITAI = os.environ.get("TOIV_CIVITAI_API_BASE", "https://civitai.red/api/v1/models")
+_CIVITAI_WEB = os.environ.get("TOIV_CIVITAI_WEB_BASE", "https://civitai.red")
+_CIVITAI_KEY = os.environ.get("TOIV_CIVITAI_API_KEY", "")
 _HF = "https://huggingface.co/api/models"
 _HEADERS = {"User-Agent": "ToIV/0.1 (+https://github.com/zhwangsir/ToIV)"}
 
 
-async def _get_json(url: str, params: dict):
-    async with httpx.AsyncClient(timeout=20.0, headers=_HEADERS) as client:
+async def _get_json(url: str, params: dict, headers: dict | None = None):
+    h = {**_HEADERS, **(headers or {})}
+    async with httpx.AsyncClient(timeout=20.0, headers=h) as client:
         resp = await client.get(url, params=params)
         resp.raise_for_status()
         return resp.json()
@@ -40,7 +47,7 @@ def _civitai_item(it: dict) -> dict:
         "creator": (it.get("creator") or {}).get("username"),
         "thumbnail": thumb,
         "downloads": (it.get("stats") or {}).get("downloadCount"),
-        "url": f"https://civitai.com/models/{it.get('id')}",
+        "url": f"{_CIVITAI_WEB}/models/{it.get('id')}",
         "source": "civitai",
     }
 
@@ -64,16 +71,18 @@ async def search(
     source: str = Query(default="civitai"),
     query: str = "",
     type: str | None = None,
+    nsfw: str = Query(default="false"),
     user: User = Depends(get_current_user),
 ) -> dict:
     try:
         if source == "civitai":
-            params: dict = {"limit": 24, "sort": "Most Downloaded", "nsfw": "false"}
+            params: dict = {"limit": 24, "sort": "Most Downloaded", "nsfw": nsfw}
             if query:
                 params["query"] = query
             if type:
                 params["types"] = type
-            data = await _get_json(_CIVITAI, params)
+            headers = {"Authorization": f"Bearer {_CIVITAI_KEY}"} if _CIVITAI_KEY else None
+            data = await _get_json(_CIVITAI, params, headers)
             items = [_civitai_item(i) for i in data.get("items", [])]
         elif source == "huggingface":
             params = {"limit": 24, "sort": "downloads", "direction": -1}

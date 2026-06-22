@@ -2475,3 +2475,452 @@ input[type="range"]::-webkit-slider-thumb:hover {
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+/* ============================================================
+   统一创作台 —— 简易 ⇄ 专业 双层
+   ============================================================ */
+.create-panel {
+  gap: 0.9rem;
+}
+
+/* ---------- 简易 ⇄ 专业 切换 ---------- */
+.tier-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.25);
+}
+.tier-switch button {
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  padding: 0.42rem 1.1rem;
+  cursor: pointer;
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.tier-switch button.active {
+  color: #07060c;
+  background: var(--aurora);
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(116, 104, 240, 0.35);
+}
+.tier-switch button:not(.active):hover {
+  color: var(--ink);
+}
+.tier-hint {
+  margin-left: auto;
+  padding-right: 0.5rem;
+  font-size: 0.7rem;
+  color: var(--ink-faint);
+  letter-spacing: 0.02em;
+}
+
+/* ---------- 简易版 ---------- */
+.simple-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+}
+
+/* 模式图标 tab */
+.mode-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4rem;
+}
+.mode-tabs button {
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.3rem;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  transition: all var(--dur) var(--ease);
+}
+.mode-tabs button .mode-ico {
+  font-size: 1.2rem;
+  line-height: 1;
+  transition: transform var(--dur) var(--ease);
+}
+.mode-tabs button:hover {
+  color: var(--ink);
+  border-color: var(--hairline-2);
+}
+.mode-tabs button:hover .mode-ico {
+  transform: scale(1.15) translateY(-1px);
+}
+.mode-tabs button.active {
+  color: var(--ink);
+  border-color: rgba(116, 104, 240, 0.8);
+  background: rgba(116, 104, 240, 0.14);
+}
+.mode-tabs button.active .mode-ico {
+  transform: scale(1.1);
+}
+
+/* 简易参考图 */
+.simple-ref .dropzone-sm {
+  min-height: 5rem;
+  font-size: 0.8rem;
+}
+.simple-ref .ref-preview {
+  position: relative;
+}
+.ref-remove {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--hairline-2);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease);
+}
+.ref-remove:hover {
+  background: var(--danger);
+}
+.ref-tag {
+  position: absolute;
+  bottom: 0.4rem;
+  left: 0.4rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #07060c;
+  background: var(--aurora);
+  border-radius: 999px;
+  padding: 0.12rem 0.6rem;
+}
+
+/* 大提示词框 */
+.simple-prompt {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.simple-prompt textarea {
+  min-height: 6.5rem;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.simple-prompt .optimize-btn {
+  margin: 0;
+  align-self: flex-end;
+}
+
+/* 智能 chip 行 */
+.chip-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.chip-row-label {
+  font-size: 0.74rem;
+  color: var(--ink-faint);
+  min-width: 2.4rem;
+}
+.smart-chip {
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  padding: 0.32rem 0.85rem;
+  cursor: pointer;
+  transition: all var(--dur) var(--ease);
+}
+.smart-chip:hover {
+  color: var(--ink);
+  border-color: var(--hairline-2);
+}
+.smart-chip.active {
+  color: #07060c;
+  background: var(--aurora);
+  border-color: transparent;
+  font-weight: 600;
+}
+.smart-chip:active {
+  transform: scale(0.95);
+}
+
+/* ---------- 专业版 ---------- */
+.pro-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.pro-panel .seg {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+/* 可折叠高级分区 */
+.advanced {
+  border-top: 1px solid var(--hairline);
+  padding-top: 0.85rem;
+}
+.advanced-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: color var(--dur) var(--ease);
+}
+.advanced-toggle:hover {
+  color: var(--ink);
+}
+.adv-caret {
+  display: inline-block;
+  transition: transform var(--dur) var(--ease);
+}
+.adv-caret.open {
+  transform: rotate(90deg);
+}
+.advanced-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  margin-top: 0.85rem;
+  animation: view-in 0.32s var(--ease) both;
+}
+
+/* LoRA / ControlNet 占位槽位 */
+.slot-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.slot-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.85rem;
+  border: 1px dashed var(--hairline-2);
+  border-radius: var(--radius-xs);
+  background: rgba(0, 0, 0, 0.18);
+  font-size: 0.82rem;
+  color: var(--ink-faint);
+}
+.slot-placeholder .soon {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--v4);
+  border: 1px solid color-mix(in oklab, var(--v4) 40%, transparent);
+  border-radius: 999px;
+  padding: 0.06rem 0.45rem;
+}
+
+/* ---------- 结果流:视频 / 音频瓦片 ---------- */
+.create-card > .create-media {
+  width: 100%;
+  display: block;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+}
+.create-card video.create-media {
+  background: #000;
+}
+.create-audio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  aspect-ratio: 1 / 1;
+  padding: 0 0.8rem;
+  background:
+    radial-gradient(60% 60% at 50% 40%, rgba(63, 201, 173, 0.16), transparent 70%),
+    var(--bg-1);
+}
+.create-audio audio {
+  width: 100%;
+  max-width: 220px;
+}
+.card-actions-thin {
+  position: absolute;
+}
+.card-actions-thin a {
+  flex: 1;
+}
+
+/* ---------- 内联 AI 助手 ---------- */
+.assist-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  align-self: flex-start;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--v1);
+  background: color-mix(in oklab, var(--v1) 10%, transparent);
+  border: 1px solid color-mix(in oklab, var(--v1) 34%, transparent);
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.assist-toggle:hover {
+  background: color-mix(in oklab, var(--v1) 18%, transparent);
+  transform: translateY(-1px);
+}
+.assist-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--v4);
+  box-shadow: 0 0 8px var(--v4);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+.assist-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.22);
+  padding: 0.7rem 0.8rem;
+  animation: view-in 0.32s var(--ease) both;
+}
+.assist-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+.assist-head > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.assist-close {
+  font: inherit;
+  font-size: 0.74rem;
+  color: var(--ink-faint);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.assist-close:hover {
+  color: var(--ink);
+}
+.assist-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.assist-quick {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.assist-quick .muted {
+  font-size: 0.78rem;
+  margin: 0 0 0.2rem;
+}
+.assist-quick button {
+  font: inherit;
+  font-size: 0.78rem;
+  text-align: left;
+  color: var(--ink-soft);
+  background: var(--glass);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-xs);
+  padding: 0.42rem 0.7rem;
+  cursor: pointer;
+  transition: all var(--dur) var(--ease);
+}
+.assist-quick button:hover {
+  color: var(--ink);
+  border-color: rgba(116, 104, 240, 0.6);
+  background: rgba(116, 104, 240, 0.1);
+}
+.assist-msg {
+  font-size: 0.82rem;
+  line-height: 1.55;
+  padding: 0.5rem 0.7rem;
+  border-radius: var(--radius-xs);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.assist-msg.user {
+  align-self: flex-end;
+  max-width: 88%;
+  color: #07060c;
+  background: var(--aurora);
+  font-weight: 500;
+}
+.assist-msg.assistant {
+  align-self: flex-start;
+  color: var(--ink);
+  background: var(--glass-2);
+  border: 1px solid var(--hairline);
+}
+.assist-apply {
+  display: block;
+  margin-top: 0.4rem;
+  font: inherit;
+  font-size: 0.7rem;
+  color: var(--v1);
+  background: color-mix(in oklab, var(--v1) 12%, transparent);
+  border: 1px solid color-mix(in oklab, var(--v1) 34%, transparent);
+  border-radius: 999px;
+  padding: 0.16rem 0.6rem;
+  cursor: pointer;
+}
+.assist-apply:hover {
+  background: color-mix(in oklab, var(--v1) 22%, transparent);
+}
+.assist-input {
+  display: flex;
+  gap: 0.45rem;
+}
+.assist-input input {
+  flex: 1;
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 0.5rem 0.7rem;
+}
+.assist-input button {
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #07060c;
+  background: var(--aurora);
+  border: none;
+  border-radius: var(--radius-xs);
+  padding: 0 0.95rem;
+  cursor: pointer;
+}
+.assist-input button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

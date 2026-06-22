@@ -215,6 +215,36 @@ export async function generateVideo(
   return res.json();
 }
 
+export interface Txt2VideoParams {
+  positive: string;
+  negative?: string;
+  width: number;
+  height: number;
+  length: number;
+  fps: number;
+  seed?: number | null;
+}
+
+/**
+ * 文生视频(text → video)。契约:POST /api/generate/txt2video
+ * 请求体 { positive, negative?, width, height, length, fps, seed? }。
+ * 后端端点由另一 agent 并行实现。
+ */
+export async function generateTxt2video(
+  params: Txt2VideoParams,
+): Promise<GenerateResponse> {
+  const res = await fetch(`${API_BASE}/api/generate/txt2video`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `文生视频请求失败 (${res.status})`);
+  }
+  return res.json();
+}
+
 export interface Gen3DParams {
   image: string;
   worker: string;
