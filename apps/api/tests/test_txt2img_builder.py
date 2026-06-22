@@ -1,3 +1,4 @@
+from app.workflows.lora import LoraSpec
 from app.workflows.txt2img import MAX_SEED, Txt2ImgParams, build_txt2img_graph
 
 
@@ -60,3 +61,42 @@ def test_returns_new_dict_each_call():
 def test_random_seed_in_range_when_unspecified():
     p = Txt2ImgParams(positive="x")
     assert 0 <= p.seed <= MAX_SEED
+
+
+def test_no_lora_keeps_baseline_graph():
+    """无 LoRA 时不应出现 LoraLoader,且 KSampler/CLIP 直引 checkpoint。"""
+    g = build_txt2img_graph(Txt2ImgParams(positive="x"))
+    assert "LoraLoader" not in {n["class_type"] for n in g.values()}
+    assert g["3"]["inputs"]["model"] == ["4", 0]
+    assert g["6"]["inputs"]["clip"] == ["4", 1]
+
+
+def test_single_lora_inserted_between_checkpoint_and_consumers():
+    g = build_txt2img_graph(
+        Txt2ImgParams(positive="x", loras=(LoraSpec("style.safetensors", 0.7),))
+    )
+    assert g["100"]["class_type"] == "LoraLoader"
+    assert g["100"]["inputs"]["lora_name"] == "style.safetensors"
+    assert g["100"]["inputs"]["strength_model"] == 0.7
+    assert g["100"]["inputs"]["strength_clip"] == 0.7
+    assert g["100"]["inputs"]["model"] == ["4", 0]
+    assert g["100"]["inputs"]["clip"] == ["4", 1]
+    # 下游消费末端 LoRA 输出
+    assert g["3"]["inputs"]["model"] == ["100", 0]
+    assert g["6"]["inputs"]["clip"] == ["100", 1]
+    assert g["7"]["inputs"]["clip"] == ["100", 1]
+
+
+def test_multiple_loras_chain_in_order():
+    g = build_txt2img_graph(
+        Txt2ImgParams(
+            positive="x",
+            loras=(LoraSpec("a.safetensors", 0.8), LoraSpec("b.safetensors", 0.5)),
+        )
+    )
+    # 第二个 LoRA 串在第一个之后
+    assert g["101"]["inputs"]["model"] == ["100", 0]
+    assert g["101"]["inputs"]["clip"] == ["100", 1]
+    # KSampler 取末端
+    assert g["3"]["inputs"]["model"] == ["101", 0]
+    assert g["6"]["inputs"]["clip"] == ["101", 1]

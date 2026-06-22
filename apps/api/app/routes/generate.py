@@ -15,8 +15,24 @@ from app.deps import get_current_user, get_pool, resolve_worker
 from app.models import Job, User
 from app.ratelimit import enforce_generation_rate_limit
 from app.workflows.img2img import Img2ImgParams, build_img2img_graph
+from app.workflows.lora import LoraSpec
 from app.workflows.txt2img import Txt2ImgParams, build_txt2img_graph
 from app.workflows.wan_t2v import WanT2VParams, build_wan_t2v_graph
+
+
+class LoraInput(BaseModel):
+    """叠加的单个 LoRA:文件名 + 权重(同时作用于 model 与 clip)。"""
+
+    name: str = Field(min_length=1, max_length=256)
+    weight: float = Field(default=1.0, ge=-2.0, le=2.0)
+
+
+# 单次最多叠加的 LoRA 数(防滥用 + 控制图规模)
+_MAX_LORAS = 8
+
+
+def _to_lora_specs(loras: list[LoraInput]) -> tuple[LoraSpec, ...]:
+    return tuple(LoraSpec(name=l.name, weight=l.weight) for l in loras[:_MAX_LORAS])
 
 
 class Txt2ImgRequest(BaseModel):
@@ -31,6 +47,7 @@ class Txt2ImgRequest(BaseModel):
     scheduler: str = Field(default="normal", max_length=64)
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
     batch_size: int = Field(default=1, ge=1, le=8)
+    loras: list[LoraInput] = Field(default_factory=list, max_length=_MAX_LORAS)
 
 
 router = APIRouter()
@@ -61,11 +78,14 @@ async def generate_txt2img(
         sampler=req.sampler,
         scheduler=req.scheduler,
         batch_size=req.batch_size,
+        loras=_to_lora_specs(req.loras),
         **({"seed": req.seed} if req.seed is not None else {}),
     )
     graph = build_txt2img_graph(params)
+    # 路由到既有 checkpoint 又有所选 LoRA 文件的 worker(异构多机下避免缺模型)
+    required = {params.ckpt_name, *(l.name for l in params.loras)}
     try:
-        client = await pool.pick(required={params.ckpt_name})
+        client = await pool.pick(required=required)
     except ComfyUIError as e:
         raise HTTPException(status_code=503, detail=str(e)) from e
     client_id = uuid.uuid4().hex
@@ -189,6 +209,7 @@ class Img2ImgRequest(BaseModel):
     sampler: str = Field(default="euler", max_length=64)
     scheduler: str = Field(default="normal", max_length=64)
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
+    loras: list[LoraInput] = Field(default_factory=list, max_length=_MAX_LORAS)
 
 
 @router.post("/generate/img2img")
@@ -210,6 +231,7 @@ async def generate_img2img(
         cfg=req.cfg,
         sampler=req.sampler,
         scheduler=req.scheduler,
+        loras=_to_lora_specs(req.loras),
         **({"seed": req.seed} if req.seed is not None else {}),
     )
     graph = build_img2img_graph(params)

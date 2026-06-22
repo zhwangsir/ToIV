@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@xyflow/react": "^12.11.1",
     "framer-motion": "^12.40.0",
     "next": "^15.1.0",
     "react": "^19.0.0",

@@ -3272,6 +3272,116 @@ input[type="range"]::-webkit-slider-thumb:hover {
   padding: 0.06rem 0.45rem;
 }
 
+/* ---------- 模式感知模型:只读展示(视频/3D/音频) ---------- */
+.model-readonly {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.model-chip {
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  background: var(--accent-wash);
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  padding: 0.22rem 0.7rem;
+  white-space: nowrap;
+}
+
+/* ---------- LoRA 叠加器 ---------- */
+.lora-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding-top: 0.15rem;
+}
+.lora-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.lora-add {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-quiet);
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  padding: 0.18rem 0.7rem;
+  cursor: pointer;
+  transition:
+    background var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
+}
+.lora-add:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--accent) 24%, transparent);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+.lora-add:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.lora-empty {
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+  margin: 0;
+  line-height: 1.5;
+}
+.lora-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid var(--hairline-2);
+  border-radius: var(--radius-xs);
+  background: rgba(0, 0, 0, 0.18);
+}
+.lora-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.lora-row select {
+  flex: 1;
+  min-width: 0;
+}
+.lora-remove {
+  flex: none;
+  width: 1.9rem;
+  height: 1.9rem;
+  display: grid;
+  place-items: center;
+  color: var(--ink-faint);
+  background: transparent;
+  border: 1px solid var(--hairline-2);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition:
+    color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    background var(--dur) var(--ease);
+}
+.lora-remove:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--accent-line);
+  background: var(--accent-wash);
+}
+.lora-remove:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+/* 叠加项内的滑块更紧凑,贴合卡片 */
+.lora-item .slider-field {
+  margin: 0;
+}
+
 /* ---------- 结果流:视频 / 音频瓦片 ---------- */
 .create-card > .create-media {
   width: 100%;

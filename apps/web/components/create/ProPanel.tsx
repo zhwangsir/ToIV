@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
 import { Slider } from "@/components/ui/Slider";
-import type { ModelsResponse } from "@/lib/types";
+import type { LoraInput, ModelsResponse } from "@/lib/types";
 
 import type { Dispatch } from "./useGenerationFeed";
 import {
@@ -27,6 +27,8 @@ interface ProPanelProps {
   setRef: (r: RefImage | null) => void;
   ensureUploaded: (r: RefImage, kind: string) => Promise<{ filename: string; worker: string }>;
   models: ModelsResponse | null;
+  /** 可叠加的本地 LoRA 文件名(来自 /api/models/local)。 */
+  loraOptions: string[];
   ckpt: string;
   setCkpt: (c: string) => void;
   busy: boolean;
@@ -46,9 +48,12 @@ interface ImgParams {
   denoise: number;
 }
 
+/** 去掉 .safetensors 后缀的展示名。 */
+const cleanName = (n: string): string => n.replace(/\.(safetensors|ckpt|pt)$/i, "");
+
 /** 专业版:全控制面板,可折叠高级分区 + 工作流预设 + 占位槽位。 */
 export function ProPanel(props: ProPanelProps) {
-  const { mode, setMode, prompt, setPrompt, ref, setRef, ensureUploaded, models, ckpt, setCkpt, busy, run } = props;
+  const { mode, setMode, prompt, setPrompt, ref, setRef, ensureUploaded, models, loraOptions, ckpt, setCkpt, busy, run } = props;
 
   const [img, setImg] = useState<ImgParams>({
     negative: DEFAULT_NEGATIVE,
@@ -71,9 +76,30 @@ export function ProPanel(props: ProPanelProps) {
   const [audioLyrics, setAudioLyrics] = useState("");
   const [audioSeconds, setAudioSeconds] = useState(30);
   const [advanced, setAdvanced] = useState(false);
+  // 叠加的 LoRA(仅图像模式)。每项 {name, weight};不可变更新。
+  const [loras, setLoras] = useState<LoraInput[]>([]);
 
   const set = <K extends keyof ImgParams>(k: K, v: ImgParams[K]) => setImg((p) => ({ ...p, [k]: v }));
   const seedNum = img.seed.trim() ? Number(img.seed) : null;
+
+  // 仅透传已选中真实文件名的 LoRA(避免空槽位污染请求)
+  const activeLoras = loras.filter((l) => l.name);
+  // 还能添加的 LoRA 文件名(已选的不重复列出)
+  const availableLoras = loraOptions.filter((n) => !loras.some((l) => l.name === n));
+
+  const addLora = useCallback(() => {
+    const next = loraOptions.find((n) => !loras.some((l) => l.name === n)) ?? "";
+    if (!next) return;
+    setLoras((p) => [...p, { name: next, weight: 0.8 }]);
+  }, [loraOptions, loras]);
+
+  const updateLora = useCallback((i: number, patch: Partial<LoraInput>) => {
+    setLoras((p) => p.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
+  }, []);
+
+  const removeLora = useCallback((i: number) => {
+    setLoras((p) => p.filter((_, idx) => idx !== i));
+  }, []);
 
   const pickFile = useCallback(
     (file: File | null) => {
@@ -113,6 +139,7 @@ export function ProPanel(props: ProPanelProps) {
               sampler: img.sampler,
               scheduler: img.scheduler,
               seed: seedNum,
+              loras: activeLoras,
             },
           }],
           "重绘中…",
@@ -135,6 +162,7 @@ export function ProPanel(props: ProPanelProps) {
               scheduler: img.scheduler,
               seed: seedNum,
               batch_size: img.batch,
+              loras: activeLoras,
             },
           }],
           img.batch > 1 ? `生成 ${img.batch} 张…` : "生成中…",
@@ -203,7 +231,7 @@ export function ProPanel(props: ProPanelProps) {
         "创作音乐…",
       );
     }
-  }, [busy, prompt, mode, ref, ensureUploaded, ckpt, img, seedNum, vidAspect, vidLength, vidFps, steps3d, cfg3d, octree, audioLyrics, audioSeconds, run]);
+  }, [busy, prompt, mode, ref, ensureUploaded, ckpt, img, seedNum, activeLoras, vidAspect, vidLength, vidFps, steps3d, cfg3d, octree, audioLyrics, audioSeconds, run]);
 
   const canRun = mode === "audio" ? !!prompt.trim() : mode === "model3d" ? !!ref : !!(prompt.trim() || ref);
   const optimizeKind = mode === "audio" ? "audio" : mode === "video" ? "video" : ref ? "image_edit" : "image";
@@ -222,17 +250,9 @@ export function ProPanel(props: ProPanelProps) {
         </div>
       </div>
 
-      {/* 模型选择器(图像/视频) */}
-      {(mode === "image" || mode === "video") && models && models.checkpoints.length > 0 && (
-        <div className="field">
-          <label>模型 · checkpoint</label>
-          <select value={ckpt} onChange={(e) => setCkpt(e.target.value)}>
-            {models.checkpoints.map((c) => (
-              <option key={c} value={c}>{c.replace(/\.safetensors$/, "")}</option>
-            ))}
-          </select>
-        </div>
-      )}
+      {/* 模型选择器:模式感知 —— 各模式只展示对应类别模型 */}
+      <ModelSelector mode={mode} models={models} ckpt={ckpt} setCkpt={setCkpt} />
+
 
       {/* 工作流预设 */}
       {(mode === "image" || mode === "video") && (
@@ -398,18 +418,25 @@ export function ProPanel(props: ProPanelProps) {
                 <input id="pro-seed" type="number" placeholder="随机" value={img.seed} onChange={(e) => set("seed", e.target.value)} />
               </div>
 
-              {/* LoRA / ControlNet 槽位:UI 占位,后端未接 */}
-              {(mode === "image") && (
-                <div className="slot-group">
-                  <div className="slot-placeholder">
-                    <span>LoRA 槽位</span>
-                    <span className="soon">即将开放</span>
+              {/* LoRA 叠加(真实接入后端 LoraLoader 链);ControlNet 仍为占位 */}
+              {mode === "image" && (
+                <>
+                  <LoraSelector
+                    loras={loras}
+                    options={loraOptions}
+                    availableCount={availableLoras.length}
+                    busy={busy}
+                    onAdd={addLora}
+                    onUpdate={updateLora}
+                    onRemove={removeLora}
+                  />
+                  <div className="slot-group">
+                    <div className="slot-placeholder">
+                      <span>ControlNet 槽位</span>
+                      <span className="soon">即将开放</span>
+                    </div>
                   </div>
-                  <div className="slot-placeholder">
-                    <span>ControlNet 槽位</span>
-                    <span className="soon">即将开放</span>
-                  </div>
-                </div>
+                </>
               )}
             </div>
           )}
@@ -419,6 +446,126 @@ export function ProPanel(props: ProPanelProps) {
       <button type="button" className="generate-btn" disabled={busy || !canRun} onClick={submit}>
         {busy ? "生成中…" : mode === "video" ? (ref ? "图生视频" : "文生视频") : mode === "model3d" ? "生成 3D" : mode === "audio" ? "生成音乐" : ref ? "重绘" : "生成"}
       </button>
+    </div>
+  );
+}
+
+const MODEL_LABEL: Record<Mode, string> = {
+  image: "模型 · checkpoint",
+  video: "视频模型 · Wan 2.2",
+  model3d: "3D 模型 · Hunyuan3D",
+  audio: "音频模型 · ACE-Step",
+};
+
+interface ModelSelectorProps {
+  mode: Mode;
+  models: ModelsResponse | null;
+  ckpt: string;
+  setCkpt: (c: string) => void;
+}
+
+/**
+ * 模式感知模型选择器:
+ * - image(editable)→ 下拉选图像底模(含 pony/noobai/animagine/illustrious 等)
+ * - video/3D/audio(后端硬编码)→ 只读展示该模式实际加载的模型,不再误显图片 checkpoint
+ */
+function ModelSelector({ mode, models, ckpt, setCkpt }: ModelSelectorProps) {
+  if (!models) return null;
+  // 优先用模式感知映射;无 modes(旧后端)时图像回落 checkpoints,其余不渲染
+  const entry = models.modes?.[mode];
+  const list = entry?.models ?? (mode === "image" ? models.checkpoints : []);
+  if (list.length === 0) return null;
+  const editable = entry ? entry.editable : mode === "image";
+
+  if (!editable) {
+    return (
+      <div className="field">
+        <label>{MODEL_LABEL[mode]}<span className="hint">平台预置</span></label>
+        <div className="model-readonly">
+          {list.map((m) => (
+            <span key={m} className="model-chip">{cleanName(m)}</span>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="field">
+      <label>{MODEL_LABEL[mode]}</label>
+      <select value={ckpt} onChange={(e) => setCkpt(e.target.value)}>
+        {list.map((c) => (
+          <option key={c} value={c}>{cleanName(c)}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+interface LoraSelectorProps {
+  loras: LoraInput[];
+  options: string[];
+  availableCount: number;
+  busy: boolean;
+  onAdd: () => void;
+  onUpdate: (i: number, patch: Partial<LoraInput>) => void;
+  onRemove: (i: number) => void;
+}
+
+/**
+ * LoRA 叠加器:从本地 LoRA 列表多选,每个独立权重滑块,可增删。
+ * 透传到 txt2img/img2img 的 loras → 后端编译为 LoraLoader 链。
+ */
+function LoraSelector({ loras, options, availableCount, busy, onAdd, onUpdate, onRemove }: LoraSelectorProps) {
+  const hasOptions = options.length > 0;
+  return (
+    <div className="lora-group">
+      <div className="lora-head">
+        <span>LoRA 叠加</span>
+        <button
+          type="button"
+          className="lora-add"
+          disabled={busy || !hasOptions || availableCount === 0}
+          onClick={onAdd}
+        >
+          + 添加
+        </button>
+      </div>
+
+      {!hasOptions && <p className="lora-empty">worker 上未发现 LoRA。可在「模型库」下载后再来叠加。</p>}
+
+      {loras.length === 0 && hasOptions && <p className="lora-empty">未叠加 LoRA。点击「添加」挑一个并调权重。</p>}
+
+      {loras.map((l, i) => (
+        <div key={i} className="lora-item">
+          <div className="lora-row">
+            <select
+              value={l.name}
+              disabled={busy}
+              onChange={(e) => onUpdate(i, { name: e.target.value })}
+            >
+              {/* 当前已选项 + 其余未被占用项 */}
+              {[l.name, ...options.filter((o) => o !== l.name && !loras.some((x) => x.name === o))]
+                .filter(Boolean)
+                .map((o) => (
+                  <option key={o} value={o}>{cleanName(o)}</option>
+                ))}
+            </select>
+            <button type="button" className="lora-remove" disabled={busy} onClick={() => onRemove(i)} aria-label="移除 LoRA">
+              ✕
+            </button>
+          </div>
+          <Slider
+            label="强度"
+            value={l.weight}
+            min={-1}
+            max={2}
+            step={0.05}
+            onChange={(v) => onUpdate(i, { weight: v })}
+            disabled={busy}
+          />
+        </div>
+      ))}
     </div>
   );
 }

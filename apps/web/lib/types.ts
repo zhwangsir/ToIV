@@ -1,7 +1,21 @@
+/** 单个模式下可用模型 + 是否可选(false = 后端硬编码,只读展示)。 */
+export interface ModeModels {
+  models: string[];
+  editable: boolean;
+}
+
 export interface ModelsResponse {
   checkpoints: string[];
   samplers: string[];
   schedulers: string[];
+  /** 模式感知模型源:image/video/model3d/audio → {models, editable}。 */
+  modes?: Record<string, ModeModels>;
+}
+
+/** 叠加的单个 LoRA:文件名 + 权重(同时作用于 model 与 clip)。 */
+export interface LoraInput {
+  name: string;
+  weight: number;
 }
 
 export interface Txt2ImgParams {
@@ -16,6 +30,7 @@ export interface Txt2ImgParams {
   scheduler: string;
   seed?: number | null;
   batch_size?: number;
+  loras?: LoraInput[];
 }
 
 export interface GenerateResponse {
@@ -47,6 +62,7 @@ export interface Img2ImgGenParams {
   sampler: string;
   scheduler: string;
   seed?: number | null;
+  loras?: LoraInput[];
 }
 
 export interface Usage {

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { listModels, uploadImage } from "@/lib/api";
+import { listLocalModels, listModels, uploadImage } from "@/lib/api";
 import type { ModelsResponse } from "@/lib/types";
 
 import { AssistChat } from "./AssistChat";
@@ -33,6 +33,7 @@ export function CreateStudio() {
   const [prompt, setPrompt] = useState("");
   const [ref, setRef] = useState<RefImage | null>(null);
   const [models, setModels] = useState<ModelsResponse | null>(null);
+  const [loraOptions, setLoraOptions] = useState<string[]>([]);
   const [ckpt, setCkpt] = useState("");
 
   // 简易版智能 chip 状态
@@ -46,8 +47,13 @@ export function CreateStudio() {
     listModels()
       .then((m) => {
         setModels(m);
-        setCkpt(m.checkpoints[0] ?? "");
+        // 图像底模优先用模式感知列表(已剔除音频/3D 等非图像 checkpoint)
+        const imageList = m.modes?.image?.models ?? m.checkpoints;
+        setCkpt(imageList[0] ?? "");
       })
+      .catch(() => {});
+    listLocalModels()
+      .then((local) => setLoraOptions(local.loras ?? []))
       .catch(() => {});
   }, []);
 
@@ -126,6 +132,7 @@ export function CreateStudio() {
             setRef={setRef}
             ensureUploaded={ensureUploaded}
             models={models}
+            loraOptions={loraOptions}
             ckpt={ckpt}
             setCkpt={setCkpt}
             busy={feed.busy}
