@@ -1,0 +1,590 @@
+/* ──────────────────────────────────────────────────────────
+   创作画布 — React Flow 暖金暗色主题化 + 高层节点样式。
+   复用平台 editorial bold 设计令牌(--accent 暖金 / --bg-* / --hairline)。
+   动效只走 transform / opacity;reduced-motion 降级。
+   ────────────────────────────────────────────────────────── */
+
+.cv-studio {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 64px);
+  min-height: 540px;
+}
+
+/* ── 顶部工具条 ── */
+.cv-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--hairline);
+  background: linear-gradient(180deg, var(--bg-1), var(--bg-0));
+}
+.cv-toolbar__lead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cv-toolbar__kicker {
+  font-size: 0.62rem;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 700;
+}
+.cv-toolbar__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 1rem + 1.4vw, 2rem);
+  letter-spacing: var(--tracking-tight);
+  line-height: 1;
+  color: var(--ink);
+}
+.cv-toolbar__hint {
+  font-size: 0.74rem;
+  color: var(--ink-faint);
+}
+.cv-toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.cv-toolbar__count {
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.cv-toolbar__saved {
+  font-size: 0.72rem;
+  color: var(--accent-soft);
+  animation: cv-fade 0.24s var(--ease);
+}
+
+.cv-btn {
+  appearance: none;
+  border: 1px solid var(--hairline-2);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.45rem 0.95rem;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition:
+    border-color var(--dur) var(--ease),
+    color var(--dur) var(--ease),
+    transform var(--dur) var(--ease),
+    background var(--dur) var(--ease);
+}
+.cv-btn:hover {
+  color: var(--ink);
+  border-color: var(--hairline-strong);
+  transform: translateY(-1px);
+}
+.cv-btn:active {
+  transform: translateY(0);
+}
+.cv-btn--primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+  border-color: var(--accent-line);
+  color: var(--accent-ink);
+  box-shadow: 0 4px 14px -4px var(--accent-glow);
+}
+.cv-btn--primary:hover {
+  background: linear-gradient(135deg, var(--accent-hover), var(--accent));
+  color: var(--accent-ink);
+}
+.cv-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── React Flow 画布容器 ── */
+.cv-flow {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+.cv-flow .react-flow {
+  background: var(--bg-0);
+}
+.cv-flow .react-flow__background {
+  background: radial-gradient(
+    120% 90% at 30% 0%,
+    rgba(236, 170, 86, 0.05),
+    transparent 60%
+  );
+}
+.cv-flow .react-flow__background path,
+.cv-flow .react-flow__background circle {
+  color: var(--hairline-2);
+}
+
+/* 连线:暖金 */
+.cv-flow .react-flow__edge-path {
+  stroke: var(--accent-line);
+  stroke-width: 2;
+}
+.cv-flow .react-flow__edge.selected .react-flow__edge-path,
+.cv-flow .react-flow__edge:hover .react-flow__edge-path {
+  stroke: var(--accent-hover);
+}
+.cv-flow .react-flow__edge.animated .react-flow__edge-path {
+  stroke-dasharray: 6 4;
+  animation: cv-dash 0.7s linear infinite;
+}
+.cv-flow .react-flow__connection-path {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+/* 控制条 + 小地图 暖金化 */
+.cv-flow .react-flow__controls.cv-controls {
+  background: var(--bg-2);
+  border: 1px solid var(--hairline-2);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+.cv-flow .react-flow__controls.cv-controls button {
+  background: transparent;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--ink-soft);
+  fill: currentColor;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.cv-flow .react-flow__controls.cv-controls button:hover {
+  background: var(--bg-3);
+  color: var(--accent);
+}
+.cv-flow .react-flow__controls.cv-controls button svg {
+  fill: currentColor;
+}
+.cv-flow .react-flow__minimap.cv-minimap {
+  background: var(--bg-1);
+  border: 1px solid var(--hairline-2);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+}
+.cv-flow .react-flow__minimap-node {
+  fill: var(--accent-deep);
+  stroke: var(--accent-line);
+}
+
+/* ── 节点壳 ── */
+.cv-node {
+  width: 252px;
+  background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
+  border: 1px solid var(--hairline-2);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md), var(--shadow-edge);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  overflow: hidden;
+  transition:
+    border-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
+}
+.cv-node:hover {
+  border-color: var(--hairline-strong);
+  transform: translateY(-1px);
+}
+.cv-node.is-selected {
+  border-color: var(--accent-line);
+  box-shadow: 0 0 0 1px var(--accent-line), var(--shadow-lg);
+}
+.cv-node.is-busy {
+  border-color: var(--accent-line);
+}
+
+.cv-node__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.5rem 0.65rem;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--glass);
+}
+.cv-node__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.cv-node__ico {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+/* 节点类型色条:左侧细边 */
+.cv-node--text {
+  border-left: 3px solid var(--v4);
+}
+.cv-node--image {
+  border-left: 3px solid var(--accent);
+}
+.cv-node--video {
+  border-left: 3px solid var(--accent-hover);
+}
+.cv-node--audio {
+  border-left: 3px solid var(--v3);
+}
+
+.cv-node__del {
+  margin-left: auto;
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--ink-faint);
+  cursor: pointer;
+  font-size: 0.8rem;
+  line-height: 1;
+  padding: 0.2rem 0.35rem;
+  border-radius: var(--radius-xs);
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.cv-node__del:hover {
+  color: var(--danger);
+  background: var(--bg-3);
+}
+
+.cv-gen {
+  appearance: none;
+  border: 1px solid var(--accent-line);
+  background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+  color: var(--accent-ink);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.28rem 0.7rem;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition: filter var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.cv-gen:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+.cv-gen:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(0.3);
+  transform: none;
+}
+
+.cv-node__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 0.65rem;
+}
+
+/* ── 状态 / 进度 ── */
+.cv-node__status {
+  padding: 0.4rem 0.65rem;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--accent-wash);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.cv-node__stage {
+  font-size: 0.68rem;
+  color: var(--accent-soft);
+  font-variant-numeric: tabular-nums;
+}
+.cv-node__err {
+  font-size: 0.68rem;
+  color: var(--danger);
+}
+.cv-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--bg-3);
+  overflow: hidden;
+}
+.cv-progress__fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent-deep), var(--accent));
+  transition: width var(--dur-2) var(--ease);
+}
+.cv-progress.is-indeterminate .cv-progress__fill {
+  width: 40%;
+  animation: cv-indeterminate 1.1s var(--ease-expo) infinite;
+}
+
+/* ── 控件 ── */
+.cv-text {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--hairline-2);
+  background: var(--bg-0);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  padding: 0.5rem 0.6rem;
+  border-radius: var(--radius-xs);
+  transition: border-color var(--dur) var(--ease);
+}
+.cv-text:focus {
+  outline: none;
+  border-color: var(--accent-line);
+}
+.cv-text--sm {
+  font-size: 0.74rem;
+}
+
+.cv-row {
+  display: flex;
+  gap: var(--space-2);
+}
+.cv-row--end {
+  justify-content: flex-end;
+}
+
+.cv-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.cv-label {
+  font-size: 0.62rem;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.cv-select {
+  appearance: none;
+  width: 100%;
+  border: 1px solid var(--hairline-2);
+  background: var(--bg-0)
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path d='M2 3.5L5 6.5L8 3.5' stroke='%23ecaa56' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>")
+    no-repeat right 0.55rem center;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.74rem;
+  padding: 0.42rem 1.6rem 0.42rem 0.55rem;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+}
+.cv-select:focus {
+  outline: none;
+  border-color: var(--accent-line);
+}
+
+.cv-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.cv-chip {
+  appearance: none;
+  border: 1px solid var(--hairline-2);
+  background: var(--bg-0);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.26rem 0.55rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    border-color var(--dur) var(--ease),
+    color var(--dur) var(--ease),
+    background var(--dur) var(--ease);
+}
+.cv-chip:hover {
+  color: var(--ink);
+  border-color: var(--hairline-strong);
+}
+.cv-chip.active {
+  background: var(--accent-quiet);
+  border-color: var(--accent-line);
+  color: var(--accent-soft);
+}
+
+/* 紧凑化嵌入的 Slider(复用平台组件,缩小字号节奏) */
+.cv-slider-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.cv-slider-wrap .field.slider-field {
+  margin: 0;
+}
+.cv-slider-wrap .slider-field label {
+  font-size: 0.62rem;
+}
+
+/* ── 产物展示 ── */
+.cv-output {
+  border: 1px solid var(--hairline-2);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-0);
+  animation: cv-pop 0.28s var(--ease-expo);
+}
+.cv-output img,
+.cv-output video {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 240px;
+  object-fit: contain;
+}
+.cv-output--audio {
+  padding: 0.5rem;
+}
+.cv-output--audio audio {
+  width: 100%;
+}
+
+/* ── 端口 Handle ── */
+.cv-flow .react-flow__handle.cv-handle {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--bg-0);
+  background: var(--ink-faint);
+  transition: background var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.cv-flow .react-flow__handle.cv-handle:hover {
+  transform: scale(1.25);
+}
+.cv-flow .react-flow__handle.cv-handle--text {
+  background: var(--v4);
+}
+.cv-flow .react-flow__handle.cv-handle--image {
+  background: var(--accent);
+}
+.cv-flow .react-flow__handle.cv-handle--video {
+  background: var(--accent-hover);
+}
+.cv-flow .react-flow__handle.cv-handle--in {
+  background: var(--accent-soft);
+}
+.cv-flow .react-flow__handle-connecting {
+  background: var(--accent) !important;
+}
+
+/* ── 双击新建菜单 ── */
+.cv-menu {
+  position: absolute;
+  z-index: 20;
+  min-width: 200px;
+  background: var(--bg-2);
+  border: 1px solid var(--hairline-2);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  padding: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  animation: cv-pop 0.18s var(--ease-expo);
+}
+.cv-menu__head {
+  font-size: 0.6rem;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  padding: 0.25rem 0.5rem;
+}
+.cv-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  padding: 0.45rem 0.5rem;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition: background var(--dur) var(--ease);
+}
+.cv-menu__item:hover {
+  background: var(--bg-3);
+}
+.cv-menu__ico {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+.cv-menu__txt {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.cv-menu__txt strong {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.cv-menu__txt em {
+  font-size: 0.66rem;
+  font-style: normal;
+  color: var(--ink-faint);
+}
+
+/* ── 动效 ── */
+@keyframes cv-dash {
+  to {
+    stroke-dashoffset: -10;
+  }
+}
+@keyframes cv-indeterminate {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+@keyframes cv-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes cv-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cv-node,
+  .cv-btn,
+  .cv-gen,
+  .cv-handle,
+  .cv-output {
+    transition: none;
+  }
+  .cv-flow .react-flow__edge.animated .react-flow__edge-path {
+    animation: none;
+  }
+  .cv-progress.is-indeterminate .cv-progress__fill {
+    animation: none;
+    width: 100%;
+    opacity: 0.6;
+  }
+  .cv-output,
+  .cv-menu {
+    animation: none;
+  }
+}
