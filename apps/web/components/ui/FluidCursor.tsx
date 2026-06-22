@@ -108,10 +108,10 @@ export function FluidCursor() {
     const tick = () => {
       // 逐帧抹掉一点 alpha → 烟雾自然消散
       ctx.globalCompositeOperation = "destination-out";
-      ctx.fillStyle = "rgba(0,0,0,0.05)";
+      ctx.fillStyle = "rgba(0,0,0,0.06)";
       ctx.fillRect(0, 0, W, H);
-      // 加色累积绘制染料
-      ctx.globalCompositeOperation = "lighter";
+      // 普通混合(非加色)→ 叠加只会逼近染料色,绝不发白
+      ctx.globalCompositeOperation = "source-over";
       for (let i = parts.length - 1; i >= 0; i--) {
         const p = parts[i];
         p.life++;
@@ -125,7 +125,7 @@ export function FluidCursor() {
         p.vy *= 0.95;
         p.r *= 1.013; // 缓慢扩散
         const k = 1 - p.life / p.max;
-        ctx.globalAlpha = k * k * 0.09;
+        ctx.globalAlpha = k * k * 0.16;
         ctx.drawImage(p.sprite, p.x - p.r, p.y - p.r, p.r * 2, p.r * 2);
       }
       ctx.globalAlpha = 1;
