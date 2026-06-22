@@ -1,0 +1,49 @@
+# ToIV 模型路径:NAS 为主(模型归一到 NAS)+ F: 本地兜底。worker 经 --extra-model-paths-config 读取。
+toiv_nas:
+  base_path: '\\100.80.237.96\NAS\Windows\ComfyUI\ComfyUIModel\models'
+  is_default: true
+  checkpoints: checkpoints/
+  classifiers: classifiers/
+  clip: clip/
+  clip_vision: clip_vision/
+  configs: configs/
+  controlnet: |-
+    controlnet/
+    t2i_adapter/
+  diffusers: diffusers/
+  diffusion_models: diffusion_models/
+  embeddings: embeddings/
+  gligen: gligen/
+  hypernetworks: hypernetworks/
+  latent_upscale_models: latent_upscale_models/
+  loras: loras/
+  model_patches: model_patches/
+  audio_encoders: audio_encoders/
+  photomaker: photomaker/
+  style_models: style_models/
+  text_encoders: text_encoders/
+  upscale_models: upscale_models/
+  vae: vae/
+  vae_approx: vae_approx/
+  mmaudio: mmaudio/
+  sams: sams/
+  LLM: LLM/
+toiv_local:
+  base_path: 'F:\ComfyUIModel\models'
+  checkpoints: checkpoints/
+  clip: clip/
+  clip_vision: clip_vision/
+  controlnet: |-
+    controlnet/
+    t2i_adapter/
+  diffusion_models: diffusion_models/
+  embeddings: embeddings/
+  latent_upscale_models: latent_upscale_models/
+  loras: loras/
+  style_models: style_models/
+  text_encoders: text_encoders/
+  upscale_models: upscale_models/
+  vae: vae/
+  vae_approx: vae_approx/
+  mmaudio: mmaudio/
+  sams: sams/

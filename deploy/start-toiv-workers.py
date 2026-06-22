@@ -17,7 +17,7 @@ import subprocess
 
 PY = r"F:\comfy\ComfyUI\ComfyUI\.venv\Scripts\python.exe"
 MAIN = r"F:\comfy\ComfyUI\ComfyUI\main.py"
-YAML = r"C:\Users\Merlin Chen\AppData\Roaming\Comfy Desktop\shared_model_paths.yaml"
+YAML = r"F:\toiv_model_paths.yaml"  # 模型根=NAS(归一);见 deploy/toiv_model_paths.yaml
 INP = r"F:\ComfyUIModel\input"
 
 # 产物归档到 NAS(SMB 共享 NAS → /volume1/NAS)
