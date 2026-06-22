@@ -6,6 +6,7 @@ import { listModels, uploadImage } from "@/lib/api";
 import type { ModelsResponse } from "@/lib/types";
 
 import { AssistChat } from "./AssistChat";
+import { GenerationProgress } from "./GenerationProgress";
 import { ProPanel } from "./ProPanel";
 import { ResultFeed } from "./ResultFeed";
 import { SimplePanel } from "./SimplePanel";
@@ -149,7 +150,7 @@ export function CreateStudio() {
           <span className="count">{feed.results.length} 件</span>
         </div>
 
-        {feed.busy && <div className="chat-typing">{feed.stage || "处理中…"}</div>}
+        {feed.busy && <GenerationProgress stage={feed.stage} progress={feed.progress} />}
 
         {feed.results.length === 0 && !feed.busy ? (
           <div className="hero-canvas">

@@ -23,6 +23,8 @@ export interface ResultMeta {
   ckpt?: string;
   width?: number;
   height?: number;
+  /** img2img/重绘:原图 URL,用于结果卡的拖动对比(before)。 */
+  beforeUrl?: string;
 }
 
 export interface AspectPreset {

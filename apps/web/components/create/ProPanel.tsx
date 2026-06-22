@@ -3,19 +3,18 @@
 import { useCallback, useState } from "react";
 
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
+import { Slider } from "@/components/ui/Slider";
 import type { ModelsResponse } from "@/lib/types";
 
 import type { Dispatch } from "./useGenerationFeed";
 import {
   type Mode,
   type RefImage,
-  AUDIO_DURATIONS,
   DEFAULT_NEGATIVE,
   IMG_ASPECTS,
   SAMPLERS,
   SCHEDULERS,
   VID_ASPECTS,
-  VID_LENGTHS,
   WORKFLOW_PRESETS,
 } from "./types";
 
@@ -46,9 +45,6 @@ interface ImgParams {
   batch: number;
   denoise: number;
 }
-
-const sliderStyle = (val: number, min: number, max: number): React.CSSProperties =>
-  ({ ["--pct" as string]: `${((val - min) / (max - min)) * 100}%` });
 
 /** 专业版:全控制面板,可折叠高级分区 + 工作流预设 + 占位槽位。 */
 export function ProPanel(props: ProPanelProps) {
@@ -104,7 +100,7 @@ export function ProPanel(props: ProPanelProps) {
           [{
             type: "img2img",
             prompt,
-            meta: { ckpt },
+            meta: { ckpt, beforeUrl: ref.previewUrl },
             params: {
               positive: positive || "enhance, high quality, detailed",
               negative: img.negative,
@@ -297,7 +293,7 @@ export function ProPanel(props: ProPanelProps) {
           {!ref && (
             <>
               <div className="field">
-                <label>画幅<span className="hint">{img.width}×{img.height}</span></label>
+                <label>画幅预设<span className="hint">{img.width}×{img.height}</span></label>
                 <div className="seg">
                   {IMG_ASPECTS.map((a) => (
                     <button
@@ -311,21 +307,13 @@ export function ProPanel(props: ProPanelProps) {
                   ))}
                 </div>
               </div>
-              <div className="field">
-                <label>批量<span className="hint">{img.batch} 张</span></label>
-                <div className="seg">
-                  {[1, 2, 4, 8].map((n) => (
-                    <button key={n} type="button" className={img.batch === n ? "active" : ""} onClick={() => set("batch", n)}>{n}</button>
-                  ))}
-                </div>
-              </div>
+              <Slider label="宽度 width" value={img.width} min={384} max={1536} step={64} suffix="px" onChange={(v) => set("width", v)} disabled={busy} />
+              <Slider label="高度 height" value={img.height} min={384} max={1536} step={64} suffix="px" onChange={(v) => set("height", v)} disabled={busy} />
+              <Slider label="批量 batch" value={img.batch} min={1} max={8} step={1} suffix="张" onChange={(v) => set("batch", v)} disabled={busy} />
             </>
           )}
           {ref && (
-            <div className="field">
-              <label>重绘强度 denoise<span className="hint">{img.denoise.toFixed(2)}</span></label>
-              <input type="range" min={0.2} max={0.95} step={0.05} value={img.denoise} style={sliderStyle(img.denoise, 0.2, 0.95)} onChange={(e) => set("denoise", Number(e.target.value))} />
-            </div>
+            <Slider label="重绘强度 denoise" value={img.denoise} min={0.2} max={0.95} step={0.05} onChange={(v) => set("denoise", v)} disabled={busy} />
           )}
         </>
       )}
@@ -341,40 +329,27 @@ export function ProPanel(props: ProPanelProps) {
               ))}
             </div>
           </div>
-          <div className="field">
-            <label>时长 length<span className="hint">{vidLength} 帧</span></label>
-            <div className="seg">
-              {VID_LENGTHS.map((l) => (
-                <button key={l.v} type="button" className={vidLength === l.v ? "active" : ""} onClick={() => setVidLength(l.v)}>{l.label}</button>
-              ))}
-            </div>
-          </div>
-          <div className="field">
-            <label>帧率 fps<span className="hint">{vidFps}</span></label>
-            <input type="range" min={8} max={30} step={1} value={vidFps} style={sliderStyle(vidFps, 8, 30)} onChange={(e) => setVidFps(Number(e.target.value))} />
-          </div>
+          <Slider
+            label="时长 length"
+            value={vidLength}
+            min={25}
+            max={121}
+            step={4}
+            suffix="帧"
+            format={(v) => `${v} · ~${(v / vidFps).toFixed(1)}s`}
+            onChange={setVidLength}
+            disabled={busy}
+          />
+          <Slider label="帧率 fps" value={vidFps} min={8} max={30} step={1} onChange={setVidFps} disabled={busy} />
         </>
       )}
 
       {/* === 3D 参数 === */}
       {mode === "model3d" && (
         <>
-          <div className="field">
-            <label>octree 分辨率<span className="hint">{octree}</span></label>
-            <div className="seg" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
-              {[128, 256, 384].map((o) => (
-                <button key={o} type="button" className={octree === o ? "active" : ""} onClick={() => setOctree(o)}>{o}</button>
-              ))}
-            </div>
-          </div>
-          <div className="field">
-            <label>steps<span className="hint">{steps3d}</span></label>
-            <input type="range" min={10} max={50} step={1} value={steps3d} style={sliderStyle(steps3d, 10, 50)} onChange={(e) => setSteps3d(Number(e.target.value))} />
-          </div>
-          <div className="field">
-            <label>cfg<span className="hint">{cfg3d}</span></label>
-            <input type="range" min={1} max={10} step={0.5} value={cfg3d} style={sliderStyle(cfg3d, 1, 10)} onChange={(e) => setCfg3d(Number(e.target.value))} />
-          </div>
+          <Slider label="octree 分辨率" value={octree} min={128} max={512} step={64} onChange={setOctree} disabled={busy} />
+          <Slider label="steps" value={steps3d} min={10} max={50} step={1} onChange={setSteps3d} disabled={busy} />
+          <Slider label="cfg" value={cfg3d} min={1} max={10} step={0.5} onChange={setCfg3d} disabled={busy} />
         </>
       )}
 
@@ -385,14 +360,7 @@ export function ProPanel(props: ProPanelProps) {
             <label htmlFor="pro-lyrics">歌词<span className="hint">留空 = 纯音乐</span></label>
             <textarea id="pro-lyrics" rows={3} placeholder="支持 [verse] [chorus] 标记" value={audioLyrics} onChange={(e) => setAudioLyrics(e.target.value)} />
           </div>
-          <div className="field">
-            <label>时长</label>
-            <div className="seg">
-              {AUDIO_DURATIONS.map((d) => (
-                <button key={d.v} type="button" className={audioSeconds === d.v ? "active" : ""} onClick={() => setAudioSeconds(d.v)}>{d.label}</button>
-              ))}
-            </div>
-          </div>
+          <Slider label="时长" value={audioSeconds} min={10} max={120} step={5} suffix="s" onChange={setAudioSeconds} disabled={busy} />
         </>
       )}
 
@@ -407,14 +375,8 @@ export function ProPanel(props: ProPanelProps) {
             <div className="advanced-body">
               {(mode === "image") && (
                 <>
-                  <div className="field">
-                    <label>steps<span className="hint">{img.steps}</span></label>
-                    <input type="range" min={1} max={60} step={1} value={img.steps} style={sliderStyle(img.steps, 1, 60)} onChange={(e) => set("steps", Number(e.target.value))} />
-                  </div>
-                  <div className="field">
-                    <label>cfg<span className="hint">{img.cfg}</span></label>
-                    <input type="range" min={1} max={15} step={0.5} value={img.cfg} style={sliderStyle(img.cfg, 1, 15)} onChange={(e) => set("cfg", Number(e.target.value))} />
-                  </div>
+                  <Slider label="steps" value={img.steps} min={1} max={60} step={1} onChange={(v) => set("steps", v)} disabled={busy} />
+                  <Slider label="cfg" value={img.cfg} min={1} max={15} step={0.5} onChange={(v) => set("cfg", v)} disabled={busy} />
                   <div className="row-2">
                     <div className="field">
                       <label>采样器</label>

@@ -1,7 +1,10 @@
 "use client";
 
+import { useState } from "react";
+
 import { motion } from "framer-motion";
 
+import { CompareSlider } from "@/components/ui/CompareSlider";
 import { ModelViewer } from "@/components/ui/ModelViewer";
 import { developVariants } from "@/lib/motion";
 
@@ -17,6 +20,10 @@ interface ResultFeedProps {
 }
 
 function MediaTile({ item }: { item: ResultItem }) {
+  // 重绘/变体:有原图 → 拖动对比(before/after)
+  const [compare, setCompare] = useState(true);
+  const beforeUrl = item.meta?.beforeUrl;
+
   if (item.kind === "model3d") {
     return (
       <div className="chat-model3d create-media">
@@ -35,7 +42,26 @@ function MediaTile({ item }: { item: ResultItem }) {
   if (item.kind === "video") {
     return <video className="create-media" src={item.url} controls loop muted playsInline />;
   }
-  return <img className="create-media" src={item.url} alt={item.prompt || "结果"} loading="lazy" />;
+  if (beforeUrl && compare) {
+    return (
+      <div className="create-media compare-media">
+        <CompareSlider beforeSrc={beforeUrl} afterSrc={item.url} alt={item.prompt || "结果"} />
+        <button type="button" className="compare-toggle" onClick={() => setCompare(false)} title="关闭对比">
+          单图
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="create-media-wrap">
+      <img className="create-media" src={item.url} alt={item.prompt || "结果"} loading="lazy" />
+      {beforeUrl && (
+        <button type="button" className="compare-toggle" onClick={() => setCompare(true)} title="拖动对比">
+          对比
+        </button>
+      )}
+    </div>
+  );
 }
 
 /** 结果流:每张图带「续创作」动作,让用户不重配参数就迭代。 */

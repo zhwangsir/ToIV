@@ -39,6 +39,8 @@ export type Dispatch =
 interface FeedState {
   busy: boolean;
   stage: string;
+  /** 真实采样进度 0-100(SSE progress 的 value/max);null = 不确定态(用动画进度条)。 */
+  progress: number | null;
   error: string | null;
   results: ResultItem[];
 }
@@ -80,6 +82,7 @@ export function useGenerationFeed() {
   const [state, setState] = useState<FeedState>({
     busy: false,
     stage: "",
+    progress: null,
     error: null,
     results: [],
   });
@@ -100,7 +103,10 @@ export function useGenerationFeed() {
         es.addEventListener("progress", (e) => {
           try {
             const d = JSON.parse((e as MessageEvent).data);
-            if (d.max > 0) setStage(`采样中 ${d.value}/${d.max} 步`);
+            if (d.max > 0) {
+              const pct = Math.min(100, Math.round((d.value / d.max) * 100));
+              setState((s) => ({ ...s, stage: `采样中 ${d.value}/${d.max} 步`, progress: pct }));
+            }
           } catch {
             /* ignore */
           }
@@ -150,7 +156,7 @@ export function useGenerationFeed() {
   const run = useCallback(
     async (dispatches: Dispatch[], initialStage: string) => {
       esRef.current?.close();
-      setState((s) => ({ ...s, busy: true, error: null, stage: initialStage }));
+      setState((s) => ({ ...s, busy: true, error: null, stage: initialStage, progress: null }));
       try {
         for (const d of dispatches) {
           const res = await submit(d);
@@ -160,7 +166,7 @@ export function useGenerationFeed() {
       } catch (e) {
         setState((s) => ({ ...s, error: (e as Error).message }));
       } finally {
-        setState((s) => ({ ...s, busy: false, stage: "" }));
+        setState((s) => ({ ...s, busy: false, stage: "", progress: null }));
       }
     },
     [track],
@@ -178,7 +184,7 @@ export function useGenerationFeed() {
     async (item: ResultItem) => {
       if (state.busy) return;
       try {
-        setState((s) => ({ ...s, busy: true, error: null, stage: "上传参考图…" }));
+        setState((s) => ({ ...s, busy: true, error: null, stage: "上传参考图…", progress: null }));
         const file = await fileFromResult(item);
         const up = await uploadImage(file, "video");
         const w = item.meta?.width ?? 832;
@@ -199,7 +205,7 @@ export function useGenerationFeed() {
       } catch (e) {
         setState((s) => ({ ...s, error: (e as Error).message }));
       } finally {
-        setState((s) => ({ ...s, busy: false, stage: "" }));
+        setState((s) => ({ ...s, busy: false, stage: "", progress: null }));
       }
     },
     [state.busy, fileFromResult, setStage, track],
@@ -210,7 +216,7 @@ export function useGenerationFeed() {
     async (item: ResultItem) => {
       if (state.busy) return;
       try {
-        setState((s) => ({ ...s, busy: true, error: null, stage: "生成 3D…(约 1-3 分钟)" }));
+        setState((s) => ({ ...s, busy: true, error: null, stage: "生成 3D…(约 1-3 分钟)", progress: null }));
         const file = await fileFromResult(item);
         const up = await uploadImage(file, "threed");
         const res = await generate3D({
@@ -224,7 +230,7 @@ export function useGenerationFeed() {
       } catch (e) {
         setState((s) => ({ ...s, error: (e as Error).message }));
       } finally {
-        setState((s) => ({ ...s, busy: false, stage: "" }));
+        setState((s) => ({ ...s, busy: false, stage: "", progress: null }));
       }
     },
     [state.busy, fileFromResult, track],

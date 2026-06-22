@@ -87,7 +87,7 @@ export function SimplePanel(props: SimplePanelProps) {
           [{
             type: "img2img",
             prompt,
-            meta: { ckpt },
+            meta: { ckpt, beforeUrl: ref.previewUrl },
             params: {
               positive: positive || "enhance, high quality, detailed",
               negative: DEFAULT_NEGATIVE,

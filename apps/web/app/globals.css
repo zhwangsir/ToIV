@@ -776,6 +776,310 @@ input[type="range"]::-webkit-slider-thumb:hover {
   transform: scale(1.15);
 }
 
+/* ══════════════════════════════════════════════════════════════
+   精致可拖动滑块(Slider 组件)—— 厚轨道 + 暖金填充 + 圆润把手 + 数值气泡
+   ────────────────────────────────────────────────────────────── */
+.slider-field {
+  gap: 0.55rem;
+}
+.slider-field .slider-readout {
+  color: var(--accent);
+  font-weight: 600;
+}
+.slider-track {
+  position: relative;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+/* 轨道底:细凹槽 */
+.slider-track::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--bg-0);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55), inset 0 0 0 1px var(--hairline-2);
+}
+.slider-fill {
+  position: absolute;
+  left: 0;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent-deep), var(--accent));
+  box-shadow: 0 0 10px -2px var(--accent-glow);
+  transition: width var(--dur) var(--ease);
+  pointer-events: none;
+}
+.slider-track.is-dragging .slider-fill {
+  transition: none;
+}
+.slider-thumb {
+  position: absolute;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, #fffaf2, var(--accent-soft) 75%);
+  border: 2px solid var(--accent-deep);
+  box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.6), 0 0 0 0 var(--accent-glow);
+  transform: translate(-50%, -50%);
+  transition: box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease), left var(--dur) var(--ease);
+  pointer-events: none;
+}
+.slider-track.is-dragging .slider-thumb {
+  transition: box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.slider-track:hover .slider-thumb {
+  box-shadow: 0 2px 8px -1px rgba(0, 0, 0, 0.6), 0 0 0 6px var(--accent-quiet);
+}
+.slider-track.is-dragging .slider-thumb {
+  transform: translate(-50%, -50%) scale(1.12);
+  box-shadow: 0 3px 12px -2px rgba(0, 0, 0, 0.65), 0 0 0 8px var(--accent-quiet);
+}
+/* 拖动气泡:平时藏,拖动/聚焦时浮现 */
+.slider-bubble {
+  position: absolute;
+  bottom: calc(100% + 9px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px) scale(0.92);
+  padding: 0.16rem 0.5rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--accent-ink);
+  background: linear-gradient(180deg, var(--accent-hover), var(--accent-deep));
+  border-radius: var(--radius-xs);
+  box-shadow: var(--shadow-sm);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease-expo);
+}
+.slider-bubble::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: var(--accent-deep);
+}
+.slider-track.is-dragging .slider-bubble,
+.slider-handle-hit:focus-visible + .slider-fill,
+.slider-track:focus-within .slider-bubble {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+/* 键盘命中区:覆盖整条轨道,可聚焦 */
+.slider-handle-hit {
+  position: absolute;
+  inset: 0;
+  outline: none;
+}
+.slider-handle-hit:focus-visible ~ .slider-thumb,
+.slider-track:focus-within .slider-thumb {
+  box-shadow: 0 2px 8px -1px rgba(0, 0, 0, 0.6), 0 0 0 6px var(--accent-quiet);
+}
+.slider-field.is-disabled {
+  opacity: 0.5;
+}
+.slider-field.is-disabled .slider-track {
+  cursor: not-allowed;
+}
+@media (prefers-reduced-motion: reduce) {
+  .slider-fill,
+  .slider-thumb,
+  .slider-bubble {
+    transition: none;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   拖动对比(CompareSlider)—— before/after 叠放 + 可拖分隔线
+   ────────────────────────────────────────────────────────────── */
+.compare-slider {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  cursor: ew-resize;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  background: var(--bg-0);
+}
+.compare-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+.compare-after {
+  position: absolute;
+  inset: 0;
+  will-change: clip-path;
+}
+.compare-tag {
+  position: absolute;
+  top: 0.5rem;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0.16rem 0.5rem;
+  border-radius: 999px;
+  color: var(--ink);
+  background: color-mix(in oklab, var(--bg-0) 60%, transparent);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--hairline-2);
+  pointer-events: none;
+}
+.compare-tag-left { left: 0.5rem; }
+.compare-tag-right {
+  right: 0.5rem;
+  color: var(--accent);
+  border-color: var(--accent-line);
+}
+.compare-divider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: linear-gradient(180deg, transparent, var(--accent), transparent);
+  box-shadow: 0 0 12px -1px var(--accent-glow);
+  outline: none;
+}
+.compare-handle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  color: var(--accent-ink);
+  background: linear-gradient(180deg, var(--accent-hover), var(--accent-deep));
+  border: 2px solid var(--accent-soft);
+  box-shadow: 0 2px 10px -2px rgba(0, 0, 0, 0.7);
+  transition: transform var(--dur) var(--ease);
+}
+.compare-slider:hover .compare-handle,
+.compare-divider:focus-visible .compare-handle {
+  transform: translate(-50%, -50%) scale(1.1);
+}
+.compare-slider.is-dragging .compare-handle {
+  transform: translate(-50%, -50%) scale(1.08);
+}
+.compare-arrow {
+  font-size: 0.8rem;
+  line-height: 1;
+  font-weight: 700;
+}
+@media (prefers-reduced-motion: reduce) {
+  .compare-handle { transition: none; }
+}
+
+/* 结果卡:对比/单图切换按钮 */
+.create-media-wrap,
+.compare-media {
+  position: relative;
+}
+.compare-toggle {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 2;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--ink);
+  background: color-mix(in oklab, var(--bg-0) 62%, transparent);
+  border: 1px solid var(--hairline-2);
+  border-radius: 999px;
+  padding: 0.18rem 0.55rem;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.compare-toggle:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   生成进度条(GenerationProgress)—— 真百分比填充 / 不确定流动态
+   ────────────────────────────────────────────────────────────── */
+.gen-progress {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(180deg, var(--accent-wash), transparent);
+}
+.gen-progress-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.gen-progress-stage {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+.gen-progress-pct {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.gen-progress-track {
+  height: 8px;
+  background: var(--bg-0);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+.gen-progress-fill {
+  background: linear-gradient(90deg, var(--accent-deep), var(--accent), var(--accent-hover));
+  box-shadow: 0 0 10px -1px var(--accent-glow);
+}
+/* 不确定态:暖金窄带流动 + 整条呼吸 */
+.gen-progress-fill.indeterminate {
+  width: 36% !important;
+  background: linear-gradient(90deg, transparent, var(--accent) 45%, var(--accent-hover) 55%, transparent);
+  animation: gen-slide 1.25s var(--ease) infinite, gen-breathe 2.4s ease-in-out infinite;
+}
+@keyframes gen-slide {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(310%); }
+}
+@keyframes gen-breathe {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gen-progress-fill.indeterminate {
+    width: 100% !important;
+    animation: gen-breathe 2.4s ease-in-out infinite;
+    background: linear-gradient(90deg, var(--accent-deep), var(--accent));
+  }
+}
+
 /* ---------- 生成按钮:签名主操作,暖金渐变 + 受光高光 + 按压回弹 ---------- */
 .generate-btn {
   position: relative;
