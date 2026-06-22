@@ -40,8 +40,11 @@ def _ensure_nas_auth() -> None:
     host = MODELS_BASE.lstrip("\\").split("\\")[0]  # 100.80.237.96
     pw = os.environ.get("TOIV_NAS_PASS", "")
     if pw:
+        share = rf"\\{host}\NAS"
+        # 先清掉可能冲突的旧会话(同一服务器只允许一组凭据),再认证
+        subprocess.run(["net", "use", share, "/delete", "/y"], capture_output=True, text=True)
         subprocess.run(
-            ["net", "use", rf"\\{host}\NAS", f"/user:dgmt-nas", pw, "/persistent:no"],
+            ["net", "use", share, f"/user:dgmt-nas", pw, "/persistent:no"],
             capture_output=True, text=True,
         )
 
@@ -109,6 +112,20 @@ def download(url: str, dest: str, token: str | None = None) -> None:
     os.replace(part, dest)  # 原子重命名
 
 
+def _hf_download(repo: str, file_in_repo: str, dest: str, token: str | None) -> None:
+    """用 huggingface_hub 下载(原生支持 HF Xet 后端 + 断点续传 + hf-mirror)。
+    先下到本地临时盘(快),再移到目标(可跨盘到 NAS)。"""
+    import shutil
+    import tempfile
+
+    os.environ.setdefault("HF_ENDPOINT", HF_MIRROR)
+    from huggingface_hub import hf_hub_download
+
+    with tempfile.TemporaryDirectory() as tmp:
+        path = hf_hub_download(repo_id=repo, filename=file_in_repo, local_dir=tmp, token=token or None)
+        shutil.move(path, dest)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--url", help="直链下载地址")
@@ -153,7 +170,10 @@ def main() -> int:
                          ensure_ascii=False))
         return 0
     try:
-        download(url, dest, args.token or None)
+        if args.hf:
+            _hf_download(args.hf, file_in_repo, dest, args.token or None)
+        else:
+            download(url, dest, args.token or None)
     except Exception as e:  # noqa: BLE001
         # 清掉可能残留的 .part
         try:
