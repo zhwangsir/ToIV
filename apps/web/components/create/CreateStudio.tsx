@@ -154,14 +154,6 @@ export function CreateStudio() {
         {feed.results.length === 0 && !feed.busy ? (
           <div className="hero-canvas">
             <div className="hero-orb" aria-hidden="true" />
-            <h2>
-              一句话<br />
-              <em>造一个世界</em>
-            </h2>
-            <p>
-              图像 · 视频 · 3D · 音乐,同一个台子。视频默认文生视频,拖入参考图即切图生视频;
-              生成后可一键转视频 · 转 3D · 重绘 · 变体,不必重配参数。
-            </p>
           </div>
         ) : (
           <ResultFeed
