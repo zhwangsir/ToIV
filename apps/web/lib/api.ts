@@ -315,7 +315,12 @@ export async function agentChat(
   }
 }
 
-export async function optimizePrompt(prompt: string, kind: string): Promise<string> {
+export interface OptimizeResult {
+  optimized: string;
+  negative?: string | null;
+}
+
+export async function optimizePrompt(prompt: string, kind: string): Promise<OptimizeResult> {
   const res = await fetch(`${API_BASE}/api/optimize`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
@@ -325,7 +330,8 @@ export async function optimizePrompt(prompt: string, kind: string): Promise<stri
     const detail = await res.json().catch(() => null);
     throw new Error(detail?.detail ?? `优化失败 (${res.status})`);
   }
-  return ((await res.json()).optimized as string) ?? prompt;
+  const data = await res.json();
+  return { optimized: (data.optimized as string) ?? prompt, negative: data.negative ?? null };
 }
 
 export function jobEventsUrl(

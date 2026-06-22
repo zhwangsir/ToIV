@@ -9,13 +9,15 @@ interface OptimizeButtonProps {
   value: string;
   /** 优化的功能类型:image / image_edit / video / audio / threed */
   kind: string;
-  /** 拿到优化结果后回填 */
+  /** 拿到优化结果后回填正向提示词 */
   onResult: (optimized: string) => void;
+  /** 图像类:同时回填负面提示词(可选) */
+  onNegative?: (negative: string) => void;
   disabled?: boolean;
 }
 
-/** 一键把简单输入扩写成该功能的专业提示词(由 LLM 完成)。 */
-export function OptimizeButton({ value, kind, onResult, disabled }: OptimizeButtonProps) {
+/** 一键把简单输入扩写成该功能的专业提示词(由 LLM 完成);图像类同时优化正向+负面。 */
+export function OptimizeButton({ value, kind, onResult, onNegative, disabled }: OptimizeButtonProps) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -25,7 +27,9 @@ export function OptimizeButton({ value, kind, onResult, disabled }: OptimizeButt
     setBusy(true);
     setErr(null);
     try {
-      onResult(await optimizePrompt(text, kind));
+      const res = await optimizePrompt(text, kind);
+      onResult(res.optimized);
+      if (res.negative && onNegative) onNegative(res.negative);
     } catch (e) {
       setErr((e as Error).message);
     } finally {

@@ -102,6 +102,7 @@ export function PromptForm({
             value={params.positive}
             kind={mode === "img2img" ? "image_edit" : "image"}
             onResult={(s) => onPatch({ positive: s })}
+            onNegative={(s) => onPatch({ negative: s })}
             disabled={busy}
           />
           <span className="hint">{params.positive.length}</span>
