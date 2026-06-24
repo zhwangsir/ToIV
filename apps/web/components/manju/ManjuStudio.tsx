@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
+  assembleManju,
   generateStoryboard,
   generateTxt2img,
   generateVideo,
@@ -11,6 +12,7 @@ import {
   listModels,
   uploadImage,
 } from "@/lib/api";
+import type { ManjuTransition } from "@/lib/api";
 import type { GenerateResponse, ModelsResponse } from "@/lib/types";
 
 import { ShotCard } from "./ShotCard";
@@ -26,7 +28,7 @@ const FLOW_STEPS: { key: FlowStep; label: string; hint: string }[] = [
   { key: "characters", label: "角色", hint: "登记出场角色" },
   { key: "storyboard", label: "分镜", hint: "拆解 + 逐镜出图" },
   { key: "video", label: "视频", hint: "关键帧转视频" },
-  { key: "export", label: "导出", hint: "M2 起合成成片" },
+  { key: "export", label: "导出", hint: "自动剪辑 → 成片" },
 ];
 
 const NEGATIVE = "blurry, lowres, deformed, bad anatomy, extra fingers, watermark, text, jpeg artifacts";
@@ -66,6 +68,14 @@ export function ManjuStudio() {
   const [stage, setStage] = useState("");
   const [error, setError] = useState<string | null>(null);
   const esRef = useRef<EventSource | null>(null);
+
+  // 导出 / 自动剪辑
+  const [transition, setTransition] = useState<ManjuTransition>("crossfade");
+  const [withSubs, setWithSubs] = useState(true);
+  const [bgmUrl, setBgmUrl] = useState("");
+  const [assembling, setAssembling] = useState(false);
+  const [assembledUrl, setAssembledUrl] = useState<string | null>(null);
+  const [assembleErr, setAssembleErr] = useState<string | null>(null);
 
   useEffect(() => {
     listModels()
@@ -159,9 +169,11 @@ export function ManjuStudio() {
         return;
       }
       patchShot(shot.id, { status: "imaging", error: undefined });
+      // AI 润色产出的反向词叠加到基础 NEGATIVE 之上(内容感知,逐镜定制)
+      const negative = shot.negative?.trim() ? `${NEGATIVE}, ${shot.negative.trim()}` : NEGATIVE;
       const res = await generateTxt2img({
         positive: prompt,
-        negative: NEGATIVE,
+        negative,
         ckpt_name: ckpt,
         width: SHOT_W,
         height: SHOT_H,
@@ -289,6 +301,34 @@ export function ManjuStudio() {
     [shots, busy, videoOne],
   );
 
+  // 自动剪辑:把已转视频的镜头按序拼成成片(可选转场 / 字幕 / BGM)
+  const assemble = useCallback(async () => {
+    if (assembling) return;
+    const clipShots = shots.filter((s) => s.videoUrl);
+    if (clipShots.length === 0) {
+      setAssembleErr("还没有视频片段,先到「视频」步把分镜转成视频");
+      return;
+    }
+    setAssembling(true);
+    setAssembleErr(null);
+    setAssembledUrl(null);
+    try {
+      const clips = clipShots.map((s) => s.videoUrl as string);
+      const subtitles = withSubs ? clipShots.map((s) => (s.dialogue || "").trim()) : [];
+      const r = await assembleManju(clips, {
+        transition,
+        bgm_url: bgmUrl.trim() || null,
+        subtitles,
+        fps: 16,
+      });
+      setAssembledUrl(r.url);
+    } catch (e) {
+      setAssembleErr((e as Error).message);
+    } finally {
+      setAssembling(false);
+    }
+  }, [assembling, shots, withSubs, transition, bgmUrl]);
+
   const addChar = () => setChars((prev) => [...prev, { name: "", desc: "" }]);
   const patchChar = (i: number, patch: Partial<CharRow>) =>
     setChars((prev) => prev.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
@@ -297,6 +337,7 @@ export function ManjuStudio() {
   const selected = shots.find((s) => s.id === selectedId) ?? null;
   const selectedIndex = selected ? shots.findIndex((s) => s.id === selected.id) : -1;
   const doneCount = shots.filter((s) => s.imageUrl).length;
+  const videoCount = shots.filter((s) => s.videoUrl).length;
 
   return (
     <div className="manju-studio">
@@ -447,7 +488,7 @@ export function ManjuStudio() {
             </section>
           )}
 
-          {shots.length > 0 && (step === "storyboard" || step === "video" || step === "export") && (
+          {shots.length > 0 && (step === "storyboard" || step === "video") && (
             <section className="manju-board-wrap">
               <div className="manju-board-head">
                 <h2>
@@ -488,6 +529,128 @@ export function ManjuStudio() {
                   />
                 ))}
               </div>
+            </section>
+          )}
+
+          {shots.length > 0 && step === "export" && (
+            <section className="manju-board-wrap">
+              <div className="manju-board-head">
+                <h2>
+                  成片导出 <span className="grad">自动剪辑</span>
+                </h2>
+                <div className="manju-board-tools">
+                  <span className="manju-progress-chip">
+                    {videoCount}/{shots.length} 镜有视频
+                  </span>
+                  <button
+                    type="button"
+                    className="manju-ghost-btn"
+                    disabled={assembling}
+                    onClick={() => setStep("video")}
+                  >
+                    ← 回视频
+                  </button>
+                </div>
+              </div>
+
+              {videoCount === 0 ? (
+                <p
+                  className="manju-setup-hint"
+                  style={{ padding: "2rem 0", textAlign: "center", lineHeight: 1.7 }}
+                >
+                  还没有视频片段。先到「视频」步,把分镜逐镜转成视频,再回来一键合成成片。
+                </p>
+              ) : (
+                <div style={{ display: "grid", gap: "1.2rem", maxWidth: "640px" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "1.4rem",
+                      alignItems: "flex-end",
+                    }}
+                  >
+                    <div className="field" style={{ margin: 0 }}>
+                      <label>转场</label>
+                      <div className="seg" role="group" aria-label="转场">
+                        {(["crossfade", "none"] as ManjuTransition[]).map((t) => (
+                          <button
+                            key={t}
+                            type="button"
+                            className={transition === t ? "active" : ""}
+                            onClick={() => setTransition(t)}
+                          >
+                            {t === "crossfade" ? "交叠淡入" : "硬切"}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                        cursor: "pointer",
+                        fontSize: "0.85rem",
+                        paddingBottom: "0.4rem",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={withSubs}
+                        onChange={(e) => setWithSubs(e.target.checked)}
+                      />
+                      烧录字幕(用各镜台词)
+                    </label>
+                  </div>
+
+                  <div className="field" style={{ margin: 0 }}>
+                    <label htmlFor="manju-bgm">BGM 链接(可选)</label>
+                    <input
+                      id="manju-bgm"
+                      value={bgmUrl}
+                      onChange={(e) => setBgmUrl(e.target.value)}
+                      placeholder="音乐文件 URL,留空则成片无配乐"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    className="generate-btn"
+                    disabled={assembling || videoCount === 0}
+                    onClick={assemble}
+                  >
+                    {assembling
+                      ? "合成中…(下载片段 + ffmpeg 拼接)"
+                      : `🎬 合成成片(${videoCount} 镜)`}
+                  </button>
+
+                  {assembleErr && <div className="alert">⚠ {assembleErr}</div>}
+
+                  {assembledUrl && (
+                    <div style={{ display: "grid", gap: "0.7rem" }}>
+                      <video
+                        src={imageUrl(assembledUrl)}
+                        controls
+                        style={{
+                          width: "100%",
+                          borderRadius: "14px",
+                          background: "#000",
+                          border: "1px solid color-mix(in oklab, var(--accent) 30%, transparent)",
+                        }}
+                      />
+                      <a
+                        className="manju-secondary-btn"
+                        href={imageUrl(assembledUrl)}
+                        download
+                        style={{ textAlign: "center", textDecoration: "none" }}
+                      >
+                        ↓ 下载成片
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
             </section>
           )}
         </main>
