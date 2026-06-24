@@ -182,21 +182,25 @@ export function ThreeDStudio() {
         ) : (
           <>
             <div className="viewer-3d editorial">
+              <span className="viewer-badge" aria-hidden="true">MESH · GLB</span>
               <ModelViewer src={latest.url} />
               <a className="btn-ghost viewer-dl" href={latest.url} download>
                 下载 GLB
               </a>
             </div>
             {models.length > 1 && (
-              <div className="model-strip">
-                {models.slice(1).map((m) => (
-                  <a key={m.id} href={m.url} download>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M12 3v12M7 10l5 5 5-5M5 21h14" />
-                    </svg>
-                    {m.id.slice(0, 6)}.glb
-                  </a>
-                ))}
+              <div className="model-history">
+                <span className="model-history-cap">早前的模型</span>
+                <div className="model-strip">
+                  {models.slice(1).map((m) => (
+                    <a key={m.id} href={m.url} download>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M12 3v12M7 10l5 5 5-5M5 21h14" />
+                      </svg>
+                      <span className="glb-name">{m.id.slice(0, 6)}.glb</span>
+                    </a>
+                  ))}
+                </div>
               </div>
             )}
           </>

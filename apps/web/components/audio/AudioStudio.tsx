@@ -195,11 +195,21 @@ export function AudioStudio() {
               >
                 <div className="track-card-head">
                   <span className="track-no">{String(tracks.length - i).padStart(2, "0")}</span>
-                  <span className="track-tags" title={t.tags}>
-                    {t.tags}
+                  <span className="track-meta">
+                    <span className="track-tags" title={t.tags}>
+                      {t.tags}
+                    </span>
+                    <span className="track-sub">ACE-Step · 原创音乐</span>
                   </span>
+                  <a className="track-dl" href={t.url} download aria-label="下载音轨">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M12 3v12M7 10l5 5 5-5M5 21h14" />
+                    </svg>
+                  </a>
                 </div>
-                <audio controls preload="none" src={t.url} />
+                <div className="track-player">
+                  <audio controls preload="none" src={t.url} />
+                </div>
               </motion.div>
             ))}
           </motion.div>
