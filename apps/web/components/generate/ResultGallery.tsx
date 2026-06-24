@@ -26,13 +26,16 @@ export function ResultGallery({ results, onExample, loading = false }: Props) {
 
   if (results.length === 0 && !loading) {
     return (
-      <div className="hero-canvas">
-        <div className="hero-orb" aria-hidden="true" />
+      <div className="editorial-empty">
+        <span className="ee-orb" aria-hidden="true">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2.5" />
+            <circle cx="9" cy="9" r="2" />
+            <path d="m21 15-4.5-4.5L7 20" />
+          </svg>
+        </span>
         <h2>把想象渲染成画面</h2>
-        <p>
-          描述你想要的画面，点击「生成」，由你的 ComfyUI 集群即时出图。
-          视频、3D、音频模态即将上线。
-        </p>
+        <p>描述你想要的画面，点击「生成」，由 ComfyUI 集群即时出图。</p>
         <div className="example-chips">
           {EXAMPLES.map((e) => (
             <button key={e} type="button" className="chip" onClick={() => onExample(e)}>

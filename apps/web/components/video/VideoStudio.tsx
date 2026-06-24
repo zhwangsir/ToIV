@@ -215,10 +215,15 @@ export function VideoStudio() {
         <ProgressBar status={status} progress={progress} />
         {error && <div className="alert">⚠ {error}</div>}
         {clips.length === 0 ? (
-          <div className="hero-canvas">
-            <div className="hero-orb" aria-hidden="true" />
+          <div className="editorial-empty">
+            <span className="ee-orb" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="5" width="14" height="14" rx="2" />
+                <path d="m16 9 6-3v12l-6-3" />
+              </svg>
+            </span>
             <h2>让画面动起来</h2>
-            <p>上传一张图片，描述运动，由 Wan 2.2 生成短视频。</p>
+            <p>上传一张图片、描述运动，由 Wan 2.2 生成短视频。</p>
           </div>
         ) : (
           <div className="gallery">
