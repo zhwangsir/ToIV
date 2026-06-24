@@ -60,20 +60,32 @@ export async function fetchCanvasModels(): Promise<CanvasModels> {
     return { all: [], hasNsfwMarks: false };
   }
 
-  // 优先读 modes.image.models(可能是 string[] 或未来的对象数组)。
+  // 真实后端契约:顶层扁平 nsfw_models / vpred_models 列表(打标用)。
+  const aware = res as typeof res & {
+    nsfw_models?: string[];
+    vpred_models?: string[];
+  };
+  const nsfwSet = new Set(Array.isArray(aware.nsfw_models) ? aware.nsfw_models : []);
+  const vpredSet = new Set(Array.isArray(aware.vpred_models) ? aware.vpred_models : []);
+
+  // 模型名列表读 modes.image.models(string[] 或未来对象数组),回退 checkpoints。
   const imageMode = res.modes?.image;
   const rawList: unknown[] = Array.isArray(imageMode?.models)
     ? (imageMode!.models as unknown[])
     : (res.checkpoints ?? []);
 
   const all: CanvasModelOption[] = [];
-  let hasNsfwMarks = false;
   for (const raw of rawList) {
     const opt = fromModeEntry(raw);
     if (!opt) continue;
-    if (opt.nsfw) hasNsfwMarks = true;
-    all.push(opt);
+    // 对象形态自带标记则保留其真值,否则用顶层 nsfw_models/vpred_models 打标。
+    all.push({
+      name: opt.name,
+      nsfw: opt.nsfw || nsfwSet.has(opt.name),
+      vpred: opt.vpred || vpredSet.has(opt.name),
+    });
   }
+  const hasNsfwMarks = all.some((m) => m.nsfw);
 
   return { all, hasNsfwMarks };
 }

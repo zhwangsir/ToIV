@@ -20,6 +20,8 @@ interface NsfwModeModels {
 interface NsfwAware {
   modes?: Record<string, NsfwModeModels>;
   nsfw?: Record<string, string[]>;
+  /** 实际后端契约:顶层扁平 NSFW 模型名列表(主要是图像 checkpoint)。 */
+  nsfw_models?: string[];
 }
 
 /** 读取某模式的 NSFW 文件名集合(任一形态),无标记返回 null。 */
@@ -30,6 +32,8 @@ function nsfwNamesFor(models: ModelsResponse | null, mode: string): string[] | n
   if (Array.isArray(fromMode)) return fromMode;
   const fromTop = aware.nsfw?.[mode];
   if (Array.isArray(fromTop)) return fromTop;
+  // 真实契约:顶层 nsfw_models 扁平列表(图像 checkpoint);对非图像模式无交集时上层会回退全部。
+  if (Array.isArray(aware.nsfw_models) && aware.nsfw_models.length > 0) return aware.nsfw_models;
   return null;
 }
 
