@@ -477,11 +477,25 @@ body::after {
   background: var(--accent);
 }
 
+/* 大舞台:作品当主角 —— 慷慨的媒体灯箱井,结果区视觉占主导 */
 .stage {
   display: flex;
   flex-direction: column;
   gap: 1.2rem;
   min-width: 0;
+}
+/* 结果井:沉陷衬底 + 占满可用高度 + 细 hairline,让媒体浮于其上 */
+.stage-well {
+  flex: 1;
+  min-height: clamp(440px, 64vh, 720px);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sunken);
+  box-shadow: var(--shadow-edge);
+  padding: clamp(1rem, 2vw, 1.6rem);
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
 }
 
 /* ---------- 表单 ---------- */
@@ -704,19 +718,20 @@ input:focus {
   object-fit: contain;
   display: block;
 }
+/* 画廊式铺陈:大尺寸缩略图,媒体当主角 */
 .create-feed {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(clamp(280px, 30vw, 380px), 1fr));
+  gap: clamp(1rem, 1.6vw, 1.5rem);
 }
 .create-card {
   position: relative;
   margin: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   overflow: hidden;
   border: 1px solid var(--hairline);
   background: var(--bg-2);
-  box-shadow: var(--shadow-sm), var(--shadow-edge);
+  box-shadow: var(--shadow-md), var(--shadow-edge);
   will-change: transform, clip-path;
   transition:
     border-color var(--dur) var(--ease),
@@ -740,11 +755,18 @@ input:focus {
   border: none;
   border-radius: 0;
 }
+/* 极小角标:不喧宾夺主,衬于媒体之上 */
 .create-card .media-tag {
   position: absolute;
   top: 0.5rem;
   left: 0.5rem;
   margin: 0;
+  font-size: 0.62rem;
+  padding: 0.12rem 0.42rem;
+  color: var(--ink);
+  background: color-mix(in oklab, var(--bg-0) 56%, transparent);
+  backdrop-filter: blur(6px);
+  border-color: var(--hairline-2);
 }
 /* 续创作动作:悬停浮现 */
 .card-actions {
@@ -3843,74 +3865,40 @@ input[type="range"]::-webkit-slider-thumb:hover {
   font-weight: 600;
 }
 
-/* ---------- 编辑式空态:不对称大主张 + 序数水印(复用 hero-canvas 语言) ---------- */
+/* ---------- 克制空态:安静、有用 —— 适度图标 + 适中标题 + 一句提示(无序数水印、无巨字) ---------- */
 .editorial-empty {
-  position: relative;
-  min-height: clamp(300px, 44vh, 480px);
+  min-height: clamp(280px, 40vh, 440px);
   border: 1px solid var(--hairline);
   border-radius: var(--radius);
-  background:
-    radial-gradient(125% 100% at 10% -8%, color-mix(in oklab, var(--accent) 10%, transparent), transparent 52%),
-    radial-gradient(90% 70% at 96% 110%, var(--accent-wash), transparent 60%),
-    var(--bg-1);
-  overflow: hidden;
+  background: var(--bg-1);
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  gap: 1rem;
-  padding: clamp(2rem, 5vw, 3.6rem);
-  box-shadow: var(--shadow-edge), var(--shadow-md);
-}
-.editorial-empty::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(var(--hairline) 1px, transparent 1px),
-    linear-gradient(90deg, var(--hairline) 1px, transparent 1px);
-  background-size: 56px 56px;
-  mask-image: radial-gradient(ellipse 80% 75% at 88% 80%, #000 4%, transparent 70%);
-  opacity: 0.45;
-  pointer-events: none;
-}
-/* 半出血巨号衬线序数水印 —— 每个视图各自的「刊号」 */
-.editorial-empty::after {
-  content: attr(data-ord);
-  position: absolute;
-  right: clamp(-0.5rem, -1vw, 0.5rem);
-  bottom: clamp(-2rem, -4vw, -0.8rem);
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: clamp(7rem, 20vw, 16rem);
-  line-height: 0.7;
-  letter-spacing: -0.06em;
-  color: color-mix(in oklab, var(--accent) 8%, transparent);
-  pointer-events: none;
-  user-select: none;
+  text-align: center;
+  gap: 0.85rem;
+  padding: clamp(2.4rem, 6vw, 4rem) clamp(1.6rem, 5vw, 3rem);
+  box-shadow: var(--shadow-edge);
 }
 .editorial-empty .ee-orb {
-  position: relative;
-  width: 52px;
-  height: 52px;
-  border-radius: 15px;
-  background: linear-gradient(155deg, var(--bg-3), var(--bg-1));
-  border: 1px solid var(--hairline-2);
-  box-shadow: var(--shadow-md), var(--shadow-edge);
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--accent-quiet);
   display: grid;
   place-items: center;
   color: var(--accent);
-  font-size: 1.25rem;
+  margin-bottom: 0.3rem;
 }
 .editorial-empty h2 {
-  position: relative;
-  margin: 0.3rem 0 0;
-  max-width: 16ch;
+  margin: 0;
+  max-width: 22ch;
   font-family: var(--font-display);
-  font-size: clamp(2.2rem, 1rem + 5vw, 4.4rem);
-  font-weight: 540;
+  font-size: var(--text-title);
+  font-weight: 560;
   letter-spacing: var(--tracking-tight);
-  line-height: var(--leading-statement);
+  line-height: 1.12;
+  color: var(--ink);
   text-wrap: balance;
 }
 .editorial-empty h2 em {
@@ -3919,12 +3907,19 @@ input[type="range"]::-webkit-slider-thumb:hover {
   color: var(--accent);
 }
 .editorial-empty p {
-  position: relative;
   margin: 0;
-  max-width: 40rem;
+  max-width: 42ch;
   color: var(--ink-soft);
-  font-size: 1rem;
-  line-height: 1.66;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+/* 大舞台内的空态:并入媒体井,不再叠一层边框/衬底 */
+.editorial-empty.stage-empty {
+  flex: 1;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  min-height: 0;
 }
 
 /* ---------- 瀑布流画廊(作品库)—— CSS columns,真不等高 + 焦点大图 ---------- */

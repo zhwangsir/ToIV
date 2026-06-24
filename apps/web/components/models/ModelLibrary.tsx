@@ -201,16 +201,14 @@ export function ModelLibrary() {
           ))}
         </div>
       ) : items.length === 0 ? (
-        <div className="editorial-empty" data-ord="∅">
+        <div className="editorial-empty">
           <span className="ee-orb" aria-hidden="true">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="7" />
               <path d="M21 21l-4.3-4.3" />
             </svg>
           </span>
-          <h2>
-            没有<em>结果</em>
-          </h2>
+          <h2>没有匹配的模型</h2>
           <p>换个关键词,或切换到另一个模型市场再试试。</p>
         </div>
       ) : (

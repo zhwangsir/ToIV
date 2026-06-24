@@ -166,17 +166,15 @@ export function AudioStudio() {
         <ProgressBar status={status} progress={progress} />
         {error && <div className="alert">⚠ {error}</div>}
         {tracks.length === 0 ? (
-          <div className="editorial-empty" data-ord="♪">
+          <div className="editorial-empty">
             <span className="ee-orb" aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 18V5l11-2v13" />
                 <circle cx="6" cy="18" r="3" />
                 <circle cx="17" cy="16" r="3" />
               </svg>
             </span>
-            <h2>
-              把文字<em>谱成</em>音乐
-            </h2>
+            <h2>把文字谱成音乐</h2>
             <p>输入风格标签(可附歌词),由 ACE-Step 3.5B 生成原创音乐 —— 纯音乐或带唱词皆可。</p>
           </div>
         ) : (

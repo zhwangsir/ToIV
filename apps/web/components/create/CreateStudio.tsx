@@ -223,24 +223,44 @@ export function CreateStudio() {
           <span className="count">{feed.results.length} 件</span>
         </div>
 
-        {feed.busy && <GenerationProgress stage={feed.stage} progress={feed.progress} />}
+        {/* 媒体灯箱井:作品当主角,占满可用高度 */}
+        <div className="stage-well">
+          {feed.busy && <GenerationProgress stage={feed.stage} progress={feed.progress} />}
 
-        {/* 生成中先铺流光占位网格,结果渐显时替换;结果区与占位区并存,产出即向上插入 */}
-        {feed.busy && <GenerationSkeleton count={pendingCount} />}
+          {/* 生成中先铺流光占位网格,结果渐显时替换;结果区与占位区并存,产出即向上插入 */}
+          {feed.busy && <GenerationSkeleton count={pendingCount} />}
 
-        {feed.results.length === 0 && !feed.busy ? (
-          <div className="hero-canvas">
-            <div className="hero-orb" aria-hidden="true" />
-          </div>
-        ) : (
-          <ResultFeed
-            results={feed.results}
-            busy={feed.busy}
-            onReuse={onReuse}
-            onToVideo={feed.continueToVideo}
-            onTo3D={feed.continueTo3D}
-          />
-        )}
+          {feed.results.length === 0 && !feed.busy ? (
+            <div className="editorial-empty stage-empty">
+              <span className="ee-orb" aria-hidden="true">
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="3" y="3" width="18" height="18" rx="2.5" />
+                  <circle cx="8.5" cy="8.5" r="1.8" />
+                  <path d="M21 15l-5-5L5 21" />
+                </svg>
+              </span>
+              <h2>描述你想创作的</h2>
+              <p>调好左侧参数后开始生成,作品会在这里展开。</p>
+            </div>
+          ) : (
+            <ResultFeed
+              results={feed.results}
+              busy={feed.busy}
+              onReuse={onReuse}
+              onToVideo={feed.continueToVideo}
+              onTo3D={feed.continueTo3D}
+            />
+          )}
+        </div>
       </main>
     </div>
   );

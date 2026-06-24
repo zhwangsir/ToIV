@@ -2,17 +2,18 @@
    - 仅用合成器友好属性(transform/opacity)做动效,沿用既有 token。
    - reduced-motion:停掉横扫,保留静态占位,避免眩晕。 */
 
+/* 占位网格与大舞台画廊同尺度,结果替换占位时无跳变 */
 .gen-skel {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(clamp(280px, 30vw, 380px), 1fr));
+  gap: clamp(1rem, 1.6vw, 1.5rem);
   margin-top: var(--space-3);
 }
 
 .gen-skel-tile {
   position: relative;
   aspect-ratio: 1 / 1;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   border: 1px solid var(--hairline);
   background: var(--bg-2);
   overflow: hidden;

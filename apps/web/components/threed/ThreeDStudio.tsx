@@ -169,16 +169,14 @@ export function ThreeDStudio() {
         <ProgressBar status={status} progress={progress} />
         {error && <div className="alert">⚠ {error}</div>}
         {!latest ? (
-          <div className="editorial-empty" data-ord="3D">
+          <div className="editorial-empty">
             <span className="ee-orb" aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2l8 4.5v9L12 22l-8-6.5v-9L12 2z" />
                 <path d="M12 22V12M12 12l8-5.5M12 12L4 6.5" />
               </svg>
             </span>
-            <h2>
-              把图片<em>立</em>起来
-            </h2>
+            <h2>把图片立成 3D 模型</h2>
             <p>上传一张物体图片,由 Hunyuan3D 2.0 生成可旋转的网格模型,一键导出 GLB。</p>
           </div>
         ) : (

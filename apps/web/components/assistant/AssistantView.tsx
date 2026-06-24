@@ -132,11 +132,11 @@ export function AssistantView() {
 
       <div className="chat-scroll" ref={scrollRef}>
         {items.length === 0 ? (
-          <div className="editorial-empty" data-ord="∞">
+          <div className="editorial-empty">
             <span className="ee-orb" aria-hidden="true">
               <svg
-                width="22"
-                height="22"
+                width="24"
+                height="24"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -148,13 +148,8 @@ export function AssistantView() {
                 <path d="M12 8.4v6.2M8.9 11.5h6.2" />
               </svg>
             </span>
-            <h2>
-              说一句话,<br />
-              <em>我来造</em>
-            </h2>
-            <p>
-              不必懂参数、不必选模型 —— 用自然语言描述需求即可。下面几个例子,点一下就开始。
-            </p>
+            <h2>想做什么?描述一下,我来跑工作流</h2>
+            <p>不必懂参数、不必选模型 —— 用自然语言说出需求即可。下面几个例子,点一下就开始。</p>
             <div className="chat-suggest">
               {SUGGESTIONS.map((s) => (
                 <button key={s} type="button" onClick={() => send(s)}>

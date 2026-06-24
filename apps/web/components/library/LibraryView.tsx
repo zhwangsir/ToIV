@@ -162,21 +162,18 @@ export function LibraryView() {
           ))}
         </div>
       ) : shown.length === 0 ? (
-        <div className="editorial-empty" data-ord="00">
+        <div className="editorial-empty">
           <span className="ee-orb" aria-hidden="true">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="3" width="7" height="7" rx="1.5" />
               <rect x="14" y="3" width="7" height="7" rx="1.5" />
               <rect x="3" y="14" width="7" height="7" rx="1.5" />
               <rect x="14" y="14" width="7" height="7" rx="1.5" />
             </svg>
           </span>
-          <h2>
-            空白的<br />
-            <em>第一页</em>
-          </h2>
+          <h2>还没有作品</h2>
           <p>
-            去图像 / 视频 / 3D / 音乐模块创作,生成的每一件作品都会自动汇集到这里,成为你的作品集。
+            去图像 / 视频 / 3D / 音乐模块创作,生成的每一件作品都会自动汇集到这里。
           </p>
         </div>
       ) : (
