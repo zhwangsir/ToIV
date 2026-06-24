@@ -2,33 +2,34 @@
   color-scheme: dark;
 
   /* ──────────────────────────────────────────────────────────
-     ToIV 设计系统 v5 — 静奢编辑感(Linear / Stripe / Krea 的工艺面)
-     冷暖平衡的近黑画布 · 一个有性格的暖琥珀强调 · 一抹冷板岩做状态
-     真景深(分层表面 + 定向柔阴影 + 极细颗粒)· 编辑式排版与节奏
-     艺术与交互靠工艺,不靠霓虹辉光 / 极光 / 赛博特效。
+     ToIV 设计系统 v6 — Studio Noir 暗房工作室
+     中性近黑画布(微紫底色)· 品紫(iris/violet)冷强调 · 灭辉光
+     真景深靠分层表面 + 定向柔阴影,不靠霓虹 / 极光。作品当主角,UI 退后。
+     默认暗,亮色为第二主题(:root[data-theme="light"])。
      ────────────────────────────────────────────────────────── */
 
-  /* 表面层级:暖调近黑,层层抬升带一点点温度(非死黑、非纯灰) */
-  --bg-0: #0c0b0d;   /* 页面底 —— 极暖黑 */
-  --bg-1: #131216;   /* 一级表面(卡片/输入底) */
-  --bg-2: #19171c;   /* 二级表面(抬升卡片) */
-  --bg-3: #221f26;   /* 悬停/选中底 */
+  /* 表面层级:中性近黑,微微抬升带一点冷紫底色 */
+  --bg-0: oklch(14.5% 0.008 280);   /* 页面底 */
+  --bg-1: oklch(18% 0.009 280);     /* 一级表面(卡片/输入底) */
+  --bg-2: oklch(21.5% 0.010 280);   /* 二级表面(抬升卡片) */
+  --bg-3: oklch(26% 0.011 280);     /* 悬停/选中底 */
 
-  /* 表面填充:干净抬升,带极轻暖膜 */
-  --surface: #151318;
-  --surface-hover: #1c1a20;
-  --glass: rgba(255, 252, 248, 0.026);
-  --glass-2: rgba(255, 252, 248, 0.05);
+  /* 表面填充 */
+  --surface: oklch(18% 0.009 280);
+  --surface-hover: oklch(21.5% 0.010 280);
+  --bg-sunken: oklch(11.5% 0.006 280);   /* 媒体灯箱衬底 */
+  --glass: oklch(100% 0 0 / 0.03);
+  --glass-2: oklch(100% 0 0 / 0.06);
 
-  /* 描边:细而清晰,做层次的主力(略偏暖白) */
-  --hairline: rgba(255, 250, 244, 0.075);
-  --hairline-2: rgba(255, 250, 244, 0.13);
-  --hairline-strong: rgba(255, 250, 244, 0.2);
+  /* 描边:细而清晰,做层次的主力 */
+  --hairline: oklch(100% 0 0 / 0.08);
+  --hairline-2: oklch(100% 0 0 / 0.13);
+  --hairline-strong: oklch(100% 0 0 / 0.18);
 
-  /* 文字:四档对比,纪律分明,暖白 */
-  --ink: rgba(252, 249, 245, 0.94);
-  --ink-soft: rgba(252, 249, 245, 0.63);
-  --ink-faint: rgba(252, 249, 245, 0.4);
+  /* 文字:四档对比,纪律分明 */
+  --ink: oklch(96% 0.004 280);
+  --ink-soft: oklch(71% 0.006 280);
+  --ink-faint: oklch(52% 0.006 280);
 
   /* 间距阶 —— 有呼吸的节奏,非均匀 padding */
   --space-1: 0.5rem;
@@ -38,33 +39,32 @@
   --space-5: 2.5rem;
   --space-6: 4rem;
 
-  /* 强调色:暖琥珀金 —— 大胆、有存在感、敢做主张。
-     editorial bold:金本身就是版面语言,而非点缀。
-     状态/数值用冷板岩青做冷暖对照。v1..v3 收敛到同一暖调梯度。 */
-  --accent: #ecaa56;             /* 琥珀金,更亮更饱和,更敢 */
-  --accent-hover: #f4bd72;
-  --accent-deep: #c4863c;
-  --accent-soft: #f6d6a4;        /* 浅奶金:大字反白/强调描边 */
-  --accent-quiet: rgba(236, 170, 86, 0.14);
-  --accent-wash: rgba(236, 170, 86, 0.07);
-  --accent-line: rgba(236, 170, 86, 0.5);
-  --accent-ink: #1a1206;         /* 暖金底上用近黑暖墨,对比更高级 */
-  --accent-glow: rgba(236, 170, 86, 0.3);
-  --v1: #ecaa56;
-  --v2: #d99450;
-  --v3: #f1cf9b;                 /* 浅金:次级强调文字 */
-  --v4: #7fb4c4;                 /* 冷板岩青:状态点 / 数值,克制使用 */
-  --cool: #7fb4c4;
-  --success: #7fb4c4;
-  /* 「aurora」兼容历史选择器:现为暖金极轻渐变,非彩虹辉光 */
-  --aurora: linear-gradient(135deg, #ecb673 0%, #d99450 100%);
-
-  --danger: #e0726f;
+  /* 强调色:品紫(iris/violet)—— 冷、克制、有存在感。
+     状态/数值用冷青做冷暖对照。v1..v3 收敛到同一品紫梯度。 */
+  --accent: oklch(68% 0.16 285);
+  --accent-hover: oklch(74% 0.15 285);
+  --accent-deep: oklch(56% 0.15 285);
+  --accent-soft: oklch(82% 0.09 285);
+  --accent-quiet: oklch(68% 0.16 285 / 0.14);
+  --accent-wash: oklch(68% 0.16 285 / 0.07);
+  --accent-line: oklch(68% 0.16 285 / 0.42);
+  --accent-ink: oklch(98% 0.01 285);     /* 品紫底上用近白字 */
+  --accent-glow: oklch(68% 0.16 285 / 0); /* 辉光灭掉 */
+  --v1: oklch(68% 0.16 285);
+  --v2: oklch(60% 0.14 285);
+  --v3: oklch(80% 0.09 285);
+  --v4: oklch(72% 0.10 230);              /* 冷青:状态点 / 数值,克制使用 */
+  --cool: oklch(72% 0.10 230);
+  --success: oklch(72% 0.13 160);
+  --danger: oklch(64% 0.17 25);
+  /* 「aurora」兼容历史选择器:现为品紫极轻渐变,非彩虹辉光 */
+  --aurora: linear-gradient(135deg, oklch(68% 0.16 285) 0%, oklch(60% 0.14 285) 100%);
 
   /* 圆角:克制一致 */
-  --radius: 14px;
+  --radius: 12px;
   --radius-sm: 10px;
-  --radius-xs: 7px;
+  --radius-xs: 6px;
+  --radius-lg: 16px;
 
   /* 动效:CSS 侧短过渡 + 编辑式缓动(JS 弹性物理交给 framer-motion) */
   --dur: 0.18s;
@@ -72,24 +72,66 @@
   --ease: cubic-bezier(0.32, 0.72, 0, 1);
   --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
 
-  /* 阴影:定向柔阴影做真景深(顶光,带极轻暖色环境光) */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
-  --shadow-md: 0 6px 20px -4px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 20px 48px -12px rgba(0, 0, 0, 0.62), 0 6px 16px rgba(0, 0, 0, 0.4);
-  --shadow-edge: inset 0 1px 0 rgba(255, 252, 248, 0.05);
+  /* 阴影:定向柔阴影做真景深(顶光,中性) */
+  --shadow-sm: 0 1px 2px oklch(0% 0 0 / 0.45);
+  --shadow-md: 0 6px 20px -4px oklch(0% 0 0 / 0.5), 0 2px 6px oklch(0% 0 0 / 0.3);
+  --shadow-lg: 0 20px 48px -12px oklch(0% 0 0 / 0.62), 0 6px 16px oklch(0% 0 0 / 0.4);
+  --shadow-edge: inset 0 1px 0 oklch(100% 0 0 / 0.05);
 
-  /* 排版:编辑式衬线 display + 中性 sans 正文 的真配对 */
-  --font-display: "Fraunces", "Space Grotesk", Georgia, ui-serif, serif;
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system,
-    "PingFang SC", "Microsoft YaHei", sans-serif;
+  /* 排版:grotesk(Geist)做 display 与正文 —— 杀掉中文衬线回退。
+     Fraunces 仅留作可选 serif,工作区不用。 */
+  --font-sans: var(--font-geist), "Inter", ui-sans-serif, system-ui, -apple-system,
+    "PingFang SC", "HarmonyOS Sans SC", "Source Han Sans SC", "Microsoft YaHei", sans-serif;
+  --font-display: var(--font-sans);
+  --font-mono: var(--font-geist-mono), "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-serif: "Fraunces", Georgia, ui-serif, serif;
 
-  /* ── editorial bold:杂志大标题字阶 + 微排版 ──
-     强烈对比 —— display 敢上巨号,标签压到极小全大写做对照。 */
-  --text-display: clamp(2.2rem, 1rem + 4.6vw, 4.4rem);    /* 区块大标题 */
-  --text-title: clamp(1.7rem, 1rem + 2.6vw, 2.9rem);      /* 视图标题 */
+  /* ── 字阶:收小 display,让作品当主角 ── */
+  --text-display: clamp(1.7rem, 1rem + 2.4vw, 2.6rem);    /* 区块大标题 */
+  --text-title: clamp(1.4rem, 1rem + 1.6vw, 2rem);        /* 视图标题 */
   --tracking-tight: -0.045em;   /* 大字收紧字距,更紧致有力 */
   --tracking-label: 0.22em;     /* 全大写小标签的张力字距 */
-  --leading-statement: 0.92;    /* 大标题压紧行高,块面感 */
+  --leading-statement: 0.96;    /* 大标题压紧行高,块面感 */
+}
+
+/* ──────────────────────────────────────────────────────────
+   亮色第二主题 —— 纸白工作室,品紫加深以保对比
+   ────────────────────────────────────────────────────────── */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg-0: oklch(98.5% 0.003 280);
+  --bg-1: oklch(100% 0 0);
+  --bg-2: oklch(97% 0.004 280);
+  --bg-3: oklch(94% 0.005 280);
+  --surface: oklch(100% 0 0);
+  --surface-hover: oklch(97% 0.004 280);
+  --bg-sunken: oklch(96% 0.003 280);
+  --glass: oklch(0% 0 0 / 0.02);
+  --glass-2: oklch(0% 0 0 / 0.04);
+  --hairline: oklch(0% 0 0 / 0.09);
+  --hairline-2: oklch(0% 0 0 / 0.14);
+  --hairline-strong: oklch(0% 0 0 / 0.2);
+  --ink: oklch(24% 0.012 280);
+  --ink-soft: oklch(44% 0.012 280);
+  --ink-faint: oklch(60% 0.010 280);
+  --accent: oklch(52% 0.20 285);
+  --accent-hover: oklch(46% 0.20 285);
+  --accent-deep: oklch(40% 0.18 285);
+  --accent-soft: oklch(62% 0.16 285);
+  --accent-quiet: oklch(52% 0.20 285 / 0.12);
+  --accent-wash: oklch(52% 0.20 285 / 0.06);
+  --accent-line: oklch(52% 0.20 285 / 0.4);
+  --accent-ink: oklch(99% 0.005 285);
+  --accent-glow: transparent;
+  --v1: oklch(52% 0.20 285);
+  --v2: oklch(44% 0.18 285);
+  --v3: oklch(62% 0.14 285);
+  --v4: oklch(55% 0.12 230);
+  --cool: oklch(55% 0.12 230);
+  --aurora: linear-gradient(135deg, oklch(52% 0.20 285) 0%, oklch(44% 0.18 285) 100%);
+  --shadow-sm: 0 1px 2px oklch(0% 0 0 / 0.08);
+  --shadow-md: 0 6px 20px -4px oklch(0% 0 0 / 0.12), 0 2px 6px oklch(0% 0 0 / 0.08);
+  --shadow-lg: 0 20px 48px -12px oklch(0% 0 0 / 0.16), 0 6px 16px oklch(0% 0 0 / 0.1);
 }
 
 * {
@@ -122,16 +164,16 @@ body {
   font-optical-sizing: auto;
 }
 
-/* ---------- 氛围层:暖色定向天光 + 极细颗粒,做真景深与质感 ---------- */
-/* (1) 顶部一道极轻暖光 —— 给画布温度与方向感,绝非辉光 */
+/* ---------- 氛围层:极淡冷紫定向天光 + 极细颗粒,做真景深与质感 ---------- */
+/* (1) 顶部一道极轻冷光 —— 给画布方向感,绝非辉光 */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   z-index: 0;
   background:
-    radial-gradient(130% 80% at 15% -10%, rgba(224, 164, 92, 0.055), transparent 55%),
-    radial-gradient(120% 90% at 90% 8%, rgba(127, 180, 196, 0.03), transparent 50%);
+    radial-gradient(130% 80% at 15% -10%, oklch(68% 0.16 285 / 0.04), transparent 55%),
+    radial-gradient(120% 90% at 90% 8%, oklch(72% 0.10 230 / 0.025), transparent 50%);
   pointer-events: none;
 }
 /* (2) 极细颗粒:一层几乎不可见的胶片噪点,消除数码塑料感 */
@@ -148,6 +190,8 @@ body::after {
 @media (prefers-reduced-motion: reduce) {
   body::after { opacity: 0.32; }
 }
+/* 亮色主题:颗粒在纸白上极易过曝,压到几乎不可见 */
+:root[data-theme="light"] body::after { opacity: 0.12; mix-blend-mode: multiply; }
 
 /* ---------- 自定义光标:克制版,默认不渲染辉光层(由 CursorGlow 控制可见) ---------- */
 .cursor-glow {
@@ -242,8 +286,8 @@ body::after {
 }
 .brand .mark {
   color: var(--accent);
-  font-style: italic;        /* Fraunces 斜体大写,签名感 */
-  font-weight: 500;
+  font-weight: 700;          /* grotesk 加粗强调,收紧字距 */
+  letter-spacing: -0.05em;
 }
 .brand .sub {
   align-self: center;
@@ -363,12 +407,12 @@ body::after {
 }
 .status-pill.is-busy .led {
   background: var(--v4);
-  box-shadow: 0 0 12px var(--v4);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--v4) 22%, transparent);
   animation: pulse 1.1s ease-in-out infinite;
 }
 .status-pill.is-error .led {
   background: var(--danger);
-  box-shadow: 0 0 12px var(--danger);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--danger) 22%, transparent);
 }
 @keyframes pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
@@ -1211,9 +1255,8 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 .stage-head h1 .grad {
   color: var(--accent);
-  font-style: italic;          /* 衬线斜体强调当前模式,杂志感 */
-  font-weight: 420;
-  letter-spacing: -0.03em;
+  font-weight: 600;            /* grotesk 加粗强调当前模式 */
+  letter-spacing: var(--tracking-tight);
 }
 .stage-head .count {
   margin-left: auto;
@@ -1264,18 +1307,17 @@ input[type="range"]::-webkit-slider-thumb:hover {
   opacity: 0.5;
   pointer-events: none;
 }
-/* 一个巨号、半出血、极淡的衬线序数,做版面的「水印主张」 */
+/* 一个巨号、半出血、极淡的 grotesk 序数,做版面的「水印主张」 */
 .hero-canvas::after {
   content: "01";
   position: absolute;
   right: clamp(-1rem, -1vw, 0rem);
   bottom: clamp(-2.2rem, -4vw, -1rem);
   font-family: var(--font-display);
-  font-style: italic;
-  font-weight: 500;
+  font-weight: 700;
   font-size: clamp(8rem, 22vw, 18rem);
   line-height: 0.7;
-  letter-spacing: -0.05em;
+  letter-spacing: -0.06em;
   color: color-mix(in oklab, var(--accent) 9%, transparent);
   pointer-events: none;
   user-select: none;
@@ -1317,8 +1359,8 @@ input[type="range"]::-webkit-slider-thumb:hover {
   text-wrap: balance;
 }
 .hero-canvas h2 em {
-  font-style: italic;
-  font-weight: 420;
+  font-style: normal;
+  font-weight: 700;
   color: var(--accent);
 }
 .hero-canvas p {
@@ -1481,14 +1523,14 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 .shot.feature .meta .prompt {
   font-family: var(--font-display);
-  font-style: italic;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   font-size: 1.05rem;
   white-space: normal;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  letter-spacing: -0.01em;
 }
 
 /* ---------- 作品库 GLB 卡片 ---------- */
@@ -1686,6 +1728,20 @@ input[type="range"]::-webkit-slider-thumb:hover {
   color: var(--ink);
   border-color: var(--hairline-2);
 }
+/* 主题切换:复用 .logout token,改为方形图标按钮 */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  flex: 0 0 auto;
+}
+.theme-toggle:hover {
+  color: var(--accent);
+  border-color: var(--accent-line);
+}
 
 /* ---------- 登录墙 ---------- */
 .auth-screen {
@@ -1744,8 +1800,8 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 .auth-tagline em {
   font-family: var(--font-display);
-  font-style: italic;
-  font-weight: 500;
+  font-style: normal;
+  font-weight: 600;
   color: var(--accent);
 }
 .auth-tabs {
@@ -2671,10 +2727,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 .manju-setup .grad,
 .manju-board-head .grad {
-  background: var(--aurora);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--accent);
 }
 .manju-setup-row {
   display: grid;
@@ -3438,7 +3491,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   height: 7px;
   border-radius: 50%;
   background: var(--v4);
-  box-shadow: 0 0 8px var(--v4);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--v4) 22%, transparent);
   animation: pulse 1.6s ease-in-out infinite;
 }
 .assist-panel {
@@ -3631,8 +3684,8 @@ input[type="range"]::-webkit-slider-thumb:hover {
   text-wrap: balance;
 }
 .view-title em {
-  font-style: italic;
-  font-weight: 420;
+  font-style: normal;
+  font-weight: 700;
   color: var(--accent);
 }
 .view-lede {
@@ -3828,11 +3881,10 @@ input[type="range"]::-webkit-slider-thumb:hover {
   right: clamp(-0.5rem, -1vw, 0.5rem);
   bottom: clamp(-2rem, -4vw, -0.8rem);
   font-family: var(--font-display);
-  font-style: italic;
-  font-weight: 500;
+  font-weight: 700;
   font-size: clamp(7rem, 20vw, 16rem);
   line-height: 0.7;
-  letter-spacing: -0.05em;
+  letter-spacing: -0.06em;
   color: color-mix(in oklab, var(--accent) 8%, transparent);
   pointer-events: none;
   user-select: none;
@@ -3862,8 +3914,8 @@ input[type="range"]::-webkit-slider-thumb:hover {
   text-wrap: balance;
 }
 .editorial-empty h2 em {
-  font-style: italic;
-  font-weight: 420;
+  font-style: normal;
+  font-weight: 700;
   color: var(--accent);
 }
 .editorial-empty p {
@@ -3946,7 +3998,8 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .tile-cap .p {
   margin: 0;
   font-family: var(--font-display);
-  font-style: italic;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   font-size: 0.95rem;
   line-height: 1.25;
   color: var(--ink);
@@ -4050,7 +4103,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
 .local-pill:hover { color: var(--ink); border-color: var(--accent-line); }
-.local-empty { font-size: 0.82rem; color: var(--ink-faint); font-style: italic; }
+.local-empty { font-size: 0.82rem; color: var(--ink-faint); }
 
 /* 市场卡:bento 网格,每第 5 张拉宽做焦点 */
 .market-grid {
@@ -4092,7 +4145,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .mcard-thumb .fallback {
   color: var(--ink-faint);
   font-family: var(--font-display);
-  font-style: italic;
+  font-weight: 600;
   font-size: 1.4rem;
 }
 .mcard-type {
@@ -4318,9 +4371,8 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 .track-no {
   font-family: var(--font-display);
-  font-style: italic;
   font-size: 1.25rem;
-  font-weight: 540;
+  font-weight: 700;
   line-height: 1;
   color: var(--accent);
   font-variant-numeric: tabular-nums;

@@ -14,6 +14,7 @@ import { ManjuStudio } from "@/components/manju/ManjuStudio";
 import { ModelLibrary } from "@/components/models/ModelLibrary";
 import { ThreeDStudio } from "@/components/threed/ThreeDStudio";
 import { NavIcon } from "@/components/ui/NavIcon";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { navPillSpring, viewVariants } from "@/lib/motion";
 import { fetchMe, getToken, setToken } from "@/lib/api";
@@ -133,6 +134,7 @@ export default function Home() {
               {account?.email}
               <em>{account?.usageTotal ?? 0} 次生成</em>
             </span>
+            <ThemeToggle />
             <button type="button" className="logout" onClick={onLogout}>
               退出
             </button>
