@@ -16,6 +16,7 @@ from app.deps import get_current_user, get_pool
 from app.models import User
 from app.workflows.ace_step import AceStepParams
 from app.workflows.hunyuan3d import Hunyuan3DParams
+from app.workflows.model_profiles import is_nsfw, is_vpred
 from app.workflows.wan_t2v import WanT2VParams
 
 router = APIRouter()
@@ -25,6 +26,17 @@ def _enum(info: dict, node: str, field: str) -> list[str]:
     req = info.get(node, {}).get("input", {}).get("required", {})
     opts = req.get(field, [[]])
     return opts[0] if opts and isinstance(opts[0], list) else []
+
+
+def _tagged(names: list[str]) -> list[dict]:
+    """给一批 checkpoint 附 nsfw/vpred 标(仅分类,不过滤——平台无限制)。
+
+    每项形如 {"name": str, "nsfw": bool, "vpred": bool},供前端做「NSFW 档」
+    筛选与 v-pred 提示。顺序与入参一致。
+    """
+    return [
+        {"name": n, "nsfw": is_nsfw(n), "vpred": is_vpred(n)} for n in names
+    ]
 
 
 # 非图像底模的 checkpoint(由别的模式/管线使用),从图像 checkpoint 列表中剔除。
@@ -66,9 +78,15 @@ async def list_models(
     all_ckpts = _enum(ckpt_info, "CheckpointLoaderSimple", "ckpt_name")
     image_ckpts = _image_checkpoints(all_ckpts)
 
+    # 给图像底模附 nsfw/vpred 分类标(不过滤);并抽出便捷名单供前端筛选。
+    image_tagged = _tagged(image_ckpts)
+    nsfw_models = [it["name"] for it in image_tagged if it["nsfw"]]
+    vpred_models = [it["name"] for it in image_tagged if it["vpred"]]
+
     # 模式 → {models, editable}。editable=False 表示后端硬编码单/双模型,前端只读展示。
+    # image.checkpoints 附带每个底模的 {name,nsfw,vpred} 标(仅图像模式有分类意义)。
     modes = {
-        "image": {"models": image_ckpts, "editable": True},
+        "image": {"models": image_ckpts, "checkpoints": image_tagged, "editable": True},
         "video": {"models": _video_models(), "editable": False},
         "model3d": {"models": [Hunyuan3DParams(image="").ckpt_name], "editable": False},
         "audio": {"models": [AceStepParams(tags="").ckpt_name], "editable": False},
@@ -77,6 +95,10 @@ async def list_models(
     return {
         # 向后兼容:checkpoints 现在是「图像底模」而非全量(视频/3D/音频不再混入)
         "checkpoints": image_ckpts,
+        # 每个图像底模附 {name,nsfw,vpred};nsfw/vpred 便捷名单供「NSFW 档」筛选与提示。
+        "checkpoints_tagged": image_tagged,
+        "nsfw_models": nsfw_models,
+        "vpred_models": vpred_models,
         "samplers": _enum(ks_info, "KSampler", "sampler_name"),
         "schedulers": _enum(ks_info, "KSampler", "scheduler"),
         "modes": modes,
@@ -97,13 +119,23 @@ _LOCAL_SPECS = [
 async def local_models(
     pool: WorkerPool = Depends(get_pool),
     user: User = Depends(get_current_user),
-) -> dict[str, list[str]]:
-    """按类型列出 worker 上已安装的本地模型。"""
+) -> dict[str, object]:
+    """按类型列出 worker 上已安装的本地模型。
+
+    向后兼容:各类型仍是 list[str]。额外附 checkpoint 分类(不过滤):
+      - checkpoints_tagged:[{name,nsfw,vpred}, ...]
+      - nsfw_models / vpred_models:便捷名单(取自 checkpoints)
+    """
     client = pool.clients[0]
-    out: dict[str, list[str]] = {}
+    out: dict[str, object] = {}
     for key, node, field in _LOCAL_SPECS:
         try:
             out[key] = _enum(await client.object_info(node), node, field)
         except ComfyUIError:
             out[key] = []
+    ckpts = out.get("checkpoints", [])
+    tagged = _tagged(ckpts if isinstance(ckpts, list) else [])
+    out["checkpoints_tagged"] = tagged
+    out["nsfw_models"] = [it["name"] for it in tagged if it["nsfw"]]
+    out["vpred_models"] = [it["name"] for it in tagged if it["vpred"]]
     return out
