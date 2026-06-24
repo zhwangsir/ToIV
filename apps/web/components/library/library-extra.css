@@ -1,0 +1,64 @@
+/* 作品库懒加载补充样式:无限滚动哨兵 + 图片解码后淡入。
+   沿用既有 token,只补 lazy/infinite 相关的样式;动效走 opacity(合成器友好)。 */
+
+/* 无限滚动哨兵:不可见、零高度占位,进入视口即加载下一批 */
+.lib-sentinel {
+  width: 100%;
+  height: 1px;
+}
+
+/* 加载下一批时的尾部指示 */
+.lib-more {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  padding: var(--space-3) 0;
+  color: var(--ink-faint);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+}
+.lib-more .dot {
+  width: 6px;
+  height: 6px;
+  margin: 0 3px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  opacity: 0.4;
+  animation: lib-pulse 1.1s var(--ease) infinite;
+}
+.lib-more .dot:nth-child(2) { animation-delay: 0.15s; }
+.lib-more .dot:nth-child(3) { animation-delay: 0.3s; }
+@keyframes lib-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+/* 懒加载图片:解码完成前用占位底色,加载后淡入(避免空白闪烁) */
+.tile img.lib-lazy {
+  opacity: 0;
+  background: var(--bg-3);
+  transition: opacity var(--dur-2) var(--ease);
+}
+.tile img.lib-lazy.is-loaded {
+  opacity: 1;
+}
+
+/* 灯箱内放大镜:容器按图片实际显示尺寸收缩(避免 contain 留白导致镜头错位) */
+.lightbox-magnifier {
+  width: auto;
+  max-width: 100%;
+  align-self: center;
+}
+.lightbox-magnifier .magnifier-img {
+  width: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lib-more .dot {
+    animation: none;
+    opacity: 0.6;
+  }
+  .tile img.lib-lazy {
+    transition: none;
+  }
+}

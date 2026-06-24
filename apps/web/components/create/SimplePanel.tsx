@@ -3,7 +3,9 @@
 import { useCallback } from "react";
 
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
+import type { ModelsResponse } from "@/lib/types";
 
+import { hasNsfwData } from "./nsfw";
 import type { Dispatch } from "./useGenerationFeed";
 import {
   type Mode,
@@ -16,6 +18,8 @@ import {
   STYLE_PRESETS,
   VID_RATIO_PX,
 } from "./types";
+
+import "./create-extra.css";
 
 interface SimplePanelProps {
   mode: Mode;
@@ -35,6 +39,10 @@ interface SimplePanelProps {
   setRatio: (r: SimpleRatioKey) => void;
   count: number;
   setCount: (n: number) => void;
+  // NSFW 档(简易/专业共享);models 用于判断后端是否提供 nsfw 标记
+  models: ModelsResponse | null;
+  nsfw: boolean;
+  setNsfw: (v: boolean) => void;
 }
 
 const MODE_TABS: { key: Mode; icon: string; label: string }[] = [
@@ -54,7 +62,7 @@ function withStyle(prompt: string, style: StylePreset): string {
 export function SimplePanel(props: SimplePanelProps) {
   const {
     mode, setMode, prompt, setPrompt, ref, setRef, ensureUploaded, ckpt, busy, run,
-    style, setStyle, ratio, setRatio, count, setCount,
+    style, setStyle, ratio, setRatio, count, setCount, models, nsfw, setNsfw,
   } = props;
 
   const pickFile = useCallback(
@@ -310,6 +318,31 @@ export function SimplePanel(props: SimplePanelProps) {
               {n} 张
             </button>
           ))}
+        </div>
+      )}
+
+      {/* NSFW 档(仅图像):开关 + 18+ 角标;实际底模筛选与切换由共享 ckpt 中央处理 */}
+      {mode === "image" && (
+        <div className={`nsfw-gate${nsfw ? " is-on" : ""}`}>
+          <div className="switch-row">
+            <span className="switch-label">
+              NSFW 档
+              {nsfw && <span className="nsfw-badge">18+</span>}
+              <span className="switch-sub">
+                {hasNsfwData(models, "image")
+                  ? "切到成人向底模(vpred 自适配)"
+                  : "后端暂未提供 nsfw 标记 · 暂用默认底模"}
+              </span>
+            </span>
+            <button
+              type="button"
+              className="switch"
+              role="switch"
+              aria-checked={nsfw}
+              aria-label="NSFW 档"
+              onClick={() => setNsfw(!nsfw)}
+            />
+          </div>
         </div>
       )}
 

@@ -1,0 +1,62 @@
+/* 结果网格拖拽排序的状态层:沿用既有 token,只补 DnD 反馈样式。
+   - 拖拽中:被拖卡片半透明 + 微缩,落点卡片高亮品紫描边。
+   - 仅用 transform/opacity 做反馈,reduced-motion 静态降级。 */
+
+.create-card.is-dragging {
+  opacity: 0.5;
+  transform: scale(0.97);
+  cursor: grabbing;
+}
+
+.create-card.is-drop-target {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-quiet), var(--shadow-md);
+}
+
+/* 可拖拽手柄:悬停浮现于右上角,避免与续创作动作冲突 */
+.card-drag-handle {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--hairline-2);
+  background: color-mix(in oklab, var(--bg-0) 56%, transparent);
+  backdrop-filter: blur(6px);
+  color: var(--ink-soft);
+  cursor: grab;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition:
+    opacity var(--dur) var(--ease),
+    transform var(--dur) var(--ease),
+    color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease);
+}
+.create-card:hover .card-drag-handle,
+.card-drag-handle:focus-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.card-drag-handle:hover,
+.card-drag-handle:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent-line);
+}
+.card-drag-handle:active {
+  cursor: grabbing;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .create-card.is-dragging {
+    transform: none;
+  }
+  .card-drag-handle {
+    transition: none;
+  }
+}

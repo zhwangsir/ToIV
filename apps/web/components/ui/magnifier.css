@@ -1,0 +1,44 @@
+/* 悬停放大镜:鼠标悬停时浮现一枚镜头,放大其下方区域。
+   - 镜头为圆形透镜,跟随指针(走 transform,合成器友好)。
+   - 触摸设备 / reduced-motion / 粗指针 不启用透镜(由组件侧逻辑控制)。 */
+
+.magnifier {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.magnifier-img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.magnifier-lens {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  border-radius: 999px;
+  border: 2px solid var(--accent-line);
+  box-shadow: var(--shadow-lg), inset 0 0 0 1px var(--hairline-strong);
+  background-repeat: no-repeat;
+  /* 透镜位置由内联 transform 驱动(JS 计算),叠加淡入缩放 */
+  transform: translate3d(var(--lens-x, 0), var(--lens-y, 0), 0) scale(var(--lens-scale, 1));
+  opacity: 0;
+  transition:
+    opacity var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
+  will-change: transform, opacity;
+  z-index: 4;
+}
+
+.magnifier.is-active .magnifier-lens {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .magnifier-lens {
+    transition: opacity var(--dur) var(--ease);
+  }
+}
