@@ -7,10 +7,12 @@ import type { ModelsResponse } from "@/lib/types";
 
 import { AssistChat } from "./AssistChat";
 import { GenerationProgress } from "./GenerationProgress";
+import { GenerationSkeleton } from "./GenerationSkeleton";
+import { filterModelsByNsfw } from "./nsfw";
 import { ProPanel } from "./ProPanel";
 import { ResultFeed } from "./ResultFeed";
 import { SimplePanel } from "./SimplePanel";
-import { useGenerationFeed } from "./useGenerationFeed";
+import { useGenerationFeed, type Dispatch } from "./useGenerationFeed";
 import {
   type Mode,
   type RefImage,
@@ -35,6 +37,8 @@ export function CreateStudio() {
   const [models, setModels] = useState<ModelsResponse | null>(null);
   const [loraOptions, setLoraOptions] = useState<string[]>([]);
   const [ckpt, setCkpt] = useState("");
+  // NSFW 档(简易/专业共享):开启 → 图像底模筛选到 nsfw 模型(契约缺失优雅降级为全部)。
+  const [nsfw, setNsfw] = useState(false);
 
   // 简易版智能 chip 状态
   const [style, setStyle] = useState<StylePreset>(STYLE_PRESETS[0]);
@@ -42,6 +46,22 @@ export function CreateStudio() {
   const [count, setCount] = useState(1);
 
   const feed = useGenerationFeed();
+  // 本次生成预期产出张数:仅用于驱动骨架占位网格的块数(从派发参数推断)。
+  const [pendingCount, setPendingCount] = useState(1);
+
+  // 包裹 feed.run:在派发前从首个 dispatch 的 batch_size 推断占位块数。
+  const runTracked = useCallback(
+    (dispatches: Dispatch[], stage: string) => {
+      const first = dispatches[0];
+      const n =
+        first && "params" in first && "batch_size" in first.params
+          ? (first.params.batch_size ?? 1)
+          : 1;
+      setPendingCount(n);
+      return feed.run(dispatches, stage);
+    },
+    [feed],
+  );
 
   useEffect(() => {
     listModels()
@@ -56,6 +76,17 @@ export function CreateStudio() {
       .then((local) => setLoraOptions(local.loras ?? []))
       .catch(() => {});
   }, []);
+
+  // NSFW 档切换 / 模型加载后:若共享 ckpt 落在筛选列表外,中央纠正到首项,
+  // 让简易与专业两侧的图像底模选择保持一致(单一真相)。
+  useEffect(() => {
+    if (!models) return;
+    const baseList = models.modes?.image?.models ?? models.checkpoints ?? [];
+    const list = filterModelsByNsfw(baseList, models, "image", nsfw);
+    if (list.length > 0 && !list.includes(ckpt)) {
+      setCkpt(list[0]);
+    }
+  }, [models, nsfw, ckpt]);
 
   // 释放参考图预览 URL(仅本地 blob)
   useEffect(() => {
@@ -114,13 +145,16 @@ export function CreateStudio() {
             ensureUploaded={ensureUploaded}
             ckpt={ckpt}
             busy={feed.busy}
-            run={feed.run}
+            run={runTracked}
             style={style}
             setStyle={setStyle}
             ratio={ratio}
             setRatio={setRatio}
             count={count}
             setCount={setCount}
+            models={models}
+            nsfw={nsfw}
+            setNsfw={setNsfw}
           />
         ) : (
           <ProPanel
@@ -132,11 +166,13 @@ export function CreateStudio() {
             setRef={setRef}
             ensureUploaded={ensureUploaded}
             models={models}
+            nsfw={nsfw}
+            setNsfw={setNsfw}
             loraOptions={loraOptions}
             ckpt={ckpt}
             setCkpt={setCkpt}
             busy={feed.busy}
-            run={feed.run}
+            run={runTracked}
           />
         )}
 
@@ -158,6 +194,9 @@ export function CreateStudio() {
         </div>
 
         {feed.busy && <GenerationProgress stage={feed.stage} progress={feed.progress} />}
+
+        {/* 生成中先铺流光占位网格,结果渐显时替换;结果区与占位区并存,产出即向上插入 */}
+        {feed.busy && <GenerationSkeleton count={pendingCount} />}
 
         {feed.results.length === 0 && !feed.busy ? (
           <div className="hero-canvas">

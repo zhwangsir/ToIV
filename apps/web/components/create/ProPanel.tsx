@@ -3,9 +3,11 @@
 import { useCallback, useState } from "react";
 
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
+import { RangeSlider, type RangeValue } from "@/components/ui/RangeSlider";
 import { Slider } from "@/components/ui/Slider";
 import type { LoraInput, ModelsResponse } from "@/lib/types";
 
+import { filterModelsByNsfw, hasNsfwData } from "./nsfw";
 import type { Dispatch } from "./useGenerationFeed";
 import {
   type Mode,
@@ -17,6 +19,8 @@ import {
   VID_ASPECTS,
   WORKFLOW_PRESETS,
 } from "./types";
+
+import "./create-extra.css";
 
 interface ProPanelProps {
   mode: Mode;
@@ -31,6 +35,9 @@ interface ProPanelProps {
   loraOptions: string[];
   ckpt: string;
   setCkpt: (c: string) => void;
+  /** NSFW 档(简易/专业共享)。 */
+  nsfw: boolean;
+  setNsfw: (v: boolean) => void;
   busy: boolean;
   run: (dispatches: Dispatch[], stage: string) => Promise<void>;
 }
@@ -53,7 +60,7 @@ const cleanName = (n: string): string => n.replace(/\.(safetensors|ckpt|pt)$/i, 
 
 /** 专业版:全控制面板,可折叠高级分区 + 工作流预设 + 占位槽位。 */
 export function ProPanel(props: ProPanelProps) {
-  const { mode, setMode, prompt, setPrompt, ref, setRef, ensureUploaded, models, loraOptions, ckpt, setCkpt, busy, run } = props;
+  const { mode, setMode, prompt, setPrompt, ref, setRef, ensureUploaded, models, loraOptions, ckpt, setCkpt, nsfw, setNsfw, busy, run } = props;
 
   const [img, setImg] = useState<ImgParams>({
     negative: DEFAULT_NEGATIVE,
@@ -76,11 +83,22 @@ export function ProPanel(props: ProPanelProps) {
   const [audioLyrics, setAudioLyrics] = useState("");
   const [audioSeconds, setAudioSeconds] = useState(30);
   const [advanced, setAdvanced] = useState(false);
+  // steps 随机区间(SD 常用的步数抖动出多样性):开启后提交时在 [low,high] 内取随机整数。
+  const [stepsRangeOn, setStepsRangeOn] = useState(false);
+  const [stepsRange, setStepsRange] = useState<RangeValue>({ low: 18, high: 28 });
   // 叠加的 LoRA(仅图像模式)。每项 {name, weight};不可变更新。
   const [loras, setLoras] = useState<LoraInput[]>([]);
 
   const set = <K extends keyof ImgParams>(k: K, v: ImgParams[K]) => setImg((p) => ({ ...p, [k]: v }));
   const seedNum = img.seed.trim() ? Number(img.seed) : null;
+
+  /** 本次图像提交的实际步数:开启 steps 区间时在 [low,high] 取随机整数,否则用单值。 */
+  const resolveSteps = useCallback((): number => {
+    if (!stepsRangeOn) return img.steps;
+    const lo = Math.min(stepsRange.low, stepsRange.high);
+    const hi = Math.max(stepsRange.low, stepsRange.high);
+    return Math.floor(lo + Math.random() * (hi - lo + 1));
+  }, [stepsRangeOn, stepsRange.low, stepsRange.high, img.steps]);
 
   // 仅透传已选中真实文件名的 LoRA(避免空槽位污染请求)
   const activeLoras = loras.filter((l) => l.name);
@@ -120,6 +138,7 @@ export function ProPanel(props: ProPanelProps) {
     const positive = prompt.trim();
 
     if (mode === "image") {
+      const steps = resolveSteps();
       if (ref) {
         const up = await ensureUploaded(ref, "img2img");
         await run(
@@ -134,7 +153,7 @@ export function ProPanel(props: ProPanelProps) {
               image: up.filename,
               worker: up.worker,
               denoise: img.denoise,
-              steps: img.steps,
+              steps,
               cfg: img.cfg,
               sampler: img.sampler,
               scheduler: img.scheduler,
@@ -156,7 +175,7 @@ export function ProPanel(props: ProPanelProps) {
               ckpt_name: ckpt,
               width: img.width,
               height: img.height,
-              steps: img.steps,
+              steps,
               cfg: img.cfg,
               sampler: img.sampler,
               scheduler: img.scheduler,
@@ -231,7 +250,7 @@ export function ProPanel(props: ProPanelProps) {
         "创作音乐…",
       );
     }
-  }, [busy, prompt, mode, ref, ensureUploaded, ckpt, img, seedNum, activeLoras, vidAspect, vidLength, vidFps, steps3d, cfg3d, octree, audioLyrics, audioSeconds, run]);
+  }, [busy, prompt, mode, ref, ensureUploaded, ckpt, img, seedNum, resolveSteps, activeLoras, vidAspect, vidLength, vidFps, steps3d, cfg3d, octree, audioLyrics, audioSeconds, run]);
 
   const canRun = mode === "audio" ? !!prompt.trim() : mode === "model3d" ? !!ref : !!(prompt.trim() || ref);
   const optimizeKind = mode === "audio" ? "audio" : mode === "video" ? "video" : ref ? "image_edit" : "image";
@@ -250,9 +269,36 @@ export function ProPanel(props: ProPanelProps) {
         </div>
       </div>
 
-      {/* 模型选择器:模式感知 —— 各模式只展示对应类别模型 */}
-      <ModelSelector mode={mode} models={models} ckpt={ckpt} setCkpt={setCkpt} />
+      {/* 模型选择器:模式感知 —— 各模式只展示对应类别模型;NSFW 档筛选图像底模 */}
+      <ModelSelector mode={mode} models={models} ckpt={ckpt} setCkpt={setCkpt} nsfw={nsfw} />
 
+      {/* NSFW 档(仅图像底模可切):开启 → 下拉筛选到 nsfw 模型 */}
+      {mode === "image" && (
+        <div className={`field nsfw-gate${nsfw ? " is-on" : ""}`}>
+          <div className="switch-row">
+            <span className="switch-label">
+              NSFW 档
+              {nsfw && <span className="nsfw-badge">18+</span>}
+              <span className="switch-sub">
+                {hasNsfwData(models, "image")
+                  ? "筛选到成人向底模(vpred 由后端自适配)"
+                  : "后端暂未提供 nsfw 标记 · 暂列全部"}
+              </span>
+            </span>
+            <button
+              type="button"
+              className="switch"
+              role="switch"
+              aria-checked={nsfw}
+              aria-label="NSFW 档"
+              onClick={() => setNsfw(!nsfw)}
+            />
+          </div>
+          {nsfw && (
+            <p className="nsfw-note">已切换到成人内容档。请确认你已年满 18 周岁并遵守平台规范。</p>
+          )}
+        </div>
+      )}
 
       {/* 工作流预设 */}
       {(mode === "image" || mode === "video") && (
@@ -395,7 +441,35 @@ export function ProPanel(props: ProPanelProps) {
             <div className="advanced-body">
               {(mode === "image") && (
                 <>
-                  <Slider label="steps" value={img.steps} min={1} max={60} step={1} onChange={(v) => set("steps", v)} disabled={busy} />
+                  <div className="switch-row range-toggle-row">
+                    <span className="switch-label">
+                      steps 区间
+                      <span className="switch-sub">开启后每次在区间内随机取步数,出多样性</span>
+                    </span>
+                    <button
+                      type="button"
+                      className="switch"
+                      role="switch"
+                      aria-checked={stepsRangeOn}
+                      aria-label="steps 区间随机"
+                      disabled={busy}
+                      onClick={() => setStepsRangeOn((v) => !v)}
+                    />
+                  </div>
+                  {stepsRangeOn ? (
+                    <RangeSlider
+                      label="steps 区间"
+                      value={stepsRange}
+                      min={1}
+                      max={60}
+                      step={1}
+                      suffix="步"
+                      onChange={setStepsRange}
+                      disabled={busy}
+                    />
+                  ) : (
+                    <Slider label="steps" value={img.steps} min={1} max={60} step={1} onChange={(v) => set("steps", v)} disabled={busy} />
+                  )}
                   <Slider label="cfg" value={img.cfg} min={1} max={15} step={0.5} onChange={(v) => set("cfg", v)} disabled={busy} />
                   <div className="row-2">
                     <div className="field">
@@ -462,20 +536,25 @@ interface ModelSelectorProps {
   models: ModelsResponse | null;
   ckpt: string;
   setCkpt: (c: string) => void;
+  /** NSFW 档:仅图像底模可筛选;契约缺失时由 filterModelsByNsfw 优雅降级。 */
+  nsfw: boolean;
 }
 
 /**
  * 模式感知模型选择器:
- * - image(editable)→ 下拉选图像底模(含 pony/noobai/animagine/illustrious 等)
+ * - image(editable)→ 下拉选图像底模(含 pony/noobai/animagine/illustrious 等),NSFW 档可筛选
  * - video/3D/audio(后端硬编码)→ 只读展示该模式实际加载的模型,不再误显图片 checkpoint
  */
-function ModelSelector({ mode, models, ckpt, setCkpt }: ModelSelectorProps) {
-  if (!models) return null;
+function ModelSelector({ mode, models, ckpt, setCkpt, nsfw }: ModelSelectorProps) {
   // 优先用模式感知映射;无 modes(旧后端)时图像回落 checkpoints,其余不渲染
-  const entry = models.modes?.[mode];
-  const list = entry?.models ?? (mode === "image" ? models.checkpoints : []);
-  if (list.length === 0) return null;
+  const entry = models?.modes?.[mode];
+  const baseList = entry?.models ?? (mode === "image" ? models?.checkpoints ?? [] : []);
   const editable = entry ? entry.editable : mode === "image";
+  // NSFW 档仅作用于图像底模(可编辑下拉);ckpt 越界纠正由 CreateStudio 中央处理。
+  const list = mode === "image" && editable ? filterModelsByNsfw(baseList, models, mode, nsfw) : baseList;
+
+  if (!models) return null;
+  if (list.length === 0) return null;
 
   if (!editable) {
     return (

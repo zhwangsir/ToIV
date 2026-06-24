@@ -1,0 +1,81 @@
+/* 生成中骨架占位:流光扫过的占位网格,结果到达后渐显替换。
+   - 仅用合成器友好属性(transform/opacity)做动效,沿用既有 token。
+   - reduced-motion:停掉横扫,保留静态占位,避免眩晕。 */
+
+.gen-skel {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 1rem;
+  margin-top: var(--space-3);
+}
+
+.gen-skel-tile {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--hairline);
+  background: var(--bg-2);
+  overflow: hidden;
+}
+
+/* 中心柔光晕染:呼应"显影中"的品牌语言 */
+.gen-skel-tile::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(60% 60% at 50% 42%, var(--accent-quiet), transparent 72%);
+  opacity: 0.7;
+}
+
+/* 流光层:一条斜向高光横扫,走 transform(合成器友好) */
+.gen-skel-tile::after {
+  content: "";
+  position: absolute;
+  inset: -40% -60%;
+  background: linear-gradient(
+    100deg,
+    transparent 38%,
+    var(--glass-2) 50%,
+    transparent 62%
+  );
+  transform: translateX(-60%);
+  animation: gen-skel-sweep 1.5s var(--ease) infinite;
+  will-change: transform;
+}
+
+/* 首块用品紫色调高光,做出"正在采样"的焦点感 */
+.gen-skel-tile.is-lead::after {
+  background: linear-gradient(
+    100deg,
+    transparent 36%,
+    var(--accent-wash) 48%,
+    var(--accent-quiet) 50%,
+    var(--accent-wash) 52%,
+    transparent 64%
+  );
+}
+
+@keyframes gen-skel-sweep {
+  from { transform: translateX(-60%); }
+  to { transform: translateX(60%); }
+}
+
+/* 结果渐显:替换占位时柔和淡入(opacity-only,合成器友好) */
+.gen-reveal {
+  animation: gen-reveal-in var(--dur-2) var(--ease-expo) both;
+}
+@keyframes gen-reveal-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gen-skel-tile::after {
+    animation: none;
+    transform: none;
+    opacity: 0.35;
+  }
+  .gen-reveal {
+    animation: none;
+  }
+}

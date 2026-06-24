@@ -1,0 +1,62 @@
+/* 双拇指范围滑块:复用 Slider 的 track/thumb/bubble 视觉语言,
+   只补"两个把手 + 中段填充 + 各自可聚焦命中区"的范围特有样式。
+   沿用既有 token,不复制色值/尺寸常量。 */
+
+.range-field .slider-track {
+  cursor: ew-resize;
+}
+
+/* 中段填充:left + width 都由内联百分比驱动(轨道内定位,布局廉价)。
+   覆盖单滑块 .slider-fill 的 left:0 / width 过渡,使其夹在两拇指之间。 */
+.range-field .slider-fill {
+  left: var(--range-left, 0%);
+  width: var(--range-width, 0%);
+}
+
+/* 每个拇指自带一个圆形命中区(可聚焦、可拖),取代单滑块的整轨 hit。 */
+.range-handle {
+  position: absolute;
+  top: 50%;
+  width: 26px;
+  height: 26px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: grab;
+  outline: none;
+  touch-action: none;
+  z-index: 2;
+}
+.range-handle.is-grabbed {
+  cursor: grabbing;
+  z-index: 3;
+}
+
+/* 聚焦/悬停/拖动时,命中区下的拇指有辉光反馈 */
+.range-handle:hover + .slider-thumb,
+.range-handle:focus-visible + .slider-thumb {
+  box-shadow: 0 2px 8px -1px rgba(0, 0, 0, 0.6), 0 0 0 6px var(--accent-quiet);
+}
+.range-handle.is-grabbed + .slider-thumb {
+  transform: translate(-50%, -50%) scale(1.12);
+  box-shadow: 0 3px 12px -2px rgba(0, 0, 0, 0.65), 0 0 0 8px var(--accent-quiet);
+}
+
+/* 气泡:拖动/聚焦时浮现(走 opacity/transform) */
+.range-handle:focus-visible + .slider-thumb .slider-bubble,
+.range-handle.is-grabbed + .slider-thumb .slider-bubble {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+.range-readout {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .range-handle.is-grabbed + .slider-thumb {
+    transform: translate(-50%, -50%);
+  }
+}
