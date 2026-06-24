@@ -8,7 +8,6 @@ import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 
 import { type ActivityKind, useActivity } from "./ActivityContext";
-import { useGpuLoad } from "./useGpuLoad";
 
 /** 单个视图项:与 page.tsx 的 View 切换一一对应。 */
 export interface IslandView {
@@ -64,14 +63,6 @@ function truncate(text: string, max = 42): string {
   return `${t.slice(0, max - 1)}…`;
 }
 
-/** 负载档 → 语义色变量名。 */
-const LEVEL_VAR: Record<string, string> = {
-  idle: "var(--success)",
-  busy: "var(--accent)",
-  hot: "var(--danger)",
-  offline: "var(--ink-faint)",
-};
-
 /**
  * 苹果灵动岛式悬浮导航胶囊。
  * 三态 + 完成脉冲:
@@ -90,7 +81,6 @@ export function DynamicIsland<K extends string>({
 }: DynamicIslandProps<K>) {
   const reduced = useReducedMotion();
   const { activity } = useActivity();
-  const gpu = useGpuLoad();
 
   const [expanded, setExpanded] = useState(false);
   // 完成脉冲:活动从 running → done 的瞬间触发一次,脉冲结束自动复位。
@@ -122,10 +112,6 @@ export function DynamicIsland<K extends string>({
   const layoutProps = reduced
     ? {}
     : ({ layout: true, transition: ISLAND_SPRING } as const);
-
-  const loadColor = LEVEL_VAR[gpu.level] ?? LEVEL_VAR.offline;
-  const loadText =
-    gpu.load !== null ? `${gpu.count}×PRO6000 · 负载 ${gpu.load}%` : "遥测离线";
 
   return (
     <div className="island-dock">
@@ -204,35 +190,6 @@ export function DynamicIsland<K extends string>({
               );
             })}
           </motion.div>
-
-          {/* 呼吸 GPU 负载点(紧凑态);展开态后接负载文案 */}
-          <motion.span
-            {...layoutProps}
-            className={`island-load${gpu.level === "offline" ? " is-offline" : ""}${
-              reduced || gpu.level === "offline" ? "" : " is-breathing"
-            }`}
-            title={loadText}
-            aria-label={loadText}
-          >
-            <span
-              className="island-load-dot"
-              style={{ background: loadColor }}
-              aria-hidden="true"
-            />
-            <AnimatePresence initial={false}>
-              {expanded && (
-                <motion.span
-                  className="island-load-text"
-                  initial={reduced ? false : { opacity: 0, width: 0 }}
-                  animate={{ opacity: 1, width: "auto" }}
-                  exit={reduced ? undefined : { opacity: 0, width: 0 }}
-                  transition={reduced ? { duration: 0 } : { duration: 0.18 }}
-                >
-                  {loadText}
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </motion.span>
 
           {/* 账户操作:展开时浮现(主题切换 + 退出 + 邮箱) */}
           <AnimatePresence initial={false}>
