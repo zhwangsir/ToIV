@@ -112,15 +112,18 @@ def build_wan_i2v_graph(p: WanI2VParams) -> dict:
             },
         },
         "13": {"class_type": "VAEDecode", "inputs": {"samples": ["12", 0], "vae": ["6", 0]}},
+        # 输出真 mp4(h264):可分享/可下载、ffmpeg 可直接拼接(自动剪辑),
+        # 优于动画 WebP(ffmpeg 解码不稳、非标准视频)。
         "14": {
-            "class_type": "SaveAnimatedWEBP",
+            "class_type": "VHS_VideoCombine",
             "inputs": {
                 "images": ["13", 0],
+                "frame_rate": float(p.fps),
+                "loop_count": 0,
                 "filename_prefix": p.filename_prefix,
-                "fps": float(p.fps),
-                "lossless": False,
-                "quality": 85,
-                "method": "default",
+                "format": "video/h264-mp4",
+                "pingpong": False,
+                "save_output": True,
             },
         },
     }

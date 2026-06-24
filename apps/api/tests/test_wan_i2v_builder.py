@@ -37,5 +37,7 @@ def test_high_low_sampler_split():
 def test_decode_and_save_video():
     g = build_wan_i2v_graph(WanI2VParams(positive="x", image="a.png", fps=20))
     assert g["13"]["inputs"]["samples"] == ["12", 0]
-    assert g["14"]["class_type"] == "SaveAnimatedWEBP"
-    assert g["14"]["inputs"]["fps"] == 20.0
+    # 输出真 mp4(h264),供分享/下载/自动剪辑拼接
+    assert g["14"]["class_type"] == "VHS_VideoCombine"
+    assert g["14"]["inputs"]["format"] == "video/h264-mp4"
+    assert g["14"]["inputs"]["frame_rate"] == 20.0
