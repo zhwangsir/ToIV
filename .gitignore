@@ -23,3 +23,6 @@ next-env.d.ts
 
 # 系统
 .DS_Store
+
+# 本地 agent 工作区(worktrees / 任务转录),勿入仓
+.claude/

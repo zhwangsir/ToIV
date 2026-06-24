@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 
 import { imageUrl, listJobs } from "@/lib/api";
+import { springSoft } from "@/lib/motion";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
 import type { JobItem } from "@/lib/types";
 
 interface Asset {
@@ -12,6 +15,8 @@ interface Asset {
   prompt: string;
   seed: number;
 }
+
+type AssetKind = "glb" | "audio" | "media";
 
 const KIND_LABELS: Record<string, string> = {
   txt2img: "文生图",
@@ -28,7 +33,14 @@ const KIND_LABELS: Record<string, string> = {
   agent_workflow: "工作流",
 };
 
-function assetType(url: string): "glb" | "audio" | "media" {
+const FILTERS: { k: string; l: string }[] = [
+  { k: "all", l: "全部" },
+  { k: "media", l: "图像 · 视频" },
+  { k: "glb", l: "3D 模型" },
+  { k: "audio", l: "音乐" },
+];
+
+function assetType(url: string): AssetKind {
   const u = url.toLowerCase();
   if (u.includes(".glb")) return "glb";
   if (u.includes(".mp3") || u.includes(".flac") || u.includes(".wav") || u.includes(".ogg"))
@@ -40,6 +52,8 @@ export function LibraryView() {
   const [assets, setAssets] = useState<Asset[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [active, setActive] = useState<Asset | null>(null);
+  const [filter, setFilter] = useState("all");
+  const reduced = useReducedMotion();
 
   useEffect(() => {
     listJobs()
@@ -61,99 +75,158 @@ export function LibraryView() {
       .catch((e: Error) => setError(e.message));
   }, []);
 
+  const shown = useMemo(() => {
+    if (!assets) return [];
+    if (filter === "all") return assets;
+    return assets.filter((a) => assetType(a.url) === filter);
+  }, [assets, filter]);
+
   return (
-    <div className="modlib">
-      <div className="stage-head">
-        <h1>
-          作品 <span className="grad">库</span>
+    <div className="view">
+      <header className="view-header">
+        <span className="view-eyebrow">Collection · 作品集</span>
+        <h1 className="view-title">
+          作品 <em>库</em>
         </h1>
-        <span className="count">{assets?.length ?? 0} 件</span>
-      </div>
+        <p className="view-lede">
+          每一次生成都汇入这里 —— 图像、视频、3D、音乐,按时间线沉淀成你的个人作品集。
+        </p>
+        <div className="view-tally">
+          <span className="n">{assets?.length ?? 0}</span>
+          <span className="l">件作品</span>
+        </div>
+      </header>
+
+      {assets && assets.length > 0 && (
+        <div className="view-toolbar">
+          <div className="filter-chips" role="group" aria-label="按类型筛选">
+            {FILTERS.map((f) => (
+              <button
+                key={f.k}
+                type="button"
+                className={`filter-chip${filter === f.k ? " is-on" : ""}`}
+                onClick={() => setFilter(f.k)}
+              >
+                {f.l}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {error && <div className="alert">⚠ {error}</div>}
 
       {!assets ? (
-        <p className="muted">加载中…</p>
-      ) : assets.length === 0 ? (
-        <div className="hero-canvas lib-empty">
-          <div className="hero-orb" aria-hidden="true" />
+        <div className="skel-masonry" aria-hidden="true">
+          {[34, 22, 28, 26, 20, 32, 24, 30].map((h, i) => (
+            <div key={i} className="skel-card" style={{ height: `${h}vh` }} />
+          ))}
+        </div>
+      ) : shown.length === 0 ? (
+        <div className="editorial-empty" data-ord="00">
+          <span className="ee-orb" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="7" height="7" rx="1.5" />
+              <rect x="14" y="3" width="7" height="7" rx="1.5" />
+              <rect x="3" y="14" width="7" height="7" rx="1.5" />
+              <rect x="14" y="14" width="7" height="7" rx="1.5" />
+            </svg>
+          </span>
           <h2>
             空白的<br />
             <em>第一页</em>
           </h2>
-          <p>去图像 / 视频 / 3D 模块创作,生成的每一件作品都会自动汇集到这里,成为你的作品集。</p>
+          <p>
+            去图像 / 视频 / 3D / 音乐模块创作,生成的每一件作品都会自动汇集到这里,成为你的作品集。
+          </p>
         </div>
       ) : (
-        <div className="gallery">
-          {assets.map((a, i) => {
+        <motion.div
+          className="masonry"
+          initial="initial"
+          animate="enter"
+          variants={{ enter: { transition: { staggerChildren: reduced ? 0 : 0.035 } } }}
+        >
+          {shown.map((a) => {
             const type = assetType(a.url);
-            // 编辑式 bento:每隔几张把图片格拉成焦点大格,制造视觉重心
-            const feature = type === "media" && i % 7 === 3;
             return (
-            <figure
-              className={`shot${feature ? " feature" : ""}`}
-              key={a.key}
-              onClick={() => type === "media" && setActive(a)}
-              style={type === "glb" ? { cursor: "default" } : undefined}
-            >
-              {type === "glb" ? (
-                <a
-                  className="glb-tile"
-                  href={a.url}
-                  download
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <span className="glb-badge">3D · GLB</span>
-                  <span className="glb-hint">下载模型</span>
-                </a>
-              ) : type === "audio" ? (
-                <div className="audio-tile" onClick={(e) => e.stopPropagation()}>
-                  <span className="audio-badge">♪ 音乐</span>
-                  <audio controls preload="none" src={a.url} />
-                </div>
-              ) : (
-                <img src={a.url} alt={a.prompt} loading="lazy" />
-              )}
-              <figcaption className="meta">
-                <span className="prompt" title={a.prompt}>
-                  {a.prompt || "—"}
-                </span>
-                <span className="sub">
-                  {KIND_LABELS[a.kind] ?? a.kind} · seed {a.seed}
-                </span>
-              </figcaption>
-            </figure>
+              <motion.figure
+                className="tile"
+                key={a.key}
+                variants={{
+                  initial: { opacity: 0, y: reduced ? 0 : 14 },
+                  enter: { opacity: 1, y: 0, transition: springSoft },
+                }}
+                onClick={() => type === "media" && setActive(a)}
+                style={type !== "media" ? { cursor: "default" } : undefined}
+              >
+                <span className="tile-kind">{KIND_LABELS[a.kind] ?? a.kind}</span>
+                {type === "glb" ? (
+                  <a className="tile-pad" href={a.url} download onClick={(e) => e.stopPropagation()}>
+                    <span className="badge">3D · GLB</span>
+                    <span className="hint">可旋转网格模型</span>
+                    <span className="tile-dl">下载模型</span>
+                  </a>
+                ) : type === "audio" ? (
+                  <div className="tile-pad" onClick={(e) => e.stopPropagation()}>
+                    <span className="badge audio">♪ 音乐</span>
+                    <audio controls preload="none" src={a.url} />
+                  </div>
+                ) : (
+                  <>
+                    <img src={a.url} alt={a.prompt} loading="lazy" />
+                    <figcaption className="tile-cap">
+                      <p className="p">{a.prompt || "未命名作品"}</p>
+                      <p className="s">seed {a.seed}</p>
+                    </figcaption>
+                  </>
+                )}
+              </motion.figure>
             );
           })}
-        </div>
+        </motion.div>
       )}
 
-      {active && (
-        <div className="lightbox" onClick={() => setActive(null)}>
-          <div className="lightbox-inner" onClick={(e) => e.stopPropagation()}>
-            <img src={active.url} alt={active.prompt} />
-            <div className="lightbox-meta">
-              <p className="lb-prompt">{active.prompt || "—"}</p>
-              <p className="lb-sub">
-                {KIND_LABELS[active.kind] ?? active.kind} · seed {active.seed}
-              </p>
-              <div className="lb-actions">
-                <a className="btn-ghost" href={active.url} download>
-                  下载
-                </a>
-              </div>
-            </div>
-            <button
-              type="button"
-              className="lightbox-close"
-              onClick={() => setActive(null)}
-              aria-label="关闭"
+      <AnimatePresence>
+        {active && (
+          <motion.div
+            className="lightbox"
+            onClick={() => setActive(null)}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="lightbox-inner"
+              onClick={(e) => e.stopPropagation()}
+              initial={{ opacity: 0, scale: reduced ? 1 : 0.94, y: reduced ? 0 : 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0, transition: springSoft }}
+              exit={{ opacity: 0, scale: reduced ? 1 : 0.96, transition: { duration: 0.15 } }}
             >
-              ✕
-            </button>
-          </div>
-        </div>
-      )}
+              <img src={active.url} alt={active.prompt} />
+              <div className="lightbox-meta">
+                <p className="lb-prompt">{active.prompt || "未命名作品"}</p>
+                <p className="lb-sub">
+                  {KIND_LABELS[active.kind] ?? active.kind} · seed {active.seed}
+                </p>
+                <div className="lb-actions">
+                  <a className="btn-ghost" href={active.url} download>
+                    下载原图
+                  </a>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="lightbox-close"
+                onClick={() => setActive(null)}
+                aria-label="关闭"
+              >
+                ✕
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

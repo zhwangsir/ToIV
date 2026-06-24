@@ -1,11 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 
 import { listLocalModels, searchMarketplace } from "@/lib/api";
+import { navPillSpring, springSoft } from "@/lib/motion";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
 import type { LocalModels, MarketItem } from "@/lib/types";
 
 type Tab = "local" | "civitai" | "huggingface";
+
+const TABS: { k: Tab; l: string }[] = [
+  { k: "local", l: "本地已装" },
+  { k: "civitai", l: "Civitai" },
+  { k: "huggingface", l: "HuggingFace" },
+];
 
 const CIVITAI_TYPES = [
   { k: "", l: "全部" },
@@ -38,6 +47,7 @@ export function ModelLibrary() {
   const [items, setItems] = useState<MarketItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const reduced = useReducedMotion();
 
   useEffect(() => {
     listLocalModels()
@@ -45,85 +55,110 @@ export function ModelLibrary() {
       .catch((e: Error) => setError(e.message));
   }, []);
 
-  const runSearch = useCallback(
-    async (source: Tab, q: string, type?: string) => {
-      if (source === "local") return;
-      setLoading(true);
-      setError(null);
-      try {
-        const r = await searchMarketplace(source, q, type);
-        setItems(r.items);
-      } catch (e) {
-        setError((e as Error).message);
-        setItems([]);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [],
-  );
+  const runSearch = useCallback(async (source: Tab, q: string, type?: string) => {
+    if (source === "local") return;
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await searchMarketplace(source, q, type);
+      setItems(r.items);
+    } catch (e) {
+      setError((e as Error).message);
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (tab !== "local") runSearch(tab, query, tab === "civitai" ? ctype : undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
+  const localCount = useMemo(
+    () => (local ? Object.values(local).reduce((s, n) => s + n.length, 0) : 0),
+    [local],
+  );
+
   return (
-    <div className="modlib">
-      <div className="stage-head">
-        <h1>
-          模型 <span className="grad">库</span>
+    <div className="view">
+      <header className="view-header">
+        <span className="view-eyebrow">Atelier · 模型工坊</span>
+        <h1 className="view-title">
+          模型 <em>库</em>
         </h1>
-      </div>
+        <p className="view-lede">
+          浏览本地已装权重,或在 Civitai / HuggingFace 上搜罗大模型、LoRA、ControlNet。
+        </p>
+        <div className="view-tally">
+          <span className="n">{tab === "local" ? localCount : items.length}</span>
+          <span className="l">{tab === "local" ? "件已装" : "条结果"}</span>
+        </div>
+      </header>
 
-      <div className="modlib-tabs">
-        {(["local", "civitai", "huggingface"] as Tab[]).map((t) => (
-          <button
-            key={t}
-            type="button"
-            className={tab === t ? "active" : ""}
-            onClick={() => setTab(t)}
-          >
-            {t === "local" ? "本地已装" : t === "civitai" ? "Civitai" : "HuggingFace"}
-          </button>
-        ))}
-      </div>
-
-      {tab !== "local" && (
-        <form
-          className="modlib-search"
-          onSubmit={(e) => {
-            e.preventDefault();
-            runSearch(tab, query, tab === "civitai" ? ctype : undefined);
-          }}
-        >
-          <input
-            type="text"
-            placeholder={`搜索 ${tab === "civitai" ? "Civitai" : "HuggingFace"} 模型…`}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          <button type="submit" className="btn-ghost">
-            搜索
-          </button>
-        </form>
-      )}
-
-      {tab === "civitai" && (
-        <div className="type-chips">
-          {CIVITAI_TYPES.map((t) => (
+      <div className="seg-rail" role="tablist" aria-label="模型来源">
+        {TABS.map((t) => {
+          const on = tab === t.k;
+          return (
             <button
               key={t.k}
               type="button"
-              className={ctype === t.k ? "active" : ""}
-              onClick={() => {
-                setCtype(t.k);
-                runSearch("civitai", query, t.k);
-              }}
+              role="tab"
+              aria-selected={on}
+              className={on ? "is-on" : ""}
+              onClick={() => setTab(t.k)}
             >
+              {on && (
+                <motion.span
+                  className="seg-pill"
+                  layoutId="modlib-pill"
+                  transition={navPillSpring}
+                  aria-hidden="true"
+                />
+              )}
               {t.l}
             </button>
-          ))}
+          );
+        })}
+      </div>
+
+      {tab !== "local" && (
+        <div className="view-toolbar">
+          <form
+            className="search-field"
+            onSubmit={(e) => {
+              e.preventDefault();
+              runSearch(tab, query, tab === "civitai" ? ctype : undefined);
+            }}
+          >
+            <svg className="ti-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <circle cx="11" cy="11" r="7" />
+              <path d="M21 21l-4.3-4.3" />
+            </svg>
+            <input
+              type="text"
+              placeholder={`搜索 ${tab === "civitai" ? "Civitai" : "HuggingFace"} 模型…`}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </form>
+          {tab === "civitai" && (
+            <div className="filter-chips" role="group" aria-label="模型类型">
+              {CIVITAI_TYPES.map((t) => (
+                <button
+                  key={t.k}
+                  type="button"
+                  className={`filter-chip${ctype === t.k ? " is-on" : ""}`}
+                  onClick={() => {
+                    setCtype(t.k);
+                    runSearch("civitai", query, t.k);
+                  }}
+                >
+                  {t.l}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -131,66 +166,103 @@ export function ModelLibrary() {
 
       {tab === "local" ? (
         !local ? (
-          <p className="muted">加载中…</p>
+          <div className="modset">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="skel-card" style={{ height: "70px", margin: 0 }} />
+            ))}
+          </div>
         ) : (
-          Object.entries(local).map(([key, names]) => (
-            <section key={key} className="local-section">
-              <h3>
-                {LOCAL_LABELS[key] ?? key} <span>{names.length}</span>
-              </h3>
-              {names.length === 0 ? (
-                <p className="muted">暂无</p>
-              ) : (
-                <div className="pill-wrap">
-                  {names.map((n) => (
-                    <span key={n} className="model-pill" title={n}>
-                      {n.replace(/\.(safetensors|ckpt|pt|pth)$/, "")}
-                    </span>
-                  ))}
+          <div className="modset">
+            {Object.entries(local).map(([key, names]) => (
+              <section key={key} className="local-group">
+                <div className="local-group-head">
+                  <span className="t">{LOCAL_LABELS[key] ?? key}</span>
+                  <span className="c">{names.length} 件</span>
                 </div>
-              )}
-            </section>
-          ))
+                {names.length === 0 ? (
+                  <span className="local-empty">暂无 —— 可去市场搜索安装</span>
+                ) : (
+                  <div className="local-pills">
+                    {names.map((n) => (
+                      <span key={n} className="local-pill" title={n}>
+                        {n.replace(/\.(safetensors|ckpt|pt|pth)$/, "")}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </section>
+            ))}
+          </div>
         )
       ) : loading ? (
-        <p className="muted">搜索中…</p>
-      ) : (
-        <div className="model-grid">
-          {items.map((m) => (
-            <article className="model-card" key={`${m.source}-${m.id}`}>
-              <div className="model-thumb">
-                {m.thumbnail ? (
-                  <img src={m.thumbnail} alt={m.name} loading="lazy" />
-                ) : (
-                  <span className="thumb-fallback">{m.type ?? "model"}</span>
-                )}
-                {m.type && <span className="model-type">{m.type}</span>}
-              </div>
-              <div className="model-info">
-                <p className="model-name" title={m.name}>
-                  {m.name}
-                </p>
-                <p className="model-sub">
-                  {m.creator ?? "—"} · ↓ {fmt(m.downloads)}
-                </p>
-                <div className="model-actions">
-                  <a className="btn-ghost sm" href={m.url} target="_blank" rel="noreferrer">
-                    查看
-                  </a>
-                  <button
-                    type="button"
-                    className="btn-ghost sm"
-                    disabled
-                    title="一键下载落地开发中（需 worker 文件系统访问）"
-                  >
-                    下载
-                  </button>
-                </div>
-              </div>
-            </article>
+        <div className="skel-grid" aria-hidden="true">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="skel-card" />
           ))}
-          {items.length === 0 && <p className="muted">没有结果，换个关键词试试。</p>}
         </div>
+      ) : items.length === 0 ? (
+        <div className="editorial-empty" data-ord="∅">
+          <span className="ee-orb" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="7" />
+              <path d="M21 21l-4.3-4.3" />
+            </svg>
+          </span>
+          <h2>
+            没有<em>结果</em>
+          </h2>
+          <p>换个关键词,或切换到另一个模型市场再试试。</p>
+        </div>
+      ) : (
+        <motion.div
+          className="market-grid"
+          initial="initial"
+          animate="enter"
+          variants={{ enter: { transition: { staggerChildren: reduced ? 0 : 0.03 } } }}
+        >
+          <AnimatePresence>
+            {items.map((m) => (
+              <motion.article
+                className="mcard"
+                key={`${m.source}-${m.id}`}
+                variants={{
+                  initial: { opacity: 0, y: reduced ? 0 : 14 },
+                  enter: { opacity: 1, y: 0, transition: springSoft },
+                }}
+              >
+                <div className="mcard-thumb">
+                  {m.thumbnail ? (
+                    <img src={m.thumbnail} alt={m.name} loading="lazy" />
+                  ) : (
+                    <span className="fallback">{(m.type ?? "M").slice(0, 1)}</span>
+                  )}
+                  {m.type && <span className="mcard-type">{m.type}</span>}
+                </div>
+                <div className="mcard-body">
+                  <p className="mcard-name" title={m.name}>
+                    {m.name}
+                  </p>
+                  <p className="mcard-sub">
+                    {m.creator ?? "—"} · ↓ {fmt(m.downloads)}
+                  </p>
+                  <div className="mcard-actions">
+                    <a className="btn-ghost sm" href={m.url} target="_blank" rel="noreferrer">
+                      查看
+                    </a>
+                    <button
+                      type="button"
+                      className="btn-ghost sm"
+                      disabled
+                      title="一键下载落地开发中（需 worker 文件系统访问）"
+                    >
+                      下载
+                    </button>
+                  </div>
+                </div>
+              </motion.article>
+            ))}
+          </AnimatePresence>
+        </motion.div>
       )}
     </div>
   );

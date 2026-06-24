@@ -1,10 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 
 import { ProgressBar } from "@/components/generate/ProgressBar";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
 import { generateAudio, imageUrl, jobEventsUrl } from "@/lib/api";
+import { springSoft } from "@/lib/motion";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
 import type { GenStatus, Progress } from "@/lib/types";
 
 interface Track {
@@ -28,6 +31,7 @@ export function AudioStudio() {
   const [progress, setProgress] = useState<Progress>({ value: 0, max: 0 });
   const [error, setError] = useState<string | null>(null);
   const [tracks, setTracks] = useState<Track[]>([]);
+  const reduced = useReducedMotion();
 
   const esRef = useRef<EventSource | null>(null);
   const doneRef = useRef(false);
@@ -149,31 +153,58 @@ export function AudioStudio() {
       </form>
 
       <main className="stage">
-        <div className="stage-head">
-          <h1>
-            文生 <span className="grad">音乐</span>
+        <header className="view-header">
+          <span className="view-eyebrow">Score · 编曲台</span>
+          <h1 className="view-title">
+            文生 <em>音乐</em>
           </h1>
-          <span className="count">{tracks.length} 首</span>
-        </div>
+          <div className="view-tally">
+            <span className="n">{tracks.length}</span>
+            <span className="l">首作品</span>
+          </div>
+        </header>
         <ProgressBar status={status} progress={progress} />
         {error && <div className="alert">⚠ {error}</div>}
         {tracks.length === 0 ? (
-          <div className="hero-canvas">
-            <div className="hero-orb" aria-hidden="true" />
-            <h2>把文字谱成音乐</h2>
-            <p>输入风格标签(可加歌词),由 ACE-Step 生成原创音乐。</p>
+          <div className="editorial-empty" data-ord="♪">
+            <span className="ee-orb" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 18V5l11-2v13" />
+                <circle cx="6" cy="18" r="3" />
+                <circle cx="17" cy="16" r="3" />
+              </svg>
+            </span>
+            <h2>
+              把文字<em>谱成</em>音乐
+            </h2>
+            <p>输入风格标签(可附歌词),由 ACE-Step 3.5B 生成原创音乐 —— 纯音乐或带唱词皆可。</p>
           </div>
         ) : (
-          <div className="track-list">
-            {tracks.map((t) => (
-              <div className="track-card" key={t.id}>
-                <div className="track-tags" title={t.tags}>
-                  {t.tags}
+          <motion.div
+            className="track-list"
+            initial="initial"
+            animate="enter"
+            variants={{ enter: { transition: { staggerChildren: reduced ? 0 : 0.05 } } }}
+          >
+            {tracks.map((t, i) => (
+              <motion.div
+                className="track-card"
+                key={t.id}
+                variants={{
+                  initial: { opacity: 0, y: reduced ? 0 : 12 },
+                  enter: { opacity: 1, y: 0, transition: springSoft },
+                }}
+              >
+                <div className="track-card-head">
+                  <span className="track-no">{String(tracks.length - i).padStart(2, "0")}</span>
+                  <span className="track-tags" title={t.tags}>
+                    {t.tags}
+                  </span>
                 </div>
                 <audio controls preload="none" src={t.url} />
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         )}
       </main>
     </div>

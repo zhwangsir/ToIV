@@ -156,33 +156,47 @@ export function ThreeDStudio() {
       </form>
 
       <main className="stage">
-        <div className="stage-head">
-          <h1>
-            图生 <span className="grad">3D</span>
+        <header className="view-header">
+          <span className="view-eyebrow">Sculpt · 立体台</span>
+          <h1 className="view-title">
+            图生 <em>3D</em>
           </h1>
-          <span className="count">{models.length} 个模型</span>
-        </div>
+          <div className="view-tally">
+            <span className="n">{models.length}</span>
+            <span className="l">个模型</span>
+          </div>
+        </header>
         <ProgressBar status={status} progress={progress} />
         {error && <div className="alert">⚠ {error}</div>}
         {!latest ? (
-          <div className="hero-canvas">
-            <div className="hero-orb" aria-hidden="true" />
-            <h2>把图片变成 3D</h2>
-            <p>上传一张物体图片,由 Hunyuan3D 生成可旋转的 3D 模型,支持导出 GLB。</p>
+          <div className="editorial-empty" data-ord="3D">
+            <span className="ee-orb" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2l8 4.5v9L12 22l-8-6.5v-9L12 2z" />
+                <path d="M12 22V12M12 12l8-5.5M12 12L4 6.5" />
+              </svg>
+            </span>
+            <h2>
+              把图片<em>立</em>起来
+            </h2>
+            <p>上传一张物体图片,由 Hunyuan3D 2.0 生成可旋转的网格模型,一键导出 GLB。</p>
           </div>
         ) : (
           <>
-            <div className="viewer-3d">
+            <div className="viewer-3d editorial">
               <ModelViewer src={latest.url} />
               <a className="btn-ghost viewer-dl" href={latest.url} download>
                 下载 GLB
               </a>
             </div>
             {models.length > 1 && (
-              <div className="model3d-list">
+              <div className="model-strip">
                 {models.slice(1).map((m) => (
-                  <a key={m.id} className="btn-ghost sm" href={m.url} download>
-                    模型 {m.id.slice(0, 6)}.glb
+                  <a key={m.id} href={m.url} download>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M12 3v12M7 10l5 5 5-5M5 21h14" />
+                    </svg>
+                    {m.id.slice(0, 6)}.glb
                   </a>
                 ))}
               </div>

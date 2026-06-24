@@ -1,8 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 
 import { ModelViewer } from "@/components/ui/ModelViewer";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
+import { springSoft } from "@/lib/motion";
 import { agentChat, imageUrl, uploadImage } from "@/lib/api";
 import type { AgentEvent, AgentImageRef } from "@/lib/api";
 
@@ -49,6 +52,7 @@ export function AssistantView() {
   const [uploading, setUploading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const reduced = useReducedMotion();
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -108,14 +112,49 @@ export function AssistantView() {
     [items, busy, attachment],
   );
 
+  const turns = items.filter((i) => i.kind === "user").length;
+
   return (
     <div className="assistant">
+      <header className="view-header">
+        <span className="view-eyebrow">Atelier · 智能助手</span>
+        <h1 className="view-title">
+          对话 <em>造物</em>
+        </h1>
+        <p className="view-lede">
+          一句话说出想要的画面、视频、3D 或音乐 —— 助手自动选模型、跑工作流、出结果。上传图片还能重绘或转 3D。
+        </p>
+        <div className="view-tally">
+          <span className="n">{turns}</span>
+          <span className="l">轮对话</span>
+        </div>
+      </header>
+
       <div className="chat-scroll" ref={scrollRef}>
         {items.length === 0 ? (
-          <div className="chat-empty">
-            <div className="hero-orb" aria-hidden="true" />
-            <h2>我是 ToIV 助手</h2>
-            <p>用一句话告诉我你想要什么,我直接帮你生成。上传图片还能重绘或转 3D。</p>
+          <div className="editorial-empty" data-ord="∞">
+            <span className="ee-orb" aria-hidden="true">
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M21 11.5a8.5 8.5 0 0 1-12.2 7.7L3 21l1.8-5.8A8.5 8.5 0 1 1 21 11.5Z" />
+                <path d="M12 8.4v6.2M8.9 11.5h6.2" />
+              </svg>
+            </span>
+            <h2>
+              说一句话,<br />
+              <em>我来造</em>
+            </h2>
+            <p>
+              不必懂参数、不必选模型 —— 用自然语言描述需求即可。下面几个例子,点一下就开始。
+            </p>
             <div className="chat-suggest">
               {SUGGESTIONS.map((s) => (
                 <button key={s} type="button" onClick={() => send(s)}>
@@ -125,7 +164,7 @@ export function AssistantView() {
             </div>
           </div>
         ) : (
-          items.map((it) => <ChatBubble key={it.id} item={it} />)
+          items.map((it) => <ChatBubble key={it.id} item={it} reduced={reduced} />)
         )}
         {busy && <div className="chat-typing">助手思考中…</div>}
       </div>
@@ -177,46 +216,68 @@ export function AssistantView() {
   );
 }
 
-function ChatBubble({ item }: { item: ChatItem }) {
+function ChatBubble({ item, reduced }: { item: ChatItem; reduced: boolean }) {
+  // 每条消息弹性入场;保留 .bubble 自身的左右对齐(motion.div 即 flex 子项)
+  const m = {
+    initial: { opacity: 0, y: reduced ? 0 : 8 },
+    animate: { opacity: 1, y: 0 },
+    transition: springSoft,
+  };
+
   if (item.kind === "user")
     return (
-      <div className="bubble user">
+      <motion.div className="bubble user" {...m}>
         {item.urls?.[0] && <img className="bubble-attach" src={item.urls[0]} alt="上传图片" />}
         {item.text}
-      </div>
+      </motion.div>
     );
-  if (item.kind === "assistant") return <div className="bubble assistant">{item.text}</div>;
-  if (item.kind === "tool") return <div className="bubble tool">{item.text}</div>;
-  if (item.kind === "error") return <div className="bubble error">⚠ {item.text}</div>;
+  if (item.kind === "assistant")
+    return (
+      <motion.div className="bubble assistant" {...m}>
+        {item.text}
+      </motion.div>
+    );
+  if (item.kind === "tool")
+    return (
+      <motion.div className="bubble tool" {...m}>
+        {item.text}
+      </motion.div>
+    );
+  if (item.kind === "error")
+    return (
+      <motion.div className="bubble error" {...m}>
+        ⚠ {item.text}
+      </motion.div>
+    );
   if (item.kind === "image")
     return (
-      <div className="bubble media">
+      <motion.div className="bubble media" {...m}>
         <div className="chat-images">
           {item.urls?.map((u) => <img key={u} src={u} alt="生成结果" loading="lazy" />)}
         </div>
-      </div>
+      </motion.div>
     );
   if (item.kind === "video")
     return (
-      <div className="bubble media">
+      <motion.div className="bubble media" {...m}>
         <div className="chat-images">
           {item.urls?.map((u) => <img key={u} src={u} alt="生成视频" loading="lazy" />)}
         </div>
         <span className="media-tag">▶ 动态视频</span>
-      </div>
+      </motion.div>
     );
   if (item.kind === "model3d")
     return (
-      <div className="bubble media">
+      <motion.div className="bubble media" {...m}>
         <div className="chat-model3d">{item.urls?.[0] && <ModelViewer src={item.urls[0]} />}</div>
         <span className="media-tag">⬢ 可旋转 3D 模型(GLB)</span>
-      </div>
+      </motion.div>
     );
   if (item.kind === "audio")
     return (
-      <div className="bubble media">
+      <motion.div className="bubble media" {...m}>
         {item.urls?.map((u) => <audio key={u} controls preload="none" src={u} />)}
-      </div>
+      </motion.div>
     );
   return null;
 }
