@@ -772,7 +772,7 @@ function Inner() {
               pannable
               zoomable
               nodeStrokeWidth={2}
-              maskColor="rgba(12, 11, 13, 0.7)"
+              maskColor="color-mix(in oklab, var(--bg-sunken) 70%, transparent)"
             />
             <Controls className="cv-controls" showInteractive={false} />
           </ReactFlow>

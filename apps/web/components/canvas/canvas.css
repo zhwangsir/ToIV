@@ -1,7 +1,8 @@
 /* ──────────────────────────────────────────────────────────
-   创作画布 — React Flow 暖金暗色主题化 + 高层节点样式。
-   复用平台 editorial bold 设计令牌(--accent 暖金 / --bg-* / --hairline)。
-   动效只走 transform / opacity;reduced-motion 降级。
+   创作画布 — Studio Noir 暗房 · 媒体优先专业工作台。
+   全部走平台令牌(--accent 品紫 / --bg-* / --hairline / --font-mono)
+   自动适配暗 / 亮主题。动效只走 transform / opacity;reduced-motion 降级。
+   设计意图:产物画面是节点主角,参数/标题收成细带;台面克制暗房点阵。
    ────────────────────────────────────────────────────────── */
 
 .cv-studio {
@@ -12,39 +13,45 @@
   min-height: 540px;
 }
 
-/* ── 顶部工具条 ── */
+/* ── 顶部工具条:收窄精致,标题与动作单行对齐 ── */
 .cv-toolbar {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  padding: var(--space-3) var(--space-5);
+  padding: 0.6rem var(--space-5);
   border-bottom: 1px solid var(--hairline);
-  background: linear-gradient(180deg, var(--bg-1), var(--bg-0));
+  background: color-mix(in oklab, var(--bg-1) 78%, transparent);
+  backdrop-filter: saturate(1.1) blur(8px);
 }
 .cv-toolbar__lead {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: baseline;
+  gap: 0.6rem;
+  min-width: 0;
 }
 .cv-toolbar__kicker {
-  font-size: 0.62rem;
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--accent);
-  font-weight: 700;
+  font-weight: 600;
 }
 .cv-toolbar__title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(1.4rem, 1rem + 1.4vw, 2rem);
+  font-size: clamp(1.05rem, 0.9rem + 0.7vw, 1.35rem);
   letter-spacing: var(--tracking-tight);
-  line-height: 1;
+  line-height: 1.05;
   color: var(--ink);
 }
 .cv-toolbar__hint {
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   color: var(--ink-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .cv-toolbar__actions {
   display: flex;
@@ -52,12 +59,15 @@
   gap: var(--space-2);
 }
 .cv-toolbar__count {
-  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
   color: var(--ink-soft);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .cv-toolbar__saved {
-  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
   color: var(--accent-soft);
   animation: cv-fade 0.24s var(--ease);
 }
@@ -65,12 +75,12 @@
 .cv-btn {
   appearance: none;
   border: 1px solid var(--hairline-2);
-  background: var(--surface);
+  background: var(--glass);
   color: var(--ink-soft);
   font: inherit;
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   font-weight: 600;
-  padding: 0.45rem 0.95rem;
+  padding: 0.4rem 0.8rem;
   border-radius: var(--radius-xs);
   cursor: pointer;
   transition:
@@ -82,16 +92,20 @@
 .cv-btn:hover {
   color: var(--ink);
   border-color: var(--hairline-strong);
+  background: var(--glass-2);
   transform: translateY(-1px);
 }
 .cv-btn:active {
   transform: translateY(0);
 }
+.cv-btn:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 2px;
+}
 .cv-btn--primary {
   background: linear-gradient(135deg, var(--accent), var(--accent-deep));
   border-color: var(--accent-line);
   color: var(--accent-ink);
-  box-shadow: 0 4px 14px -4px var(--accent-glow);
 }
 .cv-btn--primary:hover {
   background: linear-gradient(135deg, var(--accent-hover), var(--accent));
@@ -103,51 +117,53 @@
   transform: none;
 }
 
-/* ── React Flow 画布容器 ── */
+/* ── React Flow 画布容器:暗房沉底台面 ── */
 .cv-flow {
   position: relative;
   flex: 1;
   min-height: 0;
 }
 .cv-flow .react-flow {
-  background: var(--bg-0);
+  background: var(--bg-sunken);
 }
+/* 极淡顶部余晖,克制非赛博;点阵网格由 react-flow__background path 着色 */
 .cv-flow .react-flow__background {
-  background: radial-gradient(
-    120% 90% at 30% 0%,
-    rgba(236, 170, 86, 0.05),
-    transparent 60%
-  );
+  background:
+    radial-gradient(140% 100% at 50% -10%, var(--accent-wash), transparent 55%);
 }
 .cv-flow .react-flow__background path,
 .cv-flow .react-flow__background circle {
-  color: var(--hairline-2);
+  color: var(--hairline);
 }
 
-/* 连线:暖金 */
+/* 连线:品紫;运行中流动虚线,完成实线 */
 .cv-flow .react-flow__edge-path {
   stroke: var(--accent-line);
-  stroke-width: 2;
+  stroke-width: 1.75;
 }
 .cv-flow .react-flow__edge.selected .react-flow__edge-path,
 .cv-flow .react-flow__edge:hover .react-flow__edge-path {
-  stroke: var(--accent-hover);
+  stroke: var(--accent);
+  stroke-width: 2.25;
 }
 .cv-flow .react-flow__edge.animated .react-flow__edge-path {
-  stroke-dasharray: 6 4;
+  stroke: var(--accent);
+  stroke-dasharray: 6 5;
   animation: cv-dash 0.7s linear infinite;
 }
 .cv-flow .react-flow__connection-path {
   stroke: var(--accent);
   stroke-width: 2;
+  stroke-dasharray: 6 5;
 }
 
-/* 控制条 + 小地图 暖金化 */
+/* 控制条 + 小地图:品紫极简玻璃 */
 .cv-flow .react-flow__controls.cv-controls {
-  background: var(--bg-2);
+  background: color-mix(in oklab, var(--bg-2) 72%, transparent);
+  backdrop-filter: blur(8px);
   border: 1px solid var(--hairline-2);
   border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-md), var(--shadow-edge);
   overflow: hidden;
 }
 .cv-flow .react-flow__controls.cv-controls button {
@@ -158,28 +174,37 @@
   transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
 }
 .cv-flow .react-flow__controls.cv-controls button:hover {
-  background: var(--bg-3);
+  background: var(--accent-quiet);
   color: var(--accent);
+}
+.cv-flow .react-flow__controls.cv-controls button:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: -2px;
 }
 .cv-flow .react-flow__controls.cv-controls button svg {
   fill: currentColor;
 }
 .cv-flow .react-flow__minimap.cv-minimap {
-  background: var(--bg-1);
+  background: color-mix(in oklab, var(--bg-1) 80%, transparent);
+  backdrop-filter: blur(8px);
   border: 1px solid var(--hairline-2);
   border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-md), var(--shadow-edge);
 }
 .cv-flow .react-flow__minimap-node {
   fill: var(--accent-deep);
   stroke: var(--accent-line);
+  stroke-width: 1;
+}
+.cv-flow .react-flow__minimap-mask {
+  fill: var(--bg-sunken);
 }
 
-/* ── 节点壳 ── */
+/* ── 节点壳:暗房玻璃面 ── */
 .cv-node {
-  width: 252px;
-  background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
-  border: 1px solid var(--hairline-2);
+  width: 264px;
+  background: var(--bg-1);
+  border: 1px solid var(--hairline);
   border-radius: var(--radius);
   box-shadow: var(--shadow-md), var(--shadow-edge);
   color: var(--ink);
@@ -192,11 +217,12 @@
 }
 .cv-node:hover {
   border-color: var(--hairline-strong);
-  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg), var(--shadow-edge);
+  transform: translateY(-2px);
 }
 .cv-node.is-selected {
   border-color: var(--accent-line);
-  box-shadow: 0 0 0 1px var(--accent-line), var(--shadow-lg);
+  box-shadow: 0 0 0 1px var(--accent-line), var(--shadow-lg), var(--shadow-edge);
 }
 .cv-node.is-busy {
   border-color: var(--accent-line);
@@ -206,7 +232,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 0.5rem 0.65rem;
+  padding: 0.42rem 0.55rem;
   border-bottom: 1px solid var(--hairline);
   background: var(--glass);
 }
@@ -214,44 +240,62 @@
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.78rem;
+  font-family: var(--font-display);
+  font-size: 0.76rem;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: var(--tracking-tight);
+  color: var(--ink);
 }
 .cv-node__ico {
-  font-size: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  font-size: 0.82rem;
   line-height: 1;
+  border-radius: var(--radius-xs);
+  background: var(--glass-2);
+  border: 1px solid var(--hairline);
 }
-/* 节点类型色条:左侧细边 */
+/* 节点类型口音:头部小图标描边 + 选中前的左侧细脊 */
+.cv-node {
+  --node-accent: var(--accent);
+}
 .cv-node--text {
-  border-left: 3px solid var(--v4);
+  --node-accent: var(--v4);
 }
 .cv-node--image {
-  border-left: 3px solid var(--accent);
+  --node-accent: var(--accent);
 }
 .cv-node--video {
-  border-left: 3px solid var(--accent-hover);
+  --node-accent: var(--accent-hover);
 }
 .cv-node--audio {
-  border-left: 3px solid var(--v3);
+  --node-accent: var(--v3);
 }
-/* v2 结构化高层节点色条 */
 .cv-node--storyboard {
-  border-left: 3px solid var(--v2, var(--accent-hover));
+  --node-accent: var(--v2);
 }
 .cv-node--character {
-  border-left: 3px solid var(--v1, var(--accent));
+  --node-accent: var(--v1);
 }
 .cv-node--lighting {
-  border-left: 3px solid var(--accent-soft);
+  --node-accent: var(--accent-soft);
 }
 .cv-node--threed {
-  border-left: 3px solid var(--v5, var(--v4));
+  --node-accent: var(--v4);
+}
+.cv-node__bar {
+  border-top: 2px solid var(--node-accent);
+}
+.cv-node__ico {
+  color: var(--node-accent);
 }
 /* 结构节点壳略宽,容纳分镜列表/三视图 */
 .cv-node--storyboard,
 .cv-node--character {
-  width: 280px;
+  width: 292px;
 }
 
 .cv-node__del {
@@ -261,15 +305,19 @@
   background: transparent;
   color: var(--ink-faint);
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 0.74rem;
   line-height: 1;
-  padding: 0.2rem 0.35rem;
+  padding: 0.25rem 0.35rem;
   border-radius: var(--radius-xs);
   transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
 }
 .cv-node__del:hover {
   color: var(--danger);
-  background: var(--bg-3);
+  background: var(--glass-2);
+}
+.cv-node__del:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 1px;
 }
 
 .cv-gen {
@@ -278,29 +326,40 @@
   background: linear-gradient(135deg, var(--accent), var(--accent-deep));
   color: var(--accent-ink);
   font: inherit;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  padding: 0.28rem 0.7rem;
-  border-radius: var(--radius-xs);
+  letter-spacing: 0.01em;
+  padding: 0.3rem 0.72rem;
+  border-radius: 999px;
   cursor: pointer;
-  transition: filter var(--dur) var(--ease), transform var(--dur) var(--ease);
+  transition: filter var(--dur) var(--ease), transform var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
 }
 .cv-gen:hover {
-  filter: brightness(1.08);
+  filter: brightness(1.06);
   transform: translateY(-1px);
+  box-shadow: 0 0 0 3px var(--accent-wash);
+}
+.cv-gen:active {
+  transform: translateY(0);
+}
+.cv-gen:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 2px;
 }
 .cv-gen:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   filter: grayscale(0.3);
   transform: none;
+  box-shadow: none;
 }
 
 .cv-node__body {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: 0.65rem;
+  padding: 0.6rem;
 }
 
 /* ── 状态 / 进度 ── */
@@ -313,12 +372,15 @@
   gap: 0.35rem;
 }
 .cv-node__stage {
-  font-size: 0.68rem;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.01em;
   color: var(--accent-soft);
   font-variant-numeric: tabular-nums;
 }
 .cv-node__err {
-  font-size: 0.68rem;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
   color: var(--danger);
 }
 .cv-progress {
@@ -375,7 +437,8 @@
   gap: 0.3rem;
 }
 .cv-label {
-  font-size: 0.62rem;
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -424,6 +487,10 @@
   color: var(--ink);
   border-color: var(--hairline-strong);
 }
+.cv-chip:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 2px;
+}
 .cv-chip.active {
   background: var(--accent-quiet);
   border-color: var(--accent-line);
@@ -443,7 +510,50 @@
   font-size: 0.62rem;
 }
 
-/* ── 产物展示 ── */
+/* ── 媒体优先产物:铺满节点宽度,画面是节点主角 ──
+   .cv-media 用负边距溢出 body padding,边到边贴合节点内沿。 */
+.cv-media {
+  margin: 0.1rem -0.6rem 0;
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+  background:
+    repeating-conic-gradient(
+        var(--bg-sunken) 0% 25%,
+        var(--bg-0) 0% 50%
+      )
+      0 0 / 18px 18px,
+    var(--bg-sunken);
+  overflow: hidden;
+  animation: cv-pop 0.28s var(--ease-expo);
+}
+.cv-media__el {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 360px;
+  object-fit: contain;
+}
+.cv-media--video .cv-media__el {
+  background: var(--bg-sunken);
+}
+/* 空产物:低调暗格占位,不喧宾夺主 */
+.cv-media--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 92px;
+  background:
+    radial-gradient(120% 120% at 50% 0%, var(--glass), transparent 70%),
+    var(--bg-sunken);
+}
+.cv-media__hint {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-faint);
+}
+
+/* ── 控件型产物(音频播放器 / 3D 下载):紧凑卡条,非大幅画面 ── */
 .cv-output {
   border: 1px solid var(--hairline-2);
   border-radius: var(--radius-sm);
@@ -451,31 +561,30 @@
   background: var(--bg-0);
   animation: cv-pop 0.28s var(--ease-expo);
 }
-.cv-output img,
-.cv-output video {
-  display: block;
-  width: 100%;
-  height: auto;
-  max-height: 240px;
-  object-fit: contain;
-}
 .cv-output--audio {
   padding: 0.5rem;
+  background: var(--bg-sunken);
 }
 .cv-output--audio audio {
   width: 100%;
 }
 
-/* ── 端口 Handle ── */
+/* ── 端口 Handle:工程精度感,品紫可连点 ── */
 .cv-flow .react-flow__handle.cv-handle {
-  width: 12px;
-  height: 12px;
-  border: 2px solid var(--bg-0);
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--bg-1);
   background: var(--ink-faint);
-  transition: background var(--dur) var(--ease), transform var(--dur) var(--ease);
+  box-shadow: 0 0 0 1px var(--hairline-2);
+  transition:
+    background var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
 }
 .cv-flow .react-flow__handle.cv-handle:hover {
-  transform: scale(1.25);
+  transform: scale(1.3);
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-wash);
 }
 .cv-flow .react-flow__handle.cv-handle--text {
   background: var(--v4);
@@ -489,8 +598,14 @@
 .cv-flow .react-flow__handle.cv-handle--in {
   background: var(--accent-soft);
 }
+/* 连线进行中:目标端口品紫高亮放大,可连点提示 */
 .cv-flow .react-flow__handle-connecting {
   background: var(--accent) !important;
+  box-shadow: 0 0 0 5px var(--accent-wash) !important;
+}
+.cv-flow .react-flow__handle-valid {
+  background: var(--accent) !important;
+  box-shadow: 0 0 0 5px var(--accent-quiet) !important;
 }
 
 /* ── 双击新建菜单 ── */
@@ -655,6 +770,10 @@
   color: var(--accent);
   border-color: var(--accent-line);
 }
+.cv-archive:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 2px;
+}
 .cv-archive.is-archived {
   color: var(--accent-soft);
   border-color: var(--accent-line);
@@ -686,8 +805,8 @@
 }
 .cv-shot__idx {
   flex: none;
-  font-family: var(--font-display, inherit);
-  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
   font-weight: 700;
   color: var(--accent);
   font-variant-numeric: tabular-nums;
@@ -733,7 +852,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: 0.5rem 0.6rem;
+  padding: 0.55rem 0.65rem;
+  background: var(--bg-sunken);
+  border-color: var(--accent-line);
 }
 .cv-glb-dl {
   font-size: 0.74rem;
@@ -744,6 +865,11 @@
 }
 .cv-glb-dl:hover {
   color: var(--accent-hover);
+}
+.cv-glb-dl:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
 }
 
 /* ── v2: 工作流库下拉 ── */
@@ -943,6 +1069,7 @@
   .cv-gen,
   .cv-handle,
   .cv-output,
+  .cv-media,
   .cv-switch__track,
   .cv-switch__track::after,
   .cv-archive,
@@ -958,6 +1085,7 @@
     opacity: 0.6;
   }
   .cv-output,
+  .cv-media,
   .cv-menu,
   .cv-wf__panel {
     animation: none;

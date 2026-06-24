@@ -110,16 +110,20 @@ export function ImageNode({ id, data, selected }: NodeProps) {
         />
       </div>
 
-      {d.run.outputUrl && (
+      {d.run.outputUrl ? (
         <>
-          <div className="cv-output">
+          <figure className="cv-media">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={d.run.outputUrl} alt="生成结果" />
-          </div>
+            <img className="cv-media__el" src={d.run.outputUrl} alt="生成结果" />
+          </figure>
           <div className="cv-row cv-row--end nodrag">
             <ArchiveButton nodeId={id} outputUrl={d.run.outputUrl} />
           </div>
         </>
+      ) : (
+        <div className="cv-media cv-media--empty" aria-hidden="true">
+          <span className="cv-media__hint">📷 出图后在此预览</span>
+        </div>
       )}
 
       <Handle
