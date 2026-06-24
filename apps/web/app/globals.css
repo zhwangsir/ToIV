@@ -2633,22 +2633,28 @@ input[type="range"]::-webkit-slider-thumb:hover {
   border: 1px solid transparent;
   border-radius: var(--radius-xs);
 }
-.manju-project-name:hover,
+.manju-project-name:hover {
+  border-color: var(--hairline-2);
+  background: var(--glass);
+}
 .manju-project-name:focus {
-  border-color: var(--hairline);
-  background: rgba(0, 0, 0, 0.25);
+  outline: none;
+  border-color: var(--accent);
+  background: var(--glass);
+  box-shadow: 0 0 0 3px var(--accent-quiet);
 }
 .manju-mode {
   margin-left: auto;
 }
 .manju-progress-chip {
   font-size: 0.78rem;
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   color: var(--ink-soft);
   padding: 0.3rem 0.7rem;
   border: 1px solid var(--hairline);
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--glass);
 }
 
 /* ---------- 三栏主体 ---------- */
@@ -2666,11 +2672,11 @@ input[type="range"]::-webkit-slider-thumb:hover {
   }
 }
 
-/* ---------- 左侧流程轨 ---------- */
+/* ---------- 左侧流程轨 —— 清爽步骤轨,hairline 连接线 ---------- */
 .manju-rail {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.2rem;
   position: sticky;
   top: 0.5rem;
 }
@@ -2679,18 +2685,22 @@ input[type="range"]::-webkit-slider-thumb:hover {
     flex-direction: row;
     overflow-x: auto;
     position: static;
+    gap: 0.4rem;
+    padding-bottom: 0.3rem;
   }
+  .manju-rail::-webkit-scrollbar { display: none; }
 }
 .manju-rail-step {
+  position: relative;
   display: grid;
   grid-template-columns: auto 1fr;
   grid-template-rows: auto auto;
-  column-gap: 0.55rem;
+  column-gap: 0.6rem;
   text-align: left;
-  padding: 0.6rem 0.7rem;
-  border: 1px solid var(--hairline);
+  padding: 0.55rem 0.6rem;
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  background: var(--glass);
+  background: transparent;
   color: var(--ink-soft);
   cursor: pointer;
   transition:
@@ -2699,17 +2709,38 @@ input[type="range"]::-webkit-slider-thumb:hover {
     color var(--dur) var(--ease),
     transform var(--dur) var(--ease);
 }
+/* hairline 连接线:连接相邻节点圆心,克制串起步骤 */
+.manju-rail-step:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: calc(0.6rem + 13px);
+  top: calc(0.55rem + 26px);
+  bottom: -0.2rem;
+  width: 1px;
+  background: var(--hairline);
+  transform: translateX(-0.5px);
+}
+@media (max-width: 1100px) {
+  .manju-rail-step:not(:last-child)::before { display: none; }
+}
 .manju-rail-step:hover {
-  border-color: var(--hairline-2);
+  border-color: var(--hairline);
   color: var(--ink);
   transform: translateX(2px);
 }
 .manju-rail-step.active {
-  border-color: color-mix(in oklab, var(--v1) 55%, transparent);
-  background: color-mix(in oklab, var(--v1) 14%, transparent);
+  border-color: var(--accent-line);
+  background: var(--accent-wash);
   color: var(--ink);
 }
+.manju-rail-step:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-quiet);
+}
 .manju-rail-no {
+  position: relative;
+  z-index: 1;
   grid-row: 1 / span 2;
   align-self: center;
   width: 26px;
@@ -2717,16 +2748,28 @@ input[type="range"]::-webkit-slider-thumb:hover {
   display: grid;
   place-items: center;
   border-radius: 50%;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  background: rgba(0, 0, 0, 0.35);
+  font-family: var(--font-mono);
+  background: var(--bg-2);
   border: 1px solid var(--hairline-2);
+  color: var(--ink-soft);
+  transition:
+    background var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    color var(--dur) var(--ease);
 }
 .manju-rail-step.active .manju-rail-no {
-  background: var(--aurora);
+  background: var(--accent);
   border-color: transparent;
-  color: #fff;
+  color: var(--accent-ink);
+}
+.manju-rail-step.done .manju-rail-no {
+  background: color-mix(in oklab, var(--success) 18%, var(--bg-2));
+  border-color: color-mix(in oklab, var(--success) 50%, transparent);
+  color: var(--success);
+  font-family: var(--font-sans);
 }
 .manju-rail-label {
   font-size: 0.9rem;
@@ -2736,6 +2779,9 @@ input[type="range"]::-webkit-slider-thumb:hover {
   grid-column: 2;
   font-size: 0.72rem;
   color: var(--ink-faint);
+}
+@media (max-width: 1100px) {
+  .manju-rail-hint { display: none; }
 }
 
 /* ---------- 中间:配置 / 分镜板 ---------- */
@@ -2760,12 +2806,16 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .manju-setup h2,
 .manju-board-head h2 {
   font-family: var(--font-display);
-  font-size: 1.4rem;
+  font-size: var(--text-title);
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.1;
   margin: 0;
 }
 .manju-setup .grad,
 .manju-board-head .grad {
   color: var(--accent);
+  font-weight: 700;
 }
 .manju-setup-row {
   display: grid;
@@ -2785,12 +2835,26 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .manju-add-char {
   margin-left: auto;
   font-size: 0.74rem;
-  color: var(--v1);
-  background: color-mix(in oklab, var(--v1) 12%, transparent);
-  border: 1px solid color-mix(in oklab, var(--v1) 38%, transparent);
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-quiet);
+  border: 1px solid var(--accent-line);
   border-radius: 999px;
-  padding: 0.1rem 0.6rem;
+  padding: 0.12rem 0.66rem;
   cursor: pointer;
+  transition:
+    background var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    color var(--dur) var(--ease);
+}
+.manju-add-char:hover {
+  background: color-mix(in oklab, var(--accent) 22%, transparent);
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.manju-add-char:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-quiet);
 }
 .manju-char-row {
   display: grid;
@@ -2800,17 +2864,26 @@ input[type="range"]::-webkit-slider-thumb:hover {
   margin-top: 0.45rem;
 }
 .manju-char-del {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--radius-xs);
-  border: 1px solid var(--hairline);
-  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--hairline-2);
+  background: var(--bg-0);
   color: var(--ink-soft);
   cursor: pointer;
+  transition:
+    border-color var(--dur) var(--ease),
+    color var(--dur) var(--ease),
+    background var(--dur) var(--ease);
 }
 .manju-char-del:hover {
-  border-color: var(--danger);
+  border-color: color-mix(in oklab, var(--danger) 55%, transparent);
+  background: color-mix(in oklab, var(--danger) 10%, transparent);
   color: var(--danger);
+}
+.manju-char-del:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-quiet);
 }
 
 /* ---------- 分镜板 ---------- */
@@ -2831,13 +2904,16 @@ input[type="range"]::-webkit-slider-thumb:hover {
   align-items: center;
   gap: 0.6rem;
 }
+/* 分镜板:媒体画廊 —— 卡片更大,留白慷慨,产物当主体 */
 .manju-board {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 0.9rem;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: clamp(0.9rem, 1.5vw, 1.4rem);
 }
 
+/* ── 镜头卡:媒体优先 —— 产物铺满当主体,信息收成卡底细带 ── */
 .manju-shot {
+  position: relative;
   display: flex;
   flex-direction: column;
   border: 1px solid var(--hairline);
@@ -2845,47 +2921,79 @@ input[type="range"]::-webkit-slider-thumb:hover {
   overflow: hidden;
   background: var(--glass);
   cursor: pointer;
+  will-change: transform;
   transition:
     border-color var(--dur) var(--ease),
-    transform var(--dur) var(--ease),
-    box-shadow var(--dur) var(--ease);
+    transform var(--dur-2) var(--ease-expo),
+    box-shadow var(--dur-2) var(--ease-expo);
 }
 .manju-shot:hover {
   border-color: var(--hairline-2);
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-md);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+  z-index: 2;
+}
+.manju-shot:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-quiet), var(--shadow-md);
 }
 .manju-shot.is-selected {
-  border-color: color-mix(in oklab, var(--v1) 70%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in oklab, var(--v1) 50%, transparent), var(--shadow-md);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), var(--shadow-md);
 }
-.manju-shot-thumb {
+
+/* 媒体主体:16:9,铺满,衬底 --bg-sunken(灯箱井) */
+.manju-shot-media {
   position: relative;
   aspect-ratio: 16 / 9;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--bg-sunken);
   overflow: hidden;
+  border-radius: var(--radius);
 }
-.manju-shot-thumb img {
+.manju-shot-media img,
+.manju-shot-clip {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+  transition: transform var(--dur-2) var(--ease-expo);
 }
+.manju-shot.has-media:hover .manju-shot-media img,
+.manju-shot.has-media:hover .manju-shot-clip {
+  transform: scale(1.04);
+}
+
+/* 空镜:低调占位,mono 镜号 + 克制提示,无网格水印巨字 */
 .manju-shot-empty {
-  width: 100%;
-  height: 100%;
-  display: grid;
-  place-items: center;
-  background:
-    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.016) 0 12px, transparent 12px 24px);
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  color: var(--ink-faint);
 }
 .manju-shot-no {
-  font-family: var(--font-display);
-  font-size: 2rem;
-  font-weight: 700;
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
   color: var(--ink-faint);
   font-variant-numeric: tabular-nums;
+  opacity: 0.7;
 }
+.manju-shot-empty-hint {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--ink-faint);
+  opacity: 0.65;
+}
+
 .manju-shot-spinner {
   position: absolute;
   inset: 0;
@@ -2893,57 +3001,112 @@ input[type="range"]::-webkit-slider-thumb:hover {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  border: 2.5px solid rgba(255, 255, 255, 0.15);
-  border-top-color: var(--v1);
+  border: 2.5px solid var(--hairline-2);
+  border-top-color: var(--accent);
   animation: manju-spin 0.8s linear infinite;
+  z-index: 4;
 }
 @keyframes manju-spin {
   to {
     transform: rotate(360deg);
   }
 }
+@media (prefers-reduced-motion: reduce) {
+  .manju-shot-spinner { animation-duration: 1.6s; }
+}
+
+/* 角标:克制玻璃片,右上 */
 .manju-shot-badge {
   position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  font-size: 0.7rem;
+  top: 0.55rem;
+  right: 0.55rem;
+  z-index: 3;
+  font-size: 0.68rem;
   font-weight: 600;
-  padding: 0.15rem 0.5rem;
+  padding: 0.16rem 0.55rem;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.6);
-  border: 1px solid var(--hairline-2);
+  color: var(--accent-soft);
+  background: color-mix(in oklab, var(--bg-0) 58%, transparent);
+  border: 1px solid var(--accent-line);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 .manju-shot-badge.st-error {
   color: var(--danger);
   border-color: color-mix(in oklab, var(--danger) 50%, transparent);
 }
 .manju-shot-badge.st-video {
-  color: var(--v4);
-  border-color: color-mix(in oklab, var(--v4) 50%, transparent);
+  color: var(--accent-ink);
+  background: color-mix(in oklab, var(--accent) 78%, transparent);
+  border-color: var(--accent-line);
 }
-.manju-shot-body {
+
+/* 镜底细带:常驻仅镜号行 + 渐隐底纹;悬停 / 选中升起完整信息 + 操作 */
+.manju-shot-band {
+  position: absolute;
+  inset: auto 0 0 0;
+  z-index: 2;
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
-  padding: 0.7rem 0.8rem 0.8rem;
+  gap: 0.4rem;
+  padding: 1.8rem 0.7rem 0.7rem;
+  background: linear-gradient(to top, var(--bg-sunken) 8%, color-mix(in oklab, var(--bg-sunken) 70%, transparent) 55%, transparent);
 }
-.manju-shot-head {
+.manju-shot-band-head {
   display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  font-size: 0.78rem;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.74rem;
 }
-.manju-shot-id {
+.manju-shot-no-chip {
+  font-family: var(--font-mono);
   font-weight: 600;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
   color: var(--ink);
+  padding: 0.05rem 0.4rem;
+  border-radius: var(--radius-xs);
+  background: var(--glass-2);
+  border: 1px solid var(--hairline);
+  font-variant-numeric: tabular-nums;
 }
 .manju-shot-cam {
   color: var(--ink-soft);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .manju-shot-dur {
   margin-left: auto;
-  color: var(--v4);
+  color: var(--cool);
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+}
+/* 角色 / 台词 / 操作:默认收起,悬停或选中浮现 */
+.manju-shot-chars,
+.manju-shot-line,
+.manju-shot-actions {
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transform: translateY(4px);
+  transition:
+    opacity var(--dur) var(--ease),
+    max-height var(--dur-2) var(--ease),
+    transform var(--dur-2) var(--ease-expo);
+}
+.manju-shot:hover .manju-shot-chars,
+.manju-shot:hover .manju-shot-line,
+.manju-shot:hover .manju-shot-actions,
+.manju-shot:focus-within .manju-shot-chars,
+.manju-shot:focus-within .manju-shot-line,
+.manju-shot:focus-within .manju-shot-actions,
+.manju-shot.is-selected .manju-shot-chars,
+.manju-shot.is-selected .manju-shot-line,
+.manju-shot.is-selected .manju-shot-actions {
+  opacity: 1;
+  max-height: 6rem;
+  transform: translateY(0);
 }
 .manju-shot-chars {
   display: flex;
@@ -2951,34 +3114,36 @@ input[type="range"]::-webkit-slider-thumb:hover {
   gap: 0.3rem;
 }
 .manju-char-tag {
-  font-size: 0.7rem;
-  padding: 0.1rem 0.5rem;
+  font-size: 0.68rem;
+  padding: 0.08rem 0.5rem;
   border-radius: 999px;
-  color: var(--v3);
-  background: color-mix(in oklab, var(--v3) 14%, transparent);
-  border: 1px solid color-mix(in oklab, var(--v3) 36%, transparent);
+  color: var(--accent-soft);
+  background: var(--accent-wash);
+  border: 1px solid var(--accent-line);
 }
 .manju-shot-line {
-  font-size: 0.8rem;
-  color: var(--ink-soft);
+  font-size: 0.78rem;
+  color: var(--ink);
   margin: 0;
+  line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 .manju-shot-actions {
   display: flex;
-  gap: 0.45rem;
-  margin-top: 0.15rem;
+  gap: 0.4rem;
+  margin-top: 0.1rem;
 }
 .manju-shot-actions button {
   flex: 1;
-  font-size: 0.76rem;
-  padding: 0.32rem 0.5rem;
+  font-size: 0.74rem;
+  padding: 0.34rem 0.5rem;
   border-radius: var(--radius-xs);
-  border: 1px solid var(--hairline);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--hairline-2);
+  background: color-mix(in oklab, var(--bg-0) 55%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   color: var(--ink);
   cursor: pointer;
   width: auto;
@@ -2987,8 +3152,8 @@ input[type="range"]::-webkit-slider-thumb:hover {
     background var(--dur) var(--ease);
 }
 .manju-shot-actions button:hover:not(:disabled) {
-  border-color: var(--hairline-2);
-  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--accent-line);
+  background: var(--accent-quiet);
 }
 .manju-shot-actions button:disabled {
   opacity: 0.4;
@@ -2998,6 +3163,20 @@ input[type="range"]::-webkit-slider-thumb:hover {
   font-size: 0.72rem;
   color: var(--danger);
   margin: 0;
+  padding: 0.4rem 0.7rem 0.6rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .manju-shot,
+  .manju-shot-media img,
+  .manju-shot-clip,
+  .manju-shot-chars,
+  .manju-shot-line,
+  .manju-shot-actions {
+    transition-duration: 0.01ms;
+  }
+  .manju-shot:hover { transform: none; }
+  .manju-shot.has-media:hover .manju-shot-media img,
+  .manju-shot.has-media:hover .manju-shot-clip { transform: none; }
 }
 
 /* ---------- 右侧属性面板 ---------- */
@@ -3015,15 +3194,27 @@ input[type="range"]::-webkit-slider-thumb:hover {
   -webkit-backdrop-filter: blur(22px) saturate(120%);
   box-shadow: var(--shadow-md);
 }
+/* 空态:克制 —— 一个低调记号 + 一句提示,不堆边框水印 */
 .manju-inspector.is-empty {
   align-items: center;
   justify-content: center;
-  min-height: 180px;
+  gap: 0.7rem;
+  min-height: 220px;
+  background: var(--glass);
+  box-shadow: var(--shadow-edge);
+}
+.manju-inspector-empty-mark {
+  font-size: 1.7rem;
+  line-height: 1;
+  color: var(--ink-faint);
+  opacity: 0.6;
 }
 .manju-inspector-hint {
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   color: var(--ink-faint);
   text-align: center;
+  max-width: 22ch;
+  line-height: 1.5;
   margin: 0;
 }
 .manju-inspector-head {
@@ -3034,20 +3225,26 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .manju-inspector-head h3 {
   font-family: var(--font-display);
   font-size: 1.1rem;
+  letter-spacing: var(--tracking-tight);
   margin: 0;
 }
 .manju-inspector-dur {
   font-size: 0.8rem;
-  color: var(--v4);
+  color: var(--cool);
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
+/* 产物预览:大图 / 成片,衬底 --bg-sunken,品紫细描边 */
 .manju-inspector-preview {
   border-radius: var(--radius-sm);
   overflow: hidden;
-  border: 1px solid var(--hairline);
+  border: 1px solid var(--accent-line);
+  background: var(--bg-sunken);
   aspect-ratio: 16 / 9;
+  box-shadow: var(--shadow-sm);
 }
-.manju-inspector-preview img {
+.manju-inspector-preview img,
+.manju-inspector-preview video {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -3064,6 +3261,45 @@ input[type="range"]::-webkit-slider-thumb:hover {
   flex-direction: column;
   gap: 0.55rem;
   margin-top: 0.2rem;
+}
+
+/* AI 润色按钮:品紫描边胶囊,与全站 token 一致;loading 态呼吸 */
+.manju-polish-btn {
+  margin-left: auto;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.22rem 0.66rem;
+  border-radius: 999px;
+  border: 1px solid var(--accent-line);
+  background: var(--accent-quiet);
+  color: var(--accent);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    color var(--dur) var(--ease);
+}
+.manju-polish-btn:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--accent) 22%, transparent);
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.manju-polish-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.manju-polish-btn.is-loading {
+  color: var(--accent);
+  cursor: progress;
+  animation: manju-pulse 1.2s ease-in-out infinite;
+}
+@keyframes manju-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .manju-polish-btn.is-loading { animation: none; }
 }
 
 /* ---------- 通用次级 / 幽灵按钮 ---------- */
@@ -3101,6 +3337,133 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .manju-ghost-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+.manju-secondary-btn:focus-visible,
+.manju-ghost-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-quiet);
+}
+
+/* ---------- 导出步:成片灯箱播放器 + 精致合成控件 ---------- */
+.manju-export {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr);
+  gap: clamp(1.1rem, 2vw, 1.8rem);
+  align-items: start;
+}
+@media (max-width: 860px) {
+  .manju-export { grid-template-columns: 1fr; }
+}
+/* 灯箱舞台:大预览,衬底 --bg-sunken,成片时沉浸 */
+.manju-export-stage {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg-sunken);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-md);
+}
+.manju-export-stage.has-film {
+  border-color: var(--accent-line);
+  box-shadow: var(--shadow-lg), 0 0 0 1px var(--accent-quiet);
+}
+.manju-export-film {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+  display: block;
+}
+.manju-export-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  color: var(--ink-faint);
+}
+.manju-export-placeholder-mark {
+  font-size: 2.2rem;
+  line-height: 1;
+  color: var(--accent);
+  opacity: 0.55;
+}
+.manju-export-placeholder-text {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+}
+/* 合成控件:收成精致竖列 */
+.manju-export-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.manju-export-opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.1rem 1.4rem;
+  align-items: flex-end;
+}
+.manju-export-opts .field { flex: 1 1 8rem; }
+.manju-export-opts .seg-2 { grid-template-columns: 1fr 1fr; }
+.manju-export-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  padding-bottom: 0.5rem;
+  user-select: none;
+}
+.manju-export-check input {
+  width: auto;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.manju-export-check:hover { color: var(--ink); }
+.manju-export-download {
+  text-align: center;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+/* 导出空态:克制 —— 一个记号 + 一句提示 */
+.manju-export-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  min-height: clamp(220px, 32vh, 340px);
+  text-align: center;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: var(--glass);
+  box-shadow: var(--shadow-edge);
+  padding: clamp(2rem, 5vw, 3rem);
+}
+.manju-export-empty-mark {
+  font-size: 2rem;
+  line-height: 1;
+  color: var(--accent);
+  opacity: 0.55;
+}
+.manju-export-empty p {
+  margin: 0;
+  max-width: 36ch;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+  line-height: 1.65;
 }
 
 /* ============================================================

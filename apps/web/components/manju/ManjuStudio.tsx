@@ -339,6 +339,15 @@ export function ManjuStudio() {
   const doneCount = shots.filter((s) => s.imageUrl).length;
   const videoCount = shots.filter((s) => s.videoUrl).length;
 
+  // 各步完成度(纯视觉:流程轨打勾用,不改数据流)
+  const stepDone: Record<FlowStep, boolean> = {
+    script: premise.trim().length > 0,
+    characters: chars.some((c) => c.name.trim()),
+    storyboard: doneCount > 0,
+    video: videoCount > 0,
+    export: !!assembledUrl,
+  };
+
   return (
     <div className="manju-studio">
       {/* 顶栏 */}
@@ -373,18 +382,25 @@ export function ManjuStudio() {
       <div className="manju-body">
         {/* 左侧流程轨 */}
         <nav className="manju-rail" aria-label="制作流程">
-          {FLOW_STEPS.map((s, i) => (
-            <button
-              key={s.key}
-              type="button"
-              className={`manju-rail-step${step === s.key ? " active" : ""}`}
-              onClick={() => setStep(s.key)}
-            >
-              <span className="manju-rail-no">{i + 1}</span>
-              <span className="manju-rail-label">{s.label}</span>
-              <span className="manju-rail-hint">{s.hint}</span>
-            </button>
-          ))}
+          {FLOW_STEPS.map((s, i) => {
+            const isActive = step === s.key;
+            const isDone = stepDone[s.key] && !isActive;
+            return (
+              <button
+                key={s.key}
+                type="button"
+                className={`manju-rail-step${isActive ? " active" : ""}${isDone ? " done" : ""}`}
+                aria-current={isActive ? "step" : undefined}
+                onClick={() => setStep(s.key)}
+              >
+                <span className="manju-rail-no" aria-hidden="true">
+                  {isDone ? "✓" : i + 1}
+                </span>
+                <span className="manju-rail-label">{s.label}</span>
+                <span className="manju-rail-hint">{s.hint}</span>
+              </button>
+            );
+          })}
         </nav>
 
         {/* 中间:配置 + 分镜板 */}
@@ -554,101 +570,108 @@ export function ManjuStudio() {
               </div>
 
               {videoCount === 0 ? (
-                <p
-                  className="manju-setup-hint"
-                  style={{ padding: "2rem 0", textAlign: "center", lineHeight: 1.7 }}
-                >
-                  还没有视频片段。先到「视频」步,把分镜逐镜转成视频,再回来一键合成成片。
-                </p>
+                <div className="manju-export-empty">
+                  <span className="manju-export-empty-mark" aria-hidden="true">
+                    ▷
+                  </span>
+                  <p>
+                    还没有视频片段。先到「视频」步,把分镜逐镜转成视频,再回来一键合成成片。
+                  </p>
+                </div>
               ) : (
-                <div style={{ display: "grid", gap: "1.2rem", maxWidth: "640px" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "1.4rem",
-                      alignItems: "flex-end",
-                    }}
-                  >
-                    <div className="field" style={{ margin: 0 }}>
-                      <label>转场</label>
-                      <div className="seg" role="group" aria-label="转场">
-                        {(["crossfade", "none"] as ManjuTransition[]).map((t) => (
-                          <button
-                            key={t}
-                            type="button"
-                            className={transition === t ? "active" : ""}
-                            onClick={() => setTransition(t)}
-                          >
-                            {t === "crossfade" ? "交叠淡入" : "硬切"}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <label
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.5rem",
-                        cursor: "pointer",
-                        fontSize: "0.85rem",
-                        paddingBottom: "0.4rem",
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={withSubs}
-                        onChange={(e) => setWithSubs(e.target.checked)}
-                      />
-                      烧录字幕(用各镜台词)
-                    </label>
-                  </div>
-
-                  <div className="field" style={{ margin: 0 }}>
-                    <label htmlFor="manju-bgm">BGM 链接(可选)</label>
-                    <input
-                      id="manju-bgm"
-                      value={bgmUrl}
-                      onChange={(e) => setBgmUrl(e.target.value)}
-                      placeholder="音乐文件 URL,留空则成片无配乐"
-                    />
-                  </div>
-
-                  <button
-                    type="button"
-                    className="generate-btn"
-                    disabled={assembling || videoCount === 0}
-                    onClick={assemble}
-                  >
-                    {assembling
-                      ? "合成中…(下载片段 + ffmpeg 拼接)"
-                      : `🎬 合成成片(${videoCount} 镜)`}
-                  </button>
-
-                  {assembleErr && <div className="alert">⚠ {assembleErr}</div>}
-
-                  {assembledUrl && (
-                    <div style={{ display: "grid", gap: "0.7rem" }}>
+                <div className="manju-export">
+                  {/* 成片灯箱播放器:有成片时大图沉浸,无则占位 */}
+                  <div className={`manju-export-stage${assembledUrl ? " has-film" : ""}`}>
+                    {assembledUrl ? (
                       <video
+                        className="manju-export-film"
                         src={imageUrl(assembledUrl)}
                         controls
-                        style={{
-                          width: "100%",
-                          borderRadius: "14px",
-                          background: "#000",
-                          border: "1px solid color-mix(in oklab, var(--accent) 30%, transparent)",
-                        }}
+                        playsInline
+                        autoPlay
                       />
+                    ) : (
+                      <div className="manju-export-placeholder" aria-hidden="true">
+                        <span className="manju-export-placeholder-mark">◷</span>
+                        <span className="manju-export-placeholder-text">
+                          {assembling ? "正在合成成片…" : `${videoCount} 镜就绪 · 待合成`}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 合成控件:转场 / 字幕 / BGM 收成精致行 */}
+                  <div className="manju-export-controls">
+                    <div className="manju-export-opts">
+                      <div className="field">
+                        <label>转场</label>
+                        <div className="seg seg-2" role="group" aria-label="转场">
+                          {(["crossfade", "none"] as ManjuTransition[]).map((t) => (
+                            <button
+                              key={t}
+                              type="button"
+                              className={transition === t ? "active" : ""}
+                              onClick={() => setTransition(t)}
+                            >
+                              {t === "crossfade" ? "交叠淡入" : "硬切"}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <label className="manju-export-check">
+                        <input
+                          type="checkbox"
+                          checked={withSubs}
+                          onChange={(e) => setWithSubs(e.target.checked)}
+                        />
+                        <span>烧录字幕(用各镜台词)</span>
+                      </label>
+                    </div>
+
+                    <div className="field">
+                      <label htmlFor="manju-bgm">BGM 链接(可选)</label>
+                      <input
+                        id="manju-bgm"
+                        value={bgmUrl}
+                        onChange={(e) => setBgmUrl(e.target.value)}
+                        placeholder="音乐文件 URL,留空则成片无配乐"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      className="generate-btn"
+                      disabled={assembling || videoCount === 0}
+                      aria-busy={assembling}
+                      onClick={assemble}
+                    >
+                      {assembling
+                        ? "合成中…(下载片段 + ffmpeg 拼接)"
+                        : `🎬 合成成片(${videoCount} 镜)`}
+                    </button>
+
+                    {assembling && (
+                      <div className="progress" aria-hidden="true">
+                        <div className="progress-track">
+                          <div className="progress-fill indeterminate" />
+                        </div>
+                        <span className="progress-label">拼接中,请稍候…</span>
+                      </div>
+                    )}
+
+                    {assembleErr && <div className="alert">⚠ {assembleErr}</div>}
+
+                    {assembledUrl && (
                       <a
-                        className="manju-secondary-btn"
+                        className="manju-secondary-btn manju-export-download"
                         href={imageUrl(assembledUrl)}
                         download
-                        style={{ textAlign: "center", textDecoration: "none" }}
                       >
                         ↓ 下载成片
                       </a>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               )}
             </section>

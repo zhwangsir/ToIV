@@ -15,20 +15,6 @@ interface ShotInspectorProps {
   onVideo: (id: string) => void;
 }
 
-// AI 润色按钮:暖金描边胶囊,与全站 token 一致(本组件内联,避免动 globals.css)
-const POLISH_BTN: React.CSSProperties = {
-  marginLeft: "auto",
-  fontSize: "0.72rem",
-  fontWeight: 600,
-  padding: "0.22rem 0.66rem",
-  borderRadius: "999px",
-  border: "1px solid color-mix(in oklab, var(--accent) 45%, transparent)",
-  background: "color-mix(in oklab, var(--accent) 14%, transparent)",
-  color: "var(--accent)",
-  whiteSpace: "nowrap",
-  cursor: "pointer",
-};
-
 /** 右侧选中镜头属性面板:可编辑出图提示词 / 台词,AI 润色,并触发出图 / 转视频。 */
 export function ShotInspector({
   shot,
@@ -43,8 +29,11 @@ export function ShotInspector({
 
   if (!shot) {
     return (
-      <aside className="manju-inspector is-empty">
-        <p className="manju-inspector-hint">在分镜板中选择一个镜头查看与编辑属性</p>
+      <aside className="manju-inspector is-empty" aria-label="镜头属性">
+        <span className="manju-inspector-empty-mark" aria-hidden="true">
+          ◍
+        </span>
+        <p className="manju-inspector-hint">在分镜板中选择一个镜头,查看与编辑属性</p>
       </aside>
     );
   }
@@ -68,7 +57,7 @@ export function ShotInspector({
   const canPolish = !polishing && !!shot.description.trim();
 
   return (
-    <aside className="manju-inspector">
+    <aside className="manju-inspector" aria-label={`镜 ${index + 1} 属性`}>
       <header className="manju-inspector-head">
         <h3>镜 {index + 1}</h3>
         <span className="manju-inspector-dur">{shot.duration_sec}s</span>
@@ -76,7 +65,11 @@ export function ShotInspector({
 
       {shot.imageUrl && (
         <div className="manju-inspector-preview">
-          <img src={shot.imageUrl} alt={`镜 ${index + 1} 缩略图`} />
+          {shot.videoUrl ? (
+            <video src={shot.videoUrl} controls playsInline preload="metadata" poster={shot.imageUrl} />
+          ) : (
+            <img src={shot.imageUrl} alt={`镜 ${index + 1} 产物`} />
+          )}
         </div>
       )}
 
@@ -86,16 +79,17 @@ export function ShotInspector({
       </div>
 
       <div className="field">
-        <label htmlFor="manju-desc" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <label htmlFor="manju-desc">
           <span>出图提示词(英文)</span>
           <button
             type="button"
-            style={{ ...POLISH_BTN, opacity: canPolish ? 1 : 0.5, cursor: canPolish ? "pointer" : "not-allowed" }}
+            className={`manju-polish-btn${polishing ? " is-loading" : ""}`}
             disabled={!canPolish}
+            aria-busy={polishing}
             onClick={polish}
             title="AI 先判断画面内容,再给出针对性的正向 + 反向提示词"
           >
-            {polishing ? "润色中…" : "✨ AI 润色"}
+            {polishing ? "润色中" : "✨ AI 润色"}
           </button>
         </label>
         <textarea
