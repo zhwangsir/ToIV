@@ -4,19 +4,26 @@ import { Handle, Position, type NodeProps } from "@xyflow/react";
 
 import { Slider } from "@/components/ui/Slider";
 
+import { filterModels } from "../models";
 import { useCanvas } from "../CanvasContext";
 import { IMG_SIZES, type ImageNodeData } from "../types";
+import { ArchiveButton } from "./ArchiveButton";
 import { NodeShell } from "./NodeShell";
 
 /** 📷 图片节点:入口 text(连文本节点)/ image(连图片节点 → 图生图)。
- *  紧凑参数(模型 + 尺寸 Slider)+ 生成按钮。输出口:image。 */
+ *  紧凑参数(模型 + 尺寸 Slider)+ 生成按钮 + NSFW 档。输出口:image。 */
 export function ImageNode({ id, data, selected }: NodeProps) {
   const d = data as unknown as ImageNodeData;
-  const { patchNodeData, deleteNode, runNode, ckpts, pipelineBusy } = useCanvas();
+  const { patchNodeData, deleteNode, runNode, models, ckpts, pipelineBusy } =
+    useCanvas();
   const busy = d.run.busy || pipelineBusy;
 
   const activeSize =
     IMG_SIZES.find((s) => s.w === d.width && s.h === d.height)?.key ?? "";
+
+  // NSFW 档:筛选模型;无标记时 filterModels 回退全部,再兜底 ckpts。
+  const available = filterModels(models, d.nsfw);
+  const ckptOptions = available.length ? available : ckpts;
 
   return (
     <NodeShell
@@ -50,13 +57,23 @@ export function ImageNode({ id, data, selected }: NodeProps) {
           value={d.ckpt}
           onChange={(e) => patchNodeData(id, { ckpt: e.target.value })}
         >
-          {ckpts.length === 0 && <option value="">默认模型</option>}
-          {ckpts.map((c) => (
+          {ckptOptions.length === 0 && <option value="">默认模型</option>}
+          {ckptOptions.map((c) => (
             <option key={c} value={c}>
               {c}
             </option>
           ))}
         </select>
+      </label>
+
+      <label className="cv-switch nodrag">
+        <input
+          type="checkbox"
+          checked={d.nsfw}
+          onChange={(e) => patchNodeData(id, { nsfw: e.target.checked })}
+        />
+        <span className="cv-switch__track" aria-hidden="true" />
+        <span className="cv-switch__label">NSFW 档</span>
       </label>
 
       <div className="cv-chips nodrag" role="group" aria-label="尺寸">
@@ -94,10 +111,15 @@ export function ImageNode({ id, data, selected }: NodeProps) {
       </div>
 
       {d.run.outputUrl && (
-        <div className="cv-output">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={d.run.outputUrl} alt="生成结果" />
-        </div>
+        <>
+          <div className="cv-output">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={d.run.outputUrl} alt="生成结果" />
+          </div>
+          <div className="cv-row cv-row--end nodrag">
+            <ArchiveButton nodeId={id} outputUrl={d.run.outputUrl} />
+          </div>
+        </>
       )}
 
       <Handle

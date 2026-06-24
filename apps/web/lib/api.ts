@@ -472,3 +472,34 @@ export async function getGpuStats(signal?: AbortSignal): Promise<LiveTelemetry |
     return null;
   }
 }
+
+// ---------- 创作画布:产物归档(客户端作品库标记) ----------
+//   画布产物经 /api/generate/* 已自动落库进 /api/jobs 作品库;
+//   归档是用户在画布上主动「收藏」的客户端标记,优先客户端实现,
+//   不依赖新后端端点。键与 components/canvas/storage.ts 共用,
+//   此处提供 lib 层最小读接口供作品库等域按需合并展示。
+
+const CANVAS_ARCHIVE_KEY = "toiv_canvas_archive_v1";
+
+export interface CanvasArchivedAsset {
+  url: string;
+  kind: string;
+  prompt: string;
+  archivedAt: number;
+}
+
+/** 读取画布主动归档的产物清单;无 / 损坏返回空数组(优雅降级)。 */
+export function listCanvasArchive(): CanvasArchivedAsset[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(CANVAS_ARCHIVE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as { version?: number; items?: unknown };
+    if (parsed?.version !== 1 || !Array.isArray(parsed.items)) return [];
+    return (parsed.items as CanvasArchivedAsset[]).filter(
+      (a) => typeof a?.url === "string",
+    );
+  } catch {
+    return [];
+  }
+}
