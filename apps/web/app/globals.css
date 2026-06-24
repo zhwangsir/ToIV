@@ -1296,88 +1296,50 @@ input[type="range"]::-webkit-slider-thumb:hover {
   background: var(--glass);
 }
 
-/* ---------- 空画布:editorial 大胆签名 —— 巨号衬线主张 + 不对称构图 ---------- */
+/* ---------- 空画布:克制空态(居中、无序数水印、平静) ---------- */
 .hero-canvas {
   position: relative;
   min-height: clamp(420px, 62vh, 680px);
   border: 1px solid var(--hairline);
   border-radius: var(--radius);
-  background:
-    radial-gradient(125% 100% at 12% -6%, color-mix(in oklab, var(--accent) 11%, transparent), transparent 52%),
-    radial-gradient(90% 70% at 96% 108%, var(--accent-wash), transparent 60%),
-    var(--bg-1);
+  background: var(--bg-sunken);
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;       /* 左对齐 —— 编辑式,不安全居中 */
+  align-items: center;
   justify-content: center;
-  gap: 1.15rem;
-  text-align: left;
-  padding: clamp(2.2rem, 5vw, 4.4rem) clamp(1.8rem, 5vw, 4rem);
-  box-shadow: var(--shadow-edge), var(--shadow-md);
-}
-/* 极轻的网格刻度,像设计稿台面,而非赛博网格 —— 偏置到右下做层叠 */
-.hero-canvas::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(var(--hairline) 1px, transparent 1px),
-    linear-gradient(90deg, var(--hairline) 1px, transparent 1px);
-  background-size: 64px 64px;
-  mask-image: radial-gradient(ellipse 80% 75% at 88% 78%, #000 4%, transparent 70%);
-  opacity: 0.5;
-  pointer-events: none;
-}
-/* 一个巨号、半出血、极淡的 grotesk 序数,做版面的「水印主张」 */
-.hero-canvas::after {
-  content: "01";
-  position: absolute;
-  right: clamp(-1rem, -1vw, 0rem);
-  bottom: clamp(-2.2rem, -4vw, -1rem);
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: clamp(8rem, 22vw, 18rem);
-  line-height: 0.7;
-  letter-spacing: -0.06em;
-  color: color-mix(in oklab, var(--accent) 9%, transparent);
-  pointer-events: none;
-  user-select: none;
-}
-/* 作品库空态:换一个序数水印,呼应「作品集第一页」 */
-.hero-canvas.lib-empty::after {
-  content: "00";
+  gap: 0.85rem;
+  text-align: center;
+  padding: clamp(2.4rem, 6vw, 4rem);
+  box-shadow: var(--shadow-edge);
 }
 .hero-orb {
   position: relative;
-  width: 56px;
-  height: 56px;
-  border-radius: 15px;
-  background: linear-gradient(155deg, var(--bg-3), var(--bg-1));
-  border: 1px solid var(--hairline-2);
-  box-shadow: var(--shadow-md), var(--shadow-edge);
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--accent-quiet);
 }
 .hero-orb::before {
   content: "";
-  position: absolute;
-  inset: 0;
-  margin: auto;
   width: 22px;
   height: 22px;
   border-radius: 7px;
   border: 1.5px solid var(--accent);
-  box-shadow: 0 0 18px -2px var(--accent-glow);
   opacity: 0.95;
 }
 .hero-canvas h2 {
   position: relative;
   margin: 0.4rem 0 0;
-  max-width: 14ch;
+  max-width: 24ch;
   font-family: var(--font-display);
-  font-size: clamp(2.8rem, 1rem + 7vw, 6.4rem);  /* 巨号主张,杂志大标题 */
-  font-weight: 540;
+  font-size: var(--text-title);
+  font-weight: 560;
   letter-spacing: var(--tracking-tight);
-  line-height: var(--leading-statement);
+  line-height: 1.15;
+  color: var(--ink);
   text-wrap: balance;
 }
 .hero-canvas h2 em {
@@ -1390,7 +1352,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   margin: 0;
   max-width: 38rem;
   color: var(--ink-soft);
-  font-size: 1rem;
+  font-size: 0.95rem;
   line-height: 1.66;
 }
 .example-chips {
