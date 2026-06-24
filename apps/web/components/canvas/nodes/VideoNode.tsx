@@ -78,15 +78,26 @@ export function VideoNode({ id, data, selected }: NodeProps) {
         <span className="cv-switch__label">NSFW 档</span>
       </label>
 
-      {d.run.outputUrl && (
+      {d.run.outputUrl ? (
         <>
-          <div className="cv-output">
-            <video src={d.run.outputUrl} controls loop muted playsInline />
-          </div>
+          <figure className="cv-media cv-media--video">
+            <video
+              className="cv-media__el"
+              src={d.run.outputUrl}
+              controls
+              loop
+              muted
+              playsInline
+            />
+          </figure>
           <div className="cv-row cv-row--end nodrag">
             <ArchiveButton nodeId={id} outputUrl={d.run.outputUrl} />
           </div>
         </>
+      ) : (
+        <div className="cv-media cv-media--empty" aria-hidden="true">
+          <span className="cv-media__hint">🎬 成片后在此播放</span>
+        </div>
       )}
 
       <Handle

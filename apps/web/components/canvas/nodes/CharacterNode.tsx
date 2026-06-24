@@ -83,10 +83,14 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
         <span className="cv-switch__label">NSFW 档</span>
       </label>
 
-      {d.run.outputUrl && (
-        <div className="cv-output">
+      {d.run.outputUrl ? (
+        <figure className="cv-media">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={d.run.outputUrl} alt="角色三视图" />
+          <img className="cv-media__el" src={d.run.outputUrl} alt="角色三视图" />
+        </figure>
+      ) : (
+        <div className="cv-media cv-media--empty" aria-hidden="true">
+          <span className="cv-media__hint">🧍 三视图在此预览</span>
         </div>
       )}
 
