@@ -9,6 +9,7 @@ from sqlmodel import Session
 
 from app.comfy.client import ComfyUIError
 from app.comfy.pool import WorkerPool
+from app.comfy.tracker import spawn as spawn_tracker
 from app.config import get_settings
 from app.db import get_session
 from app.deps import get_current_user, get_pool, resolve_worker
@@ -108,6 +109,9 @@ async def generate_txt2img(
     session.add(job)
     session.commit()
 
+    # 服务端后台追踪结果落库,不依赖客户端是否连 SSE(修前端断开丢结果的真 bug)
+    spawn_tracker(client, prompt_id)
+
     return {
         "prompt_id": prompt_id,
         "client_id": client_id,
@@ -189,6 +193,9 @@ async def generate_txt2video(
     )
     session.commit()
 
+    # 服务端后台追踪结果落库,不依赖客户端是否连 SSE(修前端断开丢结果的真 bug)
+    spawn_tracker(client, prompt_id)
+
     return {
         "prompt_id": prompt_id,
         "client_id": client_id,
@@ -254,6 +261,9 @@ async def generate_img2img(
         )
     )
     session.commit()
+
+    # 服务端后台追踪结果落库,不依赖客户端是否连 SSE(修前端断开丢结果的真 bug)
+    spawn_tracker(client, prompt_id)
 
     return {
         "prompt_id": prompt_id,

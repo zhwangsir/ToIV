@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import json
-from urllib.parse import urlencode
 
 import websockets
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -14,7 +13,8 @@ from sqlmodel import Session, select
 from sse_starlette.sse import EventSourceResponse
 
 from app.comfy.client import ComfyUIClient, ComfyUIError
-from app.db import engine, get_session
+from app.comfy.tracker import mark_status, record_result
+from app.db import get_session
 from app.deps import get_current_user, resolve_worker
 from app.models import Job, User
 
@@ -23,31 +23,6 @@ router = APIRouter()
 
 def _worker_dep(worker: str) -> ComfyUIClient:
     return resolve_worker(worker)
-
-
-def _image_url(worker: str, image: dict) -> str:
-    return f"/api/images?{urlencode({**image, 'worker': worker})}"
-
-
-def _mark_status(prompt_id: str, status: str) -> None:
-    """用独立短会话更新作业状态(SSE 流期间不复用请求会话)。"""
-    with Session(engine) as session:
-        job = session.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
-        if job:
-            job.status = status
-            session.add(job)
-            session.commit()
-
-
-def _mark_done(prompt_id: str, urls: list[str]) -> None:
-    """完成时持久化状态与产物 URL(供作品库)。"""
-    with Session(engine) as session:
-        job = session.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
-        if job:
-            job.status = "done"
-            job.result = json.dumps(urls)
-            session.add(job)
-            session.commit()
 
 
 @router.get("/jobs")
@@ -75,9 +50,7 @@ def list_jobs(
 
 
 async def _emit_done(client: ComfyUIClient, prompt_id: str) -> dict:
-    files = await client.get_result_files(prompt_id)
-    urls = [_image_url(client.base_url, f) for f in files]
-    _mark_done(prompt_id, urls)
+    urls = await record_result(client, prompt_id)
     return {"event": "done", "data": json.dumps({"images": urls})}
 
 
@@ -120,7 +93,7 @@ async def job_events(
                         yield await _emit_done(client, prompt_id)
                         break
                     elif mtype == "execution_error" and data.get("prompt_id") == prompt_id:
-                        _mark_status(prompt_id, "error")
+                        mark_status(prompt_id, "error")
                         yield {"event": "error", "data": json.dumps({"message": data.get("exception_message", "执行失败")})}
                         break
         except (OSError, ComfyUIError, websockets.WebSocketException) as e:
