@@ -4,10 +4,11 @@ import { Handle, Position, type NodeProps } from "@xyflow/react";
 
 import { useCanvas } from "../CanvasContext";
 import { VID_LENGTHS, VID_SIZES, type VideoNodeData } from "../types";
+import { ArchiveButton } from "./ArchiveButton";
 import { NodeShell } from "./NodeShell";
 
 /** 🎬 视频节点:入口 image(连图片节点 → 图生视频)或 text(连文本 → 文生视频)。
- *  生成 → 视频显示在节点内。输出口:video。 */
+ *  生成 → 视频显示在节点内。NSFW 档(底模后端只读,开关作意图标记)。输出口:video。 */
 export function VideoNode({ id, data, selected }: NodeProps) {
   const d = data as unknown as VideoNodeData;
   const { patchNodeData, deleteNode, runNode, pipelineBusy } = useCanvas();
@@ -67,10 +68,25 @@ export function VideoNode({ id, data, selected }: NodeProps) {
         ))}
       </div>
 
+      <label className="cv-switch nodrag">
+        <input
+          type="checkbox"
+          checked={d.nsfw}
+          onChange={(e) => patchNodeData(id, { nsfw: e.target.checked })}
+        />
+        <span className="cv-switch__track" aria-hidden="true" />
+        <span className="cv-switch__label">NSFW 档</span>
+      </label>
+
       {d.run.outputUrl && (
-        <div className="cv-output">
-          <video src={d.run.outputUrl} controls loop muted playsInline />
-        </div>
+        <>
+          <div className="cv-output">
+            <video src={d.run.outputUrl} controls loop muted playsInline />
+          </div>
+          <div className="cv-row cv-row--end nodrag">
+            <ArchiveButton nodeId={id} outputUrl={d.run.outputUrl} />
+          </div>
+        </>
       )}
 
       <Handle

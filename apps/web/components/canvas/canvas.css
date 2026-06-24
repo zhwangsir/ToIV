@@ -235,6 +235,24 @@
 .cv-node--audio {
   border-left: 3px solid var(--v3);
 }
+/* v2 结构化高层节点色条 */
+.cv-node--storyboard {
+  border-left: 3px solid var(--v2, var(--accent-hover));
+}
+.cv-node--character {
+  border-left: 3px solid var(--v1, var(--accent));
+}
+.cv-node--lighting {
+  border-left: 3px solid var(--accent-soft);
+}
+.cv-node--threed {
+  border-left: 3px solid var(--v5, var(--v4));
+}
+/* 结构节点壳略宽,容纳分镜列表/三视图 */
+.cv-node--storyboard,
+.cv-node--character {
+  width: 280px;
+}
 
 .cv-node__del {
   margin-left: auto;
@@ -534,6 +552,358 @@
   color: var(--ink-faint);
 }
 
+/* ── v2: 文本输入框(分镜风格字段) ── */
+.cv-input {
+  width: 100%;
+  border: 1px solid var(--hairline-2);
+  background: var(--bg-0);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.74rem;
+  padding: 0.42rem 0.55rem;
+  border-radius: var(--radius-xs);
+  transition: border-color var(--dur) var(--ease);
+}
+.cv-input:focus {
+  outline: none;
+  border-color: var(--accent-line);
+}
+
+.cv-hint-line {
+  margin: 0;
+  font-size: 0.7rem;
+  color: var(--ink-faint);
+  line-height: 1.4;
+}
+
+.cv-chips--wrap {
+  row-gap: 0.3rem;
+}
+
+/* ── v2: NSFW 开关(节点级) ── */
+.cv-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+}
+.cv-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.cv-switch__track {
+  position: relative;
+  flex: none;
+  width: 30px;
+  height: 17px;
+  border-radius: 999px;
+  background: var(--bg-3);
+  border: 1px solid var(--hairline-2);
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.cv-switch__track::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--ink-faint);
+  transition: transform var(--dur) var(--ease-expo), background var(--dur) var(--ease);
+}
+.cv-switch input:checked + .cv-switch__track {
+  background: var(--danger-wash, var(--accent-wash));
+  border-color: var(--danger, var(--accent-line));
+}
+.cv-switch input:checked + .cv-switch__track::after {
+  transform: translateX(13px);
+  background: var(--danger, var(--accent));
+}
+.cv-switch input:focus-visible + .cv-switch__track {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 2px;
+}
+.cv-switch__label {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* ── v2: 归档到作品库按钮 ── */
+.cv-archive {
+  appearance: none;
+  border: 1px solid var(--hairline-2);
+  background: var(--bg-0);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.26rem 0.6rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    border-color var(--dur) var(--ease),
+    color var(--dur) var(--ease),
+    background var(--dur) var(--ease);
+}
+.cv-archive:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent-line);
+}
+.cv-archive.is-archived {
+  color: var(--accent-soft);
+  border-color: var(--accent-line);
+  background: var(--accent-quiet);
+}
+.cv-archive:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ── v2: 分镜列表 ── */
+.cv-shots {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 230px;
+  overflow-y: auto;
+}
+.cv-shot {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.45rem 0.5rem;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-xs);
+  background: var(--bg-0);
+}
+.cv-shot__idx {
+  flex: none;
+  font-family: var(--font-display, inherit);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+.cv-shot__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  color: var(--ink-soft);
+}
+.cv-shot__body strong {
+  font-size: 0.72rem;
+  color: var(--ink);
+}
+.cv-shot__body em {
+  font-style: normal;
+  font-size: 0.62rem;
+  color: var(--accent-soft);
+}
+.cv-shot__body q {
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+/* ── v2: 打光提示词片段预览 ── */
+.cv-fragment {
+  margin: 0;
+  font-size: 0.68rem;
+  line-height: 1.4;
+  color: var(--accent-soft);
+  background: var(--accent-wash);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-xs);
+  padding: 0.4rem 0.55rem;
+}
+
+/* ── v2: 3D / GLB 产物 ── */
+.cv-output--glb {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem;
+}
+.cv-glb-dl {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+  transition: color var(--dur) var(--ease);
+}
+.cv-glb-dl:hover {
+  color: var(--accent-hover);
+}
+
+/* ── v2: 工作流库下拉 ── */
+.cv-wf {
+  position: relative;
+}
+.cv-wf__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 260px;
+}
+.cv-wf__caret {
+  font-size: 0.6rem;
+  color: var(--ink-faint);
+}
+.cv-wf__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  width: 300px;
+  background: var(--bg-2);
+  border: 1px solid var(--hairline-2);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  animation: cv-pop 0.18s var(--ease-expo);
+}
+.cv-wf__ops {
+  display: flex;
+  gap: 0.3rem;
+}
+.cv-wf__op {
+  flex: 1;
+  appearance: none;
+  border: 1px solid var(--hairline-2);
+  background: var(--bg-0);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.4rem 0.3rem;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition: border-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.cv-wf__op:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent-line);
+}
+.cv-wf__op:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.cv-wf__list-head {
+  font-size: 0.6rem;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  padding: 0.2rem 0.1rem 0;
+  border-top: 1px solid var(--hairline);
+  padding-top: 0.45rem;
+}
+.cv-wf__empty {
+  margin: 0;
+  font-size: 0.7rem;
+  color: var(--ink-faint);
+  line-height: 1.4;
+  padding: 0.3rem 0.1rem;
+}
+.cv-wf__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.cv-wf__item {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: var(--radius-xs);
+  transition: background var(--dur) var(--ease);
+}
+.cv-wf__item:hover {
+  background: var(--bg-3);
+}
+.cv-wf__item.is-current {
+  background: var(--accent-quiet);
+}
+.cv-wf__open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  padding: 0.4rem 0.45rem;
+  cursor: pointer;
+}
+.cv-wf__open strong {
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cv-wf__open em {
+  font-style: normal;
+  font-size: 0.64rem;
+  color: var(--ink-faint);
+}
+.cv-wf__row-actions {
+  display: flex;
+  gap: 0.1rem;
+  padding-right: 0.25rem;
+}
+.cv-wf__mini {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: 0.72rem;
+  line-height: 1;
+  padding: 0.3rem;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.cv-wf__mini:hover {
+  color: var(--accent);
+  background: var(--bg-2);
+}
+.cv-wf__mini--del:hover {
+  color: var(--danger);
+}
+
+.cv-menu__head--sub {
+  border-top: 1px solid var(--hairline);
+  margin-top: 0.2rem;
+  padding-top: 0.4rem;
+}
+
+/* 结构化节点产物 handle 颜色复用语义色 */
+.cv-flow .react-flow__handle.cv-handle--in {
+  background: var(--accent-soft);
+}
+
 /* ── 动效 ── */
 @keyframes cv-dash {
   to {
@@ -572,7 +942,11 @@
   .cv-btn,
   .cv-gen,
   .cv-handle,
-  .cv-output {
+  .cv-output,
+  .cv-switch__track,
+  .cv-switch__track::after,
+  .cv-archive,
+  .cv-wf__op {
     transition: none;
   }
   .cv-flow .react-flow__edge.animated .react-flow__edge-path {
@@ -584,7 +958,8 @@
     opacity: 0.6;
   }
   .cv-output,
-  .cv-menu {
+  .cv-menu,
+  .cv-wf__panel {
     animation: none;
   }
 }

@@ -4,10 +4,25 @@
 
 import type { Node, Edge } from "@xyflow/react";
 
-/** 节点类型(同时也是 React Flow nodeType 注册键)。 */
-export type CanvasNodeType = "text" | "image" | "video" | "audio";
+/** 节点类型(同时也是 React Flow nodeType 注册键)。
+ *  v2 新增结构化高层节点:
+ *   - storyboard 分镜:剧情 → 多镜剧本(接漫剧线,复用 /api/manju/storyboard)
+ *   - character  角色三视图:一句设定 → 正/侧/背 turnaround 提示词 + 出图
+ *   - lighting   打光预设:选光型 → 光照提示词片段叠到下游图像
+ *   - threed     图→3D:复用 generate3D */
+export type CanvasNodeType =
+  | "text"
+  | "image"
+  | "video"
+  | "audio"
+  | "storyboard"
+  | "character"
+  | "lighting"
+  | "threed";
 
-/** 端口的数据语义:决定哪些口能连到哪些口。 */
+/** 端口的数据语义:决定哪些口能连到哪些口。
+ *  storyboard / lighting 产出 text 语义(剧本 / 光照片段),可灌入下游图像与视频;
+ *  threed 仅做终点(产 glb,无下游连线语义)。 */
 export type PortKind = "text" | "image" | "video";
 
 /** 单个节点的运行态(生成进度 / 产物)。 */
@@ -51,6 +66,8 @@ export interface ImageNodeData extends BaseNodeData {
   ckpt: string;
   width: number;
   height: number;
+  /** NSFW 档:开启后模型下拉只列 nsfw 标记的底模(后端字段缺失则回退全部)。 */
+  nsfw: boolean;
   run: NodeRunState;
 }
 
@@ -60,6 +77,8 @@ export interface VideoNodeData extends BaseNodeData {
   height: number;
   length: number;
   fps: number;
+  /** NSFW 档(视频底模目前后端只读,开关仅作意图标记 + 未来筛选)。 */
+  nsfw: boolean;
   run: NodeRunState;
 }
 
@@ -69,11 +88,66 @@ export interface AudioNodeData extends BaseNodeData {
   run: NodeRunState;
 }
 
+// ── v2 结构化高层节点 data ───────────────────────────────────
+
+/** 分镜节点产出的单镜(精简自 lib/api StoryboardShot,仅留画布需要的字段)。 */
+export interface StoryboardShotData {
+  id: string;
+  scene: string;
+  description: string;
+  camera: string;
+  dialogue: string;
+}
+
+/** 📋 分镜节点:剧情 premise → 多镜剧本。输出口 text(把分镜文本灌入下游)。 */
+export interface StoryboardNodeData extends BaseNodeData {
+  premise: string;
+  numShots: number;
+  style: string;
+  /** 已生成的分镜(持久化展示;运行态进度走 run)。 */
+  shots: StoryboardShotData[];
+  run: NodeRunState;
+}
+
+/** 角色三视图朝向预设(turnaround)。 */
+export type CharacterView = "front" | "side" | "back";
+
+/** 🧍 角色三视图节点:一句设定 → 正/侧/背 turnaround 提示词 + 出图。
+ *  输出口 image(把选定视角出图灌入下游图生图/图生视频)。 */
+export interface CharacterNodeData extends BaseNodeData {
+  /** 角色设定(一句话)。 */
+  brief: string;
+  ckpt: string;
+  /** 当前出图采用的视角(决定 turnaround 提示词与产物)。 */
+  view: CharacterView;
+  nsfw: boolean;
+  run: NodeRunState;
+}
+
+/** 🔦 打光预设节点:选光型 → 输出光照提示词片段(text 语义,叠到下游图像)。 */
+export interface LightingNodeData extends BaseNodeData {
+  /** 选定的光型预设 key(见 LIGHTING_PRESETS)。 */
+  preset: string;
+  /** 强度档:微妙 / 标准 / 戏剧化。 */
+  intensity: "subtle" | "standard" | "dramatic";
+}
+
+/** 🧊 3D 节点:入口 image(连图片/角色节点)→ glb。输出口无(终点)。 */
+export interface ThreeDNodeData extends BaseNodeData {
+  steps: number;
+  octree: number;
+  run: NodeRunState;
+}
+
 export type AnyNodeData =
   | TextNodeData
   | ImageNodeData
   | VideoNodeData
-  | AudioNodeData;
+  | AudioNodeData
+  | StoryboardNodeData
+  | CharacterNodeData
+  | LightingNodeData
+  | ThreeDNodeData;
 
 /** 画布持久化的轻量快照(localStorage)。 */
 export interface CanvasDraft {
@@ -94,6 +168,7 @@ export function defaultData(type: CanvasNodeType): AnyNodeData {
         ckpt: "",
         width: 768,
         height: 768,
+        nsfw: false,
         run: { ...EMPTY_RUN },
       } satisfies ImageNodeData;
     case "video":
@@ -103,19 +178,55 @@ export function defaultData(type: CanvasNodeType): AnyNodeData {
         height: 480,
         length: 81,
         fps: 16,
+        nsfw: false,
         run: { ...EMPTY_RUN },
       } satisfies VideoNodeData;
     case "audio":
       return { prompt: "", seconds: 30, run: { ...EMPTY_RUN } } satisfies AudioNodeData;
+    case "storyboard":
+      return {
+        premise: "",
+        numShots: 6,
+        style: "电影感",
+        shots: [],
+        run: { ...EMPTY_RUN },
+      } satisfies StoryboardNodeData;
+    case "character":
+      return {
+        brief: "",
+        ckpt: "",
+        view: "front",
+        nsfw: false,
+        run: { ...EMPTY_RUN },
+      } satisfies CharacterNodeData;
+    case "lighting":
+      return {
+        preset: LIGHTING_PRESETS[0].key,
+        intensity: "standard",
+      } satisfies LightingNodeData;
+    case "threed":
+      return {
+        steps: 30,
+        octree: 256,
+        run: { ...EMPTY_RUN },
+      } satisfies ThreeDNodeData;
   }
 }
 
-/** 节点输出口的数据语义(audio 无输出口)。 */
+/** 节点输出口的数据语义(audio / threed 无输出口)。
+ *  storyboard / character / lighting 输出语义:
+ *   - storyboard → text(分镜文本可灌入下游图像/视频)
+ *   - character  → image(选定视角出图)
+ *   - lighting   → text(光照提示词片段) */
 export const OUTPUT_KIND: Record<CanvasNodeType, PortKind | null> = {
   text: "text",
   image: "image",
   video: "video",
   audio: null,
+  storyboard: "text",
+  character: "image",
+  lighting: "text",
+  threed: null,
 };
 
 /** 一条边是否合法:目标节点入口能否接受源节点输出。 */
@@ -128,7 +239,12 @@ export function canConnect(
   if (targetType === "image") return out === "text" || out === "image";
   if (targetType === "video") return out === "text" || out === "image";
   if (targetType === "audio") return out === "text";
-  return false; // text 节点无入口
+  // 角色三视图入口:接 text(角色设定来自上游文本/分镜)。
+  if (targetType === "character") return out === "text";
+  // 3D 入口:接 image(图片/角色节点产物 → 三维)。
+  if (targetType === "threed") return out === "image";
+  // text / storyboard / lighting 无入口(管线起点)。
+  return false;
 }
 
 export const NODE_META: Record<
@@ -139,6 +255,10 @@ export const NODE_META: Record<
   image: { icon: "📷", label: "图片", hint: "文生图 / 图生图" },
   video: { icon: "🎬", label: "视频", hint: "图生视频 / 文生视频" },
   audio: { icon: "🎵", label: "音频", hint: "文生音乐" },
+  storyboard: { icon: "📋", label: "分镜", hint: "剧情 → 多镜剧本" },
+  character: { icon: "🧍", label: "角色三视图", hint: "设定 → 正/侧/背" },
+  lighting: { icon: "🔦", label: "打光预设", hint: "光型 → 叠到下游图像" },
+  threed: { icon: "🧊", label: "3D", hint: "图 → 三维网格" },
 };
 
 export const IMG_SIZES = [
@@ -161,6 +281,70 @@ export const VID_LENGTHS = [
 ] as const;
 
 export const AUDIO_SECONDS = [15, 30, 60, 120] as const;
+
+// ── v2 结构节点常量 ─────────────────────────────────────────
+
+/** 分镜可选镜数。 */
+export const STORYBOARD_SHOT_COUNTS = [4, 6, 8, 12] as const;
+
+/** 角色三视图朝向预设:朝向 key + 中文标签 + turnaround 提示词片段。 */
+export const CHARACTER_VIEWS: {
+  key: CharacterView;
+  label: string;
+  prompt: string;
+}[] = [
+  { key: "front", label: "正视", prompt: "front view, facing camera, T-pose" },
+  { key: "side", label: "侧视", prompt: "side view profile, full body turnaround" },
+  { key: "back", label: "背视", prompt: "back view, rear turnaround, full body" },
+];
+
+/** 角色三视图通用约束(保证一致性、白底、全身)。 */
+export const CHARACTER_BASE_PROMPT =
+  "character sheet, model sheet, full body, consistent character design, " +
+  "neutral background, clean lineart, reference turnaround";
+
+/** 打光预设:光型 key + 中文标签 + 叠加到下游图像的提示词片段。 */
+export const LIGHTING_PRESETS: {
+  key: string;
+  label: string;
+  prompt: string;
+}[] = [
+  { key: "rembrandt", label: "伦勃朗光", prompt: "Rembrandt lighting, dramatic chiaroscuro, soft key light" },
+  { key: "rim", label: "轮廓光", prompt: "rim light, backlight, glowing edge separation" },
+  { key: "softbox", label: "柔光箱", prompt: "soft diffused studio softbox lighting, even illumination" },
+  { key: "golden", label: "黄金时刻", prompt: "golden hour sunlight, warm directional light, long shadows" },
+  { key: "neon", label: "霓虹", prompt: "neon cyberpunk lighting, magenta and cyan glow, moody" },
+  { key: "cinematic", label: "电影感", prompt: "cinematic lighting, volumetric light, high contrast, teal and orange" },
+];
+
+/** 打光强度档:档位 → 叠加到提示词的修饰词。 */
+export const LIGHTING_INTENSITY: Record<
+  LightingNodeData["intensity"],
+  { label: string; modifier: string }
+> = {
+  subtle: { label: "微妙", modifier: "subtle" },
+  standard: { label: "标准", modifier: "" },
+  dramatic: { label: "戏剧化", modifier: "highly dramatic, strong" },
+};
+
+/** 把打光节点的预设 + 强度合成成可叠加的提示词片段(空字符串表示无叠加)。 */
+export function lightingFragment(data: LightingNodeData): string {
+  const preset = LIGHTING_PRESETS.find((p) => p.key === data.preset);
+  if (!preset) return "";
+  const mod = LIGHTING_INTENSITY[data.intensity]?.modifier ?? "";
+  return mod ? `${mod} ${preset.prompt}` : preset.prompt;
+}
+
+/** 把角色节点的设定 + 选定视角合成成 turnaround 出图提示词。 */
+export function characterPrompt(data: CharacterNodeData): string {
+  const view = CHARACTER_VIEWS.find((v) => v.key === data.view);
+  const brief = data.brief.trim();
+  const parts = [brief, view?.prompt ?? "", CHARACTER_BASE_PROMPT].filter(Boolean);
+  return parts.join(", ");
+}
+
+export const THREED_STEPS = [20, 30, 50] as const;
+export const THREED_OCTREE = [128, 256, 384] as const;
 
 export const DEFAULT_NEGATIVE =
   "blurry, lowres, deformed, watermark, text, extra limbs";

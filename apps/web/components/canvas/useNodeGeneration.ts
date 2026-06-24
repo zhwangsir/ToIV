@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 
 import {
+  generate3D,
   generateAudio,
   generateImg2img,
   generateTxt2img,
@@ -35,7 +36,14 @@ export type NodeDispatch =
       length: number;
       fps: number;
     }
-  | { kind: "audio"; tags: string; seconds: number };
+  | { kind: "audio"; tags: string; seconds: number }
+  | {
+      kind: "threed";
+      image: string;
+      worker: string;
+      steps: number;
+      octree: number;
+    };
 
 /** 生成结果:产物 URL + 画幅(供下游沿用比例)。 */
 export interface GenOutput {
@@ -99,6 +107,14 @@ async function submit(d: NodeDispatch): Promise<GenerateResponse> {
       });
     case "audio":
       return generateAudio({ tags: d.tags, lyrics: "", seconds: d.seconds });
+    case "threed":
+      return generate3D({
+        image: d.image,
+        worker: d.worker,
+        steps: d.steps,
+        cfg: 5,
+        octree_resolution: d.octree,
+      });
   }
 }
 
