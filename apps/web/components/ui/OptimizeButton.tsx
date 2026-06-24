@@ -45,7 +45,16 @@ export function OptimizeButton({ value, kind, onResult, onNegative, disabled }: 
       disabled={disabled || busy || !value.trim()}
       title={err ?? "用 AI 把提示词扩写得更专业"}
     >
-      {busy ? "优化中…" : "✨ 优化提示词"}
+      {busy ? (
+        "优化中…"
+      ) : (
+        <span style={{ display: "inline-flex", alignItems: "center", gap: "0.34rem" }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 2l1.7 5.5L19.2 9l-5.5 1.5L12 16l-1.7-5.5L4.8 9l5.5-1.5z" />
+          </svg>
+          优化提示词
+        </span>
+      )}
     </button>
   );
 }
