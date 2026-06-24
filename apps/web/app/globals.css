@@ -576,6 +576,10 @@ select {
   padding-right: 2rem;
   cursor: pointer;
 }
+/* 亮色主题:下拉箭头改深色描边,否则白底白箭头不可见 */
+:root[data-theme="light"] select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23000000' stroke-opacity='0.5' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}
 select option {
   background: var(--bg-2);
   color: var(--ink);
@@ -704,6 +708,24 @@ input:focus {
 }
 .link-clear:hover {
   color: var(--danger);
+}
+.link-clear:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+/* 创作台 / 面板控件统一键盘焦点环 —— 品紫描边,适配双主题 */
+.seg button:focus-visible,
+.mode-tabs button:focus-visible,
+.smart-chip:focus-visible,
+.tier-switch button:focus-visible,
+.advanced-toggle:focus-visible,
+.lora-add:focus-visible,
+.lora-remove:focus-visible,
+.optimize-btn:focus-visible,
+.generate-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .ref-preview {
   border: 1px solid var(--hairline);
@@ -2469,16 +2491,23 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .btn-danger {
   font: inherit;
   font-size: 0.78rem;
-  color: #ffc0c6;
-  background: rgba(240, 89, 106, 0.12);
-  border: 1px solid rgba(240, 89, 106, 0.4);
+  font-weight: 500;
+  color: var(--danger);
+  background: color-mix(in oklab, var(--danger) 12%, transparent);
+  border: 1px solid color-mix(in oklab, var(--danger) 40%, transparent);
   border-radius: var(--radius-xs);
-  padding: 0.32rem 0.8rem;
+  padding: 0.34rem 0.85rem;
   cursor: pointer;
-  transition: background var(--dur) var(--ease);
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease);
 }
 .btn-danger:hover {
-  background: rgba(240, 89, 106, 0.22);
+  color: var(--accent-ink);
+  background: var(--danger);
+  border-color: var(--danger);
+}
+.btn-danger:focus-visible {
+  outline: 2px solid var(--danger);
+  outline-offset: 2px;
 }
 @media (max-width: 760px) {
   .admin-row {
@@ -3349,7 +3378,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   padding: 0.6rem 0.85rem;
   border: 1px dashed var(--hairline-2);
   border-radius: var(--radius-xs);
-  background: rgba(0, 0, 0, 0.18);
+  background: var(--bg-sunken);
   font-size: 0.82rem;
   color: var(--ink-faint);
 }
@@ -3432,7 +3461,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   padding: 0.7rem 0.75rem;
   border: 1px solid var(--hairline-2);
   border-radius: var(--radius-xs);
-  background: rgba(0, 0, 0, 0.18);
+  background: var(--bg-sunken);
 }
 .lora-row {
   display: flex;
@@ -4274,12 +4303,14 @@ input[type="range"]::-webkit-slider-thumb:hover {
   white-space: nowrap;
 }
 .user-meta .sub {
-  font-size: 0.74rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.005em;
   color: var(--ink-faint);
   font-variant-numeric: tabular-nums;
 }
 .user-meta .sub .dot { color: var(--hairline-strong); margin: 0 0.4rem; }
-.user-stat { text-align: right; display: flex; flex-direction: column; gap: 0.05rem; }
+.user-stat { text-align: right; display: flex; flex-direction: column; gap: 0.05rem; align-items: flex-end; }
 .user-stat .n {
   font-family: var(--font-display);
   font-size: 1.4rem;
@@ -4331,7 +4362,10 @@ input[type="range"]::-webkit-slider-thumb:hover {
   box-shadow: var(--shadow-sm), var(--shadow-edge);
 }
 .invite-bar input, .invite-bar select { font-size: 0.86rem; }
+.invite-bar input::placeholder { font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.01em; }
 .invite-bar .generate-btn { padding: 0.6rem 1.3rem; font-size: 0.9rem; white-space: nowrap; }
+/* 聚焦任一字段时整条邀请栏轻微抬起描边,像被激活的工作面 */
+.invite-bar:focus-within { border-color: var(--accent-line); }
 @media (max-width: 720px) { .invite-bar { grid-template-columns: 1fr 1fr; } }
 
 /* ---------- 加载骨架:品紫扫光瓦片(瀑布流 / 网格通用,断点与 .masonry 对齐)---------- */
@@ -4364,11 +4398,18 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 .skel-grid .skel-card { margin: 0; aspect-ratio: 4 / 3; }
 
-/* ---------- 3D 舞台:升级预览底座 ---------- */
+/* ---------- 3D 舞台:GLB 灯箱井(沉陷地台 + 克制顶光,模型当主体)---------- */
 .viewer-3d.editorial {
+  min-height: clamp(440px, 64vh, 720px);
+  border-radius: var(--radius-lg);
+  /* 顶光锥 + 沉陷地台:模型悬于光井之上,真景深靠分层不靠辉光 */
   background:
-    radial-gradient(120% 90% at 50% 0%, var(--accent-wash), transparent 55%),
-    var(--bg-1);
+    radial-gradient(80% 55% at 50% 0%, var(--accent-wash), transparent 60%),
+    radial-gradient(120% 80% at 50% 118%, oklch(0% 0 0 / 0.4), transparent 60%),
+    var(--bg-sunken);
+}
+.viewer-3d.editorial model-viewer {
+  min-height: clamp(440px, 64vh, 720px);
 }
 .viewer-3d.editorial::before {
   content: "";
@@ -4380,24 +4421,71 @@ input[type="range"]::-webkit-slider-thumb:hover {
   opacity: 0.6;
   pointer-events: none;
 }
+/* 媒体角标:mono 类型徽章,标明这是网格资产 */
+.viewer-badge {
+  position: absolute;
+  top: 0.9rem;
+  left: 0.9rem;
+  z-index: 2;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  background: var(--accent-quiet);
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  padding: 0.2rem 0.62rem;
+  pointer-events: none;
+}
+/* 历史区:小标尺标题 + 胶囊带 */
+.model-history {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.model-history-cap {
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--ink-faint);
+}
 /* 历史模型胶囊带 */
 .model-strip { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .model-strip a {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
   font-size: 0.76rem;
   color: var(--ink-soft);
-  background: var(--bg-1);
+  background: linear-gradient(180deg, color-mix(in oklab, var(--bg-2) 55%, transparent), var(--bg-1));
   border: 1px solid var(--hairline-2);
   border-radius: 999px;
-  padding: 0.34rem 0.8rem;
+  padding: 0.36rem 0.85rem;
   text-decoration: none;
-  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
+  box-shadow: var(--shadow-edge);
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease), transform var(--dur) var(--ease), background var(--dur) var(--ease);
 }
-.model-strip a:hover { color: var(--accent); border-color: var(--accent-line); transform: translateY(-1px); }
+.model-strip a:hover {
+  color: var(--accent);
+  border-color: var(--accent-line);
+  background: var(--accent-wash);
+  transform: translateY(-1px);
+}
+.model-strip a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.model-strip a svg { color: var(--accent); opacity: 0.8; }
+.glb-name {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
 
-/* ---------- 音频:升级轨道卡(编号 + 标签 + 播放器)---------- */
+/* ---------- 音频:媒体优先轨道卡(编号刊头 + 元信息 + 播放器当主体)---------- */
 .track-card.upgraded,
 .track-list .track-card {
   border: 1px solid var(--hairline);
@@ -4413,17 +4501,85 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 .track-card-head {
   display: flex;
-  align-items: baseline;
-  gap: 0.7rem;
+  align-items: center;
+  gap: 0.85rem;
 }
+/* 编号:刊头表号墨块,占位但克制 */
 .track-no {
+  flex: 0 0 auto;
+  width: 2.4rem;
+  height: 2.4rem;
+  display: grid;
+  place-items: center;
   font-family: var(--font-display);
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-size: 1.05rem;
+  font-weight: 600;
   line-height: 1;
   color: var(--accent);
+  background: var(--accent-quiet);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-sm);
   font-variant-numeric: tabular-nums;
+}
+/* 元信息:两行层级 —— 标签当主,出处当辅 */
+.track-meta {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.track-meta .track-tags {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+.track-sub {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 下载:静默 ghost 图标,hover 转品紫 */
+.track-dl {
   flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  color: var(--ink-faint);
+  border: 1px solid var(--hairline-2);
+  border-radius: var(--radius-xs);
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease), background var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.track-dl:hover {
+  color: var(--accent);
+  border-color: var(--accent-line);
+  background: var(--accent-wash);
+  transform: translateY(-1px);
+}
+.track-dl:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* 播放器:沉陷媒体井当主体,内嵌阴影做凹槽 */
+.track-player {
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-edge);
+  padding: 0.55rem 0.7rem;
+}
+.track-list .track-card audio {
+  width: 100%;
+  height: 40px;
+  display: block;
+  color-scheme: dark;
+}
+:root[data-theme="light"] .track-list .track-card audio {
+  color-scheme: light;
 }
 
 /* ══════════════════════════════════════════════════════════════
