@@ -11,6 +11,7 @@ from app.db import bootstrap_admin, init_db
 from app.routes import (
     admin,
     agent,
+    assembly,
     audio,
     auth,
     generate,
@@ -61,6 +62,7 @@ def create_app() -> FastAPI:
         agent,
         optimize,
         manju,
+        assembly,
         system,
         upload,
         jobs,

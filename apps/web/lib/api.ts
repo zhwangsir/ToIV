@@ -411,6 +411,43 @@ export async function generateStoryboard(
   return res.json();
 }
 
+export type ManjuTransition = "none" | "crossfade";
+
+export interface AssembleOptions {
+  transition: ManjuTransition;
+  bgm_url: string | null;
+  subtitles: string[];
+  fps: number;
+}
+
+export interface AssembleResult {
+  url: string;
+  name: string;
+}
+
+/**
+ * 漫剧自动剪辑:把各镜视频片段(按镜序)拼成成片。
+ * 契约:POST /api/manju/assemble
+ *   body { clips: string[](1..48), options: { transition, bgm_url, subtitles, fps } }
+ *   → { url: "/api/manju/output/manju-xxx.mp4", name }
+ * clips 传后端存的路径形态(相对 "/..." 或 worker host),后端走来源白名单。
+ */
+export async function assembleManju(
+  clips: string[],
+  options: AssembleOptions,
+): Promise<AssembleResult> {
+  const res = await fetch(`${API_BASE}/api/manju/assemble`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ clips, options }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `合成成片失败 (${res.status})`);
+  }
+  return res.json();
+}
+
 // ---------- 创作引擎 HUD:实时遥测 ----------
 
 export interface LiveGpuStat {
