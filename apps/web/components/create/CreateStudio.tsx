@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
+import { useActivity, type ActivityKind } from "@/components/nav/ActivityContext";
 import { listLocalModels, listModels, uploadImage } from "@/lib/api";
 import type { ModelsResponse } from "@/lib/types";
 
@@ -48,6 +49,35 @@ export function CreateStudio() {
   const feed = useGenerationFeed();
   // 本次生成预期产出张数:仅用于驱动骨架占位网格的块数(从派发参数推断)。
   const [pendingCount, setPendingCount] = useState(1);
+
+  // ── 灵动岛实时活动推送 ──
+  // 生成时把 feed 的 busy/stage/progress 镜像进全局活动上下文,灵动岛据此长成 live activity;
+  // 结束时先打 done(触发完成脉冲)再清空。Mode 是 ActivityKind 的子集,可直接复用。
+  const { setActivity, clearActivity } = useActivity();
+  const wasBusy = useRef(false);
+  useEffect(() => {
+    if (feed.busy) {
+      setActivity({
+        kind: mode as ActivityKind,
+        label: prompt,
+        value: feed.progress,
+        max: feed.progress === null ? null : 100,
+        phase: "running",
+      });
+      wasBusy.current = true;
+    } else if (wasBusy.current) {
+      // 仅在「曾经忙过」后收尾,避免首次挂载即误触脉冲。
+      wasBusy.current = false;
+      if (feed.error) {
+        clearActivity();
+      } else {
+        setActivity({ kind: mode as ActivityKind, label: prompt, value: 100, max: 100, phase: "done" });
+        const id = window.setTimeout(() => clearActivity(), 760);
+        return () => window.clearTimeout(id);
+      }
+    }
+    return undefined;
+  }, [feed.busy, feed.progress, feed.error, mode, prompt, setActivity, clearActivity]);
 
   // 包裹 feed.run:在派发前从首个 dispatch 的 batch_size 推断占位块数。
   const runTracked = useCallback(

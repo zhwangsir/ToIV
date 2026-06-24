@@ -4378,3 +4378,362 @@ input[type="range"]::-webkit-slider-thumb:hover {
   font-variant-numeric: tabular-nums;
   flex: 0 0 auto;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   灵动岛导航(DynamicIsland)—— 悬浮胶囊,随上下文弹性形变
+   紧凑(静息)/ 悬停展开 / 实时活动 三态 + 完成脉冲。
+   零硬编码色:玻璃 var(--bg-overlay) 缺省回落 + 品紫只用于当前态/进度/脉冲。
+   ────────────────────────────────────────────────────────────── */
+
+/* 悬浮坞:固定居中浮于顶部,自身不挡点击(仅胶囊接收事件) */
+.island-dock {
+  position: fixed;
+  top: clamp(0.6rem, 1.4vw, 1.1rem);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: flex;
+  justify-content: center;
+  padding: 0 clamp(0.8rem, 3vw, 1.6rem);
+  pointer-events: none;
+}
+
+/* 胶囊本体:玻璃 + 模糊 + 细描边 + 定向柔阴影。
+   紧凑态超椭圆胶囊大半径;活动态切 --radius-lg。 */
+.island {
+  pointer-events: auto;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  max-width: min(94vw, 1180px);
+  padding: 0.4rem;
+  border: 1px solid var(--hairline-2);
+  border-radius: 999px;
+  /* 玻璃叠层:复用顶栏验证过的配方(暗房底色透出 + 强模糊增饱和) */
+  background: color-mix(in oklab, var(--bg-1) 78%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  backdrop-filter: blur(20px) saturate(1.4);
+  box-shadow: var(--shadow-lg), var(--shadow-edge);
+  overflow: hidden;
+  will-change: transform;
+}
+.island.is-expanded {
+  border-radius: 22px;
+  border-color: var(--hairline-strong);
+}
+.island.is-live {
+  border-radius: var(--radius-lg);
+}
+
+/* 完成脉冲:品紫光环涨落一下(由 .is-pulse 触发,JS 720ms 后摘除) */
+.island.is-pulse {
+  animation: island-pulse 0.72s var(--ease-expo);
+}
+@keyframes island-pulse {
+  0% {
+    box-shadow: var(--shadow-lg), 0 0 0 0 var(--accent-quiet);
+    border-color: var(--accent);
+  }
+  45% {
+    box-shadow: var(--shadow-lg), 0 0 0 6px var(--accent-quiet);
+    border-color: var(--accent-line);
+  }
+  100% {
+    box-shadow: var(--shadow-lg), 0 0 0 0 transparent;
+    border-color: var(--hairline-2);
+  }
+}
+
+/* ── 顶行 ── */
+.island-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.1rem 0.3rem;
+}
+.island-brand {
+  display: inline-flex;
+  align-items: baseline;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+  line-height: 1;
+  padding: 0 0.35rem 0 0.4rem;
+  flex: 0 0 auto;
+}
+.island-brand .mark {
+  color: var(--accent);
+  font-weight: 700;
+  letter-spacing: -0.05em;
+}
+.island-current {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+  padding-left: 0.55rem;
+  margin-left: 0.1rem;
+  border-left: 1px solid var(--hairline-2);
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+/* 视图项排:紧凑=极小图标排,展开=图标+文字 */
+.island-views {
+  display: flex;
+  align-items: center;
+  gap: 0.1rem;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.island-view-btn {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  padding: 0.42rem 0.5rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--dur) var(--ease);
+}
+.island.is-expanded .island-view-btn {
+  padding: 0.42rem 0.7rem;
+}
+.island-view-btn:hover:not(.is-active) {
+  color: var(--ink);
+}
+.island-view-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent), 0 0 0 4px var(--accent-quiet);
+}
+.island-view-btn.is-active {
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+.island-view-ico {
+  display: inline-flex;
+  flex: 0 0 auto;
+  opacity: 0.72;
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease-expo);
+}
+.island-view-btn:hover .island-view-ico,
+.island-view-btn.is-active .island-view-ico {
+  opacity: 1;
+}
+.island-view-btn .nav-ico {
+  width: 15px;
+  height: 15px;
+}
+.island-view-label {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* 品紫墨块:在当前态按钮内部滑移(layoutId) */
+.island-pill {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--accent-hover), var(--accent-deep));
+  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.28);
+}
+
+/* GPU 负载点(呼吸) */
+.island-load {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 0 0 auto;
+  padding: 0 0.3rem 0 0.45rem;
+  font-size: 0.74rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.island-load-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  box-shadow: 0 0 0 3px color-mix(in oklab, currentColor 0%, transparent);
+}
+.island-load.is-breathing .island-load-dot {
+  animation: island-breathe 1.8s ease-in-out infinite;
+}
+.island-load.is-offline .island-load-dot {
+  opacity: 0.6;
+}
+@keyframes island-breathe {
+  0%, 100% { transform: scale(1); opacity: 0.95; }
+  50% { transform: scale(0.7); opacity: 0.5; }
+}
+.island-load-text {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* 账户区(展开时浮现) */
+.island-account {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  overflow: hidden;
+  padding-left: 0.4rem;
+  margin-left: 0.1rem;
+  border-left: 1px solid var(--hairline-2);
+  flex: 0 0 auto;
+}
+.island-user {
+  font-size: 0.76rem;
+  color: var(--ink-soft);
+  max-width: 11rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.island-logout {
+  font: inherit;
+  font-size: 0.76rem;
+  color: var(--ink-soft);
+  background: var(--glass);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  padding: 0.34rem 0.7rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.island-logout:hover {
+  color: var(--ink);
+  border-color: var(--hairline-strong);
+}
+.island-logout:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent), 0 0 0 4px var(--accent-quiet);
+}
+
+/* ── 活动行:live activity ── */
+.island-activity {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.5rem 0.6rem 0.35rem;
+  margin: 0.25rem 0.2rem 0.1rem;
+  border-top: 1px solid var(--hairline);
+}
+.island-activity-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+.island-activity-ico {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--accent);
+  opacity: 0.95;
+}
+.island-activity-ico .nav-ico {
+  width: 16px;
+  height: 16px;
+}
+.island-spinner {
+  flex: 0 0 auto;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-quiet);
+  border-top-color: var(--accent);
+  animation: island-spin 0.7s linear infinite;
+}
+@keyframes island-spin {
+  to { transform: rotate(360deg); }
+}
+.island-activity-label {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
+  flex: 1 1 auto;
+  font-size: 0.8rem;
+}
+.island-activity-label em {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--ink);
+  flex: 0 0 auto;
+}
+.island-activity-label span {
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.island-activity-meta {
+  flex: 0 0 auto;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 品紫细进度条 */
+.island-progress {
+  position: relative;
+  display: block;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--bg-0);
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.island-progress-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent-deep), var(--accent), var(--accent-hover));
+  transition: width var(--dur-2) var(--ease);
+}
+.island-progress-fill.is-indeterminate {
+  width: 38%;
+  background: linear-gradient(90deg, transparent, var(--accent) 50%, transparent);
+  animation: island-slide 1.25s var(--ease) infinite;
+}
+@keyframes island-slide {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(310%); }
+}
+
+/* 主区为悬浮岛预留顶部间距,避免首屏内容被遮(岛高约 46-64px + 坞 padding) */
+.app-shell.has-island {
+  padding-top: clamp(3.6rem, 4vw, 4.6rem);
+}
+
+@media (max-width: 760px) {
+  .island-current { display: none; }
+  .island-user { max-width: 7rem; }
+}
+
+/* reduced-motion:关掉一切形变动画,只保留语义状态(spinner/进度仍可见但不强求) */
+@media (prefers-reduced-motion: reduce) {
+  .island.is-pulse { animation: none; }
+  .island-load.is-breathing .island-load-dot { animation: none; }
+  .island-progress-fill.is-indeterminate { animation: none; width: 100%; opacity: 0.85; }
+  .island-spinner { animation: none; }
+  .island-progress-fill { transition: none; }
+}

@@ -13,10 +13,9 @@ import { LibraryView } from "@/components/library/LibraryView";
 import { ManjuStudio } from "@/components/manju/ManjuStudio";
 import { ModelLibrary } from "@/components/models/ModelLibrary";
 import { ThreeDStudio } from "@/components/threed/ThreeDStudio";
-import { NavIcon } from "@/components/ui/NavIcon";
-import { ThemeToggle } from "@/components/ui/ThemeToggle";
-import { useReducedMotion } from "@/hooks/useReducedMotion";
-import { navPillSpring, viewVariants } from "@/lib/motion";
+import { ActivityProvider } from "@/components/nav/ActivityContext";
+import { DynamicIsland, type IslandView } from "@/components/nav/DynamicIsland";
+import { viewVariants } from "@/lib/motion";
 import { fetchMe, getToken, setToken } from "@/lib/api";
 import type { AuthResult } from "@/lib/api";
 
@@ -68,18 +67,19 @@ export default function Home() {
     setAuth("out");
   }, []);
 
-  const navItems: { key: string; label: string; icon: string; view: View }[] = [
-    { key: "assistant", label: "AI 助手", icon: "assistant", view: "assistant" },
-    { key: "create", label: "创作", icon: "image", view: "create" },
-    { key: "canvas", label: "🎨 画布", icon: "image", view: "canvas" },
-    { key: "manju", label: "🎬 漫剧", icon: "video", view: "manju" },
-    { key: "3d", label: "3D", icon: "threed", view: "threed" },
-    { key: "library", label: "作品库", icon: "library", view: "library" },
-    { key: "models", label: "模型", icon: "models", view: "models" },
+  // 灵动岛视图项:key 即 View 值,onSelect 直接回传给 setView(单一真相,无映射层)。
+  const islandViews: IslandView[] = [
+    { key: "assistant", label: "AI 助手", icon: "assistant" },
+    { key: "create", label: "创作", icon: "image" },
+    { key: "canvas", label: "画布", icon: "image" },
+    { key: "manju", label: "漫剧", icon: "video" },
+    { key: "threed", label: "3D", icon: "threed" },
+    { key: "library", label: "作品库", icon: "library" },
+    { key: "models", label: "模型", icon: "models" },
     ...(account?.role === "admin"
-      ? [{ key: "admin", label: "管理", icon: "admin", view: "admin" as View }]
+      ? [{ key: "admin", label: "管理", icon: "admin" }]
       : []),
-    { key: "audio", label: "音频", icon: "audio", view: "audio" },
+    { key: "audio", label: "音频", icon: "audio" },
   ];
 
   if (auth === "loading") {
@@ -96,90 +96,56 @@ export default function Home() {
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className="app-shell">
-        <header className="topbar">
-          <span className="brand">
-            To<span className="mark">IV</span>
-            <span className="sub">编辑式 · AI 创作平台</span>
-          </span>
+      <ActivityProvider>
+        <div className="app-shell has-island">
+          <DynamicIsland<View>
+            views={islandViews}
+            current={view}
+            onSelect={setView}
+            account={account?.email}
+            onLogout={onLogout}
+          />
 
-          <nav className="modal-nav" aria-label="模块导航">
-            {navItems.map((m) => {
-              const isActive = view === m.view;
-              return (
-                <button
-                  key={m.key}
-                  type="button"
-                  className={isActive ? "active" : ""}
-                  onClick={() => setView(m.view)}
-                  aria-current={isActive ? "page" : undefined}
-                >
-                  {isActive && (
-                    <motion.span
-                      className="nav-pill"
-                      layoutId="nav-pill"
-                      aria-hidden="true"
-                      transition={navPillSpring}
-                    />
-                  )}
-                  <NavIcon name={m.icon} />
-                  {m.label}
-                </button>
-              );
-            })}
-          </nav>
-
-          <div className="account">
-            <span className="user-chip" title={account?.email}>
-              {account?.email}
-              <em>{account?.usageTotal ?? 0} 次生成</em>
-            </span>
-            <ThemeToggle />
-            <button type="button" className="logout" onClick={onLogout}>
-              退出
-            </button>
-          </div>
-        </header>
-
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={view}
-            className="view-root"
-            variants={viewVariants}
-            initial="initial"
-            animate="enter"
-            exit="exit"
-          >
-            {view === "assistant" ? (
-              <div className="single-view">
-                <AssistantView />
-              </div>
-            ) : view === "create" ? (
-              <CreateStudio />
-            ) : view === "canvas" ? (
-              <CanvasStudio />
-            ) : view === "manju" ? (
-              <ManjuStudio />
-            ) : view === "admin" ? (
-              <div className="single-view">
-                <AdminPanel />
-              </div>
-            ) : view === "library" ? (
-              <div className="single-view">
-                <LibraryView />
-              </div>
-            ) : view === "models" ? (
-              <div className="single-view">
-                <ModelLibrary />
-              </div>
-            ) : view === "threed" ? (
-              <ThreeDStudio />
-            ) : (
-              <AudioStudio />
-            )}
-          </motion.div>
-        </AnimatePresence>
-      </div>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={view}
+              className="view-root"
+              variants={viewVariants}
+              initial="initial"
+              animate="enter"
+              exit="exit"
+            >
+              {view === "assistant" ? (
+                <div className="single-view">
+                  <AssistantView />
+                </div>
+              ) : view === "create" ? (
+                <CreateStudio />
+              ) : view === "canvas" ? (
+                <CanvasStudio />
+              ) : view === "manju" ? (
+                <ManjuStudio />
+              ) : view === "admin" ? (
+                <div className="single-view">
+                  <AdminPanel />
+                </div>
+              ) : view === "library" ? (
+                <div className="single-view">
+                  <LibraryView />
+                </div>
+              ) : view === "models" ? (
+                <div className="single-view">
+                  <ModelLibrary />
+                </div>
+              ) : view === "threed" ? (
+                <ThreeDStudio />
+              ) : (
+                <AudioStudio />
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </ActivityProvider>
     </MotionConfig>
   );
 }
