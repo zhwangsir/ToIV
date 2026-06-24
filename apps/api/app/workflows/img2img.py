@@ -3,6 +3,8 @@
 CheckpointLoaderSimple →(可选 LoraLoader 链)+ LoadImage → VAEEncode
   → KSampler(denoise<1) → VAEDecode → SaveImage
 LoRA 叠加同 txt2img:在 checkpoint 与 KSampler.model/CLIP 之间插 LoraLoader 链。
+v-pred 同 txt2img:命中 v-pred ckpt 时在 model 线末端插 ModelSamplingDiscrete,
+非 v-pred 时不插(图字节级不变)。
 """
 from __future__ import annotations
 
@@ -10,6 +12,7 @@ import secrets
 from dataclasses import dataclass, field
 
 from app.workflows.lora import LoraSpec, lora_chain
+from app.workflows.model_profiles import is_vpred, model_sampling_node
 
 MAX_SEED = 2**63 - 1  # 见 txt2img:适配 SQLite 有符号 64 位
 
@@ -40,6 +43,10 @@ def build_img2img_graph(p: Img2ImgParams) -> dict:
     lora_nodes, model_ref, clip_ref = lora_chain(
         p.loras, src_model=[_CKPT_NODE, 0], src_clip=[_CKPT_NODE, 1]
     )
+    # v-pred:在 model 线末端插 ModelSamplingDiscrete;非 v-pred → {} 且 model_ref 不变。
+    vpred_nodes: dict = {}
+    if is_vpred(p.ckpt_name):
+        vpred_nodes, model_ref = model_sampling_node(model_ref)
     return {
         "3": {
             "class_type": "KSampler",
@@ -67,4 +74,5 @@ def build_img2img_graph(p: Img2ImgParams) -> dict:
         "8": {"class_type": "VAEDecode", "inputs": {"samples": ["3", 0], "vae": [_CKPT_NODE, 2]}},
         "9": {"class_type": "SaveImage", "inputs": {"images": ["8", 0], "filename_prefix": p.filename_prefix}},
         **lora_nodes,
+        **vpred_nodes,
     }

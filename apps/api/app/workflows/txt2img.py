@@ -7,6 +7,10 @@ CheckpointLoaderSimple →(可选 LoraLoader 链)→ CLIPTextEncode×2
 LoRA 叠加:在 checkpoint 与下游(KSampler.model / CLIPTextEncode.clip)之间插入
 LoraLoader 链,逐个把 (model, clip) 一起串联,各带独立 strength。class_type 与
 inputs 经 /object_info 实测(model/clip/lora_name/strength_model/strength_clip)。
+
+v-prediction:选中 ckpt 命中 v-pred(NoobAI-XL-Vpred 等)时,在 model 线上(LoRA
+链末端之后、KSampler.model 之前)插一个 ModelSamplingDiscrete(v_prediction+zsnr),
+修正灰图。非 v-pred 时不插,图与现状字节级一致。CLIP 线不受影响。
 """
 from __future__ import annotations
 
@@ -14,6 +18,7 @@ import secrets
 from dataclasses import dataclass, field
 
 from app.workflows.lora import LoraSpec, lora_chain
+from app.workflows.model_profiles import is_vpred, model_sampling_node
 
 # SQLite 有符号 64 位上限;ComfyUI 接受此范围,且仍有 9.2e18 种可能
 MAX_SEED = 2**63 - 1
@@ -51,6 +56,10 @@ def build_txt2img_graph(p: Txt2ImgParams) -> dict:
     lora_nodes, model_ref, clip_ref = lora_chain(
         p.loras, src_model=[_CKPT_NODE, 0], src_clip=[_CKPT_NODE, 1]
     )
+    # v-pred:在 model 线末端插 ModelSamplingDiscrete;非 v-pred → {} 且 model_ref 不变。
+    vpred_nodes: dict = {}
+    if is_vpred(p.ckpt_name):
+        vpred_nodes, model_ref = model_sampling_node(model_ref)
     return {
         "3": {
             "class_type": "KSampler",
@@ -92,4 +101,5 @@ def build_txt2img_graph(p: Txt2ImgParams) -> dict:
             "inputs": {"images": ["8", 0], "filename_prefix": p.filename_prefix},
         },
         **lora_nodes,
+        **vpred_nodes,
     }
