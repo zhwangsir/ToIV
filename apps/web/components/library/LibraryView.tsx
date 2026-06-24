@@ -10,6 +10,7 @@ import { useReducedMotion } from "@/hooks/useReducedMotion";
 import type { JobItem } from "@/lib/types";
 
 import { LazyImage } from "./LazyImage";
+import { LazyVideo } from "./LazyVideo";
 
 import "./library-extra.css";
 
@@ -24,7 +25,7 @@ interface Asset {
   seed: number;
 }
 
-type AssetKind = "glb" | "audio" | "media";
+type AssetKind = "glb" | "audio" | "video" | "image";
 
 const KIND_LABELS: Record<string, string> = {
   txt2img: "文生图",
@@ -43,8 +44,9 @@ const KIND_LABELS: Record<string, string> = {
 
 const FILTERS: { k: string; l: string }[] = [
   { k: "all", l: "全部" },
-  { k: "media", l: "图像 · 视频" },
-  { k: "glb", l: "3D 模型" },
+  { k: "image", l: "图像" },
+  { k: "video", l: "视频" },
+  { k: "glb", l: "3D" },
   { k: "audio", l: "音乐" },
 ];
 
@@ -53,17 +55,27 @@ function assetType(url: string): AssetKind {
   if (u.includes(".glb")) return "glb";
   if (u.includes(".mp3") || u.includes(".flac") || u.includes(".wav") || u.includes(".ogg"))
     return "audio";
-  return "media";
+  if (u.includes(".mp4") || u.includes(".webm") || u.includes(".mov")) return "video";
+  return "image";
+}
+
+/** 图片/视频可进灯箱;3D/音频就地交互不进。 */
+function isLightboxable(t: AssetKind): boolean {
+  return t === "image" || t === "video";
 }
 
 export function LibraryView() {
   const [assets, setAssets] = useState<Asset[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [active, setActive] = useState<Asset | null>(null);
+  // 灯箱以「当前筛选列表内的下标」驱动,便于 ← → 切换。
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [filter, setFilter] = useState("all");
+  // 灯箱内图片的真实像素(供元信息侧栏显示),从 naturalWidth/Height 读取。
+  const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
   // 无限滚动:当前已渲染的瓦片数,滚到底部哨兵时增量增长。
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const closeBtnRef = useRef<HTMLButtonElement | null>(null);
   const reduced = useReducedMotion();
 
   useEffect(() => {
@@ -92,9 +104,10 @@ export function LibraryView() {
     return assets.filter((a) => assetType(a.url) === filter);
   }, [assets, filter]);
 
-  // 切换筛选 / 数据变化:重置增量游标到首屏一批
+  // 切换筛选 / 数据变化:重置增量游标到首屏一批,并关闭可能开着的灯箱
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
+    setActiveIndex(null);
   }, [filter, assets]);
 
   // 实际渲染的瓦片(增量切片);还有更多则保留哨兵
@@ -120,6 +133,53 @@ export function LibraryView() {
     return () => io.disconnect();
   }, [hasMore, loadMore]);
 
+  const active = activeIndex !== null ? shown[activeIndex] ?? null : null;
+  const activeType = active ? assetType(active.url) : null;
+
+  const openLightbox = useCallback((index: number) => {
+    setDims(null);
+    setActiveIndex(index);
+  }, []);
+
+  const closeLightbox = useCallback(() => setActiveIndex(null), []);
+
+  // 在当前筛选列表内切上/下一件(边界处理:夹在 [0, len-1])
+  const step = useCallback(
+    (delta: number) => {
+      setActiveIndex((cur) => {
+        if (cur === null) return cur;
+        const next = cur + delta;
+        if (next < 0 || next >= shown.length) return cur;
+        setDims(null);
+        return next;
+      });
+    },
+    [shown.length],
+  );
+
+  // 灯箱键盘:Esc 关闭、← → 切换;打开时焦点落在关闭键
+  useEffect(() => {
+    if (activeIndex === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeLightbox();
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        step(-1);
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        step(1);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    closeBtnRef.current?.focus();
+    return () => window.removeEventListener("keydown", onKey);
+  }, [activeIndex, closeLightbox, step]);
+
+  const hasPrev = activeIndex !== null && activeIndex > 0;
+  const hasNext = activeIndex !== null && activeIndex < shown.length - 1;
+
   return (
     <div className="view">
       <header className="view-header">
@@ -144,6 +204,7 @@ export function LibraryView() {
                 key={f.k}
                 type="button"
                 className={`filter-chip${filter === f.k ? " is-on" : ""}`}
+                aria-pressed={filter === f.k}
                 onClick={() => setFilter(f.k)}
               >
                 {f.l}
@@ -183,8 +244,9 @@ export function LibraryView() {
           animate="enter"
           variants={{ enter: { transition: { staggerChildren: reduced ? 0 : 0.035 } } }}
         >
-          {visible.map((a) => {
+          {visible.map((a, i) => {
             const type = assetType(a.url);
+            const lightboxable = isLightboxable(type);
             return (
               <motion.figure
                 className="tile"
@@ -193,8 +255,8 @@ export function LibraryView() {
                   initial: { opacity: 0, y: reduced ? 0 : 14 },
                   enter: { opacity: 1, y: 0, transition: springSoft },
                 }}
-                onClick={() => type === "media" && setActive(a)}
-                style={type !== "media" ? { cursor: "default" } : undefined}
+                onClick={lightboxable ? () => openLightbox(i) : undefined}
+                style={lightboxable ? undefined : { cursor: "default" }}
               >
                 <span className="tile-kind">{KIND_LABELS[a.kind] ?? a.kind}</span>
                 {type === "glb" ? (
@@ -208,6 +270,15 @@ export function LibraryView() {
                     <span className="badge audio">♪ 音乐</span>
                     <audio controls preload="none" src={a.url} />
                   </div>
+                ) : type === "video" ? (
+                  <>
+                    <span className="tile-play" aria-hidden="true">▶</span>
+                    <LazyVideo src={a.url} label={a.prompt || "视频作品"} />
+                    <figcaption className="tile-cap">
+                      <p className="p">{a.prompt || "未命名作品"}</p>
+                      <p className="s">seed {a.seed}</p>
+                    </figcaption>
+                  </>
                 ) : (
                   <>
                     <LazyImage src={a.url} alt={a.prompt} />
@@ -239,11 +310,40 @@ export function LibraryView() {
         {active && (
           <motion.div
             className="lightbox"
-            onClick={() => setActive(null)}
+            onClick={closeLightbox}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            role="dialog"
+            aria-modal="true"
+            aria-label={active.prompt || "作品预览"}
           >
+            {/* 两侧切换按钮:在筛选列表内上/下一件(边界禁用) */}
+            <button
+              type="button"
+              className="lightbox-nav prev"
+              onClick={(e) => {
+                e.stopPropagation();
+                step(-1);
+              }}
+              disabled={!hasPrev}
+              aria-label="上一件"
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              className="lightbox-nav next"
+              onClick={(e) => {
+                e.stopPropagation();
+                step(1);
+              }}
+              disabled={!hasNext}
+              aria-label="下一件"
+            >
+              ›
+            </button>
+
             <motion.div
               className="lightbox-inner"
               onClick={(e) => e.stopPropagation()}
@@ -251,28 +351,63 @@ export function LibraryView() {
               animate={{ opacity: 1, scale: 1, y: 0, transition: springSoft }}
               exit={{ opacity: 0, scale: reduced ? 1 : 0.96, transition: { duration: 0.15 } }}
             >
-              <Magnifier
-                src={active.url}
-                alt={active.prompt || "作品"}
-                wrapClassName="lightbox-magnifier"
-                zoom={2.6}
-                lensSize={200}
-              />
-              <div className="lightbox-meta">
+              <div className="lightbox-stage">
+                {activeType === "video" ? (
+                  <video
+                    key={active.key}
+                    className="lightbox-video"
+                    src={active.url}
+                    controls
+                    autoPlay
+                    loop
+                    playsInline
+                    aria-label={active.prompt || "视频作品"}
+                  />
+                ) : (
+                  <Magnifier
+                    key={active.key}
+                    src={active.url}
+                    alt={active.prompt || "作品"}
+                    wrapClassName="lightbox-magnifier"
+                    zoom={2.6}
+                    lensSize={200}
+                    onLoadDims={(w, h) => setDims({ w, h })}
+                  />
+                )}
+              </div>
+
+              <aside className="lightbox-meta" aria-label="作品信息">
                 <p className="lb-prompt">{active.prompt || "未命名作品"}</p>
-                <p className="lb-sub">
-                  {KIND_LABELS[active.kind] ?? active.kind} · seed {active.seed}
-                </p>
+                <dl className="lb-specs">
+                  <div>
+                    <dt>题材</dt>
+                    <dd>{KIND_LABELS[active.kind] ?? active.kind}</dd>
+                  </div>
+                  <div>
+                    <dt>seed</dt>
+                    <dd className="num">{active.seed}</dd>
+                  </div>
+                  {activeType === "image" && dims && (
+                    <div>
+                      <dt>尺寸</dt>
+                      <dd className="num">
+                        {dims.w}×{dims.h}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
                 <div className="lb-actions">
                   <a className="btn-ghost" href={active.url} download>
-                    下载原图
+                    {activeType === "video" ? "下载视频" : "下载原图"}
                   </a>
                 </div>
-              </div>
+              </aside>
+
               <button
+                ref={closeBtnRef}
                 type="button"
                 className="lightbox-close"
-                onClick={() => setActive(null)}
+                onClick={closeLightbox}
                 aria-label="关闭"
               >
                 ✕

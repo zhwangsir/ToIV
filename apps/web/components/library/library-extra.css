@@ -33,14 +33,20 @@
   50% { opacity: 1; transform: scale(1); }
 }
 
-/* 懒加载图片:解码完成前用占位底色,加载后淡入(避免空白闪烁) */
-.tile img.lib-lazy {
+/* 懒加载图片/视频:解码完成前用占位底色,加载后淡入(避免空白闪烁) */
+.tile img.lib-lazy,
+.tile video.lib-lazy {
   opacity: 0;
   background: var(--bg-3);
   transition: opacity var(--dur-2) var(--ease);
 }
-.tile img.lib-lazy.is-loaded {
+.tile img.lib-lazy.is-loaded,
+.tile video.lib-lazy.is-loaded {
   opacity: 1;
+}
+/* 视频瓦片占位:未挂载/未就绪时给最小高度,避免布局跳变 */
+.tile .lib-video {
+  min-height: 120px;
 }
 
 /* 灯箱内放大镜:容器按图片实际显示尺寸收缩(避免 contain 留白导致镜头错位) */
@@ -58,7 +64,8 @@
     animation: none;
     opacity: 0.6;
   }
-  .tile img.lib-lazy {
+  .tile img.lib-lazy,
+  .tile video.lib-lazy {
     transition: none;
   }
 }

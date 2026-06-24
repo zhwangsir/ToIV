@@ -15,6 +15,8 @@ interface MagnifierProps {
   className?: string;
   /** 透传给外层容器的 class(用于按图片实际尺寸收缩,如灯箱内 contain 图)。 */
   wrapClassName?: string;
+  /** 底图解码后回传真实像素(供灯箱元信息显示尺寸)。 */
+  onLoadDims?: (naturalWidth: number, naturalHeight: number) => void;
 }
 
 interface LensState {
@@ -39,7 +41,7 @@ function clamp(v: number, min: number, max: number): number {
  * - 透镜位置用 transform 驱动(合成器友好);放大用 background 缩放,无额外网络请求(同一 src)。
  * - 无障碍:透镜纯装饰(aria-hidden),底图保留正常 alt。
  */
-export function Magnifier({ src, alt, zoom = 2.4, lensSize = 168, className, wrapClassName }: MagnifierProps) {
+export function Magnifier({ src, alt, zoom = 2.4, lensSize = 168, className, wrapClassName, onLoadDims }: MagnifierProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(false);
   const [lens, setLens] = useState<LensState | null>(null);
@@ -105,7 +107,16 @@ export function Magnifier({ src, alt, zoom = 2.4, lensSize = 168, className, wra
       onPointerMove={onMove}
       onPointerLeave={onLeave}
     >
-      <img className={`magnifier-img${className ? ` ${className}` : ""}`} src={src} alt={alt} loading="lazy" />
+      <img
+        className={`magnifier-img${className ? ` ${className}` : ""}`}
+        src={src}
+        alt={alt}
+        loading="lazy"
+        onLoad={(e) => {
+          const img = e.currentTarget;
+          if (img.naturalWidth && img.naturalHeight) onLoadDims?.(img.naturalWidth, img.naturalHeight);
+        }}
+      />
       {lens && (
         <div
           className="magnifier-lens"

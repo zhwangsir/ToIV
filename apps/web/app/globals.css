@@ -1548,36 +1548,90 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 .lightbox-inner {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  max-width: min(92vw, 860px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  align-items: stretch;
+  gap: clamp(1rem, 2vw, 1.6rem);
+  max-width: min(94vw, 1140px);
   max-height: 90vh;
 }
-.lightbox-inner img {
+/* 窄屏:媒体在上、元信息在下 */
+@media (max-width: 760px) {
+  .lightbox-inner {
+    grid-template-columns: 1fr;
+    max-width: 94vw;
+  }
+}
+/* 媒体台:图/视频铺陈,等比 contain */
+.lightbox-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+.lightbox-inner img,
+.lightbox-video {
+  display: block;
   max-width: 100%;
-  max-height: 70vh;
+  max-height: 80vh;
   object-fit: contain;
   border-radius: var(--radius);
   border: 1px solid var(--hairline-2);
   box-shadow: var(--shadow-lg);
 }
+.lightbox-video {
+  width: auto;
+  background: var(--bg-sunken);
+}
+/* 元信息侧栏:题材 / prompt / seed / 尺寸 / 下载 */
 .lightbox-meta {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.9rem;
+  align-self: center;
+  padding: clamp(1rem, 1.8vw, 1.4rem);
+  background: var(--bg-1);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-edge);
 }
 .lb-prompt {
   margin: 0;
   color: var(--ink);
-  font-size: 0.95rem;
+  font-family: var(--font-display);
+  font-weight: 560;
+  font-size: 1rem;
+  line-height: 1.4;
 }
-.lb-sub {
+.lb-specs {
   margin: 0;
-  color: var(--ink-faint);
-  font-size: 0.8rem;
-  font-variant-numeric: tabular-nums;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
 }
+.lb-specs > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid var(--hairline);
+}
+.lb-specs > div:last-child { border-bottom: none; padding-bottom: 0; }
+.lb-specs dt {
+  margin: 0;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+}
+.lb-specs dd {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--ink);
+  text-align: right;
+}
+.lb-specs dd.num { font-variant-numeric: tabular-nums; }
 .lb-actions {
   display: flex;
   gap: 0.6rem;
@@ -1615,6 +1669,48 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 .lightbox-close:hover {
   background: rgba(0, 0, 0, 0.85);
+}
+.lightbox-close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-quiet);
+  border-color: var(--accent-line);
+}
+/* 两侧切换:在筛选列表内上/下一件,边界禁用 */
+.lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--hairline-2);
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), opacity var(--dur) var(--ease);
+}
+.lightbox-nav.prev { left: clamp(0.6rem, 3vw, 2rem); }
+.lightbox-nav.next { right: clamp(0.6rem, 3vw, 2rem); }
+.lightbox-nav:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.lightbox-nav:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-quiet);
+  border-color: var(--accent-line);
+}
+.lightbox-nav:disabled {
+  opacity: 0.28;
+  cursor: default;
 }
 
 /* ---------- 启动加载 ---------- */
@@ -3843,16 +3939,18 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 /* ---------- 瀑布流画廊(作品库)—— CSS columns,真不等高 + 焦点大图 ---------- */
+/* 列数:1440→4 / 1024→3 / 768→2 / ≤640→1;留白更慷慨,瓦片更大,图片保原比例不裁 */
 .masonry {
   column-count: 4;
-  column-gap: clamp(0.8rem, 1.4vw, 1.3rem);
+  column-gap: clamp(1.1rem, 1.8vw, 1.8rem);
 }
-@media (max-width: 1240px) { .masonry { column-count: 3; } }
-@media (max-width: 860px)  { .masonry { column-count: 2; } }
-@media (max-width: 520px)  { .masonry { column-count: 1; } }
+@media (max-width: 1440px) { .masonry { column-count: 4; } }
+@media (max-width: 1024px) { .masonry { column-count: 3; } }
+@media (max-width: 768px)  { .masonry { column-count: 2; } }
+@media (max-width: 640px)  { .masonry { column-count: 1; } }
 .masonry > * {
   break-inside: avoid;
-  margin-bottom: clamp(0.8rem, 1.4vw, 1.3rem);
+  margin-bottom: clamp(1.1rem, 1.8vw, 1.8rem);
 }
 .tile {
   position: relative;
@@ -3874,13 +3972,46 @@ input[type="range"]::-webkit-slider-thumb:hover {
   box-shadow: var(--shadow-lg), 0 0 0 1px var(--accent-quiet);
   z-index: 2;
 }
-.tile img {
+.tile img,
+.tile video {
   display: block;
   width: 100%;
-  height: auto;
+  height: auto;            /* 保原始比例,不裁切 */
   transition: transform var(--dur-2) var(--ease-expo);
 }
-.tile:hover img { transform: scale(1.045); }
+/* 媒体内层轻放大;瓦片整体已抬升,这里只放大媒体,避免 wrapper+img 双 scale 跳变 */
+.tile:hover img,
+.tile:hover video { transform: scale(1.04); }
+
+/* 视频瓦片:容器铺满,视频 cover 撑满,首帧海报感 */
+.tile .lib-video {
+  display: block;
+  width: 100%;
+  line-height: 0;
+  background: var(--bg-3);
+}
+.tile .lib-video video {
+  width: 100%;
+  height: auto;
+}
+/* 左上 ▶ 标记:区分视频与静态图 */
+.tile-play {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 0.62rem;
+  color: var(--accent-ink);
+  background: color-mix(in oklab, var(--accent) 78%, transparent);
+  border: 1px solid var(--accent-line);
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+}
 /* 题材角标:暖金小标签,左上 */
 .tile-kind {
   position: absolute;
@@ -3905,7 +4036,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   padding: 1.6rem 0.85rem 0.7rem;
   background: linear-gradient(to top, rgba(8, 7, 9, 0.9) 14%, transparent);
   opacity: 0;
-  transform: translateY(8px);
+  transform: translateY(6px);            /* 更小更低调的上移 */
   transition: opacity var(--dur) var(--ease), transform var(--dur-2) var(--ease-expo);
   pointer-events: none;
 }
@@ -4203,14 +4334,15 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .invite-bar .generate-btn { padding: 0.6rem 1.3rem; font-size: 0.9rem; white-space: nowrap; }
 @media (max-width: 720px) { .invite-bar { grid-template-columns: 1fr 1fr; } }
 
-/* ---------- 加载骨架:暖金扫光瓦片(瀑布流 / 网格通用)---------- */
-.skel-masonry { column-count: 4; column-gap: clamp(0.8rem, 1.4vw, 1.3rem); }
-@media (max-width: 1240px) { .skel-masonry { column-count: 3; } }
-@media (max-width: 860px)  { .skel-masonry { column-count: 2; } }
-@media (max-width: 520px)  { .skel-masonry { column-count: 1; } }
+/* ---------- 加载骨架:品紫扫光瓦片(瀑布流 / 网格通用,断点与 .masonry 对齐)---------- */
+.skel-masonry { column-count: 4; column-gap: clamp(1.1rem, 1.8vw, 1.8rem); }
+@media (max-width: 1440px) { .skel-masonry { column-count: 4; } }
+@media (max-width: 1024px) { .skel-masonry { column-count: 3; } }
+@media (max-width: 768px)  { .skel-masonry { column-count: 2; } }
+@media (max-width: 640px)  { .skel-masonry { column-count: 1; } }
 .skel-card {
   break-inside: avoid;
-  margin-bottom: clamp(0.8rem, 1.4vw, 1.3rem);
+  margin-bottom: clamp(1.1rem, 1.8vw, 1.8rem);
   border-radius: var(--radius-sm);
   border: 1px solid var(--hairline);
   position: relative;
@@ -4221,7 +4353,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(100deg, transparent 30%, rgba(236, 199, 154, 0.1) 50%, transparent 70%);
+  background: linear-gradient(100deg, transparent 30%, var(--accent-wash) 50%, transparent 70%);
   background-size: 200% 100%;
   animation: skel 1.6s ease-in-out infinite;
 }
