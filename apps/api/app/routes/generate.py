@@ -15,6 +15,12 @@ from app.db import get_session
 from app.deps import get_current_user, get_pool, resolve_worker
 from app.models import Job, User
 from app.ratelimit import enforce_generation_rate_limit
+from app.workflows.controlnet import (
+    CONTROL_TYPES,
+    ControlNetParams,
+    build_controlnet_graph,
+    controlnet_model_name,
+)
 from app.workflows.img2img import Img2ImgParams, build_img2img_graph
 from app.workflows.lora import LoraSpec
 from app.workflows.model_profiles import is_nsfw
@@ -288,4 +294,97 @@ async def generate_img2img(
         "client_id": client_id,
         "worker": client.base_url,
         "seed": params.seed,
+    }
+
+
+class ControlNetRequest(BaseModel):
+    positive: str = Field(min_length=1, max_length=2000)
+    image: str = Field(min_length=1, max_length=512)  # 上传后得到的控制图文件名
+    worker: str  # 控制图上传到的 worker(同 img2img,须用图片所在 worker)
+    control_type: str = Field(default="canny", max_length=32)
+    negative: str = Field(default="", max_length=2000)
+    ckpt_name: str | None = None
+    strength: float = Field(default=0.8, ge=0.0, le=2.0)
+    start_percent: float = Field(default=0.0, ge=0.0, le=1.0)
+    end_percent: float = Field(default=1.0, ge=0.0, le=1.0)
+    steps: int = Field(default=20, ge=1, le=150)
+    cfg: float = Field(default=7.0, ge=0.0, le=30.0)
+    sampler: str = Field(default="euler", max_length=64)
+    scheduler: str = Field(default="normal", max_length=64)
+    seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
+    loras: list[LoraInput] = Field(default_factory=list, max_length=_MAX_LORAS)
+
+
+@router.post("/generate/controlnet")
+async def generate_controlnet(
+    req: ControlNetRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """ControlNet 出图:上传的控制图 → 预处理 → 控网约束 → 出图。
+
+    沿用 img2img 模式:必须用控制图所在的 worker(resolve_worker 防 SSRF)。
+    """
+    enforce_generation_rate_limit(user)
+    settings = get_settings()
+    if req.control_type not in CONTROL_TYPES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"不支持的 control_type:{req.control_type!r};可选 {list(CONTROL_TYPES)}",
+        )
+    if req.start_percent > req.end_percent:
+        raise HTTPException(
+            status_code=422, detail="start_percent 不能大于 end_percent"
+        )
+    client = resolve_worker(req.worker)  # 必须用控制图所在的 worker
+    params = ControlNetParams(
+        positive=req.positive,
+        image=req.image,
+        control_type=req.control_type,
+        negative=req.negative,
+        ckpt_name=req.ckpt_name or settings.default_ckpt,
+        strength=req.strength,
+        start_percent=req.start_percent,
+        end_percent=req.end_percent,
+        steps=req.steps,
+        cfg=req.cfg,
+        sampler=req.sampler,
+        scheduler=req.scheduler,
+        loras=_to_lora_specs(req.loras),
+        **({"seed": req.seed} if req.seed is not None else {}),
+    )
+    # R18 硬门槛:成人底模须已开 R18,否则 403;并据此给作品打 nsfw 标。
+    job_nsfw = _gate_nsfw_ckpt(params.ckpt_name, user)
+    graph = build_controlnet_graph(params)
+    client_id = uuid.uuid4().hex
+    try:
+        prompt_id = await client.queue_prompt(graph, client_id)
+    except ComfyUIError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+    session.add(
+        Job(
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            prompt_id=prompt_id,
+            worker=client.base_url,
+            kind="controlnet",
+            status="queued",
+            prompt=params.positive,
+            seed=params.seed,
+            nsfw=job_nsfw,
+        )
+    )
+    session.commit()
+
+    # 服务端后台追踪结果落库,不依赖客户端是否连 SSE(修前端断开丢结果的真 bug)
+    spawn_tracker(client, prompt_id)
+
+    return {
+        "prompt_id": prompt_id,
+        "client_id": client_id,
+        "worker": client.base_url,
+        "seed": params.seed,
+        "control_type": params.control_type,
+        "controlnet_model": controlnet_model_name(params.control_type, params.ckpt_name),
     }
