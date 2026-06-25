@@ -1,34 +1,57 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 import { useNsfw } from "./NsfwContext";
 
-/**
- * 账户设置 popover —— 从灵动岛账户区一颗齿轮按钮点开。
- * 内含「成人内容 (R18)」软开关(沿用 .switch pill 样式)+ 一句说明 + 切换反馈。
- * Studio Noir 风,键盘可达(Esc 关闭、外点关闭、焦点环)。
- */
 interface AccountSettingsProps {
-  /** 通知父级(灵动岛)popover 开关状态 —— 打开时岛保持展开,避免 popover 被收起卸载。 */
-  onOpenChange?: (open: boolean) => void;
+  /** 账户邮箱(菜单内展示)。 */
+  account?: string;
+  /** 退出回调。 */
+  onLogout: () => void;
 }
 
-export function AccountSettings({ onOpenChange }: AccountSettingsProps) {
+/**
+ * 常驻账户菜单 —— 灵动岛里常显一颗账户按钮(不靠 hover),点击开浮层菜单。
+ * 菜单 = 邮箱 + 成人内容 (R18) 软开关 + 主题切换 + 退出。
+ *
+ * 关键:菜单用 createPortal 渲染到 body,**不受灵动岛 hover 收起影响**
+ * —— 修复「设置/R18 打不开」(原齿轮埋在岛 hover 展开区,hover 不稳点不到)。
+ */
+export function AccountSettings({ account, onLogout }: AccountSettingsProps) {
   const { enabled, setEnabled, loading } = useNsfw();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  // 切换后的轻量 toast 文案(aria-live 朗读);自动消隐。
   const [feedback, setFeedback] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
-  const rootRef = useRef<HTMLDivElement>(null);
+  // portal 浮层按触发按钮位置定位(fixed)。
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
   const panelId = useId();
   const switchId = useId();
 
-  // 外点 / Esc 关闭(键盘可达)。
+  // 打开时按触发按钮位置算浮层坐标(右对齐、下挂)。
+  useEffect(() => {
+    if (!open) return;
+    const r = triggerRef.current?.getBoundingClientRect();
+    if (r) {
+      setPos({
+        top: Math.round(r.bottom + 8),
+        right: Math.round(Math.max(8, window.innerWidth - r.right)),
+      });
+    }
+  }, [open]);
+
+  // 外点 / Esc 关闭(检查触发按钮 + portal 浮层两处,避免点菜单内即关)。
   useEffect(() => {
     if (!open) return undefined;
     const onDown = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (triggerRef.current?.contains(t) || popRef.current?.contains(t)) return;
+      setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
@@ -41,12 +64,7 @@ export function AccountSettings({ onOpenChange }: AccountSettingsProps) {
     };
   }, [open]);
 
-  // 把 popover 开关状态上报给灵动岛(打开时岛保持展开)。
-  useEffect(() => {
-    onOpenChange?.(open);
-  }, [open, onOpenChange]);
-
-  // toast 自动消隐。
+  // 切换反馈自动消隐。
   useEffect(() => {
     if (!feedback) return undefined;
     const id = window.setTimeout(() => setFeedback(null), 2600);
@@ -64,28 +82,28 @@ export function AccountSettings({ onOpenChange }: AccountSettingsProps) {
         text: confirmed ? "已开启成人内容 (R18)" : "已关闭成人内容 (R18)",
       });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "保存设置失败";
-      setFeedback({ kind: "err", text: msg });
+      setFeedback({ kind: "err", text: err instanceof Error ? err.message : "保存设置失败" });
     } finally {
       setBusy(false);
     }
   }, [busy, enabled, setEnabled]);
 
   return (
-    <div className="island-settings" ref={rootRef}>
+    <>
       <button
+        ref={triggerRef}
         type="button"
-        className="logout island-settings-btn"
-        aria-label="账户设置"
-        title="账户设置"
+        className={`island-account-btn${open ? " is-open" : ""}`}
+        aria-label="账户与设置"
+        title="账户与设置"
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         onClick={() => setOpen((v) => !v)}
       >
         <svg
-          width="15"
-          height="15"
+          width="16"
+          height="16"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -94,59 +112,75 @@ export function AccountSettings({ onOpenChange }: AccountSettingsProps) {
           strokeLinejoin="round"
           aria-hidden="true"
         >
-          <circle cx="12" cy="12" r="3" />
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          <circle cx="12" cy="8" r="4" />
+          <path d="M4 21a8 8 0 0 1 16 0" />
         </svg>
       </button>
 
-      {open && (
-        <div
-          id={panelId}
-          className="settings-pop"
-          role="dialog"
-          aria-label="账户设置"
-          aria-modal="false"
-        >
-          <div className="settings-pop-head">
-            <h2>账户设置</h2>
-          </div>
-
-          <div className={`settings-r18${enabled ? " is-on" : ""}`}>
-            <div className="switch-row">
-              <label className="switch-label" htmlFor={switchId}>
-                成人内容 (R18)
-                {enabled && <span className="nsfw-badge">18+</span>}
-                <span className="switch-sub">开启后显示成人向模型与作品 (R18)</span>
-              </label>
-              <button
-                id={switchId}
-                type="button"
-                className="switch"
-                role="switch"
-                aria-checked={enabled}
-                aria-label="成人内容 (R18)"
-                disabled={busy || loading}
-                onClick={toggleR18}
-              />
-            </div>
-            {enabled && (
-              <p className="nsfw-note">
-                请确认你已年满 18 周岁并遵守平台规范。关闭后将隐藏全部成人向内容。
-              </p>
-            )}
-          </div>
-
-          <p
-            className={`settings-feedback${feedback ? " is-visible" : ""}${
-              feedback?.kind === "err" ? " is-err" : ""
-            }`}
-            role="status"
-            aria-live="polite"
+      {open && pos && typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={popRef}
+            id={panelId}
+            className="account-menu"
+            role="dialog"
+            aria-label="账户与设置"
+            style={{ position: "fixed", top: pos.top, right: pos.right }}
           >
-            {feedback?.text ?? ""}
-          </p>
-        </div>
-      )}
-    </div>
+            {account && (
+              <div className="account-menu-email" title={account}>
+                {account}
+              </div>
+            )}
+
+            <div className={`settings-r18${enabled ? " is-on" : ""}`}>
+              <div className="switch-row">
+                <label className="switch-label" htmlFor={switchId}>
+                  成人内容 (R18)
+                  {enabled && <span className="nsfw-badge">18+</span>}
+                  <span className="switch-sub">开启后显示成人向模型与作品 (R18)</span>
+                </label>
+                <button
+                  id={switchId}
+                  type="button"
+                  className="switch"
+                  role="switch"
+                  aria-checked={enabled}
+                  aria-label="成人内容 (R18)"
+                  disabled={busy || loading}
+                  onClick={toggleR18}
+                />
+              </div>
+            </div>
+
+            <div className="account-menu-row">
+              <span className="account-menu-row-label">主题</span>
+              <ThemeToggle />
+            </div>
+
+            <button
+              type="button"
+              className="account-menu-logout"
+              onClick={() => {
+                setOpen(false);
+                onLogout();
+              }}
+            >
+              退出登录
+            </button>
+
+            <p
+              className={`settings-feedback${feedback ? " is-visible" : ""}${
+                feedback?.kind === "err" ? " is-err" : ""
+              }`}
+              role="status"
+              aria-live="polite"
+            >
+              {feedback?.text ?? ""}
+            </p>
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }

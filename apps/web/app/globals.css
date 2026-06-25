@@ -5311,6 +5311,91 @@ input[type="range"]::-webkit-slider-thumb:hover {
   justify-content: center;
   padding: 0.34rem 0.5rem;
 }
+
+/* 常驻账户按钮(灵动岛内始终可点,不靠 hover) */
+.island-account-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  margin-left: 0.25rem;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: var(--glass);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease),
+    border-color var(--dur) var(--ease);
+}
+.island-account-btn:hover,
+.island-account-btn.is-open {
+  color: var(--accent);
+  background: var(--accent-quiet);
+  border-color: var(--accent-line);
+}
+.island-account-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-line);
+}
+
+/* 账户菜单浮层(portal 到 body;fixed 坐标由内联 style 给) */
+.account-menu {
+  z-index: 80;
+  width: min(20rem, 86vw);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.85rem 0.9rem 0.75rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--hairline-2);
+  background: var(--bg-1);
+  box-shadow:
+    0 1px 0 var(--hairline) inset,
+    0 20px 48px -20px oklch(0% 0 0 / 0.6);
+  animation: settings-pop-in var(--dur) var(--ease) both;
+}
+.account-menu-email {
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-menu-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 0.2rem 0.1rem;
+}
+.account-menu-row-label {
+  font-size: 0.86rem;
+  color: var(--ink);
+}
+.account-menu-logout {
+  width: 100%;
+  padding: 0.5rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--hairline-2);
+  background: var(--glass);
+  color: var(--ink-soft);
+  font-size: 0.84rem;
+  cursor: pointer;
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease),
+    border-color var(--dur) var(--ease);
+}
+.account-menu-logout:hover {
+  color: var(--danger);
+  border-color: color-mix(in oklab, var(--danger) 45%, transparent);
+  background: color-mix(in oklab, var(--danger) 12%, transparent);
+}
+.account-menu-logout:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-line);
+}
 .settings-pop {
   position: absolute;
   top: calc(100% + 0.55rem);

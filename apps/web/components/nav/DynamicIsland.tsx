@@ -4,7 +4,6 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, type Transition } from "framer-motion";
 
 import { NavIcon } from "@/components/ui/NavIcon";
-import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 
 import { AccountSettings } from "./AccountSettings";
@@ -129,7 +128,6 @@ interface IslandBarProps {
   onLogout: () => void;
   isOpen: boolean;
   reduced: boolean;
-  onSettingsOpenChange: (open: boolean) => void;
 }
 
 /**
@@ -149,7 +147,6 @@ const IslandBar = memo(function IslandBar({
   onLogout,
   isOpen,
   reduced,
-  onSettingsOpenChange,
 }: IslandBarProps) {
   const currentView = views.find((v) => v.key === current);
   const posLayout = reduced ? {} : ({ layout: "position", transition: ISLAND_SPRING } as const);
@@ -186,29 +183,8 @@ const IslandBar = memo(function IslandBar({
         ))}
       </motion.div>
 
-      {/* 账户操作:展开时浮现(主题切换 + 退出 + 邮箱) */}
-      <AnimatePresence initial={false}>
-        {isOpen && (
-          <motion.div
-            className="island-account"
-            initial={reduced ? false : { opacity: 0, width: 0 }}
-            animate={{ opacity: 1, width: "auto" }}
-            exit={reduced ? undefined : { opacity: 0, width: 0 }}
-            transition={reduced ? { duration: 0 } : { duration: 0.2 }}
-          >
-            {account && (
-              <span className="island-user" title={account}>
-                {account}
-              </span>
-            )}
-            <AccountSettings onOpenChange={onSettingsOpenChange} />
-            <ThemeToggle />
-            <button type="button" className="island-logout" onClick={onLogout}>
-              退出
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* 常驻账户菜单(始终可点,不靠 hover;portal 浮层含邮箱/R18/主题/退出) */}
+      <AccountSettings account={account} onLogout={onLogout} />
     </motion.div>
   );
 });
@@ -290,9 +266,8 @@ export function DynamicIsland<K extends string>({
   const { activity } = useActivity();
 
   const [expanded, setExpanded] = useState(false);
-  // 设置 popover 打开时岛保持展开 —— 否则鼠标移开收起会把 popover 一起卸载(「设置打不开」)。
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const isOpen = expanded || settingsOpen;
+  // 账户菜单已是常驻 portal(脱离 hover),岛展开只由 hover/focus 决定。
+  const isOpen = expanded;
   // 完成脉冲:活动从 running → done 的瞬间触发一次,脉冲结束自动复位。
   const [pulse, setPulse] = useState(false);
   const prevPhase = useRef<string | null>(null);
@@ -344,7 +319,6 @@ export function DynamicIsland<K extends string>({
           onLogout={onLogout}
           isOpen={isOpen}
           reduced={reduced}
-          onSettingsOpenChange={setSettingsOpen}
         />
 
         {/* ── 活动行:生成中向下长大成 live activity ── */}
