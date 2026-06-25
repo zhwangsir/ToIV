@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 
-import { ProgressBar } from "@/components/generate/ProgressBar";
+import { ProgressBar } from "@/components/ui/ProgressBar";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
 import { generateAudio, imageUrl, invalidateJobs, jobEventsUrl } from "@/lib/api";
 import { springSoft } from "@/lib/motion";

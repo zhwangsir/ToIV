@@ -2,7 +2,7 @@
 
 import { createElement, useCallback, useEffect, useRef, useState } from "react";
 
-import { ProgressBar } from "@/components/generate/ProgressBar";
+import { ProgressBar } from "@/components/ui/ProgressBar";
 import { generate3D, imageUrl, invalidateJobs, jobEventsUrl, uploadImage } from "@/lib/api";
 import type { GenStatus, Progress } from "@/lib/types";
 
