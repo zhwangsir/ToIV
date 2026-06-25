@@ -6,7 +6,7 @@ apps/api/.venv/
 .pytest_cache/
 
 # Node / Next.js
-node_modules/
+node_modules
 .next/
 out/
 next-env.d.ts
