@@ -10,6 +10,7 @@ import {
   imageUrl,
   jobEventsUrl,
   listModels,
+  renderManjuShot,
   uploadImage,
 } from "@/lib/api";
 import type { ManjuTransition } from "@/lib/api";
@@ -18,7 +19,7 @@ import type { GenerateResponse, ModelsResponse } from "@/lib/types";
 import { ShotCard } from "./ShotCard";
 import { ShotInspector } from "./ShotInspector";
 import { toShotCards } from "./types";
-import type { ShotCard as ShotCardModel } from "./types";
+import type { CharRow, ShotCard as ShotCardModel } from "./types";
 
 type FlowStep = "script" | "characters" | "storyboard" | "video" | "export";
 type AutoMode = "auto" | "manual";
@@ -37,10 +38,9 @@ const NEGATIVE = "blurry, lowres, deformed, bad anatomy, extra fingers, watermar
 const SHOT_W = 768;
 const SHOT_H = 432;
 
-interface CharRow {
-  name: string;
-  desc: string;
-}
+// 角色参考图(肖像):正方形更利于 IPAdapter 取脸
+const REF_W = 512;
+const REF_H = 512;
 
 export function ManjuStudio() {
   // 顶栏 / 流程
@@ -67,6 +67,8 @@ export function ManjuStudio() {
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // 是否有角色参考图正在生成 / 上传(同一时刻只跑一个,避免抢占单实例 ComfyUI)
+  const [refBusy, setRefBusy] = useState(false);
   const esRef = useRef<EventSource | null>(null);
 
   // 导出 / 自动剪辑
@@ -90,6 +92,42 @@ export function ManjuStudio() {
   const patchShot = useCallback((id: string, patch: Partial<ShotCardModel>) => {
     setShots((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
   }, []);
+
+  const patchCharAt = useCallback((i: number, patch: Partial<CharRow>) => {
+    setChars((prev) => prev.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
+  }, []);
+
+  // 解析一个出图作业的首张产物文件名(参考图生成用:不回填分镜,只取 filename)。
+  const trackRefFilename = (res: GenerateResponse) =>
+    new Promise<string>((resolve, reject) => {
+      const es = new EventSource(jobEventsUrl(res.prompt_id, res.client_id, res.worker));
+      esRef.current = es;
+      let done = false;
+      es.addEventListener("done", (e) => {
+        done = true;
+        const d = JSON.parse((e as MessageEvent).data);
+        const first: string | undefined = (d.images ?? [])[0];
+        es.close();
+        if (first) resolve(first);
+        else reject(new Error("没有产出图片"));
+      });
+      es.addEventListener("error", (e) => {
+        const data = (e as MessageEvent).data;
+        if (!data && done) return;
+        let msg = "生成参考图出错";
+        if (data) {
+          try {
+            msg = JSON.parse(data).message;
+          } catch {
+            /* keep default */
+          }
+        } else {
+          msg = "与服务器连接中断";
+        }
+        es.close();
+        reject(new Error(msg));
+      });
+    });
 
   // 跟踪一个出图作业:完成 → 回填缩略图 + worker/filename(供转视频复用)
   const trackImage = (id: string, res: GenerateResponse) =>
@@ -160,7 +198,8 @@ export function ManjuStudio() {
       });
     });
 
-  // 单镜出图:txt2img(shot.description 作正向提示词)
+  // 单镜出图:出场角色中若有带参考图者(取第一个)→ renderManjuShot 走 IPAdapter 人物一致;
+  //          否则保持原 txt2img。两路结果都用同一 trackImage 回填。
   const imageOne = useCallback(
     async (shot: ShotCardModel) => {
       const prompt = shot.description.trim();
@@ -171,6 +210,36 @@ export function ManjuStudio() {
       patchShot(shot.id, { status: "imaging", error: undefined });
       // AI 润色产出的反向词叠加到基础 NEGATIVE 之上(内容感知,逐镜定制)
       const negative = shot.negative?.trim() ? `${NEGATIVE}, ${shot.negative.trim()}` : NEGATIVE;
+
+      // 该镜出场角色里第一个登记了参考图的 → 走人物一致性出图
+      const refChar = chars.find(
+        (c) => c.refImage && c.refWorker && shot.characters.includes(c.name.trim()),
+      );
+
+      if (refChar?.refImage && refChar.refWorker) {
+        try {
+          const res = await renderManjuShot({
+            positive: prompt,
+            worker: refChar.refWorker,
+            characterRef: refChar.refImage,
+            negative,
+            ckptName: ckpt,
+            width: SHOT_W,
+            height: SHOT_H,
+            steps: 20,
+            cfg: 7,
+            sampler: "euler",
+            scheduler: "normal",
+          });
+          await trackImage(shot.id, res);
+          return;
+        } catch (e) {
+          // 该 worker 无 ip-adapter 模型等 → 友好提示,降级到普通 txt2img,不崩
+          const why = (e as Error).message;
+          setError(`「${refChar.name.trim()}」人物一致性出图失败(${why}),已降级为普通出图`);
+        }
+      }
+
       const res = await generateTxt2img({
         positive: prompt,
         negative,
@@ -185,7 +254,7 @@ export function ManjuStudio() {
       });
       await trackImage(shot.id, res);
     },
-    [ckpt, patchShot],
+    [ckpt, chars, patchShot],
   );
 
   // 单镜转视频:把缩略图取回 → 上传到 worker → generateVideo
@@ -330,9 +399,75 @@ export function ManjuStudio() {
   }, [assembling, shots, withSubs, transition, bgmUrl]);
 
   const addChar = () => setChars((prev) => [...prev, { name: "", desc: "" }]);
-  const patchChar = (i: number, patch: Partial<CharRow>) =>
-    setChars((prev) => prev.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
+  const patchChar = (i: number, patch: Partial<CharRow>) => patchCharAt(i, patch);
   const removeChar = (i: number) => setChars((prev) => prev.filter((_, idx) => idx !== i));
+
+  // 用角色设定 txt2img 出一张肖像作参考图;完成后把 filename + worker 存到该角色。
+  const generateCharRef = useCallback(
+    async (i: number) => {
+      if (refBusy) return;
+      const c = chars[i];
+      const desc = c?.desc.trim();
+      if (!c || !desc) {
+        patchCharAt(i, { refStatus: "error", refError: "先填角色外貌设定" });
+        return;
+      }
+      setRefBusy(true);
+      patchCharAt(i, { refStatus: "imaging", refError: undefined });
+      try {
+        const positive = `character reference sheet, portrait, ${desc}, ${style.trim()}`;
+        const res = await generateTxt2img({
+          positive,
+          negative: NEGATIVE,
+          ckpt_name: ckpt,
+          width: REF_W,
+          height: REF_H,
+          steps: 24,
+          cfg: 7,
+          sampler: "euler",
+          scheduler: "normal",
+          batch_size: 1,
+        });
+        const filename = await trackRefFilename(res);
+        patchCharAt(i, {
+          refImage: filename,
+          refWorker: res.worker,
+          refStatus: "idle",
+          refError: undefined,
+        });
+      } catch (e) {
+        patchCharAt(i, { refStatus: "error", refError: (e as Error).message });
+      } finally {
+        setRefBusy(false);
+      }
+    },
+    // trackRefFilename 为稳定闭包(仅用 esRef + jobEventsUrl),不入依赖
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [refBusy, chars, style, ckpt, patchCharAt],
+  );
+
+  // 上传一张参考图(IPAdapter 用):存 filename + worker 到该角色。
+  const uploadCharRef = useCallback(
+    async (i: number, file: File) => {
+      if (refBusy) return;
+      setRefBusy(true);
+      patchCharAt(i, { refStatus: "imaging", refError: undefined });
+      try {
+        const up = await uploadImage(file, "manju-ref");
+        patchCharAt(i, {
+          refImage: up.filename,
+          refWorker: up.worker,
+          refStatus: "idle",
+          refError: undefined,
+        });
+      } catch (e) {
+        patchCharAt(i, { refStatus: "error", refError: (e as Error).message });
+      } finally {
+        setRefBusy(false);
+      }
+    },
+    [refBusy, patchCharAt],
+  );
 
   const selected = shots.find((s) => s.id === selectedId) ?? null;
   const selectedIndex = selected ? shots.findIndex((s) => s.id === selected.id) : -1;
@@ -458,25 +593,86 @@ export function ManjuStudio() {
                   </button>
                 </label>
                 {chars.length === 0 && (
-                  <p className="manju-setup-hint">可选。登记后分镜会按角色分配镜头(M2 起做角色一致性)。</p>
+                  <p className="manju-setup-hint">
+                    可选。给角色生成 / 上传一张参考图,出场镜头将走 IPAdapter 保持人物一致。
+                  </p>
                 )}
-                {chars.map((c, i) => (
-                  <div className="manju-char-row" key={i}>
-                    <input
-                      placeholder="名字"
-                      value={c.name}
-                      onChange={(e) => patchChar(i, { name: e.target.value })}
-                    />
-                    <input
-                      placeholder="外貌 / 设定(英文更利于出图)"
-                      value={c.desc}
-                      onChange={(e) => patchChar(i, { desc: e.target.value })}
-                    />
-                    <button type="button" className="manju-char-del" onClick={() => removeChar(i)}>
-                      ×
-                    </button>
-                  </div>
-                ))}
+                {chars.map((c, i) => {
+                  const refImaging = c.refStatus === "imaging";
+                  const canRef = !!c.desc.trim() && !refBusy && !refImaging;
+                  return (
+                    <div className="manju-char-card" key={i}>
+                      <div className="manju-char-row">
+                        {/* 参考图缩略 / 占位:点击占位即生成 */}
+                        <button
+                          type="button"
+                          className={`manju-char-ref-thumb${c.refImage ? " has-ref" : ""}`}
+                          disabled={!canRef}
+                          aria-busy={refImaging}
+                          title={c.refImage ? "重新生成参考图" : "用角色设定生成参考图"}
+                          onClick={() => void generateCharRef(i)}
+                        >
+                          {c.refImage ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={imageUrl(c.refImage)} alt={`${c.name || "角色"} 参考图`} />
+                          ) : refImaging ? (
+                            <span className="manju-char-ref-spin" aria-hidden="true" />
+                          ) : (
+                            <span className="manju-char-ref-add" aria-hidden="true">
+                              ✦
+                            </span>
+                          )}
+                        </button>
+                        <input
+                          placeholder="名字"
+                          value={c.name}
+                          onChange={(e) => patchChar(i, { name: e.target.value })}
+                        />
+                        <input
+                          placeholder="外貌 / 设定(英文更利于出图)"
+                          value={c.desc}
+                          onChange={(e) => patchChar(i, { desc: e.target.value })}
+                        />
+                        <button
+                          type="button"
+                          className="manju-char-del"
+                          onClick={() => removeChar(i)}
+                        >
+                          ×
+                        </button>
+                      </div>
+                      <div className="manju-char-ref-tools">
+                        <button
+                          type="button"
+                          className="manju-char-ref-btn"
+                          disabled={!canRef}
+                          onClick={() => void generateCharRef(i)}
+                        >
+                          {refImaging ? "生成参考图中…" : c.refImage ? "↻ 重生成参考图" : "✦ 生成参考图"}
+                        </button>
+                        <label className="manju-char-ref-upload">
+                          上传参考图
+                          <input
+                            type="file"
+                            accept="image/*"
+                            disabled={refBusy || refImaging}
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) void uploadCharRef(i, f);
+                              e.target.value = "";
+                            }}
+                          />
+                        </label>
+                        {c.refImage && !refImaging && (
+                          <span className="manju-char-ref-ok">✓ 一致性已就绪</span>
+                        )}
+                        {c.refStatus === "error" && c.refError && (
+                          <span className="manju-char-ref-err">⚠ {c.refError}</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
               {models && models.checkpoints.length > 0 && (
