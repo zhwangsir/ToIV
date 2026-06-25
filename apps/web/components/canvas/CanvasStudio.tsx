@@ -45,6 +45,7 @@ import { Img2imgNode } from "./nodes/Img2imgNode";
 import { ControlNetNode } from "./nodes/ControlNetNode";
 import { IPAdapterNode } from "./nodes/IPAdapterNode";
 import { UpscaleNode } from "./nodes/UpscaleNode";
+import { FaceDetailerNode } from "./nodes/FaceDetailerNode";
 import { topoOrder, upstreamOf } from "./pipeline";
 import {
   archiveAsset,
@@ -70,6 +71,7 @@ import {
   type CanvasNodeType,
   type CharacterNodeData,
   type ControlNetNodeData,
+  type FaceDetailerNodeData,
   type ImageNodeData,
   type Img2imgNodeData,
   type IPAdapterNodeData,
@@ -110,6 +112,7 @@ const NODE_TYPES: NodeTypes = {
   controlnet: ControlNetNode,
   ipadapter: IPAdapterNode,
   upscale: UpscaleNode,
+  facedetailer: FaceDetailerNode,
 };
 
 /** 起手示例:文本 → 图片,降低空画布的上手门槛。 */
@@ -271,7 +274,8 @@ function Inner() {
           type === "character" ||
           type === "img2img" ||
           type === "controlnet" ||
-          type === "ipadapter") &&
+          type === "ipadapter" ||
+          type === "facedetailer") &&
         ckpts.length &&
         !(data as { ckpt?: string }).ckpt
       ) {
@@ -512,6 +516,24 @@ function Inner() {
         }
         if (!ref) return { error: "请连一个图片 / 角色节点作放大输入" };
         return { kind: "upscale", image: ref.filename, worker: ref.worker, scale: data.scale };
+      }
+
+      // 脸修复:仅需上游图片;本地 prompt 作脸部正向词,底模可选。
+      if (type === "facedetailer") {
+        const data = d as unknown as FaceDetailerNodeData;
+        let ref = upstreamRef;
+        if (!ref && upstreamImageUrl) {
+          ref = await uploadFromUrl(upstreamImageUrl, "facedetailer");
+        }
+        if (!ref) return { error: "请连一个图片 / 角色节点作脸修复输入" };
+        return {
+          kind: "facedetailer",
+          image: ref.filename,
+          worker: ref.worker,
+          ckpt: data.ckpt || ckpts[0] || "",
+          positive: data.prompt || "",
+          denoise: data.denoise,
+        };
       }
 
       // ── v3 图像处理节点:均需上游图片(源图/控制图/参考图)──

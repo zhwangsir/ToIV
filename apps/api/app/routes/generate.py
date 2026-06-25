@@ -21,6 +21,12 @@ from app.workflows.controlnet import (
     build_controlnet_graph,
     controlnet_model_name,
 )
+from app.workflows.facedetailer import (
+    BBOX_MODELS,
+    SAM_MODELS,
+    FaceDetailerParams,
+    build_facedetailer_graph,
+)
 from app.workflows.img2img import Img2ImgParams, build_img2img_graph
 from app.workflows.lora import LoraSpec
 from app.workflows.model_profiles import is_nsfw
@@ -449,4 +455,75 @@ async def generate_upscale(
         "worker": client.base_url,
         "scale": req.scale,
         "model_name": req.model_name,
+    }
+
+
+class FaceDetailerRequest(BaseModel):
+    image: str = Field(min_length=1, max_length=512)  # 上传后得到的源图文件名
+    worker: str  # 源图所在 worker(同 img2img)
+    positive: str = Field(default="detailed face, sharp focus, high quality", max_length=2000)
+    negative: str = Field(default="blurry, lowres, deformed, bad anatomy", max_length=2000)
+    ckpt_name: str | None = None
+    denoise: float = Field(default=0.5, ge=0.1, le=1.0)
+    steps: int = Field(default=20, ge=1, le=150)
+    cfg: float = Field(default=8.0, ge=0.0, le=30.0)
+    seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
+
+
+@router.post("/generate/facedetailer")
+async def generate_facedetailer(
+    req: FaceDetailerRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """脸部修复:检测源图人脸 → 局部高清重绘。沿用 img2img 的 worker 锁定模式。
+
+    worker 须已装 bbox 检测模型(bbox/face_yolov8m.pt)+ sam_vit_b;本会话已装。
+    """
+    enforce_generation_rate_limit(user)
+    settings = get_settings()
+    client = resolve_worker(req.worker)  # 必须用源图所在的 worker
+    params = FaceDetailerParams(
+        image=req.image,
+        positive=req.positive,
+        negative=req.negative,
+        ckpt_name=req.ckpt_name or settings.default_ckpt,
+        denoise=req.denoise,
+        steps=req.steps,
+        cfg=req.cfg,
+        bbox_model=BBOX_MODELS[0],
+        sam_model=SAM_MODELS[0],
+        **({"seed": req.seed} if req.seed is not None else {}),
+    )
+    # R18 硬门槛:成人底模须已开 R18,否则 403;并据此给作品打 nsfw 标。
+    job_nsfw = _gate_nsfw_ckpt(params.ckpt_name, user)
+    graph = build_facedetailer_graph(params)
+    client_id = uuid.uuid4().hex
+    try:
+        prompt_id = await client.queue_prompt(graph, client_id)
+    except ComfyUIError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+    session.add(
+        Job(
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            prompt_id=prompt_id,
+            worker=client.base_url,
+            kind="facedetailer",
+            status="queued",
+            prompt=params.positive,
+            seed=params.seed,
+            nsfw=job_nsfw,
+        )
+    )
+    session.commit()
+
+    spawn_tracker(client, prompt_id)
+
+    return {
+        "prompt_id": prompt_id,
+        "client_id": client_id,
+        "worker": client.base_url,
+        "seed": params.seed,
     }

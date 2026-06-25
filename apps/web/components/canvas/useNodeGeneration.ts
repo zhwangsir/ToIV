@@ -6,6 +6,7 @@ import {
   generate3D,
   generateAudio,
   generateControlNet,
+  generateFaceDetailer,
   generateImg2img,
   generateUpscale,
   generateTxt2img,
@@ -51,6 +52,14 @@ export type NodeDispatch =
       image: string;
       worker: string;
       scale: number;
+    }
+  | {
+      kind: "facedetailer";
+      image: string;
+      worker: string;
+      ckpt: string;
+      positive: string;
+      denoise: number;
     }
   | { kind: "txt2video"; positive: string; width: number; height: number; length: number; fps: number }
   | {
@@ -133,6 +142,14 @@ async function submit(d: NodeDispatch): Promise<GenerateResponse> {
       });
     case "upscale":
       return generateUpscale({ image: d.image, worker: d.worker, scale: d.scale });
+    case "facedetailer":
+      return generateFaceDetailer({
+        image: d.image,
+        worker: d.worker,
+        ckptName: d.ckpt,
+        denoise: d.denoise,
+        ...(d.positive ? { positive: d.positive } : {}),
+      });
     case "txt2video":
       return generateTxt2video({
         positive: d.positive || "cinematic motion, smooth camera",

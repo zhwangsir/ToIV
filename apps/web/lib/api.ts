@@ -385,6 +385,35 @@ export async function generateUpscale(params: UpscaleGenParams): Promise<Generat
   return res.json();
 }
 
+export interface FaceFixParams {
+  image: string; // 已上传的源图文件名
+  worker: string;
+  positive?: string;
+  negative?: string;
+  ckptName?: string;
+  denoise?: number;
+}
+
+export async function generateFaceDetailer(params: FaceFixParams): Promise<GenerateResponse> {
+  const res = await fetch(`${API_BASE}/api/generate/facedetailer`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({
+      image: params.image,
+      worker: params.worker,
+      ...(params.positive ? { positive: params.positive } : {}),
+      ...(params.negative ? { negative: params.negative } : {}),
+      ...(params.ckptName ? { ckpt_name: params.ckptName } : {}),
+      ...(params.denoise != null ? { denoise: params.denoise } : {}),
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `脸部修复请求失败 (${res.status})`);
+  }
+  return res.json();
+}
+
 export interface InstallModelParams {
   type: string;
   url?: string;

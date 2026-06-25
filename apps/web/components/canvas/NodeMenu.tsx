@@ -15,7 +15,10 @@ interface NodeMenuProps {
 /** 节点分类:基础 / 图像处理 / 结构化。右键或双击空白弹出。 */
 const CATEGORIES: { title: string; items: CanvasNodeType[] }[] = [
   { title: "基础", items: ["text", "image", "video", "audio"] },
-  { title: "图像处理", items: ["img2img", "controlnet", "ipadapter", "upscale"] },
+  {
+    title: "图像处理",
+    items: ["img2img", "controlnet", "ipadapter", "upscale", "facedetailer"],
+  },
   { title: "结构化", items: ["storyboard", "character", "lighting", "threed"] },
 ];
 
