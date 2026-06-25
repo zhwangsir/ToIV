@@ -314,6 +314,129 @@ export async function generateTxt2video(
   return res.json();
 }
 
+export interface ControlNetParams {
+  positive: string;
+  image: string; // 已上传的控制图文件名
+  worker: string; // 控制图所在 worker
+  controlType: string; // canny | depth | lineart | openpose
+  negative?: string;
+  ckptName?: string;
+  strength?: number;
+  startPercent?: number;
+  endPercent?: number;
+  steps?: number;
+  cfg?: number;
+  sampler?: string;
+  scheduler?: string;
+  seed?: number | null;
+}
+
+/** ControlNet 出图。契约:POST /api/generate/controlnet。 */
+export async function generateControlNet(params: ControlNetParams): Promise<GenerateResponse> {
+  const res = await fetch(`${API_BASE}/api/generate/controlnet`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({
+      positive: params.positive,
+      image: params.image,
+      worker: params.worker,
+      control_type: params.controlType,
+      negative: params.negative ?? "",
+      ckpt_name: params.ckptName,
+      strength: params.strength,
+      start_percent: params.startPercent,
+      end_percent: params.endPercent,
+      steps: params.steps,
+      cfg: params.cfg,
+      sampler: params.sampler,
+      scheduler: params.scheduler,
+      ...(params.seed != null ? { seed: params.seed } : {}),
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `ControlNet 生成请求失败 (${res.status})`);
+  }
+  return res.json();
+}
+
+export interface InstallModelParams {
+  type: string;
+  url?: string;
+  source?: string; // civitai | huggingface
+  id?: string;
+  filename?: string;
+  name?: string;
+}
+
+export interface InstallModelResult {
+  accepted: boolean;
+  endpoint?: string;
+  worker?: string;
+  message?: string;
+  from_catalog?: boolean;
+}
+
+/** 把模型装到 ComfyUI 集群。契约:POST /api/marketplace/install。 */
+export async function installModel(params: InstallModelParams): Promise<InstallModelResult> {
+  const res = await fetch(`${API_BASE}/api/marketplace/install`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `模型安装请求失败 (${res.status})`);
+  }
+  return res.json();
+}
+
+export interface ManjuShotParams {
+  positive: string;
+  worker: string;
+  characterRef?: string; // 角色参考图文件名(IPAdapter 人物一致);缺省走普通 txt2img
+  negative?: string;
+  ckptName?: string;
+  preset?: string;
+  weight?: number;
+  width?: number;
+  height?: number;
+  steps?: number;
+  cfg?: number;
+  sampler?: string;
+  scheduler?: string;
+  seed?: number | null;
+}
+
+/** 漫剧单镜出图(可带角色参考图走 IPAdapter)。契约:POST /api/manju/shot。 */
+export async function renderManjuShot(params: ManjuShotParams): Promise<GenerateResponse> {
+  const res = await fetch(`${API_BASE}/api/manju/shot`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({
+      positive: params.positive,
+      worker: params.worker,
+      character_ref: params.characterRef,
+      negative: params.negative,
+      ckpt_name: params.ckptName,
+      preset: params.preset,
+      weight: params.weight,
+      width: params.width,
+      height: params.height,
+      steps: params.steps,
+      cfg: params.cfg,
+      sampler: params.sampler,
+      scheduler: params.scheduler,
+      ...(params.seed != null ? { seed: params.seed } : {}),
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `漫剧出图请求失败 (${res.status})`);
+  }
+  return res.json();
+}
+
 export interface Gen3DParams {
   image: string;
   worker: string;
