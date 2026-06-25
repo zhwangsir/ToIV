@@ -1,0 +1,85 @@
+/* React Flow 画布表面:容器台面 · 连线 · 控制条 · 小地图。
+   全部限定在 .cv-flow 下,覆盖 react-flow 默认皮肤为暗房品紫风。 */
+
+/* ── React Flow 画布容器:暗房沉底台面 ── */
+.cv-flow {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+.cv-flow .react-flow {
+  background: var(--bg-sunken);
+}
+/* 极淡顶部余晖,克制非赛博;点阵网格由 react-flow__background path 着色 */
+.cv-flow .react-flow__background {
+  background:
+    radial-gradient(140% 100% at 50% -10%, var(--accent-wash), transparent 55%);
+}
+.cv-flow .react-flow__background path,
+.cv-flow .react-flow__background circle {
+  color: var(--hairline);
+}
+
+/* 连线:品紫;运行中流动虚线,完成实线 */
+.cv-flow .react-flow__edge-path {
+  stroke: var(--accent-line);
+  stroke-width: 1.75;
+}
+.cv-flow .react-flow__edge.selected .react-flow__edge-path,
+.cv-flow .react-flow__edge:hover .react-flow__edge-path {
+  stroke: var(--accent);
+  stroke-width: 2.25;
+}
+.cv-flow .react-flow__edge.animated .react-flow__edge-path {
+  stroke: var(--accent);
+  stroke-dasharray: 6 5;
+  animation: cv-dash 0.7s linear infinite;
+}
+.cv-flow .react-flow__connection-path {
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-dasharray: 6 5;
+}
+
+/* 控制条 + 小地图:品紫极简玻璃 */
+.cv-flow .react-flow__controls.cv-controls {
+  background: color-mix(in oklab, var(--bg-2) 72%, transparent);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--hairline-2);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md), var(--shadow-edge);
+  overflow: hidden;
+}
+.cv-flow .react-flow__controls.cv-controls button {
+  background: transparent;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--ink-soft);
+  fill: currentColor;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.cv-flow .react-flow__controls.cv-controls button:hover {
+  background: var(--accent-quiet);
+  color: var(--accent);
+}
+.cv-flow .react-flow__controls.cv-controls button:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: -2px;
+}
+.cv-flow .react-flow__controls.cv-controls button svg {
+  fill: currentColor;
+}
+.cv-flow .react-flow__minimap.cv-minimap {
+  background: color-mix(in oklab, var(--bg-1) 80%, transparent);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--hairline-2);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md), var(--shadow-edge);
+}
+.cv-flow .react-flow__minimap-node {
+  fill: var(--accent-deep);
+  stroke: var(--accent-line);
+  stroke-width: 1;
+}
+.cv-flow .react-flow__minimap-mask {
+  fill: var(--bg-sunken);
+}

@@ -1,0 +1,62 @@
+/* 画布动效:关键帧 + reduced-motion 降级。最后引入,统一收口所有动画。 */
+
+@keyframes cv-dash {
+  to {
+    stroke-dashoffset: -10;
+  }
+}
+@keyframes cv-indeterminate {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+@keyframes cv-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes cv-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cv-node,
+  .cv-btn,
+  .cv-gen,
+  .cv-handle,
+  .cv-output,
+  .cv-media,
+  .cv-switch__track,
+  .cv-switch__track::after,
+  .cv-archive,
+  .cv-wf__op {
+    transition: none;
+  }
+  .cv-flow .react-flow__edge.animated .react-flow__edge-path {
+    animation: none;
+  }
+  .cv-progress.is-indeterminate .cv-progress__fill {
+    animation: none;
+    width: 100%;
+    opacity: 0.6;
+  }
+  .cv-output,
+  .cv-media,
+  .cv-menu,
+  .cv-wf__panel {
+    animation: none;
+  }
+}

@@ -1,0 +1,122 @@
+/* ──────────────────────────────────────────────────────────
+   创作画布 — Studio Noir 暗房 · 媒体优先专业工作台。
+   全部走平台令牌(--accent 品紫 / --bg-* / --hairline / --font-mono)
+   自动适配暗 / 亮主题。动效只走 transform / opacity;reduced-motion 降级。
+   设计意图:产物画面是节点主角,参数/标题收成细带;台面克制暗房点阵。
+
+   样式按模块拆分,从 CanvasStudio.tsx 按源码顺序引入:
+   base → flow → node → fields → artifacts → v2 → motion。
+   本文件:工作台外壳 + 顶部工具条 + 通用按钮。
+   ────────────────────────────────────────────────────────── */
+
+.cv-studio {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 64px);
+  min-height: 540px;
+}
+
+/* ── 顶部工具条:收窄精致,标题与动作单行对齐 ── */
+.cv-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: 0.6rem var(--space-5);
+  border-bottom: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--bg-1) 78%, transparent);
+  backdrop-filter: saturate(1.1) blur(8px);
+}
+.cv-toolbar__lead {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  min-width: 0;
+}
+.cv-toolbar__kicker {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 600;
+}
+.cv-toolbar__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.05rem, 0.9rem + 0.7vw, 1.35rem);
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.05;
+  color: var(--ink);
+}
+.cv-toolbar__hint {
+  font-size: 0.72rem;
+  color: var(--ink-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cv-toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.cv-toolbar__count {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cv-toolbar__saved {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--accent-soft);
+  animation: cv-fade 0.24s var(--ease);
+}
+
+.cv-btn {
+  appearance: none;
+  border: 1px solid var(--hairline-2);
+  background: var(--glass);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 0.4rem 0.8rem;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition:
+    border-color var(--dur) var(--ease),
+    color var(--dur) var(--ease),
+    transform var(--dur) var(--ease),
+    background var(--dur) var(--ease);
+}
+.cv-btn:hover {
+  color: var(--ink);
+  border-color: var(--hairline-strong);
+  background: var(--glass-2);
+  transform: translateY(-1px);
+}
+.cv-btn:active {
+  transform: translateY(0);
+}
+.cv-btn:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 2px;
+}
+.cv-btn--primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+  border-color: var(--accent-line);
+  color: var(--accent-ink);
+}
+.cv-btn--primary:hover {
+  background: linear-gradient(135deg, var(--accent-hover), var(--accent));
+  color: var(--accent-ink);
+}
+.cv-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}

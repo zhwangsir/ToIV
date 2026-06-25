@@ -1,0 +1,164 @@
+/* 节点产物与画布交互层:媒体优先产物 · 控件型产物 · 端口 Handle · 双击新建菜单。 */
+
+/* ── 媒体优先产物:铺满节点宽度,画面是节点主角 ──
+   .cv-media 用负边距溢出 body padding,边到边贴合节点内沿。 */
+.cv-media {
+  margin: 0.1rem -0.6rem 0;
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+  background:
+    repeating-conic-gradient(
+        var(--bg-sunken) 0% 25%,
+        var(--bg-0) 0% 50%
+      )
+      0 0 / 18px 18px,
+    var(--bg-sunken);
+  overflow: hidden;
+  animation: cv-pop 0.28s var(--ease-expo);
+}
+.cv-media__el {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 360px;
+  object-fit: contain;
+}
+.cv-media--video .cv-media__el {
+  background: var(--bg-sunken);
+}
+/* 空产物:低调暗格占位,不喧宾夺主 */
+.cv-media--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 92px;
+  background:
+    radial-gradient(120% 120% at 50% 0%, var(--glass), transparent 70%),
+    var(--bg-sunken);
+}
+.cv-media__hint {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-faint);
+}
+
+/* ── 控件型产物(音频播放器 / 3D 下载):紧凑卡条,非大幅画面 ── */
+.cv-output {
+  border: 1px solid var(--hairline-2);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-0);
+  animation: cv-pop 0.28s var(--ease-expo);
+}
+.cv-output--audio {
+  padding: 0.5rem;
+  background: var(--bg-sunken);
+}
+.cv-output--audio audio {
+  width: 100%;
+}
+
+/* ── 端口 Handle:工程精度感,品紫可连点 ── */
+.cv-flow .react-flow__handle.cv-handle {
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--bg-1);
+  background: var(--ink-faint);
+  box-shadow: 0 0 0 1px var(--hairline-2);
+  transition:
+    background var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
+}
+.cv-flow .react-flow__handle.cv-handle:hover {
+  transform: scale(1.3);
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-wash);
+}
+.cv-flow .react-flow__handle.cv-handle--text {
+  background: var(--v4);
+}
+.cv-flow .react-flow__handle.cv-handle--image {
+  background: var(--accent);
+}
+.cv-flow .react-flow__handle.cv-handle--video {
+  background: var(--accent-hover);
+}
+/* 结构化节点产物 handle 颜色复用语义色(输入端口) */
+.cv-flow .react-flow__handle.cv-handle--in {
+  background: var(--accent-soft);
+}
+/* 连线进行中:目标端口品紫高亮放大,可连点提示 */
+.cv-flow .react-flow__handle-connecting {
+  background: var(--accent) !important;
+  box-shadow: 0 0 0 5px var(--accent-wash) !important;
+}
+.cv-flow .react-flow__handle-valid {
+  background: var(--accent) !important;
+  box-shadow: 0 0 0 5px var(--accent-quiet) !important;
+}
+
+/* ── 双击新建菜单 ── */
+.cv-menu {
+  position: absolute;
+  z-index: 20;
+  min-width: 200px;
+  background: var(--bg-2);
+  border: 1px solid var(--hairline-2);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  padding: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  animation: cv-pop 0.18s var(--ease-expo);
+}
+.cv-menu__head {
+  font-size: 0.6rem;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  padding: 0.25rem 0.5rem;
+}
+.cv-menu__head--sub {
+  border-top: 1px solid var(--hairline);
+  margin-top: 0.2rem;
+  padding-top: 0.4rem;
+}
+.cv-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  padding: 0.45rem 0.5rem;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition: background var(--dur) var(--ease);
+}
+.cv-menu__item:hover {
+  background: var(--bg-3);
+}
+.cv-menu__ico {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+.cv-menu__txt {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.cv-menu__txt strong {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.cv-menu__txt em {
+  font-size: 0.66rem;
+  font-style: normal;
+  color: var(--ink-faint);
+}

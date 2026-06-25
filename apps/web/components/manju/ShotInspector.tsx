@@ -1,8 +1,6 @@
 "use client";
 
-import { useState } from "react";
-
-import { optimizePrompt } from "@/lib/api";
+import { OptimizeButton } from "@/components/ui/OptimizeButton";
 
 import type { ShotCard } from "./types";
 
@@ -24,9 +22,6 @@ export function ShotInspector({
   onImage,
   onVideo,
 }: ShotInspectorProps) {
-  const [polishing, setPolishing] = useState(false);
-  const [polishErr, setPolishErr] = useState<string | null>(null);
-
   if (!shot) {
     return (
       <aside className="manju-inspector is-empty" aria-label="镜头属性">
@@ -37,24 +32,6 @@ export function ShotInspector({
       </aside>
     );
   }
-
-  // AI 润色:先判断画面内容,再回填针对性的正向 + 反向提示词(内容感知 optimize)
-  const polish = async () => {
-    const base = shot.description.trim();
-    if (polishing || !base) return;
-    setPolishing(true);
-    setPolishErr(null);
-    try {
-      const r = await optimizePrompt(base, "image");
-      onChange(shot.id, { description: r.optimized, negative: r.negative ?? undefined });
-    } catch (e) {
-      setPolishErr((e as Error).message);
-    } finally {
-      setPolishing(false);
-    }
-  };
-
-  const canPolish = !polishing && !!shot.description.trim();
 
   return (
     <aside className="manju-inspector" aria-label={`镜 ${index + 1} 属性`}>
@@ -81,25 +58,13 @@ export function ShotInspector({
       <div className="field">
         <label htmlFor="manju-desc">
           <span>出图提示词(英文)</span>
-          <button
-            type="button"
-            className={`manju-polish-btn${polishing ? " is-loading" : ""}`}
-            disabled={!canPolish}
-            aria-busy={polishing}
-            onClick={polish}
-            title="AI 先判断画面内容,再给出针对性的正向 + 反向提示词"
-          >
-            {polishing ? (
-              "润色中"
-            ) : (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path d="M12 2l1.7 5.5L19.2 9l-5.5 1.5L12 16l-1.7-5.5L4.8 9l5.5-1.5z" />
-                </svg>
-                AI 润色
-              </span>
-            )}
-          </button>
+          <OptimizeButton
+            value={shot.description}
+            kind="image"
+            disabled={busy}
+            onResult={(v) => onChange(shot.id, { description: v })}
+            onNegative={(n) => onChange(shot.id, { negative: n })}
+          />
         </label>
         <textarea
           id="manju-desc"
@@ -108,8 +73,6 @@ export function ShotInspector({
           onChange={(e) => onChange(shot.id, { description: e.target.value })}
         />
       </div>
-
-      {polishErr && <p className="manju-shot-err">⚠ {polishErr}</p>}
 
       {shot.negative !== undefined && (
         <div className="field">

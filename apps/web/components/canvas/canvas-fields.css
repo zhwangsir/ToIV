@@ -1,0 +1,110 @@
+/* 节点内控件:文本域 · 行/字段 · 下拉 · 标签片 chip · 嵌入 Slider。 */
+
+/* ── 控件 ── */
+.cv-text {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--hairline-2);
+  background: var(--bg-0);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  padding: 0.5rem 0.6rem;
+  border-radius: var(--radius-xs);
+  transition: border-color var(--dur) var(--ease);
+}
+.cv-text:focus {
+  outline: none;
+  border-color: var(--accent-line);
+}
+.cv-text--sm {
+  font-size: 0.74rem;
+}
+
+.cv-row {
+  display: flex;
+  gap: var(--space-2);
+}
+.cv-row--end {
+  justify-content: flex-end;
+}
+
+.cv-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.cv-label {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.cv-select {
+  appearance: none;
+  width: 100%;
+  border: 1px solid var(--hairline-2);
+  background: var(--bg-0)
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path d='M2 3.5L5 6.5L8 3.5' stroke='%23ecaa56' stroke-width='1.4' fill='none' stroke-linecap='round'/></svg>")
+    no-repeat right 0.55rem center;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.74rem;
+  padding: 0.42rem 1.6rem 0.42rem 0.55rem;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+}
+.cv-select:focus {
+  outline: none;
+  border-color: var(--accent-line);
+}
+
+.cv-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.cv-chip {
+  appearance: none;
+  border: 1px solid var(--hairline-2);
+  background: var(--bg-0);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.26rem 0.55rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    border-color var(--dur) var(--ease),
+    color var(--dur) var(--ease),
+    background var(--dur) var(--ease);
+}
+.cv-chip:hover {
+  color: var(--ink);
+  border-color: var(--hairline-strong);
+}
+.cv-chip:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 2px;
+}
+.cv-chip.active {
+  background: var(--accent-quiet);
+  border-color: var(--accent-line);
+  color: var(--accent-soft);
+}
+
+/* 紧凑化嵌入的 Slider(复用平台组件,缩小字号节奏) */
+.cv-slider-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.cv-slider-wrap .field.slider-field {
+  margin: 0;
+}
+.cv-slider-wrap .slider-field label {
+  font-size: 0.62rem;
+}

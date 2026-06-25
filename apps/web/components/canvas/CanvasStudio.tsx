@@ -80,7 +80,14 @@ import {
   type RunReporter,
 } from "./useNodeGeneration";
 
-import "./canvas.css";
+// 画布样式按模块拆分,按源码顺序引入以保持层叠次序不变。
+import "./canvas-base.css";
+import "./canvas-flow.css";
+import "./canvas-node.css";
+import "./canvas-fields.css";
+import "./canvas-artifacts.css";
+import "./canvas-v2.css";
+import "./canvas-motion.css";
 
 const NODE_TYPES: NodeTypes = {
   text: TextNode,
