@@ -76,6 +76,28 @@
   animation: cv-fade 0.24s var(--ease);
 }
 
+/* 窄屏:工具条换行,标题不逐字竖排,动作另起一行(修移动端挤压)*/
+@media (max-width: 560px) {
+  .cv-toolbar {
+    flex-wrap: wrap;
+    gap: 0.5rem var(--space-3);
+    padding: 0.55rem var(--space-3);
+  }
+  .cv-toolbar__lead {
+    flex: 1 1 100%;
+  }
+  .cv-toolbar__title {
+    white-space: nowrap;
+  }
+  .cv-toolbar__hint {
+    display: none;
+  }
+  .cv-toolbar__actions {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+  }
+}
+
 .cv-btn {
   appearance: none;
   border: 1px solid var(--hairline-2);
