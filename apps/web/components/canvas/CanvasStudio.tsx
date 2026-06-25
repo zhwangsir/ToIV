@@ -48,6 +48,7 @@ import { UpscaleNode } from "./nodes/UpscaleNode";
 import { FaceDetailerNode } from "./nodes/FaceDetailerNode";
 import { RemoveBgNode } from "./nodes/RemoveBgNode";
 import { InpaintNode } from "./nodes/InpaintNode";
+import { RawFlowNode } from "./nodes/RawFlowNode";
 import { topoOrder, upstreamOf } from "./pipeline";
 import {
   archiveAsset,
@@ -78,6 +79,7 @@ import {
   type Img2imgNodeData,
   type InpaintNodeData,
   type IPAdapterNodeData,
+  type RawFlowNodeData,
   type RemoveBgNodeData,
   type LightingNodeData,
   type NodeRunState,
@@ -119,6 +121,7 @@ const NODE_TYPES: NodeTypes = {
   facedetailer: FaceDetailerNode,
   removebg: RemoveBgNode,
   inpaint: InpaintNode,
+  rawflow: RawFlowNode,
 };
 
 /** 起手示例:文本 → 图片,降低空画布的上手门槛。 */
@@ -625,6 +628,23 @@ function Inner() {
           worker: ref.worker,
           weight: data.weight,
         };
+      }
+
+      // 工作流:解析粘贴的 ComfyUI API-format JSON,自包含运行(worker 由后端自动选)。
+      if (type === "rawflow") {
+        const data = d as unknown as RawFlowNodeData;
+        const text = (data.json || "").trim();
+        if (!text) return { error: "请粘贴 ComfyUI API 格式工作流 JSON" };
+        let graph: Record<string, unknown>;
+        try {
+          graph = JSON.parse(text);
+        } catch {
+          return { error: "JSON 解析失败,请检查格式(需 API 格式,非前端导出格式)" };
+        }
+        if (!graph || typeof graph !== "object" || Array.isArray(graph) || !Object.keys(graph).length) {
+          return { error: "工作流为空或格式不对(应是 {节点id: {class_type, inputs}})" };
+        }
+        return { kind: "raw", graph };
       }
 
       return null; // 文本 / 分镜 / 打光节点不走通用生成

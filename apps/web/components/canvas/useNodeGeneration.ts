@@ -9,6 +9,7 @@ import {
   generateFaceDetailer,
   generateImg2img,
   generateInpaint,
+  generateRaw,
   generateRemoveBg,
   generateUpscale,
   generateTxt2img,
@@ -78,6 +79,7 @@ export type NodeDispatch =
       positive: string;
       denoise: number;
     }
+  | { kind: "raw"; graph: Record<string, unknown> }
   | { kind: "txt2video"; positive: string; width: number; height: number; length: number; fps: number }
   | {
       kind: "i2v";
@@ -178,6 +180,8 @@ async function submit(d: NodeDispatch): Promise<GenerateResponse> {
         positive: d.positive,
         denoise: d.denoise,
       });
+    case "raw":
+      return generateRaw({ graph: d.graph });
     case "txt2video":
       return generateTxt2video({
         positive: d.positive || "cinematic motion, smooth camera",

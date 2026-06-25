@@ -531,6 +531,86 @@ async def generate_facedetailer(
     }
 
 
+def _gate_raw_graph_nsfw(graph: dict, user: User) -> bool:
+    """扫描任意工作流图中的底模(ckpt_name),对 R18 底模套用与其它端点一致的硬门槛。
+
+    返回该图是否含成人向底模(供建档打标 Job.nsfw)。
+    """
+    any_nsfw = False
+    for node in graph.values():
+        if not isinstance(node, dict):
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        ckpt = inputs.get("ckpt_name")
+        if isinstance(ckpt, str) and is_nsfw(ckpt):
+            any_nsfw = True
+    if any_nsfw and not user.nsfw_enabled:
+        raise HTTPException(
+            status_code=403, detail="工作流含 R18 底模,请先在账号设置开启成人内容"
+        )
+    return any_nsfw
+
+
+class RawWorkflowRequest(BaseModel):
+    # ComfyUI API-format prompt 图(节点 id → {class_type, inputs});须含 SaveImage 类产物节点
+    graph: dict
+    worker: str | None = None  # 可选:指定 worker(图引用了某机上传的图时需要);否则自动选活机
+
+
+@router.post("/generate/raw")
+async def generate_raw(
+    req: RawWorkflowRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+    pool: WorkerPool = Depends(get_pool),
+):
+    """运行任意 ComfyUI 工作流(API-format JSON)。把整台 ComfyUI 直通给高级用户。
+
+    R18:扫描图中底模套用统一门槛。worker 未指定则自动选可达机(绕开掉线实例)。
+    图须自带 SaveImage 类节点,产物才能被追踪回取。
+    """
+    enforce_generation_rate_limit(user)
+    if not isinstance(req.graph, dict) or not req.graph:
+        raise HTTPException(status_code=422, detail="graph 必须是非空的 ComfyUI API 格式图")
+    if len(req.graph) > 400:
+        raise HTTPException(status_code=422, detail="工作流节点过多(>400)")
+    job_nsfw = _gate_raw_graph_nsfw(req.graph, user)
+    try:
+        client = resolve_worker(req.worker) if req.worker else await pool.pick()
+    except ComfyUIError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+    client_id = uuid.uuid4().hex
+    try:
+        prompt_id = await client.queue_prompt(req.graph, client_id)
+    except ComfyUIError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+    session.add(
+        Job(
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            prompt_id=prompt_id,
+            worker=client.base_url,
+            kind="raw",
+            status="queued",
+            prompt="raw workflow",
+            seed=None,
+            nsfw=job_nsfw,
+        )
+    )
+    session.commit()
+
+    spawn_tracker(client, prompt_id)
+
+    return {
+        "prompt_id": prompt_id,
+        "client_id": client_id,
+        "worker": client.base_url,
+    }
+
+
 class RemoveBgRequest(BaseModel):
     image: str = Field(min_length=1, max_length=512)  # 上传后得到的源图文件名
     worker: str  # 源图所在 worker(同 img2img)

@@ -28,6 +28,7 @@ const CATEGORIES: { title: string; items: CanvasNodeType[] }[] = [
     ],
   },
   { title: "结构化", items: ["storyboard", "character", "lighting", "threed"] },
+  { title: "高级", items: ["rawflow"] },
 ];
 
 const ALL_TYPES: CanvasNodeType[] = CATEGORIES.flatMap((c) => c.items);

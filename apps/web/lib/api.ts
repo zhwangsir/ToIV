@@ -468,6 +468,27 @@ export async function generateInpaint(params: InpaintGenParams): Promise<Generat
   return res.json();
 }
 
+export interface RawWorkflowParams {
+  graph: Record<string, unknown>; // ComfyUI API-format prompt 图
+  worker?: string;
+}
+
+export async function generateRaw(params: RawWorkflowParams): Promise<GenerateResponse> {
+  const res = await fetch(`${API_BASE}/api/generate/raw`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({
+      graph: params.graph,
+      ...(params.worker ? { worker: params.worker } : {}),
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `工作流运行请求失败 (${res.status})`);
+  }
+  return res.json();
+}
+
 export interface InstallModelParams {
   type: string;
   url?: string;
