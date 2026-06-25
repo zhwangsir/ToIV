@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   generate3D,
+  generateControlNet,
   generateImg2img,
   generateTxt2img,
   generateTxt2video,
@@ -24,6 +25,7 @@ import type {
   WanI2VGenParams,
   Gen3DParams,
   AudioGenParams,
+  ControlNetParams,
 } from "@/lib/api";
 
 import { type ResultItem, type ResultKind, type ResultMeta, nextId } from "./types";
@@ -32,6 +34,7 @@ import { type ResultItem, type ResultKind, type ResultMeta, nextId } from "./typ
 export type Dispatch =
   | { type: "txt2img"; params: Txt2ImgParams; prompt: string; meta: ResultMeta }
   | { type: "img2img"; params: Img2ImgGenParams; prompt: string; meta: ResultMeta }
+  | { type: "controlnet"; params: ControlNetParams; prompt: string; meta: ResultMeta }
   | { type: "txt2video"; params: Txt2VideoParams; prompt: string }
   | { type: "video"; params: WanI2VGenParams; prompt: string }
   | { type: "model3d"; params: Gen3DParams; prompt: string }
@@ -52,6 +55,8 @@ async function submit(d: Dispatch): Promise<GenerateResponse> {
       return generateTxt2img(d.params);
     case "img2img":
       return generateImg2img(d.params);
+    case "controlnet":
+      return generateControlNet(d.params);
     case "txt2video":
       return generateTxt2video(d.params);
     case "video":
@@ -64,7 +69,7 @@ async function submit(d: Dispatch): Promise<GenerateResponse> {
 }
 
 function kindOf(d: Dispatch): ResultKind {
-  if (d.type === "txt2img" || d.type === "img2img") return "image";
+  if (d.type === "txt2img" || d.type === "img2img" || d.type === "controlnet") return "image";
   if (d.type === "txt2video" || d.type === "video") return "video";
   if (d.type === "model3d") return "model3d";
   return "audio";

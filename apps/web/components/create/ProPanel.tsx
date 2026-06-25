@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
 import { RangeSlider, type RangeValue } from "@/components/ui/RangeSlider";
 import { Slider } from "@/components/ui/Slider";
+import { uploadImage } from "@/lib/api";
 import type { LoraInput, ModelsResponse } from "@/lib/types";
 
 import { filterModelsByNsfw, hasNsfwData } from "./nsfw";
@@ -60,6 +61,22 @@ interface ImgParams {
 /** 去掉 .safetensors 后缀的展示名。 */
 const cleanName = (n: string): string => n.replace(/\.(safetensors|ckpt|pt)$/i, "");
 
+/** ControlNet 控制类型(后端 control_type:canny/depth/lineart/openpose,SD1.5+SDXL union 自动按 ckpt 选)。 */
+const CONTROL_TYPES = [
+  { key: "canny", label: "Canny 边缘", hint: "轮廓边缘,保留构图线条" },
+  { key: "depth", label: "Depth 深度", hint: "空间结构,前后景关系" },
+  { key: "lineart", label: "Lineart 线稿", hint: "线稿描摹,适合上色" },
+  { key: "openpose", label: "OpenPose 姿态", hint: "人物骨架姿态" },
+] as const;
+type ControlTypeKey = (typeof CONTROL_TYPES)[number]["key"];
+
+/** ControlNet 本地控制图状态:预览 + 文件 + 上传缓存(避免重复上传)。 */
+interface ControlImage {
+  previewUrl: string;
+  file: File;
+  uploaded?: { filename: string; worker: string };
+}
+
 /** 专业版:全控制面板,可折叠高级分区 + 工作流预设 + 占位槽位。 */
 export function ProPanel(props: ProPanelProps) {
   const { mode, setMode, prompt, setPrompt, ref, setRef, ensureUploaded, models, loraOptions, ckpt, setCkpt, nsfw, setNsfw, nsfwEnabled, busy, run } = props;
@@ -90,6 +107,13 @@ export function ProPanel(props: ProPanelProps) {
   const [stepsRange, setStepsRange] = useState<RangeValue>({ low: 18, high: 28 });
   // 叠加的 LoRA(仅图像模式)。每项 {name, weight};不可变更新。
   const [loras, setLoras] = useState<LoraInput[]>([]);
+  // ControlNet 构图控制(仅图像模式)。开关 + 控制图 + 类型 + 强度 + 可选 start/end 百分比。
+  const [cnOn, setCnOn] = useState(false);
+  const [cnImage, setCnImage] = useState<ControlImage | null>(null);
+  const [cnType, setCnType] = useState<ControlTypeKey>("canny");
+  const [cnStrength, setCnStrength] = useState(0.8);
+  const [cnAdvanced, setCnAdvanced] = useState(false);
+  const [cnRange, setCnRange] = useState<RangeValue>({ low: 0, high: 100 });
 
   const set = <K extends keyof ImgParams>(k: K, v: ImgParams[K]) => setImg((p) => ({ ...p, [k]: v }));
   const seedNum = img.seed.trim() ? Number(img.seed) : null;
@@ -129,6 +153,43 @@ export function ProPanel(props: ProPanelProps) {
     [setRef],
   );
 
+  // ControlNet 控制图:选择 / 移除。换图或移除时释放旧 blob 预览,避免内存泄漏。
+  const pickControlFile = useCallback((file: File | null) => {
+    if (!file) return;
+    setCnImage((prev) => {
+      if (prev?.previewUrl.startsWith("blob:")) URL.revokeObjectURL(prev.previewUrl);
+      return { previewUrl: URL.createObjectURL(file), file };
+    });
+  }, []);
+
+  const clearControlImage = useCallback(() => {
+    setCnImage((prev) => {
+      if (prev?.previewUrl.startsWith("blob:")) URL.revokeObjectURL(prev.previewUrl);
+      return null;
+    });
+  }, []);
+
+  // 卸载时释放控制图预览 URL(组件销毁兜底)。
+  useEffect(() => {
+    return () => {
+      if (cnImage?.previewUrl.startsWith("blob:")) URL.revokeObjectURL(cnImage.previewUrl);
+    };
+  }, [cnImage]);
+
+  /** 确保控制图已上传到 worker;复用上传缓存,失败抛错由 run/submit 捕获。 */
+  const ensureControlUploaded = useCallback(
+    async (ci: ControlImage): Promise<{ filename: string; worker: string }> => {
+      if (ci.uploaded) return ci.uploaded;
+      const up = await uploadImage(ci.file, "controlnet");
+      setCnImage((cur) => (cur ? { ...cur, uploaded: up } : cur));
+      return up;
+    },
+    [],
+  );
+
+  // ControlNet 是否真正生效:仅图像模式 + 开关开 + 已选控制图。
+  const cnActive = mode === "image" && cnOn && !!cnImage;
+
   const applyWorkflow = (key: string) => {
     const w = WORKFLOW_PRESETS.find((p) => p.key === key);
     if (!w) return;
@@ -141,6 +202,38 @@ export function ProPanel(props: ProPanelProps) {
 
     if (mode === "image") {
       const steps = resolveSteps();
+      // ControlNet 构图控制:开关开 + 已选控制图 → 走 controlnet 通道,
+      // 复用当前 positive/negative/ckpt/采样参数;上传控制图取 filename+worker。
+      if (cnActive && cnImage) {
+        const up = await ensureControlUploaded(cnImage);
+        const lo = Math.min(cnRange.low, cnRange.high);
+        const hi = Math.max(cnRange.low, cnRange.high);
+        await run(
+          [{
+            type: "controlnet",
+            prompt,
+            meta: { ckpt },
+            params: {
+              positive: positive || "high quality, detailed",
+              negative: img.negative,
+              image: up.filename,
+              worker: up.worker,
+              controlType: cnType,
+              ckptName: ckpt,
+              strength: cnStrength,
+              startPercent: cnAdvanced ? lo / 100 : undefined,
+              endPercent: cnAdvanced ? hi / 100 : undefined,
+              steps,
+              cfg: img.cfg,
+              sampler: img.sampler,
+              scheduler: img.scheduler,
+              seed: seedNum,
+            },
+          }],
+          "构图控制出图…",
+        );
+        return;
+      }
       if (ref) {
         const up = await ensureUploaded(ref, "img2img");
         await run(
@@ -252,9 +345,16 @@ export function ProPanel(props: ProPanelProps) {
         "创作音乐…",
       );
     }
-  }, [busy, prompt, mode, ref, ensureUploaded, ckpt, img, seedNum, resolveSteps, activeLoras, vidAspect, vidLength, vidFps, steps3d, cfg3d, octree, audioLyrics, audioSeconds, run]);
+  }, [busy, prompt, mode, ref, ensureUploaded, ckpt, img, seedNum, resolveSteps, activeLoras, cnActive, cnImage, ensureControlUploaded, cnType, cnStrength, cnAdvanced, cnRange, vidAspect, vidLength, vidFps, steps3d, cfg3d, octree, audioLyrics, audioSeconds, run]);
 
-  const canRun = mode === "audio" ? !!prompt.trim() : mode === "model3d" ? !!ref : !!(prompt.trim() || ref);
+  const canRun =
+    mode === "audio"
+      ? !!prompt.trim()
+      : mode === "model3d"
+        ? !!ref
+        : cnActive
+          ? !!cnImage
+          : !!(prompt.trim() || ref);
   const optimizeKind = mode === "audio" ? "audio" : mode === "video" ? "video" : ref ? "image_edit" : "image";
 
   return (
@@ -494,7 +594,7 @@ export function ProPanel(props: ProPanelProps) {
                 <input id="pro-seed" type="number" placeholder="随机" value={img.seed} onChange={(e) => set("seed", e.target.value)} />
               </div>
 
-              {/* LoRA 叠加(真实接入后端 LoraLoader 链);ControlNet 仍为占位 */}
+              {/* LoRA 叠加(真实接入后端 LoraLoader 链)+ ControlNet 构图控制 */}
               {mode === "image" && (
                 <>
                   <LoraSelector
@@ -506,12 +606,22 @@ export function ProPanel(props: ProPanelProps) {
                     onUpdate={updateLora}
                     onRemove={removeLora}
                   />
-                  <div className="slot-group">
-                    <div className="slot-placeholder">
-                      <span>ControlNet 槽位</span>
-                      <span className="soon">即将开放</span>
-                    </div>
-                  </div>
+                  <ControlNetSection
+                    on={cnOn}
+                    setOn={setCnOn}
+                    image={cnImage}
+                    onPickFile={pickControlFile}
+                    onClearImage={clearControlImage}
+                    type={cnType}
+                    setType={setCnType}
+                    strength={cnStrength}
+                    setStrength={setCnStrength}
+                    advanced={cnAdvanced}
+                    setAdvanced={setCnAdvanced}
+                    range={cnRange}
+                    setRange={setCnRange}
+                    busy={busy}
+                  />
                 </>
               )}
             </div>
@@ -520,7 +630,7 @@ export function ProPanel(props: ProPanelProps) {
       )}
 
       <button type="button" className="generate-btn" disabled={busy || !canRun} onClick={submit}>
-        {busy ? "生成中…" : mode === "video" ? (ref ? "图生视频" : "文生视频") : mode === "model3d" ? "生成 3D" : mode === "audio" ? "生成音乐" : ref ? "重绘" : "生成"}
+        {busy ? "生成中…" : mode === "video" ? (ref ? "图生视频" : "文生视频") : mode === "model3d" ? "生成 3D" : mode === "audio" ? "生成音乐" : cnActive ? "构图控制出图" : ref ? "重绘" : "生成"}
       </button>
     </div>
   );
@@ -647,6 +757,143 @@ function LoraSelector({ loras, options, availableCount, busy, onAdd, onUpdate, o
           />
         </div>
       ))}
+    </div>
+  );
+}
+
+interface ControlNetSectionProps {
+  on: boolean;
+  setOn: (v: boolean) => void;
+  image: ControlImage | null;
+  onPickFile: (file: File | null) => void;
+  onClearImage: () => void;
+  type: ControlTypeKey;
+  setType: (t: ControlTypeKey) => void;
+  strength: number;
+  setStrength: (v: number) => void;
+  advanced: boolean;
+  setAdvanced: (v: boolean) => void;
+  range: RangeValue;
+  setRange: (v: RangeValue) => void;
+  busy: boolean;
+}
+
+/**
+ * ControlNet 构图控制(仅图像模式):
+ * - 开关折叠区:开启后上传控制图 + 选控制类型 + 调强度 + 可选 start/end 作用区间。
+ * - 开启且选了控制图 → 出图走 generateControlNet(沿用当前 positive/negative/ckpt/采样参数)。
+ * - 关闭则零影响,普通 txt2img/img2img 流程不变。
+ */
+function ControlNetSection(props: ControlNetSectionProps) {
+  const { on, setOn, image, onPickFile, onClearImage, type, setType, strength, setStrength, advanced, setAdvanced, range, setRange, busy } = props;
+  const activeType = CONTROL_TYPES.find((t) => t.key === type) ?? CONTROL_TYPES[0];
+
+  return (
+    <div className={`cn-group${on ? " is-on" : ""}`}>
+      <div className="switch-row">
+        <span className="switch-label">
+          ControlNet 构图控制
+          {on && <span className="cn-badge">{activeType.label.split(" ")[0]}</span>}
+          <span className="switch-sub">用一张控制图锁定构图 · 边缘 / 深度 / 线稿 / 姿态</span>
+        </span>
+        <button
+          type="button"
+          className="switch"
+          role="switch"
+          aria-checked={on}
+          aria-label="ControlNet 构图控制"
+          disabled={busy}
+          onClick={() => setOn(!on)}
+        />
+      </div>
+
+      {on && (
+        <div className="cn-body">
+          {/* 控制图 */}
+          <div className="field">
+            <label>
+              控制图{image ? "" : "(必需)"}
+              {image && (
+                <button type="button" className="link-clear" disabled={busy} onClick={onClearImage}>
+                  移除
+                </button>
+              )}
+            </label>
+            {image ? (
+              <div className="ref-preview"><img src={image.previewUrl} alt="ControlNet 控制图" /></div>
+            ) : (
+              <label className="dropzone">
+                <input
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  disabled={busy}
+                  onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
+                />
+                上传控制图(将提取{activeType.label.split(" ")[0]}特征)
+              </label>
+            )}
+          </div>
+
+          {/* 控制类型 */}
+          <div className="field">
+            <label>控制类型<span className="hint">{activeType.hint}</span></label>
+            <div className="seg" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+              {CONTROL_TYPES.map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  className={type === t.key ? "active" : ""}
+                  disabled={busy}
+                  onClick={() => setType(t.key)}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 控制强度 */}
+          <Slider
+            label="控制强度 strength"
+            value={strength}
+            min={0}
+            max={1}
+            step={0.05}
+            onChange={setStrength}
+            disabled={busy}
+          />
+
+          {/* 作用区间(高级):start/end 百分比 */}
+          <div className="cn-advanced">
+            <button
+              type="button"
+              className="advanced-toggle"
+              onClick={() => setAdvanced(!advanced)}
+              aria-expanded={advanced}
+              disabled={busy}
+            >
+              <span className={`adv-caret ${advanced ? "open" : ""}`} aria-hidden="true">▸</span>
+              作用区间
+            </button>
+            {advanced && (
+              <div className="cn-advanced-body">
+                <RangeSlider
+                  label="start / end"
+                  value={range}
+                  min={0}
+                  max={100}
+                  step={1}
+                  suffix="%"
+                  onChange={setRange}
+                  disabled={busy}
+                />
+                <p className="cn-note">控制只在采样的这段区间生效:前段锁构图、后段放手让模型自由发挥。</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
