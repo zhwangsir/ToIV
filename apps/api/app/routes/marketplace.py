@@ -74,9 +74,11 @@ async def search(
     nsfw: str = Query(default="false"),
     user: User = Depends(get_current_user),
 ) -> dict:
+    # R18 软门槛:nsfw 参数仅当用户已开 R18 时才生效,否则服务端强制 "false"。
+    effective_nsfw = nsfw if user.nsfw_enabled else "false"
     try:
         if source == "civitai":
-            params: dict = {"limit": 24, "sort": "Most Downloaded", "nsfw": nsfw}
+            params: dict = {"limit": 24, "sort": "Most Downloaded", "nsfw": effective_nsfw}
             if query:
                 params["query"] = query
             if type:

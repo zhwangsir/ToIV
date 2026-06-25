@@ -31,6 +31,9 @@ class User(SQLModel, table=True):
     hashed_password: str
     tenant_id: str = Field(foreign_key="tenant.id", index=True)
     role: str = "user"  # "user" | "admin"
+    # R18 分区软开关:默认 False=SFW(无年龄确认弹窗)。关闭时服务端强制全分区过滤
+    # 掉一切 NSFW 内容(成人底模 / 市场 NSFW / R18 作品);开启后方可进入 R18 区。
+    nsfw_enabled: bool = False
     created_at: datetime = Field(default_factory=_now)
 
 
@@ -44,5 +47,6 @@ class Job(SQLModel, table=True):
     status: str = "queued"
     prompt: str = ""
     seed: int = 0
+    nsfw: bool = False  # 该作品是否成人向(建档时由 checkpoint 是否 NSFW 决定)
     result: str = ""  # 完成后的产物 URL 列表(JSON)
     created_at: datetime = Field(default_factory=_now)

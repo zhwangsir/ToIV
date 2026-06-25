@@ -31,9 +31,11 @@ def list_jobs(
     session: Session = Depends(get_session),
 ) -> list[dict]:
     """当前用户的作业历史(最新在前)。"""
-    rows = session.exec(
-        select(Job).where(Job.user_id == user.id).order_by(Job.created_at.desc()).limit(50)
-    ).all()
+    stmt = select(Job).where(Job.user_id == user.id)
+    # R18 软门槛:用户未开时服务端强制剔除成人向作品(Job.nsfw==True)。
+    if not user.nsfw_enabled:
+        stmt = stmt.where(Job.nsfw == False)  # noqa: E712  SQLModel 需 == 比较生成 SQL
+    rows = session.exec(stmt.order_by(Job.created_at.desc()).limit(50)).all()
     return [
         {
             "id": j.id,

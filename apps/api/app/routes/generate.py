@@ -17,6 +17,7 @@ from app.models import Job, User
 from app.ratelimit import enforce_generation_rate_limit
 from app.workflows.img2img import Img2ImgParams, build_img2img_graph
 from app.workflows.lora import LoraSpec
+from app.workflows.model_profiles import is_nsfw
 from app.workflows.txt2img import Txt2ImgParams, build_txt2img_graph
 from app.workflows.wan_t2v import WanT2VParams, build_wan_t2v_graph
 
@@ -34,6 +35,17 @@ _MAX_LORAS = 8
 
 def _to_lora_specs(loras: list[LoraInput]) -> tuple[LoraSpec, ...]:
     return tuple(LoraSpec(name=l.name, weight=l.weight) for l in loras[:_MAX_LORAS])
+
+
+def _gate_nsfw_ckpt(ckpt_name: str, user: User) -> bool:
+    """R18 硬门槛:成人底模须用户已开 R18 才放行,否则 403(防绕过 UI 直调 API)。
+
+    返回该作品是否成人向(供建档打标 Job.nsfw)。
+    """
+    nsfw = is_nsfw(ckpt_name)
+    if nsfw and not user.nsfw_enabled:
+        raise HTTPException(status_code=403, detail="该底模属 R18 分区,请先在账号设置开启成人内容")
+    return nsfw
 
 
 class Txt2ImgRequest(BaseModel):
@@ -82,6 +94,8 @@ async def generate_txt2img(
         loras=_to_lora_specs(req.loras),
         **({"seed": req.seed} if req.seed is not None else {}),
     )
+    # R18 硬门槛:成人底模须已开 R18,否则 403;并据此给作品打 nsfw 标。
+    job_nsfw = _gate_nsfw_ckpt(params.ckpt_name, user)
     graph = build_txt2img_graph(params)
     # 路由到既有 checkpoint 又有所选 LoRA 文件的 worker(异构多机下避免缺模型)
     required = {params.ckpt_name, *(l.name for l in params.loras)}
@@ -105,6 +119,7 @@ async def generate_txt2img(
         status="queued",
         prompt=params.positive,
         seed=params.seed,
+        nsfw=job_nsfw,
     )
     session.add(job)
     session.commit()
@@ -241,6 +256,8 @@ async def generate_img2img(
         loras=_to_lora_specs(req.loras),
         **({"seed": req.seed} if req.seed is not None else {}),
     )
+    # R18 硬门槛:成人底模须已开 R18,否则 403;并据此给作品打 nsfw 标。
+    job_nsfw = _gate_nsfw_ckpt(params.ckpt_name, user)
     graph = build_img2img_graph(params)
     client_id = uuid.uuid4().hex
     try:
@@ -258,6 +275,7 @@ async def generate_img2img(
             status="queued",
             prompt=params.positive,
             seed=params.seed,
+            nsfw=job_nsfw,
         )
     )
     session.commit()

@@ -63,6 +63,11 @@ def _video_models() -> list[str]:
     return [p.high_unet, p.low_unet]
 
 
+def _sfw_only(names: list[str]) -> list[str]:
+    """剔除文件名命中 NSFW 判定的项(用户未开 R18 时服务端强制过滤)。"""
+    return [n for n in names if not is_nsfw(n)]
+
+
 @router.get("/models")
 async def list_models(
     pool: WorkerPool = Depends(get_pool),
@@ -78,8 +83,13 @@ async def list_models(
     all_ckpts = _enum(ckpt_info, "CheckpointLoaderSimple", "ckpt_name")
     image_ckpts = _image_checkpoints(all_ckpts)
 
+    # R18 软门槛:用户未开时服务端强制剔除成人底模(真过滤,不只前端隐藏)。
+    if not user.nsfw_enabled:
+        image_ckpts = _sfw_only(image_ckpts)
+
     # 给图像底模附 nsfw/vpred 分类标(不过滤);并抽出便捷名单供前端筛选。
     image_tagged = _tagged(image_ckpts)
+    # 未开 R18 时已剔除 nsfw 底模,nsfw_models 必为 []。
     nsfw_models = [it["name"] for it in image_tagged if it["nsfw"]]
     vpred_models = [it["name"] for it in image_tagged if it["vpred"]]
 
@@ -133,9 +143,16 @@ async def local_models(
             out[key] = _enum(await client.object_info(node), node, field)
         except ComfyUIError:
             out[key] = []
+    # R18 软门槛:用户未开时服务端强制剔除成人底模与成人 LoRA(按文件名 is_nsfw)。
+    if not user.nsfw_enabled:
+        for key in ("checkpoints", "loras"):
+            names = out.get(key, [])
+            if isinstance(names, list):
+                out[key] = _sfw_only(names)
     ckpts = out.get("checkpoints", [])
     tagged = _tagged(ckpts if isinstance(ckpts, list) else [])
     out["checkpoints_tagged"] = tagged
+    # 未开 R18 时 checkpoints 已剔除 nsfw,nsfw_models 必为 []。
     out["nsfw_models"] = [it["name"] for it in tagged if it["nsfw"]]
     out["vpred_models"] = [it["name"] for it in tagged if it["vpred"]]
     return out

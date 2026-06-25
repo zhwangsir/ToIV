@@ -37,7 +37,12 @@ router = APIRouter()
 
 
 def _user_dict(user: User) -> dict:
-    return {"id": user.id, "email": user.email, "role": user.role}
+    return {
+        "id": user.id,
+        "email": user.email,
+        "role": user.role,
+        "nsfw_enabled": user.nsfw_enabled,
+    }
 
 
 @router.post("/auth/login")

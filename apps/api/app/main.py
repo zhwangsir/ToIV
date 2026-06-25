@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.db import bootstrap_admin, init_db
 from app.routes import (
+    account,
     admin,
     agent,
     assembly,
@@ -52,6 +53,7 @@ def create_app() -> FastAPI:
 
     for module in (
         auth,
+        account,
         admin,
         models,
         marketplace,
