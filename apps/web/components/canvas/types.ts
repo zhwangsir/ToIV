@@ -18,7 +18,11 @@ export type CanvasNodeType =
   | "storyboard"
   | "character"
   | "lighting"
-  | "threed";
+  | "threed"
+  // v3 图像处理节点(接已有后端能力,均需上游 image 输入,产 image)
+  | "img2img" // 重绘:上游图 + 提示词 + denoise → 图
+  | "controlnet" // 构图控制:上游图作控制图 + 提示词 + 控制类型 → 图
+  | "ipadapter"; // 角色一致:上游图作参考 + 提示词 → 人物一致图
 
 /** 端口的数据语义:决定哪些口能连到哪些口。
  *  storyboard / lighting 产出 text 语义(剧本 / 光照片段),可灌入下游图像与视频;
@@ -139,6 +143,40 @@ export interface ThreeDNodeData extends BaseNodeData {
   run: NodeRunState;
 }
 
+// ── v3 图像处理高层节点 data(均需上游 image 输入)──────────────
+
+/** 🖌 重绘节点:上游图 + 提示词 + denoise(重绘强度)→ 图。接 /generate/img2img。 */
+export interface Img2imgNodeData extends BaseNodeData {
+  prompt: string;
+  ckpt: string;
+  /** 重绘强度 0-1:越高越偏离原图。 */
+  denoise: number;
+  nsfw: boolean;
+  run: NodeRunState;
+}
+
+/** 🧭 构图控制节点:上游图作控制图 + 提示词 + 控制类型(canny/depth/lineart/openpose)
+ *  + 强度 → 图。接 /generate/controlnet。 */
+export interface ControlNetNodeData extends BaseNodeData {
+  prompt: string;
+  ckpt: string;
+  controlType: string;
+  /** 控制强度 0-2。 */
+  strength: number;
+  nsfw: boolean;
+  run: NodeRunState;
+}
+
+/** 🪞 角色一致节点:上游图作参考(IPAdapter)+ 提示词 → 人物一致图。接 /manju/shot。 */
+export interface IPAdapterNodeData extends BaseNodeData {
+  prompt: string;
+  ckpt: string;
+  /** 参考强度 0-1。 */
+  weight: number;
+  nsfw: boolean;
+  run: NodeRunState;
+}
+
 export type AnyNodeData =
   | TextNodeData
   | ImageNodeData
@@ -147,7 +185,18 @@ export type AnyNodeData =
   | StoryboardNodeData
   | CharacterNodeData
   | LightingNodeData
-  | ThreeDNodeData;
+  | ThreeDNodeData
+  | Img2imgNodeData
+  | ControlNetNodeData
+  | IPAdapterNodeData;
+
+/** ControlNet 控制类型(与后端 controlnet.py 枚举对齐)。 */
+export const CONTROL_TYPES: { key: string; label: string }[] = [
+  { key: "canny", label: "边缘 Canny" },
+  { key: "depth", label: "深度 Depth" },
+  { key: "lineart", label: "线稿 Lineart" },
+  { key: "openpose", label: "姿态 Pose" },
+];
 
 /** 画布持久化的轻量快照(localStorage)。 */
 export interface CanvasDraft {
@@ -210,6 +259,31 @@ export function defaultData(type: CanvasNodeType): AnyNodeData {
         octree: 256,
         run: { ...EMPTY_RUN },
       } satisfies ThreeDNodeData;
+    case "img2img":
+      return {
+        prompt: "",
+        ckpt: "",
+        denoise: 0.55,
+        nsfw: false,
+        run: { ...EMPTY_RUN },
+      } satisfies Img2imgNodeData;
+    case "controlnet":
+      return {
+        prompt: "",
+        ckpt: "",
+        controlType: CONTROL_TYPES[0].key,
+        strength: 1.0,
+        nsfw: false,
+        run: { ...EMPTY_RUN },
+      } satisfies ControlNetNodeData;
+    case "ipadapter":
+      return {
+        prompt: "",
+        ckpt: "",
+        weight: 0.8,
+        nsfw: false,
+        run: { ...EMPTY_RUN },
+      } satisfies IPAdapterNodeData;
   }
 }
 
@@ -227,6 +301,9 @@ export const OUTPUT_KIND: Record<CanvasNodeType, PortKind | null> = {
   character: "image",
   lighting: "text",
   threed: null,
+  img2img: "image",
+  controlnet: "image",
+  ipadapter: "image",
 };
 
 /** 一条边是否合法:目标节点入口能否接受源节点输出。 */
@@ -239,6 +316,10 @@ export function canConnect(
   if (targetType === "image") return out === "text" || out === "image";
   if (targetType === "video") return out === "text" || out === "image";
   if (targetType === "audio") return out === "text";
+  // v3 图像处理:需要 image 输入(源图/控制图/参考图),也可接 text 提示词。
+  if (targetType === "img2img" || targetType === "controlnet" || targetType === "ipadapter") {
+    return out === "text" || out === "image";
+  }
   // 角色三视图入口:接 text(角色设定来自上游文本/分镜)。
   if (targetType === "character") return out === "text";
   // 3D 入口:接 image(图片/角色节点产物 → 三维)。
@@ -259,6 +340,9 @@ export const NODE_META: Record<
   character: { icon: "🧍", label: "角色三视图", hint: "设定 → 正/侧/背" },
   lighting: { icon: "🔦", label: "打光预设", hint: "光型 → 叠到下游图像" },
   threed: { icon: "🧊", label: "3D", hint: "图 → 三维网格" },
+  img2img: { icon: "🖌", label: "重绘", hint: "上游图 + 提示词 → 重绘" },
+  controlnet: { icon: "🧭", label: "构图控制", hint: "控制图 → 锁构图出图" },
+  ipadapter: { icon: "🪞", label: "角色一致", hint: "参考图 → 人物一致" },
 };
 
 export const IMG_SIZES = [

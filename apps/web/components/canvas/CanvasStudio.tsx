@@ -41,6 +41,9 @@ import { StoryboardNode } from "./nodes/StoryboardNode";
 import { CharacterNode } from "./nodes/CharacterNode";
 import { LightingNode } from "./nodes/LightingNode";
 import { ThreeDNode } from "./nodes/ThreeDNode";
+import { Img2imgNode } from "./nodes/Img2imgNode";
+import { ControlNetNode } from "./nodes/ControlNetNode";
+import { IPAdapterNode } from "./nodes/IPAdapterNode";
 import { topoOrder, upstreamOf } from "./pipeline";
 import {
   archiveAsset,
@@ -65,7 +68,10 @@ import {
   type AudioNodeData,
   type CanvasNodeType,
   type CharacterNodeData,
+  type ControlNetNodeData,
   type ImageNodeData,
+  type Img2imgNodeData,
+  type IPAdapterNodeData,
   type LightingNodeData,
   type NodeRunState,
   type StoryboardNodeData,
@@ -98,6 +104,9 @@ const NODE_TYPES: NodeTypes = {
   character: CharacterNode,
   lighting: LightingNode,
   threed: ThreeDNode,
+  img2img: Img2imgNode,
+  controlnet: ControlNetNode,
+  ipadapter: IPAdapterNode,
 };
 
 /** 起手示例:文本 → 图片,降低空画布的上手门槛。 */
@@ -253,9 +262,13 @@ function Inner() {
     (type: CanvasNodeType, flowPos: XYPosition, extra?: Record<string, unknown>) => {
       const id = nextNodeId();
       const data = { ...defaultData(type), ...extra };
-      // 图片 / 角色节点默认选第一个底模。
+      // 用底模的节点默认选第一个底模。
       if (
-        (type === "image" || type === "character") &&
+        (type === "image" ||
+          type === "character" ||
+          type === "img2img" ||
+          type === "controlnet" ||
+          type === "ipadapter") &&
         ckpts.length &&
         !(data as { ckpt?: string }).ckpt
       ) {
@@ -267,18 +280,32 @@ function Inner() {
     [ckpts, setNodes],
   );
 
-  // 双击空白 → 弹菜单
-  const onPaneDoubleClick = useCallback(
-    (e: React.MouseEvent) => {
+  // 双击 / 右键空白 → 弹节点面板
+  const openMenuAt = useCallback(
+    (clientX: number, clientY: number) => {
       const rect = wrapRef.current?.getBoundingClientRect();
-      const flow = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+      const flow = screenToFlowPosition({ x: clientX, y: clientY });
       setMenu({
-        x: e.clientX - (rect?.left ?? 0),
-        y: e.clientY - (rect?.top ?? 0),
+        x: clientX - (rect?.left ?? 0),
+        y: clientY - (rect?.top ?? 0),
         flow,
       });
     },
     [screenToFlowPosition],
+  );
+
+  const onPaneDoubleClick = useCallback(
+    (e: React.MouseEvent) => openMenuAt(e.clientX, e.clientY),
+    [openMenuAt],
+  );
+
+  // 右键空白 → 弹节点面板(阻止浏览器原生菜单)
+  const onPaneContextMenu = useCallback(
+    (e: React.MouseEvent | MouseEvent) => {
+      e.preventDefault();
+      openMenuAt(e.clientX, e.clientY);
+    },
+    [openMenuAt],
   );
 
   // ── 拖图片文件入画布 → 自动建图片节点(带该图作为参考)──
@@ -389,6 +416,7 @@ function Inner() {
             ckpt: data.ckpt || ckpts[0] || "",
             image: ref.filename,
             worker: ref.worker,
+            denoise: 0.6,
           };
         }
         if (!positive) return { error: "缺少提示词(连文本节点或填写本地提示词)" };
@@ -469,6 +497,58 @@ function Inner() {
           worker: ref.worker,
           steps: data.steps,
           octree: data.octree,
+        };
+      }
+
+      // ── v3 图像处理节点:均需上游图片(源图/控制图/参考图)──
+      if (type === "img2img" || type === "controlnet" || type === "ipadapter") {
+        let ref = upstreamRef;
+        if (!ref && upstreamImageUrl) {
+          ref = await uploadFromUrl(upstreamImageUrl, type);
+        }
+        if (!ref) {
+          const what =
+            type === "controlnet" ? "控制图" : type === "ipadapter" ? "参考图" : "源图";
+          return { error: `请连一个图片 / 角色节点作为${what}` };
+        }
+        const ckpt =
+          (d as { ckpt?: string }).ckpt || ckpts[0] || "";
+        if (type === "img2img") {
+          const data = d as unknown as Img2imgNodeData;
+          return {
+            kind: "img2img",
+            positive: withLighting(upstreamText || data.prompt || ""),
+            ckpt,
+            image: ref.filename,
+            worker: ref.worker,
+            denoise: data.denoise,
+          };
+        }
+        if (type === "controlnet") {
+          const data = d as unknown as ControlNetNodeData;
+          const positive = withLighting(data.prompt || upstreamText || "");
+          if (!positive) return { error: "缺少提示词(连文本节点或填写本地提示词)" };
+          return {
+            kind: "controlnet",
+            positive,
+            ckpt,
+            image: ref.filename,
+            worker: ref.worker,
+            controlType: data.controlType,
+            strength: data.strength,
+          };
+        }
+        // ipadapter
+        const data = d as unknown as IPAdapterNodeData;
+        const positive = withLighting(data.prompt || upstreamText || "");
+        if (!positive) return { error: "缺少提示词(连文本节点或填写本地提示词)" };
+        return {
+          kind: "ipadapter",
+          positive,
+          ckpt,
+          image: ref.filename,
+          worker: ref.worker,
+          weight: data.weight,
         };
       }
 
@@ -734,7 +814,7 @@ function Inner() {
           <span className="cv-toolbar__kicker">CANVAS</span>
           <h2 className="cv-toolbar__title">创作画布</h2>
           <span className="cv-toolbar__hint">
-            双击空白新建节点 · 拖图片入画布 · 连线成管线
+            右键 / 双击空白新建节点 · 拖图片入画布 · 连线成管线
           </span>
         </div>
         <div className="cv-toolbar__actions">
@@ -779,6 +859,7 @@ function Inner() {
             nodeTypes={NODE_TYPES}
             onInit={(inst) => (rfRef.current = inst)}
             onDoubleClick={onPaneDoubleClick}
+            onPaneContextMenu={onPaneContextMenu}
             defaultEdgeOptions={{ animated: true }}
             proOptions={{ hideAttribution: true }}
             minZoom={0.2}

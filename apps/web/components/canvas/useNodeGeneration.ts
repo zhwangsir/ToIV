@@ -5,12 +5,14 @@ import { useCallback, useEffect, useRef } from "react";
 import {
   generate3D,
   generateAudio,
+  generateControlNet,
   generateImg2img,
   generateTxt2img,
   generateTxt2video,
   generateVideo,
   imageUrl,
   jobEventsUrl,
+  renderManjuShot,
   uploadImage,
 } from "@/lib/api";
 import type { GenerateResponse } from "@/lib/types";
@@ -24,6 +26,24 @@ export type NodeDispatch =
       ckpt: string;
       image: string;
       worker: string;
+      denoise: number;
+    }
+  | {
+      kind: "controlnet";
+      positive: string;
+      ckpt: string;
+      image: string;
+      worker: string;
+      controlType: string;
+      strength: number;
+    }
+  | {
+      kind: "ipadapter";
+      positive: string;
+      ckpt: string;
+      image: string;
+      worker: string;
+      weight: number;
     }
   | { kind: "txt2video"; positive: string; width: number; height: number; length: number; fps: number }
   | {
@@ -80,11 +100,29 @@ async function submit(d: NodeDispatch): Promise<GenerateResponse> {
         ckpt_name: d.ckpt,
         image: d.image,
         worker: d.worker,
-        denoise: 0.6,
+        denoise: d.denoise,
         steps: 20,
         cfg: 7,
         sampler: "euler",
         scheduler: "normal",
+      });
+    case "controlnet":
+      return generateControlNet({
+        positive: d.positive,
+        negative: "blurry, lowres, deformed, watermark, text, extra limbs",
+        ckptName: d.ckpt,
+        image: d.image,
+        worker: d.worker,
+        controlType: d.controlType,
+        strength: d.strength,
+      });
+    case "ipadapter":
+      return renderManjuShot({
+        positive: d.positive,
+        worker: d.worker,
+        characterRef: d.image,
+        ckptName: d.ckpt,
+        weight: d.weight,
       });
     case "txt2video":
       return generateTxt2video({
