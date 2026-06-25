@@ -9,7 +9,12 @@ import { useNsfw } from "./NsfwContext";
  * 内含「成人内容 (R18)」软开关(沿用 .switch pill 样式)+ 一句说明 + 切换反馈。
  * Studio Noir 风,键盘可达(Esc 关闭、外点关闭、焦点环)。
  */
-export function AccountSettings() {
+interface AccountSettingsProps {
+  /** 通知父级(灵动岛)popover 开关状态 —— 打开时岛保持展开,避免 popover 被收起卸载。 */
+  onOpenChange?: (open: boolean) => void;
+}
+
+export function AccountSettings({ onOpenChange }: AccountSettingsProps) {
   const { enabled, setEnabled, loading } = useNsfw();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -35,6 +40,11 @@ export function AccountSettings() {
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
+
+  // 把 popover 开关状态上报给灵动岛(打开时岛保持展开)。
+  useEffect(() => {
+    onOpenChange?.(open);
+  }, [open, onOpenChange]);
 
   // toast 自动消隐。
   useEffect(() => {

@@ -84,6 +84,9 @@ export function DynamicIsland<K extends string>({
   const { activity } = useActivity();
 
   const [expanded, setExpanded] = useState(false);
+  // 设置 popover 打开时岛保持展开 —— 否则鼠标移开收起会把 popover 一起卸载(「设置打不开」)。
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const isOpen = expanded || settingsOpen;
   // 完成脉冲:活动从 running → done 的瞬间触发一次,脉冲结束自动复位。
   const [pulse, setPulse] = useState(false);
   const prevPhase = useRef<string | null>(null);
@@ -118,7 +121,7 @@ export function DynamicIsland<K extends string>({
     <div className="island-dock">
       <motion.nav
         {...layoutProps}
-        className={`island${expanded ? " is-expanded" : ""}${liveActive ? " is-live" : ""}${
+        className={`island${isOpen ? " is-expanded" : ""}${liveActive ? " is-live" : ""}${
           pulse ? " is-pulse" : ""
         }`}
         onMouseEnter={() => setExpanded(true)}
@@ -137,7 +140,7 @@ export function DynamicIsland<K extends string>({
           </motion.span>
 
           {/* 紧凑态显示当前视图名;悬停展开时由完整导航接管 */}
-          {!expanded && currentView && (
+          {!isOpen && currentView && (
             <motion.span
               className="island-current"
               initial={reduced ? false : { opacity: 0 }}
@@ -175,7 +178,7 @@ export function DynamicIsland<K extends string>({
                     <NavIcon name={v.icon} />
                   </span>
                   <AnimatePresence initial={false}>
-                    {expanded && (
+                    {isOpen && (
                       <motion.span
                         className="island-view-label"
                         initial={reduced ? false : { opacity: 0, width: 0 }}
@@ -194,7 +197,7 @@ export function DynamicIsland<K extends string>({
 
           {/* 账户操作:展开时浮现(主题切换 + 退出 + 邮箱) */}
           <AnimatePresence initial={false}>
-            {expanded && (
+            {isOpen && (
               <motion.div
                 className="island-account"
                 initial={reduced ? false : { opacity: 0, width: 0 }}
@@ -207,7 +210,7 @@ export function DynamicIsland<K extends string>({
                     {account}
                   </span>
                 )}
-                <AccountSettings />
+                <AccountSettings onOpenChange={setSettingsOpen} />
                 <ThemeToggle />
                 <button type="button" className="island-logout" onClick={onLogout}>
                   退出
