@@ -489,6 +489,8 @@ export function ManjuStudio() {
 
   const selected = shots.find((s) => s.id === selectedId) ?? null;
   const selectedIndex = selected ? shots.findIndex((s) => s.id === selected.id) : -1;
+  // 检视器只在有分镜且处于分镜/视频步时显示;否则收起,主区铺满(避免 step1 空挂)。
+  const showInspector = shots.length > 0 && (step === "storyboard" || step === "video");
   const doneCount = shots.filter((s) => s.imageUrl).length;
   const videoCount = shots.filter((s) => s.videoUrl).length;
 
@@ -532,7 +534,7 @@ export function ManjuStudio() {
         </span>
       </header>
 
-      <div className="manju-body">
+      <div className={`manju-body${showInspector ? "" : " is-wide"}`}>
         {/* 左侧流程轨 */}
         <nav className="manju-rail" aria-label="制作流程">
           {FLOW_STEPS.map((s, i) => {
@@ -895,15 +897,17 @@ export function ManjuStudio() {
           )}
         </main>
 
-        {/* 右侧:选中镜头属性 */}
-        <ShotInspector
-          shot={selected}
-          index={selectedIndex}
-          busy={busy}
-          onChange={patchShot}
-          onImage={runImageOne}
-          onVideo={runVideoOne}
-        />
+        {/* 右侧:选中镜头属性(仅在有分镜的分镜/视频步显示)*/}
+        {showInspector && (
+          <ShotInspector
+            shot={selected}
+            index={selectedIndex}
+            busy={busy}
+            onChange={patchShot}
+            onImage={runImageOne}
+            onVideo={runVideoOne}
+          />
+        )}
       </div>
     </div>
   );

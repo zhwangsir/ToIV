@@ -2774,6 +2774,10 @@ input[type="range"]::-webkit-slider-thumb:hover {
   align-items: start;
   min-width: 0;
 }
+/* 无检视器时收起第三列,主区铺满(剧本/角色步,避免空挂)*/
+.manju-body.is-wide {
+  grid-template-columns: 168px 1fr;
+}
 @media (max-width: 1100px) {
   .manju-body {
     grid-template-columns: 1fr;
@@ -4483,9 +4487,57 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .editorial-empty.stage-empty {
   flex: 1;
   border: none;
-  background: transparent;
+  /* 极淡品紫径向辉光,给空舞台一点深度与焦点(不抢戏) */
+  background: radial-gradient(60% 50% at 50% 42%, var(--accent-wash), transparent 70%);
   box-shadow: none;
   min-height: 0;
+}
+
+/* 空舞台示例提示词:点击填入左侧提示词,降低空白上手门槛 */
+.stage-examples {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  max-width: 40rem;
+  margin: 1.4rem auto 0;
+}
+.stage-examples-label {
+  width: 100%;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 0.1rem;
+}
+.stage-example-chip {
+  appearance: none;
+  border: 1px solid var(--hairline-2);
+  background: var(--glass);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.78rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    border-color var(--dur) var(--ease),
+    color var(--dur) var(--ease),
+    background var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
+}
+.stage-example-chip:hover {
+  color: var(--ink);
+  border-color: var(--accent-line);
+  background: var(--accent-quiet);
+  transform: translateY(-1px);
+}
+.stage-example-chip:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 2px;
 }
 
 /* ---------- 瀑布流画廊(作品库)—— CSS columns,真不等高 + 焦点大图 ---------- */

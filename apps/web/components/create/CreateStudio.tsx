@@ -25,6 +25,14 @@ import {
   modeLabel,
 } from "./types";
 
+/** 空舞台示例提示词:点击填入,降低空白页的上手门槛(图像向通用题材)。 */
+const EXAMPLE_PROMPTS = [
+  "雪山日出,云海翻涌,电影感光影",
+  "赛博朋克城市夜景,霓虹倒影,雨后街道",
+  "森林深处发光的蘑菇,梦幻微光氛围",
+  "极简产品摄影,柔光,纯色背景,高级质感",
+];
+
 /**
  * 统一创作台:顶部「简易 ⇄ 专业」双层切换。
  * - 简易:零门槛,智能默认,一键生成
@@ -261,6 +269,21 @@ export function CreateStudio() {
               </span>
               <h2>描述你想创作的</h2>
               <p>调好左侧参数后开始生成,作品会在这里展开。</p>
+              {mode === "image" && (
+                <div className="stage-examples" role="group" aria-label="示例提示词">
+                  <span className="stage-examples-label">试试这些 ——</span>
+                  {EXAMPLE_PROMPTS.map((ex) => (
+                    <button
+                      key={ex}
+                      type="button"
+                      className="stage-example-chip"
+                      onClick={() => setPrompt(ex)}
+                    >
+                      {ex}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
             <ResultFeed

@@ -44,6 +44,38 @@
 .tile video.lib-lazy.is-loaded {
   opacity: 1;
 }
+/* 懒加载骨架微光:图解码前在瓦片底层流光,解码后(:has is-loaded)隐去。
+   比纯黑占位更"成品"。img/video 抬到骨架之上,加载完覆盖它。 */
+.tile::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    linear-gradient(
+      100deg,
+      var(--bg-2) 28%,
+      color-mix(in oklab, var(--bg-3) 70%, var(--accent-quiet)) 50%,
+      var(--bg-2) 72%
+    );
+  background-size: 220% 100%;
+  animation: lib-shimmer 1.5s linear infinite;
+  pointer-events: none;
+}
+.tile:has(.lib-lazy.is-loaded)::before {
+  opacity: 0;
+  animation: none;
+}
+.tile img.lib-lazy,
+.tile video.lib-lazy {
+  position: relative;
+  z-index: 1;
+}
+@keyframes lib-shimmer {
+  to {
+    background-position: -220% 0;
+  }
+}
 /* 视频瓦片占位:未挂载/未就绪时给最小高度,避免布局跳变 */
 .tile .lib-video {
   min-height: 120px;
@@ -67,5 +99,8 @@
   .tile img.lib-lazy,
   .tile video.lib-lazy {
     transition: none;
+  }
+  .tile::before {
+    animation: none;
   }
 }
