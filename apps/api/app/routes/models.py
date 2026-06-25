@@ -68,14 +68,28 @@ def _sfw_only(names: list[str]) -> list[str]:
     return [n for n in names if not is_nsfw(n)]
 
 
+async def _pick_live_client(pool: WorkerPool):
+    """在 worker 池里找第一台可达的 worker,返回 (client, ckpt_info)。
+
+    修「硬查 clients[0],单台挂则整体 502」的脆弱性:逐台尝试 object_info,
+    第一台成功即用;全部不可达才 502。
+    """
+    last: Exception | None = None
+    for client in pool.clients:
+        try:
+            return client, await client.object_info("CheckpointLoaderSimple")
+        except ComfyUIError as e:
+            last = e
+    raise HTTPException(status_code=502, detail=f"所有 worker 都不可达: {last}")
+
+
 @router.get("/models")
 async def list_models(
     pool: WorkerPool = Depends(get_pool),
     user: User = Depends(get_current_user),
 ):
-    client = pool.clients[0]
+    client, ckpt_info = await _pick_live_client(pool)
     try:
-        ckpt_info = await client.object_info("CheckpointLoaderSimple")
         ks_info = await client.object_info("KSampler")
     except ComfyUIError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
@@ -136,7 +150,7 @@ async def local_models(
       - checkpoints_tagged:[{name,nsfw,vpred}, ...]
       - nsfw_models / vpred_models:便捷名单(取自 checkpoints)
     """
-    client = pool.clients[0]
+    client, _ = await _pick_live_client(pool)
     out: dict[str, object] = {}
     for key, node, field in _LOCAL_SPECS:
         try:
