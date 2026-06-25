@@ -35,6 +35,10 @@ const LOCAL_LABELS: Record<string, string> = {
   upscale: "放大模型",
 };
 
+// 仅渲染这些字符串数组类目。/api/models/local 还会带 checkpoints_tagged(对象数组)
+// 与 nsfw_models/vpred_models(元数据)—— 不可当字符串列表渲染(否则 n.replace 崩页)。
+const LOCAL_CATEGORIES = Object.keys(LOCAL_LABELS);
+
 export function ModelLibrary() {
   const [tab, setTab] = useState<Tab>("local");
   const [local, setLocal] = useState<LocalModels | null>(null);
@@ -82,7 +86,7 @@ export function ModelLibrary() {
   }, [tab]);
 
   const localCount = useMemo(
-    () => (local ? Object.values(local).reduce((s, n) => s + n.length, 0) : 0),
+    () => LOCAL_CATEGORIES.reduce((s, k) => s + (local?.[k]?.length ?? 0), 0),
     [local],
   );
 
@@ -179,7 +183,9 @@ export function ModelLibrary() {
           </div>
         ) : (
           <div className="modset">
-            {Object.entries(local).map(([key, names]) => (
+            {LOCAL_CATEGORIES.map((key) => {
+              const names = local[key] ?? [];
+              return (
               <section key={key} className="local-group">
                 <div className="local-group-head">
                   <span className="t">{LOCAL_LABELS[key] ?? key}</span>
@@ -197,7 +203,8 @@ export function ModelLibrary() {
                   </div>
                 )}
               </section>
-            ))}
+              );
+            })}
           </div>
         )
       ) : loading ? (
