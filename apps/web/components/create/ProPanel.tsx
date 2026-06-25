@@ -38,6 +38,8 @@ interface ProPanelProps {
   /** NSFW 档(简易/专业共享)。 */
   nsfw: boolean;
   setNsfw: (v: boolean) => void;
+  /** 账户级 R18 软开关:关闭时隐藏 NSFW 档入口(无成人模型可筛)。 */
+  nsfwEnabled: boolean;
   busy: boolean;
   run: (dispatches: Dispatch[], stage: string) => Promise<void>;
 }
@@ -60,7 +62,7 @@ const cleanName = (n: string): string => n.replace(/\.(safetensors|ckpt|pt)$/i, 
 
 /** 专业版:全控制面板,可折叠高级分区 + 工作流预设 + 占位槽位。 */
 export function ProPanel(props: ProPanelProps) {
-  const { mode, setMode, prompt, setPrompt, ref, setRef, ensureUploaded, models, loraOptions, ckpt, setCkpt, nsfw, setNsfw, busy, run } = props;
+  const { mode, setMode, prompt, setPrompt, ref, setRef, ensureUploaded, models, loraOptions, ckpt, setCkpt, nsfw, setNsfw, nsfwEnabled, busy, run } = props;
 
   const [img, setImg] = useState<ImgParams>({
     negative: DEFAULT_NEGATIVE,
@@ -272,8 +274,8 @@ export function ProPanel(props: ProPanelProps) {
       {/* 模型选择器:模式感知 —— 各模式只展示对应类别模型;NSFW 档筛选图像底模 */}
       <ModelSelector mode={mode} models={models} ckpt={ckpt} setCkpt={setCkpt} nsfw={nsfw} />
 
-      {/* NSFW 档(仅图像底模可切):开启 → 下拉筛选到 nsfw 模型 */}
-      {mode === "image" && (
+      {/* NSFW 档(仅图像底模可切;且账户已开启 R18 才显示):开启 → 下拉筛选到 nsfw 模型 */}
+      {mode === "image" && nsfwEnabled && (
         <div className={`field nsfw-gate${nsfw ? " is-on" : ""}`}>
           <div className="switch-row">
             <span className="switch-label">

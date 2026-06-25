@@ -71,6 +71,44 @@ export async function fetchMe(): Promise<{ user: AppUser; usage: Usage }> {
   return res.json();
 }
 
+/**
+ * 当前账户(含 R18 软开关状态)。契约:GET /api/auth/me 响应增补 `nsfw_enabled: boolean`。
+ * 字段由另一车道实现,暂缺时优雅降级为 false(默认关)。类型放宽以兼容字段缺失。
+ */
+export interface MeResponse {
+  user: AppUser;
+  usage: Usage;
+  /** R18 软开关;后端字段暂缺时此处归一化为 false。 */
+  nsfw_enabled: boolean;
+}
+
+export async function getMe(): Promise<MeResponse> {
+  const res = await fetch(`${API_BASE}/api/auth/me`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("会话已过期");
+  const data = (await res.json()) as Partial<MeResponse> & { user: AppUser; usage: Usage };
+  return { ...data, nsfw_enabled: data.nsfw_enabled === true } as MeResponse;
+}
+
+/**
+ * 切换 R18 软开关(需登录)。契约:POST /api/account/nsfw body {enabled} → {nsfw_enabled}。
+ * 返回服务端确认后的真实状态;字段暂缺时回落到请求值(乐观降级)。
+ */
+export async function setNsfwEnabled(enabled: boolean): Promise<boolean> {
+  const res = await fetch(`${API_BASE}/api/account/nsfw`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ enabled }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `保存设置失败 (${res.status})`);
+  }
+  const data = (await res.json().catch(() => null)) as { nsfw_enabled?: boolean } | null;
+  if (data?.nsfw_enabled === true) return true;
+  if (data?.nsfw_enabled === false) return false;
+  return enabled;
+}
+
 export async function listUsers(): Promise<AdminUser[]> {
   const res = await fetch(`${API_BASE}/api/admin/users`, { headers: authHeaders() });
   if (!res.ok) throw new Error(`加载用户失败 (${res.status})`);

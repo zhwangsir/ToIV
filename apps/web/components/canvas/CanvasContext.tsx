@@ -24,6 +24,8 @@ export interface CanvasApi {
   ckpts: string[];
   /** NSFW 档感知的解析模型集(含 nsfw/vpred 标记 + 是否有标记)。 */
   models: CanvasModels;
+  /** 账户级 R18 软开关:关闭时节点隐藏「NSFW 档」开关(无成人模型可筛)。 */
+  nsfwEnabled: boolean;
   /** 是否有「运行全部」在进行(禁用单节点重复触发)。 */
   pipelineBusy: boolean;
 }

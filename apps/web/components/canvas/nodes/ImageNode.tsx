@@ -14,7 +14,7 @@ import { NodeShell } from "./NodeShell";
  *  紧凑参数(模型 + 尺寸 Slider)+ 生成按钮 + NSFW 档。输出口:image。 */
 export function ImageNode({ id, data, selected }: NodeProps) {
   const d = data as unknown as ImageNodeData;
-  const { patchNodeData, deleteNode, runNode, models, ckpts, pipelineBusy } =
+  const { patchNodeData, deleteNode, runNode, models, ckpts, nsfwEnabled, pipelineBusy } =
     useCanvas();
   const busy = d.run.busy || pipelineBusy;
 
@@ -66,15 +66,17 @@ export function ImageNode({ id, data, selected }: NodeProps) {
         </select>
       </label>
 
-      <label className="cv-switch nodrag">
-        <input
-          type="checkbox"
-          checked={d.nsfw}
-          onChange={(e) => patchNodeData(id, { nsfw: e.target.checked })}
-        />
-        <span className="cv-switch__track" aria-hidden="true" />
-        <span className="cv-switch__label">NSFW 档</span>
-      </label>
+      {nsfwEnabled && (
+        <label className="cv-switch nodrag">
+          <input
+            type="checkbox"
+            checked={d.nsfw}
+            onChange={(e) => patchNodeData(id, { nsfw: e.target.checked })}
+          />
+          <span className="cv-switch__track" aria-hidden="true" />
+          <span className="cv-switch__label">NSFW 档</span>
+        </label>
+      )}
 
       <div className="cv-chips nodrag" role="group" aria-label="尺寸">
         {IMG_SIZES.map((s) => (

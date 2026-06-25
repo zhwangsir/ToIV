@@ -43,6 +43,8 @@ interface SimplePanelProps {
   models: ModelsResponse | null;
   nsfw: boolean;
   setNsfw: (v: boolean) => void;
+  /** 账户级 R18 软开关:关闭时隐藏 NSFW 档入口。 */
+  nsfwEnabled: boolean;
 }
 
 const MODE_TABS: { key: Mode; icon: string; label: string }[] = [
@@ -62,7 +64,7 @@ function withStyle(prompt: string, style: StylePreset): string {
 export function SimplePanel(props: SimplePanelProps) {
   const {
     mode, setMode, prompt, setPrompt, ref, setRef, ensureUploaded, ckpt, busy, run,
-    style, setStyle, ratio, setRatio, count, setCount, models, nsfw, setNsfw,
+    style, setStyle, ratio, setRatio, count, setCount, models, nsfw, setNsfw, nsfwEnabled,
   } = props;
 
   const pickFile = useCallback(
@@ -321,8 +323,8 @@ export function SimplePanel(props: SimplePanelProps) {
         </div>
       )}
 
-      {/* NSFW 档(仅图像):开关 + 18+ 角标;实际底模筛选与切换由共享 ckpt 中央处理 */}
-      {mode === "image" && (
+      {/* NSFW 档(仅图像;且账户已开启 R18 才显示):开关 + 18+ 角标;底模筛选由共享 ckpt 中央处理 */}
+      {mode === "image" && nsfwEnabled && (
         <div className={`nsfw-gate${nsfw ? " is-on" : ""}`}>
           <div className="switch-row">
             <span className="switch-label">

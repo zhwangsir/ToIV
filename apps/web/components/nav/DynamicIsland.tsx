@@ -7,6 +7,7 @@ import { NavIcon } from "@/components/ui/NavIcon";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 
+import { AccountSettings } from "./AccountSettings";
 import { type ActivityKind, useActivity } from "./ActivityContext";
 
 /** 单个视图项:与 page.tsx 的 View 切换一一对应。 */
@@ -206,6 +207,7 @@ export function DynamicIsland<K extends string>({
                     {account}
                   </span>
                 )}
+                <AccountSettings />
                 <ThemeToggle />
                 <button type="button" className="island-logout" onClick={onLogout}>
                   退出
