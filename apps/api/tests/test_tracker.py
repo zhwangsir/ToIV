@@ -97,3 +97,31 @@ def test_poll_once_pending_returns_none(db):
     out = asyncio.run(tracker._poll_once(_FakeClient({}), "p1"))  # history 还没该 prompt
     assert out is None
     assert _job(db).status == "queued"
+
+
+def test_reconcile_respawns_pending_not_done(db, monkeypatch):
+    """reconcile 为 queued/running 作业重挂追踪;已 done 的不重挂。"""
+    called: list[str] = []
+    monkeypatch.setattr(tracker, "spawn", lambda client, pid: called.append(pid))
+    with Session(db) as s:
+        s.add(Job(tenant_id="t", user_id="u", prompt_id="pdone", worker="http://w",
+                  kind="txt2img", status="done", prompt="x", seed=1))
+        s.add(Job(tenant_id="t", user_id="u", prompt_id="prun", worker="http://w",
+                  kind="i2v", status="running", prompt="x", seed=2))
+        s.commit()
+    n = tracker.reconcile_pending()
+    assert "p1" in called and "prun" in called  # queued/running 重挂
+    assert "pdone" not in called                 # done 不重挂
+    assert n == len(called)
+
+
+def test_reconcile_skips_already_tracked(db, monkeypatch):
+    """已在追踪的 prompt_id 不被 reconcile 重复挂。"""
+    tracker._tracked.add("p1")
+    try:
+        called: list[str] = []
+        monkeypatch.setattr(tracker, "spawn", lambda client, pid: called.append(pid))
+        tracker.reconcile_pending()
+        assert "p1" not in called
+    finally:
+        tracker._tracked.discard("p1")

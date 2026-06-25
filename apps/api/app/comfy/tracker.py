@@ -25,11 +25,15 @@ logger = logging.getLogger(__name__)
 
 # 持有后台任务强引用(asyncio 仅持弱引用,否则可能被 GC 提前回收)
 _tasks: set[asyncio.Task] = set()
+# 正在追踪的 prompt_id(spawn 按此幂等,避免同一作业被重复挂多个追踪)
+_tracked: set[str] = set()
 
 # 单作业追踪上限(视频可能跑数分钟)
-_TRACK_TIMEOUT = 1200.0  # 20 分钟
+_TRACK_TIMEOUT = 1800.0  # 30 分钟(Wan i2v 14B 单片可达 5-6 分钟,留足余量)
 _POLL_START = 2.0
 _POLL_MAX = 8.0
+# 启动后 + 周期性 reconcile 间隔:重挂仍未终态作业的追踪(防 api 重启孤儿化)
+_RECONCILE_INTERVAL = 300.0
 
 
 def image_url(worker: str, image: dict) -> str:
@@ -118,7 +122,54 @@ async def _track(client: ComfyUIClient, prompt_id: str) -> None:
 
 
 def spawn(client: ComfyUIClient, prompt_id: str) -> None:
-    """提交后即启动后台追踪(fire-and-forget,保留强引用防 GC)。"""
+    """提交后即启动后台追踪(fire-and-forget,保留强引用防 GC)。
+
+    按 prompt_id 幂等:同一作业已在追踪则跳过,故 reconcile 可安全重复调用。
+    """
+    if prompt_id in _tracked:
+        return
+    _tracked.add(prompt_id)
     task = asyncio.create_task(_track(client, prompt_id))
     _tasks.add(task)
-    task.add_done_callback(_tasks.discard)
+
+    def _cleanup(t: asyncio.Task) -> None:
+        _tasks.discard(t)
+        _tracked.discard(prompt_id)
+
+    task.add_done_callback(_cleanup)
+
+
+def reconcile_pending() -> int:
+    """重扫库中仍未终态(queued/running)的作业并重挂追踪。
+
+    内存追踪任务在 api 进程重启后会全部丢失 → 那些长视频作业会永远停在 "queued"。
+    本函数在启动时 + 周期性调用,把它们重新接上(spawn 幂等,不会重复)。
+    需在已有事件循环的上下文调用(spawn 内用 create_task)。返回重挂数量。
+    """
+    from app.config import get_settings
+
+    timeout = get_settings().request_timeout
+    with Session(engine) as session:
+        rows = session.exec(
+            select(Job).where(Job.status.in_(("queued", "running")))  # type: ignore[attr-defined]
+        ).all()
+        pending = [(j.prompt_id, j.worker) for j in rows if j.prompt_id and j.worker]
+    n = 0
+    for prompt_id, worker in pending:
+        if prompt_id in _tracked:
+            continue
+        spawn(ComfyUIClient(worker, timeout=timeout), prompt_id)
+        n += 1
+    if n:
+        logger.info("reconcile: 重挂 %d 个未终态作业的追踪", n)
+    return n
+
+
+async def reconcile_loop() -> None:
+    """周期性 reconcile(防任何原因导致的追踪丢失,自我修复)。"""
+    while True:
+        await asyncio.sleep(_RECONCILE_INTERVAL)
+        try:
+            reconcile_pending()
+        except Exception as e:  # noqa: BLE001
+            logger.warning("reconcile loop error: %s", e)

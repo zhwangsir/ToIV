@@ -1,6 +1,7 @@
 """FastAPI 应用装配。"""
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -33,7 +34,15 @@ from app.routes import (
 async def lifespan(app: FastAPI):
     init_db()
     bootstrap_admin()
-    yield
+    # 重启后重挂未终态作业的追踪(防长视频作业孤儿化停在 queued)+ 周期性自愈
+    from app.comfy.tracker import reconcile_loop, reconcile_pending
+
+    reconcile_pending()
+    reconcile_task = asyncio.create_task(reconcile_loop())
+    try:
+        yield
+    finally:
+        reconcile_task.cancel()
 
 
 def create_app() -> FastAPI:
