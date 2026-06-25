@@ -2,6 +2,7 @@
 
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 
+import { ModelPicker } from "@/components/ui/ModelPicker";
 import { Slider } from "@/components/ui/Slider";
 
 import { filterModels } from "../models";
@@ -24,6 +25,8 @@ export function ImageNode({ id, data, selected }: NodeProps) {
   // NSFW 档:筛选模型;无标记时 filterModels 回退全部,再兜底 ckpts。
   const available = filterModels(models, d.nsfw);
   const ckptOptions = available.length ? available : ckpts;
+  // 成人向文件名集合(纯展示角标用,不参与上面的过滤)。
+  const nsfwSet = new Set(models.all.filter((m) => m.nsfw).map((m) => m.name));
 
   return (
     <NodeShell
@@ -50,21 +53,15 @@ export function ImageNode({ id, data, selected }: NodeProps) {
         onChange={(e) => patchNodeData(id, { prompt: e.target.value })}
       />
 
-      <label className="cv-field nodrag">
-        <span className="cv-label">模型</span>
-        <select
-          className="cv-select"
+      <div className="nodrag">
+        <ModelPicker
+          models={ckptOptions}
           value={d.ckpt}
-          onChange={(e) => patchNodeData(id, { ckpt: e.target.value })}
-        >
-          {ckptOptions.length === 0 && <option value="">默认模型</option>}
-          {ckptOptions.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-      </label>
+          onChange={(v) => patchNodeData(id, { ckpt: v })}
+          label="模型"
+          nsfwSet={nsfwSet}
+        />
+      </div>
 
       {nsfwEnabled && (
         <label className="cv-switch nodrag">

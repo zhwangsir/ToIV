@@ -14,6 +14,7 @@ import {
   uploadImage,
 } from "@/lib/api";
 import type { ManjuTransition } from "@/lib/api";
+import { ModelPicker } from "@/components/ui/ModelPicker";
 import type { GenerateResponse, ModelsResponse } from "@/lib/types";
 
 import { ShotCard } from "./ShotCard";
@@ -676,16 +677,12 @@ export function ManjuStudio() {
               </div>
 
               {models && models.checkpoints.length > 0 && (
-                <div className="field">
-                  <label>出图模型</label>
-                  <select value={ckpt} onChange={(e) => setCkpt(e.target.value)}>
-                    {models.checkpoints.map((c) => (
-                      <option key={c} value={c}>
-                        {c.replace(/\.safetensors$/, "")}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <ModelPicker
+                  models={models.checkpoints}
+                  value={ckpt}
+                  onChange={setCkpt}
+                  label="出图模型"
+                />
               )}
 
               <button

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { ModelPicker } from "@/components/ui/ModelPicker";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
 import { RangeSlider, type RangeValue } from "@/components/ui/RangeSlider";
 import { Slider } from "@/components/ui/Slider";
@@ -681,16 +682,7 @@ function ModelSelector({ mode, models, ckpt, setCkpt, nsfw }: ModelSelectorProps
     );
   }
 
-  return (
-    <div className="field">
-      <label>{MODEL_LABEL[mode]}</label>
-      <select value={ckpt} onChange={(e) => setCkpt(e.target.value)}>
-        {list.map((c) => (
-          <option key={c} value={c}>{cleanName(c)}</option>
-        ))}
-      </select>
-    </div>
-  );
+  return <ModelPicker models={list} value={ckpt} onChange={setCkpt} label={MODEL_LABEL[mode]} />;
 }
 
 interface LoraSelectorProps {
