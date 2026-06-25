@@ -360,6 +360,31 @@ export async function generateControlNet(params: ControlNetParams): Promise<Gene
   return res.json();
 }
 
+export interface UpscaleGenParams {
+  image: string; // 已上传的源图文件名
+  worker: string; // 源图所在 worker
+  modelName?: string;
+  scale?: number; // 目标倍数(1.5-4)
+}
+
+export async function generateUpscale(params: UpscaleGenParams): Promise<GenerateResponse> {
+  const res = await fetch(`${API_BASE}/api/generate/upscale`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({
+      image: params.image,
+      worker: params.worker,
+      ...(params.modelName ? { model_name: params.modelName } : {}),
+      ...(params.scale != null ? { scale: params.scale } : {}),
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `放大请求失败 (${res.status})`);
+  }
+  return res.json();
+}
+
 export interface InstallModelParams {
   type: string;
   url?: string;

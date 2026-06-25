@@ -7,6 +7,7 @@ import {
   generateAudio,
   generateControlNet,
   generateImg2img,
+  generateUpscale,
   generateTxt2img,
   generateTxt2video,
   generateVideo,
@@ -44,6 +45,12 @@ export type NodeDispatch =
       image: string;
       worker: string;
       weight: number;
+    }
+  | {
+      kind: "upscale";
+      image: string;
+      worker: string;
+      scale: number;
     }
   | { kind: "txt2video"; positive: string; width: number; height: number; length: number; fps: number }
   | {
@@ -124,6 +131,8 @@ async function submit(d: NodeDispatch): Promise<GenerateResponse> {
         ckptName: d.ckpt,
         weight: d.weight,
       });
+    case "upscale":
+      return generateUpscale({ image: d.image, worker: d.worker, scale: d.scale });
     case "txt2video":
       return generateTxt2video({
         positive: d.positive || "cinematic motion, smooth camera",

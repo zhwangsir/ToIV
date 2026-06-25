@@ -22,7 +22,8 @@ export type CanvasNodeType =
   // v3 图像处理节点(接已有后端能力,均需上游 image 输入,产 image)
   | "img2img" // 重绘:上游图 + 提示词 + denoise → 图
   | "controlnet" // 构图控制:上游图作控制图 + 提示词 + 控制类型 → 图
-  | "ipadapter"; // 角色一致:上游图作参考 + 提示词 → 人物一致图
+  | "ipadapter" // 角色一致:上游图作参考 + 提示词 → 人物一致图
+  | "upscale"; // 放大:上游图 → ESRGAN 放大(无提示词)
 
 /** 端口的数据语义:决定哪些口能连到哪些口。
  *  storyboard / lighting 产出 text 语义(剧本 / 光照片段),可灌入下游图像与视频;
@@ -177,6 +178,13 @@ export interface IPAdapterNodeData extends BaseNodeData {
   run: NodeRunState;
 }
 
+/** 🔍 放大节点:上游图 → ESRGAN 放大到目标倍数(无提示词/无底模)。接 /generate/upscale。 */
+export interface UpscaleNodeData extends BaseNodeData {
+  /** 目标放大倍数(2 / 4)。 */
+  scale: number;
+  run: NodeRunState;
+}
+
 export type AnyNodeData =
   | TextNodeData
   | ImageNodeData
@@ -188,7 +196,8 @@ export type AnyNodeData =
   | ThreeDNodeData
   | Img2imgNodeData
   | ControlNetNodeData
-  | IPAdapterNodeData;
+  | IPAdapterNodeData
+  | UpscaleNodeData;
 
 /** ControlNet 控制类型(与后端 controlnet.py 枚举对齐)。 */
 export const CONTROL_TYPES: { key: string; label: string }[] = [
@@ -284,6 +293,8 @@ export function defaultData(type: CanvasNodeType): AnyNodeData {
         nsfw: false,
         run: { ...EMPTY_RUN },
       } satisfies IPAdapterNodeData;
+    case "upscale":
+      return { scale: 4, run: { ...EMPTY_RUN } } satisfies UpscaleNodeData;
   }
 }
 
@@ -304,6 +315,7 @@ export const OUTPUT_KIND: Record<CanvasNodeType, PortKind | null> = {
   img2img: "image",
   controlnet: "image",
   ipadapter: "image",
+  upscale: "image",
 };
 
 /** 一条边是否合法:目标节点入口能否接受源节点输出。 */
@@ -320,6 +332,8 @@ export function canConnect(
   if (targetType === "img2img" || targetType === "controlnet" || targetType === "ipadapter") {
     return out === "text" || out === "image";
   }
+  // 放大:只接 image(无提示词)。
+  if (targetType === "upscale") return out === "image";
   // 角色三视图入口:接 text(角色设定来自上游文本/分镜)。
   if (targetType === "character") return out === "text";
   // 3D 入口:接 image(图片/角色节点产物 → 三维)。
@@ -343,6 +357,7 @@ export const NODE_META: Record<
   img2img: { icon: "🖌", label: "重绘", hint: "上游图 + 提示词 → 重绘" },
   controlnet: { icon: "🧭", label: "构图控制", hint: "控制图 → 锁构图出图" },
   ipadapter: { icon: "🪞", label: "角色一致", hint: "参考图 → 人物一致" },
+  upscale: { icon: "🔍", label: "放大", hint: "上游图 → 高清放大" },
 };
 
 export const IMG_SIZES = [

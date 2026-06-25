@@ -44,6 +44,7 @@ import { ThreeDNode } from "./nodes/ThreeDNode";
 import { Img2imgNode } from "./nodes/Img2imgNode";
 import { ControlNetNode } from "./nodes/ControlNetNode";
 import { IPAdapterNode } from "./nodes/IPAdapterNode";
+import { UpscaleNode } from "./nodes/UpscaleNode";
 import { topoOrder, upstreamOf } from "./pipeline";
 import {
   archiveAsset,
@@ -76,6 +77,7 @@ import {
   type NodeRunState,
   type StoryboardNodeData,
   type ThreeDNodeData,
+  type UpscaleNodeData,
   type VideoNodeData,
 } from "./types";
 import {
@@ -107,6 +109,7 @@ const NODE_TYPES: NodeTypes = {
   img2img: Img2imgNode,
   controlnet: ControlNetNode,
   ipadapter: IPAdapterNode,
+  upscale: UpscaleNode,
 };
 
 /** 起手示例:文本 → 图片,降低空画布的上手门槛。 */
@@ -498,6 +501,17 @@ function Inner() {
           steps: data.steps,
           octree: data.octree,
         };
+      }
+
+      // 放大:仅需上游图片,无提示词/底模。
+      if (type === "upscale") {
+        const data = d as unknown as UpscaleNodeData;
+        let ref = upstreamRef;
+        if (!ref && upstreamImageUrl) {
+          ref = await uploadFromUrl(upstreamImageUrl, "upscale");
+        }
+        if (!ref) return { error: "请连一个图片 / 角色节点作放大输入" };
+        return { kind: "upscale", image: ref.filename, worker: ref.worker, scale: data.scale };
       }
 
       // ── v3 图像处理节点:均需上游图片(源图/控制图/参考图)──

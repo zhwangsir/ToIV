@@ -24,6 +24,7 @@ from app.workflows.controlnet import (
 from app.workflows.img2img import Img2ImgParams, build_img2img_graph
 from app.workflows.lora import LoraSpec
 from app.workflows.model_profiles import is_nsfw
+from app.workflows.upscale import UPSCALE_MODELS, UpscaleParams, build_upscale_graph
 from app.workflows.txt2img import Txt2ImgParams, build_txt2img_graph
 from app.workflows.wan_t2v import WanT2VParams, build_wan_t2v_graph
 
@@ -387,4 +388,65 @@ async def generate_controlnet(
         "seed": params.seed,
         "control_type": params.control_type,
         "controlnet_model": controlnet_model_name(params.control_type, params.ckpt_name),
+    }
+
+
+class UpscaleRequest(BaseModel):
+    image: str = Field(min_length=1, max_length=512)  # 上传后得到的源图文件名
+    worker: str  # 源图上传到的 worker(同 img2img,须用图片所在 worker)
+    model_name: str = Field(default=UPSCALE_MODELS[0], max_length=128)
+    scale: float = Field(default=4.0, ge=1.5, le=4.0)
+
+
+@router.post("/generate/upscale")
+async def generate_upscale(
+    req: UpscaleRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """放大:用 ESRGAN 类放大模型把上传的源图放大到目标倍数。
+
+    无 checkpoint(纯放大模型)→ 不涉 R18 门槛;沿用 img2img 模式:
+    必须用源图所在的 worker(resolve_worker 防 SSRF)。
+    """
+    enforce_generation_rate_limit(user)
+    if req.model_name not in UPSCALE_MODELS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"不支持的放大模型:{req.model_name!r};可选 {list(UPSCALE_MODELS)}",
+        )
+    client = resolve_worker(req.worker)  # 必须用源图所在的 worker
+    params = UpscaleParams(
+        image=req.image, model_name=req.model_name, scale=req.scale
+    )
+    graph = build_upscale_graph(params)
+    client_id = uuid.uuid4().hex
+    try:
+        prompt_id = await client.queue_prompt(graph, client_id)
+    except ComfyUIError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+    session.add(
+        Job(
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            prompt_id=prompt_id,
+            worker=client.base_url,
+            kind="upscale",
+            status="queued",
+            prompt=f"upscale x{req.scale:g}",
+            seed=None,
+            nsfw=False,
+        )
+    )
+    session.commit()
+
+    spawn_tracker(client, prompt_id)
+
+    return {
+        "prompt_id": prompt_id,
+        "client_id": client_id,
+        "worker": client.base_url,
+        "scale": req.scale,
+        "model_name": req.model_name,
     }
