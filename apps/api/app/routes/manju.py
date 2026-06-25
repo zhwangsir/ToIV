@@ -34,6 +34,7 @@ from app.workflows.ipadapter import (
     IPAdapterTxt2ImgParams,
     build_ipadapter_txt2img_graph,
 )
+from app.workflows.model_profiles import fit_resolution
 from app.workflows.txt2img import Txt2ImgParams, build_txt2img_graph
 
 router = APIRouter()
@@ -62,8 +63,9 @@ class CharacterIn(BaseModel):
 
 
 class StoryboardRequest(BaseModel):
-    premise: str = Field(min_length=1, max_length=4000)
-    num_shots: int = Field(default=6, ge=1, le=24)
+    # 支持喂完整剧本(一集 ~1-2 万字),不止短梗概
+    premise: str = Field(min_length=1, max_length=20000)
+    num_shots: int = Field(default=6, ge=1, le=60)
     style: str | None = Field(default=None, max_length=300)
     characters: list[CharacterIn] = Field(default_factory=list)
 
@@ -208,7 +210,8 @@ def _build_shot_graph(req: ShotRenderRequest, ckpt_name: str) -> tuple[dict, str
     无 character_ref(空/None)→ txt2img 降级;有 → IPAdapter。
     """
     ref = (req.character_ref or "").strip()
-    width, height = _snap8(req.width), _snap8(req.height)
+    # 前端宽高仅定宽高比;按底模架构(SDXL/SD1.5)缩放到合适像素档,避免分辨率失配崩坏。
+    width, height = fit_resolution(ckpt_name, _snap8(req.width), _snap8(req.height))
     seed_kw = {"seed": req.seed} if req.seed is not None else {}
     if not ref:
         params = Txt2ImgParams(

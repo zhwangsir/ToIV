@@ -14,6 +14,7 @@ class_type 与 inputs 依 ComfyUI `comfy_extras/nodes_model_advanced.py` 的
 """
 from __future__ import annotations
 
+import math
 import os
 from dataclasses import dataclass
 
@@ -55,6 +56,59 @@ def is_vpred(name: str) -> bool:
     """文件名是否提示 v-prediction(子串匹配,大小写不敏感)。"""
     low = name.lower()
     return any(h in low for h in _VPRED_HINTS)
+
+
+# ---------------------------------------------------------------------------
+# 架构(SDXL vs SD1.5)—— 决定出图分辨率档,避免分辨率失配导致崩坏/重复
+# ---------------------------------------------------------------------------
+
+# 文件名命中以下任一子串(大小写不敏感)即按 SDXL 架构出图(~1MP)。
+# 本仓常见 SDXL 底模:animagineXL / ponyDiffusionV6XL / prefectIllustriousXL /
+# noobaiXL / sd_xl_base 等均含 "xl";动漫系另列 pony/noobai/illustrious/animagine 兜底。
+_SDXL_HINTS: tuple[str, ...] = (
+    "xl",
+    "pony",
+    "noobai",
+    "illustrious",
+    "animagine",
+    "playground",
+)
+
+
+def is_sdxl(name: str) -> bool:
+    """文件名是否提示 SDXL 架构(子串匹配,大小写不敏感)。命不中按 SD1.5 处理。"""
+    low = name.lower()
+    return any(h in low for h in _SDXL_HINTS)
+
+
+def fit_resolution(ckpt_name: str, width: int, height: int) -> tuple[int, int]:
+    """按底模架构把请求宽高缩放到合适像素档(保持宽高比,snap 到 8 的倍数)。
+
+    SDXL 原生 ~1024²(1MP);SD1.5 ~0.4MP 且长边封顶 896 —— 各自架构在错档分辨率下
+    会崩坏/重复(SD1.5 在 1024 出双头、SDXL 在 512 糊成抽象)。前端给的宽高只定**宽高比**,
+    实际像素由本函数按架构决定。
+    """
+    width = max(64, width)
+    height = max(64, height)
+    ar = width / height
+    if is_sdxl(ckpt_name):
+        budget = 1024 * 1024
+        long_cap = 1536
+    else:
+        budget = 640 * 640
+        long_cap = 896
+    h = math.sqrt(budget / ar)
+    w = h * ar
+    longest = max(w, h)
+    if longest > long_cap:
+        scale = long_cap / longest
+        w *= scale
+        h *= scale
+
+    def snap(v: float) -> int:
+        return max(64, int(round(v / 8)) * 8)
+
+    return snap(w), snap(h)
 
 
 def vpred_sampling() -> SamplingProfile:

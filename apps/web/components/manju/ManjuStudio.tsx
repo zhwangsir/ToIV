@@ -582,7 +582,7 @@ export function ManjuStudio() {
                     镜头数<span className="hint">{numShots} 镜</span>
                   </label>
                   <div className="seg" role="group" aria-label="镜头数">
-                    {[4, 6, 8, 12].map((n) => (
+                    {[6, 12, 18, 24].map((n) => (
                       <button
                         key={n}
                         type="button"

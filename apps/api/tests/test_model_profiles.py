@@ -9,7 +9,9 @@ import pytest
 from app.workflows.img2img import Img2ImgParams, build_img2img_graph
 from app.workflows.model_profiles import (
     VPRED_SAMPLING,
+    fit_resolution,
     is_nsfw,
+    is_sdxl,
     is_vpred,
     model_sampling_node,
     nsfw_hints,
@@ -222,3 +224,54 @@ def test_img2img_vpred_inserts_model_sampling():
     # img2img 专有节点不受影响
     assert g["11"]["class_type"] == "VAEEncode"
     assert g["3"]["inputs"]["latent_image"] == ["11", 0]
+
+
+# ── SDXL 架构判定 + 分辨率档(漫剧出图质量)────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "animagineXL40.safetensors",
+        "noobaiXL_vpred10.safetensors",
+        "ponyDiffusionV6XL_v6.safetensors",
+        "prefectIllustriousXL_40.safetensors",
+        "sd_xl_base_1.0.safetensors",
+    ],
+)
+def test_is_sdxl_true_for_xl_models(name):
+    assert is_sdxl(name) is True
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "DreamShaper_8_pruned.safetensors",
+        "GhostMix_V2.0.safetensors",
+        "majicMIX_realistic_v7.safetensors",
+        "v1-5-pruned-emaonly-fp16.safetensors",
+    ],
+)
+def test_is_sdxl_false_for_sd15(name):
+    assert is_sdxl(name) is False
+
+
+def test_fit_resolution_sdxl_targets_1mp_keeps_aspect():
+    w, h = fit_resolution("animagineXL40.safetensors", 768, 432)
+    # 16:9 SDXL ≈ 1MP,长边显著大于 SD1.5 档
+    assert w > h and w >= 1200
+    assert abs((w / h) - (768 / 432)) < 0.05
+    assert w % 8 == 0 and h % 8 == 0
+
+
+def test_fit_resolution_sd15_caps_long_side():
+    w, h = fit_resolution("DreamShaper_8_pruned.safetensors", 768, 432)
+    # SD1.5 长边封顶,避免高分辨率出双头/重复
+    assert max(w, h) <= 896
+    assert w > h
+    assert w % 8 == 0 and h % 8 == 0
+
+
+def test_fit_resolution_square_sdxl_is_1024():
+    w, h = fit_resolution("ponyDiffusionV6XL_v6.safetensors", 512, 512)
+    assert w == 1024 and h == 1024
