@@ -2894,6 +2894,85 @@ input[type="range"]::-webkit-slider-thumb:hover {
   align-items: center;
   margin-top: 0.45rem;
 }
+
+/* ── 角色参考图(IPAdapter 人物一致):角色卡 + 生成/上传 + 状态 ── */
+.manju-char-card {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: var(--bg-1);
+  padding: 0.55rem 0.7rem 0.7rem;
+  margin-top: 0.5rem;
+}
+.manju-char-ref-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+.manju-char-ref-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-xs);
+  object-fit: cover;
+  border: 1px solid var(--accent-line);
+  background: var(--bg-sunken);
+  flex: none;
+}
+.manju-char-ref-btn,
+.manju-char-ref-add,
+.manju-char-ref-upload {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.3rem 0.68rem;
+  border-radius: 999px;
+  border: 1px solid var(--accent-line);
+  background: var(--accent-quiet);
+  color: var(--accent);
+  cursor: pointer;
+  transition: background var(--dur) var(--ease);
+}
+.manju-char-ref-btn:hover,
+.manju-char-ref-add:hover,
+.manju-char-ref-upload:hover {
+  background: color-mix(in oklab, var(--accent) 22%, transparent);
+}
+.manju-char-ref-btn:disabled,
+.manju-char-ref-add:disabled,
+.manju-char-ref-upload:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.manju-char-ref-ok {
+  font-size: 0.72rem;
+  color: var(--success);
+}
+.manju-char-ref-err {
+  font-size: 0.72rem;
+  color: var(--danger);
+}
+.manju-char-ref-spin {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-quiet);
+  border-top-color: var(--accent);
+  animation: mref-spin 0.7s linear infinite;
+  display: inline-block;
+}
+@keyframes mref-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .manju-char-ref-spin {
+    animation: none;
+  }
+}
 .manju-char-del {
   width: 32px;
   height: 32px;
