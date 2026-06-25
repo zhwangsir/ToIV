@@ -173,7 +173,7 @@ def test_install_accepted_modern_queue(client_token, monkeypatch):
     assert body["worker"] == "http://fake-worker:8002"
     assert body["model"]["filename"] == "cool_style.safetensors"
     assert body["model"]["type"] == "lora"
-    assert body["model"]["save_path"] == "default"
+    assert body["model"]["save_path"] == "loras"
     # 队列式端点入队后应触发 start
     posted = [u for (m, u, _) in _FakeAsyncClient.last_calls if m == "POST"]
     assert any("/manager/queue/start" in u for u in posted)

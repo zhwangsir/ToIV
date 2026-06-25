@@ -137,6 +137,8 @@ _MODEL_TYPE_SUBDIR: dict[str, str] = {
     "unet": "unet",
     "diffusion_model": "diffusion_models",
     "diffusion_models": "diffusion_models",
+    "ipadapter": "ipadapter",
+    "ipadapter_models": "ipadapter",
 }
 
 # ComfyUI-Manager 各版本的安装端点,按优先级探测;命中即用,端点缺失则回退下一个。
@@ -226,8 +228,9 @@ def _build_model_item(req: InstallRequest) -> dict:
         "name": name,
         "type": model_type,
         "base": base,
-        # "default" 让 Manager 按 type 自行落到对应模型目录,避免我们拼绝对路径(防任意写)。
-        "save_path": "default",
+        # 用 type 对应的相对子目录(取自固定枚举、非用户绝对路径 → 仍防任意写),
+        # 比 "default" 对 ipadapter 等非常规类型路由更可靠。
+        "save_path": _MODEL_TYPE_SUBDIR[model_type],
         "filename": filename,
         "url": download_url,
         "description": f"installed via ToIV marketplace ({req.source or 'direct'})",
