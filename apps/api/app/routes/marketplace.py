@@ -321,6 +321,42 @@ async def _pick_install_worker(pool: WorkerPool) -> str:
     return base_url
 
 
+async def _match_catalog_entry(
+    client: httpx.AsyncClient, base_url: str, req: InstallRequest
+) -> dict | None:
+    """在 worker 的 ComfyUI-Manager 策展目录里按文件名匹配模型条目。
+
+    关键:V3.x 的 install_model 有白名单校验(check_whitelist_for_model),只接受
+    其策展目录(model-list)里的条目。任意构造的条目会被 400 拒绝。故先查目录、
+    按文件名匹配,命中则用**目录原条目**(save_path/base/url 都对)→ 过白名单。
+    """
+    target = (req.filename or "").strip()
+    if not target and req.url:
+        target = req.url
+    target = os.path.basename(urlsplit(target).path if "://" in target else target).strip().lower()
+    if not target:
+        return None
+    for mode in ("cache", "local"):
+        try:
+            resp = await client.get(f"{base_url}/externalmodel/getlist?mode={mode}")
+            if resp.status_code >= 300:
+                continue
+            data = resp.json()
+        except (httpx.HTTPError, ValueError):
+            continue
+        models = data.get("models") if isinstance(data, dict) else data
+        for m in models or []:
+            if not isinstance(m, dict):
+                continue
+            fn = os.path.basename(str(m.get("filename") or m.get("url") or "")).strip().lower()
+            if fn and fn == target:
+                return {
+                    k: m.get(k, "")
+                    for k in ("name", "type", "base", "save_path", "filename", "url", "reference", "description")
+                }
+    return None
+
+
 @router.post("/marketplace/install")
 async def install(
     req: InstallRequest,
@@ -330,13 +366,25 @@ async def install(
     """把搜到的模型经某台 worker 的 ComfyUI-Manager 装到 ComfyUI 集群。
 
     入参 url 与 (source,id[,filename]) 二选一;type 限枚举。来源主机走白名单防 SSRF。
-    逻辑:挑一台可达 worker → 逐个探测 Manager 安装端点(版本不同 → 回退)→ 据响应判定受理。
+    逻辑:挑一台可达 worker →(先匹配 Manager 策展目录原条目,过白名单)→ 逐个探测
+    安装端点(版本不同 → 回退)→ 据响应判定受理。
     """
-    item = _build_model_item(req)
+    item = _build_model_item(req)  # 校验入参(type 枚举 / url 白名单)
     base_url = await _pick_install_worker(pool)
     async with httpx.AsyncClient(timeout=_INSTALL_TIMEOUT, headers=_HEADERS) as client:
-        result = await _try_install(client, base_url, item)
-    return {**result, "model": item}
+        catalog = await _match_catalog_entry(client, base_url, req)
+        install_item = catalog or item
+        try:
+            result = await _try_install(client, base_url, install_item)
+        except HTTPException as e:
+            if catalog is None:
+                raise HTTPException(
+                    status_code=e.status_code,
+                    detail=f"{e.detail}(注:该模型未匹配到 ComfyUI-Manager 策展目录;"
+                    "非目录模型需直接下载到 worker 的 models 目录,见 deploy/download-model.py)",
+                ) from e
+            raise
+    return {**result, "model": install_item, "from_catalog": catalog is not None}
 
 
 @router.get("/marketplace/install/status")
