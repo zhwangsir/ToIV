@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { motion } from "framer-motion";
 
@@ -22,7 +22,11 @@ interface ResultFeedProps {
   onTo3D: (item: ResultItem) => void;
 }
 
-function MediaTile({ item }: { item: ResultItem }) {
+/**
+ * memo 化:item 按结果 id 稳定 → 拖拽重排 / 新结果流入导致父级重渲时,
+ * 未变动的媒体瓦片(含 Magnifier / video / ModelViewer 等重组件)被跳过,不重渲。
+ */
+const MediaTile = memo(function MediaTile({ item }: { item: ResultItem }) {
   // 重绘/变体:有原图 → 拖动对比(before/after)
   const [compare, setCompare] = useState(true);
   const beforeUrl = item.meta?.beforeUrl;
@@ -65,7 +69,7 @@ function MediaTile({ item }: { item: ResultItem }) {
       )}
     </div>
   );
-}
+});
 
 /** 不可变重排:把数组中 from 位置的元素移动到 to 位置,返回新数组。 */
 function moveItem<T>(arr: readonly T[], from: number, to: number): T[] {

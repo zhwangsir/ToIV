@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 
 interface LazyVideoProps {
   src: string;
@@ -14,7 +14,7 @@ interface LazyVideoProps {
  * - 解码出首帧后淡入(避免破图/空白闪烁);左上 ▶ 标记由外层瓦片提供。
  * - preload="metadata" 仅取尺寸/首帧,不预拉整段。
  */
-export function LazyVideo({ src, label }: LazyVideoProps) {
+export const LazyVideo = memo(function LazyVideo({ src, label }: LazyVideoProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [near, setNear] = useState(false);
@@ -78,4 +78,4 @@ export function LazyVideo({ src, label }: LazyVideoProps) {
       ) : null}
     </div>
   );
-}
+});

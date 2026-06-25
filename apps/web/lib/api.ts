@@ -1,3 +1,4 @@
+import { CACHE_KEYS, TTL, invalidate, swr } from "./swr-cache";
 import type {
   AdminUser,
   GenerateResponse,
@@ -82,11 +83,16 @@ export interface MeResponse {
   nsfw_enabled: boolean;
 }
 
-export async function getMe(): Promise<MeResponse> {
+async function fetchMeRaw(): Promise<MeResponse> {
   const res = await fetch(`${API_BASE}/api/auth/me`, { headers: authHeaders() });
   if (!res.ok) throw new Error("会话已过期");
   const data = (await res.json()) as Partial<MeResponse> & { user: AppUser; usage: Usage };
   return { ...data, nsfw_enabled: data.nsfw_enabled === true } as MeResponse;
+}
+
+/** 账户(含 R18 态 / 用量),走本机 SWR 缓存:二访秒开,后台静默刷新。 */
+export function getMe(): Promise<MeResponse> {
+  return swr(CACHE_KEYS.me, fetchMeRaw, TTL.me);
 }
 
 /**
@@ -103,6 +109,11 @@ export async function setNsfwEnabled(enabled: boolean): Promise<boolean> {
     const detail = await res.json().catch(() => null);
     throw new Error(detail?.detail ?? `保存设置失败 (${res.status})`);
   }
+  // R18 切换改变后端服务端过滤:失效受其影响的所有缓存,下次重拉。
+  invalidate(CACHE_KEYS.me);
+  invalidate(CACHE_KEYS.models);
+  invalidate(CACHE_KEYS.localModels);
+  invalidate(CACHE_KEYS.jobs);
   const data = (await res.json().catch(() => null)) as { nsfw_enabled?: boolean } | null;
   if (data?.nsfw_enabled === true) return true;
   if (data?.nsfw_enabled === false) return false;
@@ -144,10 +155,15 @@ export async function deleteUser(id: string): Promise<void> {
 }
 
 // ---------- 生成 ----------
-export async function listModels(): Promise<ModelsResponse> {
+async function fetchModelsRaw(): Promise<ModelsResponse> {
   const res = await fetch(`${API_BASE}/api/models`, { headers: authHeaders() });
   if (!res.ok) throw new Error(`加载模型列表失败 (${res.status})`);
   return res.json();
+}
+
+/** 模型列表,走本机 SWR 缓存(几乎不变,长 TTL):二访秒开,减重复请求。 */
+export function listModels(): Promise<ModelsResponse> {
+  return swr(CACHE_KEYS.models, fetchModelsRaw, TTL.models);
 }
 
 export async function generateTxt2img(
@@ -165,16 +181,31 @@ export async function generateTxt2img(
   return res.json();
 }
 
-export async function listJobs(): Promise<JobItem[]> {
+async function fetchJobsRaw(): Promise<JobItem[]> {
   const res = await fetch(`${API_BASE}/api/jobs`, { headers: authHeaders() });
   if (!res.ok) throw new Error(`加载作品失败 (${res.status})`);
   return res.json();
 }
 
-export async function listLocalModels(): Promise<LocalModels> {
+/** 作品库,走本机 SWR 缓存(短 TTL):作品库二访秒开,后台刷新补新作品。 */
+export function listJobs(): Promise<JobItem[]> {
+  return swr(CACHE_KEYS.jobs, fetchJobsRaw, TTL.jobs);
+}
+
+/** 生成出新作品后调用:失效作品库缓存,下次进作品库立即拉到最新。 */
+export function invalidateJobs(): void {
+  invalidate(CACHE_KEYS.jobs);
+}
+
+async function fetchLocalModelsRaw(): Promise<LocalModels> {
   const res = await fetch(`${API_BASE}/api/models/local`, { headers: authHeaders() });
   if (!res.ok) throw new Error(`加载本地模型失败 (${res.status})`);
   return res.json();
+}
+
+/** 本地已装模型,走本机 SWR 缓存(中 TTL):减重复请求,偶有安装由 TTL 兜底刷新。 */
+export function listLocalModels(): Promise<LocalModels> {
+  return swr(CACHE_KEYS.localModels, fetchLocalModelsRaw, TTL.localModels);
 }
 
 export async function searchMarketplace(

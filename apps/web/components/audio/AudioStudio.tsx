@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 
 import { ProgressBar } from "@/components/generate/ProgressBar";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
-import { generateAudio, imageUrl, jobEventsUrl } from "@/lib/api";
+import { generateAudio, imageUrl, invalidateJobs, jobEventsUrl } from "@/lib/api";
 import { springSoft } from "@/lib/motion";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import type { GenStatus, Progress } from "@/lib/types";
@@ -61,6 +61,8 @@ export function AudioStudio() {
         const d = JSON.parse((e as MessageEvent).data);
         const mp3 = (d.images as string[]).find((p) => /\.(mp3|flac|wav|opus)/i.test(p)) ?? d.images[0];
         if (mp3) setTracks((prev) => [{ id: res.prompt_id, url: imageUrl(mp3), tags: tags.trim() }, ...prev]);
+        // 新音乐已落库:失效作品库缓存。
+        invalidateJobs();
         doneRef.current = true;
         setStatus("idle");
         es.close();

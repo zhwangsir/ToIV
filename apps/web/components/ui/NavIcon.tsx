@@ -1,3 +1,5 @@
+import { memo } from "react";
+
 interface Props {
   name: string;
 }
@@ -55,7 +57,8 @@ const PATHS: Record<string, React.ReactNode> = {
   ),
 };
 
-export function NavIcon({ name }: Props) {
+/** 纯展示图标:memo 化,name 不变即跳过重渲(灵动岛 / 列表中大量复用)。 */
+export const NavIcon = memo(function NavIcon({ name }: Props) {
   return (
     <svg
       className="nav-ico"
@@ -72,4 +75,4 @@ export function NavIcon({ name }: Props) {
       {PATHS[name] ?? null}
     </svg>
   );
-}
+});

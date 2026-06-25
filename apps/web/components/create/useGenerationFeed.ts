@@ -10,6 +10,7 @@ import {
   generateVideo,
   generateAudio,
   imageUrl,
+  invalidateJobs,
   jobEventsUrl,
   uploadImage,
 } from "@/lib/api";
@@ -127,6 +128,8 @@ export function useGenerationFeed() {
             meta,
           }));
           setState((s) => ({ ...s, results: [...items, ...s.results] }));
+          // 新作品已落库:失效作品库缓存,下次进作品库即拉到最新。
+          invalidateJobs();
           es.close();
           resolve();
         });

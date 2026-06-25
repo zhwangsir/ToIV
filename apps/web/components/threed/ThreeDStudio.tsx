@@ -3,7 +3,7 @@
 import { createElement, useCallback, useEffect, useRef, useState } from "react";
 
 import { ProgressBar } from "@/components/generate/ProgressBar";
-import { generate3D, imageUrl, jobEventsUrl, uploadImage } from "@/lib/api";
+import { generate3D, imageUrl, invalidateJobs, jobEventsUrl, uploadImage } from "@/lib/api";
 import type { GenStatus, Progress } from "@/lib/types";
 
 interface Model3D {
@@ -90,6 +90,8 @@ export function ThreeDStudio() {
         const d = JSON.parse((e as MessageEvent).data);
         const glb = (d.images as string[]).find((p) => p.includes(".glb")) ?? d.images[0];
         if (glb) setModels((prev) => [{ id: res.prompt_id, url: imageUrl(glb) }, ...prev]);
+        // 新模型已落库:失效作品库缓存。
+        invalidateJobs();
         doneRef.current = true;
         setStatus("idle");
         es.close();

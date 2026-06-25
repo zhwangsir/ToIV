@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, type Transition } from "framer-motion";
 
 import { NavIcon } from "@/components/ui/NavIcon";
@@ -8,7 +8,7 @@ import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 
 import { AccountSettings } from "./AccountSettings";
-import { type ActivityKind, useActivity } from "./ActivityContext";
+import { type Activity, type ActivityKind, useActivity } from "./ActivityContext";
 
 /** 单个视图项:与 page.tsx 的 View 切换一一对应。 */
 export interface IslandView {
@@ -64,6 +64,208 @@ function truncate(text: string, max = 42): string {
   return `${t.slice(0, max - 1)}…`;
 }
 
+interface ViewButtonProps {
+  view: IslandView;
+  isActive: boolean;
+  isOpen: boolean;
+  reduced: boolean;
+  onSelect: (key: string) => void;
+}
+
+/**
+ * 单个视图标签 —— memo 化:仅在自身 active/open 态变化时重渲。
+ * 关键收益:生成进度 tick 频繁刷新 activity,本组件不依赖它,不再随之重渲。
+ */
+const IslandViewButton = memo(function IslandViewButton({
+  view,
+  isActive,
+  isOpen,
+  reduced,
+  onSelect,
+}: ViewButtonProps) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={isActive}
+      aria-label={view.label}
+      title={view.label}
+      className={`island-view-btn${isActive ? " is-active" : ""}`}
+      onClick={() => onSelect(view.key)}
+    >
+      {isActive && (
+        <motion.span
+          className="island-pill"
+          layoutId="island-pill"
+          aria-hidden="true"
+          transition={reduced ? { duration: 0 } : ISLAND_SPRING}
+        />
+      )}
+      <span className="island-view-ico">
+        <NavIcon name={view.icon} />
+      </span>
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.span
+            className="island-view-label"
+            initial={reduced ? false : { opacity: 0, width: 0 }}
+            animate={{ opacity: 1, width: "auto" }}
+            exit={reduced ? undefined : { opacity: 0, width: 0 }}
+            transition={reduced ? { duration: 0 } : { duration: 0.18 }}
+          >
+            {view.label}
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </button>
+  );
+});
+
+interface IslandBarProps {
+  views: readonly IslandView[];
+  current: string;
+  onSelect: (key: string) => void;
+  account?: string;
+  onLogout: () => void;
+  isOpen: boolean;
+  reduced: boolean;
+  onSettingsOpenChange: (open: boolean) => void;
+}
+
+/**
+ * 灵动岛顶行(brand + 视图 + 账户) —— memo 化,且不依赖 activity。
+ * 生成进度每 tick 刷新 activity 时,本子树被 memo 跳过,只有活动行重渲,
+ * 消除「生成中整岛随进度反复重排」的卡顿主因。
+ *
+ * layout 收敛:形变弹性由外壳 <motion.nav> 的 layout 承担;
+ * 此处 island-bar / island-views 仅用 layout="position"(只动位置,不再级联测量盒尺寸),
+ * island-brand 为静态文字、永不形变 → 去掉 layout。
+ */
+const IslandBar = memo(function IslandBar({
+  views,
+  current,
+  onSelect,
+  account,
+  onLogout,
+  isOpen,
+  reduced,
+  onSettingsOpenChange,
+}: IslandBarProps) {
+  const currentView = views.find((v) => v.key === current);
+  const posLayout = reduced ? {} : ({ layout: "position", transition: ISLAND_SPRING } as const);
+
+  return (
+    <motion.div {...posLayout} className="island-bar">
+      <span className="island-brand" aria-hidden="true">
+        To<span className="mark">IV</span>
+      </span>
+
+      {/* 紧凑态显示当前视图名;悬停展开时由完整导航接管 */}
+      {!isOpen && currentView && (
+        <motion.span
+          className="island-current"
+          initial={reduced ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={reduced ? undefined : { opacity: 0 }}
+        >
+          {currentView.label}
+        </motion.span>
+      )}
+
+      {/* 视图项:紧凑=极小图标排,展开=图标+文字。当前态品紫墨块滑移。 */}
+      <motion.div {...posLayout} className="island-views" role="tablist" aria-label="切换模块">
+        {views.map((v) => (
+          <IslandViewButton
+            key={v.key}
+            view={v}
+            isActive={v.key === current}
+            isOpen={isOpen}
+            reduced={reduced}
+            onSelect={onSelect}
+          />
+        ))}
+      </motion.div>
+
+      {/* 账户操作:展开时浮现(主题切换 + 退出 + 邮箱) */}
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            className="island-account"
+            initial={reduced ? false : { opacity: 0, width: 0 }}
+            animate={{ opacity: 1, width: "auto" }}
+            exit={reduced ? undefined : { opacity: 0, width: 0 }}
+            transition={reduced ? { duration: 0 } : { duration: 0.2 }}
+          >
+            {account && (
+              <span className="island-user" title={account}>
+                {account}
+              </span>
+            )}
+            <AccountSettings onOpenChange={onSettingsOpenChange} />
+            <ThemeToggle />
+            <button type="button" className="island-logout" onClick={onLogout}>
+              退出
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+});
+
+interface IslandActivityRowProps {
+  activity: Activity;
+  reduced: boolean;
+}
+
+/**
+ * live activity 行 —— 唯一随进度 tick 重渲的子树。
+ * 进度条用 transform/width(compositor 友好);spinner 走 CSS 无限动画。
+ */
+function IslandActivityRow({ activity, reduced }: IslandActivityRowProps) {
+  const pct =
+    activity.value !== null && activity.max !== null && activity.max > 0
+      ? Math.min(100, Math.round((activity.value / activity.max) * 100))
+      : null;
+
+  return (
+    <motion.div
+      className="island-activity"
+      initial={reduced ? { opacity: 0 } : { opacity: 0, height: 0 }}
+      animate={reduced ? { opacity: 1 } : { opacity: 1, height: "auto" }}
+      exit={reduced ? { opacity: 0 } : { opacity: 0, height: 0 }}
+      transition={reduced ? { duration: 0.18 } : ACTIVITY_SPRING}
+      role="status"
+      aria-live="polite"
+    >
+      <span className="island-activity-row">
+        <span className="island-activity-ico" aria-hidden="true">
+          <NavIcon name={KIND_ICON[activity.kind]} />
+        </span>
+        {!reduced && <span className="island-spinner" aria-hidden="true" />}
+        <span className="island-activity-label">
+          <em>{KIND_LABEL[activity.kind]}</em>
+          {activity.label && <span>{truncate(activity.label)}</span>}
+        </span>
+        <span className="island-activity-meta">
+          {activity.shot
+            ? `镜 ${activity.shot.index}/${activity.shot.total}`
+            : pct !== null
+              ? `${pct}%`
+              : "排队中"}
+        </span>
+      </span>
+      {/* 品紫细进度条:确定态用真实百分比,不确定态走流动 */}
+      <span className="island-progress" aria-hidden="true">
+        <span
+          className={`island-progress-fill${pct === null ? " is-indeterminate" : ""}`}
+          style={pct !== null ? { width: `${pct}%` } : undefined}
+        />
+      </span>
+    </motion.div>
+  );
+}
+
 /**
  * 苹果灵动岛式悬浮导航胶囊。
  * 三态 + 完成脉冲:
@@ -72,6 +274,10 @@ function truncate(text: string, max = 42): string {
  *  - 实时活动(生成中):向下长大成 live activity,模式图标 + spinner + 提示词 + 进度
  *  - 完成脉冲:任务结束品紫脉冲一下再弹性收回
  * reduced-motion → 降级纯 opacity 淡入淡出,不做 layout 形变。
+ *
+ * 性能要点:顶行(IslandBar)与活动行(IslandActivityRow)拆分。
+ * 生成进度高频刷新 activity 时,memo 化的 IslandBar 被跳过,
+ * 只有活动行重渲 —— 消除「整岛随进度反复重排」的卡顿主因。
  */
 export function DynamicIsland<K extends string>({
   views,
@@ -104,23 +310,20 @@ export function DynamicIsland<K extends string>({
   }, [activity?.phase]);
 
   const liveActive = activity?.phase === "running";
-  const currentView = views.find((v) => v.key === current);
 
-  // 进度百分比(value/max);不确定态 → null。
-  const pct =
-    activity && activity.value !== null && activity.max !== null && activity.max > 0
-      ? Math.min(100, Math.round((activity.value / activity.max) * 100))
-      : null;
+  // 稳定化:onSelect 透传给 memo 子组件,这里收敛成稳定引用(props 已稳定时不破坏 memo)。
+  const handleSelect = useCallback((key: string) => onSelect(key as K), [onSelect]);
 
-  // reduced-motion 下统一关掉弹性 layout,只走 opacity。
-  const layoutProps = reduced
-    ? {}
-    : ({ layout: true, transition: ISLAND_SPRING } as const);
+  // 外壳 layout:仅此处承担橡皮筋形变弹性(子层只用 layout="position")。
+  const shellLayout = useMemo(
+    () => (reduced ? {} : ({ layout: true, transition: ISLAND_SPRING } as const)),
+    [reduced],
+  );
 
   return (
     <div className="island-dock">
       <motion.nav
-        {...layoutProps}
+        {...shellLayout}
         className={`island${isOpen ? " is-expanded" : ""}${liveActive ? " is-live" : ""}${
           pulse ? " is-pulse" : ""
         }`}
@@ -133,131 +336,20 @@ export function DynamicIsland<K extends string>({
         }}
         aria-label="模块导航"
       >
-        {/* ── 顶行:brand + 视图 + GPU 点(三态共用) ── */}
-        <motion.div {...layoutProps} className="island-bar">
-          <motion.span {...layoutProps} className="island-brand" aria-hidden="true">
-            To<span className="mark">IV</span>
-          </motion.span>
-
-          {/* 紧凑态显示当前视图名;悬停展开时由完整导航接管 */}
-          {!isOpen && currentView && (
-            <motion.span
-              className="island-current"
-              initial={reduced ? false : { opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={reduced ? undefined : { opacity: 0 }}
-            >
-              {currentView.label}
-            </motion.span>
-          )}
-
-          {/* 视图项:紧凑=极小图标排,展开=图标+文字。当前态品紫墨块滑移。 */}
-          <motion.div {...layoutProps} className="island-views" role="tablist" aria-label="切换模块">
-            {views.map((v) => {
-              const isActive = v.key === current;
-              return (
-                <button
-                  key={v.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  aria-label={v.label}
-                  title={v.label}
-                  className={`island-view-btn${isActive ? " is-active" : ""}`}
-                  onClick={() => onSelect(v.key as K)}
-                >
-                  {isActive && (
-                    <motion.span
-                      className="island-pill"
-                      layoutId="island-pill"
-                      aria-hidden="true"
-                      transition={reduced ? { duration: 0 } : ISLAND_SPRING}
-                    />
-                  )}
-                  <span className="island-view-ico">
-                    <NavIcon name={v.icon} />
-                  </span>
-                  <AnimatePresence initial={false}>
-                    {isOpen && (
-                      <motion.span
-                        className="island-view-label"
-                        initial={reduced ? false : { opacity: 0, width: 0 }}
-                        animate={{ opacity: 1, width: "auto" }}
-                        exit={reduced ? undefined : { opacity: 0, width: 0 }}
-                        transition={reduced ? { duration: 0 } : { duration: 0.18 }}
-                      >
-                        {v.label}
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
-                </button>
-              );
-            })}
-          </motion.div>
-
-          {/* 账户操作:展开时浮现(主题切换 + 退出 + 邮箱) */}
-          <AnimatePresence initial={false}>
-            {isOpen && (
-              <motion.div
-                className="island-account"
-                initial={reduced ? false : { opacity: 0, width: 0 }}
-                animate={{ opacity: 1, width: "auto" }}
-                exit={reduced ? undefined : { opacity: 0, width: 0 }}
-                transition={reduced ? { duration: 0 } : { duration: 0.2 }}
-              >
-                {account && (
-                  <span className="island-user" title={account}>
-                    {account}
-                  </span>
-                )}
-                <AccountSettings onOpenChange={setSettingsOpen} />
-                <ThemeToggle />
-                <button type="button" className="island-logout" onClick={onLogout}>
-                  退出
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
+        <IslandBar
+          views={views}
+          current={current}
+          onSelect={handleSelect}
+          account={account}
+          onLogout={onLogout}
+          isOpen={isOpen}
+          reduced={reduced}
+          onSettingsOpenChange={setSettingsOpen}
+        />
 
         {/* ── 活动行:生成中向下长大成 live activity ── */}
         <AnimatePresence initial={false}>
-          {liveActive && activity && (
-            <motion.div
-              className="island-activity"
-              initial={reduced ? { opacity: 0 } : { opacity: 0, height: 0 }}
-              animate={reduced ? { opacity: 1 } : { opacity: 1, height: "auto" }}
-              exit={reduced ? { opacity: 0 } : { opacity: 0, height: 0 }}
-              transition={reduced ? { duration: 0.18 } : ACTIVITY_SPRING}
-              role="status"
-              aria-live="polite"
-            >
-              <span className="island-activity-row">
-                <span className="island-activity-ico" aria-hidden="true">
-                  <NavIcon name={KIND_ICON[activity.kind]} />
-                </span>
-                {!reduced && <span className="island-spinner" aria-hidden="true" />}
-                <span className="island-activity-label">
-                  <em>{KIND_LABEL[activity.kind]}</em>
-                  {activity.label && <span>{truncate(activity.label)}</span>}
-                </span>
-                <span className="island-activity-meta">
-                  {activity.shot
-                    ? `镜 ${activity.shot.index}/${activity.shot.total}`
-                    : pct !== null
-                      ? `${pct}%`
-                      : "排队中"}
-                </span>
-              </span>
-              {/* 品紫细进度条:确定态用真实百分比,不确定态走流动 */}
-              <span className="island-progress" aria-hidden="true">
-                <span
-                  className={`island-progress-fill${pct === null ? " is-indeterminate" : ""}`}
-                  style={pct !== null ? { width: `${pct}%` } : undefined}
-                />
-              </span>
-            </motion.div>
-          )}
+          {liveActive && activity && <IslandActivityRow activity={activity} reduced={reduced} />}
         </AnimatePresence>
       </motion.nav>
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 
 import { AuthScreen } from "@/components/auth/AuthScreen";
@@ -69,19 +69,23 @@ export default function Home() {
   }, []);
 
   // 灵动岛视图项:key 即 View 值,onSelect 直接回传给 setView(单一真相,无映射层)。
-  const islandViews: IslandView[] = [
-    { key: "assistant", label: "AI 助手", icon: "assistant" },
-    { key: "create", label: "创作", icon: "image" },
-    { key: "canvas", label: "画布", icon: "image" },
-    { key: "manju", label: "漫剧", icon: "video" },
-    { key: "threed", label: "3D", icon: "threed" },
-    { key: "library", label: "作品库", icon: "library" },
-    { key: "models", label: "模型", icon: "models" },
-    ...(account?.role === "admin"
-      ? [{ key: "admin", label: "管理", icon: "admin" }]
-      : []),
-    { key: "audio", label: "音频", icon: "audio" },
-  ];
+  // useMemo 稳定引用:仅在管理员身份变化时重建,否则保持同一数组,
+  // 让灵动岛 memo 化的顶行不因父级无关重渲(如生成进度刷新)而重建。
+  const isAdmin = account?.role === "admin";
+  const islandViews: IslandView[] = useMemo(
+    () => [
+      { key: "assistant", label: "AI 助手", icon: "assistant" },
+      { key: "create", label: "创作", icon: "image" },
+      { key: "canvas", label: "画布", icon: "image" },
+      { key: "manju", label: "漫剧", icon: "video" },
+      { key: "threed", label: "3D", icon: "threed" },
+      { key: "library", label: "作品库", icon: "library" },
+      { key: "models", label: "模型", icon: "models" },
+      ...(isAdmin ? [{ key: "admin", label: "管理", icon: "admin" }] : []),
+      { key: "audio", label: "音频", icon: "audio" },
+    ],
+    [isAdmin],
+  );
 
   if (auth === "loading") {
     return (

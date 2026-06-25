@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 
 interface LazyImageProps {
   src: string;
@@ -13,7 +13,7 @@ interface LazyImageProps {
  * - decoding="async":不阻塞主线程。
  * - 已缓存的图也会触发 onLoad,保证 is-loaded 终态。
  */
-export function LazyImage({ src, alt }: LazyImageProps) {
+export const LazyImage = memo(function LazyImage({ src, alt }: LazyImageProps) {
   const [loaded, setLoaded] = useState(false);
   return (
     <img
@@ -25,4 +25,4 @@ export function LazyImage({ src, alt }: LazyImageProps) {
       onLoad={() => setLoaded(true)}
     />
   );
-}
+});
