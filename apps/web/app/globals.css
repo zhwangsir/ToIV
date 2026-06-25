@@ -2779,7 +2779,9 @@ input[type="range"]::-webkit-slider-thumb:hover {
   grid-template-columns: 168px 1fr;
 }
 @media (max-width: 1100px) {
-  .manju-body {
+  /* 同时覆盖 .is-wide(特异性更高),否则窄屏不会塌成单列 */
+  .manju-body,
+  .manju-body.is-wide {
     grid-template-columns: 1fr;
   }
 }
