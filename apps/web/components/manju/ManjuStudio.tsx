@@ -43,6 +43,23 @@ const SHOT_H = 432;
 const REF_W = 512;
 const REF_H = 512;
 
+// 漫剧默认底模:优先 SDXL 动漫系(角色脸一致性 / 画风更稳),按优先级匹配名称,
+// 命不中再回退列表首个。只改默认选择,用户仍可在 ModelPicker 任意切换。
+const PREFERRED_CKPT_FAMILIES = ["animagine", "illustrious", "noob", "pony"] as const;
+
+function pickDefaultCkpt(checkpoints: readonly string[]): string {
+  for (const family of PREFERRED_CKPT_FAMILIES) {
+    const hit = checkpoints.find((c) => c.toLowerCase().includes(family));
+    if (hit) return hit;
+  }
+  return checkpoints[0] ?? "";
+}
+
+function isPreferredCkpt(ckpt: string): boolean {
+  const lower = ckpt.toLowerCase();
+  return PREFERRED_CKPT_FAMILIES.some((family) => lower.includes(family));
+}
+
 export function ManjuStudio() {
   // 顶栏 / 流程
   const [projectName, setProjectName] = useState("未命名漫剧");
@@ -84,7 +101,7 @@ export function ManjuStudio() {
     listModels()
       .then((m) => {
         setModels(m);
-        setCkpt(m.checkpoints[0] ?? "");
+        setCkpt(pickDefaultCkpt(m.checkpoints));
       })
       .catch(() => {});
     return () => esRef.current?.close();
@@ -683,6 +700,13 @@ export function ManjuStudio() {
                   onChange={setCkpt}
                   label="出图模型"
                 />
+              )}
+              {models && models.checkpoints.length > 0 && (
+                <p className="manju-setup-hint">
+                  {isPreferredCkpt(ckpt)
+                    ? "✓ 已选 SDXL 动漫底模 — 角色脸一致性更稳"
+                    : "建议选 SDXL 动漫底模(animagine / illustrious / noobai),角色一致性更稳"}
+                </p>
               )}
 
               <button
