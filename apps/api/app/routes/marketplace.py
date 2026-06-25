@@ -1,15 +1,19 @@
 """模型市场代理 —— 服务端转发 Civitai / HuggingFace 搜索(避免 CORS,密钥留服务端)。
 
-下载落地(写入 worker 文件系统 / 经 ComfyUI-Manager)留待后续接入。
+下载落地经 worker 上的 ComfyUI-Manager:api 容器可达 .100,故在请求时运行时探测
+其安装端点(版本不同 → 逐个回退),据响应判定是否受理,绝不静默吞错。
 """
 from __future__ import annotations
 
 import os
+from urllib.parse import urlsplit
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 
-from app.deps import get_current_user
+from app.comfy.pool import WorkerPool
+from app.deps import get_current_user, get_pool
 from app.models import User
 
 router = APIRouter()
@@ -98,3 +102,262 @@ async def search(
     except httpx.HTTPError as e:
         raise HTTPException(status_code=502, detail=f"模型市场请求失败: {e}") from e
     return {"items": items, "source": source}
+
+
+# --------------------------------------------------------------------------- #
+# 模型安装落地 —— 经 worker 上的 ComfyUI-Manager
+# --------------------------------------------------------------------------- #
+
+# 允许的下载来源主机白名单(防 SSRF / 任意写):仅这些域名的直链可下载。
+# civitai.red 是 civitai.com 的可达镜像;hf-mirror 是 huggingface 的国内镜像。
+_ALLOWED_DOWNLOAD_HOSTS: frozenset[str] = frozenset(
+    {
+        "civitai.com",
+        "civitai.red",
+        "huggingface.co",
+        "hf-mirror.com",
+    }
+)
+
+# 允许的模型类型(枚举),同时映射到 ComfyUI 默认子目录名。
+# ComfyUI-Manager 的 save_path 用 "default" 时由其按 type 自行落到对应目录。
+_MODEL_TYPE_SUBDIR: dict[str, str] = {
+    "checkpoint": "checkpoints",
+    "checkpoints": "checkpoints",
+    "lora": "loras",
+    "loras": "loras",
+    "vae": "vae",
+    "controlnet": "controlnet",
+    "upscale": "upscale_models",
+    "upscale_models": "upscale_models",
+    "embedding": "embeddings",
+    "embeddings": "embeddings",
+    "clip": "clip",
+    "clip_vision": "clip_vision",
+    "unet": "unet",
+    "diffusion_model": "diffusion_models",
+    "diffusion_models": "diffusion_models",
+}
+
+# ComfyUI-Manager 各版本的安装端点,按优先级探测;命中即用,端点缺失则回退下一个。
+# 现代版:install_model(入队)+ start(开始处理);老版:单步 model/install。
+_INSTALL_ENDPOINTS: tuple[str, ...] = (
+    "/model/install",
+    "/manager/queue/install",
+    "/externalmodel/install",
+    "/manager/queue/install_model",
+)
+# 端点不存在的状态码:据此回退到下一个候选(而非把它当真正的失败)。
+_ENDPOINT_ABSENT = frozenset({404, 405, 501})
+_INSTALL_TIMEOUT = 30.0
+
+
+class InstallRequest(BaseModel):
+    """模型安装入参。url 与 (source,id) 二选一;type 必填且限枚举。"""
+
+    type: str
+    url: str | None = None
+    source: str | None = None
+    id: str | None = None
+    name: str | None = None
+    filename: str | None = None
+    base: str | None = None
+
+
+def _validate_download_url(url: str) -> str:
+    """校验直链:必须是 http(s) 且主机在白名单内(防 SSRF / 任意写)。返回规整后的 url。"""
+    parsed = urlsplit(url.strip())
+    if parsed.scheme not in ("http", "https"):
+        raise HTTPException(status_code=400, detail="模型下载链接必须是 http(s)")
+    host = (parsed.hostname or "").lower()
+    if not host:
+        raise HTTPException(status_code=400, detail="模型下载链接缺少主机名")
+    # 命中白名单主机或其子域(如 cdn.civitai.com)才放行。
+    allowed = any(
+        host == h or host.endswith(f".{h}") for h in _ALLOWED_DOWNLOAD_HOSTS
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=400,
+            detail=f"下载来源 {host} 不在白名单内(仅允许 Civitai / HuggingFace 及其镜像)",
+        )
+    return parsed.geturl()
+
+
+def _build_model_item(req: InstallRequest) -> dict:
+    """据入参组装 ComfyUI-Manager 期望的模型条目;同时完成 type/url/source 校验。"""
+    model_type = req.type.strip().lower()
+    if model_type not in _MODEL_TYPE_SUBDIR:
+        allowed = ", ".join(sorted(set(_MODEL_TYPE_SUBDIR))) or "(无)"
+        raise HTTPException(
+            status_code=400, detail=f"未知模型类型 {req.type!r};允许:{allowed}"
+        )
+
+    if req.source is not None:
+        if req.source not in ("civitai", "huggingface"):
+            raise HTTPException(status_code=400, detail="未知模型来源")
+
+    download_url: str
+    if req.url:
+        download_url = _validate_download_url(req.url)
+    elif req.source == "huggingface" and req.id:
+        # HuggingFace 仓库 → 走 hf 域;具体文件名由 filename 指定。
+        if not req.filename:
+            raise HTTPException(
+                status_code=400, detail="HuggingFace 安装需提供 filename(仓库内文件名)"
+            )
+        repo = req.id.strip().strip("/")
+        download_url = _validate_download_url(
+            f"https://huggingface.co/{repo}/resolve/main/{req.filename}"
+        )
+    else:
+        raise HTTPException(
+            status_code=400, detail="缺少安装目标:需提供 url,或 (source=huggingface, id, filename)"
+        )
+
+    filename = (req.filename or os.path.basename(urlsplit(download_url).path) or "").strip()
+    if not filename:
+        raise HTTPException(status_code=400, detail="无法确定模型文件名,请显式提供 filename")
+    name = (req.name or filename).strip()
+    base = (req.base or "").strip()
+
+    # ComfyUI-Manager 模型条目结构(install_model / model/install 通用键)。
+    return {
+        "name": name,
+        "type": model_type,
+        "base": base,
+        # "default" 让 Manager 按 type 自行落到对应模型目录,避免我们拼绝对路径(防任意写)。
+        "save_path": "default",
+        "filename": filename,
+        "url": download_url,
+        "description": f"installed via ToIV marketplace ({req.source or 'direct'})",
+        "reference": req.url or download_url,
+    }
+
+
+def _is_accepted(resp: httpx.Response) -> bool:
+    """判定 Manager 是否受理安装(2xx 视为受理;响应体里显式 false 视为拒绝)。"""
+    if resp.status_code >= 300:
+        return False
+    try:
+        body = resp.json()
+    except ValueError:
+        return True  # 非 JSON 的 2xx(如纯文本 "ok")也算受理
+    if isinstance(body, dict):
+        result = body.get("result")
+        if result is False or body.get("success") is False:
+            return False
+    return True
+
+
+async def _try_install(client: httpx.AsyncClient, base_url: str, item: dict) -> dict:
+    """对一台 worker 逐个探测安装端点;命中受理即返回结果,绝不静默吞错。"""
+    errors: list[str] = []
+    for path in _INSTALL_ENDPOINTS:
+        try:
+            resp = await client.post(f"{base_url}{path}", json=item)
+        except httpx.HTTPError as e:
+            errors.append(f"{path}: 连接失败 {e}")
+            continue
+        if resp.status_code in _ENDPOINT_ABSENT:
+            errors.append(f"{path}: 端点不存在({resp.status_code})")
+            continue
+        if not _is_accepted(resp):
+            # 端点存在但拒绝/出错 → 透传真实响应,不再回退(否则会掩盖真因)。
+            detail = _response_detail(resp)
+            raise HTTPException(
+                status_code=502,
+                detail=f"ComfyUI-Manager 拒绝安装({path} → {resp.status_code}): {detail}",
+            )
+        # 受理成功;现代版入队后需显式 start 触发处理(老版单步端点无 start,失败可忽略)。
+        await _maybe_start_queue(client, base_url, path)
+        return {
+            "accepted": True,
+            "endpoint": path,
+            "worker": base_url,
+            "status_code": resp.status_code,
+            "message": _response_detail(resp),
+        }
+    raise HTTPException(
+        status_code=502,
+        detail="ComfyUI-Manager 未提供可用安装端点;探测记录:" + "; ".join(errors),
+    )
+
+
+async def _maybe_start_queue(client: httpx.AsyncClient, base_url: str, path: str) -> None:
+    """队列式端点(install_model / queue/install)入队后需 start 才开始处理;尽力而为。"""
+    if "queue" not in path:
+        return
+    try:
+        await client.post(f"{base_url}/manager/queue/start")
+    except httpx.HTTPError:
+        pass  # start 失败不影响"已受理"的事实,状态可经 /status 查询
+
+
+def _response_detail(resp: httpx.Response) -> str:
+    """从 worker 响应提取人类可读信息(JSON 优先,回退原文本,截断防刷屏)。"""
+    try:
+        body = resp.json()
+        text = str(body)
+    except ValueError:
+        text = resp.text
+    text = (text or "").strip()
+    return text[:500] if text else f"HTTP {resp.status_code}"
+
+
+async def _pick_install_worker(pool: WorkerPool) -> str:
+    """在 worker 池里选一台可达 worker 返回其 base_url;全不可达则 502。"""
+    try:
+        client = await pool.pick()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"没有可用的 worker: {e}") from e
+    base_url = getattr(client, "base_url", None)
+    if not base_url:
+        raise HTTPException(status_code=502, detail="worker 缺少 base_url,无法安装")
+    return base_url
+
+
+@router.post("/marketplace/install")
+async def install(
+    req: InstallRequest,
+    pool: WorkerPool = Depends(get_pool),
+    user: User = Depends(get_current_user),
+) -> dict:
+    """把搜到的模型经某台 worker 的 ComfyUI-Manager 装到 ComfyUI 集群。
+
+    入参 url 与 (source,id[,filename]) 二选一;type 限枚举。来源主机走白名单防 SSRF。
+    逻辑:挑一台可达 worker → 逐个探测 Manager 安装端点(版本不同 → 回退)→ 据响应判定受理。
+    """
+    item = _build_model_item(req)
+    base_url = await _pick_install_worker(pool)
+    async with httpx.AsyncClient(timeout=_INSTALL_TIMEOUT, headers=_HEADERS) as client:
+        result = await _try_install(client, base_url, item)
+    return {**result, "model": item}
+
+
+@router.get("/marketplace/install/status")
+async def install_status(
+    pool: WorkerPool = Depends(get_pool),
+    user: User = Depends(get_current_user),
+) -> dict:
+    """转发 ComfyUI-Manager 的安装队列进度(若 worker 提供该端点)。"""
+    base_url = await _pick_install_worker(pool)
+    async with httpx.AsyncClient(timeout=_INSTALL_TIMEOUT, headers=_HEADERS) as client:
+        try:
+            resp = await client.get(f"{base_url}/manager/queue/status")
+        except httpx.HTTPError as e:
+            raise HTTPException(status_code=502, detail=f"查询安装进度失败: {e}") from e
+        if resp.status_code in _ENDPOINT_ABSENT:
+            raise HTTPException(
+                status_code=501, detail="该 worker 的 ComfyUI-Manager 不支持进度查询端点"
+            )
+        if resp.status_code >= 300:
+            raise HTTPException(
+                status_code=502,
+                detail=f"查询安装进度失败({resp.status_code}): {_response_detail(resp)}",
+            )
+        try:
+            body = resp.json()
+        except ValueError:
+            body = {"raw": resp.text}
+    return {"worker": base_url, "status": body}
