@@ -24,6 +24,19 @@ type AuthState = "loading" | "in" | "out";
 
 type View = "assistant" | "create" | "canvas" | "manju" | "threed" | "audio" | "library" | "models" | "admin";
 
+// 合法深链视图(/?view=<模块>);从 /engine 落地页能力卡进入时初始化对应视图。
+const VALID_VIEWS = new Set<View>([
+  "assistant",
+  "create",
+  "canvas",
+  "manju",
+  "threed",
+  "audio",
+  "library",
+  "models",
+  "admin",
+]);
+
 interface Account {
   email: string;
   role: string;
@@ -34,6 +47,12 @@ export default function Home() {
   const [auth, setAuth] = useState<AuthState>("loading");
   const [account, setAccount] = useState<Account | null>(null);
   const [view, setView] = useState<View>("assistant");
+
+  // 深链:/?view=<模块> 直接进入对应视图(承接 /engine 落地页能力卡跳转)
+  useEffect(() => {
+    const v = new URLSearchParams(window.location.search).get("view");
+    if (v && VALID_VIEWS.has(v as View)) setView(v as View);
+  }, []);
 
   // 启动时校验已存令牌
   useEffect(() => {

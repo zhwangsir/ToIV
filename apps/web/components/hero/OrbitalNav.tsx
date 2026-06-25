@@ -32,6 +32,16 @@ const NODES: readonly Node[] = [
 const ORBIT_RADIUS = 168; // px,与 hero.css 中 --orbit-r 对应
 const REV_PERIOD_MS = 64000; // 一圈周期,缓慢
 
+// 能力节点 → 主应用模块视图(深链由 app/page.tsx 的 ?view= 初始化接住)
+const JUMP_VIEW: Record<string, string> = {
+  image: "create",
+  video: "create",
+  manju: "manju",
+  threed: "threed",
+  audio: "audio",
+  model: "models",
+};
+
 export function OrbitalNav() {
   const reduced = useReducedMotion();
   const ringRef = useRef<HTMLDivElement>(null);
@@ -116,9 +126,6 @@ export function OrbitalNav() {
 
   const onActivate = (key: string) => {
     setActive(key);
-    // 占位"跃迁":真实跳转留待 v2 接 create/manju 工作室。
-    // eslint-disable-next-line no-console
-    console.info(`[engine] jump → ${key}`);
     const el = nodeRefs.current.get(key);
     if (el) {
       el.classList.remove("orbit-node--jump");
@@ -126,6 +133,12 @@ export function OrbitalNav() {
       void el.offsetWidth;
       el.classList.add("orbit-node--jump");
     }
+    // 跃迁脉冲后进入对应模块(reduced-motion 下立即跳转)
+    const target = `/?view=${JUMP_VIEW[key] ?? "create"}`;
+    const delay = reduced ? 0 : 280;
+    window.setTimeout(() => {
+      window.location.href = target;
+    }, delay);
   };
 
   return (

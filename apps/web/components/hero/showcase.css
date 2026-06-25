@@ -1,0 +1,436 @@
+/* ============================================================
+   /engine 第二屏 —— 「六大能力」展示区样式。
+   复用 globals.css 设计 token;暗色 Studio Noir 氛围,自带背景
+   (不依赖 hero 的 fixed 极光,避免跨 stacking context 被盖)。
+   动效仅 transform / opacity;reduced-motion 降级为静态常亮。
+   ============================================================ */
+
+.showcase {
+  /* 区块内紫调 glow RGB(与 --accent 品紫 hue 一致) */
+  --sc-violet: 138, 116, 246;
+  --sc-magenta: 176, 108, 232;
+
+  position: relative;
+  z-index: 1;
+  padding: clamp(4.5rem, 6rem + 4vw, 9rem) clamp(1.25rem, 4vw, 4rem)
+    clamp(4rem, 5rem + 3vw, 7rem);
+  background:
+    radial-gradient(82% 60% at 82% -4%, rgba(var(--sc-violet), 0.12), transparent 60%),
+    radial-gradient(70% 52% at 6% 104%, rgba(var(--sc-magenta), 0.09), transparent 60%),
+    linear-gradient(180deg, var(--bg-0), color-mix(in oklab, var(--bg-0) 88%, #000));
+  border-top: 1px solid var(--hairline);
+  color: var(--ink);
+  isolation: isolate;
+}
+/* 极淡点阵纹理,呼应 hero 的 HUD 网格,克制不抢戏 */
+.showcase::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: radial-gradient(rgba(var(--sc-violet), 0.12) 1px, transparent 1px);
+  background-size: 30px 30px;
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 18%, #000 82%, transparent);
+  mask-image: linear-gradient(180deg, transparent, #000 18%, #000 82%, transparent);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* ---------- 区块抬头 ---------- */
+.showcase__head {
+  max-width: 64rem;
+  margin: 0 auto clamp(2.5rem, 4vw, 4rem);
+  text-align: center;
+}
+.showcase__kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--accent-soft);
+}
+.showcase__kicker-tick {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-wash);
+  animation: sc-blink 2.4s var(--ease) infinite;
+}
+.showcase__title {
+  margin: 0 0 1.1rem;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(1.9rem, 1.2rem + 3.4vw, 3.6rem);
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.04;
+  color: var(--ink);
+}
+.showcase__title-accent {
+  background: linear-gradient(120deg, var(--accent), rgb(var(--sc-magenta)));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.showcase__lede {
+  margin: 0 auto;
+  max-width: 46rem;
+  font-size: clamp(0.92rem, 0.86rem + 0.4vw, 1.08rem);
+  line-height: 1.65;
+  color: var(--ink-soft);
+}
+
+/* ---------- bento 网格 ---------- */
+.showcase__grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: clamp(0.9rem, 1.4vw, 1.4rem);
+  max-width: 76rem;
+  margin: 0 auto;
+}
+.cap-card--lg {
+  grid-column: span 7;
+}
+.cap-card--md {
+  grid-column: span 5;
+}
+.cap-card--sm {
+  grid-column: span 4;
+}
+.cap-card--wide {
+  grid-column: span 12;
+}
+
+/* ---------- 能力卡 ---------- */
+.cap-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: clamp(1.2rem, 1.6vw, 1.8rem);
+  min-height: 180px;
+  border: 1px solid var(--hairline-2);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(160deg, var(--glass-2), transparent 60%),
+    color-mix(in oklab, var(--bg-1) 86%, transparent);
+  backdrop-filter: blur(6px);
+  box-shadow: var(--shadow-md), var(--shadow-edge);
+  color: var(--ink);
+  text-decoration: none;
+  overflow: hidden;
+  /* 入场:错峰上浮 */
+  opacity: 0;
+  transform: translateY(26px);
+  transition:
+    opacity 0.6s var(--ease-expo),
+    transform 0.6s var(--ease-expo),
+    border-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+.showcase.is-in .cap-card {
+  opacity: 1;
+  transform: none;
+  transition-delay: calc(var(--i) * 75ms);
+}
+/* 顶部口音脊:hover 时点亮的品紫渐变线 */
+.cap-card::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), rgb(var(--sc-magenta)));
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+}
+.cap-card:hover,
+.cap-card:focus-visible {
+  border-color: var(--accent-line);
+  box-shadow: 0 0 0 1px var(--accent-line), var(--shadow-lg), var(--shadow-edge);
+  transform: translateY(-4px);
+  outline: none;
+}
+.cap-card:hover::after,
+.cap-card:focus-visible::after {
+  opacity: 1;
+}
+
+.cap-card__glyph {
+  font-size: clamp(1.7rem, 1.2rem + 1.4vw, 2.4rem);
+  line-height: 1;
+  color: var(--accent);
+  filter: drop-shadow(0 0 14px var(--accent-wash));
+  transition: transform var(--dur) var(--ease-expo), color var(--dur) var(--ease);
+}
+.cap-card:hover .cap-card__glyph {
+  transform: translateY(-2px) scale(1.06);
+  color: var(--accent-hover, var(--accent));
+}
+.cap-card__lead {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.cap-card__en {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.cap-card__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.1rem, 0.9rem + 0.8vw, 1.5rem);
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+  color: var(--ink);
+}
+.cap-card__desc {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+.cap-card__tags {
+  list-style: none;
+  margin: auto 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.cap-card__tag {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.02em;
+  color: var(--accent-soft);
+  background: var(--accent-quiet);
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  padding: 0.16rem 0.5rem;
+}
+.cap-card__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent);
+  opacity: 0.85;
+  transition: gap var(--dur) var(--ease), opacity var(--dur) var(--ease);
+}
+.cap-card__cta em {
+  font-style: normal;
+}
+.cap-card:hover .cap-card__cta {
+  opacity: 1;
+  gap: 0.6rem;
+}
+
+/* 旗舰 / 横幅卡:更舒展的字号与留白 */
+.cap-card--lg {
+  min-height: 280px;
+}
+.cap-card--lg .cap-card__desc {
+  font-size: 0.94rem;
+  max-width: 34rem;
+}
+.cap-card--wide {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 2rem;
+  min-height: 0;
+}
+.cap-card--wide .cap-card__glyph {
+  flex: none;
+}
+.cap-card--wide .cap-card__lead {
+  flex: none;
+}
+.cap-card--wide .cap-card__desc {
+  flex: 1 1 16rem;
+  margin: 0;
+}
+.cap-card--wide .cap-card__tags {
+  margin: 0;
+}
+.cap-card--wide .cap-card__cta {
+  margin-left: auto;
+}
+
+/* ---------- 区块收尾 CTA ---------- */
+.showcase__foot {
+  margin: clamp(2.5rem, 4vw, 4rem) auto 0;
+  text-align: center;
+}
+.showcase__enter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.85rem 1.9rem;
+  font-family: var(--font-display);
+  font-size: 1.02rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--accent-ink);
+  text-decoration: none;
+  background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  box-shadow: 0 0 0 0 var(--accent-wash);
+  transition: transform var(--dur) var(--ease-expo), box-shadow var(--dur) var(--ease),
+    filter var(--dur) var(--ease);
+}
+.showcase__enter:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.06);
+  box-shadow: 0 0 0 5px var(--accent-wash);
+}
+.showcase__enter:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 3px;
+}
+.showcase__enter-arrow {
+  transition: transform var(--dur) var(--ease-expo);
+}
+.showcase__enter:hover .showcase__enter-arrow {
+  transform: translateX(3px);
+}
+.showcase__note {
+  margin: 0.9rem 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-faint);
+}
+
+@keyframes sc-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* ---------- hero 底部向下滚动提示(定位于 .engine-stage 内) ---------- */
+.engine-scrollcue {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(2.8rem, 5.5vh, 4.4rem);
+  z-index: 3;
+  transform: translateX(-50%);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  color: var(--ink-soft);
+  opacity: 1;
+  transition: opacity 0.6s var(--ease) 1.6s, color var(--dur) var(--ease);
+}
+.engine-scrollcue.boot-scrollcue {
+  opacity: 0;
+}
+.engine-scrollcue:hover {
+  color: var(--accent);
+}
+.engine-scrollcue:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 4px;
+  border-radius: var(--radius-xs);
+}
+.engine-scrollcue__txt {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+.engine-scrollcue__chev {
+  width: 12px;
+  height: 12px;
+  border-right: 1.6px solid currentColor;
+  border-bottom: 1.6px solid currentColor;
+  transform: rotate(45deg);
+  animation: sc-bob 1.8s var(--ease-expo) infinite;
+}
+@keyframes sc-bob {
+  0%,
+  100% {
+    transform: rotate(45deg) translate(0, 0);
+    opacity: 0.55;
+  }
+  50% {
+    transform: rotate(45deg) translate(3px, 3px);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .engine-scrollcue {
+    transition: color var(--dur) var(--ease);
+  }
+  .engine-scrollcue.boot-scrollcue {
+    opacity: 1;
+  }
+  .engine-scrollcue__chev {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
+/* ---------- 响应式 ---------- */
+@media (max-width: 900px) {
+  .cap-card--lg,
+  .cap-card--md {
+    grid-column: span 12;
+  }
+  .cap-card--sm {
+    grid-column: span 6;
+  }
+}
+@media (max-width: 560px) {
+  .showcase__grid {
+    gap: 0.8rem;
+  }
+  .cap-card--sm,
+  .cap-card--wide {
+    grid-column: span 12;
+  }
+  .cap-card--wide {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .cap-card--wide .cap-card__cta {
+    margin-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cap-card {
+    opacity: 1;
+    transform: none;
+    transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  }
+  .showcase.is-in .cap-card {
+    transition-delay: 0s;
+  }
+  .cap-card:hover,
+  .cap-card:focus-visible {
+    transform: none;
+  }
+  .showcase__kicker-tick {
+    animation: none;
+  }
+  .cap-card__glyph,
+  .showcase__enter,
+  .showcase__enter-arrow {
+    transition: none;
+  }
+}

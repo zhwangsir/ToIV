@@ -2,7 +2,7 @@
 
 import "./hero.css";
 
-import { useEffect, useRef, useState } from "react";
+import { type MouseEvent, useEffect, useRef, useState } from "react";
 
 import { AuroraBackground } from "@/components/hero/AuroraBackground";
 import { HudTelemetry, type TelemetryStats } from "@/components/hero/HudTelemetry";
@@ -93,6 +93,14 @@ export function CreationEngineHero() {
 
   const bootCls = (name: string) => (booted ? name : `${name} boot-${name.split("-")[1]}`);
 
+  // 向下滚动到能力展示区(reduced-motion 下瞬时跳转)
+  const onScrollCue = (e: MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    document
+      .getElementById("capabilities")
+      ?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+  };
+
   return (
     <main className={`engine-stage${reduced ? " is-static" : ""}`}>
       <AuroraBackground />
@@ -150,6 +158,17 @@ export function CreationEngineHero() {
           <em>SYNC</em> ●
         </span>
       </footer>
+
+      {/* 向下滚动提示:进入六大能力展示 */}
+      <a
+        className={`engine-scrollcue${booted ? "" : " boot-scrollcue"}`}
+        href="#capabilities"
+        aria-label="向下查看六大创作能力"
+        onClick={onScrollCue}
+      >
+        <span className="engine-scrollcue__txt">六大能力</span>
+        <span className="engine-scrollcue__chev" aria-hidden="true" />
+      </a>
     </main>
   );
 }
