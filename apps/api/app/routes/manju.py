@@ -1,21 +1,40 @@
-"""POST /api/manju/storyboard —— 漫剧工作室 M1:把剧情用 LLM 拆成结构化分镜。
+"""漫剧工作室路由。
 
-入参剧情(premise)+ 镜数 + 风格 + 角色,产出 shots[]:每镜含英文出图提示词
-(适合 SD/anime)、出场角色、运镜、中文台词、时长。前端据此渲染分镜板并逐镜出图。
+- POST /api/manju/storyboard —— M1:把剧情用 LLM 拆成结构化分镜。
+  入参剧情(premise)+ 镜数 + 风格 + 角色,产出 shots[]:每镜含英文出图提示词
+  (适合 SD/anime)、出场角色、运镜、中文台词、时长。前端据此渲染分镜板并逐镜出图。
+  复用 optimize.py 的健壮 JSON 解析(容忍 ```json 代码块/前后缀)。
 
-复用 optimize.py 的健壮 JSON 解析(容忍 ```json 代码块/前后缀)。沿用现有鉴权与限流。
+- POST /api/manju/shot —— M2:用 IPAdapter 出单镜图,使其与角色参考图保持一致。
+  带 character_ref(已上传到 worker 的角色参考图)时走 IPAdapter 工作流;无参考图
+  时优雅降级为普通 txt2img。沿用现有 pool/resolve_worker + Job 建档 + spawn_tracker。
+
+沿用现有鉴权与限流。
 """
 from __future__ import annotations
 
 import json
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlmodel import Session
 
 from app.agent import llm
-from app.deps import get_current_user
-from app.models import User
+from app.comfy.client import ComfyUIError
+from app.comfy.pool import WorkerPool
+from app.comfy.tracker import spawn as spawn_tracker
+from app.config import get_settings
+from app.db import get_session
+from app.deps import get_current_user, get_pool, resolve_worker
+from app.models import Job, User
 from app.ratelimit import enforce_generation_rate_limit
+from app.workflows.ipadapter import (
+    DEFAULT_PRESET,
+    IPAdapterTxt2ImgParams,
+    build_ipadapter_txt2img_graph,
+)
+from app.workflows.txt2img import Txt2ImgParams, build_txt2img_graph
 
 router = APIRouter()
 
@@ -143,3 +162,138 @@ async def generate_storyboard(
     if not any(s.description for s in shots):
         raise HTTPException(status_code=502, detail="分镜生成失败,请重试")
     return StoryboardResponse(shots=shots)
+
+
+# ---------------------------------------------------------------------------
+# M2:单镜出图(IPAdapter 角色一致性,无参考图时降级 txt2img)
+# ---------------------------------------------------------------------------
+
+
+def _snap8(v: int) -> int:
+    """SD 潜空间要求宽高是 8 的倍数(与 generate 路由一致)。"""
+    return max(8, v - v % 8)
+
+
+class ShotRenderRequest(BaseModel):
+    """单镜出图请求。
+
+    character_ref:已上传到 worker 的角色参考图文件名。给定时走 IPAdapter 保持人物
+    一致;为空(None/空串)时优雅降级为普通 txt2img(同分镜不带参考的常规出图)。
+    worker:角色参考图所在的 worker(白名单内);校验后只路由到该机,避免缺图。
+    """
+
+    positive: str = Field(min_length=1, max_length=2000)
+    worker: str = Field(min_length=1, max_length=512)
+    character_ref: str | None = Field(default=None, max_length=512)
+    negative: str = Field(default="", max_length=2000)
+    ckpt_name: str | None = None
+    preset: str = Field(default=DEFAULT_PRESET, max_length=64)
+    weight: float = Field(default=0.8, ge=0.0, le=2.0)
+    weight_type: str = Field(default="linear", max_length=64)
+    start_at: float = Field(default=0.0, ge=0.0, le=1.0)
+    end_at: float = Field(default=1.0, ge=0.0, le=1.0)
+    width: int = Field(default=512, ge=64, le=2048)
+    height: int = Field(default=512, ge=64, le=2048)
+    steps: int = Field(default=20, ge=1, le=150)
+    cfg: float = Field(default=7.0, ge=0.0, le=30.0)
+    sampler: str = Field(default="euler", max_length=64)
+    scheduler: str = Field(default="normal", max_length=64)
+    seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
+
+
+def _build_shot_graph(req: ShotRenderRequest, ckpt_name: str) -> tuple[dict, str]:
+    """据请求选用 IPAdapter 或 txt2img 构图。返回 (graph, mode)。
+
+    mode 用于 Job.kind 与响应,便于前端/历史区分该镜是否启用了角色一致性。
+    无 character_ref(空/None)→ txt2img 降级;有 → IPAdapter。
+    """
+    ref = (req.character_ref or "").strip()
+    width, height = _snap8(req.width), _snap8(req.height)
+    seed_kw = {"seed": req.seed} if req.seed is not None else {}
+    if not ref:
+        params = Txt2ImgParams(
+            positive=req.positive,
+            negative=req.negative,
+            ckpt_name=ckpt_name,
+            width=width,
+            height=height,
+            steps=req.steps,
+            cfg=req.cfg,
+            sampler=req.sampler,
+            scheduler=req.scheduler,
+            filename_prefix="ToIV_shot",
+            **seed_kw,
+        )
+        return build_txt2img_graph(params), "manju_shot_txt2img"
+    ipa_params = IPAdapterTxt2ImgParams(
+        positive=req.positive,
+        ref_image=ref,
+        negative=req.negative,
+        ckpt_name=ckpt_name,
+        preset=req.preset,
+        weight=req.weight,
+        weight_type=req.weight_type,
+        start_at=req.start_at,
+        end_at=req.end_at,
+        width=width,
+        height=height,
+        steps=req.steps,
+        cfg=req.cfg,
+        sampler=req.sampler,
+        scheduler=req.scheduler,
+        filename_prefix="ToIV_shot",
+        **seed_kw,
+    )
+    return build_ipadapter_txt2img_graph(ipa_params), "manju_shot_ipadapter"
+
+
+@router.post("/manju/shot")
+async def render_shot(
+    req: ShotRenderRequest,
+    pool: WorkerPool = Depends(get_pool),
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """漫剧 M2:用同一角色参考图出该镜图,使人物在各镜间保持一致。
+
+    带 character_ref 时走 IPAdapter(参考图须先上传到所选 worker);无参考图时降级为
+    普通 txt2img。沿用 resolve_worker(白名单防 SSRF)+ Job 建档 + spawn_tracker。
+    """
+    enforce_generation_rate_limit(user)
+    settings = get_settings()
+    ckpt_name = req.ckpt_name or settings.default_ckpt
+    # 参考图所在的 worker(白名单校验);IPAdapter 与 txt2img 都固定提交到该机
+    client = resolve_worker(req.worker)
+    graph, kind = _build_shot_graph(req, ckpt_name)
+
+    client_id = uuid.uuid4().hex
+    try:
+        prompt_id = await client.queue_prompt(graph, client_id)
+    except ComfyUIError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+    seed = graph["3"]["inputs"]["seed"]
+    session.add(
+        Job(
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            prompt_id=prompt_id,
+            worker=client.base_url,
+            kind=kind,
+            status="queued",
+            prompt=req.positive,
+            seed=seed,
+        )
+    )
+    session.commit()
+
+    # 服务端后台追踪结果落库,不依赖客户端是否连 SSE
+    spawn_tracker(client, prompt_id)
+
+    return {
+        "prompt_id": prompt_id,
+        "client_id": client_id,
+        "worker": client.base_url,
+        "seed": seed,
+        "mode": kind,
+    }
