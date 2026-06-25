@@ -17,7 +17,7 @@ const CATEGORIES: { title: string; items: CanvasNodeType[] }[] = [
   { title: "基础", items: ["text", "image", "video", "audio"] },
   {
     title: "图像处理",
-    items: ["img2img", "controlnet", "ipadapter", "upscale", "facedetailer"],
+    items: ["img2img", "controlnet", "ipadapter", "upscale", "facedetailer", "removebg"],
   },
   { title: "结构化", items: ["storyboard", "character", "lighting", "threed"] },
 ];

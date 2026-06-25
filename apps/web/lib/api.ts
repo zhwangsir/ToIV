@@ -414,6 +414,29 @@ export async function generateFaceDetailer(params: FaceFixParams): Promise<Gener
   return res.json();
 }
 
+export interface RemoveBgParams {
+  image: string; // 已上传的源图文件名
+  worker: string;
+  mode?: string; // general | anime | human
+}
+
+export async function generateRemoveBg(params: RemoveBgParams): Promise<GenerateResponse> {
+  const res = await fetch(`${API_BASE}/api/generate/removebg`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({
+      image: params.image,
+      worker: params.worker,
+      ...(params.mode ? { mode: params.mode } : {}),
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `抠图请求失败 (${res.status})`);
+  }
+  return res.json();
+}
+
 export interface InstallModelParams {
   type: string;
   url?: string;

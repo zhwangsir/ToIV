@@ -8,6 +8,7 @@ import {
   generateControlNet,
   generateFaceDetailer,
   generateImg2img,
+  generateRemoveBg,
   generateUpscale,
   generateTxt2img,
   generateTxt2video,
@@ -60,6 +61,12 @@ export type NodeDispatch =
       ckpt: string;
       positive: string;
       denoise: number;
+    }
+  | {
+      kind: "removebg";
+      image: string;
+      worker: string;
+      mode: string;
     }
   | { kind: "txt2video"; positive: string; width: number; height: number; length: number; fps: number }
   | {
@@ -150,6 +157,8 @@ async function submit(d: NodeDispatch): Promise<GenerateResponse> {
         denoise: d.denoise,
         ...(d.positive ? { positive: d.positive } : {}),
       });
+    case "removebg":
+      return generateRemoveBg({ image: d.image, worker: d.worker, mode: d.mode });
     case "txt2video":
       return generateTxt2video({
         positive: d.positive || "cinematic motion, smooth camera",

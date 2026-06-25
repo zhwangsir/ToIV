@@ -46,6 +46,7 @@ import { ControlNetNode } from "./nodes/ControlNetNode";
 import { IPAdapterNode } from "./nodes/IPAdapterNode";
 import { UpscaleNode } from "./nodes/UpscaleNode";
 import { FaceDetailerNode } from "./nodes/FaceDetailerNode";
+import { RemoveBgNode } from "./nodes/RemoveBgNode";
 import { topoOrder, upstreamOf } from "./pipeline";
 import {
   archiveAsset,
@@ -75,6 +76,7 @@ import {
   type ImageNodeData,
   type Img2imgNodeData,
   type IPAdapterNodeData,
+  type RemoveBgNodeData,
   type LightingNodeData,
   type NodeRunState,
   type StoryboardNodeData,
@@ -113,6 +115,7 @@ const NODE_TYPES: NodeTypes = {
   ipadapter: IPAdapterNode,
   upscale: UpscaleNode,
   facedetailer: FaceDetailerNode,
+  removebg: RemoveBgNode,
 };
 
 /** 起手示例:文本 → 图片,降低空画布的上手门槛。 */
@@ -516,6 +519,17 @@ function Inner() {
         }
         if (!ref) return { error: "请连一个图片 / 角色节点作放大输入" };
         return { kind: "upscale", image: ref.filename, worker: ref.worker, scale: data.scale };
+      }
+
+      // 抠图去背:仅需上游图片,无提示词/底模。
+      if (type === "removebg") {
+        const data = d as unknown as RemoveBgNodeData;
+        let ref = upstreamRef;
+        if (!ref && upstreamImageUrl) {
+          ref = await uploadFromUrl(upstreamImageUrl, "removebg");
+        }
+        if (!ref) return { error: "请连一个图片 / 角色节点作抠图输入" };
+        return { kind: "removebg", image: ref.filename, worker: ref.worker, mode: data.mode };
       }
 
       // 脸修复:仅需上游图片;本地 prompt 作脸部正向词,底模可选。

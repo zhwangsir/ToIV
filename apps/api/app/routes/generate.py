@@ -30,6 +30,7 @@ from app.workflows.facedetailer import (
 from app.workflows.img2img import Img2ImgParams, build_img2img_graph
 from app.workflows.lora import LoraSpec
 from app.workflows.model_profiles import is_nsfw
+from app.workflows.removebg import REMBG_MODES, RemoveBgParams, build_removebg_graph
 from app.workflows.upscale import UPSCALE_MODELS, UpscaleParams, build_upscale_graph
 from app.workflows.txt2img import Txt2ImgParams, build_txt2img_graph
 from app.workflows.wan_t2v import WanT2VParams, build_wan_t2v_graph
@@ -526,4 +527,60 @@ async def generate_facedetailer(
         "client_id": client_id,
         "worker": client.base_url,
         "seed": params.seed,
+    }
+
+
+class RemoveBgRequest(BaseModel):
+    image: str = Field(min_length=1, max_length=512)  # 上传后得到的源图文件名
+    worker: str  # 源图所在 worker(同 img2img)
+    mode: str = Field(default="general", max_length=32)
+
+
+@router.post("/generate/removebg")
+async def generate_removebg(
+    req: RemoveBgRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """抠图去背:把主体抠出、去掉背景(rembg)。无 checkpoint→不涉 R18。
+
+    沿用 img2img 模式:必须用源图所在的 worker(resolve_worker 防 SSRF)。
+    """
+    enforce_generation_rate_limit(user)
+    if req.mode not in REMBG_MODES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"不支持的抠图模式:{req.mode!r};可选 {list(REMBG_MODES)}",
+        )
+    client = resolve_worker(req.worker)  # 必须用源图所在的 worker
+    params = RemoveBgParams(image=req.image, mode=req.mode)
+    graph = build_removebg_graph(params)
+    client_id = uuid.uuid4().hex
+    try:
+        prompt_id = await client.queue_prompt(graph, client_id)
+    except ComfyUIError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+    session.add(
+        Job(
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            prompt_id=prompt_id,
+            worker=client.base_url,
+            kind="removebg",
+            status="queued",
+            prompt=f"removebg:{req.mode}",
+            seed=None,
+            nsfw=False,
+        )
+    )
+    session.commit()
+
+    spawn_tracker(client, prompt_id)
+
+    return {
+        "prompt_id": prompt_id,
+        "client_id": client_id,
+        "worker": client.base_url,
+        "mode": req.mode,
     }
