@@ -14,6 +14,7 @@ import { ManjuStudio } from "@/components/manju/ManjuStudio";
 import { ModelLibrary } from "@/components/models/ModelLibrary";
 import { ThreeDStudio } from "@/components/threed/ThreeDStudio";
 import { ActivityProvider } from "@/components/nav/ActivityContext";
+import { NsfwProvider } from "@/components/nav/NsfwContext";
 import { DynamicIsland, type IslandView } from "@/components/nav/DynamicIsland";
 import { viewVariants } from "@/lib/motion";
 import { fetchMe, getToken, setToken } from "@/lib/api";
@@ -97,6 +98,7 @@ export default function Home() {
   return (
     <MotionConfig reducedMotion="user">
       <ActivityProvider>
+        <NsfwProvider>
         <div className="app-shell has-island">
           <DynamicIsland<View>
             views={islandViews}
@@ -145,6 +147,7 @@ export default function Home() {
             </motion.div>
           </AnimatePresence>
         </div>
+        </NsfwProvider>
       </ActivityProvider>
     </MotionConfig>
   );

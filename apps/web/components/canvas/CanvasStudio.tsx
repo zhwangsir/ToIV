@@ -21,6 +21,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
+import { useNsfw } from "@/components/nav/NsfwContext";
 import { generateStoryboard, uploadImage } from "@/lib/api";
 
 import {
@@ -127,6 +128,8 @@ function Inner() {
   const rfRef = useRef<ReactFlowInstance | null>(null);
   const { screenToFlowPosition } = useReactFlow();
   const { generate } = useNodeGeneration();
+  // 全局 R18 软开关:关闭时节点隐藏「NSFW 档」开关;切换时重拉模型(后端服务端过滤)。
+  const { enabled: nsfwEnabled, revision: nsfwRevision } = useNsfw();
 
   // 全部图像底模名称(向后兼容旧 ckpts 接口)。
   const ckpts = useMemo(() => models.all.map((m) => m.name), [models]);
@@ -157,7 +160,20 @@ function Inner() {
     return () => {
       alive = false;
     };
-  }, []);
+    // nsfwRevision 变化(R18 开关切换)时重拉:后端据 nsfw_enabled 服务端过滤模型列表。
+  }, [nsfwRevision]);
+
+  // 全局 R18 关闭时,把各节点残留的「NSFW 档」筛选态归零(开关已隐藏)。
+  useEffect(() => {
+    if (nsfwEnabled) return;
+    setNodes((ns) =>
+      ns.map((n) => {
+        const d = n.data as unknown as { nsfw?: boolean };
+        if (d.nsfw !== true) return n;
+        return { ...n, data: { ...(n.data as object), nsfw: false } };
+      }),
+    );
+  }, [nsfwEnabled, setNodes]);
 
   // 图片/角色节点拿到模型后,把 ckpt 为空的默认成第一个。
   useEffect(() => {
@@ -595,6 +611,7 @@ function Inner() {
       isOutputArchived,
       ckpts,
       models,
+      nsfwEnabled,
       pipelineBusy,
     }),
     [
@@ -605,6 +622,7 @@ function Inner() {
       isOutputArchived,
       ckpts,
       models,
+      nsfwEnabled,
       pipelineBusy,
     ],
   );

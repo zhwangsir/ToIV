@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useActivity, type ActivityKind } from "@/components/nav/ActivityContext";
+import { useNsfw } from "@/components/nav/NsfwContext";
 import { listLocalModels, listModels, uploadImage } from "@/lib/api";
 import type { ModelsResponse } from "@/lib/types";
 
@@ -40,6 +41,8 @@ export function CreateStudio() {
   const [ckpt, setCkpt] = useState("");
   // NSFW 档(简易/专业共享):开启 → 图像底模筛选到 nsfw 模型(契约缺失优雅降级为全部)。
   const [nsfw, setNsfw] = useState(false);
+  // 全局 R18 软开关:关闭时隐藏「NSFW 档」入口(无成人模型可筛);切换时重拉模型列表。
+  const { enabled: nsfwEnabled, revision: nsfwRevision } = useNsfw();
 
   // 简易版智能 chip 状态
   const [style, setStyle] = useState<StylePreset>(STYLE_PRESETS[0]);
@@ -105,7 +108,13 @@ export function CreateStudio() {
     listLocalModels()
       .then((local) => setLoraOptions(local.loras ?? []))
       .catch(() => {});
-  }, []);
+    // nsfwRevision 变化(R18 开关切换)时重拉:后端据 nsfw_enabled 服务端过滤模型列表。
+  }, [nsfwRevision]);
+
+  // 全局 R18 关闭时,强制把会话内「NSFW 档」筛选也归零(入口已隐藏,避免残留筛选态)。
+  useEffect(() => {
+    if (!nsfwEnabled && nsfw) setNsfw(false);
+  }, [nsfwEnabled, nsfw]);
 
   // NSFW 档切换 / 模型加载后:若共享 ckpt 落在筛选列表外,中央纠正到首项,
   // 让简易与专业两侧的图像底模选择保持一致(单一真相)。
@@ -185,6 +194,7 @@ export function CreateStudio() {
             models={models}
             nsfw={nsfw}
             setNsfw={setNsfw}
+            nsfwEnabled={nsfwEnabled}
           />
         ) : (
           <ProPanel
@@ -198,6 +208,7 @@ export function CreateStudio() {
             models={models}
             nsfw={nsfw}
             setNsfw={setNsfw}
+            nsfwEnabled={nsfwEnabled}
             loraOptions={loraOptions}
             ckpt={ckpt}
             setCkpt={setCkpt}

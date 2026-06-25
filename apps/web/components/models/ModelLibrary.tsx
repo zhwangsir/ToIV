@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
+import { useNsfw } from "@/components/nav/NsfwContext";
 import { listLocalModels, searchMarketplace } from "@/lib/api";
 import { navPillSpring, springSoft } from "@/lib/motion";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
@@ -48,12 +49,22 @@ export function ModelLibrary() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const reduced = useReducedMotion();
+  // R18 软开关:切换后(revision 变化)重拉本地模型,反映后端服务端过滤。
+  const { revision: nsfwRevision } = useNsfw();
 
   useEffect(() => {
+    let alive = true;
     listLocalModels()
-      .then(setLocal)
-      .catch((e: Error) => setError(e.message));
-  }, []);
+      .then((m) => {
+        if (alive) setLocal(m);
+      })
+      .catch((e: Error) => {
+        if (alive) setError(e.message);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [nsfwRevision]);
 
   const runSearch = useCallback(async (source: Tab, q: string, type?: string) => {
     if (source === "local") return;

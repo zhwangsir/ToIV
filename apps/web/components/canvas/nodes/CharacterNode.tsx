@@ -12,7 +12,7 @@ import { NodeShell } from "./NodeShell";
  *  入口 text(连文本/分镜节点)。输出口 image(选定视角出图灌入下游)。 */
 export function CharacterNode({ id, data, selected }: NodeProps) {
   const d = data as unknown as CharacterNodeData;
-  const { patchNodeData, deleteNode, runNode, models, ckpts, pipelineBusy } =
+  const { patchNodeData, deleteNode, runNode, models, ckpts, nsfwEnabled, pipelineBusy } =
     useCanvas();
   const busy = d.run.busy || pipelineBusy;
 
@@ -73,15 +73,17 @@ export function CharacterNode({ id, data, selected }: NodeProps) {
         </select>
       </label>
 
-      <label className="cv-switch nodrag">
-        <input
-          type="checkbox"
-          checked={d.nsfw}
-          onChange={(e) => patchNodeData(id, { nsfw: e.target.checked })}
-        />
-        <span className="cv-switch__track" aria-hidden="true" />
-        <span className="cv-switch__label">NSFW 档</span>
-      </label>
+      {nsfwEnabled && (
+        <label className="cv-switch nodrag">
+          <input
+            type="checkbox"
+            checked={d.nsfw}
+            onChange={(e) => patchNodeData(id, { nsfw: e.target.checked })}
+          />
+          <span className="cv-switch__track" aria-hidden="true" />
+          <span className="cv-switch__label">NSFW 档</span>
+        </label>
+      )}
 
       {d.run.outputUrl ? (
         <figure className="cv-media">

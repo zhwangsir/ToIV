@@ -11,7 +11,7 @@ import { NodeShell } from "./NodeShell";
  *  生成 → 视频显示在节点内。NSFW 档(底模后端只读,开关作意图标记)。输出口:video。 */
 export function VideoNode({ id, data, selected }: NodeProps) {
   const d = data as unknown as VideoNodeData;
-  const { patchNodeData, deleteNode, runNode, pipelineBusy } = useCanvas();
+  const { patchNodeData, deleteNode, runNode, nsfwEnabled, pipelineBusy } = useCanvas();
   const busy = d.run.busy || pipelineBusy;
 
   const activeSize =
@@ -68,15 +68,17 @@ export function VideoNode({ id, data, selected }: NodeProps) {
         ))}
       </div>
 
-      <label className="cv-switch nodrag">
-        <input
-          type="checkbox"
-          checked={d.nsfw}
-          onChange={(e) => patchNodeData(id, { nsfw: e.target.checked })}
-        />
-        <span className="cv-switch__track" aria-hidden="true" />
-        <span className="cv-switch__label">NSFW 档</span>
-      </label>
+      {nsfwEnabled && (
+        <label className="cv-switch nodrag">
+          <input
+            type="checkbox"
+            checked={d.nsfw}
+            onChange={(e) => patchNodeData(id, { nsfw: e.target.checked })}
+          />
+          <span className="cv-switch__track" aria-hidden="true" />
+          <span className="cv-switch__label">NSFW 档</span>
+        </label>
+      )}
 
       {d.run.outputUrl ? (
         <>

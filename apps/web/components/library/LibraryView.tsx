@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
 import { Magnifier } from "@/components/ui/Magnifier";
+import { useNsfw } from "@/components/nav/NsfwContext";
 import { imageUrl, listJobs } from "@/lib/api";
 import { springSoft } from "@/lib/motion";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
@@ -77,10 +78,14 @@ export function LibraryView() {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
   const reduced = useReducedMotion();
+  // R18 软开关:切换后(revision 变化)重拉作品库,让后端的服务端过滤即时生效。
+  const { revision: nsfwRevision } = useNsfw();
 
   useEffect(() => {
+    let alive = true;
     listJobs()
       .then((jobs: JobItem[]) => {
+        if (!alive) return;
         const flat: Asset[] = [];
         for (const j of jobs) {
           (j.results ?? []).forEach((u, i) =>
@@ -95,8 +100,13 @@ export function LibraryView() {
         }
         setAssets(flat);
       })
-      .catch((e: Error) => setError(e.message));
-  }, []);
+      .catch((e: Error) => {
+        if (alive) setError(e.message);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [nsfwRevision]);
 
   const shown = useMemo(() => {
     if (!assets) return [];
