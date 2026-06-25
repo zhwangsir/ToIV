@@ -1,0 +1,122 @@
+/* 模型市场 ·「安装到集群」按钮 + 状态层。
+   沿用 globals.css 既有 token(品紫 --accent / --success / --danger),
+   只补安装动作的视觉与状态反馈。Studio Noir 暗房风,可访问 + reduced-motion 降级。 */
+
+/* 主操作按钮:实心品紫,从既有 .mcard-type 渐变语言取色,与 .btn-ghost 形成层级对比 */
+.install-btn {
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--accent-ink);
+  background: linear-gradient(180deg, var(--accent-hover), var(--accent-deep));
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  padding: 0.36rem 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    transform var(--dur) var(--ease),
+    opacity var(--dur) var(--ease);
+}
+.install-btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, var(--accent), var(--accent-hover));
+  transform: translateY(-1px);
+}
+.install-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+.install-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.install-btn:disabled {
+  cursor: default;
+}
+
+/* 安装中:降低实心强度,转动的小环表示进行中 */
+.install-btn.is-installing {
+  background: var(--accent-quiet);
+  color: var(--accent);
+  border-color: var(--accent-line);
+}
+.install-btn.is-done {
+  background: color-mix(in oklab, var(--success) 22%, transparent);
+  border-color: color-mix(in oklab, var(--success) 50%, transparent);
+  color: var(--ink);
+  cursor: default;
+}
+
+/* 安装中的旋转指示环 */
+.install-spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-line);
+  border-top-color: var(--accent);
+  animation: install-spin 0.7s linear infinite;
+}
+
+@keyframes install-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 安装状态条:成功 / 失败 / 目录提示,展示后端原样 detail */
+.install-status {
+  margin: 0.4rem 0 0;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  border-radius: var(--radius-xs);
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--hairline-2);
+  background: var(--bg-2);
+  color: var(--ink-soft);
+}
+.install-status.is-ok {
+  border-color: color-mix(in oklab, var(--success) 46%, transparent);
+  background: color-mix(in oklab, var(--success) 12%, transparent);
+  color: var(--ink);
+}
+.install-status.is-error {
+  border-color: color-mix(in oklab, var(--danger) 46%, transparent);
+  background: color-mix(in oklab, var(--danger) 12%, transparent);
+  color: var(--ink);
+}
+.install-status .ist-head {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+}
+.install-status .ist-detail {
+  margin-top: 0.2rem;
+  color: var(--ink-soft);
+  /* 后端 detail 可能较长,允许换行不撑破卡片 */
+  overflow-wrap: anywhere;
+}
+.install-status .ist-hint {
+  margin-top: 0.25rem;
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .install-btn {
+    transition: none;
+  }
+  .install-btn:hover:not(:disabled) {
+    transform: none;
+  }
+  .install-spinner {
+    animation-duration: 1.6s;
+  }
+}

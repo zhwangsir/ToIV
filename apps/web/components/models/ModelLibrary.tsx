@@ -5,9 +5,11 @@ import { AnimatePresence, motion } from "framer-motion";
 
 import { useNsfw } from "@/components/nav/NsfwContext";
 import { listLocalModels, searchMarketplace } from "@/lib/api";
-import { navPillSpring, springSoft } from "@/lib/motion";
+import { navPillSpring } from "@/lib/motion";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import type { LocalModels, MarketItem } from "@/lib/types";
+import { MarketCard } from "./MarketCard";
+import "./models.css";
 
 type Tab = "local" | "civitai" | "huggingface";
 
@@ -32,13 +34,6 @@ const LOCAL_LABELS: Record<string, string> = {
   controlnet: "ControlNet",
   upscale: "放大模型",
 };
-
-function fmt(n: number | null): string {
-  if (n == null) return "—";
-  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
-  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
-  return String(n);
-}
 
 export function ModelLibrary() {
   const [tab, setTab] = useState<Tab>("local");
@@ -231,44 +226,7 @@ export function ModelLibrary() {
         >
           <AnimatePresence>
             {items.map((m) => (
-              <motion.article
-                className="mcard"
-                key={`${m.source}-${m.id}`}
-                variants={{
-                  initial: { opacity: 0, y: reduced ? 0 : 14 },
-                  enter: { opacity: 1, y: 0, transition: springSoft },
-                }}
-              >
-                <div className="mcard-thumb">
-                  {m.thumbnail ? (
-                    <img src={m.thumbnail} alt={m.name} loading="lazy" />
-                  ) : (
-                    <span className="fallback">{(m.type ?? "M").slice(0, 1)}</span>
-                  )}
-                  {m.type && <span className="mcard-type">{m.type}</span>}
-                </div>
-                <div className="mcard-body">
-                  <p className="mcard-name" title={m.name}>
-                    {m.name}
-                  </p>
-                  <p className="mcard-sub">
-                    {m.creator ?? "—"} · ↓ {fmt(m.downloads)}
-                  </p>
-                  <div className="mcard-actions">
-                    <a className="btn-ghost sm" href={m.url} target="_blank" rel="noreferrer">
-                      查看
-                    </a>
-                    <button
-                      type="button"
-                      className="btn-ghost sm"
-                      disabled
-                      title="一键下载落地开发中（需 worker 文件系统访问）"
-                    >
-                      下载
-                    </button>
-                  </div>
-                </div>
-              </motion.article>
+              <MarketCard key={`${m.source}-${m.id}`} item={m} reduced={reduced} />
             ))}
           </AnimatePresence>
         </motion.div>
