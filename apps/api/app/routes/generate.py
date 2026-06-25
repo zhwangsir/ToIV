@@ -28,6 +28,7 @@ from app.workflows.facedetailer import (
     build_facedetailer_graph,
 )
 from app.workflows.img2img import Img2ImgParams, build_img2img_graph
+from app.workflows.inpaint import InpaintParams, build_inpaint_graph
 from app.workflows.lora import LoraSpec
 from app.workflows.model_profiles import is_nsfw
 from app.workflows.removebg import REMBG_MODES, RemoveBgParams, build_removebg_graph
@@ -583,4 +584,73 @@ async def generate_removebg(
         "client_id": client_id,
         "worker": client.base_url,
         "mode": req.mode,
+    }
+
+
+class InpaintRequest(BaseModel):
+    image: str = Field(min_length=1, max_length=512)  # 上传后得到的源图文件名
+    worker: str  # 源图所在 worker(同 img2img)
+    target: str = Field(min_length=1, max_length=500)  # 要替换区域的文字描述
+    positive: str = Field(min_length=1, max_length=2000)  # 该区域重绘成什么
+    negative: str = Field(default="blurry, lowres, deformed, watermark, text", max_length=2000)
+    ckpt_name: str | None = None
+    denoise: float = Field(default=0.85, ge=0.1, le=1.0)
+    grow_mask: int = Field(default=6, ge=0, le=64)
+    seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
+
+
+@router.post("/generate/inpaint")
+async def generate_inpaint(
+    req: InpaintRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """文字定向局部重绘:Florence2 按 target 文字分割区域 → 仅重绘该区域。
+
+    沿用 img2img 的 worker 锁定模式;首次会下载 Florence2-base(worker 处理)。
+    """
+    enforce_generation_rate_limit(user)
+    settings = get_settings()
+    client = resolve_worker(req.worker)  # 必须用源图所在的 worker
+    params = InpaintParams(
+        image=req.image,
+        target=req.target,
+        positive=req.positive,
+        negative=req.negative,
+        ckpt_name=req.ckpt_name or settings.default_ckpt,
+        denoise=req.denoise,
+        grow_mask=req.grow_mask,
+        **({"seed": req.seed} if req.seed is not None else {}),
+    )
+    # R18 硬门槛:成人底模须已开 R18,否则 403;并据此给作品打 nsfw 标。
+    job_nsfw = _gate_nsfw_ckpt(params.ckpt_name, user)
+    graph = build_inpaint_graph(params)
+    client_id = uuid.uuid4().hex
+    try:
+        prompt_id = await client.queue_prompt(graph, client_id)
+    except ComfyUIError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+    session.add(
+        Job(
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            prompt_id=prompt_id,
+            worker=client.base_url,
+            kind="inpaint",
+            status="queued",
+            prompt=params.positive,
+            seed=params.seed,
+            nsfw=job_nsfw,
+        )
+    )
+    session.commit()
+
+    spawn_tracker(client, prompt_id)
+
+    return {
+        "prompt_id": prompt_id,
+        "client_id": client_id,
+        "worker": client.base_url,
+        "seed": params.seed,
     }

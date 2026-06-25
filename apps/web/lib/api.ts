@@ -437,6 +437,37 @@ export async function generateRemoveBg(params: RemoveBgParams): Promise<Generate
   return res.json();
 }
 
+export interface InpaintGenParams {
+  image: string; // 已上传的源图文件名
+  worker: string;
+  target: string; // 要替换区域的文字描述
+  positive: string; // 该区域重绘成什么
+  negative?: string;
+  ckptName?: string;
+  denoise?: number;
+}
+
+export async function generateInpaint(params: InpaintGenParams): Promise<GenerateResponse> {
+  const res = await fetch(`${API_BASE}/api/generate/inpaint`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({
+      image: params.image,
+      worker: params.worker,
+      target: params.target,
+      positive: params.positive,
+      ...(params.negative ? { negative: params.negative } : {}),
+      ...(params.ckptName ? { ckpt_name: params.ckptName } : {}),
+      ...(params.denoise != null ? { denoise: params.denoise } : {}),
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `局部重绘请求失败 (${res.status})`);
+  }
+  return res.json();
+}
+
 export interface InstallModelParams {
   type: string;
   url?: string;

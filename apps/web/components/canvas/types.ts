@@ -25,7 +25,8 @@ export type CanvasNodeType =
   | "ipadapter" // 角色一致:上游图作参考 + 提示词 → 人物一致图
   | "upscale" // 放大:上游图 → ESRGAN 放大(无提示词)
   | "facedetailer" // 脸修复:上游图 → 检测人脸 + 局部高清重绘
-  | "removebg"; // 抠图去背:上游图 → 去背 RGBA(无提示词/无底模)
+  | "removebg" // 抠图去背:上游图 → 去背 RGBA(无提示词/无底模)
+  | "inpaint"; // 局部重绘:上游图 + 目标区域文字 + 重绘提示词 → 文字定向重绘
 
 /** 端口的数据语义:决定哪些口能连到哪些口。
  *  storyboard / lighting 产出 text 语义(剧本 / 光照片段),可灌入下游图像与视频;
@@ -205,6 +206,20 @@ export interface RemoveBgNodeData extends BaseNodeData {
   run: NodeRunState;
 }
 
+/** 🎯 局部重绘节点:上游图 + 目标区域文字(Florence2 分割)+ 重绘提示词 → 文字定向重绘。
+ *  接 /generate/inpaint。无需手绘蒙版。 */
+export interface InpaintNodeData extends BaseNodeData {
+  /** 要替换区域的文字描述(如 "the hat")。 */
+  target: string;
+  /** 该区域重绘成什么(正向提示词)。 */
+  prompt: string;
+  ckpt: string;
+  /** 重绘强度 0.1-1。 */
+  denoise: number;
+  nsfw: boolean;
+  run: NodeRunState;
+}
+
 export type AnyNodeData =
   | TextNodeData
   | ImageNodeData
@@ -219,7 +234,8 @@ export type AnyNodeData =
   | IPAdapterNodeData
   | UpscaleNodeData
   | FaceDetailerNodeData
-  | RemoveBgNodeData;
+  | RemoveBgNodeData
+  | InpaintNodeData;
 
 /** ControlNet 控制类型(与后端 controlnet.py 枚举对齐)。 */
 export const CONTROL_TYPES: { key: string; label: string }[] = [
@@ -327,6 +343,15 @@ export function defaultData(type: CanvasNodeType): AnyNodeData {
       } satisfies FaceDetailerNodeData;
     case "removebg":
       return { mode: "general", run: { ...EMPTY_RUN } } satisfies RemoveBgNodeData;
+    case "inpaint":
+      return {
+        target: "",
+        prompt: "",
+        ckpt: "",
+        denoise: 0.85,
+        nsfw: false,
+        run: { ...EMPTY_RUN },
+      } satisfies InpaintNodeData;
   }
 }
 
@@ -350,6 +375,7 @@ export const OUTPUT_KIND: Record<CanvasNodeType, PortKind | null> = {
   upscale: "image",
   facedetailer: "image",
   removebg: "image",
+  inpaint: "image",
 };
 
 /** 一条边是否合法:目标节点入口能否接受源节点输出。 */
@@ -366,8 +392,13 @@ export function canConnect(
   if (targetType === "img2img" || targetType === "controlnet" || targetType === "ipadapter") {
     return out === "text" || out === "image";
   }
-  // 放大 / 脸修复 / 抠图:只接 image。
-  if (targetType === "upscale" || targetType === "facedetailer" || targetType === "removebg") {
+  // 放大 / 脸修复 / 抠图 / 局部重绘:只接 image(其余参数本地填)。
+  if (
+    targetType === "upscale" ||
+    targetType === "facedetailer" ||
+    targetType === "removebg" ||
+    targetType === "inpaint"
+  ) {
     return out === "image";
   }
   // 角色三视图入口:接 text(角色设定来自上游文本/分镜)。
@@ -396,6 +427,7 @@ export const NODE_META: Record<
   upscale: { icon: "🔍", label: "放大", hint: "上游图 → 高清放大" },
   facedetailer: { icon: "🩹", label: "脸修复", hint: "检测人脸 → 局部高清重绘" },
   removebg: { icon: "✂️", label: "抠图去背", hint: "上游图 → 去背透明" },
+  inpaint: { icon: "🎯", label: "局部重绘", hint: "说哪改哪 → 文字定向重绘" },
 };
 
 export const IMG_SIZES = [

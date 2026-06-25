@@ -47,6 +47,7 @@ import { IPAdapterNode } from "./nodes/IPAdapterNode";
 import { UpscaleNode } from "./nodes/UpscaleNode";
 import { FaceDetailerNode } from "./nodes/FaceDetailerNode";
 import { RemoveBgNode } from "./nodes/RemoveBgNode";
+import { InpaintNode } from "./nodes/InpaintNode";
 import { topoOrder, upstreamOf } from "./pipeline";
 import {
   archiveAsset,
@@ -75,6 +76,7 @@ import {
   type FaceDetailerNodeData,
   type ImageNodeData,
   type Img2imgNodeData,
+  type InpaintNodeData,
   type IPAdapterNodeData,
   type RemoveBgNodeData,
   type LightingNodeData,
@@ -116,6 +118,7 @@ const NODE_TYPES: NodeTypes = {
   upscale: UpscaleNode,
   facedetailer: FaceDetailerNode,
   removebg: RemoveBgNode,
+  inpaint: InpaintNode,
 };
 
 /** 起手示例:文本 → 图片,降低空画布的上手门槛。 */
@@ -278,7 +281,8 @@ function Inner() {
           type === "img2img" ||
           type === "controlnet" ||
           type === "ipadapter" ||
-          type === "facedetailer") &&
+          type === "facedetailer" ||
+          type === "inpaint") &&
         ckpts.length &&
         !(data as { ckpt?: string }).ckpt
       ) {
@@ -530,6 +534,27 @@ function Inner() {
         }
         if (!ref) return { error: "请连一个图片 / 角色节点作抠图输入" };
         return { kind: "removebg", image: ref.filename, worker: ref.worker, mode: data.mode };
+      }
+
+      // 局部重绘:上游图 + 目标区域文字 + 重绘提示词(均必填)。
+      if (type === "inpaint") {
+        const data = d as unknown as InpaintNodeData;
+        let ref = upstreamRef;
+        if (!ref && upstreamImageUrl) {
+          ref = await uploadFromUrl(upstreamImageUrl, "inpaint");
+        }
+        if (!ref) return { error: "请连一个图片 / 角色节点作局部重绘输入" };
+        if (!data.target.trim()) return { error: "请填写要替换的目标区域(如「帽子」)" };
+        if (!data.prompt.trim()) return { error: "请填写重绘内容(把该区域画成什么)" };
+        return {
+          kind: "inpaint",
+          image: ref.filename,
+          worker: ref.worker,
+          ckpt: data.ckpt || ckpts[0] || "",
+          target: data.target,
+          positive: data.prompt,
+          denoise: data.denoise,
+        };
       }
 
       // 脸修复:仅需上游图片;本地 prompt 作脸部正向词,底模可选。
