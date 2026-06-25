@@ -60,6 +60,7 @@ TYPE_DIR = {
     "clip_vision": "clip_vision", "clipvision": "clip_vision",
     "unet": "diffusion_models", "diffusion": "diffusion_models", "diffusion_models": "diffusion_models",
     "vae_approx": "vae_approx",
+    "ipadapter": "ipadapter", "ip_adapter": "ipadapter", "ip-adapter": "ipadapter",
 }
 
 
@@ -70,6 +71,8 @@ def categorize(explicit_type: str, filename: str, repo: str = "") -> str:
         if t in TYPE_DIR:
             return TYPE_DIR[t]
     name = f"{filename} {repo}".lower()
+    if "ip-adapter" in name or "ipadapter" in name:
+        return "ipadapter"
     if "clip_vision" in name or "clipvision" in name:
         return "clip_vision"
     if "controlnet" in name or "control_net" in name or "t2i-adapter" in name:
@@ -91,25 +94,42 @@ def categorize(explicit_type: str, filename: str, repo: str = "") -> str:
     return "checkpoints"  # 兜底:大模型默认 checkpoint
 
 
-def download(url: str, dest: str, token: str | None = None) -> None:
-    """原子流式下载:写 .part,完成后重命名。"""
+def download(url: str, dest: str, token: str | None = None, retries: int = 4) -> None:
+    """原子流式下载:写 .part,完成后重命名。带重试 + 完整性校验(应对 CDN 流式中断)。"""
     headers = {"Authorization": f"Bearer {token}"} if token else {}
     part = dest + ".part"
-    with requests.get(url, headers=headers, stream=True, timeout=60) as r:
-        r.raise_for_status()
-        total = int(r.headers.get("content-length", 0))
-        done = 0
-        with open(part, "wb") as f:
-            for chunk in r.iter_content(chunk_size=1 << 20):
-                if not chunk:
-                    continue
-                f.write(chunk)
-                done += len(chunk)
-                if total:
-                    pct = done * 100 // total
-                    print(f"\r  {pct}%  {done >> 20}/{total >> 20} MB", end="", file=sys.stderr)
-    print("", file=sys.stderr)
-    os.replace(part, dest)  # 原子重命名
+    last_err: Exception | None = None
+    # (连接超时, 读超时):某次读卡住 >120s 视为断流 → 清残留重试
+    for attempt in range(1, retries + 1):
+        try:
+            with requests.get(url, headers=headers, stream=True, timeout=(30, 120)) as r:
+                r.raise_for_status()
+                total = int(r.headers.get("content-length", 0))
+                done = 0
+                with open(part, "wb") as f:
+                    for chunk in r.iter_content(chunk_size=1 << 20):
+                        if not chunk:
+                            continue
+                        f.write(chunk)
+                        done += len(chunk)
+                        if total:
+                            pct = done * 100 // total
+                            print(f"\r  [{attempt}/{retries}] {pct}%  {done >> 20}/{total >> 20} MB",
+                                  end="", file=sys.stderr)
+            print("", file=sys.stderr)
+            if total and os.path.getsize(part) < total * 0.999:
+                raise OSError(f"下载不完整 {os.path.getsize(part)}/{total}")
+            os.replace(part, dest)  # 原子重命名
+            return
+        except (requests.RequestException, OSError) as e:
+            last_err = e
+            print(f"\n  尝试 {attempt}/{retries} 失败: {str(e)[:90]}", file=sys.stderr)
+            try:
+                if os.path.exists(part):
+                    os.remove(part)
+            except OSError:
+                pass
+    raise last_err or RuntimeError("下载失败")
 
 
 def _hf_download(repo: str, file_in_repo: str, dest: str, token: str | None) -> None:

@@ -262,28 +262,29 @@ async def _try_install(client: httpx.AsyncClient, base_url: str, item: dict) -> 
         except httpx.HTTPError as e:
             errors.append(f"{path}: 连接失败 {e}")
             continue
-        if resp.status_code in _ENDPOINT_ABSENT:
-            errors.append(f"{path}: 端点不存在({resp.status_code})")
+        if _is_accepted(resp):
+            # 受理成功;现代版入队后需显式 start 触发处理(老版单步端点无 start,失败可忽略)。
+            await _maybe_start_queue(client, base_url, path)
+            return {
+                "accepted": True,
+                "endpoint": path,
+                "worker": base_url,
+                "status_code": resp.status_code,
+                "message": _response_detail(resp),
+            }
+        # 端点不存在(404/405/501)或服务器内部错(5xx)→ 换下一个端点试。
+        # (不同 Manager 版本可用端点不同;某端点 500/404 不代表其它端点也不行。)
+        if resp.status_code in _ENDPOINT_ABSENT or resp.status_code >= 500:
+            errors.append(f"{path} → {resp.status_code}: {_response_detail(resp)}")
             continue
-        if not _is_accepted(resp):
-            # 端点存在但拒绝/出错 → 透传真实响应,不再回退(否则会掩盖真因)。
-            detail = _response_detail(resp)
-            raise HTTPException(
-                status_code=502,
-                detail=f"ComfyUI-Manager 拒绝安装({path} → {resp.status_code}): {detail}",
-            )
-        # 受理成功;现代版入队后需显式 start 触发处理(老版单步端点无 start,失败可忽略)。
-        await _maybe_start_queue(client, base_url, path)
-        return {
-            "accepted": True,
-            "endpoint": path,
-            "worker": base_url,
-            "status_code": resp.status_code,
-            "message": _response_detail(resp),
-        }
+        # 其它(4xx 明确拒绝,如 403 安全级别 / 400)→ 定性拒绝,透传真因,不再回退掩盖。
+        raise HTTPException(
+            status_code=502,
+            detail=f"ComfyUI-Manager 拒绝安装({path} → {resp.status_code}): {_response_detail(resp)}",
+        )
     raise HTTPException(
         status_code=502,
-        detail="ComfyUI-Manager 未提供可用安装端点;探测记录:" + "; ".join(errors),
+        detail="ComfyUI-Manager 未提供可用安装端点;探测记录:" + " | ".join(errors),
     )
 
 
