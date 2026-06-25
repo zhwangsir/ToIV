@@ -74,6 +74,19 @@ def test_ipadapter_params_passthrough():
     assert g["200"]["inputs"]["preset"] == "PLUS (high strength)"
 
 
+def test_ipadapter_advanced_has_required_embed_inputs():
+    """combine_embeds / embeds_scaling 是 worker 必填项,缺失会被 ComfyUI 拒为 400。
+    默认须落到节点合法枚举首项;自定义值须透传。"""
+    g = _g()
+    adv = g["201"]["inputs"]
+    assert adv["combine_embeds"] == "concat"
+    assert adv["embeds_scaling"] == "V only"
+    g2 = _g(combine_embeds="average", embeds_scaling="K+V")
+    adv2 = g2["201"]["inputs"]
+    assert adv2["combine_embeds"] == "average"
+    assert adv2["embeds_scaling"] == "K+V"
+
+
 def test_clip_text_encoders_unaffected_by_ipadapter():
     """IPAdapter 只动 model 线;CLIP 仍直引 checkpoint。"""
     g = _g(positive="p", negative="n")

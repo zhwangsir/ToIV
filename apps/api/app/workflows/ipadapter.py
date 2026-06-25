@@ -19,9 +19,11 @@ IPAdapterUnifiedLoader 入参 {model, preset};preset 默认 'PLUS FACE (portrait
 节点 id 约定沿用 txt2img.py:小数字 id(3-9)给主链，IPAdapter 节点用 _IPA_ID_BASE
 起的较大 id(避开 LoRA 链的 100 段)。class_type 与 inputs 对齐 worker 实测 schema。
 
-⚠️ 已知约束:worker 上 ip-adapter 模型文件当前未装(ipadapter_file: [])。本图按标准
-做法(IPAdapterUnifiedLoader + preset)照常构建，真跑前需先装 ip-adapter 模型，该步
-由主程序另行处理。图结构与接口在此先建对。
+worker 模型状态(2026-06-25 实测 + 安装):ip-adapter-plus-face_sd15.safetensors(SD1.5)
+与 ip-adapter-plus-face_sdxl_vit-h.safetensors(SDXL)均已落地 .100,CLIP-ViT-H/bigG 齐;
+PLUS FACE 预设 SD1.5/SDXL 两条路径都可执行(经 /prompt smoke test 验证出图成功)。
+IPAdapterAdvanced 的 combine_embeds / embeds_scaling 为 worker 必填项,缺失会被 ComfyUI
+校验拒为 400 —— 已补入参数与构图。
 """
 from __future__ import annotations
 
@@ -66,6 +68,10 @@ class IPAdapterTxt2ImgParams:
     preset: str = DEFAULT_PRESET
     weight: float = 0.8
     weight_type: str = "linear"
+    # IPAdapterAdvanced 必填项(worker 实测 schema):缺失会被 ComfyUI 校验拒为 400。
+    # combine_embeds 多图融合方式、embeds_scaling 注入缩放;取节点默认枚举首项。
+    combine_embeds: str = "concat"
+    embeds_scaling: str = "V only"
     start_at: float = 0.0
     end_at: float = 1.0
     width: int = 512
@@ -112,6 +118,8 @@ def build_ipadapter_txt2img_graph(p: IPAdapterTxt2ImgParams) -> dict:
                 "image": [_IPA_IMAGE_NODE, 0],
                 "weight": p.weight,
                 "weight_type": p.weight_type,
+                "combine_embeds": p.combine_embeds,
+                "embeds_scaling": p.embeds_scaling,
                 "start_at": p.start_at,
                 "end_at": p.end_at,
             },
