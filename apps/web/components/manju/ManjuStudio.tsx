@@ -39,8 +39,10 @@ const FLOW_STEPS: { key: FlowStep; label: string; hint: string }[] = [
 const NEGATIVE = "blurry, lowres, deformed, bad anatomy, extra fingers, watermark, text, jpeg artifacts";
 
 // 单镜 16:9 关键帧,适合后续转视频
-const SHOT_W = 768;
-const SHOT_H = 432;
+// 关键帧用 SDXL 16:9 训练档 ~1MP(1344×768)。旧 768×432=0.33MP 远低于 SDXL 甜点会糊/掉细节;
+// /generate/txt2img 不做 fit_resolution,故此处必须给到位的像素档。
+const SHOT_W = 1344;
+const SHOT_H = 768;
 
 // 角色参考图(肖像):正方形更利于 IPAdapter 取脸
 // 角色定妆三视图(turnaround)用宽幅,容纳 正/侧/背 多视图(SDXL ~1MP 横档)
