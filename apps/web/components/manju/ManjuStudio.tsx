@@ -46,9 +46,15 @@ const SHOT_H = 432;
 const REF_W = 512;
 const REF_H = 512;
 
-// 漫剧默认底模:优先 SDXL 动漫系(角色脸一致性 / 画风更稳),按优先级匹配名称,
-// 命不中再回退列表首个。只改默认选择,用户仍可在 ModelPicker 任意切换。
-const PREFERRED_CKPT_FAMILIES = ["animagine", "illustrious", "noob", "pony"] as const;
+// 漫剧默认底模:优先 SDXL 动漫系。按 2026 调研排名 NoobAI(vpred 旗舰画质)>Illustrious
+// (稳定+LoRA 生态)>Pony>Animagine。命不中回退列表首个。用户仍可在 ModelPicker 任意切换。
+const PREFERRED_CKPT_FAMILIES = ["noob", "illustrious", "pony", "animagine"] as const;
+
+// vpred 模型(NoobAI 等)在高 cfg 会过饱和压暗(实测 cfg7 把阳光场景渲染成阴暗),
+// 需低 cfg(~4.5);EPS 模型(Illustrious/Animagine/Pony)用常规 ~7。
+function cfgForCkpt(ckpt: string): number {
+  return /vpred|v-pred|v_pred/i.test(ckpt) ? 4.5 : 7;
+}
 
 function pickDefaultCkpt(checkpoints: readonly string[]): string {
   for (const family of PREFERRED_CKPT_FAMILIES) {
@@ -231,6 +237,8 @@ export function ManjuStudio() {
       }
       // 资产 @引用:把出场角色的固定 danbooru 描述并入提示词(角色一致性)
       const prompt = composeShotPrompt(base, shot.characters, chars);
+      // cfg 按底模族自适应:vpred 模型须低 cfg 防过饱和压暗
+      const cfg = cfgForCkpt(ckpt);
       patchShot(shot.id, { status: "imaging", error: undefined });
       // AI 润色产出的反向词叠加到基础 NEGATIVE 之上(内容感知,逐镜定制)
       const negative = shot.negative?.trim() ? `${NEGATIVE}, ${shot.negative.trim()}` : NEGATIVE;
@@ -251,7 +259,7 @@ export function ManjuStudio() {
             width: SHOT_W,
             height: SHOT_H,
             steps: 20,
-            cfg: 7,
+            cfg,
             sampler: "euler",
             scheduler: "normal",
           });
@@ -271,7 +279,7 @@ export function ManjuStudio() {
         width: SHOT_W,
         height: SHOT_H,
         steps: 20,
-        cfg: 7,
+        cfg,
         sampler: "euler",
         scheduler: "normal",
         batch_size: 1,
