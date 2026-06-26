@@ -36,3 +36,32 @@ export interface ShotCard extends StoryboardShot {
 export function toShotCards(shots: StoryboardShot[]): ShotCard[] {
   return shots.map((s) => ({ ...s, status: "idle" }));
 }
+
+/**
+ * 资产 @引用 注入:把镜头出场角色的 danbooru 固定描述并入出图提示词,实现角色一致性。
+ * 角色描述锚定在前(主体先定),镜头描述在后;danbooru 标签去重(保序,大小写不敏感)。
+ * 无引用或角色无描述时,原样返回镜头描述。纯函数,无副作用。
+ */
+export function composeShotPrompt(
+  description: string,
+  shotCharacters: readonly string[],
+  registry: readonly CharRow[],
+): string {
+  const names = new Set(shotCharacters.map((n) => n.trim()).filter(Boolean));
+  const refDesc = registry
+    .filter((c) => names.has(c.name.trim()) && c.desc.trim())
+    .map((c) => c.desc.trim());
+  if (refDesc.length === 0) return description;
+
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const chunk of [...refDesc, description].join(", ").split(",")) {
+    const tag = chunk.trim();
+    const key = tag.toLowerCase();
+    if (tag && !seen.has(key)) {
+      seen.add(key);
+      out.push(tag);
+    }
+  }
+  return out.join(", ");
+}

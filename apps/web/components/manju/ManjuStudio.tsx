@@ -21,7 +21,7 @@ import { ManjuProjectBar } from "./ManjuProjectBar";
 import type { ProjectLoaded } from "./ManjuProjectBar";
 import { ShotCard } from "./ShotCard";
 import { ShotInspector } from "./ShotInspector";
-import { toShotCards } from "./types";
+import { composeShotPrompt, toShotCards } from "./types";
 import type { CharRow, ShotCard as ShotCardModel } from "./types";
 
 type FlowStep = "script" | "characters" | "storyboard" | "video" | "export";
@@ -222,11 +222,13 @@ export function ManjuStudio() {
   //          否则保持原 txt2img。两路结果都用同一 trackImage 回填。
   const imageOne = useCallback(
     async (shot: ShotCardModel) => {
-      const prompt = shot.description.trim();
-      if (!prompt) {
+      const base = shot.description.trim();
+      if (!base) {
         patchShot(shot.id, { status: "error", error: "提示词为空" });
         return;
       }
+      // 资产 @引用:把出场角色的固定 danbooru 描述并入提示词(角色一致性)
+      const prompt = composeShotPrompt(base, shot.characters, chars);
       patchShot(shot.id, { status: "imaging", error: undefined });
       // AI 润色产出的反向词叠加到基础 NEGATIVE 之上(内容感知,逐镜定制)
       const negative = shot.negative?.trim() ? `${NEGATIVE}, ${shot.negative.trim()}` : NEGATIVE;
