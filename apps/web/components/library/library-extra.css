@@ -81,6 +81,77 @@
   min-height: 120px;
 }
 
+/* 瓦片删除按钮:右上角,悬停浮现,危险红;移动端常显(无 hover) */
+.tile-del {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 50%;
+  color: oklch(95% 0.02 20);
+  background: color-mix(in oklab, oklch(55% 0.2 25) 72%, transparent);
+  border: 1px solid color-mix(in oklab, oklch(70% 0.2 25) 60%, transparent);
+  backdrop-filter: blur(6px);
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(0.85);
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease),
+    background var(--dur) var(--ease);
+}
+.tile:hover .tile-del,
+.tile:focus-within .tile-del {
+  opacity: 1;
+  transform: scale(1);
+}
+.tile-del:hover {
+  background: oklch(55% 0.22 25);
+  transform: scale(1.08);
+}
+.tile-del:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+@media (hover: none) {
+  .tile-del {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+}
+
+/* 灯箱内危险操作按钮(删除) */
+.btn-danger {
+  color: oklch(72% 0.2 25);
+  border-color: color-mix(in oklab, oklch(60% 0.2 25) 50%, transparent);
+}
+.btn-danger:hover:not(:disabled) {
+  background: color-mix(in oklab, oklch(55% 0.22 25) 22%, transparent);
+  border-color: oklch(60% 0.2 25);
+  color: oklch(82% 0.18 25);
+}
+.btn-danger:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile-del {
+    transition: opacity var(--dur) var(--ease);
+    transform: none;
+  }
+  .tile:hover .tile-del,
+  .tile:focus-within .tile-del {
+    transform: none;
+  }
+  .tile-del:hover {
+    transform: none;
+  }
+}
+
 /* 灯箱内放大镜:容器按图片实际显示尺寸收缩(避免 contain 留白导致镜头错位) */
 .lightbox-magnifier {
   width: auto;

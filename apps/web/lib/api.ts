@@ -197,6 +197,19 @@ export function invalidateJobs(): void {
   invalidate(CACHE_KEYS.jobs);
 }
 
+/** 从作品库删除一件作品(按 job id);成功后失效缓存。 */
+export async function deleteJob(jobId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/jobs/${jobId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `删除失败 (${res.status})`);
+  }
+  invalidateJobs();
+}
+
 async function fetchLocalModelsRaw(): Promise<LocalModels> {
   const res = await fetch(`${API_BASE}/api/models/local`, { headers: authHeaders() });
   if (!res.ok) throw new Error(`加载本地模型失败 (${res.status})`);

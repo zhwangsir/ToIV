@@ -51,6 +51,25 @@ def list_jobs(
     ]
 
 
+@router.delete("/jobs/{job_id}")
+def delete_job(
+    job_id: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """从作品库删除当前用户的一件作品(删库记录使其从作品库消失)。
+
+    仅删自己的作业(user_id 校验);非本人/不存在一律 404(不泄露存在性)。
+    产物文件留在 worker 输出目录(物理清理属另一关注点,不在此处理)。
+    """
+    job = session.exec(select(Job).where(Job.id == job_id)).first()
+    if not job or job.user_id != user.id:
+        raise HTTPException(status_code=404, detail="作品不存在")
+    session.delete(job)
+    session.commit()
+    return {"ok": True, "id": job_id}
+
+
 async def _emit_done(client: ComfyUIClient, prompt_id: str) -> dict:
     urls = await record_result(client, prompt_id)
     return {"event": "done", "data": json.dumps({"images": urls})}

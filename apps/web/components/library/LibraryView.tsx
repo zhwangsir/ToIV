@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 
 import { Magnifier } from "@/components/ui/Magnifier";
 import { useNsfw } from "@/components/nav/NsfwContext";
-import { imageUrl, listJobs } from "@/lib/api";
+import { deleteJob, imageUrl, listJobs } from "@/lib/api";
 import { springSoft } from "@/lib/motion";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import type { JobItem } from "@/lib/types";
@@ -20,6 +20,7 @@ const PAGE_SIZE = 24;
 
 interface Asset {
   key: string;
+  jobId: string;
   url: string;
   kind: string;
   prompt: string;
@@ -91,6 +92,7 @@ export function LibraryView() {
           (j.results ?? []).forEach((u, i) =>
             flat.push({
               key: `${j.id}-${i}`,
+              jobId: j.id,
               url: imageUrl(u),
               kind: j.kind,
               prompt: j.prompt,
@@ -152,6 +154,23 @@ export function LibraryView() {
   }, []);
 
   const closeLightbox = useCallback(() => setActiveIndex(null), []);
+
+  // 删除一件作品:确认 → 删后端记录 → 从本地列表剔除该 job 的所有产物 → 关灯箱
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const handleDelete = useCallback(async (jobId: string) => {
+    if (deleting) return;
+    if (!window.confirm("确认删除这件作品?此操作不可撤销。")) return;
+    setDeleting(jobId);
+    try {
+      await deleteJob(jobId);
+      setAssets((cur) => (cur ? cur.filter((a) => a.jobId !== jobId) : cur));
+      setActiveIndex(null);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setDeleting(null);
+    }
+  }, [deleting]);
 
   // 在当前筛选列表内切上/下一件(边界处理:夹在 [0, len-1])
   const step = useCallback(
@@ -269,6 +288,22 @@ export function LibraryView() {
                 style={lightboxable ? undefined : { cursor: "default" }}
               >
                 <span className="tile-kind">{KIND_LABELS[a.kind] ?? a.kind}</span>
+                <button
+                  type="button"
+                  className="tile-del"
+                  aria-label="删除作品"
+                  title="删除"
+                  disabled={deleting === a.jobId}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(a.jobId);
+                  }}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6" />
+                    <path d="M10 11v6M14 11v6" />
+                  </svg>
+                </button>
                 {type === "glb" ? (
                   <a className="tile-pad" href={a.url} download onClick={(e) => e.stopPropagation()}>
                     <span className="badge">3D · GLB</span>
@@ -410,6 +445,14 @@ export function LibraryView() {
                   <a className="btn-ghost" href={active.url} download>
                     {activeType === "video" ? "下载视频" : "下载原图"}
                   </a>
+                  <button
+                    type="button"
+                    className="btn-ghost btn-danger"
+                    disabled={deleting === active.jobId}
+                    onClick={() => handleDelete(active.jobId)}
+                  >
+                    {deleting === active.jobId ? "删除中…" : "删除作品"}
+                  </button>
                 </div>
               </aside>
 

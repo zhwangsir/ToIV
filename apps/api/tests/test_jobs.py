@@ -71,6 +71,28 @@ def test_jobs_lists_user_jobs(ctx):
     assert jobs[0]["status"] == "queued"
 
 
+def test_delete_job_removes_from_library(ctx):
+    client, token = ctx
+    H = {"Authorization": f"Bearer {token}"}
+    job_id = client.get("/api/jobs", headers=H).json()[0]["id"]
+    r = client.delete(f"/api/jobs/{job_id}", headers=H)
+    assert r.status_code == 200, r.text
+    assert r.json()["ok"] is True
+    # 删后作品库为空
+    assert client.get("/api/jobs", headers=H).json() == []
+
+
+def test_delete_missing_job_404(ctx):
+    client, token = ctx
+    r = client.delete("/api/jobs/does-not-exist", headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 404
+
+
+def test_delete_requires_auth(ctx):
+    client, _ = ctx
+    assert client.delete("/api/jobs/whatever").status_code == 401
+
+
 def test_rate_limit_blocks_after_max():
     class _U:
         id = "ratelimit-test-user"
