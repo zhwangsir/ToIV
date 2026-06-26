@@ -43,8 +43,9 @@ const SHOT_W = 768;
 const SHOT_H = 432;
 
 // 角色参考图(肖像):正方形更利于 IPAdapter 取脸
-const REF_W = 512;
-const REF_H = 512;
+// 角色定妆三视图(turnaround)用宽幅,容纳 正/侧/背 多视图(SDXL ~1MP 横档)
+const REF_W = 1216;
+const REF_H = 832;
 
 // 漫剧默认底模:优先 SDXL 动漫系。按 2026 调研排名 NoobAI(vpred 旗舰画质)>Illustrious
 // (稳定+LoRA 生态)>Pony>Animagine。命不中回退列表首个。用户仍可在 ModelPicker 任意切换。
@@ -451,15 +452,20 @@ export function ManjuStudio() {
       setRefBusy(true);
       patchCharAt(i, { refStatus: "imaging", refError: undefined });
       try {
-        const positive = `character reference sheet, portrait, ${desc}, ${style.trim()}`;
+        // 定妆三视图:多视图 turnaround(角色一致性锚定参考),danbooru 标签 + 净背景
+        const styleTag = style.trim() ? `, ${style.trim()}` : "";
+        const positive =
+          `character reference sheet, multiple views, character turnaround, ` +
+          `front view, side view, back view, full body, same character, ${desc}, ` +
+          `simple white background, masterpiece, best quality, very aesthetic, highly detailed${styleTag}`;
         const res = await generateTxt2img({
           positive,
           negative: NEGATIVE,
           ckpt_name: ckpt,
           width: REF_W,
           height: REF_H,
-          steps: 24,
-          cfg: 7,
+          steps: 28,
+          cfg: cfgForCkpt(ckpt),
           sampler: "euler",
           scheduler: "normal",
           batch_size: 1,
