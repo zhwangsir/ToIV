@@ -749,6 +749,94 @@ export async function generateStoryboard(
   return res.json();
 }
 
+// ---------- 漫剧工作台:项目 / 资产 / 镜头持久化(可追踪/可复用)----------
+export interface ManjuProjectSummary {
+  id: string;
+  title: string;
+  premise: string;
+  style: string;
+  ckpt_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ManjuAssetItem {
+  id: string;
+  kind: string;
+  name: string;
+  description: string;
+  ref_image: string;
+}
+
+export interface ManjuShotItem {
+  id: string;
+  idx: number;
+  scene: string;
+  prompt: string;
+  motion: string;
+  characters: string[];
+  camera: string;
+  dialogue: string;
+  duration_sec: number;
+  image_job_id: string;
+  video_job_id: string;
+  status: string;
+}
+
+export interface ManjuProjectDetail extends ManjuProjectSummary {
+  assets: ManjuAssetItem[];
+  shots: ManjuShotItem[];
+}
+
+export interface ManjuProjectInput {
+  title?: string;
+  premise?: string;
+  style?: string;
+  ckpt_name?: string;
+}
+
+export interface ManjuShotInput {
+  scene?: string;
+  prompt?: string;
+  motion?: string;
+  characters?: string[];
+  camera?: string;
+  dialogue?: string;
+  duration_sec?: number;
+}
+
+/** 漫剧工作台统一 JSON 请求(带 auth + 错误归一)。 */
+async function manjuReq<T>(path: string, method: string, body?: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE}/api${path}`, {
+    method,
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `漫剧项目请求失败 (${res.status})`);
+  }
+  return res.json();
+}
+
+export const listManjuProjects = (): Promise<ManjuProjectSummary[]> =>
+  manjuReq("/manju/projects", "GET");
+export const createManjuProject = (body: ManjuProjectInput): Promise<ManjuProjectSummary> =>
+  manjuReq("/manju/projects", "POST", body);
+export const getManjuProject = (pid: string): Promise<ManjuProjectDetail> =>
+  manjuReq(`/manju/projects/${pid}`, "GET");
+export const updateManjuProject = (
+  pid: string,
+  body: ManjuProjectInput,
+): Promise<ManjuProjectSummary> => manjuReq(`/manju/projects/${pid}`, "PATCH", body);
+export const deleteManjuProject = (pid: string): Promise<{ ok: boolean }> =>
+  manjuReq(`/manju/projects/${pid}`, "DELETE");
+export const saveManjuShots = (
+  pid: string,
+  shots: ManjuShotInput[],
+): Promise<{ shots: ManjuShotItem[] }> =>
+  manjuReq(`/manju/projects/${pid}/shots`, "PUT", { shots });
+
 export type ManjuTransition = "none" | "crossfade";
 
 export interface AssembleOptions {

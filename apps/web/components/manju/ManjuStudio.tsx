@@ -17,6 +17,8 @@ import type { ManjuTransition } from "@/lib/api";
 import { ModelPicker } from "@/components/ui/ModelPicker";
 import type { GenerateResponse, ModelsResponse } from "@/lib/types";
 
+import { ManjuProjectBar } from "./ManjuProjectBar";
+import type { ProjectLoaded } from "./ManjuProjectBar";
 import { ShotCard } from "./ShotCard";
 import { ShotInspector } from "./ShotInspector";
 import { toShotCards } from "./types";
@@ -533,6 +535,25 @@ export function ManjuStudio() {
           {doneCount}/{shots.length || numShots} 镜已出图
         </span>
       </header>
+
+      {/* 项目库:保存/打开/删除(可追踪/可复用)。打开即回填整台状态。 */}
+      <ManjuProjectBar
+        snapshot={{ title: projectName, premise, style, ckpt, shots }}
+        onLoad={(d: ProjectLoaded) => {
+          setProjectName(d.title || "未命名漫剧");
+          setPremise(d.premise);
+          setStyle(d.style);
+          if (d.ckpt) setCkpt(d.ckpt);
+          setShots(d.shots);
+          if (d.shots.length) setStep("storyboard");
+        }}
+        onNew={() => {
+          setProjectName("未命名漫剧");
+          setPremise("");
+          setShots([]);
+          setStep("script");
+        }}
+      />
 
       <div className={`manju-body${showInspector ? "" : " is-wide"}`}>
         {/* 左侧流程轨 */}
