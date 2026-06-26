@@ -50,3 +50,55 @@ class Job(SQLModel, table=True):
     nsfw: bool = False  # 该作品是否成人向(建档时由 checkpoint 是否 NSFW 决定)
     result: str = ""  # 完成后的产物 URL 列表(JSON)
     created_at: datetime = Field(default_factory=_now)
+
+
+# ---------------------------------------------------------------------------
+# 漫剧工作台(manju)—— 可追踪/可调整/可复用的 AI 漫剧生产流水线
+# 项目(ManjuProject)1—N 资产(ManjuAsset)与镜头(ManjuShot)。
+# 资产=可复用的角色/场景/道具/风格;镜头按 characters 引用资产名,改资产可全剧同步。
+# ---------------------------------------------------------------------------
+
+
+class ManjuProject(SQLModel, table=True):
+    id: str = Field(default_factory=_uid, primary_key=True)
+    tenant_id: str = Field(index=True)
+    user_id: str = Field(index=True)
+    title: str = ""
+    premise: str = ""  # 剧情/小说原文或梗概
+    style: str = ""  # 整体画风(融入出图提示词)
+    ckpt_name: str = ""  # 该项目固定的出图底模(保跨镜风格一致)
+    created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
+
+
+class ManjuAsset(SQLModel, table=True):
+    """可复用资产:角色/场景/道具/风格。镜头按 name 引用,改资产可全剧同步。"""
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    project_id: str = Field(index=True)
+    tenant_id: str = Field(index=True)
+    kind: str = "character"  # character | scene | prop | style
+    name: str = ""
+    description: str = ""  # danbooru 标签风格的固定特征(发色/瞳色/服装等),保跨镜一致
+    ref_image: str = ""  # 定妆图/三视图参考图 URL(角色一致性 IPAdapter 用)
+    created_at: datetime = Field(default_factory=_now)
+
+
+class ManjuShot(SQLModel, table=True):
+    """分镜镜头:出图提示词 + 运动提示词 + 引用资产 + 关键帧/视频作业追踪。"""
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    project_id: str = Field(index=True)
+    tenant_id: str = Field(index=True)
+    idx: int = 0  # 镜序(0 起)
+    scene: str = ""
+    prompt: str = ""  # 出图提示词(danbooru 标签)
+    motion: str = ""  # i2v 运动提示词
+    characters: str = ""  # JSON 数组:本镜引用的角色资产名
+    camera: str = ""
+    dialogue: str = ""
+    duration_sec: int = 3
+    image_job_id: str = ""  # 关键帧作业 id(可追踪)
+    video_job_id: str = ""  # 视频作业 id
+    status: str = "draft"  # draft | image_done | video_done
+    created_at: datetime = Field(default_factory=_now)
