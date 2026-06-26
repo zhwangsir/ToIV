@@ -67,19 +67,31 @@ const toShotCard = (s: ManjuShotItem): ShotCard => ({
   status: "idle",
 });
 
-// 角色登记 ↔ 项目资产(kind=character):名字必填者方持久化
+// 角色登记 ↔ 项目资产(kind=character):名字必填者方持久化。
+// 参考图是 worker 绑定的 ComfyUI 输入文件名,故把 worker 编进 ref_image(免改表),
+// 重开项目后 IPAdapter 人物一致路径仍可用。
+const REF_SEP = "|||";
+
 const toAssetInput = (c: CharRow): ManjuAssetInput => ({
   kind: "character",
   name: c.name,
   description: c.desc,
-  ref_image: c.refImage ?? "",
+  ref_image:
+    c.refImage && c.refWorker ? `${c.refWorker}${REF_SEP}${c.refImage}` : c.refImage ?? "",
 });
 
-const toCharRow = (a: ManjuAssetItem): CharRow => ({
-  name: a.name,
-  desc: a.description,
-  ...(a.ref_image ? { refImage: a.ref_image } : {}),
-});
+const toCharRow = (a: ManjuAssetItem): CharRow => {
+  const raw = a.ref_image ?? "";
+  const sep = raw.indexOf(REF_SEP);
+  const refWorker = sep >= 0 ? raw.slice(0, sep) : undefined;
+  const refImage = sep >= 0 ? raw.slice(sep + REF_SEP.length) : raw || undefined;
+  return {
+    name: a.name,
+    desc: a.description,
+    ...(refImage ? { refImage } : {}),
+    ...(refWorker ? { refWorker } : {}),
+  };
+};
 
 export function ManjuProjectBar({
   snapshot,
