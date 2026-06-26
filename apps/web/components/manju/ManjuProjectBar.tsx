@@ -41,10 +41,13 @@ interface ManjuProjectBarProps {
   onLoad: (data: ProjectLoaded) => void;
   /** 新建空项目(清空导演台)。 */
   onNew: () => void;
+  /** 受控:当前项目 id(供导演台在生成分镜后自动落库)。 */
+  currentId: string | null;
+  onCurrentIdChange: (id: string | null) => void;
 }
 
 // 前后端镜头字段映射:前端 description ↔ 后端 prompt
-const toShotInput = (s: ShotCard): ManjuShotInput => ({
+export const shotCardToInput = (s: ShotCard): ManjuShotInput => ({
   scene: s.scene,
   prompt: s.description,
   characters: s.characters,
@@ -78,9 +81,14 @@ const toCharRow = (a: ManjuAssetItem): CharRow => ({
   ...(a.ref_image ? { refImage: a.ref_image } : {}),
 });
 
-export function ManjuProjectBar({ snapshot, onLoad, onNew }: ManjuProjectBarProps) {
+export function ManjuProjectBar({
+  snapshot,
+  onLoad,
+  onNew,
+  currentId,
+  onCurrentIdChange,
+}: ManjuProjectBarProps) {
   const [projects, setProjects] = useState<ManjuProjectSummary[]>([]);
-  const [currentId, setCurrentId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -111,20 +119,20 @@ export function ManjuProjectBar({ snapshot, onLoad, onNew }: ManjuProjectBarProp
       const id = currentId
         ? (await updateManjuProject(currentId, body)).id
         : (await createManjuProject(body)).id;
-      await saveManjuShots(id, snapshot.shots.map(toShotInput));
+      await saveManjuShots(id, snapshot.shots.map(shotCardToInput));
       // 角色登记落库为可复用资产(只存有名字的)
       await saveManjuAssets(
         id,
         snapshot.chars.filter((c) => c.name.trim()).map(toAssetInput),
       );
-      setCurrentId(id);
+      onCurrentIdChange(id);
       await refresh();
     } catch (e) {
       setErr((e as Error).message);
     } finally {
       setBusy(false);
     }
-  }, [busy, currentId, snapshot, refresh]);
+  }, [busy, currentId, snapshot, refresh, onCurrentIdChange]);
 
   const handleOpen = useCallback(
     async (pid: string) => {
@@ -142,7 +150,7 @@ export function ManjuProjectBar({ snapshot, onLoad, onNew }: ManjuProjectBarProp
           shots: p.shots.map(toShotCard),
           chars: p.assets.filter((a) => a.kind === "character").map(toCharRow),
         });
-        setCurrentId(p.id);
+        onCurrentIdChange(p.id);
         setOpen(false);
       } catch (e) {
         setErr((e as Error).message);
@@ -150,7 +158,7 @@ export function ManjuProjectBar({ snapshot, onLoad, onNew }: ManjuProjectBarProp
         setBusy(false);
       }
     },
-    [busy, onLoad],
+    [busy, onLoad, onCurrentIdChange],
   );
 
   const handleDelete = useCallback(
@@ -160,7 +168,7 @@ export function ManjuProjectBar({ snapshot, onLoad, onNew }: ManjuProjectBarProp
       setBusy(true);
       try {
         await deleteManjuProject(pid);
-        if (currentId === pid) setCurrentId(null);
+        if (currentId === pid) onCurrentIdChange(null);
         await refresh();
       } catch (err2) {
         setErr((err2 as Error).message);
@@ -168,14 +176,14 @@ export function ManjuProjectBar({ snapshot, onLoad, onNew }: ManjuProjectBarProp
         setBusy(false);
       }
     },
-    [busy, currentId, refresh],
+    [busy, currentId, refresh, onCurrentIdChange],
   );
 
   const handleNew = useCallback(() => {
-    setCurrentId(null);
+    onCurrentIdChange(null);
     setOpen(false);
     onNew();
-  }, [onNew]);
+  }, [onNew, onCurrentIdChange]);
 
   return (
     <div className="mpb">

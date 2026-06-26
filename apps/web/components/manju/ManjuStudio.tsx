@@ -11,13 +11,14 @@ import {
   jobEventsUrl,
   listModels,
   renderManjuShot,
+  saveManjuShots,
   uploadImage,
 } from "@/lib/api";
 import type { ManjuTransition } from "@/lib/api";
 import { ModelPicker } from "@/components/ui/ModelPicker";
 import type { GenerateResponse, ModelsResponse } from "@/lib/types";
 
-import { ManjuProjectBar } from "./ManjuProjectBar";
+import { ManjuProjectBar, shotCardToInput } from "./ManjuProjectBar";
 import type { ProjectLoaded } from "./ManjuProjectBar";
 import { ShotCard } from "./ShotCard";
 import { ShotInspector } from "./ShotInspector";
@@ -65,6 +66,7 @@ function isPreferredCkpt(ckpt: string): boolean {
 export function ManjuStudio() {
   // 顶栏 / 流程
   const [projectName, setProjectName] = useState("未命名漫剧");
+  const [projectId, setProjectId] = useState<string | null>(null);
   const [autoMode, setAutoMode] = useState<AutoMode>("manual");
   const [step, setStep] = useState<FlowStep>("script");
 
@@ -327,6 +329,10 @@ export function ManjuStudio() {
       setShots(cards);
       setSelectedId(cards[0]?.id ?? null);
       setStep("storyboard");
+      // 已打开项目则把新分镜自动落库(生成即持久,可追踪)
+      if (projectId) {
+        void saveManjuShots(projectId, cards.map(shotCardToInput)).catch(() => {});
+      }
       if (autoMode === "auto") {
         // 全自动:分镜出来后立即批量出图
         void imageAll(cards);
@@ -339,7 +345,7 @@ export function ManjuStudio() {
     }
     // imageAll 在下方定义,planStoryboard 仅在用户操作时触发,故不入依赖
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [premise, planning, numShots, style, chars, autoMode]);
+  }, [premise, planning, numShots, style, chars, autoMode, projectId]);
 
   // 批量出图:串行跑(单实例 ComfyUI 排队即可,避免一次性塞爆)
   const imageAll = useCallback(
@@ -540,6 +546,8 @@ export function ManjuStudio() {
 
       {/* 项目库:保存/打开/删除(可追踪/可复用)。打开即回填整台状态。 */}
       <ManjuProjectBar
+        currentId={projectId}
+        onCurrentIdChange={setProjectId}
         snapshot={{ title: projectName, premise, style, ckpt, shots, chars }}
         onLoad={(d: ProjectLoaded) => {
           setProjectName(d.title || "未命名漫剧");
