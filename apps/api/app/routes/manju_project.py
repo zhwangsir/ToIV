@@ -64,6 +64,10 @@ class ShotIn(BaseModel):
     duration_sec: int = Field(default=3, ge=1, le=30)
 
 
+class AssetsBulkIn(BaseModel):
+    assets: list[AssetIn] = Field(default_factory=list, max_length=200)
+
+
 class ShotsBulkIn(BaseModel):
     shots: list[ShotIn] = Field(default_factory=list, max_length=200)
 
@@ -264,6 +268,36 @@ def add_asset(
     session.commit()
     session.refresh(a)
     return _asset_dict(a)
+
+
+@router.put("/manju/projects/{pid}/assets")
+def save_assets(
+    pid: str,
+    body: AssetsBulkIn,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """整体保存/替换项目资产(把角色登记等可复用资产落库)。
+
+    镜头按资产 name 引用(非 id),故按名整体替换不破坏引用关系。
+    """
+    _owned_project(pid, user, session)
+    session.exec(delete(ManjuAsset).where(ManjuAsset.project_id == pid))
+    for a in body.assets:
+        kind = a.kind if a.kind in _ASSET_KINDS else "character"
+        session.add(
+            ManjuAsset(
+                project_id=pid,
+                tenant_id=user.tenant_id,
+                kind=kind,
+                name=a.name,
+                description=a.description,
+                ref_image=a.ref_image,
+            )
+        )
+    session.commit()
+    rows = session.exec(select(ManjuAsset).where(ManjuAsset.project_id == pid)).all()
+    return {"assets": [_asset_dict(a) for a in rows]}
 
 
 @router.patch("/manju/assets/{aid}")

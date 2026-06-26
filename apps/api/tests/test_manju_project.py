@@ -105,6 +105,26 @@ def test_shots_save_and_track(ctx):
     assert len(r.json()["shots"]) == 1
 
 
+def test_bulk_save_assets(ctx):
+    client, token = ctx
+    H = _h(token)
+    pid = client.post("/api/manju/projects", headers=H, json={"title": "x"}).json()["id"]
+    r = client.put(
+        f"/api/manju/projects/{pid}/assets",
+        headers=H,
+        json={"assets": [
+            {"kind": "character", "name": "楚生", "description": "1boy, short black hair"},
+            {"kind": "scene", "name": "紫霞观", "description": "ancient taoist temple"},
+        ]},
+    )
+    assert r.status_code == 200, r.text
+    assert len(r.json()["assets"]) == 2
+    # 整体替换(按名)
+    r = client.put(f"/api/manju/projects/{pid}/assets", headers=H, json={"assets": [{"name": "龙哥"}]})
+    detail = client.get(f"/api/manju/projects/{pid}", headers=H).json()
+    assert [a["name"] for a in detail["assets"]] == ["龙哥"]
+
+
 def test_ownership_and_delete(ctx):
     client, token = ctx
     H = _h(token)

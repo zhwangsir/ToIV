@@ -7,14 +7,17 @@ import {
   deleteManjuProject,
   getManjuProject,
   listManjuProjects,
+  saveManjuAssets,
   saveManjuShots,
   updateManjuProject,
+  type ManjuAssetInput,
+  type ManjuAssetItem,
   type ManjuProjectSummary,
   type ManjuShotInput,
   type ManjuShotItem,
 } from "@/lib/api";
 
-import type { ShotCard } from "./types";
+import type { CharRow, ShotCard } from "./types";
 
 import "./manju-project-bar.css";
 
@@ -25,6 +28,7 @@ export interface ProjectSnapshot {
   style: string;
   ckpt: string;
   shots: ShotCard[];
+  chars: CharRow[];
 }
 
 /** 打开项目后回填导演台的数据。 */
@@ -58,6 +62,20 @@ const toShotCard = (s: ManjuShotItem): ShotCard => ({
   dialogue: s.dialogue,
   duration_sec: s.duration_sec,
   status: "idle",
+});
+
+// 角色登记 ↔ 项目资产(kind=character):名字必填者方持久化
+const toAssetInput = (c: CharRow): ManjuAssetInput => ({
+  kind: "character",
+  name: c.name,
+  description: c.desc,
+  ref_image: c.refImage ?? "",
+});
+
+const toCharRow = (a: ManjuAssetItem): CharRow => ({
+  name: a.name,
+  desc: a.description,
+  ...(a.ref_image ? { refImage: a.ref_image } : {}),
 });
 
 export function ManjuProjectBar({ snapshot, onLoad, onNew }: ManjuProjectBarProps) {
@@ -94,6 +112,11 @@ export function ManjuProjectBar({ snapshot, onLoad, onNew }: ManjuProjectBarProp
         ? (await updateManjuProject(currentId, body)).id
         : (await createManjuProject(body)).id;
       await saveManjuShots(id, snapshot.shots.map(toShotInput));
+      // 角色登记落库为可复用资产(只存有名字的)
+      await saveManjuAssets(
+        id,
+        snapshot.chars.filter((c) => c.name.trim()).map(toAssetInput),
+      );
       setCurrentId(id);
       await refresh();
     } catch (e) {
@@ -117,6 +140,7 @@ export function ManjuProjectBar({ snapshot, onLoad, onNew }: ManjuProjectBarProp
           style: p.style,
           ckpt: p.ckpt_name,
           shots: p.shots.map(toShotCard),
+          chars: p.assets.filter((a) => a.kind === "character").map(toCharRow),
         });
         setCurrentId(p.id);
         setOpen(false);

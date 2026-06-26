@@ -538,18 +538,20 @@ export function ManjuStudio() {
 
       {/* 项目库:保存/打开/删除(可追踪/可复用)。打开即回填整台状态。 */}
       <ManjuProjectBar
-        snapshot={{ title: projectName, premise, style, ckpt, shots }}
+        snapshot={{ title: projectName, premise, style, ckpt, shots, chars }}
         onLoad={(d: ProjectLoaded) => {
           setProjectName(d.title || "未命名漫剧");
           setPremise(d.premise);
           setStyle(d.style);
           if (d.ckpt) setCkpt(d.ckpt);
+          setChars(d.chars);
           setShots(d.shots);
           if (d.shots.length) setStep("storyboard");
         }}
         onNew={() => {
           setProjectName("未命名漫剧");
           setPremise("");
+          setChars([]);
           setShots([]);
           setStep("script");
         }}

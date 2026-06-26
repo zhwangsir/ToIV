@@ -837,6 +837,19 @@ export const saveManjuShots = (
 ): Promise<{ shots: ManjuShotItem[] }> =>
   manjuReq(`/manju/projects/${pid}/shots`, "PUT", { shots });
 
+export interface ManjuAssetInput {
+  kind?: string;
+  name: string;
+  description?: string;
+  ref_image?: string;
+}
+
+export const saveManjuAssets = (
+  pid: string,
+  assets: ManjuAssetInput[],
+): Promise<{ assets: ManjuAssetItem[] }> =>
+  manjuReq(`/manju/projects/${pid}/assets`, "PUT", { assets });
+
 export type ManjuTransition = "none" | "crossfade";
 
 export interface AssembleOptions {
