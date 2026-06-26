@@ -25,9 +25,10 @@ class WanI2VRequest(BaseModel):
     image: str = Field(min_length=1, max_length=512)
     worker: str
     negative: str | None = Field(default=None, max_length=2000)
-    width: int = Field(default=640, ge=128, le=1280)
+    # Wan 2.2 训练甜点档:480p→832×480,81 帧(4n+1);旧 640×480/49 偏离训练分布掉质
+    width: int = Field(default=832, ge=128, le=1280)
     height: int = Field(default=480, ge=128, le=1280)
-    length: int = Field(default=49, ge=9, le=121)
+    length: int = Field(default=81, ge=9, le=121)
     fps: int = Field(default=16, ge=4, le=30)
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
 
