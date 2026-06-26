@@ -24,6 +24,7 @@ from app.agent import llm
 from app.deps import get_current_user
 from app.models import User
 from app.ratelimit import enforce_generation_rate_limit
+from app.workflows.model_profiles import detect_model_family
 
 router = APIRouter()
 
@@ -74,6 +75,56 @@ _IMAGE_SYSTEMS: dict[str, str] = {
         "不要解释,不要代码块标记。"
     ),
 }
+
+# ── 模型族「方言」——让 positive 用目标模型真正听得懂的写法(关键质量杠杆)──────
+# 同一意图喂不同底模须用不同写法:Pony 要质量分标签、SDXL 动漫要 danbooru 标签、
+# Flux/Qwen 要自然语言长句且忌堆质量词。前端把所选 checkpoint 传来,据此切方言。
+_FAMILY_GUIDANCE: dict[str, str] = {
+    "pony": (
+        "目标模型是 Pony Diffusion 系(SDXL)。positive **必须以质量分标签开头**:"
+        "`score_9, score_8_up, score_7_up, score_6_up`,随后用 danbooru 风格逗号标签"
+        "(主体如 1girl/1boy、外貌、服装、动作、场景、画风),可加 source_anime。"
+        "**用标签不用整句**,标签间逗号分隔。"
+    ),
+    "sdxl_anime": (
+        "目标模型是 SDXL 动漫底模(Illustrious / NoobAI / Animagine)。positive 用 "
+        "**danbooru 风格逗号标签**:主体用 1girl/1boy/2girls,补外貌/服装/动作/场景/画风标签,"
+        "并加画质标签 `masterpiece, best quality, amazing quality, very aesthetic, absurdres`。"
+        "**用标签不用整句**。"
+    ),
+    "sdxl": (
+        "目标模型是 SDXL(写实/通用)。positive 用逗号分隔的描述短语 + 摄影与画质词"
+        "(detailed, sharp focus, cinematic lighting, professional photography, 8k)。"
+    ),
+    "flux": (
+        "目标模型是 Flux。positive **必须是流畅的自然语言长句**,完整描述画面"
+        "(主体、动作、环境、光线、镜头、氛围)。**禁止** danbooru 标签堆砌,"
+        "**禁止** masterpiece/best quality 这类无效质量词——Flux 不吃这套,会变差。"
+        "Flux 对 negative 几乎不响应,negative 可留简短或空。"
+    ),
+    "qwen": (
+        "目标模型是 Qwen-Image。positive 用**自然语言**详细描述画面,语序清晰;"
+        "它擅长画面内文字渲染,若用户要文字请用引号标出。不要 danbooru 标签堆砌。"
+    ),
+    "sd15": (
+        "目标模型是 SD1.5。positive 用逗号标签 + 强质量词"
+        "(masterpiece, best quality, highly detailed, sharp focus);"
+        "SD1.5 解剖较弱,negative 要更强的解剖修正词。"
+    ),
+}
+
+
+def _image_system_for(kind: str, model: str | None) -> str:
+    """图像类系统提示:在内容感知基底上,按目标模型族追加「方言」指引。
+
+    无 model → 退回通用基底(向后兼容);有 model → 检测族并拼接对应方言。
+    """
+    base = _IMAGE_SYSTEMS[kind]
+    if not model:
+        return base
+    guide = _FAMILY_GUIDANCE.get(detect_model_family(model))
+    return f"{base}\n\n【目标模型方言 · 务必遵守】{guide}" if guide else base
+
 
 # ── 其它类:单段提示词 ────────────────────────────────────────────────────
 _TEXT_SYSTEMS: dict[str, str] = {
@@ -153,6 +204,8 @@ def _heuristic_negative(prompt: str) -> str:
 class OptimizeRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=2000)
     kind: str = Field(default="image")
+    # 目标模型(checkpoint 文件名);传入则按模型族切换改写方言,不传则用通用基底
+    model: str | None = Field(default=None, max_length=300)
 
 
 class OptimizeResponse(BaseModel):
@@ -189,9 +242,9 @@ async def optimize_prompt(
 ) -> OptimizeResponse:
     enforce_generation_rate_limit(user)
 
-    # 图像类:内容感知 —— 先判题材,再产出匹配的正向 + 负面
+    # 图像类:内容感知 + 模型族方言 —— 先判题材,再用目标模型母语产出正向 + 负面
     if body.kind in _IMAGE_SYSTEMS:
-        raw = await _llm_text(_IMAGE_SYSTEMS[body.kind], body.prompt)
+        raw = await _llm_text(_image_system_for(body.kind, body.model), body.prompt)
         obj = _parse_json_obj(raw)
         if obj and obj.get("positive"):
             positive = str(obj["positive"]).strip().strip('"')

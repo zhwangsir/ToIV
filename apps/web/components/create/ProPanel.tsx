@@ -437,7 +437,7 @@ export function ProPanel(props: ProPanelProps) {
       <div className="field">
         <label htmlFor="pro-prompt">
           {mode === "audio" ? "风格 / 标签" : "提示词"}
-          <OptimizeButton value={prompt} kind={optimizeKind} onResult={setPrompt} disabled={busy} />
+          <OptimizeButton value={prompt} kind={optimizeKind} onResult={setPrompt} model={ckpt} disabled={busy} />
         </label>
         <textarea
           id="pro-prompt"

@@ -671,11 +671,15 @@ export interface OptimizeResult {
   negative?: string | null;
 }
 
-export async function optimizePrompt(prompt: string, kind: string): Promise<OptimizeResult> {
+export async function optimizePrompt(
+  prompt: string,
+  kind: string,
+  model?: string,
+): Promise<OptimizeResult> {
   const res = await fetch(`${API_BASE}/api/optimize`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ prompt, kind }),
+    body: JSON.stringify({ prompt, kind, ...(model ? { model } : {}) }),
   });
   if (!res.ok) {
     const detail = await res.json().catch(() => null);

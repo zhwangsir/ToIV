@@ -20,7 +20,9 @@ from app.models import Tenant, User
 from app.routes.optimize import (
     _ANATOMY_NEGATIVE,
     _heuristic_negative,
+    _image_system_for,
 )
+from app.workflows.model_profiles import detect_model_family
 from app.security import create_token, hash_password
 
 
@@ -146,6 +148,59 @@ def test_image_optimize_parse_failure_falls_back(client_token, monkeypatch):
     data = r.json()
     assert "photorealistic" in data["optimized"]
     assert "cartoon" in data["negative"]  # 写实题材排除卡通
+
+
+# ── 模型族识别:纯函数,按文件名判方言 ───────────────────────────────────────
+@pytest.mark.parametrize(
+    "name,family",
+    [
+        ("ponyDiffusionV6XL.safetensors", "pony"),
+        ("flux1-dev.safetensors", "flux"),
+        ("qwen_image_fp8.safetensors", "qwen"),
+        ("prefectIllustriousXL_v3.safetensors", "sdxl_anime"),
+        ("noobaiXL_vpred.safetensors", "sdxl_anime"),
+        ("sd_xl_base_1.0.safetensors", "sdxl"),
+        ("realisticVision_v6.safetensors", "sd15"),
+        ("", "sd15"),
+    ],
+)
+def test_detect_model_family(name, family):
+    assert detect_model_family(name) == family
+
+
+# ── 方言注入:目标模型决定 positive 写法 ─────────────────────────────────────
+def test_image_system_no_model_is_base():
+    # 不传 model → 退回通用基底(向后兼容,不含方言段)
+    assert "目标模型方言" not in _image_system_for("image", None)
+
+
+def test_image_system_flux_demands_natural_language():
+    sys = _image_system_for("image", "flux1-dev.safetensors")
+    assert "自然语言" in sys and "danbooru" in sys  # 要求长句、禁标签堆砌
+
+
+def test_image_system_pony_demands_score_tags():
+    sys = _image_system_for("image", "ponyDiffusionV6XL.safetensors")
+    assert "score_9" in sys
+
+
+def test_optimize_passes_model_dialect_to_llm(client_token, monkeypatch):
+    # 端到端:所选模型的方言必须进入发给 LLM 的 system 提示
+    captured: dict = {}
+
+    async def fake_chat(messages, tools=None):  # noqa: ANN001
+        captured["system"] = messages[0]["content"]
+        return {"content": '{"category": "anime", "positive": "1girl, masterpiece", "negative": "lowres"}'}
+
+    monkeypatch.setattr("app.routes.optimize.llm.chat", fake_chat)
+    client, token = client_token
+    r = client.post(
+        "/api/optimize",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"prompt": "一个女孩", "kind": "image", "model": "ponyDiffusionV6XL.safetensors"},
+    )
+    assert r.status_code == 200, r.text
+    assert "score_9" in captured["system"]  # Pony 方言到达 LLM
 
 
 def test_video_optimize_single_segment(client_token, monkeypatch):

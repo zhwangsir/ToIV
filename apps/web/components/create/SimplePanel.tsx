@@ -271,7 +271,7 @@ export function SimplePanel(props: SimplePanelProps) {
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
         />
-        <OptimizeButton value={prompt} kind={optimizeKind} onResult={setPrompt} disabled={busy} />
+        <OptimizeButton value={prompt} kind={optimizeKind} onResult={setPrompt} model={ckpt} disabled={busy} />
       </div>
 
       {/* 智能 chip */}

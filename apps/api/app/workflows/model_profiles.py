@@ -81,6 +81,29 @@ def is_sdxl(name: str) -> bool:
     return any(h in low for h in _SDXL_HINTS)
 
 
+# ---------------------------------------------------------------------------
+# 模型族识别 —— 供提示词优化器「说目标模型的母语」
+# ---------------------------------------------------------------------------
+
+# 不同底模族的提示词「方言」截然不同:Pony 要质量分标签、SDXL 动漫要 danbooru 标签、
+# Flux/Qwen 要自然语言长句且忌堆质量词。识别按文件名子串,顺序敏感(先特殊后通用)。
+# 返回值之一:pony / sdxl_anime / sdxl / flux / qwen / sd15。
+def detect_model_family(name: str) -> str:
+    """按 checkpoint 文件名判定模型族(决定提示词改写方言)。命不中归 sd15。"""
+    low = (name or "").lower()
+    if "pony" in low:
+        return "pony"
+    if "flux" in low:
+        return "flux"
+    if "qwen" in low:
+        return "qwen"
+    if any(h in low for h in ("illustrious", "noobai", "animagine", "anime", "wai", "hassaku")):
+        return "sdxl_anime"
+    if is_sdxl(low):
+        return "sdxl"
+    return "sd15"
+
+
 def fit_resolution(ckpt_name: str, width: int, height: int) -> tuple[int, int]:
     """按底模架构把请求宽高缩放到合适像素档(保持宽高比,snap 到 8 的倍数)。
 

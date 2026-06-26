@@ -13,11 +13,14 @@ interface OptimizeButtonProps {
   onResult: (optimized: string) => void;
   /** 图像类:同时回填负面提示词(可选) */
   onNegative?: (negative: string) => void;
+  /** 目标模型(checkpoint 文件名);传入则按模型族用其「母语」改写 */
+  model?: string;
   disabled?: boolean;
 }
 
-/** 一键把简单输入扩写成该功能的专业提示词(由 LLM 完成);图像类同时优化正向+负面。 */
-export function OptimizeButton({ value, kind, onResult, onNegative, disabled }: OptimizeButtonProps) {
+/** 一键把简单输入扩写成该功能的专业提示词(由 LLM 完成);图像类同时优化正向+负面。
+ *  传入 model 时,按目标模型族(Pony/SDXL 动漫/Flux/Qwen…)用其专属写法改写。 */
+export function OptimizeButton({ value, kind, onResult, onNegative, model, disabled }: OptimizeButtonProps) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -27,7 +30,7 @@ export function OptimizeButton({ value, kind, onResult, onNegative, disabled }: 
     setBusy(true);
     setErr(null);
     try {
-      const res = await optimizePrompt(text, kind);
+      const res = await optimizePrompt(text, kind, model);
       onResult(res.optimized);
       if (res.negative && onNegative) onNegative(res.negative);
     } catch (e) {
