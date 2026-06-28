@@ -896,12 +896,16 @@ export async function uploadVoiceRef(file: File): Promise<ManjuVoiceResult> {
 }
 
 export type ManjuTransition = "none" | "crossfade";
+export type ManjuAspect = "16:9" | "9:16" | "1:1";
 
 export interface AssembleOptions {
   transition: ManjuTransition;
   bgm_url: string | null;
   subtitles: string[];
   fps: number;
+  aspect?: ManjuAspect;
+  title?: string;
+  credits?: string;
 }
 
 export interface AssembleResult {

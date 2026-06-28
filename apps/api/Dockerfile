@@ -3,8 +3,9 @@ FROM python:3.12-slim
 WORKDIR /app
 
 # ffmpeg:漫剧自动剪辑(/api/manju/assemble)拼接片段需要
+# fonts-noto-cjk:烧录字幕 / 片头片尾卡的中文 drawtext 才有字形(否则空白)
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg \
+    && apt-get install -y --no-install-recommends ffmpeg fonts-noto-cjk \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./

@@ -17,7 +17,7 @@ import {
   uploadImage,
   uploadVoiceRef,
 } from "@/lib/api";
-import type { ManjuTransition } from "@/lib/api";
+import type { ManjuAspect, ManjuTransition } from "@/lib/api";
 import { ModelPicker } from "@/components/ui/ModelPicker";
 import type { GenerateResponse, ModelsResponse } from "@/lib/types";
 
@@ -111,6 +111,9 @@ export function ManjuStudio() {
   const [bgmUrl, setBgmUrl] = useState("");
   const [bgmMood, setBgmMood] = useState("");
   const [bgmGenerating, setBgmGenerating] = useState(false);
+  const [aspect, setAspect] = useState<ManjuAspect>("16:9");
+  const [titleText, setTitleText] = useState("");
+  const [creditsText, setCreditsText] = useState("");
   const [assembling, setAssembling] = useState(false);
   const [assembledUrl, setAssembledUrl] = useState<string | null>(null);
   const [assembleErr, setAssembleErr] = useState<string | null>(null);
@@ -526,6 +529,9 @@ export function ManjuStudio() {
           bgm_url: bgmUrl.trim() || null,
           subtitles,
           fps: 16,
+          aspect,
+          title: titleText.trim(),
+          credits: creditsText.trim(),
         },
         voiceUrls,
       );
@@ -535,7 +541,7 @@ export function ManjuStudio() {
     } finally {
       setAssembling(false);
     }
-  }, [assembling, shots, withSubs, transition, bgmUrl]);
+  }, [assembling, shots, withSubs, transition, bgmUrl, aspect, titleText, creditsText]);
 
   // AI 配乐:用 ACE-Step 按情绪/风格生成 BGM(时长跟成片),产物填入 bgmUrl。
   const generateBgm = useCallback(async () => {
@@ -1094,6 +1100,29 @@ export function ManjuStudio() {
                         </div>
                       </div>
 
+                      <div className="field">
+                        <label>画幅 · 平台</label>
+                        <div className="seg seg-3" role="group" aria-label="画幅">
+                          {(
+                            [
+                              { v: "16:9", label: "横屏", hint: "B站 / YouTube" },
+                              { v: "9:16", label: "竖屏", hint: "抖音 / 快手" },
+                              { v: "1:1", label: "方屏", hint: "Instagram" },
+                            ] as { v: ManjuAspect; label: string; hint: string }[]
+                          ).map((a) => (
+                            <button
+                              key={a.v}
+                              type="button"
+                              className={aspect === a.v ? "active" : ""}
+                              onClick={() => setAspect(a.v)}
+                              title={a.hint}
+                            >
+                              {a.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
                       <label className="manju-export-check">
                         <input
                           type="checkbox"
@@ -1134,6 +1163,27 @@ export function ManjuStudio() {
                       {bgmUrl && (
                         <audio className="manju-bgm-preview" src={bgmUrl} controls preload="none" />
                       )}
+                    </div>
+
+                    <div className="manju-bookends">
+                      <div className="field">
+                        <label htmlFor="manju-title">片头标题(可选)</label>
+                        <input
+                          id="manju-title"
+                          value={titleText}
+                          onChange={(e) => setTitleText(e.target.value)}
+                          placeholder="如:第一话 · 命运的相遇"
+                        />
+                      </div>
+                      <div className="field">
+                        <label htmlFor="manju-credits">片尾字幕(可选)</label>
+                        <input
+                          id="manju-credits"
+                          value={creditsText}
+                          onChange={(e) => setCreditsText(e.target.value)}
+                          placeholder="如:制作 · ToIV 工作室"
+                        />
+                      </div>
                     </div>
 
                     <button

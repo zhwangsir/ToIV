@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import asyncio
+import glob
 import re
 import shutil
 import tempfile
@@ -39,6 +40,14 @@ _OUTPUT_DIR = (
 )
 
 _TRANSITIONS = {"none", "crossfade"}
+# 多平台导出预设:aspect → (宽, 高)。逐镜 scale+crop 填充到此尺寸。
+_ASPECT_DIMS: dict[str, tuple[int, int]] = {
+    "16:9": (1280, 720),  # 横屏(B站/YouTube)
+    "9:16": (720, 1280),  # 竖屏(抖音/快手/Reels)
+    "1:1": (1080, 1080),  # 方屏(Ins)
+}
+_TITLE_SEC = 2.4  # 片头标题卡时长
+_CREDITS_SEC = 3.4  # 片尾字幕卡时长
 _OUTPUT_NAME_RE = re.compile(r"^manju-[0-9a-f]{32}\.mp4$")
 _DEFAULT_FPS = 16
 _CROSSFADE_SEC = 0.5  # 相邻片段交叠时长
@@ -47,11 +56,31 @@ _DOWNLOAD_TIMEOUT = 120.0
 _LOCAL_API_BASE = "http://127.0.0.1:8080"
 
 
+def _find_cjk_font() -> str:
+    """解析容器内 CJK 字体路径(fonts-noto-cjk),供 drawtext 渲染中文字幕/卡。"""
+    for pat in (
+        "/usr/share/fonts/opentype/noto/NotoSansCJK*.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK*.ttc",
+        "/usr/share/fonts/**/*[Cc][Jj][Kk]*.tt?",
+    ):
+        hits = sorted(glob.glob(pat, recursive=True))
+        if hits:
+            return hits[0]
+    return ""
+
+
+_CJK_FONT = _find_cjk_font()
+_FONT_OPT = f"fontfile={_CJK_FONT}:" if _CJK_FONT else ""
+
+
 class AssembleOptions(BaseModel):
     transition: str = Field(default="none")
     bgm_url: str | None = Field(default=None, max_length=2000)
     subtitles: list[str] = Field(default_factory=list)
     fps: int = Field(default=_DEFAULT_FPS, ge=1, le=60)
+    aspect: str = Field(default="16:9")  # 16:9 横屏 / 9:16 竖屏 / 1:1 方屏(多平台)
+    title: str = Field(default="", max_length=120)  # 片头标题卡(空=无)
+    credits: str = Field(default="", max_length=600)  # 片尾字幕卡(空=无)
 
 
 class AssembleRequest(BaseModel):
@@ -141,7 +170,7 @@ def _subtitle_filter(text: str) -> str:
     if not safe:
         return ""
     return (
-        "drawtext=text='" + safe + "'"
+        "drawtext=" + _FONT_OPT + "text='" + safe + "'"
         ":fontcolor=white:fontsize=28:line_spacing=6"
         ":box=1:boxcolor=black@0.45:boxborderw=14"
         ":x=(w-text_w)/2:y=h-text_h-40"
@@ -154,6 +183,7 @@ def _build_ffmpeg_command(
     bgm: Path | None,
     voices: list[Path | None],
     durations: list[float],
+    dims: tuple[int, int],
     out: Path,
 ) -> list[str]:
     """构造 ffmpeg 命令。
@@ -184,7 +214,15 @@ def _build_ffmpeg_command(
     # 每镜先 fps 归一 + 像素格式标准化 + 可选烧字幕,产出 [vN]
     vlabels: list[str] = []
     for i in range(len(clips)):
-        chain = [f"fps={options.fps}", "format=yuv420p"]
+        # 多平台预设:缩放到覆盖目标尺寸再中心裁切(填满无黑边),社媒标准做法
+        _w, _h = dims
+        chain = [
+            f"scale={_w}:{_h}:force_original_aspect_ratio=increase",
+            f"crop={_w}:{_h}",
+            "setsar=1",  # 统一 SAR 1:1,与片头/片尾卡 concat 不失配
+            f"fps={options.fps}",
+            "format=yuv420p",
+        ]
         sub = _subtitle_filter(subs[i]) if i < len(subs) and subs[i].strip() else ""
         if sub:
             chain.append(sub)
@@ -278,6 +316,58 @@ async def _run_ffmpeg(cmd: list[str]) -> None:
         raise HTTPException(status_code=500, detail=f"合成失败(ffmpeg):{tail}")
 
 
+def _aspect_dims(aspect: str) -> tuple[int, int]:
+    """aspect 预设 → 目标 (宽, 高);未知回落 16:9。"""
+    return _ASPECT_DIMS.get(aspect, _ASPECT_DIMS["16:9"])
+
+
+async def _gen_card(
+    text: str, dims: tuple[int, int], fps: int, dur: float, with_audio: bool, out: Path
+) -> None:
+    """生成片头/片尾卡:深底 + 居中文字,WxH/fps 与正片一致便于拼接。
+
+    with_audio:正片有音轨时卡也配静音轨(concat 需各段流一致),否则纯视频。
+    """
+    w, h = dims
+    safe = _escape_drawtext(text.strip())
+    fontsize = max(30, h // 15)
+    draw = (
+        f"drawtext={_FONT_OPT}text='{safe}':fontcolor=white:fontsize={fontsize}:line_spacing=12"
+        f":x=(w-text_w)/2:y=(h-text_h)/2"
+    )
+    cmd: list[str] = [
+        "ffmpeg", "-y",
+        "-f", "lavfi", "-i", f"color=c=0x111119:s={w}x{h}:r={fps}:d={dur:.2f}",
+    ]
+    if with_audio:
+        cmd += ["-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100"]
+    cmd += ["-t", f"{dur:.2f}", "-filter_complex", f"[0:v]{draw}[v]", "-map", "[v]"]
+    if with_audio:
+        cmd += ["-map", "1:a", "-c:a", "aac", "-b:a", "192k"]
+    cmd += ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", str(fps), "-shortest", str(out)]
+    await _run_ffmpeg(cmd)
+
+
+async def _concat_parts(parts: list[Path], fps: int, with_audio: bool, out: Path) -> None:
+    """把 [片头?, 正片, 片尾?] 按序拼接(concat 滤镜重编码,容差不同参数)。"""
+    cmd: list[str] = ["ffmpeg", "-y"]
+    for p in parts:
+        cmd += ["-i", str(p)]
+    n = len(parts)
+    if with_audio:
+        streams = "".join(f"[{i}:v][{i}:a]" for i in range(n))
+        fc = f"{streams}concat=n={n}:v=1:a=1[v][a]"
+        maps = ["-map", "[v]", "-map", "[a]", "-c:a", "aac", "-b:a", "192k"]
+    else:
+        streams = "".join(f"[{i}:v]" for i in range(n))
+        fc = f"{streams}concat=n={n}:v=1:a=0[v]"
+        maps = ["-map", "[v]"]
+    cmd += ["-filter_complex", fc, *maps,
+            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", str(fps),
+            "-movflags", "+faststart", str(out)]
+    await _run_ffmpeg(cmd)
+
+
 @router.post("/manju/assemble", response_model=AssembleResponse)
 async def assemble_manju(
     body: AssembleRequest,
@@ -328,10 +418,29 @@ async def assemble_manju(
                     voice_paths[i] = vdest
 
         durations = [await _probe_duration(p) for p in clip_paths]
+        dims = _aspect_dims(body.options.aspect)
+        opt = body.options
+        # 有片头/片尾卡时:先出正片到临时,再拼接卡;否则直接出到成片。
+        has_bookends = bool(opt.title.strip() or opt.credits.strip())
+        film_path = (tmp_dir / "film.mp4") if has_bookends else out_path
         cmd = _build_ffmpeg_command(
-            clip_paths, body.options, bgm_path, voice_paths, durations, out_path
+            clip_paths, opt, bgm_path, voice_paths, durations, dims, film_path
         )
         await _run_ffmpeg(cmd)
+
+        if has_bookends:
+            film_has_audio = any(voice_paths) or bgm_path is not None
+            parts: list[Path] = []
+            if opt.title.strip():
+                tcard = tmp_dir / "title.mp4"
+                await _gen_card(opt.title, dims, opt.fps, _TITLE_SEC, film_has_audio, tcard)
+                parts.append(tcard)
+            parts.append(film_path)
+            if opt.credits.strip():
+                ccard = tmp_dir / "credits.mp4"
+                await _gen_card(opt.credits, dims, opt.fps, _CREDITS_SEC, film_has_audio, ccard)
+                parts.append(ccard)
+            await _concat_parts(parts, opt.fps, film_has_audio, out_path)
 
     if not out_path.exists() or out_path.stat().st_size == 0:
         raise HTTPException(status_code=500, detail="合成产物为空")

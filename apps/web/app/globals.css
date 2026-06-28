@@ -3669,6 +3669,16 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 .manju-export-opts .field { flex: 1 1 8rem; }
 .manju-export-opts .seg-2 { grid-template-columns: 1fr 1fr; }
+.manju-export-opts .seg-3 { grid-template-columns: 1fr 1fr 1fr; }
+/* 片头 / 片尾输入成行 */
+.manju-bookends {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.manju-bookends .field {
+  flex: 1 1 12rem;
+}
 /* AI 配乐:情绪输入 + 生成钮成行 */
 .manju-bgm-ai {
   display: flex;
