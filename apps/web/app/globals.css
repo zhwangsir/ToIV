@@ -3669,6 +3669,41 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 .manju-export-opts .field { flex: 1 1 8rem; }
 .manju-export-opts .seg-2 { grid-template-columns: 1fr 1fr; }
+/* AI 配乐:情绪输入 + 生成钮成行 */
+.manju-bgm-ai {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.manju-bgm-mood {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.manju-bgm-gen-btn {
+  flex: none;
+  white-space: nowrap;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid color-mix(in oklab, oklch(70% 0.12 195) 50%, transparent);
+  background: color-mix(in oklab, oklch(62% 0.11 195) 18%, transparent);
+  color: oklch(56% 0.11 195);
+  cursor: pointer;
+  transition: background var(--dur) var(--ease);
+}
+.manju-bgm-gen-btn:hover:not(:disabled) {
+  background: color-mix(in oklab, oklch(62% 0.11 195) 30%, transparent);
+}
+.manju-bgm-gen-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.manju-bgm-preview {
+  width: 100%;
+  height: 34px;
+  margin-top: 0.5rem;
+}
 .manju-export-check {
   display: flex;
   align-items: center;

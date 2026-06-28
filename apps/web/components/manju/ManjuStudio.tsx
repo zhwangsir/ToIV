@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   assembleManju,
+  generateAudio,
   generateStoryboard,
   generateTxt2img,
   generateVideo,
@@ -108,6 +109,8 @@ export function ManjuStudio() {
   const [transition, setTransition] = useState<ManjuTransition>("crossfade");
   const [withSubs, setWithSubs] = useState(true);
   const [bgmUrl, setBgmUrl] = useState("");
+  const [bgmMood, setBgmMood] = useState("");
+  const [bgmGenerating, setBgmGenerating] = useState(false);
   const [assembling, setAssembling] = useState(false);
   const [assembledUrl, setAssembledUrl] = useState<string | null>(null);
   const [assembleErr, setAssembleErr] = useState<string | null>(null);
@@ -159,6 +162,31 @@ export function ManjuStudio() {
         }
         es.close();
         reject(new Error(msg));
+      });
+    });
+
+  // 解析一个 ACE-Step 配乐作业的产物音频文件名(导出步 AI 配乐用)。
+  const trackAudioFilename = (res: GenerateResponse) =>
+    new Promise<string>((resolve, reject) => {
+      const es = new EventSource(jobEventsUrl(res.prompt_id, res.client_id, res.worker));
+      esRef.current = es;
+      let done = false;
+      es.addEventListener("done", (e) => {
+        done = true;
+        const d = JSON.parse((e as MessageEvent).data);
+        const imgs = (d.images ?? []) as string[];
+        const audio = imgs.find((p) => /\.(mp3|flac|wav|opus)/i.test(p)) ?? imgs[0];
+        es.close();
+        if (audio) resolve(audio);
+        else reject(new Error("没有产出音频"));
+      });
+      es.addEventListener("error", (e) => {
+        const data = (e as MessageEvent).data;
+        if (!data && done) return;
+        es.close();
+        reject(
+          new Error(data ? JSON.parse(data).message ?? "配乐生成出错" : "与服务器连接中断"),
+        );
       });
     });
 
@@ -508,6 +536,29 @@ export function ManjuStudio() {
       setAssembling(false);
     }
   }, [assembling, shots, withSubs, transition, bgmUrl]);
+
+  // AI 配乐:用 ACE-Step 按情绪/风格生成 BGM(时长跟成片),产物填入 bgmUrl。
+  const generateBgm = useCallback(async () => {
+    if (bgmGenerating) return;
+    const mood =
+      bgmMood.trim() ||
+      (style.trim() ? `${style.trim()}, cinematic, emotional` : "cinematic emotional orchestral, gentle, ambient");
+    setBgmGenerating(true);
+    setAssembleErr(null);
+    try {
+      const total = shots.reduce((a, s) => a + (s.duration_sec || 3), 0);
+      const seconds = Math.min(240, Math.max(20, total || 30));
+      const res = await generateAudio({ tags: mood, lyrics: "", seconds });
+      const audio = await trackAudioFilename(res);
+      setBgmUrl(imageUrl(audio));
+    } catch (e) {
+      setAssembleErr((e as Error).message);
+    } finally {
+      setBgmGenerating(false);
+    }
+    // trackAudioFilename 为稳定闭包,不入依赖
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bgmGenerating, bgmMood, style, shots]);
 
   const addChar = () => setChars((prev) => [...prev, { name: "", desc: "" }]);
   const patchChar = (i: number, patch: Partial<CharRow>) => patchCharAt(i, patch);
@@ -1054,13 +1105,35 @@ export function ManjuStudio() {
                     </div>
 
                     <div className="field">
-                      <label htmlFor="manju-bgm">BGM 链接(可选)</label>
+                      <label htmlFor="manju-bgm">配乐 BGM</label>
+                      <div className="manju-bgm-ai">
+                        <input
+                          className="manju-bgm-mood"
+                          value={bgmMood}
+                          onChange={(e) => setBgmMood(e.target.value)}
+                          disabled={bgmGenerating}
+                          placeholder="情绪 / 风格(留空跟剧集风格,如 epic orchestral, tense)"
+                        />
+                        <button
+                          type="button"
+                          className="manju-bgm-gen-btn"
+                          disabled={bgmGenerating}
+                          aria-busy={bgmGenerating}
+                          onClick={generateBgm}
+                          title="用 ACE-Step 按情绪生成配乐(时长跟成片)"
+                        >
+                          {bgmGenerating ? "生成中…" : "✨ AI 配乐"}
+                        </button>
+                      </div>
                       <input
                         id="manju-bgm"
                         value={bgmUrl}
                         onChange={(e) => setBgmUrl(e.target.value)}
-                        placeholder="音乐文件 URL,留空则成片无配乐"
+                        placeholder="音乐文件 URL,留空则无配乐(或点 AI 配乐生成)"
                       />
+                      {bgmUrl && (
+                        <audio className="manju-bgm-preview" src={bgmUrl} controls preload="none" />
+                      )}
                     </div>
 
                     <button
