@@ -56,6 +56,8 @@ class AssembleOptions(BaseModel):
 
 class AssembleRequest(BaseModel):
     clips: list[str] = Field(min_length=1, max_length=48)
+    # 逐镜配音 URL,与 clips 对齐(空串=该镜无配音);成片时对齐混入对白轨。
+    voice_urls: list[str] = Field(default_factory=list, max_length=48)
     options: AssembleOptions = Field(default_factory=AssembleOptions)
 
 
@@ -102,6 +104,22 @@ async def _download_clip(client: httpx.AsyncClient, url: str, dest: Path) -> Non
     dest.write_bytes(resp.content)
 
 
+async def _probe_duration(path: Path) -> float:
+    """ffprobe 测片段实际时长(秒),供逐镜配音偏移对齐;失败回落估计值。"""
+    if shutil.which("ffprobe") is None:
+        return _CLIP_EST_SEC
+    proc = await asyncio.create_subprocess_exec(
+        "ffprobe", "-v", "error", "-show_entries", "format=duration",
+        "-of", "default=nw=1:nk=1", str(path),
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+    )
+    out, _ = await proc.communicate()
+    try:
+        return float(out.decode().strip())
+    except (ValueError, AttributeError):
+        return _CLIP_EST_SEC
+
+
 def _escape_drawtext(text: str) -> str:
     """转义 drawtext 文案里的特殊字符(ffmpeg 滤镜语法敏感)。"""
     return (
@@ -134,20 +152,32 @@ def _build_ffmpeg_command(
     clips: list[Path],
     options: AssembleOptions,
     bgm: Path | None,
+    voices: list[Path | None],
+    durations: list[float],
     out: Path,
 ) -> list[str]:
     """构造 ffmpeg 命令。
 
     - 字幕:逐 clip drawtext。
     - 转场 none:用 concat 滤镜首尾相接;crossfade:用 xfade 链式交叠。
-    - BGM:存在则作为成片唯一音轨(漫剧片段普遍无声),裁到视频时长。
+    - 音频:有配音则逐镜按片段起始偏移 adelay 对齐成对白轨,叠可选 BGM(降音垫底)amix;
+      无配音仅 BGM 时沿用原单轨逻辑(漫剧片段普遍无声)。
     """
+    has_voice = any(v is not None for v in voices)
     cmd: list[str] = ["ffmpeg", "-y"]
     for clip in clips:
         cmd += ["-i", str(clip)]
     bgm_idx = len(clips)
     if bgm is not None:
         cmd += ["-i", str(bgm)]
+    # 配音输入排在 clips(+BGM)之后,记录每个 present 配音的 (镜序, 输入索引)
+    voice_inputs: list[tuple[int, int]] = []
+    _next_idx = len(clips) + (1 if bgm is not None else 0)
+    for i, vp in enumerate(voices):
+        if vp is not None:
+            cmd += ["-i", str(vp)]
+            voice_inputs.append((i, _next_idx))
+            _next_idx += 1
 
     subs = options.subtitles
     filters: list[str] = []
@@ -182,9 +212,42 @@ def _build_ffmpeg_command(
     else:
         vout = vlabels[0]
 
+    # ---- 音频:逐镜配音对齐 + 可选 BGM ----
+    aout: str | None = None
+    if has_voice:
+        offsets: list[float] = []
+        acc = 0.0
+        for d in durations:
+            offsets.append(acc)
+            acc += d
+        total = acc or _CLIP_EST_SEC
+        dia_labels: list[str] = []
+        for clip_i, in_idx in voice_inputs:
+            off_ms = int(offsets[clip_i] * 1000) if clip_i < len(offsets) else 0
+            lbl = f"d{clip_i}"
+            # 延迟到该镜起始 + 统一声道布局,便于 amix
+            filters.append(
+                f"[{in_idx}:a]adelay={off_ms}|{off_ms},aformat=channel_layouts=stereo[{lbl}]"
+            )
+            dia_labels.append(f"[{lbl}]")
+        mix_labels = list(dia_labels)
+        if bgm is not None:
+            filters.append(f"[{bgm_idx}:a]volume=0.35,aformat=channel_layouts=stereo[bg]")
+            mix_labels.append("[bg]")
+        if len(mix_labels) == 1:
+            filters.append(f"{mix_labels[0]}apad,atrim=0:{total:.2f}[aout]")
+        else:
+            filters.append(
+                f"{''.join(mix_labels)}amix=inputs={len(mix_labels)}:normalize=0:dropout_transition=0[mix];"
+                f"[mix]apad,atrim=0:{total:.2f}[aout]"
+            )
+        aout = "aout"
+
     cmd += ["-filter_complex", ";".join(filters), "-map", f"[{vout}]"]
 
-    if bgm is not None:
+    if aout is not None:
+        cmd += ["-map", f"[{aout}]"]
+    elif bgm is not None:
         cmd += ["-map", f"{bgm_idx}:a", "-shortest"]
 
     cmd += [
@@ -197,7 +260,7 @@ def _build_ffmpeg_command(
         "-movflags",
         "+faststart",
     ]
-    if bgm is not None:
+    if aout is not None or bgm is not None:
         cmd += ["-c:a", "aac", "-b:a", "192k"]
     cmd.append(str(out))
     return cmd
@@ -229,6 +292,9 @@ async def assemble_manju(
             raise HTTPException(status_code=400, detail="片段来源不在白名单内")
     if body.options.bgm_url and not _is_allowed_clip(body.options.bgm_url):
         raise HTTPException(status_code=400, detail="BGM 来源不在白名单内")
+    for v in body.voice_urls:
+        if v and not _is_allowed_clip(v):
+            raise HTTPException(status_code=400, detail="配音来源不在白名单内")
 
     if shutil.which("ffmpeg") is None:
         raise HTTPException(status_code=500, detail="服务端未安装 ffmpeg")
@@ -240,6 +306,7 @@ async def assemble_manju(
     with tempfile.TemporaryDirectory(prefix="manju-asm-") as tmp:
         tmp_dir = Path(tmp)
         clip_paths: list[Path] = []
+        voice_paths: list[Path | None] = [None] * len(body.clips)
         async with httpx.AsyncClient(
             timeout=_DOWNLOAD_TIMEOUT, follow_redirects=True
         ) as client:
@@ -253,7 +320,17 @@ async def assemble_manju(
                 bgm_path = tmp_dir / "bgm.audio"
                 await _download_clip(client, body.options.bgm_url, bgm_path)
 
-        cmd = _build_ffmpeg_command(clip_paths, body.options, bgm_path, out_path)
+            # 逐镜配音(与 clips 对齐;空串=该镜无配音)
+            for i, vurl in enumerate(body.voice_urls[: len(body.clips)]):
+                if vurl:
+                    vdest = tmp_dir / f"voice-{i:03d}.wav"
+                    await _download_clip(client, vurl, vdest)
+                    voice_paths[i] = vdest
+
+        durations = [await _probe_duration(p) for p in clip_paths]
+        cmd = _build_ffmpeg_command(
+            clip_paths, body.options, bgm_path, voice_paths, durations, out_path
+        )
         await _run_ffmpeg(cmd)
 
     if not out_path.exists() or out_path.stat().st_size == 0:

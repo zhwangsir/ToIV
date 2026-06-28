@@ -30,6 +30,10 @@ export interface ShotCard extends StoryboardShot {
   imageWorker?: string;
   imageFile?: string;
   videoUrl?: string;
+  /** 逐镜配音(TTS 合成台词)的 wav URL;成片时按镜序对齐混入对白轨。 */
+  voiceUrl?: string;
+  /** 配音合成中标记(纯视觉,不影响数据流)。 */
+  voicing?: boolean;
   error?: string;
 }
 

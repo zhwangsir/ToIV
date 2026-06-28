@@ -780,6 +780,7 @@ export interface ManjuShotItem {
   duration_sec: number;
   image_job_id: string;
   video_job_id: string;
+  voice_url: string;
   status: string;
 }
 
@@ -850,6 +851,25 @@ export const saveManjuAssets = (
 ): Promise<{ assets: ManjuAssetItem[] }> =>
   manjuReq(`/manju/projects/${pid}/assets`, "PUT", { assets });
 
+export interface ManjuVoiceResult {
+  url: string;
+  name: string;
+  duration_sec: number;
+}
+
+/**
+ * 漫剧逐镜配音:把中文台词送到自部署 TTS(IndexTTS2)合成语音。
+ * 契约:POST /api/manju/voice { text, emo_text?, emo_alpha?, ref_audio_url? }
+ *   → { url: "/api/manju/voice/voice-xxx.wav", name, duration_sec }
+ * ref_audio_url 传角色定妆音色(本 API 资产/白名单 worker)则克隆该音色,否则用兜底音。
+ */
+export const synthManjuVoice = (body: {
+  text: string;
+  emo_text?: string;
+  emo_alpha?: number;
+  ref_audio_url?: string;
+}): Promise<ManjuVoiceResult> => manjuReq("/manju/voice", "POST", body);
+
 export type ManjuTransition = "none" | "crossfade";
 
 export interface AssembleOptions {
@@ -874,11 +894,12 @@ export interface AssembleResult {
 export async function assembleManju(
   clips: string[],
   options: AssembleOptions,
+  voiceUrls: string[] = [],
 ): Promise<AssembleResult> {
   const res = await fetch(`${API_BASE}/api/manju/assemble`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ clips, options }),
+    body: JSON.stringify({ clips, options, voice_urls: voiceUrls }),
   });
   if (!res.ok) {
     const detail = await res.json().catch(() => null);

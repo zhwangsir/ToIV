@@ -1,5 +1,7 @@
 "use client";
 
+import { imageUrl } from "@/lib/api";
+
 import type { ShotCard as ShotCardModel } from "./types";
 
 interface ShotCardProps {
@@ -10,6 +12,7 @@ interface ShotCardProps {
   onSelect: (id: string) => void;
   onImage: (id: string) => void;
   onVideo: (id: string) => void;
+  onVoice: (id: string) => void;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -26,6 +29,7 @@ export function ShotCard({
   onSelect,
   onImage,
   onVideo,
+  onVoice,
 }: ShotCardProps) {
   const statusLabel = STATUS_LABEL[shot.status];
   const no = String(index + 1).padStart(2, "0");
@@ -73,8 +77,9 @@ export function ShotCard({
 
         {shot.status === "imaging" && <div className="manju-shot-spinner" aria-label="出图中" />}
 
-        {/* 角标:状态 / 视频标记,克制玻璃片 */}
+        {/* 角标:状态 / 视频 / 配音标记,克制玻璃片 */}
         {shot.videoUrl && <span className="manju-shot-badge st-video">▶ 视频</span>}
+        {shot.voiceUrl && <span className="manju-shot-badge st-voice">🔊 配音</span>}
         {statusLabel && shot.status !== "imaging" && (
           <span className={`manju-shot-badge st-${shot.status}`}>{statusLabel}</span>
         )}
@@ -121,7 +126,28 @@ export function ShotCard({
             >
               转视频
             </button>
+            <button
+              type="button"
+              disabled={busy || shot.voicing || !shot.dialogue}
+              onClick={(e) => {
+                e.stopPropagation();
+                onVoice(shot.id);
+              }}
+              title={shot.dialogue ? "用本镜台词合成配音" : "先填台词再配音"}
+            >
+              {shot.voicing ? "配音中…" : shot.voiceUrl ? "重配音" : "配音"}
+            </button>
           </div>
+
+          {shot.voiceUrl && (
+            <audio
+              className="manju-shot-audio"
+              src={imageUrl(shot.voiceUrl)}
+              controls
+              preload="none"
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
         </div>
       </div>
 

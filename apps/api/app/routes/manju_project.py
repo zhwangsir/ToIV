@@ -82,6 +82,7 @@ class ShotPatch(BaseModel):
     duration_sec: int | None = Field(default=None, ge=1, le=30)
     image_job_id: str | None = Field(default=None, max_length=64)
     video_job_id: str | None = Field(default=None, max_length=64)
+    voice_url: str | None = Field(default=None, max_length=300)
     status: str | None = Field(default=None, max_length=20)
 
 
@@ -127,6 +128,7 @@ def _shot_dict(s: ManjuShot) -> dict:
         "duration_sec": s.duration_sec,
         "image_job_id": s.image_job_id,
         "video_job_id": s.video_job_id,
+        "voice_url": s.voice_url,
         "status": s.status,
     }
 
@@ -374,7 +376,7 @@ def update_shot(
 ) -> dict:
     """改单镜(编辑提示词/运镜,或回写关键帧/视频作业 id 与状态,实现可追踪)。"""
     s = _owned_shot(sid, user, session)
-    for field in ("scene", "prompt", "motion", "camera", "dialogue", "duration_sec", "image_job_id", "video_job_id", "status"):
+    for field in ("scene", "prompt", "motion", "camera", "dialogue", "duration_sec", "image_job_id", "video_job_id", "voice_url", "status"):
         val = getattr(body, field)
         if val is not None:
             setattr(s, field, val)

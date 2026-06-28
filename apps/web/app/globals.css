@@ -3233,6 +3233,21 @@ input[type="range"]::-webkit-slider-thumb:hover {
   background: color-mix(in oklab, var(--accent) 78%, transparent);
   border-color: var(--accent-line);
 }
+.manju-shot-badge.st-voice {
+  color: oklch(96% 0.02 195);
+  background: color-mix(in oklab, oklch(60% 0.11 195) 82%, transparent);
+  border-color: color-mix(in oklab, oklch(70% 0.12 195) 55%, transparent);
+}
+/* 逐镜配音试听器:卡片细带内紧凑,详情面板内常规宽 */
+.manju-shot-audio {
+  width: 100%;
+  height: 30px;
+  margin-top: 8px;
+}
+.manju-inspector-audio {
+  width: 100%;
+  margin-top: 8px;
+}
 
 /* 镜底细带:常驻仅镜号行 + 渐隐底纹;悬停 / 选中升起完整信息 + 操作 */
 .manju-shot-band {

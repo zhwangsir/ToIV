@@ -1,5 +1,6 @@
 "use client";
 
+import { imageUrl } from "@/lib/api";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
 
 import type { ShotCard } from "./types";
@@ -11,6 +12,7 @@ interface ShotInspectorProps {
   onChange: (id: string, patch: Partial<ShotCard>) => void;
   onImage: (id: string) => void;
   onVideo: (id: string) => void;
+  onVoice: (id: string) => void;
 }
 
 /** 右侧选中镜头属性面板:可编辑出图提示词 / 台词,AI 润色,并触发出图 / 转视频。 */
@@ -21,6 +23,7 @@ export function ShotInspector({
   onChange,
   onImage,
   onVideo,
+  onVoice,
 }: ShotInspectorProps) {
   if (!shot) {
     return (
@@ -95,6 +98,14 @@ export function ShotInspector({
           value={shot.dialogue}
           onChange={(e) => onChange(shot.id, { dialogue: e.target.value })}
         />
+        {shot.voiceUrl && (
+          <audio
+            className="manju-inspector-audio"
+            src={imageUrl(shot.voiceUrl)}
+            controls
+            preload="none"
+          />
+        )}
       </div>
 
       <div className="field">
@@ -131,6 +142,15 @@ export function ShotInspector({
           onClick={() => onVideo(shot.id)}
         >
           转视频
+        </button>
+        <button
+          type="button"
+          className="manju-secondary-btn"
+          disabled={busy || shot.voicing || !shot.dialogue.trim()}
+          onClick={() => onVoice(shot.id)}
+          title={shot.dialogue.trim() ? "用本镜台词合成配音" : "先填台词再配音"}
+        >
+          {shot.voicing ? "配音中…" : shot.voiceUrl ? "重配音" : "配音"}
         </button>
       </div>
     </aside>

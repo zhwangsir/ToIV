@@ -21,6 +21,8 @@ engine = create_engine(_settings.database_url, connect_args=_connect_args)
 _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ('"user"', "nsfw_enabled", "nsfw_enabled BOOLEAN NOT NULL DEFAULT 0"),
     ("job", "nsfw", "nsfw BOOLEAN NOT NULL DEFAULT 0"),
+    # 漫剧逐镜配音 wav URL(音频层),已存在的 manjushot 表需补列
+    ("manjushot", "voice_url", "voice_url VARCHAR NOT NULL DEFAULT ''"),
 )
 
 

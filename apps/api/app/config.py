@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     # 逗号分隔的 ComfyUI worker 列表（P0 单实例，P2 起对应多 GPU 多进程）
     comfy_workers: str = "http://192.168.71.100:8000"
     default_ckpt: str = "DreamShaper_8_pruned.safetensors"
+    # 配音 TTS 独立服务（IndexTTS2，自部署 @ GPU 机，隔离 venv）
+    tts_url: str = "http://192.168.71.100:9000"
     # CORS 允许的前端来源（逗号分隔）
     cors_origins: str = (
         "http://localhost:3100,http://127.0.0.1:3100,"

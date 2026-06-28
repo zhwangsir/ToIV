@@ -12,6 +12,7 @@ import {
   listModels,
   renderManjuShot,
   saveManjuShots,
+  synthManjuVoice,
   uploadImage,
 } from "@/lib/api";
 import type { ManjuTransition } from "@/lib/api";
@@ -409,6 +410,40 @@ export function ManjuStudio() {
     [shots, busy, videoOne],
   );
 
+  // 单镜配音:把该镜中文台词送到 TTS(IndexTTS2)合成语音,回填 voiceUrl(成片混入对白轨)
+  const voiceOne = useCallback(
+    async (shot: ShotCardModel) => {
+      const text = (shot.dialogue || "").trim();
+      if (!text) {
+        patchShot(shot.id, { error: "该镜没有台词,先在分镜里填写台词" });
+        return;
+      }
+      patchShot(shot.id, { voicing: true, error: undefined });
+      try {
+        const r = await synthManjuVoice({ text });
+        patchShot(shot.id, { voicing: false, voiceUrl: r.url });
+      } catch (e) {
+        patchShot(shot.id, { voicing: false, error: (e as Error).message });
+      }
+    },
+    [patchShot],
+  );
+
+  const runVoiceOne = useCallback(
+    async (id: string) => {
+      const shot = shots.find((s) => s.id === id);
+      if (!shot || busy) return;
+      setBusy(true);
+      setError(null);
+      try {
+        await voiceOne(shot);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [shots, busy, voiceOne],
+  );
+
   // 自动剪辑:把已转视频的镜头按序拼成成片(可选转场 / 字幕 / BGM)
   const assemble = useCallback(async () => {
     if (assembling) return;
@@ -423,12 +458,18 @@ export function ManjuStudio() {
     try {
       const clips = clipShots.map((s) => s.videoUrl as string);
       const subtitles = withSubs ? clipShots.map((s) => (s.dialogue || "").trim()) : [];
-      const r = await assembleManju(clips, {
-        transition,
-        bgm_url: bgmUrl.trim() || null,
-        subtitles,
-        fps: 16,
-      });
+      // 配音同样过 imageUrl 带 token,后端 _download_clip 才能鉴权取到
+      const voiceUrls = clipShots.map((s) => (s.voiceUrl ? imageUrl(s.voiceUrl) : ""));
+      const r = await assembleManju(
+        clips,
+        {
+          transition,
+          bgm_url: bgmUrl.trim() || null,
+          subtitles,
+          fps: 16,
+        },
+        voiceUrls,
+      );
       setAssembledUrl(r.url);
     } catch (e) {
       setAssembleErr((e as Error).message);
@@ -810,6 +851,7 @@ export function ManjuStudio() {
                     onSelect={setSelectedId}
                     onImage={runImageOne}
                     onVideo={runVideoOne}
+                    onVoice={runVoiceOne}
                   />
                 ))}
               </div>
@@ -955,6 +997,7 @@ export function ManjuStudio() {
             onChange={patchShot}
             onImage={runImageOne}
             onVideo={runVideoOne}
+            onVoice={runVoiceOne}
           />
         )}
       </div>

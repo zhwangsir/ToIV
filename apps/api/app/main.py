@@ -28,6 +28,7 @@ from app.routes import (
     threed,
     upload,
     video,
+    voice,
 )
 
 
@@ -76,6 +77,7 @@ def create_app() -> FastAPI:
         manju,
         manju_project,
         assembly,
+        voice,
         system,
         upload,
         jobs,
