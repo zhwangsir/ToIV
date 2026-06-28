@@ -81,6 +81,7 @@ class ManjuAsset(SQLModel, table=True):
     name: str = ""
     description: str = ""  # danbooru 标签风格的固定特征(发色/瞳色/服装等),保跨镜一致
     ref_image: str = ""  # 定妆图/三视图参考图 URL(角色一致性 IPAdapter 用)
+    ref_audio: str = ""  # 定妆音色 URL(配音音色克隆参考,见 routes/voice.py)
     created_at: datetime = Field(default_factory=_now)
 
 

@@ -10,7 +10,9 @@
 """
 from __future__ import annotations
 
+import asyncio
 import re
+import shutil
 import tempfile
 import uuid
 import wave
@@ -18,7 +20,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -35,9 +37,11 @@ _VOICE_DIR = (
     if Path("/data").is_dir()
     else Path(tempfile.gettempdir()) / "toiv-manju"
 )
-_VOICE_NAME_RE = re.compile(r"^voice-[0-9a-f]{32}\.wav$")
+_VOICE_NAME_RE = re.compile(r"^voice(?:ref)?-[0-9a-f]{32}\.wav$")  # 合成配音 + 角色定妆音色
 _TTS_TIMEOUT = 180.0  # 首次调用 TTS 服务要懒加载模型(~20s),给足余量
 _LOCAL_API_BASE = "http://127.0.0.1:8080"
+_MAX_REF_BYTES = 25 * 1024 * 1024  # 角色音色参考音上限 25MB
+_REF_MAX_SEC = 30  # 参考音裁到 30s 足够克隆,防超长
 
 
 class VoiceRequest(BaseModel):
@@ -129,6 +133,48 @@ async def synth_voice(
     path.write_bytes(resp.content)
 
     return VoiceResponse(url=f"/api/manju/voice/{name}", name=name, duration_sec=_wav_duration(path))
+
+
+async def _convert_to_wav(src: Path, dst: Path) -> None:
+    """ffmpeg 把上传音频归一为干净 wav(单声道 24k,裁 30s),供音色克隆。"""
+    if shutil.which("ffmpeg") is None:
+        raise HTTPException(status_code=500, detail="服务端未安装 ffmpeg")
+    proc = await asyncio.create_subprocess_exec(
+        "ffmpeg", "-y", "-i", str(src), "-ac", "1", "-ar", "24000",
+        "-t", str(_REF_MAX_SEC), str(dst),
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+    )
+    _, stderr = await proc.communicate()
+    if proc.returncode != 0 or not dst.exists() or dst.stat().st_size == 0:
+        tail = (stderr or b"").decode("utf-8", "replace")[-300:]
+        raise HTTPException(status_code=400, detail=f"音频转码失败(非有效音频?):{tail}")
+
+
+@router.post("/manju/voice-ref", response_model=VoiceResponse)
+async def upload_voice_ref(
+    audio: UploadFile,
+    user: User = Depends(get_current_user),
+) -> VoiceResponse:
+    """上传角色定妆音色参考音 → 归一为 wav 存档,返回 URL(逐镜配音时作克隆参考)。"""
+    content = await audio.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="空文件")
+    if len(content) > _MAX_REF_BYTES:
+        raise HTTPException(status_code=413, detail="音频过大(上限 25MB)")
+    _VOICE_DIR.mkdir(parents=True, exist_ok=True)
+    name = f"voiceref-{uuid.uuid4().hex}.wav"
+    out = _VOICE_DIR / name
+    tf = tempfile.NamedTemporaryFile(suffix="_ref", delete=False)
+    try:
+        tf.write(content)
+        tf.close()
+        await _convert_to_wav(Path(tf.name), out)
+    finally:
+        try:
+            Path(tf.name).unlink()
+        except OSError:
+            pass
+    return VoiceResponse(url=f"/api/manju/voice/{name}", name=name, duration_sec=_wav_duration(out))
 
 
 @router.get("/manju/voice/{name}")

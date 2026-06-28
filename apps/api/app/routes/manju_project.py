@@ -46,12 +46,14 @@ class AssetIn(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     description: str = Field(default="", max_length=2000)
     ref_image: str = Field(default="", max_length=1000)
+    ref_audio: str = Field(default="", max_length=1000)
 
 
 class AssetPatch(BaseModel):
     name: str | None = Field(default=None, max_length=120)
     description: str | None = Field(default=None, max_length=2000)
     ref_image: str | None = Field(default=None, max_length=1000)
+    ref_audio: str | None = Field(default=None, max_length=1000)
 
 
 class ShotIn(BaseModel):
@@ -108,6 +110,7 @@ def _asset_dict(a: ManjuAsset) -> dict:
         "name": a.name,
         "description": a.description,
         "ref_image": a.ref_image,
+        "ref_audio": a.ref_audio,
     }
 
 
@@ -265,6 +268,7 @@ def add_asset(
         name=body.name,
         description=body.description,
         ref_image=body.ref_image,
+        ref_audio=body.ref_audio,
     )
     session.add(a)
     session.commit()
@@ -295,6 +299,7 @@ def save_assets(
                 name=a.name,
                 description=a.description,
                 ref_image=a.ref_image,
+                ref_audio=a.ref_audio,
             )
         )
     session.commit()
@@ -310,7 +315,7 @@ def update_asset(
     session: Session = Depends(get_session),
 ) -> dict:
     a = _owned_asset(aid, user, session)
-    for field in ("name", "description", "ref_image"):
+    for field in ("name", "description", "ref_image", "ref_audio"):
         val = getattr(body, field)
         if val is not None:
             setattr(a, field, val)

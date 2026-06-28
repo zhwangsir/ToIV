@@ -14,6 +14,7 @@ import {
   saveManjuShots,
   synthManjuVoice,
   uploadImage,
+  uploadVoiceRef,
 } from "@/lib/api";
 import type { ManjuTransition } from "@/lib/api";
 import { ModelPicker } from "@/components/ui/ModelPicker";
@@ -410,7 +411,7 @@ export function ManjuStudio() {
     [shots, busy, videoOne],
   );
 
-  // 单镜配音:把该镜中文台词送到 TTS(IndexTTS2)合成语音,回填 voiceUrl(成片混入对白轨)
+  // 单镜配音:台词→TTS 合成,用「说话角色」定妆音色克隆;回填 voiceUrl(成片混入对白轨)
   const voiceOne = useCallback(
     async (shot: ShotCardModel) => {
       const text = (shot.dialogue || "").trim();
@@ -420,13 +421,22 @@ export function ManjuStudio() {
       }
       patchShot(shot.id, { voicing: true, error: undefined });
       try {
-        const r = await synthManjuVoice({ text });
+        // 说话角色 → 其定妆音色克隆;缺省取出场角色第一个
+        const speaker = (shot.speaker || shot.characters[0] || "").trim();
+        const speakerChar = speaker
+          ? chars.find((c) => c.name.trim() === speaker && c.refAudio)
+          : undefined;
+        const refAudioUrl = speakerChar?.refAudio ? imageUrl(speakerChar.refAudio) : undefined;
+        const r = await synthManjuVoice({
+          text,
+          ...(refAudioUrl ? { ref_audio_url: refAudioUrl } : {}),
+        });
         patchShot(shot.id, { voicing: false, voiceUrl: r.url });
       } catch (e) {
         patchShot(shot.id, { voicing: false, error: (e as Error).message });
       }
     },
-    [patchShot],
+    [patchShot, chars],
   );
 
   const runVoiceOne = useCallback(
@@ -552,6 +562,43 @@ export function ManjuStudio() {
       }
     },
     [refBusy, patchCharAt],
+  );
+
+  // 上传角色定妆音色参考音:后端 ffmpeg 归一为 wav,存 refAudio(该角色台词的克隆嗓音)。
+  const uploadCharVoice = useCallback(
+    async (i: number, file: File) => {
+      const c = chars[i];
+      if (!c || c.voiceUploading) return;
+      patchCharAt(i, { voiceUploading: true, refError: undefined });
+      try {
+        const r = await uploadVoiceRef(file);
+        patchCharAt(i, { refAudio: r.url, voiceUploading: false });
+      } catch (e) {
+        patchCharAt(i, { voiceUploading: false, refError: (e as Error).message });
+      }
+    },
+    [chars, patchCharAt],
+  );
+
+  // 试听角色音色:用其参考音克隆合成一句样本并即时播放。
+  const auditionCharVoice = useCallback(
+    async (i: number) => {
+      const c = chars[i];
+      if (!c?.refAudio || busy) return;
+      setBusy(true);
+      setError(null);
+      try {
+        const name = c.name.trim();
+        const sample = name ? `大家好，我是${name}。` : "你好，这是音色试听。";
+        const r = await synthManjuVoice({ text: sample, ref_audio_url: imageUrl(c.refAudio) });
+        await new Audio(imageUrl(r.url)).play().catch(() => {});
+      } catch (e) {
+        setError((e as Error).message);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [chars, busy],
   );
 
   const selected = shots.find((s) => s.id === selectedId) ?? null;
@@ -779,6 +826,34 @@ export function ManjuStudio() {
                         {c.refStatus === "error" && c.refError && (
                           <span className="manju-char-ref-err">⚠ {c.refError}</span>
                         )}
+                      </div>
+                      {/* 音色:该角色台词的克隆嗓音 */}
+                      <div className="manju-char-voice-tools">
+                        <label className="manju-char-voice-upload">
+                          {c.voiceUploading ? "音色上传中…" : c.refAudio ? "↻ 换音色" : "🎙 上传音色"}
+                          <input
+                            type="file"
+                            accept="audio/*"
+                            disabled={c.voiceUploading}
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) void uploadCharVoice(i, f);
+                              e.target.value = "";
+                            }}
+                          />
+                        </label>
+                        {c.refAudio && (
+                          <button
+                            type="button"
+                            className="manju-char-voice-btn"
+                            disabled={busy}
+                            onClick={() => void auditionCharVoice(i)}
+                            title="用该音色试听一句"
+                          >
+                            ▶ 试听
+                          </button>
+                        )}
+                        {c.refAudio && <span className="manju-char-voice-ok">🔊 音色已就绪</span>}
                       </div>
                     </div>
                   );

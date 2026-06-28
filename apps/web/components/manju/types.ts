@@ -18,6 +18,10 @@ export interface CharRow {
   refStatus?: "idle" | "imaging" | "error";
   /** 参考图生成失败信息。 */
   refError?: string;
+  /** 定妆音色参考音 URL(配音音色克隆;该角色台词用此嗓音)。 */
+  refAudio?: string;
+  /** 音色上传中标记(纯视觉)。 */
+  voiceUploading?: boolean;
 }
 
 /** 分镜卡片在前端的完整态:LLM 分镜 + 本地产物/状态。 */
@@ -34,6 +38,8 @@ export interface ShotCard extends StoryboardShot {
   voiceUrl?: string;
   /** 配音合成中标记(纯视觉,不影响数据流)。 */
   voicing?: boolean;
+  /** 说话角色名(配音用其音色克隆);缺省取出场角色第一个。 */
+  speaker?: string;
   error?: string;
 }
 

@@ -78,6 +78,7 @@ const toAssetInput = (c: CharRow): ManjuAssetInput => ({
   description: c.desc,
   ref_image:
     c.refImage && c.refWorker ? `${c.refWorker}${REF_SEP}${c.refImage}` : c.refImage ?? "",
+  ref_audio: c.refAudio ?? "",
 });
 
 const toCharRow = (a: ManjuAssetItem): CharRow => {
@@ -90,6 +91,7 @@ const toCharRow = (a: ManjuAssetItem): CharRow => {
     desc: a.description,
     ...(refImage ? { refImage } : {}),
     ...(refWorker ? { refWorker } : {}),
+    ...(a.ref_audio ? { refAudio: a.ref_audio } : {}),
   };
 };
 

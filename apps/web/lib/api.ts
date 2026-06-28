@@ -766,6 +766,7 @@ export interface ManjuAssetItem {
   name: string;
   description: string;
   ref_image: string;
+  ref_audio: string;
 }
 
 export interface ManjuShotItem {
@@ -843,6 +844,7 @@ export interface ManjuAssetInput {
   name: string;
   description?: string;
   ref_image?: string;
+  ref_audio?: string;
 }
 
 export const saveManjuAssets = (
@@ -869,6 +871,26 @@ export const synthManjuVoice = (body: {
   emo_alpha?: number;
   ref_audio_url?: string;
 }): Promise<ManjuVoiceResult> => manjuReq("/manju/voice", "POST", body);
+
+/**
+ * 上传角色定妆音色参考音(任意音频 → 后端 ffmpeg 归一为 wav 存档)。
+ * 契约:POST /api/manju/voice-ref multipart(audio)→ { url, name, duration_sec }
+ * 返回的 url 存为角色 refAudio,逐镜配音时作 ref_audio_url 克隆该音色。
+ */
+export async function uploadVoiceRef(file: File): Promise<ManjuVoiceResult> {
+  const fd = new FormData();
+  fd.append("audio", file);
+  const res = await fetch(`${API_BASE}/api/manju/voice-ref`, {
+    method: "POST",
+    headers: authHeaders(), // 不要手动设 Content-Type，让浏览器带 boundary
+    body: fd,
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `音色上传失败 (${res.status})`);
+  }
+  return res.json();
+}
 
 export type ManjuTransition = "none" | "crossfade";
 

@@ -108,6 +108,24 @@ export function ShotInspector({
         )}
       </div>
 
+      {shot.characters.length > 1 && (
+        <div className="field">
+          <label htmlFor="manju-speaker">说话角色(配音用其音色)</label>
+          <select
+            id="manju-speaker"
+            className="manju-speaker-select"
+            value={shot.speaker || shot.characters[0] || ""}
+            onChange={(e) => onChange(shot.id, { speaker: e.target.value })}
+          >
+            {shot.characters.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div className="field">
         <label>运镜</label>
         <p className="manju-inspector-cam">{shot.camera || "—"}</p>

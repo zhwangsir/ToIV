@@ -23,6 +23,8 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("job", "nsfw", "nsfw BOOLEAN NOT NULL DEFAULT 0"),
     # 漫剧逐镜配音 wav URL(音频层),已存在的 manjushot 表需补列
     ("manjushot", "voice_url", "voice_url VARCHAR NOT NULL DEFAULT ''"),
+    # 角色定妆音色 URL(音色克隆参考),manjuasset 补列
+    ("manjuasset", "ref_audio", "ref_audio VARCHAR NOT NULL DEFAULT ''"),
 )
 
 

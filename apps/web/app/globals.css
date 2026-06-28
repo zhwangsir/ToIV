@@ -3037,6 +3037,53 @@ input[type="range"]::-webkit-slider-thumb:hover {
   font-size: 0.72rem;
   color: var(--danger);
 }
+/* 角色音色工具:teal 色系,区别于参考图的 accent 紫 */
+.manju-char-voice-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+  flex-wrap: wrap;
+}
+.manju-char-voice-upload,
+.manju-char-voice-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.3rem 0.68rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, oklch(70% 0.12 195) 45%, transparent);
+  background: color-mix(in oklab, oklch(62% 0.11 195) 15%, transparent);
+  color: oklch(56% 0.11 195);
+  cursor: pointer;
+  transition: background var(--dur) var(--ease);
+}
+.manju-char-voice-upload:hover,
+.manju-char-voice-btn:hover:not(:disabled) {
+  background: color-mix(in oklab, oklch(62% 0.11 195) 28%, transparent);
+}
+.manju-char-voice-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.manju-char-voice-upload input {
+  display: none;
+}
+.manju-char-voice-ok {
+  font-size: 0.72rem;
+  color: oklch(56% 0.11 195);
+}
+.manju-speaker-select {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border);
+  background: var(--bg-sunken);
+  color: var(--ink);
+  font-size: 0.82rem;
+}
 .manju-char-ref-spin {
   width: 13px;
   height: 13px;
