@@ -64,6 +64,8 @@ class ShotIn(BaseModel):
     camera: str = Field(default="", max_length=120)
     dialogue: str = Field(default="", max_length=1000)
     duration_sec: int = Field(default=3, ge=1, le=30)
+    voice_url: str = Field(default="", max_length=300)  # 持久化逐镜配音
+    speaker: str = Field(default="", max_length=120)  # 持久化说话角色
 
 
 class AssetsBulkIn(BaseModel):
@@ -85,6 +87,7 @@ class ShotPatch(BaseModel):
     image_job_id: str | None = Field(default=None, max_length=64)
     video_job_id: str | None = Field(default=None, max_length=64)
     voice_url: str | None = Field(default=None, max_length=300)
+    speaker: str | None = Field(default=None, max_length=120)
     status: str | None = Field(default=None, max_length=20)
 
 
@@ -132,6 +135,7 @@ def _shot_dict(s: ManjuShot) -> dict:
         "image_job_id": s.image_job_id,
         "video_job_id": s.video_job_id,
         "voice_url": s.voice_url,
+        "speaker": s.speaker,
         "status": s.status,
     }
 
@@ -363,6 +367,8 @@ def save_shots(
                 camera=sh.camera,
                 dialogue=sh.dialogue,
                 duration_sec=sh.duration_sec,
+                voice_url=sh.voice_url,
+                speaker=sh.speaker,
             )
         )
     session.commit()
@@ -381,7 +387,7 @@ def update_shot(
 ) -> dict:
     """改单镜(编辑提示词/运镜,或回写关键帧/视频作业 id 与状态,实现可追踪)。"""
     s = _owned_shot(sid, user, session)
-    for field in ("scene", "prompt", "motion", "camera", "dialogue", "duration_sec", "image_job_id", "video_job_id", "voice_url", "status"):
+    for field in ("scene", "prompt", "motion", "camera", "dialogue", "duration_sec", "image_job_id", "video_job_id", "voice_url", "speaker", "status"):
         val = getattr(body, field)
         if val is not None:
             setattr(s, field, val)

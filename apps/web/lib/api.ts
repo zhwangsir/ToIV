@@ -782,6 +782,7 @@ export interface ManjuShotItem {
   image_job_id: string;
   video_job_id: string;
   voice_url: string;
+  speaker: string;
   status: string;
 }
 
@@ -805,6 +806,8 @@ export interface ManjuShotInput {
   camera?: string;
   dialogue?: string;
   duration_sec?: number;
+  voice_url?: string;
+  speaker?: string;
 }
 
 /** 漫剧工作台统一 JSON 请求(带 auth + 错误归一)。 */

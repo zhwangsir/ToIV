@@ -102,5 +102,6 @@ class ManjuShot(SQLModel, table=True):
     image_job_id: str = ""  # 关键帧作业 id(可追踪)
     video_job_id: str = ""  # 视频作业 id
     voice_url: str = ""  # 配音 wav 的 URL(TTS 合成台词,见 routes/voice.py)
+    speaker: str = ""  # 说话角色名(配音用其音色克隆;空=出场角色首位/兜底音)
     status: str = "draft"  # draft | image_done | video_done
     created_at: datetime = Field(default_factory=_now)

@@ -454,6 +454,27 @@ export function ManjuStudio() {
     [shots, busy, voiceOne],
   );
 
+  // 批量配音:给所有有台词、尚未配音的镜串行合成(单 TTS 实例,排队即可),带进度
+  const voiceAll = useCallback(async () => {
+    if (busy) return;
+    const targets = shots.filter((s) => (s.dialogue || "").trim() && !s.voiceUrl);
+    if (targets.length === 0) {
+      setError("没有待配音的镜(都已配音或无台词)");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      for (let i = 0; i < targets.length; i++) {
+        setStage(`批量配音 ${i + 1}/${targets.length}…`);
+        await voiceOne(targets[i]);
+      }
+    } finally {
+      setBusy(false);
+      setStage("");
+    }
+  }, [busy, shots, voiceOne]);
+
   // 自动剪辑:把已转视频的镜头按序拼成成片(可选转场 / 字幕 / BGM)
   const assemble = useCallback(async () => {
     if (assembling) return;
@@ -600,6 +621,15 @@ export function ManjuStudio() {
     },
     [chars, busy],
   );
+
+  // 防抖自动保存:分镜变更(配音 / 说话角色 / 台词等)1.5s 后落库,刷新不丢配音。
+  useEffect(() => {
+    if (!projectId || shots.length === 0) return;
+    const t = setTimeout(() => {
+      void saveManjuShots(projectId, shots.map(shotCardToInput)).catch(() => {});
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [shots, projectId]);
 
   const selected = shots.find((s) => s.id === selectedId) ?? null;
   const selectedIndex = selected ? shots.findIndex((s) => s.id === selected.id) : -1;
@@ -903,6 +933,15 @@ export function ManjuStudio() {
                     onClick={() => imageAll()}
                   >
                     {busy ? "出图中…" : "全部出图"}
+                  </button>
+                  <button
+                    type="button"
+                    className="manju-secondary-btn"
+                    disabled={busy}
+                    onClick={() => voiceAll()}
+                    title="给所有有台词、尚未配音的镜批量合成配音"
+                  >
+                    🎙 全部配音
                   </button>
                   <button
                     type="button"

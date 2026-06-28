@@ -54,6 +54,8 @@ export const shotCardToInput = (s: ShotCard): ManjuShotInput => ({
   camera: s.camera,
   dialogue: s.dialogue,
   duration_sec: s.duration_sec,
+  voice_url: s.voiceUrl ?? "",
+  speaker: s.speaker ?? "",
 });
 
 const toShotCard = (s: ManjuShotItem): ShotCard => ({
@@ -65,6 +67,8 @@ const toShotCard = (s: ManjuShotItem): ShotCard => ({
   dialogue: s.dialogue,
   duration_sec: s.duration_sec,
   status: "idle",
+  ...(s.voice_url ? { voiceUrl: s.voice_url } : {}),
+  ...(s.speaker ? { speaker: s.speaker } : {}),
 });
 
 // 角色登记 ↔ 项目资产(kind=character):名字必填者方持久化。
