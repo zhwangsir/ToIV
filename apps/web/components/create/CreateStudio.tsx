@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useActivity, type ActivityKind } from "@/components/nav/ActivityContext";
 import { useNsfw } from "@/components/nav/NsfwContext";
-import { listLocalModels, listModels, uploadImage } from "@/lib/api";
+import { getForgeModels, getForgeStatus, listLocalModels, listModels, uploadImage } from "@/lib/api";
 import type { ModelsResponse } from "@/lib/types";
 
 import { AssistChat } from "./AssistChat";
@@ -47,6 +47,9 @@ export function CreateStudio() {
   const [models, setModels] = useState<ModelsResponse | null>(null);
   const [loraOptions, setLoraOptions] = useState<string[]>([]);
   const [ckpt, setCkpt] = useState("");
+  // 出图引擎(图像台 ComfyUI ⇄ Forge)+ Forge 在线 / 可用 SD 底模(在线才显示切换)
+  const [engine, setEngine] = useState<"comfyui" | "forge">("comfyui");
+  const [forge, setForge] = useState<{ online: boolean; models: string[] }>({ online: false, models: [] });
   // NSFW 档(简易/专业共享):开启 → 图像底模筛选到 nsfw 模型(契约缺失优雅降级为全部)。
   const [nsfw, setNsfw] = useState(false);
   // 全局 R18 软开关:关闭时隐藏「NSFW 档」入口(无成人模型可筛);切换时重拉模型列表。
@@ -119,6 +122,26 @@ export function CreateStudio() {
     // nsfwRevision 变化(R18 开关切换)时重拉:后端据 nsfw_enabled 服务端过滤模型列表。
   }, [nsfwRevision]);
 
+  // Forge 引擎探活 + 拉可用 SD 底模(在线才显示「引擎切换」)
+  useEffect(() => {
+    getForgeStatus()
+      .then((s) => {
+        if (!s.online) {
+          setForge({ online: false, models: [] });
+          return;
+        }
+        getForgeModels()
+          .then((m) => setForge({ online: true, models: m }))
+          .catch(() => setForge({ online: false, models: [] }));
+      })
+      .catch(() => setForge({ online: false, models: [] }));
+  }, []);
+
+  // 引擎仅图像台可用:切到 视频 / 3D / 音频 时回落 ComfyUI
+  useEffect(() => {
+    if (mode !== "image" && engine === "forge") setEngine("comfyui");
+  }, [mode, engine]);
+
   // 全局 R18 关闭时,强制把会话内「NSFW 档」筛选也归零(入口已隐藏,避免残留筛选态)。
   useEffect(() => {
     if (!nsfwEnabled && nsfw) setNsfw(false);
@@ -127,13 +150,18 @@ export function CreateStudio() {
   // NSFW 档切换 / 模型加载后:若共享 ckpt 落在筛选列表外,中央纠正到首项,
   // 让简易与专业两侧的图像底模选择保持一致(单一真相)。
   useEffect(() => {
+    // Forge 引擎:把 ckpt 纠正到其 SD 底模列表内(与 ComfyUI 列表互斥)
+    if (engine === "forge") {
+      if (forge.models.length > 0 && !forge.models.includes(ckpt)) setCkpt(forge.models[0]);
+      return;
+    }
     if (!models) return;
     const baseList = models.modes?.image?.models ?? models.checkpoints ?? [];
     const list = filterModelsByNsfw(baseList, models, "image", nsfw);
     if (list.length > 0 && !list.includes(ckpt)) {
       setCkpt(list[0]);
     }
-  }, [models, nsfw, ckpt]);
+  }, [models, nsfw, ckpt, engine, forge.models]);
 
   // 释放参考图预览 URL(仅本地 blob)
   useEffect(() => {
@@ -222,6 +250,10 @@ export function CreateStudio() {
             setCkpt={setCkpt}
             busy={feed.busy}
             run={runTracked}
+            engine={engine}
+            setEngine={setEngine}
+            forgeModels={forge.models}
+            forgeOnline={forge.online}
           />
         )}
 

@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 import json
 
 import websockets
@@ -14,15 +15,12 @@ from sse_starlette.sse import EventSourceResponse
 
 from app.comfy.client import ComfyUIClient, ComfyUIError
 from app.comfy.tracker import mark_status, record_result
-from app.db import get_session
+from app.config import get_settings
+from app.db import engine, get_session
 from app.deps import get_current_user, resolve_worker
 from app.models import Job, User
 
 router = APIRouter()
-
-
-def _worker_dep(worker: str) -> ComfyUIClient:
-    return resolve_worker(worker)
 
 
 @router.get("/jobs")
@@ -75,12 +73,54 @@ async def _emit_done(client: ComfyUIClient, prompt_id: str) -> dict:
     return {"event": "done", "data": json.dumps({"images": urls})}
 
 
+async def _forge_stream(prompt_id: str, request: Request):
+    """Forge 引擎作业的 SSE:轮询 sdapi 全局进度 + 监听进程内作业态(完成/出错)。
+
+    Forge 同步出图无 WS / per-job 进度;ToIV 单实例串行,/sdapi/v1/progress 即当前任务。
+    进程态(forge.engine._jobs)由后台出图 task 写;api 重启丢失则回落 DB Job。
+    """
+    from app.forge.client import ForgeClient, ForgeError
+    from app.forge.engine import job_state
+
+    fc = ForgeClient(get_settings().forge_base, timeout=12.0)
+    while True:
+        if await request.is_disconnected():
+            return
+        st = job_state(prompt_id)
+        if st and st["status"] == "done":
+            yield {"event": "done", "data": json.dumps({"images": st["images"]})}
+            return
+        if st and st["status"] == "error":
+            yield {"event": "error", "data": json.dumps({"message": st.get("error") or "Forge 出图失败"})}
+            return
+        if st is None:
+            # 进程态丢失(api 重启)→ 回落 DB
+            with Session(engine) as s:
+                db = s.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
+                if db and db.status == "done":
+                    yield {"event": "done", "data": json.dumps({"images": json.loads(db.result or "[]")})}
+                    return
+                if db and db.status == "error":
+                    yield {"event": "error", "data": json.dumps({"message": "Forge 出图失败"})}
+                    return
+        try:
+            pr = await fc.progress()
+            stt = pr.get("state") or {}
+            step = int(stt.get("sampling_step") or 0)
+            total = int(stt.get("sampling_steps") or 0)
+            if total > 0:
+                yield {"event": "progress", "data": json.dumps({"value": step, "max": total})}
+        except ForgeError:
+            pass
+        await asyncio.sleep(0.6)
+
+
 @router.get("/jobs/{prompt_id}/events")
 async def job_events(
     prompt_id: str,
     client_id: str,
+    worker: str,
     request: Request,
-    client: ComfyUIClient = Depends(_worker_dep),
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
@@ -88,6 +128,13 @@ async def job_events(
     job = session.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
     if job and job.tenant_id != user.tenant_id:
         raise HTTPException(status_code=403, detail="无权访问该作业")
+
+    # Forge 引擎作业:无 ComfyUI WS,改轮询 sdapi 进度 + 进程内作业态。
+    settings = get_settings()
+    if settings.forge_base and worker.rstrip("/") == settings.forge_base:
+        return EventSourceResponse(_forge_stream(prompt_id, request))
+
+    client = resolve_worker(worker)
 
     async def stream():
         # 防竞态：若任务在 WS 连接前已完成，直接回推结果

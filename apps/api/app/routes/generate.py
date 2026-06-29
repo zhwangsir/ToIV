@@ -35,6 +35,8 @@ from app.workflows.removebg import REMBG_MODES, RemoveBgParams, build_removebg_g
 from app.workflows.upscale import UPSCALE_MODELS, UpscaleParams, build_upscale_graph
 from app.workflows.txt2img import Txt2ImgParams, build_txt2img_graph
 from app.workflows.wan_t2v import WanT2VParams, build_wan_t2v_graph
+from app.forge.client import ForgeClient
+from app.forge.engine import spawn as forge_spawn, txt2img_payload as forge_txt2img_payload
 
 
 class LoraInput(BaseModel):
@@ -76,6 +78,8 @@ class Txt2ImgRequest(BaseModel):
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
     batch_size: int = Field(default=1, ge=1, le=8)
     loras: list[LoraInput] = Field(default_factory=list, max_length=_MAX_LORAS)
+    # 出图引擎:comfyui(默认,异步工作流)| forge(reForge sdapi 同步出图)
+    engine: str = Field(default="comfyui")
 
 
 router = APIRouter()
@@ -84,6 +88,34 @@ router = APIRouter()
 def _snap8(v: int) -> int:
     """SD 潜空间要求宽高是 8 的倍数。"""
     return max(8, v - v % 8)
+
+
+async def _submit_forge_txt2img(
+    req: Txt2ImgRequest, ckpt_name: str, job_nsfw: bool, user: User, session: Session
+) -> dict:
+    """Forge 引擎 txt2img:建 Job + 后台 sdapi 出图,返回与 ComfyUI 同构的句柄。"""
+    settings = get_settings()
+    if not settings.forge_base:
+        raise HTTPException(status_code=503, detail="Forge 引擎未部署")
+    prompt_id = uuid.uuid4().hex
+    payload = forge_txt2img_payload(
+        positive=req.positive, negative=req.negative, steps=req.steps, cfg=req.cfg,
+        width=_snap8(req.width), height=_snap8(req.height), sampler=req.sampler,
+        scheduler=req.scheduler, seed=req.seed, batch_size=req.batch_size, ckpt=ckpt_name,
+    )
+    session.add(Job(
+        tenant_id=user.tenant_id, user_id=user.id, prompt_id=prompt_id,
+        worker=settings.forge_base, kind="txt2img", status="queued",
+        prompt=req.positive, seed=req.seed, nsfw=job_nsfw,
+    ))
+    session.commit()
+    forge_spawn(ForgeClient(settings.forge_base, timeout=600.0), prompt_id, "txt2img", payload)
+    return {
+        "prompt_id": prompt_id,
+        "client_id": uuid.uuid4().hex,
+        "worker": settings.forge_base,
+        "seed": req.seed,
+    }
 
 
 @router.post("/generate/txt2img")
@@ -95,10 +127,18 @@ async def generate_txt2img(
 ):
     enforce_generation_rate_limit(user)
     settings = get_settings()
+    ckpt_name = req.ckpt_name or settings.default_ckpt
+    # R18 硬门槛:成人底模须已开 R18,否则 403;并据此给作品打 nsfw 标。
+    job_nsfw = _gate_nsfw_ckpt(ckpt_name, user)
+
+    # 引擎分流:Forge 走 sdapi 同步出图(包装成异步 Job),ComfyUI 走既有工作流。
+    if req.engine == "forge":
+        return await _submit_forge_txt2img(req, ckpt_name, job_nsfw, user, session)
+
     params = Txt2ImgParams(
         positive=req.positive,
         negative=req.negative,
-        ckpt_name=req.ckpt_name or settings.default_ckpt,
+        ckpt_name=ckpt_name,
         width=_snap8(req.width),
         height=_snap8(req.height),
         steps=req.steps,
@@ -109,8 +149,6 @@ async def generate_txt2img(
         loras=_to_lora_specs(req.loras),
         **({"seed": req.seed} if req.seed is not None else {}),
     )
-    # R18 硬门槛:成人底模须已开 R18,否则 403;并据此给作品打 nsfw 标。
-    job_nsfw = _gate_nsfw_ckpt(params.ckpt_name, user)
     graph = build_txt2img_graph(params)
     # 路由到既有 checkpoint 又有所选 LoRA 文件的 worker(异构多机下避免缺模型)
     required = {params.ckpt_name, *(l.name for l in params.loras)}

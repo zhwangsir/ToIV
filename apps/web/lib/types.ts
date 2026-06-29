@@ -31,6 +31,8 @@ export interface Txt2ImgParams {
   seed?: number | null;
   batch_size?: number;
   loras?: LoraInput[];
+  /** 出图引擎:comfyui(默认,异步工作流)| forge(reForge sdapi 同步出图)。 */
+  engine?: "comfyui" | "forge";
 }
 
 export interface GenerateResponse {

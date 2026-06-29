@@ -1510,6 +1510,25 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .manju-bgm-progress { margin-top: 0.55rem; }
 .manju-assemble-progress { margin-top: 0.2rem; }
 
+/* 创作台:Forge 引擎底模下拉 + 引擎提示 */
+.pro-model-select {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  background: var(--bg-1);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+.pro-engine-hint {
+  margin-top: 0.4rem;
+  font-size: 0.72rem;
+  color: var(--ink-faint);
+  letter-spacing: 0.01em;
+}
+
 .alert {
   border: 1px solid rgba(240, 89, 106, 0.5);
   background: rgba(240, 89, 106, 0.12);

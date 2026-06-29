@@ -44,6 +44,12 @@ interface ProPanelProps {
   nsfwEnabled: boolean;
   busy: boolean;
   run: (dispatches: Dispatch[], stage: string) => Promise<void>;
+  /** 出图引擎(图像模式可切;Forge=reForge sdapi 同步出图)。 */
+  engine: "comfyui" | "forge";
+  setEngine: (e: "comfyui" | "forge") => void;
+  /** Forge 可用 SD 底模(engine=forge 时作底模选项)。 */
+  forgeModels: string[];
+  forgeOnline: boolean;
 }
 
 interface ImgParams {
@@ -80,7 +86,7 @@ interface ControlImage {
 
 /** 专业版:全控制面板,可折叠高级分区 + 工作流预设 + 占位槽位。 */
 export function ProPanel(props: ProPanelProps) {
-  const { mode, setMode, prompt, setPrompt, ref, setRef, ensureUploaded, models, loraOptions, ckpt, setCkpt, nsfw, setNsfw, nsfwEnabled, busy, run } = props;
+  const { mode, setMode, prompt, setPrompt, ref, setRef, ensureUploaded, models, loraOptions, ckpt, setCkpt, nsfw, setNsfw, nsfwEnabled, busy, run, engine, setEngine, forgeModels, forgeOnline } = props;
 
   const [img, setImg] = useState<ImgParams>({
     negative: DEFAULT_NEGATIVE,
@@ -278,6 +284,7 @@ export function ProPanel(props: ProPanelProps) {
               seed: seedNum,
               batch_size: img.batch,
               loras: activeLoras,
+              ...(engine === "forge" ? { engine: "forge" as const } : {}),
             },
           }],
           img.batch > 1 ? `生成 ${img.batch} 张…` : "生成中…",
@@ -346,7 +353,7 @@ export function ProPanel(props: ProPanelProps) {
         "创作音乐…",
       );
     }
-  }, [busy, prompt, mode, ref, ensureUploaded, ckpt, img, seedNum, resolveSteps, activeLoras, cnActive, cnImage, ensureControlUploaded, cnType, cnStrength, cnAdvanced, cnRange, vidAspect, vidLength, vidFps, steps3d, cfg3d, octree, audioLyrics, audioSeconds, run]);
+  }, [busy, prompt, mode, ref, ensureUploaded, ckpt, img, seedNum, resolveSteps, activeLoras, cnActive, cnImage, ensureControlUploaded, cnType, cnStrength, cnAdvanced, cnRange, vidAspect, vidLength, vidFps, steps3d, cfg3d, octree, audioLyrics, audioSeconds, engine, run]);
 
   const canRun =
     mode === "audio"
@@ -372,8 +379,39 @@ export function ProPanel(props: ProPanelProps) {
         </div>
       </div>
 
-      {/* 模型选择器:模式感知 —— 各模式只展示对应类别模型;NSFW 档筛选图像底模 */}
-      <ModelSelector mode={mode} models={models} ckpt={ckpt} setCkpt={setCkpt} nsfw={nsfw} />
+      {/* 引擎切换:图像模式 + Forge 在线时可选 reForge(基础文生图) */}
+      {mode === "image" && forgeOnline && (
+        <div className="field">
+          <label>出图引擎</label>
+          <div className="seg" style={{ gridTemplateColumns: "repeat(2, 1fr)" }} role="group" aria-label="出图引擎">
+            <button type="button" className={engine === "comfyui" ? "active" : ""} onClick={() => setEngine("comfyui")}>
+              ComfyUI
+            </button>
+            <button type="button" className={engine === "forge" ? "active" : ""} onClick={() => setEngine("forge")}>
+              Forge
+            </button>
+          </div>
+          {engine === "forge" && (
+            <p className="pro-engine-hint">reForge · sdapi 基础文生图;构图控制 / 重绘仍走 ComfyUI</p>
+          )}
+        </div>
+      )}
+
+      {/* 模型选择:Forge 引擎用其 SD 底模列表;否则模式感知 ComfyUI 选择器 */}
+      {mode === "image" && engine === "forge" ? (
+        <div className="field">
+          <label>底模 · Forge</label>
+          <select className="pro-model-select" value={ckpt} onChange={(e) => setCkpt(e.target.value)}>
+            {forgeModels.map((m) => (
+              <option key={m} value={m}>
+                {cleanName(m)}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : (
+        <ModelSelector mode={mode} models={models} ckpt={ckpt} setCkpt={setCkpt} nsfw={nsfw} />
+      )}
 
       {/* NSFW 档(仅图像底模可切;且账户已开启 R18 才显示):开启 → 下拉筛选到 nsfw 模型 */}
       {mode === "image" && nsfwEnabled && (

@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     # 逗号分隔的 ComfyUI worker 列表（P0 单实例，P2 起对应多 GPU 多进程）
     comfy_workers: str = "http://192.168.71.100:8000"
     default_ckpt: str = "DreamShaper_8_pruned.safetensors"
+    # Forge(reForge SD WebUI)第二出图引擎(sdapi 同步出图);空 = 未部署,前端引擎切换隐藏 Forge
+    forge_url: str = "http://192.168.71.100:7860"
     # 配音 TTS 独立服务（IndexTTS2，自部署 @ GPU 机，隔离 venv）
     tts_url: str = "http://192.168.71.100:9000"
     # CORS 允许的前端来源（逗号分隔）
@@ -50,6 +52,11 @@ class Settings(BaseSettings):
     @property
     def worker_urls(self) -> list[str]:
         return [u.strip().rstrip("/") for u in self.comfy_workers.split(",") if u.strip()]
+
+    @property
+    def forge_base(self) -> str:
+        """Forge sdapi 基址(已去尾斜杠);空串表示未部署。"""
+        return self.forge_url.strip().rstrip("/")
 
     @property
     def cors_origin_list(self) -> list[str]:

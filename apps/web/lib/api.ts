@@ -166,6 +166,36 @@ export function listModels(): Promise<ModelsResponse> {
   return swr(CACHE_KEYS.models, fetchModelsRaw, TTL.models);
 }
 
+// ---------- Forge 第二出图引擎 ----------
+
+export interface ForgeStatus {
+  enabled: boolean;
+  online: boolean;
+}
+
+/** Forge(reForge)在线状态;前端据此显示「引擎切换」。失败优雅回落未部署。 */
+export async function getForgeStatus(): Promise<ForgeStatus> {
+  try {
+    const res = await fetch(`${API_BASE}/api/forge/status`, { headers: authHeaders() });
+    if (!res.ok) return { enabled: false, online: false };
+    return (await res.json()) as ForgeStatus;
+  } catch {
+    return { enabled: false, online: false };
+  }
+}
+
+/** Forge 可用 SD 底模标题列表(后端已过滤非 SD 权重);失败返回空。 */
+export async function getForgeModels(): Promise<string[]> {
+  try {
+    const res = await fetch(`${API_BASE}/api/forge/models`, { headers: authHeaders() });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { models?: { title: string }[] };
+    return (data.models ?? []).map((m) => m.title).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
 export async function generateTxt2img(
   params: Txt2ImgParams,
 ): Promise<GenerateResponse> {
