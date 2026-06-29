@@ -12,6 +12,10 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir --timeout 120 \
     -i https://pypi.tuna.tsinghua.edu.cn/simple \
     -r requirements.txt
+# CAD 设计:ezdxf 读 DXF 抽几何,matplotlib 渲线稿/轴测(DWG 需 dwg2dxf,见下方 COPY)
+RUN pip install --no-cache-dir --timeout 120 \
+    -i https://pypi.tuna.tsinghua.edu.cn/simple \
+    ezdxf==1.4.2 matplotlib==3.9.4
 
 COPY app ./app
 

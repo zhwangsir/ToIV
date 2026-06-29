@@ -5911,3 +5911,57 @@ input[type="range"]::-webkit-slider-thumb:hover {
   .settings-r18 .switch::after { transition: background var(--dur) var(--ease); }
   .settings-feedback { transition: opacity var(--dur) var(--ease); transform: none; }
 }
+
+/* ============ CAD 工程图 → 设计 工作台 ============ */
+.cad-studio { max-width: 1180px; margin: 0 auto; padding: var(--space-4) var(--space-3) var(--space-6); }
+.cad-head h2 { font-size: 1.5rem; font-weight: 600; margin: 0 0 0.3rem; }
+.cad-sub { color: var(--ink-soft); font-size: 0.92rem; margin: 0 0 1.5rem; }
+.cad-drop {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem;
+  min-height: 320px; border: 1.5px dashed var(--accent-line); border-radius: var(--radius-lg);
+  background: var(--accent-wash); cursor: pointer; text-align: center;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.cad-drop:hover { background: var(--accent-quiet); border-color: var(--accent); }
+.cad-drop.busy { opacity: 0.7; pointer-events: none; }
+.cad-drop input { display: none; }
+.cad-drop-icon { font-size: 2.6rem; color: var(--accent); line-height: 1; }
+.cad-drop-title { font-size: 1.05rem; font-weight: 600; color: var(--ink); }
+.cad-drop-hint { font-size: 0.85rem; color: var(--ink-faint); }
+.cad-work { display: flex; gap: 1.5rem; align-items: flex-start; }
+.cad-source { flex: 0 0 280px; display: flex; flex-direction: column; gap: 0.6rem; position: sticky; top: 1rem; }
+.cad-source-img {
+  width: 100%; border-radius: var(--radius); border: 1px solid var(--border);
+  background: #fff; object-fit: contain;
+}
+.cad-source-meta { font-size: 0.78rem; color: var(--ink-faint); text-align: center; }
+.cad-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1.1rem; }
+.cad-controls { display: flex; gap: 1.2rem; flex-wrap: wrap; align-items: flex-end; }
+.cad-controls .field { flex: 1 1 16rem; }
+.cad-styles { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.cad-styles button {
+  font-size: 0.78rem; padding: 0.34rem 0.7rem; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--ink-soft);
+  cursor: pointer; transition: all var(--dur) var(--ease);
+}
+.cad-styles button:hover { border-color: var(--accent-line); color: var(--ink); }
+.cad-styles button.active { background: var(--accent-quiet); border-color: var(--accent-line); color: var(--accent); }
+.cad-outputs { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.cad-out-btn {
+  font-size: 0.85rem; font-weight: 600; padding: 0.5rem 1rem; border-radius: 999px;
+  border: 1px solid var(--accent-line); background: var(--accent-quiet); color: var(--accent);
+  cursor: pointer; transition: background var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.cad-out-btn:hover:not(:disabled) { background: color-mix(in oklab, var(--accent) 24%, transparent); }
+.cad-out-btn:active:not(:disabled) { transform: scale(0.97); }
+.cad-out-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.cad-out-btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.cad-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+.cad-result { margin: 0; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); background: var(--bg-sunken); }
+.cad-result img { width: 100%; display: block; }
+.cad-result figcaption { font-size: 0.8rem; color: var(--ink-soft); padding: 0.5rem 0.7rem; }
+@media (max-width: 760px) {
+  .cad-work { flex-direction: column; }
+  .cad-source { flex-basis: auto; position: static; flex-direction: row; align-items: center; }
+  .cad-source-img { max-width: 180px; }
+}

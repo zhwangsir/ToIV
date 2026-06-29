@@ -895,6 +895,53 @@ export async function uploadVoiceRef(file: File): Promise<ManjuVoiceResult> {
   return res.json();
 }
 
+// ---------- CAD 工程图 → AI 设计 ----------
+
+export interface CadGeometry {
+  walls: number[][];
+  racks: number[][];
+  w: number;
+  h: number;
+}
+
+export interface CadUploadResult {
+  control_url: string;
+  geometry: CadGeometry;
+  width: number;
+  height: number;
+  n_segments: number;
+}
+
+/** 上传 DWG/DXF/图 → 服务端转换为干净线稿 + 几何。契约:POST /api/cad/upload multipart(file)。 */
+export async function cadUpload(file: File): Promise<CadUploadResult> {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await fetch(`${API_BASE}/api/cad/upload`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: fd,
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `图纸转换失败 (${res.status})`);
+  }
+  return res.json();
+}
+
+/** 控制图 → ControlNet/text2img 出设计图(异步 Job)。preset ∈ colored_plan/aerial_day|dusk|night/interior。 */
+export const cadRender = (body: {
+  control_url: string;
+  preset: string;
+  space: string;
+  style: string;
+  width: number;
+  height: number;
+}): Promise<GenerateResponse> => manjuReq("/cad/render", "POST", body);
+
+/** 几何 → 服务端渲轴测/3D 体量图。契约:POST /api/cad/axon { geometry } → { url }。 */
+export const cadAxon = (geometry: CadGeometry): Promise<{ url: string }> =>
+  manjuReq("/cad/axon", "POST", { geometry });
+
 /**
  * 对口型:源分镜视频 + 配音 → LatentSync 让角色嘴型对上台词。异步 Job(同转视频)。
  * 契约:POST /api/manju/shot/lipsync { video_url, voice_url, lips_expression?, inference_steps? }

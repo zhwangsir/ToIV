@@ -11,6 +11,7 @@ import { CanvasStudio } from "@/components/canvas/CanvasStudio";
 import { CreateStudio } from "@/components/create/CreateStudio";
 import { LibraryView } from "@/components/library/LibraryView";
 import { ManjuStudio } from "@/components/manju/ManjuStudio";
+import { CadStudio } from "@/components/cad/CadStudio";
 import { ModelLibrary } from "@/components/models/ModelLibrary";
 import { ThreeDStudio } from "@/components/threed/ThreeDStudio";
 import { ActivityProvider } from "@/components/nav/ActivityContext";
@@ -22,7 +23,7 @@ import type { AuthResult } from "@/lib/api";
 
 type AuthState = "loading" | "in" | "out";
 
-type View = "assistant" | "create" | "canvas" | "manju" | "threed" | "audio" | "library" | "models" | "admin";
+type View = "assistant" | "create" | "canvas" | "manju" | "cad" | "threed" | "audio" | "library" | "models" | "admin";
 
 // 合法深链视图(/?view=<模块>);从 /engine 落地页能力卡进入时初始化对应视图。
 const VALID_VIEWS = new Set<View>([
@@ -30,6 +31,7 @@ const VALID_VIEWS = new Set<View>([
   "create",
   "canvas",
   "manju",
+  "cad",
   "threed",
   "audio",
   "library",
@@ -97,6 +99,7 @@ export default function Home() {
       { key: "create", label: "创作", icon: "image" },
       { key: "canvas", label: "画布", icon: "image" },
       { key: "manju", label: "漫剧", icon: "video" },
+      { key: "cad", label: "设计", icon: "image" },
       { key: "threed", label: "3D", icon: "threed" },
       { key: "library", label: "作品库", icon: "library" },
       { key: "models", label: "模型", icon: "models" },
@@ -150,6 +153,8 @@ export default function Home() {
                 <CanvasStudio />
               ) : view === "manju" ? (
                 <ManjuStudio />
+              ) : view === "cad" ? (
+                <CadStudio />
               ) : view === "admin" ? (
                 <div className="single-view">
                   <AdminPanel />
