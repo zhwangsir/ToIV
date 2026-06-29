@@ -60,6 +60,12 @@
   /* 「aurora」兼容历史选择器:现为品紫极轻渐变,非彩虹辉光 */
   --aurora: linear-gradient(135deg, oklch(68% 0.16 285) 0%, oklch(60% 0.14 285) 100%);
 
+  /* 语义色:音频 / 配音 / 口型(teal,区别于主紫 accent,音频域统一用此) */
+  --voice: oklch(72% 0.11 195);
+  --voice-soft: oklch(86% 0.06 195);
+  --voice-quiet: oklch(66% 0.11 195 / 0.15);
+  --voice-line: oklch(72% 0.11 195 / 0.46);
+
   /* 圆角:克制一致 */
   --radius: 12px;
   --radius-sm: 10px;
@@ -3054,15 +3060,18 @@ input[type="range"]::-webkit-slider-thumb:hover {
   font-weight: 600;
   padding: 0.3rem 0.68rem;
   border-radius: 999px;
-  border: 1px solid color-mix(in oklab, oklch(70% 0.12 195) 45%, transparent);
-  background: color-mix(in oklab, oklch(62% 0.11 195) 15%, transparent);
-  color: oklch(56% 0.11 195);
+  border: 1px solid var(--voice-line);
+  background: var(--voice-quiet);
+  color: var(--voice);
   cursor: pointer;
-  transition: background var(--dur) var(--ease);
+  transition: background var(--dur) var(--ease), transform var(--dur) var(--ease);
 }
 .manju-char-voice-upload:hover,
 .manju-char-voice-btn:hover:not(:disabled) {
-  background: color-mix(in oklab, oklch(62% 0.11 195) 28%, transparent);
+  background: color-mix(in oklab, var(--voice) 26%, transparent);
+}
+.manju-char-voice-btn:active:not(:disabled) {
+  transform: scale(0.96);
 }
 .manju-char-voice-btn:disabled {
   opacity: 0.5;
@@ -3073,7 +3082,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 .manju-char-voice-ok {
   font-size: 0.72rem;
-  color: oklch(56% 0.11 195);
+  color: var(--voice);
 }
 .manju-speaker-select {
   width: 100%;
@@ -3083,6 +3092,27 @@ input[type="range"]::-webkit-slider-thumb:hover {
   background: var(--bg-sunken);
   color: var(--ink);
   font-size: 0.82rem;
+  transition: border-color var(--dur) var(--ease);
+}
+.manju-speaker-select:hover {
+  border-color: var(--voice-line);
+}
+.manju-speaker-select:focus-visible {
+  outline: 2px solid var(--voice);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+/* 无障碍:尊重 reduced-motion —— 关掉音频层新增的入场/按压动效 */
+@media (prefers-reduced-motion: reduce) {
+  .manju-shot-audio,
+  .manju-inspector-audio,
+  .manju-bgm-preview {
+    animation: none;
+  }
+  .manju-char-voice-btn:active:not(:disabled),
+  .manju-bgm-gen-btn:active:not(:disabled) {
+    transform: none;
+  }
 }
 .manju-char-ref-spin {
   width: 13px;
@@ -3281,19 +3311,35 @@ input[type="range"]::-webkit-slider-thumb:hover {
   border-color: var(--accent-line);
 }
 .manju-shot-badge.st-voice {
-  color: oklch(96% 0.02 195);
-  background: color-mix(in oklab, oklch(60% 0.11 195) 82%, transparent);
-  border-color: color-mix(in oklab, oklch(70% 0.12 195) 55%, transparent);
+  color: var(--voice-soft);
+  background: color-mix(in oklab, var(--voice) 26%, var(--bg-sunken));
+  border-color: var(--voice-line);
+  backdrop-filter: blur(6px);
 }
-/* 逐镜配音试听器:卡片细带内紧凑,详情面板内常规宽 */
+/* 逐镜配音试听器:卡片细带内紧凑,详情面板内常规宽;出现时淡入上移 */
+@keyframes manju-audio-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 .manju-shot-audio {
   width: 100%;
   height: 30px;
   margin-top: 8px;
+  animation: manju-audio-in var(--dur-2) var(--ease-expo);
+  color-scheme: dark;
 }
-.manju-inspector-audio {
+.manju-inspector-audio,
+.manju-bgm-preview {
   width: 100%;
   margin-top: 8px;
+  animation: manju-audio-in var(--dur-2) var(--ease-expo);
+  color-scheme: dark;
 }
 
 /* 镜底细带:常驻仅镜号行 + 渐隐底纹;悬停 / 选中升起完整信息 + 操作 */
@@ -3696,14 +3742,17 @@ input[type="range"]::-webkit-slider-thumb:hover {
   border-radius: 999px;
   font-size: 0.78rem;
   font-weight: 600;
-  border: 1px solid color-mix(in oklab, oklch(70% 0.12 195) 50%, transparent);
-  background: color-mix(in oklab, oklch(62% 0.11 195) 18%, transparent);
-  color: oklch(56% 0.11 195);
+  border: 1px solid var(--voice-line);
+  background: var(--voice-quiet);
+  color: var(--voice);
   cursor: pointer;
-  transition: background var(--dur) var(--ease);
+  transition: background var(--dur) var(--ease), transform var(--dur) var(--ease);
 }
 .manju-bgm-gen-btn:hover:not(:disabled) {
-  background: color-mix(in oklab, oklch(62% 0.11 195) 30%, transparent);
+  background: color-mix(in oklab, var(--voice) 28%, transparent);
+}
+.manju-bgm-gen-btn:active:not(:disabled) {
+  transform: scale(0.97);
 }
 .manju-bgm-gen-btn:disabled {
   opacity: 0.55;
