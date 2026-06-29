@@ -138,8 +138,10 @@ export function CadStudio() {
         <h2>
           工程图 → 设计 <span className="grad">AI 一键出全套</span>
         </h2>
-        <p className="cad-sub">上传 DXF / 平面图 → 彩平图 · 4K 航拍 · 室内实景 · 轴测 3D,风格自由切换(DWG 请先在 CAD 里另存为 DXF)</p>
+        <p className="cad-sub">上传 DWG / DXF / 平面图 → 彩平图 · 4K 航拍 · 室内实景 · 轴测 3D,风格自由切换</p>
       </header>
+
+      {error && <div className="alert cad-alert">⚠ {error}</div>}
 
       {!controlUrl ? (
         <label className={`cad-drop${uploading ? " busy" : ""}`}>
@@ -225,8 +227,6 @@ export function CadStudio() {
                 ⚡ 全套生成
               </button>
             </div>
-
-            {error && <div className="alert">⚠ {error}</div>}
 
             <div className="cad-gallery">
               {OUTPUTS.filter((o) => results[o.key]).map((o) => (

@@ -2,11 +2,18 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# ffmpeg:漫剧自动剪辑(/api/manju/assemble)拼接片段需要
-# fonts-noto-cjk:烧录字幕 / 片头片尾卡的中文 drawtext 才有字形(否则空白)
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg fonts-noto-cjk \
-    && rm -rf /var/lib/apt/lists/*
+# 系统依赖(换清华 Debian 镜像加速 apt):
+#   ffmpeg          漫剧自动剪辑拼接
+#   fonts-noto-cjk  烧录字幕 / 片头尾卡的中文字形
+#   libredwg        CAD 工作台 DWG→DXF(GNU 0.13.3 tarball 编译,免 autogen;dwg2dxf 命令)
+RUN sed -i 's|http://deb.debian.org|https://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list.d/debian.sources \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg fonts-noto-cjk build-essential pkg-config ca-certificates \
+    && python3 -c "import urllib.request, tarfile; urllib.request.urlretrieve('https://mirrors.tuna.tsinghua.edu.cn/gnu/libredwg/libredwg-0.13.3.tar.xz', '/tmp/l.tar.xz'); tarfile.open('/tmp/l.tar.xz').extractall('/tmp')" \
+    && cd /tmp/libredwg-0.13.3 \
+    && ./configure --disable-bindings --disable-dependency-tracking \
+    && make -j4 && make install && ldconfig \
+    && cd / && rm -rf /tmp/libredwg-0.13.3 /tmp/l.tar.xz /var/lib/apt/lists/*
 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir --timeout 120 \

@@ -34,7 +34,7 @@ class ConvertResult:
 
 def _dwg_to_dxf(dwg: Path, dxf: Path) -> None:
     if shutil.which("dwg2dxf") is None:
-        raise RuntimeError("当前暂不支持 DWG 直传,请在 CAD 里另存为 DXF 后上传(或上传平面图片)")
+        raise RuntimeError("DWG 转换组件(dwg2dxf)未就绪,请改上传 DXF 或平面图片")
     proc = subprocess.run(
         ["dwg2dxf", "-y", "-o", str(dxf), str(dwg)],
         capture_output=True, text=True, timeout=180,
