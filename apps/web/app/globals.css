@@ -1343,6 +1343,173 @@ input[type="range"]::-webkit-slider-thumb:hover {
   font-variant-numeric: tabular-nums;
 }
 
+/* ---------- 统一进度条(ProgressBar:linear + ring,语义 tone)----------
+   全站等待统一形态:determinate 填充 + % + 推进扫光;indeterminate 流光 / 旋转。
+   tone 决定主色(= 不同风格):accent 紫(图像)/ voice 青(音频·配音·口型)/
+   cool 冷青(CAD 转换)/ success 绿(完成·拼接)/ danger 红。 */
+.tpb {
+  --tpb-c: var(--accent);
+  --tpb-c-deep: var(--accent-deep);
+  --tpb-c-soft: var(--accent-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: 100%;
+}
+.tpb[data-tone="voice"] {
+  --tpb-c: var(--voice);
+  --tpb-c-deep: oklch(60% 0.11 195);
+  --tpb-c-soft: var(--voice-soft);
+}
+.tpb[data-tone="cool"] {
+  --tpb-c: var(--cool);
+  --tpb-c-deep: oklch(60% 0.10 230);
+  --tpb-c-soft: oklch(84% 0.07 230);
+}
+.tpb[data-tone="success"] {
+  --tpb-c: var(--success);
+  --tpb-c-deep: oklch(60% 0.13 160);
+  --tpb-c-soft: oklch(86% 0.08 160);
+}
+.tpb[data-tone="danger"] {
+  --tpb-c: var(--danger);
+  --tpb-c-deep: oklch(54% 0.17 25);
+  --tpb-c-soft: oklch(82% 0.10 25);
+}
+.tpb-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+.tpb-label {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tpb-pct {
+  flex: 0 0 auto;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--tpb-c);
+  font-variant-numeric: tabular-nums;
+}
+.tpb-track {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bg-0);
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5), inset 0 0 0 1px var(--hairline);
+}
+.tpb--sm .tpb-track {
+  height: 5px;
+}
+.tpb-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--tpb-c-deep), var(--tpb-c) 72%, var(--tpb-c-soft));
+  box-shadow: 0 0 12px -2px var(--tpb-c), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition: width var(--dur-2) var(--ease);
+}
+/* determinate 推进时一束扫光,体现「在算」 */
+.tpb-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45) 50%, transparent);
+  transform: translateX(-100%);
+  animation: tpb-shimmer 1.6s var(--ease) infinite;
+}
+@keyframes tpb-shimmer {
+  0% { transform: translateX(-100%); }
+  60%, 100% { transform: translateX(100%); }
+}
+.tpb-fill.is-indeterminate {
+  width: 40% !important;
+  background: linear-gradient(90deg, transparent, var(--tpb-c) 50%, transparent);
+  animation: tpb-slide 1.25s var(--ease) infinite;
+}
+.tpb-fill.is-indeterminate::after { display: none; }
+@keyframes tpb-slide {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(310%); }
+}
+/* 环形(卡片角标 / 紧凑位) */
+.tpb-ring {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  --tpb-c: var(--accent);
+}
+.tpb-ring[data-tone="voice"] { --tpb-c: var(--voice); }
+.tpb-ring[data-tone="cool"] { --tpb-c: var(--cool); }
+.tpb-ring[data-tone="success"] { --tpb-c: var(--success); }
+.tpb-ring[data-tone="danger"] { --tpb-c: var(--danger); }
+.tpb-ring svg { display: block; transform: rotate(-90deg); }
+.tpb-ring-track { fill: none; stroke: var(--bg-0); stroke-width: 3; }
+.tpb-ring-fill {
+  fill: none;
+  stroke: var(--tpb-c);
+  stroke-width: 3;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 3px var(--tpb-c));
+  transition: stroke-dashoffset var(--dur-2) var(--ease);
+}
+.tpb-ring.is-indeterminate svg { animation: tpb-spin 0.95s linear infinite; }
+@keyframes tpb-spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+.tpb-ring-pct {
+  position: absolute;
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--tpb-c);
+  font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tpb-fill::after { animation: none; }
+  .tpb-fill.is-indeterminate {
+    width: 100% !important;
+    animation: none;
+    opacity: 0.85;
+    background: linear-gradient(90deg, var(--tpb-c-deep), var(--tpb-c));
+  }
+  .tpb-ring.is-indeterminate svg { animation: tpb-spin 1.8s steps(8) infinite; }
+}
+/* CAD 上传 / 出图进度的布局微调 */
+.cad-upload { display: flex; flex-direction: column; gap: 0.9rem; }
+.cad-run-progress { margin: 0.1rem 0 0.2rem; }
+
+/* 漫剧:分镜卡进度覆盖层(环) + 检视器 / 配乐 / 成片进度布局 */
+.manju-shot-progress {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: oklch(11% 0.006 280 / 0.55);
+  backdrop-filter: blur(2px);
+}
+.manju-shot-progress-cap {
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+.manju-inspector-progress { margin: 0.2rem 0 0.6rem; }
+.manju-bgm-progress { margin-top: 0.55rem; }
+.manju-assemble-progress { margin-top: 0.2rem; }
+
 .alert {
   border: 1px solid rgba(240, 89, 106, 0.5);
   background: rgba(240, 89, 106, 0.12);

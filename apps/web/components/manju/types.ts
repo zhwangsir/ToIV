@@ -18,6 +18,8 @@ export interface CharRow {
   refStatus?: "idle" | "imaging" | "error";
   /** 参考图生成失败信息。 */
   refError?: string;
+  /** 参考图采样进度 0-100;null=不确定态(纯视觉)。 */
+  refProgress?: number | null;
   /** 定妆音色参考音 URL(配音音色克隆;该角色台词用此嗓音)。 */
   refAudio?: string;
   /** 音色上传中标记(纯视觉)。 */
@@ -44,6 +46,10 @@ export interface ShotCard extends StoryboardShot {
   lipSyncing?: boolean;
   /** 已对口型(videoUrl 已是口型同步版)。 */
   lipSynced?: boolean;
+  /** 当前作业的真实进度 0-100(出图/转视频/口型的采样进度);null=不确定态。 */
+  progress?: number | null;
+  /** 当前进行的操作(纯视觉:驱动卡片进度环的文案与配色)。 */
+  runPhase?: "image" | "video" | "voice" | "lipsync";
   error?: string;
 }
 

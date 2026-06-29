@@ -2,6 +2,7 @@
 
 import { imageUrl } from "@/lib/api";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
+import { ProgressBar } from "@/components/ui/ProgressBar";
 
 import type { ShotCard } from "./types";
 
@@ -144,6 +145,25 @@ export function ShotInspector({
             ))}
           </div>
         </div>
+      )}
+
+      {(shot.status === "imaging" || shot.voicing || shot.lipSyncing) && (
+        <ProgressBar
+          active
+          size="sm"
+          tone={shot.voicing || shot.lipSyncing ? "voice" : "accent"}
+          value={shot.voicing ? null : shot.progress ?? null}
+          label={
+            shot.lipSyncing
+              ? "对口型中…"
+              : shot.voicing
+                ? "配音合成中…"
+                : shot.runPhase === "video"
+                  ? "转视频中…"
+                  : "出图中…"
+          }
+          className="manju-inspector-progress"
+        />
       )}
 
       <div className="manju-inspector-actions">

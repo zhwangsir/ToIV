@@ -9,7 +9,6 @@ import {
   generateTxt2img,
   generateVideo,
   imageUrl,
-  jobEventsUrl,
   lipsyncManjuShot,
   listModels,
   renderManjuShot,
@@ -19,7 +18,11 @@ import {
   uploadVoiceRef,
 } from "@/lib/api";
 import type { ManjuAspect, ManjuTransition } from "@/lib/api";
+import { useActivity } from "@/components/nav/ActivityContext";
 import { ModelPicker } from "@/components/ui/ModelPicker";
+import { ProgressBar } from "@/components/ui/ProgressBar";
+import { useFauxProgress } from "@/hooks/useFauxProgress";
+import { trackJob } from "@/lib/trackJob";
 import type { GenerateResponse, ModelsResponse } from "@/lib/types";
 
 import { ManjuProjectBar, shotCardToInput } from "./ManjuProjectBar";
@@ -118,6 +121,11 @@ export function ManjuStudio() {
   const [assembling, setAssembling] = useState(false);
   const [assembledUrl, setAssembledUrl] = useState<string | null>(null);
   const [assembleErr, setAssembleErr] = useState<string | null>(null);
+  const [bgmProgress, setBgmProgress] = useState<number | null>(null);
+
+  // 全局活动(灵动岛)+ 成片拼接估算进度(ffmpeg 无中间进度,用估算条)
+  const { setActivity, clearActivity } = useActivity();
+  const assemblePct = useFauxProgress(assembling, 12000);
 
   useEffect(() => {
     listModels()
@@ -129,6 +137,34 @@ export function ManjuStudio() {
     return () => esRef.current?.close();
   }, []);
 
+  // 把本地运行态映射到灵动岛活动(全局可见):任一操作进行→running 进度,全部结束→done 脉冲后收。
+  const wasBusy = useRef(false);
+  useEffect(() => {
+    const running = shots.find((s) => s.status === "imaging" || s.voicing || s.lipSyncing);
+    const active = busy || planning || assembling || bgmGenerating || !!running;
+    if (active) {
+      const pct = running?.progress ?? (bgmGenerating ? bgmProgress : assembling ? assemblePct : null);
+      const label = assembling
+        ? "合成成片…"
+        : bgmGenerating
+          ? "AI 配乐生成…"
+          : stage || (running ? running.scene || "出图中" : "漫剧合成");
+      setActivity({
+        kind: "manju",
+        label,
+        value: pct ?? null,
+        max: pct != null ? 100 : null,
+        phase: "running",
+      });
+      wasBusy.current = true;
+    } else if (wasBusy.current) {
+      wasBusy.current = false;
+      setActivity({ kind: "manju", label: "完成", value: 100, max: 100, phase: "done" });
+      const id = window.setTimeout(() => clearActivity(), 760);
+      return () => window.clearTimeout(id);
+    }
+  }, [busy, planning, assembling, bgmGenerating, bgmProgress, assemblePct, shots, stage, setActivity, clearActivity]);
+
   const patchShot = useCallback((id: string, patch: Partial<ShotCardModel>) => {
     setShots((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
   }, []);
@@ -137,176 +173,81 @@ export function ManjuStudio() {
     setChars((prev) => prev.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
   }, []);
 
-  // 解析一个出图作业的首张产物文件名(参考图生成用:不回填分镜,只取 filename)。
-  const trackRefFilename = (res: GenerateResponse) =>
-    new Promise<string>((resolve, reject) => {
-      const es = new EventSource(jobEventsUrl(res.prompt_id, res.client_id, res.worker));
-      esRef.current = es;
-      let done = false;
-      es.addEventListener("done", (e) => {
-        done = true;
-        const d = JSON.parse((e as MessageEvent).data);
-        const first: string | undefined = (d.images ?? [])[0];
-        es.close();
-        if (first) resolve(first);
-        else reject(new Error("没有产出图片"));
-      });
-      es.addEventListener("error", (e) => {
-        const data = (e as MessageEvent).data;
-        if (!data && done) return;
-        let msg = "生成参考图出错";
-        if (data) {
-          try {
-            msg = JSON.parse(data).message;
-          } catch {
-            /* keep default */
-          }
-        } else {
-          msg = "与服务器连接中断";
-        }
-        es.close();
-        reject(new Error(msg));
-      });
+  // 解析参考图作业首张产物文件名(参考图生成:不回填分镜,只取 filename)。
+  const trackRefFilename = (res: GenerateResponse, onPct?: (pct: number) => void) =>
+    trackJob(res, {
+      onProgress: onPct ? (p) => onPct(p.pct) : undefined,
+      register: (es) => { esRef.current = es; },
+    }).then((paths) => {
+      const first = paths[0];
+      if (!first) throw new Error("没有产出图片");
+      return first;
     });
 
-  // 解析一个 ACE-Step 配乐作业的产物音频文件名(导出步 AI 配乐用)。
-  const trackAudioFilename = (res: GenerateResponse) =>
-    new Promise<string>((resolve, reject) => {
-      const es = new EventSource(jobEventsUrl(res.prompt_id, res.client_id, res.worker));
-      esRef.current = es;
-      let done = false;
-      es.addEventListener("done", (e) => {
-        done = true;
-        const d = JSON.parse((e as MessageEvent).data);
-        const imgs = (d.images ?? []) as string[];
-        const audio = imgs.find((p) => /\.(mp3|flac|wav|opus)/i.test(p)) ?? imgs[0];
-        es.close();
-        if (audio) resolve(audio);
-        else reject(new Error("没有产出音频"));
-      });
-      es.addEventListener("error", (e) => {
-        const data = (e as MessageEvent).data;
-        if (!data && done) return;
-        es.close();
-        reject(
-          new Error(data ? JSON.parse(data).message ?? "配乐生成出错" : "与服务器连接中断"),
-        );
-      });
+  // 解析 ACE-Step 配乐作业的产物音频文件名(导出步 AI 配乐用),进度回调到配乐区进度条。
+  const trackAudioFilename = (res: GenerateResponse, onPct?: (pct: number) => void) =>
+    trackJob(res, {
+      onProgress: onPct ? (p) => onPct(p.pct) : undefined,
+      register: (es) => { esRef.current = es; },
+    }).then((paths) => {
+      const audio = paths.find((p) => /\.(mp3|flac|wav|opus)/i.test(p)) ?? paths[0];
+      if (!audio) throw new Error("没有产出音频");
+      return audio;
     });
 
-  // 跟踪对口型作业:完成 → 用口型同步视频替换 videoUrl(配音仍由成片对白轨提供,口型对齐)
+  // 跟踪对口型作业:进度回填卡片,完成 → 用口型同步视频替换 videoUrl(配音仍由成片对白轨提供)
   const trackLipsync = (id: string, res: GenerateResponse) =>
-    new Promise<void>((resolve) => {
-      const es = new EventSource(jobEventsUrl(res.prompt_id, res.client_id, res.worker));
-      esRef.current = es;
-      let done = false;
-      es.addEventListener("done", (e) => {
-        done = true;
-        const d = JSON.parse((e as MessageEvent).data);
-        const first: string | undefined = (d.images ?? [])[0];
-        if (first) {
-          patchShot(id, {
-            videoUrl: imageUrl(first),
-            lipSyncing: false,
-            lipSynced: true,
-            status: "video",
-          });
-        } else {
-          patchShot(id, { lipSyncing: false, error: "对口型没有产出视频" });
-        }
-        es.close();
-        resolve();
-      });
-      es.addEventListener("error", (e) => {
-        const data = (e as MessageEvent).data;
-        if (!data && done) {
-          resolve();
-          return;
-        }
-        let msg = "对口型出错";
-        if (data) {
-          try {
-            msg = JSON.parse(data).message;
-          } catch {
-            /* keep */
-          }
-        } else {
-          msg = "与服务器连接中断";
-        }
-        patchShot(id, { lipSyncing: false, error: msg });
-        es.close();
-        resolve();
-      });
-    });
+    trackJob(res, {
+      onProgress: (p) => patchShot(id, { progress: p.pct }),
+      register: (es) => { esRef.current = es; },
+    }).then(
+      (paths) => {
+        const first = paths[0];
+        patchShot(
+          id,
+          first
+            ? { videoUrl: imageUrl(first), lipSyncing: false, lipSynced: true, status: "video", progress: null, runPhase: undefined }
+            : { lipSyncing: false, error: "对口型没有产出视频", progress: null, runPhase: undefined },
+        );
+      },
+      (e: Error) => patchShot(id, { lipSyncing: false, error: e.message, progress: null, runPhase: undefined }),
+    );
 
-  // 跟踪一个出图作业:完成 → 回填缩略图 + worker/filename(供转视频复用)
+  // 跟踪一个出图作业:进度回填卡片,完成 → 回填缩略图 + worker/filename(供转视频复用)
   const trackImage = (id: string, res: GenerateResponse) =>
-    new Promise<void>((resolve) => {
-      const es = new EventSource(jobEventsUrl(res.prompt_id, res.client_id, res.worker));
-      esRef.current = es;
-      let done = false;
-      es.addEventListener("done", (e) => {
-        done = true;
-        const d = JSON.parse((e as MessageEvent).data);
-        const first: string | undefined = (d.images ?? [])[0];
-        if (first) {
-          patchShot(id, { status: "image", imageUrl: imageUrl(first), imageWorker: res.worker });
-        } else {
-          patchShot(id, { status: "error", error: "没有产出图片" });
-        }
-        es.close();
-        resolve();
-      });
-      es.addEventListener("error", (e) => {
-        const data = (e as MessageEvent).data;
-        let msg = "出图出错";
-        if (data) {
-          try {
-            msg = JSON.parse(data).message;
-          } catch {
-            /* keep default */
-          }
-        } else if (done) {
-          return;
-        } else {
-          msg = "与服务器连接中断";
-        }
-        patchShot(id, { status: "error", error: msg });
-        es.close();
-        resolve();
-      });
-    });
+    trackJob(res, {
+      onProgress: (p) => patchShot(id, { progress: p.pct }),
+      register: (es) => { esRef.current = es; },
+    }).then(
+      (paths) => {
+        const first = paths[0];
+        patchShot(
+          id,
+          first
+            ? { status: "image", imageUrl: imageUrl(first), imageWorker: res.worker, progress: null, runPhase: undefined }
+            : { status: "error", error: "没有产出图片", progress: null, runPhase: undefined },
+        );
+      },
+      (e: Error) => patchShot(id, { status: "error", error: e.message, progress: null, runPhase: undefined }),
+    );
 
-  // 跟踪一个转视频作业:完成 → 回填视频
+  // 跟踪一个转视频作业:进度回填卡片,完成 → 回填视频
   const trackVideo = (id: string, res: GenerateResponse) =>
-    new Promise<void>((resolve) => {
-      const es = new EventSource(jobEventsUrl(res.prompt_id, res.client_id, res.worker));
-      esRef.current = es;
-      let done = false;
-      es.addEventListener("done", (e) => {
-        done = true;
-        const d = JSON.parse((e as MessageEvent).data);
-        const first: string | undefined = (d.images ?? [])[0];
-        patchShot(id, first ? { status: "video", videoUrl: imageUrl(first) } : { status: "image" });
-        es.close();
-        resolve();
-      });
-      es.addEventListener("error", (e) => {
-        const data = (e as MessageEvent).data;
-        if (!data && done) return;
-        let msg = "转视频出错";
-        if (data) {
-          try {
-            msg = JSON.parse(data).message;
-          } catch {
-            /* keep default */
-          }
-        }
-        patchShot(id, { status: "error", error: msg });
-        es.close();
-        resolve();
-      });
-    });
+    trackJob(res, {
+      onProgress: (p) => patchShot(id, { progress: p.pct }),
+      register: (es) => { esRef.current = es; },
+    }).then(
+      (paths) => {
+        const first = paths[0];
+        patchShot(
+          id,
+          first
+            ? { status: "video", videoUrl: imageUrl(first), progress: null, runPhase: undefined }
+            : { status: "image", progress: null, runPhase: undefined },
+        );
+      },
+      (e: Error) => patchShot(id, { status: "error", error: e.message, progress: null, runPhase: undefined }),
+    );
 
   // 单镜出图:出场角色中若有带参考图者(取第一个)→ renderManjuShot 走 IPAdapter 人物一致;
   //          否则保持原 txt2img。两路结果都用同一 trackImage 回填。
@@ -321,7 +262,7 @@ export function ManjuStudio() {
       const prompt = composeShotPrompt(base, shot.characters, chars);
       // cfg 按底模族自适应:vpred 模型须低 cfg 防过饱和压暗
       const cfg = cfgForCkpt(ckpt);
-      patchShot(shot.id, { status: "imaging", error: undefined });
+      patchShot(shot.id, { status: "imaging", error: undefined, progress: null, runPhase: "image" });
       // AI 润色产出的反向词叠加到基础 NEGATIVE 之上(内容感知,逐镜定制)
       const negative = shot.negative?.trim() ? `${NEGATIVE}, ${shot.negative.trim()}` : NEGATIVE;
 
@@ -375,7 +316,7 @@ export function ManjuStudio() {
   const videoOne = useCallback(
     async (shot: ShotCardModel) => {
       if (!shot.imageUrl) return;
-      patchShot(shot.id, { status: "imaging", error: undefined });
+      patchShot(shot.id, { status: "imaging", error: undefined, progress: null, runPhase: "video" });
       setStage("生成视频…(约 1-2 分钟)");
       try {
         const blob = await (await fetch(shot.imageUrl)).blob();
@@ -496,7 +437,7 @@ export function ManjuStudio() {
         patchShot(shot.id, { error: "该镜没有台词,先在分镜里填写台词" });
         return;
       }
-      patchShot(shot.id, { voicing: true, error: undefined });
+      patchShot(shot.id, { voicing: true, error: undefined, runPhase: "voice" });
       try {
         // 说话角色 → 其定妆音色克隆;缺省取出场角色第一个
         const speaker = (shot.speaker || shot.characters[0] || "").trim();
@@ -508,9 +449,9 @@ export function ManjuStudio() {
           text,
           ...(refAudioUrl ? { ref_audio_url: refAudioUrl } : {}),
         });
-        patchShot(shot.id, { voicing: false, voiceUrl: r.url });
+        patchShot(shot.id, { voicing: false, voiceUrl: r.url, runPhase: undefined });
       } catch (e) {
-        patchShot(shot.id, { voicing: false, error: (e as Error).message });
+        patchShot(shot.id, { voicing: false, error: (e as Error).message, runPhase: undefined });
       }
     },
     [patchShot, chars],
@@ -538,7 +479,7 @@ export function ManjuStudio() {
         patchShot(shot.id, { error: "需先有视频和配音才能对口型" });
         return;
       }
-      patchShot(shot.id, { lipSyncing: true, error: undefined });
+      patchShot(shot.id, { lipSyncing: true, error: undefined, progress: null, runPhase: "lipsync" });
       try {
         const res = await lipsyncManjuShot({
           video_url: shot.videoUrl,
@@ -546,7 +487,7 @@ export function ManjuStudio() {
         });
         await trackLipsync(shot.id, res);
       } catch (e) {
-        patchShot(shot.id, { lipSyncing: false, error: (e as Error).message });
+        patchShot(shot.id, { lipSyncing: false, error: (e as Error).message, runPhase: undefined });
       }
     },
     [patchShot],
@@ -632,17 +573,19 @@ export function ManjuStudio() {
       bgmMood.trim() ||
       (style.trim() ? `${style.trim()}, cinematic, emotional` : "cinematic emotional orchestral, gentle, ambient");
     setBgmGenerating(true);
+    setBgmProgress(null);
     setAssembleErr(null);
     try {
       const total = shots.reduce((a, s) => a + (s.duration_sec || 3), 0);
       const seconds = Math.min(240, Math.max(20, total || 30));
       const res = await generateAudio({ tags: mood, lyrics: "", seconds });
-      const audio = await trackAudioFilename(res);
+      const audio = await trackAudioFilename(res, setBgmProgress);
       setBgmUrl(imageUrl(audio));
     } catch (e) {
       setAssembleErr((e as Error).message);
     } finally {
       setBgmGenerating(false);
+      setBgmProgress(null);
     }
     // trackAudioFilename 为稳定闭包,不入依赖
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -663,7 +606,7 @@ export function ManjuStudio() {
         return;
       }
       setRefBusy(true);
-      patchCharAt(i, { refStatus: "imaging", refError: undefined });
+      patchCharAt(i, { refStatus: "imaging", refError: undefined, refProgress: null });
       try {
         // 定妆三视图:多视图 turnaround(角色一致性锚定参考),danbooru 标签 + 净背景
         const styleTag = style.trim() ? `, ${style.trim()}` : "";
@@ -683,15 +626,16 @@ export function ManjuStudio() {
           scheduler: "normal",
           batch_size: 1,
         });
-        const filename = await trackRefFilename(res);
+        const filename = await trackRefFilename(res, (pct) => patchCharAt(i, { refProgress: pct }));
         patchCharAt(i, {
           refImage: filename,
           refWorker: res.worker,
           refStatus: "idle",
           refError: undefined,
+          refProgress: null,
         });
       } catch (e) {
-        patchCharAt(i, { refStatus: "error", refError: (e as Error).message });
+        patchCharAt(i, { refStatus: "error", refError: (e as Error).message, refProgress: null });
       } finally {
         setRefBusy(false);
       }
@@ -942,7 +886,7 @@ export function ManjuStudio() {
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={imageUrl(c.refImage)} alt={`${c.name || "角色"} 参考图`} />
                           ) : refImaging ? (
-                            <span className="manju-char-ref-spin" aria-hidden="true" />
+                            <ProgressBar variant="ring" ringSize={34} value={c.refProgress ?? null} />
                           ) : (
                             <span className="manju-char-ref-add" aria-hidden="true">
                               ✦
@@ -1053,6 +997,14 @@ export function ManjuStudio() {
               >
                 {planning ? stage || "拆解中…" : autoMode === "auto" ? "⚡ 生成分镜并全部出图" : "生成分镜"}
               </button>
+              {planning && (
+                <ProgressBar
+                  active
+                  value={null}
+                  label={stage || "AI 拆解分镜中…"}
+                  className="manju-plan-progress"
+                />
+              )}
               {error && <div className="alert">⚠ {error}</div>}
             </section>
           )}
@@ -1237,6 +1189,15 @@ export function ManjuStudio() {
                           {bgmGenerating ? "生成中…" : "✨ AI 配乐"}
                         </button>
                       </div>
+                      {bgmGenerating && (
+                        <ProgressBar
+                          active
+                          tone="voice"
+                          value={bgmProgress}
+                          label="AI 配乐编曲中…"
+                          className="manju-bgm-progress"
+                        />
+                      )}
                       <input
                         id="manju-bgm"
                         value={bgmUrl}
@@ -1282,12 +1243,13 @@ export function ManjuStudio() {
                     </button>
 
                     {assembling && (
-                      <div className="progress" aria-hidden="true">
-                        <div className="progress-track">
-                          <div className="progress-fill indeterminate" />
-                        </div>
-                        <span className="progress-label">拼接中,请稍候…</span>
-                      </div>
+                      <ProgressBar
+                        active
+                        tone="success"
+                        value={assemblePct}
+                        label="合成成片…(下载片段 + ffmpeg 拼接)"
+                        className="manju-assemble-progress"
+                      />
                     )}
 
                     {assembleErr && <div className="alert">⚠ {assembleErr}</div>}

@@ -1,6 +1,7 @@
 "use client";
 
 import { imageUrl } from "@/lib/api";
+import { ProgressBar } from "@/components/ui/ProgressBar";
 
 import type { ShotCard as ShotCardModel } from "./types";
 
@@ -36,6 +37,18 @@ export function ShotCard({
   const statusLabel = STATUS_LABEL[shot.status];
   const no = String(index + 1).padStart(2, "0");
   const hasMedia = !!(shot.videoUrl || shot.imageUrl);
+  // 该卡当前操作 → 进度环文案 / 配色 / 进度来源(出图·转视频走真采样进度;配音同步走不确定态)
+  const busyPhase = shot.lipSyncing
+    ? "对口型"
+    : shot.voicing
+      ? "配音中"
+      : shot.status === "imaging"
+        ? shot.runPhase === "video"
+          ? "转视频"
+          : "出图中"
+        : null;
+  const busyTone: "voice" | "accent" = shot.voicing || shot.lipSyncing ? "voice" : "accent";
+  const busyValue = shot.voicing ? null : shot.progress ?? null;
 
   return (
     <article
@@ -77,7 +90,12 @@ export function ShotCard({
           </div>
         )}
 
-        {shot.status === "imaging" && <div className="manju-shot-spinner" aria-label="出图中" />}
+        {busyPhase && (
+          <div className="manju-shot-progress" aria-label={busyPhase}>
+            <ProgressBar variant="ring" ringSize={46} tone={busyTone} value={busyValue} />
+            <span className="manju-shot-progress-cap">{busyPhase}</span>
+          </div>
+        )}
 
         {/* 角标:状态 / 视频 / 配音标记,克制玻璃片 */}
         {shot.videoUrl && <span className="manju-shot-badge st-video">▶ 视频</span>}

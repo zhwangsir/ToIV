@@ -165,7 +165,18 @@ export function AudioStudio() {
             <span className="l">首作品</span>
           </div>
         </header>
-        <ProgressBar status={status} progress={progress} />
+        <ProgressBar
+          active={busy}
+          tone="voice"
+          value={progress.max > 0 ? Math.round((progress.value / progress.max) * 100) : null}
+          label={
+            status === "queued"
+              ? "已入队，等待 GPU…"
+              : progress.max > 0
+                ? `编曲中 ${progress.value}/${progress.max} 步`
+                : "编曲中…"
+          }
+        />
         {error && <div className="alert">⚠ {error}</div>}
         {tracks.length === 0 ? (
           <div className="editorial-empty">

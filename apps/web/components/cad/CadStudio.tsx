@@ -1,10 +1,13 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-import { cadAxon, cadRender, cadUpload, imageUrl, jobEventsUrl } from "@/lib/api";
+import { useActivity } from "@/components/nav/ActivityContext";
+import { ProgressBar } from "@/components/ui/ProgressBar";
+import { useFauxProgress } from "@/hooks/useFauxProgress";
+import { cadAxon, cadRender, cadUpload, imageUrl } from "@/lib/api";
 import type { CadGeometry } from "@/lib/api";
-import type { GenerateResponse } from "@/lib/types";
+import { trackJob } from "@/lib/trackJob";
 
 interface OutputDef {
   key: string;
@@ -48,9 +51,38 @@ export function CadStudio() {
   const [style, setStyle] = useState("");
   const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [progress, setProgress] = useState<number | null>(null);
   const [results, setResults] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const esRef = useRef<EventSource | null>(null);
+
+  const { setActivity, clearActivity } = useActivity();
+  // 上传 + 服务端转换(DWG→几何→线稿)无中间进度 → 估算条给进度感
+  const convertPct = useFauxProgress(uploading, 6000);
+
+  useEffect(() => () => esRef.current?.close(), []);
+
+  // 把本地出图态映射到灵动岛活动(全局可见):busy→running,结束→done 脉冲后收回。
+  const wasBusy = useRef(false);
+  useEffect(() => {
+    if (busy) {
+      const label = OUTPUTS.find((o) => o.key === busy)?.label ?? "生成设计图";
+      const det = busy !== "axon" && progress !== null;
+      setActivity({
+        kind: "image",
+        label,
+        value: det ? progress : null,
+        max: det ? 100 : null,
+        phase: "running",
+      });
+      wasBusy.current = true;
+    } else if (wasBusy.current) {
+      wasBusy.current = false;
+      setActivity({ kind: "image", label: "设计图完成", value: 100, max: 100, phase: "done" });
+      const id = window.setTimeout(() => clearActivity(), 760);
+      return () => window.clearTimeout(id);
+    }
+  }, [busy, progress, setActivity, clearActivity]);
 
   const onFile = useCallback(async (file: File) => {
     setUploading(true);
@@ -70,32 +102,12 @@ export function CadStudio() {
     }
   }, []);
 
-  const trackJob = (res: GenerateResponse) =>
-    new Promise<string>((resolve, reject) => {
-      const es = new EventSource(jobEventsUrl(res.prompt_id, res.client_id, res.worker));
-      esRef.current = es;
-      let done = false;
-      es.addEventListener("done", (e) => {
-        done = true;
-        const d = JSON.parse((e as MessageEvent).data);
-        const first: string | undefined = (d.images ?? [])[0];
-        es.close();
-        if (first) resolve(imageUrl(first));
-        else reject(new Error("没有产出图片"));
-      });
-      es.addEventListener("error", (e) => {
-        const data = (e as MessageEvent).data;
-        if (!data && done) return;
-        es.close();
-        reject(new Error(data ? JSON.parse(data).message ?? "出图出错" : "与服务器连接中断"));
-      });
-    });
-
   const runOutput = useCallback(
     async (out: OutputDef) => {
       if (busy || !controlUrl) return;
       setBusy(out.key);
       setError(null);
+      setProgress(null);
       try {
         if (out.key === "axon") {
           if (!geometry || (geometry.walls.length === 0 && geometry.racks.length === 0)) {
@@ -113,13 +125,21 @@ export function CadStudio() {
             width: dims.w,
             height: dims.h,
           });
-          const url = await trackJob(res);
-          setResults((p) => ({ ...p, [out.key]: url }));
+          const paths = await trackJob(res, {
+            onProgress: (p) => setProgress(p.pct),
+            register: (es) => {
+              esRef.current = es;
+            },
+          });
+          const first = paths[0];
+          if (!first) throw new Error("没有产出图片");
+          setResults((p) => ({ ...p, [out.key]: imageUrl(first) }));
         }
       } catch (e) {
         setError(`${out.label}:${(e as Error).message}`);
       } finally {
         setBusy(null);
+        setProgress(null);
       }
     },
     [busy, controlUrl, geometry, srcDims, space, style],
@@ -131,6 +151,8 @@ export function CadStudio() {
       await runOutput(out);
     }
   }, [geometry, runOutput]);
+
+  const busyLabel = busy ? OUTPUTS.find((o) => o.key === busy)?.label ?? "" : "";
 
   return (
     <div className="cad-studio">
@@ -144,23 +166,34 @@ export function CadStudio() {
       {error && <div className="alert cad-alert">⚠ {error}</div>}
 
       {!controlUrl ? (
-        <label className={`cad-drop${uploading ? " busy" : ""}`}>
-          <input
-            type="file"
-            accept=".dwg,.dxf,.png,.jpg,.jpeg,.webp"
-            disabled={uploading}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void onFile(f);
-              e.target.value = "";
-            }}
-          />
-          <span className="cad-drop-icon" aria-hidden="true">
-            ⊕
-          </span>
-          <span className="cad-drop-title">{uploading ? "转换中…" : "上传图纸"}</span>
-          <span className="cad-drop-hint">DWG / DXF / 平面图片,拖入或点击</span>
-        </label>
+        <div className="cad-upload">
+          <label className={`cad-drop${uploading ? " busy" : ""}`}>
+            <input
+              type="file"
+              accept=".dwg,.dxf,.png,.jpg,.jpeg,.webp"
+              disabled={uploading}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void onFile(f);
+                e.target.value = "";
+              }}
+            />
+            <span className="cad-drop-icon" aria-hidden="true">
+              ⊕
+            </span>
+            <span className="cad-drop-title">{uploading ? "解析图纸中…" : "上传图纸"}</span>
+            <span className="cad-drop-hint">DWG / DXF / 平面图片,拖入或点击</span>
+          </label>
+          {uploading && (
+            <ProgressBar
+              active
+              value={convertPct}
+              tone="cool"
+              label="解析图纸中…(DWG → 几何 → 线稿)"
+              className="cad-convert-progress"
+            />
+          )}
+        </div>
       ) : (
         <div className="cad-work">
           <aside className="cad-source">
@@ -227,6 +260,16 @@ export function CadStudio() {
                 ⚡ 全套生成
               </button>
             </div>
+
+            {busy && (
+              <ProgressBar
+                active
+                tone="cool"
+                value={busy === "axon" ? null : progress}
+                label={busy === "axon" ? "渲染轴测体量…" : `正在生成「${busyLabel}」…`}
+                className="cad-run-progress"
+              />
+            )}
 
             <div className="cad-gallery">
               {OUTPUTS.filter((o) => results[o.key]).map((o) => (

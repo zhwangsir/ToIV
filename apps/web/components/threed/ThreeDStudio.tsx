@@ -168,7 +168,17 @@ export function ThreeDStudio() {
             <span className="l">个模型</span>
           </div>
         </header>
-        <ProgressBar status={status} progress={progress} />
+        <ProgressBar
+          active={busy}
+          value={progress.max > 0 ? Math.round((progress.value / progress.max) * 100) : null}
+          label={
+            status === "queued"
+              ? "已入队，等待 GPU…"
+              : progress.max > 0
+                ? `采样中 ${progress.value}/${progress.max} 步`
+                : "体素解码中…(Hunyuan3D 较慢，请耐心)"
+          }
+        />
         {error && <div className="alert">⚠ {error}</div>}
         {!latest ? (
           <div className="editorial-empty">
