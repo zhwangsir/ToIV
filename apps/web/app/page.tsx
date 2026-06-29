@@ -6,14 +6,11 @@ import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { AuthScreen } from "@/components/auth/AuthScreen";
 import { AdminPanel } from "@/components/admin/AdminPanel";
 import { AssistantView } from "@/components/assistant/AssistantView";
-import { AudioStudio } from "@/components/audio/AudioStudio";
 import { CanvasStudio } from "@/components/canvas/CanvasStudio";
 import { CreateStudio } from "@/components/create/CreateStudio";
 import { LibraryView } from "@/components/library/LibraryView";
 import { ManjuStudio } from "@/components/manju/ManjuStudio";
-import { CadStudio } from "@/components/cad/CadStudio";
 import { ModelLibrary } from "@/components/models/ModelLibrary";
-import { ThreeDStudio } from "@/components/threed/ThreeDStudio";
 import { ActivityProvider } from "@/components/nav/ActivityContext";
 import { NsfwProvider } from "@/components/nav/NsfwContext";
 import { DynamicIsland, type IslandView } from "@/components/nav/DynamicIsland";
@@ -23,17 +20,15 @@ import type { AuthResult } from "@/lib/api";
 
 type AuthState = "loading" | "in" | "out";
 
-type View = "assistant" | "create" | "canvas" | "manju" | "cad" | "threed" | "audio" | "library" | "models" | "admin";
+type View = "assistant" | "create" | "canvas" | "manju" | "library" | "models" | "admin";
 
 // 合法深链视图(/?view=<模块>);从 /engine 落地页能力卡进入时初始化对应视图。
+// 3D / 音频 已收进「创作」的 mode;设计(CAD)已拆为独立 BIM 项目,故不再是顶层视图。
 const VALID_VIEWS = new Set<View>([
   "assistant",
   "create",
   "canvas",
   "manju",
-  "cad",
-  "threed",
-  "audio",
   "library",
   "models",
   "admin",
@@ -99,12 +94,9 @@ export default function Home() {
       { key: "create", label: "创作", icon: "image" },
       { key: "canvas", label: "画布", icon: "image" },
       { key: "manju", label: "漫剧", icon: "video" },
-      { key: "cad", label: "设计", icon: "image" },
-      { key: "threed", label: "3D", icon: "threed" },
       { key: "library", label: "作品库", icon: "library" },
       { key: "models", label: "模型", icon: "models" },
       ...(isAdmin ? [{ key: "admin", label: "管理", icon: "admin" }] : []),
-      { key: "audio", label: "音频", icon: "audio" },
     ],
     [isAdmin],
   );
@@ -147,14 +139,10 @@ export default function Home() {
                 <div className="single-view">
                   <AssistantView />
                 </div>
-              ) : view === "create" ? (
-                <CreateStudio />
               ) : view === "canvas" ? (
                 <CanvasStudio />
               ) : view === "manju" ? (
                 <ManjuStudio />
-              ) : view === "cad" ? (
-                <CadStudio />
               ) : view === "admin" ? (
                 <div className="single-view">
                   <AdminPanel />
@@ -167,10 +155,8 @@ export default function Home() {
                 <div className="single-view">
                   <ModelLibrary />
                 </div>
-              ) : view === "threed" ? (
-                <ThreeDStudio />
               ) : (
-                <AudioStudio />
+                <CreateStudio />
               )}
             </motion.div>
           </AnimatePresence>
