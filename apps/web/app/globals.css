@@ -6190,3 +6190,14 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .manju-mix-row input[type="range"] { flex: 1; accent-color: var(--accent); }
 .manju-mix-val { font-size: 0.76rem; font-weight: 600; color: var(--ink); min-width: 2.8rem; text-align: right; font-variant-numeric: tabular-nums; }
 .manju-mix .manju-export-check { margin-top: 0.5rem; }
+
+/* 漫剧调色预设 chip(P3) */
+.manju-grades { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.manju-grades button {
+  font: inherit; font-size: 0.78rem; padding: 0.35rem 0.7rem;
+  background: var(--glass); border: 1px solid var(--hairline);
+  border-radius: 999px; color: var(--ink-soft); cursor: pointer;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.manju-grades button:hover { color: var(--ink); border-color: var(--hairline-2); }
+.manju-grades button.active { background: var(--accent-quiet); border-color: var(--accent-line); color: var(--accent-soft); }

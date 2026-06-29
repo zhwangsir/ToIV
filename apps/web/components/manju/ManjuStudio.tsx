@@ -118,6 +118,8 @@ export function ManjuStudio() {
   const [voiceVol, setVoiceVol] = useState(1.0);
   const [bgmVol, setBgmVol] = useState(0.35);
   const [duck, setDuck] = useState(true);
+  // 调色滤镜(P3):全片统一色调
+  const [grade, setGrade] = useState("none");
   const [bgmUrl, setBgmUrl] = useState("");
   const [bgmMood, setBgmMood] = useState("");
   const [bgmGenerating, setBgmGenerating] = useState(false);
@@ -602,6 +604,7 @@ export function ManjuStudio() {
           voice_volume: voiceVol,
           bgm_volume: bgmVol,
           duck,
+          grade,
         },
         voiceUrls,
         clipDurations,
@@ -612,7 +615,7 @@ export function ManjuStudio() {
     } finally {
       setAssembling(false);
     }
-  }, [assembling, shots, timeline, withSubs, transition, bgmUrl, aspect, titleText, creditsText, voiceVol, bgmVol, duck]);
+  }, [assembling, shots, timeline, withSubs, transition, bgmUrl, aspect, titleText, creditsText, voiceVol, bgmVol, duck, grade]);
 
   // AI 配乐:用 ACE-Step 按情绪/风格生成 BGM(时长跟成片),产物填入 bgmUrl。
   const generateBgm = useCallback(async () => {
@@ -1262,6 +1265,31 @@ export function ManjuStudio() {
                       {bgmUrl && (
                         <audio className="manju-bgm-preview" src={bgmUrl} controls preload="none" />
                       )}
+                    </div>
+
+                    {/* 调色滤镜(P3):全片统一电影级色调 */}
+                    <div className="field">
+                      <label>调色</label>
+                      <div className="manju-grades">
+                        {[
+                          { v: "none", label: "原色" },
+                          { v: "cinematic", label: "电影感" },
+                          { v: "warm", label: "暖调" },
+                          { v: "cool", label: "冷调" },
+                          { v: "vivid", label: "鲜艳" },
+                          { v: "vintage", label: "复古" },
+                          { v: "bw", label: "黑白" },
+                        ].map((g) => (
+                          <button
+                            key={g.v}
+                            type="button"
+                            className={grade === g.v ? "active" : ""}
+                            onClick={() => setGrade(g.v)}
+                          >
+                            {g.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
                     {/* 专业混音(P2):逐轨音量 + BGM 对白闪避 */}

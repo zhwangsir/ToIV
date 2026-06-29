@@ -999,6 +999,8 @@ export interface AssembleOptions {
   voice_volume?: number;
   bgm_volume?: number;
   duck?: boolean;
+  /** 调色滤镜(P3):none/cinematic/warm/cool/bw/vivid/vintage。 */
+  grade?: string;
 }
 
 export interface AssembleResult {

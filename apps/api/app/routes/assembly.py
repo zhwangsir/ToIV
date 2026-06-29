@@ -55,6 +55,18 @@ _CLIP_EST_SEC = 2.0  # xfade offset 估计:每片段约 2s(漫剧片段普遍偏
 _DOWNLOAD_TIMEOUT = 120.0
 _LOCAL_API_BASE = "http://127.0.0.1:8080"
 
+# 调色滤镜预设(P3):全片统一电影级色调。值为 ffmpeg 视频滤镜串(接每镜链尾)。
+# 故意只用 eq/colorbalance/hue/curves=preset(无内嵌引号),避免 filtergraph 转义坑。
+_GRADES: dict[str, str] = {
+    "none": "",
+    "cinematic": "eq=contrast=1.06:saturation=1.05,colorbalance=rs=0.06:bs=-0.06:rm=0.04:bm=-0.04:rh=-0.04:bh=0.06",
+    "warm": "colorbalance=rs=0.12:gs=0.04:bs=-0.12:rm=0.06:bm=-0.06,eq=saturation=1.08",
+    "cool": "colorbalance=rs=-0.10:bs=0.12:rm=-0.05:bm=0.06,eq=saturation=1.02",
+    "bw": "hue=s=0,eq=contrast=1.10",
+    "vivid": "eq=saturation=1.35:contrast=1.08:brightness=0.02",
+    "vintage": "curves=preset=vintage,eq=saturation=0.92",
+}
+
 
 def _find_cjk_font() -> str:
     """解析容器内 CJK 字体路径(fonts-noto-cjk),供 drawtext 渲染中文字幕/卡。"""
@@ -85,6 +97,8 @@ class AssembleOptions(BaseModel):
     voice_volume: float = Field(default=1.0, ge=0.0, le=2.0)
     bgm_volume: float = Field(default=0.35, ge=0.0, le=1.0)
     duck: bool = Field(default=True)
+    # 调色滤镜(P3):none/cinematic/warm/cool/bw/vivid/vintage —— 全片统一电影级色调
+    grade: str = Field(default="none", max_length=20)
 
 
 class AssembleRequest(BaseModel):
@@ -235,6 +249,10 @@ def _build_ffmpeg_command(
             f"fps={options.fps}",
             "format=yuv420p",
         ]
+        # 调色滤镜(P3):全片统一色调(接在缩放/裁切之后、字幕之前)
+        grade = _GRADES.get(options.grade, "")
+        if grade:
+            chain.append(grade)
         sub = _subtitle_filter(subs[i]) if i < len(subs) and subs[i].strip() else ""
         if sub:
             chain.append(sub)
