@@ -75,6 +75,38 @@ def _resolve(url: str) -> str:
     return _LOCAL_API + (url if url.startswith("/") else "/" + url)
 
 
+def _cad_local_name(url: str) -> str | None:
+    """若 url 指向本服务的 CAD 文件端点,返回其文件名(供直接读盘,免鉴权 HTTP 回拉)。"""
+    path = urlsplit(url).path if "://" in url else url
+    prefix = "/api/cad/file/"
+    if path.startswith(prefix):
+        name = path[len(prefix):]
+        if _NAME_RE.match(name):
+            return name
+    return None
+
+
+async def _load_control_bytes(url: str) -> bytes:
+    """取控制图字节。
+
+    本服务上传产生的 CAD 线稿直接读盘 —— 回拉自身鉴权端点 /cad/file/{name} 会 401
+    (内部请求无 token),且多一次网络往返。其余来源(worker 产物等)走白名单 HTTP 下载。
+    """
+    name = _cad_local_name(url)
+    if name:
+        path = _CAD_DIR / name
+        if not path.is_file():
+            raise HTTPException(status_code=404, detail="控制图不存在(可能已过期),请重新上传图纸")
+        return path.read_bytes()
+    async with httpx.AsyncClient(timeout=_DL_TIMEOUT, follow_redirects=True) as http:
+        try:
+            r = await http.get(_resolve(url))
+            r.raise_for_status()
+            return r.content
+        except httpx.HTTPError as e:
+            raise HTTPException(status_code=502, detail=f"控制图下载失败:{e}") from e
+
+
 @router.post("/cad/upload")
 def cad_upload(file: UploadFile, user: User = Depends(get_current_user)) -> dict:
     """上传 DWG/DXF/图 → 服务端转换为干净线稿 + 几何(同步,跑在 threadpool)。"""
@@ -130,14 +162,9 @@ async def cad_render(
 
     control_fn = ""
     if needs_control:
-        async with httpx.AsyncClient(timeout=_DL_TIMEOUT, follow_redirects=True) as http:
-            try:
-                r = await http.get(_resolve(body.control_url))
-                r.raise_for_status()
-            except httpx.HTTPError as e:
-                raise HTTPException(status_code=502, detail=f"控制图下载失败:{e}") from e
+        content = await _load_control_bytes(body.control_url)
         try:
-            control_fn = await client.upload_image(r.content, f"cad_ctrl_{uuid.uuid4().hex}.png")
+            control_fn = await client.upload_image(content, f"cad_ctrl_{uuid.uuid4().hex}.png")
         except ComfyUIError as e:
             raise HTTPException(status_code=502, detail=f"上传 worker 失败:{e}") from e
 
