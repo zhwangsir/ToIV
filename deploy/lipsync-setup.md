@@ -18,18 +18,31 @@ hf download ByteDance/LatentSync-1.6 \
 - `latentsync_unet.pt`
 - `whisper/tiny.pt`
 
-## 坑 ①:torchcodec 写视频失败
-comfy venv 是 **torch 2.10 / torchvision 0.25**,`torchvision.io.write_video` 已委托给
-`torchcodec`,而 torchcodec 的 `libtorchcodec_core*.dll` 在本机加载失败(缺 FFmpeg 共享库)。
+## 坑 ①:torchcodec(torch 2.10 / torchvision 0.25)—— 已解决
+comfy venv 是 **torch 2.10.0+cu130 / torchvision 0.25**。我曾 `pip install torchcodec` 但其
+`libtorchcodec_core*.dll` 与 torch 2.10/cu130 不配、加载失败(缺匹配 FFmpeg)。
 
-**修复**(已打补丁,改 wrapper 让其走 **av(pyav,自带 FFmpeg)** 兜底):
-`nodes.py` 写视频段的 `except TypeError as e:` → `except Exception as e:`
-(io.write_video 抛 ImportError/OSError 时落到已有的 av 写分支)。备份:`nodes.py.toivbak`。
-已验证 av 在 comfy venv 能写 h264 mp4(无需 torchcodec)。
+**实测诊断(关键)**:**卸载 torchcodec** 后 —— `io.write_video` / `io.read_video` 各自有
+非 torchcodec 路径、**正常工作**;唯独 `torchaudio.save` 硬依赖 torchcodec。
 
-## 生效
-补丁改的是磁盘上的 `nodes.py`,**ComfyUI 进程需重启**才会重载 —— 重启任一 worker 即激活
-(4 进程共享同一安装)。激活后逐镜「对口型」即可跑通。
+**最终修复(已落)**:
+1. `pip uninstall -y torchcodec`(让 write/read 走自带路径)。
+2. patch `nodes.py`:`torchaudio.save(audio_path, waveform_cpu, sr)` →
+   `import soundfile as _sf; _sf.write(audio_path, waveform_cpu.numpy().T, sr)`。
+   (另有一处 write_video 的 `except TypeError`→`except Exception` 兜底,现非必需,无害保留。)
+备份:`nodes.py.toivbak`。
+
+## 生效(已做)
+补丁改磁盘 `nodes.py` + 卸 torchcodec 是 venv 级,**ComfyUI 需重启重载**。
+**已滚动重启全部 4 个 worker(8000/8002/8003/8004)**,补丁全激活。
+重启脚本 = 重跑 `F:\toiv_worker{0-3}.bat`(net use NAS + comfy --port --cuda-device),
+经 schtasks 脱离 SSH。**E2E 验证**:管线端到端跑通到人脸检测(无 torchcodec 报错)。
+
+## ⚠ 已确认的硬局限:不支持动漫脸
+实测:生成动漫近景脸 → LatentSync **"Face not detected"**。LatentSync 人脸检测+同步模型
+训练于**真人脸**,**对动漫脸不工作**。故对口型仅适用**写实层(电视剧/电影)**。
+**漫剧/动漫的口型需换方案** —— worker 已装 **MultiTalk(WanVideoImageToVideoMultiTalk)/
+FantasyTalking**(音频驱动生成,Wan 系,可能支持动漫),待评估/接入。
 
 ## 工作流链
 ```
