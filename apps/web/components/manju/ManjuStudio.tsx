@@ -114,6 +114,10 @@ export function ManjuStudio() {
   // 导出 / 自动剪辑
   const [transition, setTransition] = useState<ManjuTransition>("crossfade");
   const [withSubs, setWithSubs] = useState(true);
+  // 专业混音(P2):对白/BGM 音量 + BGM 对白闪避(对白响时压低 BGM)
+  const [voiceVol, setVoiceVol] = useState(1.0);
+  const [bgmVol, setBgmVol] = useState(0.35);
+  const [duck, setDuck] = useState(true);
   const [bgmUrl, setBgmUrl] = useState("");
   const [bgmMood, setBgmMood] = useState("");
   const [bgmGenerating, setBgmGenerating] = useState(false);
@@ -595,6 +599,9 @@ export function ManjuStudio() {
           aspect,
           title: titleText.trim(),
           credits: creditsText.trim(),
+          voice_volume: voiceVol,
+          bgm_volume: bgmVol,
+          duck,
         },
         voiceUrls,
         clipDurations,
@@ -605,7 +612,7 @@ export function ManjuStudio() {
     } finally {
       setAssembling(false);
     }
-  }, [assembling, shots, timeline, withSubs, transition, bgmUrl, aspect, titleText, creditsText]);
+  }, [assembling, shots, timeline, withSubs, transition, bgmUrl, aspect, titleText, creditsText, voiceVol, bgmVol, duck]);
 
   // AI 配乐:用 ACE-Step 按情绪/风格生成 BGM(时长跟成片),产物填入 bgmUrl。
   const generateBgm = useCallback(async () => {
@@ -1255,6 +1262,41 @@ export function ManjuStudio() {
                       {bgmUrl && (
                         <audio className="manju-bgm-preview" src={bgmUrl} controls preload="none" />
                       )}
+                    </div>
+
+                    {/* 专业混音(P2):逐轨音量 + BGM 对白闪避 */}
+                    <div className="field manju-mix">
+                      <label>混音</label>
+                      <div className="manju-mix-row">
+                        <span className="manju-mix-label">对白</span>
+                        <input
+                          type="range"
+                          min={0}
+                          max={2}
+                          step={0.1}
+                          value={voiceVol}
+                          onChange={(e) => setVoiceVol(parseFloat(e.target.value))}
+                          aria-label="对白音量"
+                        />
+                        <span className="manju-mix-val">{Math.round(voiceVol * 100)}%</span>
+                      </div>
+                      <div className="manju-mix-row">
+                        <span className="manju-mix-label">BGM</span>
+                        <input
+                          type="range"
+                          min={0}
+                          max={1}
+                          step={0.05}
+                          value={bgmVol}
+                          onChange={(e) => setBgmVol(parseFloat(e.target.value))}
+                          aria-label="BGM 音量"
+                        />
+                        <span className="manju-mix-val">{Math.round(bgmVol * 100)}%</span>
+                      </div>
+                      <label className="manju-export-check">
+                        <input type="checkbox" checked={duck} onChange={(e) => setDuck(e.target.checked)} />
+                        <span>BGM 对白闪避(说话时自动压低 BGM,保人声清晰)</span>
+                      </label>
                     </div>
 
                     <div className="manju-bookends">

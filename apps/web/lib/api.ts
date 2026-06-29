@@ -995,6 +995,10 @@ export interface AssembleOptions {
   aspect?: ManjuAspect;
   title?: string;
   credits?: string;
+  /** 专业混音(P2):对白音量(0-2)/ BGM 音量(0-1)/ BGM 对白闪避。 */
+  voice_volume?: number;
+  bgm_volume?: number;
+  duck?: boolean;
 }
 
 export interface AssembleResult {

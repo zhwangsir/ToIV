@@ -6183,3 +6183,10 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .mtl-inspect input[type="range"] { flex: 1; accent-color: var(--accent); }
 .mtl-inspect-val { font-size: 0.78rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; min-width: 2.6rem; text-align: right; }
 .mtl-hint { font-size: 0.72rem; color: var(--ink-faint); }
+
+/* 漫剧混音控件(P2:逐轨音量 + 闪避) */
+.manju-mix-row { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.4rem; }
+.manju-mix-label { font-size: 0.78rem; color: var(--ink-soft); min-width: 2.4rem; }
+.manju-mix-row input[type="range"] { flex: 1; accent-color: var(--accent); }
+.manju-mix-val { font-size: 0.76rem; font-weight: 600; color: var(--ink); min-width: 2.8rem; text-align: right; font-variant-numeric: tabular-nums; }
+.manju-mix .manju-export-check { margin-top: 0.5rem; }

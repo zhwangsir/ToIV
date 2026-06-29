@@ -81,6 +81,10 @@ class AssembleOptions(BaseModel):
     aspect: str = Field(default="16:9")  # 16:9 横屏 / 9:16 竖屏 / 1:1 方屏(多平台)
     title: str = Field(default="", max_length=120)  # 片头标题卡(空=无)
     credits: str = Field(default="", max_length=600)  # 片尾字幕卡(空=无)
+    # 专业混音(P2):逐轨音量 + BGM 闪避(对白响时自动压低 BGM,保人声清晰)
+    voice_volume: float = Field(default=1.0, ge=0.0, le=2.0)
+    bgm_volume: float = Field(default=0.35, ge=0.0, le=1.0)
+    duck: bool = Field(default=True)
 
 
 class AssembleRequest(BaseModel):
@@ -259,7 +263,7 @@ def _build_ffmpeg_command(
     else:
         vout = vlabels[0]
 
-    # ---- 音频:逐镜配音对齐 + 可选 BGM ----
+    # ---- 音频:逐镜配音对齐(逐轨音量)+ 可选 BGM(可对白闪避)----
     aout: str | None = None
     if has_voice:
         offsets: list[float] = []
@@ -268,26 +272,45 @@ def _build_ffmpeg_command(
             offsets.append(acc)
             acc += d
         total = acc or _CLIP_EST_SEC
+        vvol = options.voice_volume
         dia_labels: list[str] = []
         for clip_i, in_idx in voice_inputs:
             off_ms = int(offsets[clip_i] * 1000) if clip_i < len(offsets) else 0
             lbl = f"d{clip_i}"
-            # 延迟到该镜起始 + 统一声道布局,便于 amix
+            # 延迟到该镜起始 + 对白音量 + 统一声道布局,便于 amix/sidechain
             filters.append(
-                f"[{in_idx}:a]adelay={off_ms}|{off_ms},aformat=channel_layouts=stereo[{lbl}]"
+                f"[{in_idx}:a]adelay={off_ms}|{off_ms},volume={vvol:.2f},aformat=channel_layouts=stereo[{lbl}]"
             )
             dia_labels.append(f"[{lbl}]")
-        mix_labels = list(dia_labels)
-        if bgm is not None:
-            filters.append(f"[{bgm_idx}:a]volume=0.35,aformat=channel_layouts=stereo[bg]")
-            mix_labels.append("[bg]")
-        if len(mix_labels) == 1:
-            filters.append(f"{mix_labels[0]}apad,atrim=0:{total:.2f}[aout]")
+        # 合成单条对白轨 [dia]
+        if len(dia_labels) == 1:
+            dia = dia_labels[0]
         else:
             filters.append(
-                f"{''.join(mix_labels)}amix=inputs={len(mix_labels)}:normalize=0:dropout_transition=0[mix];"
-                f"[mix]apad,atrim=0:{total:.2f}[aout]"
+                f"{''.join(dia_labels)}amix=inputs={len(dia_labels)}:normalize=0:dropout_transition=0[dia]"
             )
+            dia = "[dia]"
+        if bgm is not None:
+            filters.append(
+                f"[{bgm_idx}:a]volume={options.bgm_volume:.2f},aformat=channel_layouts=stereo[bg]"
+            )
+            if options.duck:
+                # 对白做 sidechain key:对白响 → 压低 BGM(保人声)。asplit 复用对白轨(一路压制一路入混)
+                filters.append(f"{dia}asplit=2[diak][diam]")
+                filters.append(
+                    "[bg][diak]sidechaincompress=threshold=0.03:ratio=8:attack=20:release=350[bgd]"
+                )
+                filters.append(
+                    f"[diam][bgd]amix=inputs=2:normalize=0:dropout_transition=0[mix];"
+                    f"[mix]apad,atrim=0:{total:.2f}[aout]"
+                )
+            else:
+                filters.append(
+                    f"{dia}[bg]amix=inputs=2:normalize=0:dropout_transition=0[mix];"
+                    f"[mix]apad,atrim=0:{total:.2f}[aout]"
+                )
+        else:
+            filters.append(f"{dia}apad,atrim=0:{total:.2f}[aout]")
         aout = "aout"
 
     cmd += ["-filter_complex", ";".join(filters), "-map", f"[{vout}]"]
