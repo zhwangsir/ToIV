@@ -13,6 +13,7 @@ interface ShotInspectorProps {
   onImage: (id: string) => void;
   onVideo: (id: string) => void;
   onVoice: (id: string) => void;
+  onLipsync: (id: string) => void;
 }
 
 /** 右侧选中镜头属性面板:可编辑出图提示词 / 台词,AI 润色,并触发出图 / 转视频。 */
@@ -24,6 +25,7 @@ export function ShotInspector({
   onImage,
   onVideo,
   onVoice,
+  onLipsync,
 }: ShotInspectorProps) {
   if (!shot) {
     return (
@@ -169,6 +171,15 @@ export function ShotInspector({
           title={shot.dialogue.trim() ? "用本镜台词合成配音" : "先填台词再配音"}
         >
           {shot.voicing ? "配音中…" : shot.voiceUrl ? "重配音" : "配音"}
+        </button>
+        <button
+          type="button"
+          className="manju-secondary-btn"
+          disabled={busy || shot.lipSyncing || !shot.videoUrl || !shot.voiceUrl}
+          onClick={() => onLipsync(shot.id)}
+          title={shot.videoUrl && shot.voiceUrl ? "让角色嘴型对上配音(LatentSync)" : "需先有视频和配音"}
+        >
+          {shot.lipSyncing ? "对口型中…" : shot.lipSynced ? "↻ 重对口型" : "👄 对口型"}
         </button>
       </div>
     </aside>

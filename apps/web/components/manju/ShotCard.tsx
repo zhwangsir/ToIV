@@ -13,6 +13,7 @@ interface ShotCardProps {
   onImage: (id: string) => void;
   onVideo: (id: string) => void;
   onVoice: (id: string) => void;
+  onLipsync: (id: string) => void;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -30,6 +31,7 @@ export function ShotCard({
   onImage,
   onVideo,
   onVoice,
+  onLipsync,
 }: ShotCardProps) {
   const statusLabel = STATUS_LABEL[shot.status];
   const no = String(index + 1).padStart(2, "0");
@@ -136,6 +138,21 @@ export function ShotCard({
               title={shot.dialogue ? "用本镜台词合成配音" : "先填台词再配音"}
             >
               {shot.voicing ? "配音中…" : shot.voiceUrl ? "重配音" : "配音"}
+            </button>
+            <button
+              type="button"
+              disabled={busy || shot.lipSyncing || !shot.videoUrl || !shot.voiceUrl}
+              onClick={(e) => {
+                e.stopPropagation();
+                onLipsync(shot.id);
+              }}
+              title={
+                shot.videoUrl && shot.voiceUrl
+                  ? "让角色嘴型对上配音(LatentSync)"
+                  : "需先有视频和配音"
+              }
+            >
+              {shot.lipSyncing ? "对口型中…" : shot.lipSynced ? "↻ 口型" : "👄 对口型"}
             </button>
           </div>
 

@@ -10,6 +10,7 @@ import {
   generateVideo,
   imageUrl,
   jobEventsUrl,
+  lipsyncManjuShot,
   listModels,
   renderManjuShot,
   saveManjuShots,
@@ -190,6 +191,51 @@ export function ManjuStudio() {
         reject(
           new Error(data ? JSON.parse(data).message ?? "配乐生成出错" : "与服务器连接中断"),
         );
+      });
+    });
+
+  // 跟踪对口型作业:完成 → 用口型同步视频替换 videoUrl(配音仍由成片对白轨提供,口型对齐)
+  const trackLipsync = (id: string, res: GenerateResponse) =>
+    new Promise<void>((resolve) => {
+      const es = new EventSource(jobEventsUrl(res.prompt_id, res.client_id, res.worker));
+      esRef.current = es;
+      let done = false;
+      es.addEventListener("done", (e) => {
+        done = true;
+        const d = JSON.parse((e as MessageEvent).data);
+        const first: string | undefined = (d.images ?? [])[0];
+        if (first) {
+          patchShot(id, {
+            videoUrl: imageUrl(first),
+            lipSyncing: false,
+            lipSynced: true,
+            status: "video",
+          });
+        } else {
+          patchShot(id, { lipSyncing: false, error: "对口型没有产出视频" });
+        }
+        es.close();
+        resolve();
+      });
+      es.addEventListener("error", (e) => {
+        const data = (e as MessageEvent).data;
+        if (!data && done) {
+          resolve();
+          return;
+        }
+        let msg = "对口型出错";
+        if (data) {
+          try {
+            msg = JSON.parse(data).message;
+          } catch {
+            /* keep */
+          }
+        } else {
+          msg = "与服务器连接中断";
+        }
+        patchShot(id, { lipSyncing: false, error: msg });
+        es.close();
+        resolve();
       });
     });
 
@@ -483,6 +529,42 @@ export function ManjuStudio() {
       }
     },
     [shots, busy, voiceOne],
+  );
+
+  // 单镜对口型:源视频 + 配音 → LatentSync 让嘴型对上台词,完成后替换 videoUrl
+  const lipsyncOne = useCallback(
+    async (shot: ShotCardModel) => {
+      if (!shot.videoUrl || !shot.voiceUrl) {
+        patchShot(shot.id, { error: "需先有视频和配音才能对口型" });
+        return;
+      }
+      patchShot(shot.id, { lipSyncing: true, error: undefined });
+      try {
+        const res = await lipsyncManjuShot({
+          video_url: shot.videoUrl,
+          voice_url: imageUrl(shot.voiceUrl),
+        });
+        await trackLipsync(shot.id, res);
+      } catch (e) {
+        patchShot(shot.id, { lipSyncing: false, error: (e as Error).message });
+      }
+    },
+    [patchShot],
+  );
+
+  const runLipsyncOne = useCallback(
+    async (id: string) => {
+      const shot = shots.find((s) => s.id === id);
+      if (!shot || busy) return;
+      setBusy(true);
+      setError(null);
+      try {
+        await lipsyncOne(shot);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [shots, busy, lipsyncOne],
   );
 
   // 批量配音:给所有有台词、尚未配音的镜串行合成(单 TTS 实例,排队即可),带进度
@@ -1023,6 +1105,7 @@ export function ManjuStudio() {
                     onImage={runImageOne}
                     onVideo={runVideoOne}
                     onVoice={runVoiceOne}
+                    onLipsync={runLipsyncOne}
                   />
                 ))}
               </div>
@@ -1235,6 +1318,7 @@ export function ManjuStudio() {
             onImage={runImageOne}
             onVideo={runVideoOne}
             onVoice={runVoiceOne}
+            onLipsync={runLipsyncOne}
           />
         )}
       </div>

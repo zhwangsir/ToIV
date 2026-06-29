@@ -895,6 +895,18 @@ export async function uploadVoiceRef(file: File): Promise<ManjuVoiceResult> {
   return res.json();
 }
 
+/**
+ * 对口型:源分镜视频 + 配音 → LatentSync 让角色嘴型对上台词。异步 Job(同转视频)。
+ * 契约:POST /api/manju/shot/lipsync { video_url, voice_url, lips_expression?, inference_steps? }
+ *   → { prompt_id, client_id, worker, seed, mode }。产物为口型同步的视频(回填 videoUrl)。
+ */
+export const lipsyncManjuShot = (params: {
+  video_url: string;
+  voice_url: string;
+  lips_expression?: number;
+  inference_steps?: number;
+}): Promise<GenerateResponse> => manjuReq("/manju/shot/lipsync", "POST", params);
+
 export type ManjuTransition = "none" | "crossfade";
 export type ManjuAspect = "16:9" | "9:16" | "1:1";
 

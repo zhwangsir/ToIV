@@ -40,6 +40,10 @@ export interface ShotCard extends StoryboardShot {
   voicing?: boolean;
   /** 说话角色名(配音用其音色克隆);缺省取出场角色第一个。 */
   speaker?: string;
+  /** 对口型中标记(LatentSync 让嘴型对上配音;纯视觉)。 */
+  lipSyncing?: boolean;
+  /** 已对口型(videoUrl 已是口型同步版)。 */
+  lipSynced?: boolean;
   error?: string;
 }
 
