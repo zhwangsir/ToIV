@@ -1013,11 +1013,12 @@ export async function assembleManju(
   clips: string[],
   options: AssembleOptions,
   voiceUrls: string[] = [],
+  clipDurations: number[] = [],
 ): Promise<AssembleResult> {
   const res = await fetch(`${API_BASE}/api/manju/assemble`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ clips, options, voice_urls: voiceUrls }),
+    body: JSON.stringify({ clips, options, voice_urls: voiceUrls, clip_durations: clipDurations }),
   });
   if (!res.ok) {
     const detail = await res.json().catch(() => null);

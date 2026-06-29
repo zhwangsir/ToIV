@@ -27,6 +27,8 @@ import type { GenerateResponse, ModelsResponse } from "@/lib/types";
 
 import { ManjuProjectBar, shotCardToInput } from "./ManjuProjectBar";
 import type { ProjectLoaded } from "./ManjuProjectBar";
+import { ManjuTimeline } from "./ManjuTimeline";
+import type { TimelineClip } from "./ManjuTimeline";
 import { ShotCard } from "./ShotCard";
 import { ShotInspector } from "./ShotInspector";
 import { composeShotPrompt, toShotCards } from "./types";
@@ -530,6 +532,36 @@ export function ManjuStudio() {
   }, [busy, shots, voiceOne]);
 
   // 自动剪辑:把已转视频的镜头按序拼成成片(可选转场 / 字幕 / BGM)
+  // ── 时间线编辑(P1):顺序 + 逐镜时长。源于已转视频的镜,保留用户的重排/调时长 ──
+  const [timeline, setTimeline] = useState<{ id: string; duration: number }[]>([]);
+  useEffect(() => {
+    const vids = shots.filter((s) => s.videoUrl);
+    const vidIds = new Set(vids.map((s) => s.id));
+    setTimeline((prev) => {
+      const kept = prev.filter((t) => vidIds.has(t.id)); // 保留已编辑顺序里仍有视频的镜
+      const keptIds = new Set(kept.map((t) => t.id));
+      const added = vids
+        .filter((s) => !keptIds.has(s.id))
+        .map((s) => ({ id: s.id, duration: s.duration_sec || 3 }));
+      return [...kept, ...added];
+    });
+  }, [shots]);
+  const reorderTimeline = useCallback((from: number, to: number) => {
+    setTimeline((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  }, []);
+  const setClipDuration = useCallback((id: string, duration: number) => {
+    setTimeline((prev) => prev.map((t) => (t.id === id ? { ...t, duration } : t)));
+  }, []);
+  const timelineClips: TimelineClip[] = timeline.map((t) => {
+    const idx = shots.findIndex((s) => s.id === t.id);
+    return { id: t.id, no: idx >= 0 ? idx + 1 : 0, thumbUrl: shots[idx]?.imageUrl, duration: t.duration };
+  });
+
   const assemble = useCallback(async () => {
     if (assembling) return;
     const clipShots = shots.filter((s) => s.videoUrl);
@@ -541,10 +573,18 @@ export function ManjuStudio() {
     setAssembleErr(null);
     setAssembledUrl(null);
     try {
-      const clips = clipShots.map((s) => s.videoUrl as string);
-      const subtitles = withSubs ? clipShots.map((s) => (s.dialogue || "").trim()) : [];
+      // 按时间线顺序 + 逐镜时长成片(时间线为空则回落 clipShots 原序)
+      const ordered =
+        timeline.length > 0
+          ? timeline
+              .map((t) => ({ shot: shots.find((s) => s.id === t.id), dur: t.duration }))
+              .filter((x): x is { shot: ShotCardModel; dur: number } => !!x.shot && !!x.shot.videoUrl)
+          : clipShots.map((s) => ({ shot: s, dur: s.duration_sec || 3 }));
+      const clips = ordered.map((x) => x.shot.videoUrl as string);
+      const clipDurations = ordered.map((x) => x.dur);
+      const subtitles = withSubs ? ordered.map((x) => (x.shot.dialogue || "").trim()) : [];
       // 配音同样过 imageUrl 带 token,后端 _download_clip 才能鉴权取到
-      const voiceUrls = clipShots.map((s) => (s.voiceUrl ? imageUrl(s.voiceUrl) : ""));
+      const voiceUrls = ordered.map((x) => (x.shot.voiceUrl ? imageUrl(x.shot.voiceUrl) : ""));
       const r = await assembleManju(
         clips,
         {
@@ -557,6 +597,7 @@ export function ManjuStudio() {
           credits: creditsText.trim(),
         },
         voiceUrls,
+        clipDurations,
       );
       setAssembledUrl(r.url);
     } catch (e) {
@@ -564,7 +605,7 @@ export function ManjuStudio() {
     } finally {
       setAssembling(false);
     }
-  }, [assembling, shots, withSubs, transition, bgmUrl, aspect, titleText, creditsText]);
+  }, [assembling, shots, timeline, withSubs, transition, bgmUrl, aspect, titleText, creditsText]);
 
   // AI 配乐:用 ACE-Step 按情绪/风格生成 BGM(时长跟成片),产物填入 bgmUrl。
   const generateBgm = useCallback(async () => {
@@ -1115,6 +1156,13 @@ export function ManjuStudio() {
                       </div>
                     )}
                   </div>
+
+                  {/* 时间线编辑器(P1):拖拽重排 + 逐镜时长 */}
+                  <ManjuTimeline
+                    clips={timelineClips}
+                    onReorder={reorderTimeline}
+                    onDuration={setClipDuration}
+                  />
 
                   {/* 合成控件:转场 / 字幕 / BGM 收成精致行 */}
                   <div className="manju-export-controls">

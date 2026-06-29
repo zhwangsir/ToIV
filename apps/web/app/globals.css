@@ -6151,3 +6151,35 @@ input[type="range"]::-webkit-slider-thumb:hover {
   .cad-source { flex-basis: auto; position: static; flex-direction: row; align-items: center; }
   .cad-source-img { max-width: 180px; }
 }
+
+/* ===== 漫剧时间线编辑器(P1:拖拽重排 + 逐镜时长)===== */
+.mtl {
+  display: flex; flex-direction: column; gap: 0.6rem;
+  padding: 0.9rem 1rem; margin-bottom: 0.9rem;
+  background: var(--glass); border: 1px solid var(--hairline); border-radius: var(--radius-sm);
+}
+.mtl-head { display: flex; align-items: baseline; justify-content: space-between; }
+.mtl-title { font-size: 0.86rem; font-weight: 600; color: var(--ink); }
+.mtl-total { font-size: 0.78rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.mtl-track {
+  display: flex; gap: 4px; align-items: stretch; min-height: 64px;
+  padding: 4px; background: var(--bg-0); border-radius: var(--radius-xs); overflow-x: auto;
+}
+.mtl-clip {
+  position: relative; flex: 1 1 0; min-width: 48px; border-radius: var(--radius-xs);
+  overflow: hidden; cursor: grab; border: 1.5px solid transparent; background: var(--bg-2);
+  transition: border-color var(--dur) var(--ease), opacity var(--dur) var(--ease);
+}
+.mtl-clip img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+.mtl-clip.is-sel { border-color: var(--accent); }
+.mtl-clip.is-over { border-color: var(--accent-soft); }
+.mtl-clip.is-drag { opacity: 0.45; }
+.mtl-clip:active { cursor: grabbing; }
+.mtl-no { display: grid; place-items: center; height: 100%; min-height: 56px; color: var(--ink-soft); font-weight: 700; }
+.mtl-clip-no { position: absolute; top: 3px; left: 4px; font-size: 0.66rem; font-weight: 700; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
+.mtl-clip-dur { position: absolute; bottom: 2px; right: 4px; font-size: 0.64rem; font-weight: 600; color: #fff; background: rgba(0,0,0,0.5); border-radius: 3px; padding: 0 3px; font-variant-numeric: tabular-nums; }
+.mtl-inspect { display: flex; align-items: center; gap: 0.7rem; padding: 0.5rem 0.6rem; background: var(--bg-1); border-radius: var(--radius-xs); }
+.mtl-inspect-label { font-size: 0.78rem; color: var(--ink-soft); white-space: nowrap; }
+.mtl-inspect input[type="range"] { flex: 1; accent-color: var(--accent); }
+.mtl-inspect-val { font-size: 0.78rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; min-width: 2.6rem; text-align: right; }
+.mtl-hint { font-size: 0.72rem; color: var(--ink-faint); }

@@ -87,6 +87,8 @@ class AssembleRequest(BaseModel):
     clips: list[str] = Field(min_length=1, max_length=48)
     # 逐镜配音 URL,与 clips 对齐(空串=该镜无配音);成片时对齐混入对白轨。
     voice_urls: list[str] = Field(default_factory=list, max_length=48)
+    # 时间线编辑:逐镜目标时长(秒,与 clips 对齐;0/缺省=用片段原长)。小于原长则裁切。
+    clip_durations: list[float] = Field(default_factory=list, max_length=48)
     options: AssembleOptions = Field(default_factory=AssembleOptions)
 
 
@@ -183,6 +185,7 @@ def _build_ffmpeg_command(
     bgm: Path | None,
     voices: list[Path | None],
     durations: list[float],
+    targets: list[float],
     dims: tuple[int, int],
     out: Path,
 ) -> list[str]:
@@ -216,7 +219,12 @@ def _build_ffmpeg_command(
     for i in range(len(clips)):
         # 多平台预设:缩放到覆盖目标尺寸再中心裁切(填满无黑边),社媒标准做法
         _w, _h = dims
-        chain = [
+        chain = []
+        # 时间线逐镜裁切:目标时长 < 原长则截短(setpts 重置时间戳,避免拼接时间轴错乱)
+        tgt = targets[i] if i < len(targets) else 0.0
+        if tgt and tgt > 0:
+            chain += [f"trim=0:{tgt:.2f}", "setpts=PTS-STARTPTS"]
+        chain += [
             f"scale={_w}:{_h}:force_original_aspect_ratio=increase",
             f"crop={_w}:{_h}",
             "setsar=1",  # 统一 SAR 1:1,与片头/片尾卡 concat 不失配
@@ -235,8 +243,9 @@ def _build_ffmpeg_command(
         offset = 0.0
         for i in range(1, len(clips)):
             out_label = f"xf{i}"
-            # offset 近似:每片段约 _CLIP_EST_SEC,交叠落在上一段尾部。
-            offset += _CLIP_EST_SEC - _CROSSFADE_SEC
+            # 交叠落在上一段尾部:用上一镜实际(裁切后)时长累积,offset 精确不漂移。
+            prev_dur = durations[i - 1] if (i - 1) < len(durations) else _CLIP_EST_SEC
+            offset += max(0.1, prev_dur - _CROSSFADE_SEC)
             filters.append(
                 f"[{prev}][{vlabels[i]}]xfade=transition=fade"
                 f":duration={_CROSSFADE_SEC}:offset={max(offset, 0.1):.2f}[{out_label}]"
@@ -417,14 +426,22 @@ async def assemble_manju(
                     await _download_clip(client, vurl, vdest)
                     voice_paths[i] = vdest
 
-        durations = [await _probe_duration(p) for p in clip_paths]
+        probed = [await _probe_duration(p) for p in clip_paths]
+        # 时间线逐镜目标时长:小于原长则裁切;有效时长用于转场/配音偏移精确对齐
+        targets = list(body.clip_durations)
+        durations = [
+            min(probed[i], targets[i])
+            if i < len(targets) and targets[i] and targets[i] > 0
+            else probed[i]
+            for i in range(len(probed))
+        ]
         dims = _aspect_dims(body.options.aspect)
         opt = body.options
         # 有片头/片尾卡时:先出正片到临时,再拼接卡;否则直接出到成片。
         has_bookends = bool(opt.title.strip() or opt.credits.strip())
         film_path = (tmp_dir / "film.mp4") if has_bookends else out_path
         cmd = _build_ffmpeg_command(
-            clip_paths, opt, bgm_path, voice_paths, durations, dims, film_path
+            clip_paths, opt, bgm_path, voice_paths, durations, targets, dims, film_path
         )
         await _run_ffmpeg(cmd)
 
