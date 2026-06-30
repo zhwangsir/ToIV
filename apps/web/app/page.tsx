@@ -8,6 +8,7 @@ import { AdminPanel } from "@/components/admin/AdminPanel";
 import { AssistantView } from "@/components/assistant/AssistantView";
 import { CanvasStudio } from "@/components/canvas/CanvasStudio";
 import { CreateStudio } from "@/components/create/CreateStudio";
+import { DubStudio } from "@/components/dub/DubStudio";
 import { LibraryView } from "@/components/library/LibraryView";
 import { ManjuStudio } from "@/components/manju/ManjuStudio";
 import { ModelLibrary } from "@/components/models/ModelLibrary";
@@ -20,7 +21,15 @@ import type { AuthResult } from "@/lib/api";
 
 type AuthState = "loading" | "in" | "out";
 
-type View = "assistant" | "create" | "canvas" | "manju" | "library" | "models" | "admin";
+type View =
+  | "assistant"
+  | "create"
+  | "canvas"
+  | "manju"
+  | "dub"
+  | "library"
+  | "models"
+  | "admin";
 
 // 合法深链视图(/?view=<模块>);从 /engine 落地页能力卡进入时初始化对应视图。
 // 3D / 音频 已收进「创作」的 mode;设计(CAD)已拆为独立 BIM 项目,故不再是顶层视图。
@@ -29,6 +38,7 @@ const VALID_VIEWS = new Set<View>([
   "create",
   "canvas",
   "manju",
+  "dub",
   "library",
   "models",
   "admin",
@@ -94,6 +104,7 @@ export default function Home() {
       { key: "create", label: "创作", icon: "image" },
       { key: "canvas", label: "画布", icon: "image" },
       { key: "manju", label: "漫剧", icon: "video" },
+      { key: "dub", label: "译制", icon: "audio" },
       { key: "library", label: "作品库", icon: "library" },
       { key: "models", label: "模型", icon: "models" },
       ...(isAdmin ? [{ key: "admin", label: "管理", icon: "admin" }] : []),
@@ -143,6 +154,8 @@ export default function Home() {
                 <CanvasStudio />
               ) : view === "manju" ? (
                 <ManjuStudio />
+              ) : view === "dub" ? (
+                <DubStudio />
               ) : view === "admin" ? (
                 <div className="single-view">
                   <AdminPanel />

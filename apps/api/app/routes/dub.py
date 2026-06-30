@@ -1,7 +1,11 @@
 """视频译制·智能剪辑工坊 —— 已有长视频的处理入口。
 
-  POST /api/dub/upload        multipart(video) → 大文件流式落盘 → {name, url, size}
-  GET  /api/dub/source/{name} 回服务上传的源视频(供前端预览 / 后端管线下载)
+  POST /api/dub/upload              multipart(video) → 大文件流式落盘 → {name, url, size}
+  GET  /api/dub/source/{name}       回服务上传的源视频(供前端预览 / 后端管线下载)
+  POST /api/dub/autocut             场景/静音切分 → 带时间轴的片段
+  POST /api/dub/lipsync-long        真人长视频分段对口型(起内存 Job + 后台管线)
+  GET  /api/dub/lipsync-long/{job}  对口型进度(含 gpu_seconds 成本)
+  GET  /api/dub/output/{name}       回对口型成片
 
 译制/剪辑全链路(自动剪辑 → 多语言配音 → 对口型 → 成片)都以这里上传的源视频为起点。
 落盘到 /data/dub(与 /data/manju 同卷),后续 ffmpeg / ASR / 对口型直接读本地文件。
@@ -9,19 +13,29 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
 import shutil
 import tempfile
+import time
 import uuid
 from pathlib import Path
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from app.deps import get_current_user
+from app.comfy.client import ComfyUIError
+from app.comfy.pool import WorkerPool
+from app.deps import get_current_user, get_pool
 from app.models import User
 from app.ratelimit import enforce_generation_rate_limit
+# 复用:LatentSync 建图(纯函数)+ assembly 的拼接/来源校验(单一真相,不重复造)
+from app.routes.assembly import _concat_parts, _is_allowed_clip, _resolve_clip_url
+from app.workflows.lipsync import LatentSyncParams, build_latentsync_graph
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -197,3 +211,340 @@ async def dub_autocut(
         "source_duration": round(duration, 3),
         "mode": body.mode,
     }
+
+
+# ── 真人长视频对口型:分段 LatentSync → 拼接成片 ────────────────────────
+# 源视频按片段切 → 逐段上传 worker 跑 LatentSync(复用 workflows/lipsync 建图)→
+# 下载同步片段 → 复用 assembly._concat_parts 拼成成片。
+#
+# 异步:POST 起一个内存 Job(后台任务跑整条管线),前端轮询 GET 进度;成片走
+# /dub/output。Phase 1 验证目标 = 真人单语言一条,量「对口型质量 + GPU 成本」:
+# job.gpu_seconds 累计每段 LatentSync 的入队→产出墙钟,作单卡顺序处理的成本代理。
+#
+# 鲁棒:单段 LatentSync 失败/超时(如该段无人脸)→ 回退用原片段+音轨补位,不让
+# 一段失败毁掉整条 12 分钟作业;回退计数 fallbacks 暴露给前端。
+# 内存 Job:api 重启会丢(spike 阶段可接受;production 再迁 DB Job + tracker)。
+
+_LATENT_FPS = 25  # LatentSync 原生 25fps(切片与拼接都对齐,减少 worker 重采样)
+_SEG_TIMEOUT = 600.0  # 单段 LatentSync 上限(8~12s 片约数分钟,留足余量)
+_MAX_SEGMENTS = 90  # 段数硬上限(12min / 8s ≈ 90)
+_JOBS_KEEP = 60  # 内存 Job 最多保留数(超出删最旧的终态作业)
+_VIDEO_EXT = (".mp4", ".webm", ".mov", ".mkv")
+_LIPSYNC_OUT_RE = re.compile(r"^dubsync-[0-9a-f]{32}\.mp4$")
+
+# 内存 Job 存储 + 后台任务强引用(asyncio 仅持弱引用,防 GC 提前回收)
+_lipsync_jobs: dict[str, dict] = {}
+_ls_tasks: set[asyncio.Task] = set()
+
+
+def _prune_jobs() -> None:
+    """内存 Job 超额时删最旧的终态(done/error)作业,避免无限增长。"""
+    if len(_lipsync_jobs) <= _JOBS_KEEP:
+        return
+    terminal = sorted(
+        (j for j in _lipsync_jobs.values() if j["status"] in ("done", "error")),
+        key=lambda j: j["started"],
+    )
+    for j in terminal[: len(_lipsync_jobs) - _JOBS_KEEP]:
+        _lipsync_jobs.pop(j["id"], None)
+
+
+class LipsyncLongRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=200)  # /dub/upload 返回的源视频 name
+    # 片段时间轴 [{start,end}](来自 autocut);空 = 按 seg_seconds 等分整片
+    segments: list[dict] = Field(default_factory=list, max_length=_MAX_SEGMENTS)
+    # 配音轨 URL;空 = 用源视频自带音轨(单语言验证,只测对口型机制/质量/成本)
+    audio_url: str | None = Field(default=None, max_length=2000)
+    seg_seconds: float = Field(default=12.0, ge=2.0, le=60.0)  # 无 segments 时的等分长度
+    max_segments: int = Field(default=8, ge=1, le=_MAX_SEGMENTS)  # 单次跑多少段(控本)
+    lips_expression: float = Field(default=1.5, ge=1.0, le=3.0)
+    inference_steps: int = Field(default=20, ge=1, le=50)
+
+
+def _segments_from(body: LipsyncLongRequest, duration: float) -> list[tuple[float, float]]:
+    """得到 [(start,end)] 片段列表:优先用传入 segments,否则按 seg_seconds 等分。"""
+    segs: list[tuple[float, float]] = []
+    if body.segments:
+        for s in body.segments:
+            try:
+                a = max(0.0, min(float(s.get("start", 0.0)), duration))
+                b = max(0.0, min(float(s.get("end", 0.0)), duration))
+            except (TypeError, ValueError):
+                continue
+            if b - a >= 0.5:  # 太短的段对口型无意义,跳过
+                segs.append((round(a, 3), round(b, 3)))
+    else:
+        t = 0.0
+        while t < duration:
+            segs.append((round(t, 3), round(min(t + body.seg_seconds, duration), 3)))
+            t += body.seg_seconds
+    return segs[: body.max_segments]
+
+
+async def _ffmpeg_run(cmd: list[str]) -> None:
+    """跑 ffmpeg,非零退出抛 RuntimeError(后台任务用,异于 assembly 抛 HTTPException)。"""
+    proc = await asyncio.create_subprocess_exec(
+        *cmd, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE
+    )
+    _, err = await proc.communicate()
+    if proc.returncode != 0:
+        tail = (err or b"").decode("utf-8", "replace")[-500:]
+        raise RuntimeError(f"ffmpeg 失败:{tail}")
+
+
+async def _slice_video(src: Path, start: float, dur: float, out: Path) -> None:
+    """切一段无声视频(force 25fps)喂给 LatentSync;音轨另切,避免 A/V 同源耦合。"""
+    await _ffmpeg_run([
+        "ffmpeg", "-y", "-ss", f"{start:.3f}", "-i", str(src), "-t", f"{dur:.3f}",
+        "-an", "-c:v", "libx264", "-preset", "veryfast",
+        "-pix_fmt", "yuv420p", "-r", str(_LATENT_FPS), str(out),
+    ])
+
+
+async def _slice_audio(src: Path, start: float, dur: float, out: Path) -> None:
+    """切对应时间段音频(mono 16k wav),LoadAudio 喂 LatentSync。"""
+    await _ffmpeg_run([
+        "ffmpeg", "-y", "-ss", f"{start:.3f}", "-i", str(src), "-t", f"{dur:.3f}",
+        "-vn", "-ac", "1", "-ar", "16000", str(out),
+    ])
+
+
+def _pick_video(files: list[dict]) -> dict | None:
+    """从 history 产物里挑视频文件(VHS_VideoCombine 产 mp4)。"""
+    for f in files:
+        if str(f.get("filename", "")).lower().endswith(_VIDEO_EXT):
+            return f
+    return None
+
+
+async def _wait_prompt(
+    client: ComfyUIClient, prompt_id: str, timeout: float
+) -> list[dict]:
+    """轮询 history 直到该 prompt 产出文件(返回产物)/出错/超时。"""
+    delay, waited = 2.0, 0.0
+    while waited < timeout:
+        try:
+            history = await client.get_history(prompt_id)
+        except ComfyUIError:
+            history = {}  # worker 暂不可达,下次再试
+        entry = history.get(prompt_id)
+        if entry:
+            status = entry.get("status") or {}
+            files: list[dict] = []
+            for node_out in (entry.get("outputs") or {}).values():
+                for value in node_out.values():
+                    if isinstance(value, list):
+                        files += [
+                            it for it in value
+                            if isinstance(it, dict) and "filename" in it
+                        ]
+            if files:
+                return files
+            if status.get("status_str") == "error":
+                raise RuntimeError("LatentSync worker 执行出错(可能该段无人脸)")
+            if status.get("completed"):
+                return files  # 完成但无产物(罕见)
+        await asyncio.sleep(delay)
+        waited += delay
+        delay = min(delay * 1.4, 8.0)
+    raise RuntimeError(f"对口型超时(>{timeout:.0f}s)")
+
+
+async def _lipsync_segment(
+    client: ComfyUIClient,
+    body: LipsyncLongRequest,
+    seg_v: Path,
+    seg_a: Path,
+    seg_out: Path,
+) -> float:
+    """单段:上传切片 → LatentSync → 下载同步成片落 seg_out。返回该段 GPU 墙钟秒。"""
+    vfn = await client.upload_image(seg_v.read_bytes(), f"dubls_v_{uuid.uuid4().hex}.mp4")
+    afn = await client.upload_image(seg_a.read_bytes(), f"dubls_a_{uuid.uuid4().hex}.wav")
+    graph = build_latentsync_graph(
+        LatentSyncParams(
+            video=vfn, audio=afn,
+            lips_expression=body.lips_expression, inference_steps=body.inference_steps,
+        )
+    )
+    t0 = time.monotonic()
+    prompt_id = await client.queue_prompt(graph, uuid.uuid4().hex)
+    files = await _wait_prompt(client, prompt_id, _SEG_TIMEOUT)
+    elapsed = time.monotonic() - t0
+    vf = _pick_video(files)
+    if not vf:
+        raise RuntimeError("未取到同步视频产物")
+    content, _ = await client.get_image_bytes(
+        vf["filename"], vf.get("subfolder", ""), vf.get("type", "output")
+    )
+    if not content:
+        raise RuntimeError("同步视频为空")
+    seg_out.write_bytes(content)
+    return elapsed
+
+
+async def _run_lipsync_long(
+    job: dict, src_path: Path, body: LipsyncLongRequest,
+    segments: list[tuple[float, float]], pool: WorkerPool,
+) -> None:
+    """后台管线:逐段切片→LatentSync→拼接。任何阶段异常都落到 job.error,不冒泡。"""
+    try:
+        client = await pool.pick(required=set())
+    except Exception as e:  # noqa: BLE001 — 选 worker 失败(不可达/无模型)即整作业失败
+        job["status"], job["error"] = "error", f"无可用 worker:{e}"
+        return
+
+    with tempfile.TemporaryDirectory(prefix="dub-ls-") as tmp:
+        tmp_dir = Path(tmp)
+        # 配音轨(可选):整轨下载一次,后续逐段切;空则用源视频自带音轨
+        audio_src = src_path
+        if body.audio_url:
+            try:
+                audio_src = tmp_dir / "dub.audio"
+                async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as http:
+                    r = await http.get(_resolve_clip_url(body.audio_url))
+                    r.raise_for_status()
+                audio_src.write_bytes(r.content)
+            except Exception as e:  # noqa: BLE001
+                job["status"], job["error"] = "error", f"配音下载失败:{e}"
+                return
+
+        synced: list[Path] = []
+        for i, (a, b) in enumerate(segments):
+            dur = max(0.1, b - a)
+            job["stage"] = f"对口型 {i + 1}/{len(segments)}"
+            seg_v = tmp_dir / f"v{i:03d}.mp4"
+            seg_a = tmp_dir / f"a{i:03d}.wav"
+            seg_out = tmp_dir / f"o{i:03d}.mp4"
+            try:
+                await _slice_video(src_path, a, dur, seg_v)
+                await _slice_audio(audio_src, a, dur, seg_a)
+            except Exception as e:  # noqa: BLE001 — 切分失败 = 源不可读,致命
+                job["status"], job["error"] = "error", f"第{i + 1}段切分失败:{e}"
+                return
+            try:
+                job["gpu_seconds"] = round(
+                    job["gpu_seconds"]
+                    + await _lipsync_segment(client, body, seg_v, seg_a, seg_out),
+                    1,
+                )
+                synced.append(seg_out)
+            except Exception as e:  # noqa: BLE001 — 单段对口型失败 → 回退原片段补位
+                logger.warning("dub lipsync 第%d段失败,回退原片段:%s", i + 1, e)
+                try:
+                    await _ffmpeg_run([
+                        "ffmpeg", "-y", "-i", str(seg_v), "-i", str(seg_a),
+                        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", str(_LATENT_FPS),
+                        "-c:a", "aac", "-shortest", str(seg_out),
+                    ])
+                    synced.append(seg_out)
+                    job["fallbacks"] += 1
+                except Exception as e2:  # noqa: BLE001
+                    job["status"], job["error"] = "error", f"第{i + 1}段回退也失败:{e2}"
+                    return
+            job["completed"] = i + 1
+
+        if not synced:
+            job["status"], job["error"] = "error", "无可拼接片段"
+            return
+
+        job["stage"] = "拼接成片"
+        _DUB_DIR.mkdir(parents=True, exist_ok=True)
+        out_name = f"dubsync-{uuid.uuid4().hex}.mp4"
+        out_path = _DUB_DIR / out_name
+        try:
+            await _concat_parts(synced, _LATENT_FPS, True, out_path)
+        except Exception as e:  # noqa: BLE001
+            job["status"], job["error"] = "error", f"拼接失败:{e}"
+            return
+        if not out_path.exists() or out_path.stat().st_size == 0:
+            job["status"], job["error"] = "error", "成片为空"
+            return
+        job["url"] = f"/api/dub/output/{out_name}"
+
+    job["stage"] = "完成"
+    job["elapsed"] = round(time.monotonic() - job["started"], 1)
+    job["status"] = "done"
+
+
+@router.post("/dub/lipsync-long")
+async def dub_lipsync_long(
+    body: LipsyncLongRequest,
+    pool: WorkerPool = Depends(get_pool),
+    user: User = Depends(get_current_user),
+) -> dict[str, object]:
+    enforce_generation_rate_limit(user)
+    if shutil.which("ffmpeg") is None:
+        raise HTTPException(status_code=500, detail="服务端未安装 ffmpeg")
+    if not _NAME_RE.match(body.name):
+        raise HTTPException(status_code=400, detail="非法文件名")
+    src = _DUB_DIR / body.name
+    if not src.is_file():
+        raise HTTPException(status_code=404, detail="源视频不存在")
+    if body.audio_url and not _is_allowed_clip(body.audio_url):
+        raise HTTPException(status_code=400, detail="配音来源不在白名单内")
+
+    duration = await _probe_duration(src)
+    if duration <= 0:
+        raise HTTPException(status_code=422, detail="无法读取视频时长")
+    segments = _segments_from(body, duration)
+    if not segments:
+        raise HTTPException(status_code=422, detail="无有效片段(检查 segments/seg_seconds)")
+
+    job_id = uuid.uuid4().hex
+    job = {
+        "id": job_id, "status": "running", "stage": "准备",
+        "total": len(segments), "completed": 0, "fallbacks": 0,
+        "gpu_seconds": 0.0, "url": None, "error": None,
+        "source": body.name, "source_duration": round(duration, 3),
+        "started": time.monotonic(), "elapsed": 0.0,
+    }
+    _lipsync_jobs[job_id] = job
+    _prune_jobs()
+
+    task = asyncio.create_task(_run_lipsync_long(job, src, body, segments, pool))
+    _ls_tasks.add(task)
+    task.add_done_callback(_ls_tasks.discard)
+
+    return {
+        "job_id": job_id,
+        "segment_count": len(segments),
+        "source_duration": round(duration, 3),
+        "segments": [
+            {"index": i, "start": a, "end": b} for i, (a, b) in enumerate(segments)
+        ],
+    }
+
+
+_JOB_PUBLIC = (
+    "id", "status", "stage", "total", "completed", "fallbacks",
+    "gpu_seconds", "url", "error", "source_duration", "elapsed",
+)
+
+
+@router.get("/dub/lipsync-long/{job_id}")
+async def dub_lipsync_status(
+    job_id: str,
+    user: User = Depends(get_current_user),
+) -> dict[str, object]:
+    job = _lipsync_jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="任务不存在(可能已过期或 api 重启)")
+    return {k: job[k] for k in _JOB_PUBLIC}
+
+
+@router.get("/dub/output/{name}")
+async def dub_output(
+    name: str,
+    user: User = Depends(get_current_user),
+) -> FileResponse:
+    if not _LIPSYNC_OUT_RE.match(name):
+        raise HTTPException(status_code=400, detail="非法文件名")
+    path = _DUB_DIR / name
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="成片不存在")
+    return FileResponse(
+        path,
+        media_type="video/mp4",
+        filename=name,
+        headers={"Cache-Control": "public, max-age=86400"},
+    )

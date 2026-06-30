@@ -1072,6 +1072,132 @@ export async function kenburnsManju(
   return res.json();
 }
 
+// ---------- 视频译制工坊(dub studio)----------
+
+export interface DubUploadResult {
+  name: string;
+  url: string;
+  size: number;
+}
+
+/** 上传长视频源 → 流式落盘。契约:POST /api/dub/upload multipart(video)。 */
+export async function uploadDubVideo(file: File): Promise<DubUploadResult> {
+  const fd = new FormData();
+  fd.append("video", file);
+  const res = await fetch(`${API_BASE}/api/dub/upload`, {
+    method: "POST",
+    headers: authHeaders(), // 不手动设 Content-Type,让浏览器带 boundary
+    body: fd,
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `视频上传失败 (${res.status})`);
+  }
+  return res.json();
+}
+
+export interface DubSegment {
+  index: number;
+  start: number;
+  end: number;
+  duration: number;
+}
+
+export interface DubAutoCutResult {
+  segments: DubSegment[];
+  count: number;
+  source_duration: number;
+  mode: string;
+}
+
+/** 自动剪辑:场景/静音切分得到带时间轴的片段。契约:POST /api/dub/autocut。 */
+export async function autocutDub(params: {
+  name: string;
+  mode: "scene" | "silence";
+  threshold: number;
+  minSeg: number;
+}): Promise<DubAutoCutResult> {
+  const res = await fetch(`${API_BASE}/api/dub/autocut`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({
+      name: params.name,
+      mode: params.mode,
+      threshold: params.threshold,
+      min_seg: params.minSeg,
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `自动剪辑失败 (${res.status})`);
+  }
+  return res.json();
+}
+
+export interface LipsyncLongStart {
+  job_id: string;
+  segment_count: number;
+  source_duration: number;
+  segments: { index: number; start: number; end: number }[];
+}
+
+/**
+ * 起真人长视频分段对口型(后台管线)。契约:POST /api/dub/lipsync-long。
+ * segments 传 autocut 的片段(可选;空则后端按 segSeconds 等分)。
+ */
+export async function startLipsyncLong(params: {
+  name: string;
+  segments?: { start: number; end: number }[];
+  segSeconds?: number;
+  maxSegments?: number;
+  lipsExpression?: number;
+  inferenceSteps?: number;
+}): Promise<LipsyncLongStart> {
+  const res = await fetch(`${API_BASE}/api/dub/lipsync-long`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({
+      name: params.name,
+      segments: params.segments ?? [],
+      seg_seconds: params.segSeconds ?? 12,
+      max_segments: params.maxSegments ?? 8,
+      lips_expression: params.lipsExpression ?? 1.5,
+      inference_steps: params.inferenceSteps ?? 20,
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `启动对口型失败 (${res.status})`);
+  }
+  return res.json();
+}
+
+export interface LipsyncLongStatus {
+  id: string;
+  status: "running" | "done" | "error";
+  stage: string;
+  total: number;
+  completed: number;
+  fallbacks: number;
+  gpu_seconds: number;
+  url: string | null;
+  error: string | null;
+  source_duration: number;
+  elapsed: number;
+}
+
+/** 轮询分段对口型进度(含 gpu_seconds 成本)。契约:GET /api/dub/lipsync-long/{job_id}。 */
+export async function getLipsyncLongStatus(jobId: string): Promise<LipsyncLongStatus> {
+  const res = await fetch(`${API_BASE}/api/dub/lipsync-long/${jobId}`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `查询进度失败 (${res.status})`);
+  }
+  return res.json();
+}
+
 // ---------- 创作引擎 HUD:实时遥测 ----------
 
 export interface LiveGpuStat {

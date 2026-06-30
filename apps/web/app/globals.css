@@ -6240,3 +6240,99 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .manju-kb-row { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
 .manju-kb-motion { flex: 0 0 auto; min-width: 84px; padding: 0.4rem 0.55rem; font-size: 0.82rem; border-radius: var(--radius-xs, 8px); background: var(--surface-2, rgba(255,255,255,0.04)); color: inherit; border: 1px solid var(--border, rgba(255,255,255,0.12)); }
 .manju-kb-btn { flex: 1; }
+
+/* ===== 视频译制工坊(dub studio:上传 → 自动剪辑时间轴 → 分段对口型)===== */
+.dub-studio { max-width: 1180px; margin: 0 auto; padding: var(--space-4) var(--space-3) var(--space-6); }
+.dub-head h2 { font-size: 1.5rem; font-weight: 600; margin: 0 0 0.3rem; }
+.dub-sub { color: var(--ink-soft); font-size: 0.92rem; margin: 0 0 1.5rem; max-width: 56ch; }
+.dub-alert { margin-bottom: 1rem; }
+
+.dub-upload { display: flex; flex-direction: column; gap: 0.9rem; }
+.dub-drop {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem;
+  min-height: 300px; border: 1.5px dashed var(--accent-line); border-radius: var(--radius-lg);
+  background: var(--accent-wash); cursor: pointer; text-align: center;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.dub-drop:hover { background: var(--accent-quiet); border-color: var(--accent); }
+.dub-drop.busy { opacity: 0.7; pointer-events: none; }
+.dub-drop input { display: none; }
+.dub-drop-icon { font-size: 2.4rem; color: var(--accent); line-height: 1; }
+.dub-drop-title { font-size: 1.05rem; font-weight: 600; color: var(--ink); }
+.dub-drop-hint { font-size: 0.85rem; color: var(--ink-faint); }
+
+.dub-work { display: flex; gap: 1.5rem; align-items: flex-start; }
+.dub-source { flex: 0 0 300px; display: flex; flex-direction: column; gap: 0.6rem; position: sticky; top: 1rem; }
+.dub-video { width: 100%; border-radius: var(--radius); border: 1px solid var(--border); background: #000; display: block; }
+.dub-source-meta { font-size: 0.78rem; color: var(--ink-faint); text-align: center; }
+.dub-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1.2rem; }
+
+.dub-panel {
+  display: flex; flex-direction: column; gap: 0.9rem;
+  padding: 1.1rem 1.2rem; border-radius: var(--radius);
+  border: 1px solid var(--border); background: var(--bg-sunken);
+}
+.dub-panel-head { display: flex; align-items: baseline; gap: 0.7rem; }
+.dub-panel-head h3 { margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--ink); }
+.dub-panel-hint { font-size: 0.78rem; color: var(--ink-faint); }
+
+.dub-controls { display: flex; gap: 1.1rem; flex-wrap: wrap; align-items: flex-end; }
+.dub-modes { display: flex; gap: 0.4rem; }
+.dub-modes button {
+  font-size: 0.82rem; padding: 0.4rem 0.85rem; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--ink-soft);
+  cursor: pointer; transition: all var(--dur) var(--ease);
+}
+.dub-modes button:hover { border-color: var(--accent-line); color: var(--ink); }
+.dub-modes button.active { background: var(--accent-quiet); border-color: var(--accent-line); color: var(--accent); }
+.dub-slider { flex: 1 1 13rem; min-width: 11rem; }
+.dub-slider label { display: flex; justify-content: space-between; align-items: baseline; }
+.dub-slider input[type="range"] { width: 100%; accent-color: var(--accent); }
+.dub-val { font-variant-numeric: tabular-nums; color: var(--accent); font-weight: 600; font-size: 0.8rem; }
+
+.dub-run-btn {
+  font-size: 0.85rem; font-weight: 600; padding: 0.55rem 1.1rem; border-radius: 999px;
+  border: 1px solid var(--accent-line); background: var(--accent-quiet); color: var(--accent);
+  cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 0.3rem;
+  transition: background var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.dub-run-btn:hover:not(:disabled) { background: color-mix(in oklab, var(--accent) 24%, transparent); }
+.dub-run-btn:active:not(:disabled) { transform: scale(0.97); }
+.dub-run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.dub-run-btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+.dub-segments { display: flex; flex-direction: column; gap: 0.55rem; }
+.dub-seg-summary { font-size: 0.85rem; color: var(--ink-soft); }
+.dub-seg-summary strong { color: var(--accent); font-variant-numeric: tabular-nums; }
+/* 比例时间线:每段宽度正比于时长,点击跳转预览 */
+.dub-timeline {
+  display: flex; gap: 2px; height: 44px; border-radius: var(--radius-sm);
+  overflow: hidden; border: 1px solid var(--hairline); background: var(--glass);
+}
+.dub-seg {
+  flex: 1 1 0; min-width: 8px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 1px; padding: 0 2px;
+  border: none; border-right: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--accent) 14%, transparent); color: var(--ink-soft);
+  cursor: pointer; overflow: hidden; transition: background var(--dur) var(--ease);
+}
+.dub-seg:last-child { border-right: none; }
+.dub-seg:hover { background: color-mix(in oklab, var(--accent) 28%, transparent); color: var(--ink); }
+.dub-seg.active { background: var(--accent); color: var(--accent-ink); }
+.dub-seg-idx { font-size: 0.72rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.dub-seg-dur { font-size: 0.62rem; line-height: 1; opacity: 0.8; white-space: nowrap; }
+.dub-seg-tip { margin: 0; font-size: 0.74rem; color: var(--ink-faint); }
+
+.dub-job-stats { display: flex; gap: 1.4rem; flex-wrap: wrap; padding: 0.2rem 0; }
+.dub-stat { display: flex; flex-direction: column; gap: 0.1rem; }
+.dub-stat-k { font-size: 0.7rem; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.04em; }
+.dub-stat-v { font-size: 1rem; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.dub-stat.warn .dub-stat-v { color: var(--warn, #e0a020); }
+
+.dub-result { display: flex; flex-direction: column; gap: 0.6rem; align-items: flex-start; }
+.dub-result .dub-video { max-width: 480px; }
+
+@media (max-width: 760px) {
+  .dub-work { flex-direction: column; }
+  .dub-source { flex-basis: auto; position: static; }
+}
