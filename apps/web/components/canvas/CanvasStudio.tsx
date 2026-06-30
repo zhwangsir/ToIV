@@ -352,6 +352,15 @@ function Inner() {
 
   // ── 新建节点 ──
   const [recipesOpen, setRecipesOpen] = useState(false);
+  const [simpleMode, setSimpleMode] = useState(false);
+
+  // 简易/专业档持久化(简易档让节点面板只露常用,给新手降复杂度)。
+  useEffect(() => {
+    if (window.localStorage.getItem("canvas.simpleMode") === "1") setSimpleMode(true);
+  }, []);
+  useEffect(() => {
+    window.localStorage.setItem("canvas.simpleMode", simpleMode ? "1" : "0");
+  }, [simpleMode]);
 
   // 配方模板:一键把预置节点图追加到画布(下移避让现有内容,绝不清空用户已有工作)。
   const applyRecipe = useCallback(
@@ -1028,6 +1037,18 @@ function Inner() {
           >
             📚 配方
           </button>
+          <button
+            type="button"
+            className={`cv-btn${simpleMode ? " cv-btn--on" : ""}`}
+            onClick={() => setSimpleMode((s) => !s)}
+            title={
+              simpleMode
+                ? "简易档:节点面板只露常用(点切专业)"
+                : "专业档:全部节点(点切简易,适合新手)"
+            }
+          >
+            {simpleMode ? "🟢 简易档" : "⚙ 专业档"}
+          </button>
           <WorkflowMenu
             currentId={wfId}
             currentName={wfName}
@@ -1122,6 +1143,7 @@ function Inner() {
             y={menu.y}
             onPick={pickFromMenu}
             onClose={() => setMenu(null)}
+            simple={simpleMode}
           />
         )}
       </div>

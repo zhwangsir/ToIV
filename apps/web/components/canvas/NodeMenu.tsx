@@ -10,6 +10,8 @@ interface NodeMenuProps {
   y: number;
   onPick: (type: CanvasNodeType) => void;
   onClose: () => void;
+  /** 简易档:只露常用节点,给新手降复杂度。 */
+  simple?: boolean;
 }
 
 /** 节点分类:基础 / 图像处理 / 结构化。右键或双击空白弹出。 */
@@ -33,10 +35,25 @@ const CATEGORIES: { title: string; items: CanvasNodeType[] }[] = [
 
 const ALL_TYPES: CanvasNodeType[] = CATEGORIES.flatMap((c) => c.items);
 
+// 简易档:只露最常用的几种(专业档仍全量),配合配方库给小白一个清爽入口。
+const SIMPLE_TYPES: CanvasNodeType[] = [
+  "text",
+  "image",
+  "img2img",
+  "inpaint",
+  "upscale",
+  "video",
+];
+const SIMPLE_CATEGORIES: { title: string; items: CanvasNodeType[] }[] = [
+  { title: "常用", items: SIMPLE_TYPES },
+];
+
 /** 右键 / 双击空白处弹出的节点面板:分类 + 可搜索。 */
-export function NodeMenu({ x, y, onPick, onClose }: NodeMenuProps) {
+export function NodeMenu({ x, y, onPick, onClose, simple }: NodeMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState("");
+  const cats = simple ? SIMPLE_CATEGORIES : CATEGORIES;
+  const pool = simple ? SIMPLE_TYPES : ALL_TYPES;
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
@@ -57,11 +74,11 @@ export function NodeMenu({ x, y, onPick, onClose }: NodeMenuProps) {
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return null;
-    return ALL_TYPES.filter((t) => {
+    return pool.filter((t) => {
       const m = NODE_META[t];
       return (m.label + m.hint).toLowerCase().includes(q);
     });
-  }, [query]);
+  }, [query, pool]);
 
   const Item = (t: CanvasNodeType) => (
     <button
@@ -99,7 +116,7 @@ export function NodeMenu({ x, y, onPick, onClose }: NodeMenuProps) {
             <p className="cv-wf__empty">无匹配节点</p>
           )
         ) : (
-          CATEGORIES.map((cat, i) => (
+          cats.map((cat, i) => (
             <div key={cat.title}>
               <span className={`cv-menu__head${i > 0 ? " cv-menu__head--sub" : ""}`}>
                 {cat.title}

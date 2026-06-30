@@ -497,3 +497,7 @@
 .cv-dash__state { font-size: 0.75rem; font-weight: 600; color: var(--accent-soft); font-variant-numeric: tabular-nums; }
 .cv-dash__row.is-err .cv-dash__state { color: var(--danger, #e5484d); }
 .cv-dash__errline { margin: 0; padding: 0.5rem 0.75rem; border-top: 1px solid var(--accent-line); font-size: 0.72rem; color: var(--danger, #e5484d); line-height: 1.4; }
+
+/* ── 简易/专业档开关(CV4 轻量小白档)──────────────────── */
+.cv-btn--on { background: var(--accent); color: var(--accent-ink, #fff); border-color: transparent; font-weight: 600; }
+.cv-btn--on:hover { filter: brightness(1.08); }
