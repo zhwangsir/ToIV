@@ -10,8 +10,11 @@
 """
 from __future__ import annotations
 
+import asyncio
+import logging
 import re
 import tempfile
+import time
 import uuid
 import wave
 from pathlib import Path
@@ -28,12 +31,30 @@ from app.ratelimit import enforce_generation_rate_limit
 from app.routes.assembly import _run_ffmpeg
 from app.routes.dub import _DUB_DIR, _NAME_RE, _probe_duration
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
 _TTS_TIMEOUT = 180.0  # IndexTTS2 首调懒加载模型 ~20s,留足
 _MAX_SEGMENTS = 200
 _VOICE_TRACK_RE = re.compile(r"^dubvoice-[0-9a-f]{32}\.wav$")
 _TEMPO_MAX = 2.0  # atempo 单段上限(超出则略溢出时槽,可接受)
+
+# 配音轨后台作业(逐段 TTS 可达数分钟 → 后台跑 + 前端轮询进度;同 lipsync 内存 Job)
+_voice_jobs: dict[str, dict] = {}
+_v_tasks: set[asyncio.Task] = set()
+_JOBS_KEEP = 40
+
+
+def _prune_voice_jobs() -> None:
+    if len(_voice_jobs) <= _JOBS_KEEP:
+        return
+    term = sorted(
+        (j for j in _voice_jobs.values() if j["status"] in ("done", "error")),
+        key=lambda j: j["started"],
+    )
+    for j in term[: len(_voice_jobs) - _JOBS_KEEP]:
+        _voice_jobs.pop(j["id"], None)
 
 
 class VoiceSeg(BaseModel):
@@ -48,13 +69,6 @@ class VoiceTrackRequest(BaseModel):
     ref_seconds: float = Field(default=8.0, ge=0.0, le=20.0)  # 0 = 用 TTS 默认音色
     emo_text: str | None = Field(default=None, max_length=200)
     emo_alpha: float = Field(default=0.6, ge=0.0, le=1.0)
-
-
-class VoiceTrackResponse(BaseModel):
-    name: str
-    url: str
-    duration: float
-    segment_count: int
 
 
 def _wav_duration(path: Path) -> float:
@@ -113,13 +127,96 @@ def _build_track_cmd(
     return cmd
 
 
-@router.post("/dub/voice-track", response_model=VoiceTrackResponse)
+async def _run_voice_track(job: dict, src: Path, body: VoiceTrackRequest, total: float) -> None:
+    """后台:逐段 TTS(报 completed/total + elapsed)→ 铺整轨。异常落 job.error。"""
+    settings = get_settings()
+    segs = sorted(body.segments, key=lambda s: s.start)
+    _DUB_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        with tempfile.TemporaryDirectory(prefix="dub-voice-") as tmp:
+            tmp_dir = Path(tmp)
+            # 从源视频自带音轨抽参考音 → 克隆原说话人(取首个片段处,确保有人声)
+            ref_bytes: bytes | None = None
+            if body.ref_seconds > 0:
+                job["stage"] = "抽参考音"
+                ref_path = tmp_dir / "ref.wav"
+                ref_at = segs[0].start if segs else 0.0
+                try:
+                    await _run_ffmpeg([
+                        "ffmpeg", "-y", "-ss", f"{ref_at:.3f}", "-i", str(src),
+                        "-t", f"{body.ref_seconds:.3f}", "-vn", "-ac", "1", "-ar", "24000",
+                        str(ref_path),
+                    ])
+                    if ref_path.is_file() and ref_path.stat().st_size > 0:
+                        ref_bytes = ref_path.read_bytes()
+                except HTTPException:
+                    ref_bytes = None  # 源无音轨等 → 退回默认音色,不致命
+
+            wavs: list[Path] = []
+            starts: list[float] = []
+            tempos: list[float] = []
+            async with httpx.AsyncClient(timeout=_TTS_TIMEOUT, follow_redirects=True) as client:
+                for i, s in enumerate(segs):
+                    job["stage"] = f"合成配音 {i + 1}/{len(segs)}"
+                    try:
+                        audio = await _tts(
+                            client, settings.tts_url, s.text,
+                            body.emo_text, body.emo_alpha, ref_bytes,
+                        )
+                    except (httpx.HTTPError, RuntimeError):
+                        job["failed"] += 1
+                        job["completed"] = i + 1
+                        job["progress"] = int((i + 1) / len(segs) * 100)
+                        job["elapsed"] = round(time.monotonic() - job["started"], 1)
+                        continue  # 单段失败 → 跳过(留空隙),不毁整轨
+                    wp = tmp_dir / f"s{i:03d}.wav"
+                    wp.write_bytes(audio)
+                    dur = _wav_duration(wp)
+                    slot = max(0.1, s.end - s.start)
+                    # 译文偏长则加速贴回时槽(对口型逐段对齐);偏短则保自然语速
+                    tempo = dur / slot if dur > slot else 1.0
+                    tempos.append(min(max(tempo, 1.0), _TEMPO_MAX))
+                    starts.append(s.start)
+                    wavs.append(wp)
+                    job["completed"] = i + 1
+                    job["progress"] = int((i + 1) / len(segs) * 100)
+                    job["elapsed"] = round(time.monotonic() - job["started"], 1)
+
+            if not wavs:
+                job["status"], job["error"] = "error", "配音全部失败(检查 TTS 服务)"
+                return
+
+            job["stage"] = "铺轨合成"
+            out_name = f"dubvoice-{uuid.uuid4().hex}.wav"
+            out_path = _DUB_DIR / out_name
+            await _run_ffmpeg(_build_track_cmd(wavs, starts, tempos, total, out_path))
+    except Exception as e:  # noqa: BLE001 — 后台任务异常一律落 job
+        logger.warning("voice-track %s 失败:%s", job["id"], e)
+        job["status"], job["error"] = "error", f"配音轨合成失败:{e}"
+        return
+
+    if not out_path.exists() or out_path.stat().st_size == 0:
+        job["status"], job["error"] = "error", "配音轨合成为空"
+        return
+    job["result"] = {
+        "name": out_name,
+        "url": f"/api/dub/voice-track/{out_name}",
+        "duration": _wav_duration(out_path),
+        "segment_count": len(wavs),
+    }
+    job["stage"] = "完成"
+    job["progress"] = 100
+    job["elapsed"] = round(time.monotonic() - job["started"], 1)
+    job["status"] = "done"
+
+
+@router.post("/dub/voice-track")
 async def dub_voice_track(
     body: VoiceTrackRequest,
     user: User = Depends(get_current_user),
-) -> VoiceTrackResponse:
+) -> dict[str, object]:
+    """起后台配音轨作业(逐段 TTS)。轮询 GET /dub/voice-track-status/{job} 取进度/结果。"""
     enforce_generation_rate_limit(user)
-    settings = get_settings()
     if not _NAME_RE.match(body.name):
         raise HTTPException(status_code=400, detail="非法文件名")
     src = _DUB_DIR / body.name
@@ -127,72 +224,42 @@ async def dub_voice_track(
         raise HTTPException(status_code=404, detail="源视频不存在")
 
     src_dur = await _probe_duration(src)
-    segs = sorted(body.segments, key=lambda s: s.start)
-    total = max((s.end for s in segs), default=0.0)
+    total = max((s.end for s in body.segments), default=0.0)
     if src_dur > 0:
         total = max(total, src_dur)
     if total <= 0:
         raise HTTPException(status_code=422, detail="片段时间轴无效")
 
-    _DUB_DIR.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="dub-voice-") as tmp:
-        tmp_dir = Path(tmp)
+    job_id = uuid.uuid4().hex
+    job = {
+        "id": job_id, "status": "running", "stage": "排队",
+        "total": len(body.segments), "completed": 0, "failed": 0,
+        "progress": 0, "result": None, "error": None,
+        "started": time.monotonic(), "elapsed": 0.0,
+    }
+    _voice_jobs[job_id] = job
+    _prune_voice_jobs()
+    task = asyncio.create_task(_run_voice_track(job, src, body, total))
+    _v_tasks.add(task)
+    task.add_done_callback(_v_tasks.discard)
+    return {"job_id": job_id, "segment_count": len(body.segments)}
 
-        # 从源视频自带音轨抽参考音 → 克隆原说话人(取首个片段处,确保有人声)
-        ref_bytes: bytes | None = None
-        if body.ref_seconds > 0:
-            ref_path = tmp_dir / "ref.wav"
-            ref_at = segs[0].start if segs else 0.0
-            try:
-                await _run_ffmpeg([
-                    "ffmpeg", "-y", "-ss", f"{ref_at:.3f}", "-i", str(src),
-                    "-t", f"{body.ref_seconds:.3f}", "-vn", "-ac", "1", "-ar", "24000",
-                    str(ref_path),
-                ])
-                if ref_path.is_file() and ref_path.stat().st_size > 0:
-                    ref_bytes = ref_path.read_bytes()
-            except HTTPException:
-                ref_bytes = None  # 源无音轨等 → 退回默认音色,不致命
 
-        wavs: list[Path] = []
-        starts: list[float] = []
-        tempos: list[float] = []
-        async with httpx.AsyncClient(timeout=_TTS_TIMEOUT, follow_redirects=True) as client:
-            for i, s in enumerate(segs):
-                try:
-                    audio = await _tts(
-                        client, settings.tts_url, s.text,
-                        body.emo_text, body.emo_alpha, ref_bytes,
-                    )
-                except (httpx.HTTPError, RuntimeError):
-                    continue  # 单段失败 → 跳过(留空隙),不毁整轨
-                wp = tmp_dir / f"s{i:03d}.wav"
-                wp.write_bytes(audio)
-                dur = _wav_duration(wp)
-                slot = max(0.1, s.end - s.start)
-                # 译文偏长则加速贴回时槽(对口型逐段对齐);偏短则保自然语速
-                tempo = dur / slot if dur > slot else 1.0
-                tempos.append(min(max(tempo, 1.0), _TEMPO_MAX))
-                starts.append(s.start)
-                wavs.append(wp)
-
-        if not wavs:
-            raise HTTPException(status_code=502, detail="配音全部失败(检查 TTS 服务)")
-
-        out_name = f"dubvoice-{uuid.uuid4().hex}.wav"
-        out_path = _DUB_DIR / out_name
-        cmd = _build_track_cmd(wavs, starts, tempos, total, out_path)
-        await _run_ffmpeg(cmd)
-
-    if not out_path.exists() or out_path.stat().st_size == 0:
-        raise HTTPException(status_code=500, detail="配音轨合成为空")
-
-    return VoiceTrackResponse(
-        name=out_name,
-        url=f"/api/dub/voice-track/{out_name}",
-        duration=_wav_duration(out_path),
-        segment_count=len(wavs),
-    )
+@router.get("/dub/voice-track-status/{job_id}")
+async def dub_voice_track_status(
+    job_id: str,
+    user: User = Depends(get_current_user),
+) -> dict[str, object]:
+    job = _voice_jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="配音任务不存在(可能已过期或 api 重启)")
+    return {
+        k: job[k]
+        for k in (
+            "id", "status", "stage", "total", "completed", "failed",
+            "progress", "result", "error", "elapsed",
+        )
+    }
 
 
 @router.get("/dub/voice-track/{name}")

@@ -1080,20 +1080,44 @@ export interface DubUploadResult {
   size: number;
 }
 
-/** 上传长视频源 → 流式落盘。契约:POST /api/dub/upload multipart(video)。 */
-export async function uploadDubVideo(file: File): Promise<DubUploadResult> {
-  const fd = new FormData();
-  fd.append("video", file);
-  const res = await fetch(`${API_BASE}/api/dub/upload`, {
-    method: "POST",
-    headers: authHeaders(), // 不手动设 Content-Type,让浏览器带 boundary
-    body: fd,
+/**
+ * 上传长视频源 → 流式落盘。契约:POST /api/dub/upload multipart(video)。
+ * 用 XHR 以拿到真实上传进度(fetch 无法报上传进度);onProgress 回传 0-100。
+ */
+export function uploadDubVideo(
+  file: File,
+  onProgress?: (pct: number) => void,
+): Promise<DubUploadResult> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_BASE}/api/dub/upload`);
+    const t = getToken();
+    if (t) xhr.setRequestHeader("Authorization", `Bearer ${t}`);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress?.(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText));
+        } catch {
+          reject(new Error("上传响应解析失败"));
+        }
+      } else {
+        let msg = `视频上传失败 (${xhr.status})`;
+        try {
+          msg = JSON.parse(xhr.responseText)?.detail ?? msg;
+        } catch {
+          /* 保留默认 */
+        }
+        reject(new Error(msg));
+      }
+    };
+    xhr.onerror = () => reject(new Error("上传网络错误"));
+    const fd = new FormData();
+    fd.append("video", file);
+    xhr.send(fd);
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `视频上传失败 (${res.status})`);
-  }
-  return res.json();
 }
 
 export interface DubSegment {
@@ -1232,17 +1256,25 @@ interface TranscribeStatus {
   count: number;
   segments: DubTextSegment[];
   error: string | null;
+  progress: number;
+  elapsed: number;
+}
+
+/** 后台作业进度回调载荷:阶段文字 + 0-100 进度 + 已用秒(前端据此算 ETA + 画进度条)。 */
+export interface JobProgress {
+  stage: string;
+  progress: number;
   elapsed: number;
 }
 
 /**
  * Whisper 听写源视频(后台作业,内部轮询直到完成)。契约:POST /api/dub/transcribe →
  * { job_id };GET /api/dub/transcribe/{job_id} 取进度/片段。内置 faster-whisper(CPU)。
- * onStage 回调用于展示阶段(加载模型/听写中…);长视频可能数分钟。
+ * onProgress 回传 {stage, progress(0-100), elapsed};长视频可能数分钟。
  */
 export async function transcribeDub(
   name: string,
-  onStage?: (stage: string) => void,
+  onProgress?: (p: JobProgress) => void,
 ): Promise<{ segments: DubTextSegment[]; count: number }> {
   const startRes = await fetch(`${API_BASE}/api/dub/transcribe`, {
     method: "POST",
@@ -1255,13 +1287,13 @@ export async function transcribeDub(
   }
   const { job_id: jobId } = (await startRes.json()) as { job_id: string };
 
-  // 轮询至终态(2.5s/次,上限 ~12 分钟)
-  for (let i = 0; i < 288; i++) {
-    await new Promise((r) => setTimeout(r, 2500));
+  // 轮询至终态(2s/次,上限 ~12 分钟)
+  for (let i = 0; i < 360; i++) {
+    await new Promise((r) => setTimeout(r, 2000));
     const res = await fetch(`${API_BASE}/api/dub/transcribe/${jobId}`, { headers: authHeaders() });
     if (!res.ok) continue; // 抖动,下次再试
     const s = (await res.json()) as TranscribeStatus;
-    onStage?.(s.stage);
+    onProgress?.({ stage: s.stage, progress: s.progress, elapsed: s.elapsed });
     if (s.status === "done") return { segments: s.segments, count: s.count };
     if (s.status === "error") throw new Error(s.error ?? "听写失败");
   }
@@ -1309,17 +1341,35 @@ export interface VoiceTrackResult {
   segment_count: number;
 }
 
+interface VoiceTrackStatus {
+  id: string;
+  status: "running" | "done" | "error";
+  stage: string;
+  total: number;
+  completed: number;
+  failed: number;
+  progress: number;
+  result: VoiceTrackResult | null;
+  error: string | null;
+  elapsed: number;
+}
+
 /**
- * 生成克隆音色配音轨:逐片段 IndexTTS2 合成(从源视频抽参考音克隆原说话人)→ 铺成整轨。
- * 契约:POST /api/dub/voice-track。返回的 name 可作 startLipsyncLong 的 audioName。
+ * 生成克隆音色配音轨(后台作业,内部轮询)。逐片段 IndexTTS2 合成(从源视频抽参考音
+ * 克隆原说话人)→ 铺成整轨。契约:POST /api/dub/voice-track → {job_id};
+ * GET /api/dub/voice-track-status/{job} 取进度。返回的 name 可作 startLipsyncLong 的 audioName。
+ * onProgress 回传 {stage, progress(0-100), elapsed}。
  */
-export async function voiceTrackDub(params: {
-  name: string;
-  segments: { start: number; end: number; text: string }[];
-  refSeconds?: number;
-  emoText?: string;
-}): Promise<VoiceTrackResult> {
-  const res = await fetch(`${API_BASE}/api/dub/voice-track`, {
+export async function voiceTrackDub(
+  params: {
+    name: string;
+    segments: { start: number; end: number; text: string }[];
+    refSeconds?: number;
+    emoText?: string;
+  },
+  onProgress?: (p: JobProgress) => void,
+): Promise<VoiceTrackResult> {
+  const startRes = await fetch(`${API_BASE}/api/dub/voice-track`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({
@@ -1329,11 +1379,24 @@ export async function voiceTrackDub(params: {
       emo_text: params.emoText ?? null,
     }),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `配音轨生成失败 (${res.status})`);
+  if (!startRes.ok) {
+    const detail = await startRes.json().catch(() => null);
+    throw new Error(detail?.detail ?? `配音轨启动失败 (${startRes.status})`);
   }
-  return res.json();
+  const { job_id: jobId } = (await startRes.json()) as { job_id: string };
+
+  for (let i = 0; i < 360; i++) {
+    await new Promise((r) => setTimeout(r, 2000));
+    const res = await fetch(`${API_BASE}/api/dub/voice-track-status/${jobId}`, {
+      headers: authHeaders(),
+    });
+    if (!res.ok) continue;
+    const s = (await res.json()) as VoiceTrackStatus;
+    onProgress?.({ stage: s.stage, progress: s.progress, elapsed: s.elapsed });
+    if (s.status === "done" && s.result) return s.result;
+    if (s.status === "error") throw new Error(s.error ?? "配音轨生成失败");
+  }
+  throw new Error("配音轨生成超时");
 }
 
 // ---------- 创作引擎 HUD:实时遥测 ----------

@@ -22,6 +22,7 @@ import type {
   DubSegment,
   DubTextSegment,
   DubUploadResult,
+  JobProgress,
   LipsyncLongStatus,
   VoiceTrackResult,
 } from "@/lib/api";
@@ -42,6 +43,27 @@ function fmt(sec: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+/** 已运行秒数:active 为真时每 0.5s 自增(给单次调用类操作一个「时间在走」的反馈)。 */
+function useElapsed(active: boolean): number {
+  const [sec, setSec] = useState(0);
+  useEffect(() => {
+    if (!active) {
+      setSec(0);
+      return;
+    }
+    const t0 = Date.now();
+    const id = window.setInterval(() => setSec(Math.floor((Date.now() - t0) / 1000)), 500);
+    return () => window.clearInterval(id);
+  }, [active]);
+  return sec;
+}
+
+/** 由「已用时 + 进度%」线性外推预计剩余时间;进度无效时返回空串。 */
+function etaText(elapsed: number, progress: number): string {
+  if (progress <= 0 || progress >= 100 || elapsed <= 1) return "";
+  return `约剩 ${fmt((elapsed * (100 - progress)) / progress)}`;
+}
+
 export function DubStudio() {
   const [source, setSource] = useState<DubUploadResult | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -60,9 +82,10 @@ export function DubStudio() {
   const [targetLang, setTargetLang] = useState<TargetLang>("zh");
   const [importing, setImporting] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
-  const [transcribeStage, setTranscribeStage] = useState("");
+  const [transProg, setTransProg] = useState<JobProgress | null>(null);
   const [translating, setTranslating] = useState(false);
   const [makingTrack, setMakingTrack] = useState(false);
+  const [trackProg, setTrackProg] = useState<JobProgress | null>(null);
   const [track, setTrack] = useState<VoiceTrackResult | null>(null);
   // AI 精剪:高光句集合 + 集锦标题 + 「只译制高光」开关
   const [picking, setPicking] = useState(false);
@@ -79,7 +102,14 @@ export function DubStudio() {
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const { setActivity, clearActivity } = useActivity();
-  const uploadPct = useFauxProgress(uploading, 8000);
+  // 上传:真实字节进度(XHR);其余单次调用类操作:估算条 + 已用时计数,给「在动」的反馈
+  const [uploadPct, setUploadPct] = useState(0);
+  const cutPct = useFauxProgress(cutting, 20000);
+  const cutSec = useElapsed(cutting);
+  const translatePct = useFauxProgress(translating, Math.max(6000, rows.length * 350));
+  const translateSec = useElapsed(translating);
+  const pickPct = useFauxProgress(picking, Math.max(5000, rows.length * 250));
+  const pickSec = useElapsed(picking);
 
   const clearHighlights = useCallback(() => {
     setHighlightSet(new Set());
@@ -106,10 +136,11 @@ export function DubStudio() {
   const onFile = useCallback(
     async (file: File) => {
       setUploading(true);
+      setUploadPct(0);
       setError(null);
       resetDerived();
       try {
-        const r = await uploadDubVideo(file);
+        const r = await uploadDubVideo(file, setUploadPct);
         setSource(r);
       } catch (e) {
         setError((e as Error).message);
@@ -163,18 +194,18 @@ export function DubStudio() {
   const runTranscribe = useCallback(async () => {
     if (!source || transcribing) return;
     setTranscribing(true);
-    setTranscribeStage("");
+    setTransProg(null);
     setError(null);
     setTrack(null);
     clearHighlights();
     try {
-      const r = await transcribeDub(source.name, setTranscribeStage);
+      const r = await transcribeDub(source.name, setTransProg);
       setRows(r.segments.map((s) => ({ ...s })));
     } catch (e) {
       setError(`听写:${(e as Error).message}`);
     } finally {
       setTranscribing(false);
-      setTranscribeStage("");
+      setTransProg(null);
     }
   }, [source, transcribing, clearHighlights]);
 
@@ -219,20 +250,25 @@ export function DubStudio() {
   const makeTrack = useCallback(async () => {
     if (!source || !rows.length || makingTrack) return;
     setMakingTrack(true);
+    setTrackProg(null);
     setError(null);
     try {
       // 只译制高光时只对选中句配音(长视频→短译制版)
       const eff = onlyHighlights ? rows.filter((s) => highlightSet.has(s.index)) : rows;
-      const r = await voiceTrackDub({
-        name: source.name,
-        // 有译文用译文,否则用原文(原片已是目标语时)
-        segments: eff.map((s) => ({ start: s.start, end: s.end, text: s.translated || s.text })),
-      });
+      const r = await voiceTrackDub(
+        {
+          name: source.name,
+          // 有译文用译文,否则用原文(原片已是目标语时)
+          segments: eff.map((s) => ({ start: s.start, end: s.end, text: s.translated || s.text })),
+        },
+        setTrackProg,
+      );
       setTrack(r);
     } catch (e) {
       setError(`配音轨:${(e as Error).message}`);
     } finally {
       setMakingTrack(false);
+      setTrackProg(null);
     }
   }, [source, rows, makingTrack, onlyHighlights, highlightSet]);
 
@@ -354,7 +390,7 @@ export function DubStudio() {
               active
               value={uploadPct}
               tone="cool"
-              label="上传中…(大文件流式落盘)"
+              label={uploadPct >= 100 ? "服务器处理中…" : "上传中…(大文件流式落盘)"}
               className="dub-upload-progress"
             />
           )}
@@ -443,6 +479,16 @@ export function DubStudio() {
                 </button>
               </div>
 
+              {cutting && (
+                <ProgressBar
+                  active
+                  tone="cool"
+                  value={cutPct}
+                  label={`扫描切分中… 已用 ${cutSec}s`}
+                  className="dub-run-progress"
+                />
+              )}
+
               {cut && (
                 <div className="dub-segments">
                   <div className="dub-seg-summary">
@@ -499,7 +545,7 @@ export function DubStudio() {
                   disabled={transcribing}
                   onClick={() => void runTranscribe()}
                 >
-                  {transcribing ? `${transcribeStage || "听写中"}…` : "🎧 听写(Whisper)"}
+                  {transcribing ? `${transProg?.stage || "听写中"}…` : "🎧 听写(Whisper)"}
                 </button>
                 <div className="dub-modes">
                   {(["zh", "en"] as TargetLang[]).map((l) => (
@@ -539,6 +585,47 @@ export function DubStudio() {
                   {makingTrack ? "合成配音中…" : "🎙 生成配音轨"}
                 </button>
               </div>
+
+              {transcribing && (
+                <ProgressBar
+                  active
+                  tone="cool"
+                  value={transProg && transProg.progress > 0 ? transProg.progress : null}
+                  label={`${transProg?.stage ?? "听写准备中"}…${
+                    transProg ? ` ${etaText(transProg.elapsed, transProg.progress)}` : ""
+                  }`}
+                  className="dub-run-progress"
+                />
+              )}
+              {translating && (
+                <ProgressBar
+                  active
+                  tone="accent"
+                  value={translatePct}
+                  label={`翻译中… 已用 ${translateSec}s`}
+                  className="dub-run-progress"
+                />
+              )}
+              {picking && (
+                <ProgressBar
+                  active
+                  tone="accent"
+                  value={pickPct}
+                  label={`AI 精剪中… 已用 ${pickSec}s`}
+                  className="dub-run-progress"
+                />
+              )}
+              {makingTrack && (
+                <ProgressBar
+                  active
+                  tone="voice"
+                  value={trackProg && trackProg.progress > 0 ? trackProg.progress : null}
+                  label={`${trackProg?.stage ?? "配音准备中"}…${
+                    trackProg ? ` ${etaText(trackProg.elapsed, trackProg.progress)}` : ""
+                  }`}
+                  className="dub-run-progress"
+                />
+              )}
 
               {rows.length > 0 && (
                 <div className="dub-table-wrap">
@@ -658,7 +745,9 @@ export function DubStudio() {
                   active
                   tone="voice"
                   value={jobPct}
-                  label={job?.stage ?? "准备中…"}
+                  label={`${job?.stage ?? "准备中"}…${
+                    job && jobPct !== null ? ` ${etaText(job.elapsed, jobPct)}` : ""
+                  }`}
                   className="dub-run-progress"
                 />
               )}

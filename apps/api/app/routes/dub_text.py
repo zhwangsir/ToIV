@@ -158,14 +158,23 @@ async def _get_whisper_model():
         return model
 
 
-def _whisper_transcribe_sync(model, path: str) -> list[dict]:
-    """阻塞转录(迭代生成器才真正计算)→ raw 片段。必须在线程里跑。"""
-    segments, _info = model.transcribe(path, vad_filter=True, beam_size=5)
+def _whisper_transcribe_sync(model, path: str, job: dict) -> list[dict]:
+    """阻塞转录(迭代生成器才真正计算)→ raw 片段。必须在线程里跑。
+
+    迭代过程中按 segment.end / 音频总时长 实时回写 job["progress"](0-100),
+    供前端画真实进度条 + 估算 ETA(音频位置 ≈ 转录进度)。
+    """
+    segments, info = model.transcribe(path, vad_filter=True, beam_size=5)
+    dur = float(getattr(info, "duration", 0) or 0)
     out: list[dict] = []
     for seg in segments:
         txt = (seg.text or "").strip()
         if txt:
             out.append({"start": float(seg.start), "end": float(seg.end), "text": txt})
+        if dur > 0:
+            job["progress"] = min(99, int(float(seg.end) / dur * 100))
+        job["elapsed"] = round(time.monotonic() - job["started"], 1)
+    job["progress"] = 100
     return out
 
 
@@ -188,7 +197,7 @@ async def _run_transcribe(job: dict, src_path, name: str) -> None:
             job["stage"] = "加载模型"
             model = await _get_whisper_model()
             job["stage"] = "听写中"
-            raw = await asyncio.to_thread(_whisper_transcribe_sync, model, str(src_path))
+            raw = await asyncio.to_thread(_whisper_transcribe_sync, model, str(src_path), job)
             segs = _normalize_segments(raw)
     except ImportError as e:
         job["status"], job["error"] = "error", f"听写依赖缺失(api 镜像需重建):{e}"
@@ -223,7 +232,7 @@ async def dub_transcribe(
     job_id = uuid.uuid4().hex
     job = {
         "id": job_id, "status": "running", "stage": "排队",
-        "count": 0, "segments": [], "error": None,
+        "count": 0, "segments": [], "error": None, "progress": 0,
         "started": time.monotonic(), "elapsed": 0.0,
     }
     _transcribe_jobs[job_id] = job
@@ -242,7 +251,10 @@ async def dub_transcribe_status(
     job = _transcribe_jobs.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="听写任务不存在(可能已过期或 api 重启)")
-    return {k: job[k] for k in ("id", "status", "stage", "count", "segments", "error", "elapsed")}
+    return {
+        k: job[k]
+        for k in ("id", "status", "stage", "count", "segments", "error", "progress", "elapsed")
+    }
 
 
 _LANG_NAME = {"zh": "简体中文", "en": "英语", "ja": "日语", "ko": "韩语"}
