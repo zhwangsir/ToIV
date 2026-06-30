@@ -59,6 +59,7 @@ export function DubStudio() {
   const [targetLang, setTargetLang] = useState<TargetLang>("zh");
   const [importing, setImporting] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
+  const [transcribeStage, setTranscribeStage] = useState("");
   const [translating, setTranslating] = useState(false);
   const [makingTrack, setMakingTrack] = useState(false);
   const [track, setTrack] = useState<VoiceTrackResult | null>(null);
@@ -146,15 +147,17 @@ export function DubStudio() {
   const runTranscribe = useCallback(async () => {
     if (!source || transcribing) return;
     setTranscribing(true);
+    setTranscribeStage("");
     setError(null);
     setTrack(null);
     try {
-      const r = await transcribeDub(source.name);
+      const r = await transcribeDub(source.name, setTranscribeStage);
       setRows(r.segments.map((s) => ({ ...s })));
     } catch (e) {
       setError(`听写:${(e as Error).message}`);
     } finally {
       setTranscribing(false);
+      setTranscribeStage("");
     }
   }, [source, transcribing]);
 
@@ -460,7 +463,7 @@ export function DubStudio() {
                   disabled={transcribing}
                   onClick={() => void runTranscribe()}
                 >
-                  {transcribing ? "听写中…" : "🎧 听写(Whisper)"}
+                  {transcribing ? `${transcribeStage || "听写中"}…` : "🎧 听写(Whisper)"}
                 </button>
                 <div className="dub-modes">
                   {(["zh", "en"] as TargetLang[]).map((l) => (

@@ -1225,18 +1225,47 @@ export async function importSrtDub(file: File): Promise<{ segments: DubTextSegme
   return res.json();
 }
 
-/** Whisper 听写源视频(需部署 whisper_url)。契约:POST /api/dub/transcribe。 */
-export async function transcribeDub(name: string): Promise<{ segments: DubTextSegment[]; count: number }> {
-  const res = await fetch(`${API_BASE}/api/dub/transcribe`, {
+interface TranscribeStatus {
+  id: string;
+  status: "running" | "done" | "error";
+  stage: string;
+  count: number;
+  segments: DubTextSegment[];
+  error: string | null;
+  elapsed: number;
+}
+
+/**
+ * Whisper 听写源视频(后台作业,内部轮询直到完成)。契约:POST /api/dub/transcribe →
+ * { job_id };GET /api/dub/transcribe/{job_id} 取进度/片段。内置 faster-whisper(CPU)。
+ * onStage 回调用于展示阶段(加载模型/听写中…);长视频可能数分钟。
+ */
+export async function transcribeDub(
+  name: string,
+  onStage?: (stage: string) => void,
+): Promise<{ segments: DubTextSegment[]; count: number }> {
+  const startRes = await fetch(`${API_BASE}/api/dub/transcribe`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ name }),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `听写失败 (${res.status})`);
+  if (!startRes.ok) {
+    const detail = await startRes.json().catch(() => null);
+    throw new Error(detail?.detail ?? `听写启动失败 (${startRes.status})`);
   }
-  return res.json();
+  const { job_id: jobId } = (await startRes.json()) as { job_id: string };
+
+  // 轮询至终态(2.5s/次,上限 ~12 分钟)
+  for (let i = 0; i < 288; i++) {
+    await new Promise((r) => setTimeout(r, 2500));
+    const res = await fetch(`${API_BASE}/api/dub/transcribe/${jobId}`, { headers: authHeaders() });
+    if (!res.ok) continue; // 抖动,下次再试
+    const s = (await res.json()) as TranscribeStatus;
+    onStage?.(s.stage);
+    if (s.status === "done") return { segments: s.segments, count: s.count };
+    if (s.status === "error") throw new Error(s.error ?? "听写失败");
+  }
+  throw new Error("听写超时");
 }
 
 /** 批量翻译到目标语(口语自然、贴近朗读时长)。契约:POST /api/dub/translate。 */

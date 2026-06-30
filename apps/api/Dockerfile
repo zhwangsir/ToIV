@@ -24,9 +24,17 @@ RUN pip install --no-cache-dir --timeout 120 \
     -i https://pypi.tuna.tsinghua.edu.cn/simple \
     ezdxf==1.4.2 matplotlib==3.9.4
 
+# 译制听写:faster-whisper(CPU/CTranslate2)。模型走 HF 镜像,缓存到 /data 持久卷(免每次重下)
+RUN pip install --no-cache-dir --timeout 180 \
+    -i https://pypi.tuna.tsinghua.edu.cn/simple \
+    faster-whisper==1.1.1
+
 COPY app ./app
 
 ENV TOIV_DATABASE_URL=sqlite:////data/toiv.db
+# Whisper 模型缓存到持久卷 + HF 国内镜像(首次听写自动下载)
+ENV HF_HOME=/data/whisper
+ENV HF_ENDPOINT=https://hf-mirror.com
 EXPOSE 8080
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]

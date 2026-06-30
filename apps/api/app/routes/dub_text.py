@@ -1,16 +1,22 @@
 """视频译制·听写翻译 —— 得到带时间轴的双语片段(配音/对口型的台本骨架)。
 
-  POST /api/dub/import-srt   multipart(file) 解析 SRT/VTT → [{index,start,end,text}]
-  POST /api/dub/transcribe   调 Whisper(ASR)服务听写源视频(需配 whisper_url)
-  POST /api/dub/translate    复用 LLM 把片段批量翻成目标语(口语自然、贴近朗读时长)
+  POST /api/dub/import-srt        multipart(file) 解析 SRT/VTT → [{index,start,end,text}]
+  POST /api/dub/transcribe        起后台听写作业(内置 faster-whisper / 外部 whisper_url)
+  GET  /api/dub/transcribe/{job}  听写进度 + 完成片段
+  POST /api/dub/translate         复用 LLM 把片段批量翻成目标语(口语自然、贴近朗读时长)
 
-转录来源二选一:已有字幕 → import-srt(零部署);无字幕 → transcribe(需 .100 部署
-faster-whisper,见 config.whisper_url)。译文长度尽量贴近原文朗读时长,便于配音对齐。
+转录来源二选一:已有字幕 → import-srt(零部署);无字幕 → transcribe。听写默认用 api 容器
+内置 faster-whisper(CPU,首调下载模型到 /data/whisper),配 whisper_url 则改调外部 GPU
+服务。后台作业避免长视频阻塞/代理超时。译文长度尽量贴近原文朗读时长,便于配音对齐。
 """
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 import re
+import time
+import uuid
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
@@ -23,11 +29,13 @@ from app.models import User
 from app.ratelimit import enforce_generation_rate_limit
 from app.routes.dub import _DUB_DIR, _NAME_RE
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
 _MAX_SRT_BYTES = 2 * 1024 * 1024  # 字幕文件上限 2MB
 _MAX_SEGMENTS = 400  # 译制片段上限(控 LLM/TTS 量)
-_TRANSCRIBE_TIMEOUT = 600.0  # Whisper 听写长视频可能数分钟
+_TRANSCRIBE_TIMEOUT = 1200.0  # 外部 Whisper 听写长视频上限(本地无网络超时)
 
 # SRT/VTT 时间戳:HH:MM:SS,mmm 或 HH:MM:SS.mmm
 _TS_RE = re.compile(r"(\d{1,2}):(\d{2}):(\d{2})[,.](\d{1,3})")
@@ -95,40 +103,31 @@ class TranscribeRequest(BaseModel):
     name: str = Field(min_length=1, max_length=200)  # /dub/upload 的源视频 name
 
 
-@router.post("/dub/transcribe")
-async def dub_transcribe(
-    body: TranscribeRequest,
-    user: User = Depends(get_current_user),
-) -> dict[str, object]:
-    """调 Whisper(ASR)服务听写源视频。未配置 whisper_url 则引导改用上传 SRT。"""
-    enforce_generation_rate_limit(user)
-    settings = get_settings()
-    if not settings.whisper_url.strip():
-        raise HTTPException(
-            status_code=503,
-            detail="未部署 Whisper 听写服务(设 TOIV_WHISPER_URL);可改用上传 SRT 字幕。",
-        )
-    if not _NAME_RE.match(body.name):
-        raise HTTPException(status_code=400, detail="非法文件名")
-    src = _DUB_DIR / body.name
-    if not src.is_file():
-        raise HTTPException(status_code=404, detail="源视频不存在")
+# ── 听写后台作业 ──────────────────────────────────────────────────────
+# 内置 faster-whisper(CPU)默认;配 whisper_url 则改调外部 GPU 服务。后台跑避免
+# 长视频阻塞事件循环 / 公网代理超时(同 lipsync-long 内存 Job 模式;api 重启会丢)。
+_transcribe_jobs: dict[str, dict] = {}
+_t_tasks: set[asyncio.Task] = set()
+_JOBS_KEEP = 40
 
-    base = settings.whisper_url.strip().rstrip("/")
-    try:
-        async with httpx.AsyncClient(timeout=_TRANSCRIBE_TIMEOUT) as client:
-            with src.open("rb") as f:
-                resp = await client.post(
-                    f"{base}/asr", files={"file": (body.name, f, "video/mp4")}
-                )
-        resp.raise_for_status()
-        data = resp.json()
-    except httpx.HTTPError as e:
-        raise HTTPException(status_code=502, detail=f"Whisper 服务不可达:{e}") from e
-    except (ValueError, KeyError) as e:
-        raise HTTPException(status_code=502, detail=f"Whisper 返回异常:{e}") from e
+# faster-whisper 模型按 (size,compute) 缓存,首调在线程加载(避免重复加载/阻塞循环)
+_model_cache: dict[tuple, object] = {}
+_model_lock = asyncio.Lock()
 
-    raw = data.get("segments") or []
+
+def _prune_transcribe_jobs() -> None:
+    if len(_transcribe_jobs) <= _JOBS_KEEP:
+        return
+    term = sorted(
+        (j for j in _transcribe_jobs.values() if j["status"] in ("done", "error")),
+        key=lambda j: j["started"],
+    )
+    for j in term[: len(_transcribe_jobs) - _JOBS_KEEP]:
+        _transcribe_jobs.pop(j["id"], None)
+
+
+def _normalize_segments(raw: list) -> list[dict]:
+    """规整为 [{index,start,end,text}](过滤空/逆序,封顶 _MAX_SEGMENTS)。"""
     segs: list[dict] = []
     for s in raw:
         try:
@@ -138,10 +137,112 @@ async def dub_transcribe(
             continue
         if txt and end > start:
             segs.append({"start": round(start, 3), "end": round(end, 3), "text": txt})
-    segs = [{"index": i, **s} for i, s in enumerate(segs[:_MAX_SEGMENTS])]
+    return [{"index": i, **s} for i, s in enumerate(segs[:_MAX_SEGMENTS])]
+
+
+def _load_whisper(size: str, compute: str):
+    """加载 faster-whisper(CPU);首次会下载模型到 HF_HOME(/data/whisper)。阻塞,放线程跑。"""
+    from faster_whisper import WhisperModel  # 惰性导入:未装则只影响听写,不拖累启动
+
+    return WhisperModel(size, device="cpu", compute_type=compute)
+
+
+async def _get_whisper_model():
+    s = get_settings()
+    key = (s.whisper_model, s.whisper_compute)
+    async with _model_lock:
+        model = _model_cache.get(key)
+        if model is None:
+            model = await asyncio.to_thread(_load_whisper, s.whisper_model, s.whisper_compute)
+            _model_cache[key] = model
+        return model
+
+
+def _whisper_transcribe_sync(model, path: str) -> list[dict]:
+    """阻塞转录(迭代生成器才真正计算)→ raw 片段。必须在线程里跑。"""
+    segments, _info = model.transcribe(path, vad_filter=True, beam_size=5)
+    out: list[dict] = []
+    for seg in segments:
+        txt = (seg.text or "").strip()
+        if txt:
+            out.append({"start": float(seg.start), "end": float(seg.end), "text": txt})
+    return out
+
+
+async def _transcribe_external(base: str, src_path, name: str) -> list[dict]:
+    async with httpx.AsyncClient(timeout=_TRANSCRIBE_TIMEOUT) as client:
+        with src_path.open("rb") as f:
+            resp = await client.post(f"{base}/asr", files={"file": (name, f, "video/mp4")})
+    resp.raise_for_status()
+    return _normalize_segments(resp.json().get("segments") or [])
+
+
+async def _run_transcribe(job: dict, src_path, name: str) -> None:
+    """后台听写:外部 whisper_url 优先,否则内置 faster-whisper(线程跑)。异常落 job.error。"""
+    try:
+        s = get_settings()
+        if s.whisper_url.strip():
+            job["stage"] = "外部听写中"
+            segs = await _transcribe_external(s.whisper_url.strip().rstrip("/"), src_path, name)
+        else:
+            job["stage"] = "加载模型"
+            model = await _get_whisper_model()
+            job["stage"] = "听写中"
+            raw = await asyncio.to_thread(_whisper_transcribe_sync, model, str(src_path))
+            segs = _normalize_segments(raw)
+    except ImportError:
+        job["status"], job["error"] = "error", "faster-whisper 未安装(api 镜像需重建)"
+        return
+    except Exception as e:  # noqa: BLE001 — 后台任务异常一律落 job,不冒泡
+        logger.warning("transcribe %s 失败:%s", job["id"], e)
+        job["status"], job["error"] = "error", f"听写失败:{e}"
+        return
     if not segs:
-        raise HTTPException(status_code=422, detail="听写未得到有效片段")
-    return {"segments": segs, "count": len(segs)}
+        job["status"], job["error"] = "error", "听写未得到有效片段(可能无语音/无音轨)"
+        return
+    job["segments"] = segs
+    job["count"] = len(segs)
+    job["stage"] = "完成"
+    job["elapsed"] = round(time.monotonic() - job["started"], 1)
+    job["status"] = "done"
+
+
+@router.post("/dub/transcribe")
+async def dub_transcribe(
+    body: TranscribeRequest,
+    user: User = Depends(get_current_user),
+) -> dict[str, object]:
+    """起后台听写作业。内置 faster-whisper(CPU)/ 外部 whisper_url。轮询 GET 取结果。"""
+    enforce_generation_rate_limit(user)
+    if not _NAME_RE.match(body.name):
+        raise HTTPException(status_code=400, detail="非法文件名")
+    src = _DUB_DIR / body.name
+    if not src.is_file():
+        raise HTTPException(status_code=404, detail="源视频不存在")
+
+    job_id = uuid.uuid4().hex
+    job = {
+        "id": job_id, "status": "running", "stage": "排队",
+        "count": 0, "segments": [], "error": None,
+        "started": time.monotonic(), "elapsed": 0.0,
+    }
+    _transcribe_jobs[job_id] = job
+    _prune_transcribe_jobs()
+    task = asyncio.create_task(_run_transcribe(job, src, body.name))
+    _t_tasks.add(task)
+    task.add_done_callback(_t_tasks.discard)
+    return {"job_id": job_id}
+
+
+@router.get("/dub/transcribe/{job_id}")
+async def dub_transcribe_status(
+    job_id: str,
+    user: User = Depends(get_current_user),
+) -> dict[str, object]:
+    job = _transcribe_jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="听写任务不存在(可能已过期或 api 重启)")
+    return {k: job[k] for k in ("id", "status", "stage", "count", "segments", "error", "elapsed")}
 
 
 _LANG_NAME = {"zh": "简体中文", "en": "英语", "ja": "日语", "ko": "韩语"}

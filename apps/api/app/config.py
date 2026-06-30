@@ -18,9 +18,11 @@ class Settings(BaseSettings):
     forge_url: str = "http://192.168.71.100:7860"
     # 配音 TTS 独立服务（IndexTTS2，自部署 @ GPU 机，隔离 venv）
     tts_url: str = "http://192.168.71.100:9000"
-    # 译制听写 Whisper(ASR)独立服务;空 = 未部署,/dub/transcribe 引导改用上传 SRT。
-    # 契约:POST {whisper_url}/asr multipart(file)→ {segments:[{start,end,text}]}
+    # 译制听写 Whisper(ASR)。whisper_url 非空 = 调外部 GPU 服务(契约:POST {whisper_url}/asr
+    # multipart(file)→ {segments:[{start,end,text}]});空 = 用 api 容器内置 faster-whisper(CPU)。
     whisper_url: str = ""
+    whisper_model: str = "base"  # tiny/base/small/medium(CPU 上 base 平衡速度/质量)
+    whisper_compute: str = "int8"  # int8 CPU 最快;float32 更准更慢
     # CORS 允许的前端来源（逗号分隔）
     cors_origins: str = (
         "http://localhost:3100,http://127.0.0.1:3100,"
