@@ -231,6 +231,7 @@ _MAX_SEGMENTS = 90  # 段数硬上限(12min / 8s ≈ 90)
 _JOBS_KEEP = 60  # 内存 Job 最多保留数(超出删最旧的终态作业)
 _VIDEO_EXT = (".mp4", ".webm", ".mov", ".mkv")
 _LIPSYNC_OUT_RE = re.compile(r"^dubsync-[0-9a-f]{32}\.mp4$")
+_DUBVOICE_RE = re.compile(r"^dubvoice-[0-9a-f]{32}\.wav$")  # 译制配音轨(dub_voice 产)
 
 # 内存 Job 存储 + 后台任务强引用(asyncio 仅持弱引用,防 GC 提前回收)
 _lipsync_jobs: dict[str, dict] = {}
@@ -253,7 +254,9 @@ class LipsyncLongRequest(BaseModel):
     name: str = Field(min_length=1, max_length=200)  # /dub/upload 返回的源视频 name
     # 片段时间轴 [{start,end}](来自 autocut);空 = 按 seg_seconds 等分整片
     segments: list[dict] = Field(default_factory=list, max_length=_MAX_SEGMENTS)
-    # 配音轨 URL;空 = 用源视频自带音轨(单语言验证,只测对口型机制/质量/成本)
+    # 配音轨本地名(dub_voice 产的 dubvoice-*.wav,本地直读做对口型音源,免下载/鉴权)
+    audio_name: str | None = Field(default=None, max_length=200)
+    # 配音轨 URL(外部来源);三者优先级 audio_name > audio_url > 源视频自带音轨
     audio_url: str | None = Field(default=None, max_length=2000)
     seg_seconds: float = Field(default=12.0, ge=2.0, le=60.0)  # 无 segments 时的等分长度
     max_segments: int = Field(default=8, ge=1, le=_MAX_SEGMENTS)  # 单次跑多少段(控本)
@@ -385,8 +388,12 @@ async def _lipsync_segment(
 async def _run_lipsync_long(
     job: dict, src_path: Path, body: LipsyncLongRequest,
     segments: list[tuple[float, float]], pool: WorkerPool,
+    audio_path: Path | None,
 ) -> None:
-    """后台管线:逐段切片→LatentSync→拼接。任何阶段异常都落到 job.error,不冒泡。"""
+    """后台管线:逐段切片→LatentSync→拼接。任何阶段异常都落到 job.error,不冒泡。
+
+    audio_path:本地配音轨(audio_name 解析所得)。优先级 audio_path > audio_url > 源音轨。
+    """
     try:
         client = await pool.pick(required=set())
     except Exception as e:  # noqa: BLE001 — 选 worker 失败(不可达/无模型)即整作业失败
@@ -395,9 +402,10 @@ async def _run_lipsync_long(
 
     with tempfile.TemporaryDirectory(prefix="dub-ls-") as tmp:
         tmp_dir = Path(tmp)
-        # 配音轨(可选):整轨下载一次,后续逐段切;空则用源视频自带音轨
-        audio_src = src_path
-        if body.audio_url:
+        # 音源:本地配音轨直读 / 外部配音轨下载一次 / 源视频自带音轨(单语言验证)
+        if audio_path is not None:
+            audio_src = audio_path
+        elif body.audio_url:
             try:
                 audio_src = tmp_dir / "dub.audio"
                 async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as http:
@@ -407,6 +415,8 @@ async def _run_lipsync_long(
             except Exception as e:  # noqa: BLE001
                 job["status"], job["error"] = "error", f"配音下载失败:{e}"
                 return
+        else:
+            audio_src = src_path
 
         synced: list[Path] = []
         for i, (a, b) in enumerate(segments):
@@ -482,6 +492,14 @@ async def dub_lipsync_long(
         raise HTTPException(status_code=404, detail="源视频不存在")
     if body.audio_url and not _is_allowed_clip(body.audio_url):
         raise HTTPException(status_code=400, detail="配音来源不在白名单内")
+    # 本地配音轨(dubvoice-*.wav):校验文件名 + 存在,作对口型音源(优先于 audio_url/源音轨)
+    audio_path: Path | None = None
+    if body.audio_name:
+        if not _DUBVOICE_RE.match(body.audio_name):
+            raise HTTPException(status_code=400, detail="非法配音轨文件名")
+        audio_path = _DUB_DIR / body.audio_name
+        if not audio_path.is_file():
+            raise HTTPException(status_code=404, detail="配音轨不存在")
 
     duration = await _probe_duration(src)
     if duration <= 0:
@@ -501,7 +519,9 @@ async def dub_lipsync_long(
     _lipsync_jobs[job_id] = job
     _prune_jobs()
 
-    task = asyncio.create_task(_run_lipsync_long(job, src, body, segments, pool))
+    task = asyncio.create_task(
+        _run_lipsync_long(job, src, body, segments, pool, audio_path)
+    )
     _ls_tasks.add(task)
     task.add_done_callback(_ls_tasks.discard)
 

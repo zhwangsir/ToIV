@@ -1152,6 +1152,7 @@ export async function startLipsyncLong(params: {
   maxSegments?: number;
   lipsExpression?: number;
   inferenceSteps?: number;
+  audioName?: string; // 译制配音轨(dubvoice-*.wav);空则用源视频自带音轨
 }): Promise<LipsyncLongStart> {
   const res = await fetch(`${API_BASE}/api/dub/lipsync-long`, {
     method: "POST",
@@ -1163,6 +1164,7 @@ export async function startLipsyncLong(params: {
       max_segments: params.maxSegments ?? 8,
       lips_expression: params.lipsExpression ?? 1.5,
       inference_steps: params.inferenceSteps ?? 20,
+      audio_name: params.audioName ?? null,
     }),
   });
   if (!res.ok) {
@@ -1194,6 +1196,96 @@ export async function getLipsyncLongStatus(jobId: string): Promise<LipsyncLongSt
   if (!res.ok) {
     const detail = await res.json().catch(() => null);
     throw new Error(detail?.detail ?? `查询进度失败 (${res.status})`);
+  }
+  return res.json();
+}
+
+// ---------- 译制台 · 听写翻译配音 ----------
+
+export interface DubTextSegment {
+  index: number;
+  start: number;
+  end: number;
+  text: string;
+}
+
+/** 导入 SRT/VTT 字幕 → 带时间轴片段。契约:POST /api/dub/import-srt multipart(file)。 */
+export async function importSrtDub(file: File): Promise<{ segments: DubTextSegment[]; count: number }> {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await fetch(`${API_BASE}/api/dub/import-srt`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: fd,
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `字幕导入失败 (${res.status})`);
+  }
+  return res.json();
+}
+
+/** Whisper 听写源视频(需部署 whisper_url)。契约:POST /api/dub/transcribe。 */
+export async function transcribeDub(name: string): Promise<{ segments: DubTextSegment[]; count: number }> {
+  const res = await fetch(`${API_BASE}/api/dub/transcribe`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `听写失败 (${res.status})`);
+  }
+  return res.json();
+}
+
+/** 批量翻译到目标语(口语自然、贴近朗读时长)。契约:POST /api/dub/translate。 */
+export async function translateDub(
+  segments: { index: number; text: string }[],
+  targetLang: string,
+): Promise<{ translated: { index: number; translated: string }[]; count: number; target_lang: string }> {
+  const res = await fetch(`${API_BASE}/api/dub/translate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ segments, target_lang: targetLang }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `翻译失败 (${res.status})`);
+  }
+  return res.json();
+}
+
+export interface VoiceTrackResult {
+  name: string;
+  url: string;
+  duration: number;
+  segment_count: number;
+}
+
+/**
+ * 生成克隆音色配音轨:逐片段 IndexTTS2 合成(从源视频抽参考音克隆原说话人)→ 铺成整轨。
+ * 契约:POST /api/dub/voice-track。返回的 name 可作 startLipsyncLong 的 audioName。
+ */
+export async function voiceTrackDub(params: {
+  name: string;
+  segments: { start: number; end: number; text: string }[];
+  refSeconds?: number;
+  emoText?: string;
+}): Promise<VoiceTrackResult> {
+  const res = await fetch(`${API_BASE}/api/dub/voice-track`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({
+      name: params.name,
+      segments: params.segments,
+      ref_seconds: params.refSeconds ?? 8,
+      emo_text: params.emoText ?? null,
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `配音轨生成失败 (${res.status})`);
   }
   return res.json();
 }

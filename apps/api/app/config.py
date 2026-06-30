@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     forge_url: str = "http://192.168.71.100:7860"
     # 配音 TTS 独立服务（IndexTTS2，自部署 @ GPU 机，隔离 venv）
     tts_url: str = "http://192.168.71.100:9000"
+    # 译制听写 Whisper(ASR)独立服务;空 = 未部署,/dub/transcribe 引导改用上传 SRT。
+    # 契约:POST {whisper_url}/asr multipart(file)→ {segments:[{start,end,text}]}
+    whisper_url: str = ""
     # CORS 允许的前端来源（逗号分隔）
     cors_origins: str = (
         "http://localhost:3100,http://127.0.0.1:3100,"
