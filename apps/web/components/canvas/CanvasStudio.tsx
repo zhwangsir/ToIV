@@ -14,7 +14,9 @@ import {
   useReactFlow,
   type Connection,
   type Edge,
+  type EdgeChange,
   type Node,
+  type NodeChange,
   type NodeTypes,
   type ReactFlowInstance,
   type XYPosition,
@@ -33,6 +35,7 @@ import {
 import { fetchCanvasModels, type CanvasModels } from "./models";
 import { NodeMenu } from "./NodeMenu";
 import { CANVAS_RECIPES, type CanvasRecipe } from "./canvasRecipes";
+import { useCanvasHistory } from "./useCanvasHistory";
 import { WorkflowMenu } from "./WorkflowMenu";
 import { TextNode } from "./nodes/TextNode";
 import { ImageNode } from "./nodes/ImageNode";
@@ -172,6 +175,77 @@ function Inner() {
   nodesRef.current = nodes;
   edgesRef.current = edges;
 
+  // CV2 操作手感:撤销/重做历史栈 + 节点剪贴板。
+  const { record, undo, redo, canUndo, canRedo } = useCanvasHistory(
+    nodes,
+    edges,
+    setNodes,
+    setEdges,
+  );
+  const clipboardRef = useRef<Node[]>([]);
+
+  // 快捷键:Cmd/Ctrl+Z 撤销 · +Shift 或 Ctrl+Y 重做 · C 复制选中 · V 粘贴。
+  // 在输入控件内一律放行,留给浏览器原生文本编辑(撤销/复制都不该被画布抢走)。
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (
+        t &&
+        (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)
+      ) {
+        return;
+      }
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const k = e.key.toLowerCase();
+      if (k === "z") {
+        e.preventDefault();
+        if (e.shiftKey) redo();
+        else undo();
+      } else if (k === "y") {
+        e.preventDefault();
+        redo();
+      } else if (k === "c") {
+        const sel = nodesRef.current.filter((n) => n.selected);
+        if (sel.length) clipboardRef.current = sel;
+      } else if (k === "v") {
+        const clip = clipboardRef.current;
+        if (!clip.length) return;
+        e.preventDefault();
+        record();
+        // 克隆:新 id、位置偏移、data 深拷贝(避免与原节点共享引用)。
+        const clones = clip.map((n) => ({
+          ...n,
+          id: nextNodeId(),
+          position: { x: n.position.x + 40, y: n.position.y + 40 },
+          selected: false,
+          data: JSON.parse(JSON.stringify(n.data)),
+        }));
+        setNodes((ns) => [
+          ...ns.map((n) => ({ ...n, selected: false })),
+          ...clones,
+        ]);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo, redo, record, setNodes]);
+
+  // 键盘 Delete/Backspace 删节点/边走 React Flow 内置变更,包一层把「删除」记进历史(否则删了撤不回)。
+  const onNodesChangeTracked = useCallback(
+    (changes: NodeChange[]) => {
+      if (changes.some((c) => c.type === "remove")) record();
+      onNodesChange(changes);
+    },
+    [onNodesChange, record],
+  );
+  const onEdgesChangeTracked = useCallback(
+    (changes: EdgeChange[]) => {
+      if (changes.some((c) => c.type === "remove")) record();
+      onEdgesChange(changes);
+    },
+    [onEdgesChange, record],
+  );
+
   const refreshWorkflows = useCallback(() => setWfList(listWorkflows()), []);
 
   // ── 工作流库列表(挂载时拉一次)──
@@ -248,10 +322,11 @@ function Inner() {
 
   const deleteNode = useCallback(
     (id: string) => {
+      record();
       setNodes((ns) => ns.filter((n) => n.id !== id));
       setEdges((es) => es.filter((e) => e.source !== id && e.target !== id));
     },
-    [setNodes, setEdges],
+    [setNodes, setEdges, record],
   );
 
   // ── 连线:只允许语义合法的边 ──
@@ -268,9 +343,10 @@ function Inner() {
   const onConnect = useCallback(
     (c: Connection) => {
       if (!isValidConnection(c)) return;
+      record();
       setEdges((es) => addEdge({ ...c, animated: true }, es));
     },
-    [isValidConnection, setEdges],
+    [isValidConnection, setEdges, record],
   );
 
   // ── 新建节点 ──
@@ -279,6 +355,7 @@ function Inner() {
   // 配方模板:一键把预置节点图追加到画布(下移避让现有内容,绝不清空用户已有工作)。
   const applyRecipe = useCallback(
     (r: CanvasRecipe) => {
+      record();
       const built = r.build();
       const existing = nodesRef.current ?? [];
       const offsetY = existing.length
@@ -295,11 +372,12 @@ function Inner() {
       setRecipesOpen(false);
       window.setTimeout(() => rfRef.current?.fitView({ padding: 0.2, duration: 400 }), 60);
     },
-    [setNodes, setEdges],
+    [setNodes, setEdges, record],
   );
 
   const addNode = useCallback(
     (type: CanvasNodeType, flowPos: XYPosition, extra?: Record<string, unknown>) => {
+      record();
       const id = nextNodeId();
       const data = { ...defaultData(type), ...extra };
       // 用底模的节点默认选第一个底模。
@@ -319,7 +397,7 @@ function Inner() {
       setNodes((ns) => [...ns, { id, type, position: flowPos, data }]);
       return id;
     },
-    [ckpts, setNodes],
+    [ckpts, setNodes, record],
   );
 
   // 双击 / 右键空白 → 弹节点面板
@@ -960,6 +1038,28 @@ function Inner() {
             onRename={wfRename}
             onDelete={wfDelete}
           />
+          <div className="cv-history">
+            <button
+              type="button"
+              className="cv-btn cv-btn--icon"
+              onClick={undo}
+              disabled={!canUndo}
+              title="撤销 (Cmd/Ctrl+Z)"
+              aria-label="撤销"
+            >
+              ↶
+            </button>
+            <button
+              type="button"
+              className="cv-btn cv-btn--icon"
+              onClick={redo}
+              disabled={!canRedo}
+              title="重做 (Cmd/Ctrl+Shift+Z)"
+              aria-label="重做"
+            >
+              ↷
+            </button>
+          </div>
           <button type="button" className="cv-btn" onClick={onSaveClick}>
             存草稿
           </button>
@@ -979,8 +1079,8 @@ function Inner() {
           <ReactFlow
             nodes={nodes}
             edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
+            onNodesChange={onNodesChangeTracked}
+            onEdgesChange={onEdgesChangeTracked}
             onConnect={onConnect}
             isValidConnection={isValidConnection}
             nodeTypes={NODE_TYPES}
@@ -991,6 +1091,8 @@ function Inner() {
             proOptions={{ hideAttribution: true }}
             minZoom={0.2}
             maxZoom={2}
+            snapToGrid
+            snapGrid={[16, 16]}
             fitView
             deleteKeyCode={["Backspace", "Delete"]}
           >

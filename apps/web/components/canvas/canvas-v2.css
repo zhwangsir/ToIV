@@ -435,3 +435,9 @@
 .cv-recipe-card__icon { font-size: 1.7rem; line-height: 1; }
 .cv-recipe-card__name { font-size: 0.98rem; font-weight: 700; color: var(--ink); }
 .cv-recipe-card__desc { font-size: 0.8rem; line-height: 1.45; color: var(--ink-faint); }
+
+/* ── 撤销/重做(CV2 操作手感)──────────────────────────── */
+.cv-history { display: inline-flex; gap: 2px; }
+.cv-btn--icon { padding: 0.35rem 0.55rem; font-size: 1.05rem; line-height: 1; min-width: 2rem; }
+.cv-btn--icon:disabled { opacity: 0.38; cursor: not-allowed; }
+.cv-btn--icon:disabled:hover { background: var(--bg-0); border-color: var(--accent-line); color: var(--ink); }
