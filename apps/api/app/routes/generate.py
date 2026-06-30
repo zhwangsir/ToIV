@@ -14,6 +14,7 @@ from app.config import get_settings
 from app.db import get_session
 from app.deps import get_current_user, get_pool, resolve_worker
 from app.models import Job, User
+from app.nsfw_ctx import nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
 from app.workflows.controlnet import (
     CONTROL_TYPES,
@@ -60,7 +61,7 @@ def _gate_nsfw_ckpt(ckpt_name: str, user: User) -> bool:
     返回该作品是否成人向(供建档打标 Job.nsfw)。
     """
     nsfw = is_nsfw(ckpt_name)
-    if nsfw and not user.nsfw_enabled:
+    if nsfw and not nsfw_allowed(user):
         raise HTTPException(status_code=403, detail="该底模属 R18 分区,请先在账号设置开启成人内容")
     return nsfw
 

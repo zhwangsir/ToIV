@@ -61,6 +61,17 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # 按请求 R18 放行标记(/nsfw 专页带 X-NSFW: 1)→ ContextVar;gate/模型列表据此放行,不动账户开关。
+    @app.middleware("http")
+    async def _nsfw_intent_mw(request, call_next):
+        from app.nsfw_ctx import nsfw_intent_var
+
+        token = nsfw_intent_var.set(request.headers.get("x-nsfw") == "1")
+        try:
+            return await call_next(request)
+        finally:
+            nsfw_intent_var.reset(token)
+
     @app.get("/api/health")
     async def health() -> dict:
         return {"status": "ok", "workers": settings.worker_urls}

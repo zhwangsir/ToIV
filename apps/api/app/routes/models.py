@@ -14,6 +14,7 @@ from app.comfy.client import ComfyUIError
 from app.comfy.pool import WorkerPool
 from app.deps import get_current_user, get_pool
 from app.models import User
+from app.nsfw_ctx import nsfw_allowed
 from app.workflows.ace_step import AceStepParams
 from app.workflows.hunyuan3d import Hunyuan3DParams
 from app.workflows.model_profiles import is_nsfw, is_vpred
@@ -97,8 +98,8 @@ async def list_models(
     all_ckpts = _enum(ckpt_info, "CheckpointLoaderSimple", "ckpt_name")
     image_ckpts = _image_checkpoints(all_ckpts)
 
-    # R18 软门槛:用户未开时服务端强制剔除成人底模(真过滤,不只前端隐藏)。
-    if not user.nsfw_enabled:
+    # R18 软门槛:账户未开 且 本请求无 /nsfw 标记时,服务端强制剔除成人底模(真过滤)。
+    if not nsfw_allowed(user):
         image_ckpts = _sfw_only(image_ckpts)
 
     # 给图像底模附 nsfw/vpred 分类标(不过滤);并抽出便捷名单供前端筛选。
@@ -157,8 +158,8 @@ async def local_models(
             out[key] = _enum(await client.object_info(node), node, field)
         except ComfyUIError:
             out[key] = []
-    # R18 软门槛:用户未开时服务端强制剔除成人底模与成人 LoRA(按文件名 is_nsfw)。
-    if not user.nsfw_enabled:
+    # R18 软门槛:账户未开 且 本请求无 /nsfw 标记时,剔除成人底模与成人 LoRA(按文件名 is_nsfw)。
+    if not nsfw_allowed(user):
         for key in ("checkpoints", "loras"):
             names = out.get(key, [])
             if isinstance(names, list):

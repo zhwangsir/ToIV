@@ -34,9 +34,17 @@ export function setToken(token: string | null): void {
   if (token) window.localStorage.setItem(TOKEN_KEY, token);
   else window.localStorage.removeItem(TOKEN_KEY);
 }
+// /nsfw 专页:按请求带 R18 放行标记(后端 ContextVar 据此放行,不动账户全局开关)。
+let _nsfwIntent = false;
+export function setNsfwIntent(on: boolean): void {
+  _nsfwIntent = on;
+}
+
 function authHeaders(): Record<string, string> {
   const t = getToken();
-  return t ? { Authorization: `Bearer ${t}` } : {};
+  const h: Record<string, string> = t ? { Authorization: `Bearer ${t}` } : {};
+  if (_nsfwIntent) h["X-NSFW"] = "1";
+  return h;
 }
 function withToken(url: string): string {
   const t = getToken();
@@ -161,9 +169,10 @@ async function fetchModelsRaw(): Promise<ModelsResponse> {
   return res.json();
 }
 
-/** 模型列表,走本机 SWR 缓存(几乎不变,长 TTL):二访秒开,减重复请求。 */
+/** 模型列表,走本机 SWR 缓存(几乎不变,长 TTL):二访秒开,减重复请求。
+ *  /nsfw 用独立缓存键 + X-NSFW 标记,避免 R18 模型污染主页缓存。 */
 export function listModels(): Promise<ModelsResponse> {
-  return swr(CACHE_KEYS.models, fetchModelsRaw, TTL.models);
+  return swr(_nsfwIntent ? `${CACHE_KEYS.models}:nsfw` : CACHE_KEYS.models, fetchModelsRaw, TTL.models);
 }
 
 // ---------- Forge 第二出图引擎 ----------
@@ -248,7 +257,7 @@ async function fetchLocalModelsRaw(): Promise<LocalModels> {
 
 /** 本地已装模型,走本机 SWR 缓存(中 TTL):减重复请求,偶有安装由 TTL 兜底刷新。 */
 export function listLocalModels(): Promise<LocalModels> {
-  return swr(CACHE_KEYS.localModels, fetchLocalModelsRaw, TTL.localModels);
+  return swr(_nsfwIntent ? `${CACHE_KEYS.localModels}:nsfw` : CACHE_KEYS.localModels, fetchLocalModelsRaw, TTL.localModels);
 }
 
 export async function searchMarketplace(

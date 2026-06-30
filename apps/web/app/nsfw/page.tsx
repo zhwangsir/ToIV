@@ -6,20 +6,20 @@ import { MotionConfig } from "framer-motion";
 import { AuthScreen } from "@/components/auth/AuthScreen";
 import { CreateStudio } from "@/components/create/CreateStudio";
 import { ActivityProvider } from "@/components/nav/ActivityContext";
-import { NsfwProvider, useNsfw } from "@/components/nav/NsfwContext";
-import { fetchMe, getToken, setToken } from "@/lib/api";
+import { NsfwProvider } from "@/components/nav/NsfwContext";
+import { fetchMe, getToken, setNsfwIntent, setToken } from "@/lib/api";
 import type { AuthResult } from "@/lib/api";
 
 /**
  * R18 私享创作 —— 独立隐藏页,仅通过 /nsfw 路径进入(任何导航都无入口)。
- * 进入即开启账户 R18(后端 R18 门槛需 nsfw_enabled),复用功能最全的 CreateStudio(强制 R18 档)。
+ * 按请求带 X-NSFW 标记(setNsfwIntent)放行 R18,**不动账户全局开关** → 主页/作品库零痕迹。
+ * 复用功能最全的 CreateStudio(强制 R18 档)。
  */
 function NsfwInner() {
-  const { enabled, setEnabled, loading } = useNsfw();
-  // 进入即开 R18:账户未开则静默开启(后端据此放行成人底模 + 重拉 R18 模型列表)
-  useEffect(() => {
-    if (!loading && !enabled) setEnabled(true).catch(() => {});
-  }, [loading, enabled, setEnabled]);
+  // 同步置位:必须早于子组件 CreateStudio 的 listModels(React 子 effect 先于父 effect)。
+  // 离开本页复位,防模块级标记残留泄漏到主页。
+  setNsfwIntent(true);
+  useEffect(() => () => setNsfwIntent(false), []);
 
   return (
     <div className="app-shell nsfw-shell">
