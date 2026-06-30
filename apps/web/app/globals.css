@@ -6235,3 +6235,8 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .manju-draft-restore:hover { filter: brightness(1.08); }
 .manju-draft-discard { background: transparent; color: var(--ink-faint, var(--ink-soft)); }
 .manju-draft-discard:hover { background: var(--surface-2, var(--accent-quiet)); color: var(--ink); }
+
+/* 漫剧 KenBurns 免GPU运镜(逐镜) */
+.manju-kb-row { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+.manju-kb-motion { flex: 0 0 auto; min-width: 84px; padding: 0.4rem 0.55rem; font-size: 0.82rem; border-radius: var(--radius-xs, 8px); background: var(--surface-2, rgba(255,255,255,0.04)); color: inherit; border: 1px solid var(--border, rgba(255,255,255,0.12)); }
+.manju-kb-btn { flex: 1; }

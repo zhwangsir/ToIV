@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   assembleManju,
+  kenburnsManju,
   generateAudio,
   generateStoryboard,
   generateTxt2img,
@@ -131,6 +132,8 @@ export function ManjuStudio() {
   const [batchResults, setBatchResults] = useState<{ aspect: string; url: string }[]>([]);
   // 草稿箱:未存盘工作态的恢复提示(挂载时若发现草稿则弹一条)。
   const [draftHint, setDraftHint] = useState<ManjuDraft | null>(null);
+  // 正在做 KenBurns 运镜的镜 id(给该镜按钮显示「运镜中…」)。
+  const [kbShotId, setKbShotId] = useState<string | null>(null);
   const [bgmUrl, setBgmUrl] = useState("");
   const [bgmMood, setBgmMood] = useState("");
   const [bgmGenerating, setBgmGenerating] = useState(false);
@@ -482,6 +485,34 @@ export function ManjuStudio() {
       }
     },
     [shots, busy, videoOne],
+  );
+
+  // KenBurns 运镜:把已出图的镜用 ffmpeg zoompan 变成带推拉/平移的动态片段(免 GPU)。
+  // 产物填入该镜 videoUrl,后续可直接拼进成片(与 Wan 转视频产物等价)。
+  const runKenBurns = useCallback(
+    async (id: string, motion: string) => {
+      const shot = shots.find((s) => s.id === id);
+      if (!shot || !shot.imageUrl || busy) return;
+      const dims: Record<string, [number, number]> = {
+        "16:9": [832, 480],
+        "9:16": [480, 832],
+        "1:1": [640, 640],
+      };
+      const [w, h] = dims[aspect] ?? [832, 480];
+      setKbShotId(id);
+      setBusy(true);
+      setError(null);
+      try {
+        const r = await kenburnsManju(shot.imageUrl, shot.duration_sec || 3, motion, w, h);
+        patchShot(id, { videoUrl: imageUrl(r.url), status: "video", progress: null });
+      } catch (e) {
+        setError((e as Error).message);
+      } finally {
+        setKbShotId(null);
+        setBusy(false);
+      }
+    },
+    [shots, busy, aspect, patchShot],
   );
 
   // 单镜配音:台词→TTS 合成,用「说话角色」定妆音色克隆;回填 voiceUrl(成片混入对白轨)
@@ -1595,6 +1626,8 @@ export function ManjuStudio() {
             onVideo={runVideoOne}
             onVoice={runVoiceOne}
             onLipsync={runLipsyncOne}
+            onKenBurns={runKenBurns}
+            kbBusyId={kbShotId}
           />
         )}
       </div>

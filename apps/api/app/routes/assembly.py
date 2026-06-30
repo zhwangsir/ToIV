@@ -551,3 +551,88 @@ async def get_manju_output(
         filename=name,
         headers={"Cache-Control": "public, max-age=86400"},
     )
+
+
+# ── KenBurns 运镜:静图 → 带推拉/平移的动态片段(免 GPU)─────────────────
+# 给「只出图、没转视频」的镜一个轻量动态选项;产物同源(/api/manju/output/{name}),
+# 可直接作为某镜 videoUrl 喂回 /manju/assemble 拼进成片。
+_KEN_MOTIONS = {"zoom-in", "zoom-out", "pan-left", "pan-right", "pan-up", "pan-down"}
+
+
+class KenBurnsRequest(BaseModel):
+    image_url: str = Field(min_length=1, max_length=2000)
+    duration: float = Field(default=3.0, ge=1.0, le=12.0)
+    motion: str = Field(default="zoom-in")
+    width: int = Field(default=832, ge=64, le=2048)
+    height: int = Field(default=480, ge=64, le=2048)
+    fps: int = Field(default=30, ge=8, le=60)
+
+
+class KenBurnsResponse(BaseModel):
+    url: str
+    name: str
+
+
+def _kenburns_filter(motion: str, frames: int, width: int, height: int, fps: int) -> str:
+    """zoompan 表达式:on=输出帧序;先 2× 预放大降抖动,再 zoom/pan 到目标尺寸。"""
+    n = max(frames - 1, 1)
+    cx = "iw/2-(iw/zoom/2)"
+    cy = "ih/2-(ih/zoom/2)"
+    if motion == "zoom-out":
+        z, x, y = f"1.18-0.18*on/{n}", cx, cy
+    elif motion == "pan-right":
+        z, x, y = "1.12", f"(iw-iw/zoom)*on/{n}", cy
+    elif motion == "pan-left":
+        z, x, y = "1.12", f"(iw-iw/zoom)*(1-on/{n})", cy
+    elif motion == "pan-up":
+        z, x, y = "1.12", cx, f"(ih-ih/zoom)*(1-on/{n})"
+    elif motion == "pan-down":
+        z, x, y = "1.12", cx, f"(ih-ih/zoom)*on/{n}"
+    else:  # zoom-in(默认)
+        z, x, y = f"1+0.18*on/{n}", cx, cy
+    pre_w, pre_h = width * 2, height * 2
+    return (
+        f"scale={pre_w}:{pre_h}:force_original_aspect_ratio=increase,"
+        f"crop={pre_w}:{pre_h},"
+        f"zoompan=z='{z}':x='{x}':y='{y}':d={frames}:s={width}x{height}:fps={fps},"
+        f"format=yuv420p"
+    )
+
+
+@router.post("/manju/kenburns", response_model=KenBurnsResponse)
+async def manju_kenburns(
+    body: KenBurnsRequest,
+    user: User = Depends(get_current_user),
+) -> KenBurnsResponse:
+    enforce_generation_rate_limit(user)
+    if body.motion not in _KEN_MOTIONS:
+        raise HTTPException(status_code=422, detail="未知的运镜类型")
+    if not _is_allowed_clip(body.image_url):
+        raise HTTPException(status_code=400, detail="图片来源不在白名单内")
+    if shutil.which("ffmpeg") is None:
+        raise HTTPException(status_code=500, detail="服务端未安装 ffmpeg")
+
+    _OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    name = f"manju-{uuid.uuid4().hex}.mp4"
+    out_path = _OUTPUT_DIR / name
+    frames = max(1, round(body.duration * body.fps))
+
+    with tempfile.TemporaryDirectory(prefix="manju-kb-") as tmp:
+        img = Path(tmp) / "src"
+        async with httpx.AsyncClient(
+            timeout=_DOWNLOAD_TIMEOUT, follow_redirects=True
+        ) as client:
+            await _download_clip(client, body.image_url, img)
+        vf = _kenburns_filter(body.motion, frames, body.width, body.height, body.fps)
+        cmd = [
+            "ffmpeg", "-y", "-loop", "1", "-i", str(img),
+            "-vf", vf, "-t", f"{body.duration}",
+            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", str(body.fps),
+            "-movflags", "+faststart", str(out_path),
+        ]
+        await _run_ffmpeg(cmd)
+
+    if not out_path.exists() or out_path.stat().st_size == 0:
+        raise HTTPException(status_code=500, detail="运镜片段生成失败")
+
+    return KenBurnsResponse(url=f"/api/manju/output/{name}", name=name)

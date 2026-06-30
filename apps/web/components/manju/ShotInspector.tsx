@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { imageUrl } from "@/lib/api";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
 import { ProgressBar } from "@/components/ui/ProgressBar";
@@ -15,6 +17,10 @@ interface ShotInspectorProps {
   onVideo: (id: string) => void;
   onVoice: (id: string) => void;
   onLipsync: (id: string) => void;
+  /** KenBurns 运镜:把静图变带运镜动态片段(免 GPU)。 */
+  onKenBurns: (id: string, motion: string) => void;
+  /** 正在运镜的镜 id(给按钮显示「运镜中…」)。 */
+  kbBusyId?: string | null;
 }
 
 /** 右侧选中镜头属性面板:可编辑出图提示词 / 台词,AI 润色,并触发出图 / 转视频。 */
@@ -27,7 +33,10 @@ export function ShotInspector({
   onVideo,
   onVoice,
   onLipsync,
+  onKenBurns,
+  kbBusyId,
 }: ShotInspectorProps) {
+  const [kbMotion, setKbMotion] = useState("zoom-in");
   if (!shot) {
     return (
       <aside className="manju-inspector is-empty" aria-label="镜头属性">
@@ -200,6 +209,33 @@ export function ShotInspector({
           title={shot.videoUrl && shot.voiceUrl ? "让角色嘴型对上配音(LatentSync)" : "需先有视频和配音"}
         >
           {shot.lipSyncing ? "对口型中…" : shot.lipSynced ? "↻ 重对口型" : "👄 对口型"}
+        </button>
+      </div>
+
+      <div className="manju-kb-row">
+        <select
+          className="manju-kb-motion"
+          value={kbMotion}
+          onChange={(e) => setKbMotion(e.target.value)}
+          disabled={busy || !shot.imageUrl}
+          title="运镜方式"
+          aria-label="运镜方式"
+        >
+          <option value="zoom-in">推近</option>
+          <option value="zoom-out">拉远</option>
+          <option value="pan-left">左移</option>
+          <option value="pan-right">右移</option>
+          <option value="pan-up">上移</option>
+          <option value="pan-down">下移</option>
+        </select>
+        <button
+          type="button"
+          className="manju-secondary-btn manju-kb-btn"
+          disabled={busy || !shot.imageUrl}
+          onClick={() => onKenBurns(shot.id, kbMotion)}
+          title="把静图变成带运镜的动态片段(免 GPU,几秒出;可直接拼进成片)"
+        >
+          {kbBusyId === shot.id ? "运镜中…" : "⚡ 免GPU运镜"}
         </button>
       </div>
     </aside>

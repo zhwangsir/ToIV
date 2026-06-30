@@ -1047,6 +1047,31 @@ export async function assembleManju(
   return res.json();
 }
 
+export interface KenBurnsResult {
+  url: string;
+  name: string;
+}
+
+/** 静图 → 带运镜(推拉/平移)的动态片段(免 GPU);产物可作为某镜 videoUrl 拼进成片。 */
+export async function kenburnsManju(
+  imageSrc: string,
+  duration: number,
+  motion: string,
+  width: number,
+  height: number,
+): Promise<KenBurnsResult> {
+  const res = await fetch(`${API_BASE}/api/manju/kenburns`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ image_url: imageSrc, duration, motion, width, height }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `运镜片段生成失败 (${res.status})`);
+  }
+  return res.json();
+}
+
 // ---------- 创作引擎 HUD:实时遥测 ----------
 
 export interface LiveGpuStat {
