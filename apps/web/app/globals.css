@@ -6201,3 +6201,10 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 .manju-grades button:hover { color: var(--ink); border-color: var(--hairline-2); }
 .manju-grades button.active { background: var(--accent-quiet); border-color: var(--accent-line); color: var(--accent-soft); }
+
+/* R18 私享创作专页(/nsfw,隐藏入口) */
+.nsfw-shell { min-height: 100vh; }
+.nsfw-topbar { display: flex; align-items: center; gap: 0.7rem; padding: 0.7rem 1.4rem; border-bottom: 1px solid var(--hairline); background: var(--bg-1); }
+.nsfw-brand { font-weight: 700; font-size: 1rem; color: var(--ink); letter-spacing: -0.01em; }
+.nsfw-tag { font-size: 0.64rem; font-weight: 700; color: #fff; background: var(--danger); border-radius: 999px; padding: 0.12rem 0.5rem; }
+.nsfw-hint { margin-left: auto; font-size: 0.72rem; color: var(--ink-faint); }

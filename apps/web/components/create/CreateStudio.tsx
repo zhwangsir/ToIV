@@ -39,7 +39,7 @@ const EXAMPLE_PROMPTS = [
  * - 专业:全控制面板,可折叠高级 + 工作流预设
  * 结果流支持续创作(转视频/转3D/重绘/变体)。
  */
-export function CreateStudio() {
+export function CreateStudio({ forceNsfw = false }: { forceNsfw?: boolean } = {}) {
   const [tier, setTier] = useState<"simple" | "pro">("simple");
   const [mode, setMode] = useState<Mode>("image");
   const [prompt, setPrompt] = useState("");
@@ -51,7 +51,8 @@ export function CreateStudio() {
   const [engine, setEngine] = useState<"comfyui" | "forge">("comfyui");
   const [forge, setForge] = useState<{ online: boolean; models: string[] }>({ online: false, models: [] });
   // NSFW 档(简易/专业共享):开启 → 图像底模筛选到 nsfw 模型(契约缺失优雅降级为全部)。
-  const [nsfw, setNsfw] = useState(false);
+  // forceNsfw(/nsfw 专页):默认即开。
+  const [nsfw, setNsfw] = useState(forceNsfw);
   // 全局 R18 软开关:关闭时隐藏「NSFW 档」入口(无成人模型可筛);切换时重拉模型列表。
   const { enabled: nsfwEnabled, revision: nsfwRevision } = useNsfw();
 
@@ -144,8 +145,9 @@ export function CreateStudio() {
 
   // 全局 R18 关闭时,强制把会话内「NSFW 档」筛选也归零(入口已隐藏,避免残留筛选态)。
   useEffect(() => {
-    if (!nsfwEnabled && nsfw) setNsfw(false);
-  }, [nsfwEnabled, nsfw]);
+    // /nsfw 专页强制 R18(forceNsfw),不因账户开关短暂未就绪而被归零
+    if (!forceNsfw && !nsfwEnabled && nsfw) setNsfw(false);
+  }, [forceNsfw, nsfwEnabled, nsfw]);
 
   // NSFW 档切换 / 模型加载后:若共享 ckpt 落在筛选列表外,中央纠正到首项,
   // 让简易与专业两侧的图像底模选择保持一致(单一真相)。
