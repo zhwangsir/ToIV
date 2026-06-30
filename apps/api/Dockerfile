@@ -25,9 +25,10 @@ RUN pip install --no-cache-dir --timeout 120 \
     ezdxf==1.4.2 matplotlib==3.9.4
 
 # 译制听写:faster-whisper(CPU/CTranslate2)。模型走 HF 镜像,缓存到 /data 持久卷(免每次重下)
+# requests 是 faster-whisper utils.py 的隐式依赖(1.1.1 未声明,缺则 import 即 ModuleNotFoundError)
 RUN pip install --no-cache-dir --timeout 180 \
     -i https://pypi.tuna.tsinghua.edu.cn/simple \
-    faster-whisper==1.1.1
+    faster-whisper==1.1.1 requests
 
 COPY app ./app
 

@@ -190,8 +190,8 @@ async def _run_transcribe(job: dict, src_path, name: str) -> None:
             job["stage"] = "听写中"
             raw = await asyncio.to_thread(_whisper_transcribe_sync, model, str(src_path))
             segs = _normalize_segments(raw)
-    except ImportError:
-        job["status"], job["error"] = "error", "faster-whisper 未安装(api 镜像需重建)"
+    except ImportError as e:
+        job["status"], job["error"] = "error", f"听写依赖缺失(api 镜像需重建):{e}"
         return
     except Exception as e:  # noqa: BLE001 — 后台任务异常一律落 job,不冒泡
         logger.warning("transcribe %s 失败:%s", job["id"], e)
