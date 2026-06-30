@@ -6219,3 +6219,19 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .manju-sub-swatch { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--hairline); cursor: pointer; padding: 0; }
 .manju-sub-swatch.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-quiet); }
 .manju-sub-box { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.74rem; color: var(--ink-soft); margin-left: auto; white-space: nowrap; }
+
+/* 漫剧批量多平台导出(P4) */
+.manju-batch-btn { margin-top: 0.5rem; width: 100%; }
+.manju-batch-results { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+.manju-batch-item { font-size: 0.8rem; padding: 0.4rem 0.75rem; background: var(--accent-quiet); border: 1px solid var(--accent-line); border-radius: var(--radius-xs); color: var(--accent-soft); text-decoration: none; font-weight: 600; }
+.manju-batch-item:hover { background: var(--accent-wash); color: var(--ink); }
+
+/* 漫剧草稿箱恢复条(P4) */
+.manju-draft-hint { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.6rem; padding: 0.5rem 0.85rem; background: var(--warn-quiet, var(--accent-quiet)); border: 1px solid var(--accent-line); border-radius: var(--radius-sm); font-size: 0.85rem; }
+.manju-draft-icon { font-size: 1rem; }
+.manju-draft-text { flex: 1; color: var(--ink-soft, var(--ink)); }
+.manju-draft-restore, .manju-draft-discard { padding: 0.3rem 0.8rem; border-radius: var(--radius-xs); font-size: 0.8rem; font-weight: 600; cursor: pointer; border: 1px solid var(--accent-line); }
+.manju-draft-restore { background: var(--accent); color: var(--accent-ink, #fff); border-color: transparent; }
+.manju-draft-restore:hover { filter: brightness(1.08); }
+.manju-draft-discard { background: transparent; color: var(--ink-faint, var(--ink-soft)); }
+.manju-draft-discard:hover { background: var(--surface-2, var(--accent-quiet)); color: var(--ink); }

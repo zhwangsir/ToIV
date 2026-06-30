@@ -33,6 +33,7 @@ import { ShotCard } from "./ShotCard";
 import { ShotInspector } from "./ShotInspector";
 import { composeShotPrompt, toShotCards } from "./types";
 import type { CharRow, ShotCard as ShotCardModel } from "./types";
+import { clearDraft, draftAge, loadDraft, saveDraft, type ManjuDraft } from "./manjuDraft";
 
 type FlowStep = "script" | "characters" | "storyboard" | "video" | "export";
 type AutoMode = "auto" | "manual";
@@ -125,6 +126,11 @@ export function ManjuStudio() {
   const [subColor, setSubColor] = useState("white");
   const [subPos, setSubPos] = useState("bottom");
   const [subBox, setSubBox] = useState(true);
+  // 批量多平台导出(P4):一键出 16:9 / 9:16 / 1:1 三版
+  const [batchBusy, setBatchBusy] = useState(false);
+  const [batchResults, setBatchResults] = useState<{ aspect: string; url: string }[]>([]);
+  // 草稿箱:未存盘工作态的恢复提示(挂载时若发现草稿则弹一条)。
+  const [draftHint, setDraftHint] = useState<ManjuDraft | null>(null);
   const [bgmUrl, setBgmUrl] = useState("");
   const [bgmMood, setBgmMood] = useState("");
   const [bgmGenerating, setBgmGenerating] = useState(false);
@@ -184,6 +190,42 @@ export function ManjuStudio() {
 
   const patchCharAt = useCallback((i: number, patch: Partial<CharRow>) => {
     setChars((prev) => prev.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
+  }, []);
+
+  // 草稿自动暂存(防刷新/误关丢失)。已打开正式项目时以项目库为准,不另存浏览器草稿。
+  // 800ms 防抖:边打字边写 localStorage 没必要。
+  useEffect(() => {
+    if (projectId) return;
+    const t = setTimeout(() => {
+      saveDraft({ projectName, premise, style, ckpt, numShots, shots, chars });
+    }, 800);
+    return () => clearTimeout(t);
+  }, [projectId, projectName, premise, style, ckpt, numShots, shots, chars]);
+
+  // 挂载时检测草稿,弹恢复条(只读一次;是否恢复交给用户)。
+  useEffect(() => {
+    const d = loadDraft();
+    if (d) setDraftHint(d);
+  }, []);
+
+  const restoreDraft = useCallback(() => {
+    setDraftHint((d) => {
+      if (!d) return null;
+      setProjectName(d.projectName || "未命名漫剧");
+      setPremise(d.premise);
+      setStyle(d.style);
+      if (d.ckpt) setCkpt(d.ckpt);
+      setNumShots(d.numShots || 6);
+      setChars(d.chars);
+      setShots(d.shots);
+      if (d.shots.length) setStep("storyboard");
+      return null;
+    });
+  }, []);
+
+  const discardDraft = useCallback(() => {
+    clearDraft();
+    setDraftHint(null);
   }, []);
 
   // 解析参考图作业首张产物文件名(参考图生成:不回填分镜,只取 filename)。
@@ -573,37 +615,38 @@ export function ManjuStudio() {
     return { id: t.id, no: idx >= 0 ? idx + 1 : 0, thumbUrl: shots[idx]?.imageUrl, duration: t.duration };
   });
 
-  const assemble = useCallback(async () => {
-    if (assembling) return;
+  // 构建成片入参(时间线顺序 + 逐镜时长 + 字幕/配音);无视频镜返回 null。
+  const buildAssembleArgs = useCallback(() => {
     const clipShots = shots.filter((s) => s.videoUrl);
-    if (clipShots.length === 0) {
-      setAssembleErr("还没有视频片段,先到「视频」步把分镜转成视频");
-      return;
-    }
-    setAssembling(true);
-    setAssembleErr(null);
-    setAssembledUrl(null);
-    try {
-      // 按时间线顺序 + 逐镜时长成片(时间线为空则回落 clipShots 原序)
-      const ordered =
-        timeline.length > 0
-          ? timeline
-              .map((t) => ({ shot: shots.find((s) => s.id === t.id), dur: t.duration }))
-              .filter((x): x is { shot: ShotCardModel; dur: number } => !!x.shot && !!x.shot.videoUrl)
-          : clipShots.map((s) => ({ shot: s, dur: s.duration_sec || 3 }));
-      const clips = ordered.map((x) => x.shot.videoUrl as string);
-      const clipDurations = ordered.map((x) => x.dur);
-      const subtitles = withSubs ? ordered.map((x) => (x.shot.dialogue || "").trim()) : [];
-      // 配音同样过 imageUrl 带 token,后端 _download_clip 才能鉴权取到
-      const voiceUrls = ordered.map((x) => (x.shot.voiceUrl ? imageUrl(x.shot.voiceUrl) : ""));
+    if (clipShots.length === 0) return null;
+    const ordered =
+      timeline.length > 0
+        ? timeline
+            .map((t) => ({ shot: shots.find((s) => s.id === t.id), dur: t.duration }))
+            .filter((x): x is { shot: ShotCardModel; dur: number } => !!x.shot && !!x.shot.videoUrl)
+        : clipShots.map((s) => ({ shot: s, dur: s.duration_sec || 3 }));
+    return {
+      clips: ordered.map((x) => x.shot.videoUrl as string),
+      clipDurations: ordered.map((x) => x.dur),
+      subtitles: withSubs ? ordered.map((x) => (x.shot.dialogue || "").trim()) : [],
+      // 配音过 imageUrl 带 token,后端 _download_clip 才能鉴权取到
+      voiceUrls: ordered.map((x) => (x.shot.voiceUrl ? imageUrl(x.shot.voiceUrl) : "")),
+    };
+  }, [shots, timeline, withSubs]);
+
+  // 出一版指定画幅的成片,返回 URL(单出/批量共用)
+  const assembleOnce = useCallback(
+    async (aspectVal: ManjuAspect): Promise<string> => {
+      const args = buildAssembleArgs();
+      if (!args) throw new Error("还没有视频片段,先到「视频」步把分镜转成视频");
       const r = await assembleManju(
-        clips,
+        args.clips,
         {
           transition,
           bgm_url: bgmUrl.trim() || null,
-          subtitles,
+          subtitles: args.subtitles,
           fps: 16,
-          aspect,
+          aspect: aspectVal,
           title: titleText.trim(),
           credits: creditsText.trim(),
           voice_volume: voiceVol,
@@ -615,16 +658,46 @@ export function ManjuStudio() {
           sub_pos: subPos,
           sub_box: subBox,
         },
-        voiceUrls,
-        clipDurations,
+        args.voiceUrls,
+        args.clipDurations,
       );
-      setAssembledUrl(r.url);
+      return r.url;
+    },
+    [buildAssembleArgs, transition, bgmUrl, titleText, creditsText, voiceVol, bgmVol, duck, grade, subSize, subColor, subPos, subBox],
+  );
+
+  const assemble = useCallback(async () => {
+    if (assembling || batchBusy) return;
+    setAssembling(true);
+    setAssembleErr(null);
+    setAssembledUrl(null);
+    try {
+      setAssembledUrl(await assembleOnce(aspect));
     } catch (e) {
       setAssembleErr((e as Error).message);
     } finally {
       setAssembling(false);
     }
-  }, [assembling, shots, timeline, withSubs, transition, bgmUrl, aspect, titleText, creditsText, voiceVol, bgmVol, duck, grade, subSize, subColor, subPos, subBox]);
+  }, [assembling, batchBusy, assembleOnce, aspect]);
+
+  // 批量多平台:一键顺序出 16:9 / 9:16 / 1:1 三版(对标一站式发全平台)
+  const assembleBatch = useCallback(async () => {
+    if (assembling || batchBusy) return;
+    setBatchBusy(true);
+    setAssembleErr(null);
+    setBatchResults([]);
+    try {
+      const out: { aspect: string; url: string }[] = [];
+      for (const a of ["16:9", "9:16", "1:1"] as ManjuAspect[]) {
+        out.push({ aspect: a, url: await assembleOnce(a) });
+        setBatchResults([...out]);
+      }
+    } catch (e) {
+      setAssembleErr((e as Error).message);
+    } finally {
+      setBatchBusy(false);
+    }
+  }, [assembling, batchBusy, assembleOnce]);
 
   // AI 配乐:用 ACE-Step 按情绪/风格生成 BGM(时长跟成片),产物填入 bgmUrl。
   const generateBgm = useCallback(async () => {
@@ -834,6 +907,8 @@ export function ManjuStudio() {
           setChars(d.chars);
           setShots(d.shots);
           if (d.shots.length) setStep("storyboard");
+          clearDraft();
+          setDraftHint(null);
         }}
         onNew={() => {
           setProjectName("未命名漫剧");
@@ -841,8 +916,27 @@ export function ManjuStudio() {
           setChars([]);
           setShots([]);
           setStep("script");
+          clearDraft();
+          setDraftHint(null);
         }}
       />
+
+      {draftHint && (
+        <div className="manju-draft-hint" role="status">
+          <span className="manju-draft-icon" aria-hidden="true">📝</span>
+          <span className="manju-draft-text">
+            发现未保存草稿
+            {draftHint.shots.length > 0 ? ` · ${draftHint.shots.length} 镜` : ""}
+            {` · ${draftAge(draftHint.savedAt)}`}
+          </span>
+          <button type="button" className="manju-draft-restore" onClick={restoreDraft}>
+            恢复
+          </button>
+          <button type="button" className="manju-draft-discard" onClick={discardDraft}>
+            丢弃
+          </button>
+        </div>
+      )}
 
       <div className={`manju-body${showInspector ? "" : " is-wide"}`}>
         {/* 左侧流程轨 */}
@@ -1425,7 +1519,7 @@ export function ManjuStudio() {
                     <button
                       type="button"
                       className="generate-btn"
-                      disabled={assembling || videoCount === 0}
+                      disabled={assembling || batchBusy || videoCount === 0}
                       aria-busy={assembling}
                       onClick={assemble}
                     >
@@ -1433,6 +1527,34 @@ export function ManjuStudio() {
                         ? "合成中…(下载片段 + ffmpeg 拼接)"
                         : `🎬 合成成片(${videoCount} 镜)`}
                     </button>
+
+                    <button
+                      type="button"
+                      className="manju-secondary-btn manju-batch-btn"
+                      disabled={assembling || batchBusy || videoCount === 0}
+                      aria-busy={batchBusy}
+                      onClick={assembleBatch}
+                      title="一键出 横屏16:9 / 竖屏9:16 / 方屏1:1 三版,发全平台"
+                    >
+                      {batchBusy
+                        ? `批量出片中… ${batchResults.length}/3`
+                        : "⎘ 批量全平台(16:9 / 9:16 / 1:1)"}
+                    </button>
+
+                    {batchResults.length > 0 && (
+                      <div className="manju-batch-results">
+                        {batchResults.map((b) => (
+                          <a
+                            key={b.aspect}
+                            className="manju-batch-item"
+                            href={imageUrl(b.url)}
+                            download
+                          >
+                            ↓ {b.aspect === "16:9" ? "横屏 16:9" : b.aspect === "9:16" ? "竖屏 9:16" : "方屏 1:1"}
+                          </a>
+                        ))}
+                      </div>
+                    )}
 
                     {assembling && (
                       <ProgressBar
