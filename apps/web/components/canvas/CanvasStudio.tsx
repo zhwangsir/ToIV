@@ -32,6 +32,7 @@ import {
 } from "./CanvasContext";
 import { fetchCanvasModels, type CanvasModels } from "./models";
 import { NodeMenu } from "./NodeMenu";
+import { CANVAS_RECIPES, type CanvasRecipe } from "./canvasRecipes";
 import { WorkflowMenu } from "./WorkflowMenu";
 import { TextNode } from "./nodes/TextNode";
 import { ImageNode } from "./nodes/ImageNode";
@@ -273,6 +274,30 @@ function Inner() {
   );
 
   // ── 新建节点 ──
+  const [recipesOpen, setRecipesOpen] = useState(false);
+
+  // 配方模板:一键把预置节点图追加到画布(下移避让现有内容,绝不清空用户已有工作)。
+  const applyRecipe = useCallback(
+    (r: CanvasRecipe) => {
+      const built = r.build();
+      const existing = nodesRef.current ?? [];
+      const offsetY = existing.length
+        ? Math.max(...existing.map((n) => n.position.y)) + 280
+        : 0;
+      const placed = offsetY
+        ? built.nodes.map((n) => ({
+            ...n,
+            position: { ...n.position, y: n.position.y + offsetY },
+          }))
+        : built.nodes;
+      setNodes((nds) => [...nds, ...placed]);
+      setEdges((eds) => [...eds, ...built.edges]);
+      setRecipesOpen(false);
+      window.setTimeout(() => rfRef.current?.fitView({ padding: 0.2, duration: 400 }), 60);
+    },
+    [setNodes, setEdges],
+  );
+
   const addNode = useCallback(
     (type: CanvasNodeType, flowPos: XYPosition, extra?: Record<string, unknown>) => {
       const id = nextNodeId();
@@ -917,6 +942,13 @@ function Inner() {
           <span className="cv-toolbar__count">
             {stat.total} 节点 · {stat.runnable} 可生成
           </span>
+          <button
+            type="button"
+            className="cv-btn cv-btn--recipe"
+            onClick={() => setRecipesOpen(true)}
+          >
+            📚 配方
+          </button>
           <WorkflowMenu
             currentId={wfId}
             currentName={wfName}
@@ -988,6 +1020,51 @@ function Inner() {
           />
         )}
       </div>
+
+      {recipesOpen && (
+        <div
+          className="cv-recipes"
+          role="dialog"
+          aria-label="配方模板库"
+          onClick={() => setRecipesOpen(false)}
+        >
+          <div className="cv-recipes__panel" onClick={(e) => e.stopPropagation()}>
+            <header className="cv-recipes__head">
+              <div>
+                <span className="cv-recipes__kicker">配方模板</span>
+                <h3 className="cv-recipes__title">选个配方,一键铺好节点图</h3>
+                <p className="cv-recipes__sub">
+                  不用从零连线 · 选完直接填提示词 / 传图就能跑
+                </p>
+              </div>
+              <button
+                type="button"
+                className="cv-recipes__close"
+                onClick={() => setRecipesOpen(false)}
+                aria-label="关闭"
+              >
+                ✕
+              </button>
+            </header>
+            <div className="cv-recipes__grid">
+              {CANVAS_RECIPES.map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  className="cv-recipe-card"
+                  onClick={() => applyRecipe(r)}
+                >
+                  <span className="cv-recipe-card__icon" aria-hidden="true">
+                    {r.icon}
+                  </span>
+                  <span className="cv-recipe-card__name">{r.name}</span>
+                  <span className="cv-recipe-card__desc">{r.desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
