@@ -36,6 +36,7 @@ import { fetchCanvasModels, type CanvasModels } from "./models";
 import { NodeMenu } from "./NodeMenu";
 import { CANVAS_RECIPES, type CanvasRecipe } from "./canvasRecipes";
 import { useCanvasHistory } from "./useCanvasHistory";
+import { RunDashboard } from "./RunDashboard";
 import { WorkflowMenu } from "./WorkflowMenu";
 import { TextNode } from "./nodes/TextNode";
 import { ImageNode } from "./nodes/ImageNode";
@@ -1112,6 +1113,8 @@ function Inner() {
             <Controls className="cv-controls" showInteractive={false} />
           </ReactFlow>
         </CanvasProvider>
+
+        <RunDashboard nodes={nodes} pipelineBusy={pipelineBusy} />
 
         {menu && (
           <NodeMenu

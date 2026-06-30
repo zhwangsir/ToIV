@@ -441,3 +441,59 @@
 .cv-btn--icon { padding: 0.35rem 0.55rem; font-size: 1.05rem; line-height: 1; min-width: 2rem; }
 .cv-btn--icon:disabled { opacity: 0.38; cursor: not-allowed; }
 .cv-btn--icon:disabled:hover { background: var(--bg-0); border-color: var(--accent-line); color: var(--ink); }
+
+/* ── 运行看板(CV3 运行反馈)──────────────────────────── */
+.cv-dash {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 20;
+  width: 264px;
+  max-height: 52%;
+  display: flex;
+  flex-direction: column;
+  background: color-mix(in oklab, var(--bg-0) 92%, transparent);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-sm, 12px);
+  box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  animation: cv-recipes-in 160ms ease-out;
+}
+.cv-dash__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--accent-line);
+}
+.cv-dash__title { display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; font-weight: 700; color: var(--ink); }
+.cv-dash__count {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--accent-soft);
+  background: var(--accent-quiet);
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+.cv-dash__close {
+  width: 1.5rem;
+  height: 1.5rem;
+  border: none;
+  background: transparent;
+  color: var(--ink-faint);
+  cursor: pointer;
+  border-radius: var(--radius-xs);
+}
+.cv-dash__close:hover { background: var(--bg-3); color: var(--ink); }
+.cv-dash__list { list-style: none; margin: 0; padding: 0.35rem; overflow: auto; display: flex; flex-direction: column; gap: 2px; }
+.cv-dash__row { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.5rem; border-radius: var(--radius-xs); font-size: 0.8rem; }
+.cv-dash__row.is-run { background: var(--accent-quiet); }
+.cv-dash__row.is-done { opacity: 0.65; }
+.cv-dash__row.is-err { background: var(--danger-wash, var(--accent-wash)); }
+.cv-dash__ico { font-size: 0.95rem; line-height: 1; }
+.cv-dash__label { flex: 1; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cv-dash__state { font-size: 0.75rem; font-weight: 600; color: var(--accent-soft); font-variant-numeric: tabular-nums; }
+.cv-dash__row.is-err .cv-dash__state { color: var(--danger, #e5484d); }
+.cv-dash__errline { margin: 0; padding: 0.5rem 0.75rem; border-top: 1px solid var(--accent-line); font-size: 0.72rem; color: var(--danger, #e5484d); line-height: 1.4; }
