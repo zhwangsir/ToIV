@@ -1285,6 +1285,23 @@ export async function translateDub(
   return res.json();
 }
 
+/** AI 精剪:LLM 从字幕挑高光句做集锦。契约:POST /api/dub/highlights → {title,selected[],count}。 */
+export async function highlightsDub(
+  segments: { index: number; text: string }[],
+  targetCount = 0,
+): Promise<{ title: string; selected: number[]; count: number }> {
+  const res = await fetch(`${API_BASE}/api/dub/highlights`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ segments, target_count: targetCount }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `AI 精剪失败 (${res.status})`);
+  }
+  return res.json();
+}
+
 export interface VoiceTrackResult {
   name: string;
   url: string;

@@ -8,6 +8,7 @@ import { useFauxProgress } from "@/hooks/useFauxProgress";
 import {
   autocutDub,
   getLipsyncLongStatus,
+  highlightsDub,
   imageUrl,
   importSrtDub,
   startLipsyncLong,
@@ -63,6 +64,11 @@ export function DubStudio() {
   const [translating, setTranslating] = useState(false);
   const [makingTrack, setMakingTrack] = useState(false);
   const [track, setTrack] = useState<VoiceTrackResult | null>(null);
+  // AI 精剪:高光句集合 + 集锦标题 + 「只译制高光」开关
+  const [picking, setPicking] = useState(false);
+  const [highlightSet, setHighlightSet] = useState<Set<number>>(new Set());
+  const [highlightTitle, setHighlightTitle] = useState("");
+  const [onlyHighlights, setOnlyHighlights] = useState(false);
 
   // ③ 分段对口型
   const [maxSegments, setMaxSegments] = useState(8);
@@ -75,12 +81,21 @@ export function DubStudio() {
   const { setActivity, clearActivity } = useActivity();
   const uploadPct = useFauxProgress(uploading, 8000);
 
+  const clearHighlights = useCallback(() => {
+    setHighlightSet(new Set());
+    setHighlightTitle("");
+    setOnlyHighlights(false);
+  }, []);
+
   const resetDerived = useCallback(() => {
     setCut(null);
     setRows([]);
     setTrack(null);
     setJob(null);
     setJobId(null);
+    setHighlightSet(new Set());
+    setHighlightTitle("");
+    setOnlyHighlights(false);
   }, []);
 
   const onMode = useCallback((m: CutMode) => {
@@ -134,6 +149,7 @@ export function DubStudio() {
     setImporting(true);
     setError(null);
     setTrack(null);
+    clearHighlights();
     try {
       const r = await importSrtDub(file);
       setRows(r.segments.map((s) => ({ ...s })));
@@ -142,7 +158,7 @@ export function DubStudio() {
     } finally {
       setImporting(false);
     }
-  }, []);
+  }, [clearHighlights]);
 
   const runTranscribe = useCallback(async () => {
     if (!source || transcribing) return;
@@ -150,6 +166,7 @@ export function DubStudio() {
     setTranscribeStage("");
     setError(null);
     setTrack(null);
+    clearHighlights();
     try {
       const r = await transcribeDub(source.name, setTranscribeStage);
       setRows(r.segments.map((s) => ({ ...s })));
@@ -159,7 +176,7 @@ export function DubStudio() {
       setTranscribing(false);
       setTranscribeStage("");
     }
-  }, [source, transcribing]);
+  }, [source, transcribing, clearHighlights]);
 
   const runTranslate = useCallback(async () => {
     if (!rows.length || translating) return;
@@ -183,15 +200,33 @@ export function DubStudio() {
     setRows((prev) => prev.map((s) => (s.index === index ? { ...s, translated: value } : s)));
   }, []);
 
+  const runHighlights = useCallback(async () => {
+    if (!rows.length || picking) return;
+    setPicking(true);
+    setError(null);
+    try {
+      const r = await highlightsDub(rows.map((s) => ({ index: s.index, text: s.text })));
+      setHighlightSet(new Set(r.selected));
+      setHighlightTitle(r.title);
+      setOnlyHighlights(true);
+    } catch (e) {
+      setError(`AI 精剪:${(e as Error).message}`);
+    } finally {
+      setPicking(false);
+    }
+  }, [rows, picking]);
+
   const makeTrack = useCallback(async () => {
     if (!source || !rows.length || makingTrack) return;
     setMakingTrack(true);
     setError(null);
     try {
+      // 只译制高光时只对选中句配音(长视频→短译制版)
+      const eff = onlyHighlights ? rows.filter((s) => highlightSet.has(s.index)) : rows;
       const r = await voiceTrackDub({
         name: source.name,
         // 有译文用译文,否则用原文(原片已是目标语时)
-        segments: rows.map((s) => ({ start: s.start, end: s.end, text: s.translated || s.text })),
+        segments: eff.map((s) => ({ start: s.start, end: s.end, text: s.translated || s.text })),
       });
       setTrack(r);
     } catch (e) {
@@ -199,7 +234,7 @@ export function DubStudio() {
     } finally {
       setMakingTrack(false);
     }
-  }, [source, rows, makingTrack]);
+  }, [source, rows, makingTrack, onlyHighlights, highlightSet]);
 
   // —— ③ 分段对口型 ——
   const startLipsync = useCallback(async () => {
@@ -208,10 +243,11 @@ export function DubStudio() {
     setError(null);
     setJob(null);
     try {
-      // 优先级:有配音轨→按译制片段切并用配音轨;否则→自动剪辑片段;否则→后端等分
+      // 优先级:有配音轨→按译制片段切并用配音轨(只译制高光时只切高光);否则→自动剪辑片段;否则→后端等分
+      const effRows = onlyHighlights ? rows.filter((s) => highlightSet.has(s.index)) : rows;
       const segSource =
-        track && rows.length
-          ? rows.map((s) => ({ start: s.start, end: s.end }))
+        track && effRows.length
+          ? effRows.map((s) => ({ start: s.start, end: s.end }))
           : cut?.segments.map((s) => ({ start: s.start, end: s.end }));
       const r = await startLipsyncLong({
         name: source.name,
@@ -226,7 +262,7 @@ export function DubStudio() {
     } finally {
       setStarting(false);
     }
-  }, [source, starting, job, track, rows, cut, maxSegments, lipsExpr]);
+  }, [source, starting, job, track, rows, cut, maxSegments, lipsExpr, onlyHighlights, highlightSet]);
 
   // 轮询对口型进度
   useEffect(() => {
@@ -487,6 +523,15 @@ export function DubStudio() {
                 </button>
                 <button
                   type="button"
+                  className="dub-run-btn"
+                  disabled={picking || !rows.length}
+                  onClick={() => void runHighlights()}
+                  title="LLM 挑高光句,长视频出短译制版"
+                >
+                  {picking ? "精剪中…" : "✨ AI 精剪"}
+                </button>
+                <button
+                  type="button"
                   className="dub-run-btn primary"
                   disabled={makingTrack || !rows.length}
                   onClick={() => void makeTrack()}
@@ -499,30 +544,53 @@ export function DubStudio() {
                 <div className="dub-table-wrap">
                   <div className="dub-table-meta">
                     {rows.length} 句 · 已译 {translatedCount}
+                    {highlightSet.size > 0 && (
+                      <>
+                        {" · "}
+                        <span className="dub-hl-tag">✨ 高光 {highlightSet.size}</span>
+                        {highlightTitle ? `「${highlightTitle}」` : ""}
+                        <label className="dub-hl-only">
+                          <input
+                            type="checkbox"
+                            checked={onlyHighlights}
+                            onChange={(e) => setOnlyHighlights(e.target.checked)}
+                          />
+                          只译制高光
+                        </label>
+                      </>
+                    )}
                   </div>
                   <div className="dub-table">
-                    {rows.map((s) => (
-                      <div key={s.index} className="dub-trow">
-                        <button
-                          type="button"
-                          className="dub-trow-time"
-                          title="跳转到此句"
-                          onClick={() => seekTo(s.start, s.index)}
+                    {rows.map((s) => {
+                      const hot = highlightSet.has(s.index);
+                      const dim = onlyHighlights && highlightSet.size > 0 && !hot;
+                      return (
+                        <div
+                          key={s.index}
+                          className={`dub-trow${hot ? " hot" : ""}${dim ? " dim" : ""}`}
                         >
-                          {fmt(s.start)}
-                        </button>
-                        <div className="dub-trow-src" title={s.text}>
-                          {s.text}
+                          <button
+                            type="button"
+                            className="dub-trow-time"
+                            title="跳转到此句"
+                            onClick={() => seekTo(s.start, s.index)}
+                          >
+                            {hot ? "✨" : ""}
+                            {fmt(s.start)}
+                          </button>
+                          <div className="dub-trow-src" title={s.text}>
+                            {s.text}
+                          </div>
+                          <textarea
+                            className="dub-trow-dst"
+                            rows={1}
+                            placeholder="译文…"
+                            value={s.translated ?? ""}
+                            onChange={(e) => editRow(s.index, e.target.value)}
+                          />
                         </div>
-                        <textarea
-                          className="dub-trow-dst"
-                          rows={1}
-                          placeholder="译文…"
-                          value={s.translated ?? ""}
-                          onChange={(e) => editRow(s.index, e.target.value)}
-                        />
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}

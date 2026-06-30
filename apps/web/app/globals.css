@@ -6368,3 +6368,11 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .dub-track { display: flex; flex-direction: column; gap: 0.5rem; }
 .dub-track-ok { font-size: 0.82rem; color: var(--accent); font-weight: 600; }
 .dub-audio { width: 100%; max-width: 480px; height: 36px; }
+
+/* ===== 译制台 AI 精剪:高光行标记 ===== */
+.dub-hl-tag { color: var(--accent); font-weight: 600; }
+.dub-hl-only { display: inline-flex; align-items: center; gap: 0.3rem; margin-left: 0.5rem; cursor: pointer; }
+.dub-hl-only input { accent-color: var(--accent); }
+.dub-trow.hot .dub-trow-time { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+.dub-trow.hot .dub-trow-src { color: var(--ink); }
+.dub-trow.dim { opacity: 0.4; }

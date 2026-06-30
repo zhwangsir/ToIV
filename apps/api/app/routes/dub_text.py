@@ -308,3 +308,69 @@ async def dub_translate(
     if not translated:
         raise HTTPException(status_code=502, detail="翻译未返回有效结果")
     return {"translated": translated, "count": len(translated), "target_lang": body.target_lang}
+
+
+# ── AI 精剪:从字幕挑高光句做集锦(长视频→短译制版)──────────────────────
+def _extract_json_object(s: str) -> dict:
+    """从 LLM 回复里抽 JSON 对象(容错代码围栏/前后缀文字)。"""
+    s = s.strip()
+    if s.startswith("```"):
+        s = re.sub(r"^```[a-zA-Z]*\n?|\n?```$", "", s).strip()
+    a, b = s.find("{"), s.rfind("}")
+    if a == -1 or b == -1 or b <= a:
+        raise ValueError("回复中无 JSON 对象")
+    return json.loads(s[a:b + 1])
+
+
+class HighlightSeg(BaseModel):
+    index: int
+    text: str = Field(min_length=1, max_length=2000)
+
+
+class HighlightRequest(BaseModel):
+    segments: list[HighlightSeg] = Field(min_length=1, max_length=_MAX_SEGMENTS)
+    target_count: int = Field(default=0, ge=0, le=_MAX_SEGMENTS)  # 0 = 由 LLM 按内容定(约 1/3)
+
+
+@router.post("/dub/highlights")
+async def dub_highlights(
+    body: HighlightRequest,
+    user: User = Depends(get_current_user),
+) -> dict[str, object]:
+    """LLM 从字幕挑最精彩/信息量大的若干句做高光集锦,返回 {title, selected:[序号]}。"""
+    enforce_generation_rate_limit(user)
+    n = len(body.segments)
+    target = body.target_count or max(1, round(n / 3))
+    target = min(target, n)
+    items = [{"i": s.index, "text": s.text} for s in body.segments]
+    system = (
+        "你是资深视频剪辑师。从给定字幕里挑出最精彩、信息量最大、最适合做高光集锦的句子,"
+        f"约 {target} 句;保持叙事连贯(开头有钩子、结尾有收束),按原时间顺序。"
+        '只返回 JSON 对象 {"title": "集锦标题", "selected": [选中的原序号...]},不要额外文字。'
+    )
+    user_msg = json.dumps(items, ensure_ascii=False)
+
+    try:
+        msg = await llm.chat(
+            [{"role": "system", "content": system}, {"role": "user", "content": user_msg}]
+        )
+        obj = _extract_json_object(msg.get("content") or "")
+    except llm.LLMError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+    except (ValueError, json.JSONDecodeError) as e:
+        raise HTTPException(status_code=502, detail=f"精剪结果解析失败:{e}") from e
+
+    valid = {s.index for s in body.segments}
+    selected: list[int] = []
+    for x in obj.get("selected") or []:
+        try:
+            idx = int(x)
+        except (TypeError, ValueError):
+            continue
+        if idx in valid and idx not in selected:
+            selected.append(idx)
+    selected.sort()
+    if not selected:  # LLM 没给有效选择 → 兜底:不精剪(全选),避免空结果
+        selected = sorted(valid)
+    title = str(obj.get("title") or "").strip()[:80]
+    return {"title": title, "selected": selected, "count": len(selected)}
