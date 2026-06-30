@@ -120,6 +120,11 @@ export function ManjuStudio() {
   const [duck, setDuck] = useState(true);
   // 调色滤镜(P3):全片统一色调
   const [grade, setGrade] = useState("none");
+  // 字幕样式(P4):字号/颜色/位置/描边盒
+  const [subSize, setSubSize] = useState(28);
+  const [subColor, setSubColor] = useState("white");
+  const [subPos, setSubPos] = useState("bottom");
+  const [subBox, setSubBox] = useState(true);
   const [bgmUrl, setBgmUrl] = useState("");
   const [bgmMood, setBgmMood] = useState("");
   const [bgmGenerating, setBgmGenerating] = useState(false);
@@ -605,6 +610,10 @@ export function ManjuStudio() {
           bgm_volume: bgmVol,
           duck,
           grade,
+          sub_size: subSize,
+          sub_color: subColor,
+          sub_pos: subPos,
+          sub_box: subBox,
         },
         voiceUrls,
         clipDurations,
@@ -615,7 +624,7 @@ export function ManjuStudio() {
     } finally {
       setAssembling(false);
     }
-  }, [assembling, shots, timeline, withSubs, transition, bgmUrl, aspect, titleText, creditsText, voiceVol, bgmVol, duck, grade]);
+  }, [assembling, shots, timeline, withSubs, transition, bgmUrl, aspect, titleText, creditsText, voiceVol, bgmVol, duck, grade, subSize, subColor, subPos, subBox]);
 
   // AI 配乐:用 ACE-Step 按情绪/风格生成 BGM(时长跟成片),产物填入 bgmUrl。
   const generateBgm = useCallback(async () => {
@@ -1224,6 +1233,71 @@ export function ManjuStudio() {
                         />
                         <span>烧录字幕(用各镜台词)</span>
                       </label>
+
+                      {withSubs && (
+                        <div className="manju-sub-style">
+                          <div className="manju-sub-row">
+                            <span className="manju-sub-label">字号</span>
+                            <input
+                              type="range"
+                              min={16}
+                              max={56}
+                              step={2}
+                              value={subSize}
+                              onChange={(e) => setSubSize(parseInt(e.target.value, 10))}
+                              aria-label="字幕字号"
+                            />
+                            <span className="manju-sub-val">{subSize}</span>
+                          </div>
+                          <div className="manju-sub-row">
+                            <span className="manju-sub-label">颜色</span>
+                            <div className="manju-sub-colors">
+                              {(
+                                [
+                                  ["white", "#ffffff"],
+                                  ["yellow", "#ffe34d"],
+                                  ["cyan", "#66e0ff"],
+                                  ["pink", "#ff9ecb"],
+                                  ["green", "#9cff8f"],
+                                ] as [string, string][]
+                              ).map(([v, c]) => (
+                                <button
+                                  key={v}
+                                  type="button"
+                                  className={`manju-sub-swatch${subColor === v ? " active" : ""}`}
+                                  style={{ background: c }}
+                                  onClick={() => setSubColor(v)}
+                                  aria-label={`字幕色 ${v}`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                          <div className="manju-sub-row">
+                            <span className="manju-sub-label">位置</span>
+                            <div className="seg seg-3" role="group" aria-label="字幕位置">
+                              {(
+                                [
+                                  ["bottom", "底部"],
+                                  ["center", "居中"],
+                                  ["top", "顶部"],
+                                ] as [string, string][]
+                              ).map(([v, l]) => (
+                                <button
+                                  key={v}
+                                  type="button"
+                                  className={subPos === v ? "active" : ""}
+                                  onClick={() => setSubPos(v)}
+                                >
+                                  {l}
+                                </button>
+                              ))}
+                            </div>
+                            <label className="manju-sub-box">
+                              <input type="checkbox" checked={subBox} onChange={(e) => setSubBox(e.target.checked)} /> 描边盒
+                            </label>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="field">

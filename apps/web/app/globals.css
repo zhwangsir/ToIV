@@ -6208,3 +6208,14 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .nsfw-brand { font-weight: 700; font-size: 1rem; color: var(--ink); letter-spacing: -0.01em; }
 .nsfw-tag { font-size: 0.64rem; font-weight: 700; color: #fff; background: var(--danger); border-radius: 999px; padding: 0.12rem 0.5rem; }
 .nsfw-hint { margin-left: auto; font-size: 0.72rem; color: var(--ink-faint); }
+
+/* 漫剧字幕样式控件(P4) */
+.manju-sub-style { display: flex; flex-direction: column; gap: 0.45rem; margin-top: 0.55rem; padding: 0.55rem 0.65rem; background: var(--bg-1); border-radius: var(--radius-xs); }
+.manju-sub-row { display: flex; align-items: center; gap: 0.6rem; }
+.manju-sub-label { font-size: 0.76rem; color: var(--ink-soft); min-width: 2.4rem; }
+.manju-sub-row input[type="range"] { flex: 1; accent-color: var(--accent); }
+.manju-sub-val { font-size: 0.76rem; font-weight: 600; color: var(--ink); min-width: 1.8rem; text-align: right; font-variant-numeric: tabular-nums; }
+.manju-sub-colors { display: flex; gap: 0.35rem; }
+.manju-sub-swatch { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--hairline); cursor: pointer; padding: 0; }
+.manju-sub-swatch.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-quiet); }
+.manju-sub-box { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.74rem; color: var(--ink-soft); margin-left: auto; white-space: nowrap; }

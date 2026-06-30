@@ -1010,6 +1010,11 @@ export interface AssembleOptions {
   duck?: boolean;
   /** 调色滤镜(P3):none/cinematic/warm/cool/bw/vivid/vintage。 */
   grade?: string;
+  /** 字幕样式(P4):字号/颜色/位置(bottom/top/center)/描边盒。 */
+  sub_size?: number;
+  sub_color?: string;
+  sub_pos?: string;
+  sub_box?: boolean;
 }
 
 export interface AssembleResult {

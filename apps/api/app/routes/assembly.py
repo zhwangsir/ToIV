@@ -99,6 +99,11 @@ class AssembleOptions(BaseModel):
     duck: bool = Field(default=True)
     # 调色滤镜(P3):none/cinematic/warm/cool/bw/vivid/vintage —— 全片统一电影级色调
     grade: str = Field(default="none", max_length=20)
+    # 字幕样式(P4):字号 / 颜色(白名单)/ 位置(bottom/top/center)/ 描边盒
+    sub_size: int = Field(default=28, ge=12, le=72)
+    sub_color: str = Field(default="white", max_length=12)
+    sub_pos: str = Field(default="bottom", max_length=10)
+    sub_box: bool = Field(default=True)
 
 
 class AssembleRequest(BaseModel):
@@ -184,16 +189,40 @@ def _escape_drawtext(text: str) -> str:
     )
 
 
-def _subtitle_filter(text: str) -> str:
-    """单镜烧录字幕:底部居中、半透明描边盒。"""
+# 字幕颜色白名单(防注入;值为 ffmpeg 可识别色)
+_SUB_COLORS: dict[str, str] = {
+    "white": "white",
+    "yellow": "yellow",
+    "cyan": "0x66e0ff",
+    "pink": "0xff9ecb",
+    "green": "0x9cff8f",
+    "black": "black",
+}
+
+
+def _subtitle_filter(text: str, options: "AssembleOptions") -> str:
+    """单镜烧录字幕:可调字号/颜色/位置/描边盒(P4 字幕样式)。"""
     safe = _escape_drawtext(text.strip())
     if not safe:
         return ""
+    size = options.sub_size
+    color = _SUB_COLORS.get(options.sub_color, "white")
+    if options.sub_pos == "top":
+        y = "40"
+    elif options.sub_pos == "center":
+        y = "(h-text_h)/2"
+    else:
+        y = "h-text_h-40"
+    deco = (
+        f":box=1:boxcolor=black@0.45:boxborderw={max(8, size // 2)}"
+        if options.sub_box
+        else ":borderw=2:bordercolor=black@0.85"
+    )
     return (
         "drawtext=" + _FONT_OPT + "text='" + safe + "'"
-        ":fontcolor=white:fontsize=28:line_spacing=6"
-        ":box=1:boxcolor=black@0.45:boxborderw=14"
-        ":x=(w-text_w)/2:y=h-text_h-40"
+        f":fontcolor={color}:fontsize={size}:line_spacing=6"
+        f"{deco}"
+        f":x=(w-text_w)/2:y={y}"
     )
 
 
@@ -253,7 +282,7 @@ def _build_ffmpeg_command(
         grade = _GRADES.get(options.grade, "")
         if grade:
             chain.append(grade)
-        sub = _subtitle_filter(subs[i]) if i < len(subs) and subs[i].strip() else ""
+        sub = _subtitle_filter(subs[i], options) if i < len(subs) and subs[i].strip() else ""
         if sub:
             chain.append(sub)
         label = f"v{i}"
