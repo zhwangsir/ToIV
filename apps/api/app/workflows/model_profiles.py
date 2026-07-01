@@ -89,8 +89,20 @@ def is_sdxl(name: str) -> bool:
 # Flux/Qwen 要自然语言长句且忌堆质量词。识别按文件名子串,顺序敏感(先特殊后通用)。
 # 返回值之一:pony / sdxl_anime / sdxl / flux / qwen / sd15。
 def detect_model_family(name: str) -> str:
-    """按 checkpoint 文件名判定模型族(决定提示词改写方言)。命不中归 sd15。"""
+    """按模型文件名判定族(决定图构造 + 采样档 + 提示词方言)。命不中归 sd15。
+
+    次世代族(flux2 / qwen_image / z_image)优先于通用 flux/qwen 判定,因其文件名也含
+    "flux"/"qwen" 子串,顺序敏感(先特殊后通用)。
+    """
     low = (name or "").lower()
+    # —— 次世代(UNET/diffusion_models 图,CFG≈1,负向失效)——
+    if "flux.2" in low or "flux-2" in low or "flux2" in low:
+        return "flux2"
+    if "z_image" in low or "z-image" in low or "zimage" in low:
+        return "z_image"
+    if "qwen_image" in low or "qwen-image" in low or "qwen_2.5_vl" in low:
+        return "qwen_image"
+    # —— 传统 checkpoint 图 ——
     if "pony" in low:
         return "pony"
     if "flux" in low:
@@ -114,7 +126,8 @@ def fit_resolution(ckpt_name: str, width: int, height: int) -> tuple[int, int]:
     width = max(64, width)
     height = max(64, height)
     ar = width / height
-    if is_sdxl(ckpt_name):
+    # 次世代(flux2/qwen_image/z_image)与 SDXL 同为 ~1MP 原生;仅 SD1.5 走 0.4MP 小档。
+    if is_sdxl(ckpt_name) or detect_model_family(ckpt_name) in _NEXTGEN_FAMILIES:
         budget = 1024 * 1024
         long_cap = 1536
     else:
@@ -204,6 +217,108 @@ def is_nsfw(name: str) -> bool:
 
 # v-pred 注入节点 id:避开主图常用小数字 id(1-20)与 LoRA 链基址(100+)。
 _VPRED_NODE_ID = "50"
+
+
+# ---------------------------------------------------------------------------
+# 次世代出图族(A 期)—— 采样档案 + UNET 图配方
+# ---------------------------------------------------------------------------
+# 次世代族用 diffusion_models(UNETLoader)而非 CheckpointLoaderSimple,且关键正确性:
+# 真实 CFG≈1 + guidance 节点、Euler/res_multistep + simple、**禁 Karras**、**负向失效**
+# (合成器不发负向)。以下把每族的「采样参数」与「图结构配方」作数据集中于此,
+# 端点只据此分发,不写 per-model 分支(见开发协议)。
+
+_NEXTGEN_FAMILIES: tuple[str, ...] = ("flux2", "qwen_image", "z_image")
+
+
+@dataclass(frozen=True)
+class GenProfile:
+    """按族的推荐生成参数(服务端据此强制,尤其次世代的 cfg=1 / 无负向)。"""
+
+    sampler: str = "euler"
+    scheduler: str = "normal"
+    cfg: float = 7.0
+    steps: int = 20
+    megapixels: float = 1.0
+    neg_prompt: bool = True  # False = 该族负向失效,合成/图里不发负向
+    graph: str = "sd"  # sd | qwen_image | z_image | flux2(决定用哪条工作流图)
+
+
+@dataclass(frozen=True)
+class NextgenRecipe:
+    """次世代 UNET 图的家族配方:配套权重默认名 + 结构节点选择。
+
+    权重名是「默认伴随件」(worker 上已实测存在的文件名);实际主模型名由用户选择传入。
+    clip_type/model_sampling/latent_node/text_encode 均来自 worker /object_info 实测枚举。
+    """
+
+    clip_type: str  # CLIPLoader.type 枚举值
+    clip_name: str  # 默认文本编码器权重(diffusion_models 图必须显式加载)
+    vae_name: str  # 默认 VAE 权重
+    text_encode: str = "CLIPTextEncode"  # 或 TextEncodeZImageOmni(Z-Image 专用)
+    model_sampling: str = ""  # "" | ModelSamplingAuraFlow | ModelSamplingFlux
+    shift: float = 3.1  # AuraFlow/Flux 的 shift
+    latent_node: str = "EmptySD3LatentImage"  # 或 EmptyFlux2LatentImage
+    guidance: float | None = None  # 非空 → 插 FluxGuidance 节点
+
+
+# 采样档案(§10;cfg=1/无负向为次世代关键正确性)。未列族回落 GenProfile() 默认(SD 风)。
+_PROFILES: dict[str, GenProfile] = {
+    "flux2": GenProfile(sampler="euler", scheduler="simple", cfg=1.0, steps=28,
+                        megapixels=1.0, neg_prompt=False, graph="flux2"),
+    "qwen_image": GenProfile(sampler="euler", scheduler="simple", cfg=1.0, steps=20,
+                             megapixels=1.0, neg_prompt=False, graph="qwen_image"),
+    "z_image": GenProfile(sampler="res_multistep", scheduler="simple", cfg=1.0, steps=8,
+                          megapixels=1.0, neg_prompt=False, graph="z_image"),
+    # 传统族:常规 CFG + 负向有效(is_vpred 仍单独触发 ModelSamplingDiscrete)
+    "pony": GenProfile(sampler="euler_ancestral", scheduler="normal", cfg=6.0, steps=28),
+    "sdxl_anime": GenProfile(sampler="euler_ancestral", scheduler="normal", cfg=5.0, steps=28),
+    "sdxl": GenProfile(sampler="dpmpp_2m_sde", scheduler="karras", cfg=6.0, steps=30),
+    "sd15": GenProfile(sampler="euler", scheduler="normal", cfg=7.0, steps=20),
+}
+
+# 次世代图配方(worker :8002 /object_info 实测:节点存在、类型枚举含 qwen_image/flux2)。
+# ⚠️ 待人工核准的伴随权重下载:qwen_2.5_vl(Qwen-Image 编码器,worker 现无)、
+#    flux2 文本编码器(clip_name 待定)。Z-Image 三件套(z_image_turbo/qwen_3_4b/ae)已在。
+_NEXTGEN_RECIPES: dict[str, NextgenRecipe] = {
+    "qwen_image": NextgenRecipe(
+        clip_type="qwen_image",
+        clip_name="qwen_2.5_vl_7b_fp8_scaled.safetensors",
+        vae_name="qwen_image_vae.safetensors",
+        model_sampling="ModelSamplingAuraFlow",
+        shift=3.1,
+        latent_node="EmptySD3LatentImage",
+    ),
+    "z_image": NextgenRecipe(
+        clip_type="lumina2",  # ⚠️ 待 worker smoke 校准(Z-Image 用 qwen_3_4b + TextEncodeZImageOmni)
+        clip_name="qwen_3_4b.safetensors",
+        vae_name="ae.safetensors",
+        text_encode="TextEncodeZImageOmni",
+        latent_node="EmptySD3LatentImage",
+    ),
+    "flux2": NextgenRecipe(
+        clip_type="flux2",
+        clip_name="gemma_3_12B_it_fp8_scaled.safetensors",  # ⚠️ 待核准 flux2 编码器
+        vae_name="flux2-vae.safetensors",
+        model_sampling="ModelSamplingFlux",
+        latent_node="EmptyFlux2LatentImage",
+        guidance=3.5,
+    ),
+}
+
+
+def is_nextgen(name: str) -> bool:
+    """该模型是否走次世代 UNET 图(而非 SD checkpoint 图)。"""
+    return detect_model_family(name) in _NEXTGEN_FAMILIES
+
+
+def profile_for(name: str) -> GenProfile:
+    """按模型名返回推荐生成参数档(未知族回落 SD 风默认)。"""
+    return _PROFILES.get(detect_model_family(name), GenProfile())
+
+
+def nextgen_recipe(name: str) -> NextgenRecipe | None:
+    """按模型名返回次世代图配方;非次世代返回 None。"""
+    return _NEXTGEN_RECIPES.get(detect_model_family(name))
 
 
 def model_sampling_node(

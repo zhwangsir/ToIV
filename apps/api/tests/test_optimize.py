@@ -156,7 +156,9 @@ def test_image_optimize_parse_failure_falls_back(client_token, monkeypatch):
     [
         ("ponyDiffusionV6XL.safetensors", "pony"),
         ("flux1-dev.safetensors", "flux"),
-        ("qwen_image_fp8.safetensors", "qwen"),
+        ("qwen_image_fp8.safetensors", "qwen_image"),  # A 期:Qwen-Image 独立次世代族
+        ("flux-2-klein-4b.safetensors", "flux2"),
+        ("z_image_turbo_bf16.safetensors", "z_image"),
         ("prefectIllustriousXL_v3.safetensors", "sdxl_anime"),
         ("noobaiXL_vpred.safetensors", "sdxl_anime"),
         ("sd_xl_base_1.0.safetensors", "sdxl"),
