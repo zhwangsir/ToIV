@@ -17,7 +17,7 @@ from app.models import User
 from app.nsfw_ctx import nsfw_allowed
 from app.workflows.ace_step import AceStepParams
 from app.workflows.hunyuan3d import Hunyuan3DParams
-from app.workflows.model_profiles import is_nsfw, is_vpred
+from app.workflows.model_profiles import is_nextgen, is_nsfw, is_vpred
 from app.workflows.wan_t2v import WanT2VParams
 
 router = APIRouter()
@@ -58,6 +58,15 @@ def _image_checkpoints(all_ckpts: list[str]) -> list[str]:
     return [c for c in all_ckpts if _is_image_ckpt(c)]
 
 
+def _nextgen_image_models(unet_names: list[str]) -> list[str]:
+    """UNETLoader(diffusion_models)里的次世代出图族(flux2/qwen_image/z_image)。
+
+    这些底模不走 CheckpointLoaderSimple,故不在 all_ckpts 里;并入图像可选模型。
+    视频 Wan 的 UNET 不是次世代出图族,is_nextgen 判否,自然排除。
+    """
+    return [n for n in unet_names if is_nextgen(n)]
+
+
 def _video_models() -> list[str]:
     """视频模式实际加载的 diffusion_models(Wan 双噪声 UNET);只读展示。"""
     p = WanT2VParams(positive="")
@@ -96,7 +105,13 @@ async def list_models(
         raise HTTPException(status_code=502, detail=str(e)) from e
 
     all_ckpts = _enum(ckpt_info, "CheckpointLoaderSimple", "ckpt_name")
-    image_ckpts = _image_checkpoints(all_ckpts)
+    # 次世代出图族在 diffusion_models(UNETLoader)里,并入图像可选模型;worker 缺则为空。
+    try:
+        unet_info = await client.object_info("UNETLoader")
+        all_unets = _enum(unet_info, "UNETLoader", "unet_name")
+    except ComfyUIError:
+        all_unets = []
+    image_ckpts = _image_checkpoints(all_ckpts) + _nextgen_image_models(all_unets)
 
     # R18 软门槛:账户未开 且 本请求无 /nsfw 标记时,服务端强制剔除成人底模(真过滤)。
     if not nsfw_allowed(user):

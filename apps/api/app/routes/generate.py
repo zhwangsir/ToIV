@@ -31,7 +31,14 @@ from app.workflows.facedetailer import (
 from app.workflows.img2img import Img2ImgParams, build_img2img_graph
 from app.workflows.inpaint import InpaintParams, build_inpaint_graph
 from app.workflows.lora import LoraSpec
-from app.workflows.model_profiles import is_nsfw
+from app.workflows.model_profiles import (
+    fit_resolution,
+    is_nsfw,
+    is_nextgen,
+    nextgen_recipe,
+    profile_for,
+)
+from app.workflows.nextgen import NextgenParams, build_nextgen_graph
 from app.workflows.removebg import REMBG_MODES, RemoveBgParams, build_removebg_graph
 from app.workflows.upscale import UPSCALE_MODELS, UpscaleParams, build_upscale_graph
 from app.workflows.txt2img import Txt2ImgParams, build_txt2img_graph
@@ -136,23 +143,49 @@ async def generate_txt2img(
     if req.engine == "forge":
         return await _submit_forge_txt2img(req, ckpt_name, job_nsfw, user, session)
 
-    params = Txt2ImgParams(
-        positive=req.positive,
-        negative=req.negative,
-        ckpt_name=ckpt_name,
-        width=_snap8(req.width),
-        height=_snap8(req.height),
-        steps=req.steps,
-        cfg=req.cfg,
-        sampler=req.sampler,
-        scheduler=req.scheduler,
-        batch_size=req.batch_size,
-        loras=_to_lora_specs(req.loras),
-        **({"seed": req.seed} if req.seed is not None else {}),
-    )
-    graph = build_txt2img_graph(params)
-    # 路由到既有 checkpoint 又有所选 LoRA 文件的 worker(异构多机下避免缺模型)
-    required = {params.ckpt_name, *(l.name for l in params.loras)}
+    # 次世代族(flux2/qwen_image/z_image)走 UNET 图 + 服务端**强制**正确采样(cfg≈1、
+    # euler/res_multistep+simple、负向失效族清空负向);传统族走既有 checkpoint 图。
+    # 分流依据全在 model_profiles(端点不写 per-model 分支,见开发协议)。
+    if is_nextgen(ckpt_name):
+        prof = profile_for(ckpt_name)
+        recipe = nextgen_recipe(ckpt_name)
+        w, h = fit_resolution(ckpt_name, _snap8(req.width), _snap8(req.height))
+        ng = NextgenParams(
+            model_name=ckpt_name,
+            positive=req.positive,
+            negative=req.negative if prof.neg_prompt else "",
+            width=w,
+            height=h,
+            steps=prof.steps,
+            cfg=prof.cfg,
+            sampler=prof.sampler,
+            scheduler=prof.scheduler,
+            batch_size=req.batch_size,
+            **({"seed": req.seed} if req.seed is not None else {}),
+        )
+        graph = build_nextgen_graph(ng)
+        seed_used = ng.seed
+        # 次世代图需 UNET + 文本编码器 + VAE 三件都在的 worker(缺则 pick 干净失败 503)
+        required = {ckpt_name, recipe.clip_name, recipe.vae_name} if recipe else {ckpt_name}
+    else:
+        params = Txt2ImgParams(
+            positive=req.positive,
+            negative=req.negative,
+            ckpt_name=ckpt_name,
+            width=_snap8(req.width),
+            height=_snap8(req.height),
+            steps=req.steps,
+            cfg=req.cfg,
+            sampler=req.sampler,
+            scheduler=req.scheduler,
+            batch_size=req.batch_size,
+            loras=_to_lora_specs(req.loras),
+            **({"seed": req.seed} if req.seed is not None else {}),
+        )
+        graph = build_txt2img_graph(params)
+        seed_used = params.seed
+        # 路由到既有 checkpoint 又有所选 LoRA 文件的 worker(异构多机下避免缺模型)
+        required = {params.ckpt_name, *(l.name for l in params.loras)}
     try:
         client = await pool.pick(required=required)
     except ComfyUIError as e:
@@ -171,8 +204,8 @@ async def generate_txt2img(
         worker=client.base_url,
         kind="txt2img",
         status="queued",
-        prompt=params.positive,
-        seed=params.seed,
+        prompt=req.positive,
+        seed=seed_used,
         nsfw=job_nsfw,
     )
     session.add(job)

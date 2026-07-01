@@ -106,6 +106,22 @@ _FAMILY_GUIDANCE: dict[str, str] = {
         "目标模型是 Qwen-Image。positive 用**自然语言**详细描述画面,语序清晰;"
         "它擅长画面内文字渲染,若用户要文字请用引号标出。不要 danbooru 标签堆砌。"
     ),
+    # —— 次世代族(CFG≈1,负向失效):一律自然语言长句,不发质量词/负向 ——
+    "qwen_image": (
+        "目标模型是 Qwen-Image(次世代)。positive 用**流畅自然语言**详细描述画面"
+        "(主体/动作/环境/光线/镜头/氛围),语序清晰;擅长画面内文字渲染,要文字用引号标出。"
+        "**禁止** danbooru 标签堆砌与 masterpiece/best quality 无效质量词。"
+        "该模型 negative 基本失效,negative 留空。"
+    ),
+    "flux2": (
+        "目标模型是 FLUX.2(次世代画质天花板)。positive **必须是流畅自然语言长句**,"
+        "完整描述主体/动作/环境/光线/镜头/氛围。**禁止** danbooru 标签与质量词堆砌。"
+        "negative 失效,留空。"
+    ),
+    "z_image": (
+        "目标模型是 Z-Image(次世代极速)。positive 用**简洁自然语言**清晰描述画面重点"
+        "(主体/环境/光线/风格),不必冗长。**禁止**质量词/标签堆砌;negative 失效,留空。"
+    ),
     "sd15": (
         "目标模型是 SD1.5。positive 用逗号标签 + 强质量词"
         "(masterpiece, best quality, highly detailed, sharp focus);"
