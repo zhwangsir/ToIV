@@ -17,7 +17,13 @@ from app.models import User
 from app.nsfw_ctx import nsfw_allowed
 from app.workflows.ace_step import AceStepParams
 from app.workflows.hunyuan3d import Hunyuan3DParams
-from app.workflows.model_profiles import is_nextgen, is_nsfw, is_vpred
+from app.workflows.model_profiles import (
+    detect_model_family,
+    is_nextgen,
+    is_nsfw,
+    is_vpred,
+    profile_for,
+)
 from app.workflows.wan_t2v import WanT2VParams
 
 router = APIRouter()
@@ -36,7 +42,17 @@ def _tagged(names: list[str]) -> list[dict]:
     筛选与 v-pred 提示。顺序与入参一致。
     """
     return [
-        {"name": n, "nsfw": is_nsfw(n), "vpred": is_vpred(n)} for n in names
+        {
+            "name": n,
+            "nsfw": is_nsfw(n),
+            "vpred": is_vpred(n),
+            # A 期:族标签 + 是否次世代 + 是否用负向(前端据此自适应 UI:
+            # 次世代隐 CFG/采样、负向失效族隐负向框、提示词切自然语言)。
+            "family": detect_model_family(n),
+            "nextgen": is_nextgen(n),
+            "neg": profile_for(n).neg_prompt,
+        }
+        for n in names
     ]
 
 
@@ -111,7 +127,8 @@ async def list_models(
         all_unets = _enum(unet_info, "UNETLoader", "unet_name")
     except ComfyUIError:
         all_unets = []
-    image_ckpts = _image_checkpoints(all_ckpts) + _nextgen_image_models(all_unets)
+    # 次世代族排前(可发现性:它们是 A 期升级的推荐底模,列表首位默认落在次世代)
+    image_ckpts = _nextgen_image_models(all_unets) + _image_checkpoints(all_ckpts)
 
     # R18 软门槛:账户未开 且 本请求无 /nsfw 标记时,服务端强制剔除成人底模(真过滤)。
     if not nsfw_allowed(user):

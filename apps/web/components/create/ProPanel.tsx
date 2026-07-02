@@ -10,6 +10,7 @@ import { uploadImage } from "@/lib/api";
 import type { LoraInput, ModelsResponse } from "@/lib/types";
 
 import { filterModelsByNsfw, hasNsfwData } from "./nsfw";
+import { familyMeta, modelBehavior } from "./modelMeta";
 import type { Dispatch } from "./useGenerationFeed";
 import {
   type Mode,
@@ -124,6 +125,14 @@ export function ProPanel(props: ProPanelProps) {
 
   const set = <K extends keyof ImgParams>(k: K, v: ImgParams[K]) => setImg((p) => ({ ...p, [k]: v }));
   const seedNum = img.seed.trim() ? Number(img.seed) : null;
+
+  // 所选底模的族行为(仅图像模式生效):次世代 → 隐 CFG/采样(服务端锁定);
+  // 蒸馏档负向失效 → 隐负向框;提示词切自然语言引导。视频/3D/音频不受影响。
+  const behavior = mode === "image" ? modelBehavior(models, ckpt) : null;
+  const isNextgen = !!behavior?.nextgen;
+  const modelInfo = behavior?.meta ?? familyMeta(behavior?.tag?.family);
+  // 负向框:视频恒显示;图像仅当该底模负向有效时显示
+  const showNegative = mode === "video" || (mode === "image" && (behavior?.usesNeg ?? true));
 
   /** 本次图像提交的实际步数:开启 steps 区间时在 [low,high] 取随机整数,否则用单值。 */
   const resolveSteps = useCallback((): number => {
@@ -413,6 +422,14 @@ export function ProPanel(props: ProPanelProps) {
         <ModelSelector mode={mode} models={models} ckpt={ckpt} setCkpt={setCkpt} nsfw={nsfw} />
       )}
 
+      {/* 底模族徽章 + 定位提示(仅图像 ComfyUI):次世代品紫强调 */}
+      {mode === "image" && engine !== "forge" && modelInfo && (
+        <div className={`model-family model-family--${modelInfo.tone}`}>
+          <span className="model-family__badge">{modelInfo.badge}</span>
+          <span className="model-family__hint">{modelInfo.hint}</span>
+        </div>
+      )}
+
       {/* NSFW 档(仅图像底模可切;且账户已开启 R18 才显示):开启 → 下拉筛选到 nsfw 模型 */}
       {mode === "image" && nsfwEnabled && (
         <div className={`field nsfw-gate${nsfw ? " is-on" : ""}`}>
@@ -480,14 +497,20 @@ export function ProPanel(props: ProPanelProps) {
         <textarea
           id="pro-prompt"
           rows={3}
-          placeholder={mode === "audio" ? "lofi hip hop, chill, piano, 90 bpm" : "描述你想要的内容"}
+          placeholder={
+            mode === "audio"
+              ? "lofi hip hop, chill, piano, 90 bpm"
+              : isNextgen
+                ? "用自然语言描述画面:主体、动作、环境、光线、镜头、氛围…(次世代不吃标签堆砌)"
+                : "描述你想要的内容"
+          }
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
         />
       </div>
 
-      {/* 负面(图像/视频) */}
-      {mode !== "model3d" && mode !== "audio" && (
+      {/* 负面(图像/视频):次世代蒸馏档负向失效 → 隐藏 */}
+      {showNegative && (
         <div className="field">
           <label htmlFor="pro-neg">负面提示词</label>
           <textarea id="pro-neg" rows={2} value={img.negative} onChange={(e) => set("negative", e.target.value)} />
@@ -580,7 +603,13 @@ export function ProPanel(props: ProPanelProps) {
           </button>
           {advanced && (
             <div className="advanced-body">
-              {(mode === "image") && (
+              {mode === "image" && isNextgen && (
+                <p className="nextgen-note">
+                  次世代模型 · 采样参数由服务端按模型自动最优
+                  (CFG≈1 · euler/res_multistep · simple · 禁 Karras),无需手调,只管把提示词写好。
+                </p>
+              )}
+              {mode === "image" && !isNextgen && (
                 <>
                   <div className="switch-row range-toggle-row">
                     <span className="switch-label">

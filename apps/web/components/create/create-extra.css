@@ -104,3 +104,48 @@
 .range-toggle-row {
   margin-bottom: 0.35rem;
 }
+
+/* ===== A 期:底模族徽章 + 次世代自适应提示 ===== */
+.model-family {
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+  margin: -0.2rem 0 0.2rem; padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-sm, 10px);
+  border: 1px solid var(--hairline, rgba(255,255,255,0.1));
+  background: var(--glass, rgba(255,255,255,0.03));
+}
+.model-family__badge {
+  flex: 0 0 auto; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.02em;
+  padding: 0.16rem 0.5rem; border-radius: 999px; line-height: 1;
+  border: 1px solid var(--border, rgba(255,255,255,0.14)); color: var(--ink-soft, #b8b8c0);
+}
+.model-family__hint { font-size: 0.76rem; color: var(--ink-faint, #8a8a94); line-height: 1.3; }
+/* 次世代:品紫强调 */
+.model-family--next {
+  border-color: var(--accent-line, rgba(150,120,255,0.4));
+  background: var(--accent-wash, rgba(150,120,255,0.06));
+}
+.model-family--next .model-family__badge {
+  border-color: var(--accent-line, rgba(150,120,255,0.5));
+  background: var(--accent-quiet, rgba(150,120,255,0.14)); color: var(--accent, #a48bff);
+}
+.model-family--warm .model-family__badge { color: var(--warn, #e0a86a); border-color: var(--warn, #e0a86a); }
+
+/* 简易档:当前底模族 chip(紧凑) */
+.simple-model-chip {
+  display: inline-flex; align-items: center; gap: 0.4rem; align-self: flex-start;
+  font-size: 0.78rem; color: var(--ink-soft, #b8b8c0);
+  padding: 0.28rem 0.6rem; border-radius: 999px;
+  border: 1px solid var(--hairline, rgba(255,255,255,0.1)); background: var(--glass, rgba(255,255,255,0.03));
+}
+.simple-model-chip.model-family--next {
+  border-color: var(--accent-line, rgba(150,120,255,0.4));
+  background: var(--accent-wash, rgba(150,120,255,0.06)); color: var(--accent, #a48bff);
+}
+
+/* 次世代:高级区「参数自动最优」提示 */
+.nextgen-note {
+  margin: 0; padding: 0.55rem 0.7rem; font-size: 0.78rem; line-height: 1.45;
+  color: var(--ink-soft, #b8b8c0); border-radius: var(--radius-sm, 10px);
+  border: 1px dashed var(--accent-line, rgba(150,120,255,0.35));
+  background: var(--accent-wash, rgba(150,120,255,0.05));
+}

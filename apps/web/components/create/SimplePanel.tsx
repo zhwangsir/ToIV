@@ -5,6 +5,7 @@ import { useCallback } from "react";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
 import type { ModelsResponse } from "@/lib/types";
 
+import { modelBehavior } from "./modelMeta";
 import { hasNsfwData } from "./nsfw";
 import type { Dispatch } from "./useGenerationFeed";
 import {
@@ -200,6 +201,8 @@ export function SimplePanel(props: SimplePanelProps) {
     }
   }, [busy, canRun, prompt, style, mode, ref, ensureUploaded, ckpt, ratio, count, i2v, run]);
 
+  // 当前底模族(简易档不给切模型,但让用户看见在用哪代模型 —— 尤其次世代)
+  const modelInfo = mode === "image" ? modelBehavior(models, ckpt).meta : null;
   const optimizeKind = mode === "audio" ? "audio" : mode === "video" ? "video" : ref ? "image_edit" : "image";
   const placeholder =
     mode === "audio"
@@ -240,6 +243,14 @@ export function SimplePanel(props: SimplePanelProps) {
           </button>
         ))}
       </div>
+
+      {/* 当前底模族 chip(仅图像):次世代给个品紫质量指示 */}
+      {mode === "image" && modelInfo && (
+        <div className={`simple-model-chip model-family--${modelInfo.tone}`}>
+          <span className="model-family__badge">{modelInfo.badge}</span>
+          {modelInfo.label}
+        </div>
+      )}
 
       {/* 参考图:拖/传即自动切到图生流程 */}
       {mode !== "audio" && (
