@@ -108,10 +108,10 @@ _FAMILY_GUIDANCE: dict[str, str] = {
     ),
     # —— 次世代族(CFG≈1,负向失效):一律自然语言长句,不发质量词/负向 ——
     "qwen_image": (
-        "目标模型是 Qwen-Image(次世代)。positive 用**流畅自然语言**详细描述画面"
-        "(主体/动作/环境/光线/镜头/氛围),语序清晰;擅长画面内文字渲染,要文字用引号标出。"
+        "目标模型是 Qwen-Image 底模(次世代,真 CFG 有效)。positive 用**流畅自然语言**详细"
+        "描述画面(主体/动作/环境/光线/镜头/氛围),语序清晰;擅长画面内文字渲染,要文字用引号标出。"
         "**禁止** danbooru 标签堆砌与 masterpiece/best quality 无效质量词。"
-        "该模型 negative 基本失效,negative 留空。"
+        "该模型 negative **有效**,negative 给一段简洁英文负向(排除瑕疵/畸变/低质),不必冗长。"
     ),
     "flux2": (
         "目标模型是 FLUX.2(次世代画质天花板)。positive **必须是流畅自然语言长句**,"

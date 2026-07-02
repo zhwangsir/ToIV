@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import math
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 # ---------------------------------------------------------------------------
 # v-prediction
@@ -263,10 +263,13 @@ class NextgenRecipe:
 
 # 采样档案(§10;cfg=1/无负向为次世代关键正确性)。未列族回落 GenProfile() 默认(SD 风)。
 _PROFILES: dict[str, GenProfile] = {
-    "flux2": GenProfile(sampler="euler", scheduler="simple", cfg=1.0, steps=28,
+    # FLUX.2 dev(画质天花板):真实 CFG=1 + FluxGuidance,euler+simple,~25 步,负向失效。
+    "flux2": GenProfile(sampler="euler", scheduler="simple", cfg=1.0, steps=25,
                         megapixels=1.0, neg_prompt=False, graph="flux2"),
-    "qwen_image": GenProfile(sampler="euler", scheduler="simple", cfg=1.0, steps=20,
-                             megapixels=1.0, neg_prompt=False, graph="qwen_image"),
+    # Qwen-Image **底模**(非 Lightning:文件名无 lightning/turbo/steps)→ 真 CFG 2.5~4 + 负向有效。
+    # (若日后用 Qwen-Image-Lightning 蒸馏档,应另族/另档走 cfg=1/无负向。)
+    "qwen_image": GenProfile(sampler="euler", scheduler="simple", cfg=3.5, steps=20,
+                             megapixels=1.0, neg_prompt=True, graph="qwen_image"),
     "z_image": GenProfile(sampler="res_multistep", scheduler="simple", cfg=1.0, steps=8,
                           megapixels=1.0, neg_prompt=False, graph="z_image"),
     # 传统族:常规 CFG + 负向有效(is_vpred 仍单独触发 ModelSamplingDiscrete)
@@ -295,9 +298,11 @@ _NEXTGEN_RECIPES: dict[str, NextgenRecipe] = {
         text_encode="TextEncodeZImageOmni",
         latent_node="EmptySD3LatentImage",
     ),
+    # FLUX.2 编码器按变体不同(见 nextgen_recipe 的按名解析):dev→Mistral-3-small、
+    # Klein→qwen_3_4b(worker 已有)。此处默认 dev 的 Mistral;Klein 在解析时替换。
     "flux2": NextgenRecipe(
         clip_type="flux2",
-        clip_name="gemma_3_12B_it_fp8_scaled.safetensors",  # ⚠️ 待核准 flux2 编码器
+        clip_name="mistral_3_small_flux2_fp8_scaled.safetensors",  # dev 编码器(需下载)
         vae_name="flux2-vae.safetensors",
         model_sampling="ModelSamplingFlux",
         latent_node="EmptyFlux2LatentImage",
@@ -317,8 +322,18 @@ def profile_for(name: str) -> GenProfile:
 
 
 def nextgen_recipe(name: str) -> NextgenRecipe | None:
-    """按模型名返回次世代图配方;非次世代返回 None。"""
-    return _NEXTGEN_RECIPES.get(detect_model_family(name))
+    """按模型名返回次世代图配方;非次世代返回 None。
+
+    FLUX.2 按变体换文本编码器:Klein → qwen_3_4b(worker 已有,可即用);
+    dev → Mistral-3-small(需下载)。其余族用族级默认配方。
+    """
+    fam = detect_model_family(name)
+    recipe = _NEXTGEN_RECIPES.get(fam)
+    if recipe is None:
+        return None
+    if fam == "flux2" and "klein" in name.lower():
+        return replace(recipe, clip_name="qwen_3_4b.safetensors")
+    return recipe
 
 
 def model_sampling_node(

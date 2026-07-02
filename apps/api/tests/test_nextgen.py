@@ -54,15 +54,27 @@ def test_is_nextgen():
     assert not is_nextgen("ponyDiffusionV6XL.safetensors")
 
 
-def test_nextgen_profiles_force_cfg1_no_negative():
-    for name in (QWEN, ZIMG, FLUX2):
+def test_distilled_families_force_cfg1_no_negative():
+    # FLUX.2 dev / Z-Image:真实 CFG=1 + 负向失效 + simple(禁 Karras)
+    for name in (FLUX2, ZIMG):
         p = profile_for(name)
         assert p.cfg == 1.0, name
         assert p.neg_prompt is False, name
-        assert p.scheduler == "simple", name  # 禁 Karras
+        assert p.scheduler == "simple", name
+    # Qwen-Image **底模**(非蒸馏):真 CFG 2.5~4 + 负向有效
+    pq = profile_for(QWEN)
+    assert 2.0 <= pq.cfg <= 5.0
+    assert pq.neg_prompt is True
+    assert pq.scheduler == "simple"
     # 传统族保留常规 CFG + 负向
     assert profile_for(SD15).neg_prompt is True
     assert profile_for(SD15).cfg > 1.0
+
+
+def test_flux2_encoder_by_variant():
+    # Klein → qwen_3_4b(worker 已有);dev → Mistral-3-small(需下载)
+    assert nextgen_recipe("flux-2-klein-4b.safetensors").clip_name == "qwen_3_4b.safetensors"
+    assert "mistral" in nextgen_recipe("flux2-dev-fp8mixed.safetensors").clip_name.lower()
 
 
 def test_zimage_graph_uses_zimage_encoder_and_res_multistep():

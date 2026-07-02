@@ -31,16 +31,20 @@ getf () {   # $1=repo  $2=file_in_repo  $3=dest_subdir
   mkdir -p "$dest"; cp -f "$out/$file" "$dest/$(basename "$file")" && echo "    -> $dest/$(basename "$file")"
 }
 
-# ── A 期核心:补齐次世代文本编码器 ────────────────────────────────────────
+# ── A 期核心:补 Qwen 编码器 + FLUX.2 dev(天花板)UNET+编码器 ──────────────
 download_core () {
-  echo "==================== A 期核心(次世代编码器)===================="
-  # Qwen-Image 文本编码器(worker 现无 → 装后 Qwen-Image 即可用;图已实测结构正确)
+  echo "==================== A 期核心 ===================="
+  # ① Qwen-Image 文本编码器(worker 有 UNET+VAE,仅缺此件;图已实测结构正确)
   getf Comfy-Org/Qwen-Image_ComfyUI  split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors  text_encoders
-  # FLUX.2 Klein 文本编码器:官方用 Mistral3;ComfyUI 打包名以实际 repo 为准。
-  # ⚠️ gemma_3_12B 经 worker smoke 实测**不对**(KSampler 张量维度错),需下正确件后由后端校准 recipe。
-  #    先确认 Comfy-Org 的 FLUX.2 repo 与编码器文件名,再取消下一行注释填入:
-  # getf Comfy-Org/FLUX.2-klein_ComfyUI  split_files/text_encoders/<flux2_text_encoder>.safetensors  text_encoders
-  echo "core 完成。装好 qwen_2.5_vl 后:把 config default_ckpt 切 Qwen-Image 或前端选它即可。"
+
+  # ② FLUX.2 [dev](画质天花板;96GB 卡跑 fp8mixed ~35GB 很舒服)。flux2-vae 已在 worker。
+  #    dev 用 Mistral-3-small 编码器(Klein 才用 qwen_3_4b);gemma 是错的。
+  #    ⚠️ 下面 repo/文件名以 Comfy-Org/flux2-dev 实际为准,若名不符按该 repo 页面校正:
+  getf Comfy-Org/flux2-dev  split_files/diffusion_models/flux2_dev_fp8mixed.safetensors        diffusion_models
+  getf Comfy-Org/flux2-dev  split_files/text_encoders/mistral_3_small_flux2_fp8_scaled.safetensors  text_encoders
+
+  echo "core 完成。装好后告诉我:我把 nextgen 的 flux2 dev 权重名对齐 worker 实际枚举 +"
+  echo "  worker smoke 确认 dev 出图 → 再把 config default_ckpt 从 z_image 切到 flux2 dev。"
 }
 
 # ── 完整选型目录(按需;多数已在 worker,失败/已存在属正常)───────────────
