@@ -17,6 +17,8 @@ export interface ModeModels {
   editable: boolean;
   /** 仅 image 模式:每个底模的族/次世代/负向标,供前端按族自适应 UI。 */
   checkpoints?: CheckpointTag[];
+  /** 仅 image 模式:平台默认底模(settings.default_ckpt);前端初始选中对齐它。 */
+  default?: string | null;
 }
 
 export interface ModelsResponse {

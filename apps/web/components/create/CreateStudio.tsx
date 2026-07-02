@@ -112,9 +112,11 @@ export function CreateStudio({ forceNsfw = false }: { forceNsfw?: boolean } = {}
     listModels()
       .then((m) => {
         setModels(m);
-        // 图像底模优先用模式感知列表(已剔除音频/3D 等非图像 checkpoint)
+        // 图像底模优先用模式感知列表(已剔除音频/3D 等非图像 checkpoint);
+        // 初始选中对齐后端平台默认(default,已验证可出图),缺失则回落列表首位。
         const imageList = m.modes?.image?.models ?? m.checkpoints;
-        setCkpt(imageList[0] ?? "");
+        const preferred = m.modes?.image?.default;
+        setCkpt((preferred && imageList.includes(preferred) ? preferred : imageList[0]) ?? "");
       })
       .catch(() => {});
     listLocalModels()
@@ -161,7 +163,8 @@ export function CreateStudio({ forceNsfw = false }: { forceNsfw?: boolean } = {}
     const baseList = models.modes?.image?.models ?? models.checkpoints ?? [];
     const list = filterModelsByNsfw(baseList, models, "image", nsfw);
     if (list.length > 0 && !list.includes(ckpt)) {
-      setCkpt(list[0]);
+      const preferred = models.modes?.image?.default;
+      setCkpt(preferred && list.includes(preferred) ? preferred : list[0]);
     }
   }, [models, nsfw, ckpt, engine, forge.models]);
 

@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.comfy.client import ComfyUIError
 from app.comfy.pool import WorkerPool
+from app.config import get_settings
 from app.deps import get_current_user, get_pool
 from app.models import User
 from app.nsfw_ctx import nsfw_allowed
@@ -142,8 +143,16 @@ async def list_models(
 
     # 模式 → {models, editable}。editable=False 表示后端硬编码单/双模型,前端只读展示。
     # image.checkpoints 附带每个底模的 {name,nsfw,vpred} 标(仅图像模式有分类意义)。
+    # 平台默认底模(settings.default_ckpt);前端据此把初始选中对齐后端默认,
+    # 避免默认落到列表首位的未验证模型(A 期:default=z_image 已实测可出图)。
+    default_ckpt = get_settings().default_ckpt if get_settings().default_ckpt in image_ckpts else None
     modes = {
-        "image": {"models": image_ckpts, "checkpoints": image_tagged, "editable": True},
+        "image": {
+            "models": image_ckpts,
+            "checkpoints": image_tagged,
+            "editable": True,
+            "default": default_ckpt,
+        },
         "video": {"models": _video_models(), "editable": False},
         "model3d": {"models": [Hunyuan3DParams(image="").ckpt_name], "editable": False},
         "audio": {"models": [AceStepParams(tags="").ckpt_name], "editable": False},
