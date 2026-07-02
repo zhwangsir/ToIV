@@ -13,9 +13,10 @@ class Settings(BaseSettings):
 
     # 逗号分隔的 ComfyUI worker 列表（P0 单实例，P2 起对应多 GPU 多进程）
     comfy_workers: str = "http://192.168.71.100:8000"
-    # 默认出图底模(A 期升级):Z-Image Turbo(次世代,worker 已装齐,零下载即用)。
-    # 切 Qwen-Image 需先下 qwen_2.5_vl 编码器;SD1.5(DreamShaper_8)退默认但仍可显式调用。
-    default_ckpt: str = "z_image_turbo_bf16.safetensors"
+    # 默认出图底模(A 期):FLUX.2 Klein(次世代·FLUX.2 家族画质天花板,worker 已装齐、
+    # 前端实测出图)。Z-Image 保留作显式「极速预览」档。下好 FLUX.2 dev / Qwen 编码器后
+    # 可再切它们当默认;SD1.5(DreamShaper_8)已退默认但仍可显式调用。
+    default_ckpt: str = "flux-2-klein-4b.safetensors"
     # Forge(reForge SD WebUI)第二出图引擎(sdapi 同步出图);空 = 未部署,前端引擎切换隐藏 Forge
     forge_url: str = "http://192.168.71.100:7860"
     # 配音 TTS 独立服务（IndexTTS2，自部署 @ GPU 机，隔离 venv）
