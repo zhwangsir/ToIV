@@ -432,3 +432,27 @@ def test_generate_sfw_ckpt_marks_job_not_nsfw(client, monkeypatch):
     with Session(engine) as s:
         job = s.exec(select(Job).where(Job.user_id == uid)).first()
         assert job is not None and job.nsfw is False
+
+
+def test_generate_nextgen_ckpt_ok(client, monkeypatch):
+    """A 期回归:次世代底模(z_image)走 UNET 图分支必须 200 出图。
+
+    抓的真 bug:generate_txt2img 的 nextgen 分支不建 `params`,残留的 `params.seed`
+    引用会 UnboundLocalError→500(builder 单测抓不到,只有端点级测试能抓)。
+    """
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "gennext", nsfw_enabled=False)
+    app.dependency_overrides[get_pool] = lambda: _FakePool()
+    monkeypatch.setattr(generate_route, "spawn_tracker", lambda client, prompt_id: None)
+    token = create_token(uid)
+    r = c.post(
+        "/api/generate/txt2img",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"positive": "a red fox in snow", "ckpt_name": "z_image_turbo_bf16.safetensors"},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json().get("seed") is not None  # nextgen 分支 seed_used 正确回传
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        assert job is not None and job.kind == "txt2img"

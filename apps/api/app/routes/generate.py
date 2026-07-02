@@ -218,7 +218,7 @@ async def generate_txt2img(
         "prompt_id": prompt_id,
         "client_id": client_id,
         "worker": client.base_url,
-        "seed": params.seed,
+        "seed": seed_used,
     }
 
 
