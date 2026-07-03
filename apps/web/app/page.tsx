@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 
-import { AuthScreen } from "@/components/auth/AuthScreen";
+import { LandingPage } from "@/components/landing/LandingPage";
 import { AdminPanel } from "@/components/admin/AdminPanel";
 import { AssistantView } from "@/components/assistant/AssistantView";
 import { CanvasStudio } from "@/components/canvas/CanvasStudio";
@@ -17,7 +17,6 @@ import { NsfwProvider } from "@/components/nav/NsfwContext";
 import { DynamicIsland, type IslandView } from "@/components/nav/DynamicIsland";
 import { viewVariants } from "@/lib/motion";
 import { fetchMe, getToken, setToken } from "@/lib/api";
-import type { AuthResult } from "@/lib/api";
 
 type AuthState = "loading" | "in" | "out";
 
@@ -78,16 +77,6 @@ export default function Home() {
       });
   }, []);
 
-  const onAuthed = useCallback((result: AuthResult) => {
-    setAccount({ email: result.user.email, role: result.user.role, usageTotal: 0 });
-    setAuth("in");
-    fetchMe()
-      .then((me) =>
-        setAccount({ email: me.user.email, role: me.user.role, usageTotal: me.usage.total }),
-      )
-      .catch(() => {});
-  }, []);
-
   const onLogout = useCallback(() => {
     setToken(null);
     setAccount(null);
@@ -121,7 +110,7 @@ export default function Home() {
   }
 
   if (auth === "out") {
-    return <AuthScreen onAuthed={onAuthed} />;
+    return <LandingPage />;
   }
 
   return (

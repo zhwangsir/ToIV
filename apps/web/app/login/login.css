@@ -1,0 +1,35 @@
+/* 登录页:复用落地页宇宙背景,登录卡浮于其上。 */
+.login-page {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+}
+/* 让内置 auth-screen 透明,露出 .lp-cosmos 背景 */
+.login-page .auth-screen {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+  min-height: auto;
+}
+.login-back {
+  position: absolute;
+  top: clamp(1.2rem, 4vh, 2rem);
+  left: clamp(1.2rem, 4vw, 2.5rem);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  border: 1px solid var(--hairline-2);
+  background: oklch(100% 0 0 / 0.03);
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: color 150ms ease, border-color 150ms ease, transform 150ms ease;
+}
+.login-back:hover {
+  color: var(--ink);
+  border-color: var(--accent-line);
+  transform: translateX(-2px);
+}
