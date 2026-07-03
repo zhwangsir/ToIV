@@ -113,7 +113,9 @@ export function LandingPage() {
         <section className="lp-hero">
           <span className="lp-eyebrow lp-eyebrow--dot">意图驱动 · 新一代 AIGC 平台</span>
           <h1 className="lp-title">
-            一句话，<span className="lp-title-accent">造一个世界</span>
+            一句话，
+            <br />
+            <span className="lp-title-accent">造一个世界</span>
           </h1>
           <p className="lp-lede">
             图像 · 视频 · 3D · 音乐,同一个创作台。<br />
