@@ -19,6 +19,7 @@ from app.config import get_settings
 from app.db import engine, get_session
 from app.deps import get_current_user, resolve_worker
 from app.models import Job, User
+from app.nsfw_ctx import nsfw_allowed
 
 router = APIRouter()
 
@@ -30,8 +31,8 @@ def list_jobs(
 ) -> list[dict]:
     """当前用户的作业历史(最新在前)。"""
     stmt = select(Job).where(Job.user_id == user.id)
-    # R18 软门槛:用户未开时服务端强制剔除成人向作品(Job.nsfw==True)。
-    if not user.nsfw_enabled:
+    # R18 门槛:仅 /nsfw 专页(带 X-NSFW header)才返回成人向作品;主站一律剔除。
+    if not nsfw_allowed(user):
         stmt = stmt.where(Job.nsfw == False)  # noqa: E712  SQLModel 需 == 比较生成 SQL
     rows = session.exec(stmt.order_by(Job.created_at.desc()).limit(50)).all()
     return [
