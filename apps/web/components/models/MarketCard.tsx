@@ -3,7 +3,12 @@
 import { useCallback, useState } from "react";
 import { motion } from "framer-motion";
 
-import { installModel } from "@/lib/api";
+import {
+  getNasDownloadStatus,
+  getNasStatus,
+  installModel,
+  nasDownload,
+} from "@/lib/api";
 import { springSoft } from "@/lib/motion";
 import type { InstallModelParams } from "@/lib/api";
 import type { MarketItem } from "@/lib/types";
@@ -11,9 +16,11 @@ import type { MarketItem } from "@/lib/types";
 /** 每张市场卡的安装状态机:idle → installing → done | error。 */
 type InstallState =
   | { kind: "idle" }
-  | { kind: "installing" }
+  | { kind: "installing"; progress?: number; stage?: string }
   | { kind: "done"; message: string; fromCatalog: boolean }
   | { kind: "error"; detail: string };
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Civitai / HuggingFace 原始 type → 后端安装枚举(checkpoint/lora/vae/controlnet/ipadapter…)。 */
 const TYPE_MAP: Record<string, string> = {
@@ -114,6 +121,33 @@ export function MarketCard({ item, reduced }: MarketCardProps) {
   const handleInstall = useCallback(async () => {
     setState({ kind: "installing" });
     try {
+      // 优先:NAS 直下(绕过 ComfyUI-Manager 白名单;服务端解析 civitai/hf 下载链)
+      const ns = await getNasStatus();
+      if (ns.enabled) {
+        const { job_id } = await nasDownload({
+          source: item.source,
+          id: item.id,
+          type: normalizeType(item.type),
+        });
+        for (let i = 0; i < 1200; i++) {
+          // 大模型下载可能很久;每 2.5s 轮询,最长约 50 分钟
+          await sleep(2500);
+          const s = await getNasDownloadStatus(job_id);
+          if (s.status === "done") {
+            setState({ kind: "done", message: `已下载到 NAS · ${s.filename}`, fromCatalog: false });
+            return;
+          }
+          if (s.status === "error") {
+            setState({ kind: "error", detail: s.error ?? "下载失败" });
+            return;
+          }
+          setState({ kind: "installing", progress: s.progress, stage: s.stage });
+        }
+        setState({ kind: "error", detail: "下载超时,请稍后在模型库确认。" });
+        return;
+      }
+
+      // 回退:ComfyUI-Manager 安装(未配 NAS 时)
       const result = await installModel(toInstallParams(item));
       if (result.accepted) {
         setState({
@@ -122,11 +156,7 @@ export function MarketCard({ item, reduced }: MarketCardProps) {
           fromCatalog: result.from_catalog ?? false,
         });
       } else {
-        // accepted=false:后端未拒绝但也没接收,把 message 当作需用户知晓的提示展示,不假装成功
-        setState({
-          kind: "error",
-          detail: result.message ?? "集群未接收该安装请求。",
-        });
+        setState({ kind: "error", detail: result.message ?? "集群未接收该安装请求。" });
       }
     } catch (error: unknown) {
       setState({ kind: "error", detail: getErrorMessage(error) });
@@ -174,7 +204,9 @@ export function MarketCard({ item, reduced }: MarketCardProps) {
             {installing ? (
               <>
                 <span className="install-spinner" aria-hidden="true" />
-                安装中…
+                {state.kind === "installing" && state.progress != null
+                  ? `${state.stage ?? "处理"} ${state.progress}%`
+                  : "下载中…"}
               </>
             ) : done ? (
               <>

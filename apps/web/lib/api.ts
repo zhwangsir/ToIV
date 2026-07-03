@@ -574,6 +574,68 @@ export async function installModel(params: InstallModelParams): Promise<InstallM
   return res.json();
 }
 
+// ---------- 模型下载到 NAS(绕过 ComfyUI-Manager 白名单)----------
+
+export interface NasStatus {
+  enabled: boolean;
+  ok?: boolean;
+  model_root?: string;
+  subdirs?: number;
+  error?: string;
+}
+
+/** NAS 连通性(前端据此决定下载走 NAS 还是旧 ComfyUI-Manager)。契约:GET /api/nas/status。 */
+export async function getNasStatus(): Promise<NasStatus> {
+  const res = await fetch(`${API_BASE}/api/nas/status`, { headers: authHeaders() });
+  if (!res.ok) return { enabled: false };
+  return res.json();
+}
+
+/** 起模型下载→NAS(admin)。civitai/huggingface 传 source+id;直链传 source=url+url。 */
+export async function nasDownload(params: {
+  source: string; // url | hf | civitai | huggingface
+  id?: string;
+  url?: string;
+  hf_repo?: string;
+  hf_file?: string;
+  type: string;
+  filename?: string;
+}): Promise<{ job_id: string; filename: string }> {
+  const res = await fetch(`${API_BASE}/api/nas/download`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `下载请求失败 (${res.status})`);
+  }
+  return res.json();
+}
+
+export interface NasDownloadStatus {
+  id: string;
+  status: "running" | "done" | "error";
+  stage: string;
+  progress: number;
+  downloaded_mb: number;
+  remote: string | null;
+  error: string | null;
+  filename: string;
+  type: string;
+  elapsed: number;
+}
+
+/** 轮询下载进度。契约:GET /api/nas/download/{job_id}。 */
+export async function getNasDownloadStatus(jobId: string): Promise<NasDownloadStatus> {
+  const res = await fetch(`${API_BASE}/api/nas/download/${jobId}`, { headers: authHeaders() });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `查询进度失败 (${res.status})`);
+  }
+  return res.json();
+}
+
 export interface ManjuShotParams {
   positive: string;
   worker?: string; // 参考图分发全 pool 后可空 → 后端 pool.pick 跨机并行;给定则钉该机(旧行为)

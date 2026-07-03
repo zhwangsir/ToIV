@@ -26,6 +26,46 @@ from app.models import User
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+# 复用 marketplace 的源(Civitai 走 civitai.red 镜像;HF 走 hf-mirror 镜像;key 走 env)
+_CIVITAI = os.environ.get("TOIV_CIVITAI_API_BASE", "https://civitai.red/api/v1/models")
+_CIVITAI_KEY = os.environ.get("TOIV_CIVITAI_API_KEY", "")
+_HF_BASE = os.environ.get("HF_ENDPOINT", "https://huggingface.co").rstrip("/")
+_HF_API = f"{_HF_BASE}/api/models"
+_WEIGHT_EXT = (".safetensors", ".ckpt", ".pt", ".pth", ".bin", ".gguf")
+
+
+def _resolve_civitai(model_id: str) -> tuple[str, str]:
+    """Civitai 模型 id → 最新版本主文件的下载直链 + 文件名。"""
+    h = {"Authorization": f"Bearer {_CIVITAI_KEY}"} if _CIVITAI_KEY else {}
+    r = requests.get(f"{_CIVITAI}/{model_id}", headers=h, timeout=30)
+    r.raise_for_status()
+    versions = r.json().get("modelVersions") or []
+    if not versions:
+        raise RuntimeError("Civitai 模型无可用版本")
+    files = versions[0].get("files") or []
+    f = next((x for x in files if x.get("primary")), files[0] if files else None)
+    if not f or not f.get("downloadUrl"):
+        raise RuntimeError("Civitai 版本无可下载文件")
+    url = f["downloadUrl"]
+    if _CIVITAI_KEY and "token=" not in url:
+        url += ("&" if "?" in url else "?") + f"token={_CIVITAI_KEY}"
+    return url, (f.get("name") or unquote(os.path.basename(urlsplit(url).path)))
+
+
+def _pick_hf_file(repo: str, want: str = "") -> str:
+    """HuggingFace 仓库 → 主权重文件仓内路径(优先 .safetensors、体积最小的顶层文件)。"""
+    if want.strip():
+        return want.strip()
+    r = requests.get(f"{_HF_API}/{repo.strip().strip('/')}", timeout=30)
+    r.raise_for_status()
+    sibs = [s.get("rfilename", "") for s in (r.json().get("siblings") or [])]
+    cand = [s for s in sibs if s.lower().endswith(_WEIGHT_EXT)]
+    if not cand:
+        raise RuntimeError("HuggingFace 仓库内无可下载权重文件")
+    # 优先 .safetensors,再按路径浅、名短
+    cand.sort(key=lambda s: (0 if s.lower().endswith(".safetensors") else 1, s.count("/"), len(s)))
+    return cand[0]
+
 _jobs: dict[str, dict] = {}
 _tasks: set[asyncio.Task] = set()
 _JOBS_KEEP = 30
@@ -46,22 +86,36 @@ def _prune() -> None:
 
 
 class NasDownloadRequest(BaseModel):
-    source: str = Field(default="url", pattern="^(url|hf)$")
+    # url=直链 | hf=显式 repo+file | civitai/huggingface=模型库卡片(服务端解析下载链)
+    source: str = Field(default="url", pattern="^(url|hf|civitai|huggingface)$")
     url: str = Field(default="", max_length=1000)  # source=url
-    hf_repo: str = Field(default="", max_length=200)  # source=hf,如 black-forest-labs/FLUX.1-dev
-    hf_file: str = Field(default="", max_length=300)  # repo 内文件路径
+    id: str = Field(default="", max_length=200)  # source=civitai/huggingface:模型 id / 仓库
+    hf_repo: str = Field(default="", max_length=200)  # source=hf 显式仓库
+    hf_file: str = Field(default="", max_length=300)  # repo 内文件路径(huggingface 可空=自动挑主文件)
     type: str = Field(default="checkpoint", max_length=40)  # checkpoint/lora/vae/...
-    filename: str = Field(default="", max_length=200)  # 空则从 url/hf_file 推断
+    filename: str = Field(default="", max_length=200)  # 空则解析/推断
 
 
-def _infer_filename(req: NasDownloadRequest) -> str:
-    if req.filename.strip():
-        return os.path.basename(req.filename.strip())
-    if req.source == "hf" and req.hf_file:
-        return os.path.basename(req.hf_file)
-    if req.url:
-        return unquote(os.path.basename(urlsplit(req.url).path)) or "model.safetensors"
-    return "model.safetensors"
+def _resolve(req: NasDownloadRequest) -> tuple[str, str]:
+    """把请求解析成 (下载直链 url, 文件名)。civitai/huggingface 走 API 解析。"""
+    if req.source == "civitai":
+        if not req.id:
+            raise RuntimeError("缺少 Civitai 模型 id")
+        return _resolve_civitai(req.id)
+    if req.source == "huggingface":
+        repo = req.id.strip().strip("/")
+        if not repo:
+            raise RuntimeError("缺少 HuggingFace 仓库")
+        file = _pick_hf_file(repo, req.hf_file)
+        return f"{_HF_BASE}/{repo}/resolve/main/{file}", os.path.basename(file)
+    if req.source == "hf":
+        repo = req.hf_repo.strip().strip("/")
+        return (
+            f"{_HF_BASE}/{repo}/resolve/main/{req.hf_file}",
+            os.path.basename(req.hf_file),
+        )
+    # url
+    return req.url, (unquote(os.path.basename(urlsplit(req.url).path)) or "model.safetensors")
 
 
 def _download_url(url: str, dest: str, job: dict) -> None:
@@ -81,25 +135,18 @@ def _download_url(url: str, dest: str, job: dict) -> None:
                 job["downloaded_mb"] = round(got / 1024 / 1024, 1)
 
 
-def _download_hf(repo: str, file: str, tmp_dir: str) -> str:
-    """HuggingFace 单文件下载(走 HF_ENDPOINT 镜像),返回本地路径。"""
-    from huggingface_hub import hf_hub_download
-
-    return hf_hub_download(repo_id=repo, filename=file, local_dir=tmp_dir)
-
-
-def _run_blocking(req: NasDownloadRequest, filename: str, job: dict) -> str:
-    """阻塞:下载 → SFTP 上传 NAS。放线程跑。返回 NAS 远端路径。"""
+def _run_blocking(req: NasDownloadRequest, job: dict) -> str:
+    """阻塞:解析下载链 → 下载 → SFTP 上传 NAS。放线程跑。返回 NAS 远端路径。"""
+    job["stage"] = "解析下载地址"
+    url, filename = _resolve(req)
+    if req.filename.strip():
+        filename = os.path.basename(req.filename.strip())
+    job["filename"] = filename
     with tempfile.TemporaryDirectory(prefix="nasdl-") as tmp:
-        if req.source == "hf":
-            job["stage"] = "从 HuggingFace 下载"
-            local = _download_hf(req.hf_repo, req.hf_file, tmp)
-        else:
-            job["stage"] = "下载中"
-            local = os.path.join(tmp, filename)
-            _download_url(req.url, local, job)
-        size_mb = round(os.path.getsize(local) / 1024 / 1024, 1)
-        job["downloaded_mb"] = size_mb
+        job["stage"] = "下载中"
+        local = os.path.join(tmp, filename)
+        _download_url(url, local, job)
+        job["downloaded_mb"] = round(os.path.getsize(local) / 1024 / 1024, 1)
         job["stage"] = "上传到 NAS"
         job["progress"] = 50
 
@@ -110,9 +157,9 @@ def _run_blocking(req: NasDownloadRequest, filename: str, job: dict) -> str:
         return nas.upload_model(local, req.type, filename, on_progress=_up)
 
 
-async def _run_download(req: NasDownloadRequest, filename: str, job: dict) -> None:
+async def _run_download(req: NasDownloadRequest, job: dict) -> None:
     try:
-        remote = await asyncio.to_thread(_run_blocking, req, filename, job)
+        remote = await asyncio.to_thread(_run_blocking, req, job)
     except Exception as e:  # noqa: BLE001
         logger.warning("NAS 下载 %s 失败:%s", job["id"], e)
         job["status"], job["error"] = "error", f"下载失败:{e}"
@@ -150,7 +197,10 @@ async def nas_download(
         raise HTTPException(status_code=400, detail="HuggingFace 下载需 hf_repo + hf_file")
     if body.source == "url" and not body.url:
         raise HTTPException(status_code=400, detail="缺少下载 URL")
-    filename = _infer_filename(body)
+    if body.source in ("civitai", "huggingface") and not body.id:
+        raise HTTPException(status_code=400, detail="缺少模型 id / 仓库")
+    # 文件名在后台线程里解析(civitai/huggingface 需查 API);先占位。
+    filename = os.path.basename(body.filename.strip()) if body.filename.strip() else "…解析中"
 
     job_id = uuid.uuid4().hex
     job = {"id": job_id, "status": "running", "stage": "排队", "progress": 0,
@@ -159,7 +209,7 @@ async def nas_download(
            "started": time.monotonic(), "elapsed": 0.0}
     _jobs[job_id] = job
     _prune()
-    task = asyncio.create_task(_run_download(body, filename, job))
+    task = asyncio.create_task(_run_download(body, job))
     _tasks.add(task)
     task.add_done_callback(_tasks.discard)
     return {"job_id": job_id, "filename": filename}
