@@ -55,6 +55,11 @@ const NEGATIVE = "blurry, lowres, deformed, bad anatomy, extra fingers, watermar
 const SHOT_W = 1344;
 const SHOT_H = 768;
 
+// 批量出图并发路数:匹配 .100 四 worker(后端 pool.pick 自动分发到最闲机);
+// 限并发免一次塞爆单实例、且落在每用户 20/分钟限流内。无参考图的镜走 pool 分发 → 真并行;
+// 有角色参考图的镜固定同一 worker(参考图所在机)→ 该机内排队,前端仍并发发起不阻塞。
+const BATCH_CONCURRENCY = 4;
+
 // 角色参考图(肖像):正方形更利于 IPAdapter 取脸
 // 角色定妆三视图(turnaround)用宽幅,容纳 正/侧/背 多视图(SDXL ~1MP 横档)
 const REF_W = 1216;
@@ -436,7 +441,8 @@ export function ManjuStudio() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [premise, planning, numShots, style, chars, autoMode, projectId]);
 
-  // 批量出图:串行跑(单实例 ComfyUI 排队即可,避免一次性塞爆)
+  // 批量出图:受控并发(同时最多 BATCH_CONCURRENCY 张,后端 pool.pick 自动分发到最闲 worker)。
+  // 每镜各自回填自己的进度/状态(patchShot 按 shot.id 隔离,并发互不踩);一路完成即领下一张。
   const imageAll = useCallback(
     async (list?: ShotCardModel[]) => {
       if (busy) return;
@@ -444,11 +450,20 @@ export function ManjuStudio() {
       if (targets.length === 0) return;
       setBusy(true);
       setError(null);
-      try {
-        for (let i = 0; i < targets.length; i++) {
-          setStage(`批量出图 ${i + 1}/${targets.length}…`);
-          await imageOne(targets[i]);
+      let done = 0;
+      let cursor = 0;
+      setStage(`批量出图 0/${targets.length}…`);
+      const runLane = async (): Promise<void> => {
+        while (cursor < targets.length) {
+          const shot = targets[cursor++];
+          await imageOne(shot);
+          done += 1;
+          setStage(`批量出图 ${done}/${targets.length}…`);
         }
+      };
+      try {
+        const lanes = Math.min(BATCH_CONCURRENCY, targets.length);
+        await Promise.all(Array.from({ length: lanes }, () => runLane()));
       } finally {
         setBusy(false);
         setStage("");
