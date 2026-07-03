@@ -42,7 +42,26 @@ const KIND_LABELS: Record<string, string> = {
   agent_video: "视频",
   agent_3d: "3D",
   agent_workflow: "工作流",
+  // 精修 / 放大 / 漫剧 / 对口型等衍生产物,补齐友好中文名(否则露原始大写 kind)
+  manju_shot: "漫剧镜头",
+  manju_shot_pulid: "漫剧镜头",
+  supir: "高清放大",
+  sdupscale: "高清放大",
+  hires: "高清修复",
+  facedetailer: "面部精修",
+  inpaint: "局部重绘",
+  controlnet: "构图控制",
+  lipsync: "对口型",
+  dubsync: "对口型",
 };
+
+/** 未登记的 kind 兜底成体面标签(避免露原始大写 kind 名),按产物类型给通用词。 */
+function kindLabel(kind: string, url: string): string {
+  const known = KIND_LABELS[kind];
+  if (known) return known;
+  const t = assetType(url);
+  return t === "video" ? "视频" : t === "glb" ? "3D" : t === "audio" ? "音乐" : "图像";
+}
 
 const FILTERS: { k: string; l: string }[] = [
   { k: "all", l: "全部" },
@@ -287,7 +306,7 @@ export function LibraryView() {
                 onClick={lightboxable ? () => openLightbox(i) : undefined}
                 style={lightboxable ? undefined : { cursor: "default" }}
               >
-                <span className="tile-kind">{KIND_LABELS[a.kind] ?? a.kind}</span>
+                <span className="tile-kind">{kindLabel(a.kind, a.url)}</span>
                 <button
                   type="button"
                   className="tile-del"
@@ -426,7 +445,7 @@ export function LibraryView() {
                 <dl className="lb-specs">
                   <div>
                     <dt>题材</dt>
-                    <dd>{KIND_LABELS[active.kind] ?? active.kind}</dd>
+                    <dd>{kindLabel(active.kind, active.url)}</dd>
                   </div>
                   <div>
                     <dt>seed</dt>
