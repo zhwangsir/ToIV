@@ -60,10 +60,13 @@ class ShotIn(BaseModel):
     scene: str = Field(default="", max_length=500)
     prompt: str = Field(default="", max_length=2000)
     motion: str = Field(default="", max_length=2000)
+    negative: str = Field(default="", max_length=2000)  # AI 润色反向词
     characters: list[str] = Field(default_factory=list)
     camera: str = Field(default="", max_length=120)
     dialogue: str = Field(default="", max_length=1000)
     duration_sec: int = Field(default=3, ge=1, le=30)
+    image_url: str = Field(default="", max_length=500)  # 已出关键帧 URL(持久化)
+    video_url: str = Field(default="", max_length=500)  # 已出视频 URL(持久化)
     voice_url: str = Field(default="", max_length=300)  # 持久化逐镜配音
     speaker: str = Field(default="", max_length=120)  # 持久化说话角色
 
@@ -128,12 +131,15 @@ def _shot_dict(s: ManjuShot) -> dict:
         "scene": s.scene,
         "prompt": s.prompt,
         "motion": s.motion,
+        "negative": s.negative,
         "characters": chars,
         "camera": s.camera,
         "dialogue": s.dialogue,
         "duration_sec": s.duration_sec,
         "image_job_id": s.image_job_id,
         "video_job_id": s.video_job_id,
+        "image_url": s.image_url,
+        "video_url": s.video_url,
         "voice_url": s.voice_url,
         "speaker": s.speaker,
         "status": s.status,
@@ -363,12 +369,17 @@ def save_shots(
                 scene=sh.scene,
                 prompt=sh.prompt,
                 motion=sh.motion,
+                negative=sh.negative,
                 characters=json.dumps(sh.characters, ensure_ascii=False),
                 camera=sh.camera,
                 dialogue=sh.dialogue,
                 duration_sec=sh.duration_sec,
+                image_url=sh.image_url,
+                video_url=sh.video_url,
                 voice_url=sh.voice_url,
                 speaker=sh.speaker,
+                # 有产物则恢复对应状态,让重载后分镜卡直接显示已出图/视频
+                status=("video_done" if sh.video_url else "image_done" if sh.image_url else "draft"),
             )
         )
     session.commit()

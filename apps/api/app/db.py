@@ -27,6 +27,10 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("manjuasset", "ref_audio", "ref_audio VARCHAR NOT NULL DEFAULT ''"),
     # 逐镜说话角色(配音持久化),manjushot 补列
     ("manjushot", "speaker", "speaker VARCHAR NOT NULL DEFAULT ''"),
+    # 逐镜产物/反向词持久化(否则保存重载后分镜的已出图/视频/AI润色反向词全丢)
+    ("manjushot", "negative", "negative VARCHAR NOT NULL DEFAULT ''"),
+    ("manjushot", "image_url", "image_url VARCHAR NOT NULL DEFAULT ''"),
+    ("manjushot", "video_url", "video_url VARCHAR NOT NULL DEFAULT ''"),
 )
 
 

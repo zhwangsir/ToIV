@@ -99,8 +99,11 @@ class ManjuShot(SQLModel, table=True):
     camera: str = ""
     dialogue: str = ""
     duration_sec: int = 3
+    negative: str = ""  # AI 润色反向词(逐镜定制,须持久化否则重载丢)
     image_job_id: str = ""  # 关键帧作业 id(可追踪)
     video_job_id: str = ""  # 视频作业 id
+    image_url: str = ""  # 已出关键帧 URL(持久化,否则保存重载后分镜图全丢)
+    video_url: str = ""  # 已出视频 URL(持久化)
     voice_url: str = ""  # 配音 wav 的 URL(TTS 合成台词,见 routes/voice.py)
     speaker: str = ""  # 说话角色名(配音用其音色克隆;空=出场角色首位/兜底音)
     status: str = "draft"  # draft | image_done | video_done
