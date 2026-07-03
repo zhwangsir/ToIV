@@ -1,9 +1,13 @@
 """POST /api/upload —— 把用户图片上传到 ComfyUI(供 img2img 使用)。"""
 from __future__ import annotations
 
+import asyncio
+import os
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 
-from app.capabilities import required_models
+from app.capabilities import required_models, required_nodes
 from app.comfy.client import ComfyUIError
 from app.comfy.pool import WorkerPool
 from app.deps import get_current_user, get_pool
@@ -18,6 +22,7 @@ _MAX_BYTES = 20 * 1024 * 1024  # 20MB
 async def upload_image(
     image: UploadFile,
     kind: str = "img2img",  # 上传后用于哪种任务 → 选具备对应模型的 worker
+    all_workers: bool = False,  # true=分发到所有 worker(角色参考图,供跨机并行出图)
     pool: WorkerPool = Depends(get_pool),
     user: User = Depends(get_current_user),
 ):
@@ -26,8 +31,27 @@ async def upload_image(
         raise HTTPException(status_code=400, detail="空文件")
     if len(content) > _MAX_BYTES:
         raise HTTPException(status_code=413, detail="图片过大(上限 20MB)")
+
+    # 分发模式:角色参考图上传到全部可达 worker(唯一名避免各机命名分歧),这样带参考图的
+    # 分镜出图可 pool.pick 跨机并行,而非全钉在参考图所在的单机上串行。
+    if all_workers:
+        ext = os.path.splitext(image.filename or "")[1].lower() or ".png"
+        name = f"toivref-{uuid.uuid4().hex}{ext}"
+        results = await asyncio.gather(
+            *(c.upload_image(content, name) for c in pool.clients),
+            return_exceptions=True,
+        )
+        ok = [
+            c.base_url
+            for c, r in zip(pool.clients, results)
+            if isinstance(r, str) and r == name
+        ]
+        if not ok:
+            raise HTTPException(status_code=503, detail="参考图分发失败(无可达 worker)")
+        return {"filename": name, "worker": ok[0], "workers": ok, "all_workers": True}
+
     try:
-        client = await pool.pick(required=required_models(kind))
+        client = await pool.pick(required=required_models(kind), required_nodes=required_nodes(kind))
     except ComfyUIError as e:
         raise HTTPException(status_code=503, detail=str(e)) from e
     try:

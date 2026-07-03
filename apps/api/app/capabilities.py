@@ -21,3 +21,12 @@ def required_models(kind: str) -> set[str]:
     if kind == "audio":
         return {AceStepParams(tags="").ckpt_name}
     return set()
+
+
+def required_nodes(kind: str) -> set[str]:
+    """任务所需的自定义节点 class_type。worker 可能有模型却缺节点(如 PC01 有 Wan 权重
+    但没装 VideoHelperSuite → 视频图的 VHS_VideoCombine/VHS_LoadVideo 缺失 → /prompt 400),
+    故视频路由须同时校验节点存在。"""
+    if kind == "video":
+        return {"VHS_VideoCombine", "VHS_LoadVideo"}
+    return set()

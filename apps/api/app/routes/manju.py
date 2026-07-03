@@ -39,6 +39,9 @@ from app.workflows.txt2img import Txt2ImgParams, build_txt2img_graph
 
 router = APIRouter()
 
+# 单镜 IPAdapter 出图所需自定义节点;参考图分发全 pool 后据此只选装了它们的 worker。
+_IPADAPTER_NODES = {"IPAdapterUnifiedLoader", "IPAdapterAdvanced"}
+
 _STORYBOARD_SYSTEM = (
     "你是漫剧(动画短剧)导演 + 分镜师。把用户给的剧情拆解成连贯的分镜脚本。\n"
     "\n"
@@ -199,7 +202,9 @@ class ShotRenderRequest(BaseModel):
     """
 
     positive: str = Field(min_length=1, max_length=2000)
-    worker: str = Field(min_length=1, max_length=512)
+    # 参考图已分发全 pool 时 worker 可空 → 后端 pool.pick 选装了 IPAdapter 节点的最闲机
+    # (批量出图真并行);给定时只路由到该机(旧单机行为,向后兼容)。
+    worker: str | None = Field(default=None, max_length=512)
     character_ref: str | None = Field(default=None, max_length=512)
     negative: str = Field(default="", max_length=2000)
     ckpt_name: str | None = None
@@ -279,8 +284,17 @@ async def render_shot(
     enforce_generation_rate_limit(user)
     settings = get_settings()
     ckpt_name = req.ckpt_name or settings.default_ckpt
-    # 参考图所在的 worker(白名单校验);IPAdapter 与 txt2img 都固定提交到该机
-    client = resolve_worker(req.worker)
+    # 给定 worker → 只路由该机(参考图仅在该机,旧行为);未给 → 参考图已分发全 pool,
+    # 选装了 IPAdapter 节点的最闲 worker 分发,让带参考图的批量出图也能跨机真并行。
+    if req.worker:
+        client = resolve_worker(req.worker)
+    else:
+        try:
+            client = await pool.pick(
+                required={ckpt_name}, required_nodes=_IPADAPTER_NODES
+            )
+        except ComfyUIError as e:
+            raise HTTPException(status_code=503, detail=str(e)) from e
     graph, kind = _build_shot_graph(req, ckpt_name)
 
     client_id = uuid.uuid4().hex

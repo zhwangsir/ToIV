@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlmodel import Session
 
+from app.capabilities import required_nodes
 from app.comfy.client import ComfyUIError
 from app.comfy.pool import WorkerPool
 from app.comfy.tracker import spawn as spawn_tracker
@@ -272,7 +273,7 @@ async def generate_txt2video(
     )
     graph = build_wan_t2v_graph(params)
     try:
-        client = await pool.pick(required=_wan_t2v_required())
+        client = await pool.pick(required=_wan_t2v_required(), required_nodes=required_nodes("video"))
     except ComfyUIError as e:
         raise HTTPException(status_code=503, detail=str(e)) from e
     client_id = uuid.uuid4().hex

@@ -24,14 +24,21 @@ class WorkerPool:
     def clients(self) -> list[ComfyUIClient]:
         return list(self._clients)
 
-    async def pick(self, required: Iterable[str] = ()) -> ComfyUIClient:
-        """选一个可用 worker:可达 + 拥有 required 里全部模型,在并列最闲者间轮询。
+    async def pick(
+        self,
+        required: Iterable[str] = (),
+        required_nodes: Iterable[str] = (),
+    ) -> ComfyUIClient:
+        """选一个可用 worker:可达 + 拥有 required 里全部模型 + required_nodes 里全部节点,
+        在并列最闲者间轮询。
 
-        required 为空时退化为纯"最闲 + 轮询"。多机异构(不同卡装不同模型)下,
-        据此把任务只路由到具备对应模型的节点,避免路由到缺模型的 worker 而失败。
+        required/required_nodes 均空时退化为纯"最闲 + 轮询"。多机异构下据此路由:
+        避免派到缺模型(如无 Wan 权重)或缺自定义节点(如 PC01 无 VHS_VideoCombine)的
+        worker 而 400。
         """
         required = set(required)
-        if not required and len(self._clients) == 1:
+        required_nodes = set(required_nodes)
+        if not required and not required_nodes and len(self._clients) == 1:
             return self._clients[0]
 
         async def probe(c: ComfyUIClient) -> tuple[bool, int]:
@@ -39,12 +46,13 @@ class WorkerPool:
                 ql = await c.queue_len()
             except Exception:
                 return (False, _UNREACHABLE)  # 不可达
-            if required:
-                try:
-                    if not required.issubset(await c.model_names()):
-                        return (False, ql)  # 缺所需模型
-                except Exception:
-                    return (False, ql)
+            try:
+                if required and not required.issubset(await c.model_names()):
+                    return (False, ql)  # 缺所需模型
+                if required_nodes and not required_nodes.issubset(await c.node_names()):
+                    return (False, ql)  # 缺所需节点(有模型但无 VHS 等自定义节点)
+            except Exception:
+                return (False, ql)
             return (True, ql)
 
         probed = await asyncio.gather(*(probe(c) for c in self._clients))

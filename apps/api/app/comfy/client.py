@@ -33,6 +33,8 @@ class ComfyUIClient:
         self._timeout = timeout
         self._models_cache: set[str] | None = None
         self._models_ts = 0.0
+        self._nodes_cache: set[str] | None = None
+        self._nodes_ts = 0.0
 
     # ---------- 工作流提交与结果 ----------
     async def queue_prompt(self, graph: dict, client_id: str) -> str:
@@ -134,6 +136,19 @@ class ComfyUIClient:
                 pass
         self._models_cache = names
         self._models_ts = now
+        return names
+
+    async def node_names(self) -> set[str]:
+        """该 worker 已安装的所有节点 class_type(缓存 120s)。用于按"必需节点"路由:
+        某 worker 有模型但缺自定义节点(如 PC01 缺 VHS_VideoCombine)→ 视频图会 400,
+        据此把视频只路由到装了对应节点的 worker。"""
+        now = time.monotonic()
+        if self._nodes_cache is not None and now - self._nodes_ts < _MODELS_TTL:
+            return self._nodes_cache
+        info = await self._get_json("/object_info")
+        names = set(info.keys()) if isinstance(info, dict) else set()
+        self._nodes_cache = names
+        self._nodes_ts = now
         return names
 
     def ws_url(self, client_id: str) -> str:
