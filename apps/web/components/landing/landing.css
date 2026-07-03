@@ -95,6 +95,90 @@
   transform: rotate(-28deg);
 }
 
+/* 模型环绕轨道:环用 rotate 独立属性旋转,芯片内层反向等速旋转保持文字正立。
+   用 rotate/transform 分离属性组合(rotate 动画 + transform 定位互不覆盖)。 */
+.lp-orbit {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 0;
+  height: 0;
+  opacity: 0.55;
+  transform: translate(-50%, -50%);
+}
+.lp-ring {
+  position: absolute;
+  left: 0;
+  top: 0;
+  animation: lp-rot var(--dur, 200s) linear infinite;
+  will-change: rotate;
+}
+.lp-ring--rev {
+  animation-direction: reverse;
+}
+@keyframes lp-rot {
+  to {
+    rotate: 360deg;
+  }
+}
+.lp-chip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: rotate(var(--a, 0deg)) translateX(var(--r, 30vw));
+}
+.lp-chip-keep {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  white-space: nowrap;
+  padding: 0.32rem 0.7rem 0.32rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--ink-faint);
+  background: oklch(100% 0 0 / 0.025);
+  border: 1px solid var(--hairline);
+  backdrop-filter: blur(2px);
+  /* 定位居中 + 抵消芯片摆放角度(静态) */
+  transform: translate(-50%, -50%) rotate(calc(-1 * var(--a, 0deg)));
+  /* 反向等速自转,抵消环旋转 → 文字始终正立 */
+  animation: lp-rot var(--dur, 200s) linear infinite reverse;
+  will-change: rotate;
+}
+.lp-ring--rev .lp-chip-keep {
+  animation-direction: normal;
+}
+.lp-chip-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--lp-cyan);
+  box-shadow: 0 0 6px var(--lp-cyan);
+}
+
+/* 打字机光标 */
+.lp-type {
+  display: inline-block;
+  min-height: 1em;
+}
+.tw-caret {
+  display: inline-block;
+  width: 0.055em;
+  height: 0.86em;
+  margin-left: 0.08em;
+  vertical-align: -0.02em;
+  border-radius: 2px;
+  background: var(--lp-cyan);
+  box-shadow: 0 0 10px var(--lp-cyan);
+  animation: tw-blink 1.05s steps(1) infinite;
+}
+@keyframes tw-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
 /* ---------- 版心 ---------- */
 .lp main,
 .lp-nav,
@@ -446,10 +530,16 @@
   .lp-nav-link {
     display: none;
   }
+  .lp-orbit {
+    display: none; /* 小屏轨道芯片会拥挤/溢出,隐藏保留星场即可 */
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .lp-stars,
-  .lp-stars::after {
+  .lp-stars::after,
+  .lp-ring,
+  .lp-chip-keep,
+  .tw-caret {
     animation: none;
   }
 }

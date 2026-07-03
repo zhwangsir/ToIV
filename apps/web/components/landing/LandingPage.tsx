@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 
+import { OrbitField } from "./OrbitField";
+import { Typewriter } from "./Typewriter";
 import "./landing.css";
+
+/** Hero 打字机循环词:AI 创造 ___。 */
+const CREATE_WORDS = ["世界", "图像", "视频", "音频", "对话", "灵感", "漫剧", "3D", "音乐", "短剧"] as const;
 
 /** 四大旗舰模块(编号卡,承接首页 → /login → 对应视图深链)。 */
 const FEATURES = [
@@ -89,6 +94,7 @@ export function LandingPage() {
       <div className="lp-cosmos" aria-hidden="true">
         <div className="lp-glow lp-glow--top" />
         <div className="lp-stars" />
+        <OrbitField />
         <div className="lp-horizon" />
         <div className="lp-beam lp-beam--a" />
         <div className="lp-beam lp-beam--b" />
@@ -113,9 +119,9 @@ export function LandingPage() {
         <section className="lp-hero">
           <span className="lp-eyebrow lp-eyebrow--dot">意图驱动 · 新一代 AIGC 平台</span>
           <h1 className="lp-title">
-            一句话，
+            AI 创造
             <br />
-            <span className="lp-title-accent">造一个世界</span>
+            <Typewriter className="lp-title-accent lp-type" words={CREATE_WORDS} />
           </h1>
           <p className="lp-lede">图像 · 视频 · 3D · 音乐，同一个创作台。</p>
           <div className="lp-hero-actions">
