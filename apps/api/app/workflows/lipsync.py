@@ -16,7 +16,9 @@ from __future__ import annotations
 import secrets
 from dataclasses import dataclass, field
 
-MAX_SEED = 2**63 - 1
+# LatentSyncNode 的 seed 是 uint32,必须 ≤ 2^32-1(用 2^63 会被 worker 拒:
+# "Seed must be between 0 and 2**32 - 1" → 每段都失败回退,对口型从不生效)。
+MAX_SEED = 2**32 - 1
 
 
 def _random_seed() -> int:
