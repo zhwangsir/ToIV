@@ -331,14 +331,16 @@ export function ManjuStudio() {
 
       // 该镜出场角色里第一个登记了参考图的 → 走人物一致性出图
       const refChar = chars.find(
-        (c) => c.refImage && c.refWorker && shot.characters.includes(c.name.trim()),
+        (c) => c.refImage && shot.characters.includes(c.name.trim()),
       );
 
-      if (refChar?.refImage && refChar.refWorker) {
+      if (refChar?.refImage) {
         try {
           const res = await renderManjuShot({
             positive: prompt,
-            worker: refChar.refWorker,
+            // 参考图已分发全 pool(refWorker 空)→ 传空让后端 pool.pick 跨机并行;
+            // 旧单机参考图(refWorker 有值)→ 仍钉该机。
+            worker: refChar.refWorker || undefined,
             characterRef: refChar.refImage,
             negative,
             ckptName: ckpt,
@@ -806,9 +808,24 @@ export function ManjuStudio() {
           batch_size: 1,
         });
         const filename = await trackRefFilename(res, (pct) => patchCharAt(i, { refProgress: pct }));
+        // 定妆图只生成在单机 → 取回再分发到全 pool,让带该参考图的分镜也能跨机并行出图。
+        // 分发失败则退回"钉单机"(refWorker=res.worker),不影响出图。
+        let refImage = filename;
+        let refWorker = res.worker;
+        try {
+          const url = imageUrl(
+            `/api/images?filename=${encodeURIComponent(filename)}&type=output&worker=${encodeURIComponent(res.worker)}`,
+          );
+          const blob = await (await fetch(url)).blob();
+          const dist = await uploadImage(new File([blob], "ref.png", { type: blob.type || "image/png" }), "manju-ref", true);
+          refImage = dist.filename;
+          refWorker = "";
+        } catch {
+          /* 分发失败:保留单机参考图 */
+        }
         patchCharAt(i, {
-          refImage: filename,
-          refWorker: res.worker,
+          refImage,
+          refWorker,
           refStatus: "idle",
           refError: undefined,
           refProgress: null,
@@ -831,10 +848,11 @@ export function ManjuStudio() {
       setRefBusy(true);
       patchCharAt(i, { refStatus: "imaging", refError: undefined });
       try {
-        const up = await uploadImage(file, "manju-ref");
+        // 分发到所有 worker(refWorker 置空标记"全 pool 可用")→ 带该参考图的分镜跨机并行
+        const up = await uploadImage(file, "manju-ref", true);
         patchCharAt(i, {
           refImage: up.filename,
-          refWorker: up.worker,
+          refWorker: "",
           refStatus: "idle",
           refError: undefined,
         });

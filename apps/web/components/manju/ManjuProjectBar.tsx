@@ -50,10 +50,13 @@ interface ManjuProjectBarProps {
 export const shotCardToInput = (s: ShotCard): ManjuShotInput => ({
   scene: s.scene,
   prompt: s.description,
+  negative: s.negative ?? "",
   characters: s.characters,
   camera: s.camera,
   dialogue: s.dialogue,
   duration_sec: s.duration_sec,
+  image_url: s.imageUrl ?? "",
+  video_url: s.videoUrl ?? "",
   voice_url: s.voiceUrl ?? "",
   speaker: s.speaker ?? "",
 });
@@ -66,7 +69,11 @@ const toShotCard = (s: ManjuShotItem): ShotCard => ({
   camera: s.camera,
   dialogue: s.dialogue,
   duration_sec: s.duration_sec,
-  status: "idle",
+  // 有产物则恢复到对应状态,让重载后分镜卡直接显示已出图/视频(否则一律 idle 看着像丢了)
+  status: s.video_url ? "video" : s.image_url ? "image" : "idle",
+  ...(s.negative ? { negative: s.negative } : {}),
+  ...(s.image_url ? { imageUrl: s.image_url } : {}),
+  ...(s.video_url ? { videoUrl: s.video_url } : {}),
   ...(s.voice_url ? { voiceUrl: s.voice_url } : {}),
   ...(s.speaker ? { speaker: s.speaker } : {}),
 });

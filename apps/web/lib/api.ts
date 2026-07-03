@@ -280,10 +280,12 @@ export async function searchMarketplace(
 export async function uploadImage(
   file: File,
   kind: string = "img2img",
-): Promise<{ filename: string; worker: string }> {
+  allWorkers = false, // true=分发到所有 worker(角色参考图,供带参考图的分镜跨机并行出图)
+): Promise<{ filename: string; worker: string; workers?: string[]; all_workers?: boolean }> {
   const fd = new FormData();
   fd.append("image", file);
-  const res = await fetch(`${API_BASE}/api/upload?kind=${encodeURIComponent(kind)}`, {
+  const qs = `kind=${encodeURIComponent(kind)}${allWorkers ? "&all_workers=true" : ""}`;
+  const res = await fetch(`${API_BASE}/api/upload?${qs}`, {
     method: "POST",
     headers: authHeaders(), // 不要手动设 Content-Type，让浏览器带 boundary
     body: fd,
@@ -574,7 +576,7 @@ export async function installModel(params: InstallModelParams): Promise<InstallM
 
 export interface ManjuShotParams {
   positive: string;
-  worker: string;
+  worker?: string; // 参考图分发全 pool 后可空 → 后端 pool.pick 跨机并行;给定则钉该机(旧行为)
   characterRef?: string; // 角色参考图文件名(IPAdapter 人物一致);缺省走普通 txt2img
   negative?: string;
   ckptName?: string;
@@ -818,8 +820,11 @@ export interface ManjuShotItem {
   camera: string;
   dialogue: string;
   duration_sec: number;
+  negative: string;
   image_job_id: string;
   video_job_id: string;
+  image_url: string;
+  video_url: string;
   voice_url: string;
   speaker: string;
   status: string;
@@ -841,10 +846,13 @@ export interface ManjuShotInput {
   scene?: string;
   prompt?: string;
   motion?: string;
+  negative?: string;
   characters?: string[];
   camera?: string;
   dialogue?: string;
   duration_sec?: number;
+  image_url?: string;
+  video_url?: string;
   voice_url?: string;
   speaker?: string;
 }
