@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { AuthScreen } from "@/components/auth/AuthScreen";
+import { OrbitField } from "@/components/landing/OrbitField";
 import { getToken } from "@/lib/api";
 import type { AuthResult } from "@/lib/api";
 
@@ -33,6 +34,7 @@ export default function LoginPage() {
       <div className="lp-cosmos" aria-hidden="true">
         <div className="lp-glow lp-glow--top" />
         <div className="lp-stars" />
+        <OrbitField />
         <div className="lp-horizon" />
       </div>
       <Link className="login-back" href="/">

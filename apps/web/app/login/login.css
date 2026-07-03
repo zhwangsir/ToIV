@@ -1,4 +1,4 @@
-/* 登录页:复用落地页宇宙背景,登录卡浮于其上。 */
+/* 登录页:复用落地页宇宙背景 + 模型轨道,登录卡玻璃质感 + 旋转辉光 + 轻浮动。 */
 .login-page {
   display: grid;
   place-items: center;
@@ -11,6 +11,46 @@
   background: transparent;
   min-height: auto;
 }
+
+/* 登录卡:玻璃 + 旋转辉光环 + 缓浮动,显得灵动 */
+.login-page .auth-card {
+  position: relative;
+  border-radius: 22px;
+  background: linear-gradient(180deg, oklch(21% 0.012 280 / 0.66), oklch(15% 0.008 280 / 0.72));
+  backdrop-filter: blur(18px) saturate(1.15);
+  border: 1px solid var(--hairline-2);
+  box-shadow: 0 30px 90px oklch(0% 0 0 / 0.5);
+  animation: login-float 7s ease-in-out infinite;
+}
+.login-page .auth-card::before {
+  content: "";
+  position: absolute;
+  inset: -1.5px;
+  z-index: -1;
+  border-radius: 24px;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    var(--accent) 18%,
+    var(--lp-cyan) 32%,
+    transparent 46%,
+    transparent 100%
+  );
+  opacity: 0.55;
+  filter: blur(13px);
+  animation: login-halo 9s linear infinite;
+}
+@keyframes login-float {
+  50% {
+    transform: translateY(-8px);
+  }
+}
+@keyframes login-halo {
+  to {
+    rotate: 360deg;
+  }
+}
+
 .login-back {
   position: absolute;
   top: clamp(1.2rem, 4vh, 2rem);
@@ -32,4 +72,11 @@
   color: var(--ink);
   border-color: var(--accent-line);
   transform: translateX(-2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-page .auth-card,
+  .login-page .auth-card::before {
+    animation: none;
+  }
 }
