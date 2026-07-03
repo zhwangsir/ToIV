@@ -34,6 +34,10 @@ RUN pip install --no-cache-dir --timeout 180 \
 RUN pip install --no-cache-dir --timeout 180 \
     -i https://pypi.tuna.tsinghua.edu.cn/simple \
     opencv-python-headless==4.10.0.84
+# NAS 模型下载:paramiko 走 SFTP 把模型上传到 NAS 的 ComfyUI models 目录
+RUN pip install --no-cache-dir --timeout 180 \
+    -i https://pypi.tuna.tsinghua.edu.cn/simple \
+    paramiko==3.5.0
 
 COPY app ./app
 

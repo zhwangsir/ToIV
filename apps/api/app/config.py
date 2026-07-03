@@ -26,6 +26,15 @@ class Settings(BaseSettings):
     whisper_url: str = ""
     whisper_model: str = "base"  # tiny/base/small/medium(CPU 上 base 平衡速度/质量)
     whisper_compute: str = "int8"  # int8 CPU 最快;float32 更准更慢
+    # NAS(绿联 DXP8800 Pro)—— 模型/生成内容集中存储。走 SFTP,凭据经环境变量不入仓库。
+    #   TOIV_NAS_HOST / TOIV_NAS_PASSWORD 在部署 .env 里配;空 host = 未启用(下载走旧路径)。
+    nas_host: str = ""  # 如 192.168.71.7(LAN)或 100.80.237.96(Tailscale)
+    nas_port: int = 22
+    nas_user: str = "dgmt-nas"
+    nas_password: str = ""
+    # SFTP 视角的 ComfyUI 模型根(chroot 后根=/NAS = shell 的 /volume1/NAS);worker 从此读模型
+    nas_model_root: str = "/NAS/Windows/ComfyUI/ComfyUIModel/models"
+
     # CORS 允许的前端来源（逗号分隔）
     cors_origins: str = (
         "http://localhost:3100,http://127.0.0.1:3100,"
@@ -56,6 +65,11 @@ class Settings(BaseSettings):
     @property
     def embed_url(self) -> str:
         return (self.embed_base_url or self.llm_base_url).rstrip("/")
+
+    @property
+    def nas_enabled(self) -> bool:
+        """配了 host + password 才算启用 NAS 存储。"""
+        return bool(self.nas_host.strip() and self.nas_password)
 
     @property
     def worker_urls(self) -> list[str]:

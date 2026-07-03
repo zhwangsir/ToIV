@@ -18,6 +18,10 @@ services:
       TOIV_CORS_ORIGINS: "${TOIV_CORS_ORIGINS:-*}"
       # 模型市场:Civitai 走 civitai.red 镜像;API key(成人模型/高限额)走 deploy/.env,不入仓库
       TOIV_CIVITAI_API_KEY: "${TOIV_CIVITAI_API_KEY:-}"
+      # NAS(绿联 DXP8800)模型存储:host/密码走 deploy/.env(不入仓库);空 host = 未启用
+      TOIV_NAS_HOST: "${TOIV_NAS_HOST:-}"
+      TOIV_NAS_USER: "${TOIV_NAS_USER:-dgmt-nas}"
+      TOIV_NAS_PASSWORD: "${TOIV_NAS_PASSWORD:-}"
     volumes:
       - toiv-data:/data
     ports:
