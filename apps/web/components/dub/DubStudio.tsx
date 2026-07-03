@@ -7,10 +7,12 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { useFauxProgress } from "@/hooks/useFauxProgress";
 import {
   autocutDub,
+  getAnimeLipsyncStatus,
   getLipsyncLongStatus,
   highlightsDub,
   imageUrl,
   importSrtDub,
+  startAnimeLipsync,
   startLipsyncLong,
   transcribeDub,
   translateDub,
@@ -18,6 +20,7 @@ import {
   voiceTrackDub,
 } from "@/lib/api";
 import type {
+  AnimeLipsyncStatus,
   DubAutoCutResult,
   DubSegment,
   DubTextSegment,
@@ -94,11 +97,16 @@ export function DubStudio() {
   const [onlyHighlights, setOnlyHighlights] = useState(false);
 
   // ③ 分段对口型
+  const [lipMode, setLipMode] = useState<"real" | "anime">("real"); // 真人 LatentSync ⇄ 动漫本地 CV
   const [maxSegments, setMaxSegments] = useState(8);
   const [lipsExpr, setLipsExpr] = useState(1.5);
   const [starting, setStarting] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
   const [job, setJob] = useState<LipsyncLongStatus | null>(null);
+  // 动漫对口型(本地 CV,与真人分开:动漫脸检测 + 音频能量驱动嘴开合)
+  const [animeGain, setAnimeGain] = useState(1.2);
+  const [animeJobId, setAnimeJobId] = useState<string | null>(null);
+  const [animeJob, setAnimeJob] = useState<AnimeLipsyncStatus | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const { setActivity, clearActivity } = useActivity();
@@ -324,6 +332,51 @@ export function DubStudio() {
       window.clearInterval(timer);
     };
   }, [jobId]);
+
+  // —— ③ 动漫对口型(本地 CV)——
+  const startAnime = useCallback(async () => {
+    if (!source || starting || animeJob?.status === "running") return;
+    setStarting(true);
+    setError(null);
+    setAnimeJob(null);
+    try {
+      const r = await startAnimeLipsync({
+        name: source.name,
+        audioName: track?.name, // 有配音轨则用译制轨,否则用源自带音轨
+        mouthGain: animeGain,
+      });
+      setAnimeJobId(r.job_id);
+    } catch (e) {
+      setError(`动漫对口型:${(e as Error).message}`);
+    } finally {
+      setStarting(false);
+    }
+  }, [source, starting, animeJob, track, animeGain]);
+
+  // 轮询动漫对口型进度
+  useEffect(() => {
+    if (!animeJobId) return;
+    let alive = true;
+    const tick = async () => {
+      try {
+        const s = await getAnimeLipsyncStatus(animeJobId);
+        if (!alive) return;
+        setAnimeJob(s);
+        if (s.status !== "running") {
+          window.clearInterval(timer);
+          if (s.status === "error" && s.error) setError(`动漫对口型:${s.error}`);
+        }
+      } catch {
+        /* 网络抖动,下次再试 */
+      }
+    };
+    void tick();
+    const timer = window.setInterval(tick, POLL_MS);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, [animeJobId]);
 
   // 灵动岛活动映射
   const wasRunning = useRef(false);
@@ -695,9 +748,33 @@ export function DubStudio() {
               <div className="dub-panel-head">
                 <h3>③ 分段对口型成片</h3>
                 <span className="dub-panel-hint">
-                  {track ? "用配音轨 → 译制成片" : "用源音轨 → 验证质量 + GPU 成本"}
+                  {lipMode === "anime"
+                    ? "动漫脸 · 本地免 GPU"
+                    : track
+                      ? "真人 · 配音轨译制成片"
+                      : "真人 · 源音轨验证质量"}
                 </span>
               </div>
+              {/* 真人 / 动漫 模式切换(LatentSync 做不了动漫脸,动漫走本地 CV) */}
+              <div className="dub-mode-switch">
+                <button
+                  type="button"
+                  className={`dub-run-btn${lipMode === "real" ? " primary" : ""}`}
+                  onClick={() => setLipMode("real")}
+                >
+                  🧑 真人(LatentSync)
+                </button>
+                <button
+                  type="button"
+                  className={`dub-run-btn${lipMode === "anime" ? " primary" : ""}`}
+                  onClick={() => setLipMode("anime")}
+                >
+                  🌸 动漫(本地)
+                </button>
+              </div>
+
+              {lipMode === "real" && (
+              <>
               <div className="dub-controls">
                 <div className="field dub-slider">
                   <label>
@@ -784,6 +861,90 @@ export function DubStudio() {
                     ⤓ 下载成片
                   </a>
                 </div>
+              )}
+              </>
+              )}
+
+              {lipMode === "anime" && (
+              <>
+              <div className="dub-controls">
+                <div className="field dub-slider">
+                  <label>
+                    张嘴幅度<span className="dub-val">{animeGain.toFixed(1)}</span>
+                  </label>
+                  <input
+                    type="range"
+                    min={0.4}
+                    max={2.5}
+                    step={0.1}
+                    value={animeGain}
+                    onChange={(e) => setAnimeGain(parseFloat(e.target.value))}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="dub-run-btn primary"
+                  disabled={starting || animeJob?.status === "running"}
+                  onClick={() => void startAnime()}
+                >
+                  {starting || animeJob?.status === "running" ? "动漫对口型中…" : "🌸 动漫对口型"}
+                </button>
+              </div>
+              <p className="dub-seg-tip">
+                本地 CV:检测动漫脸 + 音频能量驱动嘴开合(免 GPU,几秒~几分钟)。
+                {track ? "用译制配音轨。" : "用源视频自带音轨。"}
+                正脸/清晰镜头效果最好;侧脸、快速动作、小脸检不到的帧保持原样。
+                v0 为合成口腔开合(非逐音素唇形),糙但可见。
+              </p>
+
+              {(animeJob?.status === "running" || (starting && lipMode === "anime")) && (
+                <ProgressBar
+                  active
+                  tone="voice"
+                  value={animeJob?.progress ?? null}
+                  label={`${animeJob?.stage ?? "准备中"}…${
+                    animeJob && animeJob.progress
+                      ? ` ${etaText(animeJob.elapsed, animeJob.progress)}`
+                      : ""
+                  }`}
+                  className="dub-run-progress"
+                />
+              )}
+
+              {animeJob && (
+                <div className="dub-job-stats">
+                  <div className="dub-stat">
+                    <span className="dub-stat-k">进度</span>
+                    <span className="dub-stat-v">{animeJob.progress}%</span>
+                  </div>
+                  <div className="dub-stat">
+                    <span className="dub-stat-k">检出脸帧</span>
+                    <span className="dub-stat-v">
+                      {animeJob.faces_detected}/{animeJob.frames || "…"}
+                    </span>
+                  </div>
+                  <div className="dub-stat">
+                    <span className="dub-stat-k">耗时</span>
+                    <span className="dub-stat-v">{animeJob.elapsed.toFixed(0)}s</span>
+                  </div>
+                </div>
+              )}
+
+              {animeJob?.status === "done" && animeJob.url && (
+                <div className="dub-result">
+                  <video className="dub-video" src={imageUrl(animeJob.url)} controls />
+                  <a
+                    className="dub-run-btn"
+                    href={imageUrl(animeJob.url)}
+                    download
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    ⤓ 下载成片
+                  </a>
+                </div>
+              )}
+              </>
               )}
             </section>
           </div>

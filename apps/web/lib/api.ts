@@ -1224,6 +1224,59 @@ export async function getLipsyncLongStatus(jobId: string): Promise<LipsyncLongSt
   return res.json();
 }
 
+// ---------- 动漫对口型(本地自建 CV,非 LatentSync)----------
+
+export interface AnimeLipsyncStatus {
+  id: string;
+  status: "running" | "done" | "error";
+  stage: string;
+  progress: number;
+  frames: number;
+  faces_detected: number;
+  url: string | null;
+  error: string | null;
+  elapsed: number;
+}
+
+/**
+ * 起动漫对口型(本地 CV:动漫脸检测 + 音频能量驱动嘴开合)。契约:POST /api/dub/anime-lipsync。
+ * 真人走 startLipsyncLong(LatentSync);动漫走这个(LatentSync 做不了动漫脸)。
+ */
+export async function startAnimeLipsync(params: {
+  name: string;
+  audioName?: string; // 译制配音轨;空则用源视频自带音轨
+  mouthGain?: number; // 张嘴幅度倍率
+  smooth?: number; // 开口度时间平滑窗
+}): Promise<{ job_id: string }> {
+  const res = await fetch(`${API_BASE}/api/dub/anime-lipsync`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({
+      name: params.name,
+      audio_name: params.audioName ?? null,
+      mouth_gain: params.mouthGain ?? 1.0,
+      smooth: params.smooth ?? 3,
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `启动动漫对口型失败 (${res.status})`);
+  }
+  return res.json();
+}
+
+/** 轮询动漫对口型进度。契约:GET /api/dub/anime-lipsync/{job_id}。 */
+export async function getAnimeLipsyncStatus(jobId: string): Promise<AnimeLipsyncStatus> {
+  const res = await fetch(`${API_BASE}/api/dub/anime-lipsync/${jobId}`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `查询进度失败 (${res.status})`);
+  }
+  return res.json();
+}
+
 // ---------- 译制台 · 听写翻译配音 ----------
 
 export interface DubTextSegment {

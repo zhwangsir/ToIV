@@ -29,6 +29,11 @@ RUN pip install --no-cache-dir --timeout 120 \
 RUN pip install --no-cache-dir --timeout 180 \
     -i https://pypi.tuna.tsinghua.edu.cn/simple \
     faster-whisper==1.1.1 requests
+# 动漫对口型(本地自建):opencv 做动漫脸检测(lbpcascade_animeface)+ 逐帧嘴区形变。
+# headless 版免 GUI 依赖;numpy 随之装。CV 是经典算法非模型推理,CPU 短片可接受。
+RUN pip install --no-cache-dir --timeout 180 \
+    -i https://pypi.tuna.tsinghua.edu.cn/simple \
+    opencv-python-headless==4.10.0.84
 
 COPY app ./app
 

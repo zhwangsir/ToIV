@@ -6277,6 +6277,9 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .dub-panel-hint { font-size: 0.78rem; color: var(--ink-faint); }
 
 .dub-controls { display: flex; gap: 1.1rem; flex-wrap: wrap; align-items: flex-end; }
+.dub-mode-switch { display: flex; gap: 0.5rem; margin: 0.2rem 0 0.9rem; flex-wrap: wrap; }
+.dub-mode-switch .dub-run-btn { flex: 0 0 auto; opacity: 0.62; }
+.dub-mode-switch .dub-run-btn.primary { opacity: 1; }
 .dub-modes { display: flex; gap: 0.4rem; }
 .dub-modes button {
   font-size: 0.82rem; padding: 0.4rem 0.85rem; border-radius: 999px;
