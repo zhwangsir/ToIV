@@ -19,14 +19,12 @@ from pathlib import Path
 
 from app.comfy.tracker import mark_done, mark_status
 from app.forge.client import ForgeClient, ForgeError
+from app.storage import content_subdir
 
 logger = logging.getLogger(__name__)
 
-# 产物落盘目录(与 cad / data 卷同盘,持久);served by routes/forge.py
-FORGE_DIR = (
-    Path("/data") / "forge" if Path("/data").is_dir()
-    else Path(tempfile.gettempdir()) / "toiv-forge"
-)
+# 产物落盘目录(生成内容根,可切 NAS);served by routes/forge.py
+FORGE_DIR = content_subdir("forge")
 
 # 进程内 Forge 作业态:prompt_id -> {status: queued|running|done|error, images: [url], error: str|None}
 _jobs: dict[str, dict] = {}

@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     nas_password: str = ""
     # SFTP 视角的 ComfyUI 模型根(chroot 后根=/NAS = shell 的 /volume1/NAS);worker 从此读模型
     nas_model_root: str = "/NAS/Windows/ComfyUI/ComfyUIModel/models"
+    # 生成内容存储根(译制视频/配音/forge/cad)。默认 /data(容器本地卷);
+    # 设 /data/nas/toiv(cifs 卷挂 NAS)则生成内容集中落 NAS。
+    content_dir: str = "/data"
 
     # CORS 允许的前端来源（逗号分隔）
     cors_origins: str = (

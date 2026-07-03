@@ -22,8 +22,11 @@ services:
       TOIV_NAS_HOST: "${TOIV_NAS_HOST:-}"
       TOIV_NAS_USER: "${TOIV_NAS_USER:-dgmt-nas}"
       TOIV_NAS_PASSWORD: "${TOIV_NAS_PASSWORD:-}"
+      # 生成内容根:默认 /data(本地卷);设 /data/nas/toiv 则落 NAS(cifs 卷挂在 /data/nas)
+      TOIV_CONTENT_DIR: "${TOIV_CONTENT_DIR:-/data}"
     volumes:
       - toiv-data:/data
+      - toiv-nas:/data/nas  # NAS cifs 卷(生成内容集中存储);DB/模型仍在本地卷
     ports:
       - "8090:8080"
     restart: unless-stopped
@@ -41,3 +44,11 @@ services:
 
 volumes:
   toiv-data:
+  # NAS 生成内容:cifs 挂载绿联 DXP8800 的 NAS 共享(凭据走 deploy/.env)。docker daemon 管理挂载,
+  # 免宿主 sudo;同 LAN 千兆,速度可。未配 TOIV_NAS_* 时该卷创建会失败 → 仅在启用 NAS 时挂。
+  toiv-nas:
+    driver: local
+    driver_opts:
+      type: cifs
+      device: "//${TOIV_NAS_HOST}/NAS"
+      o: "username=${TOIV_NAS_USER},password=${TOIV_NAS_PASSWORD},uid=1000,gid=1000,vers=3.0,file_mode=0664,dir_mode=0775"

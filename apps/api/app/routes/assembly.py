@@ -28,16 +28,13 @@ from pydantic import BaseModel, Field
 from app.config import get_settings
 from app.deps import get_current_user
 from app.models import User
+from app.storage import content_subdir
 from app.ratelimit import enforce_generation_rate_limit
 
 router = APIRouter()
 
 # 成片输出目录:容器挂了 toiv-data:/data;无 /data(本地)则回落到临时目录。
-_OUTPUT_DIR = (
-    Path("/data") / "manju"
-    if Path("/data").is_dir()
-    else Path(tempfile.gettempdir()) / "toiv-manju"
-)
+_OUTPUT_DIR = content_subdir("manju")  # 与 voice 同目录(生成内容根,可切 NAS)
 
 _TRANSITIONS = {"none", "crossfade"}
 # 多平台导出预设:aspect → (宽, 高)。逐镜 scale+crop 填充到此尺寸。

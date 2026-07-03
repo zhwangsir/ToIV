@@ -27,16 +27,13 @@ from pydantic import BaseModel, Field
 from app.config import get_settings
 from app.deps import get_current_user
 from app.models import User
+from app.storage import content_subdir
 from app.ratelimit import enforce_generation_rate_limit
 
 router = APIRouter()
 
-# 与 assembly 同一输出目录(容器挂 toiv-data:/data),成片混音可直接读到。
-_VOICE_DIR = (
-    Path("/data") / "manju"
-    if Path("/data").is_dir()
-    else Path(tempfile.gettempdir()) / "toiv-manju"
-)
+# 与 assembly 同一输出目录(生成内容根,可切 NAS),成片混音可直接读到。
+_VOICE_DIR = content_subdir("manju")
 _VOICE_NAME_RE = re.compile(r"^voice(?:ref)?-[0-9a-f]{32}\.wav$")  # 合成配音 + 角色定妆音色
 _TTS_TIMEOUT = 180.0  # 首次调用 TTS 服务要懒加载模型(~20s),给足余量
 _LOCAL_API_BASE = "http://127.0.0.1:8080"

@@ -24,6 +24,7 @@ from sqlmodel import Session
 from app.cad.convert import convert
 from app.comfy.client import ComfyUIError
 from app.comfy.pool import WorkerPool
+from app.storage import content_subdir
 from app.comfy.tracker import spawn as spawn_tracker
 from app.config import get_settings
 from app.db import get_session
@@ -34,10 +35,7 @@ from app.workflows.cad_design import PRESETS, CadParams, build_cad_graph
 
 router = APIRouter()
 
-_CAD_DIR = (
-    Path("/data") / "cad" if Path("/data").is_dir()
-    else Path(tempfile.gettempdir()) / "toiv-cad"
-)
+_CAD_DIR = content_subdir("cad")  # 生成内容根(可切 NAS)
 _NAME_RE = __import__("re").compile(r"^cad-[0-9a-f]{32}\.png$")
 _MAX_BYTES = 60 * 1024 * 1024  # 图纸上限 60MB
 _DL_TIMEOUT = 120.0

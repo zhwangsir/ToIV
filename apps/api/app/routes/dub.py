@@ -28,6 +28,7 @@ from pydantic import BaseModel, Field
 
 from app.comfy.client import ComfyUIError
 from app.comfy.pool import WorkerPool
+from app.storage import content_subdir
 from app.deps import get_current_user, get_pool
 from app.models import User
 from app.ratelimit import enforce_generation_rate_limit
@@ -39,11 +40,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-_DUB_DIR = (
-    Path("/data") / "dub"
-    if Path("/data").is_dir()
-    else Path(tempfile.gettempdir()) / "toiv-dub"
-)
+_DUB_DIR = content_subdir("dub")  # 生成内容根(默认 /data;可切 NAS 挂载点)
 # 视频上传不设大小上限(用户要求):流式 1MB 分块写盘,不整片进内存,大文件安全。
 # 上传速度受网络带宽限制(与本服务无关);实际约束仅剩磁盘空间。
 _CHUNK = 1024 * 1024  # 1MB 流式分块,避免整片进内存
