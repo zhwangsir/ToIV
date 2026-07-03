@@ -38,8 +38,7 @@ export function AuthScreen({ onAuthed }: Props) {
           To<span className="mark">IV</span>
         </div>
         <p className="auth-tagline">
-          一句话，<em>造一个世界</em>。<br />
-          图像 · 视频 · 3D · 音乐，同一个创作台。
+          一句话，<em>造一个世界</em>。
         </p>
 
         <form onSubmit={submit} className="auth-form">
