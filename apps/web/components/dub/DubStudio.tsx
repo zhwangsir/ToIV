@@ -436,7 +436,7 @@ export function DubStudio() {
               ▶
             </span>
             <span className="dub-drop-title">{uploading ? "上传中…" : "上传长视频"}</span>
-            <span className="dub-drop-hint">MP4 / MOV / WEBM / MKV,≤ 600MB,拖入或点击</span>
+            <span className="dub-drop-hint">MP4 / MOV / WEBM / MKV,不限大小,拖入或点击</span>
           </label>
           {uploading && (
             <ProgressBar
