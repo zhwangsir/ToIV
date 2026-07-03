@@ -4,10 +4,10 @@ const nextConfig = {
   output: "standalone",
   allowedDevOrigins: ["localhost", "127.0.0.1"],
   // rewrite 代理 /api 时,Next 默认只放行 10MB body → 视频上传会 socket hang up。
-  // 放大到 700MB(略高于 api 的 600MB 上限),让 LAN 上传大视频经 rewrite 通。
+  // 拉到极大(等效不限;上传只受带宽/磁盘限制,与本服务无关,按用户要求不设上限)。
   experimental: {
-    proxyTimeout: 3600000,
-    middlewareClientMaxBodySize: "700mb",
+    proxyTimeout: 3_600_000,
+    middlewareClientMaxBodySize: "1024gb",
   },
   // LAN 直连兜底:公网走 cloud OpenResty 路由 /api(不经 Next);但在局域网直接访问
   // web:3100 时,/api 会打到 Next —— 这条 rewrite 把它转发到同 compose 网络的 api 容器,

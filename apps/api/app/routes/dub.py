@@ -44,7 +44,8 @@ _DUB_DIR = (
     if Path("/data").is_dir()
     else Path(tempfile.gettempdir()) / "toiv-dub"
 )
-_MAX_BYTES = 600 * 1024 * 1024  # 600MB(~12 分钟 1080p 留余量)
+# 视频上传不设大小上限(用户要求):流式 1MB 分块写盘,不整片进内存,大文件安全。
+# 上传速度受网络带宽限制(与本服务无关);实际约束仅剩磁盘空间。
 _CHUNK = 1024 * 1024  # 1MB 流式分块,避免整片进内存
 _EXT_OK = {".mp4", ".mov", ".webm", ".mkv"}
 _NAME_RE = re.compile(r"^dub-[0-9a-f]{32}\.(mp4|mov|webm|mkv)$")
@@ -70,9 +71,7 @@ async def dub_upload(
     try:
         with dest.open("wb") as f:
             while chunk := await video.read(_CHUNK):
-                size += len(chunk)
-                if size > _MAX_BYTES:
-                    raise HTTPException(status_code=413, detail="视频过大(上限 600MB)")
+                size += len(chunk)  # 仅统计,返回给前端;不设上限
                 f.write(chunk)
     except HTTPException:
         dest.unlink(missing_ok=True)
