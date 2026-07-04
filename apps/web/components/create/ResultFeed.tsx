@@ -11,6 +11,8 @@ import { developVariants } from "@/lib/motion";
 
 import "./result-feed.css";
 
+import type { RerunOptions } from "@/lib/api";
+
 import type { ResultItem } from "./types";
 
 interface ResultFeedProps {
@@ -20,6 +22,8 @@ interface ResultFeedProps {
   onReuse: (item: ResultItem, asVariation: boolean) => void;
   onToVideo: (item: ResultItem) => void;
   onTo3D: (item: ResultItem) => void;
+  /** 版本树:精确重生(random=重抽 / keep=锁 seed 微调,可带改词)。 */
+  onRerun?: (item: ResultItem, opts: RerunOptions) => void;
 }
 
 /**
@@ -87,12 +91,32 @@ function moveItem<T>(arr: readonly T[], from: number, to: number): T[] {
  * 支持拖拽重排(HTML5 DnD):本地维护展示顺序(以 id 序列为真相),
  * 新结果到达时合并进序列头部,手动顺序不丢失。所有更新均不可变。
  */
-export function ResultFeed({ results, busy, onReuse, onToVideo, onTo3D }: ResultFeedProps) {
+export function ResultFeed({ results, busy, onReuse, onToVideo, onTo3D, onRerun }: ResultFeedProps) {
   // 展示顺序的真相:id 序列。结果由 hook 前插,故新 id 合并到序列前部、保留既有手排序。
   const [order, setOrder] = useState<string[]>(() => results.map((r) => r.id));
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const dragIdRef = useRef<string | null>(null);
+  // 微调(锁 seed)内联编辑器:tweakId=展开中的卡,tweakText=编辑中的提示词
+  const [tweakId, setTweakId] = useState<string | null>(null);
+  const [tweakText, setTweakText] = useState("");
+
+  const openTweak = useCallback((item: ResultItem) => {
+    setTweakId(item.id);
+    setTweakText(item.prompt);
+  }, []);
+
+  const submitTweak = useCallback(
+    (item: ResultItem) => {
+      const text = tweakText.trim();
+      setTweakId(null);
+      onRerun?.(item, {
+        seed_mode: "keep",
+        ...(text && text !== item.prompt ? { overrides: { positive: text } } : {}),
+      });
+    },
+    [tweakText, onRerun],
+  );
 
   useEffect(() => {
     setOrder((prev) => {
@@ -201,13 +225,67 @@ export function ResultFeed({ results, busy, onReuse, onToVideo, onTo3D }: Result
                 <button type="button" onClick={() => onReuse(r, true)} disabled={busy}>
                   变体
                 </button>
+                {onRerun && r.meta?.promptId && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => onRerun(r, { seed_mode: "random" })}
+                      disabled={busy}
+                      title="同参数换 seed 重抽一张"
+                    >
+                      重生
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => (tweakId === r.id ? setTweakId(null) : openTweak(r))}
+                      disabled={busy}
+                      title="锁 seed 只改提示词:构图不变,改哪动哪"
+                    >
+                      微调
+                    </button>
+                  </>
+                )}
                 <a href={r.url} download>
                   下载
                 </a>
               </div>
             )}
+            {r.kind === "image" && tweakId === r.id && (
+              <div className="tweak-editor">
+                <textarea
+                  value={tweakText}
+                  onChange={(e) => setTweakText(e.target.value)}
+                  rows={3}
+                  placeholder="改动提示词(锁 seed,构图保持)"
+                />
+                <div className="tweak-actions">
+                  <span className="tweak-seed">seed {r.meta?.seed ?? "—"} 已锁</span>
+                  <button type="button" onClick={() => setTweakId(null)}>
+                    取消
+                  </button>
+                  <button
+                    type="button"
+                    className="tweak-go"
+                    onClick={() => submitTweak(r)}
+                    disabled={busy || !tweakText.trim()}
+                  >
+                    生成微调版
+                  </button>
+                </div>
+              </div>
+            )}
             {r.kind === "video" && (
               <div className="card-actions card-actions-thin">
+                {onRerun && r.meta?.promptId && (
+                  <button
+                    type="button"
+                    onClick={() => onRerun(r, { seed_mode: "random" })}
+                    disabled={busy}
+                    title="同参数换 seed 重生成视频"
+                  >
+                    重生
+                  </button>
+                )}
                 <a href={r.url} download>
                   下载视频
                 </a>

@@ -60,3 +60,61 @@
     transition: none;
   }
 }
+
+/* ---------- 版本树:微调(锁 seed)内联编辑器 ---------- */
+.tweak-editor {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.55rem 0.7rem 0.7rem;
+  border-top: 1px solid var(--hairline-2);
+}
+.tweak-editor textarea {
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--ink);
+  background: color-mix(in oklab, var(--bg-0) 62%, transparent);
+  border: 1px solid var(--hairline-2);
+  border-radius: var(--radius-xs);
+  padding: 0.5rem 0.6rem;
+}
+.tweak-editor textarea:focus-visible {
+  outline: none;
+  border-color: var(--accent-line);
+}
+.tweak-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.tweak-seed {
+  margin-right: auto;
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.tweak-actions button {
+  font: inherit;
+  font-size: 0.76rem;
+  color: var(--ink-soft);
+  background: none;
+  border: 1px solid var(--hairline-2);
+  border-radius: 999px;
+  padding: 0.28rem 0.8rem;
+  cursor: pointer;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.tweak-actions button:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent-line);
+}
+.tweak-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.tweak-actions .tweak-go {
+  color: var(--accent-soft);
+  border-color: var(--accent-line);
+}

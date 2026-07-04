@@ -15,6 +15,7 @@ from app.db import get_session
 from app.deps import get_current_user, resolve_worker
 from app.models import Job, User
 from app.ratelimit import enforce_generation_rate_limit
+from app.versioning import params_snapshot
 from app.workflows.hunyuan3d import Hunyuan3DParams, build_hunyuan3d_graph
 
 router = APIRouter()
@@ -61,6 +62,7 @@ async def generate_3d(
             status="queued",
             prompt="图生3D",
             seed=params.seed,
+            params=params_snapshot(req, seed=params.seed),
         )
     )
     session.commit()

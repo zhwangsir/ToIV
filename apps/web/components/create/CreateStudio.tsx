@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useActivity, type ActivityKind } from "@/components/nav/ActivityContext";
 import { useNsfw } from "@/components/nav/NsfwContext";
-import { getForgeModels, getForgeStatus, listLocalModels, listModels, uploadImage } from "@/lib/api";
+import { getForgeModels, getForgeStatus, listLocalModels, listModels, uploadImage, type RerunOptions } from "@/lib/api";
 import type { ModelsResponse } from "@/lib/types";
 
 import { AssistChat } from "./AssistChat";
@@ -104,6 +104,15 @@ export function CreateStudio({ forceNsfw = false }: { forceNsfw?: boolean } = {}
           : 1;
       setPendingCount(n);
       return feed.run(dispatches, stage);
+    },
+    [feed],
+  );
+
+  // 版本树:结果卡 重生/微调(锁seed)→ 走 feed.rerun;rerun 复放原 batch,占位按原产出张数
+  const onRerun = useCallback(
+    (item: ResultItem, opts: RerunOptions) => {
+      setPendingCount(item.meta?.batch ?? 1);
+      return feed.rerun(item, opts);
     },
     [feed],
   );
@@ -329,6 +338,7 @@ export function CreateStudio({ forceNsfw = false }: { forceNsfw?: boolean } = {}
               onReuse={onReuse}
               onToVideo={feed.continueToVideo}
               onTo3D={feed.continueTo3D}
+              onRerun={onRerun}
             />
           )}
         </div>

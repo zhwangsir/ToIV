@@ -29,6 +29,8 @@ from app.db import get_session
 from app.deps import get_current_user, get_pool, resolve_worker
 from app.models import Job, User
 from app.ratelimit import enforce_generation_rate_limit
+from app.routes.generate import _gate_nsfw_ckpt
+from app.versioning import params_snapshot
 from app.workflows.ipadapter import (
     DEFAULT_PRESET,
     IPAdapterTxt2ImgParams,
@@ -284,6 +286,8 @@ async def render_shot(
     enforce_generation_rate_limit(user)
     settings = get_settings()
     ckpt_name = req.ckpt_name or settings.default_ckpt
+    # R18 硬门槛 + 打标:与 generate 各端点同一门槛(rerun overrides 换底模时同样复检)
+    job_nsfw = _gate_nsfw_ckpt(ckpt_name, user)
     # 给定 worker → 只路由该机(参考图仅在该机,旧行为);未给 → 参考图已分发全 pool,
     # 选装了 IPAdapter 节点的最闲 worker 分发,让带参考图的批量出图也能跨机真并行。
     if req.worker:
@@ -314,6 +318,8 @@ async def render_shot(
             status="queued",
             prompt=req.positive,
             seed=seed,
+            nsfw=job_nsfw,
+            params=params_snapshot(req, seed=seed),
         )
     )
     session.commit()

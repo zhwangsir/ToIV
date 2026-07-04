@@ -240,6 +240,46 @@ export function invalidateJobs(): void {
   invalidate(CACHE_KEYS.jobs);
 }
 
+// ---------- 版本树:精确重生(rerun)/ 版本链(versions) ----------
+
+/** rerun 选项:keep=锁 seed 微调 / random=换 seed 重抽;overrides 只改增量(如 positive)。 */
+export interface RerunOptions {
+  seed_mode: "keep" | "random";
+  overrides?: Record<string, unknown>;
+}
+
+export interface RerunResponse extends GenerateResponse {
+  job_id?: string;
+  parent_id?: string;
+  root_id?: string;
+}
+
+/** 从历史作业精确重生;寻址接受 job id 或 prompt_id。新作业自动挂进版本链。 */
+export async function rerunJob(jobKey: string, opts: RerunOptions): Promise<RerunResponse> {
+  const res = await fetch(`${API_BASE}/api/jobs/${encodeURIComponent(jobKey)}/rerun`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(opts),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `重新生成失败 (${res.status})`);
+  }
+  return res.json();
+}
+
+/** 同根版本链(时间升序);寻址接受 job id 或 prompt_id。 */
+export async function jobVersions(jobKey: string): Promise<JobItem[]> {
+  const res = await fetch(`${API_BASE}/api/jobs/${encodeURIComponent(jobKey)}/versions`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `加载版本历史失败 (${res.status})`);
+  }
+  return res.json();
+}
+
 /** 从作品库删除一件作品(按 job id);成功后失效缓存。 */
 export async function deleteJob(jobId: string): Promise<void> {
   const res = await fetch(`${API_BASE}/api/jobs/${jobId}`, {

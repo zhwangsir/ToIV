@@ -49,6 +49,10 @@ class Job(SQLModel, table=True):
     seed: int = 0
     nsfw: bool = False  # 该作品是否成人向(建档时由 checkpoint 是否 NSFW 决定)
     result: str = ""  # 完成后的产物 URL 列表(JSON)
+    # —— 版本树(精修迭代地基):每次生成挂到父版本,同链共根 ——
+    parent_id: str = ""  # 父版本 Job.id(空=无父,自身即根)
+    root_id: str = ""  # 版本树根 Job.id(空=自身即根;查链用 root_id or id)
+    params: str = ""  # 建档时完整请求快照(JSON),支撑精确重生/锁seed微调/分支
     created_at: datetime = Field(default_factory=_now)
 
 

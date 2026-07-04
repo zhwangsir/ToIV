@@ -25,6 +25,7 @@ from app.db import get_session
 from app.deps import get_current_user, get_pool
 from app.models import Job, User
 from app.ratelimit import enforce_generation_rate_limit
+from app.versioning import params_snapshot
 from app.workflows.lipsync import LatentSyncParams, build_latentsync_graph
 
 router = APIRouter()
@@ -38,6 +39,8 @@ class LipsyncRequest(BaseModel):
     voice_url: str = Field(min_length=1, max_length=2000)  # 该镜配音
     lips_expression: float = Field(default=1.5, ge=1.0, le=3.0)
     inference_steps: int = Field(default=20, ge=1, le=50)
+    # 采样种子:缺省随机;rerun keep 锁 seed 时精确复现口型采样
+    seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
 
 
 def _allowed(url: str) -> bool:
@@ -100,6 +103,7 @@ async def lipsync_shot(
     params = LatentSyncParams(
         video=vfn, audio=afn,
         lips_expression=req.lips_expression, inference_steps=req.inference_steps,
+        **({"seed": req.seed} if req.seed is not None else {}),
     )
     graph = build_latentsync_graph(params)
     client_id = uuid.uuid4().hex
@@ -118,6 +122,8 @@ async def lipsync_shot(
             status="queued",
             prompt="对口型",
             seed=params.seed,
+            # 快照存 URL 源(重生时重新下载,不依赖 worker 临时文件)+ 实际 seed(锁 seed 复现)
+            params=params_snapshot(req, seed=params.seed),
         )
     )
     session.commit()

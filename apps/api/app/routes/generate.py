@@ -1,6 +1,7 @@
 """POST /api/generate/txt2img —— 校验参数 → 选 worker → 提交工作流。"""
 from __future__ import annotations
 
+import secrets
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -17,6 +18,7 @@ from app.deps import get_current_user, get_pool, resolve_worker
 from app.models import Job, User
 from app.nsfw_ctx import nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
+from app.versioning import params_snapshot
 from app.workflows.controlnet import (
     CONTROL_TYPES,
     ControlNetParams,
@@ -107,15 +109,19 @@ async def _submit_forge_txt2img(
     if not settings.forge_base:
         raise HTTPException(status_code=503, detail="Forge 引擎未部署")
     prompt_id = uuid.uuid4().hex
+    # 锁 seed 微调要可复现:未指定时服务端先定 seed(否则 forge 侧 -1 随机后真实 seed 丢失,
+    # rerun keep 会锁到列默认值 0,与原图无关)。与 ComfyUI 路径的 seed_used 语义对齐。
+    seed_used = req.seed if req.seed is not None else secrets.randbelow(2**32)
     payload = forge_txt2img_payload(
         positive=req.positive, negative=req.negative, steps=req.steps, cfg=req.cfg,
         width=_snap8(req.width), height=_snap8(req.height), sampler=req.sampler,
-        scheduler=req.scheduler, seed=req.seed, batch_size=req.batch_size, ckpt=ckpt_name,
+        scheduler=req.scheduler, seed=seed_used, batch_size=req.batch_size, ckpt=ckpt_name,
     )
     session.add(Job(
         tenant_id=user.tenant_id, user_id=user.id, prompt_id=prompt_id,
         worker=settings.forge_base, kind="txt2img", status="queued",
-        prompt=req.positive, seed=req.seed, nsfw=job_nsfw,
+        prompt=req.positive, seed=seed_used, nsfw=job_nsfw,
+        params=params_snapshot(req, seed=seed_used, ckpt_name=ckpt_name),
     ))
     session.commit()
     forge_spawn(ForgeClient(settings.forge_base, timeout=600.0), prompt_id, "txt2img", payload)
@@ -123,7 +129,7 @@ async def _submit_forge_txt2img(
         "prompt_id": prompt_id,
         "client_id": uuid.uuid4().hex,
         "worker": settings.forge_base,
-        "seed": req.seed,
+        "seed": seed_used,
     }
 
 
@@ -208,6 +214,7 @@ async def generate_txt2img(
         prompt=req.positive,
         seed=seed_used,
         nsfw=job_nsfw,
+        params=params_snapshot(req, seed=seed_used, ckpt_name=ckpt_name),
     )
     session.add(job)
     session.commit()
@@ -292,6 +299,7 @@ async def generate_txt2video(
             status="queued",
             prompt=params.positive,
             seed=params.seed,
+            params=params_snapshot(req, seed=params.seed),
         )
     )
     session.commit()
@@ -364,6 +372,7 @@ async def generate_img2img(
             prompt=params.positive,
             seed=params.seed,
             nsfw=job_nsfw,
+            params=params_snapshot(req, seed=params.seed, ckpt_name=params.ckpt_name),
         )
     )
     session.commit()
@@ -455,6 +464,7 @@ async def generate_controlnet(
             prompt=params.positive,
             seed=params.seed,
             nsfw=job_nsfw,
+            params=params_snapshot(req, seed=params.seed, ckpt_name=params.ckpt_name),
         )
     )
     session.commit()
@@ -518,6 +528,7 @@ async def generate_upscale(
             prompt=f"upscale x{req.scale:g}",
             seed=None,
             nsfw=False,
+            params=params_snapshot(req),
         )
     )
     session.commit()
@@ -590,6 +601,7 @@ async def generate_facedetailer(
             prompt=params.positive,
             seed=params.seed,
             nsfw=job_nsfw,
+            params=params_snapshot(req, seed=params.seed, ckpt_name=params.ckpt_name),
         )
     )
     session.commit()
@@ -619,9 +631,10 @@ def _gate_raw_graph_nsfw(graph: dict, user: User) -> bool:
         ckpt = inputs.get("ckpt_name")
         if isinstance(ckpt, str) and is_nsfw(ckpt):
             any_nsfw = True
-    if any_nsfw and not user.nsfw_enabled:
+    # header-only R18 语义:与 _gate_nsfw_ckpt 同一信号(X-NSFW 头),账户开关不再放行
+    if any_nsfw and not nsfw_allowed(user):
         raise HTTPException(
-            status_code=403, detail="工作流含 R18 底模,请先在账号设置开启成人内容"
+            status_code=403, detail="工作流含 R18 底模,请在 R18 专区(/nsfw)使用"
         )
     return any_nsfw
 
@@ -671,6 +684,7 @@ async def generate_raw(
             prompt="raw workflow",
             seed=None,
             nsfw=job_nsfw,
+            params=params_snapshot(req),
         )
     )
     session.commit()
@@ -726,6 +740,7 @@ async def generate_removebg(
             prompt=f"removebg:{req.mode}",
             seed=None,
             nsfw=False,
+            params=params_snapshot(req),
         )
     )
     session.commit()
@@ -795,6 +810,7 @@ async def generate_inpaint(
             prompt=params.positive,
             seed=params.seed,
             nsfw=job_nsfw,
+            params=params_snapshot(req, seed=params.seed, ckpt_name=params.ckpt_name),
         )
     )
     session.commit()

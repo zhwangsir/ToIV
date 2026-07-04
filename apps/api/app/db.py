@@ -31,6 +31,10 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("manjushot", "negative", "negative VARCHAR NOT NULL DEFAULT ''"),
     ("manjushot", "image_url", "image_url VARCHAR NOT NULL DEFAULT ''"),
     ("manjushot", "video_url", "video_url VARCHAR NOT NULL DEFAULT ''"),
+    # 版本树三列(父版本/链根/参数快照,精修迭代地基),已存在的 job 表补列
+    ("job", "parent_id", "parent_id VARCHAR NOT NULL DEFAULT ''"),
+    ("job", "root_id", "root_id VARCHAR NOT NULL DEFAULT ''"),
+    ("job", "params", "params VARCHAR NOT NULL DEFAULT ''"),
 )
 
 

@@ -13,6 +13,7 @@ from app.db import get_session
 from app.deps import get_current_user, get_pool
 from app.models import Job, User
 from app.ratelimit import enforce_generation_rate_limit
+from app.versioning import params_snapshot
 from app.workflows.ace_step import AceStepParams, build_ace_step_graph
 
 router = APIRouter()
@@ -64,6 +65,7 @@ async def generate_audio(
             status="queued",
             prompt=params.tags,
             seed=params.seed,
+            params=params_snapshot(req, seed=params.seed),
         )
     )
     session.commit()

@@ -106,6 +106,12 @@ export interface JobItem {
   seed: number;
   created_at: string;
   results: string[];
+  /** 版本树:父版本 job id(空=根)。 */
+  parent_id?: string;
+  /** 版本树根 job id(后端已归一,同链同根;前端按它分组)。 */
+  root_id?: string;
+  /** 有参数快照才能精确重生(旧数据无)。 */
+  has_params?: boolean;
 }
 
 export type LocalModels = Record<string, string[]>;

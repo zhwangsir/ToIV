@@ -13,7 +13,9 @@ import {
   imageUrl,
   invalidateJobs,
   jobEventsUrl,
+  rerunJob,
   uploadImage,
+  type RerunOptions,
 } from "@/lib/api";
 import type {
   GenerateResponse,
@@ -130,7 +132,8 @@ export function useGenerationFeed() {
             kind: classifyPath(p, kind),
             url: imageUrl(p),
             prompt,
-            meta,
+            // 版本树:记录后端作业句柄/实际 seed/产出张数,让结果卡能 重生/微调(锁seed)
+            meta: { ...(meta ?? {}), promptId: res.prompt_id, seed: res.seed, batch: paths.length },
           }));
           setState((s) => ({ ...s, results: [...items, ...s.results] }));
           // 新作品已落库:失效作品库缓存,下次进作品库即拉到最新。
@@ -178,6 +181,39 @@ export function useGenerationFeed() {
       }
     },
     [track],
+  );
+
+  /** 版本树:对既有结果精确重生(random=重抽 / keep=锁 seed 微调,可带改词)。 */
+  const rerun = useCallback(
+    async (item: ResultItem, opts: RerunOptions) => {
+      if (state.busy) return;
+      const key = item.meta?.promptId;
+      if (!key) return;
+      esRef.current?.close();
+      setState((s) => ({
+        ...s,
+        busy: true,
+        error: null,
+        stage: opts.seed_mode === "keep" ? "微调中(锁 seed)…" : "重新生成中…",
+        progress: null,
+      }));
+      try {
+        const res = await rerunJob(key, opts);
+        const positive = opts.overrides?.positive;
+        const prompt = typeof positive === "string" && positive.trim() ? positive : item.prompt;
+        // 锁 seed 微调:新旧对比最有意义 → beforeUrl 设为原图(拖动对比)
+        const meta: ResultMeta =
+          opts.seed_mode === "keep" && item.kind === "image"
+            ? { ...item.meta, beforeUrl: item.url }
+            : { ...item.meta };
+        await track(res, item.kind, prompt, meta);
+      } catch (e) {
+        setState((s) => ({ ...s, error: (e as Error).message }));
+      } finally {
+        setState((s) => ({ ...s, busy: false, stage: "", progress: null }));
+      }
+    },
+    [state.busy, track],
   );
 
   // ---------- 续创作:不重配参数,从结果直接迭代 ----------
@@ -247,6 +283,7 @@ export function useGenerationFeed() {
   return {
     ...state,
     run,
+    rerun,
     fileFromResult,
     continueToVideo,
     continueTo3D,

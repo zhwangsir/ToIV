@@ -5,8 +5,9 @@ import { AnimatePresence, motion } from "framer-motion";
 
 import { Magnifier } from "@/components/ui/Magnifier";
 import { useNsfw } from "@/components/nav/NsfwContext";
-import { deleteJob, imageUrl, listJobs } from "@/lib/api";
+import { deleteJob, imageUrl, invalidateJobs, jobVersions, listJobs, rerunJob, type RerunOptions } from "@/lib/api";
 import { springSoft } from "@/lib/motion";
+import { trackJob } from "@/lib/trackJob";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import type { JobItem } from "@/lib/types";
 
@@ -25,6 +26,39 @@ interface Asset {
   kind: string;
   prompt: string;
   seed: number;
+  /** 版本树:同链归组的根 job id。 */
+  rootId: string;
+  /** 有参数快照才能精确重生(旧数据无)。 */
+  hasParams: boolean;
+  /** 同链版本数(>1 才显示版本徽章/历史)。 */
+  versionCount: number;
+}
+
+/** 作业列表 → 平铺产物;同链(root)版本计数供版本徽章。 */
+function flattenJobs(jobs: JobItem[]): Asset[] {
+  const rootCount = new Map<string, number>();
+  for (const j of jobs) {
+    const root = j.root_id || j.id;
+    rootCount.set(root, (rootCount.get(root) ?? 0) + 1);
+  }
+  const flat: Asset[] = [];
+  for (const j of jobs) {
+    const root = j.root_id || j.id;
+    (j.results ?? []).forEach((u, i) =>
+      flat.push({
+        key: `${j.id}-${i}`,
+        jobId: j.id,
+        url: imageUrl(u),
+        kind: j.kind,
+        prompt: j.prompt,
+        seed: j.seed,
+        rootId: root,
+        hasParams: !!j.has_params,
+        versionCount: rootCount.get(root) ?? 1,
+      }),
+    );
+  }
+  return flat;
 }
 
 type AssetKind = "glb" | "audio" | "video" | "image";
@@ -85,6 +119,18 @@ function isLightboxable(t: AssetKind): boolean {
   return t === "image" || t === "video";
 }
 
+/** 可「重生成(换seed)」的 kind:有采样随机性;确定性 kind(upscale/removebg/raw)重抽只会出一样的图。 */
+const RERUN_KINDS = new Set([
+  "txt2img", "img2img", "controlnet", "facedetailer", "inpaint",
+  "wan_t2v", "wan_i2v", "hunyuan3d", "ace_audio",
+  "manju_shot_txt2img", "manju_shot_ipadapter", "manju_lipsync",
+]);
+/** 可「微调(锁seed改词)」的 kind:请求模型有 positive 字段,overrides 才不会被后端丢弃。 */
+const TWEAK_KINDS = new Set([
+  "txt2img", "img2img", "controlnet", "facedetailer", "inpaint",
+  "wan_t2v", "wan_i2v", "manju_shot_txt2img", "manju_shot_ipadapter",
+]);
+
 export function LibraryView() {
   const [assets, setAssets] = useState<Asset[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -97,6 +143,9 @@ export function LibraryView() {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
+  // 版本树:挂起跳转(列表刷新后按 jobId 重新定位灯箱)+ 当前灯箱 jobId(异步回调防串台)
+  const pendingJumpRef = useRef<string | null>(null);
+  const activeJobIdRef = useRef<string | null>(null);
   const reduced = useReducedMotion();
   // R18 软开关:切换后(revision 变化)重拉作品库,让后端的服务端过滤即时生效。
   const { revision: nsfwRevision } = useNsfw();
@@ -105,21 +154,7 @@ export function LibraryView() {
     let alive = true;
     listJobs()
       .then((jobs: JobItem[]) => {
-        if (!alive) return;
-        const flat: Asset[] = [];
-        for (const j of jobs) {
-          (j.results ?? []).forEach((u, i) =>
-            flat.push({
-              key: `${j.id}-${i}`,
-              jobId: j.id,
-              url: imageUrl(u),
-              kind: j.kind,
-              prompt: j.prompt,
-              seed: j.seed,
-            }),
-          );
-        }
-        setAssets(flat);
+        if (alive) setAssets(flattenJobs(jobs));
       })
       .catch((e: Error) => {
         if (alive) setError(e.message);
@@ -135,10 +170,20 @@ export function LibraryView() {
     return assets.filter((a) => assetType(a.url) === filter);
   }, [assets, filter]);
 
-  // 切换筛选 / 数据变化:重置增量游标到首屏一批,并关闭可能开着的灯箱
+  // 切换筛选 / 数据变化:重置增量游标;默认关灯箱(防新条目前插导致索引漂移)。
+  // 有挂起跳转(点了版本条里尚未入列的新版本 → 触发刷新)则按 jobId 重新定位。
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
+    const target = pendingJumpRef.current;
+    if (target) {
+      pendingJumpRef.current = null;
+      const idx = shown.findIndex((a) => a.jobId === target);
+      setDims(null);
+      setActiveIndex(idx >= 0 ? idx : null);
+      return;
+    }
     setActiveIndex(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- shown 由 assets+filter 派生,同拍
   }, [filter, assets]);
 
   // 实际渲染的瓦片(增量切片);还有更多则保留哨兵
@@ -172,7 +217,46 @@ export function LibraryView() {
     setActiveIndex(index);
   }, []);
 
-  const closeLightbox = useCallback(() => setActiveIndex(null), []);
+  // ---------- 版本树:重生成 / 微调(锁seed)/ 版本历史 ----------
+  const [versions, setVersions] = useState<JobItem[] | null>(null);
+  const [versionsOpen, setVersionsOpen] = useState(false);
+  const [rerunBusy, setRerunBusy] = useState(false);
+  const [rerunMsg, setRerunMsg] = useState<string | null>(null);
+  const [tweakOpen, setTweakOpen] = useState(false);
+  const [tweakText, setTweakText] = useState("");
+  // rerun 产生过新版本 → 关灯箱时重拉列表(避免开着时索引漂移)
+  const dirtyRef = useRef(false);
+
+  const reload = useCallback(async () => {
+    try {
+      invalidateJobs();
+      const jobs = await listJobs();
+      setAssets(flattenJobs(jobs));
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }, []);
+
+  const closeLightbox = useCallback(() => {
+    setActiveIndex(null);
+    if (dirtyRef.current) {
+      dirtyRef.current = false;
+      void reload();
+    }
+  }, [reload]);
+
+  // 切换灯箱对象:收起版本条 / 微调编辑器 / 状态提示
+  useEffect(() => {
+    setVersions(null);
+    setVersionsOpen(false);
+    setTweakOpen(false);
+    setRerunMsg(null);
+  }, [activeIndex]);
+
+  // 异步回调防串台:随时可读的「当前灯箱 jobId」(rerun/版本请求完成时比对)
+  useEffect(() => {
+    activeJobIdRef.current = active?.jobId ?? null;
+  }, [active]);
 
   // 删除一件作品:确认 → 删后端记录 → 从本地列表剔除该 job 的所有产物 → 关灯箱
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -190,6 +274,77 @@ export function LibraryView() {
       setDeleting(null);
     }
   }, [deleting]);
+
+  /** 展开/收起版本历史条(首次展开时拉取同根版本链;晚到的旧响应丢弃防串台)。 */
+  const toggleVersions = useCallback(async () => {
+    if (!active) return;
+    if (versionsOpen) {
+      setVersionsOpen(false);
+      return;
+    }
+    const forJob = active.jobId;
+    setVersionsOpen(true);
+    try {
+      const list = await jobVersions(forJob);
+      if (activeJobIdRef.current === forJob) setVersions(list);
+    } catch (e) {
+      if (activeJobIdRef.current === forJob) {
+        setVersionsOpen(false);
+        // 错误在灯箱内展示(页面顶部横幅会被灯箱遮罩盖住)
+        setRerunMsg(`版本历史加载失败:${(e as Error).message}`);
+      }
+    }
+  }, [active, versionsOpen]);
+
+  /** 点版本缩略图 → 灯箱跳到该版本;不在当前列表(刚生成/超窗)则刷新后按 jobId 定位。 */
+  const jumpToJob = useCallback(
+    (jobId: string) => {
+      const idx = shown.findIndex((a) => a.jobId === jobId);
+      if (idx >= 0) {
+        setDims(null);
+        setActiveIndex(idx);
+        return;
+      }
+      pendingJumpRef.current = jobId;
+      dirtyRef.current = false;
+      void reload();
+    },
+    [shown, reload],
+  );
+
+  /** 重生成(random)/微调(keep=锁 seed):提交 → 等完成 → 就地刷新版本条。
+   *  完成回调一律与「当前灯箱对象」比对,等待期间切图/关灯箱都不会把状态写错地方。 */
+  const handleRerun = useCallback(
+    async (a: Asset, opts: RerunOptions) => {
+      if (rerunBusy) return;
+      setRerunBusy(true);
+      setRerunMsg(opts.seed_mode === "keep" ? "微调中(锁 seed)…" : "重新生成中…");
+      try {
+        const res = await rerunJob(a.jobId, opts);
+        await trackJob(res);
+        invalidateJobs(); // 缓存先失效:无论灯箱开关,下次拉取都是新链
+        dirtyRef.current = true;
+        if (activeJobIdRef.current === a.jobId) {
+          setRerunMsg("完成 ✓ 新版本已入链(关闭后列表刷新)");
+          setVersionsOpen(true);
+          const list = await jobVersions(a.jobId);
+          if (activeJobIdRef.current === a.jobId) setVersions(list);
+        } else if (activeJobIdRef.current === null) {
+          // 灯箱已关:立即刷新列表,新版本/徽章直接可见
+          dirtyRef.current = false;
+          void reload();
+        }
+        // 切到了别的作品:不动当前 UI,关灯箱时经 dirtyRef 刷新
+      } catch (e) {
+        const msg = (e as Error).message;
+        if (activeJobIdRef.current === a.jobId) setRerunMsg(`失败:${msg}`);
+        else setError(msg);
+      } finally {
+        setRerunBusy(false);
+      }
+    },
+    [rerunBusy, reload],
+  );
 
   // 在当前筛选列表内切上/下一件(边界处理:夹在 [0, len-1])
   const step = useCallback(
@@ -307,6 +462,11 @@ export function LibraryView() {
                 style={lightboxable ? undefined : { cursor: "default" }}
               >
                 <span className="tile-kind">{kindLabel(a.kind, a.url)}</span>
+                {a.versionCount > 1 && (
+                  <span className="tile-ver" title={`同链 ${a.versionCount} 个版本`}>
+                    {a.versionCount} 版
+                  </span>
+                )}
                 <button
                   type="button"
                   className="tile-del"
@@ -459,8 +619,42 @@ export function LibraryView() {
                       </dd>
                     </div>
                   )}
+                  {active.versionCount > 1 && (
+                    <div>
+                      <dt>版本</dt>
+                      <dd className="num">{active.versionCount}</dd>
+                    </div>
+                  )}
                 </dl>
                 <div className="lb-actions">
+                  {active.hasParams && RERUN_KINDS.has(active.kind) && (
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      disabled={rerunBusy}
+                      title="同参数换 seed 重抽"
+                      onClick={() => handleRerun(active, { seed_mode: "random" })}
+                    >
+                      重生成
+                    </button>
+                  )}
+                  {active.hasParams && TWEAK_KINDS.has(active.kind) && (
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      disabled={rerunBusy}
+                      title="锁 seed 只改提示词:构图不变,改哪动哪"
+                      onClick={() => {
+                        setTweakOpen((o) => !o);
+                        setTweakText(active.prompt);
+                      }}
+                    >
+                      微调
+                    </button>
+                  )}
+                  <button type="button" className="btn-ghost" onClick={toggleVersions}>
+                    {versionsOpen ? "收起版本" : `版本历史${active.versionCount > 1 ? ` (${active.versionCount})` : ""}`}
+                  </button>
                   <a className="btn-ghost" href={active.url} download>
                     {activeType === "video" ? "下载视频" : "下载原图"}
                   </a>
@@ -473,6 +667,75 @@ export function LibraryView() {
                     {deleting === active.jobId ? "删除中…" : "删除作品"}
                   </button>
                 </div>
+
+                {tweakOpen && active.hasParams && TWEAK_KINDS.has(active.kind) && (
+                  <div className="lb-tweak">
+                    <textarea
+                      rows={3}
+                      value={tweakText}
+                      onChange={(e) => setTweakText(e.target.value)}
+                      placeholder="改动提示词(锁 seed,构图保持)"
+                    />
+                    <div className="lb-tweak-row">
+                      <span className="lb-tweak-seed">seed {active.seed} 已锁</span>
+                      <button
+                        type="button"
+                        className="btn-ghost"
+                        disabled={rerunBusy || !tweakText.trim()}
+                        onClick={() => {
+                          setTweakOpen(false);
+                          const text = tweakText.trim();
+                          handleRerun(active, {
+                            seed_mode: "keep",
+                            ...(text && text !== active.prompt
+                              ? { overrides: { positive: text } }
+                              : {}),
+                          });
+                        }}
+                      >
+                        生成微调版
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {rerunMsg && (
+                  <p className="lb-rerun-msg" role="status">
+                    {rerunBusy && <span className="lb-spin" aria-hidden="true" />}
+                    {rerunMsg}
+                  </p>
+                )}
+
+                {versionsOpen && (
+                  <div className="lb-versions" aria-label="版本历史">
+                    {versions === null ? (
+                      <p className="lb-vs-loading">加载版本…</p>
+                    ) : (
+                      versions.map((v, idx) => {
+                        const thumb = v.results?.[0];
+                        const t = thumb ? assetType(thumb) : "image";
+                        const isCurrent = v.id === active.jobId;
+                        return (
+                          <button
+                            key={v.id}
+                            type="button"
+                            className={`lb-ver${isCurrent ? " is-current" : ""}`}
+                            title={`v${idx + 1} · seed ${v.seed}${isCurrent ? "(当前)" : ""}`}
+                            onClick={() => jumpToJob(v.id)}
+                          >
+                            {thumb && t === "image" ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={imageUrl(thumb)} alt={`v${idx + 1}`} loading="lazy" />
+                            ) : (
+                              <span className="lb-ver-ph">{t === "video" ? "▶" : "…"}</span>
+                            )}
+                            <span className="lb-ver-tag">v{idx + 1}</span>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
               </aside>
 
               <button

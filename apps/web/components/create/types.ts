@@ -25,6 +25,12 @@ export interface ResultMeta {
   height?: number;
   /** img2img/重绘:原图 URL,用于结果卡的拖动对比(before)。 */
   beforeUrl?: string;
+  /** 版本树:该结果对应的后端作业(rerun/versions 按 prompt_id 寻址)。 */
+  promptId?: string;
+  /** 实际使用的 seed(锁 seed 微调用)。 */
+  seed?: number;
+  /** 同作业实际产出张数(rerun 复放 batch 时骨架占位用)。 */
+  batch?: number;
 }
 
 export interface AspectPreset {

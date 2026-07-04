@@ -32,8 +32,15 @@ def test_nsfw_graph_blocked_when_disabled():
 
 
 def test_nsfw_graph_allowed_when_enabled():
-    user = SimpleNamespace(nsfw_enabled=True)
-    assert _gate_raw_graph_nsfw(_graph(_NSFW), user) is True
+    """新语义:放行看 X-NSFW 头(nsfw_intent ContextVar),账户开关不再生效。"""
+    from app.nsfw_ctx import nsfw_intent_var
+
+    user = SimpleNamespace(nsfw_enabled=False)
+    token = nsfw_intent_var.set(True)  # 模拟 /nsfw 专页请求(中间件置位)
+    try:
+        assert _gate_raw_graph_nsfw(_graph(_NSFW), user) is True
+    finally:
+        nsfw_intent_var.reset(token)
 
 
 def test_graph_without_ckpt_is_sfw():

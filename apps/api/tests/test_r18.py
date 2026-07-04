@@ -111,7 +111,7 @@ class _FakePool:
     def clients(self) -> list:
         return [self._client]
 
-    async def pick(self, required=()):  # noqa: ANN001
+    async def pick(self, required=(), required_nodes=None):  # noqa: ANN001
         return self._client
 
 
@@ -242,12 +242,13 @@ def test_models_filtered_when_nsfw_disabled(client):
 
 
 def test_models_full_when_nsfw_enabled(client):
+    """新语义:R18 放行看 X-NSFW 请求头(/nsfw 专页),账户开关不再单独生效。"""
     c, engine = client
     with Session(engine) as s:
         uid = _seed_user(s, "r18user", nsfw_enabled=True)
     app.dependency_overrides[get_pool] = lambda: _FakePool()
     token = create_token(uid)
-    r = c.get("/api/models", headers={"Authorization": f"Bearer {token}"})
+    r = c.get("/api/models", headers={"Authorization": f"Bearer {token}", "X-NSFW": "1"})
     assert r.status_code == 200
     body = r.json()
     assert set(body["checkpoints"]) == {"DreamShaper_8.safetensors", "ponyRealism.safetensors"}
@@ -270,7 +271,8 @@ def test_local_models_filters_nsfw_loras(client):
     assert off["nsfw_models"] == []
 
     on = c.get(
-        "/api/models/local", headers={"Authorization": f"Bearer {create_token(uid_on)}"}
+        "/api/models/local",
+        headers={"Authorization": f"Bearer {create_token(uid_on)}", "X-NSFW": "1"},
     ).json()
     assert "ponyRealism.safetensors" in on["checkpoints"]
     assert "nsfw_boost.safetensors" in on["loras"]
@@ -366,12 +368,16 @@ def test_jobs_filtered_when_nsfw_disabled(client):
 
 
 def test_jobs_full_when_nsfw_enabled(client):
+    """新语义:带 X-NSFW 头(/nsfw 专页)才能看到 R18 作品。"""
     c, engine = client
     with Session(engine) as s:
         uid = _seed_user(s, "jobson", nsfw_enabled=True)
         user = s.get(User, uid)
         _seed_jobs(s, user)
-    r = c.get("/api/jobs", headers={"Authorization": f"Bearer {create_token(uid)}"})
+    r = c.get(
+        "/api/jobs",
+        headers={"Authorization": f"Bearer {create_token(uid)}", "X-NSFW": "1"},
+    )
     assert r.status_code == 200
     prompts = {j["prompt"] for j in r.json()}
     assert prompts == {"sfw work", "r18 work"}
@@ -406,7 +412,7 @@ def test_generate_nsfw_ckpt_allowed_when_enabled(client, monkeypatch):
     token = create_token(uid)
     r = c.post(
         "/api/generate/txt2img",
-        headers={"Authorization": f"Bearer {token}"},
+        headers={"Authorization": f"Bearer {token}", "X-NSFW": "1"},
         json={"positive": "a cat", "ckpt_name": "ponyRealism.safetensors"},
     )
     assert r.status_code == 200, r.text
@@ -456,3 +462,58 @@ def test_generate_nextgen_ckpt_ok(client, monkeypatch):
     with Session(engine) as s:
         job = s.exec(select(Job).where(Job.user_id == uid)).first()
         assert job is not None and job.kind == "txt2img"
+
+
+# --------------------------------------------------------------------------- #
+# 8) 漫剧单镜 / raw 工作流:与其它端点同一 R18 门槛(header-only)
+# --------------------------------------------------------------------------- #
+
+
+def test_manju_shot_nsfw_ckpt_gated_and_tagged(client, monkeypatch):
+    """漫剧单镜:R18 底模主站 403;/nsfw(带头)放行并打 Job.nsfw 标。"""
+    import app.routes.manju as manju_route
+
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "manjugate", nsfw_enabled=False)
+    app.dependency_overrides[get_pool] = lambda: _FakePool()
+    monkeypatch.setattr(manju_route, "spawn_tracker", lambda *a, **k: None)
+    token = create_token(uid)
+    body = {"positive": "a cat", "ckpt_name": "ponyRealism.safetensors"}
+
+    r = c.post("/api/manju/shot", headers={"Authorization": f"Bearer {token}"}, json=body)
+    assert r.status_code == 403  # 主站无 X-NSFW 头 → 拒
+
+    r2 = c.post(
+        "/api/manju/shot",
+        headers={"Authorization": f"Bearer {token}", "X-NSFW": "1"},
+        json=body,
+    )
+    assert r2.status_code == 200, r2.text
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        assert job is not None and job.nsfw is True  # 打标 → 主站作品库/版本链可滤
+
+
+def test_raw_gate_uses_header_not_account_flag(client, monkeypatch):
+    """raw 工作流门槛已切 header-only:遗留账户开关不放行,X-NSFW 头才放行。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "rawgate", nsfw_enabled=True)  # 账户开关已废弃
+    app.dependency_overrides[get_pool] = lambda: _FakePool()
+    monkeypatch.setattr(generate_route, "spawn_tracker", lambda *a, **k: None)
+    token = create_token(uid)
+    graph = {
+        "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "ponyRealism.safetensors"}},
+        "2": {"class_type": "SaveImage", "inputs": {}},
+    }
+
+    r = c.post("/api/generate/raw", headers={"Authorization": f"Bearer {token}"}, json={"graph": graph})
+    assert r.status_code == 403  # 无头 → 拒(即使账户开关为 True)
+
+    r2 = c.post(
+        "/api/generate/raw",
+        headers={"Authorization": f"Bearer {token}", "X-NSFW": "1"},
+        json={"graph": graph},
+    )
+    assert r2.status_code == 200, r2.text
