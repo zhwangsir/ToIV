@@ -74,6 +74,10 @@ async function postAuth(path: string, body: object): Promise<AuthResult> {
 export function login(email: string, password: string): Promise<AuthResult> {
   return postAuth("/api/auth/login", { email, password });
 }
+/** AI 测试通道:用密钥换 token,免登录表单。契约:POST /api/auth/test-login { key }。 */
+export function testLogin(key: string): Promise<AuthResult> {
+  return postAuth("/api/auth/test-login", { key });
+}
 export async function fetchMe(): Promise<{ user: AppUser; usage: Usage }> {
   const res = await fetch(`${API_BASE}/api/auth/me`, { headers: authHeaders() });
   if (!res.ok) throw new Error("会话已过期");

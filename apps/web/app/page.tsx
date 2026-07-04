@@ -16,7 +16,7 @@ import { ActivityProvider } from "@/components/nav/ActivityContext";
 import { NsfwProvider } from "@/components/nav/NsfwContext";
 import { DynamicIsland, type IslandView } from "@/components/nav/DynamicIsland";
 import { viewVariants } from "@/lib/motion";
-import { fetchMe, getToken, setToken } from "@/lib/api";
+import { fetchMe, getToken, setToken, testLogin } from "@/lib/api";
 
 type AuthState = "loading" | "in" | "out";
 
@@ -60,21 +60,41 @@ export default function Home() {
     if (v && VALID_VIEWS.has(v as View)) setView(v as View);
   }, []);
 
-  // 启动时校验已存令牌
+  // 启动时:AI 测试通道(URL 令牌/密钥,免登录表单)→ 再校验已存令牌
   useEffect(() => {
-    if (!getToken()) {
-      setAuth("out");
-      return;
-    }
-    fetchMe()
-      .then((me) => {
-        setAccount({ email: me.user.email, role: me.user.role, usageTotal: me.usage.total });
-        setAuth("in");
-      })
-      .catch(() => {
-        setToken(null);
+    (async () => {
+      // /?t=<token> 直接注入令牌;/?testkey=<key> 用密钥换令牌(见 auth/test-login)
+      const params = new URLSearchParams(window.location.search);
+      const t = params.get("t");
+      const testkey = params.get("testkey");
+      if (t || testkey) {
+        try {
+          if (t) setToken(t);
+          else if (testkey) setToken((await testLogin(testkey)).token);
+        } catch {
+          /* 密钥错/通道未开 → 落回正常登录流程 */
+        }
+        // 清掉地址栏的令牌/密钥参数,避免留痕
+        params.delete("t");
+        params.delete("testkey");
+        const qs = params.toString();
+        window.history.replaceState({}, "", window.location.pathname + (qs ? `?${qs}` : ""));
+      }
+
+      if (!getToken()) {
         setAuth("out");
-      });
+        return;
+      }
+      fetchMe()
+        .then((me) => {
+          setAccount({ email: me.user.email, role: me.user.role, usageTotal: me.usage.total });
+          setAuth("in");
+        })
+        .catch(() => {
+          setToken(null);
+          setAuth("out");
+        });
+    })();
   }, []);
 
   const onLogout = useCallback(() => {

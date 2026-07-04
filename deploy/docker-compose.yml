@@ -15,6 +15,8 @@ services:
       TOIV_JWT_SECRET: "${TOIV_JWT_SECRET:?set TOIV_JWT_SECRET in deploy/.env}"
       TOIV_ADMIN_EMAIL: "${TOIV_ADMIN_EMAIL:-admin}"
       TOIV_ADMIN_PASSWORD: "${TOIV_ADMIN_PASSWORD:-admin123}"
+      # AI 测试通道密钥(走 deploy/.env,不入仓库);非空开启 /?testkey= 免登录测试,可清空停用
+      TOIV_TEST_KEY: "${TOIV_TEST_KEY:-}"
       TOIV_CORS_ORIGINS: "${TOIV_CORS_ORIGINS:-*}"
       # 模型市场:Civitai 走 civitai.red 镜像;API key(成人模型/高限额)走 deploy/.env,不入仓库
       TOIV_CIVITAI_API_KEY: "${TOIV_CIVITAI_API_KEY:-}"

@@ -58,6 +58,11 @@ class Settings(BaseSettings):
     admin_email: str = ""
     admin_password: str = ""
 
+    # AI 测试通道密钥(TOIV_TEST_KEY,走 .env 不入仓库)。非空时开启:
+    #   POST /api/auth/test-login {key} 用密钥换 admin token;前端 /?testkey=<key> 一跳进 app,
+    #   免登录表单,方便自动化/AI 测试。空 = 关闭(可随时清空停用)。
+    test_key: str = ""
+
     # AI 智能体的 LLM 大脑(OpenAI 兼容端点;默认 LM Studio @ GPU 机)
     llm_base_url: str = "http://192.168.71.100:1234/v1"
     llm_api_key: str = "lm-studio"
