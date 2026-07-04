@@ -10,6 +10,7 @@ import asyncio
 import logging
 import os
 import tempfile
+from pathlib import Path
 import time
 import uuid
 from urllib.parse import unquote, urlsplit
@@ -119,42 +120,55 @@ def _resolve(req: NasDownloadRequest) -> tuple[str, str]:
 
 
 def _download_url(url: str, dest: str, job: dict) -> None:
-    """流式下载 URL 到本地 dest,按 content-length 报进度。"""
-    with requests.get(url, stream=True, timeout=(30, 300)) as r:
+    """流式下载 URL 到 dest(可为 cifs 挂载路径,直落 NAS),按 content-length 报进度 0-100。"""
+    with requests.get(url, stream=True, timeout=(30, 600)) as r:
         r.raise_for_status()
         total = int(r.headers.get("content-length") or 0)
         got = 0
         with open(dest, "wb") as f:
-            for chunk in r.iter_content(chunk_size=1 << 20):
+            for chunk in r.iter_content(chunk_size=4 << 20):  # 4MB 块,大文件更省 syscall
                 if not chunk:
                     continue
                 f.write(chunk)
                 got += len(chunk)
                 if total:
-                    job["progress"] = int(got / total * 50)  # 下载占前 50%
+                    job["progress"] = int(got / total * 100)
                 job["downloaded_mb"] = round(got / 1024 / 1024, 1)
 
 
 def _run_blocking(req: NasDownloadRequest, job: dict) -> str:
-    """阻塞:解析下载链 → 下载 → SFTP 上传 NAS。放线程跑。返回 NAS 远端路径。"""
+    """阻塞:解析下载链 → 直接流式下载到 cifs 挂载的 NAS models 目录(免临时/免 SFTP)。
+    cifs 不可用时回退到"下临时→SFTP 上传"。返回落盘路径。"""
     job["stage"] = "解析下载地址"
     url, filename = _resolve(req)
     if req.filename.strip():
         filename = os.path.basename(req.filename.strip())
     job["filename"] = filename
+
+    s = get_settings()
+    mount = Path(s.nas_models_mount)
+    if mount.is_dir():
+        # 直落 NAS(内核 cifs 走 LAN 满速);先写 .part 再改名,避免 ComfyUI 读半成品
+        dest_dir = mount / nas.subdir_for(req.type)
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest = dest_dir / filename
+        part = dest.with_name(dest.name + ".part")
+        job["stage"] = "下载到 NAS"
+        _download_url(url, str(part), job)
+        if dest.exists():
+            dest.unlink()
+        part.rename(dest)
+        job["downloaded_mb"] = round(dest.stat().st_size / 1024 / 1024, 1)
+        return str(dest)
+
+    # 回退:cifs 未挂 → 下临时再 SFTP 传
     with tempfile.TemporaryDirectory(prefix="nasdl-") as tmp:
         job["stage"] = "下载中"
         local = os.path.join(tmp, filename)
         _download_url(url, local, job)
         job["downloaded_mb"] = round(os.path.getsize(local) / 1024 / 1024, 1)
         job["stage"] = "上传到 NAS"
-        job["progress"] = 50
-
-        def _up(sent: int, total: int) -> None:
-            if total:
-                job["progress"] = 50 + int(sent / total * 50)  # 上传占后 50%
-
-        return nas.upload_model(local, req.type, filename, on_progress=_up)
+        return nas.upload_model(local, req.type, filename)
 
 
 async def _run_download(req: NasDownloadRequest, job: dict) -> None:
