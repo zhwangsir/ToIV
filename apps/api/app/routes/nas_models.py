@@ -48,15 +48,23 @@ def _to_mirror(url: str) -> str:
     return url
 
 
-def _resolve_civitai(model_id: str) -> tuple[str, str]:
-    """Civitai 模型 id → 最新版本主文件的下载直链 + 文件名。"""
+def _resolve_civitai(model_id: str, version_id: str = "") -> tuple[str, str]:
+    """Civitai 模型 id → 主文件下载直链 + 文件名。version_id 指定则取该版本,否则最新。
+
+    version_id 用于绕开最新版被限制下载(如 LUSTIFY V9 需权限,回退到公开的 V8)。
+    """
     h = {"Authorization": f"Bearer {_CIVITAI_KEY}"} if _CIVITAI_KEY else {}
     r = requests.get(f"{_CIVITAI}/{model_id}", headers=h, timeout=30)
     r.raise_for_status()
     versions = r.json().get("modelVersions") or []
     if not versions:
         raise RuntimeError("Civitai 模型无可用版本")
-    files = versions[0].get("files") or []
+    ver = versions[0]
+    if version_id.strip():
+        ver = next((v for v in versions if str(v.get("id")) == version_id.strip()), None)
+        if ver is None:
+            raise RuntimeError(f"Civitai 模型 {model_id} 无版本 {version_id}")
+    files = ver.get("files") or []
     f = next((x for x in files if x.get("primary")), files[0] if files else None)
     if not f or not f.get("downloadUrl"):
         raise RuntimeError("Civitai 版本无可下载文件")
@@ -104,6 +112,7 @@ class NasDownloadRequest(BaseModel):
     source: str = Field(default="url", pattern="^(url|hf|civitai|huggingface)$")
     url: str = Field(default="", max_length=1000)  # source=url
     id: str = Field(default="", max_length=200)  # source=civitai/huggingface:模型 id / 仓库
+    version_id: str = Field(default="", max_length=40)  # source=civitai:指定版本(空=最新)
     hf_repo: str = Field(default="", max_length=200)  # source=hf 显式仓库
     hf_file: str = Field(default="", max_length=300)  # repo 内文件路径(huggingface 可空=自动挑主文件)
     type: str = Field(default="checkpoint", max_length=40)  # checkpoint/lora/vae/...
@@ -115,7 +124,7 @@ def _resolve(req: NasDownloadRequest) -> tuple[str, str]:
     if req.source == "civitai":
         if not req.id:
             raise RuntimeError("缺少 Civitai 模型 id")
-        return _resolve_civitai(req.id)
+        return _resolve_civitai(req.id, req.version_id)
     if req.source == "huggingface":
         repo = req.id.strip().strip("/")
         if not repo:
