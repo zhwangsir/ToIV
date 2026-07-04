@@ -275,3 +275,73 @@ def test_fit_resolution_sd15_caps_long_side():
 def test_fit_resolution_square_sdxl_is_1024():
     w, h = fit_resolution("ponyDiffusionV6XL_v6.safetensors", 512, 512)
     assert w == 1024 and h == 1024
+
+
+# ---------------------------------------------------------------------------
+# 新增 NSFW 底模(civitai 调研批,2026-07)—— 分类/族/采样正确性
+# 确保:① 全部归 NSFW 档(不泄漏到主站)② 架构族正确(→ 分辨率/采样档)
+#      ③ vpred 模型触发 v_prediction 注入
+# ---------------------------------------------------------------------------
+
+from app.workflows.model_profiles import detect_model_family, is_nextgen  # noqa: E402
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "waiIllustriousSDXL_v170.safetensors",
+        "hassakuXLIllustrious_v34.safetensors",
+        "waiSHUFFLENOOB_vPred04.safetensors",
+        "cyberrealisticPony_v180Coreshift.safetensors",
+        "autismmixSDXL_autismmixPony.safetensors",
+        "ponyRealism_V22.safetensors",
+        "lustifySDXLNSFW_zenithV9.safetensors",
+        "cyberrealistic_v120.safetensors",  # CyberIllustrious(文件名无 illustrious)
+        "nova3DCGXL_ilV90.safetensors",
+    ],
+)
+def test_new_nsfw_checkpoints_tagged(name: str):
+    """新下载的 NSFW 底模必须被判为 NSFW → 只在 /nsfw 专区可见,不泄漏主站。"""
+    assert is_nsfw(name) is True
+
+
+@pytest.mark.parametrize(
+    "name,family",
+    [
+        ("waiIllustriousSDXL_v170.safetensors", "sdxl_anime"),
+        ("hassakuXLIllustrious_v34.safetensors", "sdxl_anime"),
+        ("waiSHUFFLENOOB_vPred04.safetensors", "sdxl_anime"),  # wai → 动漫族
+        ("cyberrealisticPony_v180Coreshift.safetensors", "pony"),
+        ("autismmixSDXL_autismmixPony.safetensors", "pony"),
+        ("ponyRealism_V22.safetensors", "pony"),
+        ("lustifySDXLNSFW_zenithV9.safetensors", "sdxl"),  # 纯SDXL写实,自然语言
+        ("cyberrealistic_v120.safetensors", "sdxl_anime"),  # 修:曾误判 sd15(0.4MP 崩)
+        ("nova3DCGXL_ilV90.safetensors", "sdxl"),
+    ],
+)
+def test_new_nsfw_checkpoint_family(name: str, family: str):
+    """架构族决定分辨率档(SDXL≈1MP)与采样/提示词方言。无一可落 sd15(否则 640px 崩)。"""
+    assert detect_model_family(name) == family
+    assert family != "sd15"
+    # 均非次世代 UNET 图,走传统 checkpoint 图
+    assert is_nextgen(name) is False
+
+
+@pytest.mark.parametrize(
+    "name,vpred",
+    [
+        ("waiSHUFFLENOOB_vPred04.safetensors", True),
+        ("waiIllustriousSDXL_v170.safetensors", False),
+        ("cyberrealisticPony_v180Coreshift.safetensors", False),
+        ("lustifySDXLNSFW_zenithV9.safetensors", False),
+    ],
+)
+def test_new_nsfw_vpred_flag(name: str, vpred: bool):
+    """vpred 底模须触发 ModelSamplingDiscrete(v_prediction),eps 底模不触发。"""
+    assert is_vpred(name) is vpred
+
+
+def test_cyberillustrious_gets_sdxl_resolution():
+    """回归:cyberrealistic_v120(Illustrious 基,文件名无 xl/illustrious)须走 1MP 档而非 640px。"""
+    w, h = fit_resolution("cyberrealistic_v120.safetensors", 512, 512)
+    assert w >= 900 and h >= 900  # ~1024²,非 sd15 的 640²

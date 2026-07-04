@@ -109,7 +109,9 @@ def detect_model_family(name: str) -> str:
         return "flux"
     if "qwen" in low:
         return "qwen"
-    if any(h in low for h in ("illustrious", "noobai", "animagine", "anime", "wai", "hassaku")):
+    # cyberrealistic:pony 变体已在上面被 "pony" 命中;此处仅捕获 Illustrious 基的
+    # CyberIllustrious(文件名 cyberrealistic_v120,无 xl/illustrious 子串,否则误落 sd15)。
+    if any(h in low for h in ("illustrious", "noobai", "animagine", "anime", "wai", "hassaku", "cyberrealistic")):
         return "sdxl_anime"
     if is_sdxl(low):
         return "sdxl"
@@ -126,8 +128,10 @@ def fit_resolution(ckpt_name: str, width: int, height: int) -> tuple[int, int]:
     width = max(64, width)
     height = max(64, height)
     ar = width / height
-    # 次世代(flux2/qwen_image/z_image)与 SDXL 同为 ~1MP 原生;仅 SD1.5 走 0.4MP 小档。
-    if is_sdxl(ckpt_name) or detect_model_family(ckpt_name) in _NEXTGEN_FAMILIES:
+    # 分辨率档按**架构族**定:仅 SD1.5 走 0.4MP 小档,其余(SDXL/SDXL动漫/Pony/次世代/
+    # flux/qwen)均 ~1MP 原生。按 family 而非 is_sdxl 判断,兼容文件名不含 "xl" 的
+    # SDXL 衍生(如 cyberrealistic_v120 = CyberIllustrious),避免误落 640² 崩坏。
+    if detect_model_family(ckpt_name) != "sd15":
         budget = 1024 * 1024
         long_cap = 1536
     else:
@@ -167,6 +171,14 @@ _DEFAULT_NSFW_HINTS: tuple[str, ...] = (
     "animagine",
     "illustrious",
     "realisticvision",
+    # civitai 调研批(2026-07)新增 NSFW 底模家族:文件名不含通用族词、需显式登记,
+    # 否则泄漏到主站(is_nsfw 决定 /nsfw 门槛)。均为成人向底模,打标即隐藏于主站。
+    "cyberrealistic",  # CyberRealistic Pony / CyberIllustrious
+    "shufflenoob",     # WAI-SHUFFLE-NOOB(vpred)
+    "nova3dcg",        # Nova 3DCG XL(2.5D 手办 CG)
+    "lustify",         # LUSTIFY(纯 SDXL 写实 NSFW)
+    "hassaku",         # Hassaku XL(浓烈 hentai)
+    "autismmix",       # AutismMix(Pony 动漫基座)
     # 显式关键词
     "nsfw",
     "r18",

@@ -35,6 +35,19 @@ _HF_API = f"{_HF_BASE}/api/models"
 _WEIGHT_EXT = (".safetensors", ".ckpt", ".pt", ".pth", ".bin", ".gguf")
 
 
+# mirror(civitai.red)host:下载链须走 mirror 才能用 mirror key 鉴权。
+# API 有时返回指向 civitai.com 的 downloadUrl(如 LUSTIFY),对 mirror key 会 401 —— 统一改写。
+_CIVITAI_HOST = urlsplit(_CIVITAI).netloc
+
+
+def _to_mirror(url: str) -> str:
+    """把下载直链的 host 改写成 mirror host,使 mirror key 生效(避免落到 civitai.com 401)。"""
+    parts = urlsplit(url)
+    if _CIVITAI_HOST and parts.netloc and parts.netloc != _CIVITAI_HOST:
+        return parts._replace(netloc=_CIVITAI_HOST).geturl()
+    return url
+
+
 def _resolve_civitai(model_id: str) -> tuple[str, str]:
     """Civitai 模型 id → 最新版本主文件的下载直链 + 文件名。"""
     h = {"Authorization": f"Bearer {_CIVITAI_KEY}"} if _CIVITAI_KEY else {}
@@ -47,7 +60,7 @@ def _resolve_civitai(model_id: str) -> tuple[str, str]:
     f = next((x for x in files if x.get("primary")), files[0] if files else None)
     if not f or not f.get("downloadUrl"):
         raise RuntimeError("Civitai 版本无可下载文件")
-    url = f["downloadUrl"]
+    url = _to_mirror(f["downloadUrl"])
     if _CIVITAI_KEY and "token=" not in url:
         url += ("&" if "?" in url else "?") + f"token={_CIVITAI_KEY}"
     return url, (f.get("name") or unquote(os.path.basename(urlsplit(url).path)))
