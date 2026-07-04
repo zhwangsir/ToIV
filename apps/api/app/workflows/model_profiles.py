@@ -302,7 +302,9 @@ _NEXTGEN_RECIPES: dict[str, NextgenRecipe] = {
     # Klein→qwen_3_4b(worker 已有)。此处默认 dev 的 Mistral;Klein 在解析时替换。
     "flux2": NextgenRecipe(
         clip_type="flux2",
-        clip_name="mistral_3_small_flux2_fp8_scaled.safetensors",  # dev 编码器(需下载)
+        # dev 编码器:Comfy-Org/flux2-dev 实际文件名为 mistral_3_small_flux2_fp8(无 _scaled),
+        # 配 fp8mixed UNET;已下载到 NAS text_encoders。
+        clip_name="mistral_3_small_flux2_fp8.safetensors",
         vae_name="flux2-vae.safetensors",
         model_sampling="ModelSamplingFlux",
         latent_node="EmptyFlux2LatentImage",
