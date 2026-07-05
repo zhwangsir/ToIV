@@ -28,7 +28,7 @@ const GROUPS = {
   system: { label: "系统", keys: ["admin"] },
 };
 
-const TRANSITION = { type: "spring", stiffness: 420, damping: 32 };
+const TRANSITION = { type: "spring" as const, stiffness: 420, damping: 32 };
 
 const ViewButton = memo(function ViewButton({
   view,
