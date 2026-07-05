@@ -156,10 +156,8 @@ export function AudioStudio() {
 
       <main className="stage">
         <header className="view-header">
-          <span className="view-eyebrow">Score · 编曲台</span>
-          <h1 className="view-title">
-            文生 <em>音乐</em>
-          </h1>
+          <span className="view-eyebrow">Audio</span>
+          <h1 className="view-title">音乐台</h1>
           <div className="view-tally">
             <span className="n">{tracks.length}</span>
             <span className="l">首作品</span>

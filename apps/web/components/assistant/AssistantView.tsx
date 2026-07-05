@@ -117,13 +117,9 @@ export function AssistantView() {
   return (
     <div className="assistant">
       <header className="view-header">
-        <span className="view-eyebrow">Atelier · 智能助手</span>
-        <h1 className="view-title">
-          对话 <em>造物</em>
-        </h1>
-        <p className="view-lede">
-          一句话说出想要的画面、视频、3D 或音乐 —— 助手自动选模型、跑工作流、出结果。上传图片还能重绘或转 3D。
-        </p>
+        <span className="view-eyebrow">Assistant</span>
+        <h1 className="view-title">AI 助手</h1>
+        <p className="view-lede">一句话生成画面、视频、3D 或音乐;上传图片可重绘。</p>
         <div className="view-tally">
           <span className="n">{turns}</span>
           <span className="l">轮对话</span>

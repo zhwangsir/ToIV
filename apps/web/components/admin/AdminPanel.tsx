@@ -75,11 +75,9 @@ export function AdminPanel() {
   return (
     <div className="view">
       <header className="view-header">
-        <span className="view-eyebrow">Console · 后台</span>
-        <h1 className="view-title">
-          用户 <em>管理</em>
-        </h1>
-        <p className="view-lede">发放账号、查看每位成员的生成用量,并管理权限。</p>
+        <span className="view-eyebrow">Admin</span>
+        <h1 className="view-title">管理台</h1>
+        <p className="view-lede">账号发放、用量与权限。</p>
         <div className="view-tally">
           <span className="n">{users?.length ?? 0}</span>
           <span className="l">个账号</span>

@@ -93,13 +93,9 @@ export function ModelLibrary() {
   return (
     <div className="view">
       <header className="view-header">
-        <span className="view-eyebrow">Atelier · 模型工坊</span>
-        <h1 className="view-title">
-          模型 <em>库</em>
-        </h1>
-        <p className="view-lede">
-          浏览本地已装权重,或在 Civitai / HuggingFace 上搜罗大模型、LoRA、ControlNet。
-        </p>
+        <span className="view-eyebrow">Models</span>
+        <h1 className="view-title">模型库</h1>
+        <p className="view-lede">本地已装权重与市场搜索。</p>
         <div className="view-tally">
           <span className="n">{tab === "local" ? localCount : items.length}</span>
           <span className="l">{tab === "local" ? "件已装" : "条结果"}</span>

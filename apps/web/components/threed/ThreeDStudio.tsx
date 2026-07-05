@@ -159,10 +159,8 @@ export function ThreeDStudio() {
 
       <main className="stage">
         <header className="view-header">
-          <span className="view-eyebrow">Sculpt · 立体台</span>
-          <h1 className="view-title">
-            图生 <em>3D</em>
-          </h1>
+          <span className="view-eyebrow">3D</span>
+          <h1 className="view-title">3D 台</h1>
           <div className="view-tally">
             <span className="n">{models.length}</span>
             <span className="l">个模型</span>

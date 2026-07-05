@@ -1,8 +1,8 @@
 /* 模型市场 ·「安装到集群」按钮 + 状态层。
-   沿用 globals.css 既有 token(品紫 --accent / --success / --danger),
+   沿用 globals.css 既有 token(琥珀 --accent / --success / --danger),
    只补安装动作的视觉与状态反馈。Studio Noir 暗房风,可访问 + reduced-motion 降级。 */
 
-/* 主操作按钮:实心品紫,从既有 .mcard-type 渐变语言取色,与 .btn-ghost 形成层级对比 */
+/* 主操作按钮:实心琥珀,与 .btn-ghost 形成层级对比 */
 .install-btn {
   flex: 1 1 auto;
   display: inline-flex;
@@ -14,8 +14,8 @@
   font-weight: 500;
   line-height: 1;
   color: var(--accent-ink);
-  background: linear-gradient(180deg, var(--accent-hover), var(--accent-deep));
-  border: 1px solid var(--accent-line);
+  background: var(--accent);
+  border: 1px solid var(--accent);
   border-radius: 999px;
   padding: 0.36rem 0.85rem;
   cursor: pointer;
@@ -27,7 +27,8 @@
     opacity var(--dur) var(--ease);
 }
 .install-btn:hover:not(:disabled) {
-  background: linear-gradient(180deg, var(--accent), var(--accent-hover));
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
   transform: translateY(-1px);
 }
 .install-btn:active:not(:disabled) {

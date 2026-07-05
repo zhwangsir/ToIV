@@ -44,7 +44,7 @@
   will-change: transform;
 }
 
-/* 首块用品紫色调高光,做出"正在采样"的焦点感 */
+/* 首块用琥珀色调高光,做出"正在采样"的焦点感 */
 .gen-skel-tile.is-lead::after {
   background: linear-gradient(
     100deg,
