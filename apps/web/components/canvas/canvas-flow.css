@@ -1,5 +1,5 @@
 /* React Flow 画布表面:容器台面 · 连线 · 控制条 · 小地图。
-   全部限定在 .cv-flow 下,覆盖 react-flow 默认皮肤为暗房品紫风。 */
+   全部限定在 .cv-flow 下,覆盖 react-flow 默认皮肤为 Studio Noir 暗房风。 */
 
 /* ── React Flow 画布容器:暗房沉底台面 ── */
 .cv-flow {
@@ -10,25 +10,24 @@
 .cv-flow .react-flow {
   background: var(--bg-sunken);
 }
-/* 极淡顶部余晖,克制非赛博;点阵网格由 react-flow__background path 着色 */
+/* 台面保持纯中性沉底,无顶部辉光;点阵网格由 react-flow__background path 着色 */
 .cv-flow .react-flow__background {
-  background:
-    radial-gradient(140% 100% at 50% -10%, var(--accent-wash), transparent 55%);
+  background: var(--bg-sunken);
 }
 .cv-flow .react-flow__background path,
 .cv-flow .react-flow__background circle {
   color: var(--hairline);
 }
 
-/* 连线:品紫;运行中流动虚线,完成实线 */
+/* 连线:默认中性细线;选中/悬停/运行才用琥珀强调 */
 .cv-flow .react-flow__edge-path {
-  stroke: var(--accent-line);
-  stroke-width: 1.75;
+  stroke: var(--hairline-2);
+  stroke-width: 1.5;
 }
 .cv-flow .react-flow__edge.selected .react-flow__edge-path,
 .cv-flow .react-flow__edge:hover .react-flow__edge-path {
-  stroke: var(--accent);
-  stroke-width: 2.25;
+  stroke: var(--accent-line);
+  stroke-width: 2;
 }
 .cv-flow .react-flow__edge.animated .react-flow__edge-path {
   stroke: var(--accent);
@@ -36,12 +35,12 @@
   animation: cv-dash 0.7s linear infinite;
 }
 .cv-flow .react-flow__connection-path {
-  stroke: var(--accent);
+  stroke: var(--accent-line);
   stroke-width: 2;
   stroke-dasharray: 6 5;
 }
 
-/* 控制条 + 小地图:品紫极简玻璃 */
+/* 控制条 + 小地图:暗房极简玻璃 */
 .cv-flow .react-flow__controls.cv-controls {
   background: color-mix(in oklab, var(--bg-2) 72%, transparent);
   backdrop-filter: blur(8px);

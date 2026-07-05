@@ -1,5 +1,5 @@
 /* 结果网格拖拽排序的状态层:沿用既有 token,只补 DnD 反馈样式。
-   - 拖拽中:被拖卡片半透明 + 微缩,落点卡片高亮品紫描边。
+   - 拖拽中:被拖卡片半透明 + 微缩,落点卡片高亮强调描边。
    - 仅用 transform/opacity 做反馈,reduced-motion 静态降级。 */
 
 .create-card.is-dragging {
@@ -126,7 +126,7 @@
   gap: 0.4rem;
   padding-left: 0.5rem;
   margin-left: 0.1rem;
-  border-left: 1px solid var(--gold-line);   /* 微金分隔:标示"精修"一组动作 */
+  border-left: 1px solid var(--hairline-2);  /* 中性分隔:标示"精修"一组动作 */
 }
 .refine-btn {
   font: inherit;
@@ -140,8 +140,8 @@
   transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
 .refine-btn:hover:not(:disabled) {
-  color: var(--gold);
-  border-color: var(--gold-line);
+  color: var(--accent);
+  border-color: var(--accent-line);
 }
 .refine-btn:disabled { opacity: 0.5; cursor: default; }
 

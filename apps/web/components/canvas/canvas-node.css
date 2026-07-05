@@ -122,8 +122,8 @@
 
 .cv-gen {
   appearance: none;
-  border: 1px solid var(--accent-line);
-  background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+  border: 1px solid var(--accent);
+  background: var(--accent);
   color: var(--accent-ink);
   font: inherit;
   font-size: 0.7rem;
@@ -193,7 +193,7 @@
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--accent-deep), var(--accent));
+  background: var(--accent);
   transition: width var(--dur-2) var(--ease);
 }
 .cv-progress.is-indeterminate .cv-progress__fill {

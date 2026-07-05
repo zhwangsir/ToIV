@@ -4632,7 +4632,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   gap: clamp(1.4rem, 2.6vw, 2.4rem);
 }
 
-/* ---------- 编辑式视图头:小标 eyebrow + 巨号衬线主张 + 斜体强调 + 计量 ---------- */
+/* ---------- 视图头:Studio Noir 工具标题,无杂志 gimmick ---------- */
 .view-header {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -4642,60 +4642,57 @@ input[type="range"]::-webkit-slider-thumb:hover {
   border-bottom: 1px solid var(--hairline);
   position: relative;
 }
-/* 头部底缘一道极细暖高光,呼应顶栏「边沿受光」 */
+/* 头部底缘:一道细 neutral 线,无渐变辉光 */
 .view-header::after {
   content: "";
   position: absolute;
   left: 0;
   bottom: -1px;
-  width: clamp(60px, 18%, 160px);
-  height: 2px;
-  border-radius: 2px;
-  background: linear-gradient(90deg, var(--accent), transparent);
-  box-shadow: 0 0 18px -4px var(--accent-glow);
+  width: clamp(48px, 12%, 120px);
+  height: 1px;
+  background: var(--hairline-strong);
 }
 .view-eyebrow {
   grid-column: 1 / -1;
   display: inline-flex;
   align-items: center;
   gap: 0.6rem;
-  font-size: 0.64rem;
+  font-size: 0.6rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
-  /* 微金眉标:系统性 luxe 点缀,与电蓝标题冷暖对照,给每个视图刊头一抹贵气 */
-  color: var(--gold);
+  color: var(--ink-faint);
 }
 .view-eyebrow::before {
   content: "";
-  width: 1.6rem;
+  width: 1.2rem;
   height: 1px;
-  background: var(--gold-line);
+  background: var(--hairline-2);
 }
 .view-title {
   grid-column: 1;
   margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--text-display);
-  font-weight: 540;
+  font-family: var(--font-sans);
+  font-size: var(--text-title);
+  font-weight: 600;
   letter-spacing: var(--tracking-tight);
-  line-height: var(--leading-statement);
+  line-height: 1.1;
   text-wrap: balance;
 }
 .view-title em {
   font-style: normal;
   font-weight: 700;
-  color: var(--accent);
+  color: var(--ink);
 }
 .view-lede {
   grid-column: 1;
   margin: 0.2rem 0 0;
-  max-width: 46ch;
+  max-width: 48ch;
   color: var(--ink-soft);
-  font-size: 0.96rem;
+  font-size: 0.95rem;
   line-height: 1.6;
 }
-/* 右侧计量:大号表号数字 + 小标签,杂志刊头感 */
+/* 右侧计量:干净的数字标签 */
 .view-tally {
   grid-column: 2;
   grid-row: 2 / span 2;
@@ -4707,10 +4704,10 @@ input[type="range"]::-webkit-slider-thumb:hover {
   gap: 0.1rem;
 }
 .view-tally .n {
-  font-family: var(--font-display);
-  font-size: clamp(1.8rem, 1rem + 2.2vw, 2.8rem);
-  font-weight: 540;
-  line-height: 0.9;
+  font-family: var(--font-sans);
+  font-size: clamp(1.3rem, 1rem + 1.2vw, 2rem);
+  font-weight: 600;
+  line-height: 0.95;
   letter-spacing: var(--tracking-tight);
   color: var(--ink);
   font-variant-numeric: tabular-nums;
@@ -4772,8 +4769,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   position: absolute;
   inset: 0;
   border-radius: 999px;
-  background: linear-gradient(180deg, var(--accent-hover), var(--accent-deep));
-  box-shadow: 0 3px 12px -3px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  background: var(--accent);
   z-index: -1;
 }
 

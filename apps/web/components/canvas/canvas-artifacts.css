@@ -59,7 +59,7 @@
   width: 100%;
 }
 
-/* ── 端口 Handle:工程精度感,品紫可连点 ── */
+/* ── 端口 Handle:工程精度感,琥珀可连点 ── */
 .cv-flow .react-flow__handle.cv-handle {
   width: 11px;
   height: 11px;
@@ -89,7 +89,7 @@
 .cv-flow .react-flow__handle.cv-handle--in {
   background: var(--accent-soft);
 }
-/* 连线进行中:目标端口品紫高亮放大,可连点提示 */
+/* 连线进行中:目标端口琥珀高亮放大,可连点提示 */
 .cv-flow .react-flow__handle-connecting {
   background: var(--accent) !important;
   box-shadow: 0 0 0 5px var(--accent-wash) !important;

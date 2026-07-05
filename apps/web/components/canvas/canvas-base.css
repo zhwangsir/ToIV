@@ -1,6 +1,6 @@
 /* ──────────────────────────────────────────────────────────
    创作画布 — Studio Noir 暗房 · 媒体优先专业工作台。
-   全部走平台令牌(--accent 品紫 / --bg-* / --hairline / --font-mono)
+   全部走平台令牌(--accent 琥珀 / --bg-* / --hairline / --font-mono)
    自动适配暗 / 亮主题。动效只走 transform / opacity;reduced-motion 降级。
    设计意图:产物画面是节点主角,参数/标题收成细带;台面克制暗房点阵。
 
@@ -129,13 +129,12 @@
   outline-offset: 2px;
 }
 .cv-btn--primary {
-  background: linear-gradient(135deg, var(--accent), var(--accent-deep));
-  border-color: var(--accent-line);
+  background: var(--accent);
+  border-color: var(--accent);
   color: var(--accent-ink);
 }
 .cv-btn--primary:hover {
-  background: linear-gradient(135deg, var(--accent-hover), var(--accent));
-  color: var(--accent-ink);
+  background: var(--accent-hover);
 }
 .cv-btn:disabled {
   opacity: 0.45;

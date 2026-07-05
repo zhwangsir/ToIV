@@ -386,13 +386,9 @@ export function LibraryView() {
   return (
     <div className="view">
       <header className="view-header">
-        <span className="view-eyebrow">Collection · 作品集</span>
-        <h1 className="view-title">
-          作品 <em>库</em>
-        </h1>
-        <p className="view-lede">
-          每一次生成都汇入这里 —— 图像、视频、3D、音乐,按时间线沉淀成你的个人作品集。
-        </p>
+        <span className="view-eyebrow">Library</span>
+        <h1 className="view-title">作品库</h1>
+        <p className="view-lede">图像、视频、3D、音乐,按时间线沉淀。</p>
         <div className="view-tally">
           <span className="n">{assets?.length ?? 0}</span>
           <span className="l">件作品</span>

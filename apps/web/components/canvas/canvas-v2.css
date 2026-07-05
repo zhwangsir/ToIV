@@ -101,8 +101,9 @@
     background var(--dur) var(--ease);
 }
 .cv-archive:hover:not(:disabled) {
-  color: var(--accent);
-  border-color: var(--accent-line);
+  color: var(--ink);
+  border-color: var(--hairline-strong);
+  background: var(--bg-2);
 }
 .cv-archive:focus-visible {
   outline: 2px solid var(--accent-line);
@@ -380,9 +381,9 @@
   max-height: 90vh;
   overflow: auto;
   background: var(--bg-0);
-  border: 1px solid var(--accent-line);
+  border: 1px solid var(--hairline-2);
   border-radius: var(--radius-md, 16px);
-  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-lg);
   padding: 1.5rem 1.6rem 1.8rem;
 }
 .cv-recipes__head {
@@ -408,11 +409,11 @@
   border-radius: var(--radius-xs);
   background: var(--bg-3);
   color: var(--ink-soft);
-  border: 1px solid var(--accent-line);
+  border: 1px solid var(--hairline-2);
   cursor: pointer;
   font-size: 0.9rem;
 }
-.cv-recipes__close:hover { color: var(--ink); background: var(--accent-quiet); }
+.cv-recipes__close:hover { color: var(--ink); background: var(--bg-2); }
 .cv-recipes__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -425,12 +426,12 @@
   padding: 1.1rem 1.15rem;
   text-align: left;
   background: var(--bg-3);
-  border: 1px solid var(--accent-line);
+  border: 1px solid var(--hairline-2);
   border-radius: var(--radius-sm, 12px);
   cursor: pointer;
   transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
 }
-.cv-recipe-card:hover { transform: translateY(-3px); border-color: var(--accent); background: var(--accent-quiet); }
+.cv-recipe-card:hover { transform: translateY(-3px); border-color: var(--accent-line); background: var(--bg-2); }
 .cv-recipe-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .cv-recipe-card__icon { font-size: 1.7rem; line-height: 1; }
 .cv-recipe-card__name { font-size: 0.98rem; font-weight: 700; color: var(--ink); }
@@ -454,9 +455,9 @@
   flex-direction: column;
   background: color-mix(in oklab, var(--bg-0) 92%, transparent);
   backdrop-filter: blur(8px);
-  border: 1px solid var(--accent-line);
+  border: 1px solid var(--hairline);
   border-radius: var(--radius-sm, 12px);
-  box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--shadow-lg);
   overflow: hidden;
   animation: cv-recipes-in 160ms ease-out;
 }
