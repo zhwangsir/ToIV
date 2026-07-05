@@ -125,3 +125,75 @@ def test_reconcile_skips_already_tracked(db, monkeypatch):
         assert "p1" not in called
     finally:
         tracker._tracked.discard("p1")
+
+async def test_wait_for_jobs_returns_urls(db):
+    """wait_for_jobs 等待多个 done 作业并返回 URL 列表。"""
+    with Session(db) as s:
+        s.add(
+            Job(
+                tenant_id="t",
+                user_id="u",
+                prompt_id="w1",
+                worker="http://w",
+                kind="txt2img",
+                status="done",
+                prompt="x",
+                seed=1,
+                result='["url1"]',
+            )
+        )
+        s.add(
+            Job(
+                tenant_id="t",
+                user_id="u",
+                prompt_id="w2",
+                worker="http://w",
+                kind="txt2img",
+                status="done",
+                prompt="x",
+                seed=1,
+                result='["url2"]',
+            )
+        )
+        s.commit()
+    with Session(db) as s:
+        result = await tracker.wait_for_jobs(
+            s, ["w1", "w2"], timeout=1.0, poll_interval=0.1
+        )
+    assert result == {"w1": ["url1"], "w2": ["url2"]}
+
+
+async def test_wait_for_jobs_raises_on_error(db):
+    """wait_for_jobs 遇 error 作业立即抛异常。"""
+    with Session(db) as s:
+        s.add(
+            Job(
+                tenant_id="t",
+                user_id="u",
+                prompt_id="w1",
+                worker="http://w",
+                kind="txt2img",
+                status="done",
+                prompt="x",
+                seed=1,
+                result='["url1"]',
+            )
+        )
+        s.add(
+            Job(
+                tenant_id="t",
+                user_id="u",
+                prompt_id="w2",
+                worker="http://w",
+                kind="txt2img",
+                status="error",
+                prompt="x",
+                seed=1,
+            )
+        )
+        s.commit()
+    with Session(db) as s:
+        with pytest.raises(RuntimeError):
+            await tracker.wait_for_jobs(
+                s, ["w1", "w2"], timeout=1.0, poll_interval=0.1
+            )
