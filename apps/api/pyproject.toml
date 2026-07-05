@@ -13,6 +13,7 @@ dependencies = [
     "sqlmodel>=0.0.22",
     "pyjwt>=2.9",
     "python-multipart>=0.0.12",
+    "paramiko>=3.4",
 ]
 
 [project.optional-dependencies]

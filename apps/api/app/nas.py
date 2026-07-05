@@ -8,7 +8,11 @@ from __future__ import annotations
 import posixpath
 from collections.abc import Callable
 
-import paramiko
+try:
+    import paramiko
+except ImportError:
+    paramiko = None  # type: ignore[assignment]
+
 
 from app.config import get_settings
 
@@ -43,6 +47,8 @@ def _connect() -> tuple[paramiko.SFTPClient, paramiko.Transport]:
     s = get_settings()
     if not s.nas_enabled:
         raise RuntimeError("NAS 未配置(TOIV_NAS_HOST / TOIV_NAS_PASSWORD)")
+    if paramiko is None:
+        raise RuntimeError("NAS 依赖 paramiko 未安装")
     transport = paramiko.Transport((s.nas_host.strip(), s.nas_port))
     transport.connect(username=s.nas_user, password=s.nas_password)
     sftp = paramiko.SFTPClient.from_transport(transport)

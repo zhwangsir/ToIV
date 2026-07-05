@@ -15,7 +15,7 @@ import time
 import uuid
 from urllib.parse import unquote, urlsplit
 
-import requests
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
@@ -54,7 +54,7 @@ def _resolve_civitai(model_id: str, version_id: str = "") -> tuple[str, str]:
     version_id 用于绕开最新版被限制下载(如 LUSTIFY V9 需权限,回退到公开的 V8)。
     """
     h = {"Authorization": f"Bearer {_CIVITAI_KEY}"} if _CIVITAI_KEY else {}
-    r = requests.get(f"{_CIVITAI}/{model_id}", headers=h, timeout=30)
+    r = httpx.get(f"{_CIVITAI}/{model_id}", headers=h, timeout=30)
     r.raise_for_status()
     versions = r.json().get("modelVersions") or []
     if not versions:
@@ -78,7 +78,7 @@ def _pick_hf_file(repo: str, want: str = "") -> str:
     """HuggingFace 仓库 → 主权重文件仓内路径(优先 .safetensors、体积最小的顶层文件)。"""
     if want.strip():
         return want.strip()
-    r = requests.get(f"{_HF_API}/{repo.strip().strip('/')}", timeout=30)
+    r = httpx.get(f"{_HF_API}/{repo.strip().strip('/')}", timeout=30)
     r.raise_for_status()
     sibs = [s.get("rfilename", "") for s in (r.json().get("siblings") or [])]
     cand = [s for s in sibs if s.lower().endswith(_WEIGHT_EXT)]
@@ -143,12 +143,12 @@ def _resolve(req: NasDownloadRequest) -> tuple[str, str]:
 
 def _download_url(url: str, dest: str, job: dict) -> None:
     """流式下载 URL 到 dest(可为 cifs 挂载路径,直落 NAS),按 content-length 报进度 0-100。"""
-    with requests.get(url, stream=True, timeout=(30, 600)) as r:
+    with httpx.stream("GET", url, timeout=(30, 600)) as r:
         r.raise_for_status()
         total = int(r.headers.get("content-length") or 0)
         got = 0
         with open(dest, "wb") as f:
-            for chunk in r.iter_content(chunk_size=4 << 20):  # 4MB 块,大文件更省 syscall
+            for chunk in r.iter_bytes(chunk_size=4 << 20):  # 4MB 块,大文件更省 syscall
                 if not chunk:
                     continue
                 f.write(chunk)
@@ -213,6 +213,8 @@ async def nas_status(user: User = Depends(get_current_user)) -> dict[str, object
     s = get_settings()
     if not s.nas_enabled:
         return {"enabled": False}
+    if nas.paramiko is None:
+        return {"enabled": False, "error": "NAS 依赖(paramiko)未安装"}
     try:
         info = await asyncio.to_thread(nas.check_connection)
         return {"enabled": True, **info}
@@ -229,6 +231,8 @@ async def nas_download(
     _require_admin(user)
     if not get_settings().nas_enabled:
         raise HTTPException(status_code=503, detail="NAS 未配置")
+    if nas.paramiko is None:
+        raise HTTPException(status_code=503, detail="NAS 依赖(paramiko)未安装")
     if body.source == "hf" and not (body.hf_repo and body.hf_file):
         raise HTTPException(status_code=400, detail="HuggingFace 下载需 hf_repo + hf_file")
     if body.source == "url" and not body.url:

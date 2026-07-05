@@ -32,6 +32,7 @@ from app.routes import (
     marketplace,
     models,
     optimize,
+    score,
     system,
     threed,
     upload,
