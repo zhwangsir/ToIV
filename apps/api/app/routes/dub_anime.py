@@ -18,8 +18,16 @@ import uuid
 import wave
 from pathlib import Path
 
-import cv2
-import numpy as np
+try:
+    import cv2
+except ImportError:
+    cv2 = None  # type: ignore[assignment]
+
+try:
+    import numpy as np
+except ImportError:
+    np = None  # type: ignore[assignment]
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
@@ -230,6 +238,8 @@ async def dub_anime_lipsync(
 ) -> dict[str, object]:
     """起动漫对口型后台作业(本地 CV)。轮询 GET /dub/anime-lipsync/{job}。"""
     enforce_generation_rate_limit(user)
+    if cv2 is None or np is None:
+        raise HTTPException(status_code=503, detail="动漫对口型依赖(cv2/numpy)未安装")
     if not _NAME_RE.match(body.name):
         raise HTTPException(status_code=400, detail="非法文件名")
     src = _DUB_DIR / body.name
