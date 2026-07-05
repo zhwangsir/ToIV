@@ -5,9 +5,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   generate3D,
   generateControlNet,
+  generateFaceDetailer,
   generateImg2img,
+  generateInpaint,
   generateTxt2img,
   generateTxt2video,
+  generateUpscale,
   generateVideo,
   generateAudio,
   imageUrl,
@@ -41,6 +44,14 @@ export type Dispatch =
   | { type: "video"; params: WanI2VGenParams; prompt: string }
   | { type: "model3d"; params: Gen3DParams; prompt: string }
   | { type: "audio"; params: AudioGenParams; prompt: string };
+
+/** 精修动作:放大 / 修脸 / 局部改(inpaint 文字定向,无需画蒙版)。 */
+export type RefineKind = "upscale" | "facedetailer" | "inpaint";
+export interface RefineOpts {
+  scale?: number; // upscale 倍数
+  target?: string; // inpaint:要改的区域(文字描述)
+  positive?: string; // inpaint:改成什么
+}
 
 interface FeedState {
   busy: boolean;
@@ -223,6 +234,49 @@ export function useGenerationFeed() {
     return new File([blob], "ref.png", { type: blob.type || "image/png" });
   }, []);
 
+  // ---------- 精修下沉:把 canvas 的局部重绘/修脸/放大接到结果卡,一步到位 ----------
+
+  /** 对某图结果做精修:上传→调对应端点→结果带 beforeUrl 进对比。
+   *  kind: upscale(放大,一键)| facedetailer(修脸,一键)| inpaint(局部改,需 target+positive)。 */
+  const refine = useCallback(
+    async (item: ResultItem, kind: RefineKind, opts: RefineOpts = {}) => {
+      if (state.busy || item.kind !== "image") return;
+      const stageLabel =
+        kind === "upscale" ? "高清放大中…(约 20-40s)" : kind === "facedetailer" ? "修脸中…" : "局部重绘中…";
+      esRef.current?.close();
+      setState((s) => ({ ...s, busy: true, error: null, stage: stageLabel, progress: null }));
+      try {
+        const file = await fileFromResult(item);
+        const up = await uploadImage(file, "refine");
+        let res;
+        if (kind === "upscale") {
+          res = await generateUpscale({ image: up.filename, worker: up.worker, scale: opts.scale ?? 2 });
+        } else if (kind === "facedetailer") {
+          res = await generateFaceDetailer({
+            image: up.filename,
+            worker: up.worker,
+            ...(item.meta?.ckpt ? { ckptName: item.meta.ckpt } : {}),
+          });
+        } else {
+          res = await generateInpaint({
+            image: up.filename,
+            worker: up.worker,
+            target: opts.target ?? "",
+            positive: opts.positive ?? "",
+            ...(item.meta?.ckpt ? { ckptName: item.meta.ckpt } : {}),
+          });
+        }
+        // 精修结果带原图对比(beforeUrl),保留 ckpt 以便继续精修
+        await track(res, "image", item.prompt, { ...item.meta, beforeUrl: item.url });
+      } catch (e) {
+        setState((s) => ({ ...s, error: (e as Error).message }));
+      } finally {
+        setState((s) => ({ ...s, busy: false, stage: "", progress: null }));
+      }
+    },
+    [state.busy, fileFromResult, track],
+  );
+
   /** 把某张图片结果转成视频(图生视频,沿用其画幅比例)。 */
   const continueToVideo = useCallback(
     async (item: ResultItem) => {
@@ -284,6 +338,7 @@ export function useGenerationFeed() {
     ...state,
     run,
     rerun,
+    refine,
     fileFromResult,
     continueToVideo,
     continueTo3D,

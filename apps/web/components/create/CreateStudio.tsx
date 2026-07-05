@@ -14,7 +14,7 @@ import { filterModelsByNsfw } from "./nsfw";
 import { ProPanel } from "./ProPanel";
 import { ResultFeed } from "./ResultFeed";
 import { SimplePanel } from "./SimplePanel";
-import { useGenerationFeed, type Dispatch } from "./useGenerationFeed";
+import { useGenerationFeed, type Dispatch, type RefineKind, type RefineOpts } from "./useGenerationFeed";
 import {
   type Mode,
   type RefImage,
@@ -113,6 +113,15 @@ export function CreateStudio({ forceNsfw = false }: { forceNsfw?: boolean } = {}
     (item: ResultItem, opts: RerunOptions) => {
       setPendingCount(item.meta?.batch ?? 1);
       return feed.rerun(item, opts);
+    },
+    [feed],
+  );
+
+  // 精修下沉:结果卡 放大/修脸/局部改 → 走 feed.refine(单图产出,占位 1 块)
+  const onRefine = useCallback(
+    (item: ResultItem, kind: RefineKind, opts?: RefineOpts) => {
+      setPendingCount(1);
+      return feed.refine(item, kind, opts);
     },
     [feed],
   );
@@ -339,6 +348,7 @@ export function CreateStudio({ forceNsfw = false }: { forceNsfw?: boolean } = {}
               onToVideo={feed.continueToVideo}
               onTo3D={feed.continueTo3D}
               onRerun={onRerun}
+              onRefine={onRefine}
             />
           )}
         </div>

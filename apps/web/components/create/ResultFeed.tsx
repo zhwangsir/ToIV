@@ -14,6 +14,7 @@ import "./result-feed.css";
 import type { RerunOptions } from "@/lib/api";
 
 import type { ResultItem } from "./types";
+import type { RefineKind, RefineOpts } from "./useGenerationFeed";
 
 interface ResultFeedProps {
   results: ResultItem[];
@@ -24,6 +25,8 @@ interface ResultFeedProps {
   onTo3D: (item: ResultItem) => void;
   /** 版本树:精确重生(random=重抽 / keep=锁 seed 微调,可带改词)。 */
   onRerun?: (item: ResultItem, opts: RerunOptions) => void;
+  /** 精修下沉:放大 / 修脸 / 局部改(inpaint)。 */
+  onRefine?: (item: ResultItem, kind: RefineKind, opts?: RefineOpts) => void;
 }
 
 /**
@@ -91,7 +94,7 @@ function moveItem<T>(arr: readonly T[], from: number, to: number): T[] {
  * 支持拖拽重排(HTML5 DnD):本地维护展示顺序(以 id 序列为真相),
  * 新结果到达时合并进序列头部,手动顺序不丢失。所有更新均不可变。
  */
-export function ResultFeed({ results, busy, onReuse, onToVideo, onTo3D, onRerun }: ResultFeedProps) {
+export function ResultFeed({ results, busy, onReuse, onToVideo, onTo3D, onRerun, onRefine }: ResultFeedProps) {
   // 展示顺序的真相:id 序列。结果由 hook 前插,故新 id 合并到序列前部、保留既有手排序。
   const [order, setOrder] = useState<string[]>(() => results.map((r) => r.id));
   const [dragId, setDragId] = useState<string | null>(null);
@@ -100,11 +103,34 @@ export function ResultFeed({ results, busy, onReuse, onToVideo, onTo3D, onRerun 
   // 微调(锁 seed)内联编辑器:tweakId=展开中的卡,tweakText=编辑中的提示词
   const [tweakId, setTweakId] = useState<string | null>(null);
   const [tweakText, setTweakText] = useState("");
+  // 局部改(inpaint)内联编辑器:paintId=展开中的卡 + 改哪里/改成什么两栏
+  const [paintId, setPaintId] = useState<string | null>(null);
+  const [paintTarget, setPaintTarget] = useState("");
+  const [paintPositive, setPaintPositive] = useState("");
 
   const openTweak = useCallback((item: ResultItem) => {
+    setPaintId(null);
     setTweakId(item.id);
     setTweakText(item.prompt);
   }, []);
+
+  const openPaint = useCallback((item: ResultItem) => {
+    setTweakId(null);
+    setPaintId(item.id);
+    setPaintTarget("");
+    setPaintPositive("");
+  }, []);
+
+  const submitPaint = useCallback(
+    (item: ResultItem) => {
+      const target = paintTarget.trim();
+      const positive = paintPositive.trim();
+      if (!target || !positive) return;
+      setPaintId(null);
+      onRefine?.(item, "inpaint", { target, positive });
+    },
+    [paintTarget, paintPositive, onRefine],
+  );
 
   const submitTweak = useCallback(
     (item: ResultItem) => {
@@ -245,9 +271,70 @@ export function ResultFeed({ results, busy, onReuse, onToVideo, onTo3D, onRerun 
                     </button>
                   </>
                 )}
+                {onRefine && (
+                  <span className="refine-group">
+                    <button
+                      type="button"
+                      className="refine-btn"
+                      onClick={() => onRefine(r, "upscale", { scale: 2 })}
+                      disabled={busy}
+                      title="高清放大 2×(ESRGAN)"
+                    >
+                      放大
+                    </button>
+                    <button
+                      type="button"
+                      className="refine-btn"
+                      onClick={() => onRefine(r, "facedetailer")}
+                      disabled={busy}
+                      title="脸部检测 + 局部高清重绘"
+                    >
+                      修脸
+                    </button>
+                    <button
+                      type="button"
+                      className="refine-btn"
+                      onClick={() => (paintId === r.id ? setPaintId(null) : openPaint(r))}
+                      disabled={busy}
+                      title="局部改:说要改哪里、改成什么(文字定向,无需画蒙版)"
+                    >
+                      局部改
+                    </button>
+                  </span>
+                )}
                 <a href={r.url} download>
                   下载
                 </a>
+              </div>
+            )}
+            {r.kind === "image" && paintId === r.id && (
+              <div className="tweak-editor paint-editor">
+                <input
+                  className="paint-field"
+                  value={paintTarget}
+                  onChange={(e) => setPaintTarget(e.target.value)}
+                  placeholder="改哪里(如:背景 / 上衣 / 头发)"
+                />
+                <input
+                  className="paint-field"
+                  value={paintPositive}
+                  onChange={(e) => setPaintPositive(e.target.value)}
+                  placeholder="改成什么(如:夜空星海 / 红色连衣裙)"
+                />
+                <div className="tweak-actions">
+                  <span className="tweak-seed">仅改选区,其余保持</span>
+                  <button type="button" onClick={() => setPaintId(null)}>
+                    取消
+                  </button>
+                  <button
+                    type="button"
+                    className="tweak-go"
+                    onClick={() => submitPaint(r)}
+                    disabled={busy || !paintTarget.trim() || !paintPositive.trim()}
+                  >
+                    局部重绘
+                  </button>
+                </div>
               </div>
             )}
             {r.kind === "image" && tweakId === r.id && (

@@ -118,3 +118,44 @@
   color: var(--accent-soft);
   border-color: var(--accent-line);
 }
+
+/* ---------- 精修下沉:放大/修脸/局部改 按钮组 + inpaint 内联编辑 ---------- */
+.refine-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding-left: 0.5rem;
+  margin-left: 0.1rem;
+  border-left: 1px solid var(--gold-line);   /* 微金分隔:标示"精修"一组动作 */
+}
+.refine-btn {
+  font: inherit;
+  font-size: 0.76rem;
+  color: var(--ink-soft);
+  background: none;
+  border: 1px solid var(--hairline-2);
+  border-radius: 999px;
+  padding: 0.28rem 0.72rem;
+  cursor: pointer;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.refine-btn:hover:not(:disabled) {
+  color: var(--gold);
+  border-color: var(--gold-line);
+}
+.refine-btn:disabled { opacity: 0.5; cursor: default; }
+
+.paint-editor .paint-field {
+  width: 100%;
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--ink);
+  background: color-mix(in oklab, var(--bg-0) 62%, transparent);
+  border: 1px solid var(--hairline-2);
+  border-radius: var(--radius-xs);
+  padding: 0.45rem 0.6rem;
+}
+.paint-editor .paint-field:focus-visible {
+  outline: none;
+  border-color: var(--accent-line);
+}
