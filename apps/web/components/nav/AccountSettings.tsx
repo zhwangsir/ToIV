@@ -10,6 +10,8 @@ interface AccountSettingsProps {
   account?: string;
   /** 退出回调。 */
   onLogout: () => void;
+  /** 自定义触发按钮 className。 */
+  className?: string;
 }
 
 /**
@@ -21,7 +23,7 @@ interface AccountSettingsProps {
  *
  * 菜单用 createPortal 渲染到 body,不受灵动岛 hover 收起影响。
  */
-export function AccountSettings({ account, onLogout }: AccountSettingsProps) {
+export function AccountSettings({ account, onLogout, className }: AccountSettingsProps) {
   const [open, setOpen] = useState(false);
   // portal 浮层按触发按钮位置定位(fixed)。
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
@@ -65,7 +67,7 @@ export function AccountSettings({ account, onLogout }: AccountSettingsProps) {
       <button
         ref={triggerRef}
         type="button"
-        className={`island-account-btn${open ? " is-open" : ""}`}
+        className={`${className ?? "island-account-btn"}${open ? " is-open" : ""}`}
         aria-label="账户与设置"
         title="账户与设置"
         aria-haspopup="dialog"

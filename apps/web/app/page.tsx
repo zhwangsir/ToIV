@@ -14,7 +14,7 @@ import { ManjuStudio } from "@/components/manju/ManjuStudio";
 import { ModelLibrary } from "@/components/models/ModelLibrary";
 import { ActivityProvider } from "@/components/nav/ActivityContext";
 import { NsfwProvider } from "@/components/nav/NsfwContext";
-import { DynamicIsland, type IslandView } from "@/components/nav/DynamicIsland";
+import { Topbar, type TopbarView } from "@/components/nav/Topbar";
 import { viewVariants } from "@/lib/motion";
 import { fetchMe, getToken, setToken, testLogin } from "@/lib/api";
 
@@ -107,7 +107,7 @@ export default function Home() {
   // useMemo 稳定引用:仅在管理员身份变化时重建,否则保持同一数组,
   // 让灵动岛 memo 化的顶行不因父级无关重渲(如生成进度刷新)而重建。
   const isAdmin = account?.role === "admin";
-  const islandViews: IslandView[] = useMemo(
+  const views: TopbarView[] = useMemo(
     () => [
       { key: "assistant", label: "AI 助手", icon: "assistant" },
       { key: "create", label: "创作", icon: "image" },
@@ -137,9 +137,9 @@ export default function Home() {
     <MotionConfig reducedMotion="user">
       <ActivityProvider>
         <NsfwProvider>
-        <div className="app-shell has-island">
-          <DynamicIsland<View>
-            views={islandViews}
+        <div className="app-shell has-topbar">
+          <Topbar<View>
+            views={views}
             current={view}
             onSelect={setView}
             account={account?.email}

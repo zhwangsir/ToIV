@@ -408,6 +408,18 @@ body::after {
   opacity: 0.65;
 }
 
+/* 导航分组 */
+.modal-nav .nav-group {
+  display: flex;
+  align-items: center;
+  gap: 0.1rem;
+}
+.modal-nav .nav-group:not(:last-child) {
+  border-right: 1px solid var(--hairline);
+  padding-right: 0.3rem;
+  margin-right: 0.3rem;
+}
+
 .status-pill {
   margin-left: auto;
   display: inline-flex;
@@ -436,6 +448,34 @@ body::after {
   background: var(--danger);
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--danger) 22%, transparent);
 }
+/* 顶栏右侧 */
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-left: auto;
+}
+
+/* 顶栏账户按钮 */
+.topbar-account-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: var(--bg-1);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.topbar-account-btn:hover,
+.topbar-account-btn.is-open {
+  color: var(--ink);
+  border-color: var(--accent-line);
+  background: var(--accent-wash);
+}
+
 @keyframes pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.3; transform: scale(0.6); }
@@ -5864,9 +5904,9 @@ input[type="range"]::-webkit-slider-thumb:hover {
   100% { transform: translateX(310%); }
 }
 
-/* 主区为悬浮岛预留顶部间距,避免首屏内容被遮(岛高约 46-64px + 坞 padding) */
-.app-shell.has-island {
-  padding-top: clamp(3.6rem, 4vw, 4.6rem);
+/* 主区为顶栏预留空间;顶栏 sticky 自占高度,内容无需额外 padding。 */
+.app-shell.has-topbar {
+  padding-top: 0;
 }
 
 @media (max-width: 760px) {
