@@ -88,6 +88,7 @@ def create_app() -> FastAPI:
         models,
         marketplace,
         generate,
+        score,
         video,
         threed,
         audio,

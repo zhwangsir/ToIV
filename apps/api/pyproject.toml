@@ -20,6 +20,9 @@ dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
 ]
+scoring = [
+    "image-reward",
+]
 
 [build-system]
 requires = ["hatchling"]
