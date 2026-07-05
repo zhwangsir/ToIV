@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import secrets
 import uuid
+import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -11,13 +12,14 @@ from sqlmodel import Session
 from app.capabilities import required_nodes
 from app.comfy.client import ComfyUIError
 from app.comfy.pool import WorkerPool
-from app.comfy.tracker import spawn as spawn_tracker
+from app.comfy.tracker import spawn as spawn_tracker, wait_for_jobs
 from app.config import get_settings
-from app.db import get_session
+from app.db import engine, get_session
 from app.deps import get_current_user, get_pool, resolve_worker
 from app.models import Job, User
 from app.nsfw_ctx import nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
+from app.scoring import BestOfResult, ScorerUnavailable, ScoringService, get_scoring_service
 from app.versioning import params_snapshot
 from app.workflows.controlnet import (
     CONTROL_TYPES,
@@ -72,7 +74,7 @@ def _gate_nsfw_ckpt(ckpt_name: str, user: User) -> bool:
     """
     nsfw = is_nsfw(ckpt_name)
     if nsfw and not nsfw_allowed(user):
-        raise HTTPException(status_code=403, detail="该底模属 R18 分区,请先在账号设置开启成人内容")
+         raise HTTPException(status_code=403, detail="该底模属 R18 分区,请先在账号设置开启成人内容")
     return nsfw
 
 
@@ -107,29 +109,125 @@ async def _submit_forge_txt2img(
     """Forge 引擎 txt2img:建 Job + 后台 sdapi 出图,返回与 ComfyUI 同构的句柄。"""
     settings = get_settings()
     if not settings.forge_base:
-        raise HTTPException(status_code=503, detail="Forge 引擎未部署")
+         raise HTTPException(status_code=503, detail="Forge 引擎未部署")
     prompt_id = uuid.uuid4().hex
     # 锁 seed 微调要可复现:未指定时服务端先定 seed(否则 forge 侧 -1 随机后真实 seed 丢失,
     # rerun keep 会锁到列默认值 0,与原图无关)。与 ComfyUI 路径的 seed_used 语义对齐。
     seed_used = req.seed if req.seed is not None else secrets.randbelow(2**32)
     payload = forge_txt2img_payload(
-        positive=req.positive, negative=req.negative, steps=req.steps, cfg=req.cfg,
-        width=_snap8(req.width), height=_snap8(req.height), sampler=req.sampler,
-        scheduler=req.scheduler, seed=seed_used, batch_size=req.batch_size, ckpt=ckpt_name,
+         positive=req.positive, negative=req.negative, steps=req.steps, cfg=req.cfg,
+         width=_snap8(req.width), height=_snap8(req.height), sampler=req.sampler,
+         scheduler=req.scheduler, seed=seed_used, batch_size=req.batch_size, ckpt=ckpt_name,
     )
     session.add(Job(
-        tenant_id=user.tenant_id, user_id=user.id, prompt_id=prompt_id,
-        worker=settings.forge_base, kind="txt2img", status="queued",
-        prompt=req.positive, seed=seed_used, nsfw=job_nsfw,
-        params=params_snapshot(req, seed=seed_used, ckpt_name=ckpt_name),
+         tenant_id=user.tenant_id, user_id=user.id, prompt_id=prompt_id,
+         worker=settings.forge_base, kind="txt2img", status="queued",
+         prompt=req.positive, seed=seed_used, nsfw=job_nsfw,
+         params=params_snapshot(req, seed=seed_used, ckpt_name=ckpt_name),
     ))
     session.commit()
     forge_spawn(ForgeClient(settings.forge_base, timeout=600.0), prompt_id, "txt2img", payload)
     return {
-        "prompt_id": prompt_id,
-        "client_id": uuid.uuid4().hex,
-        "worker": settings.forge_base,
-        "seed": seed_used,
+         "prompt_id": prompt_id,
+         "client_id": uuid.uuid4().hex,
+         "worker": settings.forge_base,
+         "seed": seed_used,
+    }
+
+
+async def _submit_txt2img(
+    req: Txt2ImgRequest,
+    pool: WorkerPool,
+    user: User,
+    session: Session,
+) -> dict:
+    """提交单个 txt2img 作业。返回与 generate_txt2img 同构的句柄。"""
+    settings = get_settings()
+    ckpt_name = req.ckpt_name or settings.default_ckpt
+    # R18 硬门槛:成人底模须已开 R18,否则 403;并据此给作品打 nsfw 标。
+    job_nsfw = _gate_nsfw_ckpt(ckpt_name, user)
+
+    # 引擎分流:Forge 走 sdapi 同步出图(包装成异步 Job),ComfyUI 走既有工作流。
+    if req.engine == "forge":
+         return await _submit_forge_txt2img(req, ckpt_name, job_nsfw, user, session)
+
+    # 次世代族(flux2/qwen_image/z_image)走 UNET 图 + 服务端**强制**正确采样(cfg≈1、
+    # euler/res_multistep+simple、负向失效族清空负向);传统族走既有 checkpoint 图。
+    # 分流依据全在 model_profiles(端点不写 per-model 分支,见开发协议)。
+    if is_nextgen(ckpt_name):
+         prof = profile_for(ckpt_name)
+         recipe = nextgen_recipe(ckpt_name)
+         w, h = fit_resolution(ckpt_name, _snap8(req.width), _snap8(req.height))
+         ng = NextgenParams(
+              model_name=ckpt_name,
+              positive=req.positive,
+              negative=req.negative if prof.neg_prompt else "",
+              width=w,
+              height=h,
+              steps=prof.steps,
+              cfg=prof.cfg,
+              sampler=prof.sampler,
+              scheduler=prof.scheduler,
+              batch_size=req.batch_size,
+              **({"seed": req.seed} if req.seed is not None else {}),
+         )
+         graph = build_nextgen_graph(ng)
+         seed_used = ng.seed
+         # 次世代图需 UNET + 文本编码器 + VAE 三件都在的 worker(缺则 pick 干净失败 503)
+         required = {ckpt_name, recipe.clip_name, recipe.vae_name} if recipe else {ckpt_name}
+    else:
+         params = Txt2ImgParams(
+              positive=req.positive,
+              negative=req.negative,
+              ckpt_name=ckpt_name,
+              width=_snap8(req.width),
+              height=_snap8(req.height),
+              steps=req.steps,
+              cfg=req.cfg,
+              sampler=req.sampler,
+              scheduler=req.scheduler,
+              batch_size=req.batch_size,
+              loras=_to_lora_specs(req.loras),
+              **({"seed": req.seed} if req.seed is not None else {}),
+         )
+         graph = build_txt2img_graph(params)
+         seed_used = params.seed
+         # 路由到既有 checkpoint 又有所选 LoRA 文件的 worker(异构多机下避免缺模型)
+         required = {params.ckpt_name, *(l.name for l in params.loras)}
+    try:
+         client = await pool.pick(required=required)
+    except ComfyUIError as e:
+         raise HTTPException(status_code=503, detail=str(e)) from e
+    client_id = uuid.uuid4().hex
+    try:
+         prompt_id = await client.queue_prompt(graph, client_id)
+    except ComfyUIError as e:
+         raise HTTPException(status_code=502, detail=str(e)) from e
+
+    # 按租户记录作业(隔离 / 历史;P2 只隔离不计费)
+    job = Job(
+         tenant_id=user.tenant_id,
+         user_id=user.id,
+         prompt_id=prompt_id,
+         worker=client.base_url,
+         kind="txt2img",
+         status="queued",
+         prompt=req.positive,
+         seed=seed_used,
+         nsfw=job_nsfw,
+         params=params_snapshot(req, seed=seed_used, ckpt_name=ckpt_name),
+    )
+    session.add(job)
+    session.commit()
+
+    # 服务端后台追踪结果落库,不依赖客户端是否连 SSE(修前端断开丢结果的真 bug)
+    spawn_tracker(client, prompt_id)
+
+    return {
+         "prompt_id": prompt_id,
+         "client_id": client_id,
+         "worker": client.base_url,
+         "seed": seed_used,
     }
 
 
@@ -141,93 +239,79 @@ async def generate_txt2img(
     session: Session = Depends(get_session),
 ):
     enforce_generation_rate_limit(user)
-    settings = get_settings()
-    ckpt_name = req.ckpt_name or settings.default_ckpt
-    # R18 硬门槛:成人底模须已开 R18,否则 403;并据此给作品打 nsfw 标。
-    job_nsfw = _gate_nsfw_ckpt(ckpt_name, user)
+    return await _submit_txt2img(req, pool, user, session)
 
-    # 引擎分流:Forge 走 sdapi 同步出图(包装成异步 Job),ComfyUI 走既有工作流。
-    if req.engine == "forge":
-        return await _submit_forge_txt2img(req, ckpt_name, job_nsfw, user, session)
 
-    # 次世代族(flux2/qwen_image/z_image)走 UNET 图 + 服务端**强制**正确采样(cfg≈1、
-    # euler/res_multistep+simple、负向失效族清空负向);传统族走既有 checkpoint 图。
-    # 分流依据全在 model_profiles(端点不写 per-model 分支,见开发协议)。
-    if is_nextgen(ckpt_name):
-        prof = profile_for(ckpt_name)
-        recipe = nextgen_recipe(ckpt_name)
-        w, h = fit_resolution(ckpt_name, _snap8(req.width), _snap8(req.height))
-        ng = NextgenParams(
-            model_name=ckpt_name,
-            positive=req.positive,
-            negative=req.negative if prof.neg_prompt else "",
-            width=w,
-            height=h,
-            steps=prof.steps,
-            cfg=prof.cfg,
-            sampler=prof.sampler,
-            scheduler=prof.scheduler,
-            batch_size=req.batch_size,
-            **({"seed": req.seed} if req.seed is not None else {}),
-        )
-        graph = build_nextgen_graph(ng)
-        seed_used = ng.seed
-        # 次世代图需 UNET + 文本编码器 + VAE 三件都在的 worker(缺则 pick 干净失败 503)
-        required = {ckpt_name, recipe.clip_name, recipe.vae_name} if recipe else {ckpt_name}
-    else:
-        params = Txt2ImgParams(
-            positive=req.positive,
-            negative=req.negative,
-            ckpt_name=ckpt_name,
-            width=_snap8(req.width),
-            height=_snap8(req.height),
-            steps=req.steps,
-            cfg=req.cfg,
-            sampler=req.sampler,
-            scheduler=req.scheduler,
-            batch_size=req.batch_size,
-            loras=_to_lora_specs(req.loras),
-            **({"seed": req.seed} if req.seed is not None else {}),
-        )
-        graph = build_txt2img_graph(params)
-        seed_used = params.seed
-        # 路由到既有 checkpoint 又有所选 LoRA 文件的 worker(异构多机下避免缺模型)
-        required = {params.ckpt_name, *(l.name for l in params.loras)}
-    try:
-        client = await pool.pick(required=required)
-    except ComfyUIError as e:
-        raise HTTPException(status_code=503, detail=str(e)) from e
-    client_id = uuid.uuid4().hex
-    try:
-        prompt_id = await client.queue_prompt(graph, client_id)
-    except ComfyUIError as e:
-        raise HTTPException(status_code=502, detail=str(e)) from e
+class BestOfNRequest(Txt2ImgRequest):
+    """Best-of-N 请求:基于 Txt2ImgRequest 参数,一次性生成 N 张并选出最优。"""
 
-    # 按租户记录作业(隔离 / 历史;P2 只隔离不计费)
-    job = Job(
-        tenant_id=user.tenant_id,
-        user_id=user.id,
-        prompt_id=prompt_id,
-        worker=client.base_url,
-        kind="txt2img",
-        status="queued",
-        prompt=req.positive,
-        seed=seed_used,
-        nsfw=job_nsfw,
-        params=params_snapshot(req, seed=seed_used, ckpt_name=ckpt_name),
+    n: int = Field(default=4, ge=2, le=8)
+
+
+class GenerateBestOfNResponse(BestOfResult):
+    """Best-of-N 生成响应:评分结果 + 各候选的作业标识。"""
+
+    prompt_ids: list[str]
+    seeds: list[int]
+
+
+@router.post("/generate/best-of-n", response_model=GenerateBestOfNResponse)
+async def generate_best_of_n(
+    req: BestOfNRequest,
+    pool: WorkerPool = Depends(get_pool),
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+    scoring_service: ScoringService = Depends(get_scoring_service),
+):
+    """并发提交 N 个 txt2img,全部完成后用评分服务选出最优图。"""
+    enforce_generation_rate_limit(user, count=req.n)
+
+    # 为 N 个候选生成不同 seed,保证多样性;同时固定 batch_size=1(每个候选一张图)。
+    base_seed = req.seed if req.seed is not None else secrets.randbelow(2**32)
+    candidates: list[Txt2ImgRequest] = []
+    for i in range(req.n):
+        candidate = Txt2ImgRequest(**req.model_dump(exclude={"n"}))
+        candidate.seed = (base_seed + i) % (2**32)
+        candidate.batch_size = 1
+        candidates.append(candidate)
+
+    # 并发提交 N 个作业;每个作业使用独立会话避免同一请求会话并发问题。
+    submitted = await asyncio.gather(
+        *(_submit_txt2img(c, pool, user, Session(engine)) for c in candidates)
     )
-    session.add(job)
-    session.commit()
+    prompt_ids = [s["prompt_id"] for s in submitted]
+    seeds = [s["seed"] for s in submitted]
 
-    # 服务端后台追踪结果落库,不依赖客户端是否连 SSE(修前端断开丢结果的真 bug)
-    spawn_tracker(client, prompt_id)
+    # 等待所有作业完成
+    try:
+        results = await wait_for_jobs(
+            session, prompt_ids, timeout=300.0, poll_interval=1.0
+        )
+    except RuntimeError as e:
+        status = 504 if "超时" in str(e) else 502
+        raise HTTPException(status_code=status, detail=str(e)) from e
 
-    return {
-        "prompt_id": prompt_id,
-        "client_id": client_id,
-        "worker": client.base_url,
-        "seed": seed_used,
-    }
+    # 提取每个候选的产物 URL
+    image_urls: list[str] = []
+    for pid in prompt_ids:
+        urls = results.get(pid, [])
+        if not urls:
+            raise HTTPException(status_code=502, detail=f"作业 {pid} 没有产物")
+        image_urls.append(urls[0])
+
+    # 评分选出最优
+    try:
+        best_result = await scoring_service.best(image_urls, req.positive)
+    except ScorerUnavailable as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+
+    return GenerateBestOfNResponse(
+        best=best_result.best,
+        scores=best_result.scores,
+        ranked=best_result.ranked,
+        prompt_ids=prompt_ids,
+        seeds=seeds,
+    )
 
 
 def _snap16(v: int) -> int:
@@ -270,37 +354,37 @@ async def generate_txt2video(
     """
     enforce_generation_rate_limit(user)
     params = WanT2VParams(
-        positive=req.positive,
-        negative=req.negative or WanT2VParams.negative,
-        width=_snap16(req.width),
-        height=_snap16(req.height),
-        length=_snap_length(req.length),
-        fps=req.fps,
-        **({"seed": req.seed} if req.seed is not None else {}),
+         positive=req.positive,
+         negative=req.negative or WanT2VParams.negative,
+         width=_snap16(req.width),
+         height=_snap16(req.height),
+         length=_snap_length(req.length),
+         fps=req.fps,
+         **({"seed": req.seed} if req.seed is not None else {}),
     )
     graph = build_wan_t2v_graph(params)
     try:
-        client = await pool.pick(required=_wan_t2v_required(), required_nodes=required_nodes("video"))
+         client = await pool.pick(required=_wan_t2v_required(), required_nodes=required_nodes("video"))
     except ComfyUIError as e:
-        raise HTTPException(status_code=503, detail=str(e)) from e
+         raise HTTPException(status_code=503, detail=str(e)) from e
     client_id = uuid.uuid4().hex
     try:
-        prompt_id = await client.queue_prompt(graph, client_id)
+         prompt_id = await client.queue_prompt(graph, client_id)
     except ComfyUIError as e:
-        raise HTTPException(status_code=502, detail=str(e)) from e
+         raise HTTPException(status_code=502, detail=str(e)) from e
 
     session.add(
-        Job(
-            tenant_id=user.tenant_id,
-            user_id=user.id,
-            prompt_id=prompt_id,
-            worker=client.base_url,
-            kind="wan_t2v",
-            status="queued",
-            prompt=params.positive,
-            seed=params.seed,
-            params=params_snapshot(req, seed=params.seed),
-        )
+         Job(
+              tenant_id=user.tenant_id,
+              user_id=user.id,
+              prompt_id=prompt_id,
+              worker=client.base_url,
+              kind="wan_t2v",
+              status="queued",
+              prompt=params.positive,
+              seed=params.seed,
+              params=params_snapshot(req, seed=params.seed),
+         )
     )
     session.commit()
 
@@ -308,10 +392,10 @@ async def generate_txt2video(
     spawn_tracker(client, prompt_id)
 
     return {
-        "prompt_id": prompt_id,
-        "client_id": client_id,
-        "worker": client.base_url,
-        "seed": params.seed,
+         "prompt_id": prompt_id,
+         "client_id": client_id,
+         "worker": client.base_url,
+         "seed": params.seed,
     }
 
 
@@ -340,40 +424,40 @@ async def generate_img2img(
     settings = get_settings()
     client = resolve_worker(req.worker)  # 必须用图片所在的 worker
     params = Img2ImgParams(
-        positive=req.positive,
-        image=req.image,
-        negative=req.negative,
-        ckpt_name=req.ckpt_name or settings.default_ckpt,
-        denoise=req.denoise,
-        steps=req.steps,
-        cfg=req.cfg,
-        sampler=req.sampler,
-        scheduler=req.scheduler,
-        loras=_to_lora_specs(req.loras),
-        **({"seed": req.seed} if req.seed is not None else {}),
+         positive=req.positive,
+         image=req.image,
+         negative=req.negative,
+         ckpt_name=req.ckpt_name or settings.default_ckpt,
+         denoise=req.denoise,
+         steps=req.steps,
+         cfg=req.cfg,
+         sampler=req.sampler,
+         scheduler=req.scheduler,
+         loras=_to_lora_specs(req.loras),
+         **({"seed": req.seed} if req.seed is not None else {}),
     )
     # R18 硬门槛:成人底模须已开 R18,否则 403;并据此给作品打 nsfw 标。
     job_nsfw = _gate_nsfw_ckpt(params.ckpt_name, user)
     graph = build_img2img_graph(params)
     client_id = uuid.uuid4().hex
     try:
-        prompt_id = await client.queue_prompt(graph, client_id)
+         prompt_id = await client.queue_prompt(graph, client_id)
     except ComfyUIError as e:
-        raise HTTPException(status_code=502, detail=str(e)) from e
+         raise HTTPException(status_code=502, detail=str(e)) from e
 
     session.add(
-        Job(
-            tenant_id=user.tenant_id,
-            user_id=user.id,
-            prompt_id=prompt_id,
-            worker=client.base_url,
-            kind="img2img",
-            status="queued",
-            prompt=params.positive,
-            seed=params.seed,
-            nsfw=job_nsfw,
-            params=params_snapshot(req, seed=params.seed, ckpt_name=params.ckpt_name),
-        )
+         Job(
+              tenant_id=user.tenant_id,
+              user_id=user.id,
+              prompt_id=prompt_id,
+              worker=client.base_url,
+              kind="img2img",
+              status="queued",
+              prompt=params.positive,
+              seed=params.seed,
+              nsfw=job_nsfw,
+              params=params_snapshot(req, seed=params.seed, ckpt_name=params.ckpt_name),
+         )
     )
     session.commit()
 
@@ -381,10 +465,10 @@ async def generate_img2img(
     spawn_tracker(client, prompt_id)
 
     return {
-        "prompt_id": prompt_id,
-        "client_id": client_id,
-        "worker": client.base_url,
-        "seed": params.seed,
+         "prompt_id": prompt_id,
+         "client_id": client_id,
+         "worker": client.base_url,
+         "seed": params.seed,
     }
 
 
@@ -419,53 +503,53 @@ async def generate_controlnet(
     enforce_generation_rate_limit(user)
     settings = get_settings()
     if req.control_type not in CONTROL_TYPES:
-        raise HTTPException(
-            status_code=422,
-            detail=f"不支持的 control_type:{req.control_type!r};可选 {list(CONTROL_TYPES)}",
-        )
+         raise HTTPException(
+              status_code=422,
+              detail=f"不支持的 control_type:{req.control_type!r};可选 {list(CONTROL_TYPES)}",
+         )
     if req.start_percent > req.end_percent:
-        raise HTTPException(
-            status_code=422, detail="start_percent 不能大于 end_percent"
-        )
+         raise HTTPException(
+              status_code=422, detail="start_percent 不能大于 end_percent"
+         )
     client = resolve_worker(req.worker)  # 必须用控制图所在的 worker
     params = ControlNetParams(
-        positive=req.positive,
-        image=req.image,
-        control_type=req.control_type,
-        negative=req.negative,
-        ckpt_name=req.ckpt_name or settings.default_ckpt,
-        strength=req.strength,
-        start_percent=req.start_percent,
-        end_percent=req.end_percent,
-        steps=req.steps,
-        cfg=req.cfg,
-        sampler=req.sampler,
-        scheduler=req.scheduler,
-        loras=_to_lora_specs(req.loras),
-        **({"seed": req.seed} if req.seed is not None else {}),
+         positive=req.positive,
+         image=req.image,
+         control_type=req.control_type,
+         negative=req.negative,
+         ckpt_name=req.ckpt_name or settings.default_ckpt,
+         strength=req.strength,
+         start_percent=req.start_percent,
+         end_percent=req.end_percent,
+         steps=req.steps,
+         cfg=req.cfg,
+         sampler=req.sampler,
+         scheduler=req.scheduler,
+         loras=_to_lora_specs(req.loras),
+         **({"seed": req.seed} if req.seed is not None else {}),
     )
     # R18 硬门槛:成人底模须已开 R18,否则 403;并据此给作品打 nsfw 标。
     job_nsfw = _gate_nsfw_ckpt(params.ckpt_name, user)
     graph = build_controlnet_graph(params)
     client_id = uuid.uuid4().hex
     try:
-        prompt_id = await client.queue_prompt(graph, client_id)
+         prompt_id = await client.queue_prompt(graph, client_id)
     except ComfyUIError as e:
-        raise HTTPException(status_code=502, detail=str(e)) from e
+         raise HTTPException(status_code=502, detail=str(e)) from e
 
     session.add(
-        Job(
-            tenant_id=user.tenant_id,
-            user_id=user.id,
-            prompt_id=prompt_id,
-            worker=client.base_url,
-            kind="controlnet",
-            status="queued",
-            prompt=params.positive,
-            seed=params.seed,
-            nsfw=job_nsfw,
-            params=params_snapshot(req, seed=params.seed, ckpt_name=params.ckpt_name),
-        )
+         Job(
+              tenant_id=user.tenant_id,
+              user_id=user.id,
+              prompt_id=prompt_id,
+              worker=client.base_url,
+              kind="controlnet",
+              status="queued",
+              prompt=params.positive,
+              seed=params.seed,
+              nsfw=job_nsfw,
+              params=params_snapshot(req, seed=params.seed, ckpt_name=params.ckpt_name),
+         )
     )
     session.commit()
 
@@ -473,12 +557,12 @@ async def generate_controlnet(
     spawn_tracker(client, prompt_id)
 
     return {
-        "prompt_id": prompt_id,
-        "client_id": client_id,
-        "worker": client.base_url,
-        "seed": params.seed,
-        "control_type": params.control_type,
-        "controlnet_model": controlnet_model_name(params.control_type, params.ckpt_name),
+         "prompt_id": prompt_id,
+         "client_id": client_id,
+         "worker": client.base_url,
+         "seed": params.seed,
+         "control_type": params.control_type,
+         "controlnet_model": controlnet_model_name(params.control_type, params.ckpt_name),
     }
 
 
@@ -502,45 +586,45 @@ async def generate_upscale(
     """
     enforce_generation_rate_limit(user)
     if req.model_name not in UPSCALE_MODELS:
-        raise HTTPException(
-            status_code=422,
-            detail=f"不支持的放大模型:{req.model_name!r};可选 {list(UPSCALE_MODELS)}",
-        )
+         raise HTTPException(
+              status_code=422,
+              detail=f"不支持的放大模型:{req.model_name!r};可选 {list(UPSCALE_MODELS)}",
+         )
     client = resolve_worker(req.worker)  # 必须用源图所在的 worker
     params = UpscaleParams(
-        image=req.image, model_name=req.model_name, scale=req.scale
+         image=req.image, model_name=req.model_name, scale=req.scale
     )
     graph = build_upscale_graph(params)
     client_id = uuid.uuid4().hex
     try:
-        prompt_id = await client.queue_prompt(graph, client_id)
+         prompt_id = await client.queue_prompt(graph, client_id)
     except ComfyUIError as e:
-        raise HTTPException(status_code=502, detail=str(e)) from e
+         raise HTTPException(status_code=502, detail=str(e)) from e
 
     session.add(
-        Job(
-            tenant_id=user.tenant_id,
-            user_id=user.id,
-            prompt_id=prompt_id,
-            worker=client.base_url,
-            kind="upscale",
-            status="queued",
-            prompt=f"upscale x{req.scale:g}",
-            seed=None,
-            nsfw=False,
-            params=params_snapshot(req),
-        )
+         Job(
+              tenant_id=user.tenant_id,
+              user_id=user.id,
+              prompt_id=prompt_id,
+              worker=client.base_url,
+              kind="upscale",
+              status="queued",
+              prompt=f"upscale x{req.scale:g}",
+              seed=None,
+              nsfw=False,
+              params=params_snapshot(req),
+         )
     )
     session.commit()
 
     spawn_tracker(client, prompt_id)
 
     return {
-        "prompt_id": prompt_id,
-        "client_id": client_id,
-        "worker": client.base_url,
-        "scale": req.scale,
-        "model_name": req.model_name,
+         "prompt_id": prompt_id,
+         "client_id": client_id,
+         "worker": client.base_url,
+         "scale": req.scale,
+         "model_name": req.model_name,
     }
 
 
@@ -570,49 +654,49 @@ async def generate_facedetailer(
     settings = get_settings()
     client = resolve_worker(req.worker)  # 必须用源图所在的 worker
     params = FaceDetailerParams(
-        image=req.image,
-        positive=req.positive,
-        negative=req.negative,
-        ckpt_name=req.ckpt_name or settings.default_ckpt,
-        denoise=req.denoise,
-        steps=req.steps,
-        cfg=req.cfg,
-        bbox_model=BBOX_MODELS[0],
-        sam_model=SAM_MODELS[0],
-        **({"seed": req.seed} if req.seed is not None else {}),
+         image=req.image,
+         positive=req.positive,
+         negative=req.negative,
+         ckpt_name=req.ckpt_name or settings.default_ckpt,
+         denoise=req.denoise,
+         steps=req.steps,
+         cfg=req.cfg,
+         bbox_model=BBOX_MODELS[0],
+         sam_model=SAM_MODELS[0],
+         **({"seed": req.seed} if req.seed is not None else {}),
     )
     # R18 硬门槛:成人底模须已开 R18,否则 403;并据此给作品打 nsfw 标。
     job_nsfw = _gate_nsfw_ckpt(params.ckpt_name, user)
     graph = build_facedetailer_graph(params)
     client_id = uuid.uuid4().hex
     try:
-        prompt_id = await client.queue_prompt(graph, client_id)
+         prompt_id = await client.queue_prompt(graph, client_id)
     except ComfyUIError as e:
-        raise HTTPException(status_code=502, detail=str(e)) from e
+         raise HTTPException(status_code=502, detail=str(e)) from e
 
     session.add(
-        Job(
-            tenant_id=user.tenant_id,
-            user_id=user.id,
-            prompt_id=prompt_id,
-            worker=client.base_url,
-            kind="facedetailer",
-            status="queued",
-            prompt=params.positive,
-            seed=params.seed,
-            nsfw=job_nsfw,
-            params=params_snapshot(req, seed=params.seed, ckpt_name=params.ckpt_name),
-        )
+         Job(
+              tenant_id=user.tenant_id,
+              user_id=user.id,
+              prompt_id=prompt_id,
+              worker=client.base_url,
+              kind="facedetailer",
+              status="queued",
+              prompt=params.positive,
+              seed=params.seed,
+              nsfw=job_nsfw,
+              params=params_snapshot(req, seed=params.seed, ckpt_name=params.ckpt_name),
+         )
     )
     session.commit()
 
     spawn_tracker(client, prompt_id)
 
     return {
-        "prompt_id": prompt_id,
-        "client_id": client_id,
-        "worker": client.base_url,
-        "seed": params.seed,
+         "prompt_id": prompt_id,
+         "client_id": client_id,
+         "worker": client.base_url,
+         "seed": params.seed,
     }
 
 
@@ -623,19 +707,19 @@ def _gate_raw_graph_nsfw(graph: dict, user: User) -> bool:
     """
     any_nsfw = False
     for node in graph.values():
-        if not isinstance(node, dict):
-            continue
-        inputs = node.get("inputs")
-        if not isinstance(inputs, dict):
-            continue
-        ckpt = inputs.get("ckpt_name")
-        if isinstance(ckpt, str) and is_nsfw(ckpt):
-            any_nsfw = True
+         if not isinstance(node, dict):
+              continue
+         inputs = node.get("inputs")
+         if not isinstance(inputs, dict):
+              continue
+         ckpt = inputs.get("ckpt_name")
+         if isinstance(ckpt, str) and is_nsfw(ckpt):
+              any_nsfw = True
     # header-only R18 语义:与 _gate_nsfw_ckpt 同一信号(X-NSFW 头),账户开关不再放行
     if any_nsfw and not nsfw_allowed(user):
-        raise HTTPException(
-            status_code=403, detail="工作流含 R18 底模,请在 R18 专区(/nsfw)使用"
-        )
+         raise HTTPException(
+              status_code=403, detail="工作流含 R18 底模,请在 R18 专区(/nsfw)使用"
+         )
     return any_nsfw
 
 
@@ -659,42 +743,42 @@ async def generate_raw(
     """
     enforce_generation_rate_limit(user)
     if not isinstance(req.graph, dict) or not req.graph:
-        raise HTTPException(status_code=422, detail="graph 必须是非空的 ComfyUI API 格式图")
+         raise HTTPException(status_code=422, detail="graph 必须是非空的 ComfyUI API 格式图")
     if len(req.graph) > 400:
-        raise HTTPException(status_code=422, detail="工作流节点过多(>400)")
+         raise HTTPException(status_code=422, detail="工作流节点过多(>400)")
     job_nsfw = _gate_raw_graph_nsfw(req.graph, user)
     try:
-        client = resolve_worker(req.worker) if req.worker else await pool.pick()
+         client = resolve_worker(req.worker) if req.worker else await pool.pick()
     except ComfyUIError as e:
-        raise HTTPException(status_code=502, detail=str(e)) from e
+         raise HTTPException(status_code=502, detail=str(e)) from e
     client_id = uuid.uuid4().hex
     try:
-        prompt_id = await client.queue_prompt(req.graph, client_id)
+         prompt_id = await client.queue_prompt(req.graph, client_id)
     except ComfyUIError as e:
-        raise HTTPException(status_code=502, detail=str(e)) from e
+         raise HTTPException(status_code=502, detail=str(e)) from e
 
     session.add(
-        Job(
-            tenant_id=user.tenant_id,
-            user_id=user.id,
-            prompt_id=prompt_id,
-            worker=client.base_url,
-            kind="raw",
-            status="queued",
-            prompt="raw workflow",
-            seed=None,
-            nsfw=job_nsfw,
-            params=params_snapshot(req),
-        )
+         Job(
+              tenant_id=user.tenant_id,
+              user_id=user.id,
+              prompt_id=prompt_id,
+              worker=client.base_url,
+              kind="raw",
+              status="queued",
+              prompt="raw workflow",
+              seed=None,
+              nsfw=job_nsfw,
+              params=params_snapshot(req),
+         )
     )
     session.commit()
 
     spawn_tracker(client, prompt_id)
 
     return {
-        "prompt_id": prompt_id,
-        "client_id": client_id,
-        "worker": client.base_url,
+         "prompt_id": prompt_id,
+         "client_id": client_id,
+         "worker": client.base_url,
     }
 
 
@@ -716,42 +800,42 @@ async def generate_removebg(
     """
     enforce_generation_rate_limit(user)
     if req.mode not in REMBG_MODES:
-        raise HTTPException(
-            status_code=422,
-            detail=f"不支持的抠图模式:{req.mode!r};可选 {list(REMBG_MODES)}",
-        )
+         raise HTTPException(
+              status_code=422,
+              detail=f"不支持的抠图模式:{req.mode!r};可选 {list(REMBG_MODES)}",
+         )
     client = resolve_worker(req.worker)  # 必须用源图所在的 worker
     params = RemoveBgParams(image=req.image, mode=req.mode)
     graph = build_removebg_graph(params)
     client_id = uuid.uuid4().hex
     try:
-        prompt_id = await client.queue_prompt(graph, client_id)
+         prompt_id = await client.queue_prompt(graph, client_id)
     except ComfyUIError as e:
-        raise HTTPException(status_code=502, detail=str(e)) from e
+         raise HTTPException(status_code=502, detail=str(e)) from e
 
     session.add(
-        Job(
-            tenant_id=user.tenant_id,
-            user_id=user.id,
-            prompt_id=prompt_id,
-            worker=client.base_url,
-            kind="removebg",
-            status="queued",
-            prompt=f"removebg:{req.mode}",
-            seed=None,
-            nsfw=False,
-            params=params_snapshot(req),
-        )
+         Job(
+              tenant_id=user.tenant_id,
+              user_id=user.id,
+              prompt_id=prompt_id,
+              worker=client.base_url,
+              kind="removebg",
+              status="queued",
+              prompt=f"removebg:{req.mode}",
+              seed=None,
+              nsfw=False,
+              params=params_snapshot(req),
+         )
     )
     session.commit()
 
     spawn_tracker(client, prompt_id)
 
     return {
-        "prompt_id": prompt_id,
-        "client_id": client_id,
-        "worker": client.base_url,
-        "mode": req.mode,
+         "prompt_id": prompt_id,
+         "client_id": client_id,
+         "worker": client.base_url,
+         "mode": req.mode,
     }
 
 
@@ -781,45 +865,45 @@ async def generate_inpaint(
     settings = get_settings()
     client = resolve_worker(req.worker)  # 必须用源图所在的 worker
     params = InpaintParams(
-        image=req.image,
-        target=req.target,
-        positive=req.positive,
-        negative=req.negative,
-        ckpt_name=req.ckpt_name or settings.default_ckpt,
-        denoise=req.denoise,
-        grow_mask=req.grow_mask,
-        **({"seed": req.seed} if req.seed is not None else {}),
+         image=req.image,
+         target=req.target,
+         positive=req.positive,
+         negative=req.negative,
+         ckpt_name=req.ckpt_name or settings.default_ckpt,
+         denoise=req.denoise,
+         grow_mask=req.grow_mask,
+         **({"seed": req.seed} if req.seed is not None else {}),
     )
     # R18 硬门槛:成人底模须已开 R18,否则 403;并据此给作品打 nsfw 标。
     job_nsfw = _gate_nsfw_ckpt(params.ckpt_name, user)
     graph = build_inpaint_graph(params)
     client_id = uuid.uuid4().hex
     try:
-        prompt_id = await client.queue_prompt(graph, client_id)
+         prompt_id = await client.queue_prompt(graph, client_id)
     except ComfyUIError as e:
-        raise HTTPException(status_code=502, detail=str(e)) from e
+         raise HTTPException(status_code=502, detail=str(e)) from e
 
     session.add(
-        Job(
-            tenant_id=user.tenant_id,
-            user_id=user.id,
-            prompt_id=prompt_id,
-            worker=client.base_url,
-            kind="inpaint",
-            status="queued",
-            prompt=params.positive,
-            seed=params.seed,
-            nsfw=job_nsfw,
-            params=params_snapshot(req, seed=params.seed, ckpt_name=params.ckpt_name),
-        )
+         Job(
+              tenant_id=user.tenant_id,
+              user_id=user.id,
+              prompt_id=prompt_id,
+              worker=client.base_url,
+              kind="inpaint",
+              status="queued",
+              prompt=params.positive,
+              seed=params.seed,
+              nsfw=job_nsfw,
+              params=params_snapshot(req, seed=params.seed, ckpt_name=params.ckpt_name),
+         )
     )
     session.commit()
 
     spawn_tracker(client, prompt_id)
 
     return {
-        "prompt_id": prompt_id,
-        "client_id": client_id,
-        "worker": client.base_url,
-        "seed": params.seed,
+         "prompt_id": prompt_id,
+         "client_id": client_id,
+         "worker": client.base_url,
+         "seed": params.seed,
     }

@@ -17,12 +17,19 @@ _MAX_PER_WINDOW = 20
 _hits: dict[str, deque[float]] = defaultdict(deque)
 
 
-def enforce_generation_rate_limit(user: User) -> None:
-    """每用户每分钟最多 _MAX_PER_WINDOW 次生成,超限抛 429。"""
+def enforce_generation_rate_limit(user: User, count: int = 1) -> None:
+    """每用户每分钟最多 _MAX_PER_WINDOW 次生成,一次性请求 N 张时消费 N 个配额。
+
+    Args:
+        count: 本次请求要消费的生成次数(必须 >=1)。
+    """
+    if count < 1:
+        raise ValueError("count 必须 >= 1")
     now = time.monotonic()
     bucket = _hits[user.id]
     while bucket and now - bucket[0] > _WINDOW_SECONDS:
         bucket.popleft()
-    if len(bucket) >= _MAX_PER_WINDOW:
+    if len(bucket) + count > _MAX_PER_WINDOW:
         raise HTTPException(status_code=429, detail="生成过于频繁，请稍后再试")
-    bucket.append(now)
+    for _ in range(count):
+        bucket.append(now)

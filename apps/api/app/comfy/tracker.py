@@ -173,3 +173,37 @@ async def reconcile_loop() -> None:
             reconcile_pending()
         except Exception as e:  # noqa: BLE001
             logger.warning("reconcile loop error: %s", e)
+ 
+ 
+async def wait_for_jobs(
+    session: Session,
+    prompt_ids: list[str],
+    timeout: float = 300.0,
+    poll_interval: float = 1.0,
+) -> dict[str, list[str]]:
+    """轮询数据库，等待所有指定作业完成并返回 prompt_id -> 产物 URL 列表。
+
+    任一作业进入 error 或超时即抛出 RuntimeError。
+    """
+    pending = set(prompt_ids)
+    waited = 0.0
+    results: dict[str, list[str]] = {}
+    while pending and waited < timeout:
+        done: set[str] = set()
+        for pid in list(pending):
+            job = session.exec(select(Job).where(Job.prompt_id == pid)).first()
+            if not job:
+                raise RuntimeError(f"作业 {pid} 不存在")
+            if job.status == "done":
+                results[pid] = json.loads(job.result) if job.result else []
+                done.add(pid)
+            elif job.status == "error":
+                raise RuntimeError(f"作业 {pid} 执行失败")
+        pending -= done
+        if not pending:
+            break
+        await asyncio.sleep(poll_interval)
+        waited += poll_interval
+    if pending:
+        raise RuntimeError(f"等待作业超时: {pending}")
+    return results
