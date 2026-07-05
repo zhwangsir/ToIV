@@ -26,7 +26,7 @@
   height: 90vh;
   transform: translateX(-50%);
   background:
-    radial-gradient(50% 60% at 50% 40%, oklch(68% 0.16 285 / 0.22), transparent 70%),
+    radial-gradient(50% 60% at 50% 40%, oklch(68% 0.16 264 / 0.22), transparent 70%),
     radial-gradient(40% 50% at 62% 55%, var(--lp-cyan-soft), transparent 72%);
   filter: blur(8px);
 }
@@ -37,10 +37,10 @@
   inset: -50%;
   background-image:
     radial-gradient(1.4px 1.4px at 20% 30%, oklch(92% 0.03 210 / 0.9), transparent),
-    radial-gradient(1.2px 1.2px at 70% 20%, oklch(88% 0.05 285 / 0.8), transparent),
+    radial-gradient(1.2px 1.2px at 70% 20%, oklch(88% 0.05 264 / 0.8), transparent),
     radial-gradient(1.6px 1.6px at 40% 70%, var(--lp-cyan), transparent),
     radial-gradient(1.1px 1.1px at 85% 60%, oklch(90% 0.02 210 / 0.7), transparent),
-    radial-gradient(1.3px 1.3px at 55% 45%, oklch(88% 0.05 285 / 0.7), transparent),
+    radial-gradient(1.3px 1.3px at 55% 45%, oklch(88% 0.05 264 / 0.7), transparent),
     radial-gradient(1.1px 1.1px at 12% 85%, var(--lp-cyan), transparent),
     radial-gradient(1.5px 1.5px at 92% 88%, oklch(90% 0.02 210 / 0.6), transparent),
     radial-gradient(1.2px 1.2px at 33% 12%, oklch(90% 0.02 210 / 0.6), transparent);
@@ -71,8 +71,8 @@
   border-top: 1px solid oklch(82% 0.12 200 / 0.5);
   box-shadow:
     0 -1px 60px oklch(82% 0.12 200 / 0.18),
-    inset 0 2px 120px oklch(68% 0.16 285 / 0.12);
-  background: radial-gradient(60% 40% at 50% 0%, oklch(68% 0.16 285 / 0.08), transparent 70%);
+    inset 0 2px 120px oklch(68% 0.16 264 / 0.12);
+  background: radial-gradient(60% 40% at 50% 0%, oklch(68% 0.16 264 / 0.08), transparent 70%);
 }
 /* 斜向光束 */
 .lp-beam {
@@ -91,7 +91,7 @@
   bottom: -8vh;
   left: 12%;
   height: 46vh;
-  background: linear-gradient(to bottom, transparent, oklch(68% 0.16 285 / 0.45), transparent);
+  background: linear-gradient(to bottom, transparent, oklch(68% 0.16 264 / 0.45), transparent);
   transform: rotate(-28deg);
 }
 
@@ -231,13 +231,13 @@
   font-weight: 650;
   font-size: 1rem;
   text-decoration: none;
-  box-shadow: 0 6px 24px oklch(68% 0.16 285 / 0.35), inset 0 1px 0 oklch(100% 0 0 / 0.2);
+  box-shadow: 0 6px 24px oklch(68% 0.16 264 / 0.35), inset 0 1px 0 oklch(100% 0 0 / 0.2);
   transition: transform var(--dur-1, 150ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)),
     box-shadow var(--dur-1, 150ms) ease;
 }
 .lp-cta:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 34px oklch(68% 0.16 285 / 0.5), inset 0 1px 0 oklch(100% 0 0 / 0.25);
+  box-shadow: 0 10px 34px oklch(68% 0.16 264 / 0.5), inset 0 1px 0 oklch(100% 0 0 / 0.25);
 }
 .lp-cta--sm {
   padding: 0.6rem 1.15rem;

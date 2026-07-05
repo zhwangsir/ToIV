@@ -472,10 +472,13 @@ body::after {
 .panel {
   position: sticky;
   top: calc(64px + clamp(1rem, 2vw, 1.6rem));
-  border: 1px solid var(--hairline);
+  border: 1px solid var(--hairline-2);
   border-radius: var(--radius);
+  /* 毛玻璃浮起:半透明表面 + backdrop 模糊,让影棚环境光透过,做电影玻璃质感 */
   background:
-    linear-gradient(180deg, color-mix(in oklab, var(--bg-2) 70%, transparent), var(--bg-1) 30%);
+    linear-gradient(180deg, color-mix(in oklab, var(--bg-2) 52%, transparent), color-mix(in oklab, var(--bg-1) 74%, transparent));
+  backdrop-filter: blur(16px) saturate(135%);
+  -webkit-backdrop-filter: blur(16px) saturate(135%);
   padding: clamp(1.1rem, 1.5vw, 1.5rem);
   display: flex;
   flex-direction: column;
@@ -521,8 +524,9 @@ body::after {
   min-height: clamp(440px, 64vh, 720px);
   border: 1px solid var(--hairline);
   border-radius: var(--radius-lg);
-  background: var(--bg-sunken);
-  box-shadow: var(--shadow-edge);
+  /* 电影景深:沉陷井底 + 顶部一圈极淡电蓝环境辉光,像作品被影棚灯打亮 */
+  background: radial-gradient(120% 90% at 50% -6%, var(--accent-wash), var(--bg-sunken) 58%);
+  box-shadow: var(--shadow-edge), inset 0 30px 80px -60px var(--accent-glow);
   padding: clamp(1rem, 2vw, 1.6rem);
   display: flex;
   flex-direction: column;
@@ -1022,7 +1026,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: radial-gradient(circle at 38% 32%, #fffaf2, var(--accent-soft) 75%);
+  background: radial-gradient(circle at 38% 32%, #eef3ff, var(--accent-soft) 75%);
   border: 2px solid var(--accent-deep);
   box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.6), 0 0 0 0 var(--accent-glow);
   transform: translate(-50%, -50%);
@@ -1315,9 +1319,10 @@ input[type="range"]::-webkit-slider-thumb:hover {
   transition: transform 0.6s var(--ease-expo);
 }
 .generate-btn:hover:not(:disabled) {
-  background: linear-gradient(180deg, #f2c184, var(--accent));
+  /* hover 提亮到电蓝浅调(修掉旧琥珀档残留的桃色 #f2c184) */
+  background: linear-gradient(180deg, var(--accent-soft), var(--accent));
   box-shadow:
-    0 8px 22px -6px var(--accent-glow),
+    0 8px 24px -6px var(--accent-glow),
     var(--shadow-md),
     inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
@@ -1522,7 +1527,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  background: oklch(11% 0.006 280 / 0.55);
+  background: oklch(9% 0.012 264 / 0.55);
   backdrop-filter: blur(2px);
 }
 .manju-shot-progress-cap {
@@ -4627,13 +4632,14 @@ input[type="range"]::-webkit-slider-thumb:hover {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
-  color: var(--accent);
+  /* 微金眉标:系统性 luxe 点缀,与电蓝标题冷暖对照,给每个视图刊头一抹贵气 */
+  color: var(--gold);
 }
 .view-eyebrow::before {
   content: "";
   width: 1.6rem;
   height: 1px;
-  background: var(--accent-line);
+  background: var(--gold-line);
 }
 .view-title {
   grid-column: 1;

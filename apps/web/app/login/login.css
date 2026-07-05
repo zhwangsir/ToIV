@@ -16,7 +16,7 @@
 .login-page .auth-card {
   position: relative;
   border-radius: 22px;
-  background: linear-gradient(180deg, oklch(21% 0.012 280 / 0.66), oklch(15% 0.008 280 / 0.72));
+  background: linear-gradient(180deg, oklch(21% 0.014 264 / 0.66), oklch(15% 0.01 264 / 0.72));
   backdrop-filter: blur(18px) saturate(1.15);
   border: 1px solid var(--hairline-2);
   box-shadow: 0 30px 90px oklch(0% 0 0 / 0.5);
