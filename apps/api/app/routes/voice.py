@@ -46,6 +46,7 @@ class VoiceRequest(BaseModel):
     emo_text: str | None = Field(default=None, max_length=200)  # 情感描述(可选)
     emo_alpha: float = Field(default=0.6, ge=0.0, le=1.0)
     ref_audio_url: str | None = Field(default=None, max_length=2000)  # 角色音色克隆参考音
+    language: str = Field(default="zh", max_length=10)  # 合成语言
 
 
 class VoiceResponse(BaseModel):
@@ -89,10 +90,25 @@ async def synth_voice(
     enforce_generation_rate_limit(user)
     settings = get_settings()
 
+    allowed_languages = {"zh", "en", "ja", "ko", "yue"}
+    if body.language not in allowed_languages:
+        raise HTTPException(status_code=422, detail="不支持的合成语言")
+
+    # zh/en 走默认 tts_url；ja/ko/yue 走多语言 TTS，请求附加 language。
+    is_multilingual = body.language in {"ja", "ko", "yue"}
+    if is_multilingual:
+        tts_target = settings.tts_multilingual_url.strip().rstrip("/")
+        if not tts_target:
+            raise HTTPException(status_code=503, detail="多语言 TTS 服务未配置")
+    else:
+        tts_target = settings.tts_url.rstrip("/")
+
     data: dict[str, str] = {"text": body.text}
     if body.emo_text and body.emo_text.strip():
         data["emo_text"] = body.emo_text.strip()
         data["emo_alpha"] = str(body.emo_alpha)
+    if is_multilingual:
+        data["language"] = body.language
 
     files = None
     async with httpx.AsyncClient(timeout=_TTS_TIMEOUT, follow_redirects=True) as client:
@@ -109,7 +125,7 @@ async def synth_voice(
 
         try:
             resp = await client.post(
-                settings.tts_url.rstrip("/") + "/tts", data=data, files=files
+                tts_target + "/tts", data=data, files=files
             )
         except httpx.HTTPError as e:
             raise HTTPException(status_code=502, detail=f"TTS 服务不可达:{e}") from e
