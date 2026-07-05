@@ -135,6 +135,12 @@ async def list_models(
     if not nsfw_allowed(user):
         image_ckpts = _sfw_only(image_ckpts)
 
+    # 把全局默认底模提到首位，确保前端下拉/画布的默认选中与 settings.default_ckpt 一致。
+    # 默认模型若因 NSFW 过滤被剔除，则不强行置顶（避免在 SFW 上下文出现不可选项）。
+    default_ckpt_name = get_settings().default_ckpt
+    if default_ckpt_name and default_ckpt_name in image_ckpts:
+        image_ckpts = [default_ckpt_name] + [c for c in image_ckpts if c != default_ckpt_name]
+
     # 给图像底模附 nsfw/vpred 分类标(不过滤);并抽出便捷名单供前端筛选。
     image_tagged = _tagged(image_ckpts)
     # 未开 R18 时已剔除 nsfw 底模,nsfw_models 必为 []。
@@ -145,7 +151,7 @@ async def list_models(
     # image.checkpoints 附带每个底模的 {name,nsfw,vpred} 标(仅图像模式有分类意义)。
     # 平台默认底模(settings.default_ckpt);前端据此把初始选中对齐后端默认,
     # 避免默认落到列表首位的未验证模型(A 期:default=z_image 已实测可出图)。
-    default_ckpt = get_settings().default_ckpt if get_settings().default_ckpt in image_ckpts else None
+    default_ckpt = default_ckpt_name if default_ckpt_name in image_ckpts else None
     modes = {
         "image": {
             "models": image_ckpts,
