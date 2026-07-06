@@ -2949,7 +2949,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   -webkit-backdrop-filter: blur(20px) saturate(120%);
 }
 .manju-project-name {
-  font-family: var(--font-display);
+  font-family: var(--font-sans);
   font-size: 1.05rem;
   font-weight: 600;
   width: auto;
@@ -3139,7 +3139,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 .manju-setup h2,
 .manju-board-head h2 {
-  font-family: var(--font-display);
+  font-family: var(--font-sans);
   font-size: var(--text-title);
   font-weight: 600;
   letter-spacing: var(--tracking-tight);
@@ -3257,7 +3257,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   font-size: 0.72rem;
   color: var(--danger);
 }
-/* 角色音色工具:teal 色系,区别于参考图的 accent 紫 */
+/* 角色音色工具:teal 色系,区别于参考图的 accent 琥珀 */
 .manju-char-voice-tools {
   display: flex;
   align-items: center;
@@ -3302,7 +3302,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   width: 100%;
   padding: 0.4rem 0.6rem;
   border-radius: var(--radius-xs);
-  border: 1px solid var(--border);
+  border: 1px solid var(--hairline-2);
   background: var(--bg-sunken);
   color: var(--ink);
   font-size: 0.82rem;
@@ -6152,7 +6152,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .cad-styles { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 .cad-styles button {
   font-size: 0.78rem; padding: 0.34rem 0.7rem; border-radius: 999px;
-  border: 1px solid var(--border); background: var(--surface); color: var(--ink-soft);
+  border: 1px solid var(--hairline-2); background: var(--surface); color: var(--ink-soft);
   cursor: pointer; transition: all var(--dur) var(--ease);
 }
 .cad-styles button:hover { border-color: var(--accent-line); color: var(--ink); }
@@ -6295,7 +6295,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .dub-panel {
   display: flex; flex-direction: column; gap: 0.9rem;
   padding: 1.1rem 1.2rem; border-radius: var(--radius);
-  border: 1px solid var(--border); background: var(--bg-sunken);
+  border: 1px solid var(--hairline-2); background: var(--bg-sunken);
 }
 .dub-panel-head { display: flex; align-items: baseline; gap: 0.7rem; }
 .dub-panel-head h3 { margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--ink); }
@@ -6308,7 +6308,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .dub-modes { display: flex; gap: 0.4rem; }
 .dub-modes button {
   font-size: 0.82rem; padding: 0.4rem 0.85rem; border-radius: 999px;
-  border: 1px solid var(--border); background: var(--surface); color: var(--ink-soft);
+  border: 1px solid var(--hairline-2); background: var(--surface); color: var(--ink-soft);
   cursor: pointer; transition: all var(--dur) var(--ease);
 }
 .dub-modes button:hover { border-color: var(--accent-line); color: var(--ink); }
