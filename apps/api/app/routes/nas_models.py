@@ -53,15 +53,41 @@ def _to_mirror(url: str) -> str:
     return url
 
 
-def _resolve_civitai(model_id: str, version_id: str = "") -> tuple[str, str]:
+def _search_civitai_by_name(name: str) -> dict | None:
+    """按模型名搜索 Civitai,返回第一个匹配的模型卡片(无匹配返回 None)。"""
+    if not name or not name.strip():
+        return None
+    h = {"Authorization": f"Bearer {_CIVITAI_KEY}"} if _CIVITAI_KEY else {}
+    params = {"query": name.strip(), "limit": 5}
+    r = httpx.get(_CIVITAI, params=params, headers=h, timeout=30)
+    r.raise_for_status()
+    items = r.json().get("items") or []
+    # 优先精确匹配名称(大小写不敏感),否则取第一个
+    low = name.strip().lower()
+    for it in items:
+        if (it.get("name") or "").lower() == low:
+            return it
+    return items[0] if items else None
+
+
+def _resolve_civitai(model_id: str, version_id: str = "", name: str = "") -> tuple[str, str]:
     """Civitai 模型 id → 主文件下载直链 + 文件名。version_id 指定则取该版本,否则最新。
 
     version_id 用于绕开最新版被限制下载(如 LUSTIFY V9 需权限,回退到公开的 V8)。
+    若按 id 返回 404,且提供了 name,则按模型名搜索并取第一个匹配结果作为回退。
     """
     h = {"Authorization": f"Bearer {_CIVITAI_KEY}"} if _CIVITAI_KEY else {}
-    r = httpx.get(f"{_CIVITAI}/{model_id}", headers=h, timeout=30)
-    r.raise_for_status()
-    versions = r.json().get("modelVersions") or []
+    data: dict | None = None
+    detail_resp = httpx.get(f"{_CIVITAI}/{model_id}", headers=h, timeout=30)
+    if detail_resp.status_code == 404 and name.strip():
+        data = _search_civitai_by_name(name)
+        if data is None:
+            raise RuntimeError(f"Civitai 未找到模型(id={model_id}, name={name.strip()})")
+    else:
+        detail_resp.raise_for_status()
+        data = detail_resp.json()
+
+    versions = data.get("modelVersions") or []
     if not versions:
         raise RuntimeError("Civitai 模型无可用版本")
     ver = versions[0]
@@ -118,6 +144,7 @@ class NasDownloadRequest(BaseModel):
     url: str = Field(default="", max_length=1000)  # source=url
     id: str = Field(default="", max_length=200)  # source=civitai/huggingface:模型 id / 仓库
     version_id: str = Field(default="", max_length=40)  # source=civitai:指定版本(空=最新)
+    name: str = Field(default="", max_length=200)  # source=civitai:模型显示名(404 时按名搜索回退)
     hf_repo: str = Field(default="", max_length=200)  # source=hf 显式仓库
     hf_file: str = Field(default="", max_length=300)  # repo 内文件路径(huggingface 可空=自动挑主文件)
     type: str = Field(default="checkpoint", max_length=40)  # checkpoint/lora/vae/...
@@ -129,7 +156,7 @@ def _resolve(req: NasDownloadRequest) -> tuple[str, str]:
     if req.source == "civitai":
         if not req.id:
             raise RuntimeError("缺少 Civitai 模型 id")
-        return _resolve_civitai(req.id, req.version_id)
+        return _resolve_civitai(req.id, req.version_id, req.name)
     if req.source == "huggingface":
         repo = req.id.strip().strip("/")
         if not repo:

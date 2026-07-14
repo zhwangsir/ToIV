@@ -681,6 +681,7 @@ export async function getNasStatus(): Promise<NasStatus> {
 export async function nasDownload(params: {
   source: string; // url | hf | civitai | huggingface
   id?: string;
+  name?: string; // civitai: 显示名(404 时按名搜索回退)
   url?: string;
   hf_repo?: string;
   hf_file?: string;

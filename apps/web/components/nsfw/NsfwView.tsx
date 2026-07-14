@@ -194,6 +194,7 @@ function NsfwViewBody() {
       const { job_id } = await nasDownload({
         source: "civitai",
         id: civitaiId,
+        name: rec.name,
         type: modelType,
         filename: undefined,
       });

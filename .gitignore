@@ -53,3 +53,4 @@ apps/api/app/agent/knowledge/rag_cache_*.json
 
 # 预览截图(本地 UI 审查用)
 apps/web/.preview-*.png
+apps/web/.preview-shots/
