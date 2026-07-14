@@ -8,6 +8,9 @@ class FakeClient:
 
     def __init__(self, name: str, qlen: int, fail: bool = False):
         self.name = name
+        # pool.pick() 会读 client.base_url 来判断 worker 是否在训练中(is_busy);
+        # 即使测试里没标记 busy,属性也必须存在,否则触发 AttributeError
+        self.base_url = f"http://{name}:8000"
         self._qlen = qlen
         self._fail = fail
 
@@ -64,6 +67,8 @@ class ModelClient:
 
     def __init__(self, name: str, qlen: int, models):
         self.name = name
+        # 同 FakeClient:pool.pick() 路径会访问 base_url 做 is_busy 过滤
+        self.base_url = f"http://{name}:8000"
         self._q = qlen
         self._m = set(models)
 

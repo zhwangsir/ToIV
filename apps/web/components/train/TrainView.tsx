@@ -1,0 +1,1193 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  captionDataset,
+  imageUrl,
+  listModels,
+  listTrainJobs,
+  registerLora,
+  startTraining,
+  trackTrainJob,
+  uploadDataset,
+} from "@/lib/api";
+import type { TrainJob, TrainProgress, TrainStartParams } from "@/lib/types";
+import { Icon } from "@/components/ui/Icon";
+import { OptimizeButton } from "@/components/ui/OptimizeButton";
+
+type JobStatus = TrainJob["status"];
+
+const STATUS_META: Record<JobStatus, { label: string; cls: string }> = {
+  queued: { label: "排队中", cls: "tv-badge-muted" },
+  captioning: { label: "打标中", cls: "tv-badge-accent" },
+  training: { label: "训练中", cls: "tv-badge-accent" },
+  sampling: { label: "采样中", cls: "tv-badge-accent" },
+  done: { label: "已完成", cls: "tv-badge-success" },
+  error: { label: "失败", cls: "tv-badge-danger" },
+};
+
+const ACTIVE_STATUSES: JobStatus[] = ["queued", "captioning", "training", "sampling"];
+
+const DEFAULT_FORM: FormState = {
+  name: "",
+  base_ckpt: "",
+  trigger_words: "",
+  lr: 1e-4,
+  steps: 1000,
+  network_dim: 16,
+  network_alpha: 8,
+  resolution: 512,
+  batch_size: 1,
+  cuda_device: 0,
+};
+
+interface FormState {
+  name: string;
+  base_ckpt: string;
+  trigger_words: string;
+  lr: number;
+  steps: number;
+  network_dim: number;
+  network_alpha: number;
+  resolution: number;
+  batch_size: number;
+  cuda_device: number;
+}
+
+function formatTime(iso: string): string {
+  try {
+    const d = new Date(iso);
+    const diff = Date.now() - d.getTime();
+    const min = 60_000;
+    const hr = 60 * min;
+    const day = 24 * hr;
+    if (diff < min) return "刚刚";
+    if (diff < hr) return `${Math.floor(diff / min)} 分钟前`;
+    if (diff < day) return `${Math.floor(diff / hr)} 小时前`;
+    if (diff < 7 * day) return `${Math.floor(diff / day)} 天前`;
+    return d.toLocaleDateString("zh-CN");
+  } catch {
+    return iso;
+  }
+}
+
+function pct(p: TrainProgress | null): number {
+  if (!p || !p.total) return 0;
+  return Math.max(0, Math.min(100, Math.round((p.step / p.total) * 100)));
+}
+
+export function TrainView() {
+  const [jobs, setJobs] = useState<TrainJob[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [checkpoints, setCheckpoints] = useState<string[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<FormState>(DEFAULT_FORM);
+  const [datasetFiles, setDatasetFiles] = useState<File[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitMsg, setSubmitMsg] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const [registeringId, setRegisteringId] = useState<string | null>(null);
+  const [registeredJobs, setRegisteredJobs] = useState<Set<string>>(new Set());
+  const [registerMsg, setRegisterMsg] = useState<Record<string, string>>({});
+
+  const trackingRef = useRef<Set<string>>(new Set());
+  // 当前由本组件发起的活跃 SSE 连接(api 层 trackTrainJob 通过 register 回调暴露)。
+  // api 层仅在 promise 终态(done/error)时主动 es.close();组件卸载时若 promise 仍 pending,
+  // 需在此主动 close 以避免连接泄漏。
+  const sseRef = useRef<Map<string, EventSource>>(new Map());
+  const [, setForceRender] = useState(0);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    listTrainJobs()
+      .then(setJobs)
+      .catch((e) => setError(e instanceof Error ? e.message : "加载训练任务失败"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    void load();
+    listModels()
+      .then((res) => {
+        const ckpts = res.checkpoints ?? [];
+        setCheckpoints(ckpts);
+        // 训练不暴露模型选择 UI,统一使用平台默认底模
+        const def = res.modes?.image?.default ?? null;
+        const defaultCkpt = def && ckpts.includes(def) ? def : ckpts[0] ?? "";
+        if (defaultCkpt) {
+          setForm((f) => (f.base_ckpt ? f : { ...f, base_ckpt: defaultCkpt }));
+        }
+      })
+      .catch(() => setCheckpoints([]));
+  }, [load]);
+
+  const patchJob = useCallback((jobId: string, patch: Partial<TrainJob>) => {
+    setJobs((prev) =>
+      (prev ?? []).map((j) => (j.id === jobId ? { ...j, ...patch } : j)),
+    );
+  }, []);
+
+  const trackJob = useCallback(
+    (jobId: string) => {
+      if (trackingRef.current.has(jobId)) return;
+      trackingRef.current.add(jobId);
+
+      trackTrainJob(jobId, {
+        onProgress: (p: TrainProgress) => {
+          patchJob(jobId, { progress: p, status: "training" });
+        },
+        register: (es) => {
+          // api 层在创建时回调 es,在终态时回调 null;据此维护本组件 sseRef
+          if (es) {
+            sseRef.current.set(jobId, es);
+          } else {
+            sseRef.current.delete(jobId);
+          }
+        },
+      })
+        .then(() => {
+          patchJob(jobId, { status: "done" });
+        })
+        .catch((err) => {
+          patchJob(jobId, {
+            status: "error",
+            error: err instanceof Error ? err.message : "训练失败",
+          });
+        })
+        .finally(() => {
+          trackingRef.current.delete(jobId);
+          sseRef.current.delete(jobId);
+          setForceRender((n) => n + 1);
+        });
+    },
+    [patchJob],
+  );
+
+  // 对列表中处于活跃态的任务启动 SSE 追踪
+  useEffect(() => {
+    if (!jobs) return;
+    for (const j of jobs) {
+      if (ACTIVE_STATUSES.includes(j.status) && !trackingRef.current.has(j.id)) {
+        trackJob(j.id);
+      }
+    }
+  }, [jobs, trackJob]);
+
+  // 卸载时清空追踪集合,并主动关闭所有活跃 SSE 连接。
+  // api 层 trackTrainJob 仅在 promise 终态(done/error)时 es.close();
+  // 若组件在 promise 仍 pending 时卸载,需在此兜底 close 以避免连接泄漏。
+  useEffect(() => {
+    return () => {
+      trackingRef.current.clear();
+      sseRef.current.forEach((es) => es.close());
+      sseRef.current.clear();
+    };
+  }, []);
+
+  const sortedJobs = useMemo(() => {
+    if (!jobs) return [];
+    const rank: Record<JobStatus, number> = {
+      training: 0,
+      sampling: 1,
+      captioning: 2,
+      queued: 3,
+      error: 4,
+      done: 5,
+    };
+    return [...jobs].sort((a, b) => {
+      const ra = rank[a.status] ?? 9;
+      const rb = rank[b.status] ?? 9;
+      if (ra !== rb) return ra - rb;
+      return (b.created_at ?? "").localeCompare(a.created_at ?? "");
+    });
+  }, [jobs]);
+
+  const updateForm = (key: keyof FormState, value: string | number) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const onPickFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const list = e.target.files;
+    if (!list) return;
+    setDatasetFiles(Array.from(list));
+  };
+
+  const handleSubmit = async () => {
+    setSubmitError(null);
+    setSubmitMsg(null);
+
+    if (!form.name.trim()) {
+      setSubmitError("请填写训练任务名称");
+      return;
+    }
+    if (!form.base_ckpt) {
+      setSubmitError("请选择底模");
+      return;
+    }
+    if (!form.trigger_words.trim()) {
+      setSubmitError("请填写触发词");
+      return;
+    }
+    if (datasetFiles.length === 0) {
+      setSubmitError("请上传训练数据集（图片）");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      setSubmitMsg("正在上传数据集…");
+      const up = await uploadDataset(datasetFiles);
+      const jobId = up.job_id;
+
+      setSubmitMsg("正在为数据集打标（Florence2）…");
+      await captionDataset(jobId, form.cuda_device);
+
+      setSubmitMsg("正在启动训练…");
+      const params: TrainStartParams = {
+        job_id: jobId,
+        name: form.name.trim(),
+        base_ckpt: form.base_ckpt,
+        trigger_words: form.trigger_words.trim(),
+        lr: form.lr,
+        steps: form.steps,
+        network_dim: form.network_dim,
+        network_alpha: form.network_alpha,
+        resolution: form.resolution,
+        batch_size: form.batch_size,
+        cuda_device: form.cuda_device,
+      };
+      await startTraining(params);
+
+      // 后端已创建 job,直接重新拉取列表;SSE 追踪由下方 effect 接管。
+      // 不再用乐观插入——避免后端实际未创建 job 时,作业永久停留且无 SSE 追踪。
+      await load();
+
+      // 关闭表单 + 重置
+      setShowForm(false);
+      setForm(DEFAULT_FORM);
+      setDatasetFiles([]);
+      setSubmitMsg(null);
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : "提交失败");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRegister = async (job: TrainJob) => {
+    setRegisteringId(job.id);
+    setRegisterMsg((prev) => ({ ...prev, [job.id]: "" }));
+    try {
+      const res = await registerLora(job.id);
+      setRegisteredJobs((prev) => new Set(prev).add(job.id));
+      setRegisterMsg((prev) => ({
+        ...prev,
+        [job.id]: `已注册：${res.lora_name}`,
+      }));
+    } catch (e) {
+      setRegisterMsg((prev) => ({
+        ...prev,
+        [job.id]: e instanceof Error ? e.message : "注册失败",
+      }));
+    } finally {
+      setRegisteringId(null);
+    }
+  };
+
+  const cancelForm = () => {
+    if (submitting) return;
+    setShowForm(false);
+    setForm(DEFAULT_FORM);
+    setDatasetFiles([]);
+    setSubmitError(null);
+    setSubmitMsg(null);
+  };
+
+  const isEmpty = !loading && !error && sortedJobs.length === 0;
+
+  return (
+    <div className="single-view train-view">
+      <header className="tv-header">
+        <div className="tv-title-wrap">
+          <h1 className="tv-title">训练</h1>
+          <p className="tv-subtitle">LoRA 训练 · 数据集打标 → 微调 → 注册</p>
+        </div>
+        <div className="tv-header-actions">
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => void load()}
+            disabled={loading}
+          >
+            <Icon name="refresh" size={14} />
+            刷新
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={() => setShowForm((v) => !v)}
+            disabled={submitting}
+          >
+            <Icon name="upload" size={14} />
+            新建训练
+          </button>
+        </div>
+      </header>
+
+      {showForm && (
+        <section className="card tv-form-card">
+          <div className="tv-form-head">
+            <h2 className="tv-form-title">新建训练任务</h2>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={cancelForm}
+              disabled={submitting}
+              aria-label="关闭表单"
+            >
+              <Icon name="close" size={16} />
+            </button>
+          </div>
+
+          <div className="tv-form-grid">
+            <label className="tv-field tv-field-wide">
+              <span className="tv-label">任务名称</span>
+              <input
+                className="input"
+                placeholder="如：角色A_v1"
+                value={form.name}
+                onChange={(e) => updateForm("name", e.target.value)}
+                disabled={submitting}
+              />
+            </label>
+
+            <label className="tv-field tv-field-wide">
+              <span className="tv-label">底模</span>
+              {/* 模型锁定:训练不暴露底模选择 UI,统一使用平台默认底模(只读展示) */}
+              <div className="tv-ckpt-readonly">
+                {form.base_ckpt ? (
+                  <span className="badge badge-accent" title="平台默认底模">
+                    {form.base_ckpt}
+                  </span>
+                ) : (
+                  <span className="tv-ckpt-loading">加载底模…</span>
+                )}
+              </div>
+            </label>
+
+            <label className="tv-field tv-field-wide">
+              <div className="tv-label-row">
+                <span className="tv-label">触发词</span>
+                <OptimizeButton
+                  prompt={form.trigger_words}
+                  kind="train"
+                  onOptimized={(t) => updateForm("trigger_words", t)}
+                  disabled={submitting}
+                  label="优化触发词"
+                />
+              </div>
+              <input
+                className="input"
+                placeholder="如：zhenyu_girl"
+                value={form.trigger_words}
+                onChange={(e) => updateForm("trigger_words", e.target.value)}
+                disabled={submitting}
+              />
+            </label>
+
+            <label className="tv-field">
+              <span className="tv-label">学习率 LR</span>
+              <input
+                className="input"
+                type="number"
+                step="0.00001"
+                min="0"
+                value={form.lr}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value);
+                  // 学习率必须 > 0;NaN / 负数 / 0 兜底为上一次有效值,避免无效提交
+                  updateForm("lr", Number.isFinite(v) && v > 0 ? v : form.lr);
+                }}
+                disabled={submitting}
+              />
+            </label>
+
+            <label className="tv-field">
+              <span className="tv-label">步数 Steps</span>
+              <input
+                className="input"
+                type="number"
+                min="1"
+                value={form.steps}
+                onChange={(e) => updateForm("steps", parseInt(e.target.value, 10) || 0)}
+                disabled={submitting}
+              />
+            </label>
+
+            <label className="tv-field">
+              <span className="tv-label">网络维度 Dim</span>
+              <input
+                className="input"
+                type="number"
+                min="1"
+                value={form.network_dim}
+                onChange={(e) => updateForm("network_dim", parseInt(e.target.value, 10) || 0)}
+                disabled={submitting}
+              />
+            </label>
+
+            <label className="tv-field">
+              <span className="tv-label">网络 Alpha</span>
+              <input
+                className="input"
+                type="number"
+                min="0"
+                value={form.network_alpha}
+                onChange={(e) => updateForm("network_alpha", parseInt(e.target.value, 10) || 0)}
+                disabled={submitting}
+              />
+            </label>
+
+            <label className="tv-field">
+              <span className="tv-label">分辨率</span>
+              <input
+                className="input"
+                type="number"
+                min="64"
+                step="64"
+                value={form.resolution}
+                onChange={(e) => updateForm("resolution", parseInt(e.target.value, 10) || 0)}
+                disabled={submitting}
+              />
+            </label>
+
+            <label className="tv-field">
+              <span className="tv-label">批次大小</span>
+              <input
+                className="input"
+                type="number"
+                min="1"
+                value={form.batch_size}
+                onChange={(e) => updateForm("batch_size", parseInt(e.target.value, 10) || 1)}
+                disabled={submitting}
+              />
+            </label>
+
+            <label className="tv-field">
+              <span className="tv-label">GPU 设备</span>
+              <input
+                className="input"
+                type="number"
+                min="0"
+                value={form.cuda_device}
+                onChange={(e) => updateForm("cuda_device", parseInt(e.target.value, 10) || 0)}
+                disabled={submitting}
+              />
+            </label>
+
+            <div className="tv-field tv-field-wide">
+              <span className="tv-label">数据集图片</span>
+              <div className="tv-upload-row">
+                <label className="btn btn-sm tv-upload-btn">
+                  <Icon name="upload" size={14} />
+                  选择图片
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={onPickFiles}
+                    disabled={submitting}
+                    style={{ display: "none" }}
+                  />
+                </label>
+                <span className="tv-upload-hint">
+                  {datasetFiles.length > 0
+                    ? `已选 ${datasetFiles.length} 张`
+                    : "至少选择 1 张训练图片"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {submitError && (
+            <div className="tv-form-msg tv-form-msg-error">
+              <Icon name="error" size={14} />
+              {submitError}
+            </div>
+          )}
+          {submitMsg && (
+            <div className="tv-form-msg tv-form-msg-info">
+              <Icon name="loading" size={14} />
+              {submitMsg}
+            </div>
+          )}
+
+          <div className="tv-form-actions">
+            <button
+              type="button"
+              className="btn"
+              onClick={cancelForm}
+              disabled={submitting}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => void handleSubmit()}
+              disabled={submitting}
+            >
+              {submitting ? (
+                <>
+                  <Icon name="loading" size={14} />
+                  提交中…
+                </>
+              ) : (
+                "开始训练"
+              )}
+            </button>
+          </div>
+        </section>
+      )}
+
+      <div className="tv-body">
+        {error && !loading && (
+          <div className="tv-center tv-error-box">
+            <Icon name="error" size={28} strokeWidth={1.4} />
+            <p>{error}</p>
+            <button type="button" className="btn btn-sm" onClick={() => void load()}>
+              重试
+            </button>
+          </div>
+        )}
+
+        {loading && !jobs && (
+          <div className="tv-center">
+            <span className="loading-spinner">
+              <Icon name="loading" size={16} />
+              正在加载训练任务…
+            </span>
+          </div>
+        )}
+
+        {isEmpty && (
+          <div className="empty-state">
+            <div className="empty-state-icon">
+              <Icon name="train" size={48} strokeWidth={1.2} />
+            </div>
+            <div className="empty-state-title">还没有训练任务</div>
+            <div className="empty-state-desc">
+              点击「新建训练」上传数据集开始第一次 LoRA 训练
+            </div>
+          </div>
+        )}
+
+        {!error && !loading && sortedJobs.length > 0 && (
+          <div className="tv-list">
+            {sortedJobs.map((job) => (
+              <TrainCard
+                key={job.id}
+                job={job}
+                isRegistered={registeredJobs.has(job.id)}
+                isRegistering={registeringId === job.id}
+                registerMsg={registerMsg[job.id]}
+                onRegister={() => void handleRegister(job)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <style jsx>{`
+        .train-view {
+          padding-top: var(--space-4);
+          padding-bottom: var(--space-6);
+        }
+
+        /* ── Header ── */
+        .tv-header {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: var(--space-4);
+          flex-wrap: wrap;
+          margin-bottom: var(--space-5);
+        }
+        .tv-title-wrap {
+          display: flex;
+          flex-direction: column;
+          gap: 0.15rem;
+        }
+        .tv-title {
+          margin: 0;
+          font-family: var(--font-display);
+          font-size: 1.6rem;
+          font-weight: 500;
+          letter-spacing: -0.02em;
+          color: var(--ink);
+          line-height: 1.15;
+        }
+        .tv-subtitle {
+          margin: 0;
+          font-size: 0.82rem;
+          color: var(--ink-faint);
+        }
+        .tv-header-actions {
+          display: inline-flex;
+          align-items: center;
+          gap: var(--space-2);
+        }
+
+        /* ── Form ── */
+        .tv-form-card {
+          margin-bottom: var(--space-5);
+          background: var(--bg-1);
+          border-color: var(--hairline-2);
+          box-shadow: var(--shadow-md);
+        }
+        .tv-form-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: var(--space-4);
+        }
+        .tv-form-title {
+          margin: 0;
+          font-size: 1rem;
+          font-weight: 600;
+          color: var(--ink);
+          letter-spacing: -0.01em;
+        }
+        .tv-form-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          gap: var(--space-3);
+        }
+        .tv-field {
+          display: flex;
+          flex-direction: column;
+          gap: 0.3rem;
+        }
+        .tv-field-wide {
+          grid-column: span 2;
+        }
+        @media (max-width: 640px) {
+          .tv-field-wide {
+            grid-column: span 1;
+          }
+        }
+        .tv-label {
+          font-size: 0.75rem;
+          color: var(--ink-soft);
+          font-weight: 500;
+          letter-spacing: 0.01em;
+        }
+        .tv-label-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.5rem;
+        }
+        .tv-upload-row {
+          display: flex;
+          align-items: center;
+          gap: var(--space-3);
+          flex-wrap: wrap;
+        }
+        .tv-upload-btn {
+          cursor: pointer;
+        }
+        .tv-upload-hint {
+          font-size: 0.8rem;
+          color: var(--ink-faint);
+        }
+        .tv-form-msg {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          margin-top: var(--space-3);
+          padding: 0.5rem 0.7rem;
+          border-radius: var(--radius-xs);
+          font-size: 0.82rem;
+        }
+        .tv-form-msg-error {
+          background: var(--danger-quiet);
+          color: var(--danger);
+        }
+        .tv-form-msg-info {
+          background: var(--accent-quiet);
+          color: var(--accent-soft);
+        }
+        .tv-form-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: var(--space-2);
+          margin-top: var(--space-4);
+        }
+
+        /* ── Body ── */
+        .tv-body {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-4);
+        }
+        .tv-center {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: var(--space-3);
+          padding: var(--space-6) var(--space-4);
+          color: var(--ink-faint);
+        }
+        .tv-error-box {
+          color: var(--danger);
+        }
+        .tv-error-box p {
+          margin: 0;
+          font-size: 0.85rem;
+        }
+
+        /* ── Job List ── */
+        .tv-list {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-3);
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────
+// 单个训练任务卡片
+// ────────────────────────────────────────────────────────────
+
+interface TrainCardProps {
+  job: TrainJob;
+  isRegistered: boolean;
+  isRegistering: boolean;
+  registerMsg?: string;
+  onRegister: () => void;
+}
+
+function TrainCard({
+  job,
+  isRegistered,
+  isRegistering,
+  registerMsg,
+  onRegister,
+}: TrainCardProps) {
+  const meta = STATUS_META[job.status];
+  const isActive = ACTIVE_STATUSES.includes(job.status);
+  const isDone = job.status === "done";
+  const isError = job.status === "error";
+  const progress = job.progress;
+  const progressPct = pct(progress);
+  const showRegisterBtn = isDone && job.lora_path && !isRegistered;
+  const showRegisteredTag = isDone && isRegistered;
+
+  return (
+    <article className="card tv-card">
+      <div className="tv-card-head">
+        <div className="tv-card-title-wrap">
+          <h3 className="tv-card-title">{job.name || "未命名任务"}</h3>
+          <span className={`badge tv-badge ${meta.cls}`}>
+            {isActive && <span className="tv-badge-led" />}
+            {meta.label}
+          </span>
+        </div>
+        <span className="tv-card-time">{formatTime(job.created_at)}</span>
+      </div>
+
+      <div className="tv-card-meta">
+        <div className="tv-meta-item">
+          <span className="tv-meta-key">底模</span>
+          <span className="tv-meta-val tv-mono">{job.base_ckpt || "—"}</span>
+        </div>
+        <div className="tv-meta-item">
+          <span className="tv-meta-key">触发词</span>
+          <span className="tv-meta-val tv-mono">{job.trigger_words || "—"}</span>
+        </div>
+        <div className="tv-meta-item">
+          <span className="tv-meta-key">学习率</span>
+          <span className="tv-meta-val tv-mono">{job.lr ?? "—"}</span>
+        </div>
+        <div className="tv-meta-item">
+          <span className="tv-meta-key">步数</span>
+          <span className="tv-meta-val tv-mono">
+            {progress ? `${progress.step}/${progress.total}` : `${job.steps ?? "—"}`}
+          </span>
+        </div>
+        <div className="tv-meta-item">
+          <span className="tv-meta-key">维度</span>
+          <span className="tv-meta-val tv-mono">{job.network_dim ?? "—"}</span>
+        </div>
+        <div className="tv-meta-item">
+          <span className="tv-meta-key">GPU</span>
+          <span className="tv-meta-val tv-mono">{job.cuda_device ?? "—"}</span>
+        </div>
+      </div>
+
+      {(isActive || isDone) && progress && (
+        <div className="tv-progress-wrap">
+          <div className="tv-progress-track">
+            <div
+              className="tv-progress-fill"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+          <div className="tv-progress-info">
+            <span className="tv-progress-pct">{progressPct}%</span>
+            {progress.loss > 0 && (
+              <span className="tv-progress-loss">
+                loss · {progress.loss.toFixed(4)}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {progress && progress.recent_losses && progress.recent_losses.length > 1 && (
+        <LossSparkline values={progress.recent_losses} />
+      )}
+
+      {isError && (
+        <div className="tv-card-error">
+          <Icon name="error" size={14} />
+          <span>{job.error || "训练失败"}</span>
+        </div>
+      )}
+
+      {isDone && job.sample_urls && job.sample_urls.length > 0 && (
+        <div className="tv-samples">
+          <div className="tv-samples-label">样本图</div>
+          <div className="tv-samples-grid">
+            {job.sample_urls.map((url, i) => (
+              <a
+                key={i}
+                className="tv-sample"
+                href={imageUrl(url)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <img src={imageUrl(url)} alt={`样本 ${i + 1}`} loading="lazy" />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {(showRegisterBtn || showRegisteredTag || registerMsg) && (
+        <div className="tv-card-foot">
+          {showRegisterBtn && (
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={onRegister}
+              disabled={isRegistering}
+            >
+              {isRegistering ? (
+                <>
+                  <Icon name="loading" size={14} />
+                  注册中…
+                </>
+              ) : (
+                <>
+                  <Icon name="train" size={14} />
+                  注册到可用 LoRA
+                </>
+              )}
+            </button>
+          )}
+          {showRegisteredTag && (
+            <span className="badge badge-success">
+              <Icon name="success" size={12} />
+              已注册
+            </span>
+          )}
+          {registerMsg && (
+            <span className="tv-register-msg">{registerMsg}</span>
+          )}
+        </div>
+      )}
+
+      <style jsx>{`
+        .tv-card {
+          padding: var(--space-4);
+          transition: border-color var(--dur) var(--ease);
+        }
+        .tv-card:hover {
+          border-color: var(--hairline-2);
+        }
+
+        .tv-card-head {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: var(--space-3);
+          margin-bottom: var(--space-3);
+        }
+        .tv-card-title-wrap {
+          display: flex;
+          align-items: center;
+          gap: var(--space-3);
+          flex-wrap: wrap;
+          min-width: 0;
+        }
+        .tv-card-title {
+          margin: 0;
+          font-size: 0.98rem;
+          font-weight: 600;
+          color: var(--ink);
+          letter-spacing: -0.01em;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          max-width: 360px;
+        }
+        .tv-card-time {
+          font-size: 0.72rem;
+          color: var(--ink-faint);
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+
+        /* ── Badges ── */
+        .tv-badge {
+          font-weight: 500;
+        }
+        .tv-badge-led {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: currentColor;
+          animation: tv-pulse 1.4s ease-in-out infinite;
+        }
+        @keyframes tv-pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .tv-badge-led { animation: none; }
+        }
+        .tv-badge-muted {
+          background: var(--bg-2);
+          color: var(--ink-soft);
+        }
+        .tv-badge-accent {
+          background: var(--accent-quiet);
+          border-color: var(--accent-line);
+          color: var(--accent-soft);
+        }
+        .tv-badge-success {
+          background: var(--success-quiet);
+          color: var(--success);
+        }
+        .tv-badge-danger {
+          background: var(--danger-quiet);
+          color: var(--danger);
+        }
+
+        /* ── Meta ── */
+        .tv-card-meta {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+          gap: var(--space-2) var(--space-4);
+          padding: var(--space-3) 0;
+          border-top: 1px solid var(--hairline);
+          border-bottom: 1px solid var(--hairline);
+        }
+        .tv-meta-item {
+          display: flex;
+          flex-direction: column;
+          gap: 0.15rem;
+          min-width: 0;
+        }
+        .tv-meta-key {
+          font-size: 0.68rem;
+          color: var(--ink-faint);
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+        .tv-meta-val {
+          font-size: 0.82rem;
+          color: var(--ink-soft);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .tv-mono {
+          font-family: var(--font-mono);
+          font-size: 0.78rem;
+        }
+
+        /* ── Progress ── */
+        .tv-progress-wrap {
+          margin-top: var(--space-3);
+          display: flex;
+          flex-direction: column;
+          gap: 0.4rem;
+        }
+        .tv-progress-track {
+          height: 6px;
+          background: var(--bg-2);
+          border-radius: var(--radius-full);
+          overflow: hidden;
+        }
+        .tv-progress-fill {
+          height: 100%;
+          background: linear-gradient(90deg, var(--accent-deep), var(--accent));
+          border-radius: var(--radius-full);
+          transition: width 0.3s var(--ease);
+        }
+        .tv-progress-info {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          font-size: 0.74rem;
+          color: var(--ink-faint);
+          font-family: var(--font-mono);
+        }
+        .tv-progress-loss {
+          color: var(--accent-soft);
+        }
+
+        /* ── Error ── */
+        .tv-card-error {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          margin-top: var(--space-3);
+          padding: 0.5rem 0.7rem;
+          background: var(--danger-quiet);
+          color: var(--danger);
+          border-radius: var(--radius-xs);
+          font-size: 0.8rem;
+        }
+
+        /* ── Samples ── */
+        .tv-samples {
+          margin-top: var(--space-3);
+        }
+        .tv-samples-label {
+          font-size: 0.72rem;
+          color: var(--ink-faint);
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          margin-bottom: 0.5rem;
+        }
+        .tv-samples-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+          gap: var(--space-2);
+        }
+        .tv-sample {
+          display: block;
+          aspect-ratio: 1 / 1;
+          overflow: hidden;
+          border-radius: var(--radius-xs);
+          border: 1px solid var(--hairline);
+          background: var(--bg-2);
+        }
+        .tv-sample img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          transition: transform var(--dur) var(--ease);
+        }
+        .tv-sample:hover img {
+          transform: scale(1.04);
+        }
+
+        /* ── Footer ── */
+        .tv-card-foot {
+          display: flex;
+          align-items: center;
+          gap: var(--space-3);
+          margin-top: var(--space-3);
+          flex-wrap: wrap;
+        }
+        .tv-register-msg {
+          font-size: 0.78rem;
+          color: var(--ink-soft);
+        }
+      `}</style>
+    </article>
+  );
+}
+
+// ────────────────────────────────────────────────────────────
+// Loss 折线 sparkline（纯 SVG,无依赖）
+// ────────────────────────────────────────────────────────────
+
+function LossSparkline({ values }: { values: number[] }) {
+  const w = 100;
+  const h = 28;
+  const rawPts = values.length > 0 ? values : [0];
+  // 长训练可能累积万步 loss,展开运算符 Math.min(...pts) 会栈溢出;
+  // 同时 SVG 上千 polyline 点也会过载 → 降采样到 ≤1000 点
+  const pts =
+    rawPts.length > 1000
+      ? rawPts.filter(
+          (_, i) => i % Math.ceil(rawPts.length / 1000) === 0,
+        )
+      : rawPts;
+
+  // 用 reduce 计算 min/max,避免 Math.min(...pts) / Math.max(...pts) 栈溢出
+  const min = pts.reduce((a, b) => Math.min(a, b), pts[0]);
+  const max = pts.reduce((a, b) => Math.max(a, b), pts[0]);
+  const range = max - min || 1;
+
+  const coords = pts.map((v, i) => {
+    const x = pts.length === 1 ? w / 2 : (i / (pts.length - 1)) * w;
+    const y = h - ((v - min) / range) * (h - 4) - 2;
+    return `${x.toFixed(2)},${y.toFixed(2)}`;
+  });
+  const path = coords.join(" ");
+
+  return (
+    <div className="tv-spark-wrap">
+      <span className="tv-spark-label">loss 曲线</span>
+      <svg
+        className="tv-spark"
+        viewBox={`0 0 ${w} ${h}`}
+        preserveAspectRatio="none"
+        role="img"
+        aria-label="loss 曲线"
+      >
+        <polyline
+          points={path}
+          fill="none"
+          stroke="var(--accent-soft)"
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      </svg>
+      <style jsx>{`
+        .tv-spark-wrap {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          margin-top: var(--space-2);
+        }
+        .tv-spark-label {
+          font-size: 0.68rem;
+          color: var(--ink-faint);
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          white-space: nowrap;
+        }
+        .tv-spark {
+          flex: 1;
+          height: 28px;
+          opacity: 0.9;
+        }
+      `}</style>
+    </div>
+  );
+}

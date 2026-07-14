@@ -35,6 +35,34 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("job", "parent_id", "parent_id VARCHAR NOT NULL DEFAULT ''"),
     ("job", "root_id", "root_id VARCHAR NOT NULL DEFAULT ''"),
     ("job", "params", "params VARCHAR NOT NULL DEFAULT ''"),
+    # 未成年防护:用户出生日期(可空,空=未填写,视为成年以兼容老数据)。
+    # 可空列无需 NOT NULL DEFAULT,SQLite ADD COLUMN 直接支持。
+    ('"user"', "birthdate", "birthdate DATE"),
+    # D 期:LoRA 训练作业表(create_all 建新表;此条保 prod 既有库幂等)
+    # trainjob 表由 SQLModel.metadata.create_all 自动创建,无需手 ALTER。
+    # 智能体系统:用户当前默认智能体 id(空=走 kind 默认系统提示)
+    ('"user"', "default_agent_id", "default_agent_id VARCHAR"),
+)
+
+# 整段 SQL 幂等迁移(CREATE TABLE IF NOT EXISTS 等,非 ADD COLUMN 场景)。
+# agents 表:create_all 已建新库;此处保 prod 既有库幂等补建。
+_SQLITE_RAW_MIGRATIONS: tuple[str, ...] = (
+    """
+    CREATE TABLE IF NOT EXISTS agents (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        icon TEXT DEFAULT 'sparkles',
+        applies_to TEXT DEFAULT 'all',
+        system_prompt TEXT NOT NULL,
+        is_nsfw INTEGER DEFAULT 0,
+        is_builtin INTEGER DEFAULT 0,
+        llm_model_override TEXT,
+        sort INTEGER DEFAULT 100,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
 )
 
 
@@ -52,6 +80,12 @@ def _run_sqlite_migrations() -> None:
     后端不在此处处理(留给正式迁移工具)。
     """
     with engine.begin() as conn:
+        # 先跑整段 SQL(CREATE TABLE IF NOT EXISTS 等,天然幂等)
+        for raw in _SQLITE_RAW_MIGRATIONS:
+            try:
+                conn.execute(text(raw))
+            except OperationalError:
+                pass
         for table, column, ddl in _SQLITE_MIGRATIONS:
             if column in _sqlite_columns(conn, table):
                 continue

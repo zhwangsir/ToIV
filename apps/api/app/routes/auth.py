@@ -43,6 +43,7 @@ def _user_dict(user: User) -> dict:
         "email": user.email,
         "role": user.role,
         "nsfw_enabled": user.nsfw_enabled,
+        "default_agent_id": getattr(user, "default_agent_id", None),
     }
 
 
@@ -63,8 +64,11 @@ def test_login(body: TestLoginRequest, session: Session = Depends(get_session)) 
     """AI 测试通道:密钥换 admin token,免登录表单。仅 TOIV_TEST_KEY 非空且匹配时放行。
     前端 /?testkey=<key> 调它一跳进 app。密钥可随时在 .env 清空停用。"""
     key = get_settings().test_key.strip()
-    if not key or body.key != key:
-        raise HTTPException(status_code=403, detail="测试通道未开启或密钥错误")
+    # 生产环境关闭测试通道:test_key 为空时直接 404，避免暴露"该端点存在测试通道"这一信息给攻击者
+    if not key:
+        raise HTTPException(status_code=404, detail="测试通道未启用")
+    if body.key != key:
+        raise HTTPException(status_code=403, detail="测试通道密钥错误")
     # 发配置的 admin 账号 token(便于 AI 测全部功能,含管理台);无则取任一 admin
     email = get_settings().admin_email.strip().lower()
     user = session.exec(select(User).where(User.email == email)).first() if email else None

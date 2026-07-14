@@ -19,10 +19,22 @@ class WorkerPool:
             raise ValueError("WorkerPool 至少需要一个 ComfyUI worker")
         self._clients = list(clients)
         self._rr = 0  # 轮询计数,用于在负载相同的 worker 间均匀分配
+        self._busy: set[str] = set()  # 训练中的 worker URL(摘流出图池,ComfyUI 进程不停)
 
     @property
     def clients(self) -> list[ComfyUIClient]:
         return list(self._clients)
+
+    def mark_busy(self, url: str) -> None:
+        """标记 worker 训练中 → pick() 跳过它(ComfyUI 进程不停,只不派新出图任务)。"""
+        self._busy.add(url.rstrip("/"))
+
+    def mark_free(self, url: str) -> None:
+        """训练结束 → worker 回归出图池。"""
+        self._busy.discard(url.rstrip("/"))
+
+    def is_busy(self, url: str) -> bool:
+        return url.rstrip("/") in self._busy
 
     async def pick(
         self,
@@ -57,8 +69,14 @@ class WorkerPool:
 
         probed = await asyncio.gather(*(probe(c) for c in self._clients))
         capable = [(i, ql) for i, (ok, ql) in enumerate(probed) if ok]
-        if not capable:
+        # 摘流训练中的 worker(ComfyUI 进程不停,只是不派新出图任务,避免显存争抢 OOM)
+        free = [(i, ql) for i, ql in capable if not self.is_busy(self._clients[i].base_url)]
+        if not free:
+            # 全在训练 → 回落到 capable(宁可排队也不让出图完全停摆)
+            free = capable
+        if not free:
             raise ComfyUIError("没有具备所需模型且可用的 worker")
+        capable = free
         min_load = min(ql for _, ql in capable)
         candidates = [i for i, ql in capable if ql == min_load]
         chosen = candidates[self._rr % len(candidates)]

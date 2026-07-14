@@ -47,16 +47,18 @@ async def run(
     messages: list[dict], pool: WorkerPool, user: User, session,
     attachment: dict | None = None,
 ) -> AsyncIterator[dict]:
-    msgs: list[dict] = [{"role": "system", "content": SYSTEM}]
+    # 把所有 system 内容拼到开头唯一一条 system 消息里(vLLM 要求 system 只能在消息列表开头,
+    # 多条 system 会被拒绝;LM Studio 宽容但不保证)。用换行 + 分隔标记区分各段。
+    sys_parts: list[str] = [SYSTEM]
     context = await _rag_context(messages)
     if context:
-        msgs.append({"role": "system", "content": context})
+        sys_parts.append(context)
     if attachment and attachment.get("filename"):
-        msgs.append({
-            "role": "system",
-            "content": "用户本轮上传了一张图片。若用户想修改/重绘它,调用 edit_image;"
-                       "若想把它转成 3D 模型,调用 generate_3d(无需再描述)。",
-        })
+        sys_parts.append(
+            "用户本轮上传了一张图片。若用户想修改/重绘它,调用 edit_image;"
+            "若想把它转成 3D 模型,调用 generate_3d(无需再描述)。"
+        )
+    msgs: list[dict] = [{"role": "system", "content": "\n\n".join(sys_parts)}]
     msgs.extend(messages)
 
     for _ in range(_MAX_ROUNDS):

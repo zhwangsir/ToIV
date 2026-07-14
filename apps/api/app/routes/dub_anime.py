@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import tempfile
 import time
@@ -30,11 +31,15 @@ except ImportError:
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlmodel import Session, select
 
+from app.db import get_session
 from app.deps import get_current_user
-from app.models import User
+from app.jobs_persist import persist_job_to_db
+from app.models import Job, User
 from app.ratelimit import enforce_generation_rate_limit
 from app.routes.dub import _DUB_DIR, _NAME_RE, _ffmpeg_run
+from app.versioning import params_snapshot
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -231,10 +236,26 @@ async def _run_anime_lipsync(job: dict, src: Path, req: AnimeLipsyncRequest,
     job["status"] = "done"
 
 
+async def _run_anime_lipsync_tracked(
+    job: dict, src: Path, req: AnimeLipsyncRequest, audio_src: Path,
+) -> None:
+    """_run_anime_lipsync 的 DB 持久化包装:管线结束后把终态写回 DB Job。
+
+    why:用 try/finally 包一层,无需改动 _run_anime_lipsync 内部多处 return。
+    无论 done / error,都把最终 job dict 写回 DB——api 重启后前端仍可查到终态。
+    """
+    try:
+        await _run_anime_lipsync(job, src, req, audio_src)
+    finally:
+        if job["status"] in ("done", "error"):
+            persist_job_to_db(job["id"], "anime_lipsync", job["status"], job)
+
+
 @router.post("/dub/anime-lipsync")
 async def dub_anime_lipsync(
     body: AnimeLipsyncRequest,
     user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
 ) -> dict[str, object]:
     """起动漫对口型后台作业(本地 CV)。轮询 GET /dub/anime-lipsync/{job}。"""
     enforce_generation_rate_limit(user)
@@ -259,19 +280,57 @@ async def dub_anime_lipsync(
            "started": time.monotonic(), "elapsed": 0.0}
     _anime_jobs[job_id] = job
     _prune()
-    task = asyncio.create_task(_run_anime_lipsync(job, src, body, audio_src))
+
+    # 持久化到 DB Job:api 重启后内存 _anime_jobs 丢失,DB 保终态供前端恢复查询。
+    # prompt_id 复用 job_id(本管线无 ComfyUI prompt_id);result 存全量 job dict 快照,
+    # 状态查询端点回放用(运行中由内存提供实时进度)。
+    session.add(Job(
+        tenant_id=user.tenant_id,
+        user_id=user.id,
+        prompt_id=job_id,
+        worker="",
+        kind="anime_lipsync",
+        status="running",
+        prompt="动漫对口型",
+        params=params_snapshot(body),
+        result=json.dumps(job, ensure_ascii=False),
+    ))
+    session.commit()
+
+    task = asyncio.create_task(_run_anime_lipsync_tracked(job, src, body, audio_src))
     _a_tasks.add(task)
     task.add_done_callback(_a_tasks.discard)
     return {"job_id": job_id}
 
 
+_ANIME_JOB_PUBLIC = (
+    "id", "status", "stage", "progress", "frames",
+    "faces_detected", "url", "error", "elapsed",
+)
+
+
 @router.get("/dub/anime-lipsync/{job_id}")
-async def dub_anime_status(job_id: str, user: User = Depends(get_current_user)) -> dict[str, object]:
+async def dub_anime_status(
+    job_id: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict[str, object]:
+    # 优先查 DB Job(api 重启后内存丢,DB 保终态);运行中且内存还在则用内存(实时进度)
+    db_job = session.exec(select(Job).where(Job.prompt_id == job_id)).first()
+    if db_job:
+        mem = _anime_jobs.get(job_id)
+        if db_job.status == "running" and mem:
+            return {k: mem[k] for k in _ANIME_JOB_PUBLIC}
+        try:
+            data = json.loads(db_job.result) if db_job.result else {}
+        except ValueError:
+            data = {}
+        return {k: data.get(k) for k in _ANIME_JOB_PUBLIC}
+    # 内存兜底:迁移前老作业或 DB 未命中(向后兼容)
     job = _anime_jobs.get(job_id)
     if not job:
-        raise HTTPException(status_code=404, detail="任务不存在")
-    return {k: job[k] for k in ("id", "status", "stage", "progress", "frames",
-                                "faces_detected", "url", "error", "elapsed")}
+        raise HTTPException(status_code=404, detail="任务不存在(可能已过期或 api 重启)")
+    return {k: job[k] for k in _ANIME_JOB_PUBLIC}
 
 
 @router.get("/dub/anime-output/{name}")

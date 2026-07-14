@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import re
 import tempfile
@@ -23,13 +24,17 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
+from sqlmodel import Session, select
 
 from app.config import get_settings
+from app.db import get_session
 from app.deps import get_current_user
-from app.models import User
+from app.jobs_persist import persist_job_to_db
+from app.models import Job, User
 from app.ratelimit import enforce_generation_rate_limit
 from app.routes.assembly import _run_ffmpeg
 from app.routes.dub import _DUB_DIR, _NAME_RE, _probe_duration
+from app.versioning import params_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -210,10 +215,26 @@ async def _run_voice_track(job: dict, src: Path, body: VoiceTrackRequest, total:
     job["status"] = "done"
 
 
+async def _run_voice_track_tracked(
+    job: dict, src: Path, body: VoiceTrackRequest, total: float,
+) -> None:
+    """_run_voice_track 的 DB 持久化包装:管线结束后把终态写回 DB Job。
+
+    why:用 try/finally 包一层,无需改动 _run_voice_track 内部多处 return。
+    无论 done / error,都把最终 job dict 写回 DB——api 重启后前端仍可查到终态。
+    """
+    try:
+        await _run_voice_track(job, src, body, total)
+    finally:
+        if job["status"] in ("done", "error"):
+            persist_job_to_db(job["id"], "voice_track", job["status"], job)
+
+
 @router.post("/dub/voice-track")
 async def dub_voice_track(
     body: VoiceTrackRequest,
     user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
 ) -> dict[str, object]:
     """起后台配音轨作业(逐段 TTS)。轮询 GET /dub/voice-track-status/{job} 取进度/结果。"""
     enforce_generation_rate_limit(user)
@@ -239,27 +260,56 @@ async def dub_voice_track(
     }
     _voice_jobs[job_id] = job
     _prune_voice_jobs()
-    task = asyncio.create_task(_run_voice_track(job, src, body, total))
+
+    # 持久化到 DB Job:api 重启后内存 _voice_jobs 丢失,DB 保终态供前端恢复查询。
+    # prompt_id 复用 job_id;result 存全量 job dict 快照,状态查询端点回放用。
+    session.add(Job(
+        tenant_id=user.tenant_id,
+        user_id=user.id,
+        prompt_id=job_id,
+        worker="",
+        kind="voice_track",
+        status="running",
+        prompt="配音轨合成",
+        params=params_snapshot(body),
+        result=json.dumps(job, ensure_ascii=False),
+    ))
+    session.commit()
+
+    task = asyncio.create_task(_run_voice_track_tracked(job, src, body, total))
     _v_tasks.add(task)
     task.add_done_callback(_v_tasks.discard)
     return {"job_id": job_id, "segment_count": len(body.segments)}
+
+
+_VOICE_JOB_PUBLIC = (
+    "id", "status", "stage", "total", "completed", "failed",
+    "progress", "result", "error", "elapsed",
+)
 
 
 @router.get("/dub/voice-track-status/{job_id}")
 async def dub_voice_track_status(
     job_id: str,
     user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
 ) -> dict[str, object]:
+    # 优先查 DB Job(api 重启后内存丢,DB 保终态);运行中且内存还在则用内存(实时进度)
+    db_job = session.exec(select(Job).where(Job.prompt_id == job_id)).first()
+    if db_job:
+        mem = _voice_jobs.get(job_id)
+        if db_job.status == "running" and mem:
+            return {k: mem[k] for k in _VOICE_JOB_PUBLIC}
+        try:
+            data = json.loads(db_job.result) if db_job.result else {}
+        except ValueError:
+            data = {}
+        return {k: data.get(k) for k in _VOICE_JOB_PUBLIC}
+    # 内存兜底:迁移前老作业或 DB 未命中(向后兼容)
     job = _voice_jobs.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="配音任务不存在(可能已过期或 api 重启)")
-    return {
-        k: job[k]
-        for k in (
-            "id", "status", "stage", "total", "completed", "failed",
-            "progress", "result", "error", "elapsed",
-        )
-    }
+    return {k: job[k] for k in _VOICE_JOB_PUBLIC}
 
 
 @router.get("/dub/voice-track/{name}")

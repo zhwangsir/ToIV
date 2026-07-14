@@ -29,13 +29,26 @@ def _valid_anime_name() -> str:
     return f"dubanime-{uuid.uuid4().hex}.mp4"
 
 
+def _fake_session_empty():
+    """DB 无记录的 session:exec().first() 恒 None,让 status 走内存兜底。
+
+    why:anime-lipsync 迁移到 DB Job 后,status 端点先查 DB;测试用内存 job 验证
+    实时进度路径,需让 DB 查询返回空以落入内存 fallback 分支。
+    """
+    session = MagicMock()
+    session.exec.return_value.first.return_value = None
+    return session
+
+
 async def test_dub_anime_lipsync_503_when_cv2_missing(monkeypatch):
     _patch_ratelimit(monkeypatch)
     monkeypatch.setattr("app.routes.dub_anime.cv2", None)
     monkeypatch.setattr("app.routes.dub_anime.np", None)
     with pytest.raises(HTTPException) as exc:
         await dub_anime.dub_anime_lipsync(
-            dub_anime.AnimeLipsyncRequest(name=_valid_dub_name()), _user()
+            dub_anime.AnimeLipsyncRequest(name=_valid_dub_name()),
+            _user(),
+            _fake_session_empty(),
         )
     assert exc.value.status_code == 503
 
@@ -46,7 +59,9 @@ async def test_dub_anime_lipsync_invalid_name(monkeypatch):
     monkeypatch.setattr("app.routes.dub_anime.np", MagicMock())
     with pytest.raises(HTTPException) as exc:
         await dub_anime.dub_anime_lipsync(
-            dub_anime.AnimeLipsyncRequest(name="bad.mp4"), _user()
+            dub_anime.AnimeLipsyncRequest(name="bad.mp4"),
+            _user(),
+            _fake_session_empty(),
         )
     assert exc.value.status_code == 400
 
@@ -58,7 +73,9 @@ async def test_dub_anime_lipsync_source_not_found(monkeypatch, tmp_path):
     monkeypatch.setattr("app.routes.dub_anime._DUB_DIR", tmp_path)
     with pytest.raises(HTTPException) as exc:
         await dub_anime.dub_anime_lipsync(
-            dub_anime.AnimeLipsyncRequest(name=_valid_dub_name()), _user()
+            dub_anime.AnimeLipsyncRequest(name=_valid_dub_name()),
+            _user(),
+            _fake_session_empty(),
         )
     assert exc.value.status_code == 404
 
@@ -74,6 +91,7 @@ async def test_dub_anime_lipsync_invalid_audio_name(monkeypatch, tmp_path):
         await dub_anime.dub_anime_lipsync(
             dub_anime.AnimeLipsyncRequest(name=src.name, audio_name="bad.wav"),
             _user(),
+            _fake_session_empty(),
         )
     assert exc.value.status_code == 400
 
@@ -87,7 +105,9 @@ async def test_dub_anime_lipsync_success(monkeypatch, tmp_path):
     src = tmp_path / _valid_dub_name()
     src.write_bytes(b"fake")
     resp = await dub_anime.dub_anime_lipsync(
-        dub_anime.AnimeLipsyncRequest(name=src.name), _user()
+        dub_anime.AnimeLipsyncRequest(name=src.name),
+        _user(),
+        _fake_session_empty(),
     )
     assert "job_id" in resp
     assert resp["job_id"] in dub_anime._anime_jobs
@@ -104,7 +124,7 @@ async def test_dub_anime_status(monkeypatch):
     }
     dub_anime._anime_jobs[job_id] = job
     try:
-        resp = await dub_anime.dub_anime_status(job_id, _user())
+        resp = await dub_anime.dub_anime_status(job_id, _user(), _fake_session_empty())
         assert resp["status"] == "running"
     finally:
         dub_anime._anime_jobs.pop(job_id, None)
@@ -113,7 +133,7 @@ async def test_dub_anime_status(monkeypatch):
 async def test_dub_anime_status_not_found(monkeypatch):
     _patch_ratelimit(monkeypatch)
     with pytest.raises(HTTPException) as exc:
-        await dub_anime.dub_anime_status("missing", _user())
+        await dub_anime.dub_anime_status("missing", _user(), _fake_session_empty())
     assert exc.value.status_code == 404
 
 

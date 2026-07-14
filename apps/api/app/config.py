@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     # 真机出图验证)。首次载模型 ~2.5min、更吃显存,但开箱即最强画质。Klein(快)/ Z-Image(极速)/
     # Qwen-Image / SD1.5 均保留作可显式选用的其它档。dev 编码器 = mistral_3_small_flux2_fp8(见 model_profiles)。
     default_ckpt: str = "flux2_dev_fp8mixed.safetensors"
+    # NSFW 专区视频默认模型(LTX2.3 All in one v4.0 工作流推荐)
+    # 10Eros v1.2:NSFW 内容专用底模;LTX-2.3 distilled:SFW 视频生成
+    # 模型路径:checkpoints/10eros/ + diffusion_models/ltx-2.3/
+    nsfw_default_video_ckpt: str = "10eros_v12.safetensors"
+    nsfw_default_gemma: str = "gemma_3_12B_it_fp8_scaled.safetensors"
+    nsfw_default_vae: str = "ltx_vae.safetensors"
     # Forge(reForge SD WebUI)第二出图引擎(sdapi 同步出图);空 = 未部署,前端引擎切换隐藏 Forge
     forge_url: str = "http://192.168.71.100:7860"
     # 配音 TTS 独立服务（IndexTTS2，自部署 @ GPU 机，隔离 venv）
@@ -26,8 +32,11 @@ class Settings(BaseSettings):
     # 译制听写 Whisper(ASR)。whisper_url 非空 = 调外部 GPU 服务(契约:POST {whisper_url}/asr
     # multipart(file)→ {segments:[{start,end,text}]});空 = 用 api 容器内置 faster-whisper(CPU)。
     whisper_url: str = ""
-    whisper_model: str = "base"  # tiny/base/small/medium(CPU 上 base 平衡速度/质量)
-    whisper_compute: str = "int8"  # int8 CPU 最快;float32 更准更慢
+    whisper_model: str = "base"  # tiny/base/small/medium(base 平衡速度/质量)
+    whisper_compute: str = "int8"  # int8 最快;float16 适配 GPU;auto 自动
+    # 听写设备:auto=自动探测(Apple Silicon 上 CPU int8 最快且稳定;CUDA 机自动 GPU)
+    # 实际部署可显式设 cpu/cuda/metal;空=auto
+    whisper_device: str = "auto"
     # NAS(绿联 DXP8800 Pro)—— 模型/生成内容集中存储。走 SFTP,凭据经环境变量不入仓库。
     #   TOIV_NAS_HOST / TOIV_NAS_PASSWORD 在部署 .env 里配;空 host = 未启用(下载走旧路径)。
     nas_host: str = ""  # 如 192.168.71.7(LAN)或 100.80.237.96(Tailscale)
@@ -42,11 +51,9 @@ class Settings(BaseSettings):
     # 设 /data/nas/toiv(cifs 卷挂 NAS)则生成内容集中落 NAS。
     content_dir: str = "/data"
 
-    # CORS 允许的前端来源（逗号分隔）
-    cors_origins: str = (
-        "http://localhost:3100,http://127.0.0.1:3100,"
-        "http://localhost:3000,http://127.0.0.1:3000"
-    )
+    # CORS 允许的前端来源（分号或逗号分隔）。默认仅生产域名，开发环境经 .env 追加 localhost。
+    # 不能用 "*" —— allow_credentials=True 时 CORS 规范禁止通配符 origin，否则浏览器会拒绝带凭据的跨域请求。
+    cors_origins: str = "https://toiv.dgmt.top"
     request_timeout: float = 30.0
 
     # 鉴权 / 账号。开发期用 SQLite，生产切 Postgres：
@@ -69,10 +76,39 @@ class Settings(BaseSettings):
     llm_base_url: str = "http://192.168.71.100:1234/v1"
     llm_api_key: str = "lm-studio"
     llm_model: str = "qwen/qwen3.6-35b-a3b"
+    # 备用 LLM 大脑(主模型重试失败后自动切换;EXO 单端点多模型场景下 base_url/api_key 留空即复用主)。
+    # 典型:主=GLM-5.2-fp8(思考型,长 ctx),备=Kimi-K2.7-Code-4bit(代码型,主掉线时兜底)。
+    llm_fallback_base_url: str = ""
+    llm_fallback_api_key: str = ""
+    llm_fallback_model: str = ""
 
     # 向量 RAG 的 embedding 模型(同一 OpenAI 兼容端点;留空则复用 llm_base_url)
     embed_base_url: str = ""
     embed_model: str = "text-embedding-nomic-embed-text-v1.5"
+
+    # LoRA 训练 agent(部署在 GPU 机 .100，独立 HTTP 服务 :9100)。
+    # API 通过 HTTP 调它(同 ComfyUI/TTS/LLM 的访问模式)，不走 SSH。
+    # 空 = 未部署，训练相关端点返回 503。
+    trainer_url: str = ""
+
+    # 可观测性 —— Sentry 错误追踪 DSN。空 = 不启用(本地开发默认关);
+    # 配置真实 DSN 后,app 启动时初始化 sentry-sdk 自动上报未捕获异常 + 10% 性能采样。
+    sentry_dsn: str = ""
+    # 运行环境(传给 Sentry 的 environment 字段;development / production)。
+    # 也便于后续按环境分支(如生产才采样)。
+    environment: str = "development"
+
+    # —— 视频质量评估 VLM(video scorer)——
+    # workstation(100.99.181.103:8200, GPU0)上 Qwen3-VL VLM Server,OpenAI 兼容 API。
+    # 启用后:视频作业完成时(done 之前)异步评估,低分则推 SSE quality_warning 事件。
+    # 评估失败/超时/全 0 一律降级(degraded=True),不阻塞主流程、不推 warning。
+    vlm_server_url: str = "http://100.99.181.103:8200"
+    vlm_model_id: str = "qwen3-vl"
+    # 默认关:灰度上线开关,VLM Server 不可达时立即关回退,零影响主流程。
+    # .env.example / 部署 .env 显式置 true 启用(VLM 已就位并验证)。
+    video_scorer_enabled: bool = False
+    # 综合分(total)低于此阈值才推 quality_warning;0.65 ≈ 视频质量明显可改进的临界。
+    video_scorer_threshold: float = 0.65
 
     @property
     def embed_url(self) -> str:
@@ -94,7 +130,8 @@ class Settings(BaseSettings):
 
     @property
     def cors_origin_list(self) -> list[str]:
-        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+        # 兼容分号/逗号两种分隔(.env 用分号更直观，避免与 URL 内可能出现的逗号冲突)
+        return [o.strip() for o in self.cors_origins.replace(";", ",").split(",") if o.strip()]
 
 
 @lru_cache

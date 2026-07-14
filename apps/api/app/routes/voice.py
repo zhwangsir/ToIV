@@ -111,7 +111,7 @@ async def synth_voice(
         data["language"] = body.language
 
     files = None
-    async with httpx.AsyncClient(timeout=_TTS_TIMEOUT, follow_redirects=True) as client:
+    async with httpx.AsyncClient(timeout=_TTS_TIMEOUT, follow_redirects=True, trust_env=False) as client:
         # 角色音色:下载参考音再转发给 TTS 服务(multipart 文件)
         if body.ref_audio_url:
             if not _allowed_ref(body.ref_audio_url):

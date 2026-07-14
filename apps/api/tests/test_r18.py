@@ -241,8 +241,9 @@ def test_models_filtered_when_nsfw_disabled(client):
     assert body["modes"]["image"]["models"] == ["DreamShaper_8.safetensors"]
 
 
-def test_models_full_when_nsfw_enabled(client):
-    """新语义:R18 放行看 X-NSFW 请求头(/nsfw 专页),账户开关不再单独生效。"""
+def test_models_nsfw_only_when_nsfw_enabled(client):
+    """新语义:R18 放行看 X-NSFW 请求头(/nsfw 专页)。
+    /nsfw 专页只展示成人向模型,SFW 底模(DreamShaper_8)不混入。"""
     c, engine = client
     with Session(engine) as s:
         uid = _seed_user(s, "r18user", nsfw_enabled=True)
@@ -251,7 +252,9 @@ def test_models_full_when_nsfw_enabled(client):
     r = c.get("/api/models", headers={"Authorization": f"Bearer {token}", "X-NSFW": "1"})
     assert r.status_code == 200
     body = r.json()
-    assert set(body["checkpoints"]) == {"DreamShaper_8.safetensors", "ponyRealism.safetensors"}
+    # NSFW 专页:仅保留 NSFW 底模,SFW 的 DreamShaper_8 被剔除
+    assert body["checkpoints"] == ["ponyRealism.safetensors"]
+    assert body["modes"]["image"]["models"] == ["ponyRealism.safetensors"]
     assert "ponyRealism.safetensors" in body["nsfw_models"]
 
 

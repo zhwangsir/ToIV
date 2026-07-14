@@ -1,116 +1,98 @@
 "use client";
 
-import { memo, useCallback } from "react";
-import { motion } from "framer-motion";
+import { useState } from "react";
 
-import { NavIcon } from "@/components/ui/NavIcon";
+import { AgentSwitcher } from "@/components/ui/AgentSwitcher";
+import { Icon } from "@/components/ui/Icon";
 
-import { AccountSettings } from "./AccountSettings";
-import { useActivity } from "./ActivityContext";
-
-export interface TopbarView {
-  key: string;
-  label: string;
-  icon: string;
-}
-
-interface TopbarProps<K extends string> {
-  views: readonly TopbarView[];
-  current: K;
-  onSelect: (key: K) => void;
+interface TopbarProps {
   account?: string;
   onLogout: () => void;
+  onMenuToggle?: () => void;
+  menuOpen?: boolean;
+  /** 面包屑路径 */
+  breadcrumb?: string[];
+  subtitle?: string;
 }
 
-const GROUPS = {
-  main: { label: "创作", keys: ["assistant", "create", "canvas", "manju", "dub"] },
-  resources: { label: "资源", keys: ["library", "models"] },
-  system: { label: "系统", keys: ["admin"] },
-};
-
-const TRANSITION = { type: "spring" as const, stiffness: 420, damping: 32 };
-
-const ViewButton = memo(function ViewButton({
-  view,
-  isActive,
-  onSelect,
-}: {
-  view: TopbarView;
-  isActive: boolean;
-  onSelect: (key: string) => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={isActive}
-      aria-label={view.label}
-      title={view.label}
-      className={isActive ? "active" : ""}
-      onClick={() => onSelect(view.key)}
-    >
-      {isActive && (
-        <motion.span
-          className="nav-pill"
-          layoutId="nav-pill"
-          aria-hidden="true"
-          transition={TRANSITION}
-        />
-      )}
-      <NavIcon name={view.icon} />
-      <span>{view.label}</span>
-    </button>
-  );
-});
-
-export function Topbar<K extends string>({
-  views,
-  current,
-  onSelect,
+/** 顶栏 52px —— 左面包屑 + 右模型徽章 + 账户菜单。
+ * NSFW 专区(/nsfw)仅通过地址栏直链访问,不出现在顶栏入口。 */
+export function Topbar({
   account,
   onLogout,
-}: TopbarProps<K>) {
-  const { activity } = useActivity();
-  const busy = activity?.phase === "running";
-
-  const handleSelect = useCallback((key: string) => onSelect(key as K), [onSelect]);
-
-  const groups = Object.entries(GROUPS)
-    .map(([key, group]) => ({
-      key,
-      label: group.label,
-      items: views.filter((v) => group.keys.includes(v.key)),
-    }))
-    .filter((g) => g.items.length > 0);
+  onMenuToggle,
+  menuOpen = false,
+  breadcrumb,
+  subtitle,
+}: TopbarProps) {
+  const [menuOpenState, setMenuOpenState] = useState(false);
 
   return (
     <header className="topbar">
-      <div className="brand">
-        To<span className="mark">IV</span>
-        <span className="sub">AI STUDIO</span>
+      <div className="topbar-left">
+        <button
+          type="button"
+          className="mobile-menu-toggle"
+          onClick={() => onMenuToggle?.()}
+          aria-label={menuOpen ? "关闭导航" : "打开导航"}
+          aria-expanded={menuOpen}
+        >
+          <Icon name={menuOpen ? "close" : "menu"} size={18} />
+        </button>
+
+        <div className="topbar-title-wrap">
+          {breadcrumb && breadcrumb.length > 0 ? (
+            <nav className="topbar-breadcrumb" aria-label="面包屑">
+              {breadcrumb.map((crumb, i) => (
+                <span key={i} className="topbar-crumb">
+                  {i > 0 && <span className="topbar-crumb-sep">/</span>}
+                  {crumb}
+                </span>
+              ))}
+            </nav>
+          ) : (
+            <h1 className="topbar-title">ToIV</h1>
+          )}
+          {subtitle && <p className="topbar-subtitle">{subtitle}</p>}
+        </div>
       </div>
 
-      <nav className="modal-nav" role="tablist" aria-label="主模块">
-        {groups.map((group) => (
-          <div key={group.key} className="nav-group" role="group" aria-label={group.label}>
-            {group.items.map((view) => (
-              <ViewButton
-                key={view.key}
-                view={view}
-                isActive={view.key === current}
-                onSelect={handleSelect}
-              />
-            ))}
-          </div>
-        ))}
-      </nav>
-
       <div className="topbar-right">
-        <div className={`status-pill${busy ? " is-busy" : ""}`}>
-          <span className="led" aria-hidden="true" />
-          {busy ? "生成中" : "就绪"}
+        {/* 全局默认智能体切换器:顶栏常驻,任何视图可切。
+            只列 SFW 智能体(NSFW 智能体仅在 /nsfw 专页下展示)。 */}
+        <AgentSwitcher />
+
+        <div className="model-badge" title="当前 LLM 大脑">
+          <span className="model-badge-dot" aria-hidden="true" />
+          <span className="model-badge-label">GLM-5.2</span>
         </div>
-        <AccountSettings account={account} onLogout={onLogout} className="topbar-account-btn" />
+
+        {account && (
+          <div
+            className={`topbar-account-btn${menuOpenState ? " is-open" : ""}`}
+            onClick={() => setMenuOpenState((v) => !v)}
+            onBlur={() => setMenuOpenState(false)}
+            tabIndex={0}
+          >
+            <span className="topbar-account-avatar">
+              {account.charAt(0).toUpperCase()}
+            </span>
+            <span className="topbar-account-email">{account}</span>
+            {menuOpenState && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onLogout();
+                }}
+                style={{ marginLeft: "0.3rem" }}
+              >
+                退出
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </header>
   );

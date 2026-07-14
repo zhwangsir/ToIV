@@ -26,3 +26,30 @@ next-env.d.ts
 
 # 本地 agent 工作区(worktrees / 任务转录),勿入仓
 .claude/
+
+# 头脑风暴可视化伴侣临时文件
+.superpowers/
+
+# Trae IDE 本地配置
+.trae/
+
+# 根目录临时调试脚本(开发期随手写的,不入仓)
+_check_nodes*.py
+check_status.py
+download_llm.py
+download_lora.py
+edit_gemma_*.py
+patch_llava.py
+poll_history.py
+query_history.py
+query_ltxv_nodes.py
+submit_test.py
+debug_e2e_workflow.json
+generation_config.json
+ltx_workflow_v4.json
+
+# RAG 缓存(运行时生成)
+apps/api/app/agent/knowledge/rag_cache_*.json
+
+# 预览截图(本地 UI 审查用)
+apps/web/.preview-*.png

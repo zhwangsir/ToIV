@@ -3,8 +3,8 @@
   POST /api/dub/upload              multipart(video) → 大文件流式落盘 → {name, url, size}
   GET  /api/dub/source/{name}       回服务上传的源视频(供前端预览 / 后端管线下载)
   POST /api/dub/autocut             场景/静音切分 → 带时间轴的片段
-  POST /api/dub/lipsync-long        真人长视频分段对口型(起内存 Job + 后台管线)
-  GET  /api/dub/lipsync-long/{job}  对口型进度(含 gpu_seconds 成本)
+  POST /api/dub/lipsync-long        真人长视频分段对口型(起 DB Job + 内存 Job + 后台管线)
+  GET  /api/dub/lipsync-long/{job}  对口型进度(含 gpu_seconds 成本;DB 优先,内存兜底)
   GET  /api/dub/output/{name}       回对口型成片
 
 译制/剪辑全链路(自动剪辑 → 多语言配音 → 对口型 → 成片)都以这里上传的源视频为起点。
@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import re
 import shutil
@@ -25,13 +26,17 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
+from sqlmodel import Session, select
 
 from app.comfy.client import ComfyUIError
 from app.comfy.pool import WorkerPool
+from app.db import get_session
+from app.jobs_persist import persist_job_to_db
 from app.storage import content_subdir
 from app.deps import get_current_user, get_pool
-from app.models import User
+from app.models import Job, User
 from app.ratelimit import enforce_generation_rate_limit
+from app.versioning import params_snapshot
 # 复用:LatentSync 建图(纯函数)+ assembly 的拼接/来源校验(单一真相,不重复造)
 from app.routes.assembly import _concat_parts, _is_allowed_clip, _resolve_clip_url
 from app.workflows.lipsync import LatentSyncParams, build_latentsync_graph
@@ -213,13 +218,14 @@ async def dub_autocut(
 # 源视频按片段切 → 逐段上传 worker 跑 LatentSync(复用 workflows/lipsync 建图)→
 # 下载同步片段 → 复用 assembly._concat_parts 拼成成片。
 #
-# 异步:POST 起一个内存 Job(后台任务跑整条管线),前端轮询 GET 进度;成片走
+# 异步:POST 起一个 DB Job + 内存 Job(后台任务跑整条管线),前端轮询 GET 进度;成片走
 # /dub/output。Phase 1 验证目标 = 真人单语言一条,量「对口型质量 + GPU 成本」:
 # job.gpu_seconds 累计每段 LatentSync 的入队→产出墙钟,作单卡顺序处理的成本代理。
 #
 # 鲁棒:单段 LatentSync 失败/超时(如该段无人脸)→ 回退用原片段+音轨补位,不让
 # 一段失败毁掉整条 12 分钟作业;回退计数 fallbacks 暴露给前端。
-# 内存 Job:api 重启会丢(spike 阶段可接受;production 再迁 DB Job + tracker)。
+# 持久化:DB Job 存终态(done/error + 全量 job dict),api 重启后前端仍可查到结果;
+# 内存 Job 保留实时进度(running 中 completed/stage 等动态字段),DB 写失败不毁内存。
 
 _LATENT_FPS = 25  # LatentSync 原生 25fps(切片与拼接都对齐,减少 worker 重采样)
 _SEG_TIMEOUT = 600.0  # 单段 LatentSync 上限(8~12s 片约数分钟,留足余量)
@@ -229,7 +235,8 @@ _VIDEO_EXT = (".mp4", ".webm", ".mov", ".mkv")
 _LIPSYNC_OUT_RE = re.compile(r"^dubsync-[0-9a-f]{32}\.mp4$")
 _DUBVOICE_RE = re.compile(r"^dubvoice-[0-9a-f]{32}\.wav$")  # 译制配音轨(dub_voice 产)
 
-# 内存 Job 存储 + 后台任务强引用(asyncio 仅持弱引用,防 GC 提前回收)
+# 内存 Job 存储(实时进度)+ 后台任务强引用(asyncio 仅持弱引用,防 GC 提前回收)
+# 持久化层见 DB Job(kind="dub_lipsync_long"),内存仅保运行中动态字段,终态双写
 _lipsync_jobs: dict[str, dict] = {}
 _ls_tasks: set[asyncio.Task] = set()
 
@@ -472,11 +479,29 @@ async def _run_lipsync_long(
     job["status"] = "done"
 
 
+async def _run_lipsync_long_tracked(
+    job: dict, src_path: Path, body: LipsyncLongRequest,
+    segments: list[tuple[float, float]], pool: WorkerPool,
+    audio_path: Path | None,
+) -> None:
+    """_run_lipsync_long 的 DB 持久化包装:管线结束后把终态写回 DB Job。
+
+    why:用 try/finally 包一层,无需改动 _run_lipsync_long 内部多处 return。
+    无论 done / error,都把最终 job dict 写回 DB——api 重启后前端仍可查到终态。
+    """
+    try:
+        await _run_lipsync_long(job, src_path, body, segments, pool, audio_path)
+    finally:
+        if job["status"] in ("done", "error"):
+            persist_job_to_db(job["id"], "dub_lipsync_long", job["status"], job)
+
+
 @router.post("/dub/lipsync-long")
 async def dub_lipsync_long(
     body: LipsyncLongRequest,
     pool: WorkerPool = Depends(get_pool),
     user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
 ) -> dict[str, object]:
     enforce_generation_rate_limit(user)
     if shutil.which("ffmpeg") is None:
@@ -515,8 +540,24 @@ async def dub_lipsync_long(
     _lipsync_jobs[job_id] = job
     _prune_jobs()
 
+    # 持久化到 DB Job:api 重启后内存 _lipsync_jobs 丢失,DB 保终态供前端恢复查询。
+    # prompt_id 复用 job_id(本管线无 ComfyUI prompt_id);worker 在后台动态 pick,空串占位。
+    # result 存全量 job dict 快照,状态查询端点回放用(运行中由内存提供实时进度)。
+    session.add(Job(
+        tenant_id=user.tenant_id,
+        user_id=user.id,
+        prompt_id=job_id,
+        worker="",
+        kind="dub_lipsync_long",
+        status="running",
+        prompt="长视频对口型",
+        params=params_snapshot(body),
+        result=json.dumps(job, ensure_ascii=False),
+    ))
+    session.commit()
+
     task = asyncio.create_task(
-        _run_lipsync_long(job, src, body, segments, pool, audio_path)
+        _run_lipsync_long_tracked(job, src, body, segments, pool, audio_path)
     )
     _ls_tasks.add(task)
     task.add_done_callback(_ls_tasks.discard)
@@ -541,7 +582,22 @@ _JOB_PUBLIC = (
 async def dub_lipsync_status(
     job_id: str,
     user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
 ) -> dict[str, object]:
+    # 优先查 DB Job(api 重启后内存丢,DB 保终态);运行中且内存还在则用内存(实时进度)
+    db_job = session.exec(select(Job).where(Job.prompt_id == job_id)).first()
+    if db_job:
+        # 运行中 + 内存还在:回内存的实时进度(completed/stage/gpu_seconds 等动态字段)
+        # 否则回放 DB result 快照(终态或重启后恢复)
+        mem = _lipsync_jobs.get(job_id)
+        if db_job.status == "running" and mem:
+            return {k: mem[k] for k in _JOB_PUBLIC}
+        try:
+            data = json.loads(db_job.result) if db_job.result else {}
+        except ValueError:
+            data = {}
+        return {k: data.get(k) for k in _JOB_PUBLIC}
+    # 内存兜底:迁移前老作业或 DB 未命中(向后兼容)
     job = _lipsync_jobs.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="任务不存在(可能已过期或 api 重启)")

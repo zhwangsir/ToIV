@@ -25,6 +25,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
+try:
+    from PIL import Image, ImageDraw, ImageFont
+    _PILLOW_OK = True
+except ImportError:
+    _PILLOW_OK = False
+
 from app.config import get_settings
 from app.deps import get_current_user
 from app.models import User
@@ -142,7 +148,20 @@ def _resolve_clip_url(url: str) -> str:
     return f"{_LOCAL_API_BASE}/{url}"
 
 
+_VOICE_NAME_RE = re.compile(r"^voice(?:ref)?-[0-9a-f]{32}\.wav$")
+
+
 async def _download_clip(client: httpx.AsyncClient, url: str, dest: Path) -> None:
+    # 同源 manju 产物(配音 wav / 成片 mp4)直接读本地文件,避免内部 HTTP 自调
+    # 撞鉴权(这些端点要 Bearer token,而此处是服务端内部下载无 token)。
+    # voice 和 output 共用 content_subdir("manju") 目录。
+    if url.startswith(("/api/manju/output/", "/api/manju/voice/")):
+        name = url.rsplit("/", 1)[-1]
+        if _OUTPUT_NAME_RE.match(name) or _VOICE_NAME_RE.match(name):
+            local = _OUTPUT_DIR / name
+            if local.is_file():
+                dest.write_bytes(local.read_bytes())
+                return
     try:
         resp = await client.get(_resolve_clip_url(url))
         resp.raise_for_status()
@@ -196,9 +215,93 @@ _SUB_COLORS: dict[str, str] = {
     "black": "black",
 }
 
+# PIL 颜色名(ffmpeg 色名 → PIL RGB 元组)
+_PIL_COLORS: dict[str, tuple[int, int, int]] = {
+    "white": (255, 255, 255),
+    "yellow": (255, 255, 0),
+    "cyan": (0x66, 0xe0, 0xff),
+    "pink": (0xff, 0x9e, 0xcb),
+    "green": (0x9c, 0xff, 0x8f),
+    "black": (0, 0, 0),
+}
+
+
+def _find_pillow_font() -> str:
+    """查找可用 CJK 字体路径(Pillow 渲染中文用)。"""
+    for pat in (
+        "/System/Library/Fonts/PingFang.ttc",
+        "/System/Library/Fonts/STHeiti Medium.ttc",
+        "/System/Library/Fonts/Supplemental/Songti.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK*.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK*.ttc",
+    ):
+        hits = sorted(glob.glob(pat, recursive=True))
+        if hits:
+            return hits[0]
+    return ""
+
+
+_PIL_FONT_PATH = _find_pillow_font()
+
+
+def _render_subtitle_png(text: str, options: "AssembleOptions", width: int) -> Path | None:
+    """用 Pillow 渲染字幕成透明 PNG,返回临时文件路径(drawtext 不可用时的回退)。
+
+    - 描边盒:半透明黑底圆角盒(options.sub_box=True)
+    - 无盒:文字描边(黑色 stroke)
+    - 位置由 options.sub_pos 控制(top/center/bottom),返回的 PNG 已按 width 撑满,
+      overlay 时只需水平居中 + 垂直定位。
+    """
+    if not _PILLOW_OK or not _PIL_FONT_PATH or not text.strip():
+        return None
+    size = options.sub_size
+    color = _PIL_COLORS.get(options.sub_color, (255, 255, 255))
+    try:
+        font = ImageFont.truetype(_PIL_FONT_PATH, size)
+    except Exception:
+        return None
+    # 测量文本尺寸
+    tmp = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
+    d = ImageDraw.Draw(tmp)
+    bbox = d.textbbox((0, 0), text, font=font)
+    tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    # PNG 宽度撑满视频宽,高度按文本 + padding
+    pad_x = max(20, size // 2)
+    pad_y = max(12, size // 3)
+    img_w = width
+    img_h = th + pad_y * 2
+    img = Image.new("RGBA", (img_w, img_h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    # 水平居中
+    tx = (img_w - tw) // 2 - bbox[0]
+    ty = pad_y - bbox[1]
+    if options.sub_box:
+        # 半透明黑底圆角盒
+        box_pad = max(8, size // 3)
+        draw.rounded_rectangle(
+            [tx - box_pad, ty - box_pad // 2, tx + tw + box_pad, ty + th + box_pad // 2],
+            radius=max(6, size // 4),
+            fill=(0, 0, 0, 115),
+        )
+        draw.text((tx, ty), text, font=font, fill=color + (255,))
+    else:
+        # 黑色描边(4 方向各画一次)+ 主色文字
+        stroke = max(2, size // 14)
+        for dx, dy in [(-stroke, 0), (stroke, 0), (0, -stroke), (0, stroke)]:
+            draw.text((tx + dx, ty + dy), text, font=font, fill=(0, 0, 0, 220))
+        draw.text((tx, ty), text, font=font, fill=color + (255,))
+    # 写临时文件
+    tmp_path = Path(tempfile.gettempdir()) / f"sub_{uuid.uuid4().hex}.png"
+    img.save(tmp_path, "PNG")
+    return tmp_path
+
 
 def _subtitle_filter(text: str, options: "AssembleOptions") -> str:
-    """单镜烧录字幕:可调字号/颜色/位置/描边盒(P4 字幕样式)。"""
+    """单镜烧录字幕:可调字号/颜色/位置/描边盒(P4 字幕样式)。
+
+    返回 drawtext 滤镜串(ffmpeg 有 drawtext 时用)。无 drawtext 时走 _render_subtitle_png + overlay,
+    由 _build_ffmpeg_command 处理。
+    """
     safe = _escape_drawtext(text.strip())
     if not safe:
         return ""
@@ -223,6 +326,23 @@ def _subtitle_filter(text: str, options: "AssembleOptions") -> str:
     )
 
 
+def _ffmpeg_has_drawtext() -> bool:
+    """运行时检测 ffmpeg 是否编译了 drawtext 滤镜(Homebrew 默认无,需 libfreetype)。"""
+    import subprocess
+    try:
+        r = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-filters"],
+            capture_output=True, text=True, timeout=5,
+        )
+        return "drawtext" in r.stdout
+    except Exception:
+        return False
+
+
+# 模块加载时一次性检测(drawtext 不可用则全片走 Pillow overlay 路径)
+_HAS_DRAWTEXT = _ffmpeg_has_drawtext()
+
+
 def _build_ffmpeg_command(
     clips: list[Path],
     options: AssembleOptions,
@@ -235,7 +355,7 @@ def _build_ffmpeg_command(
 ) -> list[str]:
     """构造 ffmpeg 命令。
 
-    - 字幕:逐 clip drawtext。
+    - 字幕:drawtext 可用→逐 clip drawtext;不可用→Pillow 渲染 PNG + overlay(每镜一个 PNG input)。
     - 转场 none:用 concat 滤镜首尾相接;crossfade:用 xfade 链式交叠。
     - 音频:有配音则逐镜按片段起始偏移 adelay 对齐成对白轨,叠可选 BGM(降音垫底)amix;
       无配音仅 BGM 时沿用原单轨逻辑(漫剧片段普遍无声)。
@@ -256,13 +376,24 @@ def _build_ffmpeg_command(
             voice_inputs.append((i, _next_idx))
             _next_idx += 1
 
+    # 字幕 PNG inputs(drawtext 不可用时):每镜一个 PNG,排在所有输入最后
     subs = options.subtitles
+    _w, _h = dims
+    sub_png_idx: dict[int, int] = {}  # 镜序 → PNG input 索引
+    if not _HAS_DRAWTEXT:
+        for i in range(len(clips)):
+            if i < len(subs) and subs[i].strip():
+                png = _render_subtitle_png(subs[i], options, _w)
+                if png is not None:
+                    cmd += ["-i", str(png)]
+                    sub_png_idx[i] = _next_idx
+                    _next_idx += 1
+
     filters: list[str] = []
     # 每镜先 fps 归一 + 像素格式标准化 + 可选烧字幕,产出 [vN]
     vlabels: list[str] = []
     for i in range(len(clips)):
         # 多平台预设:缩放到覆盖目标尺寸再中心裁切(填满无黑边),社媒标准做法
-        _w, _h = dims
         chain = []
         # 时间线逐镜裁切:目标时长 < 原长则截短(setpts 重置时间戳,避免拼接时间轴错乱)
         tgt = targets[i] if i < len(targets) else 0.0
@@ -279,12 +410,30 @@ def _build_ffmpeg_command(
         grade = _GRADES.get(options.grade, "")
         if grade:
             chain.append(grade)
-        sub = _subtitle_filter(subs[i], options) if i < len(subs) and subs[i].strip() else ""
-        if sub:
-            chain.append(sub)
+        # 字幕:drawtext 可用→加到 chain;不可用→单独 overlay 步骤(需引用 PNG input)
+        if _HAS_DRAWTEXT:
+            sub = _subtitle_filter(subs[i], options) if i < len(subs) and subs[i].strip() else ""
+            if sub:
+                chain.append(sub)
         label = f"v{i}"
         filters.append(f"[{i}:v]" + ",".join(chain) + f"[{label}]")
         vlabels.append(label)
+        # Pillow overlay:在 v{i} 之上叠加字幕 PNG → v{i}sub
+        if i in sub_png_idx:
+            png_i = sub_png_idx[i]
+            # overlay 的 y 用 H-h-40 形式(H=视频高,h=PNG 高),水平居中 x=(W-w)/2
+            if options.sub_pos == "top":
+                y_expr = "40"
+            elif options.sub_pos == "center":
+                y_expr = "(H-h)/2"
+            else:
+                y_expr = "H-h-40"
+            sub_label = f"v{i}sub"
+            filters.append(
+                f"[{label}][{png_i}:v]overlay=x=(W-w)/2:y={y_expr}[{sub_label}]"
+            )
+            vlabels[-1] = sub_label  # 替换为带字幕的 label
+
 
     if options.transition == "crossfade" and len(clips) > 1:
         prev = vlabels[0]
@@ -403,25 +552,66 @@ async def _gen_card(
     """生成片头/片尾卡:深底 + 居中文字,WxH/fps 与正片一致便于拼接。
 
     with_audio:正片有音轨时卡也配静音轨(concat 需各段流一致),否则纯视频。
+    drawtext 不可用时用 Pillow 渲染文字 PNG + overlay。
     """
     w, h = dims
-    safe = _escape_drawtext(text.strip())
     fontsize = max(30, h // 15)
-    draw = (
-        f"drawtext={_FONT_OPT}text='{safe}':fontcolor=white:fontsize={fontsize}:line_spacing=12"
-        f":x=(w-text_w)/2:y=(h-text_h)/2"
-    )
     cmd: list[str] = [
         "ffmpeg", "-y",
         "-f", "lavfi", "-i", f"color=c=0x111119:s={w}x{h}:r={fps}:d={dur:.2f}",
     ]
     if with_audio:
         cmd += ["-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100"]
-    cmd += ["-t", f"{dur:.2f}", "-filter_complex", f"[0:v]{draw}[v]", "-map", "[v]"]
+    if _HAS_DRAWTEXT:
+        safe = _escape_drawtext(text.strip())
+        draw = (
+            f"drawtext={_FONT_OPT}text='{safe}':fontcolor=white:fontsize={fontsize}:line_spacing=12"
+            f":x=(w-text_w)/2:y=(h-text_h)/2"
+        )
+        cmd += ["-t", f"{dur:.2f}", "-filter_complex", f"[0:v]{draw}[v]", "-map", "[v]"]
+    else:
+        # Pillow 渲染文字 PNG → overlay 到纯色背景
+        text_png = _render_card_text_png(text, w, h, fontsize)
+        if text_png is None:
+            # 无 Pillow/字体:纯色卡无文字(降级,不阻塞)
+            cmd += ["-t", f"{dur:.2f}", "-map", "0:v"]
+        else:
+            cmd += ["-i", str(text_png)]
+            # PNG input 索引:有音频时是 2(0=视频背景,1=静音音频,2=PNG),无音频时是 1
+            png_idx = 2 if with_audio else 1
+            cmd += [
+                "-t", f"{dur:.2f}",
+                "-filter_complex", f"[0:v][{png_idx}:v]overlay=x=(W-w)/2:y=(H-h)/2[v]",
+                "-map", "[v]",
+            ]
     if with_audio:
         cmd += ["-map", "1:a", "-c:a", "aac", "-b:a", "192k"]
     cmd += ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", str(fps), "-shortest", str(out)]
     await _run_ffmpeg(cmd)
+
+
+def _render_card_text_png(text: str, video_w: int, video_h: int, fontsize: int) -> Path | None:
+    """Pillow 渲染片头/片尾卡文字成透明 PNG(白色文字,居中)。"""
+    if not _PILLOW_OK or not _PIL_FONT_PATH or not text.strip():
+        return None
+    try:
+        font = ImageFont.truetype(_PIL_FONT_PATH, fontsize)
+    except Exception:
+        return None
+    tmp = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
+    d = ImageDraw.Draw(tmp)
+    bbox = d.textbbox((0, 0), text, font=font)
+    tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    # PNG 尺寸 = 文本尺寸 + padding,overlay 时居中
+    pad = fontsize // 2
+    img = Image.new("RGBA", (tw + pad * 2, th + pad * 2), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    tx = pad - bbox[0]
+    ty = pad - bbox[1]
+    draw.text((tx, ty), text, font=font, fill=(255, 255, 255, 255))
+    tmp_path = Path(tempfile.gettempdir()) / f"card_{uuid.uuid4().hex}.png"
+    img.save(tmp_path, "PNG")
+    return tmp_path
 
 
 async def _concat_parts(parts: list[Path], fps: int, with_audio: bool, out: Path) -> None:
@@ -474,7 +664,7 @@ async def assemble_manju(
         clip_paths: list[Path] = []
         voice_paths: list[Path | None] = [None] * len(body.clips)
         async with httpx.AsyncClient(
-            timeout=_DOWNLOAD_TIMEOUT, follow_redirects=True
+            timeout=_DOWNLOAD_TIMEOUT, follow_redirects=True, trust_env=False
         ) as client:
             for i, url in enumerate(body.clips):
                 dest = tmp_dir / f"clip-{i:03d}.mp4"
@@ -617,7 +807,7 @@ async def manju_kenburns(
     with tempfile.TemporaryDirectory(prefix="manju-kb-") as tmp:
         img = Path(tmp) / "src"
         async with httpx.AsyncClient(
-            timeout=_DOWNLOAD_TIMEOUT, follow_redirects=True
+            timeout=_DOWNLOAD_TIMEOUT, follow_redirects=True, trust_env=False
         ) as client:
             await _download_clip(client, body.image_url, img)
         vf = _kenburns_filter(body.motion, frames, body.width, body.height, body.fps)

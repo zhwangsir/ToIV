@@ -23,6 +23,12 @@ _MODEL_LOADERS = [
     ("CLIPLoader", "clip_name"),
     ("LoraLoaderModelOnly", "lora_name"),
     ("ControlNetLoader", "control_net_name"),
+    # HunyuanVideo Wrapper 自定义节点（hyvideo 模型不走红亮标准 loader）
+    ("HyVideoModelLoader", "model"),
+    ("HyVideoVAELoader", "model_name"),
+    ("HyVideoLoraSelect", "lora"),
+    # RIFE 帧插值模型
+    ("RIFE VFI", "ckpt_name"),
 ]
 _MODELS_TTL = 120.0
 
@@ -70,7 +76,7 @@ class ComfyUIClient:
         """上传图片到 ComfyUI input 目录，返回其文件名(供 LoadImage 使用)。"""
         files = {"image": (filename, content, "application/octet-stream")}
         try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
+            async with httpx.AsyncClient(timeout=self._timeout, trust_env=False) as client:
                 resp = await client.post(
                     f"{self.base_url}/upload/image", files=files, data={"overwrite": "false"}
                 )
@@ -104,7 +110,7 @@ class ComfyUIClient:
     async def get_image_bytes(self, filename: str, subfolder: str, type_: str) -> tuple[bytes, str]:
         qs = urlencode({"filename": filename, "subfolder": subfolder, "type": type_})
         try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
+            async with httpx.AsyncClient(timeout=self._timeout, trust_env=False) as client:
                 resp = await client.get(f"{self.base_url}/view?{qs}")
                 resp.raise_for_status()
                 return resp.content, resp.headers.get("content-type", "image/png")
@@ -159,7 +165,7 @@ class ComfyUIClient:
     # ---------- 内部 ----------
     async def _post_json(self, path: str, payload: dict) -> dict:
         try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
+            async with httpx.AsyncClient(timeout=self._timeout, trust_env=False) as client:
                 resp = await client.post(f"{self.base_url}{path}", json=payload)
                 resp.raise_for_status()
                 return resp.json()
@@ -168,7 +174,7 @@ class ComfyUIClient:
 
     async def _get_json(self, path: str, timeout: float | None = None) -> dict:
         try:
-            async with httpx.AsyncClient(timeout=timeout or self._timeout) as client:
+            async with httpx.AsyncClient(timeout=timeout or self._timeout, trust_env=False) as client:
                 resp = await client.get(f"{self.base_url}{path}")
                 resp.raise_for_status()
                 return resp.json()

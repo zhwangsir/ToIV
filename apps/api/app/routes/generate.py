@@ -46,6 +46,8 @@ from app.workflows.model_profiles import (
 from app.workflows.nextgen import NextgenParams, build_nextgen_graph
 from app.workflows.removebg import REMBG_MODES, RemoveBgParams, build_removebg_graph
 from app.workflows.upscale import UPSCALE_MODELS, UpscaleParams, build_upscale_graph
+from app.workflows.frame_interpolate import RIFE_MODELS, FrameInterpolateParams, build_frame_interpolate_graph
+from app.workflows.hunyuan_i2v import DEFAULT_NEGATIVE as HUNYUAN_DEFAULT_NEG, HunyuanI2VParams, build_hunyuan_i2v_graph
 from app.workflows.txt2img import Txt2ImgParams, build_txt2img_graph
 from app.workflows.wan_t2v import WanT2VParams, build_wan_t2v_graph
 from app.forge.client import ForgeClient
@@ -396,6 +398,66 @@ async def generate_txt2video(
          "client_id": client_id,
          "worker": client.base_url,
          "seed": params.seed,
+    }
+
+
+class HunyuanVideoI2VRequest(BaseModel):
+    """用户只需提供提示词、反向提示词和图片，模型参数全部预设。"""
+
+    positive: str = Field(min_length=1, max_length=2000)
+    image: str = Field(min_length=1, max_length=512)
+    worker: str  # 图片上传到的 worker
+    negative: str = Field(default="", max_length=2000)
+    seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
+
+
+@router.post("/generate/hunyuan-video-i2v")
+async def generate_hunyuan_video_i2v(
+    req: HunyuanVideoI2VRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """HunyuanVideo-I2V 图生视频：图片 + 提示词 → 视频。
+
+    模型、分辨率、帧数、采样步数等参数全部预设最优值，用户无需调整。
+    """
+    enforce_generation_rate_limit(user)
+    client = resolve_worker(req.worker)
+    params = HunyuanI2VParams(
+        positive=req.positive,
+        image=req.image,
+        negative=req.negative or HUNYUAN_DEFAULT_NEG,
+        **({"seed": req.seed} if req.seed is not None else {}),
+    )
+    graph = build_hunyuan_i2v_graph(params)
+    client_id = uuid.uuid4().hex
+    try:
+        prompt_id = await client.queue_prompt(graph, client_id)
+    except ComfyUIError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+    session.add(
+        Job(
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            prompt_id=prompt_id,
+            worker=client.base_url,
+            kind="hunyuan_i2v",
+            status="queued",
+            prompt=params.positive,
+            seed=params.seed,
+            params=params_snapshot(req, seed=params.seed),
+        )
+    )
+    session.commit()
+
+    spawn_tracker(client, prompt_id)
+
+    return {
+        "prompt_id": prompt_id,
+        "client_id": client_id,
+        "worker": client.base_url,
+        "seed": params.seed,
     }
 
 
@@ -906,4 +968,66 @@ async def generate_inpaint(
          "client_id": client_id,
          "worker": client.base_url,
          "seed": params.seed,
+    }
+
+
+class FrameInterpolateRequest(BaseModel):
+    video: str = Field(min_length=1, max_length=512)  # 已上传到 worker 的源视频文件名
+    worker: str  # 源视频所在 worker(同 img2img,须用视频所在 worker)
+    multiplier: float = Field(default=2.5, ge=1.5, le=4.0)
+    model_name: str = Field(default=RIFE_MODELS[0], max_length=128)
+
+
+@router.post("/generate/frame-interpolate")
+async def generate_frame_interpolate(
+    req: FrameInterpolateRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """帧插值:用 RIFE 模型把源视频插帧到更高帧率(如 24fps→60fps)。
+
+    无 checkpoint(纯插值模型)→ 不涉 R18;沿用 img2img 模式:
+    必须用源视频所在的 worker(resolve_worker 防 SSRF)。
+    """
+    enforce_generation_rate_limit(user)
+    if req.model_name not in RIFE_MODELS:
+         raise HTTPException(
+              status_code=422,
+              detail=f"不支持的 RIFE 模型:{req.model_name!r};可选 {list(RIFE_MODELS)}",
+         )
+    client = resolve_worker(req.worker)  # 必须用源视频所在的 worker
+    params = FrameInterpolateParams(
+         video=req.video, multiplier=req.multiplier, model_name=req.model_name
+    )
+    graph = build_frame_interpolate_graph(params)
+    client_id = uuid.uuid4().hex
+    try:
+         prompt_id = await client.queue_prompt(graph, client_id)
+    except ComfyUIError as e:
+         raise HTTPException(status_code=502, detail=str(e)) from e
+
+    session.add(
+         Job(
+              tenant_id=user.tenant_id,
+              user_id=user.id,
+              prompt_id=prompt_id,
+              worker=client.base_url,
+              kind="frame_interpolate",
+              status="queued",
+              prompt=f"frame-interpolate x{req.multiplier:g}",
+              seed=None,
+              nsfw=False,
+              params=params_snapshot(req),
+         )
+    )
+    session.commit()
+
+    spawn_tracker(client, prompt_id)
+
+    return {
+         "prompt_id": prompt_id,
+         "client_id": client_id,
+         "worker": client.base_url,
+         "multiplier": req.multiplier,
+         "model_name": req.model_name,
     }

@@ -7,6 +7,7 @@ NAS 的 ComfyUI models 目录(worker 从 NAS 读,下完刷新即可用)。
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import tempfile
@@ -18,11 +19,15 @@ from urllib.parse import unquote, urlsplit
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlmodel import Session, select
 
 from app import nas
 from app.config import get_settings
+from app.db import get_session
 from app.deps import get_current_user
-from app.models import User
+from app.jobs_persist import persist_job_to_db
+from app.models import Job, User
+from app.versioning import params_snapshot
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -207,6 +212,19 @@ async def _run_download(req: NasDownloadRequest, job: dict) -> None:
     job["status"] = "done"
 
 
+async def _run_download_tracked(req: NasDownloadRequest, job: dict) -> None:
+    """_run_download 的 DB 持久化包装:管线结束后把终态写回 DB Job。
+
+    why:用 try/finally 包一层,无需改动 _run_download 内部多处 return。
+    无论 done / error,都把最终 job dict 写回 DB——api 重启后前端仍可查到终态。
+    """
+    try:
+        await _run_download(req, job)
+    finally:
+        if job["status"] in ("done", "error"):
+            persist_job_to_db(job["id"], "nas_download", job["status"], job)
+
+
 @router.get("/nas/status")
 async def nas_status(user: User = Depends(get_current_user)) -> dict[str, object]:
     """NAS 连通性 + 模型根目录信息(前端判断是否启用 NAS 下载)。"""
@@ -226,6 +244,7 @@ async def nas_status(user: User = Depends(get_current_user)) -> dict[str, object
 async def nas_download(
     body: NasDownloadRequest,
     user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
 ) -> dict[str, object]:
     """起模型下载→NAS 后台作业。轮询 GET /nas/download/{job}。"""
     _require_admin(user)
@@ -249,16 +268,53 @@ async def nas_download(
            "started": time.monotonic(), "elapsed": 0.0}
     _jobs[job_id] = job
     _prune()
-    task = asyncio.create_task(_run_download(body, job))
+
+    # 持久化到 DB Job:api 重启后内存 _jobs 丢失,DB 保终态供前端恢复查询。
+    # prompt_id 复用 job_id;result 存全量 job dict 快照,状态查询端点回放用。
+    session.add(Job(
+        tenant_id=user.tenant_id,
+        user_id=user.id,
+        prompt_id=job_id,
+        worker="",
+        kind="nas_download",
+        status="running",
+        prompt="NAS 模型下载",
+        params=params_snapshot(body),
+        result=json.dumps(job, ensure_ascii=False),
+    ))
+    session.commit()
+
+    task = asyncio.create_task(_run_download_tracked(body, job))
     _tasks.add(task)
     task.add_done_callback(_tasks.discard)
     return {"job_id": job_id, "filename": filename}
 
 
+_NAS_JOB_PUBLIC = (
+    "id", "status", "stage", "progress", "downloaded_mb",
+    "remote", "error", "filename", "type", "elapsed",
+)
+
+
 @router.get("/nas/download/{job_id}")
-async def nas_download_status(job_id: str, user: User = Depends(get_current_user)) -> dict[str, object]:
+async def nas_download_status(
+    job_id: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict[str, object]:
+    # 优先查 DB Job(api 重启后内存丢,DB 保终态);运行中且内存还在则用内存(实时进度)
+    db_job = session.exec(select(Job).where(Job.prompt_id == job_id)).first()
+    if db_job:
+        mem = _jobs.get(job_id)
+        if db_job.status == "running" and mem:
+            return {k: mem[k] for k in _NAS_JOB_PUBLIC}
+        try:
+            data = json.loads(db_job.result) if db_job.result else {}
+        except ValueError:
+            data = {}
+        return {k: data.get(k) for k in _NAS_JOB_PUBLIC}
+    # 内存兜底:迁移前老作业或 DB 未命中(向后兼容)
     job = _jobs.get(job_id)
     if not job:
-        raise HTTPException(status_code=404, detail="任务不存在")
-    return {k: job[k] for k in ("id", "status", "stage", "progress", "downloaded_mb",
-                                "remote", "error", "filename", "type", "elapsed")}
+        raise HTTPException(status_code=404, detail="任务不存在(可能已过期或 api 重启)")
+    return {k: job[k] for k in _NAS_JOB_PUBLIC}

@@ -1,6 +1,9 @@
 """管理员后台 —— 列出所有用户及用量、删除用户(仅 admin)。"""
 from __future__ import annotations
 
+from datetime import date
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session, select
@@ -19,6 +22,8 @@ class CreateUserRequest(BaseModel):
     email: str  # 账号(用户名)
     password: str = Field(min_length=6, max_length=128)
     role: str = "user"
+    # 出生日期(可选,不强制填写)。填写后用于未成年防护硬阻断(R18 不可见)。
+    birthdate: Optional[date] = None
 
     @field_validator("email")
     @classmethod
@@ -58,6 +63,7 @@ def create_user(
         hashed_password=hash_password(body.password),
         tenant_id=tenant.id,
         role=body.role,
+        birthdate=body.birthdate,
     )
     session.add(user)
     session.commit()

@@ -35,7 +35,8 @@ cd "$ROOT"
 echo "▶ 部署服务: ${SERVICES[*]}"
 
 echo "▶ rsync 源码 → ${REMOTE} …"
-rsync -az -e "ssh ${SSH_OPTS[*]}" "${RSYNC_EXCLUDES[@]}" \
+# --delete:删除远端 apps/web、apps/api 中本地已删除的文件(避免旧组件残留导致 build 失败)
+rsync -az --delete -e "ssh ${SSH_OPTS[*]}" "${RSYNC_EXCLUDES[@]}" \
   apps/web apps/api "${REMOTE}:${REMOTE_DIR}/apps/"
 echo "  rsync 完成"
 

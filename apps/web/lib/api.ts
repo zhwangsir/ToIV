@@ -5,13 +5,20 @@ import type {
   Img2ImgGenParams,
   JobItem,
   LocalModels,
+  LtxI2VParams,
+  LtxLipsyncParams,
+  LtxT2VParams,
   MarketItem,
   ModelsResponse,
+  NsfwRecommendation,
+  TrainProgress,
+  TrainStartParams,
+  TrainJob,
   Txt2ImgParams,
   Usage,
 } from "./types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8080";
+export const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8080";
 const TOKEN_KEY = "toiv_token";
 
 export interface AppUser {
@@ -40,7 +47,7 @@ export function setNsfwIntent(on: boolean): void {
   _nsfwIntent = on;
 }
 
-function authHeaders(): Record<string, string> {
+export function authHeaders(): Record<string, string> {
   const t = getToken();
   const h: Record<string, string> = t ? { Authorization: `Bearer ${t}` } : {};
   if (_nsfwIntent) h["X-NSFW"] = "1";
@@ -85,51 +92,24 @@ export async function fetchMe(): Promise<{ user: AppUser; usage: Usage }> {
 }
 
 /**
- * 当前账户(含 R18 软开关状态)。契约:GET /api/auth/me 响应增补 `nsfw_enabled: boolean`。
- * 字段由另一车道实现,暂缺时优雅降级为 false(默认关)。类型放宽以兼容字段缺失。
+ * 当前账户(含用量)。契约:GET /api/auth/me。
+ * 注:R18 放行仅由 /nsfw 专页的 X-NSFW 请求头控制(后端 ContextVar),不再有账户级开关。
  */
 export interface MeResponse {
   user: AppUser;
   usage: Usage;
-  /** R18 软开关;后端字段暂缺时此处归一化为 false。 */
-  nsfw_enabled: boolean;
 }
 
 async function fetchMeRaw(): Promise<MeResponse> {
   const res = await fetch(`${API_BASE}/api/auth/me`, { headers: authHeaders() });
   if (!res.ok) throw new Error("会话已过期");
   const data = (await res.json()) as Partial<MeResponse> & { user: AppUser; usage: Usage };
-  return { ...data, nsfw_enabled: data.nsfw_enabled === true } as MeResponse;
+  return { user: data.user, usage: data.usage };
 }
 
-/** 账户(含 R18 态 / 用量),走本机 SWR 缓存:二访秒开,后台静默刷新。 */
+/** 账户(含用量),走本机 SWR 缓存:二访秒开,后台静默刷新。 */
 export function getMe(): Promise<MeResponse> {
   return swr(CACHE_KEYS.me, fetchMeRaw, TTL.me);
-}
-
-/**
- * 切换 R18 软开关(需登录)。契约:POST /api/account/nsfw body {enabled} → {nsfw_enabled}。
- * 返回服务端确认后的真实状态;字段暂缺时回落到请求值(乐观降级)。
- */
-export async function setNsfwEnabled(enabled: boolean): Promise<boolean> {
-  const res = await fetch(`${API_BASE}/api/account/nsfw`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ enabled }),
-  });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `保存设置失败 (${res.status})`);
-  }
-  // R18 切换改变后端服务端过滤:失效受其影响的所有缓存,下次重拉。
-  invalidate(CACHE_KEYS.me);
-  invalidate(CACHE_KEYS.models);
-  invalidate(CACHE_KEYS.localModels);
-  invalidate(CACHE_KEYS.jobs);
-  const data = (await res.json().catch(() => null)) as { nsfw_enabled?: boolean } | null;
-  if (data?.nsfw_enabled === true) return true;
-  if (data?.nsfw_enabled === false) return false;
-  return enabled;
 }
 
 export async function listUsers(): Promise<AdminUser[]> {
@@ -321,6 +301,22 @@ export async function searchMarketplace(
   return res.json();
 }
 
+/**
+ * NSFW 模型推荐清单(静态,后端 civitai 调研写死)。契约:GET /api/models/nsfw-recommendations。
+ * 供 /nsfw 专区「NSFW 推荐」tab 展示;需登录认证。失败抛错(调用方 catch 后显示空态)。
+ */
+export async function getNsfwRecommendations(): Promise<NsfwRecommendation[]> {
+  const res = await fetch(`${API_BASE}/api/models/nsfw-recommendations`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `加载 NSFW 推荐失败 (${res.status})`);
+  }
+  const data = (await res.json()) as { items: NsfwRecommendation[]; count: number };
+  return data.items;
+}
+
 export async function uploadImage(
   file: File,
   kind: string = "img2img",
@@ -378,6 +374,52 @@ export async function generateVideo(
   if (!res.ok) {
     const detail = await res.json().catch(() => null);
     throw new Error(detail?.detail ?? `视频生成请求失败 (${res.status})`);
+  }
+  return res.json();
+}
+
+// ── LTX2.3 视频生成(NSFW 专区)──
+export async function generateLtxT2V(
+  params: LtxT2VParams,
+): Promise<GenerateResponse> {
+  const res = await fetch(`${API_BASE}/api/generate/ltx-t2v`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `LTX 文生视频请求失败 (${res.status})`);
+  }
+  return res.json();
+}
+
+export async function generateLtxI2V(
+  params: LtxI2VParams,
+): Promise<GenerateResponse> {
+  const res = await fetch(`${API_BASE}/api/generate/ltx-i2v`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `LTX 图生视频请求失败 (${res.status})`);
+  }
+  return res.json();
+}
+
+export async function generateLtxLipsync(
+  params: LtxLipsyncParams,
+): Promise<GenerateResponse> {
+  const res = await fetch(`${API_BASE}/api/generate/ltx-lipsync`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `LTX 口型同步请求失败 (${res.status})`);
   }
   return res.json();
 }
@@ -949,6 +991,9 @@ export interface ManjuProjectInput {
 }
 
 export interface ManjuShotInput {
+  // 当回写单个已持久化镜头的某个字段(如 voice_url/video_url)时,
+  // 必须携带 shot_id 让后端定位目标镜头;新建镜头时省略。
+  shot_id?: string;
   scene?: string;
   prompt?: string;
   motion?: string;
@@ -996,6 +1041,8 @@ export const saveManjuShots = (
   manjuReq(`/manju/projects/${pid}/shots`, "PUT", { shots });
 
 export interface ManjuAssetInput {
+  // 关联到具体镜头(可选);后端可据此把资产挂回原 shot。
+  shot_id?: string;
   kind?: string;
   name: string;
   description?: string;
@@ -1621,3 +1668,204 @@ export function listCanvasArchive(): CanvasArchivedAsset[] {
     return [];
   }
 }
+
+// ===========================================================================
+// LoRA 训练(D 期)—— 上传数据集 → Florence2 打标 → AI-Toolkit 训练 → 注册
+// ===========================================================================
+
+export async function uploadDataset(
+  files: File[],
+): Promise<{ job_id: string; count: number; dataset_dir: string }> {
+  const form = new FormData();
+  for (const f of files) form.append("files", f);
+  const res = await fetch(`${API_BASE}/api/train/dataset`, {
+    method: "POST",
+    headers: authHeaders(), // multipart 不设 Content-Type,让浏览器带 boundary
+    body: form,
+  });
+  if (!res.ok) {
+    const d = await res.json().catch(() => null);
+    throw new Error(d?.detail ?? `上传失败 (${res.status})`);
+  }
+  return res.json();
+}
+
+export async function captionDataset(
+  job_id: string,
+  cuda_device = 0,
+): Promise<{ job_id: string; count: number; captions: { filename: string; caption: string }[] }> {
+  const res = await fetch(`${API_BASE}/api/train/caption`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ job_id, cuda_device }),
+  });
+  if (!res.ok) {
+    const d = await res.json().catch(() => null);
+    throw new Error(d?.detail ?? `打标失败 (${res.status})`);
+  }
+  return res.json();
+}
+
+export async function startTraining(
+  params: TrainStartParams,
+): Promise<{ job_id: string; trainer_job_id: string; worker: string }> {
+  const res = await fetch(`${API_BASE}/api/train/start`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const d = await res.json().catch(() => null);
+    throw new Error(d?.detail ?? `启动训练失败 (${res.status})`);
+  }
+  return res.json();
+}
+
+/** SSE 追踪训练进度。resolve 时训练完成(lora_path 在 TrainJob 里),reject 时失败。 */
+export function trackTrainJob(
+  jobId: string,
+  opts: { onProgress?: (p: TrainProgress) => void; register?: (es: EventSource | null) => void },
+): Promise<void> {
+  const token = getToken();
+  const url = `${API_BASE}/api/train/${jobId}/events${token ? `?token=${token}` : ""}`;
+  const es = new EventSource(url);
+  opts.register?.(es);
+  let done = false;
+
+  return new Promise<void>((resolve, reject) => {
+    es.addEventListener("message", (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        const evt = data.event ?? "progress";
+        if (evt === "progress") {
+          opts.onProgress?.({
+            step: data.step ?? 0,
+            total: data.total ?? 0,
+            loss: data.loss ?? 0,
+            recent_losses: data.recent_losses ?? [],
+          });
+        } else if (evt === "done") {
+          done = true;
+          es.close();
+          opts.register?.(null);
+          resolve();
+        } else if (evt === "error") {
+          done = true;
+          es.close();
+          opts.register?.(null);
+          reject(new Error(data.message ?? "训练失败"));
+        }
+      } catch {
+        // 忽略解析错误
+      }
+    });
+    es.onerror = () => {
+      if (!done) {
+        es.close();
+        opts.register?.(null);
+        reject(new Error("训练连接中断"));
+      }
+    };
+  });
+}
+
+export async function registerLora(jobId: string): Promise<{
+  ok: boolean;
+  lora_name: string;
+  trigger_words: string;
+  base_ckpt: string;
+  family: string;
+}> {
+  const res = await fetch(`${API_BASE}/api/train/${jobId}/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+  });
+  if (!res.ok) {
+    const d = await res.json().catch(() => null);
+    throw new Error(d?.detail ?? `注册失败 (${res.status})`);
+  }
+  return res.json();
+}
+
+export async function listTrainJobs(): Promise<TrainJob[]> {
+  return swr(CACHE_KEYS.trainJobs ?? "train-jobs", async () => {
+    const res = await fetch(`${API_BASE}/api/train/jobs`, { headers: authHeaders() });
+    if (!res.ok) throw new Error("获取训练作业列表失败");
+    return res.json();
+  }, TTL.trainJobs);
+}
+
+// ---------- Backlot 看板(OpenMontage 风格项目仪表盘) ----------
+
+export type BacklotStage = "drafting" | "imaging" | "filming" | "voicing" | "done";
+
+export interface BacklotProgress {
+  total: number;
+  image_done: number;
+  video_done: number;
+  voiced: number;
+}
+
+export interface BacklotCard {
+  id: string;
+  title: string;
+  premise: string;
+  style: string;
+  ckpt: string;
+  stage: BacklotStage;
+  progress: BacklotProgress;
+  thumbnail: string;
+  shot_count: number;
+  updated_at: string;
+  created_at: string;
+}
+
+export interface BacklotShot {
+  id: string;
+  idx: number;
+  scene: string;
+  camera: string;
+  dialogue: string;
+  status: string;
+  image_url: string;
+  video_url: string;
+  voice_url: string;
+  speaker: string;
+  duration_sec: number;
+}
+
+export interface BacklotDetail {
+  project: {
+    id: string;
+    title: string;
+    premise: string;
+    style: string;
+    ckpt: string;
+    created_at: string;
+    updated_at: string;
+  };
+  stage: BacklotStage;
+  progress: BacklotProgress;
+  shots: BacklotShot[];
+}
+
+/** 看板视图:当前用户所有项目卡片。 */
+export async function listBacklot(): Promise<BacklotCard[]> {
+  const res = await fetch(`${API_BASE}/api/backlot`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(`加载看板失败 (${res.status})`);
+  return res.json();
+}
+
+/** 项目看板详情:基础信息 + 所有 shot + 阶段/进度。signal 用于取消请求。 */
+export async function fetchBacklotDetail(
+  projectId: string,
+  signal?: AbortSignal,
+): Promise<BacklotDetail> {
+  const res = await fetch(`${API_BASE}/api/backlot/${encodeURIComponent(projectId)}`, {
+    headers: authHeaders(),
+    ...(signal ? { signal } : {}),
+  });
+  if (!res.ok) throw new Error(`加载项目详情失败 (${res.status})`);
+  return res.json();
+}
+

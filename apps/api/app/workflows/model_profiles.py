@@ -102,6 +102,11 @@ def detect_model_family(name: str) -> str:
         return "z_image"
     if "qwen_image" in low or "qwen-image" in low or "qwen_2.5_vl" in low:
         return "qwen_image"
+    # —— LTX 视频(轻量,12G 可跑,CFG=1 + 无负向)——
+    if "10eros" in low:
+        return "10eros"
+    if "ltx" in low:
+        return "ltx"
     # —— 传统 checkpoint 图 ——
     if "pony" in low:
         return "pony"
@@ -179,6 +184,15 @@ _DEFAULT_NSFW_HINTS: tuple[str, ...] = (
     "lustify",         # LUSTIFY(纯 SDXL 写实 NSFW)
     "hassaku",         # Hassaku XL(浓烈 hentai)
     "autismmix",       # AutismMix(Pony 动漫基座)
+    # civitai 调研补充批(2026-07):热门 NSFW 底模,文件名无通用族词兜底,需显式登记
+    "pornmaster",      # PornMaster 系列(SDXL 写实/动漫 NSFW 专项)
+    "urpm",            # Uber Realistic Porn Merge(SD1.5 纯色情写实合并)
+    "yiffy",           # YiffyMix(furry / hentai 向)
+    "biglove",         # Big Love(FLUX.2 Klein NSFW)
+    "big_love",        # Big Love 变体文件名用下划线分隔
+    "stoiqo",          # STOIQO NewReality(FLUX.1 NSFW 写实)
+    "lazymix",         # LazyMix(素人写实 NSFW)
+    "wai",             # WAI 系列(WAI-illustrious / WAI-RealMix 等动漫 NSFW)
     # 显式关键词
     "nsfw",
     "r18",
@@ -284,6 +298,11 @@ _PROFILES: dict[str, GenProfile] = {
                              megapixels=1.0, neg_prompt=True, graph="qwen_image"),
     "z_image": GenProfile(sampler="res_multistep", scheduler="simple", cfg=1.0, steps=8,
                           megapixels=1.0, neg_prompt=False, graph="z_image"),
+    # LTX2.3 视频(轻量,distilled CFG=1,无负向;10Eros 为 NSFW 变体,同采样档)
+    "ltx": GenProfile(sampler="euler", scheduler="normal", cfg=1.0, steps=20,
+                      megapixels=1.0, neg_prompt=False, graph="ltx"),
+    "10eros": GenProfile(sampler="euler", scheduler="normal", cfg=1.0, steps=20,
+                         megapixels=1.0, neg_prompt=False, graph="ltx"),
     # 传统族:常规 CFG + 负向有效(is_vpred 仍单独触发 ModelSamplingDiscrete)
     "pony": GenProfile(sampler="euler_ancestral", scheduler="normal", cfg=6.0, steps=28),
     "sdxl_anime": GenProfile(sampler="euler_ancestral", scheduler="normal", cfg=5.0, steps=28),

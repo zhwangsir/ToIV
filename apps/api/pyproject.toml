@@ -14,6 +14,10 @@ dependencies = [
     "pyjwt>=2.9",
     "python-multipart>=0.0.12",
     "paramiko>=3.4",
+    "pillow>=12.3.0",
+    # 可观测性:P2 指标监控 + 错误追踪(空 DSN/未装时自动跳过,不阻断启动)
+    "prometheus-fastapi-instrumentator>=7.0",
+    "sentry-sdk[fastapi]>=2.0",
 ]
 
 [project.optional-dependencies]

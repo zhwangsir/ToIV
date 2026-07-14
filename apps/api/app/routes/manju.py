@@ -26,6 +26,7 @@ from app.comfy.pool import WorkerPool
 from app.comfy.tracker import spawn as spawn_tracker
 from app.config import get_settings
 from app.db import get_session
+from app.quality.gateway import run_quality_checks
 from app.deps import get_current_user, get_pool, resolve_worker
 from app.models import Job, User
 from app.ratelimit import enforce_generation_rate_limit
@@ -101,6 +102,7 @@ class Shot(BaseModel):
 
 class StoryboardResponse(BaseModel):
     shots: list[Shot]
+    quality: dict | None = None  # 三重防线质量报告(None=未执行)
 
 
 def _parse_json_obj(text: str) -> dict | None:
@@ -182,7 +184,19 @@ async def generate_storyboard(
     # 至少要有可出图的描述,否则视为失败
     if not any(s.description for s in shots):
         raise HTTPException(status_code=502, detail="分镜生成失败,请重试")
-    return StoryboardResponse(shots=shots)
+
+    # 反 PPT 三重防线:幻灯片风险 + 场景变化 + 节奏验证
+    report = run_quality_checks([s.model_dump() for s in shots])
+    if not report.passed:
+        # blocking: 分镜严重 PPT 化,返回 422 + 详细报告让前端引导用户修改
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": f"分镜未通过质量三重防线:{report.blocking_reason}",
+                "quality": report.to_dict(),
+            },
+        )
+    return StoryboardResponse(shots=shots, quality=report.to_dict())
 
 
 # ---------------------------------------------------------------------------

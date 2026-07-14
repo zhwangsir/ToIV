@@ -1,5 +1,7 @@
 name: toiv
 
+# 集中日志策略:每个服务用 local driver + max-size/max-file 限制,避免 json-file 默认无限增长撑爆磁盘。
+# 本轮不引入 ELK / Loki 等外部日志系统,只做基础的日志轮转约束(后续可接 Loki/Filebeat)。
 services:
   api:
     build:
@@ -8,9 +10,11 @@ services:
       # 4卡 PRO6000(8000/8002/8003/8004)+ PC01 5090(Tailscale 8188);可在 deploy/.env 覆盖
       TOIV_COMFY_WORKERS: "${TOIV_COMFY_WORKERS:-http://192.168.71.100:8000,http://192.168.71.100:8002,http://192.168.71.100:8003,http://192.168.71.100:8004,http://100.82.102.43:8188}"
       TOIV_DATABASE_URL: "sqlite:////data/toiv.db"
-      # AI 智能体大脑:Pro6000 机(.100)LM Studio @ :1234,模型 qwen/qwen3.6-35b-a3b
-      TOIV_LLM_BASE_URL: "${TOIV_LLM_BASE_URL:-http://192.168.71.100:1234/v1}"
-      TOIV_LLM_MODEL: "${TOIV_LLM_MODEL:-qwen/qwen3.6-35b-a3b}"
+      # AI 智能体大脑:spark01 vLLM @ :30000,qwen3.6-35b-a3b(AWQ,reasoning-parser qwen3 + tool-call-parser qwen3_xml)
+      TOIV_LLM_BASE_URL: "${TOIV_LLM_BASE_URL:-http://100.81.235.124:30000/v1}"
+      TOIV_LLM_MODEL: "${TOIV_LLM_MODEL:-qwen3.6-35b-a3b}"
+      # 向量 RAG 嵌入:仍走 Pro6000 机(.100)LM Studio @ :1234(vLLM 未开 embeddings 接口)
+      TOIV_EMBED_BASE_URL: "${TOIV_EMBED_BASE_URL:-http://192.168.71.100:1234/v1}"
       TOIV_EMBED_MODEL: "${TOIV_EMBED_MODEL:-text-embedding-nomic-embed-text-v1.5}"
       TOIV_JWT_SECRET: "${TOIV_JWT_SECRET:?set TOIV_JWT_SECRET in deploy/.env}"
       TOIV_ADMIN_EMAIL: "${TOIV_ADMIN_EMAIL:-admin}"
@@ -32,6 +36,21 @@ services:
     ports:
       - "8090:8080"
     restart: unless-stopped
+    # 健康检查:容器内 uvicorn 监听 8080,/api/health 已在 app/main.py 注册(返回 {"status":"ok",...})。
+    # 用 python urllib 而非 curl:python:3.12-slim 基础镜像自带 python,无需额外装包。
+    # start_period 20s 给 init_db / bootstrap_admin / reconcile_pending 留启动余量。
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    # 日志轮转:local driver 持久化 + 单文件 10M、保留 3 个,防磁盘被日志写爆。
+    logging:
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   web:
     build:
@@ -43,6 +62,20 @@ services:
     depends_on:
       - api
     restart: unless-stopped
+    # 健康检查:web 是 Next.js standalone(node:22-alpine),监听 3100。alpine 自带 BusyBox wget,用 --spider 探活根路径。
+    # 未单独加 /health 路由:改 Next.js 路由超出本轮范围,根路径 200 足够做存活探针。
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3100/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    # 日志轮转:同 api,local driver + 10m×3 限制,防 Next.js 访问日志撑爆磁盘。
+    logging:
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   toiv-data:

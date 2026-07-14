@@ -19,10 +19,13 @@ import json
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlmodel import Session
 
 from app.agent import llm
+from app.db import get_session
 from app.deps import get_current_user
-from app.models import User
+from app.models import Agent, User
+from app.nsfw_ctx import nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
 from app.workflows.model_profiles import detect_model_family
 
@@ -222,6 +225,8 @@ class OptimizeRequest(BaseModel):
     kind: str = Field(default="image")
     # 目标模型(checkpoint 文件名);传入则按模型族切换改写方言,不传则用通用基底
     model: str | None = Field(default=None, max_length=300)
+    # 智能体 id;None=读 user.default_agent_id;仍 None=走 kind 默认 system prompt
+    agent_id: str | None = Field(default=None, max_length=64)
 
 
 class OptimizeResponse(BaseModel):
@@ -251,16 +256,47 @@ async def _llm_text(system: str, prompt: str) -> str:
     return (msg.get("content") or "").strip()
 
 
+def _resolve_agent_prefix(
+    body: OptimizeRequest, user: User, session: Session
+) -> str:
+    """解析智能体并返回要拼在 kind 系统提示前的人格前缀(空串=不拼)。
+
+    解析顺序:body.agent_id → user.default_agent_id → 空(走 kind 默认)。
+    校验:agent 不存在→404;is_nsfw 且无 X-NSFW→403;applies_to 不含 kind 且
+    不含 all→400。返回 agent.system_prompt(调用方负责拼 "\n\n" + kind 系统提示)。
+    """
+    aid = body.agent_id or getattr(user, "default_agent_id", None)
+    if not aid:
+        return ""
+    agent = session.get(Agent, aid)
+    if not agent:
+        raise HTTPException(status_code=404, detail="智能体不存在")
+    if agent.is_nsfw and not nsfw_allowed(user):
+        raise HTTPException(status_code=403, detail="该智能体需要 R18 鉴权")
+    applies = [s.strip() for s in (agent.applies_to or "").split(",") if s.strip()]
+    if body.kind not in applies and "all" not in applies:
+        raise HTTPException(status_code=400, detail="该智能体不适用于此 kind")
+    return agent.system_prompt
+
+
 @router.post("/optimize", response_model=OptimizeResponse)
 async def optimize_prompt(
     body: OptimizeRequest,
     user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
 ) -> OptimizeResponse:
     enforce_generation_rate_limit(user)
 
+    # 智能体人格前缀(空=走 kind 默认);解析顺序:body.agent_id → user.default_agent_id
+    agent_prefix = _resolve_agent_prefix(body, user, session)
+
+    def _compose(base_system: str) -> str:
+        """智能体主人格 + kind 系统提示(含模型族方言)。"""
+        return f"{agent_prefix}\n\n{base_system}" if agent_prefix else base_system
+
     # 图像类:内容感知 + 模型族方言 —— 先判题材,再用目标模型母语产出正向 + 负面
     if body.kind in _IMAGE_SYSTEMS:
-        raw = await _llm_text(_image_system_for(body.kind, body.model), body.prompt)
+        raw = await _llm_text(_compose(_image_system_for(body.kind, body.model)), body.prompt)
         obj = _parse_json_obj(raw)
         if obj and obj.get("positive"):
             positive = str(obj["positive"]).strip().strip('"')
@@ -276,7 +312,7 @@ async def optimize_prompt(
 
     # 其它类:单段
     system = _TEXT_SYSTEMS.get(body.kind, _TEXT_SYSTEMS["video"])
-    text = (await _llm_text(system, body.prompt)).strip('"').strip()
+    text = (await _llm_text(_compose(system), body.prompt)).strip('"').strip()
     if not text:
         raise HTTPException(status_code=502, detail="优化失败,请重试")
     return OptimizeResponse(optimized=text)

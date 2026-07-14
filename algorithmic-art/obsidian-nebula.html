@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<!--
+    Obsidian Nebula — Interactive Generative Art Viewer
+    Based on algorithmic-art/templates/viewer.html structure.
+    Customized for the ToIV Obsidian Atelier design language:
+    dark volcanic glass, emerald mineral light, restrained particle motion.
+-->
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Obsidian Nebula — Generative Depth</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,200..800&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --obsidian-0: #050708;
+            --obsidian-100: #0a0d0e;
+            --obsidian-200: #111517;
+            --obsidian-300: #1a1f21;
+            --obsidian-400: #262c2e;
+            --ink-500: #6d7876;
+            --ink-300: #a6b0ad;
+            --ink-100: #e8edeb;
+            --accent: #10b981;
+            --accent-dim: #065f46;
+            --flare: #d4a35a;
+            --glass: rgba(255, 255, 255, 0.04);
+            --glass-border: rgba(255, 255, 255, 0.08);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: radial-gradient(circle at 30% 20%, #0e1412 0%, var(--obsidian-0) 60%);
+            min-height: 100vh;
+            color: var(--ink-100);
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        .sidebar {
+            width: 320px;
+            flex-shrink: 0;
+            background: var(--glass);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            padding: 24px;
+            border-radius: 12px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+        }
+
+        .sidebar h1 {
+            font-family: 'Fraunces', serif;
+            font-size: 26px;
+            font-weight: 500;
+            color: var(--ink-100);
+            margin-bottom: 8px;
+            letter-spacing: -0.02em;
+        }
+
+        .sidebar .subtitle {
+            color: var(--ink-500);
+            font-size: 13px;
+            margin-bottom: 32px;
+            line-height: 1.5;
+        }
+
+        .control-section {
+            margin-bottom: 28px;
+        }
+
+        .control-section h3 {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--ink-300);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-section h3::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 8px var(--accent-dim);
+        }
+
+        .seed-input {
+            width: 100%;
+            background: var(--obsidian-200);
+            color: var(--ink-100);
+            padding: 12px;
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            margin-bottom: 12px;
+            border: 1px solid var(--obsidian-400);
+            text-align: center;
+            transition: border-color 0.2s ease;
+        }
+
+        .seed-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.12);
+            background: var(--obsidian-300);
+        }
+
+        .seed-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .regen-button {
+            margin-bottom: 0;
+        }
+
+        .control-group {
+            margin-bottom: 18px;
+        }
+
+        .control-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--ink-300);
+            margin-bottom: 8px;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .slider-container input[type="range"] {
+            flex: 1;
+            height: 4px;
+            background: var(--obsidian-400);
+            border-radius: 2px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider-container input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.15s ease;
+        }
+
+        .slider-container input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+        }
+
+        .slider-container input[type="range"]::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            background: var(--accent);
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+        }
+
+        .value-display {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--ink-500);
+            min-width: 64px;
+            text-align: right;
+        }
+
+        .color-group {
+            margin-bottom: 14px;
+        }
+
+        .color-group label {
+            display: block;
+            font-size: 11px;
+            color: var(--ink-500);
+            margin-bottom: 6px;
+        }
+
+        .color-picker-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .color-picker-container input[type="color"] {
+            width: 28px;
+            height: 28px;
+            border: 1px solid var(--obsidian-400);
+            border-radius: 6px;
+            cursor: pointer;
+            background: none;
+            padding: 0;
+        }
+
+        .color-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--ink-500);
+            text-transform: uppercase;
+        }
+
+        .button {
+            background: var(--accent);
+            color: var(--obsidian-0);
+            border: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease;
+            width: 100%;
+        }
+
+        .button:hover {
+            background: #34d399;
+            transform: translateY(-1px);
+        }
+
+        .button:active {
+            transform: translateY(0) scale(0.98);
+        }
+
+        .button.secondary {
+            background: var(--obsidian-300);
+            color: var(--ink-100);
+            border: 1px solid var(--obsidian-400);
+        }
+
+        .button.secondary:hover {
+            background: var(--obsidian-400);
+        }
+
+        .button.tertiary {
+            background: transparent;
+            color: var(--ink-100);
+            border: 1px solid var(--obsidian-400);
+        }
+
+        .button.tertiary:hover {
+            background: var(--obsidian-200);
+        }
+
+        .button-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .button-row .button {
+            flex: 1;
+        }
+
+        .canvas-area {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 0;
+        }
+
+        #canvas-container {
+            width: 100%;
+            max-width: 1000px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 32px 80px rgba(0, 0, 0, 0.55);
+            background: var(--obsidian-0);
+            border: 1px solid var(--glass-border);
+        }
+
+        #canvas-container canvas {
+            display: block;
+            width: 100% !important;
+            height: auto !important;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 600px;
+            font-size: 14px;
+            color: var(--ink-500);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        @media (max-width: 800px) {
+            .container {
+                flex-direction: column;
+                height: auto;
+                overflow: auto;
+            }
+
+            .sidebar {
+                width: 100%;
+                max-height: 45vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h1>Obsidian Nebula</h1>
+            <div class="subtitle">A generative Hadean glow: 3D particles drifting through layered noise, leaving mineral trails in volcanic dark.</div>
+
+            <div class="control-section">
+                <h3>Seed</h3>
+                <input type="number" id="seed-input" class="seed-input" value="12345" onchange="updateSeed()">
+                <div class="seed-controls">
+                    <button class="button secondary" onclick="previousSeed()">Prev</button>
+                    <button class="button secondary" onclick="nextSeed()">Next</button>
+                </div>
+                <button class="button tertiary regen-button" onclick="randomSeedAndUpdate()">Random Seed</button>
+            </div>
+
+            <div class="control-section">
+                <h3>Parameters</h3>
+
+                <div class="control-group">
+                    <label>Particle Count</label>
+                    <div class="slider-container">
+                        <input type="range" id="particleCount" min="24" max="300" step="8" value="240" oninput="updateParam('particleCount', this.value)">
+                        <span class="value-display" id="particleCount-value">240</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Flow Speed</label>
+                    <div class="slider-container">
+                        <input type="range" id="flowSpeed" min="0.1" max="2.0" step="0.05" value="0.6" oninput="updateParam('flowSpeed', this.value)">
+                        <span class="value-display" id="flowSpeed-value">0.60</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Noise Scale</label>
+                    <div class="slider-container">
+                        <input type="range" id="noiseScale" min="0.0005" max="0.008" step="0.0001" value="0.002" oninput="updateParam('noiseScale', this.value)">
+                        <span class="value-display" id="noiseScale-value">0.0020</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Depth Scale</label>
+                    <div class="slider-container">
+                        <input type="range" id="depthScale" min="200" max="1200" step="50" value="600" oninput="updateParam('depthScale', this.value)">
+                        <span class="value-display" id="depthScale-value">600</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Trail Length</label>
+                    <div class="slider-container">
+                        <input type="range" id="trailLength" min="4" max="32" step="1" value="12" oninput="updateParam('trailLength', this.value)">
+                        <span class="value-display" id="trailLength-value">12</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Thermal Accent Threshold</label>
+                    <div class="slider-container">
+                        <input type="range" id="thermalAccent" min="0.7" max="1.0" step="0.01" value="0.92" oninput="updateParam('thermalAccent', this.value)">
+                        <span class="value-display" id="thermalAccent-value">0.92</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Camera Drift</label>
+                    <div class="slider-container">
+                        <input type="range" id="cameraDrift" min="0" max="1" step="0.05" value="0.3" oninput="updateParam('cameraDrift', this.value)">
+                        <span class="value-display" id="cameraDrift-value">0.30</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h3>Mineral Palette</h3>
+
+                <div class="color-group">
+                    <label>Deep Obsidian</label>
+                    <div class="color-picker-container">
+                        <input type="color" id="color1" value="#0d1512" onchange="updateColor('color1', this.value)">
+                        <span class="color-value" id="color1-value">#0d1512</span>
+                    </div>
+                </div>
+
+                <div class="color-group">
+                    <label>Jade Glow</label>
+                    <div class="color-picker-container">
+                        <input type="color" id="color2" value="#1a7a5e" onchange="updateColor('color2', this.value)">
+                        <span class="color-value" id="color2-value">#1a7a5e</span>
+                    </div>
+                </div>
+
+                <div class="color-group">
+                    <label>Amber Flare</label>
+                    <div class="color-picker-container">
+                        <input type="color" id="color3" value="#c28a3f" onchange="updateColor('color3', this.value)">
+                        <span class="color-value" id="color3-value">#c28a3f</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h3>Actions</h3>
+                <div class="button-row">
+                    <button class="button" onclick="resetParameters()">Reset</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="canvas-area">
+            <div id="canvas-container">
+                <div class="loading">Initializing nebula...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ═══════════════════════════════════════════════════════════════════════
+        // PARAMETERS
+        // ═══════════════════════════════════════════════════════════════════════
+
+        let params = {
+            seed: 12345,
+            particleCount: 240,
+            flowSpeed: 0.6,
+            noiseScale: 0.002,
+            depthScale: 600,
+            trailLength: 12,
+            thermalAccent: 0.92,
+            cameraDrift: 0.3,
+            colorPalette: ['#0d1512', '#1a7a5e', '#c28a3f']
+        };
+
+        const defaultParams = JSON.parse(JSON.stringify(params));
+        let paletteRgb = [];
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // SYSTEM
+        // ═══════════════════════════════════════════════════════════════════════
+
+        let particles = [];
+        let bounds;
+
+        function setup() {
+            let canvas = createCanvas(1200, 1200, WEBGL);
+            canvas.parent('canvas-container');
+            document.querySelector('.loading').style.display = 'none';
+
+            bounds = createVector(width * 0.75, height * 0.75, params.depthScale * 1.1);
+
+            parsePalette();
+            initializeSystem();
+        }
+
+        function initializeSystem() {
+            randomSeed(params.seed);
+            noiseSeed(params.seed);
+
+            bounds = createVector(width * 0.75, height * 0.75, params.depthScale * 1.1);
+
+            particles = [];
+            for (let i = 0; i < params.particleCount; i++) {
+                particles.push(new Particle(true));
+            }
+        }
+
+        function parsePalette() {
+            paletteRgb = params.colorPalette.map(hex => {
+                let c = color(hex);
+                return [red(c), green(c), blue(c)];
+            });
+        }
+
+        function mixColor(depthFactor, thermal) {
+            let deep = paletteRgb[0];
+            let mid = paletteRgb[1];
+            let flare = paletteRgb[2];
+
+            let out = [
+                lerp(deep[0], mid[0], depthFactor),
+                lerp(deep[1], mid[1], depthFactor),
+                lerp(deep[2], mid[2], depthFactor)
+            ];
+
+            if (thermal > params.thermalAccent) {
+                let k = map(thermal, params.thermalAccent, 1.0, 0, 1);
+                out[0] = lerp(out[0], flare[0], k);
+                out[1] = lerp(out[1], flare[1], k);
+                out[2] = lerp(out[2], flare[2], k);
+            }
+
+            return out;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // MAIN LOOP
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function draw() {
+            blendMode(BLEND);
+            background(6, 8, 9);
+
+            // Soft camera drift
+            let drift = params.cameraDrift;
+            rotateY(frameCount * 0.001 * drift);
+            rotateX(sin(frameCount * 0.0005) * 0.06 * drift);
+
+            // Additive particle drawing
+            blendMode(ADD);
+            drawingContext.disable(drawingContext.DEPTH_TEST);
+
+            let t = frameCount * 0.003;
+
+            for (let p of particles) {
+                p.update(t);
+                p.show();
+            }
+
+            drawingContext.enable(drawingContext.DEPTH_TEST);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // PARTICLE
+        // ═══════════════════════════════════════════════════════════════════════
+
+        class Particle {
+            constructor(initial = false) {
+                this.respawn(initial);
+            }
+
+            respawn(initial = false) {
+                // Spawn on a shell at the periphery of the viewing volume
+                let theta = random(TWO_PI);
+                let phi = acos(random(-1, 1));
+                let r = initial ? random(0.2, 1.0) * bounds.mag() * 0.6 : bounds.mag() * 0.85;
+
+                this.pos = createVector(
+                    r * sin(phi) * cos(theta),
+                    r * sin(phi) * sin(theta),
+                    r * cos(phi) * random(0.5, 1.0)
+                );
+
+                // Slight inward drift
+                let inward = p5.Vector.random3D();
+                inward.mult(random(0.2, 0.8));
+                this.vel = inward;
+
+                this.age = 0;
+                this.lifespan = random(400, 1200);
+                this.history = [];
+            }
+
+            update(t) {
+                let ns = params.noiseScale;
+                let x = this.pos.x;
+                let y = this.pos.y;
+                let z = this.pos.z;
+
+                // Layered noise forces
+                let a1 = noise(x * ns, y * ns, t) * TWO_PI * 2;
+                let a2 = noise(x * ns + 1000, y * ns + 1000, z * ns + t) * TWO_PI * 2;
+                let a3 = noise(y * ns + 2000, z * ns + 2000, t * 0.7) * TWO_PI;
+
+                let flow = createVector(cos(a1), sin(a2), cos(a3) * 0.6);
+                flow.mult(0.15);
+
+                // Slow vortex around the y-axis
+                let vortex = createVector(-y, 0, x).normalize().mult(0.35);
+
+                // Inward gravitational whisper when far from center
+                let dist = this.pos.mag();
+                let centerPull = p5.Vector.sub(createVector(0, 0, 0), this.pos).normalize().mult(0.02);
+
+                let acc = p5.Vector.add(flow, vortex);
+                acc.add(centerPull);
+                acc.mult(params.flowSpeed);
+
+                this.vel.add(acc);
+                this.vel.mult(0.965);
+                this.vel.limit(5.5);
+
+                this.pos.add(this.vel);
+                this.age++;
+
+                this.history.push(this.pos.copy());
+                if (this.history.length > params.trailLength) {
+                    this.history.shift();
+                }
+
+                if (this.age > this.lifespan ||
+                    abs(this.pos.x) > bounds.x ||
+                    abs(this.pos.y) > bounds.y ||
+                    abs(this.pos.z) > bounds.z) {
+                    this.respawn();
+                }
+            }
+
+            show() {
+                if (this.history.length < 2) return;
+
+                let speed = this.vel.mag();
+                let thermal = map(speed, 0, 5.5, 0, 1, true);
+                let depthDist = abs(this.pos.z);
+                let depthFactor = map(depthDist, 0, params.depthScale, 1, 0.2, true);
+                let fogAlpha = map(depthDist, 0, params.depthScale, 220, 45, true);
+
+                let rgb = mixColor(depthFactor, thermal);
+
+                let sw = map(depthDist, 0, params.depthScale, 2.2, 0.5, true);
+
+                // Draw trail from tail to head
+                for (let i = 1; i < this.history.length; i++) {
+                    let progress = i / (this.history.length - 1);
+                    let a = map(progress, 0, 1, 10, fogAlpha);
+                    let w = map(progress, 0, 1, 0.3, sw);
+
+                    stroke(rgb[0], rgb[1], rgb[2], a);
+                    strokeWeight(w);
+
+                    let p1 = this.history[i - 1];
+                    let p2 = this.history[i];
+                    line(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
+                }
+
+                // Head highlight
+                stroke(rgb[0], rgb[1], rgb[2], fogAlpha * 0.9);
+                strokeWeight(sw * 1.3);
+                point(this.pos.x, this.pos.y, this.pos.z);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // UI HANDLERS
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function updateParam(paramName, value) {
+            let parsed = paramName === 'particleCount' || paramName === 'trailLength'
+                ? parseInt(value, 10)
+                : parseFloat(value);
+
+            params[paramName] = parsed;
+
+            let display = value;
+            if (paramName === 'flowSpeed' || paramName === 'cameraDrift' || paramName === 'thermalAccent') {
+                display = parsed.toFixed(2);
+            } else if (paramName === 'noiseScale') {
+                display = parsed.toFixed(4);
+            }
+            document.getElementById(paramName + '-value').textContent = display;
+
+            if (paramName === 'particleCount') {
+                initializeSystem();
+            }
+        }
+
+        function updateColor(colorId, value) {
+            let idx = parseInt(colorId.replace('color', ''), 10) - 1;
+            params.colorPalette[idx] = value;
+            document.getElementById(colorId + '-value').textContent = value;
+            parsePalette();
+        }
+
+        function updateSeedDisplay() {
+            document.getElementById('seed-input').value = params.seed;
+        }
+
+        function updateSeed() {
+            let input = document.getElementById('seed-input');
+            let newSeed = parseInt(input.value, 10);
+            if (newSeed && newSeed > 0) {
+                params.seed = newSeed;
+                initializeSystem();
+            } else {
+                updateSeedDisplay();
+            }
+        }
+
+        function previousSeed() {
+            params.seed = Math.max(1, params.seed - 1);
+            updateSeedDisplay();
+            initializeSystem();
+        }
+
+        function nextSeed() {
+            params.seed = params.seed + 1;
+            updateSeedDisplay();
+            initializeSystem();
+        }
+
+        function randomSeedAndUpdate() {
+            params.seed = Math.floor(Math.random() * 999999) + 1;
+            updateSeedDisplay();
+            initializeSystem();
+        }
+
+        function resetParameters() {
+            params = JSON.parse(JSON.stringify(defaultParams));
+            parsePalette();
+
+            document.getElementById('particleCount').value = params.particleCount;
+            document.getElementById('particleCount-value').textContent = params.particleCount;
+
+            document.getElementById('flowSpeed').value = params.flowSpeed;
+            document.getElementById('flowSpeed-value').textContent = params.flowSpeed.toFixed(2);
+
+            document.getElementById('noiseScale').value = params.noiseScale;
+            document.getElementById('noiseScale-value').textContent = params.noiseScale.toFixed(4);
+
+            document.getElementById('depthScale').value = params.depthScale;
+            document.getElementById('depthScale-value').textContent = params.depthScale;
+
+            document.getElementById('trailLength').value = params.trailLength;
+            document.getElementById('trailLength-value').textContent = params.trailLength;
+
+            document.getElementById('thermalAccent').value = params.thermalAccent;
+            document.getElementById('thermalAccent-value').textContent = params.thermalAccent.toFixed(2);
+
+            document.getElementById('cameraDrift').value = params.cameraDrift;
+            document.getElementById('cameraDrift-value').textContent = params.cameraDrift.toFixed(2);
+
+            document.getElementById('color1').value = params.colorPalette[0];
+            document.getElementById('color1-value').textContent = params.colorPalette[0];
+            document.getElementById('color2').value = params.colorPalette[1];
+            document.getElementById('color2-value').textContent = params.colorPalette[1];
+            document.getElementById('color3').value = params.colorPalette[2];
+            document.getElementById('color3-value').textContent = params.colorPalette[2];
+
+            updateSeedDisplay();
+            initializeSystem();
+        }
+
+        window.addEventListener('load', function () {
+            updateSeedDisplay();
+        });
+    </script>
+</body>
+</html>

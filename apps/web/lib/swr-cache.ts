@@ -147,6 +147,7 @@ export const CACHE_KEYS = {
   localModels: "local-models",
   me: "me",
   jobs: "jobs",
+  trainJobs: "train-jobs",
 } as const;
 
 /** 默认 TTL(ms):按资源更新频率分档。 */
@@ -159,4 +160,6 @@ export const TTL = {
   me: 60 * 1000,
   /** 作品库:生成后即变,短缓存 + 生成完显式失效。 */
   jobs: 30 * 1000,
+  /** 训练作业:训练中频繁变,完成后稳定。 */
+  trainJobs: 10 * 1000,
 } as const;

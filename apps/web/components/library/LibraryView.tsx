@@ -1,752 +1,1045 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { Magnifier } from "@/components/ui/Magnifier";
-import { useNsfw } from "@/components/nav/NsfwContext";
-import { deleteJob, imageUrl, invalidateJobs, jobVersions, listJobs, rerunJob, type RerunOptions } from "@/lib/api";
-import { springSoft } from "@/lib/motion";
-import { trackJob } from "@/lib/trackJob";
-import { useReducedMotion } from "@/hooks/useReducedMotion";
+import { deleteJob, imageUrl, invalidateJobs, listJobs } from "@/lib/api";
 import type { JobItem } from "@/lib/types";
+import { Icon } from "@/components/ui/Icon";
 
-import { LazyImage } from "./LazyImage";
-import { LazyVideo } from "./LazyVideo";
+type FilterKey = "all" | "image" | "video" | "audio" | "3d";
 
-import "./library-extra.css";
-
-/** 每批增量渲染的瓦片数(无限滚动)。 */
-const PAGE_SIZE = 24;
-
-interface Asset {
-  key: string;
-  jobId: string;
-  url: string;
-  kind: string;
-  prompt: string;
-  seed: number;
-  /** 版本树:同链归组的根 job id。 */
-  rootId: string;
-  /** 有参数快照才能精确重生(旧数据无)。 */
-  hasParams: boolean;
-  /** 同链版本数(>1 才显示版本徽章/历史)。 */
-  versionCount: number;
+interface FilterDef {
+  key: FilterKey;
+  label: string;
+  kinds: string[];
 }
 
-/** 作业列表 → 平铺产物;同链(root)版本计数供版本徽章。 */
-function flattenJobs(jobs: JobItem[]): Asset[] {
-  const rootCount = new Map<string, number>();
-  for (const j of jobs) {
-    const root = j.root_id || j.id;
-    rootCount.set(root, (rootCount.get(root) ?? 0) + 1);
-  }
-  const flat: Asset[] = [];
-  for (const j of jobs) {
-    const root = j.root_id || j.id;
-    (j.results ?? []).forEach((u, i) =>
-      flat.push({
-        key: `${j.id}-${i}`,
-        jobId: j.id,
-        url: imageUrl(u),
-        kind: j.kind,
-        prompt: j.prompt,
-        seed: j.seed,
-        rootId: root,
-        hasParams: !!j.has_params,
-        versionCount: rootCount.get(root) ?? 1,
-      }),
-    );
-  }
-  return flat;
-}
-
-type AssetKind = "glb" | "audio" | "video" | "image";
-
-const KIND_LABELS: Record<string, string> = {
-  txt2img: "文生图",
-  img2img: "图生图",
-  wan_i2v: "视频",
-  hunyuan3d: "3D",
-  ace_step: "音乐",
-  ace_audio: "音乐",
-  agent_audio: "音乐",
-  agent_image: "文生图",
-  agent_img2img: "图生图",
-  agent_video: "视频",
-  agent_3d: "3D",
-  agent_workflow: "工作流",
-  // 精修 / 放大 / 漫剧 / 对口型等衍生产物,补齐友好中文名(否则露原始大写 kind)
-  manju_shot: "漫剧镜头",
-  manju_shot_pulid: "漫剧镜头",
-  supir: "高清放大",
-  sdupscale: "高清放大",
-  hires: "高清修复",
-  facedetailer: "面部精修",
-  inpaint: "局部重绘",
-  controlnet: "构图控制",
-  lipsync: "对口型",
-  dubsync: "对口型",
-};
-
-/** 未登记的 kind 兜底成体面标签(避免露原始大写 kind 名),按产物类型给通用词。 */
-function kindLabel(kind: string, url: string): string {
-  const known = KIND_LABELS[kind];
-  if (known) return known;
-  const t = assetType(url);
-  return t === "video" ? "视频" : t === "glb" ? "3D" : t === "audio" ? "音乐" : "图像";
-}
-
-const FILTERS: { k: string; l: string }[] = [
-  { k: "all", l: "全部" },
-  { k: "image", l: "图像" },
-  { k: "video", l: "视频" },
-  { k: "glb", l: "3D" },
-  { k: "audio", l: "音乐" },
+const FILTERS: FilterDef[] = [
+  { key: "all", label: "全部", kinds: [] },
+  {
+    key: "image",
+    label: "图像",
+    kinds: ["txt2img", "img2img", "controlnet", "upscale", "facedetailer", "inpaint", "removebg", "kenburns"],
+  },
+  { key: "video", label: "视频", kinds: ["video", "txt2video", "img2video", "lipsync"] },
+  { key: "audio", label: "音频", kinds: ["audio"] },
+  { key: "3d", label: "3D", kinds: ["3d", "model3d"] },
 ];
 
-function assetType(url: string): AssetKind {
-  const u = url.toLowerCase();
-  if (u.includes(".glb")) return "glb";
-  if (u.includes(".mp3") || u.includes(".flac") || u.includes(".wav") || u.includes(".ogg"))
-    return "audio";
-  if (u.includes(".mp4") || u.includes(".webm") || u.includes(".mov")) return "video";
+function kindToFilter(kind: string): FilterKey {
+  for (const f of FILTERS) {
+    if (f.kinds.includes(kind)) return f.key;
+  }
   return "image";
 }
 
-/** 图片/视频可进灯箱;3D/音频就地交互不进。 */
-function isLightboxable(t: AssetKind): boolean {
-  return t === "image" || t === "video";
+function kindLabel(kind: string): string {
+  const map: Record<string, string> = {
+    txt2img: "文生图",
+    img2img: "图生图",
+    controlnet: "ControlNet",
+    upscale: "放大",
+    facedetailer: "脸部修复",
+    inpaint: "局部重绘",
+    removebg: "抠图",
+    video: "图生视频",
+    txt2video: "文生视频",
+    img2video: "图生视频",
+    lipsync: "对口型",
+    audio: "音频",
+    "3d": "3D",
+    model3d: "3D",
+    kenburns: "运镜",
+  };
+  return map[kind] ?? kind;
 }
 
-/** 可「重生成(换seed)」的 kind:有采样随机性;确定性 kind(upscale/removebg/raw)重抽只会出一样的图。 */
-const RERUN_KINDS = new Set([
-  "txt2img", "img2img", "controlnet", "facedetailer", "inpaint",
-  "wan_t2v", "wan_i2v", "hunyuan3d", "ace_audio",
-  "manju_shot_txt2img", "manju_shot_ipadapter", "manju_lipsync",
-]);
-/** 可「微调(锁seed改词)」的 kind:请求模型有 positive 字段,overrides 才不会被后端丢弃。 */
-const TWEAK_KINDS = new Set([
-  "txt2img", "img2img", "controlnet", "facedetailer", "inpaint",
-  "wan_t2v", "wan_i2v", "manju_shot_txt2img", "manju_shot_ipadapter",
-]);
+function isVideoKind(kind: string): boolean {
+  return ["video", "txt2video", "img2video", "lipsync", "kenburns"].includes(kind);
+}
+
+function formatTime(iso: string): string {
+  try {
+    const d = new Date(iso);
+    const diff = Date.now() - d.getTime();
+    const min = 60_000;
+    const hr = 60 * min;
+    const day = 24 * hr;
+    if (diff < min) return "刚刚";
+    if (diff < hr) return `${Math.floor(diff / min)} 分钟前`;
+    if (diff < day) return `${Math.floor(diff / hr)} 小时前`;
+    if (diff < 7 * day) return `${Math.floor(diff / day)} 天前`;
+    return d.toLocaleDateString("zh-CN");
+  } catch {
+    return iso;
+  }
+}
+
+interface PreviewState {
+  url: string;
+  isVideo: boolean;
+  prompt: string;
+}
 
 export function LibraryView() {
-  const [assets, setAssets] = useState<Asset[] | null>(null);
+  const [jobs, setJobs] = useState<JobItem[] | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // 灯箱以「当前筛选列表内的下标」驱动,便于 ← → 切换。
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const [filter, setFilter] = useState("all");
-  // 灯箱内图片的真实像素(供元信息侧栏显示),从 naturalWidth/Height 读取。
-  const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
-  // 无限滚动:当前已渲染的瓦片数,滚到底部哨兵时增量增长。
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
-  const closeBtnRef = useRef<HTMLButtonElement | null>(null);
-  // 版本树:挂起跳转(列表刷新后按 jobId 重新定位灯箱)+ 当前灯箱 jobId(异步回调防串台)
-  const pendingJumpRef = useRef<string | null>(null);
-  const activeJobIdRef = useRef<string | null>(null);
-  const reduced = useReducedMotion();
-  // R18 软开关:切换后(revision 变化)重拉作品库,让后端的服务端过滤即时生效。
-  const { revision: nsfwRevision } = useNsfw();
+  const [filter, setFilter] = useState<FilterKey>("all");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  // 删除确认对话框(替代 window.confirm / window.alert)
+  const [confirmDelete, setConfirmDelete] = useState<JobItem | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<PreviewState | null>(null);
 
-  useEffect(() => {
-    let alive = true;
+  const load = useCallback(() => {
+    setLoading(true);
+    setError(null);
     listJobs()
-      .then((jobs: JobItem[]) => {
-        if (alive) setAssets(flattenJobs(jobs));
-      })
-      .catch((e: Error) => {
-        if (alive) setError(e.message);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [nsfwRevision]);
-
-  const shown = useMemo(() => {
-    if (!assets) return [];
-    if (filter === "all") return assets;
-    return assets.filter((a) => assetType(a.url) === filter);
-  }, [assets, filter]);
-
-  // 切换筛选 / 数据变化:重置增量游标;默认关灯箱(防新条目前插导致索引漂移)。
-  // 有挂起跳转(点了版本条里尚未入列的新版本 → 触发刷新)则按 jobId 重新定位。
-  useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
-    const target = pendingJumpRef.current;
-    if (target) {
-      pendingJumpRef.current = null;
-      const idx = shown.findIndex((a) => a.jobId === target);
-      setDims(null);
-      setActiveIndex(idx >= 0 ? idx : null);
-      return;
-    }
-    setActiveIndex(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- shown 由 assets+filter 派生,同拍
-  }, [filter, assets]);
-
-  // 实际渲染的瓦片(增量切片);还有更多则保留哨兵
-  const visible = useMemo(() => shown.slice(0, visibleCount), [shown, visibleCount]);
-  const hasMore = visibleCount < shown.length;
-
-  const loadMore = useCallback(() => {
-    setVisibleCount((c) => Math.min(c + PAGE_SIZE, shown.length));
-  }, [shown.length]);
-
-  // 无限滚动:哨兵进入视口即加载下一批(IntersectionObserver,无滚动监听抖动)
-  useEffect(() => {
-    if (!hasMore) return;
-    const el = sentinelRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) loadMore();
-      },
-      { rootMargin: "600px 0px" },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, [hasMore, loadMore]);
-
-  const active = activeIndex !== null ? shown[activeIndex] ?? null : null;
-  const activeType = active ? assetType(active.url) : null;
-
-  const openLightbox = useCallback((index: number) => {
-    setDims(null);
-    setActiveIndex(index);
+      .then(setJobs)
+      .catch((err) => setError(err instanceof Error ? err.message : "加载作品失败"))
+      .finally(() => setLoading(false));
   }, []);
 
-  // ---------- 版本树:重生成 / 微调(锁seed)/ 版本历史 ----------
-  const [versions, setVersions] = useState<JobItem[] | null>(null);
-  const [versionsOpen, setVersionsOpen] = useState(false);
-  const [rerunBusy, setRerunBusy] = useState(false);
-  const [rerunMsg, setRerunMsg] = useState<string | null>(null);
-  const [tweakOpen, setTweakOpen] = useState(false);
-  const [tweakText, setTweakText] = useState("");
-  // rerun 产生过新版本 → 关灯箱时重拉列表(避免开着时索引漂移)
-  const dirtyRef = useRef(false);
-
-  const reload = useCallback(async () => {
-    try {
-      invalidateJobs();
-      const jobs = await listJobs();
-      setAssets(flattenJobs(jobs));
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  }, []);
-
-  const closeLightbox = useCallback(() => {
-    setActiveIndex(null);
-    if (dirtyRef.current) {
-      dirtyRef.current = false;
-      void reload();
-    }
-  }, [reload]);
-
-  // 切换灯箱对象:收起版本条 / 微调编辑器 / 状态提示
   useEffect(() => {
-    setVersions(null);
-    setVersionsOpen(false);
-    setTweakOpen(false);
-    setRerunMsg(null);
-  }, [activeIndex]);
+    load();
+  }, [load]);
 
-  // 异步回调防串台:随时可读的「当前灯箱 jobId」(rerun/版本请求完成时比对)
+  // Esc 关闭灯箱
   useEffect(() => {
-    activeJobIdRef.current = active?.jobId ?? null;
-  }, [active]);
-
-  // 删除一件作品:确认 → 删后端记录 → 从本地列表剔除该 job 的所有产物 → 关灯箱
-  const [deleting, setDeleting] = useState<string | null>(null);
-  const handleDelete = useCallback(async (jobId: string) => {
-    if (deleting) return;
-    if (!window.confirm("确认删除这件作品?此操作不可撤销。")) return;
-    setDeleting(jobId);
-    try {
-      await deleteJob(jobId);
-      setAssets((cur) => (cur ? cur.filter((a) => a.jobId !== jobId) : cur));
-      setActiveIndex(null);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setDeleting(null);
-    }
-  }, [deleting]);
-
-  /** 展开/收起版本历史条(首次展开时拉取同根版本链;晚到的旧响应丢弃防串台)。 */
-  const toggleVersions = useCallback(async () => {
-    if (!active) return;
-    if (versionsOpen) {
-      setVersionsOpen(false);
-      return;
-    }
-    const forJob = active.jobId;
-    setVersionsOpen(true);
-    try {
-      const list = await jobVersions(forJob);
-      if (activeJobIdRef.current === forJob) setVersions(list);
-    } catch (e) {
-      if (activeJobIdRef.current === forJob) {
-        setVersionsOpen(false);
-        // 错误在灯箱内展示(页面顶部横幅会被灯箱遮罩盖住)
-        setRerunMsg(`版本历史加载失败:${(e as Error).message}`);
-      }
-    }
-  }, [active, versionsOpen]);
-
-  /** 点版本缩略图 → 灯箱跳到该版本;不在当前列表(刚生成/超窗)则刷新后按 jobId 定位。 */
-  const jumpToJob = useCallback(
-    (jobId: string) => {
-      const idx = shown.findIndex((a) => a.jobId === jobId);
-      if (idx >= 0) {
-        setDims(null);
-        setActiveIndex(idx);
-        return;
-      }
-      pendingJumpRef.current = jobId;
-      dirtyRef.current = false;
-      void reload();
-    },
-    [shown, reload],
-  );
-
-  /** 重生成(random)/微调(keep=锁 seed):提交 → 等完成 → 就地刷新版本条。
-   *  完成回调一律与「当前灯箱对象」比对,等待期间切图/关灯箱都不会把状态写错地方。 */
-  const handleRerun = useCallback(
-    async (a: Asset, opts: RerunOptions) => {
-      if (rerunBusy) return;
-      setRerunBusy(true);
-      setRerunMsg(opts.seed_mode === "keep" ? "微调中(锁 seed)…" : "重新生成中…");
-      try {
-        const res = await rerunJob(a.jobId, opts);
-        await trackJob(res);
-        invalidateJobs(); // 缓存先失效:无论灯箱开关,下次拉取都是新链
-        dirtyRef.current = true;
-        if (activeJobIdRef.current === a.jobId) {
-          setRerunMsg("完成 ✓ 新版本已入链(关闭后列表刷新)");
-          setVersionsOpen(true);
-          const list = await jobVersions(a.jobId);
-          if (activeJobIdRef.current === a.jobId) setVersions(list);
-        } else if (activeJobIdRef.current === null) {
-          // 灯箱已关:立即刷新列表,新版本/徽章直接可见
-          dirtyRef.current = false;
-          void reload();
-        }
-        // 切到了别的作品:不动当前 UI,关灯箱时经 dirtyRef 刷新
-      } catch (e) {
-        const msg = (e as Error).message;
-        if (activeJobIdRef.current === a.jobId) setRerunMsg(`失败:${msg}`);
-        else setError(msg);
-      } finally {
-        setRerunBusy(false);
-      }
-    },
-    [rerunBusy, reload],
-  );
-
-  // 在当前筛选列表内切上/下一件(边界处理:夹在 [0, len-1])
-  const step = useCallback(
-    (delta: number) => {
-      setActiveIndex((cur) => {
-        if (cur === null) return cur;
-        const next = cur + delta;
-        if (next < 0 || next >= shown.length) return cur;
-        setDims(null);
-        return next;
-      });
-    },
-    [shown.length],
-  );
-
-  // 灯箱键盘:Esc 关闭、← → 切换;打开时焦点落在关闭键
-  useEffect(() => {
-    if (activeIndex === null) return;
+    if (!preview) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        closeLightbox();
-      } else if (e.key === "ArrowLeft") {
-        e.preventDefault();
-        step(-1);
-      } else if (e.key === "ArrowRight") {
-        e.preventDefault();
-        step(1);
-      }
+      if (e.key === "Escape") setPreview(null);
     };
     window.addEventListener("keydown", onKey);
-    closeBtnRef.current?.focus();
     return () => window.removeEventListener("keydown", onKey);
-  }, [activeIndex, closeLightbox, step]);
+  }, [preview]);
 
-  const hasPrev = activeIndex !== null && activeIndex > 0;
-  const hasNext = activeIndex !== null && activeIndex < shown.length - 1;
+  // Esc 关闭删除确认对话框(删除中不响应,避免误触)
+  useEffect(() => {
+    if (!confirmDelete) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !deletingId) setConfirmDelete(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [confirmDelete, deletingId]);
+
+  const filtered = useMemo(() => {
+    if (!jobs) return [];
+    if (filter === "all") return jobs;
+    return jobs.filter((j) => kindToFilter(j.kind) === filter);
+  }, [jobs, filter]);
+
+  const counts = useMemo(() => {
+    const c: Record<FilterKey, number> = { all: 0, image: 0, video: 0, audio: 0, "3d": 0 };
+    if (jobs) {
+      c.all = jobs.length;
+      for (const j of jobs) c[kindToFilter(j.kind)]++;
+    }
+    return c;
+  }, [jobs]);
+
+  // 点击删除:仅打开确认对话框(不再使用 window.confirm)
+  const handleDelete = (job: JobItem) => {
+    setDeleteError(null);
+    setConfirmDelete(job);
+  };
+
+  // 确认删除:执行实际删除,失败时把错误信息内联显示在对话框中
+  const handleConfirmDelete = async () => {
+    if (!confirmDelete) return;
+    const job = confirmDelete;
+    setDeletingId(job.id);
+    try {
+      await deleteJob(job.id);
+      invalidateJobs();
+      setJobs((prev) => (prev ?? []).filter((j) => j.id !== job.id));
+      setConfirmDelete(null);
+      setDeleteError(null);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "删除失败");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const openPreview = (job: JobItem) => {
+    if (!job.results?.length) return;
+    setPreview({
+      url: imageUrl(job.results[0]),
+      isVideo: isVideoKind(job.kind),
+      prompt: job.prompt,
+    });
+  };
+
+  const isEmpty = !loading && !error && filtered.length === 0;
+  const skeletonCount = 8;
 
   return (
-    <div className="view">
-      <header className="view-header">
-        <span className="view-eyebrow">Library</span>
-        <h1 className="view-title">作品库</h1>
-        <p className="view-lede">图像、视频、3D、音乐,按时间线沉淀。</p>
-        <div className="view-tally">
-          <span className="n">{assets?.length ?? 0}</span>
-          <span className="l">件作品</span>
+    <div className="single-view library-view">
+      <header className="lib-header">
+        <div className="lib-header-left">
+          <h1 className="lib-title">作品库</h1>
+          <span className="lib-count">
+            {loading
+              ? "加载中…"
+              : error
+                ? "加载失败"
+                : `${filtered.length} 件作品`}
+          </span>
+        </div>
+        <div className="lib-filters" role="tablist" aria-label="作品类型筛选">
+          {FILTERS.map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              role="tab"
+              aria-selected={filter === f.key}
+              className={`lib-filter ${filter === f.key ? "is-active" : ""}`}
+              onClick={() => setFilter(f.key)}
+            >
+              <span>{f.label}</span>
+              {counts[f.key] > 0 && (
+                <span className="lib-filter-count">{counts[f.key]}</span>
+              )}
+            </button>
+          ))}
         </div>
       </header>
 
-      {assets && assets.length > 0 && (
-        <div className="view-toolbar">
-          <div className="filter-chips" role="group" aria-label="按类型筛选">
-            {FILTERS.map((f) => (
-              <button
-                key={f.k}
-                type="button"
-                className={`filter-chip${filter === f.k ? " is-on" : ""}`}
-                aria-pressed={filter === f.k}
-                onClick={() => setFilter(f.k)}
-              >
-                {f.l}
-              </button>
+      <div className="lib-body">
+        {error && !loading && (
+          <div className="lib-error">
+            <Icon name="error" size={36} strokeWidth={1.4} />
+            <div className="lib-error-msg">{error}</div>
+            <button type="button" className="btn btn-sm" onClick={load}>
+              <Icon name="refresh" size={14} />
+              重试
+            </button>
+          </div>
+        )}
+
+        {!error && loading && (
+          <div className="lib-grid">
+            {Array.from({ length: skeletonCount }).map((_, i) => (
+              <div key={i} className="lib-card lib-skeleton" aria-hidden="true">
+                <div className="lib-thumb-skel" />
+                <div className="lib-foot-skel">
+                  <div className="skel-line skel-w-1" />
+                  <div className="skel-line skel-w-2" />
+                </div>
+              </div>
             ))}
+          </div>
+        )}
+
+        {!error && !loading && isEmpty && (
+          <div className="empty-state lib-empty">
+            <div className="empty-state-icon">
+              <Icon name="library" size={56} strokeWidth={1.1} />
+            </div>
+            <div className="empty-state-title">还没有作品</div>
+            <div className="empty-state-desc">去创作页面生成第一件作品</div>
+          </div>
+        )}
+
+        {!error && !loading && !isEmpty && (
+          <div className="lib-grid">
+            {filtered.map((job) => {
+              const hasResult = job.status === "success" && job.results?.length > 0;
+              const isVideo = isVideoKind(job.kind);
+              return (
+                <article
+                  key={job.id}
+                  className={`lib-card ${deletingId === job.id ? "is-deleting" : ""}`}
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`预览作品: ${job.prompt || "无提示词"}`}
+                  onClick={() => openPreview(job)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      openPreview(job);
+                    }
+                  }}
+                >
+                  <div className="lib-thumb">
+                    {hasResult ? (
+                      isVideo ? (
+                        <video
+                          src={imageUrl(job.results[0])}
+                          muted
+                          loop
+                          playsInline
+                          preload="metadata"
+                        />
+                      ) : (
+                        <img
+                          src={imageUrl(job.results[0])}
+                          alt={job.prompt}
+                          loading="lazy"
+                        />
+                      )
+                    ) : (
+                      <div className="lib-thumb-placeholder">
+                        <Icon
+                          name={
+                            job.status === "running"
+                              ? "loading"
+                              : job.status === "error"
+                                ? "error"
+                                : "image"
+                          }
+                          size={28}
+                          strokeWidth={1.4}
+                        />
+                        {job.status === "running" && (
+                          <span className="lib-thumb-status">生成中…</span>
+                        )}
+                        {job.status === "error" && (
+                          <span className="lib-thumb-status">生成失败</span>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="lib-overlay" aria-hidden="true">
+                      <div className="lib-overlay-prompt">
+                        {job.prompt || "（无提示词）"}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="lib-delete"
+                      title="删除作品"
+                      aria-label="删除作品"
+                      disabled={deletingId === job.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(job);
+                      }}
+                    >
+                      <Icon
+                        name={deletingId === job.id ? "loading" : "delete"}
+                        size={14}
+                      />
+                    </button>
+
+                    {isVideo && hasResult && (
+                      <div className="lib-video-badge" aria-hidden="true">
+                        <Icon name="playing" size={11} />
+                        视频
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="lib-foot">
+                    <div className="lib-foot-row">
+                      <span className="lib-kind">{kindLabel(job.kind)}</span>
+                      <span className="lib-time">{formatTime(job.created_at)}</span>
+                    </div>
+                    <div className="lib-seed">seed · {job.seed}</div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {preview && (
+        <div
+          className="lib-lightbox"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setPreview(null)}
+        >
+          <button
+            type="button"
+            className="lib-lightbox-close"
+            aria-label="关闭预览"
+            onClick={() => setPreview(null)}
+          >
+            <Icon name="close" size={20} />
+          </button>
+          <div
+            className="lib-lightbox-body"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {preview.isVideo ? (
+              <video src={preview.url} controls autoPlay loop />
+            ) : (
+              <img src={preview.url} alt={preview.prompt} />
+            )}
+          </div>
+          {preview.prompt && (
+            <div className="lib-lightbox-prompt">{preview.prompt}</div>
+          )}
+        </div>
+      )}
+
+      {/* 删除确认对话框(替代原生 window.confirm,样式参考 AdminView) */}
+      {confirmDelete && (
+        <div
+          className="lib-confirm-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="确认删除作品"
+          onClick={() => {
+            if (!deletingId) setConfirmDelete(null);
+          }}
+        >
+          <div
+            className="lib-confirm-card"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="lib-confirm-head">
+              <div>
+                <div className="lib-confirm-title">
+                  <Icon name="delete" size={16} />
+                  删除作品
+                </div>
+                <div className="lib-confirm-sub">此操作不可撤销</div>
+              </div>
+              <button
+                type="button"
+                className="lib-confirm-close"
+                aria-label="关闭"
+                disabled={deletingId !== null}
+                onClick={() => setConfirmDelete(null)}
+              >
+                <Icon name="close" size={18} />
+              </button>
+            </div>
+
+            <div className="lib-confirm-body">
+              <div className="lib-confirm-warn">
+                确定删除这件作品?该操作不可撤销,作品的所有数据将被永久移除。
+              </div>
+              {confirmDelete.prompt && (
+                <div className="lib-confirm-prompt">
+                  {confirmDelete.prompt.length > 80
+                    ? confirmDelete.prompt.slice(0, 80) + "…"
+                    : confirmDelete.prompt}
+                </div>
+              )}
+              {deleteError && (
+                <div className="lib-confirm-error">
+                  <Icon name="error" size={13} /> {deleteError}
+                </div>
+              )}
+              <div className="lib-confirm-actions">
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={deletingId !== null}
+                  onClick={() => setConfirmDelete(null)}
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  className="btn lib-confirm-delete"
+                  disabled={deletingId !== null}
+                  onClick={handleConfirmDelete}
+                >
+                  <Icon name={deletingId ? "loading" : "delete"} size={14} />
+                  {deletingId ? "删除中…" : "确认删除"}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {error && <div className="alert">⚠ {error}</div>}
+      <style jsx>{`
+        .library-view {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-4);
+        }
 
-      {!assets ? (
-        <div className="skel-masonry" aria-hidden="true">
-          {[34, 22, 28, 26, 20, 32, 24, 30].map((h, i) => (
-            <div key={i} className="skel-card" style={{ height: `${h}vh` }} />
-          ))}
-        </div>
-      ) : shown.length === 0 ? (
-        <div className="editorial-empty">
-          <span className="ee-orb" aria-hidden="true">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="7" height="7" rx="1.5" />
-              <rect x="14" y="3" width="7" height="7" rx="1.5" />
-              <rect x="3" y="14" width="7" height="7" rx="1.5" />
-              <rect x="14" y="14" width="7" height="7" rx="1.5" />
-            </svg>
-          </span>
-          <h2>还没有作品</h2>
-          <p>
-            去图像 / 视频 / 3D / 音乐模块创作,生成的每一件作品都会自动汇集到这里。
-          </p>
-        </div>
-      ) : (
-        <motion.div
-          className="masonry"
-          initial="initial"
-          animate="enter"
-          variants={{ enter: { transition: { staggerChildren: reduced ? 0 : 0.035 } } }}
-        >
-          {visible.map((a, i) => {
-            const type = assetType(a.url);
-            const lightboxable = isLightboxable(type);
-            return (
-              <motion.figure
-                className="tile"
-                key={a.key}
-                variants={{
-                  initial: { opacity: 0, y: reduced ? 0 : 14 },
-                  enter: { opacity: 1, y: 0, transition: springSoft },
-                }}
-                onClick={lightboxable ? () => openLightbox(i) : undefined}
-                style={lightboxable ? undefined : { cursor: "default" }}
-              >
-                <span className="tile-kind">{kindLabel(a.kind, a.url)}</span>
-                {a.versionCount > 1 && (
-                  <span className="tile-ver" title={`同链 ${a.versionCount} 个版本`}>
-                    {a.versionCount} 版
-                  </span>
-                )}
-                <button
-                  type="button"
-                  className="tile-del"
-                  aria-label="删除作品"
-                  title="删除"
-                  disabled={deleting === a.jobId}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(a.jobId);
-                  }}
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6" />
-                    <path d="M10 11v6M14 11v6" />
-                  </svg>
-                </button>
-                {type === "glb" ? (
-                  <a className="tile-pad" href={a.url} download onClick={(e) => e.stopPropagation()}>
-                    <span className="badge">3D · GLB</span>
-                    <span className="hint">可旋转网格模型</span>
-                    <span className="tile-dl">下载模型</span>
-                  </a>
-                ) : type === "audio" ? (
-                  <div className="tile-pad" onClick={(e) => e.stopPropagation()}>
-                    <span className="badge audio">♪ 音乐</span>
-                    <audio controls preload="none" src={a.url} />
-                  </div>
-                ) : type === "video" ? (
-                  <>
-                    <span className="tile-play" aria-hidden="true">▶</span>
-                    <LazyVideo src={a.url} label={a.prompt || "视频作品"} />
-                    <figcaption className="tile-cap">
-                      <p className="p">{a.prompt || "未命名作品"}</p>
-                      <p className="s">seed {a.seed}</p>
-                    </figcaption>
-                  </>
-                ) : (
-                  <>
-                    <LazyImage src={a.url} alt={a.prompt} />
-                    <figcaption className="tile-cap">
-                      <p className="p">{a.prompt || "未命名作品"}</p>
-                      <p className="s">seed {a.seed}</p>
-                    </figcaption>
-                  </>
-                )}
-              </motion.figure>
-            );
-          })}
+        .lib-header {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: var(--space-4);
+          flex-wrap: wrap;
+          padding-bottom: var(--space-4);
+          border-bottom: 1px solid var(--hairline);
+        }
+        .lib-header-left {
+          display: flex;
+          align-items: baseline;
+          gap: var(--space-3);
+          min-width: 0;
+        }
+        .lib-title {
+          margin: 0;
+          font-family: var(--font-display);
+          font-size: 1.5rem;
+          font-weight: 500;
+          letter-spacing: -0.02em;
+          color: var(--ink);
+          line-height: 1.2;
+        }
+        .lib-count {
+          font-size: 0.78rem;
+          color: var(--ink-faint);
+          font-family: var(--font-mono);
+          letter-spacing: 0.01em;
+        }
 
-          {/* 无限滚动:哨兵 + 加载中指示(进入视口即续渲一批) */}
-          {hasMore && (
-            <>
-              <div ref={sentinelRef} className="lib-sentinel" aria-hidden="true" />
-              <div className="lib-more" role="status" aria-live="polite">
-                <span className="dot" />
-                <span className="dot" />
-                <span className="dot" />
-              </div>
-            </>
-          )}
-        </motion.div>
-      )}
+        .lib-filters {
+          display: inline-flex;
+          gap: 2px;
+          padding: 3px;
+          background: var(--bg-1);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius-sm);
+          /* 窄屏 5 个 filter 可能溢出,横向滚动 + 触摸惯性 */
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+        }
+        .lib-filters::-webkit-scrollbar {
+          display: none;
+        }
+        .lib-filter {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          padding: 0.35rem 0.7rem;
+          background: transparent;
+          border: 1px solid transparent;
+          border-radius: var(--radius-xs);
+          color: var(--ink-soft);
+          font-size: 0.82rem;
+          font-weight: 500;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: background-color var(--dur) var(--ease),
+            color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+        }
+        .lib-filter:hover {
+          color: var(--ink);
+          background: var(--bg-2);
+        }
+        .lib-filter.is-active {
+          background: var(--accent-quiet);
+          border-color: var(--accent-line);
+          color: var(--accent-soft);
+        }
+        .lib-filter-count {
+          font-size: 0.68rem;
+          opacity: 0.7;
+          font-family: var(--font-mono);
+        }
 
-      <AnimatePresence>
-        {active && (
-          <motion.div
-            className="lightbox"
-            onClick={closeLightbox}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            role="dialog"
-            aria-modal="true"
-            aria-label={active.prompt || "作品预览"}
-          >
-            {/* 两侧切换按钮:在筛选列表内上/下一件(边界禁用) */}
-            <button
-              type="button"
-              className="lightbox-nav prev"
-              onClick={(e) => {
-                e.stopPropagation();
-                step(-1);
-              }}
-              disabled={!hasPrev}
-              aria-label="上一件"
-            >
-              ‹
-            </button>
-            <button
-              type="button"
-              className="lightbox-nav next"
-              onClick={(e) => {
-                e.stopPropagation();
-                step(1);
-              }}
-              disabled={!hasNext}
-              aria-label="下一件"
-            >
-              ›
-            </button>
+        .lib-body {
+          min-height: 200px;
+        }
 
-            <motion.div
-              className="lightbox-inner"
-              onClick={(e) => e.stopPropagation()}
-              initial={{ opacity: 0, scale: reduced ? 1 : 0.94, y: reduced ? 0 : 12 }}
-              animate={{ opacity: 1, scale: 1, y: 0, transition: springSoft }}
-              exit={{ opacity: 0, scale: reduced ? 1 : 0.96, transition: { duration: 0.15 } }}
-            >
-              <div className="lightbox-stage">
-                {activeType === "video" ? (
-                  <video
-                    key={active.key}
-                    className="lightbox-video"
-                    src={active.url}
-                    controls
-                    autoPlay
-                    loop
-                    playsInline
-                    aria-label={active.prompt || "视频作品"}
-                  />
-                ) : (
-                  <Magnifier
-                    key={active.key}
-                    src={active.url}
-                    alt={active.prompt || "作品"}
-                    wrapClassName="lightbox-magnifier"
-                    zoom={2.6}
-                    lensSize={200}
-                    onLoadDims={(w, h) => setDims({ w, h })}
-                  />
-                )}
-              </div>
+        .lib-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+          gap: var(--space-4);
+        }
 
-              <aside className="lightbox-meta" aria-label="作品信息">
-                <p className="lb-prompt">{active.prompt || "未命名作品"}</p>
-                <dl className="lb-specs">
-                  <div>
-                    <dt>题材</dt>
-                    <dd>{kindLabel(active.kind, active.url)}</dd>
-                  </div>
-                  <div>
-                    <dt>seed</dt>
-                    <dd className="num">{active.seed}</dd>
-                  </div>
-                  {activeType === "image" && dims && (
-                    <div>
-                      <dt>尺寸</dt>
-                      <dd className="num">
-                        {dims.w}×{dims.h}
-                      </dd>
-                    </div>
-                  )}
-                  {active.versionCount > 1 && (
-                    <div>
-                      <dt>版本</dt>
-                      <dd className="num">{active.versionCount}</dd>
-                    </div>
-                  )}
-                </dl>
-                <div className="lb-actions">
-                  {active.hasParams && RERUN_KINDS.has(active.kind) && (
-                    <button
-                      type="button"
-                      className="btn-ghost"
-                      disabled={rerunBusy}
-                      title="同参数换 seed 重抽"
-                      onClick={() => handleRerun(active, { seed_mode: "random" })}
-                    >
-                      重生成
-                    </button>
-                  )}
-                  {active.hasParams && TWEAK_KINDS.has(active.kind) && (
-                    <button
-                      type="button"
-                      className="btn-ghost"
-                      disabled={rerunBusy}
-                      title="锁 seed 只改提示词:构图不变,改哪动哪"
-                      onClick={() => {
-                        setTweakOpen((o) => !o);
-                        setTweakText(active.prompt);
-                      }}
-                    >
-                      微调
-                    </button>
-                  )}
-                  <button type="button" className="btn-ghost" onClick={toggleVersions}>
-                    {versionsOpen ? "收起版本" : `版本历史${active.versionCount > 1 ? ` (${active.versionCount})` : ""}`}
-                  </button>
-                  <a className="btn-ghost" href={active.url} download>
-                    {activeType === "video" ? "下载视频" : "下载原图"}
-                  </a>
-                  <button
-                    type="button"
-                    className="btn-ghost btn-danger"
-                    disabled={deleting === active.jobId}
-                    onClick={() => handleDelete(active.jobId)}
-                  >
-                    {deleting === active.jobId ? "删除中…" : "删除作品"}
-                  </button>
-                </div>
+        .lib-card {
+          position: relative;
+          background: var(--bg-1);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius);
+          overflow: hidden;
+          cursor: pointer;
+          transition: border-color var(--dur-2) var(--ease),
+            transform var(--dur-2) var(--ease),
+            box-shadow var(--dur-2) var(--ease);
+        }
+        .lib-card:hover,
+        .lib-card:focus-visible {
+          border-color: var(--accent-line);
+          box-shadow: 0 4px 24px -8px oklch(55% 0.20 265 / 0.25);
+          outline: none;
+        }
+        .lib-card.is-deleting {
+          opacity: 0.5;
+          pointer-events: none;
+        }
 
-                {tweakOpen && active.hasParams && TWEAK_KINDS.has(active.kind) && (
-                  <div className="lb-tweak">
-                    <textarea
-                      rows={3}
-                      value={tweakText}
-                      onChange={(e) => setTweakText(e.target.value)}
-                      placeholder="改动提示词(锁 seed,构图保持)"
-                    />
-                    <div className="lb-tweak-row">
-                      <span className="lb-tweak-seed">seed {active.seed} 已锁</span>
-                      <button
-                        type="button"
-                        className="btn-ghost"
-                        disabled={rerunBusy || !tweakText.trim()}
-                        onClick={() => {
-                          setTweakOpen(false);
-                          const text = tweakText.trim();
-                          handleRerun(active, {
-                            seed_mode: "keep",
-                            ...(text && text !== active.prompt
-                              ? { overrides: { positive: text } }
-                              : {}),
-                          });
-                        }}
-                      >
-                        生成微调版
-                      </button>
-                    </div>
-                  </div>
-                )}
+        .lib-thumb {
+          position: relative;
+          aspect-ratio: 1 / 1;
+          background: var(--bg-2);
+          overflow: hidden;
+        }
+        .lib-thumb img,
+        .lib-thumb video {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+          transition: transform var(--dur-2) var(--ease);
+        }
+        .lib-card:hover .lib-thumb img,
+        .lib-card:hover .lib-thumb video {
+          transform: scale(1.02);
+        }
 
-                {rerunMsg && (
-                  <p className="lb-rerun-msg" role="status">
-                    {rerunBusy && <span className="lb-spin" aria-hidden="true" />}
-                    {rerunMsg}
-                  </p>
-                )}
+        .lib-thumb-placeholder {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+          color: var(--ink-faint);
+          background: radial-gradient(
+            circle at 50% 50%,
+            var(--accent-wash),
+            transparent 70%
+          ),
+          var(--bg-2);
+        }
+        .lib-thumb-status {
+          font-size: 0.72rem;
+          color: var(--ink-faint);
+          font-family: var(--font-mono);
+        }
 
-                {versionsOpen && (
-                  <div className="lb-versions" aria-label="版本历史">
-                    {versions === null ? (
-                      <p className="lb-vs-loading">加载版本…</p>
-                    ) : (
-                      versions.map((v, idx) => {
-                        const thumb = v.results?.[0];
-                        const t = thumb ? assetType(thumb) : "image";
-                        const isCurrent = v.id === active.jobId;
-                        return (
-                          <button
-                            key={v.id}
-                            type="button"
-                            className={`lb-ver${isCurrent ? " is-current" : ""}`}
-                            title={`v${idx + 1} · seed ${v.seed}${isCurrent ? "(当前)" : ""}`}
-                            onClick={() => jumpToJob(v.id)}
-                          >
-                            {thumb && t === "image" ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={imageUrl(thumb)} alt={`v${idx + 1}`} loading="lazy" />
-                            ) : (
-                              <span className="lb-ver-ph">{t === "video" ? "▶" : "…"}</span>
-                            )}
-                            <span className="lb-ver-tag">v{idx + 1}</span>
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-                )}
-              </aside>
+        .lib-overlay {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: flex-end;
+          padding: var(--space-3);
+          background: linear-gradient(
+            to top,
+            oklch(3% 0.004 265 / 0.85),
+            transparent 60%
+          );
+          opacity: 0;
+          transition: opacity var(--dur-2) var(--ease);
+          pointer-events: none;
+        }
+        .lib-card:hover .lib-overlay,
+        .lib-card:focus-within .lib-overlay {
+          opacity: 1;
+        }
+        .lib-overlay-prompt {
+          font-size: 0.78rem;
+          line-height: 1.45;
+          color: var(--ink);
+          display: -webkit-box;
+          -webkit-line-clamp: 4;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          text-shadow: 0 1px 2px oklch(3% 0.004 265 / 0.6);
+        }
 
-              <button
-                ref={closeBtnRef}
-                type="button"
-                className="lightbox-close"
-                onClick={closeLightbox}
-                aria-label="关闭"
-              >
-                ✕
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        .lib-delete {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 28px;
+          height: 28px;
+          padding: 0;
+          background: oklch(3% 0.004 265 / 0.7);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          border: 1px solid var(--hairline-2);
+          border-radius: var(--radius-xs);
+          color: var(--ink-soft);
+          cursor: pointer;
+          opacity: 0;
+          transform: translateY(-2px);
+          transition: opacity var(--dur-2) var(--ease),
+            transform var(--dur-2) var(--ease),
+            background-color var(--dur) var(--ease),
+            border-color var(--dur) var(--ease),
+            color var(--dur) var(--ease);
+          z-index: 2;
+        }
+        .lib-card:hover .lib-delete,
+        .lib-card:focus-within .lib-delete {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        .lib-delete:hover {
+          background: var(--danger-quiet);
+          border-color: var(--danger);
+          color: var(--danger);
+        }
+        .lib-delete:disabled {
+          cursor: not-allowed;
+        }
+
+        .lib-video-badge {
+          position: absolute;
+          top: 8px;
+          left: 8px;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.25rem;
+          padding: 0.2rem 0.5rem;
+          background: oklch(3% 0.004 265 / 0.7);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          border: 1px solid var(--hairline-2);
+          border-radius: var(--radius-full);
+          font-size: 0.68rem;
+          color: var(--ink-soft);
+          font-family: var(--font-mono);
+          letter-spacing: 0.02em;
+          z-index: 1;
+        }
+
+        .lib-foot {
+          padding: 0.6rem 0.75rem 0.7rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+        }
+        .lib-foot-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.5rem;
+          min-width: 0;
+        }
+        .lib-kind {
+          display: inline-flex;
+          align-items: center;
+          padding: 0.1rem 0.45rem;
+          background: var(--accent-quiet);
+          border: 1px solid var(--accent-line);
+          border-radius: var(--radius-xs);
+          font-size: 0.7rem;
+          color: var(--accent-soft);
+          font-weight: 500;
+          white-space: nowrap;
+        }
+        .lib-time {
+          font-size: 0.72rem;
+          color: var(--ink-faint);
+          font-family: var(--font-mono);
+          white-space: nowrap;
+        }
+        .lib-seed {
+          font-size: 0.7rem;
+          color: var(--ink-faint);
+          font-family: var(--font-mono);
+          letter-spacing: 0.02em;
+        }
+
+        .lib-skeleton {
+          pointer-events: none;
+        }
+        .lib-thumb-skel {
+          aspect-ratio: 1 / 1;
+          background: linear-gradient(
+            90deg,
+            var(--bg-2) 0%,
+            var(--bg-3) 50%,
+            var(--bg-2) 100%
+          );
+          background-size: 200% 100%;
+          animation: skel-shimmer 1.6s ease-in-out infinite;
+        }
+        @keyframes skel-shimmer {
+          0% {
+            background-position: 100% 0;
+          }
+          100% {
+            background-position: -100% 0;
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .lib-thumb-skel {
+            animation: none;
+          }
+        }
+        .lib-foot-skel {
+          padding: 0.6rem 0.75rem 0.7rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.45rem;
+        }
+        .skel-line {
+          height: 8px;
+          border-radius: 4px;
+          background: var(--bg-2);
+        }
+        .skel-w-1 {
+          width: 50%;
+        }
+        .skel-w-2 {
+          width: 70%;
+        }
+
+        .lib-empty {
+          padding: var(--space-7) var(--space-4);
+        }
+
+        .lib-error {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: var(--space-3);
+          padding: var(--space-6);
+          color: var(--ink-faint);
+        }
+        .lib-error-msg {
+          font-size: 0.88rem;
+          color: var(--ink-soft);
+        }
+
+        .lib-lightbox {
+          position: fixed;
+          inset: 0;
+          z-index: 100;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: var(--space-3);
+          padding: var(--space-5);
+          /* 背景基于 --bg-0 派生(随主题切换 / 颜色变更自动跟随) */
+          background: color-mix(in oklch, var(--bg-0) 92%, black);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          animation: lb-fade var(--dur-2) var(--ease);
+        }
+        @keyframes lb-fade {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .lib-lightbox {
+            animation: none;
+          }
+        }
+        .lib-lightbox-close {
+          position: absolute;
+          top: var(--space-4);
+          right: var(--space-4);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 40px;
+          height: 40px;
+          padding: 0;
+          background: var(--bg-2);
+          border: 1px solid var(--hairline-2);
+          border-radius: var(--radius-full);
+          color: var(--ink-soft);
+          cursor: pointer;
+          transition: background-color var(--dur) var(--ease),
+            color var(--dur) var(--ease);
+        }
+        .lib-lightbox-close:hover {
+          background: var(--bg-3);
+          color: var(--ink);
+        }
+        .lib-lightbox-body {
+          max-width: 90vw;
+          max-height: 80vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .lib-lightbox-body img,
+        .lib-lightbox-body video {
+          max-width: 90vw;
+          max-height: 80vh;
+          border-radius: var(--radius);
+          box-shadow: var(--shadow-lg);
+        }
+        .lib-lightbox-prompt {
+          max-width: 80vw;
+          font-size: 0.85rem;
+          color: var(--ink-soft);
+          text-align: center;
+          line-height: 1.55;
+          padding: 0 var(--space-4);
+          display: -webkit-box;
+          -webkit-line-clamp: 3;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+
+        /* ── 删除确认对话框(替代原生 window.confirm,参考 AdminView)── */
+        .lib-confirm-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 100;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: var(--space-4);
+          background: oklch(3% 0.004 265 / 0.7);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          animation: lib-confirm-fade var(--dur-2) var(--ease);
+        }
+        @keyframes lib-confirm-fade {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .lib-confirm-overlay {
+            animation: none;
+          }
+        }
+
+        .lib-confirm-card {
+          width: 100%;
+          max-width: 420px;
+          background: var(--bg-1);
+          border: 1px solid var(--hairline-2);
+          border-radius: var(--radius-lg);
+          box-shadow: var(--shadow-lg);
+          overflow: hidden;
+          animation: lib-confirm-pop var(--dur-2) var(--ease);
+        }
+        @keyframes lib-confirm-pop {
+          from {
+            opacity: 0;
+            transform: translateY(8px) scale(0.98);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .lib-confirm-card {
+            animation: none;
+          }
+        }
+
+        .lib-confirm-head {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: var(--space-3);
+          padding: var(--space-4) var(--space-4) var(--space-3);
+          border-bottom: 1px solid var(--hairline);
+        }
+        .lib-confirm-title {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          font-family: var(--font-display);
+          font-size: 1.1rem;
+          font-weight: 500;
+          color: var(--danger);
+          letter-spacing: -0.01em;
+          line-height: 1.3;
+        }
+        .lib-confirm-sub {
+          margin-top: 0.2rem;
+          font-size: 0.78rem;
+          color: var(--ink-faint);
+        }
+        .lib-confirm-close {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px;
+          height: 32px;
+          padding: 0;
+          background: transparent;
+          border: 1px solid transparent;
+          border-radius: var(--radius-xs);
+          color: var(--ink-faint);
+          cursor: pointer;
+          transition: background-color var(--dur) var(--ease),
+            color var(--dur) var(--ease);
+        }
+        .lib-confirm-close:hover {
+          background: var(--bg-2);
+          color: var(--ink);
+        }
+        .lib-confirm-close:focus-visible {
+          outline: 2px solid var(--accent);
+          outline-offset: 2px;
+        }
+
+        .lib-confirm-body {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-3);
+          padding: var(--space-4);
+        }
+        .lib-confirm-warn {
+          font-size: 0.88rem;
+          color: var(--ink-soft);
+          line-height: 1.55;
+        }
+        .lib-confirm-prompt {
+          font-size: 0.78rem;
+          color: var(--ink);
+          font-family: var(--font-mono);
+          background: var(--bg-2);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius-xs);
+          padding: 0.4rem 0.55rem;
+          line-height: 1.5;
+          word-break: break-word;
+        }
+        .lib-confirm-error {
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          padding: 0.4rem 0.55rem;
+          background: var(--danger-quiet);
+          border: 1px solid var(--danger);
+          border-radius: var(--radius-xs);
+          color: var(--danger);
+          font-size: 0.78rem;
+        }
+        .lib-confirm-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 0.4rem;
+        }
+        .lib-confirm-delete {
+          background: var(--danger);
+          border-color: var(--danger);
+          color: var(--bg-0);
+          min-width: 120px;
+          justify-content: center;
+        }
+        .lib-confirm-delete:hover:not(:disabled) {
+          filter: brightness(1.12);
+        }
+        .lib-confirm-delete:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        @media (max-width: 768px) {
+          .lib-header {
+            flex-direction: column;
+            align-items: stretch;
+          }
+        }
+      `}</style>
     </div>
   );
 }

@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import json
+import logging
 from functools import lru_cache
 
 import websockets
@@ -24,8 +25,25 @@ from app.db import engine, get_session
 from app.deps import get_current_user, get_pool, resolve_worker
 from app.models import Job, User
 from app.nsfw_ctx import nsfw_allowed
+from app.scoring import VideoScorer
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+# 视频生成类作业 kind —— SSE done 之前会调 VideoScorer 评估质量、低分推 quality_warning。
+# 非视频(txt2img/img2img/...) 与后处理(frame_interpolate)不评估,避免无意义 VLM 调用。
+VIDEO_KINDS = frozenset(
+    {
+        "ltx_t2v",
+        "ltx_i2v",
+        "ltx_lipsync",
+        "wan_t2v",
+        "wan_i2v",
+        "hunyuan_i2v",
+        "anime_lipsync",
+        "dub_lipsync_long",
+    }
+)
 
 
 def _job_dict(j: Job) -> dict:
@@ -233,9 +251,72 @@ def job_versions(
     return [_job_dict(j) for j in rows]
 
 
-async def _emit_done(client: ComfyUIClient, prompt_id: str) -> dict:
+async def _emit_done(client: ComfyUIClient, prompt_id: str) -> tuple[dict, list[str]]:
+    """落库 + 构造 done SSE 事件。
+
+    返回 (done_event, urls) 元组,urls 一并返回给调用方用于在 yield done 之前
+    异步评估视频质量并可能推 quality_warning(见 _maybe_quality_warning)。
+    """
     urls = await record_result(client, prompt_id)
-    return {"event": "done", "data": json.dumps({"images": urls})}
+    return {"event": "done", "data": json.dumps({"images": urls})}, urls
+
+
+async def _maybe_quality_warning(job: Job | None, video_url: str | None) -> dict | None:
+    """视频质量评估 → 低分时返回 quality_warning SSE 事件,其余情况返回 None。
+
+    容错优先:任何失败(配置关闭/非视频作业/无 URL/VLM 不可达/超时/降级/高分)
+    都返回 None,绝不阻塞主流程、不影响 done 推送。
+    """
+    settings = get_settings()
+    # 1. 灰度开关:VLM Server 不可达时关掉即可,零影响
+    if not settings.video_scorer_enabled:
+        return None
+    # 2. 仅视频作业评估,图片/3D/音频等跳过
+    if job is None or job.kind not in VIDEO_KINDS:
+        return None
+    # 3. 无产物 URL(罕见:完成但无文件)直接跳过
+    if not video_url:
+        return None
+
+    try:
+        scorer = VideoScorer(settings.vlm_server_url, settings.vlm_model_id)
+        # 单独 wait_for:VideoScorer 内部已 30s 超时,这里再套一层兜底防 VLM 卡死拖死 SSE。
+        result = await asyncio.wait_for(
+            scorer.score(video_url, job.prompt or None),
+            timeout=30.0,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("quality_warning 评估超时 job=%s", job.prompt_id)
+        return None
+    except Exception as e:  # noqa: BLE001 — 评估失败绝不能影响主流程
+        logger.warning("quality_warning 评估失败 job=%s: %s", job.prompt_id, e)
+        return None
+
+    # 4. 模型对齐降级(全 0)/解析失败:无信息,不推 warning(避免噪声)
+    if result.degraded:
+        return None
+
+    # 5. 高于阈值:质量过关,无需警告
+    if result.total >= settings.video_scorer_threshold:
+        return None
+
+    # raw_judgment 不进 SSE(可能很长且含敏感描述),仅留日志/库排查。
+    return {
+        "event": "quality_warning",
+        "data": json.dumps(
+            {
+                "total": result.total,
+                "quality_score": result.quality_score,
+                "aesthetic": result.aesthetic,
+                "technical": result.technical,
+                "prompt_alignment": result.prompt_alignment,
+                "issues": result.issues,
+                "suggested_prompt": result.suggested_prompt,
+                "degraded": result.degraded,
+            },
+            ensure_ascii=False,
+        ),
+    }
 
 
 async def _forge_stream(prompt_id: str, request: Request):
@@ -305,13 +386,21 @@ async def job_events(
         # 防竞态：若任务在 WS 连接前已完成，直接回推结果
         try:
             if await client.get_result_files(prompt_id):
-                yield await _emit_done(client, prompt_id)
+                done_event, urls = await _emit_done(client, prompt_id)
+                # done 之前若视频质量低,先推 quality_warning(不阻塞,失败容错)
+                warning = await _maybe_quality_warning(job, urls[0] if urls else None)
+                if warning is not None:
+                    yield warning
+                yield done_event
                 return
         except ComfyUIError:
             pass  # history 还没准备好，转入 WS 监听
 
         try:
-            async with websockets.connect(client.ws_url(client_id), max_size=None) as ws:
+            # proxy=None:绕过 urllib.request.getproxies() 在 macOS 上读取系统
+            # 网络代理(Clash 等会注入 SOCKS,导致 WS 握手走 SOCKS 失败)。worker
+            # 是 Tailscale 内网地址,无需代理。
+            async with websockets.connect(client.ws_url(client_id), max_size=None, proxy=None) as ws:
                 async for raw in ws:
                     if await request.is_disconnected():
                         break
@@ -323,7 +412,12 @@ async def job_events(
                     if mtype == "progress":
                         yield {"event": "progress", "data": json.dumps({"value": data.get("value"), "max": data.get("max")})}
                     elif mtype == "executing" and data.get("node") is None and data.get("prompt_id") == prompt_id:
-                        yield await _emit_done(client, prompt_id)
+                        done_event, urls = await _emit_done(client, prompt_id)
+                        # done 之前若视频质量低,先推 quality_warning(不阻塞,失败容错)
+                        warning = await _maybe_quality_warning(job, urls[0] if urls else None)
+                        if warning is not None:
+                            yield warning
+                        yield done_event
                         break
                     elif mtype == "execution_error" and data.get("prompt_id") == prompt_id:
                         mark_status(prompt_id, "error")

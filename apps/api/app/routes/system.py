@@ -1,6 +1,6 @@
 """系统遥测:聚合 4 卡 ComfyUI worker 的 GPU 显存/队列状态。
 
-供「创作引擎」HUD 实时显示(无鉴权,仅暴露非敏感的 GPU 负载/队列深度)。
+供「创作引擎」HUD 实时显示(需管理员鉴权,避免普通用户窥探集群 GPU 拓扑)。
 - 每个 worker 绑定一张 GPU(cuda:0..3),故 worker 顺序即卡序(GPU0..3)。
 - 负载信号取**显存占用%**(算力 utilization 需 nvidia-smi,后续接入)。
 - 任一 worker 不可达 → 该卡标 offline、负载 0,不影响其余卡。
@@ -10,9 +10,11 @@ from __future__ import annotations
 import asyncio
 
 import httpx
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from app.config import get_settings
+from app.deps import get_current_admin
+from app.models import User
 
 router = APIRouter(tags=["system"])
 
@@ -41,8 +43,8 @@ async def _probe(client: httpx.AsyncClient, url: str, idx: int) -> dict:
 
 
 @router.get("/system/gpu")
-async def gpu_stats() -> dict:
-    """4 卡实时遥测(显存负载 + 队列深度)。"""
+async def gpu_stats(_: User = Depends(get_current_admin)) -> dict:
+    """4 卡实时遥测(显存负载 + 队列深度)。仅管理员可查,避免普通用户窥探集群 GPU 拓扑。"""
     settings = get_settings()
     # 仅取 4 张 PRO6000(.100)对齐面板"4× RTX PRO 6000";无匹配则退回全部 worker
     urls = [u for u in settings.worker_urls if "192.168.71.100" in u] or settings.worker_urls

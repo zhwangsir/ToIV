@@ -95,6 +95,11 @@ def _sfw_only(names: list[str]) -> list[str]:
     return [n for n in names if not is_nsfw(n)]
 
 
+def _nsfw_only(names: list[str]) -> list[str]:
+    """仅保留 NSFW 模型(/nsfw 专页:只展示成人向模型,不混入 SFW)。"""
+    return [n for n in names if is_nsfw(n)]
+
+
 async def _pick_live_client(pool: WorkerPool):
     """在 worker 池里找第一台可达的 worker,返回 (client, ckpt_info)。
 
@@ -131,8 +136,10 @@ async def list_models(
     # 次世代族排前(可发现性:它们是 A 期升级的推荐底模,列表首位默认落在次世代)
     image_ckpts = _nextgen_image_models(all_unets) + _image_checkpoints(all_ckpts)
 
-    # R18 软门槛:账户未开 且 本请求无 /nsfw 标记时,服务端强制剔除成人底模(真过滤)。
-    if not nsfw_allowed(user):
+    # 模型过滤:/nsfw 专页只显示 NSFW 模型,主站只显示 SFW 模型。
+    if nsfw_allowed(user):
+        image_ckpts = _nsfw_only(image_ckpts)
+    else:
         image_ckpts = _sfw_only(image_ckpts)
 
     # 把全局默认底模提到首位，确保前端下拉/画布的默认选中与 settings.default_ckpt 一致。
@@ -205,8 +212,13 @@ async def local_models(
             out[key] = _enum(await client.object_info(node), node, field)
         except ComfyUIError:
             out[key] = []
-    # R18 软门槛:账户未开 且 本请求无 /nsfw 标记时,剔除成人底模与成人 LoRA(按文件名 is_nsfw)。
-    if not nsfw_allowed(user):
+    # 模型过滤:/nsfw 专页只显示 NSFW 模型,主站只显示 SFW 模型。
+    if nsfw_allowed(user):
+        for key in ("checkpoints", "loras"):
+            names = out.get(key, [])
+            if isinstance(names, list):
+                out[key] = _nsfw_only(names)
+    else:
         for key in ("checkpoints", "loras"):
             names = out.get(key, [])
             if isinstance(names, list):
@@ -218,3 +230,148 @@ async def local_models(
     out["nsfw_models"] = [it["name"] for it in tagged if it["nsfw"]]
     out["vpred_models"] = [it["name"] for it in tagged if it["vpred"]]
     return out
+
+
+# ---------------------------------------------------------------------------
+# NSFW 模型推荐清单(静态,基于 civitai 调研)
+# ---------------------------------------------------------------------------
+# 不从 civitai API 实时拉取(避免网络延迟/限流),数据写死在此。
+# 仅供 /nsfw 专区展示,帮用户发现热门 NSFW 底模 + 配套 LoRA;下载链接指向 civitai,
+# 用户手动下载后放到 NAS。分类:realistic(写实)/ anime(动漫)/ flux(FLUX 系)/ lora(配套 LoRA)。
+
+NSFW_RECOMMENDATIONS: list[dict] = [
+    # —— 写实向 ——
+    {
+        "name": "epiCRealism XL",
+        "type": "checkpoint",
+        "base": "SDXL 1.0",
+        "size": "6.6GB",
+        "civitai_url": "https://civitai.com/models/274058",
+        "desc": "高质感写实真人,皮肤光影顶级",
+        "category": "realistic",
+    },
+    {
+        "name": "PornMaster-色情大师",
+        "type": "checkpoint",
+        "base": "SDXL 1.0",
+        "size": "6.8GB",
+        "civitai_url": "https://civitai.com/models/266408",
+        "desc": "SDXL 纯 NSFW 写实首选,人体结构准",
+        "category": "realistic",
+    },
+    {
+        "name": "URPM (Uber Realistic Porn Merge)",
+        "type": "checkpoint",
+        "base": "SD 1.5",
+        "size": "2GB",
+        "civitai_url": "https://civitai.com/models/22622",
+        "desc": "纯色情写实合并,NSFW 专项",
+        "category": "realistic",
+    },
+    {
+        "name": "LUSTIFY",
+        "type": "checkpoint",
+        "base": "SDXL 1.0",
+        "size": "6.6GB",
+        "civitai_url": "https://civitai.com/models/267078",
+        "desc": "纯 SDXL NSFW,效果稳定",
+        "category": "realistic",
+    },
+    {
+        "name": "CyberRealistic",
+        "type": "checkpoint",
+        "base": "SD 1.5",
+        "size": "4GB",
+        "civitai_url": "https://civitai.com/models/4475",
+        "desc": "NSFW 写实向调教",
+        "category": "realistic",
+    },
+    # —— 动漫向 ——
+    {
+        "name": "Pony Diffusion V6 XL",
+        "type": "checkpoint",
+        "base": "Pony",
+        "size": "6.6GB",
+        "civitai_url": "https://civitai.com/models/257749",
+        "desc": "Pony 系始祖,NSFW 动漫生态最大",
+        "category": "anime",
+    },
+    {
+        "name": "WAI-illustrious-SDXL",
+        "type": "checkpoint",
+        "base": "Illustrious",
+        "size": "6.6GB",
+        "civitai_url": "https://civitai.com/models/1294491",
+        "desc": "Illustrious NSFW 旗舰,下载量动画类第一",
+        "category": "anime",
+    },
+    {
+        "name": "NoobAI-XL (NAI-XL)",
+        "type": "checkpoint",
+        "base": "NoobAI",
+        "size": "6.8GB",
+        "civitai_url": "https://civitai.com/models/833094",
+        "desc": "动漫 NSFW + vpred 采样",
+        "category": "anime",
+    },
+    {
+        "name": "Hassaku XL",
+        "type": "checkpoint",
+        "base": "Illustrious",
+        "size": "6.6GB",
+        "civitai_url": "https://civitai.com/models/640177",
+        "desc": "重度 hentai 首选",
+        "category": "anime",
+    },
+    # —— FLUX 向 ——
+    {
+        "name": "Big Love",
+        "type": "checkpoint",
+        "base": "Flux.2 Klein",
+        "size": "9GB",
+        "civitai_url": "https://civitai.com/models/618359",
+        "desc": "基于 Flux.2 Klein,项目已支持 klein 变体",
+        "category": "flux",
+    },
+    {
+        "name": "STOIQO NewReality",
+        "type": "checkpoint",
+        "base": "Flux.1 D",
+        "size": "11GB",
+        "civitai_url": "https://civitai.com/models/429328",
+        "desc": "FLUX.1 系 NSFW 写实",
+        "category": "flux",
+    },
+    # —— LoRA 配套 ——
+    {
+        "name": "Nudify XL: Better Bodies",
+        "type": "lora",
+        "base": "SDXL",
+        "size": "435MB",
+        "civitai_url": "https://civitai.com/models/270876",
+        "desc": "SDXL 身体/裸露增强",
+        "category": "lora",
+    },
+    {
+        "name": "ExpressiveH (Hentai LoRa)",
+        "type": "lora",
+        "base": "Pony",
+        "size": "218MB",
+        "civitai_url": "https://civitai.com/models/238390",
+        "desc": "Pony hentai 表情/动作",
+        "category": "lora",
+    },
+]
+
+
+@router.get("/models/nsfw-recommendations")
+async def nsfw_recommendations(
+    user: User = Depends(get_current_user),
+) -> dict:
+    """返回静态 NSFW 模型推荐清单(基于 civitai 调研,不从 API 实时拉取)。
+
+    供 /nsfw 专区「NSFW 推荐」tab 展示,帮用户发现热门成人向底模与配套 LoRA。
+    下载链接指向 civitai,用户手动下载后放到 NAS;需登录认证(主站零 R18 痕迹,
+    此端点仅返回静态元数据,不含实际成人内容)。
+    """
+    return {"items": NSFW_RECOMMENDATIONS, "count": len(NSFW_RECOMMENDATIONS)}

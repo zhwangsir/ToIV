@@ -59,6 +59,34 @@ export interface GenerateResponse {
   seed: number;
 }
 
+// ── LTX2.3 视频生成(NSFW 专区)──
+export interface LtxT2VParams {
+  positive: string;
+  negative?: string;
+  width: number;
+  height: number;
+  length: number;
+  fps: number;
+  steps: number;
+  cfg: number;
+  seed?: number | null;
+  use_upscale: boolean;
+  use_rife: boolean;
+}
+
+export interface LtxI2VParams extends LtxT2VParams {
+  image: string;
+  worker: string;
+}
+
+export interface LtxLipsyncParams extends LtxT2VParams {
+  image: string;
+  audio: string;
+  worker: string;
+  id_lora?: string;
+  id_lora_strength?: number;
+}
+
 export interface GenResult {
   id: string;
   url: string;
@@ -127,9 +155,62 @@ export interface MarketItem {
   source: string;
 }
 
+/** NSFW 模型推荐项(后端 GET /api/models/nsfw-recommendations 静态清单)。 */
+export interface NsfwRecommendation {
+  name: string;
+  type: string;
+  base: string;
+  size: string;
+  civitai_url: string;
+  desc: string;
+  category: string;
+}
+
 export type GenStatus = "idle" | "queued" | "running" | "error";
 
 export interface Progress {
   value: number;
   max: number;
+}
+
+// ---------------------------------------------------------------------------
+// LoRA 训练(D 期)
+// ---------------------------------------------------------------------------
+
+export interface TrainProgress {
+  step: number;
+  total: number;
+  loss: number;
+  recent_losses: number[];
+}
+
+export interface TrainJob {
+  id: string;
+  name: string;
+  base_ckpt: string;
+  trigger_words: string;
+  status: "queued" | "captioning" | "training" | "sampling" | "done" | "error";
+  progress: TrainProgress | null;
+  lora_path: string;
+  sample_urls: string[];
+  error: string;
+  created_at: string;
+  lr: number;
+  steps: number;
+  network_dim: number;
+  cuda_device: number;
+}
+
+export interface TrainStartParams {
+  job_id: string;
+  name: string;
+  base_ckpt: string;
+  trigger_words: string;
+  lr: number;
+  steps: number;
+  network_dim: number;
+  network_alpha: number;
+  resolution: number;
+  batch_size: number;
+  cuda_device: number;
 }

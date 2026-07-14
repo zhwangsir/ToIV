@@ -6,8 +6,9 @@
   POST /api/dub/translate         复用 LLM 把片段批量翻成目标语(口语自然、贴近朗读时长)
 
 转录来源二选一:已有字幕 → import-srt(零部署);无字幕 → transcribe。听写默认用 api 容器
-内置 faster-whisper(CPU,首调下载模型到 /data/whisper),配 whisper_url 则改调外部 GPU
-服务。后台作业避免长视频阻塞/代理超时。译文长度尽量贴近原文朗读时长,便于配音对齐。
+内置 faster-whisper(device=auto:Apple Silicon 上 CPU int8 最快且稳定;CUDA 机自动 GPU),
+配 whisper_url 则改调外部 GPU 服务。后台作业避免长视频阻塞/代理超时。译文长度尽量贴
+近原文朗读时长,便于配音对齐。
 """
 from __future__ import annotations
 
@@ -21,13 +22,17 @@ import uuid
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from pydantic import BaseModel, Field
+from sqlmodel import Session, select
 
 from app.agent import llm
 from app.config import get_settings
+from app.db import get_session
 from app.deps import get_current_user
-from app.models import User
+from app.jobs_persist import persist_job_to_db
+from app.models import Job, User
 from app.ratelimit import enforce_generation_rate_limit
 from app.routes.dub import _DUB_DIR, _NAME_RE
+from app.versioning import params_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -104,8 +109,9 @@ class TranscribeRequest(BaseModel):
 
 
 # ── 听写后台作业 ──────────────────────────────────────────────────────
-# 内置 faster-whisper(CPU)默认;配 whisper_url 则改调外部 GPU 服务。后台跑避免
-# 长视频阻塞事件循环 / 公网代理超时(同 lipsync-long 内存 Job 模式;api 重启会丢)。
+# 内置 faster-whisper(device=auto,Apple Silicon CPU int8 最快且稳定;CUDA 机自动 GPU)
+# 默认;配 whisper_url 则改调外部 GPU 服务。后台跑避免长视频阻塞事件循环 / 公网代理超时
+# (同 lipsync-long 内存 Job 模式;api 重启会丢)。
 _transcribe_jobs: dict[str, dict] = {}
 _t_tasks: set[asyncio.Task] = set()
 _JOBS_KEEP = 40
@@ -140,20 +146,26 @@ def _normalize_segments(raw: list) -> list[dict]:
     return [{"index": i, **s} for i, s in enumerate(segs[:_MAX_SEGMENTS])]
 
 
-def _load_whisper(size: str, compute: str):
-    """加载 faster-whisper(CPU);首次会下载模型到 HF_HOME(/data/whisper)。阻塞,放线程跑。"""
+def _load_whisper(size: str, compute: str, device: str):
+    """加载 faster-whisper;首次会下载模型到 HF 缓存。阻塞,放线程跑。
+
+    device: "auto" 让 CTranslate2 自动探测(Apple Silicon 上 CPU int8 最快且稳定);
+            "cpu"/"cuda"/"metal" 显式指定。compute="auto" 跟随 device。
+    """
     from faster_whisper import WhisperModel  # 惰性导入:未装则只影响听写,不拖累启动
 
-    return WhisperModel(size, device="cpu", compute_type=compute)
+    return WhisperModel(size, device=device or "auto", compute_type=compute)
 
 
 async def _get_whisper_model():
     s = get_settings()
-    key = (s.whisper_model, s.whisper_compute)
+    key = (s.whisper_model, s.whisper_compute, s.whisper_device)
     async with _model_lock:
         model = _model_cache.get(key)
         if model is None:
-            model = await asyncio.to_thread(_load_whisper, s.whisper_model, s.whisper_compute)
+            model = await asyncio.to_thread(
+                _load_whisper, s.whisper_model, s.whisper_compute, s.whisper_device
+            )
             _model_cache[key] = model
         return model
 
@@ -216,10 +228,24 @@ async def _run_transcribe(job: dict, src_path, name: str) -> None:
     job["status"] = "done"
 
 
+async def _run_transcribe_tracked(job: dict, src_path, name: str) -> None:
+    """_run_transcribe 的 DB 持久化包装:听写结束后把终态写回 DB Job。
+
+    why:用 try/finally 包一层,无需改动 _run_transcribe 内部多处 return。
+    无论 done / error,都把最终 job dict 写回 DB——api 重启后前端仍可查到终态。
+    """
+    try:
+        await _run_transcribe(job, src_path, name)
+    finally:
+        if job["status"] in ("done", "error"):
+            persist_job_to_db(job["id"], "transcribe", job["status"], job)
+
+
 @router.post("/dub/transcribe")
 async def dub_transcribe(
     body: TranscribeRequest,
     user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
 ) -> dict[str, object]:
     """起后台听写作业。内置 faster-whisper(CPU)/ 外部 whisper_url。轮询 GET 取结果。"""
     enforce_generation_rate_limit(user)
@@ -237,24 +263,55 @@ async def dub_transcribe(
     }
     _transcribe_jobs[job_id] = job
     _prune_transcribe_jobs()
-    task = asyncio.create_task(_run_transcribe(job, src, body.name))
+
+    # 持久化到 DB Job:api 重启后内存 _transcribe_jobs 丢失,DB 保终态供前端恢复查询。
+    # prompt_id 复用 job_id;result 存全量 job dict 快照,状态查询端点回放用。
+    session.add(Job(
+        tenant_id=user.tenant_id,
+        user_id=user.id,
+        prompt_id=job_id,
+        worker="",
+        kind="transcribe",
+        status="running",
+        prompt="视频听写",
+        params=params_snapshot(body),
+        result=json.dumps(job, ensure_ascii=False),
+    ))
+    session.commit()
+
+    task = asyncio.create_task(_run_transcribe_tracked(job, src, body.name))
     _t_tasks.add(task)
     task.add_done_callback(_t_tasks.discard)
     return {"job_id": job_id}
+
+
+_TRANSCRIBE_JOB_PUBLIC = (
+    "id", "status", "stage", "count", "segments", "error", "progress", "elapsed",
+)
 
 
 @router.get("/dub/transcribe/{job_id}")
 async def dub_transcribe_status(
     job_id: str,
     user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
 ) -> dict[str, object]:
+    # 优先查 DB Job(api 重启后内存丢,DB 保终态);运行中且内存还在则用内存(实时进度)
+    db_job = session.exec(select(Job).where(Job.prompt_id == job_id)).first()
+    if db_job:
+        mem = _transcribe_jobs.get(job_id)
+        if db_job.status == "running" and mem:
+            return {k: mem[k] for k in _TRANSCRIBE_JOB_PUBLIC}
+        try:
+            data = json.loads(db_job.result) if db_job.result else {}
+        except ValueError:
+            data = {}
+        return {k: data.get(k) for k in _TRANSCRIBE_JOB_PUBLIC}
+    # 内存兜底:迁移前老作业或 DB 未命中(向后兼容)
     job = _transcribe_jobs.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="听写任务不存在(可能已过期或 api 重启)")
-    return {
-        k: job[k]
-        for k in ("id", "status", "stage", "count", "segments", "error", "progress", "elapsed")
-    }
+    return {k: job[k] for k in _TRANSCRIBE_JOB_PUBLIC}
 
 
 _LANG_NAME = {"zh": "简体中文", "en": "英语", "ja": "日语", "ko": "韩语"}

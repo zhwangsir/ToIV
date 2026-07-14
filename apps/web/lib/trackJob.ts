@@ -9,9 +9,43 @@ export interface JobProgress {
   pct: number;
 }
 
+/**
+ * 视频质量评估警告(SSE `quality_warning` 事件)。
+ *
+ * Why:后端在 done 之前会跑质量评估模型,当 total < 0.65 时推此事件,
+ *      让前端能展示三段式评分(美学/技术/对齐)+ 问题清单 + 建议提示词,
+ *      给用户"为什么这次出片不理想 / 如何改进"的可操作反馈。
+ *
+ * degraded=true 表示评估模型自身失败(全 0 / 超时),此时 issues 与
+ * suggested_prompt 可能为空,前端要降级展示(只提示"评估降级")。
+ */
+export interface QualityWarning {
+  /** 综合分(0-1)。 */
+  total: number;
+  /** 综合分(0-100 整数,便于 UI 展示)。 */
+  quality_score: number;
+  /** 美学维度(0-1)。 */
+  aesthetic: number;
+  /** 技术维度(0-1,分辨率/帧率/锐度等)。 */
+  technical: number;
+  /** 提示词对齐度(0-1)。 */
+  prompt_alignment: number;
+  /** 检测到的问题清单(中文短句)。 */
+  issues: string[];
+  /** 建议的提示词(可直接预填到正向框);degraded 时可能为 null。 */
+  suggested_prompt: string | null;
+  /** 评估模型自身失败(降级模式)。 */
+  degraded: boolean;
+}
+
 export interface TrackJobOptions {
   /** 采样进度回调(SSE `progress` 事件;仅 max>0 时触发)。 */
   onProgress?: (p: JobProgress) => void;
+  /**
+   * 质量评估警告回调(SSE `quality_warning` 事件)。
+   * 在 done 之前触发;不阻塞 done。degraded=true 表示评估模型失败。
+   */
+  onQualityWarning?: (warning: QualityWarning) => void;
   /**
    * 暴露内部 EventSource 供调用方在组件卸载时清理:
    * 创建后以 es 调用一次,结束(done/error)后以 null 再调一次。
@@ -56,6 +90,19 @@ export function trackJob(
         }
       } catch {
         /* 忽略畸形分片 */
+      }
+    });
+
+    // 质量评估警告:后端在 done 之前推 quality_warning(total < 0.65 时)
+    // Why 放在 done 监听之前:此事件只是通知,不阻塞 done 的 resolve 流程;
+    //     解析失败时静默忽略,避免影响主作业跟踪
+    es.addEventListener("quality_warning", (e) => {
+      if (!opts.onQualityWarning) return;
+      try {
+        const warning = JSON.parse((e as MessageEvent).data) as QualityWarning;
+        opts.onQualityWarning(warning);
+      } catch {
+        /* 解析失败忽略,不阻断 done */
       }
     });
 
