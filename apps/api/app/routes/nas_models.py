@@ -174,8 +174,11 @@ def _resolve(req: NasDownloadRequest) -> tuple[str, str]:
 
 
 def _download_url(url: str, dest: str, job: dict) -> None:
-    """流式下载 URL 到 dest(可为 cifs 挂载路径,直落 NAS),按 content-length 报进度 0-100。"""
-    with httpx.stream("GET", url, timeout=(30, 600)) as r:
+    """流式下载 URL 到 dest(可为 cifs 挂载路径,直落 NAS),按 content-length 报进度 0-100。
+
+    Civitai 下载链常返回 307 到对象存储,必须跟随重定向;否则 raise_for_status 会报 307。
+    """
+    with httpx.stream("GET", url, timeout=(30, 600), follow_redirects=True) as r:
         r.raise_for_status()
         total = int(r.headers.get("content-length") or 0)
         got = 0
