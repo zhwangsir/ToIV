@@ -54,3 +54,15 @@ apps/api/app/agent/knowledge/rag_cache_*.json
 # 预览截图(本地 UI 审查用)
 apps/web/.preview-*.png
 apps/web/.preview-shots/
+.heartbeat/
+
+# 仓库卫生(2026-07-27 P2):大目录/生成内容/嵌套 git/调试脚本不入仓
+# models/ 33GB 模型文件(ComfyUI 本地缓存,不走仓库)
+models/
+# opentalking/ 嵌套 git 独立项目(违反项目隔离纪律)
+opentalking/
+# drama/ 生成内容(短剧成片,运行时产出)
+drama/
+# 根目录调试预览/脚本(一次性,不入仓)
+preview-*.html
+test_llm_real.py
