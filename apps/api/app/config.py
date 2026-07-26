@@ -12,21 +12,27 @@ class Settings(BaseSettings):
     )
 
     # 逗号分隔的 ComfyUI worker 列表（P0 单实例，P2 起对应多 GPU 多进程）
-    comfy_workers: str = "http://192.168.71.100:8000"
+    comfy_workers: str = "http://192.168.71.127:8189"
     # 默认出图底模(A 期收官):FLUX.2 dev(FLUX.2 家族画质天花板,33GB fp8mixed,已下 NAS +
     # 真机出图验证)。首次载模型 ~2.5min、更吃显存,但开箱即最强画质。Klein(快)/ Z-Image(极速)/
     # Qwen-Image / SD1.5 均保留作可显式选用的其它档。dev 编码器 = mistral_3_small_flux2_fp8(见 model_profiles)。
     default_ckpt: str = "flux2_dev_fp8mixed.safetensors"
     # NSFW 专区视频默认模型(LTX2.3 All in one v4.0 工作流推荐)
-    # 10Eros v1.2:NSFW 内容专用底模;LTX-2.3 distilled:SFW 视频生成
-    # 模型路径:checkpoints/10eros/ + diffusion_models/ltx-2.3/
-    nsfw_default_video_ckpt: str = "10eros_v12.safetensors"
-    nsfw_default_gemma: str = "gemma_3_12B_it_fp8_scaled.safetensors"
+    # 10Eros v1.4 fp8mixed_learned:NSFW 内容专用底模(LTX2.3-10Eros 仓库最新版,29GB)
+    # LTX-2.3 distilled:SFW 视频生成(走 ltx-2.3-distilled 符号链接)
+    # 模型路径:diffusion_models/10eros_v14.safetensors(NAS)+ 符号链接对齐
+    nsfw_default_video_ckpt: str = "10eros_v14.safetensors"
+    # Gemma 3 12B IT 文本编码器:LTXVGemmaCLIPModelLoader 要求 HF 目录结构
+    # (model.safetensors + tokenizer.json + config.json + preprocessor_config.json 等)。
+    # 使用 gemma3_12b_it_bf16/(反量化 + HF 键名重映射);旧 gemma3_12b_it/ fp8_scaled
+    # 权重会导致文本编码器随机初始化、提示词失效,已禁用(model.safetensors.disabled)。
+    nsfw_default_gemma: str = "gemma3_12b_it_bf16/model.safetensors"
     nsfw_default_vae: str = "ltx_vae.safetensors"
     # Forge(reForge SD WebUI)第二出图引擎(sdapi 同步出图);空 = 未部署,前端引擎切换隐藏 Forge
-    forge_url: str = "http://192.168.71.100:7860"
-    # 配音 TTS 独立服务（IndexTTS2，自部署 @ GPU 机，隔离 venv）
-    tts_url: str = "http://192.168.71.100:9000"
+    # 默认空:Workstation 当前未部署 Forge,需要时在 .env 显式配置
+    forge_url: str = ""
+    # 配音 TTS 独立服务（IndexTTS2 / edge-tts 封装,自部署 @ Workstation GPU0,隔离 venv）
+    tts_url: str = "http://192.168.71.127:9200"
     # 多语言 TTS 服务（日语/韩语/粤语等）。空 = 未部署，相关语言请求返回 503。
     tts_multilingual_url: str = ""
     # 译制听写 Whisper(ASR)。whisper_url 非空 = 调外部 GPU 服务(契约:POST {whisper_url}/asr
@@ -53,7 +59,7 @@ class Settings(BaseSettings):
 
     # CORS 允许的前端来源（分号或逗号分隔）。默认仅生产域名，开发环境经 .env 追加 localhost。
     # 不能用 "*" —— allow_credentials=True 时 CORS 规范禁止通配符 origin，否则浏览器会拒绝带凭据的跨域请求。
-    cors_origins: str = "https://toiv.dgmt.top"
+    cors_origins: str = "https://toiv.dgmt.top,http://127.0.0.1:3100,http://localhost:3100,http://127.0.0.1:3101,http://localhost:3101"
     request_timeout: float = 30.0
 
     # 鉴权 / 账号。开发期用 SQLite，生产切 Postgres：
@@ -72,15 +78,33 @@ class Settings(BaseSettings):
     #   免登录表单,方便自动化/AI 测试。空 = 关闭(可随时清空停用)。
     test_key: str = ""
 
-    # AI 智能体的 LLM 大脑(OpenAI 兼容端点;默认 LM Studio @ GPU 机)
-    llm_base_url: str = "http://192.168.71.100:1234/v1"
+    # AI 智能体的 LLM 大脑(OpenAI 兼容端点)
+    # 默认:workstation sglang qwen3.6-uncensored(host 网络 :8000,4卡 TP,131K ctx)
+    llm_base_url: str = "http://192.168.71.127:8000/v1"
     llm_api_key: str = "lm-studio"
-    llm_model: str = "qwen/qwen3.6-35b-a3b"
+    llm_model: str = "qwen3.6-uncensored"
     # 备用 LLM 大脑(主模型重试失败后自动切换;EXO 单端点多模型场景下 base_url/api_key 留空即复用主)。
     # 典型:主=GLM-5.2-fp8(思考型,长 ctx),备=Kimi-K2.7-Code-4bit(代码型,主掉线时兜底)。
     llm_fallback_base_url: str = ""
     llm_fallback_api_key: str = ""
     llm_fallback_model: str = ""
+    # NSFW 模式专用 LLM(X-NSFW: 1 时启用);空 model = NSFW 模式复用主 LLM。
+    # 典型:默认 qwen3.6-uncensored(workstation),NSFW euryale-70b(spark01 vLLM)
+    llm_nsfw_base_url: str = ""
+    llm_nsfw_api_key: str = ""
+    llm_nsfw_model: str = ""
+
+    # —— AICG 四层模型流水线（2026-07-24 项目管家确认）——
+    # L1 初稿 = llm_base_url/llm_model（上面已配，qwen3.6-uncensored @ workstation:8000）
+    # L4 NSFW = llm_nsfw_base_url/llm_nsfw_model（上面已配，euryale-70b @ spark01:8000）
+    # L2 主力润色: Mac Studio EXO RDMA, Kimi-K2.7-Code-4bit, 6.6s/句, timeout 120s
+    llm_l2_base_url: str = "http://192.168.71.109:52415/v1"
+    llm_l2_model: str = "mlx-community/Kimi-K2.7-Code-4bit"
+    llm_l2_timeout: float = 120.0
+    # L3 终稿精修: Mac Studio EXO, GLM-5.2-fp8, 115s/句, timeout 300s
+    llm_l3_base_url: str = "http://192.168.71.109:52415/v1"
+    llm_l3_model: str = "mlx-community/GLM-5.2-fp8"
+    llm_l3_timeout: float = 300.0
 
     # 向量 RAG 的 embedding 模型(同一 OpenAI 兼容端点;留空则复用 llm_base_url)
     embed_base_url: str = ""
@@ -99,16 +123,24 @@ class Settings(BaseSettings):
     environment: str = "development"
 
     # —— 视频质量评估 VLM(video scorer)——
-    # workstation(100.99.181.103:8200, GPU0)上 Qwen3-VL VLM Server,OpenAI 兼容 API。
+    # workstation(192.168.71.127:8000, GPU3)上 Nemotron-3-Nano-Omni-30B-A3R 全模态 VLM,
+    # served-model-name=qwen3.6-uncensored(向后兼容别名),OpenAI 兼容 API,支持视频/图像/音频输入。
     # 启用后:视频作业完成时(done 之前)异步评估,低分则推 SSE quality_warning 事件。
     # 评估失败/超时/全 0 一律降级(degraded=True),不阻塞主流程、不推 warning。
-    vlm_server_url: str = "http://100.99.181.103:8200"
-    vlm_model_id: str = "qwen3-vl"
+    vlm_server_url: str = "http://192.168.71.127:8000"
+    vlm_model_id: str = "qwen3.6-uncensored"
     # 默认关:灰度上线开关,VLM Server 不可达时立即关回退,零影响主流程。
     # .env.example / 部署 .env 显式置 true 启用(VLM 已就位并验证)。
     video_scorer_enabled: bool = False
     # 综合分(total)低于此阈值才推 quality_warning;0.65 ≈ 视频质量明显可改进的临界。
     video_scorer_threshold: float = 0.65
+
+    # —— OpenTalking 数字人引擎(unified 模式, 单进程) ——
+    # 本地 dev: http://127.0.0.1:4403 (兄弟目录运行的 opentalking-unified 进程)
+    # Docker prod: http://opentalking:8000 (容器服务名, HTTP 不暴露到 host)
+    # 空 = 未启用, /api/opentalking/* 全部 503, 前端"数字人"页降级提示。
+    opentalking_base_url: str = "http://127.0.0.1:4403"
+    opentalking_enabled: bool = True
 
     @property
     def embed_url(self) -> str:
@@ -121,7 +153,9 @@ class Settings(BaseSettings):
 
     @property
     def worker_urls(self) -> list[str]:
-        return [u.strip().rstrip("/") for u in self.comfy_workers.split(",") if u.strip()]
+        # 兼容逗号和空格两种分隔(.env 历史上两种都出现过;逗号优先,空格兜底)
+        raw = self.comfy_workers.replace(" ", ",").replace(",,", ",")
+        return [u.strip().rstrip("/") for u in raw.split(",") if u.strip()]
 
     @property
     def forge_base(self) -> str:

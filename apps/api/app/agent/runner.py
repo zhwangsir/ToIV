@@ -28,6 +28,23 @@ SYSTEM = """你是 ToIV——一个由 ComfyUI 集群驱动的 AI 创作平台�
 5. 闲聊或咨询类问题直接回答,不必调用工具。
 6. 需要 ComfyUI/模型/参数细节或要搭自定义工作流时,先用 search_knowledge 查证再动手;不要编造不存在的模型名或节点。"""
 
+# 画布上下文追加系统提示(M1.2):canvas_id 非空时拼在 SYSTEM 后,介绍 5 个画布工具。
+SYSTEM_CANVAS = """【当前在画布上下文】你额外具备 5 个画布操作工具(canvas_id 由系统自动注入,无需传入):
+- canvas_inspect:列出当前画布所有节点(摘要 id/kind/title/status),了解画布现状时调用。
+- canvas_add_node:在画布添加节点(kind 必填,可选 title/payload/position)。kind 枚举:
+  text/prompt/image/video/audio/model3d/llm/comfy_workflow/tts/asr。payload 结构随 kind 变化
+  (如 image:{urls:[...]}, prompt:{text,negative?}, tts:{text,ref_audio?}, llm:{text} 等)。
+- canvas_connect_nodes:连接两个节点(source_id→target_id,可选 label)。
+- canvas_run_subgraph:运行画布上的若干节点(node_ids 数组),按 kind 触发对应执行器
+  (image→生成图、tts→调 TTS、llm→调 LLM、prompt/text→返回文本),执行完更新节点 status/payload。
+- canvas_pin_result:把上一步生成结果(图/视频/音频/3D)固定为画布节点(kind+urls 必填,可选 title/parent_id)。
+
+画布工作原则:
+1. 用户在画布上工作时,先 canvas_inspect 了解现状,再决定添加/连接/运行节点。
+2. 生成内容后,主动用 canvas_pin_result 把产物固定为节点,便于用户后续引用或迭代。
+3. 节点拓扑要清晰:prompt 节点 → image/tts 节点 → 产物节点,用 canvas_connect_nodes 串起来。
+4. canvas_run_subgraph 会真实执行(耗时),先告知用户;不支持自动执行的 kind 由你提示用户手工配置。"""
+
 _MAX_ROUNDS = 8
 
 
@@ -46,10 +63,13 @@ async def _rag_context(messages: list[dict]) -> str | None:
 async def run(
     messages: list[dict], pool: WorkerPool, user: User, session,
     attachment: dict | None = None,
+    canvas_id: str | None = None,
 ) -> AsyncIterator[dict]:
     # 把所有 system 内容拼到开头唯一一条 system 消息里(vLLM 要求 system 只能在消息列表开头,
     # 多条 system 会被拒绝;LM Studio 宽容但不保证)。用换行 + 分隔标记区分各段。
     sys_parts: list[str] = [SYSTEM]
+    if canvas_id:
+        sys_parts.append(SYSTEM_CANVAS)
     context = await _rag_context(messages)
     if context:
         sys_parts.append(context)
@@ -84,7 +104,9 @@ async def run(
             except json.JSONDecodeError:
                 args = {}
             yield {"type": "tool", "name": name, "args": args}
-            text, events = await tools.execute(name, args, pool, user, session, attachment)
+            text, events = await tools.execute(
+                name, args, pool, user, session, attachment, canvas_id=canvas_id
+            )
             for ev in events:
                 yield ev
             msgs.append({"role": "tool", "tool_call_id": tc.get("id", ""), "content": text})

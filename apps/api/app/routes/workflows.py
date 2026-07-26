@@ -70,9 +70,9 @@ def _description(nid: str) -> str:
     mapping = {
         "txt2img_basic": "Checkpoint + CLIP 正负提示词 + KSampler + 保存图片。适合快速验证模型/提示词。",
         "img2img_basic": "加载图片 + VAEEncode + KSampler(denoise 0.75) 重绘。适合风格迁移/局部重绘。",
-        "ltx_txt2video": "10eros_v12 + Gemma 3 12B + ltx_vae,768×384@97帧。NSFW 视频生成专用。",
-        "ltx_img2video": "首帧引导 + 10eros_v12 + Gemma 3 12B,图生视频(NSFW)。",
-        "ltx_lipsync": "图生视频 + 参考音频驱动,10eros_v12 + mmaudio 音频 VAE(NSFW)。",
+        "ltx_txt2video": "10eros_v14 + Gemma 3 12B + ltx_vae,768×384@97帧。NSFW 视频生成专用。",
+        "ltx_img2video": "首帧引导 + 10eros_v14 + Gemma 3 12B,图生视频(NSFW)。",
+        "ltx_lipsync": "图生视频 + 参考音频驱动,10eros_v14 + mmaudio 音频 VAE(NSFW)。",
     }
     return mapping.get(nid, "")
 

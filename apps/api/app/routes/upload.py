@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from app.capabilities import required_models, required_nodes
 from app.comfy.client import ComfyUIError
 from app.comfy.pool import WorkerPool
-from app.deps import get_current_user, get_pool
+from app.deps import get_current_user, get_pool, resolve_worker
 from app.models import User
 
 router = APIRouter()
@@ -23,6 +23,7 @@ async def upload_image(
     image: UploadFile,
     kind: str = "img2img",  # 上传后用于哪种任务 → 选具备对应模型的 worker
     all_workers: bool = False,  # true=分发到所有 worker(角色参考图,供跨机并行出图)
+    worker: str | None = None,  # 指定目标 worker(防 SSRF,仅允许白名单),确保音频/参考图与后续生成同机
     pool: WorkerPool = Depends(get_pool),
     user: User = Depends(get_current_user),
 ):
@@ -50,10 +51,20 @@ async def upload_image(
             raise HTTPException(status_code=503, detail="参考图分发失败(无可达 worker)")
         return {"filename": name, "worker": ok[0], "workers": ok, "all_workers": True}
 
-    try:
-        client = await pool.pick(required=required_models(kind), required_nodes=required_nodes(kind))
-    except ComfyUIError as e:
-        raise HTTPException(status_code=503, detail=str(e)) from e
+    # 指定 worker 模式:前端已把参考图/音频钉到后续生成所在的 worker,避免多机路径不一致。
+    if worker:
+        client = resolve_worker(worker)
+        req_models = required_models(kind)
+        req_nodes = required_nodes(kind)
+        if req_models and not req_models.issubset(await client.model_names()):
+            raise HTTPException(status_code=503, detail="指定 worker 缺少该任务所需模型")
+        if req_nodes and not req_nodes.issubset(await client.node_names()):
+            raise HTTPException(status_code=503, detail="指定 worker 缺少该任务所需节点")
+    else:
+        try:
+            client = await pool.pick(required=required_models(kind), required_nodes=required_nodes(kind))
+        except ComfyUIError as e:
+            raise HTTPException(status_code=503, detail=str(e)) from e
     try:
         name = await client.upload_image(content, image.filename or "upload.png")
     except ComfyUIError as e:

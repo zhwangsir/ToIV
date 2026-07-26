@@ -72,6 +72,8 @@ _SDXL_HINTS: tuple[str, ...] = (
     "illustrious",
     "animagine",
     "playground",
+    "pornmix",
+    "moody",
 )
 
 
@@ -100,7 +102,7 @@ def detect_model_family(name: str) -> str:
         return "flux2"
     if "z_image" in low or "z-image" in low or "zimage" in low:
         return "z_image"
-    if "qwen_image" in low or "qwen-image" in low or "qwen_2.5_vl" in low:
+    if "qwen_image" in low or "qwen-image" in low:
         return "qwen_image"
     # —— LTX 视频(轻量,12G 可跑,CFG=1 + 无负向)——
     if "10eros" in low:
@@ -310,13 +312,33 @@ _PROFILES: dict[str, GenProfile] = {
     "sd15": GenProfile(sampler="euler", scheduler="normal", cfg=7.0, steps=20),
 }
 
+# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║  QWEN-IMAGE 编码器版本说明(2026-07-25 更新)                              ║
+# ║                                                                          ║
+# ║  Qwen-Image 1.0 (2025-08) → Qwen2.5-VL 文本编码器                       ║
+# ║    文件名: qwen_2.5_vl_7b_fp8_scaled.safetensors (当前 worker 实测存在)  ║
+# ║                                                                          ║
+# ║  Qwen-Image 2.0 (2026-02/05) → Qwen3-VL 文本编码器(架构升级)            ║
+# ║    clip_type 仍为 "qwen_image",新编码器文件名待 Comfy-Org 正式量化发布   ║
+# ║    (可能命名: qwen_3_vl_* 或 qwen3_vl_*)                                ║
+# ║                                                                          ║
+# ║  Qwen-Image 3.0 (2026-07-21 发布预览) → 权重尚未开源,暂不支持            ║
+# ║                                                                          ║
+# ║  当前配置兼容 Qwen-Image 1.0 部署;worker 更新到 2.0 量化包后需同步       ║
+# ║  clip_name(可能需更新 clip_type)。nextgen.py 构造逻辑无需改动。          ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
 # 次世代图配方(worker :8002 /object_info 实测:节点存在、类型枚举含 qwen_image/flux2)。
-# ⚠️ 待人工核准的伴随权重下载:qwen_2.5_vl(Qwen-Image 编码器,worker 现无)、
-#    flux2 文本编码器(clip_name 待定)。Z-Image 三件套(z_image_turbo/qwen_3_4b/ae)已在。
+#    Z-Image 三件套(z_image_turbo/qwen_3_4b/ae)已在;FLUX.2 dev 用 mistral_3_small,Klein 用 qwen_3_4b。
+_QWEN_IMAGE_CLIP_CANDIDATES: tuple[str, ...] = (
+    "qwen_2.5_vl_7b_fp8_scaled.safetensors",  # Qwen-Image 1.0 (当前默认)
+    # Qwen-Image 2.0 候选文件名(待 Comfy-Org 发布后取消注释并置顶):
+    # "qwen_3_vl_7b_fp8_scaled.safetensors",
+    # "qwen3_vl_fp8.safetensors",
+)
 _NEXTGEN_RECIPES: dict[str, NextgenRecipe] = {
     "qwen_image": NextgenRecipe(
         clip_type="qwen_image",
-        clip_name="qwen_2.5_vl_7b_fp8_scaled.safetensors",
+        clip_name=_QWEN_IMAGE_CLIP_CANDIDATES[0],  # 默认用第一个候选
         vae_name="qwen_image_vae.safetensors",
         model_sampling="ModelSamplingAuraFlow",
         shift=3.1,

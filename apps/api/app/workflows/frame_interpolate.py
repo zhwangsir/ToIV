@@ -1,19 +1,28 @@
 """帧插值工作流构造器。
 
-使用 ComfyUI-Frame-Interpolation (Kosinkadink) 的 RIFE VFI 节点，
-将输入视频帧数翻倍，实现更流畅的视频播放。
+worker 实测可用节点为 FrameInterpolationModelLoader + FrameInterpolate
+(模型置于 models/frame_interpolation/ 目录)。
+原生节点的 detect_rife_config 要求 5 blocks + encode.cnn3 键结构,hzwer 原版
+rife47/49.pth(4 blocks + 2 层 encode)不被识别;使用 Comfy-Org 官方转换版
+rife_v4.26.safetensors 作为默认。
+将输入视频帧数翻倍,实现更流畅的视频播放。
 
 节点链:
-  VHS_LoadVideo → RIFE VFI (rife47.pth, multiplier=2) → VHS_VideoCombine
+  VHS_LoadVideo → FrameInterpolationModelLoader → FrameInterpolate (rife_v4.26.safetensors, multiplier=2) → VHS_VideoCombine
 
-用户只需提供视频文件名，RIFE 参数全部预设最优值。
+用户只需提供视频文件名,RIFE 参数全部预设最优值。
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-# 可选的 RIFE 模型（与 ComfyUI-Frame-Interpolation 的 ckpts/rife/ 目录对应）
-RIFE_MODELS = ("rife47.pth", "rife49.pth", "rife417.pth", "rife426.pth")
+# 可选的 RIFE 模型(与 models/frame_interpolation/ 目录对应)。
+# 默认使用 safetensors 格式(原生节点兼容);hzwer 原版 pth 仅作回退参考。
+RIFE_MODELS = (
+    "rife_v4.26.safetensors",
+    "rife47.pth",
+    "rife49.pth",
+)
 
 # HunyuanVideo 输出默认 24fps；插值后帧数翻倍，输出帧率同步翻倍以保持时长不变
 _SOURCE_FPS = 24.0
@@ -30,8 +39,8 @@ class FrameInterpolateParams:
 
 
 def build_frame_interpolate_graph(p: FrameInterpolateParams) -> dict:
-    # RIFE VFI 节点要求 multiplier 为 int
-    mult_int = max(1, round(p.multiplier))
+    # FrameInterpolate 节点要求 multiplier 为 int 且 min=2
+    mult_int = max(2, round(p.multiplier))
     # 输出帧率 = 源帧率 × 倍数（保持时长不变，仅增加流畅度）
     out_fps = _SOURCE_FPS * mult_int
 
@@ -48,19 +57,16 @@ def build_frame_interpolate_graph(p: FrameInterpolateParams) -> dict:
                 "select_every_nth": 1,
             },
         },
+        "4": {
+            "class_type": "FrameInterpolationModelLoader",
+            "inputs": {"model_name": p.model_name},
+        },
         "2": {
-            "class_type": "RIFE VFI",
+            "class_type": "FrameInterpolate",
             "inputs": {
-                "ckpt_name": p.model_name,
-                "frames": ["1", 0],
-                "clear_cache_after_n_frames": 10,
+                "interp_model": ["4", 0],
+                "images": ["1", 0],
                 "multiplier": mult_int,
-                "fast_mode": True,
-                "ensemble": True,
-                "scale_factor": 1.0,
-                "dtype": "float32",
-                "torch_compile": False,
-                "batch_size": 1,
             },
         },
         "3": {

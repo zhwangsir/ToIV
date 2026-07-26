@@ -15,6 +15,7 @@ from app.comfy.client import ComfyUIError
 from app.comfy.pool import WorkerPool
 from app.deps import get_current_user, get_pool, resolve_worker
 from app.models import User
+from app.pathsafe import PathTraversalError, validate_path_component
 
 router = APIRouter()
 
@@ -61,6 +62,15 @@ async def get_image(
     pool: WorkerPool = Depends(get_pool),
     user: User = Depends(get_current_user),
 ):
+    try:
+        safe_filename = validate_path_component(filename, allow_subdirs=False)
+        safe_subfolder = validate_path_component(subfolder, allow_subdirs=True) if subfolder else ""
+    except PathTraversalError as e:
+        raise HTTPException(status_code=400, detail=f"非法路径: {e}") from e
+
+    if not safe_filename:
+        raise HTTPException(status_code=400, detail="filename 不能为空")
+
     primary = resolve_worker(worker)  # SSRF 白名单校验
     host = _host(primary.base_url)
     # 同机其它 worker 共享同一输出目录,可作为主 worker 掉线时的回退
@@ -71,7 +81,7 @@ async def get_image(
     last_err: Exception | None = None
     for client in [primary, *siblings]:
         try:
-            content, content_type = await client.get_image_bytes(filename, subfolder, type_)
+            content, content_type = await client.get_image_bytes(safe_filename, safe_subfolder, type_)
             # 视频/图片统一走 range 感知返回:视频靠 206+Accept-Ranges 才能播
             return _ranged_response(content, content_type, request.headers.get("range"))
         except ComfyUIError as e:

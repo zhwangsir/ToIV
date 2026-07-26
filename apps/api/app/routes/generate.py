@@ -43,8 +43,9 @@ from app.workflows.model_profiles import (
     nextgen_recipe,
     profile_for,
 )
-from app.workflows.nextgen import NextgenParams, build_nextgen_graph
+from app.workflows.nextgen import NextgenImg2ImgParams, NextgenParams, build_nextgen_graph, build_nextgen_img2img_graph
 from app.workflows.removebg import REMBG_MODES, RemoveBgParams, build_removebg_graph
+from app.workflows.style_presets import MediaType, resolve_style_preset
 from app.workflows.upscale import UPSCALE_MODELS, UpscaleParams, build_upscale_graph
 from app.workflows.frame_interpolate import RIFE_MODELS, FrameInterpolateParams, build_frame_interpolate_graph
 from app.workflows.hunyuan_i2v import DEFAULT_NEGATIVE as HUNYUAN_DEFAULT_NEG, HunyuanI2VParams, build_hunyuan_i2v_graph
@@ -84,6 +85,7 @@ class Txt2ImgRequest(BaseModel):
     positive: str = Field(min_length=1, max_length=2000)
     negative: str = Field(default="", max_length=2000)
     ckpt_name: str | None = None
+    style_preset: str | None = Field(default=None, max_length=64, description="风格预设ID,设置后自动选择模型+采样参数")
     width: int = Field(default=512, ge=64, le=2048)
     height: int = Field(default=512, ge=64, le=2048)
     steps: int = Field(default=20, ge=1, le=150)
@@ -145,6 +147,34 @@ async def _submit_txt2img(
 ) -> dict:
     """提交单个 txt2img 作业。返回与 generate_txt2img 同构的句柄。"""
     settings = get_settings()
+
+    # ── 风格预设应用 ──
+    # 若指定 style_preset,自动填充最佳模型+采样参数;用户显式传入的 ckpt_name 优先。
+    preset = None
+    if req.style_preset:
+        preset = resolve_style_preset(req.style_preset, MediaType.IMAGE)
+        if not req.ckpt_name:
+            req.ckpt_name = preset.ckpt_name
+        # 采样参数:用户未显式偏离默认值时用预设推荐值(步骤/_CFG/采样器)
+        if req.steps == 20 and preset.sampling.steps is not None:
+            req.steps = preset.sampling.steps
+        if req.cfg == 7.0 and preset.sampling.cfg is not None:
+            req.cfg = preset.sampling.cfg
+        if req.sampler == "euler" and preset.sampling.sampler is not None:
+            req.sampler = preset.sampling.sampler
+        if req.scheduler == "normal" and preset.sampling.scheduler is not None:
+            req.scheduler = preset.sampling.scheduler
+        # 分辨率:用户保持默认 512x512 时用预设推荐
+        if req.width == 512 and req.height == 512:
+            req.width = preset.width
+            req.height = preset.height
+        # 负向:用户为空时用预设推荐
+        if not req.negative and preset.negative_prompt:
+            req.negative = preset.negative_prompt
+        # 正向:附加风格提示词尾缀
+        if preset.prompt_hint and preset.prompt_hint not in req.positive:
+            req.positive = req.positive + preset.prompt_hint
+
     ckpt_name = req.ckpt_name or settings.default_ckpt
     # R18 硬门槛:成人底模须已开 R18,否则 403;并据此给作品打 nsfw 标。
     job_nsfw = _gate_nsfw_ckpt(ckpt_name, user)
@@ -467,6 +497,7 @@ class Img2ImgRequest(BaseModel):
     worker: str  # 图片上传到的 worker
     negative: str = Field(default="", max_length=2000)
     ckpt_name: str | None = None
+    style_preset: str | None = Field(default=None, max_length=64, description="风格预设ID")
     denoise: float = Field(default=0.6, ge=0.1, le=1.0)
     steps: int = Field(default=20, ge=1, le=150)
     cfg: float = Field(default=7.0, ge=0.0, le=30.0)
@@ -484,23 +515,66 @@ async def generate_img2img(
 ):
     enforce_generation_rate_limit(user)
     settings = get_settings()
+
+    # ── 风格预设应用(同 txt2img) ──
+    if req.style_preset:
+        preset = resolve_style_preset(req.style_preset, MediaType.IMAGE)
+        if not req.ckpt_name:
+            req.ckpt_name = preset.ckpt_name
+        if req.steps == 20 and preset.sampling.steps is not None:
+            req.steps = preset.sampling.steps
+        if req.cfg == 7.0 and preset.sampling.cfg is not None:
+            req.cfg = preset.sampling.cfg
+        if req.sampler == "euler" and preset.sampling.sampler is not None:
+            req.sampler = preset.sampling.sampler
+        if req.scheduler == "normal" and preset.sampling.scheduler is not None:
+            req.scheduler = preset.sampling.scheduler
+        if req.denoise == 0.6 and preset.sampling.denoise is not None:
+            req.denoise = preset.sampling.denoise
+        if not req.negative and preset.negative_prompt:
+            req.negative = preset.negative_prompt
+        if preset.prompt_hint and preset.prompt_hint not in req.positive:
+            req.positive = req.positive + preset.prompt_hint
+
+    ckpt_name = req.ckpt_name or settings.default_ckpt
     client = resolve_worker(req.worker)  # 必须用图片所在的 worker
-    params = Img2ImgParams(
-         positive=req.positive,
-         image=req.image,
-         negative=req.negative,
-         ckpt_name=req.ckpt_name or settings.default_ckpt,
-         denoise=req.denoise,
-         steps=req.steps,
-         cfg=req.cfg,
-         sampler=req.sampler,
-         scheduler=req.scheduler,
-         loras=_to_lora_specs(req.loras),
-         **({"seed": req.seed} if req.seed is not None else {}),
-    )
     # R18 硬门槛:成人底模须已开 R18,否则 403;并据此给作品打 nsfw 标。
-    job_nsfw = _gate_nsfw_ckpt(params.ckpt_name, user)
-    graph = build_img2img_graph(params)
+    job_nsfw = _gate_nsfw_ckpt(ckpt_name, user)
+
+    if is_nextgen(ckpt_name):
+         prof = profile_for(ckpt_name)
+         recipe = nextgen_recipe(ckpt_name)
+         ng = NextgenImg2ImgParams(
+              model_name=ckpt_name,
+              image=req.image,
+              positive=req.positive,
+              negative=req.negative if prof.neg_prompt else "",
+              denoise=req.denoise,
+              steps=prof.steps,
+              cfg=prof.cfg,
+              sampler=prof.sampler,
+              scheduler=prof.scheduler,
+              **({"seed": req.seed} if req.seed is not None else {}),
+         )
+         graph = build_nextgen_img2img_graph(ng)
+         seed_used = ng.seed
+    else:
+         params = Img2ImgParams(
+              positive=req.positive,
+              image=req.image,
+              negative=req.negative,
+              ckpt_name=ckpt_name,
+              denoise=req.denoise,
+              steps=req.steps,
+              cfg=req.cfg,
+              sampler=req.sampler,
+              scheduler=req.scheduler,
+              loras=_to_lora_specs(req.loras),
+              **({"seed": req.seed} if req.seed is not None else {}),
+         )
+         graph = build_img2img_graph(params)
+         seed_used = params.seed
+
     client_id = uuid.uuid4().hex
     try:
          prompt_id = await client.queue_prompt(graph, client_id)
@@ -515,10 +589,10 @@ async def generate_img2img(
               worker=client.base_url,
               kind="img2img",
               status="queued",
-              prompt=params.positive,
-              seed=params.seed,
+              prompt=req.positive,
+              seed=seed_used,
               nsfw=job_nsfw,
-              params=params_snapshot(req, seed=params.seed, ckpt_name=params.ckpt_name),
+              params=params_snapshot(req, seed=seed_used, ckpt_name=ckpt_name),
          )
     )
     session.commit()
@@ -530,7 +604,7 @@ async def generate_img2img(
          "prompt_id": prompt_id,
          "client_id": client_id,
          "worker": client.base_url,
-         "seed": params.seed,
+         "seed": seed_used,
     }
 
 

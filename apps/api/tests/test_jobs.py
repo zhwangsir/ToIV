@@ -8,6 +8,8 @@ from app.db import get_session
 from app.main import app
 from app.models import Job, Tenant, User
 from app.ratelimit import _MAX_PER_WINDOW, _hits, enforce_generation_rate_limit
+# 深化后:_hits key 从 user.id 变为 (user.id, scope) 元组
+_RATE_SCOPE = "generation"
 from app.security import create_token, hash_password
 
 
@@ -98,7 +100,7 @@ def test_rate_limit_blocks_after_max():
         id = "ratelimit-test-user"
 
     user = _U()
-    _hits.pop(user.id, None)
+    _hits.pop((user.id, _RATE_SCOPE), None)
     for _ in range(_MAX_PER_WINDOW):
         enforce_generation_rate_limit(user)  # 不应抛
     with pytest.raises(HTTPException) as exc:

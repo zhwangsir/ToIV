@@ -37,7 +37,13 @@ from app.workflows.ipadapter import (
     IPAdapterTxt2ImgParams,
     build_ipadapter_txt2img_graph,
 )
-from app.workflows.model_profiles import fit_resolution
+from app.workflows.model_profiles import (
+    fit_resolution,
+    is_nextgen,
+    nextgen_recipe,
+    profile_for,
+)
+from app.workflows.nextgen import NextgenParams, build_nextgen_graph
 from app.workflows.txt2img import Txt2ImgParams, build_txt2img_graph
 
 router = APIRouter()
@@ -106,8 +112,13 @@ class StoryboardResponse(BaseModel):
 
 
 def _parse_json_obj(text: str) -> dict | None:
-    """从 LLM 文本里稳健地抽出 JSON 对象(容忍代码块/前后缀)。"""
+    """从 LLM 文本里稳健地抽出 JSON 对象(容忍代码块/前后缀/思考标签)。"""
     t = text.strip()
+    # Qwen3 等思考型模型把推理过程包在 <think>...</think> 中,
+    # 真正的 JSON 输出在 </think> 之后。剥离思考前缀,避免误把思考里
+    # 出现的 {…} 示例当成最终 JSON。
+    if "</think>" in t:
+        t = t.split("</think>", 1)[1].strip()
     if "{" in t and "}" in t:
         t = t[t.index("{") : t.rindex("}") + 1]
     try:
@@ -239,15 +250,35 @@ class ShotRenderRequest(BaseModel):
 
 
 def _build_shot_graph(req: ShotRenderRequest, ckpt_name: str) -> tuple[dict, str]:
-    """据请求选用 IPAdapter 或 txt2img 构图。返回 (graph, mode)。
+    """据请求选用 IPAdapter 或 txt2img/次世代构图。返回 (graph, mode)。
 
     mode 用于 Job.kind 与响应,便于前端/历史区分该镜是否启用了角色一致性。
-    无 character_ref(空/None)→ txt2img 降级;有 → IPAdapter。
+    无 character_ref(空/None)→ txt2img/次世代;有 → IPAdapter(传统 checkpoint  only)。
+    次世代模型(flux2/qwen_image/z_image)走 UNETLoader,不能硬塞进 CheckpointLoaderSimple。
     """
     ref = (req.character_ref or "").strip()
-    # 前端宽高仅定宽高比;按底模架构(SDXL/SD1.5)缩放到合适像素档,避免分辨率失配崩坏。
+    # 前端宽高仅定宽高比;按底模架构(SDXL/SD1.5/次世代)缩放到合适像素档。
     width, height = fit_resolution(ckpt_name, _snap8(req.width), _snap8(req.height))
     seed_kw = {"seed": req.seed} if req.seed is not None else {}
+
+    # 次世代族走独立图构造(UNET+CLIP+VAE);目前 IPAdapter 与次世代未打通,有参考图时降级。
+    if is_nextgen(ckpt_name):
+        prof = profile_for(ckpt_name)
+        ng = NextgenParams(
+            model_name=ckpt_name,
+            positive=req.positive,
+            negative=req.negative if prof.neg_prompt else "",
+            width=width,
+            height=height,
+            steps=prof.steps,
+            cfg=prof.cfg,
+            sampler=prof.sampler,
+            scheduler=prof.scheduler,
+            filename_prefix="ToIV_shot",
+            **seed_kw,
+        )
+        return build_nextgen_graph(ng), "manju_shot_nextgen"
+
     if not ref:
         params = Txt2ImgParams(
             positive=req.positive,
@@ -304,13 +335,19 @@ async def render_shot(
     job_nsfw = _gate_nsfw_ckpt(ckpt_name, user)
     # 给定 worker → 只路由该机(参考图仅在该机,旧行为);未给 → 参考图已分发全 pool,
     # 选装了 IPAdapter 节点的最闲 worker 分发,让带参考图的批量出图也能跨机真并行。
+    # 次世代族(flux2/qwen_image/z_image)需 UNET+CLIP+VAE 三件齐,且不走 IPAdapter。
+    recipe = nextgen_recipe(ckpt_name) if is_nextgen(ckpt_name) else None
     if req.worker:
         client = resolve_worker(req.worker)
     else:
         try:
-            client = await pool.pick(
-                required={ckpt_name}, required_nodes=_IPADAPTER_NODES
-            )
+            if recipe:
+                required = {ckpt_name, recipe.clip_name, recipe.vae_name}
+                required_nodes: set[str] = set()
+            else:
+                required = {ckpt_name}
+                required_nodes = _IPADAPTER_NODES
+            client = await pool.pick(required=required, required_nodes=required_nodes)
         except ComfyUIError as e:
             raise HTTPException(status_code=503, detail=str(e)) from e
     graph, kind = _build_shot_graph(req, ckpt_name)
@@ -321,7 +358,17 @@ async def render_shot(
     except ComfyUIError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
 
-    seed = graph["3"]["inputs"]["seed"]
+    # 次世代 KSampler 是节点 8,传统 txt2img/IPAdapter 是节点 3;按 class_type 取 seed。
+    seed = next(
+        (
+            node["inputs"]["seed"]
+            for node in graph.values()
+            if isinstance(node, dict)
+            and node.get("class_type") == "KSampler"
+            and "seed" in node.get("inputs", {})
+        ),
+        req.seed,
+    )
     session.add(
         Job(
             tenant_id=user.tenant_id,

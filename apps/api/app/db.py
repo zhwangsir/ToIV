@@ -63,6 +63,138 @@ _SQLITE_RAW_MIGRATIONS: tuple[str, ...] = (
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS dramasession (
+        session_id      TEXT PRIMARY KEY,
+        user_id         TEXT NOT NULL,
+        drama_id        TEXT NOT NULL,
+        video_url       TEXT NOT NULL,
+        device_ua       TEXT DEFAULT '',
+        device_screen   TEXT DEFAULT '',
+        device_lang     TEXT DEFAULT '',
+        device_platform TEXT DEFAULT '',
+        started_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        ended_at        TIMESTAMP,
+        duration_sec    REAL,
+        is_completed    BOOLEAN NOT NULL DEFAULT FALSE,
+        drop_off_at     REAL
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_dramasession_drama ON dramasession(drama_id)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_dramasession_user ON dramasession(user_id)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_dramasession_started ON dramasession(started_at)
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS dramaevent (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_id      TEXT NOT NULL UNIQUE,
+        session_id    TEXT NOT NULL REFERENCES dramasession(session_id) ON DELETE CASCADE,
+        user_id       TEXT NOT NULL,
+        drama_id      TEXT NOT NULL,
+        event_type    TEXT NOT NULL,
+        current_time  REAL,
+        duration      REAL,
+        payload       TEXT DEFAULT '',
+        client_ts     BIGINT NOT NULL,
+        server_ts     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_dramaevent_session ON dramaevent(session_id)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_dramaevent_type ON dramaevent(event_type)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_dramaevent_drama ON dramaevent(drama_id, event_type)
+    """,
+    # ──────────────────────────────────────────────────────────
+    # AI 短剧工作室(Drama Studio):项目/角色/分镜 三表
+    # ──────────────────────────────────────────────────────────
+    """
+    CREATE TABLE IF NOT EXISTS dramaproject (
+        id           TEXT PRIMARY KEY,
+        tenant_id    TEXT NOT NULL,
+        user_id      TEXT NOT NULL,
+        title        TEXT NOT NULL,
+        premise      TEXT DEFAULT '',
+        style        TEXT DEFAULT '',
+        script       TEXT DEFAULT '',
+        status       TEXT DEFAULT 'draft',
+        video_url    TEXT DEFAULT '',
+        duration_sec REAL DEFAULT 0,
+        width        INTEGER DEFAULT 768,
+        height       INTEGER DEFAULT 384,
+        fps          INTEGER DEFAULT 16,
+        process_data TEXT DEFAULT '[]',
+        created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_dramaproject_user ON dramaproject(tenant_id, user_id)
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS dramacharacter (
+        id             TEXT PRIMARY KEY,
+        project_id     TEXT NOT NULL REFERENCES dramaproject(id) ON DELETE CASCADE,
+        name           TEXT NOT NULL,
+        description    TEXT DEFAULT '',
+        visual_prompt  TEXT DEFAULT '',
+        ref_image      TEXT DEFAULT '',
+        ref_audio      TEXT DEFAULT '',
+        voice_name     TEXT DEFAULT '',
+        reference_front TEXT DEFAULT '',
+        reference_side  TEXT DEFAULT '',
+        reference_back  TEXT DEFAULT '',
+        created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_dramacharacter_proj ON dramacharacter(project_id)
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS dramashot (
+        id            TEXT PRIMARY KEY,
+        project_id    TEXT NOT NULL REFERENCES dramaproject(id) ON DELETE CASCADE,
+        idx           INTEGER NOT NULL,
+        scene         TEXT DEFAULT '',
+        prompt        TEXT DEFAULT '',
+        negative      TEXT DEFAULT 'blurry, low quality, text, watermark, deformed',
+        characters    TEXT DEFAULT '[]',
+        dialogue      TEXT DEFAULT '',
+        speaker       TEXT DEFAULT '',
+        duration_sec  INTEGER DEFAULT 6,
+        start_sec     REAL DEFAULT 0,
+        grid_image    TEXT DEFAULT '',
+        scene_layout  TEXT DEFAULT '',
+        video_model   TEXT DEFAULT '',
+        video_status  TEXT DEFAULT 'pending',
+        video_url     TEXT DEFAULT '',
+        voice_status  TEXT DEFAULT 'pending',
+        voice_url     TEXT DEFAULT '',
+        seed          INTEGER DEFAULT 0,
+        error         TEXT DEFAULT '',
+        created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_dramashot_proj ON dramashot(project_id, idx)
+    """,
+    # ── 幂等补列:旧库升级(已有表追加新列,带 DEFAULT 不破坏数据)──
+    "ALTER TABLE dramaproject ADD COLUMN process_data TEXT DEFAULT '[]'",
+    "ALTER TABLE dramacharacter ADD COLUMN reference_front TEXT DEFAULT ''",
+    "ALTER TABLE dramacharacter ADD COLUMN reference_side TEXT DEFAULT ''",
+    "ALTER TABLE dramacharacter ADD COLUMN reference_back TEXT DEFAULT ''",
+    "ALTER TABLE dramashot ADD COLUMN grid_image TEXT DEFAULT ''",
+    "ALTER TABLE dramashot ADD COLUMN scene_layout TEXT DEFAULT ''",
+    "ALTER TABLE dramashot ADD COLUMN video_model TEXT DEFAULT ''",
 )
 
 

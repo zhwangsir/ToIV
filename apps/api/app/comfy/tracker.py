@@ -184,11 +184,18 @@ async def wait_for_jobs(
     """轮询数据库，等待所有指定作业完成并返回 prompt_id -> 产物 URL 列表。
 
     任一作业进入 error 或超时即抛出 RuntimeError。
+
+    关键:每次循环前显式 commit() 结束当前事务。SQLAlchemy 同步 Session
+    在第一次 SQL 时开启事务,后续 SELECT 在同一事务快照内,看不到其他
+    Session(如 tracker.mark_done)的 commit → 会一直读到旧 status,直到
+    超时。commit() 无 DML 时为空操作,但会结束事务,下次 SELECT 重开新
+    事务,从而看到最新数据。
     """
     pending = set(prompt_ids)
     waited = 0.0
     results: dict[str, list[str]] = {}
     while pending and waited < timeout:
+        session.commit()  # 结束当前事务,刷新快照(无 DML 时为 no-op,仅释放读锁)
         done: set[str] = set()
         for pid in list(pending):
             job = session.exec(select(Job).where(Job.prompt_id == pid)).first()

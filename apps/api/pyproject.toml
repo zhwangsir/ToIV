@@ -28,6 +28,13 @@ dev = [
 scoring = [
     "image-reward",
 ]
+# 译制听写(ASR):faster-whisper(CPU/CTranslate2)。惰性导入,不装只影响听写不拖累启动。
+# requests 是 faster-whisper 1.1.1 utils.py 的隐式依赖(未声明,缺则 import 即 ModuleNotFoundError)。
+# Dockerfile 已 pip install;此处声明让 uv export 进 requirements.txt,本地 venv 也能装。
+transcription = [
+    "faster-whisper>=1.1.1",
+    "requests>=2.31",
+]
 
 [build-system]
 requires = ["hatchling"]

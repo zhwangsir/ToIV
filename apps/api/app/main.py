@@ -18,10 +18,14 @@ from app.routes import (
     audio,
     backlot,
     cad,
+    canvas,
+    drama_analytics,
     dub,
     dub_anime,
     dub_text,
     dub_voice,
+    drama_studio,
+    drama_skills,
     nas_models,
     auth,
     forge,
@@ -41,7 +45,9 @@ from app.routes import (
     upload,
     video,
     voice,
+    voice_agent,
     workflows,
+    opentalking,
 )
 
 
@@ -156,13 +162,18 @@ def create_app() -> FastAPI:
         manju_project,
         assembly,
         voice,
+        voice_agent,
         lipsync,
         dub,
         dub_anime,
         dub_text,
         dub_voice,
+        drama_studio,
+        drama_skills,
         nas_models,
         cad,
+        canvas,
+        drama_analytics,
         forge,
         system,
         upload,
@@ -171,6 +182,7 @@ def create_app() -> FastAPI:
         train,
         backlot,
         workflows,
+        opentalking,
     ):
         app.include_router(module.router, prefix="/api")
 

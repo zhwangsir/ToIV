@@ -18,6 +18,7 @@ from app.models import User
 from app.nsfw_ctx import nsfw_allowed
 from app.workflows.ace_step import AceStepParams
 from app.workflows.hunyuan3d import Hunyuan3DParams
+from app.workflows.llm_router import list_content_types, list_llm_endpoints
 from app.workflows.model_profiles import (
     detect_model_family,
     is_nextgen,
@@ -25,6 +26,8 @@ from app.workflows.model_profiles import (
     is_vpred,
     profile_for,
 )
+from app.workflows.model_health import generate_health_report
+from app.workflows.style_presets import list_presets, MediaType
 from app.workflows.wan_t2v import WanT2VParams
 
 router = APIRouter()
@@ -361,6 +364,34 @@ NSFW_RECOMMENDATIONS: list[dict] = [
         "desc": "Pony hentai 表情/动作",
         "category": "lora",
     },
+    # —— LTX2.3 视频专用 ——
+    {
+        "name": "LTX2.3 10Eros",
+        "type": "unet",
+        "base": "LTX2.3",
+        "size": "11GB",
+        "civitai_url": "https://civitai.red/models/2447875/ltx23-10eros",
+        "desc": "NSFW 视频专用 LTX2.3 底模,已内置为默认视频 UNET",
+        "category": "video",
+    },
+    {
+        "name": "LTX2.3 All in One",
+        "type": "lora",
+        "base": "LTX2.3",
+        "size": "2.3GB",
+        "civitai_url": "https://civitai.red/models/2553704/ltx23-all-in-one-sfw-nsfw-ltx-director-id-lora-controlnet-detailer-upscaler-interpolator",
+        "desc": "LTX Director / ID LoRA / ControlNet / Detailer / Upscaler / Interpolator 合集",
+        "category": "video",
+    },
+    {
+        "name": "zImage Turbo",
+        "type": "unet",
+        "base": "LTX2.3",
+        "size": "9GB",
+        "civitai_url": "https://civitai.red/models/2221503/zimage-turbo-by-stable-yogi",
+        "desc": "Stable Yogi 的 LTX2.3 Turbo 视频底模,可通过环境变量切换",
+        "category": "video",
+    },
 ]
 
 
@@ -375,3 +406,85 @@ async def nsfw_recommendations(
     此端点仅返回静态元数据,不含实际成人内容)。
     """
     return {"items": NSFW_RECOMMENDATIONS, "count": len(NSFW_RECOMMENDATIONS)}
+
+
+@router.get("/models/presets")
+async def list_style_presets(
+    media: str | None = None,
+    user: User = Depends(get_current_user),
+) -> dict:
+    """返回风格预设列表,供前端选择器使用。
+
+    Args:
+        media: 可选,筛选媒体类型 "image" / "video";不传则返回全部
+    """
+    mt = None
+    if media:
+        try:
+            mt = MediaType(media)
+        except ValueError:
+            mt = None
+    presets = list_presets(mt)
+    return {"presets": presets, "count": len(presets)}
+
+
+@router.get("/models/llm-endpoints")
+async def list_llm(
+    user: User = Depends(get_current_user),
+) -> dict:
+    """返回四层 LLM 端点配置(模型ID/地址/超时/适用场景)。"""
+    return {
+        "endpoints": list_llm_endpoints(),
+        "content_types": list_content_types(),
+    }
+
+
+@router.get("/models/health")
+async def model_health(
+    user: User = Depends(get_current_user),
+) -> dict:
+    """模型健康检查:核实 worker 模型文件存在性 + LLM 端点连通性。
+
+    返回整体状态、缺失关键模型列表及替代建议。适合管理后台/心跳监控调用。
+    """
+    report = await generate_health_report()
+    return {
+        "overall_status": report.overall_status.value,
+        "timestamp": report.timestamp,
+        "image_models": [
+            {
+                "name": m.name,
+                "status": m.status.value,
+                "exists": m.exists,
+            }
+            for m in report.image_models
+        ],
+        "text_encoders": [
+            {
+                "name": m.name,
+                "status": m.status.value,
+                "exists": m.exists,
+            }
+            for m in report.text_encoders
+        ],
+        "vaes": [
+            {
+                "name": m.name,
+                "status": m.status.value,
+                "exists": m.exists,
+            }
+            for m in report.vaes
+        ],
+        "llm_endpoints": [
+            {
+                "layer": e.layer,
+                "model_id": e.model_id,
+                "status": e.status.value,
+                "response_time_ms": e.response_time_ms,
+                "error": e.error,
+            }
+            for e in report.llm_endpoints
+        ],
+        "missing_critical": report.missing_critical,
+        "suggestions": report.suggestions,
+    }

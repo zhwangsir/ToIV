@@ -12,7 +12,22 @@ import httpx
 
 
 class ComfyUIError(RuntimeError):
-    """与 ComfyUI 交互失败时抛出。"""
+    """与 ComfyUI 交互失败时抛出。
+
+    Attributes:
+        status_code: 上游 HTTP 状态码(4xx/5xx);网络错误等无响应时为 None。
+        detail: 上游返回的原始 body 或结构化错误(node_errors/error 等)。
+    """
+
+    def __init__(
+        self,
+        message: str,
+        status_code: int | None = None,
+        detail: object = None,
+    ):
+        super().__init__(message)
+        self.status_code = status_code
+        self.detail = detail
 
 
 # 各类模型加载器的 (节点, 字段),用于汇总该 worker 实际拥有的模型文件名
@@ -27,8 +42,11 @@ _MODEL_LOADERS = [
     ("HyVideoModelLoader", "model"),
     ("HyVideoVAELoader", "model_name"),
     ("HyVideoLoraSelect", "lora"),
-    # RIFE 帧插值模型
-    ("RIFE VFI", "ckpt_name"),
+    # RIFE 帧插值模型(worker 节点为 FrameInterpolationModelLoader,读 frame_interpolation 目录)
+    ("FrameInterpolationModelLoader", "model_name"),
+    # LTXVideo 自定义节点(gemma 文本编码器从 text_encoders 目录加载,
+    # 不在标准 CLIPLoader 范围内,否则 LTX 链路会被误判为缺模型 → /generate-video 503)
+    ("LTXVGemmaCLIPModelLoader", "gemma_path"),
 ]
 _MODELS_TTL = 120.0
 
@@ -169,6 +187,17 @@ class ComfyUIClient:
                 resp = await client.post(f"{self.base_url}{path}", json=payload)
                 resp.raise_for_status()
                 return resp.json()
+        except httpx.HTTPStatusError as e:
+            detail = None
+            try:
+                detail = e.response.json()
+            except Exception:
+                detail = e.response.text
+            raise ComfyUIError(
+                f"请求 {path} 失败 ({e.response.status_code}): {detail or e}",
+                status_code=e.response.status_code,
+                detail=detail,
+            ) from e
         except httpx.HTTPError as e:
             raise ComfyUIError(f"请求 {path} 失败: {e}") from e
 
@@ -178,5 +207,16 @@ class ComfyUIClient:
                 resp = await client.get(f"{self.base_url}{path}")
                 resp.raise_for_status()
                 return resp.json()
+        except httpx.HTTPStatusError as e:
+            detail = None
+            try:
+                detail = e.response.json()
+            except Exception:
+                detail = e.response.text
+            raise ComfyUIError(
+                f"请求 {path} 失败 ({e.response.status_code}): {detail or e}",
+                status_code=e.response.status_code,
+                detail=detail,
+            ) from e
         except httpx.HTTPError as e:
             raise ComfyUIError(f"请求 {path} 失败: {e}") from e

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from urllib.parse import urlsplit
 
 from fastapi import Depends, Header, HTTPException, Query
 from sqlmodel import Session
@@ -20,13 +21,29 @@ def get_pool() -> WorkerPool:
     return WorkerPool.from_urls(settings.worker_urls, timeout=settings.request_timeout)
 
 
+def _host(url: str) -> str:
+    parts = urlsplit(url)
+    return parts.hostname or url
+
+
 def resolve_worker(worker: str) -> ComfyUIClient:
-    """校验 worker 在白名单内并返回客户端（防 SSRF：只允许配置过的后端）。"""
+    """校验 worker 在白名单内并返回客户端(防 SSRF:只允许配置过的后端)。
+
+    匹配规则:先精确匹配完整 URL;失败则按 hostname 匹配(同机多 worker
+    共享输出目录,旧产物 URL 里的 worker 端口可能已不在当前白名单,
+    但同机仍有存活 worker 能代取)。hostname 匹配命中时返回白名单中
+    第一个同机 worker(主取),siblings 回退由调用方处理。
+    """
     settings = get_settings()
     normalized = worker.rstrip("/")
-    if normalized not in settings.worker_urls:
-        raise HTTPException(status_code=400, detail="未知的 worker")
-    return ComfyUIClient(normalized, timeout=settings.request_timeout)
+    if normalized in settings.worker_urls:
+        return ComfyUIClient(normalized, timeout=settings.request_timeout)
+    # hostname 级回退:兼容旧产物 URL(worker 端口已退役但同机仍存活)
+    target_host = _host(normalized)
+    for url in settings.worker_urls:
+        if _host(url) == target_host:
+            return ComfyUIClient(url, timeout=settings.request_timeout)
+    raise HTTPException(status_code=400, detail="未知的 worker")
 
 
 def get_current_user(

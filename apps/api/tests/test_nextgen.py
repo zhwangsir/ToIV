@@ -1,8 +1,8 @@
 """次世代出图族(A 期):家族识别 + 采样档 + UNET 图构造的机械正确性。
 
 只验结构与参数(节点类型、cfg=1、负向清空、族专用节点),不验出图质量(需 GPU + 人工)。
-worker :8002 /object_info 实测:Z-Image 三件套已在(端到端出图成功),Qwen 图结构正确
-仅缺 qwen_2.5_vl 编码器,FLUX.2 图过校验但缺正确编码器(见 A 期人工验证清单)。
+worker :8002 /object_info 实测:Z-Image 三件套已在(端到端出图成功),Qwen/FLUX.2 图结构正确;
+注意:qwen_2.5_vl 编码器已废弃(2026-07-25),新编码器待 worker 侧核准后更新配方。
 """
 from __future__ import annotations
 
@@ -14,7 +14,13 @@ from app.workflows.model_profiles import (
     nextgen_recipe,
     profile_for,
 )
-from app.workflows.nextgen import NextgenError, NextgenParams, build_nextgen_graph
+from app.workflows.nextgen import (
+    NextgenError,
+    NextgenImg2ImgParams,
+    NextgenParams,
+    build_nextgen_graph,
+    build_nextgen_img2img_graph,
+)
 
 QWEN = "qwen_image_fp8_e4m3fn.safetensors"
 ZIMG = "z_image_turbo_bf16.safetensors"
@@ -119,3 +125,81 @@ def test_non_nextgen_raises():
     with pytest.raises(NextgenError):
         build_nextgen_graph(NextgenParams(model_name=SD15, positive="a fox"))
     assert nextgen_recipe(SD15) is None
+
+
+# ---------------------------------------------------------------------------
+# img2img 测试
+# ---------------------------------------------------------------------------
+
+def test_zimage_img2img_uses_zimage_encoder_and_loadimage():
+    g = build_nextgen_img2img_graph(NextgenImg2ImgParams(
+        model_name=ZIMG, image="input.png", positive="a fox",
+        cfg=1.0, sampler="res_multistep", scheduler="simple", denoise=0.6,
+    ))
+    t = _types(g)
+    assert "UNETLoader" in t and "TextEncodeZImageOmni" in t and "VAELoader" in t
+    assert "LoadImage" in t and "VAEEncode" in t
+    assert "EmptySD3LatentImage" not in t and "EmptyFlux2LatentImage" not in t
+    assert "CLIPTextEncode" not in t
+    ks = _by_type(g, "KSampler")
+    assert ks["cfg"] == 1.0 and ks["sampler_name"] == "res_multistep"
+    assert ks["denoise"] == 0.6
+    li = _by_type(g, "LoadImage")
+    assert li["image"] == "input.png"
+
+
+def test_qwen_img2img_has_auraflow_no_fluxguidance_supports_negative():
+    g = build_nextgen_img2img_graph(NextgenImg2ImgParams(
+        model_name=QWEN, image="input.png", positive="a fox", negative="blurry",
+        denoise=0.75,
+    ))
+    t = _types(g)
+    assert "ModelSamplingAuraFlow" in t
+    assert "LoadImage" in t and "VAEEncode" in t
+    assert "FluxGuidance" not in t
+    assert "EmptySD3LatentImage" not in t
+    clip = _by_type(g, "CLIPLoader")
+    assert clip["type"] == "qwen_image"
+    encs = [n for n in g.values() if n["class_type"] == "CLIPTextEncode"]
+    assert any(e["inputs"]["text"] == "blurry" for e in encs)
+    ks = _by_type(g, "KSampler")
+    assert ks["denoise"] == 0.75
+
+
+def test_flux2_img2img_has_fluxguidance_and_loadimage():
+    g = build_nextgen_img2img_graph(NextgenImg2ImgParams(
+        model_name=FLUX2, image="photo.jpg", positive="a portrait",
+        denoise=0.5,
+    ))
+    t = _types(g)
+    assert "ModelSamplingFlux" in t
+    assert "FluxGuidance" in t
+    assert "LoadImage" in t and "VAEEncode" in t
+    assert "EmptyFlux2LatentImage" not in t
+    assert _by_type(g, "FluxGuidance")["guidance"] == 3.5
+    assert _by_type(g, "LoadImage")["image"] == "photo.jpg"
+    assert _by_type(g, "KSampler")["denoise"] == 0.5
+
+
+def test_img2img_shares_vae_between_encode_and_decode():
+    g = build_nextgen_img2img_graph(NextgenImg2ImgParams(
+        model_name=FLUX2, image="x.png", positive="test",
+    ))
+    vae_loader = _by_type(g, "VAELoader")
+    vae_ref = None
+    for nid, node in g.items():
+        if node["class_type"] == "VAELoader":
+            vae_ref = [nid, 0]
+            break
+    assert vae_ref is not None
+    enc = _by_type(g, "VAEEncode")
+    dec = _by_type(g, "VAEDecode")
+    assert enc["vae"] == vae_ref
+    assert dec["vae"] == vae_ref
+
+
+def test_img2img_non_nextgen_raises():
+    with pytest.raises(NextgenError):
+        build_nextgen_img2img_graph(NextgenImg2ImgParams(
+            model_name=SD15, image="x.png", positive="test",
+        ))

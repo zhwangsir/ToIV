@@ -44,10 +44,11 @@ async def _probe(client: httpx.AsyncClient, url: str, idx: int) -> dict:
 
 @router.get("/system/gpu")
 async def gpu_stats(_: User = Depends(get_current_admin)) -> dict:
-    """4 卡实时遥测(显存负载 + 队列深度)。仅管理员可查,避免普通用户窥探集群 GPU 拓扑。"""
+    """Workstation 本地 PRO6000 实时遥测(显存负载 + 队列深度)。仅管理员可查,避免普通用户窥探集群 GPU 拓扑。"""
     settings = get_settings()
-    # 仅取 4 张 PRO6000(.100)对齐面板"4× RTX PRO 6000";无匹配则退回全部 worker
-    urls = [u for u in settings.worker_urls if "192.168.71.100" in u] or settings.worker_urls
+    # 仅取 Workstation 本地 PRO6000(.127,gpu0/1/2 三张)对齐面板;无匹配则退回全部 worker
+    # GPU3 已让给 Nemotron LLM,不再作 ComfyUI 后端
+    urls = [u for u in settings.worker_urls if "192.168.71.127" in u] or settings.worker_urls
     async with httpx.AsyncClient(timeout=httpx.Timeout(4.0)) as client:
         cards = await asyncio.gather(*(_probe(client, u, i) for i, u in enumerate(urls)))
     return {

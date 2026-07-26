@@ -205,7 +205,8 @@ class VideoScoreResult(BaseModel):
 class VideoScorer:
     """调 Qwen3-VL VLM Server 评估视频质量。
 
-    VLM Server 是 OpenAI 兼容端点(部署在 workstation 100.99.181.103:8200, GPU0),
+    VLM Server 是 OpenAI 兼容端点(部署在 workstation 192.168.71.127:8000, GPU3,
+    Nemotron-3-Nano-Omni-30B-A3R 全模态,served-name=qwen3.6-uncensored),
     支持视频 base64 输入,引导 system prompt(视频后期工程师角色 + 纯技术质量评估,
     不涉及内容审核)后可绕过 NSFW 对齐做像素级技术评估。
 
@@ -235,8 +236,8 @@ class VideoScorer:
 
     def __init__(
         self,
-        vlm_url: str = "http://100.99.181.103:8200",
-        model_id: str = "qwen3-vl",
+        vlm_url: str = "http://192.168.71.127:8000",
+        model_id: str = "qwen3.6-uncensored",
         timeout: float = 30.0,
     ) -> None:
         # trust_env=False 在 _download/_post 内逐处设;这里只存配置。
@@ -360,7 +361,7 @@ class VideoScorer:
         """从 /api/images?filename=...&worker=... 解析出 ComfyUI 原始 /view URL。
 
         tracker.image_url 生成的代理 URL 形如:
-          /api/images?filename=xxx&subfolder=&type=output&worker=http://192.168.71.100:8000
+          /api/images?filename=xxx&subfolder=&type=output&worker=http://192.168.71.127:8189
         这里反推回 ComfyUI 的 /view?... 直接拉字节。
         """
         try:

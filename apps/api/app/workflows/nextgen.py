@@ -12,6 +12,7 @@ FluxGuidance)全部来自 `model_profiles.NextgenRecipe`(数据,worker /object_i
   ModelSamplingAuraFlow(model, shift) / ModelSamplingFlux(model, max_shift, base_shift, w, h)
   CLIPTextEncode(clip, text) / TextEncodeZImageOmni(clip, prompt, auto_resize_images)
   FluxGuidance(conditioning, guidance) / EmptySD3LatentImage|EmptyFlux2LatentImage(w,h,batch)
+  LoadImage(image) / VAEEncode(pixels, vae)
   KSampler(...) / VAEDecode(samples, vae) / SaveImage(images, filename_prefix)
 """
 from __future__ import annotations
@@ -34,7 +35,7 @@ def _random_seed() -> int:
 
 @dataclass(frozen=True)
 class NextgenParams:
-    """次世代出图参数。sampler/cfg/steps 由调用方按 profile 强制后传入;负向已按族决定是否清空。"""
+    """次世代 txt2img 参数。sampler/cfg/steps 由调用方按 profile 强制后传入;负向已按族决定是否清空。"""
 
     model_name: str  # diffusion_models 里的 UNET 权重名(决定族 + 配方)
     positive: str
@@ -49,6 +50,24 @@ class NextgenParams:
     batch_size: int = 1
     weight_dtype: str = "default"
     filename_prefix: str = "ToIV"
+
+
+@dataclass(frozen=True)
+class NextgenImg2ImgParams:
+    """次世代 img2img 参数。与 txt2img 区别:输入图 + denoise,无 width/height(由输入图决定)。"""
+
+    model_name: str
+    image: str  # ComfyUI input 目录中的文件名(上传后得到)
+    positive: str
+    negative: str = ""
+    denoise: float = 0.6
+    steps: int = 20
+    cfg: float = 1.0
+    sampler: str = "euler"
+    scheduler: str = "simple"
+    seed: int = field(default_factory=_random_seed)
+    weight_dtype: str = "default"
+    filename_prefix: str = "ToIV_i2i"
 
 
 class NextgenError(ValueError):
@@ -155,5 +174,114 @@ def build_nextgen_graph(p: NextgenParams) -> dict:
     nodes["11"] = {
         "class_type": "SaveImage",
         "inputs": {"images": ["10", 0], "filename_prefix": p.filename_prefix},
+    }
+    return nodes
+
+
+def build_nextgen_img2img_graph(p: NextgenImg2ImgParams) -> dict:
+    """次世代 img2img:LoadImage → VAEEncode → KSampler(denoise<1) → VAEDecode → SaveImage。
+
+    与 txt2img 区别:无空 latent 节点,改用 LoadImage+VAEEncode 得到输入图 latent;
+    KSampler.denoise 取 p.denoise(由调用方传入)。VAE 同样从配方加载(非 checkpoint 内置)。
+    """
+    recipe = nextgen_recipe(p.model_name)
+    if recipe is None:
+        raise NextgenError(f"{p.model_name} 不是已知次世代族(无 NextgenRecipe)")
+
+    nodes: dict = {}
+
+    # 1) UNET 主模型
+    nodes["1"] = {
+        "class_type": "UNETLoader",
+        "inputs": {"unet_name": p.model_name, "weight_dtype": p.weight_dtype},
+    }
+    model_ref: list = ["1", 0]
+
+    # 2) 可选 model-sampling(AuraFlow/Flux)
+    if recipe.model_sampling == "ModelSamplingAuraFlow":
+        nodes["2"] = {
+            "class_type": "ModelSamplingAuraFlow",
+            "inputs": {"model": model_ref, "shift": recipe.shift},
+        }
+        model_ref = ["2", 0]
+    elif recipe.model_sampling == "ModelSamplingFlux":
+        nodes["2"] = {
+            "class_type": "ModelSamplingFlux",
+            "inputs": {
+                "model": model_ref,
+                "max_shift": _FLUX_MAX_SHIFT,
+                "base_shift": _FLUX_BASE_SHIFT,
+                "width": 0,
+                "height": 0,
+            },
+        }
+        model_ref = ["2", 0]
+
+    # 3) 文本编码器
+    nodes["3"] = {
+        "class_type": "CLIPLoader",
+        "inputs": {"clip_name": recipe.clip_name, "type": recipe.clip_type},
+    }
+    clip_ref: list = ["3", 0]
+
+    # 4/5) 正/负条件
+    def _encode(node_id: str, text: str) -> None:
+        if recipe.text_encode == "TextEncodeZImageOmni":
+            nodes[node_id] = {
+                "class_type": "TextEncodeZImageOmni",
+                "inputs": {"clip": clip_ref, "prompt": text, "auto_resize_images": False},
+            }
+        else:
+            nodes[node_id] = {
+                "class_type": "CLIPTextEncode",
+                "inputs": {"clip": clip_ref, "text": text},
+            }
+
+    _encode("4", p.positive)
+    _encode("5", p.negative)
+    pos_ref: list = ["4", 0]
+    neg_ref: list = ["5", 0]
+
+    # 6) 可选 FluxGuidance
+    if recipe.guidance is not None:
+        nodes["6"] = {
+            "class_type": "FluxGuidance",
+            "inputs": {"conditioning": pos_ref, "guidance": recipe.guidance},
+        }
+        pos_ref = ["6", 0]
+
+    # 7/8) 加载输入图 + VAE 编码(用配方 VAE)
+    nodes["7"] = {"class_type": "LoadImage", "inputs": {"image": p.image}}
+    nodes["9"] = {"class_type": "VAELoader", "inputs": {"vae_name": recipe.vae_name}}
+    nodes["8"] = {
+        "class_type": "VAEEncode",
+        "inputs": {"pixels": ["7", 0], "vae": ["9", 0]},
+    }
+
+    # 10) 采样(denoise<1)
+    nodes["10"] = {
+        "class_type": "KSampler",
+        "inputs": {
+            "model": model_ref,
+            "seed": p.seed,
+            "steps": p.steps,
+            "cfg": p.cfg,
+            "sampler_name": p.sampler,
+            "scheduler": p.scheduler,
+            "positive": pos_ref,
+            "negative": neg_ref,
+            "latent_image": ["8", 0],
+            "denoise": p.denoise,
+        },
+    }
+
+    # 11/12) VAE 解码 + 保存
+    nodes["11"] = {
+        "class_type": "VAEDecode",
+        "inputs": {"samples": ["10", 0], "vae": ["9", 0]},
+    }
+    nodes["12"] = {
+        "class_type": "SaveImage",
+        "inputs": {"images": ["11", 0], "filename_prefix": p.filename_prefix},
     }
     return nodes

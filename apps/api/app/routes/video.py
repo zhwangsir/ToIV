@@ -107,7 +107,7 @@ async def generate_video(
     try:
         prompt_id = await client.queue_prompt(graph, client_id)
     except ComfyUIError as e:
-        raise HTTPException(status_code=502, detail=str(e)) from e
+        _raise_from_comfy_error(e)
 
     session.add(
         Job(
@@ -143,6 +143,17 @@ def _gate_ltx_nsfw(user: User) -> None:
         raise HTTPException(status_code=403, detail="LTX 视频生成仅限 NSFW 专区访问")
 
 
+def _raise_from_comfy_error(e: ComfyUIError) -> None:
+    """把 ComfyUI 上游错误透传为对应 HTTP 状态码,方便前端定位是参数/模型问题(4xx)还是
+    worker 网络/执行问题(5xx)。"""
+    status = e.status_code if e.status_code is not None else 502
+    # 后端不应把 5xx 内部错误直接抛给前端;但 4xx 和网关类错误(502/503/504)可以透传
+    if status < 400 or status == 500:
+        status = 502
+    detail = e.detail if e.detail is not None else str(e)
+    raise HTTPException(status_code=status, detail=detail) from e
+
+
 class LtxT2VRequest(BaseModel):
     """LTX2.3 文生视频请求。"""
     positive: str = Field(min_length=1, max_length=2000)
@@ -154,8 +165,8 @@ class LtxT2VRequest(BaseModel):
     steps: int = Field(default=20, ge=1, le=50)
     cfg: float = Field(default=1.0, ge=0.0, le=20.0)
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
-    use_upscale: bool = True
-    use_rife: bool = True
+    use_upscale: bool = False
+    use_rife: bool = False
 
     @field_validator("width", "height", mode="before")
     @classmethod
@@ -307,7 +318,7 @@ async def _submit_ltx_job(
     try:
         prompt_id = await client.queue_prompt(graph, client_id)
     except ComfyUIError as e:
-        raise HTTPException(status_code=502, detail=str(e)) from e
+        _raise_from_comfy_error(e)
 
     session.add(
         Job(

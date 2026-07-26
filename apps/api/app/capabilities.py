@@ -25,7 +25,7 @@ def required_models(kind: str) -> set[str]:
         return {Txt2ImgParams(positive="").ckpt_name}
     if kind == "audio":
         return {AceStepParams(tags="").ckpt_name}
-    if kind == "ltx_video":
+    if kind in ("ltx_video", "ltx_t2v", "ltx_i2v"):
         p = LtxT2VParams(positive="")
         models = {p.unet_name, p.gemma_name, p.vae_name}
         if p.use_upscale:
@@ -44,23 +44,33 @@ def required_models(kind: str) -> set[str]:
 
 def required_nodes(kind: str) -> set[str]:
     """任务所需的自定义节点 class_type。worker 可能有模型却缺节点(如 PC01 有 Wan 权重
-    但没装 VideoHelperSuite → 视频图的 VHS_VideoCombine/VHS_LoadVideo 缺失 → /prompt 400),
-    故视频路由须同时校验节点存在。"""
+    但没装 VideoHelperSuite → 视频图的 VHS_VideoCombine 缺失 → /prompt 400),
+    故视频路由须同时校验节点存在。
+
+    注意:默认关闭的 2 阶段采样/RIFE 等可选节点不列入,避免缺可选节点的 worker 被误淘汰;
+    用户手动开启这些选项时,由 ComfyUI 执行期返回明确错误。"""
     if kind == "video":
-        return {"VHS_VideoCombine", "VHS_LoadVideo"}
+        # Wan 2.2 i2v 完整节点链(默认挂加速 LoRA)
+        return {
+            "UNETLoader", "CLIPLoader", "VAELoader", "CLIPTextEncode", "LoadImage",
+            "WanImageToVideo", "ModelSamplingSD3", "KSamplerAdvanced", "VAEDecode",
+            "VHS_VideoCombine", "LoraLoaderModelOnly",
+        }
     if kind == "hunyuan_video":
         return {"DownloadAndLoadHyVideoTextEncoder", "HyVideoModelLoader", "HyVideoVAELoader", "HyVideoI2VEncode", "HyVideoSampler", "HyVideoDecode", "VHS_VideoCombine"}
     if kind == "frame_interpolate":
-        return {"RIFE VFI", "VHS_LoadVideo", "VHS_VideoCombine"}
-    if kind == "ltx_video":
-        # LTX2.3(LTXV 前缀节点)+ VHS 输出 + RIFE 插帧 + 上采样
+        return {"FrameInterpolationModelLoader", "FrameInterpolate", "VHS_LoadVideo", "VHS_VideoCombine"}
+    # LTX2.3 文生视频
+    if kind in ("ltx_video", "ltx_t2v"):
         return {"UNETLoader", "LTXVGemmaCLIPModelLoader", "VAELoader", "CLIPTextEncode",
-                "LTXVConditioning", "EmptyLTXVLatentVideo", "VAEDecode", "VHS_VideoCombine",
-                "RIFE VFI", "ImageUpscaleWithModel", "UpscaleModelLoader"}
+                "LTXVConditioning", "EmptyLTXVLatentVideo", "KSampler", "VAEDecode", "VHS_VideoCombine"}
+    # LTX2.3 图生视频
+    if kind == "ltx_i2v":
+        return {"UNETLoader", "LTXVGemmaCLIPModelLoader", "VAELoader", "CLIPTextEncode",
+                "LoadImage", "LTXVImgToVideo", "KSampler", "VAEDecode", "VHS_VideoCombine"}
     if kind == "ltx_lipsync":
         # LTX2.3 + 口型同步(LTXV 音频驱动节点 + LoadAudio + ID LoRA)
         return {"UNETLoader", "LTXVGemmaCLIPModelLoader", "VAELoader", "CLIPTextEncode",
-                "LTXVImgToVideo", "LTXVAudioVAELoader", "LTXVReferenceAudio", "VAEDecode",
-                "VHS_VideoCombine", "RIFE VFI", "ImageUpscaleWithModel", "UpscaleModelLoader",
-                "LoadAudio", "LoraLoaderModelOnly"}
+                "LoadImage", "LTXVImgToVideo", "LTXVAudioVAELoader", "LTXVReferenceAudio",
+                "LoadAudio", "LoraLoaderModelOnly", "KSampler", "VAEDecode", "VHS_VideoCombine"}
     return set()

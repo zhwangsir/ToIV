@@ -117,8 +117,8 @@ def img2img():
 
 def ltx_txt2video():
     """LTX Video 文生视频(NSFW): 使用 10eros + Gemma 3 12B + ltx_vae。"""
-    n1 = node(1, "UNETLoader", (30, 30), (340, 80), outputs=[output("MODEL", "MODEL")], widgets=["10eros_v12.safetensors", "default"], order=0)
-    n2 = node(2, "LTXVGemmaCLIPModelLoader", (30, 150), (380, 100), outputs=[output("CLIP", "CLIP")], widgets=["gemma_3_12B_it_fp8_scaled.safetensors", "10eros_v12.safetensors", 1024], order=1)
+    n1 = node(1, "UNETLoader", (30, 30), (340, 80), outputs=[output("MODEL", "MODEL")], widgets=["10eros_v14.safetensors", "default"], order=0)
+    n2 = node(2, "LTXVGemmaCLIPModelLoader", (30, 150), (380, 100), outputs=[output("CLIP", "CLIP")], widgets=["gemma3_12b_it/model.safetensors", "10eros_v14.safetensors", 1024], order=1)
     n3 = node(3, "VAELoader", (30, 290), (320, 80), outputs=[output("VAE", "VAE")], widgets=["ltx_vae.safetensors"], order=2)
     n4 = node(4, "CLIPTextEncode", (450, 30), (420, 130), inputs=[input_("clip", "CLIP", 1)], outputs=[output("CONDITIONING", "CONDITIONING")], widgets=["Medium close-up, cinematic lighting, a young woman in a sunlit room, subtle movement, film grain"], order=3)
     n5 = node(5, "CLIPTextEncode", (450, 200), (420, 130), inputs=[input_("clip", "CLIP", 2)], outputs=[output("CONDITIONING", "CONDITIONING")], widgets=["low quality, blurry, distorted anatomy, watermark, text, cartoon, 3d render"], order=4)
@@ -145,8 +145,8 @@ def ltx_txt2video():
 
 def ltx_img2video():
     """LTX Video 图生视频(NSFW): 首帧引导 + 10eros + Gemma 3 12B。"""
-    n1 = node(1, "UNETLoader", (30, 30), (340, 80), outputs=[output("MODEL", "MODEL")], widgets=["10eros_v12.safetensors", "default"], order=0)
-    n2 = node(2, "LTXVGemmaCLIPModelLoader", (30, 150), (380, 100), outputs=[output("CLIP", "CLIP")], widgets=["gemma_3_12B_it_fp8_scaled.safetensors", "10eros_v12.safetensors", 1024], order=1)
+    n1 = node(1, "UNETLoader", (30, 30), (340, 80), outputs=[output("MODEL", "MODEL")], widgets=["10eros_v14.safetensors", "default"], order=0)
+    n2 = node(2, "LTXVGemmaCLIPModelLoader", (30, 150), (380, 100), outputs=[output("CLIP", "CLIP")], widgets=["gemma3_12b_it/model.safetensors", "10eros_v14.safetensors", 1024], order=1)
     n3 = node(3, "VAELoader", (30, 290), (320, 80), outputs=[output("VAE", "VAE")], widgets=["ltx_vae.safetensors"], order=2)
     n4 = node(4, "CLIPTextEncode", (450, 30), (420, 130), inputs=[input_("clip", "CLIP", 1)], outputs=[output("CONDITIONING", "CONDITIONING")], widgets=["Medium close-up, a young woman gently turns her head, soft natural light, subtle smile, film grain"], order=3)
     n5 = node(5, "CLIPTextEncode", (450, 200), (420, 130), inputs=[input_("clip", "CLIP", 2)], outputs=[output("CONDITIONING", "CONDITIONING")], widgets=["low quality, blurry, distorted anatomy, watermark, text, cartoon, 3d render"], order=4)
@@ -175,8 +175,8 @@ def ltx_img2video():
 
 def ltx_lipsync():
     """LTX Video 口型同步(NSFW): 图生视频 + 参考音频驱动。"""
-    n1 = node(1, "UNETLoader", (30, 30), (340, 80), outputs=[output("MODEL", "MODEL")], widgets=["10eros_v12.safetensors", "default"], order=0)
-    n2 = node(2, "LTXVGemmaCLIPModelLoader", (30, 150), (380, 100), outputs=[output("CLIP", "CLIP")], widgets=["gemma_3_12B_it_fp8_scaled.safetensors", "10eros_v12.safetensors", 1024], order=1)
+    n1 = node(1, "UNETLoader", (30, 30), (340, 80), outputs=[output("MODEL", "MODEL")], widgets=["10eros_v14.safetensors", "default"], order=0)
+    n2 = node(2, "LTXVGemmaCLIPModelLoader", (30, 150), (380, 100), outputs=[output("CLIP", "CLIP")], widgets=["gemma3_12b_it/model.safetensors", "10eros_v14.safetensors", 1024], order=1)
     n3 = node(3, "VAELoader", (30, 290), (320, 80), outputs=[output("VAE", "VAE")], widgets=["ltx_vae.safetensors"], order=2)
     n4 = node(4, "CLIPTextEncode", (450, 30), (420, 130), inputs=[input_("clip", "CLIP", 1)], outputs=[output("CONDITIONING", "CONDITIONING")], widgets=["Close-up portrait speaking, natural lip movement, soft studio light, film grain"], order=3)
     n5 = node(5, "CLIPTextEncode", (450, 200), (420, 130), inputs=[input_("clip", "CLIP", 2)], outputs=[output("CONDITIONING", "CONDITIONING")], widgets=["low quality, blurry, distorted face, watermark, text, cartoon"], order=4)

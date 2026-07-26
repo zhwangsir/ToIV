@@ -197,3 +197,66 @@ async def test_wait_for_jobs_raises_on_error(db):
             await tracker.wait_for_jobs(
                 s, ["w1", "w2"], timeout=1.0, poll_interval=0.1
             )
+
+
+async def test_wait_for_jobs_sees_cross_session_commit(db):
+    """回归:wait_for_jobs 在 with Session 内 await,期间另一个 session 把
+    Job 从 queued 改为 done,wait_for_jobs 必须看到这个变化并返回。
+
+    旧实现:Session 在第一次 SELECT 时开启事务,后续 SELECT 在同一事务快照内,
+    看不到其他 session 的 commit → 永远读到旧 status → 超时抛 RuntimeError。
+    修复:每次循环前 commit() 结束当前事务,刷新快照。
+    """
+    with Session(db) as s:
+        s.add(
+            Job(
+                tenant_id="t",
+                user_id="u",
+                prompt_id="cx1",
+                worker="http://w",
+                kind="txt2img",
+                status="queued",
+                prompt="x",
+                seed=1,
+            )
+        )
+        s.commit()
+
+    async def _mark_done_after_delay():
+        await asyncio.sleep(0.3)
+        with Session(db) as s2:
+            tracker.mark_done("cx1", ["/api/images?filename=cx1.png"])
+
+    asyncio.create_task(_mark_done_after_delay())
+
+    with Session(db) as s:
+        result = await tracker.wait_for_jobs(
+            s, ["cx1"], timeout=5.0, poll_interval=0.1
+        )
+    assert result == {"cx1": ["/api/images?filename=cx1.png"]}
+
+
+def test_poll_once_done_with_gifs_field(db):
+    """回归:VHS_VideoCombine 视频产物在 'gifs' 字段(不是 'images'),
+    _poll_once 必须从 gifs 提取 filename。"""
+    hist = {
+        "p1": {
+            "outputs": {
+                "14": {
+                    "gifs": [{
+                        "filename": "ToIV_drama_shot0_00001.mp4",
+                        "subfolder": "",
+                        "type": "output",
+                        "format": "video/h264-mp4",
+                        "frame_rate": 16.0,
+                    }]
+                }
+            },
+            "status": {"completed": True, "status_str": "success"},
+        }
+    }
+    out = asyncio.run(tracker._poll_once(_FakeClient(hist), "p1"))
+    assert out == "done"
+    j = _job(db)
+    assert j.status == "done"
+    assert "ToIV_drama_shot0_00001.mp4" in (j.result or "")

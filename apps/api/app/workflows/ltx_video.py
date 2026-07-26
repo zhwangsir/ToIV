@@ -23,16 +23,37 @@ lipsync 在 i2v 基础上加:LoadAudio + LTXVAudioVAELoader + LTXVReferenceAudio
 """
 from __future__ import annotations
 
+import os
 import secrets
 from dataclasses import dataclass, field
 
 MAX_SEED = 2**63 - 1
 
-# 10Eros NSFW 默认底模(Civitai 工作流推荐)
-DEFAULT_NSFW_UNET = "10eros_v12.safetensors"
+# RIFE 模型文件名:worker 原生节点(detect_rife_config)要求 5 blocks + encode.cnn3 键结构,
+# 原版 rife47/49.pth(hzwer 4 blocks + 2 层 encode)不被识别;使用 Comfy-Org 官方转换版 rife_v4.26.safetensors。
+# 保留环境变量覆盖能力。
+_DEFAULT_RIFE_CKPT = os.environ.get("TOIV_RIFE_CKPT", "rife_v4.26.safetensors")
+
+# 上采样模型(worker upscale_models 目录实测:RealESRGAN_x2plus.pth / 4x-UltraSharp.pth;
+# "nvidia_video_super_resolution" 实为 RTX VSR 节点(nvvfx SDK),并非 safetensors 文件)。
+# worker 另有 ltx-2-spatial-upscaler-x2-1.0(latent 上采样,LTXVLatentUpsampler 链路预留)。
+_DEFAULT_UPSCALE_MODEL = os.environ.get("TOIV_LTX_UPSCALE_MODEL", "RealESRGAN_x2plus.pth")
+
+# 上采样 + RIFE 模型已补齐(RealESRGAN_x2plus / rife47 均已在 worker)。
+# 默认仍关闭以保证基础链路最快;用户可在 UI 高级开关中开启。
+_DEFAULT_USE_UPSCALE = os.environ.get("TOIV_LTX_USE_UPSCALE", "false").lower() == "true"
+_DEFAULT_USE_RIFE = os.environ.get("TOIV_LTX_USE_RIFE", "false").lower() == "true"
+
+# LTX2.3 视频底模:10Eros(NSFW) / zImage Turbo / ltx-2.3-distilled(SFW) 均可通过环境变量切换。
+# 配套 CLIP/VAE 默认按 10Eros 工作流(Gemma 3 12B + ltx_vae);若换用其他底模需自行确认兼容性。
+DEFAULT_NSFW_UNET = os.environ.get("TOIV_LTX_UNET", "10eros_v14.safetensors")
 DEFAULT_LTX_UNET = "ltx-2.3-distilled.safetensors"
-DEFAULT_GEMMA = "gemma_3_12B_it_fp8_scaled.safetensors"
-DEFAULT_VAE = "ltx_vae.safetensors"
+# Gemma 3 12B 文本编码器:ComfyUI-LTXVideo 的 LTXVGemmaCLIPModelLoader 要求 HF 目录结构
+# (model.safetensors + tokenizer.model + config.json + generation_config.json + preprocessor_config.json)。
+# 使用 gemma3_12b_it_bf16/:原 fp8_scaled 权重被 HF 加载器忽略 weight_scale 且键名为 ComfyUI 原生
+# 命名导致文本编码器随机初始化(提示词失效根因),已反量化转 bf16 并重映射为 HF 键名。
+DEFAULT_GEMMA = os.environ.get("TOIV_LTX_GEMMA", "gemma3_12b_it_bf16/model.safetensors")
+DEFAULT_VAE = os.environ.get("TOIV_LTX_VAE", "ltx_vae.safetensors")
 
 
 def _random_seed() -> int:
@@ -58,10 +79,10 @@ class LtxT2VParams:
     scheduler: str = "normal"
     seed: int = field(default_factory=_random_seed)
     # 2 阶段采样:半分辨率生成 + 2× 上采样(v4.0 推荐质量最佳)
-    use_upscale: bool = True
-    upscale_model: str = "nvidia_video_super_resolution.safetensors"
+    use_upscale: bool = _DEFAULT_USE_UPSCALE
+    upscale_model: str = _DEFAULT_UPSCALE_MODEL
     # RIFE 插帧(v4.0 新增,平滑画面)
-    use_rife: bool = True
+    use_rife: bool = _DEFAULT_USE_RIFE
     filename_prefix: str = "ToIV_nsfw_vid"
 
 
@@ -84,9 +105,9 @@ class LtxI2VParams:
     sampler: str = "euler"
     scheduler: str = "normal"
     seed: int = field(default_factory=_random_seed)
-    use_upscale: bool = True
-    upscale_model: str = "nvidia_video_super_resolution.safetensors"
-    use_rife: bool = True
+    use_upscale: bool = _DEFAULT_USE_UPSCALE
+    upscale_model: str = _DEFAULT_UPSCALE_MODEL
+    use_rife: bool = _DEFAULT_USE_RIFE
     filename_prefix: str = "ToIV_nsfw_vid"
 
 
@@ -113,9 +134,9 @@ class LtxLipsyncParams:
     sampler: str = "euler"
     scheduler: str = "normal"
     seed: int = field(default_factory=_random_seed)
-    use_upscale: bool = True
-    upscale_model: str = "nvidia_video_super_resolution.safetensors"
-    use_rife: bool = True
+    use_upscale: bool = _DEFAULT_USE_UPSCALE
+    upscale_model: str = _DEFAULT_UPSCALE_MODEL
+    use_rife: bool = _DEFAULT_USE_RIFE
     filename_prefix: str = "ToIV_nsfw_lipsync"
 
 
@@ -146,21 +167,18 @@ def _append_postprocess(g: dict, p: LtxT2VParams, vae_decode_id: str) -> str:
             "inputs": {"upscale_model": ["22", 0], "image": images_src},
         }
         images_src = ["20", 0]
-    # RIFE 插帧(平滑画面,v4.0 新增)
+    # RIFE 插帧(平滑画面,v4.0 新增;worker 节点为 FrameInterpolationModelLoader+FrameInterpolate)
     if p.use_rife:
+        g["23"] = {
+            "class_type": "FrameInterpolationModelLoader",
+            "inputs": {"model_name": _DEFAULT_RIFE_CKPT},
+        }
         g["21"] = {
-            "class_type": "RIFE VFI",
+            "class_type": "FrameInterpolate",
             "inputs": {
-                "frames": images_src,
+                "interp_model": ["23", 0],
+                "images": images_src,
                 "multiplier": 2,
-                "ckpt_name": "rife49.pth",
-                "clear_cache_after_n_frames": 10,
-                "fast_mode": True,
-                "ensemble": True,
-                "scale_factor": 1.0,
-                "dtype": "float32",
-                "torch_compile": False,
-                "batch_size": 1,
             },
         }
         images_src = ["21", 0]

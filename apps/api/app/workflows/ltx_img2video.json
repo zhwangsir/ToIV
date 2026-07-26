@@ -30,7 +30,7 @@
         "Node name for S&R": "UNETLoader"
       },
       "widgets_values": [
-        "10eros_v12.safetensors",
+        "10eros_v14.safetensors",
         "default"
       ]
     },
@@ -62,8 +62,8 @@
         "Node name for S&R": "LTXVGemmaCLIPModelLoader"
       },
       "widgets_values": [
-        "gemma_3_12B_it_fp8_scaled.safetensors",
-        "10eros_v12.safetensors",
+        "gemma3_12b_it/model.safetensors",
+        "10eros_v14.safetensors",
         1024
       ]
     },

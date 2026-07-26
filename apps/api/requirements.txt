@@ -122,3 +122,10 @@ websockets==16.0
     # via
     #   toiv-api
     #   uvicorn
+
+# —— 可选依赖:译制听写(ASR) ——
+# faster-whisper 惰性导入(dub_text.py/voice_agent.py),不装只影响听写功能,不阻塞主流程。
+# requests 是 faster-whisper 1.1.1 utils.py 的隐式依赖(未声明)。
+# 注意:这部分不在 uv export 自动生成范围,手动维护。下次 uv export --extra transcription 可合并。
+faster-whisper==1.1.1
+requests>=2.31

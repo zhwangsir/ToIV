@@ -181,3 +181,192 @@ class Agent(SQLModel, table=True):
     sort: int = 100
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)
+
+
+# ---------------------------------------------------------------------------
+# 无限画布(M1 · 2026-07-19)—— 节点工作流 + Agent + 语音四层合并的载体
+#
+# Canvas 1—N CanvasNode / CanvasEdge,归属 User + Tenant(多租户隔离)。
+# 节点统一 10 种 kind:text/prompt/image/video/audio/model3d/llm/comfy_workflow/tts/asr
+# payload 存 JSON 串(按 kind 不同结构不同),status 跟踪执行态供前端实时渲染。
+# 节点位置(position_x/y)由前端 @xyflow/react 拖动后回写,后端只存不解释。
+# ---------------------------------------------------------------------------
+
+
+class Canvas(SQLModel, table=True):
+    """一张无限画布:用户的创作工作区,含节点拓扑与版本历史。"""
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    tenant_id: str = Field(index=True)
+    user_id: str = Field(index=True)
+    name: str = "未命名画布"
+    # 当前画布的语音 Agent 是否激活(激活后麦克风输入直达 Agent,TTS 流式回播)
+    voice_active: bool = False
+    # 默认参考音频 URL(画布级音色克隆兜底,空=用 TTS 服务默认音色)
+    default_ref_audio: str = ""
+    created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
+
+
+class CanvasNode(SQLModel, table=True):
+    """画布上的一个节点:可以是输入(文本/提示词)、产物(图/视频/音/3D)、
+    能力节点(LLM/TTS/ASR/ComfyUI 工作流)。前端 @xyflow/react 渲染。"""
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    canvas_id: str = Field(foreign_key="canvas.id", index=True)
+    # kind 决定 payload 结构和前端渲染组件:
+    #   text: {text: str}              — 纯文本笔记
+    #   prompt: {text: str, negative?} — 提示词输入节点
+    #   image: {urls: [str]}           — 图片产物
+    #   video: {urls: [str]}           — 视频产物
+    #   audio: {urls: [str]}           — 音频产物
+    #   model3d: {urls: [str]}         — 3D 模型产物
+    #   llm: {text: str, response?: str} — LLM 对话节点
+    #   comfy_workflow: {graph: dict, summary?: str} — ComfyUI 工作流
+    #   tts: {text: str, ref_audio?: str, url?: str} — TTS 合成节点
+    #   asr: {audio_url?: str, text?: str} — ASR 听写节点
+    kind: str = "text"
+    title: str = ""  # 节点标题(前端节点卡片顶部显示)
+    # 画布坐标(@xyflow/react 的 position,后端只存不解释)
+    position_x: float = 0.0
+    position_y: float = 0.0
+    width: Optional[int] = Field(default=None)  # 前端节点尺寸(空=用 kind 默认)
+    height: Optional[int] = Field(default=None)
+    # payload:JSON 串,按 kind 不同结构不同(见上方注释)
+    payload: str = "{}"
+    # 执行态:idle(待命)/ running(执行中)/ done(完成)/ error(失败)
+    status: str = "idle"
+    # 错误信息(status=error 时填)
+    error: str = ""
+    # 版本树:父节点 id 列表(JSON 数组,空=无父,用于迭代精修)
+    parent_ids: str = "[]"
+    created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
+
+
+class CanvasEdge(SQLModel, table=True):
+    """画布节点间的连线(@xyflow/react Edge 的持久化)。"""
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    canvas_id: str = Field(foreign_key="canvas.id", index=True)
+    source: str = Field(index=True)  # 源节点 id
+    target: str = Field(index=True)  # 目标节点 id
+    # source_handle / target_handle:@xyflow/react 多端口节点的端口 id(空=默认端口)
+    source_handle: str = ""
+    target_handle: str = ""
+    label: str = ""  # 边标签(可选,如 "prompt" / "image" / "audio")
+
+
+# ---------------------------------------------------------------------------
+# 短剧播放分析(Drama Analytics)
+# ---------------------------------------------------------------------------
+
+class DramaSession(SQLModel, table=True):
+    """一次短剧播放会话。"""
+
+    session_id: str = Field(primary_key=True)
+    user_id: str = Field(index=True)
+    drama_id: str = Field(index=True)
+    video_url: str
+    device_ua: str = ""
+    device_screen: str = ""
+    device_lang: str = ""
+    device_platform: str = ""
+    started_at: datetime = Field(default_factory=_now)
+    ended_at: datetime | None = Field(default=None)
+    duration_sec: float | None = Field(default=None)
+    is_completed: bool = False
+    drop_off_at: float | None = Field(default=None)
+
+
+class DramaEvent(SQLModel, table=True):
+    """短剧播放埋点事件。"""
+
+    id: int | None = Field(default=None, primary_key=True)
+    event_id: str = Field(index=True, unique=True)
+    session_id: str = Field(foreign_key="dramasession.session_id", index=True)
+    user_id: str = Field(index=True)
+    drama_id: str = Field(index=True)
+    event_type: str = Field(index=True)
+    current_time: float | None = Field(default=None)
+    duration: float | None = Field(default=None)
+    payload: str = ""  # JSON string
+    client_ts: int
+    server_ts: datetime = Field(default_factory=_now)
+
+
+# ---------------------------------------------------------------------------
+# AI 短剧工作室(Drama Studio)—— 剧本→分镜→视频→配音→成片 一站式管线
+# P0 核心:剧本 LLM 拆解 + 角色库 + 分镜级流水线状态机 + ffmpeg 一键合成
+# ---------------------------------------------------------------------------
+
+
+class DramaProject(SQLModel, table=True):
+    """短剧项目:一个完整的短剧工程,含剧本、角色库、分镜列表。"""
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    tenant_id: str = Field(index=True)
+    user_id: str = Field(index=True)
+    title: str
+    premise: str = ""  # 故事概要/一句话题材
+    style: str = ""  # 画风/风格描述
+    script: str = ""  # 完整剧本文本
+    status: str = "draft"  # draft|storyboard|generating|ready
+    video_url: str = ""  # 最终成片 URL
+    duration_sec: float = 0
+    width: int = 768
+    height: int = 384
+    fps: int = 16
+    # M4: 创作过程数据(JSON 时间线,对标 LibTV"查看制作过程")
+    process_data: str = "[]"
+    created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
+
+
+class DramaCharacter(SQLModel, table=True):
+    """角色卡:名称 + 视觉提示词 + 参考图 + 参考音,用于跨镜头一致性。"""
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    project_id: str = Field(foreign_key="dramaproject.id", index=True)
+    name: str
+    description: str = ""  # 角色描述(中文)
+    visual_prompt: str = ""  # 视觉提示词 token(英文,注入到镜头 prompt)
+    ref_image: str = ""  # 参考图 URL
+    ref_audio: str = ""  # 参考音频 URL(TTS 音色克隆)
+    voice_name: str = ""  # TTS 音色名
+    # M1: 角色三视图(正面/侧面/背面),锁定主体一致性,对标 LibTV
+    reference_front: str = ""
+    reference_side: str = ""
+    reference_back: str = ""
+    created_at: datetime = Field(default_factory=_now)
+
+
+class DramaShot(SQLModel, table=True):
+    """分镜:流水线最小单元,跟踪视频→配音→合成全链路状态。"""
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    project_id: str = Field(foreign_key="dramaproject.id", index=True)
+    idx: int  # 分镜序号(0-based)
+    scene: str = ""  # 场景描述(中文)
+    prompt: str = ""  # 英文视频生成提示词
+    negative: str = "blurry, low quality, text, watermark, deformed"
+    characters: str = "[]"  # JSON: 角色名列表
+    dialogue: str = ""  # 中文台词
+    speaker: str = ""  # 说话人(角色名/narrator)
+    duration_sec: int = 6
+    start_sec: float = 0  # 在成片中的起始时间
+    # M2: 宫格分镜图(9/25 宫格一次性生成的构图参考图 URL)
+    grid_image: str = ""
+    # M3: 空间构图布局(JSON: {characters:[{name,x,y}], props:[], camera:{angle,zoom}})
+    scene_layout: str = ""
+    # M6: 视频生成模型(ltx / seedance / kling,空=ltx 默认)
+    video_model: str = ""
+    # 流水线状态
+    video_status: str = "pending"  # pending|generating|done|error
+    video_url: str = ""
+    voice_status: str = "pending"  # pending|generating|done|error
+    voice_url: str = ""
+    seed: int = 0
+    error: str = ""
+    created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
