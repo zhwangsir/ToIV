@@ -34,14 +34,18 @@ getf () {   # $1=repo  $2=file_in_repo  $3=dest_subdir
 # ── A 期核心:补 Qwen 编码器 + FLUX.2 dev(天花板)UNET+编码器 ──────────────
 download_core () {
   echo "==================== A 期核心 ===================="
-  # ① Qwen-Image 文本编码器(worker 有 UNET+VAE,仅缺此件;图已实测结构正确)
-  getf Comfy-Org/Qwen-Image_ComfyUI  split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors  text_encoders
+  # ① Qwen-Image 文本编码器说明(2026-07-25 更新):
+#    Qwen-Image 1.0 (2025-08) → qwen_2.5_vl_7b_fp8_scaled.safetensors (当前 worker 已存在)
+#    Qwen-Image 2.0 (2026-02) → 升级为 Qwen3-VL 编码器,Comfy-Org 尚未发布量化包
+#    Qwen-Image 3.0 (2026-07-21) → 刚发布预览,权重未开源
+#    当前无需额外下载;待 Comfy-Org 更新 Qwen-Image 2.0 量化包后同步更新下载命令。
+  echo ">>> [信息] Qwen-Image 1.0 文本编码器 qwen_2.5_vl_7b_fp8_scaled 已在 worker;2.0 编码器待 Comfy-Org 发布"
 
   # ② FLUX.2 [dev](画质天花板;96GB 卡跑 fp8mixed ~35GB 很舒服)。flux2-vae 已在 worker。
   #    dev 用 Mistral-3-small 编码器(Klein 才用 qwen_3_4b);gemma 是错的。
-  #    ⚠️ 下面 repo/文件名以 Comfy-Org/flux2-dev 实际为准,若名不符按该 repo 页面校正:
+  #    模型档案(model_profiles.py)期望的本地文件名为 mistral_3_small_flux2_fp8.safetensors(无 _scaled)。
   getf Comfy-Org/flux2-dev  split_files/diffusion_models/flux2_dev_fp8mixed.safetensors        diffusion_models
-  getf Comfy-Org/flux2-dev  split_files/text_encoders/mistral_3_small_flux2_fp8_scaled.safetensors  text_encoders
+  getf Comfy-Org/flux2-dev  split_files/text_encoders/mistral_3_small_flux2_fp8.safetensors  text_encoders
 
   echo "core 完成。装好后告诉我:我把 nextgen 的 flux2 dev 权重名对齐 worker 实际枚举 +"
   echo "  worker smoke 确认 dev 出图 → 再把 config default_ckpt 从 z_image 切到 flux2 dev。"

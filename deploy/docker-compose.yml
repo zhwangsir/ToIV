@@ -7,14 +7,23 @@ services:
     build:
       context: ../apps/api
     environment:
-      # 4卡 PRO6000(8000/8002/8003/8004)+ PC01 5090(Tailscale 8188);可在 deploy/.env 覆盖
-      TOIV_COMFY_WORKERS: "${TOIV_COMFY_WORKERS:-http://192.168.71.100:8000,http://192.168.71.100:8002,http://192.168.71.100:8003,http://192.168.71.100:8004,http://100.82.102.43:8188}"
+      # ComfyUI 直连 5 后端(2026-07-27 更新):绕过 LB 8188(其 /object_info 轮询路由故障)。
+      # workstation 3×ComfyUI(8189-8191,GPU3 :8192 已让给 Nemotron LLM) + pc01(192.168.71.115:8188) + pc02(192.168.71.114:8193)。
+      # worker_urls 解析支持逗号+空格分隔(2026-07-24 E2E 修复)。
+      TOIV_COMFY_WORKERS: "${TOIV_COMFY_WORKERS:-http://192.168.71.127:8189,http://192.168.71.127:8190,http://192.168.71.127:8191,http://192.168.71.115:8188,http://192.168.71.114:8193}"
       TOIV_DATABASE_URL: "sqlite:////data/toiv.db"
-      # AI 智能体大脑:spark01 vLLM @ :30000,qwen3.6-35b-a3b(AWQ,reasoning-parser qwen3 + tool-call-parser qwen3_xml)
-      TOIV_LLM_BASE_URL: "${TOIV_LLM_BASE_URL:-http://100.81.235.124:30000/v1}"
-      TOIV_LLM_MODEL: "${TOIV_LLM_MODEL:-qwen3.6-35b-a3b}"
-      # 向量 RAG 嵌入:仍走 Pro6000 机(.100)LM Studio @ :1234(vLLM 未开 embeddings 接口)
-      TOIV_EMBED_BASE_URL: "${TOIV_EMBED_BASE_URL:-http://192.168.71.100:1234/v1}"
+      # AI 大脑(默认):workstation sglang qwen3.6-uncensored(host 网络 :8000,4卡 TP,131K ctx)
+      TOIV_LLM_BASE_URL: "${TOIV_LLM_BASE_URL:-http://192.168.71.127:8000/v1}"
+      TOIV_LLM_MODEL: "${TOIV_LLM_MODEL:-qwen3.6-uncensored}"
+      # NSFW 模式专用 LLM(X-NSFW: 1 时启用):spark01 vLLM euryale-70b(LAN 可达,uncensored)
+      TOIV_LLM_NSFW_BASE_URL: "${TOIV_LLM_NSFW_BASE_URL:-http://192.168.71.82:8000/v1}"
+      TOIV_LLM_NSFW_MODEL: "${TOIV_LLM_NSFW_MODEL:-euryale-70b}"
+      # TTS 服务:workstation 本地 9200(IndexTTS2 完整版,2026-07-27 上线,声音克隆,/tts multipart 契约)
+      TOIV_TTS_URL: "${TOIV_TTS_URL:-http://192.168.71.127:9200}"
+      TOIV_TTS_MULTILINGUAL_URL: "${TOIV_TTS_MULTILINGUAL_URL:-http://192.168.71.127:9200}"
+      # 向量 RAG 嵌入:nomic-embed。原 .100:1234 LM Studio 已过期(IP 变 .127);LM Studio 是否在 workstation 运行待确认,
+      # 未确认前可在 deploy/.env 覆盖为可用端点;RAG 无 embed 会降级但不阻塞主链路。
+      TOIV_EMBED_BASE_URL: "${TOIV_EMBED_BASE_URL:-http://192.168.71.127:1234/v1}"
       TOIV_EMBED_MODEL: "${TOIV_EMBED_MODEL:-text-embedding-nomic-embed-text-v1.5}"
       TOIV_JWT_SECRET: "${TOIV_JWT_SECRET:?set TOIV_JWT_SECRET in deploy/.env}"
       TOIV_ADMIN_EMAIL: "${TOIV_ADMIN_EMAIL:-admin}"
@@ -30,9 +39,31 @@ services:
       TOIV_NAS_PASSWORD: "${TOIV_NAS_PASSWORD:-}"
       # 生成内容根:默认 /data(本地卷);设 /data/nas/toiv 则落 NAS(cifs 卷挂在 /data/nas)
       TOIV_CONTENT_DIR: "${TOIV_CONTENT_DIR:-/data}"
+      # LTX VAE 文件名覆盖:workstation ComfyUI 实际部署的 VAE 为 LTX23_video_vae_bf16.safetensors,
+      # 而非代码默认的 ltx_vae.safetensors;不覆盖会让 worker 路由误判缺 VAE → /generate-video 503
+      # TOIV_LTX_VAE:ltx_video.py 的 DEFAULT_VAE 读取(驱动 required_models 校验)
+      # TOIV_NSFW_DEFAULT_VAE:config.py 的 Settings.nsfw_default_vae 字段读取(驱动实际工作流下发)
+      # 两者必须同时设置,否则校验通过但 ComfyUI 运行时报 VAE not found
+      TOIV_LTX_VAE: "${TOIV_LTX_VAE:-LTX23_video_vae_bf16.safetensors}"
+      TOIV_NSFW_DEFAULT_VAE: "${TOIV_NSFW_DEFAULT_VAE:-LTX23_video_vae_bf16.safetensors}"
+      # AICG 四层模型流水线 L2/L3（2026-07-24 接入）:Mac Studio EXO RDMA 集群
+      # L2 主力润色:Kimi-K2.7-Code-4bit,6.6s/句,timeout 120s
+      TOIV_LLM_L2_BASE_URL: "${TOIV_LLM_L2_BASE_URL:-http://192.168.71.109:52415/v1}"
+      TOIV_LLM_L2_MODEL: "${TOIV_LLM_L2_MODEL:-mlx-community/Kimi-K2.7-Code-4bit}"
+      # L3 终稿精修:GLM-5.2-fp8,关 thinking 3.4s/句(开 thinking 50s),timeout 300s(EXO 顶层 enable_thinking=false)
+      TOIV_LLM_L3_BASE_URL: "${TOIV_LLM_L3_BASE_URL:-http://192.168.71.109:52415/v1}"
+      TOIV_LLM_L3_MODEL: "${TOIV_LLM_L3_MODEL:-mlx-community/GLM-5.2-fp8}"
+      # VLM 视频质量评估(2026-07-27):workstation Nemotron-3-Nano-Omni 全模态,OpenAI 兼容 API
+      # 启用后:视频作业 done 前异步调 VLM 评估,低分推 SSE quality_warning;失败/超时/全 0 一律降级不阻塞
+      TOIV_VLM_SERVER_URL: "${TOIV_VLM_SERVER_URL:-http://192.168.71.127:8000}"
+      TOIV_VLM_MODEL_ID: "${TOIV_VLM_MODEL_ID:-qwen3.6-uncensored}"
+      TOIV_VIDEO_SCORER_ENABLED: "${TOIV_VIDEO_SCORER_ENABLED:-true}"
+      TOIV_VIDEO_SCORER_THRESHOLD: "${TOIV_VIDEO_SCORER_THRESHOLD:-0.65}"
     volumes:
       - toiv-data:/data
-      - toiv-nas:/data/nas  # NAS cifs 卷(生成内容集中存储);DB/模型仍在本地卷
+      # - toiv-nas:/data/nas  # 已禁用
+      # 短剧成片挂载:PLAYER-M9 播放器通过 /app/drama/output/final 代理 MP4
+      - /home/merlin/toiv/drama/output/final:/app/drama/output/final:ro
     ports:
       - "8090:8080"
     restart: unless-stopped
@@ -57,6 +88,9 @@ services:
       context: ../apps/web
       args:
         NEXT_PUBLIC_API_BASE: "${NEXT_PUBLIC_API_BASE:-}"
+    environment:
+      # Next.js /api rewrite 在服务端运行时用此地址找 api 容器(容器网络内通信)
+      INTERNAL_API_BASE: "http://api:8080"
     ports:
       - "3100:3100"
     depends_on:
@@ -65,7 +99,7 @@ services:
     # 健康检查:web 是 Next.js standalone(node:22-alpine),监听 3100。alpine 自带 BusyBox wget,用 --spider 探活根路径。
     # 未单独加 /health 路由:改 Next.js 路由超出本轮范围,根路径 200 足够做存活探针。
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3100/"]
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3100/',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -81,9 +115,4 @@ volumes:
   toiv-data:
   # NAS 生成内容:cifs 挂载绿联 DXP8800 的 NAS 共享(凭据走 deploy/.env)。docker daemon 管理挂载,
   # 免宿主 sudo;同 LAN 千兆,速度可。未配 TOIV_NAS_* 时该卷创建会失败 → 仅在启用 NAS 时挂。
-  toiv-nas:
-    driver: local
-    driver_opts:
-      type: cifs
-      device: "//${TOIV_NAS_HOST}/NAS"
-      o: "username=${TOIV_NAS_USER},password=${TOIV_NAS_PASSWORD},uid=1000,gid=1000,vers=3.0,file_mode=0664,dir_mode=0775"
+  # toiv-nas: 已禁用(NAS 通过 ComfyUI 符号链接访问)

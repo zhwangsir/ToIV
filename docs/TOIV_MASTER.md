@@ -195,7 +195,7 @@ $NAS_ROOT/
 | 模型 | 用途 | 来源（HF repo / 文件） | 授权 | 放置 |
 |---|---|---|---|---|
 | **FLUX.2 [dev]** | 综合画质+提示词遵循天花板；产品图/写实/设计 | `Comfy-Org/flux2-dev`（ComfyUI 量化版）或 `black-forest-labs/FLUX.2-dev`（原版，需在页面接受协议） | ⚠️ 禁售出图（除非买 BFL 商用授权） | diffusion_models |
-| **Qwen-Image** | 文字/中文渲染最强；**可商用**，建议做商用默认 | `Qwen/Qwen-Image`（官方）+ ComfyUI 文件：`qwen_image_fp8_e4m3fn` / `qwen_2.5_vl_7b_fp8_scaled` / `qwen_image_vae` | ✅ Apache 2.0 | diffusion_models / text_encoders / vae |
+| **Qwen-Image** | 文字/中文渲染最强；**可商用**，建议做商用默认 | `Qwen/Qwen-Image`（官方 v1.0）+ ComfyUI 文件：`qwen_image_fp8_e4m3fn` / `qwen_2.5_vl_7b_fp8_scaled`（v1.0 编码器，worker 已存在）/ `qwen_image_vae` | ✅ Apache 2.0 | diffusion_models / text_encoders / vae |
 | **Z-Image Turbo** | 6B，8 步极速出图；批量/预览首选 | `Comfy-Org/z_image_turbo`（`split_files/diffusion_models/z_image_turbo_bf16` + `text_encoders/qwen_3_4b`） | ✅ Apache 2.0 | diffusion_models / text_encoders |
 
 > Flux.2 与 Z-Image **共用** Flux 的 `ae.safetensors` VAE。三者都吃自然语言长句，**忌堆质量标签**；CFG≈1（详见 §10）。
@@ -244,7 +244,7 @@ $NAS_ROOT/
 ## §6 · 必备组件
 
 **VAE**：Flux `ae.safetensors`（Flux.2/Z-Image 共用）、`qwen_image_vae`、SDXL `sdxl_vae`（fp16-fix）、`wan_2.1_vae`（你已有）。
-**文本编码器**：`t5xxl_fp16`(+`clip_l`) 给 Flux.1/SD3.5；`qwen_2.5_vl_7b_fp8_scaled` 给 Qwen-Image；`qwen_3_4b` 给 Z-Image；`umt5_xxl` 给 Wan。
+**文本编码器**：`t5xxl_fp16`(+`clip_l`) 给 Flux.1/SD3.5；`qwen_2.5_vl_7b_fp8_scaled` 给 Qwen-Image 1.0（worker 已存在；v2.0 升级 Qwen3-VL 待 Comfy-Org 量化包）；`qwen_3_4b` 给 Z-Image/FLUX.2 Klein；`mistral_3_small_flux2_fp8` 给 FLUX.2 dev；`umt5_xxl` 给 Wan。
 **ControlNet**：SDXL **union**（xinsir/promax，一个顶多个）+ Illustrious/NoobAI 专用 controlnet + Flux controlnet（canny/depth/union）。**SD1.5 的 control_v11 全部退役。**
 **放大**：`4x-UltraSharp`、`4x-NMKD-Siax`（你已有）、`RealESRGAN_x4plus`、`4x-Remacri`；再加 **SUPIR**（AI 修复式超分，出细节最猛，吃显存但你显存够）。
 **IPAdapter**：SDXL `ip-adapter-plus-face_sdxl_vit-h` + `CLIP-ViT-H` / `bigG`（你已有）；Flux 若用角色一致性可加 `XLabs-AI/flux-ip-adapter`。
