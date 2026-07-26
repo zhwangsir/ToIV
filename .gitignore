@@ -66,3 +66,7 @@ drama/
 # 根目录调试预览/脚本(一次性,不入仓)
 preview-*.html
 test_llm_real.py
+test_parse.py
+# 设备说明.md:core 监控中心维护分发到各项目的集群拓扑副本,非 ToIV 源码
+# (记忆已存设备清单;AGENTS.md 引用本地路径,clone 者按 core 分发获取)
+设备说明.md
