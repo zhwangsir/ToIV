@@ -4,28 +4,38 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { LandingPage } from "@/components/landing/LandingPage";
-import { Sidebar, type SidebarView } from "@/components/nav/Sidebar";
+import { DynamicIsland, type DynamicIslandView } from "@/components/nav/DynamicIsland";
 import { Topbar } from "@/components/nav/Topbar";
+import { BottomNav, type BottomNavItem } from "@/components/nav/BottomNav";
+import { ModeSwitcher } from "@/components/ui/ModeSwitcher";
 import { AssistantView } from "@/components/assistant/AssistantView";
 import { CreateView } from "@/components/create/CreateView";
+import { VideoView } from "@/components/create/VideoView";
 import { CanvasView } from "@/components/canvas/CanvasView";
 import { ManjuView } from "@/components/manju/ManjuView";
+import { DramaStudioView } from "@/components/drama-studio/DramaStudioView";
 import { DubView } from "@/components/dub/DubView";
 import { TrainView } from "@/components/train/TrainView";
 import { LibraryView } from "@/components/library/LibraryView";
 import { BacklotView } from "@/components/backlot/BacklotView";
 import { ModelsView } from "@/components/models/ModelsView";
 import { AdminView } from "@/components/admin/AdminView";
+import { AvatarTalkView } from "@/components/avatartalk/AvatarTalkView";
 import { fetchMe, getToken, setToken, testLogin } from "@/lib/api";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { Icon } from "@/components/ui/Icon";
 
 type AuthState = "loading" | "in" | "out";
+type AppMode = "canvas" | "studio";
 
 type View =
   | "assistant"
+  | "avatartalk"
   | "create"
+  | "video"
   | "canvas"
   | "manju"
+  | "dramaStudio"
   | "dub"
   | "train"
   | "library"
@@ -35,9 +45,12 @@ type View =
 
 const VALID_VIEWS = new Set<View>([
   "assistant",
+  "avatartalk",
   "create",
+  "video",
   "canvas",
   "manju",
+  "dramaStudio",
   "dub",
   "train",
   "library",
@@ -46,42 +59,59 @@ const VALID_VIEWS = new Set<View>([
   "admin",
 ]);
 
-// 视图元信息:label / breadcrumb / subtitle / group
-const VIEW_META: Record<View, { label: string; breadcrumb: string[]; subtitle: string; group: SidebarView["group"] }> = {
-  assistant: { label: "AI 助手", breadcrumb: ["对话流"], subtitle: "对话式 AI 创作", group: "dialog" },
-  create:    { label: "创作",    breadcrumb: ["工具", "创作"], subtitle: "图像 / 视频生成", group: "tool" },
-  canvas:    { label: "ComfyUI", breadcrumb: ["工具", "ComfyUI"], subtitle: "节点工作流", group: "tool" },
-  manju:     { label: "漫剧",    breadcrumb: ["工具", "漫剧"], subtitle: "分镜 / 合成", group: "tool" },
-  dub:       { label: "译制",    breadcrumb: ["工具", "译制"], subtitle: "配音 / 口型同步", group: "tool" },
-  train:     { label: "训练",    breadcrumb: ["工具", "训练"], subtitle: "LoRA 训练", group: "tool" },
-  library:   { label: "作品库",  breadcrumb: ["资产", "作品库"], subtitle: "历史作品", group: "asset" },
-  backlot:   { label: "看板",    breadcrumb: ["资产", "看板"], subtitle: "项目仪表盘", group: "asset" },
-  models:    { label: "模型",    breadcrumb: ["资产", "模型"], subtitle: "模型库 + 市场", group: "asset" },
-  admin:     { label: "管理",    breadcrumb: ["资产", "管理"], subtitle: "用户管理", group: "asset" },
+const VIEW_META: Record<View, { label: string }> = {
+  assistant: { label: "AI 助手" },
+  avatartalk: { label: "数字人" },
+  create:    { label: "创作" },
+  video:     { label: "视频" },
+  canvas:    { label: "画布" },
+  manju:     { label: "漫剧" },
+  dramaStudio: { label: "短剧" },
+  dub:       { label: "译制" },
+  train:     { label: "训练" },
+  library:   { label: "作品库" },
+  backlot:   { label: "看板" },
+  models:    { label: "模型" },
+  admin:     { label: "管理" },
 };
 
-// 侧栏图标映射
-const VIEW_ICONS: Record<View, SidebarView["icon"]> = {
-  assistant: "chat",
-  create: "create",
-  canvas: "canvas",
-  manju: "manju",
-  dub: "dub",
-  train: "train",
-  library: "library",
-  backlot: "backlot",
-  models: "models",
-  admin: "admin",
-};
+const BOTTOM_NAV_ITEMS: BottomNavItem[] = [
+  { key: "assistant", label: "对话", icon: "chat" },
+  { key: "create", label: "创作", icon: "sparkles" },
+  { key: "dramaStudio", label: "新建", icon: "plus", isCta: true },
+  { key: "library", label: "作品", icon: "library" },
+  { key: "canvas", label: "画布", icon: "workflow" },
+];
 
 export const dynamic = "force-dynamic";
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      const isPortraitMobile = width < 768;
+      const isLandscapeMobile = width < 900 && height < 500;
+      setIsMobile(isPortraitMobile || isLandscapeMobile);
+    };
+    check();
+    window.addEventListener("resize", check);
+    window.addEventListener("orientationchange", check);
+    return () => {
+      window.removeEventListener("resize", check);
+      window.removeEventListener("orientationchange", check);
+    };
+  }, []);
+  return isMobile;
+}
 
 export default function Home() {
   return (
     <Suspense
       fallback={
         <div className="splash">
-          <div className="hero-orb" aria-hidden="true" />
+          <div className="splash-orb" aria-hidden="true" />
         </div>
       }
     >
@@ -93,13 +123,15 @@ export default function Home() {
 function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const isMobile = useIsMobile();
   const [auth, setAuth] = useState<AuthState>("loading");
   const [account, setAccount] = useState<string | null>(null);
   const [view, setView] = useState<View>(() => {
     const v = searchParams.get("view");
     return v && VALID_VIEWS.has(v as View) ? (v as View) : "assistant";
   });
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [rightPanelOpen, setRightPanelOpen] = useState(false);
+  const [appMode, setAppMode] = useState<AppMode>("canvas");
 
   useEffect(() => {
     const v = searchParams.get("view");
@@ -136,8 +168,6 @@ function HomeContent() {
           setAuth("in");
         })
         .catch((err: unknown) => {
-          // fetchMe 抛 "会话已过期" 时视为 401 → 清 token 登出;
-          // 其他错误(网络抖动 / 5xx / 超时)保留 token,避免用户被踢出
           const msg = err instanceof Error ? err.message : String(err);
           const isAuth = msg.includes("会话已过期") || msg.includes("401");
           if (isAuth) {
@@ -163,24 +193,31 @@ function HomeContent() {
   );
 
   const isAdmin = account === "admin";
-  const views: SidebarView[] = useMemo(() => {
-    const allViews = (Object.keys(VIEW_META) as View[]).filter(
-      (v) => v !== "admin" || isAdmin,
-    );
-    return allViews.map((v) => ({
-      key: v,
-      label: VIEW_META[v].label,
-      icon: VIEW_ICONS[v],
-      group: VIEW_META[v].group,
-    }));
+
+  const diViews: DynamicIslandView[] = useMemo(() => {
+    return [
+      { key: "assistant", label: "AI 助手", icon: "chat", group: "main" },
+      { key: "avatartalk", label: "数字人", icon: "user", group: "main" },
+      { key: "canvas", label: "画布", icon: "canvas", group: "main" },
+      { key: "create", label: "图像创作", icon: "create", group: "tools" },
+      { key: "video", label: "视频生成", icon: "video", group: "tools" },
+      { key: "manju", label: "漫剧", icon: "manju", group: "tools" },
+      { key: "dramaStudio", label: "短剧工作室", icon: "drama", group: "tools" },
+      { key: "dub", label: "译制配音", icon: "dub", group: "tools" },
+      { key: "library", label: "作品库", icon: "library", group: "resources" },
+      { key: "models", label: "模型库", icon: "models", group: "resources" },
+      ...(isAdmin ? [{ key: "admin", label: "管理", icon: "admin" as const, group: "resources" as const }] : []),
+    ];
   }, [isAdmin]);
 
   const meta = VIEW_META[view];
+  const showRightPanelToggle = view === "canvas" || view === "create" || view === "video";
+  const showModeSwitcher = view === "canvas" || view === "dramaStudio";
 
   if (auth === "loading") {
     return (
       <div className="splash">
-        <div className="hero-orb" aria-hidden="true" />
+        <div className="splash-orb" aria-hidden="true" />
       </div>
     );
   }
@@ -189,36 +226,85 @@ function HomeContent() {
     return <LandingPage />;
   }
 
+  if (view === "dramaStudio" && !isMobile) {
+    return (
+      <DramaStudioView
+        account={account ?? undefined}
+        onLogout={onLogout}
+        onNavigate={(next) => changeView(next as View)}
+      />
+    );
+  }
+
+  if (view === "avatartalk") {
+    return (
+      <div className="app-shell avatartalk-shell">
+        <DynamicIsland
+          views={diViews}
+          current={view}
+          onSelect={(key) => changeView(key as View)}
+        />
+        <main className="app-main avatartalk-main">
+          <ErrorBoundary viewName="数字人对话">
+            <AvatarTalkView />
+          </ErrorBoundary>
+        </main>
+      </div>
+    );
+  }
+
+  const shellClasses = [
+    "app-shell",
+    "di-nav",
+    rightPanelOpen && showRightPanelToggle ? "has-right-panel" : "",
+  ].filter(Boolean).join(" ");
+
   return (
-    <div className={`app-shell${sidebarOpen ? " is-sidebar-open" : ""}`}>
+    <div className={shellClasses}>
+      <DynamicIsland
+        views={diViews}
+        current={view}
+        onSelect={(key) => changeView(key as View)}
+      />
+
       <Topbar
         account={account ?? undefined}
         onLogout={onLogout}
-        onMenuToggle={() => setSidebarOpen((v) => !v)}
-        menuOpen={sidebarOpen}
-        breadcrumb={meta.breadcrumb}
-        subtitle={meta.subtitle}
-      />
-
-      <Sidebar
-        views={views}
-        current={view}
-        onSelect={(key) => {
-          changeView(key as View);
-          setSidebarOpen(false);
-        }}
-        account={account ?? undefined}
-        onLogout={onLogout}
+        onRightPanelToggle={showRightPanelToggle ? () => setRightPanelOpen((v) => !v) : undefined}
+        rightPanelOpen={rightPanelOpen}
       />
 
       <main id="main" className="app-main">
+        {showModeSwitcher && (
+          <ModeSwitcher mode={appMode} onChange={setAppMode} />
+        )}
         <div className="view-root">
-          {/* key={view}:切换视图时强制重新挂载 ErrorBoundary,自动重置上一视图的错误状态 */}
           <ErrorBoundary key={view} viewName={meta.label}>
             {view === "assistant" && <AssistantView />}
             {view === "create" && <CreateView />}
+            {view === "video" && <VideoView />}
             {view === "canvas" && <CanvasView />}
             {view === "manju" && <ManjuView />}
+            {view === "dramaStudio" && isMobile && (
+              <div className="single-view">
+                <div className="empty-state">
+                  <div className="empty-state-icon">
+                    <Icon name="drama" size={48} />
+                  </div>
+                  <h3 className="empty-state-title">短剧工作室</h3>
+                  <p className="empty-state-desc">
+                    短剧工作室建议在桌面端或平板横屏模式下使用，以获得最佳体验。
+                  </p>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => changeView("canvas")}
+                  >
+                    返回画布模式
+                  </button>
+                </div>
+              </div>
+            )}
             {view === "dub" && <DubView />}
             {view === "train" && <TrainView />}
             {view === "library" && <LibraryView />}
@@ -228,6 +314,49 @@ function HomeContent() {
           </ErrorBoundary>
         </div>
       </main>
+
+      {showRightPanelToggle && rightPanelOpen && (
+        <aside className={`app-right-panel${rightPanelOpen ? " is-open" : ""}`}>
+          <div className="right-panel-header">
+            <span>属性</span>
+            <button
+              type="button"
+              className="right-panel-close"
+              onClick={() => setRightPanelOpen(false)}
+              aria-label="关闭面板"
+            >
+              <Icon name="close" size={14} />
+            </button>
+          </div>
+          <div className="right-panel-body">
+            {view === "canvas" && (
+              <div className="right-panel-placeholder">
+                选中节点后将显示节点属性面板。
+              </div>
+            )}
+            {(view === "create" || view === "video") && (
+              <div className="right-panel-placeholder">
+                参数面板
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            className="right-panel-toggle"
+            onClick={() => setRightPanelOpen(false)}
+            aria-label="收起面板"
+          />
+        </aside>
+      )}
+
+      {isMobile && (
+        <BottomNav
+          items={BOTTOM_NAV_ITEMS}
+          current={view}
+          onSelect={(key) => changeView(key as View)}
+          ctaAction={() => changeView("dramaStudio")}
+        />
+      )}
     </div>
   );
 }

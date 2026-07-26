@@ -1,1265 +1,1023 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
-import { Icon } from "@/components/ui/Icon";
 import {
-  type DeployResult,
-  type WorkflowTemplate,
-  deployWorkflowTemplate,
-  listWorkflowTemplates,
-} from "@/lib/workflows";
+  Background,
+  BackgroundVariant,
+  Controls,
+  MiniMap,
+  ReactFlow,
+  ReactFlowProvider,
+  useReactFlow,
+  type NodeTypes,
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
 
-// ComfyUI 第一个 worker 地址(支持环境变量覆盖;兜底 localhost 避免泄露内网拓扑)
-const COMFYUI_URL = process.env.NEXT_PUBLIC_COMFYUI_URL ?? "http://127.0.0.1:8188";
+import { Icon, type IconName } from "@/components/ui/Icon";
+import { useToast } from "@/components/ui/Toast";
+import { runSubgraph } from "@/lib/canvas/api";
+import { useCanvasStore } from "@/lib/canvas/store";
+import type { CanvasNodeKind } from "@/lib/canvas/types";
+import { ToivNodeComponent } from "./nodes/ToivNode";
+import { CanvasAmbience, type CanvasAmbienceHandle } from "./CanvasAmbience";
+import { VoiceBar } from "./VoiceBar";
+import { WorkflowLibrary } from "./WorkflowLibrary";
 
-// 加载阶段阈值:15s 提示加载缓慢(非错误);25s 判定超时失败
-// 之所以分两档,是因为 ComfyUI 首次启动需要加载模型,15s 内白屏属正常,
-// 但超过 15s 应给用户心理预期,超过 25s 才视为真失败
-const LOAD_SLOW_MS = 15_000;
-const LOAD_TIMEOUT_MS = 25_000;
-// iframe onError 自动重连最大次数:超过则停止自动重试,改由用户介入
-// 限制次数是为了避免 worker 宕机时无限重连浪费资源
-const MAX_RETRIES = 3;
+// ---------- 节点类型注册(模块级常量,避免每次渲染重新创建导致重渲染) ----------
+const nodeTypes: NodeTypes = {
+  toiv: ToivNodeComponent,
+};
 
-// 错误文案集中管理,便于后续国际化或统一调整
-const ERR_TIMEOUT = "连接超时,请检查 Worker 是否在线或网络是否通畅";
-const ERR_OFFLINE = "网络已断开,无法连接到 ComfyUI Worker,网络恢复后将自动重连";
-const ERR_RETRY_EXHAUSTED =
-  "已连续重试 3 次仍无法连接,请刷新页面或检查 ComfyUI Worker 状态";
+// ---------- 添加节点菜单配置 ----------
+interface AddNodeOption {
+  kind: CanvasNodeKind;
+  label: string;
+  icon: IconName;
+  defaultTitle: string;
+  defaultPayload: Record<string, unknown>;
+}
 
+const ADD_NODE_OPTIONS: AddNodeOption[] = [
+  { kind: "text", label: "文本", icon: "file", defaultTitle: "文本笔记", defaultPayload: { text: "" } },
+  { kind: "prompt", label: "提示词", icon: "sparkles", defaultTitle: "提示词", defaultPayload: { text: "", negative: "" } },
+  { kind: "image", label: "图像", icon: "image", defaultTitle: "图像产物", defaultPayload: { urls: [] } },
+  { kind: "video", label: "视频", icon: "video", defaultTitle: "视频产物", defaultPayload: { urls: [] } },
+  { kind: "audio", label: "音频", icon: "audio", defaultTitle: "音频产物", defaultPayload: { urls: [] } },
+  { kind: "model3d", label: "3D 模型", icon: "model3d", defaultTitle: "3D 模型", defaultPayload: { urls: [] } },
+  { kind: "llm", label: "LLM", icon: "chat", defaultTitle: "LLM 对话", defaultPayload: { text: "", response: "" } },
+  { kind: "comfy_workflow", label: "工作流", icon: "canvas", defaultTitle: "ComfyUI 工作流", defaultPayload: { graph: {}, summary: "" } },
+  { kind: "tts", label: "TTS", icon: "mic", defaultTitle: "TTS 合成", defaultPayload: { text: "" } },
+  { kind: "asr", label: "ASR", icon: "audio", defaultTitle: "ASR 听写", defaultPayload: { audio_url: "", text: "" } },
+];
+
+// ---------- 主组件 ----------
 export function CanvasView() {
-  // iframe 加载状态
-  const [loading, setLoading] = useState(true);
-  // 加载耗时(展示友好提示,帮助用户判断 worker 性能)
-  const [loadMs, setLoadMs] = useState<number | null>(null);
-  // 加载缓慢提示(15s 未完成 → 非错误,仅提示)
-  const [slowLoad, setSlowLoad] = useState(false);
-  // 错误信息(null 表示无错误;非 null 时展示错误卡片)
-  const [error, setError] = useState<string | null>(null);
-  // 自动重连次数(展示在副标题,让用户知道在重试)
-  const [retryCount, setRetryCount] = useState(0);
-  // 浏览器离线状态(offline 事件触发,优先级高于 loading/error)
-  const [isOffline, setIsOffline] = useState(false);
-  // 用于强制刷新 iframe(改变 src key 触发重载,比直接改 src 更可靠)
-  const [reloadKey, setReloadKey] = useState(0);
-  // 当前 iframe 加载的基准 URL:默认首页,部署模板后切换到模板 load_url
-  const [activeUrl, setActiveUrl] = useState(COMFYUI_URL);
-  // 工作流模板库
-  const [templates, setTemplates] = useState<WorkflowTemplate[]>([]);
-  const [templatesLoading, setTemplatesLoading] = useState(true);
-  const [templatesError, setTemplatesError] = useState<string | null>(null);
-  const [deployingId, setDeployingId] = useState<string | null>(null);
-  const [deployedInfo, setDeployedInfo] = useState<DeployResult | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  return (
+    <ReactFlowProvider>
+      <CanvasViewInner />
+    </ReactFlowProvider>
+  );
+}
 
-  const loadStartRef = useRef<number | null>(null);
-  const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // 自动重连计数器:用 ref 而非 state,避免连续 onError 时 setState 异步导致计数失真
-  const autoRetryRef = useRef(0);
-  // 记录上一次离线状态,用于网络恢复时触发自动重连
-  const prevOfflineRef = useRef(false);
+function CanvasViewInner() {
+  const {
+    canvases,
+    canvasesLoading,
+    canvasesError,
+    activeCanvas,
+    activeCanvasId,
+    nodes,
+    edges,
+    loading,
+    error,
+    loadCanvases,
+    createCanvas,
+    selectCanvas,
+    deleteActiveCanvas,
+    renameActiveCanvas,
+    onNodesChange,
+    onEdgesChange,
+    onConnect,
+    addNode,
+    selectedNodeIds,
+  } = useCanvasStore();
 
-  const clearTimers = useCallback(() => {
-    if (slowTimerRef.current) {
-      clearTimeout(slowTimerRef.current);
-      slowTimerRef.current = null;
-    }
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
+  const { fitView, zoomIn, zoomOut, fitBounds } = useReactFlow();
+  const toast = useToast();
+
+  // ---------- 氛围层:暗房浮尘 + 点击涟漪 ----------
+  const flowWrapRef = useRef<HTMLDivElement | null>(null);
+  const ambienceRef = useRef<CanvasAmbienceHandle | null>(null);
+
+  // 点击空白画布 → 在点击处激起慢速水波纹(自中心向外扩散)
+  const handlePaneClick = useCallback((e: React.MouseEvent) => {
+    const el = flowWrapRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    ambienceRef.current?.ripple(e.clientX - rect.left, e.clientY - rect.top);
   }, []);
 
-  const startLoad = useCallback(() => {
-    setLoading(true);
-    setSlowLoad(false);
-    setError(null);
-    setLoadMs(null);
-    loadStartRef.current = performance.now();
-    clearTimers();
-    // 15s 仍未加载完成 → 提示加载缓慢(不报错,给用户心理预期)
-    slowTimerRef.current = setTimeout(() => setSlowLoad(true), LOAD_SLOW_MS);
-    // 25s 仍未加载完成 → 判定超时错误(展示错误卡片)
-    timeoutRef.current = setTimeout(() => {
-      setError(ERR_TIMEOUT);
-      setLoading(false);
-    }, LOAD_TIMEOUT_MS);
-  }, [clearTimers]);
-
-  // 安全地向 iframe 发送 postMessage:跨域 / iframe 已销毁 / targetOrigin 不匹配
-  // 等情况会抛错,用 try/catch 兜底,避免单条消息失败影响整个组件渲染
-  const safePostMessage = useCallback(
-    (iframe: HTMLIFrameElement | null, message: unknown, targetOrigin: string) => {
-      if (!iframe?.contentWindow) return;
-      try {
-        iframe.contentWindow.postMessage(message, targetOrigin);
-      } catch (err) {
-        // 跨域或 iframe 已销毁 → 静默降级,不阻塞主流程
-        console.warn("[CanvasView] postMessage 失败:", err);
-      }
-    },
-    []
-  );
-
-  const handleLoaded = useCallback(
-    (e: React.SyntheticEvent<HTMLIFrameElement>) => {
-      if (loadStartRef.current != null) {
-        setLoadMs(Math.round(performance.now() - loadStartRef.current));
-      }
-      setLoading(false);
-      setSlowLoad(false);
-      setError(null);
-      // 成功加载 → 重置自动重连计数,后续失败重新计数
-      autoRetryRef.current = 0;
-      setRetryCount(0);
-      clearTimers();
-      // 加载完成后向 ComfyUI 同步主题信息(若 ComfyUI 不识别则忽略,不影响主流程)
-      // 这是 postMessage 错误恢复模式的实际使用场景
-      safePostMessage(
-        e.currentTarget,
-        { type: "toiv:theme", theme: "indigo-atelier" },
-        COMFYUI_URL
-      );
-    },
-    [clearTimers, safePostMessage]
-  );
-
-  // iframe 加载失败(浏览器层面,如同源拒绝 / 连接被重置)→ 自动重连
-  // 注意:跨域 iframe 的 onError 不一定可靠,25s 超时是最终兜底
-  const handleIframeError = useCallback(() => {
-    autoRetryRef.current += 1;
-    setRetryCount(autoRetryRef.current);
-    if (autoRetryRef.current > MAX_RETRIES) {
-      setError(ERR_RETRY_EXHAUSTED);
-      setLoading(false);
-      setSlowLoad(false);
-      clearTimers();
-      return;
-    }
-    // 自动重连:递增 reloadKey 触发 iframe 重载,并重启加载计时
-    setReloadKey((k) => k + 1);
-    startLoad();
-  }, [clearTimers, startLoad]);
-
-  // 用户手动点击"重连 / 重试"按钮:重置自动计数,给用户重新尝试的空间
-  const handleManualReconnect = useCallback(() => {
-    autoRetryRef.current = 0;
-    setRetryCount(0);
-    setError(null);
-    setReloadKey((k) => k + 1);
-    startLoad();
-  }, [startLoad]);
-
-  // 工具栏"刷新"按钮:与手动重连等价,但语义上是主动刷新而非故障恢复
-  const handleRefresh = useCallback(() => {
-    autoRetryRef.current = 0;
-    setRetryCount(0);
-    setReloadKey((k) => k + 1);
-    startLoad();
-  }, [startLoad]);
-
-  const handleOpenExternal = useCallback(() => {
-    if (typeof window !== "undefined") {
-      window.open(activeUrl, "_blank", "noopener,noreferrer");
-    }
-  }, [activeUrl]);
-
-  // 加载模板列表
-  const loadTemplates = useCallback(async () => {
-    setTemplatesLoading(true);
-    setTemplatesError(null);
-    try {
-      const items = await listWorkflowTemplates();
-      setTemplates(items);
-    } catch (err) {
-      setTemplatesError(err instanceof Error ? err.message : "加载失败");
-    } finally {
-      setTemplatesLoading(false);
-    }
-  }, []);
-
-  // 点击模板:部署到 ComfyUI worker,然后让 iframe 加载该工作流
-  const handleDeployTemplate = useCallback(async (template: WorkflowTemplate) => {
-    setDeployingId(template.id);
-    setDeployedInfo(null);
-    try {
-      const result = await deployWorkflowTemplate(template.id);
-      setDeployedInfo(result);
-      // 切换 iframe 到工作流加载 URL 并触发重载
-      setActiveUrl(result.load_url);
-      setReloadKey((k) => k + 1);
-      startLoad();
-    } catch (err) {
-      setTemplatesError(err instanceof Error ? err.message : "部署失败");
-    } finally {
-      setDeployingId(null);
-    }
-  }, [startLoad]);
-
-  // 回到 ComfyUI 首页
-  const handleResetHome = useCallback(() => {
-    setActiveUrl(COMFYUI_URL);
-    setDeployedInfo(null);
-    setReloadKey((k) => k + 1);
-    startLoad();
-  }, [startLoad]);
-
-  // 挂载时启动首次加载计时,并监听浏览器在线/离线
+  // ---------- 一次性加载画布列表 ----------
   useEffect(() => {
-    startLoad();
-    loadTemplates();
-    // 监听网络状态:断网时直接展示离线遮罩,避免长时间白屏等待超时
-    const onOffline = () => setIsOffline(true);
-    const onOnline = () => setIsOffline(false);
-    if (typeof window !== "undefined") {
-      window.addEventListener("offline", onOffline);
-      window.addEventListener("online", onOnline);
-      // 初始化:若挂载时已离线(如 PWA 离线启动),直接进入离线态
-      setIsOffline(!navigator.onLine);
+    void loadCanvases();
+  }, [loadCanvases]);
+
+  // ---------- M1 修复:组件挂载/卸载时管理 SSE 订阅生命周期 ----------
+  // 问题:切换视图时 CanvasView 卸载但 SSE EventSource 未关闭导致泄漏;
+  // 切回画布时若 activeCanvasId 已存在则 selectCanvas 不会被重新调用,
+  // SSE 不会自动重连。
+  // 策略:
+  //   - 空依赖数组:cleanup 只在组件真正卸载时运行,关闭 SSE 连接
+  //   - 挂载时若检测到是「切回画布」场景(有 activeCanvasId、数据已加载、
+  //     无活跃连接),则手动重新订阅
+  //   - 画布切换(activeCanvasId 变化)由 selectCanvas 内部自行处理:
+  //     它先调 _unsubscribe() 关旧连接,加载完成后再 _subscribe() 新画布
+  useEffect(() => {
+    const store = useCanvasStore.getState();
+    if (store.activeCanvasId && !store.loading && !store._eventSource) {
+      store._subscribe(store.activeCanvasId);
     }
     return () => {
-      clearTimers();
-      if (typeof window !== "undefined") {
-        window.removeEventListener("offline", onOffline);
-        window.removeEventListener("online", onOnline);
+      useCanvasStore.getState()._unsubscribe();
+    };
+  }, []);
+
+  // ---------- 自动选中画布:优先恢复 localStorage 记住的,否则选第一个 ----------
+  useEffect(() => {
+    if (!activeCanvasId && canvases.length > 0 && !canvasesLoading) {
+      const saved =
+        typeof window !== "undefined"
+          ? window.localStorage.getItem("toiv_active_canvas")
+          : null;
+      const target =
+        saved && canvases.some((c) => c.id === saved) ? saved : canvases[0].id;
+      void selectCanvas(target);
+    }
+  }, [activeCanvasId, canvases, canvasesLoading, selectCanvas]);
+
+  // ---------- 节点加载后自动适应视图(M1 修复:初始 fitView 在空画布时无法正确缩放,
+  //            改为节点到位后延迟 fitView,确保缩放按钮范围正确) ----------
+  const didInitialFit = useRef(false);
+  useEffect(() => {
+    if (loading || !activeCanvasId || nodes.length === 0) {
+      didInitialFit.current = false;
+      return;
+    }
+    if (didInitialFit.current) return;
+    didInitialFit.current = true;
+    const t = setTimeout(() => {
+      fitView({ padding: 0.2, duration: 300 });
+    }, 100);
+    return () => clearTimeout(t);
+  }, [loading, activeCanvasId, nodes.length, fitView]);
+
+  // ---------- 顶部工具栏状态 ----------
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+  const [voiceOn, setVoiceOn] = useState(false);
+  const addMenuRef = useRef<HTMLDivElement | null>(null);
+
+  // 点击外部关闭添加节点菜单
+  useEffect(() => {
+    if (!addMenuOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (!addMenuRef.current) return;
+      if (!addMenuRef.current.contains(e.target as Node)) {
+        setAddMenuOpen(false);
       }
     };
-  }, [startLoad, clearTimers, loadTemplates]);
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [addMenuOpen]);
 
-  // 网络从离线恢复到在线 → 主动重载 iframe(否则 iframe 会停留在失败态)
-  useEffect(() => {
-    if (prevOfflineRef.current && !isOffline) {
-      setReloadKey((k) => k + 1);
-      startLoad();
-    }
-    prevOfflineRef.current = isOffline;
-  }, [isOffline, startLoad]);
-
-  // 完整 iframe src(带 reloadKey 作为查询参数,确保 src 变化触发重载)
-  const iframeSrc = useMemo(() => {
-    const sep = activeUrl.includes("?") ? "&" : "?";
-    return reloadKey > 0 ? `${activeUrl}${sep}_r=${reloadKey}` : activeUrl;
-  }, [reloadKey, activeUrl]);
-
-  // 端点 host:从 activeUrl 动态派生,避免与变量不同步(解析失败回退原 URL)
-  const endpointHost = useMemo(() => {
+  // ---------- 操作回调 ----------
+  const handleNewCanvas = useCallback(async () => {
     try {
-      return new URL(activeUrl).origin;
+      const c = await createCanvas(`未命名画布 ${new Date().toLocaleString("zh-CN")}`);
+      await selectCanvas(c.id);
     } catch {
-      return activeUrl;
+      /* 错误已通过 store.error 展示 */
     }
-  }, [activeUrl]);
+  }, [createCanvas, selectCanvas]);
 
-  // 渲染优先级:离线 > 错误 > 加载中 > 就绪
-  // 离线是根因,优先展示;错误次之;加载中再次;就绪展示 iframe
-  const showOffline = isOffline;
-  const showError = !showOffline && error != null;
-  const showLoading = !showOffline && !showError && loading;
+  const handleSelectCanvas = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const id = e.target.value;
+      if (id) void selectCanvas(id);
+    },
+    [selectCanvas],
+  );
 
+  const handleStartRename = useCallback(() => {
+    if (!activeCanvas) return;
+    setRenameValue(activeCanvas.name);
+    setRenaming(true);
+  }, [activeCanvas]);
+
+  const handleCommitRename = useCallback(async () => {
+    setRenaming(false);
+    const next = renameValue.trim();
+    if (!activeCanvas || !next || next === activeCanvas.name) return;
+    try {
+      await renameActiveCanvas(next);
+    } catch {
+      /* ignore */
+    }
+  }, [activeCanvas, renameValue, renameActiveCanvas]);
+
+  const handleDeleteCanvas = useCallback(async () => {
+    if (!activeCanvas) return;
+    if (!window.confirm(`确定删除画布「${activeCanvas.name}」?所有节点和连线将一并删除。`)) return;
+    try {
+      await deleteActiveCanvas();
+    } catch {
+      /* ignore */
+    }
+  }, [activeCanvas, deleteActiveCanvas]);
+
+  const handleAddNode = useCallback(
+    async (opt: AddNodeOption) => {
+      setAddMenuOpen(false);
+      try {
+        await addNode({
+          kind: opt.kind,
+          title: opt.defaultTitle,
+          payload: opt.defaultPayload,
+          position: { x: 120 + Math.random() * 200, y: 120 + Math.random() * 160 },
+        });
+      } catch {
+        /* ignore */
+      }
+    },
+    [addNode],
+  );
+
+  const toggleVoice = useCallback(() => setVoiceOn((v) => !v), []);
+
+  // ---------- M2:运行选中节点(子图执行) ----------
+  const [runningSelected, setRunningSelected] = useState(false);
+  // M3.3:执行耗时计时(秒),运行中按钮显示进度感
+  const [runElapsed, setRunElapsed] = useState(0);
+  useEffect(() => {
+    if (!runningSelected) return;
+    setRunElapsed(0);
+    const timer = setInterval(() => setRunElapsed((s) => s + 1), 1000);
+    return () => clearInterval(timer);
+  }, [runningSelected]);
+
+  // 选中计数(nodes 订阅已保证选中变化触发重渲染;id 列表在点击时经 store getter 取最新)
+  const selectedCount = useMemo(
+    () => nodes.filter((n) => n.selected).length,
+    [nodes],
+  );
+
+  const handleRunSelected = useCallback(async () => {
+    const canvasId = activeCanvasId;
+    if (!canvasId || runningSelected) return;
+    const ids = selectedNodeIds();
+    if (ids.length === 0) return;
+    setRunningSelected(true);
+    try {
+      const res = await runSubgraph(canvasId, ids);
+      const shortId =
+        res.prompt_id.length > 8
+          ? `${res.prompt_id.slice(0, 8)}…`
+          : res.prompt_id;
+      // M3.1:自动 pin 产物节点已在画布落位(经 SSE node_added 推送)
+      const pinNote =
+        res.pinned.length > 0 ? `,产物已固定为 ${res.pinned.length} 个节点` : "";
+      toast.success(`执行完成(${shortId})${pinNote}`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setRunningSelected(false);
+    }
+  }, [activeCanvasId, runningSelected, selectedNodeIds, toast]);
+
+  // ---------- M3.3:子图高亮(选中节点 + 与其直接相连的节点/边) ----------
+  const highlightIds = useMemo(() => {
+    const sel = new Set(nodes.filter((n) => n.selected).map((n) => n.id));
+    if (sel.size === 0) return sel;
+    const ids = new Set(sel);
+    for (const e of edges) {
+      if (sel.has(e.source) || sel.has(e.target)) {
+        ids.add(e.source);
+        ids.add(e.target);
+      }
+    }
+    return ids;
+  }, [nodes, edges]);
+
+  // 高亮映射:仅在非空时重建数组(拖拽期选中态少见,O(n) 开销可接受)
+  const displayNodes = useMemo(() => {
+    if (highlightIds.size === 0) return nodes;
+    return nodes.map((n) =>
+      highlightIds.has(n.id) && !n.selected
+        ? { ...n, className: "cv-flow-node-hl" }
+        : n,
+    );
+  }, [nodes, highlightIds]);
+
+  const displayEdges = useMemo(() => {
+    if (highlightIds.size === 0) return edges;
+    const sel = new Set(nodes.filter((n) => n.selected).map((n) => n.id));
+    return edges.map((e) =>
+      sel.has(e.source) || sel.has(e.target)
+        ? { ...e, className: "cv-flow-edge-hl" }
+        : e,
+    );
+  }, [edges, nodes, highlightIds]);
+
+  // 快捷键:Ctrl/Cmd + Enter 等价于点击"运行选中"(重命名输入激活时不触发)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        if (renaming) return;
+        e.preventDefault();
+        void handleRunSelected();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [handleRunSelected, renaming]);
+
+  // ---------- 派生 ----------
+  const hasCanvas = !!activeCanvas;
+  const showEmpty = !canvasesLoading && canvases.length === 0;
+  const showError = !!canvasesError || !!error;
+
+  // ---------- 渲染 ----------
   return (
-    <div className={`single-view canvas-view ${sidebarOpen ? "" : "cv-sidebar-closed"}`}>
-      {/* ── 侧边栏:工作流模板库 ── */}
-      <aside className="cv-sidebar">
-        <div className="cv-sidebar-header">
-          <h2 className="cv-sidebar-title">
-            <Icon name="library" size={16} strokeWidth={1.8} />
-            工作流模板
-          </h2>
+    <div className="canvas-view">
+      {/* ───── 顶部工具栏 ───── */}
+      <header className="cv-toolbar">
+        <div className="cv-tb-left">
+          {/* 画布选择器 */}
+          <div className="cv-canvas-select">
+            <Icon name="canvas" size={14} strokeWidth={1.8} />
+            <select
+              value={activeCanvasId ?? ""}
+              onChange={handleSelectCanvas}
+              disabled={canvasesLoading || canvases.length === 0}
+              aria-label="选择画布"
+            >
+              {canvases.length === 0 && <option value="">尚无画布</option>}
+              {canvases.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* 新建画布 */}
           <button
             type="button"
-            className="cv-sidebar-close"
-            onClick={() => setSidebarOpen(false)}
-            title="收起模板库"
-            aria-label="收起模板库"
+            className="cv-tb-btn"
+            onClick={handleNewCanvas}
+            title="新建画布"
+            aria-label="新建画布"
           >
-            <Icon name="close" size={14} strokeWidth={1.8} />
+            <Icon name="create" size={14} strokeWidth={1.8} />
+            <span>新建</span>
+          </button>
+
+          {/* 重命名 */}
+          {renaming ? (
+            <input
+              className="cv-rename-input"
+              value={renameValue}
+              autoFocus
+              onChange={(e) => setRenameValue(e.target.value)}
+              onBlur={handleCommitRename}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleCommitRename();
+                if (e.key === "Escape") setRenaming(false);
+              }}
+              placeholder="画布名称"
+            />
+          ) : (
+            <button
+              type="button"
+              className="cv-tb-btn cv-tb-btn-ghost"
+              onClick={handleStartRename}
+              disabled={!hasCanvas}
+              title="重命名画布"
+              aria-label="重命名画布"
+            >
+              <Icon name="brush" size={14} strokeWidth={1.8} />
+              <span>重命名</span>
+            </button>
+          )}
+
+          {/* 删除 */}
+          <button
+            type="button"
+            className="cv-tb-btn cv-tb-btn-danger"
+            onClick={handleDeleteCanvas}
+            disabled={!hasCanvas}
+            title="删除画布"
+            aria-label="删除画布"
+          >
+            <Icon name="delete" size={14} strokeWidth={1.8} />
+            <span>删除</span>
           </button>
         </div>
-        <div className="cv-sidebar-body">
-          {templatesLoading && (
-            <div className="cv-sidebar-empty">
-              <Icon name="loading" size={20} strokeWidth={2} className="cv-spin" />
-              <span>加载模板中…</span>
-            </div>
-          )}
-          {templatesError && !templatesLoading && (
-            <div className="cv-sidebar-empty cv-sidebar-error">
-              <Icon name="error" size={20} strokeWidth={1.8} />
-              <span>{templatesError}</span>
-              <button type="button" className="btn btn-sm cv-btn" onClick={loadTemplates}>
-                重试
-              </button>
-            </div>
-          )}
-          {!templatesLoading && !templatesError && templates.length === 0 && (
-            <div className="cv-sidebar-empty">暂无可用模板</div>
-          )}
-          {!templatesLoading &&
-            templates.map((t) => (
-              <div key={t.id} className="cv-template-card">
-                <div className="cv-template-header">
-                  <span className="cv-template-name" title={t.name}>
-                    {t.name}
-                  </span>
-                  <span className="cv-template-nodes">{t.node_count} 节点</span>
-                </div>
-                <div className="cv-template-tags">
-                  {t.tags.map((tag) => (
-                    <span key={tag} className="cv-template-tag">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-                <p className="cv-template-desc" title={t.description}>
-                  {t.description}
-                </p>
-                <button
-                  type="button"
-                  className="btn btn-sm cv-btn cv-btn-primary cv-template-load"
-                  onClick={() => handleDeployTemplate(t)}
-                  disabled={deployingId === t.id || loading}
-                  title="部署并加载到 ComfyUI"
-                >
-                  {deployingId === t.id ? (
-                    <>
-                      <Icon name="loading" size={12} strokeWidth={2} className="cv-spin" />
-                      <span>部署中…</span>
-                    </>
-                  ) : (
-                    <>
-                      <Icon name="playing" size={12} strokeWidth={1.8} />
-                      <span>在 ComfyUI 打开</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            ))}
-        </div>
-      </aside>
 
-      {/* 侧边栏收起时显示的展开按钮 */}
-      {!sidebarOpen && (
-        <button
-          type="button"
-          className="cv-sidebar-fab"
-          onClick={() => setSidebarOpen(true)}
-          title="展开工作流模板库"
-          aria-label="展开工作流模板库"
-        >
-          <Icon name="library" size={16} strokeWidth={1.8} />
-        </button>
-      )}
-
-      {/* ── 主区域 ── */}
-      <div className="cv-main">
-        {/* ── 顶部:标题 + 工具栏 ── */}
-        <header className="cv-header">
-          <div className="cv-titles">
-            <h1 className="cv-title">
-              <span className="cv-title-mark" aria-hidden="true">
-                <Icon name="canvas" size={18} strokeWidth={1.8} />
-              </span>
-              ComfyUI
-            </h1>
-            <span className="cv-subtitle">
-              节点工作流编辑器 · Worker #1
-              {retryCount > 0 && !showError && (
-                <span className="cv-retry-badge" aria-live="polite">
-                  重连中 #{retryCount}
-                </span>
-              )}
-              {deployedInfo && !showError && (
-                <span className="cv-workflow-badge" aria-live="polite">
-                  {deployedInfo.workflow_name}
-                </span>
-              )}
-            </span>
-          </div>
-
-          <div className="cv-toolbar">
-            {deployedInfo && (
-              <button
-                type="button"
-                className="btn btn-sm cv-btn"
-                onClick={handleResetHome}
-                title="返回 ComfyUI 首页"
-              >
-                <Icon name="refresh" size={14} strokeWidth={1.9} />
-                <span>回首页</span>
-              </button>
-            )}
-            <a
-              className="cv-endpoint"
-              href={activeUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              title={activeUrl}
-            >
-              <Icon name="link" size={12} strokeWidth={1.8} />
-              <span className="cv-endpoint-host">{endpointHost}</span>
-            </a>
-
-            <button
-              type="button"
-              className="btn btn-sm cv-btn"
-              onClick={handleOpenExternal}
-              title="在新窗口打开"
-            >
-              <Icon name="link" size={14} strokeWidth={1.9} />
-              <span>新窗口</span>
-            </button>
-
-            <button
-              type="button"
-              className="btn btn-sm cv-btn cv-btn-primary"
-              onClick={handleRefresh}
-              // 加载中且无错误时禁用,避免重复触发;错误态允许点击以重试
-              disabled={loading && !showError}
-              title="重新加载 ComfyUI"
-            >
-              <Icon
-                name="refresh"
-                size={14}
-                strokeWidth={1.9}
-                className={loading && !showError ? "cv-spin" : undefined}
-              />
-              <span>刷新</span>
-            </button>
-          </div>
-        </header>
-
-        {/* ── 主体:iframe + 加载层 ── */}
-        <div className="cv-frame-wrap">
-          {/* 左上角状态指示 */}
-          <div
-            className="cv-status-pill"
-            data-state={
-              showError
-                ? "error"
-                : showOffline
-                  ? "offline"
-                  : loading
-                    ? "loading"
-                    : "ready"
-            }
+        <div className="cv-tb-right">
+          {/* 语音开关 */}
+          <button
+            type="button"
+            className={`cv-tb-btn cv-tb-btn-voice${voiceOn ? " is-on" : ""}`}
+            onClick={toggleVoice}
+            disabled={!hasCanvas}
+            title={voiceOn ? "关闭语音 Agent" : "开启语音 Agent"}
+            aria-pressed={voiceOn}
+            aria-label="语音 Agent 开关"
           >
-            <span className="cv-status-dot" />
-            <span className="cv-status-text">
-              {showError
-                ? "连接失败"
-                : showOffline
-                  ? "离线"
-                  : loading
-                    ? slowLoad
-                      ? "加载缓慢"
-                      : "加载中"
-                    : "就绪"}
-              {loadMs != null && !showError && !showOffline && !loading && (
-                <span className="cv-status-ms"> · {loadMs}ms</span>
-              )}
-            </span>
+            <Icon name="mic" size={14} strokeWidth={1.8} />
+            <span>{voiceOn ? "语音已开" : "语音"}</span>
+          </button>
+
+          {/* M2:ComfyUI 模板库(触发按钮自带弹出面板) */}
+          <WorkflowLibrary canvasId={activeCanvasId} />
+
+          {/* 添加节点菜单 */}
+          <div className="cv-add-menu" ref={addMenuRef}>
+            <button
+              type="button"
+              className="cv-tb-btn cv-tb-btn-primary"
+              onClick={() => setAddMenuOpen((v) => !v)}
+              disabled={!hasCanvas}
+              title="添加节点"
+              aria-haspopup="menu"
+              aria-expanded={addMenuOpen}
+            >
+              <Icon name="sparkles" size={14} strokeWidth={2.2} />
+              <span>添加节点</span>
+              <Icon name="chevron-down" size={11} strokeWidth={1.8} />
+            </button>
+            {addMenuOpen && (
+              <div className="cv-add-popover" role="menu">
+                {ADD_NODE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.kind}
+                    type="button"
+                    className="cv-add-item"
+                    role="menuitem"
+                    onClick={() => handleAddNode(opt)}
+                  >
+                    <span className="cv-add-item-icon">
+                      <Icon name={opt.icon} size={13} strokeWidth={1.8} />
+                    </span>
+                    <span className="cv-add-item-label">{opt.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* iframe:仅在致命错误时卸载,其余状态保留 DOM 以便重连复用 */}
-          {!showError && (
-            <iframe
-              key={reloadKey}
-              src={iframeSrc}
-              // a11y:title 描述用途,aria-label 补充语义,屏幕阅读器可识别
-              title="ComfyUI 节点工作流编辑器"
-              aria-label="ComfyUI 节点工作流编辑器 iframe,用于拖拽节点构建图像与视频生成工作流"
-              className="cv-iframe"
-              onLoad={handleLoaded}
-              onError={handleIframeError}
-              allow="clipboard-read; clipboard-write; fullscreen"
-              sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-downloads allow-modals"
-            />
-          )}
+          {/* M2:运行选中节点(子图提交 ComfyUI 执行) */}
+          <button
+            type="button"
+            className="cv-tb-btn cv-run-selected"
+            onClick={() => void handleRunSelected()}
+            disabled={!hasCanvas || selectedCount === 0 || runningSelected}
+            title="运行选中节点(Ctrl/⌘+Enter)"
+            aria-label="运行选中节点"
+          >
+            <Icon name="playing" size={14} strokeWidth={1.8} />
+            <span>
+              {runningSelected
+                ? `执行中 ${runElapsed}s…`
+                : selectedCount > 0
+                  ? `运行选中(${selectedCount})`
+                  : "运行选中"}
+            </span>
+          </button>
+        </div>
+      </header>
 
-          {/* 加载遮罩(含 15s 缓慢提示) */}
-          {showLoading && (
-            <div className="cv-overlay" role="status" aria-live="polite">
-              <div className="cv-spinner">
-                <Icon name="loading" size={28} strokeWidth={2} className="cv-spin" />
+      {/* ───── 主区域 ───── */}
+      <div className="cv-flow-wrap" ref={flowWrapRef}>
+        {/* 暗房氛围层:浮尘 + 鼠标视差 + 涟漪(最底层,不响应指针) */}
+        <CanvasAmbience ref={ambienceRef} />
+        {/* 加载态 */}
+        {(canvasesLoading || loading) && (
+          <div className="cv-overlay" role="status" aria-live="polite">
+            <div className="cv-loading-card">
+              <div className="cv-loading-orb" aria-hidden="true" />
+              <div className="cv-loading-text">
+                {canvasesLoading ? "加载画布列表…" : "加载画布内容…"}
               </div>
-              <div className="cv-overlay-title">
-                {slowLoad ? "加载时间较长,请稍候" : "正在连接 ComfyUI"}
-              </div>
-              <div className="cv-overlay-desc">
-                {slowLoad
-                  ? "Worker 可能正在初始化模型,请耐心等待…"
-                  : "加载节点工作流编辑器,首次加载可能需要数秒…"}
-              </div>
-              <div className="cv-overlay-endpoint">{activeUrl}</div>
-              {/* 缓慢态提供主动重载入口,避免用户被动等待 25s 超时 */}
-              {slowLoad && (
-                <button
-                  type="button"
-                  className="btn btn-sm cv-btn"
-                  onClick={handleRefresh}
-                >
-                  <Icon name="refresh" size={14} strokeWidth={1.9} />
-                  <span>重新加载</span>
-                </button>
-              )}
             </div>
-          )}
+          </div>
+        )}
 
-          {/* 离线遮罩:断网时展示,网络恢复后自动消失并重连 */}
-          {showOffline && (
-            <div className="cv-overlay cv-overlay-warning" role="alert">
-              <div className="cv-warning-icon">
-                <Icon name="warning" size={36} strokeWidth={1.4} />
+        {/* 错误态 */}
+        {showError && !loading && (
+          <div className="cv-overlay">
+            <div className="cv-error-card">
+              <div className="cv-error-icon">
+                <Icon name="error" size={32} strokeWidth={1.5} />
               </div>
-              <div className="cv-overlay-title">连接断开</div>
-              <div className="cv-overlay-desc">{ERR_OFFLINE}</div>
+              <div className="cv-error-text">
+                {canvasesError ?? error ?? "加载画布失败"}
+              </div>
               <button
                 type="button"
-                className="btn btn-sm cv-btn cv-btn-primary"
-                onClick={handleManualReconnect}
+                className="cv-tb-btn cv-tb-btn-primary"
+                onClick={() => void loadCanvases()}
               >
-                <Icon name="refresh" size={14} strokeWidth={1.9} />
-                <span>点此重连</span>
+                <Icon name="refresh" size={13} strokeWidth={1.8} />
+                <span>重试</span>
               </button>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* 错误卡片:深色卡片 + danger 边框 + 圆角(Indigo Atelier 风格) */}
-          {showError && (
-            <div className="cv-overlay cv-overlay-error" role="alert">
-              <div className="cv-error-card">
-                <div className="cv-error-icon">
-                  <Icon name="warning" size={32} strokeWidth={1.6} />
-                </div>
-                <div className="cv-error-body">
-                  <div className="cv-overlay-title">无法连接到 ComfyUI</div>
-                  <div className="cv-overlay-desc">{error}</div>
-                  <div className="cv-overlay-endpoint">{activeUrl}</div>
-                </div>
-                <div className="cv-error-actions">
-                  <button
-                    type="button"
-                    className="btn btn-sm cv-btn cv-btn-primary"
-                    onClick={handleManualReconnect}
-                  >
-                    <Icon name="refresh" size={14} strokeWidth={1.9} />
-                    <span>重试连接</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-sm cv-btn"
-                    onClick={handleOpenExternal}
-                  >
-                    <Icon name="link" size={14} strokeWidth={1.9} />
-                    <span>在新窗口打开</span>
-                  </button>
-                </div>
+        {/* 空态:无画布 */}
+        {showEmpty && !showError && (
+          <div className="cv-overlay">
+            <div className="cv-empty-card">
+              <div className="cv-empty-icon">
+                <Icon name="canvas" size={48} strokeWidth={1.1} />
               </div>
+              <div className="cv-empty-title">尚未创建画布</div>
+              <div className="cv-empty-desc">
+                无限画布是 ToIV 的自研节点工作流编辑器,支持文本 / 提示词 / 媒体 / LLM / 工作流 / TTS / ASR 等 10 种节点
+              </div>
+              <button
+                type="button"
+                className="cv-tb-btn cv-tb-btn-primary"
+                onClick={handleNewCanvas}
+              >
+                <Icon name="create" size={14} strokeWidth={1.8} />
+                <span>创建第一个画布</span>
+              </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* ── 底部小提示 ── */}
-        <footer className="cv-footer">
-          <span className="cv-footer-dot" aria-hidden="true" />
-          <span className="cv-footer-text">ComfyUI 节点工作流编辑器</span>
-          <span className="cv-footer-sep" aria-hidden="true">·</span>
-          <span className="cv-footer-hint">
-            拖拽节点构建图像 / 视频生成工作流
-          </span>
-        </footer>
+        {/* ReactFlow 画布(仅当有激活画布时渲染) */}
+        {hasCanvas && !showEmpty && (
+          <ReactFlow
+            nodes={displayNodes}
+            edges={displayEdges}
+            nodeTypes={nodeTypes}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onPaneClick={handlePaneClick}
+            deleteKeyCode={["Backspace", "Delete"]}
+            minZoom={0.1}
+            maxZoom={2}
+            defaultEdgeOptions={{
+              type: "smoothstep",
+              style: { stroke: "var(--accent)", strokeWidth: 1.5 },
+            }}
+            connectionLineStyle={{
+              stroke: "var(--accent-soft)",
+              strokeWidth: 2,
+            }}
+            proOptions={{ hideAttribution: true }}
+          >
+            <Background variant={BackgroundVariant.Dots} gap={18} size={1.4} color="var(--hairline-strong)" />
+            <Controls
+              position="bottom-right"
+              showInteractive={false}
+              showZoom={true}
+              showFitView={true}
+              fitViewOptions={{ padding: 0.2, duration: 300 }}
+            />
+            <MiniMap
+              position="bottom-left"
+              pannable
+              zoomable
+              maskColor="oklch(7% 0.006 265 / 0.7)"
+              style={{
+                background: "var(--bg-1)",
+                border: "1px solid var(--hairline-2)",
+                borderRadius: "var(--radius-xs)",
+              }}
+              onNodeClick={(_, node) => {
+                fitBounds({ x: node.position.x - 100, y: node.position.y - 100, width: 400, height: 300 }, { duration: 300 });
+              }}
+            />
+          </ReactFlow>
+        )}
+
+        {/* 语音 Agent 浮层条(底部居中) */}
+        {hasCanvas && voiceOn && <VoiceBar canvasId={activeCanvasId!} />}
       </div>
 
-      <style jsx>{`
-        .canvas-view {
-          display: flex;
-          flex-direction: row;
-          gap: 0;
-          height: 100%;
-          min-height: 0;
-          position: relative;
-        }
-
-        /* ── 侧边栏 ── */
-        .cv-sidebar {
-          display: flex;
-          flex-direction: column;
-          width: 280px;
-          flex-shrink: 0;
-          background: var(--bg-1);
-          border-right: 1px solid var(--hairline);
-          transition: width var(--dur-2) var(--ease),
-            opacity var(--dur-2) var(--ease);
-          overflow: hidden;
-        }
-        .cv-sidebar-closed .cv-sidebar {
-          width: 0;
-          opacity: 0;
-        }
-        .cv-sidebar-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: var(--space-3);
-          padding: var(--space-3) var(--space-4);
-          border-bottom: 1px solid var(--hairline);
-        }
-        .cv-sidebar-title {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.45rem;
-          margin: 0;
-          font-family: var(--font-display);
-          font-size: 0.95rem;
-          font-weight: 600;
-          color: var(--ink);
-          letter-spacing: -0.01em;
-        }
-        .cv-sidebar-close {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 26px;
-          height: 26px;
-          border-radius: var(--radius-sm);
-          color: var(--ink-soft);
-          background: transparent;
-          border: 1px solid transparent;
-          cursor: pointer;
-          transition: background-color var(--dur) var(--ease),
-            border-color var(--dur) var(--ease);
-        }
-        .cv-sidebar-close:hover {
-          background: var(--bg-2);
-          border-color: var(--hairline);
-        }
-        .cv-sidebar-body {
-          flex: 1;
-          min-height: 0;
-          overflow-y: auto;
-          padding: var(--space-3);
-          display: flex;
-          flex-direction: column;
-          gap: var(--space-3);
-        }
-        .cv-sidebar-empty {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 0.6rem;
-          padding: var(--space-5) var(--space-3);
-          text-align: center;
-          font-size: 0.78rem;
-          color: var(--ink-faint);
-          border: 1px dashed var(--hairline);
-          border-radius: var(--radius);
-        }
-        .cv-sidebar-error {
-          color: var(--danger);
-          border-color: color-mix(in oklch, var(--danger) 35%, transparent);
-          background: color-mix(in oklch, var(--danger) 8%, transparent);
-        }
-
-        /* 模板卡片 */
-        .cv-template-card {
-          display: flex;
-          flex-direction: column;
-          gap: 0.55rem;
-          padding: var(--space-3);
-          background: var(--bg-0);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius);
-          transition: border-color var(--dur) var(--ease),
-            transform var(--dur) var(--ease),
-            box-shadow var(--dur) var(--ease);
-        }
-        .cv-template-card:hover {
-          border-color: var(--accent-line);
-          transform: translateY(-1px);
-          box-shadow: 0 8px 22px -8px oklch(0% 0 0 / 0.2);
-        }
-        .cv-template-header {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 0.5rem;
-        }
-        .cv-template-name {
-          font-size: 0.84rem;
-          font-weight: 600;
-          color: var(--ink);
-          line-height: 1.3;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-        }
-        .cv-template-nodes {
-          flex-shrink: 0;
-          font-size: 0.65rem;
-          color: var(--ink-faint);
-          font-family: var(--font-mono);
-          padding: 0.1rem 0.4rem;
-          background: var(--bg-2);
-          border-radius: var(--radius-full);
-          white-space: nowrap;
-        }
-        .cv-template-tags {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.35rem;
-        }
-        .cv-template-tag {
-          font-size: 0.65rem;
-          color: var(--accent-soft);
-          background: var(--accent-quiet);
-          border: 1px solid var(--accent-line);
-          border-radius: var(--radius-full);
-          padding: 0.1rem 0.45rem;
-          white-space: nowrap;
-        }
-        .cv-template-desc {
-          margin: 0;
-          font-size: 0.72rem;
-          color: var(--ink-faint);
-          line-height: 1.45;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          display: -webkit-box;
-          -webkit-line-clamp: 3;
-          -webkit-box-orient: vertical;
-        }
-        .cv-template-load {
-          justify-content: center;
-          margin-top: 0.1rem;
-        }
-
-        /* 侧边栏展开按钮 */
-        .cv-sidebar-fab {
-          position: absolute;
-          top: 0.8rem;
-          left: 0.8rem;
-          z-index: 4;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 32px;
-          height: 32px;
-          border-radius: var(--radius);
-          color: var(--ink-soft);
-          background: var(--bg-1);
-          border: 1px solid var(--hairline);
-          box-shadow: 0 4px 14px -4px oklch(0% 0 0 / 0.18);
-          cursor: pointer;
-          transition: border-color var(--dur) var(--ease),
-            color var(--dur) var(--ease),
-            background-color var(--dur) var(--ease);
-        }
-        .cv-sidebar-fab:hover {
-          border-color: var(--accent-line);
-          color: var(--accent-soft);
-          background: var(--accent-quiet);
-        }
-
-        /* ── 主区域 ── */
-        .cv-main {
-          display: flex;
-          flex-direction: column;
-          gap: var(--space-3);
-          flex: 1;
-          min-width: 0;
-          min-height: 0;
-          padding: var(--space-3);
-          position: relative;
-        }
-
-        /* ── 顶部 ── */
-        .cv-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: var(--space-4);
-          flex-wrap: wrap;
-          padding-bottom: var(--space-3);
-          border-bottom: 1px solid var(--hairline);
-        }
-        .cv-titles {
-          display: flex;
-          flex-direction: column;
-          gap: 0.15rem;
-          min-width: 0;
-        }
-        .cv-title {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-          margin: 0;
-          font-family: var(--font-display);
-          font-size: 1.5rem;
-          font-weight: 600;
-          letter-spacing: -0.02em;
-          color: var(--ink);
-          line-height: 1.2;
-        }
-        .cv-title-mark {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 28px;
-          height: 28px;
-          border-radius: 8px;
-          color: var(--bg-0);
-          background: linear-gradient(135deg, var(--accent), var(--accent-deep));
-          box-shadow: 0 4px 14px -4px
-              color-mix(in oklch, var(--accent) 55%, transparent),
-            inset 0 1px 0 oklch(100% 0 0 / 0.18);
-        }
-        .cv-subtitle {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.4rem;
-          font-size: 0.74rem;
-          color: var(--ink-faint);
-          line-height: 1.3;
-          padding-left: 36px;
-        }
-        .cv-retry-badge {
-          display: inline-flex;
-          align-items: center;
-          padding: 0.1rem 0.45rem;
-          background: var(--warn-quiet);
-          border: 1px solid color-mix(in oklch, var(--warn) 40%, transparent);
-          border-radius: var(--radius-full);
-          color: var(--warn);
-          font-family: var(--font-mono);
-          font-size: 0.66rem;
-          letter-spacing: 0.02em;
-        }
-        .cv-workflow-badge {
-          display: inline-flex;
-          align-items: center;
-          padding: 0.1rem 0.45rem;
-          background: var(--accent-quiet);
-          border: 1px solid var(--accent-line);
-          border-radius: var(--radius-full);
-          color: var(--accent-soft);
-          font-family: var(--font-mono);
-          font-size: 0.66rem;
-          letter-spacing: 0.02em;
-          max-width: 160px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        /* 工具栏 */
-        .cv-toolbar {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.4rem;
-          flex-wrap: wrap;
-        }
-        .cv-endpoint {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.35rem;
-          padding: 0.3rem 0.6rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius-full);
-          font-size: 0.7rem;
-          color: var(--ink-soft);
-          font-family: var(--font-mono);
-          letter-spacing: 0.01em;
-          text-decoration: none;
-          transition: border-color var(--dur) var(--ease),
-            color var(--dur) var(--ease),
-            background-color var(--dur) var(--ease);
-        }
-        .cv-endpoint:hover {
-          border-color: var(--accent-line);
-          color: var(--accent-soft);
-          background: var(--accent-quiet);
-        }
-        .cv-endpoint-host {
-          max-width: 180px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .cv-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.35rem;
-          padding: 0.35rem 0.7rem;
-          border-radius: var(--radius-sm);
-          font-size: 0.78rem;
-          color: var(--ink-soft);
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          cursor: pointer;
-          transition: border-color var(--dur) var(--ease),
-            color var(--dur) var(--ease),
-            background-color var(--dur) var(--ease),
-            transform var(--dur) var(--ease);
-        }
-        .cv-btn:hover:not(:disabled) {
-          border-color: var(--accent-line);
-          color: var(--ink);
-          background: var(--bg-3);
-        }
-        .cv-btn:active:not(:disabled) {
-          transform: translateY(1px);
-        }
-        .cv-btn:focus-visible {
-          outline: 2px solid var(--accent);
-          outline-offset: 2px;
-        }
-        .cv-btn:disabled {
-          opacity: 0.55;
-          cursor: not-allowed;
-        }
-        .cv-btn-primary {
-          color: var(--bg-0);
-          background: linear-gradient(135deg, var(--accent), var(--accent-deep));
-          border-color: transparent;
-          box-shadow: 0 8px 24px -8px
-            color-mix(in oklch, var(--accent) 50%, transparent);
-        }
-        .cv-btn-primary:hover:not(:disabled) {
-          color: var(--bg-0);
-          background: linear-gradient(135deg, var(--accent-hover), var(--accent));
-          border-color: transparent;
-          box-shadow: 0 8px 24px -8px
-            color-mix(in oklch, var(--accent) 65%, transparent);
-        }
-
-        /* ── 主体:iframe 容器 ── */
-        .cv-frame-wrap {
-          position: relative;
-          flex: 1;
-          min-height: 0;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius);
-          overflow: hidden;
-          box-shadow: 0 1px 0 oklch(0% 0 0 / 0.02);
-        }
-        .cv-iframe {
-          display: block;
-          width: 100%;
-          height: 100%;
-          border: 0;
-          background: var(--bg-sunken);
-        }
-
-        /* 状态指示(左上角浮层) */
-        .cv-status-pill {
-          position: absolute;
-          top: 0.6rem;
-          left: 0.6rem;
-          z-index: 3;
-          display: inline-flex;
-          align-items: center;
-          gap: 0.4rem;
-          padding: 0.25rem 0.6rem;
-          background: color-mix(in oklch, var(--bg-0) 70%, transparent);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-          border: 1px solid oklch(100% 0 0 / 0.08);
-          border-radius: var(--radius-full);
-          font-size: 0.68rem;
-          color: var(--ink-soft);
-          font-family: var(--font-mono);
-          letter-spacing: 0.02em;
-          pointer-events: none;
-          opacity: 0;
-          transition: opacity var(--dur-2) var(--ease);
-        }
-        .cv-frame-wrap:hover .cv-status-pill {
-          opacity: 1;
-        }
-        .cv-status-dot {
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          flex-shrink: 0;
-        }
-        .cv-status-pill[data-state="ready"] .cv-status-dot {
-          background: var(--success);
-          box-shadow: 0 0 6px
-            color-mix(in oklch, var(--success) 80%, transparent);
-        }
-        .cv-status-pill[data-state="loading"] .cv-status-dot {
-          background: var(--accent);
-          animation: cv-pulse 1.2s var(--ease) infinite;
-        }
-        .cv-status-pill[data-state="error"] .cv-status-dot {
-          background: var(--danger);
-        }
-        .cv-status-pill[data-state="offline"] .cv-status-dot {
-          background: var(--warn);
-        }
-        .cv-status-pill[data-state="ready"] {
-          color: var(--success);
-        }
-        .cv-status-pill[data-state="loading"] {
-          color: var(--accent-soft);
-        }
-        .cv-status-pill[data-state="error"] {
-          color: var(--danger);
-        }
-        .cv-status-pill[data-state="offline"] {
-          color: var(--warn);
-        }
-        .cv-status-ms {
-          opacity: 0.65;
-        }
-        @keyframes cv-pulse {
-          0%,
-          100% {
-            opacity: 1;
-            transform: scale(1);
-          }
-          50% {
-            opacity: 0.5;
-            transform: scale(0.7);
-          }
-        }
-
-        /* 加载 / 错误遮罩层 */
-        .cv-overlay {
-          position: absolute;
-          inset: 0;
-          z-index: 2;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 0.7rem;
-          padding: var(--space-5);
-          text-align: center;
-          background: radial-gradient(
-              circle at 50% 35%,
-              oklch(55% 0.2 265 / 0.18),
-              transparent 60%
-            ),
-            var(--bg-1);
-          animation: cv-fade-in var(--dur-2) var(--ease);
-        }
-        .cv-overlay-warning {
-          background: radial-gradient(
-              circle at 50% 35%,
-              oklch(75% 0.15 85 / 0.16),
-              transparent 60%
-            ),
-            var(--bg-1);
-        }
-        .cv-overlay-error {
-          background: radial-gradient(
-              circle at 50% 35%,
-              oklch(60% 0.2 25 / 0.16),
-              transparent 60%
-            ),
-            var(--bg-1);
-        }
-        @keyframes cv-fade-in {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-        .cv-spinner {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 56px;
-          height: 56px;
-          border-radius: 50%;
-          color: var(--accent);
-          background: var(--accent-quiet);
-          border: 1px solid var(--accent-line);
-          box-shadow: 0 0 24px -4px oklch(55% 0.2 265 / 0.45);
-        }
-        .cv-warning-icon {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 56px;
-          height: 56px;
-          border-radius: 50%;
-          color: var(--warn);
-          background: var(--warn-quiet);
-          border: 1px solid color-mix(in oklch, var(--warn) 40%, transparent);
-        }
-        .cv-error-icon {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 56px;
-          height: 56px;
-          border-radius: 50%;
-          color: var(--danger);
-          background: color-mix(in oklch, var(--danger) 14%, transparent);
-          border: 1px solid color-mix(in oklch, var(--danger) 40%, transparent);
-        }
-        .cv-overlay-title {
-          font-family: var(--font-display);
-          font-size: 1.05rem;
-          font-weight: 600;
-          color: var(--ink);
-          letter-spacing: -0.01em;
-        }
-        .cv-overlay-desc {
-          font-size: 0.8rem;
-          color: var(--ink-faint);
-          line-height: 1.5;
-          max-width: 380px;
-        }
-        .cv-overlay-endpoint {
-          font-size: 0.7rem;
-          color: var(--ink-faint);
-          font-family: var(--font-mono);
-          letter-spacing: 0.02em;
-          padding: 0.15rem 0.55rem;
-          background: var(--bg-3);
-          border-radius: var(--radius-full);
-          border: 1px solid var(--hairline);
-        }
-
-        /* 错误卡片:深色卡片 + danger 边框 + 圆角 */
-        .cv-error-card {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 0.85rem;
-          padding: var(--space-5);
-          background: var(--bg-1);
-          border: 1px solid color-mix(in oklch, var(--danger) 45%, transparent);
-          border-radius: var(--radius-lg);
-          box-shadow: 0 12px 40px -8px oklch(0% 0 0 / 0.6),
-            inset 0 1px 0 oklch(100% 0 0 / 0.04);
-          max-width: 440px;
-          animation: cv-card-in var(--dur-2) var(--ease);
-        }
-        @keyframes cv-card-in {
-          from {
-            opacity: 0;
-            transform: translateY(8px) scale(0.98);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-        .cv-error-body {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 0.5rem;
-        }
-        .cv-error-actions {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-          flex-wrap: wrap;
-          justify-content: center;
-          margin-top: 0.2rem;
-        }
-
-        /* ── 底部 ── */
-        .cv-footer {
-          display: flex;
-          align-items: center;
-          gap: 0.45rem;
-          padding-top: 0.1rem;
-          font-size: 0.72rem;
-          color: var(--ink-faint);
-          line-height: 1.4;
-          flex-wrap: wrap;
-        }
-        .cv-footer-dot {
-          width: 5px;
-          height: 5px;
-          border-radius: 50%;
-          background: var(--accent);
-          box-shadow: 0 0 6px color-mix(in oklch, var(--accent) 60%, transparent);
-          flex-shrink: 0;
-        }
-        .cv-footer-text {
-          color: var(--ink-soft);
-          font-weight: 500;
-        }
-        .cv-footer-sep {
-          opacity: 0.4;
-        }
-        .cv-footer-hint {
-          opacity: 1;
-        }
-
-        /* ── 旋转动画 ── */
-        .cv-spin {
-          animation: cv-spin 1s linear infinite;
-        }
-        @keyframes cv-spin {
-          to {
-            transform: rotate(360deg);
-          }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .cv-spin,
-          .cv-spinner,
-          .cv-status-pill[data-state="loading"] .cv-status-dot,
-          .cv-overlay,
-          .cv-error-card {
-            animation: none;
-          }
-        }
-
-        /* ── 响应式:小屏 iframe 高度自适应,大屏固定高度(flex:1) ── */
-        @media (max-width: 768px) {
-          .cv-sidebar {
-            position: absolute;
-            top: 0;
-            left: 0;
-            bottom: 0;
-            z-index: 5;
-            width: 260px;
-            box-shadow: 4px 0 24px -4px oklch(0% 0 0 / 0.35);
-          }
-          .cv-sidebar-closed .cv-sidebar {
-            width: 0;
-          }
-          .cv-main {
-            padding: var(--space-3);
-          }
-          .cv-header {
-            flex-direction: column;
-            align-items: stretch;
-            gap: var(--space-3);
-          }
-          .cv-toolbar {
-            justify-content: flex-end;
-          }
-          .cv-endpoint-host {
-            max-width: 120px;
-          }
-          .cv-subtitle {
-            padding-left: 0;
-          }
-          /* 小屏:flex 高度可能塌陷(父容器无明确高度时),兜底视口高度 */
-          .cv-frame-wrap {
-            min-height: 70vh;
-          }
-        }
-      `}</style>
+      <CanvasViewStyles />
     </div>
+  );
+}
+
+// ---------- 样式(styled-jsx global:本组件样式由独立组件注入,普通 jsx 模式会因
+// styled-jsx 作用域只标记本组件元素而导致选择器全部失配;选择器均以 .canvas-view/.cv- 命名空间隔离) ----------
+function CanvasViewStyles() {
+  return (
+    <style jsx global>{`
+      .canvas-view {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        background: var(--bg-0);
+        overflow: hidden;
+      }
+
+      /* ───── 顶部工具栏 ───── */
+      .cv-toolbar {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-3);
+        padding: 0.5rem 0.75rem;
+        background: var(--bg-1);
+        border-bottom: 1px solid var(--hairline);
+        z-index: 5;
+      }
+      .cv-tb-left,
+      .cv-tb-right {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+      }
+
+      .cv-canvas-select {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.3rem 0.5rem;
+        background: var(--bg-2);
+        border: 1px solid var(--hairline-2);
+        border-radius: var(--radius-xs);
+        color: var(--accent-soft);
+      }
+      .cv-canvas-select select {
+        background: transparent;
+        border: none;
+        color: var(--ink);
+        font-size: 0.8rem;
+        font-family: var(--font-sans);
+        font-weight: 500;
+        cursor: pointer;
+        outline: none;
+        min-width: 120px;
+        max-width: 220px;
+      }
+      .cv-canvas-select select option {
+        background: var(--bg-1);
+        color: var(--ink);
+      }
+
+      .cv-tb-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.32rem 0.6rem;
+        background: var(--bg-2);
+        border: 1px solid var(--hairline-2);
+        border-radius: var(--radius-xs);
+        color: var(--ink-soft);
+        font-size: 0.75rem;
+        font-weight: 500;
+        font-family: var(--font-sans);
+        cursor: pointer;
+        transition: color var(--dur) var(--ease),
+          background-color var(--dur) var(--ease),
+          border-color var(--dur) var(--ease);
+      }
+      .cv-tb-btn:hover:not(:disabled) {
+        color: var(--ink);
+        border-color: var(--hairline-strong);
+        background: var(--bg-3);
+      }
+      .cv-tb-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .cv-tb-btn:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+
+      .cv-tb-btn-primary {
+        background: var(--accent-quiet);
+        border-color: var(--accent-line);
+        color: var(--accent-soft);
+      }
+      .cv-tb-btn-primary:hover:not(:disabled) {
+        background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+        border-color: transparent;
+        color: var(--accent-ink);
+      }
+
+      .cv-tb-btn-ghost {
+        background: transparent;
+      }
+
+      .cv-tb-btn-danger {
+        color: var(--danger);
+      }
+      .cv-tb-btn-danger:hover:not(:disabled) {
+        background: var(--danger-quiet);
+        border-color: var(--danger);
+      }
+
+      .cv-tb-btn-voice.is-on {
+        background: var(--success-quiet);
+        border-color: var(--success);
+        color: var(--success);
+      }
+
+      /* M2:运行选中 —— 可用时以 accent 弱高亮,暗示可执行动作 */
+      .cv-run-selected:not(:disabled) {
+        background: var(--accent-quiet);
+        border-color: var(--accent-line);
+        color: var(--accent-soft);
+      }
+      .cv-run-selected:not(:disabled):hover {
+        background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+        border-color: transparent;
+        color: var(--accent-ink);
+      }
+
+      /* ───── M3.3:子图高亮(克制物理感:柔光环 + 边增亮,无闪烁动画) ───── */
+      .react-flow__node.cv-flow-node-hl {
+        filter: drop-shadow(0 0 10px color-mix(in oklab, var(--accent) 45%, transparent));
+      }
+      .react-flow__node.cv-flow-node-hl .toiv-node {
+        border-color: var(--accent-line);
+        box-shadow: 0 0 0 1px var(--accent-line),
+          0 8px 24px -12px color-mix(in oklab, var(--accent) 55%, transparent);
+      }
+      .react-flow__edge.cv-flow-edge-hl path.react-flow__edge-path {
+        stroke: var(--accent-soft);
+        stroke-width: 2.2;
+        filter: drop-shadow(0 0 4px color-mix(in oklab, var(--accent) 40%, transparent));
+      }
+
+      .cv-rename-input {
+        padding: 0.32rem 0.55rem;
+        background: var(--bg-0);
+        border: 1px solid var(--accent);
+        border-radius: var(--radius-xs);
+        color: var(--ink);
+        font-size: 0.78rem;
+        font-family: var(--font-sans);
+        min-width: 160px;
+        outline: none;
+        box-shadow: 0 0 0 2px var(--accent-wash);
+      }
+
+      /* 添加节点菜单 */
+      .cv-add-menu {
+        position: relative;
+      }
+      .cv-add-popover {
+        position: absolute;
+        top: calc(100% + 4px);
+        right: 0;
+        min-width: 168px;
+        padding: 0.3rem;
+        background: var(--bg-2);
+        border: 1px solid var(--hairline-2);
+        border-radius: var(--radius-sm);
+        box-shadow: var(--shadow-lg);
+        z-index: 20;
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+        animation: cv-popover-in var(--dur) var(--ease);
+      }
+      @keyframes cv-popover-in {
+        from {
+          opacity: 0;
+          transform: translateY(-4px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .cv-add-item {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.4rem 0.5rem;
+        background: transparent;
+        border: none;
+        border-radius: var(--radius-xs);
+        color: var(--ink-soft);
+        font-size: 0.78rem;
+        cursor: pointer;
+        text-align: left;
+        transition: background-color var(--dur) var(--ease),
+          color var(--dur) var(--ease);
+      }
+      .cv-add-item:hover {
+        background: var(--accent-quiet);
+        color: var(--accent-soft);
+      }
+      .cv-add-item-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 4px;
+        background: var(--bg-1);
+        color: var(--ink-faint);
+      }
+      .cv-add-item:hover .cv-add-item-icon {
+        color: var(--accent-soft);
+      }
+
+      /* ───── 主区域 ───── */
+      .cv-flow-wrap {
+        position: relative;
+        flex: 1;
+        min-height: 0;
+        background: var(--bg-sunken, var(--bg-0));
+        /* vignette 暗房感 */
+        background-image: radial-gradient(
+          ellipse at center,
+          transparent 0%,
+          transparent 55%,
+          oklch(0% 0 0 / 0.35) 100%
+        );
+      }
+
+      /* 暗房氛围层:浮尘 + 涟漪,最底层、不响应指针 */
+      .cv-ambience {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+      }
+
+      /* 覆盖 ReactFlow 默认背景色 */
+      .cv-flow-wrap .react-flow {
+        background: transparent;
+      }
+
+      /* ReactFlow 控件主题对齐 */
+      .cv-flow-wrap .react-flow__controls {
+        background: var(--bg-1);
+        border: 1px solid var(--hairline-2);
+        border-radius: var(--radius-xs);
+        box-shadow: var(--shadow-md);
+        overflow: hidden;
+      }
+      .cv-flow-wrap .react-flow__controls-button {
+        background: transparent;
+        border-bottom: 1px solid var(--hairline);
+        color: var(--ink-soft);
+        fill: var(--ink-soft);
+      }
+      .cv-flow-wrap .react-flow__controls-button:hover {
+        background: var(--accent-quiet);
+        color: var(--accent-soft);
+        fill: var(--accent-soft);
+      }
+      .cv-flow-wrap .react-flow__controls-button svg {
+        fill: currentColor;
+      }
+      .cv-flow-wrap .react-flow__minimap {
+        background: var(--bg-1);
+      }
+      .cv-flow-wrap .react-flow__edge-path {
+        stroke: var(--accent);
+        stroke-width: 1.5;
+        transition: stroke var(--dur) var(--ease),
+          stroke-width var(--dur) var(--ease);
+      }
+      .cv-flow-wrap .react-flow__edge.selected .react-flow__edge-path,
+      .cv-flow-wrap .react-flow__edge:hover .react-flow__edge-path {
+        stroke: var(--accent-hover);
+        stroke-width: 2;
+      }
+      /* 拖拽连线:柔光引导线 */
+      .cv-flow-wrap .react-flow__connection-path {
+        filter: drop-shadow(
+          0 0 4px color-mix(in oklab, var(--accent) 50%, transparent)
+        );
+      }
+      /* 框选:靛蓝薄纱 */
+      .cv-flow-wrap .react-flow__selection,
+      .cv-flow-wrap .react-flow__nodesselection-rect {
+        background: var(--accent-wash);
+        border: 1px solid var(--accent-line);
+        border-radius: 2px;
+      }
+      /* 节点拖拽:物理抬升感 */
+      .react-flow__node.dragging .toiv-node {
+        border-color: var(--hairline-strong);
+        box-shadow: 0 18px 40px -10px oklch(0% 0 0 / 0.65),
+          0 0 0 1px var(--accent-line);
+      }
+      .cv-flow-wrap .react-flow__handle {
+        opacity: 0.7;
+      }
+      .cv-flow-wrap .react-flow__handle:hover {
+        opacity: 1;
+      }
+      .cv-flow-wrap .react-flow__attribution {
+        display: none;
+      }
+
+      /* ───── 覆盖层(加载 / 错误 / 空态) ───── */
+      .cv-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 4;
+        background: color-mix(in oklch, var(--bg-0) 85%, transparent);
+        backdrop-filter: blur(4px);
+      }
+      .cv-loading-card,
+      .cv-error-card,
+      .cv-empty-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.8rem;
+        padding: 2rem 2.4rem;
+        background: var(--bg-1);
+        border: 1px solid var(--hairline-2);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-lg);
+        max-width: 420px;
+        text-align: center;
+      }
+      .cv-loading-orb {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle at 35% 35%,
+          var(--accent-hover),
+          var(--accent-deep) 60%,
+          transparent 70%
+        );
+        filter: blur(6px);
+        opacity: 0.7;
+        animation: cv-orb-breath 2.4s var(--ease) infinite;
+      }
+      @keyframes cv-orb-breath {
+        0%, 100% { transform: scale(1); opacity: 0.7; }
+        50% { transform: scale(1.18); opacity: 0.95; }
+      }
+      .cv-loading-text {
+        font-size: 0.82rem;
+        color: var(--ink-soft);
+        letter-spacing: 0.02em;
+      }
+
+      .cv-error-icon {
+        color: var(--danger);
+        opacity: 0.85;
+      }
+      .cv-error-text {
+        font-size: 0.85rem;
+        color: var(--ink-soft);
+        line-height: 1.5;
+        word-break: break-word;
+      }
+
+      .cv-empty-icon {
+        color: var(--ink-faint);
+        opacity: 0.6;
+      }
+      .cv-empty-title {
+        font-family: var(--font-display);
+        font-size: 1.1rem;
+        font-weight: 500;
+        color: var(--ink);
+        letter-spacing: -0.01em;
+      }
+      .cv-empty-desc {
+        font-size: 0.78rem;
+        color: var(--ink-faint);
+        line-height: 1.6;
+        max-width: 320px;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .cv-loading-orb {
+          animation: none;
+        }
+        .cv-add-popover {
+          animation: none;
+        }
+      }
+
+      /* 移动端:工具栏换行 + 缩小按钮文字 */
+      @media (max-width: 768px) {
+        .cv-toolbar {
+          flex-wrap: wrap;
+          gap: 0.3rem;
+          padding: 0.4rem 0.5rem;
+        }
+        .cv-tb-btn span {
+          font-size: 0.7rem;
+        }
+        .cv-canvas-select select {
+          min-width: 80px;
+          max-width: 140px;
+        }
+      }
+    `}</style>
   );
 }

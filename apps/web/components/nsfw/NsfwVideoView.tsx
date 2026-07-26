@@ -153,8 +153,10 @@ export function NsfwVideoView() {
   const steps = DEFAULT_STEPS;
   const cfg = DEFAULT_CFG;
 
-  const [useUpscale, setUseUpscale] = useState(formSnap?.useUpscale ?? true);
-  const [useRife, setUseRife] = useState(formSnap?.useRife ?? true);
+  // 默认关闭 2 阶段采样/RIFE:多数环境缺 nvidia_video_super_resolution / rife 模型,
+  // 先保证基础 LTX 视频能跑通;用户可在高级参数里手动开启。
+  const [useUpscale, setUseUpscale] = useState(formSnap?.useUpscale ?? false);
+  const [useRife, setUseRife] = useState(formSnap?.useRife ?? false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const [seedLocked, setSeedLocked] = useState(formSnap?.seedLocked ?? false);
@@ -221,12 +223,14 @@ export function NsfwVideoView() {
   const lastSeed = gen.lastSeed;
 
   // 图片上传(对应 i2v / lipsync 的 image 字段)
+  // 必须路由到具备 LTX 模型/节点的 worker,不能走 img2img(会选到 flux 出图机)。
   const handleImageUpload = useCallback(async (file: File | undefined) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) return;
     setUploading(true);
     try {
-      const r = await uploadImage(file, "img2img");
+      const kind = scene === "lipsync" ? "ltx_lipsync" : "ltx_i2v";
+      const r = await uploadImage(file, kind);
       setImageUploaded({
         filename: r.filename,
         worker: r.worker,
@@ -238,15 +242,20 @@ export function NsfwVideoView() {
     } finally {
       setUploading(false);
     }
-  }, [gen]);
+  }, [gen, scene]);
 
-  // 音频上传(复用 /api/upload,kind=audio;对应 lipsync 的 audio 字段)
+  // 音频上传(复用 /api/upload;对应 lipsync 的 audio 字段)
+  // 必须上传到 image 所在的同一 worker,否则 lipsync 生成时找不到音频文件。
   const handleAudioUpload = useCallback(async (file: File | undefined) => {
     if (!file) return;
     if (!file.type.startsWith("audio/")) return;
+    if (!imageUploaded) {
+      gen.setError("请先上传参考图,再上传音频");
+      return;
+    }
     setUploading(true);
     try {
-      const r = await uploadImage(file, "audio");
+      const r = await uploadImage(file, "ltx_lipsync", false, imageUploaded.worker);
       setAudioUploaded({
         filename: r.filename,
         worker: r.worker,
@@ -258,7 +267,7 @@ export function NsfwVideoView() {
     } finally {
       setUploading(false);
     }
-  }, [gen]);
+  }, [gen, imageUploaded]);
 
   // 切换场景时重置表单(不中断进行中的生成)
   const switchScene = useCallback((s: Scene) => {

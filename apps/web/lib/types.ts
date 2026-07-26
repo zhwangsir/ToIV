@@ -25,14 +25,29 @@ export interface ModelsResponse {
   checkpoints: string[];
   samplers: string[];
   schedulers: string[];
-  /** 模式感知模型源:image/video/model3d/audio → {models, editable}。 */
   modes?: Record<string, ModeModels>;
+  /** 扁平带标签列表(向后兼容,来自 modes.image.checkpoints)。 */
+  checkpoints_tagged?: CheckpointTag[];
+  nsfw_models?: string[];
+  vpred_models?: string[];
 }
 
 /** 叠加的单个 LoRA:文件名 + 权重(同时作用于 model 与 clip)。 */
 export interface LoraInput {
   name: string;
   weight: number;
+}
+
+export interface StylePreset {
+  id: string;
+  label: string;
+  ckpt_name: string;
+  media: "image" | "video";
+  width: number;
+  height: number;
+  description: string;
+  llm_layer: string;
+  commercial_safe: boolean;
 }
 
 export interface Txt2ImgParams {
@@ -48,7 +63,7 @@ export interface Txt2ImgParams {
   seed?: number | null;
   batch_size?: number;
   loras?: LoraInput[];
-  /** 出图引擎:comfyui(默认,异步工作流)| forge(reForge sdapi 同步出图)。 */
+  style_preset?: string;
   engine?: "comfyui" | "forge";
 }
 
@@ -110,6 +125,7 @@ export interface Img2ImgGenParams {
   scheduler: string;
   seed?: number | null;
   loras?: LoraInput[];
+  style_preset?: string;
 }
 
 export interface Usage {

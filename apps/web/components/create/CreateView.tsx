@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent as Re
 
 import {
   listModels,
+  listStylePresets,
   generateTxt2img,
   generateImg2img,
   uploadImage,
@@ -16,6 +17,8 @@ import type {
   Img2ImgGenParams,
   ModelsResponse,
   GenerateResponse,
+  StylePreset,
+  CheckpointTag,
 } from "@/lib/types";
 import { Icon } from "@/components/ui/Icon";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
@@ -52,15 +55,46 @@ const SIZE_PRESETS = [
 ] as const;
 
 const DEFAULT_STEPS = 25;
-const DEFAULT_CFG = 7;
+const DEFAULT_CFG = 1.0;
+const DEFAULT_SAMPLER = "euler";
+const DEFAULT_SCHEDULER = "simple";
 const DENOOSE_DEFAULT = 0.55;
+
+const MODEL_LABELS: Record<string, { label: string; tag: string }> = {
+  "flux2_dev_fp8mixed.safetensors": { label: "FLUX.2 Dev", tag: "旗舰" },
+  "flux-2-klein-4b.safetensors": { label: "FLUX.2 Klein 4B", tag: "极速" },
+  "qwen_image_fp8_e4m3fn.safetensors": { label: "Qwen-Image", tag: "中文" },
+  "z_image_turbo_bf16.safetensors": { label: "z-Image Turbo", tag: "8步" },
+  "majicMIX realistic 麦橘写实_v7.safetensors": { label: "麦橘写实 v7", tag: "写实" },
+  "waiIllustriousSDXL_v170.safetensors": { label: "WAI Illustrious v1.7", tag: "动漫" },
+  "noobaiXL_vpred10.safetensors": { label: "NoobAI XL vPred", tag: "动漫" },
+  "ponyDiffusionV6XL_v6StartWithThisOne.safetensors": { label: "Pony Diffusion V6 XL", tag: "动漫" },
+};
+
+function modelLabel(name: string): string {
+  return MODEL_LABELS[name]?.label ?? name.replace(/\.safetensors$/, "").replace(/\.[^.]+$/, "").replace(/_/g, " ").slice(0, 42);
+}
+function modelTag(name: string): string | null {
+  return MODEL_LABELS[name]?.tag ?? null;
+}
+
+function isNextgenCkpt(ckpt: string): boolean {
+  const n = ckpt.toLowerCase();
+  return n.includes("flux2") || n.includes("qwen_image") || n.includes("z_image") || n.includes("flux-2-klein");
+}
 
 function randomSeed(): number {
   // ComfyUI 习惯:0 ~ 2^32-1
   return Math.floor(Math.random() * 0xffffffff);
 }
 
-export function CreateView({ nsfw = false }: { nsfw?: boolean } = {}) {
+export function CreateView({
+  nsfw = false,
+  defaultModel,
+}: {
+  nsfw?: boolean;
+  defaultModel?: string;
+} = {}) {
   const genSlot = nsfw ? "nsfw-create" : "create";
 
   // ---- 模型列表 ----
@@ -68,12 +102,17 @@ export function CreateView({ nsfw = false }: { nsfw?: boolean } = {}) {
   const [modelsLoading, setModelsLoading] = useState(true);
   const [modelsError, setModelsError] = useState<string | null>(null);
 
+  // ---- 风格预设 ----
+  const [presets, setPresets] = useState<StylePreset[]>([]);
+  const [presetsLoading, setPresetsLoading] = useState(true);
+
   // ---- 表单状态(从 sessionStorage 恢复)----
   const formSnap = readFormSnapshot<{
     mode: Mode; positive: string; negative: string;
     ckptName: string; width: number; height: number; sizeCustom: boolean;
     steps: number; cfg: number; sampler: string; scheduler: string;
     seedLocked: boolean; seed: string; batchSize: number; denoise: number;
+    stylePreset: string | null;
   }>(genSlot);
 
   const [mode, setMode] = useState<Mode>(formSnap?.mode ?? "txt2img");
@@ -93,6 +132,7 @@ export function CreateView({ nsfw = false }: { nsfw?: boolean } = {}) {
   const [seed, setSeed] = useState<string>(formSnap?.seed ?? "");
   const [batchSize, setBatchSize] = useState(formSnap?.batchSize ?? 1);
   const [denoise, setDenoise] = useState(formSnap?.denoise ?? DENOOSE_DEFAULT);
+  const [activePreset, setActivePreset] = useState<string | null>(formSnap?.stylePreset ?? null);
 
   // ---- 图生图上传(不持久化,因 worker 临时路径可能失效)----
   const [uploaded, setUploaded] = useState<UploadedRef | null>(null);
@@ -122,7 +162,12 @@ export function CreateView({ nsfw = false }: { nsfw?: boolean } = {}) {
   const [activeIdx, setActiveIdx] = useState(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // ---- 拉取模型列表 ----
+  // 去重:后端可能返回同名文件(不同子目录 basename 相同),避免 <option key> 重复告警
+  const ckptOptions: string[] = useMemo(() => Array.from(new Set(models?.checkpoints ?? [])), [models?.checkpoints]);
+  const samplerOptions: string[] = useMemo(() => Array.from(new Set(models?.samplers ?? [])), [models?.samplers]);
+  const schedulerOptions: string[] = useMemo(() => Array.from(new Set(models?.schedulers ?? [])), [models?.schedulers]);
+
+  // ---- 拉取模型列表 + 风格预设 ----
   // nsfw 模式:设置 X-NSFW 头,使后端返回 NSFW 模型。
   // 注意:不在卸载时关闭 intent —— /nsfw 页面内 tab 切换(图像↔视频)会卸载 CreateView,
   // 若关闭 intent 会导致 NsfwVideoView 的 API 请求丢失 X-NSFW header → 403。
@@ -137,11 +182,12 @@ export function CreateView({ nsfw = false }: { nsfw?: boolean } = {}) {
         setModels(data);
         const ckpts = data.checkpoints ?? [];
         const def = data.modes?.image?.default ?? null;
-        setCkptName(def && ckpts.includes(def) ? def : ckpts[0] ?? "");
+        const initialCkpt = def && ckpts.includes(def) ? def : ckpts[0] ?? "";
+        setCkptName((prev) => prev || initialCkpt);
         const samps = data.samplers ?? [];
-        setSampler((s) => s || samps[0] || "euler");
+        setSampler((s) => s || (samps.includes(DEFAULT_SAMPLER) ? DEFAULT_SAMPLER : samps[0] || "euler"));
         const schs = data.schedulers ?? [];
-        setScheduler((s) => s || schs[0] || "normal");
+        setScheduler((s) => s || (schs.includes(DEFAULT_SCHEDULER) ? DEFAULT_SCHEDULER : schs[0] || "normal"));
       })
       .catch((e) => {
         if (cancelled) return;
@@ -150,15 +196,54 @@ export function CreateView({ nsfw = false }: { nsfw?: boolean } = {}) {
       .finally(() => {
         if (!cancelled) setModelsLoading(false);
       });
+    listStylePresets()
+      .then((data) => { if (!cancelled) setPresets(data); })
+      .catch(() => { if (!cancelled) setPresets([]); })
+      .finally(() => { if (!cancelled) setPresetsLoading(false); });
     return () => {
       cancelled = true;
     };
   }, [nsfw]);
 
-  // 去重:后端可能返回同名文件(不同子目录 basename 相同),避免 <option key> 重复告警
-  const ckptOptions: string[] = useMemo(() => Array.from(new Set(models?.checkpoints ?? [])), [models?.checkpoints]);
-  const samplerOptions: string[] = useMemo(() => Array.from(new Set(models?.samplers ?? [])), [models?.samplers]);
-  const schedulerOptions: string[] = useMemo(() => Array.from(new Set(models?.schedulers ?? [])), [models?.schedulers]);
+  // ckpt 切换时自动适配 CFG/采样器/步数(次世代模型强制 CFG≈1)
+  useEffect(() => {
+    if (!ckptName) return;
+    if (isNextgenCkpt(ckptName)) {
+      setCfg((c) => (c > 2.0 ? DEFAULT_CFG : c));
+      setSteps((st) => (st > 35 ? 28 : st));
+    } else {
+      setCfg((c) => (c <= 1.5 ? 5.5 : c));
+    }
+  }, [ckptName]);
+
+  // 用户手动修改参数时清除预设绑定(避免误导)
+  const manualChange = useCallback(() => {
+    setActivePreset(null);
+  }, []);
+
+  // 选择风格预设时自动应用参数
+  const applyStylePreset = useCallback((preset: StylePreset) => {
+    if (ckptOptions.includes(preset.ckpt_name)) {
+      setCkptName(preset.ckpt_name);
+    }
+    setWidth(preset.width);
+    setHeight(preset.height);
+    const isStandardSize = [512, 768, 1024].includes(preset.width) && preset.width === preset.height;
+    setSizeCustom(!isStandardSize);
+    setActivePreset(preset.id);
+  }, [ckptOptions]);
+
+  const clearStylePreset = useCallback(() => {
+    setActivePreset(null);
+  }, []);
+
+  // 外部传入默认底模(如 NSFW 推荐模型下载完成后自动切到该模型)
+  useEffect(() => {
+    if (!defaultModel || !ckptOptions.includes(defaultModel)) return;
+    if (ckptName !== defaultModel) {
+      setCkptName(defaultModel);
+    }
+  }, [defaultModel, ckptOptions, ckptName]);
 
   // ---- 表单快照持久化(每次表单变化时写入 sessionStorage)----
   useEffect(() => {
@@ -166,11 +251,12 @@ export function CreateView({ nsfw = false }: { nsfw?: boolean } = {}) {
       mode, positive, negative, ckptName,
       width, height, sizeCustom, steps, cfg,
       sampler, scheduler, seedLocked, seed, batchSize, denoise,
+      stylePreset: activePreset,
     });
   }, [
     genSlot, mode, positive, negative, ckptName,
     width, height, sizeCustom, steps, cfg,
-    sampler, scheduler, seedLocked, seed, batchSize, denoise,
+    sampler, scheduler, seedLocked, seed, batchSize, denoise, activePreset,
   ]);
 
   // ---- 主生成流程 ----
@@ -194,6 +280,7 @@ export function CreateView({ nsfw = false }: { nsfw?: boolean } = {}) {
           scheduler,
           seed: seedLocked && seed ? Number(seed) : null,
           batch_size: batchSize,
+          ...(activePreset ? { style_preset: activePreset } : {}),
         };
         res = await generateTxt2img(params);
       } else {
@@ -210,6 +297,7 @@ export function CreateView({ nsfw = false }: { nsfw?: boolean } = {}) {
           sampler,
           scheduler,
           seed: seedLocked && seed ? Number(seed) : null,
+          ...(activePreset ? { style_preset: activePreset } : {}),
         };
         res = await generateImg2img(params);
       }
@@ -223,7 +311,7 @@ export function CreateView({ nsfw = false }: { nsfw?: boolean } = {}) {
     }
   }, [
     positive, negative, ckptName, mode, uploaded, gen, uploading,
-    width, height, steps, cfg, sampler, scheduler, seedLocked, seed, batchSize, denoise,
+    width, height, steps, cfg, sampler, scheduler, seedLocked, seed, batchSize, denoise, activePreset,
   ]);
 
   // ---- 图生图上传 ----
@@ -342,9 +430,14 @@ export function CreateView({ nsfw = false }: { nsfw?: boolean } = {}) {
             </button>
           </div>
           <div className="cv-canvas-meta">
+            {activePreset && presets.find(p => p.id === activePreset) && (
+              <span className="badge badge-preset" title="当前风格预设">
+                <Icon name="sparkles" size={11} /> {presets.find(p => p.id === activePreset)?.label}
+              </span>
+            )}
             {ckptName && (
-              <span className="badge badge-accent" title="当前底模">
-                {ckptName}
+              <span className="badge badge-accent" title={ckptName}>
+                {modelLabel(ckptName)}
               </span>
             )}
             <span className="badge">{width}×{height}</span>
@@ -509,6 +602,50 @@ export function CreateView({ nsfw = false }: { nsfw?: boolean } = {}) {
             )}
           </div>
 
+          {/* 风格预设 */}
+          <div className="card cv-section">
+            <div className="cv-section-head">
+              <span className="cv-label" style={{ display: "inline-flex", alignItems: "center" }}>
+                <Icon name="sparkles" size={11} />
+                <span style={{ marginLeft: 4 }}>风格预设</span>
+              </span>
+              {activePreset && (
+                <button type="button" className="cv-preset-clear" onClick={clearStylePreset}>
+                  <Icon name="close" size={11} /> 清除
+                </button>
+              )}
+            </div>
+            {presetsLoading ? (
+              <div className="cv-field-loading"><Icon name="loading" size={13} /> 加载预设…</div>
+            ) : presets.length === 0 ? (
+              <div className="cv-field-error">暂无可用预设</div>
+            ) : (
+              <div className="cv-preset-grid">
+                {presets.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className={`cv-preset-chip${activePreset === p.id ? " is-active" : ""}`}
+                    onClick={() => applyStylePreset(p)}
+                    title={p.description}
+                  >
+                    <span className="cv-preset-label">{p.label}</span>
+                    {p.commercial_safe && <span className="cv-preset-badge" title="可商用">©</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+            {activePreset && (() => {
+              const p = presets.find((x) => x.id === activePreset);
+              if (!p) return null;
+              return (
+                <div className="cv-preset-desc">
+                  <Icon name="info" size={11} /> {p.description} · {p.llm_layer}润色
+                </div>
+              );
+            })()}
+          </div>
+
           {/* 图生图上传区 */}
           {mode === "img2img" && (
             <div className="card cv-section">
@@ -645,17 +782,30 @@ export function CreateView({ nsfw = false }: { nsfw?: boolean } = {}) {
                 <Icon name="error" size={13} /> {modelsError}
               </div>
             ) : (
-              <select
-                id="cv-ckpt"
-                className="input cv-select"
-                value={ckptName}
-                onChange={(e) => setCkptName(e.target.value)}
-              >
-                {ckptOptions.length === 0 && <option value="">无可用模型</option>}
-                {ckptOptions.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
+              <>
+                <select
+                  id="cv-ckpt"
+                  className="input cv-select"
+                  value={ckptName}
+                  onChange={(e) => { setCkptName(e.target.value); manualChange(); }}
+                >
+                  {ckptOptions.length === 0 && <option value="">无可用模型</option>}
+                  {ckptOptions.map((c) => {
+                    const tag = modelTag(c);
+                    const label = modelLabel(c);
+                    return (
+                      <option key={c} value={c}>
+                        {tag ? `[${tag}] ${label}` : label}
+                      </option>
+                    );
+                  })}
+                </select>
+                {isNextgenCkpt(ckptName) && (
+                  <div className="cv-model-hint">
+                    <Icon name="zap" size={11} /> 次世代模型,CFG固定≈1.0,自动选择采样器
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -1408,6 +1558,94 @@ export function CreateView({ nsfw = false }: { nsfw?: boolean } = {}) {
           font-size: 0.74rem;
           color: var(--danger);
         }
+
+        /* 风格预设 */
+        .cv-preset-clear {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.2rem;
+          padding: 0.15rem 0.45rem;
+          background: transparent;
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius-xs);
+          color: var(--ink-faint);
+          font-size: 0.68rem;
+          cursor: pointer;
+          transition: all var(--dur) var(--ease);
+        }
+        .cv-preset-clear:hover {
+          color: var(--danger);
+          border-color: var(--danger);
+        }
+        .cv-preset-grid {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.35rem;
+          margin-top: 0.55rem;
+        }
+        .cv-preset-chip {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.25rem;
+          padding: 0.32rem 0.6rem;
+          background: var(--bg-2);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius-sm);
+          color: var(--ink-soft);
+          font-size: 0.74rem;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all var(--dur) var(--ease);
+          white-space: nowrap;
+        }
+        .cv-preset-chip:hover {
+          background: var(--bg-3);
+          border-color: var(--accent-line);
+          color: var(--ink);
+        }
+        .cv-preset-chip.is-active {
+          background: var(--accent-quiet);
+          border-color: var(--accent);
+          color: var(--accent-soft);
+          box-shadow: 0 0 0 1px var(--accent-line);
+        }
+        .cv-preset-badge {
+          font-size: 0.6rem;
+          opacity: 0.7;
+          margin-left: 0.1rem;
+        }
+        .cv-preset-desc {
+          display: flex;
+          align-items: center;
+          gap: 0.3rem;
+          margin-top: 0.5rem;
+          padding: 0.35rem 0.5rem;
+          background: var(--accent-wash, oklch(55% 0.20 265 / 0.06));
+          border-radius: var(--radius-xs);
+          font-size: 0.68rem;
+          color: var(--accent-soft);
+          line-height: 1.4;
+        }
+
+        /* 底模提示 */
+        .cv-model-hint {
+          display: flex;
+          align-items: center;
+          gap: 0.3rem;
+          margin-top: 0.4rem;
+          font-size: 0.68rem;
+          color: var(--accent-soft);
+          opacity: 0.8;
+        }
+
+        /* 预设徽章 */
+        .badge-preset {
+          background: oklch(55% 0.20 265 / 0.15);
+          color: var(--accent-soft);
+          border-color: oklch(55% 0.20 265 / 0.3);
+        }
+        .badge-preset svg { display: inline; }
 
         /* 移动端:堆叠 */
         @media (max-width: 880px) {

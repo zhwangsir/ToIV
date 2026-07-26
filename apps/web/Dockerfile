@@ -5,6 +5,9 @@ RUN npm ci --registry https://registry.npmmirror.com
 COPY . .
 ARG NEXT_PUBLIC_API_BASE=""
 ENV NEXT_PUBLIC_API_BASE=$NEXT_PUBLIC_API_BASE
+# 构建时固化 /api rewrite 目标为 docker compose 网络内的 api 容器名
+# (Next.js rewrites 在构建时评估 process.env,运行时改环境变量不会重新生效)
+ENV INTERNAL_API_BASE=http://api:8080
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 

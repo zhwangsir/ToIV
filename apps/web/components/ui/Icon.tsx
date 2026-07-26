@@ -13,15 +13,24 @@ import {
   CheckCircle2,
   Clapperboard,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Clock,
   Cpu,
   Database,
   Download,
+  Eye,
   FileText,
+  FileVideoCamera,
   Film,
   FolderOpen,
+  Grid3x3,
+  GripVertical,
+  History,
+  Home,
   Image as ImageIcon,
+  Info,
   KanbanSquare,
   LayoutGrid,
   Link as LinkIcon,
@@ -31,27 +40,41 @@ import {
   MessageSquare,
   Mic,
   Minus,
+  Monitor,
+  Moon,
   Music,
   Package,
   Palette,
+  PanelRight,
+  Phone,
+  PhoneOff,
   Play,
+  Plus,
   RefreshCw,
   Search,
   Settings,
+  Square,
   Sparkles,
+  Sun,
   Trash2,
+  Tv,
   Upload,
+  User,
+  Users,
   Video,
+  Workflow,
   X,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
 
 const ICON_MAP = {
-  // 侧栏导航(10)
+  // 侧栏导航(11)
   chat: MessageSquare,
   create: Sparkles,
   canvas: LayoutGrid,
   manju: Clapperboard,
+  drama: Tv,
   dub: Mic,
   train: BrainCircuit,
   library: FolderOpen,
@@ -84,7 +107,9 @@ const ICON_MAP = {
   warning: AlertTriangle,
   lock: Lock,
   "chevron-down": ChevronDown,
+  "chevron-left": ChevronLeft,
   "chevron-right": ChevronRight,
+  "chevron-up": ChevronUp,
   // 表单/操作(2):ModelPicker 勾选 + OptimizeButton 主图标
   check: Check,
   sparkles: Sparkles,
@@ -98,6 +123,35 @@ const ICON_MAP = {
   package: Package,
   mic: Mic,
   database: Database,
+  // 短剧工作室 M1/M2/M4 追加:三视图 / 宫格分镜 / 创作过程回放
+  user: User,
+  users: Users,
+  eye: Eye,
+  grid: Grid3x3,
+  filevideo: FileVideoCamera,
+  history: History,
+  // 短剧工作室 M3 追加:导演台拖拽手柄
+  drag: GripVertical,
+  // 主题切换
+  sun: Sun,
+  moon: Moon,
+  monitor: Monitor,
+  // 模式切换/布局
+  workflow: Workflow,
+  "panel-right": PanelRight,
+  home: Home,
+  plus: Plus,
+  // 别名:新设计直接复用已有图标
+  clapperboard: Clapperboard,
+  // DramaStudio Agent 入口按钮用(语义化别名)
+  braincircuit: BrainCircuit,
+  // 创作页面提示
+  zap: Zap,
+  info: Info,
+  // 数字人对话
+  phone: Phone,
+  "phone-off": PhoneOff,
+  square: Square,
 } as const;
 
 export type IconName = keyof typeof ICON_MAP;
@@ -113,6 +167,12 @@ interface IconProps {
  * 底层 lucide-react,完美 tree-shaking,单一线性风格。
  * 全项目唯一图标源,禁止使用 emoji / 其他图标库 / 自定义 SVG。 */
 export function Icon({ name, size = 18, className, strokeWidth = 1.75 }: IconProps) {
-  const Cmp: LucideIcon = ICON_MAP[name];
-  return <Cmp size={size} className={className} strokeWidth={strokeWidth} aria-hidden="true" />;
+  const Cmp: LucideIcon | undefined = ICON_MAP[name];
+  if (!Cmp) {
+    console.warn(`[Icon] unknown icon name: ${name}`);
+    return <span className={className} style={{ width: size, height: size, display: "inline-block" }} aria-hidden="true" />;
+  }
+  const isLoading = name === "loading";
+  const finalClass = [className, isLoading ? "icon-loading-spin" : null].filter(Boolean).join(" ");
+  return <Cmp size={size} className={finalClass || undefined} strokeWidth={strokeWidth} aria-hidden="true" />;
 }

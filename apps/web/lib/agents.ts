@@ -25,7 +25,7 @@ export interface Agent {
   sort: number;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8080";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8090";
 
 /** localStorage 键:当前选中的全局默认智能体 id(顶栏切换用)。 */
 export const DEFAULT_AGENT_KEY = "toiv_default_agent";

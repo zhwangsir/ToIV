@@ -11,6 +11,7 @@ import type {
   MarketItem,
   ModelsResponse,
   NsfwRecommendation,
+  StylePreset,
   TrainProgress,
   TrainStartParams,
   TrainJob,
@@ -18,7 +19,7 @@ import type {
   Usage,
 } from "./types";
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8080";
+export const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8090";
 const TOKEN_KEY = "toiv_token";
 
 export interface AppUser {
@@ -157,6 +158,19 @@ async function fetchModelsRaw(): Promise<ModelsResponse> {
  *  /nsfw 用独立缓存键 + X-NSFW 标记,避免 R18 模型污染主页缓存。 */
 export function listModels(): Promise<ModelsResponse> {
   return swr(_nsfwIntent ? `${CACHE_KEYS.models}:nsfw` : CACHE_KEYS.models, fetchModelsRaw, TTL.models);
+}
+
+/** 风格预设列表,走长 TTL 缓存(预设由后端代码决定,重启才变)。 */
+async function fetchPresetsRaw(): Promise<StylePreset[]> {
+  const url = new URL(`${API_BASE}/api/models/presets`);
+  url.searchParams.set("media", "image");
+  const res = await fetch(url.toString(), { headers: authHeaders() });
+  if (!res.ok) throw new Error(`加载风格预设失败 (${res.status})`);
+  const data = await res.json();
+  return (data.presets ?? []) as StylePreset[];
+}
+export function listStylePresets(): Promise<StylePreset[]> {
+  return swr("style-presets:image", fetchPresetsRaw, TTL.models);
 }
 
 // ---------- Forge 第二出图引擎 ----------
@@ -321,10 +335,12 @@ export async function uploadImage(
   file: File,
   kind: string = "img2img",
   allWorkers = false, // true=分发到所有 worker(角色参考图,供带参考图的分镜跨机并行出图)
+  worker?: string, // 指定目标 worker,确保音频/参考图与后续生成同机
 ): Promise<{ filename: string; worker: string; workers?: string[]; all_workers?: boolean }> {
   const fd = new FormData();
   fd.append("image", file);
-  const qs = `kind=${encodeURIComponent(kind)}${allWorkers ? "&all_workers=true" : ""}`;
+  let qs = `kind=${encodeURIComponent(kind)}${allWorkers ? "&all_workers=true" : ""}`;
+  if (worker) qs += `&worker=${encodeURIComponent(worker)}`;
   const res = await fetch(`${API_BASE}/api/upload?${qs}`, {
     method: "POST",
     headers: authHeaders(), // 不要手动设 Content-Type，让浏览器带 boundary
@@ -1869,4 +1885,521 @@ export async function fetchBacklotDetail(
   if (!res.ok) throw new Error(`加载项目详情失败 (${res.status})`);
   return res.json();
 }
+
+// ---------- AI 短剧工作室:剧本→分镜→视频→配音→成片 一站式 MVP ----------
+export interface DramaProjectSummary {
+  id: string;
+  title: string;
+  premise: string;
+  style: string;
+  script: string;
+  status: string;            // draft / storyboard / ready
+  video_url: string;         // 成片 URL(已合成)
+  duration_sec: number;
+  width: number;
+  height: number;
+  fps: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DramaCharacterItem {
+  id: string;
+  project_id: string;
+  name: string;
+  description: string;
+  visual_prompt: string;     // 视觉 token(注入分镜 prompt 保一致性)
+  ref_image: string;
+  ref_audio: string;         // 角色定妆音色(配音克隆用)
+  voice_name: string;
+  // M1:角色三视图(后端 generate-reference 回写,缺省为空)
+  reference_front: string;
+  reference_side: string;
+  reference_back: string;
+}
+
+export interface DramaShotItem {
+  id: string;
+  project_id: string;
+  idx: number;
+  scene: string;
+  prompt: string;            // 英文视频提示词
+  negative: string;
+  characters: string[];
+  dialogue: string;          // 中文台词
+  speaker: string;           // 说话角色 / narrator / 空
+  duration_sec: number;
+  start_sec: number;
+  video_status: string;      // draft / generating / done / error
+  video_url: string;
+  voice_status: string;      // draft / generating / done / error
+  voice_url: string;
+  seed: number;
+  error: string;
+  updated_at: string;
+  // M2:宫格分镜回写(场景布局 / 视频模型)
+  scene_layout: string;
+  video_model: string;
+}
+
+// M4:创作过程单步记录(后端 process_data 数组元素)
+export interface DramaProcessStep {
+  step: string;       // storyboard / generate_video / assemble / generate_reference / grid_storyboard ...
+  detail: string;
+  ts: string;         // ISO 时间戳
+}
+
+export interface DramaProjectDetail extends DramaProjectSummary {
+  characters: DramaCharacterItem[];
+  shots: DramaShotItem[];
+  // M2/M4:最新宫格图 + 创作过程回放记录(后端已返回)
+  grid_image: string;
+  process_data: DramaProcessStep[];
+}
+
+export interface DramaProjectInput {
+  title: string;
+  premise?: string;
+  style?: string;
+  script?: string;
+  width?: number;
+  height?: number;
+  fps?: number;
+}
+
+export interface DramaProjectPatch {
+  title?: string;
+  premise?: string;
+  style?: string;
+  script?: string;
+  status?: string;
+  width?: number;
+  height?: number;
+  fps?: number;
+}
+
+export interface DramaCharacterInput {
+  name: string;
+  description?: string;
+  visual_prompt?: string;
+  ref_image?: string;
+  ref_audio?: string;
+  voice_name?: string;
+}
+
+export interface DramaCharacterPatch {
+  name?: string;
+  description?: string;
+  visual_prompt?: string;
+  ref_image?: string;
+  ref_audio?: string;
+  voice_name?: string;
+}
+
+export interface DramaStoryboardRequest {
+  num_shots?: number;
+  style?: string;
+  script?: string;
+}
+
+export interface DramaShotPatch {
+  scene?: string;
+  prompt?: string;
+  negative?: string;
+  characters?: string[];
+  dialogue?: string;
+  speaker?: string;
+  duration_sec?: number;
+  seed?: number;
+}
+
+export interface DramaGenerateVideoRequest {
+  worker?: string;
+  seed?: number;
+  steps?: number;
+  cfg?: number;
+  use_upscale?: boolean;
+  use_rife?: boolean;
+  prompt_override?: string;
+}
+
+export interface DramaGenerateVoiceRequest {
+  text_override?: string;
+  ref_audio_url?: string;
+}
+
+export interface DramaAssembleOptions {
+  transition?: string;
+  bgm_url?: string | null;
+  title?: string;
+  credits?: string;
+  aspect?: string;
+  fps?: number;
+  grade?: string;
+  sub_size?: number;
+  sub_color?: string;
+  sub_pos?: string;
+  sub_box?: boolean;
+  voice_volume?: number;
+  bgm_volume?: number;
+  duck?: boolean;
+}
+
+export interface DramaGenerateVideoResult {
+  prompt_id: string;
+  client_id: string;
+  worker: string;
+  seed: number;
+  shot_id: string;
+}
+
+export interface DramaVoiceResult {
+  url: string;
+  name: string;
+  duration_sec: number;
+  shot_id: string;
+}
+
+export interface DramaAssembleResult {
+  url: string;
+  name: string;
+  duration_sec: number;
+}
+
+/** 短剧工作室统一 JSON 请求(带 auth + 错误归一)。 */
+async function dramaReq<T>(path: string, method: string, body?: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE}/api${path}`, {
+    method,
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `短剧项目请求失败 (${res.status})`);
+  }
+  return res.json();
+}
+
+export const listDramaProjects = (): Promise<DramaProjectSummary[]> =>
+  dramaReq("/drama/projects", "GET");
+export const createDramaProject = (body: DramaProjectInput): Promise<DramaProjectSummary> =>
+  dramaReq("/drama/projects", "POST", body);
+export const getDramaProject = (pid: string): Promise<DramaProjectDetail> =>
+  dramaReq(`/drama/projects/${pid}`, "GET");
+export const patchDramaProject = (
+  pid: string,
+  body: DramaProjectPatch,
+): Promise<DramaProjectSummary> => dramaReq(`/drama/projects/${pid}`, "PATCH", body);
+export const deleteDramaProject = (pid: string): Promise<{ ok: boolean }> =>
+  dramaReq(`/drama/projects/${pid}`, "DELETE");
+
+/** 剧本 → 分镜 LLM 拆解,落库并返回分镜列表(会清掉旧分镜)。 */
+export const storyboardDrama = (
+  pid: string,
+  body: DramaStoryboardRequest,
+): Promise<{ shots: DramaShotItem[] }> =>
+  dramaReq(`/drama/projects/${pid}/storyboard`, "POST", body);
+
+/**
+ * L2 主力润色:把剧本送到 L2 模型做关键场景润色。
+ * 契约:POST /api/drama/projects/{pid}/refine body { text, instruction? }
+ *   → { layer, model, original, refined }。
+ */
+export const refineDramaScript = (
+  pid: string,
+  text: string,
+  instruction?: string,
+): Promise<{ layer: string; model: string; original: string; refined: string }> =>
+  dramaReq(`/drama/projects/${pid}/refine`, "POST", {
+    text,
+    ...(instruction ? { instruction } : {}),
+  });
+
+/**
+ * L3 终稿精修:把剧本送到 L3 模型做异步批量精修(耗时较长,2-5 分钟)。
+ * 契约:POST /api/drama/projects/{pid}/polish body { text, instruction? }
+ *   → { layer, model, original, polished }。
+ */
+export const polishDramaScript = (
+  pid: string,
+  text: string,
+  instruction?: string,
+): Promise<{ layer: string; model: string; original: string; polished: string }> =>
+  dramaReq(`/drama/projects/${pid}/polish`, "POST", {
+    text,
+    ...(instruction ? { instruction } : {}),
+  });
+
+/** L3 批量精修任务结果条目。 */
+export interface DramaPolishResult {
+  shot_id: string | null;
+  original: string;
+  polished: string;
+  status: "done" | "error";
+  error: string;
+}
+
+/** L3 批量精修任务状态(单个)。 */
+export interface DramaPolishTask {
+  task_id: string;
+  status: "pending" | "running" | "done";
+  source: string;
+  total: number;
+  done: number;
+  results: DramaPolishResult[];
+  started_at?: string;
+  updated_at?: string;
+  model: string;
+}
+
+/** L3 批量精修任务列表项(精简版)。 */
+export interface DramaPolishTaskListItem {
+  task_id: string;
+  status: string;
+  source: string;
+  total: number;
+  done: number;
+  ts?: string;
+}
+
+/**
+ * L3 异步批量精修:并发处理多个分镜/文本,立即返回 task_id。
+ * 契约:POST /api/drama/projects/{pid}/polish/batch
+ *   body { shot_ids?: string[], texts?: string[], instruction?, temperature?, concurrency? }
+ *   → { task_id, total, status: "pending", poll_url, poll_interval_sec, note }。
+ *
+ * GLM-5.2-fp8 单镜 ~115s,4 并发下 N 镜约 N*115/4 秒。
+ */
+export const polishDramaBatch = (
+  pid: string,
+  body: {
+    shot_ids?: string[];
+    texts?: string[];
+    instruction?: string;
+    temperature?: number;
+    concurrency?: number;
+  },
+): Promise<{
+  task_id: string;
+  total: number;
+  status: string;
+  poll_url: string;
+  poll_interval_sec: number;
+  note: string;
+}> => dramaReq(`/drama/projects/${pid}/polish/batch`, "POST", body);
+
+/** 查询 L3 批量精修任务进度(含已完成分镜的精修结果)。 */
+export const getDramaPolishTask = (
+  pid: string,
+  taskId: string,
+): Promise<DramaPolishTask> =>
+  dramaReq(`/drama/projects/${pid}/polish-tasks/${taskId}`, "GET");
+
+/** 列出项目最近的所有批量精修任务(精简版)。 */
+export const listDramaPolishTasks = (
+  pid: string,
+): Promise<DramaPolishTaskListItem[]> =>
+  dramaReq(`/drama/projects/${pid}/polish-tasks`, "GET");
+
+export const createDramaCharacter = (
+  pid: string,
+  body: DramaCharacterInput,
+): Promise<DramaCharacterItem> =>
+  dramaReq(`/drama/projects/${pid}/characters`, "POST", body);
+export const listDramaCharacters = (pid: string): Promise<DramaCharacterItem[]> =>
+  dramaReq(`/drama/projects/${pid}/characters`, "GET");
+export const patchDramaCharacter = (
+  cid: string,
+  body: DramaCharacterPatch,
+): Promise<DramaCharacterItem> => dramaReq(`/drama/characters/${cid}`, "PATCH", body);
+export const deleteDramaCharacter = (cid: string): Promise<{ ok: boolean }> =>
+  dramaReq(`/drama/characters/${cid}`, "DELETE");
+
+/** 单分镜视频生成(LTX t2v,异步,完成回写 shot.video_url)。 */
+export const generateDramaShotVideo = (
+  sid: string,
+  body: DramaGenerateVideoRequest,
+): Promise<DramaGenerateVideoResult> =>
+  dramaReq(`/drama/shots/${sid}/generate-video`, "POST", body);
+
+/** 单分镜配音(IndexTTS2,同步返回 wav url)。 */
+export const generateDramaShotVoice = (
+  sid: string,
+  body: DramaGenerateVoiceRequest,
+): Promise<DramaVoiceResult> =>
+  dramaReq(`/drama/shots/${sid}/generate-voice`, "POST", body);
+
+/** 改单分镜(手动改提示词 / 台词 / seed)。 */
+export const patchDramaShot = (
+  sid: string,
+  body: DramaShotPatch,
+): Promise<DramaShotItem> => dramaReq(`/drama/shots/${sid}`, "PATCH", body);
+
+/** 一键合成成片(把已完成分镜视频按序拼接 + 配音 + 字幕)。 */
+export const assembleDrama = (
+  pid: string,
+  body: DramaAssembleOptions,
+): Promise<DramaAssembleResult> =>
+  dramaReq(`/drama/projects/${pid}/assemble`, "POST", body);
+
+// ---------- M1:角色三视图生成 ----------
+export interface DramaGenerateReferenceBody {
+  visual_prompt_override?: string;
+  worker?: string;
+  seed?: number;
+}
+
+/**
+ * 角色三视图(正/侧/背)生成。契约:POST /api/drama/characters/{cid}/generate-reference
+ * body { visual_prompt_override?, worker?, seed? } → DramaCharacterItem(含 reference_front/side/back)。
+ */
+export const dramaGenerateCharacterReference = (
+  cid: string,
+  body?: DramaGenerateReferenceBody,
+): Promise<DramaCharacterItem> =>
+  dramaReq(`/drama/characters/${cid}/generate-reference`, "POST", body ?? {});
+
+// ---------- M2:9/25 宫格分镜 ----------
+export interface DramaGridStoryboardBody {
+  num_shots: number; // 9 | 25
+  style?: string;
+  script?: string;
+}
+
+export interface DramaGridStoryboardResponse {
+  project: DramaProjectSummary;
+  shots: DramaShotItem[];
+  grid_image: string;
+}
+
+/**
+ * 9/25 宫格分镜:一次性产出 num_shots 张分镜并拼成 3x3 / 5x5 宫格图。
+ * 契约:POST /api/drama/projects/{pid}/grid-storyboard
+ *   body { num_shots: 9|25, style?, script? } → { project, shots, grid_image }。
+ */
+export const dramaGridStoryboard = (
+  pid: string,
+  body: DramaGridStoryboardBody,
+): Promise<DramaGridStoryboardResponse> =>
+  dramaReq(`/drama/projects/${pid}/grid-storyboard`, "POST", body);
+
+// ---------- M3:导演台(2D 场景布局)----------
+export interface DramaSceneLayoutActor {
+  name: string;
+  x: number; // 0-100 百分比
+  y: number; // 0-100 百分比
+  facing: string; // left / right / front / back
+  scale: number; // 0.5 - 2.0
+}
+export interface DramaSceneLayoutProp {
+  name: string;
+  x: number;
+  y: number;
+  scale: number;
+}
+export interface DramaSceneLayout {
+  actors: DramaSceneLayoutActor[];
+  props: DramaSceneLayoutProp[];
+  camera: { angle: number; distance: number };
+  notes: string;
+}
+
+export interface DramaSceneLayoutResponse {
+  shot_id: string;
+  scene_layout: DramaSceneLayout | null;
+  raw: string;
+}
+
+/** 读取分镜场景布局。契约:GET /api/drama/shots/{sid}/scene-layout。 */
+export const dramaGetSceneLayout = (sid: string): Promise<DramaSceneLayoutResponse> =>
+  dramaReq(`/drama/shots/${sid}/scene-layout`, "GET");
+
+export interface DramaUpdateSceneLayoutBody {
+  layout: DramaSceneLayout;
+  generate_reference: boolean;
+  worker?: string;
+  seed?: number;
+}
+
+/** 保存/更新分镜场景布局,可选生成构图参考图。契约:PUT /api/drama/shots/{sid}/scene-layout。 */
+export const dramaUpdateSceneLayout = (
+  sid: string,
+  body: DramaUpdateSceneLayoutBody,
+): Promise<DramaShotItem> =>
+  dramaReq(`/drama/shots/${sid}/scene-layout`, "PUT", body);
+
+// ---------- M5:Skill 市场 ----------
+export interface DramaSkillCharacterTemplate {
+  name: string;
+  description: string;
+  visual_prompt: string;
+}
+export interface DramaSkill {
+  id: string;
+  name: string;
+  category: string; // action / romance / scifi / comedy
+  description: string;
+  style_hint: string;
+  default_num_shots: number;
+  width: number;
+  height: number;
+  fps: number;
+  character_templates: DramaSkillCharacterTemplate[];
+  script_template: string;
+  tags: string[];
+}
+
+/** Skill 列表(可按 category 过滤)。契约:GET /api/drama/skills[?category=]。 */
+export const dramaListSkills = (category?: string): Promise<{ skills: DramaSkill[] }> => {
+  const q = category ? `?category=${encodeURIComponent(category)}` : "";
+  return dramaReq(`/drama/skills${q}`, "GET");
+};
+
+/** 单个 Skill 详情。契约:GET /api/drama/skills/{skill_id}。 */
+export const dramaGetSkill = (skillId: string): Promise<DramaSkill> =>
+  dramaReq(`/drama/skills/${skillId}`, "GET");
+
+/** 应用 Skill 创建新项目。契约:POST /api/drama/skills/{skill_id}/apply → DramaProjectDetail。 */
+export const dramaApplySkill = (skillId: string): Promise<DramaProjectDetail> =>
+  dramaReq(`/drama/skills/${skillId}/apply`, "POST");
+
+// ---------- M6:模型聚合 ----------
+export interface VideoGeneratorInfo {
+  name: string;
+  display_name: string;
+  supports_image2video: boolean;
+  supports_text2video: boolean;
+  // 前端独有:后端不返回此字段,由前端按 AVAILABLE_VIDEO_GENERATORS 白名单附加。
+  // stub 模型(seedance/kling)在 generate() 时返回固定错误,元信息层不可见,故前端维护白名单。
+  available?: boolean;
+}
+
+/**
+ * M2.2:前端可用视频生成器白名单(单一真相源)。
+ * 后端真正接入新模型时,在此 Set 加一个名字即可让选择器显示。
+ * 当前仅 ltx 实际可用,seedance/kling 为 stub。
+ */
+export const AVAILABLE_VIDEO_GENERATORS = new Set<string>(["ltx"]);
+
+/** 可用视频生成模型列表。契约:GET /api/drama/video-generators。 */
+export const dramaListVideoGenerators = (): Promise<{ generators: VideoGeneratorInfo[] }> =>
+  dramaReq(`/drama/video-generators`, "GET");
+
+export interface GenerateVideoV2Body {
+  model: string;
+  worker?: string;
+  seed?: number;
+  steps?: number;
+  cfg?: number;
+  use_upscale?: boolean;
+  use_rife?: boolean;
+  prompt_override?: string;
+}
+
+/** 单分镜视频生成 v2(支持模型选择)。契约:POST /api/drama/shots/{sid}/generate-video-v2。 */
+export const dramaGenerateVideoV2 = (
+  sid: string,
+  body: GenerateVideoV2Body,
+): Promise<DramaGenerateVideoResult> =>
+  dramaReq(`/drama/shots/${sid}/generate-video-v2`, "POST", body);
 

@@ -406,6 +406,26 @@ export function ManjuView() {
       .finally(() => setModelsLoading(false));
   }, []);
 
+  // 当前项目实际生效的底模:如果持久化的 ckpt_name 已不在 worker 可用列表,自动 fallback。
+  const effectiveCkpt = useMemo(() => {
+    const saved = detail?.ckpt_name?.trim();
+    if (saved && models.includes(saved)) return saved;
+    return models[0] ?? "";
+  }, [detail?.ckpt_name, models]);
+
+  // 检测到项目底模失效时提示用户,并把编辑表单同步到 fallback 值。
+  useEffect(() => {
+    if (!detail || modelsLoading || models.length === 0) return;
+    const saved = detail.ckpt_name?.trim();
+    if (saved && !models.includes(saved) && effectiveCkpt) {
+      showToast(
+        "info",
+        `项目底模 "${saved}" 当前不可用,已自动切换为 "${effectiveCkpt}",保存项目后生效`,
+      );
+      setEditForm((f) => ({ ...f, ckpt_name: effectiveCkpt }));
+    }
+  }, [detail, models, modelsLoading, effectiveCkpt, showToast]);
+
   // ── 加载项目列表 ──
   const load = useCallback(() => {
     setLoading(true);
@@ -651,7 +671,7 @@ export function ManjuView() {
       setBusy(shot.id, "render");
       renderManjuShot({
         positive,
-        ...(detail.ckpt_name ? { ckptName: detail.ckpt_name } : {}),
+        ...(effectiveCkpt ? { ckptName: effectiveCkpt } : {}),
       })
         .then((res) => {
           showToast(
@@ -666,7 +686,7 @@ export function ManjuView() {
         )
         .finally(() => setBusy(shot.id, null));
     },
-    [activeId, detail, showToast, setBusy, refreshDetail],
+    [activeId, detail, effectiveCkpt, showToast, setBusy, refreshDetail],
   );
 
   // ── 保存分镜素材到项目资产(saveManjuAssets)──
@@ -1293,9 +1313,25 @@ export function ManjuView() {
                           </span>
                         )}
                         {(detail?.ckpt_name || activeProject?.ckpt_name) && (
-                          <span className="badge">
+                          <span
+                            className={`badge${
+                              detail?.ckpt_name && !models.includes(detail.ckpt_name)
+                                ? " badge-warning"
+                                : ""
+                            }`}
+                            title={
+                              detail?.ckpt_name && !models.includes(detail.ckpt_name)
+                                ? `该底模当前不可用,已自动切换为 ${effectiveCkpt}`
+                                : ""
+                            }
+                          >
                             <Icon name="models" size={10} />
                             {detail?.ckpt_name ?? activeProject?.ckpt_name}
+                            {detail?.ckpt_name && !models.includes(detail.ckpt_name) && (
+                              <span className="mj-ckpt-fallback">
+                                → {effectiveCkpt}
+                              </span>
+                            )}
                           </span>
                         )}
                         <span className="mj-detail-time">

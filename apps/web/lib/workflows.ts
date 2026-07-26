@@ -43,7 +43,9 @@ export function downloadWorkflowTemplate(id: string): string {
   return `${API_BASE}/api/workflows/${id}/download`;
 }
 
-export const DEFAULT_COMFYUI_URL = "http://192.168.71.100:8000";
+// 2026-07-27 更新:旧 IP 192.168.71.100:8000 已废弃,改为 Workstation ComfyUI 直连后端(:8189)。
+// 与 apps/api/.env 的 TOIV_COMFY_WORKERS 第一个 worker 保持一致,绕过 LB :8188(/object_info 路由故障)。
+export const DEFAULT_COMFYUI_URL = "http://192.168.71.127:8189";
 
 export function getStoredComfyUrl(): string {
   if (typeof window === "undefined") return DEFAULT_COMFYUI_URL;

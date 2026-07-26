@@ -150,6 +150,7 @@ function NsfwViewBody() {
   // ── NAS 下载状态 ──
   const [nasStatus, setNasStatus] = useState<NasStatus>({ enabled: false });
   const [downloadJobs, setDownloadJobs] = useState<Record<string, NasDownloadStatus>>({});
+  const [preferredCkpt, setPreferredCkpt] = useState<string | undefined>();
   const pollRefs = useRef<Record<string, ReturnType<typeof setInterval>>>({});
 
   // ── 推荐清单 + NAS 状态 ──
@@ -189,7 +190,9 @@ function NsfwViewBody() {
   const handleDownload = useCallback(async (rec: NsfwRecommendation) => {
     const civitaiId = extractCivitaiId(rec.civitai_url);
     if (!civitaiId) return;
-    const modelType = rec.type === "lora" ? "lora" : "checkpoint";
+    // 推荐模型类型映射:unet/diffusion_model 落到 diffusion_models,不自动切图像底模
+    const modelType = rec.type === "lora" ? "lora" : "unet";
+    const isImageCkpt = rec.type === "checkpoint";
     try {
       const { job_id } = await nasDownload({
         source: "civitai",
@@ -219,7 +222,16 @@ function NsfwViewBody() {
         try {
           const st = await getNasDownloadStatus(job_id);
           setDownloadJobs((prev) => ({ ...prev, [rec.name]: st }));
-          if (st.status === "done" || st.status === "error") {
+          if (st.status === "done") {
+            // 图像 checkpoint 下载完成后自动切为创作底模;unet/lora 不自动挂载
+            if (isImageCkpt && st.filename) {
+              setPreferredCkpt(st.filename);
+            }
+            if (pollRefs.current[rec.name]) {
+              clearInterval(pollRefs.current[rec.name]);
+              delete pollRefs.current[rec.name];
+            }
+          } else if (st.status === "error") {
             if (pollRefs.current[rec.name]) {
               clearInterval(pollRefs.current[rec.name]);
               delete pollRefs.current[rec.name];
@@ -293,7 +305,11 @@ function NsfwViewBody() {
           </button>
         </div>
         <div className="nsfw-tab-panel">
-          {tab === "image" ? <CreateView nsfw /> : <NsfwVideoView />}
+          {tab === "image" ? (
+            <CreateView nsfw defaultModel={preferredCkpt} />
+          ) : (
+            <NsfwVideoView />
+          )}
         </div>
       </main>
 
