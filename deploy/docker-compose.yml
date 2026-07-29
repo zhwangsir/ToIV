@@ -7,8 +7,8 @@ services:
     build:
       context: ../apps/api
     environment:
-      # ComfyUI 直连 5 后端(2026-07-27 更新):绕过 LB 8188(其 /object_info 轮询路由故障)。
-      # workstation 3×ComfyUI(8189-8191,GPU3 :8192 已让给 Nemotron LLM) + pc01(192.168.71.115:8188) + pc02(192.168.71.114:8193)。
+      # ComfyUI 直连 5 后端(2026-07-28 设备说明):绕过 LB 8188(其 /object_info 轮询路由故障)。
+      # workstation 3×ComfyUI(8189-8191,GPU0-2) + pc01(192.168.71.115:8188) + pc02(192.168.71.114:8193); GPU3 让给 Nemotron。
       # worker_urls 解析支持逗号+空格分隔(2026-07-24 E2E 修复)。
       TOIV_COMFY_WORKERS: "${TOIV_COMFY_WORKERS:-http://192.168.71.127:8189,http://192.168.71.127:8190,http://192.168.71.127:8191,http://192.168.71.115:8188,http://192.168.71.114:8193}"
       TOIV_DATABASE_URL: "sqlite:////data/toiv.db"
@@ -21,10 +21,9 @@ services:
       # TTS 服务:workstation 本地 9200(IndexTTS2 完整版,2026-07-27 上线,声音克隆,/tts multipart 契约)
       TOIV_TTS_URL: "${TOIV_TTS_URL:-http://192.168.71.127:9200}"
       TOIV_TTS_MULTILINGUAL_URL: "${TOIV_TTS_MULTILINGUAL_URL:-http://192.168.71.127:9200}"
-      # 向量 RAG 嵌入:nomic-embed。原 .100:1234 LM Studio 已过期(IP 变 .127);LM Studio 是否在 workstation 运行待确认,
-      # 未确认前可在 deploy/.env 覆盖为可用端点;RAG 无 embed 会降级但不阻塞主链路。
-      TOIV_EMBED_BASE_URL: "${TOIV_EMBED_BASE_URL:-http://192.168.71.127:1234/v1}"
-      TOIV_EMBED_MODEL: "${TOIV_EMBED_MODEL:-text-embedding-nomic-embed-text-v1.5}"
+      # 向量 RAG 嵌入:workstation 真机 Qwen3-Embedding-4B(:9302, GPU1, 2026-07-28)
+      TOIV_EMBED_BASE_URL: "${TOIV_EMBED_BASE_URL:-http://192.168.71.127:9302/v1}"
+      TOIV_EMBED_MODEL: "${TOIV_EMBED_MODEL:-Qwen3-Embedding-4B}"
       TOIV_JWT_SECRET: "${TOIV_JWT_SECRET:?set TOIV_JWT_SECRET in deploy/.env}"
       TOIV_ADMIN_EMAIL: "${TOIV_ADMIN_EMAIL:-admin}"
       TOIV_ADMIN_PASSWORD: "${TOIV_ADMIN_PASSWORD:-admin123}"
