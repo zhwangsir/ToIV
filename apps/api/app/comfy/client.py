@@ -47,6 +47,9 @@ _MODEL_LOADERS = [
     # LTXVideo 自定义节点(gemma 文本编码器从 text_encoders 目录加载,
     # 不在标准 CLIPLoader 范围内,否则 LTX 链路会被误判为缺模型 → /generate-video 503)
     ("LTXVGemmaCLIPModelLoader", "gemma_path"),
+    # 高清修复放大模型(LTX use_upscale=True 时 required_models 含 upscale_model,
+    # 缺此项会误判 worker 缺模型 → /generate-video 503)
+    ("UpscaleModelLoader", "model_name"),
 ]
 _MODELS_TTL = 120.0
 
@@ -155,7 +158,13 @@ class ComfyUIClient:
                 info = await self.object_info(node)
                 opts = info.get(node, {}).get("input", {}).get("required", {}).get(field, [[]])
                 if opts and isinstance(opts[0], list):
+                    # 旧版格式: [[opt1, opt2, ...]]
                     names.update(opts[0])
+                elif (len(opts) > 1 and isinstance(opts[0], str)
+                      and isinstance(opts[1], dict)
+                      and isinstance(opts[1].get("options"), list)):
+                    # 新版 COMBO widget 格式: ["COMBO", {"options": [...]}]
+                    names.update(opts[1]["options"])
             except ComfyUIError:
                 pass
         self._models_cache = names
