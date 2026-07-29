@@ -24,11 +24,13 @@ import type {
  * - 浏览器端优先使用相对路径 ""，让请求走当前 origin，再由 Next.js rewrite / 反代到后端，
  *   避免构建产物把 localhost:8090 写死导致线上 CORS/ host 不可达。
  * - SSR/非浏览器环境回退到 NEXT_PUBLIC_API_BASE 或 localhost:8090。
+ * - 浏览器端固定用相对路径,绝不读 NEXT_PUBLIC_API_BASE:该变量在构建期被内联,
+ *   若构建机上带着 localhost:8090 之类的值,会把不可达地址烧进产物(2026-07-30 实测踩坑)。
  */
 export const API_BASE =
   typeof window === "undefined"
     ? (process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8090")
-    : (process.env.NEXT_PUBLIC_API_BASE ?? "");
+    : "";
 const TOKEN_KEY = "toiv_token";
 
 export interface AppUser {

@@ -1,4 +1,4 @@
-import { getToken } from "./api";
+import { API_BASE, getToken } from "./api";
 
 /**
  * 智能体驱动的提示词优化 —— 前端 API client + 本地持久化。
@@ -24,8 +24,6 @@ export interface Agent {
   llm_model_override: string | null;
   sort: number;
 }
-
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8090";
 
 /** localStorage 键:当前选中的全局默认智能体 id(顶栏切换用)。 */
 export const DEFAULT_AGENT_KEY = "toiv_default_agent";
