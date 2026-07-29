@@ -53,8 +53,12 @@ def _merge_reasoning(message: dict, usage: dict | None = None) -> dict:
     深化:从 usage.completion_tokens_details.reasoning_tokens 提取 reasoning token 数,
     写入 message["_reasoning_tokens"] 供上层做配额/质量评估(无则 0)。
     """
-    if not message.get("content") or (isinstance(message.get("content"), str)
-                                       and not message.get("content", "").strip()):
+    content = message.get("content")
+    if isinstance(content, str) and "</think>" in content:
+        # 思考型模型(如 Nemotron omni)把推理包在 <think>…</think> 混进 content;
+        # 对话展示只保留正式回答,与 optimize/drama_studio/manju 的剥离逻辑一致
+        message["content"] = content.split("</think>", 1)[1].strip()
+    elif not content or (isinstance(content, str) and not content.strip()):
         reasoning = message.get("reasoning_content") or message.get("reasoning")
         if reasoning:
             message["content"] = reasoning
@@ -173,7 +177,16 @@ async def _call_with_retry(
             if e.response.status_code >= 500:
                 last_exc = e  # 服务端瞬时错误 → 重试
             else:
-                raise LLMError(f"LLM 调用失败({e.response.status_code}): {e}") from e
+                # 4xx:必须带响应体。vLLM 拒绝工具调用(未开 --enable-auto-tool-choice)
+                # 时错误细节只在 body 里,chat() 的「无工具回退」靠匹配 body 文本触发
+                detail = ""
+                try:
+                    detail = e.response.text[:300]
+                except Exception:  # noqa: BLE001
+                    pass
+                raise LLMError(
+                    f"LLM 调用失败({e.response.status_code}): {e} body={detail}"
+                ) from e
         except (httpx.HTTPError, KeyError, IndexError) as e:
             raise LLMError(f"LLM 调用失败: {e}") from e
 

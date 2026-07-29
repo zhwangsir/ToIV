@@ -3,12 +3,10 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { useToast } from "@/components/ui/Toast";
-import { agentChat, AgentEvent } from "@/lib/api";
+import { agentChat, AgentEvent, getLlmModel } from "@/lib/api";
 
-const MODEL_INFO = {
-  name: "Qwen3.6 7B",
-  desc: "本地 L1 快速对话模型，适合灵感捕获、提示词润色、简单问答",
-};
+// 模型名从 /api/system/llm 动态读取(display_model),不再硬编码;desc 为通用说明
+const MODEL_DESC = "本地 L1 快速对话模型，适合灵感捕获、提示词润色、简单问答";
 
 interface Conversation {
   id: string;
@@ -53,12 +51,22 @@ export function AssistantView() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [contextOpen, setContextOpen] = useState(false);
   const [textareaRows, setTextareaRows] = useState(1);
+  const [modelName, setModelName] = useState("L1 对话模型");
   const abortRef = useRef<boolean>(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isEmpty = messages.length === 0;
+
+  // 顶栏/设置面板的模型名跟随后端真实配置,避免显示与实际调用不一致
+  useEffect(() => {
+    const ac = new AbortController();
+    getLlmModel(ac.signal).then((info) => {
+      if (info?.display_model) setModelName(info.display_model);
+    });
+    return () => ac.abort();
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -282,7 +290,7 @@ export function AssistantView() {
           <div className="av-model-pill">
             <span className="av-model-dot" />
             <Icon name="braincircuit" size={12} strokeWidth={1.8} />
-            {MODEL_INFO.name}
+            {modelName}
           </div>
         </div>
 
@@ -309,7 +317,7 @@ export function AssistantView() {
               <Icon name="chat" size={48} strokeWidth={1.1} />
             </div>
             <div className="av-empty-title">ToIV 对话助手</div>
-            <div className="av-empty-desc">{MODEL_INFO.desc}</div>
+            <div className="av-empty-desc">{MODEL_DESC}</div>
             <div className="av-quick-grid">
               {QUICK_ACTIONS.map((a) => (
                 <button
@@ -492,13 +500,13 @@ export function AssistantView() {
             <div className="av-prop-value">
               <div className="av-model-pill av-model-pill--sm">
                 <span className="av-model-dot" />
-                {MODEL_INFO.name}
+                {modelName}
               </div>
             </div>
           </div>
           <div className="av-prop-group">
             <div className="av-prop-label">模型说明</div>
-            <p className="av-prop-desc">{MODEL_INFO.desc}</p>
+            <p className="av-prop-desc">{MODEL_DESC}</p>
           </div>
           <div className="av-prop-group">
             <div className="av-prop-label">对话统计</div>
