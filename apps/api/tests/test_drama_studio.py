@@ -12,6 +12,7 @@
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -22,7 +23,7 @@ from sqlmodel import Session, SQLModel, create_engine
 from app.db import get_session
 from app.deps import get_pool
 from app.main import app
-from app.models import Tenant, User
+from app.models import DramaEvent, DramaSession, DramaShot, Tenant, User
 from app.security import create_token, hash_password
 from app.agent import llm
 
@@ -222,6 +223,7 @@ def _fake_pool(queue_side_effect):
     cli = AsyncMock()
     cli.base_url = "http://worker"
     cli.queue_prompt = AsyncMock(side_effect=queue_side_effect)
+    cli.upload_image = AsyncMock(return_value="uploaded")
     pool.pick = AsyncMock(return_value=cli)
     return pool, cli
 
@@ -669,6 +671,121 @@ def test_scene_layout_other_user(ctx):
 
 
 # ---------------------------------------------------------------------------
+# M3: 分镜对口型(LatentSync)
+# ---------------------------------------------------------------------------
+def test_shot_lipsync_success(ctx):
+    """M3: 分镜对口型成功提交并回写。"""
+    client, token, _ = ctx
+    H = _h(token)
+    pid, sid = _make_shot(ctx, token)
+
+    from app.db import engine
+
+    with Session(engine) as s:
+        shot = s.get(DramaShot, sid)
+        shot.video_status = "done"
+        shot.video_url = "/api/drama/output/drama-test.mp4"
+        shot.voice_status = "done"
+        shot.voice_url = "/api/drama/voice/voice-test.wav"
+        s.add(shot)
+        s.commit()
+
+    pool, cli = _fake_pool(["lipsync-pid"])
+    app.dependency_overrides[get_pool] = lambda: pool
+
+    fake_result = {
+        "lipsync-pid": ["/api/images?filename=lipsync.mp4&worker=http://worker"]
+    }
+
+    mock_resp = MagicMock()
+    mock_resp.content = b"fake"
+    mock_resp.raise_for_status = MagicMock()
+    mock_client = AsyncMock()
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=None)
+    mock_client.get = AsyncMock(return_value=mock_resp)
+
+    try:
+        with patch("app.routes.drama_studio.httpx.AsyncClient", return_value=mock_client), \
+             patch("app.routes.drama_studio.spawn_tracker", lambda c, p: None), \
+             patch("app.comfy.tracker.wait_for_jobs", AsyncMock(return_value=fake_result)):
+            r = client.post(
+                f"/api/drama/shots/{sid}/lipsync",
+                headers=H,
+                json={"lips_expression": 1.5, "inference_steps": 20, "seed": 42},
+            )
+    finally:
+        app.dependency_overrides.pop(get_pool, None)
+
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["shot_id"] == sid
+    assert data["lipsync_status"] == "generating"
+    assert data["seed"] == 42
+
+    # 后台回写已完成(wait_for_jobs 被 mock 立即返回)
+    proj = client.get(f"/api/drama/projects/{pid}", headers=H).json()
+    shot = next(s for s in proj["shots"] if s["id"] == sid)
+    assert shot["lipsync_status"] == "done"
+    assert shot["lipsync_video_url"] == fake_result["lipsync-pid"][0]
+
+    # 确认提交的是 LatentSync 工作流
+    graph = cli.queue_prompt.call_args[0][0]
+    assert any(node.get("class_type") == "LatentSyncNode" for node in graph.values())
+
+
+def test_shot_lipsync_requires_video_and_voice(ctx):
+    """M3: 视频或配音未 done 时返回 422。"""
+    client, token, _ = ctx
+    H = _h(token)
+    pid, sid = _make_shot(ctx, token)
+
+    # 两者都未完成
+    r = client.post(f"/api/drama/shots/{sid}/lipsync", headers=H, json={})
+    assert r.status_code == 422, r.text
+    assert "视频" in r.json()["detail"]
+
+    from app.db import engine
+
+    with Session(engine) as s:
+        shot = s.get(DramaShot, sid)
+        shot.video_status = "done"
+        shot.video_url = "/api/drama/output/v.mp4"
+        s.add(shot)
+        s.commit()
+
+    # 仅视频完成
+    r = client.post(f"/api/drama/shots/{sid}/lipsync", headers=H, json={})
+    assert r.status_code == 422, r.text
+    assert "配音" in r.json()["detail"]
+
+
+def test_shot_lipsync_other_user_404(ctx):
+    """M3: 其他用户访问分镜对口型返回 404。"""
+    client, token, token2 = ctx
+    H = _h(token)
+    pid, sid = _make_shot(ctx, token)
+
+    from app.db import engine
+
+    with Session(engine) as s:
+        shot = s.get(DramaShot, sid)
+        shot.video_status = "done"
+        shot.video_url = "/api/drama/output/v.mp4"
+        shot.voice_status = "done"
+        shot.voice_url = "/api/drama/voice/v.wav"
+        s.add(shot)
+        s.commit()
+
+    r = client.post(
+        f"/api/drama/shots/{sid}/lipsync",
+        headers=_h(token2),
+        json={},
+    )
+    assert r.status_code == 404, r.text
+
+
+# ---------------------------------------------------------------------------
 # M6: 视频生成模型聚合
 # ---------------------------------------------------------------------------
 def test_list_video_generators(ctx):
@@ -707,6 +824,155 @@ def test_generate_video_v2_unknown_model(ctx):
     )
     assert r.status_code == 400, r.text
     assert "未知视频生成器" in r.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
+# M1: 分镜可视化流水线 — 单镜多候选生成 + 候选管理
+# ---------------------------------------------------------------------------
+def _fake_video_generator(prompt_ids: list[str]):
+    """构造 mock 视频生成器,按顺序返回 prompt_ids 作为 job_id。"""
+    from app.services.video_generators import VideoGenResult
+
+    gen = MagicMock()
+    call_idx = [0]
+
+    async def _generate(*args, **kwargs):
+        idx = call_idx[0]
+        call_idx[0] += 1
+        pid = prompt_ids[idx] if idx < len(prompt_ids) else f"pid-{idx}"
+        return VideoGenResult(
+            success=True,
+            job_id=pid,
+            model="ltx",
+            raw={
+                "prompt_id": pid,
+                "client_id": "cid",
+                "worker": "http://worker",
+                "seed": kwargs.get("seed", 0),
+            },
+        )
+
+    gen.generate = AsyncMock(side_effect=_generate)
+    return gen
+
+
+def test_generate_video_v2_multi_candidate(ctx):
+    """M1: num_candidates=3 创建 3 条 candidate 记录并返回列表。"""
+    client, token, _ = ctx
+    H = _h(token)
+    pid, sid = _make_shot(ctx, token)
+    fake_gen = _fake_video_generator(["pid-c0", "pid-c1", "pid-c2"])
+    with patch("app.services.video_generators.get_generator", return_value=fake_gen), \
+         patch("app.routes.drama_studio.wait_for_jobs", AsyncMock(return_value={})):
+        r = client.post(
+            f"/api/drama/shots/{sid}/generate-video-v2",
+            headers=H,
+            json={"model": "ltx", "num_candidates": 3},
+        )
+
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["num_candidates"] == 3
+    assert len(data["candidates"]) == 3
+    assert all(c["status"] == "generating" for c in data["candidates"])
+    assert all(c["shot_id"] == sid for c in data["candidates"])
+
+    # project detail 里 shot 应携带 candidates
+    proj = client.get(f"/api/drama/projects/{pid}", headers=H).json()
+    shot = next(s for s in proj["shots"] if s["id"] == sid)
+    assert shot["video_status"] == "generating"
+    assert shot["video_url"] == ""
+    assert len(shot["candidates"]) == 3
+
+
+def test_list_candidates_empty(ctx):
+    """M1: 无候选时分镜候选列表返回空数组。"""
+    client, token, _ = ctx
+    H = _h(token)
+    _, sid = _make_shot(ctx, token)
+    r = client.get(f"/api/drama/shots/{sid}/candidates", headers=H)
+    assert r.status_code == 200, r.text
+    assert r.json() == []
+
+
+def test_pick_and_delete_candidate(ctx):
+    """M1: 多候选生成后 pick 一个,再删除 active 候选回退 shot 状态。"""
+    client, token, _ = ctx
+    H = _h(token)
+    pid, sid = _make_shot(ctx, token)
+    fake_gen = _fake_video_generator(["pid-c0", "pid-c1"])
+    with patch("app.services.video_generators.get_generator", return_value=fake_gen), \
+         patch("app.routes.drama_studio.wait_for_jobs", AsyncMock(return_value={})):
+        r = client.post(
+            f"/api/drama/shots/{sid}/generate-video-v2",
+            headers=H,
+            json={"model": "ltx", "num_candidates": 2},
+        )
+
+    assert r.status_code == 200, r.text
+    cids = [c["id"] for c in r.json()["candidates"]]
+
+    # pick 第二个候选
+    r = client.post(f"/api/drama/shots/{sid}/candidates/{cids[1]}/pick", headers=H)
+    assert r.status_code == 200, r.text
+    assert r.json()["is_picked"] is True
+
+    proj = client.get(f"/api/drama/projects/{pid}", headers=H).json()
+    shot = next(s for s in proj["shots"] if s["id"] == sid)
+    assert shot["video_status"] == "done"
+    picked = next(c for c in shot["candidates"] if c["id"] == cids[1])
+    assert picked["is_picked"] is True
+    assert shot["video_url"] == picked["url"]
+    # 其余候选 unpick
+    assert all(c["is_picked"] is False for c in shot["candidates"] if c["id"] != cids[1])
+
+    # 删除 active 候选,其余候选因 wait_for_jobs mock 已变为 error,shot 回退到 pending
+    r = client.delete(f"/api/drama/shots/{sid}/candidates/{cids[1]}", headers=H)
+    assert r.status_code == 200, r.text
+    proj = client.get(f"/api/drama/projects/{pid}", headers=H).json()
+    shot = next(s for s in proj["shots"] if s["id"] == sid)
+    assert shot["video_status"] == "pending"
+    assert shot["video_url"] == ""
+
+
+def test_generate_video_v2_multi_candidate_auto_pick(ctx):
+    """M1: 首个完成的候选自动被 pick 为 active。"""
+    client, token, _ = ctx
+    H = _h(token)
+    pid, sid = _make_shot(ctx, token)
+    fake_gen = _fake_video_generator(["pid-fast", "pid-slow"])
+    with patch("app.services.video_generators.get_generator", return_value=fake_gen), \
+         patch("app.routes.drama_studio.wait_for_jobs", AsyncMock(return_value={
+             "pid-fast": ["/api/images?filename=fast.mp4&worker=http://worker"],
+         })):
+        r = client.post(
+            f"/api/drama/shots/{sid}/generate-video-v2",
+            headers=H,
+            json={"model": "ltx", "num_candidates": 2},
+        )
+        assert r.status_code == 200, r.text
+
+        # 给后台 _writeback_candidate 任务一点时间启动
+        import time
+        time.sleep(0.3)
+
+        # 轮询直到有候选被 pick
+        deadline = time.time() + 3
+        picked = None
+        while time.time() < deadline:
+            proj = client.get(f"/api/drama/projects/{pid}", headers=H).json()
+            shot = next(s for s in proj["shots"] if s["id"] == sid)
+            for c in shot["candidates"]:
+                if c["is_picked"]:
+                    picked = c
+                    break
+            if picked:
+                break
+            time.sleep(0.05)
+        assert picked is not None
+        assert picked["url"] == "/api/images?filename=fast.mp4&worker=http://worker"
+        assert shot["video_url"] == picked["url"]
+        assert shot["video_status"] == "done"
 
 
 # ===========================================================================
@@ -1079,3 +1345,171 @@ def test_polish_batch_partial_failure(ctx):
     statuses = [r["status"] for r in final["results"]]
     assert "done" in statuses
     assert "error" in statuses
+
+
+# ---------------------------------------------------------------------------
+# M5: 播放数据反哺创作
+# ---------------------------------------------------------------------------
+def test_playback_insights_empty(ctx):
+    """M5: 无播放数据时返回 0 指标与默认建议。"""
+    client, token, _ = ctx
+    H = _h(token)
+    pid, sid = _make_shot(ctx, token)
+
+    r = client.get(f"/api/drama/projects/{pid}/playback-insights", headers=H)
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["project"]["sessions"] == 0
+    assert data["project"]["completion_rate"] == 0.0
+    assert len(data["shots"]) == 1
+    assert data["shots"][0]["shot_id"] == sid
+    assert data["shots"][0]["heat_score"] == 0.0
+    assert "暂无播放数据" in data["shots"][0]["suggestions"][0]
+
+
+def test_playback_insights_with_events(ctx):
+    """M5: 模拟 2 次会话 + 播放/点赞/完播事件,验证分镜热度与建议。"""
+    client, token, _ = ctx
+    H = _h(token)
+    pid, sid = _make_shot(ctx, token)
+
+    from app.db import engine
+
+    with Session(engine) as s:
+        shot = s.get(DramaShot, sid)
+        shot.start_sec = 0.0
+        shot.duration_sec = 5
+        s.add(shot)
+        s.commit()
+
+        # 构造 2 个会话:都进入并看完该镜,其中 1 个点赞
+        for idx in range(2):
+            session_id = f"sess-{idx}"
+            sess = DramaSession(
+                session_id=session_id,
+                user_id="u1",
+                drama_id=pid,
+                video_url="/x.mp4",
+                is_completed=True,
+                started_at=datetime.now(timezone.utc),
+                ended_at=datetime.now(timezone.utc),
+                duration_sec=5.0,
+                drop_off_at=5.0,
+            )
+            s.add(sess)
+            s.add(
+                DramaEvent(
+                    event_id=f"play-{idx}",
+                    session_id=session_id,
+                    user_id="u1",
+                    drama_id=pid,
+                    event_type="play",
+                    current_time=1.0,
+                    client_ts=1,
+                )
+            )
+            s.add(
+                DramaEvent(
+                    event_id=f"like-{idx}",
+                    session_id=session_id,
+                    user_id="u1",
+                    drama_id=pid,
+                    event_type="like",
+                    current_time=2.0,
+                    client_ts=2,
+                )
+            )
+            if idx == 0:
+                s.add(
+                    DramaEvent(
+                        event_id=f"replay-{idx}",
+                        session_id=session_id,
+                        user_id="u1",
+                        drama_id=pid,
+                        event_type="replay",
+                        current_time=3.0,
+                        client_ts=3,
+                    )
+                )
+        s.commit()
+
+    r = client.get(f"/api/drama/projects/{pid}/playback-insights", headers=H)
+    assert r.status_code == 200, r.text
+    data = r.json()
+    proj = data["project"]
+    assert proj["sessions"] == 2
+    assert proj["plays"] == 2
+    assert proj["completed"] == 2
+    assert proj["completion_rate"] == 1.0
+    assert proj["engagement_rate"] == 1.0
+
+    shot = data["shots"][0]
+    assert shot["enters"] == 2
+    assert shot["completion_rate"] == 1.0
+    assert shot["like_count"] == 2
+    assert shot["heat_score"] > 90
+    assert any("高互动" in sug or "完播率高" in sug for sug in shot["suggestions"])
+
+
+def test_playback_insights_drop_off_suggestion(ctx):
+    """M5: 高流失分镜应给出流失优化建议。"""
+    client, token, _ = ctx
+    H = _h(token)
+    pid, sid = _make_shot(ctx, token)
+
+    from app.db import engine
+
+    with Session(engine) as s:
+        shot = s.get(DramaShot, sid)
+        shot.start_sec = 0.0
+        shot.duration_sec = 5
+        s.add(shot)
+        s.commit()
+
+        # 5 个会话进入,4 个在该镜流失
+        for idx in range(5):
+            session_id = f"sess-drop-{idx}"
+            drop_at = 1.0 if idx < 4 else 5.0
+            sess = DramaSession(
+                session_id=session_id,
+                user_id="u1",
+                drama_id=pid,
+                video_url="/x.mp4",
+                is_completed=(idx >= 4),
+                started_at=datetime.now(timezone.utc),
+                ended_at=datetime.now(timezone.utc),
+                duration_sec=drop_at,
+                drop_off_at=drop_at,
+            )
+            s.add(sess)
+            s.add(
+                DramaEvent(
+                    event_id=f"play-drop-{idx}",
+                    session_id=session_id,
+                    user_id="u1",
+                    drama_id=pid,
+                    event_type="play",
+                    current_time=0.5,
+                    client_ts=1,
+                )
+            )
+        s.commit()
+
+    r = client.get(f"/api/drama/projects/{pid}/playback-insights", headers=H)
+    assert r.status_code == 200, r.text
+    shot = r.json()["shots"][0]
+    assert shot["enters"] == 5
+    assert shot["drop_offs"] == 4
+    assert any("流失严重" in sug for sug in shot["suggestions"])
+
+
+def test_playback_insights_other_user_404(ctx):
+    """M5: 其他用户访问播放洞察返回 404。"""
+    client, token, token2 = ctx
+    H = _h(token)
+    pid, _ = _make_shot(ctx, token)
+    r = client.get(
+        f"/api/drama/projects/{pid}/playback-insights",
+        headers=_h(token2),
+    )
+    assert r.status_code == 404, r.text

@@ -45,6 +45,7 @@ def _patch_settings(monkeypatch, worker_urls=None):
     urls = worker_urls or ["http://worker"]
     class _Settings:
         worker_urls = urls
+        api_base_url = "http://127.0.0.1:8090"
 
     monkeypatch.setattr("app.routes.lipsync.get_settings", lambda: _Settings())
 

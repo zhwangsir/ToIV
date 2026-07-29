@@ -115,3 +115,62 @@
 - LoRA:lightx2v 4 步加速(给 Wan 视频提速,平台视频默认就挂了它)。
 
 > 提示:部分 checkpoint/LoRA 含成人内容(NSFW),按需使用,默认不主动推荐。
+
+---
+
+## 待部署/新选型模型(P0/P1/P2)
+
+以下模型/工具已整理进 `deploy/download_models.sh`，需项目管家按优先级下载到 worker/NAS。
+
+### Qwen-Image 2.0(P0)
+- 是什么:阿里通义新一代图像生成及编辑模型，支持长文本提示与复杂图文排版。
+- 文本编码器:Qwen3-VL-7B-Instruct 满血(~14GB fp16)。
+- 为何满血:Comfy-Org 尚未发布 Qwen3-VL 量化单文件，7B 满血在 RTX 5090 / Mac Studio 24GB 可跑。
+- 显存策略:文本编码器与扩散模型分不同 GPU 加载，避免单卡 24GB 吃满。
+- 文件:下载 `Qwen/Qwen3-VL-7B-Instruct` 到 `text_encoders/qwen_3_vl_7b_instruct/`，或转换为单文件 `qwen_3_vl_7b.safetensors`。
+
+### PuLID Flux v0.9.0(P0)
+- 是什么:比 IPAdapter FaceID 更强的角色一致性工具，保持同一演员/角色跨镜头面孔、气质稳定。
+- 依赖:FLUX.2 dev 底模 + EVA02-CLIP-L 视觉编码器。
+- 文件:`guozinan/PuLID` 的 `pulid_flux_v0.9.0.safetensors` 放 `pulid/`，`EVA02_CLIP_L_336_psz14_s6B.pt` 放 `clip_vision/`。
+- 适合场景:短剧角色定妆、三视图一致性、跨分镜换角度不换脸。
+
+### ACE-Step 1.5(P0)
+- 是什么:ACE Studio 与阶跃星辰开源的文生音乐模型，生成 BGM/主题曲/氛围音乐。
+- 文件:`ace-studio/ace-step-base`(如 1.5 有新 repo 则替换)。
+- 部署:建议独立 conda/venv 服务，通过环境变量 `ACE_STEP_MODEL_DIR` 指向模型路径。
+- 适合场景:短剧 BGM、片头片尾、情绪配乐。
+
+### 短剧场景 LoRA(P1)
+按题材分类，每类先下 3 个即可跑通预设系统:
+- 古风:`ancient_chinese_room`、`hanfu`、`palace`、`wuxia`、`xianxia`
+- 现代:`modern_office`、`luxury_apartment`、`cafe`、`city_night`、`corporate`
+- 校园:`classroom`、`school_uniform`、`campus`、`playground`、`youth`
+- 豪车/商战:`luxury_car`、`sports_car`、`mansion`、`banquet`、`business_meeting`
+- 特效:`magic_spell`、`explosion`、`sci_fi_glow`、`ink_wash`、`lightning`
+- 下载方式:Civitai 需 API token + versionId，脚本已预留 `CIVITAI_VERSION_IDS` 环境变量。
+
+### UVR5 + Demucs(P1)
+- UVR5:人声/伴奏/鼓点/贝斯分离 GUI/CLI 工具。
+- Demucs:Meta 开源音乐源分离模型，`pip install -U demucs` 即可使用。
+- 用途:短剧后期提取干净人声、去除背景杂音、分离 BGM 做 ducking。
+- 部署:建议在 workstation 独立音频处理 conda 环境，暴露 REST API 供 ToIV 调用。
+
+### LivePortrait(P2)
+- 是什么:快手开源表情/姿态驱动肖像视频生成工具。
+- 用途:让短剧角色按参考视频做表情、转头、眨眼，提升表演生动度。
+- 文件:`KwaiVGI/LivePortrait`。
+- 部署:独立服务，GPU 建议 RTX 4090/5090 或 Mac Studio。
+
+### Stable Audio Open(P2)
+- 是什么:Stability AI 开源音效/短音频生成模型。
+- 用途:生成环境音、动作音效、转场音效，补全 MMAudio 的独立音效能力。
+- 文件:`stabilityai/stable-audio-open-1.0`。
+- 部署:独立 conda 服务。
+
+### 自训 LoRA(P2)
+- IC-LoRA:角色一致性 LoRA，需准备同一角色多角度图数据集。
+- LTX Director LoRA:镜头运动 LoRA，需准备平移/推拉/环绕等视频片段数据集。
+- 训练框架:`toiv-trainer/ai-toolkit` 或 kohya-ss。
+- 用途:专属角色固定脸、专属导演镜头语言。
+

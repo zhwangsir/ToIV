@@ -410,6 +410,9 @@ async def job_events(
                     mtype, data = msg.get("type"), msg.get("data", {})
 
                     if mtype == "progress":
+                        # 首个进度到达时把 Job 从 queued 标为 running,让作品库状态更准确
+                        if job and job.status == "queued":
+                            mark_status(prompt_id, "running")
                         yield {"event": "progress", "data": json.dumps({"value": data.get("value"), "max": data.get("max")})}
                     elif mtype == "executing" and data.get("node") is None and data.get("prompt_id") == prompt_id:
                         done_event, urls = await _emit_done(client, prompt_id)

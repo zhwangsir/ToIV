@@ -39,7 +39,6 @@ _CAD_DIR = content_subdir("cad")  # 生成内容根(可切 NAS)
 _NAME_RE = __import__("re").compile(r"^cad-[0-9a-f]{32}\.png$")
 _MAX_BYTES = 60 * 1024 * 1024  # 图纸上限 60MB
 _DL_TIMEOUT = 120.0
-_LOCAL_API = "http://127.0.0.1:8080"
 
 
 class RenderRequest(BaseModel):
@@ -70,7 +69,8 @@ def _allowed(url: str) -> bool:
 def _resolve(url: str) -> str:
     if url.startswith("http://") or url.startswith("https://"):
         return url
-    return _LOCAL_API + (url if url.startswith("/") else "/" + url)
+    base = get_settings().api_base_url.rstrip("/")
+    return base + (url if url.startswith("/") else "/" + url)
 
 
 def _cad_local_name(url: str) -> str | None:

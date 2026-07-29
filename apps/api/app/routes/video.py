@@ -124,6 +124,9 @@ async def generate_video(
     )
     session.commit()
 
+    # 启动服务端后台追踪:前端 SSE 断开后仍可把结果落库,避免"一直生成中"
+    spawn_tracker(client, prompt_id)
+
     return {
         "prompt_id": prompt_id,
         "client_id": client_id,
@@ -334,6 +337,9 @@ async def _submit_ltx_job(
         )
     )
     session.commit()
+
+    # 启动服务端后台追踪:前端 SSE 断开后仍可把结果落库,避免"一直生成中"
+    spawn_tracker(client, prompt_id)
 
     return {
         "prompt_id": prompt_id,

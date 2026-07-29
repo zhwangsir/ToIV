@@ -68,10 +68,28 @@ async def lifespan(app: FastAPI):
 
     reconcile_pending()
     reconcile_task = asyncio.create_task(reconcile_loop())
+    # GPU 生成链路每日冒烟(txt2img 小图 + LTX 短视频),失败经 webhook 报警
+    from app.config import get_settings as _gs
+    from app.services.gpu_smoke import daily_smoke_loop, smoke_report_dir
+
+    _settings = _gs()
+    smoke_task = (
+        asyncio.create_task(
+            daily_smoke_loop(
+                hour=_settings.gpu_smoke_hour,
+                report_dir=smoke_report_dir(),
+                webhook_url=_settings.smoke_alert_webhook,
+            )
+        )
+        if _settings.gpu_smoke_enabled
+        else None
+    )
     try:
         yield
     finally:
         reconcile_task.cancel()
+        if smoke_task is not None:
+            smoke_task.cancel()
 
 
 def create_app() -> FastAPI:

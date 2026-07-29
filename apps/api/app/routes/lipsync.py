@@ -31,7 +31,6 @@ from app.workflows.lipsync import LatentSyncParams, build_latentsync_graph
 router = APIRouter()
 
 _DOWNLOAD_TIMEOUT = 120.0
-_LOCAL_API_BASE = "http://127.0.0.1:8080"
 
 
 class LipsyncRequest(BaseModel):
@@ -59,7 +58,8 @@ def _allowed(url: str) -> bool:
 def _resolve(url: str) -> str:
     if url.startswith("http://") or url.startswith("https://"):
         return url
-    return _LOCAL_API_BASE + (url if url.startswith("/") else "/" + url)
+    base = get_settings().api_base_url.rstrip("/")
+    return base + (url if url.startswith("/") else "/" + url)
 
 
 @router.post("/manju/shot/lipsync")

@@ -313,27 +313,28 @@ _PROFILES: dict[str, GenProfile] = {
 }
 
 # ╔══════════════════════════════════════════════════════════════════════════╗
-# ║  QWEN-IMAGE 编码器版本说明(2026-07-25 更新)                              ║
+# ║  QWEN-IMAGE 编码器版本说明(2026-07-29 更新)                              ║
 # ║                                                                          ║
 # ║  Qwen-Image 1.0 (2025-08) → Qwen2.5-VL 文本编码器                       ║
 # ║    文件名: qwen_2.5_vl_7b_fp8_scaled.safetensors (当前 worker 实测存在)  ║
 # ║                                                                          ║
 # ║  Qwen-Image 2.0 (2026-02/05) → Qwen3-VL 文本编码器(架构升级)            ║
-# ║    clip_type 仍为 "qwen_image",新编码器文件名待 Comfy-Org 正式量化发布   ║
-# ║    (可能命名: qwen_3_vl_* 或 qwen3_vl_*)                                ║
+# ║    无量化包时直接跑 Qwen3-VL-7B-Instruct 满血(~14GB fp16)               ║
+# ║    单文件转换后命名: qwen_3_vl_7b.safetensors                           ║
+# ║    目录加载路径: text_encoders/qwen_3_vl_7b_instruct/                   ║
 # ║                                                                          ║
 # ║  Qwen-Image 3.0 (2026-07-21 发布预览) → 权重尚未开源,暂不支持            ║
 # ║                                                                          ║
-# ║  当前配置兼容 Qwen-Image 1.0 部署;worker 更新到 2.0 量化包后需同步       ║
-# ║  clip_name(可能需更新 clip_type)。nextgen.py 构造逻辑无需改动。          ║
+# ║  第一个候选为当前默认(必须已部署);其余为待部署升级选项。             ║
 # ╚══════════════════════════════════════════════════════════════════════════╝
 # 次世代图配方(worker :8002 /object_info 实测:节点存在、类型枚举含 qwen_image/flux2)。
 #    Z-Image 三件套(z_image_turbo/qwen_3_4b/ae)已在;FLUX.2 dev 用 mistral_3_small,Klein 用 qwen_3_4b。
 _QWEN_IMAGE_CLIP_CANDIDATES: tuple[str, ...] = (
-    "qwen_2.5_vl_7b_fp8_scaled.safetensors",  # Qwen-Image 1.0 (当前默认)
-    # Qwen-Image 2.0 候选文件名(待 Comfy-Org 发布后取消注释并置顶):
-    # "qwen_3_vl_7b_fp8_scaled.safetensors",
-    # "qwen3_vl_fp8.safetensors",
+    # 当前默认: Qwen-Image 1.0 已部署编码器
+    "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+    # Qwen-Image 2.0 候选(待 worker 部署后取消注释并置顶):
+    # "qwen_3_vl_7b.safetensors",           # 满血 Qwen3-VL 7B 单文件转换后
+    # "qwen_3_vl_7b_instruct",              # 目录形式加载(ComfyUI 原生 Qwen3-VL 节点)
 )
 _NEXTGEN_RECIPES: dict[str, NextgenRecipe] = {
     "qwen_image": NextgenRecipe(

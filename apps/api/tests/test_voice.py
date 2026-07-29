@@ -72,6 +72,7 @@ def _patch_settings(monkeypatch, multilingual_url: str = "http://tts.mul"):
     class _Settings:
         tts_url = "http://tts.zh"
         tts_multilingual_url = multilingual_url
+        api_base_url = "http://127.0.0.1:8090"
 
     monkeypatch.setattr("app.routes.voice.get_settings", lambda: _Settings())
 

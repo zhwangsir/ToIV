@@ -70,6 +70,26 @@ class TestValidatePathComponent:
         with pytest.raises(PathTraversalError, match="非法分隔符"):
             validate_path_component("C:\\Windows")
 
+    def test_colon_rejected(self):
+        # 冒号全拒:统一拦截 Windows 盘符(C:)和 NTFS ADS 流语法(file:stream)
+        # Linux 下冒号虽合法但罕见,拒绝防止文件同步到 Windows 引发 ADS 安全问题
+        for bad in ("C:file", "file:stream", "a:b", "image.png:thumbnail", "C:/path"):
+            with pytest.raises(PathTraversalError, match="非法分隔符"):
+                validate_path_component(bad)
+
+    def test_homoglyph_mixed_script_rejected(self):
+        # 混合脚本同形字符:ASCII + Cyrillic/Greek 混用视为攻击
+        # Cyrillic "а"(U+0430)代替 ASCII "a"(U+0061),Greek "α"(U+03B1)同理
+        for bad in ("fаke.txt", "imаge.png", "аdmin/config", "fileα.txt"):
+            with pytest.raises(PathTraversalError, match="同形字符"):
+                validate_path_component(bad, allow_subdirs=True)
+
+    def test_pure_non_ascii_passes(self):
+        # 纯 Cyrillic / 纯 Greek / 纯中文 文件名不触发混合脚本检测(合法命名)
+        assert validate_path_component("файл.png") == "файл.png"
+        assert validate_path_component("φωτογραφία.jpg") == "φωτογραφία.jpg"
+        assert validate_path_component("图片.png") == "图片.png"
+
     def test_empty_string_returns_empty(self):
         assert validate_path_component("") == ""
 
@@ -137,6 +157,18 @@ class TestSafeJoin:
                 validate_existing_file(tmp_path, "link.png")
         finally:
             outside.unlink(missing_ok=True)
+
+    def test_validate_existing_file_symlink_within_base_resolved(self, tmp_path):
+        # 深化新增:指向 base 内文件的符号链接被 safe_join resolve() 安全解析
+        # validate_existing_file 返回 resolve 后的真实文件路径(符号链接逃逸已被拦截)
+        target = tmp_path / "real.png"
+        target.write_bytes(b"\x89PNG")
+        link = tmp_path / "link.png"
+        link.symlink_to(target)
+        result = validate_existing_file(tmp_path, "link.png")
+        # resolve 后应指向 real.png(符号链接被解析为真实路径)
+        assert result.resolve() == target.resolve()
+        assert result.is_file()
 
     def test_validate_existing_file_not_found(self, tmp_path):
         # 深化新增:文件不存在抛 FileNotFoundError(非 PathTraversalError)

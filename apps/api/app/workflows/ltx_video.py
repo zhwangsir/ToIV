@@ -39,13 +39,14 @@ _DEFAULT_RIFE_CKPT = os.environ.get("TOIV_RIFE_CKPT", "rife_v4.26.safetensors")
 # worker 另有 ltx-2-spatial-upscaler-x2-1.0(latent 上采样,LTXVLatentUpsampler 链路预留)。
 _DEFAULT_UPSCALE_MODEL = os.environ.get("TOIV_LTX_UPSCALE_MODEL", "RealESRGAN_x2plus.pth")
 
-# 上采样 + RIFE 模型已补齐(RealESRGAN_x2plus / rife47 均已在 worker)。
-# 默认仍关闭以保证基础链路最快;用户可在 UI 高级开关中开启。
-_DEFAULT_USE_UPSCALE = os.environ.get("TOIV_LTX_USE_UPSCALE", "false").lower() == "true"
+# 上采样 + RIFE 模型已补齐(RealESRGAN_x2plus / rife_v4.26 均已在 worker)。
+# LTX v4.0 推荐"半分辨率生成 + 2× 上采样"获得最佳画质，故默认开启上采样；
+# RIFE 插帧按需开启(会增耗时)。
+_DEFAULT_USE_UPSCALE = os.environ.get("TOIV_LTX_USE_UPSCALE", "true").lower() == "true"
 _DEFAULT_USE_RIFE = os.environ.get("TOIV_LTX_USE_RIFE", "false").lower() == "true"
 
 # LTX2.3 视频底模:10Eros(NSFW) / zImage Turbo / ltx-2.3-distilled(SFW) 均可通过环境变量切换。
-# 配套 CLIP/VAE 默认按 10Eros 工作流(Gemma 3 12B + ltx_vae);若换用其他底模需自行确认兼容性。
+# 配套 CLIP/VAE 默认按 10Eros 工作流(Gemma 3 12B + LTX23_video_vae_bf16);若换用其他底模需自行确认兼容性。
 DEFAULT_NSFW_UNET = os.environ.get("TOIV_LTX_UNET", "10eros_v14.safetensors")
 DEFAULT_LTX_UNET = "ltx-2.3-distilled.safetensors"
 # Gemma 3 12B 文本编码器:ComfyUI-LTXVideo 的 LTXVGemmaCLIPModelLoader 要求 HF 目录结构
@@ -53,7 +54,7 @@ DEFAULT_LTX_UNET = "ltx-2.3-distilled.safetensors"
 # 使用 gemma3_12b_it_bf16/:原 fp8_scaled 权重被 HF 加载器忽略 weight_scale 且键名为 ComfyUI 原生
 # 命名导致文本编码器随机初始化(提示词失效根因),已反量化转 bf16 并重映射为 HF 键名。
 DEFAULT_GEMMA = os.environ.get("TOIV_LTX_GEMMA", "gemma3_12b_it_bf16/model.safetensors")
-DEFAULT_VAE = os.environ.get("TOIV_LTX_VAE", "ltx_vae.safetensors")
+DEFAULT_VAE = os.environ.get("TOIV_LTX_VAE", "LTX23_video_vae_bf16.safetensors")
 
 
 def _random_seed() -> int:

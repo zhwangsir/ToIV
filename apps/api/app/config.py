@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     # 使用 gemma3_12b_it_bf16/(反量化 + HF 键名重映射);旧 gemma3_12b_it/ fp8_scaled
     # 权重会导致文本编码器随机初始化、提示词失效,已禁用(model.safetensors.disabled)。
     nsfw_default_gemma: str = "gemma3_12b_it_bf16/model.safetensors"
-    nsfw_default_vae: str = "ltx_vae.safetensors"
+    nsfw_default_vae: str = "LTX23_video_vae_bf16.safetensors"
     # Forge(reForge SD WebUI)第二出图引擎(sdapi 同步出图);空 = 未部署,前端引擎切换隐藏 Forge
     # 默认空:Workstation 当前未部署 Forge,需要时在 .env 显式配置
     forge_url: str = ""
@@ -57,9 +57,13 @@ class Settings(BaseSettings):
     # 设 /data/nas/toiv(cifs 卷挂 NAS)则生成内容集中落 NAS。
     content_dir: str = "/data"
 
+    # 后端 API 自身基址(供内部 HTTP 自调下载 /api/... 产物使用)。
+    # 开发 :3102, 生产真机 :8090;必须与 uvicorn/systemd 实际监听端口一致。
+    api_base_url: str = "http://127.0.0.1:8090"
+
     # CORS 允许的前端来源（分号或逗号分隔）。默认仅生产域名，开发环境经 .env 追加 localhost。
     # 不能用 "*" —— allow_credentials=True 时 CORS 规范禁止通配符 origin，否则浏览器会拒绝带凭据的跨域请求。
-    cors_origins: str = "https://toiv.dgmt.top,http://127.0.0.1:3100,http://localhost:3100,http://127.0.0.1:3101,http://localhost:3101"
+    cors_origins: str = "https://toiv.dgmt.top,http://192.168.71.47:3100,http://192.168.71.47:3101,http://127.0.0.1:3100,http://localhost:3100,http://127.0.0.1:3101,http://localhost:3101"
     request_timeout: float = 30.0
 
     # 鉴权 / 账号。开发期用 SQLite，生产切 Postgres：
@@ -83,6 +87,8 @@ class Settings(BaseSettings):
     llm_base_url: str = "http://192.168.71.127:8000/v1"
     llm_api_key: str = "lm-studio"
     llm_model: str = "qwen3.6-uncensored"
+    # 顶栏展示用真实模型名（llm_model 为 served-model-name 别名，展示不够直观）
+    llm_display_name: str = "Nemotron-3-Nano-Omni-30B-A3B"
     # 备用 LLM 大脑(主模型重试失败后自动切换;EXO 单端点多模型场景下 base_url/api_key 留空即复用主)。
     # 典型:主=GLM-5.2-fp8(思考型,长 ctx),备=Kimi-K2.7-Code-4bit(代码型,主掉线时兜底)。
     llm_fallback_base_url: str = ""
@@ -107,8 +113,9 @@ class Settings(BaseSettings):
     llm_l3_timeout: float = 300.0
 
     # 向量 RAG 的 embedding 模型(同一 OpenAI 兼容端点;留空则复用 llm_base_url)
+    # 生产:workstation 真机 Qwen3-Embedding-4B(:9302, GPU1, systemd qwen3-embedding.service)
     embed_base_url: str = ""
-    embed_model: str = "text-embedding-nomic-embed-text-v1.5"
+    embed_model: str = "Qwen3-Embedding-4B"
 
     # LoRA 训练 agent(部署在 GPU 机 .100，独立 HTTP 服务 :9100)。
     # API 通过 HTTP 调它(同 ComfyUI/TTS/LLM 的访问模式)，不走 SSH。
@@ -134,6 +141,17 @@ class Settings(BaseSettings):
     video_scorer_enabled: bool = False
     # 综合分(total)低于此阈值才推 quality_warning;0.65 ≈ 视频质量明显可改进的临界。
     video_scorer_threshold: float = 0.65
+
+    # —— GPU 生成链路每日冒烟(txt2img 小图 + LTX 短视频)——
+    # 每日定点自动执行,报告落 {content_dir}/smoke/;失败 POST 报警到 webhook(空=只记日志)。
+    gpu_smoke_enabled: bool = True
+    gpu_smoke_hour: int = 4  # 每日定点(容器本地时区,0-23)
+    smoke_alert_webhook: str = ""
+
+    # 短剧工作室剧本拆解默认 LLM 层(L1/L2/L3/L4)。
+    # L2/L3 当前依赖 Mac Studio EXO,模型实例未就绪时回退慢且易 502;
+    # 默认 L1(workstation vLLM)保证功能可用,EXO 恢复后可改回 L3。
+    drama_storyboard_layer: str = "L1"
 
     # —— OpenTalking 数字人引擎(unified 模式, 单进程) ——
     # 本地 dev: http://127.0.0.1:4403 (兄弟目录运行的 opentalking-unified 进程)

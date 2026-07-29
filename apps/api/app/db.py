@@ -187,14 +187,61 @@ _SQLITE_RAW_MIGRATIONS: tuple[str, ...] = (
     """
     CREATE INDEX IF NOT EXISTS idx_dramashot_proj ON dramashot(project_id, idx)
     """,
+    """
+    CREATE TABLE IF NOT EXISTS dramashotcandidate (
+        id            TEXT PRIMARY KEY,
+        shot_id       TEXT NOT NULL REFERENCES dramashot(id) ON DELETE CASCADE,
+        project_id    TEXT NOT NULL,
+        url           TEXT DEFAULT '',
+        seed          INTEGER DEFAULT 0,
+        video_model   TEXT DEFAULT '',
+        status        TEXT DEFAULT 'pending',
+        is_picked     BOOLEAN NOT NULL DEFAULT FALSE,
+        error         TEXT DEFAULT '',
+        created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_dramashotcandidate_shot ON dramashotcandidate(shot_id)
+    """,
+    # ── M2:跨项目资产库 ──
+    """
+    CREATE TABLE IF NOT EXISTS dramaasset (
+        id              TEXT PRIMARY KEY,
+        tenant_id       TEXT NOT NULL,
+        user_id         TEXT NOT NULL,
+        kind            TEXT DEFAULT 'character',
+        name            TEXT NOT NULL,
+        description     TEXT DEFAULT '',
+        visual_prompt   TEXT DEFAULT '',
+        ref_image       TEXT DEFAULT '',
+        ref_audio       TEXT DEFAULT '',
+        voice_name      TEXT DEFAULT '',
+        reference_front TEXT DEFAULT '',
+        reference_side  TEXT DEFAULT '',
+        reference_back  TEXT DEFAULT '',
+        tags            TEXT DEFAULT '[]',
+        created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_dramaasset_user ON dramaasset(tenant_id, user_id)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_dramaasset_kind ON dramaasset(kind)
+    """,
     # ── 幂等补列:旧库升级(已有表追加新列,带 DEFAULT 不破坏数据)──
     "ALTER TABLE dramaproject ADD COLUMN process_data TEXT DEFAULT '[]'",
+    "ALTER TABLE dramacharacter ADD COLUMN asset_id TEXT",
     "ALTER TABLE dramacharacter ADD COLUMN reference_front TEXT DEFAULT ''",
     "ALTER TABLE dramacharacter ADD COLUMN reference_side TEXT DEFAULT ''",
     "ALTER TABLE dramacharacter ADD COLUMN reference_back TEXT DEFAULT ''",
     "ALTER TABLE dramashot ADD COLUMN grid_image TEXT DEFAULT ''",
     "ALTER TABLE dramashot ADD COLUMN scene_layout TEXT DEFAULT ''",
     "ALTER TABLE dramashot ADD COLUMN video_model TEXT DEFAULT ''",
+    "ALTER TABLE dramashot ADD COLUMN lipsync_status TEXT DEFAULT ''",
+    "ALTER TABLE dramashot ADD COLUMN lipsync_video_url TEXT DEFAULT ''",
 )
 
 

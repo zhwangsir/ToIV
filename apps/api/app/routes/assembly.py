@@ -34,6 +34,7 @@ except ImportError:
 from app.config import get_settings
 from app.deps import get_current_user
 from app.models import User
+from app.routes.drama_analytics import _drama_root
 from app.storage import content_subdir
 from app.ratelimit import enforce_generation_rate_limit
 
@@ -41,6 +42,8 @@ router = APIRouter()
 
 # 成片输出目录:容器挂了 toiv-data:/data;无 /data(本地)则回落到临时目录。
 _OUTPUT_DIR = content_subdir("manju")  # 与 voice 同目录(生成内容根,可切 NAS)
+# 短剧成片/配音统一落到 NAS drama final 目录,与 drama_studio.py 保持一致。
+_DRAMA_DIR = _drama_root()
 
 _TRANSITIONS = {"none", "crossfade"}
 # 多平台导出预设:aspect → (宽, 高)。逐镜 scale+crop 填充到此尺寸。
@@ -52,11 +55,11 @@ _ASPECT_DIMS: dict[str, tuple[int, int]] = {
 _TITLE_SEC = 2.4  # 片头标题卡时长
 _CREDITS_SEC = 3.4  # 片尾字幕卡时长
 _OUTPUT_NAME_RE = re.compile(r"^manju-[0-9a-f]{32}\.mp4$")
+_DRAMA_OUTPUT_NAME_RE = re.compile(r"^drama-[0-9a-f]{32}\.mp4$")
 _DEFAULT_FPS = 16
 _CROSSFADE_SEC = 0.5  # 相邻片段交叠时长
 _CLIP_EST_SEC = 2.0  # xfade offset 估计:每片段约 2s(漫剧片段普遍偏短)
 _DOWNLOAD_TIMEOUT = 120.0
-_LOCAL_API_BASE = "http://127.0.0.1:8080"
 
 # 调色滤镜预设(P3):全片统一电影级色调。值为 ffmpeg 视频滤镜串(接每镜链尾)。
 # 故意只用 eq/colorbalance/hue/curves=preset(无内嵌引号),避免 filtergraph 转义坑。
@@ -143,22 +146,28 @@ def _resolve_clip_url(url: str) -> str:
     """相对路径补全成可下载的绝对 URL(指回本 API 自身)。"""
     if url.startswith("http://") or url.startswith("https://"):
         return url
+    base = get_settings().api_base_url.rstrip("/")
     if url.startswith("/"):
-        return _LOCAL_API_BASE + url
-    return f"{_LOCAL_API_BASE}/{url}"
+        return base + url
+    return f"{base}/{url}"
 
 
 _VOICE_NAME_RE = re.compile(r"^voice(?:ref)?-[0-9a-f]{32}\.wav$")
 
 
 async def _download_clip(client: httpx.AsyncClient, url: str, dest: Path) -> None:
-    # 同源 manju 产物(配音 wav / 成片 mp4)直接读本地文件,避免内部 HTTP 自调
+    # 同源 manju/drama 产物(配音 wav / 成片 mp4)直接读本地文件,避免内部 HTTP 自调
     # 撞鉴权(这些端点要 Bearer token,而此处是服务端内部下载无 token)。
-    # voice 和 output 共用 content_subdir("manju") 目录。
+    name = url.rsplit("/", 1)[-1]
     if url.startswith(("/api/manju/output/", "/api/manju/voice/")):
-        name = url.rsplit("/", 1)[-1]
-        if _OUTPUT_NAME_RE.match(name) or _VOICE_NAME_RE.match(name):
+        if (_OUTPUT_NAME_RE.match(name) or _VOICE_NAME_RE.match(name)):
             local = _OUTPUT_DIR / name
+            if local.is_file():
+                dest.write_bytes(local.read_bytes())
+                return
+    if url.startswith(("/api/drama/output/", "/api/drama/voice/")):
+        if (_DRAMA_OUTPUT_NAME_RE.match(name) or _VOICE_NAME_RE.match(name)):
+            local = _DRAMA_DIR / name
             if local.is_file():
                 dest.write_bytes(local.read_bytes())
                 return

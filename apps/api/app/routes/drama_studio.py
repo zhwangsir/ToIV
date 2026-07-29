@@ -22,6 +22,7 @@ import logging
 import re
 import shutil
 import tempfile
+import time
 import uuid
 import wave
 from pathlib import Path
@@ -40,11 +41,25 @@ from app.comfy.tracker import spawn as spawn_tracker, wait_for_jobs
 from app.config import get_settings
 from app.db import get_session
 from app.deps import get_current_user, get_pool, resolve_worker
-from app.models import DramaCharacter, DramaProject, DramaShot, Job, User, _now
+from app.models import (
+    DramaAsset,
+    DramaCharacter,
+    DramaEvent,
+    DramaProject,
+    DramaSession,
+    DramaShot,
+    DramaShotCandidate,
+    Job,
+    User,
+    _now,
+)
 from app.ratelimit import enforce_generation_rate_limit
-from app.storage import content_subdir
+from app.routes.drama_analytics import _drama_root
+from app.routes.lipsync import _allowed as _lipsync_allowed, _resolve as _lipsync_resolve
 from app.versioning import params_snapshot
-from app.workflows.ltx_video import LtxT2VParams, build_ltx_t2v_graph
+from app.workflows.ipadapter import IPAdapterTxt2ImgParams, build_ipadapter_txt2img_graph
+from app.workflows.lipsync import LatentSyncParams, build_latentsync_graph
+from app.workflows.ltx_video import LtxI2VParams, LtxT2VParams, build_ltx_i2v_graph, build_ltx_t2v_graph
 from app.workflows.model_profiles import fit_resolution, is_nextgen, nextgen_recipe, profile_for
 from app.workflows.nextgen import NextgenParams, build_nextgen_graph
 from app.workflows.txt2img import Txt2ImgParams, build_txt2img_graph
@@ -53,12 +68,12 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# 复用 manju 的产物目录(voice/output 同根),成片合成可直接读到配音文件。
-_DRAMA_DIR = content_subdir("manju")
+# NAS 统一存储:成片与配音统一落到 TOIV_DRAMA_VIDEO_DIR(生产指向 NAS 成片目录),
+# 与 drama_analytics.py 的播放器代理共享同一路径,避免生成与播放目录不一致。
+_DRAMA_DIR = _drama_root()
 _VOICE_NAME_RE = re.compile(r"^voice(?:ref)?-[0-9a-f]{32}\.wav$")
 _DRAMA_OUTPUT_RE = re.compile(r"^drama-[0-9a-f]{32}\.mp4$")
 _TTS_TIMEOUT = 180.0
-_LOCAL_API_BASE = "http://127.0.0.1:8080"
 
 
 # ===========================================================================
@@ -126,6 +141,8 @@ class CharacterIn(BaseModel):
     ref_image: str = Field(default="", max_length=1000)
     ref_audio: str = Field(default="", max_length=1000)
     voice_name: str = Field(default="", max_length=64)
+    # M2:可选关联到资产库
+    asset_id: str | None = Field(default=None, max_length=64)
 
 
 class CharacterPatch(BaseModel):
@@ -135,6 +152,36 @@ class CharacterPatch(BaseModel):
     ref_image: str | None = Field(default=None, max_length=1000)
     ref_audio: str | None = Field(default=None, max_length=1000)
     voice_name: str | None = Field(default=None, max_length=64)
+    asset_id: str | None = Field(default=None, max_length=64)
+
+
+# M2:跨项目资产库请求模型
+class AssetIn(BaseModel):
+    kind: str = Field(default="character", max_length=20)
+    name: str = Field(min_length=1, max_length=64)
+    description: str = Field(default="", max_length=500)
+    visual_prompt: str = Field(default="", max_length=1000)
+    ref_image: str = Field(default="", max_length=1000)
+    ref_audio: str = Field(default="", max_length=1000)
+    voice_name: str = Field(default="", max_length=64)
+    reference_front: str = Field(default="", max_length=1000)
+    reference_side: str = Field(default="", max_length=1000)
+    reference_back: str = Field(default="", max_length=1000)
+    tags: list[str] = Field(default_factory=list)
+
+
+class AssetPatch(BaseModel):
+    kind: str | None = Field(default=None, max_length=20)
+    name: str | None = Field(default=None, max_length=64)
+    description: str | None = Field(default=None, max_length=500)
+    visual_prompt: str | None = Field(default=None, max_length=1000)
+    ref_image: str | None = Field(default=None, max_length=1000)
+    ref_audio: str | None = Field(default=None, max_length=1000)
+    voice_name: str | None = Field(default=None, max_length=64)
+    reference_front: str | None = Field(default=None, max_length=1000)
+    reference_side: str | None = Field(default=None, max_length=1000)
+    reference_back: str | None = Field(default=None, max_length=1000)
+    tags: list[str] | None = None
 
 
 class StoryboardRequest(BaseModel):
@@ -171,6 +218,18 @@ class GenerateVoiceRequest(BaseModel):
     text_override: str | None = Field(default=None, max_length=600)
     # 覆盖参考音(空=用 speaker 对应角色的 ref_audio)
     ref_audio_url: str | None = Field(default=None, max_length=2000)
+    # 情感描述与强度，透传给 IndexTTS2
+    emo_text: str | None = Field(default=None, max_length=200)
+    emo_alpha: float = Field(default=0.6, ge=0.0, le=1.0)
+
+
+class LipsyncRequest(BaseModel):
+    """M3: 分镜对口型请求。复用 manju lipsync 同款参数。"""
+
+    lips_expression: float = Field(default=1.5, ge=1.0, le=3.0)
+    inference_steps: int = Field(default=20, ge=1, le=50)
+    # 采样种子:缺省随机;rerun keep 锁 seed 时精确复现口型采样
+    seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
 
 
 class AssembleOptions(BaseModel):
@@ -188,6 +247,8 @@ class AssembleOptions(BaseModel):
     voice_volume: float = Field(default=1.0, ge=0.0, le=2.0)
     bgm_volume: float = Field(default=0.0, ge=0.0, le=1.0)
     duck: bool = Field(default=True)
+    # M3:前端显式指定合成片段,优先使用 lipsync_video_url;空则后端兜底
+    clips: list[str] | None = Field(default=None)
 
 
 class GenerateReferenceRequest(BaseModel):
@@ -236,6 +297,7 @@ def _character_dict(c: DramaCharacter) -> dict:
     return {
         "id": c.id,
         "project_id": c.project_id,
+        "asset_id": c.asset_id,
         "name": c.name,
         "description": c.description,
         "visual_prompt": c.visual_prompt,
@@ -248,7 +310,45 @@ def _character_dict(c: DramaCharacter) -> dict:
     }
 
 
-def _shot_dict(s: DramaShot) -> dict:
+def _asset_dict(a: DramaAsset) -> dict:
+    try:
+        tags = json.loads(a.tags) if a.tags else []
+    except (ValueError, TypeError):
+        tags = []
+    return {
+        "id": a.id,
+        "kind": a.kind,
+        "name": a.name,
+        "description": a.description,
+        "visual_prompt": a.visual_prompt,
+        "ref_image": a.ref_image,
+        "ref_audio": a.ref_audio,
+        "voice_name": a.voice_name,
+        "reference_front": a.reference_front,
+        "reference_side": a.reference_side,
+        "reference_back": a.reference_back,
+        "tags": tags,
+        "created_at": a.created_at.isoformat(),
+        "updated_at": a.updated_at.isoformat(),
+    }
+
+
+def _candidate_dict(c: DramaShotCandidate) -> dict:
+    return {
+        "id": c.id,
+        "shot_id": c.shot_id,
+        "project_id": c.project_id,
+        "url": c.url,
+        "seed": c.seed,
+        "video_model": c.video_model,
+        "status": c.status,
+        "is_picked": c.is_picked,
+        "error": c.error,
+        "created_at": c.created_at.isoformat(),
+    }
+
+
+def _shot_dict(s: DramaShot, session: Session | None = None) -> dict:
     try:
         chars = json.loads(s.characters) if s.characters else []
     except (ValueError, TypeError):
@@ -257,6 +357,12 @@ def _shot_dict(s: DramaShot) -> dict:
         layout = json.loads(s.scene_layout) if s.scene_layout else None
     except (ValueError, TypeError):
         layout = None
+    candidates: list[dict] = []
+    if session is not None:
+        rows = session.exec(
+            select(DramaShotCandidate).where(DramaShotCandidate.shot_id == s.id)
+        ).all()
+        candidates = [_candidate_dict(c) for c in rows]
     return {
         "id": s.id,
         "project_id": s.project_id,
@@ -276,8 +382,11 @@ def _shot_dict(s: DramaShot) -> dict:
         "video_url": s.video_url,
         "voice_status": s.voice_status,
         "voice_url": s.voice_url,
+        "lipsync_status": s.lipsync_status,
+        "lipsync_video_url": s.lipsync_video_url,
         "seed": s.seed,
         "error": s.error,
+        "candidates": candidates,
         "updated_at": s.updated_at.isoformat(),
     }
 
@@ -369,7 +478,7 @@ def get_project(
         select(DramaShot).where(DramaShot.project_id == pid).order_by(DramaShot.idx)
     ).all()
     out["characters"] = [_character_dict(c) for c in chars]
-    out["shots"] = [_shot_dict(s) for s in shots]
+    out["shots"] = [_shot_dict(s, session) for s in shots]
     return out
 
 
@@ -405,6 +514,272 @@ def delete_project(
     session.delete(p)
     session.commit()
     return {"ok": True}
+
+
+# ===========================================================================
+# M5: 播放数据反哺创作 —— 分镜级洞察
+# ===========================================================================
+class ShotPlaybackInsight(BaseModel):
+    shot_id: str
+    idx: int
+    scene: str
+    start_sec: float
+    duration_sec: int
+    enters: int
+    drop_offs: int
+    avg_watch_sec: float
+    completion_rate: float
+    retention: float
+    replay_count: int
+    like_count: int
+    mark_good_count: int
+    mark_boring_count: int
+    share_count: int
+    heat_score: float
+    suggestions: list[str]
+
+
+class ProjectPlaybackInsight(BaseModel):
+    sessions: int
+    plays: int
+    completed: int
+    completion_rate: float
+    avg_watch_sec: float
+    engagement_rate: float
+
+
+class PlaybackInsightsResponse(BaseModel):
+    project: ProjectPlaybackInsight
+    shots: list[ShotPlaybackInsight]
+    generated_at: str
+
+
+def _shot_time_windows(shots: list[DramaShot]) -> list[tuple[float, float]]:
+    """返回每个 shot 的 [start, end] 时间窗口。
+
+    优先使用 shot.start_sec;未组装时按分镜 duration 累加兜底。
+    """
+    windows: list[tuple[float, float]] = []
+    cumulative = 0.0
+    for shot in sorted(shots, key=lambda s: s.idx):
+        start = shot.start_sec if shot.start_sec > 0 else cumulative
+        end = start + shot.duration_sec
+        windows.append((start, end))
+        cumulative = end
+    return windows
+
+
+def _compute_playback_insights(
+    shots: list[DramaShot],
+    sessions: list[DramaSession],
+    events: list[DramaEvent],
+) -> PlaybackInsightsResponse:
+    windows = _shot_time_windows(shots)
+    total_sessions = len(sessions)
+    session_by_id = {s.session_id: s for s in sessions}
+
+    # 按会话聚合事件中的 current_time,用于判断完播/流失
+    times_by_session: dict[str, list[float]] = {}
+    for ev in events:
+        if ev.current_time is None:
+            continue
+        times_by_session.setdefault(ev.session_id, []).append(ev.current_time)
+
+    # 项目级指标
+    plays = len({ev.session_id for ev in events if ev.event_type == "play"})
+    completed = sum(1 for s in sessions if s.is_completed)
+    avg_watch = (
+        sum(s.drop_off_at or 0 for s in sessions) / total_sessions
+        if total_sessions
+        else 0.0
+    )
+    engaged_sessions = {
+        ev.session_id
+        for ev in events
+        if ev.event_type in ("like", "mark_good", "mark_boring", "share_click")
+    }
+    engagement_rate = len(engaged_sessions) / total_sessions if total_sessions else 0.0
+
+    shot_insights: list[ShotPlaybackInsight] = []
+    for shot, (start, end) in zip(sorted(shots, key=lambda s: s.idx), windows):
+        # 进入该镜的会话(有任意事件落在窗口内)
+        entered: set[str] = set()
+        for ev in events:
+            if ev.current_time is None:
+                continue
+            if start <= ev.current_time <= end:
+                entered.add(ev.session_id)
+
+        enters = len(entered)
+        if enters == 0:
+            shot_insights.append(
+                ShotPlaybackInsight(
+                    shot_id=shot.id,
+                    idx=shot.idx,
+                    scene=shot.scene,
+                    start_sec=start,
+                    duration_sec=shot.duration_sec,
+                    enters=0,
+                    drop_offs=0,
+                    avg_watch_sec=0.0,
+                    completion_rate=0.0,
+                    retention=0.0,
+                    replay_count=0,
+                    like_count=0,
+                    mark_good_count=0,
+                    mark_boring_count=0,
+                    share_count=0,
+                    heat_score=0.0,
+                    suggestions=["暂无播放数据，发布后可观察该分镜表现。"],
+                )
+            )
+            continue
+
+        # 窗口内观看时长
+        watch_times: list[float] = []
+        for sid in entered:
+            max_t = max(
+                (t for t in times_by_session.get(sid, []) if start <= t <= end),
+                default=start,
+            )
+            watch_times.append(max(0.0, min(max_t, end) - start))
+        avg_shot_watch = sum(watch_times) / len(watch_times)
+
+        # 完播:以该镜窗口内最后事件 / drop_off 为准,避免被后续镜头播放带偏
+        completed_shot = 0
+        drop_offs = 0
+        for sid in entered:
+            sess = session_by_id.get(sid)
+            if not sess:
+                continue
+            in_window = [t for t in times_by_session.get(sid, []) if start <= t <= end]
+            last_in_window = max(in_window, default=start)
+            if (
+                sess.is_completed
+                or last_in_window >= end - 1
+                or (sess.drop_off_at is not None and sess.drop_off_at >= end - 1)
+            ):
+                completed_shot += 1
+            elif sess.drop_off_at is not None and start <= sess.drop_off_at <= end:
+                drop_offs += 1
+
+        completion_rate = completed_shot / enters
+
+        # 互动/重播按会话去重,避免同一用户多次点击刷量扭曲指标
+        replay_sessions: set[str] = set()
+        like_sessions: set[str] = set()
+        mark_good_sessions: set[str] = set()
+        mark_boring_sessions: set[str] = set()
+        share_sessions: set[str] = set()
+        for ev in events:
+            if ev.current_time is None:
+                continue
+            if not (start <= ev.current_time <= end):
+                continue
+            if ev.event_type == "replay":
+                replay_sessions.add(ev.session_id)
+            elif ev.event_type == "like":
+                like_sessions.add(ev.session_id)
+            elif ev.event_type == "mark_good":
+                mark_good_sessions.add(ev.session_id)
+            elif ev.event_type == "mark_boring":
+                mark_boring_sessions.add(ev.session_id)
+            elif ev.event_type == "share_click":
+                share_sessions.add(ev.session_id)
+
+        replay_count = len(replay_sessions)
+        like_count = len(like_sessions)
+        mark_good_count = len(mark_good_sessions)
+        mark_boring_count = len(mark_boring_sessions)
+        share_count = len(share_sessions)
+
+        retention = enters / total_sessions if total_sessions else 0.0
+        engagement_count = len(
+            like_sessions | mark_good_sessions | mark_boring_sessions | share_sessions
+        )
+
+        # 热度分(0-100):留存 40% + 完播 30% + 互动率 20% + 重播率 10%
+        replay_rate = replay_count / enters
+        engagement_rate_shot = engagement_count / enters
+        heat_score = min(
+            100.0,
+            retention * 40
+            + completion_rate * 30
+            + engagement_rate_shot * 20
+            + replay_rate * 10,
+        )
+
+        # 生成建议
+        suggestions: list[str] = []
+        if total_sessions > 0 and retention < 0.2:
+            suggestions.append("曝光占比低，可尝试前置该镜或优化封面/标题吸引点击。")
+        if drop_offs / enters > 0.4:
+            suggestions.append("该镜流失严重，建议缩短时长、加快节奏或强化视觉钩子。")
+        if completion_rate >= 0.8:
+            suggestions.append("完播率高，是留住用户的关键镜头，建议保持当前叙事节奏。")
+        if replay_rate > 0.3:
+            suggestions.append("用户反复回看，适合作为预告/封面高光或二创切片。")
+        if like_count / enters > 0.2 or mark_good_count / enters > 0.2:
+            suggestions.append("高互动片段，可在社交媒体引导点赞与转发。")
+        if mark_boring_count / enters > 0.2:
+            suggestions.append("被标记为无聊，建议精简台词、增加冲突或替换画面。")
+        if not suggestions:
+            suggestions.append("表现平稳，继续观察累计数据后再决策。")
+
+        shot_insights.append(
+            ShotPlaybackInsight(
+                shot_id=shot.id,
+                idx=shot.idx,
+                scene=shot.scene,
+                start_sec=start,
+                duration_sec=shot.duration_sec,
+                enters=enters,
+                drop_offs=drop_offs,
+                avg_watch_sec=round(avg_shot_watch, 2),
+                completion_rate=round(completion_rate, 3),
+                retention=round(retention, 3),
+                replay_count=replay_count,
+                like_count=like_count,
+                mark_good_count=mark_good_count,
+                mark_boring_count=mark_boring_count,
+                share_count=share_count,
+                heat_score=round(heat_score, 1),
+                suggestions=suggestions,
+            )
+        )
+
+    return PlaybackInsightsResponse(
+        project=ProjectPlaybackInsight(
+            sessions=total_sessions,
+            plays=plays,
+            completed=completed,
+            completion_rate=round(completed / total_sessions, 3) if total_sessions else 0.0,
+            avg_watch_sec=round(avg_watch, 2),
+            engagement_rate=round(engagement_rate, 3),
+        ),
+        shots=shot_insights,
+        generated_at=_now().isoformat(),
+    )
+
+
+@router.get("/drama/projects/{pid}/playback-insights")
+def get_playback_insights(
+    pid: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> PlaybackInsightsResponse:
+    """基于真实播放埋点，生成项目级 + 分镜级创作建议。"""
+    _owned_project(pid, user, session)
+    shots = session.exec(
+        select(DramaShot).where(DramaShot.project_id == pid).order_by(DramaShot.idx)
+    ).all()
+    sessions = session.exec(
+        select(DramaSession).where(DramaSession.drama_id == pid)
+    ).all()
+    events = session.exec(
+        select(DramaEvent).where(DramaEvent.drama_id == pid)
+    ).all()
+    return _compute_playback_insights(shots, sessions, events)
 
 
 # ===========================================================================
@@ -536,14 +911,19 @@ async def storyboard(
         select(DramaCharacter).where(DramaCharacter.project_id == pid)
     ).all()
 
+    layer = get_settings().drama_storyboard_layer.upper()
+    if layer not in ("L1", "L2", "L3", "L4"):
+        layer = "L1"
     try:
-        msg = await llm.chat(
+        # 默认走配置层;L2/L3 当前依赖 EXO,未就绪时会自动降级,默认 L1 保证可用性。
+        msg = await llm.chat_layered(
             [
                 {"role": "system", "content": _STORYBOARD_SYSTEM},
                 {"role": "user", "content": _build_user_prompt(
                     script, body.num_shots, style, characters
                 )},
             ],
+            layer=layer,
             max_tokens=8192,
             temperature=0.5,
         )
@@ -554,10 +934,18 @@ async def storyboard(
     obj = _parse_json_obj(raw)
     shots_raw = obj.get("shots") if obj else None
     if not isinstance(shots_raw, list) or not shots_raw:
+        logger.warning(
+            "storyboard parse failed layer=%s project=%s raw_length=%d raw_preview=%s",
+            layer, pid, len(raw), raw[:800].replace("\n", " ")
+        )
         raise HTTPException(status_code=502, detail="分镜生成失败,请重试")
 
     coerced = [_coerce_shot(s, i) for i, s in enumerate(shots_raw[: body.num_shots])]
     if not any(s["prompt"] for s in coerced):
+        logger.warning(
+            "storyboard no valid prompts layer=%s project=%s shots=%s",
+            layer, pid, coerced
+        )
         raise HTTPException(status_code=502, detail="分镜生成失败(无有效提示词),请重试")
 
     # 清掉旧分镜(重新拆解),角色库保留
@@ -609,7 +997,7 @@ async def storyboard(
     session.commit()
     for s in created:
         session.refresh(s)
-    return {"shots": [_shot_dict(s) for s in created]}
+    return {"shots": [_shot_dict(s, session) for s in created]}
 
 
 # ===========================================================================
@@ -622,15 +1010,26 @@ def create_character(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> dict:
-    _owned_project(pid, user, session)
+    project = _owned_project(pid, user, session)
+    # M2:如果指定了 asset_id,校验资产存在且同租户
+    if body.asset_id:
+        asset = session.get(DramaAsset, body.asset_id)
+        if not asset or asset.tenant_id != user.tenant_id:
+            raise HTTPException(status_code=404, detail="关联资产不存在")
+    # M2:从资产自动填充缺失字段
+    asset = session.get(DramaAsset, body.asset_id) if body.asset_id else None
     c = DramaCharacter(
         project_id=pid,
+        asset_id=body.asset_id,
         name=body.name,
-        description=body.description,
-        visual_prompt=body.visual_prompt,
-        ref_image=body.ref_image,
-        ref_audio=body.ref_audio,
-        voice_name=body.voice_name,
+        description=body.description or (asset.description if asset else ""),
+        visual_prompt=body.visual_prompt or (asset.visual_prompt if asset else ""),
+        ref_image=body.ref_image or (asset.ref_image if asset else ""),
+        ref_audio=body.ref_audio or (asset.ref_audio if asset else ""),
+        voice_name=body.voice_name or (asset.voice_name if asset else ""),
+        reference_front=asset.reference_front if asset else "",
+        reference_side=asset.reference_side if asset else "",
+        reference_back=asset.reference_back if asset else "",
     )
     session.add(c)
     session.commit()
@@ -662,6 +1061,12 @@ def patch_character(
     if not c:
         raise HTTPException(status_code=404, detail="角色不存在")
     _owned_project(c.project_id, user, session)
+    # M2:变更 asset_id 时校验资产归属
+    if body.asset_id is not None:
+        if body.asset_id:
+            asset = session.get(DramaAsset, body.asset_id)
+            if not asset or asset.tenant_id != user.tenant_id:
+                raise HTTPException(status_code=404, detail="关联资产不存在")
     data = body.model_dump(exclude_unset=True)
     for k, v in data.items():
         setattr(c, k, v)
@@ -686,8 +1091,216 @@ def delete_character(
     return {"ok": True}
 
 
+def _owned_asset(aid: str, user: User, session: Session) -> DramaAsset:
+    a = session.get(DramaAsset, aid)
+    if not a or a.tenant_id != user.tenant_id:
+        raise HTTPException(status_code=404, detail="资产不存在")
+    return a
+
+
 # ===========================================================================
-# 单分镜视频生成(LTX t2v)
+# M2:跨项目资产库 CRUD
+# ===========================================================================
+@router.post("/drama/assets")
+def create_asset(
+    body: AssetIn,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    a = DramaAsset(
+        tenant_id=user.tenant_id,
+        user_id=user.id,
+        kind=body.kind,
+        name=body.name,
+        description=body.description,
+        visual_prompt=body.visual_prompt,
+        ref_image=body.ref_image,
+        ref_audio=body.ref_audio,
+        voice_name=body.voice_name,
+        reference_front=body.reference_front,
+        reference_side=body.reference_side,
+        reference_back=body.reference_back,
+        tags=json.dumps(body.tags, ensure_ascii=False),
+    )
+    session.add(a)
+    session.commit()
+    session.refresh(a)
+    return _asset_dict(a)
+
+
+@router.get("/drama/assets")
+def list_assets(
+    kind: str | None = None,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    stmt = select(DramaAsset).where(DramaAsset.tenant_id == user.tenant_id)
+    if kind:
+        stmt = stmt.where(DramaAsset.kind == kind)
+    rows = session.exec(stmt.order_by(DramaAsset.updated_at.desc())).all()
+    return {"assets": [_asset_dict(a) for a in rows]}
+
+
+@router.patch("/drama/assets/{aid}")
+def patch_asset(
+    aid: str,
+    body: AssetPatch,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    a = _owned_asset(aid, user, session)
+    data = body.model_dump(exclude_unset=True)
+    if "tags" in data:
+        data["tags"] = json.dumps(data["tags"], ensure_ascii=False)
+    for k, v in data.items():
+        setattr(a, k, v)
+    a.updated_at = _now()
+    session.add(a)
+    session.commit()
+    session.refresh(a)
+    return _asset_dict(a)
+
+
+@router.delete("/drama/assets/{aid}")
+def delete_asset(
+    aid: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    a = _owned_asset(aid, user, session)
+    session.delete(a)
+    session.commit()
+    return {"ok": True}
+
+
+@router.post("/drama/assets/{aid}/apply-to-project")
+def apply_asset_to_project(
+    aid: str,
+    pid: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    a = _owned_asset(aid, user, session)
+    _owned_project(pid, user, session)
+    c = DramaCharacter(
+        project_id=pid,
+        asset_id=a.id,
+        name=a.name,
+        description=a.description,
+        visual_prompt=a.visual_prompt,
+        ref_image=a.ref_image,
+        ref_audio=a.ref_audio,
+        voice_name=a.voice_name,
+        reference_front=a.reference_front,
+        reference_side=a.reference_side,
+        reference_back=a.reference_back,
+    )
+    session.add(c)
+    session.commit()
+    session.refresh(c)
+    return _character_dict(c)
+
+
+def _shot_characters(shot: DramaShot, session: Session) -> list[DramaCharacter]:
+    """返回该分镜出场角色对应的数据库记录。"""
+    try:
+        names = json.loads(shot.characters) if shot.characters else []
+    except (ValueError, TypeError):
+        names = []
+    if not names:
+        return []
+    chars = session.exec(
+        select(DramaCharacter).where(
+            DramaCharacter.project_id == shot.project_id,
+            DramaCharacter.name.in_(names),
+        )
+    ).all()
+    return list(chars)
+
+
+async def _wait_result_files(client, prompt_id: str, timeout: float = 180.0) -> list[dict]:
+    """同步等待 ComfyUI 工作流产物。"""
+    start = time.monotonic()
+    while time.monotonic() - start < timeout:
+        try:
+            files = await client.get_result_files(prompt_id)
+            if files:
+                return files
+        except ComfyUIError:
+            pass
+        await asyncio.sleep(1.5)
+    return []
+
+
+async def _generate_keyframe_for_shot(
+    client,
+    shot: DramaShot,
+    project: DramaProject,
+    settings,
+    session: Session,
+) -> str | None:
+    """为分镜生成带角色一致性的首帧图,返回上传到 worker input 后的文件名。
+
+    仅当分镜有关联角色且角色有 ref_image 时执行;失败时返回 None,调用方应回退到 t2v。
+    """
+    chars = _shot_characters(shot, session)
+    ref_char = next((c for c in chars if c.ref_image.strip()), None)
+    if not ref_char:
+        return None
+
+    ref_url = ref_char.ref_image.strip()
+    if not _allowed_ref(ref_url):
+        logger.warning("角色 %s 参考图来源不在白名单: %s", ref_char.name, ref_url)
+        return None
+
+    try:
+        async with httpx.AsyncClient(
+            timeout=60.0, follow_redirects=True, trust_env=False
+        ) as http:
+            rr = await http.get(_resolve_url(ref_url))
+            rr.raise_for_status()
+            ref_fn = await client.upload_image(
+                rr.content, f"drama_ref_{uuid.uuid4().hex}.png"
+            )
+
+        # 用默认底模走 IPAdapter txt2img,注入角色脸一致性
+        ipa_params = IPAdapterTxt2ImgParams(
+            positive=shot.prompt,
+            ref_image=ref_fn,
+            ckpt_name=settings.default_ckpt,
+            width=_snap8(project.width),
+            height=_snap8(project.height),
+            filename_prefix=f"ToIV_drama_keyframe{shot.idx}",
+        )
+        graph = build_ipadapter_txt2img_graph(ipa_params)
+        client_id = uuid.uuid4().hex
+        prompt_id = await client.queue_prompt(graph, client_id)
+        files = await _wait_result_files(client, prompt_id, timeout=180.0)
+        if not files:
+            logger.warning("首帧生成无产物,分镜 #%s 回退到 t2v", shot.idx)
+            return None
+
+        f = files[0]
+        img_bytes, _ = await client.get_image_bytes(
+            f["filename"], f.get("subfolder", ""), f.get("type", "output")
+        )
+        keyframe_fn = await client.upload_image(
+            img_bytes, f"drama_kf_{uuid.uuid4().hex}.png"
+        )
+        logger.info(
+            "分镜 #%s 生成角色一致首帧: ref=%s keyframe=%s",
+            shot.idx,
+            ref_char.name,
+            keyframe_fn,
+        )
+        return keyframe_fn
+    except Exception as e:  # noqa: BLE001
+        logger.warning("首帧生成异常,分镜 #%s 回退到 t2v: %s", shot.idx, e)
+        return None
+
+
+# ===========================================================================
+# 单分镜视频生成(LTX t2v / i2v)
 # ===========================================================================
 @router.post("/drama/shots/{sid}/generate-video")
 async def generate_shot_video(
@@ -725,24 +1338,37 @@ async def generate_shot_video(
     settings = get_settings()
     # 用 settings 的 NSFW 默认视频底模(10Eros),本地学习场景跳过 NSFW 门槛
     seed = body.seed if body.seed is not None else LtxT2VParams(positive="").seed
-    params = LtxT2VParams(
-        positive=prompt,
-        negative=shot.negative,
-        unet_name=settings.nsfw_default_video_ckpt,
-        gemma_name=settings.nsfw_default_gemma,
-        vae_name=settings.nsfw_default_vae,
-        width=project.width,
-        height=project.height,
-        length=max(9, int(project.fps * shot.duration_sec)),
-        fps=project.fps,
-        steps=body.steps,
-        cfg=body.cfg,
-        seed=seed,
-        use_upscale=body.use_upscale,
-        use_rife=body.use_rife,
-        filename_prefix=f"ToIV_drama_shot{shot.idx}",
+
+    # 角色一致性：若分镜有关联角色且角色有 ref_image，先生成带 IPAdapter 的高质量首帧
+    keyframe_fn = await _generate_keyframe_for_shot(
+        client, shot, project, settings, session
     )
-    graph = build_ltx_t2v_graph(params)
+
+    common_params = {
+        "positive": prompt,
+        "negative": shot.negative,
+        "unet_name": settings.nsfw_default_video_ckpt,
+        "gemma_name": settings.nsfw_default_gemma,
+        "vae_name": settings.nsfw_default_vae,
+        "width": project.width,
+        "height": project.height,
+        "length": max(9, int(project.fps * shot.duration_sec)),
+        "fps": project.fps,
+        "steps": body.steps,
+        "cfg": body.cfg,
+        "seed": seed,
+        "use_upscale": body.use_upscale,
+        "use_rife": body.use_rife,
+        "filename_prefix": f"ToIV_drama_shot{shot.idx}",
+    }
+    if keyframe_fn:
+        params = LtxI2VParams(image=keyframe_fn, **common_params)
+        graph = build_ltx_i2v_graph(params)
+        video_kind = "drama_shot_video_i2v"
+    else:
+        params = LtxT2VParams(**common_params)
+        graph = build_ltx_t2v_graph(params)
+        video_kind = "drama_shot_video"
 
     client_id = uuid.uuid4().hex
     try:
@@ -764,7 +1390,7 @@ async def generate_shot_video(
             user_id=user.id,
             prompt_id=prompt_id,
             worker=client.base_url,
-            kind="drama_shot_video",
+            kind=video_kind,
             status="queued",
             prompt=prompt,
             seed=seed,
@@ -848,7 +1474,8 @@ def _allowed_ref(url: str) -> bool:
 def _resolve_url(url: str) -> str:
     if url.startswith("http://") or url.startswith("https://"):
         return url
-    return _LOCAL_API_BASE + (url if url.startswith("/") else "/" + url)
+    base = get_settings().api_base_url.rstrip("/")
+    return base + (url if url.startswith("/") else "/" + url)
 
 
 def _wav_duration(path: Path) -> float:
@@ -891,6 +1518,13 @@ async def generate_shot_voice(
     settings = get_settings()
     tts_target = settings.tts_url.rstrip("/")
     data: dict[str, str] = {"text": text}
+    # 情感控制：优先用请求体传入，其次尝试从分镜场景推断。
+    emo_text = (body.emo_text or "").strip()
+    if not emo_text and shot.scene:
+        emo_text = shot.scene.strip()
+    if emo_text:
+        data["emo_text"] = emo_text
+        data["emo_alpha"] = str(max(0.0, min(1.0, body.emo_alpha)))
 
     async with httpx.AsyncClient(
         timeout=_TTS_TIMEOUT, follow_redirects=True, trust_env=False
@@ -956,6 +1590,134 @@ async def generate_shot_voice(
     }
 
 
+@router.post("/drama/shots/{sid}/lipsync")
+async def generate_shot_lipsync(
+    sid: str,
+    body: LipsyncRequest,
+    pool: WorkerPool = Depends(get_pool),
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """M3: 分镜对口型(LatentSync 1.6)。复用 manju lipsync 内部函数,不走 HTTP 自调。
+
+    要求 shot.video_status == "done" 且 shot.voice_status == "done";
+    提交后 lipsync_status="generating",tracker 完成后回写 lipsync_video_url。
+    """
+    enforce_generation_rate_limit(user)
+    shot = _owned_shot(sid, user, session)
+
+    if shot.video_status != "done" or not shot.video_url:
+        raise HTTPException(status_code=422, detail="分镜视频尚未完成")
+    if shot.voice_status != "done" or not shot.voice_url:
+        raise HTTPException(status_code=422, detail="分镜配音尚未完成")
+
+    for u in (shot.video_url, shot.voice_url):
+        if not _lipsync_allowed(u):
+            raise HTTPException(status_code=400, detail="来源不在白名单内")
+
+    try:
+        client = await pool.pick(required=set())
+    except ComfyUIError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+
+    async with httpx.AsyncClient(timeout=_TTS_TIMEOUT, follow_redirects=True) as http:
+        try:
+            v = await http.get(_lipsync_resolve(shot.video_url))
+            v.raise_for_status()
+            a = await http.get(_lipsync_resolve(shot.voice_url))
+            a.raise_for_status()
+        except httpx.HTTPError as e:
+            raise HTTPException(status_code=502, detail=f"源下载失败:{e}") from e
+    if not v.content or not a.content:
+        raise HTTPException(status_code=502, detail="源视频或配音为空")
+
+    try:
+        vfn = await client.upload_image(v.content, f"drama_lipsync_src_{uuid.uuid4().hex}.mp4")
+        afn = await client.upload_image(a.content, f"drama_lipsync_voice_{uuid.uuid4().hex}.wav")
+    except ComfyUIError as e:
+        raise HTTPException(status_code=502, detail=f"上传 worker 失败:{e}") from e
+
+    seed_kw: dict = {}
+    if body.seed is not None:
+        seed_kw["seed"] = body.seed
+    params = LatentSyncParams(
+        video=vfn,
+        audio=afn,
+        lips_expression=body.lips_expression,
+        inference_steps=body.inference_steps,
+        filename_prefix=f"ToIV_drama_lipsync_shot{shot.idx}",
+        **seed_kw,
+    )
+    graph = build_latentsync_graph(params)
+    client_id = uuid.uuid4().hex
+    try:
+        prompt_id = await client.queue_prompt(graph, client_id)
+    except ComfyUIError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+    session.add(
+        Job(
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            prompt_id=prompt_id,
+            worker=client.base_url,
+            kind="drama_shot_lipsync",
+            status="queued",
+            prompt="对口型",
+            seed=params.seed,
+            params=params_snapshot(body, seed=params.seed),
+        )
+    )
+    shot.lipsync_status = "generating"
+    shot.lipsync_video_url = ""
+    shot.error = ""
+    session.add(shot)
+    session.commit()
+    spawn_tracker(client, prompt_id)
+
+    async def _writeback_lipsync() -> None:
+        from app.comfy.tracker import wait_for_jobs
+        from app.db import engine
+
+        try:
+            with Session(engine) as s:
+                results = await wait_for_jobs(s, [prompt_id], timeout=900.0)
+                urls = results.get(prompt_id, [])
+                shot_obj = s.get(DramaShot, sid)
+                if urls and shot_obj:
+                    shot_obj.lipsync_video_url = urls[0]
+                    shot_obj.lipsync_status = "done"
+                    shot_obj.error = ""
+                    s.add(shot_obj)
+                    s.commit()
+                    return
+                if shot_obj and shot_obj.lipsync_status == "generating":
+                    shot_obj.lipsync_status = "error"
+                    shot_obj.error = "对口型失败或超时"
+                    s.add(shot_obj)
+                    s.commit()
+        except Exception as e:  # noqa: BLE001
+            logger.exception("shot %s lipsync writeback failed: %s", sid, e)
+            with Session(engine) as s:
+                shot_obj = s.get(DramaShot, sid)
+                if shot_obj and shot_obj.lipsync_status == "generating":
+                    shot_obj.lipsync_status = "error"
+                    shot_obj.error = f"回写异常: {type(e).__name__}: {e}"[:200]
+                    s.add(shot_obj)
+                    s.commit()
+
+    asyncio.create_task(_writeback_lipsync())
+
+    return {
+        "prompt_id": prompt_id,
+        "client_id": client_id,
+        "worker": client.base_url,
+        "seed": params.seed,
+        "shot_id": sid,
+        "lipsync_status": "generating",
+    }
+
+
 @router.get("/drama/voice/{name}")
 async def get_voice(
     name: str,
@@ -993,7 +1755,7 @@ def patch_shot(
     session.add(s)
     session.commit()
     session.refresh(s)
-    return _shot_dict(s)
+    return _shot_dict(s, session)
 
 
 # ===========================================================================
@@ -1079,9 +1841,11 @@ async def assemble_project(
 
     if body.transition not in _TRANSITIONS:
         raise HTTPException(status_code=422, detail="未知的转场类型")
-    for s in ready:
-        if not _is_allowed_clip(s.video_url):
-            raise HTTPException(status_code=400, detail=f"分镜 {s.idx} 视频来源不在白名单内")
+    # M3:校验 clips 来源白名单
+    clips_to_validate = body.clips if body.clips else [s.video_url for s in ready]
+    for i, url in enumerate(clips_to_validate):
+        if not _is_allowed_clip(url):
+            raise HTTPException(status_code=400, detail=f"分镜 {ready[i].idx if i < len(ready) else i} 视频来源不在白名单内")
     if body.bgm_url and not _is_allowed_clip(body.bgm_url):
         raise HTTPException(status_code=400, detail="BGM 来源不在白名单内")
 
@@ -1109,7 +1873,8 @@ async def assemble_project(
         sub_box=body.sub_box,
     )
 
-    clips = [s.video_url for s in ready]
+    # M3:优先使用前端显式传入的 clips(已按 lipsync_video_url > video_url 处理);否则兜底 video_url
+    clips = body.clips if body.clips else [s.video_url for s in ready]
     voice_urls = [s.voice_url for s in ready]  # 空串=无配音
     durations_targets = [float(s.duration_sec) for s in ready]  # 用分镜配置的目标时长
 
@@ -1532,7 +2297,7 @@ async def grid_storyboard(
         session.refresh(s)
     return {
         "project": _project_dict(p),
-        "shots": [_shot_dict(s) for s in created],
+        "shots": [_shot_dict(s, session) for s in created],
         "grid_image": grid_url,
     }
 
@@ -1706,7 +2471,7 @@ async def update_scene_layout(
     session.add(shot)
     session.commit()
     session.refresh(shot)
-    return _shot_dict(shot)
+    return _shot_dict(shot, session)
 
 
 # ===========================================================================
@@ -1723,6 +2488,7 @@ class GenerateVideoV2Request(BaseModel):
     use_upscale: bool = False
     use_rife: bool = False
     prompt_override: str | None = Field(default=None, max_length=2000)
+    num_candidates: int = Field(default=1, ge=1, le=4)
 
 
 @router.get("/drama/video-generators")
@@ -1735,6 +2501,56 @@ def list_video_generators(
     return {"generators": list_generators()}
 
 
+def _next_seeds(base_seed: int | None, shot_seed: int, n: int) -> list[int]:
+    """生成 n 个候选 seed。base_seed 优先,其次 shot_seed,其余随机。"""
+    import random
+
+    seeds: list[int] = []
+    first = base_seed if base_seed is not None else (shot_seed if shot_seed > 0 else random.randint(0, 2**63 - 1))
+    seeds.append(first)
+    for _ in range(n - 1):
+        seeds.append(random.randint(0, 2**63 - 1))
+    return seeds
+
+
+async def _writeback_candidate(prompt_id: str, candidate_id: str, shot_id: str) -> None:
+    """候选生成任务完成后回写 candidate.url/status,并自动 pick 首个完成的候选。"""
+    from app.db import engine
+
+    try:
+        with Session(engine) as s:
+            results = await wait_for_jobs(s, [prompt_id], timeout=900.0)
+            cand = s.get(DramaShotCandidate, candidate_id)
+            if not cand:
+                return
+            urls = results.get(prompt_id, [])
+            if urls:
+                cand.url = urls[0]
+                cand.status = "done"
+                cand.error = ""
+                # 自动 pick:以 shot.video_url 为空作为竞争条件,首个完成者写入
+                shot = s.get(DramaShot, shot_id)
+                if shot and not shot.video_url:
+                    cand.is_picked = True
+                    shot.video_url = cand.url
+                    shot.video_status = "done"
+                    s.add(shot)
+            else:
+                cand.status = "error"
+                cand.error = "生成结果为空"
+            s.add(cand)
+            s.commit()
+    except Exception as e:  # noqa: BLE001
+        logger.exception("candidate %s writeback failed: %s", candidate_id, e)
+        with Session(engine) as s:
+            cand = s.get(DramaShotCandidate, candidate_id)
+            if cand and cand.status == "generating":
+                cand.status = "error"
+                cand.error = f"回写异常: {type(e).__name__}: {e}"[:200]
+                s.add(cand)
+                s.commit()
+
+
 @router.post("/drama/shots/{sid}/generate-video-v2")
 async def generate_shot_video_v2(
     sid: str,
@@ -1743,7 +2559,7 @@ async def generate_shot_video_v2(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> dict:
-    """M6: 多模型视频生成分发。model=ltx 复用 LTX 链路;其他模型走 stub(返回 501)。"""
+    """M6/M1: 多模型视频生成分发,支持单镜多候选。"""
     enforce_generation_rate_limit(user)
     shot = _owned_shot(sid, user, session)
     project = session.get(DramaProject, shot.project_id)
@@ -1760,71 +2576,232 @@ async def generate_shot_video_v2(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    result = await gen.generate(
-        prompt,
-        negative=shot.negative,
-        width=project.width,
-        height=project.height,
-        duration_sec=shot.duration_sec,
-        fps=project.fps,
-        seed=body.seed,
-        worker=body.worker,
-        steps=body.steps,
-        cfg=body.cfg,
-        use_upscale=body.use_upscale,
-        use_rife=body.use_rife,
-        filename_prefix=f"ToIV_drama_shot{shot.idx}",
-    )
+    # 单候选:保持旧行为,直接更新 shot.video_status/video_url
+    if body.num_candidates <= 1:
+        result = await gen.generate(
+            prompt,
+            negative=shot.negative,
+            width=project.width,
+            height=project.height,
+            duration_sec=shot.duration_sec,
+            fps=project.fps,
+            seed=body.seed,
+            worker=body.worker,
+            steps=body.steps,
+            cfg=body.cfg,
+            use_upscale=body.use_upscale,
+            use_rife=body.use_rife,
+            filename_prefix=f"ToIV_drama_shot{shot.idx}",
+        )
 
-    if not result.success:
-        # stub 生成器(Seedance/Kling)未接入 → 501
-        shot.video_status = "error"
-        shot.error = result.error
+        if not result.success:
+            shot.video_status = "error"
+            shot.error = result.error
+            session.add(shot)
+            session.commit()
+            raise HTTPException(status_code=501, detail=result.error)
+
+        raw = result.raw or {}
+        prompt_id = raw.get("prompt_id", result.job_id)
+        client_id = raw.get("client_id", "")
+        worker_url = raw.get("worker", "")
+        seed_used = raw.get("seed", body.seed or 0)
+        session.add(
+            Job(
+                tenant_id=user.tenant_id,
+                user_id=user.id,
+                prompt_id=prompt_id,
+                worker=worker_url,
+                kind="drama_shot_video_v2",
+                status="queued",
+                prompt=prompt,
+                seed=seed_used,
+                nsfw=True,
+                params=params_snapshot(body, seed=seed_used, model=body.model),
+            )
+        )
+        shot.video_model = body.model
+        shot.video_status = "generating"
+        shot.video_url = ""
+        shot.seed = seed_used
+        shot.error = ""
+        _append_process(
+            _owned_project(shot.project_id, user, session),
+            "generate_video",
+            f"模型: {body.model}",
+        )
         session.add(shot)
         session.commit()
-        raise HTTPException(status_code=501, detail=result.error)
 
-    # 成功:落 Job + 更新分镜状态(参考 generate_shot_video 的写法)
-    raw = result.raw or {}
-    prompt_id = raw.get("prompt_id", result.job_id)
-    client_id = raw.get("client_id", "")
-    worker_url = raw.get("worker", "")
-    seed_used = raw.get("seed", body.seed or 0)
-    session.add(
-        Job(
-            tenant_id=user.tenant_id,
-            user_id=user.id,
-            prompt_id=prompt_id,
-            worker=worker_url,
-            kind="drama_shot_video_v2",
-            status="queued",
-            prompt=prompt,
-            seed=seed_used,
-            nsfw=True,
-            params=params_snapshot(body, seed=seed_used, model=body.model),
-        )
-    )
+        return {
+            "prompt_id": prompt_id,
+            "client_id": client_id,
+            "worker": worker_url,
+            "seed": seed_used,
+            "shot_id": sid,
+            "model": body.model,
+        }
+
+    # 多候选:为每个候选创建记录并提交独立 Job
+    seeds = _next_seeds(body.seed, shot.seed, body.num_candidates)
     shot.video_model = body.model
     shot.video_status = "generating"
     shot.video_url = ""
-    shot.seed = seed_used
     shot.error = ""
     _append_process(
         _owned_project(shot.project_id, user, session),
         "generate_video",
-        f"模型: {body.model}",
+        f"模型: {body.model}, 候选数: {body.num_candidates}",
     )
     session.add(shot)
+    session.flush()
+
+    created_candidates: list[DramaShotCandidate] = []
+    jobs_info: list[tuple[str, str, str]] = []  # (prompt_id, candidate_id, worker_url)
+    for i, seed in enumerate(seeds):
+        result = await gen.generate(
+            prompt,
+            negative=shot.negative,
+            width=project.width,
+            height=project.height,
+            duration_sec=shot.duration_sec,
+            fps=project.fps,
+            seed=seed,
+            worker=body.worker,
+            steps=body.steps,
+            cfg=body.cfg,
+            use_upscale=body.use_upscale,
+            use_rife=body.use_rife,
+            filename_prefix=f"ToIV_drama_shot{shot.idx}_c{i}",
+        )
+
+        cand = DramaShotCandidate(
+            shot_id=sid,
+            project_id=shot.project_id,
+            seed=seed,
+            video_model=body.model,
+            status="generating" if result.success else "error",
+            error="" if result.success else (result.error or "生成提交失败"),
+        )
+        session.add(cand)
+        session.flush()
+        created_candidates.append(cand)
+
+        if result.success:
+            raw = result.raw or {}
+            prompt_id = raw.get("prompt_id", result.job_id)
+            worker_url = raw.get("worker", "")
+            session.add(
+                Job(
+                    tenant_id=user.tenant_id,
+                    user_id=user.id,
+                    prompt_id=prompt_id,
+                    worker=worker_url,
+                    kind="drama_shot_video_v2",
+                    status="queued",
+                    prompt=prompt,
+                    seed=seed,
+                    nsfw=True,
+                    params=params_snapshot(body, seed=seed, model=body.model),
+                )
+            )
+            jobs_info.append((prompt_id, cand.id, worker_url))
+        else:
+            cand.error = result.error or "生成提交失败"
+            session.add(cand)
+
     session.commit()
 
+    for prompt_id, candidate_id, _worker_url in jobs_info:
+        asyncio.create_task(_writeback_candidate(prompt_id, candidate_id, sid))
+
     return {
-        "prompt_id": prompt_id,
-        "client_id": client_id,
-        "worker": worker_url,
-        "seed": seed_used,
         "shot_id": sid,
         "model": body.model,
+        "num_candidates": len(created_candidates),
+        "candidates": [_candidate_dict(c) for c in created_candidates],
     }
+
+
+# ===========================================================================
+# M1: 候选管理(列表 / 挑选 / 删除)
+# ===========================================================================
+@router.get("/drama/shots/{sid}/candidates")
+def list_shot_candidates(
+    sid: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> list[dict]:
+    """获取分镜的所有视频候选。"""
+    _owned_shot(sid, user, session)
+    rows = session.exec(
+        select(DramaShotCandidate)
+        .where(DramaShotCandidate.shot_id == sid)
+        .order_by(DramaShotCandidate.created_at)
+    ).all()
+    return [_candidate_dict(c) for c in rows]
+
+
+@router.post("/drama/shots/{sid}/candidates/{cid}/pick")
+def pick_shot_candidate(
+    sid: str,
+    cid: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """把指定候选设为 active,并更新 shot.video_url/video_status=done。"""
+    shot = _owned_shot(sid, user, session)
+    cand = session.get(DramaShotCandidate, cid)
+    if not cand or cand.shot_id != sid:
+        raise HTTPException(status_code=404, detail="候选不存在")
+
+    # 把其他候选 unpick
+    for other in session.exec(
+        select(DramaShotCandidate).where(DramaShotCandidate.shot_id == sid)
+    ).all():
+        other.is_picked = False
+        session.add(other)
+
+    cand.is_picked = True
+    shot.video_url = cand.url
+    shot.video_status = "done"
+    session.add(cand)
+    session.add(shot)
+    session.commit()
+    session.refresh(cand)
+    return _candidate_dict(cand)
+
+
+@router.delete("/drama/shots/{sid}/candidates/{cid}")
+def delete_shot_candidate(
+    sid: str,
+    cid: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """删除指定候选;若删除的是 active 候选,回退 shot 状态。"""
+    shot = _owned_shot(sid, user, session)
+    cand = session.get(DramaShotCandidate, cid)
+    if not cand or cand.shot_id != sid:
+        raise HTTPException(status_code=404, detail="候选不存在")
+
+    was_picked = cand.is_picked
+    session.delete(cand)
+
+    remaining = session.exec(
+        select(DramaShotCandidate).where(DramaShotCandidate.shot_id == sid)
+    ).all()
+    # 过滤掉已删除的当前对象(会话中仍可能出现在列表里)
+    remaining = [c for c in remaining if c.id != cid]
+
+    if was_picked:
+        # active 被删:看是否还有生成中的候选
+        any_generating = any(c.status == "generating" for c in remaining)
+        shot.video_url = ""
+        shot.video_status = "generating" if any_generating else "pending"
+        session.add(shot)
+    session.commit()
+    return {"ok": True}
 
 
 # ===========================================================================

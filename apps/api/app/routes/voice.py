@@ -36,7 +36,6 @@ router = APIRouter()
 _VOICE_DIR = content_subdir("manju")
 _VOICE_NAME_RE = re.compile(r"^voice(?:ref)?-[0-9a-f]{32}\.wav$")  # 合成配音 + 角色定妆音色
 _TTS_TIMEOUT = 180.0  # 首次调用 TTS 服务要懒加载模型(~20s),给足余量
-_LOCAL_API_BASE = "http://127.0.0.1:8080"
 _MAX_REF_BYTES = 25 * 1024 * 1024  # 角色音色参考音上限 25MB
 _REF_MAX_SEC = 30  # 参考音裁到 30s 足够克隆,防超长
 
@@ -71,7 +70,8 @@ def _allowed_ref(url: str) -> bool:
 def _resolve_url(url: str) -> str:
     if url.startswith("http://") or url.startswith("https://"):
         return url
-    return _LOCAL_API_BASE + (url if url.startswith("/") else "/" + url)
+    base = get_settings().api_base_url.rstrip("/")
+    return base + (url if url.startswith("/") else "/" + url)
 
 
 def _wav_duration(path: Path) -> float:

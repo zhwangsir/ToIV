@@ -25,16 +25,40 @@ router = APIRouter()
 
 
 # ────────────────────────────────
-# 静态视频文件落位(开发期硬链到 drama/output/final)
+# 静态视频文件落位
+# 生产环境优先挂载 NAS;NAS 不可达时自动降级到本地路径。
 # ────────────────────────────────
 
+import logging
 import os
+
+logger = logging.getLogger(__name__)
 
 
 def _drama_root() -> Path:
-    """解析短剧成片根目录,兼容本地开发(项目根/drama/output/final)与 Docker(/app/drama/output/final)。"""
+    """解析短剧成片根目录。
+
+    优先级:
+    1. TOIV_DRAMA_VIDEO_DIR 环境变量(生产环境指向 NAS 挂载点)
+    2. 本地候选路径(开发/Docker 回退)
+
+    若环境变量指向的 NAS 路径不可访问,自动降级到本地路径并记录警告。
+    """
     if env_dir := os.environ.get("TOIV_DRAMA_VIDEO_DIR"):
-        return Path(env_dir)
+        env_path = Path(env_dir)
+        try:
+            if env_path.is_dir():
+                return env_path
+        except OSError as exc:
+            logger.warning(
+                "TOIV_DRAMA_VIDEO_DIR NAS 路径不可访问,降级到本地路径: %s (%s)",
+                env_dir,
+                exc,
+            )
+        else:
+            logger.warning(
+                "TOIV_DRAMA_VIDEO_DIR 目录不存在,降级到本地路径: %s", env_dir
+            )
 
     # 候选路径:本地开发时 apps/api 位于项目根下;Docker 中 /app 即 apps/api 内容
     file = Path(__file__).resolve()

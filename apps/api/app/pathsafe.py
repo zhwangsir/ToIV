@@ -9,8 +9,8 @@
 2. 符号链接深度检测:逐段 walk,任一段是符号链接且指向 base 外即拒绝。
 3. 性能优化:URL 解码检测改为单次 unquote + 编码特征扫描,
    正则编译为模块级常量;空字符串快速路径。
-4. 边界覆盖:控制字符、超长路径(>4096)、Unicode 同形字符、
-   保留名(CON/NUL/AUX,Windows 兼容)、流语法(`:` 分隔,ADS)。
+4. 边界覆盖:控制字符、超长路径(>4096)、Unicode 同形字符(混合脚本)、
+   保留名(CON/NUL/AUX,Windows 兼容)、冒号(NTFS ADS + 盘符,全拒)。
 5. 并发安全:无共享可变状态,所有函数纯函数式。
 """
 from __future__ import annotations
@@ -26,12 +26,17 @@ from urllib.parse import unquote
 _ENCODED_TRAVERSAL_RE = re.compile(r"%2e|%2f|%5c|%25", re.IGNORECASE)
 # 控制字符(C0+C1,排除\t\r\n 允许在文件名中出现也属异常,这里全拒)
 _CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
-# Windows 保留设备名(CON/NUL/AUX/PRN/COM1-9/LPT1-9),大小写不敏感
+# Windows 保留设备名(CON/NUL/AUX/COM1-9/LPT1-9),大小写不敏感
 _WIN_RESERVED_RE = re.compile(
     r"^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)", re.IGNORECASE
 )
-# 流语法(NTFS ADS,如 file.txt:stream),禁止冒号分隔
-_NTFS_STREAM_RE = re.compile(r"^(?!^[a-zA-Z]:[\\/])(?=.*:)")
+# Unicode 同形字符高危区间(Greek + Cyrillic + Cyrillic Supplement)
+# 用于混合脚本检测:ASCII 字母与这些区间字符混用时,视为同形字符攻击
+_HOMOGLYPH_RANGES = (
+    (0x0370, 0x03FF),  # Greek 希腊字母(αβγ... 与 ascii 形似)
+    (0x0400, 0x04FF),  # Cyrillic 西里尔字母(а... 与 ascii a 形似)
+    (0x0500, 0x052F),  # Cyrillic Supplement
+)
 
 _MAX_PATH_LEN = 4096  # Linux PATH_MAX;超出即拒,防 DoS
 _MAX_DECODE_DEPTH = 3  # URL 编码最大解包层数
@@ -62,6 +67,40 @@ def _has_encoded_traversal(name: str) -> bool:
     return ".." in decoded or decoded.startswith("/") or "\\" in decoded
 
 
+def _has_mixed_script_homoglyph(name: str) -> bool:
+    """检测混合脚本同形字符(ASCII 字母 + Greek/Cyrillic 混用)。
+
+    防止用 Cyrillic "а"(U+0430)代替 ASCII "a"(U+0061)进行路径混淆,
+    例如 "fаke.txt" 看似普通文件名,实际含非 ASCII 字符可能绕过某些过滤。
+
+    判定逻辑:ASCII 字母占比 >50% 且含 Greek/Cyrillic 字符才视为攻击。
+    这样纯 Greek/Cyrillic 文件名(如 "φωτογραφία.jpg",仅扩展名是 ASCII)
+    不会误触发,而 "fаke.txt"(ASCII 为主,掺杂 1 个 Cyrillic)会触发。
+
+    Args:
+        name: 已通过控制字符/长度校验的路径片段。
+
+    Returns:
+        True 表示检测到混合脚本同形字符。
+    """
+    ascii_count = 0
+    homoglyph_count = 0
+    for c in name:
+        if c.isascii() and c.isalpha():
+            ascii_count += 1
+            continue
+        cp = ord(c)
+        for start, end in _HOMOGLYPH_RANGES:
+            if start <= cp <= end:
+                homoglyph_count += 1
+                break
+    total_alpha = ascii_count + homoglyph_count
+    if total_alpha == 0 or homoglyph_count == 0:
+        return False  # 无同形字符或无字母
+    # ASCII 为主(>50%)才视为攻击:纯非 ASCII 文件名(含 ASCII 扩展名)不触发
+    return ascii_count / total_alpha > 0.5
+
+
 def validate_path_component(name: str, *, allow_subdirs: bool = False) -> str:
     """校验单个路径组件(文件名/子目录名)不含穿越序列。
 
@@ -88,17 +127,14 @@ def validate_path_component(name: str, *, allow_subdirs: bool = False) -> str:
     if _CONTROL_CHAR_RE.search(name):
         raise PathTraversalError("路径含控制字符")
 
-    # 拒绝 Windows 盘符 / 反斜杠 / 流语法
+    # 拒绝反斜杠(Windows 路径分隔符)
     if "\\" in name:
         raise PathTraversalError("路径含非法分隔符")
-    if len(name) >= 2 and name[1] == ":":
-        # 允许 C: 这种盘符?不,统一拒绝(POSIX 系统下冒号在文件名中合法但易混淆)
-        # 但 subfolder="a:b" 是合法 POSIX 名,只在 C:\\ 这种盘符形式拒绝
-        if name[0].isalpha() and (len(name) == 2 or name[2] in ("\\", "/")):
-            raise PathTraversalError("路径含非法分隔符")
-    # NTFS ADS 流语法(file:stream)拒绝(冒号在 POSIX 合法但 Windows 下是 ADS)
-    # 此处宽松:仅当看起来像 ADS(单冒号且非盘符)时拒绝,避免误伤 POSIX 合法名
-    # 实际生产环境通常是 Linux,保留此检查作为纵深防御
+    # 拒绝冒号:统一拦截 Windows 盘符(C:)和 NTFS ADS 流语法(file:stream)
+    # Linux 下冒号虽合法但罕见,拒绝不会误伤正常文件名;
+    # 且防止文件同步到 Windows 时引发 ADS 安全问题
+    if ":" in name:
+        raise PathTraversalError("路径含非法分隔符(冒号)")
 
     # 拒绝绝对路径
     if name.startswith("/"):
@@ -107,6 +143,10 @@ def validate_path_component(name: str, *, allow_subdirs: bool = False) -> str:
     # URL 编码穿越检测(优化版:正则预筛 + 多层 unquote)
     if _has_encoded_traversal(name):
         raise PathTraversalError("路径穿越被阻止")
+
+    # Unicode 同形字符检测(混合脚本:ASCII + Greek/Cyrillic)
+    if _has_mixed_script_homoglyph(name):
+        raise PathTraversalError("路径含同形字符(混合脚本)")
 
     # 逐段检查,禁止出现 ..
     parts = name.split("/")
@@ -214,7 +254,9 @@ def validate_existing_file(base: str | Path, *parts: str) -> Path:
     target = safe_join(base, *parts)
     if not target.exists():
         raise FileNotFoundError(f"文件不存在: {target}")
-    # 拒绝目录和符号链接(FileResponse 不应返回目录或跟随链接)
+    # 拒绝目录(FileResponse 不应返回目录)
+    # 注:safe_join 已 resolve() 符号链接并 realpath 二次校验确保未逃逸 base,
+    # 此处 target 是 resolve 后的真实路径;指向 base 内的符号链接已被安全解析
     if target.is_dir():
         raise PathTraversalError(f"目标是目录而非文件: {target}")
     # 二次校验:realpath 后仍是普通文件且在 base 内

@@ -119,6 +119,7 @@ class ManjuShot(SQLModel, table=True):
     speaker: str = ""  # 说话角色名(配音用其音色克隆;空=出场角色首位/兜底音)
     status: str = "draft"  # draft | image_done | video_done
     created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
 
 
 # ---------------------------------------------------------------------------
@@ -328,6 +329,8 @@ class DramaCharacter(SQLModel, table=True):
 
     id: str = Field(default_factory=_uid, primary_key=True)
     project_id: str = Field(foreign_key="dramaproject.id", index=True)
+    # M2:可选关联到跨项目资产库
+    asset_id: str | None = Field(default=None, index=True)
     name: str
     description: str = ""  # 角色描述(中文)
     visual_prompt: str = ""  # 视觉提示词 token(英文,注入到镜头 prompt)
@@ -366,7 +369,51 @@ class DramaShot(SQLModel, table=True):
     video_url: str = ""
     voice_status: str = "pending"  # pending|generating|done|error
     voice_url: str = ""
+    lipsync_status: str = ""  # generating|done|error
+    lipsync_video_url: str = ""
     seed: int = 0
     error: str = ""
+    created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
+
+
+class DramaShotCandidate(SQLModel, table=True):
+    """分镜视频候选:M1 单镜多候选生成,可从中挑选 active。"""
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    shot_id: str = Field(foreign_key="dramashot.id", index=True)
+    project_id: str = Field(index=True)
+    url: str = ""
+    seed: int = 0
+    video_model: str = ""
+    status: str = "pending"  # pending|generating|done|error
+    is_picked: bool = False
+    error: str = ""
+    created_at: datetime = Field(default_factory=_now)
+
+
+# ---------------------------------------------------------------------------
+# M2:跨项目角色/场景/道具/风格资产库
+# ---------------------------------------------------------------------------
+
+
+class DramaAsset(SQLModel, table=True):
+    """跨项目可复用资产:角色/场景/道具/风格。"""
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    tenant_id: str = Field(index=True)
+    user_id: str = Field(index=True)
+    kind: str = "character"  # character | scene | prop | style
+    name: str
+    description: str = ""  # 中文描述/标签
+    visual_prompt: str = ""  # 英文视觉 token
+    ref_image: str = ""  # 参考图 URL
+    ref_audio: str = ""  # 参考音频 URL(音色克隆)
+    voice_name: str = ""  # TTS 音色名
+    # 角色三视图
+    reference_front: str = ""
+    reference_side: str = ""
+    reference_back: str = ""
+    tags: str = "[]"  # JSON 标签数组
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)

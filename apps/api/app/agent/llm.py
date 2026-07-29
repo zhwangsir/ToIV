@@ -243,6 +243,29 @@ async def chat(
             label=f"主模型 {primary_model}",
         )
     except LLMError as primary_err:
+        # 兜底：服务端未启用 tool-call-parser 时，带 tools 的调用会 400。
+        # 先尝试不带 tools 的纯文本调用，保证 AI 助手至少能正常对话；
+        # 工具调用能力需运维侧在 vLLM/SGLang 启动参数追加
+        # --enable-auto-tool-choice --tool-call-parser <parser>。
+        if tools and (
+            "tool-call-parser" in str(primary_err).lower()
+            or "tool choice" in str(primary_err).lower()
+        ):
+            logger.warning(
+                "LLM 工具调用被服务端拒绝，回退到纯文本模式: %s", primary_err
+            )
+            try:
+                return await _call_with_retry(
+                    primary_url, primary_model, primary_key,
+                    messages, None, max_tokens, temperature,
+                    label=f"主模型 {primary_model}(无工具)",
+                )
+            except LLMError as plain_err:
+                raise LLMError(
+                    f"AI 大脑暂不可用（工具模式与纯文本模式均失败）。"
+                    f"主({primary_model}@{primary_url}): {plain_err}"
+                ) from plain_err
+
         fb_model = settings.llm_fallback_model.strip()
         if not fb_model:
             raise  # 未配备用 → 直接抛主模型错误
