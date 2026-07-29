@@ -4,6 +4,36 @@
 
 ---
 
+## FULL-E2E-2026-07-30 · 登录/数字人/短剧润色修复 + 全功能生产巡检
+
+**时间**: 2026-07-30 04:10 CST
+**类型**: bugfix / ops / full-regression
+
+### 问题与根因
+
+1. **登录 Load failed**:本地构建时 `apps/web/.env.local` 的 `NEXT_PUBLIC_API_BASE=http://localhost:8090` 被 Next 构建期内联进浏览器 bundle,用户浏览器直连自身 localhost:8090(无服务)→ fetch 失败;`agents.ts` 还有一份独立硬编码回退
+2. **公网 toiv.dgmt.top 502**:cloud OpenResty 上游是过期 tailscale IP(100.68.100.90),core 当前为 100.77.80.100;且 `/api/` proxy_pass 尾斜杠会剥掉 /api 前缀
+3. **数字人 STT 报缺 DASHSCOPE key**:用户浏览器跑旧 bundle(默认 dashscope STT);另一原因:模型选择器允许选 flashtalk/musetalk 等未配置模型 → 会话创建 400
+4. **短剧润色 503**:refine 硬编码 L2(EXO 不可用且无降级);polish 硬编码 L3
+
+### 修复与验证（全部实测）
+
+- `lib/api.ts`:浏览器端 API_BASE 固定相对路径 `""`,不再读 NEXT_PUBLIC_API_BASE;`lib/agents.ts` 复用同一常量
+- cloud OpenResty 上游改 100.77.80.100 并修尾斜杠,reload 后公网登录 200;仓库 `deploy/openresty-toiv.conf` 同步
+- `AvatarTalkView.tsx`:不可用模型禁用(不可点),默认选可用模型(quicktalk),加载中/无可用时禁开始按钮
+- `drama_studio.py`:refine/polish/batch 统一走 `TOIV_DRAMA_POLISH_LAYER`(默认 L1);`llm.py` 补 L2→L1 降级
+- `jobs.py`:`GET /api/jobs` 新增 `status` 过滤参数(此前被静默忽略)
+- 生产全量巡检 10 项功能面 **全部 PASS**:鉴权/AI助手(对话+list_models 工具)/路径穿越防护(7 接口)/jobs 分页/txt2img(21s 真实 PNG)/dub 翻译/短剧全链路(storyboard 4.9s→分镜视频→双配音→refine layer=L1→assemble→h264+aac 4.125s 成片)/数字人(quicktalk 会话+speak queued)/RAG(search_knowledge 真实命中)/前端产物零 localhost:8090
+- 回归:全量 pytest **655 passed**(新增 jobs status 过滤用例;refine/polish 测试改为钉住配置层验证透传);tsc 0 errors,build+deploy 通过
+
+### 观察项(非阻塞)
+
+- O3 opentalking 无会话 close/delete 端点,僵尸会话靠 interrupt 收尾
+- O5 `/api/health` worker 池仅 8189 一台,未走 LB:8188(切换需另验证 ws/history 兼容性,暂未动)
+- O6 toiv-web `next start` 与 `output:standalone` 配置警告(功能正常,整洁问题)
+
+---
+
 ## ASSISTANT-LLM-FIX-2026-07-30 · AI 助手链路修复(工具调用/think 剥离/模型名)
 
 **时间**: 2026-07-30 03:50 CST

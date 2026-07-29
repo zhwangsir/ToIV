@@ -351,12 +351,20 @@ async def chat_layered(
             max_tokens = 4000
         # EXO 顶层 enable_thinking=False:Kimi-K2.7-Code 当前 chat_template 缺逻辑
         # 不生效(未来修复自动受益),传了不报错,零风险
-        return await _call_with_retry(
-            url, model, api_key, messages, None, max_tokens, temperature,
-            label=f"L2 润色 {model}",
-            enable_thinking=False,
-            read_timeout=timeout,
-        )
+        try:
+            return await _call_with_retry(
+                url, model, api_key, messages, None, max_tokens, temperature,
+                label=f"L2 润色 {model}",
+                enable_thinking=False,
+                read_timeout=timeout,
+            )
+        except LLMError as l2_err:
+            # L2(EXO)不可用 → 降级到 L1(主模型),保证润色功能可用
+            logger.warning(
+                "L2 降级到 L1 原因=%s model=%s → 主模型",
+                l2_err, model,
+            )
+            return await chat(messages, max_tokens=max_tokens, temperature=temperature)
 
     if layer == "L3":
         url = settings.llm_l3_base_url.rstrip("/")

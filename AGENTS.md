@@ -13,8 +13,8 @@
   - 开发:本地 uvicorn + next dev
   - 生产:真机 systemd 服务(core 192.168.71.47 为推荐目标;workstation 192.168.71.127 Docker 已全清,不再使用 Docker 部署)
 - **核心能力**:
-  - NAS 文件浏览/上传/下载
-  - AI 工作台 API (任务编排、文件预处理、ComfyUI 生成、TTS、RAG)
+  - NAS 统一存储(成片/产出经 `/mnt/toiv-nas` 挂载读写,见第六节)+ NAS 模型下载接口(`/api/nas/*`)
+  - AI 工作台 API (任务编排、文件预处理、ComfyUI 生成、TTS、RAG、短剧工作室、数字人)
 
 ---
 
@@ -176,6 +176,25 @@ TOIV_DRAMA_VIDEO_DIR=/mnt/toiv-nas/toiv/outputs/drama/final
 2. 新增 `TOIV_<TYPE>_DIR` 环境变量指向 NAS 子目录；
 3. 在读取函数中复用 `_drama_root()` 的降级模式（NAS → 本地回退）；
 4. 更新本章节目录规范与 `deploy/.env`。
+
+### 模型资产现状（2026-07-30）
+
+NAS `//192.168.71.7/NAS/toiv/comfyui-models` 已完成 P0/P1 升级，所有新模型均落在对应子目录：
+
+| 阶段 | 内容 | 路径 | 状态 |
+|------|------|------|------|
+| P0-1 | Qwen3-VL-8B-Instruct | `text_encoders/qwen_3_vl_8b_instruct/` | ✅ |
+| P0-1 | Qwen-Image 2.0 | `diffusion_models/qwen-image/` | ✅ |
+| P0-2 | PuLID Flux v0.9.0/v0.9.1 | `pulid/` | ✅ |
+| P0-2 | EVA02-CLIP-L-14-336 | `clip_vision/` | ✅ |
+| P0-2 | IPAdapter FaceID Plus v2 | `ipadapter/` | ✅ |
+| P0-3 | ACE-Step 1.5 | `audio/Ace-Step1.5/` + `/home/merlin/toiv-scripts/ACE-Step/checkpoints` symlink | ✅ CPU 加载验证通过 |
+| P1-1 | 42 场景 LoRA（古风/都市/校园/豪车/特效/恐怖/喜剧/历史战争/运镜/导演） | `loras/` | ✅ |
+| P1-2 | Demucs v4 + MDX-Net ONNX + UVR5 模型 | `audio/uvr5_models/` + `/home/merlin/toiv-scripts/audio-sep-venv` | ✅ 测试通过 |
+
+代码侧同步更新：
+- `apps/api/app/workflows/model_profiles.py`：`_QWEN_IMAGE_CLIP_CANDIDATES` 已加入 `qwen_3_vl_8b_instruct` 目录候选。
+- `apps/api/app/workflows/style_presets.py`：已新增 10 个短剧场景 LoRA 预设。
 
 ---
 

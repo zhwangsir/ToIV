@@ -119,12 +119,14 @@ export function AvatarTalkView() {
         if (cancelled) return;
         const list = Array.isArray(res?.models) ? res.models : [];
         setModels(list);
-        if (res?.default_model && list.some((m) => m.id === res.default_model)) {
+        // 只在可用模型里挑默认值:不可用的(not_configured 等)选中必然 400。
+        const available = list.filter((m) => m.status === "available");
+        if (res?.default_model && available.some((m) => m.id === res.default_model)) {
           setSelectedModel(res.default_model);
-        } else if (list.length > 0) {
-          setSelectedModel(list[0].id);
+        } else if (available.length > 0) {
+          setSelectedModel(available[0].id);
         } else {
-          setSelectedModel("mock");
+          setSelectedModel("");
         }
       })
       .catch(() => {
@@ -768,7 +770,8 @@ function SetupPanel({
                   className={`at-model-chip${m.id === selectedModel ? " is-selected" : ""}${
                     m.status !== "available" ? " is-unavailable" : ""
                   }`}
-                  onClick={() => onSelectModel(m.id)}
+                  onClick={() => m.status === "available" && onSelectModel(m.id)}
+                  disabled={m.status !== "available"}
                   title={m.reason || undefined}
                 >
                   <span className="at-model-chip-name">{m.id}</span>
@@ -787,7 +790,7 @@ function SetupPanel({
         <button
           className="at-start-btn"
           onClick={onStart}
-          disabled={isConnecting}
+          disabled={isConnecting || loadingModels || loadingAvatars || !selectedAvatar || !selectedModel}
         >
           {isConnecting ? (
             <>

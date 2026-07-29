@@ -23,6 +23,7 @@ from sqlmodel import Session, SQLModel, create_engine
 from app.db import get_session
 from app.deps import get_pool
 from app.main import app
+from app.config import get_settings
 from app.models import DramaEvent, DramaSession, DramaShot, Tenant, User
 from app.security import create_token, hash_password
 from app.agent import llm
@@ -990,9 +991,13 @@ def test_refine_l2_success(ctx):
     ).json()["id"]
 
     fake_msg = {"content": "润色后的剧本对白,情感更饱满。"}
-    with patch(
-        "app.routes.drama_studio.llm.chat_layered",
-        AsyncMock(return_value=fake_msg),
+    with (
+        # 润色层由配置决定(默认 L1);此处钉住 L2 验证层透传
+        patch.object(get_settings(), "drama_polish_layer", "L2"),
+        patch(
+            "app.routes.drama_studio.llm.chat_layered",
+            AsyncMock(return_value=fake_msg),
+        ),
     ):
         r = client.post(
             f"/api/drama/projects/{pid}/refine",
@@ -1070,9 +1075,13 @@ def test_polish_l3_success(ctx):
     ).json()["id"]
 
     fake_msg = {"content": "终稿精修后的高质量文本。"}
-    with patch(
-        "app.routes.drama_studio.llm.chat_layered",
-        AsyncMock(return_value=fake_msg),
+    with (
+        # 精修层由配置决定(默认 L1);此处钉住 L3 验证层透传
+        patch.object(get_settings(), "drama_polish_layer", "L3"),
+        patch(
+            "app.routes.drama_studio.llm.chat_layered",
+            AsyncMock(return_value=fake_msg),
+        ),
     ):
         r = client.post(
             f"/api/drama/projects/{pid}/polish",

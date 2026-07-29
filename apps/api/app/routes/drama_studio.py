@@ -2832,6 +2832,26 @@ _L3_POLISH_SYSTEM = (
 )
 
 
+def _drama_llm_layer(value: str) -> str:
+    """校验配置的 LLM 层,非法值回退 L1(与 storyboard 同一策略)。"""
+    layer = (value or "").upper()
+    return layer if layer in ("L1", "L2", "L3", "L4") else "L1"
+
+
+def _layer_model_name(layer: str) -> str:
+    """返回指定层实际使用的模型名(用于响应回显)。"""
+    s = get_settings()
+    return {
+        "L2": s.llm_l2_model,
+        "L3": s.llm_l3_model,
+    }.get(layer, s.llm_model)
+
+
+def _polish_layer() -> str:
+    """润色/精修统一走配置层;EXO 未就绪期间默认 L1 保证可用。"""
+    return _drama_llm_layer(get_settings().drama_polish_layer)
+
+
 @router.post("/drama/projects/{pid}/refine")
 async def refine_script(
     pid: str,
@@ -2839,14 +2859,17 @@ async def refine_script(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> dict:
-    """L2 主力润色 — 使用 Kimi-K2.7-Code (EXO, ~6.6s/句)。
+    """主力润色 — 默认走配置层(TOIV_DRAMA_POLISH_LAYER,当前 L1)。
 
     适合关键场景打磨、情感戏、转折点。同步返回结果（timeout 120s）。
+    EXO 恢复后可将配置改回 L2(Kimi-K2.7-Code)。
     """
     enforce_generation_rate_limit(user)
     p = _owned_project(pid, user, session)
     if not body.text.strip():
         raise HTTPException(status_code=422, detail="待润色文本为空")
+
+    layer = _polish_layer()
 
     try:
         msg = await llm.chat_layered(
@@ -2854,7 +2877,7 @@ async def refine_script(
                 {"role": "system", "content": _L2_REFINE_SYSTEM},
                 {"role": "user", "content": f"{body.instruction}\n\n{body.text}"},
             ],
-            layer="L2",
+            layer=layer,
             temperature=body.temperature,
         )
     except llm.LLMError as e:
@@ -2862,15 +2885,15 @@ async def refine_script(
 
     refined = (msg.get("content") or "").strip()
     if not refined:
-        raise HTTPException(status_code=502, detail="L2 润色返回空内容，请重试")
+        raise HTTPException(status_code=502, detail=f"{layer} 润色返回空内容，请重试")
 
-    _append_process(p, "refine_l2", f"L2 润色: {body.text[:30]}... → {len(refined)} 字")
+    _append_process(p, "refine_l2", f"{layer} 润色: {body.text[:30]}... → {len(refined)} 字")
     session.add(p)
     session.commit()
 
     return {
-        "layer": "L2",
-        "model": get_settings().llm_l2_model,
+        "layer": layer,
+        "model": _layer_model_name(layer),
         "original": body.text,
         "refined": refined,
     }
@@ -2883,23 +2906,24 @@ async def polish_script(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> dict:
-    """L3 终稿精修 — 使用 GLM-5.2-fp8 (EXO, ~115s/句)。
+    """终稿精修 — 默认走配置层(TOIV_DRAMA_POLISH_LAYER,当前 L1)。
 
     适合终稿质量提升、高难度剧情。同步返回（timeout 300s）。
-    注意：GLM-5.2 reasoning 占 80%+，max_tokens 已设 8000 补偿。
+    EXO 恢复后可将配置改回 L3(GLM-5.2-fp8)。
     """
     enforce_generation_rate_limit(user)
     p = _owned_project(pid, user, session)
     if not body.text.strip():
         raise HTTPException(status_code=422, detail="待精修文本为空")
 
+    layer = _polish_layer()
     try:
         msg = await llm.chat_layered(
             [
                 {"role": "system", "content": _L3_POLISH_SYSTEM},
                 {"role": "user", "content": f"{body.instruction}\n\n{body.text}"},
             ],
-            layer="L3",
+            layer=layer,
             temperature=body.temperature,
         )
     except llm.LLMError as e:
@@ -2907,15 +2931,15 @@ async def polish_script(
 
     polished = (msg.get("content") or "").strip()
     if not polished:
-        raise HTTPException(status_code=502, detail="L3 精修返回空内容，请重试")
+        raise HTTPException(status_code=502, detail=f"{layer} 精修返回空内容，请重试")
 
-    _append_process(p, "polish_l3", f"L3 精修: {body.text[:30]}... → {len(polished)} 字")
+    _append_process(p, "polish_l3", f"{layer} 精修: {body.text[:30]}... → {len(polished)} 字")
     session.add(p)
     session.commit()
 
     return {
-        "layer": "L3",
-        "model": get_settings().llm_l3_model,
+        "layer": layer,
+        "model": _layer_model_name(layer),
         "original": body.text,
         "polished": polished,
     }
@@ -3025,8 +3049,9 @@ async def _run_batch_polish(
     items: list[dict],  # [{"shot_id": "...", "text": "..."}]
     instruction: str, temperature: float, concurrency: int,
 ) -> None:
-    """后台执行批量 L3 精修。每个 item 独立调用 chat_layered,失败不中断整体。"""
+    """后台执行批量精修(层由配置决定)。每个 item 独立调用 chat_layered,失败不中断整体。"""
     sem = asyncio.Semaphore(concurrency)
+    layer = _polish_layer()
     _update_batch_polish_task(pid, task_id, status="running")
 
     async def _polish_one(item: dict) -> dict:
@@ -3039,14 +3064,14 @@ async def _run_batch_polish(
                         {"role": "system", "content": _L3_POLISH_SYSTEM},
                         {"role": "user", "content": f"{instruction}\n\n{text}"},
                     ],
-                    layer="L3",
+                    layer=layer,
                     temperature=temperature,
                 )
                 polished = (msg.get("content") or "").strip()
                 if not polished:
                     return {
                         "shot_id": shot_id, "original": text, "polished": "",
-                        "status": "error", "error": "L3 返回空内容",
+                        "status": "error", "error": f"{layer} 返回空内容",
                     }
                 # 若来源是分镜,回写精修结果到 shot.prompt
                 if shot_id:
@@ -3085,7 +3110,7 @@ async def polish_batch(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> dict:
-    """L3 异步批量精修 — GLM-5.2-fp8 单镜 ~115s,并发处理多个分镜/文本。
+    """异步批量精修 — 层由 TOIV_DRAMA_POLISH_LAYER 决定(当前默认 L1),并发处理多个分镜/文本。
 
     立即返回 task_id,后台 asyncio.create_task 执行。
     进度通过 GET /drama/projects/{pid}/polish-tasks/{task_id} 查询。
@@ -3176,7 +3201,7 @@ def get_polish_task(
         "results": task.get("results", []),
         "started_at": task.get("ts"),
         "updated_at": task.get("ts"),
-        "model": get_settings().llm_l3_model,
+        "model": _layer_model_name(_polish_layer()),
     }
 
 

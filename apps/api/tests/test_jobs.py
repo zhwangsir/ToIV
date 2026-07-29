@@ -85,6 +85,18 @@ def test_jobs_limit_param(ctx):
     assert client.get("/api/jobs?limit=201", headers=H).status_code == 422
 
 
+def test_jobs_status_filter(ctx):
+    client, token = ctx
+    H = {"Authorization": f"Bearer {token}"}
+    # fixture 里的 job 是 queued:按 status=queued 应命中,done 应为空
+    r = client.get("/api/jobs?status=queued", headers=H)
+    assert r.status_code == 200
+    assert len(r.json()) == 1
+    r = client.get("/api/jobs?status=done", headers=H)
+    assert r.status_code == 200
+    assert r.json() == []
+
+
 def test_delete_job_removes_from_library(ctx):
     client, token = ctx
     H = {"Authorization": f"Bearer {token}"}

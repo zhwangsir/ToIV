@@ -67,6 +67,7 @@ def _job_dict(j: Job) -> dict:
 @router.get("/jobs")
 def list_jobs(
     limit: int = Query(default=50, ge=1, le=200),
+    status: str = Query(default="", description="按状态过滤:queued/running/done/error,空=全部"),
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> list[dict]:
@@ -75,6 +76,8 @@ def list_jobs(
     # R18 门槛:仅 /nsfw 专页(带 X-NSFW header)才返回成人向作品;主站一律剔除。
     if not nsfw_allowed(user):
         stmt = stmt.where(Job.nsfw == False)  # noqa: E712  SQLModel 需 == 比较生成 SQL
+    if status:
+        stmt = stmt.where(Job.status == status)
     rows = session.exec(stmt.order_by(Job.created_at.desc()).limit(limit)).all()
     return [_job_dict(j) for j in rows]
 

@@ -153,6 +153,10 @@ class Settings(BaseSettings):
     # 默认 L1(workstation vLLM)保证功能可用,EXO 恢复后可改回 L3。
     drama_storyboard_layer: str = "L1"
 
+    # 短剧工作室润色(refine)/精修(polish,含批量)默认 LLM 层,边界同上:
+    # EXO 未就绪期间默认 L1,恢复后建议 L2(润色)/L3(精修)。
+    drama_polish_layer: str = "L1"
+
     # —— OpenTalking 数字人引擎(unified 模式, 单进程) ——
     # 本地 dev: http://127.0.0.1:4403 (兄弟目录运行的 opentalking-unified 进程)
     # Docker prod: http://opentalking:8000 (容器服务名, HTTP 不暴露到 host)
