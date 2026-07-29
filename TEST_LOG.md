@@ -4,6 +4,35 @@
 
 ---
 
+## ASSISTANT-LLM-FIX-2026-07-30 · AI 助手链路修复(工具调用/think 剥离/模型名)
+
+**时间**: 2026-07-30 03:50 CST
+**类型**: bugfix / ops / regression
+
+### 问题与根因
+
+1. **AI 助手报 LLM 400**:vLLM 未开 `--enable-auto-tool-choice`,带 tools 调用被拒;且 `llm.py` 4xx LLMError 不含响应 body,代码里预留的「无工具回退」靠匹配 body 文本("tool choice")触发 → 永不触发 → 直接报错
+2. **截图中的影视工业模板回复**:core 此前跑的是 07-29 09:07 的旧前端构建(deploy.sh 不同步 .next),为旧版 AssistantView 的前端 mock,新构建已上线
+3. **hermes parser 不匹配**:Nemotron 输出 `<function=name><parameter=x>` 格式,hermes 期望 JSON;vLLM 0.26 中 `step3p5` parser 完全匹配该格式
+4. **模型名不一致**:`AssistantView.tsx` 硬编码 "Qwen3.6 7B",实际为 Nemotron-3-Nano-Omni-30B-A3B
+5. **推理泄漏**:`_merge_reasoning` 不剥 `<think>` 前缀,用户会看到英文推理过程
+
+### 修复与验证（全部实测）
+
+- `llm.py`:4xx 错误带 body(前 300 字符);`_merge_reasoning` 剥离 think 前缀(与 optimize/drama_studio/manju 一致)
+- workstation `nemotron-vllm` 启动脚本加 `--enable-auto-tool-choice --tool-call-parser step3p5`,重启 40-50s 就绪;实测 `generate_image` 工具调用 tool_calls 结构化解析正确
+- `AssistantView.tsx`:模型名改从 `/api/system/llm` 动态读取
+- `deploy.sh`:验证步骤加 `sleep 8`,消除启动期 000 误报
+- core 端到端:纯对话「你是谁」→ 干净中文回答(无推理泄漏);「查可用图像模型」→ list_models 工具触发,返回 25 个真实模型名
+- 回归:全量 pytest **654 passed**(新增 5 用例);前端 tsc 0 errors,build 通过
+
+### 说明
+
+- 顶栏「默认智能体」(AgentSwitcher) 不是 AI 助手的模型开关,它驱动各页面的「优化提示词」按钮(/api/optimize),属正常功能,未改动
+- vLLM 启动脚本备份在 workstation `/opt/nemotron-venv/start_nemotron.sh.bak-20260730`
+
+---
+
 ## OPENTALKING-STT-QUICKTALK-2026-07-30 · 数字人补全：SenseVoice STT + QuickTalk 真实驱动
 
 **时间**: 2026-07-30 02:40 CST
