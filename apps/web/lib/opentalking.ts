@@ -147,8 +147,9 @@ export async function otCreateSession(req: CreateSessionRequest): Promise<Create
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      tts_provider: "edge",
-      stt_provider: "dashscope",
+      // 全本地化:STT 走 workstation SenseVoice,TTS 走 IndexTTS2(:9200 经 shim)
+      tts_provider: "indextts",
+      stt_provider: "sensevoice",
       agent_enabled: true,
       user_id: "toiv-user",
       ...req,

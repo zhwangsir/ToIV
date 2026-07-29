@@ -45,6 +45,17 @@ rsync -az --delete -e "ssh ${SSH_OPTS[*]}" "${RSYNC_EXCLUDES[@]}" \
   deploy/ "${REMOTE}:${REMOTE_DIR}/deploy/"
 echo "  rsync 完成"
 
+# toiv-web 是 next start 跑预构建产物,源码 rsync 不会让前端变更生效;
+# 本地有构建产物(.next/BUILD_ID)时一并同步,保证前端改动真正上线
+if [ -f apps/web/.next/BUILD_ID ]; then
+  echo "▶ rsync 前端构建产物(.next) → ${REMOTE} …"
+  rsync -az --delete -e "ssh ${SSH_OPTS[*]}" --exclude=cache \
+    apps/web/.next/ "${REMOTE}:${REMOTE_DIR}/web/.next/"
+  echo "  .next 完成"
+else
+  echo "⚠ 本地无 apps/web/.next 构建产物,前端仍为远端旧构建;请先 cd apps/web && npm run build"
+fi
+
 if [ "$INSTALL" = true ]; then
   echo "▶ 远端执行真机安装脚本(需要 sudo) ..."
   ssh "${SSH_OPTS[@]}" "${REMOTE}" \
