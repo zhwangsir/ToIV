@@ -160,12 +160,13 @@
 - [ ] 测试情感解耦 + 时长控制（口型对齐）
 - [ ] 业务代码零改动验证
 
-#### P0-D Embedding 模型替换（半天，RAG 质量翻倍）
+#### P0-D Embedding 模型替换（半天，RAG 质量翻倍）— ✅ 已完成 2026-07-27
 
-- [ ] Workstation 部署 `Qwen3-Embedding-4B`（vLLM `--task embed --port 1234`，替代 LM Studio）
-- [ ] 部署 `Qwen3-Reranker-4B`（:1235）
-- [ ] 修 [config.py:110](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/api/app/config.py#L110) `embed_model` → `Qwen3-Embedding-4B`
-- [ ] 重建 RAG 索引（向量维度从 768 → 2560，需重建库）
+- [x] Workstation 部署 `Qwen3-Embedding-4B`（vLLM `--runner pooling --port 1234`，GPU2，systemd `qwen3-embed-vllm.service` 开机自启，替代 LM Studio）
+- [ ] 部署 `Qwen3-Reranker-4B`（:1235）— 二期可选，当前代码未调用 reranker
+- [x] `TOIV_EMBED_MODEL=Qwen3-Embedding-4B` 经 `deploy/.env` 注入（代码零改动）
+- [x] RAG 索引自动重建（指纹机制，维度 768 → 2560，64 chunks 全索引，中文检索验证通过；634 pytest 通过）
+- 执行记录详见 `docs/2026-07-27-embedding-upgrade-change-request.md`
 
 ### P1 — 1-2 周内处理
 

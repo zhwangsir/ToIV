@@ -8,11 +8,13 @@
 
 - **定位**: ToIV AI 工作台,NAS 文件管理 + API
 - **版本**: 主分支持续迭代
-- **技术栈**: Python 3.11+ / FastAPI / Uvicorn + Docker
+- **技术栈**: Python 3.11+ / FastAPI / Uvicorn + Next.js 15 / TypeScript
+- **部署方式**:
+  - 开发:本地 uvicorn + next dev
+  - 生产:真机 systemd 服务(core 192.168.71.47 为推荐目标;workstation 192.168.71.127 Docker 已全清,不再使用 Docker 部署)
 - **核心能力**:
   - NAS 文件浏览/上传/下载
-  - AI 工作台 API (任务编排、文件预处理)
-- **部署位置**: Workstation Docker (`toiv-api :8090`, `toiv-web :3100`)
+  - AI 工作台 API (任务编排、文件预处理、ComfyUI 生成、TTS、RAG)
 
 ---
 
@@ -20,20 +22,34 @@
 
 ```
 ToIV/
-├── backend/
-│   ├── app.py               # FastAPI 入口 (uvicorn app:app)
-│   ├── routers/             # 文件/任务/AI 路由
-│   ├── services/
-│   │   ├── nas_service.py    # NAS SMB/API 集成
-│   │   └── task_service.py   # 任务编排
-│   ├── models/              # Pydantic 模型
-│   └── requirements.txt
-├── web/                     # 前端 (若存在,统一 lucide-react)
-├── docker/
-│   ├── Dockerfile.api
-│   └── Dockerfile.web
-├── docker-compose.yml       # toiv-api :8090, toiv-web :3100
-└── AGENTS.md
+├── apps/
+│   ├── api/                  # FastAPI 入口 (uvicorn app.main:app)
+│   │   ├── app/
+│   │   │   ├── main.py       # FastAPI 装配
+│   │   │   ├── config.py     # Pydantic Settings
+│   │   │   ├── routers/      # 路由
+│   │   │   ├── services/     # 业务逻辑
+│   │   │   └── ...
+│   │   ├── requirements.txt
+│   │   └── .venv             # 本地开发虚拟环境
+│   └── web/                  # Next.js 前端
+│       ├── app/              # App Router
+│       ├── components/
+│       ├── lib/
+│       └── package.json
+├── deploy/
+│   ├── docker-compose.yml    # Docker 备选(Workstation 已禁用 Docker)
+│   ├── bare-metal/           # 真机 systemd 部署(当前推荐)
+│   │   ├── toiv-api.service
+│   │   ├── toiv-web.service
+│   │   ├── install.sh
+│   │   └── README.md
+│   ├── deploy.sh             # 真机部署脚本
+│   ├── .env.example
+│   └── README.md
+├── docs/                     # 设计文档与变更记录
+├── AGENTS.md                 # 本文件
+└── STATE.json / TEST_LOG.md  # 状态与测试日志
 ```
 
 ---
@@ -43,18 +59,29 @@ ToIV/
 ### 本地开发
 
 ```bash
-cd backend
+# 后端
+cd apps/api
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-uvicorn app:app --reload --port 8090
+uvicorn app.main:app --reload --port 8090
+
+# 前端
+cd apps/web
+npm install
+npm run dev
 ```
 
-### Docker 部署 (Workstation)
+### 生产部署(真机)
 
 ```bash
-docker compose up -d --build
-# toiv-api: http://192.168.71.127:8090
-# toiv-web: http://192.168.71.127:3100
+# 首次部署到 core
+./deploy/deploy.sh --install
+
+# 后续更新
+./deploy/deploy.sh
+
+# 临时部署到 workstation
+./deploy/deploy.sh workstation --install
 ```
 
 ---
@@ -67,7 +94,7 @@ docker compose up -d --build
 - NAS 操作必须处理超时与权限错误,不得吞异常
 - 文件路径必须做沙箱校验,禁止路径穿越 (`..`)
 
-### 前端 (若存在)
+### 前端
 - TypeScript `strict: true`
 - 图标统一 `lucide-react`
 - API 调用经封装层
@@ -78,52 +105,121 @@ docker compose up -d --build
 
 | 层 | 工具 | 命令 | 重点 |
 |---|---|---|---|
-| 后端单元/接口 | pytest | `cd backend && pytest -v` | NAS 集成、路径校验、任务编排 |
-| Docker | docker compose config | `docker compose config` | 配置有效性 |
+| 后端单元/接口 | pytest | `cd apps/api && pytest -q` | NAS 集成、路径校验、任务编排、RAG |
+| 真机部署验证 | curl | `localhost:8090/openapi.json` / `localhost:3100` | 服务在线、环境变量生效 |
+| Docker 配置(备选) | docker compose config | `docker compose config` | 仅当目标机有 Docker 时 |
 
 - 必须测试: 路径穿越防护
 - 必须测试: NAS 不可达时的降级
+- 必须测试: Embedding 服务不可达时 RAG 降级
 
 ---
 
-## 六、集群依赖
+## 六、NAS 统一存储架构
 
-> 完整集群拓扑详见 `/Users/wangzhenyu/Desktop/ALLProject/ToIV/设备说明.md`（core 监控中心维护，2026-07-27 最新版，626 行）
+ToIV 的所有产出与导入缓存统一放到 NAS，避免各设备本地重复存储。当前已启用短剧成片目录，其他目录预留。
+
+### 目录规范
+
+NAS 共享 `//192.168.71.7/NAS` 下统一目录：
+
+```
+//192.168.71.7/NAS/toiv/
+├── outputs/
+│   ├── drama/final/      # 短剧成片（已启用并验证）
+│   ├── images/           # 文生图/图生图输出（预留）
+│   ├── videos/           # 其他视频输出（预留）
+│   └── audio/            # 配音/音频输出（预留）
+├── imports/              # 用户上传/导入素材（预留）
+└── (existing) comfyui-models / embeddings / tts / dub / manju / forge / reforge / funasr / hf_cache / toiv-trainer / vlm-* 保持不动
+```
+
+### core 挂载方式
+
+core 通过 SMB 自动挂载 NAS：
+
+| 项 | 配置 |
+|---|---|
+| 挂载点 | `/mnt/toiv-nas` |
+| systemd unit | `mnt-toiv\x2dnas.mount`（连字符已转义） |
+| 凭据文件 | `/etc/toiv/nas-credentials`（mode=600） |
+| mount 选项 | `credentials=...,uid=1000,gid=1000,file_mode=0755,dir_mode=0755,soft,nounix,rsize=4194304,wsize=4194304,vers=3.0` |
+
+要求提前安装 `cifs-utils` 并启用 unit：
+
+```bash
+sudo systemctl enable --now mnt-toiv\\x2dnas.mount
+```
+
+### 环境变量
+
+生产环境通过 `TOIV_DRAMA_VIDEO_DIR` 指向 NAS 成片目录；NAS 不可达时代码自动降级到本地路径。
+
+```bash
+# core
+TOIV_DRAMA_VIDEO_DIR=/mnt/toiv-nas/toiv/outputs/drama/final
+```
+
+### 代码降级策略
+
+[`apps/api/app/routes/drama_analytics.py`](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/api/app/routes/drama_analytics.py) 中 `_drama_root()` 实现以下逻辑：
+
+1. 优先读取 `TOIV_DRAMA_VIDEO_DIR` 环境变量；
+2. 若 NAS 路径因 `OSError`（网络/权限/超时）不可访问，记录 warning 并自动降级到本地候选路径；
+3. 本地候选路径按 apps/api 实际布局匹配，保证开发与 Docker 回退可用。
+
+### 新增产出迁移步骤
+
+后续新增产出类型（图像、音频、其他视频）按同样模式迁移：
+
+1. 在 NAS `toiv/outputs/` 下创建对应子目录；
+2. 新增 `TOIV_<TYPE>_DIR` 环境变量指向 NAS 子目录；
+3. 在读取函数中复用 `_drama_root()` 的降级模式（NAS → 本地回退）；
+4. 更新本章节目录规范与 `deploy/.env`。
+
+---
+
+## 七、集群依赖
+
+> 完整集群拓扑详见 `/Users/wangzhenyu/Desktop/ALLProject/ToIV/设备说明.md`（core 监控中心/设备管家维护,2026-07-28 最新版）
 > AICG 四层模型接入配置详见 `/Users/wangzhenyu/Desktop/ALLProject/AICG-模型接入配置.md`
 
-### AICG 四层模型流水线（2026-07-24 项目管家确认）
+### AICG 四层模型流水线（2026-07-28 设备说明）
 
-ToIV 是 AICG 短剧平台的实现项目，应接入四层模型流水线：
+| 层 | 用途 | 设备 | 端点 | 模型 ID | 引擎 |
+|----|------|------|------|---------|------|
+| L1 初稿 | 实时交互(全模态) | Workstation | `http://192.168.71.127:8000/v1` | `qwen3.6-uncensored`(alias) | vLLM (Nemotron-3-Nano-Omni-30B-A3B BF16, GPU3) |
+| L2 主力润色 | 关键场景 | Mac Studio EXO | `http://192.168.71.109:52415/v1` | `mlx-community/Kimi-K2.7-Code-4bit` | EXO RDMA |
+| L3 终稿精修 | 异步批量 | Mac Studio EXO | `http://192.168.71.109:52415/v1` | `mlx-community/GLM-5.2-fp8` | EXO RDMA |
+| L4 NSFW | 无审查 | Spark01+02 | `http://192.168.71.82:8000/v1` | `euryale-70b` | vLLM TP=2 |
 
-| 层 | 用途 | 端点 | 模型 ID | 引擎 |
-|----|------|------|---------|------|
-| L1 初稿 | 实时交互（已接入） | `http://192.168.71.127:8000/v1` | `qwen3.6-uncensored` | vLLM (Nemotron-3-Nano-Omni) |
-| L2 主力润色 | 关键场景（待接入） | `http://192.168.71.109:52415/v1` | `mlx-community/Kimi-K2.7-Code-4bit` | EXO |
-| L3 终稿精修 | 异步批量（待接入） | `http://192.168.71.109:52415/v1` | `mlx-community/GLM-5.2-fp8` | EXO |
-| L4 NSFW | 无审查（已接入） | `http://192.168.71.82:8000/v1` | `euryale-70b` | vLLM TP=2 |
+### ToIV 依赖服务（2026-07-28 设备说明）
 
-**L2/L3 接入要点**（ToIV 待办）：
-- EXO 两个模型默认开启 thinking，reasoning token 占 80%+，需测试 `chat_template_kwargs.enable_thinking: false` 是否生效
-- 若 EXO 不支持 API 参数关闭，用 prompt 抑制："直接输出最终内容，不要输出思考过程"
-- L2 timeout 120s，L3 timeout 300s（GLM-5.2-fp8 实测 115s/句）
+| 服务 | 地址 | 用途 | 状态 |
+|------|------|------|------|
+| ToIV API | core:8090(待迁移) / workstation:8090(临时) | 后端 API | 待部署 |
+| ToIV Web | core:3100(待迁移) / workstation:3100(临时) | 前端 | 待部署 |
+| Nemotron LLM | `192.168.71.127:8000` | L1 + VLM | ✅ 真机 vLLM, GPU3 |
+| IndexTTS2 | `192.168.71.127:9200` | TTS | ✅ 真机, GPU0 |
+| Qwen3-Embedding-4B | `192.168.71.127:9302` | RAG 向量嵌入 | ✅ 真机, GPU1 |
+| ComfyUI-LB | `192.168.71.127:8188` | 生成入口 | 5 后端 |
+| ComfyUI gpu0-2 | `:8189-8191` | 本地 worker | ✅ |
+| pc01 ComfyUI | `192.168.71.115:8188` | 远端 worker | ✅ |
+| pc02 ComfyUI | `192.168.71.114:8193` | 远端 worker | ✅ |
+| NAS SMB | `192.168.71.7:445` | 文件/模型存储 | ✅ |
+| core PG18+Redis | `192.168.71.47:5432/6379` | 业务 DB/缓存 | ✅ 待 ToIV 接入 |
 
-### 集群设备状态（2026-07-24 核实）
-
-- **NAS SMB**: `192.168.71.7:445`,挂载点 `/home/merlin/nas_mount` (Workstation)
-- **Workstation**: LAN `192.168.71.127`（主网卡 DOWN，副网卡在用）/ Tailscale `100.68.100.90`（注意：旧 IP `100.99.181.103` 已失效）
-- **Workstation Docker**: `toiv-api :8090` / `toiv-web :3100` 已运行
-- **ComfyUI-LB**: `http://192.168.71.127:8188`，5 后端（本地 :8189-8191 + pc01:8188 + pc02:8193；GPU3 :8192 已让给 Nemotron LLM）
-- **pc01 ComfyUI**: 已启动（v0.28.0，HTTP 200，开机自启）
-- **Mac Studio EXO**: `http://192.168.71.109:52415`（4 台 M3 Ultra 512GB RDMA 集群，L2/L3 模型源）
-- **Mac Studio OpenClaw**: 已清理（2026-07-24），Mac Studio 专职 EXO RDMA 内存池
-- **Mac Mini OpenClaw**: 4 台（openclaw01-04）是 OpenClaw 唯一正式部署设备，与 ToIV 无直接依赖
-- **Spark01 Euryale 70B**: `http://192.168.71.82:8000`（vLLM TP=2 跨 spark01+02，spark02 是 Ray worker 无独立端口）
+**关键变更(2026-07-28)**:
+- Workstation Docker **全部清理**,toiv-api/web 不可再跑 Docker
+- Embedding 端口从 `:1234`(原 LM Studio/Docker) 改为 `:9302`(真机 systemd `qwen3-embedding.service`, GPU1)
+- TTS 在 GPU0,Nemotron 在 GPU3,ComfyUI 仅占 GPU0-2
+- core 改为真机业务服务器,PG18+Redis 已就位,ToIV 生产建议迁移到 core
 
 NAS 凭据通过环境变量注入,禁止硬编码。
 
 ---
 
-## 七、提交规范
+## 八、提交规范
 
 - **不主动提交**: 用户未明确要求时不执行 `git commit`/`git push`
 - **Conventional Commits**:
@@ -134,7 +230,7 @@ NAS 凭据通过环境变量注入,禁止硬编码。
 
 ---
 
-## 八、项目隔离纪律
+## 九、项目隔离纪律
 
 - **禁止跨项目修改**: 不得修改 `AIHub/`、`DRT管理中心/` 等其他项目源码
 - **共享基础设施不耦合**: 复用 Workstation Docker 与 NAS,但容器独立、网络独立
@@ -143,7 +239,7 @@ NAS 凭据通过环境变量注入,禁止硬编码。
 
 ---
 
-## 九、图标规范
+## 十、图标规范
 
 - **统一使用 Lucide React** (`lucide-react`),禁止 emoji、禁止其他图标库
 - 按需引入: `import { Folder, Upload, FileText } from 'lucide-react'`
@@ -151,12 +247,13 @@ NAS 凭据通过环境变量注入,禁止硬编码。
 
 ---
 
-## 十、Agent 行为底线
+## 十一、Agent 行为底线
 
 1. 改动前先读相关文件,理解 NAS 集成逻辑
 2. 不创建未要求的文件/文档
 3. 测试失败不重复同一修复路径
-4. 完成后给出简明报告
+4. 设备侧操作需先给出变更说明,经项目管家同意后方可执行
+5. 完成后给出简明报告
 
 ---
 
@@ -167,8 +264,8 @@ NAS 凭据通过环境变量注入,禁止硬编码。
 | 服务 | 端口 | 说明 |
 |------|------|------|
 | 前端 dev (apps/web) | 3101 | 本地开发 |
-| 前端 prod (Docker) | 3100 | Workstation Docker toiv-web |
-| 后端 dev (apps/api) | 3102 | 本地开发 |
-| 后端 prod (Docker) | 8090 | Workstation Docker toiv-api |
+| 前端 prod | 3100 | 真机 systemd toiv-web |
+| 后端 dev (apps/api) | 3102 | 本地开发(可选) |
+| 后端 prod | 8090 | 真机 systemd toiv-api |
 
 **禁止使用 Vite 默认 5173 / Next.js 默认 3000**。端口段 31XX 专属 ToIV。

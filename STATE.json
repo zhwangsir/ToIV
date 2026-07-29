@@ -1,22 +1,44 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-07-25T22:30:00+08:00",
+  "updated_at": "2026-07-30T00:20:00+08:00",
   "sync_baseline": {
     "id": "SYNC-2026-07-18",
     "type": "initial-sync",
     "note": "项目状态初始化基线：首次建立 STATE.json / TEST_LOG.md 追踪，记录当前真实验证结果，不代表新里程碑完成。"
   },
   "health": {
+    "web_browser_e2e": {
+      "status": "passed",
+      "target": "http://192.168.71.47:3100",
+      "cases_total": 8,
+      "cases_passed": 8,
+      "cases_partial": 0,
+      "cases_failed": 0,
+      "failed": [],
+      "partial": [],
+      "passed": [
+        "未登录访问 /engine 重定向到首页",
+        "已登录 /engine 渲染完整页面",
+        "主题切换 light/dark",
+        "草稿传递 - 图像生成",
+        "草稿传递 - 视频生成",
+        "草稿传递 - AI 短剧",
+        "草稿传递 - 漫剧",
+        "控制台无 error 且关键 API 200"
+      ],
+      "note": "Playwright 自动化验证 /engine 创作引擎中心；8 用例全部通过，包含登录态、主题切换、4 类创作草稿传递、API 健康检查",
+      "verified_at": "2026-07-28T19:44:00+08:00"
+    },
     "api_pytest": {
       "status": "passed",
-      "total": 504,
+      "total": 634,
       "failed": 0,
-      "duration_s": 11.75,
-      "command": "cd apps/api && .venv/bin/python -m pytest -q",
-      "env": ".venv (Python 3.13)",
-      "note": "A-BASEMODEL-M1-img2img:A期底模升级img2img适配完成,新增5次世代img2img测试,499→504 passed",
-      "verified_at": "2026-07-25T21:10:00+08:00"
+      "duration_s": 17.58,
+      "command": "cd apps/api && uv run pytest -q",
+      "env": "uv managed .venv (Python 3.13.5)",
+      "note": "FOUR-UX-FIXES 本地回归:634 passed,0 failed,1 warning(Starlette/httpx 弃用);E2E 测试残留 manju 视图引用已清理",
+      "verified_at": "2026-07-28T22:42:00+08:00"
     },
     "web_build": {
       "status": "passed",
@@ -29,8 +51,8 @@
         "/nsfw",
         "/_not-found"
       ],
-      "first_load_js_kb": 172,
-      "compile_duration_s": 3.7,
+      "first_load_js_kb": 173,
+      "compile_duration_s": 3.9,
       "command": "cd apps/web && npm run build",
       "warnings": [
         "Sentry instrumentation 文件缺失（sentry.server.config.ts 需迁移至 instrumentation register()）",
@@ -38,14 +60,175 @@
         "缺少 global-error.js（Sentry React 渲染错误上报）",
         "多个 lockfile 警告（workspace root 推断）"
       ],
-      "note": "A-BASEMODEL-M1-img2img:后端改动前端零影响,编译时间保持稳定",
-      "verified_at": "2026-07-25T21:15:00+08:00"
+      "note": "FOUR-UX-FIXES:构建成功,TypeScript 0 错误;DramaStudioView 子模式切换与 ManjuView 嵌入无构建问题",
+      "verified_at": "2026-07-28T22:38:00+08:00"
     },
     "web_tsc": {
       "status": "passed",
       "command": "cd apps/web && npx tsc --noEmit",
-      "note": "A-BASEMODEL-M1-img2img:0 errors,后端改动前端零影响",
-      "verified_at": "2026-07-25T21:12:00+08:00"
+      "note": "FOUR-UX-FIXES:0 errors;画布/工作室切换、采样器说明、短剧-漫剧整合、作品库缩略图类型正确",
+      "verified_at": "2026-07-28T22:35:00+08:00"
+    },
+    "web_online_audit": {
+      "status": "passed",
+      "target": "http://192.168.71.47:3100",
+      "cases_total": 10,
+      "cases_passed": 10,
+      "cases_partial": 0,
+      "cases_failed": 0,
+      "failed": [],
+      "partial": [],
+      "passed": [
+        "登录 admin 成功并进入创作台",
+        "Topbar 模型名显示为 Nemotron-3-Nano-Omni-30B-A3B",
+        "/engine 页面渲染完整(标题/10 能力卡片)",
+        "草稿传递 - 图像生成(prompt 回填)",
+        "/?view=video 视频生成视图加载",
+        "/?view=dramaStudio 工作室加载且视觉风格统一",
+        "新建项目弹窗显示剧本项目/漫画项目选项卡并可切换",
+        "图像创作页优化提示词下拉完整展开未被截断",
+        "/?view=canvas 无限画布加载(ReactFlow)",
+        "控制台无 error 且关键 API 200"
+      ],
+      "note": "Chrome DevTools MCP 手动浏览器巡检 core 线上环境;四项 UX 修复已部署并验证;模型名、工作室视觉、新建项目来源、优化提示词下拉均正常",
+      "verified_at": "2026-07-29T01:20:00+08:00"
+    },
+    "drama_e2e_assembly": {
+      "status": "passed",
+      "target": "http://192.168.71.47:3100/drama/short_drama_v1",
+      "cases_total": 7,
+      "cases_passed": 7,
+      "cases_partial": 0,
+      "cases_failed": 0,
+      "failed": [],
+      "partial": [],
+      "passed": [
+        "三个分镜视频生成全部完成(status=done)",
+        "三个分镜配音生成成功(WAV 文件可访问)",
+        "短剧合成API调用成功(ffmpeg 拼接 + 字幕烧录)",
+        "成片文件写入 NAS /toiv/outputs/drama/final",
+        "成片视频代理返回 206 Partial Content",
+        "浏览器播放器 video.duration=87s/readyState=4/控制台无 error",
+        "埋点事件接收 POST /api/drama/event 返回 ingested=1"
+      ],
+      "note": "短剧工作室 MVP 端到端真实测试：剧本→分镜→视频→配音→成片→播放全链路验证；修复 ffmpeg 依赖、转场类型 crossfade、配音本地读取、NAS 路径统一 4 项问题",
+      "verified_at": "2026-07-28T21:35:00+08:00"
+    },
+    "api_pytest_m5": {
+      "status": "passed",
+      "total": 645,
+      "failed": 0,
+      "duration_s": 21.95,
+      "command": "cd apps/api && uv run pytest -q",
+      "env": "uv managed .venv (Python 3.13.5)",
+      "note": "M5 播放数据反哺创作回归:645 passed,0 failed,1 warning;新增 playback-insights 4 个测试",
+      "verified_at": "2026-07-29T09:10:00+08:00"
+    },
+    "web_tsc_m5": {
+      "status": "passed",
+      "command": "cd apps/web && npx tsc --noEmit",
+      "note": "M5 回归:0 errors;修复 DramaStudioView StageKey 缺失 data、Icon.tsx 缺失 BarChart3 导入",
+      "verified_at": "2026-07-29T09:10:00+08:00"
+    },
+    "web_build_m5": {
+      "status": "passed",
+      "framework": "Next.js 15.5.19",
+      "routes": [
+        "/",
+        "/drama/[id]",
+        "/engine",
+        "/login",
+        "/nsfw",
+        "/_not-found"
+      ],
+      "first_load_js_kb": 173,
+      "command": "cd apps/web && npm run build",
+      "note": "M5 回归:构建成功,7 routes,AnalyticsPanel 集成无构建错误",
+      "verified_at": "2026-07-29T09:10:00+08:00"
+    },
+    "core_deploy_m5": {
+      "status": "passed",
+      "target": "core(192.168.71.47)",
+      "command": "./deploy/deploy.sh --install",
+      "api_status": "api :8090 -> 200",
+      "web_status": "web :3100 -> 200",
+      "note": "M5 完整安装部署:rsync 源码、远端安装依赖、重建 Next.js 产物、重启 systemd 服务,健康检查 200",
+      "verified_at": "2026-07-29T09:07:00+08:00"
+    },
+    "api_pytest_hotfix_2026_07_29": {
+      "status": "passed",
+      "total": 645,
+      "failed": 0,
+      "duration_s": 31.26,
+      "command": "cd apps/api && uv run pytest -q",
+      "env": "uv managed .venv (Python 3.13.5)",
+      "note": "AI 助手 + 短剧质量修复本地回归:645 passed,0 failed,1 warning(Starlette/httpx 弃用)",
+      "verified_at": "2026-07-29T09:45:00+08:00"
+    },
+    "web_tsc_hotfix_2026_07_29": {
+      "status": "passed",
+      "command": "cd apps/web && npx tsc --noEmit",
+      "note": "AI 助手 + 短剧质量修复回归:0 errors;AssistantView SSE 事件处理与多媒体类型正确",
+      "verified_at": "2026-07-29T09:45:00+08:00"
+    },
+    "core_deploy_demo_2026_07_29": {
+      "status": "passed",
+      "target": "core(192.168.71.47)",
+      "command": "./deploy/deploy.sh",
+      "api_status": "api :8090 -> 200",
+      "web_status": "web :3100 -> 200",
+      "engine_status": "engine :3100/engine -> 200",
+      "note": "当前工作区全部可用代码已 rsync 到 core 并重启 systemd 服务;验证 API/Web/Engine 均 200;服务运行正常;存在 npm 与 Node.js 版本警告以及 next start + output:standalone 警告,不影响演示",
+      "verified_at": "2026-07-29T21:15:00+08:00"
+    },
+    "smoke_test_round_2026_07_29": {
+      "status": "partial",
+      "command": "uv run pytest -q; npx tsc --noEmit; npm run build; curl core health/pages; attempted Playwright E2E",
+      "note": "前端构建/tsc通过;pytest收集到645个测试,test_drama_studio.py 50 passed;core API/Web 200;认证端点401(无token);浏览器E2E因webServer配置和终端输出捕获问题未完整执行;终端执行命令时仍自动触发AICG-DownLoader后端",
+      "verified_at": "2026-07-29T12:00:00+08:00"
+    },
+    "core_api_outage_recovery_2026_07_30": {
+      "status": "recovered",
+      "target": "core(192.168.71.47)",
+      "incident": "toiv-api 于 2026-07-29 23:56:56 CST 被直接 SIGTERM 停止(非 systemctl/非崩溃,来源待查);toiv-web active 但 ECONNREFUSED 8090",
+      "recovery": "2026-07-30 00:15 左右 sudo systemctl restart toiv-api,两服务均 active",
+      "post_checks": "login 200 / opentalking enabled:false / jobs 200(6条) / storyboard 200(8s,3分镜,L1) / drama video 200(11.79MB) / web 3100 200",
+      "verified_at": "2026-07-30T00:20:00+08:00"
+    },
+    "session_handoff_verify_2026_07_29": {
+      "status": "passed",
+      "command": "cd apps/api && .venv/bin/python -m pytest tests/test_drama_studio.py tests/test_lipsync.py tests/test_voice.py tests/test_manju_project.py -q",
+      "note": "交接核实:本地64项关键pytest通过(4.23s);core deploy/.env含TOIV_OPENTALKING_ENABLED=false与TOIV_DRAMA_STORYBOARD_LAYER=L1;core代码与本地行级一致(config.py:154,drama_studio.py:914);NAS挂载正常;EXO端点在线但配置的L2/L3模型ID已不在活跃实例中",
+      "verified_at": "2026-07-30T00:20:00+08:00"
+    },
+    "model_pipeline_prep_2026_07_29": {
+      "status": "passed",
+      "command": "cd apps/api && uv run pytest -q; bash -n deploy/download_models.sh",
+      "note": "P0/P1/P2 模型部署方案与脚本准备:645 pytest passed,0 failed;download_models.sh 语法检查通过;模型目录文档已更新",
+      "verified_at": "2026-07-29T10:10:00+08:00"
+    },
+    "web_build_hotfix_2026_07_29": {
+      "status": "passed",
+      "framework": "Next.js 15.5.19",
+      "routes": [
+        "/",
+        "/drama/[id]",
+        "/engine",
+        "/login",
+        "/nsfw",
+        "/_not-found"
+      ],
+      "first_load_js_kb": 173,
+      "compile_duration_s": 6.6,
+      "command": "cd apps/web && npm run build",
+      "warnings": [
+        "Sentry instrumentation 文件缺失（sentry.server.config.ts 需迁移至 instrumentation register()）",
+        "sentry.client.config.ts 建议改名为 instrumentation-client.ts",
+        "缺少 global-error.js（Sentry React 渲染错误上报）",
+        "多个 lockfile 警告（workspace root 推断）"
+      ],
+      "note": "AI 助手 + 短剧质量修复回归:构建成功,TypeScript 0 错误;AssistantView 接入真实 SSE 流无构建问题",
+      "verified_at": "2026-07-29T09:45:00+08:00"
     },
     "web_e2e_canvas": {
       "status": "spec_ready_not_run",
@@ -144,6 +327,21 @@
     }
   },
   "recent_completed": [
+    "SMOKE-TEST-ROUND-2026-07-29:ToIV 当前可用内容冒烟测试完成(部分受限)。结果:(1)前端 `npx tsc --noEmit` 0 errors;(2)前端 `npm run build` 成功,7 routes,First Load JS 173 kB;(3)后端 pytest 收集到 645 个测试,`tests/test_drama_studio.py` 50 passed/1 warning;(4)core 线上 :8090/api/health、:8090/openapi.json、:3100/、:3100/engine 均 HTTP 200;(5)认证端点(/api/system/llm、/api/models、/api/agent/chat)因无有效 token 返回 401,符合预期;(6)完整 pytest 输出与浏览器 E2E 因本地终端输出捕获异常、Playwright webServer 配置与 TOIV_WEB_BASE 指向 core 冲突,未能完整执行;(7)发现环境问题:终端执行命令时仍自动触发 AICG-DownLoader-main 后端启动(uvicorn :8100),需项目管家检查 shell hook/alias。按 AGENTS.md 未自动 commit,改动保留工作区待用户验收",
+    "MODEL-INVENTORY-MASTER-2026-07-29:ToIV 模型/LoRA/工具全量清单与补全建议完成。核心产出:(1)新建 docs/model-inventory-master-2026-07-29.md,汇总 NAS 现有模型(图像/视频/3D/音频/text encoders/CLIP/ControlNet/LoRAs 等 90+ 项)、缺失模型(P0/P1/P2 共 30+ 项)、调研后建议补充的更优模型(图像/视频/角色一致性/音频 4 大方向 20+ 项);(2)制定 NAS 统一目录规范,建议所有新增模型放到 //192.168.71.7/NAS/toiv/comfyui-models/ 下对应子目录;(3)补充场景 LoRA 未覆盖项:恐怖/惊悚、喜剧/浪漫、历史/战争、运镜 LoRA、导演风格 LoRA;(4)补充新方向:HunyuanVideo-I2V/Foley、Mochi 1、CogVideoX、StoryMaker/Consistory、F5-TTS/CosyVoice 2/GPT-SoVITS v3。按 AGENTS.md 未自动 commit,改动保留工作区待用户验收",
+    "MODEL-PIPELINE-PREP-2026-07-29:P0/P1/P2 模型/LoRA/工具部署方案与脚本准备完成。核心变更:(1)重写 deploy/download_models.sh,新增 p0/p1/p2/all 参数,覆盖 Qwen3-VL-7B-Instruct 满血、Qwen-Image 2.0 扩散模型、PuLID flux v0.9.0、ACE-Step 1.5、短剧场景 LoRA(Civitai)、UVR5/Demucs、LivePortrait、Stable Audio Open、自训 LoRA 基线;(2)更新 apps/api/app/agent/knowledge/model-catalog.md,补齐 P0/P1/P2 模型选型、显存策略、部署方式;(3)更新 apps/api/app/workflows/model_profiles.py 注释与 _QWEN_IMAGE_CLIP_CANDIDATES,预留 qwen_3_vl_7b.safetensors / qwen_3_vl_7b_instruct 路径,保持当前默认兼容 Qwen-Image 1.0。验证:uv run pytest -q 645 passed/0 failed/1 warning;bash -n deploy/download_models.sh 语法通过。按 AGENTS.md 未自动 commit,改动保留工作区待用户验收。注意:本地终端执行命令时自动触发 AICG-DownLoader 后端启动(cd AICG-DownLoader-main && uvicorn :8100),需检查是否存在 shell hook/alias 导致跨项目副作用",
+    "AI-ASSISTANT-DRAMA-QUALITY-HOTFIX-2026-07-29:AI 助手失效 + 短剧生成质量修复完成。核心变更:(1)前端 AssistantView 移除 MOCK 数据,接入真实 agentChat SSE 事件流,支持文本/图像/视频/音频/3D 模型渲染与取消请求;(2)后端 llm.py 增加 LLM 工具调用失败时回退到纯文本模式逻辑,解决 vLLM 缺少 --enable-auto-tool-choice/--tool-call-parser 导致的 400;(3)apps/api/.env 新增 TOIV_EMBED_BASE_URL=http://192.168.71.127:9302/v1 同步 Embedding 服务;(4)ltx_video.py 默认开启上采样 _DEFAULT_USE_UPSCALE=true;(5)drama_studio.py 剧本拆解改走 L3 精修模型 llm.chat_layered(layer='L3');(6)GenerateVoiceRequest 新增 emo_text/emo_alpha 情感参数并透传给 IndexTTS2;(7)drama_studio.py 分镜视频生成前使用 IPAdapter 生成角色一致性首帧,再走 LTX i2v。回归:uv run pytest -q 645 passed/0 failed/1 warning;npx tsc --noEmit 0 错误;npm run build 成功(7 routes,First Load JS 173 kB)。按 AGENTS.md 未自动 commit,改动保留工作区待用户验收",
+    "DRAMA-STUDIO-M2-2026-07-29:跨项目角色/场景/道具/风格资产库完成。核心变更:(1)后端新增 DramaAsset 模型与 DramaCharacter.asset_id 关联,支持跨项目复用资产;(2)后端新增 5 个 REST 端点:POST/GET /api/drama/assets、PATCH/DELETE /api/drama/assets/{aid}、POST /api/drama/assets/{aid}/apply-to-project;(3)前端新增 AssetLibrary.tsx 资产库面板,支持 kind 过滤、搜索、CRUD 表单、应用到当前项目;(4)DramaStudioView 集成「资产」Tab,⌘1~6 快捷键同步扩展;(5)修复构建错误:Icon.tsx 注册 box: Box,useDramaProject.ts 返回对象补全 applyAsset。回归:uv run pytest -q 638 passed/0 failed/1 warning;npm run build 成功(7 routes,First Load JS 173 kB);tsc --noEmit 0 错误。按 AGENTS.md 未自动 commit,改动保留工作区待用户验收",
+    "DRAMA-STUDIO-M1-2026-07-29:分镜可视化流水线 + 单镜多候选生成完成。核心变更:(1)后端新增 POST /api/drama/shots/{sid}/generate-candidates 支持 num_candidates 参数,首个完成候选自动 pick,其余保留为可切换候选;(2)新增 pick/delete 候选端点;(3)前端 ShotCard 展示候选缩略图网格与切换交互;(4)修复 _writeback_candidate 逻辑错误:直接使用 wait_for_jobs 返回的 results 回写,避免二次查询 Job 表导致状态不同步。回归:pytest 通过、前端 build/tsc 通过。按 AGENTS.md 未自动 commit,改动保留工作区待用户验收",
+    "FOUR-UX-FIXES-DEPLOY-2026-07-29:四项 UX 修复已部署到 core(192.168.71.47) 并完成浏览器线上验证。核心变更:(1)Topbar 模型名:后端 config.py 新增 llm_display_name, /api/system/llm 返回 display_model, 前端 Topbar 优先展示;(2)OptimizeButton 下拉:Popover 改为 position: fixed 并自动避边,解决右侧面板截断;(3)工作室视觉统一:DramaStudioView 移除局部 CSS 变量覆盖,复用全局设计 tokens;(4)新建项目来源选择:NewProjectPanel 新增「剧本项目/漫画项目」选项卡,分别调用 createDramaProject/createManjuProject,创建漫画项目后自动切换漫剧模式并定位。关键修复:前端 getLlmModel 补 authHeaders() 避免 401;通过 ./deploy/deploy.sh --install 完整重建 Next.js 产物避免线上运行旧代码。验证:core API/Web 均 200;Chrome DevTools MCP 巡检 10/10 通过,模型名、工作室视觉、新建项目选项卡、优化提示词下拉均正常。按 AGENTS.md 未自动 commit,改动保留工作区待用户验收",
+    "FOUR-UX-FIXES-2026-07-28:4 项前端交互与信息展示问题修复完成。(1)画布/工作室切换:page.tsx 移除独立 appMode,mode 由 view 派生,ModeSwitcher 直接调用 changeView,ReactFlow 与 DramaStudioView 切换状态同步;(2)采样器/调度器解释:新建 lib/sampling.ts 提供 SamplerInfo/SchedulerInfo/PAIRING_TIPS,CreateView 显示当前选项 summary 并新增可折叠搭配指南面板,含场景化推荐、步数与最佳实践;(3)短剧-漫剧整合:DramaStudioView 新增 StudioMode('drama'|'manju')子模式,漫剧模式嵌入 ManjuView,page.tsx 移除独立漫剧视图与导航,engine/page.tsx 漫剧入口改为 /?view=dramaStudio&mode=manju;(4)作品库缩略图:lib/api.ts imageUrl 自动归一化相对路径,LibraryView 新增 ImageThumb+ThumbPlaceholder,加载失败按状态回退占位。验证:本地 tsc 0 错误,npm run build 成功(7 routes,First Load JS 173 kB),uv run pytest -q 634 passed/0 failed/1 warning;E2E 测试残留 manju 视图引用已清理。按 AGENTS.md 未自动 commit,改动保留工作区待用户验收",
+    "DRAMA-E2E-ASSEMBLY-2026-07-28:AI 短剧工作室 MVP 端到端真实测试完成，剧本→分镜→视频→配音→成片→播放全链路跑通。核心验证:(1)三个分镜视频生成全部完成(status=done);(2)三个分镜 IndexTTS2 配音生成成功;(3)短剧合成API成功返回 drama-*.mp4(ffmpeg 拼接 + 字幕烧录);(4)成片文件正确写入 NAS /toiv/outputs/drama/final，与 drama_analytics.py 播放代理路径一致;(5)core 线上播放器 http://192.168.71.47:3100/drama/short_drama_v1 实测 video.duration=87s,readyState=4,控制台无 error;(6)埋点事件 POST /api/drama/event 返回 ingested=1;(7)本地后端 pytest 634 passed,1 warning,17.26s 零回归。本次修复 4 项阻塞问题:core 真机安装 ffmpeg、assembly 转场类型使用 crossfade、assembly.py _download_clip 支持 /api/drama/voice/ 本地读取避免自调鉴权失败、drama_studio.py _DRAMA_DIR 统一改为 _drama_root() 与 NAS 路径一致。按 AGENTS.md 未自动 commit，改动保留工作区待用户验收",
+    "SYSTEMATIC-TEST-2026-07-28:ToIV 全链路系统性测试完成，所有核心功能正常。验证范围:(1)本地前端 tsc --noEmit 0 错误;(2)本地 npm run build 成功(7 routes,First Load JS 173 kB,编译 2.1s);(3)Playwright core 线上回归 apps/web/tmp/engine-verify-core.spec.ts 8 用例 7.2s 全部通过(未登录重定向/页面渲染/主题切换/4 类草稿传递/API 健康检查);(4)本地后端 pytest 634 passed,0 failed,1 warning,16.76s(TOIV_DRAMA_VIDEO_DIR 指向本地 drama/output/final);(5)core 线上服务健康检查 :8090/api/health 200,:3100/ 200,:3100/engine 200。按 AGENTS.md 未自动 commit,改动保留工作区待用户验收",
+    "BROWSER-ONLINE-AUDIT-2026-07-28:core(192.168.71.47:3100) 浏览器线上全功能巡检完成。使用 Chrome DevTools MCP 对线上环境进行人工巡检,覆盖:(1)admin 登录成功并进入创作台;(2)登出后返回登录页;(3)/engine 页面渲染完整(标题/副标题/输入框/10 个能力卡片);(4)/engine 草稿传递至图像生成,prompt '系统测试' 正确回填;(5)/?view=video 视频生成视图加载;(6)/?view=dramaStudio 短剧工作室加载;(7)/?view=manju 漫剧工作室加载;(8)/?view=canvas 无限画布加载(ReactFlow 正常);(9)/nsfw R18 创作专区加载;(10)所有页面控制台无 error,关键 API(/api/auth/me,/api/models,/api/agents,/api/nas/status 等)均 200。巡检结果:10/10 通过,线上功能正常。按 AGENTS.md 未自动 commit,改动保留工作区待用户验收",
+    "ENGINE-HUB-M1(2026-07-28):/engine 创作引擎中心页面与功能补齐完成。核心变更:(1)重写 apps/web/app/engine/page.tsx,实现 EngineHub 统一创作入口:顶部导航/主题切换/快速 prompt 输入/能力卡片网格(图像生成/视频生成/AI 短剧/漫剧/无限画布/AI 译制/数字人/NSFW 专区/作品库/模型库);(2)新建 apps/web/lib/engine.ts,集中管理 ENGINE_DRAFT_KEY/EngineDraft/consumeEngineDraft,500ms 缓存兼容 React StrictMode 双挂载;(3)图像生成/视频生成/AI 短剧/漫剧四大创作视图接入 engineDraft 自动回填;(4)新增 Playwright 线上验证套件 apps/web/tmp/engine-verify-core.spec.ts,覆盖未登录重定向/页面渲染/主题切换/4 类草稿传递/API 健康检查,共 8 用例。验证:core(192.168.71.47) 部署后 ./deploy/deploy.sh 成功,服务 :8090/:3100 200;8 个 Playwright 用例 7.2s 全部通过;pytest 634 passed 保持。修复漫剧草稿传递测试:showNew 初始为 true 时按钮文本变为'收起',测试改为直接断言表单输入框可见及回填值。按 AGENTS.md 未自动 commit,改动保留工作区待用户验收",
+    "NAS-UNIFIED-STORAGE-2026-07-28:ToIV 产出统一迁移到 NAS 并完成 core 挂载与播放器验证。核心变更:(1)制定 NAS 目录规范: //192.168.71.7/NAS/toiv/outputs/drama/final 为短剧成片目录,outputs/images/videos/audio 预留;(2)apps/api/app/routes/drama_analytics.py 中 _drama_root() 增加 NAS 不可达 OSError 捕获与本地路径降级,避免 NAS 故障时服务完全不可用;(3)workstation 真实成片 short_drama_v1.mp4 (12M) 复制到 NAS /toiv/outputs/drama/final;(4)core 安装 cifs-utils,创建 /etc/toiv/nas-credentials (mode=600),配置 systemd mount unit mnt-toiv\\x2dnas.mount 自动挂载 //192.168.71.7/NAS 到 /mnt/toiv-nas;(5)core deploy/.env 更新 TOIV_DRAMA_VIDEO_DIR=/mnt/toiv-nas/toiv/outputs/drama/final 并重启 toiv-api。验证:NAS 挂载 active,api health 200,/api/drama/video/short_drama_v1.mp4 206 Partial Content,浏览器播放器 video.duration=87s/readyState=4/控制台无 error。按 AGENTS.md 未自动 commit,改动保留工作区待用户验收",
+    "CORE-DEPLOY-2026-07-28:真机部署到 core(192.168.71.47) 并完成回归验证。执行 ./deploy/deploy.sh 默认目标 core,rsync 源码到 /home/merlin/toiv/{api,web,deploy},远端 systemd 重载并重启 toiv-api/toiv-web;core 上短剧成片目录 /home/merlin/toiv/drama/output/final 与占位视频 short_drama_v1.mp4 已就位,deploy/.env 已配置 TOIV_DRAMA_VIDEO_DIR。验证:api :8090 200,web :3100 200,/api/health 200;后端 pytest 634 passed,0 failed,1 warning,23.58s(VideoProxy 测试需显式导出 TOIV_DRAMA_VIDEO_DIR,否则 DRAMA_ROOT 回退路径不匹配)。按 AGENTS.md 未自动 commit,改动保留工作区待用户验收",
+    "INFRA-SYNC-2026-07-28:根据设备说明.md(2026-07-28 版)同步 ToIV 基础设施配置。核心变更:(1)Embedding 端点 :1234→:9302,因 workstation Docker 全清,Qwen3-Embedding-4B 改为真机 systemd qwen3-embedding.service 跑在 GPU1;(2)更新 config.py 注释、docker-compose.yml 默认值、apps/api/.env.example、deploy/.env.example 中的 EMBED 配置;(3)创建 deploy/bare-metal/ 真机部署方案(toiv-api.service/toiv-web.service/install.sh/README.md),更新 deploy.sh 和 deploy/README.md 为真机 systemd 模式,默认部署目标改为 core(192.168.71.47);(4)更新 AGENTS.md 项目结构/开发命令/集群依赖/端口配置,明确 workstation Docker 已禁用、core 为推荐生产目标、关键服务地址与 GPU 分配;(5)删除 10 个已完成/过时 docs 文件。回归:634 pytest passed,1 warning,15.99s。按 AGENTS.md 未自动 commit,改动保留工作区待用户验收",
     "A-QWEN-ENC-UPDATE(2026-07-25):Qwen-Image文本编码器版本核查与注释更新。通过Web搜索确认版本演进:Qwen-Image 1.0(2025-08)使用Qwen2.5-VL编码器(qwen_2.5_vl_7b_fp8_scaled.safetensors,worker已存在且可用);Qwen-Image 2.0(2026-02/05)升级为Qwen3-VL编码器,但Comfy-Org尚未发布fp8量化包;Qwen-Image 3.0(2026-07-21刚发布预览)权重尚未开源。修正此前错误标注(非qwen_2.5_vl废弃,而是v2.0换编码器但量化包未发布),更新model_profiles.py注释块为准确版本说明+候选编码器列表,同步更新download_models.sh和TOIV_MASTER.md中的描述。回归测试:94 pytest passed(零失败)。当前代码兼容Qwen-Image 1.0部署,worker更新到2.0时只需改clip_name常量",
     "A-BASEMODEL-M1-img2img:A期底模升级核心闭环——txt2img+img2img双端点次世代模型路由完成。核心改动:(1)nextgen.py扩展:新增NextgenImg2ImgParams数据类+build_nextgen_img2img_graph()函数,工作流链LoadImage→VAEEncode→KSampler(denoise<1)→VAEDecode→SaveImage,与txt2img共享UNET/CLIP/VAE加载和model_sampling/FluxGuidance逻辑;(2)generate.py/img2img端点修复:添加is_nextgen()判断分流逻辑,次世代模型强制使用profile推荐参数(steps/cfg/sampler/scheduler),neg_prompt=False族自动清空负向提示词,seed_used统一变量名;(3)测试覆盖:test_nextgen.py新增5个img2img专项测试(Z-Image专用编码器验证+Qwen-Image AuraFlow+负向支持验证+FLUX.2 FluxGuidance验证+VAE编解码共享引用验证+非次世代模型抛异常验证)。测试结果:tests/test_nextgen.py 14→19 passed,0 failures;手工验证FLUX.2/Qwen-Image/Z-Image三族img2img图结构正确(含LoadImage/VAEEncode节点、无空latent节点、denoise参数正确传递);代码语法零错误。A期核心任务(txt2img+img2img次世代适配)完成,剩余ControlNet/Inpaint等适配为P2优先级。按 AGENTS.md 未自动 commit,改动保留工作区待用户验收",
     "UI-REDESIGN-M1:ToIV UI 全面重构 v2 完成(Film Atelier 电影工作室风格 + 全响应式适配 + 双模式布局 + 深浅主题)。核心改动:(1)设计系统重写:globals.css 建立完整设计 tokens(中性灰色阶#FAFAFA↔#121212、8px间距网格、字体/圆角/阴影/动效系统),5 个响应式断点(≥1440/1024-1439/768-1023/576-767/<576 + 手机横屏优化),legacy token 别名机制确保旧组件零改动兼容;(2)全局框架重构:Topbar(主题切换+汉堡菜单+面包屑)、Sidebar(抽屉/常驻双模式)、BottomNav(移动端 5Tab+中央CTA)、ModeSwitcher(画布↔工作室双模式切换);(3)主题系统:useTheme hook 支持 light/dark/auto 三模式,layout.tsx 内联脚本防首屏闪烁,监听 prefers-color-scheme 自动跟随系统,localStorage 记忆选择;(4)响应式适配:useIsMobile 增强(含横屏检测+orientationchange事件),桌面端侧栏常驻+平板抽屉+移动端底部导航+手机横屏自动隐藏底部导航恢复侧栏,安全区域 env(safe-area-inset-*) 适配刘海屏,移动端触控目标≥44px;(5)双模式布局:支持三栏无限画布模式和四分区工作室模式无缝切换,预留工作室模式预览/时间线/检查器区域。测试验证:浏览器 Agent 多设备实测 9 种尺寸(1920×1080 至 375×667)全通过,TypeScript 0 错误,主题切换/汉堡菜单/底部导航/横竖屏切换全部正常。代码质量综合评分 9/10(可读性/可维护性/性能/安全性/最佳实践),UI 规范检查视觉一致性/响应式/交互体验/美观度全部通过。测试报告:apps/web/test-results/responsive/REPORT.md。按 AGENTS.md 未自动 commit,改动保留工作区待用户验收",
@@ -167,6 +365,51 @@
     "NSFW 推荐模型下载 404 + 搜索回退（commit 59dcccc）"
   ],
   "infra": {
+    "nas_unified_storage_2026_07_28": {
+      "status": "deployed_verified",
+      "goal": "将 ToIV 产出与缓存统一放到 NAS，避免各设备本地重复存储",
+      "server": "//192.168.71.7/NAS",
+      "layout": {
+        "outputs": {
+          "drama/final": "短剧成片（已挂载并验证）",
+          "images": "文生图/图生图输出（预留）",
+          "videos": "其他视频输出（预留）",
+          "audio": "配音/音频输出（预留）"
+        },
+        "imports": "用户上传/导入素材（预留）",
+        "existing": "comfyui-models / embeddings / tts / dub / manju / forge / reforge / funasr / hf_cache / toiv-trainer / vlm-* 保持不动"
+      },
+      "core_mount": {
+        "where": "/mnt/toiv-nas",
+        "unit": "mnt-toiv\\x2dnas.mount",
+        "credentials": "/etc/toiv/nas-credentials (mode=600)",
+        "options": "credentials=...,uid=1000,gid=1000,file_mode=0755,dir_mode=0755,soft,nounix,rsize=4194304,wsize=4194304,vers=3.0",
+        "enabled": true
+      },
+      "workstation_mount": {
+        "where": "/home/merlin/nas_mount",
+        "note": "已有挂载，作为 NAS 管理入口"
+      },
+      "env": {
+        "TOIV_DRAMA_VIDEO_DIR": "/mnt/toiv-nas/toiv/outputs/drama/final (core) / /home/merlin/nas_mount/toiv/outputs/drama/final (workstation)"
+      },
+      "code_changes": [
+        "apps/api/app/routes/drama_analytics.py: _drama_root() 增加 NAS 不可达 OSError 捕获与本地路径降级"
+      ],
+      "docs_updated": [
+        "AGENTS.md: 新增「六、NAS 统一存储架构」章节"
+      ],
+      "synced_files": [
+        "workstation /home/merlin/toiv/drama/output/final/short_drama_v1.mp4 (12M) → NAS /toiv/outputs/drama/final/short_drama_v1.mp4"
+      ],
+      "verified": {
+        "core_mount": "active (//192.168.71.7/NAS on /mnt/toiv-nas)",
+        "api_health": "200",
+        "video_proxy": "206 Partial Content, size=1024 bytes",
+        "browser_player": "video.duration=87s, readyState=4, no console errors"
+      },
+      "verified_at": "2026-07-28T17:05:00+08:00"
+    },
     "comfyui_cluster": "workstation 4×ComfyUI (8189-8192) + LB 代理 8188 + pc01:8188 + pc02:8193 共6后端；2026-07-24 核实 LB http://192.168.71.127:8188 可用；workstation LAN IP 192.168.71.127（主网卡DOWN副网卡在用），Tailscale 100.68.100.90（旧100.99.181.103已失效）",
     "llm_brain": "双 LLM 路由：默认 qwen3.6-uncensored(workstation sglang :8000, 4卡 TP, 131K ctx) + NSFW euryale-70b(spark01 vLLM :8000, X-NSFW:1 时切换)。agent/llm.py chat() 按 nsfw_allowed() 自动路由，NSFW LLM 失败 fallback 到主 LLM(均 uncensored)",
     "llm_nsfw_routing": {
@@ -1262,6 +1505,168 @@
       },
       "not_committed": "按 AGENTS.md 规范,用户未明确要求不执行 git commit;改动保留在工作区待用户验收",
       "verified_at": "2026-07-25T10:30:00+08:00"
+    },
+    "four_ux_fixes_2026_07_28": {
+      "status": "completed_not_committed",
+      "goal": "修复 4 项前端交互与信息展示问题:画布/工作室切换、采样器调度器解释、短剧-漫剧产品整合、作品库缩略图",
+      "type": "frontend_ux_fix",
+      "subtasks": {
+        "M1.1": {
+          "status": "completed",
+          "title": "画布与工作室切换修复",
+          "files": ["apps/web/app/page.tsx", "apps/web/components/ui/ModeSwitcher.tsx"],
+          "changes": [
+            "移除独立的 appMode state,mode 由当前 view 派生(view === 'dramaStudio' ? 'studio' : 'canvas')",
+            "ModeSwitcher onChange 直接调用 changeView('canvas'|'dramaStudio')",
+            "确保画布(ReactFlow)与短剧工作室两种模式切换时状态与 URL 同步"
+          ]
+        },
+        "M1.2": {
+          "status": "completed",
+          "title": "采样器与调度器专业解释",
+          "files": ["apps/web/components/create/CreateView.tsx", "apps/web/lib/sampling.ts"],
+          "changes": [
+            "新建 lib/sampling.ts,定义 SamplerInfo/SchedulerInfo 与 PAIRING_TIPS",
+            "为每个采样器/调度器选项提供 summary 说明,显示在对应文字右侧",
+            "新增可折叠「采样器与调度器搭配指南」面板,含场景化推荐、步数与最佳实践"
+          ]
+        },
+        "M1.3": {
+          "status": "completed",
+          "title": "短剧工作室整合漫剧功能",
+          "files": [
+            "apps/web/components/drama-studio/DramaStudioView.tsx",
+            "apps/web/app/page.tsx",
+            "apps/web/app/engine/page.tsx",
+            "apps/web/e2e/authed-manju.spec.ts"
+          ],
+          "changes": [
+            "DramaStudioView 新增 StudioMode('drama'|'manju')子模式状态,顶部 tab 切换",
+            "漫剧模式下嵌入 ManjuView,隐藏短剧工作区的阶段栏与底部时间线",
+            "page.tsx 移除独立 'manju' view 与 DynamicIsland 入口",
+            "engine/page.tsx 漫剧卡片链接改为 /?view=dramaStudio&mode=manju",
+            "E2E 测试视图流与断言同步更新"
+          ]
+        },
+        "M1.4": {
+          "status": "completed",
+          "title": "作品库缩略图加载修复",
+          "files": ["apps/web/components/library/LibraryView.tsx", "apps/web/lib/api.ts"],
+          "changes": [
+            "imageUrl() 对非 / 开头的相对路径自动补 /,兼容后端返回的多种路径格式",
+            "LibraryView 新增 ImageThumb 与 ThumbPlaceholder 组件",
+            "img onError 回退到状态占位(running/error/image),视频保持 video 标签"
+          ]
+        }
+      },
+      "regression": {
+        "api_pytest": "634 passed, 0 failed, 1 warning, 17.58s",
+        "web_tsc": "通过(0 错误)",
+        "web_build": "成功(7 routes, First Load JS 173 kB, 编译 3.9s)"
+      },
+      "e2e_cleanup": [
+        "apps/web/e2e/views.spec.ts: 移除 'manju', 视图数 10→9",
+        "apps/web/e2e/authed-views.spec.ts: 移除 'manju'",
+        "apps/web/e2e/debug-sidebar.spec.ts: VIEW_FLOW 移除 'manju'",
+        "apps/web/e2e/authed-ux-metrics.spec.ts: 移除 'manju', dramaStudio URL 改为 mode=manju",
+        "apps/web/e2e/authed-manju.spec.ts: gotoManju 改为 /?view=dramaStudio&mode=manju"
+      ],
+      "not_committed": "按 AGENTS.md 规范,用户未明确要求不执行 git commit;改动保留在工作区待用户验收",
+      "verified_at": "2026-07-28T22:45:00+08:00"
+    },
+    "studio_unified_2026_07_29": {
+      "status": "completed_not_committed",
+      "goal": "将「短剧工作室」重命名为「工作室」，并进一步合并短剧/漫剧入口，统一为项目中心视角",
+      "type": "frontend_ux_fix",
+      "subtasks": {
+        "M1.1": {
+          "status": "completed",
+          "title": "全入口重命名为「工作室」",
+          "files": [
+            "apps/web/app/page.tsx",
+            "apps/web/app/engine/page.tsx",
+            "apps/web/components/drama-studio/DramaStudioView.tsx",
+            "apps/web/components/drama-studio/NewProjectPanel.tsx"
+          ],
+          "changes": [
+            "DynamicIsland 菜单「短剧工作室」→「工作室」",
+            "VIEW_META dramaStudio label「短剧」→「工作室」",
+            "移动端 empty-state 文案「短剧工作室」→「工作室」",
+            "engine/page.tsx 将「AI 短剧」与「漫剧」两个入口合并为单一「工作室」入口",
+            "DramaStudioView 品牌副标题「AI Short Drama Studio」→「AI Studio」",
+            "DramaStudioView sr-only 标题与可见标题统一为「工作室」",
+            "NewProjectPanel「新建短剧项目」→「新建项目」，占位文案同步调整"
+          ]
+        },
+        "M1.2": {
+          "status": "completed",
+          "title": "移除冗余顶部 tab，统一为项目中心视角",
+          "files": [
+            "apps/web/components/drama-studio/DramaStudioView.tsx"
+          ],
+          "changes": [
+            "移除顶部「短剧/漫剧」模式切换 tab(studio-mode-tabs)",
+            "移除顶部「项目中心/工作台/放映厅」view 切换 tab(view-tabs)",
+            "顶部居中显示「工作室」标题，简化导航层级",
+            "保留 hub/workspace/cinema 内部导航：项目卡片进入 workspace、workspace 内「放映厅」按钮、cinema 内「返回工作台」按钮"
+          ]
+        }
+      },
+      "regression": {
+        "web_tsc": "通过(0 错误)",
+        "web_build": "成功(7 routes, First Load JS 173 kB, 编译 5.0s)"
+      },
+      "pending_next": [
+        "统一工作室视觉风格与 CreateView/LibraryView 一致",
+        "新建项目时支持选择「剧本项目」或「漫画项目」两种来源",
+        "部署到 core 并线上验证"
+      ],
+      "not_committed": "按 AGENTS.md 规范,用户未明确要求不执行 git commit;改动保留在工作区待用户验收",
+      "verified_at": "2026-07-29T00:00:00+08:00"
+    },
+    "prompt_optimize_fix_2026_07_29": {
+      "status": "completed_not_committed",
+      "goal": "修复图像创作页「优化提示词」下拉显示效果问题，并修正 Topbar 模型名硬编码错误",
+      "type": "frontend_backend_fix",
+      "subtasks": {
+        "M1.1": {
+          "status": "completed",
+          "title": "新增 /api/system/llm 接口并前端动态获取模型名",
+          "files": [
+            "apps/api/app/routes/system.py",
+            "apps/web/lib/api.ts",
+            "apps/web/components/nav/Topbar.tsx"
+          ],
+          "changes": [
+            "后端新增 GET /api/system/llm，返回当前默认 LLM 模型名及 fallback/nsfw/L2/L3 模型名",
+            "前端新增 getLlmModel API 封装",
+            "Topbar 移除硬编码 GLM-5.2，改为 useEffect 拉取并显示真实默认 LLM 模型"
+          ]
+        },
+        "M1.2": {
+          "status": "completed",
+          "title": "优化 OptimizeButton Popover 定位，避免被父容器截断",
+          "files": [
+            "apps/web/components/ui/OptimizeButton.tsx"
+          ],
+          "changes": [
+            "Popover 改为 fixed 定位，避免 app-shell/cv-panel 的 overflow:hidden 截断",
+            "打开时通过 getBoundingClientRect 计算位置，右侧空间不足时自动向左展开",
+            "监听 resize/scroll 事件，窗口变化时重新定位"
+          ]
+        }
+      },
+      "regression": {
+        "web_tsc": "通过(0 错误)",
+        "web_build": "成功(7 routes, First Load JS 173 kB, 编译 4.6s)"
+      },
+      "pending_next": [
+        "统一工作室视觉风格与 CreateView/LibraryView 一致",
+        "新建项目时支持选择「剧本项目」或「漫画项目」两种来源",
+        "部署到 core 并线上验证"
+      ],
+      "not_committed": "按 AGENTS.md 规范,用户未明确要求不执行 git commit;改动保留在工作区待用户验收",
+      "verified_at": "2026-07-29T00:10:00+08:00"
     }
   },
   "conventions": {
