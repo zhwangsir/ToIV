@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-07-30T02:40:00+08:00",
+  "updated_at": "2026-07-30T03:05:00+08:00",
   "sync_baseline": {
     "id": "SYNC-2026-07-18",
     "type": "initial-sync",
@@ -272,6 +272,11 @@
       "target": "workstation(192.168.71.127:4403) GPU2",
       "note": "数字人补全:SenseVoiceSmall STT 上线(NAS toiv/funasr/SenseVoiceSmall,936MB,中文转写逐字一致,RTF 0.031);QuickTalk 真实驱动上线(workstation 本地 /home/merlin/models/quicktalk,1.75GB,冒烟 verify exit 0,GPU2 显存 2097MiB);:4403/models default_model:quicktalk connected:true,mock 保留降级;core 代理 enabled:true reachable:true;既有服务 GPU0/1/3 无影响;NAS 1.6GB 不完整中间产物已清理;遗留:浏览器 WebRTC 会话未实测",
       "verified_at": "2026-07-30T02:40:00+08:00"
+    },
+    "avatartalk_provider_fix_2026_07_30": {
+      "status": "passed",
+      "note": "修复数字人前端两处硬编码云端 provider:otCreateSession dashscope→sensevoice、edge→indextts;另发现 deploy.sh 不同步 .next 导致前端变更不上线(此前 core 跑的是 07-29 09:07 旧构建),已补 .next rsync 步骤;core 实测 web 200,线上 bundle 含 sensevoice 无 dashscope;quicktalk 已由后端 default_model 自动选中",
+      "verified_at": "2026-07-30T03:05:00+08:00"
     }
   },
   "git": {
