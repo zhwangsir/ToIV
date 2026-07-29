@@ -73,6 +73,18 @@ def test_jobs_lists_user_jobs(ctx):
     assert jobs[0]["status"] == "queued"
 
 
+def test_jobs_limit_param(ctx):
+    client, token = ctx
+    H = {"Authorization": f"Bearer {token}"}
+    # 显式 limit=1 正常返回
+    r = client.get("/api/jobs?limit=1", headers=H)
+    assert r.status_code == 200
+    assert len(r.json()) == 1
+    # 越界 limit 被 422 拒绝(上限 200,下限 1)
+    assert client.get("/api/jobs?limit=0", headers=H).status_code == 422
+    assert client.get("/api/jobs?limit=201", headers=H).status_code == 422
+
+
 def test_delete_job_removes_from_library(ctx):
     client, token = ctx
     H = {"Authorization": f"Bearer {token}"}
