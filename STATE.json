@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-07-30T03:05:00+08:00",
+  "updated_at": "2026-07-30T03:50:00+08:00",
   "sync_baseline": {
     "id": "SYNC-2026-07-18",
     "type": "initial-sync",
@@ -277,6 +277,11 @@
       "status": "passed",
       "note": "修复数字人前端两处硬编码云端 provider:otCreateSession dashscope→sensevoice、edge→indextts;另发现 deploy.sh 不同步 .next 导致前端变更不上线(此前 core 跑的是 07-29 09:07 旧构建),已补 .next rsync 步骤;core 实测 web 200,线上 bundle 含 sensevoice 无 dashscope;quicktalk 已由后端 default_model 自动选中",
       "verified_at": "2026-07-30T03:05:00+08:00"
+    },
+    "assistant_llm_fix_2026_07_30": {
+      "status": "passed",
+      "note": "AI助手链路修复:1)llm.py 4xx LLMError 带响应 body(原不含 body 导致工具400无回退);2)vLLM 启动脚本加 --enable-auto-tool-choice --tool-call-parser step3p5(hermes 不匹配 Nemotron <function= 格式,step3p5 实测 tool_calls 结构化解析正确);3)_merge_reasoning 剥离 <think> 推理前缀;4)AssistantView 模型名改从 /api/system/llm 动态读取(原硬编码 Qwen3.6 7B);5)deploy.sh 验证步骤加 sleep 8(防 next start 启动期误报 000)。core 实测:纯对话正常无推理泄漏;list_models 工具调用成功返回 25 个真实模型。全量 pytest 654 passed。用户截图中影视工业模板回复为旧构建(07-29 09:07)的前端 mock,新构建已上线",
+      "verified_at": "2026-07-30T03:50:00+08:00"
     }
   },
   "git": {

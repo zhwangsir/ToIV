@@ -70,6 +70,8 @@ else
 fi
 
 echo "▶ 验证 …"
+# next start / uvicorn 需要数秒完成监听,立即 curl 会误报 000
+sleep 8
 ssh "${SSH_OPTS[@]}" "${REMOTE}" '
   printf "api :8090 -> "; curl -s -o /dev/null -w "%{http_code}\n" --max-time 15 localhost:8090/openapi.json || echo FAIL
   printf "web :3100 -> "; curl -s -o /dev/null -w "%{http_code}\n" --max-time 15 localhost:3100 || echo FAIL
