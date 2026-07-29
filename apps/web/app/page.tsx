@@ -1,32 +1,17 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { LandingPage } from "@/components/landing/LandingPage";
 import { DynamicIsland, type DynamicIslandView } from "@/components/nav/DynamicIsland";
 import { Topbar } from "@/components/nav/Topbar";
 import { BottomNav, type BottomNavItem } from "@/components/nav/BottomNav";
-import { ModeSwitcher } from "@/components/ui/ModeSwitcher";
-import { AssistantView } from "@/components/assistant/AssistantView";
-import { CreateView } from "@/components/create/CreateView";
-import { VideoView } from "@/components/create/VideoView";
-import { CanvasView } from "@/components/canvas/CanvasView";
-import { ManjuView } from "@/components/manju/ManjuView";
-import { DramaStudioView } from "@/components/drama-studio/DramaStudioView";
-import { DubView } from "@/components/dub/DubView";
-import { TrainView } from "@/components/train/TrainView";
-import { LibraryView } from "@/components/library/LibraryView";
-import { BacklotView } from "@/components/backlot/BacklotView";
-import { ModelsView } from "@/components/models/ModelsView";
-import { AdminView } from "@/components/admin/AdminView";
-import { AvatarTalkView } from "@/components/avatartalk/AvatarTalkView";
 import { fetchMe, getToken, setToken, testLogin } from "@/lib/api";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { Icon } from "@/components/ui/Icon";
 
 type AuthState = "loading" | "in" | "out";
-type AppMode = "canvas" | "studio";
 
 type View =
   | "assistant"
@@ -34,7 +19,6 @@ type View =
   | "create"
   | "video"
   | "canvas"
-  | "manju"
   | "dramaStudio"
   | "dub"
   | "train"
@@ -43,13 +27,81 @@ type View =
   | "models"
   | "admin";
 
+// ── 视图懒加载:chunk 按需拉取;菜单展开/悬停期间并行预热,消除切换白屏等待 ──
+const viewImporters = {
+  assistant: () => import("@/components/assistant/AssistantView"),
+  avatartalk: () => import("@/components/avatartalk/AvatarTalkView"),
+  create: () => import("@/components/create/CreateView"),
+  video: () => import("@/components/create/VideoView"),
+  canvas: () => import("@/components/canvas/CanvasView"),
+  dramaStudio: () => import("@/components/drama-studio/DramaStudioView"),
+  dub: () => import("@/components/dub/DubView"),
+  train: () => import("@/components/train/TrainView"),
+  library: () => import("@/components/library/LibraryView"),
+  backlot: () => import("@/components/backlot/BacklotView"),
+  models: () => import("@/components/models/ModelsView"),
+  admin: () => import("@/components/admin/AdminView"),
+} as const;
+
+/** 预热目标视图 chunk。webpack 模块缓存去重,重复/并发调用零额外开销。 */
+function preloadView(key: View) {
+  viewImporters[key]().catch(() => {
+    /* 预热失败不阻塞:点击时 lazy 会重新发起加载 */
+  });
+}
+
+const AssistantView = lazy(() =>
+  viewImporters.assistant().then((m) => ({ default: m.AssistantView })),
+);
+const AvatarTalkView = lazy(() =>
+  viewImporters.avatartalk().then((m) => ({ default: m.AvatarTalkView })),
+);
+const CreateView = lazy(() =>
+  viewImporters.create().then((m) => ({ default: m.CreateView })),
+);
+const VideoView = lazy(() =>
+  viewImporters.video().then((m) => ({ default: m.VideoView })),
+);
+const CanvasView = lazy(() =>
+  viewImporters.canvas().then((m) => ({ default: m.CanvasView })),
+);
+const DramaStudioView = lazy(() =>
+  viewImporters.dramaStudio().then((m) => ({ default: m.DramaStudioView })),
+);
+const DubView = lazy(() =>
+  viewImporters.dub().then((m) => ({ default: m.DubView })),
+);
+const TrainView = lazy(() =>
+  viewImporters.train().then((m) => ({ default: m.TrainView })),
+);
+const LibraryView = lazy(() =>
+  viewImporters.library().then((m) => ({ default: m.LibraryView })),
+);
+const BacklotView = lazy(() =>
+  viewImporters.backlot().then((m) => ({ default: m.BacklotView })),
+);
+const ModelsView = lazy(() =>
+  viewImporters.models().then((m) => ({ default: m.ModelsView })),
+);
+const AdminView = lazy(() =>
+  viewImporters.admin().then((m) => ({ default: m.AdminView })),
+);
+
+/** 视图切换加载占位:与 splash 同源的呼吸圆点,视觉一致且极简。 */
+function ViewFallback({ label }: { label: string }) {
+  return (
+    <div className="view-fallback" role="status" aria-label={`${label}加载中`}>
+      <div className="splash-orb" aria-hidden="true" />
+    </div>
+  );
+}
+
 const VALID_VIEWS = new Set<View>([
   "assistant",
   "avatartalk",
   "create",
   "video",
   "canvas",
-  "manju",
   "dramaStudio",
   "dub",
   "train",
@@ -65,7 +117,6 @@ const VIEW_META: Record<View, { label: string }> = {
   create:    { label: "创作" },
   video:     { label: "视频" },
   canvas:    { label: "画布" },
-  manju:     { label: "漫剧" },
   dramaStudio: { label: "短剧" },
   dub:       { label: "译制" },
   train:     { label: "训练" },
@@ -131,7 +182,6 @@ function HomeContent() {
     return v && VALID_VIEWS.has(v as View) ? (v as View) : "assistant";
   });
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
-  const [appMode, setAppMode] = useState<AppMode>("canvas");
 
   useEffect(() => {
     const v = searchParams.get("view");
@@ -186,11 +236,22 @@ function HomeContent() {
 
   const changeView = useCallback(
     (next: View) => {
+      preloadView(next); // 兜底:未预热目标在点击瞬间立即发起加载
       setView(next);
       router.replace(`/?view=${next}`);
     },
     [router],
   );
+
+  // DI 菜单展开动画期间:并行预热主组视图 chunk(动画与加载并行化)
+  const handleMenuOpen = useCallback(() => {
+    (["assistant", "avatartalk", "canvas"] as View[]).forEach(preloadView);
+  }, []);
+
+  // 菜单项悬停/聚焦:按操作意向精确预热目标视图
+  const handleViewIntent = useCallback((key: string) => {
+    if (VALID_VIEWS.has(key as View)) preloadView(key as View);
+  }, []);
 
   const isAdmin = account === "admin";
 
@@ -201,7 +262,6 @@ function HomeContent() {
       { key: "canvas", label: "画布", icon: "canvas", group: "main" },
       { key: "create", label: "图像创作", icon: "create", group: "tools" },
       { key: "video", label: "视频生成", icon: "video", group: "tools" },
-      { key: "manju", label: "漫剧", icon: "manju", group: "tools" },
       { key: "dramaStudio", label: "短剧工作室", icon: "drama", group: "tools" },
       { key: "dub", label: "译制配音", icon: "dub", group: "tools" },
       { key: "library", label: "作品库", icon: "library", group: "resources" },
@@ -211,8 +271,7 @@ function HomeContent() {
   }, [isAdmin]);
 
   const meta = VIEW_META[view];
-  const showRightPanelToggle = view === "canvas" || view === "create" || view === "video";
-  const showModeSwitcher = view === "canvas" || view === "dramaStudio";
+  const showRightPanelToggle = view === "create" || view === "video";
 
   if (auth === "loading") {
     return (
@@ -226,16 +285,6 @@ function HomeContent() {
     return <LandingPage />;
   }
 
-  if (view === "dramaStudio" && !isMobile) {
-    return (
-      <DramaStudioView
-        account={account ?? undefined}
-        onLogout={onLogout}
-        onNavigate={(next) => changeView(next as View)}
-      />
-    );
-  }
-
   if (view === "avatartalk") {
     return (
       <div className="app-shell avatartalk-shell">
@@ -243,10 +292,14 @@ function HomeContent() {
           views={diViews}
           current={view}
           onSelect={(key) => changeView(key as View)}
+          onMenuOpen={handleMenuOpen}
+          onViewIntent={handleViewIntent}
         />
         <main className="app-main avatartalk-main">
           <ErrorBoundary viewName="数字人对话">
-            <AvatarTalkView />
+            <Suspense fallback={<ViewFallback label={VIEW_META.avatartalk.label} />}>
+              <AvatarTalkView />
+            </Suspense>
           </ErrorBoundary>
         </main>
       </div>
@@ -265,6 +318,8 @@ function HomeContent() {
         views={diViews}
         current={view}
         onSelect={(key) => changeView(key as View)}
+        onMenuOpen={handleMenuOpen}
+        onViewIntent={handleViewIntent}
       />
 
       <Topbar
@@ -275,42 +330,48 @@ function HomeContent() {
       />
 
       <main id="main" className="app-main">
-        {showModeSwitcher && (
-          <ModeSwitcher mode={appMode} onChange={setAppMode} />
-        )}
         <div className="view-root">
           <ErrorBoundary key={view} viewName={meta.label}>
-            {view === "assistant" && <AssistantView />}
-            {view === "create" && <CreateView />}
-            {view === "video" && <VideoView />}
-            {view === "canvas" && <CanvasView />}
-            {view === "manju" && <ManjuView />}
-            {view === "dramaStudio" && isMobile && (
-              <div className="single-view">
-                <div className="empty-state">
-                  <div className="empty-state-icon">
-                    <Icon name="drama" size={48} />
+            <Suspense fallback={<ViewFallback label={meta.label} />}>
+              {view === "assistant" && <AssistantView />}
+              {view === "create" && <CreateView />}
+              {view === "video" && <VideoView />}
+              {view === "canvas" && <CanvasView />}
+              {view === "dramaStudio" && (
+                isMobile ? (
+                  <div className="single-view">
+                    <div className="empty-state">
+                      <div className="empty-state-icon">
+                        <Icon name="drama" size={48} />
+                      </div>
+                      <h3 className="empty-state-title">工作室</h3>
+                      <p className="empty-state-desc">
+                        工作室建议在桌面端或平板横屏模式下使用，以获得最佳体验。
+                      </p>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={() => changeView("assistant")}
+                      >
+                        返回 AI 助手
+                      </button>
+                    </div>
                   </div>
-                  <h3 className="empty-state-title">短剧工作室</h3>
-                  <p className="empty-state-desc">
-                    短剧工作室建议在桌面端或平板横屏模式下使用，以获得最佳体验。
-                  </p>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={() => changeView("canvas")}
-                  >
-                    返回画布模式
-                  </button>
-                </div>
-              </div>
-            )}
-            {view === "dub" && <DubView />}
-            {view === "train" && <TrainView />}
-            {view === "library" && <LibraryView />}
-            {view === "backlot" && <BacklotView />}
-            {view === "models" && <ModelsView />}
-            {view === "admin" && <AdminView />}
+                ) : (
+                  <DramaStudioView
+                    account={account ?? undefined}
+                    onLogout={onLogout}
+                    onNavigate={(next) => changeView(next as View)}
+                  />
+                )
+              )}
+              {view === "dub" && <DubView />}
+              {view === "train" && <TrainView />}
+              {view === "library" && <LibraryView />}
+              {view === "backlot" && <BacklotView />}
+              {view === "models" && <ModelsView />}
+              {view === "admin" && <AdminView />}
+            </Suspense>
           </ErrorBoundary>
         </div>
       </main>
@@ -329,16 +390,9 @@ function HomeContent() {
             </button>
           </div>
           <div className="right-panel-body">
-            {view === "canvas" && (
-              <div className="right-panel-placeholder">
-                选中节点后将显示节点属性面板。
-              </div>
-            )}
-            {(view === "create" || view === "video") && (
-              <div className="right-panel-placeholder">
-                参数面板
-              </div>
-            )}
+            <div className="right-panel-placeholder">
+              参数面板
+            </div>
           </div>
           <button
             type="button"

@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 /**
- * 10 视图可达性测试
+ * 9 视图可达性测试
  * - 未登录态下访问每个 view 参数
  * - 验证页面加载成功,无 Application error / 500
  * - 截图保存到 test-results/{viewName}.png
@@ -14,7 +14,6 @@ const VIEWS = [
   "library",
   "models",
   "backlot",
-  "manju",
   "dub",
   "train",
   "canvas",
@@ -104,5 +103,5 @@ for (const view of VIEWS) {
 
 // 兜底:确保至少一个 test 文件存在
 test("view suite smoke", async () => {
-  expect(VIEWS.length).toBe(10);
+  expect(VIEWS.length).toBe(9);
 });

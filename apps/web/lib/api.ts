@@ -19,7 +19,16 @@ import type {
   Usage,
 } from "./types";
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8090";
+/**
+ * API 基址。
+ * - 浏览器端优先使用相对路径 ""，让请求走当前 origin，再由 Next.js rewrite / 反代到后端，
+ *   避免构建产物把 localhost:8090 写死导致线上 CORS/ host 不可达。
+ * - SSR/非浏览器环境回退到 NEXT_PUBLIC_API_BASE 或 localhost:8090。
+ */
+export const API_BASE =
+  typeof window === "undefined"
+    ? (process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8090")
+    : (process.env.NEXT_PUBLIC_API_BASE ?? "");
 const TOKEN_KEY = "toiv_token";
 
 export interface AppUser {
@@ -60,10 +69,14 @@ function withToken(url: string): string {
   return url + (url.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(t);
 }
 
-/** 后端图片路径是相对的，拼成可访问 URL 并附带令牌（<img> 无法带请求头）。 */
+/** 后端图片路径是相对的，拼成可访问 URL 并附带令牌（<img> 无法带请求头）。
+ * 兼容：绝对 http(s) URL、以 / 开头的相对路径、缺少 / 的相对路径、空路径。
+ */
 export function imageUrl(path: string): string {
-  const base = path.startsWith("http") ? path : `${API_BASE}${path}`;
-  return withToken(base);
+  if (!path) return "";
+  if (path.startsWith("http")) return withToken(path);
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return withToken(`${API_BASE}${normalized}`);
 }
 
 // ---------- 鉴权 ----------
@@ -1644,6 +1657,29 @@ export interface LiveTelemetry {
   outputCount: number;
 }
 
+export interface LlmModelInfo {
+  model: string;
+  display_model?: string;
+  fallback_model: string | null;
+  nsfw_model: string | null;
+  l2_model: string | null;
+  l3_model: string | null;
+}
+
+/** 当前默认 LLM 大脑名称;失败返回 null → 前端隐藏 badge。 */
+export async function getLlmModel(signal?: AbortSignal): Promise<LlmModelInfo | null> {
+  try {
+    const res = await fetch(`${API_BASE}/api/system/llm`, {
+      headers: authHeaders(),
+      signal,
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as LlmModelInfo;
+  } catch {
+    return null;
+  }
+}
+
 /** 拉取 4 卡实时遥测(显存负载/队列);失败返回 null → 前端回落 MOCK。 */
 export async function getGpuStats(signal?: AbortSignal): Promise<LiveTelemetry | null> {
   try {
@@ -1906,6 +1942,8 @@ export interface DramaProjectSummary {
 export interface DramaCharacterItem {
   id: string;
   project_id: string;
+  // M2:关联跨项目资产库(空=独立角色)
+  asset_id: string;
   name: string;
   description: string;
   visual_prompt: string;     // 视觉 token(注入分镜 prompt 保一致性)
@@ -1916,6 +1954,19 @@ export interface DramaCharacterItem {
   reference_front: string;
   reference_side: string;
   reference_back: string;
+}
+
+export interface DramaShotCandidate {
+  id: string;
+  shot_id: string;
+  project_id: string;
+  url: string;
+  seed: number;
+  video_model: string;
+  status: string;            // pending / generating / done / error
+  is_picked: boolean;
+  error: string;
+  created_at: string;
 }
 
 export interface DramaShotItem {
@@ -1930,16 +1981,22 @@ export interface DramaShotItem {
   speaker: string;           // 说话角色 / narrator / 空
   duration_sec: number;
   start_sec: number;
+  keyframe_url?: string;     // 关键帧缩略图
   video_status: string;      // draft / generating / done / error
   video_url: string;
   voice_status: string;      // draft / generating / done / error
   voice_url: string;
+  // M3:对口型
+  lipsync_status?: string;   // draft / generating / done / error
+  lipsync_video_url?: string;
   seed: number;
   error: string;
   updated_at: string;
   // M2:宫格分镜回写(场景布局 / 视频模型)
   scene_layout: string;
   video_model: string;
+  // M1:单镜多候选生成
+  candidates?: DramaShotCandidate[];
 }
 
 // M4:创作过程单步记录(后端 process_data 数组元素)
@@ -1996,6 +2053,61 @@ export interface DramaCharacterPatch {
   voice_name?: string;
 }
 
+// ---------- M2:跨项目角色/场景/道具/风格资产库 ----------
+export type DramaAssetKind = "character" | "scene" | "prop" | "style";
+
+export interface DramaAsset {
+  id: string;
+  kind: DramaAssetKind;
+  name: string;
+  description: string;
+  visual_prompt: string;
+  ref_image: string;
+  ref_audio: string;
+  voice_name: string;
+  // 角色三视图
+  reference_front: string;
+  reference_side: string;
+  reference_back: string;
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DramaAssetInput {
+  kind: DramaAssetKind;
+  name: string;
+  description?: string;
+  visual_prompt?: string;
+  ref_image?: string;
+  ref_audio?: string;
+  voice_name?: string;
+  reference_front?: string;
+  reference_side?: string;
+  reference_back?: string;
+  tags?: string[];
+}
+
+export interface DramaAssetPatch {
+  kind?: DramaAssetKind;
+  name?: string;
+  description?: string;
+  visual_prompt?: string;
+  ref_image?: string;
+  ref_audio?: string;
+  voice_name?: string;
+  reference_front?: string;
+  reference_side?: string;
+  reference_back?: string;
+  tags?: string[];
+}
+
+export interface DramaAssetListResponse {
+  assets: DramaAsset[];
+}
+
+export interface DramaAssetApplyResponse extends DramaCharacterItem {}
+
 export interface DramaStoryboardRequest {
   num_shots?: number;
   style?: string;
@@ -2028,6 +2140,12 @@ export interface DramaGenerateVoiceRequest {
   ref_audio_url?: string;
 }
 
+// M3:单分镜对口型请求
+export interface DramaLipsyncRequest {
+  lips_expression?: number;
+  inference_steps?: number;
+}
+
 export interface DramaAssembleOptions {
   transition?: string;
   bgm_url?: string | null;
@@ -2043,6 +2161,8 @@ export interface DramaAssembleOptions {
   voice_volume?: number;
   bgm_volume?: number;
   duck?: boolean;
+  // M3:显式指定合成片段,优先使用 lipsync_video_url;空则后端按 shot.video_url 兜底
+  clips?: string[];
 }
 
 export interface DramaGenerateVideoResult {
@@ -2229,13 +2349,22 @@ export const generateDramaShotVoice = (
 ): Promise<DramaVoiceResult> =>
   dramaReq(`/drama/shots/${sid}/generate-voice`, "POST", body);
 
+/** 单分镜对口型(源视频 + 配音 → 口型同步视频,异步,完成回写 shot.lipsync_video_url)。 */
+export const generateDramaShotLipsync = (
+  sid: string,
+  body: DramaLipsyncRequest,
+): Promise<{ url: string }> => dramaReq(`/drama/shots/${sid}/lipsync`, "POST", body);
+
 /** 改单分镜(手动改提示词 / 台词 / seed)。 */
 export const patchDramaShot = (
   sid: string,
   body: DramaShotPatch,
 ): Promise<DramaShotItem> => dramaReq(`/drama/shots/${sid}`, "PATCH", body);
 
-/** 一键合成成片(把已完成分镜视频按序拼接 + 配音 + 字幕)。 */
+/**
+ * 一键合成成片(把已完成分镜视频按序拼接 + 配音 + 字幕)。
+ * M3:可在 body.clips 显式指定合成片段,优先使用 lipsync_video_url;空则后端按 shot.video_url 兜底。
+ */
 export const assembleDrama = (
   pid: string,
   body: DramaAssembleOptions,
@@ -2394,6 +2523,8 @@ export interface GenerateVideoV2Body {
   use_upscale?: boolean;
   use_rife?: boolean;
   prompt_override?: string;
+  // M1:单镜多候选生成
+  num_candidates?: number;
 }
 
 /** 单分镜视频生成 v2(支持模型选择)。契约:POST /api/drama/shots/{sid}/generate-video-v2。 */
@@ -2402,4 +2533,96 @@ export const dramaGenerateVideoV2 = (
   body: GenerateVideoV2Body,
 ): Promise<DramaGenerateVideoResult> =>
   dramaReq(`/drama/shots/${sid}/generate-video-v2`, "POST", body);
+
+/** 列单镜候选视频。契约:GET /api/drama/shots/{sid}/candidates。 */
+export const listDramaShotCandidates = (
+  sid: string,
+): Promise<{ candidates: DramaShotCandidate[] }> =>
+  dramaReq(`/drama/shots/${sid}/candidates`, "GET");
+
+/** 选择某个候选为当前分镜视频。契约:POST /api/drama/shots/{sid}/candidates/{cid}/pick。 */
+export const pickDramaShotCandidate = (
+  sid: string,
+  cid: string,
+): Promise<DramaShotItem> =>
+  dramaReq(`/drama/shots/${sid}/candidates/${cid}/pick`, "POST");
+
+/** 删除某个候选视频。契约:DELETE /api/drama/shots/{sid}/candidates/{cid}。 */
+export const deleteDramaShotCandidate = (
+  sid: string,
+  cid: string,
+): Promise<{ ok: boolean }> =>
+  dramaReq(`/drama/shots/${sid}/candidates/${cid}`, "DELETE");
+
+// ---------- M2:跨项目资产库 API ----------
+
+/** 创建资产。契约:POST /api/drama/assets。 */
+export const createDramaAsset = (body: DramaAssetInput): Promise<DramaAsset> =>
+  dramaReq("/drama/assets", "POST", body);
+
+/** 列出资产(可按 kind 过滤)。契约:GET /api/drama/assets[?kind=]。 */
+export const listDramaAssets = (kind?: DramaAssetKind): Promise<DramaAssetListResponse> => {
+  const q = kind ? `?kind=${encodeURIComponent(kind)}` : "";
+  return dramaReq(`/drama/assets${q}`, "GET");
+};
+
+/** 更新资产。契约:PATCH /api/drama/assets/{aid}。 */
+export const patchDramaAsset = (
+  aid: string,
+  body: DramaAssetPatch,
+): Promise<DramaAsset> => dramaReq(`/drama/assets/${aid}`, "PATCH", body);
+
+/** 删除资产。契约:DELETE /api/drama/assets/{aid}。 */
+export const deleteDramaAsset = (aid: string): Promise<{ ok: boolean }> =>
+  dramaReq(`/drama/assets/${aid}`, "DELETE");
+
+/** 将资产应用为当前项目的角色。契约:POST /api/drama/assets/{aid}/apply-to-project?pid={pid}。 */
+export const applyDramaAssetToProject = (
+  aid: string,
+  pid: string,
+): Promise<DramaAssetApplyResponse> =>
+  dramaReq(`/drama/assets/${aid}/apply-to-project?pid=${encodeURIComponent(pid)}`, "POST");
+
+// ---------- M5:播放数据反哺创作 ----------
+
+export interface ProjectPlaybackInsight {
+  sessions: number;
+  plays: number;
+  completed: number;
+  completion_rate: number;
+  avg_watch_sec: number;
+  engagement_rate: number;
+}
+
+export interface ShotPlaybackInsight {
+  shot_id: string;
+  idx: number;
+  scene: string;
+  start_sec: number;
+  duration_sec: number;
+  enters: number;
+  drop_offs: number;
+  avg_watch_sec: number;
+  completion_rate: number;
+  retention: number;
+  replay_count: number;
+  like_count: number;
+  mark_good_count: number;
+  mark_boring_count: number;
+  share_count: number;
+  heat_score: number;
+  suggestions: string[];
+}
+
+export interface PlaybackInsightsResponse {
+  project: ProjectPlaybackInsight;
+  shots: ShotPlaybackInsight[];
+  generated_at: string;
+}
+
+/** 获取项目播放洞察(分镜热度 + 创作建议)。契约:GET /api/drama/projects/{pid}/playback-insights。 */
+export const getDramaPlaybackInsights = (
+  pid: string,
+): Promise<PlaybackInsightsResponse> =>
+  dramaReq(`/drama/projects/${pid}/playback-insights`, "GET");
 

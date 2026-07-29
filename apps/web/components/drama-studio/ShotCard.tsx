@@ -9,6 +9,7 @@ import type {
   DramaSceneLayoutActor,
   DramaSceneLayoutProp,
   DramaShotItem,
+  DramaShotCandidate,
 } from "@/lib/api";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import type { UseDramaProjectReturn } from "@/hooks/useDramaProject";
@@ -27,6 +28,178 @@ export function shotStatusMeta(status: string): {
   if (s === "error" || s === "failed")
     return { icon: "error", label: "失败", cls: "ds-st-err" };
   return { icon: "queued", label: "待处理", cls: "ds-st-draft" };
+}
+
+function candidateStatusMeta(status: string): {
+  icon: IconName;
+  label: string;
+  cls: string;
+} {
+  const s = (status || "").toLowerCase();
+  if (s === "done" || s === "ready" || s === "completed")
+    return { icon: "success", label: "完成", cls: "ds-st-done" };
+  if (s === "generating" || s === "running" || s === "processing")
+    return { icon: "loading", label: "生成中", cls: "ds-st-run" };
+  if (s === "error" || s === "failed")
+    return { icon: "error", label: "失败", cls: "ds-st-err" };
+  return { icon: "queued", label: "排队中", cls: "ds-st-draft" };
+}
+
+function pipelineStepStatus(
+  step: string,
+  shot: DramaShotItem,
+): { status: string; done: boolean } {
+  const vs = (shot.video_status || "").toLowerCase();
+  const vos = (shot.voice_status || "").toLowerCase();
+  const ls = (shot.lipsync_status || "").toLowerCase();
+  if (step === "keyframe") return { status: "done", done: true };
+  if (step === "video") return { status: vs || "pending", done: vs === "done" };
+  if (step === "voice") return { status: vos || "pending", done: vos === "done" };
+  if (step === "lipsync") return { status: ls || "pending", done: ls === "done" };
+  if (step === "done")
+    return {
+      status: vs === "done" && vos === "done" ? "done" : "pending",
+      done: vs === "done" && vos === "done",
+    };
+  return { status: "pending", done: false };
+}
+
+function stepStatusClass(status: string): string {
+  const s = (status || "").toLowerCase();
+  if (s === "done" || s === "ready" || s === "completed") return "ds-step-done";
+  if (s === "generating" || s === "running" || s === "processing")
+    return "ds-step-run";
+  if (s === "error" || s === "failed") return "ds-step-err";
+  return "ds-step-pending";
+}
+
+// ── M1:可视化流水线步骤条 ──
+interface PipelineStepsProps {
+  shot: DramaShotItem;
+}
+
+const PIPELINE_STEPS: { key: string; name: string; icon: IconName }[] = [
+  { key: "keyframe", name: "关键帧", icon: "image" },
+  { key: "video", name: "视频", icon: "video" },
+  { key: "voice", name: "配音", icon: "mic" },
+  { key: "lipsync", name: "口型", icon: "chat" },
+  { key: "done", name: "完成", icon: "check" },
+];
+
+function PipelineSteps({ shot }: PipelineStepsProps) {
+  return (
+    <div className="ds-shot-pipeline">
+      {PIPELINE_STEPS.map((step, index) => {
+        const { status } = pipelineStepStatus(step.key, shot);
+        const cls = stepStatusClass(status);
+        const isLast = index === PIPELINE_STEPS.length - 1;
+        return (
+          <div key={step.key} className="ds-pipeline-step">
+            <div className={`ds-step-icon ${cls}`}>
+              <Icon
+                name={step.icon}
+                size={13}
+                strokeWidth={1.8}
+                className={status === "generating" ? "ds-spin" : undefined}
+              />
+            </div>
+            <span className="ds-step-label">{step.name}</span>
+            {!isLast && <div className="ds-step-line" />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── M1:候选视频网格 ──
+interface CandidateGridProps {
+  shot: DramaShotItem;
+  project: UseDramaProjectReturn;
+}
+
+function CandidateGrid({ shot, project }: CandidateGridProps) {
+  const candidates = shot.candidates ?? [];
+  if (candidates.length === 0) return null;
+
+  return (
+    <div className="ds-candidate-grid">
+      {candidates.map((candidate) => (
+        <CandidateItem
+          key={candidate.id}
+          candidate={candidate}
+          shot={shot}
+          project={project}
+        />
+      ))}
+    </div>
+  );
+}
+
+interface CandidateItemProps {
+  candidate: DramaShotCandidate;
+  shot: DramaShotItem;
+  project: UseDramaProjectReturn;
+}
+
+function CandidateItem({ candidate, shot, project }: CandidateItemProps) {
+  const meta = candidateStatusMeta(candidate.status);
+  const isDone = candidate.status.toLowerCase() === "done";
+  const isPicked = candidate.is_picked;
+  const isBusy = project.busyShot === shot.id;
+
+  return (
+    <div
+      className={`ds-candidate-item ${isPicked ? "ds-candidate-picked" : ""}`}
+    >
+      <div className="ds-candidate-media">
+        {isDone && candidate.url ? (
+          <video
+            src={imageUrl(candidate.url)}
+            controls
+            playsInline
+            preload="metadata"
+            className="ds-candidate-video"
+          />
+        ) : (
+          <div className="ds-candidate-placeholder">
+            <Icon
+              name={meta.icon}
+              size={20}
+              strokeWidth={1.4}
+              className={meta.icon === "loading" ? "ds-spin" : undefined}
+            />
+            <span>{meta.label}</span>
+          </div>
+        )}
+      </div>
+      <div className="ds-candidate-info">
+        <div className="ds-candidate-seed">Seed: {candidate.seed}</div>
+        <div className="ds-candidate-model">{candidate.video_model}</div>
+        {candidate.error && (
+          <div className="ds-candidate-error">{candidate.error}</div>
+        )}
+      </div>
+      <div className="ds-candidate-actions">
+        <button
+          type="button"
+          className="btn btn-sm"
+          onClick={() => project.pickCandidate(shot.id, candidate.id)}
+          disabled={isPicked || isBusy}
+        >
+          {isPicked ? "已选择" : "设为当前"}
+        </button>
+        <button
+          type="button"
+          className="btn btn-sm btn-danger"
+          onClick={() => project.deleteCandidate(shot.id, candidate.id)}
+          disabled={isBusy}
+        >
+          删除
+        </button>
+      </div>
+    </div>
+  );
 }
 
 // ── M3:导演台 2D 编辑器子组件 ──
@@ -470,9 +643,11 @@ interface ShotCardProps {
 export function ShotCard({ shot, project }: ShotCardProps) {
   const {
     busyShot,
+    busyLipsync,
     editingShot,
     setEditingShot,
     saveShot,
+    generateLipsync,
     // M3:导演台(M2.3:overlay 化,ShotCard 仅保留触发入口 + busy 状态)
     directorBusy,
     openDirectorOverlay,
@@ -499,14 +674,23 @@ export function ShotCard({ shot, project }: ShotCardProps) {
 
   const vMeta = shotStatusMeta(shot.video_status);
   const aMeta = shotStatusMeta(shot.voice_status);
+  const lMeta = shotStatusMeta(shot.lipsync_status ?? "");
   const isVideoBusy = busyShot === shot.id;
   const isEditing = editingShot === shot.id;
+  const vs = (shot.video_status || "").toLowerCase();
+  const vos = (shot.voice_status || "").toLowerCase();
+  const ls = (shot.lipsync_status || "").toLowerCase();
+  const isLipsyncBusy = busyLipsync === shot.id || ls === "generating";
+  const canLipsync = vs === "done" && vos === "done";
   // 后端返回的 generator 都是可用的;加载中/空列表时允许 ltx 默认
   const isModelAvailable =
     videoModel === "ltx" || videoGenerators.some((g) => g.name === videoModel);
 
   return (
     <article className="ds-shot-card">
+      {/* M1:可视化流水线步骤条 */}
+      <PipelineSteps shot={shot} />
+
       <div className="ds-shot-head">
         <span className="ds-shot-idx">#{shot.idx}</span>
         <span className={`ds-badge-status ${vMeta.cls}`}>
@@ -536,6 +720,9 @@ export function ShotCard({ shot, project }: ShotCardProps) {
           </div>
         )}
       </div>
+
+      {/* M1:单镜多候选视频网格 */}
+      <CandidateGrid shot={shot} project={project} />
 
       <div className="ds-shot-body">
         {isEditing ? (
@@ -635,6 +822,73 @@ export function ShotCard({ shot, project }: ShotCardProps) {
                 />
               )}
             </div>
+
+            {/* M3:对口型入口与状态 */}
+            {canLipsync && (
+              <div className="ds-shot-lipsync">
+                {ls === "done" && shot.lipsync_video_url ? (
+                  <div className="ds-lipsync-done">
+                    <div className="ds-lipsync-head">
+                      <span className="ds-badge-status ds-st-done">
+                        <Icon name="success" size={10} strokeWidth={1.9} />
+                        已对口型
+                      </span>
+                      <a
+                        className="btn btn-sm btn-ghost"
+                        href={imageUrl(shot.lipsync_video_url)}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <Icon name="link" size={12} />
+                        查看
+                      </a>
+                    </div>
+                    <video
+                      src={imageUrl(shot.lipsync_video_url)}
+                      controls
+                      playsInline
+                      preload="metadata"
+                      className="ds-shot-lipsync-video"
+                    />
+                  </div>
+                ) : ls === "error" || ls === "failed" ? (
+                  <div className="ds-lipsync-error-row">
+                    <span className={`ds-badge-status ${lMeta.cls}`}>
+                      <Icon name={lMeta.icon} size={10} strokeWidth={1.9} />
+                      对口型·{lMeta.label}
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => generateLipsync(shot.id)}
+                      disabled={busyLipsync !== null}
+                    >
+                      <Icon name="refresh" size={12} />
+                      重试
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => generateLipsync(shot.id)}
+                    disabled={isLipsyncBusy || busyLipsync !== null}
+                  >
+                    {isLipsyncBusy ? (
+                      <>
+                        <Icon name="loading" size={12} className="ds-spin" />
+                        对口型中…
+                      </>
+                    ) : (
+                      <>
+                        <Icon name="mic" size={12} />
+                        对口型
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* M6:模型聚合选择器(单镜视频生成模型) */}
             <div className="ds-model-row">

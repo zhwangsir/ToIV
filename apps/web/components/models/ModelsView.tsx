@@ -261,7 +261,14 @@ export function ModelsView() {
               />
             </div>
             <div className="mv-toolbar-right">
-              {totalCount > 0 && <span className="mv-stat">{totalCount} 个模型</span>}
+              {/* 始终渲染以预留宽度,避免加载完成后插入导致工具栏位移(CLS) */}
+              <span
+                className="mv-stat"
+                style={{ visibility: totalCount > 0 ? "visible" : "hidden" }}
+                aria-hidden={totalCount === 0}
+              >
+                {totalCount > 0 ? `${totalCount} 个模型` : "0 个模型"}
+              </span>
               <button
                 type="button"
                 className="btn btn-sm"
@@ -645,6 +652,8 @@ export function ModelsView() {
           justify-content: center;
           gap: var(--space-3);
           padding: var(--space-6) var(--space-4);
+          /* 加载/错误态预留稳定高度,降低内容到达时的布局偏移(CLS) */
+          min-height: 16rem;
           text-align: center;
         }
 

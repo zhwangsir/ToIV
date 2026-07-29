@@ -5,7 +5,7 @@ import { test, expect } from "@playwright/test";
  * - 直接访问后端 API（baseURL 用 http://127.0.0.1:8200）
  * - 未登录态期望 401/403/404
  */
-const API_BASE = "http://127.0.0.1:8200";
+const API_BASE = process.env.TOIV_API_BASE ?? "http://127.0.0.1:8200";
 
 test.describe("API 接口（未登录）", () => {
   test("GET /api/auth/me 应返回 401", async ({ request }) => {

@@ -27,6 +27,14 @@ import {
   readFormSnapshot,
   writeFormSnapshot,
 } from "@/lib/gen-persist";
+import { consumeEngineDraft } from "@/lib/engine";
+import {
+  findSamplerInfo,
+  findSchedulerInfo,
+  PAIRING_TIPS,
+  type SamplerInfo,
+  type SchedulerInfo,
+} from "@/lib/sampling";
 
 type Mode = "txt2img" | "img2img";
 type Status = "idle" | "uploading" | "queued" | "sampling" | "done" | "error";
@@ -115,8 +123,11 @@ export function CreateView({
     stylePreset: string | null;
   }>(genSlot);
 
+  const engineDraft = useMemo(() => consumeEngineDraft(), []);
   const [mode, setMode] = useState<Mode>(formSnap?.mode ?? "txt2img");
-  const [positive, setPositive] = useState(formSnap?.positive ?? "");
+  const [positive, setPositive] = useState(
+    (engineDraft?.target === "image" ? engineDraft.prompt : undefined) ?? formSnap?.positive ?? "",
+  );
   const [negative, setNegative] = useState(formSnap?.negative ?? "");
   const [negOpen, setNegOpen] = useState(false);
 
@@ -133,6 +144,9 @@ export function CreateView({
   const [batchSize, setBatchSize] = useState(formSnap?.batchSize ?? 1);
   const [denoise, setDenoise] = useState(formSnap?.denoise ?? DENOOSE_DEFAULT);
   const [activePreset, setActivePreset] = useState<string | null>(formSnap?.stylePreset ?? null);
+
+  // ---- 采样器/调度器说明展开 ----
+  const [samplingHelpOpen, setSamplingHelpOpen] = useState(false);
 
   // ---- 图生图上传(不持久化,因 worker 临时路径可能失效)----
   const [uploaded, setUploaded] = useState<UploadedRef | null>(null);
@@ -166,6 +180,9 @@ export function CreateView({
   const ckptOptions: string[] = useMemo(() => Array.from(new Set(models?.checkpoints ?? [])), [models?.checkpoints]);
   const samplerOptions: string[] = useMemo(() => Array.from(new Set(models?.samplers ?? [])), [models?.samplers]);
   const schedulerOptions: string[] = useMemo(() => Array.from(new Set(models?.schedulers ?? [])), [models?.schedulers]);
+
+  const samplerInfo: SamplerInfo | undefined = useMemo(() => findSamplerInfo(sampler), [sampler]);
+  const schedulerInfo: SchedulerInfo | undefined = useMemo(() => findSchedulerInfo(scheduler), [scheduler]);
 
   // ---- 拉取模型列表 + 风格预设 ----
   // nsfw 模式:设置 X-NSFW 头,使后端返回 NSFW 模型。
@@ -404,6 +421,7 @@ export function CreateView({
 
   return (
     <div className="create-view">
+      <h1 className="sr-only">创作台</h1>
       {/* ───── 左:画布区 ───── */}
       <section className="cv-canvas">
         <header className="cv-canvas-top">
@@ -825,6 +843,9 @@ export function CreateView({
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
+                {samplerInfo && (
+                  <p className="cv-hint">{samplerInfo.summary}</p>
+                )}
               </div>
               <div>
                 <label className="cv-label" htmlFor="cv-scheduler">调度器</label>
@@ -839,8 +860,49 @@ export function CreateView({
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
+                {schedulerInfo && (
+                  <p className="cv-hint">{schedulerInfo.summary}</p>
+                )}
               </div>
             </div>
+
+            <button
+              type="button"
+              className="cv-help-toggle"
+              onClick={() => setSamplingHelpOpen((v) => !v)}
+              aria-expanded={samplingHelpOpen}
+            >
+              <Icon name={samplingHelpOpen ? "chevron-up" : "chevron-down"} size={12} />
+              <span>采样器与调度器搭配指南</span>
+            </button>
+
+            {samplingHelpOpen && (
+              <div className="cv-help-body">
+                <p className="cv-help-lead">
+                  采样器决定如何去噪，调度器决定每步噪声衰减曲线。搭配得当可在速度和质量间取得最佳平衡。
+                </p>
+                <div className="cv-pairing-grid">
+                  {PAIRING_TIPS.map((tip) => (
+                    <div key={tip.scene} className="cv-pairing-card">
+                      <div className="cv-pairing-scene">{tip.scene}</div>
+                      <div className="cv-pairing-row">
+                        <span className="cv-pairing-label">采样器</span>
+                        <span className="cv-pairing-val">{tip.sampler}</span>
+                      </div>
+                      <div className="cv-pairing-row">
+                        <span className="cv-pairing-label">调度器</span>
+                        <span className="cv-pairing-val">{tip.scheduler}</span>
+                      </div>
+                      <div className="cv-pairing-row">
+                        <span className="cv-pairing-label">步数</span>
+                        <span className="cv-pairing-val">{tip.steps}</span>
+                      </div>
+                      <p className="cv-pairing-note">{tip.note}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 步数 / CFG */}
@@ -1637,6 +1699,87 @@ export function CreateView({
           font-size: 0.68rem;
           color: var(--accent-soft);
           opacity: 0.8;
+        }
+
+        /* 采样器/调度器提示与搭配指南 */
+        .cv-hint {
+          margin-top: 0.35rem;
+          font-size: 0.68rem;
+          line-height: 1.4;
+          color: var(--ink-faint);
+        }
+        .cv-help-toggle {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          margin-top: 0.7rem;
+          padding: 0.25rem 0.5rem;
+          background: transparent;
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius-sm);
+          color: var(--ink-soft);
+          font-size: 0.72rem;
+          cursor: pointer;
+          transition: all var(--dur) var(--ease);
+        }
+        .cv-help-toggle:hover {
+          background: var(--bg-2);
+          border-color: var(--accent-line);
+          color: var(--ink);
+        }
+        .cv-help-body {
+          margin-top: 0.7rem;
+          padding-top: 0.7rem;
+          border-top: 1px solid var(--hairline);
+          animation: cvFadeIn 180ms var(--ease);
+        }
+        .cv-help-lead {
+          margin: 0 0 0.6rem;
+          font-size: 0.74rem;
+          line-height: 1.5;
+          color: var(--ink-soft);
+        }
+        .cv-pairing-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 0.5rem;
+        }
+        .cv-pairing-card {
+          padding: 0.55rem 0.65rem;
+          background: var(--bg-2);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius-sm);
+        }
+        .cv-pairing-scene {
+          font-size: 0.74rem;
+          font-weight: 600;
+          color: var(--ink);
+          margin-bottom: 0.35rem;
+        }
+        .cv-pairing-row {
+          display: flex;
+          justify-content: space-between;
+          gap: 0.4rem;
+          font-size: 0.68rem;
+          line-height: 1.4;
+        }
+        .cv-pairing-label {
+          color: var(--ink-faint);
+          white-space: nowrap;
+        }
+        .cv-pairing-val {
+          color: var(--ink-soft);
+          text-align: right;
+        }
+        .cv-pairing-note {
+          margin: 0.35rem 0 0;
+          font-size: 0.66rem;
+          line-height: 1.4;
+          color: var(--ink-faint);
+        }
+        @keyframes cvFadeIn {
+          from { opacity: 0; transform: translateY(-4px); }
+          to { opacity: 1; transform: translateY(0); }
         }
 
         /* 预设徽章 */

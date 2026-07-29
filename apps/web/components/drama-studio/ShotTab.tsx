@@ -32,6 +32,9 @@ export function ShotTab({ project, onGoToScript }: ShotTabProps) {
   const { shots, doneCount, reload } = project;
   const { show: showToast } = useToast();
 
+  // M1:批量生成候选数(1/2/4)
+  const [numCandidates, setNumCandidates] = useState<number>(1);
+
   // L3 批量精修状态
   const [batchBusy, setBatchBusy] = useState(false);
   const [batchTask, setBatchTask] = useState<DramaPolishTask | null>(null);
@@ -180,10 +183,23 @@ export function ShotTab({ project, onGoToScript }: ShotTabProps) {
       {/* M2.1:批量操作工具栏(单镜生成视频/配音按钮已移至此处统一入口) */}
       {shots.length > 0 && (
         <div className="ds-batch-toolbar">
+          <div className="ds-batch-candidates">
+            <label className="ds-field-label">候选数</label>
+            <select
+              className="ds-input ds-batch-candidates-select"
+              value={numCandidates}
+              onChange={(e) => setNumCandidates(Number(e.target.value))}
+              disabled={project.activeTaskCount > 0}
+            >
+              <option value={1}>1</option>
+              <option value={2}>2</option>
+              <option value={4}>4</option>
+            </select>
+          </div>
           <button
             type="button"
             className="btn btn-sm btn-ghost"
-            onClick={() => project.generateAllShots()}
+            onClick={() => project.generateAllShots(numCandidates)}
             disabled={project.activeTaskCount > 0}
             title="LTX 文生视频,每镜约 1-2 分钟(异步,完成后回写)"
           >

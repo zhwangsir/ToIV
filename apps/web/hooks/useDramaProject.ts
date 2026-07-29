@@ -11,6 +11,7 @@ import {
   deleteDramaCharacter,
   generateDramaShotVideo,
   generateDramaShotVoice,
+  generateDramaShotLipsync,
   patchDramaShot,
   assembleDrama,
   dramaGenerateCharacterReference,
@@ -20,6 +21,9 @@ import {
   dramaUpdateSceneLayout,
   dramaGenerateVideoV2,
   AVAILABLE_VIDEO_GENERATORS,
+  pickDramaShotCandidate,
+  deleteDramaShotCandidate,
+  applyDramaAssetToProject,
 } from "@/lib/api";
 import { loadJSON, saveJSON } from "@/lib/storage";
 import type {
@@ -30,6 +34,7 @@ import type {
   DramaCharacterInput,
   DramaCharacterPatch,
   DramaShotItem,
+  DramaShotCandidate,
   DramaAssembleResult,
   DramaProcessStep,
   DramaSceneLayout,
@@ -94,6 +99,8 @@ export interface UseDramaProjectReturn {
   deleteCharacter: (cid: string, name: string) => Promise<void>;
   generateReference: (cid: string, name: string) => Promise<void>;
   busyRef: string | null;
+  // M2:从资产库应用角色到项目
+  applyAsset: (aid: string, name: string) => Promise<void>;
   // 分镜
   saveShot: (
     shot: DramaShotItem,
@@ -102,10 +109,16 @@ export interface UseDramaProjectReturn {
   generateVideo: (shot: DramaShotItem) => void;
   generateVideoV2: (sid: string, body: GenerateVideoV2Body) => void;
   generateVoice: (shot: DramaShotItem) => void;
+  generateLipsync: (sid: string) => Promise<void>;
   busyShot: string | null;
   busyVoice: string | null;
+  busyLipsync: string | null;
   editingShot: string | null;
   setEditingShot: React.Dispatch<React.SetStateAction<string | null>>;
+  // M1:单镜候选
+  candidatesByShot: Record<string, DramaShotCandidate[]>;
+  pickCandidate: (sid: string, cid: string) => Promise<void>;
+  deleteCandidate: (sid: string, cid: string) => Promise<void>;
   // 导演台 M3
   directorOpen: string | null;
   directorLayout: DramaSceneLayout | null;
@@ -144,7 +157,7 @@ export interface UseDramaProjectReturn {
   setSelectedShotId: React.Dispatch<React.SetStateAction<string | null>>;
   selectedShot: DramaShotItem | null;
   // ── 批量生成 ──
-  generateAllShots: () => void;
+  generateAllShots: (numCandidates?: number) => void;
   // M2.1:批量配音(遍历有台词且未完成的分镜,逐个调 generateVoice)
   generateAllVoices: () => void;
   pendingCount: number;
@@ -171,6 +184,7 @@ export function useDramaProject(
   // 单镜忙碌(防重入)
   const [busyShot, setBusyShot] = useState<string | null>(null);
   const [busyVoice, setBusyVoice] = useState<string | null>(null);
+  const [busyLipsync, setBusyLipsync] = useState<string | null>(null);
   const [assembling, setAssembling] = useState(false);
   const [storyboarding, setStoryboarding] = useState(false);
   const [editingShot, setEditingShot] = useState<string | null>(null);
@@ -255,6 +269,7 @@ export function useDramaProject(
   const resetDetailState = useCallback(() => {
     setBusyShot(null);
     setBusyVoice(null);
+    setBusyLipsync(null);
     setAssembling(false);
     setStoryboarding(false);
     setEditingShot(null);
@@ -523,6 +538,28 @@ export function useDramaProject(
     [busyRef, showToast],
   );
 
+  // ── M2:从资产库应用角色到当前项目 ──
+  const applyAsset = useCallback(
+    (aid: string, name: string): Promise<void> => {
+      const pid = currentIdRef.current;
+      if (!pid) return Promise.resolve();
+      return applyDramaAssetToProject(aid, pid)
+        .then((c) => {
+          setCurrent((d) =>
+            d ? { ...d, characters: [...d.characters, c] } : d,
+          );
+          showToast("success", `资产「${name}」已应用到项目`);
+        })
+        .catch((err) => {
+          showToast(
+            "error",
+            err instanceof Error ? err.message : "应用资产失败",
+          );
+        });
+    },
+    [showToast],
+  );
+
   // ── 保存分镜编辑(patchDramaShot)──
   const saveShot = useCallback(
     (
@@ -653,20 +690,21 @@ export function useDramaProject(
   );
 
   // ── M6:单镜视频生成 v2(支持模型选择,异步 + 轮询)──
-  const generateVideoV2 = useCallback(
+  const submitShotVideoV2 = useCallback(
     (sid: string, body: GenerateVideoV2Body) => {
-      if (busyShot) {
-        showToast("info", "已有分镜任务进行中,请稍候");
-        return;
-      }
       const pid = currentIdRef.current;
       if (!pid) return;
       const shot = current?.shots.find((s) => s.id === sid);
       const shotIdx = shot?.idx ?? 0;
+      const numCandidates = body.num_candidates ?? 1;
       setBusyShot(sid);
       dramaGenerateVideoV2(sid, body)
         .then(() => {
-          showToast("info", `分镜 #${shotIdx} 视频任务已提交,轮询中…`);
+          const message =
+            numCandidates > 1
+              ? `已提交 ${numCandidates} 个候选视频任务,轮询中…`
+              : `分镜 #${shotIdx} 视频任务已提交,轮询中…`;
+          showToast("info", message);
           pollShotVideo(pid, sid, shotIdx);
         })
         .catch((err) => {
@@ -677,7 +715,85 @@ export function useDramaProject(
           );
         });
     },
-    [busyShot, current, pollShotVideo, showToast],
+    [current, pollShotVideo, showToast],
+  );
+
+  const generateVideoV2 = useCallback(
+    (sid: string, body: GenerateVideoV2Body) => {
+      if (busyShot) {
+        showToast("info", "已有分镜任务进行中,请稍候");
+        return;
+      }
+      submitShotVideoV2(sid, body);
+    },
+    [busyShot, submitShotVideoV2, showToast],
+  );
+
+  // ── M1:单镜候选管理 ──
+  const candidatesByShot = useMemo(() => {
+    return (
+      current?.shots.reduce((acc, shot) => {
+        if (shot.candidates && shot.candidates.length > 0) {
+          acc[shot.id] = shot.candidates;
+        }
+        return acc;
+      }, {} as Record<string, DramaShotCandidate[]>) ?? {}
+    );
+  }, [current?.shots]);
+
+  const pickCandidate = useCallback(
+    async (sid: string, cid: string): Promise<void> => {
+      try {
+        const updatedShot = await pickDramaShotCandidate(sid, cid);
+        setCurrent((prev) =>
+          prev
+            ? {
+                ...prev,
+                shots: prev.shots.map((s) =>
+                  s.id === sid ? updatedShot : s,
+                ),
+              }
+            : prev,
+        );
+        showToast("success", "已选择该候选视频");
+      } catch (err) {
+        showToast(
+          "error",
+          err instanceof Error ? err.message : "选择候选视频失败",
+        );
+      }
+    },
+    [showToast],
+  );
+
+  const deleteCandidate = useCallback(
+    async (sid: string, cid: string): Promise<void> => {
+      try {
+        await deleteDramaShotCandidate(sid, cid);
+        setCurrent((prev) =>
+          prev
+            ? {
+                ...prev,
+                shots: prev.shots.map((s) =>
+                  s.id === sid
+                    ? {
+                        ...s,
+                        candidates: s.candidates?.filter((c) => c.id !== cid),
+                      }
+                    : s,
+                ),
+              }
+            : prev,
+        );
+        showToast("success", "已删除候选视频");
+      } catch (err) {
+        showToast(
+          "error",
+          err instanceof Error ? err.message : "删除候选视频失败",
+        );
+      }
+    },
+    [showToast],
   );
 
   // ── 单镜配音(同步返回 wav)──
@@ -717,6 +833,94 @@ export function useDramaProject(
         .finally(() => setBusyVoice(null));
     },
     [busyVoice, showToast],
+  );
+
+  // ── M3:单镜对口型(异步 + 轮询)──
+  const pollShotLipsync = useCallback(
+    (pid: string, shotId: string, shotIdx: number) => {
+      let attempts = 0;
+      const tick = () => {
+        if (currentIdRef.current !== pid) {
+          setBusyLipsync(null);
+          return;
+        }
+        attempts++;
+        getDramaProject(pid)
+          .then((d) => {
+            if (currentIdRef.current !== pid) {
+              setBusyLipsync(null);
+              return;
+            }
+            const shot = d.shots?.find((s) => s.id === shotId);
+            if (!shot) {
+              setBusyLipsync(null);
+              showToast("error", `分镜 #${shotIdx} 已被删除,轮询终止`);
+              return;
+            }
+            const st = (shot.lipsync_status || "").toLowerCase();
+            setCurrent(d);
+            onSummaryChange?.(pid, {
+              status: d.status,
+              updated_at: d.updated_at,
+            });
+            if (st === "done" || st === "ready" || st === "completed") {
+              setBusyLipsync(null);
+              showToast("success", `分镜 #${shotIdx} 对口型已完成`);
+              return;
+            }
+            if (st === "error" || st === "failed") {
+              setBusyLipsync(null);
+              showToast(
+                "error",
+                `分镜 #${shotIdx} 对口型失败:${shot.error || st}`,
+              );
+              return;
+            }
+            if (attempts >= POLL_MAX_ATTEMPTS) {
+              setBusyLipsync(null);
+              showToast(
+                "error",
+                `分镜 #${shotIdx} 对口型超时(15 分钟),请稍后重试`,
+              );
+              return;
+            }
+            safeSetTimeout(tick, POLL_INTERVAL);
+          })
+          .catch(() => {
+            setBusyLipsync(null);
+            showToast("error", "轮询项目状态失败,请刷新查看");
+          });
+      };
+      safeSetTimeout(tick, POLL_INTERVAL);
+    },
+    [onSummaryChange, safeSetTimeout, showToast],
+  );
+
+  const generateLipsync = useCallback(
+    (sid: string): Promise<void> => {
+      const pid = currentIdRef.current;
+      if (!pid) return Promise.resolve();
+      if (busyLipsync) {
+        showToast("info", "已有对口型任务进行中,请稍候");
+        return Promise.resolve();
+      }
+      const shot = current?.shots.find((s) => s.id === sid);
+      const shotIdx = shot?.idx ?? 0;
+      setBusyLipsync(sid);
+      return generateDramaShotLipsync(sid, {})
+        .then(() => {
+          showToast("info", "对口型任务已提交");
+          pollShotLipsync(pid, sid, shotIdx);
+        })
+        .catch((err) => {
+          setBusyLipsync(null);
+          showToast(
+            "error",
+            err instanceof Error ? err.message : "提交对口型任务失败",
+          );
+        });
+    },
+    [busyLipsync, current, pollShotLipsync, showToast],
   );
 
   // ── M3:导演台 - 切换展开/收起 + 拉取已存布局 ──
@@ -827,6 +1031,8 @@ export function useDramaProject(
     setAssembling(true);
     setAssembleError("");
     setAssembleResult(null);
+    // M3:合成片段优先使用 lipsync_video_url,否则回退 video_url
+    const clips = doneShots.map((s) => s.lipsync_video_url || s.video_url);
     const options = {
       transition: "none",
       aspect: "16:9",
@@ -836,6 +1042,7 @@ export function useDramaProject(
       voice_volume: 1.0,
       bgm_volume: 0.35,
       duck: true,
+      clips,
     };
     return assembleDrama(pid, options)
       .then((res) => {
@@ -884,6 +1091,7 @@ export function useDramaProject(
     if (gridBusy) tasks.push({ key: "grid", label: "宫格分镜" });
     if (busyShot) tasks.push({ key: "shot", label: "视频生成", detail: busyShot });
     if (busyVoice) tasks.push({ key: "voice", label: "配音", detail: busyVoice });
+    if (busyLipsync) tasks.push({ key: "lipsync", label: "对口型", detail: busyLipsync });
     if (directorBusy) tasks.push({ key: "director", label: "导演台" });
     if (assembling) tasks.push({ key: "asm", label: "合成" });
     if (busyRef) tasks.push({ key: "ref", label: "参考图" });
@@ -939,20 +1147,37 @@ export function useDramaProject(
   }, [activeTasks, activeId, showToast]);
 
   // ── LibTV:批量生成所有待生成分镜(绕过 busyShot 单发守卫,各自独立轮询)──
-  const generateAllShots = useCallback(() => {
-    const targets = shots.filter((s) => {
-      const st = (s.video_status || "").toLowerCase();
-      return st !== "done" && st !== "generating";
-    });
-    if (targets.length === 0) {
-      showToast("info", "全部镜头已就绪");
-      return;
-    }
-    targets.forEach((s) => submitShotVideoJob(s));
-    // M3.2:批量生成 ETA(每镜约 1-2 分钟,取 1.5 均值)
-    const etaMin = Math.max(1, Math.ceil(targets.length * 1.5));
-    showToast("info", `已提交 ${targets.length} 个分镜生成,预计 ${etaMin} 分钟`);
-  }, [shots, submitShotVideoJob, showToast]);
+  const generateAllShots = useCallback(
+    (numCandidates?: number) => {
+      const targets = shots.filter((s) => {
+        const st = (s.video_status || "").toLowerCase();
+        return st !== "done" && st !== "generating";
+      });
+      if (targets.length === 0) {
+        showToast("info", "全部镜头已就绪");
+        return;
+      }
+      const body: GenerateVideoV2Body = {
+        model: videoModel,
+        steps: 20,
+        cfg: 1.0,
+        ...(numCandidates && numCandidates > 1
+          ? { num_candidates: numCandidates }
+          : {}),
+      };
+      targets.forEach((s) => submitShotVideoV2(s.id, body));
+      // M3.2:批量生成 ETA(每镜约 1-2 分钟,取 1.5 均值;多候选按候选数倍增)
+      const candidateFactor = numCandidates && numCandidates > 1 ? numCandidates : 1;
+      const etaMin = Math.max(1, Math.ceil(targets.length * 1.5 * candidateFactor));
+      const candidateHint =
+        candidateFactor > 1 ? `(${candidateFactor} 候选/镜) ` : "";
+      showToast(
+        "info",
+        `已提交 ${targets.length} 个分镜生成 ${candidateHint}预计 ${etaMin} 分钟`,
+      );
+    },
+    [shots, submitShotVideoV2, videoModel, showToast],
+  );
 
   // M2.1:批量配音 —— 遍历有台词且未完成的分镜,逐个调 generateVoice(自带防重入)
   const generateAllVoices = useCallback(() => {
@@ -1094,14 +1319,20 @@ export function useDramaProject(
     deleteCharacter,
     generateReference,
     busyRef,
+    applyAsset,
     saveShot,
     generateVideo,
     generateVideoV2,
     generateVoice,
+    generateLipsync,
     busyShot,
     busyVoice,
+    busyLipsync,
     editingShot,
     setEditingShot,
+    candidatesByShot,
+    pickCandidate,
+    deleteCandidate,
     directorOpen,
     directorLayout,
     directorBusy,

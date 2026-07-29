@@ -1,14 +1,20 @@
 import { test, expect, type Page } from "@playwright/test";
+import fs from "node:fs";
 
 /**
  * 短剧生成完整流程 E2E(headed 模式,真实用户点击 + 输入)
  *
  * 流程:登录 → 译制页面 → 上传视频 → Whisper 听写 → 配音生成 → 口型同步
  * 每一步都有截图作为证据
+ *
+ * 环境变量:
+ *  - TOIV_WEB_BASE: 目标站点(默认公网 https://toiv.dgmt.top;内网生产 http://192.168.71.127:3100)
+ *  - DUB_TEST_VIDEO: 测试视频路径(默认 /tmp/test_short_drama.mp4,不存在则跳过)
  */
 
+const WEB_BASE = process.env.TOIV_WEB_BASE ?? "https://toiv.dgmt.top";
 const SCREENSHOT_DIR = "/tmp/dub-flow-screenshots";
-const TEST_VIDEO = "/tmp/test_short_drama.mp4";
+const TEST_VIDEO = process.env.DUB_TEST_VIDEO ?? "/tmp/test_short_drama.mp4";
 
 // 辅助:截图
 async function shot(page: Page, name: string) {
@@ -24,6 +30,8 @@ async function waitText(page: Page, text: string, timeout = 120000) {
 test.setTimeout(600000); // 10 分钟总超时
 
 test("短剧生成完整流程", async ({ browser }) => {
+  test.skip(!fs.existsSync(TEST_VIDEO), `测试视频不存在: ${TEST_VIDEO}(设 DUB_TEST_VIDEO 指定)`);
+
   // 用独立 context(headed 模式,让用户能看到)
   const context = await browser.newContext({
     viewport: { width: 1440, height: 900 },
@@ -40,7 +48,7 @@ test("短剧生成完整流程", async ({ browser }) => {
   try {
     // ── 1. 登录 ──────────────────────────────────────────────
     console.log("[步骤 1] 登录");
-    await page.goto("https://toiv.dgmt.top/?view=login", { waitUntil: "domcontentloaded" });
+    await page.goto(`${WEB_BASE}/?view=login`, { waitUntil: "domcontentloaded" });
     // 公网生产模式走 CSR,登录表单靠 JS 加载;先等网络空闲再等 input(最长 60s)
     await page.waitForLoadState("networkidle", { timeout: 30000 }).catch(() => {});
     await page.locator('input[type="text"], input[type="email"]').first().waitFor({ state: "visible", timeout: 60000 });
@@ -61,7 +69,7 @@ test("短剧生成完整流程", async ({ browser }) => {
 
     // ── 2. 导航到译制页面 ────────────────────────────────────
     console.log("[步骤 2] 导航到译制页面");
-    await page.goto("https://toiv.dgmt.top/?view=dub", { waitUntil: "domcontentloaded" });
+    await page.goto(`${WEB_BASE}/?view=dub`, { waitUntil: "domcontentloaded" });
     // 译制页面也是 CSR,等上传区出现
     await page.locator('input[type="file"], .dub-upload, [class*="upload"]').first().waitFor({ state: "visible", timeout: 30000 }).catch(() => {});
     await page.waitForTimeout(2000);

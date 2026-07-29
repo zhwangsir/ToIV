@@ -22,8 +22,11 @@ yarn-error.log*
 
 # Playwright artifacts
 test-results/
+test-results-prod/
 playwright-report/
+playwright-report-prod/
 playwright-output*.log
+tmp/
 
 # 鉴权 storageState(含 token,勿入库)
 .auth/

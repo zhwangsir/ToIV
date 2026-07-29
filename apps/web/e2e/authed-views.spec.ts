@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 /**
  * 登录态视图加载测试 (chromium-authed project)
  *
- * 对 10 个视图,在登录态下:
+ * 对 9 个视图,在登录态下:
  * - 访问 /?view={viewName}
  * - 等待 networkidle
  * - 验证无 "Application error" / "500" / "会话已过期" 文案
@@ -18,7 +18,7 @@ const VIEWS = [
   "library",
   "models",
   "backlot",
-  "manju",
+  "dramaStudio",
   "dub",
   "train",
   "canvas",
@@ -61,27 +61,41 @@ test.describe("登录态视图加载", () => {
           // dev 模式 networkidle 可能超时
         }
 
-        // 等待 app-shell 出现(登录态应进入主界面)
-        const appShell = page.locator(".app-shell");
-        try {
-          await expect(appShell).toBeVisible({ timeout: 10000 });
-        } catch {
-          await page.screenshot({
-            path: `test-results/authed-${view}.png`,
-            fullPage: true,
-          });
-          throw new Error(
-            `${view}: 登录态下未出现 app-shell(可能 token 失效或重定向到落地页)`,
-          );
+        // dramaStudio 桌面端是沉浸式全屏布局(无 app-shell/DynamicIsland,见 page.tsx L229)
+        if (view === "dramaStudio") {
+          // 验证其特有结构:hub 视图或自带 banner(项目中心)
+          const hubOrBanner = page.locator(".hub-view, .workspace-view, .cinema-view");
+          try {
+            await expect(hubOrBanner.first()).toBeVisible({ timeout: 10000 });
+          } catch {
+            await page.screenshot({ path: `test-results/authed-${view}.png`, fullPage: true });
+            throw new Error(`${view}: 未出现 dramaStudio 主区(hub/workspace/cinema)`);
+          }
+          const bannerBtn = page.getByRole("button", { name: "项目中心" });
+          await expect(bannerBtn, "dramaStudio banner 项目中心应可见").toBeVisible();
+        } else {
+          // 等待 app-shell 出现(登录态应进入主界面)
+          const appShell = page.locator(".app-shell");
+          try {
+            await expect(appShell).toBeVisible({ timeout: 10000 });
+          } catch {
+            await page.screenshot({
+              path: `test-results/authed-${view}.png`,
+              fullPage: true,
+            });
+            throw new Error(
+              `${view}: 登录态下未出现 app-shell(可能 token 失效或重定向到落地页)`,
+            );
+          }
+
+          // 验证 topbar 可见
+          const topbar = page.locator("header.topbar");
+          await expect(topbar, `${view} topbar 应可见`).toBeVisible();
+
+          // 验证主导航可见(当前为 DynamicIsland,旧 Sidebar 已退役)
+          const nav = page.locator(".di-container");
+          await expect(nav, `${view} DynamicIsland 导航应可见`).toBeVisible();
         }
-
-        // 验证 topbar 可见
-        const topbar = page.locator("header.topbar");
-        await expect(topbar, `${view} topbar 应可见`).toBeVisible();
-
-        // 验证 sidebar 可见
-        const sidebar = page.locator("aside.app-sidebar");
-        await expect(sidebar, `${view} sidebar 应可见`).toBeVisible();
 
         // 验证不是登录页(无落地页登录表单;exact 避免匹配到"退出登录")
         const landingForm = page.locator(".landing-form");

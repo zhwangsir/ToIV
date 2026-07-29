@@ -16,8 +16,9 @@ import * as path from "path";
  *   authed 测试会因无 token 而单独失败,提供清晰错误。
  */
 
-const API_BASE = "http://127.0.0.1:8200";
-const WEB_BASE = "http://localhost:3100";
+// 支持通过环境变量切换测试目标环境(默认本地开发,生产用 playwright.prod.config.ts 注入)
+const API_BASE = process.env.TOIV_API_BASE ?? "http://127.0.0.1:8200";
+const WEB_BASE = process.env.TOIV_WEB_BASE ?? "http://localhost:3100";
 const STORAGE_PATH = ".auth/admin.json";
 const TOKEN_KEY = "toiv_token";
 

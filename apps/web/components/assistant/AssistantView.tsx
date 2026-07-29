@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { useToast } from "@/components/ui/Toast";
+import { agentChat, AgentEvent } from "@/lib/api";
 
 const MODEL_INFO = {
   name: "Qwen3.6 7B",
@@ -22,6 +23,7 @@ interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   timestamp: number;
+  media?: { type: string; urls: string[] }[];
 }
 
 const QUICK_ACTIONS = [
@@ -40,11 +42,6 @@ function getPreview(text: string, max = 28) {
   return t.length > max ? t.slice(0, max) + "…" : t;
 }
 
-const MOCK_RESPONSES = [
-  "好的，我来帮你完成这个创作任务。首先让我们梳理一下核心要素：\n\n1. 主题定位\n2. 风格调性\n3. 关键画面元素\n\n你希望从哪个部分开始？",
-  "这是一个很有趣的创作方向！我建议可以这样展开：\n\n- 开头：建立场景氛围\n- 发展：引入核心冲突\n- 高潮：视觉冲击点\n- 结尾：余韵留白\n\n需要我针对某个部分详细展开吗？",
-  "明白你的需求。在影视工业中，这类场景通常需要注意：\n\n• 光线层次：主光/辅光/轮廓光\n• 构图引导：三分法/引导线/框架式\n• 色彩情绪：冷暖对比/色调统一\n\n要我生成具体的提示词吗？",
-];
 
 export function AssistantView() {
   const toast = useToast();
@@ -57,6 +54,7 @@ export function AssistantView() {
   const [contextOpen, setContextOpen] = useState(false);
   const [textareaRows, setTextareaRows] = useState(1);
   const abortRef = useRef<boolean>(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -151,41 +149,93 @@ export function AssistantView() {
     });
   }, [activeConvId, saveToHistory]);
 
-  const send = useCallback(async (presetPrompt?: string) => {
-    const text = (presetPrompt ?? input).trim();
-    if (!text || busy) return;
+  const send = useCallback(
+    async (presetPrompt?: string) => {
+      const text = (presetPrompt ?? input).trim();
+      if (!text || busy) return;
 
-    const userMsg: ChatMessage = {
-      id: genId(),
-      role: "user",
-      content: text,
-      timestamp: Date.now(),
-    };
-    const newMsgs = [...messages, userMsg];
-    setMessages(newMsgs);
-    if (!presetPrompt) {
-      setInput("");
-      setTextareaRows(1);
-    }
-    setBusy(true);
-    abortRef.current = false;
-
-    try {
-      await new Promise((r) => setTimeout(r, 400 + Math.random() * 400));
-      if (abortRef.current) { setBusy(false); return; }
-
-      const response = MOCK_RESPONSES[Math.floor(Math.random() * MOCK_RESPONSES.length)];
-      await typeResponse(response);
-    } catch (err) {
-      toast.error("对话请求失败，请检查模型服务状态");
-    } finally {
-      setBusy(false);
+      const userMsg: ChatMessage = {
+        id: genId(),
+        role: "user",
+        content: text,
+        timestamp: Date.now(),
+      };
+      const newMsgs = [...messages, userMsg];
+      setMessages(newMsgs);
+      if (!presetPrompt) {
+        setInput("");
+        setTextareaRows(1);
+      }
+      setBusy(true);
       abortRef.current = false;
-    }
-  }, [input, busy, messages, toast, typeResponse]);
+
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      try {
+        const apiMessages = newMsgs
+          .filter((m) => m.role === "user" || m.role === "assistant")
+          .map((m) => ({ role: m.role, content: m.content }));
+
+        let assistantMsg: ChatMessage | null = null;
+
+        await agentChat(
+          apiMessages,
+          (ev: AgentEvent) => {
+            if (controller.signal.aborted) return;
+            if (ev.type === "text") {
+              const delta = ev.content || "";
+              if (!assistantMsg) {
+                assistantMsg = {
+                  id: genId(),
+                  role: "assistant",
+                  content: delta,
+                  timestamp: Date.now(),
+                };
+                setMessages((prev) => [...prev, assistantMsg!]);
+              } else {
+                setMessages((prev) => {
+                  const last = prev[prev.length - 1];
+                  if (last && last.id === assistantMsg!.id) {
+                    return [
+                      ...prev.slice(0, -1),
+                      { ...last, content: last.content + delta },
+                    ];
+                  }
+                  return prev;
+                });
+              }
+            } else if (
+              ["image", "video", "audio", "model3d"].includes(ev.type)
+            ) {
+              setMessages((prev) => {
+                const last = prev[prev.length - 1];
+                if (!last || last.role !== "assistant") return prev;
+                const media = [
+                  ...(last.media || []),
+                  { type: ev.type, urls: ev.urls || [] },
+                ];
+                return [...prev.slice(0, -1), { ...last, media }];
+              });
+            }
+          },
+          null,
+          controller.signal,
+        );
+      } catch (err) {
+        toast.error("对话请求失败，请检查模型服务状态");
+      } finally {
+        setBusy(false);
+        abortRef.current = false;
+        abortControllerRef.current = null;
+      }
+    },
+    [input, busy, messages, toast],
+  );
 
   const onStop = useCallback(() => {
     abortRef.current = true;
+    abortControllerRef.current?.abort();
     setBusy(false);
   }, []);
 
@@ -203,6 +253,7 @@ export function AssistantView() {
 
   return (
     <div className="av-view">
+      <h1 className="sr-only">对话流</h1>
       <header className="av-toolbar">
         <div className="av-tb-left">
           <button
@@ -288,7 +339,48 @@ export function AssistantView() {
                 </div>
                 <div className="av-msg-body">
                   <div className="av-msg-bubble">
-                    {msg.content || (
+                    {msg.content || msg.media?.length ? (
+                      <>
+                        {msg.content}
+                        {msg.media?.map((m, idx) => (
+                          <div key={idx} className="av-media">
+                            {m.type === "image" && m.urls[0] && (
+                              <img
+                                src={m.urls[0]}
+                                alt="生成结果"
+                                className="av-media-img"
+                                loading="lazy"
+                              />
+                            )}
+                            {m.type === "video" && m.urls[0] && (
+                              <video
+                                src={m.urls[0]}
+                                controls
+                                className="av-media-video"
+                              />
+                            )}
+                            {m.type === "audio" && m.urls[0] && (
+                              <audio
+                                src={m.urls[0]}
+                                controls
+                                className="av-media-audio"
+                              />
+                            )}
+                            {m.type === "model3d" && m.urls[0] && (
+                              <a
+                                href={m.urls[0]}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="av-media-link"
+                              >
+                                <Icon name="box" size={14} strokeWidth={1.8} />
+                                3D 模型
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </>
+                    ) : (
                       <span className="av-typing">
                         <span className="av-typing-dot" />
                         <span className="av-typing-dot" />
@@ -347,7 +439,7 @@ export function AssistantView() {
       <div className={`av-panel av-panel--left${historyOpen ? " is-open" : ""}`}>
         <div className="av-panel-head">
           <span className="av-panel-title">对话历史</span>
-          <button type="button" className="av-panel-close" onClick={() => setHistoryOpen(false)}>
+          <button type="button" className="av-panel-close" onClick={() => setHistoryOpen(false)} aria-label="关闭对话历史面板" title="关闭">
             <Icon name="close" size={12} strokeWidth={1.8} />
           </button>
         </div>
@@ -390,11 +482,11 @@ export function AssistantView() {
       <div className={`av-panel av-panel--right${contextOpen ? " is-open" : ""}`}>
         <div className="av-panel-head">
           <span className="av-panel-title">模型设置</span>
-          <button type="button" className="av-panel-close" onClick={() => setContextOpen(false)}>
+          <button type="button" className="av-panel-close" onClick={() => setContextOpen(false)} aria-label="关闭模型设置面板" title="关闭">
             <Icon name="close" size={12} strokeWidth={1.8} />
           </button>
         </div>
-        <div className="av-panel-body">
+        <div className="av-panel-body" tabIndex={0}>
           <div className="av-prop-group">
             <div className="av-prop-label">当前模型</div>
             <div className="av-prop-value">
@@ -720,6 +812,40 @@ export function AssistantView() {
           color: var(--ink-faint);
           font-family: var(--font-mono);
           padding: 0 0.2rem;
+        }
+
+        /* 媒体产物 */
+        .av-media {
+          margin-top: 0.5rem;
+          max-width: 100%;
+        }
+        .av-media-img,
+        .av-media-video,
+        .av-media-audio {
+          display: block;
+          max-width: 100%;
+          border-radius: var(--radius-xs);
+          border: 1px solid var(--hairline);
+          background: var(--bg-0);
+        }
+        .av-media-img {
+          max-height: 320px;
+          object-fit: contain;
+        }
+        .av-media-video {
+          max-height: 240px;
+        }
+        .av-media-link {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          padding: 0.4rem 0.6rem;
+          border-radius: var(--radius-xs);
+          background: var(--bg-2);
+          border: 1px solid var(--hairline);
+          color: var(--accent-soft);
+          font-size: 0.75rem;
+          text-decoration: none;
         }
 
         /* 打字指示器 */

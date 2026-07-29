@@ -144,7 +144,8 @@ export function NsfwView() {
 function NsfwViewBody() {
   const [recs, setRecs] = useState<NsfwRecommendation[]>([]);
   const [recsLoading, setRecsLoading] = useState(false);
-  const [recsOpen, setRecsOpen] = useState(true);
+  // 默认折叠:减少视觉噪音,让用户聚焦主创作区;点击 .nsfw-recs-toggle 展开
+  const [recsOpen, setRecsOpen] = useState(false);
   const [tab, setTab] = useState<NsfwTab>("image");
 
   // ── NAS 下载状态 ──

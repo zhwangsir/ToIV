@@ -51,7 +51,7 @@ export function StoryboardGrid({ project }: StoryboardGridProps) {
         <button
           type="button"
           className="fa-btn fa-btn-sm"
-          onClick={generateAllShots}
+          onClick={() => generateAllShots()}
           disabled={pendingCount === 0}
           title={
             pendingCount > 0

@@ -12,7 +12,7 @@ import * as fs from "fs";
  * - account preferences 改 default_agent_id
  */
 
-const API_BASE = "http://127.0.0.1:8200";
+const API_BASE = process.env.TOIV_API_BASE ?? "http://127.0.0.1:8200";
 const STORAGE_PATH = ".auth/admin.json";
 
 function readToken(): string | null {

@@ -255,7 +255,7 @@ export function AdminView() {
                   <th className="col-role">角色</th>
                   <th className="col-created">创建时间</th>
                   <th className="col-usage">用量</th>
-                  <th className="col-action" aria-label="操作" />
+                  <th className="col-action"><span className="sr-only">操作</span></th>
                 </tr>
               </thead>
               <tbody>

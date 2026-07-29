@@ -17,6 +17,7 @@ import {
   invalidateJobs,
   setNsfwIntent,
 } from "@/lib/api";
+import { optimizeWithAgent } from "@/lib/agents";
 import type {
   LtxT2VParams,
   LtxI2VParams,
@@ -32,7 +33,7 @@ import { Icon } from "@/components/ui/Icon";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
 
 type Scene = "t2v" | "i2v" | "lipsync";
-type Status = "idle" | "uploading" | "queued" | "sampling" | "done" | "error";
+type Status = "idle" | "uploading" | "optimizing" | "queued" | "sampling" | "done" | "error";
 
 interface UploadedRef {
   filename: string;
@@ -168,6 +169,7 @@ export function NsfwVideoView() {
 
   // submitting:generateXxx API 调用阶段(排队中);gen.isRunning:SSE 采样阶段
   const [submitting, setSubmitting] = useState(false);
+  const [optimizing, setOptimizing] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   const [imageDragOver, setImageDragOver] = useState(false);
@@ -284,15 +286,31 @@ export function NsfwVideoView() {
     if (!positive.trim()) return;
     if (scene === "i2v" && !imageUploaded) return;
     if (scene === "lipsync" && (!imageUploaded || !audioUploaded)) return;
-    if (uploading || submitting || genRunning) return;
+    if (uploading || submitting || optimizing || genRunning) return;
 
     // API 调用阶段先标"排队中",startGen 内部会清空 gen 状态并切到 running
     setSubmitting(true);
 
     try {
+      // 生成前自动调用提示词优化;失败时优雅降级,使用原提示词继续生成
+      let prompt = positive.trim();
+      setOptimizing(true);
+      try {
+        const r = await optimizeWithAgent({ prompt, kind: "video" });
+        if (r.optimized) {
+          prompt = r.optimized;
+          setPositive(prompt);
+        }
+      } catch (e) {
+        // 优化服务不可达时不阻塞主流程
+        console.warn("视频提示词优化失败,使用原提示词:", e);
+      } finally {
+        setOptimizing(false);
+      }
+
       let res: GenerateResponse;
       const base = {
-        positive: positive.trim(),
+        positive: prompt,
         negative: negative.trim() || undefined,
         width,
         height,
@@ -339,7 +357,7 @@ export function NsfwVideoView() {
     }
   }, [
     positive, negative, scene, imageUploaded, audioUploaded,
-    uploading, submitting, genRunning,
+    uploading, submitting, optimizing, genRunning,
     width, height, length, steps, cfg, seedLocked, seed, useUpscale, useRife,
     startGen, gen,
   ]);
@@ -392,17 +410,19 @@ export function NsfwVideoView() {
       ? "error"
       : uploading
         ? "uploading"
-        : submitting
-          ? "queued"
-          : genRunning
-            ? genProgress.max > 0
-              ? "sampling"
-              : "queued"
-            : genStatus === "done"
-              ? "done"
-              : "idle";
+        : optimizing
+          ? "optimizing"
+          : submitting
+            ? "queued"
+            : genRunning
+              ? genProgress.max > 0
+                ? "sampling"
+                : "queued"
+              : genStatus === "done"
+                ? "done"
+                : "idle";
 
-  const busy = viewStatus === "uploading" || viewStatus === "queued" || viewStatus === "sampling";
+  const busy = viewStatus === "uploading" || viewStatus === "optimizing" || viewStatus === "queued" || viewStatus === "sampling";
   const canGenerate =
     !busy &&
     positive.trim().length > 0 &&
@@ -418,13 +438,15 @@ export function NsfwVideoView() {
   const stageText =
     viewStatus === "uploading"
       ? "上传中…"
-      : viewStatus === "queued"
-        ? "排队中…"
-        : viewStatus === "sampling"
-          ? genProgress.max > 0
-            ? `采样中 ${genProgress.value}/${genProgress.max}`
-            : "采样中…"
-          : "";
+      : viewStatus === "optimizing"
+        ? "优化提示词中…"
+        : viewStatus === "queued"
+          ? "排队中…"
+          : viewStatus === "sampling"
+            ? genProgress.max > 0
+              ? `采样中 ${genProgress.value}/${genProgress.max}`
+              : "采样中…"
+            : "";
 
   // 视频通常单产物,取第一个;后端 images 字段在 LTX 场景下返回视频路径
   const resultUrl = gen.resultPaths[0] ? imageUrl(gen.resultPaths[0]) : null;
@@ -600,6 +622,7 @@ export function NsfwVideoView() {
                 prompt={positive}
                 kind="video"
                 onOptimized={(text) => setPositive(text)}
+                disabled={busy}
               />
             </div>
             <textarea

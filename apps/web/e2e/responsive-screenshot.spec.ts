@@ -19,7 +19,7 @@ test.describe("ToIV UI Redesign - 响应式截图测试", () => {
   for (const device of DEVICES) {
     test(`截图 - ${device.label} - 对话流`, async ({ page }) => {
       await page.setViewportSize({ width: device.width, height: device.height });
-      const response = await page.goto(`http://localhost:3101/?view=assistant`, { waitUntil: "domcontentloaded", timeout: 30000 });
+      const response = await page.goto(`/?view=assistant`, { waitUntil: "domcontentloaded", timeout: 30000 });
       await page.waitForTimeout(3000);
 
       await page.screenshot({
@@ -33,7 +33,7 @@ test.describe("ToIV UI Redesign - 响应式截图测试", () => {
 
   test("主题切换", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto("http://localhost:3101/?view=assistant", { waitUntil: "domcontentloaded" });
+    await page.goto("/?view=assistant", { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(2000);
 
     await page.screenshot({ path: "test-results/responsive/theme-light.png" });
@@ -52,7 +52,7 @@ test.describe("ToIV UI Redesign - 响应式截图测试", () => {
 
   test("模式切换", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto("http://localhost:3101/?view=canvas", { waitUntil: "domcontentloaded" });
+    await page.goto("/?view=canvas", { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(2000);
 
     await page.screenshot({ path: "test-results/responsive/mode-canvas.png" });
@@ -67,14 +67,15 @@ test.describe("ToIV UI Redesign - 响应式截图测试", () => {
 
   test("移动端侧边栏", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto("http://localhost:3101/?view=assistant", { waitUntil: "domcontentloaded" });
+    await page.goto("/?view=assistant", { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(2000);
 
     await page.screenshot({ path: "test-results/responsive/mobile-closed.png" });
 
-    const menuBtn = page.locator(".mobile-menu-toggle");
-    if (await menuBtn.isVisible().catch(() => false)) {
-      await menuBtn.click();
+    // DynamicIsland 已替代旧 Sidebar:点击 DI 触发按钮打开菜单后截图
+    const diTrigger = page.locator(".di-island > button").first();
+    if (await diTrigger.isVisible().catch(() => false)) {
+      await diTrigger.click();
       await page.waitForTimeout(500);
       await page.screenshot({ path: "test-results/responsive/mobile-sidebar-open.png" });
     }

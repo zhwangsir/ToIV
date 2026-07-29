@@ -23,7 +23,8 @@ export default defineConfig({
   },
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
-    baseURL: "http://localhost:3100",
+    // 与 global-setup 对齐:可用 TOIV_WEB_BASE 指向 dev(3101)/prod(3100) 任意目标
+    baseURL: process.env.TOIV_WEB_BASE ?? "http://localhost:3100",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",

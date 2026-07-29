@@ -28,6 +28,11 @@ export function AssembleTab({ project, onGoToShot }: AssembleTabProps) {
   const { show: showToast } = useToast();
 
   const hasReady = doneCount > 0;
+  // M3:将优先使用已完成对口型的视频片段
+  const lipsyncCount = shots.filter(
+    (s) =>
+      (s.video_status || "").toLowerCase() === "done" && s.lipsync_video_url,
+  ).length;
 
   // M3.2:合成前提示 ETA(ffmpeg 拼接 + 配音,预计 30-60 秒)
   const handleAssemble = () => {
@@ -64,6 +69,11 @@ export function AssembleTab({ project, onGoToShot }: AssembleTabProps) {
       <div className="ds-assemble-row">
         <span className="ds-assemble-hint">
           将 {doneCount} 个已完成分镜视频按顺序拼接 · 自动配音 + 字幕
+          {lipsyncCount > 0 && (
+            <span className="ds-assemble-lipsync-hint">
+              （含 {lipsyncCount} 个对口型片段）
+            </span>
+          )}
         </span>
         <button
           type="button"

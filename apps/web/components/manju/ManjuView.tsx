@@ -20,6 +20,7 @@ import {
   listModels,
   imageUrl,
 } from "@/lib/api";
+import { consumeEngineDraft } from "@/lib/engine";
 import type {
   ManjuProjectSummary,
   ManjuProjectDetail,
@@ -291,8 +292,14 @@ function ShotCard({ shot, actions }: { shot: ShotView; actions: ShotActions }) {
   );
 }
 
+interface ManjuViewProps {
+  /** 初始选中的项目 id（从外部创建后带入） */
+  initialActiveId?: string;
+}
+
 // ── 主组件 ──
-export function ManjuView() {
+export function ManjuView({ initialActiveId }: ManjuViewProps) {
+  const engineDraft = useMemo(() => consumeEngineDraft(), []);
   const [projects, setProjects] = useState<ManjuProjectSummary[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -303,10 +310,10 @@ export function ManjuView() {
   const [detailError, setDetailError] = useState<string | null>(null);
 
   // 新建项目
-  const [showNew, setShowNew] = useState(false);
+  const [showNew, setShowNew] = useState(engineDraft?.target === "manju");
   const [newForm, setNewForm] = useState<ManjuProjectInput>({
-    title: "",
-    premise: "",
+    title: engineDraft?.target === "manju" ? engineDraft.prompt.slice(0, 80) : "",
+    premise: engineDraft?.target === "manju" ? engineDraft.prompt : "",
     style: "",
     ckpt_name: "",
   });
@@ -433,8 +440,11 @@ export function ManjuView() {
     listManjuProjects()
       .then((list) => {
         setProjects(list);
-        // 默认选中第一个(无选中时)
+        // 优先使用外部传入的初始选中 id,其次保持当前选中,最后默认第一个
         setActiveId((prev) => {
+          if (initialActiveId && list.some((p) => p.id === initialActiveId)) {
+            return initialActiveId;
+          }
           if (prev && list.some((p) => p.id === prev)) return prev;
           return list[0]?.id ?? null;
         });
@@ -443,7 +453,7 @@ export function ManjuView() {
         setError(err instanceof Error ? err.message : "加载漫剧项目失败"),
       )
       .finally(() => setLoading(false));
-  }, []);
+  }, [initialActiveId]);
 
   useEffect(() => {
     load();
@@ -1193,7 +1203,8 @@ export function ManjuView() {
         </aside>
 
         {/* ── 右侧:项目详情 ── */}
-        <main className="mj-main">
+        {/* 外层布局已有 <main id="main">,此处用 div 避免重复 main 地标(WCAG landmark-no-duplicate-main) */}
+        <div className="mj-main">
           {!activeId && !isEmpty && (
             <div className="empty-state mj-main-empty">
               <div className="empty-state-icon">
@@ -1603,7 +1614,7 @@ export function ManjuView() {
               </section>
             </div>
           )}
-        </main>
+        </div>
       </div>
 
       {/* ── 配音对话框 ── */}

@@ -11,7 +11,7 @@ import * as fs from "fs";
  * - GET /api/models/local → 200
  */
 
-const API_BASE = "http://127.0.0.1:8200";
+const API_BASE = process.env.TOIV_API_BASE ?? "http://127.0.0.1:8200";
 const STORAGE_PATH = ".auth/admin.json";
 
 /** 从 storageState 文件中提取 toiv_token。 */

@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import {
   listDramaProjects,
   deleteDramaProject,
   imageUrl,
 } from "@/lib/api";
+import { consumeEngineDraft } from "@/lib/engine";
 import type {
   DramaProjectSummary,
   DramaProjectDetail,
@@ -19,10 +21,14 @@ import { SkillMarket } from "@/components/drama-studio/SkillMarket";
 import { NewProjectPanel } from "@/components/drama-studio/NewProjectPanel";
 import { ScriptTab } from "@/components/drama-studio/ScriptTab";
 import { CharacterTab } from "@/components/drama-studio/CharacterTab";
+import { AssetLibrary } from "@/components/drama-studio/AssetLibrary";
 import { ShotTab } from "@/components/drama-studio/ShotTab";
 import { DirectorPanel } from "@/components/drama-studio/ShotCard";
 import { AssembleTab } from "@/components/drama-studio/AssembleTab";
 import { ProcessTab } from "@/components/drama-studio/ProcessTab";
+import { FilmstripTimeline } from "@/components/drama-studio/FilmstripTimeline";
+import { AnalyticsPanel } from "@/components/drama-studio/AnalyticsPanel";
+import { ManjuView } from "@/components/manju/ManjuView";
 import { useDramaProject } from "@/hooks/useDramaProject";
 
 interface DramaStudioViewProps {
@@ -32,14 +38,17 @@ interface DramaStudioViewProps {
 }
 
 type StudioView = "hub" | "workspace" | "cinema";
-type StageKey = "script" | "character" | "shot" | "assemble" | "process";
+type StudioMode = "drama" | "manju";
+type StageKey = "script" | "character" | "asset" | "shot" | "assemble" | "process" | "data";
 
 const STAGES: { key: StageKey; label: string; icon: IconName }[] = [
   { key: "script", label: "剧本", icon: "filevideo" },
   { key: "character", label: "角色", icon: "users" },
+  { key: "asset", label: "资产", icon: "box" },
   { key: "shot", label: "分镜", icon: "film" },
   { key: "assemble", label: "合成", icon: "playing" },
   { key: "process", label: "过程", icon: "history" },
+  { key: "data", label: "数据", icon: "barchart" },
 ];
 
 const SKILL_CHIPS = [
@@ -81,28 +90,29 @@ function formatDuration(sec: number): string {
   return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 }
 
-function shotStatusDot(status: string): string {
-  const s = (status || "").toLowerCase();
-  if (s === "done" || s === "ready") return "done";
-  if (s === "generating" || s === "running") return "run";
-  if (s === "error" || s === "failed") return "error";
-  return "pending";
-}
-
 export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioViewProps) {
+  const engineDraft = useMemo(() => consumeEngineDraft(), []);
+  const searchParams = useSearchParams();
+
   // ── 项目列表 ──
   const [projects, setProjects] = useState<DramaProjectSummary[]>([]);
   const [listLoading, setListLoading] = useState(false);
   const [listError, setListError] = useState<string>("");
 
   // ── 视图状态 ──
-  const [studioView, setStudioView] = useState<StudioView>("hub");
+  const initialStudioMode: StudioMode =
+    searchParams.get("mode") === "manju" || engineDraft?.target === "manju"
+      ? "manju"
+      : "drama";
+  const [studioMode, setStudioMode] = useState<StudioMode>(initialStudioMode);
+  const [studioView, setStudioView] = useState<StudioView>(engineDraft?.target === "drama" ? "workspace" : "hub");
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeStage, setActiveStage] = useState<StageKey>("script");
 
   // ── Skill Hub / 新建项目 ──
   const [showSkillHub, setShowSkillHub] = useState(false);
-  const [showNewProject, setShowNewProject] = useState(false);
+  const [showNewProject, setShowNewProject] = useState(engineDraft?.target === "drama");
+  const [manjuInitialActiveId, setManjuInitialActiveId] = useState<string | null>(null);
 
   // ── 删除确认 ──
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -149,7 +159,7 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
     listDramaProjects()
       .then((list) => setProjects(list))
       .catch((err) =>
-        setListError(err instanceof Error ? err.message : "加载短剧项目失败"),
+        setListError(err instanceof Error ? err.message : "加载项目失败"),
       )
       .finally(() => setListLoading(false));
   }, []);
@@ -223,8 +233,13 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
   );
 
   const handleCreated = useCallback(
-    (id: string) => {
+    (id: string, type: "drama" | "manju") => {
       setShowNewProject(false);
+      if (type === "manju") {
+        setManjuInitialActiveId(id);
+        setStudioMode("manju");
+        return;
+      }
       loadList();
       openProject(id);
     },
@@ -284,11 +299,19 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
     ? shots.find((s) => s.id === selectedShotId) ?? shots[0]
     : shots[0];
 
+  const handleSelectShot = useCallback(
+    (sid: string) => {
+      setSelectedShotId(sid);
+      project.setSelectedShotId(sid);
+    },
+    [project.setSelectedShotId],
+  );
+
   // ── 面板折叠状态 ──
   // M1.1: 右侧面板默认收起(检查器模式),选中分镜时自动展开
   const [rightCollapsed, setRightCollapsed] = useState(true);
-  // M1.2: 底部时间线默认收起,降低主内容区竞争
-  const [filmstripCollapsed, setFilmstripCollapsed] = useState(true);
+  // M4: 底部时间线默认展开
+  const [filmstripCollapsed, setFilmstripCollapsed] = useState(false);
   const [taskDropdownOpen, setTaskDropdownOpen] = useState(false);
   const taskDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -346,10 +369,10 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
 
       if (isInput) return;
 
-      // ⌘1~5 切换 Tab
-      if (mod && e.key >= "1" && e.key <= "5") {
+      // ⌘1~7 切换 Tab
+      if (mod && e.key >= "1" && e.key <= "7") {
         e.preventDefault();
-        const stages: StageKey[] = ["script", "character", "shot", "assemble", "process"];
+        const stages: StageKey[] = ["script", "character", "asset", "shot", "assemble", "process", "data"];
         const idx = parseInt(e.key) - 1;
         if (stages[idx]) setActiveStage(stages[idx]);
       }
@@ -361,11 +384,20 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
   useEffect(() => {
     if (shots.length > 0 && !selectedShot) {
       setSelectedShotId(shots[0].id);
+      project.setSelectedShotId(shots[0].id);
     }
-  }, [shots, selectedShot]);
+  }, [shots, selectedShot, project.setSelectedShotId]);
 
   // ── 主区渲染 ──
   const renderMain = () => {
+    if (studioMode === "manju") {
+      return (
+        <div className="manju-embed">
+          <ManjuView initialActiveId={manjuInitialActiveId ?? undefined} />
+        </div>
+      );
+    }
+
     if (studioView === "hub") {
       return (
         <div className="hub-view">
@@ -398,7 +430,7 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           </div>
 
           <div className="section-head">
-            <h3><span className="dot" /> 推荐 Skill</h3>
+            <h2><span className="dot" /> 推荐 Skill</h2>
             <button
               type="button"
               className="btn btn-sm btn-ghost"
@@ -423,7 +455,7 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           </div>
 
           <div className="section-head">
-            <h3><span className="dot" /> 最近项目</h3>
+            <h2><span className="dot" /> 最近项目</h2>
             <span className="tag">{projects.length} 个项目</span>
           </div>
           {listLoading && (
@@ -585,6 +617,11 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
                 setStudioView("hub");
               }}
               onCreated={handleCreated}
+              initialDraft={
+                engineDraft?.target === "drama"
+                  ? { title: engineDraft.prompt.slice(0, 80), script: engineDraft.prompt }
+                  : undefined
+              }
             />
           </div>
         );
@@ -698,6 +735,7 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
             <div className="main-panel">
               {activeStage === "script" && <ScriptTab project={project} />}
               {activeStage === "character" && <CharacterTab project={project} />}
+              {activeStage === "asset" && <AssetLibrary project={project} />}
               {activeStage === "shot" && (
                 <ShotTab project={project} onGoToScript={() => setActiveStage("script")} />
               )}
@@ -705,6 +743,9 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
                 <AssembleTab project={project} onGoToShot={() => setActiveStage("shot")} />
               )}
               {activeStage === "process" && <ProcessTab project={project} />}
+              {activeStage === "data" && (
+                <AnalyticsPanel projectId={project.current?.id ?? ""} />
+              )}
             </div>
             <button
               type="button"
@@ -770,7 +811,7 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
 
   return (
     <div
-      className={`studio-shell ${rightCollapsed ? "right-collapsed" : ""} ${filmstripCollapsed ? "film-collapsed" : ""}`}
+      className={`studio-shell ${studioMode === "manju" ? "manju-mode" : ""} ${rightCollapsed ? "right-collapsed" : ""} ${filmstripCollapsed ? "film-collapsed" : ""}`}
     >
       {/* 顶部导航 */}
       <header className="studio-topbar">
@@ -778,31 +819,11 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           <div className="brand-mark">T</div>
           <div className="brand-text">
             <span className="brand-name">ToIV</span>
-            <span className="brand-sub">AI Short Drama Studio</span>
+            <span className="brand-sub">AI Studio</span>
           </div>
         </div>
-        <div className="view-tabs">
-          <button
-            type="button"
-            className={`view-tab ${studioView === "hub" ? "active" : ""}`}
-            onClick={openHub}
-          >
-            <Icon name="grid" size={14} /> 项目中心
-          </button>
-          <button
-            type="button"
-            className={`view-tab ${studioView === "workspace" ? "active" : ""}`}
-            onClick={() => activeId ? setStudioView("workspace") : openHub()}
-          >
-            <Icon name="manju" size={14} /> 工作台
-          </button>
-          <button
-            type="button"
-            className={`view-tab ${studioView === "cinema" ? "active" : ""}`}
-            onClick={() => activeId ? setStudioView("cinema") : openHub()}
-          >
-            <Icon name="playing" size={14} /> 放映厅
-          </button>
+        <div className="topbar-center">
+          <div className="studio-title">工作室</div>
         </div>
         <div className="topbar-right">
           <span className="status-pill">
@@ -904,101 +925,53 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
       </header>
 
       {/* 左侧阶段栏 */}
-      <nav className="stage-sidebar" aria-label="短剧创作阶段">
-        {STAGES.map((s) => (
-          <button
-            key={s.key}
-            type="button"
-            className={`stage-item ${activeStage === s.key ? "active" : ""}`}
-            onClick={() => {
-              setActiveStage(s.key);
-              if (studioView !== "workspace") setStudioView("workspace");
-            }}
-            title={s.label}
-          >
-            <Icon name={s.icon} size={18} />
-            <span>{s.label}</span>
-          </button>
-        ))}
-        <div className="stage-sidebar-foot">
-          <button
-            type="button"
-            className="stage-item"
-            onClick={() => setShowSkillHub(true)}
-            title="Skill Hub"
-          >
-            <Icon name="braincircuit" size={18} />
-            <span>Agent</span>
-          </button>
-        </div>
-      </nav>
+      {studioMode === "drama" && (
+        <nav className="stage-sidebar" aria-label="创作阶段">
+          {STAGES.map((s) => (
+            <button
+              key={s.key}
+              type="button"
+              className={`stage-item ${activeStage === s.key ? "active" : ""}`}
+              onClick={() => {
+                setActiveStage(s.key);
+                if (studioView !== "workspace") setStudioView("workspace");
+              }}
+              title={s.label}
+            >
+              <Icon name={s.icon} size={18} />
+              <span>{s.label}</span>
+            </button>
+          ))}
+          <div className="stage-sidebar-foot">
+            <button
+              type="button"
+              className="stage-item"
+              onClick={() => setShowSkillHub(true)}
+              title="Skill Hub"
+            >
+              <Icon name="braincircuit" size={18} />
+              <span>Agent</span>
+            </button>
+          </div>
+        </nav>
+      )}
 
       {/* 主舞台 */}
-      <main className="stage-main">
+      {/* 本视图在 page.tsx 中以独立分支渲染(不带 app-main),自带 main 地标 + skip-link 锚点 */}
+      <main id="main" className="stage-main">
+        <h1 className="sr-only">工作室</h1>
         {renderMain()}
       </main>
 
       {/* 底部胶片时间线 */}
-      {studioView === "workspace" && project.current && shots.length > 0 && (
-        <section className={`filmstrip ${filmstripCollapsed ? "collapsed" : ""}`}>
-          <div className="filmstrip-head">
-            <button
-              type="button"
-              className="filmstrip-toggle"
-              title={filmstripCollapsed ? "展开时间线" : "收起时间线"}
-              onClick={() => setFilmstripCollapsed((v) => !v)}
-            >
-              <Icon name={filmstripCollapsed ? "chevron-up" : "chevron-down"} size={12} />
-            </button>
-            <div className="filmstrip-title">
-              <Icon name="film" size={13} />
-              TIMELINE
-              <span className="tag">{shots.length} 镜 · {formatDuration(shots.reduce((a, s) => a + (s.duration_sec || 0), 0))}</span>
-            </div>
-            <div className="timeline-ruler">
-              {!filmstripCollapsed && [0, 10, 20, 30, 40, 50, 60].map((t) => (
-                <span key={t} style={{ left: `${t * 6}px` }}>{t}s</span>
-              ))}
-            </div>
-            <button
-              type="button"
-              className="btn btn-sm btn-ghost"
-              onClick={() => {
-                setFilmstripCollapsed(false);
-                setActiveStage("shot");
-              }}
-            >
-              {filmstripCollapsed ? "展开" : "故事板"}
-            </button>
-          </div>
-          {!filmstripCollapsed && (
-          <div className="filmstrip-body">
-            {shots.map((s) => (
-              <div
-                key={s.id}
-                className={`film-cell ${selectedShotId === s.id ? "active" : ""}`}
-                onClick={() => {
-                  setSelectedShotId(s.id);
-                  setActiveStage("shot");
-                }}
-              >
-                <div className="f-thumb">
-                  {s.video_url ? (
-                    <video src={imageUrl(s.video_url)} preload="metadata" />
-                  ) : (
-                    <Icon name="video" size={18} strokeWidth={1.4} />
-                  )}
-                  <span className="dur">{s.duration_sec || 0}s</span>
-                </div>
-                <div className="f-meta">
-                  <span>#{s.idx}</span>
-                  <span className={`f-status ${shotStatusDot(s.video_status)}`} />
-                </div>
-              </div>
-            ))}
-          </div>
-          )}
-        </section>
+      {studioMode === "drama" && studioView === "workspace" && project.current && shots.length > 0 && (
+        <FilmstripTimeline
+          shots={shots}
+          selectedShotId={selectedShotId}
+          onSelectShot={handleSelectShot}
+          collapsed={filmstripCollapsed}
+          onToggleCollapse={() => setFilmstripCollapsed((v) => !v)}
+        />
       )}
 
       {/* M2.3:导演台 overlay(全屏聚焦 2D 编辑) */}
@@ -1095,184 +1068,295 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
       )}
 
       <style jsx global>{`
-        :root {
-          --fa-bg: #121110;
-          --fa-bg2: #171614;
-          --fa-bg3: #1c1b18;
-          --fa-card: #1f1e1a;
-          --fa-hi: #262520;
-          --fa-line: rgba(236, 231, 223, 0.08);
-          --fa-line-hi: rgba(236, 231, 223, 0.16);
-          --fa-ink: #ece7df;
-          --fa-ink2: #9a948a;
-          --fa-ink3: #5d5951;
-          --fa-amber: #f59e0b;
-          --fa-amber-hi: #fbbf24;
-          --fa-amber-soft: rgba(245, 158, 11, 0.12);
-          --fa-amber-line: rgba(245, 158, 11, 0.35);
-          --fa-green: #22c55e;
-          --fa-green-soft: rgba(34, 197, 94, 0.12);
-          --fa-red: #ef4444;
-          --fa-red-soft: rgba(239, 68, 68, 0.12);
-          --fa-r: 8px;
-          --fa-r-sm: 6px;
-        }
+        /* 工作室视觉统一:复用全局设计令牌,不再覆盖 :root,跟随系统 light/dark 主题 */
 
         /* 通用:ds-spin / ds-section / ds-empty */
         .ds-spin { animation: dsspin 0.8s linear infinite; }
         @keyframes dsspin { to { transform: rotate(360deg); } }
         @media (prefers-reduced-motion: reduce) { .ds-spin { animation: none; } }
         .ds-section { display: flex; flex-direction: column; gap: 0.8rem; }
-        .ds-section.card { background: var(--fa-card); border: 1px solid var(--fa-line); border-radius: var(--fa-r); padding: 1rem; }
+        .ds-section.card { background: var(--bg-2); border: 1px solid var(--hairline); border-radius: var(--radius); padding: 1rem; }
         .ds-section-head { display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap; }
-        .ds-section-title { font-size: 0.92rem; font-weight: 600; color: var(--fa-ink); display: inline-flex; align-items: center; gap: 0.4rem; }
-        .ds-section-count { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 20px; padding: 0 0.45rem; background: var(--fa-amber-soft); border: 1px solid var(--fa-amber-line); border-radius: 999px; font-size: 0.68rem; font-weight: 700; color: var(--fa-amber); font-family: var(--font-mono); }
-        .ds-section-hint { margin-left: auto; font-size: 0.72rem; color: var(--fa-ink3); font-family: var(--font-mono); }
-        .ds-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.6rem; padding: 2rem 1rem; color: var(--fa-ink3); text-align: center; }
+        .ds-section-title { font-size: 0.92rem; font-weight: 600; color: var(--ink); display: inline-flex; align-items: center; gap: 0.4rem; }
+        .ds-section-count { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 20px; padding: 0 0.45rem; background: var(--accent-quiet); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); border-radius: 999px; font-size: 0.68rem; font-weight: 700; color: var(--accent); font-family: var(--font-mono); }
+        .ds-section-hint { margin-left: auto; font-size: 0.72rem; color: var(--ink3); font-family: var(--font-mono); }
+        .ds-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.6rem; padding: 2rem 1rem; color: var(--ink3); text-align: center; }
         .ds-empty-inline { padding: 1.5rem 1rem; }
         .studio-shell .empty-state-icon { opacity: 0.3; }
-        .studio-shell .empty-state-title { color: var(--fa-ink2); }
-        .studio-shell .empty-state-desc { color: var(--fa-ink3); }
+        .studio-shell .empty-state-title { color: var(--ink2); }
+        .studio-shell .empty-state-desc { color: var(--ink3); }
         /* 表单 */
-        .ds-input, .ds-textarea { width: 100%; padding: 0.45rem 0.6rem; background: var(--fa-bg3); border: 1px solid var(--fa-line); border-radius: var(--fa-r-sm); color: var(--fa-ink); font-size: 0.84rem; transition: border-color 0.15s ease; }
-        .ds-input:focus, .ds-textarea:focus { outline: none; border-color: var(--fa-amber); }
+        .ds-input, .ds-textarea { width: 100%; padding: 0.45rem 0.6rem; background: var(--bg-3); border: 1px solid var(--hairline); border-radius: var(--radius-sm); color: var(--ink); font-size: 0.84rem; transition: border-color 0.15s ease; }
+        .ds-input:focus, .ds-textarea:focus { outline: none; border-color: var(--accent); }
         .ds-textarea { resize: vertical; min-height: 80px; font-family: inherit; }
         .ds-field { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
         .ds-field-sm { max-width: 110px; }
-        .ds-field-label { font-size: 0.68rem; color: var(--fa-ink3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+        .ds-field-label { font-size: 0.68rem; color: var(--ink3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
 
         /* ScriptTab: grid picker + preview */
         .ds-storyboard-controls { display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap; }
         .ds-grid-bar { position: relative; display: inline-flex; }
-        .ds-grid-picker { position: absolute; top: calc(100% + 6px); left: 0; z-index: 20; display: flex; flex-direction: column; gap: 0.3rem; padding: 0.4rem; background: var(--fa-bg2); border: 1px solid var(--fa-line-hi); border-radius: var(--fa-r); box-shadow: 0 8px 24px rgba(0,0,0,0.4); min-width: 180px; }
-        .ds-grid-pick { display: flex; align-items: center; gap: 0.55rem; padding: 0.5rem 0.6rem; background: transparent; border: 1px solid transparent; border-radius: var(--fa-r-sm); color: var(--fa-ink); cursor: pointer; text-align: left; transition: all 0.15s ease; }
-        .ds-grid-pick:hover { background: var(--fa-hi); border-color: var(--fa-amber-line); color: var(--fa-amber-hi); }
+        .ds-grid-picker { position: absolute; top: calc(100% + 6px); left: 0; z-index: 20; display: flex; flex-direction: column; gap: 0.3rem; padding: 0.4rem; background: var(--bg-2); border: 1px solid var(--hairline-strong); border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0,0,0,0.4); min-width: 180px; }
+        .ds-grid-pick { display: flex; align-items: center; gap: 0.55rem; padding: 0.5rem 0.6rem; background: transparent; border: 1px solid transparent; border-radius: var(--radius-sm); color: var(--ink); cursor: pointer; text-align: left; transition: all 0.15s ease; }
+        .ds-grid-pick:hover { background: var(--bg-3); border-color: color-mix(in srgb, var(--accent) 35%, transparent); color: var(--accent); }
         .ds-grid-pick span { display: flex; flex-direction: column; gap: 0.1rem; }
         .ds-grid-pick strong { font-size: 0.85rem; font-weight: 600; }
-        .ds-grid-pick em { font-size: 0.68rem; color: var(--fa-ink3); font-style: normal; }
-        .ds-script-preview { border-top: 1px solid var(--fa-line); padding-top: 0.7rem; margin-top: 0.2rem; }
-        .ds-script-preview summary { cursor: pointer; font-size: 0.78rem; color: var(--fa-ink2); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; user-select: none; padding: 0.3rem 0; }
-        .ds-script-pre { width: 100%; padding: 0.7rem 0.8rem; background: var(--fa-bg3); border: 1px solid var(--fa-line); border-radius: var(--fa-r-sm); color: var(--fa-ink); font-size: 0.85rem; line-height: 1.65; font-family: var(--font-sans); resize: vertical; min-height: 180px; }
-        .ds-script-pre:focus { outline: none; border-color: var(--fa-amber); }
+        .ds-grid-pick em { font-size: 0.68rem; color: var(--ink3); font-style: normal; }
+        .ds-script-preview { border-top: 1px solid var(--hairline); padding-top: 0.7rem; margin-top: 0.2rem; }
+        .ds-script-preview summary { cursor: pointer; font-size: 0.78rem; color: var(--ink2); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; user-select: none; padding: 0.3rem 0; }
+        .ds-script-pre { width: 100%; padding: 0.7rem 0.8rem; background: var(--bg-3); border: 1px solid var(--hairline); border-radius: var(--radius-sm); color: var(--ink); font-size: 0.85rem; line-height: 1.65; font-family: var(--font-sans); resize: vertical; min-height: 180px; }
+        .ds-script-pre:focus { outline: none; border-color: var(--accent); }
         .ds-grid-dl { margin-left: auto; }
-        .ds-grid-loading { display: flex; align-items: center; justify-content: center; gap: 0.6rem; padding: 2rem; color: var(--fa-ink3); }
-        .ds-grid-image { display: grid; gap: 2px; border-radius: var(--fa-r); overflow: hidden; background: var(--fa-bg); border: 1px solid var(--fa-line); }
+        .ds-grid-loading { display: flex; align-items: center; justify-content: center; gap: 0.6rem; padding: 2rem; color: var(--ink3); }
+        .ds-grid-image { display: grid; gap: 2px; border-radius: var(--radius); overflow: hidden; background: var(--bg-1); border: 1px solid var(--hairline); }
         .ds-grid-img { width: 100%; display: block; cursor: zoom-in; transition: opacity 0.15s ease; }
         .ds-grid-img:hover { opacity: 0.9; }
         .ds-grid-shots { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.5rem; }
-        .ds-grid-shot { display: flex; gap: 0.5rem; padding: 0.6rem 0.7rem; background: var(--fa-bg3); border: 1px solid var(--fa-line); border-radius: var(--fa-r-sm); }
-        .ds-grid-shot-idx { flex-shrink: 0; width: 28px; height: 22px; display: grid; place-items: center; background: var(--fa-amber-soft); color: var(--fa-amber); font-size: 0.7rem; font-weight: 700; font-family: var(--font-mono); border-radius: 4px; }
+        .ds-grid-shot { display: flex; gap: 0.5rem; padding: 0.6rem 0.7rem; background: var(--bg-3); border: 1px solid var(--hairline); border-radius: var(--radius-sm); }
+        .ds-grid-shot-idx { flex-shrink: 0; width: 28px; height: 22px; display: grid; place-items: center; background: var(--accent-quiet); color: var(--accent); font-size: 0.7rem; font-weight: 700; font-family: var(--font-mono); border-radius: 4px; }
         .ds-grid-shot-body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 0.2rem; }
-        .ds-grid-shot-scene { font-size: 0.82rem; font-weight: 600; color: var(--fa-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .ds-grid-shot-prompt { margin: 0; font-size: 0.72rem; color: var(--fa-ink2); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .ds-grid-shot-scene { font-size: 0.82rem; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ds-grid-shot-prompt { margin: 0; font-size: 0.72rem; color: var(--ink2); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
         /* ShotTab + ShotCard */
         .ds-shots-section { padding: 1rem 0; }
         .ds-shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 0.8rem; }
         .ds-shots-empty { padding: 3rem 1rem; }
-        .ds-shot-card { display: flex; flex-direction: column; gap: 0.6rem; background: var(--fa-card); border: 1px solid var(--fa-line); border-radius: var(--fa-r); padding: 0.8rem; transition: border-color 0.18s ease; }
-        .ds-shot-card:hover { border-color: var(--fa-line-hi); }
+        .ds-shot-card { display: flex; flex-direction: column; gap: 0.6rem; background: var(--bg-2); border: 1px solid var(--hairline); border-radius: var(--radius); padding: 0.8rem; transition: border-color 0.18s ease; }
+        .ds-shot-card:hover { border-color: var(--hairline-strong); }
         .ds-shot-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-        .ds-shot-idx { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 700; color: var(--fa-amber); font-family: var(--font-mono); }
+        .ds-shot-idx { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 700; color: var(--accent); font-family: var(--font-mono); }
         .ds-shot-tags { display: flex; gap: 0.3rem; flex-wrap: wrap; }
-        .ds-shot-tag { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.15rem 0.45rem; background: var(--fa-bg3); border: 1px solid var(--fa-line); border-radius: var(--fa-r-sm); font-size: 0.66rem; color: var(--fa-ink2); font-family: var(--font-mono); }
-        .ds-shot-tag-speaker { background: var(--fa-amber-soft); border-color: var(--fa-amber-line); color: var(--fa-amber); }
-        .ds-shot-media { aspect-ratio: 16/9; background: var(--fa-bg); border: 1px solid var(--fa-line); border-radius: var(--fa-r-sm); overflow: hidden; display: grid; place-items: center; color: var(--fa-ink3); position: relative; }
+        .ds-shot-tag { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.15rem 0.45rem; background: var(--bg-3); border: 1px solid var(--hairline); border-radius: var(--radius-sm); font-size: 0.66rem; color: var(--ink2); font-family: var(--font-mono); }
+        .ds-shot-tag-speaker { background: var(--accent-quiet); border-color: color-mix(in srgb, var(--accent) 35%, transparent); color: var(--accent); }
+        .ds-shot-media { aspect-ratio: 16/9; background: var(--bg-1); border: 1px solid var(--hairline); border-radius: var(--radius-sm); overflow: hidden; display: grid; place-items: center; color: var(--ink3); position: relative; }
         .ds-shot-media video, .ds-shot-media img { width: 100%; height: 100%; object-fit: cover; }
         .ds-shot-placeholder { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; font-size: 0.72rem; }
         .ds-shot-body { display: flex; flex-direction: column; gap: 0.4rem; }
-        .ds-shot-scene { font-size: 0.85rem; font-weight: 600; color: var(--fa-ink); }
-        .ds-shot-prompt { font-size: 0.76rem; color: var(--fa-ink2); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-        .ds-shot-dialogue { font-size: 0.74rem; color: var(--fa-ink3); font-style: italic; padding: 0.3rem 0.5rem; background: var(--fa-bg3); border-radius: var(--fa-r-sm); border-left: 2px solid var(--fa-amber-line); }
-        .ds-shot-audio, .ds-shot-voice { display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; color: var(--fa-ink2); }
+        .ds-shot-scene { font-size: 0.85rem; font-weight: 600; color: var(--ink); }
+        .ds-shot-prompt { font-size: 0.76rem; color: var(--ink2); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+        .ds-shot-dialogue { font-size: 0.74rem; color: var(--ink3); font-style: italic; padding: 0.3rem 0.5rem; background: var(--bg-3); border-radius: var(--radius-sm); border-left: 2px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+        .ds-shot-audio, .ds-shot-voice { display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; color: var(--ink2); }
         .ds-shot-actions { display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
-        .ds-shot-edit { display: flex; flex-direction: column; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--fa-line); }
+        .ds-shot-edit { display: flex; flex-direction: column; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--hairline); }
         .ds-shot-edit-actions { display: flex; gap: 0.3rem; flex-wrap: wrap; }
         .ds-shot-video { width: 100%; }
         .ds-model-row { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
-        .ds-model-label { font-size: 0.68rem; color: var(--fa-ink3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
-        .ds-model-select { padding: 0.3rem 0.5rem; background: var(--fa-bg3); border: 1px solid var(--fa-line); border-radius: var(--fa-r-sm); color: var(--fa-ink); font-size: 0.74rem; }
-        .ds-model-select:focus { outline: none; border-color: var(--fa-amber); }
-        .ds-model-warn { font-size: 0.66rem; color: var(--fa-red); }
-        .ds-mini-btn { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.22rem 0.45rem; background: var(--fa-bg3); border: 1px solid var(--fa-line); border-radius: var(--fa-r-sm); color: var(--fa-ink2); font-size: 0.68rem; cursor: pointer; transition: all 0.15s ease; }
-        .ds-mini-btn:hover { background: var(--fa-hi); color: var(--fa-ink); border-color: var(--fa-line-hi); }
-        .ds-mini-btn-danger:hover { color: var(--fa-red); border-color: var(--fa-red); background: var(--fa-red-soft); }
+        .ds-model-label { font-size: 0.68rem; color: var(--ink3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+        .ds-model-select { padding: 0.3rem 0.5rem; background: var(--bg-3); border: 1px solid var(--hairline); border-radius: var(--radius-sm); color: var(--ink); font-size: 0.74rem; }
+        .ds-model-select:focus { outline: none; border-color: var(--accent); }
+        .ds-model-warn { font-size: 0.66rem; color: var(--danger); }
+        .ds-mini-btn { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.22rem 0.45rem; background: var(--bg-3); border: 1px solid var(--hairline); border-radius: var(--radius-sm); color: var(--ink2); font-size: 0.68rem; cursor: pointer; transition: all 0.15s ease; }
+        .ds-mini-btn:hover { background: var(--bg-3); color: var(--ink); border-color: var(--hairline-strong); }
+        .ds-mini-btn-danger:hover { color: var(--danger); border-color: var(--danger); background: var(--danger-quiet); }
         .ds-mini-btn-ref { font-size: 0.66rem; }
+
+        /* M1:可视化流水线步骤条 */
+        .ds-shot-pipeline { display: flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.45rem; background: var(--bg-1); border: 1px solid var(--hairline); border-radius: var(--radius-sm); }
+        .ds-pipeline-step { display: flex; align-items: center; gap: 0.35rem; }
+        .ds-step-icon { width: 22px; height: 22px; display: grid; place-items: center; border-radius: var(--radius-full); background: var(--bg-3); color: var(--ink-faint); border: 1px solid var(--hairline); }
+        .ds-step-icon.ds-step-done { background: var(--success-quiet); color: var(--success); border-color: color-mix(in srgb, var(--success) 35%, transparent); }
+        .ds-step-icon.ds-step-run { background: var(--warn-quiet); color: var(--warn); border-color: color-mix(in srgb, var(--warn) 35%, transparent); }
+        .ds-step-icon.ds-step-err { background: var(--danger-quiet); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
+        .ds-step-icon.ds-step-pending { color: var(--ink-faint); }
+        .ds-step-label { font-size: 0.68rem; color: var(--ink-soft); white-space: nowrap; }
+        .ds-step-line { width: 12px; height: 1px; background: var(--hairline); }
+
+        /* M1:候选视频网格 */
+        .ds-candidate-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.5rem; }
+        .ds-candidate-item { display: flex; flex-direction: column; gap: 0.35rem; padding: 0.45rem; background: var(--bg-1); border: 1px solid var(--hairline); border-radius: var(--radius-sm); transition: border-color 0.15s ease; }
+        .ds-candidate-item:hover { border-color: var(--hairline-strong); }
+        .ds-candidate-picked { border-color: var(--success); background: var(--success-quiet); }
+        .ds-candidate-media { aspect-ratio: 16/9; background: var(--bg-2); border-radius: var(--radius-sm); overflow: hidden; display: grid; place-items: center; }
+        .ds-candidate-media video { width: 100%; height: 100%; object-fit: cover; }
+        .ds-candidate-placeholder { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; font-size: 0.65rem; color: var(--ink-faint); padding: 0.4rem; text-align: center; }
+        .ds-candidate-info { display: flex; flex-direction: column; gap: 0.15rem; }
+        .ds-candidate-seed { font-size: 0.66rem; color: var(--ink-soft); font-family: var(--font-mono); }
+        .ds-candidate-model { font-size: 0.62rem; color: var(--ink-faint); }
+        .ds-candidate-error { font-size: 0.62rem; color: var(--danger); line-height: 1.4; }
+        .ds-candidate-actions { display: flex; gap: 0.25rem; flex-wrap: wrap; }
 
         /* CharacterTab */
         .ds-char-bar { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.8rem; }
-        .ds-char-form { display: flex; flex-direction: column; gap: 0.6rem; padding: 1rem; background: var(--fa-card); border: 1px solid var(--fa-amber-line); border-radius: var(--fa-r); margin-bottom: 0.8rem; }
-        .ds-char-form-title { font-size: 0.88rem; font-weight: 600; color: var(--fa-amber-hi); }
+        .ds-char-form { display: flex; flex-direction: column; gap: 0.6rem; padding: 1rem; background: var(--bg-2); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); border-radius: var(--radius); margin-bottom: 0.8rem; }
+        .ds-char-form-title { font-size: 0.88rem; font-weight: 600; color: var(--accent); }
         .ds-char-ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
-        .ds-char-item { display: grid; grid-template-columns: 80px 1fr auto; gap: 0.8rem; padding: 0.8rem; background: var(--fa-card); border: 1px solid var(--fa-line); border-radius: var(--fa-r); align-items: start; }
+        .ds-char-item { display: grid; grid-template-columns: 80px 1fr auto; gap: 0.8rem; padding: 0.8rem; background: var(--bg-2); border: 1px solid var(--hairline); border-radius: var(--radius); align-items: start; }
         .ds-char-ref-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.3rem; width: 80px; }
-        .ds-char-ref-thumb { aspect-ratio: 3/4; background: var(--fa-bg3); border: 1px solid var(--fa-line); border-radius: 4px; overflow: hidden; display: grid; place-items: center; color: var(--fa-ink3); font-size: 0.6rem; cursor: pointer; transition: border-color 0.15s ease; position: relative; }
-        .ds-char-ref-thumb:hover { border-color: var(--fa-amber); }
+        .ds-char-ref-thumb { aspect-ratio: 3/4; background: var(--bg-3); border: 1px solid var(--hairline); border-radius: 4px; overflow: hidden; display: grid; place-items: center; color: var(--ink3); font-size: 0.6rem; cursor: pointer; transition: border-color 0.15s ease; position: relative; }
+        .ds-char-ref-thumb:hover { border-color: var(--accent); }
         .ds-char-ref-thumb img { width: 100%; height: 100%; object-fit: cover; }
-        .ds-char-ref-loading { color: var(--fa-amber); animation: dsspin 1s linear infinite; }
+        .ds-char-ref-loading { color: var(--accent); animation: dsspin 1s linear infinite; }
         .ds-char-ref-label { position: absolute; bottom: 1px; left: 1px; padding: 0.05rem 0.2rem; background: rgba(0,0,0,0.7); font-size: 0.5rem; border-radius: 2px; }
-        .ds-char-name { font-size: 0.88rem; font-weight: 600; color: var(--fa-ink); }
-        .ds-char-desc { font-size: 0.74rem; color: var(--fa-ink2); line-height: 1.5; margin-top: 0.25rem; }
-        .ds-char-voice { font-size: 0.7rem; color: var(--fa-ink3); font-family: var(--font-mono); margin-top: 0.3rem; }
-        .ds-char-vp { font-size: 0.68rem; color: var(--fa-ink3); font-family: var(--font-mono); margin-top: 0.2rem; word-break: break-all; }
+        .ds-char-name { font-size: 0.88rem; font-weight: 600; color: var(--ink); }
+        .ds-char-desc { font-size: 0.74rem; color: var(--ink2); line-height: 1.5; margin-top: 0.25rem; }
+        .ds-char-voice { font-size: 0.7rem; color: var(--ink3); font-family: var(--font-mono); margin-top: 0.3rem; }
+        .ds-char-vp { font-size: 0.68rem; color: var(--ink3); font-family: var(--font-mono); margin-top: 0.2rem; word-break: break-all; }
         .ds-char-add { margin-left: auto; }
         .ds-char-foot { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-top: 0.4rem; }
         .ds-char-ref { position: relative; }
 
+        /* AssetLibrary */
+        .ds-asset-section { gap: 0.75rem; }
+        .ds-asset-toolbar { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+        .ds-asset-kind-filter { display: flex; align-items: center; gap: 0.3rem; }
+        .ds-asset-kind-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.3rem;
+          padding: 0.32rem 0.55rem;
+          background: var(--bg-3);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius-sm);
+          color: var(--ink2);
+          font-size: 0.72rem;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+        .ds-asset-kind-btn:hover { background: var(--bg-2); color: var(--ink); border-color: var(--hairline-strong); }
+        .ds-asset-kind-btn.active { background: var(--accent-quiet); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+        .ds-asset-search { position: relative; display: flex; align-items: center; flex: 1; min-width: 180px; max-width: 360px; }
+        .ds-asset-search .icon { position: absolute; left: 0.55rem; color: var(--ink3); pointer-events: none; }
+        .ds-asset-search-input {
+          width: 100%;
+          padding: 0.38rem 0.55rem 0.38rem 1.9rem;
+          background: var(--bg-3);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius-sm);
+          color: var(--ink);
+          font-size: 0.8rem;
+          transition: border-color 0.15s ease;
+        }
+        .ds-asset-search-input:focus { outline: none; border-color: var(--accent); }
+        .ds-asset-search-clear {
+          position: absolute;
+          right: 0.35rem;
+          display: grid;
+          place-items: center;
+          width: 18px;
+          height: 18px;
+          padding: 0;
+          background: transparent;
+          border: none;
+          color: var(--ink3);
+          cursor: pointer;
+        }
+        .ds-asset-search-clear:hover { color: var(--ink); }
+        .ds-asset-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+        .ds-asset-item {
+          display: grid;
+          grid-template-columns: 64px 1fr auto;
+          gap: 0.75rem;
+          padding: 0.75rem;
+          background: var(--bg-2);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius);
+          align-items: start;
+          transition: border-color 0.15s ease;
+        }
+        .ds-asset-item:hover { border-color: var(--hairline-strong); }
+        .ds-asset-thumb {
+          width: 64px;
+          height: 64px;
+          background: var(--bg-3);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius-sm);
+          overflow: hidden;
+          display: grid;
+          place-items: center;
+          color: var(--ink3);
+        }
+        .ds-asset-thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .ds-asset-body { min-width: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+        .ds-asset-head { display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; }
+        .ds-asset-kind {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.2rem;
+          padding: 0.1rem 0.35rem;
+          background: var(--accent-quiet);
+          border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+          border-radius: var(--radius-sm);
+          font-size: 0.62rem;
+          color: var(--accent);
+          font-weight: 600;
+          text-transform: uppercase;
+        }
+        .ds-asset-name { font-size: 0.9rem; font-weight: 600; color: var(--ink); }
+        .ds-asset-desc { font-size: 0.74rem; color: var(--ink2); line-height: 1.45; }
+        .ds-asset-vp { font-size: 0.68rem; color: var(--ink3); font-family: var(--font-mono); word-break: break-all; display: flex; align-items: center; gap: 0.3rem; }
+        .ds-asset-tags { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+        .ds-asset-tag {
+          display: inline-flex;
+          align-items: center;
+          padding: 0.1rem 0.4rem;
+          background: var(--bg-3);
+          border: 1px solid var(--hairline);
+          border-radius: 999px;
+          font-size: 0.65rem;
+          color: var(--ink2);
+        }
+        .ds-asset-actions { display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
+        .ds-mini-btn-primary { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, transparent); background: var(--accent-quiet); }
+        .ds-mini-btn-primary:hover { background: color-mix(in srgb, var(--accent) 15%, var(--bg-3)); color: var(--accent); }
+        .ds-mini-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
         /* AssembleTab */
         .ds-assemble { display: flex; flex-direction: column; gap: 0.8rem; }
-        .ds-assemble-row { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; padding: 0.8rem 1rem; background: var(--fa-card); border: 1px solid var(--fa-line); border-radius: var(--fa-r); }
-        .ds-assemble-hint { font-size: 0.85rem; color: var(--fa-ink2); }
-        .ds-assemble-result { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.8rem 1rem; background: var(--fa-card); border: 1px solid var(--fa-line); border-radius: var(--fa-r); }
-        .ds-assemble-result-head { display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; font-weight: 600; color: var(--fa-green); flex-wrap: wrap; }
-        .ds-assemble-dur { margin-left: auto; font-size: 0.75rem; color: var(--fa-ink3); font-family: var(--font-mono); }
-        .ds-assemble-video { width: 100%; max-height: 60vh; border-radius: var(--fa-r-sm); background: #000; }
+        .ds-assemble-row { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; padding: 0.8rem 1rem; background: var(--bg-2); border: 1px solid var(--hairline); border-radius: var(--radius); }
+        .ds-assemble-hint { font-size: 0.85rem; color: var(--ink2); }
+        .ds-assemble-result { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.8rem 1rem; background: var(--bg-2); border: 1px solid var(--hairline); border-radius: var(--radius); }
+        .ds-assemble-result-head { display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; font-weight: 600; color: var(--color-success); flex-wrap: wrap; }
+        .ds-assemble-dur { margin-left: auto; font-size: 0.75rem; color: var(--ink3); font-family: var(--font-mono); }
+        .ds-assemble-video { width: 100%; max-height: 60vh; border-radius: var(--radius-sm); background: #000; }
 
         /* ProcessTab + Director */
         .ds-process-section { display: flex; flex-direction: column; gap: 0.8rem; }
         .ds-process-content { display: flex; flex-direction: column; gap: 0.8rem; }
-        .ds-process-empty { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; padding: 3rem 1rem; color: var(--fa-ink3); text-align: center; }
+        .ds-process-empty { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; padding: 3rem 1rem; color: var(--ink3); text-align: center; }
         .ds-process-refresh { margin-left: auto; }
         .ds-process-timeline { position: relative; display: flex; flex-direction: column; gap: 0; padding-left: 1.4rem; }
-        .ds-process-rail { position: absolute; left: 7px; top: 4px; bottom: 4px; width: 2px; background: var(--fa-line); }
+        .ds-process-rail { position: absolute; left: 7px; top: 4px; bottom: 4px; width: 2px; background: var(--hairline); }
         .ds-process-node { position: relative; padding: 0.6rem 0 1rem; }
-        .ds-process-node::before { content: ""; position: absolute; left: -1.4rem; top: 0.9rem; width: 16px; height: 16px; border-radius: 50%; background: var(--fa-bg3); border: 2px solid var(--fa-ink3); }
+        .ds-process-node::before { content: ""; position: absolute; left: -1.4rem; top: 0.9rem; width: 16px; height: 16px; border-radius: 50%; background: var(--bg-3); border: 2px solid var(--ink3); }
         .ds-process-step { display: flex; align-items: center; gap: 0.4rem; font-size: 0.88rem; font-weight: 600; }
-        .ds-process-step-key { font-size: 0.7rem; color: var(--fa-ink3); font-family: var(--font-mono); text-transform: uppercase; }
-        .ds-process-ts { font-size: 0.68rem; color: var(--fa-ink3); font-family: var(--font-mono); }
-        .ds-process-line { font-size: 0.78rem; color: var(--fa-ink2); margin-top: 0.2rem; line-height: 1.5; }
-        .ds-process-detail { font-size: 0.72rem; color: var(--fa-ink3); margin-top: 0.25rem; font-family: var(--font-mono); }
+        .ds-process-step-key { font-size: 0.7rem; color: var(--ink3); font-family: var(--font-mono); text-transform: uppercase; }
+        .ds-process-ts { font-size: 0.68rem; color: var(--ink3); font-family: var(--font-mono); }
+        .ds-process-line { font-size: 0.78rem; color: var(--ink2); margin-top: 0.2rem; line-height: 1.5; }
+        .ds-process-detail { font-size: 0.72rem; color: var(--ink3); margin-top: 0.25rem; font-family: var(--font-mono); }
         .ds-process-list { margin: 0.3rem 0 0; padding-left: 1rem; display: flex; flex-direction: column; gap: 0.2rem; }
-        .ds-process-list-field { font-size: 0.72rem; color: var(--fa-ink3); }
-        .ds-process-list-name { color: var(--fa-ink2); font-weight: 500; }
-        .ds-process-list-group { font-size: 0.7rem; color: var(--fa-ink3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 0.3rem; }
-        .ds-process-list-title { font-size: 0.82rem; font-weight: 600; color: var(--fa-ink); margin-top: 0.4rem; }
-        .ds-process-list-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.72rem; color: var(--fa-ink2); }
-        .ds-process-list-field-scale { color: var(--fa-amber); font-family: var(--font-mono); }
+        .ds-process-list-field { font-size: 0.72rem; color: var(--ink3); }
+        .ds-process-list-name { color: var(--ink2); font-weight: 500; }
+        .ds-process-list-group { font-size: 0.7rem; color: var(--ink3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 0.3rem; }
+        .ds-process-list-title { font-size: 0.82rem; font-weight: 600; color: var(--ink); margin-top: 0.4rem; }
+        .ds-process-list-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.72rem; color: var(--ink2); }
+        .ds-process-list-field-scale { color: var(--accent); font-family: var(--font-mono); }
         .ds-process-toolbar { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
-        .ds-process-toolbar-label { font-size: 0.68rem; color: var(--fa-ink3); font-weight: 600; text-transform: uppercase; align-self: center; }
+        .ds-process-toolbar-label { font-size: 0.68rem; color: var(--ink3); font-weight: 600; text-transform: uppercase; align-self: center; }
         .ds-process-toolbar-row { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
-        .ds-process-slider { flex: 1; min-width: 120px; accent-color: var(--fa-amber); }
+        .ds-process-slider { flex: 1; min-width: 120px; accent-color: var(--accent); }
         .ds-process-prop { display: flex; flex-direction: column; gap: 0.25rem; }
-        .ds-process-prop-input { padding: 0.3rem 0.45rem; background: var(--fa-bg3); border: 1px solid var(--fa-line); border-radius: var(--fa-r-sm); color: var(--fa-ink); font-size: 0.74rem; width: 100%; }
-        .ds-process-canvas { background: var(--fa-card); border: 1px solid var(--fa-line); border-radius: var(--fa-r); padding: 1rem; min-height: 300px; position: relative; }
-        .ds-process-canvas-empty { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; padding: 3rem 1rem; color: var(--fa-ink3); text-align: center; }
-        .ds-process-loading { display: flex; align-items: center; gap: 0.5rem; padding: 2rem; color: var(--fa-ink3); justify-content: center; }
+        .ds-process-prop-input { padding: 0.3rem 0.45rem; background: var(--bg-3); border: 1px solid var(--hairline); border-radius: var(--radius-sm); color: var(--ink); font-size: 0.74rem; width: 100%; }
+        .ds-process-canvas { background: var(--bg-2); border: 1px solid var(--hairline); border-radius: var(--radius); padding: 1rem; min-height: 300px; position: relative; }
+        .ds-process-canvas-empty { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; padding: 3rem 1rem; color: var(--ink3); text-align: center; }
+        .ds-process-loading { display: flex; align-items: center; gap: 0.5rem; padding: 2rem; color: var(--ink3); justify-content: center; }
         .ds-process-empty-hint { font-size: 0.78rem; }
         .ds-process-actor-chips { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-top: 0.4rem; }
-        .ds-process-actor { padding: 0.18rem 0.5rem; background: var(--fa-bg3); border: 1px solid var(--fa-line); border-radius: 999px; font-size: 0.7rem; color: var(--fa-ink2); }
+        .ds-process-actor { padding: 0.18rem 0.5rem; background: var(--bg-3); border: 1px solid var(--hairline); border-radius: 999px; font-size: 0.7rem; color: var(--ink2); }
         .ds-director-panel { display: flex; flex-direction: column; gap: 0.7rem; }
         .ds-director-head { display: flex; align-items: center; gap: 0.5rem; }
-        .ds-director-hint { font-size: 0.72rem; color: var(--fa-ink3); line-height: 1.5; }
+        .ds-director-hint { font-size: 0.72rem; color: var(--ink3); line-height: 1.5; }
         .ds-director-foot { display: flex; gap: 0.4rem; margin-top: 0.4rem; flex-wrap: wrap; }
-        .ds-director-genref { padding: 0.25rem 0.5rem; background: var(--fa-bg3); border: 1px solid var(--fa-line); border-radius: var(--fa-r-sm); color: var(--fa-ink2); font-size: 0.72rem; }
-        .ds-director-notes { font-size: 0.74rem; color: var(--fa-ink2); line-height: 1.5; }
-        .ds-director-mark-name { font-size: 0.8rem; font-weight: 600; color: var(--fa-ink); }
+        .ds-director-genref { padding: 0.25rem 0.5rem; background: var(--bg-3); border: 1px solid var(--hairline); border-radius: var(--radius-sm); color: var(--ink2); font-size: 0.72rem; }
+        .ds-director-notes { font-size: 0.74rem; color: var(--ink2); line-height: 1.5; }
+        .ds-director-mark-name { font-size: 0.8rem; font-weight: 600; color: var(--ink); }
 
         .studio-shell {
-          position: fixed;
-          inset: 0;
-          z-index: 50;
+          position: relative;
+          width: 100%;
+          height: 100%;
+          min-height: 100%;
+          z-index: 1;
           display: grid;
           grid-template-rows: 56px 1fr 180px;
           grid-template-columns: 64px 1fr;
@@ -1280,17 +1364,24 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
             "topbar topbar"
             "sidebar main"
             "filmstrip filmstrip";
-          background: var(--fa-bg);
-          color: var(--fa-ink);
+          background: var(--bg-1);
+          color: var(--ink);
           font-size: 14px;
           transition: grid-template-rows 0.25s ease;
         }
         .studio-shell.film-collapsed {
           grid-template-rows: 56px 1fr 40px;
         }
+        .studio-shell.manju-mode {
+          grid-template-rows: 56px 1fr;
+          grid-template-columns: 1fr;
+          grid-template-areas:
+            "topbar"
+            "main";
+        }
         .studio-shell::before {
           content: "";
-          position: fixed;
+          position: absolute;
           inset: 0;
           pointer-events: none;
           background:
@@ -1309,8 +1400,8 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           justify-content: space-between;
           gap: 1rem;
           padding: 0 1.1rem;
-          border-bottom: 1px solid var(--fa-line);
-          background: rgba(18, 17, 16, 0.95);
+          border-bottom: 1px solid var(--hairline);
+          background: var(--bg-1);
           backdrop-filter: blur(12px);
         }
         .brand {
@@ -1321,14 +1412,14 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
         .brand-mark {
           width: 32px;
           height: 32px;
-          border-radius: var(--fa-r);
-          background: linear-gradient(135deg, var(--fa-amber), #d97706);
+          border-radius: var(--radius);
+          background: linear-gradient(135deg, var(--accent), var(--accent-hover));
           display: grid;
           place-items: center;
           font-weight: 800;
           font-size: 12px;
-          color: #000;
-          box-shadow: 0 0 20px rgba(245,158,11,0.3);
+          color: var(--color-text-inverse);
+          box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 30%, transparent);
         }
         .brand-text {
           display: flex;
@@ -1336,66 +1427,53 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           line-height: 1.1;
         }
         .brand-name { font-size: 1rem; font-weight: 700; letter-spacing: -0.02em; }
-        .brand-sub { font-size: 0.65rem; color: var(--fa-ink3); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; }
-        .view-tabs {
-          display: flex;
-          align-items: center;
-          gap: 0.35rem;
-          padding: 0.25rem;
-          background: var(--fa-bg3);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r);
-        }
-        .view-tab {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.35rem;
-          padding: 0.38rem 0.8rem;
-          background: transparent;
-          border: 1px solid transparent;
-          border-radius: var(--fa-r-sm);
-          color: var(--fa-ink2);
-          font-size: 0.8rem;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.18s ease;
-        }
-        .view-tab:hover { color: var(--fa-ink); background: rgba(255,255,255,0.04); }
-        .view-tab.active { color: var(--fa-amber-hi); background: var(--fa-amber-soft); border-color: var(--fa-amber-line); }
+        .brand-sub { font-size: 0.65rem; color: var(--ink2); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; }
         .topbar-right {
           display: flex;
           align-items: center;
           gap: 0.6rem;
+        }
+        .topbar-center {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.6rem;
+        }
+        .studio-title {
+          font-size: 0.95rem;
+          font-weight: 600;
+          color: var(--ink);
+          letter-spacing: 0.02em;
         }
         .status-pill {
           display: inline-flex;
           align-items: center;
           gap: 0.4rem;
           padding: 0.32rem 0.7rem;
-          background: var(--fa-bg3);
-          border: 1px solid var(--fa-line);
+          background: var(--bg-3);
+          border: 1px solid var(--hairline);
           border-radius: 999px;
           font-size: 0.72rem;
-          color: var(--fa-ink2);
+          color: var(--ink2);
           font-family: var(--font-mono);
         }
         .status-pill .led {
           width: 6px;
           height: 6px;
           border-radius: 50%;
-          background: var(--fa-green);
-          box-shadow: 0 0 8px var(--fa-green);
+          background: var(--color-success);
+          box-shadow: 0 0 8px var(--color-success);
         }
         .task-pill {
           display: inline-flex;
           align-items: center;
           gap: 0.35rem;
           padding: 0.3rem 0.65rem;
-          background: color-mix(in srgb, var(--fa-amber) 15%, var(--fa-bg3));
-          border: 1px solid color-mix(in srgb, var(--fa-amber) 40%, var(--fa-line));
+          background: color-mix(in srgb, var(--accent) 15%, var(--bg-3));
+          border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--hairline));
           border-radius: 999px;
           font-size: 0.7rem;
-          color: var(--fa-amber);
+          color: var(--accent);
           font-family: var(--font-mono);
           animation: task-pulse 2s ease-in-out infinite;
         }
@@ -1410,7 +1488,7 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           font: inherit;
         }
         .task-pill-btn:hover {
-          background: color-mix(in srgb, var(--fa-amber) 25%, var(--fa-bg3));
+          background: color-mix(in srgb, var(--accent) 25%, var(--bg-3));
         }
         .task-pill-btn.is-open {
           border-bottom-left-radius: 6px;
@@ -1426,9 +1504,9 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           right: 0;
           min-width: 220px;
           z-index: 60;
-          background: var(--fa-bg2);
-          border: 1px solid var(--fa-line-hi);
-          border-radius: var(--fa-r);
+          background: var(--bg-2);
+          border: 1px solid var(--hairline-strong);
+          border-radius: var(--radius);
           border-top-right-radius: 6px;
           box-shadow: 0 12px 32px rgba(0,0,0,0.5);
           overflow: hidden;
@@ -1439,10 +1517,10 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           padding: 0.5rem 0.7rem;
           font-size: 0.66rem;
           font-weight: 600;
-          color: var(--fa-ink3);
+          color: var(--ink3);
           text-transform: uppercase;
           letter-spacing: 0.06em;
-          border-bottom: 1px solid var(--fa-line);
+          border-bottom: 1px solid var(--hairline);
         }
         .task-dropdown-list {
           list-style: none;
@@ -1458,16 +1536,16 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           gap: 0.5rem;
           padding: 0.45rem 0.55rem;
           font-size: 0.78rem;
-          color: var(--fa-ink);
-          border-radius: var(--fa-r-sm);
+          color: var(--ink);
+          border-radius: var(--radius-sm);
         }
-        .task-dropdown-item:hover { background: var(--fa-hi); }
+        .task-dropdown-item:hover { background: var(--bg-3); }
         .task-dropdown-dot {
           width: 6px;
           height: 6px;
           border-radius: 50%;
-          background: var(--fa-amber);
-          box-shadow: 0 0 6px var(--fa-amber);
+          background: var(--accent);
+          box-shadow: 0 0 6px var(--accent);
           flex-shrink: 0;
           animation: task-pulse 2s ease-in-out infinite;
         }
@@ -1482,38 +1560,38 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           margin-left: auto;
           font-size: 0.62rem;
           font-weight: 700;
-          color: var(--fa-bg1);
-          background: var(--fa-amber);
+          color: var(--color-text-inverse);
+          background: var(--accent);
           border-radius: 8px;
           font-family: var(--font-mono);
         }
         .task-dropdown-head-done {
-          border-top: 1px solid var(--fa-line);
+          border-top: 1px solid var(--hairline);
           border-bottom: none;
-          color: var(--fa-ink3);
+          color: var(--ink3);
           opacity: 0.85;
         }
         .task-dropdown-item-done {
-          color: var(--fa-ink3);
+          color: var(--ink3);
           opacity: 0.8;
         }
         .task-dropdown-item-done .task-dropdown-label { flex: 1; }
         .task-dropdown-time {
           margin-left: auto;
           font-size: 0.62rem;
-          color: var(--fa-ink3);
+          color: var(--ink3);
           font-family: var(--font-mono);
           opacity: 0.7;
         }
         .task-dropdown-empty {
-          color: var(--fa-ink3);
+          color: var(--ink3);
           opacity: 0.6;
           font-style: italic;
         }
         .task-dropdown-label { flex: 1; font-weight: 500; }
         .task-dropdown-detail {
           font-size: 0.68rem;
-          color: var(--fa-ink3);
+          color: var(--ink3);
           font-family: var(--font-mono);
           max-width: 100px;
           overflow: hidden;
@@ -1526,40 +1604,14 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           width: 32px;
           height: 32px;
           border-radius: 50%;
-          background: var(--fa-amber-soft);
-          border: 1px solid var(--fa-amber-line);
-          color: var(--fa-amber-hi);
+          background: var(--accent-quiet);
+          border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+          color: var(--accent);
           cursor: pointer;
         }
 
-        /* ── Buttons ── */
-        .btn {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.4rem;
-          padding: 0.45rem 0.8rem;
-          background: var(--fa-bg3);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r-sm);
-          color: var(--fa-ink);
-          font-size: 0.82rem;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.18s ease;
-          white-space: nowrap;
-        }
-        .btn:hover { background: var(--fa-hi); border-color: var(--fa-line-hi); }
-        .btn-primary {
-          background: var(--fa-amber);
-          border-color: var(--fa-amber);
-          color: #0b0b0c;
-          font-weight: 600;
-        }
-        .btn-primary:hover { background: var(--fa-amber-hi); border-color: var(--fa-amber-hi); box-shadow: 0 0 18px rgba(245,158,11,0.25); }
-        .btn-ghost { background: transparent; }
+        /* 按钮复用全局 .btn/.btn-primary,仅在尺寸上微调 */
         .btn-sm { padding: 0.32rem 0.6rem; font-size: 0.76rem; }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
         /* ── Stage Sidebar ── */
         .stage-sidebar {
@@ -1570,8 +1622,8 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           flex-direction: column;
           gap: 0.4rem;
           padding: 0.7rem 0.5rem;
-          border-right: 1px solid var(--fa-line);
-          background: var(--fa-bg2);
+          border-right: 1px solid var(--hairline);
+          background: var(--bg-2);
         }
         .stage-item {
           display: flex;
@@ -1581,8 +1633,9 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           padding: 0.7rem 0.25rem;
           background: transparent;
           border: 1px solid transparent;
-          border-radius: var(--fa-r-sm);
-          color: var(--fa-ink3);
+          border-radius: var(--radius-sm);
+          /* ink3 对比度仅 ~2.7:1,阶段按钮为交互文本须过 WCAG AA 4.5:1 → 用 ink2(~5.6:1) */
+          color: var(--ink2);
           font-size: 0.62rem;
           font-weight: 600;
           text-transform: uppercase;
@@ -1591,11 +1644,11 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           transition: all 0.18s ease;
           position: relative;
         }
-        .stage-item:hover { color: var(--fa-ink); background: rgba(255,255,255,0.04); }
+        .stage-item:hover { color: var(--ink); background: rgba(255,255,255,0.04); }
         .stage-item.active {
-          color: var(--fa-amber-hi);
-          background: var(--fa-amber-soft);
-          border-color: var(--fa-amber-line);
+          color: var(--accent);
+          background: var(--accent-quiet);
+          border-color: color-mix(in srgb, var(--accent) 35%, transparent);
         }
         .stage-item.active::before {
           content: "";
@@ -1605,7 +1658,7 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           transform: translateY(-50%);
           width: 3px;
           height: 20px;
-          background: var(--fa-amber);
+          background: var(--accent);
           border-radius: 0 2px 2px 0;
         }
         .stage-sidebar-foot {
@@ -1623,6 +1676,11 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           overflow: auto;
           padding: 1rem;
         }
+        .manju-embed {
+          height: 100%;
+          min-height: 100%;
+          overflow: auto;
+        }
 
         /* ── Hub View ── */
         .hub-view {
@@ -1639,11 +1697,11 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           gap: 1rem;
           padding: 1.25rem;
           background: linear-gradient(135deg, rgba(245,158,11,0.08), rgba(59,130,246,0.05));
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius);
         }
         .hero-text h1 { margin: 0 0 0.35rem; font-family: var(--font-display); font-size: 1.6rem; font-weight: 600; }
-        .hero-text p { margin: 0; color: var(--fa-ink2); font-size: 0.85rem; max-width: 520px; line-height: 1.55; }
+        .hero-text p { margin: 0; color: var(--ink2); font-size: 0.85rem; max-width: 520px; line-height: 1.55; }
         .hero-actions { display: flex; gap: 0.5rem; }
         .section-head {
           display: flex;
@@ -1652,8 +1710,8 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           gap: 1rem;
           margin-top: 0.25rem;
         }
-        .section-head h3 { margin: 0; font-size: 0.92rem; font-weight: 600; display: flex; align-items: center; gap: 0.4rem; }
-        .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--fa-amber); box-shadow: 0 0 10px var(--fa-amber); }
+        .section-head h2 { margin: 0; font-size: 0.92rem; font-weight: 600; display: flex; align-items: center; gap: 0.4rem; }
+        .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
         .skills-row {
           display: flex;
           gap: 0.6rem;
@@ -1667,26 +1725,27 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           gap: 0.25rem;
           width: 180px;
           padding: 0.85rem;
-          background: var(--fa-card);
-          border: 1px solid var(--fa-line);
-          border-left: 3px solid var(--chip-accent, var(--fa-amber));
-          border-radius: var(--fa-r-sm);
+          background: var(--bg-2);
+          border: 1px solid var(--hairline);
+          border-left: 3px solid var(--chip-accent, var(--accent));
+          border-radius: var(--radius-sm);
           cursor: pointer;
           transition: all 0.18s ease;
         }
-        .skill-chip:hover { background: var(--fa-hi); border-color: var(--fa-line-hi); transform: translateY(-2px); }
+        .skill-chip:hover { background: var(--bg-3); border-color: var(--hairline-strong); transform: translateY(-2px); }
         .skill-chip b { font-size: 0.86rem; }
-        .skill-chip span { font-size: 0.72rem; color: var(--fa-ink3); }
-        .skill-chip .shots { font-size: 0.66rem; color: var(--fa-amber-hi); font-family: var(--font-mono); margin-top: 0.15rem; }
+        /* ink3 ~2.7:1 不达 AA,卡片描述文本提升为 ink2 */
+        .skill-chip span { font-size: 0.72rem; color: var(--ink2); }
+        .skill-chip .shots { font-size: 0.66rem; color: var(--accent); font-family: var(--font-mono); margin-top: 0.15rem; }
         .tag {
           display: inline-flex;
           align-items: center;
           gap: 0.25rem;
           padding: 0.15rem 0.5rem;
           background: rgba(255,255,255,0.05);
-          border-radius: var(--fa-r-sm);
+          border-radius: var(--radius-sm);
           font-size: 0.7rem;
-          color: var(--fa-ink2);
+          color: var(--ink2);
         }
         .project-grid {
           display: grid;
@@ -1699,26 +1758,26 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           flex-direction: column;
           gap: 0.5rem;
           padding: 0.85rem;
-          background: var(--fa-card);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r);
+          background: var(--bg-2);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius);
           cursor: pointer;
           transition: all 0.18s ease;
           overflow: hidden;
         }
-        .project-card:hover { border-color: var(--fa-line-hi); background: var(--fa-hi); transform: translateY(-2px); }
-        .project-card.active { border-color: var(--fa-amber); box-shadow: 0 0 0 1px var(--fa-amber) inset, 0 8px 24px -12px rgba(245,158,11,0.2); }
+        .project-card:hover { border-color: var(--hairline-strong); background: var(--bg-3); transform: translateY(-2px); }
+        .project-card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset, 0 8px 24px -12px rgba(245,158,11,0.2); }
         .proj-thumb {
           aspect-ratio: 16/9;
-          background: var(--fa-bg3);
-          border-radius: var(--fa-r-sm);
+          background: var(--bg-3);
+          border-radius: var(--radius-sm);
           display: grid;
           place-items: center;
-          color: var(--fa-ink3);
+          color: var(--ink3);
         }
         .proj-title { font-weight: 600; font-size: 0.95rem; }
-        .proj-premise { font-size: 0.72rem; color: var(--fa-ink2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-        .proj-meta { display: flex; align-items: center; gap: 0.4rem; font-size: 0.7rem; color: var(--fa-ink3); }
+        .proj-premise { font-size: 0.72rem; color: var(--ink2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .proj-meta { display: flex; align-items: center; gap: 0.4rem; font-size: 0.7rem; color: var(--ink2); }
         .proj-status {
           display: inline-flex;
           align-items: center;
@@ -1729,9 +1788,9 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           font-weight: 600;
           font-family: var(--font-mono);
         }
-        .proj-status.ready { background: var(--fa-green-soft); color: var(--fa-green); }
-        .proj-status.draft { background: rgba(255,255,255,0.06); color: var(--fa-ink2); }
-        .proj-status.story { background: var(--fa-amber-soft); color: var(--fa-amber-hi); }
+        .proj-status.ready { background: color-mix(in srgb, var(--color-success) 12%, transparent); color: var(--color-success); }
+        .proj-status.draft { background: var(--bg-2); color: var(--ink2); }
+        .proj-status.story { background: var(--accent-quiet); color: var(--accent); }
         .proj-del {
           position: absolute;
           top: 8px;
@@ -1740,27 +1799,27 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           align-items: center;
           gap: 0.2rem;
           padding: 0.2rem 0.4rem;
-          background: var(--fa-bg3);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r-sm);
-          color: var(--fa-ink3);
+          background: var(--bg-3);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius-sm);
+          color: var(--ink3);
           font-size: 0.65rem;
           opacity: 0;
           transition: opacity 0.18s ease;
           cursor: pointer;
         }
         .project-card:hover .proj-del { opacity: 1; }
-        .proj-del:hover { color: var(--fa-red); border-color: var(--fa-red); }
+        .proj-del:hover { color: var(--danger); border-color: var(--danger); }
         .hub-loading, .hub-error, .hub-empty {
           display: flex;
           flex-direction: column;
           align-items: center;
           gap: 0.6rem;
           padding: 3rem 1rem;
-          color: var(--fa-ink3);
+          color: var(--ink3);
           text-align: center;
         }
-        .hub-error { color: var(--fa-red); }
+        .hub-error { color: var(--danger); }
 
         /* ── Workspace View ── */
         .workspace-view {
@@ -1777,32 +1836,32 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           justify-content: space-between;
           gap: 1rem;
           padding: 0.85rem 1rem;
-          background: var(--fa-card);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r);
+          background: var(--bg-2);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius);
         }
         .workspace-title { display: flex; flex-direction: column; gap: 0.35rem; }
         .workspace-title h2 { margin: 0; font-family: var(--font-display); font-size: 1.25rem; font-weight: 600; }
         .workspace-meta { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
-        .workspace-meta .spec { font-size: 0.72rem; color: var(--fa-ink3); font-family: var(--font-mono); }
-        .workspace-meta .time { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.72rem; color: var(--fa-ink3); font-family: var(--font-mono); }
+        .workspace-meta .spec { font-size: 0.72rem; color: var(--ink3); font-family: var(--font-mono); }
+        .workspace-meta .time { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.72rem; color: var(--ink3); font-family: var(--font-mono); }
         .workspace-actions { display: flex; align-items: center; gap: 0.5rem; }
         .edit-panel {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
           gap: 0.7rem;
           padding: 0.85rem 1rem;
-          background: var(--fa-card);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r);
+          background: var(--bg-2);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius);
         }
         .edit-error {
           grid-column: 1 / -1;
           padding: 0.5rem 0.7rem;
-          background: var(--fa-red-soft);
-          border: 1px solid var(--fa-red);
-          border-radius: var(--fa-r-sm);
-          color: var(--fa-red);
+          background: var(--danger-quiet);
+          border: 1px solid var(--danger);
+          border-radius: var(--radius-sm);
+          color: var(--danger);
           font-size: 0.8rem;
         }
         .workspace-body {
@@ -1855,56 +1914,56 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           height: 44px;
           display: grid;
           place-items: center;
-          background: var(--fa-card);
-          border: 1px solid var(--fa-line);
+          background: var(--bg-2);
+          border: 1px solid var(--hairline);
           border-radius: 4px 0 0 4px;
-          color: var(--fa-ink3);
+          color: var(--ink3);
           cursor: pointer;
           transition: all 0.2s ease;
         }
         .panel-toggle:hover {
-          background: var(--fa-hi);
-          color: var(--fa-amber);
-          border-color: var(--fa-amber-line);
+          background: var(--bg-3);
+          color: var(--accent);
+          border-color: color-mix(in srgb, var(--accent) 35%, transparent);
         }
         .panel-toggle.collapsed {
           right: 0;
           border-radius: 4px 0 0 4px;
         }
         .r-panel {
-          background: var(--fa-card);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r);
+          background: var(--bg-2);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius);
           padding: 0.85rem;
         }
         .r-panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.7rem; }
-        .r-panel-head h4 { margin: 0; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fa-ink2); }
+        .r-panel-head h4 { margin: 0; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink2); }
         .r-prop { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.55rem; }
-        .r-prop label { font-size: 0.68rem; color: var(--fa-ink3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
-        .r-prop .r-val { font-size: 0.84rem; color: var(--fa-ink); word-break: break-word; }
-        .r-prop .r-val.mono { font-family: var(--font-mono); color: var(--fa-ink2); font-size: 0.76rem; }
+        .r-prop label { font-size: 0.68rem; color: var(--ink3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+        .r-prop .r-val { font-size: 0.84rem; color: var(--ink); word-break: break-word; }
+        .r-prop .r-val.mono { font-family: var(--font-mono); color: var(--ink2); font-size: 0.76rem; }
         .r-prop.compact { flex-direction: row; align-items: center; gap: 0.5rem; }
         .r-prop.compact label { margin: 0; }
         .r-prop input, .r-prop select, .r-prop textarea {
           width: 100%;
           padding: 0.4rem 0.55rem;
-          background: var(--fa-bg3);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r-sm);
+          background: var(--bg-3);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius-sm);
           font-size: 0.82rem;
-          color: var(--fa-ink);
+          color: var(--ink);
         }
-        .r-prop input:focus, .r-prop select:focus, .r-prop textarea:focus { outline: none; border-color: var(--fa-amber); }
+        .r-prop input:focus, .r-prop select:focus, .r-prop textarea:focus { outline: none; border-color: var(--accent); }
         .prop-row { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
-        .prop-row span { font-size: 0.68rem; color: var(--fa-ink3); font-weight: 600; }
+        .prop-row span { font-size: 0.68rem; color: var(--ink3); font-weight: 600; }
         .prop-row input, .prop-row textarea {
           width: 100%;
           padding: 0.45rem 0.55rem;
-          background: var(--fa-bg3);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r-sm);
+          background: var(--bg-3);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius-sm);
           font-size: 0.84rem;
-          color: var(--fa-ink);
+          color: var(--ink);
         }
         .prop-row textarea { resize: vertical; min-height: 80px; }
         .workspace-empty {
@@ -1914,10 +1973,10 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           justify-content: center;
           gap: 0.8rem;
           height: 100%;
-          color: var(--fa-ink3);
+          color: var(--ink3);
           padding: 2rem;
         }
-        .workspace-empty-title { font-size: 1.1rem; color: var(--fa-ink); }
+        .workspace-empty-title { font-size: 1.1rem; color: var(--ink); }
         .workspace-empty .ds-new-panel {
           width: min(720px, 100%);
           margin: 0 auto;
@@ -1931,9 +1990,9 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           flex-direction: column;
           gap: 0.7rem;
           padding: 1.1rem 1.25rem;
-          background: var(--fa-card);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r);
+          background: var(--bg-2);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius);
         }
         .ds-panel-head {
           display: flex;
@@ -1941,7 +2000,7 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           gap: 0.45rem;
           font-size: 1rem;
           font-weight: 600;
-          color: var(--fa-ink);
+          color: var(--ink);
           margin-bottom: 0.2rem;
         }
         .ds-field {
@@ -1952,7 +2011,7 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
         }
         .ds-field-label {
           font-size: 0.7rem;
-          color: var(--fa-ink2);
+          color: var(--ink2);
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.05em;
@@ -1961,15 +2020,15 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
         .ds-field .ds-textarea {
           width: 100%;
           padding: 0.55rem 0.7rem;
-          background: var(--fa-bg3);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r-sm);
+          background: var(--bg-3);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius-sm);
           font-size: 0.88rem;
-          color: var(--fa-ink);
+          color: var(--ink);
           transition: border-color 0.15s ease;
         }
         .ds-field .ds-input:focus,
-        .ds-field .ds-textarea:focus { outline: none; border-color: var(--fa-amber); }
+        .ds-field .ds-textarea:focus { outline: none; border-color: var(--accent); }
         .ds-field .ds-textarea { resize: vertical; min-height: 120px; }
         .ds-field-row {
           display: grid;
@@ -1979,10 +2038,10 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
         .ds-field-row .ds-input { text-align: center; }
         .ds-error-inline {
           padding: 0.55rem 0.75rem;
-          background: var(--fa-red-soft);
-          border: 1px solid var(--fa-red);
-          border-radius: var(--fa-r-sm);
-          color: var(--fa-red);
+          background: var(--danger-quiet);
+          border: 1px solid var(--danger);
+          border-radius: var(--radius-sm);
+          color: var(--danger);
           font-size: 0.82rem;
         }
 
@@ -1990,13 +2049,13 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
         .ds-batch-polish-btn {
           margin-left: auto;
           background: linear-gradient(135deg, #1f1c19, #2a2520);
-          color: var(--fa-gold, #d9a441);
+          color: var(--accent);
           border: 1px solid rgba(217, 164, 65, 0.4);
           letter-spacing: 0.04em;
         }
         .ds-batch-polish-btn:hover:not(:disabled) {
           background: linear-gradient(135deg, #2a2520, #352d24);
-          border-color: var(--fa-gold, #d9a441);
+          border-color: var(--accent);
         }
         /* M2.1:ShotTab 批量操作工具栏 */
         .ds-batch-toolbar {
@@ -2005,9 +2064,9 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           gap: 0.5rem;
           padding: 0.5rem 0.7rem;
           margin-bottom: 0.6rem;
-          background: var(--fa-bg2);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r-sm);
+          background: var(--bg-2);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius-sm);
         }
         .ds-batch-count {
           display: inline-flex;
@@ -2019,8 +2078,8 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           margin-left: 0.35rem;
           font-size: 0.68rem;
           font-weight: 600;
-          color: var(--fa-bg1);
-          background: var(--fa-amber);
+          color: var(--color-text-inverse);
+          background: var(--accent);
           border-radius: 9px;
           font-family: var(--font-mono);
         }
@@ -2029,7 +2088,7 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           margin-bottom: 0.8rem;
           background: linear-gradient(135deg, rgba(217, 164, 65, 0.04), transparent);
           border: 1px solid rgba(217, 164, 65, 0.25);
-          border-radius: var(--fa-r);
+          border-radius: var(--radius);
         }
         .ds-batch-polish-head {
           display: flex;
@@ -2041,7 +2100,7 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           display: flex;
           align-items: center;
           gap: 0.4rem;
-          color: var(--fa-gold, #d9a441);
+          color: var(--accent);
           font-size: 0.88rem;
           font-weight: 600;
           letter-spacing: 0.04em;
@@ -2050,9 +2109,9 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           margin-left: 0.5rem;
           padding: 0.1rem 0.4rem;
           font-size: 0.68rem;
-          color: var(--fa-ink3);
-          background: var(--fa-line);
-          border-radius: var(--fa-r-sm);
+          color: var(--ink3);
+          background: var(--hairline);
+          border-radius: var(--radius-sm);
           font-weight: 400;
           letter-spacing: 0;
         }
@@ -2064,13 +2123,13 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
         .ds-batch-polish-bar-bg {
           flex: 1;
           height: 6px;
-          background: var(--fa-line);
+          background: var(--hairline);
           border-radius: 3px;
           overflow: hidden;
         }
         .ds-batch-polish-bar-fill {
           height: 100%;
-          background: linear-gradient(90deg, var(--fa-gold, #d9a441), #f0c060);
+          background: linear-gradient(90deg, var(--accent), var(--accent-hover));
           border-radius: 3px;
           transition: width 0.6s ease;
         }
@@ -2079,12 +2138,12 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           align-items: center;
           gap: 0.5rem;
           font-size: 0.82rem;
-          color: var(--fa-ink2);
+          color: var(--ink2);
           font-variant-numeric: tabular-nums;
           white-space: nowrap;
         }
         .ds-batch-polish-status {
-          color: var(--fa-ink3);
+          color: var(--ink3);
           font-size: 0.75rem;
         }
         .ds-batch-polish-summary {
@@ -2093,16 +2152,16 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           margin-top: 0.6rem;
           font-size: 0.82rem;
         }
-        .ds-batch-ok { color: #4ade80; }
-        .ds-batch-fail { color: var(--fa-red); }
+        .ds-batch-ok { color: var(--color-success); }
+        .ds-batch-fail { color: var(--danger); }
         .ds-batch-polish-errors {
           margin-top: 0.6rem;
           font-size: 0.78rem;
-          color: var(--fa-ink3);
+          color: var(--ink3);
         }
         .ds-batch-polish-errors summary {
           cursor: pointer;
-          color: var(--fa-red);
+          color: var(--danger);
           user-select: none;
         }
         .ds-batch-polish-errors ul {
@@ -2118,7 +2177,7 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           gap: 0.1rem;
         }
         .ds-batch-polish-errors li strong {
-          color: var(--fa-ink2);
+          color: var(--ink2);
           font-size: 0.75rem;
         }
         .ds-form-actions {
@@ -2142,165 +2201,25 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           display: grid;
           place-items: center;
           background: #000;
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius);
           overflow: hidden;
         }
         .cinema-screen video { width: 100%; height: 100%; object-fit: contain; }
-        .cinema-placeholder { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; color: var(--fa-ink3); }
+        .cinema-placeholder { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; color: var(--ink3); }
         .cinema-info {
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 1rem;
           padding: 0.85rem 1rem;
-          background: var(--fa-card);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r);
+          background: var(--bg-2);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius);
         }
         .cinema-title { font-size: 1.1rem; font-weight: 600; }
-        .cinema-meta { font-size: 0.74rem; color: var(--fa-ink3); font-family: var(--font-mono); }
+        .cinema-meta { font-size: 0.74rem; color: var(--ink3); font-family: var(--font-mono); }
         .cinema-actions { display: flex; gap: 0.5rem; }
-
-        /* ── Filmstrip ── */
-        .filmstrip {
-          grid-area: filmstrip;
-          position: relative;
-          z-index: 2;
-          display: flex;
-          flex-direction: column;
-          border-top: 1px solid var(--fa-line);
-          background: var(--fa-bg2);
-          overflow: hidden;
-        }
-        .filmstrip.collapsed .filmstrip-head {
-          border-bottom: none;
-        }
-        /* M1.2: 小屏(<900px)底部时间线变为抽屉,默认露出 48px 精简条,展开滑出 */
-        @media (max-width: 900px) {
-          .filmstrip {
-            position: fixed;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            z-index: 50;
-            width: 100%;
-            transform: translateY(calc(100% - 48px));
-            transition: transform 0.25s ease;
-            box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.25);
-          }
-          .filmstrip:not(.collapsed) {
-            transform: translateY(0);
-            max-height: 50vh;
-            overflow-y: auto;
-          }
-          .filmstrip.collapsed .filmstrip-head {
-            border-bottom: none;
-          }
-        }
-        .filmstrip-toggle {
-          display: grid;
-          place-items: center;
-          width: 20px;
-          height: 20px;
-          border: none;
-          background: transparent;
-          color: var(--fa-ink3);
-          cursor: pointer;
-          border-radius: 4px;
-          transition: all 0.15s ease;
-          flex-shrink: 0;
-        }
-        .filmstrip-toggle:hover {
-          background: var(--fa-hi);
-          color: var(--fa-amber);
-        }
-        .filmstrip-head {
-          display: flex;
-          align-items: center;
-          gap: 0.7rem;
-          padding: 0.45rem 0.7rem;
-          border-bottom: 1px solid var(--fa-line);
-        }
-        .filmstrip-title {
-          display: flex;
-          align-items: center;
-          gap: 0.45rem;
-          font-size: 0.75rem;
-          font-weight: 600;
-          color: var(--fa-ink2);
-          text-transform: uppercase;
-          letter-spacing: 0.06em;
-        }
-        .timeline-ruler {
-          flex: 1;
-          height: 18px;
-          position: relative;
-          background: repeating-linear-gradient(90deg, var(--fa-line) 0 1px, transparent 1px 60px);
-          margin: 0 0.5rem;
-        }
-        .timeline-ruler span { position: absolute; top: 2px; font-size: 0.6rem; color: var(--fa-ink3); font-family: var(--font-mono); }
-        .filmstrip-body {
-          flex: 1;
-          display: flex;
-          gap: 0.4rem;
-          padding: 0.55rem 0.7rem;
-          overflow-x: auto;
-          align-items: center;
-        }
-        .film-cell {
-          flex: 0 0 auto;
-          width: 130px;
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-          cursor: pointer;
-          opacity: 0.75;
-          transition: opacity 0.18s ease;
-        }
-        .film-cell:hover { opacity: 1; }
-        .film-cell.active { opacity: 1; }
-        .film-cell.active .f-thumb { border-color: var(--fa-amber); box-shadow: 0 0 0 1px var(--fa-amber); }
-        .f-thumb {
-          aspect-ratio: 16/9;
-          background: var(--fa-bg3);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r-sm);
-          overflow: hidden;
-          display: grid;
-          place-items: center;
-          color: var(--fa-ink3);
-          font-size: 0.7rem;
-          position: relative;
-        }
-        .f-thumb video, .f-thumb img { width: 100%; height: 100%; object-fit: cover; }
-        .f-thumb .dur {
-          position: absolute;
-          bottom: 0.25rem;
-          right: 0.25rem;
-          padding: 0.08rem 0.3rem;
-          background: rgba(0,0,0,0.7);
-          border-radius: var(--fa-r-sm);
-          font-size: 0.58rem;
-          font-family: var(--font-mono);
-        }
-        .f-meta {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          font-size: 0.65rem;
-          color: var(--fa-ink3);
-          font-family: var(--font-mono);
-        }
-        .f-status {
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: var(--fa-ink3);
-        }
-        .f-status.done { background: var(--fa-green); }
-        .f-status.run { background: var(--fa-amber); box-shadow: 0 0 8px var(--fa-amber); }
-        .f-status.error { background: var(--fa-red); }
 
         /* ── 通用:ds-section / ds-spin / ds-empty ── */
         .ds-spin { animation: spin 0.8s linear infinite; }
@@ -2313,9 +2232,9 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           gap: 0.8rem;
         }
         .ds-section.card {
-          background: var(--fa-card);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r);
+          background: var(--bg-2);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius);
           padding: 1rem;
         }
         .ds-section-head {
@@ -2327,7 +2246,7 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
         .ds-section-title {
           font-size: 0.92rem;
           font-weight: 600;
-          color: var(--fa-ink);
+          color: var(--ink);
           display: inline-flex;
           align-items: center;
           gap: 0.4rem;
@@ -2339,18 +2258,18 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           min-width: 22px;
           height: 20px;
           padding: 0 0.45rem;
-          background: var(--fa-amber-soft);
-          border: 1px solid var(--fa-amber-line);
+          background: var(--accent-quiet);
+          border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
           border-radius: 999px;
           font-size: 0.68rem;
           font-weight: 700;
-          color: var(--fa-amber);
+          color: var(--accent);
           font-family: var(--font-mono);
         }
         .ds-section-hint {
           margin-left: auto;
           font-size: 0.72rem;
-          color: var(--fa-ink3);
+          color: var(--ink3);
           font-family: var(--font-mono);
         }
         .ds-empty {
@@ -2360,7 +2279,7 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           justify-content: center;
           gap: 0.6rem;
           padding: 2rem 1rem;
-          color: var(--fa-ink3);
+          color: var(--ink3);
           text-align: center;
         }
         .ds-empty-inline {
@@ -2371,23 +2290,23 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
         .ds-input, .ds-textarea {
           width: 100%;
           padding: 0.45rem 0.6rem;
-          background: var(--fa-bg3);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r-sm);
-          color: var(--fa-ink);
+          background: var(--bg-3);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius-sm);
+          color: var(--ink);
           font-size: 0.84rem;
           transition: border-color 0.15s ease;
         }
         .ds-input:focus, .ds-textarea:focus {
           outline: none;
-          border-color: var(--fa-amber);
+          border-color: var(--accent);
         }
         .ds-textarea { resize: vertical; min-height: 80px; font-family: inherit; }
         .ds-field { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
         .ds-field-sm { max-width: 110px; }
         .ds-field-label {
           font-size: 0.68rem;
-          color: var(--fa-ink3);
+          color: var(--ink3);
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.05em;
@@ -2410,9 +2329,9 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           flex-direction: column;
           gap: 0.3rem;
           padding: 0.4rem;
-          background: var(--fa-bg2);
-          border: 1px solid var(--fa-line-hi);
-          border-radius: var(--fa-r);
+          background: var(--bg-2);
+          border: 1px solid var(--hairline-strong);
+          border-radius: var(--radius);
           box-shadow: 0 8px 24px rgba(0,0,0,0.4);
           min-width: 180px;
         }
@@ -2423,25 +2342,25 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           padding: 0.5rem 0.6rem;
           background: transparent;
           border: 1px solid transparent;
-          border-radius: var(--fa-r-sm);
-          color: var(--fa-ink);
+          border-radius: var(--radius-sm);
+          color: var(--ink);
           cursor: pointer;
           text-align: left;
           transition: all 0.15s ease;
         }
-        .ds-grid-pick:hover { background: var(--fa-hi); border-color: var(--fa-amber-line); color: var(--fa-amber-hi); }
+        .ds-grid-pick:hover { background: var(--bg-3); border-color: color-mix(in srgb, var(--accent) 35%, transparent); color: var(--accent); }
         .ds-grid-pick span { display: flex; flex-direction: column; gap: 0.1rem; }
         .ds-grid-pick strong { font-size: 0.85rem; font-weight: 600; }
-        .ds-grid-pick em { font-size: 0.68rem; color: var(--fa-ink3); font-style: normal; }
+        .ds-grid-pick em { font-size: 0.68rem; color: var(--ink3); font-style: normal; }
         .ds-script-preview {
-          border-top: 1px solid var(--fa-line);
+          border-top: 1px solid var(--hairline);
           padding-top: 0.7rem;
           margin-top: 0.2rem;
         }
         .ds-script-preview summary {
           cursor: pointer;
           font-size: 0.78rem;
-          color: var(--fa-ink2);
+          color: var(--ink2);
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.05em;
@@ -2451,17 +2370,17 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
         .ds-script-pre {
           width: 100%;
           padding: 0.7rem 0.8rem;
-          background: var(--fa-bg3);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r-sm);
-          color: var(--fa-ink);
+          background: var(--bg-3);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius-sm);
+          color: var(--ink);
           font-size: 0.85rem;
           line-height: 1.65;
           font-family: var(--font-sans);
           resize: vertical;
           min-height: 180px;
         }
-        .ds-script-pre:focus { outline: none; border-color: var(--fa-amber); }
+        .ds-script-pre:focus { outline: none; border-color: var(--accent); }
         .ds-grid-dl { margin-left: auto; }
         .ds-grid-loading {
           display: flex;
@@ -2469,15 +2388,15 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           justify-content: center;
           gap: 0.6rem;
           padding: 2rem;
-          color: var(--fa-ink3);
+          color: var(--ink3);
         }
         .ds-grid-image {
           display: grid;
           gap: 2px;
-          border-radius: var(--fa-r);
+          border-radius: var(--radius);
           overflow: hidden;
-          background: var(--fa-bg);
-          border: 1px solid var(--fa-line);
+          background: var(--bg-1);
+          border: 1px solid var(--hairline);
         }
         .ds-grid-img {
           width: 100%;
@@ -2498,9 +2417,9 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           display: flex;
           gap: 0.5rem;
           padding: 0.6rem 0.7rem;
-          background: var(--fa-bg3);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r-sm);
+          background: var(--bg-3);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius-sm);
         }
         .ds-grid-shot-idx {
           flex-shrink: 0;
@@ -2508,16 +2427,16 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           height: 22px;
           display: grid;
           place-items: center;
-          background: var(--fa-amber-soft);
-          color: var(--fa-amber);
+          background: var(--accent-quiet);
+          color: var(--accent);
           font-size: 0.7rem;
           font-weight: 700;
           font-family: var(--font-mono);
           border-radius: 4px;
         }
         .ds-grid-shot-body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 0.2rem; }
-        .ds-grid-shot-scene { font-size: 0.82rem; font-weight: 600; color: var(--fa-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .ds-grid-shot-prompt { margin: 0; font-size: 0.72rem; color: var(--fa-ink2); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .ds-grid-shot-scene { font-size: 0.82rem; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ds-grid-shot-prompt { margin: 0; font-size: 0.72rem; color: var(--ink2); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
         /* ── ShotTab:分镜板 ── */
         .ds-shots-section { padding: 1rem 0; }
@@ -2535,13 +2454,13 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           display: flex;
           flex-direction: column;
           gap: 0.6rem;
-          background: var(--fa-card);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r);
+          background: var(--bg-2);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius);
           padding: 0.8rem;
           transition: border-color 0.18s ease;
         }
-        .ds-shot-card:hover { border-color: var(--fa-line-hi); }
+        .ds-shot-card:hover { border-color: var(--hairline-strong); }
         .ds-shot-head {
           display: flex;
           align-items: center;
@@ -2554,7 +2473,7 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           gap: 0.4rem;
           font-size: 0.78rem;
           font-weight: 700;
-          color: var(--fa-amber);
+          color: var(--accent);
           font-family: var(--font-mono);
         }
         .ds-shot-tags { display: flex; gap: 0.3rem; flex-wrap: wrap; }
@@ -2563,67 +2482,67 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           align-items: center;
           gap: 0.25rem;
           padding: 0.15rem 0.45rem;
-          background: var(--fa-bg3);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r-sm);
+          background: var(--bg-3);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius-sm);
           font-size: 0.66rem;
-          color: var(--fa-ink2);
+          color: var(--ink2);
           font-family: var(--font-mono);
         }
         .ds-shot-tag-speaker {
-          background: var(--fa-amber-soft);
-          border-color: var(--fa-amber-line);
-          color: var(--fa-amber);
+          background: var(--accent-quiet);
+          border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+          color: var(--accent);
         }
         .ds-shot-media {
           aspect-ratio: 16/9;
-          background: var(--fa-bg);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r-sm);
+          background: var(--bg-1);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius-sm);
           overflow: hidden;
           display: grid;
           place-items: center;
-          color: var(--fa-ink3);
+          color: var(--ink3);
           position: relative;
         }
         .ds-shot-media video, .ds-shot-media img { width: 100%; height: 100%; object-fit: cover; }
         .ds-shot-placeholder { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; font-size: 0.72rem; }
         .ds-shot-body { display: flex; flex-direction: column; gap: 0.4rem; }
-        .ds-shot-scene { font-size: 0.85rem; font-weight: 600; color: var(--fa-ink); }
-        .ds-shot-prompt { font-size: 0.76rem; color: var(--fa-ink2); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-        .ds-shot-dialogue { font-size: 0.74rem; color: var(--fa-ink3); font-style: italic; padding: 0.3rem 0.5rem; background: var(--fa-bg3); border-radius: var(--fa-r-sm); border-left: 2px solid var(--fa-amber-line); }
-        .ds-shot-audio, .ds-shot-voice { display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; color: var(--fa-ink2); }
+        .ds-shot-scene { font-size: 0.85rem; font-weight: 600; color: var(--ink); }
+        .ds-shot-prompt { font-size: 0.76rem; color: var(--ink2); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+        .ds-shot-dialogue { font-size: 0.74rem; color: var(--ink3); font-style: italic; padding: 0.3rem 0.5rem; background: var(--bg-3); border-radius: var(--radius-sm); border-left: 2px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+        .ds-shot-audio, .ds-shot-voice { display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; color: var(--ink2); }
         .ds-shot-actions { display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
-        .ds-shot-edit { display: flex; flex-direction: column; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--fa-line); }
+        .ds-shot-edit { display: flex; flex-direction: column; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--hairline); }
         .ds-shot-edit-actions { display: flex; gap: 0.3rem; flex-wrap: wrap; }
         .ds-shot-video { width: 100%; }
         .ds-model-row { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
-        .ds-model-label { font-size: 0.68rem; color: var(--fa-ink3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+        .ds-model-label { font-size: 0.68rem; color: var(--ink3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
         .ds-model-select {
           padding: 0.3rem 0.5rem;
-          background: var(--fa-bg3);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r-sm);
-          color: var(--fa-ink);
+          background: var(--bg-3);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius-sm);
+          color: var(--ink);
           font-size: 0.74rem;
         }
-        .ds-model-select:focus { outline: none; border-color: var(--fa-amber); }
-        .ds-model-warn { font-size: 0.66rem; color: var(--fa-red); }
+        .ds-model-select:focus { outline: none; border-color: var(--accent); }
+        .ds-model-warn { font-size: 0.66rem; color: var(--danger); }
         .ds-mini-btn {
           display: inline-flex;
           align-items: center;
           gap: 0.25rem;
           padding: 0.22rem 0.45rem;
-          background: var(--fa-bg3);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r-sm);
-          color: var(--fa-ink2);
+          background: var(--bg-3);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius-sm);
+          color: var(--ink2);
           font-size: 0.68rem;
           cursor: pointer;
           transition: all 0.15s ease;
         }
-        .ds-mini-btn:hover { background: var(--fa-hi); color: var(--fa-ink); border-color: var(--fa-line-hi); }
-        .ds-mini-btn-danger:hover { color: var(--fa-red); border-color: var(--fa-red); background: var(--fa-red-soft); }
+        .ds-mini-btn:hover { background: var(--bg-3); color: var(--ink); border-color: var(--hairline-strong); }
+        .ds-mini-btn-danger:hover { color: var(--danger); border-color: var(--danger); background: var(--danger-quiet); }
         .ds-mini-btn-ref { font-size: 0.66rem; }
 
         /* ── CharacterTab:角色管理 ── */
@@ -2633,21 +2552,21 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           flex-direction: column;
           gap: 0.6rem;
           padding: 1rem;
-          background: var(--fa-card);
-          border: 1px solid var(--fa-amber-line);
-          border-radius: var(--fa-r);
+          background: var(--bg-2);
+          border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+          border-radius: var(--radius);
           margin-bottom: 0.8rem;
         }
-        .ds-char-form-title { font-size: 0.88rem; font-weight: 600; color: var(--fa-amber-hi); }
+        .ds-char-form-title { font-size: 0.88rem; font-weight: 600; color: var(--accent); }
         .ds-char-ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
         .ds-char-item {
           display: grid;
           grid-template-columns: 80px 1fr auto;
           gap: 0.8rem;
           padding: 0.8rem;
-          background: var(--fa-card);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r);
+          background: var(--bg-2);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius);
           align-items: start;
         }
         .ds-char-ref-grid {
@@ -2658,25 +2577,25 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
         }
         .ds-char-ref-thumb {
           aspect-ratio: 3/4;
-          background: var(--fa-bg3);
-          border: 1px solid var(--fa-line);
+          background: var(--bg-3);
+          border: 1px solid var(--hairline);
           border-radius: 4px;
           overflow: hidden;
           display: grid;
           place-items: center;
-          color: var(--fa-ink3);
+          color: var(--ink3);
           font-size: 0.6rem;
           cursor: pointer;
           transition: border-color 0.15s ease;
         }
-        .ds-char-ref-thumb:hover { border-color: var(--fa-amber); }
+        .ds-char-ref-thumb:hover { border-color: var(--accent); }
         .ds-char-ref-thumb img { width: 100%; height: 100%; object-fit: cover; }
-        .ds-char-ref-loading { color: var(--fa-amber); animation: spin 1s linear infinite; }
+        .ds-char-ref-loading { color: var(--accent); animation: spin 1s linear infinite; }
         .ds-char-ref-label { position: absolute; bottom: 1px; left: 1px; padding: 0.05rem 0.2rem; background: rgba(0,0,0,0.7); font-size: 0.5rem; border-radius: 2px; }
-        .ds-char-name { font-size: 0.88rem; font-weight: 600; color: var(--fa-ink); }
-        .ds-char-desc { font-size: 0.74rem; color: var(--fa-ink2); line-height: 1.5; margin-top: 0.25rem; }
-        .ds-char-voice { font-size: 0.7rem; color: var(--fa-ink3); font-family: var(--font-mono); margin-top: 0.3rem; }
-        .ds-char-vp { font-size: 0.68rem; color: var(--fa-ink3); font-family: var(--font-mono); margin-top: 0.2rem; word-break: break-all; }
+        .ds-char-name { font-size: 0.88rem; font-weight: 600; color: var(--ink); }
+        .ds-char-desc { font-size: 0.74rem; color: var(--ink2); line-height: 1.5; margin-top: 0.25rem; }
+        .ds-char-voice { font-size: 0.7rem; color: var(--ink3); font-family: var(--font-mono); margin-top: 0.3rem; }
+        .ds-char-vp { font-size: 0.68rem; color: var(--ink3); font-family: var(--font-mono); margin-top: 0.2rem; word-break: break-all; }
         .ds-char-add { margin-left: auto; }
         .ds-char-foot { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-top: 0.4rem; }
         .ds-char-ref { position: relative; }
@@ -2689,19 +2608,19 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           justify-content: space-between;
           gap: 0.8rem;
           padding: 0.8rem 1rem;
-          background: var(--fa-card);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r);
+          background: var(--bg-2);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius);
         }
-        .ds-assemble-hint { font-size: 0.85rem; color: var(--fa-ink2); }
+        .ds-assemble-hint { font-size: 0.85rem; color: var(--ink2); }
         .ds-assemble-result {
           display: flex;
           flex-direction: column;
           gap: 0.6rem;
           padding: 0.8rem 1rem;
-          background: var(--fa-card);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r);
+          background: var(--bg-2);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius);
         }
         .ds-assemble-result-head {
           display: flex;
@@ -2709,14 +2628,14 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           gap: 0.5rem;
           font-size: 0.88rem;
           font-weight: 600;
-          color: var(--fa-green);
+          color: var(--color-success);
           flex-wrap: wrap;
         }
-        .ds-assemble-dur { margin-left: auto; font-size: 0.75rem; color: var(--fa-ink3); font-family: var(--font-mono); }
+        .ds-assemble-dur { margin-left: auto; font-size: 0.75rem; color: var(--ink3); font-family: var(--font-mono); }
         .ds-assemble-video {
           width: 100%;
           max-height: 60vh;
-          border-radius: var(--fa-r-sm);
+          border-radius: var(--radius-sm);
           background: #000;
         }
 
@@ -2746,24 +2665,24 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           gap: 0.55rem;
           padding: 0.5rem 0.6rem;
           font-size: 0.78rem;
-          color: var(--fa-ink);
-          background: var(--fa-bg2);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r-sm);
+          color: var(--ink);
+          background: var(--bg-2);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius-sm);
         }
         .ds-task-log-item.ds-task-running {
-          border-left: 2px solid var(--fa-amber);
+          border-left: 2px solid var(--accent);
         }
         .ds-task-log-item.ds-task-done {
           opacity: 0.78;
         }
         .ds-task-log-item.ds-task-error {
-          border-left: 2px solid var(--fa-red, #e57373);
+          border-left: 2px solid var(--danger, #e57373);
         }
         .ds-task-label { font-weight: 500; }
         .ds-task-detail {
           font-size: 0.68rem;
-          color: var(--fa-ink3);
+          color: var(--ink3);
           font-family: var(--font-mono);
         }
         .ds-task-status {
@@ -2771,20 +2690,20 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           font-size: 0.66rem;
           padding: 1px 6px;
           border-radius: 4px;
-          background: var(--fa-bg3);
-          color: var(--fa-ink3);
+          background: var(--bg-3);
+          color: var(--ink3);
         }
         .ds-task-log-item.ds-task-running .ds-task-status {
           background: rgba(217, 164, 65, 0.15);
-          color: var(--fa-amber);
+          color: var(--accent);
         }
         .ds-task-log-item.ds-task-done .ds-task-status {
           background: rgba(120, 180, 120, 0.15);
-          color: var(--fa-ink2);
+          color: var(--ink2);
         }
         .ds-task-time {
           font-size: 0.62rem;
-          color: var(--fa-ink3);
+          color: var(--ink3);
           font-family: var(--font-mono);
           opacity: 0.7;
         }
@@ -2792,8 +2711,8 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           width: 7px;
           height: 7px;
           border-radius: 50%;
-          background: var(--fa-amber);
-          box-shadow: 0 0 6px var(--fa-amber);
+          background: var(--accent);
+          box-shadow: 0 0 6px var(--accent);
           animation: task-pulse 2s ease-in-out infinite;
           flex-shrink: 0;
         }
@@ -2808,7 +2727,7 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
         .ds-process-history-hint {
           margin-left: auto;
           font-size: 0.66rem;
-          color: var(--fa-ink3);
+          color: var(--ink3);
           opacity: 0.6;
           font-weight: 400;
         }
@@ -2822,7 +2741,7 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           align-items: center;
           gap: 0.6rem;
           padding: 3rem 1rem;
-          color: var(--fa-ink3);
+          color: var(--ink3);
           text-align: center;
         }
         .ds-process-refresh { margin-left: auto; }
@@ -2839,7 +2758,7 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           top: 4px;
           bottom: 4px;
           width: 2px;
-          background: var(--fa-line);
+          background: var(--hairline);
         }
         .ds-process-node {
           position: relative;
@@ -2853,8 +2772,8 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           width: 16px;
           height: 16px;
           border-radius: 50%;
-          background: var(--fa-bg3);
-          border: 2px solid var(--fa-ink3);
+          background: var(--bg-3);
+          border: 2px solid var(--ink3);
         }
         .ds-process-step {
           display: flex;
@@ -2865,38 +2784,38 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
         }
         .ds-process-step-key {
           font-size: 0.7rem;
-          color: var(--fa-ink3);
+          color: var(--ink3);
           font-family: var(--font-mono);
           text-transform: uppercase;
         }
-        .ds-process-ts { font-size: 0.68rem; color: var(--fa-ink3); font-family: var(--font-mono); }
-        .ds-process-line { font-size: 0.78rem; color: var(--fa-ink2); margin-top: 0.2rem; line-height: 1.5; }
-        .ds-process-detail { font-size: 0.72rem; color: var(--fa-ink3); margin-top: 0.25rem; font-family: var(--font-mono); }
+        .ds-process-ts { font-size: 0.68rem; color: var(--ink3); font-family: var(--font-mono); }
+        .ds-process-line { font-size: 0.78rem; color: var(--ink2); margin-top: 0.2rem; line-height: 1.5; }
+        .ds-process-detail { font-size: 0.72rem; color: var(--ink3); margin-top: 0.25rem; font-family: var(--font-mono); }
         .ds-process-list { margin: 0.3rem 0 0; padding-left: 1rem; display: flex; flex-direction: column; gap: 0.2rem; }
-        .ds-process-list-field { font-size: 0.72rem; color: var(--fa-ink3); }
-        .ds-process-list-name { color: var(--fa-ink2); font-weight: 500; }
-        .ds-process-list-group { font-size: 0.7rem; color: var(--fa-ink3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 0.3rem; }
-        .ds-process-list-title { font-size: 0.82rem; font-weight: 600; color: var(--fa-ink); margin-top: 0.4rem; }
-        .ds-process-list-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.72rem; color: var(--fa-ink2); }
-        .ds-process-list-field-scale { color: var(--fa-amber); font-family: var(--font-mono); }
+        .ds-process-list-field { font-size: 0.72rem; color: var(--ink3); }
+        .ds-process-list-name { color: var(--ink2); font-weight: 500; }
+        .ds-process-list-group { font-size: 0.7rem; color: var(--ink3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 0.3rem; }
+        .ds-process-list-title { font-size: 0.82rem; font-weight: 600; color: var(--ink); margin-top: 0.4rem; }
+        .ds-process-list-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.72rem; color: var(--ink2); }
+        .ds-process-list-field-scale { color: var(--accent); font-family: var(--font-mono); }
         .ds-process-toolbar { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
-        .ds-process-toolbar-label { font-size: 0.68rem; color: var(--fa-ink3); font-weight: 600; text-transform: uppercase; align-self: center; }
+        .ds-process-toolbar-label { font-size: 0.68rem; color: var(--ink3); font-weight: 600; text-transform: uppercase; align-self: center; }
         .ds-process-toolbar-row { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
-        .ds-process-slider { flex: 1; min-width: 120px; accent-color: var(--fa-amber); }
+        .ds-process-slider { flex: 1; min-width: 120px; accent-color: var(--accent); }
         .ds-process-prop { display: flex; flex-direction: column; gap: 0.25rem; }
         .ds-process-prop-input {
           padding: 0.3rem 0.45rem;
-          background: var(--fa-bg3);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r-sm);
-          color: var(--fa-ink);
+          background: var(--bg-3);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius-sm);
+          color: var(--ink);
           font-size: 0.74rem;
           width: 100%;
         }
         .ds-process-canvas {
-          background: var(--fa-card);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r);
+          background: var(--bg-2);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius);
           padding: 1rem;
           min-height: 300px;
           position: relative;
@@ -2907,58 +2826,87 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           align-items: center;
           gap: 0.5rem;
           padding: 3rem 1rem;
-          color: var(--fa-ink3);
+          color: var(--ink3);
           text-align: center;
         }
-        .ds-process-loading { display: flex; align-items: center; gap: 0.5rem; padding: 2rem; color: var(--fa-ink3); justify-content: center; }
+        .ds-process-loading { display: flex; align-items: center; gap: 0.5rem; padding: 2rem; color: var(--ink3); justify-content: center; }
         .ds-process-empty-hint { font-size: 0.78rem; }
         .ds-process-actor-chips { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-top: 0.4rem; }
         .ds-process-actor {
           padding: 0.18rem 0.5rem;
-          background: var(--fa-bg3);
-          border: 1px solid var(--fa-line);
+          background: var(--bg-3);
+          border: 1px solid var(--hairline);
           border-radius: 999px;
           font-size: 0.7rem;
-          color: var(--fa-ink2);
+          color: var(--ink2);
         }
         .ds-director-panel { display: flex; flex-direction: column; gap: 0.7rem; }
         .ds-director-head { display: flex; align-items: center; gap: 0.5rem; }
-        .ds-director-hint { font-size: 0.72rem; color: var(--fa-ink3); line-height: 1.5; }
-        .ds-director-loading { display: flex; align-items: center; gap: 0.5rem; padding: 1rem; color: var(--fa-ink3); justify-content: center; }
-        .ds-director-toolbar { display: flex; flex-direction: column; gap: 0.4rem; padding: 0.6rem; background: var(--fa-bg3); border-radius: var(--fa-r-sm); border: 1px solid var(--fa-line); }
+        .ds-director-hint { font-size: 0.72rem; color: var(--ink3); line-height: 1.5; }
+        .ds-director-loading { display: flex; align-items: center; gap: 0.5rem; padding: 1rem; color: var(--ink3); justify-content: center; }
+        .ds-director-toolbar { display: flex; flex-direction: column; gap: 0.4rem; padding: 0.6rem; background: var(--bg-3); border-radius: var(--radius-sm); border: 1px solid var(--hairline); }
         .ds-director-toolbar-row { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
-        .ds-director-toolbar-label { font-size: 0.68rem; color: var(--fa-ink3); font-weight: 600; text-transform: uppercase; min-width: 32px; }
+        .ds-director-toolbar-label { font-size: 0.68rem; color: var(--ink3); font-weight: 600; text-transform: uppercase; min-width: 32px; }
         .ds-director-actor-chips { display: flex; gap: 0.3rem; flex-wrap: wrap; flex: 1; }
-        .ds-director-empty-hint { font-size: 0.7rem; color: var(--fa-ink3); font-style: italic; }
+        .ds-director-empty-hint { font-size: 0.7rem; color: var(--ink3); font-style: italic; }
         .ds-director-prop-input { flex: 1; min-width: 80px; }
-        .ds-director-slider { flex: 1; min-width: 100px; display: flex; align-items: center; gap: 0.4rem; font-size: 0.7rem; color: var(--fa-ink2); font-family: var(--font-mono); }
-        .ds-director-slider input[type="range"] { flex: 1; accent-color: var(--fa-amber); }
-        .ds-director-canvas { position: relative; width: 100%; aspect-ratio: 16/9; background: var(--fa-bg); border: 1px solid var(--fa-line); border-radius: var(--fa-r-sm); overflow: hidden; }
+        .ds-director-slider { flex: 1; min-width: 100px; display: flex; align-items: center; gap: 0.4rem; font-size: 0.7rem; color: var(--ink2); font-family: var(--font-mono); }
+        .ds-director-slider input[type="range"] { flex: 1; accent-color: var(--accent); }
+        .ds-director-canvas { position: relative; width: 100%; aspect-ratio: 16/9; background: var(--bg-1); border: 1px solid var(--hairline); border-radius: var(--radius-sm); overflow: hidden; }
         .ds-director-actor { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 2px; transform: translate(-50%, -100%); cursor: move; user-select: none; }
         .ds-director-prop { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 2px; transform: translate(-50%, -50%); cursor: move; user-select: none; }
-        .ds-director-canvas-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.4rem; color: var(--fa-ink3); font-size: 0.72rem; }
+        .ds-director-canvas-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.4rem; color: var(--ink3); font-size: 0.72rem; }
         .ds-director-list { display: flex; flex-direction: column; gap: 0.5rem; }
         .ds-director-list-group { display: flex; flex-direction: column; gap: 0.3rem; }
-        .ds-director-list-title { font-size: 0.78rem; font-weight: 600; color: var(--fa-ink); }
-        .ds-director-list-row { display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; color: var(--fa-ink2); }
+        .ds-director-list-title { font-size: 0.78rem; font-weight: 600; color: var(--ink); }
+        .ds-director-list-row { display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; color: var(--ink2); }
         .ds-director-list-name { min-width: 60px; font-weight: 500; }
         .ds-director-list-field { flex: 1; display: flex; align-items: center; gap: 0.3rem; }
-        .ds-director-list-field-scale { color: var(--fa-amber); font-family: var(--font-mono); font-size: 0.68rem; min-width: 40px; text-align: right; }
+        .ds-director-list-field-scale { color: var(--accent); font-family: var(--font-mono); font-size: 0.68rem; min-width: 40px; text-align: right; }
         .ds-director-foot { display: flex; gap: 0.4rem; margin-top: 0.4rem; flex-wrap: wrap; }
         .ds-director-genref {
           padding: 0.25rem 0.5rem;
-          background: var(--fa-bg3);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r-sm);
-          color: var(--fa-ink2);
+          background: var(--bg-3);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius-sm);
+          color: var(--ink2);
           font-size: 0.72rem;
         }
-        .ds-director-notes { font-size: 0.74rem; color: var(--fa-ink2); line-height: 1.5; }
-        .ds-director-mark-name { font-size: 0.72rem; font-weight: 600; color: var(--fa-ink); background: var(--fa-amber-soft); padding: 0.1rem 0.35rem; border-radius: 3px; white-space: nowrap; }
+        .ds-director-notes { font-size: 0.74rem; color: var(--ink2); line-height: 1.5; }
+        .ds-director-mark-name { font-size: 0.72rem; font-weight: 600; color: var(--ink); background: var(--accent-quiet); padding: 0.1rem 0.35rem; border-radius: 3px; white-space: nowrap; }
         /* shot ref upload */
         .ds-shot-ref { display: flex; flex-wrap: wrap; gap: 0.3rem; }
-        .ds-shot-ref-preview { width: 48px; height: 48px; object-fit: cover; border-radius: 4px; border: 1px solid var(--fa-line); cursor: pointer; }
-        .ds-char-ref-files { font-size: 0.66rem; color: var(--fa-ink3); margin-top: 0.2rem; font-family: var(--font-mono); word-break: break-all; }
+        .ds-shot-ref-preview { width: 48px; height: 48px; object-fit: cover; border-radius: 4px; border: 1px solid var(--hairline); cursor: pointer; }
+        .ds-char-ref-files { font-size: 0.66rem; color: var(--ink3); margin-top: 0.2rem; font-family: var(--font-mono); word-break: break-all; }
+
+        /* ── M5 AnalyticsPanel 播放洞察 ── */
+        .ds-analytics-section { display: flex; flex-direction: column; gap: 0.9rem; }
+        .ds-analytics-empty { display: flex; flex-direction: column; align-items: center; gap: 0.55rem; padding: 4rem 1rem; color: var(--ink3); text-align: center; }
+        .ds-analytics-summary { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.6rem; }
+        .ds-analytics-card { display: flex; flex-direction: column; gap: 0.25rem; padding: 0.75rem 0.9rem; background: var(--bg-2); border: 1px solid var(--hairline); border-radius: var(--radius); }
+        .ds-analytics-value { font-size: 1.1rem; font-weight: 700; color: var(--ink); font-family: var(--font-mono); }
+        .ds-analytics-label { font-size: 0.7rem; color: var(--ink3); }
+        .ds-analytics-list { display: flex; flex-direction: column; gap: 0.55rem; }
+        .ds-analytics-shot { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.75rem 0.9rem; background: var(--bg-2); border: 1px solid var(--hairline); border-radius: var(--radius); transition: border-color 0.15s ease; }
+        .ds-analytics-shot:hover { border-color: var(--hairline-strong); }
+        .ds-analytics-shot.hot { border-left: 3px solid var(--color-success); }
+        .ds-analytics-shot.warm { border-left: 3px solid var(--warn); }
+        .ds-analytics-shot.cold { border-left: 3px solid var(--ink3); }
+        .ds-analytics-shot-main { display: flex; flex-direction: column; gap: 0.35rem; }
+        .ds-analytics-shot-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+        .ds-analytics-idx { width: 28px; height: 22px; display: grid; place-items: center; background: var(--accent-quiet); color: var(--accent); font-size: 0.7rem; font-weight: 700; font-family: var(--font-mono); border-radius: 4px; }
+        .ds-analytics-scene { font-size: 0.86rem; font-weight: 600; color: var(--ink); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ds-analytics-time { font-size: 0.68rem; color: var(--ink3); font-family: var(--font-mono); }
+        .ds-analytics-heat { display: flex; align-items: center; gap: 0.5rem; }
+        .ds-analytics-heat-bar { flex: 1; height: 6px; background: var(--hairline); border-radius: 3px; overflow: hidden; }
+        .ds-analytics-heat-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-hover)); border-radius: 3px; }
+        .ds-analytics-heat-score { font-size: 0.75rem; font-weight: 700; color: var(--accent); font-family: var(--font-mono); min-width: 36px; text-align: right; }
+        .ds-analytics-metrics { display: flex; flex-wrap: wrap; gap: 0.45rem; font-size: 0.72rem; color: var(--ink2); }
+        .ds-analytics-metrics > span { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.18rem 0.4rem; background: var(--bg-3); border: 1px solid var(--hairline); border-radius: 999px; }
+        .ds-analytics-drop { color: var(--danger); border-color: var(--danger); background: var(--danger-quiet); }
+        .ds-analytics-suggestions { margin: 0; padding: 0 0 0 1.1rem; display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.76rem; color: var(--ink2); }
+        .ds-analytics-suggestions li { display: flex; align-items: flex-start; gap: 0.35rem; }
+        .ds-analytics-suggestions li svg { flex-shrink: 0; margin-top: 0.15rem; }
 
         /* ── Overlays ── */
         .overlay {
@@ -2975,9 +2923,9 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
         .overlay-panel {
           width: min(1000px, 100%);
           max-height: 85vh;
-          background: var(--fa-bg2);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r);
+          background: var(--bg-2);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius);
           display: flex;
           flex-direction: column;
           overflow: hidden;
@@ -2988,7 +2936,7 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           justify-content: space-between;
           gap: 1rem;
           padding: 1rem 1.1rem;
-          border-bottom: 1px solid var(--fa-line);
+          border-bottom: 1px solid var(--hairline);
         }
         .overlay-head h2 { margin: 0; font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; }
         .overlay-body { flex: 1; overflow: auto; padding: 1rem; }
@@ -3014,7 +2962,7 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           justify-content: center;
           gap: 0.5rem;
           padding: 3rem;
-          color: var(--fa-ink3);
+          color: var(--ink3);
           font-size: 0.85rem;
         }
 
@@ -3044,18 +2992,18 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           justify-content: space-between;
           gap: 1rem;
           padding: 0.7rem 0.9rem;
-          background: var(--fa-card);
-          border: 1px solid var(--fa-line);
-          border-radius: var(--fa-r) var(--fa-r) 0 0;
-          color: var(--fa-ink);
+          background: var(--bg-2);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius) var(--radius) 0 0;
+          color: var(--ink);
           font-size: 0.85rem;
         }
         .ref-overlay-inner img {
           max-width: 100%;
           max-height: 80vh;
           object-fit: contain;
-          border-radius: 0 0 var(--fa-r) var(--fa-r);
-          border: 1px solid var(--fa-line);
+          border-radius: 0 0 var(--radius) var(--radius);
+          border: 1px solid var(--hairline);
           border-top: none;
         }
       `}</style>

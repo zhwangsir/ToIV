@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Icon, type IconName } from "./Icon";
 import {
@@ -76,6 +76,7 @@ export function OptimizeButton({
   const [open, setOpen] = useState(false);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [agentsLoading, setAgentsLoading] = useState(false);
+  const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({});
   const rootRef = useRef<HTMLDivElement | null>(null);
 
   // 新式调用 = 传了 kind + onOptimized(不依赖 onClick)
@@ -83,17 +84,41 @@ export function OptimizeButton({
 
   const isDisabled = disabled || loading || !prompt.trim();
 
-  // 点击外部关闭 Popover
+  // 计算 fixed 定位 Popover 位置，避免被 app-shell overflow:hidden 截断
+  const computePosition = useCallback(() => {
+    if (!rootRef.current) return;
+    const rect = rootRef.current.getBoundingClientRect();
+    const popoverWidth = 260;
+    const gap = 6;
+    let left = rect.left;
+    // 右侧空间不足时向左展开
+    if (left + popoverWidth > window.innerWidth - 16) {
+      left = Math.max(16, rect.right - popoverWidth);
+    }
+    setPopoverStyle({
+      "--ob-popover-top": `${rect.bottom + gap}px`,
+      "--ob-popover-left": `${left}px`,
+    } as React.CSSProperties);
+  }, []);
+
+  // 点击外部关闭 Popover;打开时重算位置并监听窗口变化
   useEffect(() => {
     if (!open) return;
+    computePosition();
     const onDown = (e: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     };
     window.addEventListener("mousedown", onDown);
-    return () => window.removeEventListener("mousedown", onDown);
-  }, [open]);
+    window.addEventListener("resize", computePosition);
+    window.addEventListener("scroll", computePosition, true);
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("resize", computePosition);
+      window.removeEventListener("scroll", computePosition, true);
+    };
+  }, [open, computePosition]);
 
   // 打开 Popover 时拉该 kind 可见智能体(NSFW 过滤交给后端按用户 R18 状态返回)
   useEffect(() => {
@@ -142,7 +167,11 @@ export function OptimizeButton({
     if (newMode) {
       // 新式:允许覆盖 → 弹 Popover;否则直接用全局默认 agent 走
       if (allowAgentOverride) {
-        setOpen((v) => !v);
+        setOpen((v) => {
+          const next = !v;
+          if (next) requestAnimationFrame(computePosition);
+          return next;
+        });
       } else {
         await runOptimize(getLocalAgent());
       }
@@ -178,7 +207,7 @@ export function OptimizeButton({
       </button>
 
       {open && newMode && (
-        <div className="ob-popover" role="listbox">
+        <div className="ob-popover" role="listbox" style={popoverStyle}>
           <div className="ob-popover-header">选择智能体</div>
           {agentsLoading ? (
             <div className="ob-empty">
@@ -261,12 +290,12 @@ export function OptimizeButton({
 
         /* 智能体选择 Popover */
         .ob-popover {
-          position: absolute;
-          top: calc(100% + 4px);
-          left: 0;
-          z-index: 50;
+          position: fixed;
+          top: var(--ob-popover-top, auto);
+          left: var(--ob-popover-left, auto);
+          z-index: 100;
           min-width: 220px;
-          max-width: 300px;
+          max-width: 320px;
           background: var(--bg-1);
           border: 1px solid var(--hairline-strong);
           border-radius: var(--radius-sm);

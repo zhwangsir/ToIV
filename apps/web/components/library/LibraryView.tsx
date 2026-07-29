@@ -81,6 +81,43 @@ interface PreviewState {
   prompt: string;
 }
 
+function ThumbPlaceholder({ job }: { job: JobItem }) {
+  return (
+    <div className="lib-thumb-placeholder">
+      <Icon
+        name={
+          job.status === "running"
+            ? "loading"
+            : job.status === "error"
+              ? "error"
+              : "image"
+        }
+        size={28}
+        strokeWidth={1.4}
+      />
+      {job.status === "running" && (
+        <span className="lib-thumb-status">生成中…</span>
+      )}
+      {job.status === "error" && (
+        <span className="lib-thumb-status">生成失败</span>
+      )}
+    </div>
+  );
+}
+
+function ImageThumb({ job }: { job: JobItem }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <ThumbPlaceholder job={job} />;
+  return (
+    <img
+      src={imageUrl(job.results[0])}
+      alt={job.prompt}
+      loading="lazy"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 export function LibraryView() {
   const [jobs, setJobs] = useState<JobItem[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -200,9 +237,13 @@ export function LibraryView() {
               onClick={() => setFilter(f.key)}
             >
               <span>{f.label}</span>
-              {counts[f.key] > 0 && (
-                <span className="lib-filter-count">{counts[f.key]}</span>
-              )}
+              {/* 始终渲染预留宽度(visibility 控制),避免计数出现后按钮宽度跳动(CLS 加固) */}
+              <span
+                className="lib-filter-count"
+                style={{ visibility: counts[f.key] > 0 ? "visible" : "hidden" }}
+              >
+                {counts[f.key]}
+              </span>
             </button>
           ))}
         </div>
@@ -253,18 +294,15 @@ export function LibraryView() {
                 <article
                   key={job.id}
                   className={`lib-card ${deletingId === job.id ? "is-deleting" : ""}`}
-                  tabIndex={0}
-                  role="button"
-                  aria-label={`预览作品: ${job.prompt || "无提示词"}`}
-                  onClick={() => openPreview(job)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      openPreview(job);
-                    }
-                  }}
                 >
                   <div className="lib-thumb">
+                    {/* 预览触发区用真实 <button>,与删除按钮平级,避免嵌套交互控件(WCAG nested-interactive) */}
+                    <button
+                      type="button"
+                      className="lib-thumb-hit"
+                      aria-label={`预览作品: ${job.prompt || "无提示词"}`}
+                      onClick={() => openPreview(job)}
+                    >
                     {hasResult ? (
                       isVideo ? (
                         <video
@@ -275,32 +313,10 @@ export function LibraryView() {
                           preload="metadata"
                         />
                       ) : (
-                        <img
-                          src={imageUrl(job.results[0])}
-                          alt={job.prompt}
-                          loading="lazy"
-                        />
+                        <ImageThumb job={job} />
                       )
                     ) : (
-                      <div className="lib-thumb-placeholder">
-                        <Icon
-                          name={
-                            job.status === "running"
-                              ? "loading"
-                              : job.status === "error"
-                                ? "error"
-                                : "image"
-                          }
-                          size={28}
-                          strokeWidth={1.4}
-                        />
-                        {job.status === "running" && (
-                          <span className="lib-thumb-status">生成中…</span>
-                        )}
-                        {job.status === "error" && (
-                          <span className="lib-thumb-status">生成失败</span>
-                        )}
-                      </div>
+                      <ThumbPlaceholder job={job} />
                     )}
 
                     <div className="lib-overlay" aria-hidden="true">
@@ -308,6 +324,7 @@ export function LibraryView() {
                         {job.prompt || "（无提示词）"}
                       </div>
                     </div>
+                    </button>
 
                     <button
                       type="button"
@@ -489,6 +506,9 @@ export function LibraryView() {
           color: var(--ink-faint);
           font-family: var(--font-mono);
           letter-spacing: 0.01em;
+          /* 预留宽度:"加载中…" → "N 件作品" 文本切换不挤动相邻元素(CLS 加固) */
+          display: inline-block;
+          min-width: 5em;
         }
 
         .lib-filters {
@@ -533,8 +553,12 @@ export function LibraryView() {
         }
         .lib-filter-count {
           font-size: 0.68rem;
-          opacity: 0.7;
+          /* 取消 opacity 0.7:激活态 accent-soft 文本经透明度衰减后对比度不达 WCAG AA */
           font-family: var(--font-mono);
+          /* 预留宽度:计数从隐藏到显示不改变按钮宽度(CLS 加固) */
+          display: inline-block;
+          min-width: 1.1em;
+          text-align: right;
         }
 
         .lib-body {
@@ -574,6 +598,25 @@ export function LibraryView() {
           aspect-ratio: 1 / 1;
           background: var(--bg-2);
           overflow: hidden;
+        }
+        /* 预览触发按钮:铺满缩略区,重置 button 默认样式 */
+        .lib-thumb-hit {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          padding: 0;
+          border: 0;
+          background: none;
+          cursor: pointer;
+          display: block;
+          text-align: left;
+          color: inherit;
+          font: inherit;
+        }
+        .lib-thumb-hit:focus-visible {
+          outline: 2px solid var(--accent);
+          outline-offset: -2px;
         }
         .lib-thumb img,
         .lib-thumb video {
@@ -772,7 +815,9 @@ export function LibraryView() {
           gap: 0.45rem;
         }
         .skel-line {
-          height: 8px;
+          /* 高度对齐真实 .lib-foot 行高(kind 徽标 ≈1.1rem / seed ≈0.97rem),
+             骨架 → 真实卡片替换时行高一致,卡片底部不跳动(CLS 加固) */
+          height: 0.85rem;
           border-radius: 4px;
           background: var(--bg-2);
         }

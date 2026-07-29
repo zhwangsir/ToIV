@@ -15,11 +15,15 @@ interface DynamicIslandProps {
   views: DynamicIslandView[];
   current: string;
   onSelect: (key: string) => void;
+  /** 菜单展开时触发(用于并行预热视图 chunk) */
+  onMenuOpen?: () => void;
+  /** 菜单项悬停/聚焦时触发(按意向精确预热) */
+  onViewIntent?: (key: string) => void;
 }
 
 type IslandState = "dot" | "menu" | "pill";
 
-export function DynamicIsland({ views, current, onSelect }: DynamicIslandProps) {
+export function DynamicIsland({ views, current, onSelect, onMenuOpen, onViewIntent }: DynamicIslandProps) {
   const [state, setState] = useState<IslandState>("dot");
   const [isHovering, setIsHovering] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -49,6 +53,7 @@ export function DynamicIsland({ views, current, onSelect }: DynamicIslandProps) 
     }
     setIsHovering(true);
     setState("menu");
+    onMenuOpen?.();
   };
 
   const handleMouseLeave = () => {
@@ -75,6 +80,7 @@ export function DynamicIsland({ views, current, onSelect }: DynamicIslandProps) 
   const handleDotClick = () => {
     if (state === "dot" || state === "pill") {
       setState("menu");
+      onMenuOpen?.();
     }
   };
 
@@ -113,7 +119,7 @@ export function DynamicIsland({ views, current, onSelect }: DynamicIslandProps) 
         )}
 
         {state === "pill" && currentView && (
-          <button className="di-pill-button" onClick={() => setState("menu")} aria-label={`当前: ${currentView.label}, 点击打开菜单`}>
+          <button className="di-pill-button" onClick={() => { setState("menu"); onMenuOpen?.(); }} aria-label={`当前: ${currentView.label}, 点击打开菜单`}>
             <span className="di-pill-icon">
               <Icon name={currentView.icon} size={14} strokeWidth={2} />
             </span>
@@ -141,6 +147,8 @@ export function DynamicIsland({ views, current, onSelect }: DynamicIslandProps) 
                         key={view.key}
                         className={`di-menu-item${active ? " is-active" : ""}`}
                         onClick={() => handleSelect(view.key)}
+                        onMouseEnter={() => onViewIntent?.(view.key)}
+                        onFocus={() => onViewIntent?.(view.key)}
                       >
                         <span className="di-menu-item-icon">
                           <Icon name={view.icon} size={13} strokeWidth={active ? 2 : 1.75} />

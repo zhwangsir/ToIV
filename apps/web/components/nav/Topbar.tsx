@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { AgentSwitcher } from "@/components/ui/AgentSwitcher";
 import { Icon } from "@/components/ui/Icon";
 import { useTheme } from "@/hooks/useTheme";
+import { getLlmModel, type LlmModelInfo } from "@/lib/api";
 
 interface TopbarProps {
   account?: string;
@@ -28,7 +29,18 @@ export function Topbar({
   rightPanelOpen,
 }: TopbarProps) {
   const [menuOpenState, setMenuOpenState] = useState(false);
+  const [llmInfo, setLlmInfo] = useState<LlmModelInfo | null>(null);
   const { mode, cycle } = useTheme();
+
+  useEffect(() => {
+    let cancelled = false;
+    getLlmModel().then((info) => {
+      if (!cancelled) setLlmInfo(info);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const themeIcon = mode === "light" ? "sun" : mode === "dark" ? "moon" : "monitor";
   const themeTitle = mode === "auto" ? "跟随系统" : mode === "light" ? "浅色模式" : "深色模式";
@@ -66,10 +78,17 @@ export function Topbar({
       <div className="topbar-right">
         <AgentSwitcher />
 
-        <div className="model-badge" title="当前 LLM 大脑">
-          <span className="model-badge-dot" aria-hidden="true" />
-          <span className="model-badge-label">GLM-5.2</span>
-        </div>
+        {llmInfo?.model && (
+          <div
+            className="model-badge"
+            title={`当前 LLM 大脑: ${llmInfo.display_model || llmInfo.model}`}
+          >
+            <span className="model-badge-dot" aria-hidden="true" />
+            <span className="model-badge-label">
+              {llmInfo.display_model || llmInfo.model}
+            </span>
+          </div>
+        )}
 
         <button
           type="button"

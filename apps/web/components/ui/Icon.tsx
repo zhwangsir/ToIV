@@ -4,6 +4,7 @@ import {
   ArrowUp,
   AlertCircle,
   AlertTriangle,
+  BarChart3,
   Box,
   Boxes,
   BrainCircuit,
@@ -130,8 +131,13 @@ const ICON_MAP = {
   grid: Grid3x3,
   filevideo: FileVideoCamera,
   history: History,
+  // 短剧工作室 M2 追加:资产库道具/通用方块
+  box: Box,
   // 短剧工作室 M3 追加:导演台拖拽手柄
   drag: GripVertical,
+  // 短剧工作室 M5 追加:播放洞察
+  barchart: BarChart3,
+  alert: AlertTriangle,
   // 主题切换
   sun: Sun,
   moon: Moon,
