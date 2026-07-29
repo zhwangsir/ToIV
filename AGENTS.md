@@ -184,6 +184,13 @@ TOIV_DRAMA_VIDEO_DIR=/mnt/toiv-nas/toiv/outputs/drama/final
 > 完整集群拓扑详见 `/Users/wangzhenyu/Desktop/ALLProject/ToIV/设备说明.md`（core 监控中心/设备管家维护,2026-07-28 最新版）
 > AICG 四层模型接入配置详见 `/Users/wangzhenyu/Desktop/ALLProject/AICG-模型接入配置.md`
 
+### 算力部署边界（2026-07-30 用户明确，必须遵守）
+
+- **core 只部署应用层**：toiv-api、toiv-web，以及既有业务依赖 PG18 + Redis。**禁止**在 core 上跑 GPU 推理、批量计算任务、模型权重或大体积产出（core 仅有一张 GTX 1060 桌面卡，不承担推理）。
+- **一切需要算力或大占用的负载跑 workstation**：LLM（L1 vLLM）、TTS（IndexTTS2）、Embedding、ComfyUI worker、数字人（opentalking，规划迁入做实时对话）、模型训练等。
+- **大体积产出落 NAS**（`//192.168.71.7/NAS`），core 通过 `/mnt/toiv-nas` 挂载读写，不在 core 本地沉淀（本地仅作 NAS 不可达时的降级回退）。
+- 新功能接入算力服务时，默认指向 workstation/集群端点；如确需在 core 本地执行计算，必须先说明理由并经项目管家同意。
+
 ### AICG 四层模型流水线（2026-07-28 设备说明）
 
 | 层 | 用途 | 设备 | 端点 | 模型 ID | 引擎 |
