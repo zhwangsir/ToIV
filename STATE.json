@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-07-30T00:20:00+08:00",
+  "updated_at": "2026-07-30T00:50:00+08:00",
   "sync_baseline": {
     "id": "SYNC-2026-07-18",
     "type": "initial-sync",
@@ -200,6 +200,19 @@
       "command": "cd apps/api && .venv/bin/python -m pytest tests/test_drama_studio.py tests/test_lipsync.py tests/test_voice.py tests/test_manju_project.py -q",
       "note": "交接核实:本地64项关键pytest通过(4.23s);core deploy/.env含TOIV_OPENTALKING_ENABLED=false与TOIV_DRAMA_STORYBOARD_LAYER=L1;core代码与本地行级一致(config.py:154,drama_studio.py:914);NAS挂载正常;EXO端点在线但配置的L2/L3模型ID已不在活跃实例中",
       "verified_at": "2026-07-30T00:20:00+08:00"
+    },
+    "drama_studio_e2e_2026_07_30": {
+      "status": "passed",
+      "target": "core(192.168.71.47) 线上真实 GPU 生成",
+      "chain": "login → 建项目 → storyboard(2分镜,9.1s,L1) → 分镜视频生成(LTX t2v,80s 完成) → 分镜配音(IndexTTS2,2.25s wav) → 一键合成(ffmpeg,1.7s) → 成片下载(1.34MB MP4,ftyp 头校验)",
+      "fixes_landed": [
+        "fix(api): model_names 探测覆盖 UpscaleModelLoader 与新版 COMBO 格式(修 generate-video 误报 503 的根因)",
+        "fix(api): /api/jobs 支持 limit 查询参数(默认 50,上限 200)",
+        "core toiv-api systemd Restart 改 always(防 SIGTERM 后不自愈)"
+      ],
+      "regression": "全量 pytest 649 passed, 1 warning, 18.7s",
+      "note": "E2E 前 generate-video 曾 503:required_models(ltx_t2v) 含 RealESRGAN_x2plus.pth(use_upscale 默认 True),但 _MODEL_LOADERS 未含 UpscaleModelLoader 且 worker 用新版 COMBO widget 格式;修复后 worker 探测通过,链路全通",
+      "verified_at": "2026-07-30T00:50:00+08:00"
     },
     "model_pipeline_prep_2026_07_29": {
       "status": "passed",

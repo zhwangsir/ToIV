@@ -4,6 +4,47 @@
 
 ---
 
+## DRAMA-STUDIO-E2E-2026-07-30 · 短剧工作室全链路端到端验证(core 线上真实生成)
+
+**时间**: 2026-07-30 00:50 CST
+**类型**: e2e / bugfix / regression
+**目标**: 打通短剧工作室剩余链路(视频生成、配音、合成、成片播放)
+**环境**: macOS 本地 → core(192.168.71.47) 线上 + workstation GPU 集群真实生成
+
+### 链路验证结果(全部实测)
+
+| # | 环节 | 结果 | 耗时/产物 |
+|---|------|------|-----------|
+| 1 | 登录 admin/admin123 | 通过 | 200, 0.1s |
+| 2 | 创建项目(E2E验证-雨夜) | 通过 | 200 |
+| 3 | storyboard 拆解(2 分镜, L1) | 通过 | 200, 9.1s |
+| 4 | 分镜视频生成(LTX t2v @ 8189) | 通过 | 提交 200,80s 后 video_status=done |
+| 5 | 分镜配音(IndexTTS2) | 通过 | 200,2.25s wav,2.3s |
+| 6 | 一键合成(ffmpeg) | 通过 | 200,1.7s |
+| 7 | 成片下载校验 | 通过 | 200,1,344,132 字节,ftyp 头合法 MP4 |
+
+### 修复的 Bug(均已提交并部署 core 验证)
+
+1. **generate-video 误报 503「没有具备所需模型且可用的 worker」**(commit `d1a039b`)
+   - 根因:`LtxT2VParams.use_upscale` 默认 True → `required_models(ltx_t2v)` 含 `RealESRGAN_x2plus.pth`;但 `_MODEL_LOADERS` 未含 `UpscaleModelLoader`,且该 worker 用新版 COMBO widget 格式(`["COMBO", {"options": [...]}]`),`model_names()` 只认旧版 `[[...]]` 格式 → 放大模型永远探测不到 → 全部 worker 被判不合格
+   - 修复:`_MODEL_LOADERS` 补 `(UpscaleModelLoader, model_name)`;`model_names()` 兼容两种格式
+   - 排查路径:core 上用项目 venv 直接跑 `model_names()` 实测 `missing: {'RealESRGAN_x2plus.pth'}` 定位
+2. **/api/jobs limit 查询参数失效**(commit `bc52eed`):原硬编码 50,改为 `Query(default=50, ge=1, le=200)`;core 实测 `?limit=5` 返回 5 条
+3. **toiv-api 被 SIGTERM 后不自愈**(已部署):unit `Restart=on-failure` → `Restart=always`,daemon-reload 生效
+
+### 回归
+
+- 全量 pytest **649 passed**, 1 warning(Starlette/httpx 弃用), 18.7s
+- 新增用例:`test_comfy_client_models.py` 3 个(两种 object_info 格式 + loader 注册)、`test_jobs_limit_param`
+
+### 遗留
+
+- EXO L2/L3 模型 ID 待 K3 MLX 开源后整体替换(用户决策,暂不操作)
+- 数字人(opentalking)规划迁 workstation Pro 6000 跑实时对话,core 保持 disabled
+- `/drama-studio` 独立前端路由 404(产品决策待定)
+
+---
+
 ## SESSION-HANDOFF-VERIFY-2026-07-29/30 · 交接核实 + core 服务中断恢复
 
 **时间**: 2026-07-30 00:20 CST
