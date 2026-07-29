@@ -4,6 +4,37 @@
 
 ---
 
+## OPENTALKING-STT-QUICKTALK-2026-07-30 · 数字人补全：SenseVoice STT + QuickTalk 真实驱动
+
+**时间**: 2026-07-30 02:40 CST
+**类型**: deploy / model-download / verification
+**目标**: 补齐数字人「耳朵」(STT) 与「脸」(驱动模型)，用户已授权下载
+**环境**: workstation(192.168.71.127) GPU2 + NAS
+
+### 部署与验证结果（全部实测）
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| SenseVoiceSmall STT | 通过 | ModelScope `iic/SenseVoiceSmall` → NAS `toiv/funasr/SenseVoiceSmall/`(936MB)；shim 合成中文语音实测转写**逐字一致**，RTF 0.031；GPU2 推理 |
+| QuickTalk 驱动 | 通过 | HF `datascale-ai/quicktalk`(约 1.75GB,含 HuBERT+buffalo_l) → workstation 本地 `/home/merlin/models/quicktalk/`；冒烟 `opentalking-prepare-cache --verify` exit 0，全部 CUDAExecutionProvider 加载成功，GPU2 显存仅 2097MiB |
+| 默认驱动切换 | 通过 | `:4403/models` → `default_model:quicktalk, quicktalk connected:true`；mock 保留作降级 |
+| health | 通过 | `status:ok, llm:qwen3.6-uncensored, tts:indextts, stt:sensevoice` |
+| core 代理复核 | 通过 | `/api/opentalking/status` enabled:true reachable:true |
+| 既有服务影响 | 无 | GPU0/1/3 显存基线无变化(87805/19599/92548MiB) |
+
+### 关键配置（workstation `/home/merlin/opentalking/.env`）
+
+- `OPENTALKING_STT_DEFAULT_PROVIDER=sensevoice`、`OPENTALKING_STT_SENSEVOICE_MODEL_DIR=/home/merlin/nas_mount/toiv/funasr/SenseVoiceSmall`、`..._DEVICE=cuda:0`
+- `OPENTALKING_DEFAULT_MODEL=quicktalk`、`OPENTALKING_QUICKTALK_BACKEND=local`、`OPENTALKING_QUICKTALK_ASSET_ROOT=/home/merlin/models/quicktalk`
+- systemd `opentalking.service` 加 `Environment=CUDA_VISIBLE_DEVICES=2`（进程内 cuda:0 = 物理 GPU2）
+
+### 备注
+
+- QuickTalk 权重落 workstation 本地盘而非 NAS：hf CLI 经 CIFS 写大文件在 100MB 处卡死，本地盘 rsync+续传 10 秒完成并校验字节数一致。NAS 上的 1.6GB 不完整中间产物已清理。
+- 遗留：① 浏览器端 WebRTC 实时会话未实测（需前端操作 core:3100）；② anchor 之外的 avatar 首轮驱动需现生成缓存（可跑 `opentalking-prepare-cache --avatars-root examples/avatars` 全量预热）。
+
+---
+
 ## OPENTALKING-DEPLOY + AUTO-EDIT-RESEARCH-2026-07-30 · 数字人上线 workstation + 自动剪辑调研 + 全面测试
 
 **时间**: 2026-07-30 01:44 CST
