@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-07-30T00:50:00+08:00",
+  "updated_at": "2026-07-30T01:44:00+08:00",
   "sync_baseline": {
     "id": "SYNC-2026-07-18",
     "type": "initial-sync",
@@ -250,6 +250,22 @@
       "project": "chromium-authed",
       "note": "Playwright 测试用例已编写并通过 tsc 类型检查,未实际执行(需后端+前端 dev server 同时运行)",
       "verified_at": "2026-07-20T05:25:00+08:00"
+    },
+    "opentalking_deploy_2026_07_30": {
+      "status": "passed",
+      "target": "workstation(192.168.71.127:4403) + core 代理",
+      "note": "opentalking 全本地化上线:LLM→vLLM:8000(qwen3.6-uncensored),TTS→IndexTTS2:9200(经 shim:19092),embedding→:9302;systemd opentalking.service+opentalking-tts-shim.service(Restart=always);core .env enabled=true 已生效;/api/opentalking/status enabled:true reachable:true,代理 models/avatars 200;驱动为 mock(CPU),WebRTC 浏览器端未实测;遗留:STT 缺 SenseVoiceSmall 权重、无 QuickTalk/Wav2Lip 权重",
+      "verified_at": "2026-07-30T01:44:00+08:00"
+    },
+    "full_regression_2026_07_30": {
+      "status": "passed",
+      "note": "全面测试:pytest 649 passed(17s);web tsc 0 errors;web build 通过;core login/jobs?limit=5/drama video/web 全200;opentalking status enabled:true reachable:true",
+      "verified_at": "2026-07-30T01:44:00+08:00"
+    },
+    "auto_edit_research_2026_07_30": {
+      "status": "research_done",
+      "note": "自动剪辑现状:/dub/highlights 仅文本级选段无视频落地;选型首选 FunClip(MIT,FunASR 原生,可复用 NAS 模型),备选 auto-editor;建议架构 toiv-clip 微服务 workstation:9400;待 POC(短剧 BGM 场景 Paraformer 识别率)",
+      "verified_at": "2026-07-30T01:44:00+08:00"
     }
   },
   "git": {
@@ -484,10 +500,42 @@
     "aicg_four_layer_pipeline_2026_07_24": {
       "status": "all_four_layers_connected",
       "description": "AICG 四层模型流水线已全部接入 ToIV:agent/llm.py chat_layered() + drama_studio.py refine/polish/polish/batch 端点",
-      "L1_draft": {"endpoint": "http://192.168.71.127:8000/v1", "model": "qwen3.6-uncensored", "engine": "SGLang", "connected": true, "timeout_s": 30, "use_case": "实时交互初稿"},
-      "L2_main": {"endpoint": "http://192.168.71.109:52415/v1", "model": "mlx-community/Kimi-K2.7-Code-4bit", "engine": "EXO", "connected": true, "timeout_s": 120, "max_tokens_default": 4000, "thinking_suppression": "prompt 抑制 + max_tokens 补偿(EXO 不支持 enable_thinking:false)", "use_case": "关键场景润色(同步)"},
-      "L3_polish": {"endpoint": "http://192.168.71.109:52415/v1", "model": "mlx-community/GLM-5.2-fp8", "engine": "EXO", "connected": true, "timeout_s": 300, "max_tokens_default": 8000, "thinking_suppression": "prompt 抑制 + max_tokens 5-6x 补偿(reasoning 占 80%+)", "use_case": "终稿精修(同步) + 异步批量精修(asyncio.create_task + Semaphore 限并发)"},
-      "L4_nsfw": {"endpoint": "http://192.168.71.82:8000/v1", "model": "euryale-70b", "engine": "vLLM TP=2", "connected": true, "timeout_s": 180, "use_case": "NSFW 场景(无审查)"},
+      "L1_draft": {
+        "endpoint": "http://192.168.71.127:8000/v1",
+        "model": "qwen3.6-uncensored",
+        "engine": "SGLang",
+        "connected": true,
+        "timeout_s": 30,
+        "use_case": "实时交互初稿"
+      },
+      "L2_main": {
+        "endpoint": "http://192.168.71.109:52415/v1",
+        "model": "mlx-community/Kimi-K2.7-Code-4bit",
+        "engine": "EXO",
+        "connected": true,
+        "timeout_s": 120,
+        "max_tokens_default": 4000,
+        "thinking_suppression": "prompt 抑制 + max_tokens 补偿(EXO 不支持 enable_thinking:false)",
+        "use_case": "关键场景润色(同步)"
+      },
+      "L3_polish": {
+        "endpoint": "http://192.168.71.109:52415/v1",
+        "model": "mlx-community/GLM-5.2-fp8",
+        "engine": "EXO",
+        "connected": true,
+        "timeout_s": 300,
+        "max_tokens_default": 8000,
+        "thinking_suppression": "prompt 抑制 + max_tokens 5-6x 补偿(reasoning 占 80%+)",
+        "use_case": "终稿精修(同步) + 异步批量精修(asyncio.create_task + Semaphore 限并发)"
+      },
+      "L4_nsfw": {
+        "endpoint": "http://192.168.71.82:8000/v1",
+        "model": "euryale-70b",
+        "engine": "vLLM TP=2",
+        "connected": true,
+        "timeout_s": 180,
+        "use_case": "NSFW 场景(无审查)"
+      },
       "exo_thinking_solution": "方案 B+C 组合(API 参数 enable_thinking:false 实测无效,_NO_THINK_PREFIX prompt 抑制 + L2 max_tokens=4000 / L3 max_tokens=8000 补偿 reasoning 消耗)",
       "endpoints_added": [
         "POST /api/drama/projects/{pid}/refine (L2 同步润色)",
@@ -1096,7 +1144,11 @@
         "status": "reused_from_prior_session",
         "routes_file": "apps/api/app/routes/drama_studio.py",
         "endpoints_count": 16,
-        "models": ["DramaProject", "DramaCharacter", "DramaShot"],
+        "models": [
+          "DramaProject",
+          "DramaCharacter",
+          "DramaShot"
+        ],
         "capabilities": [
           "项目 CRUD(多租户 tenant_id+user_id,ON DELETE CASCADE 级联)",
           "LLM 剧本拆解(system+user prompt → llm.chat() → JSON 解析 → _coerce_shot → 落库;角色 visual_prompt 前置注入保持跨镜一致性)",
@@ -1320,10 +1372,36 @@
         "file": "apps/api/app/agent/llm.py",
         "function": "async def chat_layered(messages, layer='L1', max_tokens=None, temperature=0.5) -> dict",
         "routing": {
-          "L1": {"endpoint": "http://192.168.71.127:8000/v1", "model": "qwen3.6-uncensored", "engine": "SGLang", "timeout_s": 30, "use_case": "实时交互初稿"},
-          "L2": {"endpoint": "http://192.168.71.109:52415/v1", "model": "mlx-community/Kimi-K2.7-Code-4bit", "engine": "EXO", "timeout_s": 120, "max_tokens_default": 4000, "use_case": "关键场景润色(同步)"},
-          "L3": {"endpoint": "http://192.168.71.109:52415/v1", "model": "mlx-community/GLM-5.2-fp8", "engine": "EXO", "timeout_s": 300, "max_tokens_default": 8000, "use_case": "终稿精修(同步 + 异步批量)"},
-          "L4": {"endpoint": "http://192.168.71.82:8000/v1", "model": "euryale-70b", "engine": "vLLM TP=2", "timeout_s": 180, "use_case": "NSFW(无审查)"}
+          "L1": {
+            "endpoint": "http://192.168.71.127:8000/v1",
+            "model": "qwen3.6-uncensored",
+            "engine": "SGLang",
+            "timeout_s": 30,
+            "use_case": "实时交互初稿"
+          },
+          "L2": {
+            "endpoint": "http://192.168.71.109:52415/v1",
+            "model": "mlx-community/Kimi-K2.7-Code-4bit",
+            "engine": "EXO",
+            "timeout_s": 120,
+            "max_tokens_default": 4000,
+            "use_case": "关键场景润色(同步)"
+          },
+          "L3": {
+            "endpoint": "http://192.168.71.109:52415/v1",
+            "model": "mlx-community/GLM-5.2-fp8",
+            "engine": "EXO",
+            "timeout_s": 300,
+            "max_tokens_default": 8000,
+            "use_case": "终稿精修(同步 + 异步批量)"
+          },
+          "L4": {
+            "endpoint": "http://192.168.71.82:8000/v1",
+            "model": "euryale-70b",
+            "engine": "vLLM TP=2",
+            "timeout_s": 180,
+            "use_case": "NSFW(无审查)"
+          }
         }
       },
       "p2_drama_studio_endpoints": {
@@ -1404,7 +1482,9 @@
         "M1.1": {
           "status": "completed",
           "title": "右侧面板默认收起(检查器模式)",
-          "files": ["apps/web/components/drama-studio/DramaStudioView.tsx"],
+          "files": [
+            "apps/web/components/drama-studio/DramaStudioView.tsx"
+          ],
           "changes": [
             "rightCollapsed 初始 true(默认收起,降低主内容区竞争)",
             "useEffect 监听 selectedShotId:选中分镜自动展开检查器,取消选中自动收起",
@@ -1414,7 +1494,9 @@
         "M1.2": {
           "status": "completed",
           "title": "底部时间线默认收起 + 小屏抽屉化",
-          "files": ["apps/web/components/drama-studio/DramaStudioView.tsx"],
+          "files": [
+            "apps/web/components/drama-studio/DramaStudioView.tsx"
+          ],
           "changes": [
             "filmstripCollapsed 初始 true(默认收起)",
             "@media (max-width: 900px) 时间线变为底部固定抽屉(transform translateY + box-shadow)",
@@ -1424,7 +1506,10 @@
         "M1.3": {
           "status": "completed",
           "title": "ProcessTab 改任务/日志详情(两段式布局)",
-          "files": ["apps/web/components/drama-studio/ProcessTab.tsx", "apps/web/components/drama-studio/DramaStudioView.tsx"],
+          "files": [
+            "apps/web/components/drama-studio/ProcessTab.tsx",
+            "apps/web/components/drama-studio/DramaStudioView.tsx"
+          ],
           "changes": [
             "顶部任务日志区:展示 taskLog(进行中+已完成),从 project.taskLog 获取",
             "进行中任务显示 ds-live-dot 红点 + 旋转 loading 图标",
@@ -1435,7 +1520,9 @@
         "M2.1": {
           "status": "completed",
           "title": "ShotTab 顶部批量操作工具栏",
-          "files": ["apps/web/components/drama-studio/ShotTab.tsx"],
+          "files": [
+            "apps/web/components/drama-studio/ShotTab.tsx"
+          ],
           "changes": [
             "ds-batch-toolbar 容器:'生成全部视频' + '批量配音' 两个按钮",
             "pendingCount 徽章显示待生成数量",
@@ -1497,7 +1584,9 @@
         "M3.2": {
           "status": "completed",
           "title": "耗时操作 ETA 提示",
-          "files": ["apps/web/components/drama-studio/AssembleTab.tsx"],
+          "files": [
+            "apps/web/components/drama-studio/AssembleTab.tsx"
+          ],
           "changes": [
             "handleAssemble 包装 assemble():showToast('info', `开始合成 ${doneCount} 个分镜,预计 30-60 秒`)",
             "合成按钮 title 属性:'ffmpeg 拼接 + 自动配音 + 字幕,预计 30-60 秒'",
@@ -1527,7 +1616,10 @@
         "M1.1": {
           "status": "completed",
           "title": "画布与工作室切换修复",
-          "files": ["apps/web/app/page.tsx", "apps/web/components/ui/ModeSwitcher.tsx"],
+          "files": [
+            "apps/web/app/page.tsx",
+            "apps/web/components/ui/ModeSwitcher.tsx"
+          ],
           "changes": [
             "移除独立的 appMode state,mode 由当前 view 派生(view === 'dramaStudio' ? 'studio' : 'canvas')",
             "ModeSwitcher onChange 直接调用 changeView('canvas'|'dramaStudio')",
@@ -1537,7 +1629,10 @@
         "M1.2": {
           "status": "completed",
           "title": "采样器与调度器专业解释",
-          "files": ["apps/web/components/create/CreateView.tsx", "apps/web/lib/sampling.ts"],
+          "files": [
+            "apps/web/components/create/CreateView.tsx",
+            "apps/web/lib/sampling.ts"
+          ],
           "changes": [
             "新建 lib/sampling.ts,定义 SamplerInfo/SchedulerInfo 与 PAIRING_TIPS",
             "为每个采样器/调度器选项提供 summary 说明,显示在对应文字右侧",
@@ -1564,7 +1659,10 @@
         "M1.4": {
           "status": "completed",
           "title": "作品库缩略图加载修复",
-          "files": ["apps/web/components/library/LibraryView.tsx", "apps/web/lib/api.ts"],
+          "files": [
+            "apps/web/components/library/LibraryView.tsx",
+            "apps/web/lib/api.ts"
+          ],
           "changes": [
             "imageUrl() 对非 / 开头的相对路径自动补 /,兼容后端返回的多种路径格式",
             "LibraryView 新增 ImageThumb 与 ThumbPlaceholder 组件",

@@ -4,6 +4,42 @@
 
 ---
 
+## OPENTALKING-DEPLOY + AUTO-EDIT-RESEARCH-2026-07-30 · 数字人上线 workstation + 自动剪辑调研 + 全面测试
+
+**时间**: 2026-07-30 01:44 CST
+**类型**: deploy / research / regression
+**目标**: opentalking 全本地化部署到 workstation；自动剪辑方案调研；全面测试
+
+### opentalking 部署结果（workstation-lan, 全本地化）
+
+- 代码 rsync → `/home/merlin/opentalking/`，uv 托管 CPython 3.11 独立 venv（未碰任何既有服务/GPU 分配）
+- LLM → vLLM `192.168.71.127:8000/v1`（qwen3.6-uncensored，实测 chat 正常）；TTS → IndexTTS2 `:9200`（经新建 shim `127.0.0.1:19092` 做 JSON→form 协议转换，实测合成 93KB wav）；embedding → `:9302`
+- systemd：`opentalking-tts-shim.service` + `opentalking.service`（0.0.0.0:4403，Restart=always，已 enable）
+- core `deploy/.env` 改两行：`TOIV_OPENTALKING_ENABLED=true`、`TOIV_OPENTALKING_BASE_URL=http://192.168.71.127:4403`，重启 toiv-api
+- 验证：`/api/opentalking/status` → `enabled:true, reachable:true, model:qwen3.6-uncensored, tts_provider:indextts`；代理 `models`/`avatars` 均 200
+- 驱动模式：mock（CPU 静态帧，零 GPU 占用）；WebRTC 浏览器端会话未实测（需前端操作）
+- 遗留：① STT 无本地权重（需 iic/SenseVoiceSmall，NAS 现有 paraformer 不被 opentalking 支持）→ 语音输入暂不可用，文字对话正常；② NAS 无 QuickTalk/Wav2Lip 权重 → 真实数字人驱动待补权重（QuickTalk 约 3.8GB VRAM，建议 GPU2）；③ shim 脚本只在 workstation，未入 git
+
+### 自动剪辑调研结论
+
+- **现状**：现有「AI 精剪」(`/dub/highlights`) 只到 LLM 选字幕序号为止，**没有裁段出视频的落地端点**；autocut 场景/静音切分仅用于对口型分段。真正的「长视频→高光集锦视频」不存在实现。
+- **选型**：首选 **FunClip**（MIT，6.1k★，modelscope 官方维护当天仍 push，FunASR 原生可复用 NAS 模型，中文 Paraformer+说话人识别，LLM 选段可接 L1 vLLM）；备选 **auto-editor**（Unlicense，零 GPU 去静音物理粗剪，作前置工序）
+- **建议架构**：workstation 新增 `toiv-clip` FastAPI 微服务（建议 :9400，GPU1/2，模型指 NAS funasr 目录），core 侧 `routers/clips.py` 薄封装调用；流水线 = auto-editor 去静音 → Paraformer 转写+说话人 → L1 LLM 高光选段 → ffmpeg `-c copy` 无损切片 → 落 NAS `toiv/outputs/videos/clips/`
+- 可复用积木已盘点：`_slice_video`/`_concat_parts`/`_build_ffmpeg_command`/whisper 契约/任务队列模式（见调研报告）
+
+### 全面测试结果（全部实测）
+
+| 检查项 | 结果 |
+|---|---|
+| 全量 pytest | 649 passed, 1 warning, 17s |
+| 前端 tsc --noEmit | 0 errors |
+| 前端 npm run build | 通过（Next.js 15.5.19） |
+| core login / jobs?limit=5 / drama video / web | 全 200 |
+| core opentalking status + 代理 models/avatars | enabled:true reachable:true / 双 200 |
+| workstation opentalking health / LLM / TTS shim | status:ok / chat 正常 / 93KB wav |
+
+---
+
 ## DRAMA-STUDIO-E2E-2026-07-30 · 短剧工作室全链路端到端验证(core 线上真实生成)
 
 **时间**: 2026-07-30 00:50 CST
