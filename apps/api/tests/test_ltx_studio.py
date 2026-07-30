@@ -7,7 +7,8 @@
   · SFW 底模无门槛 → 200 且 Job.nsfw=False
   · LoRA 注入:图含 LoraLoader 链、KSampler.model/CLIP.clip 接链末端、pool.pick required 含 LoRA
   · POST /api/ltx2/i2v:图片 worker 缺模型 → 503;齐全 → 200
-  · 图构建器:loras 为空时图与旧版一致(向后兼容)
+  · POST /api/ltx2/lipdub:路径穿越/非法帧数 422、worker 缺 IC-LoRA 503、提交图与 Job 断言
+  · 图构建器:loras 为空时图与旧版一致(向后兼容);lipdub 单阶段/二阶段图结构
 """
 from __future__ import annotations
 
@@ -25,8 +26,11 @@ from app.security import create_token, hash_password
 from app.workflows.lora import LoraSpec
 from app.workflows.ltx_video import (
     LtxI2VParams,
+    LtxLipdubParams,
     LtxT2VParams,
+    _distilled_sigmas,
     build_ltx_i2v_graph,
+    build_ltx_lipdub_graph,
     build_ltx_t2v_graph,
 )
 
@@ -413,3 +417,212 @@ def test_builder_i2v_lora_chain():
     assert g["100"]["inputs"]["model"] == ["1", 0]
     assert g["12"]["inputs"]["model"] == ["100", 0]
     assert g["9"]["class_type"] == "LoadImage"
+
+
+# --------------------------------------------------------------------------- #
+# LipDub:图构建器
+# --------------------------------------------------------------------------- #
+
+_LIPDUB_CKPT = "ltx-2.3-22b-distilled-1.1.safetensors"
+_LIPDUB_LORA = "ltx2.3/ltx-2.3-22b-ic-lora-lipdub-0.9.safetensors"
+_LIPDUB_TE = "gemma_3_12B_it_fp8_scaled.safetensors"
+_OFFICIAL_SIGMAS_S1 = "1, 0.99375, 0.9875, 0.98125, 0.975, 0.909375, 0.725, 0.421875, 0"
+
+
+def _lipdub_models(*extra: str) -> set[str]:
+    """LipDub 依赖模型集合(22B ckpt + fp8 gemma + IC-LoRA)。"""
+    return {_LIPDUB_CKPT, _LIPDUB_TE, _LIPDUB_LORA, *extra}
+
+
+def test_builder_lipdub_single_stage_structure():
+    """单阶段:关键节点齐全、IC-LoRA/视频/音频引用正确、cfg=1、官方 sigma 表。"""
+    g = build_ltx_lipdub_graph(LtxLipdubParams(positive="说: 你好", video="in.mp4", seed=42))
+
+    # 模型与编码器
+    assert g["1"] == {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": _LIPDUB_CKPT}}
+    assert g["2"]["class_type"] == "LTXAVTextEncoderLoader"
+    assert g["2"]["inputs"]["text_encoder"] == _LIPDUB_TE
+    assert g["3"] == {"class_type": "LTXVAudioVAELoader", "inputs": {"ckpt_name": _LIPDUB_CKPT}}
+    # IC-LoRA 名与强度,挂在 checkpoint MODEL 之后
+    assert g["4"]["class_type"] == "LTXICLoRALoaderModelOnly"
+    assert g["4"]["inputs"]["model"] == ["1", 0]
+    assert g["4"]["inputs"]["lora_name"] == _LIPDUB_LORA
+    assert g["4"]["inputs"]["strength_model"] == 1.0
+    # 输入视频引用
+    assert g["5"] == {"class_type": "LoadVideo", "inputs": {"file": "in.mp4"}}
+    assert g["6"]["class_type"] == "GetVideoComponents"
+    assert g["9"]["class_type"] == "LTXVConditioning"
+    assert g["9"]["inputs"]["frame_rate"] == ["6", 2]
+    # 缺省嗓音参考 = 原视频音轨(GetVideoComponents:1)
+    assert "16" not in g
+    assert g["15"]["class_type"] == "LTXVAudioVAEEncode"
+    assert g["15"]["inputs"]["audio"] == ["6", 1]
+    assert g["15"]["inputs"]["audio_vae"] == ["3", 0]
+    # 引导 / 参考 tokens / AV 拼接
+    assert g["14"]["class_type"] == "LTXAddVideoICLoRAGuide"
+    assert g["14"]["inputs"]["vae"] == ["1", 2]
+    assert g["14"]["inputs"]["image"] == ["10", 0]
+    assert g["14"]["inputs"]["latent"] == ["11", 0]
+    assert g["14"]["inputs"]["latent_downscale_factor"] == 1.0
+    assert g["17"]["class_type"] == "LTXVSetAudioRefTokens"
+    assert g["17"]["inputs"]["audio_latent"] == ["15", 0]
+    assert g["18"]["class_type"] == "LTXVConcatAVLatent"
+    assert g["18"]["inputs"]["video_latent"] == ["14", 2]
+    assert g["18"]["inputs"]["audio_latent"] == ["13", 0]
+    # 采样:distilled cfg=1 + 官方 sigma 表 + 指定 seed
+    assert g["22"]["class_type"] == "CFGGuider"
+    assert g["22"]["inputs"]["model"] == ["4", 0]
+    assert g["22"]["inputs"]["cfg"] == 1.0
+    assert g["19"]["inputs"]["noise_seed"] == 42
+    assert g["21"]["inputs"]["sigmas"] == _OFFICIAL_SIGMAS_S1
+    assert g["23"]["class_type"] == "SamplerCustomAdvanced"
+    # 解码与封装:单阶段从 25/24 取 latent,fps 跟输入视频
+    assert g["25"]["class_type"] == "LTXVCropGuides"
+    assert g["26"]["class_type"] == "LTXVTiledVAEDecode"
+    assert g["26"]["inputs"]["latents"] == ["25", 2]
+    assert g["27"]["class_type"] == "LTXVAudioVAEDecode"
+    assert g["27"]["inputs"]["samples"] == ["24", 1]
+    assert g["28"]["class_type"] == "CreateVideo"
+    assert g["28"]["inputs"]["audio"] == ["27", 0]
+    assert g["28"]["inputs"]["fps"] == ["6", 2]
+    assert g["29"]["class_type"] == "SaveVideo"
+    assert g["29"]["inputs"]["video"] == ["28", 0]
+    # 单阶段无二阶段节点
+    assert not any(n["class_type"] == "LTXVLatentUpsampler" for n in g.values())
+
+
+def test_builder_lipdub_custom_audio_and_strength():
+    """显式 audio → LoadAudio 节点接入 AudioVAEEncode;IC-LoRA 强度可调。"""
+    g = build_ltx_lipdub_graph(LtxLipdubParams(
+        positive="说: 你好", video="in.mp4", audio="tts.wav", lipdub_lora_strength=0.7,
+    ))
+    assert g["16"] == {"class_type": "LoadAudio", "inputs": {"audio": "tts.wav"}}
+    assert g["15"]["inputs"]["audio"] == ["16", 0]
+    assert g["4"]["inputs"]["strength_model"] == 0.7
+
+
+def test_builder_lipdub_two_stage_structure():
+    """two_stage=True:追加 latent 上采样 + 二阶段采样,解码改取二阶段输出。"""
+    g = build_ltx_lipdub_graph(LtxLipdubParams(positive="说: 你好", video="in.mp4", two_stage=True))
+    assert g["30"]["class_type"] == "LatentUpscaleModelLoader"
+    assert g["30"]["inputs"]["model_name"] == "ltx-2.3-spatial-upscaler-x2-1.1.safetensors"
+    assert g["31"]["class_type"] == "LTXVLatentUpsampler"
+    assert g["31"]["inputs"]["samples"] == ["25", 2]
+    # 二阶段引导:latent 来自上采样,引导图 2× 尺寸;音频冻结一阶段结果
+    assert g["34"]["class_type"] == "LTXAddVideoICLoRAGuide"
+    assert g["34"]["inputs"]["latent"] == ["31", 0]
+    assert g["33"]["inputs"]["resize_type.width"] == 1920
+    assert g["33"]["inputs"]["resize_type.height"] == 1088
+    assert g["36"]["inputs"]["audio_latent"] == ["32", 2]
+    assert g["39"]["inputs"]["sigmas"] == "0.909375, 0.725, 0.421875, 0.0"
+    assert g["40"]["class_type"] == "SamplerCustomAdvanced"
+    assert g["26"]["inputs"]["latents"] == ["42", 2]
+    assert g["27"]["inputs"]["samples"] == ["41", 1]
+
+
+def test_distilled_sigmas_resample():
+    """steps≠8 时 sigma 曲线按官方形状重采样:点数 steps+1,首尾 1.0/0.0。"""
+    sigmas = [float(x) for x in _distilled_sigmas(4).split(",")]
+    assert len(sigmas) == 5
+    assert sigmas[0] == 1.0 and sigmas[-1] == 0.0
+    assert all(a >= b for a, b in zip(sigmas, sigmas[1:]))  # 单调不增
+    # steps=8 与官方完全一致
+    assert _distilled_sigmas(8) == _OFFICIAL_SIGMAS_S1
+
+
+# --------------------------------------------------------------------------- #
+# LipDub:端点
+# --------------------------------------------------------------------------- #
+
+
+def test_lipdub_rejects_path_traversal(client):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "ltx2lipdub-traversal")
+    r = c.post(
+        "/api/ltx2/lipdub",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={"positive": "x", "video": "../secret.mp4", "worker": "http://fake-worker"},
+    )
+    assert r.status_code == 422
+
+
+def test_lipdub_rejects_bad_length(client):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "ltx2lipdub-len")
+    r = c.post(
+        "/api/ltx2/lipdub",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={"positive": "x", "video": "in.mp4", "worker": "http://fake-worker", "length": 100},
+    )
+    assert r.status_code == 422
+
+
+def test_lipdub_missing_model_on_worker_503(client, monkeypatch):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "ltx2lipdub-miss")
+    fake = _FakeClient({_LIPDUB_CKPT, _LIPDUB_TE})  # 缺 IC-LoRA
+    monkeypatch.setattr(ltx_studio_route, "resolve_worker", lambda worker: fake)
+    r = c.post(
+        "/api/ltx2/lipdub",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={"positive": "x", "video": "in.mp4", "worker": "http://fake-worker"},
+    )
+    assert r.status_code == 503
+    assert _LIPDUB_LORA in r.json()["detail"]
+
+
+def test_lipdub_ok_submits_graph_and_job(client, monkeypatch):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "ltx2lipdub-ok")
+    fake = _FakeClient(_lipdub_models())
+    monkeypatch.setattr(ltx_studio_route, "resolve_worker", lambda worker: fake)
+    monkeypatch.setattr(ltx_studio_route, "spawn_tracker", lambda client, prompt_id: None)
+    r = c.post(
+        "/api/ltx2/lipdub",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={
+            "positive": "一位车手用中文说: 大家好",
+            "video": "in.mp4",
+            "audio": "tts.wav",
+            "worker": "http://fake-worker",
+            "length": 73,
+            "seed": 7,
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["prompt_id"] == "prompt-ltx2-1"
+    assert r.json()["seed"] == 7
+
+    graph = fake.graphs[0]
+    assert graph["5"]["inputs"]["file"] == "in.mp4"
+    assert graph["16"]["inputs"]["audio"] == "tts.wav"
+    assert graph["4"]["inputs"]["lora_name"] == _LIPDUB_LORA
+    assert graph["11"]["inputs"]["length"] == 73
+    assert graph["19"]["inputs"]["noise_seed"] == 7
+
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        assert job is not None
+        assert job.kind == "ltx2_lipdub"
+        assert job.nsfw is False
+        assert job.seed == 7
+
+
+def test_lipdub_two_stage_requires_upscaler_on_worker(client, monkeypatch):
+    """two_stage=True 时 upscaler 并入模型校验,worker 缺失 → 503。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "ltx2lipdub-2stage")
+    fake = _FakeClient(_lipdub_models())  # 缺 ltx-2.3-spatial-upscaler
+    monkeypatch.setattr(ltx_studio_route, "resolve_worker", lambda worker: fake)
+    r = c.post(
+        "/api/ltx2/lipdub",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={"positive": "x", "video": "in.mp4", "worker": "http://fake-worker", "two_stage": True},
+    )
+    assert r.status_code == 503
+    assert "ltx-2.3-spatial-upscaler-x2-1.1.safetensors" in r.json()["detail"]

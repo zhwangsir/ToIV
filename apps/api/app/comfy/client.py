@@ -47,6 +47,9 @@ _MODEL_LOADERS = [
     # LTXVideo 自定义节点(gemma 文本编码器从 text_encoders 目录加载,
     # 不在标准 CLIPLoader 范围内,否则 LTX 链路会被误判为缺模型 → /generate-video 503)
     ("LTXVGemmaCLIPModelLoader", "gemma_path"),
+    # LTX-2.3 LipDub:AV 文本编码器(text_encoders 目录)+ latent 上采样模型(two_stage)
+    ("LTXAVTextEncoderLoader", "text_encoder"),
+    ("LatentUpscaleModelLoader", "model_name"),
     # 高清修复放大模型(LTX use_upscale=True 时 required_models 含 upscale_model,
     # 缺此项会误判 worker 缺模型 → /generate-video 503)
     ("UpscaleModelLoader", "model_name"),

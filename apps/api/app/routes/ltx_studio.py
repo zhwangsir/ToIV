@@ -3,11 +3,12 @@
 GET  /api/ltx2/models —— 板块可用资产清单(白名单底模 + loras/ltx2.3/ LoRA,带 worker 可用性)
 POST /api/ltx2/t2v    —— 文生视频(底模白名单 + LoRA 叠加,最多 3 个)
 POST /api/ltx2/i2v    —— 图生视频(同上 + image/worker)
+POST /api/ltx2/lipdub —— 视频重配音对口型(IC-LoRA 链路,video/audio 文件名 + worker)
 
 与 NSFW 专区(/api/generate/ltx-*)的区别:
 - 底模白名单可选:distilled/dev(SFW)无门槛;10eros(NSFW)仍走 _gate_ltx_nsfw
 - 支持 LoRA 叠加:图中在 UNET 之后、采样之前注入 LoraLoader 链(txt2img 同款模式)
-- Job kind 独立(ltx2_t2v / ltx2_i2v),按所选底模打 nsfw 标(10eros → True)
+- Job kind 独立(ltx2_t2v / ltx2_i2v / ltx2_lipdub),按所选底模打 nsfw 标(10eros → True)
 """
 from __future__ import annotations
 
@@ -31,8 +32,10 @@ from app.versioning import params_snapshot
 from app.workflows.lora import LoraSpec
 from app.workflows.ltx_video import (
     LtxI2VParams,
+    LtxLipdubParams,
     LtxT2VParams,
     build_ltx_i2v_graph,
+    build_ltx_lipdub_graph,
     build_ltx_t2v_graph,
 )
 
@@ -138,6 +141,39 @@ class Ltx2I2VRequest(Ltx2T2VRequest):
     worker: str  # 图片所在 worker(防 SSRF)
 
 
+class Ltx2LipdubRequest(BaseModel):
+    """LTX-2.3 工作室 LipDub 请求(视频重配音对口型,IC-LoRA 链路)。"""
+    video: str = Field(min_length=1, max_length=512)  # worker input 目录中的视频文件名
+    worker: str  # 视频/音频所在 worker(防 SSRF)
+    audio: str | None = Field(default=None, max_length=512)  # 嗓音参考音频;空=用原视频音轨
+    positive: str = Field(min_length=1, max_length=4000)  # 场景描述 + 新台词(原生文字)
+    negative: str = Field(default="", max_length=2000)
+    width: int = Field(default=960, ge=256, le=1920)
+    height: int = Field(default=544, ge=256, le=1088)
+    length: int = Field(default=121, ge=9, le=241)  # 输出帧数,必须 8k+1 且 ≤ 视频帧数
+    steps: int = Field(default=8, ge=1, le=50)
+    seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
+    lipdub_lora_strength: float = Field(default=1.0, ge=0.0, le=2.0)
+    two_stage: bool = False  # 预留:True 追加官方二阶段(latent 2× 上采样精修)
+
+    @field_validator("video", "audio")
+    @classmethod
+    def _no_traversal(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        name = v.strip().replace("\\", "/")
+        if ".." in name or name.startswith("/"):
+            raise ValueError("文件名不允许路径穿越")
+        return name
+
+    @field_validator("length")
+    @classmethod
+    def _frames_mod8(cls, v: int) -> int:
+        if (v - 1) % 8 != 0:
+            raise ValueError("length 必须为 8k+1(LTX 帧数约束)")
+        return v
+
+
 # ──────────────────────────────────────────────────────────────
 # POST /api/ltx2/t2v | /api/ltx2/i2v
 # ──────────────────────────────────────────────────────────────
@@ -214,28 +250,84 @@ async def generate_ltx2_i2v(
     return await _submit_ltx2_job(graph, params, req, "ltx2_i2v", user, session, pool, client=client)
 
 
+# ──────────────────────────────────────────────────────────────
+# POST /api/ltx2/lipdub —— 视频重配音对口型(IC-LoRA)
+# ──────────────────────────────────────────────────────────────
+
+@router.post("/ltx2/lipdub")
+async def generate_ltx2_lipdub(
+    req: Ltx2LipdubRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+    pool: WorkerPool = Depends(get_pool),
+):
+    """LTX-2.3 工作室 LipDub(视频重配音对口型)。
+
+    素材准备(v1):video/audio 须已在目标 worker 的 input 目录——可用 worker 原生
+    POST /upload/image(multipart 字段 image,接受 mp4/wav)或 ToIV POST /api/upload
+    (kind=ltx_lipdub&worker=<url>)上传后引用文件名。
+    positive 须含新台词(目标语言原生文字),模型按提示词生成新口型与新语音;
+    audio 仅作嗓音参考(缺省用原视频音轨)。台词长度与原片台词相近效果最佳。
+    """
+    enforce_generation_rate_limit(user)
+
+    client = resolve_worker(req.worker)
+    params = LtxLipdubParams(
+        positive=req.positive,
+        video=req.video,
+        audio=req.audio or "",
+        negative=req.negative,
+        lipdub_lora_strength=req.lipdub_lora_strength,
+        width=req.width,
+        height=req.height,
+        length=req.length,
+        steps=req.steps,
+        seed=req.seed if req.seed is not None else LtxLipdubParams(positive="", video="").seed,
+        two_stage=req.two_stage,
+    )
+    graph = build_ltx_lipdub_graph(params)
+    model_set = {params.ckpt_name, params.gemma_name, params.lipdub_lora}
+    node_set = required_nodes("ltx_lipdub")
+    if params.two_stage:
+        model_set.add(params.upscale_model)
+        node_set = node_set | {"LatentUpscaleModelLoader", "LTXVLatentUpsampler"}
+    return await _submit_ltx2_job(
+        graph, params, req, "ltx2_lipdub", user, session, pool,
+        client=client, model_set=model_set, node_set=node_set, nsfw=False,
+    )
+
+
 async def _submit_ltx2_job(
     graph: dict,
-    params: LtxT2VParams | LtxI2VParams,
-    req: Ltx2T2VRequest,
+    params: LtxT2VParams | LtxI2VParams | LtxLipdubParams,
+    req: Ltx2T2VRequest | Ltx2LipdubRequest,
     kind: str,
     user: User,
     session: Session,
     pool: WorkerPool,
     client: ComfyUIClient | None = None,
+    model_set: set[str] | None = None,
+    node_set: set[str] | None = None,
+    nsfw: bool | None = None,
 ):
     """提交 LTX2 工作室作业:pool.pick(含 LoRA 模型要求)→ queue_prompt → 落 Job → 后台追踪。
 
-    client=None(t2v)时按所需模型/节点选 worker;i2v 由图片所在 worker 指定,
+    client=None(t2v)时按所需模型/节点选 worker;i2v/lipdub 由素材所在 worker 指定,
     此时校验该 worker 持有全部所需模型(缺则 503,避免 ComfyUI 执行期 400)。
+    lipdub 的资产体系与 t2v/i2v 不同(22B checkpoint + IC-LoRA),由调用方显式传入
+    model_set/node_set/nsfw;缺省保持 t2v/i2v 原有推导逻辑不变。
     """
-    model_set = {params.unet_name, params.gemma_name, params.vae_name}
-    model_set |= {lora.name for lora in params.loras}
-    if params.use_upscale:
-        model_set.add(params.upscale_model)
-    node_set = required_nodes("ltx_i2v" if kind == "ltx2_i2v" else "ltx_t2v")
-    if params.loras:
-        node_set = node_set | {"LoraLoader"}
+    if model_set is None:
+        model_set = {params.unet_name, params.gemma_name, params.vae_name}
+        model_set |= {lora.name for lora in params.loras}
+        if params.use_upscale:
+            model_set.add(params.upscale_model)
+    if node_set is None:
+        node_set = required_nodes("ltx_i2v" if kind == "ltx2_i2v" else "ltx_t2v")
+        if params.loras:
+            node_set = node_set | {"LoraLoader"}
+    if nsfw is None:
+        nsfw = params.unet_name in _NSFW_UNETS
 
     if client is None:
         try:
@@ -246,11 +338,11 @@ async def _submit_ltx2_job(
         try:
             owned = await client.model_names()
         except ComfyUIError as e:
-            raise HTTPException(status_code=503, detail=f"图片所在 worker 不可达: {e}") from e
+            raise HTTPException(status_code=503, detail=f"素材所在 worker 不可达: {e}") from e
         missing = sorted(model_set - owned)
         if missing:
             raise HTTPException(
-                status_code=503, detail=f"图片所在 worker 缺少模型: {', '.join(missing)}"
+                status_code=503, detail=f"素材所在 worker 缺少模型: {', '.join(missing)}"
             )
 
     client_id = uuid.uuid4().hex
@@ -269,7 +361,7 @@ async def _submit_ltx2_job(
             status="queued",
             prompt=params.positive,
             seed=params.seed,
-            nsfw=params.unet_name in _NSFW_UNETS,
+            nsfw=nsfw,
             params=params_snapshot(req, seed=params.seed),
         )
     )

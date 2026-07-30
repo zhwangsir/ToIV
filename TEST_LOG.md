@@ -4,6 +4,21 @@
 
 ---
 
+## LIPDUB-2026-07-30 · LipDub(LTX-2.3 IC-LoRA 视频重配音)端点上线
+
+**时间**: 2026-07-30 13:30 CST
+**类型**: feature / ops / regression
+
+### 内容
+
+1. **官方工作流复刻**:解析 ComfyUI-LTXVideo 官方 50 节点 LipDub 示例,实现单阶段 distilled 链路(两阶段预留 `two_stage`)。**关键语义**:LipDub 是 prompt 驱动——新台词写提示词,模型同时生成新口型与新语音;`audio` 输入仅为嗓音参考(缺省回退原视频音轨)
+2. **后端**:`workflows/ltx_video.py` 新增 `LtxLipdubParams`+`build_ltx_lipdub_graph`(distilled sigma 表与官方逐值一致);`POST /api/ltx2/lipdub`(video/audio 文件名、length 8k+1 校验、LoRA 强度);capabilities/client 探测扩展
+3. **排障**:① `ResizeImageMaskNode` 子输入须 `resize_type.width` 命名;② HF 目录形式 gemma 缺内嵌 tokenizer,换用 ComfyUI 官方 repack `gemma_3_12B_it_fp8_scaled.safetensors`(env 可覆盖);③ latent upscaler 属 `latent_upscale_models` 目录(非 upscale_models),NAS 迁移 + extra_model_paths 补 key(5 台)后 1.1/temporal 可见
+4. **E2E 实测(worker :8189)**:lipdub_input 素材 73 帧 + IndexTTS2 中文嗓音参考 → 330s 出片,h264 960x544@25fps + aac 48kHz 音轨,峰值 -4.65dB 真实语音,画面口部动作真实
+5. 回归:pytest **682 passed**(新增 8),未动既有 ltx 端点
+
+---
+
 ## LTX2-STUDIO-2026-07-30 · LTX-2.3 独立板块上线 + worker 新模型接入
 
 **时间**: 2026-07-30 12:00 CST

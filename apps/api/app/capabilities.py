@@ -7,7 +7,7 @@ from __future__ import annotations
 from app.workflows.ace_step import AceStepParams
 from app.workflows.hunyuan3d import Hunyuan3DParams
 from app.workflows.hunyuan_i2v import HunyuanI2VParams
-from app.workflows.ltx_video import LtxI2VParams, LtxLipsyncParams, LtxT2VParams
+from app.workflows.ltx_video import LtxI2VParams, LtxLipdubParams, LtxLipsyncParams, LtxT2VParams
 from app.workflows.txt2img import Txt2ImgParams
 from app.workflows.wan_i2v import WanI2VParams
 
@@ -38,6 +38,12 @@ def required_models(kind: str) -> set[str]:
             models.add(p.upscale_model)
         if p.id_lora:
             models.add(p.id_lora)
+        return models
+    if kind == "ltx_lipdub":
+        p = LtxLipdubParams(positive="", video="")
+        models = {p.ckpt_name, p.gemma_name, p.lipdub_lora}
+        if p.two_stage:
+            models.add(p.upscale_model)
         return models
     return set()
 
@@ -73,4 +79,16 @@ def required_nodes(kind: str) -> set[str]:
         return {"UNETLoader", "LTXVGemmaCLIPModelLoader", "VAELoader", "CLIPTextEncode",
                 "LoadImage", "LTXVImgToVideo", "LTXVAudioVAELoader", "LTXVReferenceAudio",
                 "LoadAudio", "LoraLoaderModelOnly", "KSampler", "VAEDecode", "VHS_VideoCombine"}
+    if kind == "ltx_lipdub":
+        # LTX-2.3 LipDub(IC-LoRA 重配音对口型,单阶段全量节点;
+        # two_stage 追加的 LatentUpscaleModelLoader/LTXVLatentUpsampler 由路由按需并入)
+        return {"CheckpointLoaderSimple", "LTXAVTextEncoderLoader", "LTXVAudioVAELoader",
+                "LTXICLoRALoaderModelOnly", "LoadVideo", "GetVideoComponents", "LoadAudio",
+                "LTXVAudioVAEEncode", "LTXVAudioVAEDecode", "LTXVSetAudioRefTokens",
+                "LTXAddVideoICLoRAGuide", "LTXVCropGuides", "LTXVConcatAVLatent",
+                "LTXVSeparateAVLatent", "LTXVEmptyLatentAudio", "LTXFloatToInt",
+                "EmptyLTXVLatentVideo", "LTXVConditioning", "CLIPTextEncode",
+                "ResizeImageMaskNode", "RandomNoise", "KSamplerSelect", "ManualSigmas",
+                "CFGGuider", "SamplerCustomAdvanced", "LTXVTiledVAEDecode",
+                "CreateVideo", "SaveVideo"}
     return set()
