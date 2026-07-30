@@ -1,7 +1,7 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-07-30T09:45:00+08:00",
+ "updated_at": "2026-07-30T12:00:00+08:00",
  "sync_baseline": {
   "id": "SYNC-2026-07-18",
   "type": "initial-sync",
@@ -297,6 +297,12 @@
    "scope": "数字人 WebRTC 全链路(会话/start/ice-config/offer/ICE/媒体轨/TTS)",
    "evidence": "aiortc 客户端 .31→.71 CONNECTED,video+audio tracks,speak 触发;TURN=coturn workstation:3478",
    "script": "scripts/webrtc_e2e_test.py"
+  },
+  "ltx2_studio_2026_07_30": {
+   "status": "passed",
+   "scope": "LTX-2.3 板块: /api/ltx2/models + t2v(distilled-1.1 22B + Cameraman LoRA)",
+   "evidence": "core E2E done, MP4 h264 1.56s 264KB; 4 unet + 4 lora 全部 available",
+   "assets": "dev bf16 43G + distilled-1.1 43G + 蒸馏LoRA 7.1G + 时空上采样 + Union/MotionTrack IC-LoRA + Cameraman v2"
   }
  },
  "git": {

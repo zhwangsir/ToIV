@@ -4,6 +4,22 @@
 
 ---
 
+## LTX2-STUDIO-2026-07-30 · LTX-2.3 独立板块上线 + worker 新模型接入
+
+**时间**: 2026-07-30 12:00 CST
+**类型**: feature / ops / regression
+
+### 内容
+
+1. **worker 新模型接入（5 台）**:`/opt/ComfyUI/extra_model_paths.yaml` 新增 toiv 段指向 NAS `toiv/comfyui-models`;pc01/pc02 同步。实测全部可见 qwen_3_vl_8b_instruct、42 场景 LoRA、LTX-2.3 资产
+2. **LTX-2.3 资产下载**:dev bf16 43G + distilled-1.1 43G + 蒸馏提速 LoRA 7.1G + spatial/temporal 上采样 + Union/MotionTrack IC-LoRA + Cameraman v2 运镜 LoRA(NAS `loras/ltx2.3/`)
+3. **板块实现**:后端 `/api/ltx2/models|t2v|i2v`(白名单/LoRA 沙箱/10eros NSFW 门槛/pool.required 路由);`ltx_video.py` 支持 LoRA 链注入(向后兼容);前端 LtxStudioView + "LTX 工作室"导航
+4. **排障**:① LTXV 加载器扫 checkpoints、UNETLoader 扫 diffusion_models → 22B 权重 NAS 本地复制双份(SMB 无软链);② distilled-1.1 gemma norm_type 大写触发 ComfyUI-LTXVideo 断言 → 打大小写兼容补丁(备份 .bak.20260730);③ video.py 缺 spawn_tracker import(既有 NameError)已修
+5. **E2E 实测(core)**:`/api/ltx2/models` 4 unet+4 lora 全 available;t2v(distilled-1.1+Cameraman 0.8,512x288x25f)done,MP4 h264 1.56s 可播放
+6. 回归:pytest **673 passed**(新增 17),tsc 0 errors,build+deploy 通过
+
+---
+
 ## WEBRTC-TURN-FIX-2026-07-30 · 数字人 WebRTC ICE 失败修复(TURN 中继)
 
 **时间**: 2026-07-30 09:40 CST
