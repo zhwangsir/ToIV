@@ -1,7 +1,7 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-07-30T13:40:00+08:00",
+ "updated_at": "2026-07-30T14:00:00+08:00",
  "sync_baseline": {
   "id": "SYNC-2026-07-18",
   "type": "initial-sync",
@@ -309,6 +309,12 @@
    "scope": "LTX-2.3 LipDub 视频重配音(官方 IC-LoRA 链路复刻,单阶段 distilled)",
    "evidence": "worker:8189 实测 330s 出片,h264+aac,真实语音峰值 -4.65dB;pytest 682 passed",
    "notes": "prompt 驱动台词,audio 为嗓音参考;latent upscaler 迁移 latent_upscale_models 目录后可见"
+  },
+  "animatic_2026_07_30": {
+   "status": "passed",
+   "scope": "动态分镜(图片+时长→MP4),ffmpeg 在 workstation 执行",
+   "evidence": "core E2E: 3图(3+3+4s)→10.0s h264 1920x1080,701 pytest passed",
+   "guide": "docs/animatic-guide.md"
   }
  },
  "git": {
