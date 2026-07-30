@@ -14,7 +14,7 @@
 | ACE-Step 1.5 (v15-turbo) | ✅ 维持 | 无 2.x；补充高音质选项 **ACE-Step 1.5 XL**（4B DiT，2026-04 发布） |
 | Demucs v4 + MDX-Net + UVR5 | ✅ 维持 | 新增评估 **Meta SAM Audio**（文本/视觉/时间段提示的通用分离，定向抽人声/音效，权重已开源）；音乐 stem 分离 SOTA 为 BS/MelBand-RoFormer 系 |
 | LTX 2.3 | ✅ 即最新开源 | 2026-03 发布，22B 原生音画同步，无 LTX-3 |
-| ~~Wan 2.2 满血~~ | ⚠️ 修正 | 最新开源为 **Wan 2.6**（2025-12，1080p 多镜头 + 原生音频 + 参考一致性）；Wan 2.7 为 API-only 无权重，不要等 |
+| ~~Wan 2.2 满血~~ | ⚠️ 二次修正 | **Wan 2.6/2.7 均为阿里云百炼 API-only，从未发布权重**（2026-07-30 三方验证：HF Wan-AI 组织、GitHub Wan-Video、ModelScope 均无 2.6/2.7 仓库；所谓"开源"系内容农场虚构）。**本地最新开源仍是 Wan 2.2 A14B**，现有 42 场景 LoRA + lightx2v 加速 LoRA 全部继续有效；另有 2026-07-17 开源单点模型 Wan-Dancer-14B（音乐舞蹈 i2v）。需要 2.6/2.7 独占能力（多镜头/原生音频/参考一致性）时走百炼 API，固定特效/运镜可用百炼 SFT-LoRA（仅 i2v、仅新加坡、权重不可导出） |
 | HunyuanVideo | ⚠️ 修正 | 最新为 **1.5**（2025-11，8.3B，消费级可跑），无 2.0 |
 | 数字人 MuseTalk/LatentSync/LivePortrait | ✅ 维持 | LatentSync 1.6 仍是本地唇形标杆；高质量离线可评估 Hallo3 / HunyuanVideo-Avatar（重、慢，非实时） |
 | IndexTTS2 主力 | ✅ 维持 | seed-zh 字错率：GLM-TTS 0.89 > VoxCPM 0.93 > **IndexTTS2 1.03** > CosyVoice3 1.12。可并评 **CosyVoice3**（快 ~9 倍、省资源、自然度略逊）与 **GLM-TTS**（字错率 SOTA）；Fish S2 Pro 强但商用需单独授权 |
@@ -29,7 +29,7 @@
 | **P0-接入（当前瓶颈）** | worker `extra_model_paths.yaml` 指向 NAS `toiv/comfyui-models` + 安装 PuLID/IPAdapter 自定义节点 + pc01/pc02 同步 + object_info 验证 | ⚠️ 未做，Qwen-Image 2.0/角色一致性不可用（代码侧已完成可用性自动降级兜底） |
 | P1-接入 | 42 场景 LoRA 接入 style_presets（代码已写，待验证后提交） | 依赖 P0-接入 |
 | P1-评估 | SAM Audio PoC（定向抽人声/音效，对比 Demucs） | 模型已开源，直接 pip 可测 |
-| P2-视频 | Wan 2.6 权重下载接入（替代原"Wan 2.2 满血"）；HunyuanVideo 1.5 评估 | 下载 ~30-60GB，GPU 排产 |
+| P2-视频 | ~~Wan 2.6 权重下载~~（不存在）→ 本地继续 Wan 2.2；LTX-2.3（开源原生音画）优先级上调；百炼 wan2.6/2.7 API 作云端补充（关键镜头按秒调用） | 百炼 API 需 DashScope key；LTX-2.3 已在 NAS |
 | P2-音频 | ACE-Step 1.5 XL 高音质选项；CosyVoice3 与 IndexTTS2 AB（速度 vs 自然度） | 需 venv + 评测集 |
 | P2-图像 | GLM-Image 试评（双语文字渲染 vs Qwen-Image 2.0） | 模型开源可下 |
 | 观察 | Qwen-Image 3.0 权重开源、DreamO（PuLID 继任）、K3 MLX（L2/L3 替换） | 未发布，跟踪即可 |
@@ -43,5 +43,6 @@
 ## 四、未证实项（不纳入执行）
 
 - GPT-SoVITS v3/v4 具体版本号无可靠出处
+- **Wan 2.6/2.7 开源权重不存在**（API-only；HF/GitHub/ModelScope 三方实测，2026-07-30）
 - Wan 3.0 / LTX-3 / ACE-Step 2.x / InstantID v2 / SD4：均无官方发布证据
 - BSMamba2/SCNet 有论文 SOTA 声明但无可用 checkpoint
