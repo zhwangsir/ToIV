@@ -4,6 +4,28 @@
 
 ---
 
+## WEBRTC-TURN-FIX-2026-07-30 · 数字人 WebRTC ICE 失败修复(TURN 中继)
+
+**时间**: 2026-07-30 09:40 CST
+**类型**: bugfix / ops
+
+### 问题与根因
+
+用户点「开始对话」后黑屏、状态未连接、无任何提示。分层排查:
+
+1. 后端会话链路全通(创建/start/SSE 均 200,quicktalk 缓存命中),但 `webrtc/offer` 从未到达 → 前端竞态:SSE ready 事件先于订阅生效发出,WebRTC 启动被跳过(已修 `1a82092`,start 返回 ready 时主动补启动)
+2. 修复后 offer 到达,但 **ICE 全部候选对 FAILED**:浏览器(Safari) host candidate 是 mDNS `.local`,跨子网(用户 192.168.31.x ↔ 集群 192.168.71.x)aiortc 无法解析;唯一可解析的 srflx 是公网 IP(114.86.x.x),媒体不可达 → 63s 后 ICE failed,会话自动关闭
+
+### 修复与验证（全部实测）
+
+- workstation 部署 **coturn**(`apt install coturn`,systemd enabled,UDP :3478,lt-cred-mech,realm=toiv),配置备份 `/etc/turnserver.conf.bak-20260730`
+- opentalking `.env` 增加 `OPENTALKING_WEBRTC_TURN_URLS/USERNAME/CREDENTIAL` + `OPENTALKING_WEBRTC_ICE_TRANSPORT_POLICY=all`(否则有 TURN 时默认强制 relay,同网段失去 host 直连),重启后 ice-config 下发 STUN+TURN
+- 前端错误 surfaced:WebRTC/ICE 失败显示在界面错误条,不再静默黑屏
+- **E2E 实测**(`scripts/webrtc_e2e_test.py`,aiortc 模拟浏览器,从 .31 网段 Mac):建会话 → start ready → offer/answer → **ICE CONNECTED → 收到 video+audio 双轨** → speak 触发 TTS → interrupt 清理
+- 回归:登录/web/api/jobs/成片/agent 对话全部 200;opentalking status enabled+reachable
+
+---
+
 ## FULL-E2E-2026-07-30 · 登录/数字人/短剧润色修复 + 全功能生产巡检
 
 **时间**: 2026-07-30 04:10 CST

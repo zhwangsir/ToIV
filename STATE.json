@@ -1,7 +1,7 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-07-30T04:10:00+08:00",
+ "updated_at": "2026-07-30T09:45:00+08:00",
  "sync_baseline": {
   "id": "SYNC-2026-07-18",
   "type": "initial-sync",
@@ -291,6 +291,12 @@
    "cases_passed": 10,
    "cases_failed": 0,
    "evidence": "refine layer=L1 model=qwen3.6-uncensored; 短剧成片 h264+aac 4.125s; 数字人 quicktalk 会话 speak queued; txt2img 21s 真实PNG; 产物无 localhost:8090"
+  },
+  "opentalking_webrtc_2026_07_30": {
+   "status": "passed",
+   "scope": "数字人 WebRTC 全链路(会话/start/ice-config/offer/ICE/媒体轨/TTS)",
+   "evidence": "aiortc 客户端 .31→.71 CONNECTED,video+audio tracks,speak 触发;TURN=coturn workstation:3478",
+   "script": "scripts/webrtc_e2e_test.py"
   }
  },
  "git": {
