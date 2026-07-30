@@ -50,6 +50,8 @@ class NextgenParams:
     batch_size: int = 1
     weight_dtype: str = "default"
     filename_prefix: str = "ToIV"
+    # 文本编码器覆盖:非空时优先于配方默认(调用方按 worker 可用性解析后传入)
+    clip_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -68,6 +70,8 @@ class NextgenImg2ImgParams:
     seed: int = field(default_factory=_random_seed)
     weight_dtype: str = "default"
     filename_prefix: str = "ToIV_i2i"
+    # 文本编码器覆盖:非空时优先于配方默认(与 NextgenParams 对齐)
+    clip_name: str | None = None
 
 
 class NextgenError(ValueError):
@@ -112,7 +116,7 @@ def build_nextgen_graph(p: NextgenParams) -> dict:
     # 3) 文本编码器
     nodes["3"] = {
         "class_type": "CLIPLoader",
-        "inputs": {"clip_name": recipe.clip_name, "type": recipe.clip_type},
+        "inputs": {"clip_name": p.clip_name or recipe.clip_name, "type": recipe.clip_type},
     }
     clip_ref: list = ["3", 0]
 
@@ -220,7 +224,7 @@ def build_nextgen_img2img_graph(p: NextgenImg2ImgParams) -> dict:
     # 3) 文本编码器
     nodes["3"] = {
         "class_type": "CLIPLoader",
-        "inputs": {"clip_name": recipe.clip_name, "type": recipe.clip_type},
+        "inputs": {"clip_name": p.clip_name or recipe.clip_name, "type": recipe.clip_type},
     }
     clip_ref: list = ["3", 0]
 

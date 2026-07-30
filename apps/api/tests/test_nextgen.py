@@ -103,6 +103,19 @@ def test_qwen_graph_has_auraflow_sd3latent_no_fluxguidance():
     assert clip["type"] == "qwen_image"
 
 
+def test_qwen_graph_clip_override_wins():
+    """clip_name 覆盖(按 worker 可用性解析后)优先于配方默认候选。"""
+    g = build_nextgen_graph(
+        NextgenParams(model_name=QWEN, positive="a fox",
+                      clip_name="qwen_2.5_vl_7b_fp8_scaled.safetensors")
+    )
+    clip = _by_type(g, "CLIPLoader")
+    assert clip["clip_name"] == "qwen_2.5_vl_7b_fp8_scaled.safetensors"
+    # 不传覆盖时用配方默认(候选列表第一个)
+    g2 = build_nextgen_graph(NextgenParams(model_name=QWEN, positive="a fox"))
+    assert _by_type(g2, "CLIPLoader")["clip_name"] == "qwen_3_vl_8b_instruct"
+
+
 def test_flux2_graph_has_fluxguidance_and_flux2latent():
     g = build_nextgen_graph(NextgenParams(model_name=FLUX2, positive="a fox"))
     t = _types(g)

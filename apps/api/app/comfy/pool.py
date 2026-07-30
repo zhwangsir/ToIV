@@ -153,6 +153,23 @@ class WorkerPool:
                              nodes if isinstance(nodes, set) else state.last_nodes)
         return (True, ql)
 
+    async def first_available(self, candidates: Iterable[str]) -> str | None:
+        """按候选顺序返回第一个在某台可用 worker 上存在的模型名;都不存在返回 None。
+
+        复用 _probe_one 的健康/熔断/缓存逻辑,每个候选探测一次(缓存 TTL 内代价低)。
+        用于「默认权重候选可能未部署」的配方降级(如 Qwen-Image 2.0 编码器未接入时
+        自动回落 1.0 编码器,而不是直接 503)。
+        """
+        for name in candidates:
+            now = time.monotonic()
+            async with self._lock:
+                probed = await asyncio.gather(
+                    *(self._probe_one(s, now, {name}, set()) for s in self._states)
+                )
+            if any(ok for ok, _ in probed):
+                return name
+        return None
+
     async def pick(
         self,
         required: Iterable[str] = (),

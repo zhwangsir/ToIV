@@ -1,6 +1,7 @@
 """POST /api/generate/txt2img —— 校验参数 → 选 worker → 提交工作流。"""
 from __future__ import annotations
 
+import logging
 import secrets
 import uuid
 import asyncio
@@ -100,6 +101,7 @@ class Txt2ImgRequest(BaseModel):
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def _snap8(v: int) -> int:
@@ -189,6 +191,14 @@ async def _submit_txt2img(
     if is_nextgen(ckpt_name):
          prof = profile_for(ckpt_name)
          recipe = nextgen_recipe(ckpt_name)
+         # 文本编码器按 worker 可用性解析(默认候选未部署时自动降级,避免 503)
+         clip_override: str | None = None
+         if recipe and recipe.clip_candidates:
+             avail = await pool.first_available(recipe.clip_candidates)
+             if avail and avail != recipe.clip_name:
+                 clip_override = avail
+                 logger.info("nextgen clip fallback: %s → %s (model=%s)",
+                             recipe.clip_name, avail, ckpt_name)
          w, h = fit_resolution(ckpt_name, _snap8(req.width), _snap8(req.height))
          ng = NextgenParams(
               model_name=ckpt_name,
@@ -202,11 +212,13 @@ async def _submit_txt2img(
               scheduler=prof.scheduler,
               batch_size=req.batch_size,
               **({"seed": req.seed} if req.seed is not None else {}),
+              clip_name=clip_override,
          )
          graph = build_nextgen_graph(ng)
          seed_used = ng.seed
          # 次世代图需 UNET + 文本编码器 + VAE 三件都在的 worker(缺则 pick 干净失败 503)
-         required = {ckpt_name, recipe.clip_name, recipe.vae_name} if recipe else {ckpt_name}
+         effective_clip = clip_override or (recipe.clip_name if recipe else None)
+         required = {ckpt_name, effective_clip, recipe.vae_name} if recipe else {ckpt_name}
     else:
          params = Txt2ImgParams(
               positive=req.positive,

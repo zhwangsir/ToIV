@@ -287,6 +287,9 @@ class NextgenRecipe:
     shift: float = 3.1  # AuraFlow/Flux 的 shift
     latent_node: str = "EmptySD3LatentImage"  # 或 EmptyFlux2LatentImage
     guidance: float | None = None  # 非空 → 插 FluxGuidance 节点
+    # 文本编码器候选(按优先级);非空时调用方应经 pool.first_available 解析,
+    # 避免默认候选未部署导致派单 503(2026-07-30 qwen_3_vl_8b 教训)
+    clip_candidates: tuple[str, ...] = ()
 
 
 # 采样档案(§10;cfg=1/无负向为次世代关键正确性)。未列族回落 GenProfile() 默认(SD 风)。
@@ -319,22 +322,24 @@ _PROFILES: dict[str, GenProfile] = {
 # ║    文件名: qwen_2.5_vl_7b_fp8_scaled.safetensors (当前 worker 实测存在)  ║
 # ║                                                                          ║
 # ║  Qwen-Image 2.0 (2026-02/05) → Qwen3-VL 文本编码器(架构升级)            ║
-# ║    无量化包时直接跑 Qwen3-VL-7B-Instruct 满血(~14GB fp16)               ║
-# ║    单文件转换后命名: qwen_3_vl_7b.safetensors                           ║
-# ║    目录加载路径: text_encoders/qwen_3_vl_7b_instruct/                   ║
+# ║    已下载 Qwen3-VL-8B-Instruct 满血;目录加载或单文件转换后使用           ║
+# ║    单文件转换后命名: qwen_3_vl_7b.safetensors / qwen_3_vl_8b.safetensors ║
+# ║    目录加载路径: text_encoders/qwen_3_vl_8b_instruct/                   ║
 # ║                                                                          ║
 # ║  Qwen-Image 3.0 (2026-07-21 发布预览) → 权重尚未开源,暂不支持            ║
 # ║                                                                          ║
-# ║  第一个候选为当前默认(必须已部署);其余为待部署升级选项。             ║
+# ║  第一个候选为当前默认(必须已部署);其余为降级/兼容选项。                 ║
 # ╚══════════════════════════════════════════════════════════════════════════╝
 # 次世代图配方(worker :8002 /object_info 实测:节点存在、类型枚举含 qwen_image/flux2)。
 #    Z-Image 三件套(z_image_turbo/qwen_3_4b/ae)已在;FLUX.2 dev 用 mistral_3_small,Klein 用 qwen_3_4b。
 _QWEN_IMAGE_CLIP_CANDIDATES: tuple[str, ...] = (
-    # 当前默认: Qwen-Image 1.0 已部署编码器
+    # 当前默认: Qwen-Image 2.0 已部署的 Qwen3-VL-8B-Instruct(目录形式)
+    "qwen_3_vl_8b_instruct",
+    # Qwen-Image 2.0 单文件转换后候选
+    # "qwen_3_vl_8b.safetensors",           # 满血 Qwen3-VL 8B 单文件转换后
+    # "qwen_3_vl_7b.safetensors",           # 兼容旧命名(7B 单文件转换后)
+    # Qwen-Image 1.0 兼容兜底
     "qwen_2.5_vl_7b_fp8_scaled.safetensors",
-    # Qwen-Image 2.0 候选(待 worker 部署后取消注释并置顶):
-    # "qwen_3_vl_7b.safetensors",           # 满血 Qwen3-VL 7B 单文件转换后
-    # "qwen_3_vl_7b_instruct",              # 目录形式加载(ComfyUI 原生 Qwen3-VL 节点)
 )
 _NEXTGEN_RECIPES: dict[str, NextgenRecipe] = {
     "qwen_image": NextgenRecipe(
@@ -344,6 +349,7 @@ _NEXTGEN_RECIPES: dict[str, NextgenRecipe] = {
         model_sampling="ModelSamplingAuraFlow",
         shift=3.1,
         latent_node="EmptySD3LatentImage",
+        clip_candidates=_QWEN_IMAGE_CLIP_CANDIDATES,
     ),
     "z_image": NextgenRecipe(
         clip_type="lumina2",  # ⚠️ 待 worker smoke 校准(Z-Image 用 qwen_3_4b + TextEncodeZImageOmni)
