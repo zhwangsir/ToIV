@@ -29,7 +29,7 @@
 | **P0-接入（当前瓶颈）** | worker `extra_model_paths.yaml` 指向 NAS `toiv/comfyui-models` + 安装 PuLID/IPAdapter 自定义节点 + pc01/pc02 同步 + object_info 验证 | ⚠️ 未做，Qwen-Image 2.0/角色一致性不可用（代码侧已完成可用性自动降级兜底） |
 | P1-接入 | 42 场景 LoRA 接入 style_presets（代码已写，待验证后提交） | 依赖 P0-接入 |
 | P1-评估 | SAM Audio PoC（定向抽人声/音效，对比 Demucs） | 模型已开源，直接 pip 可测 |
-| P2-视频 | ~~Wan 2.6 权重下载~~（不存在）→ 本地继续 Wan 2.2；LTX-2.3（开源原生音画）优先级上调；百炼 wan2.6/2.7 API 作云端补充（关键镜头按秒调用） | 百炼 API 需 DashScope key；LTX-2.3 已在 NAS |
+| P2-视频 | ~~Wan 2.6 权重下载~~（不存在）→ **本地继续 Wan 2.2**；**LTX-2.3（开源原生音画同步）升为视频评估第一优先**；HunyuanVideo 1.5（8.3B 消费级）备选。~~百炼 API 云端补充~~（否决：项目定位极致本地，不接云端生成 API） | LTX-2.3 已在 NAS；评估用现有 wan_i2v/ltx 链路改造 |
 | P2-音频 | ACE-Step 1.5 XL 高音质选项；CosyVoice3 与 IndexTTS2 AB（速度 vs 自然度） | 需 venv + 评测集 |
 | P2-图像 | GLM-Image 试评（双语文字渲染 vs Qwen-Image 2.0） | 模型开源可下 |
 | 观察 | Qwen-Image 3.0 权重开源、DreamO（PuLID 继任）、K3 MLX（L2/L3 替换） | 未发布，跟踪即可 |
