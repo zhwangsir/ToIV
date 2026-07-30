@@ -37,6 +37,8 @@ VIDEO_KINDS = frozenset(
         "ltx_t2v",
         "ltx_i2v",
         "ltx_lipsync",
+        "ltx2_t2v",
+        "ltx2_i2v",
         "wan_t2v",
         "wan_i2v",
         "hunyuan_i2v",

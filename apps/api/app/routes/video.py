@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session
 
 from app.comfy.client import ComfyUIError
+from app.comfy.tracker import spawn as spawn_tracker
 from app.config import get_settings
 from app.db import get_session
 from app.deps import get_current_user, resolve_worker

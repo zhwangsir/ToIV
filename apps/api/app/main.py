@@ -33,6 +33,7 @@ from app.routes import (
     images,
     jobs,
     lipsync,
+    ltx_studio,
     manju,
     manju_project,
     marketplace,
@@ -201,6 +202,7 @@ def create_app() -> FastAPI:
         backlot,
         workflows,
         opentalking,
+        ltx_studio,
     ):
         app.include_router(module.router, prefix="/api")
 

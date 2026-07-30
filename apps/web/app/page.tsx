@@ -25,6 +25,7 @@ type View =
   | "library"
   | "backlot"
   | "models"
+  | "ltxstudio"
   | "admin";
 
 // ── 视图懒加载:chunk 按需拉取;菜单展开/悬停期间并行预热,消除切换白屏等待 ──
@@ -40,6 +41,7 @@ const viewImporters = {
   library: () => import("@/components/library/LibraryView"),
   backlot: () => import("@/components/backlot/BacklotView"),
   models: () => import("@/components/models/ModelsView"),
+  ltxstudio: () => import("@/components/ltxstudio/LtxStudioView"),
   admin: () => import("@/components/admin/AdminView"),
 } as const;
 
@@ -83,6 +85,9 @@ const BacklotView = lazy(() =>
 const ModelsView = lazy(() =>
   viewImporters.models().then((m) => ({ default: m.ModelsView })),
 );
+const LtxStudioView = lazy(() =>
+  viewImporters.ltxstudio().then((m) => ({ default: m.LtxStudioView })),
+);
 const AdminView = lazy(() =>
   viewImporters.admin().then((m) => ({ default: m.AdminView })),
 );
@@ -108,6 +113,7 @@ const VALID_VIEWS = new Set<View>([
   "library",
   "backlot",
   "models",
+  "ltxstudio",
   "admin",
 ]);
 
@@ -123,6 +129,7 @@ const VIEW_META: Record<View, { label: string }> = {
   library:   { label: "作品库" },
   backlot:   { label: "看板" },
   models:    { label: "模型" },
+  ltxstudio: { label: "LTX 工作室" },
   admin:     { label: "管理" },
 };
 
@@ -264,6 +271,7 @@ function HomeContent() {
       { key: "video", label: "视频生成", icon: "video", group: "tools" },
       { key: "dramaStudio", label: "短剧工作室", icon: "drama", group: "tools" },
       { key: "dub", label: "译制配音", icon: "dub", group: "tools" },
+      { key: "ltxstudio", label: "LTX 工作室", icon: "film", group: "tools" },
       { key: "library", label: "作品库", icon: "library", group: "resources" },
       { key: "models", label: "模型库", icon: "models", group: "resources" },
       ...(isAdmin ? [{ key: "admin", label: "管理", icon: "admin" as const, group: "resources" as const }] : []),
@@ -370,6 +378,7 @@ function HomeContent() {
               {view === "library" && <LibraryView />}
               {view === "backlot" && <BacklotView />}
               {view === "models" && <ModelsView />}
+              {view === "ltxstudio" && <LtxStudioView />}
               {view === "admin" && <AdminView />}
             </Suspense>
           </ErrorBoundary>

@@ -9,7 +9,7 @@ LTX2.3 是 Lightricks 的轻量视频生成模型,12G 显存可跑,音画同步�
 参考:https://civitai.red/models/2553704
 
 节点链(t2v):
-  UNETLoader → LTXVGemmaCLIPModelLoader + VAELoader → CLIPTextEncode
+  UNETLoader →(可选 LoraLoader 叠加链)→ LTXVGemmaCLIPModelLoader + VAELoader → CLIPTextEncode
   → LTXVConditioning → EmptyLTXVLatentVideo → KSampler(cfg=1) → VAEDecode → VHS_VideoCombine
 
 i2v 在 t2v 基础上:LTXVImgToVideo 替代 EmptyLTXVLatentVideo(首帧引导,输出 pos/neg/latent 三路)
@@ -26,6 +26,8 @@ from __future__ import annotations
 import os
 import secrets
 from dataclasses import dataclass, field
+
+from app.workflows.lora import LoraSpec, lora_chain
 
 MAX_SEED = 2**63 - 1
 
@@ -85,6 +87,8 @@ class LtxT2VParams:
     # RIFE 插帧(v4.0 新增,平滑画面)
     use_rife: bool = _DEFAULT_USE_RIFE
     filename_prefix: str = "ToIV_nsfw_vid"
+    # 叠加的 LoRA(空 = 不加载,图与现状一致);LTX 工作室 loras/ltx2.3/ 的 camera/IC-LoRA/风格 LoRA
+    loras: tuple[LoraSpec, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -110,6 +114,8 @@ class LtxI2VParams:
     upscale_model: str = _DEFAULT_UPSCALE_MODEL
     use_rife: bool = _DEFAULT_USE_RIFE
     filename_prefix: str = "ToIV_nsfw_vid"
+    # 叠加的 LoRA(空 = 不加载,图与现状一致);LTX 工作室 loras/ltx2.3/ 的 camera/IC-LoRA/风格 LoRA
+    loras: tuple[LoraSpec, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -141,17 +147,29 @@ class LtxLipsyncParams:
     filename_prefix: str = "ToIV_nsfw_lipsync"
 
 
-def _build_base_chain(p: LtxT2VParams) -> dict:
-    """基础节点链(UNETLoader + Gemma CLIP + VAE + 正负向编码),t2v/i2v/lipsync 共用。"""
+def _build_base_chain(p: LtxT2VParams) -> tuple[dict, list]:
+    """基础节点链(UNETLoader + Gemma CLIP + VAE + 正负向编码),t2v/i2v/lipsync 共用。
+
+    返回 (图, 采样侧 model 引用)。p.loras 非空时在 UNET 之后、采样之前插入
+    LoraLoader 叠加链(txt2img 同款模式):CLIP 正负向编码改接链末端 clip,
+    下游(KSampler / ID LoRA)的 model 引用取链末端。空 loras 时引用直回
+    UNET/Gemma,图与未加 LoRA 时完全一致。
+    """
+    # LtxLipsyncParams 无 loras 字段(用独立 id_lora),getattr 兜底保持三路共用
+    loras: tuple[LoraSpec, ...] = getattr(p, "loras", ()) or ()
+    lora_nodes, model_ref, clip_ref = lora_chain(
+        loras, src_model=["1", 0], src_clip=["2", 0]
+    )
     g: dict = {
         "1": {"class_type": "UNETLoader", "inputs": {"unet_name": p.unet_name, "weight_dtype": "default"}},
         "2": {"class_type": "LTXVGemmaCLIPModelLoader", "inputs": {
             "gemma_path": p.gemma_name, "ltxv_path": p.unet_name, "max_length": p.max_length}},
         "6": {"class_type": "VAELoader", "inputs": {"vae_name": p.vae_name}},
-        "7": {"class_type": "CLIPTextEncode", "inputs": {"text": p.positive, "clip": ["2", 0]}},
-        "8": {"class_type": "CLIPTextEncode", "inputs": {"text": p.negative, "clip": ["2", 0]}},
+        "7": {"class_type": "CLIPTextEncode", "inputs": {"text": p.positive, "clip": clip_ref}},
+        "8": {"class_type": "CLIPTextEncode", "inputs": {"text": p.negative, "clip": clip_ref}},
+        **lora_nodes,
     }
-    return g
+    return g, model_ref
 
 
 def _append_postprocess(g: dict, p: LtxT2VParams, vae_decode_id: str) -> str:
@@ -206,7 +224,7 @@ def build_ltx_t2v_graph(p: LtxT2VParams) -> dict:
       UNETLoader → LTXVGemmaCLIPModelLoader + VAELoader → CLIPTextEncode
       → LTXVConditioning → EmptyLTXVLatentVideo → KSampler → VAEDecode → VHS
     """
-    g = _build_base_chain(p)
+    g, model_src = _build_base_chain(p)
     # LTXV 条件化(注入 frame_rate,输出 positive/negative 两路)
     g["9"] = {
         "class_type": "LTXVConditioning",
@@ -221,7 +239,7 @@ def build_ltx_t2v_graph(p: LtxT2VParams) -> dict:
     g["12"] = {
         "class_type": "KSampler",
         "inputs": {
-            "model": ["1", 0],
+            "model": model_src,
             "seed": p.seed,
             "steps": p.steps,
             "cfg": p.cfg,
@@ -245,7 +263,7 @@ def build_ltx_i2v_graph(p: LtxI2VParams) -> dict:
       UNETLoader → LTXVGemmaCLIPModelLoader + VAELoader → CLIPTextEncode + LoadImage
       → LTXVImgToVideo(输出 positive/negative/latent 三路)→ KSampler → VAEDecode → VHS
     """
-    g = _build_base_chain(p)
+    g, model_src = _build_base_chain(p)
     # 加载首帧图
     g["9"] = {"class_type": "LoadImage", "inputs": {"image": p.image}}
     # LTXV 图生视频(首帧引导 + 条件化,输出 pos[0]/neg[1]/latent[2])
@@ -267,7 +285,7 @@ def build_ltx_i2v_graph(p: LtxI2VParams) -> dict:
     g["12"] = {
         "class_type": "KSampler",
         "inputs": {
-            "model": ["1", 0],
+            "model": model_src,
             "seed": p.seed,
             "steps": p.steps,
             "cfg": p.cfg,
@@ -293,14 +311,13 @@ def build_ltx_lipsync_graph(p: LtxLipsyncParams) -> dict:
       → LTXVImgToVideo → LTXVReferenceAudio(音频驱动,输出 model/pos/neg 三路)
       → KSampler → VAEDecode → VHS
     """
-    # 基础链
-    g = _build_base_chain(p)
+    # 基础链(loras 空 → model_src 直引 UNET)
+    g, model_src = _build_base_chain(p)
     # ID LoRA 挂载(声音/角色一致性)
-    model_src = ["1", 0]
     if p.id_lora:
         g["3"] = {
             "class_type": "LoraLoaderModelOnly",
-            "inputs": {"model": ["1", 0], "lora_name": p.id_lora, "strength_model": p.id_lora_strength},
+            "inputs": {"model": model_src, "lora_name": p.id_lora, "strength_model": p.id_lora_strength},
         }
         model_src = ["3", 0]
     # 加载首帧图 + 音频
