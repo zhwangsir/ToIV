@@ -109,6 +109,8 @@ export function AvatarTalkView() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const cleanupSseRef = useRef<(() => void) | null>(null);
+  // WebRTC 只启动一次:SSE ready 事件与 start 响应都可能触发,避免重复建连
+  const webrtcStartedRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // 初始加载:models + avatars,带防御式兜底
@@ -184,6 +186,26 @@ export function AvatarTalkView() {
       });
 
       setSessionId(session.session_id);
+      webrtcStartedRef.current = false;
+      const startWebRTCOnce = (sessionId: string) => {
+        if (webrtcStartedRef.current || !videoRef.current) return;
+        webrtcStartedRef.current = true;
+        otStartWebRTC(sessionId, videoRef.current)
+          .then(({ pc }) => {
+            pcRef.current = pc;
+            // answer 后的 ICE 连通失败不会 reject,监听状态把失败 surfaced 给用户
+            pc.oniceconnectionstatechange = () => {
+              if (pc.iceConnectionState === "failed") {
+                setError("WebRTC 媒体连接失败(ICE),请检查网络后重试");
+              }
+            };
+          })
+          .catch((err) => {
+            webrtcStartedRef.current = false;
+            console.warn("WebRTC failed:", err);
+            setError(`WebRTC 连接失败: ${err instanceof Error ? err.message : String(err)}`);
+          });
+      };
 
       const cleanup = otConnectSse(session.session_id, {
         onSpeechStarted: () => {
@@ -223,13 +245,7 @@ export function AvatarTalkView() {
         },
         onStateChanged: (state) => {
           setSessionState(state);
-          if (state === "ready" && videoRef.current) {
-            otStartWebRTC(session.session_id, videoRef.current)
-              .then(({ pc }) => {
-                pcRef.current = pc;
-              })
-              .catch((err) => console.warn("WebRTC failed:", err));
-          }
+          if (state === "ready") startWebRTCOnce(session.session_id);
         },
         onError: (code, message) => {
           setError(`${code}: ${message}`);
@@ -239,7 +255,9 @@ export function AvatarTalkView() {
 
       cleanupSseRef.current = cleanup;
 
-      await otStartSession(session.session_id);
+      const started = await otStartSession(session.session_id);
+      // quicktalk 缓存命中时 start 同步返回 ready,SSE 的 ready 事件可能已错过 → 主动补启动
+      if (started?.status === "ready") startWebRTCOnce(session.session_id);
       setIsConnecting(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "连接失败");
@@ -275,6 +293,7 @@ export function AvatarTalkView() {
     if (pcRef.current) pcRef.current.close();
     cleanupSseRef.current = null;
     pcRef.current = null;
+    webrtcStartedRef.current = false;
     setSessionId(null);
     setSessionState("created");
     setIsSpeaking(false);

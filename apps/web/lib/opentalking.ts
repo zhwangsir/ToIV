@@ -158,9 +158,11 @@ export async function otCreateSession(req: CreateSessionRequest): Promise<Create
   return handleResponse<CreateSessionResponse>(res);
 }
 
-export async function otStartSession(sessionId: string): Promise<void> {
+export async function otStartSession(sessionId: string): Promise<{ status?: string }> {
   const res = await otFetch(`/sessions/${sessionId}/start`, { method: "POST" });
   if (!res.ok) throw new ApiError(res.status, null);
+  // start 响应带会话状态(quicktalk 缓存命中时直接 ready),供调用方补齐 WebRTC 启动
+  return res.json().catch(() => ({}));
 }
 
 export async function otSpeak(sessionId: string, req: SpeakRequest): Promise<void> {
