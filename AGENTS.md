@@ -128,10 +128,12 @@ NAS 共享 `//192.168.71.7/NAS` 下统一目录：
 //192.168.71.7/NAS/toiv/
 ├── outputs/
 │   ├── drama/final/      # 短剧成片（已启用并验证）
+│   ├── animatic/         # 动态分镜成片 {job_id}.mp4（已启用，ffmpeg @ workstation）
 │   ├── images/           # 文生图/图生图输出（预留）
 │   ├── videos/           # 其他视频输出（预留）
 │   └── audio/            # 配音/音频输出（预留）
-├── imports/              # 用户上传/导入素材（预留）
+├── imports/
+│   └── animatic/{job_id}/ # 动态分镜上传原图（001.jpg… 按上传顺序编号）
 └── (existing) comfyui-models / embeddings / tts / dub / manju / forge / reforge / funasr / hf_cache / toiv-trainer / vlm-* 保持不动
 ```
 

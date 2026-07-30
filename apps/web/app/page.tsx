@@ -15,6 +15,7 @@ type AuthState = "loading" | "in" | "out";
 
 type View =
   | "assistant"
+  | "animatic"
   | "avatartalk"
   | "create"
   | "video"
@@ -31,6 +32,7 @@ type View =
 // ── 视图懒加载:chunk 按需拉取;菜单展开/悬停期间并行预热,消除切换白屏等待 ──
 const viewImporters = {
   assistant: () => import("@/components/assistant/AssistantView"),
+  animatic: () => import("@/components/animatic/AnimaticView"),
   avatartalk: () => import("@/components/avatartalk/AvatarTalkView"),
   create: () => import("@/components/create/CreateView"),
   video: () => import("@/components/create/VideoView"),
@@ -54,6 +56,9 @@ function preloadView(key: View) {
 
 const AssistantView = lazy(() =>
   viewImporters.assistant().then((m) => ({ default: m.AssistantView })),
+);
+const AnimaticView = lazy(() =>
+  viewImporters.animatic().then((m) => ({ default: m.AnimaticView })),
 );
 const AvatarTalkView = lazy(() =>
   viewImporters.avatartalk().then((m) => ({ default: m.AvatarTalkView })),
@@ -103,6 +108,7 @@ function ViewFallback({ label }: { label: string }) {
 
 const VALID_VIEWS = new Set<View>([
   "assistant",
+  "animatic",
   "avatartalk",
   "create",
   "video",
@@ -119,6 +125,7 @@ const VALID_VIEWS = new Set<View>([
 
 const VIEW_META: Record<View, { label: string }> = {
   assistant: { label: "AI 助手" },
+  animatic:  { label: "动态分镜" },
   avatartalk: { label: "数字人" },
   create:    { label: "创作" },
   video:     { label: "视频" },
@@ -272,6 +279,7 @@ function HomeContent() {
       { key: "dramaStudio", label: "短剧工作室", icon: "drama", group: "tools" },
       { key: "dub", label: "译制配音", icon: "dub", group: "tools" },
       { key: "ltxstudio", label: "LTX 工作室", icon: "film", group: "tools" },
+      { key: "animatic", label: "动态分镜", icon: "clapperboard", group: "tools" },
       { key: "library", label: "作品库", icon: "library", group: "resources" },
       { key: "models", label: "模型库", icon: "models", group: "resources" },
       ...(isAdmin ? [{ key: "admin", label: "管理", icon: "admin" as const, group: "resources" as const }] : []),
@@ -374,6 +382,7 @@ function HomeContent() {
                 )
               )}
               {view === "dub" && <DubView />}
+              {view === "animatic" && <AnimaticView />}
               {view === "train" && <TrainView />}
               {view === "library" && <LibraryView />}
               {view === "backlot" && <BacklotView />}

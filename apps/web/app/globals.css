@@ -2159,3 +2159,211 @@ textarea.input {
   padding: 0 !important;
 }
 
+
+/* ============ 动态分镜 Animatic ============ */
+.anim-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-5);
+}
+
+.anim-title {
+  font-size: var(--text-xl);
+  line-height: var(--leading-xl);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.anim-subtitle {
+  margin-top: 2px;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.anim-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-8);
+  background: var(--color-bg-surface);
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-standard),
+              background-color var(--duration-fast) var(--ease-standard);
+}
+.anim-drop:hover:not(:disabled) {
+  border-color: var(--color-text-tertiary);
+  background: var(--color-bg-subtle);
+}
+.anim-drop:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.anim-drop-title {
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.anim-drop-hint {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+}
+
+.anim-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  list-style: none;
+  padding: 0;
+}
+
+.anim-card {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-2);
+}
+
+.anim-thumb-wrap {
+  position: relative;
+}
+
+.anim-thumb {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  background: #000;
+  display: block;
+}
+
+.anim-idx {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: var(--overlay-strong);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.anim-card-name {
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.anim-card-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+.anim-dur {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.anim-dur-input {
+  width: 60px;
+  padding: 2px 6px;
+  font-size: var(--text-xs);
+}
+
+.anim-dur-unit {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+}
+
+.anim-card-actions {
+  display: inline-flex;
+  align-items: center;
+}
+
+.anim-params {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-top: var(--space-5);
+  padding: var(--space-4);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.anim-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.anim-field-label {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.anim-fps-input {
+  width: 90px;
+}
+
+.anim-params-spacer {
+  flex: 1;
+}
+
+.anim-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-error-soft);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-md);
+  color: var(--color-error);
+  font-size: var(--text-sm);
+}
+
+.anim-result {
+  margin-top: var(--space-5);
+}
+
+.anim-result-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  color: var(--color-success);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.anim-video {
+  width: 100%;
+  max-height: 70vh;
+  background: #000;
+  border-radius: var(--radius-lg);
+}
