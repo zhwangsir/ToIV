@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { getToken } from "@/lib/api";
+import { genId } from "@/lib/id";
 import {
   otGetModels,
   otGetAvatars,
@@ -222,7 +223,7 @@ export function AvatarTalkView() {
               }
               return [
                 ...prev,
-                { id: crypto.randomUUID(), role: "assistant", text, isFinal: true, timestamp: new Date() },
+                { id: genId(), role: "assistant", text, isFinal: true, timestamp: new Date() },
               ];
             });
           }
@@ -238,7 +239,7 @@ export function AvatarTalkView() {
               }
               return [
                 ...prev,
-                { id: crypto.randomUUID(), role: "assistant", text, isFinal: true, timestamp: new Date() },
+                { id: genId(), role: "assistant", text, isFinal: true, timestamp: new Date() },
               ];
             });
           }
@@ -271,7 +272,7 @@ export function AvatarTalkView() {
     setInput("");
     setMessages((prev) => [
       ...prev,
-      { id: crypto.randomUUID(), role: "user", text, isFinal: true, timestamp: new Date() },
+      { id: genId(), role: "user", text, isFinal: true, timestamp: new Date() },
     ]);
     try {
       await otSpeak(sessionId, { text });
