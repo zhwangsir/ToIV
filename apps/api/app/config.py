@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     # 真机出图验证)。首次载模型 ~2.5min、更吃显存,但开箱即最强画质。Klein(快)/ Z-Image(极速)/
     # Qwen-Image / SD1.5 均保留作可显式选用的其它档。dev 编码器 = mistral_3_small_flux2_fp8(见 model_profiles)。
     default_ckpt: str = "flux2_dev_fp8mixed.safetensors"
+    # SFW 视频默认底模:LTX-2.3 distilled(短剧/通用视频生成默认;仅 nsfw=True 才切 10Eros)
+    default_video_ckpt: str = "ltx-2.3-distilled.safetensors"
     # NSFW 专区视频默认模型(LTX2.3 All in one v4.0 工作流推荐)
     # 10Eros v1.4 fp8mixed_learned:NSFW 内容专用底模(LTX2.3-10Eros 仓库最新版,29GB)
     # LTX-2.3 distilled:SFW 视频生成(走 ltx-2.3-distilled 符号链接)
@@ -95,21 +97,21 @@ class Settings(BaseSettings):
     llm_fallback_api_key: str = ""
     llm_fallback_model: str = ""
     # NSFW 模式专用 LLM(X-NSFW: 1 时启用);空 model = NSFW 模式复用主 LLM。
-    # 典型:默认 qwen3.6-uncensored(workstation),NSFW euryale-70b(spark01 vLLM)
+    # 典型:默认 qwen3.6-uncensored(workstation),NSFW llama-3.3-70b-abliterated(spark01 vLLM)
     llm_nsfw_base_url: str = ""
     llm_nsfw_api_key: str = ""
     llm_nsfw_model: str = ""
 
     # —— AICG 四层模型流水线（2026-07-24 项目管家确认）——
     # L1 初稿 = llm_base_url/llm_model（上面已配，qwen3.6-uncensored @ workstation:8000）
-    # L4 NSFW = llm_nsfw_base_url/llm_nsfw_model（上面已配，euryale-70b @ spark01:8000）
-    # L2 主力润色: Mac Studio EXO RDMA, Kimi-K2.7-Code-4bit, 6.6s/句, timeout 120s
+    # L4 NSFW = llm_nsfw_base_url/llm_nsfw_model（上面已配，llama-3.3-70b-abliterated @ spark01:8000）
+    # L2 主力润色: Mac Studio EXO RDMA, Kimi-K3(EXO 已上架;2026-07-30 实测无运行实例时自动降级 L1)
     llm_l2_base_url: str = "http://192.168.71.109:52415/v1"
-    llm_l2_model: str = "mlx-community/Kimi-K2.7-Code-4bit"
+    llm_l2_model: str = "moonshotai/Kimi-K3"
     llm_l2_timeout: float = 120.0
-    # L3 终稿精修: Mac Studio EXO, GLM-5.2-fp8, 115s/句, timeout 300s
+    # L3 终稿精修: Mac Studio EXO, GLM-5.2-DQ4plus-q8(同上的实例状态边界)
     llm_l3_base_url: str = "http://192.168.71.109:52415/v1"
-    llm_l3_model: str = "mlx-community/GLM-5.2-fp8"
+    llm_l3_model: str = "mlx-community/GLM-5.2-DQ4plus-q8"
     llm_l3_timeout: float = 300.0
 
     # 向量 RAG 的 embedding 模型(同一 OpenAI 兼容端点;留空则复用 llm_base_url)
@@ -153,9 +155,19 @@ class Settings(BaseSettings):
     # 默认 L1(workstation vLLM)保证功能可用,EXO 恢复后可改回 L3。
     drama_storyboard_layer: str = "L1"
 
-    # 短剧工作室润色(refine)/精修(polish,含批量)默认 LLM 层,边界同上:
-    # EXO 未就绪期间默认 L1,恢复后建议 L2(润色)/L3(精修)。
+    # 短剧工作室润色(refine)默认 LLM 层(L1/L2/L3/L4),与精修(polish)分开配置。
+    # 默认 L2(Kimi-K3 @ EXO);EXO 实例未就绪时 chat_layered 自动降级 L1,功能不受影响。
+    drama_refine_layer: str = "L2"
+
+    # 短剧工作室精修(polish,含批量)默认 LLM 层。
+    # 默认保持 L1 不变以免行为突变;EXO 恢复后可切 L3(GLM-5.2-DQ4plus-q8)。
     drama_polish_layer: str = "L1"
+
+    # —— 短剧 from-image 自动管线(autorun)并发度 ——
+    # 视频阶段:ComfyUI WorkerPool 可按队列把并发任务摊到多个 worker,默认 3。
+    drama_autorun_video_concurrency: int = 3
+    # 配音阶段:IndexTTS2 单卡,并发太高只会排队,默认 2。
+    drama_autorun_voice_concurrency: int = 2
 
     # —— OpenTalking 数字人引擎(unified 模式, 单进程) ——
     # 本地 dev: http://127.0.0.1:4403 (兄弟目录运行的 opentalking-unified 进程)
@@ -163,6 +175,11 @@ class Settings(BaseSettings):
     # 空 = 未启用, /api/opentalking/* 全部 503, 前端"数字人"页降级提示。
     opentalking_base_url: str = "http://127.0.0.1:4403"
     opentalking_enabled: bool = True
+
+    # —— SoulX LiveAct 全身数字人生成引擎(workstation 真机 :9400) ——
+    # 输入角色参考图 + 配音音频,生成时长 = 音频时长,分镜需先完成配音。
+    # 空 = 未部署,选择该模型提交时返回固定错误。
+    liveact_base_url: str = ""
 
     @property
     def embed_url(self) -> str:
@@ -183,6 +200,11 @@ class Settings(BaseSettings):
     def forge_base(self) -> str:
         """Forge sdapi 基址(已去尾斜杠);空串表示未部署。"""
         return self.forge_url.strip().rstrip("/")
+
+    @property
+    def liveact_base(self) -> str:
+        """LiveAct worker 基址(已去尾斜杠);空串表示未部署。"""
+        return self.liveact_base_url.strip().rstrip("/")
 
     @property
     def cors_origin_list(self) -> list[str]:

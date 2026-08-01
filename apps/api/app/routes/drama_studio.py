@@ -25,11 +25,13 @@ import tempfile
 import time
 import uuid
 import wave
+from collections.abc import Coroutine
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
@@ -56,6 +58,7 @@ from app.models import (
 from app.ratelimit import enforce_generation_rate_limit
 from app.routes.drama_analytics import _drama_root
 from app.routes.lipsync import _allowed as _lipsync_allowed, _resolve as _lipsync_resolve
+from app.services.drama_image import analyze_storyboard_images
 from app.versioning import params_snapshot
 from app.workflows.ipadapter import IPAdapterTxt2ImgParams, build_ipadapter_txt2img_graph
 from app.workflows.lipsync import LatentSyncParams, build_latentsync_graph
@@ -74,6 +77,21 @@ _DRAMA_DIR = _drama_root()
 _VOICE_NAME_RE = re.compile(r"^voice(?:ref)?-[0-9a-f]{32}\.wav$")
 _DRAMA_OUTPUT_RE = re.compile(r"^drama-[0-9a-f]{32}\.mp4$")
 _TTS_TIMEOUT = 180.0
+# LiveAct 全身数字人:生成时长 = 音频时长(103s 音频约 3.5 分钟),轮询给足余量
+_LIVEACT_POLL_INTERVAL = 3.0
+_LIVEACT_TIMEOUT = 1200.0
+
+# 后台任务强引用集合:asyncio 对 create_task 的返回值仅持弱引用,
+# 无外部强引用时可能被 GC 提前回收(参考 app.comfy.tracker.spawn 的模式)
+_BG_TASKS: set[asyncio.Task] = set()
+
+
+def _spawn(coro: Coroutine[Any, Any, Any]) -> asyncio.Task:
+    """fire-and-forget 启动后台协程,持强引用直到完成,防 GC 提前回收。"""
+    task = asyncio.create_task(coro)
+    _BG_TASKS.add(task)
+    task.add_done_callback(_BG_TASKS.discard)
+    return task
 
 
 # ===========================================================================
@@ -209,6 +227,8 @@ class GenerateVideoRequest(BaseModel):
     cfg: float = Field(default=1.0, ge=0.0, le=20.0)
     use_upscale: bool = False
     use_rife: bool = False
+    # NSFW 开关:True 用 NSFW 专用视频底模(10Eros),False(默认)用 SFW 底模(ltx-2.3-distilled)
+    nsfw: bool = False
     # 覆盖该镜的 prompt(空=用分镜已存的 prompt)
     prompt_override: str | None = Field(default=None, max_length=2000)
 
@@ -890,6 +910,73 @@ def _coerce_shot(raw: object, index: int) -> dict:
     }
 
 
+def _create_shots_from_analysis(
+    p: DramaProject,
+    coerced: list[dict],
+    session: Session,
+    *,
+    log_step: str = "storyboard",
+    log_detail: str | None = None,
+) -> list[DramaShot]:
+    """把 LLM 拆解出的分镜落库:清旧分镜 → 自动建角色 → 注入角色视觉 token → 建行。
+
+    storyboard / from-image 共用。置 p.status="storyboard" 并追加过程记录后 commit;
+    不写 p.script(由调用方各自处理)。返回新建分镜列表(已 refresh)。
+    """
+    # 清掉旧分镜(重新拆解),角色库保留
+    for old in session.exec(select(DramaShot).where(DramaShot.project_id == p.id)).all():
+        session.delete(old)
+    session.flush()
+
+    characters = session.exec(
+        select(DramaCharacter).where(DramaCharacter.project_id == p.id)
+    ).all()
+    # 把角色视觉 token 注入到分镜 prompt(角色一致性)
+    char_map = {c.name: c for c in characters}
+    # 自动创建 LLM 识别出的新角色
+    _seen_chars: set[str] = set()
+    for sc in coerced:
+        for cname in sc.get("characters", []):
+            if cname and cname not in char_map and cname not in _seen_chars:
+                _seen_chars.add(cname)
+                nc = DramaCharacter(project_id=p.id, name=cname)
+                session.add(nc)
+                char_map[cname] = nc
+    session.flush()
+
+    created: list[DramaShot] = []
+    for i, sc in enumerate(coerced):
+        # 注入出场角色的视觉 token
+        prompt = sc["prompt"]
+        for cname in sc["characters"]:
+            ch = char_map.get(cname)
+            if ch and ch.visual_prompt:
+                # 把角色 token 前置注入(主体描述前)
+                prompt = f"{ch.visual_prompt}, {prompt}" if prompt else ch.visual_prompt
+        shot = DramaShot(
+            project_id=p.id,
+            idx=i,
+            scene=sc["scene"],
+            prompt=prompt,
+            characters=json.dumps(sc["characters"], ensure_ascii=False),
+            dialogue=sc["dialogue"],
+            speaker=sc["speaker"],
+            duration_sec=sc["duration_sec"],
+            width=p.width,
+            height=p.height,
+        )
+        session.add(shot)
+        created.append(shot)
+
+    p.status = "storyboard"
+    _append_process(p, log_step, log_detail or f"LLM 拆解出 {len(created)} 个分镜")
+    session.add(p)
+    session.commit()
+    for s in created:
+        session.refresh(s)
+    return created
+
+
 @router.post("/drama/projects/{pid}/storyboard")
 async def storyboard(
     pid: str,
@@ -948,55 +1035,9 @@ async def storyboard(
         )
         raise HTTPException(status_code=502, detail="分镜生成失败(无有效提示词),请重试")
 
-    # 清掉旧分镜(重新拆解),角色库保留
-    for old in session.exec(select(DramaShot).where(DramaShot.project_id == pid)).all():
-        session.delete(old)
-    session.flush()
-
-    # 把角色视觉 token 注入到分镜 prompt(角色一致性)
-    char_map = {c.name: c for c in characters}
-    # 自动创建 LLM 识别出的新角色
-    _seen_chars: set[str] = set()
-    for sc in coerced:
-        for cname in sc.get("characters", []):
-            if cname and cname not in char_map and cname not in _seen_chars:
-                _seen_chars.add(cname)
-                nc = DramaCharacter(project_id=pid, name=cname)
-                session.add(nc)
-                char_map[cname] = nc
-    session.flush()
-
-    created: list[DramaShot] = []
-    for i, sc in enumerate(coerced):
-        # 注入出场角色的视觉 token
-        prompt = sc["prompt"]
-        for cname in sc["characters"]:
-            ch = char_map.get(cname)
-            if ch and ch.visual_prompt:
-                # 把角色 token 前置注入(主体描述前)
-                prompt = f"{ch.visual_prompt}, {prompt}" if prompt else ch.visual_prompt
-        shot = DramaShot(
-            project_id=pid,
-            idx=i,
-            scene=sc["scene"],
-            prompt=prompt,
-            characters=json.dumps(sc["characters"], ensure_ascii=False),
-            dialogue=sc["dialogue"],
-            speaker=sc["speaker"],
-            duration_sec=sc["duration_sec"],
-            width=p.width,
-            height=p.height,
-        )
-        session.add(shot)
-        created.append(shot)
-
-    p.status = "storyboard"
+    # p.script 留在端点层(提取出的 _create_shots_from_analysis 不写 script)
     p.script = script
-    _append_process(p, "storyboard", f"LLM 拆解出 {len(created)} 个分镜")
-    session.add(p)
-    session.commit()
-    for s in created:
-        session.refresh(s)
+    created = _create_shots_from_analysis(p, coerced, session)
     return {"shots": [_shot_dict(s, session) for s in created]}
 
 
@@ -1238,10 +1279,17 @@ async def _generate_keyframe_for_shot(
     project: DramaProject,
     settings,
     session: Session,
+    pool: WorkerPool,
 ) -> str | None:
     """为分镜生成带角色一致性的首帧图,返回上传到 worker input 后的文件名。
 
     仅当分镜有关联角色且角色有 ref_image 时执行;失败时返回 None,调用方应回退到 t2v。
+
+    注意:IPAdapter 构图(ipadapter.py)用 CheckpointLoaderSimple,仅兼容传统
+    checkpoint 底模;次世代 UNET 底模(flux2/qwen_image/z_image,当前默认
+    settings.default_ckpt=flux2_dev)未与 IPAdapter 打通(与 manju._build_shot_graph
+    的次世代降级一致),此时明确记 warning 并回退 t2v,不再硬塞 UNET 模型进
+    CheckpointLoaderSimple(worker 找不到该 checkpoint,异常被吞后静默回退)。
     """
     chars = _shot_characters(shot, session)
     ref_char = next((c for c in chars if c.ref_image.strip()), None)
@@ -1253,15 +1301,21 @@ async def _generate_keyframe_for_shot(
         logger.warning("角色 %s 参考图来源不在白名单: %s", ref_char.name, ref_url)
         return None
 
+    # 次世代 UNET 底模不支持 IPAdapter 首帧(见 docstring),跳过并回退 t2v
+    if is_nextgen(settings.default_ckpt):
+        logger.warning(
+            "分镜 #%s 跳过 IPAdapter 角色首帧:默认底模 %s 为次世代 UNET 模型,"
+            "IPAdapter 仅支持传统 checkpoint,回退 t2v",
+            shot.idx,
+            settings.default_ckpt,
+        )
+        return None
+
     try:
-        async with httpx.AsyncClient(
-            timeout=60.0, follow_redirects=True, trust_env=False
-        ) as http:
-            rr = await http.get(_resolve_url(ref_url))
-            rr.raise_for_status()
-            ref_fn = await client.upload_image(
-                rr.content, f"drama_ref_{uuid.uuid4().hex}.png"
-            )
+        ref_bytes = await _fetch_ref_image_bytes(pool, ref_url)
+        ref_fn = await client.upload_image(
+            ref_bytes, f"drama_ref_{uuid.uuid4().hex}.png"
+        )
 
         # 用默认底模走 IPAdapter txt2img,注入角色脸一致性
         ipa_params = IPAdapterTxt2ImgParams(
@@ -1302,27 +1356,37 @@ async def _generate_keyframe_for_shot(
 # ===========================================================================
 # 单分镜视频生成(LTX t2v / i2v)
 # ===========================================================================
-@router.post("/drama/shots/{sid}/generate-video")
-async def generate_shot_video(
-    sid: str,
-    body: GenerateVideoRequest,
-    pool: WorkerPool = Depends(get_pool),
-    user: User = Depends(get_current_user),
-    session: Session = Depends(get_session),
-) -> dict:
-    """单分镜视频生成(LTX t2v)。本地学习用,跳过 NSFW 合规门槛。"""
-    enforce_generation_rate_limit(user)
-    shot = _owned_shot(sid, user, session)
-    project = session.get(DramaProject, shot.project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="项目不存在")
-    prompt = (body.prompt_override or shot.prompt).strip()
+async def _submit_shot_video(
+    shot: DramaShot,
+    project: DramaProject,
+    *,
+    pool: WorkerPool,
+    session: Session,
+    user: User,
+    worker: str | None = None,
+    steps: int = 20,
+    cfg: float = 1.0,
+    seed: int | None = None,
+    use_upscale: bool = False,
+    use_rife: bool = False,
+    prompt_override: str | None = None,
+    first_image_bytes: bytes | None = None,
+    nsfw: bool = False,
+) -> tuple[str, str, str, int]:
+    """提交单分镜视频生成作业(LTX t2v / i2v),返回 (prompt_id, client_id, worker, seed)。
+
+    generate-video 端点与 from-image 自动管线共用。first_image_bytes 非空时
+    (from-image 首镜):把上传原图直接传到选中的 worker 作 i2v 首帧;
+    上传失败回退到常规 IPAdapter 首帧,再退 t2v。
+    nsfw=True 时用 NSFW 专用视频底模(10Eros),否则用 SFW 默认(ltx-2.3-distilled)。
+    """
+    prompt = (prompt_override or shot.prompt).strip()
     if not prompt:
         raise HTTPException(status_code=422, detail="分镜提示词为空")
 
     # 选 worker
-    if body.worker:
-        client = resolve_worker(body.worker)
+    if worker:
+        client = resolve_worker(worker)
     else:
         from app.capabilities import required_nodes, required_models
         try:
@@ -1336,29 +1400,40 @@ async def generate_shot_video(
             raise HTTPException(status_code=503, detail="无可用 worker(缺 LTX 模型)")
 
     settings = get_settings()
-    # 用 settings 的 NSFW 默认视频底模(10Eros),本地学习场景跳过 NSFW 门槛
-    seed = body.seed if body.seed is not None else LtxT2VParams(positive="").seed
+    # SFW/NSFW 视频底模分流:nsfw=True 才用 10Eros 成人底模,否则 SFW 默认(ltx-2.3-distilled)
+    video_ckpt = settings.nsfw_default_video_ckpt if nsfw else settings.default_video_ckpt
+    seed_used = seed if seed is not None else LtxT2VParams(positive="").seed
 
-    # 角色一致性：若分镜有关联角色且角色有 ref_image，先生成带 IPAdapter 的高质量首帧
-    keyframe_fn = await _generate_keyframe_for_shot(
-        client, shot, project, settings, session
-    )
+    # 首帧:from-image 上传原图优先;否则角色一致性 IPAdapter 首帧;都没有则 t2v
+    keyframe_fn: str | None = None
+    if first_image_bytes is not None:
+        try:
+            keyframe_fn = await client.upload_image(
+                first_image_bytes, f"drama_fromimg_{uuid.uuid4().hex}.png"
+            )
+        except Exception as e:  # noqa: BLE001
+            logger.warning("分镜 #%s 首帧原图上传失败,回退常规首帧: %s", shot.idx, e)
+    if keyframe_fn is None:
+        # 角色一致性：若分镜有关联角色且角色有 ref_image，先生成带 IPAdapter 的高质量首帧
+        keyframe_fn = await _generate_keyframe_for_shot(
+            client, shot, project, settings, session, pool
+        )
 
     common_params = {
         "positive": prompt,
         "negative": shot.negative,
-        "unet_name": settings.nsfw_default_video_ckpt,
+        "unet_name": video_ckpt,
         "gemma_name": settings.nsfw_default_gemma,
         "vae_name": settings.nsfw_default_vae,
         "width": project.width,
         "height": project.height,
         "length": max(9, int(project.fps * shot.duration_sec)),
         "fps": project.fps,
-        "steps": body.steps,
-        "cfg": body.cfg,
-        "seed": seed,
-        "use_upscale": body.use_upscale,
-        "use_rife": body.use_rife,
+        "steps": steps,
+        "cfg": cfg,
+        "seed": seed_used,
+        "use_upscale": use_upscale,
+        "use_rife": use_rife,
         "filename_prefix": f"ToIV_drama_shot{shot.idx}",
     }
     if keyframe_fn:
@@ -1383,6 +1458,17 @@ async def generate_shot_video(
             status = 502
         raise HTTPException(status_code=status, detail=str(e)) from e
 
+    # Job 参数快照:重建等价请求模型,快照结构与原端点实现一致
+    req = GenerateVideoRequest(
+        worker=worker,
+        seed=seed,
+        steps=steps,
+        cfg=cfg,
+        use_upscale=use_upscale,
+        use_rife=use_rife,
+        nsfw=nsfw,
+        prompt_override=prompt_override,
+    )
     # 落 Job(便于全局作业追踪 + 历史页查看)
     session.add(
         Job(
@@ -1393,64 +1479,103 @@ async def generate_shot_video(
             kind=video_kind,
             status="queued",
             prompt=prompt,
-            seed=seed,
-            nsfw=True,  # 10Eros 底模属 NSFW,打标保历史页过滤
-            params=params_snapshot(body, seed=seed),
+            seed=seed_used,
+            nsfw=nsfw,  # NSFW 底模打标保历史页过滤
+            params=params_snapshot(req, seed=seed_used),
         )
     )
     # 分镜状态置 generating,记录 seed
     shot.video_status = "generating"
     shot.video_url = ""  # 重置,等 tracker 落库后前端刷新
-    shot.seed = seed
+    shot.seed = seed_used
     shot.error = ""
-    _append_process(_owned_project(shot.project_id, user, session), "generate_video", f"分镜 #{shot.idx} 提交生成(seed={seed})")
+    _append_process(project, "generate_video", f"分镜 #{shot.idx} 提交生成(seed={seed_used})")
     session.add(shot)
     session.commit()
 
     # 后台追踪结果(独立于客户端 SSE),完成后通过 GET 分镜查 video_url
     spawn_tracker(client, prompt_id)
+    return prompt_id, client_id, client.base_url, seed_used
+
+
+async def _await_shot_video_writeback(sid: str, prompt_id: str) -> bool:
+    """等待 tracker 完成并把 video_url 回写到 DramaShot;返回是否成功回写。
+
+    generate-video 端点 fire-and-forget 调用;from-image 自动管线则 await 串行等待。
+    """
+    from app.db import engine
+    try:
+        with Session(engine) as s:
+            await wait_for_jobs(s, [prompt_id], timeout=900.0)
+            job = s.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
+            if job and job.status == "done" and job.result:
+                urls = json.loads(job.result)
+                if urls:
+                    shot_obj = s.get(DramaShot, sid)
+                    if shot_obj:
+                        shot_obj.video_url = urls[0]
+                        shot_obj.video_status = "done"
+                        s.add(shot_obj)
+                        s.commit()
+                        return True
+            # 失败标记
+            shot_obj = s.get(DramaShot, sid)
+            if shot_obj and shot_obj.video_status == "generating":
+                shot_obj.video_status = "error"
+                shot_obj.error = "生成失败或超时"
+                s.add(shot_obj)
+                s.commit()
+            return False
+    except Exception as e:  # noqa: BLE001
+        logger.exception("shot %s video writeback failed: %s", sid, e)
+        with Session(engine) as s:
+            shot_obj = s.get(DramaShot, sid)
+            if shot_obj and shot_obj.video_status == "generating":
+                shot_obj.video_status = "error"
+                shot_obj.error = f"回写异常: {type(e).__name__}: {e}"[:200]
+                s.add(shot_obj)
+                s.commit()
+        return False
+
+
+@router.post("/drama/shots/{sid}/generate-video")
+async def generate_shot_video(
+    sid: str,
+    body: GenerateVideoRequest,
+    pool: WorkerPool = Depends(get_pool),
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """单分镜视频生成(LTX t2v)。本地学习用,跳过 NSFW 合规门槛。"""
+    enforce_generation_rate_limit(user)
+    shot = _owned_shot(sid, user, session)
+    project = session.get(DramaProject, shot.project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="项目不存在")
+
+    prompt_id, client_id, worker_url, seed = await _submit_shot_video(
+        shot,
+        project,
+        pool=pool,
+        session=session,
+        user=user,
+        worker=body.worker,
+        steps=body.steps,
+        cfg=body.cfg,
+        seed=body.seed,
+        use_upscale=body.use_upscale,
+        use_rife=body.use_rife,
+        prompt_override=body.prompt_override,
+        nsfw=body.nsfw,
+    )
 
     # 挂一个回调:tracker 完成后把 video_url 回写到 DramaShot
-    async def _writeback():
-        from app.comfy.tracker import wait_for_jobs
-        from app.db import engine
-        try:
-            with Session(engine) as s:
-                await wait_for_jobs(s, [prompt_id], timeout=900.0)
-                job = s.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
-                if job and job.status == "done" and job.result:
-                    urls = json.loads(job.result)
-                    if urls:
-                        shot_obj = s.get(DramaShot, sid)
-                        if shot_obj:
-                            shot_obj.video_url = urls[0]
-                            shot_obj.video_status = "done"
-                            s.add(shot_obj)
-                            s.commit()
-                            return
-                # 失败标记
-                shot_obj = s.get(DramaShot, sid)
-                if shot_obj and shot_obj.video_status == "generating":
-                    shot_obj.video_status = "error"
-                    shot_obj.error = "生成失败或超时"
-                    s.add(shot_obj)
-                    s.commit()
-        except Exception as e:  # noqa: BLE001
-            logger.exception("shot %s video writeback failed: %s", sid, e)
-            with Session(engine) as s:
-                shot_obj = s.get(DramaShot, sid)
-                if shot_obj and shot_obj.video_status == "generating":
-                    shot_obj.video_status = "error"
-                    shot_obj.error = f"回写异常: {type(e).__name__}: {e}"[:200]
-                    s.add(shot_obj)
-                    s.commit()
-
-    asyncio.create_task(_writeback())
+    _spawn(_await_shot_video_writeback(sid, prompt_id))
 
     return {
         "prompt_id": prompt_id,
         "client_id": client_id,
-        "worker": client.base_url,
+        "worker": worker_url,
         "seed": seed,
         "shot_id": sid,
     }
@@ -1486,25 +1611,43 @@ def _wav_duration(path: Path) -> float:
         return 0.0
 
 
-@router.post("/drama/shots/{sid}/generate-voice")
-async def generate_shot_voice(
-    sid: str,
-    body: GenerateVoiceRequest,
-    user: User = Depends(get_current_user),
-    session: Session = Depends(get_session),
-) -> dict:
-    """单分镜配音(IndexTTS2)。复用 voice.py 的 TTS 调用模式。
+async def _stream_to_path(
+    resp: httpx.Response, path: Path, *, chunk_size: int = 4 << 20
+) -> None:
+    """流式把 HTTP 响应体写盘(4MB 块,参照 nas_models._download_url)。
 
-    优先级:body.ref_audio_url > 角色 ref_audio > 默认音色。
+    落盘目标是 cifs NAS 挂载:同步写会阻塞事件循环,open/write/close 一律
+    走 asyncio.to_thread 让出事件循环。
     """
-    enforce_generation_rate_limit(user)
-    shot = _owned_shot(sid, user, session)
-    text = (body.text_override or shot.dialogue).strip()
+    f = await asyncio.to_thread(open, path, "wb")
+    try:
+        async for chunk in resp.aiter_bytes(chunk_size):
+            if chunk:
+                await asyncio.to_thread(f.write, chunk)
+    finally:
+        await asyncio.to_thread(f.close)
+
+
+async def _submit_shot_voice(
+    shot: DramaShot,
+    session: Session,
+    settings,
+    *,
+    text_override: str | None = None,
+    ref_audio_url: str | None = None,
+    emo_text: str | None = None,
+    emo_alpha: float = 0.6,
+) -> str:
+    """调 IndexTTS2 为该分镜配音,落盘 _DRAMA_DIR 并回写 voice_url,返回 voice_url。
+
+    generate-voice 端点与 from-image 自动管线共用。
+    优先级:ref_audio_url 参数 > speaker 对应角色的 ref_audio > 默认音色。
+    """
+    text = (text_override or shot.dialogue).strip()
     if not text:
         raise HTTPException(status_code=422, detail="分镜台词为空")
 
-    # 解析参考音:body 传入 > speaker 对应角色的 ref_audio
-    ref_audio_url = body.ref_audio_url
+    # 解析参考音:参数传入 > speaker 对应角色的 ref_audio
     if not ref_audio_url and shot.speaker:
         # 查角色库找 speaker 的 ref_audio
         chars = session.exec(
@@ -1515,16 +1658,19 @@ async def generate_shot_voice(
                 ref_audio_url = c.ref_audio
                 break
 
-    settings = get_settings()
     tts_target = settings.tts_url.rstrip("/")
     data: dict[str, str] = {"text": text}
     # 情感控制：优先用请求体传入，其次尝试从分镜场景推断。
-    emo_text = (body.emo_text or "").strip()
+    emo_text = (emo_text or "").strip()
     if not emo_text and shot.scene:
         emo_text = shot.scene.strip()
     if emo_text:
         data["emo_text"] = emo_text
-        data["emo_alpha"] = str(max(0.0, min(1.0, body.emo_alpha)))
+        data["emo_alpha"] = str(max(0.0, min(1.0, emo_alpha)))
+
+    _DRAMA_DIR.mkdir(parents=True, exist_ok=True)
+    name = f"voice-{uuid.uuid4().hex}.wav"
+    path = _DRAMA_DIR / name
 
     async with httpx.AsyncClient(
         timeout=_TTS_TIMEOUT, follow_redirects=True, trust_env=False
@@ -1544,8 +1690,38 @@ async def generate_shot_voice(
         session.add(shot)
         session.commit()
 
+        header_checked = False
+        bad_audio = False
         try:
-            resp = await client.post(tts_target + "/tts", data=data, files=files)
+            # 流式读响应:首块校验 RIFF 头,块写盘走 to_thread(cifs NAS 同步写阻塞事件循环)
+            async with client.stream(
+                "POST", tts_target + "/tts", data=data, files=files
+            ) as resp:
+                if resp.status_code != 200:
+                    await resp.aread()  # 取错误详情前先读完响应体
+                    detail = "TTS 合成失败"
+                    try:
+                        detail = resp.json().get("detail", detail)
+                    except (ValueError, KeyError):
+                        detail = resp.text[:200] or detail
+                    shot.voice_status = "error"
+                    shot.error = detail
+                    session.add(shot)
+                    session.commit()
+                    raise HTTPException(status_code=502, detail=detail)
+                f = await asyncio.to_thread(open, path, "wb")
+                try:
+                    async for chunk in resp.aiter_bytes(1 << 20):
+                        if not chunk:
+                            continue
+                        if not header_checked:
+                            header_checked = True
+                            if chunk[:4] != b"RIFF":
+                                bad_audio = True
+                                break
+                        await asyncio.to_thread(f.write, chunk)
+                finally:
+                    await asyncio.to_thread(f.close)
         except httpx.HTTPError as e:
             shot.voice_status = "error"
             shot.error = f"TTS 不可达:{e}"
@@ -1553,39 +1729,55 @@ async def generate_shot_voice(
             session.commit()
             raise HTTPException(status_code=502, detail=f"TTS 服务不可达:{e}") from e
 
-    if resp.status_code != 200:
-        shot.voice_status = "error"
-        detail = "TTS 合成失败"
-        try:
-            detail = resp.json().get("detail", detail)
-        except (ValueError, KeyError):
-            detail = resp.text[:200] or detail
-        shot.error = detail
-        session.add(shot)
-        session.commit()
-        raise HTTPException(status_code=502, detail=detail)
-    if not resp.content or resp.content[:4] != b"RIFF":
+    if bad_audio or not header_checked:
+        await asyncio.to_thread(path.unlink, missing_ok=True)  # 不留半成品
         shot.voice_status = "error"
         shot.error = "TTS 返回非音频"
         session.add(shot)
         session.commit()
         raise HTTPException(status_code=502, detail="TTS 返回非音频")
 
-    _DRAMA_DIR.mkdir(parents=True, exist_ok=True)
-    name = f"voice-{uuid.uuid4().hex}.wav"
-    path = _DRAMA_DIR / name
-    path.write_bytes(resp.content)
-
     shot.voice_url = f"/api/drama/voice/{name}"
     shot.voice_status = "done"
     shot.error = ""
     session.add(shot)
     session.commit()
+    return shot.voice_url
 
+
+@router.post("/drama/shots/{sid}/generate-voice")
+async def generate_shot_voice(
+    sid: str,
+    body: GenerateVoiceRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """单分镜配音(IndexTTS2)。复用 voice.py 的 TTS 调用模式。
+
+    优先级:body.ref_audio_url > 角色 ref_audio > 默认音色。
+    """
+    enforce_generation_rate_limit(user)
+    shot = _owned_shot(sid, user, session)
+    text = (body.text_override or shot.dialogue).strip()
+    if not text:
+        raise HTTPException(status_code=422, detail="分镜台词为空")
+
+    settings = get_settings()
+    voice_url = await _submit_shot_voice(
+        shot,
+        session,
+        settings,
+        text_override=body.text_override,
+        ref_audio_url=body.ref_audio_url,
+        emo_text=body.emo_text,
+        emo_alpha=body.emo_alpha,
+    )
+
+    name = voice_url.rsplit("/", 1)[-1]
     return {
-        "url": shot.voice_url,
+        "url": voice_url,
         "name": name,
-        "duration_sec": _wav_duration(path),
+        "duration_sec": _wav_duration(_DRAMA_DIR / name),
         "shot_id": sid,
     }
 
@@ -1706,7 +1898,7 @@ async def generate_shot_lipsync(
                     s.add(shot_obj)
                     s.commit()
 
-    asyncio.create_task(_writeback_lipsync())
+    _spawn(_writeback_lipsync())
 
     return {
         "prompt_id": prompt_id,
@@ -1761,6 +1953,53 @@ def patch_shot(
 # ===========================================================================
 # 一键合成成片(复用 assembly.py 的 ffmpeg 逻辑)
 # ===========================================================================
+async def _fetch_ref_image_bytes(pool: WorkerPool, ref_url: str) -> bytes:
+    """下载角色参考图字节。
+
+    /api/images? 产物 URL 走 pool 从 ComfyUI worker 直读(绕过 HTTP 自调鉴权
+    401,与 _download_images_clip 同源);其余白名单 URL 走 httpx 自调。
+    """
+    if ref_url.startswith("/api/images?"):
+        from urllib.parse import parse_qs, urlsplit
+
+        qs = parse_qs(urlsplit(ref_url).query)
+        filename = qs.get("filename", [""])[0]
+        subfolder = qs.get("subfolder", [""])[0]
+        type_ = qs.get("type", ["output"])[0]
+        worker = qs.get("worker", [""])[0]
+        if not filename or not worker:
+            raise HTTPException(status_code=400, detail=f"无效的产物 URL: {ref_url}")
+        primary = resolve_worker(worker)
+        host = urlsplit(primary.base_url).hostname or primary.base_url
+        siblings = [
+            c
+            for c in pool.clients
+            if (urlsplit(c.base_url).hostname or c.base_url) == host
+            and c.base_url != primary.base_url
+        ]
+        last_err: Exception | None = None
+        for client in [primary, *siblings]:
+            try:
+                content, _ = await client.get_image_bytes(filename, subfolder, type_)
+                return content
+            except ComfyUIError as e:
+                last_err = e
+        raise HTTPException(
+            status_code=502,
+            detail=f"角色参考图下载失败(同机 worker 均不可达): {ref_url} ({last_err})",
+        )
+
+    async with httpx.AsyncClient(
+        timeout=60.0, follow_redirects=True, trust_env=False
+    ) as http:
+        try:
+            rr = await http.get(_resolve_url(ref_url))
+            rr.raise_for_status()
+        except httpx.HTTPError as e:
+            raise HTTPException(status_code=502, detail=f"角色参考图下载失败:{e}") from e
+    return rr.content
+
+
 async def _download_images_clip(
     pool: WorkerPool, url: str, dest: Path
 ) -> None:
@@ -1791,7 +2030,7 @@ async def _download_images_clip(
     for client in [primary, *siblings]:
         try:
             content, _ = await client.get_image_bytes(filename, subfolder, type_)
-            dest.write_bytes(content)
+            await asyncio.to_thread(dest.write_bytes, content)
             return
         except ComfyUIError as e:
             last_err = e
@@ -1801,22 +2040,88 @@ async def _download_images_clip(
     )
 
 
-@router.post("/drama/projects/{pid}/assemble")
-async def assemble_project(
-    pid: str,
+# 配音对齐补全(成片合成前):配音长于镜时长 + 容差时 atempo 压回时槽
+_VOICE_FIT_TOLERANCE = 0.3  # 时长容差(秒):超出才处理
+_VOICE_FIT_TEMPO_MAX = 1.3  # 压缩比上限:超出不压,保留原样避免变速失真
+_ATEMPO_SEG_MAX = 2.0       # atempo 单段上限(与 dub_voice._TEMPO_MAX 一致)
+
+
+def _atempo_filter(tempo: float) -> str:
+    """构造 atempo 串联链(单段 ≤2.0;当前压缩比上限 1.3,常态只有一段)。"""
+    parts: list[str] = []
+    t = tempo
+    while t > _ATEMPO_SEG_MAX:
+        parts.append(f"atempo={_ATEMPO_SEG_MAX:.3f}")
+        t /= _ATEMPO_SEG_MAX
+    parts.append(f"atempo={t:.3f}")
+    return ",".join(parts)
+
+
+async def _fit_voice_to_slot(
+    src: Path, slot: float, tmp_dir: Path, index: int
+) -> tuple[Path, dict]:
+    """配音时长对齐镜时长:超长且压缩比 ≤1.3 时 atempo 加速贴回时槽。
+
+    返回 (配音路径, 对齐记录{index,src_duration,slot,tempo,action,final_duration})。
+    ≤容差不处理;压缩比 >1.3 不压(保留原样并 log.warning);atempo 产物异常回退原文件。
+    ffprobe/ffmpeg 走 assembly 的异步封装,不阻塞事件循环。
+    """
+    from app.routes.assembly import _probe_duration, _run_ffmpeg
+
+    rec: dict = {
+        "index": index, "slot": round(slot, 3), "tempo": 1.0, "action": "unchanged",
+    }
+    dur = await _probe_duration(src)
+    rec["src_duration"] = round(dur, 3)
+    if slot <= 0 or dur <= slot + _VOICE_FIT_TOLERANCE:
+        return src, rec
+
+    tempo = dur / slot
+    rec["tempo"] = round(tempo, 3)
+    if tempo > _VOICE_FIT_TEMPO_MAX:
+        rec["action"] = "skipped"
+        rec["final_duration"] = rec["src_duration"]
+        logger.warning(
+            "配音对齐: 镜%d 配音 %.2fs 远超镜时长 %.2fs(压缩比 %.2f > %.1f),保留原样",
+            index, dur, slot, tempo, _VOICE_FIT_TEMPO_MAX,
+        )
+        return src, rec
+
+    out = tmp_dir / f"voice-fit-{index:03d}.wav"
+    await _run_ffmpeg([
+        "ffmpeg", "-y", "-i", str(src),
+        "-filter:a", _atempo_filter(tempo),
+        str(out),
+    ])
+    if not out.exists() or out.stat().st_size == 0:
+        logger.warning("配音对齐: 镜%d atempo 产物为空,保留原样", index)
+        rec["action"] = "skipped"
+        rec["final_duration"] = rec["src_duration"]
+        return src, rec
+
+    new_dur = await _probe_duration(out)
+    rec["action"] = "compressed"
+    rec["final_duration"] = round(new_dur, 3)
+    logger.info(
+        "配音对齐: 镜%d 配音 %.2fs → %.2fs(atempo %.3f,镜时长 %.2fs)",
+        index, dur, new_dur, tempo, slot,
+    )
+    return out, rec
+
+
+async def _do_assemble(
+    p: DramaProject,
     body: AssembleOptions,
-    user: User = Depends(get_current_user),
-    pool: WorkerPool = Depends(get_pool),
-    session: Session = Depends(get_session),
+    pool: WorkerPool,
+    session: Session,
 ) -> dict:
     """一键合成成片:把项目下所有 done 状态的分镜视频按序拼接 + 配音 + 字幕。
 
+    assemble 端点与 from-image 自动管线共用。
     复用 assembly.py 的 _build_ffmpeg_command / _run_ffmpeg / _download_clip。
     """
-    enforce_generation_rate_limit(user)
-    p = _owned_project(pid, user, session)
     shots = session.exec(
-        select(DramaShot).where(DramaShot.project_id == pid).order_by(DramaShot.idx)
+        select(DramaShot).where(DramaShot.project_id == p.id).order_by(DramaShot.idx)
     ).all()
     ready = [s for s in shots if s.video_status == "done" and s.video_url]
     if not ready:
@@ -1912,6 +2217,24 @@ async def assemble_project(
             min(probed[i], targets[i]) if i < len(targets) and targets[i] > 0 else probed[i]
             for i in range(len(probed))
         ]
+        # 配音对齐补全:配音长于镜时长 + 0.3s 容差时 atempo 压回(压缩比上限 1.3)
+        align_recs: list[dict] = []
+        for i, vp in enumerate(voice_paths):
+            if vp is None:
+                continue
+            fitted, rec = await _fit_voice_to_slot(vp, durations[i], tmp_dir, i)
+            voice_paths[i] = fitted
+            if rec["action"] != "unchanged":
+                align_recs.append(rec)
+        if align_recs:
+            _append_process(
+                p, "voice_align",
+                "; ".join(
+                    f"镜{r['index']}:{r['src_duration']:.2f}s→{r['final_duration']:.2f}s"
+                    f"(x{r['tempo']:.2f},{'压缩' if r['action'] == 'compressed' else '超上限保留'})"
+                    for r in align_recs
+                ),
+            )
         dims = _ASPECT_DIMS.get(body.aspect, _ASPECT_DIMS["16:9"])
         has_bookends = bool(asm_opt.title.strip() or asm_opt.credits.strip())
         film_path = (tmp_dir / "film.mp4") if has_bookends else out_path
@@ -1947,6 +2270,23 @@ async def assemble_project(
     session.commit()
 
     return {"url": p.video_url, "name": name, "duration_sec": total_sec}
+
+
+@router.post("/drama/projects/{pid}/assemble")
+async def assemble_project(
+    pid: str,
+    body: AssembleOptions,
+    user: User = Depends(get_current_user),
+    pool: WorkerPool = Depends(get_pool),
+    session: Session = Depends(get_session),
+) -> dict:
+    """一键合成成片:把项目下所有 done 状态的分镜视频按序拼接 + 配音 + 字幕。
+
+    复用 assembly.py 的 _build_ffmpeg_command / _run_ffmpeg / _download_clip。
+    """
+    enforce_generation_rate_limit(user)
+    p = _owned_project(pid, user, session)
+    return await _do_assemble(p, body, pool, session)
 
 
 @router.get("/drama/output/{name}")
@@ -2159,9 +2499,11 @@ async def grid_storyboard(
         select(DramaCharacter).where(DramaCharacter.project_id == pid)
     ).all()
 
-    # LLM 拆解剧本成 num_shots 个镜头(复用 storyboard 提示词)
+    # LLM 拆解剧本成 num_shots 个镜头(复用 storyboard 提示词);
+    # 与普通 storyboard 一致走配置层(TOIV_DRAMA_STORYBOARD_LAYER),不再绕过配置直调 L1。
+    layer = _drama_llm_layer(get_settings().drama_storyboard_layer)
     try:
-        msg = await llm.chat(
+        msg = await llm.chat_layered(
             [
                 {"role": "system", "content": _STORYBOARD_SYSTEM},
                 {
@@ -2171,6 +2513,7 @@ async def grid_storyboard(
                     ),
                 },
             ],
+            layer=layer,
             # 与普通 storyboard 一致 8192:Nemotron 等思考型模型 reasoning 占 token,
             # 4096 偶发被截断 → JSON 不完整 → 解析失败 502。8192 实测稳定。
             max_tokens=8192,
@@ -2487,6 +2830,8 @@ class GenerateVideoV2Request(BaseModel):
     cfg: float = Field(default=1.0, ge=0.0, le=20.0)
     use_upscale: bool = False
     use_rife: bool = False
+    # NSFW 开关:True 用 NSFW 专用视频底模(10Eros),False(默认)用 SFW 底模(ltx-2.3-distilled)
+    nsfw: bool = False
     prompt_override: str | None = Field(default=None, max_length=2000)
     num_candidates: int = Field(default=1, ge=1, le=4)
 
@@ -2551,6 +2896,141 @@ async def _writeback_candidate(prompt_id: str, candidate_id: str, shot_id: str) 
                 s.commit()
 
 
+# ===========================================================================
+# LiveAct 全身数字人(SoulX LiveAct 14B,workstation 独立 worker)
+# ===========================================================================
+async def _await_liveact_result(sid: str, task_id: str) -> None:
+    """轮询 LiveAct worker /status,done 后拉 /result 落盘并回写 DramaShot。
+
+    独立 DB session 生命周期(参照 _writeback_candidate),不与请求 session 共享。
+    进程重启后轮询任务丢失:启动时 reconcile_interrupted 会把仍 generating 的
+    LiveAct 分镜标 error(task_id 未持久化,找不回),前端可重新发起。
+    """
+    from app.db import engine
+
+    base = get_settings().liveact_base
+    deadline = time.monotonic() + _LIVEACT_TIMEOUT
+    try:
+        _DRAMA_DIR.mkdir(parents=True, exist_ok=True)
+        name = f"drama-{uuid.uuid4().hex}.mp4"
+        async with httpx.AsyncClient(timeout=60.0, trust_env=False) as http:
+            while True:
+                resp = await http.get(f"{base}/status/{task_id}")
+                resp.raise_for_status()
+                info = resp.json()
+                status = info.get("status")
+                if status == "done":
+                    break
+                if status == "error":
+                    raise RuntimeError(info.get("error") or "LiveAct 生成失败")
+                if time.monotonic() > deadline:
+                    raise TimeoutError("LiveAct 生成超时(20 分钟)")
+                await asyncio.sleep(_LIVEACT_POLL_INTERVAL)
+            # mp4 流式落盘(不全量读内存;写盘走 to_thread,cifs NAS 不阻塞事件循环)
+            async with http.stream("GET", f"{base}/result/{task_id}") as rr:
+                rr.raise_for_status()
+                await _stream_to_path(rr, _DRAMA_DIR / name)
+
+        with Session(engine) as s:
+            shot = s.get(DramaShot, sid)
+            if shot:
+                shot.video_url = f"/api/drama/output/{name}"
+                shot.video_status = "done"
+                shot.video_model = "liveact"
+                shot.error = ""
+                s.add(shot)
+                s.commit()
+    except Exception as e:  # noqa: BLE001
+        logger.exception("liveact task %s failed: %s", task_id, e)
+        with Session(engine) as s:
+            shot = s.get(DramaShot, sid)
+            if shot and shot.video_status == "generating":
+                shot.video_status = "error"
+                shot.error = f"LiveAct 生成失败: {type(e).__name__}: {e}"[:200]
+                s.add(shot)
+                s.commit()
+
+
+async def _generate_shot_video_liveact(
+    sid: str,
+    body: "GenerateVideoV2Request",
+    shot: DramaShot,
+    project: DramaProject,
+    prompt: str,
+    gen,
+    user: User,
+    session: Session,
+    pool: WorkerPool,
+) -> dict:
+    """generate-video-v2 的 LiveAct 分支:参考图 + 配音音频直推 worker,后台轮询回写。"""
+    if body.num_candidates > 1:
+        raise HTTPException(status_code=422, detail="LiveAct 暂不支持多候选生成")
+    if shot.voice_status != "done" or not shot.voice_url:
+        raise HTTPException(
+            status_code=422, detail="LiveAct 全身数字人需先完成配音(生成时长=配音时长)"
+        )
+
+    # 参考图:取分镜出场角色中第一个有 ref_image 的角色
+    chars = _shot_characters(shot, session)
+    ref_char = next((c for c in chars if c.ref_image.strip()), None)
+    if not ref_char:
+        raise HTTPException(
+            status_code=422, detail="LiveAct 需要角色参考图,请先为出场角色设置参考图"
+        )
+    ref_url = ref_char.ref_image.strip()
+    if not _allowed_ref(ref_url):
+        raise HTTPException(status_code=400, detail="角色参考图来源不在白名单内")
+
+    # 配音音频:voice_url 指向 _DRAMA_DIR 落盘的 wav,直接读盘
+    voice_name = shot.voice_url.rsplit("/", 1)[-1]
+    if not _VOICE_NAME_RE.match(voice_name):
+        raise HTTPException(status_code=422, detail="配音文件非法,请重新生成配音")
+    voice_path = _DRAMA_DIR / voice_name
+    if not voice_path.is_file():
+        raise HTTPException(status_code=422, detail="配音文件不存在,请重新生成配音")
+    audio_bytes = await asyncio.to_thread(voice_path.read_bytes)
+
+    ref_image_bytes = await _fetch_ref_image_bytes(pool, ref_url)
+
+    result = await gen.generate(
+        prompt,
+        fps=project.fps,
+        seed=body.seed,
+        ref_image_bytes=ref_image_bytes,
+        audio_bytes=audio_bytes,
+    )
+    if not result.success:
+        shot.video_status = "error"
+        shot.error = result.error
+        session.add(shot)
+        session.commit()
+        status = 501 if "未部署" in result.error else 502
+        raise HTTPException(status_code=status, detail=result.error)
+
+    task_id = (result.raw or {}).get("task_id", result.job_id)
+    shot.video_model = "liveact"
+    shot.video_status = "generating"
+    shot.video_url = ""
+    shot.error = ""
+    _append_process(
+        _owned_project(shot.project_id, user, session),
+        "generate_video",
+        "模型: liveact(SoulX 全身数字人,生成时长=配音时长)",
+    )
+    session.add(shot)
+    session.commit()
+
+    # 后台轮询 worker 状态,完成后落盘并回写 video_url(独立 DB session)
+    _spawn(_await_liveact_result(sid, task_id))
+
+    return {
+        "task_id": task_id,
+        "worker": (result.raw or {}).get("worker", ""),
+        "shot_id": sid,
+        "model": "liveact",
+    }
+
+
 @router.post("/drama/shots/{sid}/generate-video-v2")
 async def generate_shot_video_v2(
     sid: str,
@@ -2576,6 +3056,12 @@ async def generate_shot_video_v2(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
+    # LiveAct 全身数字人:参考图 + 配音音频直推 worker,不走 ComfyUI pool/tracker
+    if body.model == "liveact":
+        return await _generate_shot_video_liveact(
+            sid, body, shot, project, prompt, gen, user, session, pool
+        )
+
     # 单候选:保持旧行为,直接更新 shot.video_status/video_url
     if body.num_candidates <= 1:
         result = await gen.generate(
@@ -2591,6 +3077,7 @@ async def generate_shot_video_v2(
             cfg=body.cfg,
             use_upscale=body.use_upscale,
             use_rife=body.use_rife,
+            nsfw=body.nsfw,
             filename_prefix=f"ToIV_drama_shot{shot.idx}",
         )
 
@@ -2616,7 +3103,7 @@ async def generate_shot_video_v2(
                 status="queued",
                 prompt=prompt,
                 seed=seed_used,
-                nsfw=True,
+                nsfw=body.nsfw,
                 params=params_snapshot(body, seed=seed_used, model=body.model),
             )
         )
@@ -2632,6 +3119,10 @@ async def generate_shot_video_v2(
         )
         session.add(shot)
         session.commit()
+
+        # 挂回写:tracker 落库后把 video_url 写回 DramaShot(与 v1 端点同模式,
+        # 否则 shot 永远停在 generating,前端轮询超时)
+        _spawn(_await_shot_video_writeback(sid, prompt_id))
 
         return {
             "prompt_id": prompt_id,
@@ -2672,6 +3163,7 @@ async def generate_shot_video_v2(
             cfg=body.cfg,
             use_upscale=body.use_upscale,
             use_rife=body.use_rife,
+            nsfw=body.nsfw,
             filename_prefix=f"ToIV_drama_shot{shot.idx}_c{i}",
         )
 
@@ -2701,7 +3193,7 @@ async def generate_shot_video_v2(
                     status="queued",
                     prompt=prompt,
                     seed=seed,
-                    nsfw=True,
+                    nsfw=body.nsfw,
                     params=params_snapshot(body, seed=seed, model=body.model),
                 )
             )
@@ -2713,7 +3205,7 @@ async def generate_shot_video_v2(
     session.commit()
 
     for prompt_id, candidate_id, _worker_url in jobs_info:
-        asyncio.create_task(_writeback_candidate(prompt_id, candidate_id, sid))
+        _spawn(_writeback_candidate(prompt_id, candidate_id, sid))
 
     return {
         "shot_id": sid,
@@ -2848,8 +3340,13 @@ def _layer_model_name(layer: str) -> str:
 
 
 def _polish_layer() -> str:
-    """润色/精修统一走配置层;EXO 未就绪期间默认 L1 保证可用。"""
+    """精修(polish,含批量)走配置层;默认 L1 保持行为不变,EXO 恢复后可切 L3。"""
     return _drama_llm_layer(get_settings().drama_polish_layer)
+
+
+def _refine_layer() -> str:
+    """润色(refine)走独立配置层(默认 L2);EXO 未就绪时 chat_layered 自动降级 L1。"""
+    return _drama_llm_layer(get_settings().drama_refine_layer)
 
 
 @router.post("/drama/projects/{pid}/refine")
@@ -2859,17 +3356,17 @@ async def refine_script(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> dict:
-    """主力润色 — 默认走配置层(TOIV_DRAMA_POLISH_LAYER,当前 L1)。
+    """主力润色 — 走配置层(TOIV_DRAMA_REFINE_LAYER,默认 L2)。
 
     适合关键场景打磨、情感戏、转折点。同步返回结果（timeout 120s）。
-    EXO 恢复后可将配置改回 L2(Kimi-K2.7-Code)。
+    EXO 未就绪时 chat_layered 自动降级 L1,功能可用;恢复后走 Kimi-K3。
     """
     enforce_generation_rate_limit(user)
     p = _owned_project(pid, user, session)
     if not body.text.strip():
         raise HTTPException(status_code=422, detail="待润色文本为空")
 
-    layer = _polish_layer()
+    layer = _refine_layer()
 
     try:
         msg = await llm.chat_layered(
@@ -2906,10 +3403,10 @@ async def polish_script(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> dict:
-    """终稿精修 — 默认走配置层(TOIV_DRAMA_POLISH_LAYER,当前 L1)。
+    """终稿精修 — 走配置层(TOIV_DRAMA_POLISH_LAYER,默认 L1)。
 
     适合终稿质量提升、高难度剧情。同步返回（timeout 300s）。
-    EXO 恢复后可将配置改回 L3(GLM-5.2-fp8)。
+    EXO 恢复后可将配置切 L3(GLM-5.2-DQ4plus-q8)。
     """
     enforce_generation_rate_limit(user)
     p = _owned_project(pid, user, session)
@@ -3112,7 +3609,7 @@ async def polish_batch(
 ) -> dict:
     """异步批量精修 — 层由 TOIV_DRAMA_POLISH_LAYER 决定(当前默认 L1),并发处理多个分镜/文本。
 
-    立即返回 task_id,后台 asyncio.create_task 执行。
+    立即返回 task_id,后台 _spawn 协程执行。
     进度通过 GET /drama/projects/{pid}/polish-tasks/{task_id} 查询。
 
     Args:
@@ -3166,7 +3663,7 @@ async def polish_batch(
     session.commit()
 
     # 启动后台任务(独立 Session,避免复用当前 session)
-    asyncio.create_task(_run_batch_polish(
+    _spawn(_run_batch_polish(
         pid, task_id, items, body.instruction, body.temperature, body.concurrency,
     ))
 
@@ -3232,3 +3729,422 @@ def list_polish_tasks(
     # 按 ts 倒序(最新在前)
     out.sort(key=lambda t: t.get("ts", ""), reverse=True)
     return out
+
+
+# ===========================================================================
+# 图片 → VLM 解析 → 自动建项目+分镜 → 后台自动管线(autorun)
+#
+# 设计(对齐 polish/batch 的任务记录模式):
+#   · POST /drama/projects/from-image  上传 1-9 张图,VLM 解析扩写成短剧,
+#     立即返回 project+shots;auto=true 时追加 autorun 记录并后台执行
+#   · autorun 进度存 DramaProject.process_data(step=autorun,task_id=...)
+#   · 后台管线:逐镜视频(首镜用上传原图作 i2v 首帧) → 逐镜配音 → 合成成片
+#   · 单镜失败不中断整体;uvicorn 单进程重启丢任务(与批量精修同级可接受)
+# ===========================================================================
+
+# 上传图片格式 → MIME(与 animatic 同一安全策略:拒绝路径穿越,按扩展名定 MIME)
+_FROM_IMAGE_MIME: dict[str, str] = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+}
+_FROM_IMAGE_MAX_BYTES = 20 * 1024 * 1024  # 单张 ≤ 20MB(同 animatic)
+# autorun 任务在 process_data 中的最大保留条数(防无限增长)
+_MAX_AUTORUN_TASKS_IN_PROCESS = 20
+
+
+def _append_autorun_task(p: DramaProject, task_id: str, total: int) -> None:
+    """在 process_data 末尾追加一条 autorun 任务初始记录(pending)。"""
+    try:
+        steps = json.loads(p.process_data) if p.process_data else []
+    except (ValueError, TypeError):
+        steps = []
+    # 保留最近 N 条 autorun 记录,删除更早的(与批量精修同一策略)
+    autorun_tasks = [s for s in steps if s.get("step") == "autorun"]
+    if len(autorun_tasks) >= _MAX_AUTORUN_TASKS_IN_PROCESS:
+        autorun_tasks.sort(key=lambda s: s.get("ts", ""))
+        for old in autorun_tasks[:len(autorun_tasks) - _MAX_AUTORUN_TASKS_IN_PROCESS + 1]:
+            steps.remove(old)
+    steps.append({
+        "step": "autorun",
+        "task_id": task_id,
+        "ts": _now().isoformat(),
+        "status": "pending",
+        "total": total,
+        "done": 0,
+        "current": "",
+        "error": "",
+    })
+    p.process_data = json.dumps(steps, ensure_ascii=False)
+
+
+def _update_autorun_task(pid: str, task_id: str, *,
+                         status: str | None = None,
+                         current: str | None = None,
+                         error: str | None = None,
+                         done: int | None = None) -> None:
+    """后台任务更新 autorun 进度(独立 Session,避免跨 await 复用)。"""
+    from app.db import engine
+    with Session(engine) as s:
+        p = s.get(DramaProject, pid)
+        if not p:
+            return
+        try:
+            steps = json.loads(p.process_data) if p.process_data else []
+        except (ValueError, TypeError):
+            steps = []
+        for step in steps:
+            if step.get("step") == "autorun" and step.get("task_id") == task_id:
+                if status is not None:
+                    step["status"] = status
+                if current is not None:
+                    step["current"] = current
+                if error is not None:
+                    step["error"] = error
+                if done is not None:
+                    step["done"] = done
+                step["ts"] = _now().isoformat()
+                break
+        p.process_data = json.dumps(steps, ensure_ascii=False)
+        s.add(p)
+        s.commit()
+
+
+async def _run_autorun(pid: str, task_id: str, first_image: bytes | None) -> None:
+    """from-image 自动管线:逐镜视频(有界并发) → 逐镜配音(有界并发) → 合成成片。
+
+    单镜失败不中断整体(该镜标 error 继续);全程短 Session,不跨 await 持有。
+    首镜(idx=0)若有上传原图则作 i2v 首帧,锁定与参考图的视觉一致性。
+    视频阶段 Semaphore 限流(ComfyUI WorkerPool 可把并发任务摊到多 worker),
+    配音阶段另配更小的限流(IndexTTS2 单卡);进度经集中计数 + 锁更新,
+    防并发下 done 计数互相覆盖。
+    """
+    from app.db import engine
+    try:
+        _update_autorun_task(pid, task_id, status="running")
+        pool = get_pool()  # lru_cache 单例,与端点 Depends(get_pool) 同一实例
+        settings = get_settings()
+
+        with Session(engine) as s:
+            shot_ids = [
+                sh.id for sh in s.exec(
+                    select(DramaShot)
+                    .where(DramaShot.project_id == pid)
+                    .order_by(DramaShot.idx)
+                ).all()
+            ]
+        total = len(shot_ids)
+        progress_lock = asyncio.Lock()
+        progress = {"video_done": 0, "voice_done": 0}
+
+        async def _tick_video() -> None:
+            # 集中式进度更新:计数与落库在同一锁内,防并发写互相覆盖
+            async with progress_lock:
+                progress["video_done"] += 1
+                _update_autorun_task(
+                    pid, task_id, done=progress["video_done"],
+                    current=f"分镜视频 {progress['video_done']}/{total} 完成",
+                )
+
+        # —— 阶段 1:逐镜视频(有界并发,单镜失败不中断) ——
+        video_sem = asyncio.Semaphore(max(1, settings.drama_autorun_video_concurrency))
+
+        async def _video_one(i: int, sid: str) -> None:
+            async with video_sem:
+                try:
+                    with Session(engine) as s:
+                        shot = s.get(DramaShot, sid)
+                        project = s.get(DramaProject, pid)
+                        owner = s.get(User, project.user_id) if project else None
+                        if not shot or not project or not owner:
+                            return
+                        prompt_id, _cid, _wurl, _seed = await _submit_shot_video(
+                            shot,
+                            project,
+                            pool=pool,
+                            session=s,
+                            user=owner,
+                            steps=20,
+                            cfg=1.0,
+                            use_upscale=False,
+                            use_rife=False,
+                            first_image_bytes=first_image if i == 0 else None,
+                        )
+                    ok = await _await_shot_video_writeback(sid, prompt_id)
+                    if not ok:
+                        logger.warning("autorun %s 分镜 %s 视频回写失败", task_id, sid)
+                except Exception as e:  # noqa: BLE001
+                    logger.exception("autorun %s 分镜 %s 视频提交失败: %s", task_id, sid, e)
+                    with Session(engine) as s2:
+                        shot2 = s2.get(DramaShot, sid)
+                        if shot2 and shot2.video_status not in ("done", "error"):
+                            shot2.video_status = "error"
+                            shot2.error = f"自动管线提交失败: {type(e).__name__}: {e}"[:200]
+                            s2.add(shot2)
+                            s2.commit()
+                finally:
+                    await _tick_video()
+
+        await asyncio.gather(*(_video_one(i, sid) for i, sid in enumerate(shot_ids)))
+
+        # —— 阶段 2:逐镜配音(有台词的镜,有界并发) ——
+        with Session(engine) as s:
+            voice_total = sum(
+                1 for sid in shot_ids
+                if (sh := s.get(DramaShot, sid)) and sh.dialogue.strip()
+            )
+        voice_sem = asyncio.Semaphore(max(1, settings.drama_autorun_voice_concurrency))
+
+        async def _voice_one(sid: str) -> None:
+            async with voice_sem:
+                with Session(engine) as s:
+                    shot = s.get(DramaShot, sid)
+                    if not shot or not shot.dialogue.strip():
+                        return
+                    try:
+                        await _submit_shot_voice(shot, s, settings)
+                    except Exception as e:  # noqa: BLE001
+                        logger.exception("autorun %s 分镜 %s 配音失败: %s", task_id, sid, e)
+                        shot.voice_status = "error"
+                        shot.error = f"配音失败: {type(e).__name__}: {e}"[:200]
+                        s.add(shot)
+                        s.commit()
+                async with progress_lock:
+                    progress["voice_done"] += 1
+                    _update_autorun_task(
+                        pid, task_id,
+                        current=f"分镜配音 {progress['voice_done']}/{voice_total} 完成",
+                    )
+
+        await asyncio.gather(*(_voice_one(sid) for sid in shot_ids))
+
+        # —— 阶段 3:合成成片(≥1 镜完成才合成) ——
+        _update_autorun_task(pid, task_id, status="assembling", current="合成成片中")
+        with Session(engine) as s:
+            p = s.get(DramaProject, pid)
+            if not p:
+                return
+            ready = [
+                sh for sh in s.exec(
+                    select(DramaShot).where(DramaShot.project_id == pid)
+                ).all()
+                if sh.video_status == "done" and sh.video_url
+            ]
+            if not ready:
+                _update_autorun_task(
+                    pid, task_id, status="error",
+                    error="无已完成分镜视频,跳过合成",
+                )
+                return
+            # _do_assemble 成功后会回写 p.video_url / p.status="ready" 并 commit
+            await _do_assemble(p, AssembleOptions(), pool, s)
+
+        _update_autorun_task(pid, task_id, status="done", current="")
+    except Exception as e:  # noqa: BLE001
+        logger.exception("autorun %s 项目 %s 失败: %s", task_id, pid, e)
+        _update_autorun_task(
+            pid, task_id, status="error",
+            error=f"{type(e).__name__}: {e}"[:200],
+        )
+
+
+# 后台任务记录的非终态状态(重启后永远停在这些状态,需 reconcile 收口)
+_INTERRUPTED_STEP_STATUS = ("pending", "running", "assembling")
+
+
+def reconcile_interrupted() -> dict:
+    """api 启动时收口因进程重启中断的短剧后台任务(参照 comfy.tracker.reconcile_pending)。
+
+    - video_status=generating 的 ComfyUI 分镜:按 seed+prompt 从 Job 表找回
+      prompt_id → 重挂 _await_shot_video_writeback(Job 本身的追踪由
+      tracker.reconcile_pending 重挂);Job 已 done 的直接回写 video_url;
+      找不回/已 error 的标 error,不永久 generating。
+    - LiveAct 分镜(task_id 未持久化,重启后找不回):标 error,提示重新生成。
+    - process_data 中 autorun/批量精修记录停在非终态:标 error 并注明
+      「服务重启中断,可重新触发」,不自动重跑整管,避免意外算力消耗。
+    需在已有事件循环的上下文调用(_spawn 内用 create_task)。返回各类处置计数。
+    """
+    from app.db import engine
+
+    stats = {"rehang": 0, "writeback": 0, "error": 0, "task_interrupted": 0}
+    rehang: list[tuple[str, str]] = []  # (shot_id, prompt_id)
+    with Session(engine) as s:
+        shots = s.exec(
+            select(DramaShot).where(DramaShot.video_status == "generating")
+        ).all()
+        for shot in shots:
+            if shot.video_model == "liveact":
+                shot.video_status = "error"
+                shot.error = "服务重启中断,LiveAct 任务不可恢复,请重新生成"
+                s.add(shot)
+                stats["error"] += 1
+                continue
+            job = s.exec(
+                select(Job)
+                .where(Job.kind.like("drama_shot_video%"))  # type: ignore[union-attr]
+                .where(Job.seed == shot.seed)
+                .where(Job.prompt == shot.prompt.strip())
+                .order_by(Job.created_at.desc())  # type: ignore[attr-defined]
+            ).first()
+            if job and job.prompt_id and job.status in ("queued", "running"):
+                rehang.append((shot.id, job.prompt_id))
+                stats["rehang"] += 1
+            elif job and job.status == "done" and job.result:
+                urls = json.loads(job.result)
+                if urls:
+                    shot.video_url = urls[0]
+                    shot.video_status = "done"
+                    shot.error = ""
+                    s.add(shot)
+                    stats["writeback"] += 1
+                else:
+                    shot.video_status = "error"
+                    shot.error = "生成结果为空(重启收口)"
+                    s.add(shot)
+                    stats["error"] += 1
+            else:
+                shot.video_status = "error"
+                shot.error = "服务重启中断,生成任务不可恢复,请重新生成"
+                s.add(shot)
+                stats["error"] += 1
+
+        # autorun / 批量精修任务记录:停在非终态 → 标中断(不自动重跑)
+        for p in s.exec(select(DramaProject)).all():
+            try:
+                steps = json.loads(p.process_data) if p.process_data else []
+            except (ValueError, TypeError):
+                continue
+            changed = False
+            for step in steps:
+                if (
+                    step.get("step") in ("autorun", "polish_batch_l3")
+                    and step.get("status") in _INTERRUPTED_STEP_STATUS
+                ):
+                    step["status"] = "error"
+                    step["error"] = "服务重启中断,可重新触发"
+                    step["current"] = ""
+                    step["ts"] = _now().isoformat()
+                    changed = True
+                    stats["task_interrupted"] += 1
+            if changed:
+                p.process_data = json.dumps(steps, ensure_ascii=False)
+                s.add(p)
+        s.commit()
+
+    for sid, prompt_id in rehang:
+        _spawn(_await_shot_video_writeback(sid, prompt_id))
+    if any(stats.values()):
+        logger.info("drama reconcile: %s", stats)
+    return stats
+
+
+@router.post("/drama/projects/from-image")
+async def create_project_from_image(
+    images: list[UploadFile] = File(...),
+    hint: str = Form(""),
+    style: str = Form(""),
+    num_shots: int = Form(8),
+    width: int = Form(1920),
+    height: int = Form(1080),
+    fps: int = Form(16),
+    auto: bool = Form(True),
+    user: User = Depends(get_current_user),
+    pool: WorkerPool = Depends(get_pool),
+    session: Session = Depends(get_session),
+) -> dict:
+    """上传参考图 → VLM 解析 → 自动建短剧项目+分镜 → 后台自动管线(autorun)。
+
+    图片 1-9 张(jpg/jpeg/png/webp,单张 ≤20MB);auto=true 时后台自动执行
+    逐镜视频 → 配音 → 合成成片,进度在 project.process_data(step=autorun) 查询。
+    """
+    enforce_generation_rate_limit(user)
+
+    # —— 上传校验(数量/格式/路径穿越/大小,同 animatic 安全策略) ——
+    if not 1 <= len(images) <= 9:
+        raise HTTPException(status_code=422, detail="图片数量须为 1-9 张")
+    payloads: list[tuple[bytes, str]] = []
+    for img in images:
+        name = img.filename or ""
+        if not name or "/" in name or "\\" in name or ".." in name:
+            raise HTTPException(status_code=422, detail="非法文件名(禁止路径穿越)")
+        ext = Path(name).suffix.lower()
+        mime = _FROM_IMAGE_MIME.get(ext)
+        if not mime:
+            raise HTTPException(
+                status_code=422,
+                detail=f"不支持的图片格式(仅 {', '.join(sorted(_FROM_IMAGE_MIME))})",
+            )
+        data = await img.read()
+        if not data:
+            raise HTTPException(status_code=422, detail=f"图片为空: {name}")
+        if len(data) > _FROM_IMAGE_MAX_BYTES:
+            raise HTTPException(status_code=422, detail=f"图片超过 20MB: {name}")
+        payloads.append((data, mime))
+
+    # —— 参数校验(分辨率/帧率复用 ProjectIn 约束,宽高取偶) ——
+    if not 4 <= num_shots <= 16:
+        raise HTTPException(status_code=422, detail="镜头数量须为 4-16")
+    if not 256 <= width <= 1920 or not 256 <= height <= 1080:
+        raise HTTPException(status_code=422, detail="分辨率越界(宽 256-1920,高 256-1080)")
+    if not 4 <= fps <= 30:
+        raise HTTPException(status_code=422, detail="帧率须为 4-30")
+    width -= width % 2
+    height -= height % 2
+
+    # —— VLM 解析图片 → 短剧 JSON ——
+    obj = await analyze_storyboard_images(payloads, hint, style, num_shots)
+    coerced = [_coerce_shot(s, i) for i, s in enumerate(obj["shots"][:num_shots])]
+    if not any(s["prompt"] for s in coerced):
+        raise HTTPException(status_code=502, detail="图片解析失败(无有效提示词),请重试")
+    vlm_warnings = [str(w) for w in (obj.get("warnings") or [])]
+
+    # —— 建项目 + 分镜 ——
+    p = DramaProject(
+        tenant_id=user.tenant_id,
+        user_id=user.id,
+        title=obj["title"][:200],
+        premise=obj["premise"][:2000],
+        style=style.strip()[:300],
+        script=obj["script"][:20000],
+        width=width,
+        height=height,
+        fps=fps,
+    )
+    session.add(p)
+    session.commit()
+    session.refresh(p)
+
+    # 首图落盘(留档供首镜 i2v / 排查;失败不影响主流程)
+    try:
+        _DRAMA_DIR.mkdir(parents=True, exist_ok=True)
+        await asyncio.to_thread(
+            (_DRAMA_DIR / f"fromimg-{p.id}.jpg").write_bytes, payloads[0][0]
+        )
+    except OSError as e:
+        logger.warning("from-image 首图落盘失败(忽略): %s", e)
+
+    created = _create_shots_from_analysis(
+        p, coerced, session,
+        log_step="from_image",
+        log_detail=(
+            f"图片解析建分镜 {len(coerced)} 个"
+            + (f";字段校验告警 {len(vlm_warnings)} 条" if vlm_warnings else "")
+        ),
+    )
+
+    # —— 自动管线 ——
+    task_id: str | None = None
+    if auto:
+        task_id = uuid.uuid4().hex[:12]
+        _append_autorun_task(p, task_id, total=len(created))
+        session.add(p)
+        session.commit()
+        _spawn(_run_autorun(p.id, task_id, payloads[0][0]))
+
+    return {
+        "project": _project_dict(p),
+        "shots": [_shot_dict(s, session) for s in created],
+        "autorun_task_id": task_id,
+        "warnings": vlm_warnings,
+    }

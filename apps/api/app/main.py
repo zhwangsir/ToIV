@@ -70,6 +70,8 @@ async def lifespan(app: FastAPI):
 
     reconcile_pending()
     reconcile_task = asyncio.create_task(reconcile_loop())
+    # 短剧后台任务收口:generating 分镜重挂/标 error、中断的 autorun/批量精修标 interrupted
+    drama_studio.reconcile_interrupted()
     # GPU 生成链路每日冒烟(txt2img 小图 + LTX 短视频),失败经 webhook 报警
     from app.config import get_settings as _gs
     from app.services.gpu_smoke import daily_smoke_loop, smoke_report_dir
@@ -92,6 +94,10 @@ async def lifespan(app: FastAPI):
         reconcile_task.cancel()
         if smoke_task is not None:
             smoke_task.cancel()
+        # 统一关闭 ComfyUI HTTP 连接池缓存的 AsyncClient
+        from app.comfy.client import close_clients
+
+        await close_clients()
 
 
 def create_app() -> FastAPI:

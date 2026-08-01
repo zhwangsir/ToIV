@@ -1,7 +1,7 @@
 """视频生成模型聚合层 —— 抽象 VideoGenerator 接口,支持多模型可选。
 
-对标 liblib.tv 的多模型聚合(Seedance/Kling)。当前只有 LTX 实际可用实现,
-Seedance/Kling 为 stub(返回占位错误响应),预留接口供后续接入。
+对标 liblib.tv 的多模型聚合(Seedance/Kling)。当前 LTX(ComfyUI)与
+LiveAct(独立 worker)实际可用,Seedance/Kling 为 stub(返回占位错误响应),预留接口供后续接入。
 
 设计要点:
   · VideoGenerator 抽象基类统一 generate() 签名,各实现按需翻译参数
@@ -15,6 +15,8 @@ import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
+
+import httpx
 
 from app.comfy.client import ComfyUIError
 from app.comfy.pool import WorkerPool
@@ -40,6 +42,7 @@ class VideoGenerator(ABC):
 
     name: str = "base"
     display_name: str = "基础"
+    description: str = ""
     supports_image2video: bool = False
     supports_text2video: bool = True
 
@@ -117,11 +120,15 @@ class LtxVideoGenerator(VideoGenerator):
                 return VideoGenResult(success=False, model=self.name, error=str(e))
 
         settings = get_settings()
+        # SFW/NSFW 视频底模分流:nsfw=True 用 NSFW 专用底模(10Eros),
+        # 否则 SFW 默认(ltx-2.3-distilled);gemma/vae 两者共用同一套
+        nsfw = bool(kwargs.get("nsfw", False))
+        video_ckpt = settings.nsfw_default_video_ckpt if nsfw else settings.default_video_ckpt
         seed_used = seed if seed is not None else LtxT2VParams(positive="").seed
         params = LtxT2VParams(
             positive=prompt,
             negative=negative,
-            unet_name=settings.nsfw_default_video_ckpt,
+            unet_name=video_ckpt,
             gemma_name=settings.nsfw_default_gemma,
             vae_name=settings.nsfw_default_vae,
             width=width,
@@ -190,11 +197,88 @@ class KlingVideoGenerator(VideoGenerator):
         )
 
 
+class LiveActVideoGenerator(VideoGenerator):
+    """SoulX LiveAct 14B 全身数字人生成器(workstation 真机独立 worker,需先配音)。
+
+    与 ComfyUI 系生成器不同:不走 pool/tracker,直接调 LiveAct worker HTTP API。
+    输入为角色参考图 + 配音音频,生成时长 = 音频时长,因此分镜必须先完成配音。
+    只提交不等待,raw 里回 task_id,由调用方轮询 /status + 拉 /result。
+    """
+
+    name = "liveact"
+    display_name = "LiveAct 全身数字人"
+    description = "SoulX LiveAct 14B 全身数字人(需先配音)"
+    supports_image2video = True
+    supports_text2video = False
+
+    async def generate(
+        self,
+        prompt: str,
+        *,
+        negative: str = "",
+        width: int = 768,
+        height: int = 384,
+        duration_sec: int = 6,
+        fps: int = 20,
+        seed: int | None = None,
+        image_url: str = "",
+        worker: str | None = None,
+        **kwargs: Any,
+    ) -> VideoGenResult:
+        base = get_settings().liveact_base
+        if not base:
+            return VideoGenResult(success=False, model=self.name, error="LiveAct 未部署")
+        ref_image_bytes = kwargs.get("ref_image_bytes")
+        audio_bytes = kwargs.get("audio_bytes")
+        if not ref_image_bytes:
+            return VideoGenResult(success=False, model=self.name, error="缺少角色参考图")
+        if not audio_bytes:
+            return VideoGenResult(success=False, model=self.name, error="缺少配音音频")
+
+        files = {
+            "image": ("ref.png", ref_image_bytes, "image/png"),
+            "audio": ("voice.wav", audio_bytes, "audio/wav"),
+        }
+        data = {
+            "prompt": prompt,
+            "fps": str(fps),
+            "size": kwargs.get("size", "416*720"),
+            "seed": str(seed if seed is not None else 42),
+        }
+        try:
+            async with httpx.AsyncClient(timeout=120.0, trust_env=False) as client:
+                resp = await client.post(base + "/generate", data=data, files=files)
+        except httpx.HTTPError as e:
+            return VideoGenResult(
+                success=False, model=self.name, error=f"LiveAct worker 不可达:{e}"
+            )
+        if resp.status_code != 200:
+            detail = "LiveAct 提交失败"
+            try:
+                detail = resp.json().get("detail", detail)
+            except (ValueError, KeyError):
+                detail = resp.text[:200] or detail
+            return VideoGenResult(success=False, model=self.name, error=detail)
+
+        task_id = resp.json().get("task_id", "")
+        if not task_id:
+            return VideoGenResult(
+                success=False, model=self.name, error="LiveAct 未返回 task_id"
+            )
+        return VideoGenResult(
+            success=True,
+            job_id=task_id,
+            model=self.name,
+            raw={"task_id": task_id, "worker": base},
+        )
+
+
 # 工厂注册表
 _REGISTRY: dict[str, type[VideoGenerator]] = {
     "ltx": LtxVideoGenerator,
     "seedance": SeedanceVideoGenerator,
     "kling": KlingVideoGenerator,
+    "liveact": LiveActVideoGenerator,
 }
 
 
@@ -204,6 +288,7 @@ def list_generators() -> list[dict]:
         {
             "name": cls.name,
             "display_name": cls.display_name,
+            "description": cls.description,
             "supports_image2video": cls.supports_image2video,
             "supports_text2video": cls.supports_text2video,
         }

@@ -12,19 +12,20 @@
 """
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, select
 
 from app.db import get_session
 from app.deps import get_pool
 from app.main import app
 from app.config import get_settings
-from app.models import DramaEvent, DramaSession, DramaShot, Tenant, User
+from app.models import DramaCharacter, DramaEvent, DramaProject, DramaSession, DramaShot, Job, Tenant, User
 from app.security import create_token, hash_password
 from app.agent import llm
 
@@ -796,7 +797,7 @@ def test_list_video_generators(ctx):
     r = client.get("/api/drama/video-generators", headers=H)
     assert r.status_code == 200, r.text
     names = {g["name"] for g in r.json()["generators"]}
-    assert names == {"ltx", "seedance", "kling"}
+    assert names == {"ltx", "seedance", "kling", "liveact"}
 
 
 def test_generate_video_v2_unsupported(ctx):
@@ -976,6 +977,157 @@ def test_generate_video_v2_multi_candidate_auto_pick(ctx):
         assert shot["video_status"] == "done"
 
 
+def test_generate_video_v2_single_candidate_writeback(ctx):
+    """P0 修复: v2 单候选(num_candidates=1)提交后挂回写任务,tracker 落库后 shot 推进到 done。"""
+    import json
+    import time
+
+    client, token, _ = ctx
+    H = _h(token)
+    pid, sid = _make_shot(ctx, token)
+    fake_gen = _fake_video_generator(["pid-single"])
+    video_url = "/api/images?filename=single.mp4&worker=http://worker"
+
+    async def _fake_wait(session, prompt_ids, **kwargs):
+        # 模拟 tracker 落库:Job 标 done 并写产物 URL(回写依赖 Job 行状态)
+        from app.db import engine
+
+        with Session(engine) as s:
+            job = s.exec(select(Job).where(Job.prompt_id == prompt_ids[0])).first()
+            job.status = "done"
+            job.result = json.dumps([video_url])
+            s.add(job)
+            s.commit()
+        return {prompt_ids[0]: [video_url]}
+
+    with patch("app.services.video_generators.get_generator", return_value=fake_gen), \
+         patch("app.routes.drama_studio.wait_for_jobs", AsyncMock(side_effect=_fake_wait)):
+        r = client.post(
+            f"/api/drama/shots/{sid}/generate-video-v2",
+            headers=H,
+            json={"model": "ltx", "seed": 42},  # num_candidates 默认 1 → 单候选分支
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["prompt_id"] == "pid-single"
+
+        # 轮询直到后台回写把 shot 推进到 done
+        deadline = time.time() + 3
+        shot = None
+        while time.time() < deadline:
+            proj = client.get(f"/api/drama/projects/{pid}", headers=H).json()
+            shot = next(s for s in proj["shots"] if s["id"] == sid)
+            if shot["video_status"] == "done":
+                break
+            time.sleep(0.05)
+        assert shot is not None and shot["video_status"] == "done"
+        assert shot["video_url"] == video_url
+
+
+def test_generate_video_sfw_nsfw_ckpt_split(ctx):
+    """SFW/NSFW 底模分流:默认(无 nsfw)用 SFW 底模,nsfw=True 才用 10Eros。"""
+    client, token, _ = ctx
+    H = _h(token)
+    _, sid_sfw = _make_shot(ctx, token)
+    _, sid_nsfw = _make_shot(ctx, token)
+
+    pool, cli = _fake_pool(["pid-sfw", "pid-nsfw"])
+    app.dependency_overrides[get_pool] = lambda: pool
+    try:
+        with patch("app.routes.drama_studio.spawn_tracker", lambda c, p: None), \
+             patch("app.routes.drama_studio.wait_for_jobs", AsyncMock(return_value={})):
+            r_sfw = client.post(
+                f"/api/drama/shots/{sid_sfw}/generate-video", headers=H, json={}
+            )
+            r_nsfw = client.post(
+                f"/api/drama/shots/{sid_nsfw}/generate-video",
+                headers=H,
+                json={"nsfw": True},
+            )
+    finally:
+        app.dependency_overrides.pop(get_pool, None)
+
+    assert r_sfw.status_code == 200, r_sfw.text
+    assert r_nsfw.status_code == 200, r_nsfw.text
+    settings = get_settings()
+    g_sfw = cli.queue_prompt.call_args_list[0][0][0]
+    g_nsfw = cli.queue_prompt.call_args_list[1][0][0]
+    assert g_sfw["1"]["inputs"]["unet_name"] == settings.default_video_ckpt
+    assert g_nsfw["1"]["inputs"]["unet_name"] == settings.nsfw_default_video_ckpt
+
+
+# ---------------------------------------------------------------------------
+# P0 修复: IPAdapter 角色首帧 —— 次世代底模明确回退 / 传统 checkpoint 正常生成
+# ---------------------------------------------------------------------------
+def _make_shot_with_char(ctx, token: str) -> tuple[str, str]:
+    """建项目 + 1 个分镜,并关联一个带参考图的角色,返回 (pid, sid)。"""
+    from app.db import engine
+
+    pid, sid = _make_shot(ctx, token)
+    with Session(engine) as s:
+        shot = s.get(DramaShot, sid)
+        shot.characters = '["阿明"]'
+        s.add(shot)
+        s.add(DramaCharacter(project_id=pid, name="阿明", ref_image="/img/ref.png"))
+        s.commit()
+    return pid, sid
+
+
+def test_keyframe_ipadapter_nextgen_falls_back(ctx):
+    """次世代默认底模(flux2)与 IPAdapter 未打通:明确跳过首帧,不向 worker 提交非法 checkpoint。"""
+    import asyncio
+
+    from app.db import engine
+    from app.routes.drama_studio import _generate_keyframe_for_shot
+
+    _, token, _ = ctx
+    pid, sid = _make_shot_with_char(ctx, token)
+
+    mock_client = MagicMock()
+    mock_client.upload_image = AsyncMock()
+    settings = MagicMock(default_ckpt="flux2_dev_fp8mixed.safetensors")
+    with Session(engine) as s:
+        shot = s.get(DramaShot, sid)
+        project = s.get(DramaProject, pid)
+        result = asyncio.run(
+            _generate_keyframe_for_shot(mock_client, shot, project, settings, s, MagicMock())
+        )
+    assert result is None
+    mock_client.upload_image.assert_not_called()
+
+
+def test_keyframe_ipadapter_traditional_ckpt(ctx):
+    """传统 checkpoint 底模:走 IPAdapter 生成角色一致首帧,返回上传后的文件名。"""
+    import asyncio
+
+    from app.db import engine
+    from app.routes.drama_studio import _generate_keyframe_for_shot
+
+    _, token, _ = ctx
+    pid, sid = _make_shot_with_char(ctx, token)
+
+    mock_client = MagicMock()
+    mock_client.upload_image = AsyncMock(side_effect=["ref.png", "kf.png"])
+    mock_client.queue_prompt = AsyncMock(return_value="pid-kf")
+    mock_client.get_result_files = AsyncMock(
+        return_value=[{"filename": "out.png", "subfolder": "", "type": "output"}]
+    )
+    mock_client.get_image_bytes = AsyncMock(return_value=(b"img", "image/png"))
+    settings = MagicMock(default_ckpt="realistic_v5.safetensors")
+    with Session(engine) as s, \
+         patch("app.routes.drama_studio._fetch_ref_image_bytes", AsyncMock(return_value=b"ref")):
+        shot = s.get(DramaShot, sid)
+        project = s.get(DramaProject, pid)
+        result = asyncio.run(
+            _generate_keyframe_for_shot(mock_client, shot, project, settings, s, MagicMock())
+        )
+
+    assert result == "kf.png"
+    graph = mock_client.queue_prompt.call_args[0][0]
+    ckpt_nodes = [n for n in graph.values() if n.get("class_type") == "CheckpointLoaderSimple"]
+    assert ckpt_nodes, "IPAdapter 图必须包含 CheckpointLoaderSimple"
+    assert ckpt_nodes[0]["inputs"]["ckpt_name"] == "realistic_v5.safetensors"
+
+
 # ===========================================================================
 # AICG 四层模型流水线 — L2 润色 / L3 精修 / L3 异步批量精修 测试
 # ===========================================================================
@@ -992,8 +1144,8 @@ def test_refine_l2_success(ctx):
 
     fake_msg = {"content": "润色后的剧本对白,情感更饱满。"}
     with (
-        # 润色层由配置决定(默认 L1);此处钉住 L2 验证层透传
-        patch.object(get_settings(), "drama_polish_layer", "L2"),
+        # 润色层由独立配置决定(drama_refine_layer,默认 L2);此处钉住 L2 验证层透传
+        patch.object(get_settings(), "drama_refine_layer", "L2"),
         patch(
             "app.routes.drama_studio.llm.chat_layered",
             AsyncMock(return_value=fake_msg),
@@ -1522,3 +1674,429 @@ def test_playback_insights_other_user_404(ctx):
         headers=_h(token2),
     )
     assert r.status_code == 404, r.text
+
+
+# ---------------------------------------------------------------------------
+# LiveAct 全身数字人(generate-video-v2 model=liveact 分支)
+# ---------------------------------------------------------------------------
+_LIVEACT_VOICE = f"voice-{'a' * 32}.wav"
+
+
+def _prepare_liveact_shot(
+    sid: str, *, with_ref: bool = True, ref_url: str = "/api/drama/assets/ref.png"
+) -> None:
+    """直接把 shot 置为配音完成;with_ref 时建一个带参考图的出场角色。"""
+    from app.db import engine
+
+    with Session(engine) as s:
+        shot = s.get(DramaShot, sid)
+        shot.voice_status = "done"
+        shot.voice_url = f"/api/drama/voice/{_LIVEACT_VOICE}"
+        if with_ref:
+            shot.characters = '["阿明"]'
+            s.add(
+                DramaCharacter(
+                    project_id=shot.project_id,
+                    name="阿明",
+                    ref_image=ref_url,
+                )
+            )
+        s.add(shot)
+        s.commit()
+
+
+def _fake_liveact_generator(task_id: str = "task-abc"):
+    """构造 mock LiveAct 生成器,返回 task_id。"""
+    from app.services.video_generators import VideoGenResult
+
+    gen = MagicMock()
+    gen.generate = AsyncMock(
+        return_value=VideoGenResult(
+            success=True,
+            job_id=task_id,
+            model="liveact",
+            raw={"task_id": task_id, "worker": "http://192.168.71.127:9400"},
+        )
+    )
+    return gen
+
+
+def _mock_ref_download():
+    """mock drama_studio 内的 httpx.AsyncClient,参考图下载返回固定字节。"""
+    resp = MagicMock()
+    resp.content = b"fake-png"
+    http = AsyncMock()
+    http.__aenter__.return_value = http
+    http.get = AsyncMock(return_value=resp)
+    return http
+
+
+def test_generate_video_v2_liveact_multi_candidate_422(ctx):
+    """LiveAct 不支持多候选 → 422。"""
+    client, token, _ = ctx
+    H = _h(token)
+    _, sid = _make_shot(ctx, token)
+    r = client.post(
+        f"/api/drama/shots/{sid}/generate-video-v2",
+        headers=H,
+        json={"model": "liveact", "num_candidates": 2},
+    )
+    assert r.status_code == 422, r.text
+    assert "多候选" in r.json()["detail"]
+
+
+def test_generate_video_v2_liveact_voice_not_done_422(ctx):
+    """配音未完成 → 422 提示先配音。"""
+    client, token, _ = ctx
+    H = _h(token)
+    _, sid = _make_shot(ctx, token)
+    r = client.post(
+        f"/api/drama/shots/{sid}/generate-video-v2",
+        headers=H,
+        json={"model": "liveact"},
+    )
+    assert r.status_code == 422, r.text
+    assert "配音" in r.json()["detail"]
+
+
+def test_generate_video_v2_liveact_no_ref_image_422(ctx):
+    """配音完成但无角色参考图 → 422 提示设参考图。"""
+    client, token, _ = ctx
+    H = _h(token)
+    _, sid = _make_shot(ctx, token)
+    _prepare_liveact_shot(sid, with_ref=False)
+    r = client.post(
+        f"/api/drama/shots/{sid}/generate-video-v2",
+        headers=H,
+        json={"model": "liveact"},
+    )
+    assert r.status_code == 422, r.text
+    assert "参考图" in r.json()["detail"]
+
+
+def test_generate_video_v2_liveact_voice_file_missing_422(ctx):
+    """voice_url 指向的 wav 不在盘上 → 422 提示重新配音。"""
+    client, token, _ = ctx
+    H = _h(token)
+    _, sid = _make_shot(ctx, token)
+    _prepare_liveact_shot(sid)
+    r = client.post(
+        f"/api/drama/shots/{sid}/generate-video-v2",
+        headers=H,
+        json={"model": "liveact"},
+    )
+    assert r.status_code == 422, r.text
+    assert "配音文件" in r.json()["detail"]
+
+
+def test_generate_video_v2_liveact_submit_success(ctx, tmp_path):
+    """LiveAct 提交成功 → 200 + task_id,shot 置 generating,后台任务被创建。"""
+    client, token, _ = ctx
+    H = _h(token)
+    pid, sid = _make_shot(ctx, token)
+    _prepare_liveact_shot(sid)
+    (tmp_path / _LIVEACT_VOICE).write_bytes(b"RIFF-fake-wav")
+
+    fake_gen = _fake_liveact_generator()
+    with patch("app.services.video_generators.get_generator", return_value=fake_gen), \
+         patch("app.routes.drama_studio.httpx.AsyncClient", return_value=_mock_ref_download()), \
+         patch("app.routes.drama_studio._DRAMA_DIR", tmp_path), \
+         patch("app.routes.drama_studio._await_liveact_result", AsyncMock()):
+        r = client.post(
+            f"/api/drama/shots/{sid}/generate-video-v2",
+            headers=H,
+            json={"model": "liveact"},
+        )
+
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["task_id"] == "task-abc"
+    assert data["model"] == "liveact"
+    # generate() 收到了参考图与音频字节
+    kwargs = fake_gen.generate.call_args.kwargs
+    assert kwargs["ref_image_bytes"] == b"fake-png"
+    assert kwargs["audio_bytes"] == b"RIFF-fake-wav"
+    # shot 立即置 generating,video_model 记录 liveact
+    proj = client.get(f"/api/drama/projects/{pid}", headers=H).json()
+    shot = next(s for s in proj["shots"] if s["id"] == sid)
+    assert shot["video_status"] == "generating"
+    assert shot["video_model"] == "liveact"
+
+
+def test_generate_video_v2_liveact_ref_via_images_url(ctx, tmp_path):
+    """参考图为 /api/images? 产物 URL 时走 pool worker 直读(HTTP 自调会 401)。"""
+    client, token, _ = ctx
+    H = _h(token)
+    pid, sid = _make_shot(ctx, token)
+    _prepare_liveact_shot(
+        sid,
+        ref_url="/api/images?filename=ref.png&type=output&worker=http://192.168.71.127:8189",
+    )
+    (tmp_path / _LIVEACT_VOICE).write_bytes(b"RIFF-fake-wav")
+
+    worker_cli = MagicMock()
+    worker_cli.base_url = "http://192.168.71.127:8189"
+    worker_cli.get_image_bytes = AsyncMock(return_value=(b"pool-png", None))
+    pool = MagicMock()
+    pool.clients = [worker_cli]
+    app.dependency_overrides[get_pool] = lambda: pool
+
+    fake_gen = _fake_liveact_generator()
+    try:
+        with patch("app.services.video_generators.get_generator", return_value=fake_gen), \
+             patch("app.routes.drama_studio.resolve_worker", return_value=worker_cli), \
+             patch("app.routes.drama_studio._DRAMA_DIR", tmp_path), \
+             patch("app.routes.drama_studio._await_liveact_result", AsyncMock()):
+            r = client.post(
+                f"/api/drama/shots/{sid}/generate-video-v2",
+                headers=H,
+                json={"model": "liveact"},
+            )
+    finally:
+        app.dependency_overrides.pop(get_pool, None)
+
+    assert r.status_code == 200, r.text
+    worker_cli.get_image_bytes.assert_awaited_once_with("ref.png", "", "output")
+    kwargs = fake_gen.generate.call_args.kwargs
+    assert kwargs["ref_image_bytes"] == b"pool-png"
+
+
+@pytest.mark.asyncio
+async def test_liveact_await_writeback_done(ctx, tmp_path):
+    """后台轮询:worker done → 拉 /result 落盘,shot 回写 done + video_url。"""
+    from app.db import engine
+    from app.routes.drama_studio import _await_liveact_result
+
+    _, token, _ = ctx
+    _, sid = _make_shot(ctx, token)
+    with Session(engine) as s:
+        shot = s.get(DramaShot, sid)
+        shot.video_status = "generating"
+        s.add(shot)
+        s.commit()
+
+    status_resp = MagicMock()
+    status_resp.json.return_value = {
+        "status": "done",
+        "progress": 1,
+        "error": None,
+        "output_name": "task-abc.mp4",
+    }
+    result_resp = MagicMock()
+
+    async def _chunks(chunk_size):
+        yield b"mp4-"
+        yield b"bytes"
+
+    result_resp.aiter_bytes = _chunks
+    stream_cm = AsyncMock()
+    stream_cm.__aenter__.return_value = result_resp
+    stream_cm.__aexit__.return_value = False
+    http = AsyncMock()
+    http.__aenter__.return_value = http
+    http.get = AsyncMock(side_effect=[status_resp])
+    http.stream = MagicMock(return_value=stream_cm)
+
+    fake_settings = MagicMock()
+    fake_settings.liveact_base = "http://192.168.71.127:9400"
+    with patch("app.routes.drama_studio.get_settings", return_value=fake_settings), \
+         patch("app.routes.drama_studio.httpx.AsyncClient", return_value=http), \
+         patch("app.routes.drama_studio._DRAMA_DIR", tmp_path):
+        await _await_liveact_result(sid, "task-abc")
+
+    with Session(engine) as s:
+        shot = s.get(DramaShot, sid)
+        assert shot.video_status == "done"
+        assert shot.video_model == "liveact"
+        assert shot.video_url.startswith("/api/drama/output/drama-")
+        name = shot.video_url.rsplit("/", 1)[-1]
+    assert (tmp_path / name).read_bytes() == b"mp4-bytes"
+
+
+@pytest.mark.asyncio
+async def test_liveact_await_writeback_error(ctx):
+    """后台轮询:worker error → shot 置 error 并记录错误信息。"""
+    from app.db import engine
+    from app.routes.drama_studio import _await_liveact_result
+
+    _, token, _ = ctx
+    _, sid = _make_shot(ctx, token)
+    with Session(engine) as s:
+        shot = s.get(DramaShot, sid)
+        shot.video_status = "generating"
+        s.add(shot)
+        s.commit()
+
+    status_resp = MagicMock()
+    status_resp.json.return_value = {"status": "error", "progress": 0.5, "error": "CUDA OOM"}
+    http = AsyncMock()
+    http.__aenter__.return_value = http
+    http.get = AsyncMock(return_value=status_resp)
+
+    fake_settings = MagicMock()
+    fake_settings.liveact_base = "http://192.168.71.127:9400"
+    with patch("app.routes.drama_studio.get_settings", return_value=fake_settings), \
+         patch("app.routes.drama_studio.httpx.AsyncClient", return_value=http):
+        await _await_liveact_result(sid, "task-err")
+
+    with Session(engine) as s:
+        shot = s.get(DramaShot, sid)
+        assert shot.video_status == "error"
+        assert "CUDA OOM" in shot.error
+
+
+# ===========================================================================
+# 启动 reconcile(服务重启中断收口,P1-2)
+# ===========================================================================
+
+def _reconcile_seed(engine, *, video_model: str = "", job_status: str | None = None):
+    """落库:1 项目 + 1 个 generating 分镜(可选配套 drama Job)。返回 (shot_id, pid)。"""
+    with Session(engine) as s:
+        tenant = Tenant(name="rc")
+        s.add(tenant)
+        s.commit()
+        s.refresh(tenant)
+        user = User(
+            email="rc@toiv.ai",
+            hashed_password=hash_password("p"),
+            tenant_id=tenant.id,
+        )
+        s.add(user)
+        s.commit()
+        s.refresh(user)
+        p = DramaProject(tenant_id=tenant.id, user_id=user.id, title="t")
+        s.add(p)
+        s.commit()
+        s.refresh(p)
+        shot = DramaShot(
+            project_id=p.id, idx=0, prompt="a boy runs", seed=42,
+            video_status="generating", video_model=video_model,
+        )
+        s.add(shot)
+        s.commit()
+        s.refresh(shot)
+        if job_status is not None:
+            s.add(Job(
+                tenant_id=tenant.id, user_id=user.id, prompt_id="pid-1",
+                worker="http://w:8188", kind="drama_shot_video", status=job_status,
+                prompt="a boy runs", seed=42,
+                result='["/api/images?filename=x.mp4&worker=w"]' if job_status == "done" else "",
+            ))
+            s.commit()
+        return shot.id, p.id
+
+
+def test_reconcile_rehangs_generating_shot_with_pending_job(ctx):
+    """generating 分镜 + 未终态 Job:按 seed+prompt 找回 prompt_id,重挂回写,不标 error。"""
+    from app.db import engine
+    import app.routes.drama_studio as ds
+
+    sid, _ = _reconcile_seed(engine, job_status="queued")
+    spawned: list = []
+
+    def _fake_spawn(coro):
+        spawned.append(coro)
+        coro.close()  # 不真正执行,关闭防 RuntimeWarning
+        return MagicMock()
+
+    with patch.object(ds, "_spawn", _fake_spawn):
+        stats = ds.reconcile_interrupted()
+
+    assert stats["rehang"] == 1
+    assert len(spawned) == 1
+    with Session(engine) as s:
+        shot = s.get(DramaShot, sid)
+        assert shot.video_status == "generating"  # 等重挂的回写任务收口
+
+
+def test_reconcile_marks_error_without_job(ctx):
+    """generating 分镜找不回 Job:标 error,不永久 generating。"""
+    from app.db import engine
+    import app.routes.drama_studio as ds
+
+    sid, _ = _reconcile_seed(engine)
+    stats = ds.reconcile_interrupted()
+
+    assert stats["error"] == 1
+    with Session(engine) as s:
+        shot = s.get(DramaShot, sid)
+        assert shot.video_status == "error"
+        assert "服务重启中断" in shot.error
+
+
+def test_reconcile_writes_back_done_job(ctx):
+    """generating 分镜 + 已 done Job:直接回写 video_url,标 done。"""
+    from app.db import engine
+    import app.routes.drama_studio as ds
+
+    sid, _ = _reconcile_seed(engine, job_status="done")
+    stats = ds.reconcile_interrupted()
+
+    assert stats["writeback"] == 1
+    with Session(engine) as s:
+        shot = s.get(DramaShot, sid)
+        assert shot.video_status == "done"
+        assert shot.video_url == "/api/images?filename=x.mp4&worker=w"
+
+
+def test_reconcile_liveact_shot_marks_error(ctx):
+    """LiveAct 分镜 task_id 未持久化,重启后找不回:标 error 提示重新生成。"""
+    from app.db import engine
+    import app.routes.drama_studio as ds
+
+    sid, _ = _reconcile_seed(engine, video_model="liveact")
+    stats = ds.reconcile_interrupted()
+
+    assert stats["error"] == 1
+    with Session(engine) as s:
+        shot = s.get(DramaShot, sid)
+        assert shot.video_status == "error"
+        assert "LiveAct 任务不可恢复" in shot.error
+
+
+def test_reconcile_marks_interrupted_autorun_and_batch(ctx):
+    """process_data 中非终态 autorun/批量精修记录:标 error 注明可重新触发;done 不动。"""
+    from app.db import engine
+    import app.routes.drama_studio as ds
+
+    with Session(engine) as s:
+        tenant = Tenant(name="rc2")
+        s.add(tenant)
+        s.commit()
+        s.refresh(tenant)
+        user = User(
+            email="rc2@toiv.ai",
+            hashed_password=hash_password("p"),
+            tenant_id=tenant.id,
+        )
+        s.add(user)
+        s.commit()
+        s.refresh(user)
+        p = DramaProject(tenant_id=tenant.id, user_id=user.id, title="t")
+        p.process_data = json.dumps([
+            {"step": "autorun", "task_id": "a1", "ts": "t", "status": "running",
+             "total": 3, "done": 1, "current": "分镜视频 1/3 完成", "error": ""},
+            {"step": "autorun", "task_id": "a0", "ts": "t", "status": "done",
+             "total": 3, "done": 3, "current": "", "error": ""},
+            {"step": "polish_batch_l3", "task_id": "b1", "ts": "t", "status": "pending",
+             "total": 2, "done": 0, "results": []},
+        ], ensure_ascii=False)
+        s.add(p)
+        s.commit()
+        s.refresh(p)
+        pid = p.id
+
+    stats = ds.reconcile_interrupted()
+
+    assert stats["task_interrupted"] == 2
+    with Session(engine) as s:
+        p = s.get(DramaProject, pid)
+        steps = json.loads(p.process_data)
+        a1 = next(st for st in steps if st.get("task_id") == "a1")
+        assert a1["status"] == "error"
+        assert "服务重启中断,可重新触发" in a1["error"]
+        assert a1["current"] == ""
+        a0 = next(st for st in steps if st.get("task_id") == "a0")
+        assert a0["status"] == "done"  # 已完成的记录不动
+        b1 = next(st for st in steps if st.get("task_id") == "b1")
+        assert b1["status"] == "error"
