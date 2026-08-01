@@ -43,7 +43,8 @@ class StylePreset:
     media: image / video
     sampling: 采样参数覆盖
     negative_prompt: 该风格推荐负向提示词(次世代CFG≈1族可为空)
-    prompt_hint: 附加到 positive 的风格提示词尾缀
+    prompt_hint: 附加到 positive 的风格提示词尾缀(纯文本,不含 <lora:> 等 A1111 语法)
+    loras: 叠加加载的 LoRA 列表,每项 (带子目录的文件名, 权重),架构须匹配 ckpt
     width / height: 推荐分辨率
     description: 人类可读描述(前端展示用)
     llm_layer: 文案生成时推荐的 LLM 层(L1实时/L2主力/L3精修/L4无审查)
@@ -57,6 +58,7 @@ class StylePreset:
     sampling: SamplingOverride = field(default_factory=SamplingOverride)
     negative_prompt: str = ""
     prompt_hint: str = ""
+    loras: tuple[tuple[str, float], ...] = ()
     width: int = 1024
     height: int = 1024
     description: str = ""
@@ -136,12 +138,13 @@ _IMAGE_PRESETS: dict[str, StylePreset] = {
     ),
 
     # ── 中文/商用文字渲染类 ─────────────────────────────────────────────
+    # Qwen-Image **底模**(非 Lightning)→ 真 CFG 2.5~4,对齐 model_profiles 档案 3.5
     "chinese_text": StylePreset(
         id="chinese_text",
         label="中文文字渲染(商用首选)",
         ckpt_name="qwen_image_fp8_e4m3fn.safetensors",
         media=MediaType.IMAGE,
-        sampling=SamplingOverride(steps=25, cfg=1.0, sampler="euler", scheduler="simple"),
+        sampling=SamplingOverride(steps=25, cfg=3.5, sampler="euler", scheduler="simple"),
         width=1024,
         height=1024,
         description="Qwen-Image 1.0,中文文字渲染最强,Apache 2.0可商用",
@@ -153,7 +156,7 @@ _IMAGE_PRESETS: dict[str, StylePreset] = {
         label="商用设计/海报",
         ckpt_name="qwen_image_fp8_e4m3fn.safetensors",
         media=MediaType.IMAGE,
-        sampling=SamplingOverride(steps=25, cfg=1.0, sampler="euler", scheduler="simple"),
+        sampling=SamplingOverride(steps=25, cfg=3.5, sampler="euler", scheduler="simple"),
         prompt_hint=", graphic design, poster design, clean layout, professional",
         width=1024,
         height=1440,
@@ -308,6 +311,145 @@ _IMAGE_PRESETS: dict[str, StylePreset] = {
         height=1216,
         description="CyberRealistic Pony V18 Coreshift",
         llm_layer="L4",
+        commercial_safe=False,
+    ),
+
+    # ── 短剧场景 LoRA 预设(2026-07-30 已部署 42 个 scene LoRA) ─────────
+    "ancient_chinese": StylePreset(
+        id="ancient_chinese",
+        label="古风汉服",
+        ckpt_name="flux2_dev_fp8mixed.safetensors",
+        media=MediaType.IMAGE,
+        sampling=SamplingOverride(steps=28, cfg=1.0, sampler="euler", scheduler="simple"),
+        prompt_hint=", ancient chinese style, hanfu, traditional architecture, elegant pose, flowing robes, silk fabric, oriental aesthetics",
+        loras=(("ancient_chinese/hanfu_flux_v2.safetensors", 0.8),),
+        width=832,
+        height=1216,
+        description="古风短剧场景,FLUX+hanfu_flux_v2,汉服与传统建筑",
+        llm_layer="L2",
+        commercial_safe=False,
+    ),
+    "modern_urban": StylePreset(
+        id="modern_urban",
+        label="现代都市",
+        ckpt_name="flux2_dev_fp8mixed.safetensors",
+        media=MediaType.IMAGE,
+        sampling=SamplingOverride(steps=28, cfg=1.0, sampler="euler", scheduler="simple"),
+        prompt_hint=", modern city, neon lights, urban atmosphere, night scene, skyscrapers, street photography, cinematic",
+        loras=(("modern_urban/city_streets_at_night_flux.safetensors", 0.75),),
+        width=1024,
+        height=1024,
+        description="现代都市短剧场景,FLUX+city_streets_at_night_flux,霓虹夜景",
+        llm_layer="L2",
+        commercial_safe=False,
+    ),
+    "campus": StylePreset(
+        id="campus",
+        label="校园青春",
+        ckpt_name="waiIllustriousSDXL_v170.safetensors",
+        media=MediaType.IMAGE,
+        sampling=SamplingOverride(steps=25, cfg=5.0, sampler="euler_a", scheduler="normal"),
+        prompt_hint=", campus youth, school uniform, cherry blossoms, soft anime style, classroom, student, warm sunlight",
+        loras=(("campus/linaqruf_anime_detailer.safetensors", 0.7),),
+        width=832,
+        height=1216,
+        description="校园青春短剧场景,SDXL+linaqruf_anime_detailer,柔和二次元",
+        llm_layer="L2",
+        commercial_safe=False,
+    ),
+    "luxury_business": StylePreset(
+        id="luxury_business",
+        label="高端商战",
+        ckpt_name="flux2_dev_fp8mixed.safetensors",
+        media=MediaType.IMAGE,
+        sampling=SamplingOverride(steps=28, cfg=1.0, sampler="euler", scheduler="simple"),
+        prompt_hint=", luxury business, executive suit, premium office, golden tone, corporate, elegant interior, shallow depth of field",
+        width=1024,
+        height=1024,
+        description="高端商战短剧场景,FLUX,精英商务氛围(LoRA 待验证后启用)",
+        llm_layer="L2",
+        commercial_safe=False,
+    ),
+    "special_effects": StylePreset(
+        id="special_effects",
+        label="特效/科幻",
+        ckpt_name="flux2_dev_fp8mixed.safetensors",
+        media=MediaType.IMAGE,
+        sampling=SamplingOverride(steps=28, cfg=1.0, sampler="euler", scheduler="simple"),
+        prompt_hint=", sci-fi special effects, cyberpunk city, neon glow, cinematic lighting, futuristic, holographic, lens flare",
+        width=1280,
+        height=720,
+        description="特效科幻短剧场景,FLUX,赛博朋克电影感(视频LoRA 不兼容图像,仅文字提示)",
+        llm_layer="L3",
+        commercial_safe=False,
+    ),
+    "horror_thriller": StylePreset(
+        id="horror_thriller",
+        label="悬疑惊悚",
+        ckpt_name="flux2_dev_fp8mixed.safetensors",
+        media=MediaType.IMAGE,
+        sampling=SamplingOverride(steps=28, cfg=1.0, sampler="euler", scheduler="simple"),
+        prompt_hint=", horror thriller, dark atmosphere, suspense, film grain, shadows, eerie lighting, 1980s horror film",
+        loras=(("horror_thriller/1980s_horror_krea2.safetensors", 0.85),),
+        width=1024,
+        height=1024,
+        description="悬疑惊悚短剧场景,FLUX+1980s_horror_krea2,暗调胶片质感",
+        llm_layer="L3",
+        commercial_safe=False,
+    ),
+    "comedy_romantic": StylePreset(
+        id="comedy_romantic",
+        label="甜宠喜剧",
+        ckpt_name="flux2_dev_fp8mixed.safetensors",
+        media=MediaType.IMAGE,
+        sampling=SamplingOverride(steps=28, cfg=1.0, sampler="euler", scheduler="simple"),
+        prompt_hint=", romantic comedy, sweet couple, warm lighting, soft focus, bokeh, pastel colors, cozy atmosphere",
+        loras=(("comedy_romantic/flux_romanticism.safetensors", 0.75),),
+        width=832,
+        height=1216,
+        description="甜宠喜剧短剧场景,FLUX+flux_romanticism,温馨浪漫氛围",
+        llm_layer="L2",
+        commercial_safe=False,
+    ),
+    "history_war": StylePreset(
+        id="history_war",
+        label="历史战争",
+        ckpt_name="waiIllustriousSDXL_v170.safetensors",
+        media=MediaType.IMAGE,
+        sampling=SamplingOverride(steps=25, cfg=5.0, sampler="euler_a", scheduler="normal"),
+        prompt_hint=", historical war, medieval knight, battlefield, epic composition, dramatic lighting, smoke, armor",
+        loras=(("history_war/medieval_knight_sdxl.safetensors", 0.8),),
+        width=1280,
+        height=720,
+        description="历史战争短剧场景,SDXL+medieval_knight_sdxl,史诗战场构图",
+        llm_layer="L3",
+        commercial_safe=False,
+    ),
+    "camera_movement": StylePreset(
+        id="camera_movement",
+        label="镜头运动",
+        ckpt_name="flux2_dev_fp8mixed.safetensors",
+        media=MediaType.IMAGE,
+        sampling=SamplingOverride(steps=28, cfg=1.0, sampler="euler", scheduler="simple"),
+        prompt_hint=", cinematic lighting, dynamic camera angle, depth of field, dramatic shot, anamorphic lens, film grain, moody",
+        loras=(("camera_movement/ntc_cinematic_lighting.safetensors", 0.7),),
+        width=1280,
+        height=720,
+        description="镜头运动质感短剧场景,FLUX+ntc_cinematic_lighting,电影灯光与运镜",
+        llm_layer="L3",
+        commercial_safe=False,
+    ),
+    "director_style": StylePreset(
+        id="director_style",
+        label="导演风格",
+        ckpt_name="flux2_dev_fp8mixed.safetensors",
+        media=MediaType.IMAGE,
+        sampling=SamplingOverride(steps=28, cfg=1.0, sampler="euler", scheduler="simple"),
+        prompt_hint=", director style, cinematic framing, color grading, storytelling composition, wide angle, establishing shot",
+        width=1280,
+        height=720,
+        description="导演风格短剧场景,FLUX,电影级构图与色调(视频LoRA 不兼容图像,仅文字提示)",
+        llm_layer="L3",
         commercial_safe=False,
     ),
 }

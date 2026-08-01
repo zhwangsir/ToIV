@@ -28,6 +28,7 @@ from app.models import Agent, User
 from app.nsfw_ctx import nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
 from app.workflows.model_profiles import detect_model_family
+from app.workflows.style_presets import ALL_PRESETS
 
 router = APIRouter()
 
@@ -225,6 +226,9 @@ class OptimizeRequest(BaseModel):
     kind: str = Field(default="image")
     # 目标模型(checkpoint 文件名);传入则按模型族切换改写方言,不传则用通用基底
     model: str | None = Field(default=None, max_length=300)
+    # 风格预设 id;传入且预设写了 llm_layer 时,提示词优化走对应 LLM 层
+    # (预设无该字段/层不可用时由 chat_layered 降级链自动回落 L1)
+    style: str | None = Field(default=None, max_length=64)
     # 智能体 id;None=读 user.default_agent_id;仍 None=走 kind 默认 system prompt
     agent_id: str | None = Field(default=None, max_length=64)
 
@@ -251,10 +255,24 @@ def _parse_json_obj(text: str) -> dict | None:
         return None
 
 
-async def _llm_text(system: str, prompt: str) -> str:
+def _style_llm_layer(style_id: str | None) -> str:
+    """按风格预设解析提示词优化的 LLM 层;无预设/无该字段 → L1(现有行为)。
+
+    层不可用时由 llm.chat_layered 的降级链(L3→L2→L1)自动兜底,这里不判可用性。
+    """
+    if not style_id:
+        return "L1"
+    preset = ALL_PRESETS.get(style_id)
+    layer = (preset.llm_layer if preset else "") or ""
+    layer = layer.upper()
+    return layer if layer in ("L1", "L2", "L3", "L4") else "L1"
+
+
+async def _llm_text(system: str, prompt: str, layer: str = "L1") -> str:
     try:
-        msg = await llm.chat(
-            [{"role": "system", "content": system}, {"role": "user", "content": prompt}]
+        msg = await llm.chat_layered(
+            [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
+            layer=layer,
         )
     except llm.LLMError as e:
         raise HTTPException(status_code=503, detail=str(e)) from e
@@ -295,13 +313,16 @@ async def optimize_prompt(
     # 智能体人格前缀(空=走 kind 默认);解析顺序:body.agent_id → user.default_agent_id
     agent_prefix = _resolve_agent_prefix(body, user, session)
 
+    # 风格预设决定提示词优化的 LLM 层(预设写了 llm_layer 才分层,否则保持 L1)
+    llm_layer = _style_llm_layer(body.style)
+
     def _compose(base_system: str) -> str:
         """智能体主人格 + kind 系统提示(含模型族方言)。"""
         return f"{agent_prefix}\n\n{base_system}" if agent_prefix else base_system
 
     # 图像类:内容感知 + 模型族方言 —— 先判题材,再用目标模型母语产出正向 + 负面
     if body.kind in _IMAGE_SYSTEMS:
-        raw = await _llm_text(_compose(_image_system_for(body.kind, body.model)), body.prompt)
+        raw = await _llm_text(_compose(_image_system_for(body.kind, body.model)), body.prompt, layer=llm_layer)
         obj = _parse_json_obj(raw)
         if obj and obj.get("positive"):
             positive = str(obj["positive"]).strip().strip('"')
@@ -317,7 +338,7 @@ async def optimize_prompt(
 
     # 其它类:单段
     system = _TEXT_SYSTEMS.get(body.kind, _TEXT_SYSTEMS["video"])
-    text = (await _llm_text(_compose(system), body.prompt)).strip('"').strip()
+    text = (await _llm_text(_compose(system), body.prompt, layer=llm_layer)).strip('"').strip()
     if not text:
         raise HTTPException(status_code=502, detail="优化失败,请重试")
     return OptimizeResponse(optimized=text)

@@ -12,10 +12,18 @@ class_type 与 inputs 经 /object_info 实测:
 """
 from __future__ import annotations
 
+import logging
+import re
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 
 # LoRA 节点 id 前缀,避开主图常用的小数字 id(1-20)
 _LORA_ID_BASE = 100
+
+# A1111/Forge 风格 <lora:NAME:WEIGHT> 标签。ComfyUI 的 CLIPTextEncode 不解析该语法,
+# 标签留在文本里只会污染编码,须在服务端剥离并转成 LoraLoader 链(见 parse_lora_tags)。
+_LORA_TAG_RE = re.compile(r"<lora:([^:<>\s]+):([^<>\s]*)>")
 
 # 链接引用:[node_id, output_index]
 NodeRef = list
@@ -27,6 +35,30 @@ class LoraSpec:
 
     name: str
     weight: float = 1.0
+
+
+def parse_lora_tags(text: str) -> tuple[str, tuple[LoraSpec, ...]]:
+    """从 prompt 文本提取 `<lora:NAME:WEIGHT>` 标签,返回 (剔除标签后的文本, LoraSpec 元组)。
+
+    用户手写在 prompt 里的 A1111 标签与预设注入的 LoRA 走同一条 LoraLoader 链生效。
+    权重不可解析的非法标签只从文本剔除、不加载(log.warning),不让请求失败。
+    """
+    loras: list[LoraSpec] = []
+
+    def _sub(m: re.Match[str]) -> str:
+        name, raw_weight = m.group(1), m.group(2)
+        try:
+            weight = float(raw_weight)
+        except ValueError:
+            logger.warning("忽略非法 LoRA 标签(权重不可解析): %s", m.group(0))
+            return ""
+        loras.append(LoraSpec(name=name, weight=weight))
+        return ""
+
+    cleaned = _LORA_TAG_RE.sub(_sub, text)
+    # 标签原位留下的多余空白收敛掉,避免 ",  ," 类残渣进入编码
+    cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()
+    return cleaned, tuple(loras)
 
 
 def lora_chain(

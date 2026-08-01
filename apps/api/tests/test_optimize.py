@@ -60,7 +60,7 @@ def client_token():
 
 
 def _patch_llm(monkeypatch, content: str) -> None:
-    async def fake_chat(messages, tools=None):  # noqa: ANN001
+    async def fake_chat(messages, tools=None, max_tokens=None, temperature=0.4):  # noqa: ANN001
         return {"content": content}
 
     monkeypatch.setattr("app.routes.optimize.llm.chat", fake_chat)
@@ -190,7 +190,7 @@ def test_optimize_passes_model_dialect_to_llm(client_token, monkeypatch):
     # 端到端:所选模型的方言必须进入发给 LLM 的 system 提示
     captured: dict = {}
 
-    async def fake_chat(messages, tools=None):  # noqa: ANN001
+    async def fake_chat(messages, tools=None, max_tokens=None, temperature=0.4):  # noqa: ANN001
         captured["system"] = messages[0]["content"]
         return {"content": '{"category": "anime", "positive": "1girl, masterpiece", "negative": "lowres"}'}
 
@@ -217,3 +217,61 @@ def test_video_optimize_single_segment(client_token, monkeypatch):
     data = r.json()
     assert data["optimized"]
     assert data["negative"] is None
+
+
+# ── 风格预设 llm_layer 路由:带预设走预设层,不带保持 L1 ─────────────────────
+def test_optimize_with_style_preset_uses_preset_layer(client_token, monkeypatch):
+    """带 style 预设(cinematic 预设 llm_layer=L3)时,走 chat_layered(layer=L3)。"""
+    captured: dict = {}
+
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):  # noqa: ANN001
+        captured["layer"] = layer
+        return {"content": '{"positive": "cinematic shot, film grain", "negative": "amateur"}'}
+
+    monkeypatch.setattr("app.routes.optimize.llm.chat_layered", fake_chat_layered)
+    client, token = client_token
+    r = client.post(
+        "/api/optimize",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"prompt": "电影感画面", "kind": "image", "style": "cinematic"},
+    )
+    assert r.status_code == 200, r.text
+    assert captured["layer"] == "L3"
+
+
+def test_optimize_without_style_stays_l1(client_token, monkeypatch):
+    """不带 style 预设时,chat_layered 层参数保持 L1(现有行为不变)。"""
+    captured: dict = {}
+
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):  # noqa: ANN001
+        captured["layer"] = layer
+        return {"content": '{"positive": "a girl", "negative": "bad anatomy"}'}
+
+    monkeypatch.setattr("app.routes.optimize.llm.chat_layered", fake_chat_layered)
+    client, token = client_token
+    r = client.post(
+        "/api/optimize",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"prompt": "一个女孩", "kind": "image"},
+    )
+    assert r.status_code == 200, r.text
+    assert captured["layer"] == "L1"
+
+
+def test_optimize_unknown_style_falls_back_l1(client_token, monkeypatch):
+    """style 预设不存在时,自动回落 L1。"""
+    captured: dict = {}
+
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):  # noqa: ANN001
+        captured["layer"] = layer
+        return {"content": "a serene lake, slow pan"}
+
+    monkeypatch.setattr("app.routes.optimize.llm.chat_layered", fake_chat_layered)
+    client, token = client_token
+    r = client.post(
+        "/api/optimize",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"prompt": "湖", "kind": "video", "style": "no_such_preset"},
+    )
+    assert r.status_code == 200, r.text
+    assert captured["layer"] == "L1"

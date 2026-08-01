@@ -184,12 +184,13 @@ async def check_llm_endpoint(
 
 
 async def check_all_llm_endpoints() -> list[LLMEndpointHealth]:
-    """检查所有四层 LLM 端点。"""
-    from .llm_router import LLM_ENDPOINTS, LLMLayer
+    """检查所有四层 LLM 端点(端点从 settings 实时解析,见 llm_router)。"""
+    from .llm_router import LLMLayer, llm_endpoints
 
+    endpoints = llm_endpoints()
     tasks = []
     for layer in [LLMLayer.L1_DRAFT, LLMLayer.L2_MAIN, LLMLayer.L3_POLISH, LLMLayer.L4_NSFW]:
-        ep = LLM_ENDPOINTS[layer]
+        ep = endpoints[layer]
         tasks.append(check_llm_endpoint(ep.layer.value, ep.base_url, ep.model_id))
     return await asyncio.gather(*tasks)
 

@@ -14,6 +14,7 @@ from app.workflows.model_profiles import (
     nextgen_recipe,
     profile_for,
 )
+from app.workflows.lora import LoraSpec
 from app.workflows.nextgen import (
     NextgenError,
     NextgenImg2ImgParams,
@@ -216,3 +217,50 @@ def test_img2img_non_nextgen_raises():
         build_nextgen_img2img_graph(NextgenImg2ImgParams(
             model_name=SD15, image="x.png", positive="test",
         ))
+
+
+# ---------------------------------------------------------------------------
+# LoRA 链测试(场景预设 LoRA 生效点)
+# ---------------------------------------------------------------------------
+
+def test_txt2img_loras_insert_loraloader_chain_before_consumers():
+    """LoRA 叠加:LoraLoader 链插在 UNET/CLIP 之后,model-sampling/编码/采样都消费链末端。"""
+    g = build_nextgen_graph(NextgenParams(
+        model_name=FLUX2, positive="a fox",
+        loras=(LoraSpec("style_a.safetensors", 0.8), LoraSpec("style_b.safetensors", 0.6)),
+    ))
+    assert g["100"]["class_type"] == "LoraLoader"
+    assert g["100"]["inputs"]["lora_name"] == "style_a.safetensors"
+    assert g["100"]["inputs"]["strength_model"] == 0.8
+    assert g["100"]["inputs"]["model"] == ["1", 0]
+    assert g["100"]["inputs"]["clip"] == ["3", 0]
+    # 第二个 LoRA 串在第一个之后
+    assert g["101"]["inputs"]["model"] == ["100", 0]
+    assert g["101"]["inputs"]["clip"] == ["100", 1]
+    # ModelSamplingFlux 消费 LoRA 链末端(而非原始 UNET)
+    assert _by_type(g, "ModelSamplingFlux")["model"] == ["101", 0]
+    # 文本编码消费 LoRA 链末端 CLIP
+    encs = [n for n in g.values() if n["class_type"] == "CLIPTextEncode"]
+    assert encs and all(e["inputs"]["clip"] == ["101", 1] for e in encs)
+
+
+def test_txt2img_no_loras_keeps_baseline_graph():
+    """无 LoRA 时不出现 LoraLoader,结构与旧版一致。"""
+    g = build_nextgen_graph(NextgenParams(model_name=FLUX2, positive="a fox"))
+    assert "LoraLoader" not in {n["class_type"] for n in g.values()}
+    assert _by_type(g, "ModelSamplingFlux")["model"] == ["1", 0]
+    encs = [n for n in g.values() if n["class_type"] == "CLIPTextEncode"]
+    assert all(e["inputs"]["clip"] == ["3", 0] for e in encs)
+
+
+def test_img2img_loras_insert_loraloader_chain():
+    g = build_nextgen_img2img_graph(NextgenImg2ImgParams(
+        model_name=FLUX2, image="x.png", positive="a portrait",
+        loras=(LoraSpec("style_a.safetensors", 0.7),),
+    ))
+    assert g["100"]["class_type"] == "LoraLoader"
+    assert g["100"]["inputs"]["model"] == ["1", 0]
+    assert g["100"]["inputs"]["clip"] == ["3", 0]
+    assert _by_type(g, "ModelSamplingFlux")["model"] == ["100", 0]
+    encs = [n for n in g.values() if n["class_type"] == "CLIPTextEncode"]
+    assert encs and all(e["inputs"]["clip"] == ["100", 1] for e in encs)

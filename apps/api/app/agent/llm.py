@@ -28,6 +28,7 @@ import time
 import httpx
 
 from app.config import get_settings
+from app.workflows.llm_router import resolve_llm_endpoint
 
 logger = logging.getLogger(__name__)
 
@@ -302,10 +303,12 @@ async def chat(
 # ===========================================================================
 # AICG 四层模型流水线（2026-07-24 项目管家确认 / 2026-07-27 thinking 抑制实测）
 # ===========================================================================
-# L1 初稿: qwen3.6-uncensored @ workstation:8000 (1-3s, 实时交互)
-# L2 主力润色: Kimi-K2.7-Code-4bit @ EXO:52415 (6.6s, 关键场景)
-# L3 终稿精修: GLM-5.2-fp8 @ EXO:52415 (3.4s 关 thinking / 50s 开 thinking, 异步批量)
-# L4 NSFW: euryale-70b @ spark01:8000 (60-90s, 无审查)
+# 层 → (url, model, timeout) 统一由 workflows/llm_router.resolve_llm_endpoint
+# 从 settings 解析(单一事实源,2026-08-01 P2-3):
+# L1 初稿: settings.llm_base_url/llm_model @ workstation (实时交互)
+# L2 主力润色: settings.llm_l2_* @ EXO (关键场景;未就绪自动降级 L1)
+# L3 终稿精修: settings.llm_l3_* @ EXO (异步批量;降级链 L3→L2→L1)
+# L4 NSFW: settings.llm_nsfw_* (空则回落主模型,无审查)
 #
 # thinking 抑制(2026-07-27 实测):EXO 认顶层 enable_thinking=false(原生字段,PR #1654),
 # 不认 chat_template_kwargs(Pydantic 静默丢弃未知字段)。L2/L3 路径默认传 enable_thinking=False:
@@ -343,9 +346,8 @@ async def chat_layered(
         return await chat(messages, max_tokens=max_tokens, temperature=temperature)
 
     if layer == "L2":
-        url = settings.llm_l2_base_url.rstrip("/")
-        model = settings.llm_l2_model
-        timeout = settings.llm_l2_timeout
+        ep = resolve_llm_endpoint("L2", settings)
+        url, model, timeout = ep.base_url, ep.model_id, ep.timeout
         # L2 未配 max_tokens 时默认 4000(补偿 reasoning,实际 content ~800)
         if max_tokens is None:
             max_tokens = 4000
@@ -367,9 +369,8 @@ async def chat_layered(
             return await chat(messages, max_tokens=max_tokens, temperature=temperature)
 
     if layer == "L3":
-        url = settings.llm_l3_base_url.rstrip("/")
-        model = settings.llm_l3_model
-        timeout = settings.llm_l3_timeout
+        ep = resolve_llm_endpoint("L3", settings)
+        url, model, timeout = ep.base_url, ep.model_id, ep.timeout
         # L3 未配 max_tokens 时默认 8000(开 thinking 时 reasoning 占 80%+,需 5-6x 补偿;
         # 关 thinking 后实测一句仅 43 tokens,8000 留足剧本精修长文本余量)
         if max_tokens is None:
@@ -384,25 +385,26 @@ async def chat_layered(
                 read_timeout=timeout,
             )
         except LLMError as l3_err:
-            # 深化:L3 降级到 L2(GLM-5.2 不可用时用 Kimi 兜底,质量略降但可用)
+            # 深化:L3 降级到 L2(L3 不可用时用 L2 兜底,质量略降但可用)
+            l2_ep = resolve_llm_endpoint("L2", settings)
             logger.warning(
                 "L3 降级到 L2 原因=%s model=%s → %s",
-                l3_err, model, settings.llm_l2_model,
+                l3_err, model, l2_ep.model_id,
             )
             try:
                 l2_max = 4000 if max_tokens == 8000 else max_tokens
                 return await _call_with_retry(
-                    settings.llm_l2_base_url.rstrip("/"), settings.llm_l2_model,
+                    l2_ep.base_url, l2_ep.model_id,
                     api_key, messages, None, l2_max, temperature,
-                    label=f"L3→L2 降级 {settings.llm_l2_model}",
+                    label=f"L3→L2 降级 {l2_ep.model_id}",
                     enable_thinking=False,
-                    read_timeout=settings.llm_l2_timeout,
+                    read_timeout=l2_ep.timeout,
                 )
             except LLMError as l2_err:
                 # L2 也不可用 → 降级到 L1(主模型)
                 logger.warning(
                     "L2 降级到 L1 原因=%s model=%s → 主模型",
-                    l2_err, settings.llm_l2_model,
+                    l2_err, l2_ep.model_id,
                 )
                 return await chat(messages, max_tokens=max_tokens, temperature=temperature)
 

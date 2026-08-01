@@ -17,9 +17,9 @@ from app.workflows.style_presets import (
 from app.workflows.llm_router import (
     ContentType,
     LLMLayer,
-    LLM_ENDPOINTS,
     list_content_types,
     list_llm_endpoints,
+    llm_endpoints,
     route_llm,
 )
 from app.workflows.model_health import (
@@ -28,6 +28,7 @@ from app.workflows.model_health import (
     _check_critical,
     _suggest_fallbacks,
 )
+from app.workflows.model_profiles import profile_for
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -174,14 +175,46 @@ class TestStylePresets:
                     f"{preset.id} 的 prompt_hint 应以 ', ' 开头以便拼接"
                 )
 
-    def test_nextgen_presets_have_cfg_1(self):
-        """次世代模型(flux2/qwen/z_image)的推荐 cfg 应为 ~1.0。"""
+    def test_nextgen_presets_cfg_matches_model_profiles(self):
+        """次世代模型预设的推荐 cfg 须与 model_profiles 档案一致:
+        flux2/z_image(蒸馏族)→ cfg≈1;qwen_image 底模 → 真 CFG 2.5~4。"""
         for preset in ALL_PRESETS.values():
-            if any(kw in preset.ckpt_name.lower() for kw in ("flux2", "qwen_image", "z_image")):
-                if preset.sampling.cfg is not None:
-                    assert 0.5 <= preset.sampling.cfg <= 2.0, (
-                        f"{preset.id} 使用次世代模型但 cfg={preset.sampling.cfg},应接近 1.0"
-                    )
+            if preset.sampling.cfg is None:
+                continue
+            ckpt = preset.ckpt_name.lower()
+            if "qwen_image" in ckpt:
+                assert 2.5 <= preset.sampling.cfg <= 4.0, (
+                    f"{preset.id} 使用 Qwen-Image 底模但 cfg={preset.sampling.cfg},应为真 CFG 2.5~4"
+                )
+            elif any(kw in ckpt for kw in ("flux2", "z_image")):
+                assert 0.5 <= preset.sampling.cfg <= 2.0, (
+                    f"{preset.id} 使用蒸馏次世代模型但 cfg={preset.sampling.cfg},应接近 1.0"
+                )
+
+    def test_qwen_image_presets_cfg_aligned_with_profile(self):
+        """chinese_text/commercial_design 的 cfg 须等于 qwen_image 档案值(3.5)。"""
+        profile_cfg = profile_for("qwen_image_fp8_e4m3fn.safetensors").cfg
+        for pid in ("chinese_text", "commercial_design"):
+            assert ALL_PRESETS[pid].sampling.cfg == profile_cfg == 3.5, (
+                f"{pid} 的 cfg 应与 model_profiles qwen_image 档案一致"
+            )
+
+    def test_prompt_hint_has_no_lora_tags(self):
+        """prompt_hint 必须是纯文本,禁止 <lora:> 等 A1111 语法(ComfyUI 不解析)。"""
+        for preset in ALL_PRESETS.values():
+            assert "<lora:" not in preset.prompt_hint, (
+                f"{preset.id} 的 prompt_hint 含 <lora:> 标签,应改用 loras 字段"
+            )
+
+    def test_preset_loras_well_formed(self):
+        """预设 loras 每项为 (文件名, 权重),权重在 LoRA 合法区间内。"""
+        for preset in ALL_PRESETS.values():
+            for entry in preset.loras:
+                name, weight = entry
+                assert isinstance(name, str) and name, f"{preset.id} 的 LoRA 名为空"
+                assert -2.0 <= weight <= 2.0, (
+                    f"{preset.id} 的 LoRA {name} 权重 {weight} 越界"
+                )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -191,10 +224,11 @@ class TestStylePresets:
 
 class TestLLMRouter:
     def test_all_four_layers_have_endpoints(self):
-        """四层 LLM (L1-L4) 都必须配置端点。"""
+        """四层 LLM (L1-L4) 都必须配置端点(从 settings 解析)。"""
+        endpoints = llm_endpoints()
         for layer in LLMLayer:
-            assert layer in LLM_ENDPOINTS
-            ep = LLM_ENDPOINTS[layer]
+            assert layer in endpoints
+            ep = endpoints[layer]
             assert ep.base_url.startswith("http")
             assert ep.model_id
             assert ep.timeout > 0

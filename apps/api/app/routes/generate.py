@@ -36,7 +36,7 @@ from app.workflows.facedetailer import (
 )
 from app.workflows.img2img import Img2ImgParams, build_img2img_graph
 from app.workflows.inpaint import InpaintParams, build_inpaint_graph
-from app.workflows.lora import LoraSpec
+from app.workflows.lora import LoraSpec, parse_lora_tags
 from app.workflows.model_profiles import (
     fit_resolution,
     is_nsfw,
@@ -69,6 +69,24 @@ _MAX_LORAS = 8
 
 def _to_lora_specs(loras: list[LoraInput]) -> tuple[LoraSpec, ...]:
     return tuple(LoraSpec(name=l.name, weight=l.weight) for l in loras[:_MAX_LORAS])
+
+
+def _apply_lora_tags(req: Txt2ImgRequest | Img2ImgRequest) -> None:
+    """剥离 positive 里的 `<lora:NAME:WEIGHT>` 标签并并入 req.loras(原地修改)。
+
+    用户手写标签与预设 LoRA 走同一条 LoraLoader 链生效;权重超出 LoraInput
+    合法区间的标签忽略(log.warning),不让请求失败。
+    """
+    req.positive, tag_loras = parse_lora_tags(req.positive)
+    existing_names = {l.name for l in req.loras}
+    for spec in tag_loras:
+        if spec.name in existing_names or len(req.loras) >= _MAX_LORAS:
+            continue
+        if not (-2.0 <= spec.weight <= 2.0):
+            logger.warning("忽略越界 LoRA 权重标签: %s:%s", spec.name, spec.weight)
+            continue
+        req.loras.append(LoraInput(name=spec.name, weight=spec.weight))
+        existing_names.add(spec.name)
 
 
 def _gate_nsfw_ckpt(ckpt_name: str, user: User) -> bool:
@@ -176,6 +194,15 @@ async def _submit_txt2img(
         # 正向:附加风格提示词尾缀
         if preset.prompt_hint and preset.prompt_hint not in req.positive:
             req.positive = req.positive + preset.prompt_hint
+        # LoRA:预设 LoRA 叠加到用户请求的 LoRA 前面(用户 LoRA 权重优先生效)
+        if preset.loras:
+            existing_names = {l.name for l in req.loras}
+            for lora_name, lora_weight in preset.loras:
+                if lora_name not in existing_names and len(req.loras) < _MAX_LORAS:
+                    req.loras.insert(0, LoraInput(name=lora_name, weight=lora_weight))
+
+    # A1111 风格 <lora:NAME:WEIGHT> 标签:ComfyUI 不解析该语法,剥离后并入 LoRA 链
+    _apply_lora_tags(req)
 
     ckpt_name = req.ckpt_name or settings.default_ckpt
     # R18 硬门槛:成人底模须已开 R18,否则 403;并据此给作品打 nsfw 标。
@@ -211,6 +238,7 @@ async def _submit_txt2img(
               sampler=prof.sampler,
               scheduler=prof.scheduler,
               batch_size=req.batch_size,
+              loras=_to_lora_specs(req.loras),
               **({"seed": req.seed} if req.seed is not None else {}),
               clip_name=clip_override,
          )
@@ -219,6 +247,8 @@ async def _submit_txt2img(
          # 次世代图需 UNET + 文本编码器 + VAE 三件都在的 worker(缺则 pick 干净失败 503)
          effective_clip = clip_override or (recipe.clip_name if recipe else None)
          required = {ckpt_name, effective_clip, recipe.vae_name} if recipe else {ckpt_name}
+         # LoRA 文件也须在目标 worker 上(与传统族一致,避免派到缺模型的机)
+         required |= {l.name for l in ng.loras}
     else:
          params = Txt2ImgParams(
               positive=req.positive,
@@ -547,6 +577,15 @@ async def generate_img2img(
             req.negative = preset.negative_prompt
         if preset.prompt_hint and preset.prompt_hint not in req.positive:
             req.positive = req.positive + preset.prompt_hint
+        # LoRA:预设 LoRA 叠加到用户请求的 LoRA 前面
+        if preset.loras:
+            existing_names = {l.name for l in req.loras}
+            for lora_name, lora_weight in preset.loras:
+                if lora_name not in existing_names and len(req.loras) < _MAX_LORAS:
+                    req.loras.insert(0, LoraInput(name=lora_name, weight=lora_weight))
+
+    # A1111 风格 <lora:NAME:WEIGHT> 标签:同 txt2img,剥离后并入 LoRA 链
+    _apply_lora_tags(req)
 
     ckpt_name = req.ckpt_name or settings.default_ckpt
     client = resolve_worker(req.worker)  # 必须用图片所在的 worker
@@ -566,6 +605,7 @@ async def generate_img2img(
               cfg=prof.cfg,
               sampler=prof.sampler,
               scheduler=prof.scheduler,
+              loras=_to_lora_specs(req.loras),
               **({"seed": req.seed} if req.seed is not None else {}),
          )
          graph = build_nextgen_img2img_graph(ng)

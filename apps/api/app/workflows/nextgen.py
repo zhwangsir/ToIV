@@ -20,6 +20,7 @@ from __future__ import annotations
 import secrets
 from dataclasses import dataclass, field
 
+from app.workflows.lora import LoraSpec, lora_chain
 from app.workflows.model_profiles import NextgenRecipe, nextgen_recipe
 
 MAX_SEED = 2**63 - 1
@@ -52,6 +53,8 @@ class NextgenParams:
     filename_prefix: str = "ToIV"
     # 文本编码器覆盖:非空时优先于配方默认(调用方按 worker 可用性解析后传入)
     clip_name: str | None = None
+    # 叠加 LoRA(经 lora_chain 编成 LoraLoader 链,UNET+CLIP 同时作用)
+    loras: tuple[LoraSpec, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -72,6 +75,8 @@ class NextgenImg2ImgParams:
     filename_prefix: str = "ToIV_i2i"
     # 文本编码器覆盖:非空时优先于配方默认(与 NextgenParams 对齐)
     clip_name: str | None = None
+    # 叠加 LoRA(与 NextgenParams 对齐)
+    loras: tuple[LoraSpec, ...] = ()
 
 
 class NextgenError(ValueError):
@@ -91,9 +96,18 @@ def build_nextgen_graph(p: NextgenParams) -> dict:
         "class_type": "UNETLoader",
         "inputs": {"unet_name": p.model_name, "weight_dtype": p.weight_dtype},
     }
-    model_ref: list = ["1", 0]
 
-    # 2) 可选 model-sampling(AuraFlow/Flux)——修正 shift,提升构图/清晰度
+    # 2) 文本编码器
+    nodes["3"] = {
+        "class_type": "CLIPLoader",
+        "inputs": {"clip_name": p.clip_name or recipe.clip_name, "type": recipe.clip_type},
+    }
+
+    # 3) 可选 LoRA 链(UNET 之后、model-sampling 之前;CLIP 之后、文本编码之前)
+    lora_nodes, model_ref, clip_ref = lora_chain(p.loras, ["1", 0], ["3", 0])
+    nodes.update(lora_nodes)
+
+    # 4) 可选 model-sampling(AuraFlow/Flux)——修正 shift,提升构图/清晰度
     if recipe.model_sampling == "ModelSamplingAuraFlow":
         nodes["2"] = {
             "class_type": "ModelSamplingAuraFlow",
@@ -112,13 +126,6 @@ def build_nextgen_graph(p: NextgenParams) -> dict:
             },
         }
         model_ref = ["2", 0]
-
-    # 3) 文本编码器
-    nodes["3"] = {
-        "class_type": "CLIPLoader",
-        "inputs": {"clip_name": p.clip_name or recipe.clip_name, "type": recipe.clip_type},
-    }
-    clip_ref: list = ["3", 0]
 
     # 4/5) 正/负条件(负向按族失效 → 空串;Z-Image 用专用 TextEncodeZImageOmni)
     def _encode(node_id: str, text: str) -> None:
@@ -199,9 +206,18 @@ def build_nextgen_img2img_graph(p: NextgenImg2ImgParams) -> dict:
         "class_type": "UNETLoader",
         "inputs": {"unet_name": p.model_name, "weight_dtype": p.weight_dtype},
     }
-    model_ref: list = ["1", 0]
 
-    # 2) 可选 model-sampling(AuraFlow/Flux)
+    # 2) 文本编码器
+    nodes["3"] = {
+        "class_type": "CLIPLoader",
+        "inputs": {"clip_name": p.clip_name or recipe.clip_name, "type": recipe.clip_type},
+    }
+
+    # 3) 可选 LoRA 链(同 txt2img:UNET 之后、model-sampling 之前)
+    lora_nodes, model_ref, clip_ref = lora_chain(p.loras, ["1", 0], ["3", 0])
+    nodes.update(lora_nodes)
+
+    # 4) 可选 model-sampling(AuraFlow/Flux)
     if recipe.model_sampling == "ModelSamplingAuraFlow":
         nodes["2"] = {
             "class_type": "ModelSamplingAuraFlow",
@@ -220,13 +236,6 @@ def build_nextgen_img2img_graph(p: NextgenImg2ImgParams) -> dict:
             },
         }
         model_ref = ["2", 0]
-
-    # 3) 文本编码器
-    nodes["3"] = {
-        "class_type": "CLIPLoader",
-        "inputs": {"clip_name": p.clip_name or recipe.clip_name, "type": recipe.clip_type},
-    }
-    clip_ref: list = ["3", 0]
 
     # 4/5) 正/负条件
     def _encode(node_id: str, text: str) -> None:
