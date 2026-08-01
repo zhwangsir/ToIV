@@ -10,6 +10,7 @@ from datetime import date, datetime, timezone
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
+from sqlalchemy import BigInteger
 
 
 def _uid() -> str:
@@ -53,7 +54,7 @@ class Job(SQLModel, table=True):
     kind: str = "txt2img"
     status: str = "queued"
     prompt: str = ""
-    seed: int = 0
+    seed: int = Field(default=0, sa_type=BigInteger)  # PG 须 BIGINT:种子上限 2**63-1(见 workflows/txt2img)
     nsfw: bool = False  # 该作品是否成人向(建档时由 checkpoint 是否 NSFW 决定)
     result: str = ""  # 完成后的产物 URL 列表(JSON)
     # —— 版本树(精修迭代地基):每次生成挂到父版本,同链共根 ——
@@ -292,7 +293,7 @@ class DramaEvent(SQLModel, table=True):
     current_time: float | None = Field(default=None)
     duration: float | None = Field(default=None)
     payload: str = ""  # JSON string
-    client_ts: int
+    client_ts: int = Field(sa_type=BigInteger)  # 毫秒时间戳 ~1.7e12,PG 须 BIGINT
     server_ts: datetime = Field(default_factory=_now)
 
 
@@ -371,7 +372,7 @@ class DramaShot(SQLModel, table=True):
     voice_url: str = ""
     lipsync_status: str = ""  # generating|done|error
     lipsync_video_url: str = ""
-    seed: int = 0
+    seed: int = Field(default=0, sa_type=BigInteger)  # PG 须 BIGINT(同 Job.seed)
     error: str = ""
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)
@@ -384,7 +385,7 @@ class DramaShotCandidate(SQLModel, table=True):
     shot_id: str = Field(foreign_key="dramashot.id", index=True)
     project_id: str = Field(index=True)
     url: str = ""
-    seed: int = 0
+    seed: int = Field(default=0, sa_type=BigInteger)  # PG 须 BIGINT(同 Job.seed)
     video_model: str = ""
     status: str = "pending"  # pending|generating|done|error
     is_picked: bool = False
