@@ -56,11 +56,14 @@ from app.models import (
     _now,
 )
 from app.ratelimit import enforce_generation_rate_limit
-from app.routes.drama_analytics import _drama_root
+from app.jsonutil import parse_json_obj
 from app.routes.lipsync import _allowed as _lipsync_allowed, _resolve as _lipsync_resolve
 from app.services.drama_image import analyze_storyboard_images
+from app.storage import drama_output_root
 from app.versioning import params_snapshot
 from app.workflows.ipadapter import IPAdapterTxt2ImgParams, build_ipadapter_txt2img_graph
+from app.workflows.pulid import PulidTxt2ImgParams, build_pulid_txt2img_graph
+from app.workflows.pulid import is_available as pulid_is_available
 from app.workflows.lipsync import LatentSyncParams, build_latentsync_graph
 from app.workflows.ltx_video import LtxI2VParams, LtxT2VParams, build_ltx_i2v_graph, build_ltx_t2v_graph
 from app.workflows.model_profiles import fit_resolution, is_nextgen, nextgen_recipe, profile_for
@@ -73,7 +76,11 @@ router = APIRouter()
 
 # NAS 统一存储:成片与配音统一落到 TOIV_DRAMA_VIDEO_DIR(生产指向 NAS 成片目录),
 # 与 drama_analytics.py 的播放器代理共享同一路径,避免生成与播放目录不一致。
-_DRAMA_DIR = _drama_root()
+# 运行时解析(60s 缓存):NAS 恢复后无需重启自动回切,不可达立即降级本地。
+def _drama_dir() -> Path:
+    return drama_output_root()
+
+
 _VOICE_NAME_RE = re.compile(r"^voice(?:ref)?-[0-9a-f]{32}\.wav$")
 _DRAMA_OUTPUT_RE = re.compile(r"^drama-[0-9a-f]{32}\.mp4$")
 _TTS_TIMEOUT = 180.0
@@ -806,70 +813,8 @@ def get_playback_insights(
 # 剧本 → 分镜 LLM 拆解
 # ===========================================================================
 def _parse_json_obj(text: str) -> dict | None:
-    t = text.strip()
-    # Qwen3 等思考型模型把推理过程包在 <think>...</think> 中,
-    # 真正的 JSON 输出在 </think> 之后。剥离思考前缀,避免误把思考里
-    # 出现的 {…} 示例当成最终 JSON。
-    if "</think>" in t:
-        t = t.split("</think>", 1)[1].strip()
-
-    # 1) 直攻预期目标:寻找 {"shots":... 这类完整 JSON 块(平衡大括号匹配)。
-    #    即便思考段里散落 {…} 示例,也能精确锁定目标 JSON。
-    for anchor in ('{"shots"', "{'shots'", '"shots"'):
-        idx = t.find(anchor)
-        if idx == -1:
-            continue
-        # 向左回溯到对应的左大括号
-        start = t.rfind("{", 0, idx + 1)
-        if start == -1:
-            continue
-        # 平衡大括号匹配,提取最外层完整 JSON
-        depth = 0
-        in_str = False
-        escape = False
-        for i in range(start, len(t)):
-            ch = t[i]
-            if in_str:
-                if escape:
-                    escape = False
-                elif ch == "\\":
-                    escape = True
-                elif ch == '"':
-                    in_str = False
-            else:
-                if ch == '"':
-                    in_str = True
-                elif ch == "{":
-                    depth += 1
-                elif ch == "}":
-                    depth -= 1
-                    if depth == 0:
-                        candidate = t[start : i + 1]
-                        try:
-                            obj = json.loads(candidate)
-                            if isinstance(obj, dict):
-                                return obj
-                        except (ValueError, TypeError):
-                            pass
-                        break
-        # 当前 anchor 失败,换下一个
-
-    # 2) 兜底:剥离代码块标记后,整体取首 { 到末 } 再试
-    t_clean = t.strip()
-    if t_clean.startswith("```"):
-        # 去掉 ```json ... ``` 包裹
-        t_clean = t_clean.split("\n", 1)[-1] if "\n" in t_clean else t_clean[3:]
-        if t_clean.endswith("```"):
-            t_clean = t_clean[:-3]
-        t_clean = t_clean.strip()
-    if "{" in t_clean and "}" in t_clean:
-        candidate = t_clean[t_clean.index("{") : t_clean.rindex("}") + 1]
-        try:
-            obj = json.loads(candidate)
-            return obj if isinstance(obj, dict) else None
-        except (ValueError, TypeError):
-            return None
-    return None
+    # 共用实现 app.jsonutil.parse_json_obj,锚定 "shots" 键做平衡括号匹配
+    return parse_json_obj(text, anchors=('{"shots"', "{'shots'", '"shots"'))
 
 
 def _build_user_prompt(script: str, num_shots: int, style: str | None,
@@ -1288,8 +1233,11 @@ async def _generate_keyframe_for_shot(
     注意:IPAdapter 构图(ipadapter.py)用 CheckpointLoaderSimple,仅兼容传统
     checkpoint 底模;次世代 UNET 底模(flux2/qwen_image/z_image,当前默认
     settings.default_ckpt=flux2_dev)未与 IPAdapter 打通(与 manju._build_shot_graph
-    的次世代降级一致),此时明确记 warning 并回退 t2v,不再硬塞 UNET 模型进
-    CheckpointLoaderSimple(worker 找不到该 checkpoint,异常被吞后静默回退)。
+    的次世代降级一致)。次世代场景改用 PuLID-Flux 首帧链(workflows/pulid.py,
+    FLUX.1 底模 settings.pulid_flux_ckpt,PuLID-Flux v0.9.1 仅适配 FLUX.1);
+    pool 探测不可用(缺 PuLID 节点/底模)时明确记 warning 并回退 t2v,
+    不再硬塞 UNET 模型进 CheckpointLoaderSimple(worker 找不到该 checkpoint,
+    异常被吞后静默回退)。
     """
     chars = _shot_characters(shot, session)
     ref_char = next((c for c in chars if c.ref_image.strip()), None)
@@ -1301,15 +1249,20 @@ async def _generate_keyframe_for_shot(
         logger.warning("角色 %s 参考图来源不在白名单: %s", ref_char.name, ref_url)
         return None
 
-    # 次世代 UNET 底模不支持 IPAdapter 首帧(见 docstring),跳过并回退 t2v
-    if is_nextgen(settings.default_ckpt):
-        logger.warning(
-            "分镜 #%s 跳过 IPAdapter 角色首帧:默认底模 %s 为次世代 UNET 模型,"
-            "IPAdapter 仅支持传统 checkpoint,回退 t2v",
-            shot.idx,
-            settings.default_ckpt,
-        )
-        return None
+    # 次世代 UNET 底模不支持 IPAdapter;优先尝试 PuLID-Flux(FLUX.1)角色首帧,
+    # pool 探测不可用时回退 t2v(见 docstring)
+    nextgen = is_nextgen(settings.default_ckpt)
+    pulid_ckpt = getattr(settings, "pulid_flux_ckpt", "") or ""
+    if nextgen:
+        if not pulid_ckpt or not await pulid_is_available(pool, pulid_ckpt):
+            logger.warning(
+                "分镜 #%s 跳过 PuLID 角色首帧:默认底模 %s 为次世代 UNET 模型,"
+                "且 PuLID-Flux 链不可用(缺节点或底模 %s),回退 t2v",
+                shot.idx,
+                settings.default_ckpt,
+                pulid_ckpt,
+            )
+            return None
 
     try:
         ref_bytes = await _fetch_ref_image_bytes(pool, ref_url)
@@ -1317,16 +1270,28 @@ async def _generate_keyframe_for_shot(
             ref_bytes, f"drama_ref_{uuid.uuid4().hex}.png"
         )
 
-        # 用默认底模走 IPAdapter txt2img,注入角色脸一致性
-        ipa_params = IPAdapterTxt2ImgParams(
-            positive=shot.prompt,
-            ref_image=ref_fn,
-            ckpt_name=settings.default_ckpt,
-            width=_snap8(project.width),
-            height=_snap8(project.height),
-            filename_prefix=f"ToIV_drama_keyframe{shot.idx}",
-        )
-        graph = build_ipadapter_txt2img_graph(ipa_params)
+        if nextgen:
+            # PuLID-Flux:FLUX.1 底模 + 角色参考图注入脸一致性
+            pulid_params = PulidTxt2ImgParams(
+                positive=shot.prompt,
+                ref_image=ref_fn,
+                ckpt_name=pulid_ckpt,
+                width=_snap8(project.width),
+                height=_snap8(project.height),
+                filename_prefix=f"ToIV_drama_keyframe{shot.idx}",
+            )
+            graph = build_pulid_txt2img_graph(pulid_params)
+        else:
+            # 传统 checkpoint 底模:走 IPAdapter txt2img,注入角色脸一致性
+            ipa_params = IPAdapterTxt2ImgParams(
+                positive=shot.prompt,
+                ref_image=ref_fn,
+                ckpt_name=settings.default_ckpt,
+                width=_snap8(project.width),
+                height=_snap8(project.height),
+                filename_prefix=f"ToIV_drama_keyframe{shot.idx}",
+            )
+            graph = build_ipadapter_txt2img_graph(ipa_params)
         client_id = uuid.uuid4().hex
         prompt_id = await client.queue_prompt(graph, client_id)
         files = await _wait_result_files(client, prompt_id, timeout=180.0)
@@ -1638,7 +1603,7 @@ async def _submit_shot_voice(
     emo_text: str | None = None,
     emo_alpha: float = 0.6,
 ) -> str:
-    """调 IndexTTS2 为该分镜配音,落盘 _DRAMA_DIR 并回写 voice_url,返回 voice_url。
+    """调 IndexTTS2 为该分镜配音,落盘短剧成片目录并回写 voice_url,返回 voice_url。
 
     generate-voice 端点与 from-image 自动管线共用。
     优先级:ref_audio_url 参数 > speaker 对应角色的 ref_audio > 默认音色。
@@ -1668,9 +1633,9 @@ async def _submit_shot_voice(
         data["emo_text"] = emo_text
         data["emo_alpha"] = str(max(0.0, min(1.0, emo_alpha)))
 
-    _DRAMA_DIR.mkdir(parents=True, exist_ok=True)
+    _drama_dir().mkdir(parents=True, exist_ok=True)
     name = f"voice-{uuid.uuid4().hex}.wav"
-    path = _DRAMA_DIR / name
+    path = _drama_dir() / name
 
     async with httpx.AsyncClient(
         timeout=_TTS_TIMEOUT, follow_redirects=True, trust_env=False
@@ -1777,7 +1742,7 @@ async def generate_shot_voice(
     return {
         "url": voice_url,
         "name": name,
-        "duration_sec": _wav_duration(_DRAMA_DIR / name),
+        "duration_sec": _wav_duration(_drama_dir() / name),
         "shot_id": sid,
     }
 
@@ -1917,7 +1882,7 @@ async def get_voice(
 ) -> FileResponse:
     if not _VOICE_NAME_RE.match(name):
         raise HTTPException(status_code=400, detail="非法文件名")
-    path = _DRAMA_DIR / name
+    path = _drama_dir() / name
     if not path.is_file():
         raise HTTPException(status_code=404, detail="配音不存在")
     return FileResponse(
@@ -2154,9 +2119,9 @@ async def _do_assemble(
     if body.bgm_url and not _is_allowed_clip(body.bgm_url):
         raise HTTPException(status_code=400, detail="BGM 来源不在白名单内")
 
-    _DRAMA_DIR.mkdir(parents=True, exist_ok=True)
+    _drama_dir().mkdir(parents=True, exist_ok=True)
     name = f"drama-{uuid.uuid4().hex}.mp4"
-    out_path = _DRAMA_DIR / name
+    out_path = _drama_dir() / name
 
     # 把 AssembleOptions 翻译成 assembly.py 的 AssembleOptions
     from app.routes.assembly import AssembleOptions as _AsmOpt
@@ -2296,7 +2261,7 @@ async def get_drama_output(
 ) -> FileResponse:
     if not _DRAMA_OUTPUT_RE.match(name):
         raise HTTPException(status_code=400, detail="非法文件名")
-    path = _DRAMA_DIR / name
+    path = _drama_dir() / name
     if not path.is_file():
         raise HTTPException(status_code=404, detail="成片不存在")
     return FileResponse(
@@ -2899,6 +2864,24 @@ async def _writeback_candidate(prompt_id: str, candidate_id: str, shot_id: str) 
 # ===========================================================================
 # LiveAct 全身数字人(SoulX LiveAct 14B,workstation 独立 worker)
 # ===========================================================================
+def _v2_error_status(error: str) -> int:
+    """generate-video-v2 生成失败的 HTTP 状态分类(语义化,不再一律 501)。
+
+    - 生成器未接入(stub)/未部署 → 501(功能不存在,客户端重试无意义);
+    - 上游 worker 不可达/超时/无可用 worker → 503(上游暂时不可用,可重试);
+    - 其余(上游拒绝工作流等)→ 502(上游返回了错误响应)。
+    """
+    if "尚未接入" in error or "未部署" in error:
+        return 501
+    if (
+        "不可达" in error
+        or "超时" in error
+        or "没有具备所需模型且可用的 worker" in error
+    ):
+        return 503
+    return 502
+
+
 async def _await_liveact_result(sid: str, task_id: str) -> None:
     """轮询 LiveAct worker /status,done 后拉 /result 落盘并回写 DramaShot。
 
@@ -2911,7 +2894,7 @@ async def _await_liveact_result(sid: str, task_id: str) -> None:
     base = get_settings().liveact_base
     deadline = time.monotonic() + _LIVEACT_TIMEOUT
     try:
-        _DRAMA_DIR.mkdir(parents=True, exist_ok=True)
+        _drama_dir().mkdir(parents=True, exist_ok=True)
         name = f"drama-{uuid.uuid4().hex}.mp4"
         async with httpx.AsyncClient(timeout=60.0, trust_env=False) as http:
             while True:
@@ -2929,7 +2912,7 @@ async def _await_liveact_result(sid: str, task_id: str) -> None:
             # mp4 流式落盘(不全量读内存;写盘走 to_thread,cifs NAS 不阻塞事件循环)
             async with http.stream("GET", f"{base}/result/{task_id}") as rr:
                 rr.raise_for_status()
-                await _stream_to_path(rr, _DRAMA_DIR / name)
+                await _stream_to_path(rr, _drama_dir() / name)
 
         with Session(engine) as s:
             shot = s.get(DramaShot, sid)
@@ -2981,11 +2964,11 @@ async def _generate_shot_video_liveact(
     if not _allowed_ref(ref_url):
         raise HTTPException(status_code=400, detail="角色参考图来源不在白名单内")
 
-    # 配音音频:voice_url 指向 _DRAMA_DIR 落盘的 wav,直接读盘
+    # 配音音频:voice_url 指向成片目录落盘的 wav,直接读盘
     voice_name = shot.voice_url.rsplit("/", 1)[-1]
     if not _VOICE_NAME_RE.match(voice_name):
         raise HTTPException(status_code=422, detail="配音文件非法,请重新生成配音")
-    voice_path = _DRAMA_DIR / voice_name
+    voice_path = _drama_dir() / voice_name
     if not voice_path.is_file():
         raise HTTPException(status_code=422, detail="配音文件不存在,请重新生成配音")
     audio_bytes = await asyncio.to_thread(voice_path.read_bytes)
@@ -3004,8 +2987,7 @@ async def _generate_shot_video_liveact(
         shot.error = result.error
         session.add(shot)
         session.commit()
-        status = 501 if "未部署" in result.error else 502
-        raise HTTPException(status_code=status, detail=result.error)
+        raise HTTPException(status_code=_v2_error_status(result.error), detail=result.error)
 
     task_id = (result.raw or {}).get("task_id", result.job_id)
     shot.video_model = "liveact"
@@ -3086,7 +3068,7 @@ async def generate_shot_video_v2(
             shot.error = result.error
             session.add(shot)
             session.commit()
-            raise HTTPException(status_code=501, detail=result.error)
+            raise HTTPException(status_code=_v2_error_status(result.error), detail=result.error)
 
         raw = result.raw or {}
         prompt_id = raw.get("prompt_id", result.job_id)
@@ -4117,9 +4099,9 @@ async def create_project_from_image(
 
     # 首图落盘(留档供首镜 i2v / 排查;失败不影响主流程)
     try:
-        _DRAMA_DIR.mkdir(parents=True, exist_ok=True)
+        _drama_dir().mkdir(parents=True, exist_ok=True)
         await asyncio.to_thread(
-            (_DRAMA_DIR / f"fromimg-{p.id}.jpg").write_bytes, payloads[0][0]
+            (_drama_dir() / f"fromimg-{p.id}.jpg").write_bytes, payloads[0][0]
         )
     except OSError as e:
         logger.warning("from-image 首图落盘失败(忽略): %s", e)

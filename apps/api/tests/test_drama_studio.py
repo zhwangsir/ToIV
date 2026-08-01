@@ -828,6 +828,68 @@ def test_generate_video_v2_unknown_model(ctx):
     assert "未知视频生成器" in r.json()["detail"]
 
 
+def test_v2_error_status_classification():
+    """P3: _v2_error_status 语义分类 —— 未接入/未部署→501,上游不可达/超时→503,其余→502。"""
+    from app.routes.drama_studio import _v2_error_status
+
+    assert _v2_error_status("Seedance 生成器尚未接入,当前为 stub") == 501
+    assert _v2_error_status("Kling 生成器尚未接入,当前为 stub") == 501
+    assert _v2_error_status("LiveAct 未部署") == 501
+    assert _v2_error_status("LiveAct worker 不可达:ConnectError") == 503
+    assert _v2_error_status("LiveAct 生成超时(20 分钟)") == 503
+    assert _v2_error_status("没有具备所需模型且可用的 worker") == 503
+    assert _v2_error_status("ComfyUI 拒绝了工作流: missing node") == 502
+    assert _v2_error_status("其他错误") == 502
+
+
+def test_generate_video_v2_single_candidate_upstream_error(ctx):
+    """P3: v2 单候选上游失败按语义分状态码,不再一律 501。"""
+    from app.services.video_generators import VideoGenResult
+
+    client, token, _ = ctx
+    H = _h(token)
+    _, sid = _make_shot(ctx, token)
+
+    def _gen_with_error(msg: str):
+        gen = MagicMock()
+        gen.generate = AsyncMock(
+            return_value=VideoGenResult(success=False, model="ltx", error=msg)
+        )
+        return gen
+
+    # 上游无可用 worker → 503
+    with patch(
+        "app.services.video_generators.get_generator",
+        return_value=_gen_with_error("没有具备所需模型且可用的 worker"),
+    ):
+        r = client.post(
+            f"/api/drama/shots/{sid}/generate-video-v2",
+            headers=H,
+            json={"model": "ltx"},
+        )
+    assert r.status_code == 503, r.text
+
+    # 上游拒绝工作流 → 502
+    with patch(
+        "app.services.video_generators.get_generator",
+        return_value=_gen_with_error("ComfyUI 拒绝了工作流: missing node"),
+    ):
+        r = client.post(
+            f"/api/drama/shots/{sid}/generate-video-v2",
+            headers=H,
+            json={"model": "ltx"},
+        )
+    assert r.status_code == 502, r.text
+
+    # 失败已回写 shot 状态
+    from app.db import engine
+
+    with Session(engine) as s:
+        shot = s.get(DramaShot, sid)
+        assert shot.video_status == "error"
+        assert "拒绝了工作流" in shot.error
+
+
 # ---------------------------------------------------------------------------
 # M1: 分镜可视化流水线 — 单镜多候选生成 + 候选管理
 # ---------------------------------------------------------------------------
@@ -1072,10 +1134,11 @@ def _make_shot_with_char(ctx, token: str) -> tuple[str, str]:
     return pid, sid
 
 
-def test_keyframe_ipadapter_nextgen_falls_back(ctx):
-    """次世代默认底模(flux2)与 IPAdapter 未打通:明确跳过首帧,不向 worker 提交非法 checkpoint。"""
+def test_keyframe_pulid_nextgen_falls_back(ctx):
+    """次世代默认底模(flux2)且 pool 无 PuLID 能力:明确跳过首帧,不向 worker 提交。"""
     import asyncio
 
+    from app.comfy.client import ComfyUIError
     from app.db import engine
     from app.routes.drama_studio import _generate_keyframe_for_shot
 
@@ -1084,15 +1147,66 @@ def test_keyframe_ipadapter_nextgen_falls_back(ctx):
 
     mock_client = MagicMock()
     mock_client.upload_image = AsyncMock()
-    settings = MagicMock(default_ckpt="flux2_dev_fp8mixed.safetensors")
+    pool = MagicMock()
+    pool.pick = AsyncMock(side_effect=ComfyUIError("没有具备所需模型且可用的 worker"))
+    settings = MagicMock(
+        default_ckpt="flux2_dev_fp8mixed.safetensors",
+        pulid_flux_ckpt="flux1-dev-fp8.safetensors",
+    )
     with Session(engine) as s:
         shot = s.get(DramaShot, sid)
         project = s.get(DramaProject, pid)
         result = asyncio.run(
-            _generate_keyframe_for_shot(mock_client, shot, project, settings, s, MagicMock())
+            _generate_keyframe_for_shot(mock_client, shot, project, settings, s, pool)
         )
     assert result is None
     mock_client.upload_image.assert_not_called()
+
+
+def test_keyframe_pulid_nextgen_uses_pulid_flux(ctx):
+    """次世代默认底模(flux2)且 pool 有 PuLID:走 PuLID-Flux(FLUX.1)生成角色一致首帧。"""
+    import asyncio
+
+    from app.db import engine
+    from app.routes.drama_studio import _generate_keyframe_for_shot
+    from app.workflows.pulid import REQUIRED_NODES
+
+    _, token, _ = ctx
+    pid, sid = _make_shot_with_char(ctx, token)
+
+    mock_client = MagicMock()
+    mock_client.upload_image = AsyncMock(side_effect=["ref.png", "kf.png"])
+    mock_client.queue_prompt = AsyncMock(return_value="pid-kf")
+    mock_client.get_result_files = AsyncMock(
+        return_value=[{"filename": "out.png", "subfolder": "", "type": "output"}]
+    )
+    mock_client.get_image_bytes = AsyncMock(return_value=(b"img", "image/png"))
+    pool = MagicMock()
+    pool.pick = AsyncMock(return_value=mock_client)
+    settings = MagicMock(
+        default_ckpt="flux2_dev_fp8mixed.safetensors",
+        pulid_flux_ckpt="flux1-dev-fp8.safetensors",
+    )
+    with Session(engine) as s, \
+         patch("app.routes.drama_studio._fetch_ref_image_bytes", AsyncMock(return_value=b"ref")):
+        shot = s.get(DramaShot, sid)
+        project = s.get(DramaProject, pid)
+        result = asyncio.run(
+            _generate_keyframe_for_shot(mock_client, shot, project, settings, s, pool)
+        )
+
+    assert result == "kf.png"
+    # pool 探测要求 PuLID 节点 + FLUX.1 底模
+    pick_kw = pool.pick.call_args.kwargs
+    assert pick_kw["required"] == {"flux1-dev-fp8.safetensors"}
+    assert pick_kw["required_nodes"] == REQUIRED_NODES
+    graph = mock_client.queue_prompt.call_args[0][0]
+    classes = {n["class_type"] for n in graph.values()}
+    assert "ApplyPulidFlux" in classes
+    assert "IPAdapterAdvanced" not in classes
+    ckpt_nodes = [n for n in graph.values() if n.get("class_type") == "CheckpointLoaderSimple"]
+    assert ckpt_nodes, "PuLID 图必须包含 CheckpointLoaderSimple"
+    assert ckpt_nodes[0]["inputs"]["ckpt_name"] == "flux1-dev-fp8.safetensors"
 
 
 def test_keyframe_ipadapter_traditional_ckpt(ctx):
@@ -1800,7 +1914,7 @@ def test_generate_video_v2_liveact_submit_success(ctx, tmp_path):
     fake_gen = _fake_liveact_generator()
     with patch("app.services.video_generators.get_generator", return_value=fake_gen), \
          patch("app.routes.drama_studio.httpx.AsyncClient", return_value=_mock_ref_download()), \
-         patch("app.routes.drama_studio._DRAMA_DIR", tmp_path), \
+         patch("app.routes.drama_studio._drama_dir", lambda: tmp_path), \
          patch("app.routes.drama_studio._await_liveact_result", AsyncMock()):
         r = client.post(
             f"/api/drama/shots/{sid}/generate-video-v2",
@@ -1845,7 +1959,7 @@ def test_generate_video_v2_liveact_ref_via_images_url(ctx, tmp_path):
     try:
         with patch("app.services.video_generators.get_generator", return_value=fake_gen), \
              patch("app.routes.drama_studio.resolve_worker", return_value=worker_cli), \
-             patch("app.routes.drama_studio._DRAMA_DIR", tmp_path), \
+             patch("app.routes.drama_studio._drama_dir", lambda: tmp_path), \
              patch("app.routes.drama_studio._await_liveact_result", AsyncMock()):
             r = client.post(
                 f"/api/drama/shots/{sid}/generate-video-v2",
@@ -1901,7 +2015,7 @@ async def test_liveact_await_writeback_done(ctx, tmp_path):
     fake_settings.liveact_base = "http://192.168.71.127:9400"
     with patch("app.routes.drama_studio.get_settings", return_value=fake_settings), \
          patch("app.routes.drama_studio.httpx.AsyncClient", return_value=http), \
-         patch("app.routes.drama_studio._DRAMA_DIR", tmp_path):
+         patch("app.routes.drama_studio._drama_dir", lambda: tmp_path):
         await _await_liveact_result(sid, "task-abc")
 
     with Session(engine) as s:

@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     # 真机出图验证)。首次载模型 ~2.5min、更吃显存,但开箱即最强画质。Klein(快)/ Z-Image(极速)/
     # Qwen-Image / SD1.5 均保留作可显式选用的其它档。dev 编码器 = mistral_3_small_flux2_fp8(见 model_profiles)。
     default_ckpt: str = "flux2_dev_fp8mixed.safetensors"
+    # PuLID-Flux 角色一致性首帧底模(次世代底模场景下短剧分镜角色首帧用)。
+    # PuLID-Flux v0.9.1 仅适配 FLUX.1 dev/schnell,不适用 FLUX.2;故用 FLUX.1 fp8
+    # 全量包(CheckpointLoaderSimple 单节点全量加载,worker :8189-8191 实测可见)。
+    pulid_flux_ckpt: str = "flux1-dev-fp8.safetensors"
     # SFW 视频默认底模:LTX-2.3 distilled(短剧/通用视频生成默认;仅 nsfw=True 才切 10Eros)
     default_video_ckpt: str = "ltx-2.3-distilled.safetensors"
     # NSFW 专区视频默认模型(LTX2.3 All in one v4.0 工作流推荐)
@@ -37,6 +41,10 @@ class Settings(BaseSettings):
     tts_url: str = "http://192.168.71.127:9200"
     # 多语言 TTS 服务（日语/韩语/粤语等）。空 = 未部署，相关语言请求返回 503。
     tts_multilingual_url: str = ""
+    # 译制参考音人声分离服务(workstation Demucs htdemucs,toiv-audio-sep.service :9220)。
+    # 契约:POST {audio_sep_url}/separate multipart(file=音频) → vocals wav 二进制(audio/wav)。
+    # 非空 = 参考音先分离干净人声再克隆音色;空 = 直接用原始抽取音。服务失败自动回退原始参考音。
+    audio_sep_url: str = ""
     # 译制听写 Whisper(ASR)。whisper_url 非空 = 调外部 GPU 服务(契约:POST {whisper_url}/asr
     # multipart(file)→ {segments:[{start,end,text}]});空 = 用 api 容器内置 faster-whisper(CPU)。
     whisper_url: str = ""
