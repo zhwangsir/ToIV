@@ -195,10 +195,12 @@ NAS `//192.168.71.7/NAS/toiv/comfyui-models` 已完成 P0/P1 升级，所有新�
 | P0-3 | ACE-Step 1.5 | `audio/Ace-Step1.5/` + `/home/merlin/toiv-scripts/ACE-Step/checkpoints` symlink | ✅ CPU 加载验证通过 |
 | P1-1 | 42 场景 LoRA（古风/都市/校园/豪车/特效/恐怖/喜剧/历史战争/运镜/导演） | `loras/` | ✅ |
 | P1-2 | Demucs v4 + MDX-Net ONNX + UVR5 模型 | `audio/uvr5_models/` + `/home/merlin/toiv-scripts/audio-sep-venv` | ✅ 测试通过 |
+| P2-1 | FLUX.1 dev fp8(Comfy-Org repack,含 clip_l+t5xxl+VAE) | `checkpoints/flux1-dev-fp8.safetensors` | ✅ 2026-08-01,PuLID-Flux 底模,worker 可见 |
 
 代码侧同步更新：
 - `apps/api/app/workflows/model_profiles.py`：`_QWEN_IMAGE_CLIP_CANDIDATES` 已加入 `qwen_3_vl_8b_instruct` 目录候选。
 - `apps/api/app/workflows/style_presets.py`：已新增 10 个短剧场景 LoRA 预设。
+- 2026-08-01 全面优化(P0-P3):场景 LoRA 经 `parse_lora_tags` + nextgen `lora_chain` 真正生效;PuLID-Flux 角色一致性首帧接入(`workflows/pulid.py`,次世代底模场景);译制人声分离前置(`TOIV_AUDIO_SEP_URL` → workstation :9220 Demucs);AI-Omni ASR 接入(`TOIV_WHISPER_URL`);生产 DB 切 PG18。详见 TEST_LOG.md OPT-P0P2-2026-08-01。
 
 ---
 
@@ -241,7 +243,7 @@ NAS `//192.168.71.7/NAS/toiv/comfyui-models` 已完成 P0/P1 升级，所有新�
 | ToIV Audio-Sep | `192.168.71.127:9220` | Demucs htdemucs 人声分离(译制参考音去 BGM,2026-08-01,`TOIV_AUDIO_SEP_URL`,POST /separate multipart→vocals wav;UVR5 MDX-Net 备选),GPU0,toiv-audio-sep.service | ✅ 2026-08-01 |
 | LiveAct worker | `192.168.71.127:9400` | SoulX-LiveAct 14B 全身数字人离线生成(短剧分镜引擎,需先配音,FP4 双卡),GPU1+2 | ✅ 2026-07-31 |
 | NAS SMB | `192.168.71.7:445` | 文件/模型存储 | ✅ |
-| core PG18+Redis | `192.168.71.47:5432/6379` | 业务 DB/缓存 | ✅ 待 ToIV 接入 |
+| core PG18+Redis | `192.168.71.47:5432/6379` | 业务 DB/缓存。PG18 **已接入**(2026-08-01:`TOIV_DATABASE_URL=postgresql+psycopg://toiv@127.0.0.1:5432/toiv`,SQLite 18 表 217 行零丢失迁移,回滚=恢复 .env.bak-20260801+restart);Redis 仍待接入 | ✅ PG 已接入 |
 
 **关键变更(2026-07-28)**:
 - Workstation Docker **全部清理**,toiv-api/web 不可再跑 Docker

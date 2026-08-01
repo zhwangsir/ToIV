@@ -4,6 +4,24 @@
 
 ---
 
+## OPT-P2P3-2026-08-01(晚)· PuLID 接入 + UVR5 服务化 + PG18 迁移 + 部署加固
+
+**时间**: 2026-08-01 15:30 CST
+**类型**: feature / ops / migration / regression
+
+### 内容
+
+1. **PuLID-Flux 角色一致性(P2-1)**:FLUX.1 dev fp8(17.2GB,Comfy-Org repack)入 NAS `checkpoints/`,worker gpu0-2+pc01 可见;新建 `workflows/pulid.py`(13 节点:CheckpointLoaderSimple→ApplyPulidFlux 链,flux 族采样档 cfg=1/euler/steps=20/guidance=3.5);drama_studio 次世代首帧场景优先 PuLID、不可用回退 t2v;设备侧补装 antelopev2/EVA02 HF 缓存/facexlib 3 权重(重装环境需按 设备说明.md 2026-08-01 条目补齐);**真机 E2E(worker :8191)121s 出图 832×1216,人脸与参考图一致**
+2. **译制人声分离(P2-2 补全)**:workstation 新建 `toiv-audio-sep.service :9220`(Demucs htdemucs,GPU0,POST /separate→vocals wav,串行锁+300s 超时,实测 TTS 合成语音 5.991s→5.991s 时长一致);`dub_voice` 参考音先分离再克隆,失败回退原路径;core .env 已配 `TOIV_AUDIO_SEP_URL`
+3. **生产 DB SQLite→PG18 迁移**:18 表 217 行零丢失(保留原主键 id,老 token 不失效;迁移后 dramaproject=10/job=27 等逐表行数核对);修复审计漏网真 bug——seed/毫秒时间戳 4 字段 int64 溢出 PG int4,改 BigInteger;requirements 补 psycopg[binary]==3.2.12;回滚=恢复 deploy/.env.bak-20260801+restart
+4. **P3 杂项**:`_parse_json_obj` 四合一为 app/jsonutil.py;v2 错误码 501/502/503 分类;nas paramiko 连接/握手/认证 15s 超时;RAG 缓存移出源码树(候选 /data→tmp,删仓库残留);`_drama_root` 统一 storage.drama_output_root(60s 缓存,NAS 恢复免重启回切,三处合一)
+5. **deploy.sh 加固**:健康检查轮询(2s×30)失败 exit 1;串行重启(api 健康→web);.next 缺失 exit 1(--skip-web 逃生门);cp -al 硬链接快照 + `--rollback`;dry-run 6 场景通过,**本次实盘部署即用新版脚本验证成功**
+6. **回归**:pytest **850 passed**(731→850,两日累计 +119),tsc/build 通过,部署 core ✅(api 第 2 次探测就绪、web 第 2 次就绪)
+7. **提交**:10 个 Conventional Commits(feat(api)×3 / perf(api)×1 / feat(web)×1 / fix(api)×1 / chore(deploy)×2 / docs×2)
+8. **遗留**:pc02 ComfyUI 离线待排查;Redis 未接入(限流/事件总线仍进程内);LiveAct reconcile 真恢复需 DramaShot 加 task_id 列;EXO L2/L3 待 studio 恢复
+
+---
+
 ## OPT-P0P2-2026-08-01 · 全面优化方案 P0-P2 落地(评估报告 docs/2026-08-01-toiv-evaluation-optimization-plan.md)
 
 **时间**: 2026-08-01 12:50 CST
