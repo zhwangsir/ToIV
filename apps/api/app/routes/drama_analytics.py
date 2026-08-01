@@ -20,6 +20,7 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.models import DramaEvent, DramaSession
+from app.storage import drama_output_root
 
 router = APIRouter()
 
@@ -27,60 +28,16 @@ router = APIRouter()
 # ────────────────────────────────
 # 静态视频文件落位
 # 生产环境优先挂载 NAS;NAS 不可达时自动降级到本地路径。
+# 运行时解析(app.storage.drama_output_root,60s 缓存):NAS 恢复后无需重启自动回切。
 # ────────────────────────────────
-
-import logging
-import os
-
-logger = logging.getLogger(__name__)
-
-
-def _drama_root() -> Path:
-    """解析短剧成片根目录。
-
-    优先级:
-    1. TOIV_DRAMA_VIDEO_DIR 环境变量(生产环境指向 NAS 挂载点)
-    2. 本地候选路径(开发/Docker 回退)
-
-    若环境变量指向的 NAS 路径不可访问,自动降级到本地路径并记录警告。
-    """
-    if env_dir := os.environ.get("TOIV_DRAMA_VIDEO_DIR"):
-        env_path = Path(env_dir)
-        try:
-            if env_path.is_dir():
-                return env_path
-        except OSError as exc:
-            logger.warning(
-                "TOIV_DRAMA_VIDEO_DIR NAS 路径不可访问,降级到本地路径: %s (%s)",
-                env_dir,
-                exc,
-            )
-        else:
-            logger.warning(
-                "TOIV_DRAMA_VIDEO_DIR 目录不存在,降级到本地路径: %s", env_dir
-            )
-
-    # 候选路径:本地开发时 apps/api 位于项目根下;Docker 中 /app 即 apps/api 内容
-    file = Path(__file__).resolve()
-    candidates = [
-        file.parent.parent.parent.parent.parent / "drama" / "output" / "final",  # 本地
-        file.parent.parent.parent / "drama" / "output" / "final",  # Docker
-        Path("/app/drama/output/final"),
-    ]
-    for p in candidates:
-        if p.is_dir():
-            return p
-    return candidates[0]
-
-
-DRAMA_ROOT = _drama_root()
 
 
 def _drama_video_path(drama_id: str) -> Path | None:
     """按 drama_id 查找成片文件;目前只服务 short_drama_v1.mp4。"""
+    root = drama_output_root()
     candidates = [
-        DRAMA_ROOT / f"{drama_id}.mp4",
-        DRAMA_ROOT / "short_drama_v1.mp4",
+        root / f"{drama_id}.mp4",
+        root / "short_drama_v1.mp4",
     ]
     for p in candidates:
         if p.is_file():

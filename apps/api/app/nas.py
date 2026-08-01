@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import posixpath
+import socket
 from collections.abc import Callable
 
 try:
@@ -15,6 +16,9 @@ except ImportError:
 
 
 from app.config import get_settings
+
+# SFTP 连接/握手/认证超时(秒):NAS 掉线时快速失败,避免请求线程无限挂起
+_CONNECT_TIMEOUT = 15.0
 
 # 模型类型 → NAS models 子目录(与 ComfyUI 目录约定一致)
 _TYPE_SUBDIR: dict[str, str] = {
@@ -49,8 +53,21 @@ def _connect() -> tuple[paramiko.SFTPClient, paramiko.Transport]:
         raise RuntimeError("NAS 未配置(TOIV_NAS_HOST / TOIV_NAS_PASSWORD)")
     if paramiko is None:
         raise RuntimeError("NAS 依赖 paramiko 未安装")
-    transport = paramiko.Transport((s.nas_host.strip(), s.nas_port))
-    transport.connect(username=s.nas_user, password=s.nas_password)
+    host = s.nas_host.strip()
+    # paramiko.Transport((host, port)) 自建 socket 且无超时,NAS 掉线时会无限挂起;
+    # 这里先 socket.create_connection 带 connect timeout,再显式设 banner/auth 超时。
+    try:
+        sock = socket.create_connection((host, s.nas_port), timeout=_CONNECT_TIMEOUT)
+    except OSError as e:
+        raise RuntimeError(f"NAS 连接失败或超时({host}:{s.nas_port}): {e}") from e
+    transport = paramiko.Transport(sock)
+    transport.banner_timeout = _CONNECT_TIMEOUT
+    transport.auth_timeout = _CONNECT_TIMEOUT
+    try:
+        transport.connect(username=s.nas_user, password=s.nas_password)
+    except Exception as e:
+        transport.close()
+        raise RuntimeError(f"NAS 握手/认证失败或超时({host}:{s.nas_port}): {e}") from e
     sftp = paramiko.SFTPClient.from_transport(transport)
     if sftp is None:
         transport.close()

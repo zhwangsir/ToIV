@@ -102,7 +102,7 @@ def ctx(tmp_path, monkeypatch):
             s.refresh(user)
             uid = user.id
         # 首图落盘/配音产物统一打到 tmp_path,不污染真实成片目录
-        monkeypatch.setattr(ds, "_DRAMA_DIR", tmp_path / "drama")
+        monkeypatch.setattr(ds, "_drama_dir", lambda: tmp_path / "drama")
         yield TestClient(app), create_token(uid), engine
     app.dependency_overrides.clear()
 
@@ -211,8 +211,7 @@ def test_success_auto_creates_project_shots_chars(ctx, monkeypatch):
         assert rec["status"] == "pending" and rec["total"] == 4
 
     # 首图落盘(best-effort)
-    import pathlib
-    saved = list((pathlib.Path(ds._DRAMA_DIR)).glob("fromimg-*.jpg"))
+    saved = list(ds._drama_dir().glob("fromimg-*.jpg"))
     assert len(saved) == 1 and saved[0].read_bytes() == _JPG
 
 

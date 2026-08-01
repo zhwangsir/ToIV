@@ -3,7 +3,7 @@
 - POST /api/manju/storyboard —— M1:把剧情用 LLM 拆成结构化分镜。
   入参剧情(premise)+ 镜数 + 风格 + 角色,产出 shots[]:每镜含英文出图提示词
   (适合 SD/anime)、出场角色、运镜、中文台词、时长。前端据此渲染分镜板并逐镜出图。
-  复用 optimize.py 的健壮 JSON 解析(容忍 ```json 代码块/前后缀)。
+  复用 app.jsonutil 的健壮 JSON 解析(容忍 ```json 代码块/前后缀)。
 
 - POST /api/manju/shot —— M2:用 IPAdapter 出单镜图,使其与角色参考图保持一致。
   带 character_ref(已上传到 worker 的角色参考图)时走 IPAdapter 工作流;无参考图
@@ -13,7 +13,6 @@
 """
 from __future__ import annotations
 
-import json
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -28,6 +27,7 @@ from app.config import get_settings
 from app.db import get_session
 from app.quality.gateway import run_quality_checks
 from app.deps import get_current_user, get_pool, resolve_worker
+from app.jsonutil import parse_json_obj
 from app.models import Job, User
 from app.ratelimit import enforce_generation_rate_limit
 from app.routes.generate import _gate_nsfw_ckpt
@@ -112,20 +112,8 @@ class StoryboardResponse(BaseModel):
 
 
 def _parse_json_obj(text: str) -> dict | None:
-    """从 LLM 文本里稳健地抽出 JSON 对象(容忍代码块/前后缀/思考标签)。"""
-    t = text.strip()
-    # Qwen3 等思考型模型把推理过程包在 <think>...</think> 中,
-    # 真正的 JSON 输出在 </think> 之后。剥离思考前缀,避免误把思考里
-    # 出现的 {…} 示例当成最终 JSON。
-    if "</think>" in t:
-        t = t.split("</think>", 1)[1].strip()
-    if "{" in t and "}" in t:
-        t = t[t.index("{") : t.rindex("}") + 1]
-    try:
-        obj = json.loads(t)
-        return obj if isinstance(obj, dict) else None
-    except (ValueError, TypeError):
-        return None
+    """从 LLM 文本里稳健地抽出 JSON 对象(共用实现 app.jsonutil.parse_json_obj)。"""
+    return parse_json_obj(text)
 
 
 def _build_user_prompt(body: StoryboardRequest) -> str:

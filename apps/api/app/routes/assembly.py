@@ -34,8 +34,7 @@ except ImportError:
 from app.config import get_settings
 from app.deps import get_current_user
 from app.models import User
-from app.routes.drama_analytics import _drama_root
-from app.storage import content_subdir
+from app.storage import content_subdir, drama_output_root
 from app.ratelimit import enforce_generation_rate_limit
 
 router = APIRouter()
@@ -43,7 +42,7 @@ router = APIRouter()
 # 成片输出目录:容器挂了 toiv-data:/data;无 /data(本地)则回落到临时目录。
 _OUTPUT_DIR = content_subdir("manju")  # 与 voice 同目录(生成内容根,可切 NAS)
 # 短剧成片/配音统一落到 NAS drama final 目录,与 drama_studio.py 保持一致。
-_DRAMA_DIR = _drama_root()
+# 运行时解析(drama_output_root,60s 缓存):NAS 恢复后无需重启自动回切。
 
 _TRANSITIONS = {"none", "crossfade"}
 # 多平台导出预设:aspect → (宽, 高)。逐镜 scale+crop 填充到此尺寸。
@@ -172,7 +171,7 @@ async def _download_clip(client: httpx.AsyncClient, url: str, dest: Path) -> Non
                 return
     if url.startswith(("/api/drama/output/", "/api/drama/voice/")):
         if (_DRAMA_OUTPUT_NAME_RE.match(name) or _VOICE_NAME_RE.match(name)):
-            local = _DRAMA_DIR / name
+            local = drama_output_root() / name
             if local.is_file():
                 await asyncio.to_thread(shutil.copyfile, local, dest)
                 return

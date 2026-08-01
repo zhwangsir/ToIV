@@ -15,8 +15,6 @@
 """
 from __future__ import annotations
 
-import json
-
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlmodel import Session
@@ -24,6 +22,7 @@ from sqlmodel import Session
 from app.agent import llm
 from app.db import get_session
 from app.deps import get_current_user
+from app.jsonutil import parse_json_obj
 from app.models import Agent, User
 from app.nsfw_ctx import nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
@@ -239,20 +238,8 @@ class OptimizeResponse(BaseModel):
 
 
 def _parse_json_obj(text: str) -> dict | None:
-    """从 LLM 文本里稳健地抽出 JSON 对象(容忍代码块/前后缀/思考标签)。"""
-    t = text.strip()
-    # Qwen3 等思考型模型把推理过程包在 <think>...</think> 中,
-    # 真正的 JSON 输出在 </think> 之后。剥离思考前缀,避免误把思考里
-    # 出现的 {…} 示例当成最终 JSON。
-    if "</think>" in t:
-        t = t.split("</think>", 1)[1].strip()
-    if "{" in t and "}" in t:
-        t = t[t.index("{") : t.rindex("}") + 1]
-    try:
-        obj = json.loads(t)
-        return obj if isinstance(obj, dict) else None
-    except (ValueError, TypeError):
-        return None
+    """从 LLM 文本里稳健地抽出 JSON 对象(共用实现 app.jsonutil.parse_json_obj)。"""
+    return parse_json_obj(text)
 
 
 def _style_llm_layer(style_id: str | None) -> str:

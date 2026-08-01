@@ -11,6 +11,7 @@ import hashlib
 import json
 import math
 import os
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -79,7 +80,18 @@ def _normalize(v: list[float]) -> list[float]:
 
 
 def _cache_path(fingerprint: str) -> Path:
-    base = Path("/data") if os.path.isdir("/data") and os.access("/data", os.W_OK) else _KNOWLEDGE_DIR
+    """embedding 缓存文件路径:/data 优先,否则系统临时目录。
+
+    永不写源码树(agent/knowledge/ 下曾落 rag_cache_*.json 污染仓库)。
+    """
+    if os.path.isdir("/data") and os.access("/data", os.W_OK):
+        base = Path("/data")
+    else:
+        base = Path(tempfile.gettempdir()) / "toiv_rag_cache"
+    try:
+        base.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass  # 读路径不存在时 exists() 为 False;写失败由调用方 except OSError 兜底
     return base / f"rag_cache_{fingerprint}.json"
 
 

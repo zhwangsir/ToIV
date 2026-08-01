@@ -16,7 +16,6 @@
 from __future__ import annotations
 
 import base64
-import json
 import logging
 import re
 
@@ -24,6 +23,7 @@ import httpx
 from fastapi import HTTPException
 
 from app.config import get_settings
+from app.jsonutil import parse_json_obj
 
 logger = logging.getLogger(__name__)
 
@@ -68,70 +68,13 @@ _IMAGE_STORYBOARD_SYSTEM = (
 
 
 # ===========================================================================
-# JSON 提取(与 drama_studio/manju 同款第 4 份拷贝:锚定 "shots" 键做平衡括号匹配)
+# JSON 提取(共用实现 app.jsonutil.parse_json_obj,锚定 "shots" 键做平衡括号匹配)
 # ===========================================================================
+_SHOTS_ANCHORS = ('{"shots"', "{'shots'", '"shots"')
+
+
 def _parse_json_obj(text: str) -> dict | None:
-    t = text.strip()
-    # 思考型模型把推理过程包在 <think>...</think> 中,真正的 JSON 输出在 </think> 之后。
-    # 剥离思考前缀,避免误把思考里出现的 {…} 示例当成最终 JSON。
-    if "</think>" in t:
-        t = t.split("</think>", 1)[1].strip()
-
-    # 1) 直攻预期目标:寻找 {"shots":... 这类完整 JSON 块(平衡大括号匹配)。
-    for anchor in ('{"shots"', "{'shots'", '"shots"'):
-        idx = t.find(anchor)
-        if idx == -1:
-            continue
-        # 向左回溯到对应的左大括号
-        start = t.rfind("{", 0, idx + 1)
-        if start == -1:
-            continue
-        # 平衡大括号匹配,提取最外层完整 JSON
-        depth = 0
-        in_str = False
-        escape = False
-        for i in range(start, len(t)):
-            ch = t[i]
-            if in_str:
-                if escape:
-                    escape = False
-                elif ch == "\\":
-                    escape = True
-                elif ch == '"':
-                    in_str = False
-            else:
-                if ch == '"':
-                    in_str = True
-                elif ch == "{":
-                    depth += 1
-                elif ch == "}":
-                    depth -= 1
-                    if depth == 0:
-                        candidate = t[start : i + 1]
-                        try:
-                            obj = json.loads(candidate)
-                            if isinstance(obj, dict):
-                                return obj
-                        except (ValueError, TypeError):
-                            pass
-                        break
-        # 当前 anchor 失败,换下一个
-
-    # 2) 兜底:剥离代码块标记后,整体取首 { 到末 } 再试
-    t_clean = t.strip()
-    if t_clean.startswith("```"):
-        t_clean = t_clean.split("\n", 1)[-1] if "\n" in t_clean else t_clean[3:]
-        if t_clean.endswith("```"):
-            t_clean = t_clean[:-3]
-        t_clean = t_clean.strip()
-    if "{" in t_clean and "}" in t_clean:
-        candidate = t_clean[t_clean.index("{") : t_clean.rindex("}") + 1]
-        try:
-            obj = json.loads(candidate)
-            return obj if isinstance(obj, dict) else None
-        except (ValueError, TypeError):
-            return None
-    return None
+    return parse_json_obj(text, anchors=_SHOTS_ANCHORS)
 
 
 def _build_user_text(hint: str, style: str, num_shots: int, num_images: int) -> str:

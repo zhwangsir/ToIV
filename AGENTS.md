@@ -238,6 +238,7 @@ NAS `//192.168.71.7/NAS/toiv/comfyui-models` 已完成 P0/P1 升级，所有新�
 | pc02 ComfyUI | `192.168.71.114:8193` | 远端 worker | ✅ |
 | OpenTalking 数字人 | `192.168.71.127:4403` | 实时对话(LLM/STT/TTS/WebRTC),MuseTalk local 默认后端 + quicktalk 兜底,GPU2 | ✅ 2026-07-31 |
 | AI-Omni ASR | `192.168.71.127:9210` | faster-whisper large-v3,ToIV 译制/语音听写已接入(2026-08-01,`TOIV_WHISPER_URL`,OpenAI 兼容端点);opentalking 默认仍用本地 SenseVoice | ✅ |
+| ToIV Audio-Sep | `192.168.71.127:9220` | Demucs htdemucs 人声分离(译制参考音去 BGM,2026-08-01,`TOIV_AUDIO_SEP_URL`,POST /separate multipart→vocals wav;UVR5 MDX-Net 备选),GPU0,toiv-audio-sep.service | ✅ 2026-08-01 |
 | LiveAct worker | `192.168.71.127:9400` | SoulX-LiveAct 14B 全身数字人离线生成(短剧分镜引擎,需先配音,FP4 双卡),GPU1+2 | ✅ 2026-07-31 |
 | NAS SMB | `192.168.71.7:445` | 文件/模型存储 | ✅ |
 | core PG18+Redis | `192.168.71.47:5432/6379` | 业务 DB/缓存 | ✅ 待 ToIV 接入 |

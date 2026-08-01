@@ -41,6 +41,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 _TTS_TIMEOUT = 180.0  # IndexTTS2 首调懒加载模型 ~20s,留足
+_AUDIO_SEP_TIMEOUT = 300.0  # 服务端串行排队 + Demucs 推理,留足
 _MAX_SEGMENTS = 200
 _VOICE_TRACK_RE = re.compile(r"^dubvoice-[0-9a-f]{32}\.wav$")
 _TEMPO_MAX = 2.0  # atempo 单段上限(超出则略溢出时槽,可接受)
@@ -82,6 +83,23 @@ def _wav_duration(path: Path) -> float:
             return round(w.getnframes() / float(w.getframerate() or 1), 3)
     except (wave.Error, OSError):
         return 0.0
+
+
+async def _separate_vocals(base: str, audio: bytes) -> bytes | None:
+    """调人声分离服务(config.audio_sep_url)提取干净人声做克隆参考音。
+    不可达/超时/失败一律返回 None → 回退原始参考音,不阻断译制。"""
+    try:
+        async with httpx.AsyncClient(timeout=_AUDIO_SEP_TIMEOUT, follow_redirects=True) as client:
+            resp = await client.post(
+                base.rstrip("/") + "/separate",
+                files={"file": ("ref.wav", audio, "audio/wav")},
+            )
+        if resp.status_code != 200 or not resp.content or resp.content[:4] != b"RIFF":
+            raise RuntimeError(f"人声分离失败(HTTP {resp.status_code})")
+        return resp.content
+    except (httpx.HTTPError, RuntimeError) as e:
+        logger.warning("人声分离服务不可用,回退原始参考音:%s", e)
+        return None
 
 
 async def _tts(
@@ -156,6 +174,12 @@ async def _run_voice_track(job: dict, src: Path, body: VoiceTrackRequest, total:
                         ref_bytes = ref_path.read_bytes()
                 except HTTPException:
                     ref_bytes = None  # 源无音轨等 → 退回默认音色,不致命
+                # 抽取音含 BGM 噪声 → 先分离干净人声再克隆音色;失败回退原始参考音
+                if ref_bytes and settings.audio_sep_url:
+                    job["stage"] = "人声分离"
+                    vocals = await _separate_vocals(settings.audio_sep_url, ref_bytes)
+                    if vocals:
+                        ref_bytes = vocals
 
             wavs: list[Path] = []
             starts: list[float] = []
