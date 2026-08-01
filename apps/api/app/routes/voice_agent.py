@@ -57,12 +57,20 @@ _ACCEPTED_AUDIO_CT = {
 # ── ASR:复用 dub_text.py 的基础设施 ──────────────────────────────────────
 
 async def _transcribe_external(base: str, path: Path, name: str) -> str:
-    """调外部 whisper_url(契约:POST {base}/asr multipart(file)→ {segments:[{start,end,text}]})。"""
+    """调外部 whisper_url(契约:POST {base}/asr multipart(file)→ {segments:[{start,end,text}]})。
+    404 时回退 OpenAI 兼容 /v1/audio/transcriptions(AI-Omni ASR @ workstation:9210)。"""
     async with httpx.AsyncClient(timeout=_ASR_TIMEOUT) as client:
         with path.open("rb") as f:
             resp = await client.post(
                 f"{base}/asr", files={"file": (name, f, "audio/webm")}
             )
+        if resp.status_code == 404:
+            with path.open("rb") as f:
+                resp = await client.post(
+                    f"{base}/v1/audio/transcriptions",
+                    files={"file": (name, f, "audio/webm")},
+                    data={"response_format": "verbose_json"},
+                )
     resp.raise_for_status()
     segs = (resp.json() or {}).get("segments") or []
     return " ".join(str(s.get("text", "")).strip() for s in segs).strip()

@@ -236,6 +236,42 @@ async def test_wait_for_jobs_sees_cross_session_commit(db):
     assert result == {"cx1": ["/api/images?filename=cx1.png"]}
 
 
+async def test_wait_for_jobs_single_query_per_round(db, monkeypatch):
+    """P1-4:wait_for_jobs 每轮只发一条 IN 查询,session.exec 调用次数
+    不随候选数线性增长(3 个候选也只有 1 次查询)。"""
+    with Session(db) as s:
+        for i in range(3):
+            s.add(
+                Job(
+                    tenant_id="t",
+                    user_id="u",
+                    prompt_id=f"b{i}",
+                    worker="http://w",
+                    kind="txt2img",
+                    status="done",
+                    prompt="x",
+                    seed=1,
+                    result=f'["u{i}"]',
+                )
+            )
+        s.commit()
+    with Session(db) as s:
+        calls = 0
+        orig_exec = s.exec
+
+        def counting_exec(stmt, *args, **kwargs):
+            nonlocal calls
+            calls += 1
+            return orig_exec(stmt, *args, **kwargs)
+
+        monkeypatch.setattr(s, "exec", counting_exec)
+        result = await tracker.wait_for_jobs(
+            s, ["b0", "b1", "b2"], timeout=1.0, poll_interval=0.1
+        )
+    assert result == {"b0": ["u0"], "b1": ["u1"], "b2": ["u2"]}
+    assert calls == 1
+
+
 def test_poll_once_done_with_gifs_field(db):
     """回归:VHS_VideoCombine 视频产物在 'gifs' 字段(不是 'images'),
     _poll_once 必须从 gifs 提取 filename。"""

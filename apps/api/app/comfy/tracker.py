@@ -6,7 +6,8 @@
 这里在提交时 fire-and-forget 启动一个**轮询 /history** 的后台任务,完成即落库,
 幂等。客户端 SSE 仍可连(实时进度),与本追踪共用同一套落库函数,双写无害。
 
-ComfyUIClient 无状态(每调用现开现关 httpx),故可安全用于请求生命周期之外。
+ComfyUIClient 底层经模块级 AsyncClient 连接池(client.py)复用连接,
+故可安全用于请求生命周期之外。
 """
 from __future__ import annotations
 
@@ -185,6 +186,8 @@ async def wait_for_jobs(
 
     任一作业进入 error 或超时即抛出 RuntimeError。
 
+    每轮用单条 `prompt_id IN (...)` 查询取回全部候选(替代逐 pid 的 N+1)。
+
     关键:每次循环前显式 commit() 结束当前事务。SQLAlchemy 同步 Session
     在第一次 SQL 时开启事务,后续 SELECT 在同一事务快照内,看不到其他
     Session(如 tracker.mark_done)的 commit → 会一直读到旧 status,直到
@@ -195,10 +198,17 @@ async def wait_for_jobs(
     waited = 0.0
     results: dict[str, list[str]] = {}
     while pending and waited < timeout:
-        session.commit()  # 结束当前事务,刷新快照(无 DML 时为 no-op,仅释放读锁)
+        # commit() 保留:纯读但会结束当前事务,下一轮 SELECT 重开新快照,
+        # 才能看到 tracker.mark_done 等其他 Session 的提交(见 docstring)。
+        session.commit()
+        # 单条 IN 查询取回全部候选,替代逐 pid SELECT 的 N+1
+        rows = session.exec(
+            select(Job).where(Job.prompt_id.in_(pending))  # type: ignore[attr-defined]
+        ).all()
+        by_pid = {j.prompt_id: j for j in rows}
         done: set[str] = set()
         for pid in list(pending):
-            job = session.exec(select(Job).where(Job.prompt_id == pid)).first()
+            job = by_pid.get(pid)
             if not job:
                 raise RuntimeError(f"作业 {pid} 不存在")
             if job.status == "done":

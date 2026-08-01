@@ -56,6 +56,29 @@ _MODEL_LOADERS = [
 ]
 _MODELS_TTL = 120.0
 
+# 模块级 httpx.AsyncClient 连接池缓存:(base_url, timeout) → AsyncClient。
+# AsyncClient 本身是连接池且线程安全,复用可避免每次调用新建 TCP 连接
+# (此前 tracker 每 2-8s 轮询 /history 都现开现关)。在 main.py lifespan
+# 关闭阶段经 close_clients() 统一 aclose。
+_http_clients: dict[tuple[str, float], httpx.AsyncClient] = {}
+
+
+def _pooled_client(base_url: str, timeout: float) -> httpx.AsyncClient:
+    key = (base_url, timeout)
+    client = _http_clients.get(key)
+    if client is None or client.is_closed:
+        client = httpx.AsyncClient(timeout=timeout, trust_env=False)
+        _http_clients[key] = client
+    return client
+
+
+async def close_clients() -> None:
+    """关闭并清空全部缓存的 AsyncClient(供 lifespan 关闭阶段调用)。"""
+    clients = list(_http_clients.values())
+    _http_clients.clear()
+    for client in clients:
+        await client.aclose()
+
 
 class ComfyUIClient:
     def __init__(self, base_url: str, timeout: float = 30.0):
@@ -100,12 +123,12 @@ class ComfyUIClient:
         """上传图片到 ComfyUI input 目录，返回其文件名(供 LoadImage 使用)。"""
         files = {"image": (filename, content, "application/octet-stream")}
         try:
-            async with httpx.AsyncClient(timeout=self._timeout, trust_env=False) as client:
-                resp = await client.post(
-                    f"{self.base_url}/upload/image", files=files, data={"overwrite": "false"}
-                )
-                resp.raise_for_status()
-                return resp.json()["name"]
+            client = _pooled_client(self.base_url, self._timeout)
+            resp = await client.post(
+                f"{self.base_url}/upload/image", files=files, data={"overwrite": "false"}
+            )
+            resp.raise_for_status()
+            return resp.json()["name"]
         except (httpx.HTTPError, KeyError) as e:
             raise ComfyUIError(f"上传图片失败: {e}") from e
 
@@ -134,10 +157,10 @@ class ComfyUIClient:
     async def get_image_bytes(self, filename: str, subfolder: str, type_: str) -> tuple[bytes, str]:
         qs = urlencode({"filename": filename, "subfolder": subfolder, "type": type_})
         try:
-            async with httpx.AsyncClient(timeout=self._timeout, trust_env=False) as client:
-                resp = await client.get(f"{self.base_url}/view?{qs}")
-                resp.raise_for_status()
-                return resp.content, resp.headers.get("content-type", "image/png")
+            client = _pooled_client(self.base_url, self._timeout)
+            resp = await client.get(f"{self.base_url}/view?{qs}")
+            resp.raise_for_status()
+            return resp.content, resp.headers.get("content-type", "image/png")
         except httpx.HTTPError as e:
             raise ComfyUIError(f"读取图片失败: {e}") from e
 
@@ -195,10 +218,10 @@ class ComfyUIClient:
     # ---------- 内部 ----------
     async def _post_json(self, path: str, payload: dict) -> dict:
         try:
-            async with httpx.AsyncClient(timeout=self._timeout, trust_env=False) as client:
-                resp = await client.post(f"{self.base_url}{path}", json=payload)
-                resp.raise_for_status()
-                return resp.json()
+            client = _pooled_client(self.base_url, self._timeout)
+            resp = await client.post(f"{self.base_url}{path}", json=payload)
+            resp.raise_for_status()
+            return resp.json()
         except httpx.HTTPStatusError as e:
             detail = None
             try:
@@ -215,10 +238,11 @@ class ComfyUIClient:
 
     async def _get_json(self, path: str, timeout: float | None = None) -> dict:
         try:
-            async with httpx.AsyncClient(timeout=timeout or self._timeout, trust_env=False) as client:
-                resp = await client.get(f"{self.base_url}{path}")
-                resp.raise_for_status()
-                return resp.json()
+            client = _pooled_client(self.base_url, self._timeout)
+            # 短超时(如 queue_len 的 4s)按请求覆盖,不另建缓存 client
+            resp = await client.get(f"{self.base_url}{path}", timeout=timeout or self._timeout)
+            resp.raise_for_status()
+            return resp.json()
         except httpx.HTTPStatusError as e:
             detail = None
             try:

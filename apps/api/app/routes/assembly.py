@@ -60,6 +60,10 @@ _DEFAULT_FPS = 16
 _CROSSFADE_SEC = 0.5  # 相邻片段交叠时长
 _CLIP_EST_SEC = 2.0  # xfade offset 估计:每片段约 2s(漫剧片段普遍偏短)
 _DOWNLOAD_TIMEOUT = 120.0
+_DOWNLOAD_CONCURRENCY = 4  # 片段并发下载上限(同一 httpx client 复用,限流防压垮源端)
+_FFMPEG_TIMEOUT = 300.0  # 本地 ffmpeg 合成上限:超时 kill 进程,防请求永久悬挂(对齐 animatic 300s)
+# libx264 编码参数:合成产物多为中间产物(后续还会拼卡/重编码),速度优先,质量损失可忽略
+_X264_ARGS: list[str] = ["-preset", "veryfast", "-crf", "20"]
 
 # 调色滤镜预设(P3):全片统一电影级色调。值为 ffmpeg 视频滤镜串(接每镜链尾)。
 # 故意只用 eq/colorbalance/hue/curves=preset(无内嵌引号),避免 filtergraph 转义坑。
@@ -163,13 +167,14 @@ async def _download_clip(client: httpx.AsyncClient, url: str, dest: Path) -> Non
         if (_OUTPUT_NAME_RE.match(name) or _VOICE_NAME_RE.match(name)):
             local = _OUTPUT_DIR / name
             if local.is_file():
-                dest.write_bytes(local.read_bytes())
+                # 文件拷贝走线程池,避免整文件读进内存 + 同步 IO 阻塞事件循环
+                await asyncio.to_thread(shutil.copyfile, local, dest)
                 return
     if url.startswith(("/api/drama/output/", "/api/drama/voice/")):
         if (_DRAMA_OUTPUT_NAME_RE.match(name) or _VOICE_NAME_RE.match(name)):
             local = _DRAMA_DIR / name
             if local.is_file():
-                dest.write_bytes(local.read_bytes())
+                await asyncio.to_thread(shutil.copyfile, local, dest)
                 return
     try:
         resp = await client.get(_resolve_clip_url(url))
@@ -180,7 +185,29 @@ async def _download_clip(client: httpx.AsyncClient, url: str, dest: Path) -> Non
         ) from e
     if not resp.content:
         raise HTTPException(status_code=502, detail=f"片段为空:{url}")
-    dest.write_bytes(resp.content)
+    await asyncio.to_thread(dest.write_bytes, resp.content)
+
+
+async def _download_all(
+    client: httpx.AsyncClient, items: list[tuple[str, Path]]
+) -> None:
+    """并发下载全部片段(同 client 复用,Semaphore 限流);任一失败即抛,不静默吞。
+
+    用 return_exceptions 收齐结果再抛首个异常:等所有任务收尾,避免临时目录
+    提前清理导致后台任务写失败/异常无人领取。
+    """
+    sem = asyncio.Semaphore(_DOWNLOAD_CONCURRENCY)
+
+    async def _one(url: str, dest: Path) -> None:
+        async with sem:
+            await _download_clip(client, url, dest)
+
+    results = await asyncio.gather(
+        *(_one(url, dest) for url, dest in items), return_exceptions=True
+    )
+    for r in results:
+        if isinstance(r, BaseException):
+            raise r
 
 
 async def _probe_duration(path: Path) -> float:
@@ -525,6 +552,7 @@ def _build_ffmpeg_command(
     cmd += [
         "-c:v",
         "libx264",
+        *_X264_ARGS,
         "-pix_fmt",
         "yuv420p",
         "-r",
@@ -538,13 +566,21 @@ def _build_ffmpeg_command(
     return cmd
 
 
-async def _run_ffmpeg(cmd: list[str]) -> None:
+async def _run_ffmpeg(cmd: list[str], timeout: float = _FFMPEG_TIMEOUT) -> None:
     proc = await asyncio.create_subprocess_exec(
         *cmd,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    _, stderr = await proc.communicate()
+    try:
+        _, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+    except TimeoutError:
+        # ffmpeg 挂起:kill 进程并回收,抛明确错误,不让请求永久悬挂
+        proc.kill()
+        await proc.wait()
+        raise HTTPException(
+            status_code=500, detail=f"合成失败(ffmpeg):执行超时({timeout:.0f}s)"
+        ) from None
     if proc.returncode != 0:
         tail = (stderr or b"").decode("utf-8", "replace")[-800:]
         raise HTTPException(status_code=500, detail=f"合成失败(ffmpeg):{tail}")
@@ -595,7 +631,7 @@ async def _gen_card(
             ]
     if with_audio:
         cmd += ["-map", "1:a", "-c:a", "aac", "-b:a", "192k"]
-    cmd += ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", str(fps), "-shortest", str(out)]
+    cmd += ["-c:v", "libx264", *_X264_ARGS, "-pix_fmt", "yuv420p", "-r", str(fps), "-shortest", str(out)]
     await _run_ffmpeg(cmd)
 
 
@@ -638,7 +674,7 @@ async def _concat_parts(parts: list[Path], fps: int, with_audio: bool, out: Path
         fc = f"{streams}concat=n={n}:v=1:a=0[v]"
         maps = ["-map", "[v]"]
     cmd += ["-filter_complex", fc, *maps,
-            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", str(fps),
+            "-c:v", "libx264", *_X264_ARGS, "-pix_fmt", "yuv420p", "-r", str(fps),
             "-movflags", "+faststart", str(out)]
     await _run_ffmpeg(cmd)
 
@@ -675,22 +711,26 @@ async def assemble_manju(
         async with httpx.AsyncClient(
             timeout=_DOWNLOAD_TIMEOUT, follow_redirects=True, trust_env=False
         ) as client:
+            # 片段 + BGM + 逐镜配音统一并发下载(Semaphore 限流),任一失败即抛
+            downloads: list[tuple[str, Path]] = []
             for i, url in enumerate(body.clips):
                 dest = tmp_dir / f"clip-{i:03d}.mp4"
-                await _download_clip(client, url, dest)
+                downloads.append((url, dest))
                 clip_paths.append(dest)
 
             bgm_path: Path | None = None
             if body.options.bgm_url:
                 bgm_path = tmp_dir / "bgm.audio"
-                await _download_clip(client, body.options.bgm_url, bgm_path)
+                downloads.append((body.options.bgm_url, bgm_path))
 
             # 逐镜配音(与 clips 对齐;空串=该镜无配音)
             for i, vurl in enumerate(body.voice_urls[: len(body.clips)]):
                 if vurl:
                     vdest = tmp_dir / f"voice-{i:03d}.wav"
-                    await _download_clip(client, vurl, vdest)
+                    downloads.append((vurl, vdest))
                     voice_paths[i] = vdest
+
+            await _download_all(client, downloads)
 
         probed = [await _probe_duration(p) for p in clip_paths]
         # 时间线逐镜目标时长:小于原长则裁切;有效时长用于转场/配音偏移精确对齐
@@ -823,7 +863,7 @@ async def manju_kenburns(
         cmd = [
             "ffmpeg", "-y", "-loop", "1", "-i", str(img),
             "-vf", vf, "-t", f"{body.duration}",
-            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", str(body.fps),
+            "-c:v", "libx264", *_X264_ARGS, "-pix_fmt", "yuv420p", "-r", str(body.fps),
             "-movflags", "+faststart", str(out_path),
         ]
         await _run_ffmpeg(cmd)

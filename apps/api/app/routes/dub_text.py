@@ -191,9 +191,19 @@ def _whisper_transcribe_sync(model, path: str, job: dict) -> list[dict]:
 
 
 async def _transcribe_external(base: str, src_path, name: str) -> list[dict]:
+    """外部 ASR。优先私有契约 POST {base}/asr;404 时回退 OpenAI 兼容
+    /v1/audio/transcriptions(response_format=verbose_json,segments 结构相同),
+    如 AI-Omni ASR(faster-whisper large-v3 @ workstation:9210)。"""
     async with httpx.AsyncClient(timeout=_TRANSCRIBE_TIMEOUT) as client:
         with src_path.open("rb") as f:
             resp = await client.post(f"{base}/asr", files={"file": (name, f, "video/mp4")})
+        if resp.status_code == 404:
+            with src_path.open("rb") as f:
+                resp = await client.post(
+                    f"{base}/v1/audio/transcriptions",
+                    files={"file": (name, f, "video/mp4")},
+                    data={"response_format": "verbose_json"},
+                )
     resp.raise_for_status()
     return _normalize_segments(resp.json().get("segments") or [])
 

@@ -9,6 +9,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import tempfile
 import uuid
@@ -106,8 +107,9 @@ async def _load_control_bytes(url: str) -> bytes:
 
 
 @router.post("/cad/upload")
-def cad_upload(file: UploadFile, user: User = Depends(get_current_user)) -> dict:
-    """上传 DWG/DXF/图 → 服务端转换为干净线稿 + 几何(同步,跑在 threadpool)。"""
+async def cad_upload(file: UploadFile, user: User = Depends(get_current_user)) -> dict:
+    """上传 DWG/DXF/图 → 服务端转换为干净线稿 + 几何(convert 含 subprocess,
+    经 to_thread 丢到线程池,不阻塞事件循环)。"""
     content = file.file.read()
     if not content:
         raise HTTPException(status_code=400, detail="空文件")
@@ -121,7 +123,7 @@ def cad_upload(file: UploadFile, user: User = Depends(get_current_user)) -> dict
         tf.write(content)
         src = Path(tf.name)
     try:
-        res = convert(src, out)
+        res = await asyncio.to_thread(convert, src, out)
     except Exception as e:  # noqa: BLE001 — 转换失败给清晰提示
         raise HTTPException(status_code=422, detail=f"图纸转换失败:{e}") from e
     finally:
