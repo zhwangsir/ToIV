@@ -15,9 +15,9 @@ services:
       # AI 大脑(默认):workstation sglang qwen3.6-uncensored(host 网络 :8000,4卡 TP,131K ctx)
       TOIV_LLM_BASE_URL: "${TOIV_LLM_BASE_URL:-http://192.168.71.127:8000/v1}"
       TOIV_LLM_MODEL: "${TOIV_LLM_MODEL:-qwen3.6-uncensored}"
-      # NSFW 模式专用 LLM(X-NSFW: 1 时启用):spark01 vLLM euryale-70b(LAN 可达,uncensored)
+      # NSFW 模式专用 LLM(X-NSFW: 1 时启用):spark01 vLLM llama-3.3-70b-abliterated(LAN 可达,uncensored)
       TOIV_LLM_NSFW_BASE_URL: "${TOIV_LLM_NSFW_BASE_URL:-http://192.168.71.82:8000/v1}"
-      TOIV_LLM_NSFW_MODEL: "${TOIV_LLM_NSFW_MODEL:-euryale-70b}"
+      TOIV_LLM_NSFW_MODEL: "${TOIV_LLM_NSFW_MODEL:-llama-3.3-70b-abliterated}"
       # TTS 服务:workstation 本地 9200(IndexTTS2 完整版,2026-07-27 上线,声音克隆,/tts multipart 契约)
       TOIV_TTS_URL: "${TOIV_TTS_URL:-http://192.168.71.127:9200}"
       TOIV_TTS_MULTILINGUAL_URL: "${TOIV_TTS_MULTILINGUAL_URL:-http://192.168.71.127:9200}"
