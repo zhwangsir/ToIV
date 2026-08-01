@@ -1,8 +1,19 @@
 # 动态分镜(Animatic)使用手册
 
 > 功能上线:2026-07-30 · 后端 `POST /api/animatic` · 前端视图「动态分镜」(tools 组)
+> 2026-07-30 升级:新增「AI 解析生成完整短剧」模式(`POST /api/drama/projects/from-image`)
 
-## 这是什么
+## 两种模式
+
+页面顶部切换:
+
+- **AI 解析生成完整短剧**(默认):上传 1-9 张参考图/分镜图,VLM(Nemotron omni)
+  解析图片内容并扩写成完整短剧,自动建短剧项目+分镜,随后后台自动跑完整管线
+  (逐镜 LTX 视频 → IndexTTS2 配音 → ffmpeg 合成成片)。成功后点
+  「前往短剧工作室查看生成进度」跳转,进度在项目过程时间线(step=autorun)实时可见。
+- **快速拼接预览**:即下文原有的静帧串接 MP4,只验证节奏,不做 AI 生成。
+
+## 这是什么(快速拼接预览)
 
 **动态分镜(animatic)** 是影视/短剧前期制作的标准中间件:把一组静态分镜图(storyboard)
 按每镜设定的时长串成一条带时间轴的 MP4,用于在正式生成视频之前——
@@ -35,7 +46,45 @@ ToIV 的实现全本地:图片上传后落在 NAS,ffmpeg 在 workstation(192.168
 
 顶栏角标实时显示「N / 20 镜 · 共 X.Xs」,方便控制总时长。
 
-## API 用法
+## API 用法(AI 解析生成完整短剧)
+
+```bash
+TOKEN=<登录 token>
+
+curl -X POST http://192.168.71.47:8090/api/drama/projects/from-image \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "images=@storyboard.jpg" \
+  -F "hint=赛博朋克都市,赏金猎人追捕叛逃仿生人" \
+  -F "num_shots=8" \
+  -F "auto=true"
+```
+
+响应:
+
+```json
+{
+  "project": {"id": "...", "title": "...", "premise": "..."},
+  "shots": [{"id": "...", "idx": 0, "scene": "..."}],
+  "autorun_task_id": "a1b2c3d4e5f6"
+}
+```
+
+| 参数 | 默认 | 范围 | 说明 |
+|------|------|------|------|
+| `images` | 必填 | 1–9 张,单张 ≤ 20MB | jpg/png/webp;第 1 张会作为第 1 镜的 i2v 首帧 |
+| `hint` | 空 | — | 用户故事方向(可选,VLM 据此扩写) |
+| `style` | 空 | — | 整体风格 |
+| `num_shots` | 8 | 4–16 | 分镜数量 |
+| `width`/`height` | 1920×1080 | 宽 256–1920 / 高 256–1080 | 复用短剧项目约束 |
+| `fps` | 16 | 4–30 | 短剧管线固定建议 16(LTX 原生帧率) |
+| `auto` | true | — | 是否后台自动跑完整管线(视频→配音→合成) |
+
+`auto=true` 时后台逐镜串行执行,进度写入项目 `process_data`(step=`autorun`,
+status: pending/running/assembling/done/error),轮询 `GET /api/drama/projects/{pid}`
+即可。单镜失败不中断整体;全部视频失败则不合成并标 error。成片回写
+`project.video_url`(`/api/drama/output/drama-{hex}.mp4`)。
+
+## API 用法(快速拼接预览)
 
 ```bash
 TOKEN=<登录 token>
@@ -106,7 +155,9 @@ curl -OJ "http://192.168.71.47:8090/api/animatic/output/a1b2c3d4e5f6.mp4?token=$
 
 ## 后续规划
 
-- **配音轨**:对齐译制管线的逐句配音,合成带对白的完整 animatic;
-- **真动态**:分镜图逐镜走 LTX i2v 生成真运动镜头,animatic 升级为动态预演;
+- **真动态**:✅ 2026-07-30 已由「AI 解析生成完整短剧」模式覆盖(逐镜 LTX i2v/t2v
+  + 配音 + 合成成片,见上文);
+- **配音轨(拼接预览)**:对齐译制管线的逐句配音,合成带对白的完整 animatic;
+- **自动 lipsync**:autorun 当前止步于配音+合成,后续可自动接 LatentSync 对口型;
 - **拖拽排序**:v1 用上移/下移按钮,后续换拖拽;
 - **分镜表直导**:直接从短剧工作室分镜表一键生成 animatic,免手动裁图。

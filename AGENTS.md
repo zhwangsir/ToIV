@@ -16,6 +16,7 @@
 - **核心能力**:
   - NAS 统一存储(成片/产出经 `/mnt/toiv-nas` 挂载读写,见第六节)+ NAS 模型下载接口(`/api/nas/*`)
   - AI 工作台 API (任务编排、文件预处理、ComfyUI 生成、TTS、RAG、短剧工作室、数字人)
+  - 动态分镜双模式:快速拼接预览(`POST /api/animatic`)+ AI 解析生成完整短剧(`POST /api/drama/projects/from-image`,VLM 解析上传图片 → 自动建项目/分镜 → 后台 autorun 逐镜视频+配音+合成,进度在 project.process_data step=autorun)
 
 ---
 
@@ -130,7 +131,7 @@ NAS 共享 `//192.168.71.7/NAS` 下统一目录：
 │   ├── drama/final/      # 短剧成片（已启用并验证）
 │   ├── animatic/         # 动态分镜成片 {job_id}.mp4（已启用，ffmpeg @ workstation）
 │   ├── images/           # 文生图/图生图输出（预留）
-│   ├── videos/           # 其他视频输出（预留）
+│   ├── videos/           # LiveAct 全身数字人镜头 liveact/{task_id}.mp4（已启用，worker @ workstation GPU1+2）+ liveact-samples/ 实测样片
 │   └── audio/            # 配音/音频输出（预留）
 ├── imports/
 │   └── animatic/{job_id}/ # 动态分镜上传原图（001.jpg… 按上传顺序编号）
@@ -209,7 +210,7 @@ NAS `//192.168.71.7/NAS/toiv/comfyui-models` 已完成 P0/P1 升级，所有新�
 ### 算力部署边界（2026-07-30 用户明确，必须遵守）
 
 - **core 只部署应用层**：toiv-api、toiv-web，以及既有业务依赖 PG18 + Redis。**禁止**在 core 上跑 GPU 推理、批量计算任务、模型权重或大体积产出（core 仅有一张 GTX 1060 桌面卡，不承担推理）。
-- **一切需要算力或大占用的负载跑 workstation**：LLM（L1 vLLM）、TTS（IndexTTS2）、Embedding、ComfyUI worker、数字人（opentalking，规划迁入做实时对话）、模型训练等。
+- **一切需要算力或大占用的负载跑 workstation**：LLM（L1 vLLM）、TTS（IndexTTS2）、Embedding、ComfyUI worker、数字人（opentalking 已迁入做实时对话,MuseTalk local 后端,GPU2）、模型训练等。
 - **大体积产出落 NAS**（`//192.168.71.7/NAS`），core 通过 `/mnt/toiv-nas` 挂载读写，不在 core 本地沉淀（本地仅作 NAS 不可达时的降级回退）。
 - 新功能接入算力服务时，默认指向 workstation/集群端点；如确需在 core 本地执行计算，必须先说明理由并经项目管家同意。
 
@@ -218,9 +219,9 @@ NAS `//192.168.71.7/NAS/toiv/comfyui-models` 已完成 P0/P1 升级，所有新�
 | 层 | 用途 | 设备 | 端点 | 模型 ID | 引擎 |
 |----|------|------|------|---------|------|
 | L1 初稿 | 实时交互(全模态) | Workstation | `http://192.168.71.127:8000/v1` | `qwen3.6-uncensored`(alias) | vLLM (Nemotron-3-Nano-Omni-30B-A3B BF16, GPU3) |
-| L2 主力润色 | 关键场景 | Mac Studio EXO | `http://192.168.71.109:52415/v1` | `mlx-community/Kimi-K2.7-Code-4bit` | EXO RDMA |
-| L3 终稿精修 | 异步批量 | Mac Studio EXO | `http://192.168.71.109:52415/v1` | `mlx-community/GLM-5.2-fp8` | EXO RDMA |
-| L4 NSFW | 无审查 | Spark01+02 | `http://192.168.71.82:8000/v1` | `euryale-70b` | vLLM TP=2 |
+| L2 主力润色 | 关键场景 | Mac Studio EXO | `http://192.168.71.109:52415/v1` | `moonshotai/Kimi-K3` | EXO RDMA(⚠️ 无运行实例;2026-07-30 起 core .env 临时指向 spark `llama-3.3-70b-abliterated`,实例恢复后删 .env 两行回切) |
+| L3 终稿精修 | 异步批量 | Mac Studio EXO | `http://192.168.71.109:52415/v1` | `mlx-community/GLM-5.2-DQ4plus-q8` | EXO RDMA(⚠️ 同上,临时走 spark) |
+| L4 NSFW | 无审查 | Spark01+02 | `http://192.168.71.82:8000/v1` | `llama-3.3-70b-abliterated` | vLLM(✅ 2026-07-30 已接入 core .env 并验证) |
 
 ### ToIV 依赖服务（2026-07-28 设备说明）
 
@@ -235,6 +236,9 @@ NAS `//192.168.71.7/NAS/toiv/comfyui-models` 已完成 P0/P1 升级，所有新�
 | ComfyUI gpu0-2 | `:8189-8191` | 本地 worker | ✅ |
 | pc01 ComfyUI | `192.168.71.115:8188` | 远端 worker | ✅ |
 | pc02 ComfyUI | `192.168.71.114:8193` | 远端 worker | ✅ |
+| OpenTalking 数字人 | `192.168.71.127:4403` | 实时对话(LLM/STT/TTS/WebRTC),MuseTalk local 默认后端 + quicktalk 兜底,GPU2 | ✅ 2026-07-31 |
+| AI-Omni ASR | `192.168.71.127:9210` | faster-whisper large-v3,ToIV 译制/语音听写已接入(2026-08-01,`TOIV_WHISPER_URL`,OpenAI 兼容端点);opentalking 默认仍用本地 SenseVoice | ✅ |
+| LiveAct worker | `192.168.71.127:9400` | SoulX-LiveAct 14B 全身数字人离线生成(短剧分镜引擎,需先配音,FP4 双卡),GPU1+2 | ✅ 2026-07-31 |
 | NAS SMB | `192.168.71.7:445` | 文件/模型存储 | ✅ |
 | core PG18+Redis | `192.168.71.47:5432/6379` | 业务 DB/缓存 | ✅ 待 ToIV 接入 |
 

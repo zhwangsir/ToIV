@@ -4,6 +4,22 @@
 
 ---
 
+## OPT-P0P2-2026-08-01 · 全面优化方案 P0-P2 落地(评估报告 docs/2026-08-01-toiv-evaluation-optimization-plan.md)
+
+**时间**: 2026-08-01 12:50 CST
+**类型**: fix / perf / feature / regression
+
+### 内容
+
+1. **P0 断点修复**:① `generate-video-v2` 单候选分支补挂 `_await_shot_video_writeback`(此前 shot 永久卡 generating),drama_studio 6 处 create_task 改 `_spawn` 强引用;② 场景 LoRA 修复——工作树半修(预设 loras 字段)之外,真凶是 nextgen builder 无 loras 参数静默丢弃,已接 `lora_chain` + `<lora:..>` 标签解析器(lora.py `parse_lora_tags`);Qwen-Image 预设 cfg 1.0→3.5 对齐 model_profiles;③ 新增 `default_video_ckpt`(SFW=ltx-2.3-distilled),请求级 `nsfw` 开关,SFW 短剧不再用 10Eros;IPAdapter 首帧 FLUX.2 底模下明确 warning 回退(不再静默吞),传统底模可用;④ 前端新建 `hooks/usePoll.ts`(页面隐藏暂停+指数退避),DramaStudioView autorun 进度自动轮询 + 顶栏进度 pill;⑤ 数字人页 pill 三态探活(30s `otGetStatus`,此前零调用)、删 mock 假模型、SSE 断线提示、SetupPanel 补 tts_voice/system_prompt/agent/memory/knowledge 控件
+2. **P1 效率**:① autorun 视频/配音阶段并发化(Semaphore 3/2,配置 `drama_autorun_video_concurrency`/`drama_autorun_voice_concurrency`,集中式进度锁);② 启动 reconcile:generating shot 重挂或标 error、running autorun/批量精修标 interrupted(main.py lifespan `reconcile_interrupted`);③ assembly clip 并发下载(Semaphore 4)、`_run_ffmpeg` 300s 超时 + kill、x264 `-preset veryfast -crf 20`、零测试 → test_assembly.py 24 例;④ ComfyUI AsyncClient 模块级池化(lifespan close)、wait_for_jobs 单条 IN 查询;⑤ api.ts 69 处 fetch 收敛到 apiFetch(默认 30s 超时/长任务 120-300s/401 清 token 跳登录幂等)
+3. **P2 资产接入**:① llm_router.py 重写——`resolve_llm_endpoint()` 单一事实源全读 settings(删 Kimi-K2.7/GLM-5.2-fp8/euryale-70b 硬编码),agent/llm.py chat_layered、model_health、前端模型清单同源;optimize 消费预设 llm_layer;refine(L2)/polish(L1)分层配置;宫格拆镜走 drama_storyboard_layer;② 前端:4 视图轮询迁移 usePoll(NsfwView 多任务合并单 poll、DubView 连续失败 10 次停止)、5 视图上传校验、作品库分页 60/页、删死代码 ~5000 行(studio/ 7 组件、/engine、login.css)、train/backlot 补导航、SKILL_CHIPS 改后端拉取;③ from-image VLM 字段级校验(坏 shot 剔除/时长钳制/蒙太奇词剥离,全坏降 temperature 重试一次再 422);④ 配音超镜时长 atempo 压缩(容差 0.3s、上限 1.3,记录进 process_data)
+4. **ASR 接入(P2-2)**:发现 AI-Omni :9210 仅有 OpenAI 兼容端点(无 /asr 契约)→ dub_text.py/voice_agent.py `_transcribe_external` 加 404 回退 `/v1/audio/transcriptions`(verbose_json);core 生产 .env 新增 `TOIV_WHISPER_URL=http://192.168.71.127:9210`,真机契约实测 /asr 404 → 回退 200 ✅(听写从 CPU base 升 GPU large-v3)
+5. **回归**:pytest **809 passed**(基线 731 → +78),tsc 0 errors,build ✅,deploy core ✅(api 169 paths、opentalking status reachable、生产 .env 配置项全部生效)
+6. **遗留**:P2-1 PuLID 待 FLUX.1 dev 底模(管家);P3 PG/Redis 接入、deploy.sh 加固;LiveAct reconcile 真恢复需 DramaShot 加 task_id 列
+
+---
+
 ## LIPDUB-2026-07-30 · LipDub(LTX-2.3 IC-LoRA 视频重配音)端点上线
 
 **时间**: 2026-07-30 13:30 CST
@@ -3653,3 +3669,32 @@ Route (app)                                 Size  First Load JS
 ### 结论
 
 基线健康：后端测试全绿、前端可构建。A 期（底模升级）存在未提交的进行中改动，待完成 TDD + 回归后作为正式里程碑入账。
+
+---
+
+## 2026-08-01 LiveAct 全身数字人引擎接入
+
+### 变更
+
+- 新增分镜视频引擎 `liveact`(SoulX-LiveAct 14B,全身数字人,音频驱动口型+肢体):
+  - worker:workstation `toiv-liveact.service`(torchrun 双卡 GPU1+2,FP4,端口 9400),`POST /generate` 收参考图+音频+prompt,成品归档 NAS `toiv/outputs/videos/liveact/`
+  - API:`services/video_generators.py` 注册 `LiveActVideoGenerator`;`routes/drama_studio.py` v2 路由加 liveact 分支(校验配音完成/角色参考图 → 提交 → 后台轮询 `_await_liveact_result` → 落 `_DRAMA_DIR` 回写分镜)
+  - 前端:可用生成器加 liveact,选中时提示「需先配音」
+  - 配置:`TOIV_LIVEACT_BASE_URL`(core 生产 .env 已配)
+
+### 测试
+
+- 后端 `pytest`:731 passed(新增 liveact 生成器 5 例 + 路由 8 例)
+- 前端 `tsc --noEmit` + `npm run build`:通过
+- 真机 E2E(core 生产,两轮):
+  - 建项目 → generate-reference 角色三视图 → 拆镜 → 配音(IndexTTS2,2.9s wav)→ liveact 生成(≈30s)→ 合成成片,全链路通过
+  - 分镜 mp4:h264+aac 416x720,时长≈配音时长;抽帧身份一致、口型随语音驱动正常
+  - NAS 归档与 core 落盘一致
+- 修复并复测:角色参考图为 `/api/images?...` 内部 URL 时 HTTP 自调 401 → 新增 `_fetch_ref_image_bytes` 走 pool worker 直读(`_generate_keyframe_for_shot` 同换),复测 401 消除;回归测试 `test_generate_video_v2_liveact_ref_via_images_url` 入账
+
+### 遗留
+
+- worker 实测 4-6 FPS(t5_cpu/mean_memory 保显存与 MuseTalk 共存;416x720 FP4 理论稳态 12.6,如需提速可放宽内存保护单独实测)
+- assemble 不传宽高时默认 1280x720 横屏,不继承项目竖屏设置(既有问题,非本次引入)
+- worker `uploads/{task_id}/` 输入文件未自动清理,长期运行需定期清理
+- 短剧 LLM 拆镜角色名与角色库不对齐时 liveact 会 422(LLM 名字对齐老问题)
