@@ -148,8 +148,6 @@ const BOTTOM_NAV_ITEMS: BottomNavItem[] = [
   { key: "canvas", label: "画布", icon: "workflow" },
 ];
 
-export const dynamic = "force-dynamic";
-
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
@@ -196,6 +194,8 @@ function HomeContent() {
     return v && VALID_VIEWS.has(v as View) ? (v as View) : "assistant";
   });
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
+  // 动态分镜 AI 解析成功后,带项目 id 跳转短剧工作室并直接打开
+  const [pendingDramaProjectId, setPendingDramaProjectId] = useState<string | null>(null);
 
   useEffect(() => {
     const v = searchParams.get("view");
@@ -257,6 +257,15 @@ function HomeContent() {
     [router],
   );
 
+  // 动态分镜 AI 模式:解析成功后跳短剧工作室并打开对应项目
+  const handleOpenDramaProject = useCallback(
+    (projectId: string) => {
+      setPendingDramaProjectId(projectId);
+      changeView("dramaStudio");
+    },
+    [changeView],
+  );
+
   // DI 菜单展开动画期间:并行预热主组视图 chunk(动画与加载并行化)
   const handleMenuOpen = useCallback(() => {
     (["assistant", "avatartalk", "canvas"] as View[]).forEach(preloadView);
@@ -282,6 +291,8 @@ function HomeContent() {
       { key: "animatic", label: "动态分镜", icon: "clapperboard", group: "tools" },
       { key: "library", label: "作品库", icon: "library", group: "resources" },
       { key: "models", label: "模型库", icon: "models", group: "resources" },
+      { key: "train", label: "训练", icon: "train", group: "resources" },
+      { key: "backlot", label: "看板", icon: "backlot", group: "resources" },
       ...(isAdmin ? [{ key: "admin", label: "管理", icon: "admin" as const, group: "resources" as const }] : []),
     ];
   }, [isAdmin]);
@@ -378,11 +389,15 @@ function HomeContent() {
                     account={account ?? undefined}
                     onLogout={onLogout}
                     onNavigate={(next) => changeView(next as View)}
+                    initialProjectId={pendingDramaProjectId}
+                    onConsumeInitialProject={() => setPendingDramaProjectId(null)}
                   />
                 )
               )}
               {view === "dub" && <DubView />}
-              {view === "animatic" && <AnimaticView />}
+              {view === "animatic" && (
+                <AnimaticView onOpenDramaProject={handleOpenDramaProject} />
+              )}
               {view === "train" && <TrainView />}
               {view === "library" && <LibraryView />}
               {view === "backlot" && <BacklotView />}

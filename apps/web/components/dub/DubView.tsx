@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import {
   autocutDub,
@@ -24,6 +24,8 @@ import {
 } from "@/lib/api";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
+import { useToast } from "@/components/ui/Toast";
+import { usePoll } from "@/hooks/usePoll";
 
 // ── 步骤元数据 ──────────────────────────────────────────────
 interface StepMeta {
@@ -67,6 +69,18 @@ const DEFAULT_DUB_PARAMS = {
   smooth: 3,
   highlightsTarget: 0,
 };
+
+// 对口型状态轮询:2s 基准;连续失败超过该次数停止并提示(此前由 usePoll backoff 容错)
+const POLL_MAX_FAILURES = 10;
+
+// 上传校验:后端译制上传为流式分块无显式上限,客户端给 200MB;类型白名单
+const VIDEO_MAX_BYTES = 200 * 1024 * 1024;
+const VIDEO_EXT_OK = ["mp4", "mov", "webm", "mkv", "avi", "m4v"];
+
+function fileExt(name: string): string {
+  const i = name.lastIndexOf(".");
+  return i >= 0 ? name.slice(i + 1).toLowerCase() : "";
+}
 
 // ── 主组件 ──────────────────────────────────────────────────
 
@@ -119,7 +133,8 @@ export function DubView() {
   const [lipsyncStatus, setLipsyncStatus] = useState<LipsyncLongStatus | null>(null);
   const [lipsyncBusy, setLipsyncBusy] = useState(false);
   const [lipsyncError, setLipsyncError] = useState<string | null>(null);
-  const pollRef = useRef<boolean>(false);
+  const pollFailRef = useRef(0);
+  const { show: showToast } = useToast();
 
   // 对口型模式选择 + 动漫 / 精剪分支状态
   const [lipsyncMode, setLipsyncMode] = useState<LipsyncMode>("latent");
@@ -136,33 +151,17 @@ export function DubView() {
   } | null>(null);
   const [highlightsTarget, setHighlightsTarget] = useState(DEFAULT_DUB_PARAMS.highlightsTarget);
 
-  // ── safeSetTimeout:统一收口所有定时器,卸载时自动清理 ──────────
-  // 背景:DubView 用 setTimeout 轮询对口型作业状态,原生 setTimeout 在组件卸载后
-  // 仍可能触发回调,造成 setState on unmounted component 警告与内存泄漏。
-  // 这里用 ref 收集本组件产生的所有定时器 ID,卸载时统一 clear,杜绝悬挂定时器。
-  // 注:已触发过的 ID 留在 Set 里是无害的(对已触发的 ID 调 clearTimeout 是 no-op),
-  // 卸载时会一次性清空,不必在每个 tick 里手动删除。
-  const timersRef = useRef<Set<number>>(new Set());
-  const safeSetTimeout = useCallback((fn: () => void, ms: number) => {
-    const id = window.setTimeout(fn, ms);
-    timersRef.current.add(id);
-    return id;
-  }, []);
-  const safeClearTimeout = useCallback((id: number) => {
-    window.clearTimeout(id);
-    timersRef.current.delete(id);
-  }, []);
-  // 卸载兜底:即使某处轮询逻辑忘记 clear,也不会留下悬挂定时器引发泄漏
-  useEffect(() => {
-    return () => {
-      timersRef.current.forEach((id) => window.clearTimeout(id));
-      timersRef.current.clear();
-    };
-  }, []);
-
   // ── Step 1: 上传 ──
   const onPick = useCallback((f: File | null) => {
     if (!f) return;
+    if (!f.type.startsWith("video/") || !VIDEO_EXT_OK.includes(fileExt(f.name))) {
+      setUploadError(`「${f.name}」格式不支持(仅 mp4/mov/webm/mkv/avi)`);
+      return;
+    }
+    if (f.size > VIDEO_MAX_BYTES) {
+      setUploadError(`「${f.name}」超过 200MB 上限(${fmtBytes(f.size)})`);
+      return;
+    }
     setFile(f);
     setUploadError(null);
     setVideo(null);
@@ -319,7 +318,7 @@ export function DubView() {
           smooth,
         });
         setAnimeStart(r);
-        pollRef.current = true;
+        pollFailRef.current = 0;
       } else {
         // LatentSync 长视频对口型
         let segs: { start: number; end: number }[] | undefined;
@@ -342,7 +341,7 @@ export function DubView() {
           audioName: useDubVoice && voice ? voice.name : undefined,
         });
         setLipsyncStart(r);
-        pollRef.current = true;
+        pollFailRef.current = 0;
       }
     } catch (e) {
       setLipsyncError(e instanceof Error ? e.message : "启动对口型失败");
@@ -351,57 +350,49 @@ export function DubView() {
   }, [video, lipsyncMode, segments, highlightsTarget, useDubVoice, voice, mouthGain, smooth, cutMode, threshold, minSeg, segSeconds, maxSegments, lipsExpression, inferenceSteps]);
 
   // 轮询对口型状态(LatentSync + 动漫对口型共用)
-  useEffect(() => {
-    if (!lipsyncBusy) return;
-    if (lipsyncMode === "latent" && !lipsyncStart) return;
-    if (lipsyncMode === "anime" && !animeStart) return;
-    if (lipsyncMode === "highlights") return; // AI 精剪同步,不轮询
-
-    let alive = true;
-    const tick = async () => {
-      if (!alive || !pollRef.current) return;
+  // usePoll:页面隐藏自动暂停;单次网络错误指数退避(×1.5,上限 30s)容错;
+  // 连续失败超过 POLL_MAX_FAILURES 次则停止并 toast 提示,不再无限轮询宕机后端。
+  const lipsyncPolling =
+    lipsyncBusy &&
+    ((lipsyncMode === "latent" && !!lipsyncStart) ||
+      (lipsyncMode === "anime" && !!animeStart));
+  usePoll(
+    async () => {
       try {
         if (lipsyncMode === "latent" && lipsyncStart) {
           const s = await getLipsyncLongStatus(lipsyncStart.job_id);
-          if (!alive) return;
+          pollFailRef.current = 0;
           setLipsyncStatus(s);
           if (s.status === "done" || s.status === "error") {
-            pollRef.current = false;
             setLipsyncBusy(false);
             if (s.status === "error") {
               setLipsyncError(s.error ?? "对口型失败");
             }
-            return;
           }
         } else if (lipsyncMode === "anime" && animeStart) {
           const s = await getAnimeLipsyncStatus(animeStart.job_id);
-          if (!alive) return;
+          pollFailRef.current = 0;
           setAnimeStatus(s);
           if (s.status === "done" || s.status === "error") {
-            pollRef.current = false;
             setLipsyncBusy(false);
             if (s.status === "error") {
               setLipsyncError(s.error ?? "动漫对口型失败");
             }
-            return;
           }
         }
-      } catch {
-        // 抖动,下次再试
+      } catch (e) {
+        pollFailRef.current += 1;
+        if (pollFailRef.current > POLL_MAX_FAILURES) {
+          setLipsyncBusy(false);
+          setLipsyncError("连续多次查询状态失败,已停止轮询;请确认后端在线后重试");
+          showToast("error", "对口型状态查询连续失败,已停止轮询");
+          return;
+        }
+        throw e; // 交给 usePoll 退避重试
       }
-      if (alive && pollRef.current) {
-        // 走 safeSetTimeout:ID 进入 timersRef,卸载时会被统一清理
-        timer = safeSetTimeout(tick, 2000);
-      }
-    };
-    let timer = safeSetTimeout(tick, 1500);
-    return () => {
-      alive = false;
-      // 依赖 effect cleanup 清掉当前轮询定时器;组件整体卸载另由 timersRef 兜底
-      safeClearTimeout(timer);
-      pollRef.current = false;
-    };
-  }, [lipsyncMode, lipsyncStart, animeStart, lipsyncBusy]);
+    },
+    { intervalMs: 2000, enabled: lipsyncPolling, backoff: true },
+  );
 
   // ── 步骤可达性 ──
   const canStep2 = !!video;

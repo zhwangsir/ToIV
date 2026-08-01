@@ -52,6 +52,15 @@ function formatDuration(frames: number, fps: number): string {
   return `${sec.toFixed(1)}s`;
 }
 
+// 上传校验:后端 /api/upload 上限 20MB;扩展名白名单与动态分镜页一致
+const IMAGE_MAX_BYTES = 20 * 1024 * 1024;
+const IMAGE_EXT_OK = ["jpg", "jpeg", "png", "webp"];
+
+function fileExt(name: string): string {
+  const i = name.lastIndexOf(".");
+  return i >= 0 ? name.slice(i + 1).toLowerCase() : "";
+}
+
 export function VideoView() {
   const GEN_SLOT = "video";
 
@@ -112,7 +121,14 @@ export function VideoView() {
   const handleImageSelect = useCallback(
     async (file: File | undefined) => {
       if (!file) return;
-      if (!file.type.startsWith("image/")) return;
+      if (!file.type.startsWith("image/") || !IMAGE_EXT_OK.includes(fileExt(file.name))) {
+        setError(`「${file.name}」格式不支持(仅 jpg/png/webp)`);
+        return;
+      }
+      if (file.size > IMAGE_MAX_BYTES) {
+        setError(`「${file.name}」超过 20MB 上限(${(file.size / 1024 / 1024).toFixed(1)} MB)`);
+        return;
+      }
       setImageFile(file);
       setImagePreview(URL.createObjectURL(file));
       setUploading(true);

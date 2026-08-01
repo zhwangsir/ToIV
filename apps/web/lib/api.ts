@@ -71,6 +71,89 @@ function withToken(url: string): string {
   return url + (url.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(t);
 }
 
+// ---------- 统一请求封装 ----------
+/** 默认超时:常规 JSON/轮询请求。 */
+const DEFAULT_TIMEOUT_MS = 30_000;
+/** 长任务端点统一超时(VLM 解析 / LLM 长文同步生成 / ffmpeg 合成这类 1-3 分钟请求)。 */
+const LONG_TIMEOUT_MS = 180_000;
+
+interface ApiFetchOptions {
+  /** 显式超时(毫秒),覆盖默认与 longRequest;传 0 表示不超时(仅流式端点用,由调用方 signal 控制)。 */
+  timeoutMs?: number;
+  /** 长任务端点 → 180s。 */
+  longRequest?: boolean;
+  /** 跳过 401 自动跳转(仅登录/会话探测接口:401 是正常业务结果,由调用方处理)。 */
+  skipAuthRedirect?: boolean;
+}
+
+/** 幂等标记:同次页面生命周期内,多个并发 401 只触发一次清理 + 跳转。 */
+let authRedirectPending = false;
+
+/**
+ * 401 统一处理:清除本地 token(复用 setToken 清理路径)并跳转登录入口
+ * (登录态在 "/",app/login 只是 redirect("/"))。仅浏览器环境执行,且幂等。
+ */
+function handleUnauthorized(): void {
+  if (typeof window === "undefined") return;
+  if (authRedirectPending) return;
+  authRedirectPending = true;
+  setToken(null);
+  window.location.assign("/");
+}
+
+/**
+ * apiFetch:全站统一 fetch 入口。
+ * - 默认 30s 超时(AbortController + setTimeout),超时抛「请求超时」Error;
+ *   调用方 init.signal 与内部超时 signal 联动,任一触发都会取消请求。
+ * - 401 统一清 token + 跳 "/"(opts.skipAuthRedirect 除外)。
+ * - 不做 res.ok 检查与错误归一:由各调用点配合 raiseApiError 保留各自中文文案。
+ */
+async function apiFetch(
+  path: string,
+  init?: RequestInit,
+  opts?: ApiFetchOptions,
+): Promise<Response> {
+  const timeoutMs =
+    opts?.timeoutMs ?? (opts?.longRequest ? LONG_TIMEOUT_MS : DEFAULT_TIMEOUT_MS);
+  const controller = new AbortController();
+  const callerSignal = init?.signal ?? undefined;
+  let timedOut = false;
+  const onCallerAbort = (): void => controller.abort();
+  if (callerSignal) {
+    if (callerSignal.aborted) controller.abort();
+    else callerSignal.addEventListener("abort", onCallerAbort, { once: true });
+  }
+  const timer =
+    timeoutMs > 0
+      ? setTimeout(() => {
+          timedOut = true;
+          controller.abort();
+        }, timeoutMs)
+      : null;
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, { ...init, signal: controller.signal });
+  } catch (err) {
+    if (timedOut) {
+      throw new Error(`请求超时 (${Math.round(timeoutMs / 1000)}s),请稍后重试`);
+    }
+    throw err;
+  } finally {
+    if (timer) clearTimeout(timer);
+    if (callerSignal) callerSignal.removeEventListener("abort", onCallerAbort);
+  }
+  if (res.status === 401 && !opts?.skipAuthRedirect) handleUnauthorized();
+  return res;
+}
+
+/** 统一错误归一:优先后端 detail,否则「中文兜底 (status)」,与历史 message 风格一致。 */
+async function raiseApiError(res: Response, fallback: string): Promise<never> {
+  const detail = (await res.json().catch(() => null)) as { detail?: unknown } | null;
+  throw new Error(
+    typeof detail?.detail === "string" ? detail.detail : `${fallback} (${res.status})`,
+  );
+}
+
 /** 后端图片路径是相对的，拼成可访问 URL 并附带令牌（<img> 无法带请求头）。
  * 兼容：绝对 http(s) URL、以 / 开头的相对路径、缺少 / 的相对路径、空路径。
  */
@@ -83,15 +166,17 @@ export function imageUrl(path: string): string {
 
 // ---------- 鉴权 ----------
 async function postAuth(path: string, body: object): Promise<AuthResult> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `请求失败 (${res.status})`);
-  }
+  // skipAuthRedirect:登录接口 401 是凭证错误(正常业务结果),由登录页展示,不触发全局跳转。
+  const res = await apiFetch(
+    `${path}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    { skipAuthRedirect: true },
+  );
+  if (!res.ok) await raiseApiError(res, "请求失败");
   return res.json();
 }
 export function login(email: string, password: string): Promise<AuthResult> {
@@ -102,7 +187,12 @@ export function testLogin(key: string): Promise<AuthResult> {
   return postAuth("/api/auth/test-login", { key });
 }
 export async function fetchMe(): Promise<{ user: AppUser; usage: Usage }> {
-  const res = await fetch(`${API_BASE}/api/auth/me`, { headers: authHeaders() });
+  // skipAuthRedirect:会话探测接口,401 → 「会话已过期」由调用方(首页登录态)处理,不全局跳转。
+  const res = await apiFetch(
+    `/api/auth/me`,
+    { headers: authHeaders() },
+    { skipAuthRedirect: true },
+  );
   if (!res.ok) throw new Error("会话已过期");
   return res.json();
 }
@@ -117,7 +207,12 @@ export interface MeResponse {
 }
 
 async function fetchMeRaw(): Promise<MeResponse> {
-  const res = await fetch(`${API_BASE}/api/auth/me`, { headers: authHeaders() });
+  // skipAuthRedirect:同 fetchMe,401 → 「会话已过期」语义不变。
+  const res = await apiFetch(
+    `/api/auth/me`,
+    { headers: authHeaders() },
+    { skipAuthRedirect: true },
+  );
   if (!res.ok) throw new Error("会话已过期");
   const data = (await res.json()) as Partial<MeResponse> & { user: AppUser; usage: Usage };
   return { user: data.user, usage: data.usage };
@@ -129,7 +224,7 @@ export function getMe(): Promise<MeResponse> {
 }
 
 export async function listUsers(): Promise<AdminUser[]> {
-  const res = await fetch(`${API_BASE}/api/admin/users`, { headers: authHeaders() });
+  const res = await apiFetch(`/api/admin/users`, { headers: authHeaders() });
   if (!res.ok) throw new Error(`加载用户失败 (${res.status})`);
   return res.json();
 }
@@ -139,32 +234,26 @@ export async function createUser(
   password: string,
   role: string,
 ): Promise<AdminUser> {
-  const res = await fetch(`${API_BASE}/api/admin/users`, {
+  const res = await apiFetch(`/api/admin/users`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ email, password, role }),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `创建账号失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "创建账号失败");
   return res.json();
 }
 
 export async function deleteUser(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/admin/users/${id}`, {
+  const res = await apiFetch(`/api/admin/users/${id}`, {
     method: "DELETE",
     headers: authHeaders(),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `删除失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "删除失败");
 }
 
 // ---------- 生成 ----------
 async function fetchModelsRaw(): Promise<ModelsResponse> {
-  const res = await fetch(`${API_BASE}/api/models`, { headers: authHeaders() });
+  const res = await apiFetch(`/api/models`, { headers: authHeaders() });
   if (!res.ok) throw new Error(`加载模型列表失败 (${res.status})`);
   return res.json();
 }
@@ -177,9 +266,7 @@ export function listModels(): Promise<ModelsResponse> {
 
 /** 风格预设列表,走长 TTL 缓存(预设由后端代码决定,重启才变)。 */
 async function fetchPresetsRaw(): Promise<StylePreset[]> {
-  const url = new URL(`${API_BASE}/api/models/presets`);
-  url.searchParams.set("media", "image");
-  const res = await fetch(url.toString(), { headers: authHeaders() });
+  const res = await apiFetch(`/api/models/presets?media=image`, { headers: authHeaders() });
   if (!res.ok) throw new Error(`加载风格预设失败 (${res.status})`);
   const data = await res.json();
   return (data.presets ?? []) as StylePreset[];
@@ -198,7 +285,7 @@ export interface ForgeStatus {
 /** Forge(reForge)在线状态;前端据此显示「引擎切换」。失败优雅回落未部署。 */
 export async function getForgeStatus(): Promise<ForgeStatus> {
   try {
-    const res = await fetch(`${API_BASE}/api/forge/status`, { headers: authHeaders() });
+    const res = await apiFetch(`/api/forge/status`, { headers: authHeaders() });
     if (!res.ok) return { enabled: false, online: false };
     return (await res.json()) as ForgeStatus;
   } catch {
@@ -209,7 +296,7 @@ export async function getForgeStatus(): Promise<ForgeStatus> {
 /** Forge 可用 SD 底模标题列表(后端已过滤非 SD 权重);失败返回空。 */
 export async function getForgeModels(): Promise<string[]> {
   try {
-    const res = await fetch(`${API_BASE}/api/forge/models`, { headers: authHeaders() });
+    const res = await apiFetch(`/api/forge/models`, { headers: authHeaders() });
     if (!res.ok) return [];
     const data = (await res.json()) as { models?: { title: string }[] };
     return (data.models ?? []).map((m) => m.title).filter(Boolean);
@@ -221,20 +308,17 @@ export async function getForgeModels(): Promise<string[]> {
 export async function generateTxt2img(
   params: Txt2ImgParams,
 ): Promise<GenerateResponse> {
-  const res = await fetch(`${API_BASE}/api/generate/txt2img`, {
+  const res = await apiFetch(`/api/generate/txt2img`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(params),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `生成请求失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "生成请求失败");
   return res.json();
 }
 
 async function fetchJobsRaw(): Promise<JobItem[]> {
-  const res = await fetch(`${API_BASE}/api/jobs`, { headers: authHeaders() });
+  const res = await apiFetch(`/api/jobs`, { headers: authHeaders() });
   if (!res.ok) throw new Error(`加载作品失败 (${res.status})`);
   return res.json();
 }
@@ -265,45 +349,36 @@ export interface RerunResponse extends GenerateResponse {
 
 /** 从历史作业精确重生;寻址接受 job id 或 prompt_id。新作业自动挂进版本链。 */
 export async function rerunJob(jobKey: string, opts: RerunOptions): Promise<RerunResponse> {
-  const res = await fetch(`${API_BASE}/api/jobs/${encodeURIComponent(jobKey)}/rerun`, {
+  const res = await apiFetch(`/api/jobs/${encodeURIComponent(jobKey)}/rerun`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(opts),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `重新生成失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "重新生成失败");
   return res.json();
 }
 
 /** 同根版本链(时间升序);寻址接受 job id 或 prompt_id。 */
 export async function jobVersions(jobKey: string): Promise<JobItem[]> {
-  const res = await fetch(`${API_BASE}/api/jobs/${encodeURIComponent(jobKey)}/versions`, {
+  const res = await apiFetch(`/api/jobs/${encodeURIComponent(jobKey)}/versions`, {
     headers: authHeaders(),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `加载版本历史失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "加载版本历史失败");
   return res.json();
 }
 
 /** 从作品库删除一件作品(按 job id);成功后失效缓存。 */
 export async function deleteJob(jobId: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/jobs/${jobId}`, {
+  const res = await apiFetch(`/api/jobs/${jobId}`, {
     method: "DELETE",
     headers: authHeaders(),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `删除失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "删除失败");
   invalidateJobs();
 }
 
 async function fetchLocalModelsRaw(): Promise<LocalModels> {
-  const res = await fetch(`${API_BASE}/api/models/local`, { headers: authHeaders() });
+  const res = await apiFetch(`/api/models/local`, { headers: authHeaders() });
   if (!res.ok) throw new Error(`加载本地模型失败 (${res.status})`);
   return res.json();
 }
@@ -320,13 +395,10 @@ export async function searchMarketplace(
 ): Promise<{ items: MarketItem[]; source: string }> {
   const qs = new URLSearchParams({ source, query });
   if (type) qs.set("type", type);
-  const res = await fetch(`${API_BASE}/api/marketplace/search?${qs.toString()}`, {
+  const res = await apiFetch(`/api/marketplace/search?${qs.toString()}`, {
     headers: authHeaders(),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `搜索失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "搜索失败");
   return res.json();
 }
 
@@ -335,13 +407,10 @@ export async function searchMarketplace(
  * 供 /nsfw 专区「NSFW 推荐」tab 展示;需登录认证。失败抛错(调用方 catch 后显示空态)。
  */
 export async function getNsfwRecommendations(): Promise<NsfwRecommendation[]> {
-  const res = await fetch(`${API_BASE}/api/models/nsfw-recommendations`, {
+  const res = await apiFetch(`/api/models/nsfw-recommendations`, {
     headers: authHeaders(),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `加载 NSFW 推荐失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "加载 NSFW 推荐失败");
   const data = (await res.json()) as { items: NsfwRecommendation[]; count: number };
   return data.items;
 }
@@ -356,30 +425,24 @@ export async function uploadImage(
   fd.append("image", file);
   let qs = `kind=${encodeURIComponent(kind)}${allWorkers ? "&all_workers=true" : ""}`;
   if (worker) qs += `&worker=${encodeURIComponent(worker)}`;
-  const res = await fetch(`${API_BASE}/api/upload?${qs}`, {
+  const res = await apiFetch(`/api/upload?${qs}`, {
     method: "POST",
     headers: authHeaders(), // 不要手动设 Content-Type，让浏览器带 boundary
     body: fd,
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `上传失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "上传失败");
   return res.json();
 }
 
 export async function generateImg2img(
   params: Img2ImgGenParams,
 ): Promise<GenerateResponse> {
-  const res = await fetch(`${API_BASE}/api/generate/img2img`, {
+  const res = await apiFetch(`/api/generate/img2img`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(params),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `生成请求失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "生成请求失败");
   return res.json();
 }
 
@@ -397,15 +460,12 @@ export interface WanI2VGenParams {
 export async function generateVideo(
   params: WanI2VGenParams,
 ): Promise<GenerateResponse> {
-  const res = await fetch(`${API_BASE}/api/generate/video`, {
+  const res = await apiFetch(`/api/generate/video`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(params),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `视频生成请求失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "视频生成请求失败");
   return res.json();
 }
 
@@ -413,45 +473,36 @@ export async function generateVideo(
 export async function generateLtxT2V(
   params: LtxT2VParams,
 ): Promise<GenerateResponse> {
-  const res = await fetch(`${API_BASE}/api/generate/ltx-t2v`, {
+  const res = await apiFetch(`/api/generate/ltx-t2v`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(params),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `LTX 文生视频请求失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "LTX 文生视频请求失败");
   return res.json();
 }
 
 export async function generateLtxI2V(
   params: LtxI2VParams,
 ): Promise<GenerateResponse> {
-  const res = await fetch(`${API_BASE}/api/generate/ltx-i2v`, {
+  const res = await apiFetch(`/api/generate/ltx-i2v`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(params),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `LTX 图生视频请求失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "LTX 图生视频请求失败");
   return res.json();
 }
 
 export async function generateLtxLipsync(
   params: LtxLipsyncParams,
 ): Promise<GenerateResponse> {
-  const res = await fetch(`${API_BASE}/api/generate/ltx-lipsync`, {
+  const res = await apiFetch(`/api/generate/ltx-lipsync`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(params),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `LTX 口型同步请求失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "LTX 口型同步请求失败");
   return res.json();
 }
 
@@ -473,15 +524,12 @@ export interface Txt2VideoParams {
 export async function generateTxt2video(
   params: Txt2VideoParams,
 ): Promise<GenerateResponse> {
-  const res = await fetch(`${API_BASE}/api/generate/txt2video`, {
+  const res = await apiFetch(`/api/generate/txt2video`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(params),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `文生视频请求失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "文生视频请求失败");
   return res.json();
 }
 
@@ -504,7 +552,7 @@ export interface ControlNetParams {
 
 /** ControlNet 出图。契约:POST /api/generate/controlnet。 */
 export async function generateControlNet(params: ControlNetParams): Promise<GenerateResponse> {
-  const res = await fetch(`${API_BASE}/api/generate/controlnet`, {
+  const res = await apiFetch(`/api/generate/controlnet`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({
@@ -524,10 +572,7 @@ export async function generateControlNet(params: ControlNetParams): Promise<Gene
       ...(params.seed != null ? { seed: params.seed } : {}),
     }),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `ControlNet 生成请求失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "ControlNet 生成请求失败");
   return res.json();
 }
 
@@ -539,7 +584,7 @@ export interface UpscaleGenParams {
 }
 
 export async function generateUpscale(params: UpscaleGenParams): Promise<GenerateResponse> {
-  const res = await fetch(`${API_BASE}/api/generate/upscale`, {
+  const res = await apiFetch(`/api/generate/upscale`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({
@@ -549,10 +594,7 @@ export async function generateUpscale(params: UpscaleGenParams): Promise<Generat
       ...(params.scale != null ? { scale: params.scale } : {}),
     }),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `放大请求失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "放大请求失败");
   return res.json();
 }
 
@@ -566,7 +608,7 @@ export interface FaceFixParams {
 }
 
 export async function generateFaceDetailer(params: FaceFixParams): Promise<GenerateResponse> {
-  const res = await fetch(`${API_BASE}/api/generate/facedetailer`, {
+  const res = await apiFetch(`/api/generate/facedetailer`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({
@@ -578,10 +620,7 @@ export async function generateFaceDetailer(params: FaceFixParams): Promise<Gener
       ...(params.denoise != null ? { denoise: params.denoise } : {}),
     }),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `脸部修复请求失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "脸部修复请求失败");
   return res.json();
 }
 
@@ -592,7 +631,7 @@ export interface RemoveBgParams {
 }
 
 export async function generateRemoveBg(params: RemoveBgParams): Promise<GenerateResponse> {
-  const res = await fetch(`${API_BASE}/api/generate/removebg`, {
+  const res = await apiFetch(`/api/generate/removebg`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({
@@ -601,10 +640,7 @@ export async function generateRemoveBg(params: RemoveBgParams): Promise<Generate
       ...(params.mode ? { mode: params.mode } : {}),
     }),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `抠图请求失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "抠图请求失败");
   return res.json();
 }
 
@@ -619,7 +655,7 @@ export interface InpaintGenParams {
 }
 
 export async function generateInpaint(params: InpaintGenParams): Promise<GenerateResponse> {
-  const res = await fetch(`${API_BASE}/api/generate/inpaint`, {
+  const res = await apiFetch(`/api/generate/inpaint`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({
@@ -632,10 +668,7 @@ export async function generateInpaint(params: InpaintGenParams): Promise<Generat
       ...(params.denoise != null ? { denoise: params.denoise } : {}),
     }),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `局部重绘请求失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "局部重绘请求失败");
   return res.json();
 }
 
@@ -645,7 +678,7 @@ export interface RawWorkflowParams {
 }
 
 export async function generateRaw(params: RawWorkflowParams): Promise<GenerateResponse> {
-  const res = await fetch(`${API_BASE}/api/generate/raw`, {
+  const res = await apiFetch(`/api/generate/raw`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({
@@ -653,10 +686,7 @@ export async function generateRaw(params: RawWorkflowParams): Promise<GenerateRe
       ...(params.worker ? { worker: params.worker } : {}),
     }),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `工作流运行请求失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "工作流运行请求失败");
   return res.json();
 }
 
@@ -679,15 +709,12 @@ export interface InstallModelResult {
 
 /** 把模型装到 ComfyUI 集群。契约:POST /api/marketplace/install。 */
 export async function installModel(params: InstallModelParams): Promise<InstallModelResult> {
-  const res = await fetch(`${API_BASE}/api/marketplace/install`, {
+  const res = await apiFetch(`/api/marketplace/install`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(params),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `模型安装请求失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "模型安装请求失败");
   return res.json();
 }
 
@@ -703,7 +730,7 @@ export interface NasStatus {
 
 /** NAS 连通性(前端据此决定下载走 NAS 还是旧 ComfyUI-Manager)。契约:GET /api/nas/status。 */
 export async function getNasStatus(): Promise<NasStatus> {
-  const res = await fetch(`${API_BASE}/api/nas/status`, { headers: authHeaders() });
+  const res = await apiFetch(`/api/nas/status`, { headers: authHeaders() });
   if (!res.ok) return { enabled: false };
   return res.json();
 }
@@ -719,15 +746,12 @@ export async function nasDownload(params: {
   type: string;
   filename?: string;
 }): Promise<{ job_id: string; filename: string }> {
-  const res = await fetch(`${API_BASE}/api/nas/download`, {
+  const res = await apiFetch(`/api/nas/download`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(params),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `下载请求失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "下载请求失败");
   return res.json();
 }
 
@@ -746,11 +770,8 @@ export interface NasDownloadStatus {
 
 /** 轮询下载进度。契约:GET /api/nas/download/{job_id}。 */
 export async function getNasDownloadStatus(jobId: string): Promise<NasDownloadStatus> {
-  const res = await fetch(`${API_BASE}/api/nas/download/${jobId}`, { headers: authHeaders() });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `查询进度失败 (${res.status})`);
-  }
+  const res = await apiFetch(`/api/nas/download/${jobId}`, { headers: authHeaders() });
+  if (!res.ok) await raiseApiError(res, "查询进度失败");
   return res.json();
 }
 
@@ -773,7 +794,7 @@ export interface ManjuShotParams {
 
 /** 漫剧单镜出图(可带角色参考图走 IPAdapter)。契约:POST /api/manju/shot。 */
 export async function renderManjuShot(params: ManjuShotParams): Promise<GenerateResponse> {
-  const res = await fetch(`${API_BASE}/api/manju/shot`, {
+  const res = await apiFetch(`/api/manju/shot`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({
@@ -793,10 +814,7 @@ export async function renderManjuShot(params: ManjuShotParams): Promise<Generate
       ...(params.seed != null ? { seed: params.seed } : {}),
     }),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `漫剧出图请求失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "漫剧出图请求失败");
   return res.json();
 }
 
@@ -810,15 +828,12 @@ export interface Gen3DParams {
 }
 
 export async function generate3D(params: Gen3DParams): Promise<GenerateResponse> {
-  const res = await fetch(`${API_BASE}/api/generate/3d`, {
+  const res = await apiFetch(`/api/generate/3d`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(params),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `3D 生成请求失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "3D 生成请求失败");
   return res.json();
 }
 
@@ -830,15 +845,12 @@ export interface AudioGenParams {
 }
 
 export async function generateAudio(params: AudioGenParams): Promise<GenerateResponse> {
-  const res = await fetch(`${API_BASE}/api/generate/audio`, {
+  const res = await apiFetch(`/api/generate/audio`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(params),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `音频生成请求失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "音频生成请求失败");
   return res.json();
 }
 
@@ -861,12 +873,13 @@ export async function agentChat(
   image?: AgentImageRef | null,
   signal?: AbortSignal,
 ): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/agent/chat`, {
+  const res = await apiFetch(`/api/agent/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(image ? { messages, image } : { messages }),
     signal,
-  });
+    // SSE 流式响应:不设超时(timeoutMs: 0),取消由调用方 signal 控制。
+  }, { timeoutMs: 0 });
   if (!res.ok || !res.body) {
     const detail = await res.json().catch(() => null);
     throw new Error(detail?.detail ?? `对话失败 (${res.status})`);
@@ -910,15 +923,17 @@ export async function optimizePrompt(
   kind: string,
   model?: string,
 ): Promise<OptimizeResult> {
-  const res = await fetch(`${API_BASE}/api/optimize`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ prompt, kind, ...(model ? { model } : {}) }),
-  });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `优化失败 (${res.status})`);
-  }
+  // LLM 提示词润色,偶发超过 30s → 放宽到 60s。
+  const res = await apiFetch(
+    `/api/optimize`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ prompt, kind, ...(model ? { model } : {}) }),
+    },
+    { timeoutMs: 60_000 },
+  );
+  if (!res.ok) await raiseApiError(res, "优化失败");
   const data = await res.json();
   return { optimized: (data.optimized as string) ?? prompt, negative: data.negative ?? null };
 }
@@ -958,15 +973,17 @@ export interface StoryboardShot {
 export async function generateStoryboard(
   params: StoryboardParams,
 ): Promise<{ shots: StoryboardShot[] }> {
-  const res = await fetch(`${API_BASE}/api/manju/storyboard`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify(params),
-  });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `分镜生成失败 (${res.status})`);
-  }
+  // LLM 剧本→分镜拆解(整段剧本一次生成)→ 放宽到 120s。
+  const res = await apiFetch(
+    `/api/manju/storyboard`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify(params),
+    },
+    { timeoutMs: 120_000 },
+  );
+  if (!res.ok) await raiseApiError(res, "分镜生成失败");
   return res.json();
 }
 
@@ -1041,16 +1058,22 @@ export interface ManjuShotInput {
 }
 
 /** 漫剧工作台统一 JSON 请求(带 auth + 错误归一)。 */
-async function manjuReq<T>(path: string, method: string, body?: unknown): Promise<T> {
-  const res = await fetch(`${API_BASE}/api${path}`, {
-    method,
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-  });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `漫剧项目请求失败 (${res.status})`);
-  }
+async function manjuReq<T>(
+  path: string,
+  method: string,
+  body?: unknown,
+  opts?: ApiFetchOptions,
+): Promise<T> {
+  const res = await apiFetch(
+    `/api${path}`,
+    {
+      method,
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    },
+    opts,
+  );
+  if (!res.ok) await raiseApiError(res, "漫剧项目请求失败");
   return res.json();
 }
 
@@ -1115,15 +1138,12 @@ export const synthManjuVoice = (body: {
 export async function uploadVoiceRef(file: File): Promise<ManjuVoiceResult> {
   const fd = new FormData();
   fd.append("audio", file);
-  const res = await fetch(`${API_BASE}/api/manju/voice-ref`, {
+  const res = await apiFetch(`/api/manju/voice-ref`, {
     method: "POST",
     headers: authHeaders(), // 不要手动设 Content-Type，让浏览器带 boundary
     body: fd,
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `音色上传失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "音色上传失败");
   return res.json();
 }
 
@@ -1148,15 +1168,12 @@ export interface CadUploadResult {
 export async function cadUpload(file: File): Promise<CadUploadResult> {
   const fd = new FormData();
   fd.append("file", file);
-  const res = await fetch(`${API_BASE}/api/cad/upload`, {
+  const res = await apiFetch(`/api/cad/upload`, {
     method: "POST",
     headers: authHeaders(),
     body: fd,
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `图纸转换失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "图纸转换失败");
   return res.json();
 }
 
@@ -1228,15 +1245,17 @@ export async function assembleManju(
   voiceUrls: string[] = [],
   clipDurations: number[] = [],
 ): Promise<AssembleResult> {
-  const res = await fetch(`${API_BASE}/api/manju/assemble`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ clips, options, voice_urls: voiceUrls, clip_durations: clipDurations }),
-  });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `合成成片失败 (${res.status})`);
-  }
+  // ffmpeg 多片段合成(转场/字幕/混音),长片可能超 1 分钟 → 放宽到 180s。
+  const res = await apiFetch(
+    `/api/manju/assemble`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ clips, options, voice_urls: voiceUrls, clip_durations: clipDurations }),
+    },
+    { longRequest: true },
+  );
+  if (!res.ok) await raiseApiError(res, "合成成片失败");
   return res.json();
 }
 
@@ -1253,15 +1272,17 @@ export async function kenburnsManju(
   width: number,
   height: number,
 ): Promise<KenBurnsResult> {
-  const res = await fetch(`${API_BASE}/api/manju/kenburns`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ image_url: imageSrc, duration, motion, width, height }),
-  });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `运镜片段生成失败 (${res.status})`);
-  }
+  // ffmpeg 渲染运镜片段(时长越长越慢)→ 放宽到 120s。
+  const res = await apiFetch(
+    `/api/manju/kenburns`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ image_url: imageSrc, duration, motion, width, height }),
+    },
+    { timeoutMs: 120_000 },
+  );
+  if (!res.ok) await raiseApiError(res, "运镜片段生成失败");
   return res.json();
 }
 
@@ -1284,6 +1305,7 @@ export function uploadDubVideo(
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${API_BASE}/api/dub/upload`);
+    xhr.timeout = 600_000; // 长视频上传:10 分钟超时(原为无限挂起)
     const t = getToken();
     if (t) xhr.setRequestHeader("Authorization", `Bearer ${t}`);
     xhr.upload.onprogress = (e) => {
@@ -1307,6 +1329,7 @@ export function uploadDubVideo(
       }
     };
     xhr.onerror = () => reject(new Error("上传网络错误"));
+    xhr.ontimeout = () => reject(new Error("上传请求超时"));
     const fd = new FormData();
     fd.append("video", file);
     xhr.send(fd);
@@ -1334,20 +1357,22 @@ export async function autocutDub(params: {
   threshold: number;
   minSeg: number;
 }): Promise<DubAutoCutResult> {
-  const res = await fetch(`${API_BASE}/api/dub/autocut`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({
-      name: params.name,
-      mode: params.mode,
-      threshold: params.threshold,
-      min_seg: params.minSeg,
-    }),
-  });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `自动剪辑失败 (${res.status})`);
-  }
+  // ffmpeg 场景/静音检测,长视频全片扫描 → 放宽到 180s。
+  const res = await apiFetch(
+    `/api/dub/autocut`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({
+        name: params.name,
+        mode: params.mode,
+        threshold: params.threshold,
+        min_seg: params.minSeg,
+      }),
+    },
+    { longRequest: true },
+  );
+  if (!res.ok) await raiseApiError(res, "自动剪辑失败");
   return res.json();
 }
 
@@ -1371,7 +1396,7 @@ export async function startLipsyncLong(params: {
   inferenceSteps?: number;
   audioName?: string; // 译制配音轨(dubvoice-*.wav);空则用源视频自带音轨
 }): Promise<LipsyncLongStart> {
-  const res = await fetch(`${API_BASE}/api/dub/lipsync-long`, {
+  const res = await apiFetch(`/api/dub/lipsync-long`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({
@@ -1384,10 +1409,7 @@ export async function startLipsyncLong(params: {
       audio_name: params.audioName ?? null,
     }),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `启动对口型失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "启动对口型失败");
   return res.json();
 }
 
@@ -1407,13 +1429,10 @@ export interface LipsyncLongStatus {
 
 /** 轮询分段对口型进度(含 gpu_seconds 成本)。契约:GET /api/dub/lipsync-long/{job_id}。 */
 export async function getLipsyncLongStatus(jobId: string): Promise<LipsyncLongStatus> {
-  const res = await fetch(`${API_BASE}/api/dub/lipsync-long/${jobId}`, {
+  const res = await apiFetch(`/api/dub/lipsync-long/${jobId}`, {
     headers: authHeaders(),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `查询进度失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "查询进度失败");
   return res.json();
 }
 
@@ -1441,7 +1460,7 @@ export async function startAnimeLipsync(params: {
   mouthGain?: number; // 张嘴幅度倍率
   smooth?: number; // 开口度时间平滑窗
 }): Promise<{ job_id: string }> {
-  const res = await fetch(`${API_BASE}/api/dub/anime-lipsync`, {
+  const res = await apiFetch(`/api/dub/anime-lipsync`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({
@@ -1451,22 +1470,16 @@ export async function startAnimeLipsync(params: {
       smooth: params.smooth ?? 3,
     }),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `启动动漫对口型失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "启动动漫对口型失败");
   return res.json();
 }
 
 /** 轮询动漫对口型进度。契约:GET /api/dub/anime-lipsync/{job_id}。 */
 export async function getAnimeLipsyncStatus(jobId: string): Promise<AnimeLipsyncStatus> {
-  const res = await fetch(`${API_BASE}/api/dub/anime-lipsync/${jobId}`, {
+  const res = await apiFetch(`/api/dub/anime-lipsync/${jobId}`, {
     headers: authHeaders(),
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `查询进度失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "查询进度失败");
   return res.json();
 }
 
@@ -1483,15 +1496,12 @@ export interface DubTextSegment {
 export async function importSrtDub(file: File): Promise<{ segments: DubTextSegment[]; count: number }> {
   const fd = new FormData();
   fd.append("file", file);
-  const res = await fetch(`${API_BASE}/api/dub/import-srt`, {
+  const res = await apiFetch(`/api/dub/import-srt`, {
     method: "POST",
     headers: authHeaders(),
     body: fd,
   });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `字幕导入失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "字幕导入失败");
   return res.json();
 }
 
@@ -1522,21 +1532,18 @@ export async function transcribeDub(
   name: string,
   onProgress?: (p: JobProgress) => void,
 ): Promise<{ segments: DubTextSegment[]; count: number }> {
-  const startRes = await fetch(`${API_BASE}/api/dub/transcribe`, {
+  const startRes = await apiFetch(`/api/dub/transcribe`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ name }),
   });
-  if (!startRes.ok) {
-    const detail = await startRes.json().catch(() => null);
-    throw new Error(detail?.detail ?? `听写启动失败 (${startRes.status})`);
-  }
+  if (!startRes.ok) await raiseApiError(startRes, "听写启动失败");
   const { job_id: jobId } = (await startRes.json()) as { job_id: string };
 
   // 轮询至终态(2s/次,上限 ~12 分钟)
   for (let i = 0; i < 360; i++) {
     await new Promise((r) => setTimeout(r, 2000));
-    const res = await fetch(`${API_BASE}/api/dub/transcribe/${jobId}`, { headers: authHeaders() });
+    const res = await apiFetch(`/api/dub/transcribe/${jobId}`, { headers: authHeaders() });
     if (!res.ok) continue; // 抖动,下次再试
     const s = (await res.json()) as TranscribeStatus;
     onProgress?.({ stage: s.stage, progress: s.progress, elapsed: s.elapsed });
@@ -1551,15 +1558,17 @@ export async function translateDub(
   segments: { index: number; text: string }[],
   targetLang: string,
 ): Promise<{ translated: { index: number; translated: string }[]; count: number; target_lang: string }> {
-  const res = await fetch(`${API_BASE}/api/dub/translate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ segments, target_lang: targetLang }),
-  });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `翻译失败 (${res.status})`);
-  }
+  // LLM 批量翻译整段字幕(段数多耗时长)→ 放宽到 180s。
+  const res = await apiFetch(
+    `/api/dub/translate`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ segments, target_lang: targetLang }),
+    },
+    { longRequest: true },
+  );
+  if (!res.ok) await raiseApiError(res, "翻译失败");
   return res.json();
 }
 
@@ -1568,15 +1577,17 @@ export async function highlightsDub(
   segments: { index: number; text: string }[],
   targetCount = 0,
 ): Promise<{ title: string; selected: number[]; count: number }> {
-  const res = await fetch(`${API_BASE}/api/dub/highlights`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ segments, target_count: targetCount }),
-  });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `AI 精剪失败 (${res.status})`);
-  }
+  // LLM 读全部字幕挑高光句 → 放宽到 120s。
+  const res = await apiFetch(
+    `/api/dub/highlights`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ segments, target_count: targetCount }),
+    },
+    { timeoutMs: 120_000 },
+  );
+  if (!res.ok) await raiseApiError(res, "AI 精剪失败");
   return res.json();
 }
 
@@ -1615,7 +1626,7 @@ export async function voiceTrackDub(
   },
   onProgress?: (p: JobProgress) => void,
 ): Promise<VoiceTrackResult> {
-  const startRes = await fetch(`${API_BASE}/api/dub/voice-track`, {
+  const startRes = await apiFetch(`/api/dub/voice-track`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({
@@ -1625,15 +1636,12 @@ export async function voiceTrackDub(
       emo_text: params.emoText ?? null,
     }),
   });
-  if (!startRes.ok) {
-    const detail = await startRes.json().catch(() => null);
-    throw new Error(detail?.detail ?? `配音轨启动失败 (${startRes.status})`);
-  }
+  if (!startRes.ok) await raiseApiError(startRes, "配音轨启动失败");
   const { job_id: jobId } = (await startRes.json()) as { job_id: string };
 
   for (let i = 0; i < 360; i++) {
     await new Promise((r) => setTimeout(r, 2000));
-    const res = await fetch(`${API_BASE}/api/dub/voice-track-status/${jobId}`, {
+    const res = await apiFetch(`/api/dub/voice-track-status/${jobId}`, {
       headers: authHeaders(),
     });
     if (!res.ok) continue;
@@ -1671,7 +1679,7 @@ export interface LlmModelInfo {
 /** 当前默认 LLM 大脑名称;失败返回 null → 前端隐藏 badge。 */
 export async function getLlmModel(signal?: AbortSignal): Promise<LlmModelInfo | null> {
   try {
-    const res = await fetch(`${API_BASE}/api/system/llm`, {
+    const res = await apiFetch(`/api/system/llm`, {
       headers: authHeaders(),
       signal,
     });
@@ -1685,7 +1693,7 @@ export async function getLlmModel(signal?: AbortSignal): Promise<LlmModelInfo | 
 /** 拉取 4 卡实时遥测(显存负载/队列);失败返回 null → 前端回落 MOCK。 */
 export async function getGpuStats(signal?: AbortSignal): Promise<LiveTelemetry | null> {
   try {
-    const res = await fetch(`${API_BASE}/api/system/gpu`, { signal });
+    const res = await apiFetch(`/api/system/gpu`, { signal });
     if (!res.ok) return null;
     return (await res.json()) as LiveTelemetry;
   } catch {
@@ -1733,15 +1741,17 @@ export async function uploadDataset(
 ): Promise<{ job_id: string; count: number; dataset_dir: string }> {
   const form = new FormData();
   for (const f of files) form.append("files", f);
-  const res = await fetch(`${API_BASE}/api/train/dataset`, {
-    method: "POST",
-    headers: authHeaders(), // multipart 不设 Content-Type,让浏览器带 boundary
-    body: form,
-  });
-  if (!res.ok) {
-    const d = await res.json().catch(() => null);
-    throw new Error(d?.detail ?? `上传失败 (${res.status})`);
-  }
+  // 数据集多文件批量上传 → 放宽到 120s。
+  const res = await apiFetch(
+    `/api/train/dataset`,
+    {
+      method: "POST",
+      headers: authHeaders(), // multipart 不设 Content-Type,让浏览器带 boundary
+      body: form,
+    },
+    { timeoutMs: 120_000 },
+  );
+  if (!res.ok) await raiseApiError(res, "上传失败");
   return res.json();
 }
 
@@ -1749,30 +1759,29 @@ export async function captionDataset(
   job_id: string,
   cuda_device = 0,
 ): Promise<{ job_id: string; count: number; captions: { filename: string; caption: string }[] }> {
-  const res = await fetch(`${API_BASE}/api/train/caption`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ job_id, cuda_device }),
-  });
-  if (!res.ok) {
-    const d = await res.json().catch(() => null);
-    throw new Error(d?.detail ?? `打标失败 (${res.status})`);
-  }
+  // Florence2 逐张打标整个数据集(同步返回,几十张图可达数分钟)→ 放宽到 300s。
+  const res = await apiFetch(
+    `/api/train/caption`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ job_id, cuda_device }),
+    },
+    { timeoutMs: 300_000 },
+  );
+  if (!res.ok) await raiseApiError(res, "打标失败");
   return res.json();
 }
 
 export async function startTraining(
   params: TrainStartParams,
 ): Promise<{ job_id: string; trainer_job_id: string; worker: string }> {
-  const res = await fetch(`${API_BASE}/api/train/start`, {
+  const res = await apiFetch(`/api/train/start`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(params),
   });
-  if (!res.ok) {
-    const d = await res.json().catch(() => null);
-    throw new Error(d?.detail ?? `启动训练失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "启动训练失败");
   return res.json();
 }
 
@@ -1831,20 +1840,17 @@ export async function registerLora(jobId: string): Promise<{
   base_ckpt: string;
   family: string;
 }> {
-  const res = await fetch(`${API_BASE}/api/train/${jobId}/register`, {
+  const res = await apiFetch(`/api/train/${jobId}/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
   });
-  if (!res.ok) {
-    const d = await res.json().catch(() => null);
-    throw new Error(d?.detail ?? `注册失败 (${res.status})`);
-  }
+  if (!res.ok) await raiseApiError(res, "注册失败");
   return res.json();
 }
 
 export async function listTrainJobs(): Promise<TrainJob[]> {
   return swr(CACHE_KEYS.trainJobs ?? "train-jobs", async () => {
-    const res = await fetch(`${API_BASE}/api/train/jobs`, { headers: authHeaders() });
+    const res = await apiFetch(`/api/train/jobs`, { headers: authHeaders() });
     if (!res.ok) throw new Error("获取训练作业列表失败");
     return res.json();
   }, TTL.trainJobs);
@@ -1906,7 +1912,7 @@ export interface BacklotDetail {
 
 /** 看板视图:当前用户所有项目卡片。 */
 export async function listBacklot(): Promise<BacklotCard[]> {
-  const res = await fetch(`${API_BASE}/api/backlot`, { headers: authHeaders() });
+  const res = await apiFetch(`/api/backlot`, { headers: authHeaders() });
   if (!res.ok) throw new Error(`加载看板失败 (${res.status})`);
   return res.json();
 }
@@ -1916,7 +1922,7 @@ export async function fetchBacklotDetail(
   projectId: string,
   signal?: AbortSignal,
 ): Promise<BacklotDetail> {
-  const res = await fetch(`${API_BASE}/api/backlot/${encodeURIComponent(projectId)}`, {
+  const res = await apiFetch(`/api/backlot/${encodeURIComponent(projectId)}`, {
     headers: authHeaders(),
     ...(signal ? { signal } : {}),
   });
@@ -2003,9 +2009,16 @@ export interface DramaShotItem {
 
 // M4:创作过程单步记录(后端 process_data 数组元素)
 export interface DramaProcessStep {
-  step: string;       // storyboard / generate_video / assemble / generate_reference / grid_storyboard ...
-  detail: string;
+  step: string;       // storyboard / generate_video / assemble / generate_reference / grid_storyboard / autorun ...
   ts: string;         // ISO 时间戳
+  detail?: string;
+  // ── 任务型步骤(autorun / 批量精修)附加字段,普通步骤无 ──
+  task_id?: string;
+  status?: string;    // pending / running / assembling / done / error
+  total?: number;
+  done?: number;
+  current?: string;   // 当前进行中的子任务描述(如「分镜 #2 视频生成中」)
+  error?: string;
 }
 
 export interface DramaProjectDetail extends DramaProjectSummary {
@@ -2014,6 +2027,8 @@ export interface DramaProjectDetail extends DramaProjectSummary {
   // M2/M4:最新宫格图 + 创作过程回放记录(后端已返回)
   grid_image: string;
   process_data: DramaProcessStep[];
+  // 后端建议的轮询间隔(秒);未返回时前端按默认 5s 轮询
+  poll_interval_sec?: number;
 }
 
 export interface DramaProjectInput {
@@ -2189,16 +2204,22 @@ export interface DramaAssembleResult {
 }
 
 /** 短剧工作室统一 JSON 请求(带 auth + 错误归一)。 */
-async function dramaReq<T>(path: string, method: string, body?: unknown): Promise<T> {
-  const res = await fetch(`${API_BASE}/api${path}`, {
-    method,
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-  });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `短剧项目请求失败 (${res.status})`);
-  }
+async function dramaReq<T>(
+  path: string,
+  method: string,
+  body?: unknown,
+  opts?: ApiFetchOptions,
+): Promise<T> {
+  const res = await apiFetch(
+    `/api${path}`,
+    {
+      method,
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    },
+    opts,
+  );
+  if (!res.ok) await raiseApiError(res, "短剧项目请求失败");
   return res.json();
 }
 
@@ -2220,7 +2241,8 @@ export const storyboardDrama = (
   pid: string,
   body: DramaStoryboardRequest,
 ): Promise<{ shots: DramaShotItem[] }> =>
-  dramaReq(`/drama/projects/${pid}/storyboard`, "POST", body);
+  // LLM 剧本→分镜拆解(整段剧本一次生成)→ 放宽到 120s。
+  dramaReq(`/drama/projects/${pid}/storyboard`, "POST", body, { timeoutMs: 120_000 });
 
 /**
  * L2 主力润色:把剧本送到 L2 模型做关键场景润色。
@@ -2232,10 +2254,16 @@ export const refineDramaScript = (
   text: string,
   instruction?: string,
 ): Promise<{ layer: string; model: string; original: string; refined: string }> =>
-  dramaReq(`/drama/projects/${pid}/refine`, "POST", {
-    text,
-    ...(instruction ? { instruction } : {}),
-  });
+  // L2 润色同步返回(长剧本 LLM 生成)→ 放宽到 120s。
+  dramaReq(
+    `/drama/projects/${pid}/refine`,
+    "POST",
+    {
+      text,
+      ...(instruction ? { instruction } : {}),
+    },
+    { timeoutMs: 120_000 },
+  );
 
 /**
  * L3 终稿精修:把剧本送到 L3 模型做异步批量精修(耗时较长,2-5 分钟)。
@@ -2247,10 +2275,16 @@ export const polishDramaScript = (
   text: string,
   instruction?: string,
 ): Promise<{ layer: string; model: string; original: string; polished: string }> =>
-  dramaReq(`/drama/projects/${pid}/polish`, "POST", {
-    text,
-    ...(instruction ? { instruction } : {}),
-  });
+  // L3 终稿精修同步返回,文档注明耗时 2-5 分钟 → 放宽到 300s。
+  dramaReq(
+    `/drama/projects/${pid}/polish`,
+    "POST",
+    {
+      text,
+      ...(instruction ? { instruction } : {}),
+    },
+    { timeoutMs: 300_000 },
+  );
 
 /** L3 批量精修任务结果条目。 */
 export interface DramaPolishResult {
@@ -2371,7 +2405,8 @@ export const assembleDrama = (
   pid: string,
   body: DramaAssembleOptions,
 ): Promise<DramaAssembleResult> =>
-  dramaReq(`/drama/projects/${pid}/assemble`, "POST", body);
+  // ffmpeg 多片段合成成片(配音/字幕/混音)→ 放宽到 180s。
+  dramaReq(`/drama/projects/${pid}/assemble`, "POST", body, { longRequest: true });
 
 // ---------- M1:角色三视图生成 ----------
 export interface DramaGenerateReferenceBody {
@@ -2388,7 +2423,8 @@ export const dramaGenerateCharacterReference = (
   cid: string,
   body?: DramaGenerateReferenceBody,
 ): Promise<DramaCharacterItem> =>
-  dramaReq(`/drama/characters/${cid}/generate-reference`, "POST", body ?? {});
+  // 同步生成角色三视图(正/侧/背 3 张图)→ 放宽到 180s。
+  dramaReq(`/drama/characters/${cid}/generate-reference`, "POST", body ?? {}, { longRequest: true });
 
 // ---------- M2:9/25 宫格分镜 ----------
 export interface DramaGridStoryboardBody {
@@ -2412,7 +2448,8 @@ export const dramaGridStoryboard = (
   pid: string,
   body: DramaGridStoryboardBody,
 ): Promise<DramaGridStoryboardResponse> =>
-  dramaReq(`/drama/projects/${pid}/grid-storyboard`, "POST", body);
+  // 一次性产出 9/25 张分镜并拼宫格图 → 放宽到 180s。
+  dramaReq(`/drama/projects/${pid}/grid-storyboard`, "POST", body, { longRequest: true });
 
 // ---------- M3:导演台(2D 场景布局)----------
 export interface DramaSceneLayoutActor {
@@ -2498,6 +2535,7 @@ export const dramaApplySkill = (skillId: string): Promise<DramaProjectDetail> =>
 export interface VideoGeneratorInfo {
   name: string;
   display_name: string;
+  description?: string;
   supports_image2video: boolean;
   supports_text2video: boolean;
   // 前端独有:后端不返回此字段,由前端按 AVAILABLE_VIDEO_GENERATORS 白名单附加。
@@ -2508,9 +2546,9 @@ export interface VideoGeneratorInfo {
 /**
  * M2.2:前端可用视频生成器白名单(单一真相源)。
  * 后端真正接入新模型时,在此 Set 加一个名字即可让选择器显示。
- * 当前仅 ltx 实际可用,seedance/kling 为 stub。
+ * 当前 ltx 与 liveact 实际可用,seedance/kling 为 stub。
  */
-export const AVAILABLE_VIDEO_GENERATORS = new Set<string>(["ltx"]);
+export const AVAILABLE_VIDEO_GENERATORS = new Set<string>(["ltx", "liveact"]);
 
 /** 可用视频生成模型列表。契约:GET /api/drama/video-generators。 */
 export const dramaListVideoGenerators = (): Promise<{ generators: VideoGeneratorInfo[] }> =>
@@ -2627,4 +2665,52 @@ export const getDramaPlaybackInsights = (
   pid: string,
 ): Promise<PlaybackInsightsResponse> =>
   dramaReq(`/drama/projects/${pid}/playback-insights`, "GET");
+
+// ---------- 图片解析生成短剧(动态分镜页 AI 模式) ----------
+
+/** POST /api/drama/projects/from-image 的响应(精简类型,字段以后端契约为准)。 */
+export type DramaFromImageResult = {
+  project: { id: string; title: string; premise: string };
+  shots: Array<{ id: string; idx: number; scene: string }>;
+  autorun_task_id: string | null;
+};
+
+/**
+ * 上传 1-9 张分镜图,VLM 解析后自动建项目 + 拆分镜,auto=true 时后台跑完整管线。
+ * 契约:POST /api/drama/projects/from-image  multipart
+ *   images[] + hint? + style? + num_shots(4-16,默认8) + width/height/fps + auto
+ *   → { project, shots, autorun_task_id };422 参数错误 / 502 VLM 解析失败。
+ */
+export async function createDramaProjectFromImage(params: {
+  images: File[];
+  hint?: string;
+  style?: string;
+  num_shots?: number;
+  width?: number;
+  height?: number;
+  fps?: number;
+  auto?: boolean;
+}): Promise<DramaFromImageResult> {
+  const fd = new FormData();
+  for (const f of params.images) fd.append("images", f);
+  if (params.hint) fd.append("hint", params.hint);
+  if (params.style) fd.append("style", params.style);
+  fd.append("num_shots", String(params.num_shots ?? 8));
+  fd.append("width", String(params.width ?? 1920));
+  fd.append("height", String(params.height ?? 1080));
+  fd.append("fps", String(params.fps ?? 16));
+  fd.append("auto", String(params.auto ?? true));
+  // VLM 解析 1-9 张分镜图,实测 1-2 分钟 → 放宽到 180s。
+  const res = await apiFetch(
+    `/api/drama/projects/from-image`,
+    {
+      method: "POST",
+      headers: authHeaders(), // 不要手动设 Content-Type,让浏览器带 boundary
+      body: fd,
+    },
+    { longRequest: true },
+  );
+  if (!res.ok) await raiseApiError(res, "解析生成失败");
+  return res.json();
+}
 

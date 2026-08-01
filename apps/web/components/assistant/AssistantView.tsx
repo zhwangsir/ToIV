@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { useToast } from "@/components/ui/Toast";
 import { agentChat, AgentEvent, getLlmModel } from "@/lib/api";
+import { genId } from "@/lib/id";
 
 // 模型名从 /api/system/llm 动态读取(display_model),不再硬编码;desc 为通用说明
 const MODEL_DESC = "本地 L1 快速对话模型，适合灵感捕获、提示词润色、简单问答";
@@ -30,10 +31,6 @@ const QUICK_ACTIONS = [
   { icon: "image" as const, label: "图生图参考", prompt: "我想做图生图，请告诉我需要准备什么，以及如何写参考图的描述提示词" },
   { icon: "clapperboard" as const, label: "分镜脚本", prompt: "帮我写一个产品广告的分镜脚本，要求5-8个镜头，节奏紧凑" },
 ];
-
-function genId() {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
-}
 
 function getPreview(text: string, max = 28) {
   const t = text.replace(/\s+/g, " ").trim();

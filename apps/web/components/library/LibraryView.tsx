@@ -26,6 +26,9 @@ const FILTERS: FilterDef[] = [
   { key: "3d", label: "3D", kinds: ["3d", "model3d"] },
 ];
 
+/** 分页大小:每页 60 条,点击「加载更多」追加,避免全量渲染大图列表。 */
+const PAGE_SIZE = 60;
+
 function kindToFilter(kind: string): FilterKey {
   for (const f of FILTERS) {
     if (f.kinds.includes(kind)) return f.key;
@@ -123,6 +126,8 @@ export function LibraryView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
+  // 分页:首屏只渲染 PAGE_SIZE 条,「加载更多」追加;切筛选时重置
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   // 删除确认对话框(替代 window.confirm / window.alert)
   const [confirmDelete, setConfirmDelete] = useState<JobItem | null>(null);
@@ -167,6 +172,12 @@ export function LibraryView() {
     if (filter === "all") return jobs;
     return jobs.filter((j) => kindToFilter(j.kind) === filter);
   }, [jobs, filter]);
+
+  const visibleJobs = useMemo(
+    () => filtered.slice(0, visibleCount),
+    [filtered, visibleCount],
+  );
+  const hasMore = filtered.length > visibleCount;
 
   const counts = useMemo(() => {
     const c: Record<FilterKey, number> = { all: 0, image: 0, video: 0, audio: 0, "3d": 0 };
@@ -234,7 +245,10 @@ export function LibraryView() {
               role="tab"
               aria-selected={filter === f.key}
               className={`lib-filter ${filter === f.key ? "is-active" : ""}`}
-              onClick={() => setFilter(f.key)}
+              onClick={() => {
+                setFilter(f.key);
+                setVisibleCount(PAGE_SIZE);
+              }}
             >
               <span>{f.label}</span>
               {/* 始终渲染预留宽度(visibility 控制),避免计数出现后按钮宽度跳动(CLS 加固) */}
@@ -286,8 +300,9 @@ export function LibraryView() {
         )}
 
         {!error && !loading && !isEmpty && (
-          <div className="lib-grid">
-            {filtered.map((job) => {
+          <>
+            <div className="lib-grid">
+              {visibleJobs.map((job) => {
               const hasResult = job.status === "success" && job.results?.length > 0;
               const isVideo = isVideoKind(job.kind);
               return (
@@ -361,7 +376,19 @@ export function LibraryView() {
                 </article>
               );
             })}
-          </div>
+            </div>
+            {hasMore && (
+              <div className="lib-load-more">
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+                >
+                  加载更多(已显示 {visibleJobs.length} / {filtered.length})
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -569,6 +596,12 @@ export function LibraryView() {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
           gap: var(--space-4);
+        }
+
+        .lib-load-more {
+          display: flex;
+          justify-content: center;
+          margin-top: var(--space-4);
         }
 
         .lib-card {

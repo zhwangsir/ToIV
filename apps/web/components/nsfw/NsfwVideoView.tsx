@@ -42,6 +42,16 @@ interface UploadedRef {
   name: string;
 }
 
+// 上传校验:图/音频都走后端 /api/upload(上限 20MB);扩展名白名单
+const UPLOAD_MAX_BYTES = 20 * 1024 * 1024;
+const IMAGE_EXT_OK = ["jpg", "jpeg", "png", "webp"];
+const AUDIO_EXT_OK = ["wav", "mp3", "m4a", "ogg"];
+
+function fileExt(name: string): string {
+  const i = name.lastIndexOf(".");
+  return i >= 0 ? name.slice(i + 1).toLowerCase() : "";
+}
+
 // 半分辨率预设:后端 width/height 是半分辨率,2 阶段采样后上采样到目标清晰度
 const RES_PRESETS = [
   { label: "480p", w: 640, h: 384 },
@@ -228,7 +238,14 @@ export function NsfwVideoView() {
   // 必须路由到具备 LTX 模型/节点的 worker,不能走 img2img(会选到 flux 出图机)。
   const handleImageUpload = useCallback(async (file: File | undefined) => {
     if (!file) return;
-    if (!file.type.startsWith("image/")) return;
+    if (!file.type.startsWith("image/") || !IMAGE_EXT_OK.includes(fileExt(file.name))) {
+      gen.setError(`「${file.name}」格式不支持(仅 jpg/png/webp)`);
+      return;
+    }
+    if (file.size > UPLOAD_MAX_BYTES) {
+      gen.setError(`「${file.name}」超过 20MB 上限(${(file.size / 1024 / 1024).toFixed(1)} MB)`);
+      return;
+    }
     setUploading(true);
     try {
       const kind = scene === "lipsync" ? "ltx_lipsync" : "ltx_i2v";
@@ -250,7 +267,14 @@ export function NsfwVideoView() {
   // 必须上传到 image 所在的同一 worker,否则 lipsync 生成时找不到音频文件。
   const handleAudioUpload = useCallback(async (file: File | undefined) => {
     if (!file) return;
-    if (!file.type.startsWith("audio/")) return;
+    if (!file.type.startsWith("audio/") || !AUDIO_EXT_OK.includes(fileExt(file.name))) {
+      gen.setError(`「${file.name}」格式不支持(仅 wav/mp3/m4a/ogg)`);
+      return;
+    }
+    if (file.size > UPLOAD_MAX_BYTES) {
+      gen.setError(`「${file.name}」超过 20MB 上限(${(file.size / 1024 / 1024).toFixed(1)} MB)`);
+      return;
+    }
     if (!imageUploaded) {
       gen.setError("请先上传参考图,再上传音频");
       return;

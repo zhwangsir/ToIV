@@ -26,6 +26,7 @@ import {
   applyDramaAssetToProject,
 } from "@/lib/api";
 import { loadJSON, saveJSON } from "@/lib/storage";
+import { usePoll } from "@/hooks/usePoll";
 import type {
   DramaProjectDetail,
   DramaProjectSummary,
@@ -64,6 +65,20 @@ export interface TaskLogEntry {
   detail?: string;
 }
 
+/**
+ * P0-2:autorun 后台管线进度(从 process_data 最新一条 step=autorun 记录派生)。
+ * running=true 时 useDramaProject 内部自动轮询项目详情驱动进度面板刷新。
+ */
+export interface DramaAutorunInfo {
+  taskId: string;
+  status: string; // pending / running / assembling / done / error
+  running: boolean;
+  done: number;
+  total: number;
+  current: string;
+  error: string;
+}
+
 /** useDramaProject 返回值:封装项目详情的全部共享状态与操作,供各 Tab 组件消费。 */
 export interface UseDramaProjectReturn {
   // 数据
@@ -73,6 +88,8 @@ export interface UseDramaProjectReturn {
   loading: boolean;
   error: string;
   processSteps: DramaProcessStep[];
+  // P0-2:autorun 后台管线进度(null = 无 autorun 记录)
+  autorun: DramaAutorunInfo | null;
   doneCount: number;
   gridImage: string;
   gridShots: DramaShotItem[];
@@ -1058,6 +1075,71 @@ export function useDramaProject(
 
   const clearAssembleResult = useCallback(() => setAssembleResult(null), []);
 
+  // ── P0-2:autorun 后台管线进度轮询 ──
+  // from-image / 项目内自动管线进度写在 process_data(step=autorun);检测到进行中
+  // 即用 usePoll 轮询项目详情,驱动 processSteps / 分镜状态实时刷新,终态自动停。
+  const autorun = useMemo<DramaAutorunInfo | null>(() => {
+    const steps = current?.process_data;
+    if (!steps) return null;
+    for (let i = steps.length - 1; i >= 0; i--) {
+      const s = steps[i];
+      if (s.step !== "autorun") continue;
+      const st = (s.status ?? "").toLowerCase();
+      return {
+        taskId: s.task_id ?? "",
+        status: st,
+        running: st === "pending" || st === "running" || st === "assembling",
+        done: s.done ?? 0,
+        total: s.total ?? 0,
+        current: s.current ?? "",
+        error: s.error ?? "",
+      };
+    }
+    return null;
+  }, [current?.process_data]);
+
+  // 后端建议轮询间隔(详情响应 poll_interval_sec),未返回时默认 5s
+  const [autorunPollMs, setAutorunPollMs] = useState(5000);
+  // 终态通知去重:按 task_id:status 记录,同一任务只 toast 一次
+  const autorunNotifiedRef = useRef<string>("");
+
+  const pollAutorun = useCallback(async () => {
+    const pid = currentIdRef.current;
+    if (!pid) return;
+    const d = await getDramaProject(pid);
+    if (currentIdRef.current !== pid) return; // 轮询途中已切换项目,丢弃结果
+    setCurrent(d);
+    if (typeof d.poll_interval_sec === "number" && d.poll_interval_sec > 0) {
+      setAutorunPollMs(Math.max(1000, Math.round(d.poll_interval_sec * 1000)));
+    }
+    // 到达终态:同步项目列表摘要 + toast 通知(轮询随即因 enabled=false 自停)
+    const last = [...(d.process_data ?? [])]
+      .reverse()
+      .find((s) => s.step === "autorun");
+    const st = (last?.status ?? "").toLowerCase();
+    if (last && (st === "done" || st === "error")) {
+      const sig = `${last.task_id ?? ""}:${st}`;
+      if (autorunNotifiedRef.current !== sig) {
+        autorunNotifiedRef.current = sig;
+        if (st === "done") {
+          onSummaryChange?.(pid, {
+            status: d.status,
+            video_url: d.video_url,
+          });
+          showToast("success", "自动管线已完成,成片已合成");
+        } else {
+          showToast("error", `自动管线失败:${last.error || "未知错误"}`);
+        }
+      }
+    }
+  }, [onSummaryChange, showToast]);
+
+  usePoll(pollAutorun, {
+    intervalMs: autorunPollMs,
+    enabled: autorun?.running === true,
+    backoff: true,
+  });
+
   // ── 派生值 ──
   const characters = current?.characters ?? [];
   const shots = current?.shots ?? [];
@@ -1300,6 +1382,7 @@ export function useDramaProject(
     loading,
     error,
     processSteps,
+    autorun,
     doneCount,
     gridImage,
     gridShots,

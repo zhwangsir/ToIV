@@ -2,11 +2,13 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Icon } from "@/components/ui/Icon";
+import { useToast } from "@/components/ui/Toast";
 import { getToken } from "@/lib/api";
 import { genId } from "@/lib/id";
 import {
   otGetModels,
   otGetAvatars,
+  otGetStatus,
   otCreateSession,
   otStartSession,
   otSpeak,
@@ -26,6 +28,31 @@ type ChatMessage = {
   isFinal?: boolean;
   timestamp: Date;
 };
+
+/** 引擎探活结果(对齐后端 GET /api/opentalking/status)。 */
+type EngineStatus = {
+  enabled: boolean;
+  reachable: boolean;
+  model?: string;
+};
+
+/** 无会话时 pill 按引擎探活三态展示:已连接 / 引擎离线 / 未配置。 */
+function engineToPillMeta(
+  engine: EngineStatus | null,
+): { label: string; dotClass: string; pillClass: string } {
+  if (!engine) return CONNECTION_META.idle; // 首次探测中
+  if (!engine.enabled) {
+    return { label: "未配置", dotClass: "at-dot-idle", pillClass: "at-pill-idle" };
+  }
+  if (!engine.reachable) {
+    return { label: "引擎离线", dotClass: "at-dot-error", pillClass: "at-pill-error" };
+  }
+  return {
+    label: engine.model ? `已连接 ${engine.model}` : "已连接",
+    dotClass: "at-dot-live",
+    pillClass: "at-pill-live",
+  };
+}
 
 // ── 连接状态 → 展示元数据(颜色/标签/图标),对齐 OpenTalking TopBar 配色但用 ToIV tokens ──
 const CONNECTION_META: Record<
@@ -92,14 +119,22 @@ function avatarPreviewUrl(id: string): string {
 }
 
 export function AvatarTalkView() {
+  const toast = useToast();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionState, setSessionState] = useState<SessionState>("created");
+  const [engineStatus, setEngineStatus] = useState<EngineStatus | null>(null);
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [avatars, setAvatars] = useState<AvatarSummary[]>([]);
   const [loadingModels, setLoadingModels] = useState(true);
   const [loadingAvatars, setLoadingAvatars] = useState(true);
+  const [modelsUnreachable, setModelsUnreachable] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState<string>("");
-  const [selectedModel, setSelectedModel] = useState<string>("mock");
+  const [selectedModel, setSelectedModel] = useState<string>("");
+  const [ttsVoice, setTtsVoice] = useState("");
+  const [systemPrompt, setSystemPrompt] = useState("");
+  const [agentEnabled, setAgentEnabled] = useState(false);
+  const [memoryEnabled, setMemoryEnabled] = useState(false);
+  const [knowledgeEnabled, setKnowledgeEnabled] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [subtitle, setSubtitle] = useState("");
@@ -113,6 +148,32 @@ export function AvatarTalkView() {
   // WebRTC 只启动一次:SSE ready 事件与 start 响应都可能触发,避免重复建连
   const webrtcStartedRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // 引擎探活:首屏 + 每 30s 轮询,卸载清理;失败按「引擎离线」处理
+  useEffect(() => {
+    let cancelled = false;
+    const probe = () => {
+      otGetStatus()
+        .then((s) => {
+          if (cancelled) return;
+          setEngineStatus({
+            enabled: Boolean(s?.enabled),
+            reachable: Boolean(s?.reachable),
+            model: typeof s?.model === "string" ? s.model : undefined,
+          });
+        })
+        .catch(() => {
+          // 探活本身失败(网络错/后端 5xx)按引擎离线展示
+          if (!cancelled) setEngineStatus({ enabled: true, reachable: false });
+        });
+    };
+    probe();
+    const timer = window.setInterval(probe, 30_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, []);
 
   // 初始加载:models + avatars,带防御式兜底
   useEffect(() => {
@@ -133,9 +194,11 @@ export function AvatarTalkView() {
         }
       })
       .catch(() => {
+        // 不塞假模型:引擎不可达时展示空态,由探活 pill 与空态文案说明
         if (cancelled) return;
-        setModels([{ id: "mock", backend: "mock", status: "available", reason: null }]);
-        setSelectedModel("mock");
+        setModels([]);
+        setSelectedModel("");
+        setModelsUnreachable(true);
       })
       .finally(() => {
         if (!cancelled) setLoadingModels(false);
@@ -174,6 +237,15 @@ export function AvatarTalkView() {
     [isConnecting, sessionState],
   );
 
+  // pill 状态机:进行中会话(含连接中)优先按会话状态,无会话时按引擎探活三态
+  const pillMeta = useMemo(
+    () =>
+      isConnecting || sessionId !== null
+        ? CONNECTION_META[connectionStatus]
+        : engineToPillMeta(engineStatus),
+    [isConnecting, sessionId, connectionStatus, engineStatus],
+  );
+
   const startSession = useCallback(async () => {
     setIsConnecting(true);
     setError(null);
@@ -183,7 +255,12 @@ export function AvatarTalkView() {
     try {
       const session = await otCreateSession({
         avatar_id: selectedAvatar || undefined,
-        model: selectedModel || "mock",
+        model: selectedModel || undefined,
+        tts_voice: ttsVoice.trim() || undefined,
+        llm_system_prompt: systemPrompt.trim() || undefined,
+        agent_enabled: agentEnabled,
+        memory_enabled: memoryEnabled,
+        knowledge_enabled: knowledgeEnabled,
       });
 
       setSessionId(session.session_id);
@@ -252,19 +329,30 @@ export function AvatarTalkView() {
           setError(`${code}: ${message}`);
           setIsSpeaking(false);
         },
+        onDisconnect: () => {
+          // SSE 通道断开:会话状态置为错误,pill 反映并 toast 提示
+          setSessionState("error");
+          setIsSpeaking(false);
+          setError("连接已断开");
+          toast.error("连接已断开");
+        },
       });
 
       cleanupSseRef.current = cleanup;
 
       const started = await otStartSession(session.session_id);
-      // quicktalk 缓存命中时 start 同步返回 ready,SSE 的 ready 事件可能已错过 → 主动补启动
-      if (started?.status === "ready") startWebRTCOnce(session.session_id);
+      // quicktalk/musetalk start 同步返回 ready,SSE 的 ready 事件可能已错过 →
+      // 主动补状态(否则状态 pill 永远卡在「未连接」)与 WebRTC 启动
+      if (started?.status === "ready") {
+        setSessionState("ready");
+        startWebRTCOnce(session.session_id);
+      }
       setIsConnecting(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "连接失败");
       setIsConnecting(false);
     }
-  }, [selectedAvatar, selectedModel]);
+  }, [selectedAvatar, selectedModel, ttsVoice, systemPrompt, agentEnabled, memoryEnabled, knowledgeEnabled, toast]);
 
   const handleSend = useCallback(async () => {
     if (!input.trim() || !sessionId || isSpeaking) return;
@@ -303,7 +391,6 @@ export function AvatarTalkView() {
   }, []);
 
   const hasSession = sessionId !== null;
-  const connMeta = CONNECTION_META[connectionStatus];
   const selectedAvatarInfo = avatars.find((a) => a.id === selectedAvatar);
 
   return (
@@ -332,10 +419,10 @@ export function AvatarTalkView() {
           </div>
         )}
 
-        {/* 连接状态 pill(玻璃拟态,右上) */}
-        <div className={`at-status-pill ${connMeta.pillClass}`} title={connMeta.label}>
-          <span className={`at-status-dot ${connMeta.dotClass}`} />
-          <span>{connMeta.label}</span>
+        {/* 连接状态 pill(玻璃拟态,右上):会话进行中按会话状态,否则按引擎探活 */}
+        <div className={`at-status-pill ${pillMeta.pillClass}`} title={pillMeta.label}>
+          <span className={`at-status-dot ${pillMeta.dotClass}`} />
+          <span>{pillMeta.label}</span>
         </div>
 
         {/* 说话指示器(玻璃拟态,左上) */}
@@ -387,10 +474,21 @@ export function AvatarTalkView() {
               models={models}
               loadingAvatars={loadingAvatars}
               loadingModels={loadingModels}
+              modelsUnreachable={modelsUnreachable}
               selectedAvatar={selectedAvatar}
               selectedModel={selectedModel}
               onSelectAvatar={setSelectedAvatar}
               onSelectModel={setSelectedModel}
+              ttsVoice={ttsVoice}
+              onTtsVoiceChange={setTtsVoice}
+              systemPrompt={systemPrompt}
+              onSystemPromptChange={setSystemPrompt}
+              agentEnabled={agentEnabled}
+              onAgentEnabledChange={setAgentEnabled}
+              memoryEnabled={memoryEnabled}
+              onMemoryEnabledChange={setMemoryEnabled}
+              knowledgeEnabled={knowledgeEnabled}
+              onKnowledgeEnabledChange={setKnowledgeEnabled}
               onStart={startSession}
               isConnecting={isConnecting}
             />
@@ -707,10 +805,22 @@ interface SetupPanelProps {
   models: ModelInfo[];
   loadingAvatars: boolean;
   loadingModels: boolean;
+  /** 模型接口请求失败(引擎不可达),区别于「引擎在线但无可用模型」。 */
+  modelsUnreachable: boolean;
   selectedAvatar: string;
   selectedModel: string;
   onSelectAvatar: (id: string) => void;
   onSelectModel: (id: string) => void;
+  ttsVoice: string;
+  onTtsVoiceChange: (v: string) => void;
+  systemPrompt: string;
+  onSystemPromptChange: (v: string) => void;
+  agentEnabled: boolean;
+  onAgentEnabledChange: (v: boolean) => void;
+  memoryEnabled: boolean;
+  onMemoryEnabledChange: (v: boolean) => void;
+  knowledgeEnabled: boolean;
+  onKnowledgeEnabledChange: (v: boolean) => void;
   onStart: () => void;
   isConnecting: boolean;
 }
@@ -720,13 +830,26 @@ function SetupPanel({
   models,
   loadingAvatars,
   loadingModels,
+  modelsUnreachable,
   selectedAvatar,
   selectedModel,
   onSelectAvatar,
   onSelectModel,
+  ttsVoice,
+  onTtsVoiceChange,
+  systemPrompt,
+  onSystemPromptChange,
+  agentEnabled,
+  onAgentEnabledChange,
+  memoryEnabled,
+  onMemoryEnabledChange,
+  knowledgeEnabled,
+  onKnowledgeEnabledChange,
   onStart,
   isConnecting,
 }: SetupPanelProps) {
+  // 不可用(未配置)模型默认折叠,避免「没配全」的误导观感
+  const [showUnavailableModels, setShowUnavailableModels] = useState(false);
   return (
     <div className="at-setup">
       {/* Avatar 卡片网格 */}
@@ -775,7 +898,11 @@ function SetupPanel({
         <div className="at-section-head">
           <h3 className="at-section-title">模型</h3>
           <span className="at-section-count">
-            {loadingModels ? "加载中" : `${models.length} 个`}
+            {loadingModels
+              ? "加载中"
+              : modelsUnreachable
+                ? "不可用"
+                : `${models.filter((m) => m.status === "available").length} 个可用`}
           </span>
         </div>
         <div className="at-model-chips">
@@ -783,27 +910,113 @@ function SetupPanel({
             ? Array.from({ length: 3 }).map((_, i) => (
                 <div key={i} className="at-model-chip at-model-chip-skeleton" />
               ))
-            : models.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  className={`at-model-chip${m.id === selectedModel ? " is-selected" : ""}${
-                    m.status !== "available" ? " is-unavailable" : ""
-                  }`}
-                  onClick={() => m.status === "available" && onSelectModel(m.id)}
-                  disabled={m.status !== "available"}
-                  title={m.reason || undefined}
-                >
-                  <span className="at-model-chip-name">{m.id}</span>
-                  <span className="at-model-chip-backend">{m.backend}</span>
-                  <span
-                    className={`at-model-chip-dot${
-                      m.status === "available" ? " is-on" : " is-off"
-                    }`}
-                  />
-                </button>
-              ))}
+            : models
+                .filter((m) => m.status === "available")
+                .map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    className={`at-model-chip${m.id === selectedModel ? " is-selected" : ""}`}
+                    onClick={() => onSelectModel(m.id)}
+                    title={m.reason || undefined}
+                  >
+                    <span className="at-model-chip-name">{m.id}</span>
+                    <span className="at-model-chip-backend">{m.backend}</span>
+                    <span className="at-model-chip-dot is-on" />
+                  </button>
+                ))}
         </div>
+        {!loadingModels && modelsUnreachable && (
+          <p className="at-models-empty">引擎不可达,模型列表不可用</p>
+        )}
+        {!loadingModels &&
+          !modelsUnreachable &&
+          !models.some((m) => m.status === "available") && (
+            <p className="at-models-empty">请在 opentalking 服务端配置模型</p>
+          )}
+        {!loadingModels && models.some((m) => m.status !== "available") && (
+          <>
+            <button
+              type="button"
+              className="at-models-toggle"
+              onClick={() => setShowUnavailableModels((v) => !v)}
+            >
+              {showUnavailableModels ? "收起" : "未配置模型"}(
+              {models.filter((m) => m.status !== "available").length})
+            </button>
+            {showUnavailableModels && (
+              <div className="at-model-chips">
+                {models
+                  .filter((m) => m.status !== "available")
+                  .map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      className="at-model-chip is-unavailable"
+                      disabled
+                      title={m.reason || undefined}
+                    >
+                      <span className="at-model-chip-name">{m.id}</span>
+                      <span className="at-model-chip-backend">{m.backend}</span>
+                      <span className="at-model-chip-dot is-off" />
+                    </button>
+                  ))}
+              </div>
+            )}
+          </>
+        )}
+      </section>
+
+      {/* 对话配置(可选,接入 CreateSession 契约) */}
+      <section className="at-setup-section">
+        <div className="at-section-head">
+          <h3 className="at-section-title">对话配置</h3>
+          <span className="at-section-count">可选</span>
+        </div>
+        <label className="at-field">
+          <span className="at-field-label">TTS 音色</span>
+          <input
+            type="text"
+            className="at-field-input"
+            value={ttsVoice}
+            onChange={(e) => onTtsVoiceChange(e.target.value)}
+            placeholder="默认音色"
+          />
+        </label>
+        <label className="at-field">
+          <span className="at-field-label">系统提示词</span>
+          <textarea
+            className="at-field-textarea"
+            rows={3}
+            value={systemPrompt}
+            onChange={(e) => onSystemPromptChange(e.target.value)}
+            placeholder="可选:自定义数字人的人格与口吻"
+          />
+        </label>
+        <label className="at-switch-row">
+          <span>智能体(Agent)</span>
+          <input
+            type="checkbox"
+            checked={agentEnabled}
+            onChange={(e) => onAgentEnabledChange(e.target.checked)}
+          />
+        </label>
+        <label className="at-switch-row">
+          <span>记忆</span>
+          <input
+            type="checkbox"
+            checked={memoryEnabled}
+            onChange={(e) => onMemoryEnabledChange(e.target.checked)}
+          />
+        </label>
+        <label className="at-switch-row">
+          <span>知识库</span>
+          <input
+            type="checkbox"
+            checked={knowledgeEnabled}
+            onChange={(e) => onKnowledgeEnabledChange(e.target.checked)}
+          />
+        </label>
       </section>
 
       <div className="at-setup-footer">
@@ -972,6 +1185,20 @@ function SetupPanel({
         .at-model-chip.is-unavailable {
           opacity: 0.55;
         }
+        .at-models-toggle {
+          margin-top: 6px;
+          padding: 0;
+          border: none;
+          background: none;
+          cursor: pointer;
+          font-size: var(--text-xs, 12px);
+          color: var(--color-text-secondary, #666);
+          text-decoration: underline;
+          text-underline-offset: 3px;
+        }
+        .at-models-toggle:hover {
+          color: var(--color-text-primary, #1a1a1a);
+        }
         .at-model-chip-name {
           font-family: var(--font-mono);
           font-weight: 600;
@@ -1000,6 +1227,70 @@ function SetupPanel({
           height: 24px;
           border-radius: var(--radius-full);
           animation: at-shimmer 1.5s ease-in-out infinite;
+        }
+
+        /* 模型空态(引擎不可达 / 无可用模型) */
+        .at-models-empty {
+          margin: 0;
+          padding: var(--space-3);
+          border: 1px dashed var(--color-border, #eaeaea);
+          border-radius: var(--radius-lg, 8px);
+          font-size: var(--text-xs);
+          color: var(--color-text-tertiary, #999);
+          text-align: center;
+          line-height: var(--leading-md);
+        }
+
+        /* 对话配置表单控件(与面板现有 token/圆角一致) */
+        .at-field {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-1);
+        }
+        .at-field-label {
+          font-size: var(--text-xs);
+          font-weight: 500;
+          color: var(--color-text-secondary, #666);
+        }
+        .at-field-input,
+        .at-field-textarea {
+          width: 100%;
+          padding: var(--space-2) var(--space-3);
+          background: var(--color-bg-subtle, #f5f5f5);
+          border: 1px solid transparent;
+          border-radius: var(--radius-lg, 8px);
+          font-size: var(--text-sm);
+          font-family: inherit;
+          color: var(--color-text-primary, #1a1a1a);
+          outline: none;
+          transition:
+            border-color var(--duration-fast) var(--ease-standard),
+            background var(--duration-fast) var(--ease-standard);
+        }
+        .at-field-input:focus,
+        .at-field-textarea:focus {
+          border-color: var(--color-accent, #1a1a1a);
+          background: var(--color-bg-surface, #fff);
+        }
+        .at-field-textarea {
+          resize: vertical;
+          min-height: 64px;
+          line-height: var(--leading-md);
+        }
+        .at-switch-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: var(--space-2);
+          font-size: var(--text-sm);
+          color: var(--color-text-primary, #1a1a1a);
+          cursor: pointer;
+        }
+        .at-switch-row input[type="checkbox"] {
+          width: 16px;
+          height: 16px;
+          accent-color: var(--color-accent, #1a1a1a);
+          cursor: pointer;
         }
 
         /* 开始按钮 */

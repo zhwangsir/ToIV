@@ -349,6 +349,7 @@ export function ScriptTab({ project }: ScriptTabProps) {
                 src={imageUrl(gridImage)}
                 alt="宫格分镜图"
                 className="ds-grid-img"
+                loading="lazy"
                 onClick={() =>
                   setRefPreview({ url: gridImage, label: "宫格分镜图" })
                 }

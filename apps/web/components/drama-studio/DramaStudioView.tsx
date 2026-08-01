@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import {
   listDramaProjects,
   deleteDramaProject,
+  dramaListSkills,
   imageUrl,
 } from "@/lib/api";
 import { consumeEngineDraft } from "@/lib/engine";
@@ -35,6 +36,9 @@ interface DramaStudioViewProps {
   account?: string;
   onLogout?: () => void;
   onNavigate?: (view: string) => void;
+  /** 外部(动态分镜 AI 解析)指定要直接打开的项目 id,消费后经 onConsumeInitialProject 清空 */
+  initialProjectId?: string | null;
+  onConsumeInitialProject?: () => void;
 }
 
 type StudioView = "hub" | "workspace" | "cinema";
@@ -51,7 +55,8 @@ const STAGES: { key: StageKey; label: string; icon: IconName }[] = [
   { key: "data", label: "数据", icon: "barchart" },
 ];
 
-const SKILL_CHIPS = [
+// 推荐 Skill 卡:优先从后端 dramaListSkills 拉取(单一真相源),失败/为空时回退此硬编码
+const FALLBACK_SKILL_CHIPS = [
   { id: "hit", name: "爆款短剧复刻", desc: "上传参考视频，Agent 自动拉片重制", shots: "24 镜 · 45 秒", accent: "#f59e0b" },
   { id: "romance", name: "都市言情节奏", desc: "对话情绪递进 + 反转卡点", shots: "18 镜 · 60 秒", accent: "#ec4899" },
   { id: "wuxia", name: "古风武侠快剪", desc: "慢动作 + 环绕运镜 + 水墨调色", shots: "22 镜 · 55 秒", accent: "#3b82f6" },
@@ -90,7 +95,7 @@ function formatDuration(sec: number): string {
   return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 }
 
-export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioViewProps) {
+export function DramaStudioView({ account, onLogout, onNavigate, initialProjectId, onConsumeInitialProject }: DramaStudioViewProps) {
   const engineDraft = useMemo(() => consumeEngineDraft(), []);
   const searchParams = useSearchParams();
 
@@ -113,6 +118,31 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
   const [showSkillHub, setShowSkillHub] = useState(false);
   const [showNewProject, setShowNewProject] = useState(engineDraft?.target === "drama");
   const [manjuInitialActiveId, setManjuInitialActiveId] = useState<string | null>(null);
+
+  // ── 推荐 Skill 卡:后端拉取(单一真相源),失败/为空回退硬编码 ──
+  const [skillChips, setSkillChips] = useState(FALLBACK_SKILL_CHIPS);
+  useEffect(() => {
+    let cancelled = false;
+    dramaListSkills()
+      .then((res) => {
+        if (cancelled || !res.skills?.length) return;
+        setSkillChips(
+          res.skills.slice(0, 4).map((s, i) => ({
+            id: s.id,
+            name: s.name,
+            desc: s.description,
+            shots: `${s.default_num_shots} 镜`,
+            accent: FALLBACK_SKILL_CHIPS[i % FALLBACK_SKILL_CHIPS.length].accent,
+          })),
+        );
+      })
+      .catch(() => {
+        /* 拉取失败保持硬编码回退 */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // ── 删除确认 ──
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -176,6 +206,14 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
     setShowSkillHub(false);
     setShowNewProject(false);
   }, []);
+
+  // 外部传入的待打开项目(如动态分镜 AI 解析完成跳转):直接打开并通知父级清空
+  useEffect(() => {
+    if (!initialProjectId) return;
+    openProject(initialProjectId);
+    loadList();
+    onConsumeInitialProject?.();
+  }, [initialProjectId, openProject, loadList, onConsumeInitialProject]);
 
   const openHub = useCallback(() => {
     setActiveId(null);
@@ -440,7 +478,7 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
             </button>
           </div>
           <div className="skills-row">
-            {SKILL_CHIPS.map((s) => (
+            {skillChips.map((s) => (
               <div
                 key={s.id}
                 className="skill-chip"
@@ -788,6 +826,11 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
                   ))}
                 </select>
               </div>
+              {project.videoModel === "liveact" && (
+                <div className="r-prop">
+                  <div className="r-val">全身数字人:需先完成配音,使用首个角色参考图,生成时长≈配音时长</div>
+                </div>
+              )}
               <div className="r-prop compact"><label>Worker</label><span className="tag">192.168.71.127:8188</span></div>
             </div>
 
@@ -830,6 +873,20 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
             <span className="led" />
             ComfyUI · {comfyWorkerCount} workers
           </span>
+          {project.autorun?.running && (
+            <span
+              className="autorun-pill"
+              title={`自动管线进行中 ${project.autorun.done}/${project.autorun.total}`}
+            >
+              <Icon name="loading" size={11} className="ds-spin" />
+              自动管线 {project.autorun.done}/{project.autorun.total}
+              {project.autorun.current && (
+                <span className="autorun-pill-detail">
+                  {project.autorun.current}
+                </span>
+              )}
+            </span>
+          )}
           {project.activeTaskCount > 0 && (
             <div className="task-pill-wrap" ref={taskDropdownRef}>
               <button
@@ -1463,6 +1520,26 @@ export function DramaStudioView({ account, onLogout, onNavigate }: DramaStudioVi
           border-radius: 50%;
           background: var(--color-success);
           box-shadow: 0 0 8px var(--color-success);
+        }
+        /* P0-2:autorun 后台管线进度指示(顶栏) */
+        .autorun-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 0.32rem 0.7rem;
+          background: color-mix(in srgb, var(--accent) 15%, var(--bg-3));
+          border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--hairline));
+          border-radius: 999px;
+          font-size: 0.72rem;
+          color: var(--accent);
+          font-family: var(--font-mono);
+        }
+        .autorun-pill .autorun-pill-detail {
+          max-width: 16rem;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          color: var(--ink2);
         }
         .task-pill {
           display: inline-flex;

@@ -17,6 +17,7 @@ import {
   type Ltx2T2VParams,
   type Ltx2ModelsResponse,
 } from "@/lib/ltxstudio";
+import { usePoll } from "@/hooks/usePoll";
 import { Icon } from "@/components/ui/Icon";
 
 type Tab = "t2v" | "i2v";
@@ -45,6 +46,14 @@ const DURATION_PRESETS = [
 
 const MAX_LORAS = 3;
 const POLL_INTERVAL_MS = 3000;
+// 上传校验:后端 /api/upload 上限 20MB;扩展名白名单与动态分镜页一致
+const IMAGE_MAX_BYTES = 20 * 1024 * 1024;
+const IMAGE_EXT_OK = ["jpg", "jpeg", "png", "webp"];
+
+function fileExt(name: string): string {
+  const i = name.lastIndexOf(".");
+  return i >= 0 ? name.slice(i + 1).toLowerCase() : "";
+}
 
 const TABS: { id: Tab; label: string; icon: "create" | "image" }[] = [
   { id: "t2v", label: "文生视频", icon: "create" },
@@ -119,38 +128,34 @@ export function LtxStudioView() {
     };
   }, []);
 
-  // 轮询作业状态:done → 播视频;error → 错误条。瞬断不致命,下轮继续。
-  useEffect(() => {
-    if (!activePromptId) return;
-    const timer = setInterval(() => {
-      void (async () => {
-        try {
-          const job = await fetchLtx2Job(activePromptId);
-          if (!job) return; // 尚未入库/列表未刷新,下轮再试
-          if (job.status === "done") {
-            clearInterval(timer);
-            setActivePromptId(null);
-            const first = job.results[0];
-            if (first) {
-              setResultUrl(imageUrl(first));
-              setJobState("done");
-            } else {
-              setError("生成完成但未返回视频");
-              setJobState("error");
-            }
-          } else if (job.status === "error") {
-            clearInterval(timer);
-            setActivePromptId(null);
-            setError("生成失败,请调整参数后重试");
-            setJobState("error");
-          }
-        } catch {
-          /* 网络抖动:忽略,下轮继续 */
+  // 轮询作业状态:done → 播视频;error → 错误条。瞬断不致命,usePoll backoff 容错。
+  usePoll(
+    async () => {
+      if (!activePromptId) return;
+      const job = await fetchLtx2Job(activePromptId);
+      if (!job) return; // 尚未入库/列表未刷新,下轮再试
+      if (job.status === "done") {
+        setActivePromptId(null);
+        const first = job.results[0];
+        if (first) {
+          setResultUrl(imageUrl(first));
+          setJobState("done");
+        } else {
+          setError("生成完成但未返回视频");
+          setJobState("error");
         }
-      })();
-    }, POLL_INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, [activePromptId]);
+      } else if (job.status === "error") {
+        setActivePromptId(null);
+        setError("生成失败,请调整参数后重试");
+        setJobState("error");
+      }
+    },
+    {
+      intervalMs: POLL_INTERVAL_MS,
+      enabled: activePromptId !== null,
+      backoff: true,
+    },
+  );
 
   // LoRA 勾选/强度
   const toggleLora = useCallback((name: string) => {
@@ -170,7 +175,15 @@ export function LtxStudioView() {
 
   // 图片上传(i2v):路由到具备 LTX 模型/节点的 worker
   const handleImageUpload = useCallback(async (file: File | undefined) => {
-    if (!file || !file.type.startsWith("image/")) return;
+    if (!file) return;
+    if (!file.type.startsWith("image/") || !IMAGE_EXT_OK.includes(fileExt(file.name))) {
+      setError(`「${file.name}」格式不支持(仅 jpg/png/webp)`);
+      return;
+    }
+    if (file.size > IMAGE_MAX_BYTES) {
+      setError(`「${file.name}」超过 20MB 上限(${(file.size / 1024 / 1024).toFixed(1)} MB)`);
+      return;
+    }
     setUploading(true);
     setError(null);
     try {

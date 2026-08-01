@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { CreateView } from "@/components/create/CreateView";
 import { NsfwVideoView } from "@/components/nsfw/NsfwVideoView";
 import { Icon } from "@/components/ui/Icon";
+import { usePoll } from "@/hooks/usePoll";
 import {
   fetchMe,
   getToken,
@@ -152,7 +153,6 @@ function NsfwViewBody() {
   const [nasStatus, setNasStatus] = useState<NasStatus>({ enabled: false });
   const [downloadJobs, setDownloadJobs] = useState<Record<string, NasDownloadStatus>>({});
   const [preferredCkpt, setPreferredCkpt] = useState<string | undefined>();
-  const pollRefs = useRef<Record<string, ReturnType<typeof setInterval>>>({});
 
   // ── 推荐清单 + NAS 状态 ──
   useEffect(() => {
@@ -174,12 +174,44 @@ function NsfwViewBody() {
     });
     return () => {
       cancelled = true;
-      // 清理所有轮询
-      for (const id of Object.keys(pollRefs.current)) {
-        clearInterval(pollRefs.current[id]);
-      }
     };
   }, []);
+
+  // 合并轮询:单个 usePoll 批量查询所有进行中的下载任务(原为每任务各起一个
+  // 3s interval,任务多时请求雪崩);全部失败时抛错交 backoff 容错,单任务瞬断跳过。
+  const hasRunningDownload = Object.values(downloadJobs).some(
+    (j) => j.status === "running",
+  );
+  usePoll(
+    async () => {
+      const running = Object.entries(downloadJobs).filter(
+        ([, j]) => j.status === "running" && j.id,
+      );
+      if (running.length === 0) return;
+      const results = await Promise.all(
+        running.map(([name, job]) =>
+          getNasDownloadStatus(job.id)
+            .then((st) => ({ name, st }))
+            .catch(() => null),
+        ),
+      );
+      const ok = results.filter(
+        (r): r is { name: string; st: NasDownloadStatus } => r !== null,
+      );
+      if (ok.length === 0) throw new Error("下载状态查询失败"); // 全部失败 → 触发 backoff
+      const updates: Record<string, NasDownloadStatus> = {};
+      for (const { name, st } of ok) {
+        updates[name] = st;
+        // 图像 checkpoint 下载完成后自动切为创作底模;unet/lora 不自动挂载
+        if (st.status === "done" && st.filename) {
+          const rec = recs.find((r) => r.name === name);
+          if (rec?.type === "checkpoint") setPreferredCkpt(st.filename);
+        }
+      }
+      setDownloadJobs((prev) => ({ ...prev, ...updates }));
+    },
+    { intervalMs: 3000, enabled: hasRunningDownload, backoff: true },
+  );
 
   // 从 civitai_url 提取模型 ID
   const extractCivitaiId = useCallback((url: string): string | null => {
@@ -187,13 +219,12 @@ function NsfwViewBody() {
     return m ? m[1] : null;
   }, []);
 
-  // 启动 NAS 下载
+  // 启动 NAS 下载(状态由上方合并轮询统一跟踪)
   const handleDownload = useCallback(async (rec: NsfwRecommendation) => {
     const civitaiId = extractCivitaiId(rec.civitai_url);
     if (!civitaiId) return;
     // 推荐模型类型映射:unet/diffusion_model 落到 diffusion_models,不自动切图像底模
     const modelType = rec.type === "lora" ? "lora" : "unet";
-    const isImageCkpt = rec.type === "checkpoint";
     try {
       const { job_id } = await nasDownload({
         source: "civitai",
@@ -202,7 +233,7 @@ function NsfwViewBody() {
         type: modelType,
         filename: undefined,
       });
-      // 初始化下载状态
+      // 初始化下载状态(后续由合并轮询批量刷新)
       setDownloadJobs((prev) => ({
         ...prev,
         [rec.name]: {
@@ -218,32 +249,6 @@ function NsfwViewBody() {
           elapsed: 0,
         },
       }));
-      // 启动轮询
-      const poll = async () => {
-        try {
-          const st = await getNasDownloadStatus(job_id);
-          setDownloadJobs((prev) => ({ ...prev, [rec.name]: st }));
-          if (st.status === "done") {
-            // 图像 checkpoint 下载完成后自动切为创作底模;unet/lora 不自动挂载
-            if (isImageCkpt && st.filename) {
-              setPreferredCkpt(st.filename);
-            }
-            if (pollRefs.current[rec.name]) {
-              clearInterval(pollRefs.current[rec.name]);
-              delete pollRefs.current[rec.name];
-            }
-          } else if (st.status === "error") {
-            if (pollRefs.current[rec.name]) {
-              clearInterval(pollRefs.current[rec.name]);
-              delete pollRefs.current[rec.name];
-            }
-          }
-        } catch {
-          /* 轮询失败静默,下次重试 */
-        }
-      };
-      pollRefs.current[rec.name] = setInterval(poll, 3000);
-      poll(); // 立即查一次
     } catch (e) {
       setDownloadJobs((prev) => ({
         ...prev,

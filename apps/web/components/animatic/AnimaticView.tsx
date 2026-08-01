@@ -3,23 +3,38 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Icon } from "@/components/ui/Icon";
+import { useToast } from "@/components/ui/Toast";
 import { genId } from "@/lib/id";
 import {
   animaticVideoUrl,
   createAnimatic,
   type AnimaticResult,
 } from "@/lib/animatic";
+import {
+  createDramaProjectFromImage,
+  type DramaFromImageResult,
+} from "@/lib/api";
 
 // 与后端 apps/api/app/routes/animatic.py 保持一致的限制
 const MAX_IMAGES = 20;
+// AI 解析模式走 /api/drama/projects/from-image,上限 9 张
+const AI_MAX_IMAGES = 9;
 const MAX_BYTES = 20 * 1024 * 1024;
 const EXT_OK = ["jpg", "jpeg", "png", "webp"];
 const DEFAULT_DURATION = 3.0;
+// 默认每镜时长可调范围(stitch 模式,UI 暴露)
+const DURATION_MIN = 1;
+const DURATION_MAX = 10;
 
 const RESOLUTIONS = [
   { label: "1080p · 1920×1080", width: 1920, height: 1080 },
   { label: "720p · 1280×720", width: 1280, height: 720 },
 ] as const;
+
+// AI 模式可选分镜数(契约 4-16,默认 8)
+const NUM_SHOTS_OPTIONS = [4, 6, 8, 10, 12, 14, 16] as const;
+
+type Mode = "ai" | "stitch";
 
 type Item = {
   id: string;
@@ -37,14 +52,30 @@ function formatMB(n: number): string {
   return n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.ceil(n / 1024)} KB`;
 }
 
-export function AnimaticView() {
+export function AnimaticView({
+  onOpenDramaProject,
+}: {
+  /** AI 解析成功后跳转短剧工作室打开项目;未注入时仅提示用户自行前往 */
+  onOpenDramaProject?: (projectId: string) => void;
+}) {
+  const [mode, setMode] = useState<Mode>("ai");
   const [items, setItems] = useState<Item[]>([]);
   const [fps, setFps] = useState(24);
   const [resIdx, setResIdx] = useState(0);
+  const [defaultDuration, setDefaultDuration] = useState(DEFAULT_DURATION);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AnimaticResult | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { show: showToast } = useToast();
+
+  // AI 解析模式参数与结果
+  const [hint, setHint] = useState("");
+  const [numShots, setNumShots] = useState(8);
+  const [aiResult, setAiResult] = useState<DramaFromImageResult | null>(null);
+
+  const isAi = mode === "ai";
+  const maxImages = isAi ? AI_MAX_IMAGES : MAX_IMAGES;
 
   // 卸载时回收全部 objectURL
   useEffect(() => {
@@ -56,6 +87,26 @@ export function AnimaticView() {
     };
   }, []);
 
+  // 模式切换:已选图数超目标模式上限时 toast 提示并阻止切换;切换成功则重置上一次结果态
+  const switchMode = useCallback(
+    (next: Mode) => {
+      if (next === mode || busy) return;
+      const nextMax = next === "ai" ? AI_MAX_IMAGES : MAX_IMAGES;
+      if (items.length > nextMax) {
+        showToast(
+          "error",
+          `已选 ${items.length} 张,超出「${next === "ai" ? "AI 解析" : "快速拼接"}」模式上限 ${nextMax} 张,请先移除多余分镜图`,
+        );
+        return;
+      }
+      setMode(next);
+      setResult(null);
+      setAiResult(null);
+      setError(null);
+    },
+    [mode, busy, items.length, showToast],
+  );
+
   const totalDuration = items.reduce((s, it) => s + (it.duration || 0), 0);
 
   const addFiles = useCallback(
@@ -63,8 +114,8 @@ export function AnimaticView() {
       if (!files || files.length === 0) return;
       setError(null);
       const picked = Array.from(files);
-      if (items.length + picked.length > MAX_IMAGES) {
-        setError(`最多 ${MAX_IMAGES} 张分镜图(当前 ${items.length} 张)`);
+      if (items.length + picked.length > maxImages) {
+        setError(`当前模式最多 ${maxImages} 张分镜图(已选 ${items.length} 张)`);
         return;
       }
       for (const f of picked) {
@@ -81,12 +132,13 @@ export function AnimaticView() {
         id: genId(),
         file,
         preview: URL.createObjectURL(file),
-        duration: DEFAULT_DURATION,
+        duration: defaultDuration,
       }));
       setItems((prev) => [...prev, ...next]);
       setResult(null);
+      setAiResult(null);
     },
-    [items.length],
+    [items.length, maxImages, defaultDuration],
   );
 
   const removeItem = useCallback((id: string) => {
@@ -136,22 +188,73 @@ export function AnimaticView() {
     }
   }, [items, fps, resIdx, busy]);
 
+  const submitAi = useCallback(async () => {
+    if (items.length === 0 || busy) return;
+    setBusy(true);
+    setError(null);
+    setAiResult(null);
+    const res = RESOLUTIONS[resIdx];
+    try {
+      const data = await createDramaProjectFromImage({
+        images: items.map((it) => it.file),
+        hint: hint.trim() || undefined,
+        num_shots: numShots,
+        width: res.width,
+        height: res.height,
+        fps: 16, // 短剧管线固定 16fps(LTX 原生帧率,与 DramaProject 默认一致)
+        auto: true, // 后台自动跑完整管线(分镜视频 → 配音 → 合成)
+      });
+      setAiResult(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "解析失败");
+    } finally {
+      setBusy(false);
+    }
+  }, [items, hint, numShots, resIdx, busy]);
+
   return (
     <div className="single-view animatic-view">
       <header className="anim-header">
         <div>
           <h1 className="anim-title">动态分镜</h1>
           <p className="anim-subtitle">
-            上传分镜图,设置每镜时长,串成一条可播放的 animatic 视频
+            {isAi
+              ? "上传分镜图,VLM 自动解析剧情并生成完整短剧(分镜视频 + 配音 + 成片)"
+              : "上传分镜图,设置每镜时长,串成一条可播放的 animatic 视频"}
           </p>
         </div>
         <div className="anim-header-right">
           <span className="badge">
             <Icon name="film" size={13} />
-            {items.length} / {MAX_IMAGES} 镜 · 共 {totalDuration.toFixed(1)}s
+            {items.length} / {maxImages} 镜{!isAi && ` · 共 ${totalDuration.toFixed(1)}s`}
           </span>
         </div>
       </header>
+
+      <div className="anim-mode-switch" role="tablist" aria-label="生成模式">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={isAi}
+          className={`anim-mode-tab${isAi ? " is-on" : ""}`}
+          disabled={busy}
+          onClick={() => switchMode("ai")}
+        >
+          <Icon name="sparkles" size={14} />
+          AI 解析生成完整短剧
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={!isAi}
+          className={`anim-mode-tab${!isAi ? " is-on" : ""}`}
+          disabled={busy}
+          onClick={() => switchMode("stitch")}
+        >
+          <Icon name="clapperboard" size={14} />
+          快速拼接预览
+        </button>
+      </div>
 
       <button
         type="button"
@@ -162,7 +265,8 @@ export function AnimaticView() {
         <Icon name="upload" size={22} />
         <span className="anim-drop-title">点击选择分镜图(可多张)</span>
         <span className="anim-drop-hint">
-          jpg / png / webp · 单张 ≤ 20MB · 最多 {MAX_IMAGES} 张 · 顺序即播放顺序
+          jpg / png / webp · 单张 ≤ 20MB · 最多 {maxImages} 张
+          {isAi ? "" : " · 顺序即播放顺序"}
         </span>
       </button>
       <input
@@ -190,22 +294,24 @@ export function AnimaticView() {
                 {it.file.name}
               </div>
               <div className="anim-card-row">
-                <label className="anim-dur">
-                  <input
-                    type="number"
-                    className="input anim-dur-input"
-                    min={0.5}
-                    max={30}
-                    step={0.5}
-                    value={it.duration}
-                    disabled={busy}
-                    onChange={(e) => {
-                      const v = Number.parseFloat(e.target.value);
-                      setDuration(it.id, Number.isFinite(v) ? v : 0);
-                    }}
-                  />
-                  <span className="anim-dur-unit">秒</span>
-                </label>
+                {!isAi && (
+                  <label className="anim-dur">
+                    <input
+                      type="number"
+                      className="input anim-dur-input"
+                      min={0.5}
+                      max={30}
+                      step={0.5}
+                      value={it.duration}
+                      disabled={busy}
+                      onChange={(e) => {
+                        const v = Number.parseFloat(e.target.value);
+                        setDuration(it.id, Number.isFinite(v) ? v : 0);
+                      }}
+                    />
+                    <span className="anim-dur-unit">秒</span>
+                  </label>
+                )}
                 <div className="anim-card-actions">
                   <button
                     type="button"
@@ -241,57 +347,142 @@ export function AnimaticView() {
         </ul>
       )}
 
-      <div className="anim-params">
-        <label className="anim-field">
-          <span className="anim-field-label">帧率 (fps)</span>
-          <input
-            type="number"
-            className="input anim-fps-input"
-            min={12}
-            max={60}
-            value={fps}
-            disabled={busy}
-            onChange={(e) => {
-              const v = Number.parseInt(e.target.value, 10);
-              setFps(Number.isFinite(v) ? v : 24);
-            }}
-          />
-        </label>
-        <label className="anim-field">
-          <span className="anim-field-label">分辨率</span>
-          <select
-            className="input"
-            value={resIdx}
-            disabled={busy}
-            onChange={(e) => setResIdx(Number.parseInt(e.target.value, 10))}
+      {isAi && (
+        <div className="anim-params">
+          <label className="anim-field anim-field-grow">
+            <span className="anim-field-label">故事方向(可选)</span>
+            <textarea
+              className="input anim-hint-input"
+              rows={2}
+              placeholder="例:赛博朋克都市里,赏金猎人追捕叛逃的仿生人…"
+              value={hint}
+              disabled={busy}
+              onChange={(e) => setHint(e.target.value)}
+            />
+          </label>
+          <label className="anim-field">
+            <span className="anim-field-label">分镜数量</span>
+            <select
+              className="input"
+              value={numShots}
+              disabled={busy}
+              onChange={(e) => setNumShots(Number.parseInt(e.target.value, 10))}
+            >
+              {NUM_SHOTS_OPTIONS.map((n) => (
+                <option key={n} value={n}>
+                  {n} 镜
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="anim-field">
+            <span className="anim-field-label">分辨率</span>
+            <select
+              className="input"
+              value={resIdx}
+              disabled={busy}
+              onChange={(e) => setResIdx(Number.parseInt(e.target.value, 10))}
+            >
+              {RESOLUTIONS.map((r, i) => (
+                <option key={r.label} value={i}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            className="btn btn-primary btn-lg"
+            disabled={busy || items.length === 0}
+            onClick={submitAi}
           >
-            {RESOLUTIONS.map((r, i) => (
-              <option key={r.label} value={i}>
-                {r.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="anim-params-spacer" />
-        <button
-          type="button"
-          className="btn btn-primary btn-lg"
-          disabled={busy || items.length === 0}
-          onClick={submit}
-        >
-          {busy ? (
-            <>
-              <Icon name="loading" size={16} />
-              上传并生成中…
-            </>
-          ) : (
-            <>
-              <Icon name="clapperboard" size={16} />
-              生成动态分镜
-            </>
-          )}
-        </button>
-      </div>
+            {busy ? (
+              <>
+                <Icon name="loading" size={16} />
+                VLM 解析图片中…(可能需要 1-2 分钟)
+              </>
+            ) : (
+              <>
+                <Icon name="sparkles" size={16} />
+                解析并生成短剧
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
+      {!isAi && (
+        <div className="anim-params">
+          <label className="anim-field">
+            <span className="anim-field-label">帧率 (fps)</span>
+            <input
+              type="number"
+              className="input anim-fps-input"
+              min={12}
+              max={60}
+              value={fps}
+              disabled={busy}
+              onChange={(e) => {
+                const v = Number.parseInt(e.target.value, 10);
+                setFps(Number.isFinite(v) ? v : 24);
+              }}
+            />
+          </label>
+          <label className="anim-field">
+            <span className="anim-field-label">默认每镜时长 (秒)</span>
+            <input
+              type="number"
+              className="input anim-fps-input"
+              min={DURATION_MIN}
+              max={DURATION_MAX}
+              step={0.5}
+              value={defaultDuration}
+              disabled={busy}
+              onChange={(e) => {
+                const v = Number.parseFloat(e.target.value);
+                if (!Number.isFinite(v)) return;
+                setDefaultDuration(
+                  Math.min(DURATION_MAX, Math.max(DURATION_MIN, v)),
+                );
+              }}
+            />
+          </label>
+          <label className="anim-field">
+            <span className="anim-field-label">分辨率</span>
+            <select
+              className="input"
+              value={resIdx}
+              disabled={busy}
+              onChange={(e) => setResIdx(Number.parseInt(e.target.value, 10))}
+            >
+              {RESOLUTIONS.map((r, i) => (
+                <option key={r.label} value={i}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="anim-params-spacer" />
+          <button
+            type="button"
+            className="btn btn-primary btn-lg"
+            disabled={busy || items.length === 0}
+            onClick={submit}
+          >
+            {busy ? (
+              <>
+                <Icon name="loading" size={16} />
+                上传并生成中…
+              </>
+            ) : (
+              <>
+                <Icon name="clapperboard" size={16} />
+                生成动态分镜
+              </>
+            )}
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="anim-error" role="alert">
@@ -300,7 +491,7 @@ export function AnimaticView() {
         </div>
       )}
 
-      {result && (
+      {!isAi && result && (
         <section className="anim-result">
           <div className="anim-result-head">
             <Icon name="success" size={16} />
@@ -316,6 +507,39 @@ export function AnimaticView() {
             preload="metadata"
             src={animaticVideoUrl(result.url)}
           />
+        </section>
+      )}
+
+      {isAi && aiResult && (
+        <section className="anim-result">
+          <div className="anim-result-head">
+            <Icon name="success" size={16} />
+            <span>短剧项目已创建,后台自动生成中</span>
+          </div>
+          <div className="anim-ai-result">
+            <div className="anim-ai-result-title">{aiResult.project.title}</div>
+            {aiResult.project.premise && (
+              <p className="anim-ai-result-premise">{aiResult.project.premise}</p>
+            )}
+            <div className="anim-ai-result-meta">
+              共 {aiResult.shots.length} 个分镜
+              {aiResult.autorun_task_id ? " · 完整管线已自动启动" : ""}
+            </div>
+            {onOpenDramaProject ? (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => onOpenDramaProject(aiResult.project.id)}
+              >
+                <Icon name="drama" size={16} />
+                前往短剧工作室查看生成进度
+              </button>
+            ) : (
+              <p className="anim-ai-result-hint">
+                请到「短剧工作室」查看项目生成进度
+              </p>
+            )}
+          </div>
         </section>
       )}
     </div>

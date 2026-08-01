@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 import { Icon } from "@/components/ui/Icon";
 import { useToast } from "@/components/ui/Toast";
+import { usePoll } from "@/hooks/usePoll";
 import type { UseDramaProjectReturn } from "@/hooks/useDramaProject";
 import { ShotCard } from "@/components/drama-studio/ShotCard";
 import {
@@ -21,6 +22,8 @@ interface ShotTabProps {
 const POLL_INTERVAL_MS = 10_000;
 /** 轮询最大时长(ms),15 分钟超时。 */
 const POLL_MAX_MS = 15 * 60 * 1000;
+/** 连续查询失败上限:超过后终止轮询(此前由 usePoll backoff 容错)。 */
+const POLL_MAX_FAILURES = 5;
 
 /**
  * 分镜板 Tab。
@@ -40,18 +43,62 @@ export function ShotTab({ project, onGoToScript }: ShotTabProps) {
   const [batchTask, setBatchTask] = useState<DramaPolishTask | null>(null);
   const [batchError, setBatchError] = useState<string>("");
   const [confirmingBatch, setConfirmingBatch] = useState(false);
-  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [batchTaskId, setBatchTaskId] = useState<string | null>(null);
   const pollStartRef = useRef<number>(0);
+  const pollFailRef = useRef<number>(0);
 
-  // 卸载时清理轮询定时器
-  useEffect(() => {
-    return () => {
-      if (pollTimerRef.current) {
-        clearTimeout(pollTimerRef.current);
-        pollTimerRef.current = null;
+  // L3 批量精修轮询:usePoll 页面隐藏自动暂停;单次网络错误指数退避容错,
+  // 连续失败超上限或整体超时才终止(不再一次错误立即放弃)。
+  usePoll(
+    async () => {
+      if (!batchTaskId) return;
+      let task: DramaPolishTask;
+      try {
+        task = await getDramaPolishTask(project.current!.id, batchTaskId);
+      } catch (err) {
+        pollFailRef.current += 1;
+        if (pollFailRef.current >= POLL_MAX_FAILURES) {
+          setBatchError(
+            err instanceof Error ? err.message : "查询批量精修进度失败",
+          );
+          setBatchBusy(false);
+          setBatchTaskId(null);
+          return;
+        }
+        throw err; // 交给 usePoll 退避重试
       }
-    };
-  }, []);
+      pollFailRef.current = 0;
+      setBatchTask(task);
+      if (task.status === "done") {
+        setBatchBusy(false);
+        setBatchTaskId(null);
+        const ok = task.results.filter((r) => r.status === "done").length;
+        const fail = task.results.filter((r) => r.status === "error").length;
+        if (fail === 0) {
+          showToast("success", `L3 精修完成:${ok} 个分镜已优化`);
+        } else {
+          showToast("error", `L3 精修完成:${ok} 成功 / ${fail} 失败`);
+        }
+        try {
+          await reload();
+        } catch {
+          // ignore
+        }
+        return;
+      }
+      // 超时保护
+      if (Date.now() - pollStartRef.current > POLL_MAX_MS) {
+        setBatchError("批量精修轮询超时(15 分钟),任务仍在后端执行,可稍后刷新查看");
+        setBatchBusy(false);
+        setBatchTaskId(null);
+      }
+    },
+    {
+      intervalMs: POLL_INTERVAL_MS,
+      enabled: batchBusy && batchTaskId !== null,
+      backoff: true,
+    },
+  );
 
   const _availableShots = () =>
     shots.filter(
@@ -84,55 +131,15 @@ export function ShotTab({ project, onGoToScript }: ShotTabProps) {
       const res = await polishDramaBatch(project.current!.id, {
         shot_ids: available.map((s) => s.id),
       });
-      await _pollTask(res.task_id);
+      pollStartRef.current = Date.now();
+      pollFailRef.current = 0;
+      setBatchTaskId(res.task_id);
     } catch (err) {
       setBatchError(
         err instanceof Error ? err.message : "L3 批量精修启动失败",
       );
       setBatchBusy(false);
     }
-  };
-
-  /** 轮询批量精修任务进度,完成或超时后停止。 */
-  const _pollTask = async (taskId: string) => {
-    pollStartRef.current = Date.now();
-
-    const pollOnce = async () => {
-      try {
-        const task = await getDramaPolishTask(project.current!.id, taskId);
-        setBatchTask(task);
-        if (task.status === "done") {
-          setBatchBusy(false);
-          const ok = task.results.filter((r) => r.status === "done").length;
-          const fail = task.results.filter((r) => r.status === "error").length;
-          if (fail === 0) {
-            showToast("success", `L3 精修完成:${ok} 个分镜已优化`);
-          } else {
-            showToast("error", `L3 精修完成:${ok} 成功 / ${fail} 失败`);
-          }
-          try {
-            await reload();
-          } catch {
-            // ignore
-          }
-          return;
-        }
-        // 超时保护
-        if (Date.now() - pollStartRef.current > POLL_MAX_MS) {
-          setBatchError("批量精修轮询超时(15 分钟),任务仍在后端执行,可稍后刷新查看");
-          setBatchBusy(false);
-          return;
-        }
-        pollTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS);
-      } catch (err) {
-        setBatchError(
-          err instanceof Error ? err.message : "查询批量精修进度失败",
-        );
-        setBatchBusy(false);
-      }
-    };
-
-    await pollOnce();
   };
 
   /** 关闭批量精修结果面板。 */

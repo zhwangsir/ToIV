@@ -1,5 +1,3 @@
-@import "./drama-mission-control.css";
-
 /* ──────────────────────────────────────────────────────────
    ToIV 设计系统 v2 — Film Atelier（电影创作工作室）
    中性灰配色 · 内容优先 · UI隐退 · 8px网格
@@ -2366,4 +2364,87 @@ textarea.input {
   max-height: 70vh;
   background: #000;
   border-radius: var(--radius-lg);
+}
+
+/* AI 解析 / 快速拼接 模式切换 */
+.anim-mode-switch {
+  display: inline-flex;
+  gap: 4px;
+  margin-top: var(--space-4);
+  padding: 4px;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.anim-mode-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.anim-mode-tab:hover:not(:disabled) {
+  color: var(--color-text-primary);
+}
+
+.anim-mode-tab.is-on {
+  background: var(--color-bg-elevated, var(--color-bg-surface));
+  color: var(--color-text-primary);
+  font-weight: 500;
+  box-shadow: inset 0 0 0 1px var(--color-border-subtle);
+}
+
+.anim-mode-tab:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.anim-field-grow {
+  flex: 1;
+  min-width: 240px;
+}
+
+.anim-hint-input {
+  resize: vertical;
+  min-height: 52px;
+}
+
+/* AI 解析结果面板 */
+.anim-ai-result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.anim-ai-result-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.anim-ai-result-premise {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+.anim-ai-result-meta {
+  color: var(--color-text-tertiary);
+  font-size: var(--text-xs);
+}
+
+.anim-ai-result-hint {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
 }

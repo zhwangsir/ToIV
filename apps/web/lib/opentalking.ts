@@ -148,9 +148,9 @@ export async function otCreateSession(req: CreateSessionRequest): Promise<Create
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       // 全本地化:STT 走 workstation SenseVoice,TTS 走 IndexTTS2(:9200 经 shim)
+      // agent/memory/knowledge 由调用方显式传入(后端契约默认全 false)
       tts_provider: "indextts",
       stt_provider: "sensevoice",
-      agent_enabled: true,
       user_id: "toiv-user",
       ...req,
     }),
@@ -189,6 +189,8 @@ export function otConnectSse(
     onSpeechEnded?: (text: string) => void;
     onStateChanged?: (state: SessionState) => void;
     onError?: (code: string, message: string) => void;
+    /** SSE 通道断开后回调一次(重连成功后会重新武装)。 */
+    onDisconnect?: () => void;
   },
 ): SseCleanup {
   // EventSource 无法带 Authorization header,复用后端 deps.py 支持的 ?token= 查询参数
@@ -237,7 +239,20 @@ export function otConnectSse(
     es.addEventListener(name, ((e: MessageEvent) => handleEvent(name, e.data)) as EventListener);
   }
 
-  es.onerror = () => {};
+  // EventSource 断线会自动重连,期间反复触发 onerror:
+  // 仅在已成功建立过连接后,对每段断开只通知一次(onopen 重新武装),
+  // 避免重连风暴刷 toast;从未打开过则交给会话创建/启动的错误路径提示。
+  let hadOpen = false;
+  let notified = false;
+  es.onopen = () => {
+    hadOpen = true;
+    notified = false;
+  };
+  es.onerror = () => {
+    if (!hadOpen || notified) return;
+    notified = true;
+    handlers.onDisconnect?.();
+  };
 
   return () => es.close();
 }

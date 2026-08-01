@@ -39,6 +39,15 @@ import {
 type Mode = "txt2img" | "img2img";
 type Status = "idle" | "uploading" | "queued" | "sampling" | "done" | "error";
 
+// 上传校验:后端 /api/upload 上限 20MB;扩展名白名单与动态分镜页一致
+const IMAGE_MAX_BYTES = 20 * 1024 * 1024;
+const IMAGE_EXT_OK = ["jpg", "jpeg", "png", "webp"];
+
+function fileExt(name: string): string {
+  const i = name.lastIndexOf(".");
+  return i >= 0 ? name.slice(i + 1).toLowerCase() : "";
+}
+
 interface ResultImage {
   path: string;
   url: string;
@@ -336,6 +345,14 @@ export function CreateView({
     async (file: File | undefined) => {
       if (!file) return;
       if (mode !== "img2img") return;
+      if (!file.type.startsWith("image/") || !IMAGE_EXT_OK.includes(fileExt(file.name))) {
+        gen.setError(`「${file.name}」格式不支持(仅 jpg/png/webp)`);
+        return;
+      }
+      if (file.size > IMAGE_MAX_BYTES) {
+        gen.setError(`「${file.name}」超过 20MB 上限(${(file.size / 1024 / 1024).toFixed(1)} MB)`);
+        return;
+      }
       setUploading(true);
       try {
         const r = await uploadImage(file, "img2img");
@@ -361,7 +378,7 @@ export function CreateView({
       e.preventDefault();
       setDragOver(false);
       const f = e.dataTransfer.files?.[0];
-      if (f && f.type.startsWith("image/")) void handleFileChange(f);
+      if (f) void handleFileChange(f);
     },
     [handleFileChange],
   );
