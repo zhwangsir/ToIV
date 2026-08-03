@@ -23,6 +23,9 @@ import {
   type VoiceTrackResult,
 } from "@/lib/api";
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { Badge, type BadgeTone } from "@/components/ui/Badge";
+import { Empty } from "@/components/ui/Empty";
+import { Input, Select } from "@/components/ui/Input";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
 import { useToast } from "@/components/ui/Toast";
 import { usePoll } from "@/hooks/usePoll";
@@ -40,6 +43,20 @@ const STEPS: StepMeta[] = [
   { n: 3, label: "配音生成", hint: "克隆音色合成", icon: "audio" },
   { n: 4, label: "口型同步", hint: "LatentSync 对口型", icon: "video" },
 ];
+
+// ── 作业状态 → Badge 语义(queued neutral / running run / done ok / error err) ──
+const JOB_STATUS_TONE: Record<string, BadgeTone> = {
+  queued: "neutral",
+  running: "run",
+  done: "ok",
+  error: "err",
+};
+const JOB_STATUS_LABEL: Record<string, string> = {
+  queued: "排队中",
+  running: "处理中",
+  done: "已完成",
+  error: "失败",
+};
 
 // ── 工具:格式化秒 → mm:ss ──
 function fmtTime(s: number): string {
@@ -419,16 +436,16 @@ export function DubView() {
         </div>
         <div className="dub-meta">
           {video && (
-            <span className="badge badge-accent" title={video.url}>
+            <Badge tone="accent" dot={false} title={video.url}>
               <Icon name="video" size={12} strokeWidth={2} />
               {video.name}
-            </span>
+            </Badge>
           )}
           {voice && (
-            <span className="badge" title={voice.url}>
+            <Badge tone="neutral" dot={false} title={voice.url}>
               <Icon name="audio" size={12} strokeWidth={2} />
               配音轨 · {voice.segment_count} 段
-            </span>
+            </Badge>
           )}
         </div>
       </header>
@@ -577,11 +594,11 @@ export function DubView() {
                     <span>{video.name}</span>
                   </div>
                   <div className="dub-video-stats">
-                    <span className="badge badge-success">
+                    <Badge tone="ok">
                       <Icon name="success" size={11} strokeWidth={2.4} />
                       已上传
-                    </span>
-                    <span className="badge">{fmtBytes(video.size)}</span>
+                    </Badge>
+                    <Badge tone="neutral" dot={false}>{fmtBytes(video.size)}</Badge>
                   </div>
                   <button
                     className="btn btn-primary"
@@ -643,26 +660,22 @@ export function DubView() {
 
             {/* 空态:暂无字幕分段 */}
             {segments.length === 0 && !subBusy && (
-              <div className="empty-state">
-                <div className="empty-state-icon">
-                  <Icon name="audio" size={56} strokeWidth={1.1} />
-                </div>
-                <div className="empty-state-title">暂无字幕分段</div>
-                <div className="empty-state-desc">
-                  请先使用 Whisper 听写,或导入 SRT / VTT 字幕
-                </div>
-              </div>
+              <Empty
+                icon="audio"
+                title="暂无字幕分段"
+                desc="请先使用 Whisper 听写,或导入 SRT / VTT 字幕"
+              />
             )}
 
             {segments.length > 0 && (
               <>
                 <div className="dub-subtoolbar">
-                  <span className="badge badge-accent">
+                  <Badge tone="accent" dot={false}>
                     {segments.length} 条字幕
-                  </span>
+                  </Badge>
                   <div className="dub-translate">
-                    <select
-                      className="input dub-translate-select"
+                    <Select
+                      className="dub-translate-select"
                       value={targetLang}
                       onChange={(e) => setTargetLang(e.target.value)}
                     >
@@ -672,7 +685,7 @@ export function DubView() {
                       <option value="ko">译为 한국어</option>
                       <option value="fr">译为 Français</option>
                       <option value="es">译为 Español</option>
-                    </select>
+                    </Select>
                     <button
                       className="btn"
                       onClick={doTranslate}
@@ -702,7 +715,9 @@ export function DubView() {
                         <div className="dub-seg-text">{seg.text}</div>
                         {translated[seg.index] && (
                           <div className="dub-seg-translated">
-                            <span className="badge badge-accent">{targetLang}</span>
+                            <Badge tone="accent" dot={false} className="dub-seg-lang">
+                              {targetLang}
+                            </Badge>
                             {translated[seg.index]}
                           </div>
                         )}
@@ -740,8 +755,7 @@ export function DubView() {
             <div className="dub-form-grid">
               <label className="dub-field">
                 <span className="dub-field-label">参考音秒数</span>
-                <input
-                  className="input"
+                <Input
                   type="number"
                   min={2}
                   max={30}
@@ -760,8 +774,7 @@ export function DubView() {
                     label="优化提示"
                   />
                 </div>
-                <input
-                  className="input"
+                <Input
                   type="text"
                   placeholder="例:平静 / 激昂 / 低沉"
                   value={emoText}
@@ -803,15 +816,11 @@ export function DubView() {
 
             {/* 空态:暂无音色 */}
             {!voice && !voiceBusy && (
-              <div className="empty-state">
-                <div className="empty-state-icon">
-                  <Icon name="audio" size={56} strokeWidth={1.1} />
-                </div>
-                <div className="empty-state-title">暂无音色</div>
-                <div className="empty-state-desc">
-                  请先上传参考音频,或点击上方「生成配音轨」克隆音色
-                </div>
-              </div>
+              <Empty
+                icon="audio"
+                title="暂无音色"
+                desc="请先上传参考音频,或点击上方「生成配音轨」克隆音色"
+              />
             )}
 
             {voice && (
@@ -822,12 +831,12 @@ export function DubView() {
                     {voice.name}
                   </div>
                   <div className="dub-voice-stats">
-                    <span className="badge badge-success">
+                    <Badge tone="ok">
                       <Icon name="success" size={11} strokeWidth={2.4} />
                       合成完成
-                    </span>
-                    <span className="badge">{voice.segment_count} 段</span>
-                    <span className="badge">{fmtTime(voice.duration)}</span>
+                    </Badge>
+                    <Badge tone="neutral" dot={false}>{voice.segment_count} 段</Badge>
+                    <Badge tone="neutral" dot={false}>{fmtTime(voice.duration)}</Badge>
                   </div>
                 </div>
                 <audio src={imageUrl(voice.url)} controls preload="metadata" />
@@ -911,8 +920,7 @@ export function DubView() {
                   {cutMode === "even" ? (
                     <label className="dub-field">
                       <span className="dub-field-label">单段时长(秒)</span>
-                      <input
-                        className="input"
+                      <Input
                         type="number"
                         min={4}
                         max={60}
@@ -924,8 +932,7 @@ export function DubView() {
                     <>
                       <label className="dub-field">
                         <span className="dub-field-label">阈值</span>
-                        <input
-                          className="input"
+                        <Input
                           type="number"
                           step={0.05}
                           min={0.05}
@@ -936,8 +943,7 @@ export function DubView() {
                       </label>
                       <label className="dub-field">
                         <span className="dub-field-label">最短段(秒)</span>
-                        <input
-                          className="input"
+                        <Input
                           type="number"
                           min={1}
                           max={30}
@@ -961,8 +967,7 @@ export function DubView() {
                   <div className="dub-form-grid dub-advanced">
                     <label className="dub-field">
                       <span className="dub-field-label">最大段数</span>
-                      <input
-                        className="input"
+                      <Input
                         type="number"
                         min={1}
                         max={48}
@@ -972,8 +977,7 @@ export function DubView() {
                     </label>
                     <label className="dub-field">
                       <span className="dub-field-label">表情强度</span>
-                      <input
-                        className="input"
+                      <Input
                         type="number"
                         step={0.1}
                         min={0}
@@ -984,8 +988,7 @@ export function DubView() {
                     </label>
                     <label className="dub-field">
                       <span className="dub-field-label">推理步数</span>
-                      <input
-                        className="input"
+                      <Input
                         type="number"
                         min={5}
                         max={40}
@@ -1016,8 +1019,7 @@ export function DubView() {
               <div className="dub-form-grid">
                 <label className="dub-field">
                   <span className="dub-field-label">张嘴幅度</span>
-                  <input
-                    className="input"
+                  <Input
                     type="number"
                     step={0.1}
                     min={0.1}
@@ -1029,8 +1031,7 @@ export function DubView() {
                 </label>
                 <label className="dub-field">
                   <span className="dub-field-label">平滑窗</span>
-                  <input
-                    className="input"
+                  <Input
                     type="number"
                     min={1}
                     max={15}
@@ -1059,8 +1060,7 @@ export function DubView() {
               <div className="dub-form-grid">
                 <label className="dub-field">
                   <span className="dub-field-label">目标条数</span>
-                  <input
-                    className="input"
+                  <Input
                     type="number"
                     min={0}
                     max={50}
@@ -1108,32 +1108,35 @@ export function DubView() {
             {lipsyncMode === "latent" && lipsyncStart && lipsyncStatus && (
               <div className="dub-lipsync-status">
                 <div className="dub-status-head">
-                  <div
-                    className={`dub-status-led is-${lipsyncStatus.status}`}
-                  />
+                  <Badge
+                    tone={JOB_STATUS_TONE[lipsyncStatus.status] ?? "neutral"}
+                    dotPulse={lipsyncStatus.status === "running"}
+                  >
+                    {JOB_STATUS_LABEL[lipsyncStatus.status] ?? lipsyncStatus.status}
+                  </Badge>
                   <div className="dub-status-stage">
                     {lipsyncStatus.stage || lipsyncStatus.status}
                   </div>
                   <div className="dub-status-stats">
                     {lipsyncStatus.total > 0 && (
-                      <span className="badge">
+                      <Badge tone="neutral" dot={false}>
                         {lipsyncStatus.completed}/{lipsyncStatus.total} 段
-                      </span>
+                      </Badge>
                     )}
                     {lipsyncStatus.fallbacks > 0 && (
-                      <span className="badge badge-danger">
+                      <Badge tone="err" dot={false}>
                         {lipsyncStatus.fallbacks} 回退
-                      </span>
+                      </Badge>
                     )}
                     {lipsyncStatus.gpu_seconds > 0 && (
-                      <span className="badge">
+                      <Badge tone="neutral" dot={false}>
                         GPU {Math.round(lipsyncStatus.gpu_seconds)}s
-                      </span>
+                      </Badge>
                     )}
                     {lipsyncStatus.elapsed > 0 && (
-                      <span className="badge">
+                      <Badge tone="neutral" dot={false}>
                         已用 {fmtTime(lipsyncStatus.elapsed)}
-                      </span>
+                      </Badge>
                     )}
                   </div>
                 </div>
@@ -1176,23 +1179,28 @@ export function DubView() {
             {lipsyncMode === "anime" && animeStart && animeStatus && (
               <div className="dub-lipsync-status">
                 <div className="dub-status-head">
-                  <div className={`dub-status-led is-${animeStatus.status}`} />
+                  <Badge
+                    tone={JOB_STATUS_TONE[animeStatus.status] ?? "neutral"}
+                    dotPulse={animeStatus.status === "running"}
+                  >
+                    {JOB_STATUS_LABEL[animeStatus.status] ?? animeStatus.status}
+                  </Badge>
                   <div className="dub-status-stage">
                     {animeStatus.stage || animeStatus.status}
                   </div>
                   <div className="dub-status-stats">
                     {animeStatus.frames > 0 && (
-                      <span className="badge">{animeStatus.frames} 帧</span>
+                      <Badge tone="neutral" dot={false}>{animeStatus.frames} 帧</Badge>
                     )}
                     {animeStatus.faces_detected > 0 && (
-                      <span className="badge">
+                      <Badge tone="neutral" dot={false}>
                         {animeStatus.faces_detected} 张脸
-                      </span>
+                      </Badge>
                     )}
                     {animeStatus.elapsed > 0 && (
-                      <span className="badge">
+                      <Badge tone="neutral" dot={false}>
                         已用 {fmtTime(animeStatus.elapsed)}
-                      </span>
+                      </Badge>
                     )}
                   </div>
                 </div>
@@ -1233,15 +1241,15 @@ export function DubView() {
             {lipsyncMode === "highlights" && highlightsResult && (
               <div className="dub-lipsync-status">
                 <div className="dub-status-head">
-                  <div className="dub-status-led is-done" />
+                  <Badge tone="ok" dot={false}>精剪完成</Badge>
                   <div className="dub-status-stage">
                     {highlightsResult.title}
                   </div>
                   <div className="dub-status-stats">
-                    <span className="badge badge-success">
+                    <Badge tone="ok">
                       <Icon name="success" size={11} strokeWidth={2.4} />
                       {highlightsResult.count} 条精剪
-                    </span>
+                    </Badge>
                   </div>
                 </div>
                 <ul className="dub-highlights-list">
@@ -1278,31 +1286,30 @@ export function DubView() {
           gap: var(--space-4);
           flex-wrap: wrap;
           padding-bottom: var(--space-4);
-          border-bottom: 1px solid var(--hairline);
+          border-bottom: 1px solid var(--border-subtle);
         }
         .dub-titles {
           display: flex;
           flex-direction: column;
-          gap: 0.1rem;
+          gap: 2px;
         }
         .dub-title {
           margin: 0;
-          font-family: var(--font-display);
-          font-size: 1.6rem;
-          font-weight: 500;
+          font-size: var(--text-title);
+          font-weight: 700;
           letter-spacing: -0.02em;
-          color: var(--ink);
-          line-height: 1.1;
+          color: var(--text-primary);
+          line-height: 1.3;
         }
         .dub-subtitle {
           margin: 0;
-          font-size: 0.78rem;
-          color: var(--ink-faint);
+          font-size: var(--text-aux);
+          color: var(--text-muted);
           line-height: 1.3;
         }
         .dub-meta {
           display: flex;
-          gap: 0.4rem;
+          gap: var(--space-2);
           flex-wrap: wrap;
           align-items: center;
         }
@@ -1313,30 +1320,36 @@ export function DubView() {
           align-items: stretch;
           gap: 0;
           padding: var(--space-3) var(--space-4);
-          background: var(--bg-1);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-panel);
         }
         .dub-step {
           position: relative;
           display: flex;
           align-items: center;
-          gap: 0.6rem;
+          gap: 10px;
           flex: 1;
-          padding: 0.3rem 0;
+          padding: 4px 0;
           cursor: pointer;
-          color: var(--ink-faint);
-          transition: color var(--dur) var(--ease);
+          color: var(--text-muted);
+          border-radius: var(--radius-control);
+          transition: color var(--duration-fast) var(--ease-standard);
         }
         .dub-step:hover {
-          color: var(--ink-soft);
+          color: var(--text-secondary);
+        }
+        .dub-step:focus-visible {
+          outline: 1px solid var(--accent);
+          outline-offset: 2px;
         }
         .dub-step.is-locked {
           cursor: not-allowed;
-          color: var(--ink-faint);
+          color: var(--text-muted);
+          opacity: 0.4;
         }
         .dub-step.is-active {
-          color: var(--ink);
+          color: var(--text-primary);
         }
         .dub-step-circle {
           display: flex;
@@ -1345,25 +1358,25 @@ export function DubView() {
           width: 28px;
           height: 28px;
           border-radius: 50%;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline-2);
-          color: var(--ink-faint);
-          font-size: 0.78rem;
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-strong);
+          color: var(--text-muted);
+          font-size: var(--text-aux);
           font-weight: 600;
-          font-family: var(--font-mono);
+          font-variant-numeric: tabular-nums;
           flex-shrink: 0;
-          transition: all var(--dur) var(--ease);
+          transition: all var(--duration-fast) var(--ease-standard);
         }
         .dub-step.is-active .dub-step-circle {
           background: var(--accent);
           border-color: var(--accent);
-          color: var(--accent-ink);
-          box-shadow: 0 0 0 4px var(--accent-quiet);
+          color: var(--text-on-accent);
+          box-shadow: 0 0 0 4px var(--accent-soft);
         }
         .dub-step.is-done .dub-step-circle {
-          background: var(--success-quiet);
-          border-color: var(--success);
-          color: var(--success);
+          background: var(--ok-soft);
+          border-color: var(--ok);
+          color: var(--ok);
         }
         .dub-step-text {
           display: flex;
@@ -1372,19 +1385,18 @@ export function DubView() {
           min-width: 0;
         }
         .dub-step-label {
-          font-size: 0.88rem;
+          font-size: var(--text-base);
           font-weight: 500;
           letter-spacing: -0.01em;
           line-height: 1.25;
         }
         .dub-step.is-active .dub-step-label {
-          color: var(--ink);
+          color: var(--text-primary);
         }
         .dub-step-hint {
-          font-size: 0.7rem;
-          color: var(--ink-faint);
+          font-size: var(--text-label);
+          color: var(--text-muted);
           line-height: 1.2;
-          font-family: var(--font-mono);
         }
         .dub-step-line {
           position: absolute;
@@ -1393,7 +1405,7 @@ export function DubView() {
           transform: translateY(-50%);
           width: 1px;
           height: 24px;
-          background: var(--hairline);
+          background: var(--border-subtle);
         }
         @media (max-width: 720px) {
           .dub-stepper {
@@ -1425,56 +1437,56 @@ export function DubView() {
           }
         }
         .dub-panel-head h2 {
-          margin: 0 0 0.2rem 0;
-          font-family: var(--font-display);
-          font-size: 1.15rem;
-          font-weight: 500;
-          color: var(--ink);
-          letter-spacing: -0.02em;
+          margin: 0 0 4px 0;
+          font-size: var(--text-section);
+          font-weight: 600;
+          color: var(--text-primary);
+          letter-spacing: -0.01em;
         }
         .dub-panel-head p {
           margin: 0;
-          font-size: 0.8rem;
-          color: var(--ink-faint);
+          font-size: var(--text-aux);
+          color: var(--text-muted);
         }
 
-        /* ── 拖拽区 ── */
+        /* ── 拖拽区:border-subtle 虚线,hover/拖入时 accent 描边 ── */
         .dub-dropzone {
           display: block;
           cursor: pointer;
-          padding: var(--space-6) var(--space-4);
-          border: 1.5px dashed var(--hairline-strong);
-          border-radius: var(--radius-lg);
-          background: var(--bg-sunken);
-          transition: all var(--dur) var(--ease);
+          padding: var(--space-8) var(--space-4);
+          border: 1.5px dashed var(--border-subtle);
+          border-radius: var(--radius-panel);
+          background: var(--bg-canvas);
+          transition: border-color var(--duration-fast) var(--ease-standard),
+                      background-color var(--duration-fast) var(--ease-standard);
         }
         .dub-dropzone:hover,
         .dub-dropzone.is-drag {
           border-color: var(--accent);
-          background: var(--accent-wash);
+          background: var(--accent-soft);
         }
         .dub-dropzone-inner {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 0.5rem;
-          color: var(--ink-faint);
+          gap: var(--space-2);
+          color: var(--text-muted);
         }
         .dub-dropzone.is-drag .dub-dropzone-inner,
         .dub-dropzone:hover .dub-dropzone-inner {
-          color: var(--accent-soft);
+          color: var(--accent);
         }
         .dub-dropzone-title {
-          font-size: 0.95rem;
-          color: var(--ink-soft);
+          font-size: var(--text-lg);
+          color: var(--text-secondary);
           font-weight: 500;
         }
         .dub-dropzone-sub {
-          font-size: 0.78rem;
-          color: var(--ink-faint);
+          font-size: var(--text-aux);
+          color: var(--text-muted);
         }
         .dub-dropzone-btn {
-          margin-top: 0.5rem;
+          margin-top: var(--space-2);
         }
 
         /* ── 文件卡片 ── */
@@ -1484,9 +1496,9 @@ export function DubView() {
           align-items: center;
           gap: var(--space-3);
           padding: var(--space-4);
-          background: var(--bg-2);
-          border: 1px solid var(--hairline-2);
-          border-radius: var(--radius);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-panel);
           flex-wrap: wrap;
         }
         .dub-file-icon {
@@ -1495,10 +1507,9 @@ export function DubView() {
           justify-content: center;
           width: 40px;
           height: 40px;
-          border-radius: var(--radius-sm);
-          background: var(--accent-quiet);
-          border: 1px solid var(--accent-line);
-          color: var(--accent-soft);
+          border-radius: var(--radius-control);
+          background: var(--accent-soft);
+          color: var(--accent);
           flex-shrink: 0;
         }
         .dub-file-info {
@@ -1506,50 +1517,36 @@ export function DubView() {
           min-width: 180px;
         }
         .dub-file-name {
-          font-size: 0.9rem;
-          color: var(--ink);
+          font-size: var(--text-base);
+          color: var(--text-primary);
           font-weight: 500;
           word-break: break-all;
         }
         .dub-file-meta {
-          font-size: 0.74rem;
-          color: var(--ink-faint);
-          font-family: var(--font-mono);
+          font-size: var(--text-aux);
+          color: var(--text-muted);
+          font-variant-numeric: tabular-nums;
         }
         .dub-file-actions {
           display: flex;
-          gap: 0.4rem;
+          gap: var(--space-2);
           align-items: center;
         }
 
-        /* ── 进度条 ── */
+        /* ── 进度条:accent → run 渐变(运行态专用色) ── */
         .dub-progress {
           position: relative;
           width: 100%;
           height: 28px;
-          background: var(--bg-sunken);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius-xs);
+          background: var(--bg-canvas);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
           overflow: hidden;
         }
         .dub-progress-bar {
           height: 100%;
-          background: linear-gradient(
-            90deg,
-            var(--accent-deep),
-            var(--accent) 50%,
-            var(--accent-soft)
-          );
-          background-size: 200% 100%;
-          animation: dub-bar-shimmer 2s linear infinite;
-          transition: width 0.3s var(--ease);
-        }
-        @keyframes dub-bar-shimmer {
-          0% { background-position: 200% 0; }
-          100% { background-position: 0 0; }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .dub-progress-bar { animation: none; }
+          background: linear-gradient(90deg, var(--accent), var(--run));
+          transition: width var(--duration-base) var(--ease-standard);
         }
         .dub-progress-label {
           position: absolute;
@@ -1557,36 +1554,36 @@ export function DubView() {
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 0.74rem;
-          font-family: var(--font-mono);
-          color: var(--ink);
+          font-size: var(--text-aux);
+          color: var(--text-primary);
           mix-blend-mode: difference;
           letter-spacing: 0.02em;
+          font-variant-numeric: tabular-nums;
         }
 
         /* ── 错误提示 ── */
         .dub-error {
           display: flex;
           align-items: center;
-          gap: 0.4rem;
-          padding: 0.6rem 0.8rem;
-          background: var(--danger-quiet);
-          border: 1px solid var(--danger);
-          border-radius: var(--radius-xs);
-          color: var(--danger);
-          font-size: 0.82rem;
+          gap: var(--space-2);
+          padding: 10px var(--space-3);
+          background: var(--err-soft);
+          border: 1px solid var(--err);
+          border-radius: var(--radius-control);
+          color: var(--err);
+          font-size: var(--text-sm);
         }
 
-        /* ── 视频结果 ── */
+        /* ── 视频结果(播放器区近黑) ── */
         .dub-video-result {
           display: flex;
           flex-direction: column;
           gap: var(--space-3);
         }
         .dub-video-frame {
-          background: var(--bg-sunken);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius);
+          background: var(--bg-canvas);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-panel);
           overflow: hidden;
           aspect-ratio: 16 / 9;
         }
@@ -1600,21 +1597,20 @@ export function DubView() {
         .dub-video-summary {
           display: flex;
           flex-direction: column;
-          gap: 0.5rem;
+          gap: var(--space-2);
           align-items: flex-start;
         }
         .dub-video-name {
           display: flex;
           align-items: center;
-          gap: 0.4rem;
-          font-size: 0.85rem;
-          color: var(--ink);
-          font-family: var(--font-mono);
+          gap: var(--space-2);
+          font-size: var(--text-sm);
+          color: var(--text-primary);
           word-break: break-all;
         }
         .dub-video-stats {
           display: flex;
-          gap: 0.4rem;
+          gap: var(--space-2);
           flex-wrap: wrap;
         }
 
@@ -1626,16 +1622,15 @@ export function DubView() {
           flex-wrap: wrap;
         }
         .dub-or {
-          font-size: 0.78rem;
-          color: var(--ink-faint);
-          font-family: var(--font-mono);
+          font-size: var(--text-aux);
+          color: var(--text-muted);
         }
         .dub-hint-text {
-          font-size: 0.76rem;
-          color: var(--ink-faint);
+          font-size: var(--text-aux);
+          color: var(--text-muted);
         }
         .dub-hint-error {
-          color: var(--danger);
+          color: var(--err);
         }
 
         /* ── 字幕条 ── */
@@ -1646,11 +1641,11 @@ export function DubView() {
           gap: var(--space-3);
           flex-wrap: wrap;
           padding-top: var(--space-2);
-          border-top: 1px solid var(--hairline);
+          border-top: 1px solid var(--border-subtle);
         }
         .dub-translate {
           display: flex;
-          gap: 0.4rem;
+          gap: var(--space-2);
           align-items: center;
         }
         .dub-translate-select {
@@ -1663,7 +1658,7 @@ export function DubView() {
           padding: 0;
           display: flex;
           flex-direction: column;
-          gap: 0.4rem;
+          gap: var(--space-2);
           max-height: 460px;
           overflow-y: auto;
         }
@@ -1671,68 +1666,67 @@ export function DubView() {
           display: grid;
           grid-template-columns: 130px 1fr;
           gap: var(--space-3);
-          padding: 0.7rem 0.8rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius-sm);
-          transition: border-color var(--dur) var(--ease);
+          padding: 10px var(--space-3);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+          transition: border-color var(--duration-fast) var(--ease-standard);
         }
         .dub-seg:hover {
-          border-color: var(--accent-line);
+          border-color: var(--border-strong);
         }
         .dub-seg-time {
           display: flex;
           flex-direction: column;
-          gap: 0.15rem;
-          font-family: var(--font-mono);
-          font-size: 0.72rem;
+          gap: 2px;
+          font-size: var(--text-aux);
+          font-variant-numeric: tabular-nums;
         }
         .dub-seg-idx {
-          color: var(--accent-soft);
+          color: var(--accent);
           font-weight: 600;
         }
         .dub-seg-range {
-          color: var(--ink-faint);
+          color: var(--text-muted);
         }
         .dub-seg-texts {
           display: flex;
           flex-direction: column;
-          gap: 0.3rem;
+          gap: 6px;
           min-width: 0;
         }
         .dub-seg-text {
-          font-size: 0.86rem;
-          color: var(--ink);
-          line-height: 1.5;
+          font-size: var(--text-base);
+          color: var(--text-primary);
+          line-height: 1.6;
         }
         .dub-seg-translated {
           display: flex;
-          gap: 0.4rem;
+          gap: var(--space-2);
           align-items: flex-start;
-          font-size: 0.84rem;
-          color: var(--ink-soft);
-          line-height: 1.5;
+          font-size: var(--text-sm);
+          color: var(--text-secondary);
+          line-height: 1.6;
         }
-        .dub-seg-translated :global(.badge) {
+        .dub-seg-translated :global(.dub-seg-lang) {
           flex-shrink: 0;
           text-transform: uppercase;
-          font-family: var(--font-mono);
         }
         .dub-seg-more {
           text-align: center;
           padding: var(--space-3);
-          color: var(--ink-faint);
-          font-size: 0.8rem;
-          font-family: var(--font-mono);
+          color: var(--text-muted);
+          font-size: var(--text-sm);
+          font-variant-numeric: tabular-nums;
         }
         @media (max-width: 640px) {
           .dub-seg {
             grid-template-columns: 1fr;
-            gap: 0.4rem;
+            gap: var(--space-2);
           }
           .dub-seg-time {
             flex-direction: row;
-            gap: 0.6rem;
+            gap: 10px;
             align-items: baseline;
           }
         }
@@ -1746,61 +1740,71 @@ export function DubView() {
         .dub-field {
           display: flex;
           flex-direction: column;
-          gap: 0.35rem;
+          gap: 6px;
         }
         .dub-field-wide {
           grid-column: 1 / -1;
         }
         .dub-field-label {
-          font-size: 0.76rem;
-          color: var(--ink-soft);
-          letter-spacing: 0.01em;
+          font-size: var(--text-label);
+          font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          color: var(--text-muted);
         }
         .dub-field-label-row {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 0.5rem;
+          gap: var(--space-2);
         }
         .dub-field-hint {
-          font-size: 0.7rem;
-          color: var(--ink-faint);
+          font-size: var(--text-aux);
+          color: var(--text-muted);
         }
         .dub-segmented {
           display: inline-flex;
-          background: var(--bg-sunken);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius-xs);
-          padding: 2px;
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+          padding: 3px;
           gap: 2px;
           align-self: flex-start;
         }
         .dub-segmented button {
-          padding: 0.4rem 0.8rem;
+          padding: var(--space-1) var(--space-3);
+          height: 28px;
           background: transparent;
           border: none;
-          color: var(--ink-faint);
-          font-size: 0.8rem;
-          border-radius: var(--radius-xs);
+          color: var(--text-secondary);
+          font-size: var(--text-sm);
+          font-weight: 500;
+          border-radius: var(--radius-sm);
           cursor: pointer;
-          transition: all var(--dur) var(--ease);
+          white-space: nowrap;
+          transition: background-color var(--duration-fast) var(--ease-standard),
+                      color var(--duration-fast) var(--ease-standard);
         }
         .dub-segmented button:hover {
-          color: var(--ink-soft);
+          color: var(--text-primary);
+        }
+        .dub-segmented button:focus-visible {
+          outline: 1px solid var(--accent);
+          outline-offset: 1px;
         }
         .dub-segmented button.is-on {
-          background: var(--accent);
-          color: var(--accent-ink);
-          font-weight: 500;
+          background: var(--bg-surface-3);
+          color: var(--text-primary);
+          box-shadow: inset 0 0 0 1px var(--border-subtle);
         }
 
         /* ── 复选框 ── */
         .dub-checkbox {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
-          font-size: 0.86rem;
-          color: var(--ink-soft);
+          gap: var(--space-2);
+          font-size: var(--text-base);
+          color: var(--text-secondary);
           cursor: pointer;
         }
         .dub-checkbox input {
@@ -1809,32 +1813,35 @@ export function DubView() {
           accent-color: var(--accent);
           cursor: pointer;
         }
+        .dub-checkbox input:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
         .dub-checkbox em {
-          color: var(--ink-faint);
+          color: var(--text-muted);
           font-style: normal;
         }
 
         /* ── 高级选项 ── */
         .dub-advanced-toggle {
           align-self: flex-start;
-          color: var(--ink-faint);
         }
         .dub-advanced {
           padding: var(--space-3);
-          background: var(--bg-sunken);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius-sm);
+          background: var(--bg-canvas);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
         }
 
         /* ── 配音结果 ── */
         .dub-voice-result {
           display: flex;
           flex-direction: column;
-          gap: 0.6rem;
+          gap: 10px;
           padding: var(--space-4);
-          background: var(--bg-2);
-          border: 1px solid var(--hairline-2);
-          border-radius: var(--radius);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-panel);
         }
         .dub-voice-head {
           display: flex;
@@ -1846,15 +1853,14 @@ export function DubView() {
         .dub-voice-title {
           display: flex;
           align-items: center;
-          gap: 0.4rem;
-          font-size: 0.86rem;
-          color: var(--ink);
-          font-family: var(--font-mono);
+          gap: var(--space-2);
+          font-size: var(--text-sm);
+          color: var(--text-primary);
           word-break: break-all;
         }
         .dub-voice-stats {
           display: flex;
-          gap: 0.4rem;
+          gap: var(--space-2);
           flex-wrap: wrap;
         }
 
@@ -1863,66 +1869,41 @@ export function DubView() {
           display: flex;
           justify-content: flex-end;
           padding-top: var(--space-3);
-          border-top: 1px solid var(--hairline);
+          border-top: 1px solid var(--border-subtle);
         }
 
-        /* ── 对口型状态 ── */
+        /* ── 对口型状态卡(surface-2,状态用 Badge) ── */
         .dub-lipsync-status {
           display: flex;
           flex-direction: column;
           gap: var(--space-3);
           padding: var(--space-4);
-          background: var(--bg-2);
-          border: 1px solid var(--hairline-2);
-          border-radius: var(--radius);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-panel);
         }
         .dub-status-head {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
+          gap: var(--space-2);
           flex-wrap: wrap;
         }
-        .dub-status-led {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background: var(--ink-faint);
-          flex-shrink: 0;
-        }
-        .dub-status-led.is-running {
-          background: var(--accent);
-          animation: dub-led-pulse 1.4s ease-in-out infinite;
-        }
-        .dub-status-led.is-done {
-          background: var(--success);
-          box-shadow: 0 0 6px var(--success);
-        }
-        .dub-status-led.is-error {
-          background: var(--danger);
-        }
-        @keyframes dub-led-pulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.5; transform: scale(0.8); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .dub-status-led.is-running { animation: none; }
-        }
         .dub-status-stage {
-          font-size: 0.88rem;
-          color: var(--ink);
+          font-size: var(--text-base);
+          color: var(--text-primary);
           font-weight: 500;
           flex: 1;
           min-width: 120px;
         }
         .dub-status-stats {
           display: flex;
-          gap: 0.3rem;
+          gap: 6px;
           flex-wrap: wrap;
         }
         .dub-lipsync-done {
           display: flex;
           flex-direction: column;
-          gap: 0.6rem;
+          gap: 10px;
           align-items: flex-start;
         }
 
@@ -1933,29 +1914,29 @@ export function DubView() {
           padding: 0;
           display: flex;
           flex-direction: column;
-          gap: 0.4rem;
+          gap: var(--space-2);
           max-height: 320px;
           overflow-y: auto;
         }
         .dub-highlights-item {
           display: flex;
           align-items: flex-start;
-          gap: 0.5rem;
-          padding: 0.55rem 0.7rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius-sm);
-          transition: border-color var(--dur) var(--ease);
+          gap: var(--space-2);
+          padding: 10px var(--space-3);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+          transition: border-color var(--duration-fast) var(--ease-standard);
         }
         .dub-highlights-item:hover {
-          border-color: var(--accent-line);
+          border-color: var(--border-strong);
         }
         .dub-highlights-text {
           flex: 1;
           min-width: 0;
-          font-size: 0.84rem;
-          color: var(--ink);
-          line-height: 1.5;
+          font-size: var(--text-sm);
+          color: var(--text-primary);
+          line-height: 1.6;
           word-break: break-word;
         }
       `}</style>

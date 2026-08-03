@@ -30,6 +30,7 @@ import { ProcessTab } from "@/components/drama-studio/ProcessTab";
 import { FilmstripTimeline } from "@/components/drama-studio/FilmstripTimeline";
 import { AnalyticsPanel } from "@/components/drama-studio/AnalyticsPanel";
 import { ManjuView } from "@/components/manju/ManjuView";
+import { AnimaticView } from "@/components/animatic/AnimaticView";
 import { useDramaProject } from "@/hooks/useDramaProject";
 
 interface DramaStudioViewProps {
@@ -39,10 +40,13 @@ interface DramaStudioViewProps {
   /** 外部(动态分镜 AI 解析)指定要直接打开的项目 id,消费后经 onConsumeInitialProject 清空 */
   initialProjectId?: string | null;
   onConsumeInitialProject?: () => void;
+  /** 首页初始页签:projects=项目列表;animatic=动态分镜(?view=animatic 旧入口并入) */
+  initialHubTab?: HubTab;
 }
 
 type StudioView = "hub" | "workspace" | "cinema";
 type StudioMode = "drama" | "manju";
+type HubTab = "projects" | "animatic";
 type StageKey = "script" | "character" | "asset" | "shot" | "assemble" | "process" | "data";
 
 const STAGES: { key: StageKey; label: string; icon: IconName }[] = [
@@ -57,10 +61,10 @@ const STAGES: { key: StageKey; label: string; icon: IconName }[] = [
 
 // 推荐 Skill 卡:优先从后端 dramaListSkills 拉取(单一真相源),失败/为空时回退此硬编码
 const FALLBACK_SKILL_CHIPS = [
-  { id: "hit", name: "爆款短剧复刻", desc: "上传参考视频，Agent 自动拉片重制", shots: "24 镜 · 45 秒", accent: "#f59e0b" },
-  { id: "romance", name: "都市言情节奏", desc: "对话情绪递进 + 反转卡点", shots: "18 镜 · 60 秒", accent: "#ec4899" },
-  { id: "wuxia", name: "古风武侠快剪", desc: "慢动作 + 环绕运镜 + 水墨调色", shots: "22 镜 · 55 秒", accent: "#3b82f6" },
-  { id: "scifi", name: "3D 科幻预演", desc: "角色一致 + 虚拟场景 + 双语字幕", shots: "30 镜 · 90 秒", accent: "#a855f7" },
+  { id: "hit", name: "爆款短剧复刻", desc: "上传参考视频，Agent 自动拉片重制", shots: "24 镜 · 45 秒", accent: "var(--accent)" },
+  { id: "romance", name: "都市言情节奏", desc: "对话情绪递进 + 反转卡点", shots: "18 镜 · 60 秒", accent: "var(--accent)" },
+  { id: "wuxia", name: "古风武侠快剪", desc: "慢动作 + 环绕运镜 + 水墨调色", shots: "22 镜 · 55 秒", accent: "var(--accent)" },
+  { id: "scifi", name: "3D 科幻预演", desc: "角色一致 + 虚拟场景 + 双语字幕", shots: "30 镜 · 90 秒", accent: "var(--accent)" },
 ];
 
 function projectStatusMeta(status: string): { label: string; cls: string } {
@@ -95,7 +99,7 @@ function formatDuration(sec: number): string {
   return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 }
 
-export function DramaStudioView({ account, onLogout, onNavigate, initialProjectId, onConsumeInitialProject }: DramaStudioViewProps) {
+export function DramaStudioView({ account, onLogout, onNavigate, initialProjectId, onConsumeInitialProject, initialHubTab }: DramaStudioViewProps) {
   const engineDraft = useMemo(() => consumeEngineDraft(), []);
   const searchParams = useSearchParams();
 
@@ -113,6 +117,8 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
   const [studioView, setStudioView] = useState<StudioView>(engineDraft?.target === "drama" ? "workspace" : "hub");
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeStage, setActiveStage] = useState<StageKey>("script");
+  // 首页页签:项目列表 / 动态分镜(animatic 旧入口并入短剧首页)
+  const [hubTab, setHubTab] = useState<HubTab>(initialHubTab ?? "projects");
 
   // ── Skill Hub / 新建项目 ──
   const [showSkillHub, setShowSkillHub] = useState(false);
@@ -467,6 +473,40 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
             </div>
           </div>
 
+          <div className="hub-tabs" role="tablist" aria-label="首页分区">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={hubTab === "projects"}
+              className={`hub-tab${hubTab === "projects" ? " active" : ""}`}
+              onClick={() => setHubTab("projects")}
+            >
+              <Icon name="drama" size={13} />
+              短剧项目
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={hubTab === "animatic"}
+              className={`hub-tab${hubTab === "animatic" ? " active" : ""}`}
+              onClick={() => setHubTab("animatic")}
+            >
+              <Icon name="clapperboard" size={13} />
+              动态分镜
+            </button>
+          </div>
+
+          {hubTab === "animatic" ? (
+            <div className="hub-animatic">
+              <AnimaticView
+                onOpenDramaProject={(pid) => {
+                  setHubTab("projects");
+                  openProject(pid);
+                }}
+              />
+            </div>
+          ) : (
+          <>
           <div className="section-head">
             <h2><span className="dot" /> 推荐 Skill</h2>
             <button
@@ -580,6 +620,8 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
                 );
               })}
             </div>
+          )}
+          </>
           )}
         </div>
       );
@@ -1132,123 +1174,123 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
         @keyframes dsspin { to { transform: rotate(360deg); } }
         @media (prefers-reduced-motion: reduce) { .ds-spin { animation: none; } }
         .ds-section { display: flex; flex-direction: column; gap: 0.8rem; }
-        .ds-section.card { background: var(--bg-2); border: 1px solid var(--hairline); border-radius: var(--radius); padding: 1rem; }
+        .ds-section.card { background: var(--bg-surface-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-control); padding: 1rem; }
         .ds-section-head { display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap; }
-        .ds-section-title { font-size: 0.92rem; font-weight: 600; color: var(--ink); display: inline-flex; align-items: center; gap: 0.4rem; }
-        .ds-section-count { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 20px; padding: 0 0.45rem; background: var(--accent-quiet); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); border-radius: 999px; font-size: 0.68rem; font-weight: 700; color: var(--accent); font-family: var(--font-mono); }
-        .ds-section-hint { margin-left: auto; font-size: 0.72rem; color: var(--ink3); font-family: var(--font-mono); }
-        .ds-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.6rem; padding: 2rem 1rem; color: var(--ink3); text-align: center; }
+        .ds-section-title { font-size: 0.92rem; font-weight: 600; color: var(--text-primary); display: inline-flex; align-items: center; gap: 0.4rem; }
+        .ds-section-count { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 20px; padding: 0 0.45rem; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); border-radius: 999px; font-size: 0.68rem; font-weight: 700; color: var(--accent); font-family: var(--font-mono); }
+        .ds-section-hint { margin-left: auto; font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); }
+        .ds-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.6rem; padding: 2rem 1rem; color: var(--text-muted); text-align: center; }
         .ds-empty-inline { padding: 1.5rem 1rem; }
         .studio-shell .empty-state-icon { opacity: 0.3; }
-        .studio-shell .empty-state-title { color: var(--ink2); }
-        .studio-shell .empty-state-desc { color: var(--ink3); }
+        .studio-shell .empty-state-title { color: var(--text-secondary); }
+        .studio-shell .empty-state-desc { color: var(--text-muted); }
         /* 表单 */
-        .ds-input, .ds-textarea { width: 100%; padding: 0.45rem 0.6rem; background: var(--bg-3); border: 1px solid var(--hairline); border-radius: var(--radius-sm); color: var(--ink); font-size: 0.84rem; transition: border-color 0.15s ease; }
+        .ds-input, .ds-textarea { width: 100%; padding: 0.45rem 0.6rem; background: var(--bg-surface-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.84rem; transition: border-color 0.15s ease; }
         .ds-input:focus, .ds-textarea:focus { outline: none; border-color: var(--accent); }
         .ds-textarea { resize: vertical; min-height: 80px; font-family: inherit; }
         .ds-field { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
         .ds-field-sm { max-width: 110px; }
-        .ds-field-label { font-size: 0.68rem; color: var(--ink3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+        .ds-field-label { font-size: 0.68rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
 
         /* ScriptTab: grid picker + preview */
         .ds-storyboard-controls { display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap; }
         .ds-grid-bar { position: relative; display: inline-flex; }
-        .ds-grid-picker { position: absolute; top: calc(100% + 6px); left: 0; z-index: 20; display: flex; flex-direction: column; gap: 0.3rem; padding: 0.4rem; background: var(--bg-2); border: 1px solid var(--hairline-strong); border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0,0,0,0.4); min-width: 180px; }
-        .ds-grid-pick { display: flex; align-items: center; gap: 0.55rem; padding: 0.5rem 0.6rem; background: transparent; border: 1px solid transparent; border-radius: var(--radius-sm); color: var(--ink); cursor: pointer; text-align: left; transition: all 0.15s ease; }
-        .ds-grid-pick:hover { background: var(--bg-3); border-color: color-mix(in srgb, var(--accent) 35%, transparent); color: var(--accent); }
+        .ds-grid-picker { position: absolute; top: calc(100% + 6px); left: 0; z-index: 20; display: flex; flex-direction: column; gap: 0.3rem; padding: 0.4rem; background: var(--bg-surface-2); border: 1px solid var(--text-muted); border-radius: var(--radius-control); box-shadow: var(--shadow-xl); min-width: 180px; }
+        .ds-grid-pick { display: flex; align-items: center; gap: 0.55rem; padding: 0.5rem 0.6rem; background: transparent; border: 1px solid transparent; border-radius: var(--radius-sm); color: var(--text-primary); cursor: pointer; text-align: left; transition: all 0.15s ease; }
+        .ds-grid-pick:hover { background: var(--bg-surface-3); border-color: color-mix(in srgb, var(--accent) 35%, transparent); color: var(--accent); }
         .ds-grid-pick span { display: flex; flex-direction: column; gap: 0.1rem; }
         .ds-grid-pick strong { font-size: 0.85rem; font-weight: 600; }
-        .ds-grid-pick em { font-size: 0.68rem; color: var(--ink3); font-style: normal; }
-        .ds-script-preview { border-top: 1px solid var(--hairline); padding-top: 0.7rem; margin-top: 0.2rem; }
-        .ds-script-preview summary { cursor: pointer; font-size: 0.78rem; color: var(--ink2); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; user-select: none; padding: 0.3rem 0; }
-        .ds-script-pre { width: 100%; padding: 0.7rem 0.8rem; background: var(--bg-3); border: 1px solid var(--hairline); border-radius: var(--radius-sm); color: var(--ink); font-size: 0.85rem; line-height: 1.65; font-family: var(--font-sans); resize: vertical; min-height: 180px; }
+        .ds-grid-pick em { font-size: 0.68rem; color: var(--text-muted); font-style: normal; }
+        .ds-script-preview { border-top: 1px solid var(--border-subtle); padding-top: 0.7rem; margin-top: 0.2rem; }
+        .ds-script-preview summary { cursor: pointer; font-size: 0.78rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; user-select: none; padding: 0.3rem 0; }
+        .ds-script-pre { width: 100%; padding: 0.7rem 0.8rem; background: var(--bg-surface-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.85rem; line-height: 1.65; font-family: var(--font-sans); resize: vertical; min-height: 180px; }
         .ds-script-pre:focus { outline: none; border-color: var(--accent); }
         .ds-grid-dl { margin-left: auto; }
-        .ds-grid-loading { display: flex; align-items: center; justify-content: center; gap: 0.6rem; padding: 2rem; color: var(--ink3); }
-        .ds-grid-image { display: grid; gap: 2px; border-radius: var(--radius); overflow: hidden; background: var(--bg-1); border: 1px solid var(--hairline); }
+        .ds-grid-loading { display: flex; align-items: center; justify-content: center; gap: 0.6rem; padding: 2rem; color: var(--text-muted); }
+        .ds-grid-image { display: grid; gap: 2px; border-radius: var(--radius-control); overflow: hidden; background: var(--bg-surface-1); border: 1px solid var(--border-subtle); }
         .ds-grid-img { width: 100%; display: block; cursor: zoom-in; transition: opacity 0.15s ease; }
         .ds-grid-img:hover { opacity: 0.9; }
         .ds-grid-shots { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.5rem; }
-        .ds-grid-shot { display: flex; gap: 0.5rem; padding: 0.6rem 0.7rem; background: var(--bg-3); border: 1px solid var(--hairline); border-radius: var(--radius-sm); }
-        .ds-grid-shot-idx { flex-shrink: 0; width: 28px; height: 22px; display: grid; place-items: center; background: var(--accent-quiet); color: var(--accent); font-size: 0.7rem; font-weight: 700; font-family: var(--font-mono); border-radius: 4px; }
+        .ds-grid-shot { display: flex; gap: 0.5rem; padding: 0.6rem 0.7rem; background: var(--bg-surface-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }
+        .ds-grid-shot-idx { flex-shrink: 0; width: 28px; height: 22px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); font-size: 0.7rem; font-weight: 700; font-family: var(--font-mono); border-radius: 4px; }
         .ds-grid-shot-body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 0.2rem; }
-        .ds-grid-shot-scene { font-size: 0.82rem; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .ds-grid-shot-prompt { margin: 0; font-size: 0.72rem; color: var(--ink2); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .ds-grid-shot-scene { font-size: 0.82rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ds-grid-shot-prompt { margin: 0; font-size: 0.72rem; color: var(--text-secondary); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
         /* ShotTab + ShotCard */
         .ds-shots-section { padding: 1rem 0; }
         .ds-shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 0.8rem; }
         .ds-shots-empty { padding: 3rem 1rem; }
-        .ds-shot-card { display: flex; flex-direction: column; gap: 0.6rem; background: var(--bg-2); border: 1px solid var(--hairline); border-radius: var(--radius); padding: 0.8rem; transition: border-color 0.18s ease; }
-        .ds-shot-card:hover { border-color: var(--hairline-strong); }
+        .ds-shot-card { display: flex; flex-direction: column; gap: 0.6rem; background: var(--bg-surface-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-control); padding: 0.8rem; transition: border-color 0.18s ease; }
+        .ds-shot-card:hover { border-color: var(--text-muted); }
         .ds-shot-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
         .ds-shot-idx { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 700; color: var(--accent); font-family: var(--font-mono); }
         .ds-shot-tags { display: flex; gap: 0.3rem; flex-wrap: wrap; }
-        .ds-shot-tag { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.15rem 0.45rem; background: var(--bg-3); border: 1px solid var(--hairline); border-radius: var(--radius-sm); font-size: 0.66rem; color: var(--ink2); font-family: var(--font-mono); }
-        .ds-shot-tag-speaker { background: var(--accent-quiet); border-color: color-mix(in srgb, var(--accent) 35%, transparent); color: var(--accent); }
-        .ds-shot-media { aspect-ratio: 16/9; background: var(--bg-1); border: 1px solid var(--hairline); border-radius: var(--radius-sm); overflow: hidden; display: grid; place-items: center; color: var(--ink3); position: relative; }
+        .ds-shot-tag { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.15rem 0.45rem; background: var(--bg-surface-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 0.66rem; color: var(--text-secondary); font-family: var(--font-mono); }
+        .ds-shot-tag-speaker { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 35%, transparent); color: var(--accent); }
+        .ds-shot-media { aspect-ratio: 16/9; background: var(--bg-surface-1); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); overflow: hidden; display: grid; place-items: center; color: var(--text-muted); position: relative; }
         .ds-shot-media video, .ds-shot-media img { width: 100%; height: 100%; object-fit: cover; }
         .ds-shot-placeholder { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; font-size: 0.72rem; }
         .ds-shot-body { display: flex; flex-direction: column; gap: 0.4rem; }
-        .ds-shot-scene { font-size: 0.85rem; font-weight: 600; color: var(--ink); }
-        .ds-shot-prompt { font-size: 0.76rem; color: var(--ink2); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-        .ds-shot-dialogue { font-size: 0.74rem; color: var(--ink3); font-style: italic; padding: 0.3rem 0.5rem; background: var(--bg-3); border-radius: var(--radius-sm); border-left: 2px solid color-mix(in srgb, var(--accent) 35%, transparent); }
-        .ds-shot-audio, .ds-shot-voice { display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; color: var(--ink2); }
+        .ds-shot-scene { font-size: 0.85rem; font-weight: 600; color: var(--text-primary); }
+        .ds-shot-prompt { font-size: 0.76rem; color: var(--text-secondary); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+        .ds-shot-dialogue { font-size: 0.74rem; color: var(--text-muted); font-style: italic; padding: 0.3rem 0.5rem; background: var(--bg-surface-3); border-radius: var(--radius-sm); border-left: 2px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+        .ds-shot-audio, .ds-shot-voice { display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; color: var(--text-secondary); }
         .ds-shot-actions { display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
-        .ds-shot-edit { display: flex; flex-direction: column; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--hairline); }
+        .ds-shot-edit { display: flex; flex-direction: column; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border-subtle); }
         .ds-shot-edit-actions { display: flex; gap: 0.3rem; flex-wrap: wrap; }
         .ds-shot-video { width: 100%; }
         .ds-model-row { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
-        .ds-model-label { font-size: 0.68rem; color: var(--ink3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
-        .ds-model-select { padding: 0.3rem 0.5rem; background: var(--bg-3); border: 1px solid var(--hairline); border-radius: var(--radius-sm); color: var(--ink); font-size: 0.74rem; }
+        .ds-model-label { font-size: 0.68rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+        .ds-model-select { padding: 0.3rem 0.5rem; background: var(--bg-surface-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.74rem; }
         .ds-model-select:focus { outline: none; border-color: var(--accent); }
-        .ds-model-warn { font-size: 0.66rem; color: var(--danger); }
-        .ds-mini-btn { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.22rem 0.45rem; background: var(--bg-3); border: 1px solid var(--hairline); border-radius: var(--radius-sm); color: var(--ink2); font-size: 0.68rem; cursor: pointer; transition: all 0.15s ease; }
-        .ds-mini-btn:hover { background: var(--bg-3); color: var(--ink); border-color: var(--hairline-strong); }
-        .ds-mini-btn-danger:hover { color: var(--danger); border-color: var(--danger); background: var(--danger-quiet); }
+        .ds-model-warn { font-size: 0.66rem; color: var(--err); }
+        .ds-mini-btn { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.22rem 0.45rem; background: var(--bg-surface-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); color: var(--text-secondary); font-size: 0.68rem; cursor: pointer; transition: all 0.15s ease; }
+        .ds-mini-btn:hover { background: var(--bg-surface-3); color: var(--text-primary); border-color: var(--text-muted); }
+        .ds-mini-btn-danger:hover { color: var(--err); border-color: var(--err); background: var(--err-soft); }
         .ds-mini-btn-ref { font-size: 0.66rem; }
 
         /* M1:可视化流水线步骤条 */
-        .ds-shot-pipeline { display: flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.45rem; background: var(--bg-1); border: 1px solid var(--hairline); border-radius: var(--radius-sm); }
+        .ds-shot-pipeline { display: flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.45rem; background: var(--bg-surface-1); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }
         .ds-pipeline-step { display: flex; align-items: center; gap: 0.35rem; }
-        .ds-step-icon { width: 22px; height: 22px; display: grid; place-items: center; border-radius: var(--radius-full); background: var(--bg-3); color: var(--ink-faint); border: 1px solid var(--hairline); }
-        .ds-step-icon.ds-step-done { background: var(--success-quiet); color: var(--success); border-color: color-mix(in srgb, var(--success) 35%, transparent); }
-        .ds-step-icon.ds-step-run { background: var(--warn-quiet); color: var(--warn); border-color: color-mix(in srgb, var(--warn) 35%, transparent); }
-        .ds-step-icon.ds-step-err { background: var(--danger-quiet); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
-        .ds-step-icon.ds-step-pending { color: var(--ink-faint); }
-        .ds-step-label { font-size: 0.68rem; color: var(--ink-soft); white-space: nowrap; }
-        .ds-step-line { width: 12px; height: 1px; background: var(--hairline); }
+        .ds-step-icon { width: 22px; height: 22px; display: grid; place-items: center; border-radius: var(--radius-full); background: var(--bg-surface-3); color: var(--text-muted); border: 1px solid var(--border-subtle); }
+        .ds-step-icon.ds-step-done { background: var(--ok-soft); color: var(--ok); border-color: color-mix(in srgb, var(--ok) 35%, transparent); }
+        .ds-step-icon.ds-step-run { background: var(--warn-soft); color: var(--warn); border-color: color-mix(in srgb, var(--warn) 35%, transparent); }
+        .ds-step-icon.ds-step-err { background: var(--err-soft); color: var(--err); border-color: color-mix(in srgb, var(--err) 35%, transparent); }
+        .ds-step-icon.ds-step-pending { color: var(--text-muted); }
+        .ds-step-label { font-size: 0.68rem; color: var(--text-secondary); white-space: nowrap; }
+        .ds-step-line { width: 12px; height: 1px; background: var(--border-subtle); }
 
         /* M1:候选视频网格 */
         .ds-candidate-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.5rem; }
-        .ds-candidate-item { display: flex; flex-direction: column; gap: 0.35rem; padding: 0.45rem; background: var(--bg-1); border: 1px solid var(--hairline); border-radius: var(--radius-sm); transition: border-color 0.15s ease; }
-        .ds-candidate-item:hover { border-color: var(--hairline-strong); }
-        .ds-candidate-picked { border-color: var(--success); background: var(--success-quiet); }
-        .ds-candidate-media { aspect-ratio: 16/9; background: var(--bg-2); border-radius: var(--radius-sm); overflow: hidden; display: grid; place-items: center; }
+        .ds-candidate-item { display: flex; flex-direction: column; gap: 0.35rem; padding: 0.45rem; background: var(--bg-surface-1); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); transition: border-color 0.15s ease; }
+        .ds-candidate-item:hover { border-color: var(--text-muted); }
+        .ds-candidate-picked { border-color: var(--ok); background: var(--ok-soft); }
+        .ds-candidate-media { aspect-ratio: 16/9; background: var(--bg-surface-2); border-radius: var(--radius-sm); overflow: hidden; display: grid; place-items: center; }
         .ds-candidate-media video { width: 100%; height: 100%; object-fit: cover; }
-        .ds-candidate-placeholder { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; font-size: 0.65rem; color: var(--ink-faint); padding: 0.4rem; text-align: center; }
+        .ds-candidate-placeholder { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; font-size: 0.65rem; color: var(--text-muted); padding: 0.4rem; text-align: center; }
         .ds-candidate-info { display: flex; flex-direction: column; gap: 0.15rem; }
-        .ds-candidate-seed { font-size: 0.66rem; color: var(--ink-soft); font-family: var(--font-mono); }
-        .ds-candidate-model { font-size: 0.62rem; color: var(--ink-faint); }
-        .ds-candidate-error { font-size: 0.62rem; color: var(--danger); line-height: 1.4; }
+        .ds-candidate-seed { font-size: 0.66rem; color: var(--text-secondary); font-family: var(--font-mono); }
+        .ds-candidate-model { font-size: 0.62rem; color: var(--text-muted); }
+        .ds-candidate-error { font-size: 0.62rem; color: var(--err); line-height: 1.4; }
         .ds-candidate-actions { display: flex; gap: 0.25rem; flex-wrap: wrap; }
 
         /* CharacterTab */
         .ds-char-bar { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.8rem; }
-        .ds-char-form { display: flex; flex-direction: column; gap: 0.6rem; padding: 1rem; background: var(--bg-2); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); border-radius: var(--radius); margin-bottom: 0.8rem; }
+        .ds-char-form { display: flex; flex-direction: column; gap: 0.6rem; padding: 1rem; background: var(--bg-surface-2); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); border-radius: var(--radius-control); margin-bottom: 0.8rem; }
         .ds-char-form-title { font-size: 0.88rem; font-weight: 600; color: var(--accent); }
         .ds-char-ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
-        .ds-char-item { display: grid; grid-template-columns: 80px 1fr auto; gap: 0.8rem; padding: 0.8rem; background: var(--bg-2); border: 1px solid var(--hairline); border-radius: var(--radius); align-items: start; }
+        .ds-char-item { display: grid; grid-template-columns: 80px 1fr auto; gap: 0.8rem; padding: 0.8rem; background: var(--bg-surface-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-control); align-items: start; }
         .ds-char-ref-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.3rem; width: 80px; }
-        .ds-char-ref-thumb { aspect-ratio: 3/4; background: var(--bg-3); border: 1px solid var(--hairline); border-radius: 4px; overflow: hidden; display: grid; place-items: center; color: var(--ink3); font-size: 0.6rem; cursor: pointer; transition: border-color 0.15s ease; position: relative; }
+        .ds-char-ref-thumb { aspect-ratio: 3/4; background: var(--bg-surface-3); border: 1px solid var(--border-subtle); border-radius: 4px; overflow: hidden; display: grid; place-items: center; color: var(--text-muted); font-size: 0.6rem; cursor: pointer; transition: border-color 0.15s ease; position: relative; }
         .ds-char-ref-thumb:hover { border-color: var(--accent); }
         .ds-char-ref-thumb img { width: 100%; height: 100%; object-fit: cover; }
         .ds-char-ref-loading { color: var(--accent); animation: dsspin 1s linear infinite; }
-        .ds-char-ref-label { position: absolute; bottom: 1px; left: 1px; padding: 0.05rem 0.2rem; background: rgba(0,0,0,0.7); font-size: 0.5rem; border-radius: 2px; }
-        .ds-char-name { font-size: 0.88rem; font-weight: 600; color: var(--ink); }
-        .ds-char-desc { font-size: 0.74rem; color: var(--ink2); line-height: 1.5; margin-top: 0.25rem; }
-        .ds-char-voice { font-size: 0.7rem; color: var(--ink3); font-family: var(--font-mono); margin-top: 0.3rem; }
-        .ds-char-vp { font-size: 0.68rem; color: var(--ink3); font-family: var(--font-mono); margin-top: 0.2rem; word-break: break-all; }
+        .ds-char-ref-label { position: absolute; bottom: 1px; left: 1px; padding: 0.05rem 0.2rem; background: var(--overlay-strong); font-size: 0.5rem; border-radius: 2px; }
+        .ds-char-name { font-size: 0.88rem; font-weight: 600; color: var(--text-primary); }
+        .ds-char-desc { font-size: 0.74rem; color: var(--text-secondary); line-height: 1.5; margin-top: 0.25rem; }
+        .ds-char-voice { font-size: 0.7rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 0.3rem; }
+        .ds-char-vp { font-size: 0.68rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 0.2rem; word-break: break-all; }
         .ds-char-add { margin-left: auto; }
         .ds-char-foot { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-top: 0.4rem; }
         .ds-char-ref { position: relative; }
@@ -1262,25 +1304,25 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           align-items: center;
           gap: 0.3rem;
           padding: 0.32rem 0.55rem;
-          background: var(--bg-3);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-sm);
-          color: var(--ink2);
+          color: var(--text-secondary);
           font-size: 0.72rem;
           cursor: pointer;
           transition: all 0.15s ease;
         }
-        .ds-asset-kind-btn:hover { background: var(--bg-2); color: var(--ink); border-color: var(--hairline-strong); }
-        .ds-asset-kind-btn.active { background: var(--accent-quiet); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+        .ds-asset-kind-btn:hover { background: var(--bg-surface-2); color: var(--text-primary); border-color: var(--text-muted); }
+        .ds-asset-kind-btn.active { background: var(--accent-soft); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
         .ds-asset-search { position: relative; display: flex; align-items: center; flex: 1; min-width: 180px; max-width: 360px; }
-        .ds-asset-search .icon { position: absolute; left: 0.55rem; color: var(--ink3); pointer-events: none; }
+        .ds-asset-search .icon { position: absolute; left: 0.55rem; color: var(--text-muted); pointer-events: none; }
         .ds-asset-search-input {
           width: 100%;
           padding: 0.38rem 0.55rem 0.38rem 1.9rem;
-          background: var(--bg-3);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-sm);
-          color: var(--ink);
+          color: var(--text-primary);
           font-size: 0.8rem;
           transition: border-color 0.15s ease;
         }
@@ -1295,33 +1337,33 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           padding: 0;
           background: transparent;
           border: none;
-          color: var(--ink3);
+          color: var(--text-muted);
           cursor: pointer;
         }
-        .ds-asset-search-clear:hover { color: var(--ink); }
+        .ds-asset-search-clear:hover { color: var(--text-primary); }
         .ds-asset-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
         .ds-asset-item {
           display: grid;
           grid-template-columns: 64px 1fr auto;
           gap: 0.75rem;
           padding: 0.75rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
           align-items: start;
           transition: border-color 0.15s ease;
         }
-        .ds-asset-item:hover { border-color: var(--hairline-strong); }
+        .ds-asset-item:hover { border-color: var(--text-muted); }
         .ds-asset-thumb {
           width: 64px;
           height: 64px;
-          background: var(--bg-3);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-sm);
           overflow: hidden;
           display: grid;
           place-items: center;
-          color: var(--ink3);
+          color: var(--text-muted);
         }
         .ds-asset-thumb img { width: 100%; height: 100%; object-fit: cover; }
         .ds-asset-body { min-width: 0; display: flex; flex-direction: column; gap: 0.3rem; }
@@ -1331,7 +1373,7 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           align-items: center;
           gap: 0.2rem;
           padding: 0.1rem 0.35rem;
-          background: var(--accent-quiet);
+          background: var(--accent-soft);
           border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
           border-radius: var(--radius-sm);
           font-size: 0.62rem;
@@ -1339,74 +1381,74 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           font-weight: 600;
           text-transform: uppercase;
         }
-        .ds-asset-name { font-size: 0.9rem; font-weight: 600; color: var(--ink); }
-        .ds-asset-desc { font-size: 0.74rem; color: var(--ink2); line-height: 1.45; }
-        .ds-asset-vp { font-size: 0.68rem; color: var(--ink3); font-family: var(--font-mono); word-break: break-all; display: flex; align-items: center; gap: 0.3rem; }
+        .ds-asset-name { font-size: 0.9rem; font-weight: 600; color: var(--text-primary); }
+        .ds-asset-desc { font-size: 0.74rem; color: var(--text-secondary); line-height: 1.45; }
+        .ds-asset-vp { font-size: 0.68rem; color: var(--text-muted); font-family: var(--font-mono); word-break: break-all; display: flex; align-items: center; gap: 0.3rem; }
         .ds-asset-tags { display: flex; gap: 0.3rem; flex-wrap: wrap; }
         .ds-asset-tag {
           display: inline-flex;
           align-items: center;
           padding: 0.1rem 0.4rem;
-          background: var(--bg-3);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
           border-radius: 999px;
           font-size: 0.65rem;
-          color: var(--ink2);
+          color: var(--text-secondary);
         }
         .ds-asset-actions { display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
-        .ds-mini-btn-primary { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, transparent); background: var(--accent-quiet); }
-        .ds-mini-btn-primary:hover { background: color-mix(in srgb, var(--accent) 15%, var(--bg-3)); color: var(--accent); }
+        .ds-mini-btn-primary { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, transparent); background: var(--accent-soft); }
+        .ds-mini-btn-primary:hover { background: color-mix(in srgb, var(--accent) 15%, var(--bg-surface-3)); color: var(--accent); }
         .ds-mini-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
         /* AssembleTab */
         .ds-assemble { display: flex; flex-direction: column; gap: 0.8rem; }
-        .ds-assemble-row { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; padding: 0.8rem 1rem; background: var(--bg-2); border: 1px solid var(--hairline); border-radius: var(--radius); }
-        .ds-assemble-hint { font-size: 0.85rem; color: var(--ink2); }
-        .ds-assemble-result { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.8rem 1rem; background: var(--bg-2); border: 1px solid var(--hairline); border-radius: var(--radius); }
-        .ds-assemble-result-head { display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; font-weight: 600; color: var(--color-success); flex-wrap: wrap; }
-        .ds-assemble-dur { margin-left: auto; font-size: 0.75rem; color: var(--ink3); font-family: var(--font-mono); }
-        .ds-assemble-video { width: 100%; max-height: 60vh; border-radius: var(--radius-sm); background: #000; }
+        .ds-assemble-row { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; padding: 0.8rem 1rem; background: var(--bg-surface-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-control); }
+        .ds-assemble-hint { font-size: 0.85rem; color: var(--text-secondary); }
+        .ds-assemble-result { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.8rem 1rem; background: var(--bg-surface-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-control); }
+        .ds-assemble-result-head { display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; font-weight: 600; color: var(--ok); flex-wrap: wrap; }
+        .ds-assemble-dur { margin-left: auto; font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); }
+        .ds-assemble-video { width: 100%; max-height: 60vh; border-radius: var(--radius-sm); background: var(--bg-canvas); }
 
         /* ProcessTab + Director */
         .ds-process-section { display: flex; flex-direction: column; gap: 0.8rem; }
         .ds-process-content { display: flex; flex-direction: column; gap: 0.8rem; }
-        .ds-process-empty { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; padding: 3rem 1rem; color: var(--ink3); text-align: center; }
+        .ds-process-empty { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; padding: 3rem 1rem; color: var(--text-muted); text-align: center; }
         .ds-process-refresh { margin-left: auto; }
         .ds-process-timeline { position: relative; display: flex; flex-direction: column; gap: 0; padding-left: 1.4rem; }
-        .ds-process-rail { position: absolute; left: 7px; top: 4px; bottom: 4px; width: 2px; background: var(--hairline); }
+        .ds-process-rail { position: absolute; left: 7px; top: 4px; bottom: 4px; width: 2px; background: var(--border-subtle); }
         .ds-process-node { position: relative; padding: 0.6rem 0 1rem; }
-        .ds-process-node::before { content: ""; position: absolute; left: -1.4rem; top: 0.9rem; width: 16px; height: 16px; border-radius: 50%; background: var(--bg-3); border: 2px solid var(--ink3); }
+        .ds-process-node::before { content: ""; position: absolute; left: -1.4rem; top: 0.9rem; width: 16px; height: 16px; border-radius: 50%; background: var(--bg-surface-3); border: 2px solid var(--text-muted); }
         .ds-process-step { display: flex; align-items: center; gap: 0.4rem; font-size: 0.88rem; font-weight: 600; }
-        .ds-process-step-key { font-size: 0.7rem; color: var(--ink3); font-family: var(--font-mono); text-transform: uppercase; }
-        .ds-process-ts { font-size: 0.68rem; color: var(--ink3); font-family: var(--font-mono); }
-        .ds-process-line { font-size: 0.78rem; color: var(--ink2); margin-top: 0.2rem; line-height: 1.5; }
-        .ds-process-detail { font-size: 0.72rem; color: var(--ink3); margin-top: 0.25rem; font-family: var(--font-mono); }
+        .ds-process-step-key { font-size: 0.7rem; color: var(--text-muted); font-family: var(--font-mono); text-transform: uppercase; }
+        .ds-process-ts { font-size: 0.68rem; color: var(--text-muted); font-family: var(--font-mono); }
+        .ds-process-line { font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.2rem; line-height: 1.5; }
+        .ds-process-detail { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem; font-family: var(--font-mono); }
         .ds-process-list { margin: 0.3rem 0 0; padding-left: 1rem; display: flex; flex-direction: column; gap: 0.2rem; }
-        .ds-process-list-field { font-size: 0.72rem; color: var(--ink3); }
-        .ds-process-list-name { color: var(--ink2); font-weight: 500; }
-        .ds-process-list-group { font-size: 0.7rem; color: var(--ink3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 0.3rem; }
-        .ds-process-list-title { font-size: 0.82rem; font-weight: 600; color: var(--ink); margin-top: 0.4rem; }
-        .ds-process-list-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.72rem; color: var(--ink2); }
+        .ds-process-list-field { font-size: 0.72rem; color: var(--text-muted); }
+        .ds-process-list-name { color: var(--text-secondary); font-weight: 500; }
+        .ds-process-list-group { font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 0.3rem; }
+        .ds-process-list-title { font-size: 0.82rem; font-weight: 600; color: var(--text-primary); margin-top: 0.4rem; }
+        .ds-process-list-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.72rem; color: var(--text-secondary); }
         .ds-process-list-field-scale { color: var(--accent); font-family: var(--font-mono); }
         .ds-process-toolbar { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
-        .ds-process-toolbar-label { font-size: 0.68rem; color: var(--ink3); font-weight: 600; text-transform: uppercase; align-self: center; }
+        .ds-process-toolbar-label { font-size: 0.68rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; align-self: center; }
         .ds-process-toolbar-row { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
         .ds-process-slider { flex: 1; min-width: 120px; accent-color: var(--accent); }
         .ds-process-prop { display: flex; flex-direction: column; gap: 0.25rem; }
-        .ds-process-prop-input { padding: 0.3rem 0.45rem; background: var(--bg-3); border: 1px solid var(--hairline); border-radius: var(--radius-sm); color: var(--ink); font-size: 0.74rem; width: 100%; }
-        .ds-process-canvas { background: var(--bg-2); border: 1px solid var(--hairline); border-radius: var(--radius); padding: 1rem; min-height: 300px; position: relative; }
-        .ds-process-canvas-empty { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; padding: 3rem 1rem; color: var(--ink3); text-align: center; }
-        .ds-process-loading { display: flex; align-items: center; gap: 0.5rem; padding: 2rem; color: var(--ink3); justify-content: center; }
+        .ds-process-prop-input { padding: 0.3rem 0.45rem; background: var(--bg-surface-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.74rem; width: 100%; }
+        .ds-process-canvas { background: var(--bg-surface-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-control); padding: 1rem; min-height: 300px; position: relative; }
+        .ds-process-canvas-empty { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; padding: 3rem 1rem; color: var(--text-muted); text-align: center; }
+        .ds-process-loading { display: flex; align-items: center; gap: 0.5rem; padding: 2rem; color: var(--text-muted); justify-content: center; }
         .ds-process-empty-hint { font-size: 0.78rem; }
         .ds-process-actor-chips { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-top: 0.4rem; }
-        .ds-process-actor { padding: 0.18rem 0.5rem; background: var(--bg-3); border: 1px solid var(--hairline); border-radius: 999px; font-size: 0.7rem; color: var(--ink2); }
+        .ds-process-actor { padding: 0.18rem 0.5rem; background: var(--bg-surface-3); border: 1px solid var(--border-subtle); border-radius: 999px; font-size: 0.7rem; color: var(--text-secondary); }
         .ds-director-panel { display: flex; flex-direction: column; gap: 0.7rem; }
         .ds-director-head { display: flex; align-items: center; gap: 0.5rem; }
-        .ds-director-hint { font-size: 0.72rem; color: var(--ink3); line-height: 1.5; }
+        .ds-director-hint { font-size: 0.72rem; color: var(--text-muted); line-height: 1.5; }
         .ds-director-foot { display: flex; gap: 0.4rem; margin-top: 0.4rem; flex-wrap: wrap; }
-        .ds-director-genref { padding: 0.25rem 0.5rem; background: var(--bg-3); border: 1px solid var(--hairline); border-radius: var(--radius-sm); color: var(--ink2); font-size: 0.72rem; }
-        .ds-director-notes { font-size: 0.74rem; color: var(--ink2); line-height: 1.5; }
-        .ds-director-mark-name { font-size: 0.8rem; font-weight: 600; color: var(--ink); }
+        .ds-director-genref { padding: 0.25rem 0.5rem; background: var(--bg-surface-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); color: var(--text-secondary); font-size: 0.72rem; }
+        .ds-director-notes { font-size: 0.74rem; color: var(--text-secondary); line-height: 1.5; }
+        .ds-director-mark-name { font-size: 0.8rem; font-weight: 600; color: var(--text-primary); }
 
         .studio-shell {
           position: relative;
@@ -1421,8 +1463,8 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
             "topbar topbar"
             "sidebar main"
             "filmstrip filmstrip";
-          background: var(--bg-1);
-          color: var(--ink);
+          background: var(--bg-surface-1);
+          color: var(--text-primary);
           font-size: 14px;
           transition: grid-template-rows 0.25s ease;
         }
@@ -1442,8 +1484,8 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           inset: 0;
           pointer-events: none;
           background:
-            radial-gradient(ellipse 80% 50% at 50% -10%, rgba(245,158,11,0.06), transparent 60%),
-            radial-gradient(ellipse 60% 40% at 85% 90%, rgba(59,130,246,0.04), transparent 50%);
+            radial-gradient(ellipse 80% 50% at 50% -10%, var(--accent-soft), transparent 60%),
+            radial-gradient(ellipse 60% 40% at 85% 90%, var(--accent-soft), transparent 50%);
           z-index: 0;
         }
 
@@ -1457,8 +1499,8 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           justify-content: space-between;
           gap: 1rem;
           padding: 0 1.1rem;
-          border-bottom: 1px solid var(--hairline);
-          background: var(--bg-1);
+          border-bottom: 1px solid var(--border-subtle);
+          background: var(--bg-surface-1);
           backdrop-filter: blur(12px);
         }
         .brand {
@@ -1469,13 +1511,13 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
         .brand-mark {
           width: 32px;
           height: 32px;
-          border-radius: var(--radius);
+          border-radius: var(--radius-control);
           background: linear-gradient(135deg, var(--accent), var(--accent-hover));
           display: grid;
           place-items: center;
           font-weight: 800;
           font-size: 12px;
-          color: var(--color-text-inverse);
+          color: var(--bg-canvas);
           box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 30%, transparent);
         }
         .brand-text {
@@ -1484,7 +1526,7 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           line-height: 1.1;
         }
         .brand-name { font-size: 1rem; font-weight: 700; letter-spacing: -0.02em; }
-        .brand-sub { font-size: 0.65rem; color: var(--ink2); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; }
+        .brand-sub { font-size: 0.65rem; color: var(--text-secondary); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; }
         .topbar-right {
           display: flex;
           align-items: center;
@@ -1499,7 +1541,7 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
         .studio-title {
           font-size: 0.95rem;
           font-weight: 600;
-          color: var(--ink);
+          color: var(--text-primary);
           letter-spacing: 0.02em;
         }
         .status-pill {
@@ -1507,19 +1549,19 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           align-items: center;
           gap: 0.4rem;
           padding: 0.32rem 0.7rem;
-          background: var(--bg-3);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
           border-radius: 999px;
           font-size: 0.72rem;
-          color: var(--ink2);
+          color: var(--text-secondary);
           font-family: var(--font-mono);
         }
         .status-pill .led {
           width: 6px;
           height: 6px;
           border-radius: 50%;
-          background: var(--color-success);
-          box-shadow: 0 0 8px var(--color-success);
+          background: var(--ok);
+          box-shadow: 0 0 8px var(--ok);
         }
         /* P0-2:autorun 后台管线进度指示(顶栏) */
         .autorun-pill {
@@ -1527,8 +1569,8 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           align-items: center;
           gap: 0.4rem;
           padding: 0.32rem 0.7rem;
-          background: color-mix(in srgb, var(--accent) 15%, var(--bg-3));
-          border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--hairline));
+          background: color-mix(in srgb, var(--accent) 15%, var(--bg-surface-3));
+          border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border-subtle));
           border-radius: 999px;
           font-size: 0.72rem;
           color: var(--accent);
@@ -1539,15 +1581,15 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
-          color: var(--ink2);
+          color: var(--text-secondary);
         }
         .task-pill {
           display: inline-flex;
           align-items: center;
           gap: 0.35rem;
           padding: 0.3rem 0.65rem;
-          background: color-mix(in srgb, var(--accent) 15%, var(--bg-3));
-          border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--hairline));
+          background: color-mix(in srgb, var(--accent) 15%, var(--bg-surface-3));
+          border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border-subtle));
           border-radius: 999px;
           font-size: 0.7rem;
           color: var(--accent);
@@ -1565,7 +1607,7 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           font: inherit;
         }
         .task-pill-btn:hover {
-          background: color-mix(in srgb, var(--accent) 25%, var(--bg-3));
+          background: color-mix(in srgb, var(--accent) 25%, var(--bg-surface-3));
         }
         .task-pill-btn.is-open {
           border-bottom-left-radius: 6px;
@@ -1581,11 +1623,11 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           right: 0;
           min-width: 220px;
           z-index: 60;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline-strong);
-          border-radius: var(--radius);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--text-muted);
+          border-radius: var(--radius-control);
           border-top-right-radius: 6px;
-          box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+          box-shadow: var(--shadow-float);
           overflow: hidden;
           animation: td-fade 0.15s ease;
         }
@@ -1594,10 +1636,10 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           padding: 0.5rem 0.7rem;
           font-size: 0.66rem;
           font-weight: 600;
-          color: var(--ink3);
+          color: var(--text-muted);
           text-transform: uppercase;
           letter-spacing: 0.06em;
-          border-bottom: 1px solid var(--hairline);
+          border-bottom: 1px solid var(--border-subtle);
         }
         .task-dropdown-list {
           list-style: none;
@@ -1613,10 +1655,10 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           gap: 0.5rem;
           padding: 0.45rem 0.55rem;
           font-size: 0.78rem;
-          color: var(--ink);
+          color: var(--text-primary);
           border-radius: var(--radius-sm);
         }
-        .task-dropdown-item:hover { background: var(--bg-3); }
+        .task-dropdown-item:hover { background: var(--bg-surface-3); }
         .task-dropdown-dot {
           width: 6px;
           height: 6px;
@@ -1637,38 +1679,38 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           margin-left: auto;
           font-size: 0.62rem;
           font-weight: 700;
-          color: var(--color-text-inverse);
+          color: var(--bg-canvas);
           background: var(--accent);
           border-radius: 8px;
           font-family: var(--font-mono);
         }
         .task-dropdown-head-done {
-          border-top: 1px solid var(--hairline);
+          border-top: 1px solid var(--border-subtle);
           border-bottom: none;
-          color: var(--ink3);
+          color: var(--text-muted);
           opacity: 0.85;
         }
         .task-dropdown-item-done {
-          color: var(--ink3);
+          color: var(--text-muted);
           opacity: 0.8;
         }
         .task-dropdown-item-done .task-dropdown-label { flex: 1; }
         .task-dropdown-time {
           margin-left: auto;
           font-size: 0.62rem;
-          color: var(--ink3);
+          color: var(--text-muted);
           font-family: var(--font-mono);
           opacity: 0.7;
         }
         .task-dropdown-empty {
-          color: var(--ink3);
+          color: var(--text-muted);
           opacity: 0.6;
           font-style: italic;
         }
         .task-dropdown-label { flex: 1; font-weight: 500; }
         .task-dropdown-detail {
           font-size: 0.68rem;
-          color: var(--ink3);
+          color: var(--text-muted);
           font-family: var(--font-mono);
           max-width: 100px;
           overflow: hidden;
@@ -1681,7 +1723,7 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           width: 32px;
           height: 32px;
           border-radius: 50%;
-          background: var(--accent-quiet);
+          background: var(--accent-soft);
           border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
           color: var(--accent);
           cursor: pointer;
@@ -1699,8 +1741,8 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           flex-direction: column;
           gap: 0.4rem;
           padding: 0.7rem 0.5rem;
-          border-right: 1px solid var(--hairline);
-          background: var(--bg-2);
+          border-right: 1px solid var(--border-subtle);
+          background: var(--bg-surface-2);
         }
         .stage-item {
           display: flex;
@@ -1712,7 +1754,7 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           border: 1px solid transparent;
           border-radius: var(--radius-sm);
           /* ink3 对比度仅 ~2.7:1,阶段按钮为交互文本须过 WCAG AA 4.5:1 → 用 ink2(~5.6:1) */
-          color: var(--ink2);
+          color: var(--text-secondary);
           font-size: 0.62rem;
           font-weight: 600;
           text-transform: uppercase;
@@ -1721,10 +1763,10 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           transition: all 0.18s ease;
           position: relative;
         }
-        .stage-item:hover { color: var(--ink); background: rgba(255,255,255,0.04); }
+        .stage-item:hover { color: var(--text-primary); background: var(--bg-surface-2); }
         .stage-item.active {
           color: var(--accent);
-          background: var(--accent-quiet);
+          background: var(--accent-soft);
           border-color: color-mix(in srgb, var(--accent) 35%, transparent);
         }
         .stage-item.active::before {
@@ -1773,13 +1815,51 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           justify-content: space-between;
           gap: 1rem;
           padding: 1.25rem;
-          background: linear-gradient(135deg, rgba(245,158,11,0.08), rgba(59,130,246,0.05));
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius);
+          background: linear-gradient(135deg, var(--accent-soft), transparent);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
         }
-        .hero-text h1 { margin: 0 0 0.35rem; font-family: var(--font-display); font-size: 1.6rem; font-weight: 600; }
-        .hero-text p { margin: 0; color: var(--ink2); font-size: 0.85rem; max-width: 520px; line-height: 1.55; }
+        .hero-text h1 { margin: 0 0 0.35rem; font-family: var(--font-sans); font-size: 1.6rem; font-weight: 600; }
+        .hero-text p { margin: 0; color: var(--text-secondary); font-size: 0.85rem; max-width: 520px; line-height: 1.55; }
         .hero-actions { display: flex; gap: 0.5rem; }
+        /* 首页分区页签:短剧项目 / 动态分镜 */
+        .hub-tabs {
+          display: inline-flex;
+          align-items: center;
+          gap: 2px;
+          align-self: flex-start;
+          padding: 3px;
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+        }
+        .hub-tab {
+          display: inline-flex;
+          align-items: center;
+          gap: var(--space-2);
+          padding: var(--space-2) var(--space-4);
+          border-radius: var(--radius-sm);
+          color: var(--text-secondary);
+          font-size: var(--text-sm);
+          font-weight: 500;
+          cursor: pointer;
+          transition: background-color var(--duration-fast) var(--ease-standard),
+                      color var(--duration-fast) var(--ease-standard);
+        }
+        .hub-tab:hover {
+          background: var(--bg-surface-2);
+          color: var(--text-primary);
+        }
+        .hub-tab.active {
+          background: var(--accent-soft);
+          color: var(--accent);
+        }
+        .hub-animatic {
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-panel);
+          background: var(--bg-surface-1);
+          overflow: hidden;
+        }
         .section-head {
           display: flex;
           align-items: center;
@@ -1802,27 +1882,27 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           gap: 0.25rem;
           width: 180px;
           padding: 0.85rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
           border-left: 3px solid var(--chip-accent, var(--accent));
           border-radius: var(--radius-sm);
           cursor: pointer;
           transition: all 0.18s ease;
         }
-        .skill-chip:hover { background: var(--bg-3); border-color: var(--hairline-strong); transform: translateY(-2px); }
+        .skill-chip:hover { background: var(--bg-surface-3); border-color: var(--text-muted); transform: translateY(-2px); }
         .skill-chip b { font-size: 0.86rem; }
         /* ink3 ~2.7:1 不达 AA,卡片描述文本提升为 ink2 */
-        .skill-chip span { font-size: 0.72rem; color: var(--ink2); }
+        .skill-chip span { font-size: 0.72rem; color: var(--text-secondary); }
         .skill-chip .shots { font-size: 0.66rem; color: var(--accent); font-family: var(--font-mono); margin-top: 0.15rem; }
         .tag {
           display: inline-flex;
           align-items: center;
           gap: 0.25rem;
           padding: 0.15rem 0.5rem;
-          background: rgba(255,255,255,0.05);
+          background: var(--bg-surface-2);
           border-radius: var(--radius-sm);
           font-size: 0.7rem;
-          color: var(--ink2);
+          color: var(--text-secondary);
         }
         .project-grid {
           display: grid;
@@ -1835,26 +1915,26 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           flex-direction: column;
           gap: 0.5rem;
           padding: 0.85rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
           cursor: pointer;
           transition: all 0.18s ease;
           overflow: hidden;
         }
-        .project-card:hover { border-color: var(--hairline-strong); background: var(--bg-3); transform: translateY(-2px); }
-        .project-card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset, 0 8px 24px -12px rgba(245,158,11,0.2); }
+        .project-card:hover { border-color: var(--text-muted); background: var(--bg-surface-3); transform: translateY(-2px); }
+        .project-card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset, 0 8px 24px -12px var(--accent-glow); }
         .proj-thumb {
           aspect-ratio: 16/9;
-          background: var(--bg-3);
+          background: var(--bg-surface-3);
           border-radius: var(--radius-sm);
           display: grid;
           place-items: center;
-          color: var(--ink3);
+          color: var(--text-muted);
         }
         .proj-title { font-weight: 600; font-size: 0.95rem; }
-        .proj-premise { font-size: 0.72rem; color: var(--ink2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-        .proj-meta { display: flex; align-items: center; gap: 0.4rem; font-size: 0.7rem; color: var(--ink2); }
+        .proj-premise { font-size: 0.72rem; color: var(--text-secondary); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .proj-meta { display: flex; align-items: center; gap: 0.4rem; font-size: 0.7rem; color: var(--text-secondary); }
         .proj-status {
           display: inline-flex;
           align-items: center;
@@ -1865,9 +1945,9 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           font-weight: 600;
           font-family: var(--font-mono);
         }
-        .proj-status.ready { background: color-mix(in srgb, var(--color-success) 12%, transparent); color: var(--color-success); }
-        .proj-status.draft { background: var(--bg-2); color: var(--ink2); }
-        .proj-status.story { background: var(--accent-quiet); color: var(--accent); }
+        .proj-status.ready { background: color-mix(in srgb, var(--ok) 12%, transparent); color: var(--ok); }
+        .proj-status.draft { background: var(--bg-surface-2); color: var(--text-secondary); }
+        .proj-status.story { background: var(--accent-soft); color: var(--accent); }
         .proj-del {
           position: absolute;
           top: 8px;
@@ -1876,27 +1956,27 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           align-items: center;
           gap: 0.2rem;
           padding: 0.2rem 0.4rem;
-          background: var(--bg-3);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-sm);
-          color: var(--ink3);
+          color: var(--text-muted);
           font-size: 0.65rem;
           opacity: 0;
           transition: opacity 0.18s ease;
           cursor: pointer;
         }
         .project-card:hover .proj-del { opacity: 1; }
-        .proj-del:hover { color: var(--danger); border-color: var(--danger); }
+        .proj-del:hover { color: var(--err); border-color: var(--err); }
         .hub-loading, .hub-error, .hub-empty {
           display: flex;
           flex-direction: column;
           align-items: center;
           gap: 0.6rem;
           padding: 3rem 1rem;
-          color: var(--ink3);
+          color: var(--text-muted);
           text-align: center;
         }
-        .hub-error { color: var(--danger); }
+        .hub-error { color: var(--err); }
 
         /* ── Workspace View ── */
         .workspace-view {
@@ -1913,32 +1993,32 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           justify-content: space-between;
           gap: 1rem;
           padding: 0.85rem 1rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
         }
         .workspace-title { display: flex; flex-direction: column; gap: 0.35rem; }
-        .workspace-title h2 { margin: 0; font-family: var(--font-display); font-size: 1.25rem; font-weight: 600; }
+        .workspace-title h2 { margin: 0; font-family: var(--font-sans); font-size: 1.25rem; font-weight: 600; }
         .workspace-meta { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
-        .workspace-meta .spec { font-size: 0.72rem; color: var(--ink3); font-family: var(--font-mono); }
-        .workspace-meta .time { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.72rem; color: var(--ink3); font-family: var(--font-mono); }
+        .workspace-meta .spec { font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); }
+        .workspace-meta .time { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); }
         .workspace-actions { display: flex; align-items: center; gap: 0.5rem; }
         .edit-panel {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
           gap: 0.7rem;
           padding: 0.85rem 1rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
         }
         .edit-error {
           grid-column: 1 / -1;
           padding: 0.5rem 0.7rem;
-          background: var(--danger-quiet);
-          border: 1px solid var(--danger);
+          background: var(--err-soft);
+          border: 1px solid var(--err);
           border-radius: var(--radius-sm);
-          color: var(--danger);
+          color: var(--err);
           font-size: 0.8rem;
         }
         .workspace-body {
@@ -1991,15 +2071,15 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           height: 44px;
           display: grid;
           place-items: center;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
           border-radius: 4px 0 0 4px;
-          color: var(--ink3);
+          color: var(--text-muted);
           cursor: pointer;
           transition: all 0.2s ease;
         }
         .panel-toggle:hover {
-          background: var(--bg-3);
+          background: var(--bg-surface-3);
           color: var(--accent);
           border-color: color-mix(in srgb, var(--accent) 35%, transparent);
         }
@@ -2008,39 +2088,39 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           border-radius: 4px 0 0 4px;
         }
         .r-panel {
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
           padding: 0.85rem;
         }
         .r-panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.7rem; }
-        .r-panel-head h4 { margin: 0; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink2); }
+        .r-panel-head h4 { margin: 0; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); }
         .r-prop { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.55rem; }
-        .r-prop label { font-size: 0.68rem; color: var(--ink3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
-        .r-prop .r-val { font-size: 0.84rem; color: var(--ink); word-break: break-word; }
-        .r-prop .r-val.mono { font-family: var(--font-mono); color: var(--ink2); font-size: 0.76rem; }
+        .r-prop label { font-size: 0.68rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+        .r-prop .r-val { font-size: 0.84rem; color: var(--text-primary); word-break: break-word; }
+        .r-prop .r-val.mono { font-family: var(--font-mono); color: var(--text-secondary); font-size: 0.76rem; }
         .r-prop.compact { flex-direction: row; align-items: center; gap: 0.5rem; }
         .r-prop.compact label { margin: 0; }
         .r-prop input, .r-prop select, .r-prop textarea {
           width: 100%;
           padding: 0.4rem 0.55rem;
-          background: var(--bg-3);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-sm);
           font-size: 0.82rem;
-          color: var(--ink);
+          color: var(--text-primary);
         }
         .r-prop input:focus, .r-prop select:focus, .r-prop textarea:focus { outline: none; border-color: var(--accent); }
         .prop-row { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
-        .prop-row span { font-size: 0.68rem; color: var(--ink3); font-weight: 600; }
+        .prop-row span { font-size: 0.68rem; color: var(--text-muted); font-weight: 600; }
         .prop-row input, .prop-row textarea {
           width: 100%;
           padding: 0.45rem 0.55rem;
-          background: var(--bg-3);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-sm);
           font-size: 0.84rem;
-          color: var(--ink);
+          color: var(--text-primary);
         }
         .prop-row textarea { resize: vertical; min-height: 80px; }
         .workspace-empty {
@@ -2050,10 +2130,10 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           justify-content: center;
           gap: 0.8rem;
           height: 100%;
-          color: var(--ink3);
+          color: var(--text-muted);
           padding: 2rem;
         }
-        .workspace-empty-title { font-size: 1.1rem; color: var(--ink); }
+        .workspace-empty-title { font-size: 1.1rem; color: var(--text-primary); }
         .workspace-empty .ds-new-panel {
           width: min(720px, 100%);
           margin: 0 auto;
@@ -2067,9 +2147,9 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           flex-direction: column;
           gap: 0.7rem;
           padding: 1.1rem 1.25rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
         }
         .ds-panel-head {
           display: flex;
@@ -2077,7 +2157,7 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           gap: 0.45rem;
           font-size: 1rem;
           font-weight: 600;
-          color: var(--ink);
+          color: var(--text-primary);
           margin-bottom: 0.2rem;
         }
         .ds-field {
@@ -2088,7 +2168,7 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
         }
         .ds-field-label {
           font-size: 0.7rem;
-          color: var(--ink2);
+          color: var(--text-secondary);
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.05em;
@@ -2097,11 +2177,11 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
         .ds-field .ds-textarea {
           width: 100%;
           padding: 0.55rem 0.7rem;
-          background: var(--bg-3);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-sm);
           font-size: 0.88rem;
-          color: var(--ink);
+          color: var(--text-primary);
           transition: border-color 0.15s ease;
         }
         .ds-field .ds-input:focus,
@@ -2115,23 +2195,23 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
         .ds-field-row .ds-input { text-align: center; }
         .ds-error-inline {
           padding: 0.55rem 0.75rem;
-          background: var(--danger-quiet);
-          border: 1px solid var(--danger);
+          background: var(--err-soft);
+          border: 1px solid var(--err);
           border-radius: var(--radius-sm);
-          color: var(--danger);
+          color: var(--err);
           font-size: 0.82rem;
         }
 
         /* ── L3 批量精修面板 ── */
         .ds-batch-polish-btn {
           margin-left: auto;
-          background: linear-gradient(135deg, #1f1c19, #2a2520);
+          background: linear-gradient(135deg, var(--bg-surface-1), var(--bg-surface-2));
           color: var(--accent);
-          border: 1px solid rgba(217, 164, 65, 0.4);
+          border: 1px solid var(--accent-glow);
           letter-spacing: 0.04em;
         }
         .ds-batch-polish-btn:hover:not(:disabled) {
-          background: linear-gradient(135deg, #2a2520, #352d24);
+          background: linear-gradient(135deg, var(--bg-surface-2), var(--bg-surface-3));
           border-color: var(--accent);
         }
         /* M2.1:ShotTab 批量操作工具栏 */
@@ -2141,8 +2221,8 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           gap: 0.5rem;
           padding: 0.5rem 0.7rem;
           margin-bottom: 0.6rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-sm);
         }
         .ds-batch-count {
@@ -2155,7 +2235,7 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           margin-left: 0.35rem;
           font-size: 0.68rem;
           font-weight: 600;
-          color: var(--color-text-inverse);
+          color: var(--bg-canvas);
           background: var(--accent);
           border-radius: 9px;
           font-family: var(--font-mono);
@@ -2163,9 +2243,9 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
         .ds-batch-polish-panel {
           padding: 0.85rem 1rem;
           margin-bottom: 0.8rem;
-          background: linear-gradient(135deg, rgba(217, 164, 65, 0.04), transparent);
-          border: 1px solid rgba(217, 164, 65, 0.25);
-          border-radius: var(--radius);
+          background: linear-gradient(135deg, var(--accent-soft), transparent);
+          border: 1px solid var(--accent-glow);
+          border-radius: var(--radius-control);
         }
         .ds-batch-polish-head {
           display: flex;
@@ -2186,8 +2266,8 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           margin-left: 0.5rem;
           padding: 0.1rem 0.4rem;
           font-size: 0.68rem;
-          color: var(--ink3);
-          background: var(--hairline);
+          color: var(--text-muted);
+          background: var(--border-subtle);
           border-radius: var(--radius-sm);
           font-weight: 400;
           letter-spacing: 0;
@@ -2200,7 +2280,7 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
         .ds-batch-polish-bar-bg {
           flex: 1;
           height: 6px;
-          background: var(--hairline);
+          background: var(--border-subtle);
           border-radius: 3px;
           overflow: hidden;
         }
@@ -2215,12 +2295,12 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           align-items: center;
           gap: 0.5rem;
           font-size: 0.82rem;
-          color: var(--ink2);
+          color: var(--text-secondary);
           font-variant-numeric: tabular-nums;
           white-space: nowrap;
         }
         .ds-batch-polish-status {
-          color: var(--ink3);
+          color: var(--text-muted);
           font-size: 0.75rem;
         }
         .ds-batch-polish-summary {
@@ -2229,16 +2309,16 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           margin-top: 0.6rem;
           font-size: 0.82rem;
         }
-        .ds-batch-ok { color: var(--color-success); }
-        .ds-batch-fail { color: var(--danger); }
+        .ds-batch-ok { color: var(--ok); }
+        .ds-batch-fail { color: var(--err); }
         .ds-batch-polish-errors {
           margin-top: 0.6rem;
           font-size: 0.78rem;
-          color: var(--ink3);
+          color: var(--text-muted);
         }
         .ds-batch-polish-errors summary {
           cursor: pointer;
-          color: var(--danger);
+          color: var(--err);
           user-select: none;
         }
         .ds-batch-polish-errors ul {
@@ -2254,7 +2334,7 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           gap: 0.1rem;
         }
         .ds-batch-polish-errors li strong {
-          color: var(--ink2);
+          color: var(--text-secondary);
           font-size: 0.75rem;
         }
         .ds-form-actions {
@@ -2277,25 +2357,25 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           flex: 1;
           display: grid;
           place-items: center;
-          background: #000;
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius);
+          background: var(--bg-canvas);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
           overflow: hidden;
         }
         .cinema-screen video { width: 100%; height: 100%; object-fit: contain; }
-        .cinema-placeholder { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; color: var(--ink3); }
+        .cinema-placeholder { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; color: var(--text-muted); }
         .cinema-info {
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 1rem;
           padding: 0.85rem 1rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
         }
         .cinema-title { font-size: 1.1rem; font-weight: 600; }
-        .cinema-meta { font-size: 0.74rem; color: var(--ink3); font-family: var(--font-mono); }
+        .cinema-meta { font-size: 0.74rem; color: var(--text-muted); font-family: var(--font-mono); }
         .cinema-actions { display: flex; gap: 0.5rem; }
 
         /* ── 通用:ds-section / ds-spin / ds-empty ── */
@@ -2309,9 +2389,9 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           gap: 0.8rem;
         }
         .ds-section.card {
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
           padding: 1rem;
         }
         .ds-section-head {
@@ -2323,7 +2403,7 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
         .ds-section-title {
           font-size: 0.92rem;
           font-weight: 600;
-          color: var(--ink);
+          color: var(--text-primary);
           display: inline-flex;
           align-items: center;
           gap: 0.4rem;
@@ -2335,7 +2415,7 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           min-width: 22px;
           height: 20px;
           padding: 0 0.45rem;
-          background: var(--accent-quiet);
+          background: var(--accent-soft);
           border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
           border-radius: 999px;
           font-size: 0.68rem;
@@ -2346,7 +2426,7 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
         .ds-section-hint {
           margin-left: auto;
           font-size: 0.72rem;
-          color: var(--ink3);
+          color: var(--text-muted);
           font-family: var(--font-mono);
         }
         .ds-empty {
@@ -2356,7 +2436,7 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           justify-content: center;
           gap: 0.6rem;
           padding: 2rem 1rem;
-          color: var(--ink3);
+          color: var(--text-muted);
           text-align: center;
         }
         .ds-empty-inline {
@@ -2367,10 +2447,10 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
         .ds-input, .ds-textarea {
           width: 100%;
           padding: 0.45rem 0.6rem;
-          background: var(--bg-3);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-sm);
-          color: var(--ink);
+          color: var(--text-primary);
           font-size: 0.84rem;
           transition: border-color 0.15s ease;
         }
@@ -2383,7 +2463,7 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
         .ds-field-sm { max-width: 110px; }
         .ds-field-label {
           font-size: 0.68rem;
-          color: var(--ink3);
+          color: var(--text-muted);
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.05em;
@@ -2406,10 +2486,10 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           flex-direction: column;
           gap: 0.3rem;
           padding: 0.4rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline-strong);
-          border-radius: var(--radius);
-          box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--text-muted);
+          border-radius: var(--radius-control);
+          box-shadow: var(--shadow-xl);
           min-width: 180px;
         }
         .ds-grid-pick {
@@ -2420,24 +2500,24 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           background: transparent;
           border: 1px solid transparent;
           border-radius: var(--radius-sm);
-          color: var(--ink);
+          color: var(--text-primary);
           cursor: pointer;
           text-align: left;
           transition: all 0.15s ease;
         }
-        .ds-grid-pick:hover { background: var(--bg-3); border-color: color-mix(in srgb, var(--accent) 35%, transparent); color: var(--accent); }
+        .ds-grid-pick:hover { background: var(--bg-surface-3); border-color: color-mix(in srgb, var(--accent) 35%, transparent); color: var(--accent); }
         .ds-grid-pick span { display: flex; flex-direction: column; gap: 0.1rem; }
         .ds-grid-pick strong { font-size: 0.85rem; font-weight: 600; }
-        .ds-grid-pick em { font-size: 0.68rem; color: var(--ink3); font-style: normal; }
+        .ds-grid-pick em { font-size: 0.68rem; color: var(--text-muted); font-style: normal; }
         .ds-script-preview {
-          border-top: 1px solid var(--hairline);
+          border-top: 1px solid var(--border-subtle);
           padding-top: 0.7rem;
           margin-top: 0.2rem;
         }
         .ds-script-preview summary {
           cursor: pointer;
           font-size: 0.78rem;
-          color: var(--ink2);
+          color: var(--text-secondary);
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.05em;
@@ -2447,10 +2527,10 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
         .ds-script-pre {
           width: 100%;
           padding: 0.7rem 0.8rem;
-          background: var(--bg-3);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-sm);
-          color: var(--ink);
+          color: var(--text-primary);
           font-size: 0.85rem;
           line-height: 1.65;
           font-family: var(--font-sans);
@@ -2465,15 +2545,15 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           justify-content: center;
           gap: 0.6rem;
           padding: 2rem;
-          color: var(--ink3);
+          color: var(--text-muted);
         }
         .ds-grid-image {
           display: grid;
           gap: 2px;
-          border-radius: var(--radius);
+          border-radius: var(--radius-control);
           overflow: hidden;
-          background: var(--bg-1);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
         }
         .ds-grid-img {
           width: 100%;
@@ -2494,8 +2574,8 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           display: flex;
           gap: 0.5rem;
           padding: 0.6rem 0.7rem;
-          background: var(--bg-3);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-sm);
         }
         .ds-grid-shot-idx {
@@ -2504,7 +2584,7 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           height: 22px;
           display: grid;
           place-items: center;
-          background: var(--accent-quiet);
+          background: var(--accent-soft);
           color: var(--accent);
           font-size: 0.7rem;
           font-weight: 700;
@@ -2512,8 +2592,8 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           border-radius: 4px;
         }
         .ds-grid-shot-body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 0.2rem; }
-        .ds-grid-shot-scene { font-size: 0.82rem; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .ds-grid-shot-prompt { margin: 0; font-size: 0.72rem; color: var(--ink2); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .ds-grid-shot-scene { font-size: 0.82rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ds-grid-shot-prompt { margin: 0; font-size: 0.72rem; color: var(--text-secondary); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
         /* ── ShotTab:分镜板 ── */
         .ds-shots-section { padding: 1rem 0; }
@@ -2531,13 +2611,13 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           display: flex;
           flex-direction: column;
           gap: 0.6rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
           padding: 0.8rem;
           transition: border-color 0.18s ease;
         }
-        .ds-shot-card:hover { border-color: var(--hairline-strong); }
+        .ds-shot-card:hover { border-color: var(--text-muted); }
         .ds-shot-head {
           display: flex;
           align-items: center;
@@ -2559,67 +2639,67 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           align-items: center;
           gap: 0.25rem;
           padding: 0.15rem 0.45rem;
-          background: var(--bg-3);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-sm);
           font-size: 0.66rem;
-          color: var(--ink2);
+          color: var(--text-secondary);
           font-family: var(--font-mono);
         }
         .ds-shot-tag-speaker {
-          background: var(--accent-quiet);
+          background: var(--accent-soft);
           border-color: color-mix(in srgb, var(--accent) 35%, transparent);
           color: var(--accent);
         }
         .ds-shot-media {
           aspect-ratio: 16/9;
-          background: var(--bg-1);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-sm);
           overflow: hidden;
           display: grid;
           place-items: center;
-          color: var(--ink3);
+          color: var(--text-muted);
           position: relative;
         }
         .ds-shot-media video, .ds-shot-media img { width: 100%; height: 100%; object-fit: cover; }
         .ds-shot-placeholder { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; font-size: 0.72rem; }
         .ds-shot-body { display: flex; flex-direction: column; gap: 0.4rem; }
-        .ds-shot-scene { font-size: 0.85rem; font-weight: 600; color: var(--ink); }
-        .ds-shot-prompt { font-size: 0.76rem; color: var(--ink2); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-        .ds-shot-dialogue { font-size: 0.74rem; color: var(--ink3); font-style: italic; padding: 0.3rem 0.5rem; background: var(--bg-3); border-radius: var(--radius-sm); border-left: 2px solid color-mix(in srgb, var(--accent) 35%, transparent); }
-        .ds-shot-audio, .ds-shot-voice { display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; color: var(--ink2); }
+        .ds-shot-scene { font-size: 0.85rem; font-weight: 600; color: var(--text-primary); }
+        .ds-shot-prompt { font-size: 0.76rem; color: var(--text-secondary); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+        .ds-shot-dialogue { font-size: 0.74rem; color: var(--text-muted); font-style: italic; padding: 0.3rem 0.5rem; background: var(--bg-surface-3); border-radius: var(--radius-sm); border-left: 2px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+        .ds-shot-audio, .ds-shot-voice { display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; color: var(--text-secondary); }
         .ds-shot-actions { display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
-        .ds-shot-edit { display: flex; flex-direction: column; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--hairline); }
+        .ds-shot-edit { display: flex; flex-direction: column; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border-subtle); }
         .ds-shot-edit-actions { display: flex; gap: 0.3rem; flex-wrap: wrap; }
         .ds-shot-video { width: 100%; }
         .ds-model-row { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
-        .ds-model-label { font-size: 0.68rem; color: var(--ink3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+        .ds-model-label { font-size: 0.68rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
         .ds-model-select {
           padding: 0.3rem 0.5rem;
-          background: var(--bg-3);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-sm);
-          color: var(--ink);
+          color: var(--text-primary);
           font-size: 0.74rem;
         }
         .ds-model-select:focus { outline: none; border-color: var(--accent); }
-        .ds-model-warn { font-size: 0.66rem; color: var(--danger); }
+        .ds-model-warn { font-size: 0.66rem; color: var(--err); }
         .ds-mini-btn {
           display: inline-flex;
           align-items: center;
           gap: 0.25rem;
           padding: 0.22rem 0.45rem;
-          background: var(--bg-3);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-sm);
-          color: var(--ink2);
+          color: var(--text-secondary);
           font-size: 0.68rem;
           cursor: pointer;
           transition: all 0.15s ease;
         }
-        .ds-mini-btn:hover { background: var(--bg-3); color: var(--ink); border-color: var(--hairline-strong); }
-        .ds-mini-btn-danger:hover { color: var(--danger); border-color: var(--danger); background: var(--danger-quiet); }
+        .ds-mini-btn:hover { background: var(--bg-surface-3); color: var(--text-primary); border-color: var(--text-muted); }
+        .ds-mini-btn-danger:hover { color: var(--err); border-color: var(--err); background: var(--err-soft); }
         .ds-mini-btn-ref { font-size: 0.66rem; }
 
         /* ── CharacterTab:角色管理 ── */
@@ -2629,9 +2709,9 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           flex-direction: column;
           gap: 0.6rem;
           padding: 1rem;
-          background: var(--bg-2);
+          background: var(--bg-surface-2);
           border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-          border-radius: var(--radius);
+          border-radius: var(--radius-control);
           margin-bottom: 0.8rem;
         }
         .ds-char-form-title { font-size: 0.88rem; font-weight: 600; color: var(--accent); }
@@ -2641,9 +2721,9 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           grid-template-columns: 80px 1fr auto;
           gap: 0.8rem;
           padding: 0.8rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
           align-items: start;
         }
         .ds-char-ref-grid {
@@ -2654,13 +2734,13 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
         }
         .ds-char-ref-thumb {
           aspect-ratio: 3/4;
-          background: var(--bg-3);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
           border-radius: 4px;
           overflow: hidden;
           display: grid;
           place-items: center;
-          color: var(--ink3);
+          color: var(--text-muted);
           font-size: 0.6rem;
           cursor: pointer;
           transition: border-color 0.15s ease;
@@ -2668,11 +2748,11 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
         .ds-char-ref-thumb:hover { border-color: var(--accent); }
         .ds-char-ref-thumb img { width: 100%; height: 100%; object-fit: cover; }
         .ds-char-ref-loading { color: var(--accent); animation: spin 1s linear infinite; }
-        .ds-char-ref-label { position: absolute; bottom: 1px; left: 1px; padding: 0.05rem 0.2rem; background: rgba(0,0,0,0.7); font-size: 0.5rem; border-radius: 2px; }
-        .ds-char-name { font-size: 0.88rem; font-weight: 600; color: var(--ink); }
-        .ds-char-desc { font-size: 0.74rem; color: var(--ink2); line-height: 1.5; margin-top: 0.25rem; }
-        .ds-char-voice { font-size: 0.7rem; color: var(--ink3); font-family: var(--font-mono); margin-top: 0.3rem; }
-        .ds-char-vp { font-size: 0.68rem; color: var(--ink3); font-family: var(--font-mono); margin-top: 0.2rem; word-break: break-all; }
+        .ds-char-ref-label { position: absolute; bottom: 1px; left: 1px; padding: 0.05rem 0.2rem; background: var(--overlay-strong); font-size: 0.5rem; border-radius: 2px; }
+        .ds-char-name { font-size: 0.88rem; font-weight: 600; color: var(--text-primary); }
+        .ds-char-desc { font-size: 0.74rem; color: var(--text-secondary); line-height: 1.5; margin-top: 0.25rem; }
+        .ds-char-voice { font-size: 0.7rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 0.3rem; }
+        .ds-char-vp { font-size: 0.68rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 0.2rem; word-break: break-all; }
         .ds-char-add { margin-left: auto; }
         .ds-char-foot { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-top: 0.4rem; }
         .ds-char-ref { position: relative; }
@@ -2685,19 +2765,19 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           justify-content: space-between;
           gap: 0.8rem;
           padding: 0.8rem 1rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
         }
-        .ds-assemble-hint { font-size: 0.85rem; color: var(--ink2); }
+        .ds-assemble-hint { font-size: 0.85rem; color: var(--text-secondary); }
         .ds-assemble-result {
           display: flex;
           flex-direction: column;
           gap: 0.6rem;
           padding: 0.8rem 1rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
         }
         .ds-assemble-result-head {
           display: flex;
@@ -2705,15 +2785,15 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           gap: 0.5rem;
           font-size: 0.88rem;
           font-weight: 600;
-          color: var(--color-success);
+          color: var(--ok);
           flex-wrap: wrap;
         }
-        .ds-assemble-dur { margin-left: auto; font-size: 0.75rem; color: var(--ink3); font-family: var(--font-mono); }
+        .ds-assemble-dur { margin-left: auto; font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); }
         .ds-assemble-video {
           width: 100%;
           max-height: 60vh;
           border-radius: var(--radius-sm);
-          background: #000;
+          background: var(--bg-canvas);
         }
 
         /* ── ProcessTab:过程追踪 ── */
@@ -2742,9 +2822,9 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           gap: 0.55rem;
           padding: 0.5rem 0.6rem;
           font-size: 0.78rem;
-          color: var(--ink);
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
+          color: var(--text-primary);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-sm);
         }
         .ds-task-log-item.ds-task-running {
@@ -2754,12 +2834,12 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           opacity: 0.78;
         }
         .ds-task-log-item.ds-task-error {
-          border-left: 2px solid var(--danger, #e57373);
+          border-left: 2px solid var(--err);
         }
         .ds-task-label { font-weight: 500; }
         .ds-task-detail {
           font-size: 0.68rem;
-          color: var(--ink3);
+          color: var(--text-muted);
           font-family: var(--font-mono);
         }
         .ds-task-status {
@@ -2767,20 +2847,20 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           font-size: 0.66rem;
           padding: 1px 6px;
           border-radius: 4px;
-          background: var(--bg-3);
-          color: var(--ink3);
+          background: var(--bg-surface-3);
+          color: var(--text-muted);
         }
         .ds-task-log-item.ds-task-running .ds-task-status {
-          background: rgba(217, 164, 65, 0.15);
+          background: var(--warn-soft);
           color: var(--accent);
         }
         .ds-task-log-item.ds-task-done .ds-task-status {
-          background: rgba(120, 180, 120, 0.15);
-          color: var(--ink2);
+          background: var(--ok-soft);
+          color: var(--text-secondary);
         }
         .ds-task-time {
           font-size: 0.62rem;
-          color: var(--ink3);
+          color: var(--text-muted);
           font-family: var(--font-mono);
           opacity: 0.7;
         }
@@ -2804,7 +2884,7 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
         .ds-process-history-hint {
           margin-left: auto;
           font-size: 0.66rem;
-          color: var(--ink3);
+          color: var(--text-muted);
           opacity: 0.6;
           font-weight: 400;
         }
@@ -2818,7 +2898,7 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           align-items: center;
           gap: 0.6rem;
           padding: 3rem 1rem;
-          color: var(--ink3);
+          color: var(--text-muted);
           text-align: center;
         }
         .ds-process-refresh { margin-left: auto; }
@@ -2835,7 +2915,7 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           top: 4px;
           bottom: 4px;
           width: 2px;
-          background: var(--hairline);
+          background: var(--border-subtle);
         }
         .ds-process-node {
           position: relative;
@@ -2849,8 +2929,8 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           width: 16px;
           height: 16px;
           border-radius: 50%;
-          background: var(--bg-3);
-          border: 2px solid var(--ink3);
+          background: var(--bg-surface-3);
+          border: 2px solid var(--text-muted);
         }
         .ds-process-step {
           display: flex;
@@ -2861,38 +2941,38 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
         }
         .ds-process-step-key {
           font-size: 0.7rem;
-          color: var(--ink3);
+          color: var(--text-muted);
           font-family: var(--font-mono);
           text-transform: uppercase;
         }
-        .ds-process-ts { font-size: 0.68rem; color: var(--ink3); font-family: var(--font-mono); }
-        .ds-process-line { font-size: 0.78rem; color: var(--ink2); margin-top: 0.2rem; line-height: 1.5; }
-        .ds-process-detail { font-size: 0.72rem; color: var(--ink3); margin-top: 0.25rem; font-family: var(--font-mono); }
+        .ds-process-ts { font-size: 0.68rem; color: var(--text-muted); font-family: var(--font-mono); }
+        .ds-process-line { font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.2rem; line-height: 1.5; }
+        .ds-process-detail { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem; font-family: var(--font-mono); }
         .ds-process-list { margin: 0.3rem 0 0; padding-left: 1rem; display: flex; flex-direction: column; gap: 0.2rem; }
-        .ds-process-list-field { font-size: 0.72rem; color: var(--ink3); }
-        .ds-process-list-name { color: var(--ink2); font-weight: 500; }
-        .ds-process-list-group { font-size: 0.7rem; color: var(--ink3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 0.3rem; }
-        .ds-process-list-title { font-size: 0.82rem; font-weight: 600; color: var(--ink); margin-top: 0.4rem; }
-        .ds-process-list-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.72rem; color: var(--ink2); }
+        .ds-process-list-field { font-size: 0.72rem; color: var(--text-muted); }
+        .ds-process-list-name { color: var(--text-secondary); font-weight: 500; }
+        .ds-process-list-group { font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 0.3rem; }
+        .ds-process-list-title { font-size: 0.82rem; font-weight: 600; color: var(--text-primary); margin-top: 0.4rem; }
+        .ds-process-list-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.72rem; color: var(--text-secondary); }
         .ds-process-list-field-scale { color: var(--accent); font-family: var(--font-mono); }
         .ds-process-toolbar { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
-        .ds-process-toolbar-label { font-size: 0.68rem; color: var(--ink3); font-weight: 600; text-transform: uppercase; align-self: center; }
+        .ds-process-toolbar-label { font-size: 0.68rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; align-self: center; }
         .ds-process-toolbar-row { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
         .ds-process-slider { flex: 1; min-width: 120px; accent-color: var(--accent); }
         .ds-process-prop { display: flex; flex-direction: column; gap: 0.25rem; }
         .ds-process-prop-input {
           padding: 0.3rem 0.45rem;
-          background: var(--bg-3);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-sm);
-          color: var(--ink);
+          color: var(--text-primary);
           font-size: 0.74rem;
           width: 100%;
         }
         .ds-process-canvas {
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
           padding: 1rem;
           min-height: 300px;
           position: relative;
@@ -2903,85 +2983,85 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           align-items: center;
           gap: 0.5rem;
           padding: 3rem 1rem;
-          color: var(--ink3);
+          color: var(--text-muted);
           text-align: center;
         }
-        .ds-process-loading { display: flex; align-items: center; gap: 0.5rem; padding: 2rem; color: var(--ink3); justify-content: center; }
+        .ds-process-loading { display: flex; align-items: center; gap: 0.5rem; padding: 2rem; color: var(--text-muted); justify-content: center; }
         .ds-process-empty-hint { font-size: 0.78rem; }
         .ds-process-actor-chips { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-top: 0.4rem; }
         .ds-process-actor {
           padding: 0.18rem 0.5rem;
-          background: var(--bg-3);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
           border-radius: 999px;
           font-size: 0.7rem;
-          color: var(--ink2);
+          color: var(--text-secondary);
         }
         .ds-director-panel { display: flex; flex-direction: column; gap: 0.7rem; }
         .ds-director-head { display: flex; align-items: center; gap: 0.5rem; }
-        .ds-director-hint { font-size: 0.72rem; color: var(--ink3); line-height: 1.5; }
-        .ds-director-loading { display: flex; align-items: center; gap: 0.5rem; padding: 1rem; color: var(--ink3); justify-content: center; }
-        .ds-director-toolbar { display: flex; flex-direction: column; gap: 0.4rem; padding: 0.6rem; background: var(--bg-3); border-radius: var(--radius-sm); border: 1px solid var(--hairline); }
+        .ds-director-hint { font-size: 0.72rem; color: var(--text-muted); line-height: 1.5; }
+        .ds-director-loading { display: flex; align-items: center; gap: 0.5rem; padding: 1rem; color: var(--text-muted); justify-content: center; }
+        .ds-director-toolbar { display: flex; flex-direction: column; gap: 0.4rem; padding: 0.6rem; background: var(--bg-surface-3); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); }
         .ds-director-toolbar-row { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
-        .ds-director-toolbar-label { font-size: 0.68rem; color: var(--ink3); font-weight: 600; text-transform: uppercase; min-width: 32px; }
+        .ds-director-toolbar-label { font-size: 0.68rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; min-width: 32px; }
         .ds-director-actor-chips { display: flex; gap: 0.3rem; flex-wrap: wrap; flex: 1; }
-        .ds-director-empty-hint { font-size: 0.7rem; color: var(--ink3); font-style: italic; }
+        .ds-director-empty-hint { font-size: 0.7rem; color: var(--text-muted); font-style: italic; }
         .ds-director-prop-input { flex: 1; min-width: 80px; }
-        .ds-director-slider { flex: 1; min-width: 100px; display: flex; align-items: center; gap: 0.4rem; font-size: 0.7rem; color: var(--ink2); font-family: var(--font-mono); }
+        .ds-director-slider { flex: 1; min-width: 100px; display: flex; align-items: center; gap: 0.4rem; font-size: 0.7rem; color: var(--text-secondary); font-family: var(--font-mono); }
         .ds-director-slider input[type="range"] { flex: 1; accent-color: var(--accent); }
-        .ds-director-canvas { position: relative; width: 100%; aspect-ratio: 16/9; background: var(--bg-1); border: 1px solid var(--hairline); border-radius: var(--radius-sm); overflow: hidden; }
+        .ds-director-canvas { position: relative; width: 100%; aspect-ratio: 16/9; background: var(--bg-surface-1); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); overflow: hidden; }
         .ds-director-actor { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 2px; transform: translate(-50%, -100%); cursor: move; user-select: none; }
         .ds-director-prop { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 2px; transform: translate(-50%, -50%); cursor: move; user-select: none; }
-        .ds-director-canvas-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.4rem; color: var(--ink3); font-size: 0.72rem; }
+        .ds-director-canvas-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.4rem; color: var(--text-muted); font-size: 0.72rem; }
         .ds-director-list { display: flex; flex-direction: column; gap: 0.5rem; }
         .ds-director-list-group { display: flex; flex-direction: column; gap: 0.3rem; }
-        .ds-director-list-title { font-size: 0.78rem; font-weight: 600; color: var(--ink); }
-        .ds-director-list-row { display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; color: var(--ink2); }
+        .ds-director-list-title { font-size: 0.78rem; font-weight: 600; color: var(--text-primary); }
+        .ds-director-list-row { display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; color: var(--text-secondary); }
         .ds-director-list-name { min-width: 60px; font-weight: 500; }
         .ds-director-list-field { flex: 1; display: flex; align-items: center; gap: 0.3rem; }
         .ds-director-list-field-scale { color: var(--accent); font-family: var(--font-mono); font-size: 0.68rem; min-width: 40px; text-align: right; }
         .ds-director-foot { display: flex; gap: 0.4rem; margin-top: 0.4rem; flex-wrap: wrap; }
         .ds-director-genref {
           padding: 0.25rem 0.5rem;
-          background: var(--bg-3);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-sm);
-          color: var(--ink2);
+          color: var(--text-secondary);
           font-size: 0.72rem;
         }
-        .ds-director-notes { font-size: 0.74rem; color: var(--ink2); line-height: 1.5; }
-        .ds-director-mark-name { font-size: 0.72rem; font-weight: 600; color: var(--ink); background: var(--accent-quiet); padding: 0.1rem 0.35rem; border-radius: 3px; white-space: nowrap; }
+        .ds-director-notes { font-size: 0.74rem; color: var(--text-secondary); line-height: 1.5; }
+        .ds-director-mark-name { font-size: 0.72rem; font-weight: 600; color: var(--text-primary); background: var(--accent-soft); padding: 0.1rem 0.35rem; border-radius: 3px; white-space: nowrap; }
         /* shot ref upload */
         .ds-shot-ref { display: flex; flex-wrap: wrap; gap: 0.3rem; }
-        .ds-shot-ref-preview { width: 48px; height: 48px; object-fit: cover; border-radius: 4px; border: 1px solid var(--hairline); cursor: pointer; }
-        .ds-char-ref-files { font-size: 0.66rem; color: var(--ink3); margin-top: 0.2rem; font-family: var(--font-mono); word-break: break-all; }
+        .ds-shot-ref-preview { width: 48px; height: 48px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-subtle); cursor: pointer; }
+        .ds-char-ref-files { font-size: 0.66rem; color: var(--text-muted); margin-top: 0.2rem; font-family: var(--font-mono); word-break: break-all; }
 
         /* ── M5 AnalyticsPanel 播放洞察 ── */
         .ds-analytics-section { display: flex; flex-direction: column; gap: 0.9rem; }
-        .ds-analytics-empty { display: flex; flex-direction: column; align-items: center; gap: 0.55rem; padding: 4rem 1rem; color: var(--ink3); text-align: center; }
+        .ds-analytics-empty { display: flex; flex-direction: column; align-items: center; gap: 0.55rem; padding: 4rem 1rem; color: var(--text-muted); text-align: center; }
         .ds-analytics-summary { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.6rem; }
-        .ds-analytics-card { display: flex; flex-direction: column; gap: 0.25rem; padding: 0.75rem 0.9rem; background: var(--bg-2); border: 1px solid var(--hairline); border-radius: var(--radius); }
-        .ds-analytics-value { font-size: 1.1rem; font-weight: 700; color: var(--ink); font-family: var(--font-mono); }
-        .ds-analytics-label { font-size: 0.7rem; color: var(--ink3); }
+        .ds-analytics-card { display: flex; flex-direction: column; gap: 0.25rem; padding: 0.75rem 0.9rem; background: var(--bg-surface-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-control); }
+        .ds-analytics-value { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); font-family: var(--font-mono); }
+        .ds-analytics-label { font-size: 0.7rem; color: var(--text-muted); }
         .ds-analytics-list { display: flex; flex-direction: column; gap: 0.55rem; }
-        .ds-analytics-shot { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.75rem 0.9rem; background: var(--bg-2); border: 1px solid var(--hairline); border-radius: var(--radius); transition: border-color 0.15s ease; }
-        .ds-analytics-shot:hover { border-color: var(--hairline-strong); }
-        .ds-analytics-shot.hot { border-left: 3px solid var(--color-success); }
+        .ds-analytics-shot { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.75rem 0.9rem; background: var(--bg-surface-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-control); transition: border-color 0.15s ease; }
+        .ds-analytics-shot:hover { border-color: var(--text-muted); }
+        .ds-analytics-shot.hot { border-left: 3px solid var(--ok); }
         .ds-analytics-shot.warm { border-left: 3px solid var(--warn); }
-        .ds-analytics-shot.cold { border-left: 3px solid var(--ink3); }
+        .ds-analytics-shot.cold { border-left: 3px solid var(--text-muted); }
         .ds-analytics-shot-main { display: flex; flex-direction: column; gap: 0.35rem; }
         .ds-analytics-shot-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-        .ds-analytics-idx { width: 28px; height: 22px; display: grid; place-items: center; background: var(--accent-quiet); color: var(--accent); font-size: 0.7rem; font-weight: 700; font-family: var(--font-mono); border-radius: 4px; }
-        .ds-analytics-scene { font-size: 0.86rem; font-weight: 600; color: var(--ink); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .ds-analytics-time { font-size: 0.68rem; color: var(--ink3); font-family: var(--font-mono); }
+        .ds-analytics-idx { width: 28px; height: 22px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); font-size: 0.7rem; font-weight: 700; font-family: var(--font-mono); border-radius: 4px; }
+        .ds-analytics-scene { font-size: 0.86rem; font-weight: 600; color: var(--text-primary); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ds-analytics-time { font-size: 0.68rem; color: var(--text-muted); font-family: var(--font-mono); }
         .ds-analytics-heat { display: flex; align-items: center; gap: 0.5rem; }
-        .ds-analytics-heat-bar { flex: 1; height: 6px; background: var(--hairline); border-radius: 3px; overflow: hidden; }
+        .ds-analytics-heat-bar { flex: 1; height: 6px; background: var(--border-subtle); border-radius: 3px; overflow: hidden; }
         .ds-analytics-heat-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-hover)); border-radius: 3px; }
         .ds-analytics-heat-score { font-size: 0.75rem; font-weight: 700; color: var(--accent); font-family: var(--font-mono); min-width: 36px; text-align: right; }
-        .ds-analytics-metrics { display: flex; flex-wrap: wrap; gap: 0.45rem; font-size: 0.72rem; color: var(--ink2); }
-        .ds-analytics-metrics > span { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.18rem 0.4rem; background: var(--bg-3); border: 1px solid var(--hairline); border-radius: 999px; }
-        .ds-analytics-drop { color: var(--danger); border-color: var(--danger); background: var(--danger-quiet); }
-        .ds-analytics-suggestions { margin: 0; padding: 0 0 0 1.1rem; display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.76rem; color: var(--ink2); }
+        .ds-analytics-metrics { display: flex; flex-wrap: wrap; gap: 0.45rem; font-size: 0.72rem; color: var(--text-secondary); }
+        .ds-analytics-metrics > span { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.18rem 0.4rem; background: var(--bg-surface-3); border: 1px solid var(--border-subtle); border-radius: 999px; }
+        .ds-analytics-drop { color: var(--err); border-color: var(--err); background: var(--err-soft); }
+        .ds-analytics-suggestions { margin: 0; padding: 0 0 0 1.1rem; display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.76rem; color: var(--text-secondary); }
         .ds-analytics-suggestions li { display: flex; align-items: flex-start; gap: 0.35rem; }
         .ds-analytics-suggestions li svg { flex-shrink: 0; margin-top: 0.15rem; }
 
@@ -2990,7 +3070,7 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           position: fixed;
           inset: 0;
           z-index: 100;
-          background: rgba(0,0,0,0.85);
+          background: var(--overlay-strong);
           backdrop-filter: blur(6px);
           display: flex;
           align-items: center;
@@ -3000,9 +3080,9 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
         .overlay-panel {
           width: min(1000px, 100%);
           max-height: 85vh;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
           display: flex;
           flex-direction: column;
           overflow: hidden;
@@ -3013,7 +3093,7 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           justify-content: space-between;
           gap: 1rem;
           padding: 1rem 1.1rem;
-          border-bottom: 1px solid var(--hairline);
+          border-bottom: 1px solid var(--border-subtle);
         }
         .overlay-head h2 { margin: 0; font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; }
         .overlay-body { flex: 1; overflow: auto; padding: 1rem; }
@@ -3039,7 +3119,7 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           justify-content: center;
           gap: 0.5rem;
           padding: 3rem;
-          color: var(--ink3);
+          color: var(--text-muted);
           font-size: 0.85rem;
         }
 
@@ -3051,7 +3131,7 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           align-items: center;
           justify-content: center;
           padding: 2rem;
-          background: rgba(0,0,0,0.85);
+          background: var(--overlay-strong);
           backdrop-filter: blur(4px);
           cursor: zoom-out;
         }
@@ -3069,18 +3149,18 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           justify-content: space-between;
           gap: 1rem;
           padding: 0.7rem 0.9rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius) var(--radius) 0 0;
-          color: var(--ink);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control) var(--radius-control) 0 0;
+          color: var(--text-primary);
           font-size: 0.85rem;
         }
         .ref-overlay-inner img {
           max-width: 100%;
           max-height: 80vh;
           object-fit: contain;
-          border-radius: 0 0 var(--radius) var(--radius);
-          border: 1px solid var(--hairline);
+          border-radius: 0 0 var(--radius-control) var(--radius-control);
+          border: 1px solid var(--border-subtle);
           border-top: none;
         }
       `}</style>

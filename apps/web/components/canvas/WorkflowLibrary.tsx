@@ -257,29 +257,29 @@ export function WorkflowLibrary({ canvasId }: WorkflowLibraryProps) {
           gap: 0.35rem;
           padding: 0.32rem 0.6rem;
           background: transparent;
-          border: 1px solid var(--hairline-2);
-          border-radius: var(--radius-xs);
-          color: var(--ink-soft);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+          color: var(--text-secondary);
           font-size: 0.75rem;
           font-weight: 500;
           font-family: var(--font-sans);
           cursor: pointer;
           transition:
-            color var(--dur) var(--ease),
-            background-color var(--dur) var(--ease),
-            border-color var(--dur) var(--ease);
+            color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard),
+            border-color var(--duration-fast) var(--ease-standard);
         }
         .cv-wf-trigger:hover:not(:disabled) {
-          color: var(--ink);
-          border-color: var(--hairline-strong);
-          background: var(--bg-3);
+          color: var(--text-primary);
+          border-color: var(--border-strong);
+          background: var(--bg-surface-3);
         }
         .cv-wf-trigger:disabled {
           opacity: 0.4;
           cursor: not-allowed;
         }
         .cv-wf-trigger:focus-visible {
-          outline: 2px solid var(--accent);
+          outline: 1px solid var(--accent);
           outline-offset: 1px;
         }
 
@@ -291,15 +291,15 @@ export function WorkflowLibrary({ canvasId }: WorkflowLibraryProps) {
           width: 320px;
           max-width: calc(100vw - 2rem);
           padding: 0.4rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline-2);
-          border-radius: var(--radius-sm);
-          box-shadow: var(--shadow-lg);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-panel);
+          box-shadow: var(--shadow-xl);
           z-index: 20;
           display: flex;
           flex-direction: column;
           gap: 0.25rem;
-          animation: cv-wf-in var(--dur) var(--ease);
+          animation: cv-wf-in var(--duration-fast) var(--ease-standard);
         }
         @keyframes cv-wf-in {
           from {
@@ -322,7 +322,7 @@ export function WorkflowLibrary({ canvasId }: WorkflowLibraryProps) {
           font-size: 0.72rem;
           font-weight: 600;
           letter-spacing: 0.04em;
-          color: var(--ink-faint);
+          color: var(--text-muted);
         }
         .cv-wf-head-actions {
           display: flex;
@@ -337,20 +337,24 @@ export function WorkflowLibrary({ canvasId }: WorkflowLibraryProps) {
           height: 22px;
           background: transparent;
           border: none;
-          border-radius: 4px;
-          color: var(--ink-faint);
+          border-radius: var(--radius-badge);
+          color: var(--text-muted);
           cursor: pointer;
           transition:
-            color var(--dur) var(--ease),
-            background-color var(--dur) var(--ease);
+            color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard);
         }
         .cv-wf-icon-btn:hover:not(:disabled) {
-          color: var(--ink);
-          background: var(--bg-3);
+          color: var(--text-primary);
+          background: var(--bg-surface-3);
         }
         .cv-wf-icon-btn:disabled {
           opacity: 0.4;
           cursor: not-allowed;
+        }
+        .cv-wf-icon-btn:focus-visible {
+          outline: 1px solid var(--accent);
+          outline-offset: 1px;
         }
 
         .cv-wf-list {
@@ -369,18 +373,22 @@ export function WorkflowLibrary({ canvasId }: WorkflowLibraryProps) {
           padding: 0.5rem;
           background: transparent;
           border: none;
-          border-radius: var(--radius-xs);
+          border-radius: var(--radius-control);
           text-align: left;
           font-family: var(--font-sans);
           cursor: pointer;
-          transition: background-color var(--dur) var(--ease);
+          transition: background-color var(--duration-fast) var(--ease-standard);
         }
         .cv-workflow-item:hover:not(:disabled) {
-          background: var(--accent-quiet);
+          background: var(--accent-soft);
         }
         .cv-workflow-item:disabled {
           opacity: 0.55;
           cursor: not-allowed;
+        }
+        .cv-workflow-item:focus-visible {
+          outline: 1px solid var(--accent);
+          outline-offset: -1px;
         }
         .cv-wf-item-icon {
           flex-shrink: 0;
@@ -389,12 +397,12 @@ export function WorkflowLibrary({ canvasId }: WorkflowLibraryProps) {
           justify-content: center;
           width: 26px;
           height: 26px;
-          border-radius: 6px;
-          background: var(--bg-1);
-          color: var(--ink-faint);
+          border-radius: var(--radius-badge);
+          background: var(--bg-surface-2);
+          color: var(--text-muted);
         }
         .cv-workflow-item:hover:not(:disabled) .cv-wf-item-icon {
-          color: var(--accent-soft);
+          color: var(--accent);
         }
         .cv-wf-item-main {
           flex: 1;
@@ -406,11 +414,11 @@ export function WorkflowLibrary({ canvasId }: WorkflowLibraryProps) {
         .cv-wf-item-name {
           font-size: 0.8rem;
           font-weight: 500;
-          color: var(--ink);
+          color: var(--text-primary);
         }
         .cv-wf-item-desc {
           font-size: 0.72rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           line-height: 1.45;
           display: -webkit-box;
           -webkit-line-clamp: 2;
@@ -422,15 +430,15 @@ export function WorkflowLibrary({ canvasId }: WorkflowLibraryProps) {
           align-self: center;
           padding: 0.12rem 0.4rem;
           border-radius: var(--radius-full);
-          background: var(--bg-1);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
           font-size: 0.66rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           white-space: nowrap;
         }
         .cv-workflow-item:hover:not(:disabled) .cv-wf-item-badge {
-          border-color: var(--accent-line);
-          color: var(--accent-soft);
+          border-color: var(--accent-glow);
+          color: var(--accent);
         }
 
         /* 错误 / 空态 */
@@ -444,16 +452,16 @@ export function WorkflowLibrary({ canvasId }: WorkflowLibraryProps) {
         }
         .cv-wf-state-icon {
           display: inline-flex;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           opacity: 0.7;
         }
         .cv-wf-state-icon.is-error {
-          color: var(--danger);
+          color: var(--err);
           opacity: 0.85;
         }
         .cv-wf-state-text {
           font-size: 0.76rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           line-height: 1.5;
           word-break: break-word;
         }
@@ -462,21 +470,25 @@ export function WorkflowLibrary({ canvasId }: WorkflowLibraryProps) {
           align-items: center;
           gap: 0.3rem;
           padding: 0.28rem 0.6rem;
-          background: var(--accent-quiet);
-          border: 1px solid var(--accent-line);
-          border-radius: var(--radius-xs);
-          color: var(--accent-soft);
+          background: var(--accent-soft);
+          border: 1px solid var(--accent-glow);
+          border-radius: var(--radius-control);
+          color: var(--accent);
           font-size: 0.72rem;
           font-weight: 500;
           font-family: var(--font-sans);
           cursor: pointer;
           transition:
-            color var(--dur) var(--ease),
-            background-color var(--dur) var(--ease);
+            color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard);
         }
         .cv-wf-retry:hover {
           background: var(--accent);
-          color: var(--accent-ink);
+          color: var(--text-on-accent);
+        }
+        .cv-wf-retry:focus-visible {
+          outline: 1px solid var(--accent);
+          outline-offset: 1px;
         }
 
         /* 加载骨架(柔和呼吸,非旋转) */
@@ -491,8 +503,8 @@ export function WorkflowLibrary({ canvasId }: WorkflowLibraryProps) {
           flex-shrink: 0;
           width: 26px;
           height: 26px;
-          border-radius: 6px;
-          background: var(--bg-3);
+          border-radius: var(--radius-badge);
+          background: var(--bg-surface-3);
         }
         .cv-wf-skel-lines {
           flex: 1;
@@ -504,7 +516,7 @@ export function WorkflowLibrary({ canvasId }: WorkflowLibraryProps) {
         .cv-wf-skel-line {
           height: 8px;
           border-radius: 4px;
-          background: var(--bg-3);
+          background: var(--bg-surface-3);
         }
         .cv-wf-skel-line.short {
           width: 55%;

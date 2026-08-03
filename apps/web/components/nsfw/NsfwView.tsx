@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { CreateView } from "@/components/create/CreateView";
+import { CreateView } from "@/components/nsfw/CreateView";
 import { NsfwVideoView } from "@/components/nsfw/NsfwVideoView";
 import { Icon } from "@/components/ui/Icon";
 import { usePoll } from "@/hooks/usePoll";
@@ -72,7 +72,7 @@ export function NsfwView() {
             display: flex;
             align-items: center;
             justify-content: center;
-            background: var(--bg-sunken);
+            background: var(--bg-canvas);
           }
         `}</style>
       </div>
@@ -101,7 +101,7 @@ export function NsfwView() {
             display: flex;
             align-items: center;
             justify-content: center;
-            background: var(--bg-sunken);
+            background: var(--bg-canvas);
             padding: var(--space-5);
           }
           .nsfw-gate-card {
@@ -110,24 +110,24 @@ export function NsfwView() {
             align-items: center;
             gap: var(--space-3);
             padding: var(--space-6);
-            background: var(--bg-1);
-            border: 1px solid var(--hairline);
-            border-radius: var(--radius-lg);
+            background: var(--bg-surface-1);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-panel);
             text-align: center;
             max-width: 360px;
           }
           .nsfw-gate-icon {
-            color: var(--ink-faint);
+            color: var(--text-muted);
           }
           .nsfw-gate-title {
-            font-size: 1.25rem;
+            font-size: var(--text-title);
             font-weight: 600;
-            color: var(--ink);
+            color: var(--text-primary);
             margin: 0;
           }
           .nsfw-gate-desc {
-            font-size: 0.875rem;
-            color: var(--ink-soft);
+            font-size: var(--text-body);
+            color: var(--text-secondary);
             margin: 0;
           }
         `}</style>
@@ -452,7 +452,7 @@ function NsfwViewBody() {
           display: flex;
           flex-direction: column;
           min-height: 100vh;
-          background: var(--bg-sunken);
+          background: var(--bg-canvas);
         }
         /* ── 顶部 banner ── */
         .nsfw-banner {
@@ -462,10 +462,10 @@ function NsfwViewBody() {
           padding: var(--space-3) var(--space-5);
           background: linear-gradient(
             90deg,
-            color-mix(in oklch, var(--danger) 12%, var(--bg-1)),
-            var(--bg-1)
+            color-mix(in oklch, var(--err) 12%, var(--bg-surface-1)),
+            var(--bg-surface-1)
           );
-          border-bottom: 1px solid var(--hairline);
+          border-bottom: 1px solid var(--border-subtle);
         }
         .nsfw-banner-left {
           display: flex;
@@ -476,12 +476,12 @@ function NsfwViewBody() {
         .nsfw-badge {
           display: inline-flex;
           align-items: center;
-          gap: 4px;
-          padding: 3px 8px;
-          background: var(--danger);
-          color: var(--on-accent);
+          gap: var(--space-1);
+          padding: 2px var(--space-2);
+          background: var(--err);
+          color: var(--text-on-accent);
           border-radius: var(--radius-full);
-          font-size: 0.72rem;
+          font-size: var(--text-aux);
           font-weight: 600;
           letter-spacing: 0.04em;
           flex-shrink: 0;
@@ -490,21 +490,21 @@ function NsfwViewBody() {
           min-width: 0;
         }
         .nsfw-banner-title {
-          font-size: 0.95rem;
+          font-size: var(--text-section);
           font-weight: 600;
-          color: var(--ink);
+          color: var(--text-primary);
           line-height: 1.3;
         }
         .nsfw-banner-sub {
-          font-size: 0.78rem;
-          color: var(--ink-soft);
+          font-size: var(--text-aux);
+          color: var(--text-secondary);
           line-height: 1.4;
         }
         /* ── 主创作区 ── */
         .nsfw-main {
           flex: 1;
           min-height: 0;
-          background: var(--bg-0);
+          background: var(--bg-canvas);
           display: flex;
           flex-direction: column;
         }
@@ -513,31 +513,34 @@ function NsfwViewBody() {
           display: flex;
           gap: 0;
           padding: 0 var(--space-5);
-          background: var(--bg-1);
-          border-bottom: 1px solid var(--hairline);
+          background: var(--bg-surface-1);
+          border-bottom: 1px solid var(--border-subtle);
           flex-shrink: 0;
         }
         .nsfw-tab {
           display: inline-flex;
           align-items: center;
-          gap: 0.4rem;
+          gap: var(--space-2);
           padding: var(--space-3) var(--space-4);
           background: transparent;
           border: none;
           border-bottom: 2px solid transparent;
-          color: var(--ink-soft);
-          font-size: 0.88rem;
+          color: var(--text-secondary);
+          font-size: var(--text-body);
           font-weight: 500;
           cursor: pointer;
-          transition: color var(--dur) var(--ease),
-            border-color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+          transition: color var(--duration-fast) var(--ease-standard),
+            border-color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard);
         }
         .nsfw-tab:hover {
-          color: var(--ink);
-          background: var(--bg-2);
+          background: var(--bg-surface-2);
+        }
+        .nsfw-tab:active {
+          background: var(--bg-surface-3);
         }
         .nsfw-tab.is-active {
-          color: var(--ink);
+          color: var(--text-primary);
           border-bottom-color: var(--accent);
         }
         .nsfw-tab-panel {
@@ -549,31 +552,37 @@ function NsfwViewBody() {
         }
         /* ── 推荐模型 ── */
         .nsfw-recs {
-          border-top: 1px solid var(--hairline);
-          background: var(--bg-1);
+          border-top: 1px solid var(--border-subtle);
+          background: var(--bg-surface-1);
           padding: 0 var(--space-5);
         }
         .nsfw-recs-toggle {
           display: flex;
           align-items: center;
           gap: var(--space-2);
-          width: 100%;
-          padding: var(--space-3) 0;
+          width: calc(100% + 2 * var(--space-2));
+          padding: var(--space-3) var(--space-2);
+          margin: 0 calc(-1 * var(--space-2));
           background: transparent;
           border: none;
-          color: var(--ink-soft);
-          font-size: 0.88rem;
+          border-radius: var(--radius-control);
+          color: var(--text-secondary);
+          font-size: var(--text-body);
           font-weight: 500;
           cursor: pointer;
           text-align: left;
+          transition: background-color var(--duration-fast) var(--ease-standard);
         }
         .nsfw-recs-toggle:hover {
-          color: var(--ink);
+          background: var(--bg-surface-2);
+        }
+        .nsfw-recs-toggle:active {
+          background: var(--bg-surface-3);
         }
         .nsfw-recs-count {
           margin-left: auto;
-          color: var(--ink-faint);
-          font-size: 0.8rem;
+          color: var(--text-muted);
+          font-size: var(--text-aux);
           font-weight: 400;
         }
         .nsfw-recs-grid {
@@ -585,55 +594,56 @@ function NsfwViewBody() {
         .nsfw-rec-card {
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: var(--space-2);
           padding: var(--space-3);
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
           color: inherit;
           text-decoration: none;
-          transition: border-color 0.18s var(--ease), transform 0.18s var(--ease);
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard);
         }
         .nsfw-rec-card:hover {
-          border-color: var(--accent);
-          transform: translateY(-2px);
+          border-color: var(--border-strong);
+          background: var(--bg-surface-3);
         }
         .nsfw-rec-head {
           display: flex;
           align-items: center;
-          gap: 6px;
+          gap: var(--space-1);
           flex-wrap: wrap;
         }
         .nsfw-rec-type,
         .nsfw-rec-cat {
-          font-size: 0.68rem;
-          padding: 2px 6px;
-          border-radius: var(--radius-xs);
+          font-size: var(--text-label);
+          padding: 2px var(--space-1);
+          border-radius: var(--radius-badge);
           font-weight: 500;
         }
         .nsfw-rec-type {
-          background: var(--accent-quiet);
-          color: var(--accent-soft);
+          background: var(--accent-soft);
+          color: var(--accent);
         }
         .nsfw-rec-cat {
-          background: var(--bg-3);
-          color: var(--ink-soft);
+          background: var(--bg-surface-3);
+          color: var(--text-secondary);
         }
         .nsfw-rec-name {
-          font-size: 0.88rem;
+          font-size: var(--text-body);
           font-weight: 600;
-          color: var(--ink);
+          color: var(--text-primary);
           word-break: break-word;
         }
         .nsfw-rec-base,
         .nsfw-rec-size {
-          font-size: 0.74rem;
-          color: var(--ink-soft);
+          font-size: var(--text-aux);
+          color: var(--text-secondary);
           font-family: var(--font-mono);
         }
         .nsfw-rec-desc {
-          font-size: 0.78rem;
-          color: var(--ink-soft);
+          font-size: var(--text-aux);
+          color: var(--text-secondary);
           line-height: 1.45;
           display: -webkit-box;
           -webkit-line-clamp: 3;
@@ -646,18 +656,18 @@ function NsfwViewBody() {
         }
         /* ── 已下载卡片态 ── */
         .nsfw-rec-card.is-done {
-          border-color: color-mix(in oklch, var(--accent) 50%, var(--hairline));
+          border-color: color-mix(in oklch, var(--accent) 50%, var(--border-subtle));
         }
         .nsfw-rec-badge-done {
           display: inline-flex;
           align-items: center;
-          gap: 3px;
+          gap: var(--space-1);
           margin-left: auto;
-          padding: 2px 7px;
-          background: var(--accent-quiet);
-          color: var(--accent-soft);
+          padding: 2px var(--space-2);
+          background: var(--accent-soft);
+          color: var(--accent);
           border-radius: var(--radius-full);
-          font-size: 0.66rem;
+          font-size: var(--text-label);
           font-weight: 600;
           white-space: nowrap;
         }
@@ -667,43 +677,50 @@ function NsfwViewBody() {
           padding-top: var(--space-2);
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: var(--space-2);
         }
         .nsfw-rec-link {
           display: inline-flex;
           align-items: center;
-          gap: 4px;
+          gap: var(--space-1);
           align-self: flex-start;
-          font-size: 0.78rem;
-          color: var(--ink-soft);
+          font-size: var(--text-aux);
+          color: var(--text-secondary);
           text-decoration: none;
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius-xs);
-          padding: 5px 10px;
-          transition: all 0.18s var(--ease);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-badge);
+          padding: var(--space-1) var(--space-3);
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard);
         }
         .nsfw-rec-link:hover {
-          border-color: var(--accent);
-          color: var(--accent-soft);
+          border-color: var(--border-strong);
+          background: var(--bg-surface-2);
+        }
+        .nsfw-rec-link:active {
+          background: var(--bg-surface-3);
         }
         .nsfw-dl-btn {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          gap: 5px;
+          gap: var(--space-1);
           align-self: stretch;
-          padding: 7px 12px;
+          padding: var(--space-2) var(--space-3);
           background: var(--accent);
-          color: var(--on-accent);
+          color: var(--text-on-accent);
           border: none;
-          border-radius: var(--radius-xs);
-          font-size: 0.8rem;
+          border-radius: var(--radius-control);
+          font-size: var(--text-aux);
           font-weight: 500;
           cursor: pointer;
-          transition: all 0.18s var(--ease);
+          transition: background-color var(--duration-fast) var(--ease-standard);
         }
         .nsfw-dl-btn:hover:not(:disabled) {
-          background: color-mix(in oklch, var(--accent) 88%, white);
+          background: var(--accent-hover);
+        }
+        .nsfw-dl-btn:active:not(:disabled) {
+          background: color-mix(in oklch, var(--accent) 88%, var(--bg-canvas));
         }
         .nsfw-dl-btn:disabled {
           opacity: 0.5;
@@ -713,11 +730,11 @@ function NsfwViewBody() {
         .nsfw-dl-progress {
           display: flex;
           flex-direction: column;
-          gap: 4px;
+          gap: var(--space-1);
         }
         .nsfw-dl-bar {
           height: 6px;
-          background: var(--bg-3);
+          background: var(--bg-surface-3);
           border-radius: var(--radius-full);
           overflow: hidden;
         }
@@ -725,38 +742,38 @@ function NsfwViewBody() {
           height: 100%;
           background: linear-gradient(90deg, var(--accent), var(--accent-soft));
           border-radius: var(--radius-full);
-          transition: width 0.3s var(--ease);
+          transition: width var(--duration-base) var(--ease-standard);
         }
         .nsfw-dl-meta {
           display: flex;
           align-items: center;
-          gap: 8px;
-          font-size: 0.72rem;
-          color: var(--ink-soft);
+          gap: var(--space-2);
+          font-size: var(--text-aux);
+          color: var(--text-secondary);
           font-family: var(--font-mono);
         }
         .nsfw-dl-stage {
-          color: var(--ink-soft);
+          color: var(--text-secondary);
         }
         .nsfw-dl-pct {
           margin-left: auto;
-          color: var(--accent-soft);
+          color: var(--accent);
           font-weight: 600;
         }
         .nsfw-dl-mb {
-          color: var(--ink-faint);
+          color: var(--text-muted);
         }
         /* ── 下载错误 ── */
         .nsfw-dl-error {
           display: flex;
           align-items: center;
-          gap: 6px;
-          padding: 6px 8px;
-          background: color-mix(in oklch, var(--danger) 10%, var(--bg-3));
-          border: 1px solid color-mix(in oklch, var(--danger) 30%, transparent);
-          border-radius: var(--radius-xs);
-          font-size: 0.74rem;
-          color: var(--danger);
+          gap: var(--space-1);
+          padding: var(--space-1) var(--space-2);
+          background: color-mix(in oklch, var(--err) 10%, var(--bg-surface-3));
+          border: 1px solid color-mix(in oklch, var(--err) 30%, transparent);
+          border-radius: var(--radius-badge);
+          font-size: var(--text-aux);
+          color: var(--err);
         }
         .nsfw-dl-err-msg {
           flex: 1;
@@ -766,17 +783,21 @@ function NsfwViewBody() {
           white-space: nowrap;
         }
         .nsfw-dl-retry {
-          padding: 3px 9px;
-          background: var(--danger);
-          color: var(--on-accent);
+          padding: 2px var(--space-2);
+          background: var(--err);
+          color: var(--text-on-accent);
           border: none;
-          border-radius: var(--radius-xs);
-          font-size: 0.72rem;
+          border-radius: var(--radius-badge);
+          font-size: var(--text-aux);
           cursor: pointer;
           white-space: nowrap;
+          transition: background-color var(--duration-fast) var(--ease-standard);
         }
         .nsfw-dl-retry:hover {
-          background: color-mix(in oklch, var(--danger) 85%, white);
+          background: color-mix(in oklch, var(--err) 85%, var(--text-on-accent));
+        }
+        .nsfw-dl-retry:active {
+          background: color-mix(in oklch, var(--err) 85%, var(--bg-canvas));
         }
         /* ── 响应式 ── */
         @media (max-width: 640px) {

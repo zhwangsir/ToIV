@@ -17,17 +17,17 @@ def login(page):
 
 def test_viewport(page, width, height):
     page.set_viewport_size({"width": width, "height": height})
-    page.goto(f"{BASE_URL}/?view=create")
+    page.goto(f"{BASE_URL}/?view=generate")
     page.wait_for_load_state("networkidle")
     time.sleep(0.5)
     has_overflow = page.evaluate("() => document.documentElement.scrollWidth > window.innerWidth")
-    panel_count = page.locator(".create-panel").count()
-    stage_count = page.locator(".stage").count()
-    # 通过计算样式判断 create-studio 是单列还是双列
-    grid_cols = page.locator(".create-studio").first.evaluate("(el) => window.getComputedStyle(el).gridTemplateColumns")
-    is_single = " " not in grid_cols.strip()  # 单列时只有一个值
-    print(f"viewport {width}x{height}: overflow={has_overflow}, panels={panel_count}, stages={stage_count}, grid_cols={grid_cols!r}, single_col={is_single}")
-    page.screenshot(path=f"/tmp/toiv-test/create_{width}x{height}.png", full_page=True)
+    panel_count = page.locator(".generate-params").count()
+    stage_count = page.locator(".generate-results").count()
+    # 通过计算样式判断 generate-body 是单列还是双列
+    grid_cols = page.locator(".generate-body").first.evaluate("(el) => window.getComputedStyle(el).flexDirection")
+    is_single = grid_cols.strip() == "column"  # 窄屏时 generate-body 转纵向
+    print(f"viewport {width}x{height}: overflow={has_overflow}, panels={panel_count}, stages={stage_count}, flex_dir={grid_cols!r}, single_col={is_single}")
+    page.screenshot(path=f"/tmp/toiv-test/generate_{width}x{height}.png", full_page=True)
 
 
 with sync_playwright() as p:

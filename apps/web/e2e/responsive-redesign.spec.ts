@@ -1,17 +1,19 @@
 import { test, expect } from "@playwright/test";
 
 /**
- * ToIV UI 响应式测试(对齐 DynamicIsland 导航架构)
+ * ToIV UI 响应式测试(对齐 W0 左侧栏 + 底部导航架构)
  *
- * 背景:应用已从 Sidebar 迁移到 DynamicIsland 作为主导航。
- * - 桌面端:DynamicIsland(.di-container)悬浮导航,无侧栏
- * - 移动端:DynamicIsland + BottomNav(.app-bottom-nav)底部导航
- * - .mobile-menu-toggle 在 di-nav 模式下 display:none,不再渲染
- * - .app-sidebar 类已退役,CSS 保留但 DOM 不渲染
+ * 背景(W0/W3 UI 重构后):主导航为左侧栏 + 底部导航,DynamicIsland 已退役。
+ * - 桌面端(≥1024px):aside.app-sidebar 左侧栏(.app-sidebar-item),底部导航隐藏
+ * - 窄屏(<1024px):侧栏隐藏,nav.app-bottom-nav 底部导航(.bottom-nav-item + 「更多」抽屉)
+ * - 横屏(height<500 且 landscape):底部导航让位,回到折叠侧栏
+ * - 全局顶栏 header.topbar 已移除(--topbar-h: 0px)
+ * - W3 退役 create/video/ltxstudio 视图,?view=create 重定向到 ?view=generate
+ * - .theme-toggle 已随顶栏移除,原「主题切换功能」用例 fixme 待产品确认
  *
- * 移动端判定(page.tsx useIsMobile):
- * - width < 768 → 移动端(渲染 BottomNav)
- * - width < 900 && height < 500 → 移动端(横屏手机)
+ * 显隐判定(globals.css 断点,组件始终挂载、由 CSS 控制显隐):
+ * - width < 1024 且非横屏短高 → 底部导航可见
+ * - 其余 → 侧栏可见
  */
 
 const DEVICES = [
@@ -33,21 +35,22 @@ const LANDSCAPE_MOBILE = [
 const VIEWS = [
   { path: "/?view=assistant", name: "对话流" },
   { path: "/?view=canvas", name: "画布" },
-  { path: "/?view=create", name: "创作" },
+  { path: "/?view=generate", name: "生成" },
   { path: "/?view=library", name: "作品库" },
 ];
 
 /**
- * 判定给定尺寸是否为"移动端"(与 page.tsx useIsMobile 逻辑一致)。
- * - width < 768:竖屏手机/平板
- * - width < 900 && height < 500:横屏手机
+ * 判定给定尺寸下底部导航是否可见(与 globals.css 断点一致,组件始终挂载由 CSS 控制显隐)。
+ * - width < 1024:窄屏,底部导航可见(侧栏隐藏)
+ * - height < 500 且横屏:底部导航让位,回到折叠侧栏
  */
-function isMobileByApp(width: number, height: number): boolean {
-  return width < 768 || (width < 900 && height < 500);
+function showsBottomNav(width: number, height: number): boolean {
+  const landscapeShort = height < 500 && width > height;
+  return width < 1024 && !landscapeShort;
 }
 
 test.describe("ToIV UI Redesign - 响应式测试", () => {
-  // 注入登录态:响应式测试需要主界面(DynamicIsland + BottomNav),未登录只能看到 LandingPage
+  // 注入登录态:响应式测试需要主界面(侧栏/底部导航),未登录只能看到 LandingPage
   test.use({ storageState: ".auth/admin.json" });
   test.describe.configure({ timeout: 120000 });
 
@@ -62,24 +65,19 @@ test.describe("ToIV UI Redesign - 响应式测试", () => {
         fullPage: false,
       });
 
-      const mobile = isMobileByApp(device.width, device.height);
+      const bottomNav = showsBottomNav(device.width, device.height);
 
-      // 主导航:DynamicIsland 始终可见(桌面 + 移动端)
-      await expect(page.locator(".di-container")).toBeVisible();
-
-      // 移动端:底部导航可见;桌面端:不可见
-      if (mobile) {
+      // 主导航互斥:窄屏底部导航可见,其余尺寸侧栏可见
+      if (bottomNav) {
         await expect(page.locator(".app-bottom-nav")).toBeVisible();
+        await expect(page.locator(".app-sidebar")).not.toBeVisible();
       } else {
-        await expect(page.locator(".app-bottom-nav")).toHaveCount(0);
+        await expect(page.locator(".app-sidebar")).toBeVisible();
+        await expect(page.locator(".app-bottom-nav")).not.toBeVisible();
       }
 
-      // 顶部栏和主区域始终可见
-      await expect(page.locator(".topbar")).toBeVisible();
+      // 主区域始终可见(顶栏 header.topbar 已移除)
       await expect(page.locator(".app-main")).toBeVisible();
-
-      const topbarHeight = await page.locator(".topbar").evaluate((el) => (el as HTMLElement).offsetHeight);
-      expect(topbarHeight).toBeGreaterThanOrEqual(mobile ? 44 : 36);
     });
   }
 
@@ -94,8 +92,8 @@ test.describe("ToIV UI Redesign - 响应式测试", () => {
         fullPage: false,
       });
 
-      await expect(page.locator(".di-container")).toBeVisible();
-      await expect(page.locator(".topbar")).toBeVisible();
+      await expect(page.locator(".app-sidebar")).toBeVisible();
+      await expect(page.locator(".app-main")).toBeVisible();
     });
 
     test(`页面渲染 - ${view.name} @ mobile (390×844)`, async ({ page }) => {
@@ -108,13 +106,14 @@ test.describe("ToIV UI Redesign - 响应式测试", () => {
         fullPage: false,
       });
 
-      // 移动端:DynamicIsland + BottomNav 可见
-      await expect(page.locator(".di-container")).toBeVisible();
+      // 窄屏:底部导航可见,侧栏隐藏
       await expect(page.locator(".app-bottom-nav")).toBeVisible();
+      await expect(page.locator(".app-sidebar")).not.toBeVisible();
     });
   }
 
-  test("主题切换功能", async ({ page }) => {
+  // W3:.theme-toggle 已随顶栏移除,主题切换 UI 不存在,待产品确认是否恢复后再重写
+  test.fixme("主题切换功能", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/?view=assistant", { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(1000);
@@ -134,27 +133,27 @@ test.describe("ToIV UI Redesign - 响应式测试", () => {
     await expect(page.locator(".app-shell")).toBeVisible();
   });
 
-  test("DynamicIsland 菜单打开/关闭 - 移动端", async ({ page }) => {
+  test("底部导航「更多」抽屉打开/关闭 - 移动端", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/?view=assistant", { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(1000);
 
-    // DynamicIsland 默认 dot 状态
-    const diContainer = page.locator(".di-container");
-    await expect(diContainer).toBeVisible();
+    // 底部导航可见
+    const bottomNav = page.locator(".app-bottom-nav");
+    await expect(bottomNav).toBeVisible();
 
-    // 点击 dot 按钮打开菜单
-    const trigger = page.locator(".di-island > button").first();
-    await expect(trigger).toBeVisible();
-    await trigger.click();
+    // 点击「更多」按钮打开抽屉
+    const moreBtn = bottomNav.locator('.bottom-nav-item[aria-label="更多"]');
+    await expect(moreBtn).toBeVisible();
+    await moreBtn.click();
     await page.waitForTimeout(300);
 
-    // 菜单可见
-    await expect(page.locator(".di-menu")).toBeVisible();
-    await page.screenshot({ path: "test-results/responsive/mobile-di-menu-open.png" });
+    // 抽屉可见
+    await expect(page.locator(".sheet.is-open")).toBeVisible();
+    await page.screenshot({ path: "test-results/responsive/mobile-more-drawer-open.png" });
 
-    // 选择一个视图(点击菜单项)后菜单关闭
-    const item = page.locator(".di-menu-item").first();
+    // 选择一个视图(点击抽屉项)后抽屉关闭
+    const item = page.locator(".more-nav-item").first();
     await item.click();
     await page.waitForTimeout(500);
 
@@ -197,10 +196,9 @@ test.describe("ToIV UI Redesign - 响应式测试", () => {
       fullPage: false,
     });
 
-    // 926×428:useIsMobile 判定为非移动端(width≥900 不满足 isLandscapeMobile 条件)
-    // DynamicIsland 可见,无 BottomNav(桌面端布局)
-    await expect(page.locator(".di-container")).toBeVisible();
-    await expect(page.locator(".app-bottom-nav")).toHaveCount(0);
+    // 926×428(横屏 height<500):底部导航让位,回到折叠侧栏
+    await expect(page.locator(".app-sidebar")).toBeVisible();
+    await expect(page.locator(".app-bottom-nav")).not.toBeVisible();
   });
 
   test("字体大小和间距一致性", async ({ page }) => {

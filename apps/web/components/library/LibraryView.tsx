@@ -5,6 +5,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { deleteJob, imageUrl, invalidateJobs, listJobs } from "@/lib/api";
 import type { JobItem } from "@/lib/types";
 import { Icon } from "@/components/ui/Icon";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Empty } from "@/components/ui/Empty";
+import { Modal } from "@/components/ui/Modal";
+import { Tabs } from "@/components/ui/Tabs";
 
 type FilterKey = "all" | "image" | "video" | "audio" | "3d";
 
@@ -99,10 +104,10 @@ function ThumbPlaceholder({ job }: { job: JobItem }) {
         strokeWidth={1.4}
       />
       {job.status === "running" && (
-        <span className="lib-thumb-status">生成中…</span>
+        <span className="lib-thumb-status is-running">生成中…</span>
       )}
       {job.status === "error" && (
-        <span className="lib-thumb-status">生成失败</span>
+        <span className="lib-thumb-status is-error">生成失败</span>
       )}
     </div>
   );
@@ -157,16 +162,6 @@ export function LibraryView() {
     return () => window.removeEventListener("keydown", onKey);
   }, [preview]);
 
-  // Esc 关闭删除确认对话框(删除中不响应,避免误触)
-  useEffect(() => {
-    if (!confirmDelete) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !deletingId) setConfirmDelete(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [confirmDelete, deletingId]);
-
   const filtered = useMemo(() => {
     if (!jobs) return [];
     if (filter === "all") return jobs;
@@ -187,6 +182,32 @@ export function LibraryView() {
     }
     return c;
   }, [jobs]);
+
+  // 段控 Tabs 项:计数始终渲染预留宽度(visibility 控制),避免计数出现后段宽跳动(CLS 加固)
+  const filterTabs = useMemo(
+    () =>
+      FILTERS.map((f) => ({
+        key: f.key,
+        label: (
+          <>
+            <span>{f.label}</span>
+            <span
+              style={{
+                visibility: counts[f.key] > 0 ? "visible" : "hidden",
+                fontSize: "var(--text-label)",
+                fontVariantNumeric: "tabular-nums",
+                display: "inline-block",
+                minWidth: "1.1em",
+                textAlign: "right",
+              }}
+            >
+              {counts[f.key]}
+            </span>
+          </>
+        ),
+      })),
+    [counts],
+  );
 
   // 点击删除:仅打开确认对话框(不再使用 window.confirm)
   const handleDelete = (job: JobItem) => {
@@ -237,29 +258,16 @@ export function LibraryView() {
                 : `${filtered.length} 件作品`}
           </span>
         </div>
-        <div className="lib-filters" role="tablist" aria-label="作品类型筛选">
-          {FILTERS.map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              role="tab"
-              aria-selected={filter === f.key}
-              className={`lib-filter ${filter === f.key ? "is-active" : ""}`}
-              onClick={() => {
-                setFilter(f.key);
-                setVisibleCount(PAGE_SIZE);
-              }}
-            >
-              <span>{f.label}</span>
-              {/* 始终渲染预留宽度(visibility 控制),避免计数出现后按钮宽度跳动(CLS 加固) */}
-              <span
-                className="lib-filter-count"
-                style={{ visibility: counts[f.key] > 0 ? "visible" : "hidden" }}
-              >
-                {counts[f.key]}
-              </span>
-            </button>
-          ))}
+        <div className="lib-filters">
+          <Tabs
+            items={filterTabs}
+            current={filter}
+            onChange={(key) => {
+              setFilter(key as FilterKey);
+              setVisibleCount(PAGE_SIZE);
+            }}
+            ariaLabel="作品类型筛选"
+          />
         </div>
       </header>
 
@@ -268,10 +276,9 @@ export function LibraryView() {
           <div className="lib-error">
             <Icon name="error" size={36} strokeWidth={1.4} />
             <div className="lib-error-msg">{error}</div>
-            <button type="button" className="btn btn-sm" onClick={load}>
-              <Icon name="refresh" size={14} />
+            <Button size="sm" onClick={load} icon={<Icon name="refresh" size={14} />}>
               重试
-            </button>
+            </Button>
           </div>
         )}
 
@@ -290,13 +297,11 @@ export function LibraryView() {
         )}
 
         {!error && !loading && isEmpty && (
-          <div className="empty-state lib-empty">
-            <div className="empty-state-icon">
-              <Icon name="library" size={56} strokeWidth={1.1} />
-            </div>
-            <div className="empty-state-title">还没有作品</div>
-            <div className="empty-state-desc">去创作页面生成第一件作品</div>
-          </div>
+          <Empty
+            icon="library"
+            title="还没有作品"
+            desc="去创作页面生成第一件作品"
+          />
         )}
 
         {!error && !loading && !isEmpty && (
@@ -368,7 +373,7 @@ export function LibraryView() {
 
                   <div className="lib-foot">
                     <div className="lib-foot-row">
-                      <span className="lib-kind">{kindLabel(job.kind)}</span>
+                      <Badge tone="accent" dot={false}>{kindLabel(job.kind)}</Badge>
                       <span className="lib-time">{formatTime(job.created_at)}</span>
                     </div>
                     <div className="lib-seed">seed · {job.seed}</div>
@@ -379,19 +384,20 @@ export function LibraryView() {
             </div>
             {hasMore && (
               <div className="lib-load-more">
-                <button
-                  type="button"
-                  className="btn btn-sm"
+                <Button
+                  variant="secondary"
+                  className="lib-load-more-btn"
                   onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
                 >
                   加载更多(已显示 {visibleJobs.length} / {filtered.length})
-                </button>
+                </Button>
               </div>
             )}
           </>
         )}
       </div>
 
+      {/* 灯箱:全屏媒体查看器(深色遮罩,Esc/点击关闭) */}
       {preview && (
         <div
           className="lib-lightbox"
@@ -423,79 +429,51 @@ export function LibraryView() {
         </div>
       )}
 
-      {/* 删除确认对话框(替代原生 window.confirm,样式参考 AdminView) */}
-      {confirmDelete && (
-        <div
-          className="lib-confirm-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-label="确认删除作品"
-          onClick={() => {
-            if (!deletingId) setConfirmDelete(null);
-          }}
-        >
-          <div
-            className="lib-confirm-card"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="lib-confirm-head">
-              <div>
-                <div className="lib-confirm-title">
-                  <Icon name="delete" size={16} />
-                  删除作品
-                </div>
-                <div className="lib-confirm-sub">此操作不可撤销</div>
-              </div>
-              <button
-                type="button"
-                className="lib-confirm-close"
-                aria-label="关闭"
-                disabled={deletingId !== null}
-                onClick={() => setConfirmDelete(null)}
-              >
-                <Icon name="close" size={18} />
-              </button>
-            </div>
-
-            <div className="lib-confirm-body">
-              <div className="lib-confirm-warn">
-                确定删除这件作品?该操作不可撤销,作品的所有数据将被永久移除。
-              </div>
-              {confirmDelete.prompt && (
-                <div className="lib-confirm-prompt">
-                  {confirmDelete.prompt.length > 80
-                    ? confirmDelete.prompt.slice(0, 80) + "…"
-                    : confirmDelete.prompt}
-                </div>
-              )}
-              {deleteError && (
-                <div className="lib-confirm-error">
-                  <Icon name="error" size={13} /> {deleteError}
-                </div>
-              )}
-              <div className="lib-confirm-actions">
-                <button
-                  type="button"
-                  className="btn"
-                  disabled={deletingId !== null}
-                  onClick={() => setConfirmDelete(null)}
-                >
-                  取消
-                </button>
-                <button
-                  type="button"
-                  className="btn lib-confirm-delete"
-                  disabled={deletingId !== null}
-                  onClick={handleConfirmDelete}
-                >
-                  <Icon name={deletingId ? "loading" : "delete"} size={14} />
-                  {deletingId ? "删除中…" : "确认删除"}
-                </button>
-              </div>
-            </div>
+      {/* 删除确认对话框(Modal 基座,替代原生 window.confirm) */}
+      <Modal
+        open={!!confirmDelete}
+        onClose={() => setConfirmDelete(null)}
+        title="删除作品"
+        danger
+        preventClose={deletingId !== null}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              disabled={deletingId !== null}
+              onClick={() => setConfirmDelete(null)}
+            >
+              取消
+            </Button>
+            <Button
+              variant="danger"
+              loading={deletingId !== null}
+              icon={<Icon name="delete" size={14} />}
+              onClick={handleConfirmDelete}
+            >
+              {deletingId ? "删除中…" : "确认删除"}
+            </Button>
+          </>
+        }
+      >
+        <div className="lib-confirm-body">
+          <div className="lib-confirm-warn">
+            确定删除这件作品?此操作不可撤销,作品的所有数据将被永久移除。
           </div>
+          {confirmDelete?.prompt && (
+            <div className="lib-confirm-prompt">
+              {confirmDelete.prompt.length > 80
+                ? confirmDelete.prompt.slice(0, 80) + "…"
+                : confirmDelete.prompt}
+            </div>
+          )}
+          {deleteError && (
+            <div className="lib-confirm-error">
+              <Icon name="error" size={13} /> {deleteError}
+            </div>
+          )}
         </div>
-      )}
+      </Modal>
 
       <style jsx>{`
         .library-view {
@@ -511,7 +489,7 @@ export function LibraryView() {
           gap: var(--space-4);
           flex-wrap: wrap;
           padding-bottom: var(--space-4);
-          border-bottom: 1px solid var(--hairline);
+          border-bottom: 1px solid var(--border-subtle);
         }
         .lib-header-left {
           display: flex;
@@ -521,71 +499,29 @@ export function LibraryView() {
         }
         .lib-title {
           margin: 0;
-          font-family: var(--font-display);
-          font-size: 1.5rem;
-          font-weight: 500;
+          font-size: var(--text-title);
+          font-weight: 700;
           letter-spacing: -0.02em;
-          color: var(--ink);
-          line-height: 1.2;
+          color: var(--text-primary);
+          line-height: 1.3;
         }
         .lib-count {
-          font-size: 0.78rem;
-          color: var(--ink-faint);
-          font-family: var(--font-mono);
-          letter-spacing: 0.01em;
+          font-size: var(--text-aux);
+          color: var(--text-muted);
+          font-variant-numeric: tabular-nums;
           /* 预留宽度:"加载中…" → "N 件作品" 文本切换不挤动相邻元素(CLS 加固) */
           display: inline-block;
           min-width: 5em;
         }
 
+        /* 窄屏段控可能溢出,横向滚动 + 触摸惯性 */
         .lib-filters {
-          display: inline-flex;
-          gap: 2px;
-          padding: 3px;
-          background: var(--bg-1);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius-sm);
-          /* 窄屏 5 个 filter 可能溢出,横向滚动 + 触摸惯性 */
           overflow-x: auto;
           -webkit-overflow-scrolling: touch;
           scrollbar-width: none;
         }
         .lib-filters::-webkit-scrollbar {
           display: none;
-        }
-        .lib-filter {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.35rem;
-          padding: 0.35rem 0.7rem;
-          background: transparent;
-          border: 1px solid transparent;
-          border-radius: var(--radius-xs);
-          color: var(--ink-soft);
-          font-size: 0.82rem;
-          font-weight: 500;
-          cursor: pointer;
-          white-space: nowrap;
-          transition: background-color var(--dur) var(--ease),
-            color var(--dur) var(--ease), border-color var(--dur) var(--ease);
-        }
-        .lib-filter:hover {
-          color: var(--ink);
-          background: var(--bg-2);
-        }
-        .lib-filter.is-active {
-          background: var(--accent-quiet);
-          border-color: var(--accent-line);
-          color: var(--accent-soft);
-        }
-        .lib-filter-count {
-          font-size: 0.68rem;
-          /* 取消 opacity 0.7:激活态 accent-soft 文本经透明度衰减后对比度不达 WCAG AA */
-          font-family: var(--font-mono);
-          /* 预留宽度:计数从隐藏到显示不改变按钮宽度(CLS 加固) */
-          display: inline-block;
-          min-width: 1.1em;
-          text-align: right;
         }
 
         .lib-body {
@@ -597,39 +533,49 @@ export function LibraryView() {
           grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
           gap: var(--space-4);
         }
+        @media (max-width: 480px) {
+          .lib-grid {
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: var(--space-3);
+          }
+        }
 
         .lib-load-more {
           display: flex;
           justify-content: center;
           margin-top: var(--space-4);
         }
+        .lib-load-more-btn {
+          font-variant-numeric: tabular-nums;
+        }
 
         .lib-card {
           position: relative;
-          background: var(--bg-1);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-panel);
           overflow: hidden;
           cursor: pointer;
-          transition: border-color var(--dur-2) var(--ease),
-            transform var(--dur-2) var(--ease),
-            box-shadow var(--dur-2) var(--ease);
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard),
+            box-shadow var(--duration-fast) var(--ease-standard);
         }
         .lib-card:hover,
         .lib-card:focus-visible {
-          border-color: var(--accent-line);
-          box-shadow: 0 4px 24px -8px oklch(55% 0.20 265 / 0.25);
+          background: var(--bg-surface-2);
+          border-color: var(--border-strong);
+          box-shadow: var(--shadow-sm);
           outline: none;
         }
         .lib-card.is-deleting {
-          opacity: 0.5;
+          opacity: 0.4;
           pointer-events: none;
         }
 
         .lib-thumb {
           position: relative;
           aspect-ratio: 1 / 1;
-          background: var(--bg-2);
+          background: var(--bg-surface-2);
           overflow: hidden;
         }
         /* 预览触发按钮:铺满缩略区,重置 button 默认样式 */
@@ -648,7 +594,7 @@ export function LibraryView() {
           font: inherit;
         }
         .lib-thumb-hit:focus-visible {
-          outline: 2px solid var(--accent);
+          outline: 1px solid var(--accent);
           outline-offset: -2px;
         }
         .lib-thumb img,
@@ -657,7 +603,7 @@ export function LibraryView() {
           height: 100%;
           object-fit: cover;
           display: block;
-          transition: transform var(--dur-2) var(--ease);
+          transition: transform var(--duration-base) var(--ease-standard);
         }
         .lib-card:hover .lib-thumb img,
         .lib-card:hover .lib-thumb video {
@@ -671,19 +617,19 @@ export function LibraryView() {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 0.5rem;
-          color: var(--ink-faint);
-          background: radial-gradient(
-            circle at 50% 50%,
-            var(--accent-wash),
-            transparent 70%
-          ),
-          var(--bg-2);
+          gap: var(--space-2);
+          color: var(--text-muted);
+          background: var(--bg-surface-2);
         }
         .lib-thumb-status {
-          font-size: 0.72rem;
-          color: var(--ink-faint);
-          font-family: var(--font-mono);
+          font-size: var(--text-aux);
+          color: var(--text-muted);
+        }
+        .lib-thumb-status.is-running {
+          color: var(--run);
+        }
+        .lib-thumb-status.is-error {
+          color: var(--err);
         }
 
         .lib-overlay {
@@ -694,11 +640,11 @@ export function LibraryView() {
           padding: var(--space-3);
           background: linear-gradient(
             to top,
-            oklch(3% 0.004 265 / 0.85),
+            color-mix(in oklab, var(--bg-canvas) 85%, transparent),
             transparent 60%
           );
           opacity: 0;
-          transition: opacity var(--dur-2) var(--ease);
+          transition: opacity var(--duration-base) var(--ease-standard);
           pointer-events: none;
         }
         .lib-card:hover .lib-overlay,
@@ -706,14 +652,14 @@ export function LibraryView() {
           opacity: 1;
         }
         .lib-overlay-prompt {
-          font-size: 0.78rem;
+          font-size: var(--text-aux);
           line-height: 1.45;
-          color: var(--ink);
+          color: var(--text-primary);
           display: -webkit-box;
           -webkit-line-clamp: 4;
           -webkit-box-orient: vertical;
           overflow: hidden;
-          text-shadow: 0 1px 2px oklch(3% 0.004 265 / 0.6);
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
         }
 
         .lib-delete {
@@ -726,20 +672,20 @@ export function LibraryView() {
           width: 28px;
           height: 28px;
           padding: 0;
-          background: oklch(3% 0.004 265 / 0.7);
+          background: var(--overlay-light);
           backdrop-filter: blur(8px);
           -webkit-backdrop-filter: blur(8px);
-          border: 1px solid var(--hairline-2);
-          border-radius: var(--radius-xs);
-          color: var(--ink-soft);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+          color: var(--text-secondary);
           cursor: pointer;
           opacity: 0;
           transform: translateY(-2px);
-          transition: opacity var(--dur-2) var(--ease),
-            transform var(--dur-2) var(--ease),
-            background-color var(--dur) var(--ease),
-            border-color var(--dur) var(--ease),
-            color var(--dur) var(--ease);
+          transition: opacity var(--duration-fast) var(--ease-standard),
+            transform var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard),
+            border-color var(--duration-fast) var(--ease-standard),
+            color var(--duration-fast) var(--ease-standard);
           z-index: 2;
         }
         .lib-card:hover .lib-delete,
@@ -748,9 +694,9 @@ export function LibraryView() {
           transform: translateY(0);
         }
         .lib-delete:hover {
-          background: var(--danger-quiet);
-          border-color: var(--danger);
-          color: var(--danger);
+          background: var(--err-soft);
+          border-color: var(--err);
+          color: var(--err);
         }
         .lib-delete:disabled {
           cursor: not-allowed;
@@ -762,55 +708,42 @@ export function LibraryView() {
           left: 8px;
           display: inline-flex;
           align-items: center;
-          gap: 0.25rem;
-          padding: 0.2rem 0.5rem;
-          background: oklch(3% 0.004 265 / 0.7);
+          gap: var(--space-1);
+          padding: 2px var(--space-2);
+          background: var(--overlay-light);
           backdrop-filter: blur(8px);
           -webkit-backdrop-filter: blur(8px);
-          border: 1px solid var(--hairline-2);
-          border-radius: var(--radius-full);
-          font-size: 0.68rem;
-          color: var(--ink-soft);
-          font-family: var(--font-mono);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-badge);
+          font-size: var(--text-label);
+          color: var(--text-secondary);
           letter-spacing: 0.02em;
           z-index: 1;
         }
 
         .lib-foot {
-          padding: 0.6rem 0.75rem 0.7rem;
+          padding: 10px var(--space-3) var(--space-3);
           display: flex;
           flex-direction: column;
-          gap: 0.25rem;
+          gap: var(--space-1);
         }
         .lib-foot-row {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 0.5rem;
+          gap: var(--space-2);
           min-width: 0;
         }
-        .lib-kind {
-          display: inline-flex;
-          align-items: center;
-          padding: 0.1rem 0.45rem;
-          background: var(--accent-quiet);
-          border: 1px solid var(--accent-line);
-          border-radius: var(--radius-xs);
-          font-size: 0.7rem;
-          color: var(--accent-soft);
-          font-weight: 500;
-          white-space: nowrap;
-        }
         .lib-time {
-          font-size: 0.72rem;
-          color: var(--ink-faint);
-          font-family: var(--font-mono);
+          font-size: var(--text-aux);
+          color: var(--text-muted);
+          font-variant-numeric: tabular-nums;
           white-space: nowrap;
         }
         .lib-seed {
-          font-size: 0.7rem;
-          color: var(--ink-faint);
-          font-family: var(--font-mono);
+          font-size: var(--text-label);
+          color: var(--text-muted);
+          font-variant-numeric: tabular-nums;
           letter-spacing: 0.02em;
         }
 
@@ -821,9 +754,9 @@ export function LibraryView() {
           aspect-ratio: 1 / 1;
           background: linear-gradient(
             90deg,
-            var(--bg-2) 0%,
-            var(--bg-3) 50%,
-            var(--bg-2) 100%
+            var(--bg-surface-2) 0%,
+            var(--bg-surface-3) 50%,
+            var(--bg-surface-2) 100%
           );
           background-size: 200% 100%;
           animation: skel-shimmer 1.6s ease-in-out infinite;
@@ -842,17 +775,17 @@ export function LibraryView() {
           }
         }
         .lib-foot-skel {
-          padding: 0.6rem 0.75rem 0.7rem;
+          padding: 10px var(--space-3) var(--space-3);
           display: flex;
           flex-direction: column;
-          gap: 0.45rem;
+          gap: 7px;
         }
         .skel-line {
-          /* 高度对齐真实 .lib-foot 行高(kind 徽标 ≈1.1rem / seed ≈0.97rem),
+          /* 高度对齐真实 .lib-foot 行高(kind 徽标 / seed 行),
              骨架 → 真实卡片替换时行高一致,卡片底部不跳动(CLS 加固) */
-          height: 0.85rem;
-          border-radius: 4px;
-          background: var(--bg-2);
+          height: 14px;
+          border-radius: var(--radius-xs);
+          background: var(--bg-surface-2);
         }
         .skel-w-1 {
           width: 50%;
@@ -861,38 +794,34 @@ export function LibraryView() {
           width: 70%;
         }
 
-        .lib-empty {
-          padding: var(--space-7) var(--space-4);
-        }
-
         .lib-error {
           display: flex;
           flex-direction: column;
           align-items: center;
           gap: var(--space-3);
           padding: var(--space-6);
-          color: var(--ink-faint);
+          color: var(--text-muted);
         }
         .lib-error-msg {
-          font-size: 0.88rem;
-          color: var(--ink-soft);
+          font-size: var(--text-base);
+          color: var(--text-secondary);
         }
 
+        /* ── 灯箱(全屏媒体查看器,深色) ── */
         .lib-lightbox {
           position: fixed;
           inset: 0;
-          z-index: 100;
+          z-index: var(--z-modal);
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
           gap: var(--space-3);
           padding: var(--space-5);
-          /* 背景基于 --bg-0 派生(随主题切换 / 颜色变更自动跟随) */
-          background: color-mix(in oklch, var(--bg-0) 92%, black);
+          background: var(--overlay-light);
           backdrop-filter: blur(8px);
           -webkit-backdrop-filter: blur(8px);
-          animation: lb-fade var(--dur-2) var(--ease);
+          animation: lb-fade var(--duration-base) var(--ease-standard);
         }
         @keyframes lb-fade {
           from {
@@ -917,17 +846,17 @@ export function LibraryView() {
           width: 40px;
           height: 40px;
           padding: 0;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline-2);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-full);
-          color: var(--ink-soft);
+          color: var(--text-secondary);
           cursor: pointer;
-          transition: background-color var(--dur) var(--ease),
-            color var(--dur) var(--ease);
+          transition: background-color var(--duration-fast) var(--ease-standard),
+            color var(--duration-fast) var(--ease-standard);
         }
         .lib-lightbox-close:hover {
-          background: var(--bg-3);
-          color: var(--ink);
+          background: var(--bg-surface-3);
+          color: var(--text-primary);
         }
         .lib-lightbox-body {
           max-width: 90vw;
@@ -940,13 +869,13 @@ export function LibraryView() {
         .lib-lightbox-body video {
           max-width: 90vw;
           max-height: 80vh;
-          border-radius: var(--radius);
-          box-shadow: var(--shadow-lg);
+          border-radius: var(--radius-panel);
+          box-shadow: var(--shadow-float);
         }
         .lib-lightbox-prompt {
           max-width: 80vw;
-          font-size: 0.85rem;
-          color: var(--ink-soft);
+          font-size: var(--text-sm);
+          color: var(--text-secondary);
           text-align: center;
           line-height: 1.55;
           padding: 0 var(--space-4);
@@ -956,159 +885,37 @@ export function LibraryView() {
           overflow: hidden;
         }
 
-        /* ── 删除确认对话框(替代原生 window.confirm,参考 AdminView)── */
-        .lib-confirm-overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 100;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: var(--space-4);
-          background: oklch(3% 0.004 265 / 0.7);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-          animation: lib-confirm-fade var(--dur-2) var(--ease);
-        }
-        @keyframes lib-confirm-fade {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .lib-confirm-overlay {
-            animation: none;
-          }
-        }
-
-        .lib-confirm-card {
-          width: 100%;
-          max-width: 420px;
-          background: var(--bg-1);
-          border: 1px solid var(--hairline-2);
-          border-radius: var(--radius-lg);
-          box-shadow: var(--shadow-lg);
-          overflow: hidden;
-          animation: lib-confirm-pop var(--dur-2) var(--ease);
-        }
-        @keyframes lib-confirm-pop {
-          from {
-            opacity: 0;
-            transform: translateY(8px) scale(0.98);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .lib-confirm-card {
-            animation: none;
-          }
-        }
-
-        .lib-confirm-head {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: var(--space-3);
-          padding: var(--space-4) var(--space-4) var(--space-3);
-          border-bottom: 1px solid var(--hairline);
-        }
-        .lib-confirm-title {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.4rem;
-          font-family: var(--font-display);
-          font-size: 1.1rem;
-          font-weight: 500;
-          color: var(--danger);
-          letter-spacing: -0.01em;
-          line-height: 1.3;
-        }
-        .lib-confirm-sub {
-          margin-top: 0.2rem;
-          font-size: 0.78rem;
-          color: var(--ink-faint);
-        }
-        .lib-confirm-close {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 32px;
-          height: 32px;
-          padding: 0;
-          background: transparent;
-          border: 1px solid transparent;
-          border-radius: var(--radius-xs);
-          color: var(--ink-faint);
-          cursor: pointer;
-          transition: background-color var(--dur) var(--ease),
-            color var(--dur) var(--ease);
-        }
-        .lib-confirm-close:hover {
-          background: var(--bg-2);
-          color: var(--ink);
-        }
-        .lib-confirm-close:focus-visible {
-          outline: 2px solid var(--accent);
-          outline-offset: 2px;
-        }
-
+        /* ── 删除确认对话框内容(容器为 Modal 基座) ── */
         .lib-confirm-body {
           display: flex;
           flex-direction: column;
           gap: var(--space-3);
-          padding: var(--space-4);
         }
         .lib-confirm-warn {
-          font-size: 0.88rem;
-          color: var(--ink-soft);
+          font-size: var(--text-base);
+          color: var(--text-secondary);
           line-height: 1.55;
         }
         .lib-confirm-prompt {
-          font-size: 0.78rem;
-          color: var(--ink);
-          font-family: var(--font-mono);
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius-xs);
-          padding: 0.4rem 0.55rem;
+          font-size: var(--text-aux);
+          color: var(--text-primary);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+          padding: var(--space-2) var(--space-3);
           line-height: 1.5;
           word-break: break-word;
         }
         .lib-confirm-error {
           display: flex;
           align-items: center;
-          gap: 0.35rem;
-          padding: 0.4rem 0.55rem;
-          background: var(--danger-quiet);
-          border: 1px solid var(--danger);
-          border-radius: var(--radius-xs);
-          color: var(--danger);
-          font-size: 0.78rem;
-        }
-        .lib-confirm-actions {
-          display: flex;
-          justify-content: flex-end;
-          gap: 0.4rem;
-        }
-        .lib-confirm-delete {
-          background: var(--danger);
-          border-color: var(--danger);
-          color: var(--bg-0);
-          min-width: 120px;
-          justify-content: center;
-        }
-        .lib-confirm-delete:hover:not(:disabled) {
-          filter: brightness(1.12);
-        }
-        .lib-confirm-delete:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
+          gap: 6px;
+          padding: var(--space-2) var(--space-3);
+          background: var(--err-soft);
+          border: 1px solid var(--err);
+          border-radius: var(--radius-control);
+          color: var(--err);
+          font-size: var(--text-aux);
         }
 
         @media (max-width: 768px) {

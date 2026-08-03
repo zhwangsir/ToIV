@@ -224,13 +224,13 @@ export function ModelPicker({
           position: relative;
           display: flex;
           flex-direction: column;
-          gap: 0.35rem;
+          gap: var(--space-2);
         }
         .mp-label {
-          font-size: 0.76rem;
+          font-size: var(--text-label);
           font-weight: 500;
-          color: var(--ink-soft);
-          letter-spacing: 0.02em;
+          color: var(--text-muted);
+          letter-spacing: 0.04em;
           text-transform: uppercase;
         }
 
@@ -239,43 +239,42 @@ export function ModelPicker({
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 0.5rem;
+          gap: var(--space-2);
           width: 100%;
-          padding: 0.45rem 0.7rem;
-          background: var(--bg-1);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius-xs);
-          color: var(--ink);
-          font-size: 0.82rem;
+          padding: var(--space-2) var(--space-3);
+          background: var(--bg-surface-3);
+          border: 1px solid transparent;
+          border-radius: var(--radius-control);
+          color: var(--text-primary);
+          font-size: var(--text-body);
           text-align: left;
           cursor: pointer;
-          transition: border-color var(--dur) var(--ease),
-            background-color var(--dur) var(--ease);
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard);
         }
         .mp-trigger:hover:not(:disabled) {
-          border-color: var(--hairline-strong);
-          background: var(--bg-2);
+          border-color: var(--border-strong);
         }
         .mp-trigger.is-open {
           border-color: var(--accent);
-          background: var(--bg-2);
+          background: var(--bg-surface-2);
         }
         .mp-trigger:disabled {
-          opacity: 0.6;
+          opacity: 0.4;
           cursor: not-allowed;
         }
         /* NSFW 模式:danger 色边框提示当前在 R18 专区 */
         .mp-trigger.is-nsfw {
-          border-color: var(--danger);
+          border-color: var(--err);
         }
         .mp-trigger.is-nsfw.is-open {
-          border-color: var(--danger);
-          box-shadow: 0 0 0 1px var(--danger);
+          border-color: var(--err);
+          box-shadow: 0 0 0 3px var(--err-soft);
         }
         .mp-trigger-main {
           display: inline-flex;
           align-items: center;
-          gap: 0.4rem;
+          gap: var(--space-2);
           min-width: 0;
           flex: 1;
         }
@@ -284,16 +283,16 @@ export function ModelPicker({
           text-overflow: ellipsis;
           white-space: nowrap;
           font-family: var(--font-mono);
-          font-size: 0.8rem;
+          font-size: var(--text-aux);
         }
         .mp-placeholder {
-          color: var(--ink-faint);
-          font-size: 0.8rem;
+          color: var(--text-muted);
+          font-size: var(--text-aux);
         }
         .mp-chevron {
-          color: var(--ink-faint);
+          color: var(--text-muted);
           flex-shrink: 0;
-          transition: transform var(--dur) var(--ease);
+          transition: transform var(--duration-fast) var(--ease-standard);
         }
         .mp-chevron.is-open {
           transform: rotate(180deg);
@@ -302,14 +301,13 @@ export function ModelPicker({
         /* 类型徽章(触发器与选项共用) */
         :global(.mp-type-badge) {
           flex-shrink: 0;
-          padding: 0.05rem 0.35rem;
-          background: var(--accent-quiet);
-          border: 1px solid var(--accent-line);
-          border-radius: var(--radius-full);
-          color: var(--accent-soft);
-          font-size: 0.64rem;
-          font-weight: 600;
-          letter-spacing: 0.02em;
+          padding: 1px var(--space-2);
+          background: var(--accent-soft);
+          border-radius: var(--radius-badge);
+          color: var(--accent);
+          font-size: var(--text-label);
+          font-weight: 500;
+          letter-spacing: 0.04em;
           text-transform: uppercase;
         }
 
@@ -319,21 +317,21 @@ export function ModelPicker({
           top: calc(100% + 4px);
           left: 0;
           right: 0;
-          z-index: 50;
-          background: var(--bg-1);
-          border: 1px solid var(--hairline-strong);
-          border-radius: var(--radius-sm);
-          box-shadow: var(--shadow-lg);
+          z-index: var(--z-dropdown);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-strong);
+          border-radius: var(--radius-panel);
+          box-shadow: var(--shadow-xl);
           overflow: hidden;
-          animation: var(--anim-fade-in);
+          animation: fadeIn var(--duration-base) var(--ease-standard);
         }
         .mp-search {
           display: flex;
           align-items: center;
-          gap: 0.4rem;
-          padding: 0.5rem 0.6rem;
-          border-bottom: 1px solid var(--hairline);
-          color: var(--ink-faint);
+          gap: var(--space-2);
+          padding: var(--space-2) var(--space-3);
+          border-bottom: 1px solid var(--border-subtle);
+          color: var(--text-muted);
         }
         .mp-search-input {
           flex: 1;
@@ -341,52 +339,52 @@ export function ModelPicker({
           background: transparent;
           border: none;
           outline: none;
-          color: var(--ink);
-          font-size: 0.8rem;
+          color: var(--text-primary);
+          font-size: var(--text-body);
         }
         .mp-search-input::placeholder {
-          color: var(--ink-faint);
+          color: var(--text-muted);
         }
         .mp-empty {
-          padding: 0.7rem 0.6rem;
-          font-size: 0.78rem;
-          color: var(--ink-faint);
+          padding: var(--space-3) var(--space-4);
+          font-size: var(--text-aux);
+          color: var(--text-muted);
           text-align: center;
         }
         .mp-list {
           list-style: none;
           margin: 0;
-          padding: 0.25rem;
+          padding: var(--space-1);
           max-height: 280px;
           overflow-y: auto;
         }
         .mp-list::-webkit-scrollbar {
-          width: 8px;
+          width: 6px;
         }
         .mp-list::-webkit-scrollbar-thumb {
-          background: var(--hairline-2);
-          border-radius: 4px;
+          background: var(--bg-surface-3);
+          border-radius: 3px;
         }
         .mp-option {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 0.5rem;
-          padding: 0.4rem 0.5rem;
-          border-radius: var(--radius-xs);
+          gap: var(--space-2);
+          padding: var(--space-2) var(--space-3);
+          border-radius: var(--radius-control);
           cursor: pointer;
-          transition: background-color var(--dur) var(--ease);
+          transition: background-color var(--duration-fast) var(--ease-standard);
         }
         .mp-option.is-active {
-          background: var(--bg-2);
+          background: var(--bg-surface-2);
         }
         .mp-option.is-selected {
-          background: var(--accent-quiet);
+          background: var(--accent-soft);
         }
         .mp-option-main {
           display: inline-flex;
           align-items: center;
-          gap: 0.4rem;
+          gap: var(--space-2);
           min-width: 0;
           flex: 1;
         }
@@ -394,27 +392,26 @@ export function ModelPicker({
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
-          font-size: 0.8rem;
-          color: var(--ink);
+          font-size: var(--text-aux);
+          color: var(--text-primary);
           font-family: var(--font-mono);
         }
         .mp-option.is-selected .mp-option-name {
-          color: var(--accent-soft);
+          color: var(--accent);
         }
         .mp-nsfw-tag {
           flex-shrink: 0;
-          padding: 0.05rem 0.3rem;
-          background: color-mix(in oklch, var(--danger) 18%, transparent);
-          border: 1px solid var(--danger);
-          border-radius: var(--radius-full);
-          color: var(--danger);
-          font-size: 0.62rem;
+          padding: 1px var(--space-2);
+          background: var(--err-soft);
+          border-radius: var(--radius-badge);
+          color: var(--err);
+          font-size: var(--text-label);
           font-weight: 600;
-          letter-spacing: 0.02em;
+          letter-spacing: 0.04em;
         }
         :global(.mp-check) {
           flex-shrink: 0;
-          color: var(--accent-soft);
+          color: var(--accent);
         }
       `}</style>
     </div>

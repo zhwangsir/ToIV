@@ -17,7 +17,7 @@ const DEVICES = [
 const VIEWS = [
   { name: 'assistant', label: '对话流' },
   { name: 'canvas', label: '画布' },
-  { name: 'create', label: '创作' },
+  { name: 'generate', label: '生成' },
   { name: 'library', label: '作品库' },
 ];
 

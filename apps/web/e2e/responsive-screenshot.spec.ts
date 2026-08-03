@@ -65,17 +65,17 @@ test.describe("ToIV UI Redesign - 响应式截图测试", () => {
     }
   });
 
-  test("移动端侧边栏", async ({ page }) => {
+  test("移动端底部导航「更多」抽屉", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/?view=assistant", { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(2000);
 
     await page.screenshot({ path: "test-results/responsive/mobile-closed.png" });
 
-    // DynamicIsland 已替代旧 Sidebar:点击 DI 触发按钮打开菜单后截图
-    const diTrigger = page.locator(".di-island > button").first();
-    if (await diTrigger.isVisible().catch(() => false)) {
-      await diTrigger.click();
+    // W0 后主导航为底部导航:点击「更多」按钮打开抽屉后截图
+    const moreBtn = page.locator('.app-bottom-nav .bottom-nav-item[aria-label="更多"]');
+    if (await moreBtn.isVisible().catch(() => false)) {
+      await moreBtn.click();
       await page.waitForTimeout(500);
       await page.screenshot({ path: "test-results/responsive/mobile-sidebar-open.png" });
     }

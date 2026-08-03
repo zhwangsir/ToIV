@@ -47,20 +47,27 @@ export function VoiceBar({ canvasId }: VoiceBarProps) {
     const ctx = cv.getContext("2d");
     if (!ctx) return;
     let raf = 0;
+    // 波形颜色走 --err token(录音态),canvas 无法直接用 var(),从 computed style 解析
+    const errColor =
+      getComputedStyle(document.documentElement)
+        .getPropertyValue("--err")
+        .trim() || "rgb(248, 113, 113)";
     const draw = () => {
       const w = cv.width;
       const h = cv.height;
       ctx.clearRect(0, 0, w, h);
       const bars = 24;
       const bw = w / bars - 2;
+      ctx.fillStyle = errColor;
       for (let i = 0; i < bars; i++) {
         // 中间高、两边低(美观),叠加上 volume
         const center = 1 - Math.abs(i - bars / 2) / (bars / 2);
         const v = volume * (0.4 + center * 0.6);
         const bh = Math.max(2, v * h);
-        ctx.fillStyle = `oklch(65% 0.20 25 / ${0.4 + v * 0.6})`;
+        ctx.globalAlpha = 0.4 + v * 0.6;
         ctx.fillRect(i * (bw + 2), (h - bh) / 2, bw, bh);
       }
+      ctx.globalAlpha = 1;
       raf = requestAnimationFrame(draw);
     };
     draw();
@@ -227,13 +234,13 @@ export function VoiceBar({ canvasId }: VoiceBarProps) {
           padding: 0.45rem 0.7rem;
           min-width: 360px;
           max-width: min(720px, calc(100% - 2rem));
-          background: color-mix(in oklch, var(--bg-1) 88%, transparent);
+          background: color-mix(in oklch, var(--bg-surface-1) 88%, transparent);
           backdrop-filter: blur(14px);
           -webkit-backdrop-filter: blur(14px);
-          border: 1px solid var(--hairline-2);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-full);
-          box-shadow: 0 12px 40px -8px oklch(0% 0 0 / 0.55);
-          animation: vb-fade-in var(--dur-2) var(--ease);
+          box-shadow: var(--shadow-float);
+          animation: vb-fade-in var(--duration-base) var(--ease-standard);
         }
         @keyframes vb-fade-in {
           from {
@@ -254,20 +261,20 @@ export function VoiceBar({ canvasId }: VoiceBarProps) {
           height: 36px;
           flex-shrink: 0;
           border-radius: 50%;
-          color: var(--ink-soft);
-          background: var(--bg-3);
-          border: 1px solid var(--hairline-2);
+          color: var(--text-secondary);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
           cursor: pointer;
-          transition: color var(--dur) var(--ease),
-            background-color var(--dur) var(--ease),
-            border-color var(--dur) var(--ease);
+          transition: color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard),
+            border-color var(--duration-fast) var(--ease-standard);
         }
         .vb-mic:hover {
-          color: var(--ink);
-          border-color: var(--accent-line);
+          color: var(--text-primary);
+          border-color: var(--accent-glow);
         }
         .vb-mic:focus-visible {
-          outline: 2px solid var(--accent);
+          outline: 1px solid var(--accent);
           outline-offset: 2px;
         }
         .vb-mic:disabled {
@@ -275,31 +282,30 @@ export function VoiceBar({ canvasId }: VoiceBarProps) {
           cursor: not-allowed;
         }
         .vb-state-recording .vb-mic {
-          color: var(--danger);
-          background: color-mix(in oklch, var(--danger) 18%, transparent);
-          border-color: color-mix(in oklch, var(--danger) 50%, transparent);
+          color: var(--err);
+          background: var(--err-soft);
+          border-color: color-mix(in oklch, var(--err) 50%, transparent);
           /* 速度 ≤ 1.2s(项目硬约束) */
-          animation: vb-breath 1.2s var(--ease) infinite;
+          animation: vb-breath 1.2s var(--ease-standard) infinite;
         }
         .vb-state-processing .vb-mic {
           color: var(--warn);
-          background: var(--warn-quiet);
+          background: var(--warn-soft);
           border-color: color-mix(in oklch, var(--warn) 45%, transparent);
         }
         .vb-state-playing .vb-mic {
-          color: var(--success);
-          background: var(--success-quiet);
-          border-color: color-mix(in oklch, var(--success) 45%, transparent);
+          color: var(--ok);
+          background: var(--ok-soft);
+          border-color: color-mix(in oklch, var(--ok) 45%, transparent);
         }
         @keyframes vb-breath {
           0%,
           100% {
             box-shadow: 0 0 0 0
-              color-mix(in oklch, var(--danger) 45%, transparent);
+              color-mix(in oklch, var(--err) 45%, transparent);
           }
           50% {
-            box-shadow: 0 0 0 8px
-              color-mix(in oklch, var(--danger) 0%, transparent);
+            box-shadow: 0 0 0 8px transparent;
           }
         }
 
@@ -309,31 +315,31 @@ export function VoiceBar({ canvasId }: VoiceBarProps) {
           gap: 0.35rem;
           flex-shrink: 0;
           font-size: 0.72rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           font-family: var(--font-mono);
         }
         .vb-status-dot {
           width: 6px;
           height: 6px;
           border-radius: 50%;
-          background: var(--ink-faint);
+          background: var(--text-muted);
         }
         .vb-state-recording .vb-status-dot {
-          background: var(--danger);
-          animation: vb-pulse 1.2s var(--ease) infinite;
+          background: var(--err);
+          animation: vb-pulse 1.2s var(--ease-standard) infinite;
         }
         .vb-state-processing .vb-status-dot {
           background: var(--warn);
-          animation: vb-pulse 1.2s var(--ease) infinite;
+          animation: vb-pulse 1.2s var(--ease-standard) infinite;
         }
         .vb-rec-time {
-          color: var(--danger);
+          color: var(--err);
           font-family: var(--font-mono);
           font-size: 0.72rem;
           font-variant-numeric: tabular-nums;
         }
         .vb-state-playing .vb-status-dot {
-          background: var(--success);
+          background: var(--ok);
         }
         @keyframes vb-pulse {
           0%,
@@ -360,11 +366,11 @@ export function VoiceBar({ canvasId }: VoiceBarProps) {
           align-items: center;
           gap: 0.4rem;
           font-size: 0.78rem;
-          color: var(--ink-soft);
+          color: var(--text-secondary);
           overflow: hidden;
         }
         .vb-hint {
-          color: var(--ink-faint);
+          color: var(--text-muted);
           font-size: 0.74rem;
         }
         .vb-line {
@@ -375,19 +381,19 @@ export function VoiceBar({ canvasId }: VoiceBarProps) {
           flex: 1;
         }
         .vb-label {
-          color: var(--ink-faint);
+          color: var(--text-muted);
           font-size: 0.66rem;
           font-family: var(--font-mono);
           flex-shrink: 0;
         }
         .vb-text {
-          color: var(--ink-soft);
+          color: var(--text-secondary);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
         .vb-error {
-          color: var(--danger);
+          color: var(--err);
           font-size: 0.74rem;
         }
 
@@ -399,16 +405,20 @@ export function VoiceBar({ canvasId }: VoiceBarProps) {
           height: 28px;
           flex-shrink: 0;
           border-radius: 50%;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           background: transparent;
           border: 1px solid transparent;
           cursor: pointer;
-          transition: color var(--dur) var(--ease),
-            background-color var(--dur) var(--ease);
+          transition: color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard);
         }
         .vb-history-toggle:hover {
-          color: var(--ink);
-          background: var(--bg-3);
+          color: var(--text-primary);
+          background: var(--bg-surface-3);
+        }
+        .vb-history-toggle:focus-visible {
+          outline: 1px solid var(--accent);
+          outline-offset: 1px;
         }
 
         .vb-history {
@@ -420,23 +430,23 @@ export function VoiceBar({ canvasId }: VoiceBarProps) {
           flex-direction: column;
           gap: 0.4rem;
           padding: 0.6rem;
-          background: color-mix(in oklch, var(--bg-1) 94%, transparent);
+          background: color-mix(in oklch, var(--bg-surface-1) 94%, transparent);
           backdrop-filter: blur(14px);
           -webkit-backdrop-filter: blur(14px);
-          border: 1px solid var(--hairline-2);
-          border-radius: var(--radius);
-          box-shadow: 0 12px 40px -8px oklch(0% 0 0 / 0.55);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-panel);
+          box-shadow: var(--shadow-float);
           max-height: 280px;
           overflow-y: auto;
-          animation: vb-fade-in var(--dur-2) var(--ease);
+          animation: vb-fade-in var(--duration-base) var(--ease-standard);
         }
         .vb-history-item {
           display: flex;
           flex-direction: column;
           gap: 0.2rem;
           padding: 0.4rem 0.55rem;
-          background: var(--bg-2);
-          border-radius: var(--radius-sm);
+          background: var(--bg-surface-2);
+          border-radius: var(--radius-control);
           font-size: 0.74rem;
         }
         .vb-history-line {

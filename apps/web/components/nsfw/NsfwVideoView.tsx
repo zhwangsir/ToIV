@@ -102,32 +102,32 @@ function QualityBar({ label, value }: { label: string; value: number }) {
           display: grid;
           grid-template-columns: 44px 1fr 28px;
           align-items: center;
-          gap: 0.5rem;
+          gap: var(--space-2);
         }
         .quality-bar-label {
-          font-size: 0.74rem;
-          color: var(--ink-soft);
+          font-size: var(--text-aux);
+          color: var(--text-secondary);
         }
         .quality-bar-track {
           height: 6px;
-          background: var(--bg-3);
+          background: var(--bg-surface-3);
           border-radius: var(--radius-full);
           overflow: hidden;
         }
         .quality-bar-fill {
           height: 100%;
           border-radius: var(--radius-full);
-          transition: width var(--dur-2) var(--ease);
+          transition: width var(--duration-base) var(--ease-standard);
         }
         .quality-bar-val {
-          font-size: 0.72rem;
+          font-size: var(--text-aux);
           font-family: var(--font-mono);
-          color: var(--ink-faint);
+          color: var(--text-muted);
           text-align: right;
         }
-        .is-ok .quality-bar-fill { background: var(--success); }
+        .is-ok .quality-bar-fill { background: var(--ok); }
         .is-warn .quality-bar-fill { background: var(--warn); }
-        .is-danger .quality-bar-fill { background: var(--danger); }
+        .is-danger .quality-bar-fill { background: var(--err); }
       `}</style>
     </div>
   );
@@ -617,7 +617,7 @@ export function NsfwVideoView() {
           {/* 错误态 */}
           {!busy && viewStatus === "error" && error && (
             <div className="empty-state nsv-error-state">
-              <div className="empty-state-icon" style={{ color: "var(--danger)" }}>
+              <div className="empty-state-icon" style={{ color: "var(--err)" }}>
                 <Icon name="error" size={48} strokeWidth={1.4} />
               </div>
               <div className="empty-state-title">生成失败</div>
@@ -625,7 +625,7 @@ export function NsfwVideoView() {
               <button
                 type="button"
                 className="btn btn-sm"
-                style={{ marginTop: "0.75rem" }}
+                style={{ marginTop: "var(--space-3)" }}
                 onClick={() => resetGen()}
               >
                 重试
@@ -677,7 +677,7 @@ export function NsfwVideoView() {
                 rows={3}
                 value={negative}
                 onChange={(e) => setNegative(e.target.value)}
-                style={{ marginTop: "0.5rem" }}
+                style={{ marginTop: "var(--space-2)" }}
               />
             )}
           </div>
@@ -983,10 +983,10 @@ export function NsfwVideoView() {
       <style jsx>{`
         .nsv-view {
           display: grid;
-          grid-template-columns: 1fr var(--param-w);
+          grid-template-columns: 1fr var(--rightpanel-w);
           height: 100%;
           min-height: calc(100vh - var(--topbar-h));
-          background: var(--bg-0);
+          background: var(--bg-canvas);
         }
 
         /* ───── 左:画布 ───── */
@@ -994,14 +994,14 @@ export function NsfwVideoView() {
           display: flex;
           flex-direction: column;
           min-width: 0;
-          border-right: 1px solid var(--hairline);
+          border-right: 1px solid var(--border-subtle);
           background:
             radial-gradient(
               120% 80% at 50% 0%,
-              oklch(55% 0.20 265 / 0.05),
+              color-mix(in oklch, var(--accent) 5%, transparent),
               transparent 60%
             ),
-            var(--bg-0);
+            var(--bg-canvas);
         }
         .nsv-canvas-top {
           display: flex;
@@ -1009,46 +1009,49 @@ export function NsfwVideoView() {
           justify-content: space-between;
           gap: var(--space-3);
           padding: var(--space-3) var(--space-4);
-          border-bottom: 1px solid var(--hairline);
+          border-bottom: 1px solid var(--border-subtle);
           flex-shrink: 0;
         }
         .nsv-scene-tabs {
           display: inline-flex;
           gap: 2px;
-          padding: 3px;
-          background: var(--bg-1);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius-sm);
+          padding: var(--space-1);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-badge);
         }
         .nsv-scene-tab {
           display: inline-flex;
           align-items: center;
-          gap: 0.35rem;
-          padding: 0.35rem 0.75rem;
+          gap: var(--space-1);
+          padding: var(--space-1) var(--space-3);
           background: transparent;
           border: 1px solid transparent;
-          border-radius: var(--radius-xs);
-          color: var(--ink-soft);
-          font-size: 0.82rem;
+          border-radius: var(--radius-badge);
+          color: var(--text-secondary);
+          font-size: var(--text-aux);
           font-weight: 500;
           cursor: pointer;
           white-space: nowrap;
-          transition: background-color var(--dur) var(--ease),
-            color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+          transition: background-color var(--duration-fast) var(--ease-standard),
+            color var(--duration-fast) var(--ease-standard),
+            border-color var(--duration-fast) var(--ease-standard);
         }
         .nsv-scene-tab:hover {
-          color: var(--ink);
-          background: var(--bg-2);
+          background: var(--bg-surface-2);
+        }
+        .nsv-scene-tab:active {
+          background: var(--bg-surface-3);
         }
         .nsv-scene-tab.is-active {
-          background: var(--accent-quiet);
-          border-color: var(--accent-line);
-          color: var(--accent-soft);
+          background: var(--accent-soft);
+          border-color: var(--accent-glow);
+          color: var(--accent);
         }
         .nsv-canvas-meta {
           display: inline-flex;
           align-items: center;
-          gap: 0.4rem;
+          gap: var(--space-1);
           flex-wrap: wrap;
           justify-content: flex-end;
         }
@@ -1080,7 +1083,7 @@ export function NsfwVideoView() {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 0.9rem;
+          gap: var(--space-3);
           padding: var(--space-5);
         }
         .nsv-loading-orb {
@@ -1090,7 +1093,7 @@ export function NsfwVideoView() {
           background: radial-gradient(
             circle at 35% 35%,
             var(--accent-hover),
-            var(--accent-deep) 60%,
+            var(--accent) 60%,
             transparent 70%
           );
           filter: blur(6px);
@@ -1105,27 +1108,27 @@ export function NsfwVideoView() {
           .nsv-loading-orb { animation: none; }
         }
         .nsv-loading-stage {
-          font-size: 0.9rem;
-          color: var(--ink-soft);
+          font-size: var(--text-body);
+          color: var(--text-secondary);
           font-family: var(--font-mono);
           letter-spacing: 0.01em;
         }
         .nsv-progress {
           width: 280px;
           height: 4px;
-          background: var(--bg-2);
+          background: var(--bg-surface-2);
           border-radius: var(--radius-full);
           overflow: hidden;
         }
         .nsv-progress-bar {
           height: 100%;
-          background: linear-gradient(90deg, var(--accent-deep), var(--accent-soft));
+          background: linear-gradient(90deg, var(--accent), var(--accent-soft));
           border-radius: var(--radius-full);
-          transition: width 0.2s var(--ease);
+          transition: width var(--duration-base) var(--ease-standard);
         }
         .nsv-progress-pct {
-          font-size: 0.78rem;
-          color: var(--ink-faint);
+          font-size: var(--text-aux);
+          color: var(--text-muted);
           font-family: var(--font-mono);
         }
 
@@ -1153,12 +1156,12 @@ export function NsfwVideoView() {
         .nsv-video {
           max-width: 100%;
           max-height: calc(100vh - var(--topbar-h) - 140px);
-          border-radius: var(--radius-lg);
+          border-radius: var(--radius-panel);
           overflow: hidden;
-          border: 1px solid var(--hairline-2);
+          border: 1px solid var(--border-strong);
           box-shadow: var(--shadow-lg),
-            0 0 60px -20px oklch(55% 0.20 265 / 0.35);
-          background: var(--bg-1);
+            0 0 60px -20px var(--accent-glow);
+          background: var(--bg-surface-1);
         }
         .nsv-error-state { max-width: 420px; }
 
@@ -1168,19 +1171,19 @@ export function NsfwVideoView() {
           max-width: 560px;
           flex-shrink: 0;
           padding: var(--space-3) var(--space-4);
-          background: var(--bg-1);
-          border: 1px solid var(--hairline-2);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-strong);
           border-left: 3px solid var(--warn);
-          border-radius: var(--radius);
+          border-radius: var(--radius-control);
           box-shadow: var(--shadow-md);
           display: flex;
           flex-direction: column;
-          gap: 0.6rem;
+          gap: var(--space-2);
         }
         .quality-header {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
+          gap: var(--space-2);
         }
         .quality-header-icon {
           display: inline-flex;
@@ -1189,18 +1192,18 @@ export function NsfwVideoView() {
           color: var(--warn);
         }
         .quality-title {
-          font-size: 0.86rem;
+          font-size: var(--text-body);
           font-weight: 600;
-          color: var(--ink);
+          color: var(--text-primary);
           letter-spacing: 0.01em;
         }
         .quality-score {
           margin-left: auto;
-          padding: 0.15rem 0.5rem;
-          background: var(--warn-quiet);
-          border: 1px solid oklch(75% 0.15 85 / 0.35);
+          padding: 2px var(--space-2);
+          background: var(--warn-soft);
+          border: 1px solid color-mix(in oklch, var(--warn) 35%, transparent);
           border-radius: var(--radius-full);
-          font-size: 0.78rem;
+          font-size: var(--text-aux);
           font-family: var(--font-mono);
           font-weight: 600;
           color: var(--warn);
@@ -1208,19 +1211,19 @@ export function NsfwVideoView() {
         .quality-bars {
           display: flex;
           flex-direction: column;
-          gap: 0.4rem;
+          gap: var(--space-1);
         }
         .quality-issues {
           margin: 0;
-          padding: 0.5rem 0 0.5rem 1.1rem;
+          padding: var(--space-2) 0 var(--space-2) var(--space-4);
           list-style: disc;
-          border-top: 1px solid var(--hairline);
+          border-top: 1px solid var(--border-subtle);
         }
         .quality-issues li {
-          font-size: 0.76rem;
+          font-size: var(--text-aux);
           line-height: 1.6;
-          color: var(--ink-soft);
-          margin-bottom: 0.15rem;
+          color: var(--text-secondary);
+          margin-bottom: var(--space-1);
         }
         .quality-issues li:last-child {
           margin-bottom: 0;
@@ -1229,22 +1232,22 @@ export function NsfwVideoView() {
           align-self: flex-start;
           display: inline-flex;
           align-items: center;
-          gap: 0.35rem;
+          gap: var(--space-1);
         }
         .quality-degraded {
-          padding: 0.4rem 0.6rem;
-          background: var(--danger-quiet);
-          border: 1px solid oklch(65% 0.20 25 / 0.3);
-          border-radius: var(--radius-xs);
-          font-size: 0.74rem;
-          color: var(--danger);
+          padding: var(--space-1) var(--space-2);
+          background: var(--err-soft);
+          border: 1px solid color-mix(in oklch, var(--err) 30%, transparent);
+          border-radius: var(--radius-badge);
+          font-size: var(--text-aux);
+          color: var(--err);
         }
 
         /* ───── 右:参数面板 ───── */
         .nsv-panel {
           display: flex;
           flex-direction: column;
-          background: var(--bg-1);
+          background: var(--bg-surface-1);
           min-height: 0;
         }
         .nsv-panel-scroll {
@@ -1259,11 +1262,11 @@ export function NsfwVideoView() {
         .nsv-panel-scroll::-webkit-scrollbar { width: 8px; }
         .nsv-panel-scroll::-webkit-scrollbar-track { background: transparent; }
         .nsv-panel-scroll::-webkit-scrollbar-thumb {
-          background: var(--hairline-2);
-          border-radius: 4px;
+          background: var(--border-strong);
+          border-radius: var(--radius-full);
         }
         .nsv-panel-scroll::-webkit-scrollbar-thumb:hover {
-          background: var(--hairline-strong);
+          background: var(--text-muted);
         }
 
         .nsv-section {
@@ -1273,21 +1276,21 @@ export function NsfwVideoView() {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 0.5rem;
+          gap: var(--space-2);
         }
         .nsv-label {
           display: block;
-          font-size: 0.76rem;
+          font-size: var(--text-aux);
           font-weight: 500;
-          color: var(--ink-soft);
+          color: var(--text-secondary);
           letter-spacing: 0.02em;
           text-transform: uppercase;
         }
         .nsv-textarea {
           min-height: 90px;
-          font-size: 0.85rem;
+          font-size: var(--text-body);
           line-height: 1.5;
-          margin-top: 0.4rem;
+          margin-top: var(--space-1);
         }
 
         /* 折叠头 */
@@ -1295,18 +1298,27 @@ export function NsfwVideoView() {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          width: 100%;
-          padding: 0;
+          width: calc(100% + 2 * var(--space-2));
+          margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-2));
+          padding: var(--space-1) var(--space-2);
           background: transparent;
           border: none;
+          border-radius: var(--radius-control);
           cursor: pointer;
           color: inherit;
+          transition: background-color var(--duration-fast) var(--ease-standard);
+        }
+        .nsv-collapse-head:hover {
+          background: var(--bg-surface-2);
+        }
+        .nsv-collapse-head:active {
+          background: var(--bg-surface-3);
         }
         .nsv-chevron {
-          color: var(--ink-faint);
-          font-size: 0.9rem;
+          color: var(--text-muted);
+          font-size: var(--text-body);
           transform: rotate(-90deg);
-          transition: transform var(--dur) var(--ease);
+          transition: transform var(--duration-fast) var(--ease-standard);
         }
         .nsv-chevron.is-open {
           transform: rotate(90deg);
@@ -1314,51 +1326,54 @@ export function NsfwVideoView() {
 
         /* 上传区 */
         .nsv-upload {
-          margin-top: 0.5rem;
-          border: 1px dashed var(--hairline-strong);
-          border-radius: var(--radius);
-          background: var(--bg-2);
+          margin-top: var(--space-2);
+          border: 1px dashed var(--border-strong);
+          border-radius: var(--radius-control);
+          background: var(--bg-surface-2);
           cursor: pointer;
-          transition: border-color var(--dur) var(--ease),
-            background-color var(--dur) var(--ease);
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard);
           overflow: hidden;
         }
         .nsv-upload:hover,
         .nsv-upload.is-drag {
           border-color: var(--accent);
-          background: var(--accent-wash);
+          background: var(--accent-soft);
+        }
+        .nsv-upload:active {
+          border-color: var(--accent-hover);
         }
         .nsv-upload-empty {
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 0.4rem;
+          gap: var(--space-1);
           padding: var(--space-4);
-          color: var(--ink-faint);
-          font-size: 0.82rem;
+          color: var(--text-muted);
+          font-size: var(--text-aux);
           text-align: center;
         }
         .nsv-upload-hint {
-          font-size: 0.72rem;
-          color: var(--ink-faint);
+          font-size: var(--text-label);
+          color: var(--text-muted);
           opacity: 0.7;
         }
         .nsv-upload-preview {
           display: flex;
-          gap: 0.6rem;
-          padding: 0.5rem;
+          gap: var(--space-2);
+          padding: var(--space-2);
           align-items: center;
         }
         .nsv-upload-preview img {
           width: 64px;
           height: 64px;
           object-fit: cover;
-          border-radius: var(--radius-xs);
-          border: 1px solid var(--hairline);
+          border-radius: var(--radius-badge);
+          border: 1px solid var(--border-subtle);
         }
         .nsv-audio-preview {
-          gap: 0.6rem;
+          gap: var(--space-2);
         }
         .nsv-audio-icon {
           width: 64px;
@@ -1366,105 +1381,109 @@ export function NsfwVideoView() {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: var(--bg-3);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius-xs);
-          color: var(--accent-soft);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-badge);
+          color: var(--accent);
           flex-shrink: 0;
         }
         .nsv-upload-meta {
           display: flex;
           flex-direction: column;
-          gap: 0.3rem;
+          gap: var(--space-1);
           min-width: 0;
           flex: 1;
         }
         .nsv-upload-name {
-          font-size: 0.78rem;
-          color: var(--ink-soft);
+          font-size: var(--text-aux);
+          color: var(--text-secondary);
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
         .nsv-upload-clear {
           align-self: flex-start;
-          color: var(--danger);
+          color: var(--err);
         }
 
         /* 预设网格 */
         .nsv-preset-grid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
-          gap: 0.4rem;
-          margin-top: 0.5rem;
+          gap: var(--space-1);
+          margin-top: var(--space-2);
         }
         .nsv-preset-btn {
           display: flex;
           flex-direction: column;
           align-items: center;
           gap: 2px;
-          padding: 0.5rem 0.3rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius-xs);
-          color: var(--ink-soft);
+          padding: var(--space-2) var(--space-1);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-badge);
+          color: var(--text-secondary);
           cursor: pointer;
-          transition: background-color var(--dur) var(--ease),
-            border-color var(--dur) var(--ease), color var(--dur) var(--ease);
+          transition: background-color var(--duration-fast) var(--ease-standard),
+            border-color var(--duration-fast) var(--ease-standard),
+            color var(--duration-fast) var(--ease-standard);
         }
         .nsv-preset-btn:hover {
-          background: var(--bg-3);
-          color: var(--ink);
+          background: var(--bg-surface-3);
+          border-color: var(--border-strong);
+        }
+        .nsv-preset-btn:active {
+          border-color: var(--text-muted);
         }
         .nsv-preset-btn.is-active {
-          background: var(--accent-quiet);
-          border-color: var(--accent-line);
-          color: var(--accent-soft);
+          background: var(--accent-soft);
+          border-color: var(--accent-glow);
+          color: var(--accent);
         }
         .nsv-preset-title {
-          font-size: 0.82rem;
+          font-size: var(--text-aux);
           font-weight: 600;
         }
         .nsv-preset-sub {
-          font-size: 0.68rem;
+          font-size: var(--text-label);
           font-family: var(--font-mono);
           opacity: 0.75;
         }
 
         /* 高级参数 */
         .nsv-advanced-body {
-          margin-top: 0.6rem;
+          margin-top: var(--space-2);
           display: flex;
           flex-direction: column;
-          gap: 0.75rem;
+          gap: var(--space-3);
         }
         .nsv-toggle-row {
           display: flex;
           align-items: flex-start;
           justify-content: space-between;
-          gap: 0.6rem;
+          gap: var(--space-2);
         }
         .nsv-toggle-text {
           min-width: 0;
           flex: 1;
         }
         .nsv-toggle-title {
-          font-size: 0.8rem;
-          color: var(--ink);
+          font-size: var(--text-aux);
+          color: var(--text-primary);
           font-weight: 500;
         }
         .nsv-toggle-desc {
-          font-size: 0.72rem;
-          color: var(--ink-faint);
+          font-size: var(--text-label);
+          color: var(--text-muted);
           margin-top: 2px;
         }
         .nsv-field-hint {
           display: flex;
           align-items: center;
-          gap: 0.3rem;
-          font-size: 0.72rem;
-          color: var(--ink-faint);
-          margin-top: -0.3rem;
+          gap: var(--space-1);
+          font-size: var(--text-label);
+          color: var(--text-muted);
+          margin-top: calc(-1 * var(--space-1));
         }
 
         /* 自定义开关 */
@@ -1484,11 +1503,11 @@ export function NsfwVideoView() {
         .nsv-switch-track {
           position: absolute;
           inset: 0;
-          background: var(--bg-3);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-full);
-          transition: background-color var(--dur) var(--ease),
-            border-color var(--dur) var(--ease);
+          transition: background-color var(--duration-fast) var(--ease-standard),
+            border-color var(--duration-fast) var(--ease-standard);
         }
         .nsv-switch-track::before {
           content: "";
@@ -1497,10 +1516,13 @@ export function NsfwVideoView() {
           left: 2px;
           width: 14px;
           height: 14px;
-          background: var(--ink-soft);
+          background: var(--text-secondary);
           border-radius: 50%;
-          transition: transform var(--dur) var(--ease),
-            background-color var(--dur) var(--ease);
+          transition: transform var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard);
+        }
+        .nsv-switch:hover .nsv-switch-track {
+          border-color: var(--border-strong);
         }
         .nsv-switch input:checked + .nsv-switch-track {
           background: var(--accent);
@@ -1508,7 +1530,11 @@ export function NsfwVideoView() {
         }
         .nsv-switch input:checked + .nsv-switch-track::before {
           transform: translateX(16px);
-          background: var(--on-accent);
+          background: var(--text-on-accent);
+        }
+        .nsv-switch input:focus-visible + .nsv-switch-track {
+          outline: 1px solid var(--accent);
+          outline-offset: 2px;
         }
         .nsv-switch input:disabled + .nsv-switch-track {
           opacity: 0.5;
@@ -1524,49 +1550,49 @@ export function NsfwVideoView() {
         .nsv-lock-toggle {
           display: inline-flex;
           align-items: center;
-          gap: 0.35rem;
-          font-size: 0.76rem;
-          color: var(--ink-soft);
+          gap: var(--space-1);
+          font-size: var(--text-aux);
+          color: var(--text-secondary);
           cursor: pointer;
         }
         .nsv-seed-row {
           display: flex;
-          gap: 0.4rem;
-          margin-top: 0.4rem;
+          gap: var(--space-1);
+          margin-top: var(--space-1);
         }
         .nsv-locklast {
-          margin-top: 0.5rem;
+          margin-top: var(--space-2);
           width: 100%;
-          color: var(--accent-soft);
+          color: var(--accent);
         }
 
         /* 只读甜点参数 */
         .nsv-readonly-grid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
-          gap: 0.4rem;
-          padding-top: 0.6rem;
-          margin-top: 0.2rem;
-          border-top: 1px solid var(--hairline);
+          gap: var(--space-1);
+          padding-top: var(--space-2);
+          margin-top: var(--space-1);
+          border-top: 1px solid var(--border-subtle);
         }
         .nsv-readonly-item {
           display: flex;
           flex-direction: column;
           align-items: center;
           gap: 2px;
-          padding: 0.35rem 0;
-          background: var(--bg-2);
-          border-radius: var(--radius-xs);
+          padding: var(--space-1) 0;
+          background: var(--bg-surface-2);
+          border-radius: var(--radius-badge);
         }
         .nsv-readonly-label {
-          font-size: 0.68rem;
-          color: var(--ink-faint);
+          font-size: var(--text-label);
+          color: var(--text-muted);
           letter-spacing: 0.02em;
           text-transform: uppercase;
         }
         .nsv-readonly-val {
-          font-size: 0.85rem;
-          color: var(--accent-soft);
+          font-size: var(--text-body);
+          color: var(--accent);
           font-family: var(--font-mono);
           font-weight: 600;
         }
@@ -1575,27 +1601,33 @@ export function NsfwVideoView() {
         .nsv-panel-foot {
           flex-shrink: 0;
           padding: var(--space-3);
-          border-top: 1px solid var(--hairline);
-          background: var(--bg-1);
+          border-top: 1px solid var(--border-subtle);
+          background: var(--bg-surface-1);
         }
         .nsv-generate-btn {
           width: 100%;
-          padding: 0.7rem 1rem;
-          font-size: 0.92rem;
+          padding: var(--space-3) var(--space-4);
+          font-size: var(--text-section);
           font-weight: 600;
-          border-radius: var(--radius-sm);
-          box-shadow: 0 4px 18px -6px oklch(55% 0.20 265 / 0.5);
+          border-radius: var(--radius-control);
+          box-shadow: 0 4px 18px -6px color-mix(in oklch, var(--accent) 50%, transparent);
+          transition: background-color var(--duration-fast) var(--ease-standard),
+            border-color var(--duration-fast) var(--ease-standard),
+            box-shadow var(--duration-fast) var(--ease-standard);
         }
         .nsv-generate-btn:not(:disabled):hover {
-          box-shadow: 0 6px 24px -6px oklch(55% 0.20 265 / 0.65);
+          box-shadow: 0 6px 24px -6px color-mix(in oklch, var(--accent) 65%, transparent);
+        }
+        .nsv-generate-btn:not(:disabled):active {
+          box-shadow: 0 2px 10px -6px color-mix(in oklch, var(--accent) 50%, transparent);
         }
         .nsv-foot-error {
           display: flex;
           align-items: center;
-          gap: 0.3rem;
-          margin-top: 0.5rem;
-          font-size: 0.74rem;
-          color: var(--danger);
+          gap: var(--space-1);
+          margin-top: var(--space-2);
+          font-size: var(--text-aux);
+          color: var(--err);
         }
 
         /* 移动端:堆叠 */
@@ -1606,7 +1638,7 @@ export function NsfwVideoView() {
           }
           .nsv-canvas {
             border-right: none;
-            border-bottom: 1px solid var(--hairline);
+            border-bottom: 1px solid var(--border-subtle);
           }
           .nsv-video {
             max-height: calc(60vh - 140px);

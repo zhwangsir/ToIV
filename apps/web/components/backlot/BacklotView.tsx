@@ -12,47 +12,16 @@ import type {
 } from "@/lib/api";
 import { Icon, type IconName } from "@/components/ui/Icon";
 
-// ── 阶段元数据:5 阶段色调映射(琥珀/靛蓝/紫/粉/绿) ──
-// 色值引用 globals.css 的 --stage-* token,避免硬编码重复(quiet/line 由 CSS color-mix 派生)
+// ── 阶段元数据:徽章色调由 CSS data-stage → canonical 状态色映射 ──
 const STAGE_META: Record<
   BacklotStage,
-  { label: string; desc: string; color: string; quiet: string; line: string }
+  { label: string; desc: string }
 > = {
-  drafting: {
-    label: "草稿",
-    desc: "剧本创作中",
-    color: "var(--stage-drafting)",
-    quiet: "color-mix(in oklch, var(--stage-drafting) 14%, transparent)",
-    line: "color-mix(in oklch, var(--stage-drafting) 40%, transparent)",
-  },
-  imaging: {
-    label: "分镜",
-    desc: "画面生成中",
-    color: "var(--stage-imaging)",
-    quiet: "color-mix(in oklch, var(--stage-imaging) 14%, transparent)",
-    line: "color-mix(in oklch, var(--stage-imaging) 40%, transparent)",
-  },
-  filming: {
-    label: "拍摄",
-    desc: "视频生成中",
-    color: "var(--stage-filming)",
-    quiet: "color-mix(in oklch, var(--stage-filming) 14%, transparent)",
-    line: "color-mix(in oklch, var(--stage-filming) 40%, transparent)",
-  },
-  voicing: {
-    label: "配音",
-    desc: "对白合成中",
-    color: "var(--stage-voicing)",
-    quiet: "color-mix(in oklch, var(--stage-voicing) 14%, transparent)",
-    line: "color-mix(in oklch, var(--stage-voicing) 40%, transparent)",
-  },
-  done: {
-    label: "完成",
-    desc: "项目已交付",
-    color: "var(--stage-done)",
-    quiet: "color-mix(in oklch, var(--stage-done) 14%, transparent)",
-    line: "color-mix(in oklch, var(--stage-done) 40%, transparent)",
-  },
+  drafting: { label: "草稿", desc: "剧本创作中" },
+  imaging: { label: "分镜", desc: "画面生成中" },
+  filming: { label: "拍摄", desc: "视频生成中" },
+  voicing: { label: "配音", desc: "对白合成中" },
+  done: { label: "完成", desc: "项目已交付" },
 };
 
 function formatTime(iso: string): string {
@@ -80,12 +49,12 @@ function shotStatusMeta(status: string): {
 } {
   const s = (status ?? "").toLowerCase();
   if (["done", "completed", "finished", "ready", "ok"].includes(s))
-    return { icon: "success", color: "var(--success)", label: "完成" };
+    return { icon: "success", color: "var(--ok)", label: "完成" };
   if (["running", "in_progress", "processing", "rendering", "busy"].includes(s))
-    return { icon: "loading", color: "var(--accent)", label: "进行中" };
+    return { icon: "loading", color: "var(--run)", label: "进行中" };
   if (["error", "failed", "fail"].includes(s))
-    return { icon: "error", color: "var(--danger)", label: "失败" };
-  return { icon: "queued", color: "var(--ink-faint)", label: "待处理" };
+    return { icon: "error", color: "var(--err)", label: "失败" };
+  return { icon: "queued", color: "var(--text-muted)", label: "待处理" };
 }
 
 function pct(value: number, total: number): number {
@@ -559,7 +528,7 @@ export function BacklotView() {
           gap: var(--space-4);
           flex-wrap: wrap;
           padding-bottom: var(--space-4);
-          border-bottom: 1px solid var(--hairline);
+          border-bottom: 1px solid var(--border-subtle);
         }
         .bl-header-left {
           display: flex;
@@ -575,26 +544,27 @@ export function BacklotView() {
         }
         .bl-title {
           margin: 0;
-          font-family: var(--font-display);
-          font-size: 1.5rem;
-          font-weight: 500;
+          font-family: var(--font-sans);
+          font-size: var(--text-title);
+          font-weight: 700;
           letter-spacing: -0.02em;
-          color: var(--ink);
-          line-height: 1.2;
+          color: var(--text-primary);
+          line-height: 1.3;
         }
         .bl-subtitle {
           font-size: 0.72rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           line-height: 1.3;
         }
         .bl-count {
           font-size: 0.78rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           font-family: var(--font-mono);
+          font-variant-numeric: tabular-nums;
           letter-spacing: 0.01em;
         }
         .bl-refresh :global(svg) {
-          transition: transform var(--dur) var(--ease);
+          transition: transform var(--duration-fast) var(--ease-standard);
         }
 
         /* ── 主体 ── */
@@ -613,11 +583,11 @@ export function BacklotView() {
           align-items: center;
           gap: var(--space-3);
           padding: var(--space-6);
-          color: var(--ink-faint);
+          color: var(--text-muted);
         }
         .bl-error-msg {
           font-size: 0.88rem;
-          color: var(--ink-soft);
+          color: var(--text-secondary);
         }
 
         /* ── 卡片网格 ── */
@@ -630,28 +600,27 @@ export function BacklotView() {
         .bl-card {
           display: flex;
           flex-direction: column;
-          background: var(--bg-1);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius); /* 10px */
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-panel);
           overflow: hidden;
           cursor: pointer;
-          transition: border-color var(--dur-2) var(--ease),
-            transform var(--dur-2) var(--ease),
-            box-shadow var(--dur-2) var(--ease);
+          transition: border-color var(--duration-fast) var(--ease-standard);
         }
-        .bl-card:hover,
+        .bl-card:hover {
+          border-color: var(--border-strong);
+        }
         .bl-card:focus-visible {
-          border-color: var(--accent-line);
-          transform: translateY(-2px);
-          box-shadow: 0 8px 32px -12px oklch(55% 0.2 265 / 0.4);
-          outline: none;
+          border-color: var(--border-strong);
+          outline: 1px solid var(--accent);
+          outline-offset: 2px;
         }
 
         /* 缩略图 16:9 */
         .bl-thumb {
           position: relative;
           aspect-ratio: 16 / 9;
-          background: var(--bg-2);
+          background: var(--bg-surface-2);
           overflow: hidden;
         }
         .bl-thumb img {
@@ -659,7 +628,7 @@ export function BacklotView() {
           height: 100%;
           object-fit: cover;
           display: block;
-          transition: transform var(--dur-2) var(--ease);
+          transition: transform var(--duration-base) var(--ease-standard);
         }
         .bl-card:hover .bl-thumb img {
           transform: scale(1.04);
@@ -670,13 +639,13 @@ export function BacklotView() {
           display: flex;
           align-items: center;
           justify-content: center;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           background: radial-gradient(
               circle at 50% 50%,
-              var(--accent-wash),
+              var(--accent-soft),
               transparent 70%
             ),
-            var(--bg-2);
+            var(--bg-surface-2);
         }
 
         /* 卡片正文 */
@@ -697,7 +666,7 @@ export function BacklotView() {
           margin: 0;
           font-size: 0.95rem;
           font-weight: 600;
-          color: var(--ink);
+          color: var(--text-primary);
           line-height: 1.3;
           letter-spacing: -0.01em;
           overflow: hidden;
@@ -709,7 +678,7 @@ export function BacklotView() {
         .bl-card-premise {
           margin: 0;
           font-size: 0.78rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           line-height: 1.45;
           display: -webkit-box;
           -webkit-line-clamp: 2;
@@ -722,7 +691,7 @@ export function BacklotView() {
           justify-content: space-between;
           gap: 0.5rem;
           padding-top: 0.5rem;
-          border-top: 1px solid var(--hairline);
+          border-top: 1px solid var(--border-subtle);
           margin-top: 0.1rem;
         }
         .bl-meta {
@@ -730,11 +699,11 @@ export function BacklotView() {
           align-items: center;
           gap: 0.3rem;
           font-size: 0.72rem;
-          color: var(--ink-soft);
+          color: var(--text-secondary);
         }
         .bl-time {
           font-size: 0.7rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           font-family: var(--font-mono);
           letter-spacing: 0.02em;
         }
@@ -763,12 +732,12 @@ export function BacklotView() {
           flex-shrink: 0;
           background: var(--stage-color);
         }
-        /* 5 阶段色调 → --stage-color 映射(色值统一来自 globals.css 的 --stage-* token) */
-        .bl-stage[data-stage="drafting"] { --stage-color: var(--stage-drafting); }
-        .bl-stage[data-stage="imaging"] { --stage-color: var(--stage-imaging); }
-        .bl-stage[data-stage="filming"] { --stage-color: var(--stage-filming); }
-        .bl-stage[data-stage="voicing"] { --stage-color: var(--stage-voicing); }
-        .bl-stage[data-stage="done"] { --stage-color: var(--stage-done); }
+        /* 5 阶段色调 → --stage-color 映射(直连 canonical 状态色 token) */
+        .bl-stage[data-stage="drafting"] { --stage-color: var(--warn); }
+        .bl-stage[data-stage="imaging"] { --stage-color: var(--run); }
+        .bl-stage[data-stage="filming"] { --stage-color: var(--accent); }
+        .bl-stage[data-stage="voicing"] { --stage-color: var(--accent); }
+        .bl-stage[data-stage="done"] { --stage-color: var(--ok); }
 
         /* ── 三联进度条 ── */
         .bl-progress {
@@ -792,12 +761,13 @@ export function BacklotView() {
           align-items: center;
           gap: 0.3rem;
           font-size: 0.72rem;
-          color: var(--ink-soft);
+          color: var(--text-secondary);
         }
         .bl-progress-count {
           font-size: 0.7rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           font-family: var(--font-mono);
+          font-variant-numeric: tabular-nums;
           letter-spacing: 0.02em;
         }
         .bl-progress-sep {
@@ -807,7 +777,7 @@ export function BacklotView() {
         .bl-progress-bar {
           position: relative;
           height: 4px;
-          background: var(--bg-3);
+          background: var(--bg-surface-3);
           border-radius: 2px;
           overflow: hidden;
         }
@@ -816,14 +786,9 @@ export function BacklotView() {
           top: 0;
           left: 0;
           bottom: 0;
-          background: linear-gradient(
-            90deg,
-            var(--accent-deep),
-            var(--accent)
-          );
+          background: var(--accent);
           border-radius: 2px;
-          transition: width 0.4s var(--ease);
-          box-shadow: 0 0 8px oklch(55% 0.2 265 / 0.5);
+          transition: width var(--duration-base) var(--ease-standard);
         }
 
         /* ── Slide-over 详情面板 ── */
@@ -831,10 +796,10 @@ export function BacklotView() {
           position: fixed;
           inset: 0;
           z-index: 90;
-          background: oklch(3% 0.004 265 / 0.7);
+          background: var(--overlay-strong);
           backdrop-filter: blur(4px);
           -webkit-backdrop-filter: blur(4px);
-          animation: bl-fade-in var(--dur-2) var(--ease);
+          animation: bl-fade-in var(--duration-base) var(--ease-standard);
         }
         @keyframes bl-fade-in {
           from {
@@ -852,10 +817,10 @@ export function BacklotView() {
           width: min(480px, 100vw);
           display: flex;
           flex-direction: column;
-          background: var(--bg-1);
-          border-left: 1px solid var(--hairline-2);
-          box-shadow: var(--shadow-lg);
-          animation: bl-slide-in 0.25s var(--ease);
+          background: var(--bg-surface-1);
+          border-left: 1px solid var(--border-strong);
+          box-shadow: var(--shadow-xl);
+          animation: bl-slide-in var(--duration-base) var(--ease-standard);
         }
         @keyframes bl-slide-in {
           from {
@@ -878,7 +843,7 @@ export function BacklotView() {
           justify-content: space-between;
           gap: var(--space-3);
           padding: var(--space-4);
-          border-bottom: 1px solid var(--hairline);
+          border-bottom: 1px solid var(--border-subtle);
           flex-shrink: 0;
         }
         .bl-panel-titles {
@@ -890,18 +855,18 @@ export function BacklotView() {
         }
         .bl-panel-title {
           margin: 0;
-          font-family: var(--font-display);
-          font-size: 1.2rem;
-          font-weight: 500;
+          font-family: var(--font-sans);
+          font-size: var(--text-section);
+          font-weight: 600;
           letter-spacing: -0.02em;
-          color: var(--ink);
+          color: var(--text-primary);
           line-height: 1.25;
           word-break: break-word;
         }
         .bl-panel-premise {
           margin: 0;
           font-size: 0.8rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           line-height: 1.5;
           display: -webkit-box;
           -webkit-line-clamp: 2;
@@ -918,20 +883,20 @@ export function BacklotView() {
           background: transparent;
           border: 1px solid transparent;
           border-radius: var(--radius-xs);
-          color: var(--ink-soft);
+          color: var(--text-secondary);
           cursor: pointer;
           flex-shrink: 0;
-          transition: background-color var(--dur) var(--ease),
-            color var(--dur) var(--ease),
-            border-color var(--dur) var(--ease);
+          transition: background-color var(--duration-fast) var(--ease-standard),
+            color var(--duration-fast) var(--ease-standard),
+            border-color var(--duration-fast) var(--ease-standard);
         }
         .bl-panel-close:hover {
-          background: var(--bg-2);
-          border-color: var(--hairline-2);
-          color: var(--ink);
+          background: var(--bg-surface-2);
+          border-color: var(--border-strong);
+          color: var(--text-primary);
         }
         .bl-panel-close:focus-visible {
-          outline: 2px solid var(--accent);
+          outline: 1px solid var(--accent);
           outline-offset: 2px;
         }
 
@@ -952,7 +917,7 @@ export function BacklotView() {
         }
         .bl-panel-stage-desc {
           font-size: 0.78rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
         }
 
         .bl-panel-section {
@@ -966,7 +931,7 @@ export function BacklotView() {
           gap: 0.4rem;
           font-size: 0.72rem;
           font-weight: 600;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           text-transform: uppercase;
           letter-spacing: 0.06em;
         }
@@ -977,10 +942,10 @@ export function BacklotView() {
           min-width: 20px;
           height: 18px;
           padding: 0 0.4rem;
-          background: var(--bg-3);
+          background: var(--bg-surface-3);
           border-radius: var(--radius-full);
           font-size: 0.68rem;
-          color: var(--ink-soft);
+          color: var(--text-secondary);
           font-family: var(--font-mono);
           letter-spacing: 0;
         }
@@ -994,12 +959,12 @@ export function BacklotView() {
           align-items: center;
           gap: 0.5rem;
           padding: var(--space-4);
-          color: var(--ink-faint);
+          color: var(--text-muted);
           font-size: 0.85rem;
           text-align: center;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
         }
         .bl-panel-empty-shots {
           display: flex;
@@ -1007,12 +972,12 @@ export function BacklotView() {
           align-items: center;
           gap: 0.5rem;
           padding: var(--space-5) var(--space-3);
-          color: var(--ink-faint);
+          color: var(--text-muted);
           font-size: 0.82rem;
           text-align: center;
-          background: var(--bg-2);
-          border: 1px dashed var(--hairline-2);
-          border-radius: var(--radius);
+          background: var(--bg-surface-2);
+          border: 1px dashed var(--border-strong);
+          border-radius: var(--radius-control);
         }
 
         /* ── 分镜列表 ── */
@@ -1029,15 +994,15 @@ export function BacklotView() {
           align-items: stretch;
           gap: 0.65rem;
           padding: 0.5rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-sm);
-          transition: border-color var(--dur) var(--ease),
-            background-color var(--dur) var(--ease);
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard);
         }
         .bl-shot:hover {
-          border-color: var(--hairline-2);
-          background: var(--bg-3);
+          border-color: var(--border-strong);
+          background: var(--bg-surface-3);
         }
 
         .bl-shot-thumb {
@@ -1045,7 +1010,7 @@ export function BacklotView() {
           width: 56px;
           height: 56px;
           flex-shrink: 0;
-          background: var(--bg-3);
+          background: var(--bg-surface-3);
           border-radius: var(--radius-xs);
           overflow: hidden;
         }
@@ -1061,19 +1026,19 @@ export function BacklotView() {
           display: flex;
           align-items: center;
           justify-content: center;
-          color: var(--ink-faint);
+          color: var(--text-muted);
         }
         .bl-shot-idx {
           position: absolute;
           bottom: 2px;
           left: 2px;
           padding: 0 0.3rem;
-          background: oklch(3% 0.004 265 / 0.75);
+          background: var(--overlay-strong);
           backdrop-filter: blur(4px);
           -webkit-backdrop-filter: blur(4px);
           border-radius: 3px;
           font-size: 0.6rem;
-          color: var(--ink-soft);
+          color: var(--text-secondary);
           font-family: var(--font-mono);
           letter-spacing: 0.02em;
           line-height: 1.4;
@@ -1088,7 +1053,7 @@ export function BacklotView() {
         }
         .bl-shot-scene {
           font-size: 0.82rem;
-          color: var(--ink);
+          color: var(--text-primary);
           line-height: 1.4;
           font-weight: 500;
           display: -webkit-box;
@@ -1099,7 +1064,7 @@ export function BacklotView() {
         .bl-shot-dialogue {
           margin: 0;
           font-size: 0.74rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           font-style: italic;
           line-height: 1.4;
           display: -webkit-box;
@@ -1119,19 +1084,19 @@ export function BacklotView() {
           align-items: center;
           gap: 0.2rem;
           padding: 0.05rem 0.4rem;
-          background: var(--bg-3);
+          background: var(--bg-surface-3);
           border-radius: var(--radius-xs);
           font-size: 0.66rem;
-          color: var(--ink-soft);
+          color: var(--text-secondary);
           font-family: var(--font-mono);
           letter-spacing: 0.01em;
         }
         .bl-shot-tag-speaker {
-          color: var(--accent-soft);
-          background: var(--accent-quiet);
+          color: var(--accent);
+          background: var(--accent-soft);
         }
         .bl-shot-tag-dur {
-          color: var(--ink-faint);
+          color: var(--text-muted);
         }
 
         .bl-shot-status {

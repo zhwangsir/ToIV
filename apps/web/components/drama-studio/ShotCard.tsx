@@ -368,7 +368,7 @@ export function DirectorPanel({
                 >
                   <Icon name="user" size={10} />
                   {c.name}
-                  {added ? " ✓" : " +"}
+                  <Icon name={added ? "check" : "plus"} size={10} />
                 </button>
               );
             })}

@@ -100,7 +100,7 @@ function statusMeta(status: string): {
 } {
   const s = (status ?? "").toLowerCase();
   if (s === "draft")
-    return { icon: "create", color: "var(--accent-soft)", label: "草稿", badgeCls: "badge badge-accent" };
+    return { icon: "create", color: "var(--accent)", label: "草稿", badgeCls: "badge badge-accent" };
   if (["done", "completed", "finished", "ready", "ok"].includes(s))
     return { icon: "success", color: "var(--success)", label: "完成", badgeCls: "badge badge-success" };
   if (["running", "in_progress", "processing", "rendering", "busy"].includes(s))
@@ -1954,7 +1954,7 @@ export function ManjuView({ initialActiveId }: ManjuViewProps) {
           box-shadow: inset 2px 0 0 var(--accent);
         }
         .mj-proj-item[data-active="1"] .mj-proj-title {
-          color: var(--accent-soft);
+          color: var(--accent);
         }
         .mj-proj-title {
           font-size: 0.9rem;
@@ -1985,7 +1985,7 @@ export function ManjuView({ initialActiveId }: ManjuViewProps) {
         }
         .mj-proj-style {
           font-size: 0.66rem;
-          color: var(--accent-soft);
+          color: var(--accent);
           font-family: var(--font-mono);
           letter-spacing: 0.02em;
           padding: 0.05rem 0.35rem;
@@ -2348,7 +2348,7 @@ export function ManjuView({ initialActiveId }: ManjuViewProps) {
           var(--bg-2);
         }
         .mj-shot[data-draft="1"] .mj-shot-placeholder {
-          color: var(--accent-soft);
+          color: var(--accent);
         }
 
         .mj-shot-body {
@@ -2427,7 +2427,7 @@ export function ManjuView({ initialActiveId }: ManjuViewProps) {
           letter-spacing: 0.01em;
         }
         .mj-shot-tag-camera {
-          color: var(--accent-soft);
+          color: var(--accent);
           background: var(--accent-quiet);
         }
         .mj-shot-tag-char {
@@ -2439,7 +2439,7 @@ export function ManjuView({ initialActiveId }: ManjuViewProps) {
           color: var(--ink-faint);
         }
         .mj-shot-tag-media {
-          color: var(--accent-soft);
+          color: var(--accent);
         }
 
         /* 单镜操作按钮 */
@@ -2471,7 +2471,7 @@ export function ManjuView({ initialActiveId }: ManjuViewProps) {
         .mj-act-btn:hover:not(:disabled) {
           background: var(--accent-quiet);
           border-color: var(--accent-line);
-          color: var(--accent-soft);
+          color: var(--accent);
         }
         .mj-act-btn:disabled {
           opacity: 0.4;

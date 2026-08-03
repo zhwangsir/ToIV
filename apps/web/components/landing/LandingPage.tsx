@@ -85,16 +85,16 @@ export function LandingPage() {
           padding: var(--space-4);
           background:
             radial-gradient(ellipse at 50% 0%, var(--accent-wash), transparent 60%),
-            var(--bg-0);
+            var(--bg-canvas);
         }
         .landing-card {
           width: 100%;
           max-width: 380px;
           padding: var(--space-6);
-          background: var(--bg-1);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius-lg);
-          box-shadow: var(--shadow-lg);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-panel);
+          box-shadow: var(--shadow-xl);
         }
         .landing-logo {
           display: flex;
@@ -107,29 +107,27 @@ export function LandingPage() {
           height: 10px;
           border-radius: 50%;
           background: var(--accent);
-          box-shadow: 0 0 12px var(--accent);
+          box-shadow: 0 0 12px var(--accent-glow);
         }
         .landing-logo-text {
-          font-family: var(--font-display);
-          font-size: 1.1rem;
-          font-weight: 600;
-          color: var(--ink);
+          font-size: var(--text-section);
+          font-weight: 700;
+          color: var(--text-primary);
           letter-spacing: -0.02em;
         }
         .landing-title {
           margin: 0 0 0.3rem;
-          font-family: var(--font-display);
-          font-size: 1.6rem;
-          font-weight: 500;
-          color: var(--ink);
-          letter-spacing: -0.03em;
-          line-height: 1.2;
+          font-size: var(--text-title);
+          font-weight: 700;
+          color: var(--text-primary);
+          letter-spacing: -0.02em;
+          line-height: 1.3;
         }
         .landing-subtitle {
           margin: 0 0 var(--space-5);
-          font-size: 0.88rem;
-          color: var(--ink-faint);
-          line-height: 1.4;
+          font-size: var(--text-aux);
+          color: var(--text-muted);
+          line-height: 1.6;
         }
         .landing-form {
           display: flex;
@@ -141,27 +139,27 @@ export function LandingPage() {
         }
         .landing-error {
           padding: 0.5rem 0.7rem;
-          background: var(--danger-quiet);
-          border: 1px solid var(--danger);
-          border-radius: var(--radius-xs);
-          color: var(--danger);
-          font-size: 0.82rem;
+          background: var(--err-soft);
+          border: 1px solid var(--err);
+          border-radius: var(--radius-control);
+          color: var(--err);
+          font-size: var(--text-aux);
         }
         .landing-hint {
           margin-top: var(--space-5);
           padding-top: var(--space-4);
-          border-top: 1px solid var(--hairline);
-          font-size: 0.78rem;
-          color: var(--ink-faint);
+          border-top: 1px solid var(--border-subtle);
+          font-size: var(--text-aux);
+          color: var(--text-muted);
           text-align: center;
         }
         .landing-hint code {
           font-family: var(--font-mono);
-          color: var(--ink-soft);
+          color: var(--text-secondary);
           padding: 0.1rem 0.4rem;
-          background: var(--bg-2);
-          border-radius: var(--radius-xs);
-          font-size: 0.78rem;
+          background: var(--bg-surface-3);
+          border-radius: var(--radius-sm);
+          font-size: var(--text-aux);
         }
       `}</style>
     </div>

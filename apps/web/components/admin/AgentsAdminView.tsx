@@ -11,6 +11,7 @@ import {
   type Agent,
 } from "@/lib/agents";
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { Switch } from "@/components/ui/Switch";
 
 /** 已知的智能体图标键(与 Icon.tsx 的 ICON_MAP 对齐)。 */
 const ICON_OPTIONS: IconName[] = [
@@ -735,23 +736,21 @@ export function AgentsAdminView() {
                 />
               </label>
 
-              <label className="aa-checkbox aa-checkbox-nsfw">
-                <input
-                  type="checkbox"
+              <div className="aa-nsfw-row">
+                <Switch
                   checked={editState.form.is_nsfw}
-                  onChange={(e) =>
-                    patchForm({ is_nsfw: e.target.checked })
-                  }
+                  onChange={(v) => patchForm({ is_nsfw: v })}
                   disabled={saving}
+                  ariaLabel="NSFW 智能体"
                 />
-                <span>
+                <span className="aa-nsfw-label">
                   NSFW 智能体
                   <em className="aa-field-hint-inline">
                     {" "}
                     · 仅 R18 鉴权用户可见
                   </em>
                 </span>
-              </label>
+              </div>
 
               {saveError && (
                 <div className="aa-error-inline">{saveError}</div>
@@ -800,7 +799,7 @@ export function AgentsAdminView() {
           gap: var(--space-4);
           flex-wrap: wrap;
           padding-bottom: var(--space-4);
-          border-bottom: 1px solid var(--hairline);
+          border-bottom: 1px solid var(--border-subtle);
         }
         .aa-header-left {
           display: flex;
@@ -813,19 +812,19 @@ export function AgentsAdminView() {
           display: inline-flex;
           align-items: center;
           gap: 0.5rem;
-          font-family: var(--font-display);
-          font-size: 1.4rem;
-          font-weight: 500;
+          font-family: var(--font-sans);
+          font-size: var(--text-title);
+          font-weight: 700;
           letter-spacing: -0.02em;
-          color: var(--ink);
-          line-height: 1.2;
+          color: var(--text-primary);
+          line-height: 1.3;
         }
         .aa-title :global(svg) {
           color: var(--accent);
         }
         .aa-subtitle {
           font-size: 0.74rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
         }
         .aa-header-right {
           display: flex;
@@ -835,7 +834,7 @@ export function AgentsAdminView() {
         }
         .aa-count {
           font-size: 0.78rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           font-family: var(--font-mono);
           letter-spacing: 0.01em;
         }
@@ -853,10 +852,10 @@ export function AgentsAdminView() {
           align-items: center;
           gap: 0.6rem;
           padding: 0.7rem 0.9rem;
-          background: var(--danger-quiet);
-          border: 1px solid var(--danger);
-          border-radius: var(--radius);
-          color: var(--danger);
+          background: var(--err-soft);
+          border: 1px solid var(--err);
+          border-radius: var(--radius-control);
+          color: var(--err);
           font-size: 0.86rem;
           flex-wrap: wrap;
         }
@@ -865,10 +864,10 @@ export function AgentsAdminView() {
         }
         .aa-error-inline {
           padding: 0.5rem 0.7rem;
-          background: var(--danger-quiet);
-          border: 1px solid var(--danger);
+          background: var(--err-soft);
+          border: 1px solid var(--err);
           border-radius: var(--radius-xs);
-          color: var(--danger);
+          color: var(--err);
           font-size: 0.78rem;
           line-height: 1.45;
           margin-top: 0.5rem;
@@ -885,13 +884,13 @@ export function AgentsAdminView() {
           flex-direction: column;
           gap: 0.55rem;
           padding: var(--space-4);
-          background: var(--bg-1);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius);
-          transition: border-color var(--dur) var(--ease);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+          transition: border-color var(--duration-fast) var(--ease-standard);
         }
         .aa-card:hover {
-          border-color: var(--hairline-2);
+          border-color: var(--border-strong);
         }
         .aa-card-head {
           display: flex;
@@ -904,10 +903,10 @@ export function AgentsAdminView() {
           justify-content: center;
           width: 36px;
           height: 36px;
-          background: var(--accent-quiet);
-          border: 1px solid var(--accent-line);
+          background: var(--accent-soft);
+          border: 1px solid var(--accent-glow);
           border-radius: var(--radius-sm);
-          color: var(--accent-soft);
+          color: var(--accent);
           flex-shrink: 0;
         }
         .aa-card-meta {
@@ -927,13 +926,13 @@ export function AgentsAdminView() {
           margin: 0;
           font-size: 0.95rem;
           font-weight: 600;
-          color: var(--ink);
+          color: var(--text-primary);
           line-height: 1.3;
           letter-spacing: -0.01em;
         }
         .aa-card-id {
           font-size: 0.7rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           font-family: var(--font-mono);
           letter-spacing: 0.02em;
         }
@@ -957,7 +956,7 @@ export function AgentsAdminView() {
         .aa-card-desc {
           margin: 0;
           font-size: 0.82rem;
-          color: var(--ink-soft);
+          color: var(--text-secondary);
           line-height: 1.5;
         }
 
@@ -974,32 +973,32 @@ export function AgentsAdminView() {
           padding: 0.1rem 0.4rem;
         }
         .aa-tag-builtin {
-          background: var(--bg-2);
-          border: 1px solid var(--hairline-2);
-          color: var(--ink-soft);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-strong);
+          color: var(--text-secondary);
         }
         .aa-tag-nsfw {
-          background: var(--danger-quiet);
-          border: 1px solid var(--danger);
-          color: var(--danger);
+          background: var(--err-soft);
+          border: 1px solid var(--err);
+          color: var(--err);
           font-weight: 600;
         }
         .aa-tag-kind {
-          background: var(--accent-quiet);
-          border: 1px solid var(--accent-line);
-          color: var(--accent-soft);
+          background: var(--accent-soft);
+          border: 1px solid var(--accent-glow);
+          color: var(--accent);
         }
         .aa-tag-llm {
           display: inline-flex;
           align-items: center;
           gap: 0.2rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline-2);
-          color: var(--ink-soft);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-strong);
+          color: var(--text-secondary);
         }
         .aa-sort {
           font-size: 0.68rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           font-family: var(--font-mono);
           letter-spacing: 0.02em;
           margin-left: auto;
@@ -1011,8 +1010,8 @@ export function AgentsAdminView() {
           flex-direction: column;
           gap: 0.6rem;
           padding: 0.85rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline-2);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-strong);
           border-radius: var(--radius-sm);
           margin-top: 0.2rem;
         }
@@ -1028,7 +1027,7 @@ export function AgentsAdminView() {
           gap: 0.4rem;
           font-size: 0.84rem;
           font-weight: 600;
-          color: var(--ink);
+          color: var(--text-primary);
         }
         .aa-test-title :global(svg) {
           color: var(--accent);
@@ -1040,14 +1039,14 @@ export function AgentsAdminView() {
           width: 26px;
           height: 26px;
           background: transparent;
-          border: 1px solid var(--hairline);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-xs);
-          color: var(--ink-faint);
+          color: var(--text-muted);
           cursor: pointer;
         }
         .aa-test-close:hover {
-          color: var(--ink);
-          border-color: var(--hairline-2);
+          color: var(--text-primary);
+          border-color: var(--border-strong);
         }
         .aa-test-grid {
           display: grid;
@@ -1070,12 +1069,12 @@ export function AgentsAdminView() {
         }
         .aa-field-label {
           font-size: 0.72rem;
-          color: var(--ink-soft);
+          color: var(--text-secondary);
           font-weight: 500;
         }
         .aa-field-hint-inline {
           font-size: 0.7rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           font-weight: 400;
           font-style: normal;
         }
@@ -1085,9 +1084,9 @@ export function AgentsAdminView() {
           background-image: linear-gradient(
               45deg,
               transparent 50%,
-              var(--ink-faint) 50%
+              var(--text-muted) 50%
             ),
-            linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
+            linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
           background-position:
             calc(100% - 16px) 50%,
             calc(100% - 11px) 50%;
@@ -1111,8 +1110,8 @@ export function AgentsAdminView() {
           flex-direction: column;
           gap: 0.4rem;
           padding: 0.7rem;
-          background: var(--success-quiet);
-          border: 1px solid var(--success);
+          background: var(--ok-soft);
+          border: 1px solid var(--ok);
           border-radius: var(--radius-xs);
         }
         .aa-test-result-label {
@@ -1120,18 +1119,18 @@ export function AgentsAdminView() {
           align-items: center;
           gap: 0.3rem;
           font-size: 0.74rem;
-          color: var(--success);
+          color: var(--ok);
           font-weight: 600;
         }
         .aa-test-result-text {
           margin: 0;
           padding: 0.5rem 0.6rem;
-          background: var(--bg-1);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-xs);
           font-family: var(--font-mono);
           font-size: 0.78rem;
-          color: var(--ink);
+          color: var(--text-primary);
           line-height: 1.5;
           white-space: pre-wrap;
           word-break: break-word;
@@ -1149,15 +1148,15 @@ export function AgentsAdminView() {
         .aa-modal {
           position: fixed;
           inset: 0;
-          z-index: 100;
+          z-index: var(--z-modal);
           display: flex;
           align-items: center;
           justify-content: center;
           padding: var(--space-4);
-          background: oklch(3% 0.004 265 / 0.7);
+          background: var(--overlay-strong);
           backdrop-filter: blur(8px);
           -webkit-backdrop-filter: blur(8px);
-          animation: aa-fade var(--dur-2) var(--ease);
+          animation: aa-fade var(--duration-base) var(--ease-standard);
         }
         @keyframes aa-fade {
           from {
@@ -1177,11 +1176,11 @@ export function AgentsAdminView() {
           max-width: 560px;
           max-height: 88vh;
           overflow-y: auto;
-          background: var(--bg-1);
-          border: 1px solid var(--hairline-2);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-strong);
           border-radius: var(--radius-lg);
           box-shadow: var(--shadow-lg);
-          animation: aa-pop var(--dur-2) var(--ease);
+          animation: aa-pop var(--duration-base) var(--ease-standard);
         }
         @keyframes aa-pop {
           from {
@@ -1204,20 +1203,20 @@ export function AgentsAdminView() {
           justify-content: space-between;
           gap: var(--space-3);
           padding: var(--space-4) var(--space-4) var(--space-3);
-          border-bottom: 1px solid var(--hairline);
+          border-bottom: 1px solid var(--border-subtle);
         }
         .aa-modal-title {
-          font-family: var(--font-display);
-          font-size: 1.1rem;
-          font-weight: 500;
-          color: var(--ink);
+          font-family: var(--font-sans);
+          font-size: var(--text-section);
+          font-weight: 600;
+          color: var(--text-primary);
           letter-spacing: -0.01em;
           line-height: 1.3;
         }
         .aa-modal-sub {
           margin-top: 0.2rem;
           font-size: 0.74rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           line-height: 1.45;
         }
         .aa-modal-close {
@@ -1230,17 +1229,17 @@ export function AgentsAdminView() {
           background: transparent;
           border: 1px solid transparent;
           border-radius: var(--radius-xs);
-          color: var(--ink-faint);
+          color: var(--text-muted);
           cursor: pointer;
-          transition: background-color var(--dur) var(--ease),
-            color var(--dur) var(--ease);
+          transition: background-color var(--duration-fast) var(--ease-standard),
+            color var(--duration-fast) var(--ease-standard);
         }
         .aa-modal-close:hover {
-          background: var(--bg-2);
-          color: var(--ink);
+          background: var(--bg-surface-2);
+          color: var(--text-primary);
         }
         .aa-modal-close:focus-visible {
-          outline: 2px solid var(--accent);
+          outline: 1px solid var(--accent);
           outline-offset: 2px;
         }
 
@@ -1271,13 +1270,13 @@ export function AgentsAdminView() {
           align-items: center;
           gap: 0.35rem;
           padding: 0.3rem 0.55rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-xs);
           font-size: 0.78rem;
-          color: var(--ink-soft);
+          color: var(--text-secondary);
           cursor: pointer;
-          transition: all var(--dur) var(--ease);
+          transition: all var(--duration-fast) var(--ease-standard);
         }
         .aa-checkbox input {
           width: 14px;
@@ -1286,17 +1285,23 @@ export function AgentsAdminView() {
           cursor: pointer;
         }
         .aa-checkbox.is-on {
-          background: var(--accent-quiet);
-          border-color: var(--accent-line);
-          color: var(--accent-soft);
+          background: var(--accent-soft);
+          border-color: var(--accent-glow);
+          color: var(--accent);
         }
-        .aa-checkbox-nsfw {
+        .aa-nsfw-row {
+          display: inline-flex;
+          align-items: center;
+          gap: var(--space-2);
           align-self: flex-start;
+          padding: 0.3rem 0.55rem;
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-xs);
         }
-        .aa-checkbox-nsfw.is-on {
-          background: var(--danger-quiet);
-          border-color: var(--danger);
-          color: var(--danger);
+        .aa-nsfw-label {
+          font-size: 0.78rem;
+          color: var(--text-secondary);
         }
         .aa-form-actions {
           display: flex;

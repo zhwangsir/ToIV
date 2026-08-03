@@ -190,8 +190,8 @@ export function FilmstripTimeline({
           z-index: 2;
           display: flex;
           flex-direction: column;
-          border-top: 1px solid var(--hairline);
-          background: var(--bg-2);
+          border-top: 1px solid var(--border-subtle);
+          background: var(--bg-surface-2);
           overflow: hidden;
         }
         .filmstrip.collapsed .filmstrip-head {
@@ -208,7 +208,7 @@ export function FilmstripTimeline({
             width: 100%;
             transform: translateY(calc(100% - 48px));
             transition: transform 0.25s ease;
-            box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.25);
+            box-shadow: var(--shadow-md);
           }
           .filmstrip:not(.collapsed) {
             transform: translateY(0);
@@ -226,14 +226,14 @@ export function FilmstripTimeline({
           height: 20px;
           border: none;
           background: transparent;
-          color: var(--ink3);
+          color: var(--text-muted);
           cursor: pointer;
           border-radius: 4px;
           transition: all 0.15s ease;
           flex-shrink: 0;
         }
         .filmstrip-toggle:hover {
-          background: var(--bg-3);
+          background: var(--bg-surface-3);
           color: var(--accent);
         }
         .filmstrip-head {
@@ -241,7 +241,7 @@ export function FilmstripTimeline({
           align-items: center;
           gap: 0.7rem;
           padding: 0.45rem 0.7rem;
-          border-bottom: 1px solid var(--hairline);
+          border-bottom: 1px solid var(--border-subtle);
           min-height: 40px;
         }
         .filmstrip-title {
@@ -250,7 +250,7 @@ export function FilmstripTimeline({
           gap: 0.45rem;
           font-size: 0.75rem;
           font-weight: 600;
-          color: var(--ink2);
+          color: var(--text-secondary);
           text-transform: uppercase;
           letter-spacing: 0.06em;
           flex-shrink: 0;
@@ -262,7 +262,7 @@ export function FilmstripTimeline({
           min-width: 0;
           margin-left: auto;
           font-size: 0.72rem;
-          color: var(--ink2);
+          color: var(--text-secondary);
         }
         .ft-mini-idx {
           flex-shrink: 0;
@@ -280,7 +280,7 @@ export function FilmstripTimeline({
           flex: 1;
           height: 18px;
           position: relative;
-          background: repeating-linear-gradient(90deg, var(--hairline) 0 1px, transparent 1px 60px);
+          background: repeating-linear-gradient(90deg, var(--border-subtle) 0 1px, transparent 1px 60px);
           margin: 0 0.5rem;
           min-width: 60px;
         }
@@ -288,7 +288,7 @@ export function FilmstripTimeline({
           position: absolute;
           top: 2px;
           font-size: 0.6rem;
-          color: var(--ink3);
+          color: var(--text-muted);
           font-family: var(--font-mono);
         }
         .filmstrip-body {
@@ -317,11 +317,11 @@ export function FilmstripTimeline({
         }
         .film-cell:hover {
           opacity: 1;
-          background: var(--bg-3);
+          background: var(--bg-surface-3);
         }
         .film-cell.active {
           opacity: 1;
-          background: var(--bg-3);
+          background: var(--bg-surface-3);
         }
         .film-cell.active .ft-thumb {
           border-color: var(--accent);
@@ -329,18 +329,18 @@ export function FilmstripTimeline({
         }
         .ft-thumb {
           aspect-ratio: 16/9;
-          background: var(--bg-3);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-sm);
           overflow: hidden;
           display: grid;
           place-items: center;
-          color: var(--ink3);
+          color: var(--text-muted);
           font-size: 0.7rem;
           position: relative;
         }
         .ft-thumb-empty {
-          background: var(--bg-3);
+          background: var(--bg-surface-3);
         }
         .ft-thumb video,
         .ft-thumb img {
@@ -353,18 +353,18 @@ export function FilmstripTimeline({
           bottom: 0.25rem;
           right: 0.25rem;
           padding: 0.08rem 0.3rem;
-          background: rgba(0, 0, 0, 0.7);
+          background: var(--overlay-strong);
           border-radius: var(--radius-sm);
           font-size: 0.58rem;
           font-family: var(--font-mono);
-          color: #fff;
+          color: var(--text-primary);
         }
         .f-meta {
           display: flex;
           align-items: center;
           justify-content: space-between;
           font-size: 0.65rem;
-          color: var(--ink3);
+          color: var(--text-muted);
           font-family: var(--font-mono);
           padding: 0 0.1rem;
         }
@@ -376,17 +376,17 @@ export function FilmstripTimeline({
           width: 6px;
           height: 6px;
           border-radius: 50%;
-          background: var(--ink3);
+          background: var(--text-muted);
         }
         .f-status.done {
-          background: var(--color-success);
+          background: var(--ok);
         }
         .f-status.run {
           background: var(--accent);
           box-shadow: 0 0 8px var(--accent);
         }
         .f-status.error {
-          background: var(--danger);
+          background: var(--err);
         }
         .ft-badges {
           display: flex;
@@ -399,7 +399,7 @@ export function FilmstripTimeline({
           margin: 0;
           padding: 0 0.1rem;
           font-size: 0.68rem;
-          color: var(--ink2);
+          color: var(--text-secondary);
           line-height: 1.4;
           white-space: nowrap;
           overflow: hidden;
@@ -412,11 +412,11 @@ export function FilmstripTimeline({
           align-items: center;
           gap: 0.2rem;
           padding: 0.12rem 0.35rem;
-          background: var(--bg-3);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-sm);
           font-size: 0.6rem;
-          color: var(--ink2);
+          color: var(--text-secondary);
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.03em;
@@ -428,24 +428,24 @@ export function FilmstripTimeline({
           font-weight: 700;
         }
         .ds-badge-status.ds-st-done {
-          background: var(--success-quiet);
-          border-color: color-mix(in srgb, var(--color-success) 35%, transparent);
-          color: var(--color-success);
+          background: var(--ok-soft);
+          border-color: color-mix(in srgb, var(--ok) 35%, transparent);
+          color: var(--ok);
         }
         .ds-badge-status.ds-st-run {
-          background: var(--warn-quiet);
-          border-color: color-mix(in srgb, var(--color-warning) 35%, transparent);
-          color: var(--color-warning);
+          background: var(--warn-soft);
+          border-color: color-mix(in srgb, var(--warn) 35%, transparent);
+          color: var(--warn);
         }
         .ds-badge-status.ds-st-err {
-          background: var(--danger-quiet);
-          border-color: color-mix(in srgb, var(--color-error) 35%, transparent);
-          color: var(--color-error);
+          background: var(--err-soft);
+          border-color: color-mix(in srgb, var(--err) 35%, transparent);
+          color: var(--err);
         }
         .ds-badge-status.ds-st-draft {
-          background: var(--bg-3);
-          border-color: var(--hairline);
-          color: var(--ink3);
+          background: var(--bg-surface-3);
+          border-color: var(--border-subtle);
+          color: var(--text-muted);
         }
       `}</style>
     </section>

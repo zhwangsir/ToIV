@@ -173,30 +173,27 @@ export function AgentSwitcher() {
         .as-trigger {
           display: inline-flex;
           align-items: center;
-          gap: 0.35rem;
-          padding: 0.25rem 0.55rem;
+          gap: var(--space-1);
+          height: 28px;
+          padding: 0 var(--space-3);
           background: transparent;
-          border: 1px solid var(--hairline);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-full);
-          color: var(--ink-soft);
-          font-size: 0.74rem;
+          color: var(--text-secondary);
+          font-size: var(--text-aux);
           font-weight: 500;
           cursor: pointer;
-          transition: background-color var(--dur) var(--ease),
-            border-color var(--dur) var(--ease), color var(--dur) var(--ease);
+          transition: background-color var(--duration-fast) var(--ease-standard),
+            border-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
         }
         .as-trigger:hover,
         .as-trigger.is-open {
-          background: var(--bg-2);
-          border-color: var(--hairline-strong);
-          color: var(--ink);
-        }
-        .as-trigger:focus-visible {
-          outline: 2px solid var(--accent);
-          outline-offset: 2px;
+          background: var(--bg-surface-2);
+          border-color: var(--border-strong);
+          color: var(--text-primary);
         }
         .as-trigger-icon {
-          color: var(--accent-soft);
+          color: var(--accent);
           flex-shrink: 0;
         }
         .as-trigger-label {
@@ -206,9 +203,9 @@ export function AgentSwitcher() {
           white-space: nowrap;
         }
         .as-chevron {
-          color: var(--ink-faint);
+          color: var(--text-muted);
           flex-shrink: 0;
-          transition: transform var(--dur) var(--ease);
+          transition: transform var(--duration-fast) var(--ease-standard);
         }
         .as-chevron.is-open {
           transform: rotate(180deg);
@@ -225,57 +222,57 @@ export function AgentSwitcher() {
           position: absolute;
           top: calc(100% + 6px);
           right: 0;
-          z-index: 50;
+          z-index: var(--z-dropdown);
           min-width: 240px;
           max-width: 320px;
-          background: var(--bg-1);
-          border: 1px solid var(--hairline-strong);
-          border-radius: var(--radius-sm);
-          box-shadow: var(--shadow-lg);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-strong);
+          border-radius: var(--radius-panel);
+          box-shadow: var(--shadow-xl);
           overflow: hidden;
-          animation: var(--anim-fade-in);
+          animation: fadeIn var(--duration-base) var(--ease-standard);
         }
         .as-empty {
           display: flex;
           align-items: center;
-          gap: 0.4rem;
-          padding: 0.7rem 0.7rem;
-          font-size: 0.78rem;
-          color: var(--ink-faint);
+          gap: var(--space-2);
+          padding: var(--space-3) var(--space-4);
+          font-size: var(--text-aux);
+          color: var(--text-muted);
         }
         .as-list {
           list-style: none;
           margin: 0;
-          padding: 0.25rem;
+          padding: var(--space-1);
           max-height: 320px;
           overflow-y: auto;
         }
         .as-list::-webkit-scrollbar {
-          width: 8px;
+          width: 6px;
         }
         .as-list::-webkit-scrollbar-thumb {
-          background: var(--hairline-2);
-          border-radius: 4px;
+          background: var(--bg-surface-3);
+          border-radius: 3px;
         }
         .as-option {
           display: flex;
           align-items: flex-start;
-          gap: 0.5rem;
-          padding: 0.45rem 0.5rem;
-          border-radius: var(--radius-xs);
+          gap: var(--space-2);
+          padding: var(--space-2) var(--space-3);
+          border-radius: var(--radius-control);
           cursor: pointer;
-          transition: background-color var(--dur) var(--ease);
+          transition: background-color var(--duration-fast) var(--ease-standard);
         }
         .as-option:hover {
-          background: var(--bg-2);
+          background: var(--bg-surface-2);
         }
         .as-option.is-selected {
-          background: var(--accent-quiet);
+          background: var(--accent-soft);
         }
         .as-option-icon {
-          color: var(--accent-soft);
+          color: var(--text-secondary);
           flex-shrink: 0;
-          margin-top: 0.05rem;
+          margin-top: 2px;
         }
         .as-option.is-selected .as-option-icon {
           color: var(--accent);
@@ -283,25 +280,25 @@ export function AgentSwitcher() {
         .as-option-main {
           display: flex;
           flex-direction: column;
-          gap: 0.1rem;
+          gap: 2px;
           min-width: 0;
           flex: 1;
         }
         .as-option-name {
-          font-size: 0.8rem;
-          color: var(--ink);
+          font-size: var(--text-body);
+          color: var(--text-primary);
           font-weight: 500;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
         .as-option.is-selected .as-option-name {
-          color: var(--accent-soft);
+          color: var(--accent);
         }
         .as-option-desc {
-          font-size: 0.7rem;
-          color: var(--ink-faint);
-          line-height: 1.35;
+          font-size: var(--text-aux);
+          color: var(--text-muted);
+          line-height: 1.4;
           overflow: hidden;
           text-overflow: ellipsis;
           display: -webkit-box;
@@ -310,8 +307,8 @@ export function AgentSwitcher() {
         }
         :global(.as-check) {
           flex-shrink: 0;
-          color: var(--accent-soft);
-          margin-top: 0.05rem;
+          color: var(--accent);
+          margin-top: 2px;
         }
       `}</style>
     </div>

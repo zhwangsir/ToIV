@@ -37,7 +37,7 @@ interface AccessibilityMetric {
 
 const VIEWS = [
   { key: "assistant", url: "/?view=assistant", name: "对话流" },
-  { key: "create", url: "/?view=create", name: "创作台" },
+  { key: "generate", url: "/?view=generate", name: "生成" },
   { key: "library", url: "/?view=library", name: "作品库" },
   { key: "models", url: "/?view=models", name: "模型库" },
   { key: "canvas", url: "/?view=canvas", name: "画布" },
@@ -145,34 +145,30 @@ test("UI/UX 五维度指标综合采集", async ({ page }) => {
     interactionMetrics.push({ action: "发送对话消息", view: "assistant", latencyMs: 0, success: false, note: "未找到 textarea" });
   }
 
-  // 侧栏切换(通过 DynamicIsland 菜单)
-  // DynamicIsland 已替代旧 Sidebar:点击 .di-dot-button 打开菜单,再点击 .di-menu-item
-  // 真实渲染时延 = 点击菜单项 → 目标视图根节点挂载(替代旧固定 1200ms 等待,
+  // 侧栏切换(通过左侧栏 .app-sidebar-item)
+  // W0 后主导航为左侧栏:直接点击匹配 label 的侧栏按钮切换视图
+  // 真实渲染时延 = 点击侧栏项 → 目标视图根节点挂载(替代旧固定 1200ms 等待,
   // 旧值 ≈1200ms 固定等待 + 点击动作开销,无法反映并行化/预热优化效果)。
+  // 注意:models 已不在侧栏一级导航(改经 URL 访问),侧栏切换目标用 resources 替代
   const VIEW_ROOT: Record<string, string> = {
-    create: ".create-view",
+    generate: ".generate-view",
     library: ".library-view",
-    models: ".models-view",
+    resources: ".resources-view",
     canvas: ".canvas-view",
     assistant: ".av-view",
   };
   const targets = [
-    { key: "create",    label: "图像创作" },
+    { key: "generate",  label: "生成" },
     { key: "library",   label: "作品库" },
-    { key: "models",    label: "模型库" },
+    { key: "resources", label: "资源" },
     { key: "canvas",    label: "画布" },
-    { key: "assistant", label: "AI 助手" },
+    { key: "assistant", label: "对话" },
   ];
   for (const tgt of targets) {
     try {
-      // 打开 DynamicIsland 菜单
-      const trigger = page.locator(".di-island > button").first();
-      await trigger.waitFor({ state: "visible", timeout: 5000 });
-      await trigger.click({ timeout: 5000 });
-      await expect(page.locator(".di-menu")).toBeVisible({ timeout: 3000 });
-      // 点击匹配 label 的菜单项,测量从点击到目标视图根节点挂载的时延
-      const item = page.locator(".di-menu-item", { hasText: tgt.label }).first();
-      await item.waitFor({ state: "visible", timeout: 3000 });
+      // 点击匹配 label 的侧栏项,测量从点击到目标视图根节点挂载的时延
+      const item = page.locator(".app-sidebar-item", { hasText: tgt.label }).first();
+      await item.waitFor({ state: "visible", timeout: 5000 });
       const t0 = Date.now();
       await item.click({ timeout: 5000 });
       const mounted = await page
@@ -187,9 +183,9 @@ test("UI/UX 五维度指标综合采集", async ({ page }) => {
         view: "sidebar",
         latencyMs: latency,
         success: mounted,
-        note: mounted ? "DI click→视图挂载" : "点击后 8s 内视图未挂载",
+        note: mounted ? "sidebar click→视图挂载" : "点击后 8s 内视图未挂载",
       });
-      // 切换后留 300ms 稳定,避免下一次开菜单时目标视图仍在退场动画
+      // 切换后留 300ms 稳定,避免下一次点击时目标视图仍在退场动画
       await page.waitForTimeout(300);
     } catch (e) {
       interactionMetrics.push({
@@ -197,7 +193,7 @@ test("UI/UX 五维度指标综合采集", async ({ page }) => {
         view: "sidebar",
         latencyMs: 0,
         success: false,
-        note: e instanceof Error ? e.message.slice(0, 80) : "DI 切换失败",
+        note: e instanceof Error ? e.message.slice(0, 80) : "侧栏切换失败",
       });
     }
   }

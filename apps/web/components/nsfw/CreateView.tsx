@@ -566,7 +566,7 @@ export function CreateView({
           {/* 错误态 */}
           {!busy && status === "error" && error && (
             <div className="empty-state cv-error-state">
-              <div className="empty-state-icon" style={{ color: "var(--danger)" }}>
+              <div className="empty-state-icon" style={{ color: "var(--err)" }}>
                 <Icon name="error" size={48} strokeWidth={1.4} />
               </div>
               <div className="empty-state-title">生成失败</div>
@@ -574,7 +574,7 @@ export function CreateView({
               <button
                 type="button"
                 className="btn btn-sm"
-                style={{ marginTop: "0.75rem" }}
+                style={{ marginTop: "var(--space-3)" }}
                 onClick={() => gen.reset()}
               >
                 重试
@@ -632,7 +632,7 @@ export function CreateView({
                 rows={3}
                 value={negative}
                 onChange={(e) => setNegative(e.target.value)}
-                style={{ marginTop: "0.5rem" }}
+                style={{ marginTop: "var(--space-2)" }}
               />
             )}
           </div>
@@ -642,7 +642,7 @@ export function CreateView({
             <div className="cv-section-head">
               <span className="cv-label" style={{ display: "inline-flex", alignItems: "center" }}>
                 <Icon name="sparkles" size={11} />
-                <span style={{ marginLeft: 4 }}>风格预设</span>
+                <span style={{ marginLeft: "var(--space-1)" }}>风格预设</span>
               </span>
               {activePreset && (
                 <button type="button" className="cv-preset-clear" onClick={clearStylePreset}>
@@ -1052,10 +1052,10 @@ export function CreateView({
       <style jsx>{`
         .create-view {
           display: grid;
-          grid-template-columns: 1fr var(--param-w);
+          grid-template-columns: 1fr var(--rightpanel-w);
           height: 100%;
           min-height: calc(100vh - var(--topbar-h));
-          background: var(--bg-0);
+          background: var(--bg-canvas);
         }
 
         /* ───── 左:画布 ───── */
@@ -1063,14 +1063,14 @@ export function CreateView({
           display: flex;
           flex-direction: column;
           min-width: 0;
-          border-right: 1px solid var(--hairline);
+          border-right: 1px solid var(--border-subtle);
           background:
             radial-gradient(
               120% 80% at 50% 0%,
-              oklch(55% 0.20 265 / 0.05),
+              color-mix(in oklch, var(--accent) 5%, transparent),
               transparent 60%
             ),
-            var(--bg-0);
+            var(--bg-canvas);
         }
         .cv-canvas-top {
           display: flex;
@@ -1078,46 +1078,49 @@ export function CreateView({
           justify-content: space-between;
           gap: var(--space-3);
           padding: var(--space-3) var(--space-4);
-          border-bottom: 1px solid var(--hairline);
+          border-bottom: 1px solid var(--border-subtle);
           flex-shrink: 0;
         }
         .cv-mode-tabs {
           display: inline-flex;
           gap: 2px;
-          padding: 3px;
-          background: var(--bg-1);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius-sm);
+          padding: var(--space-1);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-badge);
         }
         .cv-mode-tab {
           display: inline-flex;
           align-items: center;
-          gap: 0.35rem;
-          padding: 0.35rem 0.75rem;
+          gap: var(--space-1);
+          padding: var(--space-1) var(--space-3);
           background: transparent;
           border: 1px solid transparent;
-          border-radius: var(--radius-xs);
-          color: var(--ink-soft);
-          font-size: 0.82rem;
+          border-radius: var(--radius-badge);
+          color: var(--text-secondary);
+          font-size: var(--text-aux);
           font-weight: 500;
           cursor: pointer;
           white-space: nowrap;
-          transition: background-color var(--dur) var(--ease),
-            color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+          transition: background-color var(--duration-fast) var(--ease-standard),
+            color var(--duration-fast) var(--ease-standard),
+            border-color var(--duration-fast) var(--ease-standard);
         }
         .cv-mode-tab:hover {
-          color: var(--ink);
-          background: var(--bg-2);
+          background: var(--bg-surface-2);
+        }
+        .cv-mode-tab:active {
+          background: var(--bg-surface-3);
         }
         .cv-mode-tab.is-active {
-          background: var(--accent-quiet);
-          border-color: var(--accent-line);
-          color: var(--accent-soft);
+          background: var(--accent-soft);
+          border-color: var(--accent-glow);
+          color: var(--accent);
         }
         .cv-canvas-meta {
           display: inline-flex;
           align-items: center;
-          gap: 0.4rem;
+          gap: var(--space-1);
           min-width: 0;
           flex-wrap: wrap;
           justify-content: flex-end;
@@ -1156,7 +1159,7 @@ export function CreateView({
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 0.9rem;
+          gap: var(--space-3);
           padding: var(--space-5);
         }
         .cv-loading-orb {
@@ -1166,7 +1169,7 @@ export function CreateView({
           background: radial-gradient(
             circle at 35% 35%,
             var(--accent-hover),
-            var(--accent-deep) 60%,
+            var(--accent) 60%,
             transparent 70%
           );
           filter: blur(6px);
@@ -1181,27 +1184,27 @@ export function CreateView({
           .cv-loading-orb { animation: none; }
         }
         .cv-loading-stage {
-          font-size: 0.9rem;
-          color: var(--ink-soft);
+          font-size: var(--text-body);
+          color: var(--text-secondary);
           font-family: var(--font-mono);
           letter-spacing: 0.01em;
         }
         .cv-progress {
           width: 280px;
           height: 4px;
-          background: var(--bg-2);
+          background: var(--bg-surface-2);
           border-radius: var(--radius-full);
           overflow: hidden;
         }
         .cv-progress-bar {
           height: 100%;
-          background: linear-gradient(90deg, var(--accent-deep), var(--accent-soft));
+          background: linear-gradient(90deg, var(--accent), var(--accent-soft));
           border-radius: var(--radius-full);
-          transition: width 0.2s var(--ease);
+          transition: width var(--duration-base) var(--ease-standard);
         }
         .cv-progress-pct {
-          font-size: 0.78rem;
-          color: var(--ink-faint);
+          font-size: var(--text-aux);
+          color: var(--text-muted);
           font-family: var(--font-mono);
         }
 
@@ -1217,12 +1220,12 @@ export function CreateView({
         .cv-result-frame {
           max-width: 100%;
           max-height: 100%;
-          border-radius: var(--radius-lg);
+          border-radius: var(--radius-panel);
           overflow: hidden;
-          border: 1px solid var(--hairline-2);
+          border: 1px solid var(--border-strong);
           box-shadow: var(--shadow-lg),
-            0 0 60px -20px oklch(55% 0.20 265 / 0.35);
-          background: var(--bg-1);
+            0 0 60px -20px var(--accent-glow);
+          background: var(--bg-surface-1);
         }
         .cv-result-frame img {
           display: block;
@@ -1239,42 +1242,47 @@ export function CreateView({
           display: flex;
           align-items: center;
           justify-content: center;
-          background: oklch(7% 0.006 265 / 0.7);
+          background: var(--overlay-light);
           backdrop-filter: blur(6px);
-          border: 1px solid var(--hairline-2);
+          border: 1px solid var(--border-strong);
           border-radius: 50%;
-          color: var(--ink);
-          font-size: 1.4rem;
+          color: var(--text-primary);
+          font-size: var(--text-title);
           line-height: 1;
           cursor: pointer;
-          transition: background-color var(--dur) var(--ease),
-            border-color var(--dur) var(--ease);
+          transition: background-color var(--duration-fast) var(--ease-standard),
+            border-color var(--duration-fast) var(--ease-standard);
         }
         .cv-carousel-nav:hover {
-          background: var(--accent-quiet);
-          border-color: var(--accent-line);
-          color: var(--accent-soft);
+          background: var(--bg-surface-3);
+          border-color: var(--text-muted);
         }
-        .cv-carousel-prev { left: 8px; }
-        .cv-carousel-next { right: 8px; }
+        .cv-carousel-nav:active {
+          background: var(--bg-surface-2);
+        }
+        .cv-carousel-prev { left: var(--space-2); }
+        .cv-carousel-next { right: var(--space-2); }
         .cv-carousel-dots {
           position: absolute;
-          bottom: 12px;
+          bottom: var(--space-3);
           left: 50%;
           transform: translateX(-50%);
           display: flex;
-          gap: 6px;
+          gap: var(--space-1);
         }
         .cv-dot {
           width: 7px;
           height: 7px;
           padding: 0;
           border-radius: 50%;
-          background: oklch(80% 0.005 265 / 0.4);
+          background: color-mix(in oklch, var(--text-primary) 40%, transparent);
           border: none;
           cursor: pointer;
-          transition: background-color var(--dur) var(--ease),
-            transform var(--dur) var(--ease);
+          transition: background-color var(--duration-fast) var(--ease-standard),
+            transform var(--duration-fast) var(--ease-standard);
+        }
+        .cv-dot:hover {
+          background: color-mix(in oklch, var(--text-primary) 60%, transparent);
         }
         .cv-dot.is-active {
           background: var(--accent);
@@ -1282,16 +1290,16 @@ export function CreateView({
         }
         .cv-carousel-count {
           position: absolute;
-          top: 12px;
-          right: 12px;
-          padding: 0.2rem 0.55rem;
-          background: oklch(7% 0.006 265 / 0.7);
+          top: var(--space-3);
+          right: var(--space-3);
+          padding: 2px var(--space-2);
+          background: var(--overlay-light);
           backdrop-filter: blur(6px);
-          border: 1px solid var(--hairline-2);
+          border: 1px solid var(--border-strong);
           border-radius: var(--radius-full);
-          font-size: 0.72rem;
+          font-size: var(--text-aux);
           font-family: var(--font-mono);
-          color: var(--ink-soft);
+          color: var(--text-secondary);
         }
 
         .cv-error-state { max-width: 420px; }
@@ -1300,7 +1308,7 @@ export function CreateView({
         .cv-panel {
           display: flex;
           flex-direction: column;
-          background: var(--bg-1);
+          background: var(--bg-surface-1);
           min-height: 0;
         }
         .cv-panel-scroll {
@@ -1315,11 +1323,11 @@ export function CreateView({
         .cv-panel-scroll::-webkit-scrollbar { width: 8px; }
         .cv-panel-scroll::-webkit-scrollbar-track { background: transparent; }
         .cv-panel-scroll::-webkit-scrollbar-thumb {
-          background: var(--hairline-2);
-          border-radius: 4px;
+          background: var(--border-strong);
+          border-radius: var(--radius-full);
         }
         .cv-panel-scroll::-webkit-scrollbar-thumb:hover {
-          background: var(--hairline-strong);
+          background: var(--text-muted);
         }
 
         .cv-section {
@@ -1329,25 +1337,25 @@ export function CreateView({
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 0.5rem;
-          margin-bottom: 0.5rem;
+          gap: var(--space-2);
+          margin-bottom: var(--space-2);
         }
         .cv-label {
           display: block;
-          font-size: 0.76rem;
+          font-size: var(--text-aux);
           font-weight: 500;
-          color: var(--ink-soft);
+          color: var(--text-secondary);
           letter-spacing: 0.02em;
           text-transform: uppercase;
         }
         .cv-optimize-btn {
-          font-size: 0.74rem;
-          padding: 0.2rem 0.55rem;
-          color: var(--accent-soft);
+          font-size: var(--text-aux);
+          padding: 2px var(--space-2);
+          color: var(--accent);
         }
         .cv-textarea {
           min-height: 90px;
-          font-size: 0.85rem;
+          font-size: var(--text-body);
           line-height: 1.5;
         }
 
@@ -1356,18 +1364,27 @@ export function CreateView({
           display: flex;
           align-items: center;
           justify-content: space-between;
-          width: 100%;
-          padding: 0;
+          width: calc(100% + 2 * var(--space-2));
+          margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-2));
+          padding: var(--space-1) var(--space-2);
           background: transparent;
           border: none;
+          border-radius: var(--radius-control);
           cursor: pointer;
           color: inherit;
+          transition: background-color var(--duration-fast) var(--ease-standard);
+        }
+        .cv-collapse-head:hover {
+          background: var(--bg-surface-2);
+        }
+        .cv-collapse-head:active {
+          background: var(--bg-surface-3);
         }
         .cv-chevron {
-          color: var(--ink-faint);
-          font-size: 0.9rem;
+          color: var(--text-muted);
+          font-size: var(--text-body);
           transform: rotate(-90deg);
-          transition: transform var(--dur) var(--ease);
+          transition: transform var(--duration-fast) var(--ease-standard);
         }
         .cv-chevron.is-open {
           transform: rotate(90deg);
@@ -1375,71 +1392,74 @@ export function CreateView({
 
         /* 上传区 */
         .cv-upload {
-          margin-top: 0.5rem;
-          border: 1px dashed var(--hairline-strong);
-          border-radius: var(--radius);
-          background: var(--bg-2);
+          margin-top: var(--space-2);
+          border: 1px dashed var(--border-strong);
+          border-radius: var(--radius-control);
+          background: var(--bg-surface-2);
           cursor: pointer;
-          transition: border-color var(--dur) var(--ease),
-            background-color var(--dur) var(--ease);
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard);
           overflow: hidden;
         }
         .cv-upload:hover,
         .cv-upload.is-drag {
           border-color: var(--accent);
-          background: var(--accent-wash);
+          background: var(--accent-soft);
+        }
+        .cv-upload:active {
+          border-color: var(--accent-hover);
         }
         .cv-upload-empty {
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 0.4rem;
+          gap: var(--space-1);
           padding: var(--space-4);
-          color: var(--ink-faint);
-          font-size: 0.82rem;
+          color: var(--text-muted);
+          font-size: var(--text-aux);
           text-align: center;
         }
         .cv-upload-hint {
-          font-size: 0.72rem;
-          color: var(--ink-faint);
+          font-size: var(--text-label);
+          color: var(--text-muted);
           opacity: 0.7;
         }
         .cv-upload-preview {
           display: flex;
-          gap: 0.6rem;
-          padding: 0.5rem;
+          gap: var(--space-2);
+          padding: var(--space-2);
           align-items: center;
         }
         .cv-upload-preview img {
           width: 64px;
           height: 64px;
           object-fit: cover;
-          border-radius: var(--radius-xs);
-          border: 1px solid var(--hairline);
+          border-radius: var(--radius-badge);
+          border: 1px solid var(--border-subtle);
         }
         .cv-upload-meta {
           display: flex;
           flex-direction: column;
-          gap: 0.3rem;
+          gap: var(--space-1);
           min-width: 0;
           flex: 1;
         }
         .cv-upload-name {
-          font-size: 0.78rem;
-          color: var(--ink-soft);
+          font-size: var(--text-aux);
+          color: var(--text-secondary);
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
         .cv-upload-clear {
           align-self: flex-start;
-          color: var(--danger);
+          color: var(--err);
         }
 
         /* 滑块行 */
         .cv-slider-row {
-          margin-top: 0.6rem;
+          margin-top: var(--space-2);
         }
         .cv-slider-row:first-child {
           margin-top: 0;
@@ -1448,24 +1468,28 @@ export function CreateView({
           display: flex;
           align-items: center;
           justify-content: space-between;
-          font-size: 0.76rem;
-          color: var(--ink-soft);
-          margin-bottom: 0.35rem;
+          font-size: var(--text-aux);
+          color: var(--text-secondary);
+          margin-bottom: var(--space-1);
         }
         .cv-slider-val {
           font-family: var(--font-mono);
-          color: var(--accent-soft);
-          font-size: 0.78rem;
+          color: var(--accent);
+          font-size: var(--text-aux);
         }
         .cv-range {
           -webkit-appearance: none;
           appearance: none;
           width: 100%;
           height: 4px;
-          background: var(--bg-3);
+          background: var(--bg-surface-3);
           border-radius: var(--radius-full);
           outline: none;
           cursor: pointer;
+        }
+        .cv-range:focus-visible {
+          outline: 1px solid var(--accent);
+          outline-offset: 2px;
         }
         .cv-range::-webkit-slider-thumb {
           -webkit-appearance: none;
@@ -1474,21 +1498,21 @@ export function CreateView({
           height: 14px;
           border-radius: 50%;
           background: var(--accent);
-          border: 2px solid var(--bg-1);
-          box-shadow: 0 0 0 1px var(--accent-line);
+          border: 2px solid var(--bg-surface-1);
+          box-shadow: 0 0 0 1px var(--accent-glow);
           cursor: pointer;
-          transition: transform var(--dur) var(--ease);
+          transition: box-shadow var(--duration-fast) var(--ease-standard);
         }
         .cv-range::-webkit-slider-thumb:hover {
-          transform: scale(1.15);
+          box-shadow: 0 0 0 1px var(--accent);
         }
         .cv-range::-moz-range-thumb {
           width: 14px;
           height: 14px;
           border-radius: 50%;
           background: var(--accent);
-          border: 2px solid var(--bg-1);
-          box-shadow: 0 0 0 1px var(--accent-line);
+          border: 2px solid var(--bg-surface-1);
+          box-shadow: 0 0 0 1px var(--accent-glow);
           cursor: pointer;
         }
 
@@ -1496,52 +1520,59 @@ export function CreateView({
         .cv-size-grid {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
-          gap: 0.4rem;
-          margin-top: 0.5rem;
+          gap: var(--space-1);
+          margin-top: var(--space-2);
         }
         .cv-size-btn {
-          padding: 0.4rem 0;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius-xs);
-          color: var(--ink-soft);
-          font-size: 0.76rem;
+          padding: var(--space-1) 0;
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-badge);
+          color: var(--text-secondary);
+          font-size: var(--text-aux);
           font-weight: 500;
           cursor: pointer;
-          transition: background-color var(--dur) var(--ease),
-            border-color var(--dur) var(--ease), color var(--dur) var(--ease);
+          transition: background-color var(--duration-fast) var(--ease-standard),
+            border-color var(--duration-fast) var(--ease-standard),
+            color var(--duration-fast) var(--ease-standard);
         }
         .cv-size-btn:hover {
-          background: var(--bg-3);
-          color: var(--ink);
+          background: var(--bg-surface-3);
+          border-color: var(--border-strong);
+        }
+        .cv-size-btn:active {
+          border-color: var(--text-muted);
         }
         .cv-size-btn.is-active {
-          background: var(--accent-quiet);
-          border-color: var(--accent-line);
-          color: var(--accent-soft);
+          background: var(--accent-soft);
+          border-color: var(--accent-glow);
+          color: var(--accent);
         }
         .cv-size-custom {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 0.5rem;
-          margin-top: 0.6rem;
+          gap: var(--space-2);
+          margin-top: var(--space-2);
         }
         .cv-mini-input {
           display: flex;
           flex-direction: column;
-          gap: 0.25rem;
-          font-size: 0.72rem;
-          color: var(--ink-faint);
+          gap: var(--space-1);
+          font-size: var(--text-label);
+          color: var(--text-muted);
         }
         .cv-mini-input input {
           width: 100%;
-          padding: 0.35rem 0.5rem;
-          background: var(--bg-1);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius-xs);
-          color: var(--ink);
-          font-size: 0.82rem;
+          padding: var(--space-1) var(--space-2);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-badge);
+          color: var(--text-primary);
+          font-size: var(--text-aux);
           font-family: var(--font-mono);
+        }
+        .cv-mini-input input:hover {
+          border-color: var(--border-strong);
         }
         .cv-mini-input input:focus {
           outline: none;
@@ -1552,10 +1583,10 @@ export function CreateView({
         .cv-select {
           appearance: none;
           -webkit-appearance: none;
-          padding-right: 2rem;
-          /* 用 CSS 渐变绘制可着色的下拉箭头(与 admin-select 一致,引用 --ink-faint) */
-          background-image: linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%),
-            linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
+          padding-right: var(--space-8);
+          /* 用 CSS 渐变绘制可着色的下拉箭头(与 admin-select 一致,引用 --text-muted) */
+          background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+            linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
           background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%;
           background-size: 5px 5px, 5px 5px;
           background-repeat: no-repeat;
@@ -1564,18 +1595,18 @@ export function CreateView({
         .cv-field-pair {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 0.6rem;
+          gap: var(--space-2);
         }
         .cv-field-loading,
         .cv-field-error {
           display: flex;
           align-items: center;
-          gap: 0.4rem;
-          font-size: 0.78rem;
-          padding: 0.35rem 0;
+          gap: var(--space-1);
+          font-size: var(--text-aux);
+          padding: var(--space-1) 0;
         }
         .cv-field-error {
-          color: var(--danger);
+          color: var(--err);
         }
 
         /* 种子 */
@@ -1583,127 +1614,142 @@ export function CreateView({
           display: flex;
           align-items: center;
           justify-content: space-between;
-          margin-bottom: 0.5rem;
+          margin-bottom: var(--space-2);
         }
         .cv-lock-toggle {
           display: inline-flex;
           align-items: center;
-          gap: 0.35rem;
-          font-size: 0.76rem;
-          color: var(--ink-soft);
+          gap: var(--space-1);
+          font-size: var(--text-aux);
+          color: var(--text-secondary);
           cursor: pointer;
         }
         .cv-seed-row {
           display: flex;
-          gap: 0.4rem;
+          gap: var(--space-1);
         }
         .cv-locklast {
-          margin-top: 0.5rem;
+          margin-top: var(--space-2);
           width: 100%;
-          color: var(--accent-soft);
+          color: var(--accent);
         }
 
         /* 批量 */
         .cv-batch-grid {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
-          gap: 0.4rem;
-          margin-top: 0.5rem;
+          gap: var(--space-1);
+          margin-top: var(--space-2);
         }
 
         /* 底部生成按钮 */
         .cv-panel-foot {
           flex-shrink: 0;
           padding: var(--space-3);
-          border-top: 1px solid var(--hairline);
-          background: var(--bg-1);
+          border-top: 1px solid var(--border-subtle);
+          background: var(--bg-surface-1);
         }
         .cv-generate-btn {
           width: 100%;
-          padding: 0.7rem 1rem;
-          font-size: 0.92rem;
+          padding: var(--space-3) var(--space-4);
+          font-size: var(--text-section);
           font-weight: 600;
-          border-radius: var(--radius-sm);
-          box-shadow: 0 4px 18px -6px oklch(55% 0.20 265 / 0.5);
+          border-radius: var(--radius-control);
+          box-shadow: 0 4px 18px -6px color-mix(in oklch, var(--accent) 50%, transparent);
+          transition: background-color var(--duration-fast) var(--ease-standard),
+            border-color var(--duration-fast) var(--ease-standard),
+            box-shadow var(--duration-fast) var(--ease-standard);
         }
         .cv-generate-btn:not(:disabled):hover {
-          box-shadow: 0 6px 24px -6px oklch(55% 0.20 265 / 0.65);
+          box-shadow: 0 6px 24px -6px color-mix(in oklch, var(--accent) 65%, transparent);
+        }
+        .cv-generate-btn:not(:disabled):active {
+          box-shadow: 0 2px 10px -6px color-mix(in oklch, var(--accent) 50%, transparent);
         }
         .cv-foot-error {
           display: flex;
           align-items: center;
-          gap: 0.3rem;
-          margin-top: 0.5rem;
-          font-size: 0.74rem;
-          color: var(--danger);
+          gap: var(--space-1);
+          margin-top: var(--space-2);
+          font-size: var(--text-aux);
+          color: var(--err);
         }
 
         /* 风格预设 */
         .cv-preset-clear {
           display: inline-flex;
           align-items: center;
-          gap: 0.2rem;
-          padding: 0.15rem 0.45rem;
+          gap: var(--space-1);
+          padding: 2px var(--space-2);
           background: transparent;
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius-xs);
-          color: var(--ink-faint);
-          font-size: 0.68rem;
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-badge);
+          color: var(--text-muted);
+          font-size: var(--text-label);
           cursor: pointer;
-          transition: all var(--dur) var(--ease);
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard);
         }
         .cv-preset-clear:hover {
-          color: var(--danger);
-          border-color: var(--danger);
+          border-color: var(--border-strong);
+          background: var(--bg-surface-2);
+        }
+        .cv-preset-clear:active {
+          background: var(--bg-surface-3);
         }
         .cv-preset-grid {
           display: flex;
           flex-wrap: wrap;
-          gap: 0.35rem;
-          margin-top: 0.55rem;
+          gap: var(--space-1);
+          margin-top: var(--space-2);
         }
         .cv-preset-chip {
           position: relative;
           display: inline-flex;
           align-items: center;
-          gap: 0.25rem;
-          padding: 0.32rem 0.6rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius-sm);
-          color: var(--ink-soft);
-          font-size: 0.74rem;
+          gap: var(--space-1);
+          padding: var(--space-1) var(--space-2);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-badge);
+          color: var(--text-secondary);
+          font-size: var(--text-aux);
           font-weight: 500;
           cursor: pointer;
-          transition: all var(--dur) var(--ease);
+          transition: background-color var(--duration-fast) var(--ease-standard),
+            border-color var(--duration-fast) var(--ease-standard),
+            color var(--duration-fast) var(--ease-standard),
+            box-shadow var(--duration-fast) var(--ease-standard);
           white-space: nowrap;
         }
         .cv-preset-chip:hover {
-          background: var(--bg-3);
-          border-color: var(--accent-line);
-          color: var(--ink);
+          background: var(--bg-surface-3);
+          border-color: var(--border-strong);
+        }
+        .cv-preset-chip:active {
+          border-color: var(--text-muted);
         }
         .cv-preset-chip.is-active {
-          background: var(--accent-quiet);
+          background: var(--accent-soft);
           border-color: var(--accent);
-          color: var(--accent-soft);
-          box-shadow: 0 0 0 1px var(--accent-line);
+          color: var(--accent);
+          box-shadow: 0 0 0 1px var(--accent-glow);
         }
         .cv-preset-badge {
-          font-size: 0.6rem;
+          font-size: var(--text-label);
           opacity: 0.7;
-          margin-left: 0.1rem;
+          margin-left: var(--space-1);
         }
         .cv-preset-desc {
           display: flex;
           align-items: center;
-          gap: 0.3rem;
-          margin-top: 0.5rem;
-          padding: 0.35rem 0.5rem;
-          background: var(--accent-wash, oklch(55% 0.20 265 / 0.06));
-          border-radius: var(--radius-xs);
-          font-size: 0.68rem;
-          color: var(--accent-soft);
+          gap: var(--space-1);
+          margin-top: var(--space-2);
+          padding: var(--space-1) var(--space-2);
+          background: var(--accent-soft);
+          border-radius: var(--radius-badge);
+          font-size: var(--text-label);
+          color: var(--accent);
           line-height: 1.4;
         }
 
@@ -1711,88 +1757,91 @@ export function CreateView({
         .cv-model-hint {
           display: flex;
           align-items: center;
-          gap: 0.3rem;
-          margin-top: 0.4rem;
-          font-size: 0.68rem;
-          color: var(--accent-soft);
+          gap: var(--space-1);
+          margin-top: var(--space-2);
+          font-size: var(--text-label);
+          color: var(--accent);
           opacity: 0.8;
         }
 
         /* 采样器/调度器提示与搭配指南 */
         .cv-hint {
-          margin-top: 0.35rem;
-          font-size: 0.68rem;
+          margin-top: var(--space-1);
+          font-size: var(--text-label);
           line-height: 1.4;
-          color: var(--ink-faint);
+          color: var(--text-muted);
         }
         .cv-help-toggle {
           display: inline-flex;
           align-items: center;
-          gap: 0.35rem;
-          margin-top: 0.7rem;
-          padding: 0.25rem 0.5rem;
+          gap: var(--space-1);
+          margin-top: var(--space-3);
+          padding: var(--space-1) var(--space-2);
           background: transparent;
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius-sm);
-          color: var(--ink-soft);
-          font-size: 0.72rem;
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-badge);
+          color: var(--text-secondary);
+          font-size: var(--text-aux);
           cursor: pointer;
-          transition: all var(--dur) var(--ease);
+          transition: background-color var(--duration-fast) var(--ease-standard),
+            border-color var(--duration-fast) var(--ease-standard);
         }
         .cv-help-toggle:hover {
-          background: var(--bg-2);
-          border-color: var(--accent-line);
-          color: var(--ink);
+          background: var(--bg-surface-2);
+          border-color: var(--border-strong);
+        }
+        .cv-help-toggle:active {
+          background: var(--bg-surface-3);
         }
         .cv-help-body {
-          margin-top: 0.7rem;
-          padding-top: 0.7rem;
-          border-top: 1px solid var(--hairline);
-          animation: cvFadeIn 180ms var(--ease);
+          margin-top: var(--space-3);
+          padding-top: var(--space-3);
+          border-top: 1px solid var(--border-subtle);
+          animation: cvFadeIn var(--duration-base) var(--ease-standard);
         }
         .cv-help-lead {
-          margin: 0 0 0.6rem;
-          font-size: 0.74rem;
+          margin: 0 0 var(--space-2);
+          font-size: var(--text-aux);
           line-height: 1.5;
-          color: var(--ink-soft);
+          color: var(--text-secondary);
         }
         .cv-pairing-grid {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
-          gap: 0.5rem;
+          gap: var(--space-2);
         }
         .cv-pairing-card {
-          padding: 0.55rem 0.65rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius-sm);
+          padding: var(--space-2) var(--space-3);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-badge);
         }
         .cv-pairing-scene {
-          font-size: 0.74rem;
+          font-size: var(--text-aux);
           font-weight: 600;
-          color: var(--ink);
-          margin-bottom: 0.35rem;
+          color: var(--text-primary);
+          margin-bottom: var(--space-1);
         }
         .cv-pairing-row {
           display: flex;
           justify-content: space-between;
-          gap: 0.4rem;
-          font-size: 0.68rem;
+          gap: var(--space-1);
+          font-size: var(--text-label);
           line-height: 1.4;
         }
         .cv-pairing-label {
-          color: var(--ink-faint);
+          color: var(--text-muted);
           white-space: nowrap;
         }
         .cv-pairing-val {
-          color: var(--ink-soft);
+          color: var(--text-secondary);
           text-align: right;
         }
         .cv-pairing-note {
-          margin: 0.35rem 0 0;
-          font-size: 0.66rem;
+          margin: var(--space-1) 0 0;
+          font-size: var(--text-label);
           line-height: 1.4;
-          color: var(--ink-faint);
+          color: var(--text-muted);
         }
         @keyframes cvFadeIn {
           from { opacity: 0; transform: translateY(-4px); }
@@ -1801,9 +1850,9 @@ export function CreateView({
 
         /* 预设徽章 */
         .badge-preset {
-          background: oklch(55% 0.20 265 / 0.15);
-          color: var(--accent-soft);
-          border-color: oklch(55% 0.20 265 / 0.3);
+          background: var(--accent-soft);
+          color: var(--accent);
+          border-color: var(--accent-glow);
         }
         .badge-preset svg { display: inline; }
 
@@ -1815,7 +1864,7 @@ export function CreateView({
           }
           .cv-canvas {
             border-right: none;
-            border-bottom: 1px solid var(--hairline);
+            border-bottom: 1px solid var(--border-subtle);
           }
           .cv-result-frame img {
             max-height: calc(60vh - 140px);

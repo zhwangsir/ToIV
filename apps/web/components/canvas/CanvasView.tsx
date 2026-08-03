@@ -24,7 +24,7 @@ export function CanvasView() {
           width: 100%;
           height: 100%;
           overflow: hidden;
-          background: #1a1a1a;
+          background: var(--bg-canvas);
         }
         .canvas-iframe {
           width: 100%;

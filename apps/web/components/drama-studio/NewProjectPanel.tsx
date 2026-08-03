@@ -341,8 +341,8 @@ export function NewProjectPanel({
           display: inline-flex;
           gap: 0.25rem;
           padding: 0.25rem;
-          background: var(--bg-3);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-sm);
           align-self: flex-start;
         }
@@ -354,18 +354,18 @@ export function NewProjectPanel({
           background: transparent;
           border: 1px solid transparent;
           border-radius: var(--radius-xs);
-          color: var(--ink2);
+          color: var(--text-secondary);
           font-size: 0.78rem;
           font-weight: 500;
           cursor: pointer;
           transition: all 0.15s ease;
         }
         .ds-source-tab:hover {
-          color: var(--ink);
-          background: var(--bg-2);
+          color: var(--text-primary);
+          background: var(--bg-surface-2);
         }
         .ds-source-tab.active {
-          background: var(--accent-quiet);
+          background: var(--accent-soft);
           border-color: color-mix(in srgb, var(--accent) 35%, transparent);
           color: var(--accent);
         }

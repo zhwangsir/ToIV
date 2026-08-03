@@ -108,7 +108,7 @@ function handleUnauthorized(): void {
  * - 401 统一清 token + 跳 "/"(opts.skipAuthRedirect 除外)。
  * - 不做 res.ok 检查与错误归一:由各调用点配合 raiseApiError 保留各自中文文案。
  */
-async function apiFetch(
+export async function apiFetch(
   path: string,
   init?: RequestInit,
   opts?: ApiFetchOptions,

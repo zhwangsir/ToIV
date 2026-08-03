@@ -1,94 +1,85 @@
 "use client";
 
-import Link from "next/link";
-
+import { AgentSwitcher } from "@/components/ui/AgentSwitcher";
 import { Icon, type IconName } from "@/components/ui/Icon";
 
-export interface SidebarView {
+export interface SidebarNavItem {
   key: string;
   label: string;
   icon: IconName;
-  group: "dialog" | "tool" | "asset";
 }
 
 interface SidebarProps {
-  views: SidebarView[];
+  items: SidebarNavItem[];
   current: string;
   onSelect: (key: string) => void;
+  /** 悬停/聚焦预热目标视图 chunk */
+  onItemIntent?: (key: string) => void;
   account?: string | null;
   onLogout?: () => void;
-  isOpen?: boolean;
-  onClose?: () => void;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
 }
 
+/**
+ * W0 新应用壳左侧固定边栏(220px,可折叠 56px 图标栏)。
+ * 顶部 logo 区 + 8 个一级入口 + 底部用户区(登录态迁移自旧 Topbar)。
+ * 激活态:accent-soft 底 + accent 文字;折叠态由 .app-shell.is-collapsed 驱动。
+ */
 export function Sidebar({
-  views,
+  items,
   current,
   onSelect,
+  onItemIntent,
   account,
   onLogout,
-  isOpen = false,
-  onClose,
+  collapsed,
+  onToggleCollapse,
 }: SidebarProps) {
-  const groups: Record<"dialog" | "tool" | "asset", SidebarView[]> = {
-    dialog: [],
-    tool: [],
-    asset: [],
-  };
-  for (const v of views) groups[v.group].push(v);
-  const groupOrder = ["dialog", "tool", "asset"] as const;
-
   return (
-    <>
-      <div
-        className={`sidebar-overlay${isOpen ? "" : " is-hidden"}`}
-        onClick={onClose}
-        aria-hidden="true"
-      />
-      <aside
-        className={`app-sidebar${isOpen ? " is-open" : ""}`}
-        role="navigation"
-        aria-label="主导航"
-      >
-        <div className="app-sidebar-scroll">
-          {groupOrder.map((g, gi) => (
-            <div key={g} className="app-sidebar-group">
-              {groups[g].map((view) => {
-                const active = view.key === current;
-                return (
-                  <Link
-                    key={view.key}
-                    href={`/?view=${view.key}`}
-                    className={`app-sidebar-item${active ? " is-active" : ""}`}
-                    onClick={(e) => {
-                      if (e.metaKey || e.ctrlKey || e.button !== 0) return;
-                      e.preventDefault();
-                      onSelect(view.key);
-                      onClose?.();
-                    }}
-                    aria-current={active ? "page" : undefined}
-                    aria-label={view.label}
-                    title={view.label}
-                  >
-                    <span className="app-sidebar-icon">
-                      <Icon name={view.icon} size={18} />
-                    </span>
-                    <span className="app-sidebar-label">{view.label}</span>
-                  </Link>
-                );
-              })}
-              {gi < groupOrder.length - 1 && groups[g].length > 0 && (
-                <div className="app-sidebar-divider" aria-hidden="true" />
-              )}
-            </div>
-          ))}
+    <aside className="app-sidebar" role="navigation" aria-label="主导航">
+      <div className="app-sidebar-logo">
+        <span className="app-sidebar-logo-dot" aria-hidden="true" />
+        <span className="app-sidebar-logo-text">ToIV</span>
+      </div>
+
+      <nav className="app-sidebar-nav">
+        {items.map((item) => {
+          const active = item.key === current;
+          return (
+            <button
+              key={item.key}
+              type="button"
+              className={`app-sidebar-item${active ? " is-active" : ""}`}
+              onClick={() => onSelect(item.key)}
+              onMouseEnter={() => onItemIntent?.(item.key)}
+              onFocus={() => onItemIntent?.(item.key)}
+              aria-current={active ? "page" : undefined}
+              aria-label={item.label}
+              title={collapsed ? item.label : undefined}
+            >
+              <span className="app-sidebar-icon">
+                <Icon name={item.icon} size={18} />
+              </span>
+              <span className="app-sidebar-label">{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+
+      <div className="app-sidebar-footer">
+        <div className="app-sidebar-agent">
+          <AgentSwitcher />
         </div>
 
         {account && (
-          <div className="app-sidebar-footer">
-            <div className="app-sidebar-account" title={account} translate="no">
+          <div className="app-sidebar-account">
+            <span className="app-sidebar-account-avatar" aria-hidden="true">
               {account.charAt(0).toUpperCase()}
-            </div>
+            </span>
+            <span className="app-sidebar-account-email" title={account} translate="no">
+              {account}
+            </span>
             {onLogout && (
               <button
                 type="button"
@@ -102,7 +93,20 @@ export function Sidebar({
             )}
           </div>
         )}
-      </aside>
-    </>
+
+        <button
+          type="button"
+          className="app-sidebar-collapse"
+          onClick={onToggleCollapse}
+          aria-label={collapsed ? "展开侧栏" : "折叠侧栏"}
+          aria-expanded={!collapsed}
+        >
+          <span className="app-sidebar-icon">
+            <Icon name={collapsed ? "chevron-right" : "chevron-left"} size={16} />
+          </span>
+          <span className="app-sidebar-collapse-label">折叠</span>
+        </button>
+      </div>
+    </aside>
   );
 }

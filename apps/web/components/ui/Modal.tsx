@@ -89,7 +89,7 @@ export function Modal({
           position: fixed;
           inset: 0;
           z-index: var(--z-modal);
-          background: color-mix(in oklch, var(--bg-0) 60%, transparent);
+          background: var(--overlay-light);
           backdrop-filter: blur(8px);
           display: flex;
           align-items: center;
@@ -98,10 +98,10 @@ export function Modal({
         }
         .modal-card {
           width: 100%;
-          background: var(--bg-1);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius-lg);
-          box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.4);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-panel);
+          box-shadow: var(--shadow-float);
           animation: slideUp 0.2s ease-out;
         }
         @keyframes slideUp {
@@ -119,40 +119,40 @@ export function Modal({
           align-items: center;
           justify-content: space-between;
           padding: var(--space-4) var(--space-5);
-          border-bottom: 1px solid var(--hairline);
+          border-bottom: 1px solid var(--border-subtle);
         }
         .modal-title {
-          font-size: 1rem;
+          font-size: var(--text-section);
           font-weight: 600;
-          color: var(--ink);
+          color: var(--text-primary);
           margin: 0;
         }
         .modal-title-danger {
-          color: var(--danger);
+          color: var(--err);
         }
         .modal-close {
-          width: var(--tap-min);
-          height: var(--tap-min);
+          width: 32px;
+          height: 32px;
           display: flex;
           align-items: center;
           justify-content: center;
           background: transparent;
           border: none;
-          border-radius: var(--radius-md);
-          color: var(--ink-faint);
+          border-radius: var(--radius-control);
+          color: var(--text-muted);
           cursor: pointer;
           transition: all 0.15s;
         }
         .modal-close:hover {
-          background: var(--bg-2);
-          color: var(--ink);
+          background: var(--bg-surface-2);
+          color: var(--text-primary);
         }
         .modal-body {
           padding: var(--space-5);
         }
         .modal-foot {
           padding: var(--space-4) var(--space-5);
-          border-top: 1px solid var(--hairline);
+          border-top: 1px solid var(--border-subtle);
           display: flex;
           justify-content: flex-end;
           gap: var(--space-3);

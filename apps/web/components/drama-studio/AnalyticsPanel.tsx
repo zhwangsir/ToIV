@@ -78,7 +78,7 @@ export function AnalyticsPanel({ projectId }: AnalyticsPanelProps) {
       {lowConfidence && (
         <div className="ds-analytics-card" style={{ flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
           <Icon name="info" size={14} />
-          <span style={{ fontSize: "0.75rem", color: "var(--ink2)" }}>
+          <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
             当前样本量较少，累计更多播放后建议会更稳定。
           </span>
         </div>
@@ -136,7 +136,7 @@ export function AnalyticsPanel({ projectId }: AnalyticsPanelProps) {
                   <Icon name="eye" size={11} /> {shot.enters}
                 </span>
                 <span title="留存率">↳ {percent(shot.retention)}</span>
-                <span title="完播率">▶ {percent(shot.completion_rate)}</span>
+                <span title="完播率"><Icon name="playing" size={11} /> {percent(shot.completion_rate)}</span>
                 <span title="重播">
                   <Icon name="refresh" size={11} /> {shot.replay_count}
                 </span>

@@ -2,30 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import {
-  Play,
-  Pause,
-  Volume2,
-  VolumeX,
-  Maximize,
-  Minimize,
-  Heart,
-  RotateCcw,
-  Share2,
-  MessageSquare,
-  ThumbsUp,
-  ThumbsDown,
-} from "lucide-react";
+import { Icon } from "@/components/ui/Icon";
 import { useDramaAnalytics } from "@/hooks/useDramaAnalytics";
 import type { DramaChapter } from "@/lib/drama";
 import styles from "./DramaPlayer.module.css";
-
-const CHAPTERS: DramaChapter[] = [
-  { id: "act1", title: "开局", start: 0, color: "#f59e0b" },
-  { id: "act2", title: "发展", start: 20, color: "#6366f1" },
-  { id: "act3", title: "转折", start: 45, color: "#c084fc" },
-  { id: "act4", title: "高潮", start: 70, color: "#34d399" },
-];
 
 const RATES = [1, 1.25, 1.5, 2];
 
@@ -60,10 +40,21 @@ export default function DramaPlayerPage() {
     [dramaId]
   );
 
+  // 章节按实际片长均分四幕;元数据未加载(duration=0)时为空,不渲染章节标记
+  const chapters = useMemo<DramaChapter[]>(() => {
+    if (!duration) return [];
+    return [
+      { id: "act1", title: "开局", start: 0, color: "var(--warn)" },
+      { id: "act2", title: "发展", start: duration * 0.25, color: "var(--accent)" },
+      { id: "act3", title: "转折", start: duration * 0.5, color: "var(--run)" },
+      { id: "act4", title: "高潮", start: duration * 0.75, color: "var(--ok)" },
+    ];
+  }, [duration]);
+
   const analytics = useDramaAnalytics({
     dramaId,
     videoUrl,
-    chapters: CHAPTERS,
+    chapters,
     totalDuration: duration || 90,
   });
 
@@ -270,7 +261,7 @@ export default function DramaPlayerPage() {
               aria-label={isPlaying ? "暂停" : "播放"}
             >
               <span className={styles.centerPlayButton}>
-                <Play size={32} fill="currentColor" />
+                <Icon name="play" size={32} />
               </span>
             </button>
           )}
@@ -282,7 +273,7 @@ export default function DramaPlayerPage() {
               onClick={() => setIsDanmuOn((p) => !p)}
               aria-label="弹幕开关"
             >
-              <MessageSquare size={18} />
+              <Icon name="chat" size={18} />
             </button>
           </div>
 
@@ -299,7 +290,7 @@ export default function DramaPlayerPage() {
                 >
                   <div className={styles.progressThumb} />
                 </div>
-                {CHAPTERS.map((ch) => (
+                {chapters.map((ch) => (
                   <div
                     key={ch.id}
                     className={styles.chapterMarker}
@@ -325,14 +316,14 @@ export default function DramaPlayerPage() {
                   onClick={togglePlay}
                   aria-label={isPlaying ? "暂停" : "播放"}
                 >
-                  {isPlaying ? <Pause size={20} /> : <Play size={20} />}
+                  {isPlaying ? <Icon name="pause" size={20} /> : <Icon name="play" size={20} />}
                 </button>
                 <button
                   className={styles.iconButton}
                   onClick={toggleMute}
                   aria-label={isMuted ? "取消静音" : "静音"}
                 >
-                  {isMuted || volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                  {isMuted || volume === 0 ? <Icon name="mute" size={20} /> : <Icon name="volume" size={20} />}
                 </button>
                 <input
                   type="range"
@@ -358,7 +349,7 @@ export default function DramaPlayerPage() {
                   onClick={toggleFullscreen}
                   aria-label={isFullscreen ? "退出全屏" : "全屏"}
                 >
-                  {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
+                  {isFullscreen ? <Icon name="minimize" size={20} /> : <Icon name="maximize" size={20} />}
                 </button>
               </div>
             </div>
@@ -370,29 +361,29 @@ export default function DramaPlayerPage() {
             className={`${styles.interactionButton} ${liked ? styles.active : ""}`}
             onClick={handleLike}
           >
-            <Heart size={16} fill={liked ? "currentColor" : "none"} />
+            <Icon name="heart" size={16} />
             点赞
           </button>
           <button
             className={`${styles.interactionButton} ${styles.good} ${goodAt !== null ? styles.active : ""}`}
             onClick={handleMarkGood}
           >
-            <ThumbsUp size={16} />
+            <Icon name="thumbs-up" size={16} />
             这里好看
           </button>
           <button
             className={`${styles.interactionButton} ${styles.boring} ${boringAt !== null ? styles.active : ""}`}
             onClick={handleMarkBoring}
           >
-            <ThumbsDown size={16} />
+            <Icon name="thumbs-down" size={16} />
             无聊
           </button>
           <button className={styles.interactionButton} onClick={handleReplay}>
-            <RotateCcw size={16} />
+            <Icon name="replay" size={16} />
             重播
           </button>
           <button className={styles.interactionButton} onClick={handleShare}>
-            <Share2 size={16} />
+            <Icon name="share" size={16} />
             分享
           </button>
         </div>

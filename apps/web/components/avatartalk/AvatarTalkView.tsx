@@ -2,6 +2,10 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Icon } from "@/components/ui/Icon";
+import { Badge, type BadgeTone } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Field, Input, Textarea } from "@/components/ui/Input";
+import { Switch } from "@/components/ui/Switch";
 import { useToast } from "@/components/ui/Toast";
 import { getToken } from "@/lib/api";
 import { genId } from "@/lib/id";
@@ -36,59 +40,32 @@ type EngineStatus = {
   model?: string;
 };
 
+/** pill 展示元数据:Badge tone + 过渡态脉冲。 */
+type PillMeta = { label: string; tone: BadgeTone; pulse?: boolean };
+
 /** 无会话时 pill 按引擎探活三态展示:已连接 / 引擎离线 / 未配置。 */
-function engineToPillMeta(
-  engine: EngineStatus | null,
-): { label: string; dotClass: string; pillClass: string } {
+function engineToPillMeta(engine: EngineStatus | null): PillMeta {
   if (!engine) return CONNECTION_META.idle; // 首次探测中
   if (!engine.enabled) {
-    return { label: "未配置", dotClass: "at-dot-idle", pillClass: "at-pill-idle" };
+    return { label: "未配置", tone: "neutral" };
   }
   if (!engine.reachable) {
-    return { label: "引擎离线", dotClass: "at-dot-error", pillClass: "at-pill-error" };
+    return { label: "引擎离线", tone: "err" };
   }
   return {
     label: engine.model ? `已连接 ${engine.model}` : "已连接",
-    dotClass: "at-dot-live",
-    pillClass: "at-pill-live",
+    tone: "ok",
   };
 }
 
-// ── 连接状态 → 展示元数据(颜色/标签/图标),对齐 OpenTalking TopBar 配色但用 ToIV tokens ──
-const CONNECTION_META: Record<
-  ConnectionStatus,
-  { label: string; dotClass: string; pillClass: string }
-> = {
-  idle: {
-    label: "未连接",
-    dotClass: "at-dot-idle",
-    pillClass: "at-pill-idle",
-  },
-  connecting: {
-    label: "连接中",
-    dotClass: "at-dot-connecting",
-    pillClass: "at-pill-connecting",
-  },
-  queued: {
-    label: "排队中",
-    dotClass: "at-dot-queued",
-    pillClass: "at-pill-queued",
-  },
-  live: {
-    label: "已连接",
-    dotClass: "at-dot-live",
-    pillClass: "at-pill-live",
-  },
-  expiring: {
-    label: "即将到期",
-    dotClass: "at-dot-expiring",
-    pillClass: "at-pill-expiring",
-  },
-  error: {
-    label: "连接错误",
-    dotClass: "at-dot-error",
-    pillClass: "at-pill-error",
-  },
+// ── 连接状态 → 展示元数据(Badge tone/标签),三态与探活 pill 一致 ──
+const CONNECTION_META: Record<ConnectionStatus, PillMeta> = {
+  idle: { label: "未连接", tone: "neutral" },
+  connecting: { label: "连接中", tone: "run", pulse: true },
+  queued: { label: "排队中", tone: "run", pulse: true },
+  live: { label: "已连接", tone: "ok" },
+  expiring: { label: "即将到期", tone: "warn" },
+  error: { label: "连接错误", tone: "err" },
 };
 
 // SessionState → ConnectionStatus 映射(简化前端状态机)
@@ -394,8 +371,8 @@ export function AvatarTalkView() {
   const selectedAvatarInfo = avatars.find((a) => a.id === selectedAvatar);
 
   return (
-    <div className="at-view studio-dark-zone">
-      {/* ── 左:SceneStage 舞台(工作室深色区) ── */}
+    <div className="at-view">
+      {/* ── 左:SceneStage 舞台(近黑底,数字人画面是主角) ── */}
       <div className="at-stage">
         <video
           ref={videoRef}
@@ -419,32 +396,42 @@ export function AvatarTalkView() {
           </div>
         )}
 
-        {/* 连接状态 pill(玻璃拟态,右上):会话进行中按会话状态,否则按引擎探活 */}
-        <div className={`at-status-pill ${pillMeta.pillClass}`} title={pillMeta.label}>
-          <span className={`at-status-dot ${pillMeta.dotClass}`} />
-          <span>{pillMeta.label}</span>
-        </div>
+        {/* 连接状态 pill(右上,Badge 承载):会话进行中按会话状态,否则按引擎探活 */}
+        <Badge
+          tone={pillMeta.tone}
+          dotPulse={pillMeta.pulse}
+          title={pillMeta.label}
+          className="at-status-badge"
+          style={{ background: "var(--overlay-light)" }}
+        >
+          {pillMeta.label}
+        </Badge>
 
-        {/* 说话指示器(玻璃拟态,左上) */}
+        {/* 说话指示器(左上) */}
         {hasSession && isSpeaking && (
-          <div className="at-speaking-pill">
-            <span className="at-speaking-wave">
+          <Badge
+            tone="ok"
+            dot={false}
+            className="at-speaking-badge"
+            style={{ background: "var(--overlay-light)" }}
+          >
+            <span className="at-speaking-wave" aria-hidden="true">
               <span />
               <span />
               <span />
             </span>
             <span>正在说话</span>
-          </div>
+          </Badge>
         )}
 
-        {/* 字幕条(玻璃拟态,底部) */}
+        {/* 字幕条(底部) */}
         {subtitle && hasSession && (
           <div className="at-subtitle-bar">
             <p className="at-subtitle-text">{subtitle}</p>
           </div>
         )}
 
-        {/* 错误条(玻璃拟态,底部居中) */}
+        {/* 错误条(底部居中) */}
         {error && (
           <div className="at-error-bar">
             <Icon name="error" size={14} />
@@ -456,7 +443,7 @@ export function AvatarTalkView() {
         )}
       </div>
 
-      {/* ── 右:控制面板(中性灰 surface) ── */}
+      {/* ── 右:控制面板 ── */}
       <div className="at-panel">
         <div className="at-panel-header">
           <div className="at-panel-title-wrap">
@@ -513,14 +500,15 @@ export function AvatarTalkView() {
           display: grid;
           grid-template-columns: 1fr 400px;
           height: 100%;
-          background: var(--studio-bg, #0a0a0a);
+          background: var(--bg-canvas);
           overflow: hidden;
         }
 
-        /* ── SceneStage 舞台 ── */
+        /* ── SceneStage 舞台:近黑画布,素材是唯一高光 ── */
         .at-stage {
           position: relative;
-          background: var(--studio-bg, #0a0a0a);
+          background: var(--bg-canvas);
+          border: 1px solid var(--border-subtle);
           overflow: hidden;
           min-width: 0;
         }
@@ -540,114 +528,58 @@ export function AvatarTalkView() {
           align-items: center;
           justify-content: center;
           gap: var(--space-3);
-          color: var(--studio-text-dim, #808080);
+          color: var(--text-muted);
           pointer-events: none;
         }
         .at-placeholder-icon {
           width: 96px;
           height: 96px;
           border-radius: var(--radius-full);
-          background: var(--studio-surface, #1a1a1a);
-          border: 1px solid var(--studio-border, #2a2a2a);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
           display: flex;
           align-items: center;
           justify-content: center;
-          color: var(--studio-text-dim, #808080);
+          color: var(--text-muted);
           margin-bottom: var(--space-2);
         }
         .at-placeholder-title {
-          font-family: var(--font-display);
-          font-size: var(--text-xl);
-          font-weight: 500;
-          color: var(--studio-text, #e0e0e0);
-          letter-spacing: -0.02em;
+          font-size: var(--text-section);
+          font-weight: 600;
+          color: var(--text-primary);
+          line-height: 1.3;
         }
         .at-placeholder-desc {
-          font-size: var(--text-sm);
-          color: var(--studio-text-dim, #808080);
+          font-size: var(--text-body);
+          color: var(--text-muted);
           max-width: 320px;
           text-align: center;
-          line-height: var(--leading-md);
+          line-height: 1.6;
         }
 
-        /* ── 玻璃拟态浮层(延续 DynamicIsland 设计语言) ── */
-        .at-status-pill,
-        .at-speaking-pill,
-        .at-subtitle-bar,
-        .at-error-bar {
-          background: rgba(255, 255, 255, 0.82);
-          backdrop-filter: blur(40px) saturate(180%);
-          -webkit-backdrop-filter: blur(40px) saturate(180%);
-          border: 1px solid rgba(147, 197, 253, 0.18);
-          box-shadow:
-            0 4px 20px rgba(0, 0, 0, 0.08),
-            0 0 0 0.5px rgba(0, 0, 0, 0.04) inset,
-            0 1px 0 rgba(255, 255, 255, 0.9) inset;
-        }
-
-        /* 连接状态 pill(右上) */
-        .at-status-pill {
+        /* ── 舞台浮层 pill(Badge 承载,深色半透明底 + 模糊 + 细描边) ── */
+        .at-view :global(.at-status-badge) {
           position: absolute;
           top: var(--space-4);
           right: var(--space-4);
-          display: inline-flex;
-          align-items: center;
-          gap: var(--space-2);
-          padding: var(--space-2) var(--space-3);
-          border-radius: var(--radius-full);
-          font-size: var(--text-xs);
-          font-weight: 600;
-          color: var(--color-text-primary, #1a1a1a);
           z-index: 10;
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-full);
+          backdrop-filter: var(--backdrop-blur);
+          -webkit-backdrop-filter: var(--backdrop-blur);
+          box-shadow: var(--shadow-lg);
         }
-        .at-status-dot {
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          flex-shrink: 0;
-        }
-        .at-dot-idle { background: var(--color-text-tertiary, #999); }
-        .at-dot-connecting {
-          background: var(--color-warning, #d97706);
-          animation: at-pulse 1.2s ease-in-out infinite;
-        }
-        .at-dot-queued {
-          background: var(--color-warning, #d97706);
-          animation: at-pulse 1.5s ease-in-out infinite;
-        }
-        .at-dot-live {
-          background: var(--color-success, #16a34a);
-          box-shadow: 0 0 8px rgba(22, 163, 74, 0.5);
-        }
-        .at-dot-expiring { background: var(--color-warning, #d97706); }
-        .at-dot-error { background: var(--color-error, #dc2626); }
-
-        .at-pill-idle { color: var(--color-text-secondary, #666); }
-        .at-pill-connecting,
-        .at-pill-queued,
-        .at-pill-expiring { color: var(--color-warning, #d97706); }
-        .at-pill-live { color: var(--color-success, #16a34a); }
-        .at-pill-error { color: var(--color-error, #dc2626); }
-
-        @keyframes at-pulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.5; transform: scale(0.8); }
-        }
-
-        /* 说话指示器(左上) */
-        .at-speaking-pill {
+        .at-view :global(.at-speaking-badge) {
           position: absolute;
           top: var(--space-4);
           left: var(--space-4);
-          display: inline-flex;
-          align-items: center;
-          gap: var(--space-2);
-          padding: var(--space-2) var(--space-3);
-          border-radius: var(--radius-full);
-          font-size: var(--text-xs);
-          font-weight: 600;
-          color: var(--color-success, #16a34a);
           z-index: 10;
+          gap: var(--space-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-full);
+          backdrop-filter: var(--backdrop-blur);
+          -webkit-backdrop-filter: var(--backdrop-blur);
+          box-shadow: var(--shadow-lg);
           animation: at-fade-in var(--duration-base) var(--ease-standard);
         }
         .at-speaking-wave {
@@ -659,7 +591,7 @@ export function AvatarTalkView() {
         .at-speaking-wave span {
           width: 2px;
           height: 100%;
-          background: var(--color-success, #16a34a);
+          background: var(--ok);
           border-radius: 1px;
           animation: at-wave 1s ease-in-out infinite;
         }
@@ -677,16 +609,21 @@ export function AvatarTalkView() {
           right: var(--space-4);
           bottom: var(--space-5);
           padding: var(--space-3) var(--space-4);
-          border-radius: var(--radius-xl);
+          background: var(--overlay-light);
+          backdrop-filter: var(--backdrop-blur);
+          -webkit-backdrop-filter: var(--backdrop-blur);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-panel);
+          box-shadow: var(--shadow-xl);
           z-index: 10;
           animation: at-slide-up var(--duration-base) var(--ease-standard);
         }
         .at-subtitle-text {
           margin: 0;
-          font-size: var(--text-md);
+          font-size: var(--text-body);
           font-weight: 500;
-          line-height: var(--leading-md);
-          color: var(--color-text-primary, #1a1a1a);
+          line-height: 1.6;
+          color: var(--text-primary);
           text-align: center;
         }
 
@@ -701,12 +638,17 @@ export function AvatarTalkView() {
           gap: var(--space-2);
           max-width: 90%;
           padding: var(--space-2) var(--space-3);
+          background: var(--overlay-light);
+          backdrop-filter: var(--backdrop-blur);
+          -webkit-backdrop-filter: var(--backdrop-blur);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-full);
-          font-size: var(--text-xs);
+          box-shadow: var(--shadow-xl);
+          font-size: var(--text-aux);
           font-weight: 500;
-          color: var(--color-error, #dc2626);
+          color: var(--err);
           z-index: 11;
-          animation: at-slide-up var(--duration-base) var(--ease-standard);
+          animation: at-slide-up-center var(--duration-base) var(--ease-standard);
         }
         .at-error-dismiss {
           display: inline-flex;
@@ -730,7 +672,6 @@ export function AvatarTalkView() {
           from { opacity: 0; transform: translateY(8px); }
           to { opacity: 1; transform: translateY(0); }
         }
-        .at-error-bar { animation: at-slide-up-center var(--duration-base) var(--ease-standard); }
         @keyframes at-slide-up-center {
           from { opacity: 0; transform: translateX(-50%) translateY(8px); }
           to { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -740,8 +681,8 @@ export function AvatarTalkView() {
         .at-panel {
           display: flex;
           flex-direction: column;
-          background: var(--color-bg-surface, #fff);
-          border-left: 1px solid var(--color-border-subtle, #f0f0f0);
+          background: var(--bg-surface-1);
+          border-left: 1px solid var(--border-subtle);
           min-width: 0;
           overflow: hidden;
         }
@@ -750,7 +691,7 @@ export function AvatarTalkView() {
           align-items: center;
           justify-content: space-between;
           padding: var(--space-4) var(--space-4) var(--space-3);
-          border-bottom: 1px solid var(--color-border-subtle, #f0f0f0);
+          border-bottom: 1px solid var(--border-subtle);
           flex-shrink: 0;
         }
         .at-panel-title-wrap {
@@ -761,16 +702,14 @@ export function AvatarTalkView() {
         }
         .at-panel-title {
           margin: 0;
-          font-family: var(--font-display);
-          font-size: var(--text-lg);
-          font-weight: 500;
-          color: var(--color-text-primary, #1a1a1a);
-          line-height: 1.2;
-          letter-spacing: -0.02em;
+          font-size: var(--text-section);
+          font-weight: 600;
+          color: var(--text-primary);
+          line-height: 1.3;
         }
         .at-panel-subtitle {
-          font-size: var(--text-xs);
-          color: var(--color-text-tertiary, #999);
+          font-size: var(--text-aux);
+          color: var(--text-muted);
         }
         .at-panel-body {
           flex: 1;
@@ -780,15 +719,15 @@ export function AvatarTalkView() {
           overflow: hidden;
         }
 
-        /* ── 响应式:窄屏堆叠 ── */
+        /* ── 响应式:窄屏堆叠(390px 移动档:视频区自适应占满剩余高度) ── */
         @media (max-width: 900px) {
           .at-view {
             grid-template-columns: 1fr;
-            grid-template-rows: 1fr 320px;
+            grid-template-rows: minmax(0, 1fr) 320px;
           }
           .at-panel {
             border-left: none;
-            border-top: 1px solid var(--color-border-subtle, #f0f0f0);
+            border-top: 1px solid var(--border-subtle);
           }
         }
       `}</style>
@@ -973,70 +912,59 @@ function SetupPanel({
           <h3 className="at-section-title">对话配置</h3>
           <span className="at-section-count">可选</span>
         </div>
-        <label className="at-field">
-          <span className="at-field-label">TTS 音色</span>
-          <input
+        <Field label="TTS 音色">
+          <Input
             type="text"
-            className="at-field-input"
             value={ttsVoice}
             onChange={(e) => onTtsVoiceChange(e.target.value)}
             placeholder="默认音色"
           />
-        </label>
-        <label className="at-field">
-          <span className="at-field-label">系统提示词</span>
-          <textarea
-            className="at-field-textarea"
+        </Field>
+        <Field label="系统提示词">
+          <Textarea
             rows={3}
             value={systemPrompt}
             onChange={(e) => onSystemPromptChange(e.target.value)}
             placeholder="可选:自定义数字人的人格与口吻"
           />
-        </label>
-        <label className="at-switch-row">
-          <span>智能体(Agent)</span>
-          <input
-            type="checkbox"
+        </Field>
+        <div className="at-switch-row">
+          <span className="at-switch-row-label">智能体(Agent)</span>
+          <Switch
             checked={agentEnabled}
-            onChange={(e) => onAgentEnabledChange(e.target.checked)}
+            onChange={onAgentEnabledChange}
+            ariaLabel="智能体(Agent)"
           />
-        </label>
-        <label className="at-switch-row">
-          <span>记忆</span>
-          <input
-            type="checkbox"
+        </div>
+        <div className="at-switch-row">
+          <span className="at-switch-row-label">记忆</span>
+          <Switch
             checked={memoryEnabled}
-            onChange={(e) => onMemoryEnabledChange(e.target.checked)}
+            onChange={onMemoryEnabledChange}
+            ariaLabel="记忆"
           />
-        </label>
-        <label className="at-switch-row">
-          <span>知识库</span>
-          <input
-            type="checkbox"
+        </div>
+        <div className="at-switch-row">
+          <span className="at-switch-row-label">知识库</span>
+          <Switch
             checked={knowledgeEnabled}
-            onChange={(e) => onKnowledgeEnabledChange(e.target.checked)}
+            onChange={onKnowledgeEnabledChange}
+            ariaLabel="知识库"
           />
-        </label>
+        </div>
       </section>
 
       <div className="at-setup-footer">
-        <button
+        <Button
+          variant="primary"
           className="at-start-btn"
           onClick={onStart}
           disabled={isConnecting || loadingModels || loadingAvatars || !selectedAvatar || !selectedModel}
+          loading={isConnecting}
+          icon={<Icon name="playing" size={16} />}
         >
-          {isConnecting ? (
-            <>
-              <Icon name="loading" size={16} className="icon-loading-spin" />
-              连接中...
-            </>
-          ) : (
-            <>
-              <Icon name="playing" size={16} />
-              开始对话
-            </>
-          )}
-        </button>
+          {isConnecting ? "连接中..." : "开始对话"}
+        </Button>
       </div>
 
       <style jsx>{`
@@ -1062,14 +990,15 @@ function SetupPanel({
         }
         .at-section-title {
           margin: 0;
-          font-size: var(--text-sm);
-          font-weight: 600;
-          color: var(--color-text-primary, #1a1a1a);
-          letter-spacing: -0.01em;
+          font-size: var(--text-label);
+          font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          color: var(--text-muted);
         }
         .at-section-count {
-          font-size: var(--text-xs);
-          color: var(--color-text-tertiary, #999);
+          font-size: var(--text-aux);
+          color: var(--text-muted);
         }
 
         /* Avatar 卡片网格 */
@@ -1081,31 +1010,32 @@ function SetupPanel({
         .at-avatar-card {
           display: flex;
           flex-direction: column;
-          background: var(--color-bg-surface, #fff);
-          border: 1px solid var(--color-border-subtle, #f0f0f0);
-          border-radius: var(--radius-lg, 8px);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-panel);
           overflow: hidden;
           cursor: pointer;
           padding: 0;
           text-align: left;
           transition:
             border-color var(--duration-fast) var(--ease-standard),
-            box-shadow var(--duration-fast) var(--ease-standard),
-            transform var(--duration-fast) var(--ease-standard);
+            background-color var(--duration-fast) var(--ease-standard);
         }
         .at-avatar-card:hover {
-          border-color: var(--color-border, #eaeaea);
-          box-shadow: var(--shadow-sm);
-          transform: translateY(-1px);
+          border-color: var(--border-strong);
+          background: var(--bg-surface-3);
+        }
+        .at-avatar-card:focus-visible {
+          outline: 1px solid var(--accent);
+          outline-offset: 1px;
         }
         .at-avatar-card.is-selected {
-          border-color: var(--color-accent, #1a1a1a);
-          border-width: 2px;
-          box-shadow: var(--shadow-md);
+          border-color: var(--accent);
+          background: var(--accent-soft);
         }
         .at-avatar-preview {
           aspect-ratio: 4 / 3;
-          background: var(--color-bg-subtle, #f5f5f5);
+          background: var(--bg-surface-3);
           overflow: hidden;
         }
         .at-avatar-preview img {
@@ -1122,12 +1052,12 @@ function SetupPanel({
           align-items: center;
           justify-content: space-between;
           gap: var(--space-1);
-          padding: var(--space-2) var(--space-2);
+          padding: var(--space-2);
         }
         .at-avatar-name {
-          font-size: var(--text-xs);
+          font-size: var(--text-aux);
           font-weight: 500;
-          color: var(--color-text-primary, #1a1a1a);
+          color: var(--text-primary);
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -1137,16 +1067,15 @@ function SetupPanel({
         .at-avatar-tag {
           flex-shrink: 0;
           padding: 1px var(--space-1);
-          background: var(--color-accent-soft, rgba(26,26,26,0.06));
-          border-radius: var(--radius-sm, 4px);
-          font-size: 10px;
+          background: var(--accent-soft);
+          border-radius: var(--radius-badge);
+          font-size: var(--text-label);
           font-weight: 500;
-          color: var(--color-text-secondary, #666);
+          color: var(--accent);
         }
 
         .at-avatar-card-skeleton {
           height: 120px;
-          background: var(--color-bg-subtle, #f5f5f5);
           animation: at-shimmer 1.5s ease-in-out infinite;
         }
         @keyframes at-shimmer {
@@ -1165,46 +1094,55 @@ function SetupPanel({
           align-items: center;
           gap: var(--space-1);
           padding: var(--space-1) var(--space-2);
-          background: var(--color-bg-subtle, #f5f5f5);
+          background: var(--bg-surface-3);
           border: 1px solid transparent;
-          border-radius: var(--radius-full, 9999px);
-          font-size: var(--text-xs);
+          border-radius: var(--radius-full);
+          font-size: var(--text-aux);
           font-weight: 500;
-          color: var(--color-text-secondary, #666);
+          color: var(--text-secondary);
           cursor: pointer;
-          transition: all var(--duration-fast) var(--ease-standard);
+          transition:
+            border-color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard),
+            color var(--duration-fast) var(--ease-standard);
         }
         .at-model-chip:hover {
-          background: var(--color-bg-inset, #f0f0f0);
-          color: var(--color-text-primary, #1a1a1a);
+          border-color: var(--border-strong);
+          color: var(--text-primary);
+        }
+        .at-model-chip:focus-visible {
+          outline: 1px solid var(--accent);
+          outline-offset: 1px;
         }
         .at-model-chip.is-selected {
-          background: var(--color-accent, #1a1a1a);
-          color: var(--color-text-inverse, #fff);
+          background: var(--accent-soft);
+          border-color: var(--accent);
+          color: var(--accent);
         }
         .at-model-chip.is-unavailable {
-          opacity: 0.55;
+          opacity: 0.4;
+          cursor: not-allowed;
         }
         .at-models-toggle {
-          margin-top: 6px;
+          margin-top: var(--space-1);
           padding: 0;
           border: none;
           background: none;
           cursor: pointer;
-          font-size: var(--text-xs, 12px);
-          color: var(--color-text-secondary, #666);
+          font-size: var(--text-aux);
+          color: var(--text-muted);
           text-decoration: underline;
           text-underline-offset: 3px;
         }
         .at-models-toggle:hover {
-          color: var(--color-text-primary, #1a1a1a);
+          color: var(--text-primary);
         }
         .at-model-chip-name {
           font-family: var(--font-mono);
           font-weight: 600;
         }
         .at-model-chip-backend {
-          font-size: 10px;
+          font-size: var(--text-label);
           opacity: 0.7;
         }
         .at-model-chip.is-selected .at-model-chip-backend {
@@ -1217,10 +1155,10 @@ function SetupPanel({
           flex-shrink: 0;
         }
         .at-model-chip-dot.is-on {
-          background: var(--color-success, #16a34a);
+          background: var(--ok);
         }
         .at-model-chip-dot.is-off {
-          background: var(--color-text-tertiary, #999);
+          background: var(--text-muted);
         }
         .at-model-chip-skeleton {
           width: 80px;
@@ -1233,100 +1171,34 @@ function SetupPanel({
         .at-models-empty {
           margin: 0;
           padding: var(--space-3);
-          border: 1px dashed var(--color-border, #eaeaea);
-          border-radius: var(--radius-lg, 8px);
-          font-size: var(--text-xs);
-          color: var(--color-text-tertiary, #999);
+          border: 1px dashed var(--border-strong);
+          border-radius: var(--radius-control);
+          font-size: var(--text-aux);
+          color: var(--text-muted);
           text-align: center;
-          line-height: var(--leading-md);
+          line-height: 1.6;
         }
 
-        /* 对话配置表单控件(与面板现有 token/圆角一致) */
-        .at-field {
-          display: flex;
-          flex-direction: column;
-          gap: var(--space-1);
-        }
-        .at-field-label {
-          font-size: var(--text-xs);
-          font-weight: 500;
-          color: var(--color-text-secondary, #666);
-        }
-        .at-field-input,
-        .at-field-textarea {
-          width: 100%;
-          padding: var(--space-2) var(--space-3);
-          background: var(--color-bg-subtle, #f5f5f5);
-          border: 1px solid transparent;
-          border-radius: var(--radius-lg, 8px);
-          font-size: var(--text-sm);
-          font-family: inherit;
-          color: var(--color-text-primary, #1a1a1a);
-          outline: none;
-          transition:
-            border-color var(--duration-fast) var(--ease-standard),
-            background var(--duration-fast) var(--ease-standard);
-        }
-        .at-field-input:focus,
-        .at-field-textarea:focus {
-          border-color: var(--color-accent, #1a1a1a);
-          background: var(--color-bg-surface, #fff);
-        }
-        .at-field-textarea {
-          resize: vertical;
-          min-height: 64px;
-          line-height: var(--leading-md);
-        }
+        /* 开关行(基座 Switch,标签左 / 开关右) */
         .at-switch-row {
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: var(--space-2);
-          font-size: var(--text-sm);
-          color: var(--color-text-primary, #1a1a1a);
-          cursor: pointer;
         }
-        .at-switch-row input[type="checkbox"] {
-          width: 16px;
-          height: 16px;
-          accent-color: var(--color-accent, #1a1a1a);
-          cursor: pointer;
+        .at-switch-row-label {
+          font-size: var(--text-body);
+          color: var(--text-primary);
         }
 
-        /* 开始按钮 */
+        /* 开始按钮(基座 Button primary,整宽) */
         .at-setup-footer {
           margin-top: auto;
           padding-top: var(--space-3);
-          border-top: 1px solid var(--color-border-subtle, #f0f0f0);
+          border-top: 1px solid var(--border-subtle);
         }
-        .at-start-btn {
+        .at-setup-footer :global(.at-start-btn) {
           width: 100%;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: var(--space-2);
-          padding: var(--space-3) var(--space-4);
-          background: var(--color-accent, #1a1a1a);
-          color: var(--color-text-inverse, #fff);
-          border: none;
-          border-radius: var(--radius-lg, 8px);
-          font-size: var(--text-md);
-          font-weight: 600;
-          font-family: inherit;
-          cursor: pointer;
-          transition:
-            background var(--duration-fast) var(--ease-standard),
-            transform var(--duration-fast) var(--ease-standard),
-            box-shadow var(--duration-fast) var(--ease-standard);
-        }
-        .at-start-btn:hover:not(:disabled) {
-          background: var(--color-accent-hover, #333);
-          transform: translateY(-1px);
-          box-shadow: var(--shadow-md);
-        }
-        .at-start-btn:disabled {
-          opacity: 0.55;
-          cursor: not-allowed;
         }
       `}</style>
     </div>
@@ -1398,14 +1270,15 @@ function ConversationPanel({
       </div>
 
       <div className="at-composer">
-        <button
-          className="at-composer-btn at-composer-end"
+        <Button
+          variant="danger"
+          className="at-composer-btn"
           onClick={onEnd}
           title="结束对话"
-        >
-          <Icon name="phone-off" size={16} />
-        </button>
-        <input
+          aria-label="结束对话"
+          icon={<Icon name="phone-off" size={16} />}
+        />
+        <Input
           type="text"
           className="at-composer-input"
           value={input}
@@ -1415,22 +1288,24 @@ function ConversationPanel({
           disabled={isSpeaking}
         />
         {isSpeaking ? (
-          <button
-            className="at-composer-btn at-composer-interrupt"
+          <Button
+            variant="danger"
+            className="at-composer-btn"
             onClick={onInterrupt}
             title="中断"
-          >
-            <Icon name="square" size={14} />
-          </button>
+            aria-label="中断"
+            icon={<Icon name="square" size={14} />}
+          />
         ) : (
-          <button
-            className="at-composer-btn at-composer-send"
+          <Button
+            variant="primary"
+            className="at-composer-btn"
             onClick={onSend}
             disabled={!input.trim()}
             title="发送"
-          >
-            <Icon name="send" size={16} />
-          </button>
+            aria-label="发送"
+            icon={<Icon name="send" size={16} />}
+          />
         )}
       </div>
 
@@ -1459,8 +1334,8 @@ function ConversationPanel({
           justify-content: center;
         }
         .at-conv-empty-text {
-          font-size: var(--text-sm);
-          color: var(--color-text-tertiary, #999);
+          font-size: var(--text-body);
+          color: var(--text-muted);
         }
 
         .at-msg {
@@ -1484,106 +1359,55 @@ function ConversationPanel({
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
-          background: var(--color-bg-subtle, #f5f5f5);
-          color: var(--color-text-tertiary, #999);
+          background: var(--bg-surface-3);
+          color: var(--text-muted);
         }
         .at-msg-assistant .at-msg-avatar {
-          background: var(--color-accent, #1a1a1a);
-          color: var(--color-text-inverse, #fff);
+          background: var(--accent-soft);
+          color: var(--accent);
         }
         .at-msg-bubble {
           max-width: 75%;
           padding: var(--space-2) var(--space-3);
-          border-radius: var(--radius-lg, 8px);
-          font-size: var(--text-sm);
-          line-height: var(--leading-md);
+          border-radius: var(--radius-panel);
+          font-size: var(--text-body);
+          line-height: 1.6;
           word-break: break-word;
         }
         .at-msg-user .at-msg-bubble {
-          background: var(--color-accent, #1a1a1a);
-          color: var(--color-text-inverse, #fff);
-          border-bottom-right-radius: var(--radius-sm, 4px);
+          background: var(--accent);
+          color: var(--text-on-accent);
+          border-bottom-right-radius: var(--radius-xs);
         }
         .at-msg-assistant .at-msg-bubble {
-          background: var(--color-bg-subtle, #f5f5f5);
-          color: var(--color-text-primary, #1a1a1a);
-          border-bottom-left-radius: var(--radius-sm, 4px);
+          background: var(--bg-surface-2);
+          color: var(--text-primary);
+          border-bottom-left-radius: var(--radius-xs);
         }
         .at-msg.is-streaming .at-msg-bubble {
           opacity: 0.75;
         }
 
-        /* 输入区 */
+        /* 输入区(基座 Input + Button,圆形图标按钮) */
         .at-composer {
           display: flex;
           align-items: center;
           gap: var(--space-2);
           padding: var(--space-3) var(--space-4);
-          border-top: 1px solid var(--color-border-subtle, #f0f0f0);
+          border-top: 1px solid var(--border-subtle);
           flex-shrink: 0;
         }
-        .at-composer-input {
+        .at-composer :global(.at-composer-input) {
           flex: 1;
           height: 36px;
-          padding: 0 var(--space-3);
-          background: var(--color-bg-subtle, #f5f5f5);
-          border: 1px solid transparent;
-          border-radius: var(--radius-full, 9999px);
-          font-size: var(--text-sm);
-          font-family: inherit;
-          color: var(--color-text-primary, #1a1a1a);
-          outline: none;
-          transition:
-            border-color var(--duration-fast) var(--ease-standard),
-            background var(--duration-fast) var(--ease-standard);
+          border-radius: var(--radius-full);
         }
-        .at-composer-input:focus {
-          border-color: var(--color-accent, #1a1a1a);
-          background: var(--color-bg-surface, #fff);
-        }
-        .at-composer-input:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-        .at-composer-btn {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
+        .at-composer :global(.at-composer-btn) {
           width: 36px;
           height: 36px;
-          border-radius: var(--radius-full, 9999px);
-          border: none;
-          cursor: pointer;
+          padding: 0;
+          border-radius: var(--radius-full);
           flex-shrink: 0;
-          transition: all var(--duration-fast) var(--ease-standard);
-        }
-        .at-composer-send {
-          background: var(--color-accent, #1a1a1a);
-          color: var(--color-text-inverse, #fff);
-        }
-        .at-composer-send:hover:not(:disabled) {
-          background: var(--color-accent-hover, #333);
-          transform: scale(1.05);
-        }
-        .at-composer-send:disabled {
-          opacity: 0.35;
-          cursor: not-allowed;
-        }
-        .at-composer-interrupt {
-          background: var(--color-error-soft, rgba(220,38,38,0.08));
-          color: var(--color-error, #dc2626);
-        }
-        .at-composer-interrupt:hover {
-          background: var(--color-error, #dc2626);
-          color: var(--color-text-inverse, #fff);
-        }
-        .at-composer-end {
-          background: var(--color-bg-subtle, #f5f5f5);
-          color: var(--color-text-tertiary, #999);
-        }
-        .at-composer-end:hover {
-          background: var(--color-error-soft, rgba(220,38,38,0.08));
-          color: var(--color-error, #dc2626);
         }
       `}</style>
     </div>

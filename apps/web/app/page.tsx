@@ -1,11 +1,10 @@
 "use client";
 
-import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { LandingPage } from "@/components/landing/LandingPage";
-import { DynamicIsland, type DynamicIslandView } from "@/components/nav/DynamicIsland";
-import { Topbar } from "@/components/nav/Topbar";
+import { Sidebar, type SidebarNavItem } from "@/components/nav/Sidebar";
 import { BottomNav, type BottomNavItem } from "@/components/nav/BottomNav";
 import { fetchMe, getToken, setToken, testLogin } from "@/lib/api";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
@@ -15,10 +14,9 @@ type AuthState = "loading" | "in" | "out";
 
 type View =
   | "assistant"
+  | "generate"
   | "animatic"
   | "avatartalk"
-  | "create"
-  | "video"
   | "canvas"
   | "dramaStudio"
   | "dub"
@@ -26,16 +24,30 @@ type View =
   | "library"
   | "backlot"
   | "models"
-  | "ltxstudio"
+  | "resources"
   | "admin";
 
-// ── 视图懒加载:chunk 按需拉取;菜单展开/悬停期间并行预热,消除切换白屏等待 ──
+/** W3 旧视图退役:create/video/ltxstudio 已由统一生成工作台取代,旧链接重定向到 generate(不 404)。 */
+const LEGACY_VIEW_REDIRECTS: Record<string, View> = {
+  create: "generate",
+  video: "generate",
+  ltxstudio: "generate",
+};
+
+/** 解析 ?view= 参数:旧 key 走重定向,非法 key 返回 null(落默认视图)。 */
+function resolveView(raw: string | null): View | null {
+  if (!raw) return null;
+  const redirected = LEGACY_VIEW_REDIRECTS[raw];
+  if (redirected) return redirected;
+  return VALID_VIEWS.has(raw as View) ? (raw as View) : null;
+}
+
+// ── 视图懒加载:chunk 按需拉取;侧栏悬停/聚焦期间并行预热,消除切换白屏等待 ──
 const viewImporters = {
   assistant: () => import("@/components/assistant/AssistantView"),
+  generate: () => import("@/components/generate/GenerateView"),
   animatic: () => import("@/components/animatic/AnimaticView"),
   avatartalk: () => import("@/components/avatartalk/AvatarTalkView"),
-  create: () => import("@/components/create/CreateView"),
-  video: () => import("@/components/create/VideoView"),
   canvas: () => import("@/components/canvas/CanvasView"),
   dramaStudio: () => import("@/components/drama-studio/DramaStudioView"),
   dub: () => import("@/components/dub/DubView"),
@@ -43,7 +55,7 @@ const viewImporters = {
   library: () => import("@/components/library/LibraryView"),
   backlot: () => import("@/components/backlot/BacklotView"),
   models: () => import("@/components/models/ModelsView"),
-  ltxstudio: () => import("@/components/ltxstudio/LtxStudioView"),
+  resources: () => import("@/components/resources/ResourcesView"),
   admin: () => import("@/components/admin/AdminView"),
 } as const;
 
@@ -57,17 +69,14 @@ function preloadView(key: View) {
 const AssistantView = lazy(() =>
   viewImporters.assistant().then((m) => ({ default: m.AssistantView })),
 );
+const GenerateView = lazy(() =>
+  viewImporters.generate().then((m) => ({ default: m.GenerateView })),
+);
 const AnimaticView = lazy(() =>
   viewImporters.animatic().then((m) => ({ default: m.AnimaticView })),
 );
 const AvatarTalkView = lazy(() =>
   viewImporters.avatartalk().then((m) => ({ default: m.AvatarTalkView })),
-);
-const CreateView = lazy(() =>
-  viewImporters.create().then((m) => ({ default: m.CreateView })),
-);
-const VideoView = lazy(() =>
-  viewImporters.video().then((m) => ({ default: m.VideoView })),
 );
 const CanvasView = lazy(() =>
   viewImporters.canvas().then((m) => ({ default: m.CanvasView })),
@@ -90,8 +99,8 @@ const BacklotView = lazy(() =>
 const ModelsView = lazy(() =>
   viewImporters.models().then((m) => ({ default: m.ModelsView })),
 );
-const LtxStudioView = lazy(() =>
-  viewImporters.ltxstudio().then((m) => ({ default: m.LtxStudioView })),
+const ResourcesView = lazy(() =>
+  viewImporters.resources().then((m) => ({ default: m.ResourcesView })),
 );
 const AdminView = lazy(() =>
   viewImporters.admin().then((m) => ({ default: m.AdminView })),
@@ -106,12 +115,13 @@ function ViewFallback({ label }: { label: string }) {
   );
 }
 
+// 旧视图 key(models/train/backlot/admin)保留兼容,旧链接不 404;
+// create/video/ltxstudio 不在此列——经 LEGACY_VIEW_REDIRECTS 重定向到 generate
 const VALID_VIEWS = new Set<View>([
   "assistant",
+  "generate",
   "animatic",
   "avatartalk",
-  "create",
-  "video",
   "canvas",
   "dramaStudio",
   "dub",
@@ -119,16 +129,15 @@ const VALID_VIEWS = new Set<View>([
   "library",
   "backlot",
   "models",
-  "ltxstudio",
+  "resources",
   "admin",
 ]);
 
 const VIEW_META: Record<View, { label: string }> = {
-  assistant: { label: "AI 助手" },
+  assistant: { label: "对话" },
+  generate:  { label: "生成" },
   animatic:  { label: "动态分镜" },
   avatartalk: { label: "数字人" },
-  create:    { label: "创作" },
-  video:     { label: "视频" },
   canvas:    { label: "画布" },
   dramaStudio: { label: "短剧" },
   dub:       { label: "译制" },
@@ -136,17 +145,39 @@ const VIEW_META: Record<View, { label: string }> = {
   library:   { label: "作品库" },
   backlot:   { label: "看板" },
   models:    { label: "模型" },
-  ltxstudio: { label: "LTX 工作室" },
+  resources: { label: "资源" },
   admin:     { label: "管理" },
 };
 
+/** 新 IA 一级入口(定调文档 8 入口);动态分镜保留独立 key,短剧并入是 W2 的事 */
+const SIDEBAR_ITEMS: SidebarNavItem[] = [
+  { key: "assistant", label: "对话", icon: "chat" },
+  { key: "generate", label: "生成", icon: "sparkles" },
+  { key: "dramaStudio", label: "短剧", icon: "drama" },
+  { key: "avatartalk", label: "数字人", icon: "user" },
+  { key: "canvas", label: "画布", icon: "workflow" },
+  { key: "dub", label: "译制", icon: "dub" },
+  { key: "library", label: "作品库", icon: "library" },
+  { key: "resources", label: "资源", icon: "models" },
+];
+
+/** 窄屏底部导航:主入口 5 个(含 CTA)+「更多」抽屉承载其余 */
 const BOTTOM_NAV_ITEMS: BottomNavItem[] = [
   { key: "assistant", label: "对话", icon: "chat" },
-  { key: "create", label: "创作", icon: "sparkles" },
-  { key: "dramaStudio", label: "新建", icon: "plus", isCta: true },
+  { key: "generate", label: "生成", icon: "sparkles" },
+  { key: "dramaStudio", label: "短剧", icon: "plus", isCta: true },
   { key: "library", label: "作品", icon: "library" },
-  { key: "canvas", label: "画布", icon: "workflow" },
 ];
+
+const BOTTOM_NAV_MORE_ITEMS: BottomNavItem[] = [
+  { key: "avatartalk", label: "数字人", icon: "user" },
+  { key: "canvas", label: "画布", icon: "workflow" },
+  { key: "dub", label: "译制", icon: "dub" },
+  { key: "animatic", label: "动态分镜", icon: "clapperboard" },
+  { key: "resources", label: "资源", icon: "models" },
+];
+
+const SIDEBAR_COLLAPSED_KEY = "toiv_sidebar_collapsed";
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
@@ -189,20 +220,43 @@ function HomeContent() {
   const isMobile = useIsMobile();
   const [auth, setAuth] = useState<AuthState>("loading");
   const [account, setAccount] = useState<string | null>(null);
-  const [view, setView] = useState<View>(() => {
-    const v = searchParams.get("view");
-    return v && VALID_VIEWS.has(v as View) ? (v as View) : "assistant";
-  });
-  const [rightPanelOpen, setRightPanelOpen] = useState(false);
+  const [view, setView] = useState<View>(() => resolveView(searchParams.get("view")) ?? "assistant");
+  // 侧栏折叠状态(localStorage 记忆);SSR 默认展开,挂载后读取
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   // 动态分镜 AI 解析成功后,带项目 id 跳转短剧工作室并直接打开
   const [pendingDramaProjectId, setPendingDramaProjectId] = useState<string | null>(null);
 
   useEffect(() => {
-    const v = searchParams.get("view");
-    if (v && VALID_VIEWS.has(v as View) && v !== view) {
-      setView(v as View);
+    try {
+      setSidebarCollapsed(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1");
+    } catch {
+      /* 隐私模式等场景读不到即保持展开 */
     }
-  }, [searchParams, view]);
+  }, []);
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? "1" : "0");
+      } catch {
+        /* 忽略持久化失败 */
+      }
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    const raw = searchParams.get("view");
+    const resolved = resolveView(raw);
+    if (resolved && resolved !== view) {
+      setView(resolved);
+    }
+    // 旧 key(create/video/ltxstudio)重定向后把 URL 规整为新 key,刷新/分享保持一致
+    if (raw && LEGACY_VIEW_REDIRECTS[raw]) {
+      router.replace(`/?view=${resolved ?? "assistant"}`);
+    }
+  }, [searchParams, view, router]);
 
   useEffect(() => {
     (async () => {
@@ -266,39 +320,13 @@ function HomeContent() {
     [changeView],
   );
 
-  // DI 菜单展开动画期间:并行预热主组视图 chunk(动画与加载并行化)
-  const handleMenuOpen = useCallback(() => {
-    (["assistant", "avatartalk", "canvas"] as View[]).forEach(preloadView);
-  }, []);
-
-  // 菜单项悬停/聚焦:按操作意向精确预热目标视图
+  // 侧栏项悬停/聚焦:按操作意向精确预热目标视图
   const handleViewIntent = useCallback((key: string) => {
     if (VALID_VIEWS.has(key as View)) preloadView(key as View);
   }, []);
 
   const isAdmin = account === "admin";
-
-  const diViews: DynamicIslandView[] = useMemo(() => {
-    return [
-      { key: "assistant", label: "AI 助手", icon: "chat", group: "main" },
-      { key: "avatartalk", label: "数字人", icon: "user", group: "main" },
-      { key: "canvas", label: "画布", icon: "canvas", group: "main" },
-      { key: "create", label: "图像创作", icon: "create", group: "tools" },
-      { key: "video", label: "视频生成", icon: "video", group: "tools" },
-      { key: "dramaStudio", label: "短剧工作室", icon: "drama", group: "tools" },
-      { key: "dub", label: "译制配音", icon: "dub", group: "tools" },
-      { key: "ltxstudio", label: "LTX 工作室", icon: "film", group: "tools" },
-      { key: "animatic", label: "动态分镜", icon: "clapperboard", group: "tools" },
-      { key: "library", label: "作品库", icon: "library", group: "resources" },
-      { key: "models", label: "模型库", icon: "models", group: "resources" },
-      { key: "train", label: "训练", icon: "train", group: "resources" },
-      { key: "backlot", label: "看板", icon: "backlot", group: "resources" },
-      ...(isAdmin ? [{ key: "admin", label: "管理", icon: "admin" as const, group: "resources" as const }] : []),
-    ];
-  }, [isAdmin]);
-
   const meta = VIEW_META[view];
-  const showRightPanelToggle = view === "create" || view === "video";
 
   if (auth === "loading") {
     return (
@@ -312,57 +340,29 @@ function HomeContent() {
     return <LandingPage />;
   }
 
-  if (view === "avatartalk") {
-    return (
-      <div className="app-shell avatartalk-shell">
-        <DynamicIsland
-          views={diViews}
-          current={view}
-          onSelect={(key) => changeView(key as View)}
-          onMenuOpen={handleMenuOpen}
-          onViewIntent={handleViewIntent}
-        />
-        <main className="app-main avatartalk-main">
-          <ErrorBoundary viewName="数字人对话">
-            <Suspense fallback={<ViewFallback label={VIEW_META.avatartalk.label} />}>
-              <AvatarTalkView />
-            </Suspense>
-          </ErrorBoundary>
-        </main>
-      </div>
-    );
-  }
-
-  const shellClasses = [
-    "app-shell",
-    "di-nav",
-    rightPanelOpen && showRightPanelToggle ? "has-right-panel" : "",
-  ].filter(Boolean).join(" ");
+  const shellClasses = ["app-shell", sidebarCollapsed ? "is-collapsed" : ""]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div className={shellClasses}>
-      <DynamicIsland
-        views={diViews}
+      <Sidebar
+        items={SIDEBAR_ITEMS}
         current={view}
         onSelect={(key) => changeView(key as View)}
-        onMenuOpen={handleMenuOpen}
-        onViewIntent={handleViewIntent}
-      />
-
-      <Topbar
-        account={account ?? undefined}
+        onItemIntent={handleViewIntent}
+        account={account}
         onLogout={onLogout}
-        onRightPanelToggle={showRightPanelToggle ? () => setRightPanelOpen((v) => !v) : undefined}
-        rightPanelOpen={rightPanelOpen}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={toggleSidebar}
       />
 
-      <main id="main" className="app-main">
+      <main id="main" className={`app-main${view === "avatartalk" ? " avatartalk-main" : ""}`}>
         <div className="view-root">
           <ErrorBoundary key={view} viewName={meta.label}>
             <Suspense fallback={<ViewFallback label={meta.label} />}>
               {view === "assistant" && <AssistantView />}
-              {view === "create" && <CreateView />}
-              {view === "video" && <VideoView />}
+              {view === "generate" && <GenerateView />}
               {view === "canvas" && <CanvasView />}
               {view === "dramaStudio" && (
                 isMobile ? (
@@ -380,7 +380,7 @@ function HomeContent() {
                         className="btn btn-primary"
                         onClick={() => changeView("assistant")}
                       >
-                        返回 AI 助手
+                        返回对话
                       </button>
                     </div>
                   </div>
@@ -396,54 +396,40 @@ function HomeContent() {
               )}
               {view === "dub" && <DubView />}
               {view === "animatic" && (
-                <AnimaticView onOpenDramaProject={handleOpenDramaProject} />
+                // 动态分镜并入短剧首页:桌面端走 DramaStudioView 的「动态分镜」页签;
+                // 移动端短剧工作室有拦截,保留独立 AnimaticView 保证可用
+                isMobile ? (
+                  <AnimaticView onOpenDramaProject={handleOpenDramaProject} />
+                ) : (
+                  <DramaStudioView
+                    account={account ?? undefined}
+                    onLogout={onLogout}
+                    onNavigate={(next) => changeView(next as View)}
+                    initialProjectId={pendingDramaProjectId}
+                    onConsumeInitialProject={() => setPendingDramaProjectId(null)}
+                    initialHubTab="animatic"
+                  />
+                )
               )}
+              {view === "avatartalk" && <AvatarTalkView />}
               {view === "train" && <TrainView />}
               {view === "library" && <LibraryView />}
               {view === "backlot" && <BacklotView />}
               {view === "models" && <ModelsView />}
-              {view === "ltxstudio" && <LtxStudioView />}
+              {view === "resources" && <ResourcesView showAdmin={isAdmin} />}
               {view === "admin" && <AdminView />}
             </Suspense>
           </ErrorBoundary>
         </div>
       </main>
 
-      {showRightPanelToggle && rightPanelOpen && (
-        <aside className={`app-right-panel${rightPanelOpen ? " is-open" : ""}`}>
-          <div className="right-panel-header">
-            <span>属性</span>
-            <button
-              type="button"
-              className="right-panel-close"
-              onClick={() => setRightPanelOpen(false)}
-              aria-label="关闭面板"
-            >
-              <Icon name="close" size={14} />
-            </button>
-          </div>
-          <div className="right-panel-body">
-            <div className="right-panel-placeholder">
-              参数面板
-            </div>
-          </div>
-          <button
-            type="button"
-            className="right-panel-toggle"
-            onClick={() => setRightPanelOpen(false)}
-            aria-label="收起面板"
-          />
-        </aside>
-      )}
-
-      {isMobile && (
-        <BottomNav
-          items={BOTTOM_NAV_ITEMS}
-          current={view}
-          onSelect={(key) => changeView(key as View)}
-          ctaAction={() => changeView("dramaStudio")}
-        />
-      )}
+      <BottomNav
+        items={BOTTOM_NAV_ITEMS}
+        moreItems={BOTTOM_NAV_MORE_ITEMS}
+        current={view}
+        onSelect={(key) => changeView(key as View)}
+        ctaAction={() => changeView("dramaStudio")}
+      />
     </div>
   );
 }

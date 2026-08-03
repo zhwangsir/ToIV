@@ -10,7 +10,7 @@ import { test, expect } from "@playwright/test";
 
 const VIEWS = [
   "assistant",
-  "create",
+  "generate",
   "library",
   "models",
   "backlot",

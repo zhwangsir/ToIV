@@ -258,33 +258,34 @@ export function OptimizeButton({
         .ob-btn {
           display: inline-flex;
           align-items: center;
-          gap: 0.3rem;
-          padding: 0.2rem 0.55rem;
+          gap: var(--space-1);
+          height: 26px;
+          padding: 0 var(--space-3);
           background: transparent;
           border: 1px solid transparent;
-          border-radius: var(--radius-xs);
-          color: var(--accent-soft);
-          font-size: 0.74rem;
+          border-radius: var(--radius-control);
+          color: var(--accent);
+          font-size: var(--text-aux);
           font-weight: 500;
           cursor: pointer;
-          transition: background-color var(--dur) var(--ease),
-            color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+          transition: background-color var(--duration-fast) var(--ease-standard),
+            color var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard);
         }
         .ob-btn:hover:not(:disabled) {
-          background: var(--accent-quiet);
-          border-color: var(--accent-line);
+          background: var(--accent-soft);
+          border-color: var(--accent-glow);
         }
         .ob-btn.is-open {
-          background: var(--accent-quiet);
-          border-color: var(--accent-line);
+          background: var(--accent-soft);
+          border-color: var(--accent-glow);
         }
         .ob-btn:disabled {
-          opacity: 0.5;
+          opacity: 0.4;
           cursor: not-allowed;
         }
         /* loading 态:弱化文字、保持 spinner 可见 */
         .ob-btn.is-loading {
-          color: var(--ink-faint);
+          color: var(--text-muted);
           cursor: progress;
         }
 
@@ -293,89 +294,92 @@ export function OptimizeButton({
           position: fixed;
           top: var(--ob-popover-top, auto);
           left: var(--ob-popover-left, auto);
-          z-index: 100;
+          z-index: var(--z-sticky);
           min-width: 220px;
           max-width: 320px;
-          background: var(--bg-1);
-          border: 1px solid var(--hairline-strong);
-          border-radius: var(--radius-sm);
-          box-shadow: var(--shadow-lg);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-strong);
+          border-radius: var(--radius-panel);
+          box-shadow: var(--shadow-xl);
           overflow: hidden;
-          animation: var(--anim-fade-in);
+          animation: fadeIn var(--duration-base) var(--ease-standard);
         }
         .ob-popover-header {
-          padding: 0.4rem 0.6rem;
-          font-size: 0.7rem;
-          font-weight: 600;
-          color: var(--ink-faint);
-          letter-spacing: 0.02em;
+          padding: var(--space-2) var(--space-3);
+          font-size: var(--text-label);
+          font-weight: 500;
+          color: var(--text-muted);
+          letter-spacing: 0.04em;
           text-transform: uppercase;
-          border-bottom: 1px solid var(--hairline);
+          border-bottom: 1px solid var(--border-subtle);
         }
         .ob-empty {
           display: flex;
           align-items: center;
-          gap: 0.4rem;
-          padding: 0.6rem 0.7rem;
-          font-size: 0.76rem;
-          color: var(--ink-faint);
+          gap: var(--space-2);
+          padding: var(--space-3) var(--space-4);
+          font-size: var(--text-aux);
+          color: var(--text-muted);
         }
         .ob-list {
           list-style: none;
           margin: 0;
-          padding: 0.2rem;
+          padding: var(--space-1);
           max-height: 280px;
           overflow-y: auto;
         }
         .ob-list::-webkit-scrollbar {
-          width: 8px;
+          width: 6px;
         }
         .ob-list::-webkit-scrollbar-thumb {
-          background: var(--hairline-2);
-          border-radius: 4px;
+          background: var(--bg-surface-3);
+          border-radius: 3px;
         }
         .ob-option {
           display: flex;
           align-items: flex-start;
-          gap: 0.45rem;
-          padding: 0.4rem 0.45rem;
-          border-radius: var(--radius-xs);
+          gap: var(--space-2);
+          padding: var(--space-2) var(--space-3);
+          border-radius: var(--radius-control);
           cursor: pointer;
-          transition: background-color var(--dur) var(--ease);
+          transition: background-color var(--duration-fast) var(--ease-standard);
         }
         .ob-option:hover {
-          background: var(--bg-2);
+          background: var(--bg-surface-2);
         }
         .ob-option.is-selected {
-          background: var(--accent-quiet);
+          background: var(--accent-soft);
         }
         :global(.ob-option-icon) {
-          color: var(--accent-soft);
+          color: var(--text-secondary);
           flex-shrink: 0;
-          margin-top: 0.05rem;
+          margin-top: 2px;
+        }
+        .ob-option.is-selected :global(.ob-option-icon) {
+          color: var(--accent);
         }
         .ob-option-main {
           display: flex;
           flex-direction: column;
-          gap: 0.08rem;
+          gap: 2px;
           min-width: 0;
           flex: 1;
         }
         .ob-option-name {
-          font-size: 0.78rem;
-          color: var(--ink);
+          font-size: var(--text-aux);
+          color: var(--text-primary);
           font-weight: 500;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
         .ob-option.is-selected .ob-option-name {
-          color: var(--accent-soft);
+          color: var(--accent);
         }
         .ob-option-desc {
-          font-size: 0.68rem;
-          color: var(--ink-faint);
-          line-height: 1.35;
+          font-size: var(--text-label);
+          color: var(--text-muted);
+          line-height: 1.4;
           overflow: hidden;
           text-overflow: ellipsis;
           display: -webkit-box;

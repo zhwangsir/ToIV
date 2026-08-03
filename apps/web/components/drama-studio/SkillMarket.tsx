@@ -210,9 +210,9 @@ export function SkillMarket({ onApplied, onClose }: SkillMarketProps) {
           flex-direction: column;
           gap: 0.85rem;
           padding: 0.85rem 1rem;
-          background: var(--bg-1);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
         }
         .ds-skill-head {
           display: flex;
@@ -226,7 +226,7 @@ export function SkillMarket({ onApplied, onClose }: SkillMarketProps) {
           gap: 0.4rem;
           font-size: 0.95rem;
           font-weight: 600;
-          color: var(--ink);
+          color: var(--text-primary);
           letter-spacing: -0.01em;
         }
         .ds-skill-title :global(svg) {
@@ -234,7 +234,7 @@ export function SkillMarket({ onApplied, onClose }: SkillMarketProps) {
         }
         .ds-skill-sub {
           font-size: 0.72rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           font-weight: 400;
           letter-spacing: 0.02em;
         }
@@ -246,23 +246,23 @@ export function SkillMarket({ onApplied, onClose }: SkillMarketProps) {
         }
         .ds-skill-filter {
           padding: 0.25rem 0.7rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline-2);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-strong);
           border-radius: var(--radius-full);
-          color: var(--ink-soft);
+          color: var(--text-secondary);
           font-size: 0.76rem;
           font-family: inherit;
           cursor: pointer;
-          transition: color var(--dur) var(--ease),
-            background-color var(--dur) var(--ease),
-            border-color var(--dur) var(--ease);
+          transition: color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard),
+            border-color var(--duration-fast) var(--ease-standard);
         }
         .ds-skill-filter:hover {
-          border-color: var(--accent-line);
-          color: var(--accent-soft);
+          border-color: var(--accent-glow);
+          color: var(--accent);
         }
         .ds-skill-filter-active {
-          color: #fff;
+          color: var(--text-on-accent);
           background: var(--accent);
           border-color: var(--accent);
         }
@@ -274,16 +274,16 @@ export function SkillMarket({ onApplied, onClose }: SkillMarketProps) {
           align-items: center;
           gap: 0.5rem;
           padding: var(--space-5) var(--space-3);
-          color: var(--ink-faint);
+          color: var(--text-muted);
           font-size: 0.82rem;
           text-align: center;
         }
         .ds-skill-error {
-          color: var(--danger);
+          color: var(--err);
         }
         .ds-skill-empty-hint {
           font-size: 0.72rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
         }
         .ds-skill-grid {
           list-style: none;
@@ -298,30 +298,30 @@ export function SkillMarket({ onApplied, onClose }: SkillMarketProps) {
           flex-direction: column;
           gap: 0.4rem;
           padding: 0.75rem 0.85rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          border-left: 3px solid var(--hairline-2);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-left: 3px solid var(--border-strong);
           border-radius: var(--radius-sm);
-          transition: border-color var(--dur) var(--ease),
-            transform var(--dur-2) var(--ease),
-            box-shadow var(--dur-2) var(--ease);
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            transform var(--duration-base) var(--ease-standard),
+            box-shadow var(--duration-base) var(--ease-standard);
         }
         .ds-skill-card:hover {
           transform: translateY(-2px);
-          box-shadow: 0 8px 24px -12px var(--bg-sunken);
+          box-shadow: 0 8px 24px -12px var(--bg-canvas);
         }
         /* category 颜色映射:淡色背景左条 + 深色 badge 文字 */
         .ds-skill-cat-action {
-          border-left-color: #dc2626;
+          border-left-color: var(--err);
         }
         .ds-skill-cat-romance {
-          border-left-color: #ec4899;
+          border-left-color: var(--accent);
         }
         .ds-skill-cat-scifi {
-          border-left-color: #2563eb;
+          border-left-color: var(--run);
         }
         .ds-skill-cat-comedy {
-          border-left-color: #ca8a04;
+          border-left-color: var(--warn);
         }
         .ds-skill-cat-default {
           border-left-color: var(--accent);
@@ -340,34 +340,34 @@ export function SkillMarket({ onApplied, onClose }: SkillMarketProps) {
           font-size: 0.66rem;
           font-family: var(--font-mono);
           letter-spacing: 0.02em;
-          background: var(--bg-3);
-          color: var(--ink-soft);
+          background: var(--bg-surface-3);
+          color: var(--text-secondary);
         }
         .ds-skill-cat-action .ds-skill-cat-badge {
-          background: #fee2e2;
-          color: #991b1b;
+          background: var(--err-soft);
+          color: var(--err);
         }
         .ds-skill-cat-romance .ds-skill-cat-badge {
-          background: #fce7f3;
-          color: #9d174d;
+          background: var(--accent-soft);
+          color: var(--accent);
         }
         .ds-skill-cat-scifi .ds-skill-cat-badge {
-          background: #dbeafe;
-          color: #1e40af;
+          background: var(--run-soft);
+          color: var(--run);
         }
         .ds-skill-cat-comedy .ds-skill-cat-badge {
-          background: #fef9c3;
-          color: #854d0e;
+          background: var(--warn-soft);
+          color: var(--warn);
         }
         .ds-skill-shots {
           font-size: 0.66rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           font-family: var(--font-mono);
         }
         .ds-skill-name {
           font-size: 0.92rem;
           font-weight: 600;
-          color: var(--ink);
+          color: var(--text-primary);
           line-height: 1.3;
           letter-spacing: -0.01em;
           overflow: hidden;
@@ -377,7 +377,7 @@ export function SkillMarket({ onApplied, onClose }: SkillMarketProps) {
         .ds-skill-desc {
           margin: 0;
           font-size: 0.78rem;
-          color: var(--ink-soft);
+          color: var(--text-secondary);
           line-height: 1.5;
           display: -webkit-box;
           -webkit-line-clamp: 3;
@@ -393,10 +393,10 @@ export function SkillMarket({ onApplied, onClose }: SkillMarketProps) {
           display: inline-flex;
           align-items: center;
           padding: 0.06rem 0.4rem;
-          background: var(--bg-3);
+          background: var(--bg-surface-3);
           border-radius: var(--radius-xs);
           font-size: 0.64rem;
-          color: var(--ink-soft);
+          color: var(--text-secondary);
           font-family: var(--font-mono);
           letter-spacing: 0.01em;
         }
@@ -407,11 +407,11 @@ export function SkillMarket({ onApplied, onClose }: SkillMarketProps) {
           gap: 0.4rem;
           margin-top: 0.2rem;
           padding-top: 0.4rem;
-          border-top: 1px dashed var(--hairline);
+          border-top: 1px dashed var(--border-subtle);
         }
         .ds-skill-spec {
           font-size: 0.66rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           font-family: var(--font-mono);
           letter-spacing: 0.02em;
         }

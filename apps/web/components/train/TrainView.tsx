@@ -13,17 +13,18 @@ import {
 } from "@/lib/api";
 import type { TrainJob, TrainProgress, TrainStartParams } from "@/lib/types";
 import { Icon } from "@/components/ui/Icon";
+import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
 
 type JobStatus = TrainJob["status"];
 
-const STATUS_META: Record<JobStatus, { label: string; cls: string }> = {
-  queued: { label: "排队中", cls: "tv-badge-muted" },
-  captioning: { label: "打标中", cls: "tv-badge-accent" },
-  training: { label: "训练中", cls: "tv-badge-accent" },
-  sampling: { label: "采样中", cls: "tv-badge-accent" },
-  done: { label: "已完成", cls: "tv-badge-success" },
-  error: { label: "失败", cls: "tv-badge-danger" },
+const STATUS_META: Record<JobStatus, { label: string; tone: BadgeTone }> = {
+  queued: { label: "排队中", tone: "neutral" },
+  captioning: { label: "打标中", tone: "run" },
+  training: { label: "训练中", tone: "run" },
+  sampling: { label: "采样中", tone: "run" },
+  done: { label: "已完成", tone: "ok" },
+  error: { label: "失败", tone: "err" },
 };
 
 const ACTIVE_STATUSES: JobStatus[] = ["queued", "captioning", "training", "sampling"];
@@ -370,9 +371,9 @@ export function TrainView() {
               {/* 模型锁定:训练不暴露底模选择 UI,统一使用平台默认底模(只读展示) */}
               <div className="tv-ckpt-readonly">
                 {form.base_ckpt ? (
-                  <span className="badge badge-accent" title="平台默认底模">
+                  <Badge tone="accent" dot={false} title="平台默认底模">
                     {form.base_ckpt}
-                  </span>
+                  </Badge>
                 ) : (
                   <span className="tv-ckpt-loading">加载底模…</span>
                 )}
@@ -624,17 +625,17 @@ export function TrainView() {
         }
         .tv-title {
           margin: 0;
-          font-family: var(--font-display);
-          font-size: 1.6rem;
-          font-weight: 500;
+          font-family: var(--font-sans);
+          font-size: var(--text-title);
+          font-weight: 700;
           letter-spacing: -0.02em;
-          color: var(--ink);
-          line-height: 1.15;
+          color: var(--text-primary);
+          line-height: 1.3;
         }
         .tv-subtitle {
           margin: 0;
           font-size: 0.82rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
         }
         .tv-header-actions {
           display: inline-flex;
@@ -645,8 +646,8 @@ export function TrainView() {
         /* ── Form ── */
         .tv-form-card {
           margin-bottom: var(--space-5);
-          background: var(--bg-1);
-          border-color: var(--hairline-2);
+          background: var(--bg-surface-1);
+          border-color: var(--border-strong);
           box-shadow: var(--shadow-md);
         }
         .tv-form-head {
@@ -659,7 +660,7 @@ export function TrainView() {
           margin: 0;
           font-size: 1rem;
           font-weight: 600;
-          color: var(--ink);
+          color: var(--text-primary);
           letter-spacing: -0.01em;
         }
         .tv-form-grid {
@@ -682,7 +683,7 @@ export function TrainView() {
         }
         .tv-label {
           font-size: 0.75rem;
-          color: var(--ink-soft);
+          color: var(--text-secondary);
           font-weight: 500;
           letter-spacing: 0.01em;
         }
@@ -703,7 +704,7 @@ export function TrainView() {
         }
         .tv-upload-hint {
           font-size: 0.8rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
         }
         .tv-form-msg {
           display: flex;
@@ -715,12 +716,12 @@ export function TrainView() {
           font-size: 0.82rem;
         }
         .tv-form-msg-error {
-          background: var(--danger-quiet);
-          color: var(--danger);
+          background: var(--err-soft);
+          color: var(--err);
         }
         .tv-form-msg-info {
-          background: var(--accent-quiet);
-          color: var(--accent-soft);
+          background: var(--accent-soft);
+          color: var(--accent);
         }
         .tv-form-actions {
           display: flex;
@@ -741,10 +742,10 @@ export function TrainView() {
           align-items: center;
           gap: var(--space-3);
           padding: var(--space-6) var(--space-4);
-          color: var(--ink-faint);
+          color: var(--text-muted);
         }
         .tv-error-box {
-          color: var(--danger);
+          color: var(--err);
         }
         .tv-error-box p {
           margin: 0;
@@ -795,10 +796,9 @@ function TrainCard({
       <div className="tv-card-head">
         <div className="tv-card-title-wrap">
           <h3 className="tv-card-title">{job.name || "未命名任务"}</h3>
-          <span className={`badge tv-badge ${meta.cls}`}>
-            {isActive && <span className="tv-badge-led" />}
+          <Badge tone={meta.tone} dotPulse={isActive}>
             {meta.label}
-          </span>
+          </Badge>
         </div>
         <span className="tv-card-time">{formatTime(job.created_at)}</span>
       </div>
@@ -904,10 +904,10 @@ function TrainCard({
             </button>
           )}
           {showRegisteredTag && (
-            <span className="badge badge-success">
+            <Badge tone="ok" dot={false}>
               <Icon name="success" size={12} />
               已注册
-            </span>
+            </Badge>
           )}
           {registerMsg && (
             <span className="tv-register-msg">{registerMsg}</span>
@@ -918,10 +918,10 @@ function TrainCard({
       <style jsx>{`
         .tv-card {
           padding: var(--space-4);
-          transition: border-color var(--dur) var(--ease);
+          transition: border-color var(--duration-fast) var(--ease-standard);
         }
         .tv-card:hover {
-          border-color: var(--hairline-2);
+          border-color: var(--border-strong);
         }
 
         .tv-card-head {
@@ -942,7 +942,7 @@ function TrainCard({
           margin: 0;
           font-size: 0.98rem;
           font-weight: 600;
-          color: var(--ink);
+          color: var(--text-primary);
           letter-spacing: -0.01em;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -951,45 +951,9 @@ function TrainCard({
         }
         .tv-card-time {
           font-size: 0.72rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           white-space: nowrap;
           flex-shrink: 0;
-        }
-
-        /* ── Badges ── */
-        .tv-badge {
-          font-weight: 500;
-        }
-        .tv-badge-led {
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: currentColor;
-          animation: tv-pulse 1.4s ease-in-out infinite;
-        }
-        @keyframes tv-pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .tv-badge-led { animation: none; }
-        }
-        .tv-badge-muted {
-          background: var(--bg-2);
-          color: var(--ink-soft);
-        }
-        .tv-badge-accent {
-          background: var(--accent-quiet);
-          border-color: var(--accent-line);
-          color: var(--accent-soft);
-        }
-        .tv-badge-success {
-          background: var(--success-quiet);
-          color: var(--success);
-        }
-        .tv-badge-danger {
-          background: var(--danger-quiet);
-          color: var(--danger);
         }
 
         /* ── Meta ── */
@@ -998,8 +962,8 @@ function TrainCard({
           grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
           gap: var(--space-2) var(--space-4);
           padding: var(--space-3) 0;
-          border-top: 1px solid var(--hairline);
-          border-bottom: 1px solid var(--hairline);
+          border-top: 1px solid var(--border-subtle);
+          border-bottom: 1px solid var(--border-subtle);
         }
         .tv-meta-item {
           display: flex;
@@ -1009,13 +973,13 @@ function TrainCard({
         }
         .tv-meta-key {
           font-size: 0.68rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           text-transform: uppercase;
           letter-spacing: 0.04em;
         }
         .tv-meta-val {
           font-size: 0.82rem;
-          color: var(--ink-soft);
+          color: var(--text-secondary);
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -1034,26 +998,26 @@ function TrainCard({
         }
         .tv-progress-track {
           height: 6px;
-          background: var(--bg-2);
+          background: var(--bg-surface-2);
           border-radius: var(--radius-full);
           overflow: hidden;
         }
         .tv-progress-fill {
           height: 100%;
-          background: linear-gradient(90deg, var(--accent-deep), var(--accent));
+          background: var(--run);
           border-radius: var(--radius-full);
-          transition: width 0.3s var(--ease);
+          transition: width var(--duration-base) var(--ease-standard);
         }
         .tv-progress-info {
           display: flex;
           align-items: center;
           justify-content: space-between;
           font-size: 0.74rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           font-family: var(--font-mono);
         }
         .tv-progress-loss {
-          color: var(--accent-soft);
+          color: var(--accent);
         }
 
         /* ── Error ── */
@@ -1063,8 +1027,8 @@ function TrainCard({
           gap: 0.4rem;
           margin-top: var(--space-3);
           padding: 0.5rem 0.7rem;
-          background: var(--danger-quiet);
-          color: var(--danger);
+          background: var(--err-soft);
+          color: var(--err);
           border-radius: var(--radius-xs);
           font-size: 0.8rem;
         }
@@ -1075,7 +1039,7 @@ function TrainCard({
         }
         .tv-samples-label {
           font-size: 0.72rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           text-transform: uppercase;
           letter-spacing: 0.04em;
           margin-bottom: 0.5rem;
@@ -1090,14 +1054,14 @@ function TrainCard({
           aspect-ratio: 1 / 1;
           overflow: hidden;
           border-radius: var(--radius-xs);
-          border: 1px solid var(--hairline);
-          background: var(--bg-2);
+          border: 1px solid var(--border-subtle);
+          background: var(--bg-surface-2);
         }
         .tv-sample img {
           width: 100%;
           height: 100%;
           object-fit: cover;
-          transition: transform var(--dur) var(--ease);
+          transition: transform var(--duration-fast) var(--ease-standard);
         }
         .tv-sample:hover img {
           transform: scale(1.04);
@@ -1113,7 +1077,7 @@ function TrainCard({
         }
         .tv-register-msg {
           font-size: 0.78rem;
-          color: var(--ink-soft);
+          color: var(--text-secondary);
         }
       `}</style>
     </article>
@@ -1162,7 +1126,7 @@ function LossSparkline({ values }: { values: number[] }) {
         <polyline
           points={path}
           fill="none"
-          stroke="var(--accent-soft)"
+          stroke="var(--accent)"
           strokeWidth="1.5"
           strokeLinejoin="round"
           strokeLinecap="round"
@@ -1177,7 +1141,7 @@ function LossSparkline({ values }: { values: number[] }) {
         }
         .tv-spark-label {
           font-size: 0.68rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           text-transform: uppercase;
           letter-spacing: 0.04em;
           white-space: nowrap;

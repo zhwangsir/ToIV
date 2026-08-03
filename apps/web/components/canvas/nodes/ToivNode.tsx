@@ -138,26 +138,49 @@ function ToivNodeComponentImpl(props: NodeProps<ToivFlowNode>) {
       )}
       <Handle type="source" position={Position.Right} className="tn-handle" />
 
-      {/* 共享节点样式(:global 让子组件 className 直接受控) */}
+      {/* 共享节点样式(:global 让子组件 className 直接受控;全部走 canonical token) */}
       <style jsx global>{`
         .toiv-node {
           min-width: 200px;
           max-width: 380px;
-          background: var(--bg-1);
-          border: 1px solid var(--hairline-2);
-          border-radius: var(--radius);
-          box-shadow: 0 4px 16px -4px oklch(0% 0 0 / 0.45);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-panel);
+          box-shadow: var(--shadow-md);
           font-family: var(--font-sans);
           font-size: 0.78rem;
-          color: var(--ink);
-          transition: border-color var(--dur) var(--ease),
-            box-shadow var(--dur) var(--ease);
+          color: var(--text-primary);
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            box-shadow var(--duration-fast) var(--ease-standard);
+        }
+        .toiv-node:hover {
+          border-color: var(--border-strong);
         }
         .toiv-node.is-selected {
           border-color: var(--accent);
           box-shadow: 0 0 0 1px var(--accent),
-            0 8px 24px -4px
-              color-mix(in oklch, var(--accent) 40%, transparent);
+            0 8px 24px -4px var(--accent-glow);
+        }
+
+        /* 节点卡片状态:运行 run 描边+脉冲 / 完成 ok / 失败 err */
+        .toiv-node.tn-status-running {
+          border-color: var(--run);
+          animation: tn-card-run 1.6s var(--ease-standard) infinite;
+        }
+        .toiv-node.tn-status-done {
+          border-color: var(--ok);
+        }
+        .toiv-node.tn-status-error {
+          border-color: var(--err);
+        }
+        @keyframes tn-card-run {
+          0%,
+          100% {
+            box-shadow: 0 0 0 0 var(--run-soft);
+          }
+          50% {
+            box-shadow: 0 0 0 5px transparent;
+          }
         }
 
         .tn-header {
@@ -165,9 +188,9 @@ function ToivNodeComponentImpl(props: NodeProps<ToivFlowNode>) {
           align-items: center;
           gap: 0.4rem;
           padding: 0.4rem 0.55rem;
-          border-bottom: 1px solid var(--hairline);
-          background: var(--bg-2);
-          border-radius: var(--radius) var(--radius) 0 0;
+          border-bottom: 1px solid var(--border-subtle);
+          background: var(--bg-surface-2);
+          border-radius: var(--radius-panel) var(--radius-panel) 0 0;
         }
         .tn-icon {
           display: inline-flex;
@@ -175,9 +198,9 @@ function ToivNodeComponentImpl(props: NodeProps<ToivFlowNode>) {
           justify-content: center;
           width: 22px;
           height: 22px;
-          border-radius: var(--radius-xs);
-          background: var(--accent-quiet);
-          color: var(--accent-soft);
+          border-radius: var(--radius-badge);
+          background: var(--accent-soft);
+          color: var(--accent);
           flex-shrink: 0;
         }
         .tn-kind {
@@ -185,7 +208,7 @@ function ToivNodeComponentImpl(props: NodeProps<ToivFlowNode>) {
           font-size: 0.62rem;
           letter-spacing: 0.04em;
           text-transform: uppercase;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           flex-shrink: 0;
         }
         .tn-title {
@@ -193,7 +216,7 @@ function ToivNodeComponentImpl(props: NodeProps<ToivFlowNode>) {
           min-width: 0;
           font-weight: 600;
           font-size: 0.78rem;
-          color: var(--ink);
+          color: var(--text-primary);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -205,22 +228,18 @@ function ToivNodeComponentImpl(props: NodeProps<ToivFlowNode>) {
           width: 22px;
           height: 22px;
           flex-shrink: 0;
-          border-radius: var(--radius-xs);
-          color: var(--accent-soft);
-          background: var(--accent-quiet);
-          border: 1px solid var(--accent-line);
+          border-radius: var(--radius-control);
+          color: var(--accent);
+          background: var(--accent-soft);
+          border: 1px solid var(--accent-glow);
           cursor: pointer;
-          transition: color var(--dur) var(--ease),
-            background-color var(--dur) var(--ease),
-            border-color var(--dur) var(--ease);
+          transition: color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard),
+            border-color var(--duration-fast) var(--ease-standard);
         }
         .tn-run:hover:not(:disabled) {
-          color: var(--bg-0);
-          background: linear-gradient(
-            135deg,
-            var(--accent),
-            var(--accent-deep)
-          );
+          color: var(--text-on-accent);
+          background: var(--accent-hover);
           border-color: transparent;
         }
         .tn-run:disabled {
@@ -228,7 +247,7 @@ function ToivNodeComponentImpl(props: NodeProps<ToivFlowNode>) {
           cursor: not-allowed;
         }
         .tn-run:focus-visible {
-          outline: 2px solid var(--accent);
+          outline: 1px solid var(--accent);
           outline-offset: 2px;
         }
 
@@ -237,37 +256,35 @@ function ToivNodeComponentImpl(props: NodeProps<ToivFlowNode>) {
           height: 8px;
           border-radius: 50%;
           flex-shrink: 0;
-          background: var(--ink-faint);
+          background: var(--text-muted);
         }
         .toiv-node.tn-status-idle .tn-status-dot {
-          background: var(--ink-faint);
+          background: var(--text-muted);
         }
         .toiv-node.tn-status-running .tn-status-dot {
-          background: var(--warn);
+          background: var(--run);
           /* 纯 CSS 脉冲动画,不占 React 渲染循环;速度 ≤ 1.2s(项目硬约束) */
-          animation: tn-breath 1.2s var(--ease) infinite;
+          animation: tn-breath 1.2s var(--ease-standard) infinite;
         }
         .toiv-node.tn-status-done .tn-status-dot {
-          background: var(--success);
+          background: var(--ok);
           box-shadow: 0 0 6px
-            color-mix(in oklch, var(--success) 60%, transparent);
+            color-mix(in oklch, var(--ok) 60%, transparent);
         }
         .toiv-node.tn-status-error .tn-status-dot {
-          background: var(--danger);
+          background: var(--err);
         }
         @keyframes tn-breath {
           0%,
           100% {
             opacity: 1;
             transform: scale(1);
-            box-shadow: 0 0 0 0
-              color-mix(in oklch, var(--warn) 50%, transparent);
+            box-shadow: 0 0 0 0 var(--run-soft);
           }
           50% {
             opacity: 0.5;
             transform: scale(0.85);
-            box-shadow: 0 0 0 6px
-              color-mix(in oklch, var(--warn) 0%, transparent);
+            box-shadow: 0 0 0 6px transparent;
           }
         }
 
@@ -279,12 +296,12 @@ function ToivNodeComponentImpl(props: NodeProps<ToivFlowNode>) {
         }
         .tn-error {
           padding: 0.35rem 0.55rem;
-          background: color-mix(in oklch, var(--danger) 12%, transparent);
-          color: var(--danger);
+          background: var(--err-soft);
+          color: var(--err);
           font-size: 0.7rem;
           border-top: 1px solid
-            color-mix(in oklch, var(--danger) 30%, transparent);
-          border-radius: 0 0 var(--radius) var(--radius);
+            color-mix(in oklch, var(--err) 30%, transparent);
+          border-radius: 0 0 var(--radius-panel) var(--radius-panel);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -298,7 +315,7 @@ function ToivNodeComponentImpl(props: NodeProps<ToivFlowNode>) {
         }
         .tn-field-label {
           font-size: 0.64rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           font-family: var(--font-mono);
           letter-spacing: 0.03em;
           text-transform: uppercase;
@@ -307,21 +324,21 @@ function ToivNodeComponentImpl(props: NodeProps<ToivFlowNode>) {
         .tn-textarea {
           width: 100%;
           padding: 0.35rem 0.45rem;
-          background: var(--bg-0);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius-xs);
-          color: var(--ink);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+          color: var(--text-primary);
           font-size: 0.74rem;
           font-family: var(--font-sans);
           line-height: 1.45;
           resize: vertical;
-          transition: border-color var(--dur) var(--ease);
+          transition: border-color var(--duration-fast) var(--ease-standard);
         }
         .tn-input:focus,
         .tn-textarea:focus {
           outline: none;
           border-color: var(--accent);
-          box-shadow: 0 0 0 2px var(--accent-wash);
+          box-shadow: 0 0 0 2px var(--accent-soft);
         }
         .tn-textarea {
           font-family: var(--font-mono);
@@ -329,15 +346,15 @@ function ToivNodeComponentImpl(props: NodeProps<ToivFlowNode>) {
         }
         .tn-input::placeholder,
         .tn-textarea::placeholder {
-          color: var(--ink-faint);
+          color: var(--text-muted);
         }
 
         .tn-media {
           position: relative;
           width: 100%;
-          background: var(--bg-0);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius-xs);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
           overflow: hidden;
           display: flex;
           align-items: center;
@@ -356,7 +373,7 @@ function ToivNodeComponentImpl(props: NodeProps<ToivFlowNode>) {
           align-items: center;
           gap: 0.3rem;
           padding: 1.2rem 0.6rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           font-size: 0.7rem;
         }
         .tn-media-loading {
@@ -365,8 +382,8 @@ function ToivNodeComponentImpl(props: NodeProps<ToivFlowNode>) {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: color-mix(in oklch, var(--bg-0) 70%, transparent);
-          color: var(--accent-soft);
+          background: color-mix(in oklch, var(--bg-canvas) 70%, transparent);
+          color: var(--accent);
         }
 
         .tn-link {
@@ -374,26 +391,26 @@ function ToivNodeComponentImpl(props: NodeProps<ToivFlowNode>) {
           align-items: center;
           gap: 0.35rem;
           padding: 0.35rem 0.55rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline-2);
-          border-radius: var(--radius-xs);
-          color: var(--accent-soft);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+          color: var(--accent);
           font-size: 0.72rem;
           text-decoration: none;
-          transition: border-color var(--dur) var(--ease),
-            background-color var(--dur) var(--ease);
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard);
         }
         .tn-link:hover {
-          border-color: var(--accent-line);
-          background: var(--accent-quiet);
+          border-color: var(--accent-glow);
+          background: var(--accent-soft);
         }
 
         .tn-response {
           padding: 0.4rem 0.5rem;
-          background: var(--bg-0);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius-xs);
-          color: var(--ink-soft);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+          color: var(--text-secondary);
           font-size: 0.72rem;
           line-height: 1.5;
           white-space: pre-wrap;
@@ -402,7 +419,7 @@ function ToivNodeComponentImpl(props: NodeProps<ToivFlowNode>) {
           overflow-y: auto;
         }
         .tn-response-empty {
-          color: var(--ink-faint);
+          color: var(--text-muted);
           font-style: italic;
         }
 
@@ -415,10 +432,10 @@ function ToivNodeComponentImpl(props: NodeProps<ToivFlowNode>) {
         .tn-file-name {
           font-family: var(--font-mono);
           font-size: 0.68rem;
-          color: var(--ink-soft);
+          color: var(--text-secondary);
           padding: 0.2rem 0.4rem;
-          background: var(--bg-2);
-          border-radius: var(--radius-xs);
+          background: var(--bg-surface-2);
+          border-radius: var(--radius-badge);
           max-width: 100%;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -429,18 +446,18 @@ function ToivNodeComponentImpl(props: NodeProps<ToivFlowNode>) {
           align-items: center;
           gap: 0.3rem;
           padding: 0.3rem 0.5rem;
-          background: var(--bg-2);
-          border: 1px dashed var(--hairline-2);
-          border-radius: var(--radius-xs);
-          color: var(--ink-soft);
+          background: var(--bg-surface-2);
+          border: 1px dashed var(--border-strong);
+          border-radius: var(--radius-control);
+          color: var(--text-secondary);
           font-size: 0.7rem;
           cursor: pointer;
-          transition: border-color var(--dur) var(--ease),
-            color var(--dur) var(--ease);
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            color var(--duration-fast) var(--ease-standard);
         }
         .tn-file-pick:hover {
-          border-color: var(--accent-line);
-          color: var(--accent-soft);
+          border-color: var(--accent-glow);
+          color: var(--accent);
         }
 
         /* Handle 样式覆盖 @xyflow/react 默认 */
@@ -448,7 +465,7 @@ function ToivNodeComponentImpl(props: NodeProps<ToivFlowNode>) {
           width: 8px;
           height: 8px;
           background: var(--accent);
-          border: 2px solid var(--bg-0);
+          border: 2px solid var(--bg-canvas);
           border-radius: 50%;
         }
         .tn-handle:hover {
@@ -456,6 +473,9 @@ function ToivNodeComponentImpl(props: NodeProps<ToivFlowNode>) {
         }
 
         @media (prefers-reduced-motion: reduce) {
+          .toiv-node.tn-status-running {
+            animation: none;
+          }
           .toiv-node.tn-status-running .tn-status-dot {
             animation: none;
           }

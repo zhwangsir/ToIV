@@ -435,21 +435,21 @@ test.describe("兼容性测试 - 多设备尺寸", () => {
     });
   }
 
-  test("桌面 1440×900 - 创作台页面正常渲染", async ({ page, request }) => {
+  test("桌面 1440×900 - 生成页面正常渲染", async ({ page, request }) => {
     const token = await getToken(request);
     await page.addInitScript((t) => {
       window.localStorage.setItem("toiv_token", t);
     }, token);
 
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(`${WEB_BASE}/?view=create`, {
+    await page.goto(`${WEB_BASE}/?view=generate`, {
       waitUntil: "domcontentloaded",
       timeout: 30000,
     });
     await page.waitForTimeout(2000);
 
     await page.screenshot({
-      path: `test-results-prod/pathsafe-1440x900-create.png`,
+      path: `test-results-prod/pathsafe-1440x900-generate.png`,
       fullPage: false,
     });
 

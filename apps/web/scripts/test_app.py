@@ -9,7 +9,7 @@ OUT.mkdir(exist_ok=True)
 
 VIEWS = [
     ("assistant", "AI 助手"),
-    ("create", "创作"),
+    ("generate", "生成"),
     ("canvas", "画布"),
     ("manju", "漫剧"),
     ("dub", "译制"),
@@ -18,7 +18,7 @@ VIEWS = [
     ("models", "模型"),
 ]
 
-MOBILE_VIEWS = [("assistant", "AI 助手"), ("create", "创作"), ("manju", "漫剧")]
+MOBILE_VIEWS = [("assistant", "AI 助手"), ("generate", "生成"), ("manju", "漫剧")]
 
 
 def login(page, console_logs):

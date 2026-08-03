@@ -194,13 +194,12 @@ test.describe("画布核心流", () => {
       await expect(page.locator(SEL.canvasView)).toBeVisible({
         timeout: 10000,
       });
-      // 校验 app-shell / topbar / sidebar 可见(对齐 authed-views 风格)
+      // 校验 app-shell / 侧栏可见(对齐 authed-views 风格;W0 后顶栏已移除)
       await expect(page.locator(".app-shell")).toBeVisible({
         timeout: 10000,
       });
-      await expect(page.locator("header.topbar")).toBeVisible();
-      // 主导航为 DynamicIsland(旧 Sidebar 已退役)
-      await expect(page.locator(".di-container")).toBeVisible();
+      // 主导航为左侧栏(DynamicIsland/顶栏已退役)
+      await expect(page.locator(".app-sidebar")).toBeVisible();
       // 校验无 .landing-form(不应是登录页)
       const landingFormCount = await page.locator(".landing-form").count();
       expect(landingFormCount, "canvas 登录态下不应有登录表单").toBe(0);

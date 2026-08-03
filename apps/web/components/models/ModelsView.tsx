@@ -10,6 +10,7 @@ import {
 } from "@/lib/api";
 import type { LocalModels, MarketItem } from "@/lib/types";
 import { Icon } from "@/components/ui/Icon";
+import { Tabs } from "@/components/ui/Tabs";
 
 type Tab = "local" | "market";
 
@@ -221,28 +222,15 @@ export function ModelsView() {
           <h1 className="mv-title">模型库</h1>
           <p className="mv-subtitle">管理本地已安装模型 · 探索 Civitai 在线市场</p>
         </div>
-        <div className="mv-tabs" role="tablist" aria-label="模型库视图切换">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "local"}
-            className={`mv-tab${tab === "local" ? " is-active" : ""}`}
-            onClick={() => setTab("local")}
-          >
-            <Icon name="models" size={15} strokeWidth={1.9} />
-            本地模型
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "market"}
-            className={`mv-tab${tab === "market" ? " is-active" : ""}`}
-            onClick={() => setTab("market")}
-          >
-            <Icon name="search" size={15} strokeWidth={1.9} />
-            在线市场
-          </button>
-        </div>
+        <Tabs
+          items={[
+            { key: "local", label: "本地模型", icon: <Icon name="models" size={14} /> },
+            { key: "market", label: "在线市场", icon: <Icon name="search" size={14} /> },
+          ]}
+          current={tab}
+          onChange={(k) => setTab(k as Tab)}
+          ariaLabel="模型库视图切换"
+        />
       </header>
 
       {tab === "local" ? (
@@ -540,53 +528,18 @@ export function ModelsView() {
 
         .mv-title {
           margin: 0;
-          font-family: var(--font-display);
-          font-size: 1.6rem;
-          font-weight: 500;
+          font-family: var(--font-sans);
+          font-size: var(--text-title);
+          font-weight: 700;
           letter-spacing: -0.02em;
-          color: var(--ink);
-          line-height: 1.15;
+          color: var(--text-primary);
+          line-height: 1.3;
         }
 
         .mv-subtitle {
           margin: 0;
-          font-size: 0.82rem;
-          color: var(--ink-faint);
-        }
-
-        .mv-tabs {
-          display: inline-flex;
-          gap: 2px;
-          padding: 3px;
-          background: var(--bg-1);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius-full);
-        }
-
-        .mv-tab {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.4rem;
-          padding: 0.4rem 0.95rem;
-          background: transparent;
-          border: none;
-          border-radius: var(--radius-full);
-          color: var(--ink-faint);
-          font-size: 0.82rem;
-          font-weight: 500;
-          cursor: pointer;
-          transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
-        }
-        .mv-tab:hover {
-          color: var(--ink-soft);
-        }
-        .mv-tab.is-active {
-          background: var(--accent);
-          color: var(--accent-ink);
-        }
-        .mv-tab:focus-visible {
-          outline: 2px solid var(--accent);
-          outline-offset: 2px;
+          font-size: var(--text-aux);
+          color: var(--text-muted);
         }
 
         .mv-panel {
@@ -616,7 +569,7 @@ export function ModelsView() {
           left: 0.7rem;
           top: 50%;
           transform: translateY(-50%);
-          color: var(--ink-faint);
+          color: var(--text-muted);
           pointer-events: none;
           display: inline-flex;
         }
@@ -634,7 +587,7 @@ export function ModelsView() {
 
         .mv-stat {
           font-size: 0.78rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           font-family: var(--font-mono);
         }
 
@@ -658,7 +611,7 @@ export function ModelsView() {
         }
 
         .mv-error-box {
-          color: var(--danger);
+          color: var(--err);
         }
         .mv-error-box p {
           margin: 0;
@@ -682,8 +635,8 @@ export function ModelsView() {
           justify-content: space-between;
           gap: var(--space-3);
           padding: 0.7rem 1rem;
-          background: var(--bg-2);
-          border-bottom: 1px solid var(--hairline);
+          background: var(--bg-surface-2);
+          border-bottom: 1px solid var(--border-subtle);
         }
 
         .mv-group-title-wrap {
@@ -696,14 +649,14 @@ export function ModelsView() {
         .mv-group-title {
           font-size: 0.9rem;
           font-weight: 600;
-          color: var(--ink);
+          color: var(--text-primary);
           letter-spacing: -0.01em;
         }
 
         .mv-group-key {
           font-family: var(--font-mono);
           font-size: 0.72rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
         }
 
         .mv-model-list {
@@ -719,19 +672,19 @@ export function ModelsView() {
           align-items: center;
           gap: var(--space-3);
           padding: 0.55rem 1rem;
-          border-bottom: 1px solid var(--hairline);
-          transition: background-color var(--dur) var(--ease);
+          border-bottom: 1px solid var(--border-subtle);
+          transition: background-color var(--duration-fast) var(--ease-standard);
         }
         .mv-model-row:last-child {
           border-bottom: none;
         }
         .mv-model-row:hover {
-          background: var(--bg-2);
+          background: var(--bg-surface-2);
         }
 
         .mv-model-file-icon {
           display: inline-flex;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           flex-shrink: 0;
         }
 
@@ -742,7 +695,7 @@ export function ModelsView() {
           text-overflow: ellipsis;
           white-space: nowrap;
           font-size: 0.85rem;
-          color: var(--ink);
+          color: var(--text-primary);
           font-family: var(--font-mono);
           letter-spacing: -0.01em;
         }
@@ -750,11 +703,11 @@ export function ModelsView() {
         .mv-model-ext {
           font-family: var(--font-mono);
           font-size: 0.68rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           text-transform: uppercase;
           padding: 0.1rem 0.4rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-xs);
           flex-shrink: 0;
         }
@@ -765,7 +718,7 @@ export function ModelsView() {
 
         .mv-result-meta {
           font-size: 0.78rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           font-family: var(--font-mono);
         }
 
@@ -781,23 +734,20 @@ export function ModelsView() {
           text-decoration: none;
           display: flex;
           flex-direction: column;
-          transition: border-color var(--dur-2) var(--ease), transform var(--dur-2) var(--ease),
-            box-shadow var(--dur-2) var(--ease);
+          transition: border-color var(--duration-fast) var(--ease-standard);
         }
         .mv-card:hover {
-          border-color: var(--accent-line);
-          transform: translateY(-2px);
-          box-shadow: 0 0 0 1px var(--accent-line), var(--shadow-lg);
+          border-color: var(--border-strong);
         }
         .mv-card:focus-visible {
-          outline: 2px solid var(--accent);
+          outline: 1px solid var(--accent);
           outline-offset: 2px;
         }
 
         .mv-card-thumb {
           position: relative;
           aspect-ratio: 3 / 4;
-          background: var(--bg-2);
+          background: var(--bg-surface-2);
           overflow: hidden;
         }
         .mv-card-thumb img {
@@ -805,7 +755,7 @@ export function ModelsView() {
           height: 100%;
           object-fit: cover;
           display: block;
-          transition: transform 0.4s var(--ease);
+          transition: transform var(--duration-base) var(--ease-standard);
         }
         .mv-card:hover .mv-card-thumb img {
           transform: scale(1.04);
@@ -817,9 +767,9 @@ export function ModelsView() {
           display: flex;
           align-items: center;
           justify-content: center;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           opacity: 0.45;
-          background: linear-gradient(135deg, var(--bg-2), var(--bg-3));
+          background: linear-gradient(135deg, var(--bg-surface-2), var(--bg-surface-3));
         }
 
         .mv-card-type {
@@ -827,13 +777,13 @@ export function ModelsView() {
           top: 0.5rem;
           left: 0.5rem;
           padding: 0.2rem 0.55rem;
-          background: oklch(7% 0.006 265 / 0.72);
+          background: var(--overlay-strong);
           backdrop-filter: blur(6px);
-          border: 1px solid var(--hairline-2);
+          border: 1px solid var(--border-strong);
           border-radius: var(--radius-xs);
           font-size: 0.68rem;
           font-weight: 500;
-          color: var(--ink);
+          color: var(--text-primary);
           letter-spacing: 0.02em;
         }
 
@@ -847,13 +797,13 @@ export function ModelsView() {
           width: 26px;
           height: 26px;
           border-radius: var(--radius-full);
-          background: oklch(7% 0.006 265 / 0.72);
+          background: var(--overlay-strong);
           backdrop-filter: blur(6px);
-          border: 1px solid var(--hairline-2);
-          color: var(--ink-soft);
+          border: 1px solid var(--border-strong);
+          color: var(--text-secondary);
           opacity: 0;
           transform: translateY(-4px);
-          transition: opacity var(--dur-2) var(--ease), transform var(--dur-2) var(--ease);
+          transition: opacity var(--duration-base) var(--ease-standard), transform var(--duration-base) var(--ease-standard);
         }
         .mv-card:hover .mv-card-open {
           opacity: 1;
@@ -871,7 +821,7 @@ export function ModelsView() {
           margin: 0;
           font-size: 0.84rem;
           font-weight: 600;
-          color: var(--ink);
+          color: var(--text-primary);
           line-height: 1.35;
           letter-spacing: -0.01em;
           display: -webkit-box;
@@ -890,7 +840,7 @@ export function ModelsView() {
 
         .mv-card-creator {
           font-size: 0.74rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -902,7 +852,7 @@ export function ModelsView() {
           align-items: center;
           gap: 0.25rem;
           font-size: 0.74rem;
-          color: var(--ink-soft);
+          color: var(--text-secondary);
           font-family: var(--font-mono);
           flex-shrink: 0;
         }
@@ -936,20 +886,20 @@ export function ModelsView() {
           border-radius: var(--radius-xs);
           font-size: 0.74rem;
           line-height: 1.4;
-          border: 1px solid var(--hairline-2);
+          border: 1px solid var(--border-strong);
           word-break: break-word;
         }
 
         .mv-card-msg.is-success {
-          color: var(--success);
-          background: var(--success-quiet);
-          border-color: var(--success);
+          color: var(--ok);
+          background: var(--ok-soft);
+          border-color: var(--ok);
         }
 
         .mv-card-msg.is-error {
-          color: var(--danger);
-          background: var(--danger-quiet);
-          border-color: var(--danger);
+          color: var(--err);
+          background: var(--err-soft);
+          border-color: var(--err);
         }
 
         @media (max-width: 640px) {

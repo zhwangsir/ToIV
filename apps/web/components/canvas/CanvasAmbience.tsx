@@ -49,9 +49,9 @@ const LAYER_SPEC = [
   { count: 20, sizeMin: 12, sizeMax: 18, depth: 0.85, aMin: 0.11, aMax: 0.19, parallax: 24 },
 ] as const;
 
-/* 单色体系:中性暖灰(暗房尘埃)+ 约 1/4 靛蓝染色(贴近 --accent-soft) */
+/* 单色体系:中性暖灰(暗房尘埃)+ 约 1/4 染色(对齐 --accent;canvas 无法用 var(),取值需与 token 同步) */
 const DUST_RGB = { r: 198, g: 199, b: 207 };
-const DUST_TINT_RGB = { r: 146, g: 168, b: 226 };
+const DUST_TINT_RGB = { r: 124, g: 108, b: 255 };
 
 /* ---------- 涟漪:慢速、大范围、自中心向外 ---------- */
 const RIPPLE_MAX_R = 440; // 大范围 px

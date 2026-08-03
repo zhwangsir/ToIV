@@ -535,68 +535,67 @@ export function AssistantView() {
           display: flex;
           flex-direction: column;
           height: 100%;
-          background: var(--bg-0);
+          background: var(--bg-canvas);
           overflow: hidden;
         }
 
-        /* ───── 顶部工具栏（对齐 cv-toolbar）───── */
+        /* ───── 顶部工具栏 ───── */
         .av-toolbar {
           flex-shrink: 0;
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: var(--space-3);
-          padding: 0.5rem 0.75rem;
-          background: var(--bg-1);
-          border-bottom: 1px solid var(--hairline);
+          padding: var(--space-2) var(--space-3);
+          background: var(--bg-surface-1);
+          border-bottom: 1px solid var(--border-subtle);
           z-index: 5;
         }
         .av-tb-left,
         .av-tb-right {
           display: flex;
           align-items: center;
-          gap: 0.4rem;
+          gap: var(--space-2);
         }
         .av-tb-center {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
+          gap: var(--space-2);
+          min-width: 0;
         }
 
         .av-tb-btn {
           display: inline-flex;
           align-items: center;
-          gap: 0.35rem;
-          padding: 0.32rem 0.6rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline-2);
-          border-radius: var(--radius-xs);
-          color: var(--ink-soft);
-          font-size: 0.75rem;
+          gap: var(--space-1);
+          height: 28px;
+          padding: 0 var(--space-3);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+          color: var(--text-secondary);
+          font-size: var(--text-aux);
           font-weight: 500;
           font-family: var(--font-sans);
           cursor: pointer;
-          transition: color var(--dur) var(--ease),
-            background-color var(--dur) var(--ease),
-            border-color var(--dur) var(--ease);
+          transition: color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard),
+            border-color var(--duration-fast) var(--ease-standard);
         }
         .av-tb-btn:hover:not(:disabled) {
-          color: var(--ink);
-          border-color: var(--hairline-strong);
-          background: var(--bg-3);
+          color: var(--text-primary);
+          border-color: var(--border-strong);
+          background: var(--bg-surface-3);
         }
         .av-tb-btn:disabled {
           opacity: 0.4;
           cursor: not-allowed;
-        }
-        .av-tb-btn:focus-visible {
-          outline: 2px solid var(--accent);
-          outline-offset: 1px;
+          pointer-events: none;
         }
         .av-tb-btn.is-active {
-          background: var(--accent-quiet);
-          border-color: var(--accent-line);
-          color: var(--accent-soft);
+          background: var(--accent-soft);
+          border-color: var(--accent-glow);
+          color: var(--accent);
         }
         .av-tb-btn-ghost {
           background: transparent;
@@ -605,27 +604,32 @@ export function AssistantView() {
         .av-model-pill {
           display: inline-flex;
           align-items: center;
-          gap: 0.4rem;
-          padding: 0.28rem 0.65rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline-2);
+          gap: var(--space-2);
+          height: 26px;
+          padding: 0 var(--space-3);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-full);
-          color: var(--ink-soft);
-          font-size: 0.72rem;
+          color: var(--text-secondary);
+          font-size: var(--text-label);
           font-weight: 500;
           font-family: var(--font-mono);
           letter-spacing: 0.02em;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .av-model-pill--sm {
-          font-size: 0.7rem;
-          padding: 0.22rem 0.5rem;
+          height: 22px;
+          padding: 0 var(--space-2);
         }
         .av-model-dot {
+          flex-shrink: 0;
           width: 6px;
           height: 6px;
           border-radius: 50%;
-          background: var(--success, #22c55e);
-          box-shadow: 0 0 6px color-mix(in oklab, var(--success, #22c55e) 60%, transparent);
+          background: var(--ok);
+          box-shadow: 0 0 6px color-mix(in oklab, var(--ok) 60%, transparent);
           animation: av-dot-pulse 2s ease-in-out infinite;
         }
         @keyframes av-dot-pulse {
@@ -640,7 +644,7 @@ export function AssistantView() {
           min-height: 0;
           overflow-y: auto;
           overflow-x: hidden;
-          background: var(--bg-0);
+          background: var(--bg-canvas);
         }
         .av-chat-wrap::-webkit-scrollbar {
           width: 6px;
@@ -649,19 +653,18 @@ export function AssistantView() {
           background: transparent;
         }
         .av-chat-wrap::-webkit-scrollbar-thumb {
-          background: var(--hairline-strong);
+          background: var(--bg-surface-3);
           border-radius: 3px;
-          opacity: 0.5;
         }
 
-        /* 点阵网格背景（对齐 Canvas Dots Background） */
+        /* 点阵网格背景(极弱,仅作画布质感) */
         .av-dot-grid {
           position: absolute;
           inset: 0;
-          background-image: radial-gradient(circle, var(--hairline-strong) 1px, transparent 1px);
-          background-size: 18px 18px;
+          background-image: radial-gradient(circle, var(--border-strong) 1px, transparent 1px);
+          background-size: 20px 20px;
           background-position: 0 0;
-          opacity: 0.35;
+          opacity: 0.5;
           pointer-events: none;
           z-index: 0;
         }
@@ -674,34 +677,33 @@ export function AssistantView() {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 0.8rem;
-          padding: 3rem 2rem 2rem;
+          gap: var(--space-3);
+          padding: var(--space-12) var(--space-8) var(--space-8);
           min-height: 100%;
           text-align: center;
         }
         .av-empty-icon {
-          color: var(--ink-faint);
+          color: var(--text-muted);
           opacity: 0.5;
-          margin-bottom: 0.4rem;
+          margin-bottom: var(--space-2);
         }
         .av-empty-title {
-          font-family: var(--font-display);
-          font-size: 1.2rem;
-          font-weight: 500;
-          color: var(--ink);
+          font-size: var(--text-title);
+          font-weight: 700;
+          color: var(--text-primary);
           letter-spacing: -0.01em;
         }
         .av-empty-desc {
-          font-size: 0.8rem;
-          color: var(--ink-faint);
+          font-size: var(--text-body);
+          color: var(--text-muted);
           line-height: 1.6;
-          max-width: 380px;
-          margin-bottom: 1rem;
+          max-width: 400px;
+          margin-bottom: var(--space-4);
         }
         .av-quick-grid {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
-          gap: 0.5rem;
+          gap: var(--space-2);
           width: 100%;
           max-width: 480px;
         }
@@ -709,41 +711,40 @@ export function AssistantView() {
           display: flex;
           flex-direction: column;
           align-items: flex-start;
-          gap: 0.25rem;
-          padding: 0.7rem 0.8rem;
-          background: var(--bg-1);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius-sm);
+          gap: var(--space-1);
+          padding: var(--space-3) var(--space-4);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-panel);
           cursor: pointer;
           text-align: left;
-          transition: all var(--dur) var(--ease);
+          transition: background-color var(--duration-fast) var(--ease-standard),
+            border-color var(--duration-fast) var(--ease-standard);
         }
         .av-quick-card:hover {
-          background: var(--bg-2);
-          border-color: var(--hairline-strong);
-          transform: translateY(-1px);
-          box-shadow: var(--shadow-md);
+          background: var(--bg-surface-2);
+          border-color: var(--border-strong);
         }
         .av-quick-icon {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 24px;
-          height: 24px;
-          border-radius: var(--radius-xs);
-          background: var(--accent-quiet);
-          color: var(--accent-soft);
-          margin-bottom: 0.15rem;
+          width: 26px;
+          height: 26px;
+          border-radius: var(--radius-control);
+          background: var(--accent-soft);
+          color: var(--accent);
+          margin-bottom: var(--space-1);
         }
         .av-quick-label {
-          font-size: 0.78rem;
+          font-size: var(--text-body);
           font-weight: 600;
-          color: var(--ink);
+          color: var(--text-primary);
         }
         .av-quick-desc {
-          font-size: 0.68rem;
-          color: var(--ink-faint);
-          line-height: 1.4;
+          font-size: var(--text-aux);
+          color: var(--text-muted);
+          line-height: 1.45;
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
@@ -756,14 +757,14 @@ export function AssistantView() {
           z-index: 1;
           display: flex;
           flex-direction: column;
-          gap: 1rem;
-          padding: 1.5rem;
+          gap: var(--space-5);
+          padding: var(--space-6);
           max-width: 760px;
           margin: 0 auto;
         }
         .av-msg {
           display: flex;
-          gap: 0.6rem;
+          gap: var(--space-3);
           align-items: flex-start;
         }
         .av-msg.is-user {
@@ -771,25 +772,25 @@ export function AssistantView() {
         }
         .av-msg-avatar {
           flex-shrink: 0;
-          width: 26px;
-          height: 26px;
+          width: 28px;
+          height: 28px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          border-radius: var(--radius-xs);
-          background: var(--bg-2);
-          border: 1px solid var(--hairline-2);
-          color: var(--ink-soft);
+          border-radius: var(--radius-control);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          color: var(--text-secondary);
         }
         .av-msg.is-user .av-msg-avatar {
-          background: var(--accent-quiet);
-          border-color: var(--accent-line);
-          color: var(--accent-soft);
+          background: var(--accent-soft);
+          border-color: var(--accent-glow);
+          color: var(--accent);
         }
         .av-msg-body {
           display: flex;
           flex-direction: column;
-          gap: 0.2rem;
+          gap: var(--space-1);
           max-width: calc(100% - 44px);
           min-width: 0;
         }
@@ -797,31 +798,31 @@ export function AssistantView() {
           align-items: flex-end;
         }
         .av-msg-bubble {
-          padding: 0.55rem 0.75rem;
-          background: var(--bg-1);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius-sm);
-          font-size: 0.82rem;
-          color: var(--ink);
-          line-height: 1.65;
+          padding: var(--space-3) var(--space-4);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-panel);
+          font-size: var(--text-body);
+          color: var(--text-primary);
+          line-height: 1.6;
           word-break: break-word;
           white-space: pre-wrap;
         }
         .av-msg.is-user .av-msg-bubble {
           background: var(--accent);
           border-color: transparent;
-          color: var(--accent-ink);
+          color: var(--text-on-accent);
         }
         .av-msg-time {
-          font-size: 0.65rem;
-          color: var(--ink-faint);
+          font-size: var(--text-label);
+          color: var(--text-muted);
           font-family: var(--font-mono);
-          padding: 0 0.2rem;
+          padding: 0 var(--space-1);
         }
 
         /* 媒体产物 */
         .av-media {
-          margin-top: 0.5rem;
+          margin-top: var(--space-2);
           max-width: 100%;
         }
         .av-media-img,
@@ -829,9 +830,9 @@ export function AssistantView() {
         .av-media-audio {
           display: block;
           max-width: 100%;
-          border-radius: var(--radius-xs);
-          border: 1px solid var(--hairline);
-          background: var(--bg-0);
+          border-radius: var(--radius-control);
+          border: 1px solid var(--border-subtle);
+          background: var(--bg-canvas);
         }
         .av-media-img {
           max-height: 320px;
@@ -843,65 +844,74 @@ export function AssistantView() {
         .av-media-link {
           display: inline-flex;
           align-items: center;
-          gap: 0.35rem;
-          padding: 0.4rem 0.6rem;
-          border-radius: var(--radius-xs);
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          color: var(--accent-soft);
-          font-size: 0.75rem;
+          gap: var(--space-1);
+          padding: var(--space-2) var(--space-3);
+          border-radius: var(--radius-control);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          color: var(--accent);
+          font-size: var(--text-aux);
           text-decoration: none;
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard);
+        }
+        .av-media-link:hover {
+          border-color: var(--border-strong);
+          background: var(--bg-surface-3);
         }
 
-        /* 打字指示器 */
+        /* 打字指示器(运行态,用 --run) */
         .av-typing {
           display: inline-flex;
           align-items: center;
-          gap: 0.25rem;
-          padding: 0.15rem 0;
+          gap: var(--space-1);
+          padding: var(--space-1) 0;
         }
         .av-typing-dot {
           width: 5px;
           height: 5px;
           border-radius: 50%;
-          background: var(--ink-faint);
-          animation: av-typing-bounce 1.2s ease-in-out infinite;
+          background: var(--run);
+          animation: av-typing-pulse 1.2s ease-in-out infinite;
         }
         .av-typing-dot:nth-child(2) { animation-delay: 0.15s; }
         .av-typing-dot:nth-child(3) { animation-delay: 0.3s; }
-        @keyframes av-typing-bounce {
-          0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-          30% { transform: translateY(-4px); opacity: 1; }
+        @keyframes av-typing-pulse {
+          0%, 60%, 100% { opacity: 0.25; }
+          30% { opacity: 1; }
         }
 
-        /* ───── 输入区（composer）───── */
+        /* ───── 输入区(composer) ───── */
         .av-composer {
           flex-shrink: 0;
-          padding: 0.75rem 1rem 1rem;
-          background: var(--bg-1);
-          border-top: 1px solid var(--hairline);
+          padding: var(--space-3) var(--space-4) var(--space-4);
+          background: var(--bg-surface-1);
+          border-top: 1px solid var(--border-subtle);
           z-index: 5;
         }
         .av-composer-box {
           display: flex;
           align-items: flex-end;
-          gap: 0.5rem;
-          padding: 0.5rem;
-          background: var(--bg-0);
-          border: 1px solid var(--hairline-2);
-          border-radius: var(--radius-sm);
-          transition: border-color var(--dur) var(--ease),
-            box-shadow var(--dur) var(--ease);
+          gap: var(--space-2);
+          padding: var(--space-2);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-panel);
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            box-shadow var(--duration-fast) var(--ease-standard);
+        }
+        .av-composer-box:hover {
+          border-color: var(--border-strong);
         }
         .av-composer-box:focus-within {
-          border-color: var(--accent-line);
-          box-shadow: 0 0 0 2px var(--accent-quiet);
+          border-color: var(--accent);
+          box-shadow: 0 0 0 3px var(--accent-soft);
         }
         .av-composer-actions {
           display: flex;
           align-items: center;
-          gap: 0.25rem;
-          padding-bottom: 0.15rem;
+          gap: var(--space-1);
+          padding-bottom: 2px;
         }
         .av-composer-actions--left {
           margin-right: auto;
@@ -910,46 +920,45 @@ export function AssistantView() {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 28px;
-          height: 28px;
-          border-radius: var(--radius-xs);
+          width: 30px;
+          height: 30px;
+          border-radius: var(--radius-control);
           background: transparent;
           border: none;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           cursor: pointer;
-          transition: all var(--dur) var(--ease);
+          transition: background-color var(--duration-fast) var(--ease-standard),
+            color var(--duration-fast) var(--ease-standard);
         }
         .av-composer-btn:hover:not(:disabled) {
-          background: var(--bg-2);
-          color: var(--ink-soft);
+          background: var(--bg-surface-2);
+          color: var(--text-primary);
         }
         .av-composer-btn:disabled {
-          opacity: 0.3;
+          opacity: 0.4;
           cursor: not-allowed;
         }
-        .av-composer-btn-ghost {
-          opacity: 0.6;
-        }
+        /* 发送:primary(accent),运行中由 stop 按钮接管 */
         .av-composer-send {
-          background: var(--accent-quiet) !important;
-          color: var(--accent-soft) !important;
+          background: var(--accent);
+          color: var(--text-on-accent);
         }
         .av-composer-send:hover:not(:disabled) {
-          background: linear-gradient(135deg, var(--accent), var(--accent-deep)) !important;
-          color: var(--accent-ink) !important;
+          background: var(--accent-hover);
+          color: var(--text-on-accent);
         }
         .av-composer-send:disabled {
-          opacity: 0.3 !important;
-          background: var(--bg-2) !important;
-          color: var(--ink-faint) !important;
+          background: var(--bg-surface-2);
+          color: var(--text-muted);
         }
+        /* 停止:运行态专用 --run */
         .av-composer-stop {
-          background: var(--warn-quiet, rgba(217,119,6,0.08)) !important;
-          color: var(--warn, #d97706) !important;
+          background: var(--run-soft);
+          color: var(--run);
         }
         .av-composer-stop:hover {
-          background: var(--warn, #d97706) !important;
-          color: white !important;
+          background: var(--run);
+          color: var(--text-on-accent);
         }
         .av-composer-input {
           flex: 1;
@@ -957,16 +966,16 @@ export function AssistantView() {
           resize: none;
           border: none;
           background: transparent;
-          color: var(--ink);
-          font-size: 0.82rem;
+          color: var(--text-primary);
+          font-size: var(--text-body);
           font-family: var(--font-sans);
           line-height: 1.55;
-          padding: 0.2rem 0.3rem;
+          padding: var(--space-1) var(--space-2);
           outline: none;
           max-height: 176px;
         }
         .av-composer-input::placeholder {
-          color: var(--ink-faint);
+          color: var(--text-muted);
         }
         .av-composer-input:disabled {
           opacity: 0.5;
@@ -974,35 +983,34 @@ export function AssistantView() {
         .av-composer-hint {
           display: flex;
           justify-content: center;
-          margin-top: 0.4rem;
+          margin-top: var(--space-2);
         }
         .av-composer-hint span {
-          font-size: 0.66rem;
-          color: var(--ink-faint);
+          font-size: var(--text-label);
+          color: var(--text-muted);
         }
 
-        /* ───── 侧边面板（对齐 cv-add-popover 风格）───── */
+        /* ───── 侧边面板(历史 / 模型设置) ───── */
         .av-panel {
           position: absolute;
           top: 0;
           bottom: 0;
-          width: 260px;
+          width: 280px;
           display: flex;
           flex-direction: column;
-          background: var(--bg-1);
+          background: var(--bg-surface-1);
           z-index: 15;
-          transition: transform var(--dur-2) var(--ease),
-            opacity var(--dur-2) var(--ease);
-          box-shadow: var(--shadow-lg);
+          transition: transform var(--duration-base) var(--ease-standard);
+          box-shadow: var(--shadow-xl);
         }
         .av-panel--left {
           left: 0;
-          border-right: 1px solid var(--hairline-2);
+          border-right: 1px solid var(--border-subtle);
           transform: translateX(-100%);
         }
         .av-panel--right {
           right: 0;
-          border-left: 1px solid var(--hairline-2);
+          border-left: 1px solid var(--border-subtle);
           transform: translateX(100%);
         }
         .av-panel.is-open {
@@ -1013,94 +1021,96 @@ export function AssistantView() {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 0.6rem 0.75rem;
-          border-bottom: 1px solid var(--hairline);
+          padding: var(--space-3) var(--space-4);
+          border-bottom: 1px solid var(--border-subtle);
         }
         .av-panel-title {
-          font-size: 0.75rem;
-          font-weight: 600;
-          color: var(--ink);
+          font-size: var(--text-label);
+          font-weight: 500;
+          color: var(--text-secondary);
           text-transform: uppercase;
-          letter-spacing: 0.05em;
+          letter-spacing: 0.04em;
         }
         .av-panel-close {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 22px;
-          height: 22px;
-          border-radius: var(--radius-xs);
-          color: var(--ink-faint);
+          width: 24px;
+          height: 24px;
+          border-radius: var(--radius-sm);
+          color: var(--text-muted);
           cursor: pointer;
-          transition: all var(--dur) var(--ease);
+          transition: background-color var(--duration-fast) var(--ease-standard),
+            color var(--duration-fast) var(--ease-standard);
         }
         .av-panel-close:hover {
-          background: var(--bg-2);
-          color: var(--ink-soft);
+          background: var(--bg-surface-2);
+          color: var(--text-primary);
         }
         .av-panel-body {
           flex: 1;
           overflow-y: auto;
-          padding: 0.6rem;
+          padding: var(--space-3);
         }
         .av-panel-empty {
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 0.5rem;
-          padding: 2rem 1rem;
-          color: var(--ink-faint);
-          font-size: 0.75rem;
+          gap: var(--space-2);
+          padding: var(--space-8) var(--space-4);
+          color: var(--text-muted);
+          font-size: var(--text-aux);
         }
 
         /* 对话列表 */
         .av-conv-list {
           display: flex;
           flex-direction: column;
-          gap: 0.2rem;
+          gap: 2px;
         }
         .av-conv-item {
           display: flex;
           align-items: flex-start;
-          gap: 0.4rem;
-          padding: 0.5rem 0.55rem;
+          gap: var(--space-2);
+          padding: var(--space-2) var(--space-3);
           background: transparent;
           border: 1px solid transparent;
-          border-radius: var(--radius-xs);
+          border-radius: var(--radius-control);
           cursor: pointer;
           text-align: left;
-          transition: all var(--dur) var(--ease);
+          transition: background-color var(--duration-fast) var(--ease-standard),
+            border-color var(--duration-fast) var(--ease-standard);
         }
         .av-conv-item:hover {
-          background: var(--bg-2);
-          border-color: var(--hairline);
+          background: var(--bg-surface-2);
+          border-color: var(--border-subtle);
         }
         .av-conv-item.is-active {
-          background: var(--accent-quiet);
-          border-color: var(--accent-line);
+          background: var(--accent-soft);
+          border-color: var(--accent-glow);
         }
         .av-conv-info {
           flex: 1;
           min-width: 0;
           display: flex;
           flex-direction: column;
-          gap: 0.15rem;
+          gap: 2px;
         }
         .av-conv-title {
-          font-size: 0.78rem;
+          font-size: var(--text-aux);
           font-weight: 500;
-          color: var(--ink);
+          color: var(--text-primary);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
         .av-conv-item.is-active .av-conv-title {
-          color: var(--accent-soft);
+          color: var(--accent);
         }
         .av-conv-meta {
-          font-size: 0.65rem;
-          color: var(--ink-faint);
+          font-size: var(--text-label);
+          color: var(--text-muted);
           font-family: var(--font-mono);
         }
         .av-conv-delete {
@@ -1110,75 +1120,78 @@ export function AssistantView() {
           justify-content: center;
           width: 20px;
           height: 20px;
-          border-radius: 3px;
-          color: var(--ink-faint);
+          border-radius: var(--radius-sm);
+          color: var(--text-muted);
           opacity: 0;
-          transition: all var(--dur) var(--ease);
+          transition: opacity var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard),
+            color var(--duration-fast) var(--ease-standard);
         }
         .av-conv-item:hover .av-conv-delete {
           opacity: 1;
         }
         .av-conv-delete:hover {
-          background: var(--danger-quiet, rgba(220,38,38,0.08));
-          color: var(--danger, #dc2626);
+          background: var(--err-soft);
+          color: var(--err);
         }
 
         /* 属性组 */
         .av-prop-group {
           display: flex;
           flex-direction: column;
-          gap: 0.3rem;
-          padding: 0.6rem 0;
-          border-bottom: 1px solid var(--hairline);
+          gap: var(--space-2);
+          padding: var(--space-3) 0;
+          border-bottom: 1px solid var(--border-subtle);
         }
         .av-prop-group:last-child {
           border-bottom: none;
         }
         .av-prop-label {
-          font-size: 0.65rem;
-          font-weight: 600;
-          color: var(--ink-faint);
+          font-size: var(--text-label);
+          font-weight: 500;
+          color: var(--text-muted);
           text-transform: uppercase;
-          letter-spacing: 0.06em;
+          letter-spacing: 0.04em;
         }
         .av-prop-value {
-          font-size: 0.78rem;
-          color: var(--ink);
+          font-size: var(--text-aux);
+          color: var(--text-primary);
         }
         .av-prop-desc {
           margin: 0;
-          font-size: 0.75rem;
-          color: var(--ink-soft);
+          font-size: var(--text-aux);
+          color: var(--text-secondary);
           line-height: 1.55;
         }
         .av-stats-row {
           display: flex;
-          gap: 0.75rem;
+          gap: var(--space-4);
         }
         .av-stat {
           display: flex;
           flex-direction: column;
-          gap: 0.1rem;
+          gap: 2px;
         }
         .av-stat-value {
-          font-size: 1.1rem;
+          font-size: var(--text-title);
           font-weight: 600;
-          color: var(--ink);
+          color: var(--text-primary);
           font-family: var(--font-mono);
+          font-variant-numeric: tabular-nums;
         }
         .av-stat-label {
-          font-size: 0.65rem;
-          color: var(--ink-faint);
+          font-size: var(--text-label);
+          color: var(--text-muted);
         }
 
         /* 遮罩 */
         .av-panel-overlay {
           position: absolute;
           inset: 0;
-          background: color-mix(in oklch, var(--bg-0) 60%, transparent);
+          background: var(--overlay-light);
           backdrop-filter: blur(2px);
           z-index: 10;
-          animation: av-overlay-in var(--dur) var(--ease);
+          animation: av-overlay-in var(--duration-fast) var(--ease-standard);
         }
         @keyframes av-overlay-in {
           from { opacity: 0; }
@@ -1195,14 +1208,14 @@ export function AssistantView() {
         @media (max-width: 768px) {
           .av-toolbar {
             flex-wrap: wrap;
-            gap: 0.3rem;
-            padding: 0.4rem 0.5rem;
+            gap: var(--space-1);
+            padding: var(--space-2);
           }
           .av-tb-btn span {
             display: none;
           }
           .av-msg-list {
-            padding: 1rem;
+            padding: var(--space-4);
           }
           .av-quick-grid {
             grid-template-columns: 1fr;
@@ -1212,7 +1225,7 @@ export function AssistantView() {
             max-width: 300px;
           }
           .av-composer {
-            padding: 0.5rem 0.75rem 0.75rem;
+            padding: var(--space-2) var(--space-3) var(--space-3);
           }
         }
       `}</style>

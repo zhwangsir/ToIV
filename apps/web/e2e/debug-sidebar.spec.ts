@@ -3,16 +3,17 @@ import * as fs from "fs";
 import * as path from "path";
 
 /**
- * 调试脚本:连续通过 DynamicIsland 切换视图,验证导航稳定性。
+ * 调试脚本:连续通过左侧栏切换视图,验证导航稳定性。
  *
- * 背景:应用已从 Sidebar 迁移到 DynamicIsland 作为主导航。
- * - DynamicIsland 默认 "dot" 状态,点击 .di-dot-button 打开 .di-menu
- * - .di-menu 内的 .di-menu-item 按钮触发视图切换
- * - 视图切换后 DynamicIsland 进入 "pill" 状态 2.5s,然后回归 "dot"
+ * 背景(W0/W3 UI 重构后):主导航已从 DynamicIsland 迁移为左侧栏 + 底部导航。
+ * - 桌面端:aside.app-sidebar,视图按钮为 .app-sidebar-item(直接点击切换)
+ * - 移动端:nav.app-bottom-nav(.bottom-nav-item + 「更多」抽屉 .more-nav-item)
+ * - 全局顶栏 header.topbar 已移除(--topbar-h: 0px)
+ * - W3 退役 create/video/ltxstudio 视图,?view=create 会前端重定向到 ?view=generate
  *
  * 测试流程:
  * 1. 登录态打开 /?view=assistant
- * 2. 通过 DynamicIsland 菜单依次切换 8 个视图(不重新加载页面)
+ * 2. 通过侧栏 .app-sidebar-item 依次切换视图(不重新加载页面)
  * 3. 每次切换后:
  *    - 等待 1.2s 让视图渲染
  *    - 截图保存到 test-results/sidebar-click-{view}-{idx}.png
@@ -23,17 +24,18 @@ import * as path from "path";
 // 手动注入 storageState(因文件名不匹配 authed-* 前缀)
 test.use({ storageState: ".auth/admin.json" });
 
-// DynamicIsland 中实际存在的视图(page.tsx 的 diViews 列表)
-// 注意:train/backlot 不在 DynamicIsland 导航中,只能通过 URL 直接访问
+// 侧栏中实际存在的视图(page.tsx 的 SIDEBAR_ITEMS 列表)
+// 注意:models/train/backlot/admin/animatic 不在侧栏一级导航中,只能通过 URL 直接访问
 const VIEW_FLOW: { key: string; label: string }[] = [
-  { key: "assistant",    label: "AI 助手" },     // 初始视图,通过 goto 进入
-  { key: "create",       label: "图像创作" },
-  { key: "canvas",       label: "画布" },
-  { key: "dub",          label: "译制配音" },
-  { key: "library",      label: "作品库" },
-  { key: "models",       label: "模型库" },
-  { key: "admin",        label: "管理" },
-  { key: "assistant",    label: "AI 助手" },     // 回到 assistant,验证可恢复
+  { key: "assistant",   label: "对话" },       // 初始视图,通过 goto 进入
+  { key: "generate",    label: "生成" },
+  { key: "dramaStudio", label: "短剧" },
+  { key: "avatartalk",  label: "数字人" },
+  { key: "canvas",      label: "画布" },
+  { key: "dub",         label: "译制" },
+  { key: "library",     label: "作品库" },
+  { key: "resources",   label: "资源" },
+  { key: "assistant",   label: "对话" },       // 回到 assistant,验证可恢复
 ];
 
 const ERROR_PATTERNS = [
@@ -57,8 +59,7 @@ interface ClickResult {
   viewKey: string;
   viewLabel: string;
   url: string;
-  diContainerVisible: boolean;
-  topbarVisible: boolean;
+  sidebarVisible: boolean;
   appShellVisible: boolean;
   isLandingPage: boolean;
   redirectedToLogin: boolean;
@@ -72,8 +73,8 @@ interface ClickResult {
   clickError?: string | null;
 }
 
-test.describe("DynamicIsland 导航调试 @authed", () => {
-  test("连续切换 DynamicIsland 视图,捕获崩溃", { tag: "@authed" }, async ({ page }) => {
+test.describe("侧栏导航调试 @authed", () => {
+  test("连续切换侧栏视图,捕获崩溃", { tag: "@authed" }, async ({ page }) => {
     test.setTimeout(120000);
 
     const resultsDir = "test-results/sidebar-debug";
@@ -127,7 +128,7 @@ test.describe("DynamicIsland 导航调试 @authed", () => {
       page,
       1,
       "assistant",
-      "AI 助手",
+      "对话",
       initialShot,
       Date.now() - stepStart,
       allConsoleErrors.slice(),
@@ -135,7 +136,7 @@ test.describe("DynamicIsland 导航调试 @authed", () => {
     );
     results.push(initial);
 
-    // ── 步骤 2~N:通过 DynamicIsland 切换视图 ────────
+    // ── 步骤 2~N:通过侧栏切换视图 ────────────────────
     for (let i = 1; i < VIEW_FLOW.length; i++) {
       const { key, label } = VIEW_FLOW[i];
       const t0 = Date.now();
@@ -147,7 +148,7 @@ test.describe("DynamicIsland 导航调试 @authed", () => {
       let clickError: string | null = null;
 
       try {
-        await selectViewViaDynamicIsland(page, label);
+        await selectViewViaSidebar(page, label);
       } catch (e) {
         clickOk = false;
         clickError = e instanceof Error ? e.message : String(e);
@@ -180,7 +181,7 @@ test.describe("DynamicIsland 导航调试 @authed", () => {
 
       if (!clickOk) {
         result.crashed = true;
-        result.crashReasons.push(`DynamicIsland 切换失败: ${clickError}`);
+        result.crashReasons.push(`侧栏切换失败: ${clickError}`);
         result.clickError = clickError;
       }
 
@@ -191,15 +192,14 @@ test.describe("DynamicIsland 导航调试 @authed", () => {
     const crashedResults = results.filter((r) => r.crashed);
     const firstCrash = crashedResults[0] ?? null;
 
-    console.log("\n\n========== DynamicIsland 导航调试报告 ==========\n");
+    console.log("\n\n========== 侧栏导航调试报告 ==========\n");
     console.log(
       [
         "步骤".padEnd(4),
         "视图key".padEnd(10),
         "标签".padEnd(10),
         "URL".padEnd(50),
-        "DI".padEnd(4),
-        "Topbar".padEnd(6),
+        "侧栏".padEnd(4),
         "登录页".padEnd(6),
         "错误文案".padEnd(20),
         "Console".padEnd(7),
@@ -215,8 +215,7 @@ test.describe("DynamicIsland 导航调试 @authed", () => {
           r.viewKey.padEnd(10),
           r.viewLabel.padEnd(10),
           (r.url.length > 50 ? r.url.slice(0, 47) + "..." : r.url).padEnd(50),
-          (r.diContainerVisible ? "✓" : "✗").padEnd(4),
-          (r.topbarVisible ? "✓" : "✗").padEnd(6),
+          (r.sidebarVisible ? "✓" : "✗").padEnd(4),
           (r.isLandingPage ? "是" : "否").padEnd(6),
           (r.errorPatterns.join(",") || "—").padEnd(20),
           String(r.newConsoleErrors.length).padEnd(7),
@@ -231,7 +230,7 @@ test.describe("DynamicIsland 导航调试 @authed", () => {
       console.log("(无)");
     } else {
       allConsoleErrors.forEach((e, i) => {
-        const loc = e.url ? ` [${e.url}${e.line ? `:${e.line}:${e.column ?? ""}` : ""}]` : "";
+        const loc = e.url ? ` [${e.url}${e.line ? `:${e.line}:${e.column ?? ""}` : ""}` : "";
         console.log(`[${i + 1}] ${e.type}: ${e.text}${loc}`);
       });
     }
@@ -293,38 +292,29 @@ test.describe("DynamicIsland 导航调试 @authed", () => {
 
     expect(
       crashedResults.length,
-      `DynamicIsland 连续切换不应导致崩溃,崩溃视图: ${crashedResults.map((r) => `${r.viewKey}(${r.step})`).join(", ")}`,
+      `侧栏连续切换不应导致崩溃,崩溃视图: ${crashedResults.map((r) => `${r.viewKey}(${r.step})`).join(", ")}`,
     ).toBe(0);
   });
 });
 
 /**
- * 通过 DynamicIsland 切换到指定视图。
- * 1. 等待 DynamicIsland 可见
- * 2. 点击 .di-dot-button 或 .di-pill-button 打开菜单
- * 3. 点击匹配 label 的 .di-menu-item
+ * 通过侧栏切换到指定视图。
+ * 1. 等待 aside.app-sidebar 可见
+ * 2. 点击匹配 label 的 .app-sidebar-item
  */
-async function selectViewViaDynamicIsland(
+async function selectViewViaSidebar(
   page: import("@playwright/test").Page,
   label: string,
 ): Promise<void> {
-  await page.locator(".di-container").waitFor({ state: "visible", timeout: 5000 });
+  await page.locator(".app-sidebar").waitFor({ state: "visible", timeout: 5000 });
 
-  // DynamicIsland 可能处于 dot 或 pill 状态;点击触发按钮打开菜单
-  const trigger = page.locator(".di-island > button").first();
-  await trigger.waitFor({ state: "visible", timeout: 5000 });
-  await trigger.click({ timeout: 5000 });
-
-  // 等待菜单出现
-  await expect(page.locator(".di-menu")).toBeVisible({ timeout: 3000 });
-
-  // 点击匹配 label 的菜单项
-  const item = page.locator(".di-menu-item", { hasText: label }).first();
+  // 点击匹配 label 的侧栏项
+  const item = page.locator(".app-sidebar-item", { hasText: label }).first();
   await item.waitFor({ state: "visible", timeout: 3000 });
   await item.click({ timeout: 5000 });
 
   // 等待 URL 变化(视图切换)
-  await page.waitForURL(`**/?view=${label === "AI 助手" ? "assistant" : ""}`, { timeout: 5000 }).catch(() => {
+  await page.waitForURL("**/?view=**", { timeout: 5000 }).catch(() => {
     // URL 可能不立即变化,继续
   });
 }
@@ -341,8 +331,7 @@ async function captureState(
 ): Promise<ClickResult> {
   const url = page.url();
 
-  const diContainerVisible = await page.locator(".di-container").isVisible().catch(() => false);
-  const topbarVisible = await page.locator("header.topbar").isVisible().catch(() => false);
+  const sidebarVisible = await page.locator(".app-sidebar").isVisible().catch(() => false);
   const appShellVisible = await page.locator(".app-shell").isVisible().catch(() => false);
   const landingFormCount = await page.locator(".landing-form").count().catch(() => 0);
   const isLandingPage = landingFormCount > 0;
@@ -355,7 +344,7 @@ async function captureState(
 
   const crashReasons: string[] = [];
   if (!appShellVisible) crashReasons.push("app-shell 消失");
-  if (!diContainerVisible) crashReasons.push("DynamicIsland 不可见");
+  if (!sidebarVisible) crashReasons.push("侧栏不可见");
   if (isLandingPage) crashReasons.push("落地页(登录表单)出现,会话已掉");
   if (redirectedToLogin) crashReasons.push(`重定向到登录页: ${url}`);
   if (errorPatterns.length > 0) crashReasons.push(`页面包含错误文案: ${errorPatterns.join(", ")}`);
@@ -366,8 +355,7 @@ async function captureState(
     viewKey,
     viewLabel,
     url,
-    diContainerVisible,
-    topbarVisible,
+    sidebarVisible,
     appShellVisible,
     isLandingPage,
     redirectedToLogin,

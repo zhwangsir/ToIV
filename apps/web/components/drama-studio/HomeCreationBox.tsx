@@ -260,7 +260,7 @@ export function HomeCreationBox({ onCreate, onSkillApplied }: HomeCreationBoxPro
           max-width: 760px;
           margin: 0 auto;
           padding: 2px;
-          border-radius: var(--radius);
+          border-radius: var(--radius-control);
           background: linear-gradient(
             135deg,
             var(--accent),
@@ -268,7 +268,7 @@ export function HomeCreationBox({ onCreate, onSkillApplied }: HomeCreationBoxPro
             transparent 70%,
             var(--accent)
           );
-          box-shadow: 0 24px 64px -28px var(--accent-quiet);
+          box-shadow: 0 24px 64px -28px var(--accent-soft);
         }
         .ds-home-glow {
           position: absolute;
@@ -276,7 +276,7 @@ export function HomeCreationBox({ onCreate, onSkillApplied }: HomeCreationBoxPro
           z-index: -1;
           background: radial-gradient(
             circle at 50% 0%,
-            var(--accent-wash),
+            var(--accent-soft),
             transparent 60%
           );
           pointer-events: none;
@@ -286,8 +286,8 @@ export function HomeCreationBox({ onCreate, onSkillApplied }: HomeCreationBoxPro
           flex-direction: column;
           gap: 1rem;
           padding: 1.5rem 1.6rem 1.4rem;
-          background: var(--bg-1);
-          border-radius: calc(var(--radius) - 2px);
+          background: var(--bg-surface-1);
+          border-radius: calc(var(--radius-control) - 2px);
         }
         .ds-home-head {
           display: flex;
@@ -298,20 +298,20 @@ export function HomeCreationBox({ onCreate, onSkillApplied }: HomeCreationBoxPro
           display: inline-flex;
           align-items: center;
           gap: 0.5rem;
-          font-family: var(--font-display);
+          font-family: var(--font-sans);
           font-size: 1.3rem;
           font-weight: 500;
-          color: var(--ink);
+          color: var(--text-primary);
           letter-spacing: -0.02em;
         }
         .ds-home-title :global(svg) {
           color: var(--accent);
-          filter: drop-shadow(0 0 6px var(--accent-quiet));
+          filter: drop-shadow(0 0 6px var(--accent-soft));
         }
         .ds-home-sub {
           margin: 0;
           font-size: 0.78rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           line-height: 1.5;
         }
         .ds-home-form {
@@ -333,46 +333,46 @@ export function HomeCreationBox({ onCreate, onSkillApplied }: HomeCreationBoxPro
         .ds-home-input {
           width: 100%;
           padding: 0.6rem 0.75rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline-2);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-strong);
           border-radius: var(--radius-xs);
-          color: var(--ink);
+          color: var(--text-primary);
           font-size: 0.86rem;
           font-family: inherit;
-          transition: border-color var(--dur) var(--ease),
-            box-shadow var(--dur) var(--ease);
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            box-shadow var(--duration-fast) var(--ease-standard);
         }
         .ds-home-input:focus {
           outline: none;
           border-color: var(--accent);
-          box-shadow: 0 0 0 3px var(--accent-wash);
+          box-shadow: 0 0 0 3px var(--accent-soft);
         }
         .ds-home-textarea {
           width: 100%;
           padding: 0.7rem 0.85rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline-2);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-strong);
           border-radius: var(--radius-xs);
-          color: var(--ink);
+          color: var(--text-primary);
           font-size: 0.86rem;
           font-family: inherit;
           line-height: 1.6;
           resize: vertical;
           min-height: 120px;
-          transition: border-color var(--dur) var(--ease),
-            box-shadow var(--dur) var(--ease);
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            box-shadow var(--duration-fast) var(--ease-standard);
         }
         .ds-home-textarea:focus {
           outline: none;
           border-color: var(--accent);
-          box-shadow: 0 0 0 3px var(--accent-wash);
+          box-shadow: 0 0 0 3px var(--accent-soft);
         }
         .ds-home-hint {
           position: absolute;
           right: 0.5rem;
           bottom: 0.35rem;
           font-size: 0.62rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           font-family: var(--font-mono);
           letter-spacing: 0.02em;
           pointer-events: none;
@@ -380,10 +380,10 @@ export function HomeCreationBox({ onCreate, onSkillApplied }: HomeCreationBoxPro
         }
         .ds-home-error {
           padding: 0.45rem 0.6rem;
-          background: var(--danger-quiet);
-          border: 1px solid var(--danger);
+          background: var(--err-soft);
+          border: 1px solid var(--err);
           border-radius: var(--radius-xs);
-          color: var(--danger);
+          color: var(--err);
           font-size: 0.78rem;
         }
         .ds-home-actions {
@@ -401,7 +401,7 @@ export function HomeCreationBox({ onCreate, onSkillApplied }: HomeCreationBoxPro
           flex-direction: column;
           gap: 0.5rem;
           padding-top: 0.85rem;
-          border-top: 1px dashed var(--hairline);
+          border-top: 1px dashed var(--border-subtle);
         }
         .ds-home-skills-head {
           display: inline-flex;
@@ -409,7 +409,7 @@ export function HomeCreationBox({ onCreate, onSkillApplied }: HomeCreationBoxPro
           gap: 0.35rem;
           font-size: 0.74rem;
           font-weight: 600;
-          color: var(--ink-soft);
+          color: var(--text-secondary);
           text-transform: uppercase;
           letter-spacing: 0.06em;
         }
@@ -423,7 +423,7 @@ export function HomeCreationBox({ onCreate, onSkillApplied }: HomeCreationBoxPro
           gap: 0.4rem;
           padding: 0.5rem 0.6rem;
           font-size: 0.76rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
         }
         .ds-home-skills-list {
           list-style: none;
@@ -439,7 +439,7 @@ export function HomeCreationBox({ onCreate, onSkillApplied }: HomeCreationBoxPro
           height: 6px;
         }
         .ds-home-skills-list::-webkit-scrollbar-thumb {
-          background: var(--hairline-2);
+          background: var(--border-strong);
           border-radius: 3px;
         }
         .ds-home-skill-card {
@@ -447,8 +447,8 @@ export function HomeCreationBox({ onCreate, onSkillApplied }: HomeCreationBoxPro
           flex-direction: column;
           gap: 0.3rem;
           padding: 0.55rem 0.7rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-xs);
           min-width: 180px;
           max-width: 220px;
@@ -468,34 +468,34 @@ export function HomeCreationBox({ onCreate, onSkillApplied }: HomeCreationBoxPro
           font-size: 0.62rem;
           font-family: var(--font-mono);
           letter-spacing: 0.02em;
-          background: var(--bg-3);
-          color: var(--ink-soft);
+          background: var(--bg-surface-3);
+          color: var(--text-secondary);
         }
         .ds-home-skill-cat-action {
-          background: #fee2e2;
-          color: #991b1b;
+          background: var(--err-soft);
+          color: var(--err);
         }
         .ds-home-skill-cat-romance {
-          background: #fce7f3;
-          color: #9d174d;
+          background: var(--accent-soft);
+          color: var(--accent);
         }
         .ds-home-skill-cat-scifi {
-          background: #dbeafe;
-          color: #1e40af;
+          background: var(--run-soft);
+          color: var(--run);
         }
         .ds-home-skill-cat-comedy {
-          background: #fef9c3;
-          color: #854d0e;
+          background: var(--warn-soft);
+          color: var(--warn);
         }
         .ds-home-skill-shots {
           font-size: 0.62rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           font-family: var(--font-mono);
         }
         .ds-home-skill-name {
           font-size: 0.82rem;
           font-weight: 600;
-          color: var(--ink);
+          color: var(--text-primary);
           line-height: 1.3;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -504,7 +504,7 @@ export function HomeCreationBox({ onCreate, onSkillApplied }: HomeCreationBoxPro
         .ds-home-skill-desc {
           margin: 0;
           font-size: 0.7rem;
-          color: var(--ink-soft);
+          color: var(--text-secondary);
           line-height: 1.4;
           display: -webkit-box;
           -webkit-line-clamp: 2;

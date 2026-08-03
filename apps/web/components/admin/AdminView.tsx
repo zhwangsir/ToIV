@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createUser, deleteUser, listUsers } from "@/lib/api";
 import type { AdminUser } from "@/lib/types";
 import { Icon } from "@/components/ui/Icon";
+import { Tabs } from "@/components/ui/Tabs";
 import { AgentsAdminView } from "@/components/admin/AgentsAdminView";
 
 type AdminSubView = "users" | "agents";
@@ -169,27 +170,16 @@ export function AdminView() {
 
   return (
     <div className="single-view admin-view">
-      <div className="admin-tabs" role="tablist" aria-label="管理子页">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={subView === "users"}
-          className={`admin-tab${subView === "users" ? " is-active" : ""}`}
-          onClick={() => setSubView("users")}
-        >
-          <Icon name="admin" size={14} />
-          用户管理
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={subView === "agents"}
-          className={`admin-tab${subView === "agents" ? " is-active" : ""}`}
-          onClick={() => setSubView("agents")}
-        >
-          <Icon name="sparkles" size={14} />
-          智能体管理
-        </button>
+      <div className="admin-tabs">
+        <Tabs
+          items={[
+            { key: "users", label: "用户管理", icon: <Icon name="admin" size={14} /> },
+            { key: "agents", label: "智能体管理", icon: <Icon name="sparkles" size={14} /> },
+          ]}
+          current={subView}
+          onChange={(k) => setSubView(k as AdminSubView)}
+          ariaLabel="管理子页"
+        />
       </div>
 
       {subView === "agents" && <AgentsAdminView />}
@@ -484,43 +474,7 @@ export function AdminView() {
         }
 
         .admin-tabs {
-          display: flex;
-          align-items: center;
-          gap: 0.25rem;
-          padding: 0.25rem;
-          background: var(--bg-2);
-          border: 1px solid var(--hairline);
-          border-radius: var(--radius-sm);
           align-self: flex-start;
-        }
-        .admin-tab {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.35rem;
-          padding: 0.4rem 0.75rem;
-          font-size: 0.82rem;
-          font-weight: 500;
-          color: var(--ink-faint);
-          background: transparent;
-          border: 1px solid transparent;
-          border-radius: var(--radius-xs);
-          cursor: pointer;
-          transition: background-color var(--dur) var(--ease),
-            color var(--dur) var(--ease), border-color var(--dur) var(--ease);
-          white-space: nowrap;
-        }
-        .admin-tab:hover {
-          color: var(--ink-soft);
-          background: var(--accent-wash);
-        }
-        .admin-tab.is-active {
-          color: var(--accent-soft);
-          background: var(--bg-1);
-          border-color: var(--accent-line);
-        }
-        .admin-tab:focus-visible {
-          outline: 2px solid var(--accent);
-          outline-offset: 2px;
         }
         @media (max-width: 768px) {
           .admin-tabs {
@@ -535,7 +489,7 @@ export function AdminView() {
           gap: var(--space-4);
           flex-wrap: wrap;
           padding-bottom: var(--space-4);
-          border-bottom: 1px solid var(--hairline);
+          border-bottom: 1px solid var(--border-subtle);
         }
         .admin-header-left {
           display: flex;
@@ -545,16 +499,16 @@ export function AdminView() {
         }
         .admin-title {
           margin: 0;
-          font-family: var(--font-display);
-          font-size: 1.5rem;
-          font-weight: 500;
+          font-family: var(--font-sans);
+          font-size: var(--text-title);
+          font-weight: 700;
           letter-spacing: -0.02em;
-          color: var(--ink);
-          line-height: 1.2;
+          color: var(--text-primary);
+          line-height: 1.3;
         }
         .admin-count {
           font-size: 0.78rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           font-family: var(--font-mono);
           letter-spacing: 0.01em;
         }
@@ -582,11 +536,11 @@ export function AdminView() {
           align-items: center;
           gap: var(--space-3);
           padding: var(--space-6);
-          color: var(--ink-faint);
+          color: var(--text-muted);
         }
         .admin-error-msg {
           font-size: 0.88rem;
-          color: var(--ink-soft);
+          color: var(--text-secondary);
         }
 
         .admin-table-wrap {
@@ -604,25 +558,22 @@ export function AdminView() {
           font-weight: 500;
           text-transform: uppercase;
           letter-spacing: 0.04em;
-          color: var(--ink-faint);
-          background: var(--bg-2);
-          border-bottom: 1px solid var(--hairline);
+          color: var(--text-muted);
+          background: var(--bg-surface-2);
+          border-bottom: 1px solid var(--border-subtle);
           white-space: nowrap;
         }
         .admin-table tbody td {
           padding: 0.7rem 0.9rem;
-          border-bottom: 1px solid var(--hairline);
+          border-bottom: 1px solid var(--border-subtle);
           vertical-align: middle;
-          color: var(--ink-soft);
+          color: var(--text-secondary);
         }
         .admin-table tbody tr {
-          transition: background-color var(--dur) var(--ease);
+          transition: background-color var(--duration-fast) var(--ease-standard);
         }
         .admin-table tbody tr:hover {
-          background: var(--accent-wash);
-        }
-        .admin-table tbody tr:hover td {
-          color: var(--ink);
+          background: var(--bg-surface-2);
         }
         .admin-table tbody tr.is-deleting {
           opacity: 0.5;
@@ -657,9 +608,9 @@ export function AdminView() {
           width: 32px;
           height: 32px;
           border-radius: 50%;
-          background: var(--accent-quiet);
-          border: 1px solid var(--accent-line);
-          color: var(--accent-soft);
+          background: var(--accent-soft);
+          border: 1px solid var(--accent-glow);
+          color: var(--accent);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -674,7 +625,7 @@ export function AdminView() {
           gap: 0.05rem;
         }
         .admin-email {
-          color: var(--ink);
+          color: var(--text-primary);
           font-size: 0.88rem;
           font-weight: 500;
           overflow: hidden;
@@ -683,7 +634,7 @@ export function AdminView() {
         }
         .admin-id {
           font-size: 0.7rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           font-family: var(--font-mono);
           overflow: hidden;
           text-overflow: ellipsis;
@@ -692,14 +643,14 @@ export function AdminView() {
 
         .admin-time {
           font-size: 0.78rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           font-family: var(--font-mono);
           white-space: nowrap;
         }
 
         .admin-usage {
           font-size: 0.78rem;
-          color: var(--ink-soft);
+          color: var(--text-secondary);
           font-family: var(--font-mono);
           letter-spacing: 0.01em;
         }
@@ -714,15 +665,15 @@ export function AdminView() {
         .admin-modal {
           position: fixed;
           inset: 0;
-          z-index: 100;
+          z-index: var(--z-modal);
           display: flex;
           align-items: center;
           justify-content: center;
           padding: var(--space-4);
-          background: oklch(3% 0.004 265 / 0.7);
+          background: var(--overlay-strong);
           backdrop-filter: blur(8px);
           -webkit-backdrop-filter: blur(8px);
-          animation: admin-fade var(--dur-2) var(--ease);
+          animation: admin-fade var(--duration-base) var(--ease-standard);
         }
         @keyframes admin-fade {
           from {
@@ -741,12 +692,12 @@ export function AdminView() {
         .admin-modal-body {
           width: 100%;
           max-width: 420px;
-          background: var(--bg-1);
-          border: 1px solid var(--hairline-2);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-strong);
           border-radius: var(--radius-lg);
           box-shadow: var(--shadow-lg);
           overflow: hidden;
-          animation: admin-pop var(--dur-2) var(--ease);
+          animation: admin-pop var(--duration-base) var(--ease-standard);
         }
         @keyframes admin-pop {
           from {
@@ -770,20 +721,20 @@ export function AdminView() {
           justify-content: space-between;
           gap: var(--space-3);
           padding: var(--space-4) var(--space-4) var(--space-3);
-          border-bottom: 1px solid var(--hairline);
+          border-bottom: 1px solid var(--border-subtle);
         }
         .admin-modal-title {
-          font-family: var(--font-display);
-          font-size: 1.1rem;
-          font-weight: 500;
-          color: var(--ink);
+          font-family: var(--font-sans);
+          font-size: var(--text-section);
+          font-weight: 600;
+          color: var(--text-primary);
           letter-spacing: -0.01em;
           line-height: 1.3;
         }
         .admin-modal-sub {
           margin-top: 0.2rem;
           font-size: 0.78rem;
-          color: var(--ink-faint);
+          color: var(--text-muted);
         }
         .admin-modal-close {
           display: flex;
@@ -795,17 +746,17 @@ export function AdminView() {
           background: transparent;
           border: 1px solid transparent;
           border-radius: var(--radius-xs);
-          color: var(--ink-faint);
+          color: var(--text-muted);
           cursor: pointer;
-          transition: background-color var(--dur) var(--ease),
-            color var(--dur) var(--ease);
+          transition: background-color var(--duration-fast) var(--ease-standard),
+            color var(--duration-fast) var(--ease-standard);
         }
         .admin-modal-close:hover {
-          background: var(--bg-2);
-          color: var(--ink);
+          background: var(--bg-surface-2);
+          color: var(--text-primary);
         }
         .admin-modal-close:focus-visible {
-          outline: 2px solid var(--accent);
+          outline: 1px solid var(--accent);
           outline-offset: 2px;
         }
 
@@ -822,14 +773,14 @@ export function AdminView() {
         }
         .admin-label {
           font-size: 0.78rem;
-          color: var(--ink-soft);
+          color: var(--text-secondary);
           font-weight: 500;
         }
         .admin-select {
           appearance: none;
           -webkit-appearance: none;
-          background-image: linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%),
-            linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
+          background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+            linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
           background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%;
           background-size: 5px 5px, 5px 5px;
           background-repeat: no-repeat;
@@ -839,10 +790,10 @@ export function AdminView() {
 
         .admin-form-error {
           padding: 0.5rem 0.7rem;
-          background: var(--danger-quiet);
-          border: 1px solid var(--danger);
+          background: var(--err-soft);
+          border: 1px solid var(--err);
           border-radius: var(--radius-xs);
-          color: var(--danger);
+          color: var(--err);
           font-size: 0.78rem;
           line-height: 1.45;
         }
@@ -860,7 +811,7 @@ export function AdminView() {
           display: inline-flex;
           align-items: center;
           gap: 0.4rem;
-          color: var(--danger);
+          color: var(--err);
         }
         .admin-confirm-content {
           display: flex;
@@ -870,11 +821,11 @@ export function AdminView() {
         }
         .admin-confirm-warn {
           font-size: 0.88rem;
-          color: var(--ink-soft);
+          color: var(--text-secondary);
           line-height: 1.55;
         }
         .admin-confirm-email {
-          color: var(--ink);
+          color: var(--text-primary);
           font-weight: 500;
           font-family: var(--font-mono);
           font-size: 0.82rem;
@@ -883,9 +834,9 @@ export function AdminView() {
           margin: 0;
         }
         .admin-confirm-delete {
-          background: var(--danger);
-          border-color: var(--danger);
-          color: #fff;
+          background: var(--err);
+          border-color: var(--err);
+          color: var(--text-on-accent);
           min-width: 120px;
           justify-content: center;
         }
