@@ -90,3 +90,64 @@ ref2va(参考图生视频)本轮未下,第二轮再评。来源:`Comfy-Org/MiniM
 - 权重:NAS `toiv/comfyui-models/h3/`(42.5GB,sha256 已校验)
 - 成片:NAS `toiv/outputs/videos/h3-eval/`
 - API prompt 存档:`/home/merlin/ComfyUI-h3-eval/{t2v,i2v}_prompt.json`
+
+---
+
+## 九、第二轮:bf16 满血 + 双卡分摊(2026-08-04 凌晨)
+
+> 目标:验证 bf16 满血权重(单卡放不下的档位)经多卡分摊是否可跑,以及与 int8 档的质量差是否值得代价。实例、prompt、参数、seed 与第一轮完全一致(1344×768,124 帧,24fps,20 steps,seed 42,res_multistep/simple),仅 DiT 换 bf16。全程未触碰生产 ComfyUI(/opt/ComfyUI,:8188-8191)与任何生产服务。
+
+### 9.1 权重下载与校验(均已 sha256 校验,与 HF LFS oid 一致)
+
+| 文件 | NAS 路径 | 大小 | sha256 |
+|---|---|---|---|
+| minimax_h3_fl2va_bf16.safetensors | `h3/diffusion_models/` | 66,280,487,368 B (61.7 GiB) | `907d4add…fdd6182` |
+| qwen3vl_32b_minimax_h3_bf16.safetensors | `h3/text_encoders/` | 51,506,295,256 B (48.0 GiB) | `600d567f…610607d` |
+
+下载仍走 hf-mirror,本轮无断速(单连接未被限速),峰值 390-734 MiB/s,110GB 约 6 分钟下完。为防 xet 断速,本轮写了看门狗脚本(`workstation /home/merlin/downloads/h3/dl_watchdog.py`):每 60s 解析 aria2 进度行,连续 2 次 <10MiB/s 则 kill 重启换新签名 URL,`-c --auto-file-renaming=false` 断点续传。另注意:hf-mirror 302 到 xet-bridge 后 aria2 会按 URL 末段把文件存成 hash 名,必须显式 `-o` 指定文件名。
+
+### 9.2 双卡方案:为什么必须、怎么实现
+
+**为什么单卡不可行(运行时实测显存)**:GPU0 被生产 worker 缓存占 95.6G(仅剩 ~2G);GPU1 空闲 ~34G(nemotron 19G + 生产 worker 7.3G + LiveAct 37.5G);GPU2 空闲 ~29G(生产 worker 18.8G + opentalking 11.7G + LiveAct 34G);GPU3 Nemotron 92G 禁动。bf16 DiT 单文件 61.7G,**没有任何一张卡放得下**;GPU1+GPU2 合计空闲仅 ~63G,连 DiT 本体都勉强,必须叠加 DRAM 分摊。生产服务未停、未让任何生产模型让位。
+
+**方案:ComfyUI-MultiGPU v2.6.4(pollockjj fork)**,仅装入评测实例 custom_nodes。调研结论:
+
+- 其 loader 节点是对 core 类的包装(`override_class_clip(GLOBAL_NODE_CLASS_MAPPINGS["CLIPLoader"])` 等),**type 下拉继承原生定义,天然包含 `minimax`,与 H3 节点兼容**;`UNETLoaderDisTorch2MultiGPU` 支持 expert 字节串(如 `cuda:1,22gb;cuda:2,13gb;cpu,*`),按块确定性切分 safetensors 到多设备,donor 块在 forward 时交换到 compute 设备。
+- 唯一兼容性问题:其 P2P 检测 `ctypes.CDLL("libcudart.so")` 在 torch 2.13+cu130 环境找不到未版本化 soname,导致 nvfp4 反序列化路径报 OSError。修复:在 venv `nvidia/cu13/lib/` 建 `libcudart.so → libcudart.so.13` 软链并在启动脚本加 `LD_LIBRARY_PATH`(`start_mgpu.sh`)。
+
+**最终拓扑**(`bf16_{t2v,i2v}_prompt.json`):
+
+| 组件 | 放置 |
+|---|---|
+| DiT bf16 61.7G | DisTorch2:cuda:1 22G + cuda:2 13G + CPU DRAM ~27G,compute=cuda:1,eject_models=false(不驱逐实例内其他模型) |
+| TE nvfp4 14.6G(A/B 与第一轮同档) | CLIPLoaderMultiGPU → cuda:2 |
+| 视频 VAE 4.9G + 音频 VAE 0.6G | VAELoaderMultiGPU → cuda:2 |
+
+bf16 TE(48G)未用:一是 A/B 要求与第一轮同 TE 档;二是 GPU1/2 空闲已被 DiT+VAE 占满,无任何卡有 48G 富余——要全 bf16 需「暂停 LiveAct(37.5G+34G)」级别的让位,本轮按纪律未做。
+
+### 9.3 生成实测(同 prompt/参数/seed)
+
+| 项 | T2V(bf16) | I2V(bf16) | 第一轮 int8 对照 |
+|---|---|---|---|
+| 端到端 | **654s**(冷启动,模型 init 308s 含 SMB 加载+DisTorch 放置) | **269.5s**(热启动) | 370.6s 冷 / 209.9s 热 |
+| 采样 | 稳态 ~10.9s/it(首步含 init 308s) | ~12.05s/it | 8.65s/it(173s/20 步) |
+| 产物 | h264 1344×768@24,5.167s + AAC 32kHz 立体声 | 同左 | 同左 |
+| 音频 | mean -24.4 / max -4.9 dB,-15.6 LUFS | mean -20.7 / max -5.2 dB,-17.2 LUFS | T2V -27.3/-7.2、-18.7 LUFS;I2V -20.6/-4.4、-17.1 LUFS |
+| 显存峰值(逐卡) | **GPU1 97,242 / 97,887 MiB(99.3%,⚠️贴 OOM 红线;增量 ~33.4G)**;GPU2 91,863 MiB(增量 ~23.0G) | 同左(峰值出现在同次运行窗口) | GPU1 97,216(增量 ~32.6G,单卡) |
+
+采样步速 bf16 比 int8 慢 ~26-39%(权重大 2.9 倍 + CPU donor 经 PCIe 逐层换入)。GPU1 99.3% 占用意味着与任何生产负载抖动同居一卡都有 OOM 风险,本轮未触发纯属余量恰好够。
+
+成片备份:NAS `toiv/outputs/videos/h3-eval/bf16/{bf16_t2v,bf16_i2v}_768p_5s_00001_.mp4`;对比帧 `workstation /home/merlin/ComfyUI-h3-eval/ab_frames/`。
+
+### 9.4 质量对比(bf16 vs int8,同 prompt 同 seed 抽帧)
+
+- **I2V(同首帧+同 seed,变量最少)**:构图、布光、人物姿态、墙面斑驳分布几乎逐像素一致;原生分辨率裁切对比(人脸/门牌/栏杆),细节互有胜负——int8 墙面脱皮纹理对比度略高,bf16 略平滑,**无可感知的 bf16 质量优势**。音轨统计几乎一致(-17.1 vs -17.2 LUFS,LRA 0.9 vs 0.8)。
+- **T2V**:同场景同情节同构图,但布光与运镜节奏有随机性差异(bf16 楼道更暗、推镜时机不同,属采样路径差异而非质量差);细节(菜篮编织、窗框、墙面)两档均清晰。bf16 音频整体响度略高(-15.6 vs -18.7 LUFS),LRA 相近。
+- **结论:int8(pruned int8 convrot)档对短剧生产够用。** bf16 在本分辨率/时长下没有展现出值得 2.9 倍权重体积、双卡复杂度、26-39% 减速和 OOM 红线风险的质量提升。
+
+### 9.5 生产接入建议(更新)
+
+1. **维持第一轮结论:int8 档为生产候选**,单卡 ~30-33G 增量,与 LiveAct 分卡或错峰即可;bf16 双卡方案**不建议进生产**——GPU1 峰值 99.3% 贴红线,与生产服务同居一卡的任何显存抖动都会 OOM,且速度更慢、无可感知质量收益。
+2. 若未来确需 bf16(如官方修复仅 bf16 可用的特性):前置条件是**独占一张 96G 卡**(DiT+nvfp4 TE+VAE 约 82G,需生产队列空窗)或**暂停 LiveAct 后双卡分摊**;两者都需管家审批的窗口期操作,不适合常驻管线。
+3. ComfyUI-MultiGPU 仅保留在评测实例,不进生产 custom_nodes;若生产升级 0.30 后确需多卡,再评估其 mm monkeypatch 与生产 worker 的共存风险。
+4. 评测实例已停,四卡显存已全部回到基线(0:95.6G / 1:63.8G / 2:68.9G / 3:93.0G,均为生产占用)。资产:权重 NAS `h3/`(int8+nvfp4+bf16 共 ~152GB),实例 `ComfyUI-h3-eval`(`start.sh` 单卡 / `start_mgpu.sh` 多卡),prompt 存档 `{t2v,i2v,bf16_t2v,bf16_i2v}_prompt.json`。
