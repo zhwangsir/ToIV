@@ -16,6 +16,7 @@ from app.config import get_settings
 from app.deps import get_current_user, get_pool
 from app.models import User
 from app.nsfw_ctx import nsfw_allowed
+from app.services.engine_registry import list_engines
 from app.workflows.ace_step import AceStepParams
 from app.workflows.hunyuan3d import Hunyuan3DParams
 from app.workflows.llm_router import list_content_types, list_llm_endpoints
@@ -406,6 +407,21 @@ async def nsfw_recommendations(
     此端点仅返回静态元数据,不含实际成人内容)。
     """
     return {"items": NSFW_RECOMMENDATIONS, "count": len(NSFW_RECOMMENDATIONS)}
+
+
+@router.get("/models/engines")
+async def list_generation_engines(
+    pool: WorkerPool = Depends(get_pool),
+    user: User = Depends(get_current_user),
+) -> dict:
+    """统一生成工作台引擎注册表:引擎元信息 + 参数 schema + 实时可用性。
+
+    接入新引擎 = 在 services/engine_registry 注册条目,前端按 schema 动态渲染参数区。
+    NSFW 引擎(10Eros 系)仅在 R18 上下文(X-NSFW 头)出现;SFW 上下文同时剔除
+    select 选项里的 R18 项(如 ltx2 白名单的 10eros 底模)。
+    """
+    engines = await list_engines(pool, user)
+    return {"engines": engines, "count": len(engines)}
 
 
 @router.get("/models/presets")
