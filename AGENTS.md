@@ -196,6 +196,7 @@ NAS `//192.168.71.7/NAS/toiv/comfyui-models` 已完成 P0/P1 升级，所有新�
 | P1-1 | 42 场景 LoRA（古风/都市/校园/豪车/特效/恐怖/喜剧/历史战争/运镜/导演） | `loras/` | ✅ |
 | P1-2 | Demucs v4 + MDX-Net ONNX + UVR5 模型 | `audio/uvr5_models/` + `/home/merlin/toiv-scripts/audio-sep-venv` | ✅ 测试通过 |
 | P2-1 | FLUX.1 dev fp8(Comfy-Org repack,含 clip_l+t5xxl+VAE) | `checkpoints/flux1-dev-fp8.safetensors` | ✅ 2026-08-01,PuLID-Flux 底模,worker 可见 |
+| 评测 | MiniMax H3(fl2va pruned int8 19.5G + qwen3vl-32b nvfp4 TE 14.6G + 视频/音频 VAE,sha256 已校验) | `h3/{diffusion_models,text_encoders,vae}/` | ✅ 2026-08-03 评测通过(ComfyUI≥0.30,生产未接入),见 docs/2026-08-03-minimax-h3-eval.md |
 
 代码侧同步更新：
 - `apps/api/app/workflows/model_profiles.py`：`_QWEN_IMAGE_CLIP_CANDIDATES` 已加入 `qwen_3_vl_8b_instruct` 目录候选。
