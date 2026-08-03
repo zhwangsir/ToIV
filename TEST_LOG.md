@@ -3716,3 +3716,28 @@ Route (app)                                 Size  First Load JS
 - assemble 不传宽高时默认 1280x720 横屏,不继承项目竖屏设置(既有问题,非本次引入)
 - worker `uploads/{task_id}/` 输入文件未自动清理,长期运行需定期清理
 - 短剧 LLM 拆镜角色名与角色库不对齐时 liveact 会 422(LLM 名字对齐老问题)
+
+---
+
+## 2026-08-04 UI 大爆炸重构(Obsidian 设计系统 + 统一生成工作台)
+
+### 变更
+
+- 定调文档 `docs/2026-08-03-ui-redesign-plan.md`(Obsidian 深曜风格、8 入口新 IA、五波实施)
+- **W0 地基**:globals.css canonical token 层 + 旧变量 alias 兼容层;Inter 字体;新基座组件 ui/{Button,Card,Input,Tabs,Badge,Switch,Modal,Empty,Skeleton};左侧栏 Sidebar(220px 可折叠,8 入口:对话/生成/短剧/数字人/画布/译制/作品库/资源)取代 DynamicIsland/Topbar(已删);ResourcesView 聚合页;登录页换皮
+- **W1**:后端 `GET /api/models/engines`(engine_registry.py,7 引擎含 h3 占位,R18 过滤);GenerateView 统一生成工作台(模式段控/引擎选择器/schema 驱动参数/SSE 进度/历史/A-B 对比)
+- **W2**:短剧工作室换皮 + animatic 并入 hub tab;对话/数字人视图换皮(Badge pill 三态)
+- **W3**:画布/译制/作品库/资源/NSFW/播放器换皮;旧 create/video/ltxstudio 视图退役(LEGACY_VIEW_REDIRECTS→generate);播放器章节改按实际片长均分;e2e 改侧栏选择器;新增 e2e/ui-smoke.mjs 视觉冒烟脚本
+
+### 测试
+
+- 后端 `pytest`:857 passed(新增引擎注册表 7 例)
+- 前端 `tsc --noEmit` 0 错误;`npm run build` 通过(旧视图 chunk 消失)
+- 真 API 视觉冒烟(本地 next start :3199 → core :8090,playwright 截图 9 页):对话/短剧/生成/数字人/画布/译制/作品库/资源/移动端均无破相;generate「加载引擎列表失败(404)」为后端未部署预期,部署后自愈
+- 部署 core:`./deploy/deploy.sh`,部署后 `/api/models/engines` 200
+
+### 遗留
+
+- globals.css legacy alias 层待后续无旧视图残留后删除
+- canvas 视图 ReactFlow 节点画布代码为死代码(路由已是 ComfyUI iframe),产品决策待定
+- H3 生产接入(需 ComfyUI 升 0.30,先 pc01 验证回归)+ ref2va 评测——后续大项

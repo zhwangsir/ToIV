@@ -2,6 +2,7 @@
 
 > 2026-08-03 定稿。大爆炸重写,一次定型,后续所有视图开发以此为准。
 > 风格依据:AI-Design-System-Prompt.md 2.2 Dark Premium 演化。
+> **进度(2026-08-04):W0-W3 全部完成并部署 core**(commit a9250df + e6bb507,pytest 857 绿,9 页截图无破相)。
 
 ## 一、风格定调:Obsidian(深曜)
 
