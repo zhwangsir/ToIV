@@ -4224,3 +4224,60 @@ Route (app)                                 Size  First Load JS
 - **阻塞项**:全部改动未 commit 未 deploy;H3 端到端真机验证(t2v/i2v 提交→出片→产物回读)依赖部署完成
 - ref2va 权重落 NAS + r2v 评测:独立任务,未启动
 - 顺带发现:workstation `comfyui-v6-proxy.service` failed(IPv6 socat 代理),与本次无关,建议管家排查;gpu3 inactive 为预期(TTS 占用);core 生产 TOIV_COMFY_WORKERS 仅配 127:8189 单 worker(既有配置)
+
+---
+
+## 2026-08-06 验收→提交→部署 core 全链路 + canvas 死代码拆除 + legacy CSS 清理
+
+### 验收测试(部署前,全绿)
+
+- 后端 `pytest`:**1033 passed**, 0 failed, 1 warning(既有弃用提醒),25.4s
+- 前端 `tsc --noEmit` 0 错误;`npm run build` 通过(5 routes, First Load JS 173KB)
+- e2e `authed-studio(4) + authed-views(12)` = **16 passed**(本地 api:8200 + web:3100)
+
+### 提交(4 commits)
+
+- `ff0883a` feat(api): Studio 后端 + Redis 接入 + H3 引擎 + 音视频工具链(+7715)
+- `b814174` feat(web): Studio 四阶段工作台前端 + 旧视图冻结/重定向(+6647)
+- `d347e3d` docs: Studio 设计/计划文档归档 + STATE/TEST_LOG 台账
+- `408926f` refactor: 拆除 canvas ReactFlow 死代码(**-10275 行**,45 文件)
+- `6227cc2` refactor(web): legacy CSS 清理(globals.css 1552→1428 行)
+- `812e10f` docs+script: H3 ref2va 评测计划 + 执行脚本
+
+### 部署 core(192.168.71.47,deploy.sh 两轮)
+
+- 前置核查:core `deploy/.env` 已含 `TOIV_REDIS_URL=redis://127.0.0.1:6379/0` 与 `TOIV_H3_BASE_URL=http://192.168.71.127:8195`(设备管家已配)
+- 第一轮(Studio+Redis+H3):toiv-api/toiv-web 重启就绪;第二轮(canvas 拆除+CSS 清理):openapi paths 189→177(canvas/voice_agent 路由下线),web 200
+- 生产验证:`/api/health` 200(5 workers);13 studio paths + 2 h3 paths;venv 实测 `backend_status()=redis` + `ping=True`
+
+### 生产 E2E(e2e_prod_check.py → http://192.168.71.47:8090)
+
+- **10/10 全过**(分两轮):health / login / engines-h3(h3-t2v=True, h3-i2v=True,共7引擎) / txt2img(1.3MB png) / upload / img2img / ltx2_t2v(mp4) / ratelimit-login-429
+- H3 板块首轮 503(显存预检 15.6GiB < 36GiB 阈值,预检按设计工作);空闲窗口重试 e2e_h3_check.py **4/4 通过**:h3_t2v 91s 出片(50KB mp4)、h3_i2v ~7.4min(72KB mp4),产物 `/tmp/toiv_e2e_artifacts/h3/`(本地)
+
+### canvas 死代码拆除(408926f)
+
+- 决策:保留 ComfyUI iframe 版 CanvasView(IA 第 6 入口不变),拆除前后端死链路;DB canvas 三表**只删代码不 DROP**
+- 前端:删 components/canvas 死组件+nodes 11 文件、lib/canvas 4 文件、globals.css Canvas View Styles 整段、lib/api.ts 归档段;package.json 移除 @xyflow/react + zustand
+- 后端:删 routes/canvas.py、canvas_comfy_bridge.py、canvas_events.py、voice_agent.py;agent/tools.py 删 5 个 canvas 工具(实际不可达:agentChat 从不带 canvas_id,白占 LLM schema token);runner.py 删 SYSTEM_CANVAS+canvas_id;models.py 删 3 模型类;main.py 摘注册
+- 验证:pytest **960 passed**(1033-73 删除用例),tsc 0 错误,build 通过,e2e authed-views 12 passed
+
+### legacy CSS 清理(6227cc2)
+
+- globals.css 1552→1428 行:删 44 个零引用别名(全仓 grep 逐个验证)+ .studio-dark-zone/--duration-slow/slideUp/--leading-xs~2xl/.grid-cards/.mode-switcher 块 + 孤儿组件 ui/ModeSwitcher.tsx
+- 现役视图改 canonical:Toast(7)/ErrorBoundary(3)/Modal/LandingPage/nsfw CreateView+NsfwVideoView(--topbar-h→0)/BacklotView(--stage-color 本地化自足)
+- 保留:FROZEN manju/drama-studio 在用的 21 个别名 + --font-display + --topbar-h,待旧视图物理下线后清空;旧字号阶 --text-* 收敛留作独立任务
+- 验证:tsc 0 错误,build 通过,e2e authed-views 12 passed
+
+### 坑位记录
+
+- **next start 运行中 rebuild .next 会导致 e2e 全灭**(chunk hash 404,app-shell 不 hydration):改动后必须重启本地 web 进程;本次误判为 CSS 回归,实为陈旧 next-server
+- **部署前 .next 必须用默认 INTERNAL_API_BASE(localhost:8090)重建**:本地 8200 烘焙版部署到 core 会断 /api 代理;反之 core 的 8090 烘焙版在本地 e2e 全灭(8090 被无关 SimpleHTTP 占用)。本地开发重启命令:`INTERNAL_API_BASE=http://localhost:8200 npm run build && npm run start -- -p 3100`
+- deploy.sh 必须从仓库根执行(在 apps/ 下 `bash deploy/deploy.sh` 报 No such file)
+
+### H3 ref2va 评测(进行中)
+
+- 权重 `minimax_h3_ref2va_pruned_int8_convrot.safetensors` sha256 校验**通过**(`9255f52b…9365779` 与 HF LFS oid 一致,2026-08-04 已下载至 NAS h3/diffusion_models/)
+- 评测计划:docs/2026-08-06-h3-ref2va-eval-plan.md;执行脚本 scripts/r2v_eval.py(A1 1ref/match、A2 1ref/max、B1 3ref/match,串行,beta 调度器,seed 42)
+- 参考图:第一轮 t2v 成片抽帧(t=0.5/2.5/4.5);⚠️ 均为背/侧面,人脸一致性维度需 A3 正面肖像补测(待执行)
+- 结果待归档

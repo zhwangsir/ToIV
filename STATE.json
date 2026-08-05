@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-08-06T00:07:55+08:00",
+  "updated_at": "2026-08-06T06:00:00+08:00",
   "sync_baseline": {
     "id": "SYNC-2026-07-18",
     "type": "initial-sync",
@@ -588,14 +588,16 @@
         "owner": "子代理(代码完成)",
         "blocker": "未提交+未部署到 core;core .env 缺 TOIV_REDIS_URL",
         "next": "用户验收 → commit → deploy.sh → core 补 TOIV_REDIS_URL → 生产验证 backend=redis",
-        "status": "awaiting_deploy"
+        "status": "done_deployed",
+        "recheck": "2026-08-06 已 commit(ff0883a/b814174)+ deploy.sh 部署 core;生产验证通过(engines h3 双引擎 available, redis backend=redis, H3 E2E 4/4)"
       },
       {
         "task": "H3 引擎注册/路由/前端(POST /api/h3/t2v|i2v、引擎注册表 h3-t2v/h3-i2v、lib/engines.ts)",
         "owner": "子代理(代码完成)",
         "blocker": "未提交+未部署;core .env 缺 TOIV_H3_BASE_URL",
         "next": "随 Redis 同批部署;部署后 /api/models/engines 应含 h3 双引擎 available=true",
-        "status": "awaiting_deploy"
+        "status": "done_deployed",
+        "recheck": "2026-08-06 已 commit(ff0883a/b814174)+ deploy.sh 部署 core;生产验证通过(engines h3 双引擎 available, redis backend=redis, H3 E2E 4/4)"
       }
     ],
     "pending": [
@@ -2145,5 +2147,46 @@
     ],
     "tests": "后端全量回归 1033 passed(28.24s);前端 npm run build 通过;e2e authed-studio(4) + authed-views(12) = 16 passed(11.0s,本地 api:8200 + web:3100)",
     "notes": "AGENTS.md 已被设备管家会话改写为集群运维文件(未提交),项目「核心能力」段落不复存在,文档步改由本日志承载;坑:next rewrites 在 build 期烘焙进 routes-manifest,INTERNAL_API_BASE 必须随 build 一起注入,否则 /api 代理落默认 localhost:8090(被无关 SimpleHTTP 静态服务占用,e2e 全灭)"
+  },
+  "deploy_2026_08_06": {
+    "status": "done",
+    "commits": [
+      "ff0883a(api)",
+      "b814174(web)",
+      "d347e3d(docs)",
+      "408926f(canvas拆除)",
+      "6227cc2(css清理)",
+      "812e10f(ref2va计划)"
+    ],
+    "acceptance": "pytest 1033 passed + tsc 0 + build + e2e 16 passed(部署前)",
+    "deploy": "deploy.sh 两轮;第二轮后 openapi 189→177 paths(canvas/voice_agent 下线),toiv-api/toiv-web 就绪",
+    "prod_verify": "health 200(5 workers)/13 studio+2 h3 paths/redis backend=redis ping=True",
+    "prod_e2e": "e2e_prod_check 10/10(分两轮;H3 首轮 503 显存预检按设计工作,空闲窗口重试 h3 t2v 91s/i2v 7.4min 出片 4/4)",
+    "env_confirmed": "core deploy/.env 已含 TOIV_REDIS_URL + TOIV_H3_BASE_URL(管家预配)",
+    "pitfalls": [
+      "next start 运行中 rebuild .next → chunk 404 e2e 全灭,改后必须重启本地 web",
+      "部署 core 的 .next 必须默认 INTERNAL_API_BASE(localhost:8090)烘焙;本地开发用 8200 烘焙,两者不可混用"
+    ],
+    "verified_at": "2026-08-06T06:00:00+08:00"
+  },
+  "canvas_deadcode_removal_2026_08_06": {
+    "status": "done",
+    "commit": "408926f",
+    "decision": "保留 ComfyUI iframe 版 CanvasView(IA 第 6 入口);拆除前后端 ReactFlow 死链路;DB canvas 三表只删代码不 DROP",
+    "scale": "-10275 行,45 文件;pytest 1033→960(删 73 用例),tsc/build/e2e 全绿"
+  },
+  "legacy_css_cleanup_2026_08_06": {
+    "status": "done",
+    "commit": "6227cc2",
+    "scale": "globals.css 1552→1428 行;44 零引用别名+6 死块+孤儿组件 ModeSwitcher 删除;7 现役文件改 canonical",
+    "retained": "FROZEN manju/drama-studio 21 别名 + --font-display + --topbar-h(待旧视图物理下线);旧字号阶 --text-* 收敛为独立任务"
+  },
+  "h3_ref2va_eval_2026_08_06": {
+    "status": "running",
+    "weight_verified": "sha256 9255f52b…9365779 与 HF LFS oid 一致",
+    "plan": "docs/2026-08-06-h3-ref2va-eval-plan.md",
+    "script": "scripts/r2v_eval.py(workstation ComfyUI-h3-eval,实例 :8195)",
+    "cases": "A1 1ref/match,A2 1ref/max,B1 3ref/match;参考图为第一轮 t2v 抽帧(背/侧面,人脸维度待 A3 正面肖像补测)",
+    "pending": "结果分析 + 评测报告 + A3 正面肖像组"
   }
 }
