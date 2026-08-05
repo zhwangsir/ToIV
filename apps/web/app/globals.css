@@ -69,13 +69,9 @@
   --text-xl: 20px;
   --text-2xl: 24px;
 
-  --leading-xs: 16px;
-  --leading-sm: 18px;
   --leading-base: 22px;
   --leading-md: 22px;
-  --leading-lg: 24px;
   --leading-xl: 26px;
-  --leading-2xl: 32px;
 
   /* ── 间距(4px 基数) ── */
   --space-1: 4px;
@@ -112,7 +108,6 @@
   /* ── 动效:≤200ms ease-out ── */
   --duration-fast: 150ms;
   --duration-base: 200ms;
-  --duration-slow: 300ms; /* 仅旧视图残留,新代码不得使用 */
   --ease-standard: ease-out;
   --ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
 
@@ -137,109 +132,43 @@
   --bp-xl: 1440px;
 }
 
-/* ========== Legacy Token Aliases(旧变量 → 新值,W2/W3 逐视图清理) ========== */
+/* ========== Legacy Token Aliases(旧变量 → 新值) ==========
+   2026-08-06 清理:零引用别名已删,现役视图已全部改用 canonical token。
+   以下仅剩 FROZEN 旧视图(DramaStudioView/ManjuView)在用;
+   待两视图随动态分镜独立后物理下线,整块即可删除。 */
 
 :root {
   /* 背景 */
-  --color-bg-base: var(--bg-canvas);
-  --color-bg-surface: var(--bg-surface-1);
-  --color-bg-elevated: var(--bg-surface-2);
-  --color-bg-subtle: var(--bg-surface-2);
-  --color-bg-inset: var(--bg-surface-3);
-  --bg-0: var(--bg-canvas);
   --bg-1: var(--bg-surface-1);
   --bg-2: var(--bg-surface-2);
   --bg-3: var(--bg-surface-3);
   --bg-sunken: var(--bg-canvas);
-  --color-surface: var(--bg-surface-1);
-  --color-surface-raised: var(--bg-surface-2);
 
   /* 描边 */
-  --color-border: var(--border-strong);
-  --color-border-subtle: var(--border-subtle);
   --hairline: var(--border-subtle);
   --hairline-2: var(--border-strong);
-  --hairline-strong: var(--text-muted);
-  --color-hairline: var(--border-subtle);
-  --color-hairline-2: var(--border-strong);
 
   /* 文字 */
-  --color-text-primary: var(--text-primary);
-  --color-text-secondary: var(--text-secondary);
-  --color-text-tertiary: var(--text-muted);
-  --color-text-inverse: var(--bg-canvas);
   --ink: var(--text-primary);
   --ink-soft: var(--text-secondary);
   --ink-faint: var(--text-muted);
-  --color-ink: var(--text-primary);
-  --color-ink-2: var(--text-secondary);
-  --color-ink-3: var(--text-muted);
-  --ink2: var(--text-secondary);
-  --ink3: var(--text-muted);
-  --on-accent: var(--text-on-accent);
 
-  /* 强调色(--accent / --accent-soft 已是新 canonical,勿再自引用) */
-  --color-accent: var(--accent);
-  --color-accent-hover: var(--accent-hover);
-  --color-accent-soft: var(--accent-soft);
-  --color-accent-line: var(--accent-glow);
-  --accent-deep: #6A5AE0;
+  /* 强调色 */
   --accent-line: var(--accent-glow);
-  --accent-ink: var(--text-on-accent);
   --accent-quiet: var(--accent-soft);
   --accent-wash: rgba(124, 108, 255, 0.08);
 
-  /* 功能色(--warn/--ok/--err/--run 已是 canonical) */
-  --color-success: var(--ok);
-  --color-success-soft: var(--ok-soft);
-  --color-warning: var(--warn);
-  --color-warning-soft: var(--warn-soft);
-  --color-error: var(--err);
-  --color-error-soft: var(--err-soft);
-  --color-info: var(--run);
-  --color-info-soft: var(--run-soft);
+  /* 功能色 */
   --success: var(--ok);
   --success-quiet: var(--ok-soft);
   --danger: var(--err);
   --danger-quiet: var(--err-soft);
-  --warn-quiet: var(--warn-soft);
 
-  /* 圆角/动效/动画 */
+  /* 圆角/动效 */
   --radius: var(--radius-control);
   --dur: var(--duration-fast);
   --dur-2: var(--duration-base);
   --ease: var(--ease-emphasized);
-  --anim-spin: spin 1s linear infinite;
-  --anim-fade-in: fadeIn var(--duration-base) var(--ease-standard);
-
-  /* 断点/触控 */
-  --tap-min: 44px;
-  --bp-tablet: var(--bp-md);
-  --bp-mobile: var(--bp-sm);
-  --breakpoint-sm: var(--bp-sm);
-  --breakpoint-md: var(--bp-md);
-  --breakpoint-lg: var(--bp-lg);
-  --breakpoint-xl: var(--bp-xl);
-  --breakpoint-2xl: var(--bp-xl);
-
-  /* 布局 */
-  --param-w: var(--rightpanel-w);
-
-  /* 看板阶段色(backlot 等旧视图使用) */
-  --stage-color: var(--accent);
-  --stage-drafting: var(--warn);
-  --stage-imaging: var(--run);
-  --stage-filming: var(--accent);
-  --stage-done: var(--ok);
-}
-
-/* ── 工作室模式专用深色区(预览/时间线始终深色;变量别名 → canonical token) ── */
-.studio-dark-zone {
-  --studio-bg: var(--bg-canvas);
-  --studio-surface: var(--bg-surface-2);
-  --studio-border: var(--border-strong);
-  --studio-text: var(--text-primary);
-  --studio-text-dim: var(--text-muted);
 }
 
 /* ========== Reset & Base ========== */
@@ -906,10 +835,6 @@ select.input {
   from { opacity: 0; }
   to { opacity: 1; }
 }
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
 
 /* 空态 */
 .empty-state {
@@ -942,49 +867,6 @@ select.input {
 .grid {
   display: grid;
   gap: var(--space-4);
-}
-.grid-cards {
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-}
-
-/* ========== Mode Switcher(画布↔工作室,旧视图在用) ========== */
-
-.mode-switcher {
-  position: absolute;
-  top: var(--space-3);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: var(--z-sticky);
-  display: inline-flex;
-  align-items: center;
-  padding: 3px;
-  background: var(--bg-surface-1);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-full);
-  box-shadow: var(--shadow-md);
-  backdrop-filter: var(--backdrop-blur);
-}
-
-.mode-switcher-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-full);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: background-color var(--duration-fast) var(--ease-standard),
-              color var(--duration-fast) var(--ease-standard);
-  white-space: nowrap;
-}
-.mode-switcher-btn:hover {
-  color: var(--text-primary);
-}
-.mode-switcher-btn.is-active {
-  background: var(--accent);
-  color: var(--text-on-accent);
 }
 
 /* ========== Drawer / Sheet(移动端面板,BottomNav「更多」在用) ========== */
@@ -1449,12 +1331,6 @@ select.input {
   }
   .single-view {
     padding: var(--space-5);
-  }
-  .mode-switcher-btn span {
-    display: none;
-  }
-  .mode-switcher-btn {
-    padding: var(--space-2);
   }
 }
 

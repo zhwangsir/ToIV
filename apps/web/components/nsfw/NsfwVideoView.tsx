@@ -985,7 +985,7 @@ export function NsfwVideoView() {
           display: grid;
           grid-template-columns: 1fr var(--rightpanel-w);
           height: 100%;
-          min-height: calc(100vh - var(--topbar-h));
+          min-height: 100vh;
           background: var(--bg-canvas);
         }
 
@@ -1155,7 +1155,7 @@ export function NsfwVideoView() {
         }
         .nsv-video {
           max-width: 100%;
-          max-height: calc(100vh - var(--topbar-h) - 140px);
+          max-height: calc(100vh - 140px);
           border-radius: var(--radius-panel);
           overflow: hidden;
           border: 1px solid var(--border-strong);

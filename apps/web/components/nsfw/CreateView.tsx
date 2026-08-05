@@ -1054,7 +1054,7 @@ export function CreateView({
           display: grid;
           grid-template-columns: 1fr var(--rightpanel-w);
           height: 100%;
-          min-height: calc(100vh - var(--topbar-h));
+          min-height: 100vh;
           background: var(--bg-canvas);
         }
 
@@ -1230,7 +1230,7 @@ export function CreateView({
         .cv-result-frame img {
           display: block;
           max-width: 100%;
-          max-height: calc(100vh - var(--topbar-h) - 140px);
+          max-height: calc(100vh - 140px);
           object-fit: contain;
         }
         .cv-carousel-nav {

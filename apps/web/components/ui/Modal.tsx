@@ -94,7 +94,7 @@ export function Modal({
           display: flex;
           align-items: center;
           justify-content: center;
-          animation: var(--anim-fade-in);
+          animation: fadeIn var(--duration-base) var(--ease-standard);
         }
         .modal-card {
           width: 100%;

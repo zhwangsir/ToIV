@@ -108,10 +108,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           gap: 10px;
           padding: 12px 16px;
           border-radius: var(--radius-md);
-          background: var(--bg-1);
-          border: 1px solid var(--hairline);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
           box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.3);
-          color: var(--ink);
+          color: var(--text-primary);
           font-size: 0.875rem;
           min-width: 280px;
           max-width: 400px;
@@ -130,10 +130,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           }
         }
         .toast-success {
-          border-left: 3px solid var(--success);
+          border-left: 3px solid var(--ok);
         }
         .toast-error {
-          border-left: 3px solid var(--danger);
+          border-left: 3px solid var(--err);
         }
         .toast-info {
           border-left: 3px solid var(--accent);
@@ -149,13 +149,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           justify-content: center;
           background: transparent;
           border: none;
-          color: var(--ink-faint);
+          color: var(--text-muted);
           cursor: pointer;
           border-radius: var(--radius-sm);
         }
         .toast-close:hover {
-          color: var(--ink);
-          background: var(--bg-2);
+          color: var(--text-primary);
+          background: var(--bg-surface-2);
         }
       `}</style>
     </ToastContext.Provider>

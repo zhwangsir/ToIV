@@ -57,12 +57,10 @@ test.describe("ToIV UI Redesign - 响应式截图测试", () => {
 
     await page.screenshot({ path: "test-results/responsive/mode-canvas.png" });
 
-    const studioBtn = page.locator('.mode-switcher-btn[aria-label="工作室模式"]');
-    if (await studioBtn.isVisible().catch(() => false)) {
-      await studioBtn.click();
-      await page.waitForTimeout(500);
-      await page.screenshot({ path: "test-results/responsive/mode-studio.png" });
-    }
+    // ModeSwitcher 组件已随 legacy CSS 清理移除;工作室视图直接经 URL 进入
+    await page.goto("/?view=studio", { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(2000);
+    await page.screenshot({ path: "test-results/responsive/mode-studio.png" });
   });
 
   test("移动端底部导航「更多」抽屉", async ({ page }) => {

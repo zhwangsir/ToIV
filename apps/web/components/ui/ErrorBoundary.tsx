@@ -78,18 +78,18 @@ export class ErrorBoundary extends Component<Props, State> {
             text-align: center;
           }
           .err-icon {
-            color: var(--color-error);
+            color: var(--err);
             opacity: 0.6;
           }
           .err-title {
             font-size: 1.25rem;
             font-weight: 600;
-            color: var(--color-text-primary);
+            color: var(--text-primary);
             margin: 0;
           }
           .err-msg {
             font-size: 0.875rem;
-            color: var(--color-text-tertiary);
+            color: var(--text-muted);
             font-family: var(--font-mono);
             max-width: 600px;
             word-break: break-word;
