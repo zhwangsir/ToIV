@@ -29,14 +29,19 @@ def _host(url: str) -> str:
 def resolve_worker(worker: str) -> ComfyUIClient:
     """校验 worker 在白名单内并返回客户端(防 SSRF:只允许配置过的后端)。
 
-    匹配规则:先精确匹配完整 URL;失败则按 hostname 匹配(同机多 worker
-    共享输出目录,旧产物 URL 里的 worker 端口可能已不在当前白名单,
-    但同机仍有存活 worker 能代取)。hostname 匹配命中时返回白名单中
+    匹配规则:先精确匹配完整 URL(pool 白名单或 H3 专用实例);失败则按 hostname
+    匹配(同机多 worker 共享输出目录,旧产物 URL 里的 worker 端口可能已不在当前
+    白名单,但同机仍有存活 worker 能代取)。hostname 匹配命中时返回白名单中
     第一个同机 worker(主取),siblings 回退由调用方处理。
     """
     settings = get_settings()
     normalized = worker.rstrip("/")
     if normalized in settings.worker_urls:
+        return ComfyUIClient(normalized, timeout=settings.request_timeout)
+    # H3 专用实例(不在 pool 白名单):必须在 hostname 回退之前精确匹配,
+    # 否则同机(127)会被错配到 pool worker,而其 output 目录没有 H3 产物
+    h3_base = getattr(settings, "h3_base", "")
+    if h3_base and normalized == h3_base:
         return ComfyUIClient(normalized, timeout=settings.request_timeout)
     # hostname 级回退:兼容旧产物 URL(worker 端口已退役但同机仍存活)
     target_host = _host(normalized)

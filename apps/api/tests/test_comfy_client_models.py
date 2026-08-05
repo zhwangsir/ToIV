@@ -55,3 +55,70 @@ def test_upscale_model_loader_in_model_loaders():
     from app.comfy.client import _MODEL_LOADERS
 
     assert ("UpscaleModelLoader", "model_name") in _MODEL_LOADERS
+
+
+# --------------------------------------------------------------------------- #
+# free_memory:ComfyUI /free 返回 200 空响应体,不得按 JSON 解析
+# (回归:2026-08-04 h3_i2v 驱逐同卡缓存时 resp.json() 炸 JSONDecodeError → 500)
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.asyncio
+async def test_free_memory_tolerates_empty_200(monkeypatch: pytest.MonkeyPatch):
+    import httpx
+
+    import app.comfy.client as client_mod
+
+    c = ComfyUIClient("http://x")
+    posted: list[tuple[str, dict]] = []
+
+    class _FakeResp:
+        status_code = 200
+        content = b""
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self):  # 若被调用即失败:空 body 不可解析
+            raise ValueError("empty body is not JSON")
+
+    class _FakeHttp:
+        is_closed = False
+
+        async def post(self, url: str, json: dict) -> _FakeResp:
+            posted.append((url, json))
+            return _FakeResp()
+
+    monkeypatch.setattr(client_mod, "_pooled_client", lambda base, timeout: _FakeHttp())
+    await c.free_memory()  # 不抛异常即通过
+    assert posted == [("http://x/free", {"unload_models": True, "free_memory": True})]
+
+
+@pytest.mark.asyncio
+async def test_free_memory_http_error_raises_comfy_error(monkeypatch: pytest.MonkeyPatch):
+    import httpx
+
+    import app.comfy.client as client_mod
+    from app.comfy.client import ComfyUIError
+
+    c = ComfyUIClient("http://x")
+
+    class _FakeResp:
+        status_code = 500
+        text = "boom"
+
+        def raise_for_status(self) -> None:
+            raise httpx.HTTPStatusError("500", request=None, response=self)  # type: ignore[arg-type]
+
+        def json(self):
+            return {"error": "boom"}
+
+    class _FakeHttp:
+        is_closed = False
+
+        async def post(self, url: str, json: dict) -> _FakeResp:
+            return _FakeResp()
+
+    monkeypatch.setattr(client_mod, "_pooled_client", lambda base, timeout: _FakeHttp())
+    with pytest.raises(ComfyUIError):
+        await c.free_memory()

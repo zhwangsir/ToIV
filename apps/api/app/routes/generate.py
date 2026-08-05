@@ -12,6 +12,7 @@ from sqlmodel import Session
 
 from app.capabilities import required_nodes
 from app.comfy.client import ComfyUIError
+from app.comfy.imagedims import input_image_dims
 from app.comfy.pool import WorkerPool
 from app.comfy.tracker import spawn as spawn_tracker, wait_for_jobs
 from app.config import get_settings
@@ -595,6 +596,11 @@ async def generate_img2img(
     if is_nextgen(ckpt_name):
          prof = profile_for(ckpt_name)
          recipe = nextgen_recipe(ckpt_name)
+         # ModelSamplingFlux 需输入图尺寸做 shift 估算(≥16 校验);探测失败回退 1024,
+         # 其余族(AuraFlow/无)不需要,避免多余网络往返。
+         i2i_w, i2i_h = 0, 0
+         if recipe and recipe.model_sampling == "ModelSamplingFlux":
+              i2i_w, i2i_h = await input_image_dims(client, req.image)
          ng = NextgenImg2ImgParams(
               model_name=ckpt_name,
               image=req.image,
@@ -605,6 +611,8 @@ async def generate_img2img(
               cfg=prof.cfg,
               sampler=prof.sampler,
               scheduler=prof.scheduler,
+              width=i2i_w,
+              height=i2i_h,
               loras=_to_lora_specs(req.loras),
               **({"seed": req.seed} if req.seed is not None else {}),
          )

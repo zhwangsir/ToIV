@@ -1,4 +1,8 @@
-"""AI 短剧工作室 —— 剧本→分镜→视频→配音→成片 一站式 MVP 管线。
+"""DEPRECATED(2026-08-05): 本模块已由 studio 创作工作室替代(app/routes/studio.py)。
+
+保留仅作旧项目数据只读查询,不再新增功能。新需求一律走 /api/studio/*。
+
+AI 短剧工作室 —— 剧本→分镜→视频→配音→成片 一站式 MVP 管线。
 
 P0 核心端点(本地学习用,跳过内容合规层):
   · 项目 CRUD            POST/GET/PATCH /api/drama/projects
@@ -34,7 +38,7 @@ import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
-from sqlmodel import Session, select
+from sqlmodel import Session, delete, select
 
 from app.agent import llm
 from app.comfy.client import ComfyUIError
@@ -533,11 +537,20 @@ def delete_project(
     session: Session = Depends(get_session),
 ) -> dict:
     p = _owned_project(pid, user, session)
-    # 级联删除角色 + 分镜(SQLite ON DELETE CASCADE 已配,这里显式删保幂等)
-    for c in session.exec(select(DramaCharacter).where(DramaCharacter.project_id == pid)).all():
-        session.delete(c)
-    for s in session.exec(select(DramaShot).where(DramaShot.project_id == pid)).all():
-        session.delete(s)
+    # 级联删除:候选 → 分镜 → 角色 → 项目。
+    # 必须用 bulk DELETE 语句按序执行:ORM session.delete 在无 Relationship 时
+    # UOW 不按表级 FK 拓扑排序(PG 迁移后 confdeltype=NO ACTION,SQLite 时代靠
+    # 驱动不强制 FK 才没炸)。2026-08-05 实测 DELETE dramaproject 先于 dramashot
+    # 执行,FK 冲突 500。
+    session.exec(
+        delete(DramaShotCandidate).where(
+            DramaShotCandidate.shot_id.in_(
+                select(DramaShot.id).where(DramaShot.project_id == pid)
+            )
+        )
+    )
+    session.exec(delete(DramaShot).where(DramaShot.project_id == pid))
+    session.exec(delete(DramaCharacter).where(DramaCharacter.project_id == pid))
     session.delete(p)
     session.commit()
     return {"ok": True}

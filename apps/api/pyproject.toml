@@ -15,6 +15,9 @@ dependencies = [
     "python-multipart>=0.0.12",
     "paramiko>=3.4",
     "pillow>=12.3.0",
+    # Redis(限流/画布事件/worker 健康缓存共享状态):不可达时自动降级进程内存,
+    # 见 app/services/redis_client.py。生产 core 仅监听 localhost 无密码。
+    "redis>=5.2",
     # 可观测性:P2 指标监控 + 错误追踪(空 DSN/未装时自动跳过,不阻断启动)
     "prometheus-fastapi-instrumentator>=7.0",
     "sentry-sdk[fastapi]>=2.0",
@@ -24,6 +27,8 @@ dependencies = [
 dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
+    # Redis 路径测试替身(test_redis_integration.py)
+    "fakeredis>=2.23",
 ]
 scoring = [
     "image-reward",

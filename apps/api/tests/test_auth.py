@@ -80,6 +80,52 @@ def test_login_success_and_wrong_password(client):
     assert bad.status_code == 401
 
 
+def test_login_rate_limit_per_ip_and_account(client):
+    """同 IP+同账号连续尝试,第 6 次起 429(login scope 5/min,防爆破)。"""
+    from app.ratelimit import _hits
+
+    _hits.clear()
+    for i in range(5):
+        r = client.post("/api/auth/login", json={"email": "brute", "password": "x"})
+        assert r.status_code == 401, f"第 {i+1} 次应 401 而非 {r.status_code}"
+    r = client.post("/api/auth/login", json={"email": "brute", "password": "x"})
+    assert r.status_code == 429
+    assert "Retry-After" in r.headers
+    _hits.clear()
+
+
+def test_login_rate_limit_isolated_by_account(client):
+    """同 IP 不同账号独立计数:brute 被限后,其它账号仍可正常登录。"""
+    from app.ratelimit import _hits
+
+    _hits.clear()
+    for _ in range(6):
+        client.post("/api/auth/login", json={"email": "brute", "password": "x"})
+    ok = client.post("/api/auth/login", json={"email": "tester", "password": "password1"})
+    assert ok.status_code == 200
+    _hits.clear()
+
+
+def test_login_rate_limit_honors_x_forwarded_for(client):
+    """反代场景:X-Forwarded-For 首跳作为限流主体;不同来源 IP 互不影响。"""
+    from app.ratelimit import _hits
+
+    _hits.clear()
+    for _ in range(6):
+        client.post(
+            "/api/auth/login",
+            json={"email": "brute", "password": "x"},
+            headers={"X-Forwarded-For": "203.0.113.9"},
+        )
+    r = client.post(
+        "/api/auth/login",
+        json={"email": "brute", "password": "x"},
+        headers={"X-Forwarded-For": "203.0.113.10"},
+    )
+    assert r.status_code == 401  # 新 IP 不受旧 IP 限制影响(401=凭据错,非 429)
+    _hits.clear()
+
+
 def test_login_account_case_insensitive(client):
     r = client.post("/api/auth/login", json={"email": "TESTER", "password": "password1"})
     assert r.status_code == 200

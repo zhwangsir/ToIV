@@ -5,6 +5,9 @@
 
 短剧成片目录(drama_output_root)单独走 TOIV_DRAMA_VIDEO_DIR:
 运行时解析 + 60s 缓存,NAS 恢复后无需重启自动回切,不可达立即降级本地。
+
+音频产物目录(audio_output_root)走 TOIV_AUDIO_DIR(AGENTS.md 第六节 outputs/audio),
+同一套运行时解析 + 60s 缓存降级模式。
 """
 from __future__ import annotations
 
@@ -83,4 +86,63 @@ def drama_output_root() -> Path:
         return _drama_root_cache[1]
     root = _resolve_drama_root()
     _drama_root_cache = (now, root)
+    return root
+
+
+# 音频产物根目录解析缓存:与短剧成片同一套运行时解析 + 60s 缓存模式。
+_AUDIO_ROOT_TTL = 60.0
+_audio_root_cache: tuple[float, Path] | None = None
+
+
+def _resolve_audio_root() -> Path:
+    """解析音频产物根目录(人声分离等独立音频工具产物)。
+
+    优先级:
+    1. TOIV_AUDIO_DIR 配置(生产 core 指向 NAS 挂载点 /mnt/toiv-nas/toiv/outputs/audio)
+    2. 本地候选路径(开发/Docker 回退)
+
+    若配置指向的 NAS 路径不可访问(OSError: 掉线/超时/权限),自动降级到本地路径
+    并记录警告;调用方写入时再遇 OSError 应降级 content_subdir("audio") 兜底。
+    """
+    env_dir = get_settings().audio_dir.strip()
+    if env_dir:
+        env_path = Path(env_dir)
+        try:
+            if env_path.is_dir():
+                return env_path
+        except OSError as exc:
+            logger.warning(
+                "TOIV_AUDIO_DIR NAS 路径不可访问,降级到本地路径: %s (%s)",
+                env_dir,
+                exc,
+            )
+        else:
+            logger.warning(
+                "TOIV_AUDIO_DIR 目录不存在,降级到本地路径: %s", env_dir
+            )
+
+    # 候选路径相对 app 包目录定位:本地开发时 apps/api 位于仓库 apps/ 下;
+    # Docker 中 /app 即 apps/api 内容。目录可不存在(调用方写入前 mkdir)。
+    app_dir = Path(__file__).resolve().parent  # apps/api/app
+    candidates = [
+        app_dir.parent / "outputs" / "audio",  # apps/api/outputs/audio(本地/Docker /app)
+        Path("/app/outputs/audio"),
+    ]
+    for p in candidates:
+        try:
+            if p.is_dir():
+                return p
+        except OSError:
+            continue
+    return candidates[0]
+
+
+def audio_output_root() -> Path:
+    """音频产物根目录(每次调用解析,60s 缓存;NAS 恢复后自动回切,失败立即降本地)。"""
+    global _audio_root_cache
+    now = time.monotonic()
+    if _audio_root_cache is not None and now - _audio_root_cache[0] < _AUDIO_ROOT_TTL:
+        return _audio_root_cache[1]
+    root = _resolve_audio_root()
+    _audio_root_cache = (now, root)
     return root

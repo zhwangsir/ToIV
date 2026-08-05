@@ -5,7 +5,7 @@
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, field_validator
 from sqlmodel import Session, select
 
@@ -13,6 +13,7 @@ from app.config import get_settings
 from app.db import get_session
 from app.deps import get_current_user
 from app.models import User
+from app.ratelimit import enforce_login_rate_limit
 from app.security import create_token, verify_password
 from app.usage import user_usage
 
@@ -47,8 +48,24 @@ def _user_dict(user: User) -> dict:
     }
 
 
+def _client_ip(request: Request) -> str:
+    """取真实客户端 IP:经反代(OpenResty/Nginx)时取 X-Forwarded-For 首跳。"""
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        first = xff.split(",")[0].strip()
+        if first:
+            return first
+    return request.client.host if request.client else "unknown"
+
+
 @router.post("/auth/login")
-def login(body: LoginRequest, session: Session = Depends(get_session)) -> dict:
+def login(
+    body: LoginRequest,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> dict:
+    # 认证前限流:IP 20/min(防喷洒)+ IP+账号 5/min(防爆破);超限 429
+    enforce_login_rate_limit(_client_ip(request), body.email)
     user = session.exec(select(User).where(User.email == body.email)).first()
     if not user or not verify_password(body.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="账号或密码错误")

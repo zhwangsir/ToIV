@@ -1,4 +1,8 @@
-"""漫剧工作室路由。
+"""DEPRECATED(2026-08-05): 本模块已由 studio 创作工作室替代(app/routes/studio.py)。
+
+保留仅作旧项目数据只读查询,不再新增功能。新需求一律走 /api/studio/*。
+
+漫剧工作室路由。
 
 - POST /api/manju/storyboard —— M1:把剧情用 LLM 拆成结构化分镜。
   入参剧情(premise)+ 镜数 + 风格 + 角色,产出 shots[]:每镜含英文出图提示词

@@ -31,6 +31,10 @@ def required_models(kind: str) -> set[str]:
         if p.use_upscale:
             models.add(p.upscale_model)
         return models
+    # H3 图生视频参考图先落到 pool worker,再由后端转运到 H3 专用实例;
+    # 上传阶段不要求 worker 持有 H3 模型(避免必须路由到 LTX worker)。
+    if kind == "h3_i2v":
+        return set()
     if kind == "ltx_lipsync":
         p = LtxLipsyncParams(positive="", image="", audio="")
         models = {p.unet_name, p.gemma_name, p.vae_name, p.audio_vae_name}
@@ -74,6 +78,9 @@ def required_nodes(kind: str) -> set[str]:
     if kind == "ltx_i2v":
         return {"UNETLoader", "LTXVGemmaCLIPModelLoader", "VAELoader", "CLIPTextEncode",
                 "LoadImage", "LTXVImgToVideo", "KSampler", "VAEDecode", "VHS_VideoCombine"}
+    # H3 图生视频参考图上传:pool worker 只需能存图,不依赖 H3 节点。
+    if kind == "h3_i2v":
+        return set()
     if kind == "ltx_lipsync":
         # LTX2.3 + 口型同步(LTXV 音频驱动节点 + LoadAudio + ID LoRA)
         return {"UNETLoader", "LTXVGemmaCLIPModelLoader", "VAELoader", "CLIPTextEncode",

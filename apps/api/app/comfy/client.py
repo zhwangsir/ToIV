@@ -170,6 +170,19 @@ class ComfyUIClient:
         data = await self._get_json("/queue", timeout=4.0)
         return len(data.get("queue_running", [])) + len(data.get("queue_pending", []))
 
+    async def get_system_stats(self) -> dict:
+        """实例系统信息(含 devices[].vram_free/vram_total,字节)。用于显存预检。"""
+        return await self._get_json("/system_stats")
+
+    async def free_memory(self) -> None:
+        """驱逐实例缓存的模型并释放显存(POST /free)。
+
+        仅在实例队列空闲时调用 —— 正在执行的作业被驱逐会直接失败,
+        调用方须先确认 queue_len() == 0(见 services/h3.ensure_h3_vram)。
+        ComfyUI /free 返回 200 空响应体,不能走 _post_json 解析。
+        """
+        await self._post("/free", {"unload_models": True, "free_memory": True})
+
     async def object_info(self, node: str) -> dict:
         return await self._get_json(f"/object_info/{node}")
 
@@ -216,6 +229,26 @@ class ComfyUIClient:
         return f"{scheme}://{parts.netloc}/ws?clientId={client_id}"
 
     # ---------- 内部 ----------
+    async def _post(self, path: str, payload: dict) -> None:
+        """POST 但不解析响应体(如 /free 返回 200 空 body)。"""
+        try:
+            client = _pooled_client(self.base_url, self._timeout)
+            resp = await client.post(f"{self.base_url}{path}", json=payload)
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            detail = None
+            try:
+                detail = e.response.json()
+            except Exception:
+                detail = e.response.text
+            raise ComfyUIError(
+                f"请求 {path} 失败 ({e.response.status_code}): {detail or e}",
+                status_code=e.response.status_code,
+                detail=detail,
+            ) from e
+        except httpx.HTTPError as e:
+            raise ComfyUIError(f"请求 {path} 失败: {e}") from e
+
     async def _post_json(self, path: str, payload: dict) -> dict:
         try:
             client = _pooled_client(self.base_url, self._timeout)

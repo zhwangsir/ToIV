@@ -25,7 +25,7 @@ from app.db import get_session
 from app.deps import get_pool
 from app.main import app
 from app.config import get_settings
-from app.models import DramaCharacter, DramaEvent, DramaProject, DramaSession, DramaShot, Job, Tenant, User
+from app.models import DramaCharacter, DramaEvent, DramaProject, DramaSession, DramaShot, DramaShotCandidate, Job, Tenant, User
 from app.security import create_token, hash_password
 from app.agent import llm
 
@@ -103,6 +103,38 @@ def test_project_crud(ctx):
     # 删
     assert client.delete(f"/api/drama/projects/{pid}", headers=H).status_code == 200
     assert client.get("/api/drama/projects", headers=H).json() == []
+
+
+def test_delete_project_cascades_shots_and_candidates(ctx):
+    """删除有分镜+候选的项目:级联清空 candidates/shots/characters(2026-08-05 修复)。
+
+    根因:ORM session.delete 在无 Relationship 时 UOW 不按表级 FK 拓扑排序,
+    PG(迁移后 confdeltype=NO ACTION)下 DELETE dramaproject 先于 dramashot 执行
+    → FK 冲突 500;且 DramaShotCandidate 从未被删,修复前本测试在
+    "candidate 已清空"断言上必红。
+    """
+    from app.db import engine  # ctx 已 patch 指向测试内存库
+
+    client, token, _ = ctx
+    H = _h(token)
+    pid = client.post("/api/drama/projects", headers=H, json={"title": "级联删除"}).json()["id"]
+    with Session(engine) as s:
+        shot = DramaShot(project_id=pid, idx=0, prompt="a test shot")
+        s.add(shot)
+        s.commit()
+        s.refresh(shot)
+        cand = DramaShotCandidate(shot_id=shot.id, project_id=pid)
+        s.add(cand)
+        s.commit()
+        shot_id, cand_id = shot.id, cand.id
+
+    r = client.delete(f"/api/drama/projects/{pid}", headers=H)
+    assert r.status_code == 200, r.text
+
+    with Session(engine) as s:
+        assert s.get(DramaProject, pid) is None
+        assert s.get(DramaShot, shot_id) is None
+        assert s.get(DramaShotCandidate, cand_id) is None
 
 
 def test_character_crud(ctx):

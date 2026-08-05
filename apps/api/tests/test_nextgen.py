@@ -212,6 +212,38 @@ def test_img2img_shares_vae_between_encode_and_decode():
     assert dec["vae"] == vae_ref
 
 
+def test_flux2_img2img_model_sampling_uses_explicit_dims():
+    """显式传入输入图尺寸时,ModelSamplingFlux 用真实 w/h(shift 估算更准)。"""
+    g = build_nextgen_img2img_graph(NextgenImg2ImgParams(
+        model_name=FLUX2, image="photo.jpg", positive="a portrait",
+        width=832, height=1216,
+    ))
+    msf = _by_type(g, "ModelSamplingFlux")
+    assert msf["width"] == 832
+    assert msf["height"] == 1216
+
+
+def test_flux2_img2img_model_sampling_falls_back_when_dims_unknown():
+    """尺寸未知(0)时回退 1024,绝不给 ComfyUI 送 0(其校验 min=16,会 400)。"""
+    g = build_nextgen_img2img_graph(NextgenImg2ImgParams(
+        model_name=FLUX2, image="photo.jpg", positive="a portrait",
+    ))
+    msf = _by_type(g, "ModelSamplingFlux")
+    assert msf["width"] == 1024
+    assert msf["height"] == 1024
+
+
+def test_flux2_img2img_model_sampling_rejects_sub16_dims():
+    """小于 16 的非法尺寸同样回退 1024(防御调用方传脏数据)。"""
+    g = build_nextgen_img2img_graph(NextgenImg2ImgParams(
+        model_name=FLUX2, image="photo.jpg", positive="a portrait",
+        width=8, height=12,
+    ))
+    msf = _by_type(g, "ModelSamplingFlux")
+    assert msf["width"] == 1024
+    assert msf["height"] == 1024
+
+
 def test_img2img_non_nextgen_raises():
     with pytest.raises(NextgenError):
         build_nextgen_img2img_graph(NextgenImg2ImgParams(

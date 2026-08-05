@@ -13,6 +13,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -23,6 +24,7 @@ from app.config import get_settings
 from app.models import User
 from app.nsfw_ctx import nsfw_allowed
 from app.routes.ltx_studio import _LTX2_UNETS
+from app.services.h3 import H3_NODE, get_h3_client
 
 # probe:async (pool) -> (available, reason|None);None 表示静态可用性(不做 pool 探测)
 ProbeFn = Callable[[WorkerPool], Awaitable["tuple[bool, str | None]"]]
@@ -89,6 +91,41 @@ def _probe_ltx_nsfw(kind: str) -> ProbeFn:
         )
 
     return _run
+
+
+# H3 探测超时:实例挂起时不能拖垮 /api/models/engines 端点
+_H3_PROBE_TIMEOUT = 8.0
+
+
+async def _fetch_h3_nodes() -> set[str]:
+    """H3 实例 /object_info 节点集(模块级独立函数,便于测试替身)。"""
+    return await get_h3_client().node_names()
+
+
+async def _probe_h3(pool: WorkerPool) -> tuple[bool, str | None]:
+    """H3 专用实例探测:/object_info 含 MiniMaxH3 节点即可用;失败给原因,不拖垮端点。
+
+    与 pool 探测不同:H3 走独立实例(TOIV_H3_BASE_URL),pool 参数仅签名占位。
+    若 TOIV_H3_ENABLED=false,直接标不可用,避免前端展示不可提交的引擎。
+    """
+    if not get_settings().h3_enabled:
+        return False, "H3 视频生成引擎已禁用(TOIV_H3_ENABLED=false)"
+    try:
+        nodes = await asyncio.wait_for(_fetch_h3_nodes(), timeout=_H3_PROBE_TIMEOUT)
+    except Exception as e:  # 不可达/超时/替身异常一律降级为不可用 + 原因
+        return False, f"H3 实例不可达: {e}"
+    if H3_NODE not in nodes:
+        return False, f"H3 实例缺少 {H3_NODE} 节点(需 ComfyUI ≥ 0.30)"
+    return True, None
+
+
+# ACE-Step 文生音乐底模(与 workflows/ace_step.py AceStepParams.ckpt_name 一致)
+_ACE_STEP_CKPT = "ace_step_v1_3.5b.safetensors"
+
+
+async def _probe_ace(pool: WorkerPool) -> tuple[bool, str | None]:
+    """ACE-Step 音乐链路:任一 worker 有底模即可(节点为 ComfyUI 内置,不额外校验)。"""
+    return await _probe_pool(pool, {_ACE_STEP_CKPT}, set())
 
 
 # ---------------------------------------------------------------------------
@@ -174,6 +211,31 @@ def _image_size_params(default: int = 1024) -> list[dict]:
     ]
 
 
+# H3 视频参数(与 routes/h3_studio.py 请求模型同一套范围;32 对齐、17k+5 帧网格)
+def _h3_video_params() -> list[dict]:
+    return [
+        _negative(),
+        _num("width", "宽度", 1344, min_=256, max_=1344, step=32, hint="32 对齐,上限 1344×768"),
+        _num("height", "高度", 768, min_=256, max_=1344, step=32, hint="32 对齐"),
+        _num("length", "时长(帧)", 124, min_=22, max_=362,
+             hint="17k+5 帧网格 @24fps(124≈5.2s,362≈15s)"),
+        _num("steps", "采样步数", 20, min_=1, max_=50),
+        _seed(),
+    ]
+
+
+# ACE-Step 文生音乐参数(与 routes/audio.py AudioRequest 同一套范围)
+def _ace_audio_params() -> list[dict]:
+    return [
+        {"key": "lyrics", "label": "歌词", "type": "textarea", "default": "",
+         "hint": "留空=纯音乐;支持 [verse]/[chorus] 结构标签"},
+        _num("seconds", "时长(秒)", 30, min_=5, max_=240, step=1),
+        _num("steps", "采样步数", 50, min_=10, max_=150),
+        _num("cfg", "CFG", 5.0, min_=0, max_=20, step=0.5),
+        _seed(),
+    ]
+
+
 def _image_sampling_params() -> list[dict]:
     return [
         _num("steps", "采样步数", 20, min_=1, max_=150),
@@ -253,25 +315,35 @@ _REGISTRY: list[dict[str, Any]] = [
         "params": [_ref_image_required(), *_ltx_video_params()],
         "probe": _probe_ltx_nsfw("ltx_i2v"),
     },
-    # H3 预留:权重已就绪于 NAS h3/(fl2va int8 + qwen3vl-32b TE),但需 ComfyUI ≥ 0.30
-    # 才支持该管线;升级完成后把 probe 换成本链路的模型/节点校验即可接入(见
-    # docs/2026-08-03-minimax-h3-eval.md)。此条目用于验证「接入新引擎 = 注册表加条目」。
+    # MiniMax H3:专用 ComfyUI ≥ 0.30 实例(TOIV_H3_BASE_URL,默认 workstation :8195),
+    # 原生 32kHz 音画同发;probe 探测实例 /object_info 是否含 MiniMaxH3 节点
     {
-        "id": "h3",
+        "id": "h3-t2v",
         "label": "MiniMax H3 文生视频",
         "kind": "video",
         "nsfw": False,
-        "description": "MiniMax H3 新一代视频管线,评测已通过,待 ComfyUI 0.30 接入",
-        "params": [
-            _negative(),
-            _num("width", "宽度", 768, min_=256, max_=1920, step=8),
-            _num("height", "高度", 384, min_=256, max_=1080, step=8),
-            _num("length", "时长(帧)", 97, min_=9, max_=241),
-            _seed(),
-        ],
-        "probe": None,
-        "static_available": False,
-        "static_reason": "ComfyUI 升级 0.30 后可用(权重已就绪于 NAS h3/)",
+        "description": "MiniMax H3 新一代视频管线:原生 32kHz 音画同发,专用实例 :8195",
+        "params": _h3_video_params(),
+        "probe": _probe_h3,
+    },
+    {
+        "id": "h3-i2v",
+        "label": "MiniMax H3 图生视频",
+        "kind": "video",
+        "nsfw": False,
+        "description": "MiniMax H3:参考图首帧 → 音画同发短视频,剧情连续性好",
+        "params": [_ref_image_required(), *_h3_video_params()],
+        "probe": _probe_h3,
+    },
+    # ACE-Step 文生音乐:kind=audio(音频板块生成区;提交路由 /api/generate/audio 既有)
+    {
+        "id": "ace-music",
+        "label": "ACE 文生音乐",
+        "kind": "audio",
+        "nsfw": False,
+        "description": "ACE-Step 1.5:风格标签 + 歌词 → MP3(≤240s);提示词可经 AI 优化为音乐标签",
+        "params": _ace_audio_params(),
+        "probe": _probe_ace,
     },
 ]
 

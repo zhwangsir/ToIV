@@ -7,7 +7,8 @@ P2 把 4 张 GPU 各自的 ComfyUI 进程地址填进 TOIV_COMFY_WORKERS,即可�
 1. 熔断器:连续 N 次探测失败的 worker 进入熔断状态(open),冷却期内跳过探测
    直接视为不可达,冷却期结束后半开试探一次,成功则恢复,失败则继续熔断。
 2. 健康探测缓存:queue_len/model_names/node_names 探测结果短时缓存(5s),
-   避免高并发下对同一 worker 发起雪崩式探测。
+   避免高并发下对同一 worker 发起雪崩式探测;缓存经 Redis(`toiv:worker-health:*`)
+   跨进程共享,Redis 不可达时自动降级为本进程缓存。
 3. 故障转移:pick() 在所有候选都熔断时,返回熔断时间最早的一个(最可能已恢复)。
 4. 显存感知:可选的 vram_free 探测,优先派到显存最充裕的 worker(避免 OOM)。
 5. 指标暴露:stats() 返回各 worker 的健康/负载/熔断状态,供 /health 端点展示。
@@ -15,11 +16,15 @@ P2 把 4 张 GPU 各自的 ComfyUI 进程地址填进 TOIV_COMFY_WORKERS,即可�
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
+import redis as redis_lib
+
 from app.comfy.client import ComfyUIClient, ComfyUIError
+from app.services import redis_client
 
 _UNREACHABLE = 10**9
 # 熔断器参数
@@ -111,6 +116,69 @@ class WorkerPool:
         if state.failures >= _BREAKER_FAIL_THRESHOLD and state.breaker_opened_at == 0.0:
             state.breaker_opened_at = now
 
+    # ────────────────────────────────
+    # 健康探测结果跨进程共享(Redis;不可达时自动降级为本进程缓存)
+    # 键:toiv:worker-health:{base_url}(hash,TTL=2*_PROBE_TTL)
+    # ────────────────────────────────
+
+    @staticmethod
+    def _health_key(base_url: str) -> str:
+        return f"toiv:worker-health:{base_url.rstrip('/')}"
+
+    async def _share_probe(self, state: _WorkerState) -> None:
+        """把本次探测成功结果写入 Redis,供其他进程/worker 复用(尽力而为)。"""
+        r = redis_client.get_redis()
+        if r is None:
+            return
+        try:
+            key = self._health_key(state.client.base_url)
+            await r.hset(key, mapping={
+                "ts": str(time.time()),  # wall clock,跨进程可比
+                "queue_len": str(state.last_queue_len),
+                "models": json.dumps(sorted(state.last_models)),
+                "nodes": json.dumps(sorted(state.last_nodes)),
+            })
+            await r.expire(key, int(_PROBE_TTL * 2))
+        except (redis_lib.RedisError, OSError) as exc:
+            redis_client.mark_down(exc)
+
+    async def _load_shared(self, state: _WorkerState, now: float) -> bool:
+        """本地缓存过期时,尝试从 Redis 读其他进程共享的探测结果喂给本地缓存。
+
+        Returns: True = 共享缓存新鲜且已应用(可免一次真实探测)。
+        """
+        r = redis_client.get_redis()
+        if r is None:
+            return False
+        try:
+            data = await r.hgetall(self._health_key(state.client.base_url))
+        except (redis_lib.RedisError, OSError) as exc:
+            redis_client.mark_down(exc)
+            return False
+        if not data:
+            return False
+        try:
+            ts = float(data["ts"])
+            if time.time() - ts >= _PROBE_TTL:
+                return False
+            state.last_queue_len = int(data["queue_len"])
+            state.last_models = set(json.loads(data.get("models", "[]")))
+            state.last_nodes = set(json.loads(data.get("nodes", "[]")))
+        except (KeyError, ValueError, TypeError):
+            return False
+        state.last_probe_ts = now
+        state.last_probe_ok = True
+        return True
+
+    def _cached_probe(self, state: _WorkerState, required: set[str],
+                      required_nodes: set[str]) -> tuple[bool, int]:
+        """按缓存的模型/节点集合校验 required,返回缓存的探测结果。"""
+        if required and not required.issubset(state.last_models):
+            return (False, state.last_queue_len)
+        if required_nodes and not required_nodes.issubset(state.last_nodes):
+            return (False, state.last_queue_len)
+        return (True, state.last_queue_len)
+
     async def _probe_one(self, state: _WorkerState, now: float,
                          required: set[str], required_nodes: set[str],
                          force: bool = False) -> tuple[bool, int]:
@@ -123,12 +191,10 @@ class WorkerPool:
             return (False, _UNREACHABLE)
         # 缓存命中:非强制且缓存新鲜
         if not force and now - state.last_probe_ts < _PROBE_TTL and state.last_probe_ok:
-            # 校验缓存仍满足 required
-            if required and not required.issubset(state.last_models):
-                return (False, state.last_queue_len)
-            if required_nodes and not required_nodes.issubset(state.last_nodes):
-                return (False, state.last_queue_len)
-            return (True, state.last_queue_len)
+            return self._cached_probe(state, required, required_nodes)
+        # 本地缓存过期:先试 Redis 里其他进程共享的探测结果(命中可免一次真实探测)
+        if not force and await self._load_shared(state, now):
+            return self._cached_probe(state, required, required_nodes)
 
         c = state.client
         try:
@@ -141,9 +207,11 @@ class WorkerPool:
             nodes = await c.node_names() if required_nodes else state.last_nodes
             if required and not required.issubset(models):
                 self._record_success(state, ql, models or state.last_models, nodes)
+                await self._share_probe(state)
                 return (False, ql)
             if required_nodes and not required_nodes.issubset(nodes):
                 self._record_success(state, ql, models or state.last_models, nodes)
+                await self._share_probe(state)
                 return (False, ql)
         except Exception:
             self._record_failure(state)
@@ -151,6 +219,7 @@ class WorkerPool:
         self._record_success(state, ql,
                              models if isinstance(models, set) else state.last_models,
                              nodes if isinstance(nodes, set) else state.last_nodes)
+        await self._share_probe(state)
         return (True, ql)
 
     async def first_available(self, candidates: Iterable[str]) -> str | None:

@@ -49,8 +49,9 @@ _DUB_DIR = content_subdir("dub")  # 生成内容根(默认 /data;可切 NAS 挂�
 # 视频上传不设大小上限(用户要求):流式 1MB 分块写盘,不整片进内存,大文件安全。
 # 上传速度受网络带宽限制(与本服务无关);实际约束仅剩磁盘空间。
 _CHUNK = 1024 * 1024  # 1MB 流式分块,避免整片进内存
-_EXT_OK = {".mp4", ".mov", ".webm", ".mkv"}
-_NAME_RE = re.compile(r"^dub-[0-9a-f]{32}\.(mp4|mov|webm|mkv)$")
+# 音频板块 ASR 工具卡共用此上传通道:视频之外放行常见音频格式(whisper 经 ffmpeg 直接吃音频)。
+_EXT_OK = {".mp4", ".mov", ".webm", ".mkv", ".mp3", ".wav", ".flac", ".ogg", ".m4a"}
+_NAME_RE = re.compile(r"^dub-[0-9a-f]{32}\.(mp4|mov|webm|mkv|mp3|wav|flac|ogg|m4a)$")
 
 
 @router.post("/dub/upload")
@@ -63,7 +64,7 @@ async def dub_upload(
     if ext not in _EXT_OK:
         raise HTTPException(
             status_code=400,
-            detail=f"不支持的视频格式(仅 {', '.join(sorted(_EXT_OK))})",
+            detail=f"不支持的媒体格式(仅 {', '.join(sorted(_EXT_OK))})",
         )
 
     _DUB_DIR.mkdir(parents=True, exist_ok=True)

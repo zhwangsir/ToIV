@@ -1,7 +1,9 @@
-"""画布事件总线 —— 进程内 pub/sub,供 Agent 工具(M1.2)向 SSE 端点(M1.1)推送节点变更。
+"""画布事件总线 —— 进程内 pub/sub + Redis 跨进程 relay,供 Agent 工具(M1.2)向 SSE 端点(M1.1)推送节点变更。
 
-M1 不考虑多 worker 跨进程(后续可换 Redis pub/sub)。
-内存维护 {canvas_id: set[asyncio.Queue]} 映射,SSE 关闭时清理。
+进程内投递仍是主路径(零延迟);publish 同时尽力投递到 Redis channel
+`toiv:canvas:{canvas_id}`,每个进程为本地有订阅者的画布起一个 relay 任务回投本进程,
+实现多 worker 跨进程可达。Redis 不可达时自动降级为纯进程内(单进程行为),
+恢复后自动回切 —— 见 app/services/redis_client.py。
 
 深化要点(2026-07-26):
 1. 背压:每个订阅 Queue 设 maxsize(默认 256),满时丢弃最旧事件并记日志,
@@ -13,18 +15,30 @@ M1 不考虑多 worker 跨进程(后续可换 Redis pub/sub)。
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
+import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
+
+import redis as redis_lib
+
+from app.services import redis_client
 
 logger = logging.getLogger(__name__)
 
 # 单订阅队列容量上限:超过则丢弃最旧事件(背压)
 _QUEUE_MAXSIZE = 256
 
+# 本进程标识:relay 回投时跳过自己发出的事件,防回声重复投递
+_ORIGIN = uuid.uuid4().hex
+
 # 画布事件订阅者:canvas_id → set[_Subscriber]
 _subscribers: dict[str, set[_Subscriber]] = {}
+
+# Redis relay 任务:canvas_id → asyncio.Task(仅当本地有订阅者且 Redis 可达)
+_relay_tasks: dict[str, asyncio.Task] = {}
 
 # 全局统计(运维监控用)
 _stats = {"total_publishes": 0, "total_dropped": 0, "total_subscribers_peak": 0}
@@ -52,33 +66,93 @@ def _make_subscriber(canvas_id: str) -> _Subscriber:
     total = sum(len(s) for s in _subscribers.values())
     if total > _stats["total_subscribers_peak"]:
         _stats["total_subscribers_peak"] = total
+    _ensure_relay(canvas_id)
     return sub
 
 
 def _drop_subscriber(canvas_id: str, sub: _Subscriber) -> None:
-    """从 _subscribers 移除订阅者;空集合时清理键,防内存泄漏。"""
+    """从 _subscribers 移除订阅者;空集合时清理键并停 relay,防内存泄漏。"""
     subs = _subscribers.get(canvas_id)
     if subs is None:
         return
     subs.discard(sub)
     if not subs:
         _subscribers.pop(canvas_id, None)
+        task = _relay_tasks.pop(canvas_id, None)
+        if task is not None:
+            task.cancel()
 
 
-async def publish(canvas_id: str, event: dict, *, priority: bool = False) -> None:
-    """向画布的所有 SSE 订阅者推送事件(M1.2 Agent 工具调用)。
+# ────────────────────────────────
+# Redis relay(跨进程投递;不可达时自动降级纯进程内)
+# channel: toiv:canvas:{canvas_id};消息 {"origin": 进程标识, "event": {...}}
+# ────────────────────────────────
 
-    进程内推送,事件会被复制到每个订阅者的 asyncio.Queue。
 
-    Args:
-        canvas_id: 画布 ID。
-        event: 事件 payload(dict)。
-        priority: True 时为心跳/控制事件,即使队列满也强制入队(挤掉最旧);
-                  False 时队列满则丢弃最旧并记日志。
+def _channel(canvas_id: str) -> str:
+    return f"toiv:canvas:{canvas_id}"
 
-    深化:背压保护——队列满时丢弃最旧事件,防止慢消费者撑爆内存。
-    """
-    _stats["total_publishes"] += 1
+
+def _ensure_relay(canvas_id: str) -> None:
+    """本地有订阅者时确保 Redis relay 任务在跑(Redis 不可达则不建,纯进程内)。"""
+    if canvas_id in _relay_tasks:
+        return
+    if redis_client.get_redis() is None:
+        return
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return  # 无运行中的事件循环(同步上下文),跳过 relay
+    _relay_tasks[canvas_id] = loop.create_task(_relay_loop(canvas_id))
+
+
+async def _relay_loop(canvas_id: str) -> None:
+    """订阅 Redis channel,把其他进程发出的事件回投到本进程订阅者。"""
+    r = redis_client.get_redis()
+    if r is None:
+        return
+    pubsub = r.pubsub()
+    try:
+        await pubsub.subscribe(_channel(canvas_id))
+        async for msg in pubsub.listen():
+            if msg.get("type") != "message":
+                continue
+            try:
+                payload = json.loads(msg["data"])
+            except (TypeError, ValueError):
+                continue
+            if payload.get("origin") == _ORIGIN:
+                continue  # 自己发出的事件,进程内已投递,跳过防回声
+            event = payload.get("event")
+            if isinstance(event, dict):
+                _deliver_local(canvas_id, event)
+    except asyncio.CancelledError:
+        raise
+    except (redis_lib.RedisError, OSError) as exc:
+        redis_client.mark_down(exc)
+    finally:
+        try:
+            await pubsub.unsubscribe(_channel(canvas_id))
+            await pubsub.aclose()
+        except Exception:  # noqa: BLE001 - 清理尽力而为
+            pass
+        _relay_tasks.pop(canvas_id, None)
+
+
+async def _publish_remote(canvas_id: str, event: dict) -> None:
+    """尽力投递到 Redis channel;失败记降级,不影响进程内投递。"""
+    r = redis_client.get_redis()
+    if r is None:
+        return
+    try:
+        await r.publish(_channel(canvas_id),
+                        json.dumps({"origin": _ORIGIN, "event": event}))
+    except (redis_lib.RedisError, OSError) as exc:
+        redis_client.mark_down(exc)
+
+
+def _deliver_local(canvas_id: str, event: dict, *, priority: bool = False) -> None:
+    """进程内投递:复制事件到该画布每个订阅者的 asyncio.Queue(含背压保护)。"""
     for sub in list(_subscribers.get(canvas_id, ())):
         try:
             if sub.queue.full():
@@ -103,6 +177,24 @@ async def publish(canvas_id: str, event: dict, *, priority: bool = False) -> Non
                 logger.debug(
                     "画布事件入队失败(竞态) canvas_id=%s", canvas_id
                 )
+
+
+async def publish(canvas_id: str, event: dict, *, priority: bool = False) -> None:
+    """向画布的所有 SSE 订阅者推送事件(M1.2 Agent 工具调用)。
+
+    进程内投递(主路径)+ 尽力投递到 Redis channel(跨进程 relay 回投其他 worker)。
+
+    Args:
+        canvas_id: 画布 ID。
+        event: 事件 payload(dict)。
+        priority: True 时为心跳/控制事件,即使队列满也强制入队(挤掉最旧);
+                  False 时队列满则丢弃最旧并记日志。
+
+    深化:背压保护——队列满时丢弃最旧事件,防止慢消费者撑爆内存。
+    """
+    _stats["total_publishes"] += 1
+    _deliver_local(canvas_id, event, priority=priority)
+    await _publish_remote(canvas_id, event)
 
 
 async def subscribe(canvas_id: str) -> AsyncIterator[dict]:
@@ -162,4 +254,5 @@ def stats() -> dict:
         "total_subscribers": sum(len(s) for s in _subscribers.values()),
         "subscribers_peak": _stats["total_subscribers_peak"],
         "queue_maxsize": _QUEUE_MAXSIZE,
+        "backend": redis_client.backend_status(),
     }

@@ -29,6 +29,9 @@ MAX_SEED = 2**63 - 1
 _FLUX_MAX_SHIFT = 1.15
 _FLUX_BASE_SHIFT = 0.5
 
+# img2img 输入图尺寸未知时 ModelSamplingFlux 的安全回退(仅影响 shift 估算)
+_I2I_DEFAULT_DIM = 1024
+
 
 def _random_seed() -> int:
     return secrets.randbelow(MAX_SEED)
@@ -59,7 +62,11 @@ class NextgenParams:
 
 @dataclass(frozen=True)
 class NextgenImg2ImgParams:
-    """次世代 img2img 参数。与 txt2img 区别:输入图 + denoise,无 width/height(由输入图决定)。"""
+    """次世代 img2img 参数。与 txt2img 区别:输入图 + denoise,采样分辨率由输入图决定。
+
+    width/height 仅供 ModelSamplingFlux 的 shift 估算(需 ≥16);0=未知,
+    构图时回退 1024(latent 来自真实图像,采样分辨率不受影响)。
+    """
 
     model_name: str
     image: str  # ComfyUI input 目录中的文件名(上传后得到)
@@ -73,6 +80,9 @@ class NextgenImg2ImgParams:
     seed: int = field(default_factory=_random_seed)
     weight_dtype: str = "default"
     filename_prefix: str = "ToIV_i2i"
+    # 输入图尺寸(仅 ModelSamplingFlux shift 估算用;0=未知 → 构图回退 1024)
+    width: int = 0
+    height: int = 0
     # 文本编码器覆盖:非空时优先于配方默认(与 NextgenParams 对齐)
     clip_name: str | None = None
     # 叠加 LoRA(与 NextgenParams 对齐)
@@ -225,14 +235,16 @@ def build_nextgen_img2img_graph(p: NextgenImg2ImgParams) -> dict:
         }
         model_ref = ["2", 0]
     elif recipe.model_sampling == "ModelSamplingFlux":
+        # w/h 仅作 shift 估算,ComfyUI 校验 ≥16;未知(0)时回退 1024。
+        # latent 来自 VAEEncode 的真实图像,采样分辨率不受此值影响。
         nodes["2"] = {
             "class_type": "ModelSamplingFlux",
             "inputs": {
                 "model": model_ref,
                 "max_shift": _FLUX_MAX_SHIFT,
                 "base_shift": _FLUX_BASE_SHIFT,
-                "width": 0,
-                "height": 0,
+                "width": p.width if p.width >= 16 else _I2I_DEFAULT_DIM,
+                "height": p.height if p.height >= 16 else _I2I_DEFAULT_DIM,
             },
         }
         model_ref = ["2", 0]

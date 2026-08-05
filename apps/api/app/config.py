@@ -66,6 +66,11 @@ class Settings(BaseSettings):
     # 生成内容存储根(译制视频/配音/forge/cad)。默认 /data(容器本地卷);
     # 设 /data/nas/toiv(cifs 卷挂 NAS)则生成内容集中落 NAS。
     content_dir: str = "/data"
+    # 音频产物根目录(人声分离等独立音频工具产物,AGENTS.md 第六节 outputs/audio)。
+    # 生产 core 指向 NAS 挂载点 /mnt/toiv-nas/toiv/outputs/audio;空 = 用本地候选目录。
+    # NAS 不可达/不可写时自动降级本地回退目录并记 warning,不 500
+    # (解析与降级见 app/storage.audio_output_root,模式同 TOIV_DRAMA_VIDEO_DIR)。
+    audio_dir: str = ""
 
     # 后端 API 自身基址(供内部 HTTP 自调下载 /api/... 产物使用)。
     # 开发 :3102, 生产真机 :8090;必须与 uvicorn/systemd 实际监听端口一致。
@@ -75,6 +80,10 @@ class Settings(BaseSettings):
     # 不能用 "*" —— allow_credentials=True 时 CORS 规范禁止通配符 origin，否则浏览器会拒绝带凭据的跨域请求。
     cors_origins: str = "https://toiv.dgmt.top,http://192.168.71.47:3100,http://192.168.71.47:3101,http://127.0.0.1:3100,http://localhost:3100,http://127.0.0.1:3101,http://localhost:3101"
     request_timeout: float = 30.0
+
+    # Redis(限流/画布事件/worker 健康缓存共享状态)。生产 core 与 toiv-api 同机,
+    # 仅监听 localhost 无密码。不可达时各调用方自动降级进程内存(见 services/redis_client.py)。
+    redis_url: str = "redis://127.0.0.1:6379/0"
 
     # 鉴权 / 账号。开发期用 SQLite，生产切 Postgres：
     #   TOIV_DATABASE_URL=postgresql+psycopg://user:pass@host/db
@@ -189,6 +198,20 @@ class Settings(BaseSettings):
     # 空 = 未部署,选择该模型提交时返回固定错误。
     liveact_base_url: str = ""
 
+    # —— MiniMax H3 视频生成引擎(专用 ComfyUI ≥ 0.30 实例,workstation :8195) ——
+    # 独立于 ComfyUI-LB 集群/WorkerPool(生产 ComfyUI 0.27/0.28 无 H3 节点);
+    # 实例由 systemd 托管,权重经 extra_model_paths 挂 NAS h3/(见 docs/2026-08-03-minimax-h3-eval.md)。
+    h3_enabled: bool = True
+    h3_base_url: str = "http://192.168.71.127:8195"
+    # H3 int8 档增量峰值 ~30-33GiB(评测实测);提交前要求实例卡空闲显存 ≥ 此阈值(GiB)。
+    # 不足时先尝试驱逐 h3_co_workers(同卡 pool worker,空闲队列才动)的模型缓存,
+    # 仍不足 → 503 错峰提示,不让 ComfyUI 以 "VRAM grow failed" 裸崩(2026-08-04 实发)。
+    h3_min_free_vram_gb: float = 36.0
+    # 与 H3 实例同卡的 pool worker(逗号分隔,用于显存不足时的协调驱逐);空串=禁用自动驱逐。
+    # 2026-08-04 起 H3 实例迁移至 GPU0(原 GPU1 被 embedding+liveact+H3 挤爆),
+    # 同卡 pool worker 为 gpu0 :8189。
+    h3_co_workers: str = "http://192.168.71.127:8189"
+
     @property
     def embed_url(self) -> str:
         return (self.embed_base_url or self.llm_base_url).rstrip("/")
@@ -213,6 +236,16 @@ class Settings(BaseSettings):
     def liveact_base(self) -> str:
         """LiveAct worker 基址(已去尾斜杠);空串表示未部署。"""
         return self.liveact_base_url.strip().rstrip("/")
+
+    @property
+    def h3_base(self) -> str:
+        """H3 专用实例基址(已去尾斜杠)。"""
+        return self.h3_base_url.strip().rstrip("/")
+
+    @property
+    def h3_co_worker_urls(self) -> list[str]:
+        """与 H3 同卡的 pool worker 列表(逗号分隔;空串 → 空列表,禁用自动驱逐)。"""
+        return [u.strip().rstrip("/") for u in self.h3_co_workers.split(",") if u.strip()]
 
     @property
     def cors_origin_list(self) -> list[str]:

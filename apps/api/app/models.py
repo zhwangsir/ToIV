@@ -418,3 +418,64 @@ class DramaAsset(SQLModel, table=True):
     tags: str = "[]"  # JSON 标签数组
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)
+
+
+# ---------------------------------------------------------------------------
+# Studio 创作工作室(替代 drama_studio / manju,分镜级混合生成)
+# ---------------------------------------------------------------------------
+
+
+class StudioProject(SQLModel, table=True):
+    """创作项目:剧本 → 角色 → 分镜(视频/图像运镜混排)→ 合成。"""
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    tenant_id: str = Field(index=True)
+    user_id: str = Field(index=True)
+    title: str = ""
+    premise: str = ""  # 剧情概要/原文
+    style: str = ""  # 整体画风/风格描述
+    ckpt_name: str = ""  # 出图底模(图像运镜链用,保跨镜风格一致)
+    render_mode_default: str = "video"  # 新分镜默认生成方式: video | image_motion
+    status: str = "draft"  # draft | storyboard | generating | ready | error
+    final_url: str = ""  # 成片 URL
+    error: str = ""
+    created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
+
+
+class StudioCharacter(SQLModel, table=True):
+    """角色卡:跨镜一致性锚点(视觉提示词 + 参考图 + 参考音)。"""
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    project_id: str = Field(index=True)
+    name: str = ""
+    description: str = ""  # 中文角色描述
+    visual_prompt: str = ""  # 英文视觉 token(注入分镜 prompt)
+    reference_images: str = "[]"  # JSON 数组:参考图 URL 列表
+    voice_ref_url: str = ""  # 参考音 URL(TTS 音色克隆)
+    created_at: datetime = Field(default_factory=_now)
+
+
+class StudioShot(SQLModel, table=True):
+    """分镜:最小生成单元,render_mode 决定走视频链还是图像运镜链。"""
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    project_id: str = Field(index=True)
+    idx: int = 0
+    scene: str = ""  # 场景描述(中文)
+    prompt: str = ""  # 英文生成提示词
+    negative: str = "blurry, low quality, text, watermark, deformed"
+    camera: str = ""  # 运镜(推拉摇移)
+    dialogue: str = ""  # 台词
+    speaker: str = ""  # 说话角色名
+    duration_sec: int = 6
+    characters: str = "[]"  # JSON 数组:出场角色名
+    render_mode: str = "video"  # video | image_motion
+    status: str = "draft"  # draft|queued|rendering|rendered|voiced|lipsynced|done|error
+    image_url: str = ""
+    video_url: str = ""
+    voice_url: str = ""
+    final_clip_url: str = ""  # 该镜最终片段(运镜/对口型后)
+    error: str = ""
+    created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
