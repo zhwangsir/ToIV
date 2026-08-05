@@ -4,6 +4,454 @@
 
 ---
 
+## STUDIO-M5-2026-08-06 · Studio 创作工作室 M5:旧模块冻结 + 全量回归归档(studio_module_complete)
+
+**时间**: 2026-08-06
+**类型**: chore / regression / 归档
+**目标**: 冻结旧 短剧(dramaStudio)/漫剧(manju) 模块,清理测试与脚本中的旧视图引用,全量回归后归档 studio 模块
+
+### 变更
+
+| 文件 | 内容 |
+|---|---|
+| `apps/api/app/routes/drama_studio.py` / `manju.py` | 头部 DEPRECATED 标记:仅旧项目数据只读,新需求一律 `/api/studio/*` |
+| `apps/web/components/drama-studio/DramaStudioView.tsx` / `manju/ManjuView.tsx` | 头部 FROZEN 注释。**不删除**的唯一原因:animatic 视图桌面端复用 DramaStudioView 的「动态分镜」页签(page.tsx),待动态分镜独立后两目录整体下线 |
+| `apps/web/e2e/authed-drama-studio.spec.ts` / `authed-manju.spec.ts` | 删除——旧视图已重定向到 studio,断言全部失效,由 `authed-studio.spec.ts`(4) 承接 |
+| `apps/web/e2e/authed-views.spec.ts` / `authed-ux-metrics.spec.ts` / `ui-smoke.mjs` / `scripts/test_app.py` / `scripts/test_performance.py` | 视图清单 `dramaStudio`/`manju` → `studio` |
+| `apps/web/e2e/debug-sidebar.spec.ts` | VIEW_FLOW 对齐现行 SIDEBAR_ITEMS(对话/图片/视频/音频/融合/画布/作品库/资源) |
+
+### 计划外修正
+
+1. **e2e 环境全灭(16 failed)**:3100 的 next-server 服务的是旧 build,新 build 后 chunk 错位 → `/` 500。重启后 `/api` 代理仍 501——**rewrites 在 build 期烘焙进 routes-manifest**,上次 build 未带 `INTERNAL_API_BASE`,代理落默认 `localhost:8090`(被无关 Python SimpleHTTP 静态服务占用)。修复:`INTERNAL_API_BASE=http://localhost:8200 npm run build && npm run start`。
+2. **AGENTS.md 文档步调整**:该文件已被设备管家会话整体改写为「集群操作记忆」(git 未提交,468 行变更),原 ToIV 项目「核心能力」段落不复存在;Task 19 文档步改由本日志与 STATE.json 承载,不回滚他人未提交改动。
+
+### 测试
+
+- 后端全量回归:`apps/api/.venv/bin/python -m pytest -q` → **1033 passed**(28.24s)
+- 前端:`npm run build` 通过
+- e2e(本地 api:8200 + web:3100):`authed-studio`(4) + `authed-views`(12,含新 studio 视图) = **16 passed**(11.0s)
+
+**归档**: studio 创作工作室(M1 剧本拆解/M2 策略化渲染/M3 配音对口型合成/M4 前端工作台/M5 旧模块冻结)全部完成,标记 `studio_module_complete`。
+
+---
+
+## STUDIO-M4-2026-08-06 · Studio 创作工作室 M4:前端四阶段工作台 + 入口替换
+
+**时间**: 2026-08-06
+**类型**: feature / TDD / e2e
+**目标**: studio 模块前端落地——四阶段工作台(剧本→角色→分镜→合成)、分镜级 视频/图像运镜 切换;旧 短剧(dramaStudio)/漫剧(manju) 入口替换为单一「创作工作室」,旧链接重定向不 404
+
+### 变更
+
+| 文件 | 内容 |
+|---|---|
+| `apps/web/lib/api.ts` | studio 类型(`StudioProjectSummary`/`StudioProjectDetail`/`StudioShot` 等)+ API 封装(项目/角色 CRUD、分镜全量保存、剧本拆解、渲染/配音/对口型/合成) |
+| `apps/web/hooks/useStudioProject.ts` | 项目详情状态钩子:refresh/saveShots/renderShot/renderAll/voiceShot/lipsyncShot/assemble,busy 按操作粒度 |
+| `apps/web/components/studio/StudioView.tsx` | 工作台容器:项目列表首页 + 四阶段导航(`nav[aria-label="创作阶段"]`),Film Atelier 变量体系样式 |
+| `apps/web/components/studio/ShotCard.tsx` | 分镜卡:媒体预览、内联编辑、`render_mode` 切换(视频/运镜,切模式回草稿)、单镜 生成/配音/对口型 |
+| `apps/web/components/studio/stages/*.tsx` | ScriptStage(premise → LLM 拆解)/CastStage(角色卡)/StoryboardStage(分镜网格 + 批量渲染)/AssemblyStage(时间轴 + 合成 + 成片播放) |
+| `apps/web/app/page.tsx` | 注册 `studio` 视图(importer/lazy/渲染分支/VALID_VIEWS/VIEW_META);`LEGACY_VIEW_REDIRECTS` 加 `dramaStudio→studio`、`manju→studio`(URL 规整为新 key);BOTTOM_NAV_MORE 加「创作」入口 |
+| `apps/web/components/fusion/FusionView.tsx` | 短剧/漫剧双卡合并为单一「创作工作室」卡(target=studio) |
+| `apps/api/app/routes/studio.py` | `save_shots` 修正为全量替换语义:请求未包含的旧分镜删除(前端删镜/剧本重拆解依赖此契约),含测试 |
+
+### 计划外修正
+
+1. **save_shots 语义**:前端删镜后批量保存,后端原实现不删旧行 → 加 `keep` 集合删除未含分镜;`test_studio_projects.py` 补全量替换用例。
+2. **并行编辑残留**:page.tsx 多处并行编辑导致 `VALID_VIEWS`/`VIEW_META` 中 `dramaStudio` 残留,复核后清干净(旧 key 只走重定向表)。
+
+### 测试
+
+- 新增 `apps/web/e2e/authed-studio.spec.ts`(4):studio 首页渲染(标题/新建按钮/列表区)、旧链接 `dramaStudio`/`manju` 重定向到 studio(URL 规整 + 首页渲染)、新建项目 → 四阶段工作台(4 tab 切换)→ API 清理、融合页「创作工作室」卡片跳转(旧双卡断言已移除)
+- e2e 环境:本地 api :8200(uvicorn)+ web :3100(`INTERNAL_API_BASE=http://127.0.0.1:8200 npm run dev`),global-setup 默认基址对齐
+- 结果:e2e **4 passed**(9.2s);后端全量回归 **1033 passed**(27.11s);前端 `npm run build` 通过
+
+---
+
+## STUDIO-M3-2026-08-06 · Studio 创作工作室 M3:配音 + 对口型 + 合成
+
+**时间**: 2026-08-06
+**类型**: feature / TDD
+**目标**: 闭合分镜后处理三环——台词配音(IndexTTS2)、视频镜对口型(LatentSync 1.6)、项目成片拼接(ffmpeg concat)
+
+### 变更
+
+| 文件 | 内容 |
+|---|---|
+| `apps/api/app/services/studio/voice.py` | `synth(text, ref_audio_bytes, language)`:zh/en 走 `tts_url`,ja/ko/yue 走 `tts_multilingual_url` 并附 language;参考音作 multipart `ref_audio` 转发克隆音色;未配置/不可达/非 RIFF 返回抛 `VoiceError`。`synth_for_shot`:按说话人角色卡下载 `voice_ref_url`(失败降级默认音色),状态机 rendered → voiced,产物落 `drama_output_root()/studio` |
+| `apps/api/app/services/studio/lipsync.py` | `lipsync_video(shot, pool)`:`pool.pick` → 下载分镜视频+配音(相对路径经 `api_base_url` 补全)→ `upload_image` 传 worker input(`studio_ls_src_*`/`studio_ls_voice_*`)→ `build_latentsync_graph` 入队 → 轮询 `get_result_files` → 取产物落盘。`lipsync_for_shot`:状态机 voiced → lipsynced,产物覆盖 `final_clip_url` |
+| `apps/api/app/services/studio/assemble.py` | `collect_clips` 按 idx 排序收集 `final_clip_url`(空项目/缺片段抛 `AssembleError`);`_clip_path` 校验 `/api/studio/files/` 前缀 + `Path(name).name` 防穿越 + 文件存在性;`assemble_project` 经 `concat_parts`(concat demuxer `-c copy` 无损)拼成片,回写 `final_url` + `status=ready`,ffmpeg 失败落 `error` |
+| `apps/api/app/routes/studio.py` | `POST /studio/shots/{sid}/voice`(无台词 422,说话人命中角色卡传入服务层)、`POST /studio/shots/{sid}/lipsync`(非视频镜 422、缺视频/配音 422)、`POST /studio/projects/{pid}/assemble`(未就绪 422/ffmpeg 失败 502,成功返回项目详情) |
+
+### 测试
+
+- 新增 `test_studio_voice.py`(17):TTS 合成(参考音转发/服务不可达/非音频/未配置)、LatentSync 全 mock 流水线(下载→上传→构图→轮询→落盘)、缺媒体/worker 不可用容错、路由层(无台词 422、角色卡命中、TTS 502、image_motion 拒绝对口型 422、对口型 200/502)
+- 新增 `test_studio_assemble.py`(9):collect 顺序/未就绪/空项目、URL 解析(外部 URL/路径穿越拒绝)、拼接成功(状态 ready)/ffmpeg 失败(状态 error)、路由 422(未就绪/无分镜)/200/502
+- 结果:**26 passed**;studio 模块 **178 passed**;全量回归 **1033 passed**(26.22s,零失败)
+
+---
+
+## STUDIO-M2-2026-08-05 · Studio 创作工作室 M2:策略化渲染层(视频链/图像运镜链)
+
+**时间**: 2026-08-05
+**类型**: feature / TDD
+**目标**: 分镜按 `render_mode` 走视频链或图像运镜链,渲染编排 + 状态机 + 文件服务端点
+
+### 变更
+
+| 文件 | 内容 |
+|---|---|
+| `apps/api/app/services/studio/renderers/base.py` | `RenderError` / `RenderResult(kind,url)` / `ShotRenderer` Protocol;`get_renderer(shot)` 按 render_mode 分发,未知模式抛 RenderError |
+| `apps/api/app/services/studio/renderers/image_motion.py` | 图像运镜链:角色 visual_prompt 注入 → `build_txt2img_graph` → `pool.pick(required={ckpt})` → queue → `_wait_images` 轮询 → 取图落盘 → ffmpeg Ken Burns(zoompan,2x 预放大降抖)→ 768x432@16 mp4;静图 URL 副作用写 `shot.image_url` |
+| `apps/api/app/services/studio/renderers/video.py` | 视频链:封装 `video_generators.get_generator("ltx", pool)`;`success=False`→RenderError;fire-and-forget(video_url 空)时按 `raw.worker + job_id` 轮询 `get_result_files` → `tracker.image_url` 代理 URL |
+| `apps/api/app/services/studio/ffmpeg_ops.py` | `ensure_ffmpeg` / `run_ffmpeg`(超时+stderr 尾部)/ `concat_parts`(concat demuxer 无损拼接) |
+| `apps/api/app/services/studio/orchestrator.py` | 分镜状态机:`render_shot(session, shot, pool)` — rendering → rendered/error;`_cast_for` 按角色名取卡;`terminal_states()` 供批量跳过 |
+| `apps/api/app/routes/studio.py` | `POST /studio/shots/{sid}/render`(单镜同步)、`POST /studio/projects/{pid}/render`(批量,跳终态,单镜失败不阻塞)、`GET /studio/projects/{pid}/status`(by_status 计数)、`GET /studio/files/{name}`(产出文件服务,`Path(name).name` 防穿越) |
+
+### 计划外修正(对齐真实接口)
+
+1. **VideoGenResult 字段**:计划按 `url` 取产出,实际字段为 `success`/`video_url`/`job_id`/`raw`;且 ltx 为 fire-and-forget——提交成功时 `video_url` 为空,需轮询 `raw.worker` 的 ComfyUI history 取产物文件再拼 `/api/images` 代理 URL(复用 `tracker.image_url`)。
+2. **出图等待**:`queue_prompt` 后立即 `get_images` 必为空(异步执行),image_motion 增加 `_wait_images` 轮询(间隔/超时常量化供测试 monkeypatch)。
+
+### 测试
+
+- 新增 `test_studio_renderers.py`(11):分发/未知模式/结果契约、Ken Burns filter、图像链全 mock(出图→运镜,断言静图+片段两次落盘)、无产出超时、视频链 token 注入/异常包装/success=False/提交后轮询
+- `test_studio_projects.py` +6:单镜渲染(mock orchestrator)、渲染失败 502、批量跳终态(首镜 commit rendered 后批量只跑剩余)、批量失败不阻塞、status 计数、files 服务(200/404/穿越拦截)
+- 结果:**17 passed**;全量回归 **1007 passed**(27.25s)
+
+---
+
+## STUDIO-M1-2026-08-05 · Studio 创作工作室 M1:数据模型 + CRUD + LLM 剧本拆解
+
+**时间**: 2026-08-05
+**类型**: feature / TDD
+**目标**: 以全新 `studio` 模块替代短剧工作室(drama_studio)与漫剧(manju),M1 落地数据底座与剧本拆解
+
+### 变更
+
+| 文件 | 内容 |
+|---|---|
+| `apps/api/app/models.py` | 新增 StudioProject / StudioCharacter / StudioShot 三表;shot 含 `render_mode`(video\|image_motion)与状态机字段 |
+| `apps/api/app/services/studio/__init__.py` `schemas.py` | 服务包 + Pydantic DTO(ProjectCreate/Patch、CharacterCreate/Patch、ShotInput、ScriptParseRequest 等) |
+| `apps/api/app/services/studio/storyboard.py` | LLM 剧本拆解:L3 `chat_layered`(max_tokens=8000),产出角色草稿+分镜草稿(含 render_mode 建议;非法/缺省回退 video);`_extract_json` 容忍 ```json 围栏 |
+| `apps/api/app/routes/studio.py` | 薄路由 `/api/studio/*`:项目/角色 CRUD、分镜批量保存(PUT,带 id 更新/无 id 新增,render_mode 变化清空旧媒体回 draft)、`POST .../script/parse`(草稿不落库) |
+| `apps/api/app/main.py` | 注册 studio 路由 |
+
+### 关键修复
+
+`save_shots` 原实现在循环内 `session.commit()` 逐个提交——第二次 commit 会 **expire 前面已产出的 shot 对象**,随后 `model_dump()` 读到空 `__dict__`,响应丢字段(实测第一个 shot 只剩覆盖写入的 characters)。改为循环外统一 `commit()` + 逐个 `refresh()`。
+
+### 测试
+
+- 新增:`test_studio_models.py`(3)+ `test_studio_storyboard.py`(3,mock chat_layered 断言走 L3)+ `test_studio_projects.py`(4,含鉴权/租户/批量保存幂等)
+- 结果:**10 passed**;全量回归 **990 passed**(0.91s+27.40s)
+
+---
+
+## H3-DUAL-GPU-FLASHTALK-REGRESSION-2026-08-05 · Workstation GPU 整理 + H3 满血双卡 + 数字人回归
+
+**时间**: 2026-08-05 19:00–20:45 CST
+**类型**: infrastructure / regression
+**目标**: Workstation(192.168.71.127)
+**用户决策**: 全部自动推进,P0 资源整理为 H3 满血腾空间,接入 H3 双卡后验证 FlashTalk 数字人稳定性
+
+### P0 - 资源整理
+
+| 项 | 操作 | 结果 |
+|---|---|---|
+| ComfyUI GPU1 迁移 | 停止并禁用 comfyui-gpu1.service(8190),修复 PC01/PC02 ComfyUI 并加入 LB | ✅ PC01/PC02 200,LB healthy_count=3 |
+| LB 后端收敛 | BACKENDS 从 [gpu0,gpu1,gpu2,gpu3,pc02,pc01] 改为 [gpu0,pc02,pc01] | ✅ |
+| IndexTTS2 收敛 | toiv-tts.service CUDA_VISIBLE_DEVICES 0,1,2 → 0 | ✅ /health 200,仅 GPU0 7GB |
+| LiveAct 收敛 | toiv-liveact.service nproc_per_node=2(GPU1+GPU2) → 1(GPU1) | ✅ /health 200,GPU2 释放 |
+
+### P1 - MiniMax H3 满血双卡生产部署
+
+| 项 | 配置 |
+|---|---|
+| 服务 | `/etc/systemd/system/toiv-comfyui-h3.service` |
+| GPU | `CUDA_VISIBLE_DEVICES=0,2` |
+| 分片策略 | ComfyUI-MultiGPU(DisTorch2): UNet bf16 62G → cuda:0(22GB)+cuda:1(13GB)+CPU; CLIP bf16 48G → cuda:1(物理 GPU2); VAE → cuda:1 |
+| 测试工作流 | `/home/merlin/ComfyUI-h3-eval/bf16_t2v_gpu02.json` |
+| 测试参数 | steps=8, length=53, width=1344, height=768 |
+| 生成结果 | **成功**,耗时 10m06s,输出 `/home/merlin/ComfyUI-h3-eval/output/h3eval/bf16_t2v_gpu02_test_00001_.mp4` |
+| 显存占用 | GPU0 64GB + GPU2 54GB |
+
+代码侧同步接入: `apps/api/app/config.py` 新增 `h3_enabled`/`h3_base_url`, `services/h3.py` 开关检查, `engine_registry.py` H3 探测, `capabilities.py` `h3_i2v` kind, `GenerateView.tsx` 上传语义修复。pytest 37 passed + 扩展 94 passed, `npx tsc --noEmit` 通过。
+
+### P1 - FlashTalk 生产部署(本会话前已完成,本次补录)
+
+| 项 | 配置 |
+|---|---|
+| 服务 | `/etc/systemd/system/flashtalk.service` |
+| 工作目录 | `/home/merlin/models/SoulX-FlashTalk` |
+| 权重 | `/home/merlin/models/SoulX-FlashTalk-14B/` |
+| 运行环境 | `/home/merlin/omnirt/runtimes/flashtalk/cuda/.venv/` |
+| GPU | GPU3, `CUDA_VISIBLE_DEVICES=3` |
+| WebSocket | `ws://127.0.0.1:9000` |
+| OpenTalking 默认模型 | `flashtalk` |
+
+关键补丁: `flashtalk_ws_server.py` 单 rank NCCL 进程组初始化; `attention.py` FlashAttention 缺失时回退到 scaled_dot_product_attention 并修正 4D tensor shape。
+
+### P2 - 数字人端到端回归验证
+
+| 项 | 值 |
+|---|---|
+| Session | `sess_a91ae784246c` |
+| Job | `c7ef769b9b5f44aa` |
+| 测试文本 | “你好,这是 H3 接入后的数字人回归测试。” |
+| 状态 | `done`, 耗时约 80s |
+| bundle.mp4 | 416×720, 25fps, 5.6s, 562KB |
+| aligned_audio.wav | 16kHz mono, 5.6s |
+| 嘴型/表情 | 自然、稳定、无变形 |
+
+**结论**: H3 占用 GPU0+GPU2 后,GPU3 FlashTalk 数字人链路仍稳定,端到端离线包生成成功。
+
+### 当前 Workstation 四卡负载
+
+| GPU | 服务 | 显存占用 |
+|---|---|---|
+| GPU0 | ComfyUI-LB(8189) + IndexTTS2 + H3(ComfyUI-h3-eval) | ~64GB |
+| GPU1 | LiveAct(单卡) + Qwen3-Embedding | ~67GB |
+| GPU2 | ASR + H3(ComfyUI-h3-eval) | ~54GB |
+| GPU3 | FlashTalk + OpenTalking | ~57GB |
+
+---
+
+## FULL-CHAIN-E2E-2026-08-05 · 云端 toiv.dgmt.top 全链路真实产物验证
+
+**时间**: 2026-08-05 12:00 CST
+**类型**: e2e / regression
+**目标**: https://toiv.dgmt.top
+**用户决策**: 开始全链路检查,确保所有功能真实可用有产物
+
+### 测试脚本与覆盖
+
+| 脚本 | 板块 | 用例数 | 结果 |
+|---|---|---|---|
+| `deploy/e2e_prod_check.py` | 图像/视频/登录限流 | 10 | ✅ 10/10 |
+| `deploy/e2e_audio_check.py` | 音频(TTS/分离/ASR/ACE) | 7 | ✅ 7/7 |
+| `deploy/e2e_drama_check.py` | 短剧工作室全链路 | 10 | ✅ 10/10 |
+| `deploy/e2e_h3_check.py` | MiniMax H3 视频(t2v/i2v) | 4 | ✅ 4/4 |
+| `scripts/webrtc_e2e_test.py` | 数字人 WebRTC | 1 | ✅ 1/1 |
+| **合计** | **五大板块** | **32** | **✅ 32/32** |
+
+### 详细结果
+
+#### 图像/视频/限流 (`e2e_prod_check.py`)
+
+| 用例 | 结果 |
+|---|---|
+| `GET /api/health` | ✅ 200 |
+| `POST /api/auth/login` | ✅ 200 拿 token |
+| `GET /api/models/engines` | ✅ h3-t2v/h3-i2v available=true |
+| `POST /api/generate/txt2img` 512×512 8steps → PNG | ✅ 真实产物 |
+| `POST /api/upload` → `POST /api/generate/img2img` | ✅ 真实产物 |
+| `POST /api/ltx2/t2v` 256×256 9帧 | ✅ 真实 MP4 |
+| `POST /api/h3/t2v` 256×256 22帧 | ✅ 真实 MP4 |
+| `POST /api/h3/i2v` 256×256 22帧 | ✅ 真实 MP4 |
+| 登录限流 60s/5次 → 连发7次 | ✅ 出现 429 |
+
+#### 音频板块 (`e2e_audio_check.py`)
+
+| 用例 | 结果 |
+|---|---|
+| TTS 配音(IndexTTS2) | ✅ WAV |
+| TTS 产物下载 RIFF 校验 | ✅ |
+| 人声分离(Demucs) | ✅ vocals WAV |
+| ASR 听写上传 + 转写 | ✅ 识别"天气/湖/夕阳"关键词 |
+| ACE 文生音乐 15s/10步 | ✅ MP3 |
+
+#### 短剧工作室 (`e2e_drama_check.py`)
+
+| 用例 | 结果 |
+|---|---|
+| 创建项目 | ✅ |
+| LLM 剧本拆解≥2分镜 | ✅ |
+| 两个分镜 LTX 视频生成并完成 | ✅ |
+| 两个分镜 IndexTTS2 配音 | ✅ |
+| 一键合成成片 | ✅ |
+| 下载成片 ftyp 校验 | ✅ |
+
+#### H3 视频 (`e2e_h3_check.py`)
+
+| 用例 | 结果 |
+|---|---|
+| 上传纯色参考图 | ✅ |
+| H3 t2v 256×256 22帧 | ✅ MP4 |
+| H3 i2v 256×256 22帧 | ✅ MP4 |
+
+#### 数字人 (`scripts/webrtc_e2e_test.py`)
+
+| 用例 | 结果 |
+|---|---|
+| WebRTC 会话创建/offer/ICE | ✅ CONNECTED |
+| 接收 video+audio tracks | ✅ |
+| speak 触发 TTS 推流 | ✅ |
+| interrupt 正常 | ✅ |
+
+### 关键说明
+
+- **H3 显存问题**: `e2e_prod_check.py` 最初在完整分辨率(1344×768)下提交 H3 时报 `H3 显卡空闲显存不足:当前 0.5GiB,需要 ≥36GiB`;已新增 `e2e_h3_check.py`,使用 256×256 最小规格单独验证,t2v/i2v 均通过。
+- **产物校验**: 所有生成类用例均轮询至 `status=done`,下载产物并校验魔数(PNG `\x89PNG`、MP4 `ftyp`、WAV `RIFF`、MP3 ID3/帧头),确保不是空文件或错误响应。
+- **跨境丢包处理**: 脚本内置网络层错误重试与指数退避,适应云端 KCP 隧道 20% 丢包环境。
+
+### 产物目录
+
+```
+/tmp/toiv_e2e_artifacts/
+├── txt2img.png
+├── img2img.png
+├── ltx2_t2v.mp4
+├── h3_t2v.mp4
+├── h3_i2v.mp4
+├── audio/
+│   ├── tts_voice.wav
+│   ├── vocals.wav
+│   └── ace_music.mp3
+├── drama/
+│   └── final.mp4
+└── h3/
+    ├── h3_t2v.mp4
+    └── h3_i2v.mp4
+```
+
+---
+
+## DEPLOY-CLOUD-2026-08-05 · 推送当前项目到 core 并验证云端 toiv.dgmt.top 可用
+
+**时间**: 2026-08-05 09:25 CST
+**类型**: deploy / smoke
+**用户决策**: 推送当前项目到云端,进行一遍测试确保线上可用
+
+### 设备状态确认
+
+并行 SSH 检查关键设备,结果与 `设备说明.md` 基本一致,发现/确认以下细节:
+
+| 设备/服务 | 状态 | 备注 |
+|---|---|---|
+| core toiv-api :8090 | ✅ active | `/openapi.json` 200 |
+| core toiv-web :3100 | ✅ active | 200 |
+| core PG18 / Redis / NAS 挂载 | ✅ active | NAS `/mnt/toiv-nas` 39T 可用 |
+| spark01 :8000 | ✅ `llama-3.3-70b-abliterated` | 已运行 6 天 |
+| spark02 :8000 | ✅ `qwen3.6-uncensored`(实为 Qwen3.5-MoE-35B-A3B FP8) | 已运行 4 小时 |
+| workstation ComfyUI-LB :8188 | ✅ `/prompt` `/history` 200 | `/system/stats` 为自定义代理未实现路径,404 属正常 |
+| workstation ComfyUI gpu0-3 :8189-8192 | ✅ 4 后端均 active | GPU0-3 显存 86/90/94/1 GB |
+| workstation TTS :9200 | ✅ /health 200 | IndexTTS2 loaded |
+| workstation ASR :9210 | ✅ 200 | faster-whisper large-v3,进程在跑但 systemd 服务显示 inactive(直接脚本启动) |
+| workstation Embedding :9302 | ✅ /health 200 | Qwen3-Embedding-4B |
+| workstation LiveAct :9400 | ✅ 监听 | 进程在跑,占用 GPU1+2,systemd 服务显示 inactive |
+| cloud HTTPS | ✅ toiv.dgmt.top / aigc.dgmt.top 均 200 | 反代直接走 Tailscale,`frps` systemd 服务 inactive 但 `/usr/bin/frps` 进程在跑(可能为其他隧道) |
+
+**澄清**: cloud 上 `/api/system/health` 404 是因为实际端点为 `/api/health`;`/openapi.json` 在 cloud 反代中未暴露(只代理 `/api/*` 与 `/`)。
+
+### 部署过程
+
+```bash
+./deploy/deploy.sh
+```
+
+- rsync `apps/api/` / `apps/web/` / `deploy/` → `core:/home/merlin/toiv/`
+- rsync `apps/web/.next/` 构建产物 → core
+- 远端保存 `.rollback-previous` 快照
+- 重启 `toiv-api` → 健康检查 `/openapi.json` 第 2 次探测 200
+- 重启 `toiv-web` → 健康检查 `http://localhost:3100` 第 2 次探测 200
+
+### 云端 Smoke Test (https://toiv.dgmt.top)
+
+| 用例 | 结果 |
+|---|---|
+| `GET /` | ✅ 200 |
+| `GET /api/health` | ✅ 200 `{"status":"ok"}` |
+| `POST /api/auth/login` | ✅ 200,拿到 token |
+| `GET /api/system/llm` | ✅ 200,`model=qwen3.6-uncensored`/`display_model=Qwen3.5-MoE-35B-A3B (spark02 FP8)` |
+| `GET /api/models/engines` | ✅ 200,共 2 引擎 |
+| `POST /api/agent/chat` | ✅ 200 SSE 返回文本 `1` |
+| `POST /api/optimize` | ✅ 200,返回优化后英文提示词 |
+| `GET /api/jobs?limit=5` | ✅ 200 |
+| `GET /api/models` | ✅ 200(跨境 20% 丢包,重试后通过) |
+| `GET /api/system/gpu` | ✅ 200 |
+| `POST /api/generate/txt2img`(512×512,8steps) + 下载产物 | ✅ 提交成功,约 20s 完成,下载到 1.3MB PNG(`\x89PNG` 魔数正确) |
+
+### 本地回归
+
+| 项 | 结果 |
+|---|---|
+| 后端 pytest | **978 passed**,0 failed,28.74s,1 warning(Starlette/httpx 弃用) |
+| web tsc | **0 errors** |
+| web build | **成功**,5 routes,First Load JS 197kB |
+
+### 遗留
+
+- 未提交 git(按 AGENTS.md 待用户明确指示)
+- 完整视频/短剧/数字人 E2E 未在云端入口重跑(核心链路与生成链路已 smoke 验证)
+- cloud 反代未暴露 `/openapi.json`;如需外部调试文档,可单独加 location
+
+---
+
+## LLM-CUTOVER-2026-08-05 · 文本 LLM 全部切 spark 集群 + workstation 4 卡纯生成
+
+**时间**: 2026-08-05 05:50 CST
+**类型**: ops / fix / regression
+**用户决策**: 文本类全部切 spark01+02 + 视频评分关闭——workstation 4 卡彻底纯生成,spark02 专职全部文本 LLM,边界最干净
+
+### 内容
+
+1. **spark02 新部署 L1 vLLM**:Qwen3.5-MoE-35B-A3B-uncensored-heretic FP8 起在 spark02(192.168.71.84):8000,`served-model-name=qwen3.6-uncensored`(别名不变,下游零改动)。参数:`--quantization fp8 --max-model-len 32768 --max-num-seqs 16 --gpu-memory-utilization 0.90 --enable-prefix-caching --enable-chunked-prefill --enable-auto-tool-choice`。启动脚本 `spark-models/start_qwen36_l1_fp8.sh`(Docker vllm_node, restart=unless-stopped)
+2. **修复两个真 bug**:
+   - 视觉塔权重键名错误:checkpoint 内为 `model.language_model.visual.*`,vLLM 期望 `model.visual.*` → Engine core 初始化失败。`fix_visual_keys.py` 批量重写 2 个 safetensors 分片头部 + index.json 权重映射(纯头部改写,张量数据原样拷贝)
+   - 工具调用解析器不匹配:`--tool-call-parser hermes` 不识别模型原生 `<function=` 输出格式 → 改 `step3p5`,POC 实测 tool_calls 结构化解析正确
+3. **POC 5 用例全过**(spark02 本机实测):基础对话+延迟 / 工具调用结构化 / 提示词优化(摄影师风格) / 无审查输出 / 长上下文延迟
+4. **core deploy/.env 切流**:`TOIV_LLM_BASE_URL=http://192.168.71.84:8000/v1`(spark02);`TOIV_VIDEO_SCORER_ENABLED=false`(视频评分关闭);toiv-api 05:40 重启生效,core→spark02 `/v1/chat/completions` 实测返回正常
+5. **workstation 释放 GPU3**:`nemotron-vllm.service` stop+disable(显存 89GB→0);`comfyui-gpu3.service` enable+start(:8192);`comfyui-lb.py` BACKENDS 加 gpu3 → LB :8188 本地 4 后端(gpu0-3)健康检查全 200;GPU3 显存降至 1.3GB(ComfyUI 空载)
+6. **顺带修复 PG 迁移后项目删除 500**(线上实测发现):`drama_studio.py delete_project` 从 ORM 逐个 `session.delete` 改为 bulk DELETE 按 **候选→分镜→角色→项目** 拓扑序执行。根因:无 Relationship 时 UOW 不按表级 FK 排序,PG(迁移后 confdeltype=NO ACTION)下 DELETE dramaproject 先于 dramashot → `dramashot_project_id_fkey` FK 冲突;且 DramaShotCandidate 此前从未被删。新增回归测试 `test_delete_project_cascades_shots_and_candidates`
+7. **OpenClaw primary 同步指向 spark02**(设备说明.md 2.3 节)
+
+### 回归结果
+
+| 项 | 结果 |
+|---|---|
+| 后端 pytest | **978 passed**(+1 级联删除回归),0 failed,23.73s |
+| core→spark02 chat | ✅ 实测正常(qwen3.6-uncensored 别名) |
+| workstation LB :8188 | ✅ gpu0-3 本地 4 后端全 200(pc01/pc02 未开机 UNHEALTHY,符合预期) |
+| GPU3 显存 | 89GB(Nemotron)→ 1.3GB(ComfyUI 空载) |
+
+### 遗留
+
+- 视频评分功能整体关闭(`TOIV_VIDEO_SCORER_ENABLED=false`),如需恢复需先在 spark 侧部署 VLM
+- workstation `comfyui-v6-proxy.service` failed(IPv6→IPv4 socat 代理),与本次无关,待排查
+- 全部改动未 commit(按 AGENTS.md 待用户指示)
+
+---
+
+## EDIT-MODULES-2026-08-04 · 独立编辑模块(图片编辑+视频剪辑)+ 导航重排
+
+**时间**: 2026-08-04 21:00 CST
+**类型**: feature / fix / regression
+
+### 内容
+
+1. **视频剪辑后端(routes/video_edit.py)**:OpenCut 风格时间线剪辑。`POST /api/video-edit/render`(multipart:plan JSON + media[])→ 媒体落 NAS `imports/video-edit/{job_id}/` → ffprobe 批量探测原声(失败降级按无音轨)→ ssh workstation 执行 ffmpeg → 成片回 `outputs/video-edit/`;`GET /api/video-edit/output/{name}` 白名单 `^[a-z0-9]{12}\.mp4$`。plan 支持:clips 视频轨(串接,in/duration/volume)、audios 音频轨(adelay 时间线定位+amix 混音+atrim 截齐总长)、texts 文字轨(drawtext top/center/bottom+字号+颜色+between 启用窗口)。**修复真 bug**:`build_render_plan_cmd` 存在音轨时重建 `-filter_complex` 用错 parts 下标(`parts[-1]` 实为 `-map '[vout]'` 参数 → 改为 `parts[-3]`),否则 amix 混音链被拼进 `-map`、ffmpeg 必解析失败
+2. **main.py 补注册**:`video_edit` 此前仅 import 未加入路由挂载循环,已补进 `for module in (...)` 元组
+3. **图片编辑前端(components/image-edit/ImageEditView.tsx)**:picwish 风格。拖拽/点选上传(jpg/png/webp ≤20MB)→ 4 工具卡片手风琴:智能去背景(通用/动漫/人物)、高清增强(2x/3x/4x)、局部重绘(Florence2 文字分割,区域+替换内容)、人脸修复(denoise 0.3-1.0 滑杆)。复用既有 `generateRemoveBg/generateUpscale/generateInpaint/generateFaceDetailer` 端点 + `lib/trackJob` SSE 真实进度;结果/对比段控切换 + `<a download>` 下载 + `invalidateJobs()`
+4. **视频剪辑前端(components/video-edit/VideoEditView.tsx)**:素材库多选导入(视频读 metadata 时长)→ 三轨时间线(视频轨串接/音频轨 start 定位/文字轨起止+位置+字号+颜色)→ 分辨率预设(720p/1080p/竖屏)+ fps 24/30 → 「导出视频」提交渲染(longRequest 180s)→ 成片 `<video>` 预览+下载。`lib/api.ts` 新增 `renderVideoEdit/videoEditOutputUrl` 封装
+5. **导航重排(page.tsx)**:侧栏 10 项——对话/图片/视频/音频/融合/**图片编辑**/**视频剪辑**/画布/作品库/资源;`imageEdit`/`videoEdit` 注册 View 类型+viewImporters 懒加载+VALID_VIEWS+VIEW_META+底部「更多」导航;风格选择保持在各生成页内(左下角 AgentSwitcher 已于上轮移除)
+6. **测试(tests/test_video_edit.py,37 例)**:parse_plan 14 例(非 JSON/越界/奇数取偶 1279×719→1278×718/clips-audios-texts 全字段校验)、命令构造 5 例(concat/amix/adelay/drawtext 转义/shlex.quote)、render 路由 8 例(401/422 全分支/成功 mock ssh/ffprobe 失败降级/ffmpeg 失败 502 清理)、output 白名单 3 例
+
+### 回归结果
+
+| 项 | 结果 |
+|---|---|
+| 后端 pytest | **977 passed**(+37),0 failed,26.93s |
+| 前端 tsc --noEmit | **0 errors** |
+| 前端 next build | **通过**(5 routes,新增 imageEdit/videoEdit 懒加载 chunk) |
+
+### 遗留
+
+- 视频剪辑素材删除暂以「清空重来」替代(保 file 下标稳定);拖拽排序未做(按钮左移/右移)
+- 图片编辑结果暂未接入 NAS 统一输出目录(走 ComfyUI 既有产物链)
+- 全部改动未 commit(按 AGENTS.md 待用户指示)
+
+---
+
 ## OPT-P2P3-2026-08-01(晚)· PuLID 接入 + UVR5 服务化 + PG18 迁移 + 部署加固
 
 **时间**: 2026-08-01 15:30 CST
@@ -3741,3 +4189,38 @@ Route (app)                                 Size  First Load JS
 - globals.css legacy alias 层待后续无旧视图残留后删除
 - canvas 视图 ReactFlow 节点画布代码为死代码(路由已是 ComfyUI iframe),产品决策待定
 - H3 生产接入(需 ComfyUI 升 0.30,先 pc01 验证回归)+ ref2va 评测——后续大项
+
+---
+
+## 2026-08-04 Redis 接入 + MiniMax H3 引擎集成(代码就绪,未部署)
+
+### 变更
+
+- **Redis 接入**(`redis>=5.2`,不可达自动降级进程内存):
+  - 新增 `services/redis_client.py`:async/sync 单例、连接/操作超时、30s 失败冷却、限频 warning
+  - `ratelimit.py`:滑动窗口改 Redis 优先(sorted set + Lua 原子化清窗/计数/记命中/设 TTL),进程内存回退;修复真 Redis 与 fakeredis 的 ZRANGE WITHSCORES 回包结构不一致——Lua 只返回放行位,retry_after 移 Python 侧冷路径另查
+  - `canvas_events.py`:画布事件总线加 Redis pub/sub 跨进程 relay(origin 标记防回声),多 worker 下 Agent 工具事件可跨进程推 SSE
+  - `comfy/pool.py`:worker 健康探测结果写 Redis(hset+TTL),本地缓存过期时先读共享结果,减少多进程重复探测
+  - 新增 `tests/test_redis_integration.py`(fakeredis 替身)与 `tests/conftest.py`
+- **H3 引擎接入**(专用 ComfyUI ≥ 0.30 实例,workstation :8195,独立于 WorkerPool):
+  - `config.py` 新增 `h3_base_url`;`deps.py` resolve_worker 在 hostname 回退前精确匹配 H3 实例(防同机错配到 pool worker)
+  - 新增 `services/h3.py`(ensure_h3_ready:不可达/缺节点一律 503+清晰原因;transfer_ref_image:参考图从 pool worker 转运到 H3 实例)、`routes/h3_studio.py`(POST /api/h3/t2v、/api/h3/i2v,带生成限流)、`workflows/h3_video.py` + `workflows/h3/`(t2v/i2v 模板)
+  - 引擎注册表 engine_registry.py 加 h3-t2v/h3-i2v 双引擎(独立实例探测,与 pool 死活无关);前端 `lib/engines.ts` 同步
+  - `tests/test_engine_registry.py`:引擎 ID h3→h3-t2v/h3-i2v,新增 h3_stub 替身(实例不可达/缺节点两路径)
+- 依赖修复:pyproject.toml 补 `redis>=5.2` + dev `fakeredis>=2.23`;`uv export` 重生成 requirements.txt 并保留 psycopg/faster-whisper 手工维护段;apps/api 与 deploy 的 .env.example 补 TOIV_REDIS_URL / TOIV_H3_BASE_URL 文档
+
+### 测试
+
+- 后端 `pytest`:**890 passed**, 0 failed, 1 warning(既有 Starlette/httpx 弃用提醒)
+- 前端 `tsc --noEmit` 0 错误;`npm run build` 通过
+- 真机 SSH 复核(2026-08-04):
+  - workstation:`toiv-comfyui-h3.service` active running,:8195 LISTEN,/system_stats 200;comfyui gpu0-2 + LB 正常
+  - pc02:计划任务 ComfyUI/ComfyUI_Start/StartComfyUI 三件套在册(开机自启+崩溃重启),:8193 /system_stats 200 —— 自愈机制复核通过
+  - core:toiv-api/toiv-web/redis-server/postgresql 全 active,`redis-cli ping` PONG,:8090/api/health 200,:3100 200
+- 生产未部署核查:core /home/merlin/toiv/api 运行代码仍为 4b83a7f(引擎注册表 h3 仅占位),无 h3_studio.py/redis_client.py,deploy/.env 无 TOIV_REDIS_URL/TOIV_H3_BASE_URL
+
+### 遗留(任务看板已入 STATE.json task_tracking_2026_08_04)
+
+- **阻塞项**:全部改动未 commit 未 deploy;H3 端到端真机验证(t2v/i2v 提交→出片→产物回读)依赖部署完成
+- ref2va 权重落 NAS + r2v 评测:独立任务,未启动
+- 顺带发现:workstation `comfyui-v6-proxy.service` failed(IPv6 socat 代理),与本次无关,建议管家排查;gpu3 inactive 为预期(TTS 占用);core 生产 TOIV_COMFY_WORKERS 仅配 127:8189 单 worker(既有配置)
