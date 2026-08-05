@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-08-06T06:00:00+08:00",
+  "updated_at": "2026-08-06T06:35:00+08:00",
   "sync_baseline": {
     "id": "SYNC-2026-07-18",
     "type": "initial-sync",
@@ -2182,11 +2182,23 @@
     "retained": "FROZEN manju/drama-studio 21 别名 + --font-display + --topbar-h(待旧视图物理下线);旧字号阶 --text-* 收敛为独立任务"
   },
   "h3_ref2va_eval_2026_08_06": {
-    "status": "running",
-    "weight_verified": "sha256 9255f52b…9365779 与 HF LFS oid 一致",
-    "plan": "docs/2026-08-06-h3-ref2va-eval-plan.md",
-    "script": "scripts/r2v_eval.py(workstation ComfyUI-h3-eval,实例 :8195)",
-    "cases": "A1 1ref/match,A2 1ref/max,B1 3ref/match;参考图为第一轮 t2v 抽帧(背/侧面,人脸维度待 A3 正面肖像补测)",
-    "pending": "结果分析 + 评测报告 + A3 正面肖像组"
+    "status": "done",
+    "report": "docs/2026-08-06-h3-ref2va-eval.md",
+    "weight_verified": "sha256 与 HF LFS oid 一致",
+    "cases": "A1/A2/B1(楼道参考,隐式指令全锁死)/A3(显式切换成功迁移,双角色瑕疵)/A4(真肖像+单角色约束,厨房迁移成功,身份全匹配)",
+    "key_conclusions": [
+      "身份锁定极强;多参考细节显著更准(门牌 602 vs 617 幻觉)",
+      "参考图即场景锚点:迁移场景必须显式「场景切换」指令+单角色约束",
+      "match vs max 无可见差异且不更慢,生产默认 match",
+      "显存温和(GPU0 峰值 ~58-64G,远低于 I2V 97G 红线);热态 222-292s/5s 镜"
+    ],
+    "production_advice": "角色卡用干净正面肖像;ref2va 与 fl2va i2v 互补,为 Studio 分镜引擎候选,可替代 PuLID 首帧路线",
+    "leftovers": [
+      "人脸维度主观对比有限(InsightFace 量化未做)",
+      "台词口型人工听审",
+      "参考视频/音频维度未测"
+    ],
+    "artifacts": "NAS toiv/outputs/videos/h3-eval/r2v/(7 个 mp4)+ workstation ComfyUI-h3-eval/output/r2v/",
+    "verified_at": "2026-08-06T06:35:00+08:00"
   }
 }

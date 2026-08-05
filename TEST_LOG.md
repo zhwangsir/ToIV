@@ -4281,3 +4281,10 @@ Route (app)                                 Size  First Load JS
 - 评测计划:docs/2026-08-06-h3-ref2va-eval-plan.md;执行脚本 scripts/r2v_eval.py(A1 1ref/match、A2 1ref/max、B1 3ref/match,串行,beta 调度器,seed 42)
 - 参考图:第一轮 t2v 成片抽帧(t=0.5/2.5/4.5);⚠️ 均为背/侧面,人脸一致性维度需 A3 正面肖像补测(待执行)
 - 结果待归档
+
+### H3 ref2va 评测结果(2026-08-06 06:35 归档)
+
+- 报告:docs/2026-08-06-h3-ref2va-eval.md;产物 NAS `toiv/outputs/videos/h3-eval/r2v/`(7 个 mp4)
+- 五组:A1 282s 冷 / A2 222s / B1 263s / A3 292s / A4 283s;显存峰值 GPU0 ~58-64G 温和
+- 结论:身份锁定极强(多参考细节更准:602 vs 617);参考图即场景锚点——迁移场景需显式「场景切换」指令+单角色约束(A3 双角色瑕疵 → A4 修正后单角色厨房);match 档生产够用;ref2va 与 i2v 互补,角色卡模式可替代 PuLID 首帧路线
+- 脚本 bug 修复记录:t2v 存档类名为 MiniMaxH3ImageToVideo(非 TextToVideo);SaveVideo 产物在 history outputs 的 images 键(非 videos)
