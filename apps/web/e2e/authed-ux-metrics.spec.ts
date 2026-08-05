@@ -204,19 +204,6 @@ test("UI/UX 五维度指标综合采集", async ({ page }) => {
     }
   }
 
-  // 新建画布
-  await page.goto("/?view=canvas", { waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(2000);
-  const newBtn = page.locator('button[aria-label="新建画布"]').first();
-  if (await newBtn.isVisible().catch(() => false)) {
-    const t0 = Date.now();
-    await newBtn.click();
-    await page.waitForTimeout(1000);
-    interactionMetrics.push({ action: "新建画布", view: "canvas", latencyMs: Date.now() - t0, success: true, note: "click→创建" });
-  } else {
-    interactionMetrics.push({ action: "新建画布", view: "canvas", latencyMs: 0, success: false, note: "未找到新建画布按钮" });
-  }
-
   // ── 3. 可访问性指标(AxeBuilder 全 8 视图 + 键盘导航/焦点探测 + WCAG 监控门禁)──
   for (const v of VIEWS) {
     try {

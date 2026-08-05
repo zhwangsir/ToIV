@@ -31,8 +31,6 @@ class ImageRef(BaseModel):
 class ChatRequest(BaseModel):
     messages: list[ChatMessage] = Field(min_length=1, max_length=40)
     image: ImageRef | None = None
-    # 画布上下文(M1.2):非空时 Agent 启用 5 个画布工具,canvas_id 透传给 tools.execute。
-    canvas_id: str | None = Field(default=None, max_length=64)
 
 
 @router.post("/agent/chat")
@@ -47,7 +45,7 @@ async def agent_chat(
     attachment = body.image.model_dump() if body.image else None
 
     async def stream():
-        async for ev in runner.run(msgs, pool, user, session, attachment, canvas_id=body.canvas_id):
+        async for ev in runner.run(msgs, pool, user, session, attachment):
             yield {"event": "msg", "data": json.dumps(ev, ensure_ascii=False)}
         yield {"event": "done", "data": "{}"}
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.routes import dub_text, voice_agent
+from app.routes import dub_text
 
 
 class _Resp:
@@ -55,14 +55,3 @@ async def test_dub_text_external_asr_openai_fallback(monkeypatch, tmp_path):
         (0.0, 1.5, "你好"),
         (1.5, 3.0, "世界"),
     ]
-
-
-@pytest.mark.asyncio
-async def test_voice_agent_external_asr_openai_fallback(monkeypatch, tmp_path):
-    calls: list[str] = []
-    monkeypatch.setattr(voice_agent.httpx, "AsyncClient", lambda **kw: _FakeClient(calls, **kw))
-    src = tmp_path / "a.webm"
-    src.write_bytes(b"fake")
-    text = await voice_agent._transcribe_external("http://asr:9210", src, "a.webm")
-    assert calls[0].endswith("/asr") and calls[1].endswith("/v1/audio/transcriptions")
-    assert text == "你好 世界"

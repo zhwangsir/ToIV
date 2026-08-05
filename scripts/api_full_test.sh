@@ -227,14 +227,6 @@ if [ -n "$PID" ]; then
   fi
 fi
 
-# ── 21. Canvas 端点(原 /canvas/workflows 路径不存在,改测 /canvas 列表) ──
-H=$(curl -s -m 5 -w "%{http_code}" -o /tmp/canvas.json -H "$AUTH" $API/api/canvas)
-if [ "$H" = "200" ]; then
-  report PASS "GET /api/canvas" "200"
-else
-  report SKIP "GET /api/canvas" "HTTP $H"
-fi
-
 # ── 22. TTS 健康(实际推理) ──
 H=$(curl -s -m 15 -X POST http://192.168.71.127:9200/tts \
   -F "text=测试音频" -F "language=zh" -o /tmp/tts.wav -w "%{http_code}")

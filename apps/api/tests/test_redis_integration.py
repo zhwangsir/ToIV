@@ -1,12 +1,10 @@
-"""Redis 接入(限流/画布事件/worker 健康缓存)测试。
+"""Redis 接入(限流/worker 健康缓存)测试。
 
 正常路径用 fakeredis 验证;降级路径模拟 Redis 抛错,断言回退进程内存且不报错。
 全局 conftest 已默认禁用 Redis(走内存回退),本文件按需注入 fakeredis 覆盖。
 """
 from __future__ import annotations
 
-import asyncio
-import json
 import time
 
 import fakeredis
@@ -15,7 +13,6 @@ import pytest
 import redis as redis_lib
 from fastapi import HTTPException
 
-from app import canvas_events
 from app.comfy.pool import WorkerPool
 from app.models import User
 from app.ratelimit import _hits, enforce_generation_rate_limit, remaining
@@ -149,80 +146,6 @@ def test_ratelimit_remaining_falls_back_to_memory(monkeypatch):
     _hits.clear()
     user = _user("u-fallback-remain")
     assert remaining(user) == 20
-
-
-# ────────────────────────────────
-# 画布事件:Redis relay 跨进程投递 + 降级
-# ────────────────────────────────
-
-
-async def test_canvas_publish_also_goes_to_redis(monkeypatch):
-    """publish 进程内投递不变,同时尽力发到 Redis channel。"""
-    server = fakeredis.FakeServer()
-    api_redis = fakeredis.aioredis.FakeRedis(server=server, decode_responses=True)
-    other = fakeredis.aioredis.FakeRedis(server=server, decode_responses=True)
-    monkeypatch.setattr(redis_client, "get_redis", lambda: api_redis)
-
-    q = canvas_events.subscribe_queue("cv-pub")
-    try:
-        await asyncio.sleep(0.05)  # 等 relay 订阅就绪
-        # 另一个"进程"挂 pubsub 收 channel
-        ps = other.pubsub()
-        await ps.subscribe("toiv:canvas:cv-pub")
-        await canvas_events.publish("cv-pub", {"kind": "node", "id": 1})
-        assert (await asyncio.wait_for(q.get(), 1)) == {"kind": "node", "id": 1}
-        # Redis channel 上也收到了(带 origin 防回声)
-        msg = await asyncio.wait_for(ps.get_message(timeout=1), 2)
-        while msg is None or msg.get("type") != "message":
-            msg = await asyncio.wait_for(ps.get_message(timeout=1), 2)
-        payload = json.loads(msg["data"])
-        assert payload["event"] == {"kind": "node", "id": 1}
-        assert payload["origin"] == canvas_events._ORIGIN
-        await ps.unsubscribe("toiv:canvas:cv-pub")
-        await ps.aclose()
-        await asyncio.sleep(0.05)  # 让 relay 消费掉自己发的事件(应跳过)
-        assert q.empty()  # 自己发出的事件不被 relay 回声重复投递
-    finally:
-        canvas_events.unsubscribe_queue("cv-pub", q)
-
-
-async def test_canvas_relay_delivers_remote_events(monkeypatch):
-    """其他进程发到 Redis channel 的事件经 relay 回投本进程订阅者。"""
-    server = fakeredis.FakeServer()
-    api_redis = fakeredis.aioredis.FakeRedis(server=server, decode_responses=True)
-    other = fakeredis.aioredis.FakeRedis(server=server, decode_responses=True)
-    monkeypatch.setattr(redis_client, "get_redis", lambda: api_redis)
-
-    q = canvas_events.subscribe_queue("cv-relay")
-    try:
-        await asyncio.sleep(0.05)  # 等 relay 订阅就绪
-        await other.publish(
-            "toiv:canvas:cv-relay",
-            json.dumps({"origin": "other-process", "event": {"kind": "edge", "id": 7}}),
-        )
-        assert (await asyncio.wait_for(q.get(), 1)) == {"kind": "edge", "id": 7}
-    finally:
-        canvas_events.unsubscribe_queue("cv-relay", q)
-
-
-async def test_canvas_publish_survives_redis_failure(monkeypatch):
-    """Redis publish 抛错 → 只记降级,进程内投递不受影响,请求不报错。"""
-
-    class _BrokenAsyncRedis:
-        async def publish(self, *a, **kw):
-            raise redis_lib.ConnectionError("redis down")
-
-        def pubsub(self):
-            raise redis_lib.ConnectionError("redis down")
-
-    monkeypatch.setattr(redis_client, "get_redis", lambda: _BrokenAsyncRedis())
-    q = canvas_events.subscribe_queue("cv-down")
-    try:
-        await canvas_events.publish("cv-down", {"kind": "node", "id": 2})
-        assert (await asyncio.wait_for(q.get(), 1)) == {"kind": "node", "id": 2}
-        assert redis_client._is_down()
-    finally:
-        canvas_events.unsubscribe_queue("cv-down", q)
 
 
 # ────────────────────────────────

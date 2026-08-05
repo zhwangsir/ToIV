@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { test, expect } from "@playwright/test";
 
 /**
@@ -36,15 +38,22 @@ const ERROR_PATTERNS = [
 ];
 
 test.describe("登录态视图加载", () => {
-  // 前置:确认 storageState 中确实有 token(globalSetup 可能登录失败)
-  test.beforeAll(async ({ browser }) => {
-    const context = await browser.newContext();
-    const page = await context.newPage();
-    await page.goto("/");
-    const token = await page.evaluate(() =>
-      window.localStorage.getItem("toiv_token"),
-    );
-    await context.close();
+  // 前置:确认 storageState 中确实有 token(globalSetup 可能登录失败)。
+  // 直接读 .auth/admin.json(Node 侧):走浏览器建页检查会与 fullyParallel 下
+  // 的首测试竞争,且重试 worker 冷启动时页面未就绪会误判为无 token。
+  test.beforeAll(async () => {
+    let token: string | null = null;
+    try {
+      const state = JSON.parse(readFileSync(".auth/admin.json", "utf-8")) as {
+        origins?: { localStorage?: { name: string; value: string }[] }[];
+      };
+      token =
+        state.origins
+          ?.flatMap((o) => o.localStorage ?? [])
+          .find((i) => i.name === "toiv_token")?.value ?? null;
+    } catch {
+      token = null;
+    }
     if (!token) {
       test.skip(true, "globalSetup 未获取到 token,跳过登录态视图测试");
       return;
