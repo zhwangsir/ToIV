@@ -9,9 +9,11 @@ OUT.mkdir(exist_ok=True)
 
 VIEWS = [
     ("assistant", "AI 助手"),
-    ("generate", "生成"),
+    ("image", "图片"),
+    ("video", "视频"),
+    ("audio", "音频"),
     ("canvas", "画布"),
-    ("manju", "漫剧"),
+    ("studio", "创作"),
     ("dub", "译制"),
     ("train", "训练"),
     ("library", "作品库"),

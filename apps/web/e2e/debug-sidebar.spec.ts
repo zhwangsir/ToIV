@@ -9,7 +9,7 @@ import * as path from "path";
  * - 桌面端:aside.app-sidebar,视图按钮为 .app-sidebar-item(直接点击切换)
  * - 移动端:nav.app-bottom-nav(.bottom-nav-item + 「更多」抽屉 .more-nav-item)
  * - 全局顶栏 header.topbar 已移除(--topbar-h: 0px)
- * - W3 退役 create/video/ltxstudio 视图,?view=create 会前端重定向到 ?view=generate
+ * - M1 退役 create/generate/ltxstudio 视图,?view=generate 会前端重定向到 ?view=image
  *
  * 测试流程:
  * 1. 登录态打开 /?view=assistant
@@ -25,14 +25,15 @@ import * as path from "path";
 test.use({ storageState: ".auth/admin.json" });
 
 // 侧栏中实际存在的视图(page.tsx 的 SIDEBAR_ITEMS 列表)
-// 注意:models/train/backlot/admin/animatic 不在侧栏一级导航中,只能通过 URL 直接访问
+// 注意:models/train/backlot/admin/animatic/studio 不在侧栏一级导航中,只能通过 URL 直接访问
+// (studio 经融合页/底部「更多」进入;旧 dramaStudio/manju 已重定向到 studio)
 const VIEW_FLOW: { key: string; label: string }[] = [
   { key: "assistant",   label: "对话" },       // 初始视图,通过 goto 进入
-  { key: "generate",    label: "生成" },
-  { key: "dramaStudio", label: "短剧" },
-  { key: "avatartalk",  label: "数字人" },
+  { key: "image",       label: "图片" },
+  { key: "video",       label: "视频" },
+  { key: "audio",       label: "音频" },
+  { key: "fusion",      label: "融合" },
   { key: "canvas",      label: "画布" },
-  { key: "dub",         label: "译制" },
   { key: "library",     label: "作品库" },
   { key: "resources",   label: "资源" },
   { key: "assistant",   label: "对话" },       // 回到 assistant,验证可恢复

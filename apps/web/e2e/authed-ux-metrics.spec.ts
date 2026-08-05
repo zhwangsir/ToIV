@@ -37,11 +37,13 @@ interface AccessibilityMetric {
 
 const VIEWS = [
   { key: "assistant", url: "/?view=assistant", name: "对话流" },
-  { key: "generate", url: "/?view=generate", name: "生成" },
+  { key: "image", url: "/?view=image", name: "图片" },
+  { key: "video", url: "/?view=video", name: "视频" },
+  { key: "audio", url: "/?view=audio", name: "音频" },
   { key: "library", url: "/?view=library", name: "作品库" },
   { key: "models", url: "/?view=models", name: "模型库" },
   { key: "canvas", url: "/?view=canvas", name: "画布" },
-  { key: "dramaStudio", url: "/?view=dramaStudio&mode=manju", name: "短剧工作室" },
+  { key: "studio", url: "/?view=studio", name: "创作工作室" },
   { key: "dub", url: "/?view=dub", name: "译制" },
   { key: "admin", url: "/?view=admin", name: "管理" },
 ];
@@ -151,14 +153,18 @@ test("UI/UX 五维度指标综合采集", async ({ page }) => {
   // 旧值 ≈1200ms 固定等待 + 点击动作开销,无法反映并行化/预热优化效果)。
   // 注意:models 已不在侧栏一级导航(改经 URL 访问),侧栏切换目标用 resources 替代
   const VIEW_ROOT: Record<string, string> = {
-    generate: ".generate-view",
+    image: ".generate-view",
+    video: ".generate-view",
+    audio: ".generate-view",
     library: ".library-view",
     resources: ".resources-view",
     canvas: ".canvas-view",
     assistant: ".av-view",
   };
   const targets = [
-    { key: "generate",  label: "生成" },
+    { key: "image",     label: "图片" },
+    { key: "video",     label: "视频" },
+    { key: "audio",     label: "音频" },
     { key: "library",   label: "作品库" },
     { key: "resources", label: "资源" },
     { key: "canvas",    label: "画布" },

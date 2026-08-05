@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Field, Select, Textarea } from "@/components/ui/Input";
+import { OptimizeButton } from "@/components/ui/OptimizeButton";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Tabs } from "@/components/ui/Tabs";
 import { usePoll } from "@/hooks/usePoll";
@@ -42,26 +43,50 @@ interface GenerateViewProps {
    * 与旧 CreateView/VideoView 行为一致;显式传 null 表示禁用草稿。
    */
   initialDraft?: GenerateDraft | null;
+  /**
+   * M1 三大板块拆分:传入时工作台锁定为该引擎 kind(图片/视频/音频),
+   * 顶部模式段控隐藏;未传保持旧行为(图像|视频段控,兼容旧用法)。
+   */
+  lockedKind?: EngineKind;
 }
 
+/** 板块标题/文案用的 kind 中文名。 */
+const KIND_LABEL: Record<EngineKind, string> = {
+  image: "AI图片",
+  video: "AI视频",
+  audio: "AI音频",
+};
+
+/** 文生/图生分组标签(按 kind 语义化)。 */
+const GROUP_LABEL: Record<EngineKind, { gen: string; edit: string }> = {
+  image: { gen: "文生图", edit: "图生图" },
+  video: { gen: "文生视频", edit: "图生视频" },
+  audio: { gen: "生成", edit: "编辑" },
+};
+
 /**
- * 统一生成工作台(W1):图像/视频统一入口。
+ * 统一生成工作台(W1):图像/视频/音频统一入口。
  *
  * 信息架构:接入新引擎 = 后端注册表(services/engine_registry)加条目,前端不再开新视图。
- * - 顶部模式段控:图像 | 视频(引擎列表按 kind 过滤)
- * - 左侧参数栏(320px):引擎选择器(带可用性状态/原因)+ prompt + 负向(引擎支持时)
- *   + 参考图上传(schema images 类型)+ 动态参数区(schema 驱动渲染)+ 生成按钮
- * - 右侧结果区(ResultPanel):当前任务大卡 + 会话历史网格 + A/B 对比
+ * - 顶部模式段控:图像 | 视频(引擎列表按 kind 过滤;传 lockedKind 时锁定并隐藏)
+ * - 板块内「生成 | 编辑」段控(数据驱动:params 含 images 类型 = 编辑组,否则生成组;
+ *   两组都有引擎时才显示,默认「生成」)
+ * - 左侧参数栏(320px):引擎选择器(带可用性状态/原因)+ prompt(挂 OptimizeButton)
+ *   + 负向(引擎支持时)+ 参考图上传(schema images 类型)+ 动态参数区(schema 驱动渲染)+ 生成按钮
+ * - 右侧结果区(ResultPanel):当前任务大卡 + 会话历史网格 + A/B 对比(音频产物渲染播放器)
  * 提交链路:按引擎 id 路由到既有 API(lib/engines.submitEngineGeneration),
  * SSE 进度复用 useGeneration/trackJob;NSFW 引擎由后端按 R18 上下文过滤,前端不判断。
  */
-export function GenerateView({ initialDraft }: GenerateViewProps) {
-  // 草稿:显式 prop 优先;否则消费 localStorage 引擎草稿(target=drama/manju 由短剧/漫剧视图消费,此处忽略)
+export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
+  // 草稿:显式 prop 优先;否则消费 localStorage 引擎草稿(target=drama/manju 由短剧/漫剧视图消费,此处忽略)。
+  // 锁定 kind 时只消费 target 匹配的草稿(不匹配不消费,留给对应板块;audio 无草稿来源,天然为空)。
   const draft = useMemo<GenerateDraft | null>(
-    () => (initialDraft !== undefined ? initialDraft : consumeEngineDraft()),
-    [initialDraft],
+    () => (initialDraft !== undefined ? initialDraft : consumeEngineDraft(lockedKind)),
+    [initialDraft, lockedKind],
   );
-  const [mode, setMode] = useState<EngineKind>(draft?.target === "video" ? "video" : "image");
+  const [mode, setMode] = useState<EngineKind>(
+    lockedKind ?? (draft?.target === "video" ? "video" : "image"),
+  );
   const [engines, setEngines] = useState<EngineInfo[] | null>(null);
   const [enginesError, setEnginesError] = useState<string | null>(null);
 
@@ -79,16 +104,27 @@ export function GenerateView({ initialDraft }: GenerateViewProps) {
   );
 
   const kindEngines = useMemo(() => (engines ?? []).filter((e) => e.kind === mode), [engines, mode]);
+
+  // 板块内「生成 | 编辑」分组(数据驱动:params 含 images 类型 = 编辑组,否则生成组)。
+  // 两组都有引擎时才显示段控(如音频板块当前仅 ace-music 生成组,段控自动不显示)。
+  const genGroup = useMemo(() => kindEngines.filter((e) => engineNeedsImage(e) === null), [kindEngines]);
+  const editGroup = useMemo(() => kindEngines.filter((e) => engineNeedsImage(e) !== null), [kindEngines]);
+  const showGroupTabs = genGroup.length > 0 && editGroup.length > 0;
+  const [groupByKind, setGroupByKind] = useState<Partial<Record<EngineKind, "gen" | "edit">>>({});
+  const group = groupByKind[mode] ?? "gen";
+  const visibleEngines = showGroupTabs ? (group === "gen" ? genGroup : editGroup) : kindEngines;
+
   const [engineIdByKind, setEngineIdByKind] = useState<Partial<Record<EngineKind, string>>>({});
   const engine = useMemo(() => {
     const sel = engineIdByKind[mode];
     return (
-      kindEngines.find((e) => e.id === sel && e.available) ??
-      kindEngines.find((e) => e.available) ??
-      kindEngines[0] ??
+      visibleEngines.find((e) => e.id === sel && e.available) ??
+      // 切组/切 kind 后,选择自动落到该组第一个可用引擎
+      visibleEngines.find((e) => e.available) ??
+      visibleEngines[0] ??
       null
     );
-  }, [kindEngines, engineIdByKind, mode]);
+  }, [visibleEngines, engineIdByKind, mode]);
 
   // 参数状态:按引擎 id 分槽保存,切换引擎不丢输入(会话级)
   const [valuesByEngine, setValuesByEngine] = useState<Record<string, Record<string, unknown>>>({});
@@ -102,6 +138,15 @@ export function GenerateView({ initialDraft }: GenerateViewProps) {
   const positive = engine ? promptByEngine[engine.id] ?? "" : "";
   const refImage = engine ? refByEngine[engine.id] ?? null : null;
   const imageParam = engine ? engineNeedsImage(engine) : null;
+
+  // OptimizeButton kind 映射:文生图→image、图生图(含 images 参数)→image_edit、视频→video、音频→audio
+  const optimizeKind = !engine
+    ? "image"
+    : engine.kind === "image"
+      ? imageParam
+        ? "image_edit"
+        : "image"
+      : engine.kind;
 
   const setValue = (key: string, v: unknown) => {
     if (!engine) return;
@@ -198,20 +243,25 @@ export function GenerateView({ initialDraft }: GenerateViewProps) {
     }
   }
 
-  const uploadKind = engine?.id === "img2img" ? "img2img" : "ltx_i2v";
+  const uploadKind =
+    engine?.id === "img2img" ? "img2img" : engine?.id === "h3-i2v" ? "h3_i2v" : "ltx_i2v";
 
   return (
     <div className="generate-view">
       <div className="generate-header">
-        <Tabs
-          ariaLabel="生成模式"
-          items={[
-            { key: "image", label: "图像", icon: <Icon name="image" size={14} /> },
-            { key: "video", label: "视频", icon: <Icon name="video" size={14} /> },
-          ]}
-          current={mode}
-          onChange={(k) => setMode(k as EngineKind)}
-        />
+        {lockedKind ? (
+          <span className="generate-board-title">{KIND_LABEL[lockedKind]}</span>
+        ) : (
+          <Tabs
+            ariaLabel="生成模式"
+            items={[
+              { key: "image", label: "图像", icon: <Icon name="image" size={14} /> },
+              { key: "video", label: "视频", icon: <Icon name="video" size={14} /> },
+            ]}
+            current={mode}
+            onChange={(k) => setMode(k as EngineKind)}
+          />
+        )}
         <span className="generate-header-note">会话内历史不落库,刷新即清空</span>
       </div>
 
@@ -227,16 +277,29 @@ export function GenerateView({ initialDraft }: GenerateViewProps) {
           ) : enginesError ? (
             <p className="generate-error">{enginesError}</p>
           ) : kindEngines.length === 0 ? (
-            <p className="generate-error">当前上下文没有可用的{mode === "image" ? "图像" : "视频"}引擎</p>
+            <p className="generate-error">当前上下文没有可用的{KIND_LABEL[mode]}引擎</p>
           ) : (
             <>
+              {showGroupTabs && (
+                <Tabs
+                  ariaLabel={mode === "image" ? "文生图或图生图" : mode === "video" ? "文生视频或图生视频" : "生成或编辑"}
+                  fill
+                  items={[
+                    { key: "gen", label: GROUP_LABEL[mode].gen },
+                    { key: "edit", label: GROUP_LABEL[mode].edit },
+                  ]}
+                  current={group}
+                  onChange={(k) => setGroupByKind((prev) => ({ ...prev, [mode]: k as "gen" | "edit" }))}
+                />
+              )}
+
               <Field label="引擎">
                 <Select
                   value={engine?.id ?? ""}
                   onChange={(e) => setEngineIdByKind((prev) => ({ ...prev, [mode]: e.target.value }))}
                   aria-label="选择引擎"
                 >
-                  {kindEngines.map((e) => (
+                  {visibleEngines.map((e) => (
                     <option
                       key={e.id}
                       value={e.id}
@@ -263,18 +326,33 @@ export function GenerateView({ initialDraft }: GenerateViewProps) {
               )}
               {engine?.description && <p className="engine-desc">{engine.description}</p>}
 
-              <Field label="提示词">
+              <div className="prompt-field">
+                <div className="prompt-field-head">
+                  <span className="prompt-field-label">提示词</span>
+                  {engine && (
+                    <OptimizeButton
+                      prompt={positive}
+                      kind={optimizeKind}
+                      onOptimized={(text, negative) => {
+                        setPromptByEngine((prev) => ({ ...prev, [engine.id]: text }));
+                        if (negative && engineSupportsNegative(engine)) setValue("negative", negative);
+                      }}
+                      disabled={gen.isRunning}
+                    />
+                  )}
+                </div>
                 <Textarea
                   rows={4}
                   value={positive}
                   placeholder="描述想要生成的内容…"
                   disabled={gen.isRunning}
+                  aria-label="提示词"
                   onChange={(e) => {
                     if (!engine) return;
                     setPromptByEngine((prev) => ({ ...prev, [engine.id]: e.target.value }));
                   }}
                 />
-              </Field>
+              </div>
 
               {engine && engineSupportsNegative(engine) && (
                 <Field label="负向提示词">
@@ -363,6 +441,29 @@ export function GenerateView({ initialDraft }: GenerateViewProps) {
         }
         .generate-header-note {
           font-size: var(--text-aux);
+          color: var(--text-muted);
+        }
+        .generate-board-title {
+          font-size: var(--text-section);
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+        .prompt-field {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-1);
+        }
+        .prompt-field-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: var(--space-2);
+        }
+        .prompt-field-label {
+          font-size: var(--text-label);
+          font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
           color: var(--text-muted);
         }
         .generate-body {

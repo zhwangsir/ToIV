@@ -32,9 +32,21 @@ const STATUS_META: Record<HistoryEntry["status"], { tone: "run" | "ok" | "err" |
   cancelled: { tone: "neutral", label: "已取消" },
 };
 
+/** 音频产物扩展名:结果路径以此结尾时渲染 <audio> 播放器(而非 img/video)。 */
+const AUDIO_PATH_RE = /\.(mp3|wav|flac|ogg)$/i;
+
 function MediaView({ entry, className }: { entry: HistoryEntry; className?: string }) {
   const first = entry.paths[0];
   if (!first) return null;
+  if (AUDIO_PATH_RE.test(first)) {
+    return (
+      <>
+        {entry.paths.map((p) => (
+          <audio key={p} src={imageUrl(p)} controls preload="metadata" className="media-audio" />
+        ))}
+      </>
+    );
+  }
   const url = imageUrl(first);
   if (entry.kind === "video") {
     return <video src={url} controls className={className} />;
@@ -174,7 +186,7 @@ export function ResultPanel({ entries, selectedId, onSelect, liveProgress, onCan
               aria-label={`${e.engineLabel}:${e.prompt.slice(0, 30)}`}
             >
               <span className="history-thumb">
-                {e.status === "done" && e.paths[0] ? (
+                {e.status === "done" && e.paths[0] && !AUDIO_PATH_RE.test(e.paths[0]) ? (
                   e.kind === "video" ? (
                     <video src={imageUrl(e.paths[0])} muted preload="metadata" className="history-media" />
                   ) : (
@@ -184,7 +196,17 @@ export function ResultPanel({ entries, selectedId, onSelect, liveProgress, onCan
                 ) : (
                   <span className="history-thumb-placeholder">
                     <Icon
-                      name={e.status === "running" ? "loading" : e.status === "error" ? "error" : e.kind === "video" ? "video" : "image"}
+                      name={
+                        e.status === "running"
+                          ? "loading"
+                          : e.status === "error"
+                            ? "error"
+                            : e.kind === "audio" || (e.paths[0] ? AUDIO_PATH_RE.test(e.paths[0]) : false)
+                              ? "audio"
+                              : e.kind === "video"
+                                ? "video"
+                                : "image"
+                      }
                       size={20}
                     />
                   </span>
@@ -297,6 +319,10 @@ const panelStyles = `
     max-width: 100%;
     max-height: 52vh;
     object-fit: contain;
+    display: block;
+  }
+  .current-media :global(.media-audio), .compare-media :global(.media-audio) {
+    width: 100%;
     display: block;
   }
   .current-prompt {

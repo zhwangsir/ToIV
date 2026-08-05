@@ -308,7 +308,8 @@ export function LibraryView() {
           <>
             <div className="lib-grid">
               {visibleJobs.map((job) => {
-              const hasResult = job.status === "success" && job.results?.length > 0;
+              // 后端作业状态枚举为 queued/running/done/error;done 表示成功且有产物
+              const hasResult = job.status === "done" && job.results?.length > 0;
               const isVideo = isVideoKind(job.kind);
               return (
                 <article

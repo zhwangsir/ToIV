@@ -14,11 +14,13 @@ import { test, expect } from "@playwright/test";
 
 const VIEWS = [
   "assistant",
-  "generate",
+  "image",
+  "video",
+  "audio",
   "library",
   "models",
   "backlot",
-  "dramaStudio",
+  "studio",
   "dub",
   "train",
   "canvas",
@@ -61,7 +63,7 @@ test.describe("登录态视图加载", () => {
           // dev 模式 networkidle 可能超时
         }
 
-        // W0 后 dramaStudio 也渲染在 app-shell 内(见 page.tsx),统一走通用断言
+        // W0 后 studio(原 dramaStudio 退役,M4 由 studio 替代)也渲染在 app-shell 内(见 page.tsx),统一走通用断言
         // 等待 app-shell 出现(登录态应进入主界面)
         const appShell = page.locator(".app-shell");
         try {

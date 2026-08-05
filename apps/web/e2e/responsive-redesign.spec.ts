@@ -8,7 +8,7 @@ import { test, expect } from "@playwright/test";
  * - 窄屏(<1024px):侧栏隐藏,nav.app-bottom-nav 底部导航(.bottom-nav-item + 「更多」抽屉)
  * - 横屏(height<500 且 landscape):底部导航让位,回到折叠侧栏
  * - 全局顶栏 header.topbar 已移除(--topbar-h: 0px)
- * - W3 退役 create/video/ltxstudio 视图,?view=create 重定向到 ?view=generate
+ * - M1 退役 create/generate/ltxstudio 视图,?view=generate 重定向到 ?view=image
  * - .theme-toggle 已随顶栏移除,原「主题切换功能」用例 fixme 待产品确认
  *
  * 显隐判定(globals.css 断点,组件始终挂载、由 CSS 控制显隐):
@@ -35,7 +35,9 @@ const LANDSCAPE_MOBILE = [
 const VIEWS = [
   { path: "/?view=assistant", name: "对话流" },
   { path: "/?view=canvas", name: "画布" },
-  { path: "/?view=generate", name: "生成" },
+  { path: "/?view=image", name: "图片" },
+  { path: "/?view=video", name: "视频" },
+  { path: "/?view=audio", name: "音频" },
   { path: "/?view=library", name: "作品库" },
 ];
 

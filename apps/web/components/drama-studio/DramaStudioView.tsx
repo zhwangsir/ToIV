@@ -1,5 +1,12 @@
 "use client";
 
+/**
+ * FROZEN(2026-08-05): 短剧工作室已由 studio 创作工作室替代(components/studio/StudioView)。
+ * ?view=dramaStudio / ?view=manju 一律重定向到 studio,本组件不再承载新需求。
+ * 暂不删除的唯一原因:animatic 视图桌面端复用本组件的「动态分镜」页签(见 app/page.tsx)。
+ * 待动态分镜独立后,本目录(drama-studio/ + manju/)整体下线。
+ */
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
@@ -29,6 +36,7 @@ import { AssembleTab } from "@/components/drama-studio/AssembleTab";
 import { ProcessTab } from "@/components/drama-studio/ProcessTab";
 import { FilmstripTimeline } from "@/components/drama-studio/FilmstripTimeline";
 import { AnalyticsPanel } from "@/components/drama-studio/AnalyticsPanel";
+import { StageGateBar, useStageGate } from "@/components/drama-studio/StageGate";
 import { ManjuView } from "@/components/manju/ManjuView";
 import { AnimaticView } from "@/components/animatic/AnimaticView";
 import { useDramaProject } from "@/hooks/useDramaProject";
@@ -49,14 +57,43 @@ type StudioMode = "drama" | "manju";
 type HubTab = "projects" | "animatic";
 type StageKey = "script" | "character" | "asset" | "shot" | "assemble" | "process" | "data";
 
-const STAGES: { key: StageKey; label: string; icon: IconName }[] = [
-  { key: "script", label: "剧本", icon: "filevideo" },
-  { key: "character", label: "角色", icon: "users" },
-  { key: "asset", label: "资产", icon: "box" },
-  { key: "shot", label: "分镜", icon: "film" },
-  { key: "assemble", label: "合成", icon: "playing" },
-  { key: "process", label: "过程", icon: "history" },
-  { key: "data", label: "数据", icon: "barchart" },
+interface StageDef {
+  key: StageKey;
+  label: string;
+  icon: IconName;
+}
+
+interface StageGroupDef {
+  key: string;
+  label: string;
+  stages: StageDef[];
+}
+
+// 创作阶段收敛为三组:筹备 / 制作 / 复盘,降低导航复杂度,同时保留每个环节的人工把关入口
+const STAGE_GROUPS: StageGroupDef[] = [
+  {
+    key: "prep",
+    label: "筹备",
+    stages: [{ key: "script", label: "剧本", icon: "filevideo" }],
+  },
+  {
+    key: "produce",
+    label: "制作",
+    stages: [
+      { key: "character", label: "角色", icon: "users" },
+      { key: "asset", label: "资产", icon: "box" },
+      { key: "shot", label: "分镜", icon: "film" },
+      { key: "assemble", label: "合成", icon: "playing" },
+    ],
+  },
+  {
+    key: "review",
+    label: "复盘",
+    stages: [
+      { key: "process", label: "过程", icon: "history" },
+      { key: "data", label: "数据", icon: "barchart" },
+    ],
+  },
 ];
 
 // 推荐 Skill 卡:优先从后端 dramaListSkills 拉取(单一真相源),失败/为空时回退此硬编码
@@ -182,6 +219,9 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
   );
 
   const project = useDramaProject(activeId, handleSummaryChange);
+
+  // 环节把关:每个创作阶段需人工确认通过,状态按项目持久化(localStorage)
+  const gate = useStageGate(activeId);
 
   useEffect(() => {
     if (activeId) project.reload();
@@ -697,6 +737,7 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
                 setStudioView("hub");
               }}
               onCreated={handleCreated}
+              initialSource={studioMode}
               initialDraft={
                 engineDraft?.target === "drama"
                   ? { title: engineDraft.prompt.slice(0, 80), script: engineDraft.prompt }
@@ -718,6 +759,37 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
     }
 
     const sMeta = projectStatusMeta(current.status);
+
+    // ── 环节把关:当前阶段标签 + 就绪提示(未就绪时禁用把关按钮) ──
+    const activeStageDef = STAGE_GROUPS.flatMap((g) => g.stages).find(
+      (s) => s.key === activeStage,
+    );
+    const pendingVideoCount = shots.filter(
+      (s) => (s.video_status || "").toLowerCase() !== "done",
+    ).length;
+    const stageGateHint = ((): string | undefined => {
+      switch (activeStage) {
+        case "script":
+          return !(current.script ?? "").trim()
+            ? "剧本尚未填写,请先完成剧本"
+            : undefined;
+        case "character":
+          return project.characters.length === 0
+            ? "尚未创建角色"
+            : undefined;
+        case "shot":
+          return shots.length === 0 ? "尚未拆分镜" : undefined;
+        case "assemble":
+          return shots.length === 0
+            ? "尚未拆分镜"
+            : pendingVideoCount > 0
+              ? `还有 ${pendingVideoCount} 个分镜视频未完成`
+              : undefined;
+        default:
+          // asset/process/data:资源浏览与复盘环节,无需前置条件
+          return undefined;
+      }
+    })();
 
     return (
       <div className="workspace-view">
@@ -813,6 +885,12 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
         <div className="workspace-body">
           <div className="main-panel-wrap">
             <div className="main-panel">
+              <StageGateBar
+                stageKey={activeStage}
+                stageLabel={activeStageDef?.label ?? ""}
+                gate={gate}
+                readyHint={stageGateHint}
+              />
               {activeStage === "script" && <ScriptTab project={project} />}
               {activeStage === "character" && <CharacterTab project={project} />}
               {activeStage === "asset" && <AssetLibrary project={project} />}
@@ -908,7 +986,29 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           </div>
         </div>
         <div className="topbar-center">
-          <div className="studio-title">工作室</div>
+          {/* 统一工作台:短剧 / 漫剧 顶部切换,减少视图跳转 */}
+          <div className="studio-mode-switch" role="tablist" aria-label="创作形态">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={studioMode === "drama"}
+              className={`studio-mode-btn${studioMode === "drama" ? " active" : ""}`}
+              onClick={() => setStudioMode("drama")}
+            >
+              <Icon name="drama" size={14} />
+              短剧
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={studioMode === "manju"}
+              className={`studio-mode-btn${studioMode === "manju" ? " active" : ""}`}
+              onClick={() => setStudioMode("manju")}
+            >
+              <Icon name="manju" size={14} />
+              漫剧
+            </button>
+          </div>
         </div>
         <div className="topbar-right">
           <span className="status-pill">
@@ -1013,7 +1113,7 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
               setStudioView("workspace");
             }}
           >
-            <Icon name="create" size={13} /> 新建项目
+            <Icon name="create" size={13} /> 新建{studioMode === "manju" ? "漫剧" : "项目"}
           </button>
           {account && (
             <button type="button" className="account-btn" title={account}>
@@ -1023,25 +1123,42 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
         </div>
       </header>
 
-      {/* 左侧阶段栏 */}
+      {/* 左侧阶段栏:按筹备 / 制作 / 复盘 分组收敛 */}
       {studioMode === "drama" && (
         <nav className="stage-sidebar" aria-label="创作阶段">
-          {STAGES.map((s) => (
-            <button
-              key={s.key}
-              type="button"
-              className={`stage-item ${activeStage === s.key ? "active" : ""}`}
-              onClick={() => {
-                setActiveStage(s.key);
-                if (studioView !== "workspace") setStudioView("workspace");
-              }}
-              title={s.label}
-            >
-              <Icon name={s.icon} size={18} />
-              <span>{s.label}</span>
-            </button>
+          {STAGE_GROUPS.map((group) => (
+            <div key={group.key} className="stage-group">
+              <div className="stage-group-label">{group.label}</div>
+              {group.stages.map((s) => (
+                <button
+                  key={s.key}
+                  type="button"
+                  className={`stage-item ${activeStage === s.key ? "active" : ""}${gate.isApproved(s.key) ? " gated" : ""}`}
+                  onClick={() => {
+                    setActiveStage(s.key);
+                    if (studioView !== "workspace") setStudioView("workspace");
+                  }}
+                  title={gate.isApproved(s.key) ? `${s.label} · 已把关` : s.label}
+                >
+                  <Icon name={s.icon} size={18} />
+                  <span>{s.label}</span>
+                  {gate.isApproved(s.key) && (
+                    <Icon name="check" size={10} className="stage-gate-dot" />
+                  )}
+                </button>
+              ))}
+            </div>
           ))}
           <div className="stage-sidebar-foot">
+            <div
+              className="stage-gate-progress"
+              title="环节把关进度:每个环节人工确认后计入"
+            >
+              <Icon name="check" size={11} />
+              <span>
+                把关 {gate.approvedCount}/{STAGE_GROUPS.reduce((n, g) => n + g.stages.length, 0)}
+              </span>
+            </div>
             <button
               type="button"
               className="stage-item"
@@ -1245,6 +1362,11 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
         .ds-model-select { padding: 0.3rem 0.5rem; background: var(--bg-surface-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.74rem; }
         .ds-model-select:focus { outline: none; border-color: var(--accent); }
         .ds-model-warn { font-size: 0.66rem; color: var(--err); }
+        /* 单镜抽卡 */
+        .ds-gacha-row { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; padding: 0.35rem 0.45rem; background: color-mix(in srgb, var(--accent) 6%, var(--bg-surface-1)); border: 1px dashed color-mix(in srgb, var(--accent) 30%, var(--border-subtle)); border-radius: var(--radius-sm); }
+        .ds-gacha-label { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.68rem; color: var(--accent); font-weight: 600; }
+        .ds-gacha-select { padding: 0.25rem 0.4rem; background: var(--bg-surface-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.72rem; }
+        .ds-gacha-select:focus { outline: none; border-color: var(--accent); }
         .ds-mini-btn { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.22rem 0.45rem; background: var(--bg-surface-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); color: var(--text-secondary); font-size: 0.68rem; cursor: pointer; transition: all 0.15s ease; }
         .ds-mini-btn:hover { background: var(--bg-surface-3); color: var(--text-primary); border-color: var(--text-muted); }
         .ds-mini-btn-danger:hover { color: var(--err); border-color: var(--err); background: var(--err-soft); }
@@ -1544,6 +1666,40 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           color: var(--text-primary);
           letter-spacing: 0.02em;
         }
+        /* 统一工作台:短剧/漫剧 顶部切换 */
+        .studio-mode-switch {
+          display: inline-flex;
+          align-items: center;
+          gap: 2px;
+          padding: 3px;
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+        }
+        .studio-mode-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          padding: 0.32rem 0.8rem;
+          background: transparent;
+          border: 1px solid transparent;
+          border-radius: var(--radius-sm);
+          color: var(--text-secondary);
+          font-size: 0.78rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.18s ease;
+        }
+        .studio-mode-btn:hover {
+          color: var(--text-primary);
+          background: var(--bg-surface-2);
+        }
+        .studio-mode-btn.active {
+          background: var(--bg-surface-1);
+          border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+          color: var(--accent);
+          box-shadow: 0 1px 3px color-mix(in srgb, var(--ink) 12%, transparent);
+        }
         .status-pill {
           display: inline-flex;
           align-items: center;
@@ -1739,17 +1895,34 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           z-index: 2;
           display: flex;
           flex-direction: column;
-          gap: 0.4rem;
+          gap: 0.75rem;
           padding: 0.7rem 0.5rem;
           border-right: 1px solid var(--border-subtle);
           background: var(--bg-surface-2);
+          overflow-y: auto;
+        }
+        .stage-group {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+        }
+        .stage-group-label {
+          font-size: 0.56rem;
+          font-weight: 600;
+          text-align: center;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: var(--text-muted);
+          padding: 0.15rem 0 0.1rem;
+          border-bottom: 1px solid var(--border-subtle);
+          margin-bottom: 0.15rem;
         }
         .stage-item {
           display: flex;
           flex-direction: column;
           align-items: center;
           gap: 0.3rem;
-          padding: 0.7rem 0.25rem;
+          padding: 0.6rem 0.25rem;
           background: transparent;
           border: 1px solid transparent;
           border-radius: var(--radius-sm);
@@ -1785,6 +1958,76 @@ export function DramaStudioView({ account, onLogout, onNavigate, initialProjectI
           display: flex;
           flex-direction: column;
           gap: 0.4rem;
+        }
+        /* ── 环节把关:侧边栏徽章 + 进度 ── */
+        .stage-item.gated {
+          color: var(--text-primary);
+        }
+        .stage-gate-dot {
+          position: absolute;
+          top: 4px;
+          right: 4px;
+          color: var(--ok);
+        }
+        .stage-gate-progress {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.2rem;
+          font-size: 0.56rem;
+          font-weight: 600;
+          letter-spacing: 0.04em;
+          color: var(--text-muted);
+          padding: 0.35rem 0.2rem;
+          border: 1px dashed var(--border-subtle);
+          border-radius: var(--radius-sm);
+        }
+        /* ── 环节把关条(主面板顶部) ── */
+        .ds-gate-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+          padding: 0.45rem 0.75rem;
+          margin-bottom: 0.75rem;
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-sm);
+          background: var(--bg-surface-2);
+        }
+        .ds-gate-bar.ds-gate-approved {
+          border-color: color-mix(in srgb, var(--ok) 40%, transparent);
+          background: color-mix(in srgb, var(--ok) 8%, var(--bg-surface-2));
+        }
+        .ds-gate-info {
+          display: flex;
+          align-items: center;
+          gap: 0.45rem;
+          min-width: 0;
+        }
+        .ds-gate-bar:not(.ds-gate-approved) .ds-gate-info > svg {
+          color: var(--warn);
+        }
+        .ds-gate-approved .ds-gate-info > svg {
+          color: var(--ok);
+        }
+        .ds-gate-text {
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: var(--text-primary);
+          white-space: nowrap;
+        }
+        .ds-gate-hint {
+          font-size: 0.68rem;
+          color: var(--text-secondary);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .ds-gate-actions {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          flex-shrink: 0;
         }
 
         /* ── Main Stage ── */

@@ -17,7 +17,9 @@ const DEVICES = [
 const VIEWS = [
   { name: 'assistant', label: '对话流' },
   { name: 'canvas', label: '画布' },
-  { name: 'generate', label: '生成' },
+  { name: 'image', label: '图片' },
+  { name: 'video', label: '视频' },
+  { name: 'audio', label: '音频' },
   { name: 'library', label: '作品库' },
 ];
 

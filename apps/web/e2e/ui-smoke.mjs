@@ -8,8 +8,10 @@ fs.mkdirSync(OUT, { recursive: true });
 
 const views = [
   ["assistant", "对话"],
-  ["generate", "生成"],
-  ["dramaStudio", "短剧"],
+  ["image", "图片"],
+  ["video", "视频"],
+  ["audio", "音频"],
+  ["studio", "创作"],
   ["avatartalk", "数字人"],
   ["canvas", "画布"],
   ["dub", "译制"],
@@ -43,9 +45,9 @@ for (const [key, label] of views) {
 
 // 移动档
 await page.setViewportSize({ width: 390, height: 844 });
-await page.goto(`${BASE}/?view=generate`);
+await page.goto(`${BASE}/?view=image`);
 await page.waitForTimeout(4000);
-await page.screenshot({ path: `${OUT}/mobile-generate.png` });
+await page.screenshot({ path: `${OUT}/mobile-image.png` });
 
 await browser.close();
 console.log("done ->", OUT);

@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * FROZEN(2026-08-05): 漫剧工作室已由 studio 创作工作室替代(components/studio/StudioView)。
+ * ?view=manju 重定向到 studio,本组件不再承载新需求;仅随 DramaStudioView 的
+ * animatic 桌面端复用链路保留,待动态分镜独立后整体下线。
+ */
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {

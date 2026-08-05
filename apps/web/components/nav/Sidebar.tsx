@@ -1,6 +1,5 @@
 "use client";
 
-import { AgentSwitcher } from "@/components/ui/AgentSwitcher";
 import { Icon, type IconName } from "@/components/ui/Icon";
 
 export interface SidebarNavItem {
@@ -68,10 +67,6 @@ export function Sidebar({
       </nav>
 
       <div className="app-sidebar-footer">
-        <div className="app-sidebar-agent">
-          <AgentSwitcher />
-        </div>
-
         {account && (
           <div className="app-sidebar-account">
             <span className="app-sidebar-account-avatar" aria-hidden="true">

@@ -841,6 +841,8 @@ export interface AudioGenParams {
   tags: string;
   lyrics: string;
   seconds: number;
+  steps: number;
+  cfg: number;
   seed?: number | null;
 }
 
@@ -2713,4 +2715,302 @@ export async function createDramaProjectFromImage(params: {
   if (!res.ok) await raiseApiError(res, "解析生成失败");
   return res.json();
 }
+
+// ---------- 音频工具(音频板块 M2)----------
+
+export interface AudioSeparateResult {
+  /** 产物回读 URL(/api/audio/files/{name}),经 imageUrl 拼 token 后播放/下载 */
+  url: string;
+  duration_sec: number | null;
+}
+
+/**
+ * 人声分离:上传音频(mp3/wav/flac/ogg/m4a,≤50MB)→ Demucs → vocals wav。
+ * 契约:POST /api/audio/separate multipart(file) → { url, duration_sec }。
+ * 分离服务未配置/不可达时后端返回 503/502 带清晰原因,detail 原样抛出展示。
+ * 同步管线:大文件分离耗时长 → 放宽到 180s。
+ */
+export async function separateAudio(file: File): Promise<AudioSeparateResult> {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await apiFetch(
+    `/api/audio/separate`,
+    {
+      method: "POST",
+      headers: authHeaders(), // 不要手动设 Content-Type,让浏览器带 boundary
+      body: fd,
+    },
+    { longRequest: true },
+  );
+  if (!res.ok) await raiseApiError(res, "人声分离失败");
+  return res.json();
+}
+
+// ---------- 视频编辑(OpenCut 风格时间线剪辑 → ffmpeg 渲染) ----------
+
+export interface VideoEditClip {
+  file: number; // media[] 数组下标(0 起)
+  in: number; // 入点(秒)
+  duration: number; // 时长(秒)
+  volume: number; // 0-1,0=丢弃原声
+}
+
+export interface VideoEditAudio {
+  file: number;
+  in: number;
+  duration: number;
+  start: number; // 时间线起点(秒)
+  volume: number;
+}
+
+export interface VideoEditText {
+  text: string;
+  start: number;
+  end: number;
+  position: string; // top | center | bottom
+  fontSize: number; // 12-200
+  color: string; // #rrggbb
+}
+
+export interface VideoEditPlan {
+  width: number;
+  height: number;
+  fps: number;
+  clips: VideoEditClip[];
+  audios: VideoEditAudio[];
+  texts: VideoEditText[];
+}
+
+export interface VideoEditResult {
+  job_id: string;
+  url: string;
+  clips: number;
+  audios: number;
+  texts: number;
+  duration: number;
+  fps: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * 时间线剪辑渲染:剪辑计划 + 媒体文件 → ffmpeg 串接/混音/文字叠加成片。
+ * 契约:POST /api/video-edit/render multipart(plan JSON + media[])
+ *   → { job_id, url, clips, audios, texts, duration, fps, width, height }。
+ * 同步管线:重编码耗时长(分钟级)→ 放宽到 180s。
+ */
+export async function renderVideoEdit(
+  plan: VideoEditPlan,
+  media: File[],
+): Promise<VideoEditResult> {
+  const fd = new FormData();
+  fd.append("plan", JSON.stringify(plan));
+  for (const f of media) fd.append("media", f);
+  const res = await apiFetch(
+    `/api/video-edit/render`,
+    {
+      method: "POST",
+      headers: authHeaders(), // 不要手动设 Content-Type,让浏览器带 boundary
+      body: fd,
+    },
+    { longRequest: true },
+  );
+  if (!res.ok) await raiseApiError(res, "视频渲染失败");
+  return res.json();
+}
+
+/** 成片相对路径拼成可访问 URL 并附带令牌(<video>/<a> 无法带请求头)。 */
+export function videoEditOutputUrl(url: string): string {
+  return imageUrl(url);
+}
+
+// ---------- Studio 创作工作室(剧本 → 角色 → 分镜级混合生成 → 合成)----------
+// 替代旧 短剧(drama)/漫剧(manju) 双模块;每镜独立选择 视频链 | 图像运镜链。
+
+export type StudioRenderMode = "video" | "image_motion";
+
+export interface StudioProjectSummary {
+  id: string;
+  title: string;
+  premise: string;
+  style: string;
+  ckpt_name: string;
+  render_mode_default: StudioRenderMode;
+  status: string; // draft | storyboard | generating | ready | error
+  final_url: string;
+  error?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StudioCharacter {
+  id: string;
+  project_id: string;
+  name: string;
+  description: string;
+  visual_prompt: string;
+  reference_images: string[];
+  voice_ref_url: string;
+  created_at?: string;
+}
+
+export interface StudioShot {
+  id: string;
+  project_id: string;
+  idx: number;
+  scene: string;
+  prompt: string;
+  negative: string;
+  camera: string;
+  dialogue: string;
+  speaker: string;
+  duration_sec: number;
+  characters: string[];
+  render_mode: StudioRenderMode;
+  status: string; // draft|queued|rendering|rendered|voiced|lipsynced|done|error
+  image_url: string;
+  video_url: string;
+  voice_url: string;
+  final_clip_url: string;
+  error: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface StudioProjectDetail extends StudioProjectSummary {
+  characters: StudioCharacter[];
+  shots: StudioShot[];
+}
+
+export interface StudioShotInput {
+  id?: string;
+  scene?: string;
+  prompt?: string;
+  negative?: string | null;
+  camera?: string;
+  dialogue?: string;
+  speaker?: string;
+  duration_sec?: number;
+  characters?: string[];
+  render_mode?: StudioRenderMode;
+}
+
+export interface StudioCharacterInput {
+  name: string;
+  description?: string;
+  visual_prompt?: string;
+}
+
+export interface StudioParseResult {
+  characters: { name: string; description: string; visual_prompt: string }[];
+  shots: StudioShotInput[];
+}
+
+/** Studio 统一 JSON 请求(带 auth + 错误归一),风格对齐 dramaReq/manjuReq。 */
+async function studioReq<T>(
+  path: string,
+  method: string,
+  body?: unknown,
+  opts?: ApiFetchOptions,
+  fallback = "创作工作室请求失败",
+): Promise<T> {
+  const res = await apiFetch(
+    `/api${path}`,
+    {
+      method,
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    },
+    opts,
+  );
+  if (!res.ok) await raiseApiError(res, fallback);
+  return res.json();
+}
+
+export const listStudioProjects = (): Promise<StudioProjectSummary[]> =>
+  studioReq("/studio/projects", "GET");
+export const createStudioProject = (body: {
+  title?: string;
+  premise?: string;
+  style?: string;
+  ckpt_name?: string;
+  render_mode_default?: StudioRenderMode;
+}): Promise<StudioProjectSummary> => studioReq("/studio/projects", "POST", body);
+export const getStudioProject = (pid: string): Promise<StudioProjectDetail> =>
+  studioReq(`/studio/projects/${pid}`, "GET");
+export const patchStudioProject = (
+  pid: string,
+  body: Partial<{
+    title: string;
+    premise: string;
+    style: string;
+    ckpt_name: string;
+    render_mode_default: StudioRenderMode;
+    status: string;
+  }>,
+): Promise<StudioProjectSummary> => studioReq(`/studio/projects/${pid}`, "PATCH", body);
+export const deleteStudioProject = (pid: string): Promise<{ ok: boolean }> =>
+  studioReq(`/studio/projects/${pid}`, "DELETE");
+
+/** LLM 剧本拆解(不落库,前端确认后走 CRUD 保存);整段一次生成 → 放宽到 120s。 */
+export const parseStudioScript = (
+  pid: string,
+  body: { premise: string; num_shots?: number; style?: string },
+): Promise<StudioParseResult> =>
+  studioReq(`/studio/projects/${pid}/script/parse`, "POST", body, {
+    timeoutMs: 120_000,
+  });
+
+export const addStudioCharacter = (
+  pid: string,
+  body: StudioCharacterInput,
+): Promise<StudioCharacter> =>
+  studioReq(`/studio/projects/${pid}/characters`, "POST", body);
+export const patchStudioCharacter = (
+  cid: string,
+  body: Partial<StudioCharacterInput & { voice_ref_url: string }>,
+): Promise<StudioCharacter> => studioReq(`/studio/characters/${cid}`, "PATCH", body);
+export const deleteStudioCharacter = (cid: string): Promise<{ ok: boolean }> =>
+  studioReq(`/studio/characters/${cid}`, "DELETE");
+
+/** 分镜批量保存(无 id=新增,有 id=更新;生成方式变化会重置该镜媒体与状态)。 */
+export const saveStudioShots = (
+  pid: string,
+  shots: StudioShotInput[],
+): Promise<{ shots: StudioShot[] }> =>
+  studioReq(`/studio/projects/${pid}/shots`, "PUT", { shots });
+
+/** 渲染单镜(同步等待 ComfyUI 产出,视频链可达数分钟)→ 放宽到 600s。 */
+export const renderStudioShot = (sid: string): Promise<StudioShot> =>
+  studioReq(`/studio/shots/${sid}/render`, "POST", undefined, { timeoutMs: 600_000 });
+
+/** 批量渲染(逐镜同步,跳过终态;N 镜可达数十分钟)→ 放宽到 1800s。 */
+export const renderStudioAll = (
+  pid: string,
+): Promise<{ rendered: number; failed: number }> =>
+  studioReq(`/studio/projects/${pid}/render`, "POST", undefined, {
+    timeoutMs: 1_800_000,
+  });
+
+/** 聚合状态(轮询用):各状态计数。 */
+export const studioStatus = (
+  pid: string,
+): Promise<{ total: number; by_status: Record<string, number> }> =>
+  studioReq(`/studio/projects/${pid}/status`, "GET");
+
+/** 单镜配音(IndexTTS2,说话人命中角色卡带参考音则克隆)→ 放宽到 180s。 */
+export const voiceStudioShot = (sid: string): Promise<StudioShot> =>
+  studioReq(`/studio/shots/${sid}/voice`, "POST", undefined, { longRequest: true });
+
+/** 对口型(仅视频镜,LatentSync 同步等待)→ 放宽到 600s。 */
+export const lipsyncStudioShot = (sid: string): Promise<StudioShot> =>
+  studioReq(`/studio/shots/${sid}/lipsync`, "POST", undefined, {
+    timeoutMs: 600_000,
+  });
+
+/** 合成成片(ffmpeg 拼接全部就绪分镜)→ 返回完整项目详情;放宽到 180s。 */
+export const assembleStudio = (pid: string): Promise<StudioProjectDetail> =>
+  studioReq(`/studio/projects/${pid}/assemble`, "POST", undefined, {
+    longRequest: true,
+  });
 

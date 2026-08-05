@@ -10,7 +10,10 @@ import { test, expect } from "@playwright/test";
 
 const VIEWS = [
   "assistant",
-  "generate",
+  "image",
+  "video",
+  "audio",
+  "fusion",
   "library",
   "models",
   "backlot",
@@ -103,5 +106,5 @@ for (const view of VIEWS) {
 
 // 兜底:确保至少一个 test 文件存在
 test("view suite smoke", async () => {
-  expect(VIEWS.length).toBe(9);
+  expect(VIEWS.length).toBe(12);
 });

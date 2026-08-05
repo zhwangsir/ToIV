@@ -125,6 +125,8 @@ export interface UseDramaProjectReturn {
   ) => Promise<void>;
   generateVideo: (shot: DramaShotItem) => void;
   generateVideoV2: (sid: string, body: GenerateVideoV2Body) => void;
+  /** 单镜抽卡:对单个分镜生成 N 个候选视频(绕过单发守卫,与批量共用提交通道) */
+  generateShotCandidates: (sid: string, numCandidates: number) => void;
   generateVoice: (shot: DramaShotItem) => void;
   generateLipsync: (sid: string) => Promise<void>;
   busyShot: string | null;
@@ -744,6 +746,20 @@ export function useDramaProject(
       submitShotVideoV2(sid, body);
     },
     [busyShot, submitShotVideoV2, showToast],
+  );
+
+  // ── 单镜抽卡:对单个分镜生成 N 个候选,直接走提交通道(与批量一致,各自独立轮询)──
+  const generateShotCandidates = useCallback(
+    (sid: string, numCandidates: number) => {
+      const n = Math.max(1, Math.min(4, numCandidates));
+      submitShotVideoV2(sid, {
+        model: videoModel,
+        steps: 20,
+        cfg: 1.0,
+        ...(n > 1 ? { num_candidates: n } : {}),
+      });
+    },
+    [submitShotVideoV2, videoModel],
   );
 
   // ── M1:单镜候选管理 ──
@@ -1406,6 +1422,7 @@ export function useDramaProject(
     saveShot,
     generateVideo,
     generateVideoV2,
+    generateShotCandidates,
     generateVoice,
     generateLipsync,
     busyShot,

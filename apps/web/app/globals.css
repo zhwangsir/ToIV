@@ -605,8 +605,7 @@ img, video {
 .app-shell.is-collapsed .app-sidebar-logo-text,
 .app-shell.is-collapsed .app-sidebar-label,
 .app-shell.is-collapsed .app-sidebar-account-email,
-.app-shell.is-collapsed .app-sidebar-collapse-label,
-.app-shell.is-collapsed .app-sidebar-agent {
+.app-shell.is-collapsed .app-sidebar-collapse-label {
   display: none;
 }
 .app-shell.is-collapsed .app-sidebar-item,
@@ -1941,8 +1940,7 @@ select.input {
   .app-sidebar-logo-text,
   .app-sidebar-label,
   .app-sidebar-account-email,
-  .app-sidebar-collapse-label,
-  .app-sidebar-agent {
+  .app-sidebar-collapse-label {
     display: none;
   }
   .app-sidebar-logo,

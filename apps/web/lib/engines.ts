@@ -3,10 +3,12 @@
 import {
   apiFetch,
   authHeaders,
+  generateAudio,
   generateImg2img,
   generateLtxI2V,
   generateLtxT2V,
   generateTxt2img,
+  type AudioGenParams,
 } from "./api";
 import type { GenerateResponse, Img2ImgGenParams, Txt2ImgParams } from "./types";
 
@@ -14,7 +16,7 @@ import type { GenerateResponse, Img2ImgGenParams, Txt2ImgParams } from "./types"
 // 后端 services/engine_registry 是唯一事实源:接入新引擎 = 注册表加条目,
 // 前端按 params schema 动态渲染参数区,不为引擎开新视图。
 
-export type EngineKind = "image" | "video";
+export type EngineKind = "image" | "video" | "audio";
 
 export type EngineParamType = "text" | "textarea" | "number" | "select" | "switch" | "images";
 
@@ -114,7 +116,7 @@ function _seed(values: Record<string, unknown>): number | null {
 
 /**
  * 按引擎 id 路由到对应既有生成 API(图像走 generate 的 txt2img/img2img,
- * 视频走 ltx2 t2v/i2v;R18 引擎走 NSFW 专区 /api/generate/ltx-*)。
+ * 视频走 ltx2 t2v/i2v 或 H3 专用实例 /api/h3/*;R18 引擎走 NSFW 专区 /api/generate/ltx-*)。
  * 返回的 GenerateResponse 交给 useGeneration/trackJob 做 SSE 进度跟踪。
  */
 export async function submitEngineGeneration(input: EngineSubmitInput): Promise<GenerateResponse> {
@@ -176,6 +178,28 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
         worker: refImage!.worker,
       });
 
+    case "h3-t2v":
+      return _postH3("/api/h3/t2v", _h3Payload(values, positive, negative, seed));
+
+    case "h3-i2v":
+      // 参考图经 /api/upload 落在 pool worker,后端会转运到 H3 专用实例
+      return _postH3("/api/h3/i2v", {
+        ..._h3Payload(values, positive, negative, seed),
+        image: refImage!.filename,
+        worker: refImage!.worker,
+      });
+
+    case "ace-music":
+      // ACE-Step 文生音乐:positive 即风格标签(tags);歌词/时长等走动态参数
+      return generateAudio({
+        tags: positive,
+        lyrics: _str(values, "lyrics"),
+        seconds: _num(values, "seconds", 30),
+        steps: _num(values, "steps", 50),
+        cfg: _num(values, "cfg", 5),
+        seed,
+      } satisfies AudioGenParams);
+
     default:
       throw new Error(`引擎「${engine.label}」尚未接入提交链路`);
   }
@@ -211,6 +235,38 @@ function _ltxNsfwPayload(values: Record<string, unknown>, positive: string, nega
     use_upscale: _bool(values, "use_upscale"),
     use_rife: _bool(values, "use_rife"),
   };
+}
+
+/** H3 提交负载:无 fps/cfg(H3 固定 24fps + res_multistep/simple,模板内锁定)。 */
+function _h3Payload(values: Record<string, unknown>, positive: string, negative: string, seed: number | null) {
+  return {
+    positive,
+    negative,
+    width: _num(values, "width", 1344),
+    height: _num(values, "height", 768),
+    length: _num(values, "length", 124),
+    steps: _num(values, "steps", 20),
+    seed,
+  };
+}
+
+/** H3 工作室提交(POST /api/h3/*):与 _postLtx2 同模式,422 展开首条校验信息。 */
+async function _postH3(path: string, body: object): Promise<GenerateResponse> {
+  const res = await apiFetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const detail = (await res.json().catch(() => null)) as { detail?: unknown } | null;
+    const msg = Array.isArray(detail?.detail)
+      ? ((detail.detail[0] as { msg?: string } | undefined)?.msg ?? "H3 视频请求参数校验失败")
+      : typeof detail?.detail === "string"
+        ? detail.detail
+        : `H3 视频生成请求失败 (${res.status})`;
+    throw new Error(msg);
+  }
+  return res.json();
 }
 
 /** LTX2 工作室提交(POST /api/ltx2/*):走 apiFetch 统一超时/401,422 展开首条校验信息。 */

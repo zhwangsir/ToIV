@@ -4,69 +4,17 @@ import { test, expect } from "@playwright/test";
  * 智能体优化系统 UI 测试 (chromium-authed project)
  *
  * 覆盖前端 UI 流程:
- * - 侧栏 AgentSwitcher 出现 + 列表只含 SFW 智能体(W0 后从顶栏移至侧栏底部)
- * - 切换智能体写 localStorage + 调 preferences API
- * - CreateView 出现 OptimizeButton(/nsfw 图像 tab,W3 后 ?view=create 已重定向到 generate)
+ * - CreateView 出现 OptimizeButton(/nsfw 图像 tab,M1 后 ?view=create 已重定向到 image)
  * - NsfwVideoView 出现 OptimizeButton(R18 开启后)
  * - AdminView 智能体管理 tab + 列表 + 编辑入口
+ *
+ * 说明:W0 后顶栏 AgentSwitcher 已移至侧栏底部;M4 起侧栏底部 AgentSwitcher 已移除,
+ * 智能体选择收敛到各生成页 OptimizeButton 内联弹出。
  */
 
 test.describe("智能体 UI", () => {
-  // ── 侧栏 AgentSwitcher ─────────────────────────────────────────
-  test("侧栏出现 AgentSwitcher 切换器", async ({ page }) => {
-    await page.goto("/");
-
-    // AgentSwitcher 按钮应可见(带 data-testid 或可按 aria-label / 文本定位)
-    // 先尝试按文本定位(智能体名)
-    const switcher = page.locator('[data-testid="agent-switcher"], button:has-text("智能体"), [aria-label*="智能体"], [aria-label*="agent"]').first();
-    await expect(switcher).toBeVisible({ timeout: 10000 });
-  });
-
-  test("点击 AgentSwitcher 展开下拉,列表只含 SFW 智能体", async ({ page }) => {
-    await page.goto("/");
-
-    // 找到切换器按钮(尝试多种选择器)
-    const switcher = page.locator('[data-testid="agent-switcher"], [aria-label*="智能体"], [aria-label*="agent"]').first();
-    await switcher.click();
-
-    // 下拉项应出现,且不包含 NSFW 字样
-    // 等 popover 出现
-    const popover = page.locator('[data-testid="agent-popover"], [role="listbox"], [role="menu"]').first();
-    await expect(popover).toBeVisible({ timeout: 5000 });
-
-    // 列表项数应 >= 9 个 SFW 智能体(11 - 2 NSFW = 9,可能用户加了自定义)
-    const items = popover.locator('[role="option"], [role="menuitem"], .agent-item');
-    const count = await items.count();
-    expect(count, "至少 9 个 SFW 智能体").toBeGreaterThanOrEqual(9);
-
-    // 列表中不应出现 NSFW 关键字
-    const text = await popover.textContent();
-    expect(text).not.toContain("NSFW");
-  });
-
-  test("切换智能体写 localStorage + 持久化", async ({ page }) => {
-    await page.goto("/");
-
-    const switcher = page.locator('[data-testid="agent-switcher"], [aria-label*="智能体"], [aria-label*="agent"]').first();
-    await switcher.click();
-
-    const popover = page.locator('[data-testid="agent-popover"], [role="listbox"], [role="menu"]').first();
-    await expect(popover).toBeVisible({ timeout: 5000 });
-
-    // 选第一个 SFW 智能体(写实摄影师)
-    const firstItem = popover.locator('[role="option"], [role="menuitem"], .agent-item').first();
-    await firstItem.click();
-
-    // 等 popover 关闭
-    await expect(popover).toBeHidden({ timeout: 3000 });
-
-    // 验证 localStorage 写入
-    const stored = await page.evaluate(() => window.localStorage.getItem("toiv_default_agent"));
-    expect(stored, "localStorage 应写入 toiv_default_agent").toBeTruthy();
-  });
-
   // ── CreateView OptimizeButton ─────────────────────────────────
-  // W3:CreateView 已从主导航退役,?view=create 重定向到 ?view=generate;
+  // M1:CreateView 已从主导航退役,?view=create 重定向到 ?view=image;
   // CreateView 现在只在 /nsfw 路由内被 NsfwView 内嵌(图像 tab,需 R18 token,admin 具备)
   test("CreateView 出现 OptimizeButton", async ({ page }) => {
     await page.goto("/nsfw", { waitUntil: "domcontentloaded" });

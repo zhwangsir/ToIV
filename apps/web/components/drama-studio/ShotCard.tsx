@@ -648,6 +648,8 @@ export function ShotCard({ shot, project }: ShotCardProps) {
     setEditingShot,
     saveShot,
     generateLipsync,
+    // 单镜抽卡
+    generateShotCandidates,
     // M3:导演台(M2.3:overlay 化,ShotCard 仅保留触发入口 + busy 状态)
     directorBusy,
     openDirectorOverlay,
@@ -661,6 +663,8 @@ export function ShotCard({ shot, project }: ShotCardProps) {
   const [editPrompt, setEditPrompt] = useState(shot.prompt ?? "");
   const [editDialogue, setEditDialogue] = useState(shot.dialogue ?? "");
   const [editScene, setEditScene] = useState(shot.scene ?? "");
+  // 单镜抽卡候选数(2/3/4)
+  const [gachaCount, setGachaCount] = useState<number>(2);
 
   // 仅在进入编辑态(或切换到本镜编辑)时初始化表单,避免轮询刷新覆盖用户输入
   useEffect(() => {
@@ -921,6 +925,44 @@ export function ShotCard({ shot, project }: ShotCardProps) {
                   未接入
                 </span>
               )}
+            </div>
+
+            {/* 单镜抽卡:自定义候选数多次生成,从候选网格中人工选用最优 */}
+            <div className="ds-gacha-row">
+              <label className="ds-gacha-label" title="对当前分镜生成多个候选视频,从下方候选网格中选用最优">
+                <Icon name="layers" size={11} />
+                <span>抽卡</span>
+              </label>
+              <select
+                className="ds-input ds-gacha-select"
+                value={gachaCount}
+                onChange={(e) => setGachaCount(Number(e.target.value))}
+                disabled={isVideoBusy}
+                title="候选数:越多越容易出好片,耗时按候选数倍增"
+              >
+                <option value={2}>×2</option>
+                <option value={3}>×3</option>
+                <option value={4}>×4</option>
+              </select>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => generateShotCandidates(shot.id, gachaCount)}
+                disabled={isVideoBusy}
+                title="仅对当前分镜多次生成,完成后在候选网格中人工选用"
+              >
+                {isVideoBusy ? (
+                  <>
+                    <Icon name="loading" size={12} className="ds-spin" />
+                    抽卡中…
+                  </>
+                ) : (
+                  <>
+                    <Icon name="sparkles" size={12} />
+                    抽卡
+                  </>
+                )}
+              </button>
             </div>
 
             {/* 单镜操作(M2.1:生成视频/配音已移至 ShotTab 顶部批量工具栏) */}

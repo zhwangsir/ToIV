@@ -409,7 +409,12 @@ export function AssistantView() {
                 <Icon name="minus" size={12} strokeWidth={2.2} />
               </button>
             ) : (
-              <button type="button" className="av-composer-btn av-composer-btn-ghost" title="附件（开发中）" disabled>
+              <button
+                type="button"
+                className="av-composer-btn av-composer-btn-ghost av-composer-tool"
+                title="工具菜单（开发中）"
+                onClick={() => toast.info("附件与工具菜单即将上线")}
+              >
                 <Icon name="plus" size={14} strokeWidth={1.8} />
               </button>
             )}
@@ -885,29 +890,79 @@ export function AssistantView() {
         .av-composer {
           flex-shrink: 0;
           padding: var(--space-3) var(--space-4) var(--space-4);
-          background: var(--bg-surface-1);
+          background: linear-gradient(180deg, transparent 0%, var(--bg-surface-1) 18%);
           border-top: 1px solid var(--border-subtle);
           z-index: 5;
         }
         .av-composer-box {
+          position: relative;
           display: flex;
           align-items: flex-end;
           gap: var(--space-2);
-          padding: var(--space-2);
-          background: var(--bg-surface-3);
+          padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+          background: linear-gradient(145deg, var(--bg-surface-2), var(--bg-surface-3));
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-panel);
+          box-shadow:
+            inset 0 1px 1px color-mix(in oklab, var(--text-primary) 4%, transparent),
+            0 1px 2px color-mix(in oklab, var(--bg-canvas) 20%, transparent);
           transition: border-color var(--duration-fast) var(--ease-standard),
-            box-shadow var(--duration-fast) var(--ease-standard);
+            box-shadow var(--duration-fast) var(--ease-standard),
+            transform var(--duration-fast) var(--ease-standard);
+          overflow: hidden;
+        }
+        .av-composer-box::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          padding: 1px;
+          background: linear-gradient(160deg, color-mix(in oklab, var(--accent) 10%, transparent), transparent 60%);
+          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask-composite: exclude;
+          opacity: 0;
+          transition: opacity var(--duration-fast) var(--ease-standard);
+          pointer-events: none;
         }
         .av-composer-box:hover {
           border-color: var(--border-strong);
+          transform: translateY(-1px);
+          box-shadow:
+            inset 0 1px 1px color-mix(in oklab, var(--text-primary) 5%, transparent),
+            0 4px 12px color-mix(in oklab, var(--bg-canvas) 25%, transparent);
+        }
+        .av-composer-box:hover::before {
+          opacity: 1;
         }
         .av-composer-box:focus-within {
-          border-color: var(--accent);
-          box-shadow: 0 0 0 3px var(--accent-soft);
+          border-color: var(--accent-glow);
+          box-shadow:
+            0 0 0 1px var(--accent-glow),
+            0 0 24px color-mix(in oklab, var(--accent) 18%, transparent),
+            inset 0 1px 1px color-mix(in oklab, var(--text-primary) 5%, transparent);
+        }
+        .av-composer-box:focus-within::after {
+          content: "";
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          width: 12px;
+          height: 12px;
+          transform: translate(-50%, -50%);
+          border-radius: 50%;
+          background: color-mix(in oklab, var(--accent) 25%, transparent);
+          animation: av-composer-ripple 0.9s var(--ease-standard) forwards;
+          pointer-events: none;
+          z-index: 0;
+        }
+        @keyframes av-composer-ripple {
+          0% { width: 12px; height: 12px; opacity: 0.5; }
+          100% { width: 120%; height: 120%; opacity: 0; }
         }
         .av-composer-actions {
+          position: relative;
+          z-index: 1;
           display: flex;
           align-items: center;
           gap: var(--space-1);
@@ -920,19 +975,25 @@ export function AssistantView() {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 30px;
-          height: 30px;
-          border-radius: var(--radius-control);
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
           background: transparent;
           border: none;
           color: var(--text-muted);
           cursor: pointer;
           transition: background-color var(--duration-fast) var(--ease-standard),
-            color var(--duration-fast) var(--ease-standard);
+            color var(--duration-fast) var(--ease-standard),
+            transform var(--duration-fast) var(--ease-standard),
+            box-shadow var(--duration-fast) var(--ease-standard);
         }
         .av-composer-btn:hover:not(:disabled) {
           background: var(--bg-surface-2);
           color: var(--text-primary);
+          transform: scale(1.08);
+        }
+        .av-composer-btn:active:not(:disabled) {
+          transform: scale(0.94);
         }
         .av-composer-btn:disabled {
           opacity: 0.4;
@@ -942,25 +1003,59 @@ export function AssistantView() {
         .av-composer-send {
           background: var(--accent);
           color: var(--text-on-accent);
+          box-shadow: 0 2px 8px color-mix(in oklab, var(--accent) 30%, transparent);
         }
         .av-composer-send:hover:not(:disabled) {
           background: var(--accent-hover);
           color: var(--text-on-accent);
+          transform: scale(1.08);
+          box-shadow: 0 4px 14px color-mix(in oklab, var(--accent) 45%, transparent);
+        }
+        .av-composer-send:active:not(:disabled) {
+          transform: scale(0.96);
         }
         .av-composer-send:disabled {
           background: var(--bg-surface-2);
           color: var(--text-muted);
+          box-shadow: none;
         }
         /* 停止:运行态专用 --run */
         .av-composer-stop {
           background: var(--run-soft);
           color: var(--run);
+          animation: av-stop-breathe 2s ease-in-out infinite;
+        }
+        @keyframes av-stop-breathe {
+          0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--run) 25%, transparent); }
+          50% { box-shadow: 0 0 0 6px color-mix(in oklab, var(--run) 0%, transparent); }
         }
         .av-composer-stop:hover {
           background: var(--run);
           color: var(--text-on-accent);
+          transform: scale(1.08);
+        }
+        .av-composer-stop:active {
+          transform: scale(0.94);
+        }
+        .av-composer-tool {
+          position: relative;
+        }
+        .av-composer-tool::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          border-radius: 50%;
+          border: 1px dashed var(--border-strong);
+          opacity: 0.5;
+          animation: av-tool-rotate 12s linear infinite;
+        }
+        @keyframes av-tool-rotate {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
         .av-composer-input {
+          position: relative;
+          z-index: 1;
           flex: 1;
           min-width: 0;
           resize: none;
@@ -970,12 +1065,17 @@ export function AssistantView() {
           font-size: var(--text-body);
           font-family: var(--font-sans);
           line-height: 1.55;
-          padding: var(--space-1) var(--space-2);
+          padding: calc(var(--space-1) + 2px) var(--space-2) calc(var(--space-1) + 2px) 0;
           outline: none;
           max-height: 176px;
         }
         .av-composer-input::placeholder {
           color: var(--text-muted);
+          animation: av-placeholder-breathe 3s ease-in-out infinite;
+        }
+        @keyframes av-placeholder-breathe {
+          0%, 100% { opacity: 0.7; }
+          50% { opacity: 0.95; }
         }
         .av-composer-input:disabled {
           opacity: 0.5;

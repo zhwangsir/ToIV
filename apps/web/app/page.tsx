@@ -14,11 +14,16 @@ type AuthState = "loading" | "in" | "out";
 
 type View =
   | "assistant"
-  | "generate"
+  | "image"
+  | "video"
+  | "audio"
+  | "fusion"
+  | "imageEdit"
+  | "videoEdit"
   | "animatic"
   | "avatartalk"
   | "canvas"
-  | "dramaStudio"
+  | "studio"
   | "dub"
   | "train"
   | "library"
@@ -27,11 +32,14 @@ type View =
   | "resources"
   | "admin";
 
-/** W3 旧视图退役:create/video/ltxstudio 已由统一生成工作台取代,旧链接重定向到 generate(不 404)。 */
+/** M1 三大板块拆分:generate 退役拆为 图片/视频/音频,旧链接按 kind 重定向(不 404)。
+ *  M4 studio 替代短剧/漫剧:旧 key 一律重定向到 studio。 */
 const LEGACY_VIEW_REDIRECTS: Record<string, View> = {
-  create: "generate",
-  video: "generate",
-  ltxstudio: "generate",
+  create: "image",
+  generate: "image",
+  ltxstudio: "video",
+  dramaStudio: "studio",
+  manju: "studio",
 };
 
 /** 解析 ?view= 参数:旧 key 走重定向,非法 key 返回 null(落默认视图)。 */
@@ -45,11 +53,19 @@ function resolveView(raw: string | null): View | null {
 // ── 视图懒加载:chunk 按需拉取;侧栏悬停/聚焦期间并行预热,消除切换白屏等待 ──
 const viewImporters = {
   assistant: () => import("@/components/assistant/AssistantView"),
-  generate: () => import("@/components/generate/GenerateView"),
+  // 图片/视频共用 GenerateView chunk;音频走 AudioView(内嵌 GenerateView,webpack 共享 chunk)
+  image: () => import("@/components/generate/GenerateView"),
+  video: () => import("@/components/generate/GenerateView"),
+  audio: () => import("@/components/audio/AudioView"),
+  fusion: () => import("@/components/fusion/FusionView"),
+  imageEdit: () => import("@/components/image-edit/ImageEditView"),
+  videoEdit: () => import("@/components/video-edit/VideoEditView"),
   animatic: () => import("@/components/animatic/AnimaticView"),
   avatartalk: () => import("@/components/avatartalk/AvatarTalkView"),
   canvas: () => import("@/components/canvas/CanvasView"),
+  // dramaStudio 旧视图已退役(M4 studio 替代);importer 保留:animatic 桌面端复用其「动态分镜」页签
   dramaStudio: () => import("@/components/drama-studio/DramaStudioView"),
+  studio: () => import("@/components/studio/StudioView"),
   dub: () => import("@/components/dub/DubView"),
   train: () => import("@/components/train/TrainView"),
   library: () => import("@/components/library/LibraryView"),
@@ -70,7 +86,19 @@ const AssistantView = lazy(() =>
   viewImporters.assistant().then((m) => ({ default: m.AssistantView })),
 );
 const GenerateView = lazy(() =>
-  viewImporters.generate().then((m) => ({ default: m.GenerateView })),
+  viewImporters.image().then((m) => ({ default: m.GenerateView })),
+);
+const AudioView = lazy(() =>
+  viewImporters.audio().then((m) => ({ default: m.AudioView })),
+);
+const FusionView = lazy(() =>
+  viewImporters.fusion().then((m) => ({ default: m.FusionView })),
+);
+const ImageEditView = lazy(() =>
+  viewImporters.imageEdit().then((m) => ({ default: m.ImageEditView })),
+);
+const VideoEditView = lazy(() =>
+  viewImporters.videoEdit().then((m) => ({ default: m.VideoEditView })),
 );
 const AnimaticView = lazy(() =>
   viewImporters.animatic().then((m) => ({ default: m.AnimaticView })),
@@ -83,6 +111,9 @@ const CanvasView = lazy(() =>
 );
 const DramaStudioView = lazy(() =>
   viewImporters.dramaStudio().then((m) => ({ default: m.DramaStudioView })),
+);
+const StudioView = lazy(() =>
+  viewImporters.studio().then((m) => ({ default: m.StudioView })),
 );
 const DubView = lazy(() =>
   viewImporters.dub().then((m) => ({ default: m.DubView })),
@@ -116,14 +147,19 @@ function ViewFallback({ label }: { label: string }) {
 }
 
 // 旧视图 key(models/train/backlot/admin)保留兼容,旧链接不 404;
-// create/video/ltxstudio 不在此列——经 LEGACY_VIEW_REDIRECTS 重定向到 generate
+// create/generate/ltxstudio/dramaStudio/manju 不在此列——经 LEGACY_VIEW_REDIRECTS 重定向
 const VALID_VIEWS = new Set<View>([
   "assistant",
-  "generate",
+  "image",
+  "video",
+  "audio",
+  "fusion",
+  "imageEdit",
+  "videoEdit",
   "animatic",
   "avatartalk",
   "canvas",
-  "dramaStudio",
+  "studio",
   "dub",
   "train",
   "library",
@@ -135,11 +171,16 @@ const VALID_VIEWS = new Set<View>([
 
 const VIEW_META: Record<View, { label: string }> = {
   assistant: { label: "对话" },
-  generate:  { label: "生成" },
+  image:     { label: "图片" },
+  video:     { label: "视频" },
+  audio:     { label: "音频" },
+  fusion:    { label: "融合" },
+  imageEdit: { label: "图片编辑" },
+  videoEdit: { label: "视频剪辑" },
   animatic:  { label: "动态分镜" },
   avatartalk: { label: "数字人" },
   canvas:    { label: "画布" },
-  dramaStudio: { label: "短剧" },
+  studio:    { label: "创作" },
   dub:       { label: "译制" },
   train:     { label: "训练" },
   library:   { label: "作品库" },
@@ -149,14 +190,14 @@ const VIEW_META: Record<View, { label: string }> = {
   admin:     { label: "管理" },
 };
 
-/** 新 IA 一级入口(定调文档 8 入口);动态分镜保留独立 key,短剧并入是 W2 的事 */
+/** M3 新 IA 一级入口 8 项:三大板块 + 融合聚合页;短剧/数字人/译制移入融合,视图保留(旧链接不 404) */
 const SIDEBAR_ITEMS: SidebarNavItem[] = [
   { key: "assistant", label: "对话", icon: "chat" },
-  { key: "generate", label: "生成", icon: "sparkles" },
-  { key: "dramaStudio", label: "短剧", icon: "drama" },
-  { key: "avatartalk", label: "数字人", icon: "user" },
+  { key: "image", label: "图片", icon: "image" },
+  { key: "video", label: "视频", icon: "video" },
+  { key: "audio", label: "音频", icon: "audio" },
+  { key: "fusion", label: "融合", icon: "sparkles" },
   { key: "canvas", label: "画布", icon: "workflow" },
-  { key: "dub", label: "译制", icon: "dub" },
   { key: "library", label: "作品库", icon: "library" },
   { key: "resources", label: "资源", icon: "models" },
 ];
@@ -164,14 +205,19 @@ const SIDEBAR_ITEMS: SidebarNavItem[] = [
 /** 窄屏底部导航:主入口 5 个(含 CTA)+「更多」抽屉承载其余 */
 const BOTTOM_NAV_ITEMS: BottomNavItem[] = [
   { key: "assistant", label: "对话", icon: "chat" },
-  { key: "generate", label: "生成", icon: "sparkles" },
-  { key: "dramaStudio", label: "短剧", icon: "plus", isCta: true },
+  { key: "image", label: "图片", icon: "image" },
+  { key: "video", label: "视频", icon: "video" },
+  { key: "fusion", label: "融合", icon: "sparkles", isCta: true },
   { key: "library", label: "作品", icon: "library" },
 ];
 
 const BOTTOM_NAV_MORE_ITEMS: BottomNavItem[] = [
-  { key: "avatartalk", label: "数字人", icon: "user" },
+  { key: "audio", label: "音频", icon: "audio" },
+  { key: "imageEdit", label: "图片编辑", icon: "wand" },
+  { key: "videoEdit", label: "视频剪辑", icon: "scissors" },
   { key: "canvas", label: "画布", icon: "workflow" },
+  { key: "studio", label: "创作", icon: "clapperboard" },
+  { key: "avatartalk", label: "数字人", icon: "user" },
   { key: "dub", label: "译制", icon: "dub" },
   { key: "animatic", label: "动态分镜", icon: "clapperboard" },
   { key: "resources", label: "资源", icon: "models" },
@@ -252,7 +298,7 @@ function HomeContent() {
     if (resolved && resolved !== view) {
       setView(resolved);
     }
-    // 旧 key(create/video/ltxstudio)重定向后把 URL 规整为新 key,刷新/分享保持一致
+    // 旧 key(create/generate/ltxstudio)重定向后把 URL 规整为新 key,刷新/分享保持一致
     if (raw && LEGACY_VIEW_REDIRECTS[raw]) {
       router.replace(`/?view=${resolved ?? "assistant"}`);
     }
@@ -311,13 +357,25 @@ function HomeContent() {
     [router],
   );
 
-  // 动态分镜 AI 模式:解析成功后跳短剧工作室并打开对应项目
+  // 动态分镜 AI 模式:解析成功后跳 animatic 视图(桌面端复用 DramaStudioView 打开对应项目)
   const handleOpenDramaProject = useCallback(
     (projectId: string) => {
       setPendingDramaProjectId(projectId);
-      changeView("dramaStudio");
+      changeView("animatic");
     },
     [changeView],
+  );
+
+  // 融合聚合页跳转:target 可带查询串(如 dramaStudio?mode=manju 进漫剧模式)
+  const handleFusionNavigate = useCallback(
+    (target: string) => {
+      const [key, query] = target.split("?", 2);
+      const next = resolveView(key) ?? "assistant";
+      preloadView(next);
+      setView(next);
+      router.replace(`/?view=${next}${query ? `&${query}` : ""}`);
+    },
+    [router],
   );
 
   // 侧栏项悬停/聚焦:按操作意向精确预热目标视图
@@ -362,38 +420,12 @@ function HomeContent() {
           <ErrorBoundary key={view} viewName={meta.label}>
             <Suspense fallback={<ViewFallback label={meta.label} />}>
               {view === "assistant" && <AssistantView />}
-              {view === "generate" && <GenerateView />}
+              {view === "image" && <GenerateView lockedKind="image" />}
+              {view === "video" && <GenerateView lockedKind="video" />}
+              {view === "audio" && <AudioView />}
+              {view === "fusion" && <FusionView onNavigate={handleFusionNavigate} />}
               {view === "canvas" && <CanvasView />}
-              {view === "dramaStudio" && (
-                isMobile ? (
-                  <div className="single-view">
-                    <div className="empty-state">
-                      <div className="empty-state-icon">
-                        <Icon name="drama" size={48} />
-                      </div>
-                      <h3 className="empty-state-title">工作室</h3>
-                      <p className="empty-state-desc">
-                        工作室建议在桌面端或平板横屏模式下使用，以获得最佳体验。
-                      </p>
-                      <button
-                        type="button"
-                        className="btn btn-primary"
-                        onClick={() => changeView("assistant")}
-                      >
-                        返回对话
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <DramaStudioView
-                    account={account ?? undefined}
-                    onLogout={onLogout}
-                    onNavigate={(next) => changeView(next as View)}
-                    initialProjectId={pendingDramaProjectId}
-                    onConsumeInitialProject={() => setPendingDramaProjectId(null)}
-                  />
-                )
-              )}
+              {view === "studio" && <StudioView />}
               {view === "dub" && <DubView />}
               {view === "animatic" && (
                 // 动态分镜并入短剧首页:桌面端走 DramaStudioView 的「动态分镜」页签;
@@ -428,7 +460,7 @@ function HomeContent() {
         moreItems={BOTTOM_NAV_MORE_ITEMS}
         current={view}
         onSelect={(key) => changeView(key as View)}
-        ctaAction={() => changeView("dramaStudio")}
+        ctaAction={() => changeView("fusion")}
       />
     </div>
   );

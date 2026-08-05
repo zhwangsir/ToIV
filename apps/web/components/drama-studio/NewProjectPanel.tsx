@@ -15,6 +15,8 @@ interface NewProjectPanelProps {
   onCreated: (id: string, type: "drama" | "manju") => void;
   /** 初始草稿(从 /engine 快速输入带入)。 */
   initialDraft?: { title?: string; script?: string };
+  /** 默认选中的项目形态:跟随统一工作台当前模式,减少手动切换。 */
+  initialSource?: "drama" | "manju";
 }
 
 type ProjectSource = "drama" | "manju";
@@ -27,6 +29,7 @@ export function NewProjectPanel({
   onCancel,
   onCreated,
   initialDraft,
+  initialSource,
 }: NewProjectPanelProps) {
   const engineDraft = consumeEngineDraft();
   const draft = useMemo(() => {
@@ -48,7 +51,9 @@ export function NewProjectPanel({
     return undefined;
   }, [initialDraft, engineDraft]);
 
-  const [source, setSource] = useState<ProjectSource>(draft?.type ?? "drama");
+  const [source, setSource] = useState<ProjectSource>(
+    initialSource ?? draft?.type ?? "drama",
+  );
 
   // 剧本字段
   const [draftTitle, setDraftTitle] = useState(draft?.title ?? "");

@@ -442,14 +442,14 @@ test.describe("兼容性测试 - 多设备尺寸", () => {
     }, token);
 
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(`${WEB_BASE}/?view=generate`, {
+    await page.goto(`${WEB_BASE}/?view=image`, {
       waitUntil: "domcontentloaded",
       timeout: 30000,
     });
     await page.waitForTimeout(2000);
 
     await page.screenshot({
-      path: `test-results-prod/pathsafe-1440x900-generate.png`,
+      path: `test-results-prod/pathsafe-1440x900-image.png`,
       fullPage: false,
     });
 

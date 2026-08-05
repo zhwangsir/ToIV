@@ -11,7 +11,9 @@ import AxeBuilder from "@axe-core/playwright";
 const TARGETS = [
   { name: "home", url: "/" },
   { name: "assistant", url: "/?view=assistant" },
-  { name: "generate", url: "/?view=generate" },
+  { name: "image", url: "/?view=image" },
+  { name: "video", url: "/?view=video" },
+  { name: "audio", url: "/?view=audio" },
   { name: "library", url: "/?view=library" },
   { name: "models", url: "/?view=models" },
   { name: "canvas", url: "/?view=canvas" },

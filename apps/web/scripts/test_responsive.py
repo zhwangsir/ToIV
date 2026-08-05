@@ -17,7 +17,7 @@ def login(page):
 
 def test_viewport(page, width, height):
     page.set_viewport_size({"width": width, "height": height})
-    page.goto(f"{BASE_URL}/?view=generate")
+    page.goto(f"{BASE_URL}/?view=image")
     page.wait_for_load_state("networkidle")
     time.sleep(0.5)
     has_overflow = page.evaluate("() => document.documentElement.scrollWidth > window.innerWidth")
