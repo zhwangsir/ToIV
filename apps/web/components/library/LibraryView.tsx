@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { deleteJob, imageUrl, invalidateJobs, listJobs } from "@/lib/api";
+import { ENGINE_DRAFT_KEY } from "@/lib/engine";
 import type { JobItem } from "@/lib/types";
 import { Icon } from "@/components/ui/Icon";
 import { Badge } from "@/components/ui/Badge";
@@ -179,12 +180,6 @@ function formatTime(iso: string): string {
   }
 }
 
-interface PreviewState {
-  url: string;
-  isVideo: boolean;
-  prompt: string;
-}
-
 function ThumbPlaceholder({ job }: { job: JobItem }) {
   const filterKey = kindToFilter(job.kind);
   return (
@@ -232,7 +227,15 @@ function ImageThumb({ job }: { job: JobItem }) {
   );
 }
 
-export function LibraryView() {
+interface LibraryViewProps {
+  /**
+   * 视图跳转(复用 page.tsx 的 fusion 导航:写引擎草稿后跳生成工作台)。
+   * 未提供时灯箱「复用提示词」退化为整页跳转。
+   */
+  onNavigate?: (target: string) => void;
+}
+
+export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
   const toast = useToast();
   const [jobs, setJobs] = useState<JobItem[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -244,7 +247,8 @@ export function LibraryView() {
   // 删除确认对话框(替代 window.confirm / window.alert)
   const [confirmDelete, setConfirmDelete] = useState<JobItem | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [preview, setPreview] = useState<PreviewState | null>(null);
+  // 沉浸查看器(批 3):当前筛选列表内的索引;失败/音频作品也允许打开(显示对应占位)
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   // 风格卡(WS4):StyleBar 数据源 + 「存为风格」Popover 状态
   const [styleCards, setStyleCards] = useState<StyleCard[]>([]);
   const [styleTarget, setStyleTarget] = useState<JobItem | null>(null);
@@ -269,21 +273,18 @@ export function LibraryView() {
     setStyleCards(loadStyleCards());
   }, []);
 
-  // Esc 关闭灯箱
-  useEffect(() => {
-    if (!preview) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setPreview(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [preview]);
-
   const filtered = useMemo(() => {
     if (!jobs) return [];
     if (filter === "all") return jobs;
     return jobs.filter((j) => kindToFilter(j.kind) === filter);
   }, [jobs, filter]);
+
+  // 灯箱索引越界钳制:删除当前作品后 filtered 收缩,滑到下一件;列表清空则关闭
+  useEffect(() => {
+    if (lightboxIdx === null) return;
+    if (filtered.length === 0) setLightboxIdx(null);
+    else if (lightboxIdx >= filtered.length) setLightboxIdx(filtered.length - 1);
+  }, [filtered.length, lightboxIdx]);
 
   const visibleJobs = useMemo(
     () => filtered.slice(0, visibleCount),
@@ -354,13 +355,10 @@ export function LibraryView() {
     }
   };
 
-  const openPreview = (job: JobItem) => {
-    if (!job.results?.length) return;
-    setPreview({
-      url: imageUrl(job.results[0]),
-      isVideo: isVideoKind(job.kind),
-      prompt: job.prompt,
-    });
+  // 打开沉浸查看器:定位到当前筛选列表中的索引(失败/音频作品同样可打开,灯箱内显示对应占位)
+  const openLightbox = (job: JobItem) => {
+    const idx = filtered.findIndex((j) => j.id === job.id);
+    if (idx >= 0) setLightboxIdx(idx);
   };
 
   // ── WS4 快捷操作 + 风格卡 ──
@@ -378,6 +376,27 @@ export function LibraryView() {
     } catch {
       toast.error("复制失败,请检查浏览器剪贴板权限");
     }
+  };
+
+  // 灯箱「复用提示词」:写引擎草稿(toiv_engine_draft,GenerateView 挂载时消费)并跳生成工作台
+  const reusePromptAsDraft = (job: JobItem) => {
+    const text = job.prompt?.trim();
+    if (!text) {
+      toast.info("该作品没有提示词");
+      return;
+    }
+    const target = isVideoKind(job.kind) ? "video" : "image";
+    try {
+      window.localStorage.setItem(
+        ENGINE_DRAFT_KEY,
+        JSON.stringify({ prompt: text, target }),
+      );
+    } catch {
+      /* localStorage 不可用时仍跳转,草稿缺失不阻塞 */
+    }
+    setLightboxIdx(null);
+    if (onNavigate) onNavigate(target);
+    else window.location.assign(`/?view=${target}`);
   };
 
   // 打开「存为风格」Popover:记录锚点按钮与目标作品
@@ -522,7 +541,7 @@ export function LibraryView() {
                       type="button"
                       className="lib-thumb-hit"
                       aria-label={`预览作品: ${job.prompt || "无提示词"}`}
-                      onClick={() => openPreview(job)}
+                      onClick={() => openLightbox(job)}
                     >
                     {hasResult ? (
                       isVideo ? (
@@ -559,7 +578,7 @@ export function LibraryView() {
                         aria-label="查看大图"
                         onClick={(e) => {
                           e.stopPropagation();
-                          openPreview(job);
+                          openLightbox(job);
                         }}
                       >
                         <Icon name="zoom-in" size={14} />
@@ -650,36 +669,19 @@ export function LibraryView() {
         )}
       </div>
 
-      {/* 灯箱:全屏媒体查看器(深色遮罩,Esc/点击关闭) */}
-      {preview && (
-        <div
-          className="lib-lightbox"
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setPreview(null)}
-        >
-          <button
-            type="button"
-            className="lib-lightbox-close"
-            aria-label="关闭预览"
-            onClick={() => setPreview(null)}
-          >
-            <Icon name="close" size={20} />
-          </button>
-          <div
-            className="lib-lightbox-body"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {preview.isVideo ? (
-              <video src={preview.url} controls autoPlay loop />
-            ) : (
-              <img src={preview.url} alt={preview.prompt} />
-            )}
-          </div>
-          {preview.prompt && (
-            <div className="lib-lightbox-prompt">{preview.prompt}</div>
-          )}
-        </div>
+      {/* 沉浸查看器(批 3):全出血灯箱 + 玻璃工具条 + ←/→ 穿梭 + 快捷操作 */}
+      {lightboxIdx !== null && filtered[lightboxIdx] && (
+        <LibraryLightbox
+          jobs={filtered}
+          index={lightboxIdx}
+          onClose={() => setLightboxIdx(null)}
+          onIndex={setLightboxIdx}
+          onSaveStyle={openStylePopover}
+          onReuse={reusePromptAsDraft}
+          onDelete={handleDelete}
+          deletingId={deletingId}
+          dialogsOpen={!!styleTarget || !!confirmDelete}
+        />
       )}
 
       {/* 存为风格 Popover(WS4):锚定到触发按钮,命名后写入 toiv_style_cards */}
@@ -691,6 +693,8 @@ export function LibraryView() {
         className="lib-style-pop"
         role="dialog"
         ariaLabel="存为风格"
+        /* 灯箱(z-modal)内触发时弹层须压过灯箱背板 */
+        zIndex="calc(var(--z-modal) + 1)"
       >
         <span className="lib-style-pop-title">存为风格</span>
         <div className="lib-style-pop-row">
@@ -1131,84 +1135,7 @@ export function LibraryView() {
           color: var(--text-secondary);
         }
 
-        /* ── 灯箱(全屏媒体查看器,深色) ── */
-        .lib-lightbox {
-          position: fixed;
-          inset: 0;
-          z-index: var(--z-modal);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: var(--space-3);
-          padding: var(--space-5);
-          background: var(--overlay-light);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-          animation: lb-fade var(--duration-base) var(--ease-standard);
-        }
-        @keyframes lb-fade {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .lib-lightbox {
-            animation: none;
-          }
-        }
-        .lib-lightbox-close {
-          position: absolute;
-          top: var(--space-4);
-          right: var(--space-4);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 40px;
-          height: 40px;
-          padding: 0;
-          background: var(--bg-surface-2);
-          border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-full);
-          color: var(--text-secondary);
-          cursor: pointer;
-          transition: background-color var(--duration-fast) var(--ease-standard),
-            color var(--duration-fast) var(--ease-standard);
-        }
-        .lib-lightbox-close:hover {
-          background: var(--bg-surface-3);
-          color: var(--text-primary);
-        }
-        .lib-lightbox-body {
-          max-width: 90vw;
-          max-height: 80vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .lib-lightbox-body img,
-        .lib-lightbox-body video {
-          max-width: 90vw;
-          max-height: 80vh;
-          border-radius: var(--radius-panel);
-          box-shadow: var(--shadow-float);
-        }
-        .lib-lightbox-prompt {
-          max-width: 80vw;
-          font-size: var(--text-sm);
-          color: var(--text-secondary);
-          text-align: center;
-          line-height: 1.55;
-          padding: 0 var(--space-4);
-          display: -webkit-box;
-          -webkit-line-clamp: 3;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-
+        /* 灯箱样式已全部进 app/styles/library.css(批 3 沉浸查看器) */
         /* ── 删除确认对话框内容(容器为 Modal 基座) ── */
         .lib-confirm-body {
           display: flex;
@@ -1249,6 +1176,210 @@ export function LibraryView() {
           }
         }
       `}</style>
+    </div>
+  );
+}
+
+
+// ────────────────────────────────────────────────────────────────
+// LibraryLightbox:作品沉浸查看器(批 3)
+// 全出血媒体舞台 + 顶部/底部玻璃工具条;←/→ 键盘与按钮穿梭;
+// 操作复用 LibraryView 现有逻辑:下载(anchor download,同 ImageEdit/Audio 模式)、
+// 存为风格(openStylePopover 锚点 Popover)、复用提示词(引擎草稿 + 跳工作台)、
+// 删除(handleDelete → 既有确认 Modal)。
+// ────────────────────────────────────────────────────────────────
+
+interface LibraryLightboxProps {
+  /** 当前筛选列表(穿梭范围) */
+  jobs: JobItem[];
+  index: number;
+  onClose: () => void;
+  onIndex: (idx: number) => void;
+  /** 存为风格:复用 LibraryView.openStylePopover(锚定到灯箱工具条按钮) */
+  onSaveStyle: (job: JobItem, anchor: HTMLButtonElement) => void;
+  /** 复用提示词:复用 LibraryView.reusePromptAsDraft(写草稿 + 跳工作台) */
+  onReuse: (job: JobItem) => void;
+  /** 删除:复用 LibraryView.handleDelete(打开既有确认 Modal) */
+  onDelete: (job: JobItem) => void;
+  deletingId: string | null;
+  /** 存风格 Popover / 删除 Modal 打开时,灯箱让出 Esc/方向键(避免一按两关) */
+  dialogsOpen: boolean;
+}
+
+function LibraryLightbox({
+  jobs,
+  index,
+  onClose,
+  onIndex,
+  onSaveStyle,
+  onReuse,
+  onDelete,
+  deletingId,
+  dialogsOpen,
+}: LibraryLightboxProps) {
+  const job = jobs[index];
+  const hasResult = job.status === "done" && job.results?.length > 0;
+  const isVideo = isVideoKind(job.kind);
+  const isAudio = kindToFilter(job.kind) === "audio";
+  const mediaUrl = hasResult ? imageUrl(job.results[0]) : "";
+
+  // 打开期间锁定 body 滚动(与 ui/Modal 同一模式;overscroll-behavior 在 CSS 侧拦截滚轮链)
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  // 键盘:Esc 关闭,←/→ 穿梭;存风格/删除对话框打开时让出按键
+  useEffect(() => {
+    if (dialogsOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowLeft" && index > 0) onIndex(index - 1);
+      else if (e.key === "ArrowRight" && index < jobs.length - 1) onIndex(index + 1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [dialogsOpen, index, jobs.length, onClose, onIndex]);
+
+  return (
+    <div
+      className="lib-lightbox"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`作品查看器: ${job.prompt || "无提示词"}`}
+      onClick={onClose}
+    >
+      {/* 顶部玻璃工具条:作品元信息 + 关闭 */}
+      <div className="lib-lb-top" onClick={(e) => e.stopPropagation()}>
+        <div className="lib-lb-top-meta">
+          <Badge tone="accent" dot={false}>
+            {kindLabel(job.kind)}
+          </Badge>
+          <span className="lib-lb-time">{formatTime(job.created_at)}</span>
+          <span className="lib-lb-counter">
+            {index + 1} / {jobs.length}
+          </span>
+        </div>
+        <button
+          type="button"
+          className="lib-lb-icon-btn"
+          aria-label="关闭预览"
+          title="关闭(Esc)"
+          onClick={onClose}
+        >
+          <Icon name="close" size={18} />
+        </button>
+      </div>
+
+      {/* 左右穿梭按钮(键盘 ←/→ 同效) */}
+      {index > 0 && (
+        <button
+          type="button"
+          className="lib-lb-nav lib-lb-nav-prev"
+          aria-label="上一作品"
+          title="上一作品(←)"
+          onClick={(e) => {
+            e.stopPropagation();
+            onIndex(index - 1);
+          }}
+        >
+          <Icon name="chevron-left" size={20} />
+        </button>
+      )}
+      {index < jobs.length - 1 && (
+        <button
+          type="button"
+          className="lib-lb-nav lib-lb-nav-next"
+          aria-label="下一作品"
+          title="下一作品(→)"
+          onClick={(e) => {
+            e.stopPropagation();
+            onIndex(index + 1);
+          }}
+        >
+          <Icon name="chevron-right" size={20} />
+        </button>
+      )}
+
+      {/* 媒体舞台:全出血 contain;失败/音频作品显示对应占位 */}
+      <div className="lib-lb-stage" onClick={(e) => e.stopPropagation()}>
+        {hasResult ? (
+          isVideo ? (
+            <video
+              key={mediaUrl}
+              className="lib-lb-media"
+              src={mediaUrl}
+              controls
+              autoPlay
+              loop
+            />
+          ) : isAudio ? (
+            <div className="lib-lb-audio">
+              <div className="lib-lb-audio-icon">
+                <Icon name="audio" size={40} strokeWidth={1.4} />
+              </div>
+              <audio src={mediaUrl} controls autoPlay />
+            </div>
+          ) : (
+            <img className="lib-lb-media" src={mediaUrl} alt={job.prompt} />
+          )
+        ) : (
+          <div className="lib-lb-placeholder">
+            <ThumbPlaceholder job={job} />
+          </div>
+        )}
+      </div>
+
+      {/* 底部玻璃工具条:提示词 + 快捷操作 */}
+      <div className="lib-lb-bottom" onClick={(e) => e.stopPropagation()}>
+        <div className="lib-lb-prompt" title={job.prompt}>
+          {job.prompt || "(无提示词)"}
+        </div>
+        <div className="lib-lb-actions">
+          {hasResult && (
+            <a
+              className="lib-lb-icon-btn"
+              href={mediaUrl}
+              download
+              aria-label="下载作品"
+              title="下载"
+            >
+              <Icon name="download" size={16} />
+            </a>
+          )}
+          <button
+            type="button"
+            className="lib-lb-icon-btn"
+            aria-label="存为风格"
+            title="存为风格"
+            onClick={(e) => onSaveStyle(job, e.currentTarget)}
+          >
+            <Icon name="palette" size={16} />
+          </button>
+          <button
+            type="button"
+            className="lib-lb-icon-btn"
+            aria-label="复用提示词"
+            title="复用提示词(到生成工作台)"
+            onClick={() => onReuse(job)}
+          >
+            <Icon name="link" size={16} />
+          </button>
+          <button
+            type="button"
+            className="lib-lb-icon-btn lib-lb-icon-btn--danger"
+            aria-label="删除作品"
+            title="删除"
+            disabled={deletingId === job.id}
+            onClick={() => onDelete(job)}
+          >
+            <Icon name={deletingId === job.id ? "loading" : "delete"} size={16} />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

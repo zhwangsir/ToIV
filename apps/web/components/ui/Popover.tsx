@@ -17,6 +17,8 @@ interface PopoverProps {
   /** a11y:弹层角色(listbox/menu/dialog 等) */
   role?: string;
   ariaLabel?: string;
+  /** 覆盖层叠档位(默认 --z-sticky;在 modal 级浮层内触发时需抬升) */
+  zIndex?: string;
 }
 
 /**
@@ -42,6 +44,7 @@ export function Popover({
   className,
   role,
   ariaLabel,
+  zIndex,
 }: PopoverProps) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -95,7 +98,7 @@ export function Popover({
         position: "fixed",
         top: pos.top,
         left: pos.left,
-        zIndex: "var(--z-sticky)",
+        zIndex: zIndex ?? "var(--z-sticky)",
         minWidth: width,
       }}
     >

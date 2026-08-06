@@ -1,0 +1,294 @@
+/* ════════════════════════════════════════════════════════════════════
+   动态分镜 Animatic 视图样式(2026-08-07 批 3:自 globals.css 迁入)
+   视图专属样式不进 globals;全部色值走 token。
+   ════════════════════════════════════════════════════════════════════ */
+
+.anim-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-5);
+}
+
+.anim-title {
+  font-size: var(--text-xl);
+  line-height: var(--leading-xl);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.anim-subtitle {
+  margin-top: 2px;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.anim-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-8);
+  background: var(--bg-surface-1);
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-standard),
+              background-color var(--duration-fast) var(--ease-standard);
+}
+.anim-drop:hover:not(:disabled) {
+  border-color: var(--text-muted);
+  background: var(--bg-surface-2);
+}
+.anim-drop:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.anim-drop-title {
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.anim-drop-hint {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.anim-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  list-style: none;
+  padding: 0;
+}
+
+.anim-card {
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-2);
+}
+
+.anim-thumb-wrap {
+  position: relative;
+}
+
+.anim-thumb {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  background: var(--bg-canvas);
+  display: block;
+}
+
+.anim-idx {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: var(--overlay-strong);
+  color: #FFFFFF; /* scrim 恒深色,其上文字恒白 */
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.anim-card-name {
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.anim-card-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+.anim-dur {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.anim-dur-input {
+  width: 60px;
+  padding: 2px 6px;
+  font-size: var(--text-xs);
+}
+
+.anim-dur-unit {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.anim-card-actions {
+  display: inline-flex;
+  align-items: center;
+}
+
+.anim-params {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-top: var(--space-5);
+  padding: var(--space-4);
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.anim-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.anim-field-label {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.anim-fps-input {
+  width: 90px;
+}
+
+.anim-params-spacer {
+  flex: 1;
+}
+
+.anim-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--err-soft);
+  border: 1px solid var(--err);
+  border-radius: var(--radius-md);
+  color: var(--err);
+  font-size: var(--text-sm);
+}
+
+.anim-result {
+  margin-top: var(--space-5);
+}
+
+.anim-result-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  color: var(--ok);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.anim-video {
+  width: 100%;
+  max-height: 70vh;
+  background: var(--bg-canvas);
+  border-radius: var(--radius-lg);
+}
+
+/* AI 解析 / 快速拼接 模式切换 */
+.anim-mode-switch {
+  display: inline-flex;
+  gap: 4px;
+  margin-top: var(--space-4);
+  padding: 4px;
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.anim-mode-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
+}
+
+.anim-mode-tab:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+
+.anim-mode-tab.is-on {
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+  font-weight: 500;
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+}
+
+.anim-mode-tab:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.anim-field-grow {
+  flex: 1;
+  min-width: 240px;
+}
+
+.anim-hint-input {
+  resize: vertical;
+  min-height: 52px;
+}
+
+/* AI 解析结果面板 */
+.anim-ai-result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.anim-ai-result-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.anim-ai-result-premise {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+.anim-ai-result-meta {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.anim-ai-result-hint {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}

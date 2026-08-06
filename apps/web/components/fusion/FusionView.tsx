@@ -10,10 +10,11 @@ interface FusionApp {
   target: string;
   icon: IconName;
   name: string;
+  /** 一句话价值描述(bento 卡主文案,数据驱动) */
   desc: string;
   /** 能力标签,用于卡片底部 chips */
   tags: string[];
-  /** 旗舰卡:bento 网格中通栏展示(更大的信息容量) */
+  /** 旗舰卡:bento 网格中跨两列做 hero(更大的信息容量) */
   flagship?: boolean;
 }
 
@@ -40,13 +41,28 @@ const FUSION_APPS: FusionApp[] = [
     desc: "视频听写、翻译、克隆配音、对口型,一站式多语言译制。",
     tags: ["语音克隆", "多语言", "对口型"],
   },
+  {
+    target: "imageEdit",
+    icon: "crop",
+    name: "图片编辑",
+    desc: "局部重绘、扩图、高清修复,把生成结果改到位。",
+    tags: ["局部重绘", "扩图", "修复"],
+  },
+  {
+    target: "videoEdit",
+    icon: "scissors",
+    name: "视频剪辑",
+    desc: "裁剪、拼接、补帧与运镜,素材到成片的最后一公里。",
+    tags: ["裁剪拼接", "补帧", "运镜"],
+  },
 ];
 
 /**
- * 融合应用聚合页(Studio Slate W2 重做):
- * - bento 不对称网格:旗舰「创作工作室」通栏大卡 + 两个半宽卡;
- * - 去掉鼠标跟随光晕与彩色渐变(装饰性动效,违反 Studio Slate 功能动效原则);
- * - 交互只剩功能性:hover 升面 + 箭头揭示,入场错峰(遵守 reduced-motion)。
+ * 融合应用聚合页(批 3 bento 化):
+ * - bento 网格:首卡「创作工作室」跨两列做 hero,其余能力一张大卡
+ *   (图标 + 名称 + 一句话价值描述 + 进入箭头),内容全部数据驱动;
+ * - 交互:hover surface 升档 + 箭头位移微动效(≤200ms),入场错峰;
+ * - 样式全部在 app/styles/fusion.css(styled-jsx 已清零)。
  */
 export function FusionView({ onNavigate }: { onNavigate: (target: string) => void }) {
   const [mounted, setMounted] = useState(false);
@@ -78,7 +94,7 @@ export function FusionView({ onNavigate }: { onNavigate: (target: string) => voi
             style={{ "--delay": `${idx * 60}ms` } as React.CSSProperties}
             onClick={() => onNavigate(app.target)}
           >
-            {/* 图标 + 名称 */}
+            {/* 图标 + 名称 + 进入箭头 */}
             <div className="fusion-card-head">
               <div className="fusion-card-icon-wrap">
                 <Icon name={app.icon} size={app.flagship ? 26 : 22} />
@@ -91,7 +107,7 @@ export function FusionView({ onNavigate }: { onNavigate: (target: string) => voi
               </div>
             </div>
 
-            {/* 描述 */}
+            {/* 一句话价值描述 */}
             <p className="fusion-card-desc">{app.desc}</p>
 
             {/* 能力标签 */}
@@ -113,225 +129,6 @@ export function FusionView({ onNavigate }: { onNavigate: (target: string) => voi
           </Card>
         ))}
       </div>
-
-      <style jsx>{`
-        .fusion-view {
-          display: flex;
-          flex-direction: column;
-          gap: var(--space-6);
-          height: 100%;
-          overflow-y: auto;
-          padding: var(--space-6);
-        }
-
-        /* ── 头部 ── */
-        .fusion-header {
-          display: flex;
-          align-items: flex-end;
-          justify-content: space-between;
-          gap: var(--space-4);
-          flex-shrink: 0;
-          padding-bottom: var(--space-2);
-          border-bottom: 1px solid var(--border-subtle);
-        }
-        .fusion-header-main {
-          display: flex;
-          flex-direction: column;
-          gap: var(--space-1);
-        }
-        .fusion-title {
-          font-size: var(--text-title);
-          font-weight: 600;
-          color: var(--text-primary);
-          letter-spacing: -0.02em;
-          line-height: 1.2;
-        }
-        .fusion-subtitle {
-          font-size: var(--text-aux);
-          color: var(--text-muted);
-        }
-        .fusion-header-meta {
-          flex-shrink: 0;
-        }
-        .fusion-count {
-          font-size: var(--text-label);
-          color: var(--text-muted);
-          background: var(--bg-surface-2);
-          padding: var(--space-1) var(--space-2);
-          border-radius: var(--radius-full);
-        }
-
-        /* ── bento 网格:旗舰卡通栏,其余半宽 ── */
-        .fusion-grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: var(--space-4);
-          width: 100%;
-          max-width: 1200px;
-          margin: 0 auto;
-        }
-        .fusion-view :global(.fusion-card.is-flagship) {
-          grid-column: 1 / -1;
-        }
-        @media (max-width: 720px) {
-          .fusion-grid {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        /* ── 卡片 ── */
-        .fusion-view :global(.fusion-card) {
-          position: relative;
-          display: flex;
-          flex-direction: column;
-          gap: var(--space-4);
-          padding: var(--space-5);
-          cursor: pointer;
-          overflow: hidden;
-          background: var(--bg-surface-1);
-          border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-panel);
-          opacity: 0;
-          transform: translateY(12px);
-          transition:
-            opacity var(--duration-base) var(--ease-standard) var(--delay),
-            transform var(--duration-base) var(--ease-standard) var(--delay),
-            border-color var(--duration-base) var(--ease-standard),
-            box-shadow var(--duration-base) var(--ease-standard);
-        }
-        .fusion-view :global(.fusion-card.is-mounted) {
-          opacity: 1;
-          transform: translateY(0);
-        }
-        .fusion-view :global(.fusion-card:hover) {
-          transform: translateY(-2px);
-          border-color: var(--accent-glow);
-          box-shadow: var(--shadow-lg), var(--glass-highlight);
-        }
-
-        /* 图标 + 名称 */
-        .fusion-card-head {
-          display: flex;
-          align-items: flex-start;
-          gap: var(--space-3);
-        }
-        .fusion-card-icon-wrap {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 44px;
-          height: 44px;
-          border-radius: var(--radius-control);
-          background: var(--accent-soft);
-          color: var(--accent);
-          flex-shrink: 0;
-        }
-        .fusion-view :global(.fusion-card.is-flagship) .fusion-card-icon-wrap {
-          width: 52px;
-          height: 52px;
-        }
-        .fusion-card-title-group {
-          display: flex;
-          align-items: center;
-          gap: var(--space-2);
-          flex: 1;
-          min-width: 0;
-          padding-top: var(--space-1);
-        }
-        .fusion-card-name {
-          font-size: var(--text-section);
-          font-weight: 600;
-          color: var(--text-primary);
-          letter-spacing: -0.01em;
-        }
-        .fusion-view :global(.fusion-card.is-flagship) .fusion-card-name {
-          font-size: 17px;
-        }
-        .fusion-card-arrow {
-          color: var(--text-muted);
-          opacity: 0;
-          transform: translateX(-4px);
-          transition:
-            opacity var(--duration-base) var(--ease-standard),
-            transform var(--duration-base) var(--ease-standard);
-        }
-        .fusion-view :global(.fusion-card:hover) .fusion-card-arrow {
-          opacity: 1;
-          transform: translateX(0);
-          color: var(--accent);
-        }
-
-        /* 描述 */
-        .fusion-card-desc {
-          flex: 1;
-          font-size: var(--text-aux);
-          color: var(--text-secondary);
-          line-height: 1.65;
-        }
-
-        /* 标签 */
-        .fusion-card-tags {
-          display: flex;
-          flex-wrap: wrap;
-          gap: var(--space-1);
-        }
-        .fusion-tag {
-          font-size: var(--text-label);
-          color: var(--accent);
-          background: var(--accent-soft);
-          padding: 2px var(--space-2);
-          border-radius: var(--radius-full);
-          transition:
-            background-color var(--duration-fast) var(--ease-standard),
-            color var(--duration-fast) var(--ease-standard),
-            box-shadow var(--duration-fast) var(--ease-standard);
-        }
-        .fusion-view :global(.fusion-card:hover) .fusion-tag {
-          background: var(--accent-glow);
-          box-shadow: var(--accent-glow-shadow);
-        }
-
-        /* 底部 CTA */
-        .fusion-card-footer {
-          display: flex;
-          justify-content: flex-end;
-          padding-top: var(--space-2);
-          border-top: 1px solid var(--border-subtle);
-        }
-        .fusion-card-cta {
-          display: inline-flex;
-          align-items: center;
-          gap: var(--space-1);
-          font-size: var(--text-aux);
-          font-weight: 500;
-          color: var(--accent);
-          transition: gap var(--duration-fast) var(--ease-standard);
-        }
-        .fusion-view :global(.fusion-card:hover) .fusion-card-cta {
-          gap: var(--space-2);
-        }
-
-        /* 滚动条 */
-        .fusion-view::-webkit-scrollbar {
-          width: 6px;
-        }
-        .fusion-view::-webkit-scrollbar-thumb {
-          background: var(--bg-surface-3);
-          border-radius: 3px;
-        }
-
-        /* 动效偏好 */
-        @media (prefers-reduced-motion: reduce) {
-          .fusion-view :global(.fusion-card) {
-            opacity: 1;
-            transform: none;
-            transition: none;
-          }
-          .fusion-card-arrow {
-            transition: none;
-          }
-        }
-      `}</style>
     </div>
   );
 }

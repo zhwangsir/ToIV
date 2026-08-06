@@ -1,0 +1,200 @@
+/* ════════════════════════════════════════════════════════════════════
+   登录落地页(批 3 剧场化;自 LandingPage styled-jsx 迁入并重做版型)
+   - 桌面:左 60% 品牌区(纸白底 + 全局噪点 body::before 自然覆盖)+
+     右 40% 登录玻璃卡
+   - <1024px:品牌区隐藏,单列居中玻璃卡(卡内 compact 品牌行)
+   全部色值走 token,禁止硬编码颜色。
+   ════════════════════════════════════════════════════════════════════ */
+
+.landing {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  background: var(--bg-canvas);
+}
+
+/* ── 左:品牌区(纸白底 + 编辑部排版) ── */
+.landing-brand {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-5);
+  padding: var(--space-12) var(--space-10);
+  background:
+    radial-gradient(ellipse at 20% 0%, var(--accent-soft), transparent 55%),
+    var(--bg-surface-1);
+  border-right: 1px solid var(--border-subtle);
+}
+.landing-logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.landing-logo-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--accent);
+  box-shadow: var(--accent-glow-shadow);
+}
+.landing-logo-text {
+  font-size: var(--text-section);
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+.landing-slogan {
+  margin: 0;
+  /* Display 档:大字标语,字距收紧,行高压到 1.15 */
+  font-size: clamp(34px, 4.2vw, 52px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: var(--text-primary);
+}
+.landing-brand-desc {
+  margin: 0;
+  font-size: var(--text-body);
+  color: var(--text-muted);
+  line-height: 1.7;
+  max-width: 380px;
+}
+.landing-keywords {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.landing-keyword {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.landing-keyword-index {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.landing-keyword-label {
+  font-size: var(--text-section);
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+/* ── 右:登录玻璃卡 ── */
+.landing-auth {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+}
+.landing-card {
+  width: 100%;
+  max-width: 380px;
+  padding: var(--space-6);
+  /* .glass-panel 同款白玻璃材质 */
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--glass-highlight), var(--shadow-float);
+}
+/* 卡内 compact 品牌行:默认隐藏,移动端品牌区收起时显示 */
+.landing-card-brand {
+  display: none;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+.landing-title {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-title);
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+}
+.landing-subtitle {
+  margin: 0 0 var(--space-5);
+  font-size: var(--text-aux);
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.landing-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.landing-form .btn-primary {
+  margin-top: var(--space-2);
+}
+.landing-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.landing-field .input[aria-invalid="true"] {
+  border-color: var(--err);
+}
+.landing-field-error {
+  font-size: var(--text-aux);
+  color: var(--err);
+  line-height: 1.4;
+}
+.landing-error {
+  padding: var(--space-2) var(--space-3);
+  background: var(--err-soft);
+  border: 1px solid var(--err);
+  border-radius: var(--radius-control);
+  color: var(--err);
+  font-size: var(--text-aux);
+}
+
+.landing-hint {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--text-aux);
+  color: var(--text-muted);
+  text-align: center;
+}
+.landing-hint code {
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  padding: 2px 6px;
+  background: var(--bg-surface-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-aux);
+}
+
+/* ── <1024px:退化为单列居中卡 ── */
+@media (max-width: 1023px) {
+  .landing {
+    grid-template-columns: 1fr;
+    place-items: center;
+    padding: var(--space-4);
+    background:
+      radial-gradient(ellipse at 50% 0%, var(--accent-soft), transparent 60%),
+      var(--bg-canvas);
+  }
+  .landing-brand {
+    display: none;
+  }
+  .landing-auth {
+    padding: 0;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+  .landing-card-brand {
+    display: flex;
+  }
+}

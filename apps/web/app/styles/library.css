@@ -283,3 +283,239 @@
     transform: translate(-50%, 0);
   }
 }
+
+/* ── 沉浸查看器(批 3):全出血灯箱 + 玻璃工具条 ─────────────────────
+   剧场版型延伸到消费页:媒体全出血 contain 居中,工具条用 .glass-panel
+   同款白玻璃(--glass-* token);背板恒深色 scrim(--overlay-light),
+   不随主题变浅,保证任何主题下作品都是主角。 */
+.lib-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--overlay-stage);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  /* 拦截滚轮链:灯箱打开期间底层网格不跟随滚动(body overflow 锁在组件侧) */
+  overscroll-behavior: contain;
+  animation: lb-fade var(--duration-base) var(--ease-standard);
+}
+@keyframes lb-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* 顶部/底部玻璃工具条 */
+.lib-lb-top,
+.lib-lb-bottom {
+  position: absolute;
+  left: var(--space-4);
+  right: var(--space-4);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--glass-highlight), var(--shadow-float);
+}
+.lib-lb-top {
+  top: var(--space-4);
+  justify-content: space-between;
+}
+.lib-lb-bottom {
+  bottom: var(--space-4);
+  justify-content: space-between;
+}
+.lib-lb-top-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+/* 玻璃条叠在深色 scrim 上,有效底色偏灰:muted 文字对比度不足(axe 实测 3.9),
+   工具条内辅助文字一律用 text-secondary(实测 ≥4.5) */
+.lib-lb-time {
+  font-size: var(--text-aux);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.lib-lb-counter {
+  font-size: var(--text-label);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.lib-lb-prompt {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-aux);
+  color: var(--text-secondary);
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lib-lb-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+/* 工具条图标按钮(下载/存风格/复用/删除/关闭) */
+.lib-lb-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-control);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+.lib-lb-icon-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.lib-lb-icon-btn:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+.lib-lb-icon-btn--danger:hover {
+  background: var(--err-soft);
+  color: var(--err);
+}
+.lib-lb-icon-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* 左右穿梭钮:玻璃圆钮,垂直居中贴边 */
+.lib-lb-nav {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  margin-top: -20px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-full);
+  box-shadow: var(--glass-highlight), var(--shadow-lg);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: box-shadow var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+.lib-lb-nav:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--glass-highlight), var(--shadow-lift);
+}
+.lib-lb-nav:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+.lib-lb-nav-prev { left: var(--space-4); }
+.lib-lb-nav-next { right: var(--space-4); }
+
+/* 媒体舞台:工具条之间全出血,媒体 contain 居中 */
+.lib-lb-stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 72px 72px 84px;
+}
+.lib-lb-media {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-float);
+}
+/* 音频作品:占位图标 + 原生播放器 */
+.lib-lb-audio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--glass-highlight), var(--shadow-float);
+}
+.lib-lb-audio-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 88px;
+  height: 88px;
+  border-radius: var(--radius-full);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+/* 失败/生成中作品:占位卡(复用 .lib-thumb-placeholder,挂相对定位容器) */
+.lib-lb-placeholder {
+  position: relative;
+  width: min(420px, 80vw);
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-panel);
+  overflow: hidden;
+  box-shadow: var(--shadow-float);
+}
+
+@media (max-width: 768px) {
+  .lib-lb-stage {
+    padding: 68px var(--space-3) 96px;
+  }
+  .lib-lb-top,
+  .lib-lb-bottom {
+    left: var(--space-2);
+    right: var(--space-2);
+  }
+  .lib-lb-nav-prev { left: var(--space-2); }
+  .lib-lb-nav-next { right: var(--space-2); }
+  /* 移动端底部工具条:提示词让位操作区,最多两行 */
+  .lib-lb-bottom {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+  .lib-lb-prompt {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .lib-lb-actions {
+    justify-content: flex-end;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lib-lightbox {
+    animation: none;
+  }
+}

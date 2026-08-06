@@ -394,7 +394,7 @@ function HomeContent() {
               )}
               {view === "avatartalk" && <AvatarTalkView />}
               {view === "train" && <TrainView />}
-              {view === "library" && <LibraryView />}
+              {view === "library" && <LibraryView onNavigate={handleFusionNavigate} />}
               {view === "backlot" && <BacklotView />}
               {view === "models" && <ModelsView />}
               {view === "resources" && <ResourcesView showAdmin={isAdmin} />}
