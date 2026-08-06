@@ -53,6 +53,9 @@ _IMAGE_ANALYSIS_RULES = (
     "常见的解剖与画质瑕疵词。\n"
     "通用质量词(highly detailed, sharp focus, 8k, masterpiece)与通用负面"
     "(blurry, lowres, jpeg artifacts, watermark, text, signature)按需补充。\n"
+    "negative 务必精炼(5~15 个词):只用具体可视的词(如 extra fingers、blurry、"
+    "watermark),避免 ugly、bad、poorly drawn 这类抽象评价词——模型理解不了,"
+    "堆砌反而降质。\n"
 )
 
 _IMAGE_SYSTEMS: dict[str, str] = {
@@ -145,13 +148,30 @@ def _image_system_for(kind: str, model: str | None) -> str:
     return f"{base}\n\n【目标模型方言 · 务必遵守】{guide}" if guide else base
 
 
+# ── 视频类:与图像类同构,JSON 输出 positive + negative ────────────────────
+# 视频引擎(LTX2/H3)都吃 negative;负面词针对视频特有瑕疵(闪烁/形变/抖动)。
+_VIDEO_SYSTEM = (
+    "你是文/图生视频提示词工程师,擅长按题材定制提示词。\n"
+    "把用户的想法改写成:\n"
+    "1) positive:一句英文提示词,除画面外补充简单连续的运动描述"
+    "(如 slow pan, gentle wind, drifting),避免剧烈复杂运动;\n"
+    "2) negative:一段英文负向提示词,排除视频常见瑕疵——画质"
+    "(blurry, lowres, jpeg artifacts, watermark)、闪烁与形变"
+    "(flickering, morphing, distorted, deformed)、运动瑕疵"
+    "(shaky camera, jittery motion, static frame);题材涉及人物时补解剖词"
+    "(deformed hands, extra fingers, bad anatomy)。精炼 5~15 个具体可视的词,"
+    "避免 ugly、bad 这类抽象评价词。\n"
+    '只输出 JSON:{"positive": "...", "negative": "..."},不要解释,不要代码块标记。'
+)
+
+# 视频兜底负面:LLM 没给 / 解析失败时用
+_VIDEO_GENERIC_NEGATIVE = (
+    "blurry, lowres, jpeg artifacts, watermark, flickering, morphing, "
+    "distorted, shaky camera, jittery motion"
+)
+
 # ── 其它类:单段提示词 ────────────────────────────────────────────────────
 _TEXT_SYSTEMS: dict[str, str] = {
-    "video": (
-        "你是文/图生视频提示词工程师。把用户的想法改写成一句英文提示词,除画面外"
-        "补充简单连续的运动描述(如 slow pan, gentle wind, drifting),避免剧烈复杂运动。"
-        "只输出提示词本身,不要解释、不要引号、不要换行。"
-    ),
     "audio": (
         "你是文生音乐(ACE-Step)标签工程师。把用户的想法改写成一串逗号分隔的英文音乐标签,"
         "涵盖:流派、乐器、情绪、节奏(如 lofi, chill, piano, warm, 90bpm)。"
@@ -344,8 +364,24 @@ async def optimize_prompt(
             raise HTTPException(status_code=502, detail="优化失败,请重试")
         return OptimizeResponse(optimized=cleaned, negative=_heuristic_negative(cleaned))
 
-    # 其它类:单段
-    system = _TEXT_SYSTEMS.get(body.kind, _TEXT_SYSTEMS["video"])
+    # 视频类:与图像类同构 —— JSON positive + negative(视频引擎吃 negative)
+    if body.kind == "video":
+        raw = await _llm_text(_compose(_VIDEO_SYSTEM), body.prompt, layer=llm_layer)
+        obj = _parse_json_obj(raw)
+        if obj and obj.get("positive"):
+            positive = str(obj["positive"]).strip().strip('"')
+            negative = str(obj.get("negative") or "").strip().strip('"') or _VIDEO_GENERIC_NEGATIVE
+            return OptimizeResponse(optimized=positive, negative=negative)
+        cleaned = raw.strip().strip('"').strip()
+        if not cleaned:
+            raise HTTPException(status_code=502, detail="优化失败,请重试")
+        return OptimizeResponse(optimized=cleaned, negative=_VIDEO_GENERIC_NEGATIVE)
+
+    # 其它类:单段(未知 kind 走通用兜底)
+    system = _TEXT_SYSTEMS.get(body.kind) or (
+        "你是提示词工程师。把用户的想法改写成一段精炼的英文提示词。"
+        "只输出提示词本身,不要解释、不要引号、不要换行。"
+    )
     text = (await _llm_text(_compose(system), body.prompt, layer=llm_layer)).strip('"').strip()
     if not text:
         raise HTTPException(status_code=502, detail="优化失败,请重试")

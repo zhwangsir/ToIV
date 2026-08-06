@@ -7,6 +7,7 @@ import { Icon } from "@/components/ui/Icon";
 import { Field, Select, Textarea } from "@/components/ui/Input";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Tabs } from "@/components/ui/Tabs";
+import { useToast } from "@/components/ui/Toast";
 import { usePoll } from "@/hooks/usePoll";
 import { invalidateJobs } from "@/lib/api";
 import { consumeEngineDraft, type EngineDraft } from "@/lib/engine";
@@ -95,6 +96,9 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
   const [mode, setMode] = useState<EngineKind>(
     lockedKind ?? (draft?.target === "video" ? "video" : "image"),
   );
+  const toast = useToast();
+  // 高级参数抽屉引用:优化回填负向提示词时自动展开,让用户看见填入结果
+  const advDetailsRef = useRef<HTMLDetailsElement>(null);
   // 参数浮板开关:收起时为右下角悬浮球(会话级);移动端(<1024px)默认收起为 FAB,舞台优先
   const [paramsOpen, setParamsOpen] = useState(
     () =>
@@ -463,7 +467,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
                 ))}
 
                 {engine && showAdvanced && (
-                  <details className="adv-params">
+                  <details className="adv-params" ref={advDetailsRef}>
                     <summary>
                       高级参数
                       <span className="adv-chevron">
@@ -529,7 +533,12 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
           onOptimized={(text, negative) => {
             if (!engine) return;
             setPromptByEngine((prev) => ({ ...prev, [engine.id]: text }));
-            if (negative && engineSupportsNegative(engine)) setValue("negative", negative);
+            if (negative && engineSupportsNegative(engine)) {
+              setValue("negative", negative);
+              // 可见化:展开高级参数抽屉(若已挂载)并提示,避免用户不知道负向已自动填入
+              if (advDetailsRef.current) advDetailsRef.current.open = true;
+              toast.success("已自动填入负向提示词,可在「高级参数」中调整");
+            }
           }}
           canSubmit={canSubmit}
           isRunning={gen.isRunning}

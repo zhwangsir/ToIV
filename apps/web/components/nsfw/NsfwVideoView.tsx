@@ -645,7 +645,13 @@ export function NsfwVideoView() {
               <OptimizeButton
                 prompt={positive}
                 kind="video"
-                onOptimized={(text) => setPositive(text)}
+                onOptimized={(text, neg) => {
+                  setPositive(text);
+                  if (neg) {
+                    setNegative(neg);
+                    setNegOpen(true);
+                  }
+                }}
                 disabled={busy}
               />
             </div>

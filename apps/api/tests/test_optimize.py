@@ -4,7 +4,7 @@
 - 图像类返回 {optimized, negative} 且 negative 随题材而变(content-aware);
 - LLM 没给 negative 时,启发式按题材兜底(人像→解剖词,动漫→排除写实…);
 - 解析失败时整段当正向 + 启发式负面;
-- 其它类(video/audio/threed)返回单段;
+- 其它类(audio/threed/train)返回单段;video 与图像类同构返回 {optimized, negative}(视频引擎吃 negative);
 - 启发式负面函数本身按题材产出不同结果。
 """
 from __future__ import annotations
@@ -205,7 +205,11 @@ def test_optimize_passes_model_dialect_to_llm(client_token, monkeypatch):
     assert "score_9" in captured["system"]  # Pony 方言到达 LLM
 
 
-def test_video_optimize_single_segment(client_token, monkeypatch):
+def test_video_optimize_returns_negative(client_token, monkeypatch):
+    """video kind 与图像类同构:返回 {optimized, negative}。
+
+    LLM 没按 JSON 输出时,整段当正向 + 视频通用兜底负面。
+    """
     client, token = client_token
     _patch_llm(monkeypatch, "a serene lake, slow pan, gentle wind")
     r = client.post(
@@ -216,7 +220,23 @@ def test_video_optimize_single_segment(client_token, monkeypatch):
     assert r.status_code == 200, r.text
     data = r.json()
     assert data["optimized"]
-    assert data["negative"] is None
+    assert data["negative"] is not None
+    assert "flickering" in data["negative"]  # 视频通用兜底负面
+
+
+def test_video_optimize_json_negative(client_token, monkeypatch):
+    """LLM 按 JSON 输出时,video 的 negative 用 LLM 定制结果。"""
+    client, token = client_token
+    _patch_llm(monkeypatch, '{"positive": "a serene lake, slow pan", "negative": "blurry, watermark, shaky camera"}')
+    r = client.post(
+        "/api/optimize",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"prompt": "湖", "kind": "video"},
+    )
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["optimized"] == "a serene lake, slow pan"
+    assert data["negative"] == "blurry, watermark, shaky camera"
 
 
 # ── 风格预设 llm_layer 路由:带预设走预设层,不带保持 L1 ─────────────────────
