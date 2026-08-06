@@ -26,6 +26,7 @@ const VIEWS = [
   "dub",
   "train",
   "canvas",
+  "settings",
   "admin",
 ] as const;
 

@@ -95,6 +95,17 @@ export function IslandNav({ items, current, onSelect, onItemIntent, account, onL
                   {account}
                 </div>
                 <ThemePicker />
+                <button
+                  type="button"
+                  className="island-account-action"
+                  onClick={() => {
+                    setAccountOpen(false);
+                    onSelect("settings");
+                  }}
+                >
+                  <Icon name="settings" size={13} />
+                  设置
+                </button>
                 {onLogout && (
                   <button type="button" className="island-account-logout" onClick={onLogout}>
                     <Icon name="close" size={13} />

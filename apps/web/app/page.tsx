@@ -31,6 +31,7 @@ type View =
   | "backlot"
   | "models"
   | "resources"
+  | "settings"
   | "admin";
 
 /** M1 三大板块拆分:generate 退役拆为 图片/视频/音频,旧链接按 kind 重定向(不 404)。
@@ -73,6 +74,7 @@ const viewImporters = {
   backlot: () => import("@/components/backlot/BacklotView"),
   models: () => import("@/components/models/ModelsView"),
   resources: () => import("@/components/resources/ResourcesView"),
+  settings: () => import("@/components/settings/SettingsView"),
   admin: () => import("@/components/admin/AdminView"),
 } as const;
 
@@ -131,6 +133,9 @@ const ModelsView = lazy(() =>
 const ResourcesView = lazy(() =>
   viewImporters.resources().then((m) => ({ default: m.ResourcesView })),
 );
+const SettingsView = lazy(() =>
+  viewImporters.settings().then((m) => ({ default: m.SettingsView })),
+);
 const AdminView = lazy(() =>
   viewImporters.admin().then((m) => ({ default: m.AdminView })),
 );
@@ -164,6 +169,7 @@ const VALID_VIEWS = new Set<View>([
   "backlot",
   "models",
   "resources",
+  "settings",
   "admin",
 ]);
 
@@ -185,6 +191,7 @@ const VIEW_META: Record<View, { label: string }> = {
   backlot:   { label: "看板" },
   models:    { label: "模型" },
   resources: { label: "资源" },
+  settings:  { label: "设置" },
   admin:     { label: "管理" },
 };
 
@@ -220,6 +227,7 @@ const BOTTOM_NAV_MORE_ITEMS: BottomNavItem[] = [
   { key: "dub", label: "译制", icon: "dub" },
   { key: "animatic", label: "动态分镜", icon: "clapperboard" },
   { key: "resources", label: "资源", icon: "models" },
+  { key: "settings", label: "设置", icon: "settings" },
 ];
 
 /** WS5:视图切换走 View Transitions(主舞台 cross-fade,样式见 styles/motion.css)。
@@ -398,6 +406,7 @@ function HomeContent() {
               {view === "backlot" && <BacklotView />}
               {view === "models" && <ModelsView />}
               {view === "resources" && <ResourcesView showAdmin={isAdmin} />}
+              {view === "settings" && <SettingsView account={account} onLogout={onLogout} />}
               {view === "admin" && <AdminView />}
             </Suspense>
           </ErrorBoundary>

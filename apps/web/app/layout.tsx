@@ -6,6 +6,7 @@ import "./styles/island.css";
 import "./styles/stage.css";
 import "./styles/motion.css";
 import "./styles/library.css";
+import "./styles/settings.css";
 import "./styles/animatic.css";
 import "./styles/avatartalk.css";
 import "./styles/landing.css";

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { friendlyError } from "./friendlyError";
 import { trackJob } from "./trackJob";
 import type { GenerateResponse } from "./types";
 import type { QualityWarning } from "./trackJob";
@@ -10,8 +11,9 @@ export interface UseGenerationOptions {
   onDone?: (paths: string[]) => void;
   /** 采样进度回调(SSE progress 事件;仅 max>0 时触发)。 */
   onProgress?: (value: number, max: number) => void;
-  /** 生成出错回调(此时 error 已写入,state 已切到 error)。 */
-  onError?: (message: string) => void;
+  /** 生成出错回调(此时 error 已写入,state 已切到 error)。
+   *  message 为友好文案(经 friendlyError 包装已知模式);detail 为底层原文(未知模式为 null)。 */
+  onError?: (message: string, detail?: string | null) => void;
 }
 
 export interface UseGenerationResult {
@@ -19,6 +21,8 @@ export interface UseGenerationResult {
   progress: { value: number; max: number };
   resultPaths: string[];
   error: string | null;
+  /** 底层错误原文(友好文案的「技术详情」;未知模式为 null)。 */
+  errorDetail: string | null;
   isRunning: boolean;
   /**
    * 质量评估警告(done 之前若 total < 0.65 后端会推 quality_warning 事件)。
@@ -57,6 +61,7 @@ export function useGeneration(opts: UseGenerationOptions = {}): UseGenerationRes
   const [progress, setProgress] = useState<{ value: number; max: number }>({ value: 0, max: 0 });
   const [resultPaths, setResultPaths] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
   // 质量评估警告:done 前若收到 quality_warning 事件写入;done 后保留供 UI 展示诊断卡片
   const [qualityWarning, setQualityWarning] = useState<QualityWarning | null>(null);
 
@@ -84,6 +89,7 @@ export function useGeneration(opts: UseGenerationOptions = {}): UseGenerationRes
       setProgress({ value: 0, max: 0 });
       setResultPaths([]);
       setError(null);
+      setErrorDetail(null);
       setQualityWarning(null);
     }
 
@@ -109,10 +115,13 @@ export function useGeneration(opts: UseGenerationOptions = {}): UseGenerationRes
       optsRef.current.onDone?.(paths);
     } catch (e) {
       if (!mountedRef.current) return;
-      const msg = e instanceof Error ? e.message : "生成失败";
-      setError(msg);
+      const raw = e instanceof Error ? e.message : "生成失败";
+      // 走查 P3:底层原文(1011/keepalive/ECONNREFUSED/timeout/5xx)包装为友好文案,原文进 detail
+      const { message, detail } = friendlyError(raw);
+      setError(message);
+      setErrorDetail(detail);
       setStatus("error");
-      optsRef.current.onError?.(msg);
+      optsRef.current.onError?.(message, detail);
     }
   }, []);
 
@@ -124,6 +133,7 @@ export function useGeneration(opts: UseGenerationOptions = {}): UseGenerationRes
     setProgress({ value: 0, max: 0 });
     setResultPaths([]);
     setError(null);
+    setErrorDetail(null);
     setQualityWarning(null);
   }, []);
 
@@ -132,6 +142,7 @@ export function useGeneration(opts: UseGenerationOptions = {}): UseGenerationRes
     progress,
     resultPaths,
     error,
+    errorDetail,
     isRunning: status === "running",
     qualityWarning,
     start,

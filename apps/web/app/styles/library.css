@@ -4,8 +4,9 @@
    - 存为风格 Popover:玻璃浮层
    - StyleBar 风格库横条:玻璃胶囊卡,点击注入优化提示词管线
    全部色值走 token,遵守 prefers-reduced-motion。
-   注:.library-view .lib-body 前缀用于压过 LibraryView 内 styled-jsx 的
-   旧 hover 规则(其带 .jsx-hash 类,特异度 0-3-0)。
+   批 4 起 LibraryView styled-jsx 已清零,视图全部样式在本文件;
+   `.library-view .lib-body` 前缀保留:hover 增强规则(scale/发光阴影)
+   借此压过基础卡片规则,层叠关系显式可控。
    ════════════════════════════════════════════════════════════════════ */
 
 /* ── masonry 卡片 hover 质感 ──────────────────────────────────────── */
@@ -25,8 +26,7 @@
 }
 
 /* ── 占位卡(生成中/失败/无预览产物) ────────────────────────────── */
-/* 这些样式必须在全局 CSS:ThumbPlaceholder 是独立组件,LibraryView 内
-   styled-jsx 的 hash 作用域类挂不到它的元素上(写在 styled-jsx 里是死规则)。 */
+/* ThumbPlaceholder 是独立组件(网格卡片与灯箱共用),样式必须放全局 CSS。 */
 .lib-thumb-placeholder {
   position: absolute;
   inset: 0;
@@ -67,7 +67,7 @@
 /* ── 快捷操作浮层(卡片底部渐显玻璃条) ───────────────────────────── */
 /* hover 时提示词文本让位:overlay 底部内边距抬高到操作条之上,
    胶囊独占底部区,不再把提示词截成两截(移动端同效)。
-   前缀 .library-view .lib-body 压过 LibraryView 内 styled-jsx 的 padding。 */
+   前缀 .library-view .lib-body 压过基础 .lib-overlay 的 padding。 */
 .library-view .lib-body .lib-overlay {
   padding-bottom: calc(44px + var(--space-3));
 }
@@ -517,5 +517,418 @@
 @media (prefers-reduced-motion: reduce) {
   .lib-lightbox {
     animation: none;
+  }
+}
+
+/* ── 作品库视图基础样式(批 4:自 LibraryView styled-jsx 迁入,行为零变化) ──
+   hover 增强(scale 1.03 / 发光阴影)见文首 `.library-view .lib-body` 前缀规则。 */
+
+.library-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.lib-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.lib-header-left {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.lib-title {
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+.lib-count {
+  font-size: var(--text-aux);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  /* 预留宽度:"加载中…" → "N 件作品" 文本切换不挤动相邻元素(CLS 加固) */
+  display: inline-block;
+  min-width: 5em;
+}
+
+/* 窄屏段控可能溢出,横向滚动 + 触摸惯性 */
+.lib-filters {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.lib-filters::-webkit-scrollbar {
+  display: none;
+}
+
+.lib-body {
+  min-height: 200px;
+}
+
+.lib-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-6) var(--space-2);
+}
+.lib-empty-kicker {
+  font-size: var(--text-label);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+}
+.lib-empty-display {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+.lib-empty-desc {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  max-width: 420px;
+  line-height: 1.6;
+}
+
+.lib-grid {
+  /* Studio Slate 版型:masonry 混排(CSS 多列,卡片自然高度) */
+  display: block;
+  columns: 240px;
+  column-gap: var(--space-4);
+}
+.lib-grid > * {
+  break-inside: avoid;
+  margin-bottom: var(--space-4);
+}
+@media (max-width: 480px) {
+  .lib-grid {
+    columns: 160px;
+    column-gap: var(--space-3);
+  }
+  .lib-grid > * {
+    margin-bottom: var(--space-3);
+  }
+}
+
+.lib-load-more {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-4);
+}
+.lib-load-more-btn {
+  font-variant-numeric: tabular-nums;
+}
+
+.lib-card {
+  position: relative;
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-panel);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+.lib-card:hover,
+.lib-card:focus-visible {
+  background: var(--bg-surface-2);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
+  outline: none;
+}
+.lib-card.is-deleting {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.lib-thumb {
+  position: relative;
+  background: var(--bg-surface-2);
+  overflow: hidden;
+}
+/* 占位卡(生成中/音频等无产物)保持方形,有产物的卡片走自然比例 */
+.lib-thumb:has(.lib-thumb-placeholder) {
+  aspect-ratio: 1 / 1;
+}
+/* 失败卡收敛为固定矮条,避免整页 1:1 黑墙(修饰类挂在 .lib-thumb 上,见 TSX) */
+.lib-thumb.lib-thumb--error {
+  aspect-ratio: auto;
+  height: 120px;
+}
+/* 占位卡的触发按钮撑满 .lib-thumb:按钮内只有绝对定位子元素,
+   不撑高会导致占位图标/hover 提示词全部叠到顶部 */
+.lib-thumb:has(.lib-thumb-placeholder) .lib-thumb-hit {
+  height: 100%;
+}
+/* 预览触发按钮:包裹媒体走自然流(高度由 img/video 自然比例撑开),重置 button 默认样式 */
+.lib-thumb-hit {
+  position: relative;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  display: block;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+.lib-thumb-hit:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -2px;
+}
+.lib-thumb img,
+.lib-thumb video {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+/* 注:WS4 起 hover 缩放收敛为卡片级 scale(1.03)(见文首增强规则),
+   不再做缩略图内部二次缩放 */
+
+.lib-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  padding: var(--space-3);
+  /* 图片 scrim 恒深色(--overlay-light),不随主题变浅,保证文字可读 */
+  background: linear-gradient(
+    to top,
+    var(--overlay-light),
+    transparent 60%
+  );
+  opacity: 0;
+  transition: opacity var(--duration-base) var(--ease-standard);
+  pointer-events: none;
+}
+.lib-card:hover .lib-overlay,
+.lib-card:focus-within .lib-overlay {
+  opacity: 1;
+}
+.lib-overlay-prompt {
+  font-size: var(--text-aux);
+  line-height: 1.45;
+  color: #FFFFFF; /* 位于恒深色 scrim 上 */
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.lib-delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: var(--glass-bg); /* 主题自适应玻璃,图标色在浅底上可读 */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  color: var(--text-secondary);
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+  z-index: 2;
+}
+.lib-card:hover .lib-delete,
+.lib-card:focus-within .lib-delete {
+  opacity: 1;
+  transform: translateY(0);
+}
+.lib-delete:hover {
+  background: var(--err-soft);
+  border-color: var(--err);
+  color: var(--err);
+}
+.lib-delete:disabled {
+  cursor: not-allowed;
+}
+
+.lib-video-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  background: var(--overlay-light);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-badge);
+  font-size: var(--text-label);
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+  z-index: 1;
+}
+
+.lib-foot {
+  padding: 10px var(--space-3) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.lib-foot-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
+}
+/* kind 徽标:映射短名 + 超长截断,不再把日期挤出卡片 */
+.lib-kind-badge {
+  max-width: 8.5em;
+  min-width: 0;
+}
+.lib-kind-badge-text {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lib-time {
+  font-size: var(--text-aux);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.lib-seed {
+  font-size: var(--text-label);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  /* 超长 seed 单行省略,不再折成两行 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lib-skeleton {
+  pointer-events: none;
+}
+.lib-thumb-skel {
+  aspect-ratio: 1 / 1;
+  background: linear-gradient(
+    90deg,
+    var(--bg-surface-2) 0%,
+    var(--bg-surface-3) 50%,
+    var(--bg-surface-2) 100%
+  );
+  background-size: 200% 100%;
+  animation: lib-skel-shimmer 1.6s ease-in-out infinite;
+}
+@keyframes lib-skel-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lib-thumb-skel {
+    animation: none;
+  }
+}
+.lib-foot-skel {
+  padding: 10px var(--space-3) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.skel-line {
+  /* 高度对齐真实 .lib-foot 行高(kind 徽标 / seed 行),
+     骨架 → 真实卡片替换时行高一致,卡片底部不跳动(CLS 加固) */
+  height: 14px;
+  border-radius: var(--radius-xs);
+  background: var(--bg-surface-2);
+}
+.skel-w-1 {
+  width: 50%;
+}
+.skel-w-2 {
+  width: 70%;
+}
+
+.lib-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  color: var(--text-muted);
+}
+.lib-error-msg {
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+}
+
+/* ── 删除确认对话框内容(容器为 Modal 基座) ── */
+.lib-confirm-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.lib-confirm-warn {
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+.lib-confirm-prompt {
+  font-size: var(--text-aux);
+  color: var(--text-primary);
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  padding: var(--space-2) var(--space-3);
+  line-height: 1.5;
+  word-break: break-word;
+}
+.lib-confirm-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--err-soft);
+  border: 1px solid var(--err);
+  border-radius: var(--radius-control);
+  color: var(--err);
+  font-size: var(--text-aux);
+}
+
+@media (max-width: 768px) {
+  .lib-header {
+    flex-direction: column;
+    align-items: stretch;
   }
 }

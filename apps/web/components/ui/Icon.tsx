@@ -109,6 +109,8 @@ const ICON_MAP = {
   backlot: KanbanSquare,
   models: Boxes,
   admin: Settings,
+  // 设置入口(§4.9 设置视图;与 admin 同图标,语义化别名)
+  settings: Settings,
   // 通用操作(8)
   send: ArrowUp,
   upload: Upload,

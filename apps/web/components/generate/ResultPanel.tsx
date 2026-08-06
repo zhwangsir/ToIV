@@ -21,7 +21,10 @@ export interface HistoryEntry {
   prompt: string;
   status: "running" | "done" | "error" | "cancelled";
   paths: string[];
+  /** 友好错误文案(经 friendlyError 包装已知模式)。 */
   error?: string | null;
+  /** 底层错误原文:「技术详情」展开内容(未知模式为 null,不重复展示)。 */
+  errorDetail?: string | null;
   /** 目标尺寸(提交时快照):生成中骨架按此宽高比渲染,避免与目标尺寸不符。 */
   width?: number;
   height?: number;
@@ -281,12 +284,13 @@ export function ResultPanel({ entries, selectedId, onSelect, liveProgress, quali
                     <span className="stage-error-title">生成失败</span>
                   </div>
                   <p className="stage-error-desc">
-                    生成连接中断或引擎执行异常,你的输入已保留,可直接重试。
+                    {current.error ??
+                      "生成连接中断或引擎执行异常,你的输入已保留,可直接重试。"}
                   </p>
-                  {current.error && (
+                  {current.errorDetail && (
                     <details className="stage-error-details">
                       <summary>技术详情</summary>
-                      <pre className="stage-error-raw">{current.error}</pre>
+                      <pre className="stage-error-raw">{current.errorDetail}</pre>
                     </details>
                   )}
                   {onRetry && (

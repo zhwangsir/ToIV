@@ -21,6 +21,7 @@ import {
   type EngineKind,
 } from "@/lib/engines";
 import { useGeneration } from "@/lib/useGeneration";
+import { friendlyError } from "@/lib/friendlyError";
 
 import { ParamField } from "./ParamField";
 import { PromptBar } from "./PromptBar";
@@ -242,11 +243,11 @@ export function GenerateView({ initialDraft, lockedKind, onlyNsfw = false }: Gen
       }
       invalidateJobs(); // 产物已落库,作品库缓存失效
     },
-    onError: (msg) => {
+    onError: (msg, detail) => {
       const id = runningIdRef.current;
       runningIdRef.current = null;
       if (id) {
-        setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, status: "error", error: msg } : e)));
+        setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, status: "error", error: msg, errorDetail: detail ?? null } : e)));
       }
     },
   });
@@ -293,8 +294,9 @@ export function GenerateView({ initialDraft, lockedKind, onlyNsfw = false }: Gen
       // start 永远 resolve:出错经 onError 回调更新条目状态
       await gen.start(res);
     } catch (e) {
-      // 提交阶段失败(参数校验/网络/上传缺失):不入历史,直接显示错误
-      setSubmitError(e instanceof Error ? e.message : "生成请求失败");
+      // 提交阶段失败(参数校验/网络/上传缺失):不入历史,直接显示错误(已知模式包装为友好文案)
+      const raw = e instanceof Error ? e.message : "生成请求失败";
+      setSubmitError(friendlyError(raw).message);
     } finally {
       setSubmitting(false);
     }

@@ -177,6 +177,25 @@
   transition: background-color var(--duration-fast) var(--ease-standard),
               color var(--duration-fast) var(--ease-standard);
 }
+/* 账户菜单动作项(设置等中性入口,与 logout 同版型,hover 不变红) */
+.island-account-action {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 30px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-control);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-standard),
+              color var(--duration-fast) var(--ease-standard);
+}
+.island-account-action:hover {
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+}
+
 .island-account-logout:hover {
   background: var(--err-soft);
   color: var(--err);

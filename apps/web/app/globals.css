@@ -69,7 +69,7 @@
   --text-aux: 12px;
   --text-label: 11px;
 
-  /* 旧字号阶(视图仍在用,逐步向上面五档收敛) */
+  /* 旧字号阶(批 2a 已收敛部分视图;ui 组件与少数视图仍在用,继续向上面五档收敛) */
   --text-xs: 11px;
   --text-sm: 12px;
   --text-base: 14px;
@@ -133,7 +133,7 @@
   --z-modal: 300;
   --z-toast: 400;
 
-  /* ── 断点令牌(供 JS 读取) ── */
+  /* ── 断点令牌(JS 侧经 lib/useBreakpoint.ts 读取;存量媒体查询断点值未收敛,见批 4 遗留项) ── */
   --bp-sm: 576px;
   --bp-md: 768px;
   --bp-lg: 1024px;
