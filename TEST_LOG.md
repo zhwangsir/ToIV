@@ -4327,3 +4327,12 @@ Route (app)                                 Size  First Load JS
 - `playwright.prod.config.ts` 目标更新为 core(192.168.71.47:3100/8090,原指向 workstation docker 已过时)
 - 8 个安全 spec 对生产跑:**24 passed / 0 failed**(含 12 个登录态视图渲染、guest 流程、Studio 入口、UX 指标);authed-agents-* 有意跳过(避免污染生产 agents 表)
 - 叠加此前冒烟:jobs 空表、style_hint 真 LLM、speak_audio 路由、opentalking reachable——本轮全部改动在 core 生产验证完毕
+
+### UI 重构 v2:Studio Slate 影棚岩板(2026-08-06 晚,W0-W3 全量完成)
+
+- 方案:`docs/2026-08-06-ui-redesign-v2-plan.md`;调研 Runway/Krea/HeyGen/Suno/可灵/LTX 后定稿:中性深灰 + 信号橙 #F06418,去紫,IA 沿用九入口
+- W0:globals.css token 全换(v4 Studio Slate);LandingPage 渐变改橙;删死代码(ModelPicker/AgentSwitcher/useTheme/useReducedMotion/useFauxProgress/useScrollParallax/lib/motion.ts + framer-motion 卸载);侧栏激活项 2px 左信号条
+- W1:新建 `components/ui/Popover.tsx`(createPortal/翻转/Esc/外点关闭),OptimizeButton 迁入,删手写定位
+- W2:FusionView 重写 bento(旗舰卡通栏,删鼠标光晕与彩渐变);ResultPanel 空态编辑部式(大标题+三步提示卡);LibraryView 空态编辑部式;GenerateView 标题规格对齐;AssistantView 首屏问候式大标题
+- W3:九视图截图逐个过(数字人/译制/Studio/资源/模型/管理/画布/视频/音频)全橙体系健康;StudioView legacy `var(--color-danger)` 6 处映射 `--err`;Manju `--accent-wash` 已由 W0 token 重映射自动续命
+- 验证:tsc/build 通过;后端 pytest 967 passed;本地 e2e 12 passed;部署 core 后生产 e2e **119 passed / 0 failed**;生产截图确认融合 bento + 作品库空态生效
