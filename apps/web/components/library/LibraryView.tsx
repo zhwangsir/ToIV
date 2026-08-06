@@ -558,14 +558,22 @@ export function LibraryView() {
         }
 
         .lib-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-          gap: var(--space-4);
+          /* Studio Slate 版型:masonry 混排(CSS 多列,卡片自然高度) */
+          display: block;
+          columns: 240px;
+          column-gap: var(--space-4);
+        }
+        .lib-grid > * {
+          break-inside: avoid;
+          margin-bottom: var(--space-4);
         }
         @media (max-width: 480px) {
           .lib-grid {
-            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-            gap: var(--space-3);
+            columns: 160px;
+            column-gap: var(--space-3);
+          }
+          .lib-grid > * {
+            margin-bottom: var(--space-3);
           }
         }
 
@@ -603,16 +611,17 @@ export function LibraryView() {
 
         .lib-thumb {
           position: relative;
-          aspect-ratio: 1 / 1;
           background: var(--bg-surface-2);
           overflow: hidden;
         }
-        /* 预览触发按钮:铺满缩略区,重置 button 默认样式 */
+        /* 占位卡(生成中/失败/音频)保持方形,有产物的卡片走自然比例 */
+        .lib-thumb:has(.lib-thumb-placeholder) {
+          aspect-ratio: 1 / 1;
+        }
+        /* 预览触发按钮:包裹媒体走自然流(高度由 img/video 自然比例撑开),重置 button 默认样式 */
         .lib-thumb-hit {
-          position: absolute;
-          inset: 0;
+          position: relative;
           width: 100%;
-          height: 100%;
           padding: 0;
           border: 0;
           background: none;
@@ -629,8 +638,7 @@ export function LibraryView() {
         .lib-thumb img,
         .lib-thumb video {
           width: 100%;
-          height: 100%;
-          object-fit: cover;
+          height: auto;
           display: block;
           transition: transform var(--duration-base) var(--ease-standard);
         }
