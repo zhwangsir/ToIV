@@ -143,6 +143,12 @@ rsync -az --delete -e "ssh ${SSH_OPTS[*]}" "${RSYNC_EXCLUDES[@]}" \
 echo "  rsync 完成"
 
 if [ "$HAS_WEB_BUILD" = true ]; then
+  # 防呆:部署构建必须是不带 INTERNAL_API_BASE 的(默认烘焙 localhost:8090)。
+  # 本地验证用的 8200 构建若误部署,core 上 /api 代理全 500(2026-08-07 批3 事故)。
+  if grep -q "localhost:8200" apps/web/.next/routes-manifest.json 2>/dev/null; then
+    echo "✖ .next 是本地验证构建(API 代理烘焙为 localhost:8200)。请先执行:cd apps/web && npm run build" >&2
+    exit 1
+  fi
   echo "▶ rsync 前端构建产物(.next) → ${REMOTE} …"
   rsync -az --delete -e "ssh ${SSH_OPTS[*]}" --exclude=cache \
     apps/web/.next/ "${REMOTE}:${REMOTE_DIR}/web/.next/"

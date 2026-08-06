@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-08-07T18:20:00+08:00",
+  "updated_at": "2026-08-07T19:40:00+08:00",
   "sync_baseline": {
     "id": "SYNC-2026-07-18",
     "type": "initial-sync",
@@ -636,6 +636,7 @@
     ]
   },
   "recent_completed": [
+    "ui_refactor_batch3_2026_08_07",
     "ui_refactor_batch2_2026_08_07",
     "light_theme_system_2026_08_07",
     "STUDIO-M3-2026-08-06:Studio 创作工作室 M3 落地——配音/对口型/合成三环闭合。核心变更:(1)services/studio/voice.py——分镜台词 → IndexTTS2 合成(ja/ko/yue 走 tts_multilingual_url),角色卡 voice_ref_url 下载作 multipart 转发克隆音色,下载失败降级默认音色;产物落 drama_output_root()/studio;(2)services/studio/lipsync.py——LatentSync 1.6 对口型:下载分镜视频+配音 → 上传 worker input(studio_ls_src/studio_ls_voice)→ build_latentsync_graph 入队 → 轮询 history 取产物落盘,复用 workflows/lipsync.py;(3)services/studio/assemble.py——按 idx 收集 final_clip_url(未就绪 422 语义),ffmpeg concat demuxer 无损拼接,回写 project.final_url+status=ready;_clip_path 校验前缀+Path.name 防穿越;(4)routes/studio.py 新增 POST /studio/shots/{sid}/voice(无台词 422/说话人命中角色卡)、POST /studio/shots/{sid}/lipsync(仅视频镜,缺媒体 422)、POST /studio/projects/{pid}/assemble(返回项目详情)。测试:test_studio_voice.py 17 例(服务层 TTS 转发/容错+LatentSync 全 mock 流水线+路由编排),test_studio_assemble.py 9 例(collect 顺序/就绪校验/URL 安全解析/拼接/路由 422·200·502)。回归:studio 178 passed,全量 1033 passed(26.22s)零失败。按 AGENTS.md 未自动 commit,改动保留工作区待用户验收",
@@ -644,8 +645,7 @@
     "EDIT-MODULES-2026-08-04:独立编辑模块(图片编辑+视频剪辑)+ 导航重排完成。核心变更:(1)后端新增 routes/video_edit.py——OpenCut 风格时间线剪辑:POST /api/video-edit/render(plan JSON:clips 视频轨串接/audios 音频轨混音/texts drawtext 文字叠加,宽高原声探测 ffprobe,ssh workstation 执行 ffmpeg,NAS imports/video-edit+outputs/video-edit 交换,白名单 GET output);修复真 bug——build_render_plan_cmd 混音链重建 -filter_complex 用错 parts 下标(-1→-3)致 amix 被拼进 -map;main.py 补注册 video_edit 路由(此前仅 import 未挂载)。(2)前端新增 components/image-edit/ImageEditView.tsx(picwish 风格:拖拽上传+4 工具卡片——智能去背景 general/anime/human、高清增强 2x/3x/4x、局部重绘 Florence2 文字分割、人脸修复 denoise 滑杆;复用既有 generateRemoveBg/generateUpscale/generateInpaint/generateFaceDetailer 端点+lib/trackJob SSE 真实进度;结果/对比切换+下载)。(3)前端新增 components/video-edit/VideoEditView.tsx(素材库导入+视频轨/音频轨/文字轨三轨时间线+分辨率/帧率预设+导出渲染;lib/api.ts 新增 renderVideoEdit/videoEditOutputUrl 封装,multipart 提交,longRequest 180s)。(4)导航重排:侧栏 对话/图片/视频/音频/融合/图片编辑/视频剪辑/画布/作品库/资源 10 项;imageEdit/videoEdit 注册 View 类型+viewImporters 懒加载+VALID_VIEWS+VIEW_META+底部更多导航;风格选择保持在各生成页内(AgentSwitcher 已从侧栏移除)。(5)回归:pytest 977 passed(+37 新例)/tsc 0 错误/next build 通过。按 AGENTS.md 未自动 commit,改动保留工作区待用户验收",
     "REDIS-H3-INTEGRATION-2026-08-04:Redis 接入 + MiniMax H3 视频引擎集成代码完成(未提交未部署)。Redis:services/redis_client.py 单例+冷却降级;ratelimit.py 滑窗 Redis 优先(Lua 原子化,WITHSCORES 兼容性修复→retry_after 移 Python 侧);canvas_events.py Redis pub/sub 跨进程 relay(防回声 origin 标记);comfy/pool.py 健康探测结果 Redis 共享(减少多进程重复探测);fakeredis 测试替身 test_redis_integration.py。H3:config.py h3_base_url(workstation :8195 独立 ComfyUI≥0.30 实例,独立于 WorkerPool);deps.py resolve_worker H3 精确匹配(防同机 hostname 回退错配);services/h3.py(ensure_h3_ready 503 语义+参考图跨实例转运);routes/h3_studio.py(t2v/i2v 端点+限流);workflows/h3_video.py+workflows/h3/ 模板;引擎注册表 h3-t2v/h3-i2v(h3_stub 替身测试);前端 lib/engines.ts 同步。依赖修复:pyproject.toml 补 redis>=5.2/fakeredis>=2.23,uv export 重生成 requirements.txt 并保留 psycopg/faster-whisper 手工段;.env.example×2 文档化。真机复核:workstation toiv-comfyui-h3.service active+:8195 200;pc02 三计划任务自愈在册+:8193 200;core 四服务 active+redis PONG+api/web 200。本地回归:pytest 890 passed/tsc 0 错误/build 通过。**阻塞**:全部改动未 commit、未 deploy;core .env 缺 TOIV_REDIS_URL/TOIV_H3_BASE_URL;core 运行代码仍是 4b83a7f(h3 仅占位)。按 AGENTS.md 未自动 commit,待用户验收后部署",
     "SMOKE-TEST-ROUND-2026-07-29:ToIV 当前可用内容冒烟测试完成(部分受限)。结果:(1)前端 `npx tsc --noEmit` 0 errors;(2)前端 `npm run build` 成功,7 routes,First Load JS 173 kB;(3)后端 pytest 收集到 645 个测试,`tests/test_drama_studio.py` 50 passed/1 warning;(4)core 线上 :8090/api/health、:8090/openapi.json、:3100/、:3100/engine 均 HTTP 200;(5)认证端点(/api/system/llm、/api/models、/api/agent/chat)因无有效 token 返回 401,符合预期;(6)完整 pytest 输出与浏览器 E2E 因本地终端输出捕获异常、Playwright webServer 配置与 TOIV_WEB_BASE 指向 core 冲突,未能完整执行;(7)发现环境问题:终端执行命令时仍自动触发 AICG-DownLoader-main 后端启动(uvicorn :8100),需项目管家检查 shell hook/alias。按 AGENTS.md 未自动 commit,改动保留工作区待用户验收",
-    "MODEL-INVENTORY-MASTER-2026-07-29:ToIV 模型/LoRA/工具全量清单与补全建议完成。核心产出:(1)新建 docs/model-inventory-master-2026-07-29.md,汇总 NAS 现有模型(图像/视频/3D/音频/text encoders/CLIP/ControlNet/LoRAs 等 90+ 项)、缺失模型(P0/P1/P2 共 30+ 项)、调研后建议补充的更优模型(图像/视频/角色一致性/音频 4 大方向 20+ 项);(2)制定 NAS 统一目录规范,建议所有新增模型放到 //192.168.71.7/NAS/toiv/comfyui-models/ 下对应子目录;(3)补充场景 LoRA 未覆盖项:恐怖/惊悚、喜剧/浪漫、历史/战争、运镜 LoRA、导演风格 LoRA;(4)补充新方向:HunyuanVideo-I2V/Foley、Mochi 1、CogVideoX、StoryMaker/Consistory、F5-TTS/CosyVoice 2/GPT-SoVITS v3。按 AGENTS.md 未自动 commit,改动保留工作区待用户验收",
-    "MODEL-PIPELINE-PREP-2026-07-29:P0/P1/P2 模型/LoRA/工具部署方案与脚本准备完成。核心变更:(1)重写 deploy/download_models.sh,新增 p0/p1/p2/all 参数,覆盖 Qwen3-VL-7B-Instruct 满血、Qwen-Image 2.0 扩散模型、PuLID flux v0.9.0、ACE-Step 1.5、短剧场景 LoRA(Civitai)、UVR5/Demucs、LivePortrait、Stable Audio Open、自训 LoRA 基线;(2)更新 apps/api/app/agent/knowledge/model-catalog.md,补齐 P0/P1/P2 模型选型、显存策略、部署方式;(3)更新 apps/api/app/workflows/model_profiles.py 注释与 _QWEN_IMAGE_CLIP_CANDIDATES,预留 qwen_3_vl_7b.safetensors / qwen_3_vl_7b_instruct 路径,保持当前默认兼容 Qwen-Image 1.0。验证:uv run pytest -q 645 passed/0 failed/1 warning;bash -n deploy/download_models.sh 语法通过。按 AGENTS.md 未自动 commit,改动保留工作区待用户验收。注意:本地终端执行命令时自动触发 AICG-DownLoader 后端启动(cd AICG-DownLoader-main && uvicorn :8100),需检查是否存在 shell hook/alias 导致跨项目副作用"
+    "MODEL-INVENTORY-MASTER-2026-07-29:ToIV 模型/LoRA/工具全量清单与补全建议完成。核心产出:(1)新建 docs/model-inventory-master-2026-07-29.md,汇总 NAS 现有模型(图像/视频/3D/音频/text encoders/CLIP/ControlNet/LoRAs 等 90+ 项)、缺失模型(P0/P1/P2 共 30+ 项)、调研后建议补充的更优模型(图像/视频/角色一致性/音频 4 大方向 20+ 项);(2)制定 NAS 统一目录规范,建议所有新增模型放到 //192.168.71.7/NAS/toiv/comfyui-models/ 下对应子目录;(3)补充场景 LoRA 未覆盖项:恐怖/惊悚、喜剧/浪漫、历史/战争、运镜 LoRA、导演风格 LoRA;(4)补充新方向:HunyuanVideo-I2V/Foley、Mochi 1、CogVideoX、StoryMaker/Consistory、F5-TTS/CosyVoice 2/GPT-SoVITS v3。按 AGENTS.md 未自动 commit,改动保留工作区待用户验收"
   ],
   "infra": {
     "nas_unified_storage_2026_07_28": {
@@ -2392,5 +2392,16 @@
     "feature_notes": "NSFW lipsync 场景下线(译制台承接对口型,后端端点保留);AI 模式 drama 项目无可视化工作台(/api/drama 管线仍在);SSE 跨视图重连等降级项见 TEST_LOG",
     "next": "批3:玻璃全局化+作品库沉浸查看器+登录剧场化+fusion bento;批4:设置页+三态+断点收敛",
     "verified_at": "2026-08-07T18:20:00+08:00"
+  },
+  "ui_refactor_batch3_2026_08_07": {
+    "status": "passed",
+    "scope": "批3:作品库沉浸查看器(LibraryLightbox)+登录剧场化+fusion bento+玻璃全局化(avatartalk/animatic 样式迁全局,AvatarTalkView styled-jsx 清零)",
+    "commits": [
+      "dce1af0"
+    ],
+    "evidence": "本地 e2e 112 passed 基线一致;axe 四页 serious/critical 0;生产 e2e 160 passed/0 failed",
+    "incident": "首次部署误推 8200 本地构建→生产 51 failed;正确重建重部后全绿;deploy.sh 已加 routes-manifest 8200 检出即拒绝的防呆",
+    "next": "批4:设置页+三态覆盖+断点收敛;批3遗留:studio/resources 未 1200 居中(批4版型统一再定)、LibraryView 残余 styled-jsx 清零、音频作品复用提示词绕 audio 草稿",
+    "verified_at": "2026-08-07T19:40:00+08:00"
   }
 }

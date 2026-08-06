@@ -4,6 +4,32 @@
 
 ---
 
+## UI-REFACTOR-B3-2026-08-07 · 批3:沉浸查看器 + 登录剧场化 + fusion bento + 玻璃全局化
+
+**时间**: 2026-08-07
+**类型**: feat(ui) / regression
+**目标**: 质感四件套(重构方案 §4.1/§4.5/§4.8 + §3.2),直击「UI 觉得一般」
+
+### 变更(`dce1af0`,13 文件 +2032/-1412)
+
+| 项 | 落点 |
+|---|---|
+| 作品库沉浸查看器 | `LibraryLightbox`:全出血 + 双玻璃工具条,Esc/←/→ 穿梭,下载/存风格/复用提示词/删除全复用既有逻辑;失败/音频作品可打开;新 token `--overlay-stage`(0.85 深压暗 scrim);Popover 加 zIndex prop |
+| 登录剧场化 | LandingPage 重写:60/40 品牌区+玻璃卡,字段级错误三类,移动单列;styled-jsx 清零,新建 `styles/landing.css` |
+| fusion bento | 5 卡数据驱动(新增图片编辑/视频剪辑两入口),hero 跨列,hover 升档;新建 `styles/fusion.css` |
+| 玻璃全局化 | avatartalk/animatic 样式迁全局(新建 avatartalk.css/animatic.css),AvatarTalkView styled-jsx 清零;globals.css 视图专属样式清空;`.single-view` 1200 居中 |
+
+### 计划外修正(部署事故)
+
+批3 首次部署漏掉「不带 INTERNAL_API_BASE 重建」步骤,把本地验证构建(API 代理烘焙 localhost:8200)推上 core → 生产 e2e **51 failed**(浏览器 /api 全 500,登录后卡 splash)。正确重建重部后 **160 passed 全绿**。**已在 `deploy/deploy.sh` 加防呆**:routes-manifest 检出 localhost:8200 即拒绝部署并提示重建。
+
+### 测试
+
+- 本地全量 e2e **112 passed / 14 环境性 failed** 与基线一致;axe 四页(灯箱/login/fusion/avatartalk)serious/critical 0(灯箱 muted 对比度初扫 2 处已修)
+- 生产 e2e:**160 passed / 0 failed**(事故复跑两次 109/51 后,修复部署回归全绿)
+
+---
+
 ## UI-REFACTOR-B2-2026-08-07 · 批2:FROZEN 视图退役 + NSFW 并入统一工作台
 
 **时间**: 2026-08-07
