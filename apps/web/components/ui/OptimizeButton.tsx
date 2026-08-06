@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Icon, type IconName } from "./Icon";
+import { Popover } from "./Popover";
 import {
   getLocalAgent,
   listAgents,
@@ -99,7 +100,6 @@ export function OptimizeButton({
   const [open, setOpen] = useState(false);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [agentsLoading, setAgentsLoading] = useState(false);
-  const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({});
   const [styleHint, setStyleHint] = useState("");
   const rootRef = useRef<HTMLDivElement | null>(null);
 
@@ -108,42 +108,10 @@ export function OptimizeButton({
 
   const isDisabled = disabled || loading || !prompt.trim();
 
-  // 计算 fixed 定位 Popover 位置，避免被 app-shell overflow:hidden 截断
-  const computePosition = useCallback(() => {
-    if (!rootRef.current) return;
-    const rect = rootRef.current.getBoundingClientRect();
-    const popoverWidth = 260;
-    const gap = 6;
-    let left = rect.left;
-    // 右侧空间不足时向左展开
-    if (left + popoverWidth > window.innerWidth - 16) {
-      left = Math.max(16, rect.right - popoverWidth);
-    }
-    setPopoverStyle({
-      "--ob-popover-top": `${rect.bottom + gap}px`,
-      "--ob-popover-left": `${left}px`,
-    } as React.CSSProperties);
-  }, []);
-
-  // 点击外部关闭 Popover;打开时重算位置并监听窗口变化
+  // 打开 Popover 时回填上次输入的风格描述(定位/关闭交给 ui/Popover 基座)
   useEffect(() => {
-    if (!open) return;
-    computePosition();
-    setStyleHint(loadStyleHint());
-    const onDown = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    window.addEventListener("mousedown", onDown);
-    window.addEventListener("resize", computePosition);
-    window.addEventListener("scroll", computePosition, true);
-    return () => {
-      window.removeEventListener("mousedown", onDown);
-      window.removeEventListener("resize", computePosition);
-      window.removeEventListener("scroll", computePosition, true);
-    };
-  }, [open, computePosition]);
+    if (open) setStyleHint(loadStyleHint());
+  }, [open]);
 
   // 打开 Popover 时拉该 kind 可见智能体(NSFW 过滤交给后端按用户 R18 状态返回)
   useEffect(() => {
@@ -195,11 +163,7 @@ export function OptimizeButton({
     if (newMode) {
       // 新式:允许覆盖 → 弹 Popover;否则直接用全局默认 agent 走
       if (allowAgentOverride) {
-        setOpen((v) => {
-          const next = !v;
-          if (next) requestAnimationFrame(computePosition);
-          return next;
-        });
+        setOpen((v) => !v);
       } else {
         await runOptimize(getLocalAgent());
       }
@@ -234,72 +198,79 @@ export function OptimizeButton({
         {label}
       </button>
 
-      {open && newMode && (
-        <div className="ob-popover" style={popoverStyle}>
-          <div className="ob-popover-header">自定义风格</div>
-          <div className="ob-style-row">
-            <input
-              className="ob-style-input"
-              placeholder="描述你想要的风格,如:赛博朋克霓虹夜景…"
-              value={styleHint}
-              maxLength={500}
-              onChange={(e) => setStyleHint(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && styleHint.trim()) {
-                  e.preventDefault();
-                  void runOptimize(null);
-                }
-              }}
-            />
-            <button
-              type="button"
-              className="ob-style-go"
-              disabled={!styleHint.trim()}
-              onClick={() => void runOptimize(null)}
-            >
-              按此优化
-            </button>
-          </div>
-          <div className="ob-popover-header">或选择智能体</div>
-          {agentsLoading ? (
-            <div className="ob-empty">
-              <span className="loading-spinner">
-                <Icon name="loading" size={13} />
-              </span>
-              加载中…
+      {newMode && (
+        <Popover
+          open={open}
+          anchorRef={rootRef}
+          onClose={() => setOpen(false)}
+          width={260}
+        >
+          <div className="ob-popover">
+            <div className="ob-popover-header">自定义风格</div>
+            <div className="ob-style-row">
+              <input
+                className="ob-style-input"
+                placeholder="描述你想要的风格,如:赛博朋克霓虹夜景…"
+                value={styleHint}
+                maxLength={500}
+                onChange={(e) => setStyleHint(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && styleHint.trim()) {
+                    e.preventDefault();
+                    void runOptimize(null);
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="ob-style-go"
+                disabled={!styleHint.trim()}
+                onClick={() => void runOptimize(null)}
+              >
+                按此优化
+              </button>
             </div>
-          ) : agents.length === 0 ? (
-            <div className="ob-empty">暂无可用智能体</div>
-          ) : (
-            <ul className="ob-list" role="listbox">
-              {agents.map((a) => {
-                const isSel = a.id === getLocalAgent();
-                return (
-                  <li
-                    key={a.id}
-                    role="option"
-                    aria-selected={isSel}
-                    className={`ob-option${isSel ? " is-selected" : ""}`}
-                    onClick={() => void runOptimize(a.id)}
-                    title={a.description || a.name}
-                  >
-                    <Icon
-                      name={agentIcon(a.icon)}
-                      size={13}
-                      className="ob-option-icon"
-                    />
-                    <span className="ob-option-main">
-                      <span className="ob-option-name">{a.name}</span>
-                      {a.description && (
-                        <span className="ob-option-desc">{a.description}</span>
-                      )}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
+            <div className="ob-popover-header">或选择智能体</div>
+            {agentsLoading ? (
+              <div className="ob-empty">
+                <span className="loading-spinner">
+                  <Icon name="loading" size={13} />
+                </span>
+                加载中…
+              </div>
+            ) : agents.length === 0 ? (
+              <div className="ob-empty">暂无可用智能体</div>
+            ) : (
+              <ul className="ob-list" role="listbox">
+                {agents.map((a) => {
+                  const isSel = a.id === getLocalAgent();
+                  return (
+                    <li
+                      key={a.id}
+                      role="option"
+                      aria-selected={isSel}
+                      className={`ob-option${isSel ? " is-selected" : ""}`}
+                      onClick={() => void runOptimize(a.id)}
+                      title={a.description || a.name}
+                    >
+                      <Icon
+                        name={agentIcon(a.icon)}
+                        size={13}
+                        className="ob-option-icon"
+                      />
+                      <span className="ob-option-main">
+                        <span className="ob-option-name">{a.name}</span>
+                        {a.description && (
+                          <span className="ob-option-desc">{a.description}</span>
+                        )}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </Popover>
       )}
 
       <style jsx>{`
@@ -341,12 +312,8 @@ export function OptimizeButton({
           cursor: progress;
         }
 
-        /* 智能体选择 Popover */
+        /* 智能体选择 Popover(定位/portal/关闭由 ui/Popover 基座承载) */
         .ob-popover {
-          position: fixed;
-          top: var(--ob-popover-top, auto);
-          left: var(--ob-popover-left, auto);
-          z-index: var(--z-sticky);
           min-width: 220px;
           max-width: 320px;
           background: var(--bg-surface-1);
@@ -354,7 +321,6 @@ export function OptimizeButton({
           border-radius: var(--radius-panel);
           box-shadow: var(--shadow-xl);
           overflow: hidden;
-          animation: fadeIn var(--duration-base) var(--ease-standard);
         }
         .ob-popover-header {
           padding: var(--space-2) var(--space-3);
