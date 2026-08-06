@@ -4343,3 +4343,12 @@ Route (app)                                 Size  First Load JS
 - **版型 2 工作台反转**:generate-body row-reverse,结果区为左主视觉,参数栏收右侧 surface-1 inspector 卡片,头部 panel-right 开关一键收起全宽;DOM 顺序不变(a11y),移动端回退纵向
 - **版型 3 作品库 masonry**:lib-grid 改 CSS columns(240px),产物走自然宽高比,占位卡(:has)保持方形;lib-thumb-hit 改自然流防塌陷
 - 验证:tsc/build 通过;本地全量 e2e 110 passed;部署 core 后生产 e2e **118 passed / 0 failed**;生产截图确认窄轨默认态、悬停浮出、工作台反转均生效
+
+### 灵动岛导航重构 + a11y 清零(2026-08-06 深夜,用户"还记得灵动岛吗"诉求)
+
+- **IslandNav 复活**(63fb9c4):从 git 历史 b4dd61c 找回旧 DynamicIsland 概念,**纯 CSS 过渡**重写(framer-motion 已在 W0 卸载不重引):顶部居中悬浮胶囊(fixed top 12px),logo 点+ToIV+当前模块名+图标排+账户头像;悬停/focus-within max-width 过渡展开文字标签;账户菜单用 W1 Popover 基座
+- **Sidebar 组件删除**(~250 行 CSS 同清),app-shell 改单列 grid;窄屏 <1024px 回退底部导航;工作台反转/作品库 masonry 与新导航共存不变
+- **a11y 清零**:`--text-muted` #666B76→#8A909C(AA 达标);`.badge-accent` 改实色 accent+`--text-on-accent`;Dub 步骤条非激活态 secondary、锁定态去 opacity 0.4 改 lock 图标;`generate-results` 滚动区 tabIndex=0(scrollable-region-focusable)
+- **验证**:axe 全 10 视图 × {1440×900, 1280×720} 双尺寸 serious/critical 清零;本地全量 e2e **112 passed / 15 failed**(14 个 pathsafe 指向离线 workstation 环境性失败 + 1 个 ux-metrics 已修复);ux-metrics 单跑 1 passed;部署 core 后生产 e2e **120 passed**(pathsafe 7 个失败查明为登录限流 429 非回归)
+- **测试基建修复**(8629c6a):pathsafe-images 每 describe 各自 beforeAll 登录 → 单文件 6 次/min 撞 IP+账号 5/min 限流;改模块级 token 缓存后生产 pathsafe **48 passed / 0 failed**
+- 生产截图:胶囊紧凑态、悬停展开文字标签(对话/图片/视频/音频/融合/画布/作品库/资源)、生成页工作台反转均在 core 确认生效

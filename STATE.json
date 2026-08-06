@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-08-06T23:00:00+08:00",
+  "updated_at": "2026-08-06T19:40:00+08:00",
   "sync_baseline": {
     "id": "SYNC-2026-07-18",
     "type": "initial-sync",
@@ -2284,5 +2284,26 @@
       "prod_screenshots": "窄轨/浮出/反转均生效"
     },
     "deployed_to": "core:/home/merlin/toiv"
+  },
+  "island_nav_2026_08_06": {
+    "context": "用户反馈版型改动不够,点名要回之前的灵动岛效果",
+    "changes": [
+      "IslandNav 顶部居中悬浮胶囊(纯 CSS 过渡,无 framer-motion),悬停/focus 展开文字标签,账户 Popover 菜单",
+      "Sidebar 组件及 ~250 行死 CSS 删除,app-shell 单列布局,窄屏回退底部导航",
+      "a11y 清零:--text-muted 提至 #8A909C;badge-accent 实色化;Dub 锁定态 lock 图标;generate-results tabIndex",
+      "pathsafe-images 登录 token 模块级缓存(修生产 429 限流)"
+    ],
+    "commits": [
+      "63fb9c4",
+      "8629c6a"
+    ],
+    "verify": {
+      "axe": "10 视图 × 2 尺寸 serious/critical 清零",
+      "local_e2e": "112 passed(14 个 pathsafe 环境性失败:指向离线 workstation)",
+      "prod_e2e_core": "120 passed + pathsafe 48 passed(修 429 后)",
+      "prod_screenshots": "胶囊紧凑/悬停展开/工作台反转均生效"
+    },
+    "deployed_to": "core:/home/merlin/toiv",
+    "verified_at": "2026-08-06T19:40:00+08:00"
   }
 }
