@@ -267,16 +267,17 @@ function HomeContent() {
   const [auth, setAuth] = useState<AuthState>("loading");
   const [account, setAccount] = useState<string | null>(null);
   const [view, setView] = useState<View>(() => resolveView(searchParams.get("view")) ?? "assistant");
-  // 侧栏折叠状态(localStorage 记忆);SSR 默认展开,挂载后读取
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // 侧栏折叠状态(localStorage 记忆);Studio Slate 版型默认窄轨(64px 图标栏,悬停浮出),
+  // 仅当用户显式展开过(存 "0")才常驻宽栏
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   // 动态分镜 AI 解析成功后,带项目 id 跳转短剧工作室并直接打开
   const [pendingDramaProjectId, setPendingDramaProjectId] = useState<string | null>(null);
 
   useEffect(() => {
     try {
-      setSidebarCollapsed(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1");
+      setSidebarCollapsed(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) !== "0");
     } catch {
-      /* 隐私模式等场景读不到即保持展开 */
+      /* 隐私模式等场景读不到即保持窄轨 */
     }
   }, []);
 

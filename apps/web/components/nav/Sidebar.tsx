@@ -21,9 +21,9 @@ interface SidebarProps {
 }
 
 /**
- * W0 新应用壳左侧固定边栏(220px,可折叠 56px 图标栏)。
- * 顶部 logo 区 + 8 个一级入口 + 底部用户区(登录态迁移自旧 Topbar)。
- * 激活态:accent-soft 底 + accent 文字;折叠态由 .app-shell.is-collapsed 驱动。
+ * W0 新应用壳左侧边栏。Studio Slate 版型:默认 64px 窄轨(图标 + tooltip),
+ * 悬停/聚焦时浮出为 220px 完整侧栏(覆盖主区,不挤内容);用户可点底部按钮常驻展开。
+ * 激活态:accent-soft 底 + accent 文字 + 2px 左信号条;折叠态由 .app-shell.is-collapsed 驱动。
  */
 export function Sidebar({
   items,
@@ -99,7 +99,7 @@ export function Sidebar({
           <span className="app-sidebar-icon">
             <Icon name={collapsed ? "chevron-right" : "chevron-left"} size={16} />
           </span>
-          <span className="app-sidebar-collapse-label">折叠</span>
+          <span className="app-sidebar-collapse-label">{collapsed ? "展开" : "折叠"}</span>
         </button>
       </div>
     </aside>

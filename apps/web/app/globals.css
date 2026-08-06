@@ -115,7 +115,7 @@
   /* ── 布局 ── */
   --topbar-h: 0px; /* W0 起全局顶栏移除;保留变量避免旧视图 calc() 失效 */
   --sidebar-w: 220px;
-  --sidebar-w-collapsed: 56px;
+  --sidebar-w-collapsed: 64px;
   --rightpanel-w: 220px;
   --bottomnav-h: 0px;
 
@@ -329,6 +329,7 @@ img, video {
 /* ========== App Shell(左侧边栏布局) ========== */
 
 .app-shell {
+  position: relative;
   display: grid;
   grid-template-columns: var(--sidebar-w) 1fr;
   grid-template-rows: 1fr var(--bottomnav-h);
@@ -538,7 +539,7 @@ img, video {
   color: var(--text-primary);
 }
 
-/* ── 折叠态(56px 图标栏) ── */
+/* ── 折叠态(64px 图标栏) ── */
 .app-shell.is-collapsed .app-sidebar-logo {
   padding: 0;
   justify-content: center;
@@ -554,6 +555,52 @@ img, video {
 .app-shell.is-collapsed .app-sidebar-collapse {
   justify-content: center;
   padding: 0;
+}
+
+/* ── Studio Slate 版型:窄轨悬停浮出(桌面,覆盖主区不挤内容) ── */
+@media (min-width: 1024px) {
+  .app-shell.is-collapsed .app-sidebar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: var(--sidebar-w-collapsed);
+    transition: width var(--duration-base) var(--ease-standard),
+                box-shadow var(--duration-base) var(--ease-standard);
+  }
+  .app-shell.is-collapsed .app-sidebar:hover,
+  .app-shell.is-collapsed .app-sidebar:focus-within {
+    width: var(--sidebar-w);
+    box-shadow: var(--shadow-float);
+  }
+  .app-shell.is-collapsed .app-sidebar:hover .app-sidebar-logo,
+  .app-shell.is-collapsed .app-sidebar:focus-within .app-sidebar-logo {
+    padding: 0 var(--space-4);
+    justify-content: flex-start;
+  }
+  .app-shell.is-collapsed .app-sidebar:hover .app-sidebar-logo-text,
+  .app-shell.is-collapsed .app-sidebar:hover .app-sidebar-label,
+  .app-shell.is-collapsed .app-sidebar:hover .app-sidebar-account-email,
+  .app-shell.is-collapsed .app-sidebar:hover .app-sidebar-collapse-label,
+  .app-shell.is-collapsed .app-sidebar:focus-within .app-sidebar-logo-text,
+  .app-shell.is-collapsed .app-sidebar:focus-within .app-sidebar-label,
+  .app-shell.is-collapsed .app-sidebar:focus-within .app-sidebar-account-email,
+  .app-shell.is-collapsed .app-sidebar:focus-within .app-sidebar-collapse-label {
+    display: block;
+  }
+  .app-shell.is-collapsed .app-sidebar:hover .app-sidebar-item,
+  .app-shell.is-collapsed .app-sidebar:hover .app-sidebar-account,
+  .app-shell.is-collapsed .app-sidebar:hover .app-sidebar-collapse,
+  .app-shell.is-collapsed .app-sidebar:focus-within .app-sidebar-item,
+  .app-shell.is-collapsed .app-sidebar:focus-within .app-sidebar-account,
+  .app-shell.is-collapsed .app-sidebar:focus-within .app-sidebar-collapse {
+    justify-content: flex-start;
+    padding: 0 var(--space-3);
+  }
+  .app-shell.is-collapsed .app-sidebar:hover .app-sidebar-account,
+  .app-shell.is-collapsed .app-sidebar:focus-within .app-sidebar-account {
+    padding: 0 var(--space-2);
+  }
 }
 
 /* ========== Main Content ========== */
