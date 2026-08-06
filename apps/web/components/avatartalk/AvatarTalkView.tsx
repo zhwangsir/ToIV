@@ -16,6 +16,7 @@ import {
   otCreateSession,
   otStartSession,
   otSpeak,
+  otSpeakAudio,
   otInterrupt,
   otConnectSse,
   otStartWebRTC,
@@ -95,6 +96,13 @@ function avatarPreviewUrl(id: string): string {
   return `/api/opentalking/avatars/${encodeURIComponent(id)}/preview${q}`;
 }
 
+/** 选一个浏览器支持、引擎 ffmpeg 也能解码的录音 mime。 */
+function pickAudioMime(): string | undefined {
+  if (typeof MediaRecorder === "undefined") return undefined;
+  const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
+  return candidates.find((t) => MediaRecorder.isTypeSupported(t));
+}
+
 export function AvatarTalkView() {
   const toast = useToast();
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -118,6 +126,9 @@ export function AvatarTalkView() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 语音输入:录音中 / 上传识别中(STT 期间锁定输入区)
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -125,6 +136,9 @@ export function AvatarTalkView() {
   // WebRTC 只启动一次:SSE ready 事件与 start 响应都可能触发,避免重复建连
   const webrtcStartedRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   // 引擎探活:首屏 + 每 30s 轮询,卸载清理;失败按「引擎离线」处理
   useEffect(() => {
@@ -354,7 +368,99 @@ export function AvatarTalkView() {
     }
   }, [sessionId]);
 
+  /** 释放麦克风资源(录音中止/会话结束/组件卸载共用)。 */
+  const releaseMic = useCallback(() => {
+    const mr = mediaRecorderRef.current;
+    if (mr) {
+      // 丢弃式停止:先摘掉回调,避免 stop 触发 onstop 上传已放弃的录音
+      mr.onstop = null;
+      mr.ondataavailable = null;
+      if (mr.state !== "inactive") {
+        try {
+          mr.stop();
+        } catch {
+          /* 已停止 */
+        }
+      }
+    }
+    mediaRecorderRef.current = null;
+    if (micStreamRef.current) {
+      for (const t of micStreamRef.current.getTracks()) t.stop();
+      micStreamRef.current = null;
+    }
+    audioChunksRef.current = [];
+    setIsRecording(false);
+  }, []);
+
+  /** 语音输入:点一下开始录音,再点一下停止 → 上传 STT → 识别文本作为用户消息进入 speak 流水线。 */
+  const handleMicToggle = useCallback(async () => {
+    if (!sessionId || isSpeaking || isTranscribing) return;
+
+    // —— 停止并上传 ——
+    if (isRecording) {
+      const mr = mediaRecorderRef.current;
+      if (!mr) {
+        releaseMic();
+        return;
+      }
+      setIsRecording(false);
+      setIsTranscribing(true);
+      mr.onstop = () => {
+        void (async () => {
+          const mime = mr.mimeType || "audio/webm";
+          const blob = new Blob(audioChunksRef.current, { type: mime });
+          releaseMic();
+          try {
+            if (blob.size === 0) throw new Error("没有录到声音,请重试");
+            const ext = mime.includes("mp4") ? "mp4" : "webm";
+            const r = await otSpeakAudio(sessionId, blob, `speech.${ext}`);
+            const text = (r.text || "").trim();
+            if (text) {
+              setMessages((prev) => [
+                ...prev,
+                { id: genId(), role: "user", text, isFinal: true, timestamp: new Date() },
+              ]);
+            }
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "语音识别失败");
+          } finally {
+            setIsTranscribing(false);
+          }
+        })();
+      };
+      mr.stop();
+      return;
+    }
+
+    // —— 开始录音 ——
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      setError("当前浏览器不支持麦克风录音");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mime = pickAudioMime();
+      const mr = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+      micStreamRef.current = stream;
+      mediaRecorderRef.current = mr;
+      audioChunksRef.current = [];
+      mr.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      mr.start();
+      setIsRecording(true);
+    } catch {
+      releaseMic();
+      setError("无法访问麦克风,请检查浏览器授权");
+    }
+  }, [sessionId, isSpeaking, isRecording, isTranscribing, releaseMic]);
+
+  // 卸载兜底:释放麦克风
+  useEffect(() => releaseMic, [releaseMic]);
+
   const handleEnd = useCallback(() => {
+    releaseMic();
+    setIsTranscribing(false);
     if (cleanupSseRef.current) cleanupSseRef.current();
     if (pcRef.current) pcRef.current.close();
     cleanupSseRef.current = null;
@@ -365,7 +471,7 @@ export function AvatarTalkView() {
     setIsSpeaking(false);
     setSubtitle("");
     setError(null);
-  }, []);
+  }, [releaseMic]);
 
   const hasSession = sessionId !== null;
   const selectedAvatarInfo = avatars.find((a) => a.id === selectedAvatar);
@@ -489,6 +595,9 @@ export function AvatarTalkView() {
               onSend={handleSend}
               onInterrupt={handleInterrupt}
               onEnd={handleEnd}
+              isRecording={isRecording}
+              isTranscribing={isTranscribing}
+              onMicToggle={handleMicToggle}
               messagesEndRef={messagesEndRef}
             />
           )}
@@ -1218,6 +1327,10 @@ interface ConversationPanelProps {
   onSend: () => void;
   onInterrupt: () => void;
   onEnd: () => void;
+  /** 语音输入:录音中 / 识别中 / 点击切换录音 */
+  isRecording: boolean;
+  isTranscribing: boolean;
+  onMicToggle: () => void;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
 }
 
@@ -1230,6 +1343,9 @@ function ConversationPanel({
   onSend,
   onInterrupt,
   onEnd,
+  isRecording,
+  isTranscribing,
+  onMicToggle,
   messagesEndRef,
 }: ConversationPanelProps) {
   return (
@@ -1284,8 +1400,33 @@ function ConversationPanel({
           value={input}
           onChange={(e) => onInputChange(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && onSend()}
-          placeholder={isSpeaking ? "数字人正在说话..." : "输入消息..."}
-          disabled={isSpeaking}
+          placeholder={
+            isSpeaking
+              ? "数字人正在说话..."
+              : isRecording
+                ? "录音中,再点麦克风结束..."
+                : isTranscribing
+                  ? "识别中..."
+                  : "输入消息或点麦克风说话..."
+          }
+          disabled={isSpeaking || isRecording || isTranscribing}
+        />
+        <Button
+          variant={isRecording ? "danger" : "ghost"}
+          className={`at-composer-btn${isRecording ? " at-mic-recording" : ""}`}
+          onClick={onMicToggle}
+          disabled={isSpeaking || isTranscribing}
+          title={isRecording ? "结束录音并识别" : isTranscribing ? "识别中..." : "语音输入"}
+          aria-label={isRecording ? "结束录音" : "语音输入"}
+          icon={
+            isTranscribing ? (
+              <span className="loading-spinner">
+                <Icon name="loading" size={14} />
+              </span>
+            ) : (
+              <Icon name="mic" size={16} />
+            )
+          }
         />
         {isSpeaking ? (
           <Button
@@ -1408,6 +1549,24 @@ function ConversationPanel({
           padding: 0;
           border-radius: var(--radius-full);
           flex-shrink: 0;
+        }
+        /* 录音中:红色呼吸脉冲提示 */
+        .at-composer :global(.at-mic-recording) {
+          animation: at-mic-pulse 1.2s var(--ease-standard) infinite;
+        }
+        @keyframes at-mic-pulse {
+          0%,
+          100% {
+            box-shadow: 0 0 0 0 var(--danger-glow, rgba(239, 68, 68, 0.4));
+          }
+          50% {
+            box-shadow: 0 0 0 6px transparent;
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .at-composer :global(.at-mic-recording) {
+            animation: none;
+          }
         }
       `}</style>
     </div>

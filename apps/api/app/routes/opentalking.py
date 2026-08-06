@@ -6,7 +6,8 @@
 - 简单 GET (/health /models /avatars /voices /personas /runtime-config /queue/status
   /sessions/webrtc/ice-config) 走通配 GET 代理。
 - SSE (GET /sessions/{id}/events) 用 httpx.stream() 字节级透传,复用 ?token= 鉴权。
-- POST (/sessions /sessions/{id}/start|speak|interrupt|webrtc/offer) 显式声明,body 透传。
+- POST (/sessions /sessions/{id}/start|speak|interrupt|webrtc/offer) 显式声明,body 透传;
+  /sessions/{id}/speak_audio 为 multipart 透传(语音输入 → STT → 自动说话)。
 - WebRTC 媒体流不经过本代理(SRTP P2P 直连 OpenTalking UDP 端口),仅信令(POST /webrtc/offer)走代理。
 
 参考蓝本: routes/voice.py(httpx.AsyncClient + trust_env=False 防 SSRF)。
@@ -342,6 +343,51 @@ async def interrupt(
 ) -> Response:
     _check_enabled()
     return await _proxy_post(f"{_ot_base()}/sessions/{session_id}/interrupt", body)
+
+
+@router.post("/opentalking/sessions/{session_id}/speak_audio", response_model=None)
+async def speak_audio(
+    session_id: str,
+    request: Request,
+    user: User = Depends(get_current_user),
+) -> Response:
+    """语音输入:麦克风音频 → STT → 自动说话(multipart 透传到 OpenTalking /speak_audio)。
+
+    与 JSON 代理不同:这里转发 multipart/form-data(file + 可选 voice/tts_provider/
+    stt_provider 等表单字段),STT 识别 + LLM + TTS 排队可能超过普通 POST,超时放宽。
+    """
+    _check_enabled()
+    form = await request.form()
+    upload = form.get("file")
+    if upload is None or not hasattr(upload, "read"):
+        raise HTTPException(status_code=400, detail="missing audio file")
+    content = await upload.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="empty audio")
+    files = {
+        "file": (
+            getattr(upload, "filename", None) or "speech.webm",
+            content,
+            getattr(upload, "content_type", None) or "application/octet-stream",
+        )
+    }
+    data = {k: v for k, v in form.multi_items() if k != "file" and isinstance(v, str)}
+    try:
+        async with httpx.AsyncClient(
+            timeout=120.0, follow_redirects=True, trust_env=False
+        ) as client:
+            r = await client.post(
+                f"{_ot_base()}/sessions/{session_id}/speak_audio", files=files, data=data
+            )
+    except httpx.TimeoutException as e:
+        raise _unreachable(f"数字人引擎语音识别超时: {e}") from e
+    except httpx.HTTPError as e:
+        raise _unreachable(f"数字人引擎不可达: {e}") from e
+    return Response(
+        content=r.content,
+        status_code=r.status_code,
+        media_type=r.headers.get("content-type"),
+    )
 
 
 @router.post("/opentalking/sessions/{session_id}/webrtc/offer")

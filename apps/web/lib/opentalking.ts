@@ -179,6 +179,29 @@ export async function otInterrupt(sessionId: string): Promise<void> {
   if (!res.ok) throw new ApiError(res.status, null);
 }
 
+export type SpeakAudioResponse = {
+  session_id: string;
+  status: string;
+  /** STT 识别出的文本(引擎返回,前端据此回填用户消息) */
+  text: string;
+};
+
+/** 语音输入:上传麦克风音频 → 引擎 STT → 自动走 speak 流水线(LLM→TTS→数字人)。 */
+export async function otSpeakAudio(
+  sessionId: string,
+  blob: Blob,
+  filename = "speech.webm",
+): Promise<SpeakAudioResponse> {
+  const form = new FormData();
+  form.append("file", blob, filename);
+  // 不手动设 Content-Type:浏览器自动带 multipart boundary
+  const res = await otFetch(`/sessions/${sessionId}/speak_audio`, {
+    method: "POST",
+    body: form,
+  });
+  return handleResponse<SpeakAudioResponse>(res);
+}
+
 export type SseCleanup = () => void;
 
 export function otConnectSse(
