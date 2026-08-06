@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-08-06T15:35:00+08:00",
+  "updated_at": "2026-08-06T18:30:00+08:00",
   "sync_baseline": {
     "id": "SYNC-2026-07-18",
     "type": "initial-sync",
@@ -2255,5 +2255,20 @@
     "specs": "views/home/api/auth-flow/authed-views(12 视图)/authed-api/authed-ux-metrics/authed-studio",
     "note": "playwright.prod.config.ts 目标从 workstation docker 更新为 core(192.168.71.47:3100/8090);authed-agents-* 未对生产跑(避免污染生产 agents 表)",
     "verified_at": "2026-08-06T15:35:00+08:00"
+  },
+  "ui_redesign_v2_2026_08_06": {
+    "plan": "docs/2026-08-06-ui-redesign-v2-plan.md",
+    "theme": "Studio Slate 影棚岩板:中性深灰 + 信号橙 #F06418,去紫,IA 九入口不变",
+    "w0": "token 全换 + 死代码清理(ModelPicker/AgentSwitcher/5 个 hooks/lib/motion.ts/framer-motion)+ 侧栏信号条",
+    "w1": "components/ui/Popover.tsx 统一弹层基座,OptimizeButton 迁入",
+    "w2": "FusionView bento 重写;ResultPanel/LibraryView 编辑部式空态;AssistantView 问候式首屏",
+    "w3": "九视图截图全过;StudioView legacy --color-danger→--err",
+    "verify": {
+      "backend_pytest": "967 passed",
+      "local_e2e": "12 passed",
+      "prod_e2e_core": "119 passed / 0 failed",
+      "prod_screenshots": "融合 bento + 作品库空态在 core 生产确认生效"
+    },
+    "deployed_to": "core:/home/merlin/toiv (deploy/deploy.sh)"
   }
 }
