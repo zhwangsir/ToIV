@@ -4385,3 +4385,12 @@ Route (app)                                 Size  First Load JS
 - **集成坑 3**:SPA 路由是 `/?view=X` 不是 `/X`——临时验证脚本(axe/截图)打错 URL 会全 404 且 axe 对 404 页「 vacuous pass 」,脚本必须加 404 探测
 - **验证**:tsc/build 通过;axe 10 视图 × {1440×900,1280×720} serious/critical 清零(iframe 除外);本地全量 e2e **113 passed / 14 failed**(全部 pathsafe 环境性:指向离线 workstation 旧默认值,与基线一致;34 did not run 为既有常量);部署 core 两轮后生产 e2e **161 passed / 0 failed**;生产截图确认对话历史面板/图片工作台/作品库生效
 - 遗留:toast 根治需 ui/Toast 让位;ParamField placeholder 更优解;会话跨端需后端 API;seed 精度是后端 2^53 问题;pc02(:8193) 关机为既有状态
+
+### 优化提示词联动负向提示词(2026-08-07,14b4a9c + 6a6e160)
+
+- 需求:点「优化提示词」时 AI 理解创作意图,自动填入反向效果与低质词作为负向提示词;调研 2025-2026 最佳实践([QWE 2025](https://www.qwe.edu.pl/tutorial/negative-prompts-stable-diffusion/)):负面词贵在精炼(5-15 个具体可视词),抽象评价词(ugly/bad)无效,堆砌长列表反而降质;SDXL/Flux 与 SD1.5 差异大
+- 现状盘点:后端 `/api/optimize` 图像类本就返回 negative 且 GenerateView 已回填——但①回填静默不可见(负向框收在默认折叠的高级参数里)②video kind 不产出 negative(LTX2/H3 引擎都吃 negative)
+- **后端**(optimize.py):video kind 改 JSON 输出 positive+negative(视频瑕疵词 flickering/morphing/shaky camera,人物补解剖词,LLM 未给时 `_VIDEO_GENERIC_NEGATIVE` 兜底);图像类系统提示补「精炼 5~15 词、只用具体可视词」规则;未知 kind 兜底改通用单段(原落 video)
+- **前端**:GenerateView 负向回填后 toast「已自动填入负向提示词」+ 高级参数抽屉自动展开;NsfwVideoView negative 回填并自动展开负向面板
+- **顺修配置**(6a6e160):config.py LLM 默认端点 192.168.71.127(已停用 Nemotron)→ 192.168.71.84(spark02);本地 apps/api/.env(不入库)同步修正——此前本地 /api/optimize 全链路 502
+- **验证**:pytest 968 passed(含 video 新契约 2 用例);本地 UI 实证(toast+抽屉展开+负向框填入+题材匹配负面词);生产冒烟 video/image negative 题材匹配;部署 core 后生产 e2e **161 passed / 0 failed**

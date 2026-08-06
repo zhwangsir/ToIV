@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-08-07T01:05:00+08:00",
+  "updated_at": "2026-08-07T02:10:00+08:00",
   "sync_baseline": {
     "id": "SYNC-2026-07-18",
     "type": "initial-sync",
@@ -2373,5 +2373,28 @@
     ],
     "deployed_to": "core:/home/merlin/toiv (deploy/deploy.sh)",
     "verified_at": "2026-08-07T01:05:00+08:00"
+  },
+  "optimize_negative_autofill_2026_08_07": {
+    "requirement": "点优化提示词时 AI 理解意图自动填入负向提示词(反向效果+低质词)",
+    "research": "2025-2026 负面词最佳实践:精炼 5-15 个具体可视词,抽象词无效,堆砌降质",
+    "changes": [
+      "后端 video kind JSON 输出 positive+negative(视频瑕疵词+人物解剖词+通用兜底)",
+      "图像类系统提示补精炼负面词规则",
+      "GenerateView 回填后 toast + 高级参数抽屉自动展开(原静默不可见)",
+      "NsfwVideoView negative 回填+展开",
+      "config.py LLM 默认端点修正 spark02(原 Nemotron 已停用,本地 502 根治)"
+    ],
+    "commits": [
+      "14b4a9c",
+      "6a6e160"
+    ],
+    "verify": {
+      "pytest": "968 passed(含 video 新契约 2 用例)",
+      "local_ui": "toast+抽屉展开+负向框填入实证",
+      "prod_smoke": "image/video negative 题材匹配",
+      "prod_e2e_core": "161 passed / 0 failed"
+    },
+    "deployed_to": "core:/home/merlin/toiv (deploy/deploy.sh)",
+    "verified_at": "2026-08-07T02:10:00+08:00"
   }
 }
