@@ -310,10 +310,7 @@ export function AssistantView() {
 
         {isEmpty ? (
           <div className="av-empty">
-            <div className="av-empty-icon">
-              <Icon name="chat" size={48} strokeWidth={1.1} />
-            </div>
-            <div className="av-empty-title">ToIV 对话助手</div>
+            <div className="av-empty-title">今天想创作什么?</div>
             <div className="av-empty-desc">{MODEL_DESC}</div>
             <div className="av-quick-grid">
               {QUICK_ACTIONS.map((a) => (
@@ -687,16 +684,11 @@ export function AssistantView() {
           min-height: 100%;
           text-align: center;
         }
-        .av-empty-icon {
-          color: var(--text-muted);
-          opacity: 0.5;
-          margin-bottom: var(--space-2);
-        }
         .av-empty-title {
-          font-size: var(--text-title);
-          font-weight: 700;
+          font-size: 32px;
+          font-weight: 650;
           color: var(--text-primary);
-          letter-spacing: -0.01em;
+          letter-spacing: -0.02em;
         }
         .av-empty-desc {
           font-size: var(--text-body);

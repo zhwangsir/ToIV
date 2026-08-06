@@ -7,7 +7,6 @@ import type { JobItem } from "@/lib/types";
 import { Icon } from "@/components/ui/Icon";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Empty } from "@/components/ui/Empty";
 import { Modal } from "@/components/ui/Modal";
 import { Tabs } from "@/components/ui/Tabs";
 
@@ -297,11 +296,11 @@ export function LibraryView() {
         )}
 
         {!error && !loading && isEmpty && (
-          <Empty
-            icon="library"
-            title="还没有作品"
-            desc="去创作页面生成第一件作品"
-          />
+          <div className="lib-empty">
+            <span className="lib-empty-kicker">作品库</span>
+            <h2 className="lib-empty-display">这里还空空如也</h2>
+            <p className="lib-empty-desc">去图片 / 视频 / 音频工作台生成第一件作品,完成后会自动收录到这里。</p>
+          </div>
         )}
 
         {!error && !loading && !isEmpty && (
@@ -527,6 +526,35 @@ export function LibraryView() {
 
         .lib-body {
           min-height: 200px;
+        }
+
+        .lib-empty {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: var(--space-3);
+          padding: var(--space-6) var(--space-2);
+        }
+        .lib-empty-kicker {
+          font-size: var(--text-label);
+          font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.12em;
+          color: var(--accent);
+        }
+        .lib-empty-display {
+          margin: 0;
+          font-size: 32px;
+          font-weight: 650;
+          letter-spacing: -0.02em;
+          color: var(--text-primary);
+        }
+        .lib-empty-desc {
+          margin: 0;
+          font-size: var(--text-sm);
+          color: var(--text-muted);
+          max-width: 420px;
+          line-height: 1.6;
         }
 
         .lib-grid {

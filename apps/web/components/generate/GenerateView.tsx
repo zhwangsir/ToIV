@@ -444,8 +444,9 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
           color: var(--text-muted);
         }
         .generate-board-title {
-          font-size: var(--text-section);
-          font-weight: 600;
+          font-size: var(--text-title);
+          font-weight: 700;
+          letter-spacing: -0.02em;
           color: var(--text-primary);
         }
         .prompt-field {
