@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Card } from "@/components/ui/Card";
 import { Icon, type IconName } from "@/components/ui/Icon";
@@ -13,8 +13,8 @@ interface FusionApp {
   desc: string;
   /** 能力标签,用于卡片底部 chips */
   tags: string[];
-  /** 主视觉渐变(与全局 accent 协调的低饱和双色) */
-  gradient: string;
+  /** 旗舰卡:bento 网格中通栏展示(更大的信息容量) */
+  flagship?: boolean;
 }
 
 const FUSION_APPS: FusionApp[] = [
@@ -24,7 +24,7 @@ const FUSION_APPS: FusionApp[] = [
     name: "创作工作室",
     desc: "剧本 → 角色 → 分镜 → 成片:每个分镜独立选择视频生成或图像运镜,一站式创作。",
     tags: ["AI 拆解", "分镜混排", "配音合成"],
-    gradient: "linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(139,92,246,0.04) 100%)",
+    flagship: true,
   },
   {
     target: "avatartalk",
@@ -32,7 +32,6 @@ const FUSION_APPS: FusionApp[] = [
     name: "数字人",
     desc: "实时对话数字人:语音交互、口型驱动,面对面交流。",
     tags: ["实时对话", "口型驱动", "WebRTC"],
-    gradient: "linear-gradient(135deg, rgba(236,72,153,0.08) 0%, rgba(244,114,182,0.04) 100%)",
   },
   {
     target: "dub",
@@ -40,39 +39,24 @@ const FUSION_APPS: FusionApp[] = [
     name: "译制",
     desc: "视频听写、翻译、克隆配音、对口型,一站式多语言译制。",
     tags: ["语音克隆", "多语言", "对口型"],
-    gradient: "linear-gradient(135deg, rgba(59,130,246,0.08) 0%, rgba(96,165,250,0.04) 100%)",
   },
 ];
 
 /**
- * 融合应用聚合页(M3/M4):应用卡点击「进入」跳转对应视图(不重写子应用)。
- * M4-studio:短剧/漫剧双卡合并为「创作工作室」(studio 模块,分镜级混合生成)。
- *
- * M4 和谐化:统一卡片网格节奏、微交互动效、与全局 Film Atelier 语言对齐。
+ * 融合应用聚合页(Studio Slate W2 重做):
+ * - bento 不对称网格:旗舰「创作工作室」通栏大卡 + 两个半宽卡;
+ * - 去掉鼠标跟随光晕与彩色渐变(装饰性动效,违反 Studio Slate 功能动效原则);
+ * - 交互只剩功能性:hover 升面 + 箭头揭示,入场错峰(遵守 reduced-motion)。
  */
 export function FusionView({ onNavigate }: { onNavigate: (target: string) => void }) {
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [mounted, setMounted] = useState(false);
-  const gridRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    const cards = gridRef.current?.querySelectorAll(".fusion-card");
-    if (!cards) return;
-    cards.forEach((card) => {
-      const rect = card.getBoundingClientRect();
-      const x = ((e.clientX - rect.left) / rect.width) * 100;
-      const y = ((e.clientY - rect.top) / rect.height) * 100;
-      (card as HTMLElement).style.setProperty("--mouse-x", `${x}%`);
-      (card as HTMLElement).style.setProperty("--mouse-y", `${y}%`);
-    });
-  }, []);
-
   return (
-    <div className="fusion-view" onMouseMove={handleMouseMove}>
+    <div className="fusion-view">
       {/* ── 头部 ── */}
       <header className="fusion-header">
         <div className="fusion-header-main">
@@ -84,28 +68,20 @@ export function FusionView({ onNavigate }: { onNavigate: (target: string) => voi
         </div>
       </header>
 
-      {/* ── 应用卡片网格 ── */}
-      <div className="fusion-grid" ref={gridRef}>
+      {/* ── bento 应用卡网格 ── */}
+      <div className="fusion-grid">
         {FUSION_APPS.map((app, idx) => (
           <Card
             key={app.name}
             hoverable
-            className={`fusion-card${mounted ? " is-mounted" : ""}`}
-            style={{
-              "--card-gradient": app.gradient,
-              "--delay": `${idx * 60}ms`,
-            } as React.CSSProperties}
-            onMouseEnter={() => setHoveredIndex(idx)}
-            onMouseLeave={() => setHoveredIndex(null)}
+            className={`fusion-card${app.flagship ? " is-flagship" : ""}${mounted ? " is-mounted" : ""}`}
+            style={{ "--delay": `${idx * 60}ms` } as React.CSSProperties}
             onClick={() => onNavigate(app.target)}
           >
-            {/* 背景光晕 */}
-            <div className="fusion-card-glow" aria-hidden="true" />
-
             {/* 图标 + 名称 */}
             <div className="fusion-card-head">
               <div className="fusion-card-icon-wrap">
-                <Icon name={app.icon} size={22} />
+                <Icon name={app.icon} size={app.flagship ? 26 : 22} />
               </div>
               <div className="fusion-card-title-group">
                 <h3 className="fusion-card-name">{app.name}</h3>
@@ -185,12 +161,15 @@ export function FusionView({ onNavigate }: { onNavigate: (target: string) => voi
           border-radius: var(--radius-full);
         }
 
-        /* ── 网格 ── */
+        /* ── bento 网格:旗舰卡通栏,其余半宽 ── */
         .fusion-grid {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
           gap: var(--space-4);
           max-width: 960px;
+        }
+        .fusion-view :global(.fusion-card.is-flagship) {
+          grid-column: 1 / -1;
         }
         @media (max-width: 720px) {
           .fusion-grid {
@@ -210,43 +189,22 @@ export function FusionView({ onNavigate }: { onNavigate: (target: string) => voi
           background: var(--bg-surface-1);
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-panel);
-          transition:
-            transform var(--duration-base) var(--ease-standard),
-            border-color var(--duration-base) var(--ease-standard),
-            box-shadow var(--duration-base) var(--ease-standard);
           opacity: 0;
           transform: translateY(12px);
-        }
-        .fusion-view :global(.fusion-card.is-mounted) {
-          opacity: 1;
-          transform: translateY(0);
           transition:
             opacity var(--duration-base) var(--ease-standard) var(--delay),
             transform var(--duration-base) var(--ease-standard) var(--delay),
             border-color var(--duration-base) var(--ease-standard),
             box-shadow var(--duration-base) var(--ease-standard);
         }
+        .fusion-view :global(.fusion-card.is-mounted) {
+          opacity: 1;
+          transform: translateY(0);
+        }
         .fusion-view :global(.fusion-card:hover) {
           transform: translateY(-2px);
-          border-color: var(--border-strong);
+          border-color: var(--accent-glow);
           box-shadow: var(--shadow-lg);
-        }
-
-        /* 背景光晕(跟随鼠标) */
-        .fusion-card-glow {
-          position: absolute;
-          inset: 0;
-          background: radial-gradient(
-            600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
-            var(--card-gradient),
-            transparent 40%
-          );
-          opacity: 0;
-          transition: opacity var(--duration-base) var(--ease-standard);
-          pointer-events: none;
-        }
-        .fusion-view :global(.fusion-card:hover) .fusion-card-glow {
-          opacity: 1;
         }
 
         /* 图标 + 名称 */
@@ -265,10 +223,10 @@ export function FusionView({ onNavigate }: { onNavigate: (target: string) => voi
           background: var(--accent-soft);
           color: var(--accent);
           flex-shrink: 0;
-          transition: transform var(--duration-base) var(--ease-standard);
         }
-        .fusion-view :global(.fusion-card:hover) .fusion-card-icon-wrap {
-          transform: scale(1.05);
+        .fusion-view :global(.fusion-card.is-flagship) .fusion-card-icon-wrap {
+          width: 52px;
+          height: 52px;
         }
         .fusion-card-title-group {
           display: flex;
@@ -283,6 +241,9 @@ export function FusionView({ onNavigate }: { onNavigate: (target: string) => voi
           font-weight: 600;
           color: var(--text-primary);
           letter-spacing: -0.01em;
+        }
+        .fusion-view :global(.fusion-card.is-flagship) .fusion-card-name {
+          font-size: 17px;
         }
         .fusion-card-arrow {
           color: var(--text-muted);
@@ -358,15 +319,12 @@ export function FusionView({ onNavigate }: { onNavigate: (target: string) => voi
 
         /* 动效偏好 */
         @media (prefers-reduced-motion: reduce) {
-          .fusion-view :global(.fusion-card),
-          .fusion-view :global(.fusion-card.is-mounted) {
+          .fusion-view :global(.fusion-card) {
             opacity: 1;
             transform: none;
             transition: none;
           }
-          .fusion-card-glow,
-          .fusion-card-arrow,
-          .fusion-card-icon-wrap {
+          .fusion-card-arrow {
             transition: none;
           }
         }
