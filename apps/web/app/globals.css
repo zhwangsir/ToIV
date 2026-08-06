@@ -1,9 +1,9 @@
 /* ──────────────────────────────────────────────────────────
-   ToIV 设计系统 v4 — Studio Slate(影棚岩板)
-   2026-08-06 定调:DaVinci 式专业影棚,中性深灰骨架 + 信号橙单点强调,
-   生成的图/视频/数字人是唯一色彩来源,UI 退后为精密仪器
-   依据:docs/2026-08-06-ui-redesign-v2-plan.md(取代 08-03 紫色 Obsidian)
-   深色单主题 · token 驱动 · 4px 间距基数 · 动效 ≤200ms ease-out
+   ToIV 设计系统 v5 — 曜石熔岩(Obsidian Lava)
+   2026-08-06 定调:暖调纯黑画布 + 熔岩橙单点强调 + 玻璃材质 + 光影深度,
+   取代 v4 Studio Slate 的冷灰骨架(用户反馈:灰底发闷、橙显廉价、扁平无光影)
+   依据:docs/2026-08-06-ui-v3-dark-mirror-stage-plan.md
+   深色单主题 · token 驱动 · 4px 间距基数 · 动效 ease-out + spring
    ────────────────────────────────────────────────────────── */
 
 /* ========== Design Tokens(W0 新 token 层) ========== */
@@ -17,42 +17,49 @@
   --font-display: var(--font-fraunces), var(--font-sans);
   --font-mono: var(--font-jetbrains), "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
-  /* ── 色彩:画布/面板层级(中性灰,去紫味) ── */
-  --bg-canvas: #0E0E11;
-  --bg-surface-1: #15151A;
-  --bg-surface-2: #1C1C23;
-  --bg-surface-3: #24242D;
+  /* ── 色彩:画布/面板层级(暖调纯黑阶梯,去冷灰) ── */
+  --bg-canvas: #0A0908;
+  --bg-surface-1: #131110;
+  --bg-surface-2: #1A1715;
+  --bg-surface-3: #242019;
 
   /* ── 描边 ── */
   --border-subtle: rgba(255, 255, 255, 0.07);
   --border-strong: rgba(255, 255, 255, 0.14);
 
-  /* ── 文字(冷灰阶梯;muted 取 #8A909C:在最深 bg-canvas 上 ≥4.5:1,过 WCAG AA) ── */
-  --text-primary: #EDEDEF;
-  --text-secondary: #9CA0AA;
-  --text-muted: #8A909C;
+  /* ── 文字(暖白阶梯;muted 取 #8F877B:在最深 bg-canvas 上 5.6:1、最浅 surface-3 上 4.57:1,过 WCAG AA) ── */
+  --text-primary: #F5F1EA;
+  --text-secondary: #B8B0A4;
+  --text-muted: #8F877B;
 
-  /* ── 强调色(唯一 accent:信号橙;橙底文字用近黑保对比) ── */
-  --accent: #F06418;
-  --accent-hover: #FF7F3D;
-  --accent-soft: rgba(240, 100, 24, 0.13);
-  --accent-glow: rgba(240, 100, 24, 0.28);
-  --text-on-accent: #14100C;
+  /* ── 强调色(唯一 accent:熔岩橙;橙底文字用深暖棕保对比) ── */
+  --accent: #FF6B2C;
+  --accent-hover: #FF8547;
+  --accent-soft: rgba(255, 107, 44, 0.14);
+  --accent-glow: rgba(255, 107, 44, 0.32);
+  --text-on-accent: #180D05;
 
   /* ── 状态色(仅状态用语;运行态收敛进 accent,用 pulse 区分) ── */
   --ok: #34D399;
   --warn: #FBBF24;
   --err: #F87171;
-  --run: #F06418;
+  --run: #FF6B2C;
   --ok-soft: rgba(52, 211, 153, 0.12);
   --warn-soft: rgba(251, 191, 36, 0.12);
   --err-soft: rgba(248, 113, 113, 0.12);
-  --run-soft: rgba(240, 100, 24, 0.12);
+  --run-soft: rgba(255, 107, 44, 0.12);
 
   /* ── 叠加与模糊 ── */
   --overlay-strong: rgba(0, 0, 0, 0.6);
-  --overlay-light: rgba(14, 14, 17, 0.72);
+  --overlay-light: rgba(10, 9, 8, 0.72);
   --backdrop-blur: blur(12px);
+
+  /* ── 玻璃材质(v5 新增;玻璃层兜底不透明度 ≥72%,保证文字对比度) ── */
+  --glass-bg: rgba(26, 23, 21, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.09);
+  --glass-blur: blur(20px) saturate(1.4);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.07); /* 高光内描边 */
+  --accent-glow-shadow: 0 0 24px rgba(255, 107, 44, 0.25);
 
   /* ── 排版档位(定调文档:20/700 标题 · 15/600 区块 · 14/400 正文 · 12/400 辅助 · 11/500 标签) ── */
   --text-title: 20px;
@@ -97,20 +104,23 @@
   --radius-xl: 16px;
   --radius-full: 9999px;
 
-  /* ── 阴影:不用彩色阴影,浮层统一深色 ── */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.5);
-  --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.45);
-  --shadow-pop: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--border-subtle);
-  --shadow-lift: 0 8px 30px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--border-subtle);
-  --shadow-float: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px var(--border-strong);
+  /* ── 阴影:不用彩色阴影,浮层统一深色(v5 整体加深,撑光影层次) ── */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.6);
+  --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.55);
+  --shadow-pop: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--border-subtle);
+  --shadow-lift: 0 8px 30px rgba(0, 0, 0, 0.6), 0 0 0 1px var(--border-subtle);
+  --shadow-float: 0 12px 40px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.06);
 
-  /* ── 动效:≤200ms ease-out ── */
+  /* ── 动效:ease-out 为主,浮层入场可用 spring ── */
   --duration-fast: 150ms;
   --duration-base: 200ms;
+  --duration-slow: 320ms;
   --ease-standard: ease-out;
   --ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+  /* CSS linear() 模拟 spring(过冲约 18%,回落收敛) */
+  --ease-spring: linear(0, 0.009, 0.035 1.1%, 0.141 2.4%, 0.723 6.4%, 1.005 10.7%, 1.128 14.4%, 1.185 18.9%, 1.154 24.4%, 1.023 32.7%, 0.989 42.3%, 1.001 56.8%, 1);
 
   /* ── 布局 ── */
   --topbar-h: 0px; /* W0 起全局顶栏移除;保留变量避免旧视图 calc() 失效 */
@@ -154,7 +164,7 @@
   /* 强调色 */
   --accent-line: var(--accent-glow);
   --accent-quiet: var(--accent-soft);
-  --accent-wash: rgba(240, 100, 24, 0.08);
+  --accent-wash: rgba(255, 107, 44, 0.08);
 
   /* 功能色 */
   --success: var(--ok);
@@ -190,6 +200,19 @@ body {
   line-height: var(--leading-base);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* v5 全局胶片噪点:约 2% 不透明度 SVG feTurbulence,纯装饰;
+   pointer-events: none 不影响交互;z-index 取近顶值(略低于浏览器 top-layer 上限),
+   作为全局颗粒覆层压在本地 --z-* 档位(≤400)之上,对弹层仅 2% 叠加、不影响可读性 */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2147483000;
+  opacity: 0.02;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 #__next {

@@ -1,6 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import "./styles/glass.css";
+import "./styles/island.css";
+import "./styles/stage.css";
+import "./styles/motion.css";
 import { ToastProvider } from "@/components/ui/Toast";
 
 const fraunces = Fraunces({
@@ -31,8 +35,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // Studio Slate 深色单主题(2026-08-06 起;light/auto 主题死路径已移除)
-  themeColor: "#0E0E11",
+  // 曜石熔岩深色单主题(2026-08-06 v5;light/auto 主题死路径已移除)
+  themeColor: "#0A0908",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
