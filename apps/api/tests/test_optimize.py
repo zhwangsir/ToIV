@@ -275,3 +275,108 @@ def test_optimize_unknown_style_falls_back_l1(client_token, monkeypatch):
     )
     assert r.status_code == 200, r.text
     assert captured["layer"] == "L1"
+
+
+# ── 自定义风格 style_hint:最高优先级注入系统提示 ─────────────────────────
+def test_optimize_style_hint_reaches_llm(client_token, monkeypatch):
+    """style_hint 必须进入发给 LLM 的 system 提示,且带最高优先级措辞。"""
+    captured: dict = {}
+
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):  # noqa: ANN001
+        captured["system"] = messages[0]["content"]
+        return {"content": '{"positive": "cyberpunk girl, neon lights", "negative": "daylight"}'}
+
+    monkeypatch.setattr("app.routes.optimize.llm.chat_layered", fake_chat_layered)
+    client, token = client_token
+    r = client.post(
+        "/api/optimize",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"prompt": "一个女孩", "kind": "image", "style_hint": "赛博朋克霓虹夜景"},
+    )
+    assert r.status_code == 200, r.text
+    assert "赛博朋克霓虹夜景" in captured["system"]
+    assert "最高优先级" in captured["system"]
+
+
+def test_optimize_style_hint_precedes_agent_prefix(client_token, monkeypatch):
+    """style_hint 与智能体共存时:风格块在人格前缀之前(优先级最高)。"""
+    from app.models import Agent
+
+    captured: dict = {}
+
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):  # noqa: ANN001
+        captured["system"] = messages[0]["content"]
+        return {"content": '{"positive": "ink wash girl", "negative": "blurry"}'}
+
+    monkeypatch.setattr("app.routes.optimize.llm.chat_layered", fake_chat_layered)
+    client, token = client_token
+
+    # 在测试库里塞一个适用 image 的智能体
+    session_gen = app.dependency_overrides[get_session]()
+    session = next(session_gen)
+    session.add(
+        Agent(
+            id="ag_style_test",
+            name="测试画师",
+            icon="brush",
+            applies_to="image",
+            system_prompt="你是一位水彩插画师。",
+            sort=1,
+        )
+    )
+    session.commit()
+    session.close()
+
+    r = client.post(
+        "/api/optimize",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "prompt": "一个女孩",
+            "kind": "image",
+            "agent_id": "ag_style_test",
+            "style_hint": "水墨风",
+        },
+    )
+    assert r.status_code == 200, r.text
+    sys = captured["system"]
+    assert "水墨风" in sys and "水彩插画师" in sys
+    assert sys.index("水墨风") < sys.index("水彩插画师")  # 风格块优先级最高,排最前
+
+
+def test_optimize_without_style_hint_unchanged(client_token, monkeypatch):
+    """不传 style_hint 时系统提示不含风格块(向后兼容)。"""
+    captured: dict = {}
+
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):  # noqa: ANN001
+        captured["system"] = messages[0]["content"]
+        return {"content": '{"positive": "a girl", "negative": "bad anatomy"}'}
+
+    monkeypatch.setattr("app.routes.optimize.llm.chat_layered", fake_chat_layered)
+    client, token = client_token
+    r = client.post(
+        "/api/optimize",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"prompt": "一个女孩", "kind": "image"},
+    )
+    assert r.status_code == 200, r.text
+    assert "最高优先级" not in captured["system"]
+
+
+def test_train_kind_uses_trigger_word_system(client_token, monkeypatch):
+    """train kind 走专属触发词系统提示,不再落 video 兜底。"""
+    captured: dict = {}
+
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):  # noqa: ANN001
+        captured["system"] = messages[0]["content"]
+        return {"content": "zhenyu_girl"}
+
+    monkeypatch.setattr("app.routes.optimize.llm.chat_layered", fake_chat_layered)
+    client, token = client_token
+    r = client.post(
+        "/api/optimize",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"prompt": "我的女孩模型", "kind": "train"},
+    )
+    assert r.status_code == 200, r.text
+    assert "触发词" in captured["system"]
+    assert r.json()["optimized"] == "zhenyu_girl"

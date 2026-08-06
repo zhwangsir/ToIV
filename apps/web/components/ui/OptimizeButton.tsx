@@ -28,6 +28,28 @@ function agentIcon(name: string): IconName {
   return KNOWN_AGENT_ICONS.has(name) ? (name as IconName) : "sparkles";
 }
 
+/** localStorage 键:最近一次使用的自定义风格描述(重开 Popover 时回填)。 */
+const STYLE_HINT_KEY = "toiv_optimize_style_hint";
+
+function loadStyleHint(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return window.localStorage.getItem(STYLE_HINT_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function saveStyleHint(v: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (v.trim()) window.localStorage.setItem(STYLE_HINT_KEY, v);
+    else window.localStorage.removeItem(STYLE_HINT_KEY);
+  } catch {
+    /* localStorage 不可用时静默忽略 */
+  }
+}
+
 interface OptimizeButtonProps {
   /** 旧式:点击后执行的优化逻辑(由父级实现:调 API + 更新 prompt/error 状态)。
    *  新式调用不传 onClick,改用 kind + onOptimized。 */
@@ -53,8 +75,9 @@ interface OptimizeButtonProps {
  *
  * 双模式:
  * 1. 旧式(向后兼容):只传 onClick,父级自己调 API + 改 prompt。
- * 2. 新式(智能体驱动):传 kind + onOptimized,点击弹 Popover 选智能体 →
- *    调 POST /api/optimize { prompt, kind, model, agent_id } → 回填 onOptimized(text, negative)。
+ * 2. 新式(智能体驱动):传 kind + onOptimized,点击弹 Popover →
+ *    可输入自定义风格描述(AI 二次优化,最高优先级)或选智能体快捷方向 →
+ *    调 POST /api/optimize { prompt, kind, model, agent_id, style_hint } → 回填 onOptimized(text, negative)。
  *
  * Why 升级:CreateView/NsfwVideoView/ManjuView/DubView/TrainView/BacklotView 的
  * "优化提示词"按钮逻辑重复,且需要可选智能体方向(写实摄影师 vs 动漫插画师…)。
@@ -77,6 +100,7 @@ export function OptimizeButton({
   const [agents, setAgents] = useState<Agent[]>([]);
   const [agentsLoading, setAgentsLoading] = useState(false);
   const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({});
+  const [styleHint, setStyleHint] = useState("");
   const rootRef = useRef<HTMLDivElement | null>(null);
 
   // 新式调用 = 传了 kind + onOptimized(不依赖 onClick)
@@ -105,6 +129,7 @@ export function OptimizeButton({
   useEffect(() => {
     if (!open) return;
     computePosition();
+    setStyleHint(loadStyleHint());
     const onDown = (e: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
         setOpen(false);
@@ -147,6 +172,8 @@ export function OptimizeButton({
 
   const runOptimize = async (agentId: string | null) => {
     if (!kind) return;
+    const hint = styleHint.trim();
+    saveStyleHint(hint);
     setOpen(false);
     setLoading(true);
     try {
@@ -155,6 +182,7 @@ export function OptimizeButton({
         kind,
         ...(model ? { model } : {}),
         ...(agentId ? { agentId } : {}),
+        ...(hint ? { styleHint: hint } : {}),
       });
       onOptimized?.(r.optimized, r.negative ?? undefined);
     } finally {
@@ -207,8 +235,32 @@ export function OptimizeButton({
       </button>
 
       {open && newMode && (
-        <div className="ob-popover" role="listbox" style={popoverStyle}>
-          <div className="ob-popover-header">选择智能体</div>
+        <div className="ob-popover" style={popoverStyle}>
+          <div className="ob-popover-header">自定义风格</div>
+          <div className="ob-style-row">
+            <input
+              className="ob-style-input"
+              placeholder="描述你想要的风格,如:赛博朋克霓虹夜景…"
+              value={styleHint}
+              maxLength={500}
+              onChange={(e) => setStyleHint(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && styleHint.trim()) {
+                  e.preventDefault();
+                  void runOptimize(null);
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="ob-style-go"
+              disabled={!styleHint.trim()}
+              onClick={() => void runOptimize(null)}
+            >
+              按此优化
+            </button>
+          </div>
+          <div className="ob-popover-header">或选择智能体</div>
           {agentsLoading ? (
             <div className="ob-empty">
               <span className="loading-spinner">
@@ -219,7 +271,7 @@ export function OptimizeButton({
           ) : agents.length === 0 ? (
             <div className="ob-empty">暂无可用智能体</div>
           ) : (
-            <ul className="ob-list">
+            <ul className="ob-list" role="listbox">
               {agents.map((a) => {
                 const isSel = a.id === getLocalAgent();
                 return (
@@ -320,6 +372,53 @@ export function OptimizeButton({
           padding: var(--space-3) var(--space-4);
           font-size: var(--text-aux);
           color: var(--text-muted);
+        }
+        /* 自定义风格输入行 */
+        .ob-style-row {
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+          padding: var(--space-2) var(--space-3);
+          border-bottom: 1px solid var(--border-subtle);
+        }
+        .ob-style-input {
+          flex: 1;
+          min-width: 0;
+          height: 26px;
+          padding: 0 var(--space-2);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+          color: var(--text-primary);
+          font-size: var(--text-aux);
+          outline: none;
+          transition: border-color var(--duration-fast) var(--ease-standard);
+        }
+        .ob-style-input::placeholder {
+          color: var(--text-muted);
+        }
+        .ob-style-input:focus {
+          border-color: var(--accent-glow);
+        }
+        .ob-style-go {
+          flex-shrink: 0;
+          height: 26px;
+          padding: 0 var(--space-3);
+          background: var(--accent-soft);
+          border: 1px solid var(--accent-glow);
+          border-radius: var(--radius-control);
+          color: var(--accent);
+          font-size: var(--text-aux);
+          font-weight: 500;
+          cursor: pointer;
+          transition: background-color var(--duration-fast) var(--ease-standard);
+        }
+        .ob-style-go:hover:not(:disabled) {
+          background: var(--accent-glow);
+        }
+        .ob-style-go:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
         }
         .ob-list {
           list-style: none;

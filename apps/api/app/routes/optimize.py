@@ -161,6 +161,12 @@ _TEXT_SYSTEMS: dict[str, str] = {
         "你是图生3D(Hunyuan3D)提示词工程师。把用户的想法改写成一句适合生成 3D 模型的英文提示词:"
         "单一居中主体、形体清晰、干净中性背景、无文字。只输出提示词本身,不要解释、不要引号。"
     ),
+    "train": (
+        "你是 LoRA 训练触发词工程师。把用户描述的训练主体(人物 / 角色 / 画风 / 物体)改写成"
+        "一个规范的英文触发词:全小写、单词间用下划线连接、独特不易与普通词撞车、简短易记"
+        "(如 zhenyu_girl, mocha_style)。若用户给了多个候选,原样保留逗号分隔。"
+        "只输出触发词本身,不要解释、不要引号、不要换行。"
+    ),
 }
 
 # ── 启发式兜底负面:按关键词判定题材,LLM 不可用 / 没给 negative 时用 ──────────
@@ -230,6 +236,9 @@ class OptimizeRequest(BaseModel):
     style: str | None = Field(default=None, max_length=64)
     # 智能体 id;None=读 user.default_agent_id;仍 None=走 kind 默认 system prompt
     agent_id: str | None = Field(default=None, max_length=64)
+    # 用户自由描述的风格方向(如"赛博朋克霓虹夜景""吉卜力手绘感");
+    # 最高优先级:与智能体人格 / 默认规则冲突时以它为准。None=不注入,保持现有行为
+    style_hint: str | None = Field(default=None, max_length=500)
 
 
 class OptimizeResponse(BaseModel):
@@ -303,9 +312,21 @@ async def optimize_prompt(
     # 风格预设决定提示词优化的 LLM 层(预设写了 llm_layer 才分层,否则保持 L1)
     llm_layer = _style_llm_layer(body.style)
 
+    style_hint = (body.style_hint or "").strip()
+
     def _compose(base_system: str) -> str:
-        """智能体主人格 + kind 系统提示(含模型族方言)。"""
-        return f"{agent_prefix}\n\n{base_system}" if agent_prefix else base_system
+        """用户风格描述(最高优先级) + 智能体主人格 + kind 系统提示(含模型族方言)。"""
+        parts: list[str] = []
+        if style_hint:
+            parts.append(
+                f"【用户指定风格 · 最高优先级】用户要求整体风格为:{style_hint}。"
+                "产出必须忠实体现该风格;当它与下方智能体人格或默认规则冲突时,"
+                "一律以用户指定的风格为准。"
+            )
+        if agent_prefix:
+            parts.append(agent_prefix)
+        parts.append(base_system)
+        return "\n\n".join(parts)
 
     # 图像类:内容感知 + 模型族方言 —— 先判题材,再用目标模型母语产出正向 + 负面
     if body.kind in _IMAGE_SYSTEMS:

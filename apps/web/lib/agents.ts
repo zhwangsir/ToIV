@@ -164,16 +164,18 @@ export async function persistDefaultAgent(id: string | null): Promise<void> {
 }
 
 /**
- * 调 /api/optimize(带 agent_id + kind + model)→ 返回 { optimized, negative }。
+ * 调 /api/optimize(带 agent_id + kind + model + style_hint)→ 返回 { optimized, negative }。
  * 由 OptimizeButton 在新式调用下使用;失败抛错(按钮 loading 态由调用方管)。
+ * styleHint:用户自由描述的风格方向,后端按最高优先级注入系统提示。
  */
 export async function optimizeWithAgent(params: {
   prompt: string;
   kind: string;
   model?: string;
   agentId?: string | null;
+  styleHint?: string;
 }): Promise<{ optimized: string; negative: string | null }> {
-  const { prompt, kind, model, agentId } = params;
+  const { prompt, kind, model, agentId, styleHint } = params;
   const res = await fetch(`${API_BASE}/api/optimize`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
@@ -182,6 +184,7 @@ export async function optimizeWithAgent(params: {
       kind,
       ...(model ? { model } : {}),
       ...(agentId ? { agent_id: agentId } : {}),
+      ...(styleHint?.trim() ? { style_hint: styleHint.trim() } : {}),
     }),
   });
   if (!res.ok) throw await parseErr(res, "优化失败");

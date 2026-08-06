@@ -915,31 +915,6 @@ export async function agentChat(
   }
 }
 
-export interface OptimizeResult {
-  optimized: string;
-  negative?: string | null;
-}
-
-export async function optimizePrompt(
-  prompt: string,
-  kind: string,
-  model?: string,
-): Promise<OptimizeResult> {
-  // LLM 提示词润色,偶发超过 30s → 放宽到 60s。
-  const res = await apiFetch(
-    `/api/optimize`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
-      body: JSON.stringify({ prompt, kind, ...(model ? { model } : {}) }),
-    },
-    { timeoutMs: 60_000 },
-  );
-  if (!res.ok) await raiseApiError(res, "优化失败");
-  const data = await res.json();
-  return { optimized: (data.optimized as string) ?? prompt, negative: data.negative ?? null };
-}
-
 export function jobEventsUrl(
   promptId: string,
   clientId: string,
