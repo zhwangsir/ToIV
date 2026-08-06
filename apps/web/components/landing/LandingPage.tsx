@@ -84,7 +84,7 @@ export function LandingPage() {
           justify-content: center;
           padding: var(--space-4);
           background:
-            radial-gradient(ellipse at 50% 0%, var(--accent-wash), transparent 60%),
+            radial-gradient(ellipse at 50% 0%, var(--accent-soft), transparent 60%),
             var(--bg-canvas);
         }
         .landing-card {

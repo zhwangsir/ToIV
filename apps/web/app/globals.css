@@ -15,8 +15,6 @@
 
   /* ── 字体(next/font 注入;Inter 为正文字体) ── */
   --font-sans: var(--font-inter), "Inter", "PingFang SC", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, "HarmonyOS Sans SC", sans-serif;
-  /* 旧展示字体别名:Fraunces 仅作过渡,W2/W3 各视图换皮时应收敛到 --font-sans */
-  --font-display: var(--font-fraunces), var(--font-sans);
   --font-mono: var(--font-jetbrains), "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
   /* ── 色彩:画布/面板层级(T1 素白:白画布 + 浅灰面板阶梯) ── */
@@ -225,45 +223,6 @@
   --accent-glow-shadow: 0 2px 12px rgba(181, 118, 63, 0.30);
   --glass-bg: rgba(253, 249, 243, 0.76);
   --glass-border: rgba(90, 64, 40, 0.10);
-}
-
-/* ========== Legacy Token Aliases(旧变量 → 新值) ==========
-   2026-08-06 清理:零引用别名已删,现役视图已全部改用 canonical token。
-   以下仅剩 FROZEN 旧视图(DramaStudioView/ManjuView)在用;
-   待两视图随动态分镜独立后物理下线,整块即可删除。 */
-
-:root {
-  /* 背景 */
-  --bg-1: var(--bg-surface-1);
-  --bg-2: var(--bg-surface-2);
-  --bg-3: var(--bg-surface-3);
-  --bg-sunken: var(--bg-canvas);
-
-  /* 描边 */
-  --hairline: var(--border-subtle);
-  --hairline-2: var(--border-strong);
-
-  /* 文字 */
-  --ink: var(--text-primary);
-  --ink-soft: var(--text-secondary);
-  --ink-faint: var(--text-muted);
-
-  /* 强调色 */
-  --accent-line: var(--accent-glow);
-  --accent-quiet: var(--accent-soft);
-  --accent-wash: var(--accent-soft);
-
-  /* 功能色 */
-  --success: var(--ok);
-  --success-quiet: var(--ok-soft);
-  --danger: var(--err);
-  --danger-quiet: var(--err-soft);
-
-  /* 圆角/动效 */
-  --radius: var(--radius-control);
-  --dur: var(--duration-fast);
-  --dur-2: var(--duration-base);
-  --ease: var(--ease-emphasized);
 }
 
 /* ========== Reset & Base ========== */

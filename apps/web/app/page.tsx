@@ -66,8 +66,6 @@ const viewImporters = {
   animatic: () => import("@/components/animatic/AnimaticView"),
   avatartalk: () => import("@/components/avatartalk/AvatarTalkView"),
   canvas: () => import("@/components/canvas/CanvasView"),
-  // dramaStudio 旧视图已退役(M4 studio 替代);importer 保留:animatic 桌面端复用其「动态分镜」页签
-  dramaStudio: () => import("@/components/drama-studio/DramaStudioView"),
   studio: () => import("@/components/studio/StudioView"),
   dub: () => import("@/components/dub/DubView"),
   train: () => import("@/components/train/TrainView"),
@@ -111,9 +109,6 @@ const AvatarTalkView = lazy(() =>
 );
 const CanvasView = lazy(() =>
   viewImporters.canvas().then((m) => ({ default: m.CanvasView })),
-);
-const DramaStudioView = lazy(() =>
-  viewImporters.dramaStudio().then((m) => ({ default: m.DramaStudioView })),
 );
 const StudioView = lazy(() =>
   viewImporters.studio().then((m) => ({ default: m.StudioView })),
@@ -227,28 +222,6 @@ const BOTTOM_NAV_MORE_ITEMS: BottomNavItem[] = [
   { key: "resources", label: "资源", icon: "models" },
 ];
 
-
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    const check = () => {
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-      const isPortraitMobile = width < 768;
-      const isLandscapeMobile = width < 900 && height < 500;
-      setIsMobile(isPortraitMobile || isLandscapeMobile);
-    };
-    check();
-    window.addEventListener("resize", check);
-    window.addEventListener("orientationchange", check);
-    return () => {
-      window.removeEventListener("resize", check);
-      window.removeEventListener("orientationchange", check);
-    };
-  }, []);
-  return isMobile;
-}
-
 /** WS5:视图切换走 View Transitions(主舞台 cross-fade,样式见 styles/motion.css)。
  *  存在性守卫:不支持的浏览器直接执行原逻辑,不引入 polyfill。
  *  flushSync 让 React 在快照回调内同步提交 DOM,否则新快照仍是旧视图。 */
@@ -280,12 +253,9 @@ export default function Home() {
 function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const isMobile = useIsMobile();
   const [auth, setAuth] = useState<AuthState>("loading");
   const [account, setAccount] = useState<string | null>(null);
   const [view, setView] = useState<View>(() => resolveView(searchParams.get("view")) ?? "assistant");
-  // 动态分镜 AI 解析成功后,带项目 id 跳转短剧工作室并直接打开
-  const [pendingDramaProjectId, setPendingDramaProjectId] = useState<string | null>(null);
 
   useEffect(() => {
     const raw = searchParams.get("view");
@@ -354,14 +324,10 @@ function HomeContent() {
     [router],
   );
 
-  // 动态分镜 AI 模式:解析成功后跳 animatic 视图(桌面端复用 DramaStudioView 打开对应项目)
-  const handleOpenDramaProject = useCallback(
-    (projectId: string) => {
-      setPendingDramaProjectId(projectId);
-      changeView("animatic");
-    },
-    [changeView],
-  );
+  // 动态分镜 AI 模式:解析成功后跳 studio 创作工作室(旧 drama 工作台已退役)
+  const handleOpenDramaProject = useCallback(() => {
+    changeView("studio");
+  }, [changeView]);
 
   // 融合聚合页跳转:target 可带查询串(如 dramaStudio?mode=manju 进漫剧模式)
   const handleFusionNavigate = useCallback(
@@ -423,20 +389,8 @@ function HomeContent() {
               {view === "studio" && <StudioView />}
               {view === "dub" && <DubView />}
               {view === "animatic" && (
-                // 动态分镜并入短剧首页:桌面端走 DramaStudioView 的「动态分镜」页签;
-                // 移动端短剧工作室有拦截,保留独立 AnimaticView 保证可用
-                isMobile ? (
-                  <AnimaticView onOpenDramaProject={handleOpenDramaProject} />
-                ) : (
-                  <DramaStudioView
-                    account={account ?? undefined}
-                    onLogout={onLogout}
-                    onNavigate={(next) => changeView(next as View)}
-                    initialProjectId={pendingDramaProjectId}
-                    onConsumeInitialProject={() => setPendingDramaProjectId(null)}
-                    initialHubTab="animatic"
-                  />
-                )
+                // 动态分镜全端统一:AnimaticView 为唯一实现(旧桌面端 FROZEN 视图已物理删除)
+                <AnimaticView onOpenDramaProject={handleOpenDramaProject} />
               )}
               {view === "avatartalk" && <AvatarTalkView />}
               {view === "train" && <TrainView />}

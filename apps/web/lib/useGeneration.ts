@@ -37,9 +37,9 @@ export interface UseGenerationResult {
 }
 
 /**
- * 收敛 CreateView / NsfwVideoView / ManjuView 重复的 SSE 作业跟踪样板。
+ * 收敛各生成视图重复的 SSE 作业跟踪样板。
  *
- * Why:三个视图此前各自 new EventSource + 监听 progress/done/error + useRef 存 es +
+ * Why:多个视图此前各自 new EventSource + 监听 progress/done/error + useRef 存 es +
  *      卸载清理,逻辑高度重复且容易漏处理边界(如 done 后浏览器补发的空 error)。
  *      本 hook 底层复用 lib/trackJob(已处理上述边界),上层只消费 status/progress/error。
  *
