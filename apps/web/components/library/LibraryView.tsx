@@ -945,9 +945,10 @@ export function LibraryView() {
           display: flex;
           align-items: flex-end;
           padding: var(--space-3);
+          /* 图片 scrim 恒深色(--overlay-light),不随主题变浅,保证文字可读 */
           background: linear-gradient(
             to top,
-            color-mix(in oklab, var(--bg-canvas) 85%, transparent),
+            var(--overlay-light),
             transparent 60%
           );
           opacity: 0;
@@ -961,7 +962,7 @@ export function LibraryView() {
         .lib-overlay-prompt {
           font-size: var(--text-aux);
           line-height: 1.45;
-          color: var(--text-primary);
+          color: #FFFFFF; /* 位于恒深色 scrim 上 */
           display: -webkit-box;
           -webkit-line-clamp: 4;
           -webkit-box-orient: vertical;
@@ -979,7 +980,7 @@ export function LibraryView() {
           width: 28px;
           height: 28px;
           padding: 0;
-          background: var(--overlay-light);
+          background: var(--glass-bg); /* 主题自适应玻璃,图标色在浅底上可读 */
           backdrop-filter: blur(8px);
           -webkit-backdrop-filter: blur(8px);
           border: 1px solid var(--border-subtle);

@@ -1,15 +1,17 @@
 /* ──────────────────────────────────────────────────────────
-   ToIV 设计系统 v5 — 曜石熔岩(Obsidian Lava)
-   2026-08-06 定调:暖调纯黑画布 + 熔岩橙单点强调 + 玻璃材质 + 光影深度,
-   取代 v4 Studio Slate 的冷灰骨架(用户反馈:灰底发闷、橙显廉价、扁平无光影)
-   依据:docs/2026-08-06-ui-v3-dark-mirror-stage-plan.md
-   深色单主题 · token 驱动 · 4px 间距基数 · 动效 ease-out + spring
+   ToIV 设计系统 v6 — 浅色五色板主题系统(2026-08-07)
+   取代 v5「曜石熔岩」深色单主题(用户决策:转向浅色体系)。
+   :root = 默认主题「素白 paper」;其余 4 套(wood/mono/mint/apricot)
+   用 [data-theme] 覆盖差异 token;选择持久化 localStorage["toiv_theme"],
+   layout.tsx 内联脚本首帧前写 documentElement.dataset.theme 防 FOUC。
+   依据:docs/2026-08-07-light-theme-system.md(色值以该文档为准,勿自创)
+   浅色多主题 · token 驱动 · 4px 间距基数 · 动效 ease-out + spring
    ────────────────────────────────────────────────────────── */
 
-/* ========== Design Tokens(W0 新 token 层) ========== */
+/* ========== Design Tokens(canonical 层) ========== */
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
   /* ── 字体(next/font 注入;Inter 为正文字体) ── */
   --font-sans: var(--font-inter), "Inter", "PingFang SC", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, "HarmonyOS Sans SC", sans-serif;
@@ -17,49 +19,49 @@
   --font-display: var(--font-fraunces), var(--font-sans);
   --font-mono: var(--font-jetbrains), "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
-  /* ── 色彩:画布/面板层级(暖调纯黑阶梯,去冷灰) ── */
-  --bg-canvas: #0A0908;
-  --bg-surface-1: #131110;
-  --bg-surface-2: #1A1715;
-  --bg-surface-3: #242019;
+  /* ── 色彩:画布/面板层级(T1 素白:白画布 + 浅灰面板阶梯) ── */
+  --bg-canvas: #FFFFFF;
+  --bg-surface-1: #FAFAFA;
+  --bg-surface-2: #F4F4F5;
+  --bg-surface-3: #EBEBEE;
 
   /* ── 描边 ── */
-  --border-subtle: rgba(255, 255, 255, 0.07);
-  --border-strong: rgba(255, 255, 255, 0.14);
+  --border-subtle: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.16);
 
-  /* ── 文字(暖白阶梯;muted 取 #8F877B:在最深 bg-canvas 上 5.6:1、最浅 surface-3 上 4.57:1,过 WCAG AA) ── */
-  --text-primary: #F5F1EA;
-  --text-secondary: #B8B0A4;
-  --text-muted: #8F877B;
+  /* ── 文字(近黑阶梯;muted #686A70 在 canvas 5.4:1、最深 surface-3 上 ≈4.7:1,全场景过 AA) ── */
+  --text-primary: #17181A;
+  --text-secondary: #54565C;
+  --text-muted: #686A70;
 
-  /* ── 强调色(唯一 accent:熔岩橙;橙底文字用深暖棕保对比) ── */
-  --accent: #FF6B2C;
-  --accent-hover: #FF8547;
-  --accent-soft: rgba(255, 107, 44, 0.14);
-  --accent-glow: rgba(255, 107, 44, 0.32);
-  --text-on-accent: #180D05;
+  /* ── 强调色(T1 素白:近黑 CTA) ── */
+  --accent: #17181A;
+  --accent-hover: #2C2E33;
+  --accent-soft: rgba(23, 24, 26, 0.07);
+  --accent-glow: rgba(23, 24, 26, 0.18);
+  --text-on-accent: #FFFFFF;
 
-  /* ── 状态色(仅状态用语;运行态收敛进 accent,用 pulse 区分) ── */
-  --ok: #34D399;
-  --warn: #FBBF24;
-  --err: #F87171;
-  --run: #FF6B2C;
-  --ok-soft: rgba(52, 211, 153, 0.12);
-  --warn-soft: rgba(251, 191, 36, 0.12);
-  --err-soft: rgba(248, 113, 113, 0.12);
-  --run-soft: rgba(255, 107, 44, 0.12);
+  /* ── 状态色(五套共用;仅状态用语;深色取值保证文本在自身 soft 底上 ≥4.5:1;运行态收敛进 accent) ── */
+  --ok: #0C6B34;
+  --warn: #9A5408;
+  --err: #C81E1E;
+  --run: var(--accent);
+  --ok-soft: rgba(15, 123, 60, 0.10);
+  --warn-soft: rgba(154, 84, 8, 0.10);
+  --err-soft: rgba(200, 30, 30, 0.10);
+  --run-soft: var(--accent-soft);
 
-  /* ── 叠加与模糊 ── */
-  --overlay-strong: rgba(0, 0, 0, 0.6);
-  --overlay-light: rgba(10, 9, 8, 0.72);
+  /* ── 叠加与模糊(五套共用;overlay 恒深色:模态背板/图片视频 scrim 不随主题变浅) ── */
+  --overlay-strong: rgba(24, 20, 16, 0.45);
+  --overlay-light: rgba(24, 20, 16, 0.55);
   --backdrop-blur: blur(12px);
 
-  /* ── 玻璃材质(v5 新增;玻璃层兜底不透明度 ≥72%,保证文字对比度) ── */
-  --glass-bg: rgba(26, 23, 21, 0.72);
-  --glass-border: rgba(255, 255, 255, 0.09);
+  /* ── 玻璃材质(白玻璃:72% 白底 + 20px 高斯模糊,保证文字对比度) ── */
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(0, 0, 0, 0.08);
   --glass-blur: blur(20px) saturate(1.4);
-  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.07); /* 高光内描边 */
-  --accent-glow-shadow: 0 0 24px rgba(255, 107, 44, 0.25);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.65); /* 高光内描边 */
+  --accent-glow-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
 
   /* ── 排版档位(定调文档:20/700 标题 · 15/600 区块 · 14/400 正文 · 12/400 辅助 · 11/500 标签) ── */
   --text-title: 20px;
@@ -104,14 +106,14 @@
   --radius-xl: 16px;
   --radius-full: 9999px;
 
-  /* ── 阴影:不用彩色阴影,浮层统一深色(v5 整体加深,撑光影层次) ── */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.6);
-  --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.55);
-  --shadow-pop: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--border-subtle);
-  --shadow-lift: 0 8px 30px rgba(0, 0, 0, 0.6), 0 0 0 1px var(--border-subtle);
-  --shadow-float: 0 12px 40px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  /* ── 阴影:不用彩色阴影,浮层统一中性灰(浅色主题全面调软) ── */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.07);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.09);
+  --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.10);
+  --shadow-pop: 0 4px 20px rgba(0, 0, 0, 0.10), 0 0 0 1px var(--border-subtle);
+  --shadow-lift: 0 8px 30px rgba(0, 0, 0, 0.12), 0 0 0 1px var(--border-subtle);
+  --shadow-float: 0 12px 40px rgba(0, 0, 0, 0.14), 0 0 0 1px var(--border-subtle);
 
   /* ── 动效:ease-out 为主,浮层入场可用 spring ── */
   --duration-fast: 150ms;
@@ -140,6 +142,92 @@
   --bp-xl: 1440px;
 }
 
+/* ========== 主题覆盖块(只覆盖差异 token;色值见 docs/2026-08-07-light-theme-system.md) ========== */
+
+/* T2 浅木淡蓝 wood — 白+浅木+淡蓝,自然明亮 */
+[data-theme="wood"] {
+  --bg-canvas: #FDFCF9;
+  --bg-surface-1: #F7F2EA;
+  --bg-surface-2: #F1EADD;
+  --bg-surface-3: #E8DFCE;
+  --border-subtle: rgba(74, 59, 42, 0.10);
+  --border-strong: rgba(74, 59, 42, 0.20);
+  --text-primary: #2B2723;
+  --text-secondary: #6B6154;
+  --text-muted: #665D4F;
+  --accent: #2F63B4;
+  --accent-hover: #2755A0;
+  --accent-soft: rgba(76, 134, 217, 0.12);
+  --accent-glow: rgba(76, 134, 217, 0.28);
+  --text-on-accent: #FFFFFF;
+  --accent-glow-shadow: 0 2px 12px rgba(76, 134, 217, 0.30);
+  --glass-bg: rgba(253, 252, 249, 0.74);
+  --glass-border: rgba(74, 59, 42, 0.10);
+}
+
+/* T3 永恒中性 mono — 灰画布白卡(与 T1 白画布灰卡互为反转),黑白灰经典 */
+[data-theme="mono"] {
+  --bg-canvas: #F5F5F4;
+  --bg-surface-1: #FFFFFF;
+  --bg-surface-2: #F4F4F4;
+  --bg-surface-3: #E9E9E9;
+  --border-subtle: rgba(0, 0, 0, 0.09);
+  --border-strong: rgba(0, 0, 0, 0.17);
+  --text-primary: #111111;
+  --text-secondary: #4B4B4B;
+  --text-muted: #636363;
+  --accent: #111111;
+  --accent-hover: #2A2A2A;
+  --accent-soft: rgba(0, 0, 0, 0.07);
+  --accent-glow: rgba(0, 0, 0, 0.16);
+  --text-on-accent: #FFFFFF;
+  --accent-glow-shadow: 0 2px 12px rgba(0, 0, 0, 0.16);
+  --glass-bg: rgba(255, 255, 255, 0.74);
+  --glass-border: rgba(0, 0, 0, 0.09);
+}
+
+/* T4 薄荷 mint — 白+薄荷绿,清爽活力 */
+[data-theme="mint"] {
+  --bg-canvas: #FFFFFF;
+  --bg-surface-1: #F4FAF7;
+  --bg-surface-2: #EAF5F0;
+  --bg-surface-3: #DDECE4;
+  --border-subtle: rgba(16, 60, 45, 0.09);
+  --border-strong: rgba(16, 60, 45, 0.18);
+  --text-primary: #152420;
+  --text-secondary: #47605A;
+  --text-muted: #4C665D;
+  --accent: #0A7158;
+  --accent-hover: #096049;
+  --accent-soft: rgba(14, 159, 122, 0.12);
+  --accent-glow: rgba(14, 159, 122, 0.26);
+  --text-on-accent: #FFFFFF;
+  --accent-glow-shadow: 0 2px 12px rgba(14, 159, 122, 0.28);
+  --glass-bg: rgba(255, 255, 255, 0.74);
+  --glass-border: rgba(16, 60, 45, 0.09);
+}
+
+/* T5 奶杏 apricot — 暖白+奶杏+浅棕,温暖治愈 */
+[data-theme="apricot"] {
+  --bg-canvas: #FDF9F3;
+  --bg-surface-1: #FAF3E8;
+  --bg-surface-2: #F4EAD9;
+  --bg-surface-3: #EBDDC6;
+  --border-subtle: rgba(90, 64, 40, 0.10);
+  --border-strong: rgba(90, 64, 40, 0.20);
+  --text-primary: #3A2E22;
+  --text-secondary: #675945;
+  --text-muted: #6A5B47;
+  --accent: #8A5429;
+  --accent-hover: #7A4822;
+  --accent-soft: rgba(181, 118, 63, 0.13);
+  --accent-glow: rgba(181, 118, 63, 0.26);
+  --text-on-accent: #FFF8F0;
+  --accent-glow-shadow: 0 2px 12px rgba(181, 118, 63, 0.30);
+  --glass-bg: rgba(253, 249, 243, 0.76);
+  --glass-border: rgba(90, 64, 40, 0.10);
+}
+
 /* ========== Legacy Token Aliases(旧变量 → 新值) ==========
    2026-08-06 清理:零引用别名已删,现役视图已全部改用 canonical token。
    以下仅剩 FROZEN 旧视图(DramaStudioView/ManjuView)在用;
@@ -164,7 +252,7 @@
   /* 强调色 */
   --accent-line: var(--accent-glow);
   --accent-quiet: var(--accent-soft);
-  --accent-wash: rgba(255, 107, 44, 0.08);
+  --accent-wash: var(--accent-soft);
 
   /* 功能色 */
   --success: var(--ok);
@@ -202,7 +290,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* v5 全局胶片噪点:约 2% 不透明度 SVG feTurbulence,纯装饰;
+/* 全局胶片噪点:约 2% 不透明度 SVG feTurbulence,纯装饰;
    pointer-events: none 不影响交互;z-index 取近顶值(略低于浏览器 top-layer 上限),
    作为全局颗粒覆层压在本地 --z-* 档位(≤400)之上,对弹层仅 2% 叠加、不影响可读性 */
 body::before {
@@ -869,7 +957,7 @@ select.input {
   justify-content: center;
   border-radius: var(--radius-full);
   background: var(--overlay-strong);
-  color: var(--text-primary);
+  color: #FFFFFF; /* scrim 恒深色,其上文字恒白 */
   font-size: 11px;
   font-weight: 600;
 }

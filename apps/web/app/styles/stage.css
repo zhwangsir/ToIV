@@ -1,7 +1,7 @@
 /* ──────────────────────────────────────────────────────────
-   WS2 工作台剧场化(Stage):暗舞台 + 浮层工具
+   WS2 工作台剧场化(Stage):舞台 + 浮层工具(2026-08-07 浅色五色板适配)
    覆盖 GenerateView / ResultPanel / PromptBar(图片/视频/音频三视图共用)
-   材质:--bg-canvas 全出血暗舞台 + --glass-* 玻璃浮层 + 熔岩橙单点强调
+   材质:--bg-surface-1 舞台底 + --glass-* 玻璃浮层 + accent 单点强调
    动效:纯 CSS(ease-out / --ease-spring),reduced-motion 由 globals 统一收敛
    ────────────────────────────────────────────────────────── */
 
@@ -46,14 +46,15 @@
   min-height: 0;
 }
 
-/* 暗舞台本体:底部给提示词条预留 ~116px 悬浮区 */
+/* 舞台本体:浅色主题下浮于白画布之上的浅灰面板(原暗舞台为纯黑);
+   底部给提示词条预留 ~116px 悬浮区 */
 .generate-results {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 116px;
-  background: var(--bg-canvas);
+  background: var(--bg-surface-1);
   border-radius: var(--radius-panel);
   overflow: hidden;
 }

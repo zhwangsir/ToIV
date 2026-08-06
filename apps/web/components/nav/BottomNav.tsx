@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { ThemePicker } from "@/components/ui/ThemePicker";
 
 export interface BottomNavItem {
   key: string;
@@ -23,7 +24,7 @@ interface BottomNavProps {
 
 /**
  * 窄屏(<1024px)底部导航:主入口 ≤5 + 「更多」抽屉承载其余。
- * 样式走 Obsidian token(激活态 accent);抽屉复用全局 .sheet。
+ * 样式走主题 token(激活态 accent);抽屉复用全局 .sheet。
  */
 export function BottomNav({ items, moreItems = [], current, onSelect, ctaAction }: BottomNavProps) {
   const [moreOpen, setMoreOpen] = useState(false);
@@ -101,6 +102,7 @@ export function BottomNav({ items, moreItems = [], current, onSelect, ctaAction 
               </button>
             );
           })}
+          <ThemePicker />
         </div>
       </div>
     </>

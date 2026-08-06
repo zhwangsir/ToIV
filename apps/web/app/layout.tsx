@@ -36,12 +36,15 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // 曜石熔岩深色单主题(2026-08-06 v5;light/auto 主题死路径已移除)
-  themeColor: "#0A0908",
+  // 浅色五色板主题系统(2026-08-07;默认「素白」,localStorage["toiv_theme"] 持久化)
+  themeColor: "#FFFFFF",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
 };
+
+/* 防 FOUC:首帧前从 localStorage 读主题写入 <html data-theme>,无效值忽略(回落 :root 素白) */
+const themeInitScript = `(function(){try{var t=localStorage.getItem("toiv_theme");if(t==="wood"||t==="mono"||t==="mint"||t==="apricot"){document.documentElement.dataset.theme=t;}}catch(e){}})();`;
 
 export default function RootLayout({
   children,
@@ -53,6 +56,9 @@ export default function RootLayout({
       lang="zh-CN"
       className={`${fraunces.variable} ${inter.variable} ${jetbrainsMono.variable}`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body>
         <a href="#main" className="skip-link">跳到主内容</a>
         <ToastProvider>{children}</ToastProvider>

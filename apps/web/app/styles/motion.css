@@ -6,13 +6,13 @@
    全部遵守 prefers-reduced-motion。
    ════════════════════════════════════════════════════════════════════ */
 
-/* ── 骨架微光 ─────────────────────────────────────────────────────── */
+/* ── 骨架微光(浅色主题:白光泽扫过灰底) ─────────────────────────── */
 .skeleton-shimmer {
   background-color: var(--bg-surface-2);
   background-image: linear-gradient(
     100deg,
     transparent 20%,
-    rgba(255, 255, 255, 0.05) 50%,
+    rgba(255, 255, 255, 0.6) 50%,
     transparent 80%
   );
   background-size: 200% 100%;

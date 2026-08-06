@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Popover } from "@/components/ui/Popover";
+import { ThemePicker } from "@/components/ui/ThemePicker";
 
 export interface IslandNavItem {
   key: string;
@@ -22,7 +23,7 @@ interface IslandNavProps {
 }
 
 /**
- * 灵动岛悬浮导航(曜石熔岩 v5 · 黑镜剧场):顶部居中玻璃胶囊,脱离边缘浮于内容之上。
+ * 灵动岛悬浮导航(浅色五色板 · 白玻璃胶囊):顶部居中玻璃胶囊,脱离边缘浮于内容之上。
  * 紧凑态:logo 点 + 图标排(激活项常显文字标签)+ 账户头像;
  * 悬停/聚焦展开:全部图标旁滑出文字标签,岛体投出更深浮层阴影(纯 CSS 弹簧过渡,无 JS 动画库);
  * 账户菜单走 Popover 基座(portal,脱离岛 hover 生命周期,点击开关)。
@@ -85,7 +86,7 @@ export function IslandNav({ items, current, onSelect, onItemIntent, account, onL
               open={accountOpen}
               anchorRef={avatarRef}
               onClose={() => setAccountOpen(false)}
-              width={200}
+              width={240}
               role="menu"
               ariaLabel="账户菜单"
             >
@@ -93,6 +94,7 @@ export function IslandNav({ items, current, onSelect, onItemIntent, account, onL
                 <div className="island-account-email" title={account} translate="no">
                   {account}
                 </div>
+                <ThemePicker />
                 {onLogout && (
                   <button type="button" className="island-account-logout" onClick={onLogout}>
                     <Icon name="close" size={13} />

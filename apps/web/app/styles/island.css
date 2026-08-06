@@ -1,4 +1,4 @@
-/* ========== 灵动岛悬浮导航(曜石熔岩 v5 · 黑镜剧场,桌面 ≥1024px,见 components/nav/IslandNav) ========== */
+/* ========== 灵动岛悬浮导航(2026-08-07 浅色五色板 · 白玻璃胶囊,桌面 ≥1024px,见 components/nav/IslandNav) ========== */
 /* 玻璃岛体:--glass-bg 72% 底 + --glass-blur;激活项常显文字标签,悬停/聚焦展开全部标签; */
 /* 展开/收起过渡用 --ease-spring + --duration-slow(纯 CSS,无 JS 动画库)。 */
 
@@ -87,7 +87,7 @@
   background: var(--bg-surface-2);
   color: var(--text-primary);
 }
-/* 激活态:熔岩橙软底 + 橙字 + 光晕 */
+/* 激活态:accent 软底 + accent 字 + 光晕 */
 .island-item.is-active {
   background: var(--accent-soft);
   color: var(--accent);

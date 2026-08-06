@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════════════════
-   WS4 作品库 + 风格卡(曜石熔岩 / 黑镜剧场)
+   WS4 作品库 + 风格卡(2026-08-07 浅色五色板适配)
    - masonry 卡片 hover:整体弹簧上浮 scale(1.03) + 快捷操作玻璃条
    - 存为风格 Popover:玻璃浮层
    - StyleBar 风格库横条:玻璃胶囊卡,点击注入优化提示词管线
@@ -46,7 +46,7 @@
   left: var(--space-2);
   max-width: calc(100% - 48px);
   padding: 2px var(--space-2);
-  background: var(--overlay-light);
+  background: var(--glass-bg); /* 主题自适应玻璃,状态色文字在浅底上可读 */
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid var(--border-subtle);

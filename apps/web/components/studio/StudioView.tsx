@@ -510,8 +510,8 @@ function StudioStyles() {
         font-size: var(--text-label);
         padding: 2px var(--space-2);
         border-radius: var(--radius-full);
-        background: rgba(0, 0, 0, 0.55);
-        color: var(--text-primary);
+        background: var(--overlay-light); /* 图片上 scrim 恒深色 */
+        color: #FFFFFF;
         backdrop-filter: blur(4px);
       }
       .studio-shot-badge.is-done {

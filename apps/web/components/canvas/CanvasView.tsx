@@ -294,7 +294,7 @@ export function CanvasView() {
             border-radius: var(--radius-control);
             border: none;
             background: var(--accent);
-            color: var(--text-primary);
+            color: var(--text-on-accent);
             cursor: pointer;
             font-size: var(--text-body);
           }
