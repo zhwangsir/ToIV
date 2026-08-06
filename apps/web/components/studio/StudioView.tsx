@@ -219,7 +219,7 @@ function StudioStyles() {
       }
       .studio-error {
         font-size: var(--text-aux);
-        color: var(--color-danger, #dc2626);
+        color: var(--err);
         background: var(--bg-surface-2);
         border: 1px solid var(--border-subtle);
         border-radius: var(--radius-control);
@@ -285,7 +285,7 @@ function StudioStyles() {
         background: var(--accent-soft);
       }
       .studio-badge.is-error {
-        color: var(--color-danger, #dc2626);
+        color: var(--err);
       }
 
       /* ── 阶段导航 ── */
@@ -449,7 +449,7 @@ function StudioStyles() {
         overflow: hidden;
       }
       .studio-shot[data-status="error"] {
-        border-color: var(--color-danger, #dc2626);
+        border-color: var(--err);
       }
       .studio-shot-media {
         position: relative;
@@ -489,7 +489,7 @@ function StudioStyles() {
         background: var(--accent);
       }
       .studio-shot-badge.is-error {
-        background: var(--color-danger, #dc2626);
+        background: var(--err);
       }
       .studio-shot-body {
         display: flex;
@@ -548,7 +548,7 @@ function StudioStyles() {
         cursor: pointer;
       }
       .studio-shot-del:hover {
-        color: var(--color-danger, #dc2626);
+        color: var(--err);
         background: var(--bg-surface-2);
       }
       .studio-shot-line {
@@ -596,7 +596,7 @@ function StudioStyles() {
       }
       .studio-shot-error {
         font-size: var(--text-label);
-        color: var(--color-danger, #dc2626);
+        color: var(--err);
       }
       .studio-shot-actions {
         display: flex;
