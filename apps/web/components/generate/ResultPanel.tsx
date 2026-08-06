@@ -5,7 +5,6 @@ import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { Empty } from "@/components/ui/Empty";
 import { Icon } from "@/components/ui/Icon";
 import { Select } from "@/components/ui/Input";
 import { Switch } from "@/components/ui/Switch";
@@ -88,11 +87,30 @@ export function ResultPanel({ entries, selectedId, onSelect, liveProgress, onCan
   if (entries.length === 0) {
     return (
       <div className="result-panel result-panel-empty">
-        <Empty
-          icon="sparkles"
-          title="还没有生成记录"
-          desc="在左侧选择引擎、填写参数后点击生成。会话内历史不落库,刷新页面即清空。"
-        />
+        <div className="empty-editorial">
+          <span className="empty-kicker">工作台</span>
+          <h2 className="empty-display">你的作品
+            <br />
+            将在这里呈现
+          </h2>
+          <div className="empty-tips">
+            <div className="empty-tip">
+              <span className="empty-tip-num">01</span>
+              <span className="empty-tip-title">选择引擎</span>
+              <span className="empty-tip-desc">左侧挑选图片 / 视频 / 音频引擎与模型</span>
+            </div>
+            <div className="empty-tip">
+              <span className="empty-tip-num">02</span>
+              <span className="empty-tip-title">描述画面</span>
+              <span className="empty-tip-desc">填写提示词,可用「优化」让 AI 二次润色</span>
+            </div>
+            <div className="empty-tip">
+              <span className="empty-tip-num">03</span>
+              <span className="empty-tip-title">生成与对比</span>
+              <span className="empty-tip-desc">点击生成,完成后可开启 A/B 对比</span>
+            </div>
+          </div>
+        </div>
         <style jsx>{panelStyles}</style>
       </div>
     );
@@ -237,6 +255,68 @@ const panelStyles = `
     height: 100%;
     align-items: center;
     justify-content: center;
+  }
+  .empty-editorial {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-5);
+    max-width: 640px;
+    padding: var(--space-6);
+  }
+  .empty-kicker {
+    font-size: var(--text-label);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+  }
+  .empty-display {
+    font-size: 40px;
+    font-weight: 650;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+    margin: 0;
+  }
+  .empty-tips {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-3);
+    width: 100%;
+  }
+  .empty-tip {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    background: var(--bg-surface-1);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-control);
+  }
+  .empty-tip-num {
+    font-size: var(--text-label);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+  }
+  .empty-tip-title {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .empty-tip-desc {
+    font-size: var(--text-aux);
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+  @media (max-width: 720px) {
+    .empty-tips {
+      grid-template-columns: 1fr;
+    }
+    .empty-display {
+      font-size: 30px;
+    }
   }
   .result-panel-toolbar {
     display: flex;
