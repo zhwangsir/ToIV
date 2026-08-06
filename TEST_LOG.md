@@ -4367,3 +4367,21 @@ Route (app)                                 Size  First Load JS
 - **集成坑 2**:岛样式迁 styles/island.css 后窄屏隐藏失效——globals.css 先加载,其媒体查询被后加载的岛 base 规则压过;修复:两条岛响应式规则随岛样式迁移(**层叠序敏感规则必须与 base 同文件**)
 - **验证**:axe 10 视图×2 尺寸 0 违规;本地 e2e **113 passed**(14 个 pathsafe 环境性);部署 core 后生产 e2e **161 passed / 0 failed**(pathsafe token 缓存修复后首次生产全绿);生产截图确认暗舞台/PromptBar/玻璃岛/光晕激活态生效
 - commits:febf1b8(地基)+ 70d7202(六路并行主体)
+
+### UI v3 走查修复批次:P0 死页级 + W2 六包(2026-08-07 凌晨)
+
+- 走查依据:`docs/2026-08-06-ui-v3-audit-report.md`(五路并行截图走查:P0 死页级 3 项/P1 布局 5 项/P2 移动端 5 项/P3 抛光)
+- **P0**(769c80f):Switch 全局隐形(styled-jsx scoped class 挂不上中间变量 JSX,改 `<style jsx global>` 单块);page.tsx 补 `imageEdit`/`videoEdit` 渲染分支 + legacy 键映射(原 404 黑屏);CanvasView 15s 超时错误卡 + 重试 + 暖黑遮罩
+- **远程配套(不在本仓)**:workstation `/opt/ComfyUI/comfyui-lb.py` 打补丁——转发时剥离 origin/sec-fetch 头,修跨站 iframe 403(备份 `.bak-20260806-p04`);ComfyUI 画布页自此真实可用,iframe 保持走 :8188 LB 口(直连 :8189 仍 403)
+- **W2 六包**(89edbbf):
+  - 生成包:浮板 max-height+滚动/A-B 挪左上状态行/chip 上展+Esc 收起+引擎 chip 玻璃化/骨架按尺寸 aspect-ratio/错误卡(友好文案+details 原文+重试)/空态扣浮板居中/移动端浮板改 FAB+底部抽屉
+  - 音频:TtsCard 移「编辑」tab,生成 tab 舞台全高;歌词 hint CSS 去重
+  - 融合:网格 max-width 1200 居中/badge 静态 accent-soft/描述 text-secondary/标题层级收敛
+  - 作品库:kindToFilter 全量映射(未知 kind 归「全部」不硬塞图像)/hover 提示词让位/失败卡 120px 矮条(ThumbPlaceholder 独立组件挂不上 styled-jsx hash,占位样式迁 library.css)/seed 单行省略/kindBadge 短名/filters z-index
+  - 移动端三件套:studio 阶段条横滑+日期 zh-CN/dub 步骤条等宽全显+锁定点击 toast/admin 徽章 nowrap+表格渐隐/avatartalk 禁用态去橙+按断点换文案
+  - 对话:pending 打字指示器/三路失败收口错误气泡+重试(含 30s 首块超时)/历史 localStorage 按天持久化 `toiv_av_convs_YYYY-MM-DD`(后端无会话 API 未动)/移动端 placeholder 精简
+- **nested-interactive 根治**(bf86c41):对话历史条目 button 嵌套 button → 容器 div + 主区/删除平级;删除键补 :focus-visible;ux-metrics 门禁断言附违规规则清单
+- **e2e 测试侧三处误报修正**(89edbbf):「500」文案改数字边界正则 `/(?<!\d)500(?!\d)/`(作品库 seed 长数字如 ...775000 误伤)/跨域 iframe 空消息 pageerror 不计崩溃(P0 修 403 后 ComfyUI 真实加载,其内部异常透传)/axe `.exclude("iframe")`(ComfyUI 第三方内容不归本门禁)
+- **集成坑 3**:SPA 路由是 `/?view=X` 不是 `/X`——临时验证脚本(axe/截图)打错 URL 会全 404 且 axe 对 404 页「 vacuous pass 」,脚本必须加 404 探测
+- **验证**:tsc/build 通过;axe 10 视图 × {1440×900,1280×720} serious/critical 清零(iframe 除外);本地全量 e2e **113 passed / 14 failed**(全部 pathsafe 环境性:指向离线 workstation 旧默认值,与基线一致;34 did not run 为既有常量);部署 core 两轮后生产 e2e **161 passed / 0 failed**;生产截图确认对话历史面板/图片工作台/作品库生效
+- 遗留:toast 根治需 ui/Toast 让位;ParamField placeholder 更优解;会话跨端需后端 API;seed 精度是后端 2^53 问题;pc02(:8193) 关机为既有状态

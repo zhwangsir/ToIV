@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-08-06T21:35:00+08:00",
+  "updated_at": "2026-08-07T01:05:00+08:00",
   "sync_baseline": {
     "id": "SYNC-2026-07-18",
     "type": "initial-sync",
@@ -2334,5 +2334,44 @@
     },
     "deployed_to": "core:/home/merlin/toiv (deploy/deploy.sh)",
     "verified_at": "2026-08-06T21:35:00+08:00"
+  },
+  "ui_v3_audit_fixes_2026_08_07": {
+    "audit_report": "docs/2026-08-06-ui-v3-audit-report.md",
+    "scope": "P0 死页级 3 项(769c80f)+ W2 P1-P3 六包(89edbbf)+ nested-interactive 根治(bf86c41)",
+    "changes": [
+      "P0: Switch 全局隐形/style jsx global 修复;imageEdit+videoEdit 渲染分支补全;Canvas 15s 超时错误卡+重试",
+      "远程配套: workstation comfyui-lb.py 补丁剥离 origin/sec-fetch 头修跨站 iframe 403(备份 .bak-20260806-p04),画布页真实可用",
+      "生成包: 浮板限高滚动/chip 上展+Esc/骨架按尺寸/错误卡+重试/移动端 FAB",
+      "音频: TtsCard 移编辑 tab;融合: 网格居中+badge 静态化",
+      "作品库: kind 全量映射(未知归全部)/失败卡矮条/seed 单行省略",
+      "移动端: studio 阶段条横滑/dub 步骤条全显+锁定 toast/admin 徽章 nowrap",
+      "对话: 打字指示/错误气泡+重试/历史按天 localStorage 持久化",
+      "对话历史 nested-interactive: button 嵌套 button 改容器 div+平级双按钮",
+      "e2e 误报修正: 500 数字边界正则/iframe 空 pageerror 豁免/axe exclude iframe"
+    ],
+    "integration_fixes": [
+      "SPA 路由是 /?view=X: 验证脚本打 /X 全 404 且 axe vacuous pass,必须加 404 探测",
+      "ThumbPlaceholder 独立组件挂不上 styled-jsx hash,占位样式迁 library.css"
+    ],
+    "commits": [
+      "769c80f",
+      "89edbbf",
+      "bf86c41"
+    ],
+    "verify": {
+      "axe": "10 视图 × 2 尺寸 serious/critical 0 违规(iframe 除外)",
+      "local_e2e": "113 passed / 14 failed(全部 pathsafe 环境性,与基线一致;34 did not run 既有常量)",
+      "prod_e2e_core": "161 passed / 0 failed",
+      "prod_screenshots": "对话历史面板/图片工作台/作品库在 core 确认生效"
+    },
+    "known_leftovers": [
+      "toast 根治需 ui/Toast 让位",
+      "ParamField placeholder 更优解",
+      "会话跨端需后端会话 API",
+      "seed 精度为后端 2^53 问题",
+      "pc02(:8193) 关机为既有状态"
+    ],
+    "deployed_to": "core:/home/merlin/toiv (deploy/deploy.sh)",
+    "verified_at": "2026-08-07T01:05:00+08:00"
   }
 }
