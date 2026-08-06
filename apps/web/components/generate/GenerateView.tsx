@@ -87,6 +87,8 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
   const [mode, setMode] = useState<EngineKind>(
     lockedKind ?? (draft?.target === "video" ? "video" : "image"),
   );
+  // Studio Slate 版型:参数栏默认收在右侧 inspector,可一键收起让结果区全宽(会话级)
+  const [paramsOpen, setParamsOpen] = useState(true);
   const [engines, setEngines] = useState<EngineInfo[] | null>(null);
   const [enginesError, setEnginesError] = useState<string | null>(null);
 
@@ -262,10 +264,22 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
             onChange={(k) => setMode(k as EngineKind)}
           />
         )}
-        <span className="generate-header-note">会话内历史不落库,刷新即清空</span>
+        <div className="generate-header-right">
+          <span className="generate-header-note">会话内历史不落库,刷新即清空</span>
+          <button
+            type="button"
+            className={`generate-params-toggle${paramsOpen ? " is-on" : ""}`}
+            onClick={() => setParamsOpen((v) => !v)}
+            aria-expanded={paramsOpen}
+            aria-label={paramsOpen ? "收起参数面板" : "展开参数面板"}
+            title={paramsOpen ? "收起参数面板" : "展开参数面板"}
+          >
+            <Icon name="panel-right" size={14} />
+          </button>
+        </div>
       </div>
 
-      <div className="generate-body">
+      <div className={`generate-body${paramsOpen ? "" : " is-params-closed"}`}>
         <aside className="generate-params" aria-label="生成参数">
           {engines === null && !enginesError ? (
             <>
@@ -443,6 +457,36 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
           font-size: var(--text-aux);
           color: var(--text-muted);
         }
+        .generate-header-right {
+          display: flex;
+          align-items: center;
+          gap: var(--space-3);
+        }
+        .generate-params-toggle {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 28px;
+          height: 28px;
+          padding: 0;
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+          background: var(--bg-surface-1);
+          color: var(--text-muted);
+          cursor: pointer;
+          transition: color var(--duration-fast) var(--ease-standard),
+            border-color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard);
+        }
+        .generate-params-toggle:hover {
+          color: var(--text-primary);
+          border-color: var(--border-strong);
+        }
+        .generate-params-toggle.is-on {
+          color: var(--accent);
+          background: var(--accent-soft);
+          border-color: transparent;
+        }
         .generate-board-title {
           font-size: var(--text-title);
           font-weight: 700;
@@ -469,6 +513,8 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
         }
         .generate-body {
           display: flex;
+          /* Studio Slate 版型:结果区为主视觉居左,参数 inspector 居右(row-reverse 保持 DOM 顺序不变) */
+          flex-direction: row-reverse;
           gap: var(--space-4);
           flex: 1;
           min-height: 0;
@@ -480,7 +526,13 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
           display: flex;
           flex-direction: column;
           gap: var(--space-3);
-          padding-right: var(--space-1);
+          padding: var(--space-3);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-panel);
+        }
+        .generate-body.is-params-closed .generate-params {
+          display: none;
         }
         .generate-results {
           flex: 1;
@@ -512,7 +564,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
           padding-top: var(--space-1);
           position: sticky;
           bottom: 0;
-          background: var(--bg-canvas);
+          background: var(--bg-surface-1);
         }
         .generate-actions :global(.btn-primary) {
           flex: 1;
