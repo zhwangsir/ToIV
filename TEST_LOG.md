@@ -4288,3 +4288,30 @@ Route (app)                                 Size  First Load JS
 - 五组:A1 282s 冷 / A2 222s / B1 263s / A3 292s / A4 283s;显存峰值 GPU0 ~58-64G 温和
 - 结论:身份锁定极强(多参考细节更准:602 vs 617);参考图即场景锚点——迁移场景需显式「场景切换」指令+单角色约束(A3 双角色瑕疵 → A4 修正后单角色厨房);match 档生产够用;ref2va 与 i2v 互补,角色卡模式可替代 PuLID 首帧路线
 - 脚本 bug 修复记录:t2v 存档类名为 MiniMaxH3ImageToVideo(非 TextToVideo);SaveVideo 产物在 history outputs 的 images 键(非 videos)
+
+### 画布 ComfyUI iframe 修复(af2b385)
+
+- 三层根因:localStorage `toiv_comfyui_web_url` 残留死地址;HTTPS 域名嵌 HTTP iframe 混合内容拦截;next.config.mjs `/comfy` 代理指向已下线的 100.99.181.103:8002(ComfyEmbed 早已不存在)
+- 修复:CanvasView 重写——按序探测 localStorage 自定义→默认 192.168.71.127:8188(no-cors `/system_stats`,4s 超时),首个可达者生效;全失败给诊断面板(尝试地址清单+重试+清除自定义地址);HTTPS 页直接给 LAN 访问指引;删 `/comfy` 死代理
+- 验证:Playwright `localhost:3100/?view=canvas` iframe 挂载且 ComfyUI frame 加载成功(frameLoaded:true);LB :8188 curl 200 无 X-Frame-Options
+
+### 作品库历史内容清空(2026-08-06)
+
+- core PG `toiv.job` 表 DELETE **90 行**(done 83 + error 7),执行前确认无 queued/running;备份 `core:/var/tmp/toiv_job_backup_2026-08-06.sql`(pg_dump -t job,60K)
+- 未动:user/tenant/agents 表;worker output 目录(workstation /opt/ComfyUI/output、pc01/pc02)未物理清理(共享目录,短剧/Studio 可能引用)
+- 前端作品库自动拉空,无需重启 api
+
+### 优化提示词重设计:自定义风格 style_hint(5e4c3a9)
+
+- 痛点:风格绑死 12 个预置智能体人格,用户无自由文本输入;`style` 参数前端从不传是死参数
+- 方案:用户描述风格 → AI 二次优化。`OptimizeRequest` 新增 `style_hint`(≤500 字),系统提示组装顺序:**风格块(最高优先级,冲突以用户为准) > 智能体人格 > kind 系统提示(含模型族方言)**;不传保持现状
+- 顺手补 `_TEXT_SYSTEMS["train"]` 专属触发词提示(原落 video 兜底);删 lib/api.ts 死代码 `optimizePrompt`
+- 前端:OptimizeButton Popover 顶部「自定义风格」输入+按此优化(localStorage `toiv_optimize_style_hint` 持久化),智能体列表保留为快捷项;组件内聚,7 个视图(generate/nsfw×2/manju/audio/dub/train)全受益
+- 验证:pytest **964 passed**(+4:style_hint 注入/与智能体共存顺序/不传不变/train 触发词);tsc/build 通过;e2e authed-views 12 passed;Playwright 实测 Popover UI
+
+### 数字人语音对话闭环(5191403)
+
+- 链路:麦克风 MediaRecorder(优先 webm/opus)→ 代理新增 `POST /opentalking/sessions/{id}/speak_audio`(multipart 原样透传,STT 超时 120s)→ 引擎 SenseVoice STT → 识别文本作为用户消息上屏 → 自动 LLM(qwen3.6-uncensored)→ IndexTTS-2 → 数字人说话(SSE 原有管线复用)
+- 前端:AvatarTalkView 输入区麦克风按钮(点击开始/再点结束上传),录音中红色呼吸脉冲,识别中 spinner;`isSpeaking`/识别中禁用;会话结束/组件卸载**丢弃式释放**(先摘 onstop 回调防误上传)
+- 验证:pytest **967 passed**(+3:multipart 透传/缺 file 400/引擎禁用 503);tsc/build 通过;Playwright mock 引擎全链路(录音→识别→"你好数字人"上屏);真机 workstation `opentalking`+`flashtalk` systemd active,`/health` ok
+- 留待:真机端到端(需浏览器麦克风授权手测);VAD 流式断句(引擎有 speak_audio_stream WS,当前为整段上传)

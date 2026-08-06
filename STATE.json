@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-08-06T06:35:00+08:00",
+  "updated_at": "2026-08-06T14:56:00+08:00",
   "sync_baseline": {
     "id": "SYNC-2026-07-18",
     "type": "initial-sync",
@@ -2200,5 +2200,36 @@
     ],
     "artifacts": "NAS toiv/outputs/videos/h3-eval/r2v/(7 个 mp4)+ workstation ComfyUI-h3-eval/output/r2v/",
     "verified_at": "2026-08-06T06:35:00+08:00"
+  },
+  "canvas_iframe_fix_2026_08_06": {
+    "status": "done",
+    "commit": "af2b385",
+    "root_causes": [
+      "localStorage toiv_comfyui_web_url 可能残留死地址(100.99.181.103:8002)",
+      "HTTPS 域名嵌 HTTP iframe 被混合内容拦截",
+      "next.config.mjs /comfy 代理指向已下线地址(ComfyEmbed 早已不存在)"
+    ],
+    "fix": "CanvasView 重写:启动按序探测 localStorage 自定义→默认 192.168.71.127:8188(no-cors /system_stats, 4s 超时);全失败给诊断面板(重试+清除自定义地址);HTTPS 页给 LAN 访问指引;/comfy 死代理删除",
+    "verified": "Playwright localhost:3100/?view=canvas iframe 挂载 frameLoaded:true; LB :8188 curl 200 无 X-Frame-Options"
+  },
+  "gallery_purge_2026_08_06": {
+    "status": "done",
+    "scope": "core PG toiv 库 job 表 DELETE 90 行(done 83 + error 7),无 queued/running",
+    "backup": "core:/var/tmp/toiv_job_backup_2026-08-06.sql(60K,pg_dump -t job)",
+    "note": "worker output 目录(workstation /opt/ComfyUI/output、pc01/pc02 C:\\ComfyUI\\output)未物理清理——共享目录,短剧/Studio 可能引用;user/tenant/agents 表未动"
+  },
+  "optimize_style_hint_2026_08_06": {
+    "status": "done",
+    "commit": "5e4c3a9",
+    "design": "用户自由描述风格(style_hint ≤500 字)→ AI 二次优化,组装顺序:风格块(最高优先级,冲突以用户为准) > 智能体人格 > kind 系统提示;不传保持现状",
+    "changes": "OptimizeRequest+style_hint;_TEXT_SYSTEMS 补 train 触发词专属提示;OptimizeButton Popover 顶部自定义风格输入+按此优化(localStorage 持久化),7 视图全受益;agents.ts optimizeWithAgent+styleHint;删 lib/api.ts 死代码 optimizePrompt",
+    "verified": "pytest 964 passed(+4);tsc/build 通过;e2e authed-views 12 passed;Playwright 实测 Popover UI"
+  },
+  "avatartalk_voice_loop_2026_08_06": {
+    "status": "done",
+    "commit": "5191403",
+    "design": "麦克风 MediaRecorder(webm/opus)→ POST speak_audio(multipart 透传)→ 引擎 SenseVoice STT→文本作为用户消息上屏→自动 LLM→IndexTTS→数字人说话(SSE 原管线)",
+    "changes": "代理新增 speak_audio multipart 端点(超时 120s);lib otSpeakAudio;AvatarTalkView 麦克风按钮(录音脉冲/识别 spinner/会话结束与卸载丢弃式释放)",
+    "verified": "pytest 967 passed(+3);tsc/build 通过;Playwright mock 引擎全链路(录音→识别→消息上屏);真机 opentalking+flashtalk systemd active, /health ok(qwen3.6-uncensored + IndexTTS-2)"
   }
 }
