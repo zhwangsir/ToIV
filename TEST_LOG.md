@@ -4336,3 +4336,10 @@ Route (app)                                 Size  First Load JS
 - W2:FusionView 重写 bento(旗舰卡通栏,删鼠标光晕与彩渐变);ResultPanel 空态编辑部式(大标题+三步提示卡);LibraryView 空态编辑部式;GenerateView 标题规格对齐;AssistantView 首屏问候式大标题
 - W3:九视图截图逐个过(数字人/译制/Studio/资源/模型/管理/画布/视频/音频)全橙体系健康;StudioView legacy `var(--color-danger)` 6 处映射 `--err`;Manju `--accent-wash` 已由 W0 token 重映射自动续命
 - 验证:tsc/build 通过;后端 pytest 967 passed;本地 e2e 12 passed;部署 core 后生产 e2e **119 passed / 0 failed**;生产截图确认融合 bento + 作品库空态生效
+
+### 版型重构(2026-08-06 深夜,用户反馈"只换了颜色"后的真版型改动)
+
+- **版型 1 窄轨侧栏**:默认 64px 图标窄轨(localStorage 无记录时收起),桌面悬停/聚焦浮出 220px 完整侧栏(absolute 覆盖主区,不挤内容);折叠按钮标签动态化;--sidebar-w-collapsed 56→64
+- **版型 2 工作台反转**:generate-body row-reverse,结果区为左主视觉,参数栏收右侧 surface-1 inspector 卡片,头部 panel-right 开关一键收起全宽;DOM 顺序不变(a11y),移动端回退纵向
+- **版型 3 作品库 masonry**:lib-grid 改 CSS columns(240px),产物走自然宽高比,占位卡(:has)保持方形;lib-thumb-hit 改自然流防塌陷
+- 验证:tsc/build 通过;本地全量 e2e 110 passed;部署 core 后生产 e2e **118 passed / 0 failed**;生产截图确认窄轨默认态、悬停浮出、工作台反转均生效

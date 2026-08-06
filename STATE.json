@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-08-06T18:30:00+08:00",
+  "updated_at": "2026-08-06T23:00:00+08:00",
   "sync_baseline": {
     "id": "SYNC-2026-07-18",
     "type": "initial-sync",
@@ -2270,5 +2270,19 @@
       "prod_screenshots": "融合 bento + 作品库空态在 core 生产确认生效"
     },
     "deployed_to": "core:/home/merlin/toiv (deploy/deploy.sh)"
+  },
+  "layout_redesign_2026_08_06": {
+    "context": "用户反馈 v2 只是换皮,要求真版型改动",
+    "changes": [
+      "窄轨侧栏 64px 默认 + 悬停浮出 220px(不挤内容)",
+      "工作台反转:结果区左主视觉 + 参数收右侧 inspector(可收起)",
+      "作品库 CSS columns masonry,产物自然宽高比"
+    ],
+    "verify": {
+      "local_e2e": "110 passed",
+      "prod_e2e_core": "118 passed / 0 failed",
+      "prod_screenshots": "窄轨/浮出/反转均生效"
+    },
+    "deployed_to": "core:/home/merlin/toiv"
   }
 }
