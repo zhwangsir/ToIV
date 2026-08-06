@@ -4,6 +4,38 @@
 
 ---
 
+## LIGHT-THEME-2026-08-07 · 浅色五色板主题系统 + 批1 死代码清除
+
+**时间**: 2026-08-07
+**类型**: feat(theme) / chore(ui) / regression
+**目标**: 废弃「曜石熔岩」深色单主题,落地浅色五色板可切换主题系统(用户决策);闭环 UI 走查 P1/P2 复验与死代码清除
+
+### 变更
+
+| 范围 | 内容 |
+|---|---|
+| `apps/web/app/globals.css` | v6 浅色 token 层:`:root`=素白 paper 默认 + `[data-theme=wood/mono/mint/apricot]` 四组覆盖;`color-scheme: light`;AA 加固(muted/状态色/彩色 accent 全部加深至 axe color-contrast 零容忍) |
+| `apps/web/lib/theme.ts` + `components/ui/ThemePicker.tsx` | 五色定义 + 切换器(灵动岛账户 Popover + 移动端更多抽屉;localStorage `toiv_theme` 持久化,无刷新切换) |
+| `apps/web/app/layout.tsx` | themeColor `#FFFFFF`;内联防 FOUC 脚本(首帧前写 dataset.theme) |
+| 5 个 styles/*.css + 4 个组件 | 硬编码暗色残留清扫;scrim 语义恒深色(`--overlay-*`)与主题材质分离(library/studio/canvas 各 1-2 处) |
+| 批1 死代码 | 删 `.cv-*` 死规则 / `.video-submit` / `--topbar-h` / components/layout 空目录;走查 P1(#4-8)/P2(#9-13) 逐条核对**已在码**(此前批次修复),本次仅截图复验 |
+| docs | `2026-08-07-ui-ux-research-redesign-proposal.md`(调研+定向重构方案,结论:不整体推倒,四批实施)+ `2026-08-07-light-theme-system.md`(五色板规范,含 AA 勘误) |
+
+### 测试
+
+- axe(自写脚本,5 主题 × 3 核心视图):初扫 paper 10 违规(muted 2.7:1/ok-soft 2.9:1)→ 两轮加深 → **15/15 全 CLEAN**
+- 本地 e2e:**113 passed / 14 failed(全 pathsafe-images 环境性,与基线一致)** × 3 轮(主题、AA 加固、批1)
+- 生产部署:`deploy/deploy.sh` → core toiv-api/toiv-web 健康检查 200(两批均)
+- 生产 e2e(`playwright.prod.config.ts`):主题批 **161 passed / 0 failed**(ux-metrics 门禁:视图10 交互8 可访问10);批1 复跑同 **161 passed / 0 failed**
+- 截图:5 主题 × 6 视图 31 张(/tmp/theme_shots)+ 批1 11 张(/tmp/batch1_shots)逐张人工过
+
+### commit
+
+- `1fdbb99` feat(theme): 浅色五色板主题系统
+- `9f2cbed` chore(ui): 批1 死代码清除
+
+---
+
 ## STUDIO-M5-2026-08-06 · Studio 创作工作室 M5:旧模块冻结 + 全量回归归档(studio_module_complete)
 
 **时间**: 2026-08-06
