@@ -31,40 +31,12 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // Obsidian 深色单主题
-  themeColor: "#0B0B0F",
+  // Studio Slate 深色单主题(2026-08-06 起;light/auto 主题死路径已移除)
+  themeColor: "#0E0E11",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
 };
-
-const themeInitScript = `(function(){
-  try {
-    var stored = localStorage.getItem('toiv_theme');
-    var theme = stored || 'auto';
-    var mql = window.matchMedia('(prefers-color-scheme: dark)');
-    
-    function applyTheme(t) {
-      if (t === 'auto') {
-        document.documentElement.dataset.theme = mql.matches ? 'dark' : 'light';
-      } else {
-        document.documentElement.dataset.theme = t;
-      }
-    }
-    
-    applyTheme(theme);
-    document.documentElement.dataset.themeMode = theme;
-    
-    mql.addEventListener('change', function() {
-      if (document.documentElement.dataset.themeMode === 'auto') {
-        applyTheme('auto');
-      }
-    });
-  } catch(e) {
-    document.documentElement.dataset.theme = 'light';
-    document.documentElement.dataset.themeMode = 'auto';
-  }
-})();`;
 
 export default function RootLayout({
   children,
@@ -74,12 +46,8 @@ export default function RootLayout({
   return (
     <html
       lang="zh-CN"
-      suppressHydrationWarning
       className={`${fraunces.variable} ${inter.variable} ${jetbrainsMono.variable}`}
     >
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
-      </head>
       <body>
         <a href="#main" className="skip-link">跳到主内容</a>
         <ToastProvider>{children}</ToastProvider>

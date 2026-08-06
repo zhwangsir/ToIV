@@ -1,7 +1,8 @@
 /* ──────────────────────────────────────────────────────────
-   ToIV 设计系统 v3 — Obsidian(深曜)
-   2026-08-03 定调:近黑画布上的专业创作台,素材是唯一高光,UI 退后
-   依据:docs/2026-08-03-ui-redesign-plan.md
+   ToIV 设计系统 v4 — Studio Slate(影棚岩板)
+   2026-08-06 定调:DaVinci 式专业影棚,中性深灰骨架 + 信号橙单点强调,
+   生成的图/视频/数字人是唯一色彩来源,UI 退后为精密仪器
+   依据:docs/2026-08-06-ui-redesign-v2-plan.md(取代 08-03 紫色 Obsidian)
    深色单主题 · token 驱动 · 4px 间距基数 · 动效 ≤200ms ease-out
    ────────────────────────────────────────────────────────── */
 
@@ -16,41 +17,41 @@
   --font-display: var(--font-fraunces), var(--font-sans);
   --font-mono: var(--font-jetbrains), "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
-  /* ── 色彩:画布/面板层级 ── */
-  --bg-canvas: #0B0B0F;
-  --bg-surface-1: #121218;
-  --bg-surface-2: #1A1A22;
-  --bg-surface-3: #22222C;
+  /* ── 色彩:画布/面板层级(中性灰,去紫味) ── */
+  --bg-canvas: #0E0E11;
+  --bg-surface-1: #15151A;
+  --bg-surface-2: #1C1C23;
+  --bg-surface-3: #24242D;
 
   /* ── 描边 ── */
   --border-subtle: rgba(255, 255, 255, 0.07);
   --border-strong: rgba(255, 255, 255, 0.14);
 
-  /* ── 文字 ── */
-  --text-primary: #F2F2F5;
-  --text-secondary: #A3A3AD;
-  --text-muted: #6B6B76;
+  /* ── 文字(冷灰阶梯) ── */
+  --text-primary: #EDEDEF;
+  --text-secondary: #9CA0AA;
+  --text-muted: #666B76;
 
-  /* ── 强调色(唯一 accent) ── */
-  --accent: #7C6CFF;
-  --accent-hover: #9387FF;
-  --accent-soft: rgba(124, 108, 255, 0.14);
-  --accent-glow: rgba(124, 108, 255, 0.25);
-  --text-on-accent: #FFFFFF;
+  /* ── 强调色(唯一 accent:信号橙;橙底文字用近黑保对比) ── */
+  --accent: #F06418;
+  --accent-hover: #FF7F3D;
+  --accent-soft: rgba(240, 100, 24, 0.13);
+  --accent-glow: rgba(240, 100, 24, 0.28);
+  --text-on-accent: #14100C;
 
-  /* ── 状态色(仅状态用语) ── */
+  /* ── 状态色(仅状态用语;运行态收敛进 accent,用 pulse 区分) ── */
   --ok: #34D399;
   --warn: #FBBF24;
   --err: #F87171;
-  --run: #38BDF8;
+  --run: #F06418;
   --ok-soft: rgba(52, 211, 153, 0.12);
   --warn-soft: rgba(251, 191, 36, 0.12);
   --err-soft: rgba(248, 113, 113, 0.12);
-  --run-soft: rgba(56, 189, 248, 0.12);
+  --run-soft: rgba(240, 100, 24, 0.12);
 
   /* ── 叠加与模糊 ── */
   --overlay-strong: rgba(0, 0, 0, 0.6);
-  --overlay-light: rgba(11, 11, 15, 0.72);
+  --overlay-light: rgba(14, 14, 17, 0.72);
   --backdrop-blur: blur(12px);
 
   /* ── 排版档位(定调文档:20/700 标题 · 15/600 区块 · 14/400 正文 · 12/400 辅助 · 11/500 标签) ── */
@@ -156,7 +157,7 @@
   /* 强调色 */
   --accent-line: var(--accent-glow);
   --accent-quiet: var(--accent-soft);
-  --accent-wash: rgba(124, 108, 255, 0.08);
+  --accent-wash: rgba(240, 100, 24, 0.08);
 
   /* 功能色 */
   --success: var(--ok);
@@ -383,7 +384,7 @@ img, video {
 .app-sidebar-logo-dot {
   width: 10px;
   height: 10px;
-  border-radius: 50%;
+  border-radius: 3px;
   background: var(--accent);
   box-shadow: 0 0 10px var(--accent-glow);
   flex-shrink: 0;
@@ -429,6 +430,17 @@ img, video {
 .app-sidebar-item.is-active {
   background: var(--accent-soft);
   color: var(--accent);
+}
+/* Studio Slate:激活项左侧 2px 信号条(仪器刻度感) */
+.app-sidebar-item.is-active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--accent);
 }
 .app-sidebar-item.is-active .app-sidebar-icon {
   color: var(--accent);

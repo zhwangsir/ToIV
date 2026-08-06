@@ -84,7 +84,7 @@ export function LandingPage() {
           justify-content: center;
           padding: var(--space-4);
           background:
-            radial-gradient(ellipse at 50% 0%, rgba(124, 108, 255, 0.08), transparent 60%),
+            radial-gradient(ellipse at 50% 0%, rgba(240, 100, 24, 0.07), transparent 60%),
             var(--bg-canvas);
         }
         .landing-card {
@@ -105,7 +105,7 @@ export function LandingPage() {
         .landing-logo-dot {
           width: 10px;
           height: 10px;
-          border-radius: 50%;
+          border-radius: 3px;
           background: var(--accent);
           box-shadow: 0 0 12px var(--accent-glow);
         }
