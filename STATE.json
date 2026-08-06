@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-08-06T15:10:00+08:00",
+  "updated_at": "2026-08-06T15:35:00+08:00",
   "sync_baseline": {
     "id": "SYNC-2026-07-18",
     "type": "initial-sync",
@@ -2248,5 +2248,12 @@
       "opentalking/status: reachable, qwen3.6-uncensored + indextts"
     ],
     "verified_at": "2026-08-06T15:10:00+08:00"
+  },
+  "prod_e2e_core_2026_08_06": {
+    "status": "done",
+    "result": "24 passed / 0 failed(2.9m)",
+    "specs": "views/home/api/auth-flow/authed-views(12 视图)/authed-api/authed-ux-metrics/authed-studio",
+    "note": "playwright.prod.config.ts 目标从 workstation docker 更新为 core(192.168.71.47:3100/8090);authed-agents-* 未对生产跑(避免污染生产 agents 表)",
+    "verified_at": "2026-08-06T15:35:00+08:00"
   }
 }

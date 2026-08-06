@@ -4321,3 +4321,9 @@ Route (app)                                 Size  First Load JS
 - `bash deploy/deploy.sh`(仓库根;`./deploy.sh` 不存在,正确路径是 deploy/deploy.sh)推送 af2b385/5e4c3a9/5191403 → core:/home/merlin/toiv,toiv-api/toiv-web 重启就绪
 - 生产冒烟:web 200;`jobs: []`(作品库清空生效);`optimize + style_hint=赛博朋克` 真 LLM 产出赛博朋克提示词(端到端);`speak_audio` 无 file 400(路由生效);`opentalking/status` reachable(qwen3.6-uncensored + IndexTTS-2)
 - 生产登录账号为 `admin`(非 admin@toiv.ai),login 响应字段是 `token` 非 `access_token`
+
+### core 生产 E2E 回归(2026-08-06 15:35)
+
+- `playwright.prod.config.ts` 目标更新为 core(192.168.71.47:3100/8090,原指向 workstation docker 已过时)
+- 8 个安全 spec 对生产跑:**24 passed / 0 failed**(含 12 个登录态视图渲染、guest 流程、Studio 入口、UX 指标);authed-agents-* 有意跳过(避免污染生产 agents 表)
+- 叠加此前冒烟:jobs 空表、style_hint 真 LLM、speak_audio 路由、opentalking reachable——本轮全部改动在 core 生产验证完毕

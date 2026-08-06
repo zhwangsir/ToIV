@@ -1,14 +1,14 @@
 import { defineConfig, devices } from "@playwright/test";
 
 /**
- * Playwright E2E 配置 - ToIV 生产环境 (Workstation Docker)
+ * Playwright E2E 配置 - ToIV 生产环境 (core 真机)
  *
  * 目标:
- *  - 前端: http://192.168.71.127:3100  (toiv-web)
- *  - 后端: http://192.168.71.127:8090  (toiv-api)
+ *  - 前端: http://192.168.71.47:3100  (toiv-web, core /home/merlin/toiv)
+ *  - 后端: http://192.168.71.47:8090  (toiv-api)
  *
  * 与 playwright.config.ts(本地开发)的差异:
- *  - baseURL 指向 Workstation 生产
+ *  - baseURL 指向 core 生产
  *  - 通过 process.env 注入 TOIV_API_BASE / TOIV_WEB_BASE,供 global-setup 与 api.spec 读取
  *  - 移除 webServer(不启动本地 dev server,直连远程生产)
  *  - 输出目录隔离(test-results-prod / playwright-report-prod),避免覆盖本地结果
@@ -17,10 +17,10 @@ import { defineConfig, devices } from "@playwright/test";
  */
 
 // 注入环境变量(在 globalSetup 之前生效)
-process.env.TOIV_API_BASE = "http://192.168.71.127:8090";
-process.env.TOIV_WEB_BASE = "http://192.168.71.127:3100";
+process.env.TOIV_API_BASE = "http://192.168.71.47:8090";
+process.env.TOIV_WEB_BASE = "http://192.168.71.47:3100";
 
-const PROD_WEB = "http://192.168.71.127:3100";
+const PROD_WEB = "http://192.168.71.47:3100";
 
 export default defineConfig({
   testDir: "./e2e",
