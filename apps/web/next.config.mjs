@@ -19,8 +19,6 @@ const nextConfig = {
   // web:3100 时,/api 会打到 Next —— 这条 rewrite 把它转发到同 compose 网络的 api 容器,
   // 让 LAN 内(与 spark02 同网段)上传视频走本地高速链路,绕开 spark02↔cloud ~17KB/s 慢腿。
   // 本地开发(无 docker)时 fallback 到 localhost:8090,避免只起前端时报 502。
-  // /comfy:把 ComfyUI 原生界面代理进同源,供 ComfyEmbed 用 iframe 嵌入。
-  // ComfyUI 的 WebSocket(/ws、/queue 等)走 HTTP upgrade,Next rewrite 默认支持。
   async rewrites() {
     const apiBase = process.env.INTERNAL_API_BASE
       || process.env.NEXT_PUBLIC_API_BASE
@@ -29,10 +27,6 @@ const nextConfig = {
       {
         source: "/api/:path*",
         destination: `${apiBase}/api/:path*`,
-      },
-      {
-        source: "/comfy/:path*",
-        destination: `http://100.99.181.103:8002/:path*`,
       },
     ];
   },
