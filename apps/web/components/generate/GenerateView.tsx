@@ -95,8 +95,14 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
   const [mode, setMode] = useState<EngineKind>(
     lockedKind ?? (draft?.target === "video" ? "video" : "image"),
   );
-  // 参数浮板开关:收起时为右下角悬浮球(会话级)
-  const [paramsOpen, setParamsOpen] = useState(true);
+  // 参数浮板开关:收起时为右下角悬浮球(会话级);移动端(<1024px)默认收起为 FAB,舞台优先
+  const [paramsOpen, setParamsOpen] = useState(
+    () =>
+      !(
+        typeof window !== "undefined" &&
+        window.matchMedia("(max-width: 1024px)").matches
+      ),
+  );
   const [engines, setEngines] = useState<EngineInfo[] | null>(null);
   const [enginesError, setEnginesError] = useState<string | null>(null);
 
@@ -238,25 +244,32 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
     !submitting &&
     (!imageParam || !!refImage);
 
-  async function onGenerate() {
-    if (!engine || !canSubmit) return;
+  /** 取数值参数(仅有限 number 有效,其余视为未设置)。 */
+  const numVal = (v: unknown): number | undefined =>
+    typeof v === "number" && Number.isFinite(v) ? v : undefined;
+
+  /** 提交一次生成:引擎/提示词显式传入,参数/参考图取该引擎分槽快照(onGenerate 与失败重试共用)。 */
+  async function submitGeneration(target: EngineInfo, promptText: string) {
     setSubmitError(null);
     setSubmitting(true);
+    const targetValues = { ...engineDefaults(target), ...(valuesByEngine[target.id] ?? {}) };
     try {
       const res = await submitEngineGeneration({
-        engine,
-        positive: positive.trim(),
-        values,
-        refImage,
+        engine: target,
+        positive: promptText,
+        values: targetValues,
+        refImage: refByEngine[target.id] ?? null,
       });
       const entry: HistoryEntry = {
         id: newEntryId(),
-        engineId: engine.id,
-        engineLabel: engine.label,
-        kind: engine.kind,
-        prompt: positive.trim(),
+        engineId: target.id,
+        engineLabel: target.label,
+        kind: target.kind,
+        prompt: promptText,
         status: "running",
         paths: [],
+        width: numVal(targetValues["width"]),
+        height: numVal(targetValues["height"]),
         createdAt: Date.now(),
       };
       setEntries((prev) => [entry, ...prev]);
@@ -270,6 +283,25 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function onGenerate() {
+    if (!engine || !canSubmit) return;
+    await submitGeneration(engine, positive.trim());
+  }
+
+  /** 失败重试:切回该条目的引擎/提示词(参数取该引擎分槽快照),重新提交。 */
+  function onRetry(entry: HistoryEntry) {
+    if (gen.isRunning || submitting) return;
+    const target = (engines ?? []).find((e) => e.id === entry.engineId) ?? null;
+    if (!target || !target.available) {
+      setSubmitError("该引擎当前不可用,无法重试");
+      return;
+    }
+    if (!lockedKind && target.kind !== mode) setMode(target.kind);
+    setEngineIdByKind((prev) => ({ ...prev, [target.kind]: target.id }));
+    setPromptByEngine((prev) => ({ ...prev, [target.id]: entry.prompt }));
+    void submitGeneration(target, entry.prompt);
   }
 
   function onCancel() {
@@ -299,7 +331,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
     engine?.id === "img2img" ? "img2img" : engine?.id === "h3-i2v" ? "h3_i2v" : "ltx_i2v";
 
   return (
-    <div className="generate-view">
+    <div className={`generate-view${paramsOpen ? " is-params-open" : ""}`}>
       <div className="generate-header">
         {lockedKind ? (
           <span className="generate-board-title">{KIND_LABEL[lockedKind]}</span>
@@ -332,6 +364,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
             onSelect={setSelectedId}
             liveProgress={gen.progress}
             onCancel={onCancel}
+            onRetry={onRetry}
           />
         </section>
 

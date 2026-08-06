@@ -211,7 +211,10 @@ test("UI/UX 五维度指标综合采集", async ({ page }) => {
       await page.waitForTimeout(2500);
 
       // WCAG 扫描(含焦点状态/对比度/ARIA/屏幕阅读器兼容等规则族)
-      const results = await new AxeBuilder({ page }).analyze();
+      // exclude iframe —— 画布内嵌 ComfyUI 属第三方应用,其内部 a11y 不归本门禁管(P0 修 403 后 iframe 真实加载)
+      const results = await new AxeBuilder({ page })
+        .exclude("iframe")
+        .analyze();
       const violations = results.violations || [];
       const byImpact = (imp: string) => violations.filter((x: any) => x.impact === imp).length;
 

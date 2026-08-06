@@ -475,7 +475,13 @@ export function DubView() {
             <div
               key={s.n}
               className={`dub-step${active ? " is-active" : ""}${done ? " is-done" : ""}${!reachable && !active ? " is-locked" : ""}`}
-              onClick={() => reachable && goStep(s.n as 1 | 2 | 3 | 4)}
+              onClick={() => {
+                if (reachable) {
+                  goStep(s.n as 1 | 2 | 3 | 4);
+                } else {
+                  showToast("info", "完成当前步骤后解锁");
+                }
+              }}
               role="button"
               tabIndex={reachable ? 0 : -1}
               onKeyDown={(e) => {
@@ -1408,14 +1414,28 @@ export function DubView() {
           height: 24px;
           background: var(--border-subtle);
         }
+        /* 移动端:四步等宽压缩(小圆点 + 小字号 + 去 hint/分隔线),保证 390px 全显 */
         @media (max-width: 720px) {
           .dub-stepper {
-            overflow-x: auto;
+            padding: var(--space-2) var(--space-3);
           }
           .dub-step {
-            min-width: 110px;
+            gap: 6px;
+            min-width: 0;
+          }
+          .dub-step-circle {
+            width: 24px;
+            height: 24px;
+            font-size: var(--text-label);
+          }
+          .dub-step-label {
+            font-size: var(--text-aux);
+            white-space: nowrap;
           }
           .dub-step-hint {
+            display: none;
+          }
+          .dub-step-line {
             display: none;
           }
         }

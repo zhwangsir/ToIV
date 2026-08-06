@@ -23,6 +23,30 @@ interface ChatMessage {
   content: string;
   timestamp: number;
   media?: { type: string; urls: string[] }[];
+  /** error = 失败态气泡(不进历史、不回传后端) */
+  kind?: "error";
+}
+
+// 后端无对话持久化接口(仅 /api/agent/chat),会话按天存 localStorage 做轻量持久化
+const CONV_STORAGE_KEY = (() => {
+  const d = new Date();
+  const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return `toiv_av_convs_${day}`;
+})();
+
+// 等待首个响应块的超时;超时按「服务不可用」处理并允许重试
+const FIRST_CHUNK_TIMEOUT_MS = 30000;
+
+function loadStoredConversations(): Conversation[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(CONV_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 const QUICK_ACTIONS = [
@@ -43,18 +67,42 @@ export function AssistantView() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  // pending = 已发送、等待首个响应块(打字指示器),出错即替换为错误气泡
+  const [pending, setPending] = useState(false);
+  const [conversations, setConversations] = useState<Conversation[]>(loadStoredConversations);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [contextOpen, setContextOpen] = useState(false);
   const [textareaRows, setTextareaRows] = useState(1);
   const [modelName, setModelName] = useState("L1 对话模型");
+  const [isMobile, setIsMobile] = useState(false);
   const abortRef = useRef<boolean>(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const activeConvIdRef = useRef<string | null>(null);
+  const userStoppedRef = useRef<boolean>(false);
+  const gotFirstChunkRef = useRef<boolean>(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isEmpty = messages.length === 0;
+
+  // 移动端断点:placeholder 文案按端适配(移动端无 Enter 键)
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
+  // 会话列表变更即写入 localStorage(按天)
+  useEffect(() => {
+    try {
+      localStorage.setItem(CONV_STORAGE_KEY, JSON.stringify(conversations));
+    } catch {
+      /* 存储满/隐私模式下静默忽略 */
+    }
+  }, [conversations]);
 
   // 顶栏/设置面板的模型名跟随后端真实配置,避免显示与实际调用不一致
   useEffect(() => {
@@ -84,30 +132,46 @@ export function AssistantView() {
   const onNewChat = useCallback(() => {
     setMessages([]);
     setActiveConvId(null);
+    activeConvIdRef.current = null;
     setInput("");
     setTextareaRows(1);
   }, []);
 
+  // activeConvId 同步到 ref,供流式回调结束时拿到最新会话 id
+  useEffect(() => {
+    activeConvIdRef.current = activeConvId;
+  }, [activeConvId]);
+
   const saveToHistory = useCallback((msgs: ChatMessage[], convId: string | null) => {
-    if (msgs.length === 0) return;
-    const userMsg = msgs.find((m) => m.role === "user");
+    // 错误气泡不进历史(本地兜底态,非真实对话内容)
+    const cleaned = msgs.filter((m) => m.kind !== "error");
+    if (cleaned.length === 0) return;
+    const userMsg = cleaned.find((m) => m.role === "user");
     const title = userMsg ? getPreview(userMsg.content, 20) : "新对话";
     const now = Date.now();
 
+    // id 在 updater 外生成,保证 StrictMode 双调用幂等
+    let id = convId;
+    if (!id) {
+      id = genId();
+      setActiveConvId(id);
+      activeConvIdRef.current = id;
+    }
+    const finalId = id;
     setConversations((prev) => {
-      if (convId) {
+      const exists = prev.some((c) => c.id === finalId);
+      if (exists) {
         return prev.map((c) =>
-          c.id === convId ? { ...c, messages: msgs, title, updatedAt: now } : c
+          c.id === finalId ? { ...c, messages: cleaned, title, updatedAt: now } : c
         );
       }
       const newConv: Conversation = {
-        id: genId(),
+        id: finalId,
         title,
-        messages: msgs,
+        messages: cleaned,
         createdAt: now,
         updatedAt: now,
       };
-      setActiveConvId(newConv.id);
       return [newConv, ...prev];
     });
   }, []);
@@ -127,59 +191,33 @@ export function AssistantView() {
     }
   }, [activeConvId, onNewChat]);
 
-  const typeResponse = useCallback(async (text: string) => {
-    const assistantMsg: ChatMessage = {
-      id: genId(),
-      role: "assistant",
-      content: "",
-      timestamp: Date.now(),
-    };
-    setMessages((prev) => [...prev, assistantMsg]);
-
-    for (let i = 0; i < text.length; i++) {
-      if (abortRef.current) break;
-      await new Promise((r) => setTimeout(r, 15 + Math.random() * 25));
-      setMessages((prev) => {
-        const last = prev[prev.length - 1];
-        if (last && last.role === "assistant") {
-          return [...prev.slice(0, -1), { ...last, content: last.content + text[i] }];
-        }
-        return prev;
-      });
-    }
-
-    setMessages((prev) => {
-      saveToHistory(prev, activeConvId);
-      return prev;
-    });
-  }, [activeConvId, saveToHistory]);
-
-  const send = useCallback(
-    async (presetPrompt?: string) => {
-      const text = (presetPrompt ?? input).trim();
-      if (!text || busy) return;
-
-      const userMsg: ChatMessage = {
-        id: genId(),
-        role: "user",
-        content: text,
-        timestamp: Date.now(),
-      };
-      const newMsgs = [...messages, userMsg];
-      setMessages(newMsgs);
-      if (!presetPrompt) {
-        setInput("");
-        setTextareaRows(1);
-      }
+  // 发起一次对话请求:立即进入 pending(打字指示器),30s 无首个响应块按失败处理,
+  // 失败/超时 → 错误气泡 + 重试;成功/失败均写入历史
+  const requestReply = useCallback(
+    async (baseMsgs: ChatMessage[]) => {
       setBusy(true);
+      setPending(true);
       abortRef.current = false;
+      userStoppedRef.current = false;
+      gotFirstChunkRef.current = false;
 
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
+      const timeoutId = window.setTimeout(() => {
+        if (!gotFirstChunkRef.current) controller.abort();
+      }, FIRST_CHUNK_TIMEOUT_MS);
+
+      let failed = false;
+      // 后端以 SSE msg 事件下发 {type:"error"}(如「主模型暂不可用」),HTTP 仍 200,
+      // 必须显式识别为失败;同理,流正常结束但零内容也按失败处理
+      let streamError = false;
       try {
-        const apiMessages = newMsgs
-          .filter((m) => m.role === "user" || m.role === "assistant")
+        const apiMessages = baseMsgs
+          .filter(
+            (m) =>
+              (m.role === "user" || m.role === "assistant") && m.kind !== "error"
+          )
           .map((m) => ({ role: m.role, content: m.content }));
 
         let assistantMsg: ChatMessage | null = null;
@@ -188,6 +226,11 @@ export function AssistantView() {
           apiMessages,
           (ev: AgentEvent) => {
             if (controller.signal.aborted) return;
+            if (!gotFirstChunkRef.current) {
+              gotFirstChunkRef.current = true;
+              window.clearTimeout(timeoutId);
+              setPending(false);
+            }
             if (ev.type === "text") {
               const delta = ev.content || "";
               if (!assistantMsg) {
@@ -210,6 +253,8 @@ export function AssistantView() {
                   return prev;
                 });
               }
+            } else if (ev.type === "error") {
+              streamError = true;
             } else if (
               ["image", "video", "audio", "model3d"].includes(ev.type)
             ) {
@@ -227,21 +272,84 @@ export function AssistantView() {
           null,
           controller.signal,
         );
-      } catch (err) {
-        toast.error("对话请求失败，请检查模型服务状态");
+      } catch {
+        failed = true;
       } finally {
+        window.clearTimeout(timeoutId);
         setBusy(false);
+        setPending(false);
         abortRef.current = false;
         abortControllerRef.current = null;
       }
+
+      // 流内错误或零内容空响应,统一按失败处理
+      if (streamError || !gotFirstChunkRef.current) failed = true;
+
+      // 用户主动停止:不补错误气泡,也不重写历史(保留已流出的内容)
+      if (failed && userStoppedRef.current) return;
+
+      if (failed) {
+        const errMsg: ChatMessage = {
+          id: genId(),
+          role: "assistant",
+          content: "回复失败:服务暂时不可用",
+          timestamp: Date.now(),
+          kind: "error",
+        };
+        setMessages((prev) => {
+          const next = [...prev, errMsg];
+          saveToHistory(next, activeConvIdRef.current);
+          return next;
+        });
+      } else {
+        setMessages((prev) => {
+          saveToHistory(prev, activeConvIdRef.current);
+          return prev;
+        });
+      }
     },
-    [input, busy, messages, toast],
+    [saveToHistory],
   );
 
+  const send = useCallback(
+    async (presetPrompt?: string) => {
+      const text = (presetPrompt ?? input).trim();
+      if (!text || busy) return;
+
+      const userMsg: ChatMessage = {
+        id: genId(),
+        role: "user",
+        content: text,
+        timestamp: Date.now(),
+      };
+      const newMsgs = [...messages, userMsg];
+      setMessages(newMsgs);
+      if (!presetPrompt) {
+        setInput("");
+        setTextareaRows(1);
+      }
+      await requestReply(newMsgs);
+    },
+    [input, busy, messages, requestReply],
+  );
+
+  // 重试:摘掉末尾错误气泡,重发上一条用户消息所在的对话
+  const retry = useCallback(() => {
+    if (busy) return;
+    const base =
+      messages[messages.length - 1]?.kind === "error"
+        ? messages.slice(0, -1)
+        : messages;
+    setMessages(base);
+    void requestReply(base);
+  }, [busy, messages, requestReply]);
+
   const onStop = useCallback(() => {
+    userStoppedRef.current = true;
     abortRef.current = true;
     abortControllerRef.current?.abort();
     setBusy(false);
+    setPending(false);
   }, []);
 
   const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -340,8 +448,22 @@ export function AssistantView() {
                   <Icon name={msg.role === "user" ? "user" : "braincircuit"} size={13} strokeWidth={1.8} />
                 </div>
                 <div className="av-msg-body">
-                  <div className="av-msg-bubble">
-                    {msg.content || msg.media?.length ? (
+                  <div className={`av-msg-bubble${msg.kind === "error" ? " av-msg-bubble--error" : ""}`}>
+                    {msg.kind === "error" ? (
+                      <>
+                        <span className="av-msg-error-text">{msg.content}</span>
+                        <button
+                          type="button"
+                          className="av-msg-retry"
+                          onClick={retry}
+                          disabled={busy}
+                          title="重发上一条消息"
+                        >
+                          <Icon name="refresh" size={12} strokeWidth={1.8} />
+                          <span>重试</span>
+                        </button>
+                      </>
+                    ) : msg.content || msg.media?.length ? (
                       <>
                         {msg.content}
                         {msg.media?.map((m, idx) => (
@@ -394,6 +516,22 @@ export function AssistantView() {
                 </div>
               </div>
             ))}
+            {pending && (
+              <div className="av-msg is-assistant" aria-live="polite">
+                <div className="av-msg-avatar">
+                  <Icon name="braincircuit" size={13} strokeWidth={1.8} />
+                </div>
+                <div className="av-msg-body">
+                  <div className="av-msg-bubble">
+                    <span className="av-typing">
+                      <span className="av-typing-dot" />
+                      <span className="av-typing-dot" />
+                      <span className="av-typing-dot" />
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -419,7 +557,7 @@ export function AssistantView() {
           <textarea
             ref={textareaRef}
             className="av-composer-input"
-            placeholder="输入你的创作需求…（Enter 发送 / Shift+Enter 换行）"
+            placeholder={isMobile ? "输入你的创作需求…" : "输入你的创作需求…（Enter 发送 / Shift+Enter 换行）"}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={onKeyDown}
@@ -756,7 +894,8 @@ export function AssistantView() {
           display: flex;
           flex-direction: column;
           gap: var(--space-5);
-          padding: var(--space-6);
+          /* 顶部让位灵动岛,首条气泡不贴岛 */
+          padding: var(--space-12) var(--space-6) var(--space-6);
           max-width: 760px;
           margin: 0 auto;
         }
@@ -816,6 +955,47 @@ export function AssistantView() {
           color: var(--text-muted);
           font-family: var(--font-mono);
           padding: 0 var(--space-1);
+        }
+
+        /* 失败态错误气泡(替换打字指示器) */
+        .av-msg-bubble--error {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: var(--space-2);
+          background: var(--err-soft);
+          border-color: color-mix(in oklab, var(--err) 45%, transparent);
+        }
+        .av-msg-error-text {
+          color: var(--err);
+          font-size: var(--text-body);
+        }
+        .av-msg-retry {
+          display: inline-flex;
+          align-items: center;
+          gap: var(--space-1);
+          height: 26px;
+          padding: 0 var(--space-3);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-strong);
+          border-radius: var(--radius-control);
+          color: var(--text-primary);
+          font-size: var(--text-aux);
+          font-weight: 500;
+          font-family: var(--font-sans);
+          cursor: pointer;
+          transition: color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard),
+            border-color var(--duration-fast) var(--ease-standard);
+        }
+        .av-msg-retry:hover:not(:disabled) {
+          color: var(--accent);
+          border-color: var(--accent-glow);
+          background: var(--bg-surface-3);
+        }
+        .av-msg-retry:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
         }
 
         /* 媒体产物 */
@@ -1308,7 +1488,7 @@ export function AssistantView() {
             display: none;
           }
           .av-msg-list {
-            padding: var(--space-4);
+            padding: var(--space-8) var(--space-4) var(--space-4);
           }
           .av-quick-grid {
             grid-template-columns: 1fr;

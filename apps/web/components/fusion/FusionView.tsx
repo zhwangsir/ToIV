@@ -84,7 +84,7 @@ export function FusionView({ onNavigate }: { onNavigate: (target: string) => voi
                 <Icon name={app.icon} size={app.flagship ? 26 : 22} />
               </div>
               <div className="fusion-card-title-group">
-                <h3 className="fusion-card-name">{app.name}</h3>
+                <h2 className="fusion-card-name">{app.name}</h2>
                 <div className="fusion-card-arrow" aria-hidden="true">
                   <Icon name="chevron-right" size={16} />
                 </div>
@@ -166,7 +166,9 @@ export function FusionView({ onNavigate }: { onNavigate: (target: string) => voi
           display: grid;
           grid-template-columns: repeat(2, 1fr);
           gap: var(--space-4);
-          max-width: 960px;
+          width: 100%;
+          max-width: 1200px;
+          margin: 0 auto;
         }
         .fusion-view :global(.fusion-card.is-flagship) {
           grid-column: 1 / -1;
@@ -275,17 +277,18 @@ export function FusionView({ onNavigate }: { onNavigate: (target: string) => voi
         }
         .fusion-tag {
           font-size: var(--text-label);
-          color: var(--text-muted);
-          background: var(--bg-surface-2);
+          color: var(--accent);
+          background: var(--accent-soft);
           padding: 2px var(--space-2);
           border-radius: var(--radius-full);
           transition:
             background-color var(--duration-fast) var(--ease-standard),
-            color var(--duration-fast) var(--ease-standard);
+            color var(--duration-fast) var(--ease-standard),
+            box-shadow var(--duration-fast) var(--ease-standard);
         }
         .fusion-view :global(.fusion-card:hover) .fusion-tag {
-          background: var(--accent-soft);
-          color: var(--accent);
+          background: var(--accent-glow);
+          box-shadow: var(--accent-glow-shadow);
         }
 
         /* 底部 CTA */

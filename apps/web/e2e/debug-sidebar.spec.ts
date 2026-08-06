@@ -42,7 +42,6 @@ const VIEW_FLOW: { key: string; label: string }[] = [
 const ERROR_PATTERNS = [
   "Application error",
   "Internal Server Error",
-  "500",
   "会话已过期",
   "Something went wrong",
   "未授权",
@@ -54,6 +53,9 @@ const ERROR_PATTERNS = [
   "is not defined",
   "is not a function",
 ];
+
+/** HTTP 500 文案检测:必须独立出现(前后非数字),避免作品库 seed 长数字(如 ...775000)误报。 */
+const HTTP_500_RE = /(?<!\d)500(?!\d)/;
 
 interface ClickResult {
   step: number;
@@ -104,7 +106,10 @@ test.describe("灵动岛导航调试 @authed", () => {
     });
 
     page.on("pageerror", (err: Error) => {
-      allPageErrors.push(err.stack ?? err.message);
+      const text = err.stack ?? err.message;
+      // 跨域 iframe(ComfyUI 画布)的异常透传为空消息/"Script error.",不计入本应用崩溃
+      if (!text || /^script error/i.test(text)) return;
+      allPageErrors.push(text);
     });
 
     page.on("dialog", async (d) => {
@@ -342,6 +347,7 @@ async function captureState(
   const errorPatterns = ERROR_PATTERNS.filter((p) =>
     bodyText.toLowerCase().includes(p.toLowerCase()),
   );
+  if (HTTP_500_RE.test(bodyText)) errorPatterns.push("500");
 
   const crashReasons: string[] = [];
   if (!appShellVisible) crashReasons.push("app-shell 消失");

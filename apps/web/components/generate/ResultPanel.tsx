@@ -21,6 +21,9 @@ export interface HistoryEntry {
   status: "running" | "done" | "error" | "cancelled";
   paths: string[];
   error?: string | null;
+  /** 目标尺寸(提交时快照):生成中骨架按此宽高比渲染,避免与目标尺寸不符。 */
+  width?: number;
+  height?: number;
   createdAt: number;
 }
 
@@ -75,16 +78,19 @@ interface ResultPanelProps {
   /** 进行中的实时进度(来自 useGeneration;仅作用在 status==="running" 的条目)。 */
   liveProgress: { value: number; max: number };
   onCancel: () => void;
+  /** 失败条目重试(沿用该条目的引擎/提示词/参数快照);不传则不渲染重试按钮。 */
+  onRetry?: (entry: HistoryEntry) => void;
 }
 
 /**
  * 结果区(WS2 剧场化):全出血暗舞台 —— 选中作品居中 contain 展示(带轻微暗角),
- * 状态/引擎浮为左上玻璃胶囊,A/B 对比开关浮右上;
+ * 状态/引擎/取消/A/B 对比开关合并为左上玻璃胶囊行(浮板锚右上,避免遮挡);
  * 底部胶片条(filmstrip)横排缩略图,点击切换选中(←/→ 键由 .generate-results 容器承载);
- * A/B 两栏对比模式完整保留(各栏任选一条已完成记录)。
+ * A/B 两栏对比模式完整保留(各栏任选一条已完成记录);
+ * 失败态为舞台中央错误卡:友好说明 + 可折叠技术详情(底层原文)+ 重试。
  * 全部样式在 app/styles/stage.css;生成中骨架用全局 skeleton-shimmer(WS5 motion.css)。
  */
-export function ResultPanel({ entries, selectedId, onSelect, liveProgress, onCancel }: ResultPanelProps) {
+export function ResultPanel({ entries, selectedId, onSelect, liveProgress, onCancel, onRetry }: ResultPanelProps) {
   const [compare, setCompare] = useState(false);
   const [compareA, setCompareA] = useState<string>("");
   const [compareB, setCompareB] = useState<string>("");
@@ -126,20 +132,23 @@ export function ResultPanel({ entries, selectedId, onSelect, liveProgress, onCan
     );
   }
 
+  // A/B 对比开关:并入左上状态胶囊行(原浮右上,被右上参数浮板完全遮挡点不到)
+  const compareSwitch = (
+    <Switch
+      checked={compare}
+      onChange={setCompare}
+      label="A/B 对比"
+      disabled={doneEntries.length < 2}
+      ariaLabel="A/B 对比模式"
+    />
+  );
+
   return (
     <div className="result-panel">
-      <div className="result-panel-toolbar">
-        <Switch
-          checked={compare}
-          onChange={setCompare}
-          label="A/B 对比"
-          disabled={doneEntries.length < 2}
-          ariaLabel="A/B 对比模式"
-        />
-      </div>
-
       {compare ? (
-        <div className="result-compare">
+        <>
+          <div className="stage-status">{compareSwitch}</div>
+          <div className="result-compare">
           <div className="compare-grid">
             {([["A", entryA, setCompareA], ["B", entryB, setCompareB]] as const).map(([tag, entry, setter]) => (
               <Card key={tag} className="compare-col">
@@ -161,7 +170,8 @@ export function ResultPanel({ entries, selectedId, onSelect, liveProgress, onCan
               </Card>
             ))}
           </div>
-        </div>
+          </div>
+        </>
       ) : (
         current && (
           <>
@@ -174,11 +184,26 @@ export function ResultPanel({ entries, selectedId, onSelect, liveProgress, onCan
                     取消
                   </Button>
                 )}
+                {compareSwitch}
               </div>
 
               {current.status === "running" && (
                 <div className="stage-loading">
-                  <div className="stage-skeleton skeleton-shimmer" />
+                  <div
+                    className="stage-skeleton skeleton-shimmer"
+                    style={
+                      current.width && current.height
+                        ? {
+                            aspectRatio: `${current.width} / ${current.height}`,
+                            maxHeight: "100%",
+                            // 竖版目标(高>宽):限高反推宽,避免撑出舞台
+                            ...(current.height > current.width
+                              ? { width: "auto", height: "min(420px, 100%)" }
+                              : {}),
+                          }
+                        : undefined
+                    }
+                  />
                   <div className="stage-progress">
                     <div className="gen-progress" role="progressbar"
                       aria-valuenow={liveProgress.max > 0 ? Math.round((liveProgress.value / liveProgress.max) * 100) : undefined}
@@ -195,7 +220,31 @@ export function ResultPanel({ entries, selectedId, onSelect, liveProgress, onCan
                 </div>
               )}
               {current.status === "error" && (
-                <p className="stage-message stage-message-err">{current.error ?? "生成失败"}</p>
+                <div className="stage-error-card" role="alert">
+                  <div className="stage-error-head">
+                    <Icon name="error" size={16} />
+                    <span className="stage-error-title">生成失败</span>
+                  </div>
+                  <p className="stage-error-desc">
+                    生成连接中断或引擎执行异常,你的输入已保留,可直接重试。
+                  </p>
+                  {current.error && (
+                    <details className="stage-error-details">
+                      <summary>技术详情</summary>
+                      <pre className="stage-error-raw">{current.error}</pre>
+                    </details>
+                  )}
+                  {onRetry && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      icon={<Icon name="refresh" size={13} />}
+                      onClick={() => onRetry(current)}
+                    >
+                      重试
+                    </Button>
+                  )}
+                </div>
               )}
               {current.status === "cancelled" && (
                 <p className="stage-message">已停止前端跟踪;后端作业完成后仍可在作品库查看。</p>

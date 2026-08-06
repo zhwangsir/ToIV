@@ -24,7 +24,53 @@
   z-index: 2;
 }
 
+/* ── 占位卡(生成中/失败/无预览产物) ────────────────────────────── */
+/* 这些样式必须在全局 CSS:ThumbPlaceholder 是独立组件,LibraryView 内
+   styled-jsx 的 hash 作用域类挂不到它的元素上(写在 styled-jsx 里是死规则)。 */
+.lib-thumb-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  background: var(--bg-surface-2);
+}
+/* 状态文本分层:左上角小胶囊(与居中图标、底部 hover 提示词分层),
+   单行截断,右侧给删除按钮让位 */
+.lib-thumb-status {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  max-width: calc(100% - 48px);
+  padding: 2px var(--space-2);
+  background: var(--overlay-light);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-badge);
+  font-size: var(--text-aux);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lib-thumb-status.is-running {
+  color: var(--run);
+}
+.lib-thumb-status.is-error {
+  color: var(--err);
+}
+
 /* ── 快捷操作浮层(卡片底部渐显玻璃条) ───────────────────────────── */
+/* hover 时提示词文本让位:overlay 底部内边距抬高到操作条之上,
+   胶囊独占底部区,不再把提示词截成两截(移动端同效)。
+   前缀 .library-view .lib-body 压过 LibraryView 内 styled-jsx 的 padding。 */
+.library-view .lib-body .lib-overlay {
+  padding-bottom: calc(44px + var(--space-3));
+}
 .lib-actions {
   position: absolute;
   left: 50%;
@@ -215,6 +261,15 @@
 .lib-style-delete:hover {
   background: var(--err-soft);
   color: var(--err);
+}
+
+/* ── toast 遮挡规避 ──────────────────────────────────────────────── */
+/* 全局 toast 容器(fixed 右上角,z-index: var(--z-toast),组件在 ui/Toast)
+   会盖住作品库头部右侧的筛选段控。这里抬升段控层叠,toast 出现时
+   段控仍可看可点;根治需 toast 容器让位(集成项,不在本文件范围)。 */
+.library-view .lib-filters {
+  position: relative;
+  z-index: calc(var(--z-toast) + 1);
 }
 
 /* ── 减弱动效 ────────────────────────────────────────────────────── */

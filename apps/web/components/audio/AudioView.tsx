@@ -442,8 +442,8 @@ function SeparateCard() {
 
 /**
  * 音频板块(M2):「生成 | 编辑」双页签。
- * - 生成:ACE 文生音乐(统一工作台 lockedKind=audio)+ TTS 配音工具卡
- * - 编辑:ASR 听写 + 人声分离 工具卡
+ * - 生成:ACE 文生音乐(统一工作台 lockedKind=audio),舞台独占全高
+ * - 编辑:TTS 配音 + ASR 听写 + 人声分离 工具卡(滚动列)
  */
 export function AudioView() {
   const [tab, setTab] = useState<AudioTab>("gen");
@@ -467,12 +467,10 @@ export function AudioView() {
           <div className="audio-workbench">
             <GenerateView lockedKind="audio" />
           </div>
-          <div className="audio-tool-scroll">
-            <TtsCard />
-          </div>
         </div>
       ) : (
         <div className="audio-tab-edit">
+          <TtsCard />
           <AsrCard />
           <SeparateCard />
         </div>
@@ -497,7 +495,6 @@ export function AudioView() {
           min-height: 0;
           display: flex;
           flex-direction: column;
-          gap: var(--space-4);
         }
         .audio-workbench {
           flex: 1;
@@ -509,11 +506,9 @@ export function AudioView() {
         .audio-workbench :global(.generate-view) {
           padding-top: var(--space-4);
         }
-        .audio-tool-scroll {
-          flex-shrink: 0;
-          max-height: 48%;
-          overflow-y: auto;
-          padding: 0 var(--space-5) var(--space-5);
+        /* 歌词 textarea:占位文本与字段说明同源(ParamField hint),说明去重只留占位 */
+        .audio-workbench :global(.ui-field:has(textarea) .ui-field-hint) {
+          display: none;
         }
         .audio-tab-edit {
           flex: 1;
@@ -709,16 +704,8 @@ export function AudioView() {
         }
 
         @media (max-width: 860px) {
-          .audio-tab-gen {
-            overflow-y: auto;
-          }
-          .audio-workbench {
-            flex: none;
-          }
-          .audio-tool-scroll {
-            max-height: none;
-            overflow-y: visible;
-          }
+          /* 生成 tab:滚动由 GenerateView 内部承载(stage.css <1024px 纵向堆叠),
+             此处保持 flex 定高链,舞台不再被工具卡挤压、页面可滚动 */
           .audio-tab-edit {
             max-width: none;
           }

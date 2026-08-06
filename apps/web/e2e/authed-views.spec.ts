@@ -32,10 +32,12 @@ const VIEWS = [
 const ERROR_PATTERNS = [
   "Application error",
   "Internal Server Error",
-  "500",
   "会话已过期",
   "Something went wrong",
 ];
+
+/** HTTP 500 文案检测:必须独立出现(前后非数字),避免作品库 seed 长数字(如 ...775000)误报。 */
+const HTTP_500_RE = /(?<!\d)500(?!\d)/;
 
 test.describe("登录态视图加载", () => {
   // 前置:确认 storageState 中确实有 token(globalSetup 可能登录失败)。
@@ -104,9 +106,10 @@ test.describe("登录态视图加载", () => {
           .locator("body")
           .innerText()
           .catch(() => "");
-        const errorFound = ERROR_PATTERNS.some((p) =>
-          bodyText.toLowerCase().includes(p.toLowerCase()),
-        );
+        const errorFound =
+          ERROR_PATTERNS.some((p) =>
+            bodyText.toLowerCase().includes(p.toLowerCase()),
+          ) || HTTP_500_RE.test(bodyText);
         expect(errorFound, `${view} 不应包含错误文案`).toBe(false);
 
         // 截图

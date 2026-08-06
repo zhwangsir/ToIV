@@ -74,6 +74,16 @@ export function PromptBar({
     ta.style.height = `${ta.scrollHeight}px`;
   }, [value]);
 
+  // chip 展开态收敛:Esc 收起(点击条内输入区见 promptbar-input-row onClick)
+  useEffect(() => {
+    if (!openChip) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenChip(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openChip]);
+
   const sizeLabel =
     sizeParams.length === 2
       ? `${String(values["width"] ?? "—")} × ${String(values["height"] ?? "—")}`
@@ -87,7 +97,7 @@ export function PromptBar({
       <div className="promptbar">
         {submitError && <p className="promptbar-error">{submitError}</p>}
 
-        <div className="promptbar-input-row">
+        <div className="promptbar-input-row" onClick={() => setOpenChip(null)}>
           <textarea
             ref={taRef}
             className="promptbar-textarea"
@@ -159,26 +169,32 @@ export function PromptBar({
             {engines.length === 0 ? (
               <p className="promptbar-chip-hint">引擎列表加载中…</p>
             ) : (
-              <Select
-                value={engine?.id ?? ""}
-                onChange={(e) => {
-                  onEngineChange(e.target.value);
-                  setOpenChip(null);
-                }}
-                aria-label="选择引擎"
-              >
-                {engines.map((e) => (
-                  <option
-                    key={e.id}
-                    value={e.id}
-                    disabled={!e.available}
-                    title={e.available ? undefined : e.unavailable_reason}
-                  >
-                    {e.label}
-                    {e.available ? "" : ` — 不可用:${e.unavailable_reason ?? "未知原因"}`}
-                  </option>
-                ))}
-              </Select>
+              /* 玻璃包壳:去掉原生 select 外观,与玻璃剧场风格统一(chevron 纯装饰) */
+              <div className="chip-select-wrap">
+                <Select
+                  value={engine?.id ?? ""}
+                  onChange={(e) => {
+                    onEngineChange(e.target.value);
+                    setOpenChip(null);
+                  }}
+                  aria-label="选择引擎"
+                >
+                  {engines.map((e) => (
+                    <option
+                      key={e.id}
+                      value={e.id}
+                      disabled={!e.available}
+                      title={e.available ? undefined : e.unavailable_reason}
+                    >
+                      {e.label}
+                      {e.available ? "" : ` — 不可用:${e.unavailable_reason ?? "未知原因"}`}
+                    </option>
+                  ))}
+                </Select>
+                <span className="chip-select-caret" aria-hidden="true">
+                  <Icon name="chevron-down" size={13} />
+                </span>
+              </div>
             )}
           </div>
         )}

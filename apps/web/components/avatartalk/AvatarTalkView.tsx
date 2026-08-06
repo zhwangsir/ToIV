@@ -475,6 +475,8 @@ export function AvatarTalkView() {
 
   const hasSession = sessionId !== null;
   const selectedAvatarInfo = avatars.find((a) => a.id === selectedAvatar);
+  // 引擎探活:已启用但不可达 → 空态显示离线文案而非引导语
+  const engineOffline = !!engineStatus && engineStatus.enabled && !engineStatus.reachable;
 
   return (
     <div className="at-view">
@@ -495,9 +497,20 @@ export function AvatarTalkView() {
             </div>
             <p className="at-placeholder-title">数字人实时对话</p>
             <p className="at-placeholder-desc">
-              {selectedAvatarInfo
-                ? `已选: ${selectedAvatarInfo.name || selectedAvatarInfo.id}`
-                : "从右侧选择数字人形象开始对话"}
+              {engineOffline
+                ? "引擎离线,请稍后再试"
+                : selectedAvatarInfo
+                  ? `已选: ${selectedAvatarInfo.name || selectedAvatarInfo.id}`
+                  : (
+                    <>
+                      <span className="at-placeholder-hint-desktop">
+                        从右侧选择数字人形象开始对话
+                      </span>
+                      <span className="at-placeholder-hint-mobile">
+                        从下方选择数字人形象开始对话
+                      </span>
+                    </>
+                  )}
             </p>
           </div>
         )}
@@ -664,6 +677,18 @@ export function AvatarTalkView() {
           max-width: 320px;
           text-align: center;
           line-height: 1.6;
+        }
+        /* 引导语按端切换:桌面面板在右,移动面板在下(≤900px 堆叠) */
+        .at-placeholder-hint-mobile {
+          display: none;
+        }
+        @media (max-width: 900px) {
+          .at-placeholder-hint-desktop {
+            display: none;
+          }
+          .at-placeholder-hint-mobile {
+            display: inline;
+          }
         }
 
         /* ── 舞台浮层 pill(Badge 承载,深色半透明底 + 模糊 + 细描边) ── */
@@ -1308,6 +1333,16 @@ function SetupPanel({
         }
         .at-setup-footer :global(.at-start-btn) {
           width: 100%;
+        }
+        /* 禁用态去 accent 实心底,降透明 + not-allowed */
+        .at-setup-footer :global(.at-start-btn:disabled) {
+          background: var(--bg-surface-3);
+          border-color: var(--border-subtle);
+          color: var(--text-muted);
+          opacity: 0.7;
+          cursor: not-allowed;
+          /* 全局 .btn:disabled 关了 pointer-events,这里恢复以显示 not-allowed 光标(禁用按钮本身不触发点击) */
+          pointer-events: auto;
         }
       `}</style>
     </div>

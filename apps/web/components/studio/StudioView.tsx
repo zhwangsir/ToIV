@@ -115,7 +115,7 @@ export function StudioView() {
                     <span className={`studio-badge is-${p.status}`}>
                       {PROJECT_STATUS_LABEL[p.status] ?? p.status}
                     </span>
-                    <time>{new Date(p.updated_at).toLocaleDateString()}</time>
+                    <time>{new Date(p.updated_at).toLocaleDateString("zh-CN")}</time>
                   </span>
                 </button>
                 <button
@@ -272,6 +272,8 @@ function StudioStyles() {
         gap: var(--space-3);
         font-size: var(--text-label);
         color: var(--text-muted);
+        white-space: nowrap;
+        flex-shrink: 0;
       }
       .studio-badge {
         font-size: var(--text-label);
@@ -279,6 +281,7 @@ function StudioStyles() {
         border-radius: var(--radius-full);
         background: var(--bg-surface-2);
         color: var(--text-muted);
+        white-space: nowrap;
       }
       .studio-badge.is-ready {
         color: var(--accent);
@@ -308,6 +311,8 @@ function StudioStyles() {
         cursor: pointer;
         padding: var(--space-1) var(--space-2);
         border-radius: var(--radius-control);
+        white-space: nowrap;
+        flex-shrink: 0;
       }
       .studio-back:hover {
         color: var(--text-primary);
@@ -319,6 +324,7 @@ function StudioStyles() {
         background: var(--bg-surface-2);
         padding: 3px;
         border-radius: var(--radius-control);
+        min-width: 0;
       }
       .studio-stage-btn {
         display: inline-flex;
@@ -332,6 +338,8 @@ function StudioStyles() {
         cursor: pointer;
         padding: var(--space-1) var(--space-3);
         border-radius: calc(var(--radius-control) - 3px);
+        white-space: nowrap;
+        flex-shrink: 0;
         transition:
           color var(--duration-fast) var(--ease-standard),
           background-color var(--duration-fast) var(--ease-standard);
@@ -348,6 +356,27 @@ function StudioStyles() {
         margin-left: auto;
         font-size: var(--text-aux);
         color: var(--text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
+        max-width: 32%;
+      }
+
+      /* 移动端:阶段条横向滑动(右缘渐隐暗示可滑),标题保持单行截断 */
+      @media (max-width: 640px) {
+        .studio-stages {
+          gap: var(--space-2);
+        }
+        .studio-stage-tabs {
+          overflow-x: auto;
+          scrollbar-width: none;
+          -webkit-mask-image: linear-gradient(to right, black calc(100% - 28px), transparent);
+          mask-image: linear-gradient(to right, black calc(100% - 28px), transparent);
+        }
+        .studio-stage-tabs::-webkit-scrollbar {
+          display: none;
+        }
       }
 
       /* ── 阶段通用 ── */

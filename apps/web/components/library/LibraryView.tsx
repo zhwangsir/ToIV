@@ -57,23 +57,57 @@ const FILTERS: FilterDef[] = [
   {
     key: "image",
     label: "图像",
-    kinds: ["txt2img", "img2img", "controlnet", "upscale", "facedetailer", "inpaint", "removebg", "kenburns"],
+    kinds: [
+      "txt2img", "img2img", "controlnet", "upscale", "facedetailer",
+      "inpaint", "removebg", "raw",
+      // 短剧 studio 图像类产物
+      "drama_grid_storyboard", "drama_scene_layout",
+    ],
   },
-  { key: "video", label: "视频", kinds: ["video", "txt2video", "img2video", "lipsync"] },
-  { key: "audio", label: "音频", kinds: ["audio"] },
-  { key: "3d", label: "3D", kinds: ["3d", "model3d"] },
+  {
+    key: "video",
+    label: "视频",
+    kinds: [
+      "video", "txt2video", "img2video", "lipsync", "kenburns",
+      "wan_t2v", "wan_i2v", "hunyuan_i2v", "h3_t2v", "h3_i2v",
+      "ltx_t2v", "ltx_i2v", "ltx_lipsync", "ltx2_t2v", "ltx2_i2v",
+      "frame_interpolate", "dub_lipsync_long", "manju_lipsync", "anime_lipsync",
+      // 短剧 studio 视频类产物
+      "drama_shot_video", "drama_shot_video_i2v", "drama_shot_video_v2", "drama_shot_lipsync",
+    ],
+  },
+  {
+    key: "audio",
+    label: "音频",
+    kinds: ["audio", "ace_audio", "audio_sep", "transcribe", "voice_track"],
+  },
+  { key: "3d", label: "3D", kinds: ["3d", "model3d", "hunyuan3d"] },
+];
+
+/** 动态前缀规则(后端按 preset/视角拼 kind):cad_* → 3D;drama_char_reference_* → 图像。 */
+const KIND_PREFIX_RULES: [string, FilterKey][] = [
+  ["cad_", "3d"],
+  ["drama_char_reference_", "image"],
 ];
 
 /** 分页大小:每页 60 条,点击「加载更多」追加,避免全量渲染大图列表。 */
 const PAGE_SIZE = 60;
 
-function kindToFilter(kind: string): FilterKey {
+/**
+ * kind → 筛选桶。未识别的 kind 返回 null:只在「全部」出现,
+ * 不硬塞进「图像」(修复 transcribe/voice_track 等被错算成图像的问题)。
+ */
+function kindToFilter(kind: string): FilterKey | null {
   for (const f of FILTERS) {
     if (f.kinds.includes(kind)) return f.key;
   }
-  return "image";
+  for (const [prefix, key] of KIND_PREFIX_RULES) {
+    if (kind.startsWith(prefix)) return key;
+  }
+  return null;
 }
 
+/** Badge 短名:映射后的中文短名;未知 kind 兜底「其他」,不回显超长原始 kind 名。 */
 function kindLabel(kind: string): string {
   const map: Record<string, string> = {
     txt2img: "文生图",
@@ -83,20 +117,49 @@ function kindLabel(kind: string): string {
     facedetailer: "脸部修复",
     inpaint: "局部重绘",
     removebg: "抠图",
-    video: "图生视频",
+    raw: "原图",
+    video: "视频",
     txt2video: "文生视频",
     img2video: "图生视频",
     lipsync: "对口型",
+    kenburns: "运镜",
+    wan_t2v: "文生视频",
+    wan_i2v: "图生视频",
+    hunyuan_i2v: "图生视频",
+    h3_t2v: "文生视频",
+    h3_i2v: "图生视频",
+    ltx_t2v: "文生视频",
+    ltx_i2v: "图生视频",
+    ltx_lipsync: "对口型",
+    ltx2_t2v: "文生视频",
+    ltx2_i2v: "图生视频",
+    frame_interpolate: "补帧",
+    dub_lipsync_long: "长对口型",
+    manju_lipsync: "对口型",
+    anime_lipsync: "动漫对口型",
     audio: "音频",
+    ace_audio: "音乐",
+    audio_sep: "人声分离",
+    transcribe: "听写",
+    voice_track: "配音轨",
     "3d": "3D",
     model3d: "3D",
-    kenburns: "运镜",
+    hunyuan3d: "图生3D",
+    drama_grid_storyboard: "分镜",
+    drama_scene_layout: "场景布局",
+    drama_shot_video: "镜头视频",
+    drama_shot_video_i2v: "镜头视频",
+    drama_shot_video_v2: "镜头视频",
+    drama_shot_lipsync: "镜头对口型",
   };
-  return map[kind] ?? kind;
+  if (map[kind]) return map[kind];
+  if (kind.startsWith("cad_")) return "CAD";
+  if (kind.startsWith("drama_char_reference_")) return "角色参考";
+  return "其他";
 }
 
 function isVideoKind(kind: string): boolean {
-  return ["video", "txt2video", "img2video", "lipsync", "kenburns"].includes(kind);
+  return kindToFilter(kind) === "video";
 }
 
 function formatTime(iso: string): string {
@@ -123,15 +186,25 @@ interface PreviewState {
 }
 
 function ThumbPlaceholder({ job }: { job: JobItem }) {
+  const filterKey = kindToFilter(job.kind);
   return (
-    <div className="lib-thumb-placeholder">
+    <div
+      className={`lib-thumb-placeholder ${job.status === "error" ? "has-error" : ""}`}
+    >
+      {/* 图标居中,状态文本分层为左上角小胶囊,互不重叠 */}
       <Icon
         name={
           job.status === "running"
             ? "loading"
             : job.status === "error"
               ? "error"
-              : "image"
+              : filterKey === "audio"
+                ? "audio"
+                : filterKey === "video"
+                  ? "film"
+                  : filterKey === "3d"
+                    ? "box"
+                    : "image"
         }
         size={28}
         strokeWidth={1.4}
@@ -222,7 +295,11 @@ export function LibraryView() {
     const c: Record<FilterKey, number> = { all: 0, image: 0, video: 0, audio: 0, "3d": 0 };
     if (jobs) {
       c.all = jobs.length;
-      for (const j of jobs) c[kindToFilter(j.kind)]++;
+      for (const j of jobs) {
+        // 未识别 kind 不计入任何分类桶,只算进「全部」
+        const key = kindToFilter(j.kind);
+        if (key) c[key]++;
+      }
     }
     return c;
   }, [jobs]);
@@ -432,12 +509,14 @@ export function LibraryView() {
               // 后端作业状态枚举为 queued/running/done/error;done 表示成功且有产物
               const hasResult = job.status === "done" && job.results?.length > 0;
               const isVideo = isVideoKind(job.kind);
+              // 失败占位卡:thumb 加修饰类,CSS 收敛为固定矮条(:has 复合选择器在 styled-jsx 下不可靠)
+              const isErrorPlaceholder = !hasResult && job.status === "error";
               return (
                 <article
                   key={job.id}
                   className={`lib-card ${deletingId === job.id ? "is-deleting" : ""}`}
                 >
-                  <div className="lib-thumb">
+                  <div className={`lib-thumb ${isErrorPlaceholder ? "lib-thumb--error" : ""}`}>
                     {/* 预览触发区用真实 <button>,与删除按钮平级,避免嵌套交互控件(WCAG nested-interactive) */}
                     <button
                       type="button"
@@ -538,10 +617,19 @@ export function LibraryView() {
 
                   <div className="lib-foot">
                     <div className="lib-foot-row">
-                      <Badge tone="accent" dot={false}>{kindLabel(job.kind)}</Badge>
+                      <Badge
+                        tone="accent"
+                        dot={false}
+                        className="lib-kind-badge"
+                        title={kindLabel(job.kind)}
+                      >
+                        <span className="lib-kind-badge-text">{kindLabel(job.kind)}</span>
+                      </Badge>
                       <span className="lib-time">{formatTime(job.created_at)}</span>
                     </div>
-                    <div className="lib-seed">seed · {job.seed}</div>
+                    <div className="lib-seed" title={`seed · ${job.seed}`}>
+                      seed · {job.seed}
+                    </div>
                   </div>
                 </article>
               );
@@ -807,9 +895,19 @@ export function LibraryView() {
           background: var(--bg-surface-2);
           overflow: hidden;
         }
-        /* 占位卡(生成中/失败/音频)保持方形,有产物的卡片走自然比例 */
+        /* 占位卡(生成中/音频等无产物)保持方形,有产物的卡片走自然比例 */
         .lib-thumb:has(.lib-thumb-placeholder) {
           aspect-ratio: 1 / 1;
+        }
+        /* 失败卡收敛为固定矮条,避免整页 1:1 黑墙(修饰类挂在 .lib-thumb 上,见 TSX) */
+        .lib-thumb.lib-thumb--error {
+          aspect-ratio: auto;
+          height: 120px;
+        }
+        /* 占位卡的触发按钮撑满 .lib-thumb:按钮内只有绝对定位子元素,
+           不撑高会导致占位图标/hover 提示词全部叠到顶部 */
+        .lib-thumb:has(.lib-thumb-placeholder) .lib-thumb-hit {
+          height: 100%;
         }
         /* 预览触发按钮:包裹媒体走自然流(高度由 img/video 自然比例撑开),重置 button 默认样式 */
         .lib-thumb-hit {
@@ -837,27 +935,9 @@ export function LibraryView() {
         /* 注:WS4 起 hover 缩放收敛为卡片级 scale(1.03)(styles/library.css),
            不再做缩略图内部二次缩放 */
 
-        .lib-thumb-placeholder {
-          position: absolute;
-          inset: 0;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: var(--space-2);
-          color: var(--text-muted);
-          background: var(--bg-surface-2);
-        }
-        .lib-thumb-status {
-          font-size: var(--text-aux);
-          color: var(--text-muted);
-        }
-        .lib-thumb-status.is-running {
-          color: var(--run);
-        }
-        .lib-thumb-status.is-error {
-          color: var(--err);
-        }
+        /* 注:.lib-thumb-placeholder / .lib-thumb-status 的样式在 app/styles/library.css。
+           ThumbPlaceholder 是独立组件,styled-jsx 的 hash 作用域类挂不到它的
+           元素上,写在这里的规则会是死规则(本次修复的占位卡塌顶根因)。 */
 
         .lib-overlay {
           position: absolute;
@@ -961,6 +1041,18 @@ export function LibraryView() {
           gap: var(--space-2);
           min-width: 0;
         }
+        /* kind 徽标:映射短名 + 超长截断,不再把日期挤出卡片 */
+        .lib-kind-badge {
+          max-width: 8.5em;
+          min-width: 0;
+        }
+        .lib-kind-badge-text {
+          display: block;
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
         .lib-time {
           font-size: var(--text-aux);
           color: var(--text-muted);
@@ -972,6 +1064,10 @@ export function LibraryView() {
           color: var(--text-muted);
           font-variant-numeric: tabular-nums;
           letter-spacing: 0.02em;
+          /* 超长 seed 单行省略,不再折成两行 */
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         .lib-skeleton {

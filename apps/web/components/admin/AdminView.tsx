@@ -546,6 +546,17 @@ export function AdminView() {
         .admin-table-wrap {
           overflow-x: auto;
         }
+        /* 角色徽章不折行(移动端避免「管理员」竖排断字) */
+        .admin-table .badge {
+          white-space: nowrap;
+        }
+        /* 移动端:表格可横滑,右缘渐隐暗示未裁完 */
+        @media (max-width: 768px) {
+          .admin-table-wrap {
+            -webkit-mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
+            mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
+          }
+        }
         .admin-table {
           width: 100%;
           border-collapse: collapse;
