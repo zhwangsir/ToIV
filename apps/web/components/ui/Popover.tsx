@@ -26,10 +26,11 @@ interface PopoverProps {
  * 逻辑重复且行为不一(有的不跟滚动重定位、有的无 Esc 关闭)。收敛为单基座:
  * - 定位:锚点正下方,右侧空间不足时向左收;开窗/滚动/缩放实时重算
  * - 关闭:外部 mousedown / Esc;内部点击不冒泡关闭
- * - 动效:fadeIn ≤200ms,遵守 prefers-reduced-motion(由全局 anim 承载)
+ * - 动效:scale(0.96→1) + fade,弹簧缓动(--ease-spring),
+ *   遵守 prefers-reduced-motion(由全局 anim 承载)
  *
- * 视觉样式不在基座内 —— 由调用方 className + 局部 styled-jsx 提供
- * (基座只管定位/关闭/portal,不绑设计)。
+ * 材质:基座自带玻璃材质(glass.css 的 .glass-panel,含 backdrop-filter 兜底),
+ * 调用方 className 只补充布局/尺寸,不应再写不透明背景盖住玻璃底。
  */
 export function Popover({
   open,
@@ -87,14 +88,15 @@ export function Popover({
       ref={panelRef}
       role={role}
       aria-label={ariaLabel}
-      className={className}
+      className={["glass-panel", "popover-panel", className]
+        .filter(Boolean)
+        .join(" ")}
       style={{
         position: "fixed",
         top: pos.top,
         left: pos.left,
         zIndex: "var(--z-sticky)",
         minWidth: width,
-        animation: "fadeIn var(--duration-base) var(--ease-standard)",
       }}
     >
       {children}

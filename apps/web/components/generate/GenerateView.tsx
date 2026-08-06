@@ -3,10 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Field, Select, Textarea } from "@/components/ui/Input";
-import { OptimizeButton } from "@/components/ui/OptimizeButton";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Tabs } from "@/components/ui/Tabs";
 import { usePoll } from "@/hooks/usePoll";
@@ -24,6 +22,7 @@ import {
 import { useGeneration } from "@/lib/useGeneration";
 
 import { ParamField } from "./ParamField";
+import { PromptBar } from "./PromptBar";
 import { RefImageUpload, type UploadedRef } from "./RefImageUpload";
 import { ResultPanel, type HistoryEntry } from "./ResultPanel";
 
@@ -64,16 +63,25 @@ const GROUP_LABEL: Record<EngineKind, { gen: string; edit: string }> = {
   audio: { gen: "生成", edit: "编辑" },
 };
 
+/** 高级参数抽屉收纳的参数 key(步数/CFG/种子;负向提示词单独判定一并收进)。 */
+const ADVANCED_PARAM_KEYS: ReadonlySet<string> = new Set(["steps", "cfg", "seed"]);
+
+/** 尺寸参数 key(两项都存在时吸附到提示词条的尺寸 chip,浮板内不再重复渲染)。 */
+const SIZE_PARAM_KEYS: ReadonlySet<string> = new Set(["width", "height"]);
+
 /**
- * 统一生成工作台(W1):图像/视频/音频统一入口。
+ * 统一生成工作台(W1 信息架构 + WS2 剧场化布局)。
  *
  * 信息架构:接入新引擎 = 后端注册表(services/engine_registry)加条目,前端不再开新视图。
  * - 顶部模式段控:图像 | 视频(引擎列表按 kind 过滤;传 lockedKind 时锁定并隐藏)
  * - 板块内「生成 | 编辑」段控(数据驱动:params 含 images 类型 = 编辑组,否则生成组;
  *   两组都有引擎时才显示,默认「生成」)
- * - 左侧参数栏(320px):引擎选择器(带可用性状态/原因)+ prompt(挂 OptimizeButton)
- *   + 负向(引擎支持时)+ 参考图上传(schema images 类型)+ 动态参数区(schema 驱动渲染)+ 生成按钮
- * - 右侧结果区(ResultPanel):当前任务大卡 + 会话历史网格 + A/B 对比(音频产物渲染播放器)
+ * - 暗舞台结果区(ResultPanel):全出血 contain 展示 + 底部胶片条 + A/B 对比,
+ *   ←/→ 方向键在舞台容器上切换选中条目
+ * - 提示词条(PromptBar):底部居中悬浮玻璃条,自动增高 textarea + 引擎/尺寸 chips
+ *   + OptimizeButton + 生成/取消按钮
+ * - 参数玻璃浮板:position:absolute 浮于舞台右侧(不占布局列,舞台始终全宽),
+ *   收起态为右下角悬浮球;步数/CFG/种子/负向收进「高级参数」折叠区(默认折叠)
  * 提交链路:按引擎 id 路由到既有 API(lib/engines.submitEngineGeneration),
  * SSE 进度复用 useGeneration/trackJob;NSFW 引擎由后端按 R18 上下文过滤,前端不判断。
  */
@@ -87,7 +95,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
   const [mode, setMode] = useState<EngineKind>(
     lockedKind ?? (draft?.target === "video" ? "video" : "image"),
   );
-  // Studio Slate 版型:参数栏默认收在右侧 inspector,可一键收起让结果区全宽(会话级)
+  // 参数浮板开关:收起时为右下角悬浮球(会话级)
   const [paramsOpen, setParamsOpen] = useState(true);
   const [engines, setEngines] = useState<EngineInfo[] | null>(null);
   const [enginesError, setEnginesError] = useState<string | null>(null);
@@ -140,6 +148,34 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
   const positive = engine ? promptByEngine[engine.id] ?? "" : "";
   const refImage = engine ? refByEngine[engine.id] ?? null : null;
   const imageParam = engine ? engineNeedsImage(engine) : null;
+
+  // 参数分区:尺寸(width/height 成对)→ PromptBar chip;高级(steps/cfg/seed)→ 浮板折叠区;其余 → 浮板主区
+  const sizeParams = useMemo(
+    () =>
+      engine
+        ? engine.params.filter((p) => p.type === "number" && SIZE_PARAM_KEYS.has(p.key))
+        : [],
+    [engine],
+  );
+  const showSizeChip = sizeParams.length === 2;
+  const mainParams = useMemo(
+    () =>
+      engine
+        ? engine.params.filter(
+            (p) =>
+              p.type !== "images" &&
+              p.key !== "negative" &&
+              !ADVANCED_PARAM_KEYS.has(p.key) &&
+              !(showSizeChip && SIZE_PARAM_KEYS.has(p.key)),
+          )
+        : [],
+    [engine, showSizeChip],
+  );
+  const advancedParams = useMemo(
+    () => (engine ? engine.params.filter((p) => ADVANCED_PARAM_KEYS.has(p.key)) : []),
+    [engine],
+  );
+  const showAdvanced = advancedParams.length > 0 || (engine ? engineSupportsNegative(engine) : false);
 
   // OptimizeButton kind 映射:文生图→image、图生图(含 images 参数)→image_edit、视频→video、音频→audio
   const optimizeKind = !engine
@@ -245,6 +281,20 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
     }
   }
 
+  // 舞台容器 ←/→ 方向键:在会话条目间切换选中(输入控件内的按键不拦截)
+  function onResultsKeyDown(e: React.KeyboardEvent<HTMLElement>) {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    if (entries.length === 0) return;
+    const target = e.target as HTMLElement;
+    if (target.closest("input, textarea, select, [contenteditable]")) return;
+    e.preventDefault();
+    const currentIdx = entries.findIndex((x) => x.id === (selectedId ?? entries[0].id));
+    const idx = currentIdx < 0 ? 0 : currentIdx;
+    const next =
+      e.key === "ArrowLeft" ? Math.max(0, idx - 1) : Math.min(entries.length - 1, idx + 1);
+    setSelectedId(entries[next].id);
+  }
+
   const uploadKind =
     engine?.id === "img2img" ? "img2img" : engine?.id === "h3-i2v" ? "h3_i2v" : "ltx_i2v";
 
@@ -266,167 +316,16 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
         )}
         <div className="generate-header-right">
           <span className="generate-header-note">会话内历史不落库,刷新即清空</span>
-          <button
-            type="button"
-            className={`generate-params-toggle${paramsOpen ? " is-on" : ""}`}
-            onClick={() => setParamsOpen((v) => !v)}
-            aria-expanded={paramsOpen}
-            aria-label={paramsOpen ? "收起参数面板" : "展开参数面板"}
-            title={paramsOpen ? "收起参数面板" : "展开参数面板"}
-          >
-            <Icon name="panel-right" size={14} />
-          </button>
         </div>
       </div>
 
-      <div className={`generate-body${paramsOpen ? "" : " is-params-closed"}`}>
-        <aside className="generate-params" aria-label="生成参数">
-          {engines === null && !enginesError ? (
-            <>
-              <Skeleton height={32} />
-              <Skeleton height={72} />
-              <Skeleton height={32} />
-              <Skeleton height={32} />
-            </>
-          ) : enginesError ? (
-            <p className="generate-error">{enginesError}</p>
-          ) : kindEngines.length === 0 ? (
-            <p className="generate-error">当前上下文没有可用的{KIND_LABEL[mode]}引擎</p>
-          ) : (
-            <>
-              {showGroupTabs && (
-                <Tabs
-                  ariaLabel={mode === "image" ? "文生图或图生图" : mode === "video" ? "文生视频或图生视频" : "生成或编辑"}
-                  fill
-                  items={[
-                    { key: "gen", label: GROUP_LABEL[mode].gen },
-                    { key: "edit", label: GROUP_LABEL[mode].edit },
-                  ]}
-                  current={group}
-                  onChange={(k) => setGroupByKind((prev) => ({ ...prev, [mode]: k as "gen" | "edit" }))}
-                />
-              )}
-
-              <Field label="引擎">
-                <Select
-                  value={engine?.id ?? ""}
-                  onChange={(e) => setEngineIdByKind((prev) => ({ ...prev, [mode]: e.target.value }))}
-                  aria-label="选择引擎"
-                >
-                  {visibleEngines.map((e) => (
-                    <option
-                      key={e.id}
-                      value={e.id}
-                      disabled={!e.available}
-                      title={e.available ? undefined : e.unavailable_reason}
-                    >
-                      {e.label}
-                      {e.available ? "" : ` — 不可用:${e.unavailable_reason ?? "未知原因"}`}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-
-              {engine && (
-                <div className="engine-status">
-                  <Badge tone={engine.available ? "ok" : "warn"}>
-                    {engine.available ? "可用" : "不可用"}
-                  </Badge>
-                  {engine.nsfw && <Badge tone="warn">R18</Badge>}
-                  {!engine.available && engine.unavailable_reason && (
-                    <span className="engine-status-reason">{engine.unavailable_reason}</span>
-                  )}
-                </div>
-              )}
-              {engine?.description && <p className="engine-desc">{engine.description}</p>}
-
-              <div className="prompt-field">
-                <div className="prompt-field-head">
-                  <span className="prompt-field-label">提示词</span>
-                  {engine && (
-                    <OptimizeButton
-                      prompt={positive}
-                      kind={optimizeKind}
-                      onOptimized={(text, negative) => {
-                        setPromptByEngine((prev) => ({ ...prev, [engine.id]: text }));
-                        if (negative && engineSupportsNegative(engine)) setValue("negative", negative);
-                      }}
-                      disabled={gen.isRunning}
-                    />
-                  )}
-                </div>
-                <Textarea
-                  rows={4}
-                  value={positive}
-                  placeholder="描述想要生成的内容…"
-                  disabled={gen.isRunning}
-                  aria-label="提示词"
-                  onChange={(e) => {
-                    if (!engine) return;
-                    setPromptByEngine((prev) => ({ ...prev, [engine.id]: e.target.value }));
-                  }}
-                />
-              </div>
-
-              {engine && engineSupportsNegative(engine) && (
-                <Field label="负向提示词">
-                  <Textarea
-                    rows={2}
-                    value={String(values["negative"] ?? "")}
-                    placeholder="描述不想要的内容,可留空"
-                    disabled={gen.isRunning}
-                    onChange={(e) => setValue("negative", e.target.value)}
-                  />
-                </Field>
-              )}
-
-              {engine && imageParam && (
-                <RefImageUpload
-                  param={imageParam}
-                  value={refImage}
-                  uploadKind={uploadKind}
-                  disabled={gen.isRunning}
-                  onChange={(v) => setRefByEngine((prev) => ({ ...prev, [engine.id]: v }))}
-                />
-              )}
-
-              {engine &&
-                engine.params
-                  .filter((p) => p.type !== "images" && p.key !== "negative")
-                  .map((p) => (
-                    <ParamField
-                      key={p.key}
-                      param={p}
-                      value={values[p.key]}
-                      disabled={gen.isRunning}
-                      onChange={setValue}
-                    />
-                  ))}
-
-              {submitError && <p className="generate-error">{submitError}</p>}
-
-              <div className="generate-actions">
-                <Button
-                  variant="primary"
-                  className={gen.isRunning ? "generate-run" : undefined}
-                  loading={submitting}
-                  disabled={!canSubmit}
-                  icon={gen.isRunning ? <Icon name="loading" size={14} /> : <Icon name="sparkles" size={14} />}
-                  onClick={() => void onGenerate()}
-                >
-                  {gen.isRunning ? "生成中…" : "生成"}
-                </Button>
-                {gen.isRunning && (
-                  <Button variant="ghost" onClick={onCancel}>
-                    取消
-                  </Button>
-                )}
-              </div>
-            </>
-          )}
-        </aside>
-
-        <section className="generate-results" aria-label="生成结果" tabIndex={0}>
+      <div className="generate-body">
+        <section
+          className="generate-results"
+          aria-label="生成结果"
+          tabIndex={0}
+          onKeyDown={onResultsKeyDown}
+        >
           <ResultPanel
             entries={entries}
             selectedId={selectedId}
@@ -435,161 +334,178 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
             onCancel={onCancel}
           />
         </section>
-      </div>
 
-      <style jsx>{`
-        .generate-view {
-          display: flex;
-          flex-direction: column;
-          gap: var(--space-4);
-          height: 100%;
-          padding: var(--space-5);
-          overflow: hidden;
-        }
-        .generate-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: var(--space-3);
-          flex-shrink: 0;
-        }
-        .generate-header-note {
-          font-size: var(--text-aux);
-          color: var(--text-muted);
-        }
-        .generate-header-right {
-          display: flex;
-          align-items: center;
-          gap: var(--space-3);
-        }
-        .generate-params-toggle {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 28px;
-          height: 28px;
-          padding: 0;
-          border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-control);
-          background: var(--bg-surface-1);
-          color: var(--text-muted);
-          cursor: pointer;
-          transition: color var(--duration-fast) var(--ease-standard),
-            border-color var(--duration-fast) var(--ease-standard),
-            background-color var(--duration-fast) var(--ease-standard);
-        }
-        .generate-params-toggle:hover {
-          color: var(--text-primary);
-          border-color: var(--border-strong);
-        }
-        .generate-params-toggle.is-on {
-          color: var(--accent);
-          background: var(--accent-soft);
-          border-color: transparent;
-        }
-        .generate-board-title {
-          font-size: var(--text-title);
-          font-weight: 700;
-          letter-spacing: -0.02em;
-          color: var(--text-primary);
-        }
-        .prompt-field {
-          display: flex;
-          flex-direction: column;
-          gap: var(--space-1);
-        }
-        .prompt-field-head {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: var(--space-2);
-        }
-        .prompt-field-label {
-          font-size: var(--text-label);
-          font-weight: 500;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-          color: var(--text-muted);
-        }
-        .generate-body {
-          display: flex;
-          /* Studio Slate 版型:结果区为主视觉居左,参数 inspector 居右(row-reverse 保持 DOM 顺序不变) */
-          flex-direction: row-reverse;
-          gap: var(--space-4);
-          flex: 1;
-          min-height: 0;
-        }
-        .generate-params {
-          width: 320px;
-          flex-shrink: 0;
-          overflow-y: auto;
-          display: flex;
-          flex-direction: column;
-          gap: var(--space-3);
-          padding: var(--space-3);
-          background: var(--bg-surface-1);
-          border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-panel);
-        }
-        .generate-body.is-params-closed .generate-params {
-          display: none;
-        }
-        .generate-results {
-          flex: 1;
-          min-width: 0;
-          overflow-y: auto;
-        }
-        .engine-status {
-          display: flex;
-          align-items: center;
-          gap: var(--space-2);
-        }
-        .engine-status-reason {
-          font-size: var(--text-aux);
-          color: var(--warn);
-        }
-        .engine-desc {
-          font-size: var(--text-aux);
-          color: var(--text-muted);
-          line-height: 1.6;
-        }
-        .generate-error {
-          font-size: var(--text-aux);
-          color: var(--err);
-        }
-        .generate-actions {
-          display: flex;
-          align-items: center;
-          gap: var(--space-2);
-          padding-top: var(--space-1);
-          position: sticky;
-          bottom: 0;
-          background: var(--bg-surface-1);
-        }
-        .generate-actions :global(.btn-primary) {
-          flex: 1;
-        }
-        .generate-actions :global(.btn-primary.generate-run) {
-          background: var(--run);
-          border-color: var(--run);
-          color: var(--text-on-accent);
-        }
-        @media (max-width: 860px) {
-          .generate-view {
-            overflow-y: auto;
-          }
-          .generate-body {
-            flex-direction: column;
-          }
-          .generate-params {
-            width: 100%;
-            overflow-y: visible;
-          }
-          .generate-results {
-            overflow-y: visible;
-          }
-        }
-      `}</style>
+        {paramsOpen && (
+          <aside className="generate-params" aria-label="生成参数">
+            <div className="generate-params-head">
+              <span className="generate-params-title">生成参数</span>
+              <button
+                type="button"
+                className="generate-params-close"
+                onClick={() => setParamsOpen(false)}
+                aria-expanded={true}
+                aria-label="收起参数面板"
+                title="收起参数面板"
+              >
+                <Icon name="panel-right" size={14} />
+              </button>
+            </div>
+            {engines === null && !enginesError ? (
+              <>
+                <Skeleton height={32} />
+                <Skeleton height={72} />
+                <Skeleton height={32} />
+                <Skeleton height={32} />
+              </>
+            ) : enginesError ? (
+              <p className="generate-error">{enginesError}</p>
+            ) : kindEngines.length === 0 ? (
+              <p className="generate-error">当前上下文没有可用的{KIND_LABEL[mode]}引擎</p>
+            ) : (
+              <>
+                {showGroupTabs && (
+                  <Tabs
+                    ariaLabel={mode === "image" ? "文生图或图生图" : mode === "video" ? "文生视频或图生视频" : "生成或编辑"}
+                    fill
+                    items={[
+                      { key: "gen", label: GROUP_LABEL[mode].gen },
+                      { key: "edit", label: GROUP_LABEL[mode].edit },
+                    ]}
+                    current={group}
+                    onChange={(k) => setGroupByKind((prev) => ({ ...prev, [mode]: k as "gen" | "edit" }))}
+                  />
+                )}
+
+                <Field label="引擎">
+                  <Select
+                    value={engine?.id ?? ""}
+                    onChange={(e) => setEngineIdByKind((prev) => ({ ...prev, [mode]: e.target.value }))}
+                    aria-label="选择引擎"
+                  >
+                    {visibleEngines.map((e) => (
+                      <option
+                        key={e.id}
+                        value={e.id}
+                        disabled={!e.available}
+                        title={e.available ? undefined : e.unavailable_reason}
+                      >
+                        {e.label}
+                        {e.available ? "" : ` — 不可用:${e.unavailable_reason ?? "未知原因"}`}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+
+                {engine && (
+                  <div className="engine-status">
+                    <Badge tone={engine.available ? "ok" : "warn"}>
+                      {engine.available ? "可用" : "不可用"}
+                    </Badge>
+                    {engine.nsfw && <Badge tone="warn">R18</Badge>}
+                    {!engine.available && engine.unavailable_reason && (
+                      <span className="engine-status-reason">{engine.unavailable_reason}</span>
+                    )}
+                  </div>
+                )}
+                {engine?.description && <p className="engine-desc">{engine.description}</p>}
+
+                {engine && imageParam && (
+                  <RefImageUpload
+                    param={imageParam}
+                    value={refImage}
+                    uploadKind={uploadKind}
+                    disabled={gen.isRunning}
+                    onChange={(v) => setRefByEngine((prev) => ({ ...prev, [engine.id]: v }))}
+                  />
+                )}
+
+                {mainParams.map((p) => (
+                  <ParamField
+                    key={p.key}
+                    param={p}
+                    value={values[p.key]}
+                    disabled={gen.isRunning}
+                    onChange={setValue}
+                  />
+                ))}
+
+                {engine && showAdvanced && (
+                  <details className="adv-params">
+                    <summary>
+                      高级参数
+                      <span className="adv-chevron">
+                        <Icon name="chevron-down" size={13} />
+                      </span>
+                    </summary>
+                    <div className="adv-params-body">
+                      {engineSupportsNegative(engine) && (
+                        <Field label="负向提示词">
+                          <Textarea
+                            rows={2}
+                            value={String(values["negative"] ?? "")}
+                            placeholder="描述不想要的内容,可留空"
+                            disabled={gen.isRunning}
+                            onChange={(e) => setValue("negative", e.target.value)}
+                          />
+                        </Field>
+                      )}
+                      {advancedParams.map((p) => (
+                        <ParamField
+                          key={p.key}
+                          param={p}
+                          value={values[p.key]}
+                          disabled={gen.isRunning}
+                          onChange={setValue}
+                        />
+                      ))}
+                    </div>
+                  </details>
+                )}
+              </>
+            )}
+          </aside>
+        )}
+
+        {!paramsOpen && (
+          <button
+            type="button"
+            className="generate-params-fab"
+            onClick={() => setParamsOpen(true)}
+            aria-expanded={false}
+            aria-label="展开参数面板"
+            title="展开参数面板"
+          >
+            <Icon name="sliders" size={18} />
+          </button>
+        )}
+
+        <PromptBar
+          value={positive}
+          onChange={(v) => {
+            if (!engine) return;
+            setPromptByEngine((prev) => ({ ...prev, [engine.id]: v }));
+          }}
+          disabled={gen.isRunning}
+          engine={engine}
+          engines={visibleEngines}
+          onEngineChange={(id) => setEngineIdByKind((prev) => ({ ...prev, [mode]: id }))}
+          sizeParams={showSizeChip ? sizeParams : []}
+          values={values}
+          onValueChange={setValue}
+          optimizeKind={optimizeKind}
+          onOptimized={(text, negative) => {
+            if (!engine) return;
+            setPromptByEngine((prev) => ({ ...prev, [engine.id]: text }));
+            if (negative && engineSupportsNegative(engine)) setValue("negative", negative);
+          }}
+          canSubmit={canSubmit}
+          isRunning={gen.isRunning}
+          submitting={submitting}
+          submitError={submitError}
+          onGenerate={() => void onGenerate()}
+          onCancel={onCancel}
+        />
+      </div>
     </div>
   );
 }

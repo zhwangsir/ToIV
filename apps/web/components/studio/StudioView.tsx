@@ -482,7 +482,7 @@ function StudioStyles() {
         padding: 2px var(--space-2);
         border-radius: var(--radius-full);
         background: rgba(0, 0, 0, 0.55);
-        color: #fff;
+        color: var(--text-primary);
         backdrop-filter: blur(4px);
       }
       .studio-shot-badge.is-done {
@@ -671,7 +671,7 @@ function StudioStyles() {
         width: 100%;
         max-width: 720px;
         border-radius: var(--radius-control);
-        background: #000;
+        background: var(--bg-canvas);
       }
       .studio-final .btn {
         align-self: flex-start;

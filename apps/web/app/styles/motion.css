@@ -1,1 +1,118 @@
-/* WS4 动效样式(待填) */
+/* ════════════════════════════════════════════════════════════════════
+   WS5 全局动效层(纯 CSS,零 JS 动画库)
+   - skeleton-shimmer:骨架微光(WS2 生成工作台引用)
+   - stagger-item / stagger-container:列表入场阶梯
+   - view-stage + ::view-transition:视图切换 cross-fade
+   全部遵守 prefers-reduced-motion。
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── 骨架微光 ─────────────────────────────────────────────────────── */
+.skeleton-shimmer {
+  background-color: var(--bg-surface-2);
+  background-image: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.05) 50%,
+    transparent 80%
+  );
+  background-size: 200% 100%;
+  background-position: 100% 0;
+  animation: skeleton-shimmer-sweep 1.6s linear infinite;
+}
+
+@keyframes skeleton-shimmer-sweep {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+/* ── 入场阶梯:fade + translateY(8px → 0) ─────────────────────────── */
+.stagger-item {
+  animation: stagger-item-in var(--duration-slow) var(--ease-emphasized) both;
+  animation-delay: var(--stagger-delay, 0ms);
+}
+
+@keyframes stagger-item-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 默认延迟阶梯:1–12 号子元素,每级 30ms */
+.stagger-container > *:nth-child(1)  { --stagger-delay: 0ms; }
+.stagger-container > *:nth-child(2)  { --stagger-delay: 30ms; }
+.stagger-container > *:nth-child(3)  { --stagger-delay: 60ms; }
+.stagger-container > *:nth-child(4)  { --stagger-delay: 90ms; }
+.stagger-container > *:nth-child(5)  { --stagger-delay: 120ms; }
+.stagger-container > *:nth-child(6)  { --stagger-delay: 150ms; }
+.stagger-container > *:nth-child(7)  { --stagger-delay: 180ms; }
+.stagger-container > *:nth-child(8)  { --stagger-delay: 210ms; }
+.stagger-container > *:nth-child(9)  { --stagger-delay: 240ms; }
+.stagger-container > *:nth-child(10) { --stagger-delay: 270ms; }
+.stagger-container > *:nth-child(11) { --stagger-delay: 300ms; }
+.stagger-container > *:nth-child(12) { --stagger-delay: 330ms; }
+
+/* ── View Transitions:主舞台 cross-fade(200ms ease-out) ────────── */
+.view-stage {
+  view-transition-name: main-stage;
+}
+
+/* 根快照不参与过渡,避免与 main-stage 交叉闪现 */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
+::view-transition-old(main-stage),
+::view-transition-new(main-stage) {
+  animation-duration: 200ms;
+  animation-timing-function: var(--ease-standard); /* ease-out */
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(main-stage) {
+  animation-name: view-stage-fade-out;
+}
+
+::view-transition-new(main-stage) {
+  animation-name: view-stage-fade-in;
+}
+
+@keyframes view-stage-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+@keyframes view-stage-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── 降级:用户偏好减少动效时,禁用以上全部动画/过渡 ───────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer {
+    animation: none;
+    background-image: none;
+  }
+
+  .stagger-item {
+    animation: none;
+  }
+
+  .view-stage {
+    view-transition-name: none;
+  }
+
+  ::view-transition-old(main-stage),
+  ::view-transition-new(main-stage) {
+    animation: none;
+  }
+}

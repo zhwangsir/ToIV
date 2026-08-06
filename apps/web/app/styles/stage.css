@@ -1,1 +1,775 @@
-/* WS2 舞台区样式(待填) */
+/* ──────────────────────────────────────────────────────────
+   WS2 工作台剧场化(Stage):暗舞台 + 浮层工具
+   覆盖 GenerateView / ResultPanel / PromptBar(图片/视频/音频三视图共用)
+   材质:--bg-canvas 全出血暗舞台 + --glass-* 玻璃浮层 + 熔岩橙单点强调
+   动效:纯 CSS(ease-out / --ease-spring),reduced-motion 由 globals 统一收敛
+   ────────────────────────────────────────────────────────── */
+
+/* ========== 布局骨架 ========== */
+
+.generate-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  height: 100%;
+  padding: var(--space-5);
+  overflow: hidden;
+}
+
+.generate-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+.generate-header-note {
+  font-size: var(--text-aux);
+  color: var(--text-muted);
+}
+.generate-header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.generate-board-title {
+  font-size: var(--text-title);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+/* 舞台容器:结果区全出血,参数浮板/悬浮球/提示词条全部绝对定位浮于其上 */
+.generate-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+/* 暗舞台本体:底部给提示词条预留 ~116px 悬浮区 */
+.generate-results {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 116px;
+  background: var(--bg-canvas);
+  border-radius: var(--radius-panel);
+  overflow: hidden;
+}
+
+/* ========== 结果区剧场(ResultPanel) ========== */
+
+.result-panel {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* A/B 对比开关:右上角玻璃胶囊浮层 */
+.result-panel-toolbar {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-full);
+  box-shadow: var(--glass-highlight), var(--shadow-md);
+}
+
+/* 舞台主区:选中作品居中 contain + 轻微暗角 */
+.stage-main {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6) var(--space-6) var(--space-4);
+}
+.stage-main::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 72% 62% at 50% 46%,
+    transparent 55%,
+    color-mix(in oklab, var(--bg-canvas) 70%, transparent) 100%
+  );
+}
+
+/* 状态胶囊:左上角浮层(状态 Badge + 引擎名 + 取消) */
+.stage-status {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-full);
+  box-shadow: var(--glass-highlight), var(--shadow-md);
+}
+.stage-engine {
+  font-size: var(--text-aux);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* 作品展示:全出血居中 contain */
+.stage-media-wrap {
+  position: relative;
+  z-index: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  max-width: 100%;
+  max-height: 100%;
+  min-height: 0;
+}
+.stage-media-wrap .media-main {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-xl);
+}
+.stage-media-wrap .media-audio {
+  width: min(520px, 90%);
+  display: block;
+}
+
+/* 提示词题注:左下角浮于暗角之上 */
+.stage-caption {
+  position: absolute;
+  left: var(--space-4);
+  bottom: var(--space-3);
+  z-index: 2;
+  max-width: 60%;
+  margin: 0;
+  font-size: var(--text-aux);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 生成中:骨架微光(skeleton-shimmer 由 WS5 motion.css 定义)+ 进度条 */
+.stage-loading {
+  position: relative;
+  z-index: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  width: min(560px, 80%);
+}
+.stage-skeleton {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--radius-panel);
+  background: var(--bg-surface-1);
+}
+.stage-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+}
+.stage-progress-text {
+  font-size: var(--text-aux);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.gen-progress {
+  flex: 1;
+  height: 4px;
+  background: var(--bg-surface-3);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+.gen-progress-fill {
+  height: 100%;
+  background: var(--run);
+  border-radius: var(--radius-full);
+  transition: width var(--duration-fast) var(--ease-standard);
+}
+.gen-progress-fill.is-indeterminate {
+  width: 30%;
+  animation: gen-progress-slide 1.2s var(--ease-standard) infinite;
+}
+@keyframes gen-progress-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+/* 失败/已取消消息:舞台居中 */
+.stage-message {
+  position: relative;
+  z-index: 0;
+  margin: 0;
+  max-width: min(480px, 80%);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.6;
+}
+.stage-message-err {
+  color: var(--err);
+}
+
+/* ========== 胶片条 filmstrip ========== */
+
+.filmstrip {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  overflow-x: auto;
+  border-top: 1px solid var(--border-subtle);
+  background: color-mix(in oklab, var(--bg-canvas) 55%, var(--bg-surface-1));
+}
+.filmstrip-item {
+  position: relative;
+  flex-shrink: 0;
+  width: 72px;
+  height: 72px;
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--bg-surface-2);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-standard),
+              box-shadow var(--duration-fast) var(--ease-standard),
+              transform var(--duration-fast) var(--ease-standard);
+}
+.filmstrip-item:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+/* 选中缩略图:accent 描边 + 微光 */
+.filmstrip-item.is-active {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent), var(--accent-glow-shadow);
+}
+.filmstrip-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.filmstrip-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+/* 状态点:缩略图左上角 */
+.filmstrip-dot {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--bg-canvas) 72%, transparent);
+}
+.filmstrip-dot.is-running {
+  background: var(--run);
+  animation: filmstrip-pulse 1.6s var(--ease-standard) infinite;
+}
+.filmstrip-dot.is-done { background: var(--ok); }
+.filmstrip-dot.is-error { background: var(--err); }
+@keyframes filmstrip-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* ========== A/B 对比(保留原能力,剧场化排版) ========== */
+
+.result-compare {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-12) var(--space-4) var(--space-4);
+}
+.compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+.compare-col {
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.compare-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.compare-head .input {
+  flex: 1;
+  min-width: 0;
+}
+.compare-media {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: center;
+  background: var(--bg-canvas);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+}
+.compare-media .media-main {
+  max-width: 100%;
+  max-height: 52vh;
+  object-fit: contain;
+  display: block;
+}
+.compare-media .media-audio {
+  width: 100%;
+  display: block;
+}
+
+/* ========== 空态(编排式,沿用原文案) ========== */
+
+.result-panel-empty {
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+}
+.empty-editorial {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-5);
+  max-width: 640px;
+  padding: var(--space-6);
+}
+.empty-kicker {
+  font-size: var(--text-label);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+}
+.empty-display {
+  font-size: 40px;
+  font-weight: 650;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin: 0;
+}
+.empty-tips {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+  width: 100%;
+}
+.empty-tip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-control);
+  box-shadow: var(--glass-highlight);
+}
+.empty-tip-num {
+  font-size: var(--text-label);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+.empty-tip-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.empty-tip-desc {
+  font-size: var(--text-aux);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ========== 参数玻璃浮板 ========== */
+
+.generate-params {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 20;
+  width: 320px;
+  max-height: calc(100% - var(--space-6));
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--glass-highlight), var(--shadow-float);
+  animation: params-panel-in var(--duration-slow) var(--ease-spring);
+}
+@keyframes params-panel-in {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: none; }
+}
+.generate-params-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.generate-params-title {
+  font-size: var(--text-label);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.generate-params-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-standard),
+              border-color var(--duration-fast) var(--ease-standard),
+              background-color var(--duration-fast) var(--ease-standard);
+}
+.generate-params-close:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+  background: var(--bg-surface-2);
+}
+
+/* 收起态:右下角悬浮球(圆形 accent) */
+.generate-params-fab {
+  position: absolute;
+  right: var(--space-4);
+  bottom: calc(116px + var(--space-3));
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--text-on-accent);
+  box-shadow: var(--accent-glow-shadow), var(--shadow-float);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-standard),
+              transform var(--duration-fast) var(--ease-standard);
+}
+.generate-params-fab:hover {
+  background: var(--accent-hover);
+  transform: translateY(-2px);
+}
+
+.engine-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.engine-status-reason {
+  font-size: var(--text-aux);
+  color: var(--warn);
+}
+.engine-desc {
+  font-size: var(--text-aux);
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+.generate-error {
+  font-size: var(--text-aux);
+  color: var(--err);
+}
+
+/* ========== 高级参数抽屉(浮板内折叠区,默认收起) ========== */
+
+.adv-params {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: color-mix(in oklab, var(--bg-canvas) 40%, transparent);
+}
+.adv-params summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-label);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+.adv-params summary::-webkit-details-marker {
+  display: none;
+}
+.adv-params summary:hover {
+  color: var(--text-secondary);
+}
+.adv-params[open] summary {
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.adv-chevron {
+  display: inline-flex;
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+.adv-params[open] .adv-chevron {
+  transform: rotate(180deg);
+}
+.adv-params-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+/* ========== 提示词条 PromptBar(底部居中悬浮玻璃条) ========== */
+
+.promptbar-dock {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--space-4);
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  padding: 0 var(--space-4);
+  pointer-events: none; /* 条外区域不截获舞台交互 */
+}
+.promptbar {
+  pointer-events: auto;
+  width: min(720px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glass-highlight), var(--shadow-float);
+  transition: transform var(--duration-base) var(--ease-standard),
+              border-color var(--duration-base) var(--ease-standard);
+}
+/* 聚焦:条体微微上浮 + accent 描边呼吸 */
+.promptbar:focus-within {
+  transform: translateY(-2px);
+  border-color: var(--accent-glow);
+  animation: promptbar-breathe 2.4s var(--ease-standard) infinite;
+}
+@keyframes promptbar-breathe {
+  0%, 100% { box-shadow: var(--glass-highlight), var(--shadow-float); }
+  50% { box-shadow: var(--glass-highlight), var(--shadow-float), var(--accent-glow-shadow); }
+}
+
+.promptbar-input-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+/* 自动增高 textarea(JS 重算 height,CSS max-height 封顶) */
+.promptbar-textarea {
+  flex: 1;
+  min-width: 0;
+  min-height: 28px;
+  max-height: 160px;
+  padding: var(--space-1) var(--space-2);
+  resize: none;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: var(--text-body);
+  line-height: var(--leading-base);
+  font-family: inherit;
+  overflow-y: auto;
+}
+.promptbar-textarea::placeholder {
+  color: var(--text-muted);
+}
+.promptbar-textarea:disabled {
+  opacity: 0.6;
+}
+
+.promptbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+/* 生成按钮运行态(沿用 btn-primary.generate-run 语义) */
+.promptbar .btn-primary.generate-run {
+  background: var(--run);
+  border-color: var(--run);
+  color: var(--text-on-accent);
+}
+
+.promptbar-error {
+  margin: 0;
+  font-size: var(--text-aux);
+  color: var(--err);
+}
+
+/* 可拆卸 chips:只读展示当前值,点击展开原有选择控件 */
+.promptbar-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.promptbar-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 26px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  background: var(--bg-surface-2);
+  color: var(--text-secondary);
+  font-size: var(--text-aux);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--duration-fast) var(--ease-standard),
+              border-color var(--duration-fast) var(--ease-standard),
+              background-color var(--duration-fast) var(--ease-standard);
+}
+.promptbar-chip:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+.promptbar-chip.is-open {
+  color: var(--accent);
+  border-color: var(--accent-glow);
+  background: var(--accent-soft);
+}
+/* chip 展开区:承载原有引擎选择器 / 尺寸参数控件 */
+.promptbar-chip-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--bg-surface-1);
+  animation: chip-panel-in var(--duration-base) var(--ease-standard);
+}
+@keyframes chip-panel-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+.promptbar-chip-hint {
+  margin: 0;
+  font-size: var(--text-aux);
+  color: var(--text-muted);
+}
+
+/* ========== 移动端 <1024px:回退纵向堆叠 ========== */
+
+@media (max-width: 1024px) {
+  .generate-view {
+    overflow-y: auto;
+  }
+  .generate-body {
+    position: static;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    overflow: visible;
+  }
+  .generate-params {
+    position: static;
+    order: 1;
+    width: 100%;
+    max-height: none;
+    overflow-y: visible;
+    animation: none;
+  }
+  .generate-results {
+    position: relative;
+    inset: auto;
+    order: 2;
+    height: 72vh;
+    flex-shrink: 0;
+  }
+  .promptbar-dock {
+    position: sticky;
+    order: 3;
+    bottom: var(--space-3);
+    padding: 0;
+  }
+  .generate-params-fab {
+    position: fixed;
+    right: var(--space-4);
+    bottom: calc(var(--space-4) + 96px);
+  }
+}
+
+@media (max-width: 860px) {
+  .compare-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .empty-tips {
+    grid-template-columns: 1fr;
+  }
+  .empty-display {
+    font-size: 30px;
+  }
+}

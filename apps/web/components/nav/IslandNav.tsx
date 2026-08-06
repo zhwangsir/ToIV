@@ -22,16 +22,15 @@ interface IslandNavProps {
 }
 
 /**
- * 灵动岛悬浮导航(Studio Slate 版型):顶部居中胶囊,脱离边缘浮于内容之上。
- * 紧凑态:logo 点 + 当前模块名 + 纯图标排 + 账户头像;
- * 悬停/聚焦展开:图标旁滑出文字标签,岛体投出浮层阴影(纯 CSS 过渡,无 JS 动画库);
+ * 灵动岛悬浮导航(曜石熔岩 v5 · 黑镜剧场):顶部居中玻璃胶囊,脱离边缘浮于内容之上。
+ * 紧凑态:logo 点 + 图标排(激活项常显文字标签)+ 账户头像;
+ * 悬停/聚焦展开:全部图标旁滑出文字标签,岛体投出更深浮层阴影(纯 CSS 弹簧过渡,无 JS 动画库);
  * 账户菜单走 Popover 基座(portal,脱离岛 hover 生命周期,点击开关)。
  * 窄屏 <1024px 隐藏,由底部导航接管;横屏低高度仍显示(高度占地极小)。
  */
 export function IslandNav({ items, current, onSelect, onItemIntent, account, onLogout }: IslandNavProps) {
   const avatarRef = useRef<HTMLButtonElement | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
-  const currentItem = items.find((i) => i.key === current);
 
   return (
     <div className="island-dock">
@@ -40,12 +39,6 @@ export function IslandNav({ items, current, onSelect, onItemIntent, account, onL
           <span className="island-brand-dot" aria-hidden="true" />
           <span className="island-brand-text">ToIV</span>
         </span>
-
-        {currentItem && (
-          <span className="island-current" aria-hidden="true">
-            {currentItem.label}
-          </span>
-        )}
 
         <span className="island-sep" aria-hidden="true" />
 

@@ -1,0 +1,230 @@
+/* ════════════════════════════════════════════════════════════════════
+   WS4 作品库 + 风格卡(曜石熔岩 / 黑镜剧场)
+   - masonry 卡片 hover:整体弹簧上浮 scale(1.03) + 快捷操作玻璃条
+   - 存为风格 Popover:玻璃浮层
+   - StyleBar 风格库横条:玻璃胶囊卡,点击注入优化提示词管线
+   全部色值走 token,遵守 prefers-reduced-motion。
+   注:.library-view .lib-body 前缀用于压过 LibraryView 内 styled-jsx 的
+   旧 hover 规则(其带 .jsx-hash 类,特异度 0-3-0)。
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── masonry 卡片 hover 质感 ──────────────────────────────────────── */
+.library-view .lib-body .lib-card {
+  transition: transform var(--duration-slow) var(--ease-spring),
+    border-color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-slow) var(--ease-standard);
+}
+.library-view .lib-body .lib-card:hover,
+.library-view .lib-body .lib-card:focus-visible {
+  transform: scale(1.03);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-lift), var(--accent-glow-shadow);
+  /* transform 自带层叠上下文;z-index 保证放大卡压住相邻列 */
+  z-index: 2;
+}
+
+/* ── 快捷操作浮层(卡片底部渐显玻璃条) ───────────────────────────── */
+.lib-actions {
+  position: absolute;
+  left: 50%;
+  bottom: var(--space-3);
+  transform: translate(-50%, 6px);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-full);
+  box-shadow: var(--glass-highlight), var(--shadow-md);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-base) var(--ease-standard),
+    transform var(--duration-slow) var(--ease-spring);
+  z-index: 3;
+}
+.lib-card:hover .lib-actions,
+.lib-card:focus-within .lib-actions {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+}
+.lib-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+.lib-action-btn:hover {
+  background: var(--run-soft);
+  color: var(--accent);
+  box-shadow: var(--accent-glow-shadow);
+}
+.lib-action-btn:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+/* ── 存为风格 Popover(容器定位由 ui/Popover 基座负责) ───────────── */
+.lib-style-pop {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--glass-highlight), var(--shadow-float);
+}
+.lib-style-pop-title {
+  font-size: var(--text-label);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+.lib-style-pop-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.lib-style-pop-row .input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── StyleBar 风格库横条 ─────────────────────────────────────────── */
+.lib-style-bar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.lib-style-bar-kicker {
+  font-size: var(--text-label);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+}
+.lib-style-track {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: var(--space-1);
+}
+.lib-style-track::-webkit-scrollbar {
+  display: none;
+}
+.lib-style-card {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-full);
+  box-shadow: var(--glass-highlight);
+  transition: border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+.lib-style-card:hover {
+  border-color: var(--border-strong);
+}
+.lib-style-card:has(.lib-style-card-hit:hover) {
+  border-color: var(--accent);
+  box-shadow: var(--glass-highlight), var(--accent-glow-shadow);
+}
+.lib-style-card-hit {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-1) 0 0;
+  background: transparent;
+  border: 0;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+.lib-style-card-hit:hover {
+  color: var(--text-primary);
+}
+.lib-style-card-hit:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-full);
+}
+.lib-style-thumb {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  object-fit: cover;
+  display: block;
+  flex: 0 0 auto;
+}
+.lib-style-thumb-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-surface-3);
+  color: var(--text-muted);
+}
+.lib-style-name {
+  font-size: var(--text-aux);
+  white-space: nowrap;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lib-style-delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-full);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+.lib-style-delete:hover {
+  background: var(--err-soft);
+  color: var(--err);
+}
+
+/* ── 减弱动效 ────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .library-view .lib-body .lib-card:hover,
+  .library-view .lib-body .lib-card:focus-visible {
+    transform: none;
+  }
+  .lib-actions {
+    transition: opacity var(--duration-fast) var(--ease-standard);
+    transform: translate(-50%, 0);
+  }
+}

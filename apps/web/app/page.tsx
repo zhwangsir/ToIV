@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, lazy, useCallback, useEffect, useState } from "react";
+import { flushSync } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { LandingPage } from "@/components/landing/LandingPage";
@@ -246,6 +247,20 @@ function useIsMobile() {
   return isMobile;
 }
 
+/** WS5:视图切换走 View Transitions(主舞台 cross-fade,样式见 styles/motion.css)。
+ *  存在性守卫:不支持的浏览器直接执行原逻辑,不引入 polyfill。
+ *  flushSync 让 React 在快照回调内同步提交 DOM,否则新快照仍是旧视图。 */
+function withViewTransition(update: () => void) {
+  const doc = document as Document & {
+    startViewTransition?: (updateCallback: () => void) => unknown;
+  };
+  if (typeof doc.startViewTransition === "function") {
+    doc.startViewTransition(() => flushSync(update));
+  } else {
+    update();
+  }
+}
+
 export default function Home() {
   return (
     <Suspense
@@ -329,8 +344,10 @@ function HomeContent() {
   const changeView = useCallback(
     (next: View) => {
       preloadView(next); // 兜底:未预热目标在点击瞬间立即发起加载
-      setView(next);
-      router.replace(`/?view=${next}`);
+      withViewTransition(() => {
+        setView(next);
+        router.replace(`/?view=${next}`);
+      });
     },
     [router],
   );
@@ -350,8 +367,10 @@ function HomeContent() {
       const [key, query] = target.split("?", 2);
       const next = resolveView(key) ?? "assistant";
       preloadView(next);
-      setView(next);
-      router.replace(`/?view=${next}${query ? `&${query}` : ""}`);
+      withViewTransition(() => {
+        setView(next);
+        router.replace(`/?view=${next}${query ? `&${query}` : ""}`);
+      });
     },
     [router],
   );
@@ -388,7 +407,7 @@ function HomeContent() {
       />
 
       <main id="main" className={`app-main${view === "avatartalk" ? " avatartalk-main" : ""}`}>
-        <div className="view-root">
+        <div className="view-root view-stage">
           <ErrorBoundary key={view} viewName={meta.label}>
             <Suspense fallback={<ViewFallback label={meta.label} />}>
               {view === "assistant" && <AssistantView />}

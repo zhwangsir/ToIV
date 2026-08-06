@@ -1,1 +1,198 @@
-/* WS3 悬浮岛样式(待填) */
+/* ========== 灵动岛悬浮导航(曜石熔岩 v5 · 黑镜剧场,桌面 ≥1024px,见 components/nav/IslandNav) ========== */
+/* 玻璃岛体:--glass-bg 72% 底 + --glass-blur;激活项常显文字标签,悬停/聚焦展开全部标签; */
+/* 展开/收起过渡用 --ease-spring + --duration-slow(纯 CSS,无 JS 动画库)。 */
+
+.island-dock {
+  position: fixed;
+  top: 12px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  z-index: var(--z-sticky);
+  pointer-events: none; /* 胶囊外区域不截获点击 */
+}
+
+.island {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 44px;
+  padding: 0 var(--space-3);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-full);
+  box-shadow: var(--glass-highlight), var(--shadow-float);
+  transition: box-shadow var(--duration-slow) var(--ease-spring),
+              border-color var(--duration-base) var(--ease-standard);
+}
+/* 悬停/聚焦:叠加两层阴影 token 投出更深浮起感 */
+.island:hover,
+.island:focus-within {
+  border-color: var(--border-strong);
+  box-shadow: var(--glass-highlight), var(--shadow-float), var(--shadow-xl);
+}
+
+.island-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+.island-brand-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+.island-brand-text {
+  font-size: var(--text-base);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.island-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.island-items {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.island-item {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color var(--duration-fast) var(--ease-standard),
+              color var(--duration-fast) var(--ease-standard),
+              box-shadow var(--duration-base) var(--ease-standard);
+}
+.island-item:hover {
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+}
+/* 激活态:熔岩橙软底 + 橙字 + 光晕 */
+.island-item.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: var(--accent-glow-shadow);
+}
+
+.island-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* 文字标签:非激活项默认收起(纯图标排);激活项常显;悬停/聚焦岛体时全部滑出 */
+.island-item-label {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-width var(--duration-slow) var(--ease-spring),
+              opacity var(--duration-base) var(--ease-standard),
+              margin-left var(--duration-slow) var(--ease-spring);
+}
+.island-item.is-active .island-item-label {
+  max-width: 72px;
+  opacity: 1;
+  margin-left: 6px;
+}
+.island:hover .island-item-label,
+.island:focus-within .island-item-label {
+  max-width: 72px;
+  opacity: 1;
+  margin-left: 6px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .island,
+  .island-item,
+  .island-item-label {
+    transition: none;
+  }
+}
+
+.island-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+.island-avatar:hover {
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+
+/* 账户菜单(内容挂在 Popover 玻璃基座内,底/描边/阴影由基座提供,此处只管布局) */
+.island-account-pop {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+.island-account-email {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 var(--space-1);
+}
+.island-account-logout {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 30px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-control);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-standard),
+              color var(--duration-fast) var(--ease-standard);
+}
+.island-account-logout:hover {
+  background: var(--err-soft);
+  color: var(--err);
+}
+
+/* ── 响应式(必须在 base 规则之后加载,故随岛样式同文件;勿移回 globals.css,层叠序会失效) ── */
+/* 窄屏 <1024px:岛隐藏,由底部导航接管 */
+@media (max-width: 1023px) {
+  .island-dock {
+    display: none;
+  }
+}
+
+/* 横屏低高度 <500px:岛恢复显示(顶部占地极小,底部导航让位) */
+@media (max-height: 500px) and (orientation: landscape) {
+  .island-dock {
+    display: flex;
+  }
+}

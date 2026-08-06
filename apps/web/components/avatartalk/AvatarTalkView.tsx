@@ -1557,7 +1557,7 @@ function ConversationPanel({
         @keyframes at-mic-pulse {
           0%,
           100% {
-            box-shadow: 0 0 0 0 var(--danger-glow, rgba(239, 68, 68, 0.4));
+            box-shadow: 0 0 0 0 var(--danger-glow, color-mix(in oklab, var(--err) 40%, transparent));
           }
           50% {
             box-shadow: 0 0 0 6px transparent;

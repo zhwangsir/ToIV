@@ -1,1 +1,41 @@
-/* WS3 玻璃浮层样式(待填) */
+/* ==========================================================================
+   WS3 玻璃浮层:可复用玻璃材质 + Popover 基座入场动效
+   色值全部走 globals.css v5「曜石熔岩」token(--glass-* 系列与 --shadow/--radius)。
+   ========================================================================== */
+
+/* 可复用玻璃面板:浮层/弹窗通用材质。
+   72% 不透明暖黑底 + 20px 高斯模糊,叠加高光内描边与浮起阴影。 */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-highlight), var(--shadow-float);
+  border-radius: var(--radius-panel);
+}
+
+/* 兼容性兜底:不支持 backdrop-filter 时退化为不透明表面色,
+   保证文字/底对比度不依赖模糊生效。 */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-panel {
+    background: var(--bg-surface-2);
+  }
+}
+
+/* Popover 基座入场:scale(0.96 → 1) + fade,弹簧缓动。
+   reduced-motion 由 globals.css 全局规则统一压平,此处不重复声明。 */
+@keyframes popoverIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.popover-panel {
+  transform-origin: top left;
+  animation: popoverIn var(--duration-base) var(--ease-spring);
+}

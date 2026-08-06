@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { deleteJob, imageUrl, invalidateJobs, listJobs } from "@/lib/api";
 import type { JobItem } from "@/lib/types";
@@ -8,7 +8,41 @@ import { Icon } from "@/components/ui/Icon";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
+import { Popover } from "@/components/ui/Popover";
+import { Input } from "@/components/ui/Input";
 import { Tabs } from "@/components/ui/Tabs";
+import { useToast } from "@/components/ui/Toast";
+import { StyleBar, type StyleCard } from "@/components/library/StyleBar";
+
+/** localStorage 键:风格卡列表(WS4「存为风格」)。 */
+const STYLE_CARDS_KEY = "toiv_style_cards";
+/** localStorage 键:优化提示词管线读取的风格描述(与 ui/OptimizeButton 一致)。 */
+const STYLE_HINT_KEY = "toiv_optimize_style_hint";
+
+function loadStyleCards(): StyleCard[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(STYLE_CARDS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (c): c is StyleCard =>
+        !!c && typeof c.id === "string" && typeof c.name === "string",
+    );
+  } catch {
+    return [];
+  }
+}
+
+function persistStyleCards(cards: StyleCard[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(STYLE_CARDS_KEY, JSON.stringify(cards));
+  } catch {
+    /* localStorage 不可用时静默忽略 */
+  }
+}
 
 type FilterKey = "all" | "image" | "video" | "audio" | "3d";
 
@@ -126,6 +160,7 @@ function ImageThumb({ job }: { job: JobItem }) {
 }
 
 export function LibraryView() {
+  const toast = useToast();
   const [jobs, setJobs] = useState<JobItem[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -137,6 +172,11 @@ export function LibraryView() {
   const [confirmDelete, setConfirmDelete] = useState<JobItem | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [preview, setPreview] = useState<PreviewState | null>(null);
+  // 风格卡(WS4):StyleBar 数据源 + 「存为风格」Popover 状态
+  const [styleCards, setStyleCards] = useState<StyleCard[]>([]);
+  const [styleTarget, setStyleTarget] = useState<JobItem | null>(null);
+  const [styleName, setStyleName] = useState("");
+  const styleAnchorRef = useRef<HTMLButtonElement | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -150,6 +190,11 @@ export function LibraryView() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // 挂载后读取本地风格卡(SSR 安全:loadStyleCards 内部判 window)
+  useEffect(() => {
+    setStyleCards(loadStyleCards());
+  }, []);
 
   // Esc 关闭灯箱
   useEffect(() => {
@@ -241,6 +286,76 @@ export function LibraryView() {
     });
   };
 
+  // ── WS4 快捷操作 + 风格卡 ──
+
+  // 复用提示词:写入剪贴板并 toast(项目已有 Toast 机制,不用 alert)
+  const reusePrompt = async (job: JobItem) => {
+    const text = job.prompt?.trim();
+    if (!text) {
+      toast.info("该作品没有提示词");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("提示词已复制到剪贴板");
+    } catch {
+      toast.error("复制失败,请检查浏览器剪贴板权限");
+    }
+  };
+
+  // 打开「存为风格」Popover:记录锚点按钮与目标作品
+  const openStylePopover = (job: JobItem, anchor: HTMLButtonElement) => {
+    styleAnchorRef.current = anchor;
+    setStyleName("");
+    setStyleTarget(job);
+  };
+
+  // 保存风格卡:同名覆盖,新卡置顶;prompt 截取 500 字作 hint
+  const saveStyleCard = () => {
+    if (!styleTarget) return;
+    const name = styleName.trim();
+    if (!name) {
+      toast.error("请输入风格名称");
+      return;
+    }
+    const card: StyleCard = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name,
+      thumb: styleTarget.results?.length
+        ? imageUrl(styleTarget.results[0])
+        : "",
+      hint: (styleTarget.prompt ?? "").slice(0, 500),
+    };
+    setStyleCards((prev) => {
+      const next = [card, ...prev.filter((c) => c.name !== name)];
+      persistStyleCards(next);
+      return next;
+    });
+    toast.success(`风格「${name}」已保存`);
+    setStyleTarget(null);
+  };
+
+  // 注入风格:写入优化提示词管线读取的 localStorage 键
+  const applyStyleCard = (card: StyleCard) => {
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem(STYLE_HINT_KEY, card.hint);
+      } catch {
+        /* localStorage 不可用时静默忽略 */
+      }
+    }
+    toast.success("风格已注入,到工作台点优化生效");
+  };
+
+  const deleteStyleCard = (card: StyleCard) => {
+    setStyleCards((prev) => {
+      const next = prev.filter((c) => c.id !== card.id);
+      persistStyleCards(next);
+      return next;
+    });
+    toast.info(`风格「${card.name}」已删除`);
+  };
+
   const isEmpty = !loading && !error && filtered.length === 0;
   const skeletonCount = 8;
 
@@ -269,6 +384,13 @@ export function LibraryView() {
           />
         </div>
       </header>
+
+      {/* 风格库横条(WS4):空态 StyleBar 内部返回 null,不渲染整条 */}
+      <StyleBar
+        cards={styleCards}
+        onApply={applyStyleCard}
+        onDelete={deleteStyleCard}
+      />
 
       <div className="lib-body">
         {error && !loading && (
@@ -345,6 +467,49 @@ export function LibraryView() {
                       </div>
                     </div>
                     </button>
+
+                    {/* 快捷操作浮层(WS4):底部渐显玻璃条,三键 = 查看大图 / 存为风格 / 复用提示词 */}
+                    <div
+                      className="lib-actions"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        className="lib-action-btn"
+                        title="查看大图"
+                        aria-label="查看大图"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openPreview(job);
+                        }}
+                      >
+                        <Icon name="zoom-in" size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className="lib-action-btn"
+                        title="存为风格"
+                        aria-label="存为风格"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openStylePopover(job, e.currentTarget);
+                        }}
+                      >
+                        <Icon name="palette" size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className="lib-action-btn"
+                        title="复用提示词"
+                        aria-label="复用提示词"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          reusePrompt(job);
+                        }}
+                      >
+                        <Icon name="link" size={14} />
+                      </button>
+                    </div>
 
                     <button
                       type="button"
@@ -428,6 +593,34 @@ export function LibraryView() {
           )}
         </div>
       )}
+
+      {/* 存为风格 Popover(WS4):锚定到触发按钮,命名后写入 toiv_style_cards */}
+      <Popover
+        open={!!styleTarget}
+        anchorRef={styleAnchorRef}
+        onClose={() => setStyleTarget(null)}
+        width={260}
+        className="lib-style-pop"
+        role="dialog"
+        ariaLabel="存为风格"
+      >
+        <span className="lib-style-pop-title">存为风格</span>
+        <div className="lib-style-pop-row">
+          <Input
+            value={styleName}
+            placeholder="风格名称(同名覆盖)"
+            maxLength={30}
+            autoFocus
+            onChange={(e) => setStyleName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") saveStyleCard();
+            }}
+          />
+          <Button size="sm" onClick={saveStyleCard}>
+            保存
+          </Button>
+        </div>
+      </Popover>
 
       {/* 删除确认对话框(Modal 基座,替代原生 window.confirm) */}
       <Modal
@@ -640,12 +833,9 @@ export function LibraryView() {
           width: 100%;
           height: auto;
           display: block;
-          transition: transform var(--duration-base) var(--ease-standard);
         }
-        .lib-card:hover .lib-thumb img,
-        .lib-card:hover .lib-thumb video {
-          transform: scale(1.02);
-        }
+        /* 注:WS4 起 hover 缩放收敛为卡片级 scale(1.03)(styles/library.css),
+           不再做缩略图内部二次缩放 */
 
         .lib-thumb-placeholder {
           position: absolute;

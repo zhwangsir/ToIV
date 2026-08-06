@@ -5,6 +5,7 @@ import "./styles/glass.css";
 import "./styles/island.css";
 import "./styles/stage.css";
 import "./styles/motion.css";
+import "./styles/library.css";
 import { ToastProvider } from "@/components/ui/Toast";
 
 const fraunces = Fraunces({

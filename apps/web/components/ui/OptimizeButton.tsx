@@ -312,14 +312,13 @@ export function OptimizeButton({
           cursor: progress;
         }
 
-        /* 智能体选择 Popover(定位/portal/关闭由 ui/Popover 基座承载) */
+        /* 智能体选择 Popover(定位/portal/关闭由 ui/Popover 基座承载,
+           玻璃材质由基座 .glass-panel 提供,此处不再写背景/描边/阴影;
+           保留圆角 + overflow 只为让列表 hover 底不戳出玻璃圆角) */
         .ob-popover {
           min-width: 220px;
           max-width: 320px;
-          background: var(--bg-surface-1);
-          border: 1px solid var(--border-strong);
           border-radius: var(--radius-panel);
-          box-shadow: var(--shadow-xl);
           overflow: hidden;
         }
         .ob-popover-header {

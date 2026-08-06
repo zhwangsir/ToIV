@@ -204,7 +204,7 @@ export function FusionView({ onNavigate }: { onNavigate: (target: string) => voi
         .fusion-view :global(.fusion-card:hover) {
           transform: translateY(-2px);
           border-color: var(--accent-glow);
-          box-shadow: var(--shadow-lg);
+          box-shadow: var(--shadow-lg), var(--glass-highlight);
         }
 
         /* 图标 + 名称 */

@@ -1196,7 +1196,7 @@ export function VideoEditView() {
           width: 100%;
           max-height: 420px;
           border-radius: var(--radius-control);
-          background: #000;
+          background: var(--bg-canvas);
         }
         .ve-preview-audio {
           display: flex;
@@ -1419,7 +1419,7 @@ export function VideoEditView() {
           width: 100%;
           max-height: 480px;
           border-radius: var(--radius-control);
-          background: #000;
+          background: var(--bg-canvas);
         }
         .ve-result-actions {
           display: flex;

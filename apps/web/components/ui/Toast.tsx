@@ -110,7 +110,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           border-radius: var(--radius-md);
           background: var(--bg-surface-1);
           border: 1px solid var(--border-subtle);
-          box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.3);
+          box-shadow: var(--shadow-float);
           color: var(--text-primary);
           font-size: 0.875rem;
           min-width: 280px;
