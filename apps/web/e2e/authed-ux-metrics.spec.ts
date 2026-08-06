@@ -258,8 +258,12 @@ test("UI/UX 五维度指标综合采集", async ({ page }) => {
       });
 
       // 持续监控门禁:AA 级 critical/serious 零容忍;键盘 Tab 必须可达可见交互元素
-      expect(critical, `[${v.name}] 不应存在 critical 级 a11y 违规`).toBe(0);
-      expect(serious, `[${v.name}] 不应存在 serious 级 a11y 违规`).toBe(0);
+      const badRules = violations
+        .filter((x: any) => x.impact === "critical" || x.impact === "serious")
+        .map((x: any) => `${x.id}(${x.nodes?.length ?? 0})`)
+        .join(",");
+      expect(critical, `[${v.name}] 不应存在 critical 级 a11y 违规: ${badRules}`).toBe(0);
+      expect(serious, `[${v.name}] 不应存在 serious 级 a11y 违规: ${badRules}`).toBe(0);
       expect(tabInfo.visible, `[${v.name}] 键盘 Tab 应能到达可见交互元素`).toBe(true);
     } catch (e) {
       a11yMetrics.push({

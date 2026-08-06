@@ -597,18 +597,22 @@ export function AssistantView() {
           ) : (
             <div className="av-conv-list">
               {conversations.map((conv) => (
-                <button
+                <div
                   key={conv.id}
-                  type="button"
                   className={`av-conv-item${activeConvId === conv.id ? " is-active" : ""}`}
-                  onClick={() => loadConversation(conv)}
                 >
-                  <div className="av-conv-info">
-                    <span className="av-conv-title">{conv.title}</span>
-                    <span className="av-conv-meta">
-                      {conv.messages.length} 条消息 · {formatTime(conv.updatedAt)}
-                    </span>
-                  </div>
+                  <button
+                    type="button"
+                    className="av-conv-main"
+                    onClick={() => loadConversation(conv)}
+                  >
+                    <div className="av-conv-info">
+                      <span className="av-conv-title">{conv.title}</span>
+                      <span className="av-conv-meta">
+                        {conv.messages.length} 条消息 · {formatTime(conv.updatedAt)}
+                      </span>
+                    </div>
+                  </button>
                   <button
                     type="button"
                     className="av-conv-delete"
@@ -617,7 +621,7 @@ export function AssistantView() {
                   >
                     <Icon name="delete" size={11} strokeWidth={1.8} />
                   </button>
-                </button>
+                </div>
               ))}
             </div>
           )}
@@ -1350,10 +1354,19 @@ export function AssistantView() {
           background: transparent;
           border: 1px solid transparent;
           border-radius: var(--radius-control);
-          cursor: pointer;
-          text-align: left;
           transition: background-color var(--duration-fast) var(--ease-standard),
             border-color var(--duration-fast) var(--ease-standard);
+        }
+        .av-conv-main {
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          background: transparent;
+          border: none;
+          padding: 0;
+          text-align: left;
+          cursor: pointer;
+          border-radius: var(--radius-control);
         }
         .av-conv-item:hover {
           background: var(--bg-surface-2);
@@ -1400,7 +1413,8 @@ export function AssistantView() {
             background-color var(--duration-fast) var(--ease-standard),
             color var(--duration-fast) var(--ease-standard);
         }
-        .av-conv-item:hover .av-conv-delete {
+        .av-conv-item:hover .av-conv-delete,
+        .av-conv-delete:focus-visible {
           opacity: 1;
         }
         .av-conv-delete:hover {
