@@ -8,7 +8,7 @@ interface SwitchProps {
   ariaLabel?: string;
 }
 
-/** 开关:32×18 轨道,开启态 accent。 */
+/** 开关:36×20 轨道,开启态 accent + 微光晕。 */
 export function Switch({ checked, onChange, disabled, label, ariaLabel }: SwitchProps) {
   const toggle = (
     <button
@@ -34,7 +34,7 @@ export function Switch({ checked, onChange, disabled, label, ariaLabel }: Switch
           {label}
         </span>
       )}
-      <style jsx>{`
+      <style jsx global>{`
         .ui-switch-wrap {
           display: inline-flex;
           align-items: center;
@@ -45,19 +45,19 @@ export function Switch({ checked, onChange, disabled, label, ariaLabel }: Switch
           color: var(--text-secondary);
           cursor: pointer;
         }
-      `}</style>
-      <style jsx>{`
         .ui-switch {
           position: relative;
-          width: 32px;
-          height: 18px;
+          width: 36px;
+          height: 20px;
+          padding: 0;
           border-radius: var(--radius-full);
           background: var(--bg-surface-3);
           border: 1px solid var(--border-subtle);
           cursor: pointer;
           flex-shrink: 0;
           transition: background-color var(--duration-fast) var(--ease-standard),
-                      border-color var(--duration-fast) var(--ease-standard);
+                      border-color var(--duration-fast) var(--ease-standard),
+                      box-shadow var(--duration-fast) var(--ease-standard);
         }
         .ui-switch:hover:not(:disabled) {
           border-color: var(--border-strong);
@@ -65,6 +65,7 @@ export function Switch({ checked, onChange, disabled, label, ariaLabel }: Switch
         .ui-switch.is-on {
           background: var(--accent);
           border-color: var(--accent);
+          box-shadow: var(--accent-glow-shadow);
         }
         .ui-switch:disabled {
           opacity: 0.4;
@@ -74,16 +75,16 @@ export function Switch({ checked, onChange, disabled, label, ariaLabel }: Switch
           position: absolute;
           top: 2px;
           left: 2px;
-          width: 12px;
-          height: 12px;
+          width: 14px;
+          height: 14px;
           border-radius: 50%;
           background: var(--text-secondary);
           transition: transform var(--duration-fast) var(--ease-standard),
                       background-color var(--duration-fast) var(--ease-standard);
         }
         .ui-switch.is-on .ui-switch-thumb {
-          transform: translateX(14px);
-          background: var(--text-on-accent);
+          transform: translateX(16px);
+          background: var(--text-primary);
         }
       `}</style>
     </span>

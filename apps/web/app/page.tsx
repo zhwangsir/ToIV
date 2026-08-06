@@ -41,6 +41,8 @@ const LEGACY_VIEW_REDIRECTS: Record<string, View> = {
   ltxstudio: "video",
   dramaStudio: "studio",
   manju: "studio",
+  "video-edit": "videoEdit",
+  "image-edit": "imageEdit",
 };
 
 /** 解析 ?view= 参数:旧 key 走重定向,非法 key 返回 null(落默认视图)。 */
@@ -415,6 +417,8 @@ function HomeContent() {
               {view === "video" && <GenerateView lockedKind="video" />}
               {view === "audio" && <AudioView />}
               {view === "fusion" && <FusionView onNavigate={handleFusionNavigate} />}
+              {view === "imageEdit" && <ImageEditView />}
+              {view === "videoEdit" && <VideoEditView />}
               {view === "canvas" && <CanvasView />}
               {view === "studio" && <StudioView />}
               {view === "dub" && <DubView />}
