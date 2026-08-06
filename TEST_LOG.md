@@ -4,6 +4,40 @@
 
 ---
 
+## UI-REFACTOR-B4-2026-08-07 · 批4 收口:设置视图 + 错误友好化 + 样式清零
+
+**时间**: 2026-08-07
+**类型**: feat(ui) / regression / 收官
+**目标**: 重构四批计划最后一批(方案 §4.9 + §3.5 + 走查 P3 残余)
+
+### 变更(`9e87f20`,16 文件 +898/-436)
+
+| 项 | 落点 |
+|---|---|
+| 设置视图(新) | `components/settings/SettingsView.tsx`:账户(邮箱+登出;后端无改密端点只展示)/界面(内嵌 ThemePicker)/引擎状态(fetchEngines 按 kind 分组只读卡=走查 #17 落点)/关于;入口在灵动岛账户 Popover + 移动端更多抽屉 |
+| 生成错误友好化 | `lib/friendlyError.ts`:1011/keepalive/ECONNREFUSED/timeout/5xx → 友好文案+技术详情折叠;useGeneration onError 扩 `(message, detail?)`,ResultPanel 错误卡承接(走查 #15) |
+| assistant 三态 | 错误气泡+重试+打字指示器核实批3已在码(走查 #14 闭环确认) |
+| LibraryView styled-jsx 清零 | ~415 行迁 library.css;components/library 下 styled-jsx 为零 |
+| 断点收敛(安全部分) | `lib/useBreakpoint.ts` 与令牌同源;存量媒体查询断点值(1023/767/479 等)未收敛,记录在案 |
+
+### 测试
+
+- 本地全量 **113 passed / 14 环境性 failed** 基线一致(+1 settings 用例);settings axe 0 违规;定向 e2e 22/22
+- 生产 e2e:**161 passed / 0 failed**
+
+### 四批总账(2026-08-07 一日收官)
+
+| 批 | commit | 生产 e2e |
+|---|---|---|
+| 主题系统 + 批1 | `1fdbb99` / `9f2cbed` | 161 全绿 ×2 |
+| 批2a FROZEN 退役(-11317) / 批2b NSFW 并轨(-4286) | `2cd0b7f` / `62bffc8` | 161 / 160 全绿 |
+| 批3 沉浸查看器+登录+fusion+玻璃 | `dce1af0` | 160 全绿(事故修复后) |
+| 批4 设置+错误友好+清零 | `9e87f20` | 161 全绿 |
+
+前端累计净减约 -15,600 行;styled-jsx 从 35 文件 44 块收敛大半;双生成体系、legacy token、Fraunces、globals 视图样式混居全部清除。
+
+---
+
 ## UI-REFACTOR-B3-2026-08-07 · 批3:沉浸查看器 + 登录剧场化 + fusion bento + 玻璃全局化
 
 **时间**: 2026-08-07
