@@ -125,7 +125,6 @@
   --ease-spring: linear(0, 0.009, 0.035 1.1%, 0.141 2.4%, 0.723 6.4%, 1.005 10.7%, 1.128 14.4%, 1.185 18.9%, 1.154 24.4%, 1.023 32.7%, 0.989 42.3%, 1.001 56.8%, 1);
 
   /* ── 布局 ── */
-  --topbar-h: 0px; /* W0 起全局顶栏移除;保留变量避免旧视图 calc() 失效 */
   --bottomnav-h: 0px;
 
   /* ── z-index ── */
@@ -833,13 +832,6 @@ select.input {
   color: var(--accent);
 }
 
-/* ========== 视频生成视图样式 ========== */
-
-.video-submit {
-  min-width: 120px;
-}
-
-
 /* ============ AvatarTalk 数字人对话全屏布局 ============ */
 /* 说明:旧 .avatartalk-shell / .di-container 规则已随动态岛移除(W0);
    视图内全部样式由 AvatarTalkView styled-jsx 承载,此处仅保留 app 壳布局钩子。 */
@@ -1176,21 +1168,6 @@ select.input {
   .single-view {
     padding: var(--space-4);
   }
-  .mode-switcher {
-    top: auto;
-    bottom: calc(var(--bottomnav-h) + var(--space-3));
-  }
-  .cv-tb-btn span {
-    display: none;
-  }
-  .cv-tb-btn {
-    padding: var(--space-1);
-    width: 28px;
-    justify-content: center;
-  }
-  .cv-run-selected span {
-    display: inline;
-  }
 }
 
 /* ── 移动端 <576px:触控目标 ≥44px ── */
@@ -1202,13 +1179,6 @@ select.input {
   }
   .single-view {
     padding: var(--space-3);
-  }
-  .cv-toolbar {
-    padding: var(--space-2);
-  }
-  .cv-tb-left,
-  .cv-tb-right {
-    gap: var(--space-1);
   }
   .grid-cards {
     grid-template-columns: 1fr;

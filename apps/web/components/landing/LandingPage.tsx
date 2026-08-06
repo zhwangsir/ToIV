@@ -5,7 +5,7 @@ import { useState } from "react";
 import { login, setToken } from "@/lib/api";
 import { Icon } from "@/components/ui/Icon";
 
-/** 未登录落地页 —— 极简卡片式登录,靛蓝主题。 */
+/** 未登录落地页 —— 极简卡片式登录,走设计系统 v6 浅色五色板 token。 */
 export function LandingPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

@@ -1832,7 +1832,7 @@ export function ManjuView({ initialActiveId }: ManjuViewProps) {
           display: flex;
           flex-direction: column;
           gap: var(--space-3);
-          max-height: calc(100vh - var(--topbar-h) - var(--space-7));
+          max-height: calc(100vh - var(--space-7));
         }
         .mj-side-head {
           display: flex;
