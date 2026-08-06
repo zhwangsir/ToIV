@@ -102,12 +102,12 @@ class Settings(BaseSettings):
     test_key: str = ""
 
     # AI 智能体的 LLM 大脑(OpenAI 兼容端点)
-    # 默认:workstation sglang qwen3.6-uncensored(host 网络 :8000,4卡 TP,131K ctx)
-    llm_base_url: str = "http://192.168.71.127:8000/v1"
+    # 默认:spark02 vLLM qwen3.6-uncensored(Qwen3.5-MoE-35B-A3B FP8,:8000;原 workstation sglang 已停用)
+    llm_base_url: str = "http://192.168.71.84:8000/v1"  # spark02 vLLM(2026-08-07 修正:原 workstation Nemotron 已停用)
     llm_api_key: str = "lm-studio"
     llm_model: str = "qwen3.6-uncensored"
     # 顶栏展示用真实模型名（llm_model 为 served-model-name 别名，展示不够直观）
-    llm_display_name: str = "Nemotron-3-Nano-Omni-30B-A3B"
+    llm_display_name: str = "Qwen3.5-MoE-35B-A3B (spark02 FP8)"
     # 备用 LLM 大脑(主模型重试失败后自动切换;EXO 单端点多模型场景下 base_url/api_key 留空即复用主)。
     # 典型:主=GLM-5.2-fp8(思考型,长 ctx),备=Kimi-K2.7-Code-4bit(代码型,主掉线时兜底)。
     llm_fallback_base_url: str = ""
