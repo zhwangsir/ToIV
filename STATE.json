@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-08-06T19:40:00+08:00",
+  "updated_at": "2026-08-06T21:35:00+08:00",
   "sync_baseline": {
     "id": "SYNC-2026-07-18",
     "type": "initial-sync",
@@ -2305,5 +2305,34 @@
     },
     "deployed_to": "core:/home/merlin/toiv",
     "verified_at": "2026-08-06T19:40:00+08:00"
+  },
+  "ui_v3_dark_mirror_2026_08_06": {
+    "plan": "docs/2026-08-06-ui-v3-dark-mirror-stage-plan.md",
+    "direction": "方向A 曜石熔岩:暖调纯黑 #0A0908 + 熔岩橙 #FF6B2C + 暖白文字 + Liquid Glass 材质 + 噪点",
+    "execution": "AgentSwarm 六路并行(WS0 地基串行 → WS1-WS6 并行 → 集成串行)",
+    "changes": [
+      "灵动岛玻璃化:激活项常显标签 + accent 光晕 + 弹簧展开",
+      "工作台剧场化:全出血暗舞台 + filmstrip 胶片条 + PromptBar 底部玻璃提示词条(chips)+ 参数玻璃浮板/FAB + 高级参数抽屉",
+      "Popover 基座玻璃化 + .glass-panel 工具类",
+      "作品库 hover 快捷操作 + 风格卡(toiv_style_cards)+ StyleBar 注入 toiv_optimize_style_hint",
+      "动效:skeleton-shimmer/stagger/View Transitions cross-fade(纯 CSS,无 JS 库)",
+      "六视图硬编码色值 token 化扫尾"
+    ],
+    "integration_fixes": [
+      "glass.css 注释内 */ 提前闭合致 cssnano 崩溃(CSS 注释禁含 */ 序列)",
+      "岛窄屏隐藏媒体查询层叠序失效,响应式规则与 base 同文件修复"
+    ],
+    "commits": [
+      "febf1b8",
+      "70d7202"
+    ],
+    "verify": {
+      "axe": "10 视图 × 2 尺寸 serious/critical 0 违规",
+      "local_e2e": "113 passed(14 个 pathsafe 环境性失败:指向离线 workstation)",
+      "prod_e2e_core": "161 passed / 0 failed(首次生产全绿)",
+      "prod_screenshots": "暗舞台/PromptBar/玻璃岛/光晕激活态在 core 确认生效"
+    },
+    "deployed_to": "core:/home/merlin/toiv (deploy/deploy.sh)",
+    "verified_at": "2026-08-06T21:35:00+08:00"
   }
 }

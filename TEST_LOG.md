@@ -4352,3 +4352,18 @@ Route (app)                                 Size  First Load JS
 - **验证**:axe 全 10 视图 × {1440×900, 1280×720} 双尺寸 serious/critical 清零;本地全量 e2e **112 passed / 15 failed**(14 个 pathsafe 指向离线 workstation 环境性失败 + 1 个 ux-metrics 已修复);ux-metrics 单跑 1 passed;部署 core 后生产 e2e **120 passed**(pathsafe 7 个失败查明为登录限流 429 非回归)
 - **测试基建修复**(8629c6a):pathsafe-images 每 describe 各自 beforeAll 登录 → 单文件 6 次/min 撞 IP+账号 5/min 限流;改模块级 token 缓存后生产 pathsafe **48 passed / 0 failed**
 - 生产截图:胶囊紧凑态、悬停展开文字标签(对话/图片/视频/音频/融合/画布/作品库/资源)、生成页工作台反转均在 core 确认生效
+
+### UI v3:曜石熔岩 + 黑镜剧场(2026-08-06 深夜,AgentSwarm 六路并行)
+
+- 依据:`docs/2026-08-06-ui-v3-dark-mirror-stage-plan.md`(调研 Krea/FLORA/Midjourney/Liquid Glass 后定稿);方向 A「曜石熔岩」——暖调纯黑 #0A0908 阶梯 + 熔岩橙 #FF6B2C + 暖白文字,保留品牌橙基因
+- **WS0 地基**(febf1b8):token 全换 + `--glass-*` 材质 token + `--ease-spring`(linear 弹簧)+ 全局 2% 噪点;`app/styles/` 五样式文件经 layout.tsx 接线
+- **WS1 灵动岛**:玻璃岛体(blur 20px+saturate 1.4);激活项**常显文字标签**+accent 光晕;悬停展开全部标签(弹簧缓动);`.island-current` 冗余删除
+- **WS2 工作台剧场化**:结果区全出血暗舞台 + 底部胶片条 filmstrip(←/→方向键切换);新组件 **PromptBar**——底部居中玻璃提示词条(chips 吸附引擎/尺寸,优化结果直接回填);参数 inspector 改玻璃浮板(不占 grid 列)+ 右下角 FAB;步数/CFG/种子/负向收「高级参数」抽屉默认折叠
+- **WS3 玻璃浮层**:Popover 基座玻璃化(scale 0.96→1 弹簧入场);`.glass-panel` 可复用工具类;OptimizeButton Popover 去硬编码底
+- **WS4 风格卡**:作品库 hover 快捷操作浮层(查看/存为风格/复用提示词);风格卡存 localStorage `toiv_style_cards`,StyleBar 横条点卡注入 `toiv_optimize_style_hint`(零后端,Midjourney Moodboard 最小复刻)
+- **WS5 动效**:skeleton-shimmer 骨架微光/stagger 入场阶梯/View Transitions 视图切换 cross-fade(存在性守卫 + flushSync,不支持则原逻辑)
+- **WS6 扫尾**:landing/video-edit/studio/avatartalk/toast/fusion 硬编码色值全 token 化
+- **集成坑 1**:glass.css 注释里 `--glass-*/--shadow-*` 的 `*/` 提前闭合注释 → cssnano `Unexpected '/'` 构建崩溃;教训:**CSS 注释内禁止出现 `*/` 序列**(含 `--xxx-*` 通配写法)
+- **集成坑 2**:岛样式迁 styles/island.css 后窄屏隐藏失效——globals.css 先加载,其媒体查询被后加载的岛 base 规则压过;修复:两条岛响应式规则随岛样式迁移(**层叠序敏感规则必须与 base 同文件**)
+- **验证**:axe 10 视图×2 尺寸 0 违规;本地 e2e **113 passed**(14 个 pathsafe 环境性);部署 core 后生产 e2e **161 passed / 0 failed**(pathsafe token 缓存修复后首次生产全绿);生产截图确认暗舞台/PromptBar/玻璃岛/光晕激活态生效
+- commits:febf1b8(地基)+ 70d7202(六路并行主体)
