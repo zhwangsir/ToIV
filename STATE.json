@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-08-06T14:56:00+08:00",
+  "updated_at": "2026-08-06T15:10:00+08:00",
   "sync_baseline": {
     "id": "SYNC-2026-07-18",
     "type": "initial-sync",
@@ -2231,5 +2231,22 @@
     "design": "麦克风 MediaRecorder(webm/opus)→ POST speak_audio(multipart 透传)→ 引擎 SenseVoice STT→文本作为用户消息上屏→自动 LLM→IndexTTS→数字人说话(SSE 原管线)",
     "changes": "代理新增 speak_audio multipart 端点(超时 120s);lib otSpeakAudio;AvatarTalkView 麦克风按钮(录音脉冲/识别 spinner/会话结束与卸载丢弃式释放)",
     "verified": "pytest 967 passed(+3);tsc/build 通过;Playwright mock 引擎全链路(录音→识别→消息上屏);真机 opentalking+flashtalk systemd active, /health ok(qwen3.6-uncensored + IndexTTS-2)"
+  },
+  "deploy_2026_08_06_pm": {
+    "status": "done",
+    "commits": [
+      "af2b385",
+      "5e4c3a9",
+      "5191403"
+    ],
+    "target": "core:/home/merlin/toiv(bash deploy/deploy.sh,仓库根执行;./deploy.sh 不存在)",
+    "smoke": [
+      "web:200 / api 就绪",
+      "jobs: [] (作品库清空已生效)",
+      "optimize + style_hint=赛博朋克 → 真 LLM 产出赛博朋克正向提示词(端到端生效)",
+      "speak_audio 无 file → 400(路由生效,鉴权通过)",
+      "opentalking/status: reachable, qwen3.6-uncensored + indextts"
+    ],
+    "verified_at": "2026-08-06T15:10:00+08:00"
   }
 }

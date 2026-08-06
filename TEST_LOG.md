@@ -4315,3 +4315,9 @@ Route (app)                                 Size  First Load JS
 - 前端:AvatarTalkView 输入区麦克风按钮(点击开始/再点结束上传),录音中红色呼吸脉冲,识别中 spinner;`isSpeaking`/识别中禁用;会话结束/组件卸载**丢弃式释放**(先摘 onstop 回调防误上传)
 - 验证:pytest **967 passed**(+3:multipart 透传/缺 file 400/引擎禁用 503);tsc/build 通过;Playwright mock 引擎全链路(录音→识别→"你好数字人"上屏);真机 workstation `opentalking`+`flashtalk` systemd active,`/health` ok
 - 留待:真机端到端(需浏览器麦克风授权手测);VAD 流式断句(引擎有 speak_audio_stream WS,当前为整段上传)
+
+### 部署 core(2026-08-06 15:10)
+
+- `bash deploy/deploy.sh`(仓库根;`./deploy.sh` 不存在,正确路径是 deploy/deploy.sh)推送 af2b385/5e4c3a9/5191403 → core:/home/merlin/toiv,toiv-api/toiv-web 重启就绪
+- 生产冒烟:web 200;`jobs: []`(作品库清空生效);`optimize + style_hint=赛博朋克` 真 LLM 产出赛博朋克提示词(端到端);`speak_audio` 无 file 400(路由生效);`opentalking/status` reachable(qwen3.6-uncensored + IndexTTS-2)
+- 生产登录账号为 `admin`(非 admin@toiv.ai),login 响应字段是 `token` 非 `access_token`
