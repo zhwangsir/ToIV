@@ -20,16 +20,22 @@ const WEB_BASE = process.env.TOIV_WEB_BASE || "http://192.168.71.127:3100";
 // 合法路径会继续到 resolve_worker,因 worker 不在白名单返回 400"未知的 worker"
 const DUMMY_WORKER = "http://127.0.0.1:8188";
 
-/** 登录获取 token */
+/** 登录获取 token(模块级缓存:每 worker 进程只登录一次,避免触发登录限流 5/min) */
+let cachedToken: Promise<string> | null = null;
 async function getToken(request: APIRequestContext): Promise<string> {
-  const res = await request.post(`${API_BASE}/api/auth/login`, {
-    data: { email: "admin", password: "admin123" },
-    timeout: 15000,
-  });
-  expect(res.ok(), `登录应成功,实际 ${res.status()}`).toBeTruthy();
-  const body = await res.json();
-  expect(body.token, "登录响应应含 token").toBeTruthy();
-  return body.token as string;
+  if (!cachedToken) {
+    cachedToken = (async () => {
+      const res = await request.post(`${API_BASE}/api/auth/login`, {
+        data: { email: "admin", password: "admin123" },
+        timeout: 15000,
+      });
+      expect(res.ok(), `登录应成功,实际 ${res.status()}`).toBeTruthy();
+      const body = await res.json();
+      expect(body.token, "登录响应应含 token").toBeTruthy();
+      return body.token as string;
+    })();
+  }
+  return cachedToken;
 }
 
 /** 构造 /api/images URL(带可选 token 查询参数) */
