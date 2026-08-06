@@ -147,7 +147,7 @@ test("UI/UX 五维度指标综合采集", async ({ page }) => {
     interactionMetrics.push({ action: "发送对话消息", view: "assistant", latencyMs: 0, success: false, note: "未找到 textarea" });
   }
 
-  // 侧栏切换(通过左侧栏 .app-sidebar-item)
+  // 灵动岛切换(通过顶部胶囊 .island-item)
   // W0 后主导航为左侧栏:直接点击匹配 label 的侧栏按钮切换视图
   // 真实渲染时延 = 点击侧栏项 → 目标视图根节点挂载(替代旧固定 1200ms 等待,
   // 旧值 ≈1200ms 固定等待 + 点击动作开销,无法反映并行化/预热优化效果)。
@@ -173,7 +173,7 @@ test("UI/UX 五维度指标综合采集", async ({ page }) => {
   for (const tgt of targets) {
     try {
       // 点击匹配 label 的侧栏项,测量从点击到目标视图根节点挂载的时延
-      const item = page.locator(".app-sidebar-item", { hasText: tgt.label }).first();
+      const item = page.locator(".island-item", { hasText: tgt.label }).first();
       await item.waitFor({ state: "visible", timeout: 5000 });
       const t0 = Date.now();
       await item.click({ timeout: 5000 });
@@ -186,17 +186,17 @@ test("UI/UX 五维度指标综合采集", async ({ page }) => {
       const latency = Date.now() - t0;
       interactionMetrics.push({
         action: `侧栏切换→${tgt.key}`,
-        view: "sidebar",
+        view: "island",
         latencyMs: latency,
         success: mounted,
-        note: mounted ? "sidebar click→视图挂载" : "点击后 8s 内视图未挂载",
+        note: mounted ? "island click→视图挂载" : "点击后 8s 内视图未挂载",
       });
       // 切换后留 300ms 稳定,避免下一次点击时目标视图仍在退场动画
       await page.waitForTimeout(300);
     } catch (e) {
       interactionMetrics.push({
         action: `侧栏切换→${tgt.key}`,
-        view: "sidebar",
+        view: "island",
         latencyMs: 0,
         success: false,
         note: e instanceof Error ? e.message.slice(0, 80) : "侧栏切换失败",

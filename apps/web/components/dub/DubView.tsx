@@ -488,6 +488,8 @@ export function DubView() {
               <div className="dub-step-circle">
                 {done ? (
                   <Icon name="success" size={14} strokeWidth={2.4} />
+                ) : !reachable && !active ? (
+                  <Icon name="lock" size={13} strokeWidth={2.2} />
                 ) : (
                   <span>{s.n}</span>
                 )}
@@ -1332,7 +1334,7 @@ export function DubView() {
           flex: 1;
           padding: 4px 0;
           cursor: pointer;
-          color: var(--text-muted);
+          color: var(--text-secondary);
           border-radius: var(--radius-control);
           transition: color var(--duration-fast) var(--ease-standard);
         }
@@ -1346,7 +1348,6 @@ export function DubView() {
         .dub-step.is-locked {
           cursor: not-allowed;
           color: var(--text-muted);
-          opacity: 0.4;
         }
         .dub-step.is-active {
           color: var(--text-primary);
@@ -1360,7 +1361,7 @@ export function DubView() {
           border-radius: 50%;
           background: var(--bg-surface-2);
           border: 1px solid var(--border-strong);
-          color: var(--text-muted);
+          color: var(--text-secondary);
           font-size: var(--text-aux);
           font-weight: 600;
           font-variant-numeric: tabular-nums;
@@ -1395,7 +1396,7 @@ export function DubView() {
         }
         .dub-step-hint {
           font-size: var(--text-label);
-          color: var(--text-muted);
+          color: var(--text-secondary);
           line-height: 1.2;
         }
         .dub-step-line {

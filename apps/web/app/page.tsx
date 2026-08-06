@@ -4,7 +4,7 @@ import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { LandingPage } from "@/components/landing/LandingPage";
-import { Sidebar, type SidebarNavItem } from "@/components/nav/Sidebar";
+import { IslandNav, type IslandNavItem } from "@/components/nav/IslandNav";
 import { BottomNav, type BottomNavItem } from "@/components/nav/BottomNav";
 import { fetchMe, getToken, setToken, testLogin } from "@/lib/api";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
@@ -50,7 +50,7 @@ function resolveView(raw: string | null): View | null {
   return VALID_VIEWS.has(raw as View) ? (raw as View) : null;
 }
 
-// ── 视图懒加载:chunk 按需拉取;侧栏悬停/聚焦期间并行预热,消除切换白屏等待 ──
+// ── 视图懒加载:chunk 按需拉取;灵动岛悬停/聚焦期间并行预热,消除切换白屏等待 ──
 const viewImporters = {
   assistant: () => import("@/components/assistant/AssistantView"),
   // 图片/视频共用 GenerateView chunk;音频走 AudioView(内嵌 GenerateView,webpack 共享 chunk)
@@ -190,8 +190,9 @@ const VIEW_META: Record<View, { label: string }> = {
   admin:     { label: "管理" },
 };
 
-/** M3 新 IA 一级入口 8 项:三大板块 + 融合聚合页;短剧/数字人/译制移入融合,视图保留(旧链接不 404) */
-const SIDEBAR_ITEMS: SidebarNavItem[] = [
+/** M3 新 IA 一级入口 8 项:三大板块 + 融合聚合页;短剧/数字人/译制移入融合,视图保留(旧链接不 404)。
+ *  桌面端由顶部灵动岛(IslandNav)承载,窄屏由底部导航承载。 */
+const ISLAND_ITEMS: IslandNavItem[] = [
   { key: "assistant", label: "对话", icon: "chat" },
   { key: "image", label: "图片", icon: "image" },
   { key: "video", label: "视频", icon: "video" },
@@ -223,7 +224,6 @@ const BOTTOM_NAV_MORE_ITEMS: BottomNavItem[] = [
   { key: "resources", label: "资源", icon: "models" },
 ];
 
-const SIDEBAR_COLLAPSED_KEY = "toiv_sidebar_collapsed";
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
@@ -267,31 +267,8 @@ function HomeContent() {
   const [auth, setAuth] = useState<AuthState>("loading");
   const [account, setAccount] = useState<string | null>(null);
   const [view, setView] = useState<View>(() => resolveView(searchParams.get("view")) ?? "assistant");
-  // 侧栏折叠状态(localStorage 记忆);Studio Slate 版型默认窄轨(64px 图标栏,悬停浮出),
-  // 仅当用户显式展开过(存 "0")才常驻宽栏
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   // 动态分镜 AI 解析成功后,带项目 id 跳转短剧工作室并直接打开
   const [pendingDramaProjectId, setPendingDramaProjectId] = useState<string | null>(null);
-
-  useEffect(() => {
-    try {
-      setSidebarCollapsed(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) !== "0");
-    } catch {
-      /* 隐私模式等场景读不到即保持窄轨 */
-    }
-  }, []);
-
-  const toggleSidebar = useCallback(() => {
-    setSidebarCollapsed((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? "1" : "0");
-      } catch {
-        /* 忽略持久化失败 */
-      }
-      return next;
-    });
-  }, []);
 
   useEffect(() => {
     const raw = searchParams.get("view");
@@ -379,7 +356,7 @@ function HomeContent() {
     [router],
   );
 
-  // 侧栏项悬停/聚焦:按操作意向精确预热目标视图
+  // 灵动岛项悬停/聚焦:按操作意向精确预热目标视图
   const handleViewIntent = useCallback((key: string) => {
     if (VALID_VIEWS.has(key as View)) preloadView(key as View);
   }, []);
@@ -399,21 +376,15 @@ function HomeContent() {
     return <LandingPage />;
   }
 
-  const shellClasses = ["app-shell", sidebarCollapsed ? "is-collapsed" : ""]
-    .filter(Boolean)
-    .join(" ");
-
   return (
-    <div className={shellClasses}>
-      <Sidebar
-        items={SIDEBAR_ITEMS}
+    <div className="app-shell">
+      <IslandNav
+        items={ISLAND_ITEMS}
         current={view}
         onSelect={(key) => changeView(key as View)}
         onItemIntent={handleViewIntent}
         account={account}
         onLogout={onLogout}
-        collapsed={sidebarCollapsed}
-        onToggleCollapse={toggleSidebar}
       />
 
       <main id="main" className={`app-main${view === "avatartalk" ? " avatartalk-main" : ""}`}>

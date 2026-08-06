@@ -740,7 +740,8 @@ export function AssistantView() {
         }
         .av-quick-desc {
           font-size: var(--text-aux);
-          color: var(--text-muted);
+          /* AA 对比度:text-muted 在 surface-1 卡片上仅 ~3.4:1,用 secondary(≥4.5:1) */
+          color: var(--text-secondary);
           line-height: 1.45;
           display: -webkit-box;
           -webkit-line-clamp: 2;

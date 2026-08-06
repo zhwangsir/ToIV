@@ -426,7 +426,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
           )}
         </aside>
 
-        <section className="generate-results" aria-label="生成结果">
+        <section className="generate-results" aria-label="生成结果" tabIndex={0}>
           <ResultPanel
             entries={entries}
             selectedId={selectedId}
