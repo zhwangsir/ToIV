@@ -10,6 +10,7 @@ import { Select } from "@/components/ui/Input";
 import { Switch } from "@/components/ui/Switch";
 import { imageUrl } from "@/lib/api";
 import type { EngineKind } from "@/lib/engines";
+import type { QualityWarning } from "@/lib/trackJob";
 
 /** 会话内生成历史条目(不落库,刷新即清空)。 */
 export interface HistoryEntry {
@@ -77,9 +78,28 @@ interface ResultPanelProps {
   onSelect: (id: string) => void;
   /** 进行中的实时进度(来自 useGeneration;仅作用在 status==="running" 的条目)。 */
   liveProgress: { value: number; max: number };
+  /** 质量评估警告(LTX 视频 done 前若 total < 0.65 后端推 quality_warning;诊断卡展示)。 */
+  qualityWarning?: QualityWarning | null;
+  /** 诊断卡「应用建议提示词」:预填到当前引擎正向框。 */
+  onApplyPrompt?: (text: string) => void;
   onCancel: () => void;
   /** 失败条目重试(沿用该条目的引擎/提示词/参数快照);不传则不渲染重试按钮。 */
   onRetry?: (entry: HistoryEntry) => void;
+}
+
+/** 质量维度条:label + 横向条 + 百分比,颜色按值分段(对齐后端评估语义)。 */
+function QualityBar({ label, value }: { label: string; value: number }) {
+  const pct = Math.round(Math.min(1, Math.max(0, value)) * 100);
+  const tone = value > 0.6 ? "ok" : value >= 0.4 ? "warn" : "err";
+  return (
+    <div className="quality-bar">
+      <span className="quality-bar-label">{label}</span>
+      <span className="quality-bar-track">
+        <span className={`quality-bar-fill is-${tone}`} style={{ width: `${pct}%` }} />
+      </span>
+      <span className="quality-bar-val">{pct}</span>
+    </div>
+  );
 }
 
 /**
@@ -90,7 +110,7 @@ interface ResultPanelProps {
  * 失败态为舞台中央错误卡:友好说明 + 可折叠技术详情(底层原文)+ 重试。
  * 全部样式在 app/styles/stage.css;生成中骨架用全局 skeleton-shimmer(WS5 motion.css)。
  */
-export function ResultPanel({ entries, selectedId, onSelect, liveProgress, onCancel, onRetry }: ResultPanelProps) {
+export function ResultPanel({ entries, selectedId, onSelect, liveProgress, qualityWarning, onApplyPrompt, onCancel, onRetry }: ResultPanelProps) {
   const [compare, setCompare] = useState(false);
   const [compareA, setCompareA] = useState<string>("");
   const [compareB, setCompareB] = useState<string>("");
@@ -186,6 +206,41 @@ export function ResultPanel({ entries, selectedId, onSelect, liveProgress, onCan
                 )}
                 {compareSwitch}
               </div>
+
+              {qualityWarning && (current.status === "running" || current.status === "done") && (
+                <div className="stage-quality" role="status">
+                  <div className="stage-quality-head">
+                    <Icon name="warning" size={15} />
+                    <span className="stage-quality-title">质量诊断</span>
+                    <span className="stage-quality-score">{qualityWarning.quality_score}/100</span>
+                  </div>
+                  <div className="stage-quality-bars">
+                    <QualityBar label="美学" value={qualityWarning.aesthetic} />
+                    <QualityBar label="技术" value={qualityWarning.technical} />
+                    <QualityBar label="对齐" value={qualityWarning.prompt_alignment} />
+                  </div>
+                  {qualityWarning.issues.length > 0 && (
+                    <ul className="stage-quality-issues">
+                      {qualityWarning.issues.map((issue, i) => (
+                        <li key={i}>{issue}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {qualityWarning.suggested_prompt && onApplyPrompt && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<Icon name="sparkles" size={13} />}
+                      onClick={() => onApplyPrompt(qualityWarning.suggested_prompt as string)}
+                    >
+                      应用建议提示词
+                    </Button>
+                  )}
+                  {qualityWarning.degraded && (
+                    <span className="stage-quality-degraded">评估降级(模型未能完全分析)</span>
+                  )}
+                </div>
+              )}
 
               {current.status === "running" && (
                 <div className="stage-loading">

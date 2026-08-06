@@ -4,9 +4,9 @@ import { test, expect, type Page } from "@playwright/test";
  * NSFW 专区 E2E 测试 (登录态)
  *
  * 覆盖:
- * - NsfwView 的 image/video tab 切换 + 推荐清单折叠
- * - NsfwVideoView 的 3 种场景渲染验证(文生视频 / 图生视频 / 口型同步)
- * - 视频参数面板(分辨率 / 时长预设)
+ * - NsfwView 的 image/video tab 切换 + 推荐清单折叠(壳不变)
+ * - 统一生成工作台(GenerateView)内嵌:只展示 R18 引擎,不混入 SFW 引擎
+ * - 图像 tab:R18 底模/采样器/调度器/风格预设参数;视频 tab:高清放大/RIFE/高级参数
  *
  * 前置:
  * - storageState: .auth/admin.json (由 global-setup.ts 写入)
@@ -69,11 +69,12 @@ test.describe("NSFW 专区", () => {
     }
   }
 
-  // 辅助:切到视频 tab,等待 NsfwVideoView 渲染
-  async function switchToVideo(page: Page) {
-    await gotoNsfw(page);
-    await page.getByRole("tab", { name: "视频" }).click();
-    await expect(page.locator(".nsv-view")).toBeVisible({ timeout: 5000 });
+  // 辅助:等待内嵌工作台引擎列表加载完成(引擎 Select 出现选项)
+  async function waitEngineSelect(page: Page) {
+    const sel = page.locator('select[aria-label="选择引擎"]');
+    await expect(sel).toBeVisible({ timeout: 10000 });
+    await expect(sel.locator("option").first()).toBeAttached({ timeout: 10000 });
+    return sel;
   }
 
   // ─── 用例 1:页面加载并显示 R18 banner ───
@@ -109,146 +110,134 @@ test.describe("NSFW 专区", () => {
     },
   );
 
-  // ─── 用例 2:默认显示图像 tab + CreateView ───
+  // ─── 用例 2:默认图像 tab,内嵌 GenerateView 只含 R18 图像引擎 ───
   test(
-    "authed-nsfw: 默认显示图像 tab + CreateView",
+    "authed-nsfw: 图像 tab 内嵌统一工作台且只含 R18 引擎",
     { tag: "@authed" },
     async ({ page }) => {
       await gotoNsfw(page);
 
-      // tab 容器可见
+      // tab 容器可见,默认 active 是"图像"
       await expect(page.locator(".nsfw-tabs")).toBeVisible();
-
-      // 默认 active tab 是"图像"
       const imageTab = page.getByRole("tab", { name: "图像" });
       await expect(imageTab).toHaveAttribute("aria-selected", "true");
+      await expect(page.getByRole("tab", { name: "视频" })).toHaveAttribute(
+        "aria-selected",
+        "false",
+      );
 
-      // "视频" tab 未选中
-      const videoTab = page.getByRole("tab", { name: "视频" });
-      await expect(videoTab).toHaveAttribute("aria-selected", "false");
-
-      // CreateView 容器可见(图像 tab 渲染 <CreateView nsfw />)
-      await expect(page.locator(".create-view")).toBeVisible();
-
-      // NsfwVideoView 未渲染
-      await expect(page.locator(".nsv-view")).toHaveCount(0);
-    },
-  );
-
-  // ─── 用例 3:切换到视频 tab 显示 NsfwVideoView ───
-  test(
-    "authed-nsfw: 切换到视频 tab 显示 NsfwVideoView",
-    { tag: "@authed" },
-    async ({ page }) => {
-      await gotoNsfw(page);
-
-      // 点击"视频" tab
-      await page.getByRole("tab", { name: "视频" }).click();
-
-      // NsfwVideoView 容器可见
-      await expect(page.locator(".nsv-view")).toBeVisible({ timeout: 5000 });
-
-      // CreateView 不再渲染
+      // 统一生成工作台(剧场版 UI)渲染,旧 CreateView 不复存在
+      await expect(page.locator(".generate-view")).toBeVisible({ timeout: 10000 });
       await expect(page.locator(".create-view")).toHaveCount(0);
 
-      // 默认场景是"文生视频"
-      const t2vTab = page.getByRole("tab", { name: "文生视频" });
-      await expect(t2vTab).toHaveAttribute("aria-selected", "true");
+      // 引擎 Select:只含 R18 图像引擎(文生图/图生图),无 SFW/视频引擎混入
+      const sel = await waitEngineSelect(page);
+      const options = sel.locator("option");
+      const texts = await options.allTextContents();
+      expect(texts.length).toBeGreaterThanOrEqual(1);
+      for (const t of texts) {
+        expect(t).toContain("R18");
+      }
+      expect(texts.join()).toContain("文生图");
 
-      // 提示词输入框可见
-      await expect(page.locator("#nsv-positive")).toBeVisible();
+      // 提示词条可见
+      await expect(page.locator(".promptbar-textarea")).toBeVisible();
 
       // 截图存档
       await page.screenshot({
-        path: "test-results/nsfw-video-default.png",
+        path: "test-results/nsfw-image-workbench.png",
         fullPage: true,
       });
     },
   );
 
-  // ─── 用例 4:视频场景 tab 切换(3 场景渲染验证)───
+  // ─── 用例 3:图像参数面板(R18 底模/采样器/调度器/风格预设)───
   test(
-    "authed-nsfw: 视频场景 tab 切换",
+    "authed-nsfw: 图像参数面板含底模/采样/风格预设",
     { tag: "@authed" },
     async ({ page }) => {
-      await switchToVideo(page);
+      await gotoNsfw(page);
+      await waitEngineSelect(page);
 
-      // 切到"图生视频" → 图片上传区可见,无音频上传区
+      const panel = page.locator(".generate-params");
+      await expect(panel).toBeVisible();
+
+      // 底模 select:R18 上下文后端动态注入,选项只含 NSFW ckpt,不含平台默认/SFW 项
+      // (worker 不可达时注册表回退「平台默认底模」兜底项,此时跳过严格断言避免环境抖动)
+      const ckpt = panel.locator("select").nth(1); // 第 0 个是引擎 select
+      await expect(ckpt).toBeVisible();
+      const ckptTexts = await ckpt.locator("option").allTextContents();
+      expect(ckptTexts.length).toBeGreaterThanOrEqual(1);
+      if (!ckptTexts.join().includes("平台默认底模")) {
+        expect(ckptTexts.length).toBeGreaterThanOrEqual(1);
+        // 动态注入成功:选项应是 R18 ckpt 文件名
+        expect(ckptTexts.join()).toContain("safetensors");
+      }
+
+      // 采样器 / 调度器 / 风格预设字段在面板中
+      await expect(panel.getByText("采样器", { exact: true })).toBeVisible();
+      await expect(panel.getByText("调度器", { exact: true })).toBeVisible();
+      await expect(panel.getByText("风格预设", { exact: true })).toBeVisible();
+
+      // 高级参数折叠区存在(负向/步数/CFG/种子)
+      await expect(panel.locator("details.adv-params summary")).toContainText(
+        "高级参数",
+      );
+    },
+  );
+
+  // ─── 用例 4:切到视频 tab,只含 R18 视频引擎 + LTX 参数齐 ───
+  test(
+    "authed-nsfw: 视频 tab 只含 R18 引擎且参数齐",
+    { tag: "@authed" },
+    async ({ page }) => {
+      await gotoNsfw(page);
+      await page.getByRole("tab", { name: "视频" }).click();
+
+      await expect(page.locator(".generate-view")).toBeVisible({ timeout: 10000 });
+      // 旧 NsfwVideoView 不复存在
+      await expect(page.locator(".nsv-view")).toHaveCount(0);
+
+      // 文生/图生分组段控(ltx-nsfw-t2v/i2v 两组都有 → 显示)
+      await expect(
+        page.getByRole("tab", { name: "文生视频" }),
+      ).toBeVisible({ timeout: 10000 });
+      await expect(page.getByRole("tab", { name: "图生视频" })).toBeVisible();
+
+      // 引擎 Select:只含 R18 视频引擎
+      const sel = await waitEngineSelect(page);
+      const texts = await sel.locator("option").allTextContents();
+      expect(texts.length).toBeGreaterThanOrEqual(1);
+      for (const t of texts) {
+        expect(t).toContain("R18");
+      }
+      expect(texts.join()).toContain("文生视频");
+
+      // LTX 视频参数:高清放大 / RIFE 开关 + 时长/帧率字段 + 高级参数
+      const panel = page.locator(".generate-params");
+      await expect(panel.getByText("高清放大(2 阶段)", { exact: true })).toBeVisible();
+      await expect(panel.getByText("RIFE 补帧", { exact: true })).toBeVisible();
+      await expect(panel.getByText("时长(帧)", { exact: true })).toBeVisible();
+      await expect(panel.getByText("帧率", { exact: true })).toBeVisible();
+      await expect(panel.locator("details.adv-params summary")).toContainText(
+        "高级参数",
+      );
+
+      // 切到图生视频组 → 参考图上传区出现
       await page.getByRole("tab", { name: "图生视频" }).click();
-      await expect(
-        page.getByRole("button", { name: /上传参考图/ }),
-      ).toBeVisible();
-      await expect(
-        page.getByRole("button", { name: /上传参考音频/ }),
-      ).toHaveCount(0);
-
-      // 切到"口型同步" → 图片 + 音频上传区都可见
-      await page.getByRole("tab", { name: "口型同步" }).click();
-      await expect(
-        page.getByRole("button", { name: /上传参考图/ }),
-      ).toBeVisible();
-      await expect(
-        page.getByRole("button", { name: /上传参考音频/ }),
-      ).toBeVisible();
-
-      // 切回"文生视频" → 无上传区,只有提示词框
-      await page.getByRole("tab", { name: "文生视频" }).click();
-      await expect(
-        page.getByRole("button", { name: /上传参考图/ }),
-      ).toHaveCount(0);
-      await expect(
-        page.getByRole("button", { name: /上传参考音频/ }),
-      ).toHaveCount(0);
-      // 提示词框始终可见
-      await expect(page.locator("#nsv-positive")).toBeVisible();
-    },
-  );
-
-  // ─── 用例 5:视频参数面板(分辨率 / 时长预设)───
-  test(
-    "authed-nsfw: 视频参数面板",
-    { tag: "@authed" },
-    async ({ page }) => {
-      await switchToVideo(page);
-
-      // 分辨率预设按钮:480p / 720p / 1080p
-      const res480 = page.locator(".nsv-preset-btn", { hasText: "480p" });
-      const res720 = page.locator(".nsv-preset-btn", { hasText: "720p" });
-      const res1080 = page.locator(".nsv-preset-btn", { hasText: "1080p" });
-      await expect(res480).toBeVisible();
-      await expect(res720).toBeVisible();
-      await expect(res1080).toBeVisible();
-
-      // 时长预设按钮:6s / 10s / 15s
-      const dur6 = page.locator(".nsv-preset-btn", { hasText: "6s" });
-      const dur10 = page.locator(".nsv-preset-btn", { hasText: "10s" });
-      const dur15 = page.locator(".nsv-preset-btn", { hasText: "15s" });
-      await expect(dur6).toBeVisible();
-      await expect(dur10).toBeVisible();
-      await expect(dur15).toBeVisible();
-
-      // 720p 默认 active(默认 768×384 = 720p 预设)
-      await expect(res720).toHaveClass(/is-active/);
-      await expect(res480).not.toHaveClass(/is-active/);
-      await expect(res1080).not.toHaveClass(/is-active/);
-
-      // 点击 1080p → 切换成功
-      await res1080.click();
-      await expect(res1080).toHaveClass(/is-active/);
-      await expect(res720).not.toHaveClass(/is-active/);
-
-      // 高级面板默认折叠,可展开
-      const advancedToggle = page.locator(".nsv-collapse-head", {
-        hasText: "高级参数",
+      await expect(panel.getByText("参考图", { exact: true })).toBeVisible({
+        timeout: 5000,
       });
-      await expect(advancedToggle).toBeVisible();
-      await expect(advancedToggle).toHaveAttribute("aria-expanded", "false");
-      await advancedToggle.click();
-      await expect(advancedToggle).toHaveAttribute("aria-expanded", "true");
+
+      // 截图存档
+      await page.screenshot({
+        path: "test-results/nsfw-video-workbench.png",
+        fullPage: true,
+      });
     },
   );
 
-  // ─── 用例 6:NSFW 推荐模型清单可折叠 ───
+  // ─── 用例 5:NSFW 推荐模型清单可折叠 ───
   test(
     "authed-nsfw: NSFW 推荐模型清单可折叠",
     { tag: "@authed" },

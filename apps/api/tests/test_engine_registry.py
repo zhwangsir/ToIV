@@ -27,17 +27,31 @@ _VAE = "LTX23_video_vae_bf16.safetensors"
 _DISTILLED = "ltx-2.3-distilled.safetensors"
 _EROS = "10eros_v14.safetensors"
 
+# 图像表单动态选项测试用底模:SFW 写实 + NSFW 动漫(pony 族)+ 次世代(UNETLoader)
+_SFW_CKPT = "majicMIX realistic 麦橘写实_v7.safetensors"
+_NSFW_CKPT = "ponyDiffusionV6XL_v6StartWithThisOne.safetensors"
+_NEXTGEN_UNET = "z_image_turbo_bf16.safetensors"
+_SAMPLERS = ["euler", "euler_ancestral", "dpmpp_2m"]
+_SCHEDULERS = ["normal", "simple", "karras"]
+
 _ALLOWED_TYPES = {"text", "textarea", "number", "select", "switch", "images"}
 
 
-class _FakeClient:
-    """worker 替身:queue_len/model_names/node_names 可控,不联网。"""
+def _obj_info(node: str, field: str, values: list[str]) -> dict:
+    return {node: {"input": {"required": {field: [values]}}}}
 
-    def __init__(self, models: set[str], nodes: set[str], reachable: bool = True):
+
+class _FakeClient:
+    """worker 替身:queue_len/model_names/node_names/object_info 可控,不联网。"""
+
+    def __init__(self, models: set[str], nodes: set[str], reachable: bool = True,
+                 ckpts: list[str] | None = None, unets: list[str] | None = None):
         self.base_url = "http://fake-worker"
         self._models = models
         self._nodes = nodes
         self._reachable = reachable
+        self._ckpts = ckpts if ckpts is not None else [_SFW_CKPT, _NSFW_CKPT]
+        self._unets = unets if unets is not None else [_NEXTGEN_UNET]
 
     async def queue_len(self) -> int:
         if not self._reachable:
@@ -53,6 +67,22 @@ class _FakeClient:
         if not self._reachable:
             raise ComfyUIError("connection refused")
         return set(self._nodes)
+
+    async def object_info(self, node: str) -> dict:
+        if not self._reachable:
+            raise ComfyUIError("connection refused")
+        if node == "CheckpointLoaderSimple":
+            return _obj_info(node, "ckpt_name", self._ckpts)
+        if node == "UNETLoader":
+            return _obj_info(node, "unet_name", self._unets)
+        if node == "KSampler":
+            return {
+                node: {"input": {"required": {
+                    "sampler_name": [list(_SAMPLERS)],
+                    "scheduler": [list(_SCHEDULERS)],
+                }}}
+            }
+        return {}
 
 
 def _ltx_nodes() -> set[str]:
@@ -202,6 +232,88 @@ async def test_h3_unavailable_when_disabled(live_pool, user, monkeypatch):
     assert ids["h3-t2v"]["available"] is False
     assert ids["h3-i2v"]["available"] is False
     assert "已禁用" in ids["h3-t2v"]["unavailable_reason"]
+
+
+def _param(engine: dict, key: str) -> dict:
+    return next(p for p in engine["params"] if p["key"] == key)
+
+
+async def test_image_engines_dynamic_model_params(live_pool, user):
+    """txt2img/img2img 补齐底模/采样器/调度器/风格预设参数,选项动态来自 worker object_info。"""
+    ids = _by_id(await list_engines(live_pool, user))
+    for eid in ("txt2img", "img2img"):
+        e = ids[eid]
+        for key in ("ckpt_name", "sampler", "scheduler", "style_preset"):
+            p = _param(e, key)
+            assert p["type"] == "select", f"{eid}.{key} 应为 select"
+            assert "options_source" not in p, f"{eid}.{key} 不应泄漏 options_source 标记"
+        ckpt = _param(e, "ckpt_name")
+        values = [o["value"] for o in ckpt["options"]]
+        # 平台默认空值选项在首位;次世代 UNET 并入;SFW 底模在列
+        assert values[0] == ""
+        assert _NEXTGEN_UNET in values
+        assert _SFW_CKPT in values
+        sampler = _param(e, "sampler")
+        assert [o["value"] for o in sampler["options"]] == _SAMPLERS
+        assert sampler["default"] == "euler"
+        scheduler = _param(e, "scheduler")
+        assert [o["value"] for o in scheduler["options"]] == _SCHEDULERS
+        assert scheduler["default"] == "normal"
+        # 风格预设:空值「不使用」+ 静态清单
+        preset = _param(e, "style_preset")
+        assert preset["options"][0]["value"] == ""
+        assert len(preset["options"]) > 1
+
+
+async def test_sfw_context_strips_nsfw_ckpt_options(live_pool, user):
+    """SFW 上下文:txt2img 底模选项剔除 NSFW ckpt,风格预设剔除指向 R18 底模的项。"""
+    token = nsfw_intent_var.set(False)
+    try:
+        ids = _by_id(await list_engines(live_pool, user))
+    finally:
+        nsfw_intent_var.reset(token)
+    assert "nsfw-txt2img" not in ids
+    assert "nsfw-img2img" not in ids
+    values = [o["value"] for o in _param(ids["txt2img"], "ckpt_name")["options"]]
+    assert _NSFW_CKPT not in values
+    assert _SFW_CKPT in values
+    preset_labels = [o["label"] for o in _param(ids["txt2img"], "style_preset")["options"]]
+    assert not any("NSFW" in label for label in preset_labels)
+
+
+async def test_r18_context_exposes_nsfw_image_engines(live_pool, user):
+    """R18 上下文:nsfw-txt2img/nsfw-img2img 出现,底模选项只含 R18 ckpt,默认落第一个。"""
+    token = nsfw_intent_var.set(True)
+    try:
+        ids = _by_id(await list_engines(live_pool, user))
+    finally:
+        nsfw_intent_var.reset(token)
+    for eid in ("nsfw-txt2img", "nsfw-img2img"):
+        assert eid in ids, f"缺 {eid}"
+        assert ids[eid]["nsfw"] is True
+        assert ids[eid]["kind"] == "image"
+        ckpt = _param(ids[eid], "ckpt_name")
+        values = [o["value"] for o in ckpt["options"]]
+        assert values == [_NSFW_CKPT], f"{eid} 底模选项应只含 R18 ckpt,实得 {values}"
+        assert ckpt["default"] == _NSFW_CKPT
+        assert all(o.get("nsfw") for o in ckpt["options"])
+    # nsfw-img2img 需要参考图
+    assert _param(ids["nsfw-img2img"], "images")["type"] == "images"
+    # R18 上下文 txt2img 保留全部底模(含 NSFW 标项)
+    values = [o["value"] for o in _param(ids["txt2img"], "ckpt_name")["options"]]
+    assert _NSFW_CKPT in values
+
+
+async def test_dynamic_options_fallback_when_pool_dead(dead_pool, user):
+    """worker 全不可达:动态注入回退声明态兜底(平台默认/euler/normal),不拖垮端点。"""
+    ids = _by_id(await list_engines(dead_pool, user))
+    ckpt = _param(ids["txt2img"], "ckpt_name")
+    assert ckpt["options"] == [{"value": "", "label": "平台默认底模"}]
+    assert ckpt["default"] == ""
+    assert _param(ids["txt2img"], "sampler")["options"] == [{"value": "euler", "label": "euler"}]
+    assert _param(ids["txt2img"], "scheduler")["options"] == [{"value": "normal", "label": "normal"}]
+    # 风格预设是静态清单,worker 死活不影响
+    assert len(_param(ids["txt2img"], "style_preset")["options"]) > 1
 
 
 async def test_endpoint_shape_via_app(live_pool, user):

@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { CreateView } from "@/components/nsfw/CreateView";
-import { NsfwVideoView } from "@/components/nsfw/NsfwVideoView";
+import { GenerateView } from "@/components/generate/GenerateView";
 import { Icon } from "@/components/ui/Icon";
 import { usePoll } from "@/hooks/usePoll";
 import {
@@ -28,7 +27,7 @@ type NsfwTab = "image" | "video";
  * NSFW 专区(/nsfw 入口)。
  * - 仅通过地址栏输入 /nsfw 直达,无导航入口,无 R18 开关
  * - 进入即设置 X-NSFW 放行标记,卸载时还原
- * - 复用 CreateView 的完整生成能力,模型列表自动走 R18 通道
+ * - 图像/视频 tab 内嵌统一生成工作台(GenerateView onlyNsfw,只展示 R18 引擎)
  * - 顶部 18+ 警告条;底部 NSFW 推荐模型清单(可折叠,支持下载到 NAS)
  */
 export function NsfwView() {
@@ -152,7 +151,6 @@ function NsfwViewBody() {
   // ── NAS 下载状态 ──
   const [nasStatus, setNasStatus] = useState<NasStatus>({ enabled: false });
   const [downloadJobs, setDownloadJobs] = useState<Record<string, NasDownloadStatus>>({});
-  const [preferredCkpt, setPreferredCkpt] = useState<string | undefined>();
 
   // ── 推荐清单 + NAS 状态 ──
   useEffect(() => {
@@ -202,11 +200,6 @@ function NsfwViewBody() {
       const updates: Record<string, NasDownloadStatus> = {};
       for (const { name, st } of ok) {
         updates[name] = st;
-        // 图像 checkpoint 下载完成后自动切为创作底模;unet/lora 不自动挂载
-        if (st.status === "done" && st.filename) {
-          const rec = recs.find((r) => r.name === name);
-          if (rec?.type === "checkpoint") setPreferredCkpt(st.filename);
-        }
       }
       setDownloadJobs((prev) => ({ ...prev, ...updates }));
     },
@@ -311,10 +304,17 @@ function NsfwViewBody() {
           </button>
         </div>
         <div className="nsfw-tab-panel">
+          {/* 统一生成工作台:onlyNsfw 只展示 R18 引擎;initialDraft=null 不消费主站引擎草稿。
+              包一层 .nsfw-workbench(stage.css):/nsfw 高度链是 min-height 非定高,
+              GenerateView 的 height:100% 无法解析,改用 flex stretch 撑满 */}
           {tab === "image" ? (
-            <CreateView nsfw defaultModel={preferredCkpt} />
+            <div className="nsfw-workbench">
+              <GenerateView lockedKind="image" onlyNsfw initialDraft={null} />
+            </div>
           ) : (
-            <NsfwVideoView />
+            <div className="nsfw-workbench">
+              <GenerateView lockedKind="video" onlyNsfw initialDraft={null} />
+            </div>
           )}
         </div>
       </main>

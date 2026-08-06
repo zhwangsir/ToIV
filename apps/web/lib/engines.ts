@@ -129,33 +129,38 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
 
   switch (id) {
     case "txt2img":
+    case "nsfw-txt2img":
       return generateTxt2img({
         positive,
         negative,
-        ckpt_name: "", // 空 → 后端用全局默认底模
+        // 空 → 后端用全局默认底模(注册表 ckpt 参数默认即空)
+        ckpt_name: _str(values, "ckpt_name"),
         width: _num(values, "width", 1024),
         height: _num(values, "height", 1024),
         steps: _num(values, "steps", 20),
         cfg: _num(values, "cfg", 7),
-        sampler: "euler",
-        scheduler: "normal",
+        sampler: _str(values, "sampler", "euler"),
+        scheduler: _str(values, "scheduler", "normal"),
         seed,
         batch_size: _num(values, "batch_size", 1),
+        ...(_str(values, "style_preset") ? { style_preset: _str(values, "style_preset") } : {}),
       } satisfies Txt2ImgParams);
 
     case "img2img":
+    case "nsfw-img2img":
       return generateImg2img({
         positive,
         negative,
-        ckpt_name: "",
+        ckpt_name: _str(values, "ckpt_name"),
         image: refImage!.filename,
         worker: refImage!.worker,
         denoise: _num(values, "denoise", 0.6),
         steps: _num(values, "steps", 20),
         cfg: _num(values, "cfg", 7),
-        sampler: "euler",
-        scheduler: "normal",
+        sampler: _str(values, "sampler", "euler"),
+        scheduler: _str(values, "scheduler", "normal"),
         seed,
+        ...(_str(values, "style_preset") ? { style_preset: _str(values, "style_preset") } : {}),
       } satisfies Img2ImgGenParams);
 
     case "ltx2-t2v":

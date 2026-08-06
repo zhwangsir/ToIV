@@ -38,9 +38,9 @@ export interface GenerateDraft extends EngineDraft {
 
 interface GenerateViewProps {
   /**
-   * 外部注入的初始草稿(W3 旧视图退役:create/video 的草稿流并入此处)。
-   * 未提供(prop 为 undefined)时自动消费 localStorage 引擎草稿(lib/engine),
-   * 与旧 CreateView/VideoView 行为一致;显式传 null 表示禁用草稿。
+   * 外部注入的初始草稿(W3 旧视图退役:图像/视频生成的草稿流并入此处)。
+   * 未提供(prop 为 undefined)时自动消费 localStorage 引擎草稿(lib/engine);
+   * 显式传 null 表示禁用草稿(如 /nsfw 内嵌,不消费主站草稿)。
    */
   initialDraft?: GenerateDraft | null;
   /**
@@ -48,6 +48,11 @@ interface GenerateViewProps {
    * 顶部模式段控隐藏;未传保持旧行为(图像|视频段控,兼容旧用法)。
    */
   lockedKind?: EngineKind;
+  /**
+   * NSFW 专区(/nsfw)内嵌时置 true:只展示 nsfw=true 引擎。
+   * R18 上下文后端返回全量引擎(含非 nsfw),专区不该混入 SFW 引擎。
+   */
+  onlyNsfw?: boolean;
 }
 
 /** 板块标题/文案用的 kind 中文名。 */
@@ -86,16 +91,19 @@ const SIZE_PARAM_KEYS: ReadonlySet<string> = new Set(["width", "height"]);
  * 提交链路:按引擎 id 路由到既有 API(lib/engines.submitEngineGeneration),
  * SSE 进度复用 useGeneration/trackJob;NSFW 引擎由后端按 R18 上下文过滤,前端不判断。
  */
-export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
+export function GenerateView({ initialDraft, lockedKind, onlyNsfw = false }: GenerateViewProps) {
   // 草稿:显式 prop 优先;否则消费 localStorage 引擎草稿(target=drama/manju 由短剧/漫剧视图消费,此处忽略)。
   // 锁定 kind 时只消费 target 匹配的草稿(不匹配不消费,留给对应板块;audio 无草稿来源,天然为空)。
   const draft = useMemo<GenerateDraft | null>(
     () => (initialDraft !== undefined ? initialDraft : consumeEngineDraft(lockedKind)),
     [initialDraft, lockedKind],
   );
-  const [mode, setMode] = useState<EngineKind>(
+  // lockedKind 为受控模式:prop 变化(如 /nsfw tab 切换复用同一组件实例)时 mode 必须跟随,
+  // 否则引擎列表停留在旧 kind。非锁定(主站图像|视频段控)走内部 state。
+  const [modeState, setMode] = useState<EngineKind>(
     lockedKind ?? (draft?.target === "video" ? "video" : "image"),
   );
+  const mode = lockedKind ?? modeState;
   const toast = useToast();
   // 高级参数抽屉引用:优化回填负向提示词时自动展开,让用户看见填入结果
   const advDetailsRef = useRef<HTMLDetailsElement>(null);
@@ -123,7 +131,10 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
     { intervalMs: 30_000, enabled: true, backoff: true },
   );
 
-  const kindEngines = useMemo(() => (engines ?? []).filter((e) => e.kind === mode), [engines, mode]);
+  const kindEngines = useMemo(
+    () => (engines ?? []).filter((e) => e.kind === mode && (!onlyNsfw || e.nsfw)),
+    [engines, mode, onlyNsfw],
+  );
 
   // 板块内「生成 | 编辑」分组(数据驱动:params 含 images 类型 = 编辑组,否则生成组)。
   // 两组都有引擎时才显示段控(如音频板块当前仅 ace-music 生成组,段控自动不显示)。
@@ -332,7 +343,11 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
   }
 
   const uploadKind =
-    engine?.id === "img2img" ? "img2img" : engine?.id === "h3-i2v" ? "h3_i2v" : "ltx_i2v";
+    engine?.id === "img2img" || engine?.id === "nsfw-img2img"
+      ? "img2img"
+      : engine?.id === "h3-i2v"
+        ? "h3_i2v"
+        : "ltx_i2v";
 
   return (
     <div className={`generate-view${paramsOpen ? " is-params-open" : ""}`}>
@@ -367,6 +382,11 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
             selectedId={selectedId}
             onSelect={setSelectedId}
             liveProgress={gen.progress}
+            qualityWarning={gen.qualityWarning}
+            onApplyPrompt={(text) => {
+              if (!engine) return;
+              setPromptByEngine((prev) => ({ ...prev, [engine.id]: text }));
+            }}
             onCancel={onCancel}
             onRetry={onRetry}
           />

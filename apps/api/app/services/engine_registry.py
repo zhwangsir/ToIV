@@ -25,6 +25,8 @@ from app.models import User
 from app.nsfw_ctx import nsfw_allowed
 from app.routes.ltx_studio import _LTX2_UNETS
 from app.services.h3 import H3_NODE, get_h3_client
+from app.workflows.model_profiles import is_nextgen, is_nsfw
+from app.workflows.style_presets import MediaType, list_presets
 
 # probe:async (pool) -> (available, reason|None);None 表示静态可用性(不做 pool 探测)
 ProbeFn = Callable[[WorkerPool], Awaitable["tuple[bool, str | None]"]]
@@ -246,6 +248,157 @@ def _image_sampling_params() -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# 图像引擎动态选项(底模/采样器/调度器):options 运行时来自 worker object_info
+# ---------------------------------------------------------------------------
+# 与 routes/models.py 的 /api/models 同源逻辑(那里是列表端点,这里是注册表参数
+# 注入)。helper 在此复制而非 import,避免 services → routes 反向依赖成环
+# (routes/models.py 已 import 本模块的 list_engines)。
+
+def _enum(info: dict, node: str, field: str) -> list[str]:
+    req = info.get(node, {}).get("input", {}).get("required", {})
+    opts = req.get(field, [[]])
+    return opts[0] if opts and isinstance(opts[0], list) else []
+
+
+# 非图像底模的 checkpoint(音频/3D 等),从图像底模选项中剔除(与 routes/models.py 一致)
+_NON_IMAGE_CKPT_HINTS = ("ace_step", "mmaudio", "hunyuan3d")
+
+
+def _is_image_ckpt(name: str) -> bool:
+    low = name.lower()
+    return not any(h in low for h in _NON_IMAGE_CKPT_HINTS)
+
+
+async def _image_form_options(pool: WorkerPool) -> dict[str, list[str]] | None:
+    """从第一台可达 worker 的 object_info 派生图像表单选项;全不可达/异常 → None(回退静态)。"""
+    client = None
+    ckpt_info: dict = {}
+    for c in pool.clients:
+        try:
+            ckpt_info = await c.object_info("CheckpointLoaderSimple")
+            client = c
+            break
+        except Exception:
+            continue
+    if client is None:
+        return None
+    try:
+        ks_info = await client.object_info("KSampler")
+    except Exception:
+        ks_info = {}
+    try:
+        unet_info = await client.object_info("UNETLoader")
+    except Exception:
+        unet_info = {}
+    # 次世代出图族在 diffusion_models(UNETLoader)里,并入图像可选底模并排前
+    ckpts = [n for n in _enum(unet_info, "UNETLoader", "unet_name") if is_nextgen(n)]
+    ckpts += [c for c in _enum(ckpt_info, "CheckpointLoaderSimple", "ckpt_name") if _is_image_ckpt(c)]
+    # 去重保序(同名不同子目录的 basename 重复)
+    seen: set[str] = set()
+    ckpts = [c for c in ckpts if not (c in seen or seen.add(c))]
+    return {
+        "ckpts": ckpts,
+        "samplers": _enum(ks_info, "KSampler", "sampler_name"),
+        "schedulers": _enum(ks_info, "KSampler", "scheduler"),
+    }
+
+
+def _ckpt_select(*, nsfw_only: bool) -> dict:
+    """底模选择:options 运行时注入 worker checkpoints(nsfw_only=True 时只注 R18 底模)。
+
+    声明态兜底为「平台默认底模」空值(worker 不可达时注册表仍可响应);
+    注入后每项附 nsfw 标,list_engines 在 SFW 上下文统一剔除。
+    """
+    return {
+        "key": "ckpt_name", "label": "底模", "type": "select",
+        "default": "",
+        "options": [{"value": "", "label": "平台默认底模"}],
+        "options_source": "image_ckpt_nsfw" if nsfw_only else "image_ckpt",
+        "hint": "「平台默认底模」由后端选全局默认;R18 底模仅 /nsfw 上下文可见",
+    }
+
+
+def _sampler_select() -> dict:
+    return {
+        "key": "sampler", "label": "采样器", "type": "select",
+        "default": "euler",
+        "options": [{"value": "euler", "label": "euler"}],
+        "options_source": "sampler",
+    }
+
+
+def _scheduler_select() -> dict:
+    return {
+        "key": "scheduler", "label": "调度器", "type": "select",
+        "default": "normal",
+        "options": [{"value": "normal", "label": "normal"}],
+        "options_source": "scheduler",
+    }
+
+
+def _style_preset_select() -> dict:
+    """风格预设(静态清单,与 routes/generate.py 的 style_preset 字段同源)。
+
+    预设指向 R18 底模的项(如 NSFW写真人像)附 nsfw 标,SFW 上下文剔除。
+    """
+    return {
+        "key": "style_preset", "label": "风格预设", "type": "select",
+        "default": "",
+        "options": [{"value": "", "label": "不使用"}]
+        + [
+            {"value": p["id"], "label": p["label"], **({"nsfw": True} if is_nsfw(p["ckpt_name"]) else {})}
+            for p in list_presets(MediaType.IMAGE)
+        ],
+        "hint": "选择后由后端自动套用底模/采样参数(显式选的底模优先)",
+    }
+
+
+def _inject_dynamic_options(p: dict, dyn: dict[str, list[str]] | None) -> dict:
+    """把 options_source 标记的参数注入运行时选项;dyn 为 None(worker 不可达)时保留声明态兜底。"""
+    src = p.pop("options_source", None)
+    if src is None or dyn is None:
+        p.pop("options_source", None)
+        return p
+    if src == "image_ckpt":
+        p["options"] = [{"value": "", "label": "平台默认底模"}] + [
+            {"value": n, "label": n, **({"nsfw": True} if is_nsfw(n) else {})}
+            for n in dyn["ckpts"]
+        ]
+        p["default"] = ""
+    elif src == "image_ckpt_nsfw":
+        opts = [
+            {"value": n, "label": n, "nsfw": True}
+            for n in dyn["ckpts"] if is_nsfw(n)
+        ]
+        if opts:
+            p["options"] = opts
+            # R18 专区图像引擎默认落到第一个 R18 底模(对齐旧 CreateView 行为)
+            p["default"] = opts[0]["value"]
+        else:
+            p["options"] = [{"value": "", "label": "平台默认底模"}]
+            p["default"] = ""
+    elif src == "sampler":
+        if dyn["samplers"]:
+            p["options"] = [{"value": s, "label": s} for s in dyn["samplers"]]
+            p["default"] = "euler" if "euler" in dyn["samplers"] else dyn["samplers"][0]
+    elif src == "scheduler":
+        if dyn["schedulers"]:
+            p["options"] = [{"value": s, "label": s} for s in dyn["schedulers"]]
+            p["default"] = "normal" if "normal" in dyn["schedulers"] else dyn["schedulers"][0]
+    return p
+
+
+def _image_model_params(*, nsfw_only: bool) -> list[dict]:
+    """图像引擎共用的模型/采样选择参数(底模/采样器/调度器/风格预设)。"""
+    return [
+        _ckpt_select(nsfw_only=nsfw_only),
+        _sampler_select(),
+        _scheduler_select(),
+        _style_preset_select(),
+    ]
+
+
+# ---------------------------------------------------------------------------
 # 注册表
 # ---------------------------------------------------------------------------
 
@@ -255,9 +408,10 @@ _REGISTRY: list[dict[str, Any]] = [
         "label": "文生图",
         "kind": "image",
         "nsfw": False,
-        "description": "ComfyUI 图像工作流,默认底模 + 风格预设/LoRA 标签(<lora:名称:权重> 可直接写进提示词)",
+        "description": "ComfyUI 图像工作流,底模/采样器/调度器/风格预设可选;LoRA 标签(<lora:名称:权重> 可直接写进提示词)",
         "params": [
             _negative(),
+            *_image_model_params(nsfw_only=False),
             *_image_size_params(),
             *_image_sampling_params(),
             _num("batch_size", "批量张数", 1, min_=1, max_=8),
@@ -273,6 +427,41 @@ _REGISTRY: list[dict[str, Any]] = [
         "params": [
             _ref_image_required(),
             _negative(),
+            *_image_model_params(nsfw_only=False),
+            _num("denoise", "重绘幅度", 0.6, min_=0.1, max_=1.0, step=0.05,
+                 hint="越小越贴近原图"),
+            *_image_sampling_params(),
+        ],
+        "probe": _probe_image,
+    },
+    # R18 图像引擎(NSFW 专区图像 tab):与 txt2img/img2img 同一提交链路,
+    # 底模选项只注入 R18 ckpt(旧 CreateView nsfw 模式的 listModels 行为);
+    # 仅 R18 上下文(X-NSFW 头)可见。
+    {
+        "id": "nsfw-txt2img",
+        "label": "文生图(R18)",
+        "kind": "image",
+        "nsfw": True,
+        "description": "R18 底模成人向文生图,仅 /nsfw 上下文可见;LoRA 标签可写进提示词",
+        "params": [
+            _negative(),
+            *_image_model_params(nsfw_only=True),
+            *_image_size_params(),
+            *_image_sampling_params(),
+            _num("batch_size", "批量张数", 1, min_=1, max_=8),
+        ],
+        "probe": _probe_image,
+    },
+    {
+        "id": "nsfw-img2img",
+        "label": "图生图(R18)",
+        "kind": "image",
+        "nsfw": True,
+        "description": "R18 底模成人向图生图,仅 /nsfw 上下文可见",
+        "params": [
+            _ref_image_required(),
+            _negative(),
+            *_image_model_params(nsfw_only=True),
             _num("denoise", "重绘幅度", 0.6, min_=0.1, max_=1.0, step=0.05,
                  hint="越小越贴近原图"),
             *_image_sampling_params(),
@@ -355,6 +544,10 @@ async def list_engines(pool: WorkerPool, user: User | None = None) -> list[dict[
     params 元素:{ key, label, type, options?, min?, max?, step?, default, hint? }
     """
     r18 = nsfw_allowed(user)
+    # 动态选项(底模/采样器/调度器)惰性拉取:仅当引擎声明了 options_source 且
+    # 本次响应包含图像引擎时才访问 worker object_info,全失败回退声明态兜底。
+    dyn: dict[str, list[str]] | None = None
+    dyn_fetched = False
     engines: list[dict[str, Any]] = []
     for spec in _REGISTRY:
         if spec["nsfw"] and not r18:
@@ -363,6 +556,11 @@ async def list_engines(pool: WorkerPool, user: User | None = None) -> list[dict[
         params: list[dict] = []
         for p in spec["params"]:
             p = dict(p)
+            if p.get("options_source"):
+                if not dyn_fetched:
+                    dyn_fetched = True
+                    dyn = await _image_form_options(pool)
+                p = _inject_dynamic_options(p, dyn)
             if p.get("options"):
                 p["options"] = [o for o in p["options"] if r18 or not o.get("nsfw")]
             params.append(p)

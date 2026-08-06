@@ -16,6 +16,20 @@
   overflow: hidden;
 }
 
+/* /nsfw 内嵌工作台容器(NsfwView):/nsfw 高度链是 min-height:100vh 非定高,
+   .generate-view 的 height:100% 无法解析;flex 行容器 + stretch 让它撑满剩余高度。 */
+.nsfw-workbench {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.nsfw-workbench > .generate-view {
+  flex: 1;
+  min-height: 0;
+  /* 覆盖 height:100%(父链非定高时无法解析),交给 flex stretch 定高 */
+  height: auto;
+}
+
 .generate-header {
   display: flex;
   align-items: center;
@@ -284,6 +298,106 @@
   background: var(--bg-canvas);
   padding: var(--space-2);
   border-radius: var(--radius-control);
+}
+
+/* ========== 质量诊断卡(LTX 视频 quality_warning,自旧 NsfwVideoView 迁入)========== */
+
+.stage-quality {
+  position: absolute;
+  top: calc(var(--space-3) + 40px); /* 状态胶囊行之下,不遮舞台中央产物 */
+  left: var(--space-3);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  width: min(320px, 60%);
+  max-height: calc(100% - 120px);
+  overflow-y: auto;
+  padding: var(--space-3);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-left: 3px solid var(--warn);
+  border-radius: var(--radius-control);
+  box-shadow: var(--glass-highlight), var(--shadow-md);
+}
+.stage-quality-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--warn);
+}
+.stage-quality-title {
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.stage-quality-score {
+  margin-left: auto;
+  padding: 2px var(--space-2);
+  background: var(--warn-soft);
+  border: 1px solid color-mix(in oklch, var(--warn) 35%, transparent);
+  border-radius: var(--radius-full);
+  font-size: var(--text-aux);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--warn);
+}
+.stage-quality-bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+}
+.quality-bar {
+  display: grid;
+  grid-template-columns: 44px 1fr 28px;
+  align-items: center;
+  gap: var(--space-2);
+}
+.quality-bar-label {
+  font-size: var(--text-aux);
+  color: var(--text-secondary);
+}
+.quality-bar-track {
+  height: 6px;
+  background: var(--bg-surface-3);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+.quality-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width var(--duration-base) var(--ease-standard);
+}
+.quality-bar-fill.is-ok { background: var(--ok); }
+.quality-bar-fill.is-warn { background: var(--warn); }
+.quality-bar-fill.is-err { background: var(--err); }
+.quality-bar-val {
+  font-size: var(--text-aux);
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  text-align: right;
+}
+.stage-quality-issues {
+  margin: 0;
+  padding: var(--space-2) 0 0 var(--space-4);
+  list-style: disc;
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--text-aux);
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.stage-quality-degraded {
+  padding: var(--space-1) var(--space-2);
+  background: var(--err-soft);
+  border: 1px solid color-mix(in oklch, var(--err) 30%, transparent);
+  border-radius: var(--radius-badge);
+  font-size: var(--text-aux);
+  color: var(--err);
 }
 
 /* ========== 胶片条 filmstrip ========== */

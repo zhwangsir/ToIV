@@ -80,7 +80,7 @@ interface OptimizeButtonProps {
  *    可输入自定义风格描述(AI 二次优化,最高优先级)或选智能体快捷方向 →
  *    调 POST /api/optimize { prompt, kind, model, agent_id, style_hint } → 回填 onOptimized(text, negative)。
  *
- * Why 升级:CreateView/NsfwVideoView/DubView/TrainView/BacklotView 的
+ * Why 升级:GenerateView/DubView/TrainView/BacklotView 的
  * "优化提示词"按钮逻辑重复,且需要可选智能体方向(写实摄影师 vs 动漫插画师…)。
  * 收敛按钮 UI + Popover + /api/optimize 调用,各视图只需传 prompt/kind/model。
  *
