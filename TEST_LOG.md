@@ -4,6 +4,33 @@
 
 ---
 
+## UI-REFACTOR-B2-2026-08-07 · 批2:FROZEN 视图退役 + NSFW 并入统一工作台
+
+**时间**: 2026-08-07
+**类型**: refactor / regression
+**目标**: 消灭双生成 UI 体系与 FROZEN 死重量(重构方案 §4.4/§4.6),解锁 legacy token/字体清零
+
+### 变更
+
+| 批 | 内容 |
+|---|---|
+| 批2a(`2cd0b7f`,-11317 行) | DramaStudioView(3411)+ManjuView(2670)两目录整体删除;animatic 全端统一 AnimaticView(动态分镜页签本就是内嵌壳,零迁移);legacy token 别名整块 + `--font-display` + Fraunces 字体注入删除;旧链接 dramaStudio/manju→studio 重定向保留 |
+| 批2b(`62bffc8`,-4286 行) | CreateView/NsfwVideoView 删除;/nsfw 两 tab 内嵌 GenerateView(lockedKind+onlyNsfw);engine_registry 补底模/采样器/调度器/风格预设动态 select(worker object_info 注入),新增 nsfw-txt2img/nsfw-img2img 引擎;ResultPanel 补质量诊断卡;修 lockedKind 切换 mode 不跟随 bug;lib/sampling.ts/lib/gen-persist.ts 孤儿删除 |
+
+### 功能变更备忘(产品确认项)
+
+- **NSFW lipsync 场景下线**(对口型由译制台承接;后端 `/api/generate/ltx-lipsync` 端点保留,如需恢复:注册 lipsync 引擎 + GenerateView 新增 audio 参数类型)
+- 降级项:跨视图 SSE 重连/表单持久化、生成前自动优化、尺寸预设按钮、种子锁定(核心路径等价)
+- AI 模式 drama 项目暂无可视化工作台(后端 /api/drama 管线仍在;lib/api.ts drama 管理 API 无前端调用方,待清理)
+
+### 测试
+
+- 批2a:定向 e2e 16/16(含重定向用例);本地全量 **113 passed** 基线一致;生产 **161 passed / 0 failed**
+- 批2b:pytest **972 passed**(新增 4 引擎注册表用例;注:当前基线为 972,STATE 旧值 1033 为 08-06 时点);nsfw.spec 按新 UI 重写后定向 17/17;本地全量 **112 passed / 14 环境性 failed**(nsfw.spec 整合总数 -1);生产 **160 passed / 0 failed**
+- R18 安全模型未动:实测 SFW 无 nsfw 引擎/ckpt,R18 上下文 8 个 R18 底模默认落 animagineXL40
+
+---
+
 ## LIGHT-THEME-2026-08-07 · 浅色五色板主题系统 + 批1 死代码清除
 
 **时间**: 2026-08-07
