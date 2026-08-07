@@ -4,6 +4,39 @@
 
 ---
 
+## NSFW-P0-2026-08-08 · NSFW P0 堵洞与闭环(drama 门控 + 专区作品库 + hints 误伤修复)
+
+**时间**: 2026-08-08 13:20
+**类型**: fix(nsfw) / e2e
+**目标**: 按 `docs/2026-08-08-nsfw-module-audit.md` P0 路线图堵三个洞——① drama 分镜生成绕过 NSFW 门控;② NSFW 专区无作品库(复用提示词跳主站);③ 风格预设 hints 误伤把 anime 等 SFW 预设打 NSFW 标。commit ccc5387(14 文件 +381/-29)
+
+### 实现要点
+
+- drama 门控:`drama_studio.py` generate-video v1 / v2 batch 两入口在限流后、资源访问前加 `_gate_ltx_nsfw(user)`(复用 routes/video,与 ltx_studio 同款 403);continue-video 无 nsfw 字段未动;新增 5 条回归测试
+- 专区作品库:`NsfwView.tsx` 第三 tab「作品库」复用 `LibraryView`(新增 `onlyNsfw` prop,按后端 `_job_dict` 新增 `nsfw` 字段过滤);「复用提示词」经 onNavigate 在专区内注入 GenerateView(initialDraft + draftSeq 重挂载),不跳主站;修复 listJobs SWR 缓存按 `_nsfwIntent` 分键 + invalidateJobs 双键失效
+- hints 误伤:`style_presets.py` 加 `sfw_intent` 标记(anime/anime_soft/fantasy/campus/history_war 共 5 个);`_style_preset_select` 改为 `is_nsfw(ckpt) and not sfw_intent` 才打标;sfw_intent 预设且非显式 ckpt 时豁免 `_gate_nsfw_ckpt` 且不打 Job.nsfw;chibi/anime_high_quality/portrait 保持隐藏(底模确为 NSFW ckpt)
+
+### 验证结果
+
+| 项 | 结果 |
+|---|---|
+| 单测 | ✅ 1055 passed(+12 新用例;2 个 redis_integration 失败为基线预置环境问题) |
+| 前端 build | ✅ 通过 |
+| core 部署 | ✅ deploy.sh 全量,toiv-api/toiv-web 就绪 |
+| drama v1 `nsfw:true` 无 X-NSFW 头 | ✅ 403「LTX 视频生成仅限 NSFW 专区访问」(门控先于资源访问) |
+| drama v2 batch 同上 | ✅ 403 |
+| `/api/models/presets` sfw_intent 标记 | ✅ 5 个 SFW 预设 sfw_intent=True,nsfw_* 三预设未动 |
+| `/api/jobs` 带 X-NSFW 头 | ✅ 返回新增 `nsfw` 字段 |
+| /nsfw 页面(Playwright 截图) | ✅ 图像/视频/作品库三 tab 渲染正常,作品库 tab 空态正常(onlyNsfw 过滤生效,当前无 nsfw 作品) |
+
+### 遗留(超 P0,建议后续)
+
+- R18 分镜 continue-video 续写段硬编码 `nsfw=False`,续写产物会进主站作品库——建议把源分镜 nsfw 标记传播到续写段 Job
+- `/models/presets` 端点本身不做 SFW 过滤(现状如此,前端过滤)
+- 子代理回归测试期间有 3 个测试请求真实提交到 workstation ComfyUI :8189 队列(drama 分镜小视频,`ToIV_drama_shot*` 前缀),可在 worker output 清理
+
+---
+
 ## DOCS-2026-08-08 · 文档上传与长文本理解上线 core(上传/向量化/对话挂载 e2e)
 
 **时间**: 2026-08-08 02:55
