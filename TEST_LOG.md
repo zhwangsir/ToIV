@@ -4,6 +4,21 @@
 
 ---
 
+## LOADOPT-2026-08-08 · 负载优化:demucs 迁 GPU2 + ComfyUI#1 缓存上限
+
+**时间**: 2026-08-08 00:20
+**类型**: ops / 负载优化
+**目标**: 服务文档 4.2 节减负措施 #1/#2 落地
+
+### 变更与验证
+
+- **demucs → GPU2**:`toiv-audio-sep.service` `CUDA_VISIBLE_DEVICES=0→2`,daemon-reload + restart;进程环境变量确认 =2;合成 3s 正弦音频 POST :9220/separate → **200 返回 vocals WAV** ✅(GPU1 腾出给 LiveAct 专职,消除瞬时 OOM 502 隐患)
+- **ComfyUI#1 缓存上限**:`comfyui-gpu0.service` ExecStart 加 `--cache-lru 8`(节点结果缓存上限,防图像/LTX 模型常驻);重启后 :8189 system_stats 200,core 真机 txt2img 作业(prompt_id 2c5c0f14)→ **success,产物 ToIV_00014_.png** ✅
+- ComfyUI-LB(:8188)重启后 200,后端池不受影响
+- AGENTS.md GPU 分配表 + 服务文档 4.2 节已同步
+
+---
+
 ## UIPOLISH-2026-08-07 · 全视图排版收尾回归(19/19 双端通过)
 
 **时间**: 2026-08-07 23:30

@@ -134,8 +134,8 @@ POST /api/drama/shots/{sid}/continue-video
 
 ### 4.2 减负措施(按优先级)
 
-1. **GPU0 减压**:H3 UNet 分片占 GPU0 是 100% util 的主因之一;H3 调用前已有 `/free` 释放机制,建议给 ComfyUI#1 加模型缓存上限(`--cache-lru`),避免图像/LTX 模型常驻
-2. **GPU1 demucs 错峰**:人声分离瞬时 OOM 已发生一次(502),demucs 服务建议移到 GPU2(5.3G 常驻卡,分离时 +8G 无压力),GPU1 留给 LiveAct 专职
+1. ~~**GPU0 减压**~~ ✅ 2026-08-08 已实施:comfyui-gpu0.service 加 `--cache-lru 8`(节点结果缓存上限),避免图像/LTX 模型常驻;重启后 txt2img 真机生成验证通过
+2. ~~**GPU1 demucs 错峰**~~ ✅ 2026-08-08 已实施:toiv-audio-sep.service `CUDA_VISIBLE_DEVICES=0→2`,分离实测 200 返回 vocals,GPU1 留给 LiveAct 专职
 3. **中期**:项目负责人把 ToIV/DRT 业务迁移到 core(AGENTS.md 待办),workstation 回归纯算力角色
 
 ---
