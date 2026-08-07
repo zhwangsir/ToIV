@@ -4,6 +4,24 @@
 
 ---
 
+## H3-CORE-E2E-2026-08-07 · H3 真机 E2E 解锁:core 生产链路最小生成验证
+
+**时间**: 2026-08-07
+**类型**: verification / 真机
+**目标**: 验证 core(TOIV_REDIS_URL + TOIV_H3_BASE_URL 已配置)→ workstation H3 专用实例(:8195)全链路端到端可用
+
+### 环境确认
+
+- core `deploy/.env`:`TOIV_REDIS_URL=redis://127.0.0.1:6379/0`、`TOIV_H3_BASE_URL=http://192.168.71.127:8195` 均已配置;toiv-api/toiv-web/redis active;H3 实例 /system_stats 200
+
+### 验证(`scripts/h3_core_e2e.py`,可重复回归)
+
+- 链路:core 登录 → `POST /api/h3/t2v`(最小参数 512×288、22 帧 17k+5、4 步)→ 轮询 `/api/jobs` → 产物 URL 拉取验证
+- 结果:queued→done(热态 <60s,冷态 ~140s);产物 `/api/images?filename=t2v_0001X_.mp4` 200 video/mp4 85-93KB(ftyp 头有效);抽帧目检:橘猫/窗台/窗帘与 prompt 语义一致
+- 插曲:首次提交遇 503(实例瞬时不可用,重试即 200);脚本两处契约修正(/api/jobs 返回 list、产物字段为 `results`)
+
+---
+
 ## UI-REFACTOR-B4-2026-08-07 · 批4 收口:设置视图 + 错误友好化 + 样式清零
 
 **时间**: 2026-08-07

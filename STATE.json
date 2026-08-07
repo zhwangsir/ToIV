@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-08-07T20:40:00+08:00",
+  "updated_at": "2026-08-07T21:10:00+08:00",
   "sync_baseline": {
     "id": "SYNC-2026-07-18",
     "type": "initial-sync",
@@ -636,6 +636,7 @@
     ]
   },
   "recent_completed": [
+    "h3_core_e2e_2026_08_07",
     "ui_refactor_complete_2026_08_07",
     "ui_refactor_batch4_2026_08_07",
     "ui_refactor_batch3_2026_08_07",
@@ -644,8 +645,7 @@
     "STUDIO-M3-2026-08-06:Studio 创作工作室 M3 落地——配音/对口型/合成三环闭合。核心变更:(1)services/studio/voice.py——分镜台词 → IndexTTS2 合成(ja/ko/yue 走 tts_multilingual_url),角色卡 voice_ref_url 下载作 multipart 转发克隆音色,下载失败降级默认音色;产物落 drama_output_root()/studio;(2)services/studio/lipsync.py——LatentSync 1.6 对口型:下载分镜视频+配音 → 上传 worker input(studio_ls_src/studio_ls_voice)→ build_latentsync_graph 入队 → 轮询 history 取产物落盘,复用 workflows/lipsync.py;(3)services/studio/assemble.py——按 idx 收集 final_clip_url(未就绪 422 语义),ffmpeg concat demuxer 无损拼接,回写 project.final_url+status=ready;_clip_path 校验前缀+Path.name 防穿越;(4)routes/studio.py 新增 POST /studio/shots/{sid}/voice(无台词 422/说话人命中角色卡)、POST /studio/shots/{sid}/lipsync(仅视频镜,缺媒体 422)、POST /studio/projects/{pid}/assemble(返回项目详情)。测试:test_studio_voice.py 17 例(服务层 TTS 转发/容错+LatentSync 全 mock 流水线+路由编排),test_studio_assemble.py 9 例(collect 顺序/就绪校验/URL 安全解析/拼接/路由 422·200·502)。回归:studio 178 passed,全量 1033 passed(26.22s)零失败。按 AGENTS.md 未自动 commit,改动保留工作区待用户验收",
     "STUDIO-M1-2026-08-05:Studio 创作工作室 M1 落地——三张新表(StudioProject/StudioCharacter/StudioShot,分镜级 render_mode=video|image_motion)+ /api/studio/* CRUD(项目/角色/分镜批量保存,租户隔离)+ LLM 剧本拆解(L3 chat_layered,自动建议 render_mode,非法值回退 video)。10 新测试 + 990 全量回归全过。修复:save_shots 循环内 commit 导致 expire 丢字段 → 循环外统一提交。",
     "LLM-CUTOVER-2026-08-05:文本 LLM 全部切 spark 集群 + workstation 4 卡纯生成(用户决策:边界最干净)。核心变更:(1)spark02 新部署 vLLM Qwen3.5-MoE-35B-A3B-uncensored-heretic FP8(:8000,served-model-name=qwen3.6-uncensored 别名不变,下游零改动)——修复两个真 bug:视觉塔权重键名 model.language_model.visual.*→model.visual.*(fix_visual_keys.py 批量改 safetensors 头+index.json,否则 Engine core 初始化失败);--tool-call-parser hermes→step3p5(hermes 不识别 <function= 原生格式);POC 5 用例全过(对话/工具调用/提示词优化/无审查/延迟)。(2)core deploy/.env:TOIV_LLM_BASE_URL→http://192.168.71.84:8000/v1(spark02),TOIV_VIDEO_SCORER_ENABLED=false(视频评分关闭),toiv-api 重启生效,core→spark02 chat 实测正常。(3)workstation:nemotron-vllm.service stop+disable(GPU3 显存 89GB→1.3GB),comfyui-gpu3.service enable+start(:8192),comfyui-lb 配置加 gpu3 后端,LB :8188 本地 4 后端(gpu0-3)全 200。(4)顺带修复 PG 迁移后项目删除 500:drama_studio.py delete_project 改 bulk DELETE 按候选→分镜→角色→项目拓扑序(ORM session.delete 无 Relationship 时 UOW 不排序,PG confdeltype=NO ACTION 下先删 dramaproject 撞 FK),新增 test_delete_project_cascades_shots_and_candidates 回归。(5)OpenClaw primary 同步指向 spark02(设备说明.md 2.3 节)。回归:pytest 978 passed(+1),0 failed,23.73s;设备说明.md 2.4/2.5 节已更新。按 AGENTS.md 未自动 commit,改动保留工作区待用户验收",
-    "EDIT-MODULES-2026-08-04:独立编辑模块(图片编辑+视频剪辑)+ 导航重排完成。核心变更:(1)后端新增 routes/video_edit.py——OpenCut 风格时间线剪辑:POST /api/video-edit/render(plan JSON:clips 视频轨串接/audios 音频轨混音/texts drawtext 文字叠加,宽高原声探测 ffprobe,ssh workstation 执行 ffmpeg,NAS imports/video-edit+outputs/video-edit 交换,白名单 GET output);修复真 bug——build_render_plan_cmd 混音链重建 -filter_complex 用错 parts 下标(-1→-3)致 amix 被拼进 -map;main.py 补注册 video_edit 路由(此前仅 import 未挂载)。(2)前端新增 components/image-edit/ImageEditView.tsx(picwish 风格:拖拽上传+4 工具卡片——智能去背景 general/anime/human、高清增强 2x/3x/4x、局部重绘 Florence2 文字分割、人脸修复 denoise 滑杆;复用既有 generateRemoveBg/generateUpscale/generateInpaint/generateFaceDetailer 端点+lib/trackJob SSE 真实进度;结果/对比切换+下载)。(3)前端新增 components/video-edit/VideoEditView.tsx(素材库导入+视频轨/音频轨/文字轨三轨时间线+分辨率/帧率预设+导出渲染;lib/api.ts 新增 renderVideoEdit/videoEditOutputUrl 封装,multipart 提交,longRequest 180s)。(4)导航重排:侧栏 对话/图片/视频/音频/融合/图片编辑/视频剪辑/画布/作品库/资源 10 项;imageEdit/videoEdit 注册 View 类型+viewImporters 懒加载+VALID_VIEWS+VIEW_META+底部更多导航;风格选择保持在各生成页内(AgentSwitcher 已从侧栏移除)。(5)回归:pytest 977 passed(+37 新例)/tsc 0 错误/next build 通过。按 AGENTS.md 未自动 commit,改动保留工作区待用户验收",
-    "REDIS-H3-INTEGRATION-2026-08-04:Redis 接入 + MiniMax H3 视频引擎集成代码完成(未提交未部署)。Redis:services/redis_client.py 单例+冷却降级;ratelimit.py 滑窗 Redis 优先(Lua 原子化,WITHSCORES 兼容性修复→retry_after 移 Python 侧);canvas_events.py Redis pub/sub 跨进程 relay(防回声 origin 标记);comfy/pool.py 健康探测结果 Redis 共享(减少多进程重复探测);fakeredis 测试替身 test_redis_integration.py。H3:config.py h3_base_url(workstation :8195 独立 ComfyUI≥0.30 实例,独立于 WorkerPool);deps.py resolve_worker H3 精确匹配(防同机 hostname 回退错配);services/h3.py(ensure_h3_ready 503 语义+参考图跨实例转运);routes/h3_studio.py(t2v/i2v 端点+限流);workflows/h3_video.py+workflows/h3/ 模板;引擎注册表 h3-t2v/h3-i2v(h3_stub 替身测试);前端 lib/engines.ts 同步。依赖修复:pyproject.toml 补 redis>=5.2/fakeredis>=2.23,uv export 重生成 requirements.txt 并保留 psycopg/faster-whisper 手工段;.env.example×2 文档化。真机复核:workstation toiv-comfyui-h3.service active+:8195 200;pc02 三计划任务自愈在册+:8193 200;core 四服务 active+redis PONG+api/web 200。本地回归:pytest 890 passed/tsc 0 错误/build 通过。**阻塞**:全部改动未 commit、未 deploy;core .env 缺 TOIV_REDIS_URL/TOIV_H3_BASE_URL;core 运行代码仍是 4b83a7f(h3 仅占位)。按 AGENTS.md 未自动 commit,待用户验收后部署"
+    "EDIT-MODULES-2026-08-04:独立编辑模块(图片编辑+视频剪辑)+ 导航重排完成。核心变更:(1)后端新增 routes/video_edit.py——OpenCut 风格时间线剪辑:POST /api/video-edit/render(plan JSON:clips 视频轨串接/audios 音频轨混音/texts drawtext 文字叠加,宽高原声探测 ffprobe,ssh workstation 执行 ffmpeg,NAS imports/video-edit+outputs/video-edit 交换,白名单 GET output);修复真 bug——build_render_plan_cmd 混音链重建 -filter_complex 用错 parts 下标(-1→-3)致 amix 被拼进 -map;main.py 补注册 video_edit 路由(此前仅 import 未挂载)。(2)前端新增 components/image-edit/ImageEditView.tsx(picwish 风格:拖拽上传+4 工具卡片——智能去背景 general/anime/human、高清增强 2x/3x/4x、局部重绘 Florence2 文字分割、人脸修复 denoise 滑杆;复用既有 generateRemoveBg/generateUpscale/generateInpaint/generateFaceDetailer 端点+lib/trackJob SSE 真实进度;结果/对比切换+下载)。(3)前端新增 components/video-edit/VideoEditView.tsx(素材库导入+视频轨/音频轨/文字轨三轨时间线+分辨率/帧率预设+导出渲染;lib/api.ts 新增 renderVideoEdit/videoEditOutputUrl 封装,multipart 提交,longRequest 180s)。(4)导航重排:侧栏 对话/图片/视频/音频/融合/图片编辑/视频剪辑/画布/作品库/资源 10 项;imageEdit/videoEdit 注册 View 类型+viewImporters 懒加载+VALID_VIEWS+VIEW_META+底部更多导航;风格选择保持在各生成页内(AgentSwitcher 已从侧栏移除)。(5)回归:pytest 977 passed(+37 新例)/tsc 0 错误/next build 通过。按 AGENTS.md 未自动 commit,改动保留工作区待用户验收"
   ],
   "infra": {
     "nas_unified_storage_2026_07_28": {
@@ -2426,5 +2426,12 @@
       "ThemePicker 等通用组件 styled-jsx 残余",
       "ref2va 评测/H3 真机 E2E(TOIV_REDIS_URL/TOIV_H3_BASE_URL)等更早大盘子任务未启动"
     ]
+  },
+  "h3_core_e2e_2026_08_07": {
+    "status": "passed",
+    "scope": "H3 真机 E2E 解锁:core(TOIV_REDIS_URL/TOIV_H3_BASE_URL 已配置)→ workstation :8195 全链路最小生成验证",
+    "script": "scripts/h3_core_e2e.py(可重复回归)",
+    "evidence": "core 登录→/api/h3/t2v(512×288/22帧/4步)→done(热<60s 冷~140s)→产物 200 video/mp4 ftyp 有效;抽帧目检语义一致;首次 503 重试即恢复(实例瞬时态)",
+    "verified_at": "2026-08-07T21:10:00+08:00"
   }
 }
