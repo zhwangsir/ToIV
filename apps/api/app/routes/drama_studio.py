@@ -9,6 +9,7 @@ P0 核心端点(本地学习用,跳过内容合规层):
   · 剧本 LLM 拆解        POST /api/drama/projects/{pid}/storyboard
   · 角色库 CRUD          POST/GET/DELETE  /api/drama/projects/{pid}/characters
   · 单分镜视频生成       POST /api/drama/shots/{sid}/generate-video  (LTX t2v)
+  · 末帧续写(多段 i2v)   POST /api/drama/shots/{sid}/continue-video  (LTX/H3 i2v 串长镜头)
   · 单分镜配音           POST /api/drama/shots/{sid}/generate-voice  (IndexTTS2)
   · 一键合成成片         POST /api/drama/projects/{pid}/assemble     (ffmpeg)
 
@@ -37,7 +38,7 @@ from urllib.parse import urlsplit
 import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session, delete, select
 
 from app.agent import llm
@@ -244,6 +245,33 @@ class GenerateVideoRequest(BaseModel):
     prompt_override: str | None = Field(default=None, max_length=2000)
 
 
+class ContinueVideoRequest(BaseModel):
+    """末帧续写请求:抽当前视频末帧作 i2v 首帧,逐段延续生成串长镜头。
+
+    engine 空 = 沿用分镜 video_model(仅 ltx/h3 有效,其余回落 ltx)。
+    length/fps 空 = 按项目 fps × 分镜时长换算并向下对齐引擎帧数网格;
+    显式 length 须满足引擎约束(LTX 8k+1 @9-241;H3 17k+5 @22-362,固定 24fps)。
+    fps 覆盖仅 LTX 生效(H3 忽略)。
+    """
+
+    segments: int = Field(default=1, ge=1, le=5)
+    engine: str = Field(default="", max_length=16)
+    auto_concat: bool = False
+    length: int | None = Field(default=None, ge=9, le=362)
+    fps: int | None = Field(default=None, ge=4, le=30)
+    steps: int = Field(default=20, ge=1, le=50)
+    cfg: float = Field(default=1.0, ge=0.0, le=20.0)
+    seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
+    prompt_override: str | None = Field(default=None, max_length=2000)
+
+    @field_validator("engine")
+    @classmethod
+    def _engine_known(cls, v: str) -> str:
+        if v not in ("", "ltx", "h3"):
+            raise ValueError("engine 仅支持 ltx / h3(空 = 沿用分镜引擎)")
+        return v
+
+
 class GenerateVoiceRequest(BaseModel):
     # 覆盖该镜的台词(空=用分镜已存的 dialogue)
     text_override: str | None = Field(default=None, max_length=600)
@@ -388,6 +416,10 @@ def _shot_dict(s: DramaShot, session: Session | None = None) -> dict:
         layout = json.loads(s.scene_layout) if s.scene_layout else None
     except (ValueError, TypeError):
         layout = None
+    try:
+        continue_urls = json.loads(s.continue_urls) if s.continue_urls else []
+    except (ValueError, TypeError):
+        continue_urls = []
     candidates: list[dict] = []
     if session is not None:
         rows = session.exec(
@@ -415,6 +447,10 @@ def _shot_dict(s: DramaShot, session: Session | None = None) -> dict:
         "voice_url": s.voice_url,
         "lipsync_status": s.lipsync_status,
         "lipsync_video_url": s.lipsync_video_url,
+        "continue_status": s.continue_status,
+        "continue_urls": continue_urls,
+        "continue_concat_url": s.continue_concat_url,
+        "continue_error": s.continue_error,
         "seed": s.seed,
         "error": s.error,
         "candidates": candidates,
@@ -1556,6 +1592,339 @@ async def generate_shot_video(
         "worker": worker_url,
         "seed": seed,
         "shot_id": sid,
+    }
+
+
+# ===========================================================================
+# 末帧续写(continue-video):抽当前视频末帧作 i2v 首帧,逐段延续串长镜头
+# ===========================================================================
+def _snap_ltx_length(n: int) -> int:
+    """LTX 帧数网格 8k+1(9-241),向下取整对齐。"""
+    n = max(9, min(241, n))
+    return ((n - 1) // 8) * 8 + 1
+
+
+def _snap_h3_length(n: int) -> int:
+    """H3 帧数网格 17k+5(22-362 @24fps),向下取整对齐。"""
+    n = max(22, min(362, n))
+    return ((n - 5) // 17) * 17 + 5
+
+
+def _continue_engine(shot: DramaShot, body: ContinueVideoRequest) -> str:
+    """续写引擎:显式指定优先;否则沿用分镜 video_model(非 ltx/h3 回落 ltx)。"""
+    if body.engine:
+        return body.engine
+    return shot.video_model if shot.video_model in ("ltx", "h3") else "ltx"
+
+
+def _continue_length(
+    engine_name: str, shot: DramaShot, project: DramaProject, body: ContinueVideoRequest
+) -> tuple[int, int]:
+    """每段 (length, fps)。显式 length 严格校验引擎网格(422);缺省按 时长×fps 换算并向下对齐。"""
+    if engine_name == "h3":
+        fps = 24  # H3 固定 24fps(body.fps 覆盖仅 LTX 生效)
+        if body.length is not None:
+            if (body.length - 5) % 17 != 0 or not 22 <= body.length <= 362:
+                raise HTTPException(
+                    status_code=422, detail="H3 length 必须为 17k+5 且 22-362(如 124/141/362)"
+                )
+            return body.length, fps
+        return _snap_h3_length(24 * shot.duration_sec), fps
+    fps = body.fps if body.fps is not None else project.fps
+    if body.length is not None:
+        if (body.length - 1) % 8 != 0 or not 9 <= body.length <= 241:
+            raise HTTPException(
+                status_code=422, detail="LTX length 必须为 8k+1 且 9-241(如 97/121/241)"
+            )
+        return body.length, fps
+    return _snap_ltx_length(fps * shot.duration_sec), fps
+
+
+async def _extract_last_frame(video: Path, out: Path) -> None:
+    """ffmpeg 抽视频末帧为 jpg(-sseof 倒 seek 定位,避免全片解码)。"""
+    from app.routes.assembly import _run_ffmpeg
+
+    await _run_ffmpeg([
+        "ffmpeg", "-y", "-sseof", "-0.1", "-i", str(video),
+        "-frames:v", "1", "-q:v", "2", str(out),
+    ])
+    if not out.exists() or out.stat().st_size == 0:
+        raise HTTPException(status_code=500, detail="末帧抽取失败(ffmpeg 产物为空)")
+
+
+async def _resolve_shot_video_local(pool: WorkerPool, video_url: str, dest: Path) -> None:
+    """把分镜视频 URL 落成本地文件:/api/images? 走 worker 直读;/api/drama/output/ 走成片目录。"""
+    if video_url.startswith("/api/images?"):
+        await _download_images_clip(pool, video_url, dest)
+        return
+    if video_url.startswith("/api/drama/output/"):
+        name = video_url.rsplit("/", 1)[-1]
+        if not _DRAMA_OUTPUT_RE.match(name):
+            raise HTTPException(status_code=422, detail="分镜视频文件名非法,无法末帧续写")
+        src = _drama_dir() / name
+        if not src.is_file():
+            raise HTTPException(status_code=422, detail="分镜视频文件不存在,请重新生成")
+        await asyncio.to_thread(shutil.copyfile, src, dest)
+        return
+    raise HTTPException(
+        status_code=422, detail="分镜视频来源不支持末帧续写(需 worker 产物或成片目录文件)"
+    )
+
+
+async def _probe_has_audio(path: Path) -> bool:
+    """ffprobe 探测是否含音轨(决定 concat 是否带音频);无 ffprobe 视为有。"""
+    if shutil.which("ffprobe") is None:
+        return True
+    proc = await asyncio.create_subprocess_exec(
+        "ffprobe", "-v", "error", "-select_streams", "a",
+        "-show_entries", "stream=codec_name", "-of", "csv=p=0", str(path),
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+    )
+    out, _ = await proc.communicate()
+    return bool(out.decode().strip())
+
+
+async def _run_continue_video(
+    sid: str,
+    body: ContinueVideoRequest,
+    engine_name: str,
+    tenant_id: str,
+    user_id: str,
+) -> None:
+    """末帧续写后台任务:抽末帧 → i2v 续写 → 逐段串接,产物落成片目录并回写分镜。
+
+    独立 DB session(参照 _await_liveact_result)。每段登记 Job
+    (kind=drama_shot_continue_i2v / drama_shot_continue_h3_i2v,与现有产物同走
+    tracker 落库),段视频落盘 _drama_dir()/drama-<hex>.mp4(LiveAct 同款路径形式,
+    /api/drama/output/ 可播放、可作下次续写源)。
+    """
+    from app.db import engine as db_engine
+
+    seg_urls: list[str] = []
+    try:
+        settings = get_settings()
+        pool = get_pool()
+        with Session(db_engine) as s:
+            shot = s.get(DramaShot, sid)
+            if not shot:
+                return
+            project = s.get(DramaProject, shot.project_id)
+            user_obj = s.get(User, user_id)
+            if not project or not user_obj:
+                raise RuntimeError("项目或用户不存在")
+            prompt = (body.prompt_override or shot.prompt).strip()
+            if not prompt:
+                raise RuntimeError("分镜提示词为空")
+            length, fps = _continue_length(engine_name, shot, project, body)
+            seeds = _next_seeds(body.seed, shot.seed, body.segments)
+
+            # LTX:worker 一次选定,按实际 i2v 参数推所需模型/节点(同 ltx_studio 推导)
+            ltx_client = None
+            video_ckpt = settings.default_video_ckpt
+            if engine_name == "ltx":
+                from app.capabilities import required_nodes
+                model_set = {
+                    video_ckpt, settings.nsfw_default_gemma, settings.nsfw_default_vae,
+                }
+                try:
+                    ltx_client = await pool.pick(
+                        required=model_set, required_nodes=required_nodes("ltx_i2v")
+                    )
+                except ComfyUIError as e:
+                    raise RuntimeError(f"无可用 worker(缺 LTX 模型): {e}") from e
+                if ltx_client is None:
+                    raise RuntimeError("无可用 worker(缺 LTX 模型)")
+
+            with tempfile.TemporaryDirectory(prefix="drama-cont-") as tmp:
+                tmp_dir = Path(tmp)
+                src_path = tmp_dir / "seg-000.mp4"
+                await _resolve_shot_video_local(pool, shot.video_url, src_path)
+                part_paths = [src_path]
+
+                for i in range(body.segments):
+                    frame_path = tmp_dir / f"frame-{i:03d}.jpg"
+                    await _extract_last_frame(src_path, frame_path)
+                    frame_bytes = await asyncio.to_thread(frame_path.read_bytes)
+                    seed_i = seeds[i]
+
+                    if engine_name == "h3":
+                        from app.services import h3 as h3_service
+                        from app.workflows.h3_video import (
+                            H3I2VParams,
+                            build_h3_i2v_graph,
+                        )
+
+                        h3_client = h3_service.get_h3_client()
+                        # 后端直传 H3 实例 input(不经 /api/upload 的 pool worker 转运)
+                        image_name = await h3_client.upload_image(
+                            frame_bytes, f"drama_cont_{uuid.uuid4().hex}.jpg"
+                        )
+                        h3_params = H3I2VParams(
+                            positive=prompt,
+                            negative=shot.negative,
+                            image=image_name,
+                            width=min(1344, project.width // 32 * 32),
+                            height=min(1344, project.height // 32 * 32),
+                            length=length,
+                            steps=body.steps,
+                            seed=seed_i,
+                            filename_prefix=f"ToIV_drama_shot{shot.idx}_cont",
+                        )
+                        graph = build_h3_i2v_graph(h3_params)
+                        result = await h3_service.submit_h3_job(
+                            graph,
+                            kind="drama_shot_continue_h3_i2v",
+                            positive=prompt,
+                            seed=seed_i,
+                            req=body,
+                            user=user_obj,
+                            session=s,
+                            client=h3_client,
+                        )
+                        prompt_id = result["prompt_id"]
+                    else:
+                        image_name = await ltx_client.upload_image(
+                            frame_bytes, f"drama_cont_{uuid.uuid4().hex}.jpg"
+                        )
+                        ltx_params = LtxI2VParams(
+                            positive=prompt,
+                            image=image_name,
+                            negative=shot.negative,
+                            unet_name=video_ckpt,
+                            gemma_name=settings.nsfw_default_gemma,
+                            vae_name=settings.nsfw_default_vae,
+                            width=project.width,
+                            height=project.height,
+                            length=length,
+                            fps=fps,
+                            steps=body.steps,
+                            cfg=body.cfg,
+                            seed=seed_i,
+                            use_upscale=False,
+                            use_rife=False,
+                            filename_prefix=f"ToIV_drama_shot{shot.idx}_cont",
+                        )
+                        graph = build_ltx_i2v_graph(ltx_params)
+                        prompt_id = await ltx_client.queue_prompt(graph, uuid.uuid4().hex)
+                        s.add(
+                            Job(
+                                tenant_id=tenant_id,
+                                user_id=user_id,
+                                prompt_id=prompt_id,
+                                worker=ltx_client.base_url,
+                                kind="drama_shot_continue_i2v",
+                                status="queued",
+                                prompt=prompt,
+                                seed=seed_i,
+                                nsfw=False,
+                                params=params_snapshot(body, seed=seed_i),
+                            )
+                        )
+                        s.commit()
+                        spawn_tracker(ltx_client, prompt_id)
+
+                    results = await wait_for_jobs(s, [prompt_id], timeout=900.0)
+                    urls = results.get(prompt_id, [])
+                    if not urls:
+                        raise RuntimeError(f"第 {i + 1} 段续写无产物")
+                    seg_path = tmp_dir / f"seg-{i + 1:03d}.mp4"
+                    await _download_images_clip(pool, urls[0], seg_path)
+                    # 段产物落盘成片目录(稳定可播放;worker output 清理后 URL 仍有效)
+                    _drama_dir().mkdir(parents=True, exist_ok=True)
+                    name = f"drama-{uuid.uuid4().hex}.mp4"
+                    await asyncio.to_thread(shutil.copyfile, seg_path, _drama_dir() / name)
+                    seg_urls.append(f"/api/drama/output/{name}")
+                    part_paths.append(seg_path)
+                    src_path = seg_path  # 下一段从本段末帧继续
+
+                concat_url = ""
+                if body.auto_concat:
+                    from app.routes.assembly import _concat_parts
+
+                    name = f"drama-{uuid.uuid4().hex}.mp4"
+                    out_path = _drama_dir() / name
+                    # 全部片段带音轨才拼音频(concat 滤镜要求各段流一致)
+                    with_audio = all([await _probe_has_audio(p) for p in part_paths])
+                    await _concat_parts(part_paths, fps, with_audio, out_path)
+                    if not out_path.exists() or out_path.stat().st_size == 0:
+                        raise RuntimeError("续写拼接产物为空")
+                    concat_url = f"/api/drama/output/{name}"
+
+            shot = s.get(DramaShot, sid)
+            if shot:
+                shot.continue_status = "done"
+                shot.continue_urls = json.dumps(seg_urls)
+                shot.continue_concat_url = concat_url
+                shot.continue_error = ""
+                proj = s.get(DramaProject, shot.project_id)
+                if proj:
+                    _append_process(
+                        proj,
+                        "continue_video",
+                        f"分镜 #{shot.idx} 续写 {len(seg_urls)} 段完成(engine={engine_name})",
+                    )
+                    s.add(proj)
+                s.add(shot)
+                s.commit()
+    except Exception as e:  # noqa: BLE001
+        logger.exception("shot %s continue-video failed: %s", sid, e)
+        with Session(db_engine) as s:
+            shot = s.get(DramaShot, sid)
+            if shot and shot.continue_status == "continuing":
+                shot.continue_status = "error"
+                shot.continue_error = f"{type(e).__name__}: {e}"[:200]
+                s.add(shot)
+                s.commit()
+
+
+@router.post("/drama/shots/{sid}/continue-video")
+async def continue_shot_video(
+    sid: str,
+    body: ContinueVideoRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """末帧续写:抽该镜当前视频末帧作 i2v 首帧,延续生成 N 段串长镜头。
+
+    fire-and-forget:进度与产物经 GET 分镜轮询
+    (continue_status / continue_urls / continue_concat_url / continue_error)。
+    """
+    enforce_generation_rate_limit(user)
+    shot = _owned_shot(sid, user, session)
+    if shot.video_status != "done" or not shot.video_url:
+        raise HTTPException(status_code=422, detail="分镜尚无已完成视频,无法末帧续写")
+    if shot.continue_status == "continuing":
+        raise HTTPException(status_code=409, detail="该分镜已有续写任务进行中")
+    project = session.get(DramaProject, shot.project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="项目不存在")
+
+    engine_name = _continue_engine(shot, body)
+    # 显式 length 网格校验(422)提前到提交前;缺省值此处换算仅用于响应回显
+    length, fps = _continue_length(engine_name, shot, project, body)
+
+    shot.continue_status = "continuing"
+    shot.continue_urls = "[]"
+    shot.continue_concat_url = ""
+    shot.continue_error = ""
+    _append_process(
+        project,
+        "continue_video",
+        f"分镜 #{shot.idx} 末帧续写 {body.segments} 段(engine={engine_name}, {length}帧@{fps}fps)",
+    )
+    session.add(shot)
+    session.commit()
+
+    _spawn(_run_continue_video(sid, body, engine_name, user.tenant_id, user.id))
+
+    return {
+        "shot_id": sid,
+        "segments": body.segments,
+        "engine": engine_name,
+        "length": length,
+        "fps": fps,
+        "auto_concat": body.auto_concat,
+        "status": "continuing",
     }
 
 

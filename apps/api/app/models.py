@@ -299,6 +299,11 @@ class DramaShot(SQLModel, table=True):
     voice_url: str = ""
     lipsync_status: str = ""  # generating|done|error
     lipsync_video_url: str = ""
+    # 末帧续写(continue-video):段产物 URL 列表 + 可选拼接成片
+    continue_status: str = ""  # ""|continuing|done|error
+    continue_urls: str = "[]"  # JSON: 续写段视频 URL 列表(/api/drama/output/)
+    continue_concat_url: str = ""  # auto_concat 拼接成片 URL
+    continue_error: str = ""
     seed: int = Field(default=0, sa_type=BigInteger)  # PG 须 BIGINT(同 Job.seed)
     error: str = ""
     created_at: datetime = Field(default_factory=_now)

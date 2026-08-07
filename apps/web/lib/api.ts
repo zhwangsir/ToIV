@@ -1943,6 +1943,11 @@ export interface DramaShotItem {
   // M3:对口型
   lipsync_status?: string;   // draft / generating / done / error
   lipsync_video_url?: string;
+  // 末帧续写(continue-video)
+  continue_status?: string;      // "" / continuing / done / error
+  continue_urls?: string[];      // 续写段视频 URL 列表(/api/drama/output/)
+  continue_concat_url?: string;  // auto_concat 拼接成片 URL
+  continue_error?: string;
   seed: number;
   error: string;
   updated_at: string;
@@ -2136,6 +2141,29 @@ export interface DramaGenerateVideoResult {
   shot_id: string;
 }
 
+// 末帧续写请求:engine 空 = 沿用分镜引擎;length/fps 空 = 沿用分镜时长换算并自动对齐帧数网格
+export interface DramaContinueVideoRequest {
+  segments?: number;         // 续写段数,默认 1,上限 5
+  engine?: "" | "ltx" | "h3";
+  auto_concat?: boolean;     // true = 完成后顺带拼接 源视频+各段 成一条完整视频
+  length?: number;           // 每段帧数(LTX 8k+1 @9-241;H3 17k+5 @22-362)
+  fps?: number;              // 仅 LTX 生效(H3 固定 24fps)
+  steps?: number;
+  cfg?: number;
+  seed?: number;
+  prompt_override?: string;
+}
+
+export interface DramaContinueVideoResult {
+  shot_id: string;
+  segments: number;
+  engine: string;
+  length: number;
+  fps: number;
+  auto_concat: boolean;
+  status: string;            // "continuing"(fire-and-forget,轮询分镜详情看 continue_*)
+}
+
 export interface DramaVoiceResult {
   url: string;
   name: string;
@@ -2323,6 +2351,13 @@ export const generateDramaShotVideo = (
   body: DramaGenerateVideoRequest,
 ): Promise<DramaGenerateVideoResult> =>
   dramaReq(`/drama/shots/${sid}/generate-video`, "POST", body);
+
+/** 末帧续写(抽当前视频末帧作 i2v 首帧逐段延续,异步,轮询 shot.continue_* 字段)。 */
+export const continueDramaShotVideo = (
+  sid: string,
+  body: DramaContinueVideoRequest,
+): Promise<DramaContinueVideoResult> =>
+  dramaReq(`/drama/shots/${sid}/continue-video`, "POST", body);
 
 /** 单分镜配音(IndexTTS2,同步返回 wav url)。 */
 export const generateDramaShotVoice = (

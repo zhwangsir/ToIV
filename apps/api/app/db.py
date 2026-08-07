@@ -242,6 +242,11 @@ _SQLITE_RAW_MIGRATIONS: tuple[str, ...] = (
     "ALTER TABLE dramashot ADD COLUMN video_model TEXT DEFAULT ''",
     "ALTER TABLE dramashot ADD COLUMN lipsync_status TEXT DEFAULT ''",
     "ALTER TABLE dramashot ADD COLUMN lipsync_video_url TEXT DEFAULT ''",
+    # 末帧续写(continue-video)四列
+    "ALTER TABLE dramashot ADD COLUMN continue_status TEXT DEFAULT ''",
+    "ALTER TABLE dramashot ADD COLUMN continue_urls TEXT DEFAULT '[]'",
+    "ALTER TABLE dramashot ADD COLUMN continue_concat_url TEXT DEFAULT ''",
+    "ALTER TABLE dramashot ADD COLUMN continue_error TEXT DEFAULT ''",
 )
 
 
