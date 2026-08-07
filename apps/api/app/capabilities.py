@@ -70,6 +70,9 @@ def required_nodes(kind: str) -> set[str]:
         return {"DownloadAndLoadHyVideoTextEncoder", "HyVideoModelLoader", "HyVideoVAELoader", "HyVideoI2VEncode", "HyVideoSampler", "HyVideoDecode", "VHS_VideoCombine"}
     if kind == "frame_interpolate":
         return {"FrameInterpolationModelLoader", "FrameInterpolate", "VHS_LoadVideo", "VHS_VideoCombine"}
+    # 抠图去背:ComfyUI_essentials rembg 节点链(仅 workstation ComfyUI 安装,上传/生成须钉到具备节点的 worker)
+    if kind == "removebg":
+        return {"RemBGSession+", "ImageRemoveBackground+", "LoadImage"}
     # LTX2.3 文生视频
     if kind in ("ltx_video", "ltx_t2v"):
         return {"UNETLoader", "LTXVGemmaCLIPModelLoader", "VAELoader", "CLIPTextEncode",

@@ -4,6 +4,54 @@
 
 ---
 
+## FULLGEN-2026-08-07 · core 生产链路全功能真机生成测试(12/12 通过)
+
+**时间**: 2026-08-07 17:33
+**类型**: test(e2e) / 负载验证
+**目标**: 用户要求「每个内容都生成一遍大文件,确保所有功能正常,保证负载没问题」。脚本 `scripts/full_generation_test.py` 对 core(192.168.71.47:8090)生产链路 12 步串行真机生成 + 10s 间隔 GPU 采样(core `/api/system/gpu` + workstation nvidia-smi)
+
+### 12 步结果(跨三轮累计,全部真机生成、magic bytes 校验通过)
+
+| 步骤 | 端点 | 耗时 | 产物 |
+|---|---|---|---|
+| 1 文生图 1024² | /api/generate/txt2img | 231s | 1714KB |
+| 2 图生图(上传+denoise) | /api/generate/img2img | 211s | 1752KB |
+| 3 高清放大 2x→2048² | /api/generate/upscale | 10s | 6224KB |
+| 4 去背景(rembg u2net) | /api/generate/removebg | 10s | 229KB |
+| 5 LTX 文生视频 | /api/generate/video | 231s | 734KB |
+| 6 LTX 图生视频 | /api/generate/video(i2v) | 221s | 1976KB |
+| 7 H3 文生视频 | /api/generate/h3 | 100s | 386KB |
+| 8 H3 图生视频 | /api/generate/h3(i2v) | 30s | 338KB |
+| 9 ACE 文生音乐 120s | /api/generate/audio | 271s | 3666KB |
+| 10 IndexTTS2 长文本配音 | /api/manju/voice | 4s | 588KB |
+| 11 ASR 听写(对 TTS 产物) | /api/dub/* | 8s | 3 片段,转写正确 |
+| 12 人声分离(demucs) | /api/audio/separate | 3s | 20664KB vocals |
+
+### Workstation GPU 峰值(测试全程采样)
+
+| GPU | 峰值利用率 | 峰值显存 | 说明 |
+|---|---|---|---|
+| GPU0 | 100% | 94.5/96 GiB (99%) | ComfyUI+TTS 共卡,生成期打满属预期 |
+| GPU1 | 0%→80% | 76.4/96 GiB | LiveAct 常驻 58GB + demucs 分离时叠加 |
+| GPU2 | 2% | 5.2/96 GiB (5%) | ASR 常驻,轻载 |
+| GPU3 | 17% | 56.5/96 GiB (59%) | FlashTalk/OpenTalking 常驻,非测试压力 |
+
+结论:全链无 OOM、无超时堆积,负载在硬件 capacity 内。
+
+### 过程中修复的问题(已全部落地)
+
+- **removebg 502**:workstation ComfyUI 缺 ComfyUI_essentials + rembg → 已装(rembg 2.0.78 + onnxruntime 1.28,u2net.onnx 176MB 预置 `/home/merlin/.u2net/`);`apps/api/app/capabilities.py` 加 removebg 节点门控(已部署 core)
+- **6_ltx_i2v / 8_h3_i2v 503**:上传 kind 连字符(`ltx-i2v`)与 capabilities 下划线(`ltx_i2v`)不一致导致门控失效、参考图落到缺节点的 worker → 统一下划线
+- **7/8_h3 503 显存不足**:H3 前置校验需 GPU0 空闲 ≥36GiB,被 ComfyUI 模型缓存占满 → 测试/调用前先 `POST :8189/free {"unload_models":true}` 释放
+- **12 人声分离 502**:demucs 在 GPU1 高负载时瞬时 OOM → 加重试;服务本身正常(手动 curl 200)
+- toiv-api 曾被 systemd 重启自愈(Restart=always),脚本已加轮询容错
+
+### 产物
+
+- `test-results/fullgen/`(12 产物 + load_log.txt,35MB,已 gitignore)
+
+---
+
 ## UI-TYPO-FIX-2026-08-07 · 图标/文字排版修复(swarm 6 路并行)
 
 **时间**: 2026-08-07

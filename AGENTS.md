@@ -185,6 +185,15 @@ nas:
 
 ## 七、操作历史
 
+### 2026-08-07 会话
+
+| 时间 | 操作 | 结果 |
+|------|------|------|
+| 17:00 | Workstation ComfyUI 安装 ComfyUI_essentials + rembg 2.0.78(onnxruntime 1.28),u2net.onnx 176MB 预置 `/home/merlin/.u2net/` | ✅ removebg 链路恢复 |
+| 17:33 | core 生产链路全功能真机生成测试(12 步串行 + GPU 采样) | ✅ 12/12 通过,详见 ToIV TEST_LOG.md FULLGEN-2026-08-07 |
+
+> ⚠️ 新易错点:① core API 上传 kind 必须下划线风格(ltx_i2v/h3_i2v/removebg),连字符会导致 capabilities 门控失效;② H3 生成前置校验 GPU0 空闲 ≥36GiB,调用前需先 `POST :8189/free {"unload_models":true}` 释放 ComfyUI 缓存;③ workstation pip 需用清华镜像 `-i https://pypi.tuna.tsinghua.edu.cn/simple`,github 用 ghfast.top 镜像。
+
 ### 2026-07-28 会话
 
 | 时间 | 操作 | 结果 |
