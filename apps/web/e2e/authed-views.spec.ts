@@ -19,13 +19,19 @@ const VIEWS = [
   "image",
   "video",
   "audio",
-  "library",
-  "models",
-  "backlot",
+  "fusion",
+  "imageEdit",
+  "videoEdit",
+  "animatic",
+  "avatartalk",
+  "canvas",
   "studio",
   "dub",
   "train",
-  "canvas",
+  "library",
+  "backlot",
+  "models",
+  "resources",
   "settings",
   "admin",
 ] as const;
@@ -37,8 +43,9 @@ const ERROR_PATTERNS = [
   "Something went wrong",
 ];
 
-/** HTTP 500 文案检测:必须独立出现(前后非数字),避免作品库 seed 长数字(如 ...775000)误报。 */
-const HTTP_500_RE = /(?<!\d)500(?!\d)/;
+/** HTTP 500 文案检测:必须独立出现(前后非数字非单位字母),避免作品库 seed 长数字(如 ...775000)
+ *  与 videoEdit 上传上限文案「≤ 500MB」误报。 */
+const HTTP_500_RE = /(?<!\d)500(?![\dA-Za-z%])/;
 
 test.describe("登录态视图加载", () => {
   // 前置:确认 storageState 中确实有 token(globalSetup 可能登录失败)。

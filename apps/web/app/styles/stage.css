@@ -549,6 +549,10 @@
   .generate-view.is-params-open .result-panel-empty {
     padding-right: calc(320px + var(--space-3) * 2);
   }
+  /* 提示词条同理:浮板展开时在浮板左侧的可用区内居中,避免右侧操作(优化/发送)被浮板压住 */
+  .generate-view.is-params-open .promptbar-dock {
+    padding-right: calc(320px + var(--space-3) * 2 + var(--space-4));
+  }
 }
 .empty-kicker {
   font-size: var(--text-label);

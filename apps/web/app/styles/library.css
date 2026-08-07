@@ -561,8 +561,10 @@
   min-width: 5em;
 }
 
-/* 窄屏段控可能溢出,横向滚动 + 触摸惯性 */
+/* 段控不允许被 flex 压缩:空间不足时由 .lib-header 的 flex-wrap 换行整行展示,
+   而不是裁掉末段(桌面 1280px 曾出现「3D」段被裁一半);窄屏兜底横向滚动 + 触摸惯性 */
 .lib-filters {
+  flex-shrink: 0;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
