@@ -4,6 +4,28 @@
 
 ---
 
+## UIPOLISH-2026-08-07 · 全视图排版收尾回归(19/19 双端通过)
+
+**时间**: 2026-08-07 23:30
+**类型**: fix(ui) / e2e 回归
+**目标**: 所有功能页面排版确定、显示可用。19 个视图登录态截图逐页目检 + 修复 + core 真机复核(commit 9f2a90e)
+
+### 修复项
+
+- **生成参数浮板遮挡提示词条**(image/video/audio 三页):1280px 桌面端右侧浮板压住 prompt bar 右侧「优化提示词/生成」按钮 → `is-params-open` 时 promptbar-dock 右移让位(沿用空态 padding-right 规则)
+- **作品库筛选段控**:`.lib-filters` 补 `flex-shrink:0`,段控不再被 flex 压缩(空间不足改换行整行展示)
+- **测试误报**:HTTP_500_RE 误伤 videoEdit「≤ 500MB」文案 → 正则排除单位字母后缀
+
+### 验证
+
+- `authed-views.spec.ts` 视图清单补全至 **19 个**(补 fusion/imageEdit/videoEdit/animatic/avatartalk/resources)
+- 本地 dev 19/19 passed;**core 真机(192.168.71.47:3100)19/19 passed**
+- 桌面 1280×720 截图逐页目检:assistant/image/video/audio/fusion/imageEdit/canvas/studio/dub/train/library/backlot/models/resources/settings/admin/animatic/avatartalk 排版均正常
+- 移动端 390×844 抽查(assistant/video/library/settings):底部导航 + 参数 FAB + prompt bar 完整
+- 备注:canvas 页 iframe 内 ComfyUI「Failed to load subgraph blueprints ×30」为 ComfyUI 前后端版本特性差异,与本应用无关;生成参数浮板 max-height 已生效(scrollHeight 705 > 518 内部滚动),截图为 fullPage 视口高度还原后的正常表现
+
+---
+
 ## LONGCAT-P2-2026-08-07 · LongCat 长视频引擎接入 core 全链路收官(P1b 压测 + P2 e2e)
 
 **时间**: 2026-08-07 22:40
