@@ -487,7 +487,7 @@ export function AudioView() {
           display: flex;
           align-items: center;
           gap: var(--space-3);
-          padding: var(--space-5) var(--space-5) 0;
+          padding: var(--space-5) var(--space-5) 0 calc(var(--space-5) + var(--nav-safe-left)); /* 桌面端让开 CornerNav 触发器 */
           flex-shrink: 0;
         }
         .audio-tab-gen {

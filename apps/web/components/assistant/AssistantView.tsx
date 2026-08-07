@@ -690,7 +690,7 @@ export function AssistantView() {
           align-items: center;
           justify-content: space-between;
           gap: var(--space-3);
-          padding: var(--space-2) var(--space-3);
+          padding: var(--space-2) var(--space-3) var(--space-2) calc(var(--space-3) + var(--nav-safe-left)); /* 桌面端让开 CornerNav 触发器 */
           background: var(--bg-surface-1);
           border-bottom: 1px solid var(--border-subtle);
           z-index: 5;

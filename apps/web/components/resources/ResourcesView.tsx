@@ -65,7 +65,7 @@ export function ResourcesView({ showAdmin = false }: ResourcesViewProps) {
         }
         .resources-head {
           flex-shrink: 0;
-          padding: var(--space-3) var(--space-4);
+          padding: var(--space-3) var(--space-4) var(--space-3) calc(var(--space-4) + var(--nav-safe-left)); /* 桌面端让开 CornerNav 触发器 */
           border-bottom: 1px solid var(--border-subtle);
         }
         .resources-body {

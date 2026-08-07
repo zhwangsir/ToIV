@@ -13,6 +13,9 @@
 :root {
   color-scheme: light;
 
+  /* ── 布局:CornerNav 触发器左上角安全区(桌面端页面左上内容右移避让;窄屏导航隐藏=0) ── */
+  --nav-safe-left: 0px;
+
   /* ── 字体(next/font 注入;Inter 为正文字体) ── */
   --font-sans: var(--font-inter), "Inter", "PingFang SC", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, "HarmonyOS Sans SC", sans-serif;
   --font-mono: var(--font-jetbrains), "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
@@ -841,6 +844,13 @@ select.input {
   }
   .btn-sm {
     height: 28px;
+  }
+}
+
+/* ── 桌面端(≥1024px):CornerNav 触发器在左上角,页面左上头部内容右移避让 ── */
+@media (min-width: 1024px) {
+  :root {
+    --nav-safe-left: 184px; /* 12px 左偏 + 触发器胶囊宽 ~160px + 呼吸间距 */
   }
 }
 

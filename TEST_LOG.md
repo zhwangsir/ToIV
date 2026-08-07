@@ -4,6 +4,24 @@
 
 ---
 
+## UI-NAVSAFE-2026-08-07 · CornerNav 遮挡修复:页面左上按钮避让
+
+**时间**: 2026-08-07
+**类型**: fix(ui) / regression
+**目标**: 用户反馈 CornerNav 挡住页面按钮;实测(Playwright 全视图碰撞扫描):触发器常显遮挡 assistant「历史/新建」,展开面板遮挡 audio「生成/编辑」、resources 二级 tab 行
+
+### 变更
+
+- `globals.css`:新增 `--nav-safe-left` 令牌(默认 0,≥1024px = 184px)
+- `AssistantView` 工具栏 / `AudioView` audio-header / `ResourcesView` resources-head:左 padding 加 `var(--nav-safe-left)`,桌面端左上控件整体右移让开触发器(顺带形成「触发器 + 页面工具」连续工具栏)
+- 复测:全视图扫描触发器遮挡清零;面板瞬时遮挡仅剩内容区(resources 过滤框,菜单展开期正常现象,保留)
+
+### 验证
+
+- 生产(core 部署后):`playwright.prod.config.ts` **161 passed / 0 failed**(基线持平)
+
+---
+
 ## UI-CORNERNAV-2026-08-07 · 导航改版:灵动岛 → 左上角悬停展开导航(CornerNav)
 
 **时间**: 2026-08-07
