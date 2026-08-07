@@ -11,6 +11,7 @@ import "./styles/animatic.css";
 import "./styles/avatartalk.css";
 import "./styles/landing.css";
 import "./styles/fusion.css";
+import "./styles/docs.css";
 import { ToastProvider } from "@/components/ui/Toast";
 
 const inter = Inter({

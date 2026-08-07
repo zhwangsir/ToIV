@@ -1,0 +1,203 @@
+/* ─────────────────────────────────────────────────────────────
+ * 文档上传与长文本理解(AssistantView 文档挂载 UI)
+ * 类名统一 .doc- 前缀;设计 token 走 globals.css(space/text/bg/accent 等变量)。
+ * 面板骨架复用 AssistantView 内 av-panel/av-panel--right 全局类。
+ * ───────────────────────────────────────────────────────────── */
+
+.doc-file-input {
+  display: none;
+}
+
+/* ───── 文档 chips(输入区挂载 + 消息气泡回显) ───── */
+.doc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.doc-chips--composer {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0 var(--space-1) var(--space-2);
+}
+.doc-chips--msg {
+  display: block;
+  margin-bottom: var(--space-1);
+}
+.doc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 240px;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--text-aux);
+  font-weight: 500;
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 输入区挂载芯片:surface 卡面 */
+.doc-chips--composer .doc-chip {
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+/* 用户气泡内芯片:气泡底是 --accent,芯片用 on-accent 半透明 */
+.doc-chips--msg .doc-chip {
+  background: color-mix(in oklab, var(--text-on-accent) 18%, transparent);
+  color: var(--text-on-accent);
+  margin-right: var(--space-1);
+}
+.doc-chip-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  margin-left: 2px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
+}
+.doc-chip-x:hover {
+  color: var(--err);
+  background: var(--err-soft);
+}
+
+/* ───── 文档面板(骨架复用 av-panel) ───── */
+.doc-upload-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 34px;
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-3);
+  background: var(--accent-soft);
+  border: 1px dashed var(--accent-glow);
+  border-radius: var(--radius-control);
+  color: var(--accent);
+  font-size: var(--text-aux);
+  font-weight: 500;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+.doc-upload-btn:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--accent-soft) 70%, var(--accent) 10%);
+  border-color: var(--accent);
+}
+.doc-upload-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.doc-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.doc-item {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-1);
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-panel);
+  transition: border-color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
+}
+.doc-item:hover {
+  background: var(--bg-surface-2);
+  border-color: var(--border-strong);
+}
+.doc-item.is-attached {
+  border-color: var(--accent-glow);
+  background: var(--accent-soft);
+}
+.doc-item-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+}
+.doc-item-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.doc-item-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-body);
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.doc-item-meta {
+  font-size: var(--text-label);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.doc-item-check {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  color: transparent;
+  transition: background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+.doc-item-check.is-on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--text-on-accent);
+}
+.doc-item-delete {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  margin-right: var(--space-1);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-control);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
+}
+.doc-item-delete:hover {
+  color: var(--err);
+  background: var(--err-soft);
+}
+
+/* 附件按钮激活态(面板开着或已有挂载) */
+.av-composer-tool.is-active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}

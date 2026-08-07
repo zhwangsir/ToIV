@@ -4,6 +4,15 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { useToast } from "@/components/ui/Toast";
 import { agentChat, AgentEvent, getLlmModel } from "@/lib/api";
+import {
+  agentChatWithDocs,
+  deleteDoc,
+  DocItem,
+  docStatusLabel,
+  formatDocSize,
+  listDocs,
+  uploadDoc,
+} from "@/lib/docs";
 import { genId } from "@/lib/id";
 
 // 模型名从 /api/system/llm 动态读取(display_model),不再硬编码;desc 为通用说明
@@ -23,6 +32,8 @@ interface ChatMessage {
   content: string;
   timestamp: number;
   media?: { type: string; urls: string[] }[];
+  /** 用户消息挂载的文档(展示 chip;回传后端时只取 id) */
+  docs?: { id: string; filename: string }[];
   /** error = 失败态气泡(不进历史、不回传后端) */
   kind?: "error";
 }
@@ -76,11 +87,18 @@ export function AssistantView() {
   const [textareaRows, setTextareaRows] = useState(1);
   const [modelName, setModelName] = useState("L1 对话模型");
   const [isMobile, setIsMobile] = useState(false);
+  // 文档挂载:已上传文档列表 / 文档管理面板 / 待发送挂载 / 上传中
+  const [docList, setDocList] = useState<DocItem[]>([]);
+  const [docsOpen, setDocsOpen] = useState(false);
+  const [attachedDocs, setAttachedDocs] = useState<DocItem[]>([]);
+  const [docUploading, setDocUploading] = useState(false);
   const abortRef = useRef<boolean>(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const activeConvIdRef = useRef<string | null>(null);
   const userStoppedRef = useRef<boolean>(false);
   const gotFirstChunkRef = useRef<boolean>(false);
+  const lastDocIdsRef = useRef<string[]>([]); // 重试时复用上轮挂载
+  const docFileRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -110,6 +128,17 @@ export function AssistantView() {
     getLlmModel(ac.signal).then((info) => {
       if (info?.display_model) setModelName(info.display_model);
     });
+    return () => ac.abort();
+  }, []);
+
+  // 文档列表:进页加载一次;上传/删除后局部更新,无需重复拉取
+  useEffect(() => {
+    const ac = new AbortController();
+    listDocs(ac.signal)
+      .then(setDocList)
+      .catch(() => {
+        /* 列表加载失败不阻塞对话,面板里可重试 */
+      });
     return () => ac.abort();
   }, []);
 
@@ -191,15 +220,73 @@ export function AssistantView() {
     }
   }, [activeConvId, onNewChat]);
 
+  // ───── 文档挂载 ─────
+  const onPickDocFile = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      e.target.value = ""; // 允许重复选同一文件
+      if (!file) return;
+      if (file.size > 50 * 1024 * 1024) {
+        toast.error("文件超过 50MB 上限");
+        return;
+      }
+      setDocUploading(true);
+      try {
+        const doc = await uploadDoc(file);
+        setDocList((prev) => [doc, ...prev]);
+        // 上传成功即挂载,符合「上传新文档并提问」的直觉路径
+        setAttachedDocs((prev) =>
+          prev.some((d) => d.id === doc.id) ? prev : [...prev, doc],
+        );
+        toast.success(
+          doc.status === "no_embed"
+            ? "文档已保存,但向量服务不可用,暂无法检索"
+            : "文档已上传并挂载",
+        );
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "文档上传失败");
+      } finally {
+        setDocUploading(false);
+      }
+    },
+    [toast],
+  );
+
+  const onDeleteDoc = useCallback(
+    async (doc: DocItem) => {
+      try {
+        await deleteDoc(doc.id);
+        setDocList((prev) => prev.filter((d) => d.id !== doc.id));
+        setAttachedDocs((prev) => prev.filter((d) => d.id !== doc.id));
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "删除文档失败");
+      }
+    },
+    [toast],
+  );
+
+  const toggleAttachDoc = useCallback((doc: DocItem) => {
+    setAttachedDocs((prev) =>
+      prev.some((d) => d.id === doc.id)
+        ? prev.filter((d) => d.id !== doc.id)
+        : [...prev, doc],
+    );
+  }, []);
+
+  const removeAttachedDoc = useCallback((id: string) => {
+    setAttachedDocs((prev) => prev.filter((d) => d.id !== id));
+  }, []);
+
   // 发起一次对话请求:立即进入 pending(打字指示器),30s 无首个响应块按失败处理,
-  // 失败/超时 → 错误气泡 + 重试;成功/失败均写入历史
+  // 失败/超时 → 错误气泡 + 重试;成功/失败均写入历史。docIds = 本轮挂载的文档。
   const requestReply = useCallback(
-    async (baseMsgs: ChatMessage[]) => {
+    async (baseMsgs: ChatMessage[], docIds: string[] = []) => {
       setBusy(true);
       setPending(true);
       abortRef.current = false;
       userStoppedRef.current = false;
       gotFirstChunkRef.current = false;
+      lastDocIdsRef.current = docIds;
 
       const controller = new AbortController();
       abortControllerRef.current = controller;
@@ -222,56 +309,57 @@ export function AssistantView() {
 
         let assistantMsg: ChatMessage | null = null;
 
-        await agentChat(
-          apiMessages,
-          (ev: AgentEvent) => {
-            if (controller.signal.aborted) return;
-            if (!gotFirstChunkRef.current) {
-              gotFirstChunkRef.current = true;
-              window.clearTimeout(timeoutId);
-              setPending(false);
-            }
-            if (ev.type === "text") {
-              const delta = ev.content || "";
-              if (!assistantMsg) {
-                assistantMsg = {
-                  id: genId(),
-                  role: "assistant",
-                  content: delta,
-                  timestamp: Date.now(),
-                };
-                setMessages((prev) => [...prev, assistantMsg!]);
-              } else {
-                setMessages((prev) => {
-                  const last = prev[prev.length - 1];
-                  if (last && last.id === assistantMsg!.id) {
-                    return [
-                      ...prev.slice(0, -1),
-                      { ...last, content: last.content + delta },
-                    ];
-                  }
-                  return prev;
-                });
-              }
-            } else if (ev.type === "error") {
-              streamError = true;
-            } else if (
-              ["image", "video", "audio", "model3d"].includes(ev.type)
-            ) {
+        const onEvent = (ev: AgentEvent) => {
+          if (controller.signal.aborted) return;
+          if (!gotFirstChunkRef.current) {
+            gotFirstChunkRef.current = true;
+            window.clearTimeout(timeoutId);
+            setPending(false);
+          }
+          if (ev.type === "text") {
+            const delta = ev.content || "";
+            if (!assistantMsg) {
+              assistantMsg = {
+                id: genId(),
+                role: "assistant",
+                content: delta,
+                timestamp: Date.now(),
+              };
+              setMessages((prev) => [...prev, assistantMsg!]);
+            } else {
               setMessages((prev) => {
                 const last = prev[prev.length - 1];
-                if (!last || last.role !== "assistant") return prev;
-                const media = [
-                  ...(last.media || []),
-                  { type: ev.type, urls: ev.urls || [] },
-                ];
-                return [...prev.slice(0, -1), { ...last, media }];
+                if (last && last.id === assistantMsg!.id) {
+                  return [
+                    ...prev.slice(0, -1),
+                    { ...last, content: last.content + delta },
+                  ];
+                }
+                return prev;
               });
             }
-          },
-          null,
-          controller.signal,
-        );
+          } else if (ev.type === "error") {
+            streamError = true;
+          } else if (
+            ["image", "video", "audio", "model3d"].includes(ev.type)
+          ) {
+            setMessages((prev) => {
+              const last = prev[prev.length - 1];
+              if (!last || last.role !== "assistant") return prev;
+              const media = [
+                ...(last.media || []),
+                { type: ev.type, urls: ev.urls || [] },
+              ];
+              return [...prev.slice(0, -1), { ...last, media }];
+            });
+          }
+        };
+
+        if (docIds.length) {
+          await agentChatWithDocs(apiMessages, docIds, onEvent, controller.signal);
+        } else {
+          await agentChat(apiMessages, onEvent, null, controller.signal);
+        }
       } catch {
         failed = true;
       } finally {
@@ -316,11 +404,13 @@ export function AssistantView() {
       const text = (presetPrompt ?? input).trim();
       if (!text || busy) return;
 
+      const docs = attachedDocs.map((d) => ({ id: d.id, filename: d.filename }));
       const userMsg: ChatMessage = {
         id: genId(),
         role: "user",
         content: text,
         timestamp: Date.now(),
+        docs: docs.length ? docs : undefined,
       };
       const newMsgs = [...messages, userMsg];
       setMessages(newMsgs);
@@ -328,12 +418,13 @@ export function AssistantView() {
         setInput("");
         setTextareaRows(1);
       }
-      await requestReply(newMsgs);
+      setAttachedDocs([]); // 挂载随消息发出,芯片转移到消息气泡上
+      await requestReply(newMsgs, docs.map((d) => d.id));
     },
-    [input, busy, messages, requestReply],
+    [input, busy, messages, attachedDocs, requestReply],
   );
 
-  // 重试:摘掉末尾错误气泡,重发上一条用户消息所在的对话
+  // 重试:摘掉末尾错误气泡,重发上一条用户消息所在的对话(复用上轮挂载的文档)
   const retry = useCallback(() => {
     if (busy) return;
     const base =
@@ -341,7 +432,7 @@ export function AssistantView() {
         ? messages.slice(0, -1)
         : messages;
     setMessages(base);
-    void requestReply(base);
+    void requestReply(base, lastDocIdsRef.current);
   }, [busy, messages, requestReply]);
 
   const onStop = useCallback(() => {
@@ -465,6 +556,16 @@ export function AssistantView() {
                       </>
                     ) : msg.content || msg.media?.length ? (
                       <>
+                        {msg.docs?.length ? (
+                          <span className="doc-chips doc-chips--msg">
+                            {msg.docs.map((d) => (
+                              <span key={d.id} className="doc-chip">
+                                <Icon name="file" size={11} strokeWidth={1.8} />
+                                {d.filename}
+                              </span>
+                            ))}
+                          </span>
+                        ) : null}
                         {msg.content}
                         {msg.media?.map((m, idx) => (
                           <div key={idx} className="av-media">
@@ -537,6 +638,25 @@ export function AssistantView() {
       </div>
 
       <div className="av-composer">
+        {attachedDocs.length > 0 && (
+          <div className="doc-chips doc-chips--composer">
+            {attachedDocs.map((d) => (
+              <span key={d.id} className="doc-chip doc-chip--removable">
+                <Icon name="file" size={11} strokeWidth={1.8} />
+                {d.filename}
+                <button
+                  type="button"
+                  className="doc-chip-x"
+                  onClick={() => removeAttachedDoc(d.id)}
+                  aria-label={`移除文档 ${d.filename}`}
+                  title="移除"
+                >
+                  <Icon name="close" size={10} strokeWidth={2} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
         <div className="av-composer-box">
           <div className="av-composer-actions av-composer-actions--left">
             {busy ? (
@@ -546,9 +666,10 @@ export function AssistantView() {
             ) : (
               <button
                 type="button"
-                className="av-composer-btn av-composer-btn-ghost av-composer-tool"
-                title="工具菜单（开发中）"
-                onClick={() => toast.info("附件与工具菜单即将上线")}
+                className={`av-composer-btn av-composer-btn-ghost av-composer-tool${docsOpen || attachedDocs.length ? " is-active" : ""}`}
+                title="文档(上传/挂载,供长文本理解)"
+                aria-label="文档"
+                onClick={() => setDocsOpen((v) => !v)}
               >
                 <Icon name="plus" size={14} strokeWidth={1.8} />
               </button>
@@ -665,10 +786,84 @@ export function AssistantView() {
         </div>
       </div>
 
-      {(historyOpen || contextOpen) && (
+      <div className={`av-panel av-panel--right${docsOpen ? " is-open" : ""}`}>
+        <div className="av-panel-head">
+          <span className="av-panel-title">文档</span>
+          <button type="button" className="av-panel-close" onClick={() => setDocsOpen(false)} aria-label="关闭文档面板" title="关闭">
+            <Icon name="close" size={12} strokeWidth={1.8} />
+          </button>
+        </div>
+        <div className="av-panel-body">
+          <button
+            type="button"
+            className="doc-upload-btn"
+            onClick={() => docFileRef.current?.click()}
+            disabled={docUploading}
+          >
+            <Icon name={docUploading ? "loading" : "upload"} size={13} strokeWidth={1.8} />
+            {docUploading ? "上传中…" : "上传文档(pdf / docx / txt / md,≤50MB)"}
+          </button>
+          {docList.length === 0 ? (
+            <div className="av-panel-empty">
+              <Icon name="file" size={20} strokeWidth={1.4} />
+              <span>暂无文档,上传后可挂载到对话做长文本理解</span>
+            </div>
+          ) : (
+            <div className="doc-list">
+              {docList.map((doc) => {
+                const attached = attachedDocs.some((d) => d.id === doc.id);
+                return (
+                  <div key={doc.id} className={`doc-item${attached ? " is-attached" : ""}`}>
+                    <button
+                      type="button"
+                      className="doc-item-main"
+                      onClick={() => toggleAttachDoc(doc)}
+                      title={attached ? "取消挂载" : "挂载到下一条消息"}
+                    >
+                      <div className="doc-item-info">
+                        <span className="doc-item-name">
+                          <Icon name="file" size={12} strokeWidth={1.8} />
+                          {doc.filename}
+                        </span>
+                        <span className="doc-item-meta">
+                          {doc.kind.toUpperCase()} · {formatDocSize(doc.size)} · {doc.chunk_count} 块 · {docStatusLabel(doc.status)}
+                        </span>
+                      </div>
+                      <span className={`doc-item-check${attached ? " is-on" : ""}`}>
+                        <Icon name="check" size={12} strokeWidth={2} />
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="doc-item-delete"
+                      onClick={() => onDeleteDoc(doc)}
+                      title="删除文档"
+                      aria-label={`删除文档 ${doc.filename}`}
+                    >
+                      <Icon name="delete" size={11} strokeWidth={1.8} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <input
+        ref={docFileRef}
+        type="file"
+        accept=".pdf,.docx,.txt,.md"
+        className="doc-file-input"
+        onChange={onPickDocFile}
+        aria-hidden="true"
+        tabIndex={-1}
+      />
+
+      {(historyOpen || contextOpen || docsOpen) && (
         <div
           className="av-panel-overlay"
-          onClick={() => { setHistoryOpen(false); setContextOpen(false); }}
+          onClick={() => { setHistoryOpen(false); setContextOpen(false); setDocsOpen(false); }}
         />
       )}
 

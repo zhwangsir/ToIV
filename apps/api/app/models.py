@@ -187,6 +187,27 @@ class Agent(SQLModel, table=True):
 
 
 # ---------------------------------------------------------------------------
+# 用户文档(文档上传与长文本理解)—— 原文/向量索引落盘(content_dir/docs/),
+# 表内只存元数据;chunk+向量按文档存 JSON(services/docs.py)。
+# ---------------------------------------------------------------------------
+
+
+class Document(SQLModel, table=True):
+    """用户上传的文档:按用户隔离,供对话挂载做 top-k 检索注入。"""
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    tenant_id: str = Field(index=True)
+    user_id: str = Field(index=True)
+    filename: str = ""
+    kind: str = ""  # pdf | docx | txt | md
+    size: int = 0  # 原始字节数
+    chunk_count: int = 0
+    # ready=已索引;partial=超长截断(前 MAX_CHUNKS 块);no_embed=向量服务不可用(检索降级为空)
+    status: str = "ready"
+    created_at: datetime = Field(default_factory=_now)
+
+
+# ---------------------------------------------------------------------------
 # 短剧播放分析(Drama Analytics)
 # ---------------------------------------------------------------------------
 
