@@ -4,6 +4,32 @@
 
 ---
 
+## LONGCAT-P2-2026-08-07 · LongCat 长视频引擎接入 core 全链路收官(P1b 压测 + P2 e2e)
+
+**时间**: 2026-08-07 22:40
+**类型**: feat(video) / e2e / 压测
+**目标**: 完成 LongCat-Video 引擎从部署到 core API 全链路可用。服务文档:`docs/2026-08-07-long-video-services.md`
+
+### P1b 长视频压测(720p×961 帧,60s 单镜头)
+
+- 参数:1280×720、961 帧@16fps、steps=10、上下文窗口(WanVideoContextOptions 81 帧/overlap 16)+ 块交换 30
+- 结果:**65 分钟出片,GPU2 峰值 29GB(采样期恒定 21.7GB,解码期 29GB)/ 全程 100% util,成片 52MB**;10s/55s 抽帧人工复核,60s 全程画质连贯无漂移 ✅
+- 关键经验:961 帧不开上下文窗口直接 OOM(66GB 已分配 + 13GB 请求);开窗后显存恒定,代价是耗时(~4s/帧);480p 短片(≤121 帧)不用开窗,10 块交换即可
+
+### P2 engine 接入 core(commit 57fd39c + df1f9ef)
+
+- `longcat-t2v` 注册 engine_registry;`POST /api/longcat/t2v`(positive 必填,num_frames 17–961 默认 121,320–1280 自动 16 对齐,steps 默认 10,fps 默认 16)
+- 前端 lib/api.ts + engines.ts 已接入;`rope_function="comfy"` 写死 builder
+- **core e2e**:121 帧竹林作业 → done → 产物代理下载 **200**,ffprobe 验证 832×480×121 帧(3.6MB)✅
+- 修复:resolve_worker 对 :8197 产物 URL 走 hostname 回退错配到同机 pool worker :8189(其 output 目录无 LongCat 产物)→ 经 core 代理下载 502;补 LongCat 精确匹配分支 + 单测(commit df1f9ef)
+- 测试:全量 **1007 passed**
+
+### 待办
+
+- P2b:longcat-i2v / 视频续写端点(builder/路由已留扩展位);长帧数自动开上下文窗口;P3:LongCat-Video-Avatar 数字人评估
+
+---
+
 ## LONGVID-2026-08-07 · 长视频双路线落地:末帧续写上线 + LongCat-Video 引擎冒烟
 
 **时间**: 2026-08-07 19:14

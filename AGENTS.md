@@ -184,6 +184,12 @@ nas:
 - **正确**：bootstrap peers 用以太网固定地址（192.168.71.x），让 EXO mDNS 自动发现 TB 接口建立 RDMA
 - **教训**：链路本地地址（169.254/16）永远不要硬编码到配置文件中
 
+### 9. 新专用实例接入后必须补 resolve_worker 精确匹配（2026-08-07）
+- **错误**：LongCat 实例（:8197）接入 core API 后，产物 URL 经 core 代理下载返回 502
+- **原因**：`deps.resolve_worker()` 对不在 pool 白名单的 worker 会按 hostname 回退，8197 与 pool worker 8189 同机（192.168.71.127），被错配到 8189——其 output 目录没有 LongCat 产物
+- **正确**：仿 H3 分支，在 hostname 回退之前对专用实例 base（`longcat_base`/`h3_base`）做精确匹配（commit df1f9ef）
+- **教训**：🔒 每新增一个与 pool worker 同机的专用 ComfyUI 实例，必须同步检查 `apps/api/app/deps.py` 的 resolve_worker 精确匹配分支，否则作业能跑通但产物取不回来
+
 ---
 
 ## 七、操作历史
@@ -232,6 +238,16 @@ nas:
 | 23:30 | API 测试 GLM-5.2-fp8 | ✅ 输出正常："I'm GLM, a large language model developed by Z.ai..." |
 | 23:40 | 检查 Workstation / PC01 / PC02 服务健康 | ✅ ComfyUI-LB、IndexTTS2、Embedding、ASR、LiveAct、H3、FlashTalk、OpenTalking 均正常；Nemotron vLLM 确认停用 |
 | 23:50 | 更新 AGENTS.md 并分发到所有项目 | ✅ GPU 分配表同步为当前真实状态 |
+
+### 2026-08-07 会话
+
+| 时间 | 操作 | 结果 |
+|------|------|------|
+| 全天 | core 生产链路全功能真机生成测试（12/12 通过，脚本 scripts/full_generation_test.py） | ✅ 见 TEST_LOG FULLGEN-2026-08-07 |
+| 晚间 | 长视频双路线：drama 末帧续写上线 core + LongCat-Video 引擎 GPU2 部署冒烟（:8197） | ✅ 见 TEST_LOG LONGVID-2026-08-07、服务文档 docs/2026-08-07-long-video-services.md |
+| 20:51 | LongCat 720p×961 帧（60s 单镜头）压测 | ✅ 65min / GPU2 峰值 29GB，60s 全程连贯（上下文窗口 81/overlap16 + 块交换 30） |
+| 22:00 | LongCat 接入 core API：engine_registry 注册 longcat-t2v + `POST /api/longcat/t2v`（commit 57fd39c） | ✅ 部署 core，e2e 121 帧作业 done |
+| 22:40 | 修复 resolve_worker 产物代理 502（:8197 精确匹配，commit df1f9ef） | ✅ 产物下载 200，832×480×121 帧验证通过，全量 1007 tests |
 
 ---
 

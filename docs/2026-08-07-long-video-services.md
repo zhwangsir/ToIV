@@ -100,20 +100,21 @@ POST /api/drama/shots/{sid}/continue-video
 
 - 显存预算:fp8 DiT 16GB + umt5 fp8 7GB + VAE,Block Swap(10 块)——**实测峰值 21GB**(480×832×49 帧);GPU2 常态余 90GB,**与 H3 突发 48GB 可共存**(21+48+5.3 ≈ 75GB < 98GB);若换 bf16(54GB)则必须与 H3 互斥
 
-### 3.4 冒烟实测(2026-08-07 19:14,脚本 `scripts/longcat_smoke.py`)
+### 3.4 冒烟与压测实测(脚本 `scripts/longcat_smoke.py`)
 
-| 项 | 值 |
-|---|---|
-| 参数 | 480×832、49 帧@16fps、steps=10、cfg=1.0、shift=12.0、scheduler=longcat_distill_euler、蒸馏 LoRA alpha64 |
-| 总耗时 | **73s**(含 NAS 模型加载 ~40s;热载后预计 30-40s) |
-| GPU2 峰值 | **21GB / 100% util**(采样期) |
-| 画质 | 提示词还原准确(雪山湖泊日照金山),480p 无可见伪影 |
+| 场景 | 参数 | 耗时 | GPU2 峰值 | 结果 |
+|---|---|---|---|---|
+| 冒烟 2026-08-07 19:14 | 480×832×49 帧 steps=10 | **73s**(含 NAS 冷载 ~40s) | 21GB / 100% util | ✅ 画质达标 |
+| 压测 2026-08-07 20:51 | **1280×720×961 帧(60s 单镜头)** steps=10,块交换 30,上下文窗口 81/overlap 16 | **65 分钟** | **29GB**(采样期恒定 21.7GB,解码期 29GB)/ 100% util | ✅ 60s 全程画质连贯无漂移 |
 
-⚠️ **关键坑:WanVideoSampler 必须设 `rope_function="comfy"`**——LongCat 的 qk norm 是 per-head(128 维),只有 comfy rope 路径会走 is_longcat 分支;缺省路径按全维度 4096 归一化,报 `The size of tensor a (4096) must match the size of tensor b (128)`。接入 engine_registry 时必须写死该参数。
+⚠️ 关键经验:
+1. **WanVideoSampler 必须设 `rope_function="comfy"`**——LongCat 的 qk norm 是 per-head(128 维),只有 comfy rope 路径会走 is_longcat 分支;缺省路径按全维度 4096 归一化,报 `The size of tensor a (4096) must match the size of tensor b (128)`。接入 engine_registry 时必须写死该参数。
+2. **长帧数必须开上下文窗口**(WanVideoContextOptions,81 帧/overlap 16)+ 加大块交换(10→30):961 帧不开窗口直接 OOM(66GB+13GB 请求),开窗后显存恒定 21.7GB,代价是耗时(61s/帧外推≈4s/帧)。
+3. 480p 短片(≤121 帧)不用开窗口,10 块交换即可,出片约 2-4 分钟。
 
-### 3.5 接入 core API(二期)
+### 3.5 接入 core API(二期,✅ 已落地)
 
-待引擎跑通后,按现有 engine_registry 模式注册 `longcat-t2v` / `longcat-i2v` / `longcat-continue` 三引擎,worker 指向 `http://192.168.71.127:8197`,参数表:num_frames(17–961)、resolution(480p/720p)、steps、cfg、seed。
+`longcat-t2v` 已按 engine_registry 模式注册并接入 core(commit 57fd39c + df1f9ef):`POST /api/longcat/t2v`,worker 指向 `http://192.168.71.127:8197`,参数:num_frames(17–961,默认 121)、resolution(320–1280,默认 832×480 自动 16 对齐)、steps(1–50,默认 10)、fps(8–30,默认 16)、seed。e2e 已通(121 帧作业 → done → 产物代理下载 200)。`longcat-i2v` / `longcat-continue` 留待 P2b。
 
 ### 3.6 姊妹模型储备(数字人方向)
 
@@ -182,6 +183,8 @@ curl -X POST http://192.168.71.47:8090/api/drama/shots/{sid}/continue-video \
 | P0 | LongCat-Video 权重下载至 NAS(官方 83GB + Kijai 单文件 26GB) | ✅ 完成 |
 | P1 | WanVideoWrapper 安装 + fp8 权重 + GPU2 实例起服务(:8197,1263 节点) | ✅ 完成 |
 | P1 | LongCat 冒烟:480×832×49 帧真机生成(73s,峰值 21GB,画质达标) | ✅ 完成 |
-| P1b | LongCat 长视频压测:720p 961 帧(~32s 单段)耗时/显存记录 | 待办 |
-| P2 | engine_registry 注册 longcat 三引擎(rope_function=comfy 写死),接入 core API + 前端 | 待办 |
+| P1b | LongCat 长视频压测:720p 961 帧(60s 单镜头,上下文窗口+块交换30) | ✅ 完成(65min/峰值 29GB,60s 全程连贯) |
+| P2 | engine_registry 注册 longcat-t2v + `POST /api/longcat/t2v` 接入 core(commit 57fd39c,1006 tests) | ✅ 完成(rope_function=comfy 已写死 builder) |
+| P2 | core e2e 全链路验证:121 帧竹林作业 → done → 产物代理下载 200(832×480×121 帧,3.6MB) | ✅ 完成;resolve_worker 补 LongCat 精确匹配修复产物代理 502(commit df1f9ef,1007 tests) |
+| P2b | LongCat i2v / 视频续写端点(builder/路由已留扩展位);长帧数(>241 帧)自动开上下文窗口的 builder 支持 | 待办 |
 | P3 | LongCat-Video-Avatar 数字人长视频评估 | 待办 |
