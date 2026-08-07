@@ -2,8 +2,18 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-08-05 23:50（更新 workstation GPU 分配：移除 Nemotron vLLM，GPU3 改为 FlashTalk/OpenTalking；收敛 ComfyUI-LB 后端）
+> **最后更新**：2026-08-08（🔒 新增硬性规则：所有后端服务都来源于 Workstation）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
+
+---
+
+## 〇、🔒 第一硬性规则：所有后端服务都来源于 Workstation
+
+> **所有 AI/算力后端服务（ComfyUI/LB、IndexTTS2、ASR、Embedding、LiveAct、H3、LongCat、FlashTalk、OpenTalking 等）全部运行在 Workstation(192.168.71.127 / 100.68.100.90)上，没有例外。**
+>
+> - core(192.168.71.47)只跑 ToIV web/api + PostgreSQL/Redis，是业务网关，不是算力来源
+> - 本机 Mac 只是操作终端；任何配置里出现的 `127.0.0.1` / `localhost` 服务地址（如 `opentalking_base_url` 默认 `http://127.0.0.1:4403`）都只是本地 dev 兜底，**真机排查一律先查 Workstation**
+> - 排查「服务离线/引擎不可达」时，第一反应必须是 SSH 到 Workstation 查 systemd 状态和端口监听，禁止臆断服务不存在
 
 ---
 
