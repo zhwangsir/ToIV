@@ -1684,6 +1684,31 @@ async def _probe_has_audio(path: Path) -> bool:
     return bool(out.decode().strip())
 
 
+async def _probe_video_meta(path: Path) -> tuple[int, int, int] | None:
+    """ffprobe 探测 (width, height, fps);失败返回 None(调用方回落项目参数)。
+
+    续写段的生成参数必须向源视频实测值对齐:project.width/height/fps 只是
+    项目默认值,分镜实际视频可能是别的分辨率/帧率(历史项目常见),直接用
+    项目参数会导致段产物与源视频参数不一致,concat 滤镜报
+    "Failed to configure output pad"。
+    """
+    if shutil.which("ffprobe") is None:
+        return None
+    proc = await asyncio.create_subprocess_exec(
+        "ffprobe", "-v", "error", "-select_streams", "v:0",
+        "-show_entries", "stream=width,height,avg_frame_rate", "-of", "csv=p=0", str(path),
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+    )
+    out, _ = await proc.communicate()
+    try:
+        w_s, h_s, rate = out.decode().strip().split(",")[:3]
+        num, den = rate.split("/")
+        fps = max(1, round(int(num) / max(1, int(den))))
+        return int(w_s), int(h_s), fps
+    except (ValueError, AttributeError):
+        return None
+
+
 async def _run_continue_video(
     sid: str,
     body: ContinueVideoRequest,
@@ -1741,6 +1766,24 @@ async def _run_continue_video(
                 await _resolve_shot_video_local(pool, shot.video_url, src_path)
                 part_paths = [src_path]
 
+                # 段参数向源视频实测对齐(分辨率/帧率),保证逐段一致、concat 可用
+                src_meta = await _probe_video_meta(src_path)
+                if src_meta:
+                    src_w, src_h, src_fps = src_meta
+                else:
+                    src_w, src_h, src_fps = project.width, project.height, fps
+                if engine_name == "h3":
+                    seg_w = min(1344, max(256, src_w // 32 * 32))
+                    seg_h = min(1344, max(256, src_h // 32 * 32))
+                else:
+                    seg_w = min(1920, max(256, src_w // 8 * 8))
+                    seg_h = min(1080, max(256, src_h // 8 * 8))
+                    if body.fps is None and src_meta:
+                        # 未显式指定 fps 时沿用源视频帧率(项目默认值常与实测不符)
+                        fps = max(4, min(30, src_fps))
+                        if body.length is None:
+                            length = _snap_ltx_length(fps * shot.duration_sec)
+
                 for i in range(body.segments):
                     frame_path = tmp_dir / f"frame-{i:03d}.jpg"
                     await _extract_last_frame(src_path, frame_path)
@@ -1763,8 +1806,8 @@ async def _run_continue_video(
                             positive=prompt,
                             negative=shot.negative,
                             image=image_name,
-                            width=min(1344, project.width // 32 * 32),
-                            height=min(1344, project.height // 32 * 32),
+                            width=seg_w,
+                            height=seg_h,
                             length=length,
                             steps=body.steps,
                             seed=seed_i,
@@ -1793,8 +1836,8 @@ async def _run_continue_video(
                             unet_name=video_ckpt,
                             gemma_name=settings.nsfw_default_gemma,
                             vae_name=settings.nsfw_default_vae,
-                            width=project.width,
-                            height=project.height,
+                            width=seg_w,
+                            height=seg_h,
                             length=length,
                             fps=fps,
                             steps=body.steps,

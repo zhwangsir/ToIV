@@ -442,3 +442,63 @@ def test_run_continue_error_marks_status(ctx, monkeypatch):
         shot = s.get(DramaShot, sid)
         assert shot.continue_status == "error"
         assert "执行失败" in shot.continue_error
+
+
+def _graph_dims(graph: dict) -> tuple[int, int] | None:
+    for node in graph.values():
+        inputs = node.get("inputs", {}) if isinstance(node, dict) else {}
+        if "width" in inputs and "height" in inputs:
+            return inputs["width"], inputs["height"]
+    return None
+
+
+def test_run_continue_aligns_to_source_video_meta(ctx, monkeypatch):
+    """段参数向源视频实测对齐:probe 到 640×360@24 时,图参数/fps 用实测值而非项目默认值。
+
+    回归场景:历史项目 project.width/height/fps 与分镜实际视频不一致(如项目
+    默认 256×256@8,实际视频 768×384@16),段产物参数必须与源视频一致,否则
+    concat 滤镜报 "Failed to configure output pad"。
+    """
+    _, _, engine, pid, sid, tmp_path = ctx
+    fake = _FakeClient()
+    _install_common_mocks(tmp_path, fake, monkeypatch)
+    monkeypatch.setattr(
+        drama_studio_route, "wait_for_jobs",
+        AsyncMock(return_value={"pid-1": ["/api/images?filename=s1.mp4&type=output&worker=http://worker"]}),
+    )
+    monkeypatch.setattr(
+        drama_studio_route, "_probe_video_meta", AsyncMock(return_value=(640, 360, 24))
+    )
+
+    body = drama_studio_route.ContinueVideoRequest(segments=1, seed=7)
+    with Session(engine) as s:
+        uid = s.exec(select(User).where(User.email == "cont@toiv.ai")).first().id
+        tid = s.get(DramaProject, pid).tenant_id
+    asyncio.run(drama_studio_route._run_continue_video(sid, body, "ltx", tid, uid))
+
+    assert len(fake.graphs) == 1
+    g = fake.graphs[0]
+    assert _graph_dims(g) == (640, 360)  # 实测分辨率(8 对齐)
+    assert _graph_length(g) == 137  # 24fps × 6s = 144 → 137(8k+1,按实测 fps 换算)
+
+
+def test_run_continue_probe_fallback_to_project(ctx, monkeypatch):
+    """probe 失败(返回 None)时回落项目参数,行为与修复前一致。"""
+    _, _, engine, pid, sid, tmp_path = ctx
+    fake = _FakeClient()
+    _install_common_mocks(tmp_path, fake, monkeypatch)
+    monkeypatch.setattr(
+        drama_studio_route, "wait_for_jobs",
+        AsyncMock(return_value={"pid-1": ["/api/images?filename=s1.mp4&type=output&worker=http://worker"]}),
+    )
+    monkeypatch.setattr(drama_studio_route, "_probe_video_meta", AsyncMock(return_value=None))
+
+    body = drama_studio_route.ContinueVideoRequest(segments=1, seed=7)
+    with Session(engine) as s:
+        uid = s.exec(select(User).where(User.email == "cont@toiv.ai")).first().id
+        tid = s.get(DramaProject, pid).tenant_id
+    asyncio.run(drama_studio_route._run_continue_video(sid, body, "ltx", tid, uid))
+
+    g = fake.graphs[0]
+    assert _graph_dims(g) == (768, 384)  # 项目默认 768×384@16
+    assert _graph_length(g) == 89  # 16fps × 6s = 96 → 89
