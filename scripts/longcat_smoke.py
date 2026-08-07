@@ -77,6 +77,7 @@ def main() -> None:
     ap.add_argument("--height", type=int, default=832)
     ap.add_argument("--frames", type=int, default=49)
     ap.add_argument("--steps", type=int, default=10)
+    ap.add_argument("--timeout", type=int, default=1800, help="轮询超时秒数")
     args = ap.parse_args()
 
     print(f"提交 LongCat t2v: {args.width}x{args.height} {args.frames}帧 steps={args.steps}")
@@ -95,8 +96,8 @@ def main() -> None:
         if hist:
             break
         print(f"  {int(time.time()-t0)}s GPU2: {mem}", flush=True)
-        if time.time() - t0 > 1800:
-            print("超时 30 分钟"); sys.exit(1)
+        if time.time() - t0 > args.timeout:
+            print(f"超时 {args.timeout}s"); sys.exit(1)
 
     elapsed = time.time() - t0
     outputs = hist[pid].get("outputs", {})

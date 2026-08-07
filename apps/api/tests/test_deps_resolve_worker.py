@@ -89,3 +89,27 @@ def test_resolve_worker_strips_trailing_slash(settings_workers):
     """带尾斜杠的 worker URL 应归一化匹配。"""
     client = resolve_worker("http://192.168.71.127:8189/")
     assert client.base_url == "http://192.168.71.127:8189"
+
+
+def test_resolve_worker_longcat_exact_match(monkeypatch):
+    """LongCat 专用实例(不在 pool 白名单)必须精确匹配,不能落到 hostname 回退。
+
+    场景:LongCat 实例 8197 与 pool worker 8189 同机(192.168.71.127),但输出
+    目录不同。若走 hostname 回退会被错配到 8189,其 output 目录没有 LongCat
+    产物,经 core 代理下载报 502。必须在 hostname 回退前精确命中 8197。
+    """
+    fake = type(
+        "S",
+        (),
+        {
+            "worker_urls": [
+                "http://192.168.71.127:8189",
+                "http://192.168.71.127:8190",
+            ],
+            "request_timeout": 30.0,
+            "longcat_base": "http://192.168.71.127:8197",
+        },
+    )()
+    monkeypatch.setattr("app.deps.get_settings", lambda: fake)
+    client = resolve_worker("http://192.168.71.127:8197")
+    assert client.base_url == "http://192.168.71.127:8197"
