@@ -5,11 +5,25 @@
 
 .anim-header {
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-4);
   flex-wrap: wrap;
   margin-bottom: var(--space-5);
+}
+
+/* 计数徽章与标题行对齐:容器高度取标题行高,徽章加细边框与下方控件面板呼应 */
+.anim-header-right {
+  display: flex;
+  align-items: center;
+  height: var(--leading-xl);
+}
+
+.anim-header-right .badge {
+  height: var(--space-6);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-subtle);
+  white-space: nowrap;
 }
 
 .anim-title {
@@ -29,7 +43,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1);
   width: 100%;
   padding: var(--space-8);
   background: var(--bg-surface-1);
@@ -39,6 +53,11 @@
   cursor: pointer;
   transition: border-color var(--duration-fast) var(--ease-standard),
               background-color var(--duration-fast) var(--ease-standard);
+}
+
+/* 图标弱化为辅助色:图标 → 主文案 → 辅助文案形成清晰层级 */
+.anim-drop > svg {
+  color: var(--text-muted);
 }
 .anim-drop:hover:not(:disabled) {
   border-color: var(--text-muted);
@@ -50,6 +69,7 @@
 }
 
 .anim-drop-title {
+  margin-top: var(--space-2);
   font-size: var(--text-base);
   font-weight: 500;
   color: var(--text-primary);
@@ -157,6 +177,12 @@
   border-radius: var(--radius-lg);
 }
 
+/* 控件高度统一:输入框/下拉与大按钮(.btn-lg)同为 40px,底部对齐后视觉齐平 */
+.anim-params input.input,
+.anim-params select.input {
+  height: var(--space-10);
+}
+
 .anim-field {
   display: flex;
   flex-direction: column;
@@ -213,9 +239,9 @@
 /* AI 解析 / 快速拼接 模式切换 */
 .anim-mode-switch {
   display: inline-flex;
-  gap: 4px;
+  gap: var(--space-1);
   margin-top: var(--space-4);
-  padding: 4px;
+  padding: var(--space-1);
   background: var(--bg-surface-1);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
@@ -224,13 +250,16 @@
 .anim-mode-tab {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
+  height: var(--space-8);
+  padding: 0 var(--space-4);
   border: none;
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-secondary);
   font-size: var(--text-sm);
+  line-height: 1;
   cursor: pointer;
   transition: background-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
 }

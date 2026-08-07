@@ -521,18 +521,18 @@ export function AudioView() {
           max-width: 760px;
         }
 
-        /* 工具卡 */
+        /* 工具卡(头部/表单/结果均由子组件渲染,styled-jsx 作用域不跨组件,统一走 :global) */
         .audio-view :global(.audio-tool-card) {
           display: flex;
           flex-direction: column;
           gap: var(--space-3);
         }
-        .audio-tool-head {
+        .audio-view :global(.audio-tool-head) {
           display: flex;
-          align-items: flex-start;
-          gap: var(--space-2);
+          align-items: center;
+          gap: var(--space-3);
         }
-        .audio-tool-icon {
+        .audio-view :global(.audio-tool-icon) {
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -543,41 +543,41 @@ export function AudioView() {
           color: var(--accent);
           flex-shrink: 0;
         }
-        .audio-tool-headtext {
+        .audio-view :global(.audio-tool-headtext) {
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          gap: var(--space-1);
           min-width: 0;
         }
-        .audio-tool-title {
-          font-size: var(--text-sm);
+        .audio-view :global(.audio-tool-title) {
+          font-size: var(--text-base);
           font-weight: 600;
           color: var(--text-primary);
         }
-        .audio-tool-desc {
+        .audio-view :global(.audio-tool-desc) {
           font-size: var(--text-aux);
           color: var(--text-muted);
           line-height: 1.5;
         }
-        .audio-tool-body {
+        .audio-view :global(.audio-tool-body) {
           display: flex;
           flex-direction: column;
           gap: var(--space-3);
         }
 
         /* 提示词区(与 GenerateView prompt-field 同款头部排布) */
-        .audio-prompt-field {
+        .audio-view :global(.audio-prompt-field) {
           display: flex;
           flex-direction: column;
           gap: var(--space-1);
         }
-        .audio-prompt-head {
+        .audio-view :global(.audio-prompt-head) {
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: var(--space-2);
         }
-        .audio-prompt-label {
+        .audio-view :global(.audio-prompt-label) {
           font-size: var(--text-label);
           font-weight: 500;
           text-transform: uppercase;
@@ -586,13 +586,13 @@ export function AudioView() {
         }
 
         /* 上传行 */
-        .audio-ref-row {
+        .audio-view :global(.audio-ref-row) {
           display: flex;
           align-items: center;
           gap: var(--space-2);
           flex-wrap: wrap;
         }
-        .audio-ref-name {
+        .audio-view :global(.audio-ref-name) {
           display: inline-flex;
           align-items: center;
           gap: var(--space-1);
@@ -603,19 +603,19 @@ export function AudioView() {
           text-overflow: ellipsis;
           white-space: nowrap;
         }
-        .audio-ref-clear {
+        .audio-view :global(.audio-ref-clear) {
           display: inline-flex;
           align-items: center;
           color: var(--text-muted);
           cursor: pointer;
           border-radius: var(--radius-sm);
         }
-        .audio-ref-clear:hover {
+        .audio-view :global(.audio-ref-clear:hover) {
           color: var(--text-primary);
         }
 
         /* 进度条(与译制台 dub-progress 同款) */
-        .audio-progress {
+        .audio-view :global(.audio-progress) {
           position: relative;
           width: 100%;
           height: 28px;
@@ -624,12 +624,12 @@ export function AudioView() {
           border-radius: var(--radius-control);
           overflow: hidden;
         }
-        .audio-progress-bar {
+        .audio-view :global(.audio-progress-bar) {
           height: 100%;
           background: linear-gradient(90deg, var(--accent), var(--run));
           transition: width var(--duration-base) var(--ease-standard);
         }
-        .audio-progress-label {
+        .audio-view :global(.audio-progress-label) {
           position: absolute;
           inset: 0;
           display: flex;
@@ -641,7 +641,7 @@ export function AudioView() {
         }
 
         /* 结果区 */
-        .audio-result {
+        .audio-view :global(.audio-result) {
           display: flex;
           flex-direction: column;
           gap: var(--space-2);
@@ -650,17 +650,17 @@ export function AudioView() {
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-control);
         }
-        .audio-player {
+        .audio-view :global(.audio-player) {
           width: 100%;
           height: 36px;
         }
-        .audio-result-meta {
+        .audio-view :global(.audio-result-meta) {
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: var(--space-2);
         }
-        .audio-result-info {
+        .audio-view :global(.audio-result-info) {
           font-size: var(--text-aux);
           color: var(--text-muted);
           overflow: hidden;
@@ -668,7 +668,7 @@ export function AudioView() {
           white-space: nowrap;
           min-width: 0;
         }
-        .audio-result-download {
+        .audio-view :global(.audio-result-download) {
           display: inline-flex;
           align-items: center;
           gap: var(--space-1);
@@ -676,28 +676,28 @@ export function AudioView() {
           color: var(--accent);
           flex-shrink: 0;
         }
-        .audio-result-download:hover {
+        .audio-view :global(.audio-result-download:hover) {
           text-decoration: underline;
         }
 
         /* 转写结果 */
-        .audio-transcript {
+        .audio-view :global(.audio-transcript) {
           display: flex;
           flex-direction: column;
           gap: var(--space-2);
         }
-        .audio-transcript-head {
+        .audio-view :global(.audio-transcript-head) {
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: var(--space-2);
         }
 
-        .audio-error {
+        .audio-view :global(.audio-error) {
           font-size: var(--text-aux);
           color: var(--err);
         }
-        .audio-actions {
+        .audio-view :global(.audio-actions) {
           display: flex;
           align-items: center;
           gap: var(--space-2);

@@ -513,7 +513,8 @@ export function BacklotView() {
         </div>
       )}
 
-      <style jsx>{`
+      {/* 子组件(ProgressTriple/ShotRow)外置,scoped styled-jsx 不跨组件边界,须 global(bl- 前缀不泄漏) */}
+      <style jsx global>{`
         .backlot-view {
           display: flex;
           flex-direction: column;

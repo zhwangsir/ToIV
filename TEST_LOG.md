@@ -4,6 +4,36 @@
 
 ---
 
+## UI-TYPO-FIX-2026-08-07 · 图标/文字排版修复(swarm 6 路并行)
+
+**时间**: 2026-08-07
+**类型**: fix(ui) / regression
+**目标**: 用户反馈部分页面图标和文字不协调、排版存在问题;全视图截图审计后分派 6 个子代理并行修复
+
+### 核心发现:styled-jsx 不跨组件边界的系统性死样式
+
+子组件外置(与主组件同文件但独立函数)时,主组件 `<style jsx>` 的 scoped 类不会打到子组件元素上 → 整段样式静默失效。排查全项目 11 个多组件文件,命中 3 处:
+
+| 页面 | 问题 | 修复 |
+|---|---|---|
+| imageEdit(重灾区) | 400+ 行 `.ie-*` 样式全部失效,上传区裸文本 | `ImageEditView.tsx` style jsx → jsx global |
+| audio 编辑 tab | 工具卡图标/标题/描述样式死代码,标题描述粘连 | `AudioView.tsx` 子组件选择器改 `:global()` 限定 `.audio-view` 内 |
+| backlot | `.bl-progress-*`/`.bl-shot-*` 23 个类失效(有数据时进度条/分镜卡裸奔) | `BacklotView.tsx` → jsx global |
+
+### 其余修复
+
+- **dub 步骤条**:步骤项等宽居中节奏均匀;锁定态圆圈/锁图标/说明全面 muted 弱化;hint 与 label 拉开层级
+- **videoEdit**:时间线三轨标签图标改横向+垂直居中;预览空态改用共享 `<Empty>` 组件(图标+主文案+辅助文案节奏统一);硬编码 gap 令牌化
+- **animatic**:「0/9 镜」徽章加边框与标题行平齐;模式 tab 固定 32px 高度图标文字严格居中;表单行 input/select 统一 40px 与按钮齐平
+- **admin**:「新建用户」按钮图标 send(纸飞机)→ plus,与「新建项目/新增分镜」统一
+
+### 验证
+
+- 修复页面截图复核(imageEdit/audio编辑/dub/animatic/videoEdit)全部协调
+- 生产(core 部署后):`playwright.prod.config.ts` **161 passed / 0 failed**(基线持平)
+
+---
+
 ## UI-NAVSAFE-2026-08-07 · CornerNav 遮挡修复:页面左上按钮避让
 
 **时间**: 2026-08-07

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { Empty } from "@/components/ui/Empty";
 import { Icon } from "@/components/ui/Icon";
 import { genId } from "@/lib/id";
 import {
@@ -556,10 +557,11 @@ export function VideoEditView() {
               </div>
             )
           ) : (
-            <div className="ve-preview-empty">
-              <Icon name="film" size={36} />
-              <span>导入素材后,点击素材或时间线片段即可预览</span>
-            </div>
+            <Empty
+              icon="film"
+              title="暂无预览"
+              desc="导入素材后,点击素材或时间线片段即可预览"
+            />
           )}
         </section>
       </div>
@@ -580,8 +582,10 @@ export function VideoEditView() {
         {/* 视频轨 */}
         <div className="ve-tl-row">
           <div className="ve-tl-label">
-            <Icon name="video" size={14} />
-            <span>视频轨</span>
+            <span className="ve-tl-label-name">
+              <Icon name="video" size={14} />
+              <span>视频轨</span>
+            </span>
           </div>
           <div className="ve-tl-track">
             {clips.length === 0 && (
@@ -694,8 +698,10 @@ export function VideoEditView() {
         {/* 音频轨 */}
         <div className="ve-tl-row">
           <div className="ve-tl-label">
-            <Icon name="audio" size={14} />
-            <span>音频轨</span>
+            <span className="ve-tl-label-name">
+              <Icon name="audio" size={14} />
+              <span>音频轨</span>
+            </span>
           </div>
           <div className="ve-tl-track">
             {audios.length === 0 && (
@@ -824,8 +830,10 @@ export function VideoEditView() {
         {/* 文字轨 */}
         <div className="ve-tl-row">
           <div className="ve-tl-label">
-            <Icon name="type" size={14} />
-            <span>文字轨</span>
+            <span className="ve-tl-label-name">
+              <Icon name="type" size={14} />
+              <span>文字轨</span>
+            </span>
             <button
               type="button"
               className="btn btn-ghost btn-sm ve-add-text"
@@ -1093,7 +1101,7 @@ export function VideoEditView() {
         .ve-panel-name {
           display: inline-flex;
           align-items: center;
-          gap: 6px;
+          gap: var(--space-2);
         }
         .ve-panel-side {
           display: inline-flex;
@@ -1184,6 +1192,10 @@ export function VideoEditView() {
         .ve-preview {
           min-height: 260px;
         }
+        .ve-preview :global(.empty-state) {
+          min-height: 220px;
+          padding: var(--space-8) var(--space-4);
+        }
         .ve-preview-name {
           font-size: var(--text-xs);
           color: var(--text-muted);
@@ -1213,17 +1225,6 @@ export function VideoEditView() {
           font-size: var(--text-xs);
           color: var(--text-muted);
         }
-        .ve-preview-empty {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: var(--space-3);
-          min-height: 220px;
-          color: var(--text-muted);
-          font-size: var(--text-sm);
-          text-align: center;
-        }
         .ve-timeline {
           display: flex;
           flex-direction: column;
@@ -1244,6 +1245,11 @@ export function VideoEditView() {
           gap: var(--space-1);
           font-size: var(--text-xs);
           color: var(--text-secondary);
+        }
+        .ve-tl-label-name {
+          display: inline-flex;
+          align-items: center;
+          gap: var(--space-1);
         }
         .ve-add-text {
           margin-top: var(--space-1);
@@ -1400,7 +1406,7 @@ export function VideoEditView() {
         .ve-footer-hint {
           display: inline-flex;
           align-items: center;
-          gap: 6px;
+          gap: var(--space-1);
           color: var(--warn);
         }
         .ve-result {

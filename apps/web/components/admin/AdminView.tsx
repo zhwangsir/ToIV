@@ -202,7 +202,7 @@ export function AdminView() {
           className="btn btn-primary admin-create-btn"
           onClick={openCreate}
         >
-          <Icon name="send" size={14} />
+          <Icon name="plus" size={14} />
           新建用户
         </button>
       </header>

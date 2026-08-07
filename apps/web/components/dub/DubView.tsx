@@ -1283,7 +1283,7 @@ export function DubView() {
         .dub-view {
           display: flex;
           flex-direction: column;
-          gap: var(--space-5);
+          gap: var(--space-4);
         }
 
         /* ── 顶部 ── */
@@ -1322,7 +1322,7 @@ export function DubView() {
           align-items: center;
         }
 
-        /* ── 步骤指示器 ── */
+        /* ── 步骤指示器:四步等宽,内容在各自格内居中,节奏均匀 ── */
         .dub-stepper {
           display: flex;
           align-items: stretch;
@@ -1336,9 +1336,11 @@ export function DubView() {
           position: relative;
           display: flex;
           align-items: center;
-          gap: 10px;
-          flex: 1;
-          padding: 4px 0;
+          justify-content: center;
+          gap: var(--space-2);
+          flex: 1 1 0;
+          min-width: 0;
+          padding: var(--space-1) var(--space-2);
           cursor: pointer;
           color: var(--text-secondary);
           border-radius: var(--radius-control);
@@ -1364,7 +1366,7 @@ export function DubView() {
           justify-content: center;
           width: 28px;
           height: 28px;
-          border-radius: 50%;
+          border-radius: var(--radius-full);
           background: var(--bg-surface-2);
           border: 1px solid var(--border-strong);
           color: var(--text-secondary);
@@ -1385,6 +1387,13 @@ export function DubView() {
           border-color: var(--ok);
           color: var(--ok);
         }
+        /* 锁定步骤整体弱化:圆圈描边/底色/图标全部降到 muted 层级 */
+        .dub-step.is-locked .dub-step-circle {
+          background: var(--bg-surface-1);
+          border-color: var(--border-subtle);
+          color: var(--text-muted);
+          box-shadow: none;
+        }
         .dub-step-text {
           display: flex;
           flex-direction: column;
@@ -1396,14 +1405,23 @@ export function DubView() {
           font-weight: 500;
           letter-spacing: -0.01em;
           line-height: 1.25;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .dub-step.is-active .dub-step-label {
           color: var(--text-primary);
         }
         .dub-step-hint {
           font-size: var(--text-label);
-          color: var(--text-secondary);
+          color: var(--text-muted);
           line-height: 1.2;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .dub-step.is-active .dub-step-hint {
+          color: var(--text-secondary);
         }
         .dub-step-line {
           position: absolute;
@@ -1411,7 +1429,7 @@ export function DubView() {
           top: 50%;
           transform: translateY(-50%);
           width: 1px;
-          height: 24px;
+          height: 20px;
           background: var(--border-subtle);
         }
         /* 移动端:四步等宽压缩(小圆点 + 小字号 + 去 hint/分隔线),保证 390px 全显 */
@@ -1420,7 +1438,7 @@ export function DubView() {
             padding: var(--space-2) var(--space-3);
           }
           .dub-step {
-            gap: 6px;
+            gap: var(--space-1);
             min-width: 0;
           }
           .dub-step-circle {

@@ -644,7 +644,8 @@ export function ImageEditView() {
         </div>
       )}
 
-      <style jsx>{`
+      {/* DropZone/ToolCard 等子组件在主组件之外定义,styled-jsx 作用域属性不会传递,必须用 global(ie- 前缀类名全项目唯一) */}
+      <style jsx global>{`
         .ie-view {
           display: flex;
           flex-direction: column;
