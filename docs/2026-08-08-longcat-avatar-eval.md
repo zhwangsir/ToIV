@@ -162,7 +162,18 @@ kijai **WanVideoWrapper main 分支已原生支持 Avatar 1.5**(API 实测 main 
 
 | 阶段 | 内容 | 依赖/预算 | 风险 |
 |---|---|---|---|
-| **P0 权重下载**(0.5 天) | 下载至 NAS `toiv/comfyui-models/LongCat-Avatar/`:GGUF **Q8_0 19.1GB**(ModelScope 直链,规避 hf-mirror 限流)+ dmd 蒸馏 LoRA 1.26GB(Kijai/WanVideo_comfy)+ whisper-large-v3 3.09GB + Kim_Vocal_2.onnx 0.07GB;umt5/VAE 复用 | ~24GB NAS,已有 39TB 余量 | 低;⚠️ 别下成 v1.0 权重(见 3.4-8) |
+| **P0 权重下载**(0.5 天) | ✅ **已下载(2026-08-08,全部 sha256 校验通过)**,落位 NAS `toiv/comfyui-models/`,详见表下清单;umt5/VAE 复用 | ~24GB NAS,已有 39TB 余量 | 低;⚠️ 别下成 v1.0 权重(见 3.4-8) |
+
+**P0 实落清单**(2026-08-08,全部走 ModelScope 直链,sha256 与远端仓库元数据一致):
+
+| 文件 | 落位路径(NAS `toiv/comfyui-models/` 下) | 大小 | 来源(ModelScope) |
+|---|---|---|---|
+| GGUF Q8_0 DiT | `diffusion_models/LongCat-Avatar/LongCat-Avatar-15_comfy-Q8_0.gguf` | 19,081,405,440 B (19.1GB) | `vantagewithai/LongCat-Video-Avatar-1.5-GGUF-ComfyUI` |
+| dmd 蒸馏 LoRA | `loras/LongCat-Avatar-15_dmd_distill_lora_rank128_bf16.safetensors` | 1,261,613,536 B (1.26GB) | `Kijai/WanVideo_comfy` → `LongCat/`(**v1.5 专用,非 v1.0**) |
+| whisper-large-v3 | `audio_encoders/whisper-large-v3.safetensors` | 3,087,130,976 B (3.09GB) | `meituan-longcat/LongCat-Video-Avatar-1.5` → `whisper-large-v3/model.safetensors` |
+| Kim_Vocal_2.onnx | `vocal_separator/Kim_Vocal_2.onnx`(附 mdx/vr_model_data.json、download_checks.json) | 66,759,214 B (0.07GB) | `meituan-longcat/LongCat-Video-Avatar-1.5` → `vocal_separator/` |
+
+**P1 接线提示**(实测 :8197 实例代码得出):① wrapper `WhisperModelLoader` 从 `models/audio_encoders/` 取单文件 safetensors(键名 `model.*`,完整 HF  checkpoint 可直接喂,decoder 键自动忽略),config 用 wrapper 自带 `HuMo/whisper_config.json`(已确认 large-v3:1280 维/32 层/128 mel);② :8197 的 `extra_model_paths.yaml` 目前只映射 diffusion_models/text_encoders/vae/loras,**需补 `audio_encoders: audio_encoders` 一行**并重启实例;③ Kim_Vocal_2.onnx 走官方 vocal_separator 路线;若改用 Kijai ComfyUI-MelBandRoFormer 插件,其模型是 `MelBandRoformer_fp16.safetensors`(456MB,ModelScope `Kijai/MelBandRoFormer_comfy` 有镜像),P1 装插件时再定夺补下。
 | **P1 实例扩展+冒烟**(1 天) | :8197 实例 git pull WanVideoWrapper(main 已含 Avatar 1.5 节点)、装 ComfyUI-MelBandRoFormer;按官方示例工作流跑 480×832×81 帧冒烟:参数写死 fps=25、4n+1 帧、merge_loras=false | GPU2 峰值 ~30-35GB,与 ASR/H3 共存 | 中;节点版本兼容需实测 |
 | **P2 压测+core 接入**(2-3 天) | ① 720p×分钟级压测(上下文窗口,与 H3 互斥策略复用);② engine_registry 注册 `longcat-avatar`(复用 longcat-t2v 的 builder/路由模式);③ **resolve_worker 勿忘**:8197 已有精确匹配分支,无需改动,但新增端点回归一遍产物代理;④ OpenTalking 聚合入口 | 参照 LONGVID-2026-08-07 流程 | 中;长视频段间一致性需真机验证 |
 | **P3 产品化**(后续) | drama studio「口播镜头」类型接入;文本→IndexTTS2→Avatar 一键成片 | — | 低 |
