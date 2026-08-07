@@ -275,6 +275,7 @@ nas:
 - [x] PC01/PC02 重启 ComfyUI 使 extra_model_paths.yaml 生效（✅ PC01 :8188 / PC02 :8193 均加载 NAS 模型）
 - [x] Workstation SGLang/infinity 真机未安装（✅ 已用 Qwen3-Embedding-4B 真机 sentence-transformers 服务替代，:9302 恢复）
 - [ ] Cloud SSH banner 超时排查（HTTPS 正常）
-- [ ] 项目负责人推送 ToIV/DRT 到 core
+- [x] ToIV 迁移 core(✅ deploy.sh 持续部署,toiv-api/web 为唯一生产点,见 docs/2026-08-08-core-migration-status.md)
+- [ ] 项目负责人推送 DRT 到 core(备份在 workstation /var/tmp)
 - [ ] Cloud 反代切换指向 core（待 core 业务就绪后）
 - [x] 清理 .archive 中过期的部署残留（backup-20260722 / deploy-residues）
