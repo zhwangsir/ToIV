@@ -4,6 +4,28 @@
 
 ---
 
+## PROMPTOPT-2026-08-08 · 提示词优化改版真机验收(用户描述风格→AI二次优化)
+
+**时间**: 2026-08-08 00:50
+**类型**: test(e2e) / 功能验收
+**目标**: 验收「固定模板 → 用户描述风格 + AI 二次优化」改版(前端 OptimizeButton style_hint → POST /api/optimize 最高优先级注入,此前会话已实现,本轮补真机验收)
+
+### 链路确认(全链路已通,无代码改动)
+
+- 前端:OptimizeButton Popover「自定义风格」输入(本地回填记忆)→ lib/agents.ts `optimizeWithAgent({styleHint})` → `style_hint` 字段
+- 后端:`routes/optimize.py` `_compose()` 把 style_hint 以「最高优先级」注入系统提示,与智能体人格/模型族方言叠加;负面词内容感知(题材定制)
+- 回填:onOptimized(text, negative) → 引擎支持 negative 时自动填入负面词参数(GenerateView 已接线)
+
+### core 真机验收(192.168.71.47:8090)
+
+| 用例 | 结果 |
+|---|---|
+| 无 style_hint「一只猫在花园里」image | 通用写实改写 + 排除卡通负面 ✅ |
+| style_hint「赛博朋克霓虹夜景,蓝紫色调,电影感」image | 输出完全转向 cyberpunk 霓虹/蓝紫/电影光 ✅ 风格生效 |
+| style_hint「胶片质感,暖色调,缓慢运镜」video | film grain + warm golden hour + slow pan;**负面自动含 cold tones(风格的反面)** ✅ 正是用户要求的「相反效果自动填入」 |
+
+---
+
 ## LOADOPT-2026-08-08 · 负载优化:demucs 迁 GPU2 + ComfyUI#1 缓存上限
 
 **时间**: 2026-08-08 00:20
