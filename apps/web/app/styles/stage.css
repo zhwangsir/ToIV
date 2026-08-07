@@ -30,6 +30,15 @@
   height: auto;
 }
 
+/* /nsfw 作品库 tab(NsfwView 内嵌 LibraryView):tab 面板是 flex 定高容器,
+   LibraryView 是页面流式布局,包一层自滚动容器收进面板 */
+.nsfw-library {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-5) var(--space-5);
+}
+
 .generate-header {
   display: flex;
   align-items: center;

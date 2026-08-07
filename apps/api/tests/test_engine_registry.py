@@ -334,6 +334,36 @@ async def test_sfw_context_strips_nsfw_ckpt_options(live_pool, user):
     assert not any("NSFW" in label for label in preset_labels)
 
 
+async def test_sfw_context_keeps_sfw_intent_presets(live_pool, user):
+    """sfw_intent 预设回归(2026-08-08):底模命中 is_nsfw hints(wai/hassaku/pony)
+    但预设定位主站通用风格,SFW 上下文不得连带隐藏;真 NSFW 预设仍剔除。"""
+    token = nsfw_intent_var.set(False)
+    try:
+        ids = _by_id(await list_engines(live_pool, user))
+    finally:
+        nsfw_intent_var.reset(token)
+    values = [o["value"] for o in _param(ids["txt2img"], "style_preset")["options"]]
+    # SFW 意图预设(底模 waiIllustrious/hassakuXL/ponyDiffusion)主站可见
+    for pid in ("anime", "anime_soft", "fantasy", "campus", "history_war"):
+        assert pid in values, f"SFW 意图预设 {pid} 被 hints 误伤隐藏"
+    # 真 NSFW 意图预设仍隐藏;hints 认定成人向底模的预设也不放出
+    for pid in ("nsfw_realistic", "nsfw_anime", "nsfw_pony",
+                "chibi", "anime_high_quality", "portrait"):
+        assert pid not in values, f"{pid} 不应在主站可见"
+
+
+async def test_r18_context_keeps_all_style_presets(live_pool, user):
+    """R18 上下文:风格预设全量保留(含 nsfw_* 与 sfw_intent 两类)。"""
+    token = nsfw_intent_var.set(True)
+    try:
+        ids = _by_id(await list_engines(live_pool, user))
+    finally:
+        nsfw_intent_var.reset(token)
+    values = [o["value"] for o in _param(ids["txt2img"], "style_preset")["options"]]
+    for pid in ("anime", "fantasy", "nsfw_realistic", "nsfw_anime", "nsfw_pony"):
+        assert pid in values, f"R18 上下文缺预设 {pid}"
+
+
 async def test_r18_context_exposes_nsfw_image_engines(live_pool, user):
     """R18 上下文:nsfw-txt2img/nsfw-img2img 出现,底模选项只含 R18 ckpt,默认落第一个。"""
     token = nsfw_intent_var.set(True)

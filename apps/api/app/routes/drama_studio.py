@@ -4,7 +4,7 @@
 
 AI 短剧工作室 —— 剧本→分镜→视频→配音→成片 一站式 MVP 管线。
 
-P0 核心端点(本地学习用,跳过内容合规层):
+P0 核心端点(nsfw=true 须 X-NSFW 头,与 ltx_studio 同款 R18 门控):
   · 项目 CRUD            POST/GET/PATCH /api/drama/projects
   · 剧本 LLM 拆解        POST /api/drama/projects/{pid}/storyboard
   · 角色库 CRUD          POST/GET/DELETE  /api/drama/projects/{pid}/characters
@@ -63,6 +63,7 @@ from app.models import (
 from app.ratelimit import enforce_generation_rate_limit
 from app.jsonutil import parse_json_obj
 from app.routes.lipsync import _allowed as _lipsync_allowed, _resolve as _lipsync_resolve
+from app.routes.video import _gate_ltx_nsfw
 from app.services.drama_image import analyze_storyboard_images
 from app.storage import drama_output_root
 from app.versioning import params_snapshot
@@ -1560,8 +1561,12 @@ async def generate_shot_video(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> dict:
-    """单分镜视频生成(LTX t2v)。本地学习用,跳过 NSFW 合规门槛。"""
+    """单分镜视频生成(LTX t2v)。nsfw=true(10Eros 成人底模)仅限 /nsfw 专区。"""
     enforce_generation_rate_limit(user)
+    # R18 门控:nsfw=true 走 NSFW 专用视频底模(10Eros),无 X-NSFW 头一律 403,
+    # 与 ltx_studio 选 10eros 底模同款门槛(堵主站直传 nsfw=true 的绕过)
+    if body.nsfw:
+        _gate_ltx_nsfw(user)
     shot = _owned_shot(sid, user, session)
     project = session.get(DramaProject, shot.project_id)
     if not project:
@@ -3446,8 +3451,11 @@ async def generate_shot_video_v2(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> dict:
-    """M6/M1: 多模型视频生成分发,支持单镜多候选。"""
+    """M6/M1: 多模型视频生成分发,支持单镜多候选。nsfw=true(10Eros)仅限 /nsfw 专区。"""
     enforce_generation_rate_limit(user)
+    # R18 门控:nsfw=true 走 NSFW 专用视频底模(10Eros),无 X-NSFW 头一律 403(与 v1 同款)
+    if body.nsfw:
+        _gate_ltx_nsfw(user)
     shot = _owned_shot(sid, user, session)
     project = session.get(DramaProject, shot.project_id)
     if not project:

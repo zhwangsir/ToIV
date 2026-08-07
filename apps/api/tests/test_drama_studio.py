@@ -1118,7 +1118,7 @@ def test_generate_video_v2_single_candidate_writeback(ctx):
 
 
 def test_generate_video_sfw_nsfw_ckpt_split(ctx):
-    """SFW/NSFW 底模分流:默认(无 nsfw)用 SFW 底模,nsfw=True 才用 10Eros。"""
+    """SFW/NSFW 底模分流:默认(无 nsfw)用 SFW 底模,nsfw=True(须 X-NSFW 头)才用 10Eros。"""
     client, token, _ = ctx
     H = _h(token)
     _, sid_sfw = _make_shot(ctx, token)
@@ -1132,9 +1132,10 @@ def test_generate_video_sfw_nsfw_ckpt_split(ctx):
             r_sfw = client.post(
                 f"/api/drama/shots/{sid_sfw}/generate-video", headers=H, json={}
             )
+            # nsfw=True 走 10Eros 成人底模,属 R18 门控:须带 X-NSFW 头(模拟 /nsfw 专区)
             r_nsfw = client.post(
                 f"/api/drama/shots/{sid_nsfw}/generate-video",
-                headers=H,
+                headers={**H, "X-NSFW": "1"},
                 json={"nsfw": True},
             )
     finally:
@@ -2246,3 +2247,125 @@ def test_reconcile_marks_interrupted_autorun_and_batch(ctx):
         assert a0["status"] == "done"  # 已完成的记录不动
         b1 = next(st for st in steps if st.get("task_id") == "b1")
         assert b1["status"] == "error"
+
+
+
+# ---------------------------------------------------------------------------
+# R18 门控回归(2026-08-08):drama nsfw=true 必须带 X-NSFW 头,否则 403
+# 修复前 generate-video / generate-video-v2 的 nsfw 参数完全不校验,
+# 主站任意登录用户可直传 nsfw=true 用 10Eros 成人底模,破坏「主站零 R18」。
+# ---------------------------------------------------------------------------
+
+
+def _mk_shot_for_token_user(ctx, *, prompt: str = "a girl, cinematic") -> str:
+    """给 ctx 首个用户(d@toiv.ai)建 1 项目 + 1 分镜,返回 shot_id。"""
+    from app.db import engine
+
+    with Session(engine) as s:
+        user = s.exec(select(User).where(User.email == "d@toiv.ai")).first()
+        p = DramaProject(tenant_id=user.tenant_id, user_id=user.id, title="gate")
+        s.add(p)
+        s.commit()
+        s.refresh(p)
+        shot = DramaShot(project_id=p.id, idx=0, prompt=prompt, duration_sec=6)
+        s.add(shot)
+        s.commit()
+        s.refresh(shot)
+        return shot.id
+
+
+def test_generate_video_nsfw_blocked_without_x_nsfw(ctx):
+    """generate-video:nsfw=true 无 X-NSFW 头 → 403,且不落任何 Job。"""
+    from app.db import engine
+
+    client, token, _ = ctx
+    sid = _mk_shot_for_token_user(ctx)
+    r = client.post(
+        f"/api/drama/shots/{sid}/generate-video",
+        headers=_h(token),
+        json={"nsfw": True},
+    )
+    assert r.status_code == 403, r.text
+    assert "NSFW 专区" in r.json()["detail"]
+    with Session(engine) as s:
+        assert s.exec(select(Job)).all() == []
+
+
+def test_generate_video_v2_nsfw_blocked_without_x_nsfw(ctx):
+    """generate-video-v2(含多候选 batch 路径):nsfw=true 无 X-NSFW 头 → 403。"""
+    from app.db import engine
+
+    client, token, _ = ctx
+    sid = _mk_shot_for_token_user(ctx)
+    for body in ({"nsfw": True}, {"nsfw": True, "num_candidates": 2}):
+        r = client.post(
+            f"/api/drama/shots/{sid}/generate-video-v2",
+            headers=_h(token),
+            json=body,
+        )
+        assert r.status_code == 403, r.text
+        assert "NSFW 专区" in r.json()["detail"]
+    with Session(engine) as s:
+        assert s.exec(select(Job)).all() == []
+
+
+def test_generate_video_nsfw_allowed_with_x_nsfw(ctx):
+    """generate-video:带 X-NSFW: 1 头时门控放行(生成提交 mock,验证全链路 200)。"""
+    import app.routes.drama_studio as ds
+
+    client, token, _ = ctx
+    sid = _mk_shot_for_token_user(ctx)
+    submit = AsyncMock(return_value=("pid-nsfw", "cid-1", "http://w:8188", 7))
+    with patch.object(ds, "_submit_shot_video", submit), patch.object(
+        ds, "_spawn", lambda coro: coro.close()
+    ):
+        r = client.post(
+            f"/api/drama/shots/{sid}/generate-video",
+            headers={**_h(token), "X-NSFW": "1"},
+            json={"nsfw": True},
+        )
+    assert r.status_code == 200, r.text
+    assert r.json()["prompt_id"] == "pid-nsfw"
+    # nsfw 标记须透传到提交层(10Eros 底模 + Job 打标)
+    assert submit.await_args.kwargs["nsfw"] is True
+
+
+def _dead_pool():
+    """无可用 worker 的 mock pool:pick 直接抛 ComfyUIError,隔离真实集群网络。"""
+    from app.comfy.client import ComfyUIError
+
+    pool = MagicMock()
+    pool.pick = AsyncMock(side_effect=ComfyUIError("test: no worker"))
+    return pool
+
+
+def test_generate_video_v2_nsfw_passes_gate_with_x_nsfw(ctx):
+    """generate-video-v2:带 X-NSFW 头不再 403(死 pool 下落到 5xx,证明已过门控)。"""
+    client, token, _ = ctx
+    sid = _mk_shot_for_token_user(ctx)
+    app.dependency_overrides[get_pool] = _dead_pool
+    try:
+        r = client.post(
+            f"/api/drama/shots/{sid}/generate-video-v2",
+            headers={**_h(token), "X-NSFW": "1"},
+            json={"nsfw": True},
+        )
+    finally:
+        app.dependency_overrides.pop(get_pool, None)
+    assert r.status_code != 403, r.text
+
+
+def test_generate_video_sfw_default_unaffected(ctx):
+    """SFW 默认(nsfw=false)不受新门控影响:主站调用不 403(死 pool 下为 5xx)。"""
+    client, token, _ = ctx
+    sid = _mk_shot_for_token_user(ctx)
+    app.dependency_overrides[get_pool] = _dead_pool
+    try:
+        for url in (
+            f"/api/drama/shots/{sid}/generate-video",
+            f"/api/drama/shots/{sid}/generate-video-v2",
+        ):
+            r = client.post(url, headers=_h(token), json={})
+            assert r.status_code != 403, f"{url} 不应被 R18 门控拦截: {r.text}"
+    finally:
+        app.dependency_overrides.pop(get_pool, None)

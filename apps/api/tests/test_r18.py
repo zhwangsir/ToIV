@@ -384,6 +384,9 @@ def test_jobs_full_when_nsfw_enabled(client):
     assert r.status_code == 200
     prompts = {j["prompt"] for j in r.json()}
     assert prompts == {"sfw work", "r18 work"}
+    # 条目携带 nsfw 标记:/nsfw 专区作品库据此过滤出 R18 作品
+    flags = {j["prompt"]: j["nsfw"] for j in r.json()}
+    assert flags == {"sfw work": False, "r18 work": True}
 
 
 # --------------------------------------------------------------------------- #
@@ -441,6 +444,74 @@ def test_generate_sfw_ckpt_marks_job_not_nsfw(client, monkeypatch):
     with Session(engine) as s:
         job = s.exec(select(Job).where(Job.user_id == uid)).first()
         assert job is not None and job.nsfw is False
+
+
+# --------------------------------------------------------------------------- #
+# 7b) sfw_intent 预设(2026-08-08):底模命中 hints 但定位主站,豁免 R18 门槛
+# --------------------------------------------------------------------------- #
+
+
+def test_generate_sfw_intent_preset_bypasses_hints_gate(client, monkeypatch):
+    """style_preset=anime(底模 waiIllustrious,命中 is_nsfw hints):主站放行且不打 nsfw 标。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "genpreset", nsfw_enabled=False)
+    app.dependency_overrides[get_pool] = lambda: _FakePool()
+    monkeypatch.setattr(generate_route, "spawn_tracker", lambda client, prompt_id: None)
+    token = create_token(uid)
+    r = c.post(
+        "/api/generate/txt2img",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"positive": "a girl, school uniform", "style_preset": "anime"},
+    )
+    assert r.status_code == 200, r.text
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        assert job is not None and job.nsfw is False
+
+
+def test_generate_sfw_intent_preset_does_not_shield_explicit_ckpt(client, monkeypatch):
+    """显式 ckpt 优先于预设:style_preset=anime + 显式 R18 底模仍走硬门槛 403。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "genshield", nsfw_enabled=False)
+    app.dependency_overrides[get_pool] = lambda: _FakePool()
+    monkeypatch.setattr(generate_route, "spawn_tracker", lambda client, prompt_id: None)
+    token = create_token(uid)
+    r = c.post(
+        "/api/generate/txt2img",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "positive": "a cat",
+            "style_preset": "anime",
+            "ckpt_name": "ponyRealism.safetensors",
+        },
+    )
+    assert r.status_code == 403, r.text
+
+
+def test_generate_nsfw_preset_still_gated_on_main_site(client, monkeypatch):
+    """真 NSFW 预设(nsfw_anime→autismmix):主站(无 X-NSFW)仍 403;带 X-NSFW 放行并打标。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "gennsfwpreset", nsfw_enabled=False)
+    app.dependency_overrides[get_pool] = lambda: _FakePool()
+    monkeypatch.setattr(generate_route, "spawn_tracker", lambda client, prompt_id: None)
+    token = create_token(uid)
+    body = {"positive": "a girl", "style_preset": "nsfw_anime"}
+
+    r = c.post("/api/generate/txt2img", headers={"Authorization": f"Bearer {token}"}, json=body)
+    assert r.status_code == 403, r.text
+
+    r2 = c.post(
+        "/api/generate/txt2img",
+        headers={"Authorization": f"Bearer {token}", "X-NSFW": "1"},
+        json=body,
+    )
+    assert r2.status_code == 200, r2.text
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        assert job is not None and job.nsfw is True
 
 
 def test_generate_nextgen_ckpt_ok(client, monkeypatch):

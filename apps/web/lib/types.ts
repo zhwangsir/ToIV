@@ -156,6 +156,8 @@ export interface JobItem {
   root_id?: string;
   /** 有参数快照才能精确重生(旧数据无)。 */
   has_params?: boolean;
+  /** R18 标记:仅 /nsfw 专区(带 X-NSFW)列表含 R18 作品,前端据此过滤专区作品库。 */
+  nsfw?: boolean;
 }
 
 export type LocalModels = Record<string, string[]>;

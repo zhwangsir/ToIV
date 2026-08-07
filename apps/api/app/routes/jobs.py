@@ -59,6 +59,8 @@ def _job_dict(j: Job) -> dict:
         "seed": j.seed,
         "created_at": j.created_at.isoformat(),
         "results": json.loads(j.result) if j.result else [],
+        # R18 标记:专区内(/nsfw 带 X-NSFW)前端据此过滤出 R18 作品库
+        "nsfw": bool(j.nsfw),
         # 版本树:parent 空=根;root_id 归一为自身 id,前端按它分组
         "parent_id": j.parent_id or "",
         "root_id": (j.root_id or j.id) if j.id else "",

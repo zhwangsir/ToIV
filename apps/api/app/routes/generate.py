@@ -171,6 +171,7 @@ async def _submit_txt2img(
 
     # ── 风格预设应用 ──
     # 若指定 style_preset,自动填充最佳模型+采样参数;用户显式传入的 ckpt_name 优先。
+    explicit_ckpt = bool(req.ckpt_name)
     preset = None
     if req.style_preset:
         preset = resolve_style_preset(req.style_preset, MediaType.IMAGE)
@@ -206,8 +207,11 @@ async def _submit_txt2img(
     _apply_lora_tags(req)
 
     ckpt_name = req.ckpt_name or settings.default_ckpt
+    # SFW 意图预设(sfw_intent=True):底模虽命中 is_nsfw 家族 hints(wai/pony 等),
+    # 预设定位是主站通用风格,豁免 R18 门槛且不打 nsfw 标;用户显式自选 ckpt 不受豁免。
+    sfw_preset = preset is not None and preset.sfw_intent and not explicit_ckpt
     # R18 硬门槛:成人底模须已开 R18,否则 403;并据此给作品打 nsfw 标。
-    job_nsfw = _gate_nsfw_ckpt(ckpt_name, user)
+    job_nsfw = False if sfw_preset else _gate_nsfw_ckpt(ckpt_name, user)
 
     # 引擎分流:Forge 走 sdapi 同步出图(包装成异步 Job),ComfyUI 走既有工作流。
     if req.engine == "forge":
@@ -560,6 +564,8 @@ async def generate_img2img(
     settings = get_settings()
 
     # ── 风格预设应用(同 txt2img) ──
+    explicit_ckpt = bool(req.ckpt_name)
+    preset = None
     if req.style_preset:
         preset = resolve_style_preset(req.style_preset, MediaType.IMAGE)
         if not req.ckpt_name:
@@ -590,8 +596,10 @@ async def generate_img2img(
 
     ckpt_name = req.ckpt_name or settings.default_ckpt
     client = resolve_worker(req.worker)  # 必须用图片所在的 worker
+    # SFW 意图预设豁免 R18 门槛(同 txt2img);显式自选 ckpt 不受豁免。
+    sfw_preset = preset is not None and preset.sfw_intent and not explicit_ckpt
     # R18 硬门槛:成人底模须已开 R18,否则 403;并据此给作品打 nsfw 标。
-    job_nsfw = _gate_nsfw_ckpt(ckpt_name, user)
+    job_nsfw = False if sfw_preset else _gate_nsfw_ckpt(ckpt_name, user)
 
     if is_nextgen(ckpt_name):
          prof = profile_for(ckpt_name)

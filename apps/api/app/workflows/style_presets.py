@@ -49,6 +49,10 @@ class StylePreset:
     description: 人类可读描述(前端展示用)
     llm_layer: 文案生成时推荐的 LLM 层(L1实时/L2主力/L3精修/L4无审查)
     commercial_safe: 是否可商用(授权友好)
+    sfw_intent: 显式声明本预设是 SFW 意图。底模家族(pony/wai/hassaku 等)虽命中
+        model_profiles.is_nsfw 的 hints,但预设定位是主站通用风格(二次元/校园/奇幻等),
+        置 True 后该预设不再因 hints 被打 nsfw 标/隐藏/走 R18 门槛;
+        真正 NSFW 意图的 ckpt 判定(is_nsfw 本身)不受影响。
     """
 
     id: str
@@ -64,6 +68,7 @@ class StylePreset:
     description: str = ""
     llm_layer: str = "L2"
     commercial_safe: bool = False
+    sfw_intent: bool = False
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -178,6 +183,7 @@ _IMAGE_PRESETS: dict[str, StylePreset] = {
         description="WAI-Illustrious-SDXL v1.7,现代二次元标准",
         llm_layer="L2",
         commercial_safe=False,
+        sfw_intent=True,  # 底模命中 wai/illustrious hints,但预设定位主站通用二次元
     ),
     "anime_soft": StylePreset(
         id="anime_soft",
@@ -191,6 +197,7 @@ _IMAGE_PRESETS: dict[str, StylePreset] = {
         description="Hassaku Illustrious v3.4,柔和插画风格",
         llm_layer="L2",
         commercial_safe=False,
+        sfw_intent=True,  # 底模命中 hassaku hints,预设定位主站柔和插画(SFW)
     ),
     "chibi": StylePreset(
         id="chibi",
@@ -245,6 +252,7 @@ _IMAGE_PRESETS: dict[str, StylePreset] = {
         description="Pony Diffusion V6,奇幻/风格化/booru标签体系",
         llm_layer="L2",
         commercial_safe=False,
+        sfw_intent=True,  # 底模命中 pony hints,预设定位主站奇幻/风格化(SFW)
     ),
 
     # ── 极速/预览类 ─────────────────────────────────────────────────────
@@ -356,6 +364,7 @@ _IMAGE_PRESETS: dict[str, StylePreset] = {
         description="校园青春短剧场景,SDXL+linaqruf_anime_detailer,柔和二次元",
         llm_layer="L2",
         commercial_safe=False,
+        sfw_intent=True,  # 底模 waiIllustrious 命中 hints,场景预设定位主站校园(SFW)
     ),
     "luxury_business": StylePreset(
         id="luxury_business",
@@ -424,6 +433,7 @@ _IMAGE_PRESETS: dict[str, StylePreset] = {
         description="历史战争短剧场景,SDXL+medieval_knight_sdxl,史诗战场构图",
         llm_layer="L3",
         commercial_safe=False,
+        sfw_intent=True,  # 底模 waiIllustrious 命中 hints,场景预设定位主站历史战争(SFW)
     ),
     "camera_movement": StylePreset(
         id="camera_movement",
@@ -561,5 +571,6 @@ def list_presets(media: MediaType | None = None) -> list[dict]:
             "recommended_cfg": p.sampling.cfg,
             "commercial_safe": p.commercial_safe,
             "llm_layer": p.llm_layer,
+            "sfw_intent": p.sfw_intent,
         })
     return results

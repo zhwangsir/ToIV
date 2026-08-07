@@ -323,14 +323,16 @@ async function fetchJobsRaw(): Promise<JobItem[]> {
   return res.json();
 }
 
-/** 作品库,走本机 SWR 缓存(短 TTL):作品库二访秒开,后台刷新补新作品。 */
+/** 作品库,走本机 SWR 缓存(短 TTL):作品库二访秒开,后台刷新补新作品。
+    R18 上下文(X-NSFW)用独立缓存键(同 models/localModels),防主站/专区互相污染。 */
 export function listJobs(): Promise<JobItem[]> {
-  return swr(CACHE_KEYS.jobs, fetchJobsRaw, TTL.jobs);
+  return swr(_nsfwIntent ? `${CACHE_KEYS.jobs}:nsfw` : CACHE_KEYS.jobs, fetchJobsRaw, TTL.jobs);
 }
 
-/** 生成出新作品后调用:失效作品库缓存,下次进作品库立即拉到最新。 */
+/** 生成出新作品后调用:失效作品库缓存(主站 + 专区两个键),下次进作品库立即拉到最新。 */
 export function invalidateJobs(): void {
   invalidate(CACHE_KEYS.jobs);
+  invalidate(`${CACHE_KEYS.jobs}:nsfw`);
 }
 
 // ---------- 版本树:精确重生(rerun)/ 版本链(versions) ----------

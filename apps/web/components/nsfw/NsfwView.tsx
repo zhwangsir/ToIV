@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { GenerateView } from "@/components/generate/GenerateView";
+import { GenerateView, type GenerateDraft } from "@/components/generate/GenerateView";
+import { LibraryView } from "@/components/library/LibraryView";
 import { Icon } from "@/components/ui/Icon";
 import { usePoll } from "@/hooks/usePoll";
+import { consumeEngineDraft } from "@/lib/engine";
 import {
   fetchMe,
   getToken,
@@ -21,13 +23,15 @@ import {
 import type { NsfwRecommendation } from "@/lib/types";
 
 type AuthState = "loading" | "in" | "out";
-type NsfwTab = "image" | "video";
+type NsfwTab = "image" | "video" | "library";
 
 /**
  * NSFW 专区(/nsfw 入口)。
  * - 仅通过地址栏输入 /nsfw 直达,无导航入口,无 R18 开关
  * - 进入即设置 X-NSFW 放行标记,卸载时还原
  * - 图像/视频 tab 内嵌统一生成工作台(GenerateView onlyNsfw,只展示 R18 引擎)
+ * - 作品库 tab 内嵌 LibraryView onlyNsfw(只展示 R18 作品):查看/删除/复用提示词,
+ *   复用在专区内切 tab 回填草稿,不跳主站
  * - 顶部 18+ 警告条;底部 NSFW 推荐模型清单(可折叠,支持下载到 NAS)
  */
 export function NsfwView() {
@@ -147,6 +151,27 @@ function NsfwViewBody() {
   // 默认折叠:减少视觉噪音,让用户聚焦主创作区;点击 .nsfw-recs-toggle 展开
   const [recsOpen, setRecsOpen] = useState(false);
   const [tab, setTab] = useState<NsfwTab>("image");
+  // 作品库「复用提示词」回填:draftSeq 变 → GenerateView 重挂载消费 initialDraft;
+  // 手动切 tab 清空,避免过期草稿反复回填
+  const [pendingDraft, setPendingDraft] = useState<GenerateDraft | null>(null);
+  const [draftSeq, setDraftSeq] = useState(0);
+
+  // 手动 tab 切换:清掉一次性回填草稿
+  const switchTab = useCallback((t: NsfwTab) => {
+    setPendingDraft(null);
+    setTab(t);
+  }, []);
+
+  // 作品库「复用提示词」:LibraryView 已写引擎草稿(localStorage),
+  // 这里立即消费并转为 GenerateView initialDraft,留在专区内切 tab,不跳主站
+  const handleLibraryNavigate = useCallback((target: string) => {
+    const draft = consumeEngineDraft(target);
+    if (draft) {
+      setPendingDraft(draft);
+      setDraftSeq((s) => s + 1);
+    }
+    setTab(target === "video" ? "video" : "image");
+  }, []);
 
   // ── NAS 下载状态 ──
   const [nasStatus, setNasStatus] = useState<NasStatus>({ enabled: false });
@@ -279,7 +304,7 @@ function NsfwViewBody() {
         </div>
       </header>
 
-      {/* ── 主创作区:图像 / 视频 tab 切换 ── */}
+      {/* ── 主创作区:图像 / 视频 / 作品库 tab 切换 ── */}
       <main className="nsfw-main">
         <div className="nsfw-tabs" role="tablist" aria-label="创作模式">
           <button
@@ -287,7 +312,7 @@ function NsfwViewBody() {
             role="tab"
             aria-selected={tab === "image"}
             className={`nsfw-tab${tab === "image" ? " is-active" : ""}`}
-            onClick={() => setTab("image")}
+            onClick={() => switchTab("image")}
           >
             <Icon name="image" size={16} />
             <span>图像</span>
@@ -297,23 +322,53 @@ function NsfwViewBody() {
             role="tab"
             aria-selected={tab === "video"}
             className={`nsfw-tab${tab === "video" ? " is-active" : ""}`}
-            onClick={() => setTab("video")}
+            onClick={() => switchTab("video")}
           >
             <Icon name="video" size={16} />
             <span>视频</span>
           </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "library"}
+            className={`nsfw-tab${tab === "library" ? " is-active" : ""}`}
+            onClick={() => switchTab("library")}
+          >
+            <Icon name="library" size={16} />
+            <span>作品库</span>
+          </button>
         </div>
         <div className="nsfw-tab-panel">
-          {/* 统一生成工作台:onlyNsfw 只展示 R18 引擎;initialDraft=null 不消费主站引擎草稿。
+          {/* 统一生成工作台:onlyNsfw 只展示 R18 引擎;initialDraft 默认 null 不消费
+              主站引擎草稿,仅作品库「复用提示词」回填时注入一次性草稿(draftSeq 强制重挂载)。
               包一层 .nsfw-workbench(stage.css):/nsfw 高度链是 min-height 非定高,
-              GenerateView 的 height:100% 无法解析,改用 flex stretch 撑满 */}
-          {tab === "image" ? (
+              GenerateView 的 height:100% 无法解析,改用 flex stretch 撑满。
+              作品库 tab 复用 LibraryView(onlyNsfw 只看 R18 作品),查看/删除/复用提示词 */}
+          {tab === "library" ? (
+            <div className="nsfw-library">
+              <LibraryView onlyNsfw onNavigate={handleLibraryNavigate} />
+            </div>
+          ) : tab === "image" ? (
             <div className="nsfw-workbench">
-              <GenerateView lockedKind="image" onlyNsfw initialDraft={null} />
+              <GenerateView
+                key={`image-${draftSeq}`}
+                lockedKind="image"
+                onlyNsfw
+                initialDraft={
+                  pendingDraft && pendingDraft.target === "image" ? pendingDraft : null
+                }
+              />
             </div>
           ) : (
             <div className="nsfw-workbench">
-              <GenerateView lockedKind="video" onlyNsfw initialDraft={null} />
+              <GenerateView
+                key={`video-${draftSeq}`}
+                lockedKind="video"
+                onlyNsfw
+                initialDraft={
+                  pendingDraft && pendingDraft.target === "video" ? pendingDraft : null
+                }
+              />
             </div>
           )}
         </div>

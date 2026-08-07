@@ -233,9 +233,14 @@ interface LibraryViewProps {
    * 未提供时灯箱「复用提示词」退化为整页跳转。
    */
   onNavigate?: (target: string) => void;
+  /**
+   * NSFW 专区(/nsfw)作品库内嵌时置 true:只展示 R18 作品(Job.nsfw),
+   * 不混入 SFW 作品;配合 jobs 接口的 nsfw 字段与 X-NSFW 上下文使用。
+   */
+  onlyNsfw?: boolean;
 }
 
-export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
+export function LibraryView({ onNavigate, onlyNsfw = false }: LibraryViewProps = {}) {
   const toast = useToast();
   const [jobs, setJobs] = useState<JobItem[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -275,9 +280,10 @@ export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
 
   const filtered = useMemo(() => {
     if (!jobs) return [];
-    if (filter === "all") return jobs;
-    return jobs.filter((j) => kindToFilter(j.kind) === filter);
-  }, [jobs, filter]);
+    const base = onlyNsfw ? jobs.filter((j) => j.nsfw) : jobs;
+    if (filter === "all") return base;
+    return base.filter((j) => kindToFilter(j.kind) === filter);
+  }, [jobs, filter, onlyNsfw]);
 
   // 灯箱索引越界钳制:删除当前作品后 filtered 收缩,滑到下一件;列表清空则关闭
   useEffect(() => {
@@ -295,15 +301,16 @@ export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
   const counts = useMemo(() => {
     const c: Record<FilterKey, number> = { all: 0, image: 0, video: 0, audio: 0, "3d": 0 };
     if (jobs) {
-      c.all = jobs.length;
-      for (const j of jobs) {
+      const base = onlyNsfw ? jobs.filter((j) => j.nsfw) : jobs;
+      c.all = base.length;
+      for (const j of base) {
         // 未识别 kind 不计入任何分类桶,只算进「全部」
         const key = kindToFilter(j.kind);
         if (key) c[key]++;
       }
     }
     return c;
-  }, [jobs]);
+  }, [jobs, onlyNsfw]);
 
   // 段控 Tabs 项:计数始终渲染预留宽度(visibility 控制),避免计数出现后段宽跳动(CLS 加固)
   const filterTabs = useMemo(
