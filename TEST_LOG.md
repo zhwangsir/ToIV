@@ -4,6 +4,33 @@
 
 ---
 
+## DOCS-2026-08-08 · 文档上传与长文本理解上线 core(上传/向量化/对话挂载 e2e)
+
+**时间**: 2026-08-08 02:55
+**类型**: feat(docs) / e2e
+**目标**: 文档导入与理解能力——pdf/docx/txt/md 上传 → 解析切块 → Qwen3-Embedding 向量化 → 对话挂载检索注入(commit f5f6ebc)
+
+### 实现要点
+
+- `POST /api/docs/upload`(≤50MB,pypdf/python-docx 惰性导入,解析在 to_thread)、`GET /api/docs`、`DELETE /api/docs/{id}`(按用户隔离,越权 404)
+- 切块 900 字符/120 重叠,**512 块上限**;向量归一化落盘 `{content_dir}/docs/<user_id>/`;embedding 不可用时 status=no_embed 优雅降级
+- 对话集成:ChatRequest 加 `document_ids`(≤8),runner `_docs_context()` 所有权过滤后 top-6 余弦检索,片段以 system 段落注入
+- 前端:AssistantView 文档管理面板(上传/挂载/删除)+ composer 挂载 chips + 消息气泡文档 chips(lib/docs.ts,样式走全局 app/styles/docs.css)
+
+### core 真机 e2e(192.168.71.47:8090)
+
+| 步骤 | 结果 |
+|---|---|
+| 上传 toiv_doc_test.md(含虚构暗号「夜莺」/「80 毫秒」) | ✅ status=ready(Qwen3-Embedding :9302 真机向量化成功) |
+| 挂载 document_ids 提问「极光计划负责人代号?验收标准?」 | ✅ 回答「夜莺」+「唇形同步误差小于 80 毫秒」,完全来自文档内容 |
+| 列表/删除 | ✅ 列表返回文档,DELETE 后列表为空 |
+
+- 部署注意:core 手动 `pip install pypdf==6.15.0 python-docx==1.2.0`(deploy.sh 不装依赖);document 表由应用启动自动创建(PG 已确认存在)
+- 单测:1043 passed(2 个 redis_integration 失败为基线预置环境问题,stash 验证与本次无关)
+- 未验证:500 页级大 PDF 解析耗时(逻辑上有 512 块上限兜底;必要时 build_index 改分批 embedding)
+
+---
+
 ## LONGCAT-P2B-2026-08-08 · LongCat i2v/视频续写端点 + 长帧自动上下文窗口
 
 **时间**: 2026-08-08 02:35
