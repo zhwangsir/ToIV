@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import "./styles/glass.css";
-import "./styles/island.css";
+import "./styles/cornernav.css";
 import "./styles/stage.css";
 import "./styles/motion.css";
 import "./styles/library.css";

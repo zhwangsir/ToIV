@@ -5,15 +5,15 @@ import * as path from "path";
 /**
  * 调试脚本:连续通过左侧栏切换视图,验证导航稳定性。
  *
- * 背景(W0/W3 UI 重构后):主导航已从 DynamicIsland 迁移为左侧栏 + 底部导航。
- * - 桌面端:顶部灵动岛 nav.island,视图按钮为 .island-item(直接点击切换)
+ * 背景(2026-08-07 CornerNav 重构后):主导航为左上角悬停展开面板 + 底部导航。
+ * - 桌面端:CornerNav(先悬停 .cornernav-trigger 展开面板,再点击 .cornernav-item 切换)
  * - 移动端:nav.app-bottom-nav(.bottom-nav-item + 「更多」抽屉 .more-nav-item)
  * - 全局顶栏 header.topbar 已移除(--topbar-h: 0px)
  * - M1 退役 create/generate/ltxstudio 视图,?view=generate 会前端重定向到 ?view=image
  *
  * 测试流程:
  * 1. 登录态打开 /?view=assistant
- * 2. 通过灵动岛 .island-item 依次切换视图(不重新加载页面)
+ * 2. 通过 CornerNav .cornernav-item 依次切换视图(不重新加载页面)
  * 3. 每次切换后:
  *    - 等待 1.2s 让视图渲染
  *    - 截图保存到 test-results/sidebar-click-{view}-{idx}.png
@@ -304,18 +304,20 @@ test.describe("灵动岛导航调试 @authed", () => {
 });
 
 /**
- * 通过灵动岛切换到指定视图。
- * 1. 等待 nav.island 可见
- * 2. 点击匹配 label 的 .island-item(紧凑态图标可见即可点,无需悬停展开)
+ * 通过 CornerNav 切换到指定视图。
+ * 1. 等待 .cornernav-trigger 可见并悬停展开面板
+ * 2. 点击匹配 label 的 .cornernav-item
  */
 async function selectViewViaIsland(
   page: import("@playwright/test").Page,
   label: string,
 ): Promise<void> {
-  await page.locator(".island").waitFor({ state: "visible", timeout: 5000 });
+  const trigger = page.locator(".cornernav-trigger");
+  await trigger.waitFor({ state: "visible", timeout: 5000 });
+  await trigger.hover();
 
-  // 点击匹配 label 的灵动岛项
-  const item = page.locator(".island-item", { hasText: label }).first();
+  // 点击匹配 label 的导航项
+  const item = page.locator(".cornernav-item", { hasText: label }).first();
   await item.waitFor({ state: "visible", timeout: 3000 });
   await item.click({ timeout: 5000 });
 
@@ -337,7 +339,7 @@ async function captureState(
 ): Promise<ClickResult> {
   const url = page.url();
 
-  const islandVisible = await page.locator(".island").isVisible().catch(() => false);
+  const islandVisible = await page.locator(".cornernav-trigger").isVisible().catch(() => false);
   const appShellVisible = await page.locator(".app-shell").isVisible().catch(() => false);
   const landingFormCount = await page.locator(".landing-form").count().catch(() => 0);
   const isLandingPage = landingFormCount > 0;
@@ -351,7 +353,7 @@ async function captureState(
 
   const crashReasons: string[] = [];
   if (!appShellVisible) crashReasons.push("app-shell 消失");
-  if (!islandVisible) crashReasons.push("灵动岛不可见");
+  if (!islandVisible) crashReasons.push("主导航不可见");
   if (isLandingPage) crashReasons.push("落地页(登录表单)出现,会话已掉");
   if (redirectedToLogin) crashReasons.push(`重定向到登录页: ${url}`);
   if (errorPatterns.length > 0) crashReasons.push(`页面包含错误文案: ${errorPatterns.join(", ")}`);

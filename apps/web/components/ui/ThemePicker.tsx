@@ -7,7 +7,7 @@ import { applyTheme, getCurrentTheme, THEMES, type ThemeId } from "@/lib/theme";
 
 /**
  * 主题五色行:每主题一个 accent+surface 双色圆点 + 名称,当前主题打勾。
- * 用于 IslandNav 账户 Popover(桌面)与 BottomNav「更多」抽屉(窄屏);
+ * 用于 CornerNav 账户 Popover(桌面)与 BottomNav「更多」抽屉(窄屏);
  * 切换写 localStorage + dataset.theme,不刷新页面。
  */
 export function ThemePicker() {

@@ -44,8 +44,8 @@ test.describe("真实登录流程", () => {
       return;
     }
 
-    // 3. 验证进入主界面:侧栏可见(W0 后主导航为左侧栏,顶栏 header.topbar 已移除)
-    await expect(page.locator(".island")).toBeVisible({ timeout: 10000 });
+    // 3. 验证进入主界面:主导航触发器可见(CornerNav 左上角悬停展开导航)
+    await expect(page.locator(".cornernav-trigger")).toBeVisible({ timeout: 10000 });
 
     // 4. 验证 localStorage 有 toiv_token
     const token = await page.evaluate(() =>

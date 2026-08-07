@@ -5,7 +5,7 @@ import { flushSync } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { LandingPage } from "@/components/landing/LandingPage";
-import { IslandNav, type IslandNavItem } from "@/components/nav/IslandNav";
+import { CornerNav, type CornerNavItem } from "@/components/nav/CornerNav";
 import { BottomNav, type BottomNavItem } from "@/components/nav/BottomNav";
 import { fetchMe, getToken, setToken, testLogin } from "@/lib/api";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
@@ -196,8 +196,8 @@ const VIEW_META: Record<View, { label: string }> = {
 };
 
 /** M3 新 IA 一级入口 8 项:三大板块 + 融合聚合页;短剧/数字人/译制移入融合,视图保留(旧链接不 404)。
- *  桌面端由顶部灵动岛(IslandNav)承载,窄屏由底部导航承载。 */
-const ISLAND_ITEMS: IslandNavItem[] = [
+ *  桌面端由左上角悬停展开导航(CornerNav)承载,窄屏由底部导航承载。 */
+const ISLAND_ITEMS: CornerNavItem[] = [
   { key: "assistant", label: "对话", icon: "chat" },
   { key: "image", label: "图片", icon: "image" },
   { key: "video", label: "视频", icon: "video" },
@@ -373,7 +373,7 @@ function HomeContent() {
 
   return (
     <div className="app-shell">
-      <IslandNav
+      <CornerNav
         items={ISLAND_ITEMS}
         current={view}
         onSelect={(key) => changeView(key as View)}

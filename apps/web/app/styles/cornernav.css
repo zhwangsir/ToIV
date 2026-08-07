@@ -1,0 +1,267 @@
+/* ========== 左上角悬停展开导航(2026-08-07 CornerNav,桌面 ≥1024px,见 components/nav/CornerNav) ========== */
+/* 收起态:左上角一枚玻璃触发器(品牌点 + ToIV + 当前模块 + 箭头),不遮挡内容; */
+/* 悬停/聚焦/点击钉住:向下展开竖向玻璃面板(图标 + 标签列表 + 账户行),纯 CSS 弹簧过渡; */
+/* 触发器与面板同处 .cornernav 容器,面板顶部 6px 透明桥接区保证 hover 连续。 */
+
+.cornernav {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: var(--z-sticky);
+}
+
+/* ── 触发器(常显) ── */
+.cornernav-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 36px;
+  padding: 0 var(--space-3);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-full);
+  box-shadow: var(--glass-highlight), var(--shadow-float);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: box-shadow var(--duration-slow) var(--ease-spring),
+              border-color var(--duration-base) var(--ease-standard);
+}
+.cornernav:hover .cornernav-trigger,
+.cornernav:focus-within .cornernav-trigger,
+.cornernav.is-pinned .cornernav-trigger {
+  border-color: var(--border-strong);
+  box-shadow: var(--glass-highlight), var(--shadow-float), var(--shadow-xl);
+}
+
+.cornernav-brand-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
+  flex-shrink: 0;
+}
+.cornernav-brand-text {
+  font-size: var(--text-base);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.cornernav-current {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding-left: var(--space-2);
+  border-left: 1px solid var(--border-subtle);
+  color: var(--accent);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.cornernav-chevron {
+  color: var(--text-muted);
+  transition: transform var(--duration-base) var(--ease-standard);
+}
+.cornernav:hover .cornernav-chevron,
+.cornernav:focus-within .cornernav-chevron,
+.cornernav.is-pinned .cornernav-chevron {
+  transform: rotate(180deg);
+}
+
+/* ── 展开面板(默认收起) ── */
+.cornernav-panel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  padding-top: 6px; /* 透明桥接区:hover 从触发器滑入面板不中断 */
+  min-width: 176px;
+  max-width: 240px;
+  opacity: 0;
+  transform: translateY(-6px) scale(0.98);
+  transform-origin: top left;
+  pointer-events: none;
+  transition: opacity var(--duration-base) var(--ease-standard),
+              transform var(--duration-slow) var(--ease-spring);
+}
+.cornernav:hover .cornernav-panel,
+.cornernav:focus-within .cornernav-panel,
+.cornernav.is-pinned .cornernav-panel {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.cornernav-panel-inner {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-highlight), var(--shadow-float), var(--shadow-xl);
+  padding: var(--space-2);
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+}
+
+/* ── 导航项(竖排:图标 + 标签) ── */
+.cornernav-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cornernav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 36px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-control);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color var(--duration-fast) var(--ease-standard),
+              color var(--duration-fast) var(--ease-standard),
+              box-shadow var(--duration-base) var(--ease-standard);
+}
+.cornernav-item:hover {
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+}
+.cornernav-item.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: var(--accent-glow-shadow);
+}
+.cornernav-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  flex-shrink: 0;
+}
+.cornernav-item-label {
+  flex: 1;
+  text-align: left;
+}
+.cornernav-item-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent-glow);
+  flex-shrink: 0;
+}
+
+.cornernav-sep {
+  height: 1px;
+  margin: var(--space-2) var(--space-1);
+  background: var(--border-subtle);
+}
+
+/* ── 账户行 ── */
+.cornernav-account {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  height: 40px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+.cornernav-account:hover {
+  background: var(--bg-surface-2);
+}
+.cornernav-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.cornernav-account-email {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.cornernav-account-go {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* 账户菜单(内容挂在 Popover 玻璃基座内,底/描边/阴影由基座提供,此处只管布局) */
+.cornernav-account-pop {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+.cornernav-account-pop-email {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 var(--space-1);
+}
+.cornernav-account-action,
+.cornernav-account-logout {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 30px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-control);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-standard),
+              color var(--duration-fast) var(--ease-standard);
+}
+.cornernav-account-action:hover {
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+}
+.cornernav-account-logout:hover {
+  background: var(--err-soft);
+  color: var(--err);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cornernav-trigger,
+  .cornernav-panel,
+  .cornernav-chevron,
+  .cornernav-item {
+    transition: none;
+  }
+}
+
+/* ── 响应式(必须在 base 规则之后加载;勿移回 globals.css,层叠序会失效) ── */
+/* 窄屏 <1024px:隐藏,由底部导航接管 */
+@media (max-width: 1023px) {
+  .cornernav {
+    display: none;
+  }
+}
+
+/* 横屏低高度 <500px:恢复显示(触发器占地极小,底部导航让位) */
+@media (max-height: 500px) and (orientation: landscape) {
+  .cornernav {
+    display: block;
+  }
+}

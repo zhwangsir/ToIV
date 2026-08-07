@@ -398,7 +398,7 @@ img, video {
 .app-shell {
   position: relative;
   display: grid;
-  /* Studio Slate 灵动岛版型:主区全宽单列,导航为顶部悬浮胶囊(见 IslandNav) */
+  /* CornerNav 版型:主区全宽单列,导航为左上角悬停展开面板(见 CornerNav) */
   grid-template-columns: 1fr;
   grid-template-rows: 1fr var(--bottomnav-h);
   grid-template-areas:
@@ -410,7 +410,7 @@ img, video {
   background: var(--bg-canvas);
 }
 
-/* 灵动岛样式已迁移至 app/styles/island.css(WS1 重构) */
+/* 导航样式已迁移至 app/styles/cornernav.css(2026-08-07 CornerNav 左上角悬停展开导航) */
 
 /* ========== Main Content ========== */
 
@@ -844,7 +844,7 @@ select.input {
   }
 }
 
-/* ── 横屏优化(高度 <500px):底部导航让位,灵动岛仍可见(顶部占地极小) ── */
+/* ── 横屏优化(高度 <500px):底部导航让位,CornerNav 仍可见(左上角占地极小) ── */
 @media (max-height: 500px) and (orientation: landscape) {
   :root {
     --bottomnav-h: 0px;

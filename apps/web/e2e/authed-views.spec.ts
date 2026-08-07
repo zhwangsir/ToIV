@@ -9,7 +9,7 @@ import { test, expect } from "@playwright/test";
  * - 访问 /?view={viewName}
  * - 等待 networkidle
  * - 验证无 "Application error" / "500" / "会话已过期" 文案
- * - 验证 app-shell 和灵动岛 .island 可见(2026-08-06 灵动岛重构后主导航为顶部悬浮胶囊)
+ * - 验证 app-shell 和主导航触发器 .cornernav-trigger 可见(2026-08-07 CornerNav 重构后主导航为左上角悬停展开面板)
  * - 验证不是登录页(无"登录"按钮)
  * - 截图保存到 test-results/authed-{viewName}.png
  */
@@ -90,9 +90,9 @@ test.describe("登录态视图加载", () => {
           );
         }
 
-        // 验证主导航侧栏可见(W0 后为左侧栏,DynamicIsland/顶栏已退役)
-        const nav = page.locator(".island");
-        await expect(nav, `${view} 侧栏导航应可见`).toBeVisible();
+        // 验证主导航触发器可见(CornerNav 左上角悬停展开导航)
+        const nav = page.locator(".cornernav-trigger");
+        await expect(nav, `${view} 主导航应可见`).toBeVisible();
 
         // 验证不是登录页(无落地页登录表单;exact 避免匹配到"退出登录")
         const landingForm = page.locator(".landing-form");

@@ -106,7 +106,8 @@
   );
 }
 
-/* 状态胶囊:左上角浮层(状态 Badge + 引擎名 + 取消 + A/B 对比开关;A/B 原浮右上会被参数浮板遮挡) */
+/* 状态胶囊:左上角浮层(状态 Badge + 引擎名 + 取消 + A/B 对比开关;A/B 原浮右上会被参数浮板遮挡);
+   桌面端右移让开 CornerNav 触发器(触发器宽 ~170px,高 36px,位于 top/left 12px) */
 .stage-status {
   position: absolute;
   top: var(--space-3);
@@ -124,6 +125,11 @@
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-full);
   box-shadow: var(--glass-highlight), var(--shadow-md);
+}
+@media (min-width: 1024px) {
+  .stage-status {
+    left: 196px; /* 让开 CornerNav 触发器(12px + 触发器宽 + 间距) */
+  }
 }
 .stage-engine {
   font-size: var(--text-aux);

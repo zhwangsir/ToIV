@@ -4,6 +4,28 @@
 
 ---
 
+## UI-CORNERNAV-2026-08-07 · 导航改版:灵动岛 → 左上角悬停展开导航(CornerNav)
+
+**时间**: 2026-08-07
+**类型**: feat(ui) / regression
+**目标**: 用户反馈灵动岛实现效果不好,改为左上角 hover 展开形态,整体 UI 和谐性走查
+
+### 变更
+
+| 项 | 落点 |
+|---|---|
+| CornerNav(新) | `components/nav/CornerNav.tsx` + `app/styles/cornernav.css`:收起态仅左上角一枚玻璃触发器(品牌点+ToIV+当前模块+箭头,36px 高,不遮挡内容);悬停/聚焦/点击展开竖向玻璃面板(8 模块图标+标签+账户行);点击触发器可钉住(触屏友好);点击导航项后 blur 释放焦点避免 focus-within 钉住面板;6px 透明桥接区保证 hover 连续;面板限高滚动 |
+| 旧岛退役 | 删除 `components/nav/IslandNav.tsx` + `app/styles/island.css`;layout/page/globals 注释同步 |
+| 避让 | `stage.css`:桌面端 `.stage-status` 左移 196px 让开触发器 |
+| e2e 同步 | 5 个规格(auth-flow/authed-views/responsive-redesign/authed-ux-metrics/debug-sidebar)选择器 .island→.cornernav,点击流改为先 hover 触发器 |
+
+### 验证
+
+- 本地:构建通过;Playwright 脚本目检 8 视图(收起/展开/切换/收起恢复均正常,截图走查无遮挡冲突);本地 e2e 三规格 40 passed / 0 failed
+- 生产(core 部署后):`playwright.prod.config.ts` **161 passed / 0 failed**(基线持平)
+
+---
+
 ## R2V-D1E1-2026-08-07 · ref2va 遗留补测:D1 参考视频运镜 / E1 参考音频音色
 
 **时间**: 2026-08-07

@@ -1,20 +1,20 @@
 import { test, expect } from "@playwright/test";
 
 /**
- * ToIV UI 响应式测试(灵动岛版型:顶部悬浮胶囊导航 + 底部导航)
+ * ToIV UI 响应式测试(CornerNav 版型:左上角悬停展开导航 + 底部导航)
  *
- * 背景(2026-08-06 灵动岛重构后):主导航为顶部居中悬浮胶囊(IslandNav,.island),
- * 脱离边缘浮于内容之上;左侧栏已退役(Sidebar 组件删除)。
- * - 桌面端(≥1024px):.island 灵动岛可见(.island-item),底部导航隐藏
- * - 窄屏(<1024px):灵动岛隐藏,nav.app-bottom-nav 底部导航(.bottom-nav-item + 「更多」抽屉)
- * - 横屏(height<500 且 landscape):底部导航让位,灵动岛仍可见(顶部占地极小)
+ * 背景(2026-08-07 CornerNav 重构后):主导航为左上角悬停展开面板(CornerNav,.cornernav),
+ * 收起态仅一枚触发器(.cornernav-trigger),悬停/聚焦/点击展开竖向面板(.cornernav-item)。
+ * - 桌面端(≥1024px):.cornernav-trigger 可见,底部导航隐藏
+ * - 窄屏(<1024px):CornerNav 隐藏,nav.app-bottom-nav 底部导航(.bottom-nav-item + 「更多」抽屉)
+ * - 横屏(height<500 且 landscape):底部导航让位,CornerNav 仍可见(触发器占地极小)
  * - 全局顶栏 header.topbar 已移除(--topbar-h: 0px)
  * - M1 退役 create/generate/ltxstudio 视图,?view=generate 重定向到 ?view=image
  * - .theme-toggle 已随顶栏移除,原「主题切换功能」用例 fixme 待产品确认
  *
  * 显隐判定(globals.css 断点,组件始终挂载、由 CSS 控制显隐):
  * - width < 1024 且非横屏短高 → 底部导航可见
- * - 其余 → 灵动岛可见
+ * - 其余 → CornerNav 可见
  */
 
 const DEVICES = [
@@ -70,12 +70,12 @@ test.describe("ToIV UI Redesign - 响应式测试", () => {
 
       const bottomNav = showsBottomNav(device.width, device.height);
 
-      // 主导航互斥:窄屏底部导航可见,其余尺寸灵动岛可见
+      // 主导航互斥:窄屏底部导航可见,其余尺寸 CornerNav 触发器可见
       if (bottomNav) {
         await expect(page.locator(".app-bottom-nav")).toBeVisible();
-        await expect(page.locator(".island-dock")).not.toBeVisible();
+        await expect(page.locator(".cornernav")).not.toBeVisible();
       } else {
-        await expect(page.locator(".island")).toBeVisible();
+        await expect(page.locator(".cornernav-trigger")).toBeVisible();
         await expect(page.locator(".app-bottom-nav")).not.toBeVisible();
       }
 
@@ -95,7 +95,7 @@ test.describe("ToIV UI Redesign - 响应式测试", () => {
         fullPage: false,
       });
 
-      await expect(page.locator(".island")).toBeVisible();
+      await expect(page.locator(".cornernav-trigger")).toBeVisible();
       await expect(page.locator(".app-main")).toBeVisible();
     });
 
@@ -109,9 +109,9 @@ test.describe("ToIV UI Redesign - 响应式测试", () => {
         fullPage: false,
       });
 
-      // 窄屏:底部导航可见,灵动岛隐藏
+      // 窄屏:底部导航可见,CornerNav 隐藏
       await expect(page.locator(".app-bottom-nav")).toBeVisible();
-      await expect(page.locator(".island-dock")).not.toBeVisible();
+      await expect(page.locator(".cornernav")).not.toBeVisible();
     });
   }
 
@@ -199,8 +199,8 @@ test.describe("ToIV UI Redesign - 响应式测试", () => {
       fullPage: false,
     });
 
-    // 926×428(横屏 height<500):底部导航让位,灵动岛仍可见
-    await expect(page.locator(".island")).toBeVisible();
+    // 926×428(横屏 height<500):底部导航让位,CornerNav 仍可见
+    await expect(page.locator(".cornernav-trigger")).toBeVisible();
     await expect(page.locator(".app-bottom-nav")).not.toBeVisible();
   });
 
