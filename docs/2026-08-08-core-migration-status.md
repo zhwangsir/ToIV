@@ -30,7 +30,7 @@
 |---|---|---|---|
 | 1 | DRT 推送 core 并起服务 | **项目负责人** | core 已有 PG/Redis;备份在 workstation /var/tmp(drt_pg_dump.sql / drt_redis_dump.rdb / drt_env_backup) |
 | 2 | cloud 反代切换指向 core | 设备管家(待 1 完成后) | AGENTS.md 待办;需选低峰窗口,先 HTTPS 验证再切 |
-| 3 | 清理 workstation 残留 /home/merlin/toiv(37G) | 设备管家(**需用户确认后执行**) | 已确认无存活服务引用;删除前建议先 tar 归档到 NAS |
+| 3 | 清理 workstation 残留 /home/merlin/toiv(37G) | ~~设备管家~~ ✅ 2026-08-08 已完成 | 已归档 NAS `workstation-backup-20260808/toiv-code-37g.tar.gz`(27G,gzip -t 校验通过)后删除,释放 37G |
 | 4 | DRT 目录(17G)处置 | 项目负责人决定 | 迁 core 后归档或删除 |
 
 ## 三、Workstation「纯算力」最终形态(目标态)
