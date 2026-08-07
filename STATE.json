@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-08-07T21:10:00+08:00",
+  "updated_at": "2026-08-07",
   "sync_baseline": {
     "id": "SYNC-2026-07-18",
     "type": "initial-sync",
@@ -2163,12 +2163,20 @@
     ],
     "production_advice": "角色卡用干净正面肖像;ref2va 与 fl2va i2v 互补,为 Studio 分镜引擎候选,可替代 PuLID 首帧路线",
     "leftovers": [
-      "人脸维度主观对比有限(InsightFace 量化未做)",
-      "台词口型人工听审",
-      "参考视频/音频维度未测"
+      "人脸一致性 InsightFace embedding 量化未做",
+      "台词清晰度/口型同步人工听审(沿用第一轮遗留)",
+      "音色克隆未迁移(F0 未跟随参考),建议 124 帧 20 steps 高档位复测定论"
     ],
     "artifacts": "NAS toiv/outputs/videos/h3-eval/r2v/(7 个 mp4)+ workstation ComfyUI-h3-eval/output/r2v/",
-    "verified_at": "2026-08-06T06:35:00+08:00"
+    "verified_at": "2026-08-06T06:35:00+08:00",
+    "d1_e1_followup_2026_08_07": {
+      "d1_ref_video_cameramove": "角色一致✅/运镜方向迁移幅度收敛⚠️/场景切换失败❌(视频参考是更强场景锚点)",
+      "e1_ref_audio_voice": "音轨+口型同步✅/音色未克隆⚠️(F0 200Hz vs 参考 108Hz)",
+      "scripts": [
+        "scripts/r2v_eval_d1.py",
+        "scripts/r2v_eval_e1.py"
+      ]
+    }
   },
   "canvas_iframe_fix_2026_08_06": {
     "status": "done",
