@@ -212,6 +212,12 @@ class Settings(BaseSettings):
     # 同卡 pool worker 为 gpu0 :8189。
     h3_co_workers: str = "http://192.168.71.127:8189"
 
+    # —— LongCat-Video 长视频引擎(专用 ComfyUI 实例,workstation GPU2 :8197) ——
+    # 独立于 WorkerPool(WanVideo 系节点仅该实例装有);systemd comfyui-longcat.service 托管,
+    # 权重经 extra_model_paths 挂 NAS LongCat/(参考 scripts/longcat_smoke.py)。
+    longcat_enabled: bool = True
+    longcat_base_url: str = "http://192.168.71.127:8197"
+
     @property
     def embed_url(self) -> str:
         return (self.embed_base_url or self.llm_base_url).rstrip("/")
@@ -241,6 +247,11 @@ class Settings(BaseSettings):
     def h3_base(self) -> str:
         """H3 专用实例基址(已去尾斜杠)。"""
         return self.h3_base_url.strip().rstrip("/")
+
+    @property
+    def longcat_base(self) -> str:
+        """LongCat 专用实例基址(已去尾斜杠)。"""
+        return self.longcat_base_url.strip().rstrip("/")
 
     @property
     def h3_co_worker_urls(self) -> list[str]:

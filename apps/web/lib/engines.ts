@@ -5,10 +5,12 @@ import {
   authHeaders,
   generateAudio,
   generateImg2img,
+  generateLongcatT2V,
   generateLtxI2V,
   generateLtxT2V,
   generateTxt2img,
   type AudioGenParams,
+  type LongcatT2VParams,
 } from "./api";
 import type { GenerateResponse, Img2ImgGenParams, Txt2ImgParams } from "./types";
 
@@ -185,6 +187,18 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
 
     case "h3-t2v":
       return _postH3("/api/h3/t2v", _h3Payload(values, positive, negative, seed));
+
+    case "longcat-t2v":
+      return generateLongcatT2V({
+        positive,
+        negative,
+        width: _num(values, "width", 832),
+        height: _num(values, "height", 480),
+        num_frames: _num(values, "num_frames", 121),
+        steps: _num(values, "steps", 10),
+        fps: _num(values, "fps", 16),
+        seed,
+      } satisfies LongcatT2VParams);
 
     case "h3-i2v":
       // 参考图经 /api/upload 落在 pool worker,后端会转运到 H3 专用实例

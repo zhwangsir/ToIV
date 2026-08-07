@@ -25,6 +25,7 @@ from app.models import User
 from app.nsfw_ctx import nsfw_allowed
 from app.routes.ltx_studio import _LTX2_UNETS
 from app.services.h3 import H3_NODE, get_h3_client
+from app.services.longcat import LONGCAT_NODE, get_longcat_client
 from app.workflows.model_profiles import is_nextgen, is_nsfw
 from app.workflows.style_presets import MediaType, list_presets
 
@@ -97,6 +98,7 @@ def _probe_ltx_nsfw(kind: str) -> ProbeFn:
 
 # H3 探测超时:实例挂起时不能拖垮 /api/models/engines 端点
 _H3_PROBE_TIMEOUT = 8.0
+_LONGCAT_PROBE_TIMEOUT = 8.0
 
 
 async def _fetch_h3_nodes() -> set[str]:
@@ -118,6 +120,29 @@ async def _probe_h3(pool: WorkerPool) -> tuple[bool, str | None]:
         return False, f"H3 实例不可达: {e}"
     if H3_NODE not in nodes:
         return False, f"H3 实例缺少 {H3_NODE} 节点(需 ComfyUI ≥ 0.30)"
+    return True, None
+
+
+async def _fetch_longcat_nodes() -> set[str]:
+    """LongCat 实例 /object_info 节点集(模块级独立函数,便于测试替身)。"""
+    return await get_longcat_client().node_names()
+
+
+async def _probe_longcat(pool: WorkerPool) -> tuple[bool, str | None]:
+    """LongCat 专用实例探测:/object_info 含 WanVideoModelLoader 节点即可用;失败给原因。
+
+    与 pool 探测不同:LongCat 走 GPU2 独立实例(TOIV_LONGCAT_BASE_URL),pool 参数仅签名占位。
+    若 TOIV_LONGCAT_ENABLED=false,直接标不可用,避免前端展示不可提交的引擎。
+    getattr 兜底:测试替身 settings 缺该字段时按启用处理(probe 绝不能拖垮端点)。
+    """
+    if not getattr(get_settings(), "longcat_enabled", True):
+        return False, "LongCat 视频生成引擎已禁用(TOIV_LONGCAT_ENABLED=false)"
+    try:
+        nodes = await asyncio.wait_for(_fetch_longcat_nodes(), timeout=_LONGCAT_PROBE_TIMEOUT)
+    except Exception as e:  # 不可达/超时/替身异常一律降级为不可用 + 原因
+        return False, f"LongCat 实例不可达: {e}"
+    if LONGCAT_NODE not in nodes:
+        return False, f"LongCat 实例缺少 {LONGCAT_NODE} 节点(需装有 WanVideo 节点包的实例)"
     return True, None
 
 
@@ -222,6 +247,20 @@ def _h3_video_params() -> list[dict]:
         _num("length", "时长(帧)", 124, min_=22, max_=362,
              hint="17k+5 帧网格 @24fps(124≈5.2s,362≈15s)"),
         _num("steps", "采样步数", 20, min_=1, max_=50),
+        _seed(),
+    ]
+
+
+# LongCat 视频参数(与 routes/longcat_studio.py 请求模型同一套范围;16 对齐、17-961 帧)
+def _longcat_video_params() -> list[dict]:
+    return [
+        _negative(),
+        _num("width", "宽度", 832, min_=320, max_=1280, step=16, hint="16 对齐,非对齐自动向下取整"),
+        _num("height", "高度", 480, min_=320, max_=1280, step=16, hint="16 对齐"),
+        _num("num_frames", "时长(帧)", 121, min_=17, max_=961,
+             hint="长视频引擎,961 帧@16fps≈60s 单镜头"),
+        _num("steps", "采样步数", 10, min_=1, max_=50, hint="蒸馏 LoRA 低步数,默认 10 即可"),
+        _num("fps", "帧率", 16, min_=8, max_=30, hint="仅影响成片打包帧率"),
         _seed(),
     ]
 
@@ -523,6 +562,17 @@ _REGISTRY: list[dict[str, Any]] = [
         "description": "MiniMax H3:参考图首帧 → 音画同发短视频,剧情连续性好",
         "params": [_ref_image_required(), *_h3_video_params()],
         "probe": _probe_h3,
+    },
+    # LongCat-Video:专用 ComfyUI 实例(TOIV_LONGCAT_BASE_URL,默认 workstation GPU2 :8197),
+    # 长镜头引擎(961 帧@16fps≈60s);probe 探测实例 /object_info 是否含 WanVideo 节点
+    {
+        "id": "longcat-t2v",
+        "label": "LongCat 文生视频",
+        "kind": "video",
+        "nsfw": False,
+        "description": "LongCat-Video 长视频引擎:蒸馏 LoRA 低步数出片,专用实例 :8197",
+        "params": _longcat_video_params(),
+        "probe": _probe_longcat,
     },
     # ACE-Step 文生音乐:kind=audio(音频板块生成区;提交路由 /api/generate/audio 既有)
     {

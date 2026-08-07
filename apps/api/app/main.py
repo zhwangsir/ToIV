@@ -35,6 +35,7 @@ from app.routes import (
     images,
     jobs,
     lipsync,
+    longcat_studio,
     ltx_studio,
     manju,
     manju_project,
@@ -215,6 +216,7 @@ def create_app() -> FastAPI:
         opentalking,
         ltx_studio,
         h3_studio,
+        longcat_studio,
     ):
         app.include_router(module.router, prefix="/api")
 

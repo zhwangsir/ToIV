@@ -482,6 +482,30 @@ export async function generateLtxT2V(
   return res.json();
 }
 
+// ── LongCat-Video 长视频文生视频(专用实例,GPU2 :8197)──
+export interface LongcatT2VParams {
+  positive: string;
+  negative?: string;
+  width?: number;      // 320-1280,16 对齐(非对齐后端自动向下取整),默认 832
+  height?: number;     // 同上,默认 480
+  num_frames?: number; // 17-961,默认 121;961 帧@16fps≈60s 单镜头
+  steps?: number;      // 1-50,默认 10(蒸馏 LoRA 低步数)
+  fps?: number;        // 8-30,默认 16(仅影响成片打包帧率)
+  seed?: number | null;
+}
+
+export async function generateLongcatT2V(
+  params: LongcatT2VParams,
+): Promise<GenerateResponse> {
+  const res = await apiFetch(`/api/longcat/t2v`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) await raiseApiError(res, "LongCat 文生视频请求失败");
+  return res.json();
+}
+
 export async function generateLtxI2V(
   params: LtxI2VParams,
 ): Promise<GenerateResponse> {

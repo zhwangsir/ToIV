@@ -130,6 +130,24 @@ def h3_stub(monkeypatch):
     return state
 
 
+@pytest.fixture(autouse=True)
+def longcat_stub(monkeypatch):
+    """LongCat 实例探测替身:默认在线且含 WanVideoModelLoader 节点;置 .nodes=None 模拟不可达。
+
+    无此替身时 _probe_longcat 会向真实 TOIV_LONGCAT_BASE_URL(默认 workstation :8197)发 HTTP,
+    单元测试不允许依赖局域网真实实例。
+    """
+    state = SimpleNamespace(nodes={"WanVideoModelLoader"})
+
+    async def _fake() -> set[str]:
+        if state.nodes is None:
+            raise ComfyUIError("connection refused")
+        return set(state.nodes)
+
+    monkeypatch.setattr(engine_registry, "_fetch_longcat_nodes", _fake)
+    return state
+
+
 async def test_structure_four_engines_plus_h3(live_pool, user):
     engines = await list_engines(live_pool, user)
     ids = _by_id(engines)
@@ -213,6 +231,41 @@ async def test_h3_unavailable_when_node_missing(live_pool, user, h3_stub):
     ids = _by_id(await list_engines(live_pool, user))
     assert ids["h3-t2v"]["available"] is False
     assert "MiniMaxH3ImageToVideo" in ids["h3-t2v"]["unavailable_reason"]
+
+
+async def test_longcat_engine_entry(live_pool, user, longcat_stub):
+    """longcat-t2v 条目:视频 kind + 参数表(帧数/宽高/steps/fps/seed),实例在线即可用。"""
+    ids = _by_id(await list_engines(live_pool, user))
+    e = ids["longcat-t2v"]
+    assert e["kind"] == "video" and e["nsfw"] is False
+    assert e["available"] is True and "unavailable_reason" not in e
+    frames = _param(e, "num_frames")
+    assert (frames["min"], frames["max"], frames["default"]) == (17, 961, 121)
+    assert "60s" in frames["hint"]
+    steps = _param(e, "steps")
+    assert (steps["min"], steps["max"], steps["default"]) == (1, 50, 10)
+    fps = _param(e, "fps")
+    assert (fps["min"], fps["max"], fps["default"]) == (8, 30, 16)
+    for key in ("width", "height", "seed"):
+        _param(e, key)
+
+
+async def test_longcat_unavailable_when_instance_down(live_pool, user, longcat_stub):
+    """LongCat 实例不可达 → 引擎不可用 + 原因;pool/H3 引擎不受影响。"""
+    longcat_stub.nodes = None
+    ids = _by_id(await list_engines(live_pool, user))
+    assert ids["longcat-t2v"]["available"] is False
+    assert "不可达" in ids["longcat-t2v"]["unavailable_reason"]
+    assert ids["ltx2-t2v"]["available"] is True
+    assert ids["h3-t2v"]["available"] is True
+
+
+async def test_longcat_unavailable_when_node_missing(live_pool, user, longcat_stub):
+    """实例在线但缺 WanVideoModelLoader 节点 → 不可用 + 原因指明节点。"""
+    longcat_stub.nodes = set()
+    ids = _by_id(await list_engines(live_pool, user))
+    assert ids["longcat-t2v"]["available"] is False
+    assert "WanVideoModelLoader" in ids["longcat-t2v"]["unavailable_reason"]
 
 
 async def test_h3_unavailable_when_disabled(live_pool, user, monkeypatch):
