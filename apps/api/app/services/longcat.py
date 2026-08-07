@@ -5,6 +5,9 @@ systemd comfyui-longcat.service 托管),不走 ComfyUI-LB 集群/WorkerPool
 (WanVideo 系节点仅该实例装有)。与 app/services/h3.py 同一模式:
   · get_longcat_client:实例客户端(与 pool worker 同一 ComfyUIClient 协议)
   · ensure_longcat_ready:提交前就绪检查(在线 + 装有 WanVideo 节点),失败 503 + 原因
+  · transfer_ref_image:i2v 参考图从上传落点 pool worker 转运到 LongCat 实例 input 目录
+  · prepare_continue_first_frame:续写源视频(产物 URL 或上传视频)→ ffmpeg 抽末帧
+    → 上传到实例 input,返回首帧文件名 + 源视频元信息(宽高/帧率,供参数对齐)
   · submit_longcat_job:queue_prompt → 落 Job → spawn_tracker 后台轮询落库;
     产物经 /api/images 代理进作品库,与 h3/ltx2 完全同一条路
 
@@ -13,8 +16,13 @@ GPU2 与 ASR(:9210)/H3 worker 共卡,但 LongCat 全程 offload(实测 480p49f �
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import shutil
+import tempfile
 import uuid
+from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 from fastapi import HTTPException
 from pydantic import BaseModel
@@ -23,6 +31,7 @@ from sqlmodel import Session
 from app.comfy.client import ComfyUIClient, ComfyUIError
 from app.comfy.tracker import spawn as spawn_tracker
 from app.config import get_settings
+from app.deps import resolve_worker
 from app.models import Job, User
 from app.routes.video import _raise_from_comfy_error
 from app.versioning import params_snapshot
@@ -59,6 +68,102 @@ async def ensure_longcat_ready(client: ComfyUIClient) -> None:
         raise HTTPException(
             status_code=503, detail=f"LongCat 实例不可达({client.base_url}): {e}"
         ) from e
+
+
+async def transfer_ref_image(client: ComfyUIClient, source: ComfyUIClient, image: str) -> str:
+    """把参考图从上传落点的 pool worker 转运到 LongCat 实例 input 目录,返回实例侧文件名。
+
+    LongCat 实例独立于集群,前端经 /api/upload 上传的参考图落在 pool worker 上,
+    提交 i2v 前须搬过去(读 /view → POST /upload/image)。与 h3.transfer_ref_image 同模式。
+    """
+    try:
+        content, _ = await source.get_image_bytes(image, "", "input")
+    except ComfyUIError as e:
+        raise HTTPException(status_code=502, detail=f"从参考图所在 worker 读取失败: {e}") from e
+    try:
+        return await client.upload_image(content, image)
+    except ComfyUIError as e:
+        raise HTTPException(status_code=502, detail=f"参考图上传到 LongCat 实例失败: {e}") from e
+
+
+async def _fetch_source_video_bytes(video: str, worker: str | None) -> bytes:
+    """取续写源视频字节:/api/images?... 产物 URL(worker 在 query 里)或上传视频文件名
+    (worker 必填,即上传落点)。走 resolve_worker 白名单校验(防 SSRF)。"""
+    if video.startswith("/api/images?"):
+        qs = parse_qs(urlsplit(video).query)
+        filename = qs.get("filename", [""])[0]
+        subfolder = qs.get("subfolder", [""])[0]
+        type_ = qs.get("type", ["output"])[0]
+        src_worker = qs.get("worker", [""])[0]
+        if not filename or not src_worker:
+            raise HTTPException(status_code=422, detail="无效的产物 URL(缺 filename/worker 参数)")
+    else:
+        name = video.strip().replace("\\", "/")
+        if ".." in name or name.startswith("/"):
+            raise HTTPException(status_code=422, detail="视频文件名不允许路径穿越")
+        if not worker:
+            raise HTTPException(status_code=422, detail="上传视频续写需提供 worker 参数(上传落点)")
+        filename, subfolder, type_, src_worker = name, "", "input", worker
+    source = resolve_worker(src_worker)
+    try:
+        content, _ = await source.get_image_bytes(filename, subfolder, type_)
+    except ComfyUIError as e:
+        raise HTTPException(status_code=502, detail=f"读取续写源视频失败: {e}") from e
+    return content
+
+
+async def _probe_video_meta(path: Path) -> tuple[int, int, int] | None:
+    """ffprobe 探测 (width, height, fps);失败返回 None(调用方回落默认参数)。
+
+    续写段分辨率/帧率默认向源视频实测值对齐(与 drama continue-video 同一原则:
+    项目/请求默认值可能与源视频不一致,直接用会做出参数跳变的下一段)。
+    """
+    if shutil.which("ffprobe") is None:
+        return None
+    proc = await asyncio.create_subprocess_exec(
+        "ffprobe", "-v", "error", "-select_streams", "v:0",
+        "-show_entries", "stream=width,height,avg_frame_rate", "-of", "csv=p=0", str(path),
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+    )
+    out, _ = await proc.communicate()
+    try:
+        w_s, h_s, rate = out.decode().strip().split(",")[:3]
+        num, den = rate.split("/")
+        fps = max(1, round(int(num) / max(1, int(den))))
+        return int(w_s), int(h_s), fps
+    except (ValueError, AttributeError):
+        return None
+
+
+async def prepare_continue_first_frame(
+    client: ComfyUIClient, video: str, worker: str | None
+) -> tuple[str, tuple[int, int, int] | None]:
+    """续写前置:取源视频字节 → ffmpeg 抽末帧为 jpg → 上传到 LongCat 实例 input。
+
+    返回 (实例侧首帧文件名, 源视频元信息 (width, height, fps) 或 None)。
+    """
+    from app.routes.assembly import _run_ffmpeg
+
+    content = await _fetch_source_video_bytes(video, worker)
+    with tempfile.TemporaryDirectory(prefix="longcat-cont-") as tmp:
+        tmp_dir = Path(tmp)
+        src = tmp_dir / "source.mp4"
+        src.write_bytes(content)
+        meta = await _probe_video_meta(src)
+        frame = tmp_dir / "last_frame.jpg"
+        # -sseof 倒 seek 定位末帧,避免全片解码(与 drama _extract_last_frame 同参数)
+        await _run_ffmpeg([
+            "ffmpeg", "-y", "-sseof", "-0.1", "-i", str(src),
+            "-frames:v", "1", "-q:v", "2", str(frame),
+        ])
+        if not frame.exists() or frame.stat().st_size == 0:
+            raise HTTPException(status_code=500, detail="续写末帧抽取失败(ffmpeg 产物为空)")
+        frame_bytes = frame.read_bytes()
+    try:
+        name = await client.upload_image(frame_bytes, f"longcat_continue_{uuid.uuid4().hex[:12]}.jpg")
+    except ComfyUIError as e:
+        raise HTTPException(status_code=502, detail=f"续写首帧上传到 LongCat 实例失败: {e}") from e
+    return name, meta
 
 
 async def submit_longcat_job(

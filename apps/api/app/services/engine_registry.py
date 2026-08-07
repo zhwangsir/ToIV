@@ -574,6 +574,28 @@ _REGISTRY: list[dict[str, Any]] = [
         "params": _longcat_video_params(),
         "probe": _probe_longcat,
     },
+    {
+        "id": "longcat-i2v",
+        "label": "LongCat 图生视频",
+        "kind": "video",
+        "nsfw": False,
+        "description": "LongCat-Video 长视频引擎:首帧参考图 → 长镜头,专用实例 :8197",
+        "params": [_ref_image_required(), *_longcat_video_params()],
+        "probe": _probe_longcat,
+    },
+    {
+        "id": "longcat-continue",
+        "label": "LongCat 视频续写",
+        "kind": "video",
+        "nsfw": False,
+        "description": "LongCat-Video:取已有视频末帧续写下一段长镜头(API 缺省宽高/帧率时自动向源视频实测值对齐)",
+        "params": [
+            {"key": "video", "label": "源视频", "type": "text", "default": "",
+             "hint": "/api/images?... 产物 URL(如上一段 LongCat 产物链接)"},
+            *_longcat_video_params(),
+        ],
+        "probe": _probe_longcat,
+    },
     # ACE-Step 文生音乐:kind=audio(音频板块生成区;提交路由 /api/generate/audio 既有)
     {
         "id": "ace-music",

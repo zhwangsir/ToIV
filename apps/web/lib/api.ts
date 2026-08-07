@@ -506,6 +506,40 @@ export async function generateLongcatT2V(
   return res.json();
 }
 
+export interface LongcatI2VParams extends LongcatT2VParams {
+  image: string;  // 已上传的首帧参考图文件名
+  worker: string; // 参考图落点的 pool worker(后端会转运到 LongCat 实例)
+}
+
+export async function generateLongcatI2V(
+  params: LongcatI2VParams,
+): Promise<GenerateResponse> {
+  const res = await apiFetch(`/api/longcat/i2v`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) await raiseApiError(res, "LongCat 图生视频请求失败");
+  return res.json();
+}
+
+export interface LongcatContinueParams extends LongcatT2VParams {
+  video: string;   // /api/images?... 产物 URL 或上传视频文件名(后者需 worker)
+  worker?: string; // 上传视频所在 worker(video 为文件名时必填)
+}
+
+export async function generateLongcatContinue(
+  params: LongcatContinueParams,
+): Promise<GenerateResponse> {
+  const res = await apiFetch(`/api/longcat/continue`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) await raiseApiError(res, "LongCat 视频续写请求失败");
+  return res.json();
+}
+
 export async function generateLtxI2V(
   params: LtxI2VParams,
 ): Promise<GenerateResponse> {

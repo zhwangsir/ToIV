@@ -114,7 +114,9 @@ POST /api/drama/shots/{sid}/continue-video
 
 ### 3.5 接入 core API(二期,✅ 已落地)
 
-`longcat-t2v` 已按 engine_registry 模式注册并接入 core(commit 57fd39c + df1f9ef):`POST /api/longcat/t2v`,worker 指向 `http://192.168.71.127:8197`,参数:num_frames(17–961,默认 121)、resolution(320–1280,默认 832×480 自动 16 对齐)、steps(1–50,默认 10)、fps(8–30,默认 16)、seed。e2e 已通(121 帧作业 → done → 产物代理下载 200)。`longcat-i2v` / `longcat-continue` 留待 P2b。
+`longcat-t2v` 已按 engine_registry 模式注册并接入 core(commit 57fd39c + df1f9ef):`POST /api/longcat/t2v`,worker 指向 `http://192.168.71.127:8197`,参数:num_frames(17–961,默认 121)、resolution(320–1280,默认 832×480 自动 16 对齐)、steps(1–50,默认 10)、fps(8–30,默认 16)、seed。e2e 已通(121 帧作业 → done → 产物代理下载 200)。
+
+**P2b(2026-08-08,✅ 已落地)**:`longcat-i2v` / `longcat-continue` 注册 engine_registry;`POST /api/longcat/i2v`(参考图经 /api/upload 落 pool worker,后端转运到实例,同 h3/i2v 模式)、`POST /api/longcat/continue`(源视频 = /api/images? 产物 URL 或上传视频文件名,后端 ffmpeg 抽末帧作 i2v 首帧;宽高/帧率缺省向源视频实测值对齐)。i2v 连线照搬官方示例 `LongCat_TI2V_example_01.json`:LoadImage → ImageResizeKJv2 → WanVideoEncode → `WanVideoEmptyEmbeds.extra_latents`。builder 在 num_frames > 241 时自动加 WanVideoContextOptions(81 帧/overlap 16,uniform_standard)并把块交换 10→30,对 t2v/i2v/续写统一生效。
 
 ### 3.6 姊妹模型储备(数字人方向)
 
@@ -186,5 +188,5 @@ curl -X POST http://192.168.71.47:8090/api/drama/shots/{sid}/continue-video \
 | P1b | LongCat 长视频压测:720p 961 帧(60s 单镜头,上下文窗口+块交换30) | ✅ 完成(65min/峰值 29GB,60s 全程连贯) |
 | P2 | engine_registry 注册 longcat-t2v + `POST /api/longcat/t2v` 接入 core(commit 57fd39c,1006 tests) | ✅ 完成(rope_function=comfy 已写死 builder) |
 | P2 | core e2e 全链路验证:121 帧竹林作业 → done → 产物代理下载 200(832×480×121 帧,3.6MB) | ✅ 完成;resolve_worker 补 LongCat 精确匹配修复产物代理 502(commit df1f9ef,1007 tests) |
-| P2b | LongCat i2v / 视频续写端点(builder/路由已留扩展位);长帧数(>241 帧)自动开上下文窗口的 builder 支持 | 待办 |
+| P2b | LongCat i2v / 视频续写端点(`POST /api/longcat/i2v` + `/continue`,注册 longcat-i2v/longcat-continue);长帧数(>241 帧)自动开上下文窗口(81/overlap16)+ 块交换 30,builder 统一生效 | ✅ 完成(i2v/续写 core e2e 通过,1025 tests) |
 | P3 | LongCat-Video-Avatar 数字人长视频评估 | 待办 |

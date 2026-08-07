@@ -16,6 +16,7 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
 import app.services.longcat as longcat_service
+import app.routes.longcat_studio as longcat_route
 from app.comfy.client import ComfyUIError
 from app.db import get_session
 from app.main import app
@@ -26,7 +27,9 @@ from app.workflows.longcat_video import (
     DEFAULT_MODEL,
     DEFAULT_T5,
     DEFAULT_VAE,
+    LongCatI2VParams,
     LongCatT2VParams,
+    build_longcat_i2v_graph,
     build_longcat_t2v_graph,
 )
 
@@ -333,3 +336,274 @@ def test_t2v_disabled_returns_503(client, monkeypatch):
 def test_t2v_requires_auth(client):
     c, _ = client
     assert c.post("/api/longcat/t2v", json={"positive": "x"}).status_code == 401
+
+
+# --------------------------------------------------------------------------- #
+# i2v 图构建器(首帧支路照搬官方示例 LongCat_TI2V_example_01.json)
+# --------------------------------------------------------------------------- #
+
+
+def test_i2v_builder_adds_first_frame_branch():
+    g = build_longcat_i2v_graph(LongCatI2VParams(positive="猫抬头", image="first.png", seed=9))
+    assert g["11"]["class_type"] == "LoadImage"
+    assert g["11"]["inputs"]["image"] == "first.png"
+    assert g["12"]["class_type"] == "ImageResizeKJv2"
+    assert g["12"]["inputs"]["image"] == ["11", 0]
+    assert g["12"]["inputs"]["width"] == 832 and g["12"]["inputs"]["height"] == 480
+    assert g["12"]["inputs"]["keep_proportion"] == "crop"
+    assert g["12"]["inputs"]["divisible_by"] == 16
+    assert g["13"]["class_type"] == "WanVideoEncode"
+    assert g["13"]["inputs"]["vae"] == ["8", 0]
+    assert g["13"]["inputs"]["image"] == ["12", 0]
+    # 首帧经 extra_latents 进 EmptyEmbeds(示例 note:T2V 不接 extra_latents)
+    assert g["6"]["inputs"]["extra_latents"] == ["13", 0]
+    # t2v 骨架不变(rope/scheduler 等关键输入仍在)
+    assert g["7"]["inputs"]["rope_function"] == "comfy"
+    assert g["10"]["inputs"]["filename_prefix"] == "ToIV_longcat/i2v"
+
+
+def test_t2v_builder_has_no_extra_latents():
+    g = build_longcat_t2v_graph(LongCatT2VParams(positive="x", seed=1))
+    assert "extra_latents" not in g["6"]["inputs"]
+    for nid in ("11", "12", "13"):
+        assert nid not in g
+
+
+# --------------------------------------------------------------------------- #
+# 长帧数自动上下文窗口(>241 帧:WanVideoContextOptions 81/overlap16 + 块交换 30)
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("num_frames", [17, 121, 241])
+def test_short_video_no_context_window(num_frames):
+    g = build_longcat_t2v_graph(LongCatT2VParams(positive="x", num_frames=num_frames, seed=1))
+    assert "14" not in g
+    assert "context_options" not in g["7"]["inputs"]
+    assert g["2"]["inputs"]["blocks_to_swap"] == 10
+
+
+@pytest.mark.parametrize("num_frames", [242, 481, 961])
+def test_long_video_auto_context_window(num_frames):
+    g = build_longcat_t2v_graph(LongCatT2VParams(positive="x", num_frames=num_frames, seed=1))
+    assert g["14"]["class_type"] == "WanVideoContextOptions"
+    assert g["14"]["inputs"]["context_frames"] == 81
+    assert g["14"]["inputs"]["context_overlap"] == 16
+    assert g["14"]["inputs"]["context_schedule"] == "uniform_standard"
+    assert g["7"]["inputs"]["context_options"] == ["14", 0]
+    assert g["2"]["inputs"]["blocks_to_swap"] == 30
+
+
+def test_i2v_long_video_also_auto_context_window():
+    """自动开窗对 i2v/续写(复用 i2v 图)同样生效。"""
+    g = build_longcat_i2v_graph(LongCatI2VParams(
+        positive="x", image="f.png", num_frames=961, seed=1,
+    ))
+    assert "14" in g
+    assert g["7"]["inputs"]["context_options"] == ["14", 0]
+    assert g["2"]["inputs"]["blocks_to_swap"] == 30
+    assert g["6"]["inputs"]["extra_latents"] == ["13", 0]
+
+
+# --------------------------------------------------------------------------- #
+# POST /api/longcat/i2v
+# --------------------------------------------------------------------------- #
+
+
+class _FakeSourceWorker:
+    """上传落点 pool worker 替身:get_image_bytes 可控。"""
+
+    base_url = "http://fake-worker"
+
+    async def get_image_bytes(self, filename, subfolder, type_):
+        return b"img-bytes", "image/png"
+
+
+class _FakeLongCatI2VClient(_FakeLongCatClient):
+    """加 upload_image 的 LongCat 实例替身(记录上传字节/文件名)。"""
+
+    def __init__(self, **kw) -> None:
+        super().__init__(**kw)
+        self.uploads: list[tuple[bytes, str]] = []
+
+    async def upload_image(self, content: bytes, filename: str) -> str:
+        self.uploads.append((content, filename))
+        return f"lc-{filename}"
+
+
+def test_i2v_ok_transfers_ref_image_and_submits(client, monkeypatch):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "lci2vok")
+    fake = _FakeLongCatI2VClient()
+    _install_longcat(monkeypatch, fake)
+    monkeypatch.setattr(longcat_route, "resolve_worker", lambda worker: _FakeSourceWorker())
+    r = c.post(
+        "/api/longcat/i2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={"positive": "猫抬头", "image": "in.png", "worker": "http://fake-worker",
+              "num_frames": 121, "seed": 7},
+    )
+    assert r.status_code == 200, r.text
+    # 参考图从源 worker 读出并上传到 LongCat 实例,图内引用转运后的文件名
+    assert fake.uploads == [(b"img-bytes", "in.png")]
+    graph = fake.graphs[0]
+    assert graph["11"]["inputs"]["image"] == "lc-in.png"
+    assert graph["6"]["inputs"]["extra_latents"] == ["13", 0]
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        assert job is not None and job.kind == "longcat_i2v"
+        assert job.seed == 7
+
+
+def test_i2v_source_worker_read_failure_502(client, monkeypatch):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "lci2vbadread")
+
+    class _BrokenSource:
+        base_url = "http://fake-worker"
+
+        async def get_image_bytes(self, filename, subfolder, type_):
+            raise ComfyUIError("no such file")
+
+    _install_longcat(monkeypatch, _FakeLongCatI2VClient())
+    monkeypatch.setattr(longcat_route, "resolve_worker", lambda worker: _BrokenSource())
+    r = c.post(
+        "/api/longcat/i2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={"positive": "x", "image": "in.png", "worker": "http://fake-worker"},
+    )
+    assert r.status_code == 502
+    assert "读取失败" in r.json()["detail"]
+
+
+def test_i2v_rejects_path_traversal(client):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "lci2vtrav")
+    r = c.post(
+        "/api/longcat/i2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={"positive": "x", "image": "../evil.png", "worker": "http://fake-worker"},
+    )
+    assert r.status_code == 422
+
+
+# --------------------------------------------------------------------------- #
+# POST /api/longcat/continue(抽末帧 → i2v 续写)
+# --------------------------------------------------------------------------- #
+
+
+def _fake_prepare_continue(frame="last.jpg", meta=(832, 480, 16)):
+    async def _run(client, video, worker):
+        return frame, meta
+    return _run
+
+
+def test_continue_ok_submits_i2v_graph(client, monkeypatch):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "lccontok")
+    fake = _FakeLongCatClient()
+    _install_longcat(monkeypatch, fake)
+    monkeypatch.setattr(
+        longcat_service, "prepare_continue_first_frame", _fake_prepare_continue()
+    )
+    r = c.post(
+        "/api/longcat/continue",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={
+            "positive": "镜头继续",
+            "video": "/api/images?filename=a.mp4&worker=http%3A%2F%2Ffake-worker",
+            "num_frames": 121, "seed": 11,
+        },
+    )
+    assert r.status_code == 200, r.text
+    graph = fake.graphs[0]
+    # 末帧作 i2v 首帧;分辨率/帧率缺省向源视频实测值(832×480@16)对齐
+    assert graph["11"]["inputs"]["image"] == "last.jpg"
+    assert graph["6"]["inputs"]["extra_latents"] == ["13", 0]
+    assert graph["6"]["inputs"]["width"] == 832 and graph["6"]["inputs"]["height"] == 480
+    assert graph["10"]["inputs"]["frame_rate"] == 16
+    assert graph["10"]["inputs"]["filename_prefix"] == "ToIV_longcat/continue"
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        assert job is not None and job.kind == "longcat_continue"
+
+
+def test_continue_explicit_params_override_source_meta(client, monkeypatch):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "lccontovr")
+    fake = _FakeLongCatClient()
+    _install_longcat(monkeypatch, fake)
+    monkeypatch.setattr(
+        longcat_service, "prepare_continue_first_frame", _fake_prepare_continue()
+    )
+    r = c.post(
+        "/api/longcat/continue",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={
+            "positive": "镜头继续", "video": "up.mp4", "worker": "http://fake-worker",
+            "width": 1280, "height": 720, "fps": 24, "seed": 1,
+        },
+    )
+    assert r.status_code == 200, r.text
+    graph = fake.graphs[0]
+    assert graph["6"]["inputs"]["width"] == 1280 and graph["6"]["inputs"]["height"] == 720
+    assert graph["10"]["inputs"]["frame_rate"] == 24
+
+
+def test_continue_requires_video(client):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "lccontmiss")
+    r = c.post(
+        "/api/longcat/continue",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={"positive": "x"},
+    )
+    assert r.status_code == 422
+
+
+# --------------------------------------------------------------------------- #
+# 续写源视频字节解析(_fetch_source_video_bytes:产物 URL / 上传文件名)
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.asyncio
+async def test_fetch_source_video_from_artifact_url(monkeypatch):
+    captured = {}
+
+    class _Src:
+        base_url = "http://fake-worker"
+
+        async def get_image_bytes(self, filename, subfolder, type_):
+            captured.update(filename=filename, subfolder=subfolder, type_=type_)
+            return b"mp4-bytes", "video/mp4"
+
+    monkeypatch.setattr(longcat_service, "resolve_worker", lambda w: _Src())
+    content = await longcat_service._fetch_source_video_bytes(
+        "/api/images?filename=a.mp4&subfolder=ToIV_longcat&type=output&worker=http%3A%2F%2Ffake-worker",
+        None,
+    )
+    assert content == b"mp4-bytes"
+    assert captured == {"filename": "a.mp4", "subfolder": "ToIV_longcat", "type_": "output"}
+
+
+@pytest.mark.asyncio
+async def test_fetch_source_video_upload_requires_worker():
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as exc:
+        await longcat_service._fetch_source_video_bytes("up.mp4", None)
+    assert exc.value.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_fetch_source_video_rejects_traversal():
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as exc:
+        await longcat_service._fetch_source_video_bytes("../evil.mp4", "http://fake-worker")
+    assert exc.value.status_code == 422

@@ -5,6 +5,8 @@ import {
   authHeaders,
   generateAudio,
   generateImg2img,
+  generateLongcatContinue,
+  generateLongcatI2V,
   generateLongcatT2V,
   generateLtxI2V,
   generateLtxT2V,
@@ -189,16 +191,25 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
       return _postH3("/api/h3/t2v", _h3Payload(values, positive, negative, seed));
 
     case "longcat-t2v":
-      return generateLongcatT2V({
-        positive,
-        negative,
-        width: _num(values, "width", 832),
-        height: _num(values, "height", 480),
-        num_frames: _num(values, "num_frames", 121),
-        steps: _num(values, "steps", 10),
-        fps: _num(values, "fps", 16),
-        seed,
-      } satisfies LongcatT2VParams);
+      return generateLongcatT2V(_longcatPayload(values, positive, negative, seed));
+
+    case "longcat-i2v":
+      // 参考图经 /api/upload 落在 pool worker,后端会转运到 LongCat 专用实例
+      return generateLongcatI2V({
+        ..._longcatPayload(values, positive, negative, seed),
+        image: refImage!.filename,
+        worker: refImage!.worker,
+      });
+
+    case "longcat-continue": {
+      // 源视频:/api/images? 产物 URL(注册表 text 参数),后端抽末帧续写
+      const video = _str(values, "video").trim();
+      if (!video) throw new Error("请填写源视频产物 URL(/api/images?...)");
+      return generateLongcatContinue({
+        ..._longcatPayload(values, positive, negative, seed),
+        video,
+      });
+    }
 
     case "h3-i2v":
       // 参考图经 /api/upload 落在 pool worker,后端会转运到 H3 专用实例
@@ -253,6 +264,20 @@ function _ltxNsfwPayload(values: Record<string, unknown>, positive: string, nega
     seed,
     use_upscale: _bool(values, "use_upscale"),
     use_rife: _bool(values, "use_rife"),
+  };
+}
+
+/** LongCat 提交负载:无 cfg(蒸馏链路固定 1.0,builder 内锁定)。 */
+function _longcatPayload(values: Record<string, unknown>, positive: string, negative: string, seed: number | null): LongcatT2VParams {
+  return {
+    positive,
+    negative,
+    width: _num(values, "width", 832),
+    height: _num(values, "height", 480),
+    num_frames: _num(values, "num_frames", 121),
+    steps: _num(values, "steps", 10),
+    fps: _num(values, "fps", 16),
+    seed,
   };
 }
 

@@ -201,6 +201,11 @@ nas:
 - **正确**：仿 H3 分支，在 hostname 回退之前对专用实例 base（`longcat_base`/`h3_base`）做精确匹配（commit df1f9ef）
 - **教训**：🔒 每新增一个与 pool worker 同机的专用 ComfyUI 实例，必须同步检查 `apps/api/app/deps.py` 的 resolve_worker 精确匹配分支，否则作业能跑通但产物取不回来
 
+### 10. LongCat TI2V 的 i2v 走 WanVideoEncode→extra_latents,不是 WanVideoImageToVideoEncode(2026-08-08)
+- **坑**:凭节点名直觉会用 WanVideoImageToVideoEncode 做 i2v 首帧编码
+- **正确**:官方示例 `LongCat_TI2V_example_01.json`(实例 :8197 example_workflows)的连线是 LoadImage → ImageResizeKJv2 → **WanVideoEncode → WanVideoEmptyEmbeds.extra_latents**(示例 note:For T2V disconnect the extra_latents);长帧数(>241)自动开窗 = WanVideoContextOptions(81/overlap16)接 WanVideoSampler.context_options + 块交换 10→30
+- **附带**:core 登录接口 `/api/auth/login` 返回字段是 `token`,不是 `access_token`
+
 ---
 
 ## 七、操作历史

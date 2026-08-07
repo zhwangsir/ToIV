@@ -4,6 +4,33 @@
 
 ---
 
+## LONGCAT-P2B-2026-08-08 · LongCat i2v/视频续写端点 + 长帧自动上下文窗口
+
+**时间**: 2026-08-08 02:35
+**类型**: feat(video) / e2e
+**目标**: LongCat-Video P2b —— `POST /api/longcat/i2v`、`POST /api/longcat/continue`、builder 长帧数(>241)自动开上下文窗口。服务文档:`docs/2026-08-07-long-video-services.md` 3.5 节
+
+### 实现要点
+
+- i2v 首帧连线照搬官方示例 `LongCat_TI2V_example_01.json`(:8197 /object_info 核实):LoadImage → ImageResizeKJv2(lanczos/crop/16 对齐)→ **WanVideoEncode → WanVideoEmptyEmbeds.extra_latents**(不是 WanVideoImageToVideoEncode;示例 note:For T2V disconnect the extra_latents)
+- 参考图转运同 h3/i2v 模式(/api/upload 落 pool worker → 后端搬到实例 input);续写源视频支持 /api/images? 产物 URL 或上传视频文件名,ffmpeg -sseof 抽末帧,宽高/帧率缺省向源视频 ffprobe 实测值对齐(同 drama continue-video 原则)
+- 自动上下文窗口:num_frames > 241 → WanVideoContextOptions(81 帧/overlap 16,uniform_standard)+ 块交换 10→30;≤241 保持现状;t2v/i2v/续写统一生效(单测覆盖阈值分支)
+- engine_registry 注册 longcat-i2v / longcat-continue;前端 api.ts + engines.ts 接入
+
+### core 真机 e2e(192.168.71.47:8090 → workstation :8197)
+
+| 用例 | 作业 prompt_id | 结果 |
+|---|---|---|
+| i2v 121 帧(832×480,参考图 testsrc2 上传 :8189 转运) | f7df8a92-462f-4680-bd22-54e69a9d3187 | ✅ done → 产物代理 200,ffprobe h264 832×480×121 帧@16fps(7.3MB) |
+| 续写 121 帧(源 = i2v 产物 URL,缺省宽高/帧率 → 源对齐) | 4983f208-9dd2-4201-8dcc-893549ab780e | ✅ done → 产物代理 200,ffprobe h264 832×480×121 帧@16fps(7.9MB) |
+| 长帧自动开窗 249 帧(>241 阈值) | cc78deb7-600e-425a-9645-8aa86e25a6c5 | ✅ 实例 history 确认 node14 WanVideoContextOptions(81/16)+ 块交换 30;作业 done → 产物代理 200,249 帧@16fps |
+| GET /api/models/engines | — | longcat-t2v/i2v/continue 三引擎 available: true |
+
+- 测试:全量 **1025 passed**(基线 1007 + 新增 18:builder i2v 支路/开窗阈值分支/i2v 路由转运/续写路由/源视频字节解析)
+- ⚠️ 小坑:core 登录接口返回字段是 `token` 不是 `access_token`
+
+---
+
 ## PROMPTOPT-2026-08-08 · 提示词优化改版真机验收(用户描述风格→AI二次优化)
 
 **时间**: 2026-08-08 00:50
