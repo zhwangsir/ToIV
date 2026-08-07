@@ -4,6 +4,34 @@
 
 ---
 
+## LONGVID-2026-08-07 · 长视频双路线落地:末帧续写上线 + LongCat-Video 引擎冒烟
+
+**时间**: 2026-08-07 19:14
+**类型**: feat(video) / e2e
+**目标**: 5 分钟级长视频能力建设——路线一(drama 末帧续写)上线 core;路线二(LongCat-Video 原生长视频)GPU2 部署并冒烟。服务文档:`docs/2026-08-07-long-video-services.md`
+
+### 路线一:drama studio 末帧续写(commit 3f9a680 + 5b12fea)
+
+- 新端点 `POST /api/drama/shots/{sid}/continue-video`:抽末帧 → LTX/H3 i2v 逐段续写(1–5 段)→ 可选 ffmpeg 自动拼接
+- 真机验证(core):2 段续写 + 拼接,段产物 768×384@16fps 逐段一致,成片 15.7s ✅
+- 修复:段参数原按项目默认值生成(256×256@8)与源视频(768×384@16)不一致 → concat 报 `Failed to configure output pad`;改为 ffprobe 实测源视频参数对齐(`_probe_video_meta`),probe 失败回落项目参数
+- PG 迁移:core 手动 `ALTER TABLE dramashot ADD COLUMN continue_*` ×4(SQLite 自动)
+- 测试:14 用例(含 2 个对齐回归),全量 986 passed
+
+### 路线二:LongCat-Video 13.6B(GPU2 独立实例)
+
+- 部署:`/home/merlin/ComfyUI-longcat`(:8197,comfyui-longcat.service,与生产 ComfyUI 隔离),WanVideoWrapper + KJNodes + VideoHelperSuite,1263 节点
+- 权重:官方 diffusers 83GB(NAS 备用)+ Kijai 单文件 fp8 26GB(diffusion_models/LongCat/ + loras/ + text_encoders/ + vae/)
+- 冒烟(scripts/longcat_smoke.py):480×832×49 帧、steps=10、蒸馏 LoRA,**73s 出片(含 NAS 加载),GPU2 峰值 21GB / 100% util**,画质达标
+- 关键坑:WanVideoSampler 必须 `rope_function="comfy"`(LongCat qk norm per-head,缺省路径报 4096 vs 128)
+- 选型依据:GPU2 是唯一常态空闲卡(余 ~90GB);fp8 常驻与 H3 突发 48GB 可共存(~75GB < 98GB)
+
+### 待办(见服务文档路线图)
+
+- P1b:720p×961 帧(~32s 单段)压测;P2:engine_registry 注册 longcat 三引擎接入 core;P3:LongCat-Video-Avatar 数字人长视频评估
+
+---
+
 ## FULLGEN-2026-08-07 · core 生产链路全功能真机生成测试(12/12 通过)
 
 **时间**: 2026-08-07 17:33

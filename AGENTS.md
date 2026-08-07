@@ -65,13 +65,15 @@ net use Z: \\192.168.71.7\NAS /persistent:yes
 | GPU1 | LiveAct batch worker | :9400 | ~58GB | **toiv-liveact.service** | `nproc_per_node=1`，单卡 GPU1 |
 | GPU2 | AI-Omni ASR (faster-whisper large-v3) | :9210 | ~4.9GB | 手动 screen | `device_index=2` |
 | GPU2 | MiniMax H3 (ComfyUI worker) | :8195 | ~48GB (CLIP bf16 + VAE) | **toiv-comfyui-h3.service** | 与 GPU0 共享 H3 工作进程 |
+| GPU2 | LongCat-Video (ComfyUI 独立实例) | :8197 | ~16-30GB (fp8 + Block Swap) | **comfyui-longcat.service** | 2026-08-07 新增;实例在 /home/merlin/ComfyUI-longcat,与生产 /opt/ComfyUI 隔离 |
 | GPU3 | FlashTalk WebSocket Server | — | ~55GB | **flashtalk.service** | 数字人实时对话 |
 | GPU3 | OpenTalking 数字人统一 API | — | ~1.5GB | **opentalking.service** | + opentalking-tts-shim |
 
 ### ComfyUI-LB 后端配置
 - 本地 1 后端：:8189(GPU0)
 - 远程 2 后端：pc01 :8188 / pc02 :8193
-- **GPU1/GPU2 不再跑独立 ComfyUI 后端**（GPU1 跑 LiveAct + Embedding，GPU2 跑 ASR + H3）
+- **GPU1 不跑独立 ComfyUI 后端**（GPU1 跑 LiveAct + Embedding）
+- **GPU2 例外**:2026-08-07 起跑 LongCat-Video 专用独立实例（:8197，不入 ComfyUI-LB 后端池；fp8 权重与 H3 突发 48GB 可共存）
 - **GPU3 不跑 ComfyUI**（跑 FlashTalk + OpenTalking）
 
 ### 关键服务路径（Workstation）
@@ -97,7 +99,8 @@ net use Z: \\192.168.71.7\NAS /persistent:yes
 | 路径 | 内容 | 大小 |
 |------|------|------|
 | `NAS/Windows/ComfyUI/ComfyUIModel/models` | 主模型库 | 524GB |
-| `NAS/toiv/comfyui-models` | ToIV 专用模型 | ~180GB |
+| `NAS/toiv/comfyui-models` | ToIV 专用模型 | ~260GB |
+| `NAS/toiv/comfyui-models/LongCat-Video` | 美团 LongCat-Video 13.6B 长视频模型(diffusers 布局: dit/text_encoder/vae/lora) | 83GB(2026-08-07 下载) |
 
 ### ComfyUI extra_model_paths.yaml 配置
 
@@ -191,8 +194,11 @@ nas:
 |------|------|------|
 | 17:00 | Workstation ComfyUI 安装 ComfyUI_essentials + rembg 2.0.78(onnxruntime 1.28),u2net.onnx 176MB 预置 `/home/merlin/.u2net/` | ✅ removebg 链路恢复 |
 | 17:33 | core 生产链路全功能真机生成测试(12 步串行 + GPU 采样) | ✅ 12/12 通过,详见 ToIV TEST_LOG.md FULLGEN-2026-08-07 |
+| 18:30 | drama studio 末帧续写模式上线 core(continue-video,含 PG 迁移+concat 尺寸对齐修复) | ✅ 真机 2 段+拼接 15.7s 成片验证通过 |
+| 19:00 | GPU2 部署 LongCat-Video 独立实例(comfyui-longcat.service :8197,WanVideoWrapper+KJNodes+VideoHelperSuite) | ✅ 974→1263 节点 |
+| 19:14 | LongCat 权重下载(官方 83GB hf-mirror + Kijai 单文件 fp8 26GB ModelScope)+ 冒烟 | ✅ 480×832×49 帧 73s 出片,峰值 21GB |
 
-> ⚠️ 新易错点:① core API 上传 kind 必须下划线风格(ltx_i2v/h3_i2v/removebg),连字符会导致 capabilities 门控失效;② H3 生成前置校验 GPU0 空闲 ≥36GiB,调用前需先 `POST :8189/free {"unload_models":true}` 释放 ComfyUI 缓存;③ workstation pip 需用清华镜像 `-i https://pypi.tuna.tsinghua.edu.cn/simple`,github 用 ghfast.top 镜像。
+> ⚠️ 新易错点:① core API 上传 kind 必须下划线风格(ltx_i2v/h3_i2v/removebg),连字符会导致 capabilities 门控失效;② H3 生成前置校验 GPU0 空闲 ≥36GiB,调用前需先 `POST :8189/free {"unload_models":true}` 释放 ComfyUI 缓存;③ workstation pip 需用清华镜像 `-i https://pypi.tuna.tsinghua.edu.cn/simple`,github 用 ghfast.top 镜像;④ **LongCat 在 WanVideoWrapper 里必须设 `rope_function="comfy"`**,否则报 4096 vs 128 维度错(qk norm per-head);⑤ hf-mirror 对 Kijai 仓库限流严重(~0.4MB/s),大文件走 ModelScope `resolve/master` 直链(~25MB/s);⑥ pkill -f 的模式串不能出现在自身 ssh 命令行里,否则自杀(exit 255),用 `[.]` 转义。
 
 ### 2026-07-28 会话
 
