@@ -40,6 +40,9 @@ H3_NSFW_LORAS: frozenset[str] = frozenset(
         "riding_pose_H3_i2v_v1.0.safetensors",  # civitai 2446218 Riding POV (I2V)
         "H3_footjob_v0_step1000_fixed.safetensors",  # civitai 2839680 Footjob
         "h3_musubi_v4-000040.safetensors",  # civitai 2841940 Innie Pussy
+        "deepthroat_v1.safetensors",  # civitai 2476698 Daring's Deepthroat H3
+        "minimax_vag_000002500.safetensors",  # civitai 2835594 H3 Vagina v0.2
+        "SexGod-NaughtyTimes-lora-MINIMAXH3.safetensors",  # civitai 2836176 NaughtyTimes
     }
 )
 

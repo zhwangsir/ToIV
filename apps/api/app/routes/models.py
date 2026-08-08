@@ -461,6 +461,53 @@ NSFW_RECOMMENDATIONS: list[dict] = [
         "推荐强度 0.6-1.0;需安装",
         "category": "h3",
     },
+    # ── 生态扩充(2026-08-08,civitai 按下载量调研)────────────────────
+    {
+        "name": "Daring's Deepthroat H3",
+        "type": "lora",
+        "base": "MiniMax H3",
+        "size": "1.11GB",
+        "civitai_url": "https://civitai.red/models/2476698",
+        "version_id": "3205475",
+        "desc": "深喉动作 LoRA(H3 生态下载量第一 20k+),文件名 deepthroat_v1.safetensors;"
+        "推荐强度 0.6-1.0;需安装",
+        "category": "h3",
+    },
+    {
+        "name": "H3 Vagina",
+        "type": "lora",
+        "base": "MiniMax H3",
+        "size": "0.14GB",
+        "civitai_url": "https://civitai.red/models/2835594",
+        # v0.2(step2500)为最新 H3 版
+        "version_id": "3200540",
+        "desc": "私处结构 LoRA(5.2k 下载),文件名 minimax_vag_000002500.safetensors;"
+        "推荐强度 0.6-1.0;需安装",
+        "category": "h3",
+    },
+    {
+        "name": "SexGod's NaughtyTimes H3",
+        "type": "lora",
+        "base": "MiniMax H3",
+        "size": "2.31GB",
+        "civitai_url": "https://civitai.red/models/2836176",
+        "version_id": "3200994",
+        "desc": "综合动作增强 LoRA(6.8k 下载,大体积高 rank),文件名 SexGod-NaughtyTimes-lora-MINIMAXH3.safetensors;"
+        "推荐强度 0.5-0.8;需安装",
+        "category": "h3",
+    },
+    {
+        "name": "Minimax H3 lightx2v Turbo(加速)",
+        "type": "lora",
+        "base": "MiniMax H3",
+        "size": "0.29GB",
+        "civitai_url": "https://civitai.red/models/2837571",
+        # lightx2v_4step_turbo_v0.1 的 resized rank21 bf16 小体积版
+        "version_id": "3206543",
+        "desc": "SFW 加速 LoRA(4 步出片,5k 下载),文件名 minimax_h3_fl2v_lightx2v_turbo_4step_v0.1_comfy_resized_avg_rank_21_bf16.safetensors;"
+        "配合低步数使用;需安装",
+        "category": "h3",
+    },
 ]
 
 
