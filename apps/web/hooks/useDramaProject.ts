@@ -25,6 +25,9 @@ import {
   pickDramaShotCandidate,
   deleteDramaShotCandidate,
   applyDramaAssetToProject,
+  listDramaAssets,
+  deleteDramaAsset,
+  refineDramaScript,
 } from "@/lib/api";
 import { loadJSON, saveJSON } from "@/lib/storage";
 import { usePoll } from "@/hooks/usePoll";
@@ -45,6 +48,8 @@ import type {
   VideoGeneratorInfo,
   GenerateVideoV2Body,
   DramaGridStoryboardResponse,
+  DramaAsset,
+  DramaAssetKind,
 } from "@/lib/api";
 import { useToast } from "@/components/ui/Toast";
 
@@ -119,6 +124,16 @@ export interface UseDramaProjectReturn {
   busyRef: string | null;
   // M2:从资产库应用角色到项目
   applyAsset: (aid: string, name: string) => Promise<void>;
+  // 资产库:列表(可按 kind 过滤)/删除(应用走 applyAsset)
+  assets: DramaAsset[] | null;
+  assetsLoading: boolean;
+  loadAssets: (kind?: DramaAssetKind) => Promise<void>;
+  deleteAsset: (aid: string, name: string) => Promise<void>;
+  // 导演台 L2 剧本润色(同步返回 original/refined,采纳与否由 UI 决定)
+  refineScript: (
+    text: string,
+    instruction?: string,
+  ) => Promise<{ original: string; refined: string }>;
   // 分镜
   saveShot: (
     shot: DramaShotItem,
@@ -588,6 +603,55 @@ export function useDramaProject(
         });
     },
     [showToast],
+  );
+
+  // ── 资产库:列表/删除(面板打开时按需加载,不做常驻轮询)──
+  const [assets, setAssets] = useState<DramaAsset[] | null>(null);
+  const [assetsLoading, setAssetsLoading] = useState(false);
+
+  const loadAssets = useCallback(
+    async (kind?: DramaAssetKind): Promise<void> => {
+      setAssetsLoading(true);
+      try {
+        const res = await listDramaAssets(kind);
+        setAssets(res.assets ?? []);
+      } catch (err) {
+        setAssets(null);
+        showToast("error", err instanceof Error ? err.message : "加载资产库失败");
+      } finally {
+        setAssetsLoading(false);
+      }
+    },
+    [showToast],
+  );
+
+  const deleteAsset = useCallback(
+    async (aid: string, name: string): Promise<void> => {
+      try {
+        await deleteDramaAsset(aid);
+        setAssets((prev) => (prev ? prev.filter((a) => a.id !== aid) : prev));
+        showToast("success", `资产「${name}」已删除`);
+      } catch (err) {
+        showToast("error", err instanceof Error ? err.message : "删除资产失败");
+      }
+    },
+    [showToast],
+  );
+
+  // ── 导演台 L2:剧本润色(同步;UI 拿到 refined 后自行决定采纳/放弃)──
+  const refineScript = useCallback(
+    (
+      text: string,
+      instruction?: string,
+    ): Promise<{ original: string; refined: string }> => {
+      const pid = currentIdRef.current;
+      if (!pid) return Promise.reject(new Error("无当前项目"));
+      return refineDramaScript(pid, text, instruction).then((r) => ({
+        original: r.original,
+        refined: r.refined,
+      }));
+    },
+    [],
   );
 
   // ── 保存分镜编辑(patchDramaShot)──
@@ -1526,6 +1590,11 @@ export function useDramaProject(
     generateReference,
     busyRef,
     applyAsset,
+    assets,
+    assetsLoading,
+    loadAssets,
+    deleteAsset,
+    refineScript,
     saveShot,
     generateVideo,
     generateVideoV2,

@@ -327,4 +327,59 @@ test.describe("NSFW 专区", () => {
       await expect(recsToggle).toHaveAttribute("aria-expanded", "false");
     },
   );
+
+  // ─── 用例 8:短剧工作台完整面板(抽卡/任务日志/资产库/宫格/AI 润色入口存在)───
+  test(
+    "authed-nsfw: 短剧工作台四面板入口存在",
+    { tag: "@authed" },
+    async ({ page }) => {
+      await gotoNsfw(page);
+      await page.getByRole("tab", { name: "短剧" }).click();
+      await expect(page.locator(".nsfw-drama")).toBeVisible({ timeout: 10000 });
+
+      // 新建一个临时项目(纯 DB 操作,不触发 GPU 生成)
+      const title = `E2E面板验证${Date.now() % 100000}`;
+      await page.locator(".nsfw-drama-create input").fill(title);
+      await page.getByRole("button", { name: "新建项目" }).click();
+
+      // 工作台渲染:头部批量操作 + 资产库入口
+      await expect(page.getByRole("button", { name: "资产库" })).toBeVisible({
+        timeout: 15000,
+      });
+      await expect(page.getByRole("button", { name: /合成成片/ })).toBeVisible();
+
+      // 剧本区:AI 润色 + AI 拆分镜入口
+      await expect(page.getByRole("button", { name: "AI 润色" })).toBeVisible();
+      await expect(page.getByRole("button", { name: /AI 拆分镜/ })).toBeVisible();
+
+      // 分镜区:宫格分镜入口(需先有剧本;点击出现 9/25 picker)
+      await page.locator(".nsfw-dd-script").fill("E2E 临时剧本:两个角色对话。");
+      await page.getByRole("button", { name: /宫格分镜/ }).click();
+      await expect(page.getByRole("button", { name: /9 宫格/ })).toBeVisible();
+      await expect(page.getByRole("button", { name: /25 宫格/ })).toBeVisible();
+
+      // 资产库面板:打开可见 kind 过滤,关闭
+      await page.getByRole("button", { name: "资产库" }).click();
+      await expect(page.locator(".nsfw-asset")).toBeVisible();
+      await expect(
+        page.locator(".nsfw-asset-kind", { hasText: "角色" }),
+      ).toBeVisible();
+      await page.locator(".nsfw-asset-close").click();
+      await expect(page.locator(".nsfw-asset")).toHaveCount(0);
+
+      // 侧栏任务日志面板
+      await expect(page.locator(".nsfw-tlog")).toBeVisible();
+
+      // 清理:删除临时项目(confirm 对话框自动接受)
+      page.on("dialog", (d) => void d.accept());
+      await page.locator(".nsfw-drama-item", { hasText: title }).hover();
+      await page
+        .locator(".nsfw-drama-item", { hasText: title })
+        .locator(".nsfw-drama-item-del")
+        .click();
+      await expect(
+        page.locator(".nsfw-drama-item", { hasText: title }),
+      ).toHaveCount(0, { timeout: 10000 });
+    },
+  );
 });

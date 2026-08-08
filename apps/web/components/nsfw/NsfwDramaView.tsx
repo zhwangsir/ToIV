@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type MouseEvent as ReactMouseEvent } from "react";
 
 import { Icon } from "@/components/ui/Icon";
 import { useToast } from "@/components/ui/Toast";
@@ -12,6 +12,8 @@ import {
   imageUrl,
   type DramaProjectSummary,
   type DramaShotItem,
+  type DramaShotCandidate,
+  type DramaAssetKind,
 } from "@/lib/api";
 
 /**
@@ -166,6 +168,7 @@ export function NsfwDramaView() {
             </div>
           ))}
         </div>
+        {activeId && dp.current && <TaskLogPanel dp={dp} />}
       </aside>
 
       {/* ── 右侧:项目工作台 ── */}
@@ -368,10 +371,23 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
   const [script, setScript] = useState(project.script ?? "");
   const [charName, setCharName] = useState("");
   const [charDesc, setCharDesc] = useState("");
+  // 资产库面板
+  const [assetsOpen, setAssetsOpen] = useState(false);
+  // 宫格预览块本地隐藏(清除后再次生成会重新显示)
+  const [gridHidden, setGridHidden] = useState(false);
+  // 导演台 L2:剧本 AI 润色结果(采纳/放弃由用户决定)
+  const [polishBusy, setPolishBusy] = useState(false);
+  const [polishResult, setPolishResult] = useState<{
+    original: string;
+    refined: string;
+  } | null>(null);
 
   // 切换项目时同步剧本草稿
   useEffect(() => {
     setScript(project.script ?? "");
+    setPolishResult(null);
+    setGridHidden(false);
+    setAssetsOpen(false);
   }, [project.id, project.script]);
 
   const saveScript = useCallback(async () => {
@@ -397,6 +413,43 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
 
   const availableGenerators = dp.videoGenerators.filter((g) => g.available);
 
+  // ── 剧本 AI 润色(L2 refine,同步)──
+  const handlePolish = useCallback(async () => {
+    const text = script.trim();
+    if (!text || polishBusy) return;
+    setPolishBusy(true);
+    try {
+      const r = await dp.refineScript(text);
+      setPolishResult(r);
+    } catch (err) {
+      showToast("error", err instanceof Error ? err.message : "AI 润色失败");
+    } finally {
+      setPolishBusy(false);
+    }
+  }, [dp, script, polishBusy, showToast]);
+
+  // ── 宫格图点击定位:按格子行列映射到分镜序号并滚动到卡片 ──
+  const handleGridClick = useCallback(
+    (e: ReactMouseEvent<HTMLImageElement>) => {
+      const shots = dp.shots;
+      if (shots.length === 0) return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      const fx = (e.clientX - rect.left) / rect.width;
+      const fy = (e.clientY - rect.top) / rect.height;
+      const cols = shots.length <= 9 ? 3 : 5;
+      const rows = Math.ceil(shots.length / cols);
+      const col = Math.min(cols - 1, Math.max(0, Math.floor(fx * cols)));
+      const row = Math.min(rows - 1, Math.max(0, Math.floor(fy * rows)));
+      const shot = shots[row * cols + col];
+      if (!shot) return;
+      dp.setSelectedShotId(shot.id);
+      document
+        .getElementById(`nsfw-shot-${shot.id}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    },
+    [dp],
+  );
+
   return (
     <div className="nsfw-dd">
       {/* ── 头部:标题 + 批量操作 ── */}
@@ -412,6 +465,15 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
           )}
         </div>
         <div className="nsfw-dd-actions">
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => setAssetsOpen(true)}
+            title="跨项目角色/场景/道具/风格资产库"
+          >
+            <Icon name="box" size={14} />
+            资产库
+          </button>
           <button
             type="button"
             className="btn btn-ghost"
@@ -461,6 +523,16 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
           </button>
           <button
             type="button"
+            className="btn btn-ghost"
+            disabled={polishBusy || !script.trim()}
+            onClick={() => void handlePolish()}
+            title="L2 模型对当前剧本做关键场景润色(不覆盖原文,采纳后需手动保存)"
+          >
+            <Icon name="wand" size={14} />
+            {polishBusy ? "润色中…" : "AI 润色"}
+          </button>
+          <button
+            type="button"
             className="btn btn-primary"
             disabled={dp.storyboarding || !(project.script || script).trim()}
             onClick={() => void dp.storyboard(6)}
@@ -470,6 +542,44 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
             {dp.storyboarding ? "拆解中…" : "AI 拆分镜(6 镜)"}
           </button>
         </div>
+        {polishResult && (
+          <div className="nsfw-dd-polish">
+            <div className="nsfw-dd-polish-head">
+              <Icon name="sparkles" size={13} />
+              <span>润色结果(未保存,采纳后请再点「保存剧本」)</span>
+            </div>
+            <div className="nsfw-dd-polish-body">
+              <div className="nsfw-dd-polish-col">
+                <div className="nsfw-dd-polish-label">原文</div>
+                <pre className="nsfw-dd-polish-text">{polishResult.original}</pre>
+              </div>
+              <div className="nsfw-dd-polish-col">
+                <div className="nsfw-dd-polish-label">润色后</div>
+                <pre className="nsfw-dd-polish-text">{polishResult.refined}</pre>
+              </div>
+            </div>
+            <div className="nsfw-dd-polish-ops">
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => {
+                  setScript(polishResult.refined);
+                  setPolishResult(null);
+                }}
+              >
+                <Icon name="check" size={13} />
+                采纳
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => setPolishResult(null)}
+              >
+                放弃
+              </button>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* ── 角色 ── */}
@@ -540,6 +650,16 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
         <div className="nsfw-dd-sec-head">
           <Icon name="video" size={15} />
           <span>分镜({dp.shots.length})</span>
+          <button
+            type="button"
+            className="nsfw-dd-grid-btn"
+            disabled={dp.gridBusy || !script.trim()}
+            title="按剧本一次性生成 9/25 张分镜并拼宫格预览图(会清掉旧分镜)"
+            onClick={() => dp.setShowGridPicker(!dp.showGridPicker)}
+          >
+            <Icon name="grid" size={13} />
+            {dp.gridBusy ? "宫格生成中…" : "宫格分镜"}
+          </button>
           {availableGenerators.length > 0 && (
             <select
               className="nsfw-dd-model"
@@ -555,6 +675,69 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
             </select>
           )}
         </div>
+        {dp.showGridPicker && !dp.gridBusy && (
+          <div className="nsfw-dd-gridpicker">
+            <span className="nsfw-dd-gridpicker-hint">选择宫格规格:</span>
+            <button
+              type="button"
+              className="nsfw-shot-btn"
+              onClick={() => void dp.gridStoryboard(9)}
+            >
+              9 宫格(3×3)
+            </button>
+            <button
+              type="button"
+              className="nsfw-shot-btn"
+              onClick={() => void dp.gridStoryboard(25)}
+            >
+              25 宫格(5×5)
+            </button>
+          </div>
+        )}
+        {dp.gridBusy && (
+          <div className="nsfw-drama-hint">宫格分镜生成中(整图生成,约 1-3 分钟)…</div>
+        )}
+        {dp.gridError && (
+          <div className="nsfw-dd-asm-err">
+            <Icon name="error" size={13} />
+            {dp.gridError}
+          </div>
+        )}
+        {dp.gridImage && !gridHidden && !dp.gridBusy && (
+          <div className="nsfw-dd-grid">
+            <div className="nsfw-dd-grid-head">
+              <span>宫格预览(点击格子定位到分镜卡片)</span>
+              <div className="nsfw-dd-grid-ops">
+                <button
+                  type="button"
+                  title="查看大图"
+                  onClick={() =>
+                    dp.setRefPreview({ url: dp.gridImage, label: "宫格分镜预览" })
+                  }
+                >
+                  <Icon name="maximize" size={13} />
+                </button>
+                <button
+                  type="button"
+                  title="收起宫格预览"
+                  onClick={() => {
+                    setGridHidden(true);
+                    dp.clearGridResult();
+                  }}
+                >
+                  <Icon name="close" size={13} />
+                </button>
+              </div>
+            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              className="nsfw-dd-grid-img"
+              src={imageUrl(dp.gridImage)}
+              alt="宫格分镜预览"
+              onClick={handleGridClick}
+            />
+          </div>
+        )}
         {dp.shots.length === 0 && (
           <div className="nsfw-drama-hint">还没有分镜,先保存剧本并 AI 拆分镜</div>
         )}
@@ -563,10 +746,12 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
             <ShotCard
               key={s.id}
               shot={s}
+              selected={dp.selectedShotId === s.id}
               busyVideo={dp.busyShot === s.id}
               busyVoice={dp.busyVoice === s.id}
               busyLipsync={dp.busyLipsync === s.id}
               busyContinue={dp.busyContinue === s.id}
+              candidates={dp.candidatesByShot[s.id] ?? []}
               onGenerate={() =>
                 dp.generateVideoV2(s.id, {
                   model: dp.videoModel,
@@ -574,6 +759,9 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
                   cfg: 1.0,
                 })
               }
+              onGacha={(n) => dp.generateShotCandidates(s.id, n)}
+              onPickCandidate={(cid) => void dp.pickCandidate(s.id, cid)}
+              onDeleteCandidate={(cid) => void dp.deleteCandidate(s.id, cid)}
               onContinue={() => dp.continueVideo(s)}
               onVoice={() => dp.generateVoice(s)}
               onLipsync={() => void dp.generateLipsync(s.id)}
@@ -604,6 +792,37 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
           )}
         </section>
       )}
+
+      {/* ── 宫格/参考图大图预览 overlay ── */}
+      {dp.refPreview && (
+        <div
+          className="nsfw-dd-overlay"
+          role="button"
+          tabIndex={-1}
+          onClick={() => dp.setRefPreview(null)}
+        >
+          <div
+            className="nsfw-dd-overlay-body"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="nsfw-dd-overlay-head">
+              <span>{dp.refPreview.label}</span>
+              <button type="button" onClick={() => dp.setRefPreview(null)}>
+                <Icon name="close" size={14} />
+              </button>
+            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              className="nsfw-dd-overlay-img"
+              src={imageUrl(dp.refPreview.url)}
+              alt={dp.refPreview.label}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ── 资产库面板 ── */}
+      {assetsOpen && <AssetPanel dp={dp} onClose={() => setAssetsOpen(false)} />}
 
       <style jsx>{`
         .nsfw-dd {
@@ -781,33 +1000,208 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
           color: var(--err);
           font-size: var(--text-aux);
         }
+        .nsfw-dd-grid-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: var(--space-1);
+          padding: var(--space-1) var(--space-2);
+          background: var(--bg-surface-2);
+          color: var(--text-secondary);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+          font-size: var(--text-label);
+          cursor: pointer;
+        }
+        .nsfw-dd-grid-btn:hover:not(:disabled) {
+          border-color: var(--border-strong);
+          color: var(--text-primary);
+        }
+        .nsfw-dd-grid-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        .nsfw-dd-gridpicker {
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+          flex-wrap: wrap;
+          padding: var(--space-2);
+          background: var(--bg-surface-2);
+          border-radius: var(--radius-control);
+        }
+        .nsfw-dd-gridpicker-hint {
+          font-size: var(--text-label);
+          color: var(--text-muted);
+        }
+        .nsfw-dd-grid {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-2);
+        }
+        .nsfw-dd-grid-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          font-size: var(--text-label);
+          color: var(--text-muted);
+        }
+        .nsfw-dd-grid-ops {
+          display: flex;
+          gap: var(--space-1);
+        }
+        .nsfw-dd-grid-ops button {
+          display: inline-flex;
+          padding: var(--space-1);
+          background: var(--bg-surface-3);
+          color: var(--text-secondary);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-badge);
+          cursor: pointer;
+        }
+        .nsfw-dd-grid-ops button:hover {
+          color: var(--text-primary);
+          border-color: var(--border-strong);
+        }
+        .nsfw-dd-grid-img {
+          width: 100%;
+          max-height: 480px;
+          object-fit: contain;
+          background: #000;
+          border-radius: var(--radius-control);
+          cursor: crosshair;
+        }
+        .nsfw-dd-polish {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-2);
+          padding: var(--space-2);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+        }
+        .nsfw-dd-polish-head {
+          display: flex;
+          align-items: center;
+          gap: var(--space-1);
+          font-size: var(--text-label);
+          color: var(--text-muted);
+        }
+        .nsfw-dd-polish-body {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: var(--space-2);
+        }
+        .nsfw-dd-polish-label {
+          font-size: var(--text-label);
+          color: var(--text-secondary);
+          margin-bottom: var(--space-1);
+        }
+        .nsfw-dd-polish-text {
+          margin: 0;
+          padding: var(--space-2);
+          max-height: 220px;
+          overflow-y: auto;
+          background: var(--bg-surface-3);
+          border-radius: var(--radius-badge);
+          color: var(--text-primary);
+          font-size: var(--text-aux);
+          font-family: inherit;
+          white-space: pre-wrap;
+          word-break: break-word;
+        }
+        .nsfw-dd-polish-ops {
+          display: flex;
+          justify-content: flex-end;
+          gap: var(--space-2);
+        }
+        .nsfw-dd-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 60;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(0, 0, 0, 0.72);
+          padding: var(--space-4);
+        }
+        .nsfw-dd-overlay-body {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-2);
+          max-width: 90vw;
+          max-height: 90vh;
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-panel);
+          padding: var(--space-3);
+        }
+        .nsfw-dd-overlay-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          font-size: var(--text-aux);
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+        .nsfw-dd-overlay-head button {
+          display: inline-flex;
+          padding: var(--space-1);
+          background: var(--bg-surface-3);
+          color: var(--text-secondary);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-badge);
+          cursor: pointer;
+        }
+        .nsfw-dd-overlay-img {
+          max-width: 86vw;
+          max-height: 78vh;
+          object-fit: contain;
+          border-radius: var(--radius-control);
+          background: #000;
+        }
+        @media (max-width: 720px) {
+          .nsfw-dd-polish-body {
+            grid-template-columns: 1fr;
+          }
+        }
       `}</style>
     </div>
   );
 }
 
-/** 单分镜卡片:提示词/台词 + 视频预览 + 生成/续写/配音/对口型操作。 */
+/** 单分镜卡片:提示词/台词 + 视频预览 + 生成/抽卡/续写/配音/对口型操作 + 候选网格。 */
 function ShotCard({
   shot,
+  selected,
   busyVideo,
   busyVoice,
   busyLipsync,
   busyContinue,
+  candidates,
   onGenerate,
+  onGacha,
+  onPickCandidate,
+  onDeleteCandidate,
   onContinue,
   onVoice,
   onLipsync,
 }: {
   shot: DramaShotItem;
+  selected: boolean;
   busyVideo: boolean;
   busyVoice: boolean;
   busyLipsync: boolean;
   busyContinue: boolean;
+  candidates: DramaShotCandidate[];
   onGenerate: () => void;
+  onGacha: (n: number) => void;
+  onPickCandidate: (cid: string) => void;
+  onDeleteCandidate: (cid: string) => void;
   onContinue: () => void;
   onVoice: () => void;
   onLipsync: () => void;
 }) {
+  const [gachaN, setGachaN] = useState(2);
   const videoSrc = shot.continue_concat_url || shot.lipsync_video_url || shot.video_url;
   const videoDone = (shot.video_status || "").toLowerCase() === "done";
   const voiceDone = (shot.voice_status || "").toLowerCase() === "done";
@@ -815,8 +1209,12 @@ function ShotCard({
   const continueDone = (shot.continue_status || "").toLowerCase() === "done";
 
   return (
-    <div className="nsfw-shot">
-      <div className="nsfw-shot-info">
+    <div
+      id={`nsfw-shot-${shot.id}`}
+      className={`nsfw-shot${selected ? " is-selected" : ""}`}
+    >
+      <div className="nsfw-shot-top">
+        <div className="nsfw-shot-info">
         <div className="nsfw-shot-head">
           <span className="nsfw-shot-idx">#{shot.idx}</span>
           {shot.scene && <span className="nsfw-shot-scene">{shot.scene}</span>}
@@ -850,6 +1248,28 @@ function ShotCard({
             <Icon name="video" size={13} />
             {busyVideo ? "生成中…" : videoDone ? "重新生成" : "生成视频"}
           </button>
+          <select
+            className="nsfw-shot-gacha-n"
+            aria-label="抽卡候选数"
+            value={gachaN}
+            onChange={(e) => setGachaN(Number(e.target.value))}
+          >
+            {[2, 3, 4].map((n) => (
+              <option key={n} value={n}>
+                ×{n}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="nsfw-shot-btn"
+            disabled={busyVideo}
+            title="一次生成 N 个候选视频,挑选其一回填分镜"
+            onClick={() => onGacha(gachaN)}
+          >
+            <Icon name="zap" size={13} />
+            {busyVideo ? "生成中…" : "抽卡"}
+          </button>
           <button
             type="button"
             className="nsfw-shot-btn"
@@ -880,19 +1300,36 @@ function ShotCard({
             {busyLipsync ? "对口型…" : lipsyncDone ? "重新对口型" : "对口型"}
           </button>
         </div>
+        </div>
+        {!!videoSrc && (
+          <video className="nsfw-shot-video" controls preload="metadata" src={imageUrl(videoSrc)} />
+        )}
       </div>
-      {!!videoSrc && (
-        <video className="nsfw-shot-video" controls preload="metadata" src={imageUrl(videoSrc)} />
+      {candidates.length > 0 && (
+        <CandidateGrid
+          candidates={candidates}
+          onPick={onPickCandidate}
+          onDelete={onDeleteCandidate}
+        />
       )}
 
       <style jsx>{`
         .nsfw-shot {
           display: flex;
-          gap: var(--space-3);
+          flex-direction: column;
+          gap: var(--space-2);
           padding: var(--space-3);
           background: var(--bg-surface-2);
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-control);
+        }
+        .nsfw-shot.is-selected {
+          border-color: var(--accent);
+          box-shadow: 0 0 0 1px var(--accent);
+        }
+        .nsfw-shot-top {
+          display: flex;
+          gap: var(--space-3);
         }
         .nsfw-shot-info {
           flex: 1;
@@ -975,6 +1412,14 @@ function ShotCard({
           opacity: 0.5;
           cursor: not-allowed;
         }
+        .nsfw-shot-gacha-n {
+          padding: var(--space-1);
+          background: var(--bg-surface-3);
+          color: var(--text-secondary);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+          font-size: var(--text-label);
+        }
         .nsfw-shot-video {
           width: 220px;
           flex-shrink: 0;
@@ -983,7 +1428,7 @@ function ShotCard({
           align-self: flex-start;
         }
         @media (max-width: 720px) {
-          .nsfw-shot {
+          .nsfw-shot-top {
             flex-direction: column;
           }
           .nsfw-shot-video {
@@ -991,6 +1436,557 @@ function ShotCard({
           }
         }
       `}</style>
+    </div>
+  );
+}
+
+/** 抽卡候选网格:视频可播,挑选回填分镜 / 弃选删除。 */
+function CandidateGrid({
+  candidates,
+  onPick,
+  onDelete,
+}: {
+  candidates: DramaShotCandidate[];
+  onPick: (cid: string) => void;
+  onDelete: (cid: string) => void;
+}) {
+  return (
+    <div className="nsfw-cand">
+      {candidates.map((c) => {
+        const st = (c.status || "").toLowerCase();
+        const isDone = st === "done";
+        return (
+          <div
+            key={c.id}
+            className={`nsfw-cand-item${c.is_picked ? " is-picked" : ""}`}
+          >
+            <div className="nsfw-cand-media">
+              {isDone && c.url ? (
+                <video
+                  className="nsfw-cand-video"
+                  controls
+                  preload="metadata"
+                  src={imageUrl(c.url)}
+                />
+              ) : st === "error" ? (
+                <div className="nsfw-cand-ph is-err" title={c.error}>
+                  <Icon name="error" size={14} />
+                  失败
+                </div>
+              ) : (
+                <div className="nsfw-cand-ph">
+                  <Icon name="refresh" size={14} />
+                  生成中…
+                </div>
+              )}
+            </div>
+            <div className="nsfw-cand-meta">
+              <span>seed {c.seed}</span>
+              <span>{c.video_model}</span>
+              {c.is_picked && <span className="nsfw-cand-picked">已选</span>}
+            </div>
+            <div className="nsfw-cand-ops">
+              <button
+                type="button"
+                className="nsfw-cand-btn is-primary"
+                disabled={!isDone || c.is_picked}
+                title="将该候选回填为当前分镜视频"
+                onClick={() => onPick(c.id)}
+              >
+                <Icon name="check" size={12} />
+                挑选
+              </button>
+              <button
+                type="button"
+                className="nsfw-cand-btn is-danger"
+                onClick={() => onDelete(c.id)}
+              >
+                弃选
+              </button>
+            </div>
+          </div>
+        );
+      })}
+
+      <style jsx>{`
+        .nsfw-cand {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+          gap: var(--space-2);
+        }
+        .nsfw-cand-item {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-1);
+          padding: var(--space-2);
+          background: var(--bg-surface-3);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+        }
+        .nsfw-cand-item.is-picked {
+          border-color: var(--ok, #16a34a);
+        }
+        .nsfw-cand-media {
+          aspect-ratio: 16 / 9;
+          border-radius: var(--radius-badge);
+          overflow: hidden;
+          background: #000;
+        }
+        .nsfw-cand-video {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+        }
+        .nsfw-cand-ph {
+          width: 100%;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: var(--space-1);
+          color: var(--text-muted);
+          font-size: var(--text-label);
+        }
+        .nsfw-cand-ph.is-err {
+          color: var(--err);
+        }
+        .nsfw-cand-meta {
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+          font-size: var(--text-label);
+          color: var(--text-muted);
+          font-family: var(--font-mono);
+        }
+        .nsfw-cand-picked {
+          margin-left: auto;
+          color: var(--ok, #16a34a);
+          font-weight: 600;
+        }
+        .nsfw-cand-ops {
+          display: flex;
+          gap: var(--space-2);
+        }
+        .nsfw-cand-btn {
+          flex: 1;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: var(--space-1);
+          padding: 2px var(--space-2);
+          background: var(--bg-surface-2);
+          color: var(--text-secondary);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-badge);
+          font-size: var(--text-label);
+          cursor: pointer;
+        }
+        .nsfw-cand-btn.is-primary {
+          background: var(--accent);
+          color: var(--text-on-accent);
+          border-color: transparent;
+        }
+        .nsfw-cand-btn.is-danger:hover {
+          color: var(--err);
+        }
+        .nsfw-cand-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+/** 任务日志面板(侧栏底部):进行中任务实时耗时 + 最近完成记录。 */
+function TaskLogPanel({ dp }: { dp: DramaProjectApi }) {
+  const [now, setNow] = useState(() => Date.now());
+  const running = dp.taskLog.filter((e) => e.status === "running");
+  const recent = dp.taskLog.filter((e) => e.status !== "running").slice(0, 8);
+
+  // 有进行中任务时每秒刷新耗时显示
+  useEffect(() => {
+    if (running.length === 0) return;
+    const t = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, [running.length]);
+
+  const shotTag = (detail?: string) => {
+    if (!detail) return "";
+    const shot = dp.shots.find((s) => s.id === detail);
+    return shot ? ` #${shot.idx}` : "";
+  };
+
+  return (
+    <div className="nsfw-tlog">
+      <div className="nsfw-tlog-head">
+        <Icon name="history" size={13} />
+        <span>任务日志</span>
+        {running.length > 0 && (
+          <span className="nsfw-tlog-count">{running.length} 进行中</span>
+        )}
+      </div>
+      <div className="nsfw-tlog-list">
+        {running.length === 0 && recent.length === 0 && (
+          <div className="nsfw-tlog-empty">暂无任务记录</div>
+        )}
+        {running.map((e) => (
+          <div key={e.key} className="nsfw-tlog-item is-running">
+            <span className="nsfw-tlog-dot" />
+            <span className="nsfw-tlog-label">
+              {e.label}
+              {shotTag(e.detail)}
+            </span>
+            <span className="nsfw-tlog-dur">{fmtDur(now - e.startedAt)}</span>
+          </div>
+        ))}
+        {recent.map((e) => (
+          <div key={`${e.key}-${e.endedAt ?? e.startedAt}`} className="nsfw-tlog-item">
+            <Icon name="check" size={11} />
+            <span className="nsfw-tlog-label">
+              {e.label}
+              {shotTag(e.detail)}
+            </span>
+            <span className="nsfw-tlog-dur">
+              {e.endedAt ? fmtDur(e.endedAt - e.startedAt) : ""}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <style jsx>{`
+        .nsfw-tlog {
+          flex-shrink: 0;
+          display: flex;
+          flex-direction: column;
+          border-top: 1px solid var(--border-subtle);
+          max-height: 220px;
+          min-height: 0;
+        }
+        .nsfw-tlog-head {
+          display: flex;
+          align-items: center;
+          gap: var(--space-1);
+          padding: var(--space-2) var(--space-3);
+          font-size: var(--text-label);
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+        .nsfw-tlog-count {
+          margin-left: auto;
+          color: var(--accent);
+          font-weight: 400;
+        }
+        .nsfw-tlog-list {
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+          padding: 0 var(--space-2) var(--space-2);
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .nsfw-tlog-empty {
+          padding: var(--space-2);
+          color: var(--text-muted);
+          font-size: var(--text-label);
+          text-align: center;
+        }
+        .nsfw-tlog-item {
+          display: flex;
+          align-items: center;
+          gap: var(--space-1);
+          padding: 2px var(--space-1);
+          font-size: var(--text-label);
+          color: var(--text-secondary);
+        }
+        .nsfw-tlog-item.is-running {
+          color: var(--text-primary);
+        }
+        .nsfw-tlog-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: var(--accent);
+          flex-shrink: 0;
+          animation: nsfw-tlog-pulse 1.2s ease-in-out infinite;
+        }
+        @keyframes nsfw-tlog-pulse {
+          0%,
+          100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.3;
+          }
+        }
+        .nsfw-tlog-label {
+          flex: 1;
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .nsfw-tlog-dur {
+          font-family: var(--font-mono);
+          color: var(--text-muted);
+          flex-shrink: 0;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+/** 耗时格式化:<60s 显示秒,否则 Xm Ys。 */
+function fmtDur(ms: number): string {
+  const sec = Math.max(0, Math.floor(ms / 1000));
+  if (sec < 60) return `${sec}s`;
+  return `${Math.floor(sec / 60)}m ${sec % 60}s`;
+}
+
+const ASSET_KINDS: { key: "all" | DramaAssetKind; label: string }[] = [
+  { key: "all", label: "全部" },
+  { key: "character", label: "角色" },
+  { key: "scene", label: "场景" },
+  { key: "prop", label: "道具" },
+  { key: "style", label: "风格" },
+];
+
+/** 资产库面板:跨项目资产网格,角色类可应用到当前项目,均可删除。 */
+function AssetPanel({ dp, onClose }: { dp: DramaProjectApi; onClose: () => void }) {
+  const { loadAssets } = dp;
+  const [kind, setKind] = useState<"all" | DramaAssetKind>("all");
+  const [busyApply, setBusyApply] = useState<string | null>(null);
+
+  useEffect(() => {
+    void loadAssets(kind === "all" ? undefined : kind);
+  }, [kind, loadAssets]);
+
+  const assets = dp.assets;
+
+  return (
+    <div className="nsfw-asset-mask" role="button" tabIndex={-1} onClick={onClose}>
+      <div className="nsfw-asset" onClick={(e) => e.stopPropagation()}>
+        <div className="nsfw-asset-head">
+          <Icon name="box" size={15} />
+          <span>资产库</span>
+          <div className="nsfw-asset-kinds">
+            {ASSET_KINDS.map((k) => (
+              <button
+                key={k.key}
+                type="button"
+                className={`nsfw-asset-kind${kind === k.key ? " is-active" : ""}`}
+                onClick={() => setKind(k.key)}
+              >
+                {k.label}
+              </button>
+            ))}
+          </div>
+          <button type="button" className="nsfw-asset-close" onClick={onClose}>
+            <Icon name="close" size={14} />
+          </button>
+        </div>
+        <div className="nsfw-asset-body">
+          {dp.assetsLoading && <div className="nsfw-drama-hint">加载资产…</div>}
+          {!dp.assetsLoading && assets !== null && assets.length === 0 && (
+            <div className="nsfw-drama-hint">暂无资产</div>
+          )}
+          <div className="nsfw-asset-grid">
+            {assets?.map((a) => {
+              const thumb = a.reference_front || a.ref_image;
+              return (
+                <div key={a.id} className="nsfw-asset-item">
+                  <div className="nsfw-asset-thumb">
+                    {thumb ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={imageUrl(thumb)} alt={a.name} />
+                    ) : (
+                      <div className="nsfw-asset-nothumb">
+                        <Icon name="box" size={20} strokeWidth={1.2} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="nsfw-asset-name" title={a.name}>
+                    {a.name}
+                  </div>
+                  <div className="nsfw-asset-sub">
+                    {ASSET_KINDS.find((k) => k.key === a.kind)?.label ?? a.kind}
+                  </div>
+                  <div className="nsfw-asset-ops">
+                    {a.kind === "character" && (
+                      <button
+                        type="button"
+                        className="nsfw-asset-btn is-primary"
+                        disabled={busyApply === a.id}
+                        title="作为角色应用到当前项目"
+                        onClick={() => {
+                          setBusyApply(a.id);
+                          void dp.applyAsset(a.id, a.name).finally(() =>
+                            setBusyApply(null),
+                          );
+                        }}
+                      >
+                        {busyApply === a.id ? "应用中…" : "应用到项目"}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="nsfw-asset-btn is-danger"
+                      onClick={() => {
+                        if (window.confirm(`删除资产「${a.name}」?`)) {
+                          void dp.deleteAsset(a.id, a.name);
+                        }
+                      }}
+                    >
+                      删除
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <style jsx>{`
+          .nsfw-asset-mask {
+            position: fixed;
+            inset: 0;
+            z-index: 60;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.6);
+            padding: var(--space-4);
+          }
+          .nsfw-asset {
+            display: flex;
+            flex-direction: column;
+            width: min(860px, 92vw);
+            max-height: 86vh;
+            min-height: 0;
+            background: var(--bg-surface-1);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-panel);
+          }
+          .nsfw-asset-head {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-3);
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: var(--text-body);
+            font-weight: 600;
+            color: var(--text-primary);
+          }
+          .nsfw-asset-kinds {
+            display: flex;
+            gap: var(--space-1);
+            margin-left: var(--space-2);
+          }
+          .nsfw-asset-kind {
+            padding: 2px var(--space-2);
+            background: var(--bg-surface-2);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-badge);
+            font-size: var(--text-label);
+            cursor: pointer;
+          }
+          .nsfw-asset-kind.is-active {
+            background: var(--accent-soft);
+            color: var(--accent);
+            border-color: var(--accent);
+          }
+          .nsfw-asset-close {
+            margin-left: auto;
+            display: inline-flex;
+            padding: var(--space-1);
+            background: var(--bg-surface-3);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-badge);
+            cursor: pointer;
+          }
+          .nsfw-asset-body {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            padding: var(--space-3);
+          }
+          .nsfw-asset-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: var(--space-2);
+          }
+          .nsfw-asset-item {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-1);
+            padding: var(--space-2);
+            background: var(--bg-surface-2);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-control);
+          }
+          .nsfw-asset-thumb {
+            aspect-ratio: 1;
+            border-radius: var(--radius-badge);
+            overflow: hidden;
+            background: var(--bg-surface-3);
+          }
+          .nsfw-asset-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+          }
+          .nsfw-asset-nothumb {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+          }
+          .nsfw-asset-name {
+            font-size: var(--text-aux);
+            font-weight: 600;
+            color: var(--text-primary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+          .nsfw-asset-sub {
+            font-size: var(--text-label);
+            color: var(--text-muted);
+          }
+          .nsfw-asset-ops {
+            display: flex;
+            gap: var(--space-1);
+            margin-top: auto;
+          }
+          .nsfw-asset-btn {
+            flex: 1;
+            padding: 2px var(--space-1);
+            background: var(--bg-surface-3);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-badge);
+            font-size: var(--text-label);
+            cursor: pointer;
+          }
+          .nsfw-asset-btn.is-primary {
+            background: var(--accent);
+            color: var(--text-on-accent);
+            border-color: transparent;
+          }
+          .nsfw-asset-btn.is-danger:hover {
+            color: var(--err);
+          }
+          .nsfw-asset-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+          }
+        `}</style>
+      </div>
     </div>
   );
 }
