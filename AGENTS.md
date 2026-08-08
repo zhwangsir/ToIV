@@ -206,6 +206,11 @@ nas:
 - **正确**:官方示例 `LongCat_TI2V_example_01.json`(实例 :8197 example_workflows)的连线是 LoadImage → ImageResizeKJv2 → **WanVideoEncode → WanVideoEmptyEmbeds.extra_latents**(示例 note:For T2V disconnect the extra_latents);长帧数(>241)自动开窗 = WanVideoContextOptions(81/overlap16)接 WanVideoSampler.context_options + 块交换 10→30
 - **附带**:core 登录接口 `/api/auth/login` 返回字段是 `token`,不是 `access_token`
 
+### 11. deploy/.env 注释占位会骗过 grep 检查(2026-08-08)
+- **坑**:`deploy/.env` 里常有 `# TOIV_NAS_HOST=` 这类注释占位,追加配置前用 `grep -q TOIV_NAS_HOST` 判断会误匹配注释行,导致跳过追加,配置永远没生效
+- **正确**:判断必须锚定行首(`grep -q '^TOIV_NAS_HOST='`),追加前先看文件确认
+- **附带**:core 下载器大文件走 SFTP 回退(cifs 挂载慢/超时),civitai 直链 workstation 直连极慢,**大文件一律走 core `POST /api/nas/download`**,不要在 workstation 直接 wget
+
 ### 11. LongCat-Avatar v1.5 音频链路必须 whisper-large-v3,不是 wav2vec2(2026-08-08)
 - **坑**:按官方 v1.0 示例用 wav2vec2 音频编码,采样时报 `mat1 and mat2 shapes cannot be multiplied (1x46080 and 32000x512)`
 - **原因**:LongCat-Avatar-1.5 的 AudioProjModel 期望 whisper-large-v3 特征(5×5×1280=32000);wav2vec2 是 v1.0 旧路线
@@ -291,4 +296,4 @@ nas:
 - [ ] Cloud 反代切换指向 core（待 core 业务就绪后）
 - [x] 清理 .archive 中过期的部署残留（backup-20260722 / deploy-residues）
 - [ ] Workstation nvidia-smi 报 NVML mismatch(2026-08-08 诊断:已装驱动 595.84(modinfo 确认),运行中内核模块仍 595.71.05——**重启即恢复**,需安排重启窗口;临时可用 torch mem_get_info 观测显存)
-- [ ] core 配 `TOIV_CIVITAI_API_KEY`(2026-08-08:4 个 H3 NSFW LoRA 已配好推荐清单+version_id+token 透传,civitai 匿名下载 401,**拿到 key 写入 /home/merlin/toiv/deploy/.env 重启 toiv-api 即可一键安装**;备选:手动下载 4 文件放 NAS toiv/comfyui-models/h3/loras/)
+- [x] core 配 `TOIV_CIVITAI_API_KEY`(✅ 2026-08-08 key 已写入 core `/home/merlin/toiv/deploy/.env` 并重启 toiv-api,下载器 e2e 验证通过:推荐清单点下载即 civitai API 解析+token 自动附加+SFTP 落 NAS;key 是 secret,deploy/.env 已 gitignored 且 deploy.sh 不同步,禁止提交)
