@@ -22,12 +22,18 @@ import type { GenerateResponse, Img2ImgGenParams, Txt2ImgParams } from "./types"
 
 export type EngineKind = "image" | "video" | "audio";
 
-export type EngineParamType = "text" | "textarea" | "number" | "select" | "switch" | "images";
+export type EngineParamType = "text" | "textarea" | "number" | "select" | "switch" | "images" | "loras";
 
 export interface EngineParamOption {
   value: string;
   label: string;
   nsfw?: boolean;
+}
+
+/** LoRA 叠加参数值(loras 类型):多选 + 单项强度。 */
+export interface LoraValue {
+  name: string;
+  strength: number;
 }
 
 export interface EngineParam {
@@ -108,6 +114,22 @@ function _num(values: Record<string, unknown>, key: string, fallback: number): n
 
 function _bool(values: Record<string, unknown>, key: string): boolean {
   return Boolean(values[key]);
+}
+
+/** LoRA 叠加参数(loras 类型):多选数组 → [{name, strength}];非数组/空 → [](后端默认不加)。 */
+function _loras(values: Record<string, unknown>): LoraValue[] {
+  const v = values["loras"];
+  if (!Array.isArray(v)) return [];
+  const out: LoraValue[] = [];
+  for (const it of v) {
+    if (!it || typeof (it as LoraValue).name !== "string") continue;
+    const strength = (it as LoraValue).strength;
+    out.push({
+      name: (it as LoraValue).name,
+      strength: typeof strength === "number" && Number.isFinite(strength) ? strength : 0.6,
+    });
+  }
+  return out;
 }
 
 function _seed(values: Record<string, unknown>): number | null {
@@ -291,6 +313,7 @@ function _h3Payload(values: Record<string, unknown>, positive: string, negative:
     length: _num(values, "length", 124),
     steps: _num(values, "steps", 20),
     seed,
+    loras: _loras(values),
   };
 }
 

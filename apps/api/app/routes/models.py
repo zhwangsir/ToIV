@@ -241,7 +241,8 @@ async def local_models(
 # ---------------------------------------------------------------------------
 # 不从 civitai API 实时拉取(避免网络延迟/限流),数据写死在此。
 # 仅供 /nsfw 专区展示,帮用户发现热门 NSFW 底模 + 配套 LoRA;下载链接指向 civitai,
-# 用户手动下载后放到 NAS。分类:realistic(写实)/ anime(动漫)/ flux(FLUX 系)/ lora(配套 LoRA)。
+# 用户手动下载后放到 NAS。分类:realistic(写实)/ anime(动漫)/ flux(FLUX 系)/ lora(配套 LoRA)
+# / video(LTX2.3 视频)/ h3(MiniMax H3 视频 LoRA)。
 
 NSFW_RECOMMENDATIONS: list[dict] = [
     # —— 写实向 ——
@@ -412,6 +413,53 @@ NSFW_RECOMMENDATIONS: list[dict] = [
         "civitai_url": "https://civitai.red/models/2221503/zimage-turbo-by-stable-yogi",
         "desc": "Stable Yogi 的 LTX2.3 Turbo 视频底模,可通过环境变量切换",
         "category": "video",
+    },
+    # —— MiniMax H3 视频 LoRA(专用实例 :8195;安装落 NAS toiv/comfyui-models/h3/loras,
+    #    H3 工作室「LoRA 叠加」参数即可选;一键安装走 NAS 下载,下同)——
+    {
+        "name": "H3 Riding POV (I2V)",
+        "type": "lora",
+        "base": "MiniMax H3",
+        "size": "0.19GB",
+        "civitai_url": "https://civitai.red/models/2446218",
+        # 该模型有 10Eros/LTXV2.3 多版本,须精确指定 H3 版(最新版不是 H3)
+        "version_id": "3203205",
+        "desc": "骑乘位 POV i2v LoRA,文件名 riding_pose_H3_i2v_v1.0.safetensors;"
+        "推荐强度 0.5-1.0(作者建议 0.6,同页附提示词模板);需安装",
+        "category": "h3",
+    },
+    {
+        "name": "H3 Footjob",
+        "type": "lora",
+        "base": "MiniMax H3",
+        "size": "0.12GB",
+        "civitai_url": "https://civitai.red/models/2839680",
+        "version_id": "3205326",
+        "desc": "足交动作 LoRA,文件名 H3_footjob_v0_step1000_fixed.safetensors;"
+        "推荐强度 0.6-1.0;需安装",
+        "category": "h3",
+    },
+    {
+        "name": "H3 Cxy Kiss Lora",
+        "type": "lora",
+        "base": "MiniMax H3",
+        "size": "0.58GB",
+        "civitai_url": "https://civitai.red/models/2842199",
+        "version_id": "3208556",
+        "desc": "亲吻动作 LoRA(作者标 SFW),文件名 cxy_kiss_lora_h3_v01_step1500.safetensors;"
+        "推荐强度 0.6-1.0;需安装",
+        "category": "h3",
+    },
+    {
+        "name": "H3 Innie Pussy",
+        "type": "lora",
+        "base": "MiniMax H3",
+        "size": "0.28GB",
+        "civitai_url": "https://civitai.red/models/2841940",
+        "version_id": "3208228",
+        "desc": "私处特写 LoRA,文件名 h3_musubi_v4-000040.safetensors;"
+        "推荐强度 0.6-1.0;需安装",
+        "category": "h3",
     },
 ]
 

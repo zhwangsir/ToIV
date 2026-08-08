@@ -32,6 +32,22 @@ logger = logging.getLogger(__name__)
 # H3 管线核心节点(评测 /object_info 实测);实例缺此节点 = ComfyUI 版本不支持 H3
 H3_NODE = "MiniMaxH3ImageToVideo"
 
+# 已知 H3 NSFW LoRA 文件名(civitai 调研,base 均 MiniMax H3;详见 routes/models.py
+# NSFW_RECOMMENDATIONS 的 h3 分类)。请求引用其中任一 → 须过 R18 门控(nsfw_allowed),
+# 与 ltx_studio 的 _NSFW_UNETS 同款名单制。engine_registry 的 LoRA 选项也按此打 nsfw 标。
+H3_NSFW_LORAS: frozenset[str] = frozenset(
+    {
+        "riding_pose_H3_i2v_v1.0.safetensors",  # civitai 2446218 Riding POV (I2V)
+        "H3_footjob_v0_step1000_fixed.safetensors",  # civitai 2839680 Footjob
+        "h3_musubi_v4-000040.safetensors",  # civitai 2841940 Innie Pussy
+    }
+)
+
+
+def is_h3_nsfw_lora(name: str) -> bool:
+    """判定 LoRA 名(可带子目录前缀)是否已知 NSFW;按 basename 精确匹配。"""
+    return name.replace("\\", "/").rsplit("/", 1)[-1] in H3_NSFW_LORAS
+
 _GIB = 1 << 30
 
 

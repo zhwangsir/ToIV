@@ -330,13 +330,16 @@ function NsfwViewBody() {
   const handleDownload = useCallback(async (rec: NsfwRecommendation) => {
     const civitaiId = extractCivitaiId(rec.civitai_url);
     if (!civitaiId) return;
-    // 推荐模型类型映射:unet/diffusion_model 落到 diffusion_models,不自动切图像底模
-    const modelType = rec.type === "lora" ? "lora" : "unet";
+    // 推荐模型类型映射:unet/diffusion_model 落到 diffusion_models,不自动切图像底模;
+    // H3 LoRA(category=h3)落 NAS h3/loras(H3 worker 专用,与图像 LoRA 隔离)
+    const modelType =
+      rec.type === "lora" ? (rec.category === "h3" ? "h3_lora" : "lora") : "unet";
     try {
       const { job_id } = await nasDownload({
         source: "civitai",
         id: civitaiId,
         name: rec.name,
+        version_id: rec.version_id,
         type: modelType,
         filename: undefined,
       });

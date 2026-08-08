@@ -663,3 +663,181 @@ def test_t2v_underage_not_marked_even_with_header(client, monkeypatch):
     with Session(engine) as s:
         job = s.exec(select(Job).where(Job.user_id == uid)).first()
         assert job is not None and job.nsfw is False
+
+
+# --------------------------------------------------------------------------- #
+# LoRA 叠加(builder LoraLoaderModelOnly 链 / 请求校验 / NSFW 门控)
+# --------------------------------------------------------------------------- #
+
+from app.workflows.lora import LoraSpec  # noqa: E402
+
+_LORA_A = "cxy_kiss_lora_h3_v01_step1500.safetensors"  # 作者标 SFW
+_LORA_B = "riding_pose_H3_i2v_v1.0.safetensors"  # NSFW
+_LORA_NSFW = "h3_musubi_v4-000040.safetensors"  # NSFW
+
+
+def test_builder_t2v_empty_loras_keeps_template_chain():
+    """空 loras:不插节点,BasicGuider/BasicScheduler 的 model 仍直引 UNETLoader("6")。"""
+    g = build_h3_t2v_graph(H3T2VParams(positive="x", seed=1))
+    assert "200" not in g
+    assert g["16"]["inputs"]["model"] == ["6", 0]
+    assert g["9"]["inputs"]["model"] == ["6", 0]
+
+
+def test_builder_t2v_injects_lora_chain():
+    """2 个 LoRA:LoraLoaderModelOnly 链(200→201),下游 model 引用改接链末端;
+    strength 注入 strength_model,不动 CLIP(musubi 系 LoRA 只含 DiT 权重)。"""
+    params = H3T2VParams(
+        positive="x",
+        seed=1,
+        loras=(LoraSpec(name=_LORA_A, weight=0.6), LoraSpec(name=_LORA_B, weight=0.8)),
+    )
+    g = build_h3_t2v_graph(params)
+    assert g["200"]["class_type"] == "LoraLoaderModelOnly"
+    assert g["200"]["inputs"]["model"] == ["6", 0]
+    assert g["200"]["inputs"]["lora_name"] == _LORA_A
+    assert g["200"]["inputs"]["strength_model"] == 0.6
+    assert "clip" not in g["200"]["inputs"]
+    assert g["201"]["inputs"]["model"] == ["200", 0]
+    assert g["201"]["inputs"]["lora_name"] == _LORA_B
+    assert g["201"]["inputs"]["strength_model"] == 0.8
+    # 采样链(BasicGuider/BasicScheduler)改接链末端;H3 节点 clip 仍直引 CLIPLoader
+    assert g["16"]["inputs"]["model"] == ["201", 0]
+    assert g["9"]["inputs"]["model"] == ["201", 0]
+    assert g["104"]["inputs"]["clip"] == ["13", 0]
+
+
+def test_builder_i2v_injects_lora_chain_and_first_frame():
+    """i2v:LoRA 链与 first_frame 注入共存(LoRA 节点 id 200+ 不与模板 100 LoadImage 冲突)。"""
+    g = build_h3_i2v_graph(
+        H3I2VParams(positive="x", image="h3-in.png", seed=7, loras=(LoraSpec(name=_LORA_B, weight=0.6),))
+    )
+    assert g["200"]["class_type"] == "LoraLoaderModelOnly"
+    assert g["16"]["inputs"]["model"] == ["200", 0]
+    assert g["100"]["inputs"]["image"] == "h3-in.png"
+    assert g["104"]["inputs"]["first_frame"] == ["100", 0]
+
+
+def test_builder_lora_chain_does_not_pollute_template_cache():
+    """先建带 LoRA 的图再建空图:后者必须无 200 节点且 model 引用回 "6"(模板 deepcopy)。"""
+    build_h3_t2v_graph(H3T2VParams(positive="x", seed=1, loras=(LoraSpec(name=_LORA_A, weight=1.0),)))
+    g2 = build_h3_t2v_graph(H3T2VParams(positive="y", seed=2))
+    assert "200" not in g2
+    assert g2["16"]["inputs"]["model"] == ["6", 0]
+
+
+@pytest.mark.parametrize(
+    "lora",
+    [
+        {"name": "../evil.safetensors", "strength": 0.6},  # 路径穿越
+        {"name": "/abs/path.safetensors", "strength": 0.6},  # 绝对路径
+        {"name": "not_safetensors.ckpt", "strength": 0.6},  # 非 .safetensors 后缀
+        {"name": _LORA_A, "strength": 0.4},  # 强度低于 0.5
+        {"name": _LORA_A, "strength": 1.1},  # 强度高于 1.0
+    ],
+)
+def test_t2v_rejects_bad_loras(client, lora):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, f"h3lora-bad-{lora['name'][:8]}-{lora['strength']}")
+    r = c.post(
+        "/api/h3/t2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={"positive": "a cat", "loras": [lora]},
+    )
+    assert r.status_code == 422
+
+
+def test_t2v_rejects_too_many_loras(client):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "h3lora-toomany")
+    r = c.post(
+        "/api/h3/t2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={
+            "positive": "a cat",
+            "loras": [{"name": f"lora{i}.safetensors"} for i in range(4)],
+        },
+    )
+    assert r.status_code == 422
+
+
+def test_t2v_sfw_lora_allowed_without_nsfw_header(client, monkeypatch):
+    """SFW LoRA(作者标 SFW 的 cxy_kiss):主站(无 X-NSFW 头)放行,Job 不打 R18 标。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "h3lora-sfw")
+    fake = _FakeH3Client()
+    _install_h3(monkeypatch, fake)
+    r = c.post(
+        "/api/h3/t2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={"positive": "a couple kissing", "loras": [{"name": _LORA_A, "strength": 0.6}]},
+    )
+    assert r.status_code == 200, r.text
+    graph = fake.graphs[0]
+    assert graph["200"]["inputs"]["lora_name"] == _LORA_A
+    assert graph["200"]["inputs"]["strength_model"] == 0.6
+    assert graph["16"]["inputs"]["model"] == ["200", 0]
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        assert job is not None and job.nsfw is False
+
+
+def test_t2v_nsfw_lora_rejected_without_nsfw_header(client, monkeypatch):
+    """NSFW LoRA 主站直传:403(与 _gate_ltx_nsfw 同风格),不触碰 H3 实例。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "h3lora-nsfw403")
+    fake = _FakeH3Client()
+    _install_h3(monkeypatch, fake)
+    r = c.post(
+        "/api/h3/t2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={"positive": "x", "loras": [{"name": _LORA_NSFW}]},
+    )
+    assert r.status_code == 403
+    assert "NSFW" in r.json()["detail"]
+    assert fake.graphs == []
+
+
+def test_t2v_nsfw_lora_allowed_with_nsfw_header(client, monkeypatch):
+    """/nsfw 专区(X-NSFW: 1)引用 NSFW LoRA:放行,Job 打 R18 标,图含 LoRA 链。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "h3lora-nsfw-ok")
+    fake = _FakeH3Client()
+    _install_h3(monkeypatch, fake)
+    r = c.post(
+        "/api/h3/t2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}", "X-NSFW": "1"},
+        json={"positive": "x", "loras": [{"name": _LORA_NSFW, "strength": 0.8}]},
+    )
+    assert r.status_code == 200, r.text
+    graph = fake.graphs[0]
+    assert graph["200"]["inputs"]["lora_name"] == _LORA_NSFW
+    assert graph["200"]["inputs"]["strength_model"] == 0.8
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        assert job is not None and job.nsfw is True
+
+
+def test_i2v_nsfw_lora_rejected_without_nsfw_header(client, monkeypatch):
+    """i2v 同款门控:NSFW LoRA 主站直传 403,且不触发参考图转运。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "h3i2v-nsfw403")
+    fake = _FakeH3Client()
+    _install_h3(monkeypatch, fake)
+    monkeypatch.setattr(h3_route, "resolve_worker", lambda worker: _FakeSourceWorker())
+    r = c.post(
+        "/api/h3/i2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={
+            "positive": "x", "image": "in.png", "worker": "http://fake-worker",
+            "loras": [{"name": _LORA_B}],
+        },
+    )
+    assert r.status_code == 403
+    assert fake.uploads == [] and fake.graphs == []

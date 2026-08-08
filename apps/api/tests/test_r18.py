@@ -636,3 +636,28 @@ def test_nsfw_recommendations_include_10eros_loras(client):
     # 每项结构完整(name/type/civitai_url/category)
     for it in items:
         assert it["name"] and it["type"] and it["civitai_url"] and it["category"]
+
+
+def test_nsfw_recommendations_include_h3_loras(client):
+    """推荐清单含 4 个 MiniMax H3 LoRA(category=h3,真实 civitai ID,desc 注明文件名/强度/需安装)。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "recs-h3")
+    token = create_token(uid)
+    r = c.get("/api/models/nsfw-recommendations", headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 200
+    items = [it for it in r.json()["items"] if it["category"] == "h3"]
+    by_name = {it["name"]: it for it in items}
+    assert len(items) == 4
+    expected = {
+        "H3 Riding POV (I2V)": ("2446218", "riding_pose_H3_i2v_v1.0.safetensors"),
+        "H3 Footjob": ("2839680", "H3_footjob_v0_step1000_fixed.safetensors"),
+        "H3 Cxy Kiss Lora": ("2842199", "cxy_kiss_lora_h3_v01_step1500.safetensors"),
+        "H3 Innie Pussy": ("2841940", "h3_musubi_v4-000040.safetensors"),
+    }
+    for name, (civitai_id, filename) in expected.items():
+        it = by_name[name]
+        assert it["type"] == "lora" and it["base"] == "MiniMax H3"
+        assert f"models/{civitai_id}" in it["civitai_url"]
+        assert filename in it["desc"]
+        assert "需安装" in it["desc"]

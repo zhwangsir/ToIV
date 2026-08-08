@@ -832,6 +832,7 @@ export async function nasDownload(params: {
   source: string; // url | hf | civitai | huggingface
   id?: string;
   name?: string; // civitai: 显示名(404 时按名搜索回退)
+  version_id?: string; // civitai: 指定版本(空=最新)
   url?: string;
   hf_repo?: string;
   hf_file?: string;

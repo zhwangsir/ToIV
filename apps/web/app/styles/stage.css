@@ -779,6 +779,56 @@
   padding: var(--space-3);
 }
 
+/* ========== LoRA 多选 + 强度滑杆(ParamField loras 类型) ========== */
+
+.lora-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.lora-picker-empty {
+  font-size: var(--text-label);
+  color: var(--text-muted);
+}
+.lora-picker-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.lora-picker-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-body);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.lora-picker-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lora-picker-nsfw {
+  flex-shrink: 0;
+  font-size: var(--text-label);
+  color: var(--warn);
+}
+.lora-picker-strength {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-left: calc(var(--space-4) + var(--space-1));
+}
+.lora-picker-strength input[type="range"] {
+  flex: 1;
+}
+.lora-picker-strength-val {
+  min-width: 2.5em;
+  text-align: right;
+  font-size: var(--text-label);
+  color: var(--text-muted);
+}
+
 /* ========== 提示词条 PromptBar(底部居中悬浮玻璃条) ========== */
 
 .promptbar-dock {

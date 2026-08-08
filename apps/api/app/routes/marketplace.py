@@ -188,6 +188,22 @@ def _validate_download_url(url: str) -> str:
     return parsed.geturl()
 
 
+def _with_civitai_token(url: str) -> str:
+    """Civitai 下载 API 鉴权:NSFW/部分模型匿名下载 401,已配 TOIV_CIVITAI_API_KEY 时
+    给 civitai/civitai.red 的 /api/download/ 链接自动附加 ?token=(下载端点支持的
+    query 鉴权);未配 key 或其它链接原样返回(保持现状)。"""
+    if not _CIVITAI_KEY or "token=" in url:
+        return url
+    parsed = urlsplit(url)
+    host = (parsed.hostname or "").lower()
+    is_civitai = any(
+        host == h or host.endswith(f".{h}") for h in ("civitai.com", "civitai.red")
+    )
+    if not is_civitai or not parsed.path.startswith("/api/download/"):
+        return url
+    return f"{url}{'&' if parsed.query else '?'}token={_CIVITAI_KEY}"
+
+
 def _build_model_item(req: InstallRequest) -> dict:
     """据入参组装 ComfyUI-Manager 期望的模型条目;同时完成 type/url/source 校验。"""
     model_type = req.type.strip().lower()
@@ -376,8 +392,11 @@ async def install(
     async with httpx.AsyncClient(timeout=_INSTALL_TIMEOUT, headers=_HEADERS) as client:
         catalog = await _match_catalog_entry(client, base_url, req)
         install_item = catalog or item
+        # Civitai 下载链自动附加 ?token=(NSFW 匿名 401);token 只进发往 worker 的条目,
+        # 响应里的 model 保持无 token(key 不外泄给调用方)
+        send_item = {**install_item, "url": _with_civitai_token(install_item["url"])}
         try:
-            result = await _try_install(client, base_url, install_item)
+            result = await _try_install(client, base_url, send_item)
         except HTTPException as e:
             if catalog is None:
                 raise HTTPException(

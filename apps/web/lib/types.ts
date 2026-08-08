@@ -182,6 +182,8 @@ export interface NsfwRecommendation {
   civitai_url: string;
   desc: string;
   category: string;
+  /** civitai 版本 id:多版本模型精确指定(空=最新版),如 H3 LoRA 避开 10Eros/LTX 版 */
+  version_id?: string;
 }
 
 export type GenStatus = "idle" | "queued" | "running" | "error";

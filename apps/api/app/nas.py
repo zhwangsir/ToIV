@@ -25,6 +25,9 @@ _TYPE_SUBDIR: dict[str, str] = {
     "checkpoint": "checkpoints",
     "checkpoints": "checkpoints",
     "lora": "loras",
+    # H3 专用 LoRA:落 NAS h3/loras(H3 worker :8195 extra_model_paths 的 h3_nas 映射),
+    # 与图像 LoRA 的公共 loras/ 隔离,避免 SD 系 LoRA 污染 H3 选择器
+    "h3_lora": "h3/loras",
     "loras": "loras",
     "vae": "vae",
     "controlnet": "controlnet",

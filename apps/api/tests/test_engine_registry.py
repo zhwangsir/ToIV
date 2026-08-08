@@ -34,7 +34,7 @@ _NEXTGEN_UNET = "z_image_turbo_bf16.safetensors"
 _SAMPLERS = ["euler", "euler_ancestral", "dpmpp_2m"]
 _SCHEDULERS = ["normal", "simple", "karras"]
 
-_ALLOWED_TYPES = {"text", "textarea", "number", "select", "switch", "images"}
+_ALLOWED_TYPES = {"text", "textarea", "number", "select", "switch", "images", "loras"}
 
 
 def _obj_info(node: str, field: str, values: list[str]) -> dict:
@@ -145,6 +145,21 @@ def longcat_stub(monkeypatch):
         return set(state.nodes)
 
     monkeypatch.setattr(engine_registry, "_fetch_longcat_nodes", _fake)
+    return state
+
+
+@pytest.fixture(autouse=True)
+def h3_lora_stub(monkeypatch):
+    """H3 LoRA 枚举替身:默认空列表;置 .loras=None 模拟实例不可达(声明态空 options)。
+
+    无此替身时 _fetch_h3_loras 会向真实 H3 实例(:8195)发 HTTP,单元测试不允许依赖局域网。
+    """
+    state = SimpleNamespace(loras=[])
+
+    async def _fake() -> list[str] | None:
+        return None if state.loras is None else list(state.loras)
+
+    monkeypatch.setattr(engine_registry, "_fetch_h3_loras", _fake)
     return state
 
 
@@ -427,3 +442,59 @@ async def test_endpoint_shape_via_app(live_pool, user):
         app.dependency_overrides.clear()
     assert res2.status_code == 200
     assert "ltx-nsfw-t2v" in _by_id(res2.json()["engines"])
+
+
+# --------------------------------------------------------------------------- #
+# H3 LoRA 参数(loras 类型,options 来自 H3 实例 LoraLoaderModelOnly 枚举)
+# --------------------------------------------------------------------------- #
+
+_SFW_H3_LORA = "cxy_kiss_lora_h3_v01_step1500.safetensors"
+_NSFW_H3_LORA = "h3_musubi_v4-000040.safetensors"
+
+
+async def test_h3_loras_param_schema(live_pool, user, h3_lora_stub):
+    """h3-t2v/h3-i2v 带 loras 参数:类型 loras、强度范围 0.5-1.0、默认空、不泄漏 options_source。"""
+    h3_lora_stub.loras = [_SFW_H3_LORA]
+    ids = _by_id(await list_engines(live_pool, user))
+    for eid in ("h3-t2v", "h3-i2v"):
+        p = _param(ids[eid], "loras")
+        assert p["type"] == "loras"
+        assert p["default"] == []
+        assert (p["min"], p["max"]) == (0.5, 1.0)
+        assert "options_source" not in p
+
+
+async def test_h3_loras_options_injected_and_nsfw_tagged(live_pool, user, h3_lora_stub):
+    """LoRA 选项来自 H3 实例枚举;已知 R18 LoRA 打 nsfw 标。
+
+    SFW 上下文剔除 R18 项;R18 上下文全量保留(与 ckpt/unet 选项同一过滤链路)。
+    """
+    h3_lora_stub.loras = [_SFW_H3_LORA, _NSFW_H3_LORA]
+
+    token = nsfw_intent_var.set(False)
+    try:
+        ids = _by_id(await list_engines(live_pool, user))
+    finally:
+        nsfw_intent_var.reset(token)
+    sfw_values = [o["value"] for o in _param(ids["h3-t2v"], "loras")["options"]]
+    assert _SFW_H3_LORA in sfw_values
+    assert _NSFW_H3_LORA not in sfw_values
+
+    token = nsfw_intent_var.set(True)
+    try:
+        ids = _by_id(await list_engines(live_pool, user))
+    finally:
+        nsfw_intent_var.reset(token)
+    opts = _param(ids["h3-t2v"], "loras")["options"]
+    by_value = {o["value"]: o for o in opts}
+    assert by_value[_NSFW_H3_LORA].get("nsfw") is True
+    assert not by_value[_SFW_H3_LORA].get("nsfw")
+
+
+async def test_h3_loras_options_fallback_when_instance_down(live_pool, user, h3_lora_stub):
+    """H3 实例不可达(_fetch_h3_loras → None):loras 参数回退声明态空 options,不拖垮端点。"""
+    h3_lora_stub.loras = None
+    ids = _by_id(await list_engines(live_pool, user))
+    p = _param(ids["h3-t2v"], "loras")
+    assert p["options"] == []
+    assert "options_source" not in p

@@ -13,7 +13,7 @@ POST /api/h3/i2v —— 图生视频(首帧参考图;先经 /api/upload 上传�
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session
 
@@ -23,7 +23,9 @@ from app.models import User
 from app.nsfw_ctx import nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
 from app.services import h3 as h3_service
+from app.services.h3 import is_h3_nsfw_lora
 from app.workflows.h3_video import H3I2VParams, H3T2VParams, build_h3_i2v_graph, build_h3_t2v_graph
+from app.workflows.lora import LoraSpec
 
 router = APIRouter()
 
@@ -32,10 +34,38 @@ router = APIRouter()
 # 请求模型
 # ──────────────────────────────────────────────────────────────
 
+# LoRA 叠加上限(与 ltx_studio 同一约束)
+_MAX_LORAS = 3
+
+
+class H3LoraInput(BaseModel):
+    """单个叠加 LoRA:H3 worker loras 目录内文件(NAS h3/loras 映射),强度 0.5-1.0(作者推荐 0.6)。"""
+    name: str = Field(min_length=1, max_length=512)
+    strength: float = Field(default=0.6, ge=0.5, le=1.0)
+
+    @field_validator("name")
+    @classmethod
+    def _safe_name(cls, v: str) -> str:
+        name = v.strip().replace("\\", "/")
+        if ".." in name or name.startswith("/"):
+            raise ValueError("LoRA 文件名不允许路径穿越")
+        if not name.endswith(".safetensors"):
+            raise ValueError("LoRA 必须是 .safetensors 文件")
+        return name
+
+
+def _gate_h3_nsfw_loras(loras: list[H3LoraInput], user: User) -> None:
+    """NSFW LoRA 门槛:引用已知 H3 R18 LoRA(services/h3.H3_NSFW_LORAS)时仅
+    /nsfw 专页(X-NSFW: 1 header)放行,主站调用一律 403(与 _gate_ltx_nsfw 同风格)。"""
+    if any(is_h3_nsfw_lora(lora.name) for lora in loras) and not nsfw_allowed(user):
+        raise HTTPException(status_code=403, detail="所选 LoRA 为 R18 内容,仅限 NSFW 专区使用")
+
+
 class H3T2VRequest(BaseModel):
     """H3 文生视频请求。H3 节点无独立负向输入,negative 仅作快照保留(见 workflows/h3_video)。"""
     positive: str = Field(min_length=1, max_length=4000)
     negative: str = Field(default="", max_length=2000)
+    loras: list[H3LoraInput] = Field(default_factory=list, max_length=_MAX_LORAS)
     width: int = Field(default=1344, ge=256, le=1344)
     height: int = Field(default=768, ge=256, le=1344)
     length: int = Field(default=124, ge=22, le=362)
@@ -83,6 +113,7 @@ async def generate_h3_t2v(
 ):
     """H3 文生视频。实例不可达/缺 H3 节点 → 503(见 services/h3.ensure_h3_ready)。"""
     enforce_generation_rate_limit(user)
+    _gate_h3_nsfw_loras(req.loras, user)
     params = H3T2VParams(
         positive=req.positive,
         negative=req.negative,
@@ -90,6 +121,7 @@ async def generate_h3_t2v(
         height=req.height,
         length=req.length,
         steps=req.steps,
+        loras=tuple(LoraSpec(name=l.name, weight=l.strength) for l in req.loras),
         **({"seed": req.seed} if req.seed is not None else {}),
     )
     graph = build_h3_t2v_graph(params)
@@ -110,6 +142,7 @@ async def generate_h3_i2v(
 ):
     """H3 图生视频。参考图从上传落点 worker 转运到 H3 实例后提交。"""
     enforce_generation_rate_limit(user)
+    _gate_h3_nsfw_loras(req.loras, user)
     client = h3_service.get_h3_client()
     source = resolve_worker(req.worker)
     image_name = await h3_service.transfer_ref_image(client, source, req.image)
@@ -121,6 +154,7 @@ async def generate_h3_i2v(
         height=req.height,
         length=req.length,
         steps=req.steps,
+        loras=tuple(LoraSpec(name=l.name, weight=l.strength) for l in req.loras),
         **({"seed": req.seed} if req.seed is not None else {}),
     )
     graph = build_h3_i2v_graph(params)

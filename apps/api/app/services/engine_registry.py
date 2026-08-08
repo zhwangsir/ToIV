@@ -24,7 +24,7 @@ from app.config import get_settings
 from app.models import User
 from app.nsfw_ctx import nsfw_allowed
 from app.routes.ltx_studio import _LTX2_UNETS
-from app.services.h3 import H3_NODE, get_h3_client
+from app.services.h3 import H3_NODE, get_h3_client, is_h3_nsfw_lora
 from app.services.longcat import LONGCAT_NODE, get_longcat_client
 from app.workflows.model_profiles import is_nextgen, is_nsfw
 from app.workflows.style_presets import MediaType, list_presets
@@ -121,6 +121,20 @@ async def _probe_h3(pool: WorkerPool) -> tuple[bool, str | None]:
     if H3_NODE not in nodes:
         return False, f"H3 实例缺少 {H3_NODE} 节点(需 ComfyUI ≥ 0.30)"
     return True, None
+
+
+async def _fetch_h3_loras() -> list[str] | None:
+    """H3 实例 LoraLoaderModelOnly 的 lora_name 枚举(模块级独立函数,便于测试替身)。
+
+    不可达/缺节点 → None:注册表回退声明态空 options,绝不拖垮 /api/models/engines。
+    """
+    try:
+        info = await asyncio.wait_for(
+            get_h3_client().object_info("LoraLoaderModelOnly"), timeout=_H3_PROBE_TIMEOUT
+        )
+    except Exception:
+        return None
+    return _enum(info, "LoraLoaderModelOnly", "lora_name")
 
 
 async def _fetch_longcat_nodes() -> set[str]:
@@ -248,7 +262,25 @@ def _h3_video_params() -> list[dict]:
              hint="17k+5 帧网格 @24fps(124≈5.2s,362≈15s)"),
         _num("steps", "采样步数", 20, min_=1, max_=50),
         _seed(),
+        _h3_loras_select(),
     ]
+
+
+def _h3_loras_select() -> dict:
+    """H3 LoRA 叠加(多选 + 单项强度):options 运行时来自 H3 实例 LoraLoaderModelOnly 枚举。
+
+    声明态兜底为空 options(实例不可达时注册表仍可响应,前端仅显示「无 LoRA 可选」);
+    已知 R18 LoRA(services/h3.H3_NSFW_LORAS)注入时打 nsfw 标,SFW 上下文统一剔除。
+    min/max/step 为强度滑杆范围(与 routes/h3_studio.H3LoraInput 同一约束)。
+    """
+    return {
+        "key": "loras", "label": "LoRA 叠加", "type": "loras",
+        "default": [],
+        "options": [],
+        "options_source": "h3_loras",
+        "min": 0.5, "max": 1.0, "step": 0.05,
+        "hint": "可选,最多 3 个;推荐强度 0.5-1.0(默认 0.6);R18 LoRA 仅 /nsfw 专区可选",
+    }
 
 
 # LongCat 视频参数(与 routes/longcat_studio.py 请求模型同一套范围;16 对齐、17-961 帧)
@@ -640,6 +672,17 @@ _REGISTRY: list[dict[str, Any]] = [
 ]
 
 
+def _inject_h3_lora_options(p: dict, loras: list[str] | None) -> dict:
+    """把 options_source=h3_loras 的参数注入 H3 实例 LoRA 选项;实例不可达(None)保留声明态空 options。"""
+    p.pop("options_source", None)
+    if loras:
+        p["options"] = [
+            {"value": n, "label": n, **({"nsfw": True} if is_h3_nsfw_lora(n) else {})}
+            for n in loras
+        ]
+    return p
+
+
 async def list_engines(pool: WorkerPool, user: User | None = None) -> list[dict[str, Any]]:
     """返回引擎数组(按请求的 R18 上下文过滤 nsfw 引擎与 nsfw 选项)。
 
@@ -651,6 +694,9 @@ async def list_engines(pool: WorkerPool, user: User | None = None) -> list[dict[
     # 本次响应包含图像引擎时才访问 worker object_info,全失败回退声明态兜底。
     dyn: dict[str, list[str]] | None = None
     dyn_fetched = False
+    # H3 LoRA 选项走 H3 专用实例(非 pool),同样惰性一次拉取
+    h3_loras: list[str] | None = None
+    h3_loras_fetched = False
     engines: list[dict[str, Any]] = []
     for spec in _REGISTRY:
         if spec["nsfw"] and not r18:
@@ -659,7 +705,13 @@ async def list_engines(pool: WorkerPool, user: User | None = None) -> list[dict[
         params: list[dict] = []
         for p in spec["params"]:
             p = dict(p)
-            if p.get("options_source"):
+            src = p.get("options_source")
+            if src == "h3_loras":
+                if not h3_loras_fetched:
+                    h3_loras_fetched = True
+                    h3_loras = await _fetch_h3_loras()
+                p = _inject_h3_lora_options(p, h3_loras)
+            elif src:
                 if not dyn_fetched:
                     dyn_fetched = True
                     dyn = await _image_form_options(pool)

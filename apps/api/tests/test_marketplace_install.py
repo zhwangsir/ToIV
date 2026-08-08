@@ -427,3 +427,100 @@ def test_install_status_501_when_endpoint_absent(client_token, monkeypatch):
     _patch_httpx(monkeypatch, {})  # status 端点缺省 404
     r = c.get("/api/marketplace/install/status", headers=_auth(token))
     assert r.status_code == 501
+
+
+# --------------------------------------------------------------------------- #
+# Civitai 下载 token 透传(NSFW 匿名下载 401;key 来自 TOIV_CIVITAI_API_KEY)
+# --------------------------------------------------------------------------- #
+
+
+def test_with_civitai_token_helper():
+    """helper 单测:civitai/civitai.red 的 /api/download/ 链接附加 ?token=;其余原样。"""
+    import app.routes.marketplace as m
+
+    key = m._CIVITAI_KEY
+    m._CIVITAI_KEY = "k-1"
+    try:
+        assert (
+            m._with_civitai_token("https://civitai.red/api/download/models/3203205")
+            == "https://civitai.red/api/download/models/3203205?token=k-1"
+        )
+        # 已有 query 用 & 连接;civitai.com 同样生效
+        assert (
+            m._with_civitai_token("https://civitai.com/api/download/models/1?type=Model")
+            == "https://civitai.com/api/download/models/1?type=Model&token=k-1"
+        )
+        # 已有 token 不重复附加
+        assert (
+            m._with_civitai_token("https://civitai.red/api/download/models/1?token=x")
+            == "https://civitai.red/api/download/models/1?token=x"
+        )
+        # 非 /api/download/ 路径 / 非 civitai 主机不附加
+        assert m._with_civitai_token("https://civitai.red/images/x.safetensors") == "https://civitai.red/images/x.safetensors"
+        assert m._with_civitai_token("https://huggingface.co/a/b/resolve/main/m.safetensors") == "https://huggingface.co/a/b/resolve/main/m.safetensors"
+    finally:
+        m._CIVITAI_KEY = key
+    # key 为空:任何链接原样
+    assert m._with_civitai_token("https://civitai.red/api/download/models/1") == "https://civitai.red/api/download/models/1"
+
+
+def test_install_sends_token_to_worker_but_not_in_response(client_token, monkeypatch):
+    """已配 key:发往 worker(ComfyUI-Manager)的 url 带 ?token=;响应 model 保持无 token。"""
+    c, token = client_token
+    _use_pool()
+    monkeypatch.setattr(marketplace_route, "_CIVITAI_KEY", "secret-key")
+    routes = {("POST", "/model/install"): _FakeResponse(200, {"result": True})}
+    _patch_httpx(monkeypatch, routes)
+    r = c.post(
+        "/api/marketplace/install",
+        headers=_auth(token),
+        json={
+            "type": "lora",
+            "url": "https://civitai.red/api/download/models/3203205",
+            "filename": "riding_pose_H3_i2v_v1.0.safetensors",
+        },
+    )
+    assert r.status_code == 200, r.text
+    sent = [j for (m, _, j) in _FakeAsyncClient.last_calls if m == "POST" and j]
+    assert sent and sent[0]["url"].endswith("?token=secret-key")
+    # 响应不回泄 key
+    assert "secret-key" not in r.text
+    assert r.json()["model"]["url"] == "https://civitai.red/api/download/models/3203205"
+
+
+def test_install_without_key_sends_url_unchanged(client_token, monkeypatch):
+    """未配 key(空):发往 worker 的 url 原样,不附加 token(保持现状)。"""
+    c, token = client_token
+    _use_pool()
+    monkeypatch.setattr(marketplace_route, "_CIVITAI_KEY", "")
+    routes = {("POST", "/model/install"): _FakeResponse(200, {"result": True})}
+    _patch_httpx(monkeypatch, routes)
+    r = c.post(
+        "/api/marketplace/install",
+        headers=_auth(token),
+        json={
+            "type": "lora",
+            "url": "https://civitai.red/api/download/models/3203205",
+            "filename": "a.safetensors",
+        },
+    )
+    assert r.status_code == 200, r.text
+    sent = [j for (m, _, j) in _FakeAsyncClient.last_calls if m == "POST" and j]
+    assert sent and sent[0]["url"] == "https://civitai.red/api/download/models/3203205"
+
+
+def test_install_non_civitai_url_not_tokenized(client_token, monkeypatch):
+    """HuggingFace 链接即使已配 key 也不附加 token。"""
+    c, token = client_token
+    _use_pool()
+    monkeypatch.setattr(marketplace_route, "_CIVITAI_KEY", "secret-key")
+    routes = {("POST", "/model/install"): _FakeResponse(200, {"result": True})}
+    _patch_httpx(monkeypatch, routes)
+    r = c.post(
+        "/api/marketplace/install",
+        headers=_auth(token),
+        json={"type": "checkpoint", "url": "https://huggingface.co/foo/bar/resolve/main/m.safetensors"},
+    )
+    assert r.status_code == 200, r.text
+    sent = [j for (m, _, j) in _FakeAsyncClient.last_calls if m == "POST" and j]
+    assert sent and "token=" not in sent[0]["url"]
