@@ -197,6 +197,15 @@ export function NsfwDramaView() {
           </div>
         )}
         {activeId && dp.current && <DramaDetail dp={dp} />}
+        {/* 兜底:非加载中/无错误但详情缺失(老数据/竞态)——给可见提示而非静默空白 */}
+        {activeId && !dp.loading && !dp.error && !dp.current && (
+          <div className="nsfw-drama-hint">
+            项目详情为空或未加载,
+            <button type="button" onClick={() => dp.reload()}>
+              点击重新加载
+            </button>
+          </div>
+        )}
       </section>
 
       <style jsx>{`
@@ -325,6 +334,14 @@ export function NsfwDramaView() {
           color: var(--text-muted);
           font-size: var(--text-aux);
           text-align: center;
+        }
+        .nsfw-drama-hint button {
+          padding: 2px var(--space-2);
+          background: var(--bg-surface-3);
+          color: var(--text-primary);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-badge);
+          cursor: pointer;
         }
         .nsfw-drama-error {
           display: flex;

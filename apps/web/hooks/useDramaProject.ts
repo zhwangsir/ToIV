@@ -398,6 +398,13 @@ export function useDramaProject(
     [activeId, resetDetailState],
   );
 
+  // ── activeId 切换为非空时自动加载详情 ──
+  // 历史 bug:加载原由调用方触发,NsfwDramaView 点项目只 setActiveId,没人调
+  // reload → current=null/loading=false/error="" → 工作区静默空白。故收进 hook。
+  useEffect(() => {
+    if (activeId) reload();
+  }, [activeId, reload]);
+
   // ── 保存项目编辑 ──
   const patchProject = useCallback(
     (patch: DramaProjectPatch): Promise<DramaProjectSummary> => {
@@ -467,7 +474,7 @@ export function useDramaProject(
             d
               ? {
                   ...d,
-                  shots: res.shots ?? d.shots,
+                  shots: res.shots ?? d.shots ?? [],
                   grid_image: res.grid_image ?? d.grid_image,
                   status: "storyboard",
                 }
@@ -496,7 +503,7 @@ export function useDramaProject(
       if (!pid) return Promise.reject(new Error("无当前项目"));
       return createDramaCharacter(pid, body)
         .then((c) => {
-          setCurrent((d) => (d ? { ...d, characters: [...d.characters, c] } : d));
+          setCurrent((d) => (d ? { ...d, characters: [...(d.characters ?? []), c] } : d));
           showToast("success", "角色已添加");
           return c;
         })
@@ -515,7 +522,7 @@ export function useDramaProject(
             d
               ? {
                   ...d,
-                  characters: d.characters.map((x) => (x.id === c.id ? c : x)),
+                  characters: (d.characters ?? []).map((x) => (x.id === c.id ? c : x)),
                 }
               : d,
           );
@@ -535,7 +542,7 @@ export function useDramaProject(
         .then(() => {
           setCurrent((d) =>
             d
-              ? { ...d, characters: d.characters.filter((c) => c.id !== cid) }
+              ? { ...d, characters: (d.characters ?? []).filter((c) => c.id !== cid) }
               : d,
           );
           showToast("success", `角色「${name}」已删除`);
@@ -564,7 +571,7 @@ export function useDramaProject(
             d
               ? {
                   ...d,
-                  characters: d.characters.map((c) =>
+                  characters: (d.characters ?? []).map((c) =>
                     c.id === cid ? updated : c,
                   ),
                 }
@@ -591,7 +598,7 @@ export function useDramaProject(
       return applyDramaAssetToProject(aid, pid)
         .then((c) => {
           setCurrent((d) =>
-            d ? { ...d, characters: [...d.characters, c] } : d,
+            d ? { ...d, characters: [...(d.characters ?? []), c] } : d,
           );
           showToast("success", `资产「${name}」已应用到项目`);
         })
@@ -670,7 +677,7 @@ export function useDramaProject(
             d
               ? {
                   ...d,
-                  shots: d.shots.map((s) => (s.id === shot.id ? updated : s)),
+                  shots: (d.shots ?? []).map((s) => (s.id === shot.id ? updated : s)),
                 }
               : d,
           );
@@ -792,7 +799,7 @@ export function useDramaProject(
     (sid: string, body: GenerateVideoV2Body) => {
       const pid = currentIdRef.current;
       if (!pid) return;
-      const shot = current?.shots.find((s) => s.id === sid);
+      const shot = current?.shots?.find((s) => s.id === sid);
       const shotIdx = shot?.idx ?? 0;
       const numCandidates = body.num_candidates ?? 1;
       setBusyShot(sid);
@@ -935,7 +942,7 @@ export function useDramaProject(
   // ── M1:单镜候选管理 ──
   const candidatesByShot = useMemo(() => {
     return (
-      current?.shots.reduce((acc, shot) => {
+      (current?.shots ?? []).reduce((acc, shot) => {
         if (shot.candidates && shot.candidates.length > 0) {
           acc[shot.id] = shot.candidates;
         }
@@ -952,7 +959,7 @@ export function useDramaProject(
           prev
             ? {
                 ...prev,
-                shots: prev.shots.map((s) =>
+                shots: (prev.shots ?? []).map((s) =>
                   s.id === sid ? updatedShot : s,
                 ),
               }
@@ -977,7 +984,7 @@ export function useDramaProject(
           prev
             ? {
                 ...prev,
-                shots: prev.shots.map((s) =>
+                shots: (prev.shots ?? []).map((s) =>
                   s.id === sid
                     ? {
                         ...s,
@@ -1013,7 +1020,7 @@ export function useDramaProject(
             d
               ? {
                   ...d,
-                  shots: d.shots.map((s) =>
+                  shots: (d.shots ?? []).map((s) =>
                     s.id === shot.id
                       ? {
                           ...s,
@@ -1107,7 +1114,7 @@ export function useDramaProject(
         showToast("info", "已有对口型任务进行中,请稍候");
         return Promise.resolve();
       }
-      const shot = current?.shots.find((s) => s.id === sid);
+      const shot = current?.shots?.find((s) => s.id === sid);
       const shotIdx = shot?.idx ?? 0;
       setBusyLipsync(sid);
       return generateDramaShotLipsync(sid, {})
@@ -1177,7 +1184,7 @@ export function useDramaProject(
             d
               ? {
                   ...d,
-                  shots: d.shots.map((s) => (s.id === shot.id ? updated : s)),
+                  shots: (d.shots ?? []).map((s) => (s.id === shot.id ? updated : s)),
                 }
               : d,
           );
@@ -1224,7 +1231,7 @@ export function useDramaProject(
   const assemble = useCallback((): Promise<void> => {
     const pid = currentIdRef.current;
     if (!pid || !current) return Promise.resolve();
-    const doneShots = current.shots.filter(
+    const doneShots = (current.shots ?? []).filter(
       (s) => (s.video_status || "").toLowerCase() === "done",
     );
     if (doneShots.length === 0) {
