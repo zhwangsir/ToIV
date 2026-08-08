@@ -178,6 +178,59 @@ def test_video_path(ctx, monkeypatch):
     assert "9303" in calls["base_url"]  # 视频一律走 Qwen3-VL(JoyCaption 纯图像)
 
 
+def test_video_nas_staging_mode(ctx, monkeypatch):
+    """reverse_video_mac_prefix 非空(studio04 MLX 模式):视频 SFTP 中转 NAS,
+    video_url 传 Mac 挂载路径,且请求结束后清理中转文件。"""
+    calls = {}
+
+    async def fake_stage(content: bytes, ext: str) -> tuple[str, str]:
+        calls["staged"] = (len(content), ext)
+        return "/Users/x/nas_mnt/toiv/reverse_tmp/rev-abc.mp4", "/NAS/toiv/reverse_tmp/rev-abc.mp4"
+
+    async def fake_remove(remote: str) -> None:
+        calls["removed"] = remote
+
+    async def fake_chat(system: str, part: dict, base_url: str) -> str:
+        calls["part"] = part
+        return '{"prompt": "a cinematic pan over the city"}'
+
+    monkeypatch.setattr(reverse, "_stage_video_to_nas", fake_stage)
+    monkeypatch.setattr(reverse, "_remove_staged", fake_remove)
+    monkeypatch.setattr(reverse, "_chat_completion", fake_chat)
+    settings = reverse.get_settings()
+    monkeypatch.setattr(settings, "reverse_video_mac_prefix", "/Users/x/nas_mnt")
+    client, token = ctx
+    r = _post(client, token, _MP4, "clip.mp4", "video/mp4")
+    assert r.status_code == 200, r.text
+    assert calls["staged"] == (len(_MP4), ".mp4")
+    assert calls["part"]["video_url"]["url"] == "/Users/x/nas_mnt/toiv/reverse_tmp/rev-abc.mp4"
+    assert calls["removed"] == "/NAS/toiv/reverse_tmp/rev-abc.mp4"  # 清理发生
+
+
+def test_video_nas_staging_cleanup_on_failure(ctx, monkeypatch):
+    """中转成功后 VLM 调用失败,中转文件也要清理(finally 语义)。"""
+    calls = {}
+
+    async def fake_stage(content: bytes, ext: str) -> tuple[str, str]:
+        return "/Users/x/nas_mnt/toiv/reverse_tmp/rev-abc.mp4", "/NAS/toiv/reverse_tmp/rev-abc.mp4"
+
+    async def fake_remove(remote: str) -> None:
+        calls["removed"] = remote
+
+    async def fake_chat(system: str, part: dict, base_url: str) -> str:
+        raise HTTPException(status_code=502, detail="VLM 反推服务不可达")
+
+    monkeypatch.setattr(reverse, "_stage_video_to_nas", fake_stage)
+    monkeypatch.setattr(reverse, "_remove_staged", fake_remove)
+    monkeypatch.setattr(reverse, "_chat_completion", fake_chat)
+    settings = reverse.get_settings()
+    monkeypatch.setattr(settings, "reverse_video_mac_prefix", "/Users/x/nas_mnt")
+    client, token = ctx
+    r = _post(client, token, _MP4, "clip.mp4", "video/mp4")
+    assert r.status_code == 502
+    assert calls["removed"] == "/NAS/toiv/reverse_tmp/rev-abc.mp4"
+
+
 # ── 音频 ─────────────────────────────────────────────────────────────
 
 

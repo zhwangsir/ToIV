@@ -12,14 +12,18 @@ NSFW 专线(JoyCaption)为二期规划。
 """
 from __future__ import annotations
 
+import asyncio
 import base64
 import logging
 import os
+import posixpath
+import uuid
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from pydantic import BaseModel
 
+from app import nas
 from app.config import get_settings
 from app.deps import get_current_user
 from app.jsonutil import parse_json_obj
@@ -153,6 +157,48 @@ async def _chat_completion(system: str, part: dict, base_url: str) -> str:
     return raw
 
 
+async def _stage_video_to_nas(content: bytes, ext: str) -> tuple[str, str]:
+    """视频 SFTP 中转 NAS(studio04 MLX 的 video_url 只认本地路径,不认 base64)。
+    返回 (studio04 挂载路径, SFTP 远端路径);用后必须 _remove_staged 清理。"""
+    s = get_settings()
+    name = f"rev-{uuid.uuid4().hex}{ext}"
+    remote = posixpath.join("/NAS", s.reverse_video_nas_subdir, name)
+
+    def _put() -> None:
+        sftp, transport = nas._connect()
+        try:
+            nas._ensure_dir(sftp, posixpath.dirname(remote))
+            with sftp.open(remote, "wb") as f:
+                f.write(content)
+        finally:
+            sftp.close()
+            transport.close()
+
+    try:
+        await asyncio.to_thread(_put)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"视频中转 NAS 失败:{e}") from e
+    mac_path = f"{s.reverse_video_mac_prefix.rstrip('/')}/{s.reverse_video_nas_subdir}/{name}"
+    return mac_path, remote
+
+
+async def _remove_staged(remote: str) -> None:
+    """清理 NAS 中转文件(尽力而为,失败只记日志)。"""
+
+    def _rm() -> None:
+        sftp, transport = nas._connect()
+        try:
+            sftp.remove(remote)
+        finally:
+            sftp.close()
+            transport.close()
+
+    try:
+        await asyncio.to_thread(_rm)
+    except Exception:
+        logger.warning("中转视频清理失败: %s", remote)
+
+
 async def _sensevoice_analyze(content: bytes, filename: str, mime: str) -> dict:
     """转发音频到 SenseVoice /analyze,网络/非 200/格式异常 → 502。"""
     s = get_settings()
@@ -217,6 +263,7 @@ async def reverse_prompt(
         )
 
     s = get_settings()
+    staged_remote: str | None = None
     if kind == "image":
         system = _IMAGE_SYSTEM + (_NSFW_CLAUSE if nsfw else "")
         part = {"type": "image_url", "image_url": {"url": _data_url(content, kind, file.content_type or "")}}
@@ -228,10 +275,20 @@ async def reverse_prompt(
         )
     else:
         system = _VIDEO_SYSTEM + (_NSFW_CLAUSE if nsfw else "")
-        part = {"type": "video_url", "video_url": {"url": _data_url(content, kind, file.content_type or "")}}
         base_url = s.reverse_vlm_base_url  # JoyCaption 是纯图像模型,视频一律走 Qwen3-VL
+        if s.reverse_video_mac_prefix.strip():
+            # studio04 MLX 模式:video_url 只认本地路径 → SFTP 中转 NAS 传挂载路径
+            ext = os.path.splitext(file.filename or "")[1].lower() or ".mp4"
+            mac_path, staged_remote = await _stage_video_to_nas(content, ext)
+            part = {"type": "video_url", "video_url": {"url": mac_path}}
+        else:
+            part = {"type": "video_url", "video_url": {"url": _data_url(content, kind, file.content_type or "")}}
 
-    raw = await _chat_completion(system, part, base_url)
+    try:
+        raw = await _chat_completion(system, part, base_url)
+    finally:
+        if staged_remote:
+            await _remove_staged(staged_remote)
     obj = parse_json_obj(raw)
     if not obj or not (obj.get("prompt") or "").strip():
         # 模型没按 JSON 输出时,原文本通常就是可用描述,宽松降级不 502

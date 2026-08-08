@@ -169,6 +169,11 @@ class Settings(BaseSettings):
     # 仅 X-NSFW 上下文的图像反推路由到这里(它是纯图像模型,视频仍走 Qwen3-VL);
     # 官方 bf16 ~17GB,无审查设计,R18 不拒答。空串 = 未部署,NSFW 图像也走 Qwen3-VL。
     joycaption_base_url: str = "http://192.168.71.127:9304/v1"
+    # 视频反推路径模式:空串 = base64 内联(GPU3 vLLM);非空 = studio04 MLX 模式
+    # (其 video_url 只认本地路径)→ 视频先 SFTP 中转 NAS reverse_video_nas_subdir,
+    # 再把「Mac 挂载路径(本前缀 + subdir + 文件名)」传给 MLX。清理在请求结束后自动做。
+    reverse_video_mac_prefix: str = ""
+    reverse_video_nas_subdir: str = "toiv/reverse_tmp"
     # 音频反推走 SenseVoice 服务(toiv-sensevoice.service, GPU2, :9211):
     # 契约 POST {sensevoice_url}/analyze multipart(file=音频) → {text, emotion, events, language}。
     sensevoice_url: str = "http://192.168.71.127:9211"
