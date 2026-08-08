@@ -9,8 +9,9 @@
 
 ## 〇、🔒 第一硬性规则：所有后端服务都来源于 Workstation
 
-> **所有 AI/算力后端服务（ComfyUI/LB、IndexTTS2、ASR、Embedding、LiveAct、H3、LongCat、FlashTalk、OpenTalking 等）全部运行在 Workstation(192.168.71.127 / 100.68.100.90)上，没有例外。**
+> **所有 AI/算力后端服务（ComfyUI/LB、IndexTTS2、ASR、Embedding、LiveAct、H3、LongCat、FlashTalk、OpenTalking、JoyCaption 等）全部运行在 Workstation(192.168.71.127 / 100.68.100.90)上。**
 >
+> - ⚠️ **2026-08-08 起唯一例外**：反推提示词的视觉链路 Qwen3-VL-8B(bf16 MLX, :9303)运行在 **studio04(192.168.71.113)**,workstation GPU3 的 toiv-vlm 停而不删作回退；排查反推故障先查 studio04 launchd(`com.dgmt.toiv-vlm-mlx`)
 > - core(192.168.71.47)只跑 ToIV web/api + PostgreSQL/Redis，是业务网关，不是算力来源
 > - 本机 Mac 只是操作终端；任何配置里出现的 `127.0.0.1` / `localhost` 服务地址（如 `opentalking_base_url` 默认 `http://127.0.0.1:4403`）都只是本地 dev 兜底，**真机排查一律先查 Workstation**
 > - 排查「服务离线/引擎不可达」时，第一反应必须是 SSH 到 Workstation 查 systemd 状态和端口监听，禁止臆断服务不存在
@@ -21,7 +22,7 @@
 
 | # | 设备 | 角色 | LAN IP | Tailscale IP | 类型 | SSH 用户 |
 |---|------|------|--------|-------------|------|---------|
-| 1 | studio01-04 | EXO RDMA 推理 | .109/.111/.112/.113 | 100.67.43.40 / 100.91.0.121 / 100.115.27.68 / 100.126.182.23 | **Mac Studio M3 Ultra 32核 512GB**（⚠️ 不是 M2 Pro，已确认 2026-08-02） | dgmt-studio01-04 |
+| 1 | studio01-04 | EXO RDMA 推理(studio04 兼任 VLM 反推节点 :9303) | .109/.111/.112/.113 | 100.67.43.40 / 100.91.0.121 / 100.115.27.68 / 100.126.182.23 | **Mac Studio M3 Ultra 32核 512GB**（⚠️ 不是 M2 Pro，已确认 2026-08-02） | dgmt-studio01-04 |
 | 2 | openclaw01-04 | OpenClaw 网关 | .86/.75/.81/.85 | 100.69.0.4 / 100.76.35.7 / 100.76.140.121 / 100.91.128.30 | Mac mini M2 | dgmt-openclaw01-04 |
 | 3 | spark01-02 | vLLM Ray (Euryale 70B) | .82/.84 | 100.81.235.124 / 100.86.42.89 | Linux GB10 | dgmt-spark |
 | 4 | workstation | 算力+真机服务 | 192.168.71.127 | 100.68.100.90 | Linux 4×RTX PRO 6000 | merlin |
@@ -80,14 +81,16 @@ net use Z: \\192.168.71.7\NAS /persistent:yes
 | GPU2 | LongCat-Video (ComfyUI 独立实例) | :8197 | ~16-30GB (fp8 + Block Swap) | **comfyui-longcat.service** | 2026-08-07 新增;实例在 /home/merlin/ComfyUI-longcat,与生产 /opt/ComfyUI 隔离;2026-08-08 起含 LongCat-Avatar 链路(GGUF Q8_0 + whisper-large-v3 + MelBandRoFormer 节点,冒烟峰值 ~20GB 可与 ASR/demucs 共存) |
 | GPU3 | FlashTalk WebSocket Server | — | ~55GB | **flashtalk.service** | 数字人实时对话 |
 | GPU3 | OpenTalking 数字人统一 API | — | ~1.5GB | **opentalking.service** | + opentalking-tts-shim |
-| GPU3 | Qwen3-VL-8B 反推 VLM | :9303 | ~29GB | **toiv-vlm.service** | 2026-08-08 新增,反推提示词视觉链路(图+视频);/opt/toiv-vlm,vLLM 0.11.2,--gpu-memory-utilization 0.35;⚠️ GPU3 仅剩 ~8.6GB 空闲 |
+| GPU3 | JoyCaption Beta One(NSFW 反推专线) | :9304 | ~17GB (bf16) | **toiv-joycaption.service** | 2026-08-08 新增;transformers 直跑(⚠️ vLLM 0.11.2 跑 LLaVA 架构 device-side assert,勿用);/opt/toiv-joycaption,模型 /home/merlin/models/joycaption-beta-one |
+| GPU3 | Qwen3-VL-8B 反推 VLM | :9303 | (停) | toiv-vlm.service(⏸ stop+disable) | 2026-08-08 已迁移 studio04 MLX,**停而不删作秒级回退**;/opt/toiv-vlm,vLLM 0.11.2;启动前需 torch 查 GPU3 余量 |
+| —(studio04) | Qwen3-VL-8B 反推 VLM(现役) | :9303 | bf16 ~17GB 统一内存 | launchd `com.dgmt.toiv-vlm-mlx.plist` | 192.168.71.113,mlx-vlm 0.6.10,mlx-community/Qwen3-VL-8B-Instruct-bf16;SFW 图+全部视频走此;⚠️ 视频只认本地路径→core NAS 中转(TOIV_REVERSE_VIDEO_MAC_PREFIX) |
 
 ### ComfyUI-LB 后端配置
 - 本地 1 后端：:8189(GPU0)
 - 远程 2 后端：pc01 :8188 / pc02 :8193
 - **GPU1 不跑独立 ComfyUI 后端**（GPU1 跑 LiveAct + Embedding）
 - **GPU2 例外**:2026-08-07 起跑 LongCat-Video 专用独立实例（:8197，不入 ComfyUI-LB 后端池；fp8 权重与 H3 突发 48GB 可共存）
-- **GPU3 不跑 ComfyUI**（跑 FlashTalk + OpenTalking）
+- **GPU3 不跑 ComfyUI**（跑 FlashTalk + OpenTalking + JoyCaption）
 
 ### 关键服务路径（Workstation）
 
@@ -223,7 +226,21 @@ nas:
 ### 13. NVML mismatch 会干碎 vLLM 平台探测(2026-08-08)
 - **坑**:驱动已升级(595.84)但运行中内核模块还是旧版(595.71.05)时,`pynvml.nvmlInit()` 抛 `NVMLError_LibRmVersionMismatch`,**vLLM 的 cuda_platform_plugin 因此返回 None → `RuntimeError: Failed to infer device type`**,服务起不来
 - **正确**:给 vLLM 打 NVML 失败回退 torch.cuda 的补丁,脚本在 workstation `/home/merlin/patch_vllm_nvml.py`(**pip 重装/升级 vllm 后必须重跑**);根治 = 安排重启窗口让内核模块与驱动对齐
-- **附带**:① vLLM 默认 `--gpu-memory-utilization 0.9`(85GB+),共卡部署必须显式调低(toiv-vlm 用 0.35);② 往 GPU3 加服务前必须 torch 查显存(toiv-vlm 上线后 GPU3 仅剩 ~8.6GB);③ funasr 不声明 torch 依赖,且 torch 2.13 无配套 torchaudio,需固定 torch+torchaudio==2.11.0;④ vLLM served-model-name 默认是模型目录绝对路径,core 侧调用不要写死模型名(/api/reverse 已改 /models 自动探测,commit 4914afd)
+- **附带**:① vLLM 默认 `--gpu-memory-utilization 0.9`(85GB+),共卡部署必须显式调低;② 往 GPU3 加服务前必须 torch 查显存;③ funasr 不声明 torch 依赖,且 torch 2.13 无配套 torchaudio,需固定 torch+torchaudio==2.11.0;④ vLLM served-model-name 默认是模型目录绝对路径,core 侧调用不要写死模型名(/api/reverse 已改 /models 自动探测,commit 4914afd)
+
+### 14. vLLM 0.11.2 跑不了 LLaVA 架构的 JoyCaption(2026-08-08)
+- **坑**:JoyCaption Beta One(LLaVA 架构)在 vLLM 0.11.2 下两次 device-side assert 崩溃,`--enforce-eager` 也崩,白费两小时
+- **正确**:这类多模态小模型直接 transformers 跑 OpenAI 兼容包装即可,参考 `/opt/toiv-joycaption/server.py`(bf16,单并发反推场景吞吐足够);不要盲目迷信 vLLM
+- **附带**:JoyCaption 输出被 max_tokens 截断时会带 `{"prompt": "...` JSON 骨架,core 侧 `_salvage_prompt` 兜底提取(71cc57b/6bdfa03),截断点可能在 `"negative:` 键名内部,剥离正则要兼容无闭合引号变体
+
+### 15. mlx-vlm 的 video_url 只认本地路径(2026-08-08)
+- **坑**:core 把视频 base64 data-url 发给 studio04 MLX VLM 会直接报错,图像 base64 却正常
+- **正确**:视频走 NAS 中转——core SFTP 落 `/NAS/toiv/reverse_tmp/`,把 studio04 `~/nas_mnt` 挂载路径发给 MLX,完事删除(7856008);开关是 core .env `TOIV_REVERSE_VIDEO_MAC_PREFIX`(置空退回 base64)
+- **附带**:studio04 NAS 挂载用 LaunchAgent `com.dgmt.nas-mount.plist` 持久化;HF 大文件在 Mac 端走 mihomo 代理零速,studio04 上 ModelScope 直下快
+
+### 16. ComfyUI-LB 加权分发补丁(2026-08-08)
+- **背景**:LB 原选后端逻辑让 gpu0 吃 71% 分发(与 TTS/H3 共卡最不该多吃)
+- **正确**:`/opt/ComfyUI/comfyui-lb.py` 已打补丁:gpu0 后端加 `"weight": 1.5`,选后端改「加权队列最短」(weight 越大越少被选);备份在同目录 `.bak-20260808`,改分发逻辑前先备份
 
 ---
 

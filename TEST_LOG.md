@@ -4,6 +4,38 @@
 
 ---
 
+## REVERSE-S3-2026-08-08 · 集群重排:反推链路全精度迁移(studio04 MLX + JoyCaption bf16)+ LB 加权
+
+**时间**: 2026-08-08 20:40
+**类型**: ops / feat(reverse) / e2e
+**目标**: 按全精度原则(禁量化)重排反推链路——VLM 迁 studio04 激活闲置节点、GPU3 腾位给 JoyCaption NSFW 专线、LB 加权纠偏。commits 7856008(NAS 中转)/ 71cc57b + 6bdfa03(截断兜底);方案 docs/2026-08-08-cluster-reallocation-plan.md v3
+
+### 架构变更
+
+| 项 | 前 | 后 |
+|---|---|---|
+| SFW 图+视频反推 | workstation GPU3 vLLM :9303(占 29GB) | **studio04 MLX Qwen3-VL-8B-bf16 :9303**(launchd com.dgmt.toiv-vlm-mlx);GPU3 toiv-vlm stop+disable 作回退 |
+| NSFW 图像反推 | (无专线) | **JoyCaption Beta One bf16 :9304**(GPU3,transformers 直跑;⚠️ vLLM 0.11.2 LLaVA 架构 device-side assert 弃用) |
+| 视频输入方式 | base64 data-url | mlx-vlm 只认本地路径 → **core SFTP 中转 NAS** /NAS/toiv/reverse_tmp/,开关 TOIV_REVERSE_VIDEO_MAC_PREFIX |
+| LB 分发 | gpu0 吃 71% | gpu0 weight 1.5 加权队列最短(comfyui-lb.py 补丁,备份 .bak-20260808);pc02 复归后端 3 个 |
+
+### 真机 e2e(经 core :8090,全部通过)
+
+| 链路 | 结果 |
+|---|---|
+| NSFW 图像(JoyCaption) | ✅ 2.7s,准确街景描述;修复截断 JSON 骨架问题(_salvage_prompt 兜底,兼容 `"negative:` 键内截断变体) |
+| SFW 图像(studio04) | ✅ 3.3s,prompt+negative 齐全 |
+| 视频(NAS 中转→studio04) | ✅ 6.5s,六段式叙事;中转文件零残留 |
+| 音频(SenseVoice) | ✅ 0.3s,转写+情绪+语种 |
+| 单测 | ✅ test_reverse 18 passed;全量 1136+2 passed(2 redis 基线不变) |
+
+### 遗留
+
+- S4 Omni-Captioner 音乐反推:bf16 ~60GB 与 spark01 llama-70b(~70GB)128GB 统一内存互斥,待用户定 llama 去留
+- S6:磁盘清理 550G(先 mv NAS 归档)、ASR systemd 化、Workstation 重启窗口(根治 NVML)——均待用户拍板
+
+---
+
 ## REVERSE-2026-08-08 · 反推提示词一期上线(图/视频/音频三链路真机贯通)
 
 **时间**: 2026-08-08 18:05

@@ -18,10 +18,10 @@
 | studio01 | 192.168.71.109 / 100.67.43.40 | EXO 推理(M3 Ultra 512GB) | ✅ | EXO :52415 / deepfilternet :8301 / LM Studio :41343 |
 | studio02 | 192.168.71.111 / 100.91.0.121 | EXO 推理 | ✅ | EXO :52415 |
 | studio03 | 192.168.71.112 / 100.115.27.68 | EXO 推理 | ✅ | EXO :52415 |
-| studio04 | 192.168.71.113 / 100.126.182.23 | EXO 推理 | ✅ | EXO :52415(无 node_exporter) |
+| studio04 | 192.168.71.113 / 100.126.182.23 | EXO 推理 + **VLM 反推节点** | ✅ | EXO :52415 / **Qwen3-VL-8B bf16 MLX :9303**(launchd com.dgmt.toiv-vlm-mlx) |
 | openclaw01-04 | .86/.75/.81/.85 | OpenClaw 网关(Mac mini) | ✅ | OpenClaw gateway :18789 ×4 |
 | pc01 | 192.168.71.115 / 100.69.134.27 | ComfyUI worker(RTX 5090) | ✅ | ComfyUI :8188 |
-| pc02 | 192.168.71.114 / 100.107.94.26 | ComfyUI worker(RTX 5090) | ⚠️ | **ComfyUI :8193 未运行**(OS 在线) |
+| pc02 | 192.168.71.114 / 100.107.94.26 | ComfyUI worker(RTX 5090) | ✅ | ComfyUI :8193(2026-08-08 已复归,LB 后端 3 个) |
 | cloud | 43.119.32.180 / 100.83.78.114 | 网关/1Panel/frps | ❌ | SSH 超时(老问题,frpc 隧道端存活) |
 | MateBook | — / 100.74.15.34 | 操作终端 | ✅ | — |
 
@@ -31,7 +31,7 @@
 
 | 服务 | 端口 | GPU | systemd unit | 路径/备注 |
 |---|---|---|---|---|
-| ComfyUI-LB(负载均衡) | :8188 | — | comfyui-lb.service | /opt/ComfyUI/comfyui-lb.py;**当前后端仅 :8189+pc01:8188**(pc02 停了) |
+| ComfyUI-LB(负载均衡) | :8188 | — | comfyui-lb.service | /opt/ComfyUI/comfyui-lb.py;后端 3 个(:8189 权重1.5 + pc01:8188 + pc02:8193),加权队列最短分发(2026-08-08 补丁,备份 .bak-20260808) |
 | ComfyUI #1 | :8189 | GPU0 | comfyui-gpu0.service | /opt/ComfyUI,`--cache-lru 8` |
 | MiniMax H3 worker | :8195 | GPU0+GPU2 | toiv-comfyui-h3.service | /home/merlin/ComfyUI-h3-eval;UNet 跨 GPU0/GPU2/CPU,LoRA 走 NAS h3/loras(10 个已就位) |
 | LongCat-Video 实例 | :8197 | GPU2 | comfyui-longcat.service | /home/merlin/ComfyUI-longcat,与生产 /opt/ComfyUI 隔离;含 LongCat-Avatar 链路 |
@@ -43,14 +43,15 @@
 | FlashTalk WS | :9000 | GPU3 | flashtalk.service | 数字人实时对话 |
 | OpenTalking 统一 API | :4403 | GPU3 | opentalking.service | + opentalking-tts-shim |
 | hunyuanimage(docker) | :8600 | ? | docker 容器 | ⚠️ AGENTS.md 未记录,`hunyuanimage:2.1-fp8`,普查时发现 |
-| toiv-vlm(Qwen3-VL-8B 反推) | :9303 | GPU3 | toiv-vlm.service | **2026-08-08 新增**,见第四节 |
+| toiv-vlm(Qwen3-VL-8B 反推) | :9303 | GPU3 | toiv-vlm.service | ⏸ **已 stop+disable(停而不删)**——已迁移 studio04 MLX,留作秒级回退;原 venv /opt/toiv-vlm |
+| toiv-joycaption(NSFW 反推专线) | :9304 | GPU3 | toiv-joycaption.service | **2026-08-08 新增**:JoyCaption Beta One **bf16**(16GB,/home/merlin/models/joycaption-beta-one),transformers 直跑(⚠️ vLLM 0.11.2 跑 LLaVA 架构 device-side assert,勿用),venv /opt/toiv-joycaption,占 ~17GB |
 | toiv-sensevoice(语音情绪标注) | :9211 | GPU2 | toiv-sensevoice.service | **2026-08-08 新增**,见第四节 |
 
 **GPU 显存快照**(torch mem_get_info;nvidia-smi NVML mismatch 未恢复,重启窗口待安排):
 - GPU0:用 ~61GB(ComfyUI+H3 分片+TTS),空 40.9GB
 - GPU1:用 ~83GB(LiveAct+Embedding),空 19.4GB
 - GPU2:用 ~7GB(ASR+demucs 空闲态;H3 CLIP/VAE 突发 48GB / LongCat 作业 16-30GB),空 95.1GB
-- GPU3:用 ~61GB(FlashTalk+OpenTalking),空 40.7GB
+- GPU3:用 ~78GB(FlashTalk 55 + OpenTalking 1.5 + JoyCaption 17;toiv-vlm 已迁出),空 ~18GB
 
 **磁盘**:`/` 7.3T 用 1.3T(19%);NAS 挂载 /home/merlin/nas_mount 正常(44T 用 4.8T)。
 
@@ -72,20 +73,26 @@
 
 ---
 
-## 四、2026-08-08 新增:反推提示词链路(已真机验证)
+## 四、反推提示词链路(2026-08-08 已真机验证,集群重排后架构)
 
-- **功能**:用户上传图/视频/音频 → 反推出可复用提示词,回填生成表单(core `POST /api/reverse`,前端 PromptBar「反推」按钮,commit e4838db + 4914afd)。
-- **toiv-vlm.service**:Qwen3-VL-8B-Instruct vLLM 0.11.2,GPU3,:9303,OpenAI 兼容,`--gpu-memory-utilization 0.35`(实测占 ~29GB,**GPU3 仅剩 ~8.6GB 空闲**)。venv /opt/toiv-vlm,模型 /home/merlin/models/Qwen3-VL-8B-Instruct(17GB,ModelScope)。⚠️ vLLM 靠 `/home/merlin/patch_vllm_nvml.py` 补丁绕 NVML mismatch,升级 vllm 后需重跑。
-- **toiv-sensevoice.service**:FunASR SenseVoiceSmall,GPU2(~1.7GB),:9211,`POST /analyze` → {text, emotion, events, language}。venv /opt/toiv-sensevoice(torch+torchaudio 固定 2.11.0),模型 /home/merlin/models/SenseVoiceSmall + fsmn-vad。
-- **core 配置项**:`TOIV_REVERSE_VLM_BASE_URL`(默认 http://192.168.71.127:9303/v1,模型名 /models 自动探测)、`TOIV_SENSEVOICE_URL`(默认 http://192.168.71.127:9211);上传上限 图 20MB / 视频 50MB / 音频 30MB。
-- **真机 e2e(2026-08-08,经 core :8090)**:图像 1.4s(prompt+negative,画面元素/颜色/构图全对)、视频 3.6s(六段式叙事,运镜/场景/光线准确)、音频 0.2s(转写+HAPPY 情绪+Speech 事件+zh 语种)。
-- **二期规划**:JoyCaption(NSFW 图像专线,⚠️ GPU3 已满需另找卡或按需加载)、Qwen3-Omni-Captioner(音乐反推,先 API 验证)、长视频混合法(场景切分+抽帧)。
+- **功能**:用户上传图/视频/音频 → 反推出可复用提示词,回填生成表单(core `POST /api/reverse`,前端 PromptBar「反推」按钮)。
+- **路由**(core apps/api/app/routes/reverse.py):
+  - SFW 图像 + **全部视频** → **studio04 MLX Qwen3-VL-8B bf16**(`http://192.168.71.113:9303/v1`)
+  - NSFW 图像(X-NSFW 上下文)→ **JoyCaption bf16 :9304**(workstation GPU3,无审查设计;未配置时回退 Qwen3-VL)
+  - 音频 → SenseVoice :9211(GPU2)
+- **视频特殊处理**:mlx-vlm 的 video_url 只认本地路径 → core SFTP 中转 NAS(`/NAS/toiv/reverse_tmp/`),传 studio04 `~/nas_mnt` 挂载路径,完事清理(零残留已验证)。开关:core .env `TOIV_REVERSE_VIDEO_MAC_PREFIX=/Users/dgmt-studio04/nas_mnt`(置空则退回 base64 模式)。
+- **core 配置项**:`TOIV_REVERSE_VLM_BASE_URL`、`TOIV_JOYCAPTION_BASE_URL`(空串回退)、`TOIV_SENSEVOICE_URL`、`TOIV_REVERSE_VIDEO_MAC_PREFIX`;上传上限 图 20MB / 视频 50MB / 音频 30MB。
+- **toiv-sensevoice.service**:FunASR SenseVoiceSmall,GPU2(~1.7GB),:9211,`POST /analyze` → {text, emotion, events, language}。venv /opt/toiv-sensevoice,模型 /home/merlin/models/SenseVoiceSmall + fsmn-vad。
+- **真机 e2e(2026-08-08 重排后,经 core :8090)**:NSFW 图像 2.7s(纯文本描述,无 JSON 骨架)、SFW 图像 3.3s(prompt+negative)、视频 6.5s(六段式叙事)、音频 0.3s(转写+HAPPY+zh)。
+- **回退路径**:studio04 故障 → core .env 指回 `http://192.168.71.127:9303/v1` + `systemctl start toiv-vlm`(停而不删,GPU3)。⚠️ GPU3 vLLM 靠 `/home/merlin/patch_vllm_nvml.py` 绕 NVML mismatch。
+- **已知坑**:JoyCaption 输出 max_tokens 截断会产生 JSON 骨架,core 侧 `_salvage_prompt` 兜底提取(71cc57b/6bdfa03)。
+- **二期规划**:Qwen3-Omni-Captioner(音乐反推,全精度 bf16 与 spark01 llama-70b 内存互斥,待定)、长视频混合法(场景切分+抽帧)。
 
 ---
 
 ## 五、普查发现的偏差(管家需处理/知悉)
 
-1. **pc02 ComfyUI :8193 未运行** → ComfyUI-LB 后端只剩 2 个(8189+pc01),需重启(计划任务 start_comfyui.bat,见 AGENTS.md 易错点 5)。
+1. ~~pc02 ComfyUI :8193 未运行~~ → **已复归**(2026-08-08,LB 后端恢复 3 个)。
 2. **workstation docker 实际在跑** hunyuanimage:2.1-fp8(:8600),AGENTS 未记录,确认归属后补登记。
 3. **core :3501** 有来源不明的 `python3 -m http.server`,核查去留。
 4. **AI-Omni ASR 仍是 screen 托管**,重启后不会自启,建议 systemd 化。
