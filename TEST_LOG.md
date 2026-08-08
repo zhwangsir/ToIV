@@ -4,6 +4,47 @@
 
 ---
 
+## H3LORA-2026-08-08 · H3 LoRA 支持 + 4 个 NSFW LoRA 模型市场接入
+
+**时间**: 2026-08-08 18:30
+**类型**: feat(h3) / feat(marketplace) / e2e
+**目标**: MiniMax H3 引擎 LoRA 全链路(builder 注入/门控/前端选择器)+ 4 个 H3 NSFW LoRA 配进内部市场一键安装。commit 576bbe7(17 文件 +742/-14)
+
+### 实现要点
+
+- **builder 注入**:H3 是 musubi 系,civitai LoRA 只含 DiT 权重 → `LoraLoaderModelOnly` 链(节点 id 200 起,BasicGuider/BasicScheduler 改接链末端;空 loras 图逐字节不变)
+- **NSFW 门控**:`services/h3.py` 的 `H3_NSFW_LORAS` 名单(3 个 nsfw:true 文件名,basename 精确匹配);引用 NSFW LoRA 且无 X-NSFW 头 → 403「所选 LoRA 为 R18 内容,仅限 NSFW 专区使用」,门控先于实例访问;cxy_kiss(作者标 SFW)主站可用
+- **前端**:GenerateView 引擎参数新类型 `loras`(checkbox 多选+强度滑杆 0.5-1.0 默认 0.6,R18 角标);options 运行时从 :8195 `LoraLoaderModelOnly` object_info 惰性枚举,SFW 上下文自动剔除 NSFW 项
+- **市场接入**:NSFW_RECOMMENDATIONS 新增 category "h3" 4 条(真实 civitai ID + `version_id` 精确指定 H3 版——2446218 有 10Eros/LTX 版,最新版不是 H3);前端 handleDownload 传 version_id,H3 LoRA 落 `h3_lora` → NAS `h3/loras/`(nas.py `_TYPE_SUBDIR` 新增,与图像 LoRA 隔离)
+- **token 透传**:marketplace install 对 civitai `/api/download/` URL 自动附 `?token=`(nas_models `_resolve_civitai` 本就有同款);**前提:core 配 `TOIV_CIVITAI_API_KEY`,当前未设置,civitai 匿名下载全 401**
+- **worker 配置**:H3 worker extra_model_paths 补 `loras` 映射(NAS toiv/comfyui-models/h3/loras/),已重启生效(备份 extra_model_paths.yaml.bak-20260808);`LoraLoaderModelOnly` 已枚举到既有 2 个 turbo LoRA
+
+### 4 个 LoRA(civitai.red API 元数据)
+
+| 模型 | 文件 | 大小 | version_id | 门控 |
+|---|---|---|---|---|
+| H3 Riding POV (I2V) 2446218 | riding_pose_H3_i2v_v1.0.safetensors | 0.19GB | 3203205 | R18 |
+| H3 Footjob 2839680 | H3_footjob_v0_step1000_fixed.safetensors | 0.12GB | 3205326 | R18 |
+| H3 Cxy Kiss 2842199 | cxy_kiss_lora_h3_v01_step1500.safetensors | 0.58GB | 3208556 | 主站可用 |
+| H3 Innie Pussy 2841940 | h3_musubi_v4-000040.safetensors | 0.28GB | 3208228 | R18 |
+
+### core 真机验证(192.168.71.47)
+
+| 项 | 结果 |
+|---|---|
+| 单测 | ✅ 1118 passed(+22;2 个 redis 基线预置失败不变) |
+| NSFW LoRA 无头引用 | ✅ 403,门控先于实例 |
+| h3-t2v loras 参数 | ✅ schema+hint 正确,options 已枚举既有 turbo LoRA |
+| 推荐清单 h3 分类 | ✅ 4 条含 version_id |
+
+### 遗留(唯一阻塞:civitai 凭据)
+
+- **TOIV_CIVITAI_API_KEY 未设置**(local/core 均无)——拿到 key 写入 core `/home/merlin/toiv/deploy/.env` 重启 toiv-api 后,/nsfw 推荐清单一键安装即可用;备选:手动下 4 个文件放 NAS `toiv/comfyui-models/h3/loras/`(文件名见上表),H3 选择器立即出现
+- hf-mirror/ModelScope 均无这 4 个 LoRA 的镜像(太新),civitai 是唯一源
+- LoRA 文件就位后的生成验证(strength 0.6 t2v/i2v 各一条)待凭据解决后补
+
+---
+
 ## FULLSTACK-2026-08-08 · 遗留清零:Avatar 续段+前端工作台+短剧五面板+预设/作品库补缺
 
 **时间**: 2026-08-08 17:20

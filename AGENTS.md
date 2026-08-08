@@ -70,7 +70,7 @@ net use Z: \\192.168.71.7\NAS /persistent:yes
 |-----|------|------|---------|-------------|------|
 | GPU0 | ComfyUI #1 | :8189 | ~0.5GB | **comfyui-gpu0.service** | 与 IndexTTS2、H3 共卡;2026-08-08 起带 `--cache-lru 8` 缓存上限 |
 | GPU0 | IndexTTS2 | :9200 | ~7.6GB | **toiv-tts.service** | `CUDA_VISIBLE_DEVICES=0` |
-| GPU0 | MiniMax H3 (ComfyUI worker) | :8195 | ~62GB (UNet bf16 分片) | **toiv-comfyui-h3.service** | UNet 跨 GPU0/GPU2/CPU，CLIP/VAE 在 GPU2 |
+| GPU0 | MiniMax H3 (ComfyUI worker) | :8195 | ~62GB (UNet bf16 分片) | **toiv-comfyui-h3.service** | UNet 跨 GPU0/GPU2/CPU，CLIP/VAE 在 GPU2;2026-08-08 extra_model_paths 补 `loras` 映射(NAS toiv/comfyui-models/h3/loras/),LoRA 走 LoraLoaderModelOnly 链(musubi 系只含 DiT 权重),NSFW LoRA 门控在 services/h3.py H3_NSFW_LORAS 名单 |
 | GPU1 | Qwen3-Embedding-4B | :9302 | ~8.4GB | **qwen3-embedding.service** | `CUDA_VISIBLE_DEVICES=1` |
 | GPU1 | LiveAct batch worker | :9400 | ~58GB | **toiv-liveact.service** | `nproc_per_node=1`，单卡 GPU1 |
 | GPU2 | AI-Omni ASR (faster-whisper large-v3) | :9210 | ~4.9GB | 手动 screen | `device_index=2` |
@@ -291,3 +291,4 @@ nas:
 - [ ] Cloud 反代切换指向 core（待 core 业务就绪后）
 - [x] 清理 .archive 中过期的部署残留（backup-20260722 / deploy-residues）
 - [ ] Workstation nvidia-smi 报 NVML mismatch(2026-08-08 诊断:已装驱动 595.84(modinfo 确认),运行中内核模块仍 595.71.05——**重启即恢复**,需安排重启窗口;临时可用 torch mem_get_info 观测显存)
+- [ ] core 配 `TOIV_CIVITAI_API_KEY`(2026-08-08:4 个 H3 NSFW LoRA 已配好推荐清单+version_id+token 透传,civitai 匿名下载 401,**拿到 key 写入 /home/merlin/toiv/deploy/.env 重启 toiv-api 即可一键安装**;备选:手动下载 4 文件放 NAS toiv/comfyui-models/h3/loras/)
