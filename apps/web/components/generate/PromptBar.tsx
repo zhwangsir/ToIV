@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Select } from "@/components/ui/Input";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
+import { ReverseButton } from "@/components/ui/ReverseButton";
 import type { EngineInfo, EngineParam } from "@/lib/engines";
 
 import { ParamField } from "./ParamField";
@@ -115,6 +116,9 @@ export function PromptBar({
               onOptimized={onOptimized}
               disabled={disabled}
             />
+          )}
+          {engine && (
+            <ReverseButton onOptimized={onOptimized} disabled={disabled} />
           )}
           <div className="promptbar-actions">
             {isRunning && (

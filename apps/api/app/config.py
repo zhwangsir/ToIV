@@ -161,6 +161,18 @@ class Settings(BaseSettings):
     # 综合分(total)低于此阈值才推 quality_warning;0.65 ≈ 视频质量明显可改进的临界。
     video_scorer_threshold: float = 0.65
 
+    # —— 反推提示词(reverse prompt):上传图/视频/音频 → 反推出可复用提示词 ——
+    # 视觉统一走 workstation Qwen3-VL-8B vLLM 服务(toiv-vlm.service, GPU3, :9303),
+    # OpenAI 兼容 /v1/chat/completions,图像走 image_url、视频走 video_url(base64 data URL)。
+    reverse_vlm_base_url: str = "http://192.168.71.127:9303/v1"
+    # 音频反推走 SenseVoice 服务(toiv-sensevoice.service, GPU2, :9211):
+    # 契约 POST {sensevoice_url}/analyze multipart(file=音频) → {text, emotion, events, language}。
+    sensevoice_url: str = "http://192.168.71.127:9211"
+    # 反推上传上限(MB):视频 base64 内联体积 ~1.33 倍,过大易超时。
+    reverse_max_image_mb: int = 20
+    reverse_max_video_mb: int = 50
+    reverse_max_audio_mb: int = 30
+
     # —— GPU 生成链路每日冒烟(txt2img 小图 + LTX 短视频)——
     # 每日定点自动执行,报告落 {content_dir}/smoke/;失败 POST 报警到 webhook(空=只记日志)。
     gpu_smoke_enabled: bool = True

@@ -436,6 +436,31 @@ export async function uploadImage(
   return res.json();
 }
 
+/**
+ * 反推提示词(POST /api/reverse):上传图/视频/音频 → 后端 VLM/SenseVoice 反推 →
+ * { kind, prompt, negative?, meta }。供 PromptBar「反推」按钮使用;
+ * 结果经 onOptimized 通道回填(与 optimize 同路,negative 自动填入机制复用)。
+ * VLM 推理较慢,显式 300s 超时(与后端 _VLM_TIMEOUT 对齐)。
+ */
+export async function reversePrompt(
+  file: File,
+): Promise<{ kind: string; prompt: string; negative: string | null }> {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await apiFetch(`/api/reverse`, {
+    method: "POST",
+    headers: authHeaders(), // 不要手动设 Content-Type,让浏览器带 boundary;X-NSFW 由 authHeaders 注入
+    body: fd,
+  }, { timeoutMs: 300_000 });
+  if (!res.ok) await raiseApiError(res, "反推失败");
+  const data = (await res.json()) as {
+    kind: string;
+    prompt: string;
+    negative?: string | null;
+  };
+  return { kind: data.kind, prompt: data.prompt, negative: data.negative ?? null };
+}
+
 export async function generateImg2img(
   params: Img2ImgGenParams,
 ): Promise<GenerateResponse> {
