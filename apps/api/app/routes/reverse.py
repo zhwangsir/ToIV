@@ -232,7 +232,7 @@ def _salvage_prompt(raw: str) -> str:
     m = re.search(r'"prompt"\s*:\s*"(.*)', raw, re.S)
     if not m:
         return raw
-    text = re.split(r'",\s*"negative"', m.group(1))[0]
+    text = re.split(r'",\s*"negative', m.group(1))[0]
     return text.rstrip('"}').strip() or raw
 
 

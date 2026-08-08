@@ -170,6 +170,9 @@ def test_image_truncated_json_salvage(ctx, monkeypatch):
 def test_salvage_strips_negative_fragment():
     raw = '{"prompt": "a cat on a sofa", "negative": "blurry, low qual'
     assert reverse._salvage_prompt(raw) == "a cat on a sofa"
+    # 截断在 "negative: 键名内部(无闭合引号)也要剥掉
+    raw2 = '{"prompt": "a cat on a sofa", "negative: blurry, low qual'
+    assert reverse._salvage_prompt(raw2) == "a cat on a sofa"
     # 无 "prompt" 键时原样返回
     assert reverse._salvage_prompt("plain text") == "plain text"
 
