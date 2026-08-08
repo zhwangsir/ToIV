@@ -153,6 +153,27 @@ def test_image_non_json_fallback(ctx, monkeypatch):
     assert body["negative"] is None
 
 
+def test_image_truncated_json_salvage(ctx, monkeypatch):
+    """JoyCaption 输出被 max_tokens 截断时,兜底提取 prompt 值,不带 JSON 骨架。"""
+    async def fake_chat(system: str, part: dict, base_url: str) -> str:
+        return '{"prompt": "a busy city street at night, neon signs, crowds walking'
+
+    monkeypatch.setattr(reverse, "_chat_completion", fake_chat)
+    client, token = ctx
+    r = _post(client, token, _PNG, "ref.jpg", "image/jpeg")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["prompt"] == "a busy city street at night, neon signs, crowds walking"
+    assert not body["prompt"].startswith("{")
+
+
+def test_salvage_strips_negative_fragment():
+    raw = '{"prompt": "a cat on a sofa", "negative": "blurry, low qual'
+    assert reverse._salvage_prompt(raw) == "a cat on a sofa"
+    # 无 "prompt" 键时原样返回
+    assert reverse._salvage_prompt("plain text") == "plain text"
+
+
 # ── 视频 ─────────────────────────────────────────────────────────────
 
 

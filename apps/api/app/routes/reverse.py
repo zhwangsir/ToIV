@@ -17,6 +17,7 @@ import base64
 import logging
 import os
 import posixpath
+import re
 import uuid
 
 import httpx
@@ -225,6 +226,16 @@ def _data_url(content: bytes, kind: str, content_type: str) -> str:
     return f"data:{mime};base64,{base64.b64encode(content).decode()}"
 
 
+def _salvage_prompt(raw: str) -> str:
+    """模型输出被 max_tokens 截断或带 JSON 包装但无法整体解析时的兜底提取:
+    捞出 "prompt" 字符串值,去掉尾随的 negative 片段/引号,避免把 JSON 骨架塞进提示词框。"""
+    m = re.search(r'"prompt"\s*:\s*"(.*)', raw, re.S)
+    if not m:
+        return raw
+    text = re.split(r'",\s*"negative"', m.group(1))[0]
+    return text.rstrip('"}').strip() or raw
+
+
 @router.post("/reverse", response_model=ReverseResponse)
 async def reverse_prompt(
     file: UploadFile,
@@ -293,7 +304,7 @@ async def reverse_prompt(
     if not obj or not (obj.get("prompt") or "").strip():
         # 模型没按 JSON 输出时,原文本通常就是可用描述,宽松降级不 502
         logger.info("反推结果非 JSON,按纯文本降级: %s", raw[:200])
-        return ReverseResponse(kind=kind, prompt=raw)
+        return ReverseResponse(kind=kind, prompt=_salvage_prompt(raw))
     return ReverseResponse(
         kind=kind,
         prompt=obj["prompt"].strip(),
