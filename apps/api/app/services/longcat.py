@@ -176,8 +176,13 @@ async def submit_longcat_job(
     user: User,
     session: Session,
     client: ComfyUIClient | None = None,
+    nsfw: bool = False,
 ) -> dict:
-    """提交 LongCat 作业:开关检查 → 就绪检查 → queue_prompt → 落 Job → 后台追踪(结果落库进作品库)。"""
+    """提交 LongCat 作业:开关检查 → 就绪检查 → queue_prompt → 落 Job → 后台追踪(结果落库进作品库)。
+
+    nsfw=True 时 Job 打 R18 标(进 /nsfw 专区作品库);调用方须先过 R18 门控
+    (routes 层用 nsfw_allowed(user) 判定,含未成年硬阻断),此处不重复校验。
+    """
     ensure_longcat_enabled()
     client = client or get_longcat_client()
     await ensure_longcat_ready(client)
@@ -202,7 +207,7 @@ async def submit_longcat_job(
             status="queued",
             prompt=positive,
             seed=seed,
-            nsfw=False,
+            nsfw=nsfw,
             params=params_snapshot(req, seed=seed),
         )
     )

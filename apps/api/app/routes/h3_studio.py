@@ -20,6 +20,7 @@ from sqlmodel import Session
 from app.db import get_session
 from app.deps import get_current_user, resolve_worker
 from app.models import User
+from app.nsfw_ctx import nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
 from app.services import h3 as h3_service
 from app.workflows.h3_video import H3I2VParams, H3T2VParams, build_h3_i2v_graph, build_h3_t2v_graph
@@ -95,6 +96,9 @@ async def generate_h3_t2v(
     return await h3_service.submit_h3_job(
         graph, kind="h3_t2v", positive=params.positive, seed=params.seed,
         req=req, user=user, session=session,
+        # R18 上下文(X-NSFW 头)打标进 /nsfw 专区作品库;nsfw_allowed 含未成年硬阻断,
+        # 与 LTX 门控同一判定来源,主站(无头)恒 False 行为不变
+        nsfw=nsfw_allowed(user),
     )
 
 
@@ -123,4 +127,5 @@ async def generate_h3_i2v(
     return await h3_service.submit_h3_job(
         graph, kind="h3_i2v", positive=params.positive, seed=params.seed,
         req=req, user=user, session=session, client=client,
+        nsfw=nsfw_allowed(user),  # R18 上下文打标(同 t2v)
     )

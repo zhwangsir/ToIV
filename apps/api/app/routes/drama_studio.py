@@ -264,6 +264,9 @@ class ContinueVideoRequest(BaseModel):
     cfg: float = Field(default=1.0, ge=0.0, le=20.0)
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
     prompt_override: str | None = Field(default=None, max_length=2000)
+    # NSFW 开关:True 续写段用 NSFW 专用视频底模(10Eros)并给段 Job 打 nsfw 标
+    # (须 X-NSFW 头,与 generate-video 同一判定来源;R18 分镜续写产物不进主站作品库)
+    nsfw: bool = False
 
     @field_validator("engine")
     @classmethod
@@ -1750,7 +1753,8 @@ async def _run_continue_video(
 
             # LTX:worker 一次选定,按实际 i2v 参数推所需模型/节点(同 ltx_studio 推导)
             ltx_client = None
-            video_ckpt = settings.default_video_ckpt
+            # SFW/NSFW 底模分流:nsfw=True(端点已过 R18 门控)用 10Eros,与 generate-video 同一来源
+            video_ckpt = settings.nsfw_default_video_ckpt if body.nsfw else settings.default_video_ckpt
             if engine_name == "ltx":
                 from app.capabilities import required_nodes
                 model_set = {
@@ -1828,6 +1832,7 @@ async def _run_continue_video(
                             user=user_obj,
                             session=s,
                             client=h3_client,
+                            nsfw=body.nsfw,  # R18 分镜续写段打标(端点已过门控)
                         )
                         prompt_id = result["prompt_id"]
                     else:
@@ -1864,7 +1869,7 @@ async def _run_continue_video(
                                 status="queued",
                                 prompt=prompt,
                                 seed=seed_i,
-                                nsfw=False,
+                                nsfw=body.nsfw,  # R18 分镜续写段打标,不进主站作品库
                                 params=params_snapshot(body, seed=seed_i),
                             )
                         )
@@ -1938,6 +1943,10 @@ async def continue_shot_video(
     (continue_status / continue_urls / continue_concat_url / continue_error)。
     """
     enforce_generation_rate_limit(user)
+    # R18 门控:nsfw=true(续写段走 10Eros 成人底模)无 X-NSFW 头一律 403,
+    # 与 generate-video 同款(堵主站借续写绕过 G1;R18 分镜续写产物打标隔离)
+    if body.nsfw:
+        _gate_ltx_nsfw(user)
     shot = _owned_shot(sid, user, session)
     if shot.video_status != "done" or not shot.video_url:
         raise HTTPException(status_code=422, detail="分镜尚无已完成视频,无法末帧续写")

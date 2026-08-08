@@ -349,8 +349,8 @@ def test_run_continue_h3_params(ctx, monkeypatch):
 
     submitted: list[dict] = []
 
-    async def fake_submit(graph, *, kind, positive, seed, req, user, session, client=None):
-        submitted.append({"graph": graph, "kind": kind, "seed": seed})
+    async def fake_submit(graph, *, kind, positive, seed, req, user, session, client=None, nsfw=False):
+        submitted.append({"graph": graph, "kind": kind, "seed": seed, "nsfw": nsfw})
         return {"prompt_id": "h3p-1", "client_id": "c", "worker": "http://h3", "seed": seed}
 
     monkeypatch.setattr(
@@ -502,3 +502,122 @@ def test_run_continue_probe_fallback_to_project(ctx, monkeypatch):
     g = fake.graphs[0]
     assert _graph_dims(g) == (768, 384)  # 项目默认 768×384@16
     assert _graph_length(g) == 89  # 16fps × 6s = 96 → 89
+
+
+# ---------------------------------------------------------------------------
+# R18 回归(2026-08-08):续写段 nsfw 门控 + 打标传播
+# 修复前 continue-video 硬编码 nsfw=False:R18 分镜续写产物漏进主站作品库,
+# 且入口无 _gate_ltx_nsfw,主站可借续写绕过 G1。判定来源与 generate-video
+# 同一套(请求体 nsfw 字段 + X-NSFW 头门控,10Eros 底模分流)。
+# ---------------------------------------------------------------------------
+
+
+def test_continue_nsfw_blocked_without_x_nsfw(ctx):
+    """continue-video:nsfw=true 无 X-NSFW 头 → 403,分镜状态不被置 continuing。"""
+    client, token, engine, pid, sid, _ = ctx
+    r = client.post(
+        f"/api/drama/shots/{sid}/continue-video",
+        headers=_h(token),
+        json={"nsfw": True},
+    )
+    assert r.status_code == 403, r.text
+    assert "NSFW 专区" in r.json()["detail"]
+    with Session(engine) as s:
+        shot = s.get(DramaShot, sid)
+        assert shot.continue_status == ""  # 门控先于状态置位,无副作用
+        assert s.exec(select(Job)).all() == []
+
+
+def test_continue_nsfw_allowed_with_x_nsfw(ctx, monkeypatch):
+    """continue-video:带 X-NSFW 头门控放行(后台链路 mock,验证全链路 200)。"""
+    client, token, engine, pid, sid, _ = ctx
+    monkeypatch.setattr(drama_studio_route, "_spawn", _close_coro)
+    r = client.post(
+        f"/api/drama/shots/{sid}/continue-video",
+        headers={**_h(token), "X-NSFW": "1"},
+        json={"nsfw": True, "segments": 1},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "continuing"
+    with Session(engine) as s:
+        assert s.get(DramaShot, sid).continue_status == "continuing"
+
+
+def test_run_continue_ltx_nsfw_uses_10eros_and_marks_jobs(ctx, monkeypatch):
+    """LTX 续写 nsfw=True:段图用 10Eros 底模(非 SFW 默认),段 Job 打 nsfw 标。"""
+    from app.config import get_settings
+
+    _, _, engine, pid, sid, tmp_path = ctx
+    fake = _FakeClient()
+    _install_common_mocks(tmp_path, fake, monkeypatch)
+    monkeypatch.setattr(
+        drama_studio_route, "wait_for_jobs",
+        AsyncMock(return_value={"pid-1": ["/api/images?filename=s1.mp4&type=output&worker=http://worker"]}),
+    )
+
+    body = drama_studio_route.ContinueVideoRequest(segments=1, seed=7, nsfw=True)
+    with Session(engine) as s:
+        uid = s.exec(select(User).where(User.email == "cont@toiv.ai")).first().id
+        tid = s.get(DramaProject, pid).tenant_id
+    asyncio.run(drama_studio_route._run_continue_video(sid, body, "ltx", tid, uid))
+
+    settings = get_settings()
+    assert fake.graphs[0]["1"]["inputs"]["unet_name"] == settings.nsfw_default_video_ckpt
+    with Session(engine) as s:
+        jobs = s.exec(select(Job).where(Job.kind == "drama_shot_continue_i2v")).all()
+        assert len(jobs) == 1 and jobs[0].nsfw is True
+
+
+def test_run_continue_ltx_sfw_default_jobs_not_nsfw(ctx, monkeypatch):
+    """SFW 默认(nsfw=False)行为不变:段图用 SFW 底模,段 Job 不打标。"""
+    from app.config import get_settings
+
+    _, _, engine, pid, sid, tmp_path = ctx
+    fake = _FakeClient()
+    _install_common_mocks(tmp_path, fake, monkeypatch)
+    monkeypatch.setattr(
+        drama_studio_route, "wait_for_jobs",
+        AsyncMock(return_value={"pid-1": ["/api/images?filename=s1.mp4&type=output&worker=http://worker"]}),
+    )
+
+    body = drama_studio_route.ContinueVideoRequest(segments=1, seed=7)
+    with Session(engine) as s:
+        uid = s.exec(select(User).where(User.email == "cont@toiv.ai")).first().id
+        tid = s.get(DramaProject, pid).tenant_id
+    asyncio.run(drama_studio_route._run_continue_video(sid, body, "ltx", tid, uid))
+
+    settings = get_settings()
+    assert fake.graphs[0]["1"]["inputs"]["unet_name"] == settings.default_video_ckpt
+    with Session(engine) as s:
+        jobs = s.exec(select(Job).where(Job.kind == "drama_shot_continue_i2v")).all()
+        assert len(jobs) == 1 and jobs[0].nsfw is False
+
+
+def test_run_continue_h3_nsfw_propagates_to_submit(ctx, monkeypatch):
+    """H3 续写 nsfw=True:标记透传到 submit_h3_job(由服务层落 Job 打标)。"""
+    _, _, engine, pid, sid, tmp_path = ctx
+    fake = _FakeClient(base_url="http://h3")
+    _install_common_mocks(tmp_path, fake, monkeypatch)
+
+    submitted: list[dict] = []
+
+    async def fake_submit(graph, *, kind, positive, seed, req, user, session, client=None, nsfw=False):
+        submitted.append({"kind": kind, "nsfw": nsfw})
+        return {"prompt_id": "h3p-1", "client_id": "c", "worker": "http://h3", "seed": seed}
+
+    monkeypatch.setattr(
+        drama_studio_route, "wait_for_jobs",
+        AsyncMock(return_value={"h3p-1": ["/api/images?filename=h1.mp4&type=output&worker=http://h3"]}),
+    )
+    import app.services.h3 as h3_service
+
+    monkeypatch.setattr(h3_service, "get_h3_client", lambda: fake)
+    monkeypatch.setattr(h3_service, "submit_h3_job", fake_submit)
+
+    body = drama_studio_route.ContinueVideoRequest(segments=1, engine="h3", nsfw=True)
+    with Session(engine) as s:
+        uid = s.exec(select(User).where(User.email == "cont@toiv.ai")).first().id
+        tid = s.get(DramaProject, pid).tenant_id
+    asyncio.run(drama_studio_route._run_continue_video(sid, body, "h3", tid, uid))
+
+    assert submitted == [{"kind": "drama_shot_continue_h3_i2v", "nsfw": True}]

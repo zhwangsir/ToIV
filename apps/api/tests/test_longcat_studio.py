@@ -607,3 +607,71 @@ async def test_fetch_source_video_rejects_traversal():
     with pytest.raises(HTTPException) as exc:
         await longcat_service._fetch_source_video_bytes("../evil.mp4", "http://fake-worker")
     assert exc.value.status_code == 422
+
+
+# --------------------------------------------------------------------------- #
+# R18 打标(2026-08-08):X-NSFW 上下文 → Job.nsfw,进 /nsfw 专区作品库;
+# 主站(无头)恒 False(与 LTX 门控同一判定来源 nsfw_allowed)
+# --------------------------------------------------------------------------- #
+
+
+def test_t2v_marks_job_nsfw_with_x_nsfw_header(client, monkeypatch):
+    """/nsfw 专区(X-NSFW: 1)提交 longcat t2v:Job 打 nsfw 标,主站作品库不可见。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "lcnsfw")
+    fake = _FakeLongCatClient()
+    _install_longcat(monkeypatch, fake)
+    r = c.post(
+        "/api/longcat/t2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}", "X-NSFW": "1"},
+        json={"positive": "a girl, cinematic"},
+    )
+    assert r.status_code == 200, r.text
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        assert job is not None
+        assert job.kind == "longcat_t2v" and job.nsfw is True
+
+
+def test_continue_marks_job_nsfw_with_x_nsfw_header(client, monkeypatch):
+    """/nsfw 专区提交 longcat 续写:续写段 Job 打 nsfw 标(R18 长镜头不漏进主站)。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "lccontnsfw")
+    fake = _FakeLongCatClient()
+    _install_longcat(monkeypatch, fake)
+    monkeypatch.setattr(
+        longcat_service, "prepare_continue_first_frame", _fake_prepare_continue()
+    )
+    r = c.post(
+        "/api/longcat/continue",
+        headers={"Authorization": f"Bearer {create_token(uid)}", "X-NSFW": "1"},
+        json={
+            "positive": "镜头继续",
+            "video": "/api/images?filename=a.mp4&worker=http%3A%2F%2Ffake-worker",
+        },
+    )
+    assert r.status_code == 200, r.text
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        assert job is not None
+        assert job.kind == "longcat_continue" and job.nsfw is True
+
+
+def test_t2v_main_site_job_not_nsfw(client, monkeypatch):
+    """主站(无 X-NSFW 头)行为不变:Job 不打 nsfw 标。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "lcsfw")
+    fake = _FakeLongCatClient()
+    _install_longcat(monkeypatch, fake)
+    r = c.post(
+        "/api/longcat/t2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={"positive": "a cat"},
+    )
+    assert r.status_code == 200, r.text
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        assert job is not None and job.nsfw is False

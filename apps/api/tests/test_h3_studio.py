@@ -597,3 +597,69 @@ def test_h3_disabled_returns_503(client, monkeypatch):
     )
     assert r.status_code == 503
     assert "已禁用" in r.json()["detail"]
+
+
+# --------------------------------------------------------------------------- #
+# R18 打标(2026-08-08):X-NSFW 上下文 → Job.nsfw,进 /nsfw 专区作品库;
+# 主站(无头)恒 False;未成年硬阻断优先于 X-NSFW 头(与 LTX 门控同一判定来源)
+# --------------------------------------------------------------------------- #
+
+
+def test_t2v_marks_job_nsfw_with_x_nsfw_header(client, monkeypatch):
+    """/nsfw 专区(X-NSFW: 1)提交 h3 t2v:Job 打 nsfw 标,主站作品库不可见。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "h3nsfw")
+    fake = _FakeH3Client()
+    _install_h3(monkeypatch, fake)
+    r = c.post(
+        "/api/h3/t2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}", "X-NSFW": "1"},
+        json={"positive": "a girl, cinematic"},
+    )
+    assert r.status_code == 200, r.text
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        assert job is not None
+        assert job.kind == "h3_t2v" and job.nsfw is True
+
+
+def test_i2v_marks_job_nsfw_with_x_nsfw_header(client, monkeypatch):
+    """/nsfw 专区提交 h3 i2v:Job 同样打 nsfw 标。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "h3i2vnsfw")
+    fake = _FakeH3Client()
+    _install_h3(monkeypatch, fake)
+    monkeypatch.setattr(h3_route, "resolve_worker", lambda worker: _FakeSourceWorker())
+    r = c.post(
+        "/api/h3/i2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}", "X-NSFW": "1"},
+        json={"positive": "x", "image": "in.png", "worker": "http://fake-worker"},
+    )
+    assert r.status_code == 200, r.text
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        assert job is not None and job.kind == "h3_i2v" and job.nsfw is True
+
+
+def test_t2v_underage_not_marked_even_with_header(client, monkeypatch):
+    """未成年硬阻断优先于 X-NSFW 头:作业可提交(SFW 语义)但绝不打 R18 标。"""
+    from datetime import date, timedelta
+
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "h3underage")
+        s.get(User, uid).birthdate = date.today() - timedelta(days=365 * 12)
+        s.commit()
+    fake = _FakeH3Client()
+    _install_h3(monkeypatch, fake)
+    r = c.post(
+        "/api/h3/t2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}", "X-NSFW": "1"},
+        json={"positive": "a cat"},
+    )
+    assert r.status_code == 200, r.text
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        assert job is not None and job.nsfw is False
