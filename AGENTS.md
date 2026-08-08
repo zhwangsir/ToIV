@@ -206,16 +206,17 @@ nas:
 - **正确**:官方示例 `LongCat_TI2V_example_01.json`(实例 :8197 example_workflows)的连线是 LoadImage → ImageResizeKJv2 → **WanVideoEncode → WanVideoEmptyEmbeds.extra_latents**(示例 note:For T2V disconnect the extra_latents);长帧数(>241)自动开窗 = WanVideoContextOptions(81/overlap16)接 WanVideoSampler.context_options + 块交换 10→30
 - **附带**:core 登录接口 `/api/auth/login` 返回字段是 `token`,不是 `access_token`
 
-### 11. deploy/.env 注释占位会骗过 grep 检查(2026-08-08)
-- **坑**:`deploy/.env` 里常有 `# TOIV_NAS_HOST=` 这类注释占位,追加配置前用 `grep -q TOIV_NAS_HOST` 判断会误匹配注释行,导致跳过追加,配置永远没生效
-- **正确**:判断必须锚定行首(`grep -q '^TOIV_NAS_HOST='`),追加前先看文件确认
-- **附带**:core 下载器大文件走 SFTP 回退(cifs 挂载慢/超时),civitai 直链 workstation 直连极慢,**大文件一律走 core `POST /api/nas/download`**,不要在 workstation 直接 wget
-
 ### 11. LongCat-Avatar v1.5 音频链路必须 whisper-large-v3,不是 wav2vec2(2026-08-08)
 - **坑**:按官方 v1.0 示例用 wav2vec2 音频编码,采样时报 `mat1 and mat2 shapes cannot be multiplied (1x46080 and 32000x512)`
 - **原因**:LongCat-Avatar-1.5 的 AudioProjModel 期望 whisper-large-v3 特征(5×5×1280=32000);wav2vec2 是 v1.0 旧路线
 - **正确**:`WhisperModelLoader`(audio_encoders 类目,P0 已下载到 NAS)+ `LongCatAvatarWhisperEmbeds`(fps=25、audio_stride=1);人声分离节点在独立仓库 ComfyUI-MelBandRoFormer(需 `rotary_embedding_torch` 依赖,模型 MelBandRoformer_fp32.safetensors 913MB 放实例 models/diffusion_models/)
 - **附带**:① :8197 的 extra_model_paths.yaml 需补 `audio_encoders` 映射(vocal_separator 类目 WanVideoWrapper 不用,Kim_Vocal_2.onnx 本链路不需要);② 冒烟参数参考:480×832/93帧/25fps/steps=12/shift=12/cfg=1.0/dmd LoRA 1.0/BlockSwap=25/attention=sdpa,130s 出片,GPU2 峰值 ~20GB;③ 冒烟脚本在 workstation `/tmp/longcat_avatar_smoke.py`;④ **已接入 core API**(2026-08-08,commit a132468):`POST /api/avatar/talk`,图片+音频走 `/api/upload?kind=avatar`(multipart 字段名是 `image` 不是 `file`;**两文件须落同一 pool worker**,前端已做互钉);⑤ **长音频续段已实现**(commit 270946e):ExtendEmbeds 图内链式,首段 93 帧+每续段净 80 帧(overlap 13),**每段帧数必须 (T-1)%4==0**(残段自动向上取整 4k+1,最多多 3 帧),num_frames 上限 2500(≈100s);>30min 作业超 tracker `_TRACK_TIMEOUT=1800s`,靠 reconcile_loop 重挂落库,状态更新有间断
+
+### 12. civitai 下载链与 b2 对象存储连通性(2026-08-08)
+- **坑1**:`deploy/.env` 里常有 `# TOIV_NAS_HOST=` 这类注释占位,追加配置前用 `grep -q TOIV_NAS_HOST` 判断会误匹配注释行导致跳过追加,配置永远没生效;判断必须锚定行首(`grep -q '^TOIV_NAS_HOST='`)
+- **坑2**:core `POST /api/nas/download` 对 civitai 源可能 0 字节超时——下载链 307 重定向到 `b2.civitai.com`(Backblaze B2),**core/workstation/Mac 直连 B2 全部 connect timeout**(镜像 API 本身正常,只是对象存储不可达);能否走 core 下载器取决于当次 307 落到哪个存储节点
+- **正确**:core 下载器失败时,用 **Mac 本地代理(127.0.0.1:7897,Clash)下载 + /Volumes/NAS(已常驻挂载)SMB 拷贝** 兜底;命令模板见 TEST_LOG H3ECO-2026-08-08
+- **附带**:core 下载器大文件走 SFTP 回退(cifs 挂载慢/超时),workstation 直连 civitai.red CDN 也极慢,优先 core 下载器,失败再走 Mac 代理路线
 
 ---
 

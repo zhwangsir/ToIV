@@ -27,7 +27,7 @@
 | SexGod-NaughtyTimes-lora(2836176,6.8k) | NAS ✓ | 2.31GB | R18 | 可用 |
 | minimax_h3_fl2v_lightx2v_turbo_4step(2837571,5k) | NAS ✓ | 1.82GB | 主站 | 可用 |
 | minimax_h3_turbo_v4_step600_ema(_pruned) ×2 | 既有 | 0.78/0.62GB | 主站 | 可用 |
-| H3_footjob(2839680)/cxy_kiss(2842199)/h3_musubi innie(2841940) | core 下载中 | 0.12-0.58GB | R18/R18(kiss 主站) | 队列 |
+| H3_footjob(2839680)/cxy_kiss(2842199)/h3_musubi innie(2841940) | NAS ✓ | 0.12/0.58/0.28GB | R18/R18(kiss 主站) | 可用(17:00 补记) |
 
 ### core 真机验证
 
@@ -41,7 +41,7 @@
 
 ### 遗留
 
-- 其余 3 个 LoRA(footjob/kiss/innie)core 下载队列收尾中
+- ~~其余 3 个 LoRA(footjob/kiss/innie)core 下载队列收尾中~~ **17:00 已补齐**:innie 经 core 落盘;footjob/kiss 因 core/Mac 直连 `b2.civitai.com`(B2 对象存储,307 重定向目标)连接超时,改走 **Mac 本地代理(127.0.0.1:7897)下载 → /Volumes/NAS SMB 拷贝**,10 个 LoRA 全部落盘,:8195 枚举 10/10 ✅
 - 4 个新 NSFW LoRA 的生成验证只跑了 vagina 一个,其余待用户真机测试
 - NaughtyTimes 2.31GB 大 rank LoRA 显存影响未测(H3 已占 ~62GB)
 
