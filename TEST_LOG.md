@@ -4,6 +4,41 @@
 
 ---
 
+## REALLOC-S46-2026-08-08 · llama-70b 退役 + Omni-Captioner 音乐反推上线 + Workstation 重启窗口
+
+**时间**: 2026-08-08 21:50
+**类型**: ops / feat(reverse) / e2e
+**目标**: S4(llama-70b 下掉 → spark01 部署 Omni-Captioner bf16)+ S6(ASR systemd 化、磁盘 550G 归档、Workstation 重启根治 NVML)。core commit 4ae94e9(音乐反推增强链)
+
+### S4 llama-70b 退役(最终说明见交接文档第七节)
+
+- core .env:L2/L3/L4 文本层统一从 spark01 llama-70b 切到 **spark02 qwen3.6-uncensored**(与 L1 同模型,uncensored 兜底 NSFW),备份 `.env.bak-20260808-llama`;X-NSFW 聊天链路真机验证正常
+- spark01 docker `vllm_node` 已停(--rm 自动清理);模型文件 92GB + 启动脚本保留可回滚
+- **Omni-Captioner bf16 上线**:spark01 docker `omni_captioner` :8000(served 名 omni-captioner,60GB,Qwen3-Omni-30B-A3B-Captioner,vllm-node 镜像 gpu-util 0.65)
+- ⚠️ 坑:eugr/spark-vllm 镜像缺 vllm[audio] 依赖 → 500;启动脚本改为容器启动时先 `pip install av librosa soundfile`(脚本 start_omni_captioner.sh,镜像不重构建);装完必须重启容器(懒加载缓存 ImportError)
+- **音乐反推链路**(core 4ae94e9):音频 → demucs `/separate_accompaniment`(audio_sep_server 新增端点,备份 .bak-20260808)→ Omni 生成音乐描述,与 SenseVoice 人声描述合并;增强链失败只降级不 502
+- e2e:配音+BGM 测试音 5.0s,人声转写+情绪+「背景音乐: futuristic ambient electronic…」合并输出 ✅
+
+### S6 杂项
+
+- **ASR systemd 化**:toiv-asr.service(弃 screen,:9210 验证 200,enable 开机自启)
+- **磁盘归档 558G**:minimax-m3-nvfp4 233G + minimax-m3-awq 143G + qwen3.6 本地冗余 120G + Nemotron-3-Nano-Omni 62G → NAS `toiv/model-archive-2026-08-08/`(7 天无误再删);`/` 用量 1.3T → 807G
+- **Workstation 重启**(21:45,中断 ~2min):**NVML mismatch 根治,nvidia-smi 恢复**;14 个 systemd 服务全部自启 active;comfyui-longcat 补 enable
+- ⚠️ 坑:NAS 挂载**没有** fstab 条目(AGENTS 记录失实),重启后未挂载且 /root/.smbcredentials 不存在 → 已重建凭据文件 + 补 fstab(`_netdev,x-systemd.automount`),归档数据验证完好
+
+### 重启后验证
+
+| 项 | 结果 |
+|---|---|
+| nvidia-smi | ✅ 恢复(GPU0 8.1G / GPU1 53.3G / GPU2 21.9G / GPU3 42.2G) |
+| systemd 14 服务 | ✅ 全 active(含新 toiv-asr、toiv-joycaption、comfyui-longcat) |
+| ComfyUI 模型可见性 | ✅ :8189 checkpoints 35 / :8195 diffusion 3+loras 10 / :8197 diffusion 29+loras 55 |
+| LB | ✅ 3 后端(gpu0 权重 1.5 + pc01 + pc02 均 HEALTHY/200) |
+| SFW 图像反推(studio04) | ✅ 重启后 e2e 正常 |
+| 单测 | ✅ 全量 1138 passed + 2 redis 基线 |
+
+---
+
 ## REVERSE-S3-2026-08-08 · 集群重排:反推链路全精度迁移(studio04 MLX + JoyCaption bf16)+ LB 加权
 
 **时间**: 2026-08-08 20:40

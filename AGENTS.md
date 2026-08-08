@@ -24,7 +24,7 @@
 |---|------|------|--------|-------------|------|---------|
 | 1 | studio01-04 | EXO RDMA 推理(studio04 兼任 VLM 反推节点 :9303) | .109/.111/.112/.113 | 100.67.43.40 / 100.91.0.121 / 100.115.27.68 / 100.126.182.23 | **Mac Studio M3 Ultra 32核 512GB**（⚠️ 不是 M2 Pro，已确认 2026-08-02） | dgmt-studio01-04 |
 | 2 | openclaw01-04 | OpenClaw 网关 | .86/.75/.81/.85 | 100.69.0.4 / 100.76.35.7 / 100.76.140.121 / 100.91.128.30 | Mac mini M2 | dgmt-openclaw01-04 |
-| 3 | spark01-02 | vLLM Ray (Euryale 70B) | .82/.84 | 100.81.235.124 / 100.86.42.89 | Linux GB10 | dgmt-spark |
+| 3 | spark01-02 | spark01: Omni-Captioner 音乐反推(:8000);spark02: LLM L1-L4 主力(qwen3.6-uncensored) | .82/.84 | 100.81.235.124 / 100.86.42.89 | Linux GB10 | dgmt-spark |
 | 4 | workstation | 算力+真机服务 | 192.168.71.127 | 100.68.100.90 | Linux 4×RTX PRO 6000 | merlin |
 | 5 | pc01 | ComfyUI worker | 192.168.71.115 | 100.69.134.27 | Windows RTX 5090 | home |
 | 6 | pc02 | ComfyUI worker | 192.168.71.114 | 100.107.94.26 | Windows RTX 5090 | w |
@@ -74,7 +74,7 @@ net use Z: \\192.168.71.7\NAS /persistent:yes
 | GPU0 | MiniMax H3 (ComfyUI worker) | :8195 | ~62GB (UNet bf16 分片) | **toiv-comfyui-h3.service** | UNet 跨 GPU0/GPU2/CPU，CLIP/VAE 在 GPU2;2026-08-08 extra_model_paths 补 `loras` 映射(NAS toiv/comfyui-models/h3/loras/),LoRA 走 LoraLoaderModelOnly 链(musubi 系只含 DiT 权重),NSFW LoRA 门控在 services/h3.py H3_NSFW_LORAS 名单 |
 | GPU1 | Qwen3-Embedding-4B | :9302 | ~8.4GB | **qwen3-embedding.service** | `CUDA_VISIBLE_DEVICES=1` |
 | GPU1 | LiveAct batch worker | :9400 | ~58GB | **toiv-liveact.service** | `nproc_per_node=1`，单卡 GPU1 |
-| GPU2 | AI-Omni ASR (faster-whisper large-v3) | :9210 | ~4.9GB | 手动 screen | `device_index=2` |
+| GPU2 | AI-Omni ASR (faster-whisper large-v3) | :9210 | ~4.9GB | **toiv-asr.service**(2026-08-08 从 screen 迁入) | `device_index=2` |
 | GPU2 | demucs 人声分离 | :9220 | ~1-8GB(分离时) | **toiv-audio-sep.service** | 2026-08-08 从 GPU0 迁入,GPU1 留给 LiveAct 专职 |
 | GPU2 | SenseVoice 语音情绪/事件标注 | :9211 | ~1.7GB | **toiv-sensevoice.service** | 2026-08-08 新增,反推提示词音频链路;/opt/toiv-sensevoice,FunASR+torch 2.11,与 /opt/ai-omni-asr 隔离 |
 | GPU2 | MiniMax H3 (ComfyUI worker) | :8195 | ~48GB (CLIP bf16 + VAE) | **toiv-comfyui-h3.service** | 与 GPU0 共享 H3 工作进程 |
@@ -100,7 +100,7 @@ net use Z: \\192.168.71.7\NAS /persistent:yes
 | ComfyUI-LB | /opt/ComfyUI/comfyui-lb.py | 同上 | `venv/bin/python comfyui-lb.py` |
 | IndexTTS2 | /home/merlin/index-tts | /home/merlin/index-tts/.venv (Python 3.11, torch 2.8.0+cu128) | `CUDA_VISIBLE_DEVICES=0 .venv/bin/python toiv_tts_server.py --host 0.0.0.0 --port 9200` |
 | Qwen3-Embedding-4B | /home/merlin/models/Qwen3-Embedding-4B | /opt/nemotron-venv | `sudo systemctl start qwen3-embedding` |
-| AI-Omni ASR | /opt/ai-omni-asr | /opt/ai-omni-asr (Python 3.12, faster-whisper 1.2.1) | `screen -S ai-omni-asr -L -Logfile /opt/ai-omni-asr/logs/screen.log bash -c 'cd /opt/ai-omni-asr && source bin/activate && python asr_server.py'` |
+| AI-Omni ASR | /opt/ai-omni-asr | /opt/ai-omni-asr (Python 3.12, faster-whisper 1.2.1) | `sudo systemctl start toiv-asr`(2026-08-08 起 systemd 托管,弃 screen) |
 | MiniMax H3 (ComfyUI worker) | /home/merlin/ComfyUI-h3-eval 或 ToIV 部署路径 | ToIV venv | `sudo systemctl start toiv-comfyui-h3` |
 | LiveAct batch worker | /home/merlin/toiv | ToIV venv | `sudo systemctl start toiv-liveact` |
 | FlashTalk | /home/merlin/omnirt/runtimes/flashtalk/cuda | FlashTalk venv | `sudo systemctl start flashtalk` |
@@ -242,9 +242,28 @@ nas:
 - **背景**:LB 原选后端逻辑让 gpu0 吃 71% 分发(与 TTS/H3 共卡最不该多吃)
 - **正确**:`/opt/ComfyUI/comfyui-lb.py` 已打补丁:gpu0 后端加 `"weight": 1.5`,选后端改「加权队列最短」(weight 越大越少被选);备份在同目录 `.bak-20260808`,改分发逻辑前先备份
 
+### 17. NAS「fstab 自动挂载」记录失实(2026-08-08)
+- **坑**:本文件曾记录 workstation NAS「已配置 fstab 自动挂载」,实际 /etc/fstab **没有任何 cifs 条目**,/root/.smbcredentials 也不存在;Workstation 重启后 NAS 静默未挂载,ComfyUI 模型 symlink 指向空目录
+- **正确**:已重建 /root/.smbcredentials 并补 fstab 条目(`_netdev,x-systemd.automount,x-systemd.idle-timeout=0`);**每次 workstation 重启后第一件事必须 `mountpoint /home/merlin/nas_mount` 核实**
+- **教训**:文档里「已配置」类的记录要按现场核实,尤其涉及凭据/挂载这类一次性手工操作
+
+### 18. eugr/spark-vllm 镜像缺 vllm[audio] 依赖(2026-08-08)
+- **坑**:spark01 的 vllm-node 镜像(eugr/spark-vllm)跑 Qwen3-Omni 音频输入直接 500:`ImportError: Please install vllm[audio]`;容器内 pip 装完**不重启动照样报错**(vLLM 懒加载缓存了 ImportError)
+- **正确**:启动脚本 start_omni_captioner.sh 改为 `--entrypoint bash -c 'pip install av librosa soundfile && vllm serve ...'`(容器 --rm,每次启动自动装,镜像不重构建);改完必须重建容器才生效
+
 ---
 
 ## 七、操作历史
+
+### 2026-08-08 会话(晚,集群重排 S3-S6 收尾)
+
+| 时间 | 操作 | 结果 |
+|------|------|------|
+| 20:40 | S3 收尾:JoyCaption 截断 JSON 骨架兜底(_salvage_prompt,71cc57b/6bdfa03)+ 反推四链路真机 e2e 全过 | ✅ 见 TEST_LOG REVERSE-S3 |
+| 20:55 | S4a:llama-70b 退役——core .env L2/L3/L4 切 spark02 qwen3.6-uncensored(备份 .env.bak-20260808-llama),spark01 vllm_node 容器停 | ✅ X-NSFW 链路验证正常,模型文件+启动脚本保留可回滚 |
+| 21:10 | S6a:ASR screen→toiv-asr.service;S6b:558G 死重模型归档 NAS(model-archive-2026-08-08,7 天再删) | ✅ / 用量 1.3T→807G |
+| 21:35 | S4b:spark01 Omni-Captioner bf16 上线(docker omni_captioner :8000);audio_sep 加 /separate_accompaniment;core 音乐反推增强链(4ae94e9) | ✅ e2e 5.0s 人声+背景音乐合并输出 |
+| 21:45 | S6c:Workstation 重启(中断 ~2min) | ✅ NVML mismatch 根治;14 服务全自启;修复 NAS 无 fstab 条目隐患(补条目+重建凭据) |
 
 ### 2026-08-07 会话
 
@@ -320,5 +339,7 @@ nas:
 - [ ] 项目负责人推送 DRT 到 core(备份在 workstation /var/tmp)
 - [ ] Cloud 反代切换指向 core（待 core 业务就绪后）
 - [x] 清理 .archive 中过期的部署残留（backup-20260722 / deploy-residues）
-- [ ] Workstation nvidia-smi 报 NVML mismatch(2026-08-08 诊断:已装驱动 595.84(modinfo 确认),运行中内核模块仍 595.71.05——**重启即恢复**,需安排重启窗口;临时可用 torch mem_get_info 观测显存)
+- [x] Workstation nvidia-smi 报 NVML mismatch(✅ 2026-08-08 21:45 重启根治,nvidia-smi 恢复;14 个 systemd 服务全自启)
+- [x] llama-70b 退役 + spark01 改 Omni-Captioner(✅ 2026-08-08,L2/L3/L4 切 spark02,最终说明见交接文档第七节;音乐反推链路 e2e 通过)
+- [x] ASR screen→systemd(✅ toiv-asr.service);磁盘 558G 归档 NAS `toiv/model-archive-2026-08-08/`(7 天无误再删);NAS 挂载 fstab 补条目
 - [x] core 配 `TOIV_CIVITAI_API_KEY`(✅ 2026-08-08 key 已写入 core `/home/merlin/toiv/deploy/.env` 并重启 toiv-api,下载器 e2e 验证通过:推荐清单点下载即 civitai API 解析+token 自动附加+SFTP 落 NAS;key 是 secret,deploy/.env 已 gitignored 且 deploy.sh 不同步,禁止提交)

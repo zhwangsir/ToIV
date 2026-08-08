@@ -2,7 +2,7 @@
 
 > v1「LiveAct 按需化」被否决;v2 按用户新要求升级为 v3:**禁止任何有损量化,全部 bf16/全精度常驻**。
 > 数据基础:2026-08-08 全设备普查 + 利用率摸查(LiveAct 7d 1 次、spark01 日均 1.4 次、studio04 偏闲)。
-> **执行状态:S1/S2/S3/S5 已完成并真机验证;S4 暂缓(与 llama-70b 内存互斥,待用户定);S6 待用户拍板。**
+> **执行状态:S1-S6 全部完成(2026-08-08 收官),真机验证见 TEST_LOG REVERSE-S3 / REALLOC-S46。**
 
 ---
 
@@ -37,17 +37,19 @@
 - core 路由(089cb4e):X-NSFW 图像 → JoyCaption;SFW 图像+全部视频 → studio04 Qwen3-VL;音频 → SenseVoice
 - 输出被 max_tokens 截断的 JSON 骨架问题已修(71cc57b + 6bdfa03,`_salvage_prompt` 兜底提取)
 
-### S4. spark01 加装 Omni-Captioner(音乐反推)⏸ 暂缓
-- **全精度结论:Omni-Captioner bf16 ~60GB 与 spark01 的 llama-70b(~70GB)在 128GB 统一内存上共存不了**
-- 等用户定 llama-70b 去留;备选:llama.cpp GGUF(有损,与用户全精度要求冲突)或云端 API
+### S4. spark01 加装 Omni-Captioner(音乐反推)✅ 已完成
+- **llama-70b 已退役**(用户拍板):L2/L3/L4 切 spark02 qwen3.6-uncensored(.env 备份 .env.bak-20260808-llama),模型文件 92GB + 启动脚本保留可回滚,最终说明见交接文档第七节
+- Omni-Captioner bf16 上线:spark01 docker `omni_captioner` :8000(60GB,gpu-util 0.65;镜像需启动时装 vllm[audio] 依赖,见 AGENTS 易错点 18)
+- core 音乐链路(4ae94e9):demucs /separate_accompaniment → Omni 音乐描述与 SenseVoice 人声合并;.env 已配 TOIV_OMNI_CAPTIONER_BASE_URL,e2e 5.0s 通过
 
 ### S5. LB 权重修正 ✅ 已完成
 - `/opt/ComfyUI/comfyui-lb.py` 打补丁(备份 `.bak-20260808`):gpu0 加 `"weight": 1.5`,选后端改加权队列最短
 - comfyui-lb 已重启 active;pc02 已复归(LB 后端恢复 3 个:8189+pc01+pc02)
 
-### S6. 杂项 ⏸ 待用户拍板
-- 磁盘清理 550G(minimax-m3-nvfp4 233G + minimax-m3-awq 143G + Nemotron-3-Nano-Omni 62G + qwen3.6 本地冗余 120G):**先 mv NAS 归档区,7 天无误再删**
-- ASR screen → systemd 化;Workstation 重启窗口(30min,根治 NVML)——需用户定时间
+### S6. 杂项 ✅ 已完成
+- 磁盘 558G 已归档 NAS `toiv/model-archive-2026-08-08/`(7 天无误再删),`/` 用量 1.3T→807G
+- ASR screen → toiv-asr.service(enable 自启);comfyui-longcat 补 enable
+- Workstation 已于 21:45 重启(中断 ~2min):**NVML mismatch 根治,nvidia-smi 恢复**;14 个 systemd 服务全自启;修复 NAS 无 fstab 条目隐患(重建凭据+补条目,易错点 17)
 
 ---
 
@@ -71,7 +73,7 @@
 |---|---|---|
 | S1/S2 studio04 VLM | studio04 宕机则图/视频反推全断 | GPU3 toiv-vlm 停而不删,.env 改回 + systemctl start 秒级恢复 |
 | S3 JoyCaption | transformers 服务无 vLLM 的连续批处理,高并发吞吐低 | 反推是低频交互接口,可接受;最坏 disable 回退 Qwen3-VL |
-| S4 Omni | 与 llama-70b 内存互斥 | 暂缓 |
+| S4 Omni | 与 llama-70b 内存互斥 → llama 已退役 | 回滚路径见交接文档第七节(模型文件+脚本+env 备份全保留) |
 | S5 LB 权重 | 分发策略改动影响生产 | 备份 .bak-20260808,改错即还原 |
 
 ## 五、终态验证数据(2026-08-08 真机)

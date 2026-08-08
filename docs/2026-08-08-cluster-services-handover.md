@@ -13,7 +13,7 @@
 | workstation | 192.168.71.127 / 100.68.100.90 | **算力主机** 4×RTX PRO 6000(96GB/卡) | ✅ | 见第二节全表 |
 | core | 192.168.71.47 / 100.77.80.100 | **业务网关**(ToIV web/api + PG/Redis) | ✅ | toiv-api :8090 / toiv-web :3100 / PG :5432 / Redis :6379 / frpc |
 | NAS | 192.168.71.7 / 100.80.237.96 | SMB 存储 44T(用 4.8T,11%) | ✅ | SMB 共享名 `NAS`,管理 :5443 |
-| spark01 | 192.168.71.82 / 100.81.235.124 | vLLM Ray(GB10) | ✅ | vLLM(docker):8000 / frpc / node-exporter |
+| spark01 | 192.168.71.82 / 100.81.235.124 | **Omni-Captioner 音乐反推**(GB10) | ✅ | omni_captioner(docker):8000(**Qwen3-Omni-30B-A3B-Captioner bf16**) / frpc / node-exporter;~~llama-70b~~ 已退役(见第七节) |
 | spark02 | 192.168.71.84 / 100.86.42.89 | vLLM Ray(GB10) | ✅ | vLLM(docker):8000(**LLM L1 大脑 qwen3.6-uncensored**) |
 | studio01 | 192.168.71.109 / 100.67.43.40 | EXO 推理(M3 Ultra 512GB) | ✅ | EXO :52415 / deepfilternet :8301 / LM Studio :41343 |
 | studio02 | 192.168.71.111 / 100.91.0.121 | EXO 推理 | ✅ | EXO :52415 |
@@ -36,7 +36,7 @@
 | MiniMax H3 worker | :8195 | GPU0+GPU2 | toiv-comfyui-h3.service | /home/merlin/ComfyUI-h3-eval;UNet 跨 GPU0/GPU2/CPU,LoRA 走 NAS h3/loras(10 个已就位) |
 | LongCat-Video 实例 | :8197 | GPU2 | comfyui-longcat.service | /home/merlin/ComfyUI-longcat,与生产 /opt/ComfyUI 隔离;含 LongCat-Avatar 链路 |
 | IndexTTS2 | :9200 | GPU0 | toiv-tts.service | /home/merlin/index-tts |
-| AI-Omni ASR(whisper large-v3) | :9210 | GPU2 | ⚠️ **screen 托管**(非 systemd) | /opt/ai-omni-asr,`screen -S ai-omni-asr` |
+| AI-Omni ASR(whisper large-v3) | :9210 | GPU2 | toiv-asr.service(2026-08-08 起 systemd,弃 screen) | /opt/ai-omni-asr |
 | demucs 人声分离 | :9220 | GPU2 | toiv-audio-sep.service | 契约 POST /separate |
 | Qwen3-Embedding-4B | :9302 | GPU1 | qwen3-embedding.service | OpenAI /v1/embeddings 兼容 |
 | LiveAct batch worker | :9400 | GPU1 | toiv-liveact.service | torch elastic :29500 |
@@ -47,11 +47,11 @@
 | toiv-joycaption(NSFW 反推专线) | :9304 | GPU3 | toiv-joycaption.service | **2026-08-08 新增**:JoyCaption Beta One **bf16**(16GB,/home/merlin/models/joycaption-beta-one),transformers 直跑(⚠️ vLLM 0.11.2 跑 LLaVA 架构 device-side assert,勿用),venv /opt/toiv-joycaption,占 ~17GB |
 | toiv-sensevoice(语音情绪标注) | :9211 | GPU2 | toiv-sensevoice.service | **2026-08-08 新增**,见第四节 |
 
-**GPU 显存快照**(torch mem_get_info;nvidia-smi NVML mismatch 未恢复,重启窗口待安排):
-- GPU0:用 ~61GB(ComfyUI+H3 分片+TTS),空 40.9GB
-- GPU1:用 ~83GB(LiveAct+Embedding),空 19.4GB
-- GPU2:用 ~7GB(ASR+demucs 空闲态;H3 CLIP/VAE 突发 48GB / LongCat 作业 16-30GB),空 95.1GB
-- GPU3:用 ~78GB(FlashTalk 55 + OpenTalking 1.5 + JoyCaption 17;toiv-vlm 已迁出),空 ~18GB
+**GPU 显存快照**(2026-08-08 21:47 重启后 nvidia-smi 实测,NVML 已恢复):
+- GPU0:用 8.1GB(ComfyUI 空闲态;TTS/H3 分片按需加载),空 ~90GB
+- GPU1:用 53.3GB(LiveAct+Embedding),空 ~44GB
+- GPU2:用 21.9GB(ASR+demucs+SenseVoice;H3 CLIP/VAE 突发 48GB / LongCat 作业 16-30GB),空 ~76GB
+- GPU3:用 42.2GB(FlashTalk+OpenTalking+JoyCaption;toiv-vlm 停而不删),空 ~55GB
 
 **磁盘**:`/` 7.3T 用 1.3T(19%);NAS 挂载 /home/merlin/nas_mount 正常(44T 用 4.8T)。
 
@@ -95,10 +95,11 @@
 1. ~~pc02 ComfyUI :8193 未运行~~ → **已复归**(2026-08-08,LB 后端恢复 3 个)。
 2. **workstation docker 实际在跑** hunyuanimage:2.1-fp8(:8600),AGENTS 未记录,确认归属后补登记。
 3. **core :3501** 有来源不明的 `python3 -m http.server`,核查去留。
-4. **AI-Omni ASR 仍是 screen 托管**,重启后不会自启,建议 systemd 化。
+4. ~~AI-Omni ASR 仍是 screen 托管~~ → **已 systemd 化**(2026-08-08,toiv-asr.service,enable 开机自启)。
 5. cloud SSH 仍不可达(banner 超时老问题),frps 隧道本身存活。
 6. spark01 有 frpc、spark02 无;studio04 缺 node_exporter(监控盲区)。
-7. Workstation NVML mismatch(驱动 595.84 vs 内核 595.71.05)→ **重启即恢复**,需安排重启窗口;临时用 torch mem_get_info 观测显存。
+7. ~~Workstation NVML mismatch~~ → **已根治**(2026-08-08 21:45 重启,nvidia-smi 恢复;14 个 systemd 服务验证全自启)。⚠️ 重启暴露 NAS 无 fstab 条目隐患,已修复(重建 /root/.smbcredentials + 补 `_netdev,x-systemd.automount` 条目);**每次重启后先 `mountpoint /home/merlin/nas_mount` 核实**。
+8. ~~spark01 llama-70b~~ → **已退役**(2026-08-08,L2/L3/L4 切 spark02 qwen3.6-uncensored,模型文件与启动脚本保留可回滚,详见第七节)。
 
 ---
 
@@ -110,3 +111,23 @@
 - civitai 下载:core `POST /api/nas/download` 优先;B2 对象存储直连不通时用 Mac 本地代理(127.0.0.1:7897)+ /Volumes/NAS 兜底(AGENTS 易错点 12)
 - /tmp 是 tmpfs,大文件禁止写 /tmp
 - pkill -f 模式串用 `[.]` 转义防自杀
+
+---
+
+## 七、llama-3.3-70b-abliterated 退役最终说明(2026-08-08)
+
+**它是什么**:spark01 上的 vLLM 服务(docker `vllm_node`,:8000),FP8 量化 ~70GB,served 名 `llama-3.3-70b-abliterated`。曾承担 core 文本层的 L4(NSFW 专用 LLM)与 L2/L3(润色/精修,2026-07-30 起临时指向)。
+
+**为什么退役**:
+- 利用率极低(日均 1.4 次请求),常驻独占 spark01 全部 128GB 统一内存;
+- 与 Qwen3-Omni-30B-A3B-Captioner(bf16 ~60GB,音乐反推专线)在内存上互斥,是集群重排 S4 的唯一障碍;
+- 它承担的三条链路都有等效替代:core .env 已把 **L2/L3/L4 统一切到 spark02 qwen3.6-uncensored**(Qwen3.5-MoE-35B-A3B FP8,与 L1 同模型,本身 uncensored,NSFW 能力不损失),切换后真机验证 X-NSFW 聊天链路正常。
+
+**保留了什么(可回滚)**:
+- 模型文件完整保留:spark01 `/home/dgmt-spark/spark-models/llama-3.3-70b-abliterated-fp8`(92GB);
+- 启动脚本保留:`/home/dgmt-spark/spark-models/start_llama33_70b_fp8.sh`(原样可用);
+- core .env 改动有备份:`core /home/merlin/toiv/deploy/.env.bak-20260808-llama`。
+
+**如何恢复(如未来确有需要)**:停 omni_captioner 容器 → spark01 执行 `start_llama33_70b_fp8.sh` → core .env 把 TOIV_LLM_NSFW/L2/L3 四行指回 `192.168.71.82:8000` + model `llama-3.3-70b-abliterated` → `sudo systemctl restart toiv-api`。注意两者内存互斥,不能共存。
+
+**退役后 spark01 新角色**:Qwen3-Omni-30B-A3B-Captioner bf16(docker `omni_captioner`,:8000,served 名 `omni-captioner`),ToIV 音乐反推专线——音频反推时 demucs 分离伴奏,送 Omni 生成曲风/乐器/节奏/情绪描述,与 SenseVoice 人声描述合并(core commit 4ae94e9,`.env` 配 `TOIV_OMNI_CAPTIONER_BASE_URL=http://192.168.71.82:8000/v1` 后生效)。
