@@ -224,6 +224,9 @@ _IMAGE_PRESETS: dict[str, StylePreset] = {
         description="NoobAI-XL V-Pred v1.0,v-pred架构画质更高,自动插ModelSamplingDiscrete",
         llm_layer="L3",
         commercial_safe=False,
+        # NoobAI 为通用二次元底模(同 waiIllustrious 定位),主站 SFW 可用;
+        # R18 用法走 nsfw_noobai_vpred 预设
+        sfw_intent=True,
     ),
 
     # ── 概念/艺术类 ─────────────────────────────────────────────────────

@@ -157,15 +157,17 @@ class TestStylePresets:
         """sfw_intent 精确标记主站 SFW 意图预设(底模命中 hints 但定位通用风格)。
 
         真 NSFW 预设(nsfw_*)、以及 hints 认定为成人向底模的预设
-        (chibi→nova3dcg / anime_high_quality→noobai / portrait→cyberrealistic)
-        不得标记,继续在主站隐藏。
+        (chibi→nova3dcg / portrait→cyberrealistic)不得标记,继续在主站隐藏。
+        anime_high_quality(noobai)为通用二次元定位,与 anime(waiIllustrious)同逻辑标记;
+        R18 用法由 nsfw_noobai_vpred 承担。
         """
-        expected = {"anime", "anime_soft", "fantasy", "campus", "history_war"}
+        expected = {"anime", "anime_soft", "fantasy", "campus", "history_war",
+                    "anime_high_quality"}
         marked = {p.id for p in ALL_PRESETS.values() if p.sfw_intent}
         assert marked == expected, f"sfw_intent 标记集合不符: {marked ^ expected}"
         for pid in ("nsfw_realistic", "nsfw_anime", "nsfw_pony",
                     "nsfw_wai_shufflenoob", "nsfw_noobai_vpred", "nsfw_urpm",
-                    "chibi", "anime_high_quality", "portrait"):
+                    "chibi", "portrait"):
             assert ALL_PRESETS[pid].sfw_intent is False, f"{pid} 不应标 sfw_intent"
 
     def test_list_presets_exposes_sfw_intent(self):
