@@ -34,16 +34,14 @@ _VLM_TIMEOUT = httpx.Timeout(300.0, connect=10.0)
 _SENSEVOICE_TIMEOUT = httpx.Timeout(120.0, connect=10.0)
 
 # vLLM served-model-name 是模型目录绝对路径(随部署变化),不写死:
-# 首次请求时从 /models 自动探测并缓存;探测失败 → 502 而不是 404。
-_model_id_cache: str | None = None
+# 首次请求时从 /models 自动探测并按 base_url 缓存;探测失败 → 502 而不是 404。
+_model_id_cache: dict[str, str] = {}
 
 
-async def _resolve_model_id() -> str:
-    global _model_id_cache
-    if _model_id_cache:
-        return _model_id_cache
-    s = get_settings()
-    endpoint = f"{s.reverse_vlm_base_url.rstrip('/')}/models"
+async def _resolve_model_id(base_url: str) -> str:
+    if base_url in _model_id_cache:
+        return _model_id_cache[base_url]
+    endpoint = f"{base_url.rstrip('/')}/models"
     try:
         async with httpx.AsyncClient(timeout=15.0, trust_env=False) as client:
             resp = await client.get(endpoint)
@@ -55,7 +53,7 @@ async def _resolve_model_id() -> str:
         model_id = resp.json()["data"][0]["id"]
     except (ValueError, KeyError, IndexError, TypeError) as e:
         raise HTTPException(status_code=502, detail="VLM 服务模型列表为空") from e
-    _model_id_cache = model_id
+    _model_id_cache[base_url] = model_id
     return model_id
 
 _EXT_KIND = {
@@ -124,12 +122,11 @@ def _limit_for(kind: str) -> int:
     }[kind] * 1024 * 1024
 
 
-async def _chat_completion(system: str, part: dict) -> str:
-    """调 Qwen3-VL vLLM chat/completions(单图/单视频 + 取文本),网络/非 200/空 → 502。"""
-    s = get_settings()
-    endpoint = f"{s.reverse_vlm_base_url.rstrip('/')}/chat/completions"
+async def _chat_completion(system: str, part: dict, base_url: str) -> str:
+    """调 VLM vLLM chat/completions(单图/单视频 + 取文本),网络/非 200/空 → 502。"""
+    endpoint = f"{base_url.rstrip('/')}/chat/completions"
     payload = {
-        "model": await _resolve_model_id(),
+        "model": await _resolve_model_id(base_url),
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": [part]},
@@ -219,14 +216,22 @@ async def reverse_prompt(
             meta={"text": text, "emotion": emotion, "events": events, "language": language},
         )
 
+    s = get_settings()
     if kind == "image":
         system = _IMAGE_SYSTEM + (_NSFW_CLAUSE if nsfw else "")
         part = {"type": "image_url", "image_url": {"url": _data_url(content, kind, file.content_type or "")}}
+        # NSFW 图像 → JoyCaption 专线(无审查设计);未配置时回退 Qwen3-VL
+        base_url = (
+            s.joycaption_base_url.strip()
+            if nsfw and s.joycaption_base_url.strip()
+            else s.reverse_vlm_base_url
+        )
     else:
         system = _VIDEO_SYSTEM + (_NSFW_CLAUSE if nsfw else "")
         part = {"type": "video_url", "video_url": {"url": _data_url(content, kind, file.content_type or "")}}
+        base_url = s.reverse_vlm_base_url  # JoyCaption 是纯图像模型,视频一律走 Qwen3-VL
 
-    raw = await _chat_completion(system, part)
+    raw = await _chat_completion(system, part, base_url)
     obj = parse_json_obj(raw)
     if not obj or not (obj.get("prompt") or "").strip():
         # 模型没按 JSON 输出时,原文本通常就是可用描述,宽松降级不 502

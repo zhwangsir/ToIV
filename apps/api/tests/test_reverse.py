@@ -78,9 +78,10 @@ def _post(client, token, data: bytes, filename: str, content_type: str, **header
 def test_image_json_path(ctx, monkeypatch):
     calls = {}
 
-    async def fake_chat(system: str, part: dict) -> str:
+    async def fake_chat(system: str, part: dict, base_url: str) -> str:
         calls["system"] = system
         calls["part"] = part
+        calls["base_url"] = base_url
         return '{"prompt": "a cinematic portrait", "negative": "blurry, watermark"}'
 
     monkeypatch.setattr(reverse, "_chat_completion", fake_chat)
@@ -94,13 +95,15 @@ def test_image_json_path(ctx, monkeypatch):
     assert calls["part"]["type"] == "image_url"
     assert calls["part"]["image_url"]["url"].startswith("data:image/png;base64,")
     assert "成人" not in calls["system"]  # 主站上下文不带 NSFW 条款
+    assert "9303" in calls["base_url"]  # SFW 图像走 Qwen3-VL
 
 
 def test_image_nsfw_clause(ctx, monkeypatch):
     calls = {}
 
-    async def fake_chat(system: str, part: dict) -> str:
+    async def fake_chat(system: str, part: dict, base_url: str) -> str:
         calls["system"] = system
+        calls["base_url"] = base_url
         return '{"prompt": "x", "negative": ""}'
 
     monkeypatch.setattr(reverse, "_chat_completion", fake_chat)
@@ -112,11 +115,33 @@ def test_image_nsfw_clause(ctx, monkeypatch):
         nsfw_intent_var.set(False)
     assert r.status_code == 200, r.text
     assert "成人" in calls["system"]
+    assert "9304" in calls["base_url"]  # NSFW 图像走 JoyCaption 专线
     assert r.json()["negative"] is None  # 空串归一为 None
 
 
+def test_image_nsfw_fallback_when_joycaption_unset(ctx, monkeypatch):
+    """joycaption_base_url 空串(专线未部署)时,NSFW 图像回退 Qwen3-VL。"""
+    calls = {}
+
+    async def fake_chat(system: str, part: dict, base_url: str) -> str:
+        calls["base_url"] = base_url
+        return '{"prompt": "x", "negative": ""}'
+
+    monkeypatch.setattr(reverse, "_chat_completion", fake_chat)
+    settings = reverse.get_settings()
+    monkeypatch.setattr(settings, "joycaption_base_url", "")
+    client, token = ctx
+    nsfw_intent_var.set(True)
+    try:
+        r = _post(client, token, _PNG, "ref.png", "image/png", **{"X-NSFW": "1"})
+    finally:
+        nsfw_intent_var.set(False)
+    assert r.status_code == 200, r.text
+    assert "9303" in calls["base_url"]
+
+
 def test_image_non_json_fallback(ctx, monkeypatch):
-    async def fake_chat(system: str, part: dict) -> str:
+    async def fake_chat(system: str, part: dict, base_url: str) -> str:
         return "A woman standing in the rain, cinematic lighting"
 
     monkeypatch.setattr(reverse, "_chat_completion", fake_chat)
@@ -134,9 +159,10 @@ def test_image_non_json_fallback(ctx, monkeypatch):
 def test_video_path(ctx, monkeypatch):
     calls = {}
 
-    async def fake_chat(system: str, part: dict) -> str:
+    async def fake_chat(system: str, part: dict, base_url: str) -> str:
         calls["part"] = part
         calls["system"] = system
+        calls["base_url"] = base_url
         return '{"prompt": "tracking shot of a runner at dawn"}'
 
     monkeypatch.setattr(reverse, "_chat_completion", fake_chat)
@@ -149,6 +175,7 @@ def test_video_path(ctx, monkeypatch):
     assert calls["part"]["type"] == "video_url"
     assert calls["part"]["video_url"]["url"].startswith("data:video/mp4;base64,")
     assert "镜头运动" in calls["system"]  # 六段式系统提示
+    assert "9303" in calls["base_url"]  # 视频一律走 Qwen3-VL(JoyCaption 纯图像)
 
 
 # ── 音频 ─────────────────────────────────────────────────────────────
@@ -215,7 +242,7 @@ def test_oversize_413(ctx, monkeypatch):
 
 
 def test_ext_fallback_when_mime_generic(ctx, monkeypatch):
-    async def fake_chat(system: str, part: dict) -> str:
+    async def fake_chat(system: str, part: dict, base_url: str) -> str:
         return '{"prompt": "x", "negative": "y"}'
 
     monkeypatch.setattr(reverse, "_chat_completion", fake_chat)
@@ -229,7 +256,7 @@ def test_ext_fallback_when_mime_generic(ctx, monkeypatch):
 
 
 def test_vlm_upstream_502(ctx, monkeypatch):
-    async def fake_chat(system: str, part: dict) -> str:
+    async def fake_chat(system: str, part: dict, base_url: str) -> str:
         raise HTTPException(status_code=502, detail="VLM 反推服务不可达")
 
     monkeypatch.setattr(reverse, "_chat_completion", fake_chat)
