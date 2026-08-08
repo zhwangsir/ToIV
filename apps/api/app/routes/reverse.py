@@ -1,14 +1,17 @@
 """POST /api/reverse —— 反推提示词:上传图/视频/音频,反推出可复用的生成提示词。
 
-链路(2026-08-08 调研结论,见 docs 反推调研):
-- 图像/视频 → workstation Qwen3-VL-8B vLLM 服务(toiv-vlm, GPU3, reverse_vlm_base_url),
-  OpenAI 兼容 chat/completions,图像走 image_url、视频走 video_url(base64 data URL 内联)。
+链路(2026-08-08 集群重排后,见 docs/2026-08-08-cluster-reallocation-plan.md):
+- SFW 图像 + 全部视频 → Qwen3-VL-8B OpenAI 兼容服务(reverse_vlm_base_url;生产为
+  studio04 MLX bf16 :9303,GPU3 toiv-vlm 停而不删作回退)。图像走 image_url、视频走
+  video_url(base64 data URL;reverse_video_mac_prefix 非空时走 NAS 中转本地路径)。
   系统提示要求输出「能直接复用于生成模型」的自然语言描述——H3/MiniMax 类视频模型偏好
   叙事长描述(要剧本不要清单),视频反推按六段式(镜头运动/主体/动作/场景/光线/风格)。
-- 音频 → SenseVoice 服务(toiv-sensevoice, GPU2, sensevoice_url):转写 + 情绪 +
-  音频事件 + 语种,组合成配音场景可直接复用的描述(文本 + 一句话风格)。
+- NSFW 图像(X-NSFW)→ JoyCaption 专线(joycaption_base_url,空串回退 Qwen3-VL)。
+- 音频 → SenseVoice(sensevoice_url):转写 + 情绪 + 音频事件 + 语种,组合成人声描述;
+  配了 omni_captioner_base_url 时再走增强链:demucs 分离伴奏 → Omni-Captioner 生成
+  音乐描述,合并进 prompt(增强链失败只降级不 502)。
 R18 上下文(X-NSFW)在系统提示中要求如实描述不回避;Qwen3-VL 官方对齐仍可能拒答,
-NSFW 专线(JoyCaption)为二期规划。
+R18 图像走 JoyCaption 专线解决。
 """
 from __future__ import annotations
 
@@ -30,6 +33,7 @@ from app.deps import get_current_user
 from app.jsonutil import parse_json_obj
 from app.models import User
 from app.nsfw_ctx import nsfw_allowed
+from app.services.audio_sep import separate_accompaniment
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -98,6 +102,16 @@ _VIDEO_SYSTEM = (
     "①镜头运动(运镜方式,如 push in / pan left / tracking shot)→ ②主体(外观特征)"
     "→ ③主体动作(按时序)→ ④场景环境 → ⑤光线氛围 → ⑥风格质感(cinematic/35mm 等)。\n"
     "忠实视频实际内容,动作描述要时序化,镜头运动准确,不脑补。\n"
+    '只输出 JSON:{"prompt": "..."},不要解释,不要代码块标记。'
+)
+
+
+# 音乐反推(Omni-Captioner):描述伴奏的可复用生成提示词(曲风/乐器/节奏/情绪/用途)
+_MUSIC_SYSTEM = (
+    "你是顶尖的音乐生成模型(Suno/ElevenLabs Music 类)提示词工程师。用户上传一段音频"
+    "(已分离出的伴奏/背景音乐),你要**逆向工程**出能重新生成类似音乐的英文提示词。\n"
+    "一段流畅自然语言描述,覆盖:曲风/流派、情绪氛围、主要乐器与音色、节奏/BPM 特征、"
+    "结构动态(起伏/高潮)、适用场景。忠实实际听感,不脑补。\n"
     '只输出 JSON:{"prompt": "..."},不要解释,不要代码块标记。'
 )
 
@@ -236,6 +250,36 @@ def _salvage_prompt(raw: str) -> str:
     return text.rstrip('"}').strip() or raw
 
 
+async def _music_caption(content: bytes, filename: str, mime: str) -> str | None:
+    """音乐反推:demucs 分离伴奏 → Omni-Captioner 生成音乐描述。
+
+    增强链路,失败不拖垮主链路:未配置 omni_captioner_base_url / 分离失败 /
+    Omni 异常 → 记日志返回 None(调用方只出人声部分)。
+    """
+    s = get_settings()
+    base_url = s.omni_captioner_base_url.strip()
+    if not base_url:
+        return None
+    try:
+        accompaniment = await separate_accompaniment(content, filename or "audio.wav")
+        part = {
+            "type": "audio_url",
+            "audio_url": {"url": _data_url(accompaniment, "audio", "audio/wav")},
+        }
+        raw = await _chat_completion(_MUSIC_SYSTEM, part, base_url)
+        obj = parse_json_obj(raw)
+        caption = (obj.get("prompt") or "").strip() if obj else _salvage_prompt(raw).strip()
+        if caption.startswith("{"):  # 兜底也没捞出 prompt 值,放弃音乐描述
+            return None
+        return caption or None
+    except HTTPException as e:
+        logger.warning("音乐反推降级(HTTP %s): %s", e.status_code, e.detail)
+        return None
+    except Exception:
+        logger.exception("音乐反推异常,按无人声音乐描述降级")
+        return None
+
+
 @router.post("/reverse", response_model=ReverseResponse)
 async def reverse_prompt(
     file: UploadFile,
@@ -266,11 +310,19 @@ async def reverse_prompt(
         if events:
             style_bits.append("事件 " + ", ".join(str(e) for e in events))
         style = f"({'; '.join(style_bits)})" if style_bits else ""
-        prompt = f"{text}{style}" if text else style or "未识别到语音内容"
+        prompt = f"{text}{style}" if text else style or ""
+        music = await _music_caption(content, file.filename or "", file.content_type or "")
+        if music:
+            prompt = f"{prompt}；背景音乐: {music}" if prompt else music
+        if not prompt:
+            prompt = "未识别到语音内容"
         return ReverseResponse(
             kind=kind,
             prompt=prompt,
-            meta={"text": text, "emotion": emotion, "events": events, "language": language},
+            meta={
+                "text": text, "emotion": emotion, "events": events,
+                "language": language, "music": music,
+            },
         )
 
     s = get_settings()

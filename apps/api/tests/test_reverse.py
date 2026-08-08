@@ -280,9 +280,56 @@ def test_audio_path(ctx, monkeypatch):
     assert "happy" in body["prompt"] and "laughter" in body["prompt"]
     assert body["meta"] == {
         "text": "你好世界", "emotion": "happy",
-        "events": ["laughter", "bgm"], "language": "zh",
+        "events": ["laughter", "bgm"], "language": "zh", "music": None,
     }
     assert calls["filename"] == "voice.wav"
+
+
+def test_audio_music_caption_merged(ctx, monkeypatch):
+    """配了 omni_captioner_base_url:伴奏分离 → Omni 音乐描述,合并进 prompt/meta。"""
+    async def fake_analyze(content: bytes, filename: str, mime: str) -> dict:
+        return {"text": "你好世界", "emotion": "happy", "events": [], "language": "zh"}
+
+    async def fake_sep(content: bytes, filename: str = "audio", base_url=None) -> bytes:
+        return b"RIFF" + b"\x00" * 32
+
+    async def fake_chat(system: str, part: dict, base_url: str) -> str:
+        assert part["type"] == "audio_url"
+        return '{"prompt": "upbeat lo-fi hip hop, jazzy piano, vinyl crackle, 85 BPM"}'
+
+    monkeypatch.setattr(reverse, "_sensevoice_analyze", fake_analyze)
+    monkeypatch.setattr(reverse, "separate_accompaniment", fake_sep)
+    monkeypatch.setattr(reverse, "_chat_completion", fake_chat)
+    settings = reverse.get_settings()
+    monkeypatch.setattr(settings, "omni_captioner_base_url", "http://spark01:8000/v1")
+    client, token = ctx
+    r = _post(client, token, _WAV, "song.wav", "audio/wav")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["prompt"].startswith("你好世界")
+    assert "背景音乐: upbeat lo-fi hip hop" in body["prompt"]
+    assert body["meta"]["music"].startswith("upbeat lo-fi")
+
+
+def test_audio_music_chain_failure_degrades(ctx, monkeypatch):
+    """音乐增强链失败(分离 503/502)→ 只降级,人声部分照常 200。"""
+    async def fake_analyze(content: bytes, filename: str, mime: str) -> dict:
+        return {"text": "你好", "emotion": "", "events": [], "language": "zh"}
+
+    async def fake_sep(content: bytes, filename: str = "audio", base_url=None) -> bytes:
+        raise HTTPException(status_code=503, detail="人声分离服务未配置")
+
+    monkeypatch.setattr(reverse, "_sensevoice_analyze", fake_analyze)
+    monkeypatch.setattr(reverse, "separate_accompaniment", fake_sep)
+    settings = reverse.get_settings()
+    monkeypatch.setattr(settings, "omni_captioner_base_url", "http://spark01:8000/v1")
+    client, token = ctx
+    r = _post(client, token, _WAV, "song.wav", "audio/wav")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["prompt"].startswith("你好")
+    assert "背景音乐" not in body["prompt"]
+    assert body["meta"]["music"] is None
 
 
 def test_audio_empty_result(ctx, monkeypatch):

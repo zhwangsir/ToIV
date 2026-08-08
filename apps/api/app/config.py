@@ -162,8 +162,9 @@ class Settings(BaseSettings):
     video_scorer_threshold: float = 0.65
 
     # —— 反推提示词(reverse prompt):上传图/视频/音频 → 反推出可复用提示词 ——
-    # 视觉统一走 workstation Qwen3-VL-8B vLLM 服务(toiv-vlm.service, GPU3, :9303),
-    # OpenAI 兼容 /v1/chat/completions,图像走 image_url、视频走 video_url(base64 data URL)。
+    # 视觉统一走 Qwen3-VL-8B OpenAI 兼容服务:生产为 studio04 MLX bf16(:9303,.env 覆盖),
+    # 默认值为 workstation GPU3 toiv-vlm(停而不删的回退实例)。
+    # 图像走 image_url、视频走 video_url(base64 data URL 或 NAS 中转本地路径)。
     reverse_vlm_base_url: str = "http://192.168.71.127:9303/v1"
     # NSFW 图像反推专线:JoyCaption Beta One bf16(toiv-joycaption.service, GPU3, :9304)。
     # 仅 X-NSFW 上下文的图像反推路由到这里(它是纯图像模型,视频仍走 Qwen3-VL);
@@ -177,6 +178,10 @@ class Settings(BaseSettings):
     # 音频反推走 SenseVoice 服务(toiv-sensevoice.service, GPU2, :9211):
     # 契约 POST {sensevoice_url}/analyze multipart(file=音频) → {text, emotion, events, language}。
     sensevoice_url: str = "http://192.168.71.127:9211"
+    # 音乐反推(二期,2026-08-08):Qwen3-Omni-30B-A3B-Captioner bf16 @ spark01 vLLM :8000。
+    # 链路:音频 → demucs 伴奏(/separate_accompaniment)→ Omni 音频描述,与人声
+    # (SenseVoice)结果合并成完整音频提示词。空串 = 未部署,音频反推只出人声部分。
+    omni_captioner_base_url: str = ""
     # 反推上传上限(MB):视频 base64 内联体积 ~1.33 倍,过大易超时。
     reverse_max_image_mb: int = 20
     reverse_max_video_mb: int = 50
