@@ -4,6 +4,44 @@
 
 ---
 
+## NSFW-P1-2026-08-08 · NSFW P1 全量落地(续写传播/H3+LongCat R18/语义统一/智能体/预设)+ Avatar P1 冒烟
+
+**时间**: 2026-08-08 14:40
+**类型**: feat(nsfw) / feat(avatar) / e2e
+**目标**: 按审计报告 P1 第 4-7 条 + 遗留续写传播 + Avatar P1 部署冒烟。commit 77da5db(P1-4+续写)、4172457(P1-5/6/7)
+
+### 实现要点
+
+- **续写传播(遗留)**:drama `ContinueVideoRequest` 加 `nsfw` 字段,入口补 `_gate_ltx_nsfw`(门控先于资源访问);LTX 分支按 nsfw 分流 10Eros 底模、段 Job 打标;H3 分支透传 submit_h3_job
+- **H3/LongCat R18 打标(P1-4)**:routes 层 `nsfw=nsfw_allowed(user)`(X-NSFW 头+未成年硬阻断)→ service `submit_*_job(nsfw=)` → Job.nsfw;主站无头行为完全不变,未注册引擎变体
+- **语义统一(P1-5)**:marketplace NSFW 过滤改读 X-NSFW 上下文;`User.nsfw_enabled` 字段/端点/透出全部保留但标记 DEPRECATED,不再作判定来源;前端 /nsfw 首访 18+ 年龄确认门(localStorage `toiv_nsfw_age_confirmed`)
+- **智能体扩充(P1-6)**:agents_seed 新增 nsfw_camera_director(10Eros 运镜)/nsfw_drama_writer(短剧)/nsfw_longcat_shot(长镜头),is_nsfw=True 仅 R18 可见,内置智能体 12→15
+- **预设补齐(P1-7)**:新增 nsfw_wai_shufflenoob、nsfw_noobai_vpred 图像预设(NAS 已核实权重);NSFW_RECOMMENDATIONS 补 2 条 10Eros 配套 LoRA(LTX2.3-NSFWMOTION / Sulphur_better_NSFW_motion,已在 NAS);URPM(SD1.5)NAS 缺失仅列清单
+- **Avatar P1**:longcat 实例 extra_model_paths 补 audio_encoders;装 ComfyUI-MelBandRoFormer 节点(rotary_embedding_torch)+ fp32 模型 913MB;480×832/93帧/25fps 冒烟 130s 出片(含 AAC 音轨),GPU2 峰值 ~20GB 与 ASR/demucs 共存
+
+### core 真机验证(192.168.71.47)
+
+| 项 | 结果 |
+|---|---|
+| 单测 | ✅ 1069 passed(+14;2 个 redis_integration 基线预置失败不变) |
+| drama continue-video `nsfw:true` 无头 | ✅ 403(门控先于资源访问) |
+| 智能体可见性 | ✅ 主站 10 个 0 NSFW;R18 15 个含 3 新 NSFW 智能体 |
+| presets 清单 | ✅ nsfw_wai_shufflenoob/nsfw_noobai_vpred 在列(共 5 个 nsfw_*) |
+| LongCat t2v 真机 R18 作业(832×480×49帧) | ✅ Job nsfw=True,主站 jobs 列表隐藏,R18 列表可见,done 后产物下载 200(353KB,832×480×49 帧 ffprobe 验证) |
+| /nsfw 年龄确认门(Playwright) | ✅ 首访弹门→确认→banner 出现→重导航不再弹 |
+| Avatar 480p 冒烟(workstation :8197) | ✅ woman.jpg+whisper 链路 130s 出片,480×832@25fps 3.72s 含音轨 |
+
+### 遗留
+
+- **前端接 drama R18**:lib/api.ts continue-video 不传 nsfw 字段;/nsfw 专区暂无 drama UI,R18 续写目前仅 API 可达
+- **URPM 模型缺失**:NAS 无 URPM(SD1.5),待下载后补预设
+- **anime_high_quality 主站不可见**:noobai 在 hints 内但预设无 sfw_intent,待产品定位后补标
+- **Workstation NVML mismatch**:nvidia-smi 报 Driver/library version mismatch(NVML 595.84),需修驱动或重启窗口,已列入 AGENTS.md 待办
+- **Avatar 多段续写**未测(WanVideoLongCatAvatarExtendEmbeds 窗口),冒烟脚本在 workstation /tmp/longcat_avatar_smoke.py
+- 10Eros LoRA 推荐条目用 civitai 检索页 URL(无稳定模型页 ID),一键下载按钮自动禁用
+
+---
+
 ## NSFW-P0-2026-08-08 · NSFW P0 堵洞与闭环(drama 门控 + 专区作品库 + hints 误伤修复)
 
 **时间**: 2026-08-08 13:20

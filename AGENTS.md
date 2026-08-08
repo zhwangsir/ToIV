@@ -76,7 +76,7 @@ net use Z: \\192.168.71.7\NAS /persistent:yes
 | GPU2 | AI-Omni ASR (faster-whisper large-v3) | :9210 | ~4.9GB | 手动 screen | `device_index=2` |
 | GPU2 | demucs 人声分离 | :9220 | ~1-8GB(分离时) | **toiv-audio-sep.service** | 2026-08-08 从 GPU0 迁入,GPU1 留给 LiveAct 专职 |
 | GPU2 | MiniMax H3 (ComfyUI worker) | :8195 | ~48GB (CLIP bf16 + VAE) | **toiv-comfyui-h3.service** | 与 GPU0 共享 H3 工作进程 |
-| GPU2 | LongCat-Video (ComfyUI 独立实例) | :8197 | ~16-30GB (fp8 + Block Swap) | **comfyui-longcat.service** | 2026-08-07 新增;实例在 /home/merlin/ComfyUI-longcat,与生产 /opt/ComfyUI 隔离 |
+| GPU2 | LongCat-Video (ComfyUI 独立实例) | :8197 | ~16-30GB (fp8 + Block Swap) | **comfyui-longcat.service** | 2026-08-07 新增;实例在 /home/merlin/ComfyUI-longcat,与生产 /opt/ComfyUI 隔离;2026-08-08 起含 LongCat-Avatar 链路(GGUF Q8_0 + whisper-large-v3 + MelBandRoFormer 节点,冒烟峰值 ~20GB 可与 ASR/demucs 共存) |
 | GPU3 | FlashTalk WebSocket Server | — | ~55GB | **flashtalk.service** | 数字人实时对话 |
 | GPU3 | OpenTalking 数字人统一 API | — | ~1.5GB | **opentalking.service** | + opentalking-tts-shim |
 
@@ -206,6 +206,12 @@ nas:
 - **正确**:官方示例 `LongCat_TI2V_example_01.json`(实例 :8197 example_workflows)的连线是 LoadImage → ImageResizeKJv2 → **WanVideoEncode → WanVideoEmptyEmbeds.extra_latents**(示例 note:For T2V disconnect the extra_latents);长帧数(>241)自动开窗 = WanVideoContextOptions(81/overlap16)接 WanVideoSampler.context_options + 块交换 10→30
 - **附带**:core 登录接口 `/api/auth/login` 返回字段是 `token`,不是 `access_token`
 
+### 11. LongCat-Avatar v1.5 音频链路必须 whisper-large-v3,不是 wav2vec2(2026-08-08)
+- **坑**:按官方 v1.0 示例用 wav2vec2 音频编码,采样时报 `mat1 and mat2 shapes cannot be multiplied (1x46080 and 32000x512)`
+- **原因**:LongCat-Avatar-1.5 的 AudioProjModel 期望 whisper-large-v3 特征(5×5×1280=32000);wav2vec2 是 v1.0 旧路线
+- **正确**:`WhisperModelLoader`(audio_encoders 类目,P0 已下载到 NAS)+ `LongCatAvatarWhisperEmbeds`(fps=25、audio_stride=1);人声分离节点在独立仓库 ComfyUI-MelBandRoFormer(需 `rotary_embedding_torch` 依赖,模型 MelBandRoformer_fp32.safetensors 913MB 放实例 models/diffusion_models/)
+- **附带**:① :8197 的 extra_model_paths.yaml 需补 `audio_encoders` 映射(vocal_separator 类目 WanVideoWrapper 不用,Kim_Vocal_2.onnx 本链路不需要);② 冒烟参数参考:480×832/93帧/25fps/steps=12/shift=12/cfg=1.0/dmd LoRA 1.0/BlockSwap=25/attention=sdpa,130s 出片,GPU2 峰值 ~20GB;③ 冒烟脚本在 workstation `/tmp/longcat_avatar_smoke.py`(可作 core API 接入底稿)
+
 ---
 
 ## 七、操作历史
@@ -284,3 +290,4 @@ nas:
 - [ ] 项目负责人推送 DRT 到 core(备份在 workstation /var/tmp)
 - [ ] Cloud 反代切换指向 core（待 core 业务就绪后）
 - [x] 清理 .archive 中过期的部署残留（backup-20260722 / deploy-residues）
+- [ ] Workstation nvidia-smi 报 NVML mismatch(Driver/library version mismatch NVML 595.84,2026-08-08 发现)——驱动与用户态库不一致,需修驱动或安排重启窗口;临时可用 torch mem_get_info 观测显存
