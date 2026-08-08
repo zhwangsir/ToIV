@@ -75,10 +75,12 @@ net use Z: \\192.168.71.7\NAS /persistent:yes
 | GPU1 | LiveAct batch worker | :9400 | ~58GB | **toiv-liveact.service** | `nproc_per_node=1`，单卡 GPU1 |
 | GPU2 | AI-Omni ASR (faster-whisper large-v3) | :9210 | ~4.9GB | 手动 screen | `device_index=2` |
 | GPU2 | demucs 人声分离 | :9220 | ~1-8GB(分离时) | **toiv-audio-sep.service** | 2026-08-08 从 GPU0 迁入,GPU1 留给 LiveAct 专职 |
+| GPU2 | SenseVoice 语音情绪/事件标注 | :9211 | ~1.7GB | **toiv-sensevoice.service** | 2026-08-08 新增,反推提示词音频链路;/opt/toiv-sensevoice,FunASR+torch 2.11,与 /opt/ai-omni-asr 隔离 |
 | GPU2 | MiniMax H3 (ComfyUI worker) | :8195 | ~48GB (CLIP bf16 + VAE) | **toiv-comfyui-h3.service** | 与 GPU0 共享 H3 工作进程 |
 | GPU2 | LongCat-Video (ComfyUI 独立实例) | :8197 | ~16-30GB (fp8 + Block Swap) | **comfyui-longcat.service** | 2026-08-07 新增;实例在 /home/merlin/ComfyUI-longcat,与生产 /opt/ComfyUI 隔离;2026-08-08 起含 LongCat-Avatar 链路(GGUF Q8_0 + whisper-large-v3 + MelBandRoFormer 节点,冒烟峰值 ~20GB 可与 ASR/demucs 共存) |
 | GPU3 | FlashTalk WebSocket Server | — | ~55GB | **flashtalk.service** | 数字人实时对话 |
 | GPU3 | OpenTalking 数字人统一 API | — | ~1.5GB | **opentalking.service** | + opentalking-tts-shim |
+| GPU3 | Qwen3-VL-8B 反推 VLM | :9303 | ~29GB | **toiv-vlm.service** | 2026-08-08 新增,反推提示词视觉链路(图+视频);/opt/toiv-vlm,vLLM 0.11.2,--gpu-memory-utilization 0.35;⚠️ GPU3 仅剩 ~8.6GB 空闲 |
 
 ### ComfyUI-LB 后端配置
 - 本地 1 后端：:8189(GPU0)
@@ -217,6 +219,11 @@ nas:
 - **坑2**:core `POST /api/nas/download` 对 civitai 源可能 0 字节超时——下载链 307 重定向到 `b2.civitai.com`(Backblaze B2),**core/workstation/Mac 直连 B2 全部 connect timeout**(镜像 API 本身正常,只是对象存储不可达);能否走 core 下载器取决于当次 307 落到哪个存储节点
 - **正确**:core 下载器失败时,用 **Mac 本地代理(127.0.0.1:7897,Clash)下载 + /Volumes/NAS(已常驻挂载)SMB 拷贝** 兜底;命令模板见 TEST_LOG H3ECO-2026-08-08
 - **附带**:core 下载器大文件走 SFTP 回退(cifs 挂载慢/超时),workstation 直连 civitai.red CDN 也极慢,优先 core 下载器,失败再走 Mac 代理路线
+
+### 13. NVML mismatch 会干碎 vLLM 平台探测(2026-08-08)
+- **坑**:驱动已升级(595.84)但运行中内核模块还是旧版(595.71.05)时,`pynvml.nvmlInit()` 抛 `NVMLError_LibRmVersionMismatch`,**vLLM 的 cuda_platform_plugin 因此返回 None → `RuntimeError: Failed to infer device type`**,服务起不来
+- **正确**:给 vLLM 打 NVML 失败回退 torch.cuda 的补丁,脚本在 workstation `/home/merlin/patch_vllm_nvml.py`(**pip 重装/升级 vllm 后必须重跑**);根治 = 安排重启窗口让内核模块与驱动对齐
+- **附带**:① vLLM 默认 `--gpu-memory-utilization 0.9`(85GB+),共卡部署必须显式调低(toiv-vlm 用 0.35);② 往 GPU3 加服务前必须 torch 查显存(toiv-vlm 上线后 GPU3 仅剩 ~8.6GB);③ funasr 不声明 torch 依赖,且 torch 2.13 无配套 torchaudio,需固定 torch+torchaudio==2.11.0;④ vLLM served-model-name 默认是模型目录绝对路径,core 侧调用不要写死模型名(/api/reverse 已改 /models 自动探测,commit 4914afd)
 
 ---
 

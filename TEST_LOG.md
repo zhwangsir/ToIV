@@ -4,6 +4,37 @@
 
 ---
 
+## REVERSE-2026-08-08 · 反推提示词一期上线(图/视频/音频三链路真机贯通)
+
+**时间**: 2026-08-08 18:05
+**类型**: feat(reverse) / ops / e2e
+**目标**: 反推提示词功能一期——Qwen3-VL(视觉)+ SenseVoice(音频)双服务部署,core `/api/reverse` + 前端 PromptBar 按钮,三链路真机验证。commit e4838db(端点+前端)+ 4914afd(模型名自动探测)
+
+### 新增服务(Workstation)
+
+| 服务 | GPU | 端口 | 显存 | 要点 |
+|---|---|---|---|---|
+| toiv-vlm(Qwen3-VL-8B-Instruct vLLM 0.11.2) | GPU3 | :9303 | ~29GB(util 0.35) | 图+视频反推;NVML 补丁 /home/merlin/patch_vllm_nvml.py;**GPU3 仅剩 ~8.6GB** |
+| toiv-sensevoice(FunASR SenseVoiceSmall) | GPU2 | :9211 | ~1.7GB | POST /analyze → text/emotion/events/language;torch 固定 2.11.0 |
+
+### 真机 e2e(经 core :8090)
+
+| 链路 | 结果 |
+|---|---|
+| 图像反推(640×360 几何测试图) | ✅ 1.4s,prompt+negative,元素/颜色/构图全对,negative 按题材匹配 |
+| 视频反推(longcat 冒烟 49 帧 mp4) | ✅ 3.6s,六段式叙事(运镜 push-in/山湖场景/光线/35mm 质感)准确 |
+| 音频反推(TTS 中文参考音) | ✅ 0.2s,转写全文正确 + HAPPY + Speech + zh |
+| 模型名 404 修复 | ✅ served-model-name 是路径,改 /models 自动探测(4914afd) |
+| 单测 | ✅ test_reverse 13 passed;全量 1131 passed(2 redis 基线不变) |
+
+### 遗留(二期)
+
+- JoyCaption NSFW 图像专线(⚠️ GPU3 已满,需按需加载或换卡)
+- Qwen3-Omni-Captioner 音乐反推(先 API 验证需求)
+- 长视频混合法(场景切分+抽帧);前端按钮真机点击走查
+
+---
+
 ## H3ECO-2026-08-08 · Civitai key 接入 + H3 LoRA 生态扩充 + 下载器全链路贯通
 
 **时间**: 2026-08-08 19:10
