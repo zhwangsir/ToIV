@@ -6,9 +6,11 @@ import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Textarea } from "@/components/ui/Input";
 import { Switch } from "@/components/ui/Switch";
+import { Tabs } from "@/components/ui/Tabs";
 import { useToast } from "@/components/ui/Toast";
 import { getToken } from "@/lib/api";
 import { genId } from "@/lib/id";
+import { AvatarGenPanel } from "./AvatarGenPanel";
 import {
   otGetModels,
   otGetAvatars,
@@ -103,7 +105,9 @@ function pickAudioMime(): string | undefined {
   return candidates.find((t) => MediaRecorder.isTypeSupported(t));
 }
 
-export function AvatarTalkView() {
+export function AvatarTalkView({ onNavigate }: { onNavigate?: (target: string) => void }) {
+  // 模式:live=OpenTalking 实时对话;gen=LongCat-Avatar 视频生成工作台
+  const [mode, setMode] = useState<"live" | "gen">("live");
   const toast = useToast();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionState, setSessionState] = useState<SessionState>("created");
@@ -478,6 +482,27 @@ export function AvatarTalkView() {
   // 引擎探活:已启用但不可达 → 空态显示离线文案而非引导语
   const engineOffline = !!engineStatus && engineStatus.enabled && !engineStatus.reachable;
 
+  // 模式段控:实时对话(WebRTC) | 视频生成(LongCat-Avatar 工作台)
+  const modeTabs = (
+    <Tabs
+      ariaLabel="数字人模式"
+      items={[
+        { key: "live", label: "实时对话" },
+        { key: "gen", label: "视频生成" },
+      ]}
+      current={mode}
+      onChange={(k) => setMode(k as "live" | "gen")}
+    />
+  );
+
+  if (mode === "gen") {
+    return (
+      <div className="at-view">
+        <AvatarGenPanel tabs={modeTabs} onNavigate={onNavigate} />
+      </div>
+    );
+  }
+
   return (
     <div className="at-view">
       {/* ── 左:SceneStage 舞台(近黑底,数字人画面是主角) ── */}
@@ -569,6 +594,7 @@ export function AvatarTalkView() {
               {hasSession ? "对话进行中" : "配置并开始"}
             </span>
           </div>
+          {modeTabs}
         </div>
 
         <div className="at-panel-body">

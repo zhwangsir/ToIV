@@ -647,3 +647,134 @@
     animation: none;
   }
 }
+
+/* ════════════════════════════════════════════════════════════════
+   AvatarGenPanel:LongCat-Avatar 视频生成工作台(2026-08-08)
+   - 复用 at-view 左舞台/右面板骨架与 at-placeholder 空态;
+     高级参数折叠区复用 stage.css 全局 .adv-params
+   ════════════════════════════════════════════════════════════════ */
+
+/* 生成进度(占位空态内) */
+.at-gen-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  pointer-events: auto;
+  width: min(320px, 80%);
+}
+.at-gen-progress-track {
+  width: 100%;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+.at-gen-progress-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--accent, var(--text-primary));
+  transition: width var(--duration-base) var(--ease-standard);
+}
+.at-gen-progress-text {
+  font-size: var(--text-aux);
+  color: var(--text-muted);
+}
+.at-gen-stage-error {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 90%;
+  font-size: var(--text-aux);
+  font-weight: 500;
+  color: var(--err);
+  pointer-events: auto;
+}
+
+/* 右面板表单(滚动区) */
+.at-gen-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+/* 已上传文件行(缩略图/图标 + 文件名 + 移除) */
+.at-gen-file {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1);
+  background: var(--bg-surface-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+}
+.at-gen-file-thumb {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+.at-gen-file-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-aux);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.at-gen-audio {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.at-gen-audio-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-2);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.at-gen-audio-player {
+  width: 100%;
+  height: 32px;
+}
+
+/* 警告文案(worker 不一致 / 提交错误) */
+.at-gen-warn {
+  margin: 0;
+  font-size: var(--text-aux);
+  font-weight: 500;
+  color: var(--err);
+}
+
+/* 行内控件组合(帧数输入 + 匹配音频时长) */
+.at-gen-inline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.at-gen-inline .input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 面板底部:提交 + 去作品库 */
+.at-gen-footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}

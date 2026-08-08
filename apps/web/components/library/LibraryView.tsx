@@ -73,6 +73,10 @@ const FILTERS: FilterDef[] = [
       "wan_t2v", "wan_i2v", "hunyuan_i2v", "h3_t2v", "h3_i2v",
       "ltx_t2v", "ltx_i2v", "ltx_lipsync", "ltx2_t2v", "ltx2_i2v",
       "frame_interpolate", "dub_lipsync_long", "manju_lipsync", "anime_lipsync",
+      // LongCat 长视频(t2v/i2v/续写)
+      "longcat_t2v", "longcat_i2v", "longcat_continue",
+      // LongCat-Avatar 数字人说话视频
+      "avatar_talk",
       // 短剧 studio 视频类产物
       "drama_shot_video", "drama_shot_video_i2v", "drama_shot_video_v2", "drama_shot_lipsync",
     ],
@@ -138,6 +142,10 @@ function kindLabel(kind: string): string {
     dub_lipsync_long: "长对口型",
     manju_lipsync: "对口型",
     anime_lipsync: "动漫对口型",
+    longcat_t2v: "长视频",
+    longcat_i2v: "长视频",
+    longcat_continue: "长视频续写",
+    avatar_talk: "数字人",
     audio: "音频",
     ace_audio: "音乐",
     audio_sep: "人声分离",

@@ -400,7 +400,7 @@ function HomeContent() {
                 // 动态分镜全端统一:AnimaticView 为唯一实现(旧桌面端 FROZEN 视图已物理删除)
                 <AnimaticView onOpenDramaProject={handleOpenDramaProject} />
               )}
-              {view === "avatartalk" && <AvatarTalkView />}
+              {view === "avatartalk" && <AvatarTalkView onNavigate={handleFusionNavigate} />}
               {view === "train" && <TrainView />}
               {view === "library" && <LibraryView onNavigate={handleFusionNavigate} />}
               {view === "backlot" && <BacklotView />}

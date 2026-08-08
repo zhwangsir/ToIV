@@ -542,6 +542,38 @@ export async function generateLongcatContinue(
   return res.json();
 }
 
+// ── LongCat-Avatar 数字人说话视频(与 longcat 同一专用实例 :8197)──
+// 输入链路:人像图与驱动音频先经 /api/upload(kind=avatar,字段名 image,
+// 音频同字段)落到同一 pool worker(上传时用 worker 参数钉住),提交时后端转运到实例。
+export interface AvatarTalkParams {
+  image: string;   // 已上传的人像首帧文件名
+  audio: string;   // 已上传的驱动音频文件名(wav/mp3 ≤20MB)
+  worker: string;  // image/audio 落点的 pool worker(两者须一致)
+  positive: string;
+  negative?: string;
+  width?: number;      // 320-1280,16 对齐(非对齐后端自动向下取整),默认 480
+  height?: number;     // 同上,默认 832
+  num_frames?: number; // 17-961,默认 93(93 帧@25fps≈3.7s)
+  fps?: number;        // 8-30,默认 25(Whisper 特征帧率与打包帧率同源)
+  steps?: number;      // 1-50,默认 12(dmd 蒸馏 LoRA 低步数)
+  shift?: number;      // 1-30,默认 12
+  cfg?: number;        // 0-10,默认 1.0(蒸馏链路)
+  dmd_lora_strength?: number; // 0-2,默认 1.0
+  seed?: number | null;
+}
+
+export async function generateAvatarTalk(
+  params: AvatarTalkParams,
+): Promise<GenerateResponse> {
+  const res = await apiFetch(`/api/avatar/talk`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) await raiseApiError(res, "数字人视频生成请求失败");
+  return res.json();
+}
+
 export async function generateLtxI2V(
   params: LtxI2VParams,
 ): Promise<GenerateResponse> {

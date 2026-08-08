@@ -31,8 +31,8 @@ const FUSION_APPS: FusionApp[] = [
     target: "avatartalk",
     icon: "user",
     name: "数字人",
-    desc: "实时对话数字人:语音交互、口型驱动,面对面交流。",
-    tags: ["实时对话", "口型驱动", "WebRTC"],
+    desc: "实时对话数字人 + 人像音频驱动说话视频(LongCat-Avatar),对话与成片双模式。",
+    tags: ["实时对话", "说话视频", "口型驱动"],
   },
   {
     target: "dub",
