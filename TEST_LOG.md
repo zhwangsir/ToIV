@@ -4,6 +4,41 @@
 
 ---
 
+## AVATAR-E2E-2026-08-08 · Avatar 接入 core API 全链路闭环 + drama R18 接线 + URPM 预设
+
+**时间**: 2026-08-08 15:10
+**类型**: feat(avatar) / feat(nsfw) / e2e
+**目标**: 数字人长视频链路闭环(上传→生成→作品库→下载)、前端 drama R18 接线、URPM 资源下载集成。commit a132468(avatar 后端)、da7cc5c(drama R18 前端)、6cac8e6(URPM 预设)
+
+### 实现要点
+
+- **Avatar core API**:`POST /api/avatar/talk`(image+audio 上传句柄+worker,防 SSRF;宽/高 16 对齐取整;nsfw 走 `nsfw_allowed(user)`)。上传走既有 `POST /api/upload?kind=avatar`(图片/音频同接口,≤20MB),提交时后端 resolve_worker → 从落点 worker 读出 → 转运 :8197 input(ComfyUI /upload/image 接受任意文件,LoadAudio 读 input)。builder `workflows/longcat_avatar.py` 以冒烟脚本为底稿参数化:GGUF Q8_0 + whisper-large-v3 + MelBandRoFormer 分离 + LongCatAvatarWhisperEmbeds(fps=25)+ BlockSwap=25 + sdpa;Job kind=`avatar_talk`,产物 subfolder `ToIV_avatar/talk`。engine_registry 注册 `avatar-talk`,20 个测试全 mock
+- **drama R18 前端**:旧 DramaStudioView 已在 2cd0b7f 退役,新建 scoped 紧凑工作台 `NsfwDramaView.tsx`(~750 行,基于存活的 useDramaProject hook):项目/剧本/AI 拆分镜/角色/分镜生成/末帧续写/配音/对口型/批量/合成全流。`useDramaProject` 第三参 `{nsfw:true}` → v1/v2/continue 三通道 body 注入 nsfw:true(后端切 10Eros 底模+打标);hook 顺带补了缺失的 `continueVideo` action(busyContinue 防重入+轮询)。NsfwView 第四 tab「短剧」位于作品库前。主站零影响(api.ts 仅 +7 行可选字段)
+- **URPM**:v1.3 SD1.5(uberRealisticPornMerge_urpmv13.safetensors,2.13GB)经 hf-mirror aria2c 下载,sha256 与 LFS etag 一致,落 NAS Windows 分区 checkpoints(workstation /opt/ComfyUI/models 是指向该 NAS 路径的 symlink,放一处三 worker 共享,:8189/:8188/:8193 object_info 均已验证可见);`nsfw_urpm` 预设 512×768/steps25/cfg6/dpmpp_2m+karras,L4,主站隐藏
+
+### core 真机 e2e(192.168.71.47)
+
+| 步骤 | 结果 |
+|---|---|
+| `GET /api/models/engines` | ✅ avatar-talk available=true |
+| `/api/upload?kind=avatar` 图片+音频 | ✅ 字段名是 `image` 不是 `file`;**两文件须落同一 pool worker**(端点单 worker 参数),不同时在原 worker 重传即可 |
+| `POST /api/avatar/talk`(480×832×93帧/25fps/steps12/seed42) | ✅ queued→done ~3.5min(GPU2 与 ASR/demucs 共存) |
+| 产物下载 `/api/images?...worker=:8197` | ✅ 200,778KB,ffprobe:480×832×93帧 3.72s **含 AAC 音轨**(resolve_worker :8197 精确匹配生效) |
+| `nsfw_urpm` 预设 | ✅ /api/models/presets 在列,sfw_intent=False |
+| /nsfw 短剧 tab(Playwright) | ✅ 四 tab(图像/视频/短剧/作品库),项目列表+空态提示「R18 产物仅出现在专区作品库」渲染正常 |
+
+- 单测:1089 passed(+20;2 个 redis_integration 基线预置失败不变);前端 build 通过
+- e2e spec:nsfw.spec.ts 7 用例(含新短剧 tab 用例),需 live 后端未跑,build 类型检查覆盖
+
+### 遗留
+
+- **长音频自动续段未实现**:WanVideoLongCatAvatarExtendEmbeds 有 prev_latents/frames_processed 续段能力,多轮链式提交未冒烟;num_frames>93 未真机验证(端点 hint 已标注)
+- **NsfwDramaView 是紧凑版**:宫格分镜/导演台/单镜抽卡 UI/资产库/任务日志面板未做(hook 能力都在,需要时补)
+- avatar 前端 UI 未做(目前仅 API 可达;/nsfw 或主站数字人入口待产品定位)
+- Civitai 本网络不可达,URPM 推荐条目 civitai ID(22622)为仓库既有数据未当场复核
+
+---
+
 ## NSFW-P1-2026-08-08 · NSFW P1 全量落地(续写传播/H3+LongCat R18/语义统一/智能体/预设)+ Avatar P1 冒烟
 
 **时间**: 2026-08-08 14:40

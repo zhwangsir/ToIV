@@ -109,7 +109,7 @@ net use Z: \\192.168.71.7\NAS /persistent:yes
 
 | 路径 | 内容 | 大小 |
 |------|------|------|
-| `NAS/Windows/ComfyUI/ComfyUIModel/models` | 主模型库 | 524GB |
+| `NAS/Windows/ComfyUI/ComfyUIModel/models` | 主模型库(workstation /opt/ComfyUI/models 是指向此处的 symlink,放一处三 worker 共享;2026-08-08 新增 URPM v1.3 SD1.5 2.1GB → checkpoints/) | 524GB+ |
 | `NAS/toiv/comfyui-models` | ToIV 专用模型 | ~260GB |
 | `NAS/toiv/comfyui-models/LongCat-Video` | 美团 LongCat-Video 13.6B 长视频模型(diffusers 布局: dit/text_encoder/vae/lora) | 83GB(2026-08-07 下载) |
 
@@ -210,7 +210,7 @@ nas:
 - **坑**:按官方 v1.0 示例用 wav2vec2 音频编码,采样时报 `mat1 and mat2 shapes cannot be multiplied (1x46080 and 32000x512)`
 - **原因**:LongCat-Avatar-1.5 的 AudioProjModel 期望 whisper-large-v3 特征(5×5×1280=32000);wav2vec2 是 v1.0 旧路线
 - **正确**:`WhisperModelLoader`(audio_encoders 类目,P0 已下载到 NAS)+ `LongCatAvatarWhisperEmbeds`(fps=25、audio_stride=1);人声分离节点在独立仓库 ComfyUI-MelBandRoFormer(需 `rotary_embedding_torch` 依赖,模型 MelBandRoformer_fp32.safetensors 913MB 放实例 models/diffusion_models/)
-- **附带**:① :8197 的 extra_model_paths.yaml 需补 `audio_encoders` 映射(vocal_separator 类目 WanVideoWrapper 不用,Kim_Vocal_2.onnx 本链路不需要);② 冒烟参数参考:480×832/93帧/25fps/steps=12/shift=12/cfg=1.0/dmd LoRA 1.0/BlockSwap=25/attention=sdpa,130s 出片,GPU2 峰值 ~20GB;③ 冒烟脚本在 workstation `/tmp/longcat_avatar_smoke.py`(可作 core API 接入底稿)
+- **附带**:① :8197 的 extra_model_paths.yaml 需补 `audio_encoders` 映射(vocal_separator 类目 WanVideoWrapper 不用,Kim_Vocal_2.onnx 本链路不需要);② 冒烟参数参考:480×832/93帧/25fps/steps=12/shift=12/cfg=1.0/dmd LoRA 1.0/BlockSwap=25/attention=sdpa,130s 出片,GPU2 峰值 ~20GB;③ 冒烟脚本在 workstation `/tmp/longcat_avatar_smoke.py`;④ **已接入 core API**(2026-08-08,commit a132468):`POST /api/avatar/talk`,图片+音频走 `/api/upload?kind=avatar`(multipart 字段名是 `image` 不是 `file`;**两文件须落同一 pool worker**,端点单 worker 参数,不同时在原 worker 重传),产物 subfolder `ToIV_avatar/talk`;长音频续段(ExtendEmbeds 多轮链式)未实现
 
 ---
 
