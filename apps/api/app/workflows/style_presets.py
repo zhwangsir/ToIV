@@ -11,7 +11,7 @@
   - 设计类: chinese_text(中文文字渲染,商用首选) / flat_design(扁平设计) / concept_art(概念艺术)
   - 极速类: turbo(8步预览) / draft(草稿快速迭代)
   - 视频类: video_realistic / video_anime / video_fast
-  - NSFW类: nsfw_realistic / nsfw_anime / nsfw_pony / nsfw_wai_shufflenoob / nsfw_noobai_vpred (R18门控由上层处理)
+  - NSFW类: nsfw_realistic / nsfw_anime / nsfw_pony / nsfw_wai_shufflenoob / nsfw_noobai_vpred / nsfw_urpm (R18门控由上层处理)
 """
 from __future__ import annotations
 
@@ -344,6 +344,19 @@ _IMAGE_PRESETS: dict[str, StylePreset] = {
         width=832,
         height=1216,
         description="NoobAI-XL V-Pred v1.0,动漫 NSFW 首选,v-pred 架构画质更高,自动插ModelSamplingDiscrete",
+        llm_layer="L4",
+        commercial_safe=False,
+    ),
+    "nsfw_urpm": StylePreset(
+        id="nsfw_urpm",
+        label="URPM 写实 NSFW",
+        ckpt_name="uberRealisticPornMerge_urpmv13.safetensors",
+        media=MediaType.IMAGE,
+        sampling=SamplingOverride(steps=25, cfg=6.0, sampler="dpmpp_2m", scheduler="karras"),
+        negative_prompt="ugly, deformed, bad anatomy, bad hands, extra limbs, watermark, text",
+        width=512,
+        height=768,
+        description="URPM v1.3,SD1.5 纯色情写实合并,低分辨率出图快,可接高清修复",
         llm_layer="L4",
         commercial_safe=False,
     ),

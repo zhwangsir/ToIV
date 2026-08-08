@@ -66,6 +66,7 @@ class TestStylePresets:
             "ponyDiffusionV6XL_v6.safetensors",
             "autismmixSDXL_autismmixPony.safetensors",
             "waiSHUFFLENOOB_vPred04.safetensors",
+            "uberRealisticPornMerge_urpmv13.safetensors",
         }
         deployed_unets = {
             "flux2_dev_fp8mixed.safetensors",
@@ -148,7 +149,7 @@ class TestStylePresets:
     def test_nsfw_presets_use_l4_llm(self):
         """NSFW 预设的 llm_layer 应为 L4。"""
         for pid in ("nsfw_realistic", "nsfw_anime", "nsfw_pony",
-                    "nsfw_wai_shufflenoob", "nsfw_noobai_vpred"):
+                    "nsfw_wai_shufflenoob", "nsfw_noobai_vpred", "nsfw_urpm"):
             preset = ALL_PRESETS[pid]
             assert preset.llm_layer == "L4", f"{pid} 应使用 L4 NSFW 模型"
 
@@ -163,7 +164,7 @@ class TestStylePresets:
         marked = {p.id for p in ALL_PRESETS.values() if p.sfw_intent}
         assert marked == expected, f"sfw_intent 标记集合不符: {marked ^ expected}"
         for pid in ("nsfw_realistic", "nsfw_anime", "nsfw_pony",
-                    "nsfw_wai_shufflenoob", "nsfw_noobai_vpred",
+                    "nsfw_wai_shufflenoob", "nsfw_noobai_vpred", "nsfw_urpm",
                     "chibi", "anime_high_quality", "portrait"):
             assert ALL_PRESETS[pid].sfw_intent is False, f"{pid} 不应标 sfw_intent"
 
