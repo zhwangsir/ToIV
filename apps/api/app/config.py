@@ -114,14 +114,14 @@ class Settings(BaseSettings):
     llm_fallback_api_key: str = ""
     llm_fallback_model: str = ""
     # NSFW 模式专用 LLM(X-NSFW: 1 时启用);空 model = NSFW 模式复用主 LLM。
-    # 典型:默认 qwen3.6-uncensored(workstation),NSFW llama-3.3-70b-abliterated(spark01 vLLM)
+    # 生产:L4 与 L1 同模型(spark02 qwen3.6-uncensored;2026-08-08 llama-70b 退役后统一切换)。
     llm_nsfw_base_url: str = ""
     llm_nsfw_api_key: str = ""
     llm_nsfw_model: str = ""
 
     # —— AICG 四层模型流水线（2026-07-24 项目管家确认）——
-    # L1 初稿 = llm_base_url/llm_model（上面已配，qwen3.6-uncensored @ workstation:8000）
-    # L4 NSFW = llm_nsfw_base_url/llm_nsfw_model（上面已配，llama-3.3-70b-abliterated @ spark01:8000）
+    # L1 初稿 = llm_base_url/llm_model（上面已配，qwen3.6-uncensored @ spark02:8000）
+    # L4 NSFW = llm_nsfw_base_url/llm_nsfw_model（生产同上 spark02,.env 覆盖）
     # L2 主力润色: Mac Studio EXO RDMA, Kimi-K3(EXO 已上架;2026-07-30 实测无运行实例时自动降级 L1)
     llm_l2_base_url: str = "http://192.168.71.109:52415/v1"
     llm_l2_model: str = "moonshotai/Kimi-K3"
