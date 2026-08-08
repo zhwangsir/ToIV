@@ -272,7 +272,38 @@ test.describe("NSFW 专区", () => {
     },
   );
 
-  // ─── 用例 6:NSFW 推荐模型清单可折叠 ───  test(
+  // ─── 用例 6:短剧 tab 可见且可切换,内嵌 drama 工作台壳 ───
+  test(
+    "authed-nsfw: 短剧 tab 可见并内嵌 drama 工作台",
+    { tag: "@authed" },
+    async ({ page }) => {
+      await gotoNsfw(page);
+
+      // 短剧 tab 存在,默认未选中,位于作品库之前
+      const dramaTab = page.getByRole("tab", { name: "短剧" });
+      await expect(dramaTab).toBeVisible();
+      await expect(dramaTab).toHaveAttribute("aria-selected", "false");
+
+      // 切换 → 选中态 + scoped 工作台壳渲染(项目列表侧栏 + 空态提示)
+      await dramaTab.click();
+      await expect(dramaTab).toHaveAttribute("aria-selected", "true");
+      await expect(page.locator(".nsfw-drama")).toBeVisible({ timeout: 10000 });
+      await expect(page.locator(".nsfw-drama-side")).toBeVisible();
+      await expect(page.getByText("选择或新建一个短剧项目")).toBeVisible();
+
+      // 不混入统一生成工作台 / 作品库
+      await expect(page.locator(".generate-view")).toHaveCount(0);
+
+      // 截图存档
+      await page.screenshot({
+        path: "test-results/nsfw-drama-tab.png",
+        fullPage: true,
+      });
+    },
+  );
+
+  // ─── 用例 7:NSFW 推荐模型清单可折叠 ───
+  test(
     "authed-nsfw: NSFW 推荐模型清单可折叠",
     { tag: "@authed" },
     async ({ page }) => {

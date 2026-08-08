@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { GenerateView, type GenerateDraft } from "@/components/generate/GenerateView";
 import { LibraryView } from "@/components/library/LibraryView";
+import { NsfwDramaView } from "@/components/nsfw/NsfwDramaView";
 import { Icon } from "@/components/ui/Icon";
 import { usePoll } from "@/hooks/usePoll";
 import { consumeEngineDraft } from "@/lib/engine";
@@ -23,7 +24,7 @@ import {
 import type { NsfwRecommendation } from "@/lib/types";
 
 type AuthState = "loading" | "in" | "out";
-type NsfwTab = "image" | "video" | "library";
+type NsfwTab = "image" | "video" | "drama" | "library";
 
 // 年龄确认持久化 key:首访 /nsfw 弹出 18+ 声明,确认后写入不再弹
 const AGE_CONFIRM_KEY = "toiv_nsfw_age_confirmed";
@@ -34,6 +35,7 @@ const AGE_CONFIRM_KEY = "toiv_nsfw_age_confirmed";
  * - 首次进入弹 18+ 年龄确认,确认后写 localStorage 不再弹
  * - 进入即设置 X-NSFW 放行标记,卸载时还原
  * - 图像/视频 tab 内嵌统一生成工作台(GenerateView onlyNsfw,只展示 R18 引擎)
+ * - 短剧 tab 内嵌 NsfwDramaView(drama 管线 scoped 工作台,产物 nsfw 打标隔离)
  * - 作品库 tab 内嵌 LibraryView onlyNsfw(只展示 R18 作品):查看/删除/复用提示词,
  *   复用在专区内切 tab 回填草稿,不跳主站
  * - 顶部 18+ 警告条;底部 NSFW 推荐模型清单(可折叠,支持下载到 NAS)
@@ -417,6 +419,16 @@ function NsfwViewBody() {
           <button
             type="button"
             role="tab"
+            aria-selected={tab === "drama"}
+            className={`nsfw-tab${tab === "drama" ? " is-active" : ""}`}
+            onClick={() => switchTab("drama")}
+          >
+            <Icon name="clapperboard" size={16} />
+            <span>短剧</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
             aria-selected={tab === "library"}
             className={`nsfw-tab${tab === "library" ? " is-active" : ""}`}
             onClick={() => switchTab("library")}
@@ -430,11 +442,14 @@ function NsfwViewBody() {
               主站引擎草稿,仅作品库「复用提示词」回填时注入一次性草稿(draftSeq 强制重挂载)。
               包一层 .nsfw-workbench(stage.css):/nsfw 高度链是 min-height 非定高,
               GenerateView 的 height:100% 无法解析,改用 flex stretch 撑满。
+              短剧 tab 内嵌 NsfwDramaView(drama 管线 scoped 工作台,nsfw:true 打标产物);
               作品库 tab 复用 LibraryView(onlyNsfw 只看 R18 作品),查看/删除/复用提示词 */}
           {tab === "library" ? (
             <div className="nsfw-library">
               <LibraryView onlyNsfw onNavigate={handleLibraryNavigate} />
             </div>
+          ) : tab === "drama" ? (
+            <NsfwDramaView />
           ) : tab === "image" ? (
             <div className="nsfw-workbench">
               <GenerateView

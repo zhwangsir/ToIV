@@ -12,6 +12,7 @@ import {
   generateDramaShotVideo,
   generateDramaShotVoice,
   generateDramaShotLipsync,
+  continueDramaShotVideo,
   patchDramaShot,
   assembleDrama,
   dramaGenerateCharacterReference,
@@ -125,6 +126,8 @@ export interface UseDramaProjectReturn {
   ) => Promise<void>;
   generateVideo: (shot: DramaShotItem) => void;
   generateVideoV2: (sid: string, body: GenerateVideoV2Body) => void;
+  /** 末帧续写(抽当前视频末帧 i2v 逐段延续,轮询 shot.continue_* 字段) */
+  continueVideo: (shot: DramaShotItem) => void;
   /** 单镜抽卡:对单个分镜生成 N 个候选视频(绕过单发守卫,与批量共用提交通道) */
   generateShotCandidates: (sid: string, numCandidates: number) => void;
   generateVoice: (shot: DramaShotItem) => void;
@@ -132,6 +135,7 @@ export interface UseDramaProjectReturn {
   busyShot: string | null;
   busyVoice: string | null;
   busyLipsync: string | null;
+  busyContinue: string | null;
   editingShot: string | null;
   setEditingShot: React.Dispatch<React.SetStateAction<string | null>>;
   // M1:单镜候选
@@ -191,11 +195,16 @@ export interface UseDramaProjectReturn {
 /**
  * 封装短剧项目详情的全部状态与操作。主组件持有返回值并下发给各 Tab 组件,
  * Tab 切换时状态不丢失。轮询定时器与防重入逻辑均在此 hook 内部管理。
+ *
+ * opts.nsfw:/nsfw 专区嵌入时置 true,视频生成/续写请求体自动带 nsfw:true
+ * (后端门控 + Job 打标);缺省 false,主站请求体逐字节不变。
  */
 export function useDramaProject(
   activeId: string | null,
   onSummaryChange?: (id: string, patch: Partial<DramaProjectSummary>) => void,
+  opts?: { nsfw?: boolean },
 ): UseDramaProjectReturn {
+  const nsfw = opts?.nsfw === true;
   const [current, setCurrent] = useState<DramaProjectDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
@@ -204,6 +213,7 @@ export function useDramaProject(
   const [busyShot, setBusyShot] = useState<string | null>(null);
   const [busyVoice, setBusyVoice] = useState<string | null>(null);
   const [busyLipsync, setBusyLipsync] = useState<string | null>(null);
+  const [busyContinue, setBusyContinue] = useState<string | null>(null);
   const [assembling, setAssembling] = useState(false);
   const [storyboarding, setStoryboarding] = useState(false);
   const [editingShot, setEditingShot] = useState<string | null>(null);
@@ -289,6 +299,7 @@ export function useDramaProject(
     setBusyShot(null);
     setBusyVoice(null);
     setBusyLipsync(null);
+    setBusyContinue(null);
     setAssembling(false);
     setStoryboarding(false);
     setEditingShot(null);
@@ -678,7 +689,11 @@ export function useDramaProject(
     (shot: DramaShotItem, onError?: () => void) => {
       const pid = currentIdRef.current;
       if (!pid) return;
-      generateDramaShotVideo(shot.id, { steps: 20, cfg: 1.0 })
+      generateDramaShotVideo(shot.id, {
+        steps: 20,
+        cfg: 1.0,
+        ...(nsfw ? { nsfw: true } : {}),
+      })
         .then(() => {
           showToast("info", `分镜 #${shot.idx} 视频任务已提交,轮询中…`);
           pollShotVideo(pid, shot.id, shot.idx);
@@ -691,7 +706,7 @@ export function useDramaProject(
           );
         });
     },
-    [pollShotVideo, showToast],
+    [pollShotVideo, showToast, nsfw],
   );
 
   // ── 提交单镜视频生成(generateDramaShotVideo 异步 + 轮询)──
@@ -717,7 +732,7 @@ export function useDramaProject(
       const shotIdx = shot?.idx ?? 0;
       const numCandidates = body.num_candidates ?? 1;
       setBusyShot(sid);
-      dramaGenerateVideoV2(sid, body)
+      dramaGenerateVideoV2(sid, { ...body, ...(nsfw ? { nsfw: true } : {}) })
         .then(() => {
           const message =
             numCandidates > 1
@@ -734,7 +749,7 @@ export function useDramaProject(
           );
         });
     },
-    [current, pollShotVideo, showToast],
+    [current, pollShotVideo, showToast, nsfw],
   );
 
   const generateVideoV2 = useCallback(
@@ -760,6 +775,97 @@ export function useDramaProject(
       });
     },
     [submitShotVideoV2, videoModel],
+  );
+
+  // ── 末帧续写:轮询直到 shot.continue_status 变为 done/error 或超时 ──
+  const pollShotContinue = useCallback(
+    (pid: string, shotId: string, shotIdx: number) => {
+      let attempts = 0;
+      const tick = () => {
+        if (currentIdRef.current !== pid) {
+          setBusyContinue(null);
+          return;
+        }
+        attempts++;
+        getDramaProject(pid)
+          .then((d) => {
+            if (currentIdRef.current !== pid) {
+              setBusyContinue(null);
+              return;
+            }
+            const shot = d.shots?.find((s) => s.id === shotId);
+            if (!shot) {
+              setBusyContinue(null);
+              showToast("error", `分镜 #${shotIdx} 已被删除,轮询终止`);
+              return;
+            }
+            const st = (shot.continue_status || "").toLowerCase();
+            setCurrent(d);
+            if (st === "done" || st === "ready" || st === "completed") {
+              setBusyContinue(null);
+              showToast("success", `分镜 #${shotIdx} 续写已完成`);
+              return;
+            }
+            if (st === "error" || st === "failed") {
+              setBusyContinue(null);
+              showToast(
+                "error",
+                `分镜 #${shotIdx} 续写失败:${shot.continue_error || st}`,
+              );
+              return;
+            }
+            if (attempts >= POLL_MAX_ATTEMPTS) {
+              setBusyContinue(null);
+              showToast(
+                "error",
+                `分镜 #${shotIdx} 续写超时(15 分钟),请稍后重试`,
+              );
+              return;
+            }
+            safeSetTimeout(tick, POLL_INTERVAL);
+          })
+          .catch(() => {
+            setBusyContinue(null);
+            showToast("error", "轮询项目状态失败,请刷新查看");
+          });
+      };
+      safeSetTimeout(tick, POLL_INTERVAL);
+    },
+    [safeSetTimeout, showToast],
+  );
+
+  // ── 提交末帧续写(默认 1 段 + auto_concat 拼成完整视频,异步 + 轮询)──
+  const continueVideo = useCallback(
+    (shot: DramaShotItem) => {
+      const pid = currentIdRef.current;
+      if (!pid) return;
+      if (busyContinue) {
+        showToast("info", "已有续写任务进行中,请稍候");
+        return;
+      }
+      if (!shot.video_url) {
+        showToast("error", `分镜 #${shot.idx} 尚未生成视频,无法续写`);
+        return;
+      }
+      setBusyContinue(shot.id);
+      continueDramaShotVideo(shot.id, {
+        segments: 1,
+        auto_concat: true,
+        ...(nsfw ? { nsfw: true } : {}),
+      })
+        .then(() => {
+          showToast("info", `分镜 #${shot.idx} 续写任务已提交,轮询中…`);
+          pollShotContinue(pid, shot.id, shot.idx);
+        })
+        .catch((err) => {
+          setBusyContinue(null);
+          showToast(
+            "error",
+            err instanceof Error ? err.message : "提交续写任务失败",
+          );
+        });
+    },
+    [busyContinue, nsfw, pollShotContinue, showToast],
   );
 
   // ── M1:单镜候选管理 ──
@@ -1188,6 +1294,7 @@ export function useDramaProject(
     if (storyboarding) tasks.push({ key: "sb", label: "拆分镜" });
     if (gridBusy) tasks.push({ key: "grid", label: "宫格分镜" });
     if (busyShot) tasks.push({ key: "shot", label: "视频生成", detail: busyShot });
+    if (busyContinue) tasks.push({ key: "continue", label: "末帧续写", detail: busyContinue });
     if (busyVoice) tasks.push({ key: "voice", label: "配音", detail: busyVoice });
     if (busyLipsync) tasks.push({ key: "lipsync", label: "对口型", detail: busyLipsync });
     if (directorBusy) tasks.push({ key: "director", label: "导演台" });
@@ -1198,7 +1305,7 @@ export function useDramaProject(
       activeTaskLabel: tasks.length > 0 ? tasks.map((t) => t.label).join(" · ") : "",
       activeTasks: tasks,
     };
-  }, [storyboarding, gridBusy, busyShot, busyVoice, directorBusy, assembling, busyRef]);
+  }, [storyboarding, gridBusy, busyShot, busyContinue, busyVoice, directorBusy, assembling, busyRef]);
 
   // M3.1:activeTasks 变化时同步 taskLog —— 新增 running 项,完成的标记 done + toast 通知。
   // 用 ref 读取最新 taskLog 避免依赖 taskLog 触发循环;签名守卫防止 StrictMode 双调用重复 toast。
@@ -1422,12 +1529,14 @@ export function useDramaProject(
     saveShot,
     generateVideo,
     generateVideoV2,
+    continueVideo,
     generateShotCandidates,
     generateVoice,
     generateLipsync,
     busyShot,
     busyVoice,
     busyLipsync,
+    busyContinue,
     editingShot,
     setEditingShot,
     candidatesByShot,

@@ -2161,6 +2161,9 @@ export interface DramaGenerateVideoRequest {
   use_upscale?: boolean;
   use_rife?: boolean;
   prompt_override?: string;
+  // R18 上下文:/nsfw 专区传 true,后端走 _gate_ltx_nsfw(无 X-NSFW 头 403),
+  // LTX 自动切 10Eros 底模并将 Job 打标 nsfw 隔离进专区作品库;缺省 false 主站行为不变。
+  nsfw?: boolean;
 }
 
 export interface DramaGenerateVoiceRequest {
@@ -2212,6 +2215,8 @@ export interface DramaContinueVideoRequest {
   cfg?: number;
   seed?: number;
   prompt_override?: string;
+  // R18 上下文:同 DramaGenerateVideoRequest.nsfw,缺省 false 主站行为不变。
+  nsfw?: boolean;
 }
 
 export interface DramaContinueVideoResult {
@@ -2606,6 +2611,8 @@ export interface GenerateVideoV2Body {
   prompt_override?: string;
   // M1:单镜多候选生成
   num_candidates?: number;
+  // R18 上下文:/nsfw 专区传 true,同 generate-video 的 nsfw 语义;缺省 false 主站行为不变。
+  nsfw?: boolean;
 }
 
 /** 单分镜视频生成 v2(支持模型选择)。契约:POST /api/drama/shots/{sid}/generate-video-v2。 */
