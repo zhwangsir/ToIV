@@ -4,6 +4,42 @@
 
 ---
 
+## FULLSTACK-2026-08-08 · 遗留清零:Avatar 续段+前端工作台+短剧五面板+预设/作品库补缺
+
+**时间**: 2026-08-08 17:20
+**类型**: feat(avatar) / feat(nsfw) / fix / e2e
+**目标**: 一次清完所有待完成事项,真机可用。commit 270946e(续段)、a23479c(Avatar 工作台)、5dfeda6(短剧五面板)、6191d82(预设补缺)、7105fe2(空白 bug 修复)
+
+### 实现要点
+
+- **Avatar 长音频续段(270946e)**:ExtendEmbeds 图内链式多段——首段 93 帧,续段 overlap=13 warmup + ImageBatchExtendWithOverlap 切缝,每续一段净增 80 帧;`frames_processed` 静态累计(93+(i-1)×80);**每段帧数须 (T-1)%4==0**,残段自动取整 4k+1(真机踩坑:26 帧残段报 EinopsError);num_frames 上限 961→2500(≈100s@25fps)。单段图与冒烟逐字段一致,7 个新测试
+- **Avatar 前端工作台(a23479c)**:数字人页(?view=avatartalk)加「实时对话 | 视频生成」模式段控,AvatarGenPanel(~600 行):人像+音频上传(**同 worker 互钉**:第一个文件 pool.pick 拿落点,第二个带 worker 参数钉同机,不一致红色警告禁提交)、调参(分辨率三档/帧数+匹配音频时长/fps/steps/高级折叠区)、SSE 进度、播放器、去作品库;LibraryView 补 avatar_talk/longcat_t2v/i2v/continue 视频桶+中文 Badge
+- **短剧五面板(5dfeda6)**:单镜抽卡(候选数×2/3/4,网格可播放,挑选回填/弃选,nsfw 注入确认覆盖)、任务日志(TaskLogPanel,running 脉冲+耗时)、资产库(kind 过滤/应用/删除)、宫格分镜(9/25 宫格,点击定位卡片高亮)、AI 润色(双栏对照/采纳回填草稿);hook 追加 5 个 action
+- **补缺(6191d82)**:anime_high_quality 标 sfw_intent(NoobAI 通用二次元定位,R18 走 nsfw_noobai_vpred),主站恢复可见
+- **真机 bug(7105fe2)**:短剧工作区点击项目静默空白——根因是全代码库无人调用 `dp.reload()`(activeId effect 只重置 taskLog),四个条件分支全不满足渲染合法空。修复:activeId effect 自动 reload + 老数据 13 处容错 + 空详情兜底分支。**教训:e2e 只测了 shell 和新建,从没点进过老项目**
+
+### core 真机验证(192.168.71.47)
+
+| 项 | 结果 |
+|---|---|
+| 单测 | ✅ 1096 passed(+7;2 个 redis 基线预置失败不变) |
+| Avatar 续段(直打 :8197,186 帧 3 段 [93,93,29]) | ✅ 189 帧 7.56s 含音轨,缝口抽帧身份/姿态/口型连续无跳帧,音画差 14ms |
+| Avatar 续段(经 core API,同参数 seed1234) | ✅ done,产物 1.5MB,ffprobe 480×832×189 帧 7.56s 含 AAC |
+| 预设可见性 | ✅ SFW:anime_high_quality 可见,chibi/portrait/nsfw_* 隐藏;R18:全量含 nsfw_urpm |
+| 数字人页视频生成(Playwright) | ✅ 段控/引擎可用 pill/双上传/调参/生成按钮渲染正常 |
+| 短剧工作区(Playwright) | ✅ 修复后完整渲染:剧本/角色/分镜卡/抽卡/宫格/资产库/润色/任务日志,零 pageerror |
+| 作品库视频桶(Playwright) | ✅ 16 件视频,「数字人」(seed1234)/「长视频」/「长视频续写」Badge 正确,缩略图正常 |
+| NVML mismatch 诊断 | 已装 595.84(modinfo)vs 运行 595.71.05,**重启即恢复**,列入待办等重启窗口 |
+
+### 遗留
+
+- Avatar 长片 >30min 作业状态更新有间断(tracker 1800s 超时,reconcile_loop 兜底落库;超长需求需调大共享组件,未动)
+- 续段验证产物/测试音频留在 workstation input/output(extend_smoke_00001-audio.mp4 等,可清理)
+- avatar 前端在 /nsfw 专区复用未做(generateAvatarTalk 已自动带 X-NSFW,嵌 AvatarGenPanel 即可)
+- Workstation 重启窗口(NVML 恢复 + 内核模块 595.84 生效)
+
+---
+
 ## AVATAR-E2E-2026-08-08 · Avatar 接入 core API 全链路闭环 + drama R18 接线 + URPM 预设
 
 **时间**: 2026-08-08 15:10
