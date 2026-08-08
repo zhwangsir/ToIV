@@ -86,6 +86,22 @@ async def transfer_ref_image(client: ComfyUIClient, source: ComfyUIClient, image
         raise HTTPException(status_code=502, detail=f"参考图上传到 LongCat 实例失败: {e}") from e
 
 
+async def transfer_ref_audio(client: ComfyUIClient, source: ComfyUIClient, audio: str) -> str:
+    """把驱动音频从上传落点的 pool worker 转运到 LongCat 实例 input 目录,返回实例侧文件名。
+
+    与 transfer_ref_image 同一机制(ComfyUI /upload/image 接受任意文件,
+    LoadAudio 从 input 目录读取;lipsync/dub 链路上传 wav/mp4 也走此接口)。
+    """
+    try:
+        content, _ = await source.get_image_bytes(audio, "", "input")
+    except ComfyUIError as e:
+        raise HTTPException(status_code=502, detail=f"从音频所在 worker 读取失败: {e}") from e
+    try:
+        return await client.upload_image(content, audio)
+    except ComfyUIError as e:
+        raise HTTPException(status_code=502, detail=f"音频上传到 LongCat 实例失败: {e}") from e
+
+
 async def _fetch_source_video_bytes(video: str, worker: str | None) -> bytes:
     """取续写源视频字节:/api/images?... 产物 URL(worker 在 query 里)或上传视频文件名
     (worker 必填,即上传落点)。走 resolve_worker 白名单校验(防 SSRF)。"""

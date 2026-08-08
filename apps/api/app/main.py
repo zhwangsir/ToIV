@@ -18,6 +18,7 @@ from app.routes import (
     assembly,
     audio,
     audio_tools,
+    avatar_studio,
     backlot,
     cad,
     drama_analytics,
@@ -219,6 +220,7 @@ def create_app() -> FastAPI:
         ltx_studio,
         h3_studio,
         longcat_studio,
+        avatar_studio,
     ):
         app.include_router(module.router, prefix="/api")
 

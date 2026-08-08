@@ -35,6 +35,10 @@ def required_models(kind: str) -> set[str]:
     # 上传阶段不要求 worker 持有 H3 模型(避免必须路由到 LTX worker)。
     if kind == "h3_i2v":
         return set()
+    # Avatar 数字人参考图/驱动音频同 h3_i2v:先落 pool worker,提交时转运到
+    # LongCat 实例(:8197),上传 worker 只需能存文件,不要求持有模型。
+    if kind == "avatar":
+        return set()
     if kind == "ltx_lipsync":
         p = LtxLipsyncParams(positive="", image="", audio="")
         models = {p.unet_name, p.gemma_name, p.vae_name, p.audio_vae_name}
@@ -83,6 +87,9 @@ def required_nodes(kind: str) -> set[str]:
                 "LoadImage", "LTXVImgToVideo", "KSampler", "VAEDecode", "VHS_VideoCombine"}
     # H3 图生视频参考图上传:pool worker 只需能存图,不依赖 H3 节点。
     if kind == "h3_i2v":
+        return set()
+    # Avatar 数字人参考图/驱动音频上传:同 h3_i2v,pool worker 只需能存文件。
+    if kind == "avatar":
         return set()
     if kind == "ltx_lipsync":
         # LTX2.3 + 口型同步(LTXV 音频驱动节点 + LoadAudio + ID LoRA)

@@ -265,6 +265,24 @@ def _longcat_video_params() -> list[dict]:
     ]
 
 
+# LongCat-Avatar 数字人参数(与 routes/avatar_studio.py 请求模型同一套范围;
+# 16 对齐、17-961 帧、fps 默认 25 与 WhisperEmbeds 特征帧率同源)
+def _avatar_talk_params() -> list[dict]:
+    return [
+        _images(label="人像首帧", hint="jpg / png,单张 ≤ 20MB"),
+        {"key": "audio", "label": "驱动音频", "type": "text", "default": "",
+         "hint": "wav / mp3,经 /api/upload 上传(kind=avatar,≤20MB)"},
+        _negative(),
+        _num("width", "宽度", 480, min_=320, max_=1280, step=16, hint="16 对齐,非对齐自动向下取整"),
+        _num("height", "高度", 832, min_=320, max_=1280, step=16, hint="16 对齐"),
+        _num("num_frames", "时长(帧)", 93, min_=17, max_=961,
+             hint="93 帧@25fps≈3.7s(冒烟验证值;>93 帧长音频未真机验证)"),
+        _num("fps", "帧率", 25, min_=8, max_=30, hint="Whisper 特征帧率与打包帧率同源"),
+        _num("steps", "采样步数", 12, min_=1, max_=50, hint="dmd 蒸馏 LoRA 低步数,默认 12"),
+        _seed(),
+    ]
+
+
 # ACE-Step 文生音乐参数(与 routes/audio.py AudioRequest 同一套范围)
 def _ace_audio_params() -> list[dict]:
     return [
@@ -596,6 +614,17 @@ _REGISTRY: list[dict[str, Any]] = [
              "hint": "/api/images?... 产物 URL(如上一段 LongCat 产物链接)"},
             *_longcat_video_params(),
         ],
+        "probe": _probe_longcat,
+    },
+    # LongCat-Avatar:音频驱动数字人(v1.5,whisper-large-v3 音频编码),
+    # 与 longcat-t2v 同一专用实例(:8197);probe 复用 _probe_longcat
+    {
+        "id": "avatar-talk",
+        "label": "LongCat-Avatar 数字人",
+        "kind": "video",
+        "nsfw": False,
+        "description": "LongCat-Avatar 音频驱动数字人:人像首帧 + 说话音频 → 口型同步视频,专用实例 :8197",
+        "params": _avatar_talk_params(),
         "probe": _probe_longcat,
     },
     # ACE-Step 文生音乐:kind=audio(音频板块生成区;提交路由 /api/generate/audio 既有)
