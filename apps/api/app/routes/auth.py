@@ -43,6 +43,7 @@ def _user_dict(user: User) -> dict:
         "id": user.id,
         "email": user.email,
         "role": user.role,
+        # [DEPRECATED] 遗留 R18 账户软开关,仅作历史记录透出;不再作为任何判定来源
         "nsfw_enabled": user.nsfw_enabled,
         "default_agent_id": getattr(user, "default_agent_id", None),
     }

@@ -33,8 +33,9 @@ class User(SQLModel, table=True):
     hashed_password: str
     tenant_id: str = Field(foreign_key="tenant.id", index=True)
     role: str = "user"  # "user" | "admin"
-    # R18 分区软开关:默认 False=SFW(无年龄确认弹窗)。关闭时服务端强制全分区过滤
-    # 掉一切 NSFW 内容(成人底模 / 市场 NSFW / R18 作品);开启后方可进入 R18 区。
+    # [DEPRECATED] R18 分区账户软开关:自 2026-08-08 起不再作为任何判定来源
+    # (全站统一读 X-NSFW 请求头,见 nsfw_ctx.nsfw_allowed)。字段与历史数据保留
+    # (不删列、不做迁移),仅作「曾经开启过」的记录;marketplace 已切换到请求上下文。
     nsfw_enabled: bool = False
     # 出生日期(可选,空=未填写)。用于未成年防护硬阻断:nsfw_allowed 与
     # /account/nsfw 开关均会校验,未成年一律不可见 R18。空视为成年以兼容老数据。

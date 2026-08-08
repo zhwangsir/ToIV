@@ -282,7 +282,7 @@ def test_local_models_filters_nsfw_loras(client):
 
 
 # --------------------------------------------------------------------------- #
-# 5) marketplace 关闭时强制 nsfw=false
+# 5) marketplace 门槛:统一读 X-NSFW 请求上下文(nsfw_enabled 账户开关已废弃)
 # --------------------------------------------------------------------------- #
 
 
@@ -299,7 +299,7 @@ def test_marketplace_forces_sfw_when_disabled(client, monkeypatch):
 
     monkeypatch.setattr(marketplace_route, "_get_json", fake_get_json)
     token = create_token(uid)
-    # 即便客户端显式传 nsfw=true,未开 R18 也必须被强制成 "false"
+    # 即便客户端显式传 nsfw=true,无 X-NSFW 头(主站)也必须被强制成 "false"
     r = c.get(
         "/api/marketplace/search?source=civitai&nsfw=true",
         headers={"Authorization": f"Bearer {token}"},
@@ -308,10 +308,11 @@ def test_marketplace_forces_sfw_when_disabled(client, monkeypatch):
     assert captured["nsfw"] == "false"
 
 
-def test_marketplace_allows_nsfw_when_enabled(client, monkeypatch):
+def test_marketplace_account_flag_no_longer_allows_nsfw(client, monkeypatch):
+    """语义统一:账户开关 nsfw_enabled 已废弃,即使为 True,不带 X-NSFW 头仍强制 SFW。"""
     c, engine = client
     with Session(engine) as s:
-        uid = _seed_user(s, "mkton", nsfw_enabled=True)
+        uid = _seed_user(s, "mktlegacy", nsfw_enabled=True)  # 账户开关已废弃
 
     captured: dict = {}
 
@@ -324,6 +325,28 @@ def test_marketplace_allows_nsfw_when_enabled(client, monkeypatch):
     r = c.get(
         "/api/marketplace/search?source=civitai&nsfw=true",
         headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 200
+    assert captured["nsfw"] == "false"
+
+
+def test_marketplace_allows_nsfw_when_enabled(client, monkeypatch):
+    """带 X-NSFW 头(/nsfw 专页)时,nsfw 参数原样透传给 Civitai。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "mkton", nsfw_enabled=False)  # 账户开关不再参与
+
+    captured: dict = {}
+
+    async def fake_get_json(url, params, headers=None):  # noqa: ANN001
+        captured.update(params)
+        return {"items": []}
+
+    monkeypatch.setattr(marketplace_route, "_get_json", fake_get_json)
+    token = create_token(uid)
+    r = c.get(
+        "/api/marketplace/search?source=civitai&nsfw=true",
+        headers={"Authorization": f"Bearer {token}", "X-NSFW": "1"},
     )
     assert r.status_code == 200
     assert captured["nsfw"] == "true"
@@ -591,3 +614,25 @@ def test_raw_gate_uses_header_not_account_flag(client, monkeypatch):
         json={"graph": graph},
     )
     assert r2.status_code == 200, r2.text
+
+
+# --------------------------------------------------------------------------- #
+# 9) NSFW 推荐清单:10Eros 配套 LoRA(P1-7,已在 NAS)入清单
+# --------------------------------------------------------------------------- #
+
+
+def test_nsfw_recommendations_include_10eros_loras(client):
+    """推荐清单含 10Eros/LTX2.3 配套 NSFW 运动 LoRA(已在 NAS);端点仅需登录。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "recs")
+    token = create_token(uid)
+    r = c.get("/api/models/nsfw-recommendations", headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 200
+    items = r.json()["items"]
+    names = {it["name"] for it in items}
+    assert "LTX2.3 NSFW Motion" in names
+    assert "Sulphur Better NSFW Motion" in names
+    # 每项结构完整(name/type/civitai_url/category)
+    for it in items:
+        assert it["name"] and it["type"] and it["civitai_url"] and it["category"]

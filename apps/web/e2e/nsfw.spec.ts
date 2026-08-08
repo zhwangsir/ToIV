@@ -48,7 +48,11 @@ test.describe("NSFW 专区", () => {
   });
 
   // 辅助:导航到 /nsfw 并等待鉴权完成(banner 出现表示 auth=in)
+  // 预置年龄确认记录(真实用户首访会弹 18+ 确认门,功能用例跳过)
   async function gotoNsfw(page: Page) {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("toiv_nsfw_age_confirmed", "1");
+    });
     await page.goto("/nsfw", { waitUntil: "domcontentloaded" });
     try {
       await page.waitForLoadState("networkidle", { timeout: 15000 });
@@ -237,8 +241,38 @@ test.describe("NSFW 专区", () => {
     },
   );
 
-  // ─── 用例 5:NSFW 推荐模型清单可折叠 ───
+  // ─── 用例 5:首访弹 18+ 年龄确认门,确认后写 localStorage 不再弹 ───
   test(
+    "authed-nsfw: 首访年龄确认门,确认后不再弹",
+    { tag: "@authed" },
+    async ({ page }) => {
+      // 不预置 toiv_nsfw_age_confirmed:模拟首次访问
+      await page.goto("/nsfw", { waitUntil: "domcontentloaded" });
+
+      // 年龄确认门出现,专区主体不可见
+      const gate = page.locator(".nsfw-age-gate");
+      await expect(gate).toBeVisible({ timeout: 10000 });
+      await expect(gate).toContainText("18 岁");
+      await expect(page.locator(".nsfw-banner")).toHaveCount(0);
+
+      // 确认 → 门消失,专区主体出现
+      await page
+        .getByRole("button", { name: "我已年满 18 岁,进入专区" })
+        .click();
+      await expect(page.locator(".nsfw-banner")).toBeVisible({ timeout: 10000 });
+
+      // localStorage 已记录;重新导航不再弹门
+      const confirmed = await page.evaluate(() =>
+        window.localStorage.getItem("toiv_nsfw_age_confirmed"),
+      );
+      expect(confirmed).toBe("1");
+      await page.goto("/nsfw", { waitUntil: "domcontentloaded" });
+      await expect(page.locator(".nsfw-banner")).toBeVisible({ timeout: 10000 });
+      await expect(page.locator(".nsfw-age-gate")).toHaveCount(0);
+    },
+  );
+
+  // ─── 用例 6:NSFW 推荐模型清单可折叠 ───  test(
     "authed-nsfw: NSFW 推荐模型清单可折叠",
     { tag: "@authed" },
     async ({ page }) => {

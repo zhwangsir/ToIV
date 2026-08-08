@@ -11,7 +11,7 @@
   - 设计类: chinese_text(中文文字渲染,商用首选) / flat_design(扁平设计) / concept_art(概念艺术)
   - 极速类: turbo(8步预览) / draft(草稿快速迭代)
   - 视频类: video_realistic / video_anime / video_fast
-  - NSFW类: nsfw_realistic / nsfw_anime (R18门控由上层处理)
+  - NSFW类: nsfw_realistic / nsfw_anime / nsfw_pony / nsfw_wai_shufflenoob / nsfw_noobai_vpred (R18门控由上层处理)
 """
 from __future__ import annotations
 
@@ -318,6 +318,32 @@ _IMAGE_PRESETS: dict[str, StylePreset] = {
         width=832,
         height=1216,
         description="CyberRealistic Pony V18 Coreshift",
+        llm_layer="L4",
+        commercial_safe=False,
+    ),
+    "nsfw_wai_shufflenoob": StylePreset(
+        id="nsfw_wai_shufflenoob",
+        label="WAI ShuffleNoob NSFW",
+        ckpt_name="waiSHUFFLENOOB_vPred04.safetensors",
+        media=MediaType.IMAGE,
+        sampling=SamplingOverride(steps=28, cfg=4.5, sampler="euler", scheduler="normal"),
+        negative_prompt="worst quality, low quality",
+        width=832,
+        height=1216,
+        description="WAI ShuffleNoob vPred 0.4,WAI×NoobAI 混合 v-pred 架构,自动插ModelSamplingDiscrete",
+        llm_layer="L4",
+        commercial_safe=False,
+    ),
+    "nsfw_noobai_vpred": StylePreset(
+        id="nsfw_noobai_vpred",
+        label="NoobAI vpred NSFW",
+        ckpt_name="noobaiXL_vpred10.safetensors",
+        media=MediaType.IMAGE,
+        sampling=SamplingOverride(steps=28, cfg=4.5, sampler="euler", scheduler="normal"),
+        negative_prompt="worst quality, low quality",
+        width=832,
+        height=1216,
+        description="NoobAI-XL V-Pred v1.0,动漫 NSFW 首选,v-pred 架构画质更高,自动插ModelSamplingDiscrete",
         llm_layer="L4",
         commercial_safe=False,
     ),

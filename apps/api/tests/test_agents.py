@@ -94,10 +94,14 @@ def test_seed_is_idempotent():
 
 
 def test_builtin_agents_count():
-    """设计文档表格定义的 12 个内置智能体(8 图像 + 配音 + 训练 + 2 NSFW)。"""
-    assert len(BUILTIN_AGENTS) == 12
+    """设计文档表格定义的 15 个内置智能体(8 图像 + 配音 + 训练 + 5 NSFW)。"""
+    assert len(BUILTIN_AGENTS) == 15
     ids = {a["id"] for a in BUILTIN_AGENTS}
     assert "realist" in ids and "nsfw_photographer" in ids and "voice_dub" in ids
+    # 2026-08-08 P1-6 新增 3 个 NSFW 视频向智能体(运镜/短剧剧情/LongCat 长镜头)
+    assert "nsfw_camera_director" in ids
+    assert "nsfw_drama_writer" in ids
+    assert "nsfw_longcat_shot" in ids
 
 
 # --------------------------------------------------------------------------- #
@@ -124,6 +128,47 @@ def test_list_includes_nsfw_with_r18_header(ctx):
     assert r.status_code == 200
     ids = {a["id"] for a in r.json()}
     assert "nsfw_photographer" in ids and "nsfw_anime" in ids
+    # 新增 NSFW 视频向智能体同样仅 R18 上下文可见
+    assert "nsfw_camera_director" in ids
+    assert "nsfw_drama_writer" in ids
+    assert "nsfw_longcat_shot" in ids
+
+
+def test_nsfw_video_agents_hidden_from_main_site(ctx):
+    """新增 3 个 NSFW 视频智能体:主站(无 X-NSFW)列表不可见,详情 404。"""
+    c, _, user_token, _ = ctx
+    r = c.get(
+        "/api/agents?kind=video",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert r.status_code == 200
+    ids = {a["id"] for a in r.json()}
+    assert "nsfw_camera_director" not in ids
+    assert "nsfw_drama_writer" not in ids
+    assert "nsfw_longcat_shot" not in ids
+
+    # kind=video + X-NSFW:3 个新智能体按 applies_to=video 过滤命中
+    r2 = c.get(
+        "/api/agents?kind=video",
+        headers={"Authorization": f"Bearer {user_token}", "X-NSFW": "1"},
+    )
+    ids2 = {a["id"] for a in r2.json()}
+    assert "nsfw_camera_director" in ids2
+    assert "nsfw_drama_writer" in ids2
+    assert "nsfw_longcat_shot" in ids2
+
+    # 详情:无头 404(不泄露存在性),带头 200
+    r3 = c.get(
+        "/api/agents/nsfw_camera_director",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert r3.status_code == 404
+    r4 = c.get(
+        "/api/agents/nsfw_camera_director",
+        headers={"Authorization": f"Bearer {user_token}", "X-NSFW": "1"},
+    )
+    assert r4.status_code == 200
+    assert r4.json()["is_nsfw"] is True
 
 
 def test_list_kind_filter(ctx):

@@ -385,6 +385,26 @@ NSFW_RECOMMENDATIONS: list[dict] = [
         "category": "video",
     },
     {
+        # 已在 NAS(loras/ltx2.3/),10Eros/LTX2.3 NSFW 运动增强;civitai 检索入口,
+        # 未定位到稳定模型页 ID(下载按钮自动禁用,展示元数据用)
+        "name": "LTX2.3 NSFW Motion",
+        "type": "lora",
+        "base": "LTX2.3",
+        "size": "1.1GB",
+        "civitai_url": "https://civitai.com/models?query=LTX2.3%20NSFW%20motion",
+        "desc": "10Eros 配套 NSFW 运动 LoRA(00750),已在 NAS 可直接选用",
+        "category": "video",
+    },
+    {
+        "name": "Sulphur Better NSFW Motion",
+        "type": "lora",
+        "base": "LTX2.3",
+        "size": "625MB",
+        "civitai_url": "https://civitai.com/models?query=Sulphur%20better%20NSFW%20motion",
+        "desc": "Sulphur 的 LTX2.3 NSFW 动作改善 LoRA,已在 NAS 可直接选用",
+        "category": "video",
+    },
+    {
         "name": "zImage Turbo",
         "type": "unet",
         "base": "LTX2.3",

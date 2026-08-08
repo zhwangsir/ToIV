@@ -25,9 +25,13 @@ import type { NsfwRecommendation } from "@/lib/types";
 type AuthState = "loading" | "in" | "out";
 type NsfwTab = "image" | "video" | "library";
 
+// 年龄确认持久化 key:首访 /nsfw 弹出 18+ 声明,确认后写入不再弹
+const AGE_CONFIRM_KEY = "toiv_nsfw_age_confirmed";
+
 /**
  * NSFW 专区(/nsfw 入口)。
  * - 仅通过地址栏输入 /nsfw 直达,无导航入口,无 R18 开关
+ * - 首次进入弹 18+ 年龄确认,确认后写 localStorage 不再弹
  * - 进入即设置 X-NSFW 放行标记,卸载时还原
  * - 图像/视频 tab 内嵌统一生成工作台(GenerateView onlyNsfw,只展示 R18 引擎)
  * - 作品库 tab 内嵌 LibraryView onlyNsfw(只展示 R18 作品):查看/删除/复用提示词,
@@ -37,6 +41,19 @@ type NsfwTab = "image" | "video" | "library";
 export function NsfwView() {
   const router = useRouter();
   const [auth, setAuth] = useState<AuthState>("loading");
+  // 年龄确认:null=尚未读取 localStorage(避免 SSR/首帧闪烁)
+  const [ageConfirmed, setAgeConfirmed] = useState<boolean | null>(null);
+
+  // 读取年龄确认记录(仅客户端)
+  useEffect(() => {
+    setAgeConfirmed(window.localStorage.getItem(AGE_CONFIRM_KEY) === "1");
+  }, []);
+
+  // 确认已满 18 岁:落 localStorage 后放行
+  const confirmAge = useCallback(() => {
+    window.localStorage.setItem(AGE_CONFIRM_KEY, "1");
+    setAgeConfirmed(true);
+  }, []);
 
   // ── 鉴权初始化 ──
   useEffect(() => {
@@ -65,7 +82,7 @@ export function NsfwView() {
     };
   }, []);
 
-  if (auth === "loading") {
+  if (auth === "loading" || (auth === "in" && ageConfirmed === null)) {
     return (
       <div className="nsfw-splash">
         <div className="hero-orb" aria-hidden="true" />
@@ -138,7 +155,77 @@ export function NsfwView() {
     );
   }
 
-  // 鉴权通过,渲染专区主体
+  if (ageConfirmed === false) {
+    // 首访年龄确认门:确认前不渲染任何专区内容;确认写 localStorage,后续直达
+    return (
+      <div className="nsfw-age-gate">
+        <div className="nsfw-age-gate-card">
+          <div className="nsfw-age-gate-icon">
+            <Icon name="warning" size={40} />
+          </div>
+          <h1 className="nsfw-age-gate-title">年龄确认</h1>
+          <p className="nsfw-age-gate-desc">
+            本专区包含成人向(18+)创作内容。继续访问即表示你确认已年满
+            18 岁,并承诺遵守所在地法律法规。
+          </p>
+          <div className="nsfw-age-gate-actions">
+            <button className="btn btn-primary" onClick={confirmAge}>
+              我已年满 18 岁,进入专区
+            </button>
+            <button className="btn btn-ghost" onClick={() => router.push("/")}>
+              离开
+            </button>
+          </div>
+        </div>
+        <style jsx>{`
+          .nsfw-age-gate {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-canvas);
+            padding: var(--space-5);
+          }
+          .nsfw-age-gate-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: var(--space-3);
+            padding: var(--space-6);
+            background: var(--bg-surface-1);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-panel);
+            text-align: center;
+            max-width: 400px;
+          }
+          .nsfw-age-gate-icon {
+            color: var(--err);
+          }
+          .nsfw-age-gate-title {
+            font-size: var(--text-title);
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 0;
+          }
+          .nsfw-age-gate-desc {
+            font-size: var(--text-body);
+            color: var(--text-secondary);
+            margin: 0;
+            line-height: 1.6;
+          }
+          .nsfw-age-gate-actions {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-2);
+            width: 100%;
+            margin-top: var(--space-2);
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  // 鉴权 + 年龄确认通过,渲染专区主体
   return <NsfwViewBody />;
 }
 
