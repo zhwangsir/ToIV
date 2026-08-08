@@ -266,7 +266,7 @@ def _longcat_video_params() -> list[dict]:
 
 
 # LongCat-Avatar 数字人参数(与 routes/avatar_studio.py 请求模型同一套范围;
-# 16 对齐、17-961 帧、fps 默认 25 与 WhisperEmbeds 特征帧率同源)
+# 16 对齐、17-2500 帧(>93 帧自动续段)、fps 默认 25 与 WhisperEmbeds 特征帧率同源)
 def _avatar_talk_params() -> list[dict]:
     return [
         _images(label="人像首帧", hint="jpg / png,单张 ≤ 20MB"),
@@ -275,8 +275,8 @@ def _avatar_talk_params() -> list[dict]:
         _negative(),
         _num("width", "宽度", 480, min_=320, max_=1280, step=16, hint="16 对齐,非对齐自动向下取整"),
         _num("height", "高度", 832, min_=320, max_=1280, step=16, hint="16 对齐"),
-        _num("num_frames", "时长(帧)", 93, min_=17, max_=961,
-             hint="93 帧@25fps≈3.7s(冒烟验证值;>93 帧长音频未真机验证)"),
+        _num("num_frames", "时长(帧)", 93, min_=17, max_=2500,
+             hint="93 帧@25fps≈3.7s;>93 帧自动按 93 帧窗口续段,2500 帧≈100s"),
         _num("fps", "帧率", 25, min_=8, max_=30, hint="Whisper 特征帧率与打包帧率同源"),
         _num("steps", "采样步数", 12, min_=1, max_=50, hint="dmd 蒸馏 LoRA 低步数,默认 12"),
         _seed(),

@@ -16,8 +16,12 @@
     base_precision="bf16"、load_device="offload_device"、attention_mode="sdpa",
     块交换固定 25(冒烟 480×832/93 帧峰值 ~20GB,可与 GPU2 ASR/demucs 共存);
   · dmd 蒸馏 LoRA 低步数出片(steps 默认 12);cfg 默认 1.0(蒸馏链路);
-  · 长音频自动续段(ExtendEmbeds 多轮链式)冒烟脚本未覆盖,本期不做:num_frames
-    直接进 WhisperEmbeds/ExtendEmbeds,>93 帧未真机验证(见路由层 hint)。
+  · 长音频自动续段:num_frames > WINDOW_FRAMES(93)时按官方示例
+    LongCatAvatar_audio_image_to_video_example_01.json 的链式形态自动切多段——
+    第 N 段 ExtendEmbeds(prev_latents=上一段采样器输出,ref_latent=首帧 latents,
+    prev_images=上一段解码帧 + vae 走 v1.5 重编码 overlap,frames_processed 累计),
+    段间 ImageBatchExtendWithOverlap(overlap=13/new_images/cut)拼帧后进 VHS。
+    官方示例用 GetNode/SetNode(UI 虚拟连线,API JSON 下无效),此处等价改为直连。
 """
 from __future__ import annotations
 
@@ -43,6 +47,12 @@ DEFAULT_NEGATIVE = (
 )
 
 BLOCK_SWAP = 25  # 冒烟压测值(GPU2 峰值 ~20GB)
+
+# 续段开窗(官方示例 frames_per_window=93 / overlap=13):
+# 每段采样 WINDOW_FRAMES 帧,续段前 WINDOW_OVERLAP 帧为 warmup(用上一段真实
+# 解码帧重编码垫底),拼帧时切掉 → 每续一段净增 WINDOW_FRAMES - WINDOW_OVERLAP 帧
+WINDOW_FRAMES = 93
+WINDOW_OVERLAP = 13
 
 
 def _random_seed() -> int:
@@ -79,9 +89,48 @@ class LongCatAvatarParams:
     filename_prefix: str = "ToIV_avatar/talk"
 
 
-def build_longcat_avatar_graph(p: LongCatAvatarParams) -> dict:
-    """参数 → ComfyUI API 格式图(节点 id 与 longcat_avatar_smoke.py 一致,便于对照)。"""
+def plan_segments(total_frames: int) -> list[int]:
+    """总帧数 → 每段采样帧数列表(首段=窗口,仅末段可为残段)。
+
+    续段净增 WINDOW_FRAMES - WINDOW_OVERLAP 帧(warmup 帧拼帧时切掉),
+    故段数 N = 1 + ceil((total - WINDOW_FRAMES) / (WINDOW_FRAMES - WINDOW_OVERLAP))。
+    """
+    if total_frames <= WINDOW_FRAMES:
+        return [total_frames]
+    segs = [WINDOW_FRAMES]
+    remaining = total_frames - WINDOW_FRAMES
+    while remaining > 0:
+        w = min(WINDOW_FRAMES, remaining + WINDOW_OVERLAP)
+        if w < WINDOW_FRAMES:
+            # 残段向上取整到 4k+1 网格:采样器要求 (T-1) 可被 4 整除
+            # (model.py rearrange "b (n_t n) w s c", n=4),故实际产出
+            # 总帧数可能比 num_frames 多 1-3 帧
+            w = (w - 1 + 3) // 4 * 4 + 1
+        segs.append(w)
+        remaining -= w - WINDOW_OVERLAP
+    return segs
+
+
+def _extend_embeds_inputs(prev_latents: list, num_frames: int, overlap: int,
+                          frames_processed: int) -> dict:
+    """WanVideoLongCatAvatarExtendEmbeds 公共输入(首段与续段同参数族)。"""
     return {
+        "prev_latents": prev_latents, "audio_embeds": ["7", 0],
+        "num_frames": num_frames, "overlap": overlap,
+        "frames_processed": frames_processed,
+        "if_not_enough_audio": "pad_with_start",
+        "ref_frame_index": 10, "ref_mask_frame_range": 3}
+
+
+def build_longcat_avatar_graph(p: LongCatAvatarParams) -> dict:
+    """参数 → ComfyUI API 格式图。
+
+    单段(num_frames ≤ 93)节点 id 1-19 与 longcat_avatar_smoke.py 一致;
+    多段从 id 20 起每段 3 节点(ExtendEmbeds/Sampler/Decode),随后是
+    ImageBatchExtendWithOverlap 拼帧链,VHS(节点 19)改接拼帧链尾。
+    """
+    segs = plan_segments(p.num_frames)
+    graph: dict = {
         "1": {"class_type": "LoadImage", "inputs": {"image": p.image}},
         "2": {"class_type": "ImageResizeKJv2", "inputs": {
             "image": ["1", 0], "width": p.width, "height": p.height,
@@ -96,6 +145,8 @@ def build_longcat_avatar_graph(p: LongCatAvatarParams) -> dict:
         "6": {"class_type": "WhisperModelLoader", "inputs": {
             "model": p.whisper_name,
             "base_precision": "fp16", "load_device": "main_device"}},
+        # num_frames=总帧数:WhisperEmbeds 一次性编码整段音频,
+        # 各段 ExtendEmbeds 按 frames_processed 自行切片
         "7": {"class_type": "LongCatAvatarWhisperEmbeds", "inputs": {
             "whisper_model": ["6", 0], "audio_1": ["5", 0],
             "normalize_loudness": True, "num_frames": p.num_frames,
@@ -132,11 +183,9 @@ def build_longcat_avatar_graph(p: LongCatAvatarParams) -> dict:
             "tile_x": 272, "tile_y": 272, "tile_stride_x": 144,
             "tile_stride_y": 128,
             "noise_aug_strength": 0.0, "latent_strength": 1.0}},
-        "16": {"class_type": "WanVideoLongCatAvatarExtendEmbeds", "inputs": {
-            "prev_latents": ["15", 0], "audio_embeds": ["7", 0],
-            "num_frames": p.num_frames, "overlap": 1, "frames_processed": 0,
-            "if_not_enough_audio": "pad_with_start",
-            "ref_frame_index": 10, "ref_mask_frame_range": 3}},
+        # 首段:prev_latents=首帧编码,overlap=1/frames_processed=0(同冒烟脚本)
+        "16": {"class_type": "WanVideoLongCatAvatarExtendEmbeds", "inputs":
+               _extend_embeds_inputs(["15", 0], segs[0], 1, 0)},
         "17": {"class_type": "WanVideoSamplerv2", "inputs": {
             "model": ["10", 0], "image_embeds": ["16", 0],
             "text_embeds": ["12", 0], "scheduler": ["13", 0],
@@ -152,3 +201,43 @@ def build_longcat_avatar_graph(p: LongCatAvatarParams) -> dict:
             "save_metadata": True, "trim_to_audio": False,
             "pingpong": False, "save_output": True}},
     }
+    if len(segs) == 1:
+        return graph
+
+    prev_sampler, prev_decode = "17", "18"
+    for i in range(1, len(segs)):
+        eid = 20 + (i - 1) * 3
+        sid, did = str(eid + 1), str(eid + 2)
+        frames_processed = sum(segs[j] - WINDOW_OVERLAP for j in range(i)) + WINDOW_OVERLAP
+        graph[str(eid)] = {"class_type": "WanVideoLongCatAvatarExtendEmbeds",
+                           "inputs": {
+                               **_extend_embeds_inputs([prev_sampler, 0], segs[i],
+                                                       WINDOW_OVERLAP, frames_processed),
+                               # v1.5:上一段真实解码帧重编码做 overlap 垫底;
+                               # ref_latent=首帧 latents 保一致(官方示例同)
+                               "ref_latent": ["15", 0],
+                               "prev_images": [prev_decode, 0],
+                               "vae": ["14", 0]}}
+        graph[sid] = {"class_type": "WanVideoSamplerv2", "inputs": {
+            "model": ["10", 0], "image_embeds": [str(eid), 0],
+            "text_embeds": ["12", 0], "scheduler": ["13", 0],
+            "cfg": p.cfg, "seed": p.seed, "force_offload": True}}
+        graph[did] = {"class_type": "WanVideoDecode", "inputs": {
+            "vae": ["14", 0], "samples": [sid, 0], "enable_vae_tiling": False,
+            "tile_x": 272, "tile_y": 272, "tile_stride_x": 144,
+            "tile_stride_y": 128, "normalization": "default"}}
+        prev_sampler, prev_decode = sid, did
+
+    # 拼帧链:warmup(WINDOW_OVERLAP)帧切掉,new_images 侧重叠区取新段
+    # (官方示例 ImageBatchExtendWithOverlap 参数:new_images/cut)
+    source = ["18", 0]
+    for i in range(1, len(segs)):
+        xid = str(20 + (len(segs) - 1) * 3 + (i - 1))
+        graph[xid] = {"class_type": "ImageBatchExtendWithOverlap", "inputs": {
+            "source_images": source,
+            "new_images": [str(20 + (i - 1) * 3 + 2), 0],
+            "overlap": WINDOW_OVERLAP,
+            "overlap_side": "new_images", "overlap_mode": "cut"}}
+        source = [xid, 2]  # extended_images 输出槽
+    graph["19"]["inputs"]["images"] = source
+    return graph

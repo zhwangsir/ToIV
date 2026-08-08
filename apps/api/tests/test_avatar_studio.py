@@ -195,7 +195,7 @@ def test_builder_graph_structure_and_critical_inputs():
 def test_builder_injects_params():
     g = build_longcat_avatar_graph(LongCatAvatarParams(
         positive="讲解产品", negative="模糊", image="me.jpg", audio="take2.mp3",
-        width=832, height=480, num_frames=121, fps=30, steps=16,
+        width=832, height=480, num_frames=89, fps=30, steps=16,
         shift=8.0, cfg=1.5, dmd_lora_strength=0.8, seed=7,
     ))
     assert g["1"]["inputs"]["image"] == "me.jpg"
@@ -203,9 +203,9 @@ def test_builder_injects_params():
     assert g["2"]["inputs"]["width"] == 832 and g["2"]["inputs"]["height"] == 480
     assert g["12"]["inputs"]["positive_prompt"] == "讲解产品"
     assert g["12"]["inputs"]["negative_prompt"] == "模糊"
-    # 帧数同时进 WhisperEmbeds 与 ExtendEmbeds
-    assert g["7"]["inputs"]["num_frames"] == 121
-    assert g["16"]["inputs"]["num_frames"] == 121
+    # 单段(≤93 帧窗口):帧数同时进 WhisperEmbeds 与 ExtendEmbeds
+    assert g["7"]["inputs"]["num_frames"] == 89
+    assert g["16"]["inputs"]["num_frames"] == 89
     assert g["7"]["inputs"]["fps"] == 30.0
     assert g["19"]["inputs"]["frame_rate"] == 30
     assert g["13"]["inputs"]["steps"] == 16
@@ -253,6 +253,147 @@ def test_builder_default_seed_random():
 
 
 # --------------------------------------------------------------------------- #
+# 长音频自动续段(num_frames > 93:官方示例链式 ExtendEmbeds 多段)
+# --------------------------------------------------------------------------- #
+
+
+def _extend_ids(g: dict) -> list[str]:
+    return sorted(
+        (nid for nid, n in g.items()
+         if n["class_type"] == "WanVideoLongCatAvatarExtendEmbeds"),
+        key=int)
+
+
+def test_segments_single_window_boundary_unchanged():
+    """93 帧(刚好一段):不出续段节点,图与单段冒烟形态一致。"""
+    g = build_longcat_avatar_graph(LongCatAvatarParams(
+        positive="x", image="f.png", audio="a.wav", num_frames=93, seed=1,
+    ))
+    assert _extend_ids(g) == ["16"]
+    assert "20" not in g
+    assert g["16"]["inputs"]["num_frames"] == 93
+    assert g["16"]["inputs"]["frames_processed"] == 0
+    assert g["16"]["inputs"]["overlap"] == 1
+    assert "ref_latent" not in g["16"]["inputs"]  # 首段不带 ref_latent(同冒烟)
+    assert g["19"]["inputs"]["images"] == ["18", 0]
+
+
+def test_segments_two_windows_structure():
+    """173 帧=93+80(两段):第二段 ExtendEmbeds 接上一段 latents/解码帧,
+    frames_processed=93,拼帧后进 VHS。"""
+    g = build_longcat_avatar_graph(LongCatAvatarParams(
+        positive="x", image="f.png", audio="a.wav", num_frames=173, seed=1,
+    ))
+    assert _extend_ids(g) == ["16", "20"]
+    # WhisperEmbeds 一次性编码整段音频(总帧数),各段自行切片
+    assert g["7"]["inputs"]["num_frames"] == 173
+    # 首段仍是窗口帧数
+    assert g["16"]["inputs"]["num_frames"] == 93
+    # 第二段:prev_latents=上一段采样器输出,prev_images=上一段解码帧(v1.5 重编码),
+    # ref_latent=首帧 latents,frames_processed 累计 93,overlap=13(官方示例值)
+    e2 = g["20"]["inputs"]
+    assert g["20"]["class_type"] == "WanVideoLongCatAvatarExtendEmbeds"
+    assert e2["prev_latents"] == ["17", 0]
+    assert e2["audio_embeds"] == ["7", 0]
+    assert e2["num_frames"] == 93
+    assert e2["overlap"] == 13
+    assert e2["frames_processed"] == 93
+    assert e2["if_not_enough_audio"] == "pad_with_start"
+    assert e2["ref_latent"] == ["15", 0]
+    assert e2["prev_images"] == ["18", 0]
+    assert e2["vae"] == ["14", 0]
+    # 第二段采样/解码
+    assert g["21"]["class_type"] == "WanVideoSamplerv2"
+    assert g["21"]["inputs"]["image_embeds"] == ["20", 0]
+    assert g["21"]["inputs"]["model"] == ["10", 0]
+    assert g["22"]["class_type"] == "WanVideoDecode"
+    assert g["22"]["inputs"]["samples"] == ["21", 0]
+    # 拼帧:warmup 13 帧切掉(new_images/cut,官方示例参数),VHS 改接拼帧链
+    assert g["23"]["class_type"] == "ImageBatchExtendWithOverlap"
+    assert g["23"]["inputs"]["source_images"] == ["18", 0]
+    assert g["23"]["inputs"]["new_images"] == ["22", 0]
+    assert g["23"]["inputs"]["overlap"] == 13
+    assert g["23"]["inputs"]["overlap_side"] == "new_images"
+    assert g["23"]["inputs"]["overlap_mode"] == "cut"
+    assert g["19"]["inputs"]["images"] == ["23", 2]
+
+
+def test_segments_three_windows_cumulative_frames_processed():
+    """186 帧=93+80+16(三段,末段残段取整 4k+1 网格到 29 帧):
+    frames_processed 累计 0/93/173。"""
+    g = build_longcat_avatar_graph(LongCatAvatarParams(
+        positive="x", image="f.png", audio="a.wav", num_frames=186, seed=1,
+    ))
+    assert _extend_ids(g) == ["16", "20", "23"]
+    assert g["16"]["inputs"]["frames_processed"] == 0
+    assert g["20"]["inputs"]["frames_processed"] == 93
+    assert g["23"]["inputs"]["frames_processed"] == 173
+    assert g["23"]["inputs"]["num_frames"] == 29  # 残段 26 → 4k+1 网格 29
+    assert (g["23"]["inputs"]["num_frames"] - 1) % 4 == 0
+    assert g["23"]["inputs"]["prev_latents"] == ["21", 0]
+    assert g["23"]["inputs"]["prev_images"] == ["22", 0]
+    # 两段拼帧链:seg1+seg2 → +seg3,VHS 接链尾
+    assert g["26"]["inputs"]["source_images"] == ["18", 0]
+    assert g["26"]["inputs"]["new_images"] == ["22", 0]
+    assert g["27"]["inputs"]["source_images"] == ["26", 2]
+    assert g["27"]["inputs"]["new_images"] == ["25", 0]
+    assert g["19"]["inputs"]["images"] == ["27", 2]
+
+
+def test_segments_boundary_just_over_one_window():
+    """94 帧(两段零一帧):残段 14 帧向上取整 4k+1 网格到 17 帧(净增 4)。"""
+    g = build_longcat_avatar_graph(LongCatAvatarParams(
+        positive="x", image="f.png", audio="a.wav", num_frames=94, seed=1,
+    ))
+    assert _extend_ids(g) == ["16", "20"]
+    assert g["20"]["inputs"]["num_frames"] == 17
+    assert (g["20"]["inputs"]["num_frames"] - 1) % 4 == 0
+    assert g["20"]["inputs"]["frames_processed"] == 93
+
+
+def test_segments_multi_seed_propagates_to_all_samplers():
+    """多段所有采样器共用同一 seed(官方示例 seed fixed)与 cfg。"""
+    g = build_longcat_avatar_graph(LongCatAvatarParams(
+        positive="x", image="f.png", audio="a.wav", num_frames=300, seed=7, cfg=1.5,
+    ))
+    samplers = [n for n in g.values() if n["class_type"] == "WanVideoSamplerv2"]
+    assert len(samplers) == len(_extend_ids(g))
+    for s in samplers:
+        assert s["inputs"]["seed"] == 7
+        assert s["inputs"]["cfg"] == 1.5
+
+
+def test_talk_ok_multi_segment_submit(client, monkeypatch):
+    """端点提交 173 帧:图内含两段 ExtendEmbeds,Job 正常落库。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "avmulti")
+    fake = _FakeLongCatClient()
+    _install_longcat(monkeypatch, fake)
+    r = _post(c, uid, num_frames=173)
+    assert r.status_code == 200, r.text
+    graph = fake.graphs[0]
+    extends = [n for n in graph.values()
+               if n["class_type"] == "WanVideoLongCatAvatarExtendEmbeds"]
+    assert len(extends) == 2
+    assert graph["19"]["inputs"]["images"] == ["23", 2]
+
+
+def test_talk_accepts_max_frames(client, monkeypatch):
+    """num_frames=2500(新上限):通过校验并提交(32 段)。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "avmax")
+    fake = _FakeLongCatClient()
+    _install_longcat(monkeypatch, fake)
+    r = _post(c, uid, num_frames=2500)
+    assert r.status_code == 200, r.text
+    extends = [n for n in fake.graphs[0].values()
+               if n["class_type"] == "WanVideoLongCatAvatarExtendEmbeds"]
+    assert len(extends) == 32  # 1 + ceil((2500-93)/80)
+
+
+# --------------------------------------------------------------------------- #
 # 请求校验(422 / 对齐取整 / 路径穿越)
 # --------------------------------------------------------------------------- #
 
@@ -268,7 +409,7 @@ def _post(c, uid, **over):
     )
 
 
-@pytest.mark.parametrize("num_frames", [16, 962, 0])
+@pytest.mark.parametrize("num_frames", [16, 2501, 0])
 def test_talk_rejects_out_of_range_frames(client, num_frames):
     c, engine = client
     with Session(engine) as s:
