@@ -660,7 +660,7 @@ def test_nsfw_recommendations_include_h3_loras(client):
         "Daring's Deepthroat H3": ("2476698", "deepthroat_v1.safetensors"),
         "H3 Vagina": ("2835594", "minimax_vag_000002500.safetensors"),
         "SexGod's NaughtyTimes H3": ("2836176", "SexGod-NaughtyTimes-lora-MINIMAXH3.safetensors"),
-        "Minimax H3 lightx2v Turbo(加速)": ("2837571", "minimax_h3_fl2v_lightx2v_turbo_4step_v0.1_comfy_resized_avg_rank_21_bf16.safetensors"),
+        "Minimax H3 lightx2v Turbo(加速)": ("2837571", "minimax_h3_fl2v_lightx2v_turbo_4step_v0.1_comfy.safetensors"),
     }
     for name, (civitai_id, filename) in expected.items():
         it = by_name[name]

@@ -4,6 +4,49 @@
 
 ---
 
+## H3ECO-2026-08-08 · Civitai key 接入 + H3 LoRA 生态扩充 + 下载器全链路贯通
+
+**时间**: 2026-08-08 19:10
+**类型**: feat(h3) / ops / e2e
+**目标**: Civitai API key 上线、H3 LoRA 生态扩充(7 个可用)、core NAS 下载器端到端打通。commit d12518b(生态扩充)+ 待提交(desc 修正)
+
+### 关键事实
+
+- **Civitai key 已配 core**:`TOIV_CIVITAI_API_KEY` 写入 core `/home/merlin/toiv/deploy/.env`(gitignored,deploy.sh 不同步);civitai.red 下载链 307 → b2 CDN 签名 URL,匿名 401 带 key 正常
+- **core NAS 已配**:`TOIV_NAS_HOST=192.168.71.7` + `TOIV_NAS_PASSWORD`(AGENTS.md 凭据);⚠️ 坑:deploy/.env 里有 `# TOIV_NAS_HOST=` **注释占位**,`grep -q` 会误匹配注释行导致跳过追加,必须 `grep -q "^TOIV_NAS_HOST="` 锚定行首
+- **h3_lora 落盘**:nas.py `_TYPE_SUBDIR["h3_lora"]="../../../../toiv/comfyui-models/h3/loras"` —— 相对路径让 cifs 挂载(/data/nas)与 SFTP(nas_model_root=/NAS/...)两种方式都解析到 NAS `toiv/comfyui-models/h3/loras/`;`_ensure_dir` 逐级 stat 对 `..` 组件兼容
+- **下载速度对比**:workstation 直连 civitai.red CDN 极慢(0.12GB 卡 30min+),core 走 SFTP 回退路线快(1.82GB ~3min)——大文件一律走 core `POST /api/nas/download`
+
+### H3 LoRA 生态(civitai 按下载量调研,base 均 MiniMax H3)
+
+| 文件 | 来源 | 大小 | 门控 | 状态 |
+|---|---|---|---|---|
+| riding_pose_H3_i2v_v1.0(2446218,17.8k 下载) | NAS ✓ | 0.19GB | R18 | 可用 |
+| deepthroat_v1(2476698,20.4k) | NAS ✓ | 1.11GB | R18 | 可用 |
+| minimax_vag_000002500(2835594 v0.2,5.2k) | NAS ✓ | 0.14GB | R18 | 可用 |
+| SexGod-NaughtyTimes-lora(2836176,6.8k) | NAS ✓ | 2.31GB | R18 | 可用 |
+| minimax_h3_fl2v_lightx2v_turbo_4step(2837571,5k) | NAS ✓ | 1.82GB | 主站 | 可用 |
+| minimax_h3_turbo_v4_step600_ema(_pruned) ×2 | 既有 | 0.78/0.62GB | 主站 | 可用 |
+| H3_footjob(2839680)/cxy_kiss(2842199)/h3_musubi innie(2841940) | core 下载中 | 0.12-0.58GB | R18/R18(kiss 主站) | 队列 |
+
+### core 真机验证
+
+| 项 | 结果 |
+|---|---|
+| core 下载器 e2e(civitai→token→SFTP→NAS `..` 路径) | ✅ lightx2v 1.82GB ~3min 落盘,remote 路径正确 |
+| :8195 LoraLoaderModelOnly 枚举 | ✅ 7 个 LoRA 实时可见(无需重启,folder_paths 热扫描) |
+| H3 + LoRA 真实生成(vagina 0.6,768×448×56帧 steps8,R18) | ✅ done,产物 768×448×56 帧 2.33s **含音轨**,Job nsfw=True 主站隐藏,代理下载 200 |
+| H3 参数校验 | ✅ 宽高 32 对齐 + length 17k+5 帧网格(49 被拒,56 通过),错误信息明确 |
+| 单测 | ✅ 1118 passed(2 个 redis 基线预置失败不变) |
+
+### 遗留
+
+- 其余 3 个 LoRA(footjob/kiss/innie)core 下载队列收尾中
+- 4 个新 NSFW LoRA 的生成验证只跑了 vagina 一个,其余待用户真机测试
+- NaughtyTimes 2.31GB 大 rank LoRA 显存影响未测(H3 已占 ~62GB)
+
+---
+
 ## H3LORA-2026-08-08 · H3 LoRA 支持 + 4 个 NSFW LoRA 模型市场接入
 
 **时间**: 2026-08-08 18:30

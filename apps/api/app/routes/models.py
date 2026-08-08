@@ -502,9 +502,9 @@ NSFW_RECOMMENDATIONS: list[dict] = [
         "base": "MiniMax H3",
         "size": "0.29GB",
         "civitai_url": "https://civitai.red/models/2837571",
-        # lightx2v_4step_turbo_v0.1 的 resized rank21 bf16 小体积版
+        # lightx2v_4step_turbo_v0.1(primary 为 1.82GB 全量版,另有 resized rank21 小体积版可选)
         "version_id": "3206543",
-        "desc": "SFW 加速 LoRA(4 步出片,5k 下载),文件名 minimax_h3_fl2v_lightx2v_turbo_4step_v0.1_comfy_resized_avg_rank_21_bf16.safetensors;"
+        "desc": "SFW 加速 LoRA(4 步出片,5k 下载),文件名 minimax_h3_fl2v_lightx2v_turbo_4step_v0.1_comfy.safetensors;"
         "配合低步数使用;需安装",
         "category": "h3",
     },
