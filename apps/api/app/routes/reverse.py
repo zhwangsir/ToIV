@@ -33,6 +33,31 @@ logger = logging.getLogger(__name__)
 _VLM_TIMEOUT = httpx.Timeout(300.0, connect=10.0)
 _SENSEVOICE_TIMEOUT = httpx.Timeout(120.0, connect=10.0)
 
+# vLLM served-model-name 是模型目录绝对路径(随部署变化),不写死:
+# 首次请求时从 /models 自动探测并缓存;探测失败 → 502 而不是 404。
+_model_id_cache: str | None = None
+
+
+async def _resolve_model_id() -> str:
+    global _model_id_cache
+    if _model_id_cache:
+        return _model_id_cache
+    s = get_settings()
+    endpoint = f"{s.reverse_vlm_base_url.rstrip('/')}/models"
+    try:
+        async with httpx.AsyncClient(timeout=15.0, trust_env=False) as client:
+            resp = await client.get(endpoint)
+    except httpx.HTTPError as e:
+        raise HTTPException(status_code=502, detail=f"VLM 反推服务不可达:{e}") from e
+    if resp.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"VLM 反推服务返回 {resp.status_code},请重试")
+    try:
+        model_id = resp.json()["data"][0]["id"]
+    except (ValueError, KeyError, IndexError, TypeError) as e:
+        raise HTTPException(status_code=502, detail="VLM 服务模型列表为空") from e
+    _model_id_cache = model_id
+    return model_id
+
 _EXT_KIND = {
     ".png": "image", ".jpg": "image", ".jpeg": "image", ".webp": "image",
     ".gif": "image", ".bmp": "image",
@@ -104,7 +129,7 @@ async def _chat_completion(system: str, part: dict) -> str:
     s = get_settings()
     endpoint = f"{s.reverse_vlm_base_url.rstrip('/')}/chat/completions"
     payload = {
-        "model": "qwen3-vl",
+        "model": await _resolve_model_id(),
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": [part]},
