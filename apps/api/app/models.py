@@ -390,6 +390,10 @@ class StudioProject(SQLModel, table=True):
     style: str = ""  # 整体画风/风格描述
     ckpt_name: str = ""  # 出图底模(图像运镜链用,保跨镜风格一致)
     render_mode_default: str = "video"  # 新分镜默认生成方式: video | image_motion
+    # 产出规格:视频链/图像运镜链共用(合成同规格拼接的前提);8 对齐,LTX 预设 32 对齐
+    width: int = 768
+    height: int = 384
+    fps: int = 16
     status: str = "draft"  # draft | storyboard | generating | ready | error
     final_url: str = ""  # 成片 URL
     error: str = ""

@@ -73,13 +73,15 @@ export function FusionView({ onNavigate }: { onNavigate: (target: string) => voi
 
   return (
     <div className="fusion-view">
-      {/* ── 头部 ── */}
-      <header className="fusion-header">
+      {/* ── 头部(统一 .page-header 体系)── */}
+      <header className="page-header fusion-header">
         <div className="fusion-header-main">
-          <h1 className="fusion-title">融合应用</h1>
-          <p className="fusion-subtitle">多能力组合的创作入口</p>
+          <h1 className="page-header-title">融合应用</h1>
+          <p className="page-header-desc">
+            多能力组合的创作入口:剧本、数字人、译制、图片与视频,一站式完成
+          </p>
         </div>
-        <div className="fusion-header-meta">
+        <div className="page-header-actions">
           <span className="fusion-count">{FUSION_APPS.length} 个应用</span>
         </div>
       </header>
@@ -94,13 +96,14 @@ export function FusionView({ onNavigate }: { onNavigate: (target: string) => voi
             style={{ "--delay": `${idx * 60}ms` } as React.CSSProperties}
             onClick={() => onNavigate(app.target)}
           >
-            {/* 图标 + 名称 + 进入箭头 */}
+            {/* 图标 + 名称 + 旗舰徽标 + 进入箭头 */}
             <div className="fusion-card-head">
               <div className="fusion-card-icon-wrap">
-                <Icon name={app.icon} size={app.flagship ? 26 : 22} />
+                <Icon name={app.icon} size={app.flagship ? 30 : 24} />
               </div>
               <div className="fusion-card-title-group">
                 <h2 className="fusion-card-name">{app.name}</h2>
+                {app.flagship && <span className="fusion-card-badge">旗舰</span>}
                 <div className="fusion-card-arrow" aria-hidden="true">
                   <Icon name="chevron-right" size={16} />
                 </div>

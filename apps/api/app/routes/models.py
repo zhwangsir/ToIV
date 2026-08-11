@@ -67,6 +67,10 @@ _NON_IMAGE_CKPT_HINTS = (
     "ace_step",     # ACE-Step 音频
     "mmaudio",      # MMAudio 音频
     "hunyuan3d",    # Hunyuan3D 三维
+    # LTX 视频底模:LTXVGemmaCLIPModelLoader 的 ltxv_path 只枚举 checkpoints 目录,
+    # 故视频 DiT 必须落 checkpoints/,但不筛掉会混进图像底模下拉(选中即报错)。
+    "ltx-",         # LTX-2.3 视频 DiT(t2v/i2v/lipdub)
+    "10eros",       # 10Eros LTX 系 NSFW 视频 UNET(经 UNETLoader 加载,非图像底模)
 )
 
 
@@ -84,8 +88,12 @@ def _nextgen_image_models(unet_names: list[str]) -> list[str]:
 
     这些底模不走 CheckpointLoaderSimple,故不在 all_ckpts 里;并入图像可选模型。
     视频 Wan 的 UNET 不是次世代出图族,is_nextgen 判否,自然排除。
+    组件分片(Qwen-Image/text_encoder|transformer|vae 等 HF 目录件)也须剔除——
+    它们因子串命中 is_nextgen 混入下拉,选中即报错(engine_registry._is_component_shard 同源)。
     """
-    return [n for n in unet_names if is_nextgen(n)]
+    from app.services.engine_registry import _is_component_shard
+
+    return [n for n in unet_names if is_nextgen(n) and not _is_component_shard(n)]
 
 
 def _video_models() -> list[str]:
@@ -506,6 +514,65 @@ NSFW_RECOMMENDATIONS: list[dict] = [
         "version_id": "3206543",
         "desc": "SFW 加速 LoRA(4 步出片,5k 下载),文件名 minimax_h3_fl2v_lightx2v_turbo_4step_v0.1_comfy.safetensors;"
         "配合低步数使用;需安装",
+        "category": "h3",
+    },
+    # ── 生态扩充(2026-08-10,civitai tag 调研:MiniMax H3 底 LoRA 全生态仅 ~17 个)──
+    {
+        "name": "HMNSFW AIO Sex LoRA",
+        "type": "lora",
+        "base": "MiniMax H3",
+        "size": "0.29GB",
+        "civitai_url": "https://civitai.red/models/2834417",
+        "version_id": "3206518",
+        "desc": "AIO 综合 NSFW 动作 LoRA(H3 生态下载量第一 1.9w),文件名 HMNSFW_AIO_V2.safetensors;"
+        "I2V/T2V 通用;推荐强度 0.5-0.8;需安装",
+        "category": "h3",
+    },
+    {
+        "name": "AI Girl: Fictional Women Series30 H3",
+        "type": "lora",
+        "base": "MiniMax H3",
+        "size": "0.28GB",
+        "civitai_url": "https://civitai.red/models/2845077",
+        "version_id": "3212165",
+        "desc": "架空女性角色系列 LoRA(作者标 SFW),文件名 AI_Girl_Fictional_Women_Series30_H3.safetensors;"
+        "角色一致性增强;需安装",
+        "category": "h3",
+    },
+    {
+        "name": "MiniMAX H3 Turbo 850 步加速(合并剪枝版)",
+        "type": "lora",
+        "base": "MiniMax H3",
+        "size": "1.32GB",
+        "civitai_url": "https://civitai.red/models/2838852",
+        "version_id": "3204289",
+        "desc": "加速 LoRA(850 步 ema 剪枝版,适配 pruned 底模合并),文件名 minimax_h3_turbo_4step_ema_ckpt850_pruned_comfyui.safetensors;"
+        "配合低步数使用;需安装",
+        "category": "h3",
+    },
+    # ── 生态扩充(2026-08-11,按创作者作品集调研 HearmemanAI/blo01 新增)──
+    {
+        "name": "HMPussy (Pussy/Anus) H3",
+        "type": "lora",
+        "base": "MiniMax H3",
+        "size": "0.29GB",
+        "civitai_url": "https://civitai.red/models/2846342",
+        # v0.5 stills+motion;另有 v0.1 (ver=3213728, 597MB) 旧版
+        "version_id": "3215304",
+        "desc": "局部特写增强 LoRA(HearmemanAI,H3 生态下载量第二梯队),文件名 vagassist_e40.safetensors;"
+        "推荐强度 0.5-0.8;需安装",
+        "category": "h3",
+    },
+    {
+        "name": "Stomach Bulge H3 (I2V)",
+        "type": "lora",
+        "base": "MiniMax H3",
+        "size": "0.19GB",
+        "civitai_url": "https://civitai.red/models/1445226",
+        # 多 base 模型,必须锚定 H3 版本(其他版本是 LTXV2.3/Wan)
+        "version_id": "3213696",
+        "desc": "腹部隆起动作 LoRA(blo01,全 base 累计 3.6w 下载),文件名 stomach_bulge_H3_i2v_v1.0.safetensors;"
+        "I2V 专用;推荐强度 0.5-0.8;需安装",
         "category": "h3",
     },
 ]

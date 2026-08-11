@@ -59,10 +59,14 @@ class VideoRenderer:
         prompt = f"{cast_tokens}, {shot.prompt}" if cast_tokens else shot.prompt
         gen = get_generator(kw.get("video_model") or "ltx", pool)
         try:
+            # 项目级产出规格(缺省回落 LTX 常用 768×384@16)
             result = await gen.generate(
                 prompt,
                 negative=shot.negative,
+                width=int(kw.get("width") or 768),
+                height=int(kw.get("height") or 384),
                 duration_sec=shot.duration_sec,
+                fps=int(kw.get("fps") or 16),
             )
         except Exception as e:
             raise RenderError(f"视频生成失败:{e}") from e

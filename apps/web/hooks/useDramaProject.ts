@@ -21,7 +21,6 @@ import {
   dramaGetSceneLayout,
   dramaUpdateSceneLayout,
   dramaGenerateVideoV2,
-  AVAILABLE_VIDEO_GENERATORS,
   pickDramaShotCandidate,
   deleteDramaShotCandidate,
   applyDramaAssetToProject,
@@ -361,11 +360,9 @@ export function useDramaProject(
     setVideoModelLoading(true);
     dramaListVideoGenerators()
       .then((res) => {
-        // M2.2:按前端白名单附加 available 字段,stub 模型(seedance/kling)标记为不可用
-        const list = (res.generators ?? []).map((g) => ({
-          ...g,
-          available: AVAILABLE_VIDEO_GENERATORS.has(g.name),
-        }));
+        // QA-FULL-2026-08-11 P3:available/reason 由后端统一下发(与 /api/models/engines
+        // 同源),前端不再叠加白名单,避免两处引擎状态显示不一致。
+        const list = res.generators ?? [];
         setVideoGenerators(list);
         if (list.length > 0) {
           const hasLtx = list.some((g) => g.name === "ltx");

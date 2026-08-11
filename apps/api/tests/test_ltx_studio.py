@@ -119,7 +119,7 @@ def _install_pool(pool: _FakePool) -> None:
 
 def _ltx_models(*extra: str) -> set[str]:
     """一套完整的 LTX 依赖模型集合(供 fake worker 持有)。"""
-    return {"ltx-2.3-distilled.safetensors", _GEMMA, _VAE, *extra}
+    return {"ltx-2.3-22b-distilled-1.1.safetensors", _GEMMA, _VAE, *extra}
 
 
 # --------------------------------------------------------------------------- #
@@ -134,7 +134,7 @@ def test_models_endpoint_marks_availability(client):
         uid = _seed_user(s, "ltx2models")
     fake = _FakeClient(
         {
-            "ltx-2.3-distilled.safetensors",
+            "ltx-2.3-22b-distilled-1.1.safetensors",
             "ltx2.3/camera_pan.safetensors",
             "ltx2.3/style_glow.safetensors",
             "other_dir/not_listed.safetensors",
@@ -147,13 +147,12 @@ def test_models_endpoint_marks_availability(client):
 
     unets = {u["name"]: u for u in body["unets"]}
     assert set(unets) == {
-        "ltx-2.3-distilled.safetensors",
         "ltx-2.3-22b-distilled-1.1.safetensors",
         "ltx-2.3-22b-dev.safetensors",
         "10eros_v14.safetensors",
     }
-    assert unets["ltx-2.3-distilled.safetensors"]["available"] is True
-    assert unets["ltx-2.3-distilled.safetensors"]["nsfw"] is False
+    assert unets["ltx-2.3-22b-distilled-1.1.safetensors"]["available"] is True
+    assert unets["ltx-2.3-22b-distilled-1.1.safetensors"]["nsfw"] is False
     assert unets["10eros_v14.safetensors"]["available"] is False
     assert unets["10eros_v14.safetensors"]["nsfw"] is True
 
@@ -315,7 +314,7 @@ def test_t2v_loras_injected_into_graph(client, monkeypatch):
 
     # pool.pick required 含 unet + gemma + vae + 各 LoRA;required_nodes 含 LoraLoader
     assert pool.last_required == {
-        "ltx-2.3-distilled.safetensors",
+        "ltx-2.3-22b-distilled-1.1.safetensors",
         _GEMMA,
         _VAE,
         "ltx2.3/cam.safetensors",

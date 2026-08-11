@@ -44,7 +44,7 @@ export function Tabs({ items, current, onChange, fill = false, ariaLabel }: Tabs
           display: inline-flex;
           align-items: center;
           gap: 2px;
-          padding: 3px;
+          padding: var(--space-1);
           background: var(--bg-surface-1);
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-control);
@@ -83,6 +83,12 @@ export function Tabs({ items, current, onChange, fill = false, ariaLabel }: Tabs
         .ui-tab:disabled {
           opacity: 0.4;
           cursor: not-allowed;
+        }
+        /* 移动端触控目标 ≥44px(桌面端保持 28px 高不变) */
+        @media (max-width: 767px) {
+          .ui-tab {
+            min-height: 44px;
+          }
         }
       `}</style>
     </div>

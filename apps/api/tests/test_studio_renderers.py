@@ -65,7 +65,7 @@ async def test_image_motion_render_mocked(monkeypatch):
         async def pick(self, required=(), required_nodes=()):
             return FakeClient()
 
-    async def fake_kenburns(self, image_path, motion, out_path, duration_sec, fps):
+    async def fake_kenburns(self, image_path, motion, out_path, duration_sec, fps, width=768, height=432):
         out_path.write_bytes(b"fake-mp4")
         return out_path
 
@@ -201,3 +201,80 @@ async def test_video_render_fire_and_forget_waits(monkeypatch):
     assert r.kind == "video"
     assert r.url.startswith("/api/images?")  # 代理 URL(tracker.image_url 格式)
     assert "out.mp4" in r.url
+
+
+# ── 项目级产出规格(分辨率/帧率)贯通 ──────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_video_render_forwards_project_spec(monkeypatch):
+    """项目 width/height/fps 经 kw 透传到视频生成器(缺省回落 768×384@16)。"""
+    from app.services.video_generators import VideoGenResult
+
+    seen: dict[str, object] = {}
+
+    class FakeGen:
+        async def generate(self, prompt, **kwargs):
+            seen.update(kwargs)
+            return VideoGenResult(success=True, video_url="/api/video/x.mp4", job_id="j1")
+
+    monkeypatch.setattr(video_mod, "get_generator", lambda name, pool: FakeGen())
+    shot = StudioShot(project_id="p", idx=0, render_mode="video", prompt="x", duration_sec=6)
+    r = await video_mod.VideoRenderer().render(
+        shot, [], pool=None, width=1280, height=720, fps=24
+    )
+    assert r.kind == "video"
+    assert seen["width"] == 1280 and seen["height"] == 720
+    assert seen["fps"] == 24 and seen["duration_sec"] == 6
+
+    seen.clear()
+    await video_mod.VideoRenderer().render(shot, [], pool=None)
+    assert seen["width"] == 768 and seen["height"] == 384 and seen["fps"] == 16
+
+
+@pytest.mark.asyncio
+async def test_image_motion_render_project_spec(monkeypatch):
+    """项目 width/height/fps 注入 txt2img 构图与 Ken Burns 运镜(缺省回落模块常量)。"""
+    captured: dict[str, object] = {}
+
+    class FakeClient:
+        base_url = "http://fake:8188"
+
+        async def queue_prompt(self, graph, client_id):
+            captured["graph"] = graph
+            return "pid-1"
+
+        async def get_images(self, prompt_id):
+            return [{"filename": "shot.png", "subfolder": "", "type": "output"}]
+
+        async def get_image_bytes(self, filename, subfolder, type_):
+            return b"\x89PNG-fake", "image/png"
+
+    class FakePool:
+        async def pick(self, required=(), required_nodes=()):
+            return FakeClient()
+
+    async def fake_kenburns(self, image_path, motion, out_path, duration_sec, fps, width, height):
+        captured["kenburns"] = (width, height, fps)
+        out_path.write_bytes(b"fake-mp4")
+        return out_path
+
+    monkeypatch.setattr(image_motion.ImageMotionRenderer, "_run_kenburns", fake_kenburns)
+    monkeypatch.setattr(image_motion, "_save_output", lambda data, ext: f"/api/studio/files/a{ext}")
+
+    shot = StudioShot(
+        project_id="p", idx=0, render_mode="image_motion",
+        prompt="1girl, rooftop", duration_sec=3, camera="zoom_in",
+    )
+    await image_motion.ImageMotionRenderer().render(
+        shot, [], FakePool(), width=720, height=1280, fps=24
+    )
+    # txt2img 潜空间节点(width/height 在 EmptyLatentImage 类节点上)
+    graph = captured["graph"]
+    dims = {
+        (n["inputs"].get("width"), n["inputs"].get("height"))
+        for n in graph.values()
+        if isinstance(n, dict) and "width" in n.get("inputs", {})
+    }
+    assert (720, 1280) in dims
+    assert captured["kenburns"] == (720, 1280, 24)

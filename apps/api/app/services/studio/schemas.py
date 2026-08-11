@@ -37,6 +37,11 @@ class ProjectCreate(BaseModel):
     style: str = Field(default="", max_length=2000)
     ckpt_name: str = Field(default="", max_length=512)
     render_mode_default: str = Field(default="video", pattern="^(video|image_motion)$")
+    # 产出规格:视频/图像运镜两链共用;8 对齐(前端预设均为 32 对齐,LTX 兼容)
+    # 宽高上限对称 1920:竖屏短剧(如 720×1280)需要 height > 1080
+    width: int = Field(default=768, ge=256, le=1920, multiple_of=8)
+    height: int = Field(default=384, ge=256, le=1920, multiple_of=8)
+    fps: int = Field(default=16, ge=4, le=30)
 
 
 class ProjectPatch(BaseModel):
@@ -46,6 +51,9 @@ class ProjectPatch(BaseModel):
     ckpt_name: str | None = Field(default=None, max_length=512)
     render_mode_default: str | None = Field(default=None, pattern="^(video|image_motion)$")
     status: str | None = Field(default=None, max_length=32)
+    width: int | None = Field(default=None, ge=256, le=1920, multiple_of=8)
+    height: int | None = Field(default=None, ge=256, le=1920, multiple_of=8)
+    fps: int | None = Field(default=None, ge=4, le=30)
 
 
 class CharacterCreate(BaseModel):

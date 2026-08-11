@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.dgmt.toiv-whisper-cpp</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/dgmt-studio02/toiv-whisper-cpp/start.sh</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/dgmt-studio02/toiv-whisper-cpp</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+        <key>Crashed</key>
+        <true/>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>/Users/dgmt-studio02/toiv-whisper-cpp/logs/whisper-server.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/dgmt-studio02/toiv-whisper-cpp/logs/whisper-server.err.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+</dict>
+</plist>

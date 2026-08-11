@@ -57,9 +57,9 @@ test.describe("Studio 创作工作室入口", () => {
 
     // 项目列表首页容器
     await expect(page.locator(".studio-home"), "studio 首页容器应渲染").toBeVisible();
-    await expect(page.locator(".studio-home-title"), "应显示创作工作室标题").toContainText("创作工作室");
+    await expect(page.locator(".studio-home .page-header-title"), "应显示创作工作室标题").toContainText("创作工作室");
     await expect(
-      page.locator(".studio-home-head .btn-primary"),
+      page.locator(".studio-home header.page-header .btn-primary"),
       "新建项目按钮应可见",
     ).toBeVisible();
 
@@ -92,7 +92,7 @@ test.describe("Studio 创作工作室入口", () => {
     await page.waitForLoadState("networkidle");
 
     // 新建项目(默认标题「未命名项目」)→ 直接进入工作台
-    await page.locator(".studio-home-head .btn-primary").click();
+    await page.locator(".studio-home header.page-header .btn-primary").click();
     await expect(page.locator(".studio-view"), "新建后应进入工作台").toBeVisible({ timeout: 15000 });
 
     // 阶段导航:剧本/角色/分镜/合成 四个 tab

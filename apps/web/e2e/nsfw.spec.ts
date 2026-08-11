@@ -59,7 +59,7 @@ test.describe("NSFW 专区", () => {
     } catch {
       // dev 模式 networkidle 可能超时,不强制中断
     }
-    const banner = page.locator(".nsfw-banner");
+    const banner = page.locator(".nsfw-header");
     try {
       await expect(banner).toBeVisible({ timeout: 10000 });
     } catch {
@@ -89,7 +89,7 @@ test.describe("NSFW 专区", () => {
       await gotoNsfw(page);
 
       // banner 可见
-      await expect(page.locator(".nsfw-banner")).toBeVisible();
+      await expect(page.locator(".nsfw-header")).toBeVisible();
 
       // badge 含 "18+"
       const badge = page.locator(".nsfw-badge");
@@ -253,13 +253,13 @@ test.describe("NSFW 专区", () => {
       const gate = page.locator(".nsfw-age-gate");
       await expect(gate).toBeVisible({ timeout: 10000 });
       await expect(gate).toContainText("18 岁");
-      await expect(page.locator(".nsfw-banner")).toHaveCount(0);
+      await expect(page.locator(".nsfw-header")).toHaveCount(0);
 
       // 确认 → 门消失,专区主体出现
       await page
         .getByRole("button", { name: "我已年满 18 岁,进入专区" })
         .click();
-      await expect(page.locator(".nsfw-banner")).toBeVisible({ timeout: 10000 });
+      await expect(page.locator(".nsfw-header")).toBeVisible({ timeout: 10000 });
 
       // localStorage 已记录;重新导航不再弹门
       const confirmed = await page.evaluate(() =>
@@ -267,7 +267,7 @@ test.describe("NSFW 专区", () => {
       );
       expect(confirmed).toBe("1");
       await page.goto("/nsfw", { waitUntil: "domcontentloaded" });
-      await expect(page.locator(".nsfw-banner")).toBeVisible({ timeout: 10000 });
+      await expect(page.locator(".nsfw-header")).toBeVisible({ timeout: 10000 });
       await expect(page.locator(".nsfw-age-gate")).toHaveCount(0);
     },
   );

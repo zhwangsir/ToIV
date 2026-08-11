@@ -94,15 +94,21 @@ export function Modal({
           display: flex;
           align-items: center;
           justify-content: center;
+          /* 小屏留边:卡片不贴视口边缘 */
+          padding: var(--space-4);
           animation: fadeIn var(--duration-base) var(--ease-standard);
         }
         .modal-card {
           width: 100%;
+          /* 内容超出视口时头/脚固定,body 内部滚动 */
+          max-height: 100%;
+          display: flex;
+          flex-direction: column;
           background: var(--bg-surface-1);
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-panel);
           box-shadow: var(--shadow-float);
-          animation: slideUp 0.2s ease-out;
+          animation: slideUp var(--duration-base) var(--ease-standard);
         }
         @keyframes slideUp {
           from {
@@ -141,7 +147,8 @@ export function Modal({
           border-radius: var(--radius-control);
           color: var(--text-muted);
           cursor: pointer;
-          transition: all 0.15s;
+          transition: background-color var(--duration-fast) var(--ease-standard),
+            color var(--duration-fast) var(--ease-standard);
         }
         .modal-close:hover {
           background: var(--bg-surface-2);
@@ -149,6 +156,7 @@ export function Modal({
         }
         .modal-body {
           padding: var(--space-5);
+          overflow-y: auto;
         }
         .modal-foot {
           padding: var(--space-4) var(--space-5);
@@ -156,6 +164,11 @@ export function Modal({
           display: flex;
           justify-content: flex-end;
           gap: var(--space-3);
+          flex-wrap: wrap;
+        }
+        .modal-head,
+        .modal-foot {
+          flex-shrink: 0;
         }
       `}</style>
     </div>

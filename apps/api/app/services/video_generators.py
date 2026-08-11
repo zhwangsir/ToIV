@@ -121,7 +121,7 @@ class LtxVideoGenerator(VideoGenerator):
 
         settings = get_settings()
         # SFW/NSFW 视频底模分流:nsfw=True 用 NSFW 专用底模(10Eros),
-        # 否则 SFW 默认(ltx-2.3-distilled);gemma/vae 两者共用同一套
+        # 否则 SFW 默认(ltx-2.3-22b-distilled-1.1);gemma/vae 两者共用同一套
         nsfw = bool(kwargs.get("nsfw", False))
         video_ckpt = settings.nsfw_default_video_ckpt if nsfw else settings.default_video_ckpt
         seed_used = seed if seed is not None else LtxT2VParams(positive="").seed
@@ -150,6 +150,102 @@ class LtxVideoGenerator(VideoGenerator):
             return VideoGenResult(success=False, model=self.name, error=str(e))
 
         # 后台追踪结果(独立于客户端 SSE)
+        self._tracker(client, prompt_id)
+
+        return VideoGenResult(
+            success=True,
+            job_id=prompt_id,
+            model=self.name,
+            raw={
+                "prompt_id": prompt_id,
+                "client_id": client_id,
+                "worker": client.base_url,
+                "seed": seed_used,
+            },
+        )
+
+
+class H3VideoGenerator(VideoGenerator):
+    """MiniMax H3 文生视频生成器(专用 ComfyUI 实例,不走 WorkerPool,音画同发)。
+
+    与 LTX 的差异(见 services/h3.py / workflows/h3_video.py):
+      · 固定 24fps,帧数须 17k+5 网格(22-362)——由 duration_sec 自动吸附
+      · 分辨率 32 对齐、256-1344(上限 1344×768)——分镜宽高自动吸附/钳位
+      · 无 cfg/负向输入(节点无该输入,negative 仅快照保留)
+      · 提交前经 ensure_h3_ready/ensure_h3_vram 就绪+显存预检,不足返回错峰原因
+    """
+
+    name = "h3"
+    display_name = "MiniMax H3"
+    description = "MiniMax H3 文生视频(音画同发,固定 24fps)"
+    supports_image2video = False
+    supports_text2video = True
+
+    def __init__(self, tracker=spawn_tracker) -> None:
+        self._tracker = tracker
+
+    @staticmethod
+    def _snap32(v: int) -> int:
+        """吸附到 32 对齐并钳位 [256, 1344](H3 分辨率约束)。"""
+        v = max(256, min(1344, int(v)))
+        return max(256, (v // 32) * 32)
+
+    @staticmethod
+    def _frames_grid(target: int) -> int:
+        """吸附到最近的 17k+5 帧网格,钳位 [22, 362]。"""
+        k = max(1, round((int(target) - 5) / 17))
+        return min(362, max(22, 17 * k + 5))
+
+    async def generate(
+        self,
+        prompt: str,
+        *,
+        negative: str = "",
+        width: int = 768,
+        height: int = 384,
+        duration_sec: int = 6,
+        fps: int = 16,
+        seed: int | None = None,
+        image_url: str = "",
+        worker: str | None = None,
+        **kwargs: Any,
+    ) -> VideoGenResult:
+        if not prompt.strip():
+            return VideoGenResult(success=False, model=self.name, error="提示词为空")
+
+        from fastapi import HTTPException
+
+        from app.services import h3 as h3_service
+        from app.workflows.h3_video import H3T2VParams, build_h3_t2v_graph
+
+        try:
+            h3_service.ensure_h3_enabled()
+            client = h3_service.get_h3_client()
+            await h3_service.ensure_h3_ready(client)
+            await h3_service.ensure_h3_vram(client)
+        except HTTPException as e:
+            return VideoGenResult(success=False, model=self.name, error=str(e.detail))
+
+        # H3 固定 24fps(模板 CreateVideo 锁定),分镜时长换算帧数后吸附 17k+5 网格
+        length = self._frames_grid(24 * max(1, int(duration_sec)))
+        seed_used = seed if seed is not None else H3T2VParams(positive="").seed
+        params = H3T2VParams(
+            positive=prompt,
+            negative=negative,
+            width=self._snap32(width),
+            height=self._snap32(height),
+            length=length,
+            steps=max(1, min(50, int(kwargs.get("steps", 20)))),
+            seed=seed_used,
+            filename_prefix=kwargs.get("filename_prefix", "ToIV_drama_h3"),
+        )
+        graph = build_h3_t2v_graph(params)
+        client_id = uuid.uuid4().hex
+        try:
+            prompt_id = await client.queue_prompt(graph, client_id)
+        except ComfyUIError as e:
+            return VideoGenResult(success=False, model=self.name, error=str(e))
+
         self._tracker(client, prompt_id)
 
         return VideoGenResult(
@@ -276,6 +372,7 @@ class LiveActVideoGenerator(VideoGenerator):
 # 工厂注册表
 _REGISTRY: dict[str, type[VideoGenerator]] = {
     "ltx": LtxVideoGenerator,
+    "h3": H3VideoGenerator,
     "seedance": SeedanceVideoGenerator,
     "kling": KlingVideoGenerator,
     "liveact": LiveActVideoGenerator,
@@ -303,4 +400,6 @@ def get_generator(name: str, pool: WorkerPool | None = None, tracker=spawn_track
         raise ValueError(f"未知视频生成器: {name},可选: {list(_REGISTRY.keys())}")
     if name == "ltx":
         return cls(pool, tracker)
+    if name == "h3":
+        return cls(tracker)
     return cls()

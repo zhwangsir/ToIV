@@ -1,23 +1,30 @@
 /* ════════════════════════════════════════════════════════════════════
-   融合应用聚合页(批 3 bento 化;自 FusionView styled-jsx 迁入)
-   - bento 网格:首卡(创作工作室)跨两列做 hero,居中 max-width 1200
-   - hover surface 升档(translateY + shadow-lift + accent 描边)+
-     箭头位移微动效(≤200ms,--duration-fast/base)
-   - 入场错峰(--delay 内联注入),遵守 prefers-reduced-motion
+   融合应用聚合页(第二轮排版重构)
+   - 页头:统一 .page-header 体系(大标题 + 辅助描述 + 右侧操作区),
+     .fusion-header 只做容器对齐与布局兜底,外观由全局类接管
+   - bento 重排:6 列栅格,旗舰卡 4列×2行 做 hero(≈2倍于普通卡),
+     其余卡 2 列,末两卡各 3 列补齐底行 —— 旗舰/普通尺寸对比一眼可见
+   - 层级对比:旗舰卡名提到 20/700 标题档 + 「旗舰」徽标 + 角部光晕;
+     标签改中性 chip(hover 才点亮),辅助信息更轻更淡
+   - 呼吸感:页面内边距 24→32、栅格间距 16→24、卡内边距 20→24/32;
+     hover 升浮 -2px→-4px + shadow-float + 图标放大
+   - 入场错峰走 animation(--delay 内联注入),与 hover transition 解耦;
+     遵守 prefers-reduced-motion
    注:.fusion-view 前缀用于压过 Card 基座的 .card-hover:hover(globals.css)。
    ════════════════════════════════════════════════════════════════════ */
 
 .fusion-view {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: var(--space-8);
   height: 100%;
   overflow-y: auto;
-  padding: var(--space-6);
+  /* 对称边距:壳层 .app-main padding-top:56px 已垂直让开 CornerNav 触发器,左右无需偏移 */
+  padding: var(--space-8);
 }
 
-/* ── 头部 ── */
-.fusion-header {
+/* ── 页头:外观走全局 .page-header*,此处做容器对齐 + 布局兜底 ── */
+.fusion-view .page-header {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -26,53 +33,67 @@
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--border-subtle);
 }
 .fusion-header-main {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
+  min-width: 0;
 }
-.fusion-title {
+/* 兜底:全局 .page-header-title/-desc 未就位时仍有正确排版(与全局值一致) */
+.fusion-view .page-header-title {
   margin: 0;
   font-size: var(--text-title);
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.02em;
   line-height: 1.2;
 }
-.fusion-subtitle {
-  font-size: var(--text-aux);
+.fusion-view .page-header-desc {
+  margin: 0;
+  font-size: var(--text-body);
   color: var(--text-muted);
+  line-height: 1.6;
 }
-.fusion-header-meta {
+.fusion-view .page-header-actions {
   flex-shrink: 0;
+  padding-bottom: var(--space-1);
 }
 .fusion-count {
-  font-size: var(--text-label);
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--text-aux);
+  font-weight: 500;
   color: var(--text-muted);
   background: var(--bg-surface-2);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-full);
+  border: 1px solid var(--border-subtle);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-badge);
 }
 
-/* ── bento 网格:旗舰卡跨两列做 hero,其余半宽 ── */
+/* ── bento 网格:6 列,旗舰卡 4列×2行 hero,末两卡 3 列补齐 ── */
 .fusion-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-4);
+  grid-template-columns: repeat(6, 1fr);
+  grid-auto-rows: minmax(200px, auto);
+  gap: var(--space-6);
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
+  /* 兜底:末行卡片 hover 阴影不被滚动容器裁掉 */
+  padding-bottom: var(--space-2);
+}
+.fusion-view .fusion-card {
+  grid-column: span 2;
 }
 .fusion-view .fusion-card.is-flagship {
-  grid-column: 1 / -1;
+  grid-column: span 4;
+  grid-row: span 2;
 }
-@media (max-width: 720px) {
-  .fusion-grid {
-    grid-template-columns: 1fr;
-  }
+/* 底行两卡拉宽补齐 6 列 */
+.fusion-view .fusion-card:nth-child(4),
+.fusion-view .fusion-card:nth-child(5) {
+  grid-column: span 3;
 }
 
 /* ── 卡片 ── */
@@ -81,55 +102,81 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding: var(--space-5);
+  padding: var(--space-6);
   cursor: pointer;
   overflow: hidden;
   background: var(--bg-surface-1);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-panel);
   opacity: 0;
-  transform: translateY(12px);
+  /* hover 升档 transition 不带 delay:错峰延迟只挂在入场 animation 上 */
   transition:
-    opacity var(--duration-base) var(--ease-standard) var(--delay),
-    transform var(--duration-base) var(--ease-standard) var(--delay),
+    transform var(--duration-base) var(--ease-standard),
     border-color var(--duration-base) var(--ease-standard),
     box-shadow var(--duration-base) var(--ease-standard);
 }
+/* 入场错峰:backwards 填充延迟期,播完回到常规样式,不影响 hover transform */
 .fusion-view .fusion-card.is-mounted {
   opacity: 1;
-  transform: translateY(0);
+  animation: fusion-card-in var(--duration-base) var(--ease-standard) var(--delay) backwards;
 }
-/* hover surface 升档(压过 .card-hover:hover 的弱阴影) */
+@keyframes fusion-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+/* hover 升浮:-4px + 浮起阴影 + accent 描边(压过 .card-hover:hover 的弱阴影) */
 .fusion-view .fusion-card:hover {
-  transform: translateY(-2px);
+  transform: translateY(-4px);
   border-color: var(--accent-glow);
-  box-shadow: var(--shadow-lift), var(--glass-highlight);
+  box-shadow: var(--shadow-float), var(--glass-highlight);
 }
-/* hero 卡:更大内边距与信息容量 */
+/* hero 卡:更大内边距 + 角部光晕,与普通卡拉开质感层级 */
 .fusion-view .fusion-card.is-flagship {
-  padding: var(--space-6);
+  padding: var(--space-8);
+  border-color: var(--accent-glow);
+  background:
+    radial-gradient(
+      480px 260px at 88% -8%,
+      color-mix(in srgb, var(--accent) 10%, transparent),
+      transparent 70%
+    ),
+    var(--bg-surface-1);
 }
 
 /* 图标 + 名称 + 进入箭头 */
 .fusion-card-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-3);
 }
 .fusion-card-icon-wrap {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-control);
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-panel);
   background: var(--accent-soft);
   color: var(--accent);
   flex-shrink: 0;
+  transition:
+    transform var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
 }
 .fusion-view .fusion-card.is-flagship .fusion-card-icon-wrap {
-  width: 52px;
-  height: 52px;
+  width: 64px;
+  height: 64px;
+}
+/* hover 时图标放大点亮,强化升浮反馈 */
+.fusion-view .fusion-card:hover .fusion-card-icon-wrap {
+  transform: scale(1.08);
+  background: var(--accent-glow);
 }
 .fusion-card-title-group {
   display: flex;
@@ -137,7 +184,6 @@
   gap: var(--space-2);
   flex: 1;
   min-width: 0;
-  padding-top: var(--space-1);
 }
 .fusion-card-name {
   margin: 0;
@@ -146,11 +192,25 @@
   color: var(--text-primary);
   letter-spacing: -0.01em;
 }
+/* hero 卡名:直接提到标题档(20/700),与普通卡形成一眼可见的字号对比 */
 .fusion-view .fusion-card.is-flagship .fusion-card-name {
-  font-size: 17px;
+  font-size: var(--text-title);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+/* 「旗舰」徽标 */
+.fusion-card-badge {
+  font-size: var(--text-label);
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-glow);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-badge);
 }
 /* 箭头位移微动效:≤200ms(--duration-fast 150ms) */
 .fusion-card-arrow {
+  display: inline-flex;
   color: var(--text-muted);
   opacity: 0;
   transform: translateX(-4px);
@@ -164,59 +224,66 @@
   color: var(--accent);
 }
 
-/* 一句话价值描述 */
+/* 一句话价值描述(卡片主文案,用正文档) */
 .fusion-card-desc {
   flex: 1;
   margin: 0;
-  font-size: var(--text-aux);
+  font-size: var(--text-body);
   color: var(--text-secondary);
-  line-height: 1.65;
+  line-height: 1.7;
 }
 .fusion-view .fusion-card.is-flagship .fusion-card-desc {
-  font-size: var(--text-body);
-  max-width: 560px;
+  max-width: 520px;
 }
 
-/* 能力标签 */
+/* 能力标签:默认中性 chip,卡片 hover 时才点亮为 accent */
 .fusion-card-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
 .fusion-tag {
   font-size: var(--text-label);
-  color: var(--accent);
-  background: var(--accent-soft);
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-full);
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-surface-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-badge);
   transition:
     background-color var(--duration-fast) var(--ease-standard),
     color var(--duration-fast) var(--ease-standard),
     box-shadow var(--duration-fast) var(--ease-standard);
 }
 .fusion-view .fusion-card:hover .fusion-tag {
-  background: var(--accent-glow);
-  box-shadow: var(--accent-glow-shadow);
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 
-/* 底部 CTA */
+/* 底部 CTA:去分隔线,改胶囊按钮形态,hover 间隙拉开 */
 .fusion-card-footer {
   display: flex;
   justify-content: flex-end;
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--border-subtle);
 }
 .fusion-card-cta {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+  min-height: 32px;
+  padding: var(--space-1) var(--space-3);
   font-size: var(--text-aux);
   font-weight: 500;
   color: var(--accent);
-  transition: gap var(--duration-fast) var(--ease-standard);
+  background: var(--accent-soft);
+  border-radius: var(--radius-badge);
+  transition:
+    gap var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
 }
 .fusion-view .fusion-card:hover .fusion-card-cta {
   gap: var(--space-2);
+  background: var(--accent-glow);
+  box-shadow: var(--accent-glow-shadow);
 }
 
 /* 滚动条 */
@@ -228,14 +295,67 @@
   border-radius: 3px;
 }
 
-/* 动效偏好 */
-@media (prefers-reduced-motion: reduce) {
+/* ── 响应式 ── */
+
+/* 窄屏 <1024px:6 列 bento 收起,退回「旗舰整行 + 两列」 */
+@media (max-width: 1023px) {
+  .fusion-view {
+    gap: var(--space-6);
+    padding: var(--space-5);
+  }
+  .fusion-grid {
+    grid-template-columns: repeat(2, 1fr);
+    grid-auto-rows: auto;
+    gap: var(--space-5);
+  }
+  .fusion-view .fusion-card,
+  .fusion-view .fusion-card:nth-child(4),
+  .fusion-view .fusion-card:nth-child(5) {
+    grid-column: span 1;
+  }
+  .fusion-view .fusion-card.is-flagship {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+}
+
+/* 移动 <768px(--bp-md):单列 + 内边距再收缩 */
+@media (max-width: 767px) {
+  .fusion-view {
+    gap: var(--space-5);
+    padding: var(--space-4);
+  }
+  .fusion-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
   .fusion-view .fusion-card {
+    padding: var(--space-5);
+  }
+  .fusion-view .fusion-card.is-flagship {
+    padding: var(--space-6);
+  }
+  .fusion-view .page-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .fusion-view .page-header-actions {
+    padding-bottom: 0;
+  }
+}
+
+/* ── 动效偏好 ── */
+@media (prefers-reduced-motion: reduce) {
+  .fusion-view .fusion-card,
+  .fusion-view .fusion-card.is-mounted {
     opacity: 1;
-    transform: none;
+    animation: none;
     transition: none;
   }
-  .fusion-card-arrow {
+  .fusion-card-arrow,
+  .fusion-card-icon-wrap,
+  .fusion-card-cta {
     transition: none;
   }
 }

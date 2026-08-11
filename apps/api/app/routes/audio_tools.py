@@ -17,8 +17,8 @@ import uuid
 import wave
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
+from fastapi.responses import Response
 from sqlmodel import Session
 
 from app.db import get_session
@@ -26,6 +26,7 @@ from app.deps import get_current_user
 from app.models import Job, User
 from app.pathsafe import PathTraversalError, validate_path_component
 from app.ratelimit import enforce_generation_rate_limit
+from app.routes.images import _ranged_response
 from app.services.audio_sep import separate_vocals
 from app.storage import audio_output_root, content_subdir
 
@@ -133,20 +134,22 @@ async def audio_separate(
 @router.get("/audio/files/{name}")
 async def get_audio_file(
     name: str,
+    request: Request,
     user: User = Depends(get_current_user),
-) -> FileResponse:
-    """回读音频产物(人声分离结果)。按名字在 NAS 根目录与本地回退目录依次找。"""
+) -> Response:
+    """回读音频产物(人声分离结果)。按名字在 NAS 根目录与本地回退目录依次找。
+
+    手动 Range 支持:<audio> 试听/拖动必须 206 Partial + Accept-Ranges;
+    产物上限 50MB,整段读入内存后切片返回(与 /api/images 同一套 _ranged_response)。
+    """
     if not _OUT_NAME_RE.match(name):
         raise HTTPException(status_code=400, detail="非法文件名")
     for root in (audio_output_root(), content_subdir("audio")):
         try:
             path = root / name
             if path.is_file():
-                return FileResponse(
-                    path,
-                    media_type="audio/wav",
-                    filename=name,
-                    headers={"Cache-Control": "public, max-age=86400"},
+                return _ranged_response(
+                    path.read_bytes(), "audio/wav", request.headers.get("range")
                 )
         except OSError as e:
             logger.warning("音频产物目录不可达(%s):%s", root, e)

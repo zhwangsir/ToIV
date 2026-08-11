@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 
 from sqlalchemy import text
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, SQLModel, create_engine
 
 from app.config import get_settings
@@ -42,6 +42,10 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     # trainjob 表由 SQLModel.metadata.create_all 自动创建,无需手 ALTER。
     # 智能体系统:用户当前默认智能体 id(空=走 kind 默认系统提示)
     ('"user"', "default_agent_id", "default_agent_id VARCHAR"),
+    # Studio 项目产出规格(分辨率/帧率),已存在的 studioproject 表补列
+    ("studioproject", "width", "width INTEGER NOT NULL DEFAULT 768"),
+    ("studioproject", "height", "height INTEGER NOT NULL DEFAULT 384"),
+    ("studioproject", "fps", "fps INTEGER NOT NULL DEFAULT 16"),
 )
 
 # 整段 SQL 幂等迁移(CREATE TABLE IF NOT EXISTS 等,非 ADD COLUMN 场景)。
@@ -250,41 +254,53 @@ _SQLITE_RAW_MIGRATIONS: tuple[str, ...] = (
 )
 
 
-def _sqlite_columns(conn, table: str) -> set[str]:
-    """读取 SQLite 某表已有列名(table 可带引号,PRAGMA 需去引号)。"""
+def _existing_columns(conn, table: str) -> set[str]:
+    """读取某表已有列名(table 可带引号)。SQLite 用 PRAGMA,Postgres 等走 information_schema。"""
     bare = table.strip('"')
-    rows = conn.exec_driver_sql(f'PRAGMA table_info("{bare}")').fetchall()
-    return {row[1] for row in rows}
+    if conn.dialect.name == "sqlite":
+        rows = conn.exec_driver_sql(f'PRAGMA table_info("{bare}")').fetchall()
+        return {row[1] for row in rows}
+    rows = conn.exec_driver_sql(
+        "SELECT column_name FROM information_schema.columns "
+        f"WHERE table_name = '{bare}'"
+    ).fetchall()
+    return {row[0] for row in rows}
 
 
-def _run_sqlite_migrations() -> None:
-    """对 SQLite 幂等补列:已存在则跳过;竞态下吞 duplicate column 的 OperationalError。
+def _run_column_migrations() -> None:
+    """幂等补列:已存在则跳过;竞态/重复执行时吞 duplicate column 错误。
 
-    不破坏既有数据(纯 ADD COLUMN,带 NOT NULL DEFAULT)。Postgres 等非 SQLite
-    后端不在此处处理(留给正式迁移工具)。
+    不破坏既有数据(纯 ADD COLUMN,带 NOT NULL DEFAULT)。SQLite 与 Postgres 通用:
+    列探测按方言分支,ALTER 语句两边语法一致。
+    ⚠️ 每条语句独立事务:PG 中任一语句报错会 abort 整个事务,后续语句全挂
+    (如 raw 里 SQLite 方言的 AUTOINCREMENT),独立事务保证单条失败不影响其余。
     """
-    with engine.begin() as conn:
-        # 先跑整段 SQL(CREATE TABLE IF NOT EXISTS 等,天然幂等)
-        for raw in _SQLITE_RAW_MIGRATIONS:
-            try:
+    # 先跑整段 SQL(CREATE TABLE IF NOT EXISTS 等,天然幂等)。
+    # PG 下个别 SQLite 方言语句(如 AUTOINCREMENT)会报错,吞掉即可——
+    # 对应表已由 SQLModel create_all 建立。
+    for raw in _SQLITE_RAW_MIGRATIONS:
+        try:
+            with engine.begin() as conn:
                 conn.execute(text(raw))
-            except OperationalError:
-                pass
-        for table, column, ddl in _SQLITE_MIGRATIONS:
-            if column in _sqlite_columns(conn, table):
-                continue
-            try:
+        except SQLAlchemyError:
+            pass
+    for table, column, ddl in _SQLITE_MIGRATIONS:
+        try:
+            with engine.begin() as conn:
+                if column in _existing_columns(conn, table):
+                    continue
                 conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {ddl}"))
-            except OperationalError:
-                # duplicate column(并发/重复执行)→ 幂等吞掉,列已就位即可。
-                pass
+        except SQLAlchemyError:
+            # duplicate column(并发/重复执行)或表不存在→ 幂等吞掉。
+            pass
 
 
 def init_db() -> None:
     import app.models  # noqa: F401  确保模型已注册到元数据
     SQLModel.metadata.create_all(engine)
-    if _settings.database_url.startswith("sqlite"):
-        _run_sqlite_migrations()
+    # 2026-08-10 起 PG 也跑列迁移:core 生产库的存量表同样需要补列,
+    # 此前仅 SQLite 分支执行导致 prod studioproject 缺 width/height/fps 500。
+    _run_column_migrations()
 
 
 def bootstrap_admin() -> None:

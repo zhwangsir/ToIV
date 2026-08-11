@@ -13,6 +13,7 @@ import { invalidateJobs } from "@/lib/api";
 import { consumeEngineDraft, type EngineDraft } from "@/lib/engine";
 import {
   engineDefaults,
+  engineNeedsAudio,
   engineNeedsImage,
   engineSupportsNegative,
   fetchEngines,
@@ -21,10 +22,12 @@ import {
   type EngineKind,
 } from "@/lib/engines";
 import { useGeneration } from "@/lib/useGeneration";
+import { BREAKPOINTS } from "@/lib/useBreakpoint";
 import { friendlyError } from "@/lib/friendlyError";
 
 import { ParamField } from "./ParamField";
 import { PromptBar } from "./PromptBar";
+import { RefAudioUpload, type UploadedAudio } from "./RefAudioUpload";
 import { RefImageUpload, type UploadedRef } from "./RefImageUpload";
 import { ResultPanel, type HistoryEntry } from "./ResultPanel";
 
@@ -108,12 +111,12 @@ export function GenerateView({ initialDraft, lockedKind, onlyNsfw = false }: Gen
   const toast = useToast();
   // 高级参数抽屉引用:优化回填负向提示词时自动展开,让用户看见填入结果
   const advDetailsRef = useRef<HTMLDetailsElement>(null);
-  // 参数浮板开关:收起时为右下角悬浮球(会话级);移动端(<1024px)默认收起为 FAB,舞台优先
+  // 参数浮板开关:收起时为右下角悬浮球(会话级);窄屏(≤1023px,与 stage.css 浮板底部抽屉档一致)默认收起为 FAB,舞台优先
   const [paramsOpen, setParamsOpen] = useState(
     () =>
       !(
         typeof window !== "undefined" &&
-        window.matchMedia("(max-width: 1024px)").matches
+        window.matchMedia(`(max-width: ${BREAKPOINTS.lg - 1}px)`).matches
       ),
   );
   const [engines, setEngines] = useState<EngineInfo[] | null>(null);
@@ -162,6 +165,7 @@ export function GenerateView({ initialDraft, lockedKind, onlyNsfw = false }: Gen
   const [valuesByEngine, setValuesByEngine] = useState<Record<string, Record<string, unknown>>>({});
   const [promptByEngine, setPromptByEngine] = useState<Record<string, string>>({});
   const [refByEngine, setRefByEngine] = useState<Record<string, UploadedRef | null>>({});
+  const [audioByEngine, setAudioByEngine] = useState<Record<string, UploadedAudio | null>>({});
 
   const values = useMemo(
     () => (engine ? { ...engineDefaults(engine), ...(valuesByEngine[engine.id] ?? {}) } : {}),
@@ -169,7 +173,9 @@ export function GenerateView({ initialDraft, lockedKind, onlyNsfw = false }: Gen
   );
   const positive = engine ? promptByEngine[engine.id] ?? "" : "";
   const refImage = engine ? refByEngine[engine.id] ?? null : null;
+  const refAudio = engine ? audioByEngine[engine.id] ?? null : null;
   const imageParam = engine ? engineNeedsImage(engine) : null;
+  const audioParam = engine ? engineNeedsAudio(engine) : null;
 
   // 参数分区:尺寸(width/height 成对)→ PromptBar chip;高级(steps/cfg/seed)→ 浮板折叠区;其余 → 浮板主区
   const sizeParams = useMemo(
@@ -186,6 +192,7 @@ export function GenerateView({ initialDraft, lockedKind, onlyNsfw = false }: Gen
         ? engine.params.filter(
             (p) =>
               p.type !== "images" &&
+              p.type !== "audio" &&
               p.key !== "negative" &&
               !ADVANCED_PARAM_KEYS.has(p.key) &&
               !(showSizeChip && SIZE_PARAM_KEYS.has(p.key)),
@@ -258,7 +265,8 @@ export function GenerateView({ initialDraft, lockedKind, onlyNsfw = false }: Gen
     positive.trim().length > 0 &&
     !gen.isRunning &&
     !submitting &&
-    (!imageParam || !!refImage);
+    (!imageParam || !!refImage) &&
+    (!audioParam || !!refAudio);
 
   /** 取数值参数(仅有限 number 有效,其余视为未设置)。 */
   const numVal = (v: unknown): number | undefined =>
@@ -275,6 +283,7 @@ export function GenerateView({ initialDraft, lockedKind, onlyNsfw = false }: Gen
         positive: promptText,
         values: targetValues,
         refImage: refByEngine[target.id] ?? null,
+        refAudio: audioByEngine[target.id] ?? null,
       });
       const entry: HistoryEntry = {
         id: newEntryId(),
@@ -349,28 +358,33 @@ export function GenerateView({ initialDraft, lockedKind, onlyNsfw = false }: Gen
       ? "img2img"
       : engine?.id === "h3-i2v"
         ? "h3_i2v"
-        : "ltx_i2v";
+        : engine?.id === "ltx-nsfw-lipsync"
+          ? "ltx_lipsync"
+          : "ltx_i2v";
 
   return (
     <div className={`generate-view${paramsOpen ? " is-params-open" : ""}`}>
-      <div className="generate-header">
-        {lockedKind ? (
-          <span className="generate-board-title">{KIND_LABEL[lockedKind]}</span>
-        ) : (
-          <Tabs
-            ariaLabel="生成模式"
-            items={[
-              { key: "image", label: "图像", icon: <Icon name="image" size={14} /> },
-              { key: "video", label: "视频", icon: <Icon name="video" size={14} /> },
-            ]}
-            current={mode}
-            onChange={(k) => setMode(k as EngineKind)}
-          />
-        )}
-        <div className="generate-header-right">
-          <span className="generate-header-note">会话内历史不落库,刷新即清空</span>
+      <header className="page-header generate-header">
+        <div className="page-header-main">
+          <h1 className="page-header-title">
+            {lockedKind ? KIND_LABEL[lockedKind] : "AI 生成工作台"}
+          </h1>
+          <p className="page-header-desc">会话内历史不落库,刷新即清空</p>
         </div>
-      </div>
+        {!lockedKind && (
+          <div className="page-header-actions generate-header-actions">
+            <Tabs
+              ariaLabel="生成模式"
+              items={[
+                { key: "image", label: "图像", icon: <Icon name="image" size={14} /> },
+                { key: "video", label: "视频", icon: <Icon name="video" size={14} /> },
+              ]}
+              current={mode}
+              onChange={(k) => setMode(k as EngineKind)}
+            />
+          </div>
+        )}
+      </header>
 
       <div className="generate-body">
         <section
@@ -422,71 +436,100 @@ export function GenerateView({ initialDraft, lockedKind, onlyNsfw = false }: Gen
               <p className="generate-error">当前上下文没有可用的{KIND_LABEL[mode]}引擎</p>
             ) : (
               <>
-                {showGroupTabs && (
-                  <Tabs
-                    ariaLabel={mode === "image" ? "文生图或图生图" : mode === "video" ? "文生视频或图生视频" : "生成或编辑"}
-                    fill
-                    items={[
-                      { key: "gen", label: GROUP_LABEL[mode].gen },
-                      { key: "edit", label: GROUP_LABEL[mode].edit },
-                    ]}
-                    current={group}
-                    onChange={(k) => setGroupByKind((prev) => ({ ...prev, [mode]: k as "gen" | "edit" }))}
-                  />
-                )}
+                <div className="params-section">
+                  <h3 className="params-section-title">引擎</h3>
+                  {showGroupTabs && (
+                    <Tabs
+                      ariaLabel={mode === "image" ? "文生图或图生图" : mode === "video" ? "文生视频或图生视频" : "生成或编辑"}
+                      fill
+                      items={[
+                        { key: "gen", label: GROUP_LABEL[mode].gen },
+                        { key: "edit", label: GROUP_LABEL[mode].edit },
+                      ]}
+                      current={group}
+                      onChange={(k) => setGroupByKind((prev) => ({ ...prev, [mode]: k as "gen" | "edit" }))}
+                    />
+                  )}
 
-                <Field label="引擎">
-                  <Select
-                    value={engine?.id ?? ""}
-                    onChange={(e) => setEngineIdByKind((prev) => ({ ...prev, [mode]: e.target.value }))}
-                    aria-label="选择引擎"
-                  >
-                    {visibleEngines.map((e) => (
-                      <option
-                        key={e.id}
-                        value={e.id}
-                        disabled={!e.available}
-                        title={e.available ? undefined : e.unavailable_reason}
-                      >
-                        {e.label}
-                        {e.available ? "" : ` — 不可用:${e.unavailable_reason ?? "未知原因"}`}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
+                  <Field label="引擎">
+                    <Select
+                      value={engine?.id ?? ""}
+                      onChange={(e) => setEngineIdByKind((prev) => ({ ...prev, [mode]: e.target.value }))}
+                      aria-label="选择引擎"
+                    >
+                      {visibleEngines.map((e) => (
+                        <option
+                          key={e.id}
+                          value={e.id}
+                          disabled={!e.available}
+                          title={e.available ? undefined : e.unavailable_reason}
+                        >
+                          {e.label}
+                          {e.available ? "" : ` — 不可用:${e.unavailable_reason ?? "未知原因"}`}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
 
-                {engine && (
-                  <div className="engine-status">
-                    <Badge tone={engine.available ? "ok" : "warn"}>
-                      {engine.available ? "可用" : "不可用"}
-                    </Badge>
-                    {engine.nsfw && <Badge tone="warn">R18</Badge>}
-                    {!engine.available && engine.unavailable_reason && (
-                      <span className="engine-status-reason">{engine.unavailable_reason}</span>
+                  {engine && (
+                    <div className="engine-status">
+                      <Badge tone={engine.available ? "ok" : "warn"}>
+                        {engine.available ? "可用" : "不可用"}
+                      </Badge>
+                      {engine.nsfw && <Badge tone="warn">R18</Badge>}
+                      {!engine.available && engine.unavailable_reason && (
+                        <span className="engine-status-reason">{engine.unavailable_reason}</span>
+                      )}
+                    </div>
+                  )}
+                  {engine?.description && <p className="engine-desc">{engine.description}</p>}
+                </div>
+
+                {engine && (imageParam || audioParam) && (
+                  <div className="params-section">
+                    <h3 className="params-section-title">参考输入</h3>
+                    {imageParam && (
+                      <RefImageUpload
+                        param={imageParam}
+                        value={refImage}
+                        uploadKind={uploadKind}
+                        disabled={gen.isRunning}
+                        onChange={(v) => {
+                          setRefByEngine((prev) => ({ ...prev, [engine.id]: v }));
+                          // 参考图换机后,已上传音频若钉在旧 worker 会跨机取不到 → 强制重传
+                          if (refAudio && v?.worker !== refAudio.worker) {
+                            setAudioByEngine((prev) => ({ ...prev, [engine.id]: null }));
+                          }
+                        }}
+                      />
+                    )}
+                    {audioParam && (
+                      <RefAudioUpload
+                        param={audioParam}
+                        value={refAudio}
+                        uploadKind={uploadKind}
+                        pinWorker={refImage?.worker ?? null}
+                        disabled={gen.isRunning}
+                        onChange={(v) => setAudioByEngine((prev) => ({ ...prev, [engine.id]: v }))}
+                      />
                     )}
                   </div>
                 )}
-                {engine?.description && <p className="engine-desc">{engine.description}</p>}
 
-                {engine && imageParam && (
-                  <RefImageUpload
-                    param={imageParam}
-                    value={refImage}
-                    uploadKind={uploadKind}
-                    disabled={gen.isRunning}
-                    onChange={(v) => setRefByEngine((prev) => ({ ...prev, [engine.id]: v }))}
-                  />
+                {mainParams.length > 0 && (
+                  <div className="params-section">
+                    <h3 className="params-section-title">生成参数</h3>
+                    {mainParams.map((p) => (
+                      <ParamField
+                        key={p.key}
+                        param={p}
+                        value={values[p.key]}
+                        disabled={gen.isRunning}
+                        onChange={setValue}
+                      />
+                    ))}
+                  </div>
                 )}
-
-                {mainParams.map((p) => (
-                  <ParamField
-                    key={p.key}
-                    param={p}
-                    value={values[p.key]}
-                    disabled={gen.isRunning}
-                    onChange={setValue}
-                  />
-                ))}
 
                 {engine && showAdvanced && (
                   <details className="adv-params" ref={advDetailsRef}>

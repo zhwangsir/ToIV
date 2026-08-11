@@ -8,6 +8,8 @@
 
 .landing {
   min-height: 100vh;
+  /* 移动浏览器地址栏伸缩时按动态视口高度撑满,避免底部留白/裁切 */
+  min-height: 100dvh;
   display: grid;
   grid-template-columns: 3fr 2fr;
   background: var(--bg-canvas);
@@ -96,8 +98,8 @@
 }
 .landing-card {
   width: 100%;
-  max-width: 380px;
-  padding: var(--space-6);
+  max-width: 400px;
+  padding: var(--space-8);
   /* .glass-panel 同款白玻璃材质 */
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
@@ -105,6 +107,9 @@
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-panel);
   box-shadow: var(--glass-highlight), var(--shadow-float);
+  /* 矮屏(横屏手机等)卡内容超出视口时内部滚动,不顶破首屏 */
+  max-height: calc(100dvh - var(--space-8));
+  overflow-y: auto;
 }
 /* 卡内 compact 品牌行:默认隐藏,移动端品牌区收起时显示 */
 .landing-card-brand {
@@ -135,11 +140,20 @@
 }
 .landing-form .btn-primary {
   margin-top: var(--space-2);
+  /* 登录主 CTA:44px 触控目标 + 正文字号,与输入框同高对齐 */
+  height: 44px;
+  font-size: var(--text-body);
 }
 .landing-field {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+}
+.landing-field .input {
+  /* 登录输入框:44px 触控目标(覆盖全局 .input 的紧凑内边距高度) */
+  height: 44px;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 .landing-field .input[aria-invalid="true"] {
   border-color: var(--err);
@@ -156,6 +170,7 @@
   border-radius: var(--radius-control);
   color: var(--err);
   font-size: var(--text-aux);
+  line-height: 1.5;
 }
 
 .landing-hint {
@@ -196,5 +211,15 @@
   }
   .landing-card-brand {
     display: flex;
+  }
+}
+
+/* ── <768px:卡内边距收紧,品牌行与标题间距对齐 4px 网格 ── */
+@media (max-width: 767px) {
+  .landing-card {
+    padding: var(--space-6) var(--space-5);
+  }
+  .landing-card-brand {
+    margin-bottom: var(--space-3);
   }
 }

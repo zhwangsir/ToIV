@@ -472,10 +472,15 @@ export function LibraryView({ onNavigate, onlyNsfw = false }: LibraryViewProps =
 
   return (
     <div className="single-view library-view">
-      <header className="lib-header">
-        <div className="lib-header-left">
-          <h1 className="lib-title">作品库</h1>
-          <span className="lib-count">
+      <header className="page-header lib-header">
+        <div className="page-header-text">
+          <h1 className="page-header-title">作品库</h1>
+          <p className="page-header-desc">
+            悬停卡片查看提示词,点击沉浸预览 · 支持图像 / 视频 / 音频 / 3D
+          </p>
+        </div>
+        <div className="page-header-actions">
+          <span className="lib-count-pill">
             {loading
               ? "加载中…"
               : error
@@ -483,6 +488,10 @@ export function LibraryView({ onNavigate, onlyNsfw = false }: LibraryViewProps =
                 : `${filtered.length} 件作品`}
           </span>
         </div>
+      </header>
+
+      {/* 类型筛选独立工具行:从页头拆出,给段控单独的横向节奏 */}
+      <div className="lib-toolbar">
         <div className="lib-filters">
           <Tabs
             items={filterTabs}
@@ -494,7 +503,7 @@ export function LibraryView({ onNavigate, onlyNsfw = false }: LibraryViewProps =
             ariaLabel="作品类型筛选"
           />
         </div>
-      </header>
+      </div>
 
       {/* 风格库横条(WS4):空态 StyleBar 内部返回 null,不渲染整条 */}
       <StyleBar
@@ -530,7 +539,9 @@ export function LibraryView({ onNavigate, onlyNsfw = false }: LibraryViewProps =
 
         {!error && !loading && isEmpty && (
           <div className="lib-empty">
-            <span className="lib-empty-kicker">作品库</span>
+            <div className="lib-empty-icon" aria-hidden="true">
+              <Icon name="image" size={30} strokeWidth={1.4} />
+            </div>
             <h2 className="lib-empty-display">这里还空空如也</h2>
             <p className="lib-empty-desc">去图片 / 视频 / 音频工作台生成第一件作品,完成后会自动收录到这里。</p>
           </div>
@@ -851,13 +862,12 @@ function LibraryLightbox({
       aria-label={`作品查看器: ${job.prompt || "无提示词"}`}
       onClick={onClose}
     >
-      {/* 顶部玻璃工具条:作品元信息 + 关闭 */}
+      {/* 顶部玻璃工具条:作品类型 + 位置计数 + 关闭(时间下沉到底部元信息行) */}
       <div className="lib-lb-top" onClick={(e) => e.stopPropagation()}>
         <div className="lib-lb-top-meta">
           <Badge tone="accent" dot={false}>
             {kindLabel(job.kind)}
           </Badge>
-          <span className="lib-lb-time">{formatTime(job.created_at)}</span>
           <span className="lib-lb-counter">
             {index + 1} / {jobs.length}
           </span>
@@ -932,10 +942,15 @@ function LibraryLightbox({
         )}
       </div>
 
-      {/* 底部玻璃工具条:提示词 + 快捷操作 */}
+      {/* 底部玻璃工具条:信息区(提示词主行 + seed/时间元信息行) + 快捷操作 */}
       <div className="lib-lb-bottom" onClick={(e) => e.stopPropagation()}>
-        <div className="lib-lb-prompt" title={job.prompt}>
-          {job.prompt || "(无提示词)"}
+        <div className="lib-lb-info">
+          <div className="lib-lb-prompt" title={job.prompt}>
+            {job.prompt || "(无提示词)"}
+          </div>
+          <div className="lib-lb-meta">
+            seed · {job.seed} · {formatTime(job.created_at)}
+          </div>
         </div>
         <div className="lib-lb-actions">
           {hasResult && (

@@ -6,6 +6,8 @@
    - 面板内元素(形象选择卡、Switch 行)取玻璃底/描边/高光,不叠 blur
      (下方是不透明面板,blur 无视觉收益,省合成层开销)
    全部色值走 token,遵守 prefers-reduced-motion。
+   2026-08-08 排版翻新:标题档位对齐设计系统(页面 20/700 · 区块 15/600),
+   移动端触控目标 ≥44px;CornerNav 由壳层 app-main padding-top 垂直让位,无需左避让。
    ════════════════════════════════════════════════════════════════════ */
 
 /* ── app 壳布局钩子(自 globals.css 迁入):数字人视图全屏脱离文档流 ── */
@@ -22,20 +24,41 @@
   padding: 0 !important;
 }
 
-/* ── 视图骨架:左舞台 + 右控制面板 ── */
+/* ── 视图骨架:上页头 + 下主体(纵向 flex);主体内左舞台 + 右控制面板(grid) ── */
 .at-view {
-  display: grid;
-  grid-template-columns: 1fr 400px;
+  display: flex;
+  flex-direction: column;
   height: 100%;
   background: var(--bg-canvas);
   overflow: hidden;
 }
+/* 页头是 .at-view 的 flex 子项,不能落进主体 grid;view-root 无内边距,此处自补。
+   无需避让 CornerNav:壳层 .app-main padding-top:56px 已垂直让开触发器。
+   段控(实时对话/视频生成)紧邻标题,与 Audio/Generate 页头节奏一致。 */
+.at-view > .page-header {
+  flex: none;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: var(--space-4);
+  margin-bottom: 0;
+  padding: var(--space-4) var(--space-6);
+}
+.at-view > .page-header .page-header-actions {
+  align-self: flex-start;
+  padding-top: 2px;
+}
+.at-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  overflow: hidden;
+}
 
-/* ── SceneStage 舞台:画布底,素材是唯一高光 ── */
+/* ── SceneStage 舞台:画布底,素材是唯一高光(无描边,与面板 border-left 分界) ── */
 .at-stage {
   position: relative;
   background: var(--bg-canvas);
-  border: 1px solid var(--border-subtle);
   overflow: hidden;
   min-width: 0;
 }
@@ -71,8 +94,8 @@
   margin-bottom: var(--space-2);
 }
 .at-placeholder-title {
-  font-size: var(--text-section);
-  font-weight: 600;
+  font-size: var(--text-title);
+  font-weight: 700;
   color: var(--text-primary);
   line-height: 1.3;
 }
@@ -83,11 +106,11 @@
   text-align: center;
   line-height: 1.6;
 }
-/* 引导语按端切换:桌面面板在右,移动面板在下(≤900px 堆叠) */
+/* 引导语按端切换:桌面面板在右,窄屏面板在下(≤1023px 堆叠) */
 .at-placeholder-hint-mobile {
   display: none;
 }
-@media (max-width: 900px) {
+@media (max-width: 1023px) {
   .at-placeholder-hint-desktop {
     display: none;
   }
@@ -112,6 +135,7 @@
 .at-view .at-speaking-badge {
   position: absolute;
   top: var(--space-4);
+  /* 位于页头之下(页头 ~56px 高),与触发器(y12-50)垂直无交集,无需左避让 */
   left: var(--space-4);
   z-index: 10;
   gap: var(--space-2);
@@ -168,7 +192,7 @@
   text-align: center;
 }
 
-/* 错误条(底部居中,玻璃浮层) */
+/* 错误条(底部居中,玻璃浮层;字幕条同现时被其覆盖,z 更高优先可读) */
 .at-error-bar {
   position: absolute;
   left: 50%;
@@ -195,8 +219,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   border-radius: var(--radius-full);
   color: inherit;
   opacity: 0.6;
@@ -204,6 +228,11 @@
   transition: opacity var(--duration-fast) var(--ease-standard);
 }
 .at-error-dismiss:hover { opacity: 1; }
+.at-error-dismiss:focus-visible {
+  opacity: 1;
+  outline: 1px solid var(--err);
+  outline-offset: 1px;
+}
 
 @keyframes at-fade-in {
   from { opacity: 0; }
@@ -231,20 +260,21 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-4) var(--space-4) var(--space-3);
+  gap: var(--space-3);
+  padding: var(--space-4);
   border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
 }
 .at-panel-title-wrap {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
   min-width: 0;
 }
 .at-panel-title {
   margin: 0;
-  font-size: var(--text-section);
-  font-weight: 600;
+  font-size: var(--text-title);
+  font-weight: 700;
   color: var(--text-primary);
   line-height: 1.3;
 }
@@ -260,9 +290,9 @@
   overflow: hidden;
 }
 
-/* ── 响应式:窄屏堆叠(390px 移动档:视频区自适应占满剩余高度) ── */
-@media (max-width: 900px) {
-  .at-view {
+/* ── 响应式:窄屏堆叠(≤1023px 平板档:视频区自适应占满剩余高度) ── */
+@media (max-width: 1023px) {
+  .at-body {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 1fr) 320px;
   }
@@ -279,7 +309,7 @@
 .at-setup {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-5);
   padding: var(--space-4);
   overflow-y: auto;
   flex: 1;
@@ -289,24 +319,24 @@
 .at-setup-section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 .at-section-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
+  gap: var(--space-2);
 }
 .at-section-title {
   margin: 0;
-  font-size: var(--text-label);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
+  font-size: var(--text-section);
+  font-weight: 600;
+  color: var(--text-primary);
 }
 .at-section-count {
   font-size: var(--text-aux);
   color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 /* Avatar 卡片网格(形象选择:玻璃底/描边/高光,选中态 accent 描边) */
@@ -384,8 +414,10 @@
   color: var(--accent);
 }
 
+/* 骨架屏与真实卡片等高(预览 4/3 + 信息行 ≈ 15:14),避免加载完成时跳变 */
 .at-avatar-card-skeleton {
-  height: 120px;
+  height: auto;
+  aspect-ratio: 15 / 14;
   animation: at-shimmer 1.5s ease-in-out infinite;
 }
 @keyframes at-shimmer {
@@ -434,8 +466,9 @@
   cursor: not-allowed;
 }
 .at-models-toggle {
-  margin-top: var(--space-1);
-  padding: 0;
+  align-self: flex-start;
+  margin-top: calc(-1 * var(--space-1));
+  padding: var(--space-1) 0;
   border: none;
   background: none;
   cursor: pointer;
@@ -446,6 +479,11 @@
 }
 .at-models-toggle:hover {
   color: var(--text-primary);
+}
+.at-models-toggle:focus-visible {
+  color: var(--text-primary);
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
 }
 .at-model-chip-name {
   font-family: var(--font-mono);
@@ -509,7 +547,7 @@
 /* 开始按钮(基座 Button primary,整宽) */
 .at-setup-footer {
   margin-top: auto;
-  padding-top: var(--space-3);
+  padding-top: var(--space-4);
   border-top: 1px solid var(--border-subtle);
 }
 .at-setup-footer .at-start-btn {
@@ -554,6 +592,7 @@
   justify-content: center;
 }
 .at-conv-empty-text {
+  margin: 0;
   font-size: var(--text-body);
   color: var(--text-muted);
 }
@@ -769,7 +808,7 @@
   min-width: 0;
 }
 
-/* 面板底部:提交 + 去作品库 */
+/* 面板底部:提交 + 去作品库(按钮整宽堆叠,与 SetupPanel 底栏一致) */
 .at-gen-footer {
   display: flex;
   flex-direction: column;
@@ -777,4 +816,36 @@
   padding: var(--space-3) var(--space-4);
   border-top: 1px solid var(--border-subtle);
   flex-shrink: 0;
+}
+.at-gen-footer .btn {
+  width: 100%;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   移动端(≤767px):触控目标 ≥44px
+   ════════════════════════════════════════════════════════════════ */
+@media (max-width: 767px) {
+  .at-composer .at-composer-input {
+    height: 44px;
+  }
+  .at-composer .at-composer-btn {
+    width: 44px;
+    height: 44px;
+  }
+  .at-model-chip {
+    min-height: 44px;
+    padding: var(--space-1) var(--space-3);
+  }
+  .at-model-chip-skeleton {
+    height: 44px;
+  }
+  .at-models-toggle {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+  .at-error-dismiss {
+    width: 28px;
+    height: 28px;
+  }
 }

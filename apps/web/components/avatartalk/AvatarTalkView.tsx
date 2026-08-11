@@ -495,17 +495,37 @@ export function AvatarTalkView({ onNavigate }: { onNavigate?: (target: string) =
     />
   );
 
+  // 统一页头(全局 .page-header 体系):大标题 + 辅助描述 + 右侧模式切换
+  const pageHeader = (
+    <header className="page-header">
+      <div>
+        <h1 className="page-header-title">数字人</h1>
+        <p className="page-header-desc">
+          {mode === "live"
+            ? "选择形象与模型,与数字人实时对话"
+            : "上传人像与音频,生成对口型的数字人说话视频"}
+        </p>
+      </div>
+      <div className="page-header-actions">{modeTabs}</div>
+    </header>
+  );
+
   if (mode === "gen") {
     return (
       <div className="at-view">
-        <AvatarGenPanel tabs={modeTabs} onNavigate={onNavigate} />
+        {pageHeader}
+        <div className="at-body">
+          <AvatarGenPanel onNavigate={onNavigate} />
+        </div>
       </div>
     );
   }
 
   return (
     <div className="at-view">
-      {/* ── 左:SceneStage 舞台(近黑底,数字人画面是主角) ── */}
+      {pageHeader}
+      <div className="at-body">
+      {/* ── 左:SceneStage 舞台(卡片化画框,数字人画面是主角) ── */}
       <div className="at-stage">
         <video
           ref={videoRef}
@@ -587,16 +607,6 @@ export function AvatarTalkView({ onNavigate }: { onNavigate?: (target: string) =
 
       {/* ── 右:控制面板 ── */}
       <div className="at-panel">
-        <div className="at-panel-header">
-          <div className="at-panel-title-wrap">
-            <h2 className="at-panel-title">数字人</h2>
-            <span className="at-panel-subtitle">
-              {hasSession ? "对话进行中" : "配置并开始"}
-            </span>
-          </div>
-          {modeTabs}
-        </div>
-
         <div className="at-panel-body">
           {!hasSession ? (
             <SetupPanel
@@ -641,6 +651,7 @@ export function AvatarTalkView({ onNavigate }: { onNavigate?: (target: string) =
         </div>
       </div>
 
+      </div>
     </div>
   );
 }
@@ -920,7 +931,11 @@ function ConversationPanel({
       <div className="at-messages">
         {messages.length === 0 && (
           <div className="at-conv-empty">
+            <div className="at-conv-empty-icon" aria-hidden="true">
+              <Icon name="sparkles" size={22} strokeWidth={1.5} />
+            </div>
             <p className="at-conv-empty-text">开始和数字人对话吧</p>
+            <p className="at-conv-empty-hint">输入文字,或点麦克风直接说话</p>
           </div>
         )}
 

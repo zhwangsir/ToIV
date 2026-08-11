@@ -87,7 +87,7 @@ REMOTE_EOF
   echo "▶ 远端重载配置 …"
   ssh "${SSH_OPTS[@]}" "${REMOTE}" "sudo systemctl daemon-reload"
   remote_restart toiv-api
-  remote_wait_health "toiv-api" "http://localhost:8090/openapi.json"
+  remote_wait_health "toiv-api" "http://localhost:8090/api/health"
   remote_restart toiv-web
   remote_wait_health "toiv-web" "http://localhost:3100"
   echo "✅ 回滚完成"
@@ -145,8 +145,9 @@ echo "  rsync 完成"
 if [ "$HAS_WEB_BUILD" = true ]; then
   # 防呆:部署构建必须是不带 INTERNAL_API_BASE 的(默认烘焙 localhost:8090)。
   # 本地验证用的 8200 构建若误部署,core 上 /api 代理全 500(2026-08-07 批3 事故)。
-  if grep -q "localhost:8200" apps/web/.next/routes-manifest.json 2>/dev/null; then
-    echo "✖ .next 是本地验证构建(API 代理烘焙为 localhost:8200)。请先执行:cd apps/web && npm run build" >&2
+  # 两种写法都要拦:localhost:8200 与 127.0.0.1:8200(2026-08-10 .env.local 用后者,漏检过一次)
+  if grep -qE "(localhost|127\.0\.0\.1):8200" apps/web/.next/routes-manifest.json 2>/dev/null; then
+    echo "✖ .next 是本地验证构建(API 代理烘焙为 8200)。请先执行:cd apps/web && npm run build" >&2
     exit 1
   fi
   echo "▶ rsync 前端构建产物(.next) → ${REMOTE} …"
@@ -160,7 +161,8 @@ if [ "$INSTALL" = true ]; then
   ssh "${SSH_OPTS[@]}" "${REMOTE}" \
     "sudo bash ${REMOTE_DIR}/deploy/bare-metal/install.sh"
   # install.sh 内部负责 enable/start,这里只负责等待两服务就绪
-  remote_wait_health "toiv-api" "http://localhost:8090/openapi.json"
+  # 健康探测用 /api/health(openapi.json 已按 TOIV_EXPOSE_API_DOCS 门控,默认关)
+  remote_wait_health "toiv-api" "http://localhost:8090/api/health"
   remote_wait_health "toiv-web" "http://localhost:3100"
 else
   echo "▶ 远端重载配置 …"
@@ -168,7 +170,9 @@ else
   # 依次重启:先 api 后 web,各自重启后立即做该服务健康等待,
   # 缩短整体停机窗口,且 api 起不来时不会白白重启 web
   remote_restart toiv-api
-  remote_wait_health "toiv-api" "http://localhost:8090/openapi.json"
+  # 健康探测用 /api/health 而非 /openapi.json:后者自 QA-FULL-2026-08-11 起
+  # 按 TOIV_EXPOSE_API_DOCS 门控(默认关闭),探测它会误判服务未就绪
+  remote_wait_health "toiv-api" "http://localhost:8090/api/health"
   remote_restart toiv-web
   remote_wait_health "toiv-web" "http://localhost:3100"
 fi

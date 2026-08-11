@@ -43,6 +43,9 @@ H3_NSFW_LORAS: frozenset[str] = frozenset(
         "deepthroat_v1.safetensors",  # civitai 2476698 Daring's Deepthroat H3
         "minimax_vag_000002500.safetensors",  # civitai 2835594 H3 Vagina v0.2
         "SexGod-NaughtyTimes-lora-MINIMAXH3.safetensors",  # civitai 2836176 NaughtyTimes
+        "HMNSFW_AIO_V2.safetensors",  # civitai 2834417 HMNSFW AIO (I2V/T2V,1.9w 下载)
+        "vagassist_e40.safetensors",  # civitai 2846342 HMPussy v0.5 (Pussy/Anus)
+        "stomach_bulge_H3_i2v_v1.0.safetensors",  # civitai 1445226 Stomach Bulge (I2V,3.6w 下载)
     }
 )
 

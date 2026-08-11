@@ -186,9 +186,14 @@ export function AdminView() {
 
       {subView === "users" && (
         <>
-      <header className="admin-header">
-        <div className="admin-header-left">
-          <h1 className="admin-title">用户管理</h1>
+      <header className="page-header">
+        <div>
+          <h1 className="page-header-title">用户管理</h1>
+          <p className="page-header-desc">
+            账户与权限 · 创建、查看与删除平台用户
+          </p>
+        </div>
+        <div className="page-header-actions">
           <span className="admin-count">
             {loading
               ? "加载中…"
@@ -196,16 +201,62 @@ export function AdminView() {
                 ? "加载失败"
                 : `${users?.length ?? 0} 个用户`}
           </span>
+          <button
+            type="button"
+            className="btn btn-primary admin-create-btn"
+            onClick={openCreate}
+          >
+            <Icon name="plus" size={14} />
+            新建用户
+          </button>
         </div>
-        <button
-          type="button"
-          className="btn btn-primary admin-create-btn"
-          onClick={openCreate}
-        >
-          <Icon name="plus" size={14} />
-          新建用户
-        </button>
       </header>
+
+      {!error && (
+        <div className="admin-stats">
+          <div className="admin-stat">
+            <span className="admin-stat-label">总用户</span>
+            <span className="admin-stat-value">
+              {loading ? "—" : (users?.length ?? 0)}
+            </span>
+            <span className="admin-stat-hint">全部注册账户</span>
+          </div>
+          <div className="admin-stat">
+            <span className="admin-stat-label">管理员</span>
+            <span className="admin-stat-value">
+              {loading
+                ? "—"
+                : (users?.filter((u) => u.role === "admin").length ?? 0)}
+            </span>
+            <span className="admin-stat-hint">拥有管理权限</span>
+          </div>
+          <div className="admin-stat">
+            <span className="admin-stat-label">近 7 天新增</span>
+            <span className="admin-stat-value">
+              {loading
+                ? "—"
+                : (users?.filter(
+                    (u) =>
+                      Date.now() - new Date(u.created_at).getTime() <
+                      7 * 24 * 60 * 60 * 1000,
+                  ).length ?? 0)}
+            </span>
+            <span className="admin-stat-hint">新注册账户</span>
+          </div>
+          <div className="admin-stat">
+            <span className="admin-stat-label">累计调用</span>
+            <span className="admin-stat-value">
+              {loading
+                ? "—"
+                : (users?.reduce(
+                    (sum, u) => sum + (u.usage?.total ?? 0),
+                    0,
+                  ) ?? 0)}
+            </span>
+            <span className="admin-stat-hint">全部生成次数</span>
+          </div>
+        </div>
+      )}
 
       <div className="card admin-card">
         {error && !loading && (
@@ -470,50 +521,79 @@ export function AdminView() {
         .admin-view {
           display: flex;
           flex-direction: column;
-          gap: var(--space-4);
+          gap: var(--space-6);
         }
 
         .admin-tabs {
           align-self: flex-start;
         }
-        @media (max-width: 768px) {
+        @media (max-width: 767px) {
           .admin-tabs {
             align-self: stretch;
           }
         }
 
-        .admin-header {
-          display: flex;
-          align-items: flex-end;
-          justify-content: space-between;
-          gap: var(--space-4);
-          flex-wrap: wrap;
-          padding-bottom: var(--space-4);
-          border-bottom: 1px solid var(--border-subtle);
-        }
-        .admin-header-left {
-          display: flex;
-          align-items: baseline;
-          gap: var(--space-3);
-          min-width: 0;
-        }
-        .admin-title {
-          margin: 0;
-          font-family: var(--font-sans);
-          font-size: var(--text-title);
-          font-weight: 700;
-          letter-spacing: -0.02em;
-          color: var(--text-primary);
-          line-height: 1.3;
-        }
+        /* 页头使用全局 .page-header 体系(避让/排版由 globals.css 统一),
+           这里只保留本视图特有的计数与统计卡片区。 */
         .admin-count {
-          font-size: 0.78rem;
+          align-self: center;
+          font-size: var(--text-aux);
           color: var(--text-muted);
           font-family: var(--font-mono);
+          font-variant-numeric: tabular-nums;
           letter-spacing: 0.01em;
+          white-space: nowrap;
         }
         .admin-create-btn {
           white-space: nowrap;
+        }
+
+        /* ── 统计卡片区(栅格化) ── */
+        .admin-stats {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          gap: var(--space-4);
+        }
+        .admin-stat {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-2);
+          padding: var(--space-5);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-panel);
+          transition: transform var(--duration-fast) var(--ease-standard),
+            box-shadow var(--duration-fast) var(--ease-standard),
+            border-color var(--duration-fast) var(--ease-standard);
+        }
+        .admin-stat:hover {
+          transform: translateY(-2px);
+          box-shadow: var(--shadow-lift);
+          border-color: var(--border-strong);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .admin-stat:hover {
+            transform: none;
+          }
+        }
+        .admin-stat-label {
+          font-size: var(--text-label);
+          font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: var(--text-muted);
+        }
+        .admin-stat-value {
+          font-size: var(--text-2xl);
+          font-weight: 700;
+          letter-spacing: -0.02em;
+          line-height: 1.2;
+          color: var(--text-primary);
+          font-variant-numeric: tabular-nums;
+        }
+        .admin-stat-hint {
+          font-size: var(--text-aux);
+          color: var(--text-muted);
         }
 
         .admin-card {
@@ -522,12 +602,22 @@ export function AdminView() {
         }
 
         .admin-loading {
-          padding: var(--space-6) var(--space-4);
+          padding: var(--space-8) var(--space-4);
           justify-content: center;
         }
 
         .admin-empty {
-          padding: var(--space-7) var(--space-4);
+          padding: var(--space-10) var(--space-4);
+        }
+        .admin-empty .empty-state-icon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 72px;
+          height: 72px;
+          margin: 0 auto var(--space-3);
+          background: var(--accent-soft);
+          border-radius: 50%;
         }
 
         .admin-error {
@@ -535,11 +625,11 @@ export function AdminView() {
           flex-direction: column;
           align-items: center;
           gap: var(--space-3);
-          padding: var(--space-6);
+          padding: var(--space-8);
           color: var(--text-muted);
         }
         .admin-error-msg {
-          font-size: 0.88rem;
+          font-size: var(--text-body);
           color: var(--text-secondary);
         }
 
@@ -551,7 +641,7 @@ export function AdminView() {
           white-space: nowrap;
         }
         /* 移动端:表格可横滑,右缘渐隐暗示未裁完 */
-        @media (max-width: 768px) {
+        @media (max-width: 767px) {
           .admin-table-wrap {
             -webkit-mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
             mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
@@ -560,22 +650,22 @@ export function AdminView() {
         .admin-table {
           width: 100%;
           border-collapse: collapse;
-          font-size: 0.88rem;
+          font-size: var(--text-body);
         }
         .admin-table thead th {
           text-align: left;
-          padding: 0.7rem 0.9rem;
-          font-size: 0.72rem;
+          padding: var(--space-3) var(--space-5);
+          font-size: var(--text-label);
           font-weight: 500;
           text-transform: uppercase;
-          letter-spacing: 0.04em;
+          letter-spacing: 0.05em;
           color: var(--text-muted);
           background: var(--bg-surface-2);
-          border-bottom: 1px solid var(--border-subtle);
+          border-bottom: 1px solid var(--border-strong);
           white-space: nowrap;
         }
         .admin-table tbody td {
-          padding: 0.7rem 0.9rem;
+          padding: var(--space-4) var(--space-5);
           border-bottom: 1px solid var(--border-subtle);
           vertical-align: middle;
           color: var(--text-secondary);
@@ -583,8 +673,12 @@ export function AdminView() {
         .admin-table tbody tr {
           transition: background-color var(--duration-fast) var(--ease-standard);
         }
-        .admin-table tbody tr:hover {
+        /* 斑马纹:偶数行浅灰底,与 hover 的强调色底拉开层级 */
+        .admin-table tbody tr:nth-child(even) {
           background: var(--bg-surface-2);
+        }
+        .admin-table tbody tr:hover {
+          background: var(--accent-soft);
         }
         .admin-table tbody tr.is-deleting {
           opacity: 0.5;
@@ -611,13 +705,13 @@ export function AdminView() {
         .admin-user-cell {
           display: flex;
           align-items: center;
-          gap: 0.7rem;
+          gap: var(--space-3);
           min-width: 0;
         }
         .admin-avatar {
           flex-shrink: 0;
-          width: 32px;
-          height: 32px;
+          width: 36px;
+          height: 36px;
           border-radius: 50%;
           background: var(--accent-soft);
           border: 1px solid var(--accent-glow);
@@ -625,7 +719,7 @@ export function AdminView() {
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 0.8rem;
+          font-size: var(--text-aux);
           font-weight: 650;
           font-family: var(--font-mono);
         }
@@ -633,18 +727,18 @@ export function AdminView() {
           min-width: 0;
           display: flex;
           flex-direction: column;
-          gap: 0.05rem;
+          gap: var(--space-1);
         }
         .admin-email {
           color: var(--text-primary);
-          font-size: 0.88rem;
+          font-size: var(--text-body);
           font-weight: 500;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
         .admin-id {
-          font-size: 0.7rem;
+          font-size: var(--text-label);
           color: var(--text-muted);
           font-family: var(--font-mono);
           overflow: hidden;
@@ -653,24 +747,39 @@ export function AdminView() {
         }
 
         .admin-time {
-          font-size: 0.78rem;
+          font-size: var(--text-aux);
           color: var(--text-muted);
           font-family: var(--font-mono);
+          font-variant-numeric: tabular-nums;
           white-space: nowrap;
         }
 
         .admin-usage {
-          font-size: 0.78rem;
+          font-size: var(--text-aux);
           color: var(--text-secondary);
           font-family: var(--font-mono);
+          font-variant-numeric: tabular-nums;
           letter-spacing: 0.01em;
         }
 
+        /* 行内删除按钮:桌面端行 hover / 聚焦时才显现,删除中保持可见;
+           触屏与窄屏常驻可见 */
         .admin-delete {
-          opacity: 0.7;
+          opacity: 0;
+          transition: opacity var(--duration-fast) var(--ease-standard);
         }
-        .admin-delete:hover {
+        .admin-table tbody tr:hover .admin-delete,
+        .admin-table tbody tr:focus-within .admin-delete,
+        .admin-table tbody tr.is-deleting .admin-delete {
           opacity: 1;
+        }
+        @media (hover: none), (max-width: 767px) {
+          .admin-delete {
+            opacity: 0.7;
+          }
+          .admin-delete:hover {
+            opacity: 1;
+          }
         }
 
         .admin-modal {
@@ -743,8 +852,8 @@ export function AdminView() {
           line-height: 1.3;
         }
         .admin-modal-sub {
-          margin-top: 0.2rem;
-          font-size: 0.78rem;
+          margin-top: var(--space-1);
+          font-size: var(--text-aux);
           color: var(--text-muted);
         }
         .admin-modal-close {
@@ -780,10 +889,10 @@ export function AdminView() {
         .admin-field {
           display: flex;
           flex-direction: column;
-          gap: 0.35rem;
+          gap: var(--space-2);
         }
         .admin-label {
-          font-size: 0.78rem;
+          font-size: var(--text-aux);
           color: var(--text-secondary);
           font-weight: 500;
         }
@@ -800,12 +909,12 @@ export function AdminView() {
         }
 
         .admin-form-error {
-          padding: 0.5rem 0.7rem;
+          padding: var(--space-2) var(--space-3);
           background: var(--err-soft);
           border: 1px solid var(--err);
           border-radius: var(--radius-xs);
           color: var(--err);
-          font-size: 0.78rem;
+          font-size: var(--text-aux);
           line-height: 1.45;
         }
 
@@ -814,14 +923,14 @@ export function AdminView() {
           align-items: center;
           justify-content: flex-end;
           gap: var(--space-2);
-          margin-top: 0.3rem;
+          margin-top: var(--space-1);
         }
 
         /* 删除确认对话框 */
         .admin-confirm-title {
           display: inline-flex;
           align-items: center;
-          gap: 0.4rem;
+          gap: var(--space-2);
           color: var(--err);
         }
         .admin-confirm-content {
@@ -831,7 +940,7 @@ export function AdminView() {
           padding: var(--space-4);
         }
         .admin-confirm-warn {
-          font-size: 0.88rem;
+          font-size: var(--text-body);
           color: var(--text-secondary);
           line-height: 1.55;
         }
@@ -839,7 +948,7 @@ export function AdminView() {
           color: var(--text-primary);
           font-weight: 500;
           font-family: var(--font-mono);
-          font-size: 0.82rem;
+          font-size: var(--text-aux);
         }
         .admin-confirm-error {
           margin: 0;
@@ -859,16 +968,27 @@ export function AdminView() {
           cursor: not-allowed;
         }
 
-        @media (max-width: 768px) {
-          .admin-header {
-            flex-direction: column;
-            align-items: stretch;
+        @media (max-width: 767px) {
+          .admin-stats {
+            grid-template-columns: repeat(2, 1fr);
+            gap: var(--space-3);
+          }
+          .admin-stat {
+            padding: var(--space-4);
           }
           .admin-create-btn {
             align-self: flex-start;
           }
           .col-usage {
             min-width: auto;
+          }
+        }
+
+        /* 移动端触控目标 ≥44px */
+        @media (max-width: 575px) {
+          .admin-modal-close {
+            width: 44px;
+            height: 44px;
           }
         }
       `}</style>

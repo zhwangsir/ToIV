@@ -78,6 +78,9 @@ def create_project(
         style=body.style,
         ckpt_name=body.ckpt_name,
         render_mode_default=body.render_mode_default,
+        width=body.width,
+        height=body.height,
+        fps=body.fps,
     )
     session.add(p)
     session.commit()

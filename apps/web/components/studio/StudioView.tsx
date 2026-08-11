@@ -76,16 +76,20 @@ export function StudioView() {
   if (!activeId) {
     return (
       <div className="studio-home">
-        <header className="studio-home-head">
-          <div className="studio-home-title-group">
-            <h1 className="studio-home-title">
-              <Icon name="clapperboard" size={20} /> 创作工作室
+        <header className="page-header">
+          <div>
+            <h1 className="page-header-title">
+              <Icon name="clapperboard" size={22} /> 创作工作室
             </h1>
-            <p className="studio-home-sub">剧本 → 角色 → 分镜混合生成 → 合成</p>
+            <p className="page-header-desc">
+              剧本 → 角色 → 分镜混合生成 → 合成,四步完成一部短剧
+            </p>
           </div>
-          <button type="button" className="btn btn-primary" onClick={() => void createProject()}>
-            <Icon name="plus" size={14} /> 新建项目
-          </button>
+          <div className="page-header-actions">
+            <button type="button" className="btn btn-primary" onClick={() => void createProject()}>
+              <Icon name="plus" size={14} /> 新建项目
+            </button>
+          </div>
         </header>
         {error && <p className="studio-error">{error}</p>}
         {projects.length === 0 ? (
@@ -140,11 +144,14 @@ export function StudioView() {
   return (
     <div className="studio-view">
       <nav className="studio-stages" aria-label="创作阶段">
-        <button type="button" className="studio-back" onClick={() => setActiveId(null)}>
-          <Icon name="chevron-left" size={14} /> 项目列表
-        </button>
+        <div className="studio-stages-top">
+          <button type="button" className="studio-back" onClick={() => setActiveId(null)}>
+            <Icon name="chevron-left" size={14} /> 项目列表
+          </button>
+          {d && <span className="studio-view-title">{d.title || "未命名"}</span>}
+        </div>
         <div className="studio-stage-tabs" role="tablist">
-          {STAGES.map((s) => (
+          {STAGES.map((s, i) => (
             <button
               key={s.key}
               type="button"
@@ -153,11 +160,13 @@ export function StudioView() {
               className={`studio-stage-btn${stage === s.key ? " is-active" : ""}`}
               onClick={() => setStage(s.key)}
             >
+              <span className="studio-stage-num" aria-hidden="true">
+                {i + 1}
+              </span>
               <Icon name={s.icon} size={14} /> {s.label}
             </button>
           ))}
         </div>
-        {d && <span className="studio-view-title">{d.title || "未命名"}</span>}
       </nav>
 
       {project.error && <p className="studio-error">{project.error}</p>}
@@ -185,53 +194,44 @@ export function StudioView() {
 function StudioStyles() {
   return (
     <style jsx global>{`
-      /* ── 布局 ── */
+      /* ── 布局:内容区 max-width 1200 居中,与 single-view 版型对齐 ── */
       .studio-home,
       .studio-view {
         display: flex;
         flex-direction: column;
-        gap: var(--space-5);
+        gap: var(--space-7);
+        width: 100%;
+        max-width: 1200px;
+        margin: 0 auto;
         height: 100%;
         overflow-y: auto;
-        padding: var(--space-6);
+        padding: var(--space-8);
       }
-      .studio-home-head {
-        display: flex;
-        align-items: flex-end;
-        justify-content: space-between;
-        gap: var(--space-4);
-        padding-bottom: var(--space-3);
-        border-bottom: 1px solid var(--border-subtle);
+      /* 首页页头用全局 .page-header*(桌面端自动避让 CornerNav);容器 gap 已提供间距 */
+      .studio-home .page-header {
+        margin-bottom: 0;
       }
-      .studio-home-title {
+      .studio-home .page-header-title {
         display: flex;
         align-items: center;
         gap: var(--space-2);
-        font-size: var(--text-title);
-        font-weight: 600;
         color: var(--text-primary);
-        letter-spacing: -0.02em;
-      }
-      .studio-home-sub {
-        margin-top: var(--space-1);
-        font-size: var(--text-aux);
-        color: var(--text-muted);
       }
       .studio-error {
         font-size: var(--text-aux);
         color: var(--err);
-        background: var(--bg-surface-2);
+        background: var(--err-soft);
         border: 1px solid var(--border-subtle);
         border-radius: var(--radius-control);
         padding: var(--space-2) var(--space-3);
       }
 
-      /* ── 项目列表 ── */
+      /* ── 项目列表:大行高卡片式,hover 升浮 ── */
       .studio-project-list {
         display: flex;
         flex-direction: column;
-        gap: var(--space-2);
-        max-width: 720px;
+        gap: var(--space-3);
+        max-width: 800px;
         list-style: none;
         margin: 0;
         padding: 0;
@@ -243,11 +243,12 @@ function StudioStyles() {
       }
       .studio-project-open {
         flex: 1;
+        min-width: 0;
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: var(--space-3);
-        padding: var(--space-3) var(--space-4);
+        padding: var(--space-4) var(--space-5);
         background: var(--bg-surface-1);
         border: 1px solid var(--border-subtle);
         border-radius: var(--radius-panel);
@@ -255,16 +256,21 @@ function StudioStyles() {
         text-align: left;
         transition:
           border-color var(--duration-fast) var(--ease-standard),
+          box-shadow var(--duration-fast) var(--ease-standard),
           transform var(--duration-fast) var(--ease-standard);
       }
       .studio-project-open:hover {
         border-color: var(--border-strong);
-        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
+        transform: translateY(-2px);
       }
       .studio-project-title {
         font-size: var(--text-section);
         font-weight: 600;
         color: var(--text-primary);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
       .studio-project-meta {
         display: flex;
@@ -277,8 +283,9 @@ function StudioStyles() {
       }
       .studio-badge {
         font-size: var(--text-label);
+        font-weight: 500;
         padding: 2px var(--space-2);
-        border-radius: var(--radius-full);
+        border-radius: var(--radius-badge);
         background: var(--bg-surface-2);
         color: var(--text-muted);
         white-space: nowrap;
@@ -289,14 +296,19 @@ function StudioStyles() {
       }
       .studio-badge.is-error {
         color: var(--err);
+        background: var(--err-soft);
       }
 
-      /* ── 阶段导航 ── */
+      /* ── 阶段导航:长列表滚动时吸附顶部 ── */
       .studio-stages {
+        position: sticky;
+        top: 0;
+        z-index: var(--z-sticky);
         display: flex;
         align-items: center;
-        gap: var(--space-4);
-        padding-bottom: var(--space-3);
+        gap: var(--space-3);
+        padding: var(--space-2) 0 var(--space-3);
+        background: var(--bg-canvas);
         border-bottom: 1px solid var(--border-subtle);
         flex-shrink: 0;
       }
@@ -313,6 +325,9 @@ function StudioStyles() {
         border-radius: var(--radius-control);
         white-space: nowrap;
         flex-shrink: 0;
+        transition:
+          color var(--duration-fast) var(--ease-standard),
+          background-color var(--duration-fast) var(--ease-standard);
       }
       .studio-back:hover {
         color: var(--text-primary);
@@ -322,13 +337,19 @@ function StudioStyles() {
         display: flex;
         gap: var(--space-1);
         background: var(--bg-surface-2);
-        padding: 3px;
+        padding: var(--space-1);
         border-radius: var(--radius-control);
         min-width: 0;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+      .studio-stage-tabs::-webkit-scrollbar {
+        display: none;
       }
       .studio-stage-btn {
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: var(--space-1);
         font-size: var(--text-aux);
         font-weight: 500;
@@ -337,7 +358,7 @@ function StudioStyles() {
         border: none;
         cursor: pointer;
         padding: var(--space-1) var(--space-3);
-        border-radius: calc(var(--radius-control) - 3px);
+        border-radius: calc(var(--radius-control) - 4px);
         white-space: nowrap;
         flex-shrink: 0;
         transition:
@@ -363,28 +384,19 @@ function StudioStyles() {
         max-width: 32%;
       }
 
-      /* 移动端:阶段条横向滑动(右缘渐隐暗示可滑),标题保持单行截断 */
-      @media (max-width: 640px) {
-        .studio-stages {
-          gap: var(--space-2);
-        }
-        .studio-stage-tabs {
-          overflow-x: auto;
-          scrollbar-width: none;
-          -webkit-mask-image: linear-gradient(to right, black calc(100% - 28px), transparent);
-          mask-image: linear-gradient(to right, black calc(100% - 28px), transparent);
-        }
-        .studio-stage-tabs::-webkit-scrollbar {
-          display: none;
-        }
-      }
-
       /* ── 阶段通用 ── */
       .studio-stage {
         display: flex;
         flex-direction: column;
         gap: var(--space-4);
+        width: 100%;
         max-width: 960px;
+      }
+      /* 卡片网格类阶段用满内容宽(1200) */
+      .studio-stage-cast,
+      .studio-stage-board,
+      .studio-stage-assembly {
+        max-width: none;
       }
       .studio-field {
         display: flex;
@@ -393,12 +405,14 @@ function StudioStyles() {
       }
       .studio-label {
         font-size: var(--text-label);
+        font-weight: 500;
         color: var(--text-muted);
       }
       .studio-stage-actions {
         display: flex;
         align-items: center;
         justify-content: flex-end;
+        flex-wrap: wrap;
         gap: var(--space-3);
       }
       .studio-inline-field {
@@ -410,6 +424,11 @@ function StudioStyles() {
       }
       .studio-inline-field .input {
         width: 72px;
+      }
+      /* 下拉类内联字段(分辨率/帧率)不压缩,随内容伸展 */
+      .studio-inline-field select.input {
+        width: auto;
+        min-width: 150px;
       }
 
       /* ── 角色卡 ── */
@@ -426,6 +445,10 @@ function StudioStyles() {
         background: var(--bg-surface-1);
         border: 1px solid var(--border-subtle);
         border-radius: var(--radius-panel);
+        transition: border-color var(--duration-fast) var(--ease-standard);
+      }
+      .studio-char:hover {
+        border-color: var(--border-strong);
       }
       .studio-char-head {
         display: flex;
@@ -435,6 +458,7 @@ function StudioStyles() {
       }
       .studio-char-name {
         flex: 1;
+        min-width: 0;
         font-weight: 600;
       }
       .studio-char-new {
@@ -454,7 +478,8 @@ function StudioStyles() {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: var(--space-3);
+        flex-wrap: wrap;
+        gap: var(--space-2) var(--space-3);
       }
       .studio-board-stat {
         font-size: var(--text-aux);
@@ -476,8 +501,13 @@ function StudioStyles() {
         border: 1px solid var(--border-subtle);
         border-radius: var(--radius-panel);
         overflow: hidden;
+        transition: border-color var(--duration-fast) var(--ease-standard);
       }
-      .studio-shot[data-status="error"] {
+      .studio-shot:hover {
+        border-color: var(--border-strong);
+      }
+      .studio-shot[data-status="error"],
+      .studio-shot[data-status="error"]:hover {
         border-color: var(--err);
       }
       .studio-shot-media {
@@ -508,10 +538,11 @@ function StudioStyles() {
         top: var(--space-2);
         right: var(--space-2);
         font-size: var(--text-label);
+        font-weight: 500;
         padding: 2px var(--space-2);
-        border-radius: var(--radius-full);
+        border-radius: var(--radius-badge);
         background: var(--overlay-light); /* 图片上 scrim 恒深色 */
-        color: #FFFFFF;
+        color: var(--text-on-accent);
         backdrop-filter: blur(4px);
       }
       .studio-shot-badge.is-done {
@@ -538,26 +569,30 @@ function StudioStyles() {
       }
       .studio-shot-mode {
         display: flex;
-        gap: 2px;
+        gap: var(--space-1);
         background: var(--bg-surface-2);
-        padding: 2px;
+        padding: var(--space-1);
         border-radius: var(--radius-control);
       }
       .studio-shot-mode button {
         display: inline-flex;
         align-items: center;
-        gap: 3px;
+        gap: var(--space-1);
         font-size: var(--text-label);
         color: var(--text-muted);
         background: none;
         border: none;
         cursor: pointer;
         padding: 2px var(--space-2);
-        border-radius: calc(var(--radius-control) - 2px);
+        border-radius: calc(var(--radius-control) - 4px);
+        transition:
+          color var(--duration-fast) var(--ease-standard),
+          background-color var(--duration-fast) var(--ease-standard);
       }
       .studio-shot-mode button.is-active {
         color: var(--accent);
         background: var(--bg-surface-1);
+        box-shadow: var(--shadow-sm);
       }
       .studio-shot-mode button:disabled {
         opacity: 0.5;
@@ -575,6 +610,9 @@ function StudioStyles() {
         border: none;
         border-radius: var(--radius-control);
         cursor: pointer;
+        transition:
+          color var(--duration-fast) var(--ease-standard),
+          background-color var(--duration-fast) var(--ease-standard);
       }
       .studio-shot-del:hover {
         color: var(--err);
@@ -586,6 +624,7 @@ function StudioStyles() {
       }
       .studio-shot-line .input:first-child {
         flex: 1;
+        min-width: 0;
       }
       .studio-shot-speaker {
         width: 110px;
@@ -601,7 +640,8 @@ function StudioStyles() {
         background: none;
         border: none;
         cursor: pointer;
-        padding: 0;
+        padding: var(--space-1) 0;
+        transition: color var(--duration-fast) var(--ease-standard);
       }
       .studio-shot-adv-toggle:hover {
         color: var(--text-primary);
@@ -617,9 +657,10 @@ function StudioStyles() {
       }
       .studio-shot-adv-row label {
         flex: 1;
+        min-width: 0;
         display: flex;
         flex-direction: column;
-        gap: 2px;
+        gap: var(--space-1);
         font-size: var(--text-label);
         color: var(--text-muted);
       }
@@ -629,8 +670,9 @@ function StudioStyles() {
       }
       .studio-shot-actions {
         display: flex;
+        flex-wrap: wrap;
         gap: var(--space-2);
-        padding-top: var(--space-1);
+        padding-top: var(--space-2);
         border-top: 1px solid var(--border-subtle);
       }
 
@@ -651,7 +693,7 @@ function StudioStyles() {
         padding: var(--space-2);
         background: var(--bg-surface-1);
         border: 1px solid var(--border-subtle);
-        border-radius: var(--radius-control);
+        border-radius: var(--radius-panel);
         opacity: 0.55;
       }
       .studio-timeline-item[data-ready="true"] {
@@ -678,6 +720,11 @@ function StudioStyles() {
       .studio-timeline-scene {
         font-size: var(--text-aux);
         color: var(--text-secondary);
+        min-width: 0;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        overflow: hidden;
       }
       .studio-final {
         display: flex;
@@ -706,9 +753,71 @@ function StudioStyles() {
         align-self: flex-start;
       }
 
+      /* ── 窄屏 <1024px:内容区 padding 对齐 single-view ── */
+      @media (max-width: 1023px) {
+        .studio-home,
+        .studio-view {
+          padding: var(--space-5);
+        }
+      }
+
+      /* ── 移动 <768px:触控目标 ≥44px,时间轴压缩,项目标题让位 ── */
+      @media (max-width: 767px) {
+        .studio-home,
+        .studio-view {
+          padding: var(--space-4);
+        }
+        .studio-view-title {
+          display: none;
+        }
+        .studio-back,
+        .studio-stage-btn {
+          min-height: 44px;
+        }
+        .studio-shot-del {
+          width: 44px;
+          height: 44px;
+        }
+        .studio-shot-adv-toggle {
+          min-height: 44px;
+        }
+        .studio-timeline-item {
+          grid-template-columns: 28px 120px 1fr;
+          gap: var(--space-2);
+        }
+      }
+
+      /* 小屏:阶段条横向滑动(右缘渐隐暗示可滑) */
+      @media (max-width: 767px) {
+        .studio-stages {
+          gap: var(--space-2);
+        }
+        .studio-stage-tabs {
+          -webkit-mask-image: linear-gradient(to right, black calc(100% - 28px), transparent);
+          mask-image: linear-gradient(to right, black calc(100% - 28px), transparent);
+        }
+      }
+
+      /* ── 小屏 <576px ── */
+      @media (max-width: 575px) {
+        .studio-home,
+        .studio-view {
+          padding: var(--space-3);
+        }
+        .studio-timeline-item {
+          grid-template-columns: 24px 88px 1fr;
+        }
+      }
+
       @media (prefers-reduced-motion: reduce) {
         .studio-project-open,
-        .studio-stage-btn {
+        .studio-stage-btn,
+        .studio-shot,
+        .studio-char,
+        .studio-back,
+        .studio-shot-del,
+        .studio-shot-mode button,
+        .studio-shot-adv-toggle {
           transition: none;
         }
       }

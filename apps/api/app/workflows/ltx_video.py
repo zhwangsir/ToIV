@@ -47,10 +47,11 @@ _DEFAULT_UPSCALE_MODEL = os.environ.get("TOIV_LTX_UPSCALE_MODEL", "RealESRGAN_x2
 _DEFAULT_USE_UPSCALE = os.environ.get("TOIV_LTX_USE_UPSCALE", "true").lower() == "true"
 _DEFAULT_USE_RIFE = os.environ.get("TOIV_LTX_USE_RIFE", "false").lower() == "true"
 
-# LTX2.3 视频底模:10Eros(NSFW) / zImage Turbo / ltx-2.3-distilled(SFW) 均可通过环境变量切换。
+# LTX2.3 视频底模:10Eros(NSFW) / ltx-2.3-22b-distilled-1.1(SFW 默认) / 22b-dev 均可通过环境变量切换。
+# 注:SFW 默认直引真机实存的 22B distilled 1.1;旧 ltx-2.3-distilled 符号链接已失效(勿回退)。
 # 配套 CLIP/VAE 默认按 10Eros 工作流(Gemma 3 12B + LTX23_video_vae_bf16);若换用其他底模需自行确认兼容性。
 DEFAULT_NSFW_UNET = os.environ.get("TOIV_LTX_UNET", "10eros_v14.safetensors")
-DEFAULT_LTX_UNET = "ltx-2.3-distilled.safetensors"
+DEFAULT_LTX_UNET = os.environ.get("TOIV_LTX_SFW_UNET", "ltx-2.3-22b-distilled-1.1.safetensors")
 # Gemma 3 12B 文本编码器:ComfyUI-LTXVideo 的 LTXVGemmaCLIPModelLoader 要求 HF 目录结构
 # (model.safetensors + tokenizer.model + config.json + generation_config.json + preprocessor_config.json)。
 # 使用 gemma3_12b_it_bf16/:原 fp8_scaled 权重被 HF 加载器忽略 weight_scale 且键名为 ComfyUI 原生
@@ -170,7 +171,11 @@ class LtxLipsyncParams:
     gemma_name: str = DEFAULT_GEMMA
     vae_name: str = DEFAULT_VAE
     max_length: int = 1024
-    audio_vae_name: str = "mmaudio_large_44k_nsfw_gold_8.5k_final_fp16.safetensors"
+    # LTXVAudioVAELoader 从 checkpoints 类目加载,按 `audio_vae.` 前缀抽取子状态字典
+    # (nodes_lt_audio.py: state_dict_prefix_replace({"audio_vae.": "autoencoder."}))。
+    # 必须用内嵌 audio_vae.* 键的 LTX2.3 全量底模(distilled 底模与 UNET 同源,toiv 库
+    # checkpoints/ 已注册,102 个 audio_vae 键);mmaudio gold ckpt 无此前缀 → VAE invalid。
+    audio_vae_name: str = "ltx-2.3-22b-distilled-1.1.safetensors"
     id_lora: str = ""  # ID LoRA(声音/角色一致性,空=不挂)
     id_lora_strength: float = 0.8
     width: int = 768

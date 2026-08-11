@@ -193,7 +193,9 @@ export async function fetchMe(): Promise<{ user: AppUser; usage: Usage }> {
     { headers: authHeaders() },
     { skipAuthRedirect: true },
   );
-  if (!res.ok) throw new Error("会话已过期");
+  // 仅 401/403 算会话失效;5xx/网络抖动是瞬时故障,调用方据此决定重试而非踢回登录页
+  if (res.status === 401 || res.status === 403) throw new Error("会话已过期");
+  if (!res.ok) throw new Error(`服务暂不可用(${res.status})`);
   return res.json();
 }
 
@@ -818,13 +820,13 @@ export interface InstallModelParams {
 
 export interface InstallModelResult {
   accepted: boolean;
-  endpoint?: string;
-  worker?: string;
+  /** NAS 下载作业 id;进度轮询 getNasDownloadStatus(job_id)。 */
+  job_id: string;
+  filename: string;
   message?: string;
-  from_catalog?: boolean;
 }
 
-/** 把模型装到 ComfyUI 集群。契约:POST /api/marketplace/install。 */
+/** 把市场模型下载到 NAS 模型库(admin,全集群 worker 共享)。契约:POST /api/marketplace/install。 */
 export async function installModel(params: InstallModelParams): Promise<InstallModelResult> {
   const res = await apiFetch(`/api/marketplace/install`, {
     method: "POST",
@@ -2642,17 +2644,11 @@ export interface VideoGeneratorInfo {
   description?: string;
   supports_image2video: boolean;
   supports_text2video: boolean;
-  // 前端独有:后端不返回此字段,由前端按 AVAILABLE_VIDEO_GENERATORS 白名单附加。
-  // stub 模型(seedance/kling)在 generate() 时返回固定错误,元信息层不可见,故前端维护白名单。
+  // QA-FULL-2026-08-11 P3:available/unavailable_reason 由后端下发,数据源与
+  // /api/models/engines 相同(engine_registry 探测);前端不再维护白名单。
   available?: boolean;
+  unavailable_reason?: string;
 }
-
-/**
- * M2.2:前端可用视频生成器白名单(单一真相源)。
- * 后端真正接入新模型时,在此 Set 加一个名字即可让选择器显示。
- * 当前 ltx 与 liveact 实际可用,seedance/kling 为 stub。
- */
-export const AVAILABLE_VIDEO_GENERATORS = new Set<string>(["ltx", "liveact"]);
 
 /** 可用视频生成模型列表。契约:GET /api/drama/video-generators。 */
 export const dramaListVideoGenerators = (): Promise<{ generators: VideoGeneratorInfo[] }> =>
@@ -2940,6 +2936,10 @@ export interface StudioProjectSummary {
   style: string;
   ckpt_name: string;
   render_mode_default: StudioRenderMode;
+  /** 产出规格:视频/图像运镜两链共用(8 对齐;预设均为 32 对齐) */
+  width: number;
+  height: number;
+  fps: number;
   status: string; // draft | storyboard | generating | ready | error
   final_url: string;
   error?: string;
@@ -3039,6 +3039,9 @@ export const createStudioProject = (body: {
   style?: string;
   ckpt_name?: string;
   render_mode_default?: StudioRenderMode;
+  width?: number;
+  height?: number;
+  fps?: number;
 }): Promise<StudioProjectSummary> => studioReq("/studio/projects", "POST", body);
 export const getStudioProject = (pid: string): Promise<StudioProjectDetail> =>
   studioReq(`/studio/projects/${pid}`, "GET");
@@ -3051,6 +3054,9 @@ export const patchStudioProject = (
     ckpt_name: string;
     render_mode_default: StudioRenderMode;
     status: string;
+    width: number;
+    height: number;
+    fps: number;
   }>,
 ): Promise<StudioProjectSummary> => studioReq(`/studio/projects/${pid}`, "PATCH", body);
 export const deleteStudioProject = (pid: string): Promise<{ ok: boolean }> =>

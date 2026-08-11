@@ -73,7 +73,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   ? "success"
                   : t.type === "error"
                     ? "error"
-                    : "search"
+                    : "info"
               }
               size={16}
             />
@@ -94,30 +94,30 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <style jsx>{`
         .toast-container {
           position: fixed;
-          top: 16px;
-          right: 16px;
+          top: var(--space-4);
+          right: var(--space-4);
           z-index: var(--z-toast);
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: var(--space-2);
           pointer-events: none;
         }
         .toast {
           display: flex;
           align-items: center;
-          gap: 10px;
-          padding: 12px 16px;
-          border-radius: var(--radius-md);
+          gap: var(--space-2);
+          padding: var(--space-3) var(--space-4);
+          border-radius: var(--radius-control);
           background: var(--bg-surface-1);
           border: 1px solid var(--border-subtle);
           box-shadow: var(--shadow-float);
           color: var(--text-primary);
-          font-size: 0.875rem;
+          font-size: var(--text-body);
           min-width: 280px;
           max-width: 400px;
           pointer-events: auto;
           cursor: pointer;
-          animation: slideIn 0.2s ease-out;
+          animation: slideIn var(--duration-base) var(--ease-standard);
         }
         @keyframes slideIn {
           from {
@@ -140,6 +140,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         }
         .toast-msg {
           flex: 1;
+          min-width: 0;
+          line-height: 1.5;
+          word-break: break-word;
         }
         .toast-close {
           width: 24px;
@@ -147,15 +150,29 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           display: flex;
           align-items: center;
           justify-content: center;
+          flex-shrink: 0;
           background: transparent;
           border: none;
           color: var(--text-muted);
           cursor: pointer;
           border-radius: var(--radius-sm);
+          transition: background-color var(--duration-fast) var(--ease-standard),
+            color var(--duration-fast) var(--ease-standard);
         }
         .toast-close:hover {
           color: var(--text-primary);
           background: var(--bg-surface-2);
+        }
+        /* 窄屏:通知横向拉满,避免 400px 上限溢出小视口 */
+        @media (max-width: 767px) {
+          .toast-container {
+            left: var(--space-4);
+          }
+          .toast {
+            min-width: 0;
+            max-width: none;
+            width: 100%;
+          }
         }
       `}</style>
     </ToastContext.Provider>

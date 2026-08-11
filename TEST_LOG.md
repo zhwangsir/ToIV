@@ -1,6 +1,894 @@
 # ToIV · 测试日志（TEST_LOG）
 
+---
+
+## QA-FIX-2026-08-11 · QA-FULL 缺陷修复回归 + 部署真机核验
+
+**时间**: 2026-08-11 17:00 – 18:10
+**类型**: 缺陷修复 → 全量回归 → 部署 core → 真机逐项核验
+**结果**: ✅ 修复 11 项 / pytest **1181 passed** / 前端 build 零告警 / 部署成功 / 真机核验 **10/10 通过**
+
+### 修复清单(对应 QA-FULL-2026-08-11 缺陷表)
+
+| 级别 | 缺陷 | 修复 | 回归 |
+|------|------|------|------|
+| P0 | 管理员删除用户 500(FK 冲突) | [admin.py](apps/api/app/routes/admin.py):先删 user、`session.flush()` 解引用、再删 tenant | test_admin.py |
+| P0 | 上传零魔数嗅探(webshell) | [upload.py](apps/api/app/routes/upload.py):扩展名+Content-Type+魔数三重白名单,不符即 415 | test_upload.py |
+| P1 | /api/models/engines 0.55-3.37s 波动 | [engine_registry.py](apps/api/app/services/engine_registry.py):`asyncio.gather` 并行探测 + 8s TTL 缓存 | test_engine_registry.py |
+| P2 | 生产 /docs /openapi.json 暴露 | [config.py](apps/api/app/config.py) `expose_api_docs=False` 门控 + [main.py](apps/api/app/main.py) 三 URL 置 None | test_security_headers.py(新增 6 例) |
+| P2 | 6 项安全响应头全缺 | main.py `_security_headers_mw`:nosniff/DENY/no-referrer/Permissions-Policy/CSP,HSTS 仅 https | 同上 |
+| P2 | 提示词框 focus 不可见 | [stage.css](apps/web/app/styles/stage.css):`.promptbar-textarea:focus-visible` accent 焦点环 | 生产 CSS 核验 |
+| P2 | authed E2E 首跳 flaky | [api.ts](apps/web/lib/api.ts) fetchMe 仅 401/403 判过期 + [page.tsx](apps/web/app/page.tsx) 800/1600ms 退避重试×2 | E2E |
+| P3 | 引擎状态两处不一致 | [drama_studio.py](apps/api/app/routes/drama_studio.py) `/drama/video-generators` 改从 engine_registry 同源下发;前端删白名单 | test_drama_studio.py |
+| P3 | 404 非本地化 | 新增 [not-found.tsx](apps/web/app/not-found.tsx) 中文页 | 生产 404 含中文 |
+| P3 | Sentry 构建告警×3 | 迁移 Next.js 15 instrumentation:新增 instrumentation.ts / instrumentation-client.ts / global-error.tsx | build 零告警 |
+| 附带 | deploy.sh 健康探测用 /openapi.json(门控后会误判) | [deploy.sh](deploy/deploy.sh) 三处探测改 /api/health | 本次部署实测通过 |
+
+### 真机核验(verify 脚本 /tmp/qa_fix_verify.py,对 192.168.71.47:8090/3100)
+
+```
+✅ 安全响应头(5项全在,http无HSTS)
+✅ API 文档门控(/docs /redoc /openapi.json 全 404)
+✅ 上传魔数嗅探(exe伪装.png → 415;真 PNG → 200)
+✅ 管理员删除用户(建号→DELETE 200→复查不存在)
+✅ engines 接口:首探 805ms(并行)→缓存命中 26/36ms(原 0.55-3.37s 串行)
+✅ video-generators 与 engines 同源(h3=True 一致;seedance 固定不可用)
+✅ 本地化 404 页面(含中文提示)
+✅ promptbar focus-visible 焦点环 CSS 已部署
+✅ 前端新文件(not-found/instrumentation×2/global-error)在 core 就位
+===== 10 通过 / 0 失败 =====
+```
+
+### 部署记录
+
+- `deploy/deploy.sh` → core:rsync 源码+.next → daemon-reload → toiv-api 第 2 次探测就绪 → toiv-web 第 2 次探测就绪;回滚快照 `.rollback-previous` 已留
+- ⚠️ 部署前置修复:deploy.sh 健康探测原打 `/openapi.json`,文档门控后该路径 404 会误判服务未就绪,已改 `/api/health` 三处(部署/安装/回滚分支)
+
+---
+
+## QA-FULL-2026-08-11 · 全面系统质量保障测试(24 种方法)
+
+**时间**: 2026-08-11 上午 – 12:20
+**类型**: 全面 QA(黑盒 8 / 白盒 4 / 灰盒 2 / 专项 4 / UI&UX 6)
+**目标**: 对 core 生产(192.168.71.47:8090 API / :3100 Web)执行 24 种深度测试方法,输出缺陷清单
+
+### 结果总览
+
+| 模块 | 方法 | 结果 |
+|------|------|------|
+| 白盒 9-12 | 语句/判定/条件/路径覆盖 | ✅ pytest **1165 全过**,pytest-cov 语句覆盖 **65%** |
+| 黑盒 1-6 | 等价类/边界值/错误推测/场景法/判定表/正交 | ✅ API 层对 core 通过 |
+| 黑盒 7 | 数据一致性(作业→DB→产物回溯) | ✅ 通过 |
+| 黑盒 8 | 基础交互(键盘/鼠标/前进后退) | ✅ 走查通过 |
+| 灰盒 13-14 | API 深度 + 模块集成 | ✅ 功能/校验/格式/错误/权限通过 |
+| 专项 15 | 性能压力 | ⚠️ 见瓶颈;并发 50 **0 错误** |
+| 专项 16 | 安全 | ⚠️ **High×2 / Medium×2(全部实测复现)** |
+| 专项 17 | 兼容性 | ✅ **chromium+firefox+webkit 三浏览器**全过 0 错误;桌面+移动 7 档视口布局完整 |
+| 专项 18 | 混沌故障注入 | ✅ Redis 降级无缝 / API 重启 1.77s 自恢复 |
+| UI&UX 19-24 | 视觉/响应式/A11Y/易用/流程/反馈 | ✅ E2E **65 passed / 0 failed**;组件状态+缩放实测通过;走查发现 P3 项 |
+
+### 性能数据(只读接口,避开 GPU 生成链路)
+
+- 单请求基线:auth/me 13.4ms · jobs 19.3ms · models 51.8ms · models/local 42.1ms · studio/projects 47.5ms · presets 25.9ms
+- **瓶颈**:`/api/models/engines` avg **3366ms**(串行 live probe 多 worker;worker 全在线时仍秒级)
+- 并发(auth/me):10→RPS 210 p99 121ms;20→RPS 323 p99 117ms;50→RPS 268 p99 317ms,错误 0
+- 并发(jobs):10→RPS 146 p99 158ms;20→RPS 152 p99 212ms;50→RPS 139 p99 555ms,错误 0
+
+### 混沌故障注入(受控)
+
+- **Redis 停止**:health 200(1.2ms)/登录 200(降级内存限流)/连续登录全 200 → 恢复后无缝切回 ✅
+- **toiv-api systemctl restart**:**1.77s** 恢复健康;auth/me、jobs、DB 读(studio/projects)抽测全 200 ✅
+- **worker 故障真注入**:受「H3 不许掉线」硬性规则约束未执行;pool 全不可达 502 分支有单测覆盖
+
+### 缺陷清单(按严重度,含复现步骤与根因)
+
+| 级别 | 缺陷 | 复现步骤 / 根因 | 改进建议 |
+|------|------|----------------|----------|
+| **P0-High** | 管理员无法删除用户(500) | 复现:`POST /api/admin/users` 建测试号(200)→`DELETE /api/admin/users/{id}`→**500 Internal Server Error**→`GET /api/admin/users` 复查用户仍在。根因(journalctl traceback):ORM 先 `DELETE FROM tenant`,而 `user.tenant_id` 仍引用 → `ForeignKeyViolation user_tenant_id_fkey`(级联方向反了) | 修正 ORM 级联:删 tenant 前先解除 user→tenant 引用(或 user 侧配置 `ondelete`),补删除后复查断言的回归测试 |
+| **P0-High** | 上传接口零魔数嗅探,可传 webshell | 复现:`POST /api/upload?kind=avatar` 分别提交 ①MZ 头 exe 伪装 `evil.png` ②`<?php` 伪装 `evil.jpg` ③无扩展名文件 → **全部 200 接受**并落 worker(8189/8188/8193)。根因:仅按扩展名/表单字段接收,无内容嗅探 | 扩展名+Content-Type+魔数三重白名单(png/jpg/webp/wav/mp3…),魔数不符即 415;上传目录禁执行权限 |
+| P1 | `/api/models/engines` 延迟 0.55-3.37s 波动 | 复现:登录后 `GET /api/models/engines` 多次计时(实测 0.55/0.86/2.90/3.64s 不等)。根因:串行 live probe 多个 worker,延迟随 worker 瞬时状态波动 | 并行 probe + 短 TTL(5-10s)缓存探测结果 |
+| P2 | 生产 API 文档暴露 | 复现:`GET /docs`→200、`GET /openapi.json`→200(267KB 完整 schema)、`GET /redoc`→200,无需认证 | 生产环境按 env 关闭 docs(`docs_url=None`),或加认证 |
+| P2 | 6 项安全响应头全缺 | 复现:`curl -I /api/health` 检查,X-Content-Type-Options / X-Frame-Options / CSP / HSTS / Referrer-Policy / Permissions-Policy 全部缺失 | 加安全头中间件(nosniff/deny 或 frame-ancestors/默认 CSP 等) |
+| P2 | 提示词框 focus 无可见焦点指示 | 复现:image 视图 `.promptbar-textarea` 聚焦后 computed `outline:none` 且无 boxShadow 补偿,键盘用户无法感知焦点位置(违 WCAG 2.4.7) | 为 `:focus-visible` 补可见焦点环(2px outline 或等效 boxShadow) |
+| P2 | authed E2E 多例首次导航超时 retry 才过 | 复现:Playwright 对生产跑 authed-views,多例首跳 15s navigationTimeout 触发 retry 后通过(flaky) | 查生产首跳慢因(TTFB/资源),或放宽 E2E navigationTimeout |
+| P3 | 404 页面非本地化;部分引擎状态显示不一致 | 走查发现 | 本地化 404;统一引擎状态数据源 |
+| P3 | Sentry 配置警告×3 | `npm run build` 时告警:缺 instrumentation 文件/global-error.js、`sentry.client.config.ts` 弃用 | 迁移到 instrumentation 约定 |
+
+### 多浏览器兼容性实测(17)
+
+- **chromium**:E2E 65 passed / 0 failed(基线)
+- **firefox**:登录页(2 input)→ 真实登录(token 落 localStorage)→ image/video/library 三视图渲染,全过,**0 控制台错误 / 0 页面错误**
+- **webkit**:同流程全过,**0 错误**;截图确认中文/参数面板/引擎状态渲染正常
+- 截图:`/tmp/qa_browsers/{firefox,webkit}_*.png`
+
+### UI 组件状态 + 缩放实测(19/20)
+
+- 空提示词时生成按钮 `disabled`(防错 ✓);输入提示词后恢复可用(状态切换 ✓);5 个 select 正常枚举
+- 浏览器缩放 50% / 100% / 200% 三档均无水平溢出(scrollW=clientW=1440),zoom 200% 截图无错位
+- 截图:`/tmp/qa_ui_states/*.png`
+
+---
+
+## GPU2-CLEANUP-2026-08-11 · H3 显存挤占根因清理(孤儿进程 + 误启回退服务)
+
+**时间**: 2026-08-11 03:30 – 03:45
+**类型**: ops / 根因修复
+**目标**: 落地「多给 MiniMax H3 一些预留」——H3 已独占 GPU2,但预检仍偶发报显存不足,真机审计定位根因
+
+### 审计发现(真机 nvidia-smi / systemctl 证据)
+
+| 异常 | 证据 | 影响 |
+|------|------|------|
+| `benchmark_longcat.py --num_segments 10` 孤儿进程 | PID 1148803,02:47 启动,45.5GB,39min 只跑完 1/10 段 | GPU2 93°C(触熔断阈值),H3 突发 48GB 无空间 |
+| `toiv-asr.service` 被拉起 | enabled+active(02:43 start_asr.sh),占 4.3GB | 与文档「stop+disable 回退」不符,白占显存 |
+| `toiv-audio-sep.service` 被拉起 | enabled+active | 同上(demucs 生产已在 studio01) |
+
+### 处置
+
+```bash
+kill 1147918 1147920 1148803          # asr 父bash+子python + benchmark
+systemctl stop+disable toiv-asr       # 恢复回退态(防 systemd 自动重启)
+systemctl stop+disable toiv-audio-sep # 同上
+```
+
+### 结果(前后对比)
+
+| 指标 | 清理前 | 清理后 |
+|------|--------|--------|
+| GPU2 显存占用 | 53681 MiB | **3858 MiB** |
+| GPU2 空闲 | ~44GB | **93392 MiB(91GB)** |
+| GPU2 温度 | 93°C | 63°C |
+| H3 突发余量(48GB 需求) | ❌ 不足 | ✅ 绰绰有余 |
+
+- 复核:H3 :8195 → 200;回退链 studio01 demucs :9221 → 200 / studio02 whisper :9212 在线(根路径 404 属正常,仅暴露 /v1/*)
+- 六大问题终态审计:16 引擎(SFW 11 + NSFW 5)全 avail=True;SFW 底模 9 个分片残留 0;NSFW 底模 12 个正常;H3 LoRA 16 个枚举正常
+
+---
+
+## LIPSYNC-2026-08-11 · LTX 2.3 对口型引擎上线 + 音频 VAE 修复（e2e 通过）
+
+**时间**: 2026-08-11 01:00 – 02:30
+**类型**: feature / bugfix / e2e
+**目标**: NSFW 板块新增 LTX 2.3 对口型引擎（人物参考图 + 驱动音频 → 对口型视频），并修复首次真机 e2e 暴露的音频 VAE 加载失败
+
+### 改动范围
+
+| 层 | 文件 | 改动 |
+|---|------|------|
+| 引擎注册 | `services/engine_registry.py` | 新增 `ltx-nsfw-lipsync` 引擎（图生视频组）;NSFW 视频分辨率/时长改预设下拉(864×480~1920×1080 横竖 5 档 / 6s/10s/15s,提交自动换算 8 对齐/8k+1 网格) |
+| 前端协议 | `lib/engines.ts` | EngineParamType +`"audio"`;`engineNeedsAudio()`;submit 路由 `ltx-nsfw-lipsync → generateLtxLipsync` |
+| 前端组件 | `components/generate/RefAudioUpload.tsx` | 新增音频上传组件(wav/mp3/m4a/ogg/flac,≤20MB),支持与参考图同 worker 互钉 |
+| 前端视图 | `components/generate/GenerateView.tsx` | 参考输入区渲染音频上传;canSubmit 校验音频;参考图换 worker 强制音频重传 |
+| **bugfix** | `workflows/ltx_video.py` | `LtxLipsyncParams.audio_vae_name` 默认值 mmaudio gold → `ltx-2.3-22b-distilled-1.1.safetensors` |
+| 参考图同步 | `workflows/_gen.py` / `ltx_lipsync.json` | 参考工作流同步修正 |
+
+### 音频 VAE 根因（易错点）
+
+首次 e2e 报 `LTXVAudioVAELoader: VAE is invalid: None`。节点源码（`comfy_extras/nodes_lt_audio.py`）按 `audio_vae.` 前缀从 checkpoint 抽取子状态字典；mmaudio gold ckpt 无此前缀 → 抽取出空 dict → VAE invalid。LTX2.3 全量底模内嵌 102 个 `audio_vae.*` 键（safetensors 真机核验），官方示例亦用 `ltx-2.3-22b-dev.safetensors` 作音频 VAE 源。真机链路：toiv 库 `checkpoints/` 经 extra_model_paths 注册 → loader 可解析。
+
+### 验证
+
+```bash
+# 单测:47 passed(test_ltx_studio + test_video_generators)
+# 真机 e2e(部署 core 后):
+POST /api/upload?kind=ltx_lipsync        → test_01.png @ :8189
+POST /api/upload?kind=ltx_lipsync&worker=… → test_voice.wav 钉同 worker ✅
+POST /api/generate/ltx-lipsync (864×480×121f@24fps, steps=20)
+  → prompt_id 670abe8f… → 150s done ✅
+GET  /api/images?filename=ToIV_nsfw_lipsync_00001.mp4
+  → h264 / 864×480 / 24fps / 5.04s / 464KB,抽帧目检人像口部区域正常 ✅
+```
+
+- 浏览器实测（kimi-webbridge）:/nsfw 视频 tab → 图生视频组引擎下拉含「LTX 2.3 对口型（R18)」；参考输入区渲染「人物参考图 + 驱动音频」双上传；分辨率/时长预设下拉渲染正确
+- 部署：deploy.sh × 2（前端产物 + API 修复）,toiv-api/toiv-web 健康检查通过
+
+### 浏览器全链路闭环实测（2026-08-11 02:40,kimi-webbridge 真实浏览器）
+
+```
+/nsfw 视频 tab → 图生视频 → 引擎下拉选「LTX 2.3 对口型(R18)」
+  → 参考输入区:人物参考图上传 ✅ + 驱动音频上传(wav/mp3/m4a/ogg/flac ≤20MB)✅
+  → 参数:分辨率 6 档预设(480p/720p/1080p 横竖)+ 时长 6/10/15s + ID LoRA 文本+强度 ✅
+  → 填提示词 → 生成(按钮 disabled 校验正确:缺提示词/缺参考均不可点)
+  → 排队中 → 生成中 → 完成 ✅(A/B 对比开关出现)
+  → 产物签名 URL GET 206 video/mp4 可访问 ✅(播放器未自动加载属 autoplay 策略,真实用户点击即播)
+```
+
+- 短剧板块同轮验证:SFW 创作工作室新建项目表单含分辨率 5 档预设(768×384~720×1280,均 32 对齐)+ 帧率 8/12/16/24 fps + 分镜数;NSFW 短剧「黄昏山巅」项目视频模型下拉含 LTX 2.3 / MiniMax H3 / LiveAct,4 分镜视频 done、成片可合成(4/4)
+- NSFW 图像 tab 空态「你的作品将在这里呈现」标题与 01/02/03 占位卡片无重叠,布局对称
+- 坑位:kimi-webbridge `click <option>` 对原生 select 不触发 React onChange,需 evaluate native setter + dispatch change;页面上有多个 textarea 时 `querySelector("textarea")` 会误中参数区反向提示词,正向提示词是 `.promptbar-textarea`
+
+---
+
+## P1-VERIFY-2026-08-11 · 定妆图 10 次连续生成回归（10/10)
+
+**时间**: 2026-08-11 02:00 – 02:15
+**类型**: regression / 真机
+**结果**: 10/10 通过，0 失败；1024×1344 分辨率全部正确（脚本 /tmp/p1_dingzhuang_10.py，经 /api/jobs 按 prompt_id 轮询终态）
+
+> 备注：首轮后台跑批登录失败系当时 deploy 重启 toiv-api 窗口所致，API 恢复后复跑全绿。
+
+---
+
+
+## STUDIO-SPEC-2026-08-10 · AI短剧项目级产出规格贯通（分辨率/帧率可选）
+
+**时间**: 2026-08-10 22:40 – 22:50
+**类型**: feature / tdd / regression
+**目标**: 修复「AI短剧无法选择分辨率等参数」——产出规格(宽/高/帧率)从项目模型到双渲染链再到前端 UI 全链路贯通
+
+### 改动范围
+
+| 层 | 文件 | 改动 |
+|---|------|------|
+| 模型 | `apps/api/app/models.py` | StudioProject +width/height/fps(默认 768×384@16) |
+| 迁移 | `apps/api/app/db.py` | _SQLITE_MIGRATIONS 补 studioproject 三列(存量表平滑升级) |
+| 校验 | `services/studio/schemas.py` | ProjectCreate/Patch 加规格字段:8 对齐、宽高 256–1920(竖屏 720×1280 需要 height>1080)、fps 4–30 |
+| 路由 | `routes/studio.py` | create_project 持久化三参数 |
+| 编排 | `services/studio/orchestrator.py` | **修复 ckpt_name 定义了却从未下发的 bug**;项目规格注入 render_kw |
+| 视频链 | `renderers/video.py` | kw → 视频生成器 width/height/fps(缺省 768×384@16) |
+| 运镜链 | `renderers/image_motion.py` | kw → txt2img 构图尺寸 + Ken Burns zoompan 输出尺寸/帧率 |
+| 前端 | `lib/api.ts` / `stages/ScriptStage.tsx` / `StudioView.tsx` | StudioProjectSummary +patch 三参数;剧本阶段加分辦率(5 预设,横屏 16:9/竖屏 9:16,全 32 对齐 LTX 兼容)+帧率(8/12/16/24)下拉,即改即存;select 内联字段不压缩 |
+
+### 测试
+
+```python
+# test_studio_projects.py
+def test_project_output_spec_create_patch(ctx):      # 默认值/自定义/PATCH/非法 422(非8对齐·fps99·宽2048)
+def test_render_shot_injects_project_spec(ctx):      # 编排层 kw 注入断言 ckpt+1024×576@12
+# test_studio_renderers.py
+async def test_video_render_forwards_project_spec():        # kw 透传 + 缺省回落
+async def test_image_motion_render_project_spec():          # txt2img 潜空间尺寸 + kenburns(720,1280,24)
+```
+
+- pytest:`1155 passed, 2 failed` —— 2 个失败为 `test_redis_integration.py`(本机无 Redis,fakeredis `evalsha` 不支持);**已在未改动基线(git stash)复现同样失败,确认为环境预存问题,与本次无关**
+- web:`npm run build` 通过(无 vitest 单测体系,前端测试为 Playwright e2e)
+
+---
+
+## FULLSYS-2026-08-10 · 全系统综合测试 + P0 缺陷修复回归（已完成）
+
+**时间**: 2026-08-10 19:30 – 20:00
+**类型**: deploy / comprehensive-test / bugfix-regression
+**目标**: 最新代码部署 core，对全部功能模块做功能/边界/异常/安全/性能五维综合测试，缺陷跟踪修复并回归
+
+### 发现的缺陷与修复
+
+| # | 级别 | 问题 | 根因 | 修复 |
+|---|------|------|------|------|
+| 1 | P0 | core 上 Web 全部 /api 请求 500 | 本地 `apps/web/.env.local` 的 `NEXT_PUBLIC_API_BASE=http://127.0.0.1:8200` 被 `next build` 烘焙进产物，部署后 Next rewrite 把 /api 代理到 core 上不存在的 :8200 | 临时移开 .env.local 重新构建（产物烘焙 localhost:8090）；deploy.sh 防呆检查增强，同时拦截 `localhost:8200` 与 `127.0.0.1:8200` 两种写法 |
+| 2 | P2 | 综合测试脚本自身 4 处用例错误 | agent-chat 参数格式、TTS 端点路径、SQL 注入 URL 未编码、音频 404 用例文件名不合规 | 修正 `deploy/e2e_comprehensive_check.py` |
+
+```bash
+# deploy.sh 防呆(修复后) —— 两种写法都拦
+if grep -qE "(localhost|127\.0\.0\.1):8200" apps/web/.next/routes-manifest.json 2>/dev/null; then
+  echo "✖ .next 是本地验证构建(API 代理烘焙为 8200)。请先执行:cd apps/web && npm run build" >&2
+  exit 1
+fi
+```
+
+### 回归验证结果
+
+| 维度 | 用例 | 结果 |
+|------|------|------|
+| A 功能验证(health/login/LLM/引擎/GPU/jobs/models/agent-chat/optimize/TTS 合成+下载+Range/音频分离) | 14 | 14/14 通过 |
+| B 边界条件(最小分辨率/空提示词/零步数/10k 长提示词/空文件/非音频上传/limit=0/limit 超大) | 8 | 8/8 通过 |
+| C 异常处理(未授权 401×3/错误密码/404/非法文件名/路径穿越/405/畸形 JSON/缺字段) | 10 | 10/10 通过 |
+| D 安全(SQL 注入/XSS payload/伪造 token/登录限流 429) | 4 | 4/4 通过 |
+| E 性能基线(health avg 10ms / engines avg 850ms / jobs avg 16ms) | 3 | 3/3 通过 |
+| **API 综合合计** | **39** | **39/39 通过** |
+| 后端单元全量 | 1153 | 1151 passed / 2 failed(已知 redis_integration 环境依赖) |
+| 前端 tsc 类型检查 | — | 0 错误 |
+| 浏览器 UX 复测(core :3100) | 登录/工作台渲染//api 全链路/控制台错误 | 全部通过，未复现 500 |
+| 真实路由 (/ /login /nsfw /drama/[id]) | 4 | 全部 200(/login 307 为正常重定向;/image /video /audio 为工作台内 tab 视图非独立路由，404 属预期设计) |
+
+### 真机核验（P0 修复证据）
+
+```
+core /home/merlin/toiv/web/.next/routes-manifest.json → http://localhost:8090（正确）
+全 .next 目录 grep localhost:8200 / 127.0.0.1:8200 → 无残留
+curl :3100/ → 200；curl :3100/api/auth/login(经 Next 代理) → 200
+```
+
+### 延迟基线（core 局域网）
+
+health 20ms / login 40ms / llm-info 83ms / engines 1044ms / gpu 25ms / jobs-list 15ms / models-list 35ms / optimize 2129ms / tts 1542ms
+
+---
+
+## AUDIO-FIX-LAYOUT-2026-08-10 · 音频功能修复 + 页面排版重设计（已完成）
+
+**时间**: 2026-08-10 16:30 – 17:30
+**类型**: bugfix / layout
+**目标**: 修复音频播放/暂停/进度控制核心功能；重新设计页面排版提升视觉层次与响应式体验
+
+### 音频修复（后端 2 项）
+
+| # | 问题 | 根因 | 修复 |
+|---|------|------|------|
+| P1 | `/api/audio/files/{name}` 不支持 Range | `FileResponse` 直返整文件，无 206 Partial | `audio_tools.py` 改手动 Range：整段读入 bytes（≤50MB）→ 复用 `_ranged_response` 切片，带 `Accept-Ranges: bytes` |
+| P2 | ACE 音乐产物 `<audio>` 拒播 | ComfyUI `/view` 对非图片回落默认 `image/png` | `images.py` 新增 `_AUDIO_CONTENT_TYPES`（.mp3/.wav/.flac/.ogg），按扩展名强制修正 content-type |
+
+```python
+# audio_tools.py — Range 感知返回
+return _ranged_response(path.read_bytes(), "audio/wav", request.headers.get("range"))
+
+# images.py — content-type 修正
+content_type = _AUDIO_CONTENT_TYPES.get(Path(safe_filename).suffix.lower(), content_type)
+```
+
+### 排版重设计（前端 1 文件）
+
+`apps/web/app/globals.css` 末尾追加 ~140 行，TSX 零改动、token 驱动（五色板主题兼容）：
+
+- 页头：底部 1px 分隔线 + 标题字距收紧，建立视觉锚点
+- 空状态：`empty-editorial::before` 径向光晕（accent-soft，320px），`empty-tip` hover 上浮
+- 参数面板：左边框 + surface-1 背景，与舞台拉开层级
+- 提示词条：`shadow-lift` + 圆角 + 边框，悬浮感
+- 舞台/胶片条：圆角阴影 + hover 缩放/选中增强
+- 音频播放器统一：`.media-audio` ≤480px × 48px 圆角
+- 响应式：≤1023px 光晕 240px、页头间距收紧；≤767px 光晕 200px、大标题 24px
+
+### 验证
+
+| 测试 | 结果 |
+|------|------|
+| 目标测试 `test_audio_sep.py` + `test_images_range.py` | 21/21 通过 |
+| 后端全量（排除 redis_integration） | 1143 passed / 0 failed |
+| 前端 `next build` | 成功 |
+| 部署 core（deploy.sh） | toiv-api :8090 就绪 / toiv-web :3100 就绪 |
+
+### 交付物
+
+- 说明文档： `docs/2026-08-10-audio-fix-and-layout-redesign.md`（问题分析/修复方案/设计规范/实现步骤）
+
+---
+
+## DRAMA-M5M6-2026-08-10 · 编排器/审核门控 + 自动分集/并行超分（已完成）
+
+**时间**: 2026-08-10 10:30 – 11:25
+**类型**: feature
+**目标**: M5 小说导入 → 自动分阶段生成 → 人工+视觉质量监控 → 审核门控工作流；M6 长小说自动分集 + 多 GPU 并行 4K 超分
+
+### 交付物
+
+| 模块 | 文件 | 说明 |
+|---|---|---|
+| M5 编排器 | drama/scripts/orchestrator.py | 6 阶段（storyboard→characters→shots→upscale→audio→final）编排、PipelineState JSON 持久化、质量门拦截、人工审核暂停/批准、断点续跑 |
+| M5 质量门 | drama/scripts/quality_gates.py | 新增 check_resolution / blur_score / check_blur / check_character_consistency（mlx-vlm 双图对比，默认软通过，TOIV_STRICT_VLM=1 严格） |
+| M6 分集 | drama/scripts/episode_splitter.py | 章节优先拆分（第N章/Chapter N）、段落聚合 target_chars=4000、单章超 1.5× 硬拆、manifest.json 断点续跑、run_episodes 逐集串行调 orchestrator |
+| M6 并行超分 | scripts/video_4k_upscale_parallel.py | round-robin 帧分片 + ThreadPoolExecutor 多 worker 并行、--resume 跳已超分帧、缺失帧检测、合并编码；TOIV_4K_WORKERS 配置 worker 池 |
+| 测试 | test_orchestrator.py / test_episode_splitter.py | 34 新增用例 |
+
+### CLI
+
+```bash
+# 全自动
+python drama/scripts/orchestrator.py novel.txt out/ --auto
+# 每阶段暂停待审 + 批准续跑
+python drama/scripts/orchestrator.py novel.txt out/ --review-after-stage
+python drama/scripts/orchestrator.py novel.txt out/ --continue --approve shots
+# 断点续跑
+python drama/scripts/orchestrator.py novel.txt out/ --continue --auto
+# 长小说分集 + 逐集生成（默认拆分后即逐集跑，--split-only 仅拆分）
+python drama/scripts/episode_splitter.py long_novel.txt --target-chars 4000 --episodes-dir episodes/ --output-root out_series/ --auto
+# 多 worker 并行 4K 超分
+python scripts/video_4k_upscale_parallel.py final.mp4 --workers http://192.168.71.127:8189,http://192.168.71.115:8188,http://192.168.71.114:8193
+```
+
+### 验证
+
+- **单元测试**: drama 全套 5 个测试文件 **86/86 passed**（含 M5/M6 新增 34 用例：状态持久化、审核全链路批准、质量门失败路径、模糊判别、VLM 软/硬模式、章节拆分/聚合/硬拆/续跑）
+- **e2e 冒烟**: `/tmp/m5_smoke` 预置分镜跳过 LLM 阶段，mock 图像/视频 + **真实 IndexTTS2** 混合模式，从 audio 断点 `--continue` 续跑到 final 成片 done（final_v2.mp4 产出，final 门控 0 错误）
+- **分集 CLI 冒烟**: 8 章 × 1500 字合成文本 → 8 集 × 1509 字，manifest 状态落盘正确
+
+### 门控实拦并修复的 2 个真问题
+
+1. **音频采样率门控误配**: 原硬编码必须 24000Hz，但 IndexTTS2 原生输出 22050Hz（真机实测 3.7s/2.1s 语音 WAV），冒烟被门控正确拦截 → 修正为 ≥22050Hz 下限（混音阶段统一重采样，generate_v1 mux 本就 `-ar 22050`）
+2. **PIL 模糊检测降级路径数值失真**: numpy 缺失时 PIL Kernel 近似值偏高（blur 图 1911 > 阈值 50 漏判）→ 根因①Kernel scale=1 裁剪负值②**PIL 不处理最外 1px 边框直接复制源像素**污染方差；修复为 scale=16+offset=128 保留符号 + 裁 1px 边框 + ×16² 归一化，修复后 sharp=865k / blur=0.0，与 numpy 路径（95423 / 0.35）判别一致
+
+### 备注/后续
+
+- VLM 角色一致性复用 studio04 :9303 `/v1/reverse`，双图 side-by-side 对比；VLM 不可达默认软通过记 warning
+- 并行超分 worker 池建议按 AGENTS.md GPU 表弹性配置；GPU1/2/3 各起独立 ComfyUI 实例方案需先过显存/温度评估（H3 散热瓶颈见 STRESS-2026-08-09），未默认启用
+- 测试环境: /tmp/m5_venv（httpx/pydantic2/pytest-asyncio/numpy/requests）
+
+---
+
+## AI-SHORT-DRAMA-V2-2026-08-10 · AI 短剧 V2 真实 GPU 端到端 4K 生成（已完成）
+
+**时间**: 2026-08-10 02:00 – 04:33
+**类型**: feature / eval / stress
+**目标**: 在 Workstation 完整环境跑通「小说导入 → 分镜 → 角色定妆关键帧 → H3/LongCat i2v 视频 → 4K 超分 → IndexTTS2 配音 → 成片」全自动链路，验证 2000 字小说 + 4K 画质可行性
+
+### 环境真机状态
+
+| 项 | 结果 |
+|---|---|
+| core API /api/health | ✅ 200 (192.168.71.47:8090) |
+| LLM (spark02) | ✅ chat/completions 200，qwen3.6-uncensored |
+| H3 worker | ✅ toiv-comfyui-h3.service active (:8195, GPU0) |
+| LongCat worker | ✅ comfyui-longcat.service active (:8197, GPU2) |
+| TTS | ✅ toiv-tts.service active (:9200, GPU0) |
+| GPU 初始状态 | GPU0 50.5GB/97.9GB (33°C), GPU2 7.1GB/97.9GB (31°C)，空间充足 |
+
+### 代码变更
+
+| 文件 | 变更 |
+|---|---|
+| `drama/scripts/generate_v2.py` | 补齐真实调用：core txt2img 首帧、H3 i2v、LongCat i2v、IndexTTS2 配音；修复 `novel_to_storyboard_sync` 事件循环冲突；角色关键帧复用检查改为 `get_character_keyframe_path` |
+| `drama/scripts/character_keyframes.py` | 新增 `generate_longcat_i2v_from_keyframe`、`_submit_longcat_i2v`、`get_character_keyframe_path`；修复同名角色目录冲突：`_safe_name` 追加 description hash 后缀 |
+| `drama/scripts/test_generate_v2.py` | 更新 mock patch 以匹配新函数签名（`novel_to_storyboard`、`_fake_video` 参数） |
+| `drama/scripts/test_character_keyframes.py` | 目录名断言改为 `startswith("lin_fan")` 兼容 hash 后缀 |
+
+### 测试统计
+
+- `drama/scripts/test_novel_to_storyboard.py`: **19 passed**
+- `drama/scripts/test_character_keyframes.py`: **15 passed**
+- `drama/scripts/test_generate_v2.py`: **18 passed**
+- 合计: **52 passed / 0 failed**
+
+### 真机产物
+
+- 测试小说: `/home/merlin/toiv/drama/output/novels/starfall_domain.txt` (2325 字符，约 2000 字)
+- 项目目录: `/home/merlin/toiv/drama/output/projects/starfall_4k/`
+- 运行日志: `/home/merlin/toiv/drama/output/projects/starfall_4k/run.log`
+- 项目元数据: `/home/merlin/toiv/drama/output/projects/starfall_4k/project.json`
+- 成片: `/home/merlin/toiv/drama/output/projects/starfall_4k/final/final_v2_4k.mp4`
+  - 分辨率: **3840×2160** (4K)
+  - 时长: **81.94 s**
+  - 大小: **105 MB**
+  - 码率: **10.6 Mbps**
+- 分镜: 19 镜，角色 5 个（林渊、林昊、域主、旁白、苍老声音）
+- 配音: 18 条旁白 WAV，已混音并烧录字幕
+
+### 阶段耗时（真机实测）
+
+| 阶段 | 耗时 | 备注 |
+|---|---|---|
+| 小说 → 分镜 | 102.88 s (~1 min 43 s) | spark02 qwen3.6-uncensored |
+| 角色定妆关键帧 | 1250.24 s (~20 min 50 s) | 5 角色 × 3 视角，FLUX 1024×1024，20 steps |
+| 逐镜视频 + 4K 超分 | 7894.04 s (~2 h 11 min) | 19 镜；含首帧、H3/LongCat i2v、逐镜 4K 超分 |
+| 配音 (TTS) | 55.88 s (~1 min) | IndexTTS2，18 条旁白 |
+| 剪辑混流 | 12.75 s | ffmpeg concat + 字幕烧录 + AAC 混音 |
+| **总计** | **9315.78 s (~2 h 35 min)** | 端到端全自动完成 |
+
+### 引擎选择实况
+
+| 镜头 | 引擎 | 说明 |
+|---|---|---|
+| s1_1 | LongCat | H3 503，fallback |
+| s1_2 | LongCat | H3 503，fallback |
+| s1_3 | H3 | 成功 |
+| s1_4 | H3 | 成功 |
+| s2_1 | H3 | 成功 |
+| s2_2 | LongCat | 时长 ≥8 s，按策略选择 |
+| s2_3 | H3 | 成功 |
+| s2_4 | H3 | 成功 |
+| s3_1 | H3 | 成功 |
+| s3_2 | LongCat | 时长 ≥8 s，按策略选择 |
+| s3_3 | H3 | 成功 |
+| s3_4 | H3 | 成功 |
+| s4_1 | H3 | 成功 |
+| s4_2 | H3 | 成功 |
+| s4_3 | H3 | 成功 |
+| s4_4 | H3 | 成功 |
+| s5_1 | H3 | 成功 |
+| s5_2 | H3 | 成功 |
+| s5_3 | H3 | 成功 |
+
+**引擎统计**: H3 15 镜，LongCat 4 镜（其中 s1_1/s1_2 为 H3 503 fallback，s2_2/s3_2 为时长策略）。
+
+### 温度/显存高压记录
+
+| 指标 | 峰值 | 备注 |
+|---|---|---|
+| GPU0 温度 | **92 °C** | H3 i2v 满载，接近 93 °C 历史峰值，未熔断 |
+| GPU0 功耗 | **600 W** | H3 采样期间满载 |
+| GPU0 显存 | **~58 GB** | H3 + 4K 超分共卡运行 |
+| GPU2 温度 | **~70 °C** | LongCat i2v 运行期间 |
+
+### 监控命令
+
+```bash
+# 实时查看日志
+ssh merlin@192.168.71.127 'tail -f /home/merlin/toiv/drama/output/projects/starfall_4k/run.log'
+# 检查进程
+ssh merlin@192.168.71.127 'ps -p 937718 && echo alive'
+# 查看产物
+ssh merlin@192.168.71.127 'find /home/merlin/toiv/drama/output/projects/starfall_4k -type f | sort'
+```
+
+### 已知问题与修复
+
+- **同名角色目录冲突**: 林渊/林昊均转拼音为 `lin`，会覆盖同一目录。已修复 `_safe_name` 追加 description hash 后缀，如 `lin_35cde7`、`lin_hao_f30006`。
+- **事件循环冲突**: `novel_to_storyboard_sync` 在已有事件循环中调用 `asyncio.run()` 报错。已改为 `main()` 直接 `await novel_to_storyboard()`。
+- **H3 503 fallback**: 生成前段 s1_1/s1_2 时 H3 worker 偶发 503，generate_v2 自动 fallback 到 LongCat，流程未中断。
+
+### 结论与后续优化
+
+- ✅ **2000 字小说 → 19 镜 → 4K 成片的端到端全自动链路已跑通**，输出为真正 3840×2160 MP4。
+- ⚠️ **当前瓶颈在 H3 视频生成 + 4K 超分串行**:19 镜约 2 h 11 min，平均 **6.9 min/镜**；若要做 5 min（~300 s）长视频，按当前密度约需 **40–50 镜**，总耗时将接近 **5–6 h**。
+- 🔧 **后续优化方向**:
+  1. 多 GPU 并行 4K 超分：在 GPU1/2/3 各起一个 ComfyUI 超分实例，按镜头分片并行。
+  2. H3 温度熔断保护：≥85 °C 主动冷却，避免 92 °C 临界运行。
+  3. 角色一致性加固：接入 IPAdapter/LoRA，减少关键帧 → i2v 漂移。
+  4. 小说自动分章/分集：5 min 以上长视频拆分为多集，每集独立管线输出。
+
+---
+
+## AI-SHORT-DRAMA-V2-2026-08-09 · AI 短剧 V2 自动化管线（M1–M4）真机验证
+
+**时间**: 2026-08-09 22:20
+**类型**: feature / eval
+**目标**: 验证「小说导入 → 分镜 → 角色定妆 → 视频生成 → 4K 超分 → 配音 → 成片」全自动链路
+
+### 完成项
+
+| 里程碑 | 关键文件 | 结果 |
+|---|---|---|
+| M1 4K 超分链路 | `scripts/video_4k_upscale.py` | ✅ 3s/5s/15s H3 源视频均超分到 3840×2160；15s 峰值显存 53.3GB；5 分钟成片约需 5.05h |
+| M2 小说→分镜 | `drama/scripts/novel_to_storyboard.py`, `storyboard_schema.py` | ✅ 2172 字小说生成 18 镜 86s 分镜；19 个 pytest 通过 |
+| M3 角色一致性 | `drama/scripts/character_keyframes.py` | ✅ 林凡 3 张定妆图；H3 i2v 首帧锁死一致性 VLM 判定通过；15 个 pytest 通过 |
+| M4 完整管线 | `drama/scripts/generate_v2.py`, `quality_gates.py` | ✅ 6 步主流程骨架跑通；mock 模式 e2e smoke 成功；18 个 pytest 通过 |
+
+### 测试统计
+
+- `drama/scripts/test_novel_to_storyboard.py`: **19 passed**
+- `drama/scripts/test_character_keyframes.py`: **15 passed**
+- `drama/scripts/test_generate_v2.py`: **18 passed**
+- 合计: **52 passed / 0 failed**
+
+### 真机产物
+
+- 4K 超分: `/tmp/test_4k_output_h3_15s.mp4` (3840×2160, 15s)
+- 分镜 JSON: `drama/output/storyboard_20260809_202354.json`
+- 角色定妆: `drama/output/characters/lin_fan/`
+- i2v 一致性验证: `drama/output/characters/lin_fan/validation_report.json`
+- V2 smoke: `drama/output/projects/smoke_v2/final/final_v2.mp4`
+
+### 后续
+
+- 在 Workstation 完整环境跑通真实 GPU 端到端短剧生成
+- 评估多 GPU 4K 超分并行方案
+- 接入 IPAdapter/LoRA 进一步加固角色一致性
+
+
 > 按时间倒序记录每次回归验证结果。每个里程碑完成后追加条目。
+
+---
+
+## 4K-UPSCALE-2026-08-09 · Workstation 4K 视频超分链路扩展验证
+
+**时间**: 2026-08-09 20:30
+**类型**: eval / 4K 超分长视频可行性
+**目标**: 在已有 3 秒测试基线之上,用真实 H3 生成的 1344×768 源视频扩展验证 4K 超分链路,并为 5 分钟起步长视频成片能力收集真机数据
+
+### 环境真机状态
+
+| 项 | 结果 |
+|---|---|
+| ComfyUI :8189 /system_stats | ✅ 在线,comfyui_version 0.27.0 |
+| 超分模型 | ✅ `/opt/ComfyUI/instances/gpu0/models/upscale_models/4x-UltraSharp.pth` 64MB |
+| GPU0 初始状态 | RTX PRO 6000, 40°C, 49129 MiB / 97887 MiB |
+| H3 源视频 | ✅ 找到 `ToIV_h3/t2v_00007_.mp4`(1344×768,124 帧) 与 `t2v_00016_.mp4`(1344×768,362 帧) |
+
+### 测试源视频
+
+| 来源 | 路径 | 分辨率 | 帧率 | 帧数 | 时长 |
+|------|------|--------|------|------|------|
+| 基线 3s | `/tmp/test_1344x768.mp4` | 1344×768 | 24 | 72 | 3.00s |
+| H3 5s | `/home/merlin/ComfyUI-h3-eval/output/ToIV_h3/t2v_00007_.mp4` | 1344×768 | 24 | 124 | 5.17s |
+| H3 15s | `/home/merlin/ComfyUI-h3-eval/output/ToIV_h3/t2v_00016_.mp4` | 1344×768 | 24 | 362 | 15.08s |
+
+### 测试结果
+
+| 源 | 输出 | 超分耗时 | 编码耗时 | 总耗时 | 平均帧耗时 | 峰值显存 | 输出大小 |
+|---|---|---|---|---|---|---|---|
+| 3s 基线(72 帧) | `/tmp/test_4k_output_3s.mp4` | — | — | ~144s | **2.00s** | 49110MB | 623KB |
+| H3 5s(124 帧) | `/tmp/test_4k_output_h3_5s.mp4` | 317.7s | 6.4s | 324.1s | **2.52s** | 49129MB | 8.7MB |
+| H3 15s(362 帧) | `/tmp/test_4k_output_h3_15s.mp4` | 927.0s | 7.6s | 934.6s | **2.51s** | 49129MB* | 13.3MB |
+
+`*` 超分过程中 GPU0 显存从 49129MB 短时上涨到 **53321MB**,随后回落;峰值仍在 97GB 卡的安全范围内。
+
+### 5 分钟(7200 帧)4K 超分可行性评估
+
+按当前实测 **2.51s/帧** 线性估算:
+
+| 指标 | 估算值 | 评估 |
+|---|---|---|
+| 超分耗时 | 7200 × 2.51s ≈ **18,072s ≈ 5.02h** | 单机可完成,但耗时与视频时长比约 60:1 |
+| 编码耗时 | 362 帧 7.6s → 7200 帧 ≈ **151s ≈ 2.5min** | 可忽略 |
+| 总耗时 | ≈ **5.05h** | 夜间/离线渲染可行,实时/交互不可行 |
+| 临时磁盘(H3 1344×768 PNG + 4K PNG) | 5s 约 1.1GB, 15s 约 3.0GB → 5min 约 **60–70GB** | `/var/tmp` 位于 6.1TB NVMe,充足 |
+| 输出 MP4 大小 | 15s 13.3MB → 5min 约 **265MB** | 极小,可忽略 |
+| 峰值显存 | 实测 ~53GB | GPU0 97GB 容量安全,无 OOM |
+| 温度/功耗 | 15s 测试峰值 **70°C**,功耗 ~400W | 5h 连续负载需观察散热;按 AGENTS.md 易错点 20,H3 满载已触发 88°C 熔断,超分功耗低于 H3 但仍需温度保护 |
+
+**结论**: Workstation 单机完成 5 分钟 4K 超分**技术上可行**,但**生产上不建议单卡串行处理**:
+- 单条 5 分钟成片需约 5 小时,无法支撑批量/流水线。
+- 建议方案:① 分段超分后拼接(按场景/镜头切分);② 多 GPU 并行(GPU1/2/3 空闲显存充足,可起 3 个 ComfyUI 实例分别处理不同片段);③ 探索原生视频超分模型/Tile 并行以突破 2.5s/帧上限。
+
+### 脚本修复
+
+文件: `/Users/wangzhenyu/Desktop/ALLProject/ToIV/scripts/video_4k_upscale.py`
+
+1. **临时目录默认改为 `/var/tmp/4k_upscale`**,并新增 `--temp-dir` 参数,避免长视频在 `/tmp` tmpfs 中爆内存(呼应 AGENTS.md 易错点 2)。
+2. **报告新增字段**: 超分耗时、编码耗时、输出文件大小,便于拆分瓶颈。
+3. **清理 ComfyUI input/output 临时文件**: 每帧处理完后删除 `4k_src_*.png` 和 `4k_upscale_*.png`,避免 7200 帧长视频在 ComfyUI 目录累积数万文件拖慢文件遍历。
+
+### 备注/后续
+
+- 本次未触发温度熔断(GPU0 峰值 70°C < 85°C),但 5 分钟级连续渲染建议接入温度监控/熔断逻辑。
+- 未测试 30s 拼接视频;15s 真实 H3 视频已覆盖 240 帧以上长样本,帧耗时稳定,无需额外拼接验证。
+- 下一步可评估:① 在 GPU1/GPU2/GPU3 各起一个 ComfyUI 实例做分片并行;② 接入 core API 的 `/api/upscale` 异步任务链路。
+
+---
+
+## VLM-72B-2026-08-09 · studio04 部署 Qwen2.5-VL-72B-Instruct-4bit 视觉反推服务 :9303
+
+**时间**: 2026-08-09 21:30
+**类型**: infra-migration / Mac Studio MLX 部署
+**目标**: 在 studio04(192.168.71.113) 用 MLX 部署 72B 4bit VLM,替换/升级原计划 Qwen3-VL-8B 方案,端口 :9303
+
+### 执行项
+
+| 任务 | 操作 | 结果 |
+|------|------|------|
+| 环境准备 | Miniconda 安装至 `~/miniconda3`,创建 `toiv-vlm` Python 3.11 env | ✅ `conda run -n toiv-vlm python --version` = 3.11.15 |
+| 依赖安装 | `pip install mlx-vlm fastapi uvicorn python-multipart Pillow numpy requests aiohttp` | ✅ mlx-vlm 0.6.10 + mlx 0.32.0 |
+| 模型下载 | `mlx-community/Qwen2.5-VL-72B-Instruct-4bit` 直接走 HF Hub | ✅ 39GB,8 shards,~57s(此前失败尝试已缓存部分文件) |
+| 服务脚本 | `~/toiv-vlm-mlx/server.py` FastAPI :9303;`start.sh`;`com.dgmt.toiv-vlm-mlx.plist` | ✅ 已加载 launchd,PID 89569,KeepAlive+RunAtLoad |
+| 健康检查 | `curl http://127.0.0.1:9303/health` | ✅ `{"status":"ok","model":"Qwen2.5-VL-72B-Instruct-4bit","loaded":true}` |
+| JSON 图片反推 | `POST /v1/reverse {"image_url":"/tmp/test_vlm.png"}` | ✅ 返回 prompt,耗时 ~5.36s,peak_mem=42.96GB |
+| 文件上传反推 | `POST /v1/reverse/file` multipart | ✅ 返回 prompt,耗时 ~5.36s |
+| 视频路径反推 | `POST /v1/reverse {"video_path":"/tmp/test_vlm.mp4"}` | ✅ 返回 prompt,耗时 ~5.81s |
+| 本地归档 | server.py/start.sh/plist 拷贝至 `deploy/mac-services/vlm-72b/` | ✅ |
+
+### 真机状态
+
+- `ps -p 89569`: RSS **41.8GB**, %MEM 7.8,CPU 0.1
+- 首次模型加载: **1.47s** (MLX memory mapping)
+- 推理峰值内存: **42.96GB**
+- 系统空闲内存仍 >450GB,无资源压力
+
+### 备注/后续
+
+- 原计划 Qwen3-VL-8B 未真正落地;本次未降级,72B 4bit 直接成功
+- hf-mirror 对该 repo 返回 `LocalEntryNotFoundError`,切换 HF 直连后成功
+- 视频输入已验证走本地路径;core 侧如需视频反推,仍需按 `TOIV_REVERSE_VIDEO_MAC_PREFIX` 流程经 NAS 中转
+- studio01 demucs-mlx :9221 / studio02 whisper.cpp :9212 未受影响
+
+---
+
+## MIGRATION-P1-2026-08-09 · Mac Studio 服务迁移 Phase 1:停止 vLLM 测试实例 + 部署 demucs-mlx + 部署 whisper.cpp
+
+**时间**: 2026-08-09 18:00
+**类型**: infra-migration / 设备服务迁移
+**目标**: 按 `docs/2026-08-09-service-replacement-research.md` Phase 1 路线,将 Workstation GPU2 上非 CUDA 强依赖服务迁移到 Mac Studio,释放显存优先保障 MiniMax H3 生态
+
+### 执行项
+
+| 任务 | 操作 | 结果 |
+|------|------|------|
+| 停止 vLLM Embedding 测试实例 | `ssh workstation` → `systemctl stop/disable qwen3-embed-vllm.service` | ✅ 服务 inactive;GPU2 显存从 ~22.6GB 降至 ~7.0GB,释放 **~15.5GB** |
+| 部署 demucs-mlx | studio01(192.168.71.109) 创建 `~/toiv-demucs-mlx/`,Miniconda Python 3.11,`pip install demucs-mlx[convert] fastapi uvicorn`;FastAPI `:9221` | ✅ `curl http://192.168.71.109:9221/health` 返回 ok;测试音频 0.16s 完成 4-stem 分离 |
+| 部署 whisper.cpp | studio02(192.168.71.111) 源码编译 whisper.cpp,下载 `ggml-large-v3-turbo.bin`;OpenAI 兼容 shim `:9212` | ✅ `curl http://192.168.71.111:9212/health` 返回 ok;JFK 样本与 faster-whisper :9210 输出一致,WER/CER=0 |
+| 本地归档 | 将 server.py/start.sh/plist 拷贝到 `deploy/mac-services/{demucs-mlx,whisper-cpp}/` | ✅ 便于复现和后续节点扩展 |
+| AGENTS.md 同步 | 更新第三节 GPU 分配表,移除 vLLM 测试行,新增 studio01/studio02 服务行 | ✅ 与真机状态一致 |
+
+### 验证
+
+| 项 | 结果 |
+|---|---|
+| studio01 demucs-mlx /health | ✅ ok |
+| studio02 whisper.cpp /health | ✅ ok |
+| Workstation GPU2 `nvidia-smi` | ✅ vLLM 进程消失,显存大幅下降 |
+| Workstation `systemctl is-active qwen3-embed-vllm.service` | ✅ inactive |
+
+### 后续
+
+- core `/api/audio/separate` 需增加 A/B 切换能力,默认指向 studio01 `:9221`,失败回退 Workstation `:9220`
+- core ASR 调用地址需从 `192.168.71.127:9210` 切至 `192.168.71.111:9212`,并准备中文测试集批量 WER/CER 对比
+- `toiv-asr.service` / `toiv-audio-sep.service` 暂保留在 Workstation 作为热回退
+
+---
+
+## LAYOUT-R2D-2026-08-09 · 生成工作台布局一致性收尾:页头段控紧邻标题 / 加宽侧边栏 / 提示词条贴底 / 宽屏避让修复
+
+**时间**: 2026-08-09 17:30
+**类型**: refactor(ui) / e2e 回归
+**目标**: 响应用户「div 间距一致、生成/编辑切换在标题旁、侧边栏更宽、输入框贴底且高度自由」——统一生成工作台(image/video/audio/nsfw)与带段控视图的页头节奏,修复 380px 侧边栏在 1440px 宽屏与空态/提示词条的重叠回归
+
+### 改动清单
+
+- **stage.css**
+  - `--params-w: 340px → 380px`,参数浮板加宽,符合「aside 占用更多页面空间」
+  - `.generate-header` 保持 `justify-content: flex-start`,顶部 kind 段控(图像/视频)紧邻标题,与 AudioView 生成/编辑段控节奏一致
+  - `.promptbar` 宽度 100%、取消下边框、顶部圆角,左右边框自然承接舞台底部;`.promptbar-textarea` `max-height: none` + `resize: vertical`,高度自由调整
+  - 修复 **1440px 宽屏浮板重叠回归**:侧边栏加宽后,原 `≥1440px` 仅收窄提示词条到 680px 仍会与 380px 浮板重叠;新增动态公式 `min(680px, 100vw - 2*(params-w + view-padding + params-margin))`,同时约束 `.empty-editorial` 最大宽度,保证空态/词条右缘不探入浮板
+- **avatartalk.css**
+  - `.at-view > .page-header` 改为 `flex-start`,「实时对话 / 视频生成」段控紧邻「数字人」标题,与 Generate/Audio 页头统一
+
+### 验证
+
+| 项 | 结果 |
+|---|---|
+| next build | ✅ 通过(3.9s 编译) |
+| symmetry-check | ✅ **9 passed**(21.1s);1440px 实测空态/词条 right=1024=浮板 left,零重叠 |
+| 核心 UI 回归子集(responsive-redesign + authed-views + accessibility + ux-metrics) | ✅ **64 passed / 1 skipped / 0 failed**(1.9m),与 LAYOUT-R2C 基线一致,无新增回归 |
+| 完整 Playwright 套件 | ⚠️ 121 passed / 25 failed / 2 skipped / 34 did not run;失败均为既有问题,与本轮 UI 改动无关 |
+| 覆盖视图 | image / video / audio / nsfw / avatartalk |
+
+### 完整套件失败分析(非本轮引入)
+
+| 失败组 | 数量 | 根因 | 与本轮相关性 |
+|---|---|---|---|
+| `nsfw.spec.ts` + `authed-agents-ui.spec.ts` | 9 | 测试期望 `.nsfw-banner`,但 `NsfwView.tsx` 当前使用 `.nsfw-header`/`.nsfw-age-gate`,选择器失效 | 无关 |
+| `authed-studio.spec.ts` | 2 | 测试期望 `.studio-home-head .btn-primary`,但 `StudioView.tsx` 首页结构为 `.studio-home > header.page-header > .page-header-actions > .btn-primary` | 无关 |
+| `pathsafe-images.spec.ts` | 14 | API/功能测试依赖后端 worker 在线,当前环境 worker 未就绪(标题已标注「因 worker 未知返回 400」) | 无关 |
+
+---
+
+## MODELCLEAN-MARKET-2026-08-09 · 模型库冗余清理 + 在线市场「安装到本地」重构为 NAS 直落链路
+
+**时间**: 2026-08-09 09:14
+**类型**: chore(models) / refactor(marketplace) / e2e
+**目标**: ①清理 NAS 模型库中质量差/重复的模型,只保留质量最好与特定风格;②修复资源中心在线市场「安装到本地」点击后无法真正下载到指定位置的问题
+
+### 一、模型库冗余清理(真机执行,已确认引用后删除)
+
+- **扫描**:NAS 两库(`Windows/ComfyUI/ComfyUIModel/models` + `toiv/comfyui-models`),分段哈希(首 256MB+尾 256MB+文件大小)快速判重
+- **A 类纯冗余**(同文件多份,如 10eros_v14 双副本)约 175GB、**B 类死重/低质**(被 distilled 替代的 dev 版、全库零引用的大文件)约 177GB,**合计回收 ~352GB**;生产在用的 `ltx-2.3-distilled`、`10eros_v14`(单副本)、`ace_step_v1_3.5b`(音频默认)、`flux1-dev-fp8`(PuLID 依赖)等全部保留
+- **错位归位**:`prefectIllustriousXL_40.safetensors`(6.6GB,loras→checkpoints)、`moodyPornMix_zitV7.safetensors`(11.7GB,loras→diffusion_models)
+- **代码引用同步**:[style_presets.py](apps/api/app/workflows/style_presets.py)、[model_health.py](apps/api/app/workflows/model_health.py)、knowledge(platform-models.md / model-catalog.md)去除死模型引用;SMB 客户端删不动的文件改 NAS 服务端 `rm` 绕过客户端锁
+
+### 二、在线市场「安装到本地」重构(复用 NAS 下载链路)
+
+- **旧链路问题**:前端 → `/api/marketplace/install` → worker 上 ComfyUI-Manager 安装端点——策展白名单只收目录内模型、worker 选择漂移、无进度反馈、文件落 worker 本地不同步
+- **新链路**:组装 `NasDownloadRequest` 复用 `/nas/download` 作业管线(civitai/hf API 解析直链或裸 url 白名单直通)→ 直落 NAS 模型库对应子目录 → **全集群 worker 共享,下完即可用**;进度走 `GET /api/nas/download/{job_id}`
+- **后端**:[marketplace.py](apps/api/app/routes/marketplace.py) 新增 `_MARKET_TYPE_MAP`(Civitai 分类名大小写/别名归一化:LoCon/LyCORIS→lora、TextualInversion→embeddings、Upscaler→upscale——旧链路会 400 误杀的类型全部放行)+ 下载主机白名单(civitai.com/civitai.red/huggingface.co/hf-mirror.com 及子域,防 SSRF);[nas_models.py](apps/api/app/routes/nas_models.py) 抽取 `require_admin` / `require_nas_ready` / `start_download_job` 供两路由共用
+- **前端**:[ModelsView.tsx](apps/web/components/models/ModelsView.tsx) `installModel` 契约改 job_id 语义,`usePoll` 2s 轮询批量刷新所有进行中作业,按钮实时显示「下载中 N% / 已安装 / 重试」,完成后自动刷新本地模型列表
+
+### 三、验证
+
+| 项 | 结果 |
+|---|---|
+| 新增 tests/test_marketplace_install.py | ✅ **20 用例全过**(civitai/hf/裸url 三流、类型归一化 9 参数化、白名单拒绝、非 admin 403、NAS 未就绪 503) |
+| apps/api 全量 pytest | ✅ **1144 passed** + 2 redis 基线失败(既有 fakeredis 问题,stash 验证与本轮无关) |
+| apps/web next build | ✅ 通过(类型+lint) |
+| core 部署 | ✅ deploy.sh rsync + toiv-api/toiv-web 健康 200 |
+| **真机 e2e(HF 源)** | ✅ install(embed/EasyNegative,TextualInversion)→ **1.4s 落 NAS `embeddings/EasyNegative.safetensors`(24655B)** → workstation `/opt/ComfyUI/models`(NAS symlink)可见 → 可加载使用 |
+| 真机 e2e(civitai 源) | ⚠️ API 解析正常,下载 307 落 B2 对象存储 connect timeout——**既有基建限制**(AGENTS.md 易错点#12,取决于当次 307 落点,昨日同链路成功过),非本轮代码回归;兜底 = Mac 代理下载 + NAS 拷贝 |
+| 附带修复 | core `deploy/.env` 补 `HF_ENDPOINT=https://hf-mirror.com`(否则 HF 源在 core 直连 huggingface.co 超时,市场 HF 安装全灭) |
+
+---
+
+## LAYOUT-R2C-2026-08-09 · 对称性专项:--nav-safe-left 全站清零 + 大屏居中对称 + e2e 对称性门禁
+
+**时间**: 2026-08-09 13:00
+**类型**: refactor(ui) / e2e 回归
+**目标**: 用户要求「对称、视觉舒服」——消除 CornerNav 水平避让导致的全站内容右移/页头与内容左缘错位,统一对称基准;大屏(≥1440px)空态/提示词条相对舞台居中
+
+### 根因与方案
+
+- **根因**:`--nav-safe-left`(桌面端 ≈200px)为避让左上角 CornerNav 触发器而给页头/内容加左内边距,导致页头标题与内容左缘错位、视觉重心右偏
+- **方案**:CornerNav 触发器(y12-50)与页头/内容垂直方向已由壳层 `.app-main padding-top:56px` 天然让开,**水平避让完全多余**——`--nav-safe-left` 变量及全部引用清零,左右边距恢复对称
+
+### 改动清单(11 文件)
+
+- **globals.css**:删除 `:root --nav-safe-left` 定义及桌面端 `.page-header` 左移规则
+- **stage.css**:`.generate-header` 去左避让(标题与舞台左缘对齐);`.stage-status` 胶囊 left 复位 `var(--space-3)`;浮板避让媒体查询收窄为 `1024-1439` 中窄屏专用,新增 `@media (min-width:1440px)` 词条宽 720→680(居中后右缘 1060 < 浮板左缘 1064,零重叠)
+- **avatartalk.css / library.css / fusion.css**:页头与视图左右内边距恢复对称(fusion 桌面 `padding: var(--space-8)` 四边等距)
+- **AssistantView / DubView / StudioView / AdminView / NsfwView / ResourcesView**(6 个 tsx 内联样式):删除 `calc(... + var(--nav-safe-left))` 左内边距
+
+### 对称性 e2e 门禁(新增 e2e/symmetry-check.spec.ts,9 用例)
+
+实测数据(Playwright getBoundingClientRect):
+
+| 视口 | 指标 | 实测 | 判定 |
+|---|---|---|---|
+| 1512 | 舞台/空态/词条中心 | cx 均 =756=视口中心 | ✅ 完美居中 |
+| 1440 | 空态/词条中心 | cx 均 =720=视口中心;词条右缘 1060 < 浮板左缘 1064 | ✅ 居中且零重叠 |
+| 1318(中窄屏) | 空态/词条 | cx=477(避让浮板后可用区内居中) | ✅ 功能优先,符合设计 |
+| 全视口 | 页头标题左缘 vs 舞台左缘 | 均 =24 | ✅ 对齐 |
+| 1512 | library/studio/dub 页头 | header.left=188 = body.left(156)+padding(32) | ✅ 对齐 |
+| 1512 | assistant/avatartalk/resources 页头 | header.left = body.left(对称内边距) | ✅ 对齐 |
+
+> 门禁含硬断言:选择器未命中即失败(修掉 resources 视图 `/?view=models`→`/?view=resources` 导致的静默跳过假阳性)
+
+### 验证
+
+| 项 | 结果 |
+|---|---|
+| symmetry-check(新增) | ✅ **9 passed**(15.0s) |
+| tsc --noEmit | ✅ 0 错误 |
+| next build | ✅ 通过 |
+| responsive-redesign + authed-views | ✅ **46 passed + 1 skipped**(46.9s) |
+| authed-ux-metrics 门禁 | ✅ **1 passed**(1.1m,10 视图 a11y serious/critical 全零) |
+| apps/api pytest | ✅ 1138 passed + 2 redis 基线失败(既有 fakeredis 问题,与本轮无关) |
+
+> 排障备注:next build 覆盖 .next 后已重启 dev server(3100 恢复 200)。
+
+---
+
+## LAYOUT-R2B-2026-08-09 · 第二轮排版重构补丁轮:断点全量收敛 + styled-jsx 迁移 + JS 断点 hook 化 + a11y 门禁修复
+
+**时间**: 2026-08-09 03:10
+**类型**: refactor(ui) / fix(a11y) / e2e 回归
+**目标**: R2 收尾后的残留项——全站媒体查询断点值收敛到令牌体系、公共组件 styled-jsx 迁移全局 CSS、JS 侧硬编码断点改走 useBreakpoint/BREAKPOINTS、修复 ux-metrics 门禁暴露的 a11y 回归
+
+### 断点收敛(max 形式统一令牌值-1;min 形式为令牌值)
+
+- **avatartalk.css**:`900→1023`、`768→767`、补 `min-width:1024` 桌面档
+- **stage.css**:`min-width:1025→1024`、`max-width:1024→1023`、`860→1023`、`720→767`
+- **DubView.tsx**:`720/640→767`(4 处)、补 `min-width:1024` 桌面档
+- **StudioView.tsx**:`640→767`(2 处)
+- **收敛后全站扫描**:`apps/web` 全部 70 条 `@media` 仅用 575/767/1023(max)与 1024(min)四档规范值,非规范值(480/640/720/860/900/1025)**清零**
+
+### styled-jsx → 全局 CSS(批 4 策略延续:公共组件优先)
+
+- **ThemePicker**:样式迁入 globals.css `.theme-picker/.theme-swatch` 块(CornerNav 账户 Popover 与 BottomNav「更多」抽屉共用),删除组件内 `<style jsx>`
+- **ErrorBoundary**:样式迁入 globals.css `.err-bound` 块,删除组件内 `<style jsx>`
+- 存量 20 个视图/控件内 styled-jsx 按「逐步淘汰」策略保留,新代码不再新增
+
+### JS 侧断点硬编码消除
+
+- **AssistantView**:手写 matchMedia effect → `useBreakpoint("md")`(placeholder 按端适配)
+- **GenerateView**:`matchMedia("(max-width: 1024px)")` → `` `(max-width: ${BREAKPOINTS.lg - 1}px)` ``(SSR 不安全场景不能用 hook,用常量拼串与 CSS 对齐)
+- useBreakpoint.ts/globals.css 注释同步:max 形式取 `BREAKPOINTS[bp]-1` 与 CSS 令牌-1 对齐
+
+### a11y 门禁修复(ux-metrics 暴露)
+
+- **问题**:音频视图 axe serious `scrollable-region-focusable` —— GenerateView 空态 `.result-panel-empty`(overflow-y:auto,内容超高可滚动)无 tabindex,键盘不可达
+- **修复**:ResultPanel.tsx 空态容器补 `tabIndex={0}`(沿用 2026-08-07 generate-results 同款修复模式)
+- **验证**:定向 axe 复扫 audio 视图 serious/critical 清零;ux-metrics 全量复跑通过
+
+### 验证
+
+| 项 | 结果 |
+|---|---|
+| tsc --noEmit | ✅ 0 错误 |
+| next build | ✅ 通过 |
+| responsive-redesign + authed-views | ✅ **46 passed + 1 skipped**(43.5s;含 admin/agents 子页 .page-header 检查) |
+| authed-ux-metrics 门禁 | ✅ **1 passed**(10 视图 LCP 624–772ms、CLS 全 0(canvas iframe 除外,0.336 既有波动)、a11y serious/critical 全零、交互 8/8) |
+| apps/api pytest | ✅ 1138 passed + 2 redis 基线失败(既有 fakeredis 问题,与本轮无关) |
+
+> ⚠️ 排障备注:本轮首次 e2e 全灭(ERR_CONNECTION_REFUSED)系上会话残留 dev server(3100 挂死 + 3101 僵尸进程 104% CPU)所致;清理残留进程并重启 dev server 后全部转绿,非代码回归。
+> canvas 视图 70 条 console error 为内嵌 ComfyUI iframe 本地不可达的环境性噪声(axe 已 exclude iframe),assistant 2 条为本地 LLM 后端对话流报错,均非本轮引入。
+
+---
+
+## LAYOUT-R2-2026-08-09 · 第二轮排版布局重构收官:全局 .page-header 体系统一(21/21)+ admin/agents 子页并入回归
+
+**时间**: 2026-08-09 01:30
+**类型**: refactor(ui) / fix(ui) / e2e 回归
+**目标**: 第二轮排版重构收尾——全量扫描视图页头实现,消灭最后一个旧体系残留(AgentsAdminView `.aa-header`),统一全局 `.page-header` 双栏体系;修复迁移引入的布局回归
+
+### 进度盘点
+
+- 全量扫描 21 个视图页头:20 个已在第一轮(UIPOLISH-2026-08-07)迁移至全局 `.page-header`;仅 **AgentsAdminView**(admin 内 tab 子页,不在直出视图清单)残留旧 `.aa-header` 体系,与同页 users 子页排版不一致
+
+### 修复项
+
+- **AgentsAdminView 页头迁移**(最后一个):`<header className="aa-header">` → `.page-header` + `.page-header-title/.page-header-desc/.page-header-actions`;删除 `.aa-header/.aa-header-left/.aa-title/.aa-subtitle/.aa-header-right` 旧 CSS,保留 `.aa-count`;作用域样式仅补图标对齐与强调色
+- **SettingsView 页头结构修正**:title/desc 外层补 `<div>` 包裹,符合「标题区+操作区」双栏规范(此前未包裹导致布局错乱)
+- **avatartalk 布局回归修复**:迁移引入未样式化的 `.at-body` 容器 → 页面内容整体右移、左侧大片留白;`.at-view` 改纵向 flex(上页头+下主体),`.at-body` 承接原 grid(`1fr 400px`),响应式断点(max-width:900px)同步迁移,页头补内边距 + CornerNav 避让(`--nav-safe-left`)
+- **AvatarGenPanel.tsx 编译错误**:生成参数 section 缺 `</section>` 闭合标签 → tsc 报错,已补
+
+### 测试基建
+
+- **临时目检 spec 转正式回归**:admin/agents 子页检查并入 `authed-views.spec.ts`(19 直出视图 + 1 tab 子页 = 20 用例),删除一次性 `authed-admin-agents.spec.ts`
+- **本地 dev 环境修复**:`.env.local` API 指向 `localhost:8090`,该端口被无关 `python -m http.server` 占位 → dev server `/api` rewrite 全部打到静态服务,19 视图登录态全灭(假 token 失效回落地页);修正为 `127.0.0.1:8200`(本地 ToIV API)+ 重启 dev server,并移除测试内的 `page.route` 绕行(让套件恢复对代理链路的 canary 能力)
+
+### 验证
+
+| 项 | 结果 |
+|---|---|
+| tsc --noEmit | ✅ 0 错误 |
+| next build | ✅ 通过(本轮无 app 运行时代码变更,仅 spec/.env.local) |
+| authed-views(chromium-authed) | ✅ **20/20 passed**(22.0s,19 直出视图 + admin/agents 子页) |
+| responsive-redesign(chromium-guest) | ✅ 26 passed + 1 skipped(26.6s) |
+| apps/api pytest | ✅ 1138 passed + 2 redis 基线失败(既有 fakeredis 问题,与本轮无关) |
 
 ---
 
@@ -5158,3 +6046,34 @@ Route (app)                                 Size  First Load JS
 - **前端**:GenerateView 负向回填后 toast「已自动填入负向提示词」+ 高级参数抽屉自动展开;NsfwVideoView negative 回填并自动展开负向面板
 - **顺修配置**(6a6e160):config.py LLM 默认端点 192.168.71.127(已停用 Nemotron)→ 192.168.71.84(spark02);本地 apps/api/.env(不入库)同步修正——此前本地 /api/optimize 全链路 502
 - **验证**:pytest 968 passed(含 video 新契约 2 用例);本地 UI 实证(toast+抽屉展开+负向框填入+题材匹配负面词);生产冒烟 video/image negative 题材匹配;部署 core 后生产 e2e **161 passed / 0 failed**
+
+### 全面功能测试与高压测试(2026-08-09,STRESS-2026-08-09)
+
+- **范围**:Core API 回归(17 项)、LLM 长文本理解(4K/16K/32K)、MiniMax H3 长视频生成(最大 362 帧)、跨节点系统监控
+- **Core API 回归**:16/17 通过;唯一失败 `upload_audio` 偶发 503("没有具备所需模型且可用的 worker"),属 ACE-Step worker 高压瞬态;`/api/reverse` 经修复后 200(9–14s)
+- **LLM 长文本**:spark02 qwen3.6-uncensored FP8,32K 窗口内问答准确率 3/3,大海捞针 10/10 = 100%,并发 5 路 0 失败;spark02 可用内存 <1% 为常态
+- **H3 长视频**:最终 13 个作业成功 12 / 失败 1。单作业最大长度:141 帧 55.3s✅、192 帧因 GPU0 88°C 熔断❌、243 帧 131.4s✅、294 帧 176.8s✅、345 帧 228.1s✅、362 帧 248.5s✅;连续压力(124/141/158/175/192 帧)5/5✅;并发压力(124+141 同时提交)2/2✅,并发期间 GPU0 峰值 92°C 未触发熔断
+- **系统监控**:Workstation GPU0 峰值温度 93°C,显存峰值 69065 MB;spark02 内存峰值 124328 MB;core/studio04 平稳
+- **修复 1**:core `/home/merlin/toiv/deploy/.env` 第 22 行 `TOIV_LLM_DISPLAY_NAME` 缺引号导致 systemd EnvironmentFile 解析失败,已加双引号并重启 toiv-api
+- **修复 2**:core `apps/api/app/routes/reverse.py` 增加 studio04 mlx-vlm `/v1/reverse` 自定义端点支持:探测 `/models` 404 时自动回退,系统提示作为 `prompt` 传入,返回自然语言由 `_salvage_prompt` 兜底解析
+- **报告**:docs/2026-08-09-comprehensive-stress-test-report.md
+- **原始数据**:`/tmp/core_api_results.csv`、`/tmp/llm_metrics.csv`、`/tmp/h3_metrics.csv`、`/tmp/system_metrics_*.csv`
+
+### 生产环境 P0+P1 修复：pc01 ComfyUI 恢复 + 定妆图分辨率质量门（2026-08-10）
+
+- **P0 — pc01 ComfyUI 进程停止**
+  - 现象：ComfyUI-LB 后端从 3 个降至 2 个（pc01 :8188 端口无监听），系统吞吐量下降 33%
+  - 修复：`schtasks /run /tn StartComfyUI` 重启 pc01 计划任务，ComfyUI 进程恢复（PID 35868），:8188 监听恢复
+  - 验证：3 后端（gpu0:8189 / pc01:8188 / pc02:8193）全部 `/system_stats` 200；观察 15 分钟无掉线
+  - 根因：Windows 计划任务 `StartComfyUI` 在用户会话断开后子进程被终止（AGENTS.md 易错点 5 已记录此模式）
+
+- **P1 — M5 characters 定妆图分辨率低于质量门阈值**
+  - 现象：ComfyUI 生成的定妆图分辨率为 768×1344，低于质量门设定的 1024×1024 阈值，编排器有效拦截但不达标
+  - **根因定位**（关键）：`apps/api/app/workflows/model_profiles.py` 的 `fit_resolution()` 函数对非 SD1.5 模型统一施加 1MP（1024×1024）像素预算上限。默认底模 FLUX2（`flux2_dev_fp8mixed.safetensors`）走 `is_nextgen` 路径，请求 1024×1344 被 `fit_resolution` 按 1MP 预算压缩到 896×1168（ar=0.7619, h=√(1048576/0.7619)=1168, w=896）。该函数设计理念是"前端给宽高比，后端按架构定像素"，1MP 是 SDXL 原生档位。character_keyframes.py 改 width=768→1024 无效，因为请求尺寸只作宽高比提示
+  - 验证脚本 `/tmp/p1_verify_dims.py` 确认：1024×1344→896×1168(❌)、1024×1024→1024×1024(✅)、768×1344→768×1344(✅)，证实 1MP 上限是根因
+  - **修复**：`fit_resolution()` 为次世代模型族（flux2/flux/qwen_image/z_image）将像素预算从 1MP 提至 ~1.37MP（1024×1360），使 3:4 纵向构图也能达到 ≥1024 双维度。SDXL 族维持 1MP（原生档，超出易崩坏），SD1.5 维持 0.4MP。次世代模型原生支持高分辨率，1.37MP 在 FLUX2 fp8 上完全安全
+  - 代码变更：`apps/api/app/workflows/model_profiles.py:128-156`（fit_resolution 三路分支）；`drama/scripts/character_keyframes.py:159,196`（width 768→1024，保留纵向 3:4 构图）
+  - 单元测试：`apps/api/tests/test_model_profiles.py` 新增 7 个测试（次世代纵向/方形/横向 ≥1024 验证 + SDXL 回归），本地 82 passed + 61 相关回归 passed；core 部署后 108 passed；core 全量 1140 passed / 3 failed（video proxy + RAG cache 已有问题，与本次无关）
+  - **10 次连续验证**（`/tmp/p1_10x_test.py`）：10/10 通过，每张定妆图精确产出 1024×1344，全部通过质量门 ≥1024×1024 检测
+  - 部署：`deploy/deploy.sh --skip-web` → core :8090 toiv-api 重启就绪
+- **涉及文件**：`apps/api/app/workflows/model_profiles.py`、`apps/api/tests/test_model_profiles.py`、`drama/scripts/character_keyframes.py`

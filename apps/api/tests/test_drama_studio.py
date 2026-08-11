@@ -822,14 +822,46 @@ def test_shot_lipsync_other_user_404(ctx):
 # ---------------------------------------------------------------------------
 # M6: 视频生成模型聚合
 # ---------------------------------------------------------------------------
-def test_list_video_generators(ctx):
-    """M6: GET /api/drama/video-generators 返回 3 个生成器。"""
+def test_list_video_generators(ctx, monkeypatch):
+    """M6: GET /api/drama/video-generators 返回 5 个生成器(含 H3)。
+
+    QA-FULL-2026-08-11 P3(引擎状态一致性):available/reason 由后端统一下发,
+    与 /api/models/engines 同源——死 pool 下 ltx 不可用;H3 走独立实例探测
+    (替身在线)可用;stub(seedance/kling)固定不可用;liveact 随配置开关。
+    """
     client, token, _ = ctx
     H = _h(token)
-    r = client.get("/api/drama/video-generators", headers=H)
+    from app.config import get_settings
+    from app.services import engine_registry
+
+    async def _h3_nodes():
+        return {"MiniMaxH3ImageToVideo"}
+
+    async def _longcat_nodes():
+        return {"WanVideoModelLoader"}
+
+    monkeypatch.setattr(engine_registry, "_fetch_h3_nodes", _h3_nodes)
+    monkeypatch.setattr(engine_registry, "_fetch_longcat_nodes", _longcat_nodes)
+    app.dependency_overrides[get_pool] = _dead_pool
+    try:
+        r = client.get("/api/drama/video-generators", headers=H)
+    finally:
+        app.dependency_overrides.pop(get_pool, None)
     assert r.status_code == 200, r.text
-    names = {g["name"] for g in r.json()["generators"]}
-    assert names == {"ltx", "seedance", "kling", "liveact"}
+    gens = {g["name"]: g for g in r.json()["generators"]}
+    assert set(gens) == {"ltx", "h3", "seedance", "kling", "liveact"}
+    # 死 pool → ltx 不可用且带原因;h3 独立实例在线 → 可用
+    assert gens["ltx"]["available"] is False
+    assert gens["ltx"]["unavailable_reason"]
+    assert gens["h3"]["available"] is True
+    # stub 固定不可用
+    assert gens["seedance"]["available"] is False
+    assert gens["kling"]["available"] is False
+    # liveact 可用性 = 当前配置是否给了 worker 基址
+    liveact_expected = bool(get_settings().liveact_base)
+    assert gens["liveact"]["available"] is liveact_expected
+    if not liveact_expected:
+        assert "LiveAct" in gens["liveact"]["unavailable_reason"]
 
 
 def test_generate_video_v2_unsupported(ctx):

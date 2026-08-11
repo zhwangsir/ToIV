@@ -302,17 +302,17 @@ export function AgentsAdminView() {
 
   return (
     <div className="agents-admin">
-      <header className="aa-header">
-        <div className="aa-header-left">
-          <h2 className="aa-title">
+      <header className="page-header">
+        <div>
+          <h1 className="page-header-title">
             <Icon name="sparkles" size={18} />
             智能体管理
-          </h2>
-          <span className="aa-subtitle">
+          </h1>
+          <p className="page-header-desc">
             内置 + 自定义 · 提示词优化方向的源
-          </span>
+          </p>
         </div>
-        <div className="aa-header-right">
+        <div className="page-header-actions">
           <span className="aa-count">
             {loading ? "加载中…" : `${agents.length} 个智能体`}
           </span>
@@ -791,51 +791,22 @@ export function AgentsAdminView() {
           gap: var(--space-4);
         }
 
-        /* ── Header ── */
-        .aa-header {
-          display: flex;
-          align-items: flex-end;
-          justify-content: space-between;
-          gap: var(--space-4);
-          flex-wrap: wrap;
-          padding-bottom: var(--space-4);
-          border-bottom: 1px solid var(--border-subtle);
-        }
-        .aa-header-left {
-          display: flex;
-          flex-direction: column;
-          gap: 0.2rem;
-          min-width: 0;
-        }
-        .aa-title {
-          margin: 0;
+        /* ── Header:全局 .page-header 体系(避让/排版由 globals.css 统一);
+               本作用域仅补图标对齐与强调色 ── */
+        .page-header-title {
           display: inline-flex;
           align-items: center;
-          gap: 0.5rem;
-          font-family: var(--font-sans);
-          font-size: var(--text-title);
-          font-weight: 700;
-          letter-spacing: -0.02em;
-          color: var(--text-primary);
-          line-height: 1.3;
-        }
-        .aa-title :global(svg) {
-          color: var(--accent);
-        }
-        .aa-subtitle {
-          font-size: 0.74rem;
-          color: var(--text-muted);
-        }
-        .aa-header-right {
-          display: flex;
-          align-items: center;
           gap: var(--space-2);
-          flex-wrap: wrap;
+        }
+        .page-header-title :global(svg) {
+          color: var(--accent);
+          flex-shrink: 0;
         }
         .aa-count {
-          font-size: 0.78rem;
+          font-size: var(--text-aux);
           color: var(--text-muted);
           font-family: var(--font-mono);
+          font-variant-numeric: tabular-nums;
           letter-spacing: 0.01em;
         }
 
@@ -850,27 +821,27 @@ export function AgentsAdminView() {
         .aa-error {
           display: flex;
           align-items: center;
-          gap: 0.6rem;
-          padding: 0.7rem 0.9rem;
+          gap: var(--space-3);
+          padding: var(--space-3) var(--space-4);
           background: var(--err-soft);
           border: 1px solid var(--err);
           border-radius: var(--radius-control);
           color: var(--err);
-          font-size: 0.86rem;
+          font-size: var(--text-body);
           flex-wrap: wrap;
         }
         .aa-error :global(.btn) {
           margin-left: auto;
         }
         .aa-error-inline {
-          padding: 0.5rem 0.7rem;
+          padding: var(--space-2) var(--space-3);
           background: var(--err-soft);
           border: 1px solid var(--err);
           border-radius: var(--radius-xs);
           color: var(--err);
-          font-size: 0.78rem;
+          font-size: var(--text-aux);
           line-height: 1.45;
-          margin-top: 0.5rem;
+          margin-top: var(--space-2);
         }
 
         /* ── 列表 ── */
@@ -882,11 +853,11 @@ export function AgentsAdminView() {
         .aa-card {
           display: flex;
           flex-direction: column;
-          gap: 0.55rem;
+          gap: var(--space-3);
           padding: var(--space-4);
           background: var(--bg-surface-1);
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-control);
+          border-radius: var(--radius-panel);
           transition: border-color var(--duration-fast) var(--ease-standard);
         }
         .aa-card:hover {
@@ -914,24 +885,24 @@ export function AgentsAdminView() {
           min-width: 0;
           display: flex;
           flex-direction: column;
-          gap: 0.15rem;
+          gap: var(--space-1);
         }
         .aa-card-title-row {
           display: flex;
           align-items: center;
-          gap: 0.4rem;
+          gap: var(--space-2);
           flex-wrap: wrap;
         }
         .aa-card-title {
           margin: 0;
-          font-size: 0.95rem;
+          font-size: var(--text-section);
           font-weight: 600;
           color: var(--text-primary);
           line-height: 1.3;
           letter-spacing: -0.01em;
         }
         .aa-card-id {
-          font-size: 0.7rem;
+          font-size: var(--text-label);
           color: var(--text-muted);
           font-family: var(--font-mono);
           letter-spacing: 0.02em;
@@ -939,7 +910,7 @@ export function AgentsAdminView() {
         .aa-card-actions {
           display: flex;
           align-items: center;
-          gap: 0.25rem;
+          gap: var(--space-1);
           flex-shrink: 0;
         }
         .aa-delete-btn {
@@ -955,7 +926,7 @@ export function AgentsAdminView() {
 
         .aa-card-desc {
           margin: 0;
-          font-size: 0.82rem;
+          font-size: var(--text-body);
           color: var(--text-secondary);
           line-height: 1.5;
         }
@@ -963,14 +934,14 @@ export function AgentsAdminView() {
         .aa-card-tags {
           display: flex;
           align-items: center;
-          gap: 0.3rem;
+          gap: var(--space-2);
           flex-wrap: wrap;
         }
         .aa-tag {
-          font-size: 0.68rem;
+          font-size: var(--text-label);
           font-family: var(--font-mono);
           letter-spacing: 0.02em;
-          padding: 0.1rem 0.4rem;
+          padding: 2px var(--space-2);
         }
         .aa-tag-builtin {
           background: var(--bg-surface-2);
@@ -991,15 +962,16 @@ export function AgentsAdminView() {
         .aa-tag-llm {
           display: inline-flex;
           align-items: center;
-          gap: 0.2rem;
+          gap: var(--space-1);
           background: var(--bg-surface-2);
           border: 1px solid var(--border-strong);
           color: var(--text-secondary);
         }
         .aa-sort {
-          font-size: 0.68rem;
+          font-size: var(--text-label);
           color: var(--text-muted);
           font-family: var(--font-mono);
+          font-variant-numeric: tabular-nums;
           letter-spacing: 0.02em;
           margin-left: auto;
         }
@@ -1008,24 +980,24 @@ export function AgentsAdminView() {
         .aa-test-panel {
           display: flex;
           flex-direction: column;
-          gap: 0.6rem;
-          padding: 0.85rem;
+          gap: var(--space-3);
+          padding: var(--space-3);
           background: var(--bg-surface-2);
           border: 1px solid var(--border-strong);
-          border-radius: var(--radius-sm);
-          margin-top: 0.2rem;
+          border-radius: var(--radius-control);
+          margin-top: var(--space-1);
         }
         .aa-test-head {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 0.5rem;
+          gap: var(--space-2);
         }
         .aa-test-title {
           display: inline-flex;
           align-items: center;
-          gap: 0.4rem;
-          font-size: 0.84rem;
+          gap: var(--space-2);
+          font-size: var(--text-body);
           font-weight: 600;
           color: var(--text-primary);
         }
@@ -1036,25 +1008,31 @@ export function AgentsAdminView() {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 26px;
-          height: 26px;
+          width: 32px;
+          height: 32px;
           background: transparent;
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-xs);
           color: var(--text-muted);
           cursor: pointer;
+          transition: color var(--duration-fast) var(--ease-standard),
+            border-color var(--duration-fast) var(--ease-standard);
         }
         .aa-test-close:hover {
           color: var(--text-primary);
           border-color: var(--border-strong);
         }
+        .aa-test-close:focus-visible {
+          outline: 1px solid var(--accent);
+          outline-offset: 2px;
+        }
         .aa-test-grid {
           display: grid;
           grid-template-columns: 180px 1fr;
-          gap: 0.6rem;
+          gap: var(--space-3);
           align-items: end;
         }
-        @media (max-width: 720px) {
+        @media (max-width: 767px) {
           .aa-test-grid {
             grid-template-columns: 1fr;
           }
@@ -1062,18 +1040,18 @@ export function AgentsAdminView() {
         .aa-field {
           display: flex;
           flex-direction: column;
-          gap: 0.3rem;
+          gap: var(--space-2);
         }
         .aa-field-wide {
           grid-column: 1 / -1;
         }
         .aa-field-label {
-          font-size: 0.72rem;
+          font-size: var(--text-aux);
           color: var(--text-secondary);
           font-weight: 500;
         }
         .aa-field-hint-inline {
-          font-size: 0.7rem;
+          font-size: var(--text-label);
           color: var(--text-muted);
           font-weight: 400;
           font-style: normal;
@@ -1103,13 +1081,13 @@ export function AgentsAdminView() {
         .aa-test-actions {
           display: flex;
           align-items: center;
-          gap: 0.4rem;
+          gap: var(--space-2);
         }
         .aa-test-result {
           display: flex;
           flex-direction: column;
-          gap: 0.4rem;
-          padding: 0.7rem;
+          gap: var(--space-2);
+          padding: var(--space-3);
           background: var(--ok-soft);
           border: 1px solid var(--ok);
           border-radius: var(--radius-xs);
@@ -1117,19 +1095,19 @@ export function AgentsAdminView() {
         .aa-test-result-label {
           display: inline-flex;
           align-items: center;
-          gap: 0.3rem;
-          font-size: 0.74rem;
+          gap: var(--space-1);
+          font-size: var(--text-aux);
           color: var(--ok);
           font-weight: 600;
         }
         .aa-test-result-text {
           margin: 0;
-          padding: 0.5rem 0.6rem;
+          padding: var(--space-2) var(--space-3);
           background: var(--bg-surface-1);
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-xs);
           font-family: var(--font-mono);
-          font-size: 0.78rem;
+          font-size: var(--text-aux);
           color: var(--text-primary);
           line-height: 1.5;
           white-space: pre-wrap;
@@ -1140,8 +1118,8 @@ export function AgentsAdminView() {
         .aa-test-result-neg {
           display: flex;
           flex-direction: column;
-          gap: 0.3rem;
-          margin-top: 0.3rem;
+          gap: var(--space-1);
+          margin-top: var(--space-1);
         }
 
         /* ── 编辑/新建弹窗 ── */
@@ -1214,8 +1192,8 @@ export function AgentsAdminView() {
           line-height: 1.3;
         }
         .aa-modal-sub {
-          margin-top: 0.2rem;
-          font-size: 0.74rem;
+          margin-top: var(--space-1);
+          font-size: var(--text-aux);
           color: var(--text-muted);
           line-height: 1.45;
         }
@@ -1246,34 +1224,34 @@ export function AgentsAdminView() {
         .aa-form {
           display: flex;
           flex-direction: column;
-          gap: 0.7rem;
+          gap: var(--space-3);
           padding: var(--space-4);
         }
         .aa-form-row {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 0.6rem;
+          gap: var(--space-3);
         }
         .aa-textarea {
           font-family: var(--font-mono);
-          font-size: 0.8rem;
+          font-size: var(--text-body);
           line-height: 1.55;
           min-height: 180px;
         }
         .aa-checkbox-grid {
           display: flex;
           flex-wrap: wrap;
-          gap: 0.4rem;
+          gap: var(--space-2);
         }
         .aa-checkbox {
           display: inline-flex;
           align-items: center;
-          gap: 0.35rem;
-          padding: 0.3rem 0.55rem;
+          gap: var(--space-2);
+          padding: var(--space-1) var(--space-3);
           background: var(--bg-surface-2);
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-xs);
-          font-size: 0.78rem;
+          font-size: var(--text-aux);
           color: var(--text-secondary);
           cursor: pointer;
           transition: all var(--duration-fast) var(--ease-standard);
@@ -1294,13 +1272,13 @@ export function AgentsAdminView() {
           align-items: center;
           gap: var(--space-2);
           align-self: flex-start;
-          padding: 0.3rem 0.55rem;
+          padding: var(--space-2) var(--space-3);
           background: var(--bg-surface-2);
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-xs);
         }
         .aa-nsfw-label {
-          font-size: 0.78rem;
+          font-size: var(--text-aux);
           color: var(--text-secondary);
         }
         .aa-form-actions {
@@ -1308,7 +1286,7 @@ export function AgentsAdminView() {
           align-items: center;
           justify-content: flex-end;
           gap: var(--space-2);
-          margin-top: 0.3rem;
+          margin-top: var(--space-1);
         }
 
         /* ── 旋转动画 ── */
@@ -1327,19 +1305,34 @@ export function AgentsAdminView() {
         }
 
         /* ── 移动端 ── */
-        @media (max-width: 720px) {
-          .aa-header {
-            flex-direction: column;
-            align-items: stretch;
-          }
-          .aa-header-right {
+        @media (max-width: 767px) {
+          .page-header-actions {
+            width: 100%;
             justify-content: space-between;
+          }
+          .aa-card-head {
+            flex-wrap: wrap;
           }
           .aa-card-actions {
             flex-wrap: wrap;
+            width: 100%;
+            justify-content: flex-start;
           }
           .aa-form-row {
             grid-template-columns: 1fr;
+          }
+        }
+
+        /* 移动端触控目标 ≥44px */
+        @media (max-width: 575px) {
+          .aa-modal-close,
+          .aa-test-close {
+            width: 44px;
+            height: 44px;
+          }
+          .aa-checkbox {
+            min-height: 44px;
+            padding: var(--space-2) var(--space-3);
           }
         }
       `}</style>

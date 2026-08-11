@@ -1,24 +1,27 @@
-"""模型市场安装落地(POST /api/marketplace/install)测试。
+"""模型市场安装落地(POST /api/marketplace/install)测试 —— NAS 下载链路版。
 
-ComfyUI 不可达,全用 mock:
-- 受理成功路径(现代 install_model 端点入队 + start)
-- 端点回退(老 /model/install 命中,跳过 404 的候选)
-- url 白名单拒绝(非白名单主机 → 400)
-- type 枚举校验(未知类型 → 400)
-- HuggingFace (source,id,filename) 组装路径
-- 端点存在但拒绝 → 真实响应透传成 502(不静默吞错)
-- 进度查询转发 /manager/queue/status
+2026-08-09 重构后:install 不再走 worker 上的 ComfyUI-Manager(策展白名单/漂移/无进度),
+而是组装 NasDownloadRequest 复用 /nas/download 作业管线(直落 NAS 模型库)。
+
+测试聚焦(start_download_job / require_nas_ready 均 monkeypatch 隔离,不触网):
+- source=civitai + id → civitai 解析流(type 归一化、name 透传)
+- Civitai 模型页链接(/models/{id})→ 自动转 civitai 解析流;/api/download/ 直链保持 url 流
+- 裸下载直链(白名单主机)→ source=url 直通
+- huggingface source+id → hf 解析流(filename 可空=自动挑主权重)
+- url 白名单拒绝(非白名单主机 → 400;非 http(s) → 400)
+- type 归一化(Civitai 分类名大小写/别名)与未知类型 → 400
+- 权限:非管理员 403,未登录 401;NAS 未就绪 503
 """
 from __future__ import annotations
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
 import app.routes.marketplace as marketplace_route
 from app.db import get_session
-from app.deps import get_pool
 from app.main import app
 from app.models import Tenant, User
 from app.security import create_token, hash_password
@@ -29,8 +32,8 @@ from app.security import create_token, hash_password
 # --------------------------------------------------------------------------- #
 
 
-@pytest.fixture
-def client_token():
+def _make_client(role: str):
+    """建测试客户端 + 指定角色的登录 token。"""
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
@@ -44,99 +47,49 @@ def client_token():
 
     app.dependency_overrides[get_session] = override
     with Session(engine) as s:
-        tenant = Tenant(name="mkt")
+        tenant = Tenant(name=f"mkt-{role}")
         s.add(tenant)
         s.commit()
         s.refresh(tenant)
         user = User(
-            email="mkt@toiv.ai",
+            email=f"{role}@toiv.ai",
             hashed_password=hash_password("password1"),
             tenant_id=tenant.id,
+            role=role,
         )
         s.add(user)
         s.commit()
         s.refresh(user)
         uid = user.id
-    yield TestClient(app), create_token(uid)
+    return TestClient(app), create_token(uid)
+
+
+@pytest.fixture
+def client_admin():
+    c, token = _make_client("admin")
+    yield c, token
     app.dependency_overrides.clear()
 
 
-class _FakeWorker:
-    def __init__(self, base_url: str = "http://fake-worker:8002") -> None:
-        self.base_url = base_url
+@pytest.fixture
+def client_user():
+    c, token = _make_client("user")
+    yield c, token
+    app.dependency_overrides.clear()
 
 
-class _FakePool:
-    def __init__(self, base_url: str = "http://fake-worker:8002") -> None:
-        self._w = _FakeWorker(base_url)
+def _capture_job(monkeypatch) -> dict:
+    """替换 start_download_job / require_nas_ready:捕获 NasDownloadRequest,不触网不起任务。"""
+    captured: dict = {}
 
-    @property
-    def clients(self) -> list:
-        return [self._w]
+    def fake_start(body, user, session):  # noqa: ANN001, ANN202
+        captured["body"] = body
+        captured["user"] = user
+        return {"job_id": "job-123", "filename": body.filename or "x.safetensors"}
 
-    async def pick(self, required=()):  # noqa: ANN001
-        return self._w
-
-
-class _FakeResponse:
-    def __init__(self, status_code: int, json_body=None, text: str = "") -> None:
-        self.status_code = status_code
-        self._json = json_body
-        self.text = text if text else (str(json_body) if json_body is not None else "")
-
-    def json(self):
-        if self._json is None:
-            raise ValueError("no json")
-        return self._json
-
-
-class _FakeAsyncClient:
-    """替身 httpx.AsyncClient:据 (method, path) 查路由表返回预置响应,并记录调用。
-
-    routes: {(method, path): _FakeResponse}  缺省的 POST 路径返回 404(端点不存在)。
-    """
-
-    last_calls: list[tuple[str, str, dict | None]] = []
-
-    def __init__(self, routes: dict, *args, **kwargs) -> None:
-        self._routes = routes
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, *exc):  # noqa: ANN002
-        return False
-
-    def _resolve(self, method: str, url: str) -> _FakeResponse:
-        # 从完整 url 里提取 path 部分用于匹配
-        path = url.split("fake-worker:8002", 1)[-1] if "fake-worker:8002" in url else url
-        key = (method, path)
-        if key in self._routes:
-            return self._routes[key]
-        # 缺省:POST 视为端点不存在(404),GET 状态端点亦然
-        return _FakeResponse(404, {"error": "not found"})
-
-    async def post(self, url: str, json: dict | None = None, **kwargs):  # noqa: A002
-        _FakeAsyncClient.last_calls.append(("POST", url, json))
-        return self._resolve("POST", url)
-
-    async def get(self, url: str, **kwargs):
-        _FakeAsyncClient.last_calls.append(("GET", url, None))
-        return self._resolve("GET", url)
-
-
-def _patch_httpx(monkeypatch, routes: dict) -> None:
-    """把 marketplace 模块里用到的 httpx.AsyncClient 换成据 routes 应答的替身。"""
-    _FakeAsyncClient.last_calls = []  # 每个用例开头清空,避免跨用例串扰
-
-    def factory(*args, **kwargs):
-        return _FakeAsyncClient(routes, *args, **kwargs)
-
-    monkeypatch.setattr(marketplace_route.httpx, "AsyncClient", factory)
-
-
-def _use_pool() -> None:
-    app.dependency_overrides[get_pool] = lambda: _FakePool()
+    monkeypatch.setattr(marketplace_route, "start_download_job", fake_start)
+    monkeypatch.setattr(marketplace_route, "require_nas_ready", lambda: None)
+    return captured
 
 
 def _auth(token: str) -> dict:
@@ -144,128 +97,94 @@ def _auth(token: str) -> dict:
 
 
 # --------------------------------------------------------------------------- #
-# 1) 受理成功(现代 install_model 端点入队 + start)
+# 1) civitai source+id → civitai 解析流
 # --------------------------------------------------------------------------- #
 
 
-def test_install_accepted_modern_queue(client_token, monkeypatch):
-    c, token = client_token
-    _use_pool()
-    # 老端点 404 回退,直到 install_model 受理;start 也 200。
-    routes = {
-        ("POST", "/manager/queue/install_model"): _FakeResponse(200, {"result": True}),
-        ("POST", "/manager/queue/start"): _FakeResponse(200, {"ok": True}),
-    }
-    _patch_httpx(monkeypatch, routes)
+def test_install_civitai_source_uses_api_resolution(client_admin, monkeypatch):
+    c, token = client_admin
+    captured = _capture_job(monkeypatch)
     r = c.post(
         "/api/marketplace/install",
         headers=_auth(token),
         json={
-            "type": "lora",
-            "url": "https://civitai.red/api/download/models/12345",
-            "filename": "cool_style.safetensors",
+            "type": "LORA",
+            "source": "civitai",
+            "id": "12345",
+            "name": "Cool Style",
+            # 前端同时会带模型页 url;source+id 必须优先于裸 url
+            "url": "https://civitai.red/models/12345",
         },
     )
     assert r.status_code == 200, r.text
-    body = r.json()
-    assert body["accepted"] is True
-    assert body["endpoint"] == "/manager/queue/install_model"
-    assert body["worker"] == "http://fake-worker:8002"
-    assert body["model"]["filename"] == "cool_style.safetensors"
-    assert body["model"]["type"] == "lora"
-    assert body["model"]["save_path"] == "loras"
-    # 队列式端点入队后应触发 start
-    posted = [u for (m, u, _) in _FakeAsyncClient.last_calls if m == "POST"]
-    assert any("/manager/queue/start" in u for u in posted)
+    body = captured["body"]
+    assert body.source == "civitai"
+    assert body.id == "12345"
+    assert body.name == "Cool Style"
+    assert body.type == "lora"  # LORA 归一化
+    resp = r.json()
+    assert resp["accepted"] is True
+    assert resp["job_id"] == "job-123"
+    assert "filename" in resp and "message" in resp
+
+
+def test_install_civitai_web_page_url_converted_to_civitai_source(client_admin, monkeypatch):
+    """Civitai 模型页链接(/models/{id})不是下载直链 → 自动转 civitai API 解析。"""
+    c, token = client_admin
+    captured = _capture_job(monkeypatch)
+    r = c.post(
+        "/api/marketplace/install",
+        headers=_auth(token),
+        json={"type": "Checkpoint", "url": "https://civitai.red/models/67890/"},
+    )
+    assert r.status_code == 200, r.text
+    body = captured["body"]
+    assert body.source == "civitai"
+    assert body.id == "67890"
+    assert body.type == "checkpoint"
+
+
+def test_install_civitai_download_api_url_stays_url_source(client_admin, monkeypatch):
+    """/api/download/models/{id} 是真下载直链 → 保持 source=url 直通(不转模型页解析)。"""
+    c, token = client_admin
+    captured = _capture_job(monkeypatch)
+    r = c.post(
+        "/api/marketplace/install",
+        headers=_auth(token),
+        json={"type": "lora", "url": "https://civitai.red/api/download/models/3203205"},
+    )
+    assert r.status_code == 200, r.text
+    body = captured["body"]
+    assert body.source == "url"
+    assert body.url == "https://civitai.red/api/download/models/3203205"
 
 
 # --------------------------------------------------------------------------- #
-# 2) 端点回退(老 /model/install 命中)
+# 2) 裸直链(白名单)→ source=url 直通
 # --------------------------------------------------------------------------- #
 
 
-def test_install_endpoint_fallback_to_legacy(client_token, monkeypatch):
-    c, token = client_token
-    _use_pool()
-    # 首选 /model/install 直接受理(非队列端点,不应触发 start)。
-    routes = {
-        ("POST", "/model/install"): _FakeResponse(200, {"result": True}),
-    }
-    _patch_httpx(monkeypatch, routes)
+def test_install_whitelisted_direct_url_passthrough(client_admin, monkeypatch):
+    c, token = client_admin
+    captured = _capture_job(monkeypatch)
     r = c.post(
         "/api/marketplace/install",
         headers=_auth(token),
         json={
-            "type": "checkpoint",
-            "url": "https://huggingface.co/foo/bar/resolve/main/model.safetensors",
+            "type": "vae",
+            "url": "https://huggingface.co/foo/bar/resolve/main/vae.safetensors",
         },
     )
     assert r.status_code == 200, r.text
-    assert r.json()["endpoint"] == "/model/install"
-    posted = [u for (m, u, _) in _FakeAsyncClient.last_calls if m == "POST"]
-    # 非队列端点:不应调用 start
-    assert not any("/manager/queue/start" in u for u in posted)
+    body = captured["body"]
+    assert body.source == "url"
+    assert body.url.endswith("/vae.safetensors")
+    assert body.type == "vae"
 
 
-def test_install_skips_absent_endpoints_then_succeeds(client_token, monkeypatch):
-    c, token = client_token
-    _use_pool()
-    # 前两个候选 404/405(端点不存在)→ 回退到 /externalmodel/install 受理。
-    routes = {
-        ("POST", "/model/install"): _FakeResponse(404),
-        ("POST", "/manager/queue/install"): _FakeResponse(405),
-        ("POST", "/externalmodel/install"): _FakeResponse(200, {"result": True}),
-    }
-    _patch_httpx(monkeypatch, routes)
-    r = c.post(
-        "/api/marketplace/install",
-        headers=_auth(token),
-        json={"type": "vae", "url": "https://civitai.com/x/v.safetensors"},
-    )
-    assert r.status_code == 200, r.text
-    assert r.json()["endpoint"] == "/externalmodel/install"
-
-
-# --------------------------------------------------------------------------- #
-# 3) url 白名单拒绝
-# --------------------------------------------------------------------------- #
-
-
-def test_install_rejects_non_whitelisted_host(client_token, monkeypatch):
-    c, token = client_token
-    _use_pool()
-    # 不该走到 httpx;但仍 patch 一个会爆炸的路由表确保没发起请求。
-    _patch_httpx(monkeypatch, {})
-    r = c.post(
-        "/api/marketplace/install",
-        headers=_auth(token),
-        json={"type": "lora", "url": "https://evil.example.com/payload.safetensors"},
-    )
-    assert r.status_code == 400
-    assert "白名单" in r.json()["detail"]
-    # 校验失败应在挑 worker / 发请求前短路
-    assert _FakeAsyncClient.last_calls == []
-
-
-def test_install_rejects_non_http_scheme(client_token, monkeypatch):
-    c, token = client_token
-    _use_pool()
-    _patch_httpx(monkeypatch, {})
-    r = c.post(
-        "/api/marketplace/install",
-        headers=_auth(token),
-        json={"type": "lora", "url": "file:///etc/passwd"},
-    )
-    assert r.status_code == 400
-    assert "http" in r.json()["detail"].lower()
-
-
-def test_install_allows_civitai_subdomain(client_token, monkeypatch):
-    c, token = client_token
-    _use_pool()
-    routes = {("POST", "/model/install"): _FakeResponse(200, {"result": True})}
-    _patch_httpx(monkeypatch, routes)
-    # cdn.civitai.com 是 civitai.com 的子域 → 应放行
+def test_install_allows_civitai_subdomain(client_admin, monkeypatch):
+    c, token = client_admin
+    _capture_job(monkeypatch)
     r = c.post(
         "/api/marketplace/install",
         headers=_auth(token),
@@ -275,34 +194,13 @@ def test_install_allows_civitai_subdomain(client_token, monkeypatch):
 
 
 # --------------------------------------------------------------------------- #
-# 4) type 枚举校验
+# 3) huggingface source+id → hf 解析流
 # --------------------------------------------------------------------------- #
 
 
-def test_install_rejects_unknown_type(client_token, monkeypatch):
-    c, token = client_token
-    _use_pool()
-    _patch_httpx(monkeypatch, {})
-    r = c.post(
-        "/api/marketplace/install",
-        headers=_auth(token),
-        json={"type": "malware", "url": "https://civitai.red/x.safetensors"},
-    )
-    assert r.status_code == 400
-    assert "未知模型类型" in r.json()["detail"]
-    assert _FakeAsyncClient.last_calls == []
-
-
-# --------------------------------------------------------------------------- #
-# 5) HuggingFace (source,id,filename) 组装
-# --------------------------------------------------------------------------- #
-
-
-def test_install_huggingface_source_builds_resolve_url(client_token, monkeypatch):
-    c, token = client_token
-    _use_pool()
-    routes = {("POST", "/model/install"): _FakeResponse(200, {"result": True})}
-    _patch_httpx(monkeypatch, routes)
+def test_install_huggingface_source_with_filename(client_admin, monkeypatch):
+    c, token = client_admin
+    captured = _capture_job(monkeypatch)
     r = c.post(
         "/api/marketplace/install",
         headers=_auth(token),
@@ -314,213 +212,166 @@ def test_install_huggingface_source_builds_resolve_url(client_token, monkeypatch
         },
     )
     assert r.status_code == 200, r.text
-    item = r.json()["model"]
-    assert item["url"] == (
-        "https://huggingface.co/stabilityai/sdxl/resolve/main/sd_xl_base.safetensors"
+    body = captured["body"]
+    assert body.source == "huggingface"
+    assert body.id == "stabilityai/sdxl"
+    assert body.hf_file == "sd_xl_base.safetensors"
+
+
+def test_install_huggingface_without_filename_auto_picks(client_admin, monkeypatch):
+    """hf_file 可空 → nas_models._pick_hf_file 自动挑主权重文件。"""
+    c, token = client_admin
+    captured = _capture_job(monkeypatch)
+    r = c.post(
+        "/api/marketplace/install",
+        headers=_auth(token),
+        json={"type": "checkpoint", "source": "huggingface", "id": "foo/bar"},
     )
-    assert item["filename"] == "sd_xl_base.safetensors"
+    assert r.status_code == 200, r.text
+    assert captured["body"].hf_file == ""
 
 
-def test_install_requires_url_or_source_id(client_token, monkeypatch):
-    c, token = client_token
-    _use_pool()
-    _patch_httpx(monkeypatch, {})
+# --------------------------------------------------------------------------- #
+# 4) url 白名单 / scheme 校验
+# --------------------------------------------------------------------------- #
+
+
+def test_install_rejects_non_whitelisted_host(client_admin, monkeypatch):
+    c, token = client_admin
+    captured = _capture_job(monkeypatch)
+    r = c.post(
+        "/api/marketplace/install",
+        headers=_auth(token),
+        json={"type": "lora", "url": "https://evil.example.com/payload.safetensors"},
+    )
+    assert r.status_code == 400
+    assert "白名单" in r.json()["detail"]
+    assert "body" not in captured  # 校验失败应在建作业前短路
+
+
+def test_install_rejects_non_http_scheme(client_admin, monkeypatch):
+    c, token = client_admin
+    _capture_job(monkeypatch)
+    r = c.post(
+        "/api/marketplace/install",
+        headers=_auth(token),
+        json={"type": "lora", "url": "file:///etc/passwd"},
+    )
+    assert r.status_code == 400
+    assert "http" in r.json()["detail"].lower()
+
+
+# --------------------------------------------------------------------------- #
+# 5) type 归一化与校验
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    "raw,expect",
+    [
+        ("Checkpoint", "checkpoint"),
+        ("LORA", "lora"),
+        ("LoCon", "lora"),  # LyCORIS → loras/
+        ("VAE", "vae"),
+        ("Controlnet", "controlnet"),
+        ("Upscaler", "upscale"),  # 旧链路会 400 误杀的类型
+        ("TextualInversion", "embeddings"),
+        ("Hypernetwork", "hypernetworks"),
+        ("diffusion_models", "diffusion_models"),
+    ],
+)
+def test_install_type_normalization(client_admin, monkeypatch, raw, expect):
+    c, token = client_admin
+    captured = _capture_job(monkeypatch)
+    r = c.post(
+        "/api/marketplace/install",
+        headers=_auth(token),
+        json={"type": raw, "source": "civitai", "id": "1"},
+    )
+    assert r.status_code == 200, r.text
+    assert captured["body"].type == expect
+
+
+def test_install_rejects_unknown_type(client_admin, monkeypatch):
+    c, token = client_admin
+    captured = _capture_job(monkeypatch)
+    r = c.post(
+        "/api/marketplace/install",
+        headers=_auth(token),
+        json={"type": "malware", "url": "https://civitai.red/x.safetensors"},
+    )
+    assert r.status_code == 400
+    assert "未知模型类型" in r.json()["detail"]
+    assert "body" not in captured
+
+
+def test_install_rejects_unknown_source(client_admin, monkeypatch):
+    c, token = client_admin
+    _capture_job(monkeypatch)
+    r = c.post(
+        "/api/marketplace/install",
+        headers=_auth(token),
+        json={"type": "lora", "source": "piratebay", "id": "1"},
+    )
+    assert r.status_code == 400
+    assert "未知模型来源" in r.json()["detail"]
+
+
+def test_install_requires_url_or_source_id(client_admin, monkeypatch):
+    c, token = client_admin
+    _capture_job(monkeypatch)
     r = c.post(
         "/api/marketplace/install",
         headers=_auth(token),
         json={"type": "lora"},
     )
     assert r.status_code == 400
-    assert _FakeAsyncClient.last_calls == []
+    assert "缺少安装目标" in r.json()["detail"]
 
 
 # --------------------------------------------------------------------------- #
-# 6) 端点存在但拒绝 → 真实响应透传(不静默吞错)
+# 6) 权限与就绪检查
 # --------------------------------------------------------------------------- #
 
 
-def test_install_surfaces_manager_rejection(client_token, monkeypatch):
-    c, token = client_token
-    _use_pool()
-    # /model/install 返回 403(安全级别不允许)→ 应原样透传成 502 且不回退。
-    routes = {
-        ("POST", "/model/install"): _FakeResponse(
-            403, {"error": "security level forbids download"}
-        ),
-    }
-    _patch_httpx(monkeypatch, routes)
+def test_install_requires_auth(client_admin, monkeypatch):
+    c, _ = client_admin
+    _capture_job(monkeypatch)
     r = c.post(
         "/api/marketplace/install",
-        headers=_auth(token),
-        json={"type": "lora", "url": "https://civitai.red/x.safetensors"},
-    )
-    assert r.status_code == 502
-    detail = r.json()["detail"]
-    assert "/model/install" in detail
-    assert "security level" in detail
-    # 端点存在但拒绝 → 不应继续探测后续候选
-    posted = [u for (m, u, _) in _FakeAsyncClient.last_calls if m == "POST"]
-    assert not any("install_model" in u for u in posted)
-
-
-def test_install_all_endpoints_absent_returns_502(client_token, monkeypatch):
-    c, token = client_token
-    _use_pool()
-    # 全部端点 404 → 汇总探测记录报 502
-    _patch_httpx(monkeypatch, {})  # 缺省全 404
-    r = c.post(
-        "/api/marketplace/install",
-        headers=_auth(token),
-        json={"type": "lora", "url": "https://civitai.red/x.safetensors"},
-    )
-    assert r.status_code == 502
-    assert "未提供可用安装端点" in r.json()["detail"]
-
-
-# --------------------------------------------------------------------------- #
-# 7) 鉴权
-# --------------------------------------------------------------------------- #
-
-
-def test_install_requires_auth(client_token, monkeypatch):
-    c, _ = client_token
-    _use_pool()
-    _patch_httpx(monkeypatch, {})
-    r = c.post(
-        "/api/marketplace/install",
-        json={"type": "lora", "url": "https://civitai.red/x.safetensors"},
+        json={"type": "lora", "source": "civitai", "id": "1"},
     )
     assert r.status_code == 401
 
 
-# --------------------------------------------------------------------------- #
-# 8) 进度查询转发
-# --------------------------------------------------------------------------- #
-
-
-def test_install_status_forwards_manager_queue_status(client_token, monkeypatch):
-    c, token = client_token
-    _use_pool()
-    routes = {
-        ("GET", "/manager/queue/status"): _FakeResponse(
-            200,
-            {
-                "total_count": 3,
-                "done_count": 1,
-                "in_progress_count": 1,
-                "is_processing": True,
-            },
-        ),
-    }
-    _patch_httpx(monkeypatch, routes)
-    r = c.get("/api/marketplace/install/status", headers=_auth(token))
-    assert r.status_code == 200, r.text
-    body = r.json()
-    assert body["worker"] == "http://fake-worker:8002"
-    assert body["status"]["total_count"] == 3
-    assert body["status"]["is_processing"] is True
-
-
-def test_install_status_501_when_endpoint_absent(client_token, monkeypatch):
-    c, token = client_token
-    _use_pool()
-    _patch_httpx(monkeypatch, {})  # status 端点缺省 404
-    r = c.get("/api/marketplace/install/status", headers=_auth(token))
-    assert r.status_code == 501
-
-
-# --------------------------------------------------------------------------- #
-# Civitai 下载 token 透传(NSFW 匿名下载 401;key 来自 TOIV_CIVITAI_API_KEY)
-# --------------------------------------------------------------------------- #
-
-
-def test_with_civitai_token_helper():
-    """helper 单测:civitai/civitai.red 的 /api/download/ 链接附加 ?token=;其余原样。"""
-    import app.routes.marketplace as m
-
-    key = m._CIVITAI_KEY
-    m._CIVITAI_KEY = "k-1"
-    try:
-        assert (
-            m._with_civitai_token("https://civitai.red/api/download/models/3203205")
-            == "https://civitai.red/api/download/models/3203205?token=k-1"
-        )
-        # 已有 query 用 & 连接;civitai.com 同样生效
-        assert (
-            m._with_civitai_token("https://civitai.com/api/download/models/1?type=Model")
-            == "https://civitai.com/api/download/models/1?type=Model&token=k-1"
-        )
-        # 已有 token 不重复附加
-        assert (
-            m._with_civitai_token("https://civitai.red/api/download/models/1?token=x")
-            == "https://civitai.red/api/download/models/1?token=x"
-        )
-        # 非 /api/download/ 路径 / 非 civitai 主机不附加
-        assert m._with_civitai_token("https://civitai.red/images/x.safetensors") == "https://civitai.red/images/x.safetensors"
-        assert m._with_civitai_token("https://huggingface.co/a/b/resolve/main/m.safetensors") == "https://huggingface.co/a/b/resolve/main/m.safetensors"
-    finally:
-        m._CIVITAI_KEY = key
-    # key 为空:任何链接原样
-    assert m._with_civitai_token("https://civitai.red/api/download/models/1") == "https://civitai.red/api/download/models/1"
-
-
-def test_install_sends_token_to_worker_but_not_in_response(client_token, monkeypatch):
-    """已配 key:发往 worker(ComfyUI-Manager)的 url 带 ?token=;响应 model 保持无 token。"""
-    c, token = client_token
-    _use_pool()
-    monkeypatch.setattr(marketplace_route, "_CIVITAI_KEY", "secret-key")
-    routes = {("POST", "/model/install"): _FakeResponse(200, {"result": True})}
-    _patch_httpx(monkeypatch, routes)
+def test_install_requires_admin(client_user, monkeypatch):
+    """写共享模型库仅管理员;普通用户 403(与 /nas/download 一致)。"""
+    c, token = client_user
+    captured = _capture_job(monkeypatch)
     r = c.post(
         "/api/marketplace/install",
         headers=_auth(token),
-        json={
-            "type": "lora",
-            "url": "https://civitai.red/api/download/models/3203205",
-            "filename": "riding_pose_H3_i2v_v1.0.safetensors",
-        },
+        json={"type": "lora", "source": "civitai", "id": "1"},
     )
-    assert r.status_code == 200, r.text
-    sent = [j for (m, _, j) in _FakeAsyncClient.last_calls if m == "POST" and j]
-    assert sent and sent[0]["url"].endswith("?token=secret-key")
-    # 响应不回泄 key
-    assert "secret-key" not in r.text
-    assert r.json()["model"]["url"] == "https://civitai.red/api/download/models/3203205"
+    assert r.status_code == 403
+    assert "body" not in captured
 
 
-def test_install_without_key_sends_url_unchanged(client_token, monkeypatch):
-    """未配 key(空):发往 worker 的 url 原样,不附加 token(保持现状)。"""
-    c, token = client_token
-    _use_pool()
-    monkeypatch.setattr(marketplace_route, "_CIVITAI_KEY", "")
-    routes = {("POST", "/model/install"): _FakeResponse(200, {"result": True})}
-    _patch_httpx(monkeypatch, routes)
+def test_install_503_when_nas_not_ready(client_admin, monkeypatch):
+    c, token = client_admin
+
+    def _not_ready():
+        raise HTTPException(status_code=503, detail="NAS 未配置")
+
+    monkeypatch.setattr(marketplace_route, "require_nas_ready", _not_ready)
+    monkeypatch.setattr(
+        marketplace_route,
+        "start_download_job",
+        lambda *a, **k: pytest.fail("NAS 未就绪时不应建作业"),
+    )
     r = c.post(
         "/api/marketplace/install",
         headers=_auth(token),
-        json={
-            "type": "lora",
-            "url": "https://civitai.red/api/download/models/3203205",
-            "filename": "a.safetensors",
-        },
+        json={"type": "lora", "source": "civitai", "id": "1"},
     )
-    assert r.status_code == 200, r.text
-    sent = [j for (m, _, j) in _FakeAsyncClient.last_calls if m == "POST" and j]
-    assert sent and sent[0]["url"] == "https://civitai.red/api/download/models/3203205"
-
-
-def test_install_non_civitai_url_not_tokenized(client_token, monkeypatch):
-    """HuggingFace 链接即使已配 key 也不附加 token。"""
-    c, token = client_token
-    _use_pool()
-    monkeypatch.setattr(marketplace_route, "_CIVITAI_KEY", "secret-key")
-    routes = {("POST", "/model/install"): _FakeResponse(200, {"result": True})}
-    _patch_httpx(monkeypatch, routes)
-    r = c.post(
-        "/api/marketplace/install",
-        headers=_auth(token),
-        json={"type": "checkpoint", "url": "https://huggingface.co/foo/bar/resolve/main/m.safetensors"},
-    )
-    assert r.status_code == 200, r.text
-    sent = [j for (m, _, j) in _FakeAsyncClient.last_calls if m == "POST" and j]
-    assert sent and "token=" not in sent[0]["url"]
+    assert r.status_code == 503

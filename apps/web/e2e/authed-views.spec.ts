@@ -133,4 +133,37 @@ test.describe("登录态视图加载", () => {
       });
     });
   }
+
+  // admin 内部 tab 切换的子页不在 VIEWS 直出清单内,单独回归:
+  // 智能体管理(AgentsAdminView)是第二轮排版重构最后迁移到全局 .page-header 体系的视图。
+  test.describe("authed view: admin/agents 子页", () => {
+    test("智能体管理子页使用全局 .page-header 体系", { tag: "@authed" }, async ({
+      page,
+    }) => {
+      await page.goto("/?view=admin", { waitUntil: "domcontentloaded" });
+      try {
+        await page.waitForLoadState("networkidle", { timeout: 15000 });
+      } catch {
+        // dev 模式 networkidle 可能超时
+      }
+
+      // 切到「智能体管理」子页(AdminView 子页切换是 tab 角色)
+      await page.getByRole("tab", { name: /智能体管理/ }).click();
+
+      // 页头应使用全局 .page-header 体系,且标题为「智能体管理」
+      const header = page.locator(".agents-admin .page-header");
+      await expect(header.locator(".page-header-title")).toBeVisible();
+      await expect(header.locator(".page-header-title")).toContainText(
+        "智能体管理",
+      );
+      // 描述与操作区就位
+      await expect(header.locator(".page-header-desc")).toBeVisible();
+      await expect(header.locator(".page-header-actions")).toBeVisible();
+
+      await page.screenshot({
+        path: "test-results/authed-admin-agents.png",
+        fullPage: true,
+      });
+    });
+  });
 });

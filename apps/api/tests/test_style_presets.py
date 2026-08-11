@@ -88,7 +88,7 @@ class TestStylePresets:
             "wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors",
             "wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors",
             "wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
-            "ltx-2.3-22b-distilled_transformer_only_fp8_scaled.safetensors",
+            "ltx-2.3-22b-distilled-1.1.safetensors",
             "ltx-video-2b-v0.9.5.safetensors",
         }
         for preset_id in VIDEO_PRESET_IDS:

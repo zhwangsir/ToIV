@@ -14,6 +14,7 @@ import {
   uploadDoc,
 } from "@/lib/docs";
 import { genId } from "@/lib/id";
+import { useBreakpoint } from "@/lib/useBreakpoint";
 
 // 模型名从 /api/system/llm 动态读取(display_model),不再硬编码;desc 为通用说明
 const MODEL_DESC = "本地 L1 快速对话模型，适合灵感捕获、提示词润色、简单问答";
@@ -86,7 +87,8 @@ export function AssistantView() {
   const [contextOpen, setContextOpen] = useState(false);
   const [textareaRows, setTextareaRows] = useState(1);
   const [modelName, setModelName] = useState("L1 对话模型");
-  const [isMobile, setIsMobile] = useState(false);
+  // 移动端断点:placeholder 文案按端适配(移动端无 Enter 键)
+  const isMobileMq = useBreakpoint("md");
   // 文档挂载:已上传文档列表 / 文档管理面板 / 待发送挂载 / 上传中
   const [docList, setDocList] = useState<DocItem[]>([]);
   const [docsOpen, setDocsOpen] = useState(false);
@@ -103,15 +105,6 @@ export function AssistantView() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isEmpty = messages.length === 0;
-
-  // 移动端断点:placeholder 文案按端适配(移动端无 Enter 键)
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 768px)");
-    const update = () => setIsMobile(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
 
   // 会话列表变更即写入 localStorage(按天)
   useEffect(() => {
@@ -458,8 +451,19 @@ export function AssistantView() {
   return (
     <div className="av-view">
       <h1 className="sr-only">对话流</h1>
-      <header className="av-toolbar">
-        <div className="av-tb-left">
+      <header className="page-header av-header">
+        <div className="av-header-main">
+          <div className="page-header-title av-header-title">对话流</div>
+          <p className="page-header-desc av-header-desc">
+            与本地模型对话,打磨提示词、剧本与分镜创意
+          </p>
+        </div>
+        <div className="page-header-actions av-header-actions">
+          <div className="av-model-pill">
+            <span className="av-model-dot" />
+            <Icon name="braincircuit" size={12} strokeWidth={1.8} />
+            {modelName}
+          </div>
           <button
             type="button"
             className={`av-tb-btn${historyOpen ? " is-active" : ""}`}
@@ -480,17 +484,6 @@ export function AssistantView() {
             <Icon name="create" size={14} strokeWidth={1.8} />
             <span>新建</span>
           </button>
-        </div>
-
-        <div className="av-tb-center">
-          <div className="av-model-pill">
-            <span className="av-model-dot" />
-            <Icon name="braincircuit" size={12} strokeWidth={1.8} />
-            {modelName}
-          </div>
-        </div>
-
-        <div className="av-tb-right">
           <button
             type="button"
             className={`av-tb-btn${contextOpen ? " is-active" : ""}`}
@@ -509,6 +502,7 @@ export function AssistantView() {
 
         {isEmpty ? (
           <div className="av-empty">
+            <div className="av-empty-kicker">ToIV · AI 对话助手</div>
             <div className="av-empty-title">今天想创作什么?</div>
             <div className="av-empty-desc">{MODEL_DESC}</div>
             <div className="av-quick-grid">
@@ -678,7 +672,7 @@ export function AssistantView() {
           <textarea
             ref={textareaRef}
             className="av-composer-input"
-            placeholder={isMobile ? "输入你的创作需求…" : "输入你的创作需求…（Enter 发送 / Shift+Enter 换行）"}
+            placeholder={isMobileMq ? "输入你的创作需求…" : "输入你的创作需求…（Enter 发送 / Shift+Enter 换行）"}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={onKeyDown}
@@ -878,36 +872,49 @@ export function AssistantView() {
           overflow: hidden;
         }
 
-        /* ───── 顶部工具栏 ───── */
-        .av-toolbar {
+        /* ───── 页头(全局 page-header 规范:大标题+辅助描述+右侧操作区) ───── */
+        .av-header {
           flex-shrink: 0;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: var(--space-3);
-          padding: var(--space-2) var(--space-3) var(--space-2) calc(var(--space-3) + var(--nav-safe-left)); /* 桌面端让开 CornerNav 触发器 */
+          gap: var(--space-4);
+          padding: var(--space-4) var(--space-6); /* 壳层 app-main padding-top:56px 已垂直让开 CornerNav 触发器,左右对称 */
           background: var(--bg-surface-1);
           border-bottom: 1px solid var(--border-subtle);
           z-index: 5;
         }
-        .av-tb-left,
-        .av-tb-right {
+        .av-header-main {
           display: flex;
-          align-items: center;
-          gap: var(--space-2);
-        }
-        .av-tb-center {
-          display: flex;
-          align-items: center;
-          gap: var(--space-2);
+          flex-direction: column;
+          gap: var(--space-1);
           min-width: 0;
+        }
+        .av-header-title {
+          font-size: var(--text-title);
+          font-weight: 700;
+          color: var(--text-primary);
+          letter-spacing: -0.01em;
+          line-height: 1.2;
+        }
+        .av-header-desc {
+          margin: 0;
+          font-size: var(--text-aux);
+          color: var(--text-muted);
+          line-height: 1.5;
+        }
+        .av-header-actions {
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
         }
 
         .av-tb-btn {
           display: inline-flex;
           align-items: center;
           gap: var(--space-1);
-          height: 28px;
+          height: 30px;
           padding: 0 var(--space-3);
           background: var(--bg-surface-2);
           border: 1px solid var(--border-subtle);
@@ -1003,12 +1010,12 @@ export function AssistantView() {
           background-image: radial-gradient(circle, var(--border-strong) 1px, transparent 1px);
           background-size: 20px 20px;
           background-position: 0 0;
-          opacity: 0.5;
+          opacity: 0.32;
           pointer-events: none;
           z-index: 0;
         }
 
-        /* ───── 空态 ───── */
+        /* ───── 空态(欢迎页:hero 式舒展排版) ───── */
         .av-empty {
           position: relative;
           z-index: 1;
@@ -1016,55 +1023,73 @@ export function AssistantView() {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: var(--space-3);
-          padding: var(--space-12) var(--space-8) var(--space-8);
+          gap: var(--space-4);
+          padding: var(--space-12) var(--space-8) var(--space-10);
           min-height: 100%;
           text-align: center;
         }
+        .av-empty-kicker {
+          display: inline-flex;
+          align-items: center;
+          padding: var(--space-1) var(--space-3);
+          border-radius: var(--radius-full);
+          background: var(--accent-soft);
+          border: 1px solid var(--accent-glow);
+          color: var(--accent);
+          font-size: var(--text-label);
+          font-weight: 500;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+        }
         .av-empty-title {
           font-size: 32px;
-          font-weight: 650;
+          font-weight: 700;
           color: var(--text-primary);
           letter-spacing: -0.02em;
+          line-height: 1.2;
         }
         .av-empty-desc {
           font-size: var(--text-body);
           color: var(--text-muted);
-          line-height: 1.6;
-          max-width: 400px;
-          margin-bottom: var(--space-4);
+          line-height: 1.65;
+          max-width: 440px;
+          margin-bottom: var(--space-5);
         }
         .av-quick-grid {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
-          gap: var(--space-2);
+          gap: var(--space-3);
           width: 100%;
-          max-width: 480px;
+          max-width: 560px;
         }
         .av-quick-card {
           display: flex;
           flex-direction: column;
           align-items: flex-start;
-          gap: var(--space-1);
-          padding: var(--space-3) var(--space-4);
+          gap: var(--space-2);
+          padding: var(--space-4) var(--space-5);
           background: var(--bg-surface-1);
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-panel);
+          border-radius: var(--radius-xl);
           cursor: pointer;
           text-align: left;
           transition: background-color var(--duration-fast) var(--ease-standard),
-            border-color var(--duration-fast) var(--ease-standard);
+            border-color var(--duration-fast) var(--ease-standard),
+            box-shadow var(--duration-fast) var(--ease-standard),
+            transform var(--duration-fast) var(--ease-standard);
         }
         .av-quick-card:hover {
           background: var(--bg-surface-2);
           border-color: var(--border-strong);
+          box-shadow: var(--shadow-md);
+          transform: translateY(-2px);
         }
         .av-quick-icon {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 26px;
-          height: 26px;
+          width: 30px;
+          height: 30px;
           border-radius: var(--radius-control);
           background: var(--accent-soft);
           color: var(--accent);
@@ -1086,16 +1111,16 @@ export function AssistantView() {
           overflow: hidden;
         }
 
-        /* ───── 消息列表 ───── */
+        /* ───── 消息列表(720px 居中列,气泡尾角+圆形头像) ───── */
         .av-msg-list {
           position: relative;
           z-index: 1;
           display: flex;
           flex-direction: column;
-          gap: var(--space-5);
+          gap: var(--space-6);
           /* 顶部让位灵动岛,首条气泡不贴岛 */
-          padding: var(--space-12) var(--space-6) var(--space-6);
-          max-width: 760px;
+          padding: var(--space-12) var(--space-6) var(--space-8);
+          max-width: 720px;
           margin: 0 auto;
         }
         .av-msg {
@@ -1108,12 +1133,12 @@ export function AssistantView() {
         }
         .av-msg-avatar {
           flex-shrink: 0;
-          width: 28px;
-          height: 28px;
+          width: 32px;
+          height: 32px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          border-radius: var(--radius-control);
+          border-radius: var(--radius-full);
           background: var(--bg-surface-2);
           border: 1px solid var(--border-subtle);
           color: var(--text-secondary);
@@ -1126,34 +1151,37 @@ export function AssistantView() {
         .av-msg-body {
           display: flex;
           flex-direction: column;
-          gap: var(--space-1);
-          max-width: calc(100% - 44px);
+          gap: var(--space-2);
+          max-width: calc(100% - 48px);
           min-width: 0;
         }
         .av-msg.is-user .av-msg-body {
           align-items: flex-end;
         }
         .av-msg-bubble {
-          padding: var(--space-3) var(--space-4);
+          padding: var(--space-3) var(--space-5);
           background: var(--bg-surface-1);
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-panel);
+          border-radius: var(--radius-xl) var(--radius-xl) var(--radius-xl) var(--radius-xs); /* 助手气泡:左下尾角指向头像 */
+          box-shadow: var(--shadow-sm);
           font-size: var(--text-body);
           color: var(--text-primary);
-          line-height: 1.6;
+          line-height: 1.65;
           word-break: break-word;
           white-space: pre-wrap;
         }
         .av-msg.is-user .av-msg-bubble {
           background: var(--accent);
           border-color: transparent;
+          border-radius: var(--radius-xl) var(--radius-xl) var(--radius-xs) var(--radius-xl); /* 用户气泡:右下尾角 */
+          box-shadow: 0 2px 10px color-mix(in oklab, var(--accent) 18%, transparent);
           color: var(--text-on-accent);
         }
         .av-msg-time {
           font-size: var(--text-label);
           color: var(--text-muted);
           font-family: var(--font-mono);
-          padding: 0 var(--space-1);
+          padding: 0 var(--space-2);
         }
 
         /* 失败态错误气泡(替换打字指示器) */
@@ -1216,7 +1244,7 @@ export function AssistantView() {
           object-fit: contain;
         }
         .av-media-video {
-          max-height: 240px;
+          max-height: 320px;
         }
         .av-media-link {
           display: inline-flex;
@@ -1258,12 +1286,11 @@ export function AssistantView() {
           30% { opacity: 1; }
         }
 
-        /* ───── 输入区(composer) ───── */
+        /* ───── 输入区(composer:浮动大卡,视觉焦点) ───── */
         .av-composer {
           flex-shrink: 0;
-          padding: var(--space-3) var(--space-4) var(--space-4);
-          background: linear-gradient(180deg, transparent 0%, var(--bg-surface-1) 18%);
-          border-top: 1px solid var(--border-subtle);
+          padding: var(--space-4) var(--space-6) var(--space-5);
+          background: linear-gradient(180deg, transparent 0%, var(--bg-surface-1) 24%);
           z-index: 5;
         }
         .av-composer-box {
@@ -1271,13 +1298,16 @@ export function AssistantView() {
           display: flex;
           align-items: flex-end;
           gap: var(--space-2);
-          padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+          width: 100%;
+          max-width: 720px;
+          margin: 0 auto;
+          padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
           background: linear-gradient(145deg, var(--bg-surface-2), var(--bg-surface-3));
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-panel);
+          border-radius: calc(var(--radius-panel) * 2); /* 24px 大圆角,区别于普通面板 */
           box-shadow:
             inset 0 1px 1px color-mix(in oklab, var(--text-primary) 4%, transparent),
-            0 1px 2px color-mix(in oklab, var(--bg-canvas) 20%, transparent);
+            var(--shadow-md);
           transition: border-color var(--duration-fast) var(--ease-standard),
             box-shadow var(--duration-fast) var(--ease-standard),
             transform var(--duration-fast) var(--ease-standard);
@@ -1302,35 +1332,18 @@ export function AssistantView() {
           transform: translateY(-1px);
           box-shadow:
             inset 0 1px 1px color-mix(in oklab, var(--text-primary) 5%, transparent),
-            0 4px 12px color-mix(in oklab, var(--bg-canvas) 25%, transparent);
+            var(--shadow-lg);
         }
         .av-composer-box:hover::before {
           opacity: 1;
         }
         .av-composer-box:focus-within {
           border-color: var(--accent-glow);
+          transform: translateY(-2px);
           box-shadow:
             0 0 0 1px var(--accent-glow),
-            0 0 24px color-mix(in oklab, var(--accent) 18%, transparent),
+            0 12px 32px color-mix(in oklab, var(--accent) 16%, transparent),
             inset 0 1px 1px color-mix(in oklab, var(--text-primary) 5%, transparent);
-        }
-        .av-composer-box:focus-within::after {
-          content: "";
-          position: absolute;
-          left: 50%;
-          top: 50%;
-          width: 12px;
-          height: 12px;
-          transform: translate(-50%, -50%);
-          border-radius: 50%;
-          background: color-mix(in oklab, var(--accent) 25%, transparent);
-          animation: av-composer-ripple 0.9s var(--ease-standard) forwards;
-          pointer-events: none;
-          z-index: 0;
-        }
-        @keyframes av-composer-ripple {
-          0% { width: 12px; height: 12px; opacity: 0.5; }
-          100% { width: 120%; height: 120%; opacity: 0; }
         }
         .av-composer-actions {
           position: relative;
@@ -1362,7 +1375,6 @@ export function AssistantView() {
         .av-composer-btn:hover:not(:disabled) {
           background: var(--bg-surface-2);
           color: var(--text-primary);
-          transform: scale(1.08);
         }
         .av-composer-btn:active:not(:disabled) {
           transform: scale(0.94);
@@ -1373,6 +1385,8 @@ export function AssistantView() {
         }
         /* 发送:primary(accent),运行中由 stop 按钮接管 */
         .av-composer-send {
+          width: 36px;
+          height: 36px;
           background: var(--accent);
           color: var(--text-on-accent);
           box-shadow: 0 2px 8px color-mix(in oklab, var(--accent) 30%, transparent);
@@ -1380,7 +1394,6 @@ export function AssistantView() {
         .av-composer-send:hover:not(:disabled) {
           background: var(--accent-hover);
           color: var(--text-on-accent);
-          transform: scale(1.08);
           box-shadow: 0 4px 14px color-mix(in oklab, var(--accent) 45%, transparent);
         }
         .av-composer-send:active:not(:disabled) {
@@ -1404,26 +1417,9 @@ export function AssistantView() {
         .av-composer-stop:hover {
           background: var(--run);
           color: var(--text-on-accent);
-          transform: scale(1.08);
         }
         .av-composer-stop:active {
           transform: scale(0.94);
-        }
-        .av-composer-tool {
-          position: relative;
-        }
-        .av-composer-tool::after {
-          content: "";
-          position: absolute;
-          inset: 0;
-          border-radius: 50%;
-          border: 1px dashed var(--border-strong);
-          opacity: 0.5;
-          animation: av-tool-rotate 12s linear infinite;
-        }
-        @keyframes av-tool-rotate {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
         }
         .av-composer-input {
           position: relative;
@@ -1533,13 +1529,15 @@ export function AssistantView() {
           padding: var(--space-8) var(--space-4);
           color: var(--text-muted);
           font-size: var(--text-aux);
+          text-align: center;
+          line-height: 1.5;
         }
 
         /* 对话列表 */
         .av-conv-list {
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          gap: var(--space-1);
         }
         .av-conv-item {
           display: flex;
@@ -1576,7 +1574,7 @@ export function AssistantView() {
           min-width: 0;
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          gap: var(--space-1);
         }
         .av-conv-title {
           font-size: var(--text-aux);
@@ -1599,14 +1597,20 @@ export function AssistantView() {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 20px;
-          height: 20px;
+          width: 24px;
+          height: 24px;
           border-radius: var(--radius-sm);
           color: var(--text-muted);
           opacity: 0;
           transition: opacity var(--duration-fast) var(--ease-standard),
             background-color var(--duration-fast) var(--ease-standard),
             color var(--duration-fast) var(--ease-standard);
+        }
+        /* 触屏无 hover,删除键常显,否则会话无法删除 */
+        @media (hover: none) {
+          .av-conv-delete {
+            opacity: 1;
+          }
         }
         .av-conv-item:hover .av-conv-delete,
         .av-conv-delete:focus-visible {
@@ -1652,7 +1656,7 @@ export function AssistantView() {
         .av-stat {
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          gap: var(--space-1);
         }
         .av-stat-value {
           font-size: var(--text-title);
@@ -1683,21 +1687,45 @@ export function AssistantView() {
         @media (prefers-reduced-motion: reduce) {
           .av-model-dot { animation: none; }
           .av-typing-dot { animation: none; }
+          .av-composer-stop { animation: none; }
+          .av-composer-input::placeholder { animation: none; }
           .av-panel-overlay { animation: none; }
         }
 
         /* 移动端 */
-        @media (max-width: 768px) {
-          .av-toolbar {
+        @media (max-width: 767px) {
+          .av-header {
             flex-wrap: wrap;
-            gap: var(--space-1);
-            padding: var(--space-2);
+            gap: var(--space-2);
+            padding: var(--space-3) var(--space-4);
+          }
+          .av-header-title {
+            font-size: 17px;
+          }
+          .av-header-desc {
+            display: none;
+          }
+          .av-header-actions {
+            margin-left: auto;
+          }
+          .av-model-pill {
+            max-width: 132px;
+          }
+          /* 图标按钮:标签隐藏后收成正方形,触控目标 ≥44px */
+          .av-tb-btn {
+            width: 44px;
+            height: 44px;
+            padding: 0;
+            justify-content: center;
           }
           .av-tb-btn span {
             display: none;
           }
           .av-msg-list {
-            padding: var(--space-8) var(--space-4) var(--space-4);
+            padding: var(--space-8) var(--space-4) var(--space-5);
+          }
+          .av-empty-title {
+            font-size: 26px;
           }
           .av-quick-grid {
             grid-template-columns: 1fr;
@@ -1706,8 +1734,28 @@ export function AssistantView() {
             width: 85vw;
             max-width: 300px;
           }
+          .av-panel-close {
+            width: 44px;
+            height: 44px;
+          }
+          .av-conv-delete {
+            width: 32px;
+            height: 32px;
+          }
+          .av-msg-retry {
+            height: 36px;
+            padding: 0 var(--space-4);
+          }
           .av-composer {
-            padding: var(--space-2) var(--space-3) var(--space-3);
+            padding: var(--space-3) var(--space-3) var(--space-3);
+          }
+          .av-composer-btn {
+            width: 44px;
+            height: 44px;
+          }
+          /* iOS <16px 输入框聚焦自动放大页面,提到 16px 规避 */
+          .av-composer-input {
+            font-size: 16px;
           }
         }
       `}</style>

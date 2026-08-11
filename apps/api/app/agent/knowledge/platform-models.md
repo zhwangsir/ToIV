@@ -7,14 +7,10 @@
 | 模型 | 说明 |
 |------|------|
 | `DreamShaper_8_pruned.safetensors` | SD1.5 通用，平台默认出图模型，泛用、稳。 |
-| `GhostMix鬼混_V2.0.safetensors` | SD1.5，风格化。 |
 | `majicMIX realistic 麦橘写实_v7.safetensors` | SD1.5，偏写实人像。 |
-| `v1-5-pruned-emaonly-fp16.safetensors` | SD1.5 原版。 |
-| `基础算法 V1.5_v 1.5.safetensors` | SD1.5。 |
 | `Qwen-Image(fp8)` (`qwen_image_fp8_e4m3fn.safetensors`) | 新架构，中文文字渲染能力强，适合带中文字的海报。 |
 | `Flux.2 Klein 4B` (`flux-2-klein-4b.safetensors`) | 新架构，轻量高质量。 |
-| `Z-Image Turbo` (`zImageTurbo_turbo.safetensors` / `z_image_turbo_bf16.safetensors`) | 新架构，出图极快。 |
-| `ponyRealism_V22.safetensors` | Pony Realism。 |
+| `Z-Image Turbo` (`z_image_turbo_bf16.safetensors`) | 新架构，出图极快。 |
 | `ponyDiffusionV6XL_v6.safetensors` | Pony Diffusion V6。 |
 | `waiIllustriousSDXL_v170.safetensors` | WAI Illustrious。 |
 | `waiSHUFFLENOOB_vPred04.safetensors` | WAI SHUFFLE NOOB vpred。 |
@@ -25,18 +21,15 @@
 | `cyberrealisticPony_v180Coreshift.safetensors` | CyberRealistic Pony Coreshift。 |
 | `lustifySDXLNSFW_apexV8.safetensors` | LUSTIFY SDXL NSFW。 |
 | `nova3DCGXL_ilV90.safetensors` | Nova 3DCG XL。 |
-| `animagineXL40.safetensors` | Animagine XL 4.0。 |
-| `sd_xl_base_1.0.safetensors` | SDXL Base。 |
-| `my_checkpoint_v1.safetensors` | 自定义 checkpoint。 |
-| `elie-xl-nvwls-v1.safetensors` | 写实 NSFW。 |
+| `prefectIllustriousXL_40.safetensors` | Prefect Illustrious XL 4.0(SDXL 底模,勿当 LoRA)。 |
 
 ## 视频模型（Checkpoints / Diffusion Models）
 
 | 模型 | 说明 |
 |------|------|
 | `10eros_v14.safetensors` | LTX 视频 NSFW 变体。 |
-| `ltx-2.3-distilled.safetensors` | LTX 2.3 视频 distilled。 |
-| `ltx-2.3-22b-distilled_transformer_only_fp8_scaled.safetensors` | LTX 2.3 22B fp8。 |
+| `ltx-2.3-22b-distilled-1.1.safetensors` | LTX 2.3 22B distilled(SFW 视频默认)。 |
+| `ltx-2.3-22b-dev.safetensors` | LTX 2.3 22B dev(高画质慢档)。 |
 | `ltx-video-2b-v0.9.5.safetensors` | LTX Video 2B。 |
 | `wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors` | Wan 2.2 文生视频 low noise 14B。 |
 | `wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors` | Wan 2.2 文生视频 high noise 14B。 |
@@ -74,8 +67,9 @@ ToIV 的“文生视频”一般先文生底图，再用 Wan 驱动其运动；W
 | `smoothMixWan2214BI2V_i2vV20Low.safetensors` | SmoothMix Wan 2.2 i2v low。 |
 | `smoothMixWan2214BI2V_i2vV20High.safetensors` | SmoothMix Wan 2.2 i2v high。 |
 | `wan2.1_vace_14B_fp16.safetensors` | Wan 2.1 VACE 14B。 |
-| `ltx-2.3-distilled.safetensors` | LTX 2.3 distilled。 |
-| `ltx-2.3-22b-distilled_transformer_only_fp8_scaled.safetensors` | LTX 2.3 22B fp8。 |
+| `ltx-2.3-22b-distilled-1.1.safetensors` | LTX 2.3 22B distilled(SFW 视频默认)。 |
+| `ltx-2.3-22b-dev.safetensors` | LTX 2.3 22B dev。 |
+| `moodyPornMix_zitV7.safetensors` | Z-Image 系 NSFW 底模(UNET,勿当 LoRA)。 |
 | `ltx-video-2b-v0.9.5.safetensors` | LTX Video 2B。 |
 | `lotus-depth-d-v1-1.safetensors` | Lotus 深度模型。 |
 
@@ -121,8 +115,6 @@ ToIV 的“文生视频”一般先文生底图，再用 Wan 驱动其运动；W
 | `RealSkin_xxXL_v1.safetensors` | 真实皮肤 |
 | `Breast Size Slider - Illustrious.safetensors` | 体型调整 |
 | `cknb02_stabilizer_v0.304a_fp16.safetensors` | 稳定化 |
-| `moodyPornMix_zitV7.safetensors` | NSFW 风格 |
-| `prefectIllustriousXL_40.safetensors` | Illustrious 优化 |
 | `Mystic-XXX-ZIT-V5.safetensors` | NSFW 风格 |
 | `nicegirls_Zimage.safetensors` | Z-Image 风格 |
 

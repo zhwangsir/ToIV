@@ -124,9 +124,18 @@ _tasks: set[asyncio.Task] = set()
 _JOBS_KEEP = 30
 
 
-def _require_admin(user: User) -> None:
+def require_admin(user: User) -> None:
+    """写共享模型库(NAS)仅管理员可用;/nas/download 与 /marketplace/install 共用。"""
     if getattr(user, "role", "") != "admin":
         raise HTTPException(status_code=403, detail="仅管理员可下载模型")
+
+
+def require_nas_ready() -> None:
+    """NAS 下载通道就绪检查(配置启用 + paramiko 依赖);未就绪 503。"""
+    if not get_settings().nas_enabled:
+        raise HTTPException(status_code=503, detail="NAS 未配置")
+    if nas.paramiko is None:
+        raise HTTPException(status_code=503, detail="NAS 依赖(paramiko)未安装")
 
 
 def _prune() -> None:
@@ -270,18 +279,15 @@ async def nas_status(user: User = Depends(get_current_user)) -> dict[str, object
         return {"enabled": True, "ok": False, "error": str(e)}
 
 
-@router.post("/nas/download")
-async def nas_download(
-    body: NasDownloadRequest,
-    user: User = Depends(get_current_user),
-    session: Session = Depends(get_session),
-) -> dict[str, object]:
-    """起模型下载→NAS 后台作业。轮询 GET /nas/download/{job}。"""
-    _require_admin(user)
-    if not get_settings().nas_enabled:
-        raise HTTPException(status_code=503, detail="NAS 未配置")
-    if nas.paramiko is None:
-        raise HTTPException(status_code=503, detail="NAS 依赖(paramiko)未安装")
+def start_download_job(
+    body: NasDownloadRequest, user: User, session: Session
+) -> dict[str, str]:
+    """起模型下载→NAS 后台作业,返回 {"job_id", "filename"}。
+
+    /nas/download 与 /marketplace/install 共用:校验入参、建内存 job、持久化 DB Job、
+    启动后台任务。调用方负责权限(require_admin)与 NAS 就绪(require_nas_ready)检查。
+    进度轮询走 GET /nas/download/{job_id}。
+    """
     if body.source == "hf" and not (body.hf_repo and body.hf_file):
         raise HTTPException(status_code=400, detail="HuggingFace 下载需 hf_repo + hf_file")
     if body.source == "url" and not body.url:
@@ -318,6 +324,18 @@ async def nas_download(
     _tasks.add(task)
     task.add_done_callback(_tasks.discard)
     return {"job_id": job_id, "filename": filename}
+
+
+@router.post("/nas/download")
+async def nas_download(
+    body: NasDownloadRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict[str, object]:
+    """起模型下载→NAS 后台作业。轮询 GET /nas/download/{job}。"""
+    require_admin(user)
+    require_nas_ready()
+    return start_download_job(body, user, session)
 
 
 _NAS_JOB_PUBLIC = (

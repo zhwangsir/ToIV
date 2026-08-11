@@ -240,7 +240,7 @@ class GenerateVideoRequest(BaseModel):
     cfg: float = Field(default=1.0, ge=0.0, le=20.0)
     use_upscale: bool = False
     use_rife: bool = False
-    # NSFW 开关:True 用 NSFW 专用视频底模(10Eros),False(默认)用 SFW 底模(ltx-2.3-distilled)
+    # NSFW 开关:True 用 NSFW 专用视频底模(10Eros),False(默认)用 SFW 底模(ltx-2.3-22b-distilled-1.1)
     nsfw: bool = False
     # 覆盖该镜的 prompt(空=用分镜已存的 prompt)
     prompt_override: str | None = Field(default=None, max_length=2000)
@@ -1396,7 +1396,7 @@ async def _submit_shot_video(
     generate-video 端点与 from-image 自动管线共用。first_image_bytes 非空时
     (from-image 首镜):把上传原图直接传到选中的 worker 作 i2v 首帧;
     上传失败回退到常规 IPAdapter 首帧,再退 t2v。
-    nsfw=True 时用 NSFW 专用视频底模(10Eros),否则用 SFW 默认(ltx-2.3-distilled)。
+    nsfw=True 时用 NSFW 专用视频底模(10Eros),否则用 SFW 默认(ltx-2.3-22b-distilled-1.1)。
     """
     prompt = (prompt_override or shot.prompt).strip()
     if not prompt:
@@ -3234,20 +3234,48 @@ class GenerateVideoV2Request(BaseModel):
     cfg: float = Field(default=1.0, ge=0.0, le=20.0)
     use_upscale: bool = False
     use_rife: bool = False
-    # NSFW 开关:True 用 NSFW 专用视频底模(10Eros),False(默认)用 SFW 底模(ltx-2.3-distilled)
+    # NSFW 开关:True 用 NSFW 专用视频底模(10Eros),False(默认)用 SFW 底模(ltx-2.3-22b-distilled-1.1)
     nsfw: bool = False
     prompt_override: str | None = Field(default=None, max_length=2000)
     num_candidates: int = Field(default=1, ge=1, le=4)
 
 
 @router.get("/drama/video-generators")
-def list_video_generators(
+async def list_video_generators(
     user: User = Depends(get_current_user),
+    pool: WorkerPool = Depends(get_pool),
 ) -> dict:
-    """M6: 列出所有已注册的视频生成器(供前端选择器)。"""
+    """M6: 列出所有已注册的视频生成器(供前端选择器)。
+
+    QA-FULL-2026-08-11 P3(引擎状态一致性):available/unavailable_reason 由后端统一
+    下发,数据源与 GET /api/models/engines 相同(engine_registry.list_engines,含并行
+    探测 + 8s TTL 缓存);前端不再维护白名单,避免两处状态显示不一致。
+    """
+    from app.services.engine_registry import list_engines
     from app.services.video_generators import list_generators
 
-    return {"generators": list_generators()}
+    engines = {e["id"]: e for e in await list_engines(pool, user)}
+    # 生成器 → 引擎注册表条目映射;liveact 无注册表条目(走独立 worker,可用性=已配置
+    # 基址);seedance/kling 为 stub(规划中,generate 返回固定错误),固定不可用。
+    _ENGINE_OF = {"ltx": "ltx2-t2v", "h3": "h3-t2v"}
+    liveact_ready = bool(get_settings().liveact_base)
+    out: list[dict] = []
+    for g in list_generators():
+        eid = _ENGINE_OF.get(g["name"])
+        if eid is not None:
+            eng = engines.get(eid, {})
+            g["available"] = bool(eng.get("available"))
+            if eng.get("unavailable_reason"):
+                g["unavailable_reason"] = eng["unavailable_reason"]
+        elif g["name"] == "liveact":
+            g["available"] = liveact_ready
+            if not liveact_ready:
+                g["unavailable_reason"] = "LiveAct 未部署(TOIV_LIVEACT_BASE_URL 为空)"
+        else:
+            g["available"] = False
+            g["unavailable_reason"] = "规划中,尚未接入"
+        out.append(g)
+    return {"generators": out}
 
 
 def _next_seeds(base_seed: int | None, shot_seed: int, n: int) -> list[int]:

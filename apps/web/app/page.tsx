@@ -299,19 +299,31 @@ function HomeContent() {
         setAuth("out");
         return;
       }
-      fetchMe()
-        .then((me) => {
+      // 会话探测:401/403 立即出局;5xx/超时/网络抖动属瞬时故障,短退避重试两次,
+      // 避免后端重启/代理抖动把有效会话误踢到登录页(authed E2E 首跳 flaky 同源)。
+      const isAuthErr = (err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        return msg.includes("会话已过期") || msg.includes("401");
+      };
+      for (let attempt = 0; ; attempt++) {
+        try {
+          const me = await fetchMe();
           setAccount(me.user.email);
           setAuth("in");
-        })
-        .catch((err: unknown) => {
-          const msg = err instanceof Error ? err.message : String(err);
-          const isAuth = msg.includes("会话已过期") || msg.includes("401");
-          if (isAuth) {
+          return;
+        } catch (err) {
+          if (isAuthErr(err)) {
             setToken(null);
+            setAuth("out");
+            return;
           }
-          setAuth("out");
-        });
+          if (attempt >= 2) {
+            setAuth("out");
+            return;
+          }
+          await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+        }
+      }
     })();
   }, []);
 

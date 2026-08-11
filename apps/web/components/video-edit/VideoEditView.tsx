@@ -381,14 +381,14 @@ export function VideoEditView() {
 
   return (
     <div className="single-view ve-view">
-      <header className="ve-header">
+      <header className="page-header">
         <div>
-          <h1 className="ve-title">视频剪辑</h1>
-          <p className="ve-subtitle">
+          <h1 className="page-header-title">视频剪辑</h1>
+          <p className="page-header-desc">
             时间线剪辑:拼接视频片段、叠加音频与文字,本地集群渲染导出成片
           </p>
         </div>
-        <div className="ve-settings">
+        <div className="page-header-actions ve-settings">
           <label className="ve-setting">
             <span>分辨率</span>
             <select
@@ -423,6 +423,45 @@ export function VideoEditView() {
       </header>
 
       <div className="ve-main">
+        {/* ── 预览(视觉中心,宽列在前) ── */}
+        <section className="card ve-preview">
+          <div className="ve-panel-title">
+            <span className="ve-panel-name">
+              <Icon name="play" size={14} />
+              预览
+            </span>
+            {previewItem && (
+              <span className="ve-preview-name" title={previewItem.file.name}>
+                {previewItem.file.name}
+              </span>
+            )}
+          </div>
+          {previewItem ? (
+            previewItem.kind === "video" ? (
+              <video
+                key={previewItem.id}
+                className="ve-preview-video"
+                controls
+                playsInline
+                preload="metadata"
+                src={previewItem.preview}
+              />
+            ) : (
+              <div className="ve-preview-audio">
+                <Icon name="audio" size={32} />
+                <audio key={previewItem.id} controls preload="metadata" src={previewItem.preview} />
+                <span className="ve-preview-audio-hint">音频素材仅提供试听,不影响时间线</span>
+              </div>
+            )
+          ) : (
+            <Empty
+              icon="film"
+              title="暂无预览"
+              desc="导入素材后,点击素材或时间线片段即可预览"
+            />
+          )}
+        </section>
+
         {/* ── 素材库 ── */}
         <section className="card ve-media">
           <div className="ve-panel-title">
@@ -526,44 +565,6 @@ export function VideoEditView() {
           )}
         </section>
 
-        {/* ── 预览 ── */}
-        <section className="card ve-preview">
-          <div className="ve-panel-title">
-            <span className="ve-panel-name">
-              <Icon name="play" size={14} />
-              预览
-            </span>
-            {previewItem && (
-              <span className="ve-preview-name" title={previewItem.file.name}>
-                {previewItem.file.name}
-              </span>
-            )}
-          </div>
-          {previewItem ? (
-            previewItem.kind === "video" ? (
-              <video
-                key={previewItem.id}
-                className="ve-preview-video"
-                controls
-                playsInline
-                preload="metadata"
-                src={previewItem.preview}
-              />
-            ) : (
-              <div className="ve-preview-audio">
-                <Icon name="audio" size={32} />
-                <audio key={previewItem.id} controls preload="metadata" src={previewItem.preview} />
-                <span className="ve-preview-audio-hint">音频素材仅提供试听,不影响时间线</span>
-              </div>
-            )
-          ) : (
-            <Empty
-              icon="film"
-              title="暂无预览"
-              desc="导入素材后,点击素材或时间线片段即可预览"
-            />
-          )}
-        </section>
       </div>
 
       {/* ── 时间线 ── */}
@@ -1049,34 +1050,20 @@ export function VideoEditView() {
         .ve-view {
           display: flex;
           flex-direction: column;
-          gap: var(--space-4);
+          gap: var(--space-8);
         }
-        .ve-header {
-          display: flex;
-          align-items: flex-end;
-          justify-content: space-between;
-          gap: var(--space-4);
-          flex-wrap: wrap;
-        }
-        .ve-title {
-          font-size: var(--text-xl);
-          font-weight: 600;
-          color: var(--text-primary);
-        }
-        .ve-subtitle {
-          margin-top: var(--space-1);
-          font-size: var(--text-sm);
-          color: var(--text-muted);
-        }
+        /* 页头改用全局 .page-header 系列类(含 CornerNav 避让),本地只保留设置组样式 */
         .ve-settings {
           display: flex;
           gap: var(--space-3);
+          align-items: flex-end;
         }
         .ve-setting {
           display: flex;
           flex-direction: column;
           gap: var(--space-1);
           font-size: var(--text-xs);
+          font-weight: 500;
           color: var(--text-secondary);
         }
         .ve-setting select {
@@ -1084,18 +1071,31 @@ export function VideoEditView() {
         }
         .ve-main {
           display: grid;
-          grid-template-columns: 340px minmax(0, 1fr);
-          gap: var(--space-4);
+          /* 预览宽列在前做视觉中心,素材库收敛为右侧 340px 侧栏 */
+          grid-template-columns: minmax(0, 1fr) 340px;
+          gap: var(--space-6);
           align-items: start;
+        }
+        /* 三区面板统一加厚内边距(16→24),拉开与全局 .card 默认值的层级 */
+        .ve-preview,
+        .ve-media,
+        .ve-timeline {
+          padding: var(--space-6);
+        }
+        /* 预览区常驻升浮,成为页面视觉中心 */
+        .ve-preview {
+          box-shadow: var(--shadow-md);
         }
         .ve-panel-title {
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: var(--space-2);
-          margin-bottom: var(--space-3);
-          font-size: var(--text-sm);
-          font-weight: 500;
+          margin-bottom: var(--space-5);
+          padding-bottom: var(--space-3);
+          border-bottom: 1px solid var(--border-subtle);
+          font-size: var(--text-section);
+          font-weight: 600;
           color: var(--text-primary);
         }
         .ve-panel-name {
@@ -1112,20 +1112,26 @@ export function VideoEditView() {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: var(--space-1);
+          gap: var(--space-2);
           width: 100%;
-          padding: var(--space-4);
+          padding: var(--space-6) var(--space-4);
           border: 1px dashed var(--border-strong);
           border-radius: var(--radius-control);
           background: var(--bg-surface-2);
           color: var(--text-secondary);
           cursor: pointer;
           transition: border-color var(--duration-fast) var(--ease-standard),
-            color var(--duration-fast) var(--ease-standard);
+            color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard);
         }
         .ve-import:hover:not(:disabled) {
           border-color: var(--accent);
+          background: var(--accent-soft);
           color: var(--text-primary);
+        }
+        .ve-import:focus-visible {
+          outline: 2px solid var(--accent);
+          outline-offset: 2px;
         }
         .ve-import:disabled {
           opacity: 0.4;
@@ -1134,6 +1140,7 @@ export function VideoEditView() {
         .ve-import-title {
           font-size: var(--text-sm);
           font-weight: 500;
+          color: var(--text-primary);
         }
         .ve-import-hint {
           font-size: var(--text-xs);
@@ -1141,26 +1148,33 @@ export function VideoEditView() {
           text-align: center;
         }
         .ve-media-list {
-          margin-top: var(--space-3);
+          margin-top: var(--space-4);
           display: flex;
           flex-direction: column;
-          gap: var(--space-2);
-          max-height: 380px;
+          gap: var(--space-3);
+          max-height: 480px;
           overflow-y: auto;
         }
         .ve-media-item {
           display: flex;
           align-items: center;
-          gap: var(--space-2);
-          padding: var(--space-2);
+          gap: var(--space-3);
+          padding: var(--space-3) var(--space-4);
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-control);
           background: var(--bg-surface-2);
           cursor: pointer;
-          transition: border-color var(--duration-fast) var(--ease-standard);
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard),
+            transform var(--duration-fast) var(--ease-standard),
+            box-shadow var(--duration-fast) var(--ease-standard);
         }
+        /* 卡片 hover 升浮反馈 */
         .ve-media-item:hover {
           border-color: var(--border-strong);
+          background: var(--bg-surface-3);
+          transform: translateY(-1px);
+          box-shadow: var(--shadow-sm);
         }
         .ve-media-item.is-sel {
           border-color: var(--accent);
@@ -1179,7 +1193,9 @@ export function VideoEditView() {
           gap: 2px;
         }
         .ve-media-name {
-          font-size: var(--text-xs);
+          font-size: var(--text-sm);
+          font-weight: 500;
+          line-height: 1.4;
           color: var(--text-primary);
           white-space: nowrap;
           overflow: hidden;
@@ -1190,11 +1206,11 @@ export function VideoEditView() {
           color: var(--text-muted);
         }
         .ve-preview {
-          min-height: 260px;
+          min-height: 320px;
         }
         .ve-preview :global(.empty-state) {
-          min-height: 220px;
-          padding: var(--space-8) var(--space-4);
+          min-height: 280px;
+          padding: var(--space-10) var(--space-4);
         }
         .ve-preview-name {
           font-size: var(--text-xs);
@@ -1206,7 +1222,7 @@ export function VideoEditView() {
         }
         .ve-preview-video {
           width: 100%;
-          max-height: 420px;
+          max-height: 520px;
           border-radius: var(--radius-control);
           background: var(--bg-canvas);
         }
@@ -1215,7 +1231,7 @@ export function VideoEditView() {
           flex-direction: column;
           align-items: center;
           gap: var(--space-3);
-          padding: var(--space-8) var(--space-4);
+          padding: var(--space-10) var(--space-4);
           color: var(--text-secondary);
         }
         .ve-preview-audio audio {
@@ -1228,7 +1244,11 @@ export function VideoEditView() {
         .ve-timeline {
           display: flex;
           flex-direction: column;
-          gap: var(--space-3);
+          gap: var(--space-4);
+        }
+        /* 时间线卡用 flex gap 控制节奏,面板标题不再叠加 margin(分隔线由 padding-bottom 承载) */
+        .ve-timeline .ve-panel-title {
+          margin-bottom: 0;
         }
         .ve-tl-row {
           display: flex;
@@ -1236,7 +1256,7 @@ export function VideoEditView() {
           align-items: stretch;
         }
         .ve-tl-label {
-          width: 88px;
+          width: 96px;
           flex-shrink: 0;
           display: flex;
           flex-direction: column;
@@ -1250,6 +1270,7 @@ export function VideoEditView() {
           display: inline-flex;
           align-items: center;
           gap: var(--space-1);
+          font-weight: 500;
         }
         .ve-add-text {
           margin-top: var(--space-1);
@@ -1258,11 +1279,11 @@ export function VideoEditView() {
           flex: 1;
           min-width: 0;
           display: flex;
-          gap: var(--space-2);
+          gap: var(--space-3);
           align-items: stretch;
           overflow-x: auto;
-          padding: var(--space-2);
-          min-height: 64px;
+          padding: var(--space-3);
+          min-height: 80px;
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-control);
           background: var(--bg-surface-3);
@@ -1277,19 +1298,28 @@ export function VideoEditView() {
           flex-shrink: 0;
           min-width: 150px;
           max-width: 320px;
-          padding: var(--space-2);
+          padding: var(--space-3) var(--space-4);
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-control);
           background: var(--bg-surface-2);
           cursor: pointer;
-          transition: border-color var(--duration-fast) var(--ease-standard);
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard),
+            transform var(--duration-fast) var(--ease-standard),
+            box-shadow var(--duration-fast) var(--ease-standard);
         }
         .ve-clip:hover {
           border-color: var(--border-strong);
+          background: var(--bg-surface-3);
+          transform: translateY(-1px);
+          box-shadow: var(--shadow-sm);
         }
         .ve-clip.is-sel {
           border-color: var(--accent);
           box-shadow: 0 0 0 1px var(--accent);
+        }
+        .ve-clip.is-sel:hover {
+          background: var(--bg-surface-2);
         }
         .ve-clip.is-bad {
           border-color: var(--err);
@@ -1301,7 +1331,9 @@ export function VideoEditView() {
           gap: var(--space-2);
         }
         .ve-clip-name {
-          font-size: var(--text-xs);
+          font-size: var(--text-sm);
+          font-weight: 500;
+          line-height: 1.4;
           color: var(--text-primary);
           white-space: nowrap;
           overflow: hidden;
@@ -1326,6 +1358,7 @@ export function VideoEditView() {
           flex-direction: column;
           gap: 2px;
           font-size: var(--text-xs);
+          font-weight: 500;
           color: var(--text-muted);
           width: 86px;
         }
@@ -1336,10 +1369,11 @@ export function VideoEditView() {
         .ve-field select {
           padding: var(--space-1) var(--space-2);
           font-size: var(--text-xs);
+          font-weight: 400;
         }
         .ve-color {
           width: 100%;
-          height: 26px;
+          height: 28px;
           padding: 0;
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-sm);
@@ -1370,6 +1404,10 @@ export function VideoEditView() {
           background: var(--bg-surface-3);
           color: var(--text-primary);
         }
+        .ve-mini-btn:focus-visible {
+          outline: 2px solid var(--accent);
+          outline-offset: 1px;
+        }
         .ve-mini-btn:disabled {
           opacity: 0.4;
           cursor: not-allowed;
@@ -1392,12 +1430,17 @@ export function VideoEditView() {
           color: var(--err);
           font-size: var(--text-sm);
         }
+        .ve-error :global(svg) {
+          flex-shrink: 0;
+        }
         .ve-footer {
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: var(--space-4);
           flex-wrap: wrap;
+          padding-top: var(--space-6);
+          border-top: 1px solid var(--border-subtle);
         }
         .ve-footer-info {
           font-size: var(--text-sm);
@@ -1413,13 +1456,18 @@ export function VideoEditView() {
           display: flex;
           flex-direction: column;
           gap: var(--space-3);
+          padding: var(--space-6);
         }
         .ve-result-head {
           display: flex;
           align-items: center;
           gap: var(--space-2);
           font-size: var(--text-sm);
+          font-weight: 500;
           color: var(--ok);
+        }
+        .ve-result-head :global(svg) {
+          flex-shrink: 0;
         }
         .ve-result-video {
           width: 100%;
@@ -1431,7 +1479,7 @@ export function VideoEditView() {
           display: flex;
           justify-content: flex-end;
         }
-        @media (max-width: 900px) {
+        @media (max-width: 1023px) {
           .ve-main {
             grid-template-columns: 1fr;
           }
@@ -1457,6 +1505,32 @@ export function VideoEditView() {
           .ve-add-text {
             margin-top: 0;
             margin-left: var(--space-2);
+          }
+        }
+        /* 移动端:触控目标 ≥44px,字段弹性占满,导出按钮全宽 */
+        @media (max-width: 767px) {
+          .ve-mini-btn {
+            width: 44px;
+            height: 44px;
+          }
+          .ve-field {
+            width: auto;
+            flex: 1 1 120px;
+          }
+          .ve-footer {
+            flex-direction: column;
+            align-items: stretch;
+          }
+          .ve-footer :global(.btn-lg) {
+            width: 100%;
+            justify-content: center;
+          }
+          .ve-result-actions {
+            justify-content: stretch;
+          }
+          .ve-result-actions :global(.btn) {
+            width: 100%;
+            justify-content: center;
           }
         }
       `}</style>

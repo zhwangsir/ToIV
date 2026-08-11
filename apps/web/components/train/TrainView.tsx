@@ -312,12 +312,12 @@ export function TrainView() {
 
   return (
     <div className="single-view train-view">
-      <header className="tv-header">
-        <div className="tv-title-wrap">
-          <h1 className="tv-title">训练</h1>
-          <p className="tv-subtitle">LoRA 训练 · 数据集打标 → 微调 → 注册</p>
+      <header className="page-header">
+        <div className="page-header-main">
+          <h1 className="page-header-title">训练</h1>
+          <p className="page-header-desc">LoRA 训练 · 数据集打标 → 微调 → 注册</p>
         </div>
-        <div className="tv-header-actions">
+        <div className="page-header-actions">
           <button
             type="button"
             className="btn btn-sm"
@@ -605,47 +605,27 @@ export function TrainView() {
 
       <style jsx>{`
         .train-view {
-          padding-top: var(--space-4);
-          padding-bottom: var(--space-6);
+          padding-top: var(--space-6);
+          padding-bottom: var(--space-8);
         }
 
         /* ── Header ── */
-        .tv-header {
-          display: flex;
-          align-items: flex-end;
-          justify-content: space-between;
-          gap: var(--space-4);
-          flex-wrap: wrap;
-          margin-bottom: var(--space-5);
+        /* 页头版式统一走全局 .page-header*(标题/描述/右侧操作区/桌面端避让导航),
+           此处只保留本视图与全局页头之间的间距衔接。 */
+        .train-view .page-header {
+          margin-bottom: var(--space-8);
         }
-        .tv-title-wrap {
-          display: flex;
-          flex-direction: column;
-          gap: 0.15rem;
-        }
-        .tv-title {
-          margin: 0;
-          font-family: var(--font-sans);
-          font-size: var(--text-title);
-          font-weight: 700;
-          letter-spacing: -0.02em;
-          color: var(--text-primary);
-          line-height: 1.3;
-        }
-        .tv-subtitle {
-          margin: 0;
-          font-size: 0.82rem;
-          color: var(--text-muted);
-        }
-        .tv-header-actions {
+        .train-view .page-header-actions {
           display: inline-flex;
           align-items: center;
           gap: var(--space-2);
+          flex-shrink: 0;
         }
 
         /* ── Form ── */
         .tv-form-card {
-          margin-bottom: var(--space-5);
+          margin-bottom: var(--space-8);
+          padding: var(--space-6);
           background: var(--bg-surface-1);
           border-color: var(--border-strong);
           box-shadow: var(--shadow-md);
@@ -654,11 +634,12 @@ export function TrainView() {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          margin-bottom: var(--space-4);
+          gap: var(--space-3);
+          margin-bottom: var(--space-5);
         }
         .tv-form-title {
           margin: 0;
-          font-size: 1rem;
+          font-size: var(--text-section);
           font-weight: 600;
           color: var(--text-primary);
           letter-spacing: -0.01em;
@@ -666,23 +647,27 @@ export function TrainView() {
         .tv-form-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-          gap: var(--space-3);
+          gap: var(--space-4);
         }
         .tv-field {
           display: flex;
           flex-direction: column;
-          gap: 0.3rem;
+          gap: var(--space-1);
+          min-width: 0;
         }
         .tv-field-wide {
           grid-column: span 2;
         }
-        @media (max-width: 640px) {
+        @media (max-width: 767px) {
           .tv-field-wide {
             grid-column: span 1;
           }
+          .tv-form-card {
+            padding: var(--space-4);
+          }
         }
         .tv-label {
-          font-size: 0.75rem;
+          font-size: var(--text-label);
           color: var(--text-secondary);
           font-weight: 500;
           letter-spacing: 0.01em;
@@ -691,7 +676,11 @@ export function TrainView() {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 0.5rem;
+          gap: var(--space-2);
+        }
+        .tv-ckpt-loading {
+          font-size: var(--text-aux);
+          color: var(--text-muted);
         }
         .tv-upload-row {
           display: flex;
@@ -701,19 +690,21 @@ export function TrainView() {
         }
         .tv-upload-btn {
           cursor: pointer;
+          flex-shrink: 0;
         }
         .tv-upload-hint {
-          font-size: 0.8rem;
+          font-size: var(--text-aux);
           color: var(--text-muted);
         }
         .tv-form-msg {
           display: flex;
           align-items: center;
-          gap: 0.4rem;
-          margin-top: var(--space-3);
-          padding: 0.5rem 0.7rem;
-          border-radius: var(--radius-xs);
-          font-size: 0.82rem;
+          gap: var(--space-2);
+          margin-top: var(--space-4);
+          padding: var(--space-2) var(--space-3);
+          border-radius: var(--radius-sm);
+          font-size: var(--text-aux);
+          line-height: 1.5;
         }
         .tv-form-msg-error {
           background: var(--err-soft);
@@ -727,21 +718,23 @@ export function TrainView() {
           display: flex;
           justify-content: flex-end;
           gap: var(--space-2);
-          margin-top: var(--space-4);
+          margin-top: var(--space-5);
+          padding-top: var(--space-4);
+          border-top: 1px solid var(--border-subtle);
         }
 
         /* ── Body ── */
         .tv-body {
           display: flex;
           flex-direction: column;
-          gap: var(--space-4);
+          gap: var(--space-5);
         }
         .tv-center {
           display: flex;
           flex-direction: column;
           align-items: center;
           gap: var(--space-3);
-          padding: var(--space-6) var(--space-4);
+          padding: var(--space-12) var(--space-4);
           color: var(--text-muted);
         }
         .tv-error-box {
@@ -749,14 +742,39 @@ export function TrainView() {
         }
         .tv-error-box p {
           margin: 0;
-          font-size: 0.85rem;
+          font-size: var(--text-body);
+        }
+
+        /* 空态重设计:图标改为浅底圆盘,拉开与标题的层级 */
+        .train-view .empty-state-icon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 72px;
+          height: 72px;
+          border-radius: var(--radius-full);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          opacity: 1;
+          color: var(--text-muted);
+          margin-bottom: var(--space-5);
         }
 
         /* ── Job List ── */
         .tv-list {
           display: flex;
           flex-direction: column;
-          gap: var(--space-3);
+          gap: var(--space-5);
+        }
+
+        /* 移动端触控目标 ≥44px */
+        @media (max-width: 767px) {
+          .page-header-actions .btn,
+          .tv-form-head .btn,
+          .tv-form-actions .btn,
+          .tv-upload-btn {
+            min-height: 44px;
+          }
         }
       `}</style>
     </div>
@@ -917,11 +935,21 @@ function TrainCard({
 
       <style jsx>{`
         .tv-card {
-          padding: var(--space-4);
-          transition: border-color var(--duration-fast) var(--ease-standard);
+          padding: var(--space-6);
+          transition:
+            border-color var(--duration-fast) var(--ease-standard),
+            box-shadow var(--duration-fast) var(--ease-standard),
+            transform var(--duration-fast) var(--ease-standard);
         }
         .tv-card:hover {
           border-color: var(--border-strong);
+          box-shadow: var(--shadow-md);
+          transform: translateY(-2px);
+        }
+        @media (max-width: 767px) {
+          .tv-card {
+            padding: var(--space-4);
+          }
         }
 
         .tv-card-head {
@@ -929,56 +957,59 @@ function TrainCard({
           align-items: flex-start;
           justify-content: space-between;
           gap: var(--space-3);
-          margin-bottom: var(--space-3);
+          margin-bottom: var(--space-4);
         }
         .tv-card-title-wrap {
           display: flex;
           align-items: center;
-          gap: var(--space-3);
+          gap: var(--space-2);
           flex-wrap: wrap;
           min-width: 0;
         }
         .tv-card-title {
           margin: 0;
-          font-size: 0.98rem;
+          font-size: var(--text-section);
           font-weight: 600;
           color: var(--text-primary);
           letter-spacing: -0.01em;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
-          max-width: 360px;
+          min-width: 0;
+          max-width: 100%;
         }
         .tv-card-time {
-          font-size: 0.72rem;
+          font-size: var(--text-aux);
           color: var(--text-muted);
           white-space: nowrap;
           flex-shrink: 0;
         }
 
-        /* ── Meta ── */
+        /* ── Meta:由上下细线分隔带改为浅底内嵌面板,拉开与标题/进度的层级 ── */
         .tv-card-meta {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-          gap: var(--space-2) var(--space-4);
-          padding: var(--space-3) 0;
-          border-top: 1px solid var(--border-subtle);
-          border-bottom: 1px solid var(--border-subtle);
+          grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+          gap: var(--space-3) var(--space-5);
+          padding: var(--space-4);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
         }
         .tv-meta-item {
           display: flex;
           flex-direction: column;
-          gap: 0.15rem;
+          gap: var(--space-1);
           min-width: 0;
         }
         .tv-meta-key {
-          font-size: 0.68rem;
+          font-size: var(--text-label);
+          font-weight: 500;
           color: var(--text-muted);
           text-transform: uppercase;
           letter-spacing: 0.04em;
         }
         .tv-meta-val {
-          font-size: 0.82rem;
+          font-size: var(--text-body);
           color: var(--text-secondary);
           overflow: hidden;
           text-overflow: ellipsis;
@@ -986,18 +1017,18 @@ function TrainCard({
         }
         .tv-mono {
           font-family: var(--font-mono);
-          font-size: 0.78rem;
+          font-size: var(--text-aux);
         }
 
         /* ── Progress ── */
         .tv-progress-wrap {
-          margin-top: var(--space-3);
+          margin-top: var(--space-4);
           display: flex;
           flex-direction: column;
-          gap: 0.4rem;
+          gap: var(--space-2);
         }
         .tv-progress-track {
-          height: 6px;
+          height: 8px;
           background: var(--bg-surface-2);
           border-radius: var(--radius-full);
           overflow: hidden;
@@ -1012,7 +1043,8 @@ function TrainCard({
           display: flex;
           align-items: center;
           justify-content: space-between;
-          font-size: 0.74rem;
+          gap: var(--space-3);
+          font-size: var(--text-aux);
           color: var(--text-muted);
           font-family: var(--font-mono);
         }
@@ -1024,38 +1056,44 @@ function TrainCard({
         .tv-card-error {
           display: flex;
           align-items: center;
-          gap: 0.4rem;
-          margin-top: var(--space-3);
-          padding: 0.5rem 0.7rem;
+          gap: var(--space-2);
+          margin-top: var(--space-4);
+          padding: var(--space-3) var(--space-4);
           background: var(--err-soft);
           color: var(--err);
-          border-radius: var(--radius-xs);
-          font-size: 0.8rem;
+          border-radius: var(--radius-control);
+          font-size: var(--text-aux);
+          line-height: 1.5;
         }
 
         /* ── Samples ── */
         .tv-samples {
-          margin-top: var(--space-3);
+          margin-top: var(--space-4);
         }
         .tv-samples-label {
-          font-size: 0.72rem;
+          font-size: var(--text-label);
+          font-weight: 500;
           color: var(--text-muted);
           text-transform: uppercase;
           letter-spacing: 0.04em;
-          margin-bottom: 0.5rem;
+          margin-bottom: var(--space-2);
         }
         .tv-samples-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-          gap: var(--space-2);
+          grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+          gap: var(--space-3);
         }
         .tv-sample {
           display: block;
           aspect-ratio: 1 / 1;
           overflow: hidden;
-          border-radius: var(--radius-xs);
+          border-radius: var(--radius-control);
           border: 1px solid var(--border-subtle);
           background: var(--bg-surface-2);
+          transition: border-color var(--duration-fast) var(--ease-standard);
+        }
+        .tv-sample:hover {
+          border-color: var(--border-strong);
         }
         .tv-sample img {
           width: 100%;
@@ -1072,12 +1110,21 @@ function TrainCard({
           display: flex;
           align-items: center;
           gap: var(--space-3);
-          margin-top: var(--space-3);
+          margin-top: var(--space-4);
+          padding-top: var(--space-4);
+          border-top: 1px solid var(--border-subtle);
           flex-wrap: wrap;
         }
         .tv-register-msg {
-          font-size: 0.78rem;
+          font-size: var(--text-aux);
           color: var(--text-secondary);
+        }
+
+        /* 移动端触控目标 ≥44px */
+        @media (max-width: 767px) {
+          .tv-card-foot .btn {
+            min-height: 44px;
+          }
         }
       `}</style>
     </article>
@@ -1136,11 +1183,12 @@ function LossSparkline({ values }: { values: number[] }) {
         .tv-spark-wrap {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
+          gap: var(--space-2);
           margin-top: var(--space-2);
         }
         .tv-spark-label {
-          font-size: 0.68rem;
+          font-size: var(--text-label);
+          font-weight: 500;
           color: var(--text-muted);
           text-transform: uppercase;
           letter-spacing: 0.04em;

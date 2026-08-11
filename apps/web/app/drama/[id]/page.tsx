@@ -233,161 +233,234 @@ export default function DramaPlayerPage() {
   return (
     <main className={styles.playerPage}>
       <div className={styles.ambientGlow} aria-hidden="true" />
-      <section className={styles.playerCard}>
-        <div
-          className={`${styles.videoStage} ${!isPlaying ? styles.isPaused : ""}`}
-        >
-          <video
-            ref={videoRef}
-            className={styles.video}
-            src={videoUrl}
-            preload="metadata"
-            playsInline
-            onLoadedMetadata={handleLoadedMetadata}
-            onPlay={handlePlay}
-            onPause={handlePause}
-            onTimeUpdate={handleTimeUpdate}
-            onEnded={handleEnded}
-            onWaiting={handleWaiting}
-            onSeeking={handleSeeking}
-            onSeeked={handleSeeked}
-            onRateChange={handleRateChange}
-          />
-
-          {(!isPlaying || currentTime === 0) && (
-            <button
-              className={`${styles.centerPlay} ${styles.visible}`}
-              onClick={togglePlay}
-              aria-label={isPlaying ? "暂停" : "播放"}
-            >
-              <span className={styles.centerPlayButton}>
-                <Icon name="play" size={32} />
-              </span>
-            </button>
-          )}
-
-          <div className={styles.topBar}>
-            <h1 className={styles.title}>AI 短剧 · {dramaId}</h1>
-            <button
-              className={`${styles.iconButton} ${isDanmuOn ? styles.active : ""}`}
-              onClick={() => setIsDanmuOn((p) => !p)}
-              aria-label="弹幕开关"
-            >
-              <Icon name="chat" size={18} />
+      <div className={styles.playerShell}>
+        <header className="page-header">
+          <div>
+            <h1 className="page-header-title">AI 短剧 · {dramaId}</h1>
+            <p className="page-header-desc">
+              观看正片并标记高光或无聊时刻,行为数据将用于短剧质量评估。
+            </p>
+          </div>
+          <div className="page-header-actions">
+            <button className={styles.shareButton} onClick={handleShare}>
+              <Icon name="share" size={16} />
+              分享
             </button>
           </div>
+        </header>
 
-          <div className={styles.controlsLayer}>
+        <div className={styles.playerLayout}>
+          <section className={styles.playerCard}>
             <div
-              ref={progressRef}
-              className={styles.progressWrap}
-              onClick={handleProgressClick}
+              className={`${styles.videoStage} ${!isPlaying ? styles.isPaused : ""}`}
             >
-              <div className={styles.progressRail}>
-                <div
-                  className={styles.progressFill}
-                  style={{ width: `${progressPercent}%` }}
-                >
-                  <div className={styles.progressThumb} />
-                </div>
-                {chapters.map((ch) => (
-                  <div
-                    key={ch.id}
-                    className={styles.chapterMarker}
-                    style={{
-                      left: `${duration ? (ch.start / duration) * 100 : 0}%`,
-                      ["--marker-color" as string]: ch.color,
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      seekToChapter(ch.start);
-                    }}
-                  >
-                    <span className={styles.chapterTooltip}>{ch.title}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+              <video
+                ref={videoRef}
+                className={styles.video}
+                src={videoUrl}
+                preload="metadata"
+                playsInline
+                onLoadedMetadata={handleLoadedMetadata}
+                onPlay={handlePlay}
+                onPause={handlePause}
+                onTimeUpdate={handleTimeUpdate}
+                onEnded={handleEnded}
+                onWaiting={handleWaiting}
+                onSeeking={handleSeeking}
+                onSeeked={handleSeeked}
+                onRateChange={handleRateChange}
+              />
 
-            <div className={styles.controlRow}>
-              <div className={styles.controlGroup}>
+              {(!isPlaying || currentTime === 0) && (
                 <button
-                  className={styles.iconButton}
+                  className={`${styles.centerPlay} ${styles.visible}`}
                   onClick={togglePlay}
                   aria-label={isPlaying ? "暂停" : "播放"}
                 >
-                  {isPlaying ? <Icon name="pause" size={20} /> : <Icon name="play" size={20} />}
+                  <span className={styles.centerPlayButton}>
+                    <Icon name="play" size={32} />
+                  </span>
                 </button>
+              )}
+
+              <div className={styles.topBar}>
                 <button
-                  className={styles.iconButton}
-                  onClick={toggleMute}
-                  aria-label={isMuted ? "取消静音" : "静音"}
+                  className={`${styles.iconButton} ${isDanmuOn ? styles.active : ""}`}
+                  onClick={() => setIsDanmuOn((p) => !p)}
+                  aria-label="弹幕开关"
                 >
-                  {isMuted || volume === 0 ? <Icon name="mute" size={20} /> : <Icon name="volume" size={20} />}
+                  <Icon name="chat" size={18} />
                 </button>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={isMuted ? 0 : volume}
-                  onChange={handleVolumeChange}
-                  className={styles.volumeSlider}
-                  aria-label="音量"
-                />
-                <span className={styles.timeLabel}>
-                  {formatTime(currentTime)} / {formatTime(duration)}
-                </span>
               </div>
 
-              <div className={styles.controlGroup}>
-                <button className={styles.rateButton} onClick={cycleRate}>
-                  {RATES[rateIndex]}x
+              <div className={styles.controlsLayer}>
+                <div
+                  ref={progressRef}
+                  className={styles.progressWrap}
+                  onClick={handleProgressClick}
+                >
+                  <div className={styles.progressRail}>
+                    <div
+                      className={styles.progressFill}
+                      style={{ width: `${progressPercent}%` }}
+                    >
+                      <div className={styles.progressThumb} />
+                    </div>
+                    {chapters.map((ch) => (
+                      <div
+                        key={ch.id}
+                        className={styles.chapterMarker}
+                        style={{
+                          left: `${duration ? (ch.start / duration) * 100 : 0}%`,
+                          ["--marker-color" as string]: ch.color,
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          seekToChapter(ch.start);
+                        }}
+                      >
+                        <span className={styles.chapterTooltip}>{ch.title}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className={styles.controlRow}>
+                  <div className={styles.controlGroup}>
+                    <button
+                      className={styles.iconButton}
+                      onClick={togglePlay}
+                      aria-label={isPlaying ? "暂停" : "播放"}
+                    >
+                      {isPlaying ? <Icon name="pause" size={20} /> : <Icon name="play" size={20} />}
+                    </button>
+                    <button
+                      className={styles.iconButton}
+                      onClick={toggleMute}
+                      aria-label={isMuted ? "取消静音" : "静音"}
+                    >
+                      {isMuted || volume === 0 ? <Icon name="mute" size={20} /> : <Icon name="volume" size={20} />}
+                    </button>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      value={isMuted ? 0 : volume}
+                      onChange={handleVolumeChange}
+                      className={styles.volumeSlider}
+                      aria-label="音量"
+                    />
+                    <span className={styles.timeLabel}>
+                      {formatTime(currentTime)} / {formatTime(duration)}
+                    </span>
+                  </div>
+
+                  <div className={styles.controlGroup}>
+                    <button className={styles.rateButton} onClick={cycleRate}>
+                      {RATES[rateIndex]}x
+                    </button>
+                    <button
+                      className={styles.iconButton}
+                      onClick={toggleFullscreen}
+                      aria-label={isFullscreen ? "退出全屏" : "全屏"}
+                    >
+                      {isFullscreen ? <Icon name="minimize" size={20} /> : <Icon name="maximize" size={20} />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.interactionBar}>
+              <div className={styles.feedbackGroup}>
+                <button
+                  className={`${styles.interactionButton} ${liked ? styles.active : ""}`}
+                  onClick={handleLike}
+                >
+                  <Icon name="heart" size={16} />
+                  点赞
                 </button>
                 <button
-                  className={styles.iconButton}
-                  onClick={toggleFullscreen}
-                  aria-label={isFullscreen ? "退出全屏" : "全屏"}
+                  className={`${styles.interactionButton} ${styles.good} ${goodAt !== null ? styles.active : ""}`}
+                  onClick={handleMarkGood}
                 >
-                  {isFullscreen ? <Icon name="minimize" size={20} /> : <Icon name="maximize" size={20} />}
+                  <Icon name="thumbs-up" size={16} />
+                  这里好看
+                </button>
+                <button
+                  className={`${styles.interactionButton} ${styles.boring} ${boringAt !== null ? styles.active : ""}`}
+                  onClick={handleMarkBoring}
+                >
+                  <Icon name="thumbs-down" size={16} />
+                  无聊
+                </button>
+              </div>
+              <div className={styles.actionGroup}>
+                <button className={styles.interactionButton} onClick={handleReplay}>
+                  <Icon name="replay" size={16} />
+                  重播
                 </button>
               </div>
             </div>
-          </div>
-        </div>
+          </section>
 
-        <div className={styles.interactionBar}>
-          <button
-            className={`${styles.interactionButton} ${liked ? styles.active : ""}`}
-            onClick={handleLike}
-          >
-            <Icon name="heart" size={16} />
-            点赞
-          </button>
-          <button
-            className={`${styles.interactionButton} ${styles.good} ${goodAt !== null ? styles.active : ""}`}
-            onClick={handleMarkGood}
-          >
-            <Icon name="thumbs-up" size={16} />
-            这里好看
-          </button>
-          <button
-            className={`${styles.interactionButton} ${styles.boring} ${boringAt !== null ? styles.active : ""}`}
-            onClick={handleMarkBoring}
-          >
-            <Icon name="thumbs-down" size={16} />
-            无聊
-          </button>
-          <button className={styles.interactionButton} onClick={handleReplay}>
-            <Icon name="replay" size={16} />
-            重播
-          </button>
-          <button className={styles.interactionButton} onClick={handleShare}>
-            <Icon name="share" size={16} />
-            分享
-          </button>
+          <aside className={styles.sideColumn}>
+            <section className={styles.panel}>
+              <div className={styles.panelHead}>
+                <h2 className={styles.panelTitle}>剧集章节</h2>
+                <span className={styles.panelMeta}>四幕结构</span>
+              </div>
+              {chapters.length > 0 ? (
+                <ul className={styles.chapterList}>
+                  {chapters.map((ch, i) => {
+                    const nextStart = chapters[i + 1]?.start ?? duration;
+                    const active = currentTime >= ch.start && currentTime < nextStart;
+                    return (
+                      <li key={ch.id}>
+                        <button
+                          className={`${styles.chapterItem} ${active ? styles.active : ""}`}
+                          onClick={() => seekToChapter(ch.start)}
+                        >
+                          <span className={styles.chapterIndex}>{i + 1}</span>
+                          <span className={styles.chapterName}>{ch.title}</span>
+                          <span className={styles.chapterTime}>{formatTime(ch.start)}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p className={styles.emptyHint}>正在读取视频元数据,章节稍后显示。</p>
+              )}
+            </section>
+
+            <section className={styles.panel}>
+              <div className={styles.panelHead}>
+                <h2 className={styles.panelTitle}>播放信息</h2>
+              </div>
+              <dl className={styles.infoList}>
+                <div className={styles.infoRow}>
+                  <dt>短剧编号</dt>
+                  <dd>{dramaId}</dd>
+                </div>
+                <div className={styles.infoRow}>
+                  <dt>片长</dt>
+                  <dd>{duration ? formatTime(duration) : "--:--"}</dd>
+                </div>
+                <div className={styles.infoRow}>
+                  <dt>倍速</dt>
+                  <dd>{RATES[rateIndex]}x</dd>
+                </div>
+                <div className={styles.infoRow}>
+                  <dt>弹幕</dt>
+                  <dd>{isDanmuOn ? "已开启" : "已关闭"}</dd>
+                </div>
+              </dl>
+            </section>
+          </aside>
         </div>
-      </section>
+      </div>
     </main>
   );
 }

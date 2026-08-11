@@ -41,9 +41,11 @@ export function Switch({ checked, onChange, disabled, label, ariaLabel }: Switch
           gap: var(--space-2);
         }
         .ui-switch-label {
-          font-size: var(--text-sm);
+          font-size: var(--text-body);
+          line-height: 1.5;
           color: var(--text-secondary);
           cursor: pointer;
+          user-select: none;
         }
         .ui-switch {
           position: relative;

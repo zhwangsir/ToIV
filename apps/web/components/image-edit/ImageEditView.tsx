@@ -171,7 +171,7 @@ function DropZone({ onUpload, uploading, error }: DropZoneProps) {
           }}
         />
         <span className="ie-dropzone-icon">
-          {uploading ? <Icon name="loading" size={40} /> : <Icon name="upload" size={40} />}
+          {uploading ? <Icon name="loading" size={48} /> : <Icon name="upload" size={48} />}
         </span>
         <span className="ie-dropzone-title">
           {uploading ? "上传中…" : "拖拽图片到这里，或点击选择"}
@@ -187,19 +187,11 @@ function DropZone({ onUpload, uploading, error }: DropZoneProps) {
 // 子组件:原图预览
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface SourcePreviewProps {
-  image: UploadedImage;
-  onReset: () => void;
-}
-
-function SourcePreview({ image, onReset }: SourcePreviewProps) {
+function SourcePreview({ image }: { image: UploadedImage }) {
   return (
     <Card className="ie-preview-card">
       <div className="ie-preview-head">
         <span className="ie-preview-label">原图</span>
-        <Button variant="ghost" size="sm" icon={<Icon name="refresh" size={13} />} onClick={onReset}>
-          重新上传
-        </Button>
       </div>
       <div className="ie-preview-media">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -517,23 +509,26 @@ export function ImageEditView() {
 
   return (
     <div className="single-view ie-view">
-      <header className="ie-header">
-        <h1 className="ie-title">图片编辑</h1>
-        <p className="ie-subtitle">上传一张图片，选择工具一键处理，支持去背景、高清增强、局部重绘和人脸修复</p>
+      <header className="page-header">
+        <div className="ie-header-text">
+          <h1 className="page-header-title">图片编辑</h1>
+          <p className="page-header-desc">上传一张图片，选择工具一键处理：去背景、高清增强、局部重绘、人脸修复</p>
+        </div>
+        {source && (
+          <div className="page-header-actions">
+            <Button variant="ghost" size="sm" icon={<Icon name="refresh" size={13} />} onClick={resetSource}>
+              重新上传
+            </Button>
+          </div>
+        )}
       </header>
 
       {!source ? (
         <DropZone onUpload={handleUpload} uploading={uploading} error={uploadError} />
       ) : (
         <div className="ie-workspace">
-          <div className="ie-left">
-            <SourcePreview image={source} onReset={resetSource} />
-            {proc.status === "done" && proc.resultUrl && (
-              <ResultPanel source={source} resultUrl={proc.resultUrl} resultPaths={proc.resultPaths} />
-            )}
-          </div>
-
-          <div className="ie-right">
+          <aside className="ie-rail">
+            <span className="ie-section-label">处理工具</span>
             <div className="ie-tools">
               {TOOLS.map((t) => (
                 <ToolCard
@@ -570,7 +565,7 @@ export function ImageEditView() {
                     </Field>
                   )}
                   {t.key === "inpaint" && (
-                    <>
+                    <div className="ie-field-group">
                       <Field label="要修改的区域">
                         <Input
                           value={inpaintTarget}
@@ -595,7 +590,7 @@ export function ImageEditView() {
                           disabled={isRunning}
                         />
                       </Field>
-                    </>
+                    </div>
                   )}
                   {t.key === "facedetailer" && (
                     <Field label={`修复强度 ${faceDenoise.toFixed(2)}`}>
@@ -636,9 +631,17 @@ export function ImageEditView() {
 
             {proc.status === "done" && (
               <div className="ie-done-tip">
-                <Icon name="success" size={14} />
+                <Icon name="success" size={16} />
                 <span>处理完成，结果已自动保存到作品库</span>
               </div>
+            )}
+          </aside>
+
+          <div className="ie-canvas">
+            <span className="ie-section-label">画布</span>
+            <SourcePreview image={source} />
+            {proc.status === "done" && proc.resultUrl && (
+              <ResultPanel source={source} resultUrl={proc.resultUrl} resultPaths={proc.resultPaths} />
             )}
           </div>
         </div>
@@ -649,30 +652,26 @@ export function ImageEditView() {
         .ie-view {
           display: flex;
           flex-direction: column;
-          gap: var(--space-6);
+          gap: var(--space-8);
         }
-        .ie-header {
+        .ie-header-text {
           display: flex;
           flex-direction: column;
-          gap: var(--space-2);
         }
-        .ie-title {
-          font-size: var(--text-2xl);
-          font-weight: 600;
-          color: var(--text-primary);
-          margin: 0;
-        }
-        .ie-subtitle {
-          font-size: var(--text-sm);
+        .ie-section-label {
+          font-size: var(--text-label);
+          font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
           color: var(--text-muted);
-          margin: 0;
         }
 
         /* ── 拖拽上传区 ── */
         .ie-dropzone-wrap {
           display: flex;
           flex-direction: column;
-          gap: var(--space-3);
+          align-items: center;
+          gap: var(--space-4);
         }
         .ie-dropzone {
           display: flex;
@@ -680,19 +679,24 @@ export function ImageEditView() {
           align-items: center;
           justify-content: center;
           gap: var(--space-3);
-          padding: var(--space-12) var(--space-6);
+          width: 100%;
+          max-width: 760px;
+          min-height: 320px;
+          padding: var(--space-12) var(--space-8);
           background: var(--bg-surface-1);
           border: 2px dashed var(--border-subtle);
           border-radius: var(--radius-panel);
           color: var(--text-primary);
           cursor: pointer;
           transition: border-color var(--duration-fast) var(--ease-standard),
-            background-color var(--duration-fast) var(--ease-standard);
+            background-color var(--duration-fast) var(--ease-standard),
+            box-shadow var(--duration-fast) var(--ease-standard);
         }
         .ie-dropzone:hover:not(:disabled),
         .ie-dropzone.is-dragover {
           border-color: var(--accent);
           background: var(--accent-soft);
+          box-shadow: var(--shadow-md);
         }
         .ie-dropzone:disabled {
           opacity: 0.6;
@@ -701,6 +705,7 @@ export function ImageEditView() {
         .ie-dropzone-icon {
           color: var(--text-muted);
           display: flex;
+          margin-bottom: var(--space-2);
         }
         .ie-dropzone.is-dragover .ie-dropzone-icon,
         .ie-dropzone:hover:not(:disabled) .ie-dropzone-icon {
@@ -708,47 +713,73 @@ export function ImageEditView() {
         }
         .ie-dropzone-title {
           font-size: var(--text-lg);
-          font-weight: 500;
+          font-weight: 600;
         }
         .ie-dropzone-desc {
-          font-size: var(--text-sm);
+          font-size: var(--text-aux);
           color: var(--text-muted);
         }
+        .ie-dropzone-wrap .ie-error {
+          width: 100%;
+          max-width: 760px;
+        }
+        @media (max-width: 767px) {
+          .ie-dropzone {
+            min-height: 240px;
+            padding: var(--space-10) var(--space-5);
+          }
+        }
 
-        /* ── 工作区布局 ── */
+        /* ── 工作区布局:左侧工具栏(340px 吸附) + 右侧画布 ── */
         .ie-workspace {
           display: flex;
-          gap: var(--space-5);
+          gap: var(--space-8);
           align-items: flex-start;
         }
-        .ie-left {
+        .ie-rail {
+          width: 340px;
+          flex-shrink: 0;
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-4);
+          position: sticky;
+          top: var(--space-6);
+        }
+        .ie-canvas {
           flex: 1;
           min-width: 0;
           display: flex;
           flex-direction: column;
           gap: var(--space-4);
         }
-        .ie-right {
-          width: 360px;
-          flex-shrink: 0;
-          display: flex;
-          flex-direction: column;
-          gap: var(--space-4);
+        .ie-canvas .ie-preview-card,
+        .ie-canvas .ie-result-card {
+          margin-top: var(--space-2);
         }
-        @media (max-width: 900px) {
+        @media (max-width: 1023px) {
           .ie-workspace {
             flex-direction: column;
+            gap: var(--space-6);
           }
-          .ie-right {
+          .ie-rail {
+            width: 100%;
+            position: static;
+            order: 2;
+          }
+          .ie-canvas {
+            order: 1;
             width: 100%;
           }
         }
 
         /* ── 预览卡片 ── */
+        .card.ie-preview-card {
+          padding: var(--space-6);
+          gap: var(--space-4);
+        }
         .ie-preview-card {
           display: flex;
           flex-direction: column;
-          gap: var(--space-3);
         }
         .ie-preview-head {
           display: flex;
@@ -788,24 +819,33 @@ export function ImageEditView() {
         .ie-tools {
           display: flex;
           flex-direction: column;
-          gap: var(--space-3);
+          gap: var(--space-4);
         }
         .ie-tool-card {
           background: var(--bg-surface-1);
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-panel);
           overflow: hidden;
-          transition: border-color var(--duration-fast) var(--ease-standard);
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            box-shadow var(--duration-fast) var(--ease-standard),
+            transform var(--duration-fast) var(--ease-standard);
+        }
+        .ie-tool-card:hover {
+          border-color: var(--border-strong);
+          box-shadow: var(--shadow-md);
+          transform: translateY(-2px);
         }
         .ie-tool-card.is-active {
           border-color: var(--accent);
+          box-shadow: var(--shadow-md);
         }
         .ie-tool-head {
           display: flex;
           align-items: center;
           gap: var(--space-3);
           width: 100%;
-          padding: var(--space-3) var(--space-4);
+          min-height: 68px;
+          padding: var(--space-4) var(--space-5);
           background: transparent;
           border: none;
           color: var(--text-primary);
@@ -824,8 +864,8 @@ export function ImageEditView() {
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 36px;
-          height: 36px;
+          width: 40px;
+          height: 40px;
           border-radius: var(--radius-control);
           background: var(--bg-surface-3);
           color: var(--text-secondary);
@@ -840,11 +880,11 @@ export function ImageEditView() {
           min-width: 0;
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          gap: var(--space-1);
         }
         .ie-tool-title {
-          font-size: var(--text-sm);
-          font-weight: 500;
+          font-size: var(--text-md);
+          font-weight: 600;
         }
         .ie-tool-desc {
           font-size: var(--text-aux);
@@ -857,16 +897,24 @@ export function ImageEditView() {
         .ie-tool-body {
           display: flex;
           flex-direction: column;
-          gap: var(--space-3);
-          padding: 0 var(--space-4) var(--space-4);
+          gap: var(--space-4);
+          padding: var(--space-4) var(--space-5) var(--space-5);
           border-top: 1px solid var(--border-subtle);
-          padding-top: var(--space-3);
+        }
+        .ie-field-group {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-3);
+          padding: var(--space-3);
+          background: var(--bg-surface-2);
+          border-radius: var(--radius-control);
         }
         .ie-tool-run {
           display: flex;
           flex-direction: column;
-          gap: var(--space-2);
-          padding-top: var(--space-1);
+          gap: var(--space-3);
+          padding-top: var(--space-4);
+          border-top: 1px dashed var(--border-subtle);
         }
 
         /* ── 滑杆 ── */
@@ -905,6 +953,10 @@ export function ImageEditView() {
           opacity: 0.5;
           cursor: not-allowed;
         }
+        .ie-slider:focus-visible {
+          outline: 1px solid var(--accent);
+          outline-offset: 4px;
+        }
 
         /* ── 进度条 ── */
         .ie-progress {
@@ -933,10 +985,13 @@ export function ImageEditView() {
         }
 
         /* ── 结果卡片 ── */
+        .card.ie-result-card {
+          padding: var(--space-6);
+          gap: var(--space-4);
+        }
         .ie-result-card {
           display: flex;
           flex-direction: column;
-          gap: var(--space-3);
         }
         .ie-result-head {
           display: flex;
@@ -982,6 +1037,13 @@ export function ImageEditView() {
           color: var(--text-primary);
           box-shadow: var(--shadow-sm);
         }
+        @media (max-width: 767px) {
+          /* 移动端触控目标 ≥44px */
+          .ie-toggle-btn {
+            min-height: 44px;
+            padding: var(--space-1) var(--space-4);
+          }
+        }
         .ie-result-media {
           display: flex;
           justify-content: center;
@@ -991,16 +1053,16 @@ export function ImageEditView() {
         }
         .ie-result-img {
           max-width: 100%;
-          max-height: 480px;
+          max-height: 520px;
           object-fit: contain;
           display: block;
         }
         .ie-compare-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: var(--space-3);
+          gap: var(--space-4);
         }
-        @media (max-width: 640px) {
+        @media (max-width: 767px) {
           .ie-compare-grid {
             grid-template-columns: 1fr;
           }
@@ -1040,8 +1102,12 @@ export function ImageEditView() {
 
         /* ── 错误 / 完成提示 ── */
         .ie-error {
-          font-size: var(--text-sm);
+          font-size: var(--text-aux);
           color: var(--err);
+          background: var(--err-soft);
+          padding: var(--space-2) var(--space-3);
+          border-radius: var(--radius-control);
+          overflow-wrap: break-word;
           margin: 0;
         }
         .ie-done-tip {
@@ -1051,7 +1117,7 @@ export function ImageEditView() {
           padding: var(--space-3);
           background: var(--ok-soft);
           border-radius: var(--radius-control);
-          font-size: var(--text-sm);
+          font-size: var(--text-aux);
           color: var(--ok);
         }
       `}</style>

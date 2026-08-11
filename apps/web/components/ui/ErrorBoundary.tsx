@@ -66,41 +66,6 @@ export class ErrorBoundary extends Component<Props, State> {
             <span>回到助手</span>
           </button>
         </div>
-        <style jsx>{`
-          .err-boundary {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 60vh;
-            padding: var(--space-7);
-            gap: var(--space-4);
-            text-align: center;
-          }
-          .err-icon {
-            color: var(--err);
-            opacity: 0.6;
-          }
-          .err-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin: 0;
-          }
-          .err-msg {
-            font-size: 0.875rem;
-            color: var(--text-muted);
-            font-family: var(--font-mono);
-            max-width: 600px;
-            word-break: break-word;
-            margin: 0;
-          }
-          .err-actions {
-            display: flex;
-            gap: var(--space-3);
-            margin-top: var(--space-3);
-          }
-        `}</style>
       </div>
     );
   }

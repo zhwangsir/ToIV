@@ -108,7 +108,7 @@ export function RefImageUpload({ param, value, onChange, uploadKind, disabled }:
           display: flex;
           align-items: center;
           gap: var(--space-2);
-          padding: var(--space-1);
+          padding: var(--space-2);
           background: var(--bg-surface-3);
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-control);
@@ -128,6 +128,9 @@ export function RefImageUpload({ param, value, onChange, uploadKind, disabled }:
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+        }
+        .ref-image-preview :global(button) {
+          flex-shrink: 0;
         }
       `}</style>
     </Field>

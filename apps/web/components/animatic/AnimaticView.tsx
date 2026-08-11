@@ -214,16 +214,16 @@ export function AnimaticView({
 
   return (
     <div className="single-view animatic-view">
-      <header className="anim-header">
+      <header className="page-header">
         <div>
-          <h1 className="anim-title">动态分镜</h1>
-          <p className="anim-subtitle">
+          <h1 className="page-header-title">动态分镜</h1>
+          <p className="page-header-desc">
             {isAi
               ? "上传分镜图,VLM 自动解析剧情并生成完整短剧(分镜视频 + 配音 + 成片)"
               : "上传分镜图,设置每镜时长,串成一条可播放的 animatic 视频"}
           </p>
         </div>
-        <div className="anim-header-right">
+        <div className="page-header-actions">
           <span className="badge">
             <Icon name="film" size={13} />
             {items.length} / {maxImages} 镜{!isAi && ` · 共 ${totalDuration.toFixed(1)}s`}
@@ -262,7 +262,9 @@ export function AnimaticView({
         onClick={() => inputRef.current?.click()}
         disabled={busy}
       >
-        <Icon name="upload" size={22} />
+        <span className="anim-drop-icon" aria-hidden="true">
+          <Icon name="upload" size={22} />
+        </span>
         <span className="anim-drop-title">点击选择分镜图(可多张)</span>
         <span className="anim-drop-hint">
           jpg / png / webp · 单张 ≤ 20MB · 最多 {maxImages} 张
@@ -349,6 +351,13 @@ export function AnimaticView({
 
       {isAi && (
         <div className="anim-params">
+          <div className="anim-params-head">
+            <span className="anim-params-title">生成参数</span>
+            <span className="anim-params-desc">
+              VLM 按故事方向拆分分镜,自动跑完整管线(分镜视频 → 配音 → 成片)
+            </span>
+          </div>
+          <div className="anim-params-body">
           <label className="anim-field anim-field-grow">
             <span className="anim-field-label">故事方向(可选)</span>
             <textarea
@@ -408,11 +417,19 @@ export function AnimaticView({
               </>
             )}
           </button>
+          </div>
         </div>
       )}
 
       {!isAi && (
         <div className="anim-params">
+          <div className="anim-params-head">
+            <span className="anim-params-title">生成参数</span>
+            <span className="anim-params-desc">
+              帧率与默认时长作用于整条 animatic;单镜时长可在卡片上单独调整
+            </span>
+          </div>
+          <div className="anim-params-body">
           <label className="anim-field">
             <span className="anim-field-label">帧率 (fps)</span>
             <input
@@ -481,6 +498,7 @@ export function AnimaticView({
               </>
             )}
           </button>
+          </div>
         </div>
       )}
 
@@ -492,7 +510,7 @@ export function AnimaticView({
       )}
 
       {!isAi && result && (
-        <section className="anim-result">
+        <section className="anim-result anim-result-panel">
           <div className="anim-result-head">
             <Icon name="success" size={16} />
             <span>

@@ -12,7 +12,7 @@ from __future__ import annotations
 import pytest
 
 from app import ratelimit
-from app.services import redis_client
+from app.services import engine_registry, redis_client
 
 
 @pytest.fixture(autouse=True)
@@ -29,3 +29,11 @@ def _clear_ratelimit():
     ratelimit._hits.clear()
     yield
     ratelimit._hits.clear()
+
+
+@pytest.fixture(autouse=True)
+def _clear_engine_avail_cache():
+    """引擎可用性短 TTL 缓存跨请求共享,用例间须重置保证探测替身生效。"""
+    engine_registry.reset_avail_cache()
+    yield
+    engine_registry.reset_avail_cache()

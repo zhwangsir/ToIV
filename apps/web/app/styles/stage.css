@@ -8,11 +8,14 @@
 /* ========== 布局骨架 ========== */
 
 .generate-view {
+  /* 布局尺寸局部变量:参数浮板宽 / 提示词条最小预留高度(下方多处引用,避免散落的魔法数) */
+  --params-w: 380px;
+  --promptbar-dock-h: 120px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: 0;
   height: 100%;
-  padding: var(--space-5);
+  padding: var(--space-6);
   overflow: hidden;
 }
 
@@ -41,25 +44,46 @@
 
 .generate-header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
+  align-items: flex-start;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: var(--space-4);
   flex-shrink: 0;
+  margin-bottom: var(--space-4);
+  /* 页头与舞台之间拉开层级:底部留白 + 细分隔线 */
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  /* 无需避让 CornerNav:壳层 .app-main padding-top:56px 已让开触发器(底缘 y50 < 页头 y80),
+     标题左缘与舞台左缘对齐,视觉对称 */
 }
-.generate-header-note {
-  font-size: var(--text-aux);
-  color: var(--text-muted);
+.generate-header-actions {
+  align-self: flex-start;
+  padding-top: 2px;
 }
-.generate-header-right {
+/* 统一页头类的视图内兜底(globals 的 .page-header-* 生效前也能正常排版) */
+.generate-header .page-header-main {
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
 }
-.generate-board-title {
+.generate-header .page-header-title {
+  margin: 0;
   font-size: var(--text-title);
   font-weight: 700;
   letter-spacing: -0.02em;
+  line-height: 1.25;
   color: var(--text-primary);
+}
+.generate-header .page-header-desc {
+  margin: 0;
+  font-size: var(--text-aux);
+  color: var(--text-muted);
+}
+.generate-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
 }
 
 /* 舞台容器:结果区全出血,参数浮板/悬浮球/提示词条全部绝对定位浮于其上 */
@@ -70,15 +94,17 @@
 }
 
 /* 舞台本体:浅色主题下浮于白画布之上的浅灰面板(原暗舞台为纯黑);
-   底部给提示词条预留 ~116px 悬浮区 */
+   底部给提示词条预留悬浮区(--promptbar-dock-h,与 FAB 底距同源) */
 .generate-results {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  bottom: 116px;
+  bottom: var(--promptbar-dock-h);
   background: var(--bg-surface-1);
-  border-radius: var(--radius-panel);
+  border: 1px solid var(--border-subtle);
+  border-bottom: none;
+  border-radius: var(--radius-panel) var(--radius-panel) 0 0;
   overflow: hidden;
 }
 
@@ -100,7 +126,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-6) var(--space-6) var(--space-4);
+  padding: var(--space-6);
 }
 .stage-main::after {
   content: "";
@@ -116,7 +142,7 @@
 }
 
 /* 状态胶囊:左上角浮层(状态 Badge + 引擎名 + 取消 + A/B 对比开关;A/B 原浮右上会被参数浮板遮挡);
-   桌面端右移让开 CornerNav 触发器(触发器宽 ~170px,高 36px,位于 top/left 12px) */
+   位于舞台内(y≈160+),与 CornerNav 触发器(y12-50)垂直无交集,无需左避让 */
 .stage-status {
   position: absolute;
   top: var(--space-3);
@@ -134,11 +160,6 @@
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-full);
   box-shadow: var(--glass-highlight), var(--shadow-md);
-}
-@media (min-width: 1024px) {
-  .stage-status {
-    left: 196px; /* 让开 CornerNav 触发器(12px + 触发器宽 + 间距) */
-  }
 }
 .stage-engine {
   font-size: var(--text-aux);
@@ -424,6 +445,8 @@
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
   border-top: 1px solid var(--border-subtle);
   background: color-mix(in oklab, var(--bg-canvas) 55%, var(--bg-surface-1));
 }
@@ -553,14 +576,32 @@
   margin: auto 0;
   padding: var(--space-6);
 }
-/* 空态参照系:浮板展开时扣除其占位(320px + 左右边距)居中;收起为 FAB 时自然全宽居中 */
-@media (min-width: 1025px) {
+/* 浮板展开时的避让参照系:
+   - 1024-1439 中窄屏:空态/词条在扣除浮板占位的可用区内居中(通过 padding-right 左移);
+   - ≥1440px 宽屏:侧边栏加宽到 380px 后,居中 640px/680px 会探入浮板,
+     因此按 viewport 动态收窄,保证空态/词条右缘不越过浮板左缘。
+   计算公式:浮板左缘 = 100vw - params-w - view-padding - params-margin,
+   居中元素最大宽度 = 2 * (浮板左缘 - 舞台中心) = 100vw - 2*(params-w + view-padding + params-margin)。 */
+@media (min-width: 1024px) and (max-width: 1439px) {
   .generate-view.is-params-open .result-panel-empty {
-    padding-right: calc(320px + var(--space-3) * 2);
+    padding-right: calc(var(--params-w) + var(--space-3) * 2);
   }
-  /* 提示词条同理:浮板展开时在浮板左侧的可用区内居中,避免右侧操作(优化/发送)被浮板压住 */
   .generate-view.is-params-open .promptbar-dock {
-    padding-right: calc(320px + var(--space-3) * 2 + var(--space-4));
+    padding-right: calc(var(--params-w) + var(--space-3) * 2 + var(--space-4));
+  }
+}
+@media (min-width: 1440px) {
+  .generate-view.is-params-open .promptbar {
+    width: min(
+      680px,
+      calc(100vw - (var(--params-w) + var(--space-6) + var(--space-3)) * 2)
+    );
+  }
+  .generate-view.is-params-open .empty-editorial {
+    max-width: min(
+      640px,
+      calc(100vw - (var(--params-w) + var(--space-6) + var(--space-3)) * 2)
+    );
   }
 }
 .empty-kicker {
@@ -620,16 +661,16 @@
   top: var(--space-3);
   right: var(--space-3);
   z-index: 20;
-  width: 320px;
-  /* 视口高度兜底:浮板永不出视口(顶部灵动岛 + 底部提示词条预留 ~200px) */
-  max-height: min(calc(100% - var(--space-6)), calc(100vh - 200px));
+  width: var(--params-w);
+  /* 视口高度兜底:浮板永不出视口(顶部灵动岛 + 底部提示词条预留 ~160px,侧边栏加高后仍安全) */
+  max-height: min(calc(100% - var(--space-6)), calc(100vh - 160px));
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--border-strong) transparent;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding: var(--space-3);
+  padding: var(--space-4);
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
@@ -670,8 +711,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-control);
@@ -688,11 +729,12 @@
   background: var(--bg-surface-2);
 }
 
-/* 收起态:右下角悬浮球(圆形 accent) */
+/* 收起态:右下角悬浮球(圆形 accent),固定在舞台右缘并避开底部提示词条 */
 .generate-params-fab {
   position: absolute;
   right: var(--space-4);
-  bottom: calc(116px + var(--space-3));
+  top: 50%;
+  transform: translateY(-50%);
   z-index: 20;
   display: flex;
   align-items: center;
@@ -711,12 +753,13 @@
 }
 .generate-params-fab:hover {
   background: var(--accent-hover);
-  transform: translateY(-2px);
+  transform: translateY(calc(-50% - 2px));
 }
 
 .engine-status {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-2);
 }
 .engine-status-reason {
@@ -799,6 +842,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  min-height: 32px;
   font-size: var(--text-body);
   color: var(--text-secondary);
   cursor: pointer;
@@ -835,27 +879,28 @@
   position: absolute;
   left: 0;
   right: 0;
-  bottom: var(--space-4);
+  bottom: 0;
   z-index: 10;
   display: flex;
   justify-content: center;
-  padding: 0 var(--space-4);
+  padding: 0;
   pointer-events: none; /* 条外区域不截获舞台交互 */
 }
 .promptbar {
   pointer-events: auto;
   position: relative; /* chip 展开面板的定位锚(向上展开) */
-  width: min(720px, 100%);
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-3);
+  padding: var(--space-4) var(--space-5);
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--glass-highlight), var(--shadow-float);
+  border-bottom: none;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  box-shadow: var(--glass-highlight), var(--shadow-md);
   transition: transform var(--duration-base) var(--ease-standard),
               border-color var(--duration-base) var(--ease-standard);
 }
@@ -880,9 +925,9 @@
   flex: 1;
   min-width: 0;
   min-height: 28px;
-  max-height: 160px;
-  padding: var(--space-1) var(--space-2);
-  resize: none;
+  max-height: none;
+  padding: var(--space-2);
+  resize: vertical;
   background: transparent;
   border: none;
   outline: none;
@@ -894,6 +939,13 @@
 }
 .promptbar-textarea::placeholder {
   color: var(--text-muted);
+}
+/* WCAG 2.4.7:outline:none 后必须补键盘焦点指示;focus-visible 只在键盘 Tab 时出现,
+   鼠标点击不打扰。容器 :focus-within 的上浮呼吸动效保留,两者互补。 */
+.promptbar-textarea:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+  border-radius: var(--radius-sm, 4px);
 }
 .promptbar-textarea:disabled {
   opacity: 0.6;
@@ -1018,11 +1070,12 @@
   pointer-events: none;
 }
 
-/* ========== 移动端 <1024px:舞台优先,浮板默认收起为 FAB,展开时为底部抽屉 ========== */
+/* ========== 窄屏 ≤1023px:舞台优先,浮板默认收起为 FAB,展开时为底部抽屉 ========== */
 
-@media (max-width: 1024px) {
+@media (max-width: 1023px) {
   .generate-view {
     overflow-y: auto; /* 页面可滚动:空态三步卡/胶片条均可达 */
+    padding: var(--space-4);
   }
   .generate-body {
     position: static;
@@ -1038,12 +1091,16 @@
     order: 1;
     height: 72vh;
     flex-shrink: 0;
+    border-radius: var(--radius-panel) var(--radius-panel) 0 0;
   }
   .promptbar-dock {
     position: sticky;
     order: 2;
-    bottom: var(--space-3);
+    bottom: 0;
     padding: 0;
+  }
+  .promptbar {
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   }
   /* 浮板展开 = 底部抽屉(默认收起为 FAB,见 GenerateView paramsOpen 初始化) */
   .generate-params {
@@ -1058,6 +1115,18 @@
     overflow-y: auto;
     animation: none;
   }
+  /* 触控目标 ≥44px:抽屉收起按钮 / 提示词条 chips / 高级参数折叠头 */
+  .generate-params-close {
+    width: 44px;
+    height: 44px;
+  }
+  .promptbar-chip {
+    height: 44px;
+    padding: 0 var(--space-4);
+  }
+  .adv-params summary {
+    min-height: 44px;
+  }
   .generate-params-fab {
     /* 舞台右缘纵向居中:避开底部 sticky 提示词条与系统导航栏的点击热区 */
     position: fixed;
@@ -1068,17 +1137,29 @@
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: 1023px) {
   .compare-grid {
     grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 767px) {
+  .generate-view {
+    padding: var(--space-3);
+    gap: 0;
+  }
+  /* 辅助说明让位:小屏头部只留模式段控/板块标题 */
+  .generate-header-note {
+    display: none;
+  }
   .empty-tips {
     grid-template-columns: 1fr;
   }
   .empty-display {
     font-size: 30px;
+  }
+  .empty-editorial {
+    padding: var(--space-4);
+    gap: var(--space-4);
   }
 }

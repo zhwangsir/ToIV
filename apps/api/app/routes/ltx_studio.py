@@ -44,7 +44,6 @@ router = APIRouter()
 # ── 板块资产白名单 ──────────────────────────────────────────────
 # 底模候选:(文件名, 是否 NSFW)。NSFW 底模触发 X-NSFW 门槛并把 Job 打 nsfw 标。
 _LTX2_UNETS: tuple[tuple[str, bool], ...] = (
-    ("ltx-2.3-distilled.safetensors", False),
     ("ltx-2.3-22b-distilled-1.1.safetensors", False),
     ("ltx-2.3-22b-dev.safetensors", False),
     ("10eros_v14.safetensors", True),
@@ -115,7 +114,7 @@ class Ltx2T2VRequest(BaseModel):
     """LTX-2.3 工作室文生视频请求。"""
     positive: str = Field(min_length=1, max_length=2000)
     negative: str = Field(default="", max_length=2000)
-    unet_name: str = Field(default="ltx-2.3-distilled.safetensors")
+    unet_name: str = Field(default="ltx-2.3-22b-distilled-1.1.safetensors")
     loras: list[Ltx2LoraInput] = Field(default_factory=list, max_length=_MAX_LORAS)
     width: int = Field(default=768, ge=256, le=1920)
     height: int = Field(default=384, ge=256, le=1080)

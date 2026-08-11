@@ -278,6 +278,52 @@ def test_fit_resolution_square_sdxl_is_1024():
 
 
 # ---------------------------------------------------------------------------
+# 次世代族(flux2/flux/qwen_image/z_image)分辨率预算 ~1.37MP —— 2026-08-10 修复
+# 背景:原 1MP 预算下 1024×1344 纵向请求被压到 896×1168,低于质量门 1024² 阈值。
+# 修复:次世代族预算提至 1024×1360,使 3:4 纵向也能达到 ≥1024 双维度。
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "flux2_dev_fp8mixed.safetensors",
+        "flux1-dev-fp8.safetensors",
+        "qwen_image_fp8.safetensors",
+        "z_image_turbo_fp8.safetensors",
+    ],
+)
+def test_fit_resolution_nextgen_portrait_both_dims_above_1024(name: str):
+    """次世代模型 3:4 纵向构图(1024×1344)须产出 ≥1024 双维度,过质量门。"""
+    w, h = fit_resolution(name, 1024, 1344)
+    assert w >= 1024 and h >= 1024, f"{name}: {w}×{h} 未达 1024²"
+    assert w % 8 == 0 and h % 8 == 0
+    # 宽高比保持 ~3:4(0.75±0.05)
+    assert abs((w / h) - (1024 / 1344)) < 0.05
+
+
+def test_fit_resolution_nextgen_square_above_1024():
+    """次世代模型方形构图须 ≥1024×1024(预算上调后应 >1024)。"""
+    w, h = fit_resolution("flux2_dev_fp8mixed.safetensors", 512, 512)
+    assert w >= 1024 and h >= 1024
+    assert w == h  # 方形保持
+
+
+def test_fit_resolution_nextgen_landscape_both_dims_above_1024():
+    """次世代模型 4:3 横向构图(1344×1024)也须 ≥1024 双维度。"""
+    w, h = fit_resolution("flux2_dev_fp8mixed.safetensors", 1344, 1024)
+    assert w >= 1024 and h >= 1024, f"{w}×{h} 未达 1024²"
+    assert w % 8 == 0 and h % 8 == 0
+
+
+def test_fit_resolution_sdxl_still_1mp_not_affected():
+    """回归:SDXL 族预算不变(1MP),次世代上调不影响传统族。"""
+    w, h = fit_resolution("animagineXL40.safetensors", 1024, 1344)
+    # SDXL 1MP 下 3:4 纵向 → ~896×1168(低于 1024,SDXL 原生限制)
+    assert w < 1024 or h < 1024, "SDXL 不应被次世代上调波及"
+    assert w * h <= 1024 * 1024 + 8192  # 允许 snap 误差
+
+
+# ---------------------------------------------------------------------------
 # 新增 NSFW 底模(civitai 调研批,2026-07)—— 分类/族/采样正确性
 # 确保:① 全部归 NSFW 档(不泄漏到主站)② 架构族正确(→ 分辨率/采样档)
 #      ③ vpred 模型触发 v_prediction 注入

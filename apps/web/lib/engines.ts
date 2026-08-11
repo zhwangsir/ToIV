@@ -9,6 +9,7 @@ import {
   generateLongcatI2V,
   generateLongcatT2V,
   generateLtxI2V,
+  generateLtxLipsync,
   generateLtxT2V,
   generateTxt2img,
   type AudioGenParams,
@@ -22,7 +23,7 @@ import type { GenerateResponse, Img2ImgGenParams, Txt2ImgParams } from "./types"
 
 export type EngineKind = "image" | "video" | "audio";
 
-export type EngineParamType = "text" | "textarea" | "number" | "select" | "switch" | "images" | "loras";
+export type EngineParamType = "text" | "textarea" | "number" | "select" | "switch" | "images" | "audio" | "loras";
 
 export interface EngineParamOption {
   value: string;
@@ -71,7 +72,7 @@ export async function fetchEngines(): Promise<EngineInfo[]> {
 export function engineDefaults(engine: EngineInfo): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const p of engine.params) {
-    if (p.type !== "images") out[p.key] = p.default;
+    if (p.type !== "images" && p.type !== "audio") out[p.key] = p.default;
   }
   return out;
 }
@@ -79,6 +80,11 @@ export function engineDefaults(engine: EngineInfo): Record<string, unknown> {
 /** 引擎是否需要上传参考图(params 含 images 类型)。 */
 export function engineNeedsImage(engine: EngineInfo): EngineParam | null {
   return engine.params.find((p) => p.type === "images") ?? null;
+}
+
+/** 引擎是否需要上传驱动音频(params 含 audio 类型,如对口型)。 */
+export function engineNeedsAudio(engine: EngineInfo): EngineParam | null {
+  return engine.params.find((p) => p.type === "audio") ?? null;
 }
 
 /** 引擎是否支持负向提示词(params 含 negative)。 */
@@ -99,6 +105,8 @@ export interface EngineSubmitInput {
   values: Record<string, unknown>;
   /** 参考图(images 类型参数必填)。 */
   refImage?: RefImageHandle | null;
+  /** 驱动音频(audio 类型参数必填,须与参考图同 worker)。 */
+  refAudio?: RefImageHandle | null;
 }
 
 function _str(values: Record<string, unknown>, key: string, fallback = ""): string {
@@ -146,10 +154,11 @@ function _seed(values: Record<string, unknown>): number | null {
  * 返回的 GenerateResponse 交给 useGeneration/trackJob 做 SSE 进度跟踪。
  */
 export async function submitEngineGeneration(input: EngineSubmitInput): Promise<GenerateResponse> {
-  const { engine, positive, values, refImage } = input;
+  const { engine, positive, values, refImage, refAudio } = input;
   const id = engine.id;
   const needsImage = engineNeedsImage(engine) !== null;
   if (needsImage && !refImage) throw new Error("请先上传参考图");
+  if (engineNeedsAudio(engine) !== null && !refAudio) throw new Error("请先上传驱动音频");
   const seed = _seed(values);
   const negative = _str(values, "negative");
 
@@ -209,6 +218,17 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
         worker: refImage!.worker,
       });
 
+    case "ltx-nsfw-lipsync":
+      // 参考图 + 驱动音频须同 worker(前端上传时已互钉);ID LoRA 留空即不用
+      return generateLtxLipsync({
+        ..._ltxNsfwPayload(values, positive, negative, seed),
+        image: refImage!.filename,
+        audio: refAudio!.filename,
+        worker: refImage!.worker,
+        id_lora: _str(values, "id_lora").trim() || undefined,
+        id_lora_strength: _num(values, "id_lora_strength", 0.8),
+      });
+
     case "h3-t2v":
       return _postH3("/api/h3/t2v", _h3Payload(values, positive, negative, seed));
 
@@ -260,7 +280,7 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
 function _ltx2Payload(values: Record<string, unknown>, positive: string, negative: string, seed: number | null) {  return {
     positive,
     negative,
-    unet_name: _str(values, "unet_name", "ltx-2.3-distilled.safetensors"),
+    unet_name: _str(values, "unet_name", "ltx-2.3-22b-distilled-1.1.safetensors"),
     width: _num(values, "width", 768),
     height: _num(values, "height", 384),
     length: _num(values, "length", 97),

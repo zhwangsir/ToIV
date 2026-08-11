@@ -15,20 +15,22 @@
   gap: var(--space-1);
 }
 .doc-chips--composer {
-  max-width: 760px;
+  max-width: 720px;
   margin: 0 auto;
   padding: 0 var(--space-1) var(--space-2);
 }
 .doc-chips--msg {
-  display: block;
-  margin-bottom: var(--space-1);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
 }
 .doc-chip {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
   max-width: 240px;
-  padding: 2px var(--space-2);
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-full);
   font-size: var(--text-aux);
   font-weight: 500;
@@ -47,7 +49,6 @@
 .doc-chips--msg .doc-chip {
   background: color-mix(in oklab, var(--text-on-accent) 18%, transparent);
   color: var(--text-on-accent);
-  margin-right: var(--space-1);
 }
 .doc-chip-x {
   display: inline-flex;
@@ -55,7 +56,7 @@
   justify-content: center;
   width: 14px;
   height: 14px;
-  margin-left: 2px;
+  margin-left: var(--space-1);
   border: none;
   border-radius: 50%;
   background: transparent;
@@ -76,12 +77,12 @@
   justify-content: center;
   gap: var(--space-2);
   width: 100%;
-  min-height: 34px;
+  min-height: 40px;
   padding: var(--space-2) var(--space-3);
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--space-4);
   background: var(--accent-soft);
   border: 1px dashed var(--accent-glow);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-panel);
   color: var(--accent);
   font-size: var(--text-aux);
   font-weight: 500;
@@ -91,7 +92,7 @@
     border-color var(--duration-fast) var(--ease-standard);
 }
 .doc-upload-btn:hover:not(:disabled) {
-  background: color-mix(in oklab, var(--accent-soft) 70%, var(--accent) 10%);
+  background: color-mix(in oklab, var(--accent) 16%, transparent);
   border-color: var(--accent);
 }
 .doc-upload-btn:disabled {
@@ -110,7 +111,7 @@
   gap: var(--space-1);
   background: var(--bg-surface-1);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-panel);
+  border-radius: var(--radius-control);
   transition: border-color var(--duration-fast) var(--ease-standard),
     background-color var(--duration-fast) var(--ease-standard);
 }
@@ -139,7 +140,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
 }
 .doc-item-name {
   display: inline-flex;
@@ -200,4 +201,19 @@
 .av-composer-tool.is-active {
   color: var(--accent);
   background: var(--accent-soft);
+}
+
+/* ───── 移动端:触控目标放大(≥44px 主控件;chips 内移除键为次级操作取 24px) ───── */
+@media (max-width: 767px) {
+  .doc-upload-btn {
+    min-height: 44px;
+  }
+  .doc-item-delete {
+    width: 44px;
+    margin-right: 0;
+  }
+  .doc-chip-x {
+    width: 24px;
+    height: 24px;
+  }
 }

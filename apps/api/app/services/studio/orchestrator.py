@@ -7,11 +7,11 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlmodel import Session, select
 
-from app.models import StudioCharacter, StudioShot
+from app.models import StudioCharacter, StudioProject, StudioShot
 from app.services.studio.renderers.base import RenderError, get_renderer
 
 if TYPE_CHECKING:
@@ -51,8 +51,20 @@ async def render_shot(
     shot.error = ""
     session.add(shot)
     session.commit()
+    # 项目级产出规格 + 出图底模注入渲染器(此前 ckpt_name 定义了却从未下发,图像运镜链恒走默认底模)
+    project = session.get(StudioProject, shot.project_id)
+    render_kw: dict[str, Any] = {}
+    if project is not None:
+        render_kw = {
+            "ckpt_name": project.ckpt_name,
+            "width": project.width,
+            "height": project.height,
+            "fps": project.fps,
+        }
     try:
-        result = await get_renderer(shot).render(shot, _cast_for(session, shot), pool)
+        result = await get_renderer(shot).render(
+            shot, _cast_for(session, shot), pool, **render_kw
+        )
     except RenderError as e:
         shot.status = "error"
         shot.error = str(e)

@@ -131,19 +131,21 @@ export function NsfwView() {
             flex-direction: column;
             align-items: center;
             gap: var(--space-3);
-            padding: var(--space-6);
+            padding: var(--space-8) var(--space-6);
             background: var(--bg-surface-1);
             border: 1px solid var(--border-subtle);
             border-radius: var(--radius-panel);
+            box-shadow: var(--shadow-md);
             text-align: center;
             max-width: 360px;
+            width: 100%;
           }
           .nsfw-gate-icon {
             color: var(--text-muted);
           }
           .nsfw-gate-title {
             font-size: var(--text-title);
-            font-weight: 600;
+            font-weight: 700;
             color: var(--text-primary);
             margin: 0;
           }
@@ -151,6 +153,11 @@ export function NsfwView() {
             font-size: var(--text-body);
             color: var(--text-secondary);
             margin: 0;
+          }
+          .nsfw-gate-card .btn {
+            width: 100%;
+            min-height: 44px; /* 触控目标 ≥44px */
+            margin-top: var(--space-2);
           }
         `}</style>
       </div>
@@ -193,19 +200,21 @@ export function NsfwView() {
             flex-direction: column;
             align-items: center;
             gap: var(--space-3);
-            padding: var(--space-6);
+            padding: var(--space-8) var(--space-6);
             background: var(--bg-surface-1);
             border: 1px solid var(--border-subtle);
             border-radius: var(--radius-panel);
+            box-shadow: var(--shadow-md);
             text-align: center;
             max-width: 400px;
+            width: 100%;
           }
           .nsfw-age-gate-icon {
             color: var(--err);
           }
           .nsfw-age-gate-title {
             font-size: var(--text-title);
-            font-weight: 600;
+            font-weight: 700;
             color: var(--text-primary);
             margin: 0;
           }
@@ -221,6 +230,9 @@ export function NsfwView() {
             gap: var(--space-2);
             width: 100%;
             margin-top: var(--space-2);
+          }
+          .nsfw-age-gate-actions .btn {
+            min-height: 44px; /* 触控目标 ≥44px */
           }
         `}</style>
       </div>
@@ -380,25 +392,39 @@ function NsfwViewBody() {
 
   return (
     <div className="nsfw-view">
-      {/* ── 顶部警告条 ── */}
-      <header className="nsfw-banner" role="banner">
-        <div className="nsfw-banner-left">
+      {/* ── 统一页头:大标题 + 辅助描述 + 右侧 NAS 状态操作区 ── */}
+      <header className="page-header nsfw-header" role="banner">
+        <div className="nsfw-header-main">
           <span className="nsfw-badge" aria-label="18+ 内容">
             <Icon name="warning" size={14} />
             <span>18+</span>
           </span>
-          <div className="nsfw-banner-text">
-            <div className="nsfw-banner-title">R18 创作专区</div>
-            <div className="nsfw-banner-sub">
+          <div className="nsfw-header-text">
+            <h1 className="page-header-title">R18 创作专区</h1>
+            <p className="page-header-desc">
               模型自行搭配,内容仅你可见,请遵守当地法规
-            </div>
+            </p>
           </div>
+        </div>
+        <div className="page-header-actions">
+          <span
+            className={`nsfw-nas-chip${nasStatus.enabled ? " is-on" : ""}`}
+            title={
+              nasStatus.enabled
+                ? "NAS 下载通道可用,推荐模型可一键下载"
+                : "NAS 未启用,推荐模型仅提供 Civitai 链接"
+            }
+          >
+            <Icon name="database" size={12} />
+            <span>{nasStatus.enabled ? "NAS 已连接" : "NAS 未启用"}</span>
+          </span>
         </div>
       </header>
 
       {/* ── 主创作区:图像 / 视频 / 作品库 tab 切换 ── */}
       <main className="nsfw-main">
-        <div className="nsfw-tabs" role="tablist" aria-label="创作模式">
+        <div className="nsfw-tabs-wrap">
+          <div className="nsfw-tabs" role="tablist" aria-label="创作模式">
           <button
             type="button"
             role="tab"
@@ -439,6 +465,7 @@ function NsfwViewBody() {
             <Icon name="library" size={16} />
             <span>作品库</span>
           </button>
+          </div>
         </div>
         <div className="nsfw-tab-panel">
           {/* 统一生成工作台:onlyNsfw 只展示 R18 引擎;initialDraft 默认 null 不消费
@@ -614,30 +641,75 @@ function NsfwViewBody() {
           min-height: 100vh;
           background: var(--bg-canvas);
         }
-        /* ── 顶部 banner ── */
-        .nsfw-banner {
+        /* ── 统一页头(.page-header* 为全局类;此处为 NSFW 定制与兜底)── */
+        .nsfw-header {
           display: flex;
           align-items: center;
-          gap: var(--space-3);
-          padding: var(--space-3) var(--space-5);
+          justify-content: space-between;
+          gap: var(--space-4);
+          padding: var(--space-6) var(--space-8); /* 壳层 app-main padding-top:56px 已垂直让开 CornerNav 触发器,左右对称 */
           background: linear-gradient(
             90deg,
-            color-mix(in oklch, var(--err) 12%, var(--bg-surface-1)),
-            var(--bg-surface-1)
+            color-mix(in oklch, var(--err) 10%, var(--bg-surface-1)),
+            var(--bg-surface-1) 60%
           );
           border-bottom: 1px solid var(--border-subtle);
         }
-        .nsfw-banner-left {
+        .nsfw-header-main {
           display: flex;
           align-items: center;
           gap: var(--space-3);
           min-width: 0;
         }
+        .nsfw-header-text {
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-1);
+        }
+        /* 全局类缺失时的兜底,与全局页头排版档一致 */
+        .nsfw-header .page-header-title {
+          margin: 0;
+          font-size: var(--text-title);
+          font-weight: 700;
+          color: var(--text-primary);
+          line-height: 1.3;
+        }
+        .nsfw-header .page-header-desc {
+          margin: 0;
+          font-size: var(--text-aux);
+          color: var(--text-secondary);
+          line-height: 1.5;
+        }
+        .nsfw-header .page-header-actions {
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+          flex-shrink: 0;
+        }
+        .nsfw-nas-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: var(--space-1);
+          padding: var(--space-1) var(--space-3);
+          background: var(--bg-surface-2);
+          color: var(--text-muted);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-full);
+          font-size: var(--text-label);
+          font-weight: 500;
+          white-space: nowrap;
+        }
+        .nsfw-nas-chip.is-on {
+          background: var(--accent-soft);
+          color: var(--accent);
+          border-color: color-mix(in oklch, var(--accent) 35%, transparent);
+        }
         .nsfw-badge {
           display: inline-flex;
           align-items: center;
           gap: var(--space-1);
-          padding: 2px var(--space-2);
+          padding: var(--space-1) var(--space-2);
           background: var(--err);
           color: var(--text-on-accent);
           border-radius: var(--radius-full);
@@ -645,20 +717,6 @@ function NsfwViewBody() {
           font-weight: 600;
           letter-spacing: 0.04em;
           flex-shrink: 0;
-        }
-        .nsfw-banner-text {
-          min-width: 0;
-        }
-        .nsfw-banner-title {
-          font-size: var(--text-section);
-          font-weight: 600;
-          color: var(--text-primary);
-          line-height: 1.3;
-        }
-        .nsfw-banner-sub {
-          font-size: var(--text-aux);
-          color: var(--text-secondary);
-          line-height: 1.4;
         }
         /* ── 主创作区 ── */
         .nsfw-main {
@@ -668,40 +726,56 @@ function NsfwViewBody() {
           display: flex;
           flex-direction: column;
         }
-        /* ── 图像 / 视频 tab ── */
-        .nsfw-tabs {
-          display: flex;
-          gap: 0;
-          padding: 0 var(--space-5);
-          background: var(--bg-surface-1);
-          border-bottom: 1px solid var(--border-subtle);
+        /* ── 图像 / 视频 tab:悬浮式分段控件(脱离整栏分隔线,改为胶囊组)── */
+        .nsfw-tabs-wrap {
+          padding: var(--space-4) var(--space-8) 0;
+          background: var(--bg-canvas);
           flex-shrink: 0;
+        }
+        .nsfw-tabs {
+          display: inline-flex;
+          gap: var(--space-1);
+          padding: var(--space-1);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-full);
+          box-shadow: var(--shadow-sm);
+          max-width: 100%;
+          overflow-x: auto; /* 窄屏 4 个 tab 可横滑,不挤压破版 */
+          scrollbar-width: none;
+        }
+        .nsfw-tabs::-webkit-scrollbar {
+          display: none;
         }
         .nsfw-tab {
           display: inline-flex;
           align-items: center;
+          justify-content: center;
           gap: var(--space-2);
-          padding: var(--space-3) var(--space-4);
+          min-height: 44px; /* 触控目标 ≥44px */
+          padding: var(--space-2) var(--space-5);
           background: transparent;
           border: none;
-          border-bottom: 2px solid transparent;
+          border-radius: var(--radius-full);
           color: var(--text-secondary);
           font-size: var(--text-body);
           font-weight: 500;
+          white-space: nowrap;
           cursor: pointer;
           transition: color var(--duration-fast) var(--ease-standard),
-            border-color var(--duration-fast) var(--ease-standard),
             background-color var(--duration-fast) var(--ease-standard);
         }
         .nsfw-tab:hover {
           background: var(--bg-surface-2);
+          color: var(--text-primary);
         }
         .nsfw-tab:active {
           background: var(--bg-surface-3);
         }
         .nsfw-tab.is-active {
-          color: var(--text-primary);
-          border-bottom-color: var(--accent);
+          background: var(--accent-soft);
+          color: var(--accent);
+          font-weight: 600;
         }
         .nsfw-tab-panel {
           flex: 1;
@@ -710,25 +784,26 @@ function NsfwViewBody() {
           display: flex;
           flex-direction: column;
         }
-        /* ── 推荐模型 ── */
+        /* ── 推荐模型:独立区块,拉开与主创作区的节奏 ── */
         .nsfw-recs {
           border-top: 1px solid var(--border-subtle);
           background: var(--bg-surface-1);
-          padding: 0 var(--space-5);
+          padding: var(--space-2) var(--space-8) var(--space-4);
         }
         .nsfw-recs-toggle {
           display: flex;
           align-items: center;
           gap: var(--space-2);
           width: calc(100% + 2 * var(--space-2));
+          min-height: 52px;
           padding: var(--space-3) var(--space-2);
           margin: 0 calc(-1 * var(--space-2));
           background: transparent;
           border: none;
           border-radius: var(--radius-control);
-          color: var(--text-secondary);
-          font-size: var(--text-body);
-          font-weight: 500;
+          color: var(--text-primary);
+          font-size: var(--text-section); /* 区块标题档 */
+          font-weight: 600;
           cursor: pointer;
           text-align: left;
           transition: background-color var(--duration-fast) var(--ease-standard);
@@ -741,32 +816,38 @@ function NsfwViewBody() {
         }
         .nsfw-recs-count {
           margin-left: auto;
+          padding: var(--space-1) var(--space-3);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-full);
           color: var(--text-muted);
-          font-size: var(--text-aux);
-          font-weight: 400;
+          font-size: var(--text-label);
+          font-weight: 500;
         }
         .nsfw-recs-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-          gap: var(--space-3);
-          padding-bottom: var(--space-5);
+          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+          gap: var(--space-5);
+          padding: var(--space-2) 0 var(--space-6);
         }
         .nsfw-rec-card {
           display: flex;
           flex-direction: column;
           gap: var(--space-2);
-          padding: var(--space-3);
-          background: var(--bg-surface-2);
+          padding: var(--space-5);
+          background: var(--bg-surface-1);
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-control);
+          border-radius: var(--radius-panel); /* 卡片与面板圆角一致 */
           color: inherit;
           text-decoration: none;
           transition: border-color var(--duration-fast) var(--ease-standard),
-            background-color var(--duration-fast) var(--ease-standard);
+            box-shadow var(--duration-fast) var(--ease-standard),
+            transform var(--duration-fast) var(--ease-standard);
         }
         .nsfw-rec-card:hover {
           border-color: var(--border-strong);
-          background: var(--bg-surface-3);
+          box-shadow: var(--shadow-md);
+          transform: translateY(-2px); /* hover 升浮反馈 */
         }
         .nsfw-rec-head {
           display: flex;
@@ -777,7 +858,7 @@ function NsfwViewBody() {
         .nsfw-rec-type,
         .nsfw-rec-cat {
           font-size: var(--text-label);
-          padding: 2px var(--space-1);
+          padding: 2px var(--space-2);
           border-radius: var(--radius-badge);
           font-weight: 500;
         }
@@ -790,21 +871,22 @@ function NsfwViewBody() {
           color: var(--text-secondary);
         }
         .nsfw-rec-name {
-          font-size: var(--text-body);
+          font-size: var(--text-section);
           font-weight: 600;
           color: var(--text-primary);
+          line-height: 1.4;
           word-break: break-word;
         }
         .nsfw-rec-base,
         .nsfw-rec-size {
           font-size: var(--text-aux);
-          color: var(--text-secondary);
+          color: var(--text-muted);
           font-family: var(--font-mono);
         }
         .nsfw-rec-desc {
           font-size: var(--text-aux);
-          color: var(--text-secondary);
-          line-height: 1.45;
+          color: var(--text-muted);
+          line-height: 1.55;
           display: -webkit-box;
           -webkit-line-clamp: 3;
           -webkit-box-orient: vertical;
@@ -812,7 +894,7 @@ function NsfwViewBody() {
         }
         .nsfw-recs-empty {
           grid-column: 1 / -1;
-          padding: var(--space-5);
+          padding: var(--space-8) var(--space-5);
         }
         /* ── 已下载卡片态 ── */
         .nsfw-rec-card.is-done {
@@ -866,6 +948,7 @@ function NsfwViewBody() {
           justify-content: center;
           gap: var(--space-1);
           align-self: stretch;
+          min-height: 36px;
           padding: var(--space-2) var(--space-3);
           background: var(--accent);
           color: var(--text-on-accent);
@@ -910,7 +993,6 @@ function NsfwViewBody() {
           gap: var(--space-2);
           font-size: var(--text-aux);
           color: var(--text-secondary);
-          font-family: var(--font-mono);
         }
         .nsfw-dl-stage {
           color: var(--text-secondary);
@@ -919,9 +1001,11 @@ function NsfwViewBody() {
           margin-left: auto;
           color: var(--accent);
           font-weight: 600;
+          font-family: var(--font-mono); /* 等宽只用于数字,中文 stage 保持正文字体 */
         }
         .nsfw-dl-mb {
           color: var(--text-muted);
+          font-family: var(--font-mono);
         }
         /* ── 下载错误 ── */
         .nsfw-dl-error {
@@ -943,7 +1027,7 @@ function NsfwViewBody() {
           white-space: nowrap;
         }
         .nsfw-dl-retry {
-          padding: 2px var(--space-2);
+          padding: var(--space-1) var(--space-2);
           background: var(--err);
           color: var(--text-on-accent);
           border: none;
@@ -960,18 +1044,47 @@ function NsfwViewBody() {
           background: color-mix(in oklch, var(--err) 85%, var(--bg-canvas));
         }
         /* ── 响应式 ── */
-        @media (max-width: 640px) {
-          .nsfw-banner {
-            padding: var(--space-3);
+        @media (max-width: 1023px) {
+          .nsfw-header {
+            padding: var(--space-5) var(--space-6);
           }
-          .nsfw-banner-sub {
-            display: none;
+          .nsfw-tabs-wrap {
+            padding: var(--space-4) var(--space-6) 0;
           }
           .nsfw-recs {
-            padding: 0 var(--space-3);
+            padding: var(--space-2) var(--space-6) var(--space-4);
+          }
+        }
+        @media (max-width: 767px) {
+          .nsfw-header {
+            padding: var(--space-4);
+            flex-wrap: wrap;
+          }
+          .nsfw-header .page-header-desc {
+            display: none;
+          }
+          .nsfw-tabs-wrap {
+            padding: var(--space-3) var(--space-3) 0;
+          }
+          .nsfw-tab {
+            padding: var(--space-2) var(--space-3);
+          }
+          .nsfw-recs {
+            padding: var(--space-2) var(--space-3) var(--space-3);
           }
           .nsfw-recs-grid {
             grid-template-columns: 1fr;
+            gap: var(--space-3);
+          }
+          /* 移动端触控目标 ≥44px */
+          .nsfw-rec-link,
+          .nsfw-dl-btn,
+          .nsfw-dl-retry {
+            min-height: 44px;
+          }
+          .nsfw-dl-retry {
+            display: inline-flex;
+            align-items: center;
           }
         }
       `}</style>

@@ -128,7 +128,7 @@ export function PromptBar({
             )}
             <Button
               variant="primary"
-              className={isRunning ? "generate-run" : undefined}
+              className={isRunning ? "promptbar-submit generate-run" : "promptbar-submit"}
               loading={submitting}
               disabled={!canSubmit}
               icon={isRunning ? <Icon name="loading" size={14} /> : <Icon name="sparkles" size={14} />}

@@ -1,5 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import event
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
@@ -33,6 +34,14 @@ def ctx():
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
+    # 开启 SQLite 外键强制(默认关闭),复刻 PG 生产行为:
+    # 删除 user 时必须按 FK 依赖顺序删,否则 user_tenant_id_fkey 冲突(500)。
+    @event.listens_for(engine, "connect")
+    def _fk_on(dbapi_conn, _):
+        cur = dbapi_conn.cursor()
+        cur.execute("PRAGMA foreign_keys=ON")
+        cur.close()
+
     SQLModel.metadata.create_all(engine)
 
     def override() -> Session:

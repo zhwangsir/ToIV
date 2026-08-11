@@ -270,7 +270,7 @@
         "Node name for S&R": "LTXVAudioVAELoader"
       },
       "widgets_values": [
-        "mmaudio_large_44k_nsfw_gold_8.5k_final_fp16.safetensors"
+        "ltx-2.3-22b-distilled-1.1.safetensors"
       ]
     },
     {

@@ -46,7 +46,7 @@ function ToolCard({
     <Card className="audio-tool-card">
       <div className="audio-tool-head">
         <span className="audio-tool-icon">
-          <Icon name={icon} size={16} />
+          <Icon name={icon} size={18} />
         </span>
         <div className="audio-tool-headtext">
           <span className="audio-tool-title">{title}</span>
@@ -166,6 +166,7 @@ function TtsCard() {
       <Field label="情感描述(可选)" hint="如:平静叙述 / 激动 / 低声耳语">
         <Textarea
           rows={1}
+          className="audio-oneline-input"
           value={emo}
           placeholder="留空则默认语气"
           disabled={synthing}
@@ -188,7 +189,7 @@ function TtsCard() {
         {refName && (
           <span className="audio-ref-name" title={refName}>
             <Icon name="check" size={13} />
-            {refName}
+            <span className="audio-ref-label">{refName}</span>
             <button
               type="button"
               className="audio-ref-clear"
@@ -296,7 +297,7 @@ function AsrCard() {
         </Button>
         {file && (
           <span className="audio-ref-name" title={file.name}>
-            {file.name}
+            <span className="audio-ref-label">{file.name}</span>
           </span>
         )}
         <input
@@ -401,7 +402,7 @@ function SeparateCard() {
         </Button>
         {file && (
           <span className="audio-ref-name" title={file.name}>
-            {file.name}
+            <span className="audio-ref-label">{file.name}</span>
           </span>
         )}
         <input
@@ -450,17 +451,23 @@ export function AudioView() {
 
   return (
     <div className="audio-view">
-      <div className="audio-header">
-        <Tabs
-          ariaLabel="音频模式"
-          items={[
-            { key: "gen", label: "生成" },
-            { key: "edit", label: "编辑" },
-          ]}
-          current={tab}
-          onChange={(k) => setTab(k as AudioTab)}
-        />
-      </div>
+      <header className="page-header">
+        <div>
+          <h1 className="page-header-title">音频工坊</h1>
+          <p className="page-header-desc">配乐生成、TTS 配音、ASR 听写与人声分离,一站完成。</p>
+        </div>
+        <div className="page-header-actions">
+          <Tabs
+            ariaLabel="音频模式"
+            items={[
+              { key: "gen", label: "生成" },
+              { key: "edit", label: "编辑" },
+            ]}
+            current={tab}
+            onChange={(k) => setTab(k as AudioTab)}
+          />
+        </div>
+      </header>
 
       {tab === "gen" ? (
         <div className="audio-tab-gen">
@@ -483,13 +490,7 @@ export function AudioView() {
           height: 100%;
           overflow: hidden;
         }
-        .audio-header {
-          display: flex;
-          align-items: center;
-          gap: var(--space-3);
-          padding: var(--space-5) var(--space-5) 0 calc(var(--space-5) + var(--nav-safe-left)); /* 桌面端让开 CornerNav 触发器 */
-          flex-shrink: 0;
-        }
+        /* 页头:统一走全局 .page-header 体系(标题/描述/右侧操作区,桌面端自动避让 CornerNav) */
         .audio-tab-gen {
           flex: 1;
           min-height: 0;
@@ -502,9 +503,9 @@ export function AudioView() {
           display: flex;
           flex-direction: column;
         }
-        /* GenerateView 自带 padding 与板块标题;嵌入时去掉顶部重复留白 */
+        /* GenerateView 自带 padding 与音频板块一致,避免页头距离异常 */
         .audio-workbench :global(.generate-view) {
-          padding-top: var(--space-4);
+          padding-top: var(--space-6);
         }
         /* 歌词 textarea:占位文本与字段说明同源(ParamField hint),说明去重只留占位 */
         .audio-workbench :global(.ui-field:has(textarea) .ui-field-hint) {
@@ -514,31 +515,45 @@ export function AudioView() {
           flex: 1;
           min-height: 0;
           overflow-y: auto;
-          padding: var(--space-4) var(--space-5) var(--space-5);
+          padding: var(--space-5) var(--space-6) var(--space-8);
           display: flex;
           flex-direction: column;
-          gap: var(--space-4);
-          max-width: 760px;
+          gap: var(--space-6); /* 卡片间距 16→24,拉开工具卡层级 */
+          width: 100%;
+          max-width: 880px; /* 内容列 760→880,配合更宽松的卡内留白 */
+          margin: 0 auto; /* 宽屏下内容列居中,不再贴左侧 */
         }
 
         /* 工具卡(头部/表单/结果均由子组件渲染,styled-jsx 作用域不跨组件,统一走 :global) */
         .audio-view :global(.audio-tool-card) {
           display: flex;
           flex-direction: column;
-          gap: var(--space-3);
+          gap: var(--space-5);
+          padding: var(--space-6); /* 卡内留白 20→24,舒展优先 */
+          transition: transform var(--duration-base) var(--ease-standard),
+                      border-color var(--duration-fast) var(--ease-standard),
+                      box-shadow var(--duration-fast) var(--ease-standard);
+        }
+        /* hover 升浮反馈:描边加强 + 浮起投影 + 轻微上移 */
+        .audio-view :global(.audio-tool-card:hover) {
+          transform: translateY(-2px);
+          border-color: var(--border-strong);
+          box-shadow: var(--shadow-lift);
         }
         .audio-view :global(.audio-tool-head) {
           display: flex;
           align-items: center;
           gap: var(--space-3);
+          padding-bottom: var(--space-4);
+          border-bottom: 1px solid var(--border-subtle); /* 卡头/卡体分层线 */
         }
         .audio-view :global(.audio-tool-icon) {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 28px;
-          height: 28px;
-          border-radius: var(--radius-control);
+          width: 36px; /* 28→36,与加大后的卡头层级匹配 */
+          height: 36px;
+          border-radius: 10px;
           background: var(--accent-soft);
           color: var(--accent);
           flex-shrink: 0;
@@ -550,8 +565,9 @@ export function AudioView() {
           min-width: 0;
         }
         .audio-view :global(.audio-tool-title) {
-          font-size: var(--text-base);
+          font-size: var(--text-section); /* 区块标题档位 15px/600 */
           font-weight: 600;
+          line-height: 1.35;
           color: var(--text-primary);
         }
         .audio-view :global(.audio-tool-desc) {
@@ -562,7 +578,7 @@ export function AudioView() {
         .audio-view :global(.audio-tool-body) {
           display: flex;
           flex-direction: column;
-          gap: var(--space-3);
+          gap: var(--space-4); /* 表单分组间距 12→16 */
         }
 
         /* 提示词区(与 GenerateView prompt-field 同款头部排布) */
@@ -584,21 +600,44 @@ export function AudioView() {
           letter-spacing: 0.04em;
           color: var(--text-muted);
         }
+        /* 单行 textarea(如情感描述 rows=1):抵消全局 textarea 80px min-height,按单行控件渲染 */
+        .audio-view :global(.audio-oneline-input) {
+          min-height: 36px;
+          resize: none;
+        }
 
-        /* 上传行 */
+        /* 上传行:虚线投放区样式,与表单控件拉开材质层级 */
         .audio-view :global(.audio-ref-row) {
           display: flex;
           align-items: center;
           gap: var(--space-2);
           flex-wrap: wrap;
+          padding: var(--space-3) var(--space-4);
+          background: var(--bg-canvas);
+          border: 1px dashed var(--border-strong);
+          border-radius: var(--radius-panel);
+          transition: border-color var(--duration-fast) var(--ease-standard),
+                      background-color var(--duration-fast) var(--ease-standard);
+        }
+        .audio-view :global(.audio-ref-row:hover) {
+          border-color: var(--accent);
+          background: var(--accent-soft);
         }
         .audio-view :global(.audio-ref-name) {
           display: inline-flex;
           align-items: center;
           gap: var(--space-1);
           min-width: 0;
+          max-width: 100%; /* 长文件名不顶破卡片 */
+          padding: 2px var(--space-2);
+          background: var(--bg-surface-2);
+          border-radius: var(--radius-badge);
           font-size: var(--text-aux);
           color: var(--text-secondary);
+        }
+        /* 文件名文本:独立 span 承载省略号(flex 容器自身不做 text-overflow) */
+        .audio-view :global(.audio-ref-label) {
+          min-width: 0;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -606,12 +645,19 @@ export function AudioView() {
         .audio-view :global(.audio-ref-clear) {
           display: inline-flex;
           align-items: center;
+          justify-content: center;
+          width: 20px;
+          height: 20px;
+          flex-shrink: 0;
           color: var(--text-muted);
           cursor: pointer;
           border-radius: var(--radius-sm);
+          transition: color var(--duration-fast) var(--ease-standard),
+                      background-color var(--duration-fast) var(--ease-standard);
         }
         .audio-view :global(.audio-ref-clear:hover) {
           color: var(--text-primary);
+          background: var(--bg-surface-3);
         }
 
         /* 进度条(与译制台 dub-progress 同款) */
@@ -636,23 +682,26 @@ export function AudioView() {
           align-items: center;
           justify-content: center;
           font-size: var(--text-aux);
-          color: var(--text-primary);
+          /* on-accent(近白)+ difference:空轨上呈深色、进度条(深)上呈浅色,全程可读 */
+          color: var(--text-on-accent);
           mix-blend-mode: difference;
+          letter-spacing: 0.02em;
+          font-variant-numeric: tabular-nums;
         }
 
-        /* 结果区 */
+        /* 结果区:嵌套面板加大留白与圆角,与卡体拉开层级 */
         .audio-view :global(.audio-result) {
           display: flex;
           flex-direction: column;
-          gap: var(--space-2);
-          padding: var(--space-3);
-          background: var(--bg-surface-3);
+          gap: var(--space-3);
+          padding: var(--space-4); /* 12→16 */
+          background: var(--bg-surface-2); /* 卡内嵌面板只降一档,不跳到 surface-3 */
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-control);
+          border-radius: var(--radius-panel); /* 8→12,与外层卡片同族 */
         }
         .audio-view :global(.audio-player) {
           width: 100%;
-          height: 36px;
+          height: 40px;
         }
         .audio-view :global(.audio-result-meta) {
           display: flex;
@@ -672,12 +721,16 @@ export function AudioView() {
           display: inline-flex;
           align-items: center;
           gap: var(--space-1);
+          padding: var(--space-1) var(--space-2);
+          margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-2)); /* 加大热区不撑开布局 */
+          border-radius: var(--radius-control);
           font-size: var(--text-aux);
           color: var(--accent);
           flex-shrink: 0;
+          transition: background-color var(--duration-fast) var(--ease-standard);
         }
         .audio-view :global(.audio-result-download:hover) {
-          text-decoration: underline;
+          background: var(--accent-soft);
         }
 
         /* 转写结果 */
@@ -694,7 +747,12 @@ export function AudioView() {
         }
 
         .audio-view :global(.audio-error) {
+          margin: 0; /* 消除 <p> 默认外边距,避免 flex 间距叠加不均 */
+          padding: var(--space-3) var(--space-4);
+          background: var(--err-soft);
+          border-radius: var(--radius-control);
           font-size: var(--text-aux);
+          line-height: 1.5;
           color: var(--err);
         }
         .audio-view :global(.audio-actions) {
@@ -703,11 +761,50 @@ export function AudioView() {
           gap: var(--space-2);
         }
 
-        @media (max-width: 860px) {
+        @media (max-width: 1023px) {
           /* 生成 tab:滚动由 GenerateView 内部承载(stage.css <1024px 纵向堆叠),
              此处保持 flex 定高链,舞台不再被工具卡挤压、页面可滚动 */
           .audio-tab-edit {
             max-width: none;
+            padding: var(--space-4) var(--space-5) var(--space-6);
+          }
+        }
+
+        /* 音频板块页头:标题/描述与段控水平紧邻,避免 space-between 造成的大片留白 */
+        .audio-view :global(.page-header) {
+          justify-content: flex-start;
+          align-items: flex-start;
+          gap: var(--space-4);
+          margin-bottom: var(--space-4);
+        }
+        .audio-view :global(.page-header-actions) {
+          align-self: flex-start;
+          padding-top: 2px;
+        }
+
+        /* 移动端:触控目标 ≥44px,主操作撑满整行 */
+        @media (max-width: 767px) {
+          .audio-tab-edit {
+            padding: var(--space-4) var(--space-4) var(--space-6);
+            gap: var(--space-4);
+          }
+          .audio-view :global(.audio-tool-card) {
+            padding: var(--space-5);
+          }
+          .audio-view :global(.audio-actions .btn) {
+            width: 100%;
+            min-height: 44px;
+          }
+          .audio-view :global(.audio-ref-row .btn) {
+            min-height: 44px;
+          }
+          .audio-view :global(.audio-ref-clear) {
+            width: 32px;
+            height: 32px;
+          }
+          .audio-view :global(.audio-result-download) {
+            padding: var(--space-2);
+            margin: calc(-1 * var(--space-2));
           }
         }
       `}</style>

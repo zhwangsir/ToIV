@@ -81,10 +81,17 @@ class ImageMotionRenderer:
     name = "image_motion"
 
     async def _run_kenburns(
-        self, image_path: Path, motion: str, out_path: Path, duration_sec: int, fps: int
+        self,
+        image_path: Path,
+        motion: str,
+        out_path: Path,
+        duration_sec: int,
+        fps: int,
+        width: int = _WIDTH,
+        height: int = _HEIGHT,
     ) -> Path:
         frames = max(1, duration_sec * fps)
-        vf = _kenburns_filter(motion, frames, _WIDTH, _HEIGHT, fps)
+        vf = _kenburns_filter(motion, frames, width, height, fps)
         await run_ffmpeg(
             [
                 "ffmpeg", "-y", "-loop", "1", "-i", image_path.as_posix(),
@@ -105,6 +112,10 @@ class ImageMotionRenderer:
         from app.workflows.txt2img import Txt2ImgParams, build_txt2img_graph
 
         ckpt = kw.get("ckpt_name") or get_settings().default_ckpt
+        # 项目级产出规格(缺省回落模块常量;两链同规格是合成拼接前提)
+        width = int(kw.get("width") or _WIDTH)
+        height = int(kw.get("height") or _HEIGHT)
+        fps = int(kw.get("fps") or _FPS)
         # 角色视觉 token 注入提示词,跨镜保一致
         cast_tokens = ", ".join(c.visual_prompt for c in cast if c.visual_prompt)
         positive = f"{cast_tokens}, {shot.prompt}" if cast_tokens else shot.prompt
@@ -113,8 +124,8 @@ class ImageMotionRenderer:
                 positive=positive,
                 negative=shot.negative,
                 ckpt_name=ckpt,
-                width=_WIDTH,
-                height=_HEIGHT,
+                width=width,
+                height=height,
                 filename_prefix="ToIV_studio",
             )
         )
@@ -141,7 +152,7 @@ class ImageMotionRenderer:
                 src.write_bytes(data)
                 out = Path(td) / "out.mp4"
                 await self._run_kenburns(
-                    src, shot.camera or "zoom_in", out, shot.duration_sec, _FPS
+                    src, shot.camera or "zoom_in", out, shot.duration_sec, fps, width, height
                 )
                 clip_url = _save_output(out.read_bytes(), ".mp4")
         except FFmpegError as e:

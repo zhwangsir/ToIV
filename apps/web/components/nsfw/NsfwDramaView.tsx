@@ -99,7 +99,18 @@ export function NsfwDramaView() {
   );
 
   return (
-    <div className="nsfw-drama">
+    <div className="nsfw-drama-root">
+      {/* ── 统一页头(批 4 .page-header 体系)── */}
+      <header className="page-header">
+        <div>
+          <h2 className="page-header-title">短剧工作台</h2>
+          <p className="page-header-desc">
+            剧本 → 分镜 → 视频 → 配音 → 成片,一站式短剧管线;R18 产物仅出现在专区作品库
+          </p>
+        </div>
+      </header>
+
+      <div className="nsfw-drama">
       {/* ── 左侧:项目列表 + 新建 ── */}
       <aside className="nsfw-drama-side">
         <div className="nsfw-drama-side-head">
@@ -180,7 +191,7 @@ export function NsfwDramaView() {
             </div>
             <div className="empty-state-title">选择或新建一个短剧项目</div>
             <div className="empty-state-desc">
-              剧本 → 分镜 → 视频 → 配音 → 成片;R18 产物仅出现在专区作品库
+              从左侧选择已有项目继续创作,或先新建一个项目
             </div>
           </div>
         )}
@@ -207,8 +218,22 @@ export function NsfwDramaView() {
           </div>
         )}
       </section>
+      </div>
 
       <style jsx>{`
+        .nsfw-drama-root {
+          flex: 1;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          background: var(--bg-canvas);
+        }
+        /* 统一页头在双栏布局内的落位:与内容左右对齐,不参与滚动 */
+        .nsfw-drama-root > .page-header {
+          flex-shrink: 0;
+          padding: var(--space-5) var(--space-6) 0;
+          margin-bottom: var(--space-5);
+        }
         .nsfw-drama {
           flex: 1;
           min-height: 0;
@@ -216,7 +241,7 @@ export function NsfwDramaView() {
           background: var(--bg-canvas);
         }
         .nsfw-drama-side {
-          width: 260px;
+          width: 300px;
           flex-shrink: 0;
           display: flex;
           flex-direction: column;
@@ -228,31 +253,43 @@ export function NsfwDramaView() {
           display: flex;
           align-items: center;
           gap: var(--space-2);
-          padding: var(--space-3) var(--space-4);
-          font-size: var(--text-body);
+          padding: var(--space-4) var(--space-5);
+          font-size: var(--text-section);
           font-weight: 600;
+          line-height: 1.4;
           color: var(--text-primary);
-          border-bottom: 1px solid var(--border-subtle);
         }
+        /* 新建表单:浮动卡片,与列表拉开层级 */
         .nsfw-drama-create {
           display: flex;
           flex-direction: column;
-          gap: var(--space-2);
-          padding: var(--space-3);
-          border-bottom: 1px solid var(--border-subtle);
+          gap: var(--space-3);
+          margin: 0 var(--space-3) var(--space-3);
+          padding: var(--space-4);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-panel);
         }
         .nsfw-drama-input {
           width: 100%;
-          padding: var(--space-2) var(--space-3);
-          background: var(--bg-surface-2);
+          padding: var(--space-3);
+          background: var(--bg-surface-1);
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-control);
           color: var(--text-primary);
-          font-size: var(--text-aux);
+          font-size: var(--text-body);
+          line-height: 1.5;
+          transition: border-color var(--duration-fast) var(--ease-standard);
+        }
+        .nsfw-drama-input::placeholder {
+          color: var(--text-muted);
         }
         .nsfw-drama-input:focus {
           outline: none;
           border-color: var(--accent);
+        }
+        .nsfw-drama-input:hover:not(:focus) {
+          border-color: var(--border-strong);
         }
         .nsfw-drama-textarea {
           resize: vertical;
@@ -268,52 +305,72 @@ export function NsfwDramaView() {
           flex: 1;
           min-height: 0;
           overflow-y: auto;
-          padding: var(--space-2);
+          padding: var(--space-3);
           display: flex;
           flex-direction: column;
-          gap: var(--space-1);
+          gap: var(--space-2);
         }
         .nsfw-drama-item {
           display: flex;
           align-items: center;
-          gap: var(--space-2);
-          padding: var(--space-2) var(--space-3);
+          gap: var(--space-3);
+          padding: var(--space-3);
           border-radius: var(--radius-control);
           cursor: pointer;
-          border: 1px solid transparent;
-          transition: background-color var(--duration-fast) var(--ease-standard);
+          border: 1px solid var(--border-subtle);
+          background: var(--bg-surface-1);
+          transition: background-color var(--duration-fast) var(--ease-standard),
+            border-color var(--duration-fast) var(--ease-standard),
+            box-shadow var(--duration-fast) var(--ease-standard),
+            transform var(--duration-fast) var(--ease-standard);
         }
         .nsfw-drama-item:hover {
           background: var(--bg-surface-2);
+          border-color: var(--border-strong);
+          box-shadow: var(--shadow-sm);
+          transform: translateY(-1px);
         }
         .nsfw-drama-item.is-active {
-          background: var(--bg-surface-3);
-          border-color: var(--border-strong);
+          background: var(--accent-soft);
+          border-color: var(--accent);
+          box-shadow: none;
+          transform: none;
         }
         .nsfw-drama-item-main {
           flex: 1;
           min-width: 0;
         }
         .nsfw-drama-item-title {
-          font-size: var(--text-aux);
+          font-size: var(--text-body);
           font-weight: 600;
+          line-height: 1.4;
           color: var(--text-primary);
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
         .nsfw-drama-item-sub {
+          margin-top: 2px;
           font-size: var(--text-label);
+          line-height: 1.4;
           color: var(--text-muted);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         .nsfw-drama-item-del {
           display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
           padding: var(--space-1);
           background: transparent;
           border: none;
           color: var(--text-muted);
           cursor: pointer;
           border-radius: var(--radius-badge);
+          transition: color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard);
         }
         .nsfw-drama-item-del:hover {
           color: var(--err);
@@ -324,15 +381,28 @@ export function NsfwDramaView() {
           min-width: 0;
           min-height: 0;
           overflow-y: auto;
-          padding: var(--space-4);
+          padding: var(--space-2) var(--space-6) var(--space-8);
         }
+        /* 空态:大号图标底盘 + 更舒展的留白 */
         .nsfw-drama-empty {
-          padding: var(--space-6);
+          padding: var(--space-12) var(--space-6);
+        }
+        .nsfw-drama-empty .empty-state-icon {
+          width: 72px;
+          height: 72px;
+          margin: 0 auto var(--space-4);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          background: var(--accent-soft);
+          color: var(--accent);
         }
         .nsfw-drama-hint {
-          padding: var(--space-4);
+          padding: var(--space-6);
           color: var(--text-muted);
           font-size: var(--text-aux);
+          line-height: 1.6;
           text-align: center;
         }
         .nsfw-drama-hint button {
@@ -347,9 +417,13 @@ export function NsfwDramaView() {
           display: flex;
           align-items: center;
           gap: var(--space-2);
-          padding: var(--space-3);
+          padding: var(--space-3) var(--space-4);
+          background: color-mix(in oklch, var(--err) 6%, var(--bg-surface-1));
+          border: 1px solid color-mix(in oklch, var(--err) 24%, var(--bg-surface-1));
+          border-radius: var(--radius-control);
           color: var(--err);
           font-size: var(--text-aux);
+          line-height: 1.5;
         }
         .nsfw-drama-error button {
           padding: 2px var(--space-2);
@@ -358,8 +432,21 @@ export function NsfwDramaView() {
           border: none;
           border-radius: var(--radius-badge);
           cursor: pointer;
+          flex-shrink: 0;
         }
-        @media (max-width: 720px) {
+        @media (max-width: 1023px) {
+          .nsfw-drama-side {
+            width: 260px;
+          }
+          .nsfw-drama-main {
+            padding: var(--space-2) var(--space-4) var(--space-6);
+          }
+        }
+        @media (max-width: 767px) {
+          .nsfw-drama-root > .page-header {
+            padding: var(--space-4) var(--space-4) 0;
+            margin-bottom: var(--space-4);
+          }
           .nsfw-drama {
             flex-direction: column;
             overflow-y: auto;
@@ -371,6 +458,17 @@ export function NsfwDramaView() {
           }
           .nsfw-drama-main {
             overflow-y: visible;
+          }
+          /* 移动端触控目标 ≥44px */
+          .nsfw-drama-create-btn {
+            min-height: 44px;
+          }
+          .nsfw-drama-item {
+            min-height: 44px;
+          }
+          .nsfw-drama-item-del {
+            min-width: 44px;
+            min-height: 44px;
           }
         }
       `}</style>
@@ -864,6 +962,8 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
         .nsfw-dd-title {
           margin: 0;
           font-size: var(--text-title);
+          font-weight: 700;
+          line-height: 1.3;
           color: var(--text-primary);
           overflow: hidden;
           text-overflow: ellipsis;
@@ -871,17 +971,21 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
         }
         .nsfw-dd-status {
           font-size: var(--text-label);
+          font-weight: 500;
+          line-height: 1.4;
           color: var(--accent);
           background: var(--accent-soft);
           border-radius: var(--radius-badge);
           padding: 2px var(--space-2);
           flex-shrink: 0;
+          white-space: nowrap;
         }
         .nsfw-dd-tasks {
           display: inline-flex;
           align-items: center;
           gap: var(--space-1);
           font-size: var(--text-label);
+          line-height: 1.4;
           color: var(--text-secondary);
           flex-shrink: 0;
         }
@@ -894,7 +998,7 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
           display: flex;
           flex-direction: column;
           gap: var(--space-2);
-          padding: var(--space-3);
+          padding: var(--space-4);
           background: var(--bg-surface-1);
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-panel);
@@ -903,8 +1007,10 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
           display: flex;
           align-items: center;
           gap: var(--space-2);
-          font-size: var(--text-body);
+          flex-wrap: wrap;
+          font-size: var(--text-section);
           font-weight: 600;
+          line-height: 1.4;
           color: var(--text-primary);
         }
         .nsfw-dd-script {
@@ -915,8 +1021,16 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
           border-radius: var(--radius-control);
           color: var(--text-primary);
           font-size: var(--text-aux);
+          line-height: 1.6;
           font-family: inherit;
           resize: vertical;
+          transition: border-color var(--duration-fast) var(--ease-standard);
+        }
+        .nsfw-dd-script::placeholder {
+          color: var(--text-muted);
+        }
+        .nsfw-dd-script:hover:not(:focus) {
+          border-color: var(--border-strong);
         }
         .nsfw-dd-script:focus {
           outline: none;
@@ -926,6 +1040,7 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
           display: flex;
           justify-content: flex-end;
           gap: var(--space-2);
+          flex-wrap: wrap;
         }
         .nsfw-dd-chars {
           display: flex;
@@ -938,19 +1053,26 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
           gap: var(--space-2);
           padding: var(--space-2);
           background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-control);
         }
         .nsfw-dd-char-img {
           width: 40px;
           height: 40px;
+          flex-shrink: 0;
           object-fit: cover;
           border-radius: var(--radius-badge);
         }
         .nsfw-dd-char-name {
           flex: 1;
+          min-width: 0;
           font-size: var(--text-aux);
           font-weight: 600;
+          line-height: 1.4;
           color: var(--text-primary);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         .nsfw-dd-char-op {
           padding: 2px var(--space-2);
@@ -959,7 +1081,12 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-badge);
           font-size: var(--text-label);
+          line-height: 1.4;
+          white-space: nowrap;
+          flex-shrink: 0;
           cursor: pointer;
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            color var(--duration-fast) var(--ease-standard);
         }
         .nsfw-dd-char-op:hover:not(:disabled) {
           border-color: var(--border-strong);
@@ -985,6 +1112,14 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
           border-radius: var(--radius-control);
           color: var(--text-primary);
           font-size: var(--text-aux);
+          line-height: 1.5;
+          transition: border-color var(--duration-fast) var(--ease-standard);
+        }
+        .nsfw-dd-input::placeholder {
+          color: var(--text-muted);
+        }
+        .nsfw-dd-input:hover:not(:focus) {
+          border-color: var(--border-strong);
         }
         .nsfw-dd-input:focus {
           outline: none;
@@ -998,6 +1133,12 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
           border-radius: var(--radius-control);
           color: var(--text-primary);
           font-size: var(--text-aux);
+          line-height: 1.5;
+          cursor: pointer;
+          transition: border-color var(--duration-fast) var(--ease-standard);
+        }
+        .nsfw-dd-model:hover {
+          border-color: var(--border-strong);
         }
         .nsfw-dd-shots {
           display: flex;
@@ -1016,6 +1157,7 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
           gap: var(--space-1);
           color: var(--err);
           font-size: var(--text-aux);
+          line-height: 1.5;
         }
         .nsfw-dd-grid-btn {
           display: inline-flex;
@@ -1027,7 +1169,11 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-control);
           font-size: var(--text-label);
+          line-height: 1.4;
+          white-space: nowrap;
           cursor: pointer;
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            color var(--duration-fast) var(--ease-standard);
         }
         .nsfw-dd-grid-btn:hover:not(:disabled) {
           border-color: var(--border-strong);
@@ -1048,7 +1194,37 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
         }
         .nsfw-dd-gridpicker-hint {
           font-size: var(--text-label);
+          line-height: 1.4;
           color: var(--text-muted);
+        }
+        /* 宫格规格按钮复用 nsfw-shot-btn 类名,但样式需在本组件作用域内定义(styled-jsx 作用域隔离) */
+        .nsfw-dd-gridpicker .nsfw-shot-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: var(--space-1);
+          padding: var(--space-1) var(--space-3);
+          background: var(--bg-surface-3);
+          color: var(--text-secondary);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+          font-size: var(--text-label);
+          line-height: 1.4;
+          white-space: nowrap;
+          cursor: pointer;
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            color var(--duration-fast) var(--ease-standard);
+        }
+        .nsfw-dd-gridpicker .nsfw-shot-btn:hover {
+          border-color: var(--border-strong);
+          color: var(--text-primary);
+        }
+        /* nsfw-drama-hint 定义在父组件作用域,本组件内的空态/生成中提示需本地补样式 */
+        .nsfw-dd-sec .nsfw-drama-hint {
+          padding: var(--space-4);
+          color: var(--text-muted);
+          font-size: var(--text-aux);
+          line-height: 1.6;
+          text-align: center;
         }
         .nsfw-dd-grid {
           display: flex;
@@ -1059,12 +1235,15 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
           display: flex;
           align-items: center;
           justify-content: space-between;
+          gap: var(--space-2);
           font-size: var(--text-label);
+          line-height: 1.4;
           color: var(--text-muted);
         }
         .nsfw-dd-grid-ops {
           display: flex;
           gap: var(--space-1);
+          flex-shrink: 0;
         }
         .nsfw-dd-grid-ops button {
           display: inline-flex;
@@ -1074,6 +1253,8 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-badge);
           cursor: pointer;
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            color var(--duration-fast) var(--ease-standard);
         }
         .nsfw-dd-grid-ops button:hover {
           color: var(--text-primary);
@@ -1101,6 +1282,7 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
           align-items: center;
           gap: var(--space-1);
           font-size: var(--text-label);
+          line-height: 1.4;
           color: var(--text-muted);
         }
         .nsfw-dd-polish-body {
@@ -1122,6 +1304,7 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
           border-radius: var(--radius-badge);
           color: var(--text-primary);
           font-size: var(--text-aux);
+          line-height: 1.6;
           font-family: inherit;
           white-space: pre-wrap;
           word-break: break-word;
@@ -1156,18 +1339,27 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
           display: flex;
           align-items: center;
           justify-content: space-between;
+          gap: var(--space-2);
           font-size: var(--text-aux);
           font-weight: 600;
+          line-height: 1.4;
           color: var(--text-primary);
         }
         .nsfw-dd-overlay-head button {
           display: inline-flex;
+          flex-shrink: 0;
           padding: var(--space-1);
           background: var(--bg-surface-3);
           color: var(--text-secondary);
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-badge);
           cursor: pointer;
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            color var(--duration-fast) var(--ease-standard);
+        }
+        .nsfw-dd-overlay-head button:hover {
+          color: var(--text-primary);
+          border-color: var(--border-strong);
         }
         .nsfw-dd-overlay-img {
           max-width: 86vw;
@@ -1176,9 +1368,32 @@ function DramaDetail({ dp }: { dp: DramaProjectApi }) {
           border-radius: var(--radius-control);
           background: #000;
         }
-        @media (max-width: 720px) {
+        @media (max-width: 767px) {
           .nsfw-dd-polish-body {
             grid-template-columns: 1fr;
+          }
+          /* 移动端触控目标 ≥44px */
+          .nsfw-dd-grid-btn,
+          .nsfw-dd-char-op,
+          .nsfw-dd-model {
+            min-height: 44px;
+          }
+          .nsfw-dd-grid-btn,
+          .nsfw-dd-char-op {
+            display: inline-flex;
+            align-items: center;
+          }
+          .nsfw-dd-grid-ops button {
+            min-width: 44px;
+            min-height: 44px;
+            align-items: center;
+            justify-content: center;
+          }
+          .nsfw-dd-input {
+            min-height: 44px;
+          }
+          .nsfw-dd-gridpicker .nsfw-shot-btn {
+            min-height: 44px;
           }
         }
       `}</style>
@@ -1364,11 +1579,14 @@ function ShotCard({
         .nsfw-shot-idx {
           font-size: var(--text-aux);
           font-weight: 700;
+          line-height: 1.4;
           color: var(--text-primary);
           font-family: var(--font-mono);
+          flex-shrink: 0;
         }
         .nsfw-shot-scene {
           font-size: var(--text-label);
+          line-height: 1.4;
           color: var(--text-secondary);
           overflow: hidden;
           text-overflow: ellipsis;
@@ -1382,16 +1600,20 @@ function ShotCard({
           -webkit-line-clamp: 3;
           -webkit-box-orient: vertical;
           overflow: hidden;
+          word-break: break-word;
         }
         .nsfw-shot-dialogue {
           font-size: var(--text-aux);
+          line-height: 1.5;
           color: var(--text-secondary);
+          word-break: break-word;
         }
         .nsfw-shot-err {
           display: flex;
           align-items: center;
           gap: var(--space-1);
           font-size: var(--text-label);
+          line-height: 1.4;
           color: var(--err);
         }
         .nsfw-shot-ops {
@@ -1410,8 +1632,12 @@ function ShotCard({
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-control);
           font-size: var(--text-label);
+          line-height: 1.4;
+          white-space: nowrap;
           cursor: pointer;
-          transition: border-color var(--duration-fast) var(--ease-standard);
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard);
         }
         .nsfw-shot-btn:hover:not(:disabled) {
           border-color: var(--border-strong);
@@ -1436,20 +1662,28 @@ function ShotCard({
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-control);
           font-size: var(--text-label);
+          line-height: 1.4;
+          cursor: pointer;
         }
         .nsfw-shot-video {
           width: 220px;
+          max-width: 100%;
           flex-shrink: 0;
           border-radius: var(--radius-control);
           background: #000;
           align-self: flex-start;
         }
-        @media (max-width: 720px) {
+        @media (max-width: 767px) {
           .nsfw-shot-top {
             flex-direction: column;
           }
           .nsfw-shot-video {
             width: 100%;
+          }
+          /* 移动端触控目标 ≥44px */
+          .nsfw-shot-btn,
+          .nsfw-shot-gacha-n {
+            min-height: 44px;
           }
         }
       `}</style>
@@ -1541,7 +1775,7 @@ function CandidateGrid({
           border-radius: var(--radius-control);
         }
         .nsfw-cand-item.is-picked {
-          border-color: var(--ok, #16a34a);
+          border-color: var(--ok);
         }
         .nsfw-cand-media {
           aspect-ratio: 16 / 9;
@@ -1572,12 +1806,13 @@ function CandidateGrid({
           align-items: center;
           gap: var(--space-2);
           font-size: var(--text-label);
+          line-height: 1.4;
           color: var(--text-muted);
           font-family: var(--font-mono);
         }
         .nsfw-cand-picked {
           margin-left: auto;
-          color: var(--ok, #16a34a);
+          color: var(--ok);
           font-weight: 600;
         }
         .nsfw-cand-ops {
@@ -1596,12 +1831,25 @@ function CandidateGrid({
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-badge);
           font-size: var(--text-label);
+          line-height: 1.4;
+          white-space: nowrap;
           cursor: pointer;
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard);
+        }
+        .nsfw-cand-btn:hover:not(:disabled) {
+          border-color: var(--border-strong);
+          color: var(--text-primary);
         }
         .nsfw-cand-btn.is-primary {
           background: var(--accent);
           color: var(--text-on-accent);
           border-color: transparent;
+        }
+        .nsfw-cand-btn.is-primary:hover:not(:disabled) {
+          background: var(--accent-hover);
+          color: var(--text-on-accent);
         }
         .nsfw-cand-btn.is-danger:hover {
           color: var(--err);
@@ -1609,6 +1857,12 @@ function CandidateGrid({
         .nsfw-cand-btn:disabled {
           opacity: 0.5;
           cursor: not-allowed;
+        }
+        @media (max-width: 767px) {
+          /* 移动端触控目标 ≥44px */
+          .nsfw-cand-btn {
+            min-height: 44px;
+          }
         }
       `}</style>
     </div>
@@ -1687,6 +1941,7 @@ function TaskLogPanel({ dp }: { dp: DramaProjectApi }) {
           padding: var(--space-2) var(--space-3);
           font-size: var(--text-label);
           font-weight: 600;
+          line-height: 1.4;
           color: var(--text-primary);
         }
         .nsfw-tlog-count {
@@ -1707,6 +1962,7 @@ function TaskLogPanel({ dp }: { dp: DramaProjectApi }) {
           padding: var(--space-2);
           color: var(--text-muted);
           font-size: var(--text-label);
+          line-height: 1.5;
           text-align: center;
         }
         .nsfw-tlog-item {
@@ -1715,6 +1971,7 @@ function TaskLogPanel({ dp }: { dp: DramaProjectApi }) {
           gap: var(--space-1);
           padding: 2px var(--space-1);
           font-size: var(--text-label);
+          line-height: 1.4;
           color: var(--text-secondary);
         }
         .nsfw-tlog-item.is-running {
@@ -1889,15 +2146,19 @@ function AssetPanel({ dp, onClose }: { dp: DramaProjectApi; onClose: () => void 
             display: flex;
             align-items: center;
             gap: var(--space-2);
+            flex-wrap: wrap;
+            row-gap: var(--space-2);
             padding: var(--space-3);
             border-bottom: 1px solid var(--border-subtle);
-            font-size: var(--text-body);
+            font-size: var(--text-section);
             font-weight: 600;
+            line-height: 1.4;
             color: var(--text-primary);
           }
           .nsfw-asset-kinds {
             display: flex;
             gap: var(--space-1);
+            flex-wrap: wrap;
             margin-left: var(--space-2);
           }
           .nsfw-asset-kind {
@@ -1907,7 +2168,16 @@ function AssetPanel({ dp, onClose }: { dp: DramaProjectApi; onClose: () => void 
             border: 1px solid var(--border-subtle);
             border-radius: var(--radius-badge);
             font-size: var(--text-label);
+            line-height: 1.4;
+            white-space: nowrap;
             cursor: pointer;
+            transition: border-color var(--duration-fast) var(--ease-standard),
+              color var(--duration-fast) var(--ease-standard),
+              background-color var(--duration-fast) var(--ease-standard);
+          }
+          .nsfw-asset-kind:hover:not(.is-active) {
+            border-color: var(--border-strong);
+            color: var(--text-primary);
           }
           .nsfw-asset-kind.is-active {
             background: var(--accent-soft);
@@ -1917,18 +2187,33 @@ function AssetPanel({ dp, onClose }: { dp: DramaProjectApi; onClose: () => void 
           .nsfw-asset-close {
             margin-left: auto;
             display: inline-flex;
+            flex-shrink: 0;
             padding: var(--space-1);
             background: var(--bg-surface-3);
             color: var(--text-secondary);
             border: 1px solid var(--border-subtle);
             border-radius: var(--radius-badge);
             cursor: pointer;
+            transition: border-color var(--duration-fast) var(--ease-standard),
+              color var(--duration-fast) var(--ease-standard);
+          }
+          .nsfw-asset-close:hover {
+            color: var(--text-primary);
+            border-color: var(--border-strong);
           }
           .nsfw-asset-body {
             flex: 1;
             min-height: 0;
             overflow-y: auto;
             padding: var(--space-3);
+          }
+          /* nsfw-drama-hint 定义在根组件作用域,面板内加载/空态提示需本地补样式 */
+          .nsfw-asset-body .nsfw-drama-hint {
+            padding: var(--space-4);
+            color: var(--text-muted);
+            font-size: var(--text-aux);
+            line-height: 1.6;
+            text-align: center;
           }
           .nsfw-asset-grid {
             display: grid;
@@ -1943,6 +2228,10 @@ function AssetPanel({ dp, onClose }: { dp: DramaProjectApi; onClose: () => void 
             background: var(--bg-surface-2);
             border: 1px solid var(--border-subtle);
             border-radius: var(--radius-control);
+            transition: border-color var(--duration-fast) var(--ease-standard);
+          }
+          .nsfw-asset-item:hover {
+            border-color: var(--border-strong);
           }
           .nsfw-asset-thumb {
             aspect-ratio: 1;
@@ -1966,6 +2255,7 @@ function AssetPanel({ dp, onClose }: { dp: DramaProjectApi; onClose: () => void 
           .nsfw-asset-name {
             font-size: var(--text-aux);
             font-weight: 600;
+            line-height: 1.4;
             color: var(--text-primary);
             overflow: hidden;
             text-overflow: ellipsis;
@@ -1973,6 +2263,7 @@ function AssetPanel({ dp, onClose }: { dp: DramaProjectApi; onClose: () => void 
           }
           .nsfw-asset-sub {
             font-size: var(--text-label);
+            line-height: 1.4;
             color: var(--text-muted);
           }
           .nsfw-asset-ops {
@@ -1988,12 +2279,25 @@ function AssetPanel({ dp, onClose }: { dp: DramaProjectApi; onClose: () => void 
             border: 1px solid var(--border-subtle);
             border-radius: var(--radius-badge);
             font-size: var(--text-label);
+            line-height: 1.4;
+            white-space: nowrap;
             cursor: pointer;
+            transition: border-color var(--duration-fast) var(--ease-standard),
+              color var(--duration-fast) var(--ease-standard),
+              background-color var(--duration-fast) var(--ease-standard);
+          }
+          .nsfw-asset-btn:hover:not(:disabled) {
+            border-color: var(--border-strong);
+            color: var(--text-primary);
           }
           .nsfw-asset-btn.is-primary {
             background: var(--accent);
             color: var(--text-on-accent);
             border-color: transparent;
+          }
+          .nsfw-asset-btn.is-primary:hover:not(:disabled) {
+            background: var(--accent-hover);
+            color: var(--text-on-accent);
           }
           .nsfw-asset-btn.is-danger:hover {
             color: var(--err);
@@ -2001,6 +2305,22 @@ function AssetPanel({ dp, onClose }: { dp: DramaProjectApi; onClose: () => void 
           .nsfw-asset-btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
+          }
+          @media (max-width: 767px) {
+            .nsfw-asset-grid {
+              grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            }
+            /* 移动端触控目标 ≥44px */
+            .nsfw-asset-kind,
+            .nsfw-asset-btn {
+              min-height: 44px;
+            }
+            .nsfw-asset-close {
+              min-width: 44px;
+              min-height: 44px;
+              align-items: center;
+              justify-content: center;
+            }
           }
         `}</style>
       </div>
@@ -2025,10 +2345,14 @@ function StatusBadge({ label, status }: { label: string; status?: string }) {
       <style jsx>{`
         .nsfw-badge-st {
           font-size: var(--text-label);
+          font-weight: 500;
+          line-height: 1.4;
           padding: 1px var(--space-1);
           border-radius: var(--radius-badge);
           background: var(--bg-surface-3);
           color: var(--text-muted);
+          white-space: nowrap;
+          flex-shrink: 0;
         }
         .nsfw-badge-st.is-done {
           background: var(--accent-soft);

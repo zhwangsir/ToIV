@@ -11,6 +11,8 @@
 """
 from __future__ import annotations
 
+import asyncio
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -24,7 +26,7 @@ from app.services.engine_registry import list_engines
 
 _GEMMA = "gemma3_12b_it_bf16/model.safetensors"
 _VAE = "LTX23_video_vae_bf16.safetensors"
-_DISTILLED = "ltx-2.3-distilled.safetensors"
+_DISTILLED = "ltx-2.3-22b-distilled-1.1.safetensors"
 _EROS = "10eros_v14.safetensors"
 
 # 图像表单动态选项测试用底模:SFW 写实 + NSFW 动漫(pony 族)+ 次世代(UNETLoader)
@@ -292,6 +294,7 @@ async def test_h3_unavailable_when_disabled(live_pool, user, monkeypatch):
         "get_settings",
         lambda: SimpleNamespace(
             h3_enabled=False,
+            default_video_ckpt=_DISTILLED,
             nsfw_default_gemma=_GEMMA,
             nsfw_default_vae=_VAE,
         ),
@@ -498,3 +501,36 @@ async def test_h3_loras_options_fallback_when_instance_down(live_pool, user, h3_
     p = _param(ids["h3-t2v"], "loras")
     assert p["options"] == []
     assert "options_source" not in p
+
+
+# --------------------------------------------------------------------------- #
+# 可用性探测并行化 + 短 TTL 缓存(QA-FULL-2026-08-11 P1:串行探测 0.55-3.37s)
+# --------------------------------------------------------------------------- #
+
+async def test_probes_run_parallel_and_cached(live_pool, user, monkeypatch):
+    """① 多引擎 probe 经 gather 并行(总耗时 < 串行累加);
+    ② TTL 内二次调用零新探测;③ reset_avail_cache 后重新探测。"""
+    calls = 0
+    real = engine_registry._probe_pool
+
+    async def _counting(pool, models, nodes):
+        nonlocal calls
+        calls += 1
+        await asyncio.sleep(0.05)  # 模拟 probe 网络延迟
+        return await real(pool, models, nodes)
+
+    monkeypatch.setattr(engine_registry, "_probe_pool", _counting)
+
+    t0 = time.monotonic()
+    await list_engines(live_pool, user)
+    elapsed = time.monotonic() - t0
+    first = calls
+    assert first >= 2, "SFW 上下文至少 ltx2-t2v/ltx2-i2v 两个 pool probe"
+    assert elapsed < first * 0.05 * 0.9, f"疑似串行: {elapsed:.3f}s ≥ {first}×50ms"
+
+    await list_engines(live_pool, user)
+    assert calls == first, "TTL 内第二次调用不应再探测"
+
+    engine_registry.reset_avail_cache()
+    await list_engines(live_pool, user)
+    assert calls == first * 2, "缓存重置后应重新探测"

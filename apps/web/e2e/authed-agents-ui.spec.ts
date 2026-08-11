@@ -16,7 +16,12 @@ test.describe("智能体 UI", () => {
   // NSFW 专区图像 tab 已并入统一生成工作台(GenerateView onlyNsfw);
   // 优化按钮在工作台底部提示词条(PromptBar)内。
   test("/nsfw 图像 tab 出现 OptimizeButton", async ({ page }) => {
+    // 预置年龄确认,避免首访弹门遮挡专区主体
     await page.goto("/nsfw", { waitUntil: "domcontentloaded" });
+    await page.evaluate(() =>
+      window.localStorage.setItem("toiv_nsfw_age_confirmed", "1"),
+    );
+    await page.reload({ waitUntil: "domcontentloaded" });
     try {
       await page.waitForLoadState("networkidle", { timeout: 10000 });
     } catch {
@@ -24,7 +29,7 @@ test.describe("智能体 UI", () => {
     }
 
     // 等待 NsfwView 鉴权完成 + 默认图像 tab 渲染 GenerateView
-    await expect(page.locator(".nsfw-banner")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator(".nsfw-header")).toBeVisible({ timeout: 10000 });
     await expect(page.locator(".generate-view")).toBeVisible({ timeout: 10000 });
 
     // 应有"优化提示词"按钮(含 sparkles 图标 + 优化文案)

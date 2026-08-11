@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  getNasDownloadStatus,
   installModel,
   listLocalModels,
   searchMarketplace,
@@ -11,13 +12,16 @@ import {
 import type { LocalModels, MarketItem } from "@/lib/types";
 import { Icon } from "@/components/ui/Icon";
 import { Tabs } from "@/components/ui/Tabs";
+import { usePoll } from "@/hooks/usePoll";
 
 type Tab = "local" | "market";
 
-/** 单个市场模型的安装状态。 */
+/** 单个市场模型的安装状态(下载走 NAS 作业,jobId 轮询进度)。 */
 type InstallState = {
   status: "installing" | "success" | "error";
   message?: string;
+  jobId?: string;
+  progress?: number;
 };
 
 /** 本地模型目录键 → 中文标签(后端目录名通常为复数小写)。 */
@@ -177,60 +181,112 @@ export function ModelsView() {
       return next;
     });
 
-  // 安装市场模型到本地 ComfyUI 集群
-  const installOne = useCallback(
-    async (m: MarketItem) => {
+  // 安装市场模型:创建 NAS 下载作业 → 返回 job_id,进度由下方 usePoll 统一跟踪
+  const installOne = useCallback(async (m: MarketItem) => {
+    setInstallState((prev) => ({
+      ...prev,
+      [m.id]: { status: "installing", message: "正在创建下载任务…" },
+    }));
+    try {
+      const params: InstallModelParams = {
+        type: m.type ?? "",
+        source: m.source,
+        id: m.id,
+        url: m.url,
+        name: m.name,
+      };
+      const res: InstallModelResult = await installModel(params);
       setInstallState((prev) => ({
         ...prev,
-        [m.id]: { status: "installing" },
+        [m.id]: {
+          status: "installing",
+          jobId: res.job_id,
+          progress: 0,
+          message: res.message ?? "下载已开始",
+        },
       }));
-      try {
-        const params: InstallModelParams = {
-          type: m.type ?? "",
-          source: m.source,
-          id: m.id,
-          url: m.url,
-          name: m.name,
-        };
-        const res: InstallModelResult = await installModel(params);
-        setInstallState((prev) => ({
-          ...prev,
-          [m.id]: {
+    } catch (e) {
+      setInstallState((prev) => ({
+        ...prev,
+        [m.id]: {
+          status: "error",
+          message: e instanceof Error ? e.message : "安装失败",
+        },
+      }));
+    }
+  }, []);
+
+  // 轮询所有进行中的 NAS 下载作业;有完成项时刷新本地模型列表
+  const hasInstalling = useMemo(
+    () =>
+      Object.values(installState).some(
+        (s) => s.status === "installing" && s.jobId,
+      ),
+    [installState],
+  );
+
+  usePoll(
+    useCallback(async () => {
+      const pending = Object.entries(installState).filter(
+        ([, s]) => s.status === "installing" && s.jobId,
+      );
+      if (pending.length === 0) return;
+      const results = await Promise.allSettled(
+        pending.map(([, s]) => getNasDownloadStatus(s.jobId as string)),
+      );
+      const updates: Record<string, InstallState> = {};
+      let anyDone = false;
+      pending.forEach(([id], i) => {
+        const r = results[i];
+        if (r.status !== "fulfilled") return; // 单次查询失败等下轮(backoff 由 usePoll 负责)
+        const st = r.value;
+        if (st.status === "done") {
+          anyDone = true;
+          updates[id] = {
             status: "success",
-            message: res.message ?? "安装请求已受理",
-          },
-        }));
-        // 安装成功后刷新本地模型列表
-        void loadLocal();
-      } catch (e) {
-        setInstallState((prev) => ({
-          ...prev,
-          [m.id]: {
+            progress: 100,
+            message: `已下载到 NAS:${st.filename}(${st.downloaded_mb}MB)`,
+          };
+        } else if (st.status === "error") {
+          updates[id] = {
             status: "error",
-            message: e instanceof Error ? e.message : "安装失败",
-          },
-        }));
+            message: st.error ?? "下载失败",
+          };
+        } else {
+          updates[id] = {
+            status: "installing",
+            jobId: st.id,
+            progress: st.progress,
+            message: `${st.stage} ${st.progress}%`,
+          };
+        }
+      });
+      if (Object.keys(updates).length > 0) {
+        setInstallState((prev) => ({ ...prev, ...updates }));
       }
-    },
-    [loadLocal],
+      if (anyDone) void loadLocal();
+    }, [installState, loadLocal]),
+    { intervalMs: 2000, enabled: hasInstalling, backoff: true },
   );
 
   return (
     <div className="single-view models-view">
-      <header className="mv-header">
-        <div className="mv-title-wrap">
-          <h1 className="mv-title">模型库</h1>
-          <p className="mv-subtitle">管理本地已安装模型 · 探索 Civitai 在线市场</p>
+      <header className="page-header">
+        <div>
+          <h1 className="page-header-title">模型库</h1>
+          <p className="page-header-desc">管理本地已安装模型 · 探索 Civitai 在线市场</p>
         </div>
-        <Tabs
-          items={[
-            { key: "local", label: "本地模型", icon: <Icon name="models" size={14} /> },
-            { key: "market", label: "在线市场", icon: <Icon name="search" size={14} /> },
-          ]}
-          current={tab}
-          onChange={(k) => setTab(k as Tab)}
-          ariaLabel="模型库视图切换"
-        />
+        <div className="page-header-actions">
+          <Tabs
+            items={[
+              { key: "local", label: "本地模型", icon: <Icon name="models" size={14} /> },
+              { key: "market", label: "在线市场", icon: <Icon name="search" size={14} /> },
+            ]}
+            current={tab}
+            onChange={(k) => setTab(k as Tab)}
+            ariaLabel="模型库视图切换"
+          />
+        </div>
       </header>
 
       {tab === "local" ? (
@@ -483,7 +539,9 @@ export function ModelsView() {
                               strokeWidth={1.9}
                             />
                             {inst?.status === "installing"
-                              ? "安装中"
+                              ? inst.progress
+                                ? `下载中 ${inst.progress}%`
+                                : "下载中"
                               : inst?.status === "success"
                               ? "已安装"
                               : inst?.status === "error"
@@ -511,48 +569,25 @@ export function ModelsView() {
           padding-top: var(--space-4);
         }
 
-        .mv-header {
-          display: flex;
-          align-items: flex-end;
-          justify-content: space-between;
-          gap: var(--space-4);
-          flex-wrap: wrap;
-          margin-bottom: var(--space-5);
-        }
-
-        .mv-title-wrap {
-          display: flex;
-          flex-direction: column;
-          gap: 0.15rem;
-        }
-
-        .mv-title {
-          margin: 0;
-          font-family: var(--font-sans);
-          font-size: var(--text-title);
-          font-weight: 700;
-          letter-spacing: -0.02em;
-          color: var(--text-primary);
-          line-height: 1.3;
-        }
-
-        .mv-subtitle {
-          margin: 0;
-          font-size: var(--text-aux);
-          color: var(--text-muted);
-        }
+        /* 页头由全局 .page-header / .page-header-title / .page-header-desc /
+           .page-header-actions 统一提供(globals.css),含桌面端 CornerNav 避让 */
 
         .mv-panel {
           display: flex;
           flex-direction: column;
-          gap: var(--space-4);
+          gap: var(--space-5);
         }
 
+        /* 工具栏面板化:搜索/筛选/统计聚合为一条独立面板,与下方内容拉开层级 */
         .mv-toolbar {
           display: flex;
           align-items: center;
           gap: var(--space-3);
           flex-wrap: wrap;
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-panel);
+          padding: var(--space-3) var(--space-4);
         }
 
         .mv-search {
@@ -566,7 +601,7 @@ export function ModelsView() {
 
         .mv-search-icon {
           position: absolute;
-          left: 0.7rem;
+          left: var(--space-3);
           top: 50%;
           transform: translateY(-50%);
           color: var(--text-muted);
@@ -575,7 +610,8 @@ export function ModelsView() {
         }
 
         .mv-search-input {
-          padding-left: 2.2rem;
+          /* 图标 12px 左距 + 16px 图标位 + 8px 呼吸 */
+          padding-left: calc(var(--space-3) + 16px + var(--space-2));
         }
 
         .mv-toolbar-right {
@@ -586,16 +622,16 @@ export function ModelsView() {
         }
 
         .mv-stat {
-          font-size: 0.78rem;
+          font-size: var(--text-aux);
           color: var(--text-muted);
           font-family: var(--font-mono);
         }
 
         .mv-type-select {
           width: auto;
-          min-width: 130px;
+          min-width: 132px;
           cursor: pointer;
-          padding-right: 1.6rem;
+          padding-right: var(--space-6);
         }
 
         .mv-center {
@@ -606,22 +642,35 @@ export function ModelsView() {
           gap: var(--space-3);
           padding: var(--space-6) var(--space-4);
           /* 加载/错误态预留稳定高度,降低内容到达时的布局偏移(CLS) */
-          min-height: 16rem;
+          min-height: 256px;
           text-align: center;
         }
 
+        /* .loading-spinner 无全局定义,在此补齐加载态排版 */
+        .mv-center .loading-spinner {
+          display: inline-flex;
+          align-items: center;
+          gap: var(--space-2);
+          font-size: var(--text-body);
+          color: var(--text-muted);
+        }
+
+        /* 错误态面板化:独立卡片承载,不再裸文本悬浮 */
         .mv-error-box {
           color: var(--err);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-panel);
         }
         .mv-error-box p {
           margin: 0;
-          font-size: 0.85rem;
+          font-size: var(--text-body);
         }
 
         .mv-groups {
           display: flex;
           flex-direction: column;
-          gap: var(--space-4);
+          gap: var(--space-6);
         }
 
         .mv-group {
@@ -634,20 +683,29 @@ export function ModelsView() {
           align-items: center;
           justify-content: space-between;
           gap: var(--space-3);
-          padding: 0.7rem 1rem;
+          padding: var(--space-4) var(--space-5);
           background: var(--bg-surface-2);
           border-bottom: 1px solid var(--border-subtle);
         }
 
         .mv-group-title-wrap {
           display: flex;
-          align-items: baseline;
-          gap: 0.5rem;
+          align-items: center;
+          gap: var(--space-2);
           min-width: 0;
+        }
+        /* 组标题左侧 accent 竖条,强化分组锚点 */
+        .mv-group-title-wrap::before {
+          content: "";
+          width: 3px;
+          height: 14px;
+          border-radius: var(--radius-full);
+          background: var(--accent);
+          flex-shrink: 0;
         }
 
         .mv-group-title {
-          font-size: 0.9rem;
+          font-size: var(--text-section);
           font-weight: 600;
           color: var(--text-primary);
           letter-spacing: -0.01em;
@@ -655,28 +713,27 @@ export function ModelsView() {
 
         .mv-group-key {
           font-family: var(--font-mono);
-          font-size: 0.72rem;
+          font-size: var(--text-aux);
           color: var(--text-muted);
         }
 
         .mv-model-list {
           list-style: none;
           margin: 0;
-          padding: 0;
+          /* 列表四周留白,行 hover 高亮块不贴卡片边缘 */
+          padding: var(--space-2);
           display: flex;
           flex-direction: column;
         }
 
+        /* 行样式:去掉通栏分隔线,改为无分隔 + 圆角 hover 高亮块(Finder 式列表) */
         .mv-model-row {
           display: flex;
           align-items: center;
           gap: var(--space-3);
-          padding: 0.55rem 1rem;
-          border-bottom: 1px solid var(--border-subtle);
+          padding: var(--space-2) var(--space-3);
+          border-radius: var(--radius-control);
           transition: background-color var(--duration-fast) var(--ease-standard);
-        }
-        .mv-model-row:last-child {
-          border-bottom: none;
         }
         .mv-model-row:hover {
           background: var(--bg-surface-2);
@@ -694,7 +751,7 @@ export function ModelsView() {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
-          font-size: 0.85rem;
+          font-size: var(--text-body);
           color: var(--text-primary);
           font-family: var(--font-mono);
           letter-spacing: -0.01em;
@@ -702,13 +759,13 @@ export function ModelsView() {
 
         .mv-model-ext {
           font-family: var(--font-mono);
-          font-size: 0.68rem;
+          font-size: var(--text-label);
           color: var(--text-muted);
           text-transform: uppercase;
-          padding: 0.1rem 0.4rem;
+          padding: 2px var(--space-2);
           background: var(--bg-surface-2);
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-xs);
+          border-radius: var(--radius-badge);
           flex-shrink: 0;
         }
 
@@ -717,15 +774,15 @@ export function ModelsView() {
         }
 
         .mv-result-meta {
-          font-size: 0.78rem;
+          font-size: var(--text-aux);
           color: var(--text-muted);
           font-family: var(--font-mono);
         }
 
         .mv-market-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-          gap: var(--space-4);
+          grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+          gap: var(--space-5);
         }
 
         .mv-card {
@@ -734,21 +791,25 @@ export function ModelsView() {
           text-decoration: none;
           display: flex;
           flex-direction: column;
-          transition: border-color var(--duration-fast) var(--ease-standard);
+          transition: border-color var(--duration-fast) var(--ease-standard),
+                      box-shadow var(--duration-fast) var(--ease-standard),
+                      transform var(--duration-fast) var(--ease-standard);
         }
+        /* hover 升浮反馈:边框加深 + 上移 + 投影 */
         .mv-card:hover {
           border-color: var(--border-strong);
-        }
-        .mv-card:focus-visible {
-          outline: 1px solid var(--accent);
-          outline-offset: 2px;
+          box-shadow: var(--shadow-lift);
+          transform: translateY(-3px);
         }
 
         .mv-card-thumb {
           position: relative;
+          display: block;
           aspect-ratio: 3 / 4;
           background: var(--bg-surface-2);
           overflow: hidden;
+          text-decoration: none;
+          color: inherit;
         }
         .mv-card-thumb img {
           width: 100%;
@@ -774,14 +835,14 @@ export function ModelsView() {
 
         .mv-card-type {
           position: absolute;
-          top: 0.5rem;
-          left: 0.5rem;
-          padding: 0.2rem 0.55rem;
+          top: var(--space-2);
+          left: var(--space-2);
+          padding: 2px var(--space-2);
           background: var(--overlay-strong);
           backdrop-filter: blur(6px);
           border: 1px solid var(--border-strong);
-          border-radius: var(--radius-xs);
-          font-size: 0.68rem;
+          border-radius: var(--radius-badge);
+          font-size: var(--text-label);
           font-weight: 500;
           color: var(--text-primary);
           letter-spacing: 0.02em;
@@ -789,13 +850,13 @@ export function ModelsView() {
 
         .mv-card-open {
           position: absolute;
-          top: 0.5rem;
-          right: 0.5rem;
+          top: var(--space-2);
+          right: var(--space-2);
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 26px;
-          height: 26px;
+          width: 28px;
+          height: 28px;
           border-radius: var(--radius-full);
           background: var(--overlay-strong);
           backdrop-filter: blur(6px);
@@ -805,21 +866,22 @@ export function ModelsView() {
           transform: translateY(-4px);
           transition: opacity var(--duration-base) var(--ease-standard), transform var(--duration-base) var(--ease-standard);
         }
-        .mv-card:hover .mv-card-open {
+        .mv-card:hover .mv-card-open,
+        .mv-card-thumb:focus-visible .mv-card-open {
           opacity: 1;
           transform: translateY(0);
         }
 
         .mv-card-body {
-          padding: 0.7rem 0.8rem 0.8rem;
+          padding: var(--space-4);
           display: flex;
           flex-direction: column;
-          gap: 0.45rem;
+          gap: var(--space-2);
         }
 
         .mv-card-name {
           margin: 0;
-          font-size: 0.84rem;
+          font-size: var(--text-body);
           font-weight: 600;
           color: var(--text-primary);
           line-height: 1.35;
@@ -828,18 +890,19 @@ export function ModelsView() {
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
           overflow: hidden;
-          min-height: 2.2em;
+          /* 恰好预留两行高度,卡片标题长短不一时网格行对齐 */
+          min-height: 2.7em;
         }
 
         .mv-card-meta {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 0.5rem;
+          gap: var(--space-2);
         }
 
         .mv-card-creator {
-          font-size: 0.74rem;
+          font-size: var(--text-aux);
           color: var(--text-muted);
           overflow: hidden;
           text-overflow: ellipsis;
@@ -850,24 +913,18 @@ export function ModelsView() {
         .mv-card-dl {
           display: inline-flex;
           align-items: center;
-          gap: 0.25rem;
-          font-size: 0.74rem;
+          gap: var(--space-1);
+          font-size: var(--text-aux);
           color: var(--text-secondary);
           font-family: var(--font-mono);
           flex-shrink: 0;
         }
 
         /* 卡片操作区:外链 + 安装 */
-        .mv-card-thumb {
-          display: block;
-          text-decoration: none;
-          color: inherit;
-        }
-
         .mv-card-actions {
           display: flex;
-          gap: 0.4rem;
-          margin-top: 0.15rem;
+          gap: var(--space-2);
+          margin-top: var(--space-1);
         }
 
         .mv-card-link,
@@ -881,11 +938,11 @@ export function ModelsView() {
         }
 
         .mv-card-msg {
-          margin-top: 0.4rem;
-          padding: 0.4rem 0.55rem;
-          border-radius: var(--radius-xs);
-          font-size: 0.74rem;
-          line-height: 1.4;
+          margin-top: var(--space-2);
+          padding: var(--space-2) var(--space-3);
+          border-radius: var(--radius-control);
+          font-size: var(--text-aux);
+          line-height: 1.5;
           border: 1px solid var(--border-strong);
           word-break: break-word;
         }
@@ -902,15 +959,29 @@ export function ModelsView() {
           border-color: var(--err);
         }
 
-        @media (max-width: 640px) {
-          .mv-header {
-            align-items: flex-start;
+        /* 移动端触控目标 ≥44px */
+        @media (max-width: 767px) {
+          .models-view :global(.ui-tab),
+          .mv-toolbar .btn,
+          .mv-toolbar .input,
+          .mv-card-actions .btn {
+            min-height: 44px;
           }
+        }
+
+        @media (max-width: 640px) {
           .mv-market-grid {
             grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
           }
+          .mv-toolbar {
+            padding: var(--space-3);
+          }
           .mv-type-select {
             flex: 1;
+          }
+          /* 窄卡片内两个按钮并排会溢出文案,改为纵向堆叠 */
+          .mv-card-actions {
+            flex-direction: column;
           }
         }
       `}</style>

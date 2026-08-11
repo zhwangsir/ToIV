@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -31,6 +32,25 @@ from app.workflows.style_presets import MediaType, list_presets
 
 # probe:async (pool) -> (available, reason|None);None 表示静态可用性(不做 pool 探测)
 ProbeFn = Callable[[WorkerPool], Awaitable["tuple[bool, str | None]"]]
+
+# 引擎可用性短 TTL 缓存:可用性取决于 worker 状态,与请求用户无关,可跨请求共享。
+# /api/models/engines 是工作台首屏必调接口,QA-FULL-2026-08-11 实测串行探测
+# 0.55-3.37s 波动;并行 gather + 8s TTL 缓存后命中时零探测开销。
+_AVAIL_TTL = 8.0
+_avail_cache: dict[str, tuple[bool, str | None]] = {}
+_avail_cache_at: float = 0.0
+
+
+def _mark_avail_probed() -> None:
+    global _avail_cache_at
+    _avail_cache_at = time.monotonic()
+
+
+def reset_avail_cache() -> None:
+    """清空可用性缓存(测试隔离 / 运维即时刷新用)。"""
+    _avail_cache.clear()
+    global _avail_cache_at
+    _avail_cache_at = 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -75,7 +95,7 @@ def _probe_ltx2(kind: str) -> ProbeFn:
         s = get_settings()
         return await _probe_pool(
             pool,
-            {"ltx-2.3-distilled.safetensors", s.nsfw_default_gemma, s.nsfw_default_vae},
+            {s.default_video_ckpt, s.nsfw_default_gemma, s.nsfw_default_vae},
             required_nodes(kind),
         )
 
@@ -207,6 +227,10 @@ def _ref_image_required() -> dict:
     return _images()
 
 
+def _audio(label: str = "驱动音频", hint: str = "wav / mp3 / m4a / ogg / flac,单个 ≤ 20MB") -> dict:
+    return {"key": "audio", "label": label, "type": "audio", "max": 1, "default": None, "hint": hint}
+
+
 # LTX 视频共用数值参数(Ltx2T2VRequest / video.LtxT2VRequest 同一套范围)
 def _ltx_video_params() -> list[dict]:
     return [
@@ -223,9 +247,46 @@ def _ltx_video_params() -> list[dict]:
     ]
 
 
+# R18 LTX 视频参数:分辨率/时长改预设下拉(8 对齐 + 8k+1 由提交层换算),
+# 其余(步数/CFG/种子/高清放大/RIFE 补帧)与 SFW 链路一致。
+_LTX_NSFW_RESOLUTIONS = [
+    ("864x480", "480p 横版 (864×480)"),
+    ("1280x720", "720p 横版 (1280×720)"),
+    ("1920x1080", "1080p 横版 (1920×1080)"),
+    ("480x864", "480p 竖版 (480×864)"),
+    ("720x1280", "720p 竖版 (720×1280)"),
+]
+
+_LTX_NSFW_DURATIONS = [
+    ("6", "6 秒"),
+    ("10", "10 秒"),
+    ("15", "15 秒"),
+]
+
+
+def _ltx_nsfw_video_params() -> list[dict]:
+    return [
+        _negative(),
+        {
+            "key": "resolution", "label": "分辨率", "type": "select", "default": "1280x720",
+            "options": [{"value": v, "label": label} for v, label in _LTX_NSFW_RESOLUTIONS],
+        },
+        {
+            "key": "duration", "label": "时长", "type": "select", "default": "6",
+            "options": [{"value": v, "label": label} for v, label in _LTX_NSFW_DURATIONS],
+            "hint": "实际帧数按帧率换算并吸附 8k+1 网格",
+        },
+        _num("fps", "帧率", 16, min_=4, max_=30),
+        _num("steps", "采样步数", 20, min_=1, max_=50),
+        _num("cfg", "CFG", 1.0, min_=0, max_=20, step=0.5, hint="LTX distilled 建议保持 1.0"),
+        _seed(),
+        {"key": "use_upscale", "label": "高清放大(2 阶段)", "type": "switch", "default": False},
+        {"key": "use_rife", "label": "RIFE 补帧", "type": "switch", "default": False},
+    ]
+
+
 # LTX2 工作室底模白名单(与 routes/ltx_studio.py _LTX2_UNETS 同源,附中文标签)
 _LTX2_UNET_LABELS = {
-    "ltx-2.3-distilled.safetensors": "LTX 2.3 Distilled",
     "ltx-2.3-22b-distilled-1.1.safetensors": "LTX 2.3 22B Distilled 1.1",
     "ltx-2.3-22b-dev.safetensors": "LTX 2.3 22B Dev",
     "10eros_v14.safetensors": "10Eros v14(R18)",
@@ -233,11 +294,12 @@ _LTX2_UNET_LABELS = {
 
 
 def _ltx2_unet_select() -> dict:
+    s = get_settings()
     return {
         "key": "unet_name",
         "label": "视频底模",
         "type": "select",
-        "default": "ltx-2.3-distilled.safetensors",
+        "default": s.default_video_ckpt,
         "options": [
             {"value": name, "label": _LTX2_UNET_LABELS.get(name, name), **({"nsfw": True} if nsfw else {})}
             for name, nsfw in _LTX2_UNETS
@@ -358,6 +420,31 @@ def _is_image_ckpt(name: str) -> bool:
     return not any(h in low for h in _NON_IMAGE_CKPT_HINTS)
 
 
+# 组件分片/子文件:diffusion_models 下按目录拆放的 HF 组件(text_encoder/transformer/vae 等)
+# 与 HF 分片命名(model-0000X-of-0000Y / diffusion_pytorch_model-*.safetensors)。
+# 它们随 is_nextgen 文件名子串(如 Qwen-Image/…)混入图像底模下拉,选中即报错,必须剔除。
+_COMPONENT_DIR_HINTS = ("/text_encoder/", "/transformer/", "/vae/", "/clip/", "/audio_encoders/")
+_SHARD_NAME_HINTS = ("diffusion_pytorch_model", "-of-")  # model-00001-of-00004 等分片命名
+
+
+def _is_component_shard(name: str) -> bool:
+    low = name.lower()
+    if "/" in low and any(h in low for h in _COMPONENT_DIR_HINTS):
+        return True
+    base = low.rsplit("/", 1)[-1]
+    if base.startswith("diffusion_pytorch_model"):
+        return True
+    # HF 分片:model-00001-of-00004.safetensors 形态
+    if "-of-" in base and base.startswith("model-"):
+        return True
+    return False
+
+
+def _is_nextgen_image_ckpt(name: str) -> bool:
+    """次世代图像底模(flux2/qwen_image/z_image)且非组件分片。"""
+    return is_nextgen(name) and not _is_component_shard(name)
+
+
 async def _image_form_options(pool: WorkerPool) -> dict[str, list[str]] | None:
     """从第一台可达 worker 的 object_info 派生图像表单选项;全不可达/异常 → None(回退静态)。"""
     client = None
@@ -380,7 +467,8 @@ async def _image_form_options(pool: WorkerPool) -> dict[str, list[str]] | None:
     except Exception:
         unet_info = {}
     # 次世代出图族在 diffusion_models(UNETLoader)里,并入图像可选底模并排前
-    ckpts = [n for n in _enum(unet_info, "UNETLoader", "unet_name") if is_nextgen(n)]
+    # (剔除组件分片:Qwen-Image/text_encoder|transformer|vae 等目录件选中即报错)
+    ckpts = [n for n in _enum(unet_info, "UNETLoader", "unet_name") if _is_nextgen_image_ckpt(n)]
     ckpts += [c for c in _enum(ckpt_info, "CheckpointLoaderSimple", "ckpt_name") if _is_image_ckpt(c)]
     # 去重保序(同名不同子目录的 basename 重复)
     seen: set[str] = set()
@@ -583,7 +671,7 @@ _REGISTRY: list[dict[str, Any]] = [
         "kind": "video",
         "nsfw": True,
         "description": "10Eros 底模成人向文生视频,仅 R18 上下文可见",
-        "params": _ltx_video_params(),
+        "params": _ltx_nsfw_video_params(),
         "probe": _probe_ltx_nsfw("ltx_t2v"),
     },
     {
@@ -592,8 +680,26 @@ _REGISTRY: list[dict[str, Any]] = [
         "kind": "video",
         "nsfw": True,
         "description": "10Eros 底模成人向图生视频,仅 R18 上下文可见",
-        "params": [_ref_image_required(), *_ltx_video_params()],
+        "params": [_ref_image_required(), *_ltx_nsfw_video_params()],
         "probe": _probe_ltx_nsfw("ltx_i2v"),
+    },
+    {
+        "id": "ltx-nsfw-lipsync",
+        "label": "LTX 2.3 对口型(R18)",
+        "kind": "video",
+        "nsfw": True,
+        "description": "10Eros 底模成人向口型同步:人物参考图 + 驱动音频 → 对口型视频",
+        "params": [
+            _images(label="人物参考图"),
+            _audio(),
+            *_ltx_nsfw_video_params(),
+            {
+                "key": "id_lora", "label": "ID LoRA(可选)", "type": "text", "default": "",
+                "hint": "worker loras 目录内的身份保持 LoRA 文件名,留空不用",
+            },
+            _num("id_lora_strength", "ID LoRA 强度", 0.8, min_=0, max_=2, step=0.1),
+        ],
+        "probe": _probe_ltx_nsfw("ltx_lipsync"),
     },
     # MiniMax H3:专用 ComfyUI ≥ 0.30 实例(TOIV_H3_BASE_URL,默认 workstation :8195),
     # 原生 32kHz 音画同发;probe 探测实例 /object_info 是否含 MiniMaxH3 节点
@@ -698,6 +804,9 @@ async def list_engines(pool: WorkerPool, user: User | None = None) -> list[dict[
     h3_loras: list[str] | None = None
     h3_loras_fetched = False
     engines: list[dict[str, Any]] = []
+    pending: list[tuple[dict[str, Any], ProbeFn]] = []
+    now = time.monotonic()
+    cache_fresh = (now - _avail_cache_at) < _AVAIL_TTL
     for spec in _REGISTRY:
         if spec["nsfw"] and not r18:
             continue
@@ -731,12 +840,26 @@ async def list_engines(pool: WorkerPool, user: User | None = None) -> list[dict[
 
         probe = spec.get("probe")
         if probe is None:
-            available = bool(spec.get("static_available", False))
-            reason = spec.get("static_reason")
+            entry["available"] = bool(spec.get("static_available", False))
+            if not entry["available"] and spec.get("static_reason"):
+                entry["unavailable_reason"] = spec["static_reason"]
+        elif cache_fresh and spec["id"] in _avail_cache:
+            available, reason = _avail_cache[spec["id"]]
+            entry["available"] = available
+            if not available and reason:
+                entry["unavailable_reason"] = reason
         else:
-            available, reason = await probe(pool)
-        entry["available"] = available
-        if not available and reason:
-            entry["unavailable_reason"] = reason
+            pending.append((entry, probe))
         engines.append(entry)
+
+    # 可用性探测并行化:串行 await 16 个引擎 probe 曾使端点 0.55-3.37s 波动
+    # (QA-FULL-2026-08-11 P1);gather 后总耗时≈最慢单个 probe,结果写短 TTL 缓存。
+    if pending:
+        results = await asyncio.gather(*(probe(pool) for _, probe in pending))
+        for (entry, _), (available, reason) in zip(pending, results):
+            _avail_cache[entry["id"]] = (available, reason)
+            entry["available"] = available
+            if not available and reason:
+                entry["unavailable_reason"] = reason
+        _mark_avail_probed()
     return engines

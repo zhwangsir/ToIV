@@ -6,7 +6,7 @@
 ## 平台默认与选型总原则
 平台文生图默认 `DreamShaper_8_pruned.safetensors`(SD1.5,泛用稳妥)。绝大多数普通出图需求用默认即可。
 选模型先看三件事:① 画风(写实/二次元/插画)② 是否要中文文字 ③ 速度要求。
-- 要写实人像 → majicMIX realistic;要二次元/动漫 → Illustrious 系或 GhostMix;要海报带中文字 → Qwen-Image;要极速预览 → Z-Image Turbo。
+- 要写实人像 → majicMIX realistic;要二次元/动漫 → Illustrious 系;要海报带中文字 → Qwen-Image;要极速预览 → Z-Image Turbo。
 - 新架构(Qwen-Image / Flux.2 / Z-Image)与 SD1.5 的提示词写法、推荐尺寸、采样参数不同,换模型时一并调整(见 parameter-reference.md)。
 
 ## DreamShaper 8(SD1.5,平台默认)
@@ -15,23 +15,11 @@
 - 适合场景:不确定该选什么时的万能首选;批量出图打底;漫剧分镜的稳妥底模。
 - 怎么选:英文提示词、512 系尺寸、cfg 7 / euler / normal / 20 步就有稳定效果。
 
-## GhostMix V2(SD1.5)
-- 是什么:SD1.5 系融合模型,偏精致插画/半二次元。
-- 擅长:角色立绘、唯美插画、光影通透的画面。
-- 适合场景:想要比 DreamShaper 更「好看」「插画感」的人物图。
-- 怎么选:与 DreamShaper 同套参数;人物题材优先,纯写实场景不如 majicMIX。
-
 ## majicMIX realistic v7(SD1.5)
 - 是什么:SD1.5 写实人像专精模型。
 - 擅长:亚洲面孔写实人像、皮肤质感、棚拍/生活照风格。
 - 适合场景:证件照风、写真、角色写实化、电商人像。
 - 怎么选:写实人像第一选择;加 `photorealistic, 85mm, soft lighting, detailed skin` 类词;负面词补 `bad hands, deformed face`。
-
-## v1-5 基础模型(SD1.5 原版)
-- 是什么:Stable Diffusion 1.5 官方原版,未做风格微调。
-- 擅长:作为对照基线、做 ControlNet/LoRA 兼容性验证。
-- 适合场景:一般不直接用于成品出图(风格偏「素」),更多是技术基线。
-- 怎么选:除非要纯净基底,否则优先用 DreamShaper 等微调版。
 
 ## Illustrious 系(动漫/二次元)
 - 是什么:面向动漫/插画的二次元大模型家族。

@@ -9,7 +9,7 @@
    借此压过基础卡片规则,层叠关系显式可控。
    ════════════════════════════════════════════════════════════════════ */
 
-/* ── masonry 卡片 hover 质感 ──────────────────────────────────────── */
+/* ── masonry 卡片 hover 升浮:整体上移 + 媒体内缩放,替代整卡 scale ── */
 .library-view .lib-body .lib-card {
   transition: transform var(--duration-slow) var(--ease-spring),
     border-color var(--duration-fast) var(--ease-standard),
@@ -18,11 +18,22 @@
 }
 .library-view .lib-body .lib-card:hover,
 .library-view .lib-body .lib-card:focus-visible {
-  transform: scale(1.03);
+  transform: translateY(-4px);
   border-color: var(--border-strong);
   box-shadow: var(--shadow-lift), var(--accent-glow-shadow);
-  /* transform 自带层叠上下文;z-index 保证放大卡压住相邻列 */
+  /* transform 自带层叠上下文;z-index 保证升浮卡压住相邻列 */
   z-index: 2;
+}
+/* 卡片升浮时媒体在缩略图视口内轻微放大,增加纵深(.lib-thumb overflow:hidden 收边) */
+.library-view .lib-body .lib-thumb img,
+.library-view .lib-body .lib-thumb video {
+  transition: transform var(--duration-slow) var(--ease-standard);
+}
+.library-view .lib-body .lib-card:hover .lib-thumb img,
+.library-view .lib-body .lib-card:hover .lib-thumb video,
+.library-view .lib-body .lib-card:focus-visible .lib-thumb img,
+.library-view .lib-body .lib-card:focus-visible .lib-thumb video {
+  transform: scale(1.04);
 }
 
 /* ── 占位卡(生成中/失败/无预览产物) ────────────────────────────── */
@@ -78,7 +89,7 @@
   transform: translate(-50%, 6px);
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-2);
   padding: var(--space-1);
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
@@ -102,8 +113,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  /* 36px:hover 浮现的主操作,比网格徽标大一档 */
+  width: 36px;
+  height: 36px;
   padding: 0;
   background: transparent;
   border: 0;
@@ -262,6 +274,10 @@
   background: var(--err-soft);
   color: var(--err);
 }
+.lib-style-delete:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
 
 /* ── toast 遮挡规避 ──────────────────────────────────────────────── */
 /* 全局 toast 容器(fixed 右上角,z-index: var(--z-toast),组件在 ui/Toast)
@@ -355,7 +371,8 @@
 .lib-lb-prompt {
   flex: 1;
   min-width: 0;
-  font-size: var(--text-aux);
+  /* 提示词是底部工具条主信息:正文档位,与辅助元信息(time/counter)拉开层级 */
+  font-size: var(--text-body);
   color: var(--text-secondary);
   line-height: 1.5;
   white-space: nowrap;
@@ -486,9 +503,11 @@
   box-shadow: var(--shadow-float);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .lib-lb-stage {
-    padding: 68px var(--space-3) 96px;
+    /* 底部工具条移动端变两行(提示词 ≤2 行 + 44px 操作钮,~118px),
+       舞台底部留白随之加深,避免媒体被工具条压住 */
+    padding: 68px var(--space-3) 124px;
   }
   .lib-lb-top,
   .lib-lb-bottom {
@@ -497,6 +516,16 @@
   }
   .lib-lb-nav-prev { left: var(--space-2); }
   .lib-lb-nav-next { right: var(--space-2); }
+  /* 移动端触控目标 ≥44px:灯箱工具条图标钮与穿梭钮放大 */
+  .lib-lb-icon-btn {
+    width: 44px;
+    height: 44px;
+  }
+  .lib-lb-nav {
+    width: 44px;
+    height: 44px;
+    margin-top: -22px;
+  }
   /* 移动端底部工具条:提示词让位操作区,最多两行 */
   .lib-lb-bottom {
     flex-direction: column;
@@ -526,43 +555,71 @@
 .library-view {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-6);
 }
 
-.lib-header {
+/* ── 统一页头(.page-header 体系):大标题 + 辅助描述 + 右侧计数胶囊 ── */
+/* 无需避让 CornerNav:壳层 .app-main padding-top:56px 已垂直让开触发器,标题与内容左缘对齐 */
+.library-view .page-header {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: var(--space-4);
+  gap: var(--space-3) var(--space-5);
   flex-wrap: wrap;
-  padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--border-subtle);
 }
-.lib-header-left {
+.library-view .page-header-text {
   display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
+  flex-direction: column;
+  gap: var(--space-2);
   min-width: 0;
 }
-.lib-title {
+.library-view .page-header-title {
   margin: 0;
   font-size: var(--text-title);
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--text-primary);
-  line-height: 1.3;
+  line-height: 1.25;
 }
-.lib-count {
+.library-view .page-header-desc {
+  margin: 0;
   font-size: var(--text-aux);
   color: var(--text-muted);
+  line-height: 1.5;
+}
+.library-view .page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+/* 作品计数胶囊:页头右侧唯一数据锚点,tabular-nums + 预留宽度防 CLS */
+.lib-count-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-3);
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  font-size: var(--text-aux);
+  color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
-  /* 预留宽度:"加载中…" → "N 件作品" 文本切换不挤动相邻元素(CLS 加固) */
-  display: inline-block;
+  white-space: nowrap;
   min-width: 5em;
+  justify-content: center;
 }
 
-/* 段控不允许被 flex 压缩:空间不足时由 .lib-header 的 flex-wrap 换行整行展示,
-   而不是裁掉末段(桌面 1280px 曾出现「3D」段被裁一半);窄屏兜底横向滚动 + 触摸惯性 */
+/* ── 类型筛选工具行:段控从页头拆出后的独立横带,底部细线锚定网格区 ── */
+.lib-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* 段控不允许被 flex 压缩;窄屏兜底横向滚动 + 触摸惯性 */
 .lib-filters {
   flex-shrink: 0;
   overflow-x: auto;
@@ -577,46 +634,56 @@
   min-height: 200px;
 }
 
+/* ── 空态:居中虚线面板 + 图标圆盘,从「左对齐纯文本」改为独立区块 ── */
 .lib-empty {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
+  text-align: center;
   gap: var(--space-3);
-  padding: var(--space-6) var(--space-2);
+  padding: var(--space-12) var(--space-6);
+  background: var(--bg-surface-1);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-xl);
 }
-.lib-empty-kicker {
-  font-size: var(--text-label);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+.lib-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-full);
+  background: var(--accent-soft);
   color: var(--accent);
+  margin-bottom: var(--space-2);
 }
 .lib-empty-display {
   margin: 0;
   font-size: 32px;
   font-weight: 650;
   letter-spacing: -0.02em;
+  line-height: 1.25;
   color: var(--text-primary);
 }
 .lib-empty-desc {
   margin: 0;
   font-size: var(--text-sm);
   color: var(--text-muted);
-  max-width: 420px;
+  max-width: 460px;
   line-height: 1.6;
 }
 
 .lib-grid {
-  /* Studio Slate 版型:masonry 混排(CSS 多列,卡片自然高度) */
+  /* Studio Slate 版型:masonry 混排(CSS 多列,卡片自然高度);列宽/列距放宽 */
   display: block;
-  columns: 240px;
-  column-gap: var(--space-4);
+  columns: 260px;
+  column-gap: var(--space-5);
 }
 .lib-grid > * {
   break-inside: avoid;
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-5);
 }
-@media (max-width: 480px) {
+@media (max-width: 575px) {
   .lib-grid {
     columns: 160px;
     column-gap: var(--space-3);
@@ -629,7 +696,8 @@
 .lib-load-more {
   display: flex;
   justify-content: center;
-  margin-top: var(--space-4);
+  /* 网格卡片自带 margin-bottom: space-4,此处只补 8px,合计 24px 不臃肿 */
+  margin-top: var(--space-2);
 }
 .lib-load-more-btn {
   font-variant-numeric: tabular-nums;
@@ -736,8 +804,8 @@
 
 .lib-delete {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: var(--space-2);
+  right: var(--space-2);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -770,14 +838,21 @@
   border-color: var(--err);
   color: var(--err);
 }
+.lib-delete:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+  /* 键盘聚焦时即使卡片未 hover 也要可见 */
+  opacity: 1;
+  transform: translateY(0);
+}
 .lib-delete:disabled {
   cursor: not-allowed;
 }
 
 .lib-video-badge {
   position: absolute;
-  top: 8px;
-  left: 8px;
+  top: var(--space-2);
+  left: var(--space-2);
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
@@ -794,7 +869,7 @@
 }
 
 .lib-foot {
-  padding: 10px var(--space-3) var(--space-3);
+  padding: var(--space-2) var(--space-3) var(--space-3);
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
@@ -863,10 +938,10 @@
   }
 }
 .lib-foot-skel {
-  padding: 10px var(--space-3) var(--space-3);
+  padding: var(--space-2) var(--space-3) var(--space-3);
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: var(--space-2);
 }
 .skel-line {
   /* 高度对齐真实 .lib-foot 行高(kind 徽标 / seed 行),
@@ -893,6 +968,10 @@
 .lib-error-msg {
   font-size: var(--text-base);
   color: var(--text-secondary);
+  /* 多行错误信息居中收拢,不在容器里左飘 */
+  text-align: center;
+  max-width: 420px;
+  line-height: 1.6;
 }
 
 /* ── 删除确认对话框内容(容器为 Modal 基座) ── */
@@ -919,7 +998,7 @@
 .lib-confirm-error {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   background: var(--err-soft);
   border: 1px solid var(--err);
@@ -928,9 +1007,13 @@
   font-size: var(--text-aux);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .lib-header {
     flex-direction: column;
     align-items: stretch;
+  }
+  /* 空态展示标题随屏宽收敛,避免小屏 32px 过冲 */
+  .lib-empty-display {
+    font-size: var(--text-2xl);
   }
 }

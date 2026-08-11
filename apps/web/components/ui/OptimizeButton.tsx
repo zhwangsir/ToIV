@@ -364,6 +364,7 @@ export function OptimizeButton({
         }
         .ob-style-input:focus {
           border-color: var(--accent-glow);
+          box-shadow: 0 0 0 3px var(--accent-soft);
         }
         .ob-style-go {
           flex-shrink: 0;

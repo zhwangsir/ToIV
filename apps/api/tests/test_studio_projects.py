@@ -234,6 +234,70 @@ def test_project_status_counts(ctx):
     assert r.json() == {"total": 2, "by_status": {"draft": 2}}
 
 
+# ── 项目级产出规格(分辨率/帧率)───────────────────────────────────────────
+
+
+def test_project_output_spec_create_patch(ctx):
+    """创建/更新项目规格:默认 768×384@16;非法值(非 8 对齐/超范围)→ 422。"""
+    client, token = ctx
+    H = _h(token)
+    # 默认值
+    r = client.post("/api/studio/projects", headers=H, json={"title": "规格"})
+    assert r.status_code == 200, r.text
+    p = r.json()
+    assert (p["width"], p["height"], p["fps"]) == (768, 384, 16)
+    pid = p["id"]
+    # 自定义创建
+    r = client.post(
+        "/api/studio/projects", headers=H,
+        json={"title": "竖屏", "width": 720, "height": 1280, "fps": 24},
+    )
+    assert r.status_code == 200, r.text
+    assert (r.json()["width"], r.json()["height"], r.json()["fps"]) == (720, 1280, 24)
+    # PATCH 持久化
+    r = client.patch(
+        f"/api/studio/projects/{pid}", headers=H,
+        json={"width": 1280, "height": 720, "fps": 24},
+    )
+    assert r.status_code == 200, r.text
+    detail = client.get(f"/api/studio/projects/{pid}", headers=H).json()
+    assert (detail["width"], detail["height"], detail["fps"]) == (1280, 720, 24)
+    # 非法:非 8 对齐 / fps 超范围 / 分辨率超范围
+    for bad in ({"width": 765}, {"height": 433}, {"fps": 99}, {"width": 2048}):
+        r = client.patch(f"/api/studio/projects/{pid}", headers=H, json=bad)
+        assert r.status_code == 422, bad
+
+
+def test_render_shot_injects_project_spec(ctx, monkeypatch):
+    """编排层把项目 ckpt_name/width/height/fps 注入渲染器 kw。"""
+    from app.services.studio.renderers.base import RenderResult
+
+    client, token = ctx
+    H = _h(token)
+    r = client.post(
+        "/api/studio/projects", headers=H,
+        json={"title": "注入", "ckpt_name": "majicMIX.safetensors",
+              "width": 1024, "height": 576, "fps": 12},
+    )
+    pid = r.json()["id"]
+    shots = _mk_shots(client, H, pid)
+
+    seen: dict[str, object] = {}
+
+    class FakeRenderer:
+        name = "video"
+
+        async def render(self, shot, cast, pool, **kw):
+            seen.update(kw)
+            return RenderResult(kind="video", url="/api/studio/files/fake.mp4")
+
+    monkeypatch.setattr(orch, "get_renderer", lambda shot: FakeRenderer())
+    r = client.post(f"/api/studio/shots/{shots[0]['id']}/render", headers=H)
+    assert r.status_code == 200, r.text
+    assert seen["ckpt_name"] == "majicMIX.safetensors"
+    assert (seen["width"], seen["height"], seen["fps"]) == (1024, 576, 12)
+
+
 # ── 产出文件服务(M2)──────────────────────────────────────────────────────────
 
 

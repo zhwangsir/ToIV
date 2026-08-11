@@ -132,7 +132,16 @@ def create_app() -> FastAPI:
         # sentry-sdk 未安装:仅留骨架,装上即生效
         pass
 
-    app = FastAPI(title="ToIV API", version="0.0.1", lifespan=lifespan)
+    # API 文档按环境门控(QA-FULL-2026-08-11 P2):生产暴露 /docs /redoc /openapi.json
+    # 等于公开完整攻击面地图;本地开发在 .env 置 TOIV_EXPOSE_API_DOCS=true 开启。
+    app = FastAPI(
+        title="ToIV API",
+        version="0.0.1",
+        lifespan=lifespan,
+        docs_url="/docs" if settings.expose_api_docs else None,
+        redoc_url="/redoc" if settings.expose_api_docs else None,
+        openapi_url="/openapi.json" if settings.expose_api_docs else None,
+    )
 
     app.add_middleware(
         CORSMiddleware,
@@ -141,6 +150,23 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # 安全响应头(QA-FULL-2026-08-11 P2,六项):API 只产 JSON/文件,统一最严白名单。
+    # 页面侧(前端 :3100)播放产物走的是 <video>/fetch 子资源加载,受页面自身 CSP 约束,
+    # 资源响应上的 CSP 不影响;直开产物 URL 的浏览器内置播放器也不受其管辖。
+    # HSTS 仅在 https(反代终结 TLS 后带 X-Forwarded-Proto)时下发,避免污染本地 http 开发。
+    @app.middleware("http")
+    async def _security_headers_mw(request, call_next):
+        response = await call_next(request)
+        h = response.headers
+        h.setdefault("X-Content-Type-Options", "nosniff")
+        h.setdefault("X-Frame-Options", "DENY")
+        h.setdefault("Referrer-Policy", "no-referrer")
+        h.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+        h.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+        if request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https":
+            h.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+        return response
 
     # 按请求 R18 放行标记(/nsfw 专页带 X-NSFW: 1)→ ContextVar;gate/模型列表据此放行,不动账户开关。
     @app.middleware("http")

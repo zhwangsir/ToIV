@@ -15,7 +15,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  height: 36px;
+  height: 38px;
   padding: 0 var(--space-3);
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
@@ -39,7 +39,7 @@
 .cornernav-brand-dot {
   width: 9px;
   height: 9px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   background: var(--accent);
   box-shadow: 0 0 10px var(--accent-glow);
   flex-shrink: 0;
@@ -52,9 +52,12 @@
 .cornernav-current {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding-left: var(--space-2);
-  border-left: 1px solid var(--border-subtle);
+  gap: var(--space-1);
+  /* 批 4:当前模块由「分隔线 + 文字」改为 accent 软底胶囊,一眼可辨 */
+  margin-left: var(--space-1);
+  padding: 3px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--accent-soft);
   color: var(--accent);
   font-size: var(--text-sm);
   font-weight: 600;
@@ -100,7 +103,8 @@
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--glass-highlight), var(--shadow-float), var(--shadow-xl);
-  padding: var(--space-2);
+  /* 批 4:面板内边距 8→12,项间隙加大,展开态更舒展 */
+  padding: var(--space-3);
   max-height: calc(100vh - 64px);
   overflow-y: auto;
 }
@@ -109,17 +113,18 @@
 .cornernav-items {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
 }
 .cornernav-item {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  height: 36px;
-  padding: 0 var(--space-2);
+  height: 38px;
+  padding: 0 var(--space-3);
   border-radius: var(--radius-control);
   color: var(--text-secondary);
   font-size: var(--text-sm);
+  font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
   transition: background-color var(--duration-fast) var(--ease-standard),
@@ -133,7 +138,9 @@
 .cornernav-item.is-active {
   background: var(--accent-soft);
   color: var(--accent);
-  box-shadow: var(--accent-glow-shadow);
+  font-weight: 600;
+  /* 批 4:激活项加 2px 左侧 accent 指示条(+ 原发光阴影),当前模块在列表中一眼定位 */
+  box-shadow: inset 2px 0 0 var(--accent), var(--accent-glow-shadow);
 }
 .cornernav-item-icon {
   display: flex;
@@ -180,8 +187,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: var(--accent-soft);
   color: var(--accent);
@@ -224,7 +231,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  height: 30px;
+  height: 32px;
   padding: 0 var(--space-2);
   border-radius: var(--radius-control);
   font-size: var(--text-sm);

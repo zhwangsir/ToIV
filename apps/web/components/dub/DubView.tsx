@@ -426,15 +426,15 @@ export function DubView() {
   // ── 渲染 ──
   return (
     <div className="single-view dub-view">
-      {/* 顶部标题 */}
-      <header className="dub-header">
+      {/* 统一页头:大标题 + 辅助描述 + 右侧操作区(page-header* 为全局统一类,下方样式为组件内兜底) */}
+      <header className="page-header dub-header">
         <div className="dub-titles">
-          <h1 className="dub-title">译制</h1>
-          <p className="dub-subtitle">
+          <h1 className="page-header-title">译制</h1>
+          <p className="page-header-desc">
             视频译制 · 听写 · 翻译 · 配音 · 口型同步
           </p>
         </div>
-        <div className="dub-meta">
+        <div className="page-header-actions dub-meta">
           {video && (
             <Badge tone="accent" dot={false} title={video.url}>
               <Icon name="video" size={12} strokeWidth={2} />
@@ -516,6 +516,7 @@ export function DubView() {
         {step === 1 && (
           <section className="card dub-panel">
             <div className="dub-panel-head">
+              <span className="dub-panel-kicker">步骤 1 / 4 · 源素材</span>
               <h2>上传源视频</h2>
               <p>支持 mp4 / mov / mkv,长视频可自动分段对口型</p>
             </div>
@@ -625,6 +626,7 @@ export function DubView() {
         {step === 2 && (
           <section className="card dub-panel">
             <div className="dub-panel-head">
+              <span className="dub-panel-kicker">步骤 2 / 4 · 字幕</span>
               <h2>生成字幕</h2>
               <p>Whisper 自动听写,或导入 SRT/VTT 字幕文件</p>
             </div>
@@ -756,109 +758,119 @@ export function DubView() {
         {step === 3 && (
           <section className="card dub-panel">
             <div className="dub-panel-head">
+              <span className="dub-panel-kicker">步骤 3 / 4 · 声音</span>
               <h2>配音生成</h2>
               <p>从源视频抽取参考音色,逐段合成克隆配音轨</p>
             </div>
 
-            <div className="dub-form-grid">
-              <label className="dub-field">
-                <span className="dub-field-label">参考音秒数</span>
-                <Input
-                  type="number"
-                  min={2}
-                  max={30}
-                  value={refSeconds}
-                  onChange={(e) => setRefSeconds(Number(e.target.value) || DEFAULT_DUB_PARAMS.refSeconds)}
-                />
-                <span className="dub-field-hint">从原音色抽取多长作为克隆参考</span>
-              </label>
-              <label className="dub-field dub-field-wide">
-                <div className="dub-field-label-row">
-                  <span className="dub-field-label">情绪提示(可选)</span>
-                  <OptimizeButton
-                    prompt={emoText}
-                    kind="audio"
-                    onOptimized={(t) => setEmoText(t)}
-                    label="优化提示"
-                  />
+            {/* 双栏工作区:左栏参数与操作,右栏配音结果 */}
+            <div className="dub-cols">
+              <div className="dub-col-main">
+                <div className="dub-group-title">合成参数</div>
+                <div className="dub-form-grid">
+                  <label className="dub-field">
+                    <span className="dub-field-label">参考音秒数</span>
+                    <Input
+                      type="number"
+                      min={2}
+                      max={30}
+                      value={refSeconds}
+                      onChange={(e) => setRefSeconds(Number(e.target.value) || DEFAULT_DUB_PARAMS.refSeconds)}
+                    />
+                    <span className="dub-field-hint">从原音色抽取多长作为克隆参考</span>
+                  </label>
+                  <label className="dub-field dub-field-wide">
+                    <div className="dub-field-label-row">
+                      <span className="dub-field-label">情绪提示(可选)</span>
+                      <OptimizeButton
+                        prompt={emoText}
+                        kind="audio"
+                        onOptimized={(t) => setEmoText(t)}
+                        label="优化提示"
+                      />
+                    </div>
+                    <Input
+                      type="text"
+                      placeholder="例:平静 / 激昂 / 低沉"
+                      value={emoText}
+                      onChange={(e) => setEmoText(e.target.value)}
+                    />
+                  </label>
                 </div>
-                <Input
-                  type="text"
-                  placeholder="例:平静 / 激昂 / 低沉"
-                  value={emoText}
-                  onChange={(e) => setEmoText(e.target.value)}
-                />
-              </label>
-            </div>
 
-            <div className="dub-actions-row">
-              <button
-                className="btn btn-primary"
-                onClick={doVoice}
-                disabled={voiceBusy}
-              >
-                <Icon name={voiceBusy ? "loading" : "audio"} size={14} strokeWidth={2} />
-                {voiceBusy ? "合成中…" : "生成配音轨"}
-              </button>
-              {Object.keys(translated).length > 0 ? (
-                <span className="dub-hint-text">使用译文生成</span>
-              ) : (
-                <span className="dub-hint-text">使用原文字幕生成</span>
-              )}
-            </div>
-
-            {voiceBusy && (
-              <div className="dub-progress">
-                <div className="dub-progress-bar" style={{ width: `${voicePct}%` }} />
-                <span className="dub-progress-label">
-                  {voiceStage} · {voicePct}%
-                </span>
-              </div>
-            )}
-            {voiceError && (
-              <div className="dub-error">
-                <Icon name="error" size={14} strokeWidth={2} />
-                {voiceError}
-              </div>
-            )}
-
-            {/* 空态:暂无音色 */}
-            {!voice && !voiceBusy && (
-              <Empty
-                icon="audio"
-                title="暂无音色"
-                desc="请先上传参考音频,或点击上方「生成配音轨」克隆音色"
-              />
-            )}
-
-            {voice && (
-              <div className="dub-voice-result">
-                <div className="dub-voice-head">
-                  <div className="dub-voice-title">
-                    <Icon name="audio" size={14} strokeWidth={2} />
-                    {voice.name}
-                  </div>
-                  <div className="dub-voice-stats">
-                    <Badge tone="ok">
-                      <Icon name="success" size={11} strokeWidth={2.4} />
-                      合成完成
-                    </Badge>
-                    <Badge tone="neutral" dot={false}>{voice.segment_count} 段</Badge>
-                    <Badge tone="neutral" dot={false}>{fmtTime(voice.duration)}</Badge>
-                  </div>
-                </div>
-                <audio src={imageUrl(voice.url)} controls preload="metadata" />
-                <div className="dub-panel-foot">
+                <div className="dub-actions-row">
                   <button
                     className="btn btn-primary"
-                    onClick={() => setStep(4)}
+                    onClick={doVoice}
+                    disabled={voiceBusy}
                   >
-                    下一步 · 口型同步
-                    <Icon name="send" size={14} strokeWidth={2} />
+                    <Icon name={voiceBusy ? "loading" : "audio"} size={14} strokeWidth={2} />
+                    {voiceBusy ? "合成中…" : "生成配音轨"}
                   </button>
+                  {Object.keys(translated).length > 0 ? (
+                    <span className="dub-hint-text">使用译文生成</span>
+                  ) : (
+                    <span className="dub-hint-text">使用原文字幕生成</span>
+                  )}
                 </div>
+
+                {voiceBusy && (
+                  <div className="dub-progress">
+                    <div className="dub-progress-bar" style={{ width: `${voicePct}%` }} />
+                    <span className="dub-progress-label">
+                      {voiceStage} · {voicePct}%
+                    </span>
+                  </div>
+                )}
+                {voiceError && (
+                  <div className="dub-error">
+                    <Icon name="error" size={14} strokeWidth={2} />
+                    {voiceError}
+                  </div>
+                )}
               </div>
-            )}
+
+              <div className="dub-col-side">
+                <div className="dub-group-title">配音结果</div>
+                {/* 空态:暂无音色 */}
+                {!voice && !voiceBusy && (
+                  <Empty
+                    icon="audio"
+                    title="暂无音色"
+                    desc="请先上传参考音频,或点击左侧「生成配音轨」克隆音色"
+                  />
+                )}
+
+                {voice && (
+                  <div className="dub-voice-result">
+                    <div className="dub-voice-head">
+                      <div className="dub-voice-title">
+                        <Icon name="audio" size={14} strokeWidth={2} />
+                        {voice.name}
+                      </div>
+                      <div className="dub-voice-stats">
+                        <Badge tone="ok">
+                          <Icon name="success" size={11} strokeWidth={2.4} />
+                          合成完成
+                        </Badge>
+                        <Badge tone="neutral" dot={false}>{voice.segment_count} 段</Badge>
+                        <Badge tone="neutral" dot={false}>{fmtTime(voice.duration)}</Badge>
+                      </div>
+                    </div>
+                    <audio src={imageUrl(voice.url)} controls preload="metadata" />
+                    <div className="dub-panel-foot">
+                      <button
+                        className="btn btn-primary"
+                        onClick={() => setStep(4)}
+                      >
+                        下一步 · 口型同步
+                        <Icon name="send" size={14} strokeWidth={2} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </section>
         )}
 
@@ -866,6 +878,7 @@ export function DubView() {
         {step === 4 && (
           <section className="card dub-panel">
             <div className="dub-panel-head">
+              <span className="dub-panel-kicker">步骤 4 / 4 · 合成</span>
               <h2>口型同步</h2>
               <p>支持 LatentSync 长视频、动漫对口型、AI 精剪三种模式</p>
             </div>
@@ -1285,6 +1298,7 @@ export function DubView() {
           flex-direction: column;
           gap: var(--space-4);
         }
+        /* 无需避让 CornerNav:壳层 app-main padding-top:56px 已垂直让开触发器,视图左右对称 */
 
         /* ── 顶部 ── */
         .dub-header {
@@ -1320,6 +1334,13 @@ export function DubView() {
           gap: var(--space-2);
           flex-wrap: wrap;
           align-items: center;
+          min-width: 0;
+          max-width: 100%;
+        }
+        /* 长文件名徽标:限制在头部可用宽度内,超出裁切(title 悬浮见全名) */
+        .dub-meta > :global(span) {
+          max-width: 100%;
+          overflow: hidden;
         }
 
         /* ── 步骤指示器:四步等宽,内容在各自格内居中,节奏均匀 ── */
@@ -1346,8 +1367,10 @@ export function DubView() {
           border-radius: var(--radius-control);
           transition: color var(--duration-fast) var(--ease-standard);
         }
-        .dub-step:hover {
-          color: var(--text-secondary);
+        /* 可达步骤 hover 给出底色反馈;锁定步骤不响应 */
+        .dub-step:not(.is-locked):hover {
+          background: var(--bg-surface-2);
+          color: var(--text-primary);
         }
         .dub-step:focus-visible {
           outline: 1px solid var(--accent);
@@ -1433,13 +1456,14 @@ export function DubView() {
           background: var(--border-subtle);
         }
         /* 移动端:四步等宽压缩(小圆点 + 小字号 + 去 hint/分隔线),保证 390px 全显 */
-        @media (max-width: 720px) {
+        @media (max-width: 767px) {
           .dub-stepper {
             padding: var(--space-2) var(--space-3);
           }
           .dub-step {
             gap: var(--space-1);
             min-width: 0;
+            min-height: 44px; /* 触控目标 ≥44px */
           }
           .dub-step-circle {
             width: 24px;
@@ -1470,13 +1494,18 @@ export function DubView() {
           flex-direction: column;
           gap: var(--space-4);
         }
-        @media (max-width: 720px) {
+        @media (max-width: 767px) {
           .dub-panel {
             padding: var(--space-4);
           }
         }
+        /* 面板头:与正文用细分隔线分组,层级更清晰 */
+        .dub-panel-head {
+          padding-bottom: var(--space-3);
+          border-bottom: 1px solid var(--border-subtle);
+        }
         .dub-panel-head h2 {
-          margin: 0 0 4px 0;
+          margin: 0 0 var(--space-1) 0;
           font-size: var(--text-section);
           font-weight: 600;
           color: var(--text-primary);
@@ -1594,7 +1623,8 @@ export function DubView() {
           align-items: center;
           justify-content: center;
           font-size: var(--text-aux);
-          color: var(--text-primary);
+          /* 反色混合:文字落在未填充轨道上呈深色、落在深色填充条上呈浅色,五套主题均可读 */
+          color: var(--text-on-accent);
           mix-blend-mode: difference;
           letter-spacing: 0.02em;
           font-variant-numeric: tabular-nums;
@@ -1605,7 +1635,7 @@ export function DubView() {
           display: flex;
           align-items: center;
           gap: var(--space-2);
-          padding: 10px var(--space-3);
+          padding: var(--space-2) var(--space-3);
           background: var(--err-soft);
           border: 1px solid var(--err);
           border-radius: var(--radius-control);
@@ -1679,7 +1709,7 @@ export function DubView() {
           justify-content: space-between;
           gap: var(--space-3);
           flex-wrap: wrap;
-          padding-top: var(--space-2);
+          padding-top: var(--space-4);
           border-top: 1px solid var(--border-subtle);
         }
         .dub-translate {
@@ -1705,7 +1735,7 @@ export function DubView() {
           display: grid;
           grid-template-columns: 130px 1fr;
           gap: var(--space-3);
-          padding: 10px var(--space-3);
+          padding: var(--space-2) var(--space-3);
           background: var(--bg-surface-2);
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-control);
@@ -1731,7 +1761,7 @@ export function DubView() {
         .dub-seg-texts {
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: var(--space-2);
           min-width: 0;
         }
         .dub-seg-text {
@@ -1758,14 +1788,14 @@ export function DubView() {
           font-size: var(--text-sm);
           font-variant-numeric: tabular-nums;
         }
-        @media (max-width: 640px) {
+        @media (max-width: 767px) {
           .dub-seg {
             grid-template-columns: 1fr;
             gap: var(--space-2);
           }
           .dub-seg-time {
             flex-direction: row;
-            gap: 10px;
+            gap: var(--space-2);
             align-items: baseline;
           }
         }
@@ -1779,7 +1809,7 @@ export function DubView() {
         .dub-field {
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: var(--space-2);
         }
         .dub-field-wide {
           grid-column: 1 / -1;
@@ -1836,6 +1866,20 @@ export function DubView() {
           color: var(--text-primary);
           box-shadow: inset 0 0 0 1px var(--border-subtle);
         }
+        /* 移动端:分段控件拉满一行、按钮加高到触控目标;复选框行高同样补足 */
+        @media (max-width: 767px) {
+          .dub-segmented {
+            display: flex;
+            align-self: stretch;
+          }
+          .dub-segmented button {
+            flex: 1;
+            height: 44px;
+          }
+          .dub-checkbox {
+            min-height: 44px;
+          }
+        }
 
         /* ── 复选框 ── */
         .dub-checkbox {
@@ -1876,7 +1920,7 @@ export function DubView() {
         .dub-voice-result {
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: var(--space-3);
           padding: var(--space-4);
           background: var(--bg-surface-2);
           border: 1px solid var(--border-subtle);
@@ -1907,7 +1951,7 @@ export function DubView() {
         .dub-panel-foot {
           display: flex;
           justify-content: flex-end;
-          padding-top: var(--space-3);
+          padding-top: var(--space-4);
           border-top: 1px solid var(--border-subtle);
         }
 
@@ -1936,13 +1980,13 @@ export function DubView() {
         }
         .dub-status-stats {
           display: flex;
-          gap: 6px;
+          gap: var(--space-2);
           flex-wrap: wrap;
         }
         .dub-lipsync-done {
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: var(--space-3);
           align-items: flex-start;
         }
 
@@ -1961,7 +2005,7 @@ export function DubView() {
           display: flex;
           align-items: flex-start;
           gap: var(--space-2);
-          padding: 10px var(--space-3);
+          padding: var(--space-2) var(--space-3);
           background: var(--bg-surface-2);
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-control);

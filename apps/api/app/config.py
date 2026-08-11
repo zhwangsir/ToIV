@@ -21,12 +21,13 @@ class Settings(BaseSettings):
     # PuLID-Flux v0.9.1 仅适配 FLUX.1 dev/schnell,不适用 FLUX.2;故用 FLUX.1 fp8
     # 全量包(CheckpointLoaderSimple 单节点全量加载,worker :8189-8191 实测可见)。
     pulid_flux_ckpt: str = "flux1-dev-fp8.safetensors"
-    # SFW 视频默认底模:LTX-2.3 distilled(短剧/通用视频生成默认;仅 nsfw=True 才切 10Eros)
-    default_video_ckpt: str = "ltx-2.3-distilled.safetensors"
+    # SFW 视频默认底模:LTX-2.3 22B distilled 1.1(短剧/通用视频生成默认;仅 nsfw=True 才切 10Eros)。
+    # 注:旧默认 ltx-2.3-distilled.safetensors 是 fp8 版符号链接,2026-08-09 模型清理后失效,
+    # 直接引用真机实存的 22B distilled 1.1(diffusion_models/,22B bf16,worker 实测可见)。
+    default_video_ckpt: str = "ltx-2.3-22b-distilled-1.1.safetensors"
     # NSFW 专区视频默认模型(LTX2.3 All in one v4.0 工作流推荐)
     # 10Eros v1.4 fp8mixed_learned:NSFW 内容专用底模(LTX2.3-10Eros 仓库最新版,29GB)
-    # LTX-2.3 distilled:SFW 视频生成(走 ltx-2.3-distilled 符号链接)
-    # 模型路径:diffusion_models/10eros_v14.safetensors(NAS)+ 符号链接对齐
+    # 模型路径:diffusion_models/10eros_v14.safetensors(NAS)
     nsfw_default_video_ckpt: str = "10eros_v14.safetensors"
     # Gemma 3 12B IT 文本编码器:LTXVGemmaCLIPModelLoader 要求 HF 目录结构
     # (model.safetensors + tokenizer.json + config.json + preprocessor_config.json 等)。
@@ -147,6 +148,9 @@ class Settings(BaseSettings):
     # 运行环境(传给 Sentry 的 environment 字段;development / production)。
     # 也便于后续按环境分支(如生产才采样)。
     environment: str = "development"
+    # 是否暴露 API 文档(/docs /redoc /openapi.json)。默认关:生产暴露完整 schema
+    # 等于公开攻击面地图(QA-FULL-2026-08-11 P2);本地开发在 .env 置 true 开启。
+    expose_api_docs: bool = False
 
     # —— 视频质量评估 VLM(video scorer)——
     # workstation(192.168.71.127:8000, GPU3)上 Nemotron-3-Nano-Omni-30B-A3R 全模态 VLM,
@@ -233,10 +237,10 @@ class Settings(BaseSettings):
     # 不足时先尝试驱逐 h3_co_workers(同卡 pool worker,空闲队列才动)的模型缓存,
     # 仍不足 → 503 错峰提示,不让 ComfyUI 以 "VRAM grow failed" 裸崩(2026-08-04 实发)。
     h3_min_free_vram_gb: float = 36.0
-    # 与 H3 实例同卡的 pool worker(逗号分隔,用于显存不足时的协调驱逐);空串=禁用自动驱逐。
-    # 2026-08-04 起 H3 实例迁移至 GPU0(原 GPU1 被 embedding+liveact+H3 挤爆),
-    # 同卡 pool worker 为 gpu0 :8189。
-    h3_co_workers: str = "http://192.168.71.127:8189"
+    # 与 H3 实例同卡的 ComfyUI 实例(逗号分隔,用于显存不足时的协调驱逐);空串=禁用自动驱逐。
+    # 2026-08-10 起 H3 实例独占 GPU2(CUDA_VISIBLE_DEVICES=2,GPU0 温度/显存双高压),
+    # 同卡实例为 LongCat :8197 与 M6 超分 :8262(空闲队列才驱逐,在跑作业绝不动)。
+    h3_co_workers: str = "http://192.168.71.127:8197,http://192.168.71.127:8262"
 
     # —— LongCat-Video 长视频引擎(专用 ComfyUI 实例,workstation GPU2 :8197) ——
     # 独立于 WorkerPool(WanVideo 系节点仅该实例装有);systemd comfyui-longcat.service 托管,

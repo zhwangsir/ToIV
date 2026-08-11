@@ -30,8 +30,9 @@ dependencies = [
 dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
-    # Redis 路径测试替身(test_redis_integration.py)
-    "fakeredis>=2.23",
+    # Redis 路径测试替身(test_redis_integration.py);[lua]=lupa,
+    # 缺 lupa 时 fakeredis 不注册 eval/evalsha 命令,限流 Lua 路径测试会静默降级内存而失败
+    "fakeredis[lua]>=2.23",
 ]
 scoring = [
     "image-reward",

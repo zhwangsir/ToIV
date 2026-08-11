@@ -24,7 +24,8 @@ interface SettingsViewProps {
 
 /**
  * 设置视图(重构方案 §4.9):工作台版版型(页标题 + max-width 1200,走 .single-view)。
- * 四组卡片:账户 / 界面 / 引擎状态(只读,走查 #17 GPU worker 状态卡落点)/ 关于。
+ * 页头走全局 .page-header*(大标题 + 描述 + 右侧操作区);四张分区卡:账户 / 界面 /
+ * 引擎状态(只读,走查 #17 GPU worker 状态卡落点,横排分组)/ 关于(通栏三列)。
  * 样式全部在 app/styles/settings.css;修改密码后端无现成端点,按方案只展示账户信息 + 登出。
  */
 export function SettingsView({ account, onLogout }: SettingsViewProps) {
@@ -46,15 +47,30 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
 
   return (
     <div className="single-view settings-view">
-      <header className="settings-header">
-        <h1 className="settings-title">设置</h1>
+      <header className="page-header">
+        <div>
+          <h1 className="page-header-title">设置</h1>
+          <p className="page-header-desc">账户、界面主题与推理引擎状态总览</p>
+        </div>
+        <div className="page-header-actions">
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<Icon name="refresh" size={13} />}
+            onClick={loadEngines}
+          >
+            刷新状态
+          </Button>
+        </div>
       </header>
 
       <div className="settings-grid">
         {/* ── 账户 ── */}
         <section className="settings-card" aria-labelledby="settings-account">
           <h2 className="settings-card-title" id="settings-account">
-            <Icon name="user" size={15} strokeWidth={1.8} />
+            <span className="settings-card-icon" aria-hidden="true">
+              <Icon name="user" size={14} strokeWidth={1.8} />
+            </span>
             账户
           </h2>
           <div className="settings-row">
@@ -80,7 +96,9 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
         {/* ── 界面 ── */}
         <section className="settings-card" aria-labelledby="settings-ui">
           <h2 className="settings-card-title" id="settings-ui">
-            <Icon name="palette" size={15} strokeWidth={1.8} />
+            <span className="settings-card-icon" aria-hidden="true">
+              <Icon name="palette" size={14} strokeWidth={1.8} />
+            </span>
             界面
           </h2>
           <ThemePicker />
@@ -92,7 +110,9 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
           aria-labelledby="settings-engines"
         >
           <h2 className="settings-card-title" id="settings-engines">
-            <Icon name="cpu" size={15} strokeWidth={1.8} />
+            <span className="settings-card-icon" aria-hidden="true">
+              <Icon name="cpu" size={14} strokeWidth={1.8} />
+            </span>
             引擎状态
           </h2>
           {enginesError ? (
@@ -108,9 +128,20 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
               </Button>
             </div>
           ) : engines === null ? (
-            <p className="settings-engines-loading">加载中…</p>
+            <div
+              className="settings-engine-skeleton"
+              role="status"
+              aria-label="引擎状态加载中"
+            >
+              <span className="settings-engine-skeleton-bar" aria-hidden="true" />
+              <span className="settings-engine-skeleton-bar is-short" aria-hidden="true" />
+              <span className="settings-engine-skeleton-bar" aria-hidden="true" />
+            </div>
           ) : engines.length === 0 ? (
-            <p className="settings-engines-loading">暂无已注册引擎</p>
+            <div className="settings-engines-empty">
+              <Icon name="cpu" size={18} strokeWidth={1.6} />
+              <p>暂无已注册引擎</p>
+            </div>
           ) : (
             <div className="settings-engine-groups">
               {KIND_ORDER.map((kind) => {
@@ -118,7 +149,10 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
                 if (list.length === 0) return null;
                 return (
                   <div key={kind} className="settings-engine-group">
-                    <div className="settings-engine-kind">{KIND_LABEL[kind]}</div>
+                    <div className="settings-engine-group-head">
+                      <span className="settings-engine-kind">{KIND_LABEL[kind]}</span>
+                      <span className="settings-engine-count">{list.length}</span>
+                    </div>
                     <ul className="settings-engine-list">
                       {list.map((e) => (
                         <li key={e.id} className="settings-engine-item">
@@ -127,7 +161,9 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
                             aria-hidden="true"
                           />
                           <span className="settings-engine-label">{e.label}</span>
-                          <span className="settings-engine-state">
+                          <span
+                            className={`settings-engine-state${e.available ? " is-ok" : " is-err"}`}
+                          >
                             {e.available ? "可用" : "不可用"}
                           </span>
                           {!e.available && e.unavailable_reason && (
@@ -146,22 +182,29 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
         </section>
 
         {/* ── 关于 ── */}
-        <section className="settings-card" aria-labelledby="settings-about">
+        <section
+          className="settings-card settings-card--wide"
+          aria-labelledby="settings-about"
+        >
           <h2 className="settings-card-title" id="settings-about">
-            <Icon name="info" size={15} strokeWidth={1.8} />
+            <span className="settings-card-icon" aria-hidden="true">
+              <Icon name="info" size={14} strokeWidth={1.8} />
+            </span>
             关于
           </h2>
-          <div className="settings-row">
-            <span className="settings-row-label">产品</span>
-            <span className="settings-row-value">ToIV — AI 创作平台</span>
-          </div>
-          <div className="settings-row">
-            <span className="settings-row-label">版本</span>
-            <span className="settings-row-value">v{APP_VERSION}</span>
-          </div>
-          <div className="settings-row">
-            <span className="settings-row-label">部署环境</span>
-            <span className="settings-row-value">私有化部署 · 本地推理集群</span>
+          <div className="settings-about-grid">
+            <div className="settings-row">
+              <span className="settings-row-label">产品</span>
+              <span className="settings-row-value">ToIV — AI 创作平台</span>
+            </div>
+            <div className="settings-row">
+              <span className="settings-row-label">版本</span>
+              <span className="settings-row-value">v{APP_VERSION}</span>
+            </div>
+            <div className="settings-row">
+              <span className="settings-row-label">部署环境</span>
+              <span className="settings-row-value">私有化部署 · 本地推理集群</span>
+            </div>
           </div>
         </section>
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -55,8 +55,6 @@ function formatDuration(sec: number): string {
 }
 
 interface AvatarGenPanelProps {
-  /** 面板头部右侧的模式切换 Tabs(实时对话 / 视频生成),由 AvatarTalkView 注入。 */
-  tabs: ReactNode;
   /** 跳作品库(page.tsx 的视图路由);未传时不显示入口。 */
   onNavigate?: (target: string) => void;
 }
@@ -68,7 +66,7 @@ interface AvatarGenPanelProps {
  * 第二个文件上传时带 worker=<第一个的落点>钉到同机(后端白名单校验),
  * 因此两者恒同机;兜底再比对一次,不一致提示重传。
  */
-export function AvatarGenPanel({ tabs, onNavigate }: AvatarGenPanelProps) {
+export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
   const [image, setImage] = useState<UploadedFile | null>(null);
   const [audio, setAudio] = useState<UploadedAudio | null>(null);
   const [imgUploading, setImgUploading] = useState(false);
@@ -331,18 +329,18 @@ export function AvatarGenPanel({ tabs, onNavigate }: AvatarGenPanelProps) {
         </Badge>
       </div>
 
-      {/* ── 右:参数面板 ── */}
+      {/* ── 右:参数面板(分组卡片:素材 / 提示词 / 生成参数) ── */}
       <div className="at-panel">
-        <div className="at-panel-header">
-          <div className="at-panel-title-wrap">
-            <h2 className="at-panel-title">数字人</h2>
-            <span className="at-panel-subtitle">LongCat-Avatar 视频生成</span>
-          </div>
-          {tabs}
-        </div>
-
         <div className="at-panel-body">
           <div className="at-gen-form">
+            {/* 素材:人像首帧 + 驱动音频 */}
+            <section className="at-gen-section">
+              <div className="at-section-head">
+                <h3 className="at-section-title">素材</h3>
+                <span className="at-section-count">
+                  {(image ? 1 : 0) + (audio ? 1 : 0)}/2 已上传
+                </span>
+              </div>
             {/* 人像首帧 */}
             <Field
               label="人像首帧"
@@ -441,8 +439,14 @@ export function AvatarGenPanel({ tabs, onNavigate }: AvatarGenPanelProps) {
                 人像图与音频未落在同一 worker,请移除其中一个重新上传
               </p>
             )}
+            </section>
 
             {/* 提示词 */}
+            <section className="at-gen-section">
+              <div className="at-section-head">
+                <h3 className="at-section-title">提示词</h3>
+                <span className="at-section-count">必填</span>
+              </div>
             <Field label="正向提示词">
               <Textarea
                 rows={3}
@@ -452,8 +456,16 @@ export function AvatarGenPanel({ tabs, onNavigate }: AvatarGenPanelProps) {
                 onChange={(e) => setPositive(e.target.value)}
               />
             </Field>
+            </section>
 
-            {/* 参数区 */}
+            {/* 生成参数 */}
+            <section className="at-gen-section">
+              <div className="at-section-head">
+                <h3 className="at-section-title">生成参数</h3>
+                <span className="at-section-count">
+                  {preset.width}×{preset.height} · {steps} 步
+                </span>
+              </div>
             <Field label="分辨率">
               <Select
                 value={resPreset}
@@ -600,6 +612,7 @@ export function AvatarGenPanel({ tabs, onNavigate }: AvatarGenPanelProps) {
                 </Field>
               </div>
             </details>
+            </section>
           </div>
         </div>
 

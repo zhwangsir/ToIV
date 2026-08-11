@@ -157,8 +157,8 @@ def test_migration_idempotent_and_nondestructive():
     original = db_mod.engine
     db_mod.engine = eng
     try:
-        db_mod._run_sqlite_migrations()  # 第一次:补列
-        db_mod._run_sqlite_migrations()  # 第二次:幂等,不应报错
+        db_mod._run_column_migrations()  # 第一次:补列
+        db_mod._run_column_migrations()  # 第二次:幂等,不应报错
     finally:
         db_mod.engine = original
 
@@ -641,7 +641,9 @@ def test_nsfw_recommendations_include_10eros_loras(client):
 def test_nsfw_recommendations_include_h3_loras(client):
     """推荐清单含 MiniMax H3 LoRA(category=h3,真实 civitai ID,desc 注明文件名/强度/需安装)。
 
-    2026-08-08 首批 4 个 + 生态扩充 4 个(Deepthroat/Vagina/NaughtyTimes/lightx2v Turbo)。
+    2026-08-08 首批 4 个 + 生态扩充 4 个(Deepthroat/Vagina/NaughtyTimes/lightx2v Turbo)
+    + 2026-08-10 再扩 3 个(HMNSFW AIO/AI Girl Series30/Turbo 850 合并版)
+    + 2026-08-11 创作者作品集调研再扩 2 个(HMPussy/Stomach Bulge)。
     """
     c, engine = client
     with Session(engine) as s:
@@ -651,7 +653,7 @@ def test_nsfw_recommendations_include_h3_loras(client):
     assert r.status_code == 200
     items = [it for it in r.json()["items"] if it["category"] == "h3"]
     by_name = {it["name"]: it for it in items}
-    assert len(items) == 8
+    assert len(items) == 13
     expected = {
         "H3 Riding POV (I2V)": ("2446218", "riding_pose_H3_i2v_v1.0.safetensors"),
         "H3 Footjob": ("2839680", "H3_footjob_v0_step1000_fixed.safetensors"),
@@ -661,6 +663,11 @@ def test_nsfw_recommendations_include_h3_loras(client):
         "H3 Vagina": ("2835594", "minimax_vag_000002500.safetensors"),
         "SexGod's NaughtyTimes H3": ("2836176", "SexGod-NaughtyTimes-lora-MINIMAXH3.safetensors"),
         "Minimax H3 lightx2v Turbo(加速)": ("2837571", "minimax_h3_fl2v_lightx2v_turbo_4step_v0.1_comfy.safetensors"),
+        "HMNSFW AIO Sex LoRA": ("2834417", "HMNSFW_AIO_V2.safetensors"),
+        "AI Girl: Fictional Women Series30 H3": ("2845077", "AI_Girl_Fictional_Women_Series30_H3.safetensors"),
+        "MiniMAX H3 Turbo 850 步加速(合并剪枝版)": ("2838852", "minimax_h3_turbo_4step_ema_ckpt850_pruned_comfyui.safetensors"),
+        "HMPussy (Pussy/Anus) H3": ("2846342", "vagassist_e40.safetensors"),
+        "Stomach Bulge H3 (I2V)": ("1445226", "stomach_bulge_H3_i2v_v1.0.safetensors"),
     }
     for name, (civitai_id, filename) in expected.items():
         it = by_name[name]

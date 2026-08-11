@@ -105,7 +105,11 @@ def delete_user(
         session.delete(job)
     tenant = session.get(Tenant, user.tenant_id)
     session.delete(user)
-    if tenant:
+    # User/Tenant 之间无 ORM relationship,SQLAlchemy UOW 不保证跨 mapper 删除顺序;
+    # flush 强制先发 DELETE FROM user,解除 user_tenant_id_fkey 引用后再删租户,
+    # 否则 PG(SQLite 开 FK 亦然)报 ForeignKeyViolation 500。
+    session.flush()
+    if tenant and not session.exec(select(User).where(User.tenant_id == tenant.id)).first():
         session.delete(tenant)
     session.commit()
     return {"deleted": user_id}

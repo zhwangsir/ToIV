@@ -125,14 +125,16 @@ export function ResultPanel({ entries, selectedId, onSelect, liveProgress, quali
     doneEntries.find((e) => e.id === compareB) ?? doneEntries.find((e) => e.id !== entryA?.id) ?? null;
 
   if (entries.length === 0) {
+    // tabIndex=0:空态容器 overflow-y:auto 可滚动,axe scrollable-region-focusable 要求键盘可达
     return (
-      <div className="result-panel result-panel-empty">
+      <div className="result-panel result-panel-empty" tabIndex={0}>
         <div className="empty-editorial">
           <span className="empty-kicker">工作台</span>
           <h2 className="empty-display">你的作品
             <br />
             将在这里呈现
           </h2>
+          <span className="empty-rule" aria-hidden="true" />
           <div className="empty-tips">
             <div className="empty-tip">
               <span className="empty-tip-num">01</span>
@@ -262,6 +264,10 @@ export function ResultPanel({ entries, selectedId, onSelect, liveProgress, quali
                         : undefined
                     }
                   />
+                  <div className="stage-skeleton-lines" aria-hidden="true">
+                    <span className="stage-skeleton-line skeleton-shimmer" />
+                    <span className="stage-skeleton-line is-short skeleton-shimmer" />
+                  </div>
                   <div className="stage-progress">
                     <div className="gen-progress" role="progressbar"
                       aria-valuenow={liveProgress.max > 0 ? Math.round((liveProgress.value / liveProgress.max) * 100) : undefined}

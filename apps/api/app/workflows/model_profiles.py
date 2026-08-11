@@ -131,19 +131,29 @@ def fit_resolution(ckpt_name: str, width: int, height: int) -> tuple[int, int]:
     SDXL 原生 ~1024²(1MP);SD1.5 ~0.4MP 且长边封顶 896 —— 各自架构在错档分辨率下
     会崩坏/重复(SD1.5 在 1024 出双头、SDXL 在 512 糊成抽象)。前端给的宽高只定**宽高比**,
     实际像素由本函数按架构决定。
+
+    次世代族(flux2/flux/qwen_image/z_image)原生支持高分辨率,预算提至 ~1.37MP
+    (1024×1360),使 3:4 纵向构图也能达到 ≥1024 双维度——满足质量门(keyframes ≥1024²)
+    同时保持纵向构图一致性。SDXL 族维持原生 1MP(超出会出重复/崩坏)。
     """
     width = max(64, width)
     height = max(64, height)
     ar = width / height
-    # 分辨率档按**架构族**定:仅 SD1.5 走 0.4MP 小档,其余(SDXL/SDXL动漫/Pony/次世代/
-    # flux/qwen)均 ~1MP 原生。按 family 而非 is_sdxl 判断,兼容文件名不含 "xl" 的
-    # SDXL 衍生(如 cyberrealistic_v120 = CyberIllustrious),避免误落 640² 崩坏。
-    if detect_model_family(ckpt_name) != "sd15":
-        budget = 1024 * 1024
-        long_cap = 1536
-    else:
+    # 分辨率档按**架构族**定:
+    #   - SD1.5: 0.4MP,长边封顶 896(高分辨率出双头)
+    #   - 次世代(flux2/flux/qwen_image/z_image): ~1.37MP,长边封顶 1536
+    #     (原生高分辨率支持;2026-08-10 从 1MP 上调,使纵向 keyframes 过质量门)
+    #   - SDXL/SDXL动漫/Pony: ~1MP,长边封顶 1536(原生档,超出易崩)
+    family = detect_model_family(ckpt_name)
+    if family == "sd15":
         budget = 640 * 640
         long_cap = 896
+    elif family in ("flux2", "flux", "qwen_image", "z_image"):
+        budget = 1024 * 1360
+        long_cap = 1536
+    else:
+        budget = 1024 * 1024
+        long_cap = 1536
     h = math.sqrt(budget / ar)
     w = h * ar
     longest = max(w, h)

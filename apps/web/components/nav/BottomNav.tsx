@@ -61,7 +61,7 @@ export function BottomNav({ items, moreItems = [], current, onSelect, ctaAction 
               aria-current={isActive ? "page" : undefined}
             >
               <Icon name={item.icon} size={20} />
-              <span>{item.label}</span>
+              <span className="bottom-nav-label">{item.label}</span>
             </button>
           );
         })}
@@ -74,7 +74,7 @@ export function BottomNav({ items, moreItems = [], current, onSelect, ctaAction 
             aria-label="更多"
           >
             <Icon name="menu" size={20} />
-            <span>更多</span>
+            <span className="bottom-nav-label">更多</span>
           </button>
         )}
       </nav>

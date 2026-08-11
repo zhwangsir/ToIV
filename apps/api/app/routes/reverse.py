@@ -1,11 +1,11 @@
 """POST /api/reverse —— 反推提示词:上传图/视频/音频,反推出可复用的生成提示词。
 
 链路(2026-08-08 集群重排后,见 docs/2026-08-08-cluster-reallocation-plan.md):
-- SFW 图像 + 全部视频 → Qwen3-VL-8B OpenAI 兼容服务(reverse_vlm_base_url;生产为
-  studio04 MLX bf16 :9303,GPU3 toiv-vlm 停而不删作回退)。图像走 image_url、视频走
+- SFW 图像 + 全部视频 → studio04 MLX Qwen2.5-VL-72B-Instruct-4bit 自定义 /v1/reverse
+  服务(reverse_vlm_base_url;GPU3 toiv-vlm 停而不删作热回退)。图像走 image_url、视频走
   video_url(base64 data URL;reverse_video_mac_prefix 非空时走 NAS 中转本地路径)。
-  系统提示要求输出「能直接复用于生成模型」的自然语言描述——H3/MiniMax 类视频模型偏好
-  叙事长描述(要剧本不要清单),视频反推按六段式(镜头运动/主体/动作/场景/光线/风格)。
+  系统提示作为 prompt 传入,模型返回自然语言描述,core 侧按 JSON/纯文本兜底解析。
+  视频反推按六段式(镜头运动/主体/动作/场景/光线/风格)组织叙事长描述。
 - NSFW 图像(X-NSFW)→ JoyCaption 专线(joycaption_base_url,空串回退 Qwen3-VL)。
 - 音频 → SenseVoice(sensevoice_url):转写 + 情绪 + 音频事件 + 语种,组合成人声描述;
   配了 omni_captioner_base_url 时再走增强链:demucs 分离伴奏 → Omni-Captioner 生成
@@ -44,10 +44,12 @@ _SENSEVOICE_TIMEOUT = httpx.Timeout(120.0, connect=10.0)
 
 # vLLM served-model-name 是模型目录绝对路径(随部署变化),不写死:
 # 首次请求时从 /models 自动探测并按 base_url 缓存;探测失败 → 502 而不是 404。
-_model_id_cache: dict[str, str] = {}
+# None 表示该 base_url 为非 OpenAI 兼容服务(如 studio04 mlx-vlm)。
+_model_id_cache: dict[str, str | None] = {}
 
 
-async def _resolve_model_id(base_url: str) -> str:
+async def _resolve_model_id(base_url: str) -> str | None:
+    """探测 OpenAI 兼容服务的 /models;若端点不存在(如 studio04 MLX 自定义服务),返回 None。"""
     if base_url in _model_id_cache:
         return _model_id_cache[base_url]
     endpoint = f"{base_url.rstrip('/')}/models"
@@ -56,6 +58,10 @@ async def _resolve_model_id(base_url: str) -> str:
             resp = await client.get(endpoint)
     except httpx.HTTPError as e:
         raise HTTPException(status_code=502, detail=f"VLM 反推服务不可达:{e}") from e
+    if resp.status_code == 404:
+        # 非 OpenAI 兼容服务(如 studio04 mlx-vlm),交由 _mlx_vlm_reverse 处理
+        _model_id_cache[base_url] = None
+        return None
     if resp.status_code != 200:
         raise HTTPException(status_code=502, detail=f"VLM 反推服务返回 {resp.status_code},请重试")
     try:
@@ -141,11 +147,48 @@ def _limit_for(kind: str) -> int:
     }[kind] * 1024 * 1024
 
 
+async def _mlx_vlm_reverse(system: str, part: dict, base_url: str) -> str:
+    """调 studio04 mlx-vlm 自定义 /v1/reverse 端点(单图/单视频)。"""
+    endpoint = f"{base_url.rstrip('/')}/reverse"
+    payload: dict = {
+        "prompt": system,
+        "max_tokens": 2048,
+        "temperature": 0.3,
+    }
+    if part.get("type") == "image_url":
+        payload["image_url"] = part["image_url"]["url"]
+    elif part.get("type") == "video_url":
+        payload["video_path"] = part["video_url"]["url"]
+    else:
+        raise HTTPException(status_code=502, detail="VLM 不支持的媒体类型")
+
+    try:
+        async with httpx.AsyncClient(timeout=_VLM_TIMEOUT, trust_env=False) as client:
+            resp = await client.post(endpoint, json=payload)
+    except httpx.HTTPError as e:
+        raise HTTPException(status_code=502, detail=f"VLM 反推服务不可达:{e}") from e
+    if resp.status_code != 200:
+        logger.warning("反推 VLM 非 200: status=%d body=%s", resp.status_code, resp.text[:500])
+        raise HTTPException(status_code=502, detail=f"VLM 反推服务返回 {resp.status_code},请重试")
+    try:
+        raw = (resp.json().get("prompt") or "").strip()
+    except (ValueError, KeyError, TypeError) as e:
+        raise HTTPException(status_code=502, detail="VLM 返回格式异常") from e
+    if not raw:
+        raise HTTPException(status_code=502, detail="VLM 返回为空,请重试")
+    return raw
+
+
 async def _chat_completion(system: str, part: dict, base_url: str) -> str:
-    """调 VLM vLLM chat/completions(单图/单视频 + 取文本),网络/非 200/空 → 502。"""
+    """调 VLM vLLM chat/completions(单图/单视频 + 取文本),网络/非 200/空 → 502。
+    若 base_url 不是 OpenAI 兼容服务(探测 /models 返回 404),回退到 mlx-vlm 自定义端点。"""
+    model_id = await _resolve_model_id(base_url)
+    if model_id is None:
+        return await _mlx_vlm_reverse(system, part, base_url)
+
     endpoint = f"{base_url.rstrip('/')}/chat/completions"
     payload = {
-        "model": await _resolve_model_id(base_url),
+        "model": model_id,
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": [part]},
