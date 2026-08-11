@@ -2,6 +2,31 @@
 
 ---
 
+## TUNING-2026-08-11 · 效果调优:死 worker 清理 + 短剧 LLM 层 L1→L3
+
+**时间**: 2026-08-11 20:00 – 20:10
+**类型**: 配置隐患修复 + 效果调优(生产 core .env,备份 .env.bak-20260811-tuning)
+
+### 背景与修复
+
+| 项 | 问题 | 修复 |
+|----|------|------|
+| worker 池 | `/api/health` 列出 5 worker,其中 :8190/:8191 真机**无监听**(LB 收敛后残留),拖慢探测、浪费调度重试 | `TOIV_COMFY_WORKERS` 收敛为 3:=:8189+pc01:8188+pc02:8193 |
+| 短剧质量 | `STORYBOARD/POLISH_LAYER=L1` 是 EXO 未就绪时的兜底;S4a 后 L2/L3 已路由 spark02 qwen3.6-uncensored,注释过时 | 双层升 **L3**(短剧产出效果核心杠杆) |
+
+### 真机核验
+
+```
+✅ health workers=3(死节点剔除)
+✅ engines 11/11 可用(h3-t2v/h3-i2v True),延迟 752ms→缓存 24ms
+✅ L3 拆解 e2e:建测试项目→storyboard 3 镜 200
+   角色视觉 token 跨镜一致("1girl, long black hair, white oversized hoodie" 贯穿各镜)
+   → 清理测试项目 200
+✅ spark02 L3 推理质量抽检:分镜描述含镜头语言/情绪细节,远优于 L1 模板化输出
+```
+
+---
+
 ## QA-FIX-2026-08-11 · QA-FULL 缺陷修复回归 + 部署真机核验
 
 **时间**: 2026-08-11 17:00 – 18:10
@@ -43,6 +68,18 @@
 
 - `deploy/deploy.sh` → core:rsync 源码+.next → daemon-reload → toiv-api 第 2 次探测就绪 → toiv-web 第 2 次探测就绪;回滚快照 `.rollback-previous` 已留
 - ⚠️ 部署前置修复:deploy.sh 健康探测原打 `/openapi.json`,文档门控后该路径 404 会误判服务未就绪,已改 `/api/health` 三处(部署/安装/回滚分支)
+- git commit **410d12d**(163 文件,+12134/-12635):六大问题工作 + QA 修复一并入库
+
+### 域名核验(2026-08-11 19:55,https://toiv.dgmt.top)
+
+| 项 | 结果 |
+|----|------|
+| 首页 | HTTP 200,Next.js 新构建(x-nextjs-cache HIT) |
+| /api/health | `{"status":"ok",workers×5}` |
+| 安全头 | nosniff/DENY/no-referrer/CSP 经 openresty 透传;**https 正确下发 HSTS**(X-Forwarded-Proto 识别生效) |
+| openapi.json | 404(门控经域名同样生效) |
+| 404 页 | 含「页面不存在或已被移动」(新构建铁证) |
+| 登录链路 | POST /api/auth/login 签发 token 正常 |
 
 ---
 

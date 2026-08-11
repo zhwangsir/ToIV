@@ -8,6 +8,16 @@
     "note": "项目状态初始化基线：首次建立 STATE.json / TEST_LOG.md 追踪，记录当前真实验证结果，不代表新里程碑完成。"
   },
   "health": {
+    "tuning_2026_08_11": {
+      "status": "passed",
+      "scope": "效果调优第二轮:worker 池死节点清理 + 短剧 LLM 层 L1→L3 升级",
+      "fixes": [
+        "TOIV_COMFY_WORKERS 剔除死 worker :8190/:8191(无监听,拖慢探测/浪费调度重试),现 3 worker=:8189+pc01:8188+pc02:8193,与 GPU 分配表一致",
+        "TOIV_DRAMA_STORYBOARD_LAYER/POLISH_LAYER L1→L3:L2/L3 S4a 起路由 spark02 qwen3.6-uncensored(非 EXO),L1 兜底注释已过时;短剧拆解/润色质量核心杠杆"
+      ],
+      "live_verify": "① health workers=3;② engines 11/11 可用(H3 双引擎 True),延迟 752ms→24ms;③ L3 拆解 e2e:建项目→storyboard 3 镜 200,角色视觉 token 跨镜一致,清理测试项目 200;.env 备份 .env.bak-20260811-tuning",
+      "verified_at": "2026-08-11T20:10:00+08:00"
+    },
     "qa_full_fixes_deploy_2026_08_11": {
       "status": "passed",
       "scope": "QA-FULL-2026-08-11 缺陷清单全量修复 + 部署 core + 真机逐项核验(10/10 通过)",
@@ -38,6 +48,8 @@
         "新文件就位": "not-found.tsx/instrumentation.ts/instrumentation-client.ts/global-error.tsx 均在 core ✅"
       },
       "verify_script": "/tmp/qa_fix_verify.py(10/10 通过)",
+      "commit": "410d12d(163 文件,+12134/-12635,含六大问题工作+QA 修复)",
+      "domain_verify_2026_08_11": "https://toiv.dgmt.top 全链路实测:首页 200(Next.js 新构建);/api/health ok(5 workers);安全头经 openresty 透传且 https 正确下发 HSTS;openapi.json 404(门控生效);404 页中文(新构建铁证);登录签发 token 正常",
       "verified_at": "2026-08-11T18:10:00+08:00"
     },
     "qa_full_24methods_2026_08_11": {
