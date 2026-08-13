@@ -10,7 +10,7 @@ from datetime import date, datetime, timezone
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
-from sqlalchemy import BigInteger
+from sqlalchemy import BigInteger, Column, JSON
 
 
 def _uid() -> str:
@@ -435,5 +435,31 @@ class StudioShot(SQLModel, table=True):
     voice_url: str = ""
     final_clip_url: str = ""  # 该镜最终片段(运镜/对口型后)
     error: str = ""
+    created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
+
+
+# ---------------------------------------------------------------------------
+# R2.3:参考资产库(Reference Asset Library)—— 项目级常驻角色/场景/道具/风格卡
+# 对标 MiniMax Design 分工式参考 / Lovart Brand Kit:每镜头生成时从资产库勾选引用,
+# 而非每次重新上传。images 只持久化 /api/upload 返回的 {filename, worker} 句柄,
+# 文件本体不重复存储;1-4 张上限(业界共识:参考元素 ≤4 是质量拐点)。
+# ---------------------------------------------------------------------------
+
+
+class ReferenceAsset(SQLModel, table=True):
+    """参考资产卡:角色/场景/道具/风格。多用户隔离(按 user_id),NSFW 资产按请求上下文过滤。"""
+
+    __tablename__ = "reference_assets"
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    user_id: str = Field(foreign_key="user.id", index=True)  # 资产属主(他人不可见/不可改)
+    kind: str = "character"  # character | scene | prop | style
+    name: str = ""  # 资产名(1-100 字符,长度校验在路由层 pydantic)
+    description: str = ""  # 提示词语义描述(后续反哺 prompt;≤2000 字符,校验在路由层)
+    # 参考图句柄列表 list[{filename, worker}]。选 JSON 列而非关联表:
+    # 数量硬上限 4 张、无独立生命周期、不跨资产复用,关联表纯属过度设计。
+    images: list[dict] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    nsfw: bool = False  # R18 资产:SFW 上下文(无 X-NSFW 头)查询时过滤
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)

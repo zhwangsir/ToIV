@@ -14,7 +14,11 @@ ensure_longcat_ready、submit_longcat_job、transfer_ref_image);
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import shutil
+import tempfile
+from pathlib import Path
 
 from fastapi import HTTPException
 
@@ -23,6 +27,49 @@ from app.config import get_settings
 from app.services.h3 import _cuda_free_gib
 
 logger = logging.getLogger(__name__)
+
+
+async def ensure_audio_track(content: bytes, filename: str) -> bytes:
+    """无音轨驱动视频补静音轨(Animate graph 把驱动视频原声回打包 audio=[VHS_LoadVideo,2],
+    无音轨素材——默片/图串视频——会让 VHS 在入队前直接抛错,2026-08-13 冒烟实测)。
+
+    有音轨原样返回;无音轨 ffmpeg 补 44.1kHz 立体声静音(-shortest 随视频时长)。
+    ffprobe/ffmpeg 缺失或执行失败时原样返回(降级,由 ComfyUI 错误兜底)。
+    """
+    if not shutil.which("ffprobe") or not shutil.which("ffmpeg"):
+        logger.warning("ffprobe/ffmpeg 不可用,跳过驱动视频音轨检查")
+        return content
+    suffix = Path(filename).suffix or ".mp4"
+    tmp_dir = Path(tempfile.mkdtemp(prefix="toiv_wan_audio_"))
+    src = tmp_dir / f"src{suffix}"
+    dst = tmp_dir / f"dst{suffix}"
+    try:
+        src.write_bytes(content)
+        probe = await asyncio.create_subprocess_exec(
+            "ffprobe", "-v", "error", "-select_streams", "a",
+            "-show_entries", "stream=codec_type", "-of", "csv=p=0", str(src),
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
+        )
+        stdout, _ = await probe.communicate()
+        if probe.returncode == 0 and b"audio" in stdout:
+            return content
+        logger.info("驱动视频 %s 无音轨,补静音轨", filename)
+        proc = await asyncio.create_subprocess_exec(
+            "ffmpeg", "-y", "-i", str(src),
+            "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
+            "-shortest", "-c:v", "copy", "-c:a", "aac", str(dst),
+            stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
+        )
+        await proc.communicate()
+        if proc.returncode != 0 or not dst.exists():
+            logger.warning("补静音轨失败(returncode=%s),原样转运", proc.returncode)
+            return content
+        return dst.read_bytes()
+    except OSError as e:
+        logger.warning("音轨检查/补轨异常(%s),原样转运", e)
+        return content
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 async def ensure_wan_vram(client: ComfyUIClient) -> None:
@@ -78,6 +125,7 @@ async def transfer_drive_video(client: ComfyUIClient, source: ComfyUIClient, vid
         content, _ = await source.get_image_bytes(video, "", "input")
     except ComfyUIError as e:
         raise HTTPException(status_code=502, detail=f"从驱动视频所在 worker 读取失败: {e}") from e
+    content = await ensure_audio_track(content, video)
     try:
         return await client.upload_image(content, video)
     except ComfyUIError as e:

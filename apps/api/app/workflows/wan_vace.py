@@ -109,7 +109,12 @@ def build_wan_vace_graph(p: WanVaceParams) -> dict:
             "load_device": "offload_device", "attention_mode": "sdpa",
             "block_swap_args": ["2", 0]}},
         "2": {"class_type": "WanVideoBlockSwap", "inputs": {
-            "blocks_to_swap": BLOCK_SWAP, "offload_img_emb": True, "offload_txt_emb": True}},
+            "blocks_to_swap": BLOCK_SWAP, "offload_img_emb": True, "offload_txt_emb": True,
+            # optional 缺省不会注入默认值 → vace_blocks_to_swap=None 会炸 TypeError
+            # (同 wan_animate.py 踩坑,2026-08-13 冒烟实测);VACE 模型 vace_blocks 15 个,
+            # 共卡给 8 个交换(官方 1.3B 示例全换 15)
+            "use_non_blocking": True, "vace_blocks_to_swap": 8,
+            "prefetch_blocks": 1, "block_swap_debug": False}},
         "3": {"class_type": "WanVideoVAELoader", "inputs": {
             "model_name": p.vae_name, "precision": "bf16"}},
         "4": {"class_type": "LoadWanVideoT5TextEncoder", "inputs": {

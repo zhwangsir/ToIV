@@ -2,6 +2,40 @@
 
 ---
 
+## R2-2026-08-13 · Wan2.2-Animate / Wan2.1-VACE 引擎接入 + 参考资产库 + :8197 真机冒烟
+
+**时间**: 2026-08-13
+**类型**: 里程碑(路线图 R2 第二阶段,承接 R1-2026-08-13)
+
+### 范围
+把调研路线图的 R2(VACE-14B 多参考 + Wan2.2-Animate 动作迁移)落地为生产引擎,并补齐参考资产库 CRUD;与 H3/LongCat 共卡(:8197,GPU2),显存互斥预检保证 H3 硬规则不受影响。
+
+### 交付
+| 模块 | 内容 |
+|---|---|
+| R2.1 权重 | Animate 官方 4 分片流式合并 `wan2.2_animate_14B_bf16.safetensors`;VACE-14B fp16(Comfy-Org repackaged,含 vace_blocks);DWPose(yolox_l + dw-ll_ucoco_384)预置;`clip_vision_h.safetensors` 转换版 |
+| [wan_animate.py](apps/api/app/workflows/wan_animate.py) / [wan_vace.py](apps/api/app/workflows/wan_vace.py) | 图构建照搬官方示例(Animate: VHS_LoadVideo→UniAnimateDWPoseDetector→WanVideoAnimateEmbeds;VACE: 多图 ImageConcatMulti→WanVideoVACEEncode+可选首尾帧支路);fp8 运行时量化+offload 共卡;帧数 4k+1 取整 |
+| [wan_studio.py](apps/api/app/routes/wan_studio.py) | `POST /api/wan/animate`(参考图+驱动视频)/`POST /api/wan/vace`(1-4 参考图+可选首尾帧);素材从 pool worker 转运 :8197 |
+| [wan_video.py](apps/api/app/services/wan_video.py) | `ensure_wan_vram` GPU2 显存互斥预检(不足先驱逐 :8197 自身缓存,仍不足 503 错峰,**绝不驱逐 H3**);`ensure_audio_track` 无音轨驱动视频 ffmpeg 补静音轨 |
+| R2.3 [reference_assets.py](apps/api/app/routes/reference_assets.py) | `/api/assets` CRUD:ReferenceAsset 模型(user 隔离/character·scene·prop·style/1-4 张 images JSON 句柄/nsfw 标记),SFW 上下文滤 nsfw、他人资产 404 防枚举、路径穿越校验 |
+
+### R2.4 真机冒烟(:8197 直提,绕过 core)
+- **Animate**: `smoke_00001-audio.mp4` 832×480×17帧,驱动视频原声回打包音轨 ✅
+- **VACE**: `smoke_00002.mp4` 832×480×17帧,211s ✅;GPU2 峰值 ~58GB/53°C,H3 显存未受影响
+
+### 踩坑修复(冒烟实测)
+1. **无音轨驱动视频**:VHS_VideoCombine `audio=[VHS_LoadVideo,2]` 对默片入队前抛错 → `ensure_audio_track` ffprobe 检测 + ffmpeg 补 44.1kHz 静音轨(ffprobe/ffmpeg 缺失时降级原样转运)
+2. **DWPose 首帧无人 IndexError**:检测失败帧是 ndarray 却被按 dict 访问 → :8197 wrapper nodes.py 打补丁(首个成功帧回填;全程无人抛明确 ValueError)
+3. **WanVideoBlockSwap optional 缺省不注入默认值**(API 模式):`vace_blocks_to_swap=None` → model.py `> 0` 比较炸 TypeError → graph 显式给值(Animate=0/VACE=8),use_non_blocking/prefetch_blocks=1 对齐官方示例
+4. **clip_vision_h.pth 无法解析**:换主模型库 safetensors 转换版 → NAS clip_vision/,改 DEFAULT_CLIP_VISION
+
+### 测试与回归
+- 新增 74 例:test_wan_studio.py 56(图构建/参数校验/端点/显存互斥预检) + test_reference_assets.py 18(CRUD/NSFW 过滤/防枚举/校验)
+- **全量**: pytest **1296 passed**(基线 1219+74+R1 后增量)
+- **生产部署**: `deploy.sh --skip-web` ✅;core 端点 `/api/assets` 401(需登录)、`/api/wan/animate`、`/api/wan/vace` 405(POST 已挂载)
+
+---
+
 ## R1-2026-08-13 · 指代消解闸门 + storyboard 自包含强化 + L1/L2 质量门决策层
 
 **时间**: 2026-08-13

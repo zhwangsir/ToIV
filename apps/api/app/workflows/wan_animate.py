@@ -29,7 +29,7 @@ MAX_SEED = 2**63 - 1
 DEFAULT_MODEL = "wan2.2_animate_14B_bf16.safetensors"  # 官方 4 分片流式合并,见 roadmap R2.1
 DEFAULT_T5 = "umt5-xxl-enc-fp8_e4m3fn.safetensors"
 DEFAULT_VAE = "Wan2_1_VAE_bf16.safetensors"
-DEFAULT_CLIP_VISION = "clip_vision_h.pth"
+DEFAULT_CLIP_VISION = "clip_vision_h.safetensors"  # ComfyUI 转换版(.pth 原始格式 CLIPVisionLoader 无法解析,2026-08-13 冒烟实测)
 DEFAULT_RELIGHT_LORA = "WanAnimate_relight_lora.ckpt"
 
 BLOCK_SWAP = 25  # 块交换(官方示例值;GPU2 共卡控制峰值)
@@ -86,7 +86,12 @@ def build_wan_animate_graph(p: WanAnimateParams) -> dict:
             "lora": ["16", 0] if p.relight_lora else None,
             "block_swap_args": ["2", 0]}},
         "2": {"class_type": "WanVideoBlockSwap", "inputs": {
-            "blocks_to_swap": BLOCK_SWAP, "offload_img_emb": True, "offload_txt_emb": True}},
+            "blocks_to_swap": BLOCK_SWAP, "offload_img_emb": True, "offload_txt_emb": True,
+            # optional 缺省不会注入 INPUT_TYPES 默认值(API 模式)→ vace_blocks_to_swap=None
+            # 会让 model.py `vace_blocks_to_swap > 0` 炸 TypeError(2026-08-13 冒烟实测);
+            # 显式给 0(Animate 非 VACE 模型,vace_layers=None,0→1 后安全跳过),其余对齐官方示例
+            "use_non_blocking": True, "vace_blocks_to_swap": 0,
+            "prefetch_blocks": 1, "block_swap_debug": False}},
         "3": {"class_type": "WanVideoVAELoader", "inputs": {
             "model_name": p.vae_name, "precision": "bf16"}},
         "4": {"class_type": "LoadWanVideoT5TextEncoder", "inputs": {

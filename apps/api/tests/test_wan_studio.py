@@ -911,7 +911,8 @@ def test_vace_submission_also_vram_checked(client, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_transfer_drive_video_ok():
+async def test_transfer_drive_video_ok(monkeypatch):
+    monkeypatch.setattr(wan_service, "ensure_audio_track", lambda c, f: _identity(c))
     fake = _FakeWanClient()
     source = _FakeSourceWorker(content=b"mp4-bytes")
     name = await wan_service.transfer_drive_video(fake, source, "drive.mp4")
@@ -919,8 +920,13 @@ async def test_transfer_drive_video_ok():
     assert fake.uploads == [(b"mp4-bytes", "drive.mp4")]
 
 
+async def _identity(content):
+    return content
+
+
 @pytest.mark.asyncio
-async def test_transfer_drive_video_read_failure_502():
+async def test_transfer_drive_video_read_failure_502(monkeypatch):
+    monkeypatch.setattr(wan_service, "ensure_audio_track", lambda c, f: _identity(c))
     from fastapi import HTTPException
 
     class _BrokenSource:
@@ -936,7 +942,8 @@ async def test_transfer_drive_video_read_failure_502():
 
 
 @pytest.mark.asyncio
-async def test_transfer_drive_video_upload_failure_502():
+async def test_transfer_drive_video_upload_failure_502(monkeypatch):
+    monkeypatch.setattr(wan_service, "ensure_audio_track", lambda c, f: _identity(c))
     from fastapi import HTTPException
 
     class _BrokenUpload(_FakeWanClient):
@@ -948,6 +955,65 @@ async def test_transfer_drive_video_upload_failure_502():
             _BrokenUpload(), _FakeSourceWorker(), "d.mp4")
     assert exc.value.status_code == 502
     assert "上传到实例失败" in exc.value.detail
+
+
+# --------------------------------------------------------------------------- #
+# ensure_audio_track:无音轨驱动视频补静音轨(VHS_LoadVideo 无音轨抛错,2026-08-13 冒烟实测)
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.asyncio
+async def test_ensure_audio_track_no_ffprobe_passthrough(monkeypatch):
+    """ffprobe/ffmpeg 不可用 → 降级原样返回。"""
+    monkeypatch.setattr(wan_service.shutil, "which", lambda c: None)
+    assert await wan_service.ensure_audio_track(b"raw", "d.mp4") == b"raw"
+
+
+@pytest.mark.asyncio
+async def test_ensure_audio_track_ffmpeg_failure_passthrough(monkeypatch, tmp_path):
+    """ffprobe 检测无音轨但 ffmpeg 补轨失败(坏数据) → 原样返回。"""
+    monkeypatch.setattr(wan_service.shutil, "which", lambda c: "/usr/bin/x")
+    monkeypatch.setattr(wan_service.tempfile, "mkdtemp", lambda prefix: str(tmp_path))
+    assert await wan_service.ensure_audio_track(b"not-a-video", "d.mp4") == b"not-a-video"
+
+
+@pytest.mark.skipif(
+    __import__("shutil").which("ffmpeg") is None
+    or __import__("shutil").which("ffprobe") is None,
+    reason="需要真 ffmpeg/ffprobe",
+)
+@pytest.mark.asyncio
+async def test_ensure_audio_track_real_video(tmp_path):
+    """真机:无音轨视频补静音轨后可检出 audio 流;有音轨视频原样返回(bytes 不变)。"""
+    import subprocess
+
+    no_audio = tmp_path / "no_audio.mp4"
+    subprocess.run(
+        ["ffmpeg", "-y", "-f", "lavfi", "-i", "testsrc2=size=64x64:rate=8:duration=0.5",
+         "-pix_fmt", "yuv420p", str(no_audio)],
+        check=True, capture_output=True,
+    )
+    raw = no_audio.read_bytes()
+    out = await wan_service.ensure_audio_track(raw, "no_audio.mp4")
+    assert out != raw  # 补轨后内容变化
+    fixed = tmp_path / "fixed.mp4"
+    fixed.write_bytes(out)
+    probe = subprocess.run(
+        ["ffprobe", "-v", "error", "-select_streams", "a",
+         "-show_entries", "stream=codec_type", "-of", "csv=p=0", str(fixed)],
+        check=True, capture_output=True,
+    )
+    assert b"audio" in probe.stdout
+
+    with_audio = tmp_path / "with_audio.mp4"
+    subprocess.run(
+        ["ffmpeg", "-y", "-f", "lavfi", "-i", "testsrc2=size=64x64:rate=8:duration=0.5",
+         "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo", "-shortest",
+         "-pix_fmt", "yuv420p", "-c:a", "aac", str(with_audio)],
+        check=True, capture_output=True,
+    )
+    raw2 = with_audio.read_bytes()
+    assert await wan_service.ensure_audio_track(raw2, "with_audio.mp4") == raw2
 
 
 # --------------------------------------------------------------------------- #
