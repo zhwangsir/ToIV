@@ -12,9 +12,11 @@ import {
 import type { LocalModels, MarketItem } from "@/lib/types";
 import { Icon } from "@/components/ui/Icon";
 import { Tabs } from "@/components/ui/Tabs";
+import { NsfwRecsPanel } from "@/components/models/NsfwRecsPanel";
+import { useR18Mode } from "@/lib/r18";
 import { usePoll } from "@/hooks/usePoll";
 
-type Tab = "local" | "market";
+type Tab = "local" | "market" | "r18";
 
 /** 单个市场模型的安装状态(下载走 NAS 作业,jobId 轮询进度)。 */
 type InstallState = {
@@ -86,6 +88,13 @@ const MARKET_TYPES: { value: string; label: string }[] = [
 
 export function ModelsView() {
   const [tab, setTab] = useState<Tab>("local");
+  // M9:R18 全局内容模式,仅开启时显示「R18 推荐」tab
+  const [r18] = useR18Mode();
+
+  // 防御:R18 关闭时若仍停留在 r18 tab,回退到第一个 tab
+  useEffect(() => {
+    if (!r18 && tab === "r18") setTab("local");
+  }, [r18, tab]);
 
   // ---- 本地模型 ----
   const [localModels, setLocalModels] = useState<LocalModels | null>(null);
@@ -281,6 +290,21 @@ export function ModelsView() {
             items={[
               { key: "local", label: "本地模型", icon: <Icon name="models" size={14} /> },
               { key: "market", label: "在线市场", icon: <Icon name="search" size={14} /> },
+              // M9:R18 推荐 tab 仅 R18 模式渲染;SFW 模式连 tab 头都不出现
+              ...(r18
+                ? [
+                    {
+                      key: "r18",
+                      label: (
+                        <>
+                          R18 推荐
+                          <span className="mv-tab-r18-badge">18+</span>
+                        </>
+                      ),
+                      icon: <Icon name="lock" size={14} />,
+                    },
+                  ]
+                : []),
             ]}
             current={tab}
             onChange={(k) => setTab(k as Tab)}
@@ -390,7 +414,7 @@ export function ModelsView() {
             </div>
           )}
         </section>
-      ) : (
+      ) : tab === "market" ? (
         <section className="mv-panel">
           <div className="mv-toolbar">
             <div className="mv-search mv-search-lg">
@@ -562,11 +586,26 @@ export function ModelsView() {
             </>
           )}
         </section>
-      )}
+      ) : r18 ? (
+        /* M9:R18 推荐面板(自 /nsfw 专区迁移,自包含加载/下载/轮询/样式) */
+        <NsfwRecsPanel />
+      ) : null}
 
       <style jsx>{`
         .models-view {
           padding-top: var(--space-4);
+        }
+
+        /* R18 推荐 tab 的 18+ 徽标:红底白字圆角胶囊 */
+        .mv-tab-r18-badge {
+          margin-left: var(--space-1);
+          padding: 1px var(--space-1);
+          background: var(--err);
+          color: var(--text-on-accent);
+          border-radius: var(--radius-full);
+          font-size: 12px;
+          font-weight: 600;
+          line-height: 1.2;
         }
 
         /* 页头由全局 .page-header / .page-header-title / .page-header-desc /

@@ -4,32 +4,26 @@ import { test, expect } from "@playwright/test";
  * 智能体优化系统 UI 测试 (chromium-authed project)
  *
  * 覆盖前端 UI 流程:
- * - /nsfw 图像 tab(内嵌 GenerateView)出现 OptimizeButton
+ * - 主站图像工作台(GenerateView)出现 OptimizeButton
  * - AdminView 智能体管理 tab + 列表 + 编辑入口
  *
  * 说明:W0 后顶栏 AgentSwitcher 已移至侧栏底部;M4 起侧栏底部 AgentSwitcher 已移除,
  * 智能体选择收敛到各生成页 OptimizeButton 内联弹出。
+ * M9 起 NSFW 专区并入主站(R18 全局模式),OptimizeButton 用例改走主站图像视图。
  */
 
 test.describe("智能体 UI", () => {
-  // ── /nsfw 图像 tab OptimizeButton ─────────────────────────────
-  // NSFW 专区图像 tab 已并入统一生成工作台(GenerateView onlyNsfw);
-  // 优化按钮在工作台底部提示词条(PromptBar)内。
-  test("/nsfw 图像 tab 出现 OptimizeButton", async ({ page }) => {
-    // 预置年龄确认,避免首访弹门遮挡专区主体
-    await page.goto("/nsfw", { waitUntil: "domcontentloaded" });
-    await page.evaluate(() =>
-      window.localStorage.setItem("toiv_nsfw_age_confirmed", "1"),
-    );
-    await page.reload({ waitUntil: "domcontentloaded" });
+  // ── 图像工作台 OptimizeButton ─────────────────────────────
+  // 优化按钮在工作台底部提示词条(PromptBar)内,SFW/R18 视图均有。
+  test("图像工作台出现 OptimizeButton", async ({ page }) => {
+    await page.goto("/?view=image", { waitUntil: "domcontentloaded" });
     try {
       await page.waitForLoadState("networkidle", { timeout: 10000 });
     } catch {
       /* dev 模式 networkidle 可能超时,忽略 */
     }
 
-    // 等待 NsfwView 鉴权完成 + 默认图像 tab 渲染 GenerateView
-    await expect(page.locator(".nsfw-header")).toBeVisible({ timeout: 10000 });
+    // 统一生成工作台渲染
     await expect(page.locator(".generate-view")).toBeVisible({ timeout: 10000 });
 
     // 应有"优化提示词"按钮(含 sparkles 图标 + 优化文案)

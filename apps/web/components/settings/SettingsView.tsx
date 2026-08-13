@@ -3,8 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { fetchEngines, type EngineInfo, type EngineKind } from "@/lib/engines";
+import { confirmAge, isAgeConfirmed, useR18Mode } from "@/lib/r18";
 import { Icon } from "@/components/ui/Icon";
 import { Button } from "@/components/ui/Button";
+import { Switch } from "@/components/ui/Switch";
+import { AgeGateModal } from "@/components/ui/AgeGateModal";
 import { ThemePicker } from "@/components/ui/ThemePicker";
 
 const KIND_ORDER: EngineKind[] = ["image", "video", "audio"];
@@ -31,6 +34,9 @@ interface SettingsViewProps {
 export function SettingsView({ account, onLogout }: SettingsViewProps) {
   const [engines, setEngines] = useState<EngineInfo[] | null>(null);
   const [enginesError, setEnginesError] = useState<string | null>(null);
+  // R18 全局内容模式(M9 F4):开关状态 + 18+ 年龄确认弹层显隐
+  const [r18, setR18Mode] = useR18Mode();
+  const [ageGateOpen, setAgeGateOpen] = useState(false);
 
   const loadEngines = useCallback(() => {
     setEnginesError(null);
@@ -44,6 +50,25 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
   useEffect(() => {
     loadEngines();
   }, [loadEngines]);
+
+  // 开启前须过年龄确认(仅首次);取消不动,关闭直接生效
+  const handleR18Change = useCallback((on: boolean) => {
+    if (!on) {
+      setR18Mode(false);
+      return;
+    }
+    if (isAgeConfirmed()) {
+      setR18Mode(true);
+      return;
+    }
+    setAgeGateOpen(true);
+  }, [setR18Mode]);
+
+  const handleAgeConfirm = useCallback(() => {
+    confirmAge();
+    setR18Mode(true);
+    setAgeGateOpen(false);
+  }, [setR18Mode]);
 
   return (
     <div className="single-view settings-view">
@@ -102,6 +127,29 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
             界面
           </h2>
           <ThemePicker />
+        </section>
+
+        {/* ── 内容偏好(R18 全局模式,M9 F4) ── */}
+        <section className="settings-card" aria-labelledby="settings-content-pref">
+          <h2 className="settings-card-title" id="settings-content-pref">
+            <span className="settings-card-icon" aria-hidden="true">
+              <Icon name="eye" size={14} strokeWidth={1.8} />
+            </span>
+            内容偏好
+            <span className="settings-r18-badge">18+</span>
+          </h2>
+          <div className="settings-r18-row">
+            <p className="settings-r18-desc">
+              开启后全站展示成人向(R18)生成引擎、作品与推荐模型;产物仅自己可见,请遵守当地法规
+            </p>
+            <span className="settings-r18-switch">
+              <Switch
+                checked={r18}
+                onChange={handleR18Change}
+                ariaLabel="R18 成人内容模式"
+              />
+            </span>
+          </div>
         </section>
 
         {/* ── 引擎状态(只读) ── */}
@@ -208,6 +256,12 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
           </div>
         </section>
       </div>
+
+      <AgeGateModal
+        open={ageGateOpen}
+        onConfirm={handleAgeConfirm}
+        onCancel={() => setAgeGateOpen(false)}
+      />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Popover } from "@/components/ui/Popover";
 import { ThemePicker } from "@/components/ui/ThemePicker";
+import { useR18Mode } from "@/lib/r18";
 
 export interface CornerNavItem {
   key: string;
@@ -34,6 +35,8 @@ export function CornerNav({ items, current, onSelect, onItemIntent, account, onL
   const avatarRef = useRef<HTMLButtonElement | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
+  // M9:订阅 R18 模式,账户菜单展示只读状态行
+  const [r18] = useR18Mode();
 
   const currentItem = items.find((i) => i.key === current);
 
@@ -119,6 +122,34 @@ export function CornerNav({ items, current, onSelect, onItemIntent, account, onL
                     {account}
                   </div>
                   <ThemePicker />
+                  {/* M9:R18 模式只读状态行(正式开关在设置页「内容偏好」) */}
+                  {r18 && (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "var(--space-2)",
+                        padding: "var(--space-1) var(--space-2)",
+                        fontSize: "var(--text-label)",
+                        lineHeight: 1.4,
+                        color: "var(--text-muted)",
+                      }}
+                    >
+                      <span
+                        style={{
+                          padding: "1px var(--space-1)",
+                          background: "var(--err)",
+                          color: "var(--text-on-accent)",
+                          borderRadius: "var(--radius-badge)",
+                          fontWeight: 600,
+                          flexShrink: 0,
+                        }}
+                      >
+                        18+
+                      </span>
+                      R18 模式已开启
+                    </div>
+                  )}
                   <button
                     type="button"
                     className="cornernav-account-action"

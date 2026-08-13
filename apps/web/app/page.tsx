@@ -8,6 +8,7 @@ import { LandingPage } from "@/components/landing/LandingPage";
 import { CornerNav, type CornerNavItem } from "@/components/nav/CornerNav";
 import { BottomNav, type BottomNavItem } from "@/components/nav/BottomNav";
 import { fetchMe, getToken, setToken, testLogin } from "@/lib/api";
+import { initR18Mode, isR18Mode, useR18Mode } from "@/lib/r18";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { Icon } from "@/components/ui/Icon";
 
@@ -32,6 +33,7 @@ type View =
   | "models"
   | "resources"
   | "settings"
+  | "drama"
   | "admin";
 
 /** M1 三大板块拆分:generate 退役拆为 图片/视频/音频,旧链接按 kind 重定向(不 404)。
@@ -75,6 +77,7 @@ const viewImporters = {
   models: () => import("@/components/models/ModelsView"),
   resources: () => import("@/components/resources/ResourcesView"),
   settings: () => import("@/components/settings/SettingsView"),
+  drama: () => import("@/components/drama/DramaView"),
   admin: () => import("@/components/admin/AdminView"),
 } as const;
 
@@ -136,6 +139,9 @@ const ResourcesView = lazy(() =>
 const SettingsView = lazy(() =>
   viewImporters.settings().then((m) => ({ default: m.SettingsView })),
 );
+const DramaView = lazy(() =>
+  viewImporters.drama().then((m) => ({ default: m.DramaView })),
+);
 const AdminView = lazy(() =>
   viewImporters.admin().then((m) => ({ default: m.AdminView })),
 );
@@ -170,6 +176,7 @@ const VALID_VIEWS = new Set<View>([
   "models",
   "resources",
   "settings",
+  "drama",
   "admin",
 ]);
 
@@ -192,6 +199,7 @@ const VIEW_META: Record<View, { label: string }> = {
   models:    { label: "模型" },
   resources: { label: "资源" },
   settings:  { label: "设置" },
+  drama:     { label: "短剧" },
   admin:     { label: "管理" },
 };
 
@@ -264,6 +272,8 @@ function HomeContent() {
   const [auth, setAuth] = useState<AuthState>("loading");
   const [account, setAccount] = useState<string | null>(null);
   const [view, setView] = useState<View>(() => resolveView(searchParams.get("view")) ?? "assistant");
+  // M9:订阅全局 R18 内容模式(短剧视图可见性/导航项按此 computed)
+  const [r18] = useR18Mode();
 
   useEffect(() => {
     const raw = searchParams.get("view");
@@ -278,6 +288,8 @@ function HomeContent() {
   }, [searchParams, view, router]);
 
   useEffect(() => {
+    // M9:fetchMe 之前恢复 R18 模式(仅同步 X-NSFW 请求头标记,不清缓存不广播)
+    initR18Mode();
     (async () => {
       const params = new URLSearchParams(window.location.search);
       const t = params.get("t");
@@ -344,6 +356,13 @@ function HomeContent() {
     [router],
   );
 
+  // M9 门控:短剧视图仅 R18 模式可达,SFW 模式直输 ?view=drama 一律回落对话。
+  // 判定直接读 localStorage(isR18Mode):useR18Mode 首帧恒 false、effect 中才纠正,
+  // 用 hook 态会把已开 R18 的用户误弹走;r18 仅作依赖,驱动模式关闭瞬间的复检。
+  useEffect(() => {
+    if (view === "drama" && !isR18Mode()) changeView("assistant");
+  }, [view, r18, changeView]);
+
   // 动态分镜 AI 模式:解析成功后跳 studio 创作工作室(旧 drama 工作台已退役)
   const handleOpenDramaProject = useCallback(() => {
     changeView("studio");
@@ -371,6 +390,22 @@ function HomeContent() {
   const isAdmin = account === "admin";
   const meta = VIEW_META[view];
 
+  // M9:R18 模式追加「短剧」导航项 —— 灵动岛插到「融合」后,底部「更多」插到「创作」后
+  const islandItems: CornerNavItem[] = r18
+    ? [
+        ...ISLAND_ITEMS.slice(0, 5),
+        { key: "drama", label: "短剧", icon: "clapperboard" },
+        ...ISLAND_ITEMS.slice(5),
+      ]
+    : ISLAND_ITEMS;
+  const bottomNavMoreItems: BottomNavItem[] = r18
+    ? [
+        ...BOTTOM_NAV_MORE_ITEMS.slice(0, 5),
+        { key: "drama", label: "短剧", icon: "clapperboard" },
+        ...BOTTOM_NAV_MORE_ITEMS.slice(5),
+      ]
+    : BOTTOM_NAV_MORE_ITEMS;
+
   if (auth === "loading") {
     return (
       <div className="splash">
@@ -386,7 +421,7 @@ function HomeContent() {
   return (
     <div className="app-shell">
       <CornerNav
-        items={ISLAND_ITEMS}
+        items={islandItems}
         current={view}
         onSelect={(key) => changeView(key as View)}
         onItemIntent={handleViewIntent}
@@ -407,6 +442,8 @@ function HomeContent() {
               {view === "videoEdit" && <VideoEditView />}
               {view === "canvas" && <CanvasView />}
               {view === "studio" && <StudioView />}
+              {/* M9:短剧(drama 旧管线)仅 R18 模式渲染;SFW 直输 URL 由门控 effect 弹回 */}
+              {view === "drama" && r18 && <DramaView />}
               {view === "dub" && <DubView />}
               {view === "animatic" && (
                 // 动态分镜全端统一:AnimaticView 为唯一实现(旧桌面端 FROZEN 视图已物理删除)
@@ -427,7 +464,7 @@ function HomeContent() {
 
       <BottomNav
         items={BOTTOM_NAV_ITEMS}
-        moreItems={BOTTOM_NAV_MORE_ITEMS}
+        moreItems={bottomNavMoreItems}
         current={view}
         onSelect={(key) => changeView(key as View)}
         ctaAction={() => changeView("fusion")}

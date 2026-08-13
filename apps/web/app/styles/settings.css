@@ -288,6 +288,45 @@
   text-overflow: ellipsis;
 }
 
+/* ── 内容偏好(R18 全局模式,M9 F4) ── */
+/* 18+ 徽标:err 底白字小胶囊,跟在卡片标题文字后 */
+.settings-r18-badge {
+  flex-shrink: 0;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #fff;
+  background: var(--err);
+}
+/* 说明在左、开关在右,与卡片内既有键值行同节奏 */
+.settings-r18-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+.settings-r18-desc {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--text-body);
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+/* 触控目标 ≥44px:伪元素外扩热区(36×20 轨道视觉尺寸不变) */
+.settings-r18-switch {
+  flex-shrink: 0;
+  position: relative;
+  display: inline-flex;
+}
+.settings-r18-switch .ui-switch::after {
+  content: "";
+  position: absolute;
+  inset: -12px -14px;
+}
+
 /* ── 响应式 ── */
 @media (max-width: 1023px) {
   .settings-about-grid {
