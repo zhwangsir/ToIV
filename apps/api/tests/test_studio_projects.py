@@ -298,6 +298,72 @@ def test_render_shot_injects_project_spec(ctx, monkeypatch):
     assert (seen["width"], seen["height"], seen["fps"]) == (1024, 576, 12)
 
 
+# ── L2 质量门接入(R1.3, advisory)───────────────────────────────────────────
+
+
+def test_render_image_shot_runs_quality_gate(ctx, monkeypatch):
+    """image 产物渲染后跑 L2 质量门;video 产物不跑;门异常不影响渲染结果。"""
+    from app.quality import decision as quality_decision
+    from app.services.studio.renderers.base import RenderResult
+
+    client, token = ctx
+    H = _h(token)
+    pid = _mk_project(client, H)
+    shots = _mk_shots(client, H, pid)  # shots[0]=video, shots[1]=image_motion
+    calls: list[tuple[str, str | None]] = []
+
+    async def fake_gate(url, prompt, **kw):
+        calls.append((url, prompt))
+        return quality_decision.GateResult(
+            quality_decision.QualityDecision.REGENERATE, score=0.5, critique="构图偏左"
+        )
+
+    class FakeRenderer:
+        name = "image"
+
+        async def render(self, shot, cast, pool, **kw):
+            return RenderResult(kind="image", url="/api/studio/files/fake.png")
+
+    monkeypatch.setattr(orch, "get_renderer", lambda shot: FakeRenderer())
+    monkeypatch.setattr(quality_decision, "evaluate_image", fake_gate)
+    # image_motion 分镜渲染的是图像产物 → 触发质量门
+    r = client.post(f"/api/studio/shots/{shots[1]['id']}/render", headers=H)
+    assert r.status_code == 200, r.text
+    assert calls == [("/api/studio/files/fake.png", "b")]
+    # 渲染结果正常落库,质量门 advisory 不改变状态机
+    detail = client.get(f"/api/studio/projects/{pid}", headers=H).json()
+    shot1 = [s for s in detail["shots"] if s["id"] == shots[1]["id"]][0]
+    assert shot1["status"] == "rendered"
+    assert shot1["image_url"] == "/api/studio/files/fake.png"
+
+
+def test_render_quality_gate_exception_does_not_break_render(ctx, monkeypatch):
+    """质量门抛异常 → 降级忽略,渲染照常成功。"""
+    from app.services.studio.renderers.base import RenderResult
+
+    client, token = ctx
+    H = _h(token)
+    pid = _mk_project(client, H)
+    shots = _mk_shots(client, H, pid)
+
+    async def boom_gate(url, prompt, **kw):
+        raise RuntimeError("vlm down")
+
+    class FakeRenderer:
+        name = "image"
+
+        async def render(self, shot, cast, pool, **kw):
+            return RenderResult(kind="image", url="/api/studio/files/fake.png")
+
+    monkeypatch.setattr(orch, "get_renderer", lambda shot: FakeRenderer())
+    monkeypatch.setattr(orch.quality_decision, "evaluate_image", boom_gate)
+    r = client.post(f"/api/studio/shots/{shots[1]['id']}/render", headers=H)
+    assert r.status_code == 200, r.text
+    detail = client.get(f"/api/studio/projects/{pid}", headers=H).json()
+    shot1 = [s for s in detail["shots"] if s["id"] == shots[1]["id"]][0]
+    assert shot1["status"] == "rendered"
+
+
 # ── 产出文件服务(M2)──────────────────────────────────────────────────────────
 
 

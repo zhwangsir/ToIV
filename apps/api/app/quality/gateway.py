@@ -1,14 +1,16 @@
-"""质量防线统一入口 — 反 PPT 三重防线。
+"""质量防线统一入口 — 反 PPT 三重防线 + 指代消解 advisory。
 
 执行顺序:
 1. slideshow_risk  — 幻灯片风险评分(rating >= fail 时阻断)
 2. variation_checker — 场景变化检查(error 时阻断)
 3. scene_pacing    — 场景节奏验证(error 时阻断)
+4. coreference     — 指代消解检测(advisory,不阻断;供前端提示与 storyboard 后处理对照)
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+from app.quality.coreference import CorefReport, check_shots
 from app.quality.scene_pacing import ScenePacingReport, evaluate_pacing
 from app.quality.slideshow_risk import SlideshowRiskReport, evaluate_shots
 from app.quality.variation_checker import VariationReport, evaluate_variation
@@ -16,11 +18,13 @@ from app.quality.variation_checker import VariationReport, evaluate_variation
 
 @dataclass
 class QualityReport:
-    """三重防线综合报告。"""
-    passed: bool  # 三重防线全过 = True
+    """三重防线综合报告 + 指代消解 advisory。"""
+
+    passed: bool  # 三重防线全过 = True(coref 为 advisory 不参与)
     risk: SlideshowRiskReport
     variation: VariationReport
     pacing: ScenePacingReport
+    coref: CorefReport
     blocking_reason: str = ""
 
     def to_dict(self) -> dict:
@@ -30,21 +34,24 @@ class QualityReport:
             "risk": self.risk.to_dict(),
             "variation": self.variation.to_dict(),
             "pacing": self.pacing.to_dict(),
+            "coref": self.coref.to_dict(),
         }
 
 
 def run_quality_checks(shots: list[dict]) -> QualityReport:
-    """对分镜列表执行三重防线质量检查。
+    """对分镜列表执行质量检查。
 
     Args:
-        shots: 分镜列表,每镜为 dict 含 scene/description/camera/dialogue/motion/duration_sec。
+        shots: 分镜列表,每镜为 dict 含 scene/description/camera/dialogue/motion/
+               duration_sec;若含 characters 名单则指代检测以其为实体注册表。
 
     Returns:
-        QualityReport 含三重防线各自结果 + 综合是否通过。
+        QualityReport 含三重防线结果 + 指代 advisory + 综合是否通过。
     """
     risk = evaluate_shots(shots)
     variation = evaluate_variation(shots)
     pacing = evaluate_pacing(shots)
+    coref = check_shots(shots)
 
     blocking_reason = ""
     if risk.rating == "fail":
@@ -59,5 +66,6 @@ def run_quality_checks(shots: list[dict]) -> QualityReport:
         risk=risk,
         variation=variation,
         pacing=pacing,
+        coref=coref,
         blocking_reason=blocking_reason,
     )
