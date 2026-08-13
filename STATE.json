@@ -1,13 +1,90 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-08-11T18:10:00+08:00",
+  "updated_at": "2026-08-13T17:00:00+08:00",
   "sync_baseline": {
     "id": "SYNC-2026-07-18",
     "type": "initial-sync",
     "note": "项目状态初始化基线：首次建立 STATE.json / TEST_LOG.md 追踪，记录当前真实验证结果，不代表新里程碑完成。"
   },
   "health": {
+    "r1_quality_gate_2026_08_13": {
+      "status": "completed",
+      "scope": "R1 里程碑(路线图第一阶段): 指代消解闸门 + storyboard 自包含 prompt 强化 + L1/L2 质量门决策层",
+      "deliverables": [
+        "apps/api/app/quality/coreference.py: 确定性代词检测器(中英文正则,排除其他/其它等复合词),check_shots 出 CorefReport",
+        "apps/api/app/quality/gateway.py: 第四道 advisory 防线(coref 不阻断,passed 仍由三重防线决定)",
+        "apps/api/app/services/studio/storyboard.py resolve_references: parse_script 后处理——未消解代词→L2 受约束重写(只许用注册表实体)→重写仍含代词拒收→确定性注入「角色名(视觉token)」前缀兜底",
+        "apps/api/app/quality/decision.py: 双阈值三态门(≥τ_high 直通/中间带重生成/<τ_low 或重试耗竭升级人工),阈值走 TOIV_QUALITY_TAU_HIGH/TAU_LOW/MAX_ATTEMPTS;evaluate_image 接 scoring.py;evaluate_text_faithfulness LLM 文案门(L2 层 rubric)",
+        "apps/api/app/services/studio/orchestrator.py: render_shot 对 image 产物跑 advisory 质量门(只记日志不阻断,打分器未装/异常自动降级;video 产物由 jobs.py VideoScorer SSE 链路覆盖)"
+      ],
+      "design_principle": "所有质量组件打分器/LLM 不可用时一律降级直通,不阻塞生成主流程;advisory v1 只观测不拦截,R2 接 best-of-K 重生成闭环",
+      "regression": "pytest 1219 passed(新增 24: coreference 7 + storyboard_resolve 5 + quality_decision 10 + orchestrator 门接入 2); tsc --noEmit ✅; next build ✅",
+      "verified_at": "2026-08-13T17:00:00+08:00"
+    },
+    "competitive_research_2026_08_13": {
+      "status": "completed",
+      "scope": "对标 Liblib/堆友/RunningHub/MiniMax Design/千问创作 深度调研(6 并行 Agent)+ ToIV 差距分析 + R1→R5 优化路线图",
+      "deliverable": "docs/2026-08-13-competitive-research-roadmap.md",
+      "key_conclusions": [
+        "行业六段式范式: 一句话入口→可视化拆解→主从多 Agent→参考锁定→画布资产→可编辑交付+Skill 飞轮;ToIV=强引擎中台+弱 Agent 前台",
+        "多参考 P0: Wan2.1-VACE-14B(Apache 2.0)+Wan2.2 Animate,与 WanVideoWrapper 生态同源;长视频走 context window 推广",
+        "拆段=LLM JSON shot list;修指代=实体注册表+受约束重写+fastcoref 校验",
+        "Skills 广场=SKILL.md+强制 evals 门禁+对话造技能(入口在成功任务后);评测闭环=L1 确定性→L2 本地小模型→L3 VLM 评语回注重生成→HITL",
+        "差异化: 自有算力不排队/引擎可控/技能质量机验,直击竞品排队焦虑与抽卡痛点"
+      ],
+      "roadmap": "R1 实体注册表+质量门 L1/L2 → R2 VACE/Animate 引擎+参考资产库 → R3 主 Agent 编排+EDL 合成 → R4 Skills 广场一期 → R5 HITL+评委校准飞轮",
+      "verified_at": "2026-08-13T16:00:00+08:00"
+    },
+    "domain_link_optimize_2026_08_11": {
+      "status": "passed",
+      "scope": "toiv.dgmt.top 域名链路优化:修复首页 20-30s 超时不可用 + 隧道加固",
+      "root_cause": "cloud(香港)↔core(国内)跨境链路质量随时间剧烈波动(晚高峰 25% 丢包);20:53-56 全面抖动期 toiv/drtclaw 双隧道同断、Mac↔cloud SSH 断、域名 502 约 4min 后链路自愈。⚠️ 初判「frp kcp 崩塌→切 TCP」的 A/B 结论被链路波动污染,已回滚 kcp,教训记入 AGENTS.md 易错点 25",
+      "fixes": [
+        "cloud openresty toiv.dgmt.top.conf: proxy_pass 从 Tailscale 100.77.80.100 切到 frp 本地 127.0.0.1:18090(api)/13100(web),已 reload(备份 .bak-frp-switch-20260811)。依据为同时段干净对比:差链路下 frp-kcp API 0.35s vs Tailscale API 6.2s",
+        "core /etc/frp/frpc.toml 加固: loginFailExit = false(抖动期 frpc 内建无限重试,避免 loginFailExit 触发 systemd 重启风暴);协议保持 kcp(7001/udp,为丢包链路设计)"
+      ],
+      "perf": {
+        "before": "首页 total 20-30s(间歇超时 000),api-health 6.2s(Tailscale 路径)",
+        "after": "链路正常期:首页 2-7s,api-health 1.5s;链路差时仍受跨境物理限制(结构性风险:用户→香港→国内双跨境,长期可评估国内入口/CDN)"
+      },
+      "domain_verify": "经域名全过:首页 200;HSTS+5 项安全头;登录签发 token;中文 404 页;openapi.json 404;gzip 生效",
+      "verified_at": "2026-08-11T21:05:00+08:00"
+    },
+    "sentry_remote_access_2026_08_12": {
+      "status": "passed_with_findings",
+      "scope": "Sentry DSN 接入准备 + 17 台设备远程访问能力真机巡检",
+      "sentry": {
+        "status": "deferred_by_user",
+        "backend_ready": "sentry_sdk 已安装,main.py 已按 TOIV_SENTRY_DSN 初始化",
+        "frontend_ready": "@sentry/nextjs 已安装,instrumentation/global-error 已就位",
+        "note": "用户明确表示暂不需要 Sentry;DSN 保持为空,Sentry SDK 内部 no-op,对系统零影响"
+      },
+      "device_check": {
+        "status": "passed",
+        "script": "scripts/device_connectivity_check.py",
+        "coverage": "16/17 台被测设备(本机 MateBook 为观测点)",
+        "tailscale_online_rate": "15/17 (88.2%)",
+        "tailscale_ping_rate": "14/17 (82.4%)",
+        "tailscale_ssh_rate": "14/17 (82.4%)",
+        "lan_ping_rate": "16/16 (100.0%)",
+        "public_check_rate": "3/3 (100.0%)",
+        "findings": [
+          "pc01-3 / pc02 Tailscale 离线(last seen 11h/6d),仅 LAN 可达,需排查 Windows Tailscale 客户端",
+          "cloud Tailscale 无法直连,走 DERP(sin) 中转,ping 360ms/SSH 6.4s,公网入口当前正常"
+        ],
+        "public_endpoints": {
+          "cloud_ping_43.119.32.180": "OK 356ms",
+          "https_toiv.dgmt.top": "200 5.9s",
+          "https_toiv.dgmt.top_api_health": "200 2.1s"
+        }
+      },
+      "next_actions": [
+        "周期性执行 device_connectivity_check.py 做远程可达性基线监控",
+        "排查 pc01/pc02 Tailscale 离线原因"
+      ],
+      "verified_at": "2026-08-12T17:45:00+08:00"
+    },
     "tuning_2026_08_11": {
       "status": "passed",
       "scope": "效果调优第二轮:worker 池死节点清理 + 短剧 LLM 层 L1→L3 升级",
@@ -151,7 +228,7 @@
         "web_build": "next build 成功"
       },
       "deploy": "deploy.sh → core: toiv-api 8090 就绪 / toiv-web 3100 就绪",
-      "doc": "docs/2026-08-10-audio-fix-and-layout-redesign.md",
+      "doc": "docs归档说明.md 第五节(原文档已删除)",
       "verified_at": "2026-08-10T17:30:00+08:00"
     },
     "web_browser_e2e": {
@@ -620,7 +697,7 @@
       "deleted_files": 32,
       "untracked": [
         "apps/web/e2e/symmetry-check.spec.ts",
-        "docs/2026-08-09-service-replacement-research.md"
+        "docs归档说明.md(替代原 docs/2026-08-09-service-replacement-research.md)"
       ],
       "areas": [
         "AGENTS.md / README.md / TEST_LOG.md / STATE.json",
@@ -633,7 +710,7 @@
         "apps/web/e2e/*.spec.ts（含新增 symmetry-check.spec.ts）",
         "apps/web/lib/{api.ts,useBreakpoint.ts}",
         "docs/*.md 历史文档删除（32 个旧文档/设计稿）",
-        "docs/2026-08-09-service-replacement-research.md"
+        "docs/2026-08-09-service-replacement-research.md(已删,要点见 docs归档说明.md)"
       ]
     }
   },
@@ -710,7 +787,7 @@
       {
         "task": "SERVICE-RESEARCH：Mac Studio 服务替代方案调研与迁移路线图",
         "owner": "设备管家 + 主会话",
-        "recheck": "docs/2026-08-09-service-replacement-research.md 已落地；STATE.json 已补录",
+        "recheck": "调研文档已删除,要点归档 docs归档说明.md 第一节；STATE.json 已补录",
         "status": "done_verified"
       },
       {
@@ -2686,7 +2763,7 @@
       "各服务替代结论：demucs→demucs-mlx(P0)、ASR→whisper.cpp large-v3-turbo(P0)、vLLM Embedding 测试实例停止/重构(P0)、Qwen3-VL-8B→studio04 mlx-vlm 8bit(P1)、IndexTTS2/SenseVoice/JoyCaption/Qwen3-Embedding 保持 Workstation",
       "输出 Phase 1/2/3 迁移路线图与 AGENTS.md 修正项"
     ],
-    "verification": "调研文档 docs/2026-08-09-service-replacement-research.md 已落地；结论基于 Workstation + Mac Studio 真机核查与公开基准",
+    "verification": "调研文档已删除,要点归档 docs归档说明.md 第一节；结论基于 Workstation + Mac Studio 真机核查与公开基准",
     "verified_at": "2026-08-09"
   },
   "migration_p1_mac_studio_2026_08_09": {
@@ -2810,7 +2887,7 @@
         "id": "STRESS.5",
         "title": "问题修复与报告归档",
         "status": "done",
-        "evidence": "修复 deploy/.env 引号与 reverse.py mlx-vlm 回退;报告 docs/2026-08-09-comprehensive-stress-test-report.md"
+        "evidence": "修复 deploy/.env 引号与 reverse.py mlx-vlm 回退;核心数据归档 docs归档说明.md 第二节(原报告已删除)"
       }
     ],
     "notes": "H3 散热是当前最大瓶颈:192 帧在散热波动时触发熔断,但 362 帧在冷却后可通过;并发 124+141 未熔断但 GPU0 达 92°C。建议 GPU0 功率限制或风道整改,并增加 core 侧 H3 温度/显存门控。",
@@ -3072,5 +3149,128 @@
     ],
     "notes": "fit_resolution 设计理念是前端给宽高比、后端按架构定像素；本次仅上调次世代族预算，SDXL/SD1.5 不变。character_keyframes.py width 768→1024 保留纵向 3:4 构图。",
     "verified_at": "2026-08-10T16:30:00+08:00"
+  },
+  "h3_nsfw_dual_engine_m8_2026_08_12": {
+    "id": "M8-2026-08-12",
+    "type": "feature",
+    "title": "NSFW 专区双引擎:LTX 2.3 (10eros) + MiniMax H3 (R18)",
+    "status": "passed",
+    "scope": "NSFW 视频 tab 新增 h3-nsfw-t2v/h3-nsfw-i2v 引擎条目,与 LTX NSFW 并存;复用 H3 实例 :8195 + H3_NSFW_LORAS 门控;顺带修复 LTX NSFW 预设下拉死参数 bug",
+    "tasks": [
+      {
+        "id": "M8.1",
+        "title": "调研 H3 NSFW 可行性并归档",
+        "status": "done",
+        "evidence": "docs归档说明.md 第三节(原文档已删除):H3 底座无审查、civitai 社区 9 个 R18 LoRA 已在库(H3_NSFW_LORAS 名单)、并存决策与实施步骤"
+      },
+      {
+        "id": "M8.2",
+        "title": "engine_registry 新增 H3 NSFW 引擎条目",
+        "status": "done",
+        "evidence": "h3-nsfw-t2v/h3-nsfw-i2v(nsfw=True,probe 复用 _probe_h3);分辨率 6 预设(32 对齐 ≤1344)+ 时长 3 预设(6s/10s/15s → 141/243/362 帧,17k+5 网格)"
+      },
+      {
+        "id": "M8.3",
+        "title": "前端 engines.ts 路由 + 预设换算 + LTX 死参数修复",
+        "status": "done",
+        "evidence": "_h3NsfwPayload(resolution/duration 下拉 → 宽高/帧数);_resolution/_ltxNsfwLength 修复 LTX NSFW 预设永不生效(原读 width/height/length 数值键永远 fallback 768×384×97)"
+      },
+      {
+        "id": "M8.4",
+        "title": "TDD + 全量回归",
+        "status": "done",
+        "evidence": "test_engine_registry.py 新增 4 用例(SFW 隐藏/R18 暴露/预设匹配校验网格/可用性镜像);全量 1185 passed;tsc --noEmit 与 next build 全过"
+      },
+      {
+        "id": "M8.5",
+        "title": "部署 core + 真机 e2e",
+        "status": "done",
+        "evidence": "deploy.sh 完成;R18 注册表 18 引擎含 h3-nsfw×2(available=true),SFW 11 引擎零 nsfw;R18 LoRA 无 X-NSFW → 403;带头发 2 作业全 done 且 nsfw=true;产物 200 video/mp4 385KB;SFW /api/jobs 100 条零 nsfw 泄漏;GPU 峰值 45°C"
+      }
+    ],
+    "notes": "H3 NSFW 与 LTX NSFW 共用同一 X-NSFW 上下文判定(nsfw_allowed),主站无任何入口。H3 时长上限 362 帧≈15s,更长视频仍走 drama 末帧续写或 LongCat(SFW)。",
+    "verified_at": "2026-08-12T16:30:00+08:00"
+  },
+  "nsfw_main_integration_m9_2026_08_12": {
+    "id": "M9-2026-08-12",
+    "type": "feature",
+    "title": "NSFW 整合主站:R18 全局内容模式(取代 /nsfw 独立专区)",
+    "status": "passed",
+    "scope": "NSFW 不再单独展示,改为设置页全局内容模式开关:开启后 R18 引擎混入图像/视频工作台、作品库统一展示(18+ 徽标+模糊+分级筛选)、模型页 R18 推荐 tab、短剧工作台入主站导航;全部 20 引擎补介绍+出处;新增引擎可用性重新检测",
+    "tasks": [
+      {
+        "id": "M9.1",
+        "title": "R18 全局模式基础设施",
+        "status": "done",
+        "evidence": "lib/r18.ts(localStorage toiv_r18_mode 持久化 + setNsfwIntent 联动 X-NSFW 头 + models/local-models/jobs 双键族缓存失效 + toiv:r18-changed 事件广播 + useR18Mode hook);AgeGateModal 18+ 年龄确认门(toiv_nsfw_age_confirmed 与模式开关分离,首开必经声明)"
+      },
+      {
+        "id": "M9.2",
+        "title": "引擎出处 + 重新检测(后端)",
+        "status": "done",
+        "evidence": "engine_registry 全部 20 引擎补 source 字段(name/url/author/note:ComfyUI/URPM/LTX2.3/10Eros/MiniMax H3/LongCat/LongCat-Avatar/ACE-Step);list_engines 透传;新增 POST /api/models/engines/refresh(reset_avail_cache 强制重探测,前端「重新检测」按钮用)"
+      },
+      {
+        "id": "M9.3",
+        "title": "主站各视图整合(前端)",
+        "status": "done",
+        "evidence": "SettingsView 内容偏好卡片(R18 开关+年龄门);GenerateView 移除 onlyNsfw 过滤+引擎出处区+重新检测按钮+监听 r18-changed 重拉;LibraryView 全部/SFW/R18 分级筛选 chip+R18 作品 18+ 徽标与点击揭模糊;ModelsView R18 推荐 tab(NsfwRecsPanel 抽自旧 NsfwView);短剧工作台迁移 components/drama/DramaView(nsfw 参数改用 useR18Mode 动态态);page.tsx 注册 drama 视图+R18 导航项(灵动岛/底部更多)+SFW 直输 ?view=drama 门控弹回(读 isR18Mode 防 hook 首帧误判);/nsfw 旧路由 redirect 首页不 404"
+      },
+      {
+        "id": "M9.4",
+        "title": "TDD + 全量回归",
+        "status": "done",
+        "evidence": "后端 pytest 1189 passed(新增 source 全覆盖/端点透传/refresh 强制重探测等用例);前端 tsc --noEmit 零错 + next build 零告警;旧 nsfw.spec.ts 删除,authed-agents-ui 改主站图像视图"
+      },
+      {
+        "id": "M9.5",
+        "title": "部署 core + 真机 e2e",
+        "status": "done",
+        "evidence": "deploy.sh 完成(api/web 各第 2 次探测就绪);真机 API:SFW 11 引擎全 available 且带 source,R18 头 18 引擎(7 个 NSFW 全 available),refresh 端点正常;r18-mode.spec.ts 生产 10/10 通过(SFW 基线/年龄门/引擎混入/出处外链/重新检测/作品库筛选/短剧门控/R18 推荐 tab/旧链接重定向/关闭恢复);authed-agents-ui 3/3 通过"
+      }
+    ],
+    "notes": "测试教训:r18-mode 用例 10 初版在关闭 R18 后 page.goto 硬刷,addInitScript 重载时把 toiv_r18_mode=1 写回导致假失败——模式关闭后的断言必须走应用内导航。R18 内容安全链:前端模式开关(localStorage)→ X-NSFW 头 → 后端 ContextVar(nsfw_allowed)统一过滤引擎/作品库/模型,R18 LoRA 无头 403;产物仅自己可见。",
+    "verified_at": "2026-08-12T18:05:00+08:00"
+  },
+  "logging_monitor_m10_2026_08_12": {
+    "id": "M10-2026-08-12",
+    "type": "ops",
+    "title": "核心模块日志配置统一:生产可观测性修复(root 配置 + 全局异常兜底)",
+    "status": "passed",
+    "scope": "修复真机证实的生产观测盲区:root logger 无配置导致 35 个模块 INFO 日志静默丢弃、ERROR 裸消息无模块前缀;新增全局未处理异常兜底(带请求上下文)",
+    "tasks": [
+      {
+        "id": "M10.1",
+        "title": "真机核查 journald 现状",
+        "status": "done",
+        "evidence": "journalctl -u toiv-api 近 1000 行:978 条全是 uvicorn.access 行,应用模块 INFO 零条;tracker 超时 WARNING 为裸消息无前缀;journald 默认轮转在位(103.3M,SystemMaxUse 默认 10% 磁盘),无需额外 logrotate"
+      },
+      {
+        "id": "M10.2",
+        "title": "统一日志配置 app/logging_config.py",
+        "status": "done",
+        "evidence": "root StreamHandler(stdout→journal),格式 asctime+level+[name]+message;TOIV_LOG_LEVEL 环境可调(config.py log_level,默认 INFO);httpx/httpcore/websockets 降噪 WARNING(worker 轮询 1.5s/条无监控价值);幂等不叠加 handler"
+      },
+      {
+        "id": "M10.3",
+        "title": "全局异常处理器",
+        "status": "done",
+        "evidence": "@app.exception_handler(Exception):ERROR [toiv.unhandled] 记录 method+path+traceback,返回统一 500 JSON 不泄露内部细节;HTTPException 仍走自身 handler(404 行为不变,有测试锁死);ServerErrorMiddleware re-raise 保留 uvicorn traceback"
+      },
+      {
+        "id": "M10.4",
+        "title": "静默 except 盘点(不改动)",
+        "status": "done",
+        "evidence": "逐处核查 38 处 except:pass:jobs/drama_studio/agent tools 轮询循环(1.5s 间隔,记日志=刷屏)、db 幂等迁移、JSON 解析容错、OSError 清理——全部有意为之且带注释,不加日志"
+      },
+      {
+        "id": "M10.5",
+        "title": "TDD + 部署真机验证",
+        "status": "done",
+        "evidence": "新增 test_logging_config.py 6 用例(幂等/级别/降噪/装配/500 JSON+日志/HTTPException 不劫持);全量 pytest 1195 passed;部署 core 后 journal 首见格式化应用日志 INFO [app.comfy.tracker],httpx 噪声 0 条,refresh/health 200"
+      }
+    ],
+    "notes": "生产排查手法:journalctl -u toiv-api -f 实时;grep '\\[app.comfy.tracker\\]' 按模块过滤;TOIV_LOG_LEVEL=DEBUG 可临时提级排障(改 deploy/.env 重启 toiv-api)。访问行仍由 uvicorn.access 输出(propagate=False 不受影响)。前端 global-error.tsx 已有 Sentry 骨架,DSN 配置后前后端异常上报即闭环。",
+    "verified_at": "2026-08-12T22:40:00+08:00"
   }
 }

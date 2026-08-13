@@ -2,6 +2,298 @@
 
 ---
 
+## R1-2026-08-13 · 指代消解闸门 + storyboard 自包含强化 + L1/L2 质量门决策层
+
+**时间**: 2026-08-13
+**类型**: 里程碑(路线图 R1 第一阶段,承接 RESEARCH-2026-08-13)
+
+### 范围
+把调研路线图的 R1(实体注册表+指代闸门+L1/L2 质量门)落地为生产代码,全部 advisory 形态——只观测不拦截,为 R2 best-of-K 重生成闭环铺路。
+
+### 交付
+| 模块 | 内容 |
+|---|---|
+| [coreference.py](apps/api/app/quality/coreference.py) | 确定性代词检测:中英文正则(排除「其他/其它」复合词、不含 it/its 防误报);`unresolved_pronouns`=文本含代词且无实体名在场;`check_shots` 出 CorefReport |
+| [gateway.py](apps/api/app/quality/gateway.py) | 第四道 advisory 防线:coref 报告进 QualityReport,但 `passed` 仍只由三重防线(幻灯片风险/场景变化/节奏)决定,指代问题 v1 不阻断 |
+| [storyboard.py](apps/api/app/services/studio/storyboard.py) | `resolve_references` 后处理:未消解代词分镜→L2 层 LLM 受约束重写(只许用注册表实体)→重写后仍含代词**拒收**→确定性注入「角色名 (视觉token)」前缀兜底;无问题分镜不触碰 |
+| [decision.py](apps/api/app/quality/decision.py) | L2 质量决策层:双阈值三态门(≥τ_high 直通/中间带带评语重生成/<τ_low 或重试耗竭升级人工);`Thresholds.from_env`(TOIV_QUALITY_TAU_HIGH/TAU_LOW/MAX_ATTEMPTS);`evaluate_image` 接 scoring.py;`evaluate_text_faithfulness` LLM 文案忠实度门(L2 rubric,输出 faithfulness+issues) |
+| [orchestrator.py](apps/api/app/services/studio/orchestrator.py) | `render_shot` 对 image 产物跑 advisory 质量门:非 PASS 决策记 info 日志,不阻断不改状态机;打分器未装/异常一律降级忽略。video 产物由 jobs.py VideoScorer SSE 链路覆盖,不重复 |
+
+### 关键设计
+- **降级直通原则**: 所有质量组件在打分器未安装/LLM 不可用/返回不可解析时一律 PASS 降级,不阻塞生成主流程(与 scoring.py 容错策略一致)
+- **拒收校验**: LLM 重写后仍含代词的条目拒收走兜底,防止「重写了个寂寞」
+- **容错解析**: 文案门 JSON 提取剥 markdown 代码块 + find/rfind 定位,分数 clamp [0,1]
+
+### 测试与回归
+- 新增 24 例: test_coreference.py(7: 代词检测/复合词排除/未消解判定/报告聚合/gateway advisory 非阻断) + test_storyboard_resolve.py(5: 无代词不调 LLM/L2 重写采纳/仍含代词拒收走注入/LLM 失败兜底/parse_script 全链路 L3→L2) + test_quality_decision.py(10: 三态矩阵/阈值 env/图像门降级与打分路径/文案门打分+降级+坏 JSON+clamp) + test_studio_projects.py(2: image 产物门被调+状态机不变/门异常不破坏渲染)
+- **全量**: pytest **1219 passed**(基线 1195+24);`tsc --noEmit` ✅;`next build` ✅
+- 修复 2 个测试自身问题: gateway advisory 用例镜头缺尺寸关键词误触 variation error(补「特写/全景」);阈值 env 非法值断言写反(应为回退默认 0.65)
+
+---
+
+## RESEARCH-2026-08-13 · 竞品深度调研与优化路线图（Liblib/堆友/RunningHub/MiniMax Design/千问创作）
+
+**时间**: 2026-08-13
+**类型**: 调研（6 个并行 Agent：5 外部调研 + 1 代码盘点）
+
+### 范围
+用户提出五大方向：① 末帧+多参考常驻 ② AI 自动拆段+修指代 ③ 主 Agent 统一入口多 Agent 并行 ④ Skills 广场 ⑤ 关键节点人工确认+评测闭环；对标 Liblib/堆友/RunningHub/MiniMax Design/千问创作，并扫描 Lovart/Flowith/Skywork/即梦/可灵。
+
+### 核心结论
+1. 行业已收敛六段式范式：一句话入口→可视化拆解→主从多 Agent(Owner/Worker/Verifier)→参考锁定→画布资产管理→可编辑交付+Skill 飞轮
+2. ToIV 现状 = 强引擎中台+弱 Agent 前台：缺多 Agent 编排、Skill 资产化、评测闭环三件套
+3. 多参考自托管方案确定：VACE-14B(Apache 2.0,统一多参考+参考视频) + Wan2.2 Animate(动作参考) 为 P0，与现有 WanVideoWrapper 生态同源
+4. 拆段=LLM 结构化 JSON shot list；修指代=实体注册表+LLM 受约束重写+fastcoref 校验混合路线
+5. Skills 广场：SKILL.md 规范+强制 evals 门禁（GPT Store 失败教训）+对话造技能入口放在成功任务之后
+6. 评测闭环三层漏斗：L1 确定性→L2 本地专家小模型(LAION/CLIPScore/RAGAS/Q-Align)→L3 VLM-as-Judge 评语回注重生成(AIGVE-MACS 实证+53.5%)→HITL 升级
+7. 差异化机会：自有算力不排队、引擎可控、技能 evals 机验——直击竞品排队/积分焦虑与"抽卡"痛点
+
+### 产出
+- 调研报告+路线图：[docs/2026-08-13-competitive-research-roadmap.md](docs/2026-08-13-competitive-research-roadmap.md)（含 R1→R5 分期路线图）
+
+---
+
+## M11-2026-08-12 · Sentry DSN 接入准备 + 设备远程访问能力真机巡检
+
+**时间**: 2026-08-12 22:40 – 2026-08-12 17:45
+**类型**: 运维加固(真机核查 → 脚本化检查 → 报告输出)
+
+### 1. Sentry 错误追踪接入现状
+
+| 组件 | 状态 | 说明 |
+|------|------|------|
+| 后端 `sentry_sdk` | 已安装 | `/home/merlin/toiv/api/.venv` 内 `sentry_sdk` 可导入;`app/main.py` 已按 `TOIV_SENTRY_DSN` 初始化并带 `FastApiIntegration`/`SqlalchemyIntegration`、10% 事务采样、`send_default_pii=False` |
+| 前端 `@sentry/nextjs` | 已安装 | `apps/web/package.json` 依赖 `^9.0.0`;`next.config.mjs` 已包裹 `withSentryConfig`;`instrumentation.ts`/`instrumentation-client.ts`/`global-error.tsx` 已就位 |
+| DSN 配置 | **待补** | `core /home/merlin/toiv/deploy/.env` 中 `TOIV_SENTRY_DSN` 与 `NEXT_PUBLIC_SENTRY_DSN` 均为空;需用户提供真实 DSN 后写入并重启/重部署以闭合上报链路 |
+
+**用户决定**:暂不需要 Sentry 错误追踪功能。Sentry SDK 骨架保留，但 `TOIV_SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` 保持为空，SDK 内部 no-op，对系统零影响。
+
+### 2. 设备远程访问能力巡检
+
+基于真机 `tailscale status --json` + 本脚本 `scripts/device_connectivity_check.py` 实测(非文档推断)。覆盖 AGENTS.md 清单 17 台设备中的 16 台(本机 MateBook 为观测点,不计入被测设备),并补充公网入口抽检。
+
+**脚本改进点**:
+- 用 Tailscale `DNSName` 第一段作为稳定设备键,解决 `HostName` 本地化显示(如 `dgmt-studio01的Mac Studio`)导致映射失败的问题;
+- SSH 检测改用系统 `ssh + ProxyCommand=tailscale nc %h 22`,避开 `tailscale ssh` wrapper 的 host-key 严格校验失败;
+- 对 DERP 中转节点放宽 `tailscale ping` 判定:只要收到 `pong` 即算可达;
+- 新增公网入口抽检:cloud 公网 IP ping、`https://toiv.dgmt.top/`、`https://toiv.dgmt.top/api/health`。
+
+**实测结果(2026-08-12 17:35 前后)**:
+
+```
+=== 汇总 ===
+Tailscale 在线率: 15/17 (88.2%)
+Tailscale Ping 成功率: 14/17 (82.4%)
+Tailscale SSH 成功率: 14/17 (82.4%)
+LAN Ping 成功率: 16/16 (100.0%)
+公网抽检成功率: 3/3 (100.0%)
+```
+
+| 设备 | Tailscale 在线 | TS Ping(ms) | TS SSH | LAN IP | LAN Ping(ms) | 备注 |
+|------|---------------|-------------|--------|--------|--------------|------|
+| studio01 | ✅ | 5 | OK | 192.168.71.109 | 5.599 | 正常 |
+| studio02 | ✅ | 7 | OK | 192.168.71.111 | 5.401 | 正常 |
+| studio03 | ✅ | 4 | OK | 192.168.71.112 | 3.207 | 正常 |
+| studio04 | ✅ | 5 | OK | 192.168.71.113 | 5.586 | 正常 |
+| openclaw01 | ✅ | 4 | OK | 192.168.71.86 | 2.963 | 正常 |
+| openclaw02 | ✅ | 5 | OK | 192.168.71.75 | 5.130 | 正常 |
+| openclaw03 | ✅ | 5 | OK | 192.168.71.81 | 3.844 | 正常 |
+| openclaw04 | ✅ | 5 | OK | 192.168.71.85 | 6.874 | 正常 |
+| spark01 | ✅ | 6 | OK | 192.168.71.82 | 4.251 | 正常 |
+| spark02 | ✅ | 6 | OK | 192.168.71.84 | 3.919 | 正常 |
+| workstation | ✅ | 2 | OK | 192.168.71.127 | 4.775 | 正常 |
+| pc01 | ❌ | FAIL | FAIL | 192.168.71.115 | 42.266 | Tailscale 离线(last seen 11h),但 LAN 可达 |
+| pc02 | ❌ | FAIL | FAIL | 192.168.71.114 | 2.947 | Tailscale 离线(last seen 6d),但 LAN 可达 |
+| nas | ✅ | 3 | OK | 192.168.71.7 | 4.349 | 正常 |
+| cloud | ✅ | 360(DERP) | OK(6371ms) | 192.168.71.47 | 3.346 | 走 DERP 中转,SSH 慢但可达 |
+| core | ✅ | 5 | OK | 192.168.71.47 | 3.857 | 正常 |
+
+**异常点**:
+- `pc01-3` / `pc02` Tailscale 离线,仅 LAN 可达;Windows 设备需检查 Tailscale 客户端是否登录/运行;
+- `cloud` Tailscale 无法建立直连,走 DERP(sin) 中转,ping 360ms、SSH 握手 6.4s,公网入口当前正常但跨境链路质量仍会影响体验(与 AGENTS.md 易错点 25 一致)。
+
+**公网入口**:
+| 目标 | 状态 | 延迟 |
+|------|------|------|
+| ping 43.119.32.180 | OK | 356ms |
+| https://toiv.dgmt.top/ | 200 | 5.9s |
+| https://toiv.dgmt.top/api/health | 200 | 2.1s |
+
+### 3. 后续行动
+
+- [x] 设备远程访问能力巡检完成;
+- [ ] 周期性执行 `python3 scripts/device_connectivity_check.py` 作为远程可达性基线监控;
+- [ ] 对 `pc01`/`pc02` 排查 Tailscale 离线原因(可能为 Windows 登录会话过期/客户端未自启);
+- [ ] Sentry 按用户决定暂缓启用,后续若需要,只需在 `core /home/merlin/toiv/deploy/.env` 填入 DSN 并重启服务即可生效。
+
+---
+
+## M10-2026-08-12 · 核心模块日志配置统一:生产可观测性修复
+
+**时间**: 2026-08-12 22:00 – 22:40
+**类型**: 运维加固(真机核查 → 实现 → TDD → 全量回归 → 部署 → 真机验证)
+
+### 起因与真机诊断
+
+用户要求检查核心模块日志配置,确保线上监控覆盖关键异常点。真机核查(core journalctl)证实一个**严重观测盲区**:
+
+```
+# journalctl -u toiv-api 近 1000 行统计:
+978 条全是 uvicorn.access 访问行(INFO: 127.0.0.1 - "GET ...")
+应用模块 logger.info 零条;WARNING 是裸消息:
+  8月 12 13:38:01 core uvicorn[...]: job tracker xxx timed out after 1800s
+  ↑ 无级别/模块名前缀,journal 里无法按模块过滤
+```
+
+根因:35 个模块用 `logging.getLogger(__name__)`,但 **root logger 从未配置**——INFO 被 lastResort(WARNING 级)静默丢弃,ERROR/WARNING 裸消息落 journal。uvicorn 只配置了 `uvicorn.*` 自己的 logger。journald 轮转正常(默认 SystemMaxUse=10% 磁盘,当前 103.3M),无需额外 logrotate。
+
+### 变更
+
+| 文件 | 内容 |
+|------|------|
+| `apps/api/app/logging_config.py`(新) | `setup_logging()`:root StreamHandler(stdout→journal),格式 `asctime LEVEL [name] message`;httpx/httpcore/websockets 降噪 WARNING;幂等(pytest 多次 create_app 不叠加 handler) |
+| `apps/api/app/config.py` | 新增 `log_level: str = "INFO"`(env `TOIV_LOG_LEVEL` 可调,DEBUG 排障用) |
+| `apps/api/app/main.py` | create_app 首行调 `setup_logging`;新增 `@app.exception_handler(Exception)`:ERROR `[toiv.unhandled]` 记 method+path+traceback,返回统一 500 JSON 不泄露内部细节 |
+| `apps/api/tests/test_logging_config.py`(新) | 6 用例:幂等/级别可调/降噪/create_app 装配/500 JSON+日志断言/HTTPException 不被全局 handler 劫持 |
+
+**不动的部分**(逐处核查 38 处 `except: pass` 后决定):jobs/drama_studio/agent tools 的轮询循环(1.5s 间隔,记日志=刷屏)、db 幂等迁移、JSON 解析容错、OSError 文件清理——全部有意为之且带注释。uvicorn.access 访问行保留(propagate=False 不受影响)。
+
+### 验证
+
+- **单元/回归**: 新增 6 用例全过;全量 pytest **1195 passed**
+- **部署**: `deploy.sh --skip-web` → core,toiv-api/web 各第 2 次探测就绪
+- **真机**(core journal,重启后 5 分钟内):
+  - 首见格式化应用日志:`2026-08-12 14:31:13,194 INFO [app.comfy.tracker] reconcile: 重挂 2 个未终态作业的追踪` ✅
+  - 触发 `/api/models/engines/refresh`(20 引擎 worker 探测)后 httpx 噪声 **0 条** ✅
+  - refresh 200 / health 200 ✅
+
+### 生产排查速查
+
+```bash
+journalctl -u toiv-api -f                          # 实时跟踪
+journalctl -u toiv-api | grep '\[app.comfy.tracker\]'   # 按模块过滤
+journalctl -u toiv-api | grep '\[toiv.unhandled\]'      # 未处理异常(带 method+path)
+# 临时提级排障:core /home/merlin/toiv/deploy/.env 加 TOIV_LOG_LEVEL=DEBUG → 重启 toiv-api
+```
+
+**闭环说明**: 未处理异常(toiv.unhandled ERROR + traceback)✅ / 业务 WARNING 带模块前缀 ✅ / INFO 操作面包屑 ✅ / 访问行 ✅ / 前端 global-error.tsx 已有 Sentry 骨架,配置 DSN 后前后端异常上报闭环。
+
+---
+
+## M9-2026-08-12 · NSFW 整合主站:R18 全局内容模式(取代 /nsfw 独立专区)
+
+**时间**: 2026-08-12 16:40 – 18:05
+**类型**: 架构级功能重构(调研 → 实现 → TDD → 全量回归 → 部署 → 真机 e2e)
+
+### 背景与决策
+
+用户要求 NSFW 不单独作为内容展示,与主内容整合,模型搭配合理、支持自定义与可用性检测,所有模型带介绍和出处。决策(详见 [docs归档说明.md](docs归档说明.md) 第六节;原文档已删除):废弃 `/nsfw` 独立专区,改为**设置页 R18 全局内容模式开关**——开启后全站统一信号(X-NSFW 头),R18 引擎混入图像/视频工作台,作品库/模型页/短剧按模式动态呈现;首开必经 18+ 年龄确认门。
+
+### 变更
+
+| 层 | 文件 | 内容 |
+|----|------|------|
+| 前端基础 | `apps/web/lib/r18.ts`(新) | R18 模式单一事实源:localStorage 持久化 + `setNsfwIntent` 联动 X-NSFW 头 + 三键族(models/local-models/jobs 主键+:nsfw)缓存失效 + `toiv:r18-changed` 事件广播 + `useR18Mode` hook |
+| 前端基础 | `apps/web/components/ui/AgeGateModal.tsx`(新) | 18+ 年龄确认门;`toiv_nsfw_age_confirmed` 与模式开关分离,确认后开关不再弹门 |
+| 后端 | `apps/api/app/services/engine_registry.py` | 全部 20 引擎补 `source` 字段(name/url/author/note);`list_engines` 透传 |
+| 后端 | `apps/api/app/routes/models.py` | 新增 `POST /api/models/engines/refresh`:清可用性缓存强制重探测(前端「重新检测」按钮) |
+| 前端 | `SettingsView.tsx` | 「内容偏好」卡片:R18 开关 + 年龄门联动 |
+| 前端 | `GenerateView.tsx` | 移除 onlyNsfw 过滤(R18 引擎按上下文自然混入);引擎信息区补出处外链+「重新检测」按钮;监听 r18-changed 重拉引擎 |
+| 前端 | `LibraryView.tsx` | 作品库统一:全部/SFW/R18 分级筛选 chip;R18 作品 18+ 徽标 + 默认模糊 + 点击揭示 |
+| 前端 | `ModelsView.tsx` + `NsfwRecsPanel.tsx`(抽自旧 NsfwView) | 模型页新增「R18 推荐」tab(仅 R18 模式) |
+| 前端 | `components/drama/DramaView.tsx`(迁自 NsfwDramaView) | 短剧工作台入主站;`useDramaProject` nsfw 参数改 `useR18Mode` 动态态 |
+| 前端 | `app/page.tsx` | 注册 drama 视图;R18 模式灵动岛/底部「更多」追加「短剧」项;SFW 直输 `?view=drama` 门控弹回对话(读 `isR18Mode()` 防 hook 首帧恒 false 误判);`initR18Mode()` 在 fetchMe 前恢复请求头标记 |
+| 前端 | `app/nsfw/page.tsx` | 旧专区路由 `redirect("/")` 不 404;NsfwView/NsfwDramaView/nsfw layout 物理删除 |
+| 测试 | `apps/api/tests/test_engine_registry.py` | source 全覆盖断言 + 端点透传 + refresh 强制重探测用例 |
+| 测试 | `apps/web/e2e/r18-mode.spec.ts`(新,替旧 nsfw.spec.ts) | 10 用例:SFW 基线/年龄门流程/图像+视频工作台 R18 混入/出处外链/重新检测/作品库筛选/短剧导航门控/SFW 弹回/R18 推荐 tab/旧链接重定向/关闭恢复 |
+
+### 验证
+
+- **单元/回归**: 后端 pytest **1189 passed**;前端 `tsc --noEmit` ✅、`next build` ✅(零告警)
+- **部署**: `deploy/deploy.sh` → core,toiv-api(8090)/toiv-web(3100) 各第 2 次探测就绪
+- **真机 API**(core 生产,admin):
+  - SFW 上下文:11 引擎全 `available=true`,全部带 source,零 nsfw 条目 ✅
+  - X-NSFW 头:18 引擎,7 个 NSFW(nsfw-txt2img/img2img、ltx-nsfw×3、h3-nsfw×2)全 available 且带出处 ✅
+  - `POST /api/models/engines/refresh` → 强制重探测返回 11 ✅
+- **真机 e2e**(playwright.prod.config 直连 core):**r18-mode 10/10 通过**;authed-agents-ui 回归 3/3 通过
+
+### 测试教训(记入备忘)
+
+用例 10「关闭 R18 恢复 SFW」初版失败:关闭开关后 `page.goto` 硬刷,`addInitScript` 在每次导航时重跑、把 `toiv_r18_mode=1` 写回 localStorage,导致永远测不到「关闭后」状态。修复:模式关闭后的断言必须走**应用内导航**(CornerNav 点击),靠 r18-changed 事件广播重拉,不硬刷。
+
+**安全链复述**: 前端模式开关(localStorage)→ X-NSFW 头 → 后端 ContextVar `nsfw_allowed` 统一过滤引擎/作品库/模型;R18 LoRA 无头提交 403;R18 产物仅自己可见。
+
+---
+
+## M8-2026-08-12 · NSFW 专区双引擎:LTX 2.3 (10eros) + MiniMax H3 (R18)
+
+**时间**: 2026-08-12 15:00 – 16:30
+**类型**: 新功能上线(调研 → 实现 → TDD → 全量回归 → 部署 → 真机 e2e)
+
+### 背景与决策
+
+用户提议 NSFW 板块换用/并存 MiniMax H3。调研结论(详见 [docs归档说明.md](docs归档说明.md) 第三节;原文档已删除):**并存**——H3 底座无审查、音画同发、社区已有 R18 LoRA 生态;LTX 2.3 + 10eros 保留作轻量快线。库内已有 9 个 H3 R18 LoRA(H3_NSFW_LORAS 名单:HMNSFW_AIO_V2 / SexGod-NaughtyTimes / deepthroat_v1 / h3_musubi_v4 / minimax_vag / riding_pose / stomach_bulge / vagassist_e40 / H3_footjob 等)。
+
+### 变更
+
+| 层 | 文件 | 内容 |
+|----|------|------|
+| 后端 | `apps/api/app/services/engine_registry.py` | 新增 `h3-nsfw-t2v`/`h3-nsfw-i2v` 条目(nsfw=True,复用 `_probe_h3`);分辨率 6 预设(832×480→1344×768,全 32 对齐)+ 时长 3 预设(6/10/15s → 141/243/362 帧,17k+5 网格) |
+| 前端 | `apps/web/lib/engines.ts` | `h3-nsfw-*` 路由 → `/api/h3/t2v|i2v`;`_h3NsfwPayload` 预设换算;**顺带修复 LTX NSFW 死参数 bug**:注册表声明 resolution/duration 下拉但提交函数读 width/height/length 数值键,预设永不生效恒 fallback 768×384×97——新增 `_resolution`/`_ltxNsfwLength`(秒×fps 吸附 8k+1)修复 |
+| 测试 | `apps/api/tests/test_engine_registry.py` | +4 用例:SFW 隐藏 h3-nsfw×2 / R18 暴露 / 预设值匹配 H3 校验网格(32 对齐、17k+5 ∈[22,362]) / 可用性镜像 H3 实例 |
+
+### 验证
+
+- **单元/回归**: 注册表 26 passed;全量 **1185 passed**;`tsc --noEmit` ✅;`next build` ✅
+- **部署**: `deploy/deploy.sh` → core,toiv-api/toiv-web 健康等待通过
+- **真机 e2e**(core 生产,admin 登录):
+
+| 检查 | 结果 |
+|------|------|
+| R18 上下文注册表 | 18 引擎,含 `h3-nsfw-t2v`/`h3-nsfw-i2v`(nsfw=true, available=true,LoRA 选项 9 个 R18 正确打标) ✅ |
+| SFW 上下文注册表 | 11 引擎,仅 h3-t2v/h3-i2v(SFW),零 nsfw 条目 ✅ |
+| R18 LoRA 无 X-NSFW 头提交 | **403** `所选 LoRA 为 R18 内容,仅限 NSFW 专区使用` ✅ |
+| X-NSFW 头发起生成 | 2 作业(832×480×141 帧 + HMNSFW_AIO_V2@0.6)全部 **done**,nsfw=true ✅ |
+| 产物可达性 | `t2v_00038/39_.mp4` HTTP 200 `video/mp4` 385KB ✅ |
+| 作品库隔离 | SFW `/api/jobs?limit=100` 零 nsfw=true,不含本次作业 ✅ |
+| GPU 温度 | 生成后 45/31/40/48°C,远低于 85°C 熔断线 ✅ |
+
+**遗留**: H3 NSFW 单段上限 362 帧≈15s(模型约束);更长 NSFW 视频走 drama 短剧末帧续写链路。前端 playwright nsfw.spec 未重跑(API 级已覆盖核心契约)。
+
+---
+
+## PERF-2026-08-11 · toiv.dgmt.top 域名链路优化(反代切 frp 本地端口 + 隧道加固)
+
+**时间**: 2026-08-11 20:27 – 21:05
+**类型**: 生产事故级性能修复(域名首页 20-30s 超时)+ 一次归因纠偏
+
+### 事件全貌
+
+| 时段 | 事件 |
+|------|------|
+| 20:27 | 发现域名首页 20-30s 超时;分层测:core 本机 3ms ✅ / Tailscale 链路 6-22s ❌ / frp-kcp:api(100B) 0.35s ✅ 但 web(8KB) 6-14s ❌ |
+| 20:38 | 试验 frpc kcp→tcp,web 降至 2.7s——**事后证明是链路质量拐点,TCP 非真因** |
+| 20:41 | openresty proxy_pass Tailscale→frp 本地端口(有效改进,保留) |
+| 20:53 | **跨境链路全面抖动**:25% 丢包;TCP 模式 login write timeout;切回 kcp 同样挂;drtclaw-tyler 隧道断;Mac↔cloud SSH 断;域名 502 |
+| 20:56 | 链路自愈,frps 日志:kcp login 成功、toiv-web/api proxy 注册,服务恢复 |
+| 21:02 | frpc 加固 `loginFailExit = false`(抖动期内建重试,避免 systemd 重启风暴) |
+
+### 归因纠偏(⚠️ 重要)
+
+初判「kcp 跨境崩塌」**不成立**:kcp 慢与 TCP 快都是链路质量时间波动的产物。证据:20:53 链路全面恶化时 TCP/kcp/Tailscale/SSH 全挂;20:56 自愈后 kcp 首页 2-6s、api 1.5s。**教训:链路 A/B 必须同时段交替测,跨时段结论无效。**
+
+有效改进的干净证据(同时段 20:27-34):Tailscale API 6.2s vs frp-kcp API 0.35s → openresty 切 frp 本地端口保留。
+
+### 终态
+
+- openresty `toiv.dgmt.top.conf`:proxy_pass → `127.0.0.1:18090/13100`(frp 本地;备份 `.bak-frp-switch-20260811`)
+- core `frpc.toml`:kcp(7001/udp)+ `loginFailExit = false`;frps 侧 `start proxy success` 双注册
+- 域名实测:首页 200(2-7s),api 1.5s;HSTS/安全头/登录/中文 404/文档门控 404 全过
+
+**遗留**: 用户路径「国内→香港 cloud→国内 core」双跨境是结构性风险,晚高峰劣化不可避免;长期评估国内入口/CDN。详见 AGENTS.md 易错点 25。
+
+---
+
 ## TUNING-2026-08-11 · 效果调优:死 worker 清理 + 短剧 LLM 层 L1→L3
 
 **时间**: 2026-08-11 20:00 – 20:10
@@ -376,7 +668,7 @@ content_type = _AUDIO_CONTENT_TYPES.get(Path(safe_filename).suffix.lower(), cont
 
 ### 交付物
 
-- 说明文档： `docs/2026-08-10-audio-fix-and-layout-redesign.md`（问题分析/修复方案/设计规范/实现步骤）
+- 说明文档：原文档已删除,要点归档于 `docs归档说明.md` 第五节
 
 ---
 
@@ -701,7 +993,7 @@ ssh merlin@192.168.71.127 'find /home/merlin/toiv/drama/output/projects/starfall
 
 **时间**: 2026-08-09 18:00
 **类型**: infra-migration / 设备服务迁移
-**目标**: 按 `docs/2026-08-09-service-replacement-research.md` Phase 1 路线,将 Workstation GPU2 上非 CUDA 强依赖服务迁移到 Mac Studio,释放显存优先保障 MiniMax H3 生态
+**目标**: 按原服务替代调研(要点归档于 `docs归档说明.md` 第一节)Phase 1 路线,将 Workstation GPU2 上非 CUDA 强依赖服务迁移到 Mac Studio,释放显存优先保障 MiniMax H3 生态
 
 ### 执行项
 
@@ -6093,7 +6385,7 @@ Route (app)                                 Size  First Load JS
 - **系统监控**:Workstation GPU0 峰值温度 93°C,显存峰值 69065 MB;spark02 内存峰值 124328 MB;core/studio04 平稳
 - **修复 1**:core `/home/merlin/toiv/deploy/.env` 第 22 行 `TOIV_LLM_DISPLAY_NAME` 缺引号导致 systemd EnvironmentFile 解析失败,已加双引号并重启 toiv-api
 - **修复 2**:core `apps/api/app/routes/reverse.py` 增加 studio04 mlx-vlm `/v1/reverse` 自定义端点支持:探测 `/models` 404 时自动回退,系统提示作为 `prompt` 传入,返回自然语言由 `_salvage_prompt` 兜底解析
-- **报告**:docs/2026-08-09-comprehensive-stress-test-report.md
+- **报告**:原文档已删除,核心数据归档于 `docs归档说明.md` 第二节
 - **原始数据**:`/tmp/core_api_results.csv`、`/tmp/llm_metrics.csv`、`/tmp/h3_metrics.csv`、`/tmp/system_metrics_*.csv`
 
 ### 生产环境 P0+P1 修复：pc01 ComfyUI 恢复 + 定妆图分辨率质量门（2026-08-10）
