@@ -15,7 +15,8 @@ from app.models import User
 
 router = APIRouter()
 
-_MAX_BYTES = 20 * 1024 * 1024  # 20MB
+_MAX_BYTES = 20 * 1024 * 1024  # 20MB(图/音频)
+_MAX_VIDEO_BYTES = 200 * 1024 * 1024  # 200MB(驱动视频,Animate/VACE 链路)
 
 # ---- 上传内容安全校验:扩展名 + Content-Type + 魔数三重白名单 ----
 # 仅放行参考图/驱动音频实际需要的格式;魔数与扩展名不符即 415,杜绝
@@ -31,8 +32,12 @@ _EXT_TO_KIND = {
     ".m4a": "m4a",
     ".ogg": "ogg",
     ".flac": "flac",
+    ".mp4": "mp4",
+    ".mov": "mov",
+    ".webm": "webm",
 }
 _IMAGE_KINDS = {"png", "jpg", "webp", "gif"}
+_VIDEO_KINDS = {"mp4", "mov", "webm"}  # Animate 驱动视频 / VACE 参考视频等
 
 
 def _sniff_media(content: bytes) -> str | None:
@@ -57,8 +62,15 @@ def _sniff_media(content: bytes) -> str | None:
         return None
     if content.startswith(b"ID3") or (content[0] == 0xFF and (content[1] & 0xE0) == 0xE0):
         return "mp3"
-    if len(content) >= 8 and content[4:8] == b"ftyp":  # ISO-BMFF(m4a/aac)
-        return "m4a"
+    if content.startswith(b"\x1a\x45\xdf\xa3"):  # EBML 头(webm/mkv 容器)
+        return "webm"
+    if len(content) >= 12 and content[4:8] == b"ftyp":  # ISO-BMFF:按 major brand 区分
+        brand = content[8:12]
+        if brand == b"qt  ":
+            return "mov"
+        if brand in (b"M4A ", b"M4B "):
+            return "m4a"
+        return "mp4"  # isom/iso2/mp41/mp42/avc1 等一律 mp4
     return None
 
 
@@ -71,7 +83,11 @@ def _validate_upload(filename: str | None, content_type: str | None, content: by
     if sniffed != _EXT_TO_KIND[ext]:
         raise HTTPException(status_code=415, detail="文件内容与扩展名不符")
     if content_type and content_type != "application/octet-stream":
-        want = "image/" if sniffed in _IMAGE_KINDS else "audio/"
+        want = (
+            "image/" if sniffed in _IMAGE_KINDS
+            else "video/" if sniffed in _VIDEO_KINDS
+            else "audio/"
+        )
         if not content_type.startswith(want):
             raise HTTPException(status_code=415, detail="Content-Type 与文件内容不符")
     return ext
@@ -89,10 +105,13 @@ async def upload_image(
     content = await image.read()
     if not content:
         raise HTTPException(status_code=400, detail="空文件")
-    if len(content) > _MAX_BYTES:
-        raise HTTPException(status_code=413, detail="图片过大(上限 20MB)")
     # 三重白名单(扩展名+Content-Type+魔数),在任何 worker 落盘前拦截伪造文件
     safe_ext = _validate_upload(image.filename, image.content_type, content)
+    # 大小上限按真实类型分流(视频类放宽到 200MB,图/音频 20MB)
+    limit = _MAX_VIDEO_BYTES if _EXT_TO_KIND[safe_ext] in _VIDEO_KINDS else _MAX_BYTES
+    if len(content) > limit:
+        raise HTTPException(
+            status_code=413, detail=f"文件过大(上限 {limit // 1024 // 1024}MB)")
 
     # 分发模式:角色参考图上传到全部可达 worker(唯一名避免各机命名分歧),这样带参考图的
     # 分镜出图可 pool.pick 跨机并行,而非全钉在参考图所在的单机上串行。

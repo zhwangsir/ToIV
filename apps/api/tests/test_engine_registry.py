@@ -36,7 +36,7 @@ _NEXTGEN_UNET = "z_image_turbo_bf16.safetensors"
 _SAMPLERS = ["euler", "euler_ancestral", "dpmpp_2m"]
 _SCHEDULERS = ["normal", "simple", "karras"]
 
-_ALLOWED_TYPES = {"text", "textarea", "number", "select", "switch", "images", "loras"}
+_ALLOWED_TYPES = {"text", "textarea", "number", "select", "switch", "images", "audio", "video", "loras"}
 
 
 def _obj_info(node: str, field: str, values: list[str]) -> dict:
@@ -534,3 +534,226 @@ async def test_probes_run_parallel_and_cached(live_pool, user, monkeypatch):
     engine_registry.reset_avail_cache()
     await list_engines(live_pool, user)
     assert calls == first * 2, "缓存重置后应重新探测"
+
+
+# --------------------------------------------------------------------------- #
+# R18 H3 引擎(h3-nsfw-t2v / h3-nsfw-i2v,2026-08-12 NSFW 双引擎)
+# 与 SFW h3-t2v/h3-i2v 同一提交链路与 probe;仅 R18 上下文可见。
+# --------------------------------------------------------------------------- #
+
+async def test_h3_nsfw_engines_hidden_in_sfw_context(live_pool, user):
+    """SFW 上下文:h3-nsfw 双引擎不可见(与 ltx-nsfw 同一过滤链路)。"""
+    token = nsfw_intent_var.set(False)
+    try:
+        ids = _by_id(await list_engines(live_pool, user))
+    finally:
+        nsfw_intent_var.reset(token)
+    assert "h3-nsfw-t2v" not in ids
+    assert "h3-nsfw-i2v" not in ids
+
+
+async def test_h3_nsfw_engines_exposed_in_r18_context(live_pool, user, h3_lora_stub):
+    """R18 上下文:双引擎出现 + nsfw 标记;可用性与 h3-t2v 同步(共用 _probe_h3)。"""
+    h3_lora_stub.loras = [_SFW_H3_LORA, _NSFW_H3_LORA]
+    token = nsfw_intent_var.set(True)
+    try:
+        ids = _by_id(await list_engines(live_pool, user))
+    finally:
+        nsfw_intent_var.reset(token)
+    for eid in ("h3-nsfw-t2v", "h3-nsfw-i2v"):
+        assert eid in ids, f"缺引擎 {eid}"
+        assert ids[eid]["nsfw"] is True
+        assert ids[eid]["kind"] == "video"
+        assert ids[eid]["available"] is True
+    # i2v 需参考图参数;t2v 不需要
+    assert _param(ids["h3-nsfw-i2v"], "images")["type"] == "images"
+    assert all(p["key"] != "images" for p in ids["h3-nsfw-t2v"]["params"])
+
+
+async def test_h3_nsfw_params_presets_match_h3_validation(live_pool, user):
+    """resolution 预设全部 32 对齐且 ≤1344;duration 预设全部 17k+5 ∈ [22,362](后端硬校验)。"""
+    token = nsfw_intent_var.set(True)
+    try:
+        ids = _by_id(await list_engines(live_pool, user))
+    finally:
+        nsfw_intent_var.reset(token)
+    res = _param(ids["h3-nsfw-t2v"], "resolution")
+    assert res["type"] == "select" and res["default"] == "1280x736"
+    for o in res["options"]:
+        w, h = map(int, o["value"].split("x"))
+        assert w % 32 == 0 and h % 32 == 0, f"{o['value']} 非 32 对齐"
+        assert 256 <= w <= 1344 and 256 <= h <= 1344
+    dur = _param(ids["h3-nsfw-t2v"], "duration")
+    frames = {"6": 141, "10": 243, "15": 362}
+    assert [o["value"] for o in dur["options"]] == list(frames)
+    for n in frames.values():
+        assert (n - 5) % 17 == 0 and 22 <= n <= 362, f"{n} 不在 17k+5 网格"
+    # loras 参数复用 SFW 同一 schema(R18 上下文注入含 NSFW 选项)
+    loras = _param(ids["h3-nsfw-t2v"], "loras")
+    assert loras["type"] == "loras" and (loras["min"], loras["max"]) == (0.5, 1.0)
+
+
+async def test_h3_nsfw_unavailable_mirrors_h3_instance(live_pool, user, h3_stub):
+    """H3 实例不可达:R18 版与 SFW 版同步不可用(同一 probe)。"""
+    h3_stub.nodes = None
+    token = nsfw_intent_var.set(True)
+    try:
+        ids = _by_id(await list_engines(live_pool, user))
+    finally:
+        nsfw_intent_var.reset(token)
+    for eid in ("h3-t2v", "h3-nsfw-t2v", "h3-nsfw-i2v"):
+        assert ids[eid]["available"] is False
+        assert "不可达" in ids[eid]["unavailable_reason"]
+
+
+# --------------------------------------------------------------------------- #
+# M9:模型出处(source 字段)—— 所有引擎必须有介绍与出处(2026-08-12 NSFW 整合主站)
+# --------------------------------------------------------------------------- #
+
+async def test_every_engine_has_source(live_pool, user):
+    """每个引擎(含 R18 上下文)都透传 source:name/url(http 前缀)/author 必填。"""
+    token = nsfw_intent_var.set(True)  # R18 上下文拿全量引擎,一次覆盖 SFW+R18
+    try:
+        engines = await list_engines(live_pool, user)
+    finally:
+        nsfw_intent_var.reset(token)
+    assert len(engines) >= 18, f"引擎总数 {len(engines)} < 18,疑似条目丢失"
+    for e in engines:
+        src = e.get("source")
+        assert src is not None, f"{e['id']} 缺 source 出处字段"
+        assert src.get("name"), f"{e['id']} source.name 为空"
+        assert src.get("url", "").startswith("http"), f"{e['id']} source.url 非法: {src.get('url')}"
+        assert src.get("author"), f"{e['id']} source.author 为空"
+
+
+async def test_source_passthrough_via_endpoint(live_pool, user):
+    """路由级:GET /api/models/engines 响应条目含 source 字段(注册表 → HTTP 透传)。"""
+    from fastapi.testclient import TestClient
+
+    from app.deps import get_current_user, get_pool
+    from app.main import app
+
+    app.dependency_overrides[get_pool] = lambda: live_pool
+    app.dependency_overrides[get_current_user] = lambda: user
+    try:
+        res = TestClient(app).get("/api/models/engines")
+    finally:
+        app.dependency_overrides.clear()
+    assert res.status_code == 200
+    for e in res.json()["engines"]:
+        assert "source" in e, f"{e['id']} 端点响应缺 source"
+        assert e["source"]["url"].startswith("http")
+
+
+# --------------------------------------------------------------------------- #
+# M9:POST /api/models/engines/refresh —— 前端「重新检测」按钮
+# --------------------------------------------------------------------------- #
+
+async def test_engines_refresh_forces_reprobe(live_pool, user, monkeypatch):
+    """refresh 端点:清可用性缓存后重新探测(probe 调用计数翻倍),返回全量引擎。"""
+    from fastapi.testclient import TestClient
+
+    from app.deps import get_current_user, get_pool
+    from app.main import app
+
+    calls = 0
+    real = engine_registry._probe_pool
+
+    async def _counting(pool, models, nodes):
+        nonlocal calls
+        calls += 1
+        return await real(pool, models, nodes)
+
+    monkeypatch.setattr(engine_registry, "_probe_pool", _counting)
+    engine_registry.reset_avail_cache()
+
+    app.dependency_overrides[get_pool] = lambda: live_pool
+    app.dependency_overrides[get_current_user] = lambda: user
+    try:
+        client = TestClient(app)
+        r1 = client.post("/api/models/engines/refresh")
+        assert r1.status_code == 200
+        first = calls
+        assert first >= 2, "首次 refresh 应触发 pool probe"
+        assert r1.json()["count"] == len(r1.json()["engines"])
+
+        # 紧接着 GET 走缓存:不新增探测
+        client.get("/api/models/engines")
+        assert calls == first, "refresh 后 GET 应命中缓存不再探测"
+
+        # 再次 refresh:强制重探测
+        client.post("/api/models/engines/refresh")
+        assert calls == first * 2, "二次 refresh 应重新探测"
+    finally:
+        app.dependency_overrides.clear()
+        engine_registry.reset_avail_cache()
+
+
+def test_engines_refresh_requires_login(live_pool):
+    """refresh 端点未登录 → 401(与 GET  engines 同一鉴权口径)。"""
+    from fastapi.testclient import TestClient
+
+    from app.deps import get_pool
+    from app.main import app
+
+    app.dependency_overrides[get_pool] = lambda: live_pool
+    try:
+        res = TestClient(app).post("/api/models/engines/refresh")
+    finally:
+        app.dependency_overrides.clear()
+    assert res.status_code == 401
+
+
+# --------------------------------------------------------------------------- #
+# R2.2:Wan2.2-Animate / Wan2.1-VACE 引擎(与 LongCat 同实例 :8197,
+# probe 在 longcat 基础上追加引擎关键节点检查)
+# --------------------------------------------------------------------------- #
+
+_WAN_NODES = {"WanVideoModelLoader", "WanVideoAnimateEmbeds", "WanVideoVACEEncode"}
+
+
+async def test_wan_engines_available_with_wrapper_nodes(live_pool, user, longcat_stub):
+    """实例节点齐全(含 Animate/VACE 关键节点)→ 双引擎可用 + 参数表/出处完整。"""
+    longcat_stub.nodes = set(_WAN_NODES)
+    ids = _by_id(await list_engines(live_pool, user))
+    for eid in ("wan-animate", "wan-vace"):
+        e = ids[eid]
+        assert e["kind"] == "video" and e["nsfw"] is False
+        assert e["available"] is True and "unavailable_reason" not in e
+        assert e["source"]["url"].startswith("http")
+        _param(e, "num_frames")
+        _param(e, "width")
+        _param(e, "height")
+        _param(e, "seed")
+    # animate:参考图 + 驱动视频;vace:多参考图(images 类型,上限 4 张)
+    assert _param(ids["wan-animate"], "video")["type"] == "video"
+    assert _param(ids["wan-animate"], "images")["type"] == "images"
+    vace_images = _param(ids["wan-vace"], "images")
+    assert vace_images["type"] == "images" and vace_images["max"] == 4
+    # 帧数范围与 routes/wan_studio.py 请求模型同源
+    a_frames = _param(ids["wan-animate"], "num_frames")
+    assert (a_frames["min"], a_frames["max"], a_frames["default"]) == (17, 501, 121)
+    v_frames = _param(ids["wan-vace"], "num_frames")
+    assert (v_frames["min"], v_frames["max"], v_frames["default"]) == (17, 241, 81)
+
+
+async def test_wan_engines_unavailable_when_wrapper_nodes_missing(live_pool, user, longcat_stub):
+    """实例只有 WanVideoModelLoader(wrapper 过旧)→ 双引擎不可用 + 原因指明缺节点;
+    longcat 自身引擎不受影响。"""
+    longcat_stub.nodes = {"WanVideoModelLoader"}
+    ids = _by_id(await list_engines(live_pool, user))
+    assert ids["wan-animate"]["available"] is False
+    assert "WanVideoAnimateEmbeds" in ids["wan-animate"]["unavailable_reason"]
+    assert ids["wan-vace"]["available"] is False
+    assert "WanVideoVACEEncode" in ids["wan-vace"]["unavailable_reason"]
+    assert ids["longcat-t2v"]["available"] is True
+
+
+async def test_wan_engines_unavailable_when_instance_down(live_pool, user, longcat_stub):
+    """实例不可达 → 双引擎不可用 + 原因;pool 引擎不受影响。"""
+    longcat_stub.nodes = None
+    ids = _by_id(await list_engines(live_pool, user))
+    for eid in ("wan-animate", "wan-vace"):
+        assert ids[eid]["available"] is False
+        assert "不可达" in ids[eid]["unavailable_reason"]
+    assert ids["ltx2-t2v"]["available"] is True

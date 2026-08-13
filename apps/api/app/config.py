@@ -151,6 +151,9 @@ class Settings(BaseSettings):
     # 是否暴露 API 文档(/docs /redoc /openapi.json)。默认关:生产暴露完整 schema
     # 等于公开攻击面地图(QA-FULL-2026-08-11 P2);本地开发在 .env 置 true 开启。
     expose_api_docs: bool = False
+    # 应用日志级别(2026-08-12 统一日志配置,见 app/logging_config.py):
+    # DEBUG 排障 / INFO 生产默认 / WARNING 降噪。
+    log_level: str = "INFO"
 
     # —— 视频质量评估 VLM(video scorer)——
     # workstation(192.168.71.127:8000, GPU3)上 Nemotron-3-Nano-Omni-30B-A3R 全模态 VLM,
@@ -247,6 +250,12 @@ class Settings(BaseSettings):
     # 权重经 extra_model_paths 挂 NAS LongCat/(参考 scripts/longcat_smoke.py)。
     longcat_enabled: bool = True
     longcat_base_url: str = "http://192.168.71.127:8197"
+
+    # —— Wan2.2-Animate / Wan2.1-VACE(GPU2 :8197,与 LongCat 同实例) ——
+    # Animate fp8 运行时量化峰值 ~20-24GiB;提交前要求实例卡(GPU2)空闲显存 ≥ 此阈值(GiB)。
+    # 不足时先驱逐 :8197 自身模型缓存(队列空闲才动),仍不足 → 503 错峰提示。
+    # 绝不驱逐 H3(硬规则:H3 必须可用);H3 突发 48GB 时本预检天然拦截并发。
+    wan_min_free_vram_gb: float = 26.0
 
     @property
     def embed_url(self) -> str:

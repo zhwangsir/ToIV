@@ -16,7 +16,7 @@ from app.config import get_settings
 from app.deps import get_current_user, get_pool
 from app.models import User
 from app.nsfw_ctx import nsfw_allowed
-from app.services.engine_registry import list_engines
+from app.services.engine_registry import list_engines, reset_avail_cache
 from app.workflows.ace_step import AceStepParams
 from app.workflows.hunyuan3d import Hunyuan3DParams
 from app.workflows.llm_router import list_content_types, list_llm_endpoints
@@ -602,6 +602,20 @@ async def list_generation_engines(
     NSFW 引擎(10Eros 系)仅在 R18 上下文(X-NSFW 头)出现;SFW 上下文同时剔除
     select 选项里的 R18 项(如 ltx2 白名单的 10eros 底模)。
     """
+    engines = await list_engines(pool, user)
+    return {"engines": engines, "count": len(engines)}
+
+
+@router.post("/models/engines/refresh")
+async def refresh_generation_engines(
+    pool: WorkerPool = Depends(get_pool),
+    user: User = Depends(get_current_user),
+) -> dict:
+    """清空引擎可用性缓存并重新探测,返回全量引擎(前端「重新检测」按钮)。
+
+    与 GET /models/engines 的差别仅在强制重探测;R18 上下文过滤规则一致。
+    """
+    reset_avail_cache()
     engines = await list_engines(pool, user)
     return {"engines": engines, "count": len(engines)}
 

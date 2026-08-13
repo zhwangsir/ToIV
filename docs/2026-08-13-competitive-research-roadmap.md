@@ -59,6 +59,29 @@ ToIV 现状是**「强引擎中台 + 弱 Agent 前台」**：底层算力/引擎
 | **P2** | **Uni3C** | 参考视频→运镜+人体动作迁移 | 0.95B 控制器 |
 | **P2** | **Wan2.1-FLF2V-14B** | 首尾帧插值 | 14B |
 
+**Wan2.2 Animate 质量复核结论（2026-08-13，二次调研验证「是否质量最好」）**：
+- **开源可自托管范围内 = SOTA，可确认是质量最好的方案**。官方 100 组专业样本评测：IS 32.7 / PSNR 28.6dB / LPIPS 0.08，全面超 StableAnimator（IS 29.3）、LivePortrait（LPIPS 0.12）等开源主流；500 名专业动画师主观评测 4.6/5，**首次超越闭源商业 Runway Act-Two**。同路线学术前作 Animate Anyone 2（ICCV 2025）的环境融合思想已被其吸收并产品化重构，人物动态一致性 +40%。
+- **闭源 API 中唯一可争议对手是 Kling 2.6/3.0 Motion Control**（光流/骨骼迁移 + 原生音频同步，官方宣称动作跟随胜率领先，ELO 总榜第一）；但闭源、按积分计费、NSFW 限制、素材出内网，违反 ToIV 自托管硬约束，仅作质量上限参照，不接入。Sora 2 Pro 同因闭源排除，且动作迁移非其专项。
+- **其余开源研究线不构成威胁**：MimicMotion/RealisDance/PoseGen 等或为旧一代、或为研究代码（PoseGen 仅 33h 训练数据），无双模式（Move+Replace）、无 Relighting LoRA，生产可用性远低于 Wan2.2 Animate。
+- **已知短板（接入时须配套）**：① 无原生音频——沿用现有 IndexTTS2/LongCat-Avatar 链路补口型/配音；② 原生分辨率上限 ~720p——4K 交付走 M6 超分 fleet；③ 手部精度弱于 Kling 专用手部模型——高手部特写镜头在质量门中重点打分手部区域。
+
+**最新权重可用性核查与引擎选型终判（2026-08-13，HuggingFace/ModelScope 真查 + 真机 nvidia-smi）**：
+
+| 模型 | 权重状态 | 协议 | 终判 |
+|---|---|---|---|
+| **Wan2.2-Animate-14B** | ✅ **已在 NAS**（2026-07-15 预下载官方 bf16 4 分片 32GB + relighting_lora + clip_vision + umt5 + Wan2.1 VAE，全套齐） | Apache 2.0 | **P0 接入**。kijai WanVideoModelLoader 只认单文件 → 本地流式合并分片为 `wan2.2_animate_14B_bf16.safetensors`（零下载）；运行时 `quantization=fp8_e4m3fn` 等效 fp8 权重显存（16-20GB） |
+| **Wan2.1-VACE-14B** | ✅ ModelScope `Comfy-Org/Wan_2.1_ComfyUI_repackaged` 镜像有 fp16 单文件 34.7GB（官方 Wan-AI 仓库为 fp32 63GB 分片，过重弃用） | Apache 2.0 | **P0 接入**。下载至 NAS diffusion_models 根目录，kijai 作完整主模型加载（含 VACE 模块），运行时量化降显存 |
+| **LTX-2.5** | ✅ HF `Lightricks/LTX-2.5`（⚠️ **gated repo**：需登录 + 同意共享联系信息，下载须 HF token）；split Comfy pack，22B distilled bf16 + fp8/nvfp4；原生 multishot（多镜头身份/光影/语音跨切一致）是架构级优势 | LTX-2 License（年收入 <$10M 免费商用，ToIV 满足） | **P1，列 R3 候选**：替换 SFW LTX-2.3 链路（项目硬约束已立）；NSFW 链路保留 LTX-2.3+10eros 直至社区 2.5 NSFW 微调成熟；部署位 GPU0（余 35GB）或 pc01/pc02（5090 余 30-32GB），避开 GPU2 热区； gated 门槛需人工在 HF 页面点 Agree 后配 token |
+| **Wan3.0** | ❌ 无公开权重，仅阿里云 API | — | **排除**：素材出内网 + NSFW 限制 + 闭源按量计费，三重违反自托管硬约束，仅作质量上限参照 |
+| **MiniMax H3** | ✅ 已部署（GPU2 :8195） | 自有权重 | **核心引擎保留**（硬规则，禁下线） |
+| **SkyReels-A2** | ✅ HF 权重可用；kijai wrapper 已内置 `skyreels/nodes.py` | 可商用 | **P1 候选**（3 元素 E2V），R2 后视 VACE 实跑效果决定是否补 |
+
+**GPU 容量真机快照（2026-08-13 02:00 `nvidia-smi`，9 服务全 active）**：
+- GPU0 用 61.9/97.9GB（余 35GB）｜GPU1 用 79.7/97.9GB（余 18GB）｜**GPU2 用 49.0/97.9GB（余 48GB）**｜GPU3 用 69.5/97.9GB（余 28GB）
+- pc01 RTX 5090 余 32.4GB｜pc02 RTX 5090 余 30.9GB
+
+**部署终判**：Animate + VACE 复用 **GPU2 :8197 LongCat 实例**（WanVideoWrapper 088128b 已内置 animate/vace/skyreels 节点，零新实例成本）。Animate 运行时 fp8 ~16-20GB 与 H3 常驻 ~33GB + LongCat 空闲共存无压力；**但 H3 突发 48GB 时禁止并发**——core 现有三级显存预检须把 vace/animate 引擎纳入与 H3 的互斥调度（同卡抢占检查）。pc01/pc02 5090 作备用扩容位（GGUF Q4 8-12GB 可跑）。
+
 **长视频连续性**：继续走 context window 路线（WanVideoWrapper 三件套 ContextOptions+BlockSwap+VRAMManagement 已社区验证 1025 帧），把 LongCat 经验推广到 Wan 系；末帧 i2v 保留作 H3 专线。
 
 **产品层**：建「参考资产库」（角色/场景/道具/风格卡，常驻项目级，对标 MiniMax 分工式参考与 Lovart Brand Kit），每镜头从资产库勾选引用，而非每次上传。业界共识：**参考元素 ≤4 是质量拐点**，UI 应引导分工（一张锁角色、一张定氛围）。

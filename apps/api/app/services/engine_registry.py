@@ -180,6 +180,33 @@ async def _probe_longcat(pool: WorkerPool) -> tuple[bool, str | None]:
     return True, None
 
 
+# Wan2.2-Animate / Wan2.1-VACE 与 LongCat 同实例(:8197);在 longcat 探测基础上
+# 追加引擎关键节点检查(缺节点 = wrapper 版本过旧,标不可用并给原因)
+WAN_ANIMATE_NODE = "WanVideoAnimateEmbeds"
+WAN_VACE_NODE = "WanVideoVACEEncode"
+
+
+async def _probe_wan_node(pool: WorkerPool, node: str, label: str) -> tuple[bool, str | None]:
+    ok, reason = await _probe_longcat(pool)
+    if not ok:
+        return ok, reason
+    try:
+        nodes = await asyncio.wait_for(_fetch_longcat_nodes(), timeout=_LONGCAT_PROBE_TIMEOUT)
+    except Exception as e:
+        return False, f"{label} 实例不可达: {e}"
+    if node not in nodes:
+        return False, f"{label} 实例缺少 {node} 节点(需升级 WanVideoWrapper 节点包)"
+    return True, None
+
+
+async def _probe_wan_animate(pool: WorkerPool) -> tuple[bool, str | None]:
+    return await _probe_wan_node(pool, WAN_ANIMATE_NODE, "Wan-Animate")
+
+
+async def _probe_wan_vace(pool: WorkerPool) -> tuple[bool, str | None]:
+    return await _probe_wan_node(pool, WAN_VACE_NODE, "Wan-VACE")
+
+
 # ACE-Step 文生音乐底模(与 workflows/ace_step.py AceStepParams.ckpt_name 一致)
 _ACE_STEP_CKPT = "ace_step_v1_3.5b.safetensors"
 
@@ -328,6 +355,44 @@ def _h3_video_params() -> list[dict]:
     ]
 
 
+# R18 H3 视频参数:分辨率/时长改预设下拉(32 对齐 + 17k+5 硬校验,自由数值易 422),
+# 其余(步数/种子/LoRA)与 SFW H3 链路一致;固定 24fps,无 cfg(H3 模板内锁定)。
+# 注意 720 非 32 对齐,720p 档用 1280×736 / 736×1280 替代。
+_H3_NSFW_RESOLUTIONS = [
+    ("832x480", "480p 横版 (832×480)"),
+    ("1280x736", "720p 横版 (1280×736)"),
+    ("1344x768", "768p 横版 (1344×768)"),
+    ("480x832", "480p 竖版 (480×832)"),
+    ("736x1280", "720p 竖版 (736×1280)"),
+    ("768x1344", "768p 竖版 (768×1344)"),
+]
+
+# 固定 24fps 下的 17k+5 网格:6s→141 / 10s→243 / 15s→362(上限)
+_H3_NSFW_DURATIONS = [
+    ("6", "6 秒 (141 帧)"),
+    ("10", "10 秒 (243 帧)"),
+    ("15", "15 秒 (362 帧)"),
+]
+
+
+def _h3_nsfw_video_params() -> list[dict]:
+    return [
+        _negative(),
+        {
+            "key": "resolution", "label": "分辨率", "type": "select", "default": "1280x736",
+            "options": [{"value": v, "label": label} for v, label in _H3_NSFW_RESOLUTIONS],
+        },
+        {
+            "key": "duration", "label": "时长", "type": "select", "default": "6",
+            "options": [{"value": v, "label": label} for v, label in _H3_NSFW_DURATIONS],
+            "hint": "H3 固定 24fps,帧数吸附 17k+5 网格",
+        },
+        _num("steps", "采样步数", 20, min_=1, max_=50),
+        _seed(),
+        _h3_loras_select(),
+    ]
+
+
 def _h3_loras_select() -> dict:
     """H3 LoRA 叠加(多选 + 单项强度):options 运行时来自 H3 实例 LoraLoaderModelOnly 枚举。
 
@@ -373,6 +438,39 @@ def _avatar_talk_params() -> list[dict]:
              hint="93 帧@25fps≈3.7s;>93 帧自动按 93 帧窗口续段,2500 帧≈100s"),
         _num("fps", "帧率", 25, min_=8, max_=30, hint="Whisper 特征帧率与打包帧率同源"),
         _num("steps", "采样步数", 12, min_=1, max_=50, hint="dmd 蒸馏 LoRA 低步数,默认 12"),
+        _seed(),
+    ]
+
+
+# Wan2.2-Animate 动作迁移参数(与 routes/wan_studio.py WanAnimateRequest 同一套范围)
+def _wan_animate_params() -> list[dict]:
+    return [
+        _ref_image_required(),
+        {"key": "video", "label": "驱动视频", "type": "video", "default": None,
+         "hint": "mp4 / webm / mov,≤200MB;动作来源(与参考图同 worker 互钉)"},
+        _negative(),
+        _num("width", "宽度", 832, min_=320, max_=1280, step=16, hint="16 对齐,非对齐自动向下取整"),
+        _num("height", "高度", 480, min_=320, max_=1280, step=16, hint="16 对齐"),
+        _num("num_frames", "时长(帧)", 121, min_=17, max_=501,
+             hint="自动取整 4k+1;121 帧@16fps≈7.5s,驱动视频截断到该帧数"),
+        _num("steps", "采样步数", 6, min_=1, max_=50, hint="官方示例 6 步(dpm++_sde)"),
+        _num("fps", "帧率", 16, min_=8, max_=30, hint="与驱动视频重采样/打包帧率同源"),
+        _seed(),
+    ]
+
+
+# Wan2.1-VACE 多参考图参数(与 routes/wan_studio.py WanVaceRequest 同一套范围)
+def _wan_vace_params() -> list[dict]:
+    return [
+        {"key": "images", "label": "参考图(1-4 张)", "type": "images", "max": 4,
+         "default": None, "hint": "角色/物体/场景参考,jpg / png / webp,单张 ≤ 20MB"},
+        _negative(),
+        _num("width", "宽度", 832, min_=320, max_=1280, step=16, hint="16 对齐,非对齐自动向下取整"),
+        _num("height", "高度", 480, min_=320, max_=1280, step=16, hint="16 对齐"),
+        _num("num_frames", "时长(帧)", 81, min_=17, max_=241,
+             hint="自动取整 4k+1;81 帧@16fps≈5s"),
+        _num("steps", "采样步数", 20, min_=1, max_=50, hint="官方示例 20 步(unipc)"),
+        _num("fps", "帧率", 16, min_=8, max_=30, hint="仅影响成片打包帧率"),
         _seed(),
     ]
 
@@ -588,6 +686,12 @@ _REGISTRY: list[dict[str, Any]] = [
         "kind": "image",
         "nsfw": False,
         "description": "ComfyUI 图像工作流,底模/采样器/调度器/风格预设可选;LoRA 标签(<lora:名称:权重> 可直接写进提示词)",
+        "source": {
+            "name": "ComfyUI",
+            "url": "https://github.com/comfyanonymous/ComfyUI",
+            "author": "comfyanonymous 与开源社区",
+            "note": "图像工作流引擎;底模由「模型」参数动态解析(NAS 共享模型库)",
+        },
         "params": [
             _negative(),
             *_image_model_params(nsfw_only=False),
@@ -603,6 +707,12 @@ _REGISTRY: list[dict[str, Any]] = [
         "kind": "image",
         "nsfw": False,
         "description": "以上传参考图为底做重绘,denoise 控制偏离程度",
+        "source": {
+            "name": "ComfyUI",
+            "url": "https://github.com/comfyanonymous/ComfyUI",
+            "author": "comfyanonymous 与开源社区",
+            "note": "图像重绘工作流;底模由「模型」参数动态解析(NAS 共享模型库)",
+        },
         "params": [
             _ref_image_required(),
             _negative(),
@@ -621,7 +731,13 @@ _REGISTRY: list[dict[str, Any]] = [
         "label": "文生图(R18)",
         "kind": "image",
         "nsfw": True,
-        "description": "R18 底模成人向文生图,仅 /nsfw 上下文可见;LoRA 标签可写进提示词",
+        "description": "R18 底模成人向文生图,仅 R18 上下文可见;LoRA 标签可写进提示词",
+        "source": {
+            "name": "URPM (Uber Realistic Porn Merge)",
+            "url": "https://civitai.com/models/22622",
+            "author": "Civitai 社区合并模型",
+            "note": "默认 R18 底模为 URPM v1.3(SD1.5);「模型」参数可选其他已装 R18 ckpt",
+        },
         "params": [
             _negative(),
             *_image_model_params(nsfw_only=True),
@@ -636,7 +752,13 @@ _REGISTRY: list[dict[str, Any]] = [
         "label": "图生图(R18)",
         "kind": "image",
         "nsfw": True,
-        "description": "R18 底模成人向图生图,仅 /nsfw 上下文可见",
+        "description": "R18 底模成人向图生图,仅 R18 上下文可见",
+        "source": {
+            "name": "URPM (Uber Realistic Porn Merge)",
+            "url": "https://civitai.com/models/22622",
+            "author": "Civitai 社区合并模型",
+            "note": "默认 R18 底模为 URPM v1.3(SD1.5);「模型」参数可选其他已装 R18 ckpt",
+        },
         "params": [
             _ref_image_required(),
             _negative(),
@@ -653,6 +775,12 @@ _REGISTRY: list[dict[str, Any]] = [
         "kind": "video",
         "nsfw": False,
         "description": "LTX-2.3 工作室:白名单底模可选,distilled 出片快",
+        "source": {
+            "name": "LTX-Video 2.3",
+            "url": "https://huggingface.co/Lightricks/LTX-Video",
+            "author": "Lightricks",
+            "note": "开源权重视频模型;默认 distilled 蒸馏版低步数快速出片",
+        },
         "params": [_ltx2_unet_select(), *_ltx_video_params()],
         "probe": _probe_ltx2("ltx_t2v"),
     },
@@ -662,6 +790,12 @@ _REGISTRY: list[dict[str, Any]] = [
         "kind": "video",
         "nsfw": False,
         "description": "LTX-2.3 工作室:参考图首帧 → 短视频",
+        "source": {
+            "name": "LTX-Video 2.3",
+            "url": "https://huggingface.co/Lightricks/LTX-Video",
+            "author": "Lightricks",
+            "note": "开源权重视频模型;默认 distilled 蒸馏版低步数快速出片",
+        },
         "params": [_ltx2_unet_select(), _ref_image_required(), *_ltx_video_params()],
         "probe": _probe_ltx2("ltx_i2v"),
     },
@@ -671,6 +805,12 @@ _REGISTRY: list[dict[str, Any]] = [
         "kind": "video",
         "nsfw": True,
         "description": "10Eros 底模成人向文生视频,仅 R18 上下文可见",
+        "source": {
+            "name": "LTX-Video 2.3 + 10Eros v14",
+            "url": "https://civitai.com/models/2447875",
+            "author": "Lightricks × Civitai 社区(10Eros)",
+            "note": "10Eros 为社区训练的 LTX2.3 NSFW 专用底模,已内置为默认视频 UNET",
+        },
         "params": _ltx_nsfw_video_params(),
         "probe": _probe_ltx_nsfw("ltx_t2v"),
     },
@@ -680,6 +820,12 @@ _REGISTRY: list[dict[str, Any]] = [
         "kind": "video",
         "nsfw": True,
         "description": "10Eros 底模成人向图生视频,仅 R18 上下文可见",
+        "source": {
+            "name": "LTX-Video 2.3 + 10Eros v14",
+            "url": "https://civitai.com/models/2447875",
+            "author": "Lightricks × Civitai 社区(10Eros)",
+            "note": "10Eros 为社区训练的 LTX2.3 NSFW 专用底模,已内置为默认视频 UNET",
+        },
         "params": [_ref_image_required(), *_ltx_nsfw_video_params()],
         "probe": _probe_ltx_nsfw("ltx_i2v"),
     },
@@ -689,6 +835,12 @@ _REGISTRY: list[dict[str, Any]] = [
         "kind": "video",
         "nsfw": True,
         "description": "10Eros 底模成人向口型同步:人物参考图 + 驱动音频 → 对口型视频",
+        "source": {
+            "name": "LTX-Video 2.3 + 10Eros v14",
+            "url": "https://civitai.com/models/2447875",
+            "author": "Lightricks × Civitai 社区(10Eros)",
+            "note": "10Eros 为社区训练的 LTX2.3 NSFW 专用底模;ID LoRA 可选(身份保持)",
+        },
         "params": [
             _images(label="人物参考图"),
             _audio(),
@@ -709,6 +861,12 @@ _REGISTRY: list[dict[str, Any]] = [
         "kind": "video",
         "nsfw": False,
         "description": "MiniMax H3 新一代视频管线:原生 32kHz 音画同发,专用实例 :8195",
+        "source": {
+            "name": "MiniMax H3(海螺视频开源权重)",
+            "url": "https://huggingface.co/MiniMaxAI",
+            "author": "MiniMax",
+            "note": "开源权重视频模型,原生音画同发;本地自部署专用实例",
+        },
         "params": _h3_video_params(),
         "probe": _probe_h3,
     },
@@ -718,7 +876,46 @@ _REGISTRY: list[dict[str, Any]] = [
         "kind": "video",
         "nsfw": False,
         "description": "MiniMax H3:参考图首帧 → 音画同发短视频,剧情连续性好",
+        "source": {
+            "name": "MiniMax H3(海螺视频开源权重)",
+            "url": "https://huggingface.co/MiniMaxAI",
+            "author": "MiniMax",
+            "note": "开源权重视频模型,原生音画同发;本地自部署专用实例",
+        },
         "params": [_ref_image_required(), *_h3_video_params()],
+        "probe": _probe_h3,
+    },
+    # R18 H3 引擎(NSFW 专区视频 tab):与 h3-t2v/h3-i2v 同一提交链路(POST /api/h3/*),
+    # 专区内自带 X-NSFW 头 → 产物打标进 R18 作品库、R18 LoRA 门控放行;
+    # probe 复用 _probe_h3,可用性与 SFW 版天然一致。仅 R18 上下文可见。
+    {
+        "id": "h3-nsfw-t2v",
+        "label": "MiniMax H3 文生视频(R18)",
+        "kind": "video",
+        "nsfw": True,
+        "description": "MiniMax H3 成人向文生视频:原生 32kHz 音画同发,可叠 R18 LoRA,专用实例 :8195",
+        "source": {
+            "name": "MiniMax H3 + 社区 R18 LoRA",
+            "url": "https://huggingface.co/MiniMaxAI",
+            "author": "MiniMax × Civitai 社区(LoRA)",
+            "note": "底模为 MiniMax 开源权重;R18 能力由社区 LoRA 提供(civitai),仅 R18 上下文可选",
+        },
+        "params": _h3_nsfw_video_params(),
+        "probe": _probe_h3,
+    },
+    {
+        "id": "h3-nsfw-i2v",
+        "label": "MiniMax H3 图生视频(R18)",
+        "kind": "video",
+        "nsfw": True,
+        "description": "MiniMax H3 成人向图生视频:参考图首帧 → 音画同发,可叠 R18 LoRA",
+        "source": {
+            "name": "MiniMax H3 + 社区 R18 LoRA",
+            "url": "https://huggingface.co/MiniMaxAI",
+            "author": "MiniMax × Civitai 社区(LoRA)",
+            "note": "底模为 MiniMax 开源权重;R18 能力由社区 LoRA 提供(civitai),仅 R18 上下文可选",
+        },
+        "params": [_ref_image_required(), *_h3_nsfw_video_params()],
         "probe": _probe_h3,
     },
     # LongCat-Video:专用 ComfyUI 实例(TOIV_LONGCAT_BASE_URL,默认 workstation GPU2 :8197),
@@ -729,6 +926,12 @@ _REGISTRY: list[dict[str, Any]] = [
         "kind": "video",
         "nsfw": False,
         "description": "LongCat-Video 长视频引擎:蒸馏 LoRA 低步数出片,专用实例 :8197",
+        "source": {
+            "name": "LongCat-Video 13.6B",
+            "url": "https://huggingface.co/meituan-longcat/LongCat-Video",
+            "author": "美团(LongCat 团队)",
+            "note": "开源权重长视频模型,单镜头最长 ≈60s;本地自部署专用实例",
+        },
         "params": _longcat_video_params(),
         "probe": _probe_longcat,
     },
@@ -738,6 +941,12 @@ _REGISTRY: list[dict[str, Any]] = [
         "kind": "video",
         "nsfw": False,
         "description": "LongCat-Video 长视频引擎:首帧参考图 → 长镜头,专用实例 :8197",
+        "source": {
+            "name": "LongCat-Video 13.6B",
+            "url": "https://huggingface.co/meituan-longcat/LongCat-Video",
+            "author": "美团(LongCat 团队)",
+            "note": "开源权重长视频模型,单镜头最长 ≈60s;本地自部署专用实例",
+        },
         "params": [_ref_image_required(), *_longcat_video_params()],
         "probe": _probe_longcat,
     },
@@ -747,6 +956,12 @@ _REGISTRY: list[dict[str, Any]] = [
         "kind": "video",
         "nsfw": False,
         "description": "LongCat-Video:取已有视频末帧续写下一段长镜头(API 缺省宽高/帧率时自动向源视频实测值对齐)",
+        "source": {
+            "name": "LongCat-Video 13.6B",
+            "url": "https://huggingface.co/meituan-longcat/LongCat-Video",
+            "author": "美团(LongCat 团队)",
+            "note": "开源权重长视频模型;末帧续写实现超长视频分段生成",
+        },
         "params": [
             {"key": "video", "label": "源视频", "type": "text", "default": "",
              "hint": "/api/images?... 产物 URL(如上一段 LongCat 产物链接)"},
@@ -762,8 +977,47 @@ _REGISTRY: list[dict[str, Any]] = [
         "kind": "video",
         "nsfw": False,
         "description": "LongCat-Avatar 音频驱动数字人:人像首帧 + 说话音频 → 口型同步视频,专用实例 :8197",
+        "source": {
+            "name": "LongCat-Avatar v1.5",
+            "url": "https://huggingface.co/meituan-longcat",
+            "author": "美团(LongCat 团队)",
+            "note": "音频驱动数字人;音频编码 whisper-large-v3(OpenAI 开源),人声分离 MelBand RoFormer",
+        },
         "params": _avatar_talk_params(),
         "probe": _probe_longcat,
+    },
+    # Wan2.2-Animate:参考图角色 + 驱动视频 → 动作迁移;与 LongCat 同实例(:8197),
+    # probe 在 longcat 基础上追加 WanVideoAnimateEmbeds 节点检查
+    {
+        "id": "wan-animate",
+        "label": "Wan2.2 动作迁移",
+        "kind": "video",
+        "nsfw": False,
+        "description": "Wan2.2-Animate 14B:参考图角色按驱动视频动作表演(双轨骨骼+表情迁移),专用实例 :8197",
+        "source": {
+            "name": "Wan2.2-Animate-14B",
+            "url": "https://huggingface.co/Wan-AI/Wan2.2-Animate-14B",
+            "author": "阿里巴巴(Wan 团队)",
+            "note": "Apache 2.0 开源权重;动作迁移/角色替换双模式,本地自部署专用实例",
+        },
+        "params": _wan_animate_params(),
+        "probe": _probe_wan_animate,
+    },
+    # Wan2.1-VACE:多参考图(1-4 张,+可选首尾帧)→ 视频;同实例(:8197)
+    {
+        "id": "wan-vace",
+        "label": "VACE 多参考视频",
+        "kind": "video",
+        "nsfw": False,
+        "description": "Wan2.1-VACE 14B:多参考图(角色/物体/场景)+ 可选首尾帧 → 一致性视频,专用实例 :8197",
+        "source": {
+            "name": "Wan2.1-VACE-14B",
+            "url": "https://huggingface.co/ali-vilab/VACE-Wan2.1-14B",
+            "author": "阿里巴巴(VILAB)",
+            "note": "Apache 2.0 开源权重;多参考图/首尾帧/局部编辑一体化视频模型",
+        },
+        "params": _wan_vace_params(),
+        "probe": _probe_wan_vace,
     },
     # ACE-Step 文生音乐:kind=audio(音频板块生成区;提交路由 /api/generate/audio 既有)
     {
@@ -772,6 +1026,12 @@ _REGISTRY: list[dict[str, Any]] = [
         "kind": "audio",
         "nsfw": False,
         "description": "ACE-Step 1.5:风格标签 + 歌词 → MP3(≤240s);提示词可经 AI 优化为音乐标签",
+        "source": {
+            "name": "ACE-Step v1.5 3.5B",
+            "url": "https://huggingface.co/ACE-Step",
+            "author": "ACE Studio × 阶跃星辰(StepFun)",
+            "note": "开源权重音乐生成模型;本地自部署,底模 ace_step_v1_3.5b.safetensors",
+        },
         "params": _ace_audio_params(),
         "probe": _probe_ace,
     },
@@ -837,6 +1097,8 @@ async def list_engines(pool: WorkerPool, user: User | None = None) -> list[dict[
             "description": spec["description"],
             "params": params,
         }
+        if "source" in spec:
+            entry["source"] = spec["source"]
 
         probe = spec.get("probe")
         if probe is None:

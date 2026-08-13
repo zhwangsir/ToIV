@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
@@ -13,14 +13,18 @@ import { invalidateJobs } from "@/lib/api";
 import { consumeEngineDraft, type EngineDraft } from "@/lib/engine";
 import {
   engineDefaults,
+  engineMaxImages,
   engineNeedsAudio,
   engineNeedsImage,
+  engineNeedsVideo,
   engineSupportsNegative,
   fetchEngines,
+  refreshEngines,
   submitEngineGeneration,
   type EngineInfo,
   type EngineKind,
 } from "@/lib/engines";
+import { R18_CHANGED_EVENT } from "@/lib/r18";
 import { useGeneration } from "@/lib/useGeneration";
 import { BREAKPOINTS } from "@/lib/useBreakpoint";
 import { friendlyError } from "@/lib/friendlyError";
@@ -29,6 +33,8 @@ import { ParamField } from "./ParamField";
 import { PromptBar } from "./PromptBar";
 import { RefAudioUpload, type UploadedAudio } from "./RefAudioUpload";
 import { RefImageUpload, type UploadedRef } from "./RefImageUpload";
+import { RefImagesUpload } from "./RefImagesUpload";
+import { RefVideoUpload, type UploadedVideo } from "./RefVideoUpload";
 import { ResultPanel, type HistoryEntry } from "./ResultPanel";
 
 function newEntryId(): string {
@@ -52,11 +58,6 @@ interface GenerateViewProps {
    * 顶部模式段控隐藏;未传保持旧行为(图像|视频段控,兼容旧用法)。
    */
   lockedKind?: EngineKind;
-  /**
-   * NSFW 专区(/nsfw)内嵌时置 true:只展示 nsfw=true 引擎。
-   * R18 上下文后端返回全量引擎(含非 nsfw),专区不该混入 SFW 引擎。
-   */
-  onlyNsfw?: boolean;
 }
 
 /** 板块标题/文案用的 kind 中文名。 */
@@ -95,7 +96,7 @@ const SIZE_PARAM_KEYS: ReadonlySet<string> = new Set(["width", "height"]);
  * 提交链路:按引擎 id 路由到既有 API(lib/engines.submitEngineGeneration),
  * SSE 进度复用 useGeneration/trackJob;NSFW 引擎由后端按 R18 上下文过滤,前端不判断。
  */
-export function GenerateView({ initialDraft, lockedKind, onlyNsfw = false }: GenerateViewProps) {
+export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
   // 草稿:显式 prop 优先;否则消费 localStorage 引擎草稿(target=drama/manju 由短剧/漫剧视图消费,此处忽略)。
   // 锁定 kind 时只消费 target 匹配的草稿(不匹配不消费,留给对应板块;audio 无草稿来源,天然为空)。
   const draft = useMemo<GenerateDraft | null>(
@@ -121,23 +122,47 @@ export function GenerateView({ initialDraft, lockedKind, onlyNsfw = false }: Gen
   );
   const [engines, setEngines] = useState<EngineInfo[] | null>(null);
   const [enginesError, setEnginesError] = useState<string | null>(null);
+  const [refreshingEngines, setRefreshingEngines] = useState(false);
+
+  // 引擎列表加载:30s 轮询与 R18 切换事件共用同一拉取函数
+  const loadEngines = useCallback(async () => {
+    try {
+      setEngines(await fetchEngines());
+      setEnginesError(null);
+    } catch (e) {
+      setEnginesError(e instanceof Error ? e.message : "加载引擎列表失败");
+    }
+  }, []);
 
   // 引擎注册表:进入即拉取 + 30s 轮询刷新可用性(worker 上下线会反映到状态点)
-  usePoll(
-    async () => {
-      try {
-        setEngines(await fetchEngines());
-        setEnginesError(null);
-      } catch (e) {
-        setEnginesError(e instanceof Error ? e.message : "加载引擎列表失败");
-      }
-    },
-    { intervalMs: 30_000, enabled: true, backoff: true },
-  );
+  usePoll(loadEngines, { intervalMs: 30_000, enabled: true, backoff: true });
+
+  // R18 全局模式切换(M9):后端按 X-NSFW 上下文混入/剔除 R18 引擎,
+  // 监听广播事件立即重拉(engines 无 SWR 缓存,直接重 fetch)
+  useEffect(() => {
+    const handler = () => void loadEngines();
+    window.addEventListener(R18_CHANGED_EVENT, handler);
+    return () => window.removeEventListener(R18_CHANGED_EVENT, handler);
+  }, [loadEngines]);
+
+  /** 「重新检测」:强制后端清探测缓存重查,返回的全量引擎直接覆盖本地状态。 */
+  async function onRefreshEngines() {
+    if (refreshingEngines) return;
+    setRefreshingEngines(true);
+    try {
+      setEngines(await refreshEngines());
+      setEnginesError(null);
+      toast.success("引擎可用性已重新检测");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "重新检测引擎失败");
+    } finally {
+      setRefreshingEngines(false);
+    }
+  }
 
   const kindEngines = useMemo(
-    () => (engines ?? []).filter((e) => e.kind === mode && (!onlyNsfw || e.nsfw)),
-    [engines, mode, onlyNsfw],
+    () => (engines ?? []).filter((e) => e.kind === mode),
+    [engines, mode],
   );
 
   // 板块内「生成 | 编辑」分组(数据驱动:params 含 images 类型 = 编辑组,否则生成组)。
@@ -165,7 +190,9 @@ export function GenerateView({ initialDraft, lockedKind, onlyNsfw = false }: Gen
   const [valuesByEngine, setValuesByEngine] = useState<Record<string, Record<string, unknown>>>({});
   const [promptByEngine, setPromptByEngine] = useState<Record<string, string>>({});
   const [refByEngine, setRefByEngine] = useState<Record<string, UploadedRef | null>>({});
+  const [refsByEngine, setRefsByEngine] = useState<Record<string, UploadedRef[]>>({});
   const [audioByEngine, setAudioByEngine] = useState<Record<string, UploadedAudio | null>>({});
+  const [videoByEngine, setVideoByEngine] = useState<Record<string, UploadedVideo | null>>({});
 
   const values = useMemo(
     () => (engine ? { ...engineDefaults(engine), ...(valuesByEngine[engine.id] ?? {}) } : {}),
@@ -173,9 +200,14 @@ export function GenerateView({ initialDraft, lockedKind, onlyNsfw = false }: Gen
   );
   const positive = engine ? promptByEngine[engine.id] ?? "" : "";
   const refImage = engine ? refByEngine[engine.id] ?? null : null;
+  const refImages = engine ? refsByEngine[engine.id] ?? [] : [];
   const refAudio = engine ? audioByEngine[engine.id] ?? null : null;
+  const refVideo = engine ? videoByEngine[engine.id] ?? null : null;
   const imageParam = engine ? engineNeedsImage(engine) : null;
   const audioParam = engine ? engineNeedsAudio(engine) : null;
+  const videoParam = engine ? engineNeedsVideo(engine) : null;
+  // images 类型 max>1 = 多参考图(VACE);单图引擎仍走旧单槽
+  const multiImage = engine ? engineMaxImages(engine) > 1 : false;
 
   // 参数分区:尺寸(width/height 成对)→ PromptBar chip;高级(steps/cfg/seed)→ 浮板折叠区;其余 → 浮板主区
   const sizeParams = useMemo(
@@ -193,6 +225,7 @@ export function GenerateView({ initialDraft, lockedKind, onlyNsfw = false }: Gen
             (p) =>
               p.type !== "images" &&
               p.type !== "audio" &&
+              p.type !== "video" &&
               p.key !== "negative" &&
               !ADVANCED_PARAM_KEYS.has(p.key) &&
               !(showSizeChip && SIZE_PARAM_KEYS.has(p.key)),
@@ -265,8 +298,9 @@ export function GenerateView({ initialDraft, lockedKind, onlyNsfw = false }: Gen
     positive.trim().length > 0 &&
     !gen.isRunning &&
     !submitting &&
-    (!imageParam || !!refImage) &&
-    (!audioParam || !!refAudio);
+    (!imageParam || (multiImage ? refImages.length > 0 : !!refImage)) &&
+    (!audioParam || !!refAudio) &&
+    (!videoParam || !!refVideo);
 
   /** 取数值参数(仅有限 number 有效,其余视为未设置)。 */
   const numVal = (v: unknown): number | undefined =>
@@ -283,7 +317,9 @@ export function GenerateView({ initialDraft, lockedKind, onlyNsfw = false }: Gen
         positive: promptText,
         values: targetValues,
         refImage: refByEngine[target.id] ?? null,
+        refImages: refsByEngine[target.id] ?? [],
         refAudio: audioByEngine[target.id] ?? null,
+        refVideo: videoByEngine[target.id] ?? null,
       });
       const entry: HistoryEntry = {
         id: newEntryId(),
@@ -360,7 +396,11 @@ export function GenerateView({ initialDraft, lockedKind, onlyNsfw = false }: Gen
         ? "h3_i2v"
         : engine?.id === "ltx-nsfw-lipsync"
           ? "ltx_lipsync"
-          : "ltx_i2v";
+          : engine?.id === "wan-animate"
+            ? "wan_animate"
+            : engine?.id === "wan-vace"
+              ? "wan_vace"
+              : "ltx_i2v";
 
   return (
     <div className={`generate-view${paramsOpen ? " is-params-open" : ""}`}>
@@ -480,15 +520,48 @@ export function GenerateView({ initialDraft, lockedKind, onlyNsfw = false }: Gen
                       {!engine.available && engine.unavailable_reason && (
                         <span className="engine-status-reason">{engine.unavailable_reason}</span>
                       )}
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm engine-refresh"
+                        onClick={() => void onRefreshEngines()}
+                        disabled={refreshingEngines}
+                        title="强制后端重新探测全部引擎可用性"
+                      >
+                        <Icon name={refreshingEngines ? "loading" : "refresh"} size={13} />
+                        {refreshingEngines ? "检测中…" : "重新检测"}
+                      </button>
                     </div>
                   )}
                   {engine?.description && <p className="engine-desc">{engine.description}</p>}
+                  {engine?.source && (
+                    <p className="engine-source">
+                      出处:
+                      <a
+                        href={engine.source.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {engine.source.name}
+                      </a>
+                      <span> · {engine.source.author}</span>
+                      {engine.source.note && <span> · {engine.source.note}</span>}
+                    </p>
+                  )}
                 </div>
 
-                {engine && (imageParam || audioParam) && (
+                {engine && (imageParam || audioParam || videoParam) && (
                   <div className="params-section">
                     <h3 className="params-section-title">参考输入</h3>
-                    {imageParam && (
+                    {imageParam && multiImage && (
+                      <RefImagesUpload
+                        param={imageParam}
+                        values={refImages}
+                        uploadKind={uploadKind}
+                        disabled={gen.isRunning}
+                        onChange={(v) => setRefsByEngine((prev) => ({ ...prev, [engine.id]: v }))}
+                      />
+                    )}
+                    {imageParam && !multiImage && (
                       <RefImageUpload
                         param={imageParam}
                         value={refImage}
@@ -496,9 +569,12 @@ export function GenerateView({ initialDraft, lockedKind, onlyNsfw = false }: Gen
                         disabled={gen.isRunning}
                         onChange={(v) => {
                           setRefByEngine((prev) => ({ ...prev, [engine.id]: v }));
-                          // 参考图换机后,已上传音频若钉在旧 worker 会跨机取不到 → 强制重传
+                          // 参考图换机后,已上传音频/视频若钉在旧 worker 会跨机取不到 → 强制重传
                           if (refAudio && v?.worker !== refAudio.worker) {
                             setAudioByEngine((prev) => ({ ...prev, [engine.id]: null }));
+                          }
+                          if (refVideo && v?.worker !== refVideo.worker) {
+                            setVideoByEngine((prev) => ({ ...prev, [engine.id]: null }));
                           }
                         }}
                       />
@@ -511,6 +587,16 @@ export function GenerateView({ initialDraft, lockedKind, onlyNsfw = false }: Gen
                         pinWorker={refImage?.worker ?? null}
                         disabled={gen.isRunning}
                         onChange={(v) => setAudioByEngine((prev) => ({ ...prev, [engine.id]: v }))}
+                      />
+                    )}
+                    {videoParam && (
+                      <RefVideoUpload
+                        param={videoParam}
+                        value={refVideo}
+                        uploadKind={uploadKind}
+                        pinWorker={refImage?.worker ?? null}
+                        disabled={gen.isRunning}
+                        onChange={(v) => setVideoByEngine((prev) => ({ ...prev, [engine.id]: v }))}
                       />
                     )}
                   </div>
@@ -613,6 +699,27 @@ export function GenerateView({ initialDraft, lockedKind, onlyNsfw = false }: Gen
           onCancel={onCancel}
         />
       </div>
+
+      <style jsx>{`
+        /* 引擎出处行(M9):克制灰调,仅外链用主题强调色 */
+        .engine-source {
+          font-size: var(--text-aux);
+          color: var(--text-muted);
+          line-height: 1.6;
+        }
+        .engine-source a {
+          color: var(--accent);
+          text-decoration: none;
+        }
+        .engine-source a:hover {
+          text-decoration: underline;
+        }
+        /* 「重新检测」按钮:吸附状态行右侧 */
+        .engine-refresh {
+          margin-left: auto;
+          flex-shrink: 0;
+        }
+      `}</style>
     </div>
   );
 }

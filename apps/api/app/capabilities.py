@@ -39,6 +39,10 @@ def required_models(kind: str) -> set[str]:
     # LongCat 实例(:8197),上传 worker 只需能存文件,不要求持有模型。
     if kind == "avatar":
         return set()
+    # Wan Animate(参考图+驱动视频)/ VACE(多参考图):同 avatar 转运模式,
+    # 上传 worker 只需能存文件,提交时转运到 :8197 实例 input 目录。
+    if kind in ("wan_animate", "wan_vace"):
+        return set()
     if kind == "ltx_lipsync":
         p = LtxLipsyncParams(positive="", image="", audio="")
         models = {p.unet_name, p.gemma_name, p.vae_name, p.audio_vae_name}

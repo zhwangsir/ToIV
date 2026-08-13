@@ -2,13 +2,16 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.config import get_settings
 from app.db import bootstrap_admin, init_db
+from app.logging_config import setup_logging
 from app.routes import (
     account,
     admin,
@@ -54,6 +57,7 @@ from app.routes import (
     video,
     video_edit,
     voice,
+    wan_studio,
     workflows,
     opentalking,
 )
@@ -108,6 +112,10 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     settings = get_settings()
+
+    # 统一日志配置必须在一切 app 日志之前:此前 root 无 handler,
+    # 35 个模块的 INFO 日志在生产被静默丢弃(2026-08-12 真机证实)。
+    setup_logging(settings.log_level)
 
     # Sentry 错误追踪:仅在配置了 DSN 时初始化。
     # 用 try/except ImportError 包裹 —— sentry-sdk 未装(如精简环境)时跳过,不阻断启动;
@@ -202,6 +210,16 @@ def create_app() -> FastAPI:
     async def health() -> dict:
         return {"status": "ok", "workers": settings.worker_urls}
 
+    # 全局未处理异常兜底:带请求上下文(method+path)落 ERROR 日志,
+    # 返回统一 500 JSON(不泄露内部细节)。HTTPException 走自身 handler 不受影响;
+    # ServerErrorMiddleware 处理后仍会 re-raise,uvicorn.error 的 traceback 保留。
+    @app.exception_handler(Exception)
+    async def _unhandled_exc_handler(request: Request, exc: Exception) -> JSONResponse:
+        logging.getLogger("toiv.unhandled").exception(
+            "未处理异常 %s %s", request.method, request.url.path
+        )
+        return JSONResponse(status_code=500, content={"detail": "服务器内部错误"})
+
     for module in (
         auth,
         account,
@@ -249,6 +267,7 @@ def create_app() -> FastAPI:
         h3_studio,
         longcat_studio,
         avatar_studio,
+        wan_studio,
     ):
         app.include_router(module.router, prefix="/api")
 
