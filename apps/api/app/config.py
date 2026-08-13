@@ -251,6 +251,13 @@ class Settings(BaseSettings):
     longcat_enabled: bool = True
     longcat_base_url: str = "http://192.168.71.127:8197"
 
+    # —— LTX-2.5 SFW 视频引擎(专用 ComfyUI 0.32 实例,workstation GPU0 :8198) ——
+    # 独立于 WorkerPool(生产 :8189 为 0.27,无 LTX-2.5 节点);systemd comfyui-ltx25.service
+    # 托管,权重在 /home/merlin/models/ltx25/(nvfp4 蒸馏 transformer + gemma4 with-proj +
+    # 双 VAE,经 extra_model_paths 注册)。替换原 SFW LTX-2.3 链路;NSFW 仍走 2.3+10Eros。
+    ltx25_enabled: bool = True
+    ltx25_base_url: str = "http://192.168.71.127:8198"
+
     # —— Wan2.2-Animate / Wan2.1-VACE(GPU2 :8197,与 LongCat 同实例) ——
     # Animate fp8 运行时量化峰值 ~20-24GiB;提交前要求实例卡(GPU2)空闲显存 ≥ 此阈值(GiB)。
     # 不足时先驱逐 :8197 自身模型缓存(队列空闲才动),仍不足 → 503 错峰提示。
@@ -291,6 +298,11 @@ class Settings(BaseSettings):
     def longcat_base(self) -> str:
         """LongCat 专用实例基址(已去尾斜杠)。"""
         return self.longcat_base_url.strip().rstrip("/")
+
+    @property
+    def ltx25_base(self) -> str:
+        """LTX-2.5 专用实例基址(已去尾斜杠)。"""
+        return self.ltx25_base_url.strip().rstrip("/")
 
     @property
     def h3_co_worker_urls(self) -> list[str]:

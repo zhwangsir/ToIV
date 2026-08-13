@@ -189,7 +189,7 @@ function _seed(values: Record<string, unknown>): number | null {
 
 /**
  * 按引擎 id 路由到对应既有生成 API(图像走 generate 的 txt2img/img2img,
- * 视频走 ltx2 t2v/i2v 或 H3 专用实例 /api/h3/*;R18 引擎走 NSFW 专区 /api/generate/ltx-*)。
+ * 视频走 ltx25 t2v/i2v 或 H3 专用实例 /api/h3/*;R18 引擎走 NSFW 专区 /api/generate/ltx-*)。
  * 返回的 GenerateResponse 交给 useGeneration/trackJob 做 SSE 进度跟踪。
  */
 export async function submitEngineGeneration(input: EngineSubmitInput): Promise<GenerateResponse> {
@@ -240,14 +240,16 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
         ...(_str(values, "style_preset") ? { style_preset: _str(values, "style_preset") } : {}),
       } satisfies Img2ImgGenParams);
 
-    case "ltx2-t2v":
-      return _postLtx2("/api/ltx2/t2v", _ltx2Payload(values, positive, negative, seed));
+    case "ltx25-t2v":
+      return _postLtx25("/api/ltx25/t2v", _ltx25Payload(values, positive, negative, seed));
 
-    case "ltx2-i2v":
-      return _postLtx2("/api/ltx2/i2v", {
-        ..._ltx2Payload(values, positive, negative, seed),
+    case "ltx25-i2v":
+      // 参考图经 /api/upload 落在 pool worker,后端会转运到 LTX-2.5 专用实例(:8198)
+      return _postLtx25("/api/ltx25/i2v", {
+        ..._ltx25Payload(values, positive, negative, seed),
         image: refImage!.filename,
         worker: refImage!.worker,
+        strength: _num(values, "strength", 0.7),
       });
 
     case "ltx-nsfw-t2v":
@@ -348,19 +350,16 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
   }
 }
 
-function _ltx2Payload(values: Record<string, unknown>, positive: string, negative: string, seed: number | null) {  return {
+function _ltx25Payload(values: Record<string, unknown>, positive: string, negative: string, seed: number | null) {
+  return {
     positive,
     negative,
-    unet_name: _str(values, "unet_name", "ltx-2.3-22b-distilled-1.1.safetensors"),
-    width: _num(values, "width", 768),
-    height: _num(values, "height", 384),
-    length: _num(values, "length", 97),
-    fps: _num(values, "fps", 16),
-    steps: _num(values, "steps", 20),
-    cfg: _num(values, "cfg", 1),
+    width: _num(values, "width", 960),
+    height: _num(values, "height", 544),
+    length: _num(values, "length", 121),
+    fps: _num(values, "fps", 24),
+    steps: _num(values, "steps", 8),
     seed,
-    use_upscale: _bool(values, "use_upscale"),
-    use_rife: _bool(values, "use_rife"),
   };
 }
 
@@ -482,7 +481,7 @@ function _h3NsfwPayload(values: Record<string, unknown>, positive: string, negat
   };
 }
 
-/** H3 工作室提交(POST /api/h3/*):与 _postLtx2 同模式,422 展开首条校验信息。 */
+/** H3 工作室提交(POST /api/h3/*):与 _postLtx25 同模式,422 展开首条校验信息。 */
 async function _postH3(path: string, body: object): Promise<GenerateResponse> {
   const res = await apiFetch(path, {
     method: "POST",
@@ -501,8 +500,8 @@ async function _postH3(path: string, body: object): Promise<GenerateResponse> {
   return res.json();
 }
 
-/** LTX2 工作室提交(POST /api/ltx2/*):走 apiFetch 统一超时/401,422 展开首条校验信息。 */
-async function _postLtx2(path: string, body: object): Promise<GenerateResponse> {
+/** LTX-2.5 工作室提交(POST /api/ltx25/*):走 apiFetch 统一超时/401,422 展开首条校验信息。 */
+async function _postLtx25(path: string, body: object): Promise<GenerateResponse> {
   const res = await apiFetch(path, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },

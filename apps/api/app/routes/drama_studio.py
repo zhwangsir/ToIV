@@ -240,7 +240,7 @@ class GenerateVideoRequest(BaseModel):
     cfg: float = Field(default=1.0, ge=0.0, le=20.0)
     use_upscale: bool = False
     use_rife: bool = False
-    # NSFW 开关:True 用 NSFW 专用视频底模(10Eros),False(默认)用 SFW 底模(ltx-2.3-22b-distilled-1.1)
+    # NSFW 开关:True 走 LTX-2.3 + 10Eros pool 链路(R18 保留);False(默认)走 LTX-2.5 专用实例(SFW 主力,音画同出)
     nsfw: bool = False
     # 覆盖该镜的 prompt(空=用分镜已存的 prompt)
     prompt_override: str | None = Field(default=None, max_length=2000)
@@ -3234,7 +3234,7 @@ class GenerateVideoV2Request(BaseModel):
     cfg: float = Field(default=1.0, ge=0.0, le=20.0)
     use_upscale: bool = False
     use_rife: bool = False
-    # NSFW 开关:True 用 NSFW 专用视频底模(10Eros),False(默认)用 SFW 底模(ltx-2.3-22b-distilled-1.1)
+    # NSFW 开关:True 走 LTX-2.3 + 10Eros pool 链路(R18 保留);False(默认)走 LTX-2.5 专用实例(SFW 主力,音画同出)
     nsfw: bool = False
     prompt_override: str | None = Field(default=None, max_length=2000)
     num_candidates: int = Field(default=1, ge=1, le=4)
@@ -3257,7 +3257,7 @@ async def list_video_generators(
     engines = {e["id"]: e for e in await list_engines(pool, user)}
     # 生成器 → 引擎注册表条目映射;liveact 无注册表条目(走独立 worker,可用性=已配置
     # 基址);seedance/kling 为 stub(规划中,generate 返回固定错误),固定不可用。
-    _ENGINE_OF = {"ltx": "ltx2-t2v", "h3": "h3-t2v"}
+    _ENGINE_OF = {"ltx": "ltx25-t2v", "h3": "h3-t2v"}
     liveact_ready = bool(get_settings().liveact_base)
     out: list[dict] = []
     for g in list_generators():

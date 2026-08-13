@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { deleteJob, imageUrl, invalidateJobs, listJobs } from "@/lib/api";
 import { ENGINE_DRAFT_KEY } from "@/lib/engine";
+import { useR18Mode } from "@/lib/r18";
 import type { JobItem } from "@/lib/types";
 import { Icon } from "@/components/ui/Icon";
 import { Badge } from "@/components/ui/Badge";
@@ -47,6 +48,9 @@ function persistStyleCards(cards: StyleCard[]): void {
 
 type FilterKey = "all" | "image" | "video" | "audio" | "3d";
 
+/** 内容维度过滤(M9):SFW = 非 nsfw 作品,R18 = nsfw 作品;R18 chip 仅 R18 模式渲染。 */
+type ContentFilterKey = "all" | "sfw" | "r18";
+
 interface FilterDef {
   key: FilterKey;
   label: string;
@@ -72,6 +76,7 @@ const FILTERS: FilterDef[] = [
       "video", "txt2video", "img2video", "lipsync", "kenburns",
       "wan_t2v", "wan_i2v", "hunyuan_i2v", "h3_t2v", "h3_i2v",
       "ltx_t2v", "ltx_i2v", "ltx_lipsync", "ltx2_t2v", "ltx2_i2v",
+      "ltx25_t2v", "ltx25_i2v",
       "frame_interpolate", "dub_lipsync_long", "manju_lipsync", "anime_lipsync",
       // LongCat 长视频(t2v/i2v/续写)
       "longcat_t2v", "longcat_i2v", "longcat_continue",
@@ -138,6 +143,8 @@ function kindLabel(kind: string): string {
     ltx_lipsync: "对口型",
     ltx2_t2v: "文生视频",
     ltx2_i2v: "图生视频",
+    ltx25_t2v: "文生视频",
+    ltx25_i2v: "图生视频",
     frame_interpolate: "补帧",
     dub_lipsync_long: "长对口型",
     manju_lipsync: "对口型",
@@ -222,7 +229,7 @@ function ThumbPlaceholder({ job }: { job: JobItem }) {
   );
 }
 
-function ImageThumb({ job }: { job: JobItem }) {
+function ImageThumb({ job, blurred = false }: { job: JobItem; blurred?: boolean }) {
   const [failed, setFailed] = useState(false);
   if (failed) return <ThumbPlaceholder job={job} />;
   return (
@@ -231,6 +238,12 @@ function ImageThumb({ job }: { job: JobItem }) {
       alt={job.prompt}
       loading="lazy"
       onError={() => setFailed(true)}
+      /* R18 模糊卡(M9):缩略图默认模糊,点击可解除/恢复(点击事件冒泡到外层按钮) */
+      style={
+        blurred
+          ? { filter: "blur(18px)", pointerEvents: "auto", cursor: "pointer" }
+          : undefined
+      }
     />
   );
 }
@@ -241,19 +254,22 @@ interface LibraryViewProps {
    * 未提供时灯箱「复用提示词」退化为整页跳转。
    */
   onNavigate?: (target: string) => void;
-  /**
-   * NSFW 专区(/nsfw)作品库内嵌时置 true:只展示 R18 作品(Job.nsfw),
-   * 不混入 SFW 作品;配合 jobs 接口的 nsfw 字段与 X-NSFW 上下文使用。
-   */
-  onlyNsfw?: boolean;
 }
 
-export function LibraryView({ onNavigate, onlyNsfw = false }: LibraryViewProps = {}) {
+export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
   const toast = useToast();
   const [jobs, setJobs] = useState<JobItem[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
+  // 内容维度过滤(M9):全部/SFW/R18,客户端按 job.nsfw 过滤
+  const [contentFilter, setContentFilter] = useState<ContentFilterKey>("all");
+  // R18 全局内容模式:仅 on 时渲染 R18 chip(SFW 模式后端本就不返回 R18 作品)
+  const [r18Mode] = useR18Mode();
+  // R18 缩略图模糊:已点击揭示(解除模糊)的作品 id 集合,单张点击解除/恢复
+  const [revealedIds, setRevealedIds] = useState<ReadonlySet<string>>(new Set());
+  // 「点击显示」提示层:hover 模糊卡时显示(记录当前悬停的 job id)
+  const [hoveredBlurId, setHoveredBlurId] = useState<string | null>(null);
   // 分页:首屏只渲染 PAGE_SIZE 条,「加载更多」追加;切筛选时重置
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -288,10 +304,14 @@ export function LibraryView({ onNavigate, onlyNsfw = false }: LibraryViewProps =
 
   const filtered = useMemo(() => {
     if (!jobs) return [];
-    const base = onlyNsfw ? jobs.filter((j) => j.nsfw) : jobs;
+    // 内容维度(M9):SFW = !nsfw,R18 = nsfw;「全部」不过滤
+    const base =
+      contentFilter === "all"
+        ? jobs
+        : jobs.filter((j) => (contentFilter === "r18" ? !!j.nsfw : !j.nsfw));
     if (filter === "all") return base;
     return base.filter((j) => kindToFilter(j.kind) === filter);
-  }, [jobs, filter, onlyNsfw]);
+  }, [jobs, filter, contentFilter]);
 
   // 灯箱索引越界钳制:删除当前作品后 filtered 收缩,滑到下一件;列表清空则关闭
   useEffect(() => {
@@ -309,16 +329,15 @@ export function LibraryView({ onNavigate, onlyNsfw = false }: LibraryViewProps =
   const counts = useMemo(() => {
     const c: Record<FilterKey, number> = { all: 0, image: 0, video: 0, audio: 0, "3d": 0 };
     if (jobs) {
-      const base = onlyNsfw ? jobs.filter((j) => j.nsfw) : jobs;
-      c.all = base.length;
-      for (const j of base) {
+      c.all = jobs.length;
+      for (const j of jobs) {
         // 未识别 kind 不计入任何分类桶,只算进「全部」
         const key = kindToFilter(j.kind);
         if (key) c[key]++;
       }
     }
     return c;
-  }, [jobs, onlyNsfw]);
+  }, [jobs]);
 
   // 段控 Tabs 项:计数始终渲染预留宽度(visibility 控制),避免计数出现后段宽跳动(CLS 加固)
   const filterTabs = useMemo(
@@ -345,6 +364,31 @@ export function LibraryView({ onNavigate, onlyNsfw = false }: LibraryViewProps =
       })),
     [counts],
   );
+
+  // 内容维度 chips(M9):复用类型过滤同款段控结构;R18 项仅 R18 模式渲染
+  const contentTabs = useMemo(() => {
+    const items: { key: ContentFilterKey; label: string }[] = [
+      { key: "all", label: "全部" },
+      { key: "sfw", label: "SFW" },
+    ];
+    if (r18Mode) items.push({ key: "r18", label: "R18" });
+    return items;
+  }, [r18Mode]);
+
+  // R18 模式关闭时若正选中 R18 chip,回退「全部」(chip 已不渲染,避免选中态悬空)
+  useEffect(() => {
+    if (!r18Mode && contentFilter === "r18") setContentFilter("all");
+  }, [r18Mode, contentFilter]);
+
+  // R18 缩略图:点击单张解除/恢复模糊(本地 state 存已揭示的 job id 集合)
+  const toggleReveal = (jobId: string) => {
+    setRevealedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(jobId)) next.delete(jobId);
+      else next.add(jobId);
+      return next;
+    });
+  };
 
   // 点击删除:仅打开确认对话框(不再使用 window.confirm)
   const handleDelete = (job: JobItem) => {
@@ -503,6 +547,18 @@ export function LibraryView({ onNavigate, onlyNsfw = false }: LibraryViewProps =
             ariaLabel="作品类型筛选"
           />
         </div>
+        {/* 内容维度筛选(M9):全部/SFW/R18,R18 chip 仅 R18 模式渲染 */}
+        <div className="lib-filters">
+          <Tabs
+            items={contentTabs}
+            current={contentFilter}
+            onChange={(key) => {
+              setContentFilter(key as ContentFilterKey);
+              setVisibleCount(PAGE_SIZE);
+            }}
+            ariaLabel="内容分级筛选"
+          />
+        </div>
       </div>
 
       {/* 风格库横条(WS4):空态 StyleBar 内部返回 null,不渲染整条 */}
@@ -556,6 +612,9 @@ export function LibraryView({ onNavigate, onlyNsfw = false }: LibraryViewProps =
               const isVideo = isVideoKind(job.kind);
               // 失败占位卡:thumb 加修饰类,CSS 收敛为固定矮条(样式见 app/styles/library.css)
               const isErrorPlaceholder = !hasResult && job.status === "error";
+              // R18 作品(M9):右上角 18+ 徽标 + 缩略图默认模糊,点击单张解除/恢复
+              const isNsfw = !!job.nsfw;
+              const isBlurred = isNsfw && !revealedIds.has(job.id);
               return (
                 <article
                   key={job.id}
@@ -566,8 +625,22 @@ export function LibraryView({ onNavigate, onlyNsfw = false }: LibraryViewProps =
                     <button
                       type="button"
                       className="lib-thumb-hit"
-                      aria-label={`预览作品: ${job.prompt || "无提示词"}`}
-                      onClick={() => openLightbox(job)}
+                      aria-label={
+                        isBlurred
+                          ? "点击显示 R18 作品内容"
+                          : isNsfw
+                            ? "恢复模糊(R18 作品)"
+                            : `预览作品: ${job.prompt || "无提示词"}`
+                      }
+                      onClick={() =>
+                        isNsfw ? toggleReveal(job.id) : openLightbox(job)
+                      }
+                      onMouseEnter={() => {
+                        if (isBlurred) setHoveredBlurId(job.id);
+                      }}
+                      onMouseLeave={() => {
+                        setHoveredBlurId((id) => (id === job.id ? null : id));
+                      }}
                     >
                     {hasResult ? (
                       isVideo ? (
@@ -577,9 +650,18 @@ export function LibraryView({ onNavigate, onlyNsfw = false }: LibraryViewProps =
                           loop
                           playsInline
                           preload="metadata"
+                          style={
+                            isBlurred
+                              ? {
+                                  filter: "blur(18px)",
+                                  pointerEvents: "auto",
+                                  cursor: "pointer",
+                                }
+                              : undefined
+                          }
                         />
                       ) : (
-                        <ImageThumb job={job} />
+                        <ImageThumb job={job} blurred={isBlurred} />
                       )
                     ) : (
                       <ThumbPlaceholder job={job} />
@@ -590,6 +672,28 @@ export function LibraryView({ onNavigate, onlyNsfw = false }: LibraryViewProps =
                         {job.prompt || "（无提示词）"}
                       </div>
                     </div>
+
+                    {/* R18 模糊卡 hover 提示层:半透明「点击显示」,不拦截点击 */}
+                    {isBlurred && hoveredBlurId === job.id && (
+                      <div
+                        aria-hidden="true"
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          background: "rgba(0, 0, 0, 0.35)",
+                          color: "#fff",
+                          fontSize: "var(--text-sm)",
+                          fontWeight: 500,
+                          letterSpacing: "0.05em",
+                          pointerEvents: "none",
+                        }}
+                      >
+                        点击显示
+                      </div>
+                    )}
                     </button>
 
                     {/* 快捷操作浮层(WS4):底部渐显玻璃条,三键 = 查看大图 / 存为风格 / 复用提示词 */}
@@ -657,6 +761,29 @@ export function LibraryView({ onNavigate, onlyNsfw = false }: LibraryViewProps =
                         <Icon name="playing" size={11} />
                         视频
                       </div>
+                    )}
+
+                    {/* R18 徽标(M9):缩略图右上角(左移避开删除按钮),仅 nsfw 作品渲染 */}
+                    {isNsfw && (
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          position: "absolute",
+                          top: "var(--space-2)",
+                          right: "calc(var(--space-2) + 32px)",
+                          padding: "3px 8px",
+                          background: "var(--err)",
+                          color: "#fff",
+                          borderRadius: "var(--radius-full)",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          lineHeight: 1.2,
+                          pointerEvents: "none",
+                          zIndex: 2,
+                        }}
+                      >
+                        18+
+                      </span>
                     )}
                   </div>
 

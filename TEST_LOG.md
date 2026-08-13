@@ -2,6 +2,55 @@
 
 ---
 
+## LTX25-2026-08-13 · LTX-2.5 引擎接入替换 SFW LTX-2.3(音画同出)+ 真机 e2e
+
+**时间**: 2026-08-13
+**类型**: 里程碑(引擎升级;承接 R2-2026-08-13,用户指示调研 LTX2.5/H3/Wan3.0 等最新权重后自主判断)
+
+### 范围
+SFW 视频主力链路从 LTX-2.3 切到 LTX-2.5 22B 音视频基础模型(nvfp4 蒸馏,8 步,原生音画同构);
+NSFW 保留 LTX-2.3 + 10Eros pool 链路不动。LTX-2.5 跑 GPU0 专用实例(ComfyUI 0.32.x,:8198,
+systemd comfyui-ltx25.service),与生产 pool(0.27)隔离,同 longcat/h3 专用实例模式。
+
+### 权重调研结论(HuggingFace/ModelScope 真机核验)
+- 采用 `ltx-2.5-22b-distilled-transformer-nvfp4.safetensors`(18.7GB,nvfp4 量化省显存)
++ `gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors`(15.4GB,with-proj 内嵌
+  text_embedding_projection + tokenizer)+ video/audio 双 VAE bf16
+- Wan3.0 仅阿里云 API 无权重且 NSFW 受限,排除(同 R2 结论);MiniMax H3 保持核心引擎不动(硬性规则)
+- 落点 workstation `/home/merlin/models/ltx25/`,:8198 实例 extra_model_paths 注册;
+  checkpoints/ 下软链 transformer(LTXAVTextEncoderLoader.ckpt_name 只扫 checkpoints 类目,
+  需从中抽 embeddings_connector 键,同易错点 21 键布局陷阱)
+
+### 交付
+| 模块 | 内容 |
+|---|---|
+| [ltx25_video.py](apps/api/app/workflows/ltx25_video.py) | T2V/I2V 图构建照搬官方单阶段蒸馏模板:LTXAVTextEncoderLoader→LTXVConditioning(frame_rate)→Empty 视频/音频 latent→**LTXVConcatAVLatent 音画拼接采样**→CFG=1+euler_ancestral+8 步蒸馏 sigma 原表→LTXVSeparateAVLatent→VAEDecodeTiled+LTXVAudioVAEDecode→CreateVideo 音画同出;i2v 支路 LTXVPreprocess(compression=18)+LTXVImgToVideoInplace 首帧引导 |
+| [ltx25.py](apps/api/app/services/ltx25.py) | 专用实例客户端/就绪检查(在线+含 LTXAVTextEncoderLoader 节点)/i2v 参考图转运/提交落 Job+spawn_tracker,产物经 /api/images 代理进作品库(与 longcat 同路) |
+| [ltx25_studio.py](apps/api/app/routes/ltx25_studio.py) | `POST /api/ltx25/t2v` / `POST /api/ltx25/i2v`;32 对齐 + 8k+1 帧网格自动吸附;路径穿越校验 |
+| [engine_registry.py](apps/api/app/services/engine_registry.py) | ltx25-t2v/i2v 条目**替换** ltx2-t2v/i2v(SFW);`_probe_ltx25` 实例探测(8s 超时,`TOIV_LTX25_ENABLED` 开关);NSFW ltx-nsfw 三条目保留 |
+| [video_generators.py](apps/api/app/services/video_generators.py) | LtxVideoGenerator 双链路重构:`nsfw=True` 走原 LTX-2.3 pool 链路,否则走 :8198 专用实例;短剧引擎映射 `_ENGINE_OF["ltx"]="ltx25-t2v"` |
+| 前端 [engines.ts](apps/web/lib/engines.ts) | ltx25-t2v/i2v case + payload(32 对齐/8k+1 网格/蒸馏 steps=8) |
+| config/deps/capabilities | `TOIV_LTX25_BASE_URL`(默认 :8198)/`TOIV_LTX25_ENABLED`;resolve_worker 精确匹配 :8198(同易错点 9 教训);ltx25 kind 转运模式(空模型/节点要求) |
+
+### 真机冒烟(core 生产 API 全链路,admin 登录)
+- **引擎注册**: `/api/models/engines` ltx25-t2v/i2v available=True(实例探测过),旧 ltx2 SFW 条目已移除 ✅
+- **t2v**: 256×256×9帧@24fps steps=8 seed=42 → 作业 done,产物代理 200 video/mp4;
+  ffprobe 实测 **h264 0.375s(9/24 精确) + aac 音轨** —— 音画同出 ✅
+- **i2v**: 参考图(256×256 PNG)上传 pool worker :8189 → 后端转运 :8198 input → 作业 done,
+  产物 ToIV_ltx25_vid_00002_.mp4 256×256 含音轨 ✅(转运链路验证)
+- 冒烟期 GPU0 62.4GB/97.9GB 占用 33°C,与 ComfyUI #1/IndexTTS2/H3 共卡无冲突
+
+### 测试与回归
+- 新增/更新:test_ltx25_studio.py(图构建/请求校验/端点/转运/就绪检查)+ test_engine_registry.py
+  LTX-2.5 段(条目/不可达/缺节点/禁用)+ test_video_generators.py 双链路(SFW→:8198/NSFW→pool/禁用兜底)
+  + test_drama_studio.py(ltx 可用性跟随 :8198 探测,与 pool 死活无关)
+- **踩坑**: `test_probes_run_parallel_and_cached` 计数口径——ltx2 旧链路的 _probe_pool 调用消失后
+  SFW 仅剩 ace-music 一路,单路无法区分串/并行(45ms 界 < 50ms 单程),与 _fetch_ltx25_nodes 合并计数修复
+- **全量**: pytest **1339 passed**(R2 基线 1296+43);tsc --noEmit ✅;next build ✅
+- **生产部署**: `deploy.sh core-ts`(本机 LAN 不通,新增 core-ts Tailscale 别名)✅,toiv-api/toiv-web 健康
+
+---
+
 ## R2-2026-08-13 · Wan2.2-Animate / Wan2.1-VACE 引擎接入 + 参考资产库 + :8197 真机冒烟
 
 **时间**: 2026-08-13

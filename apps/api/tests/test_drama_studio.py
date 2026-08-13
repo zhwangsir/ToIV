@@ -826,11 +826,13 @@ def test_list_video_generators(ctx, monkeypatch):
     """M6: GET /api/drama/video-generators 返回 5 个生成器(含 H3)。
 
     QA-FULL-2026-08-11 P3(引擎状态一致性):available/reason 由后端统一下发,
-    与 /api/models/engines 同源——死 pool 下 ltx 不可用;H3 走独立实例探测
+    与 /api/models/engines 同源——ltx 可用性跟随 LTX-2.5 专用实例探测(替身不可达 →
+    不可用,2026-08-13 起 SFW 链路切 ltx25-t2v,与 pool 死活无关);H3 走独立实例探测
     (替身在线)可用;stub(seedance/kling)固定不可用;liveact 随配置开关。
     """
     client, token, _ = ctx
     H = _h(token)
+    from app.comfy.client import ComfyUIError
     from app.config import get_settings
     from app.services import engine_registry
 
@@ -840,8 +842,12 @@ def test_list_video_generators(ctx, monkeypatch):
     async def _longcat_nodes():
         return {"WanVideoModelLoader"}
 
+    async def _ltx25_down():
+        raise ComfyUIError("connection refused")
+
     monkeypatch.setattr(engine_registry, "_fetch_h3_nodes", _h3_nodes)
     monkeypatch.setattr(engine_registry, "_fetch_longcat_nodes", _longcat_nodes)
+    monkeypatch.setattr(engine_registry, "_fetch_ltx25_nodes", _ltx25_down)
     app.dependency_overrides[get_pool] = _dead_pool
     try:
         r = client.get("/api/drama/video-generators", headers=H)

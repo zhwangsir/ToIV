@@ -177,9 +177,9 @@ async def test_kling_stub():
 
 @pytest.mark.asyncio
 async def test_ltx_no_pool_returns_failure():
-    """LtxVideoGenerator 未注入 pool → 返回 success=False(不调外部)。"""
+    """LtxVideoGenerator NSFW 链路(pool)未注入 pool → 返回 success=False(不调外部)。"""
     gen = LtxVideoGenerator(pool=None, tracker=lambda c, p: None)
-    result = await gen.generate("a boy walking")
+    result = await gen.generate("a boy walking", nsfw=True)
     assert result.success is False
     assert result.model == "ltx"
 
@@ -194,8 +194,57 @@ async def test_ltx_empty_prompt_returns_failure():
 
 
 @pytest.mark.asyncio
-async def test_ltx_video_ckpt_sfw_nsfw_split():
-    """SFW/NSFW 底模分流:默认 SFW(default_video_ckpt),nsfw=True 才用 10Eros。"""
+async def test_ltx_sfw_routes_to_ltx25_instance():
+    """SFW 链路走 LTX-2.5 专用实例(与 pool 无关):nvfp4 transformer + AV 拼接音画同出图。"""
+    from app.workflows.ltx25_video import DEFAULT_LTX25_UNET
+
+    client = AsyncMock()
+    client.base_url = "http://192.168.71.127:8198"
+    client.queue_prompt = AsyncMock(return_value="pid-25")
+
+    gen = LtxVideoGenerator(pool=None, tracker=lambda c, p: None)
+    with patch("app.services.ltx25.ensure_ltx25_enabled"), \
+         patch("app.services.ltx25.get_ltx25_client", return_value=client), \
+         patch("app.services.ltx25.ensure_ltx25_ready", new=AsyncMock()):
+        r = await gen.generate(
+            "a boy walking", width=1000, height=700, duration_sec=6, fps=16, seed=7,
+        )
+
+    assert r.success is True
+    assert r.job_id == "pid-25"
+    assert r.raw["worker"] == "http://192.168.71.127:8198"
+    assert r.raw["seed"] == 7
+    g = client.queue_prompt.call_args[0][0]
+    assert g["1"]["inputs"]["unet_name"] == DEFAULT_LTX25_UNET
+    # 32 对齐吸附 + 8k+1 帧网格(6s×16fps=96 → 97)
+    assert g["10"]["inputs"]["width"] == 992
+    assert g["10"]["inputs"]["height"] == 672
+    length = g["10"]["inputs"]["length"]
+    assert (length - 1) % 8 == 0
+    # 音画同出:AV latent 拼接采样 + CreateVideo 带音频
+    assert g["12"]["class_type"] == "LTXVConcatAVLatent"
+    assert g["21"]["inputs"]["audio"] == ["20", 0]
+
+
+@pytest.mark.asyncio
+async def test_ltx25_disabled_returns_failure():
+    """LTX-2.5 被配置关闭 → 返回失败原因(HTTPException detail 翻译为 error,不抛异常)。"""
+    from fastapi import HTTPException
+
+    gen = LtxVideoGenerator(pool=None, tracker=lambda c, p: None)
+    with patch(
+        "app.services.ltx25.ensure_ltx25_enabled",
+        side_effect=HTTPException(status_code=503, detail="LTX-2.5 视频生成引擎已禁用"),
+    ):
+        result = await gen.generate("a boy walking")
+    assert result.success is False
+    assert result.model == "ltx"
+    assert "已禁用" in result.error
+
+
+@pytest.mark.asyncio
+async def test_ltx_nsfw_routes_to_pool_10eros():
+    """NSFW 链路保留 LTX-2.3 + 10Eros(pool):nsfw=True 用 NSFW 专用底模。"""
     client = AsyncMock()
     client.base_url = "http://worker"
     client.queue_prompt = AsyncMock(return_value="pid-x")
@@ -203,20 +252,16 @@ async def test_ltx_video_ckpt_sfw_nsfw_split():
     pool.pick = AsyncMock(return_value=client)
 
     fake_settings = MagicMock()
-    fake_settings.default_video_ckpt = "ltx-2.3-22b-distilled-1.1.safetensors"
     fake_settings.nsfw_default_video_ckpt = "10eros_v14.safetensors"
     fake_settings.nsfw_default_gemma = "gemma3_12b_it_bf16/model.safetensors"
     fake_settings.nsfw_default_vae = "LTX23_video_vae_bf16.safetensors"
 
     gen = LtxVideoGenerator(pool=pool, tracker=lambda c, p: None)
     with patch("app.services.video_generators.get_settings", return_value=fake_settings):
-        r_sfw = await gen.generate("a boy walking")
         r_nsfw = await gen.generate("a boy walking", nsfw=True)
 
-    assert r_sfw.success and r_nsfw.success
-    g_sfw = client.queue_prompt.call_args_list[0][0][0]
-    g_nsfw = client.queue_prompt.call_args_list[1][0][0]
-    assert g_sfw["1"]["inputs"]["unet_name"] == "ltx-2.3-22b-distilled-1.1.safetensors"
+    assert r_nsfw.success
+    g_nsfw = client.queue_prompt.call_args[0][0]
     assert g_nsfw["1"]["inputs"]["unet_name"] == "10eros_v14.safetensors"
 
 

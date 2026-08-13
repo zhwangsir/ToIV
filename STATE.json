@@ -1,13 +1,39 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-13T21:00:00+08:00",
+ "updated_at": "2026-08-13T21:30:00+08:00",
  "sync_baseline": {
   "id": "SYNC-2026-07-18",
   "type": "initial-sync",
   "note": "项目状态初始化基线：首次建立 STATE.json / TEST_LOG.md 追踪，记录当前真实验证结果，不代表新里程碑完成。"
  },
  "health": {
+  "ltx25_engine_2026_08_13": {
+   "status": "completed",
+   "scope": "LTX-2.5 引擎接入替换 SFW LTX-2.3:22B 音视频基础模型(nvfp4 蒸馏 8 步,原生音画同构),GPU0 专用实例 :8198;NSFW 保留 LTX-2.3+10Eros pool 链路",
+   "weight_research": [
+    "采用 ltx-2.5-22b-distilled-transformer-nvfp4(18.7GB)+gemma4-12b-with-proj int8(15.4GB)+双 VAE bf16,落 workstation /home/merlin/models/ltx25/",
+    "Wan3.0 仅阿里云 API 无权重且 NSFW 受限,排除;MiniMax H3 保持核心引擎不动(硬性规则)",
+    "checkpoints/ 软链 transformer 供 LTXAVTextEncoderLoader.ckpt_name 抽 embeddings_connector 键(同易错点 21)"
+   ],
+   "deliverables": [
+    "apps/api/app/workflows/ltx25_video.py: T2V/I2V 图构建(官方单阶段蒸馏模板;AV latent 拼接采样;cfg=1+euler_ancestral+8 步 sigma 原表;CreateVideo 音画同出;i2v 首帧 LTXVImgToVideoInplace)",
+    "apps/api/app/services/ltx25.py: 专用实例客户端/就绪检查/i2v 参考图转运/submit 落 Job+tracker,产物 /api/images 代理进作品库",
+    "apps/api/app/routes/ltx25_studio.py: POST /api/ltx25/t2v|i2v,32 对齐+8k+1 帧网格自动吸附",
+    "engine_registry.py: ltx25-t2v/i2v 替换 ltx2 SFW 条目;_probe_ltx25 实例探测(TOIV_LTX25_ENABLED 开关)",
+    "video_generators.py LtxVideoGenerator 双链路: nsfw=True→LTX-2.3 pool;否则→:8198;drama _ENGINE_OF ltx→ltx25-t2v",
+    "前端 engines.ts ltx25 case+payload;config/deps/capabilities: ltx25_base_url/enabled、resolve_worker 精确匹配、ltx25 kind 转运模式"
+   ],
+   "smoke": {
+    "engines": "/api/models/engines ltx25-t2v/i2v available=True,旧 ltx2 SFW 条目已移除",
+    "t2v": "256×256×9帧@24fps steps=8 → done;产物代理 200 video/mp4;ffprobe h264 0.375s(9/24 精确)+aac 音轨=音画同出",
+    "i2v": "参考图落 :8189→转运 :8198 → done;ToIV_ltx25_vid_00002_.mp4 256×256 含音轨",
+    "gpu0": "冒烟期 62.4GB/97.9GB 33°C,与 ComfyUI#1/IndexTTS2/H3 共卡无冲突"
+   },
+   "regression": "pytest 1339 passed(R2 基线 1296+43);tsc --noEmit ✅;next build ✅;踩坑:并行探测测试计数口径随 ltx2 退役修复(_probe_pool 仅剩 ace 一路,与 _fetch_ltx25_nodes 合并计数)",
+   "deploy": "deploy.sh core-ts(本机 LAN 不通,新增 core-ts Tailscale ssh 别名);toiv-api/toiv-web 健康",
+   "verified_at": "2026-08-13T16:40:00+08:00"
+  },
   "r1_quality_gate_2026_08_13": {
    "status": "completed",
    "scope": "R1 里程碑(路线图第一阶段): 指代消解闸门 + storyboard 自包含 prompt 强化 + L1/L2 质量门决策层",

@@ -1,11 +1,13 @@
 """视频生成模型聚合层 —— 抽象 VideoGenerator 接口,支持多模型可选。
 
-对标 liblib.tv 的多模型聚合(Seedance/Kling)。当前 LTX(ComfyUI)与
-LiveAct(独立 worker)实际可用,Seedance/Kling 为 stub(返回占位错误响应),预留接口供后续接入。
+对标 liblib.tv 的多模型聚合(Seedance/Kling)。LTX(SFW 走 LTX-2.5 专用实例,
+NSFW 走 LTX-2.3 ComfyUI pool)与 LiveAct(独立 worker)实际可用,
+Seedance/Kling 为 stub(返回占位错误响应),预留接口供后续接入。
 
 设计要点:
   · VideoGenerator 抽象基类统一 generate() 签名,各实现按需翻译参数
-  · LtxVideoGenerator 封装 build_ltx_t2v_graph + pool.pick + queue_prompt + spawn_tracker
+  · LtxVideoGenerator 双链路:SFW → LTX-2.5 专用实例(build_ltx25_t2v_graph,
+    音画同出);NSFW → LTX-2.3+10Eros(build_ltx_t2v_graph + pool.pick)
   · 实际等待(wait_for_jobs)由调用方决定,生成器只负责提交 + 返回 job_id
   · list_generators() / get_generator() 工厂供路由层与前端选择器使用
 """
@@ -66,21 +68,38 @@ class VideoGenerator(ABC):
 
 
 class LtxVideoGenerator(VideoGenerator):
-    """LTX 2.3 视频生成器(当前唯一实际可用实现)。
+    """LTX 视频生成器:SFW 走 LTX-2.5 专用实例(音画同出),NSFW 保留 LTX-2.3 pool 链路。
 
-    复用 drama_studio.generate_shot_video 的核心链路:
-      LtxT2VParams → build_ltx_t2v_graph → pool.pick → queue_prompt → spawn_tracker
+    SFW(2026-08-13 起替换 LTX-2.3 链路):
+      Ltx25T2VParams → build_ltx25_t2v_graph → :8198 专用实例
+      (ensure_ltx25_enabled/ensure_ltx25_ready)→ queue_prompt → spawn_tracker;
+      与 WorkerPool 无关(独立实例,同 H3 模式),worker 钉选不适用。
+    NSFW(R18 保留,不迁移):
+      LtxT2VParams(10Eros)→ build_ltx_t2v_graph → pool.pick → queue_prompt → spawn_tracker
     只提交不等待,调用方拿 job_id 自行决定是否同步 wait_for_jobs。
     """
 
     name = "ltx"
-    display_name = "LTX 2.3"
+    display_name = "LTX 2.5"
+    description = "LTX-2.5 音画同出视频(SFW 主力);R18 走 LTX-2.3 + 10Eros"
     supports_image2video = True
     supports_text2video = True
 
     def __init__(self, pool: WorkerPool | None = None, tracker=spawn_tracker) -> None:
         self._pool = pool
         self._tracker = tracker  # 测试时可注入 mock
+
+    @staticmethod
+    def _snap32(v: int, lo: int, hi: int) -> int:
+        """吸附 32 对齐并钳位 [lo, hi](LTX-2.5 分辨率约束)。"""
+        v = max(lo, min(hi, int(v)))
+        return max(lo, (v // 32) * 32)
+
+    @staticmethod
+    def _frames_grid_8k1(target: int) -> int:
+        """吸附 8k+1 帧网格并钳位 [9, 601](LTX-2.5 约束)。"""
+        k = max(1, round((int(target) - 1) / 8))
+        return min(601, max(9, 8 * k + 1))
 
     async def generate(
         self,
@@ -98,6 +117,87 @@ class LtxVideoGenerator(VideoGenerator):
     ) -> VideoGenResult:
         if not prompt.strip():
             return VideoGenResult(success=False, model=self.name, error="提示词为空")
+        if bool(kwargs.get("nsfw", False)):
+            return await self._generate_nsfw_pool(
+                prompt, negative=negative, width=width, height=height,
+                duration_sec=duration_sec, fps=fps, seed=seed, worker=worker, **kwargs,
+            )
+        return await self._generate_ltx25(
+            prompt, negative=negative, width=width, height=height,
+            duration_sec=duration_sec, fps=fps, seed=seed, **kwargs,
+        )
+
+    async def _generate_ltx25(
+        self,
+        prompt: str,
+        *,
+        negative: str,
+        width: int,
+        height: int,
+        duration_sec: int,
+        fps: int,
+        seed: int | None,
+        **kwargs: Any,
+    ) -> VideoGenResult:
+        """SFW 链路:LTX-2.5 专用实例(音画同出,蒸馏单阶段)。"""
+        from fastapi import HTTPException
+
+        from app.services import ltx25 as ltx25_service
+        from app.workflows.ltx25_video import Ltx25T2VParams, build_ltx25_t2v_graph
+
+        try:
+            ltx25_service.ensure_ltx25_enabled()
+            client = ltx25_service.get_ltx25_client()
+            await ltx25_service.ensure_ltx25_ready(client)
+        except HTTPException as e:
+            return VideoGenResult(success=False, model=self.name, error=str(e.detail))
+
+        seed_used = seed if seed is not None else Ltx25T2VParams(positive="").seed
+        params = Ltx25T2VParams(
+            positive=prompt,
+            negative=negative,
+            width=self._snap32(width, 256, 1920),
+            height=self._snap32(height, 256, 1088),
+            length=self._frames_grid_8k1(int(fps) * max(1, int(duration_sec))),
+            fps=max(8, min(60, int(fps))),
+            steps=max(1, min(50, int(kwargs.get("steps", 8)))),
+            seed=seed_used,
+            filename_prefix=kwargs.get("filename_prefix", "ToIV_drama_video"),
+        )
+        graph = build_ltx25_t2v_graph(params)
+        client_id = uuid.uuid4().hex
+        try:
+            prompt_id = await client.queue_prompt(graph, client_id)
+        except ComfyUIError as e:
+            return VideoGenResult(success=False, model=self.name, error=str(e))
+
+        self._tracker(client, prompt_id)
+        return VideoGenResult(
+            success=True,
+            job_id=prompt_id,
+            model=self.name,
+            raw={
+                "prompt_id": prompt_id,
+                "client_id": client_id,
+                "worker": client.base_url,
+                "seed": seed_used,
+            },
+        )
+
+    async def _generate_nsfw_pool(
+        self,
+        prompt: str,
+        *,
+        negative: str,
+        width: int,
+        height: int,
+        duration_sec: int,
+        fps: int,
+        seed: int | None,
+        worker: str | None,
+        **kwargs: Any,
+    ) -> VideoGenResult:
+        """NSFW 链路:LTX-2.3 + 10Eros 走 WorkerPool(R18 保留)。"""
         if self._pool is None:
             return VideoGenResult(success=False, model=self.name, error="未注入 WorkerPool")
 
@@ -120,15 +220,12 @@ class LtxVideoGenerator(VideoGenerator):
                 return VideoGenResult(success=False, model=self.name, error=str(e))
 
         settings = get_settings()
-        # SFW/NSFW 视频底模分流:nsfw=True 用 NSFW 专用底模(10Eros),
-        # 否则 SFW 默认(ltx-2.3-22b-distilled-1.1);gemma/vae 两者共用同一套
-        nsfw = bool(kwargs.get("nsfw", False))
-        video_ckpt = settings.nsfw_default_video_ckpt if nsfw else settings.default_video_ckpt
+        # NSFW 专用视频底模(10Eros);gemma/vae 与 SFW 共用同一套
         seed_used = seed if seed is not None else LtxT2VParams(positive="").seed
         params = LtxT2VParams(
             positive=prompt,
             negative=negative,
-            unet_name=video_ckpt,
+            unet_name=settings.nsfw_default_video_ckpt,
             gemma_name=settings.nsfw_default_gemma,
             vae_name=settings.nsfw_default_vae,
             width=width,

@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-08-11（新增易错点 21/22:LTX 对口型音频 VAE 键布局坑、浏览器自动化测 React 事件坑）
+> **最后更新**：2026-08-11（新增易错点 25:跨境链路性能排查——单时段 A/B 归因陷阱;反代切 frp 本地端口+frpc loginFailExit=false 加固）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 
 ---
@@ -75,7 +75,7 @@ net use Z: \\192.168.71.7\NAS /persistent:yes
 > 
 > ⚠️ **2026-08-05 更新**：Nemotron vLLM 已停用，GPU3 现用于 FlashTalk + OpenTalking；ComfyUI-LB 收敛为 gpu0 + pc01 + pc02。
 > 
-> ⚠️ **2026-08-09 更新**：下表「显存占用」为**2026-08-09 10:46 真机 `nvidia-smi` 快照**，实际会随缓存策略(`--cache-lru`)、模型加载状态、是否正在采样、进程共享/分片等因素动态变化。**禁止把表中数字当成静态真理**，做容量规划前必须重新 SSH 核查。详见第六节「易错点 19」及交接文档 `docs/2026-08-09-service-replacement-research.md`。
+> ⚠️ **2026-08-09 更新**：下表「显存占用」为**2026-08-09 10:46 真机 `nvidia-smi` 快照**，实际会随缓存策略(`--cache-lru`)、模型加载状态、是否正在采样、进程共享/分片等因素动态变化。**禁止把表中数字当成静态真理**，做容量规划前必须重新 SSH 核查。详见第六节「易错点 19」及归档摘要 `docs归档说明.md` 第一节(原交接文档已删除)。
 >
 > ⚠️ **2026-08-09 18:00 更新**：Phase 1 服务迁移已执行——GPU2 `qwen3-embed-vllm.service :1234` 已 stop+disable；`demucs` 已迁移至 **studio01 demucs-mlx :9221**；`ASR(faster-whisper)` 已迁移至 **studio02 whisper.cpp large-v3-turbo :9212**，WER/CER 对比为 0。Workstation GPU2 仅保留 SenseVoice、LongCat-Video、H3 CLIP/VAE。
 > 
@@ -86,6 +86,7 @@ net use Z: \\192.168.71.7\NAS /persistent:yes
 | GPU0 | ComfyUI #1 | :8189 | **~0.8GB** | **comfyui-gpu0.service** | 与 IndexTTS2、H3 共卡;2026-08-08 起带 `--cache-lru 8` 缓存上限 |
 | GPU0 | IndexTTS2 | :9200 | **~7.0GB** | **toiv-tts.service** | `CUDA_VISIBLE_DEVICES=0`;**质量优先，不迁移** |
 | GPU0 | MiniMax H3 (ComfyUI worker) | :8195 | **~32GB** (UNet bf16 分片) | **toiv-comfyui-h3.service** | UNet 跨 GPU0/GPU2/CPU，CLIP/VAE 在 GPU2;2026-08-08 extra_model_paths 补 `loras` 映射(NAS toiv/comfyui-models/h3/loras/),LoRA 走 LoraLoaderModelOnly 链(musubi 系只含 DiT 权重),NSFW LoRA 门控在 services/h3.py H3_NSFW_LORAS 名单 |
+| GPU0 | ComfyUI LTX-2.5 专用实例 | :8198 | **~34GB**(常驻,2026-08-13 16:40 真机 33950MiB) | **comfyui-ltx25.service** | 2026-08-13 新增;**SFW 视频主力引擎(音画同出)**,替换 SFW LTX-2.3;实例 /home/merlin/ComfyUI-ltx25(ComfyUI 0.32.x,与生产 :8189 的 0.27 隔离),权重 /home/merlin/models/ltx25/(nvfp4 蒸馏 transformer 18.7GB + gemma4-12b-with-proj int8 15.4GB + 双 VAE bf16);core 经 `TOIV_LTX25_BASE_URL` 接入,不入 LB 池;checkpoints/ 软链 transformer 供 LTXAVTextEncoderLoader 抽 embeddings_connector 键(同易错点 21) |
 | GPU1 | Qwen3-Embedding-4B | :9302 | **~9.6GB** | **qwen3-embedding.service** | `CUDA_VISIBLE_DEVICES=1`;生产保持 sentence-transformers |
 | GPU1 | LiveAct batch worker | :9400 | **~59GB** | **toiv-liveact.service** | `nproc_per_node=1`，单卡 GPU1 |
 | GPU1 | ComfyUI 超分专用实例 | :8261 | **~0.6GB**(空闲)/~1GB(超分中) | **comfyui-upscale-gpu1.service** | 2026-08-10 新增;M6 并行超分 fleet,仅跑 4x-UltraSharp 帧超分,与 LiveAct 共卡实测无冲突;`--cache-lru 2 --disable-smart-memory` |
@@ -308,9 +309,25 @@ nas:
 - **正确**:torchrun 拉起的 benchmark 杀子进程会自动复活,必须连父进程 torchrun 一起杀;`pkill -f` 模式串含自身 ssh 命令行会自杀(exit 255),用 `[b]enchmark` 转义(同易错点 6)
 - **教训**:🔒 **多操作者(用户/多个 AI 会话)同时动 workstation 时,服务状态会被反复改写**;关键服务(H3)掉线先查是否有并行会话在操作,再处置;.123 这类非清单设备的 SSH 来源要确认身份,否则状态永远无法收敛
 
+### 25. 跨境链路性能排查:单时段 A/B 会被链路波动污染(2026-08-11,⚠️ 高优)
+- **坑**:toiv.dgmt.top 首页 20-30s 超时,初次排查误判「frp kcp 模式大响应崩塌」并切 TCP——实测好转(TCP 2.7s)恰遇链路质量拐点,1h 后跨境 25% 丢包时 TCP 直接 login write timeout 502,kcp 同样挂,连 drtclaw-tyler 隧道、Mac↔cloud SSH 全断;链路自愈后 kcp 恢复,首页 2-6s、api 1.5s。**协议切换的「改善」与被归因的「崩塌」其实都是链路质量时间波动**
+- **正确归因**:① 根因是 cloud(香港)↔core(国内)跨境链路晚高峰剧烈波动,任何单隧道协议都无法免疫;② 唯一干净的**同时段**对比:20:27-34 差链路下 Tailscale API 6.2s vs frp-kcp API 0.35s → openresty proxy_pass 从 Tailscale 切 frp 本地端口(127.0.0.1:18090/13100)是有效改进,保留;③ frp 协议保持 kcp(为丢包设计),7001/udp
+- **正确手法**:链路 A/B 测试必须**同时段交替测**两种路径,跨时段结论无效;「服务 502/超时」先看是全局链路事件(多隧道同断、SSH 断、ping 丢包)再怀疑本地配置;隧道加固:core frpc.toml 加 `loginFailExit = false`(抖动期 frpc 内建无限重试,避免 systemd 重启风暴,20:56 靠 systemd Restart 救回过一次)
+- **附带**:openresty/frps 容器均 host 网络,127.0.0.1 直通 frp 端口;1Panel 手工改 conf 可能被面板重写,留 `.bak-frp-switch-20260811` 备份;分层测试顺序:本机→隧道→反代→域名;⚠️ 用户访问路径是「国内用户→香港 cloud→国内 core」双跨境,晚高峰劣化是结构性风险,长期值得评估国内入口/CDN
+
 ---
 
 ## 七、操作历史
+
+### 2026-08-11 会话(晚,toiv.dgmt.top 域名链路优化)
+
+| 时间 | 操作 | 结果 |
+|------|------|------|
+| 20:30 | 域名访问劣化排查:首页 20-30s 超时。分层定位 core 本机 3ms ✅/Tailscale 链路 6-22s ❌/frp-kcp web 6-14s 但 api 0.35s | 根因为跨境链路波动(后证实),详见易错点 25 |
+| 20:38 | core frpc kcp→tcp 试验(同时段对比不足,结论后被链路波动推翻,已回滚 kcp) | ⚠️ 归因教训见易错点 25 |
+| 20:41 | openresty toiv.dgmt.top.conf proxy_pass Tailscale→frp 本地 127.0.0.1:18090/13100(备份 .bak-frp-switch-20260811),reload | ✅ 有效改进:同时段对比 frp-kcp API 0.35s vs Tailscale 6.2s |
+| 20:53 | 跨境链路全面抖动(25% 丢包):toiv/drtclaw 双隧道断、Mac↔cloud SSH 断,域名 502 约 4min | ✅ 20:56 链路自愈,kcp login 恢复;随后 frpc 加 loginFailExit=false 加固 |
+| 21:03 | 终态验证:frpc kcp+loginFailExit=false,双 proxy 注册成功,域名 200(2-7s),api 1.5s | ✅ 服务恢复;HSTS/安全头/登录/中文404/文档门控经域名全过 |
 
 ### 2026-08-09 会话(系统全面功能测试与高压测试)
 
@@ -320,7 +337,7 @@ nas:
 | 14:03 | MiniMax H3 长视频生成高压测试启动(:8195,832×480,steps=20),含 GPU 温度熔断保护 | ✅ 13 个作业成功 12/失败 1;单作业最大 362 帧 248.5s 通过;连续 5/5 通过;并发 124+141 2/2 通过 |
 | 14:09 | 修复 core `deploy/.env` `TOIV_LLM_DISPLAY_NAME` 缺引号导致 toiv-api 环境变量未加载 | ✅ 加双引号、daemon-reload、重启 toiv-api,MainPID 环境变量正确 |
 | 14:20 | 修复 `/api/reverse` 502:core 代码增加 studio04 mlx-vlm 自定义 `/v1/reverse` 回退路径 | ✅ `_mlx_vlm_reverse` + `_resolve_model_id` 探测 /models 404 自动适配;反推 200(9–14s) |
-| 14:38 | H3 高压测试结束,系统监控停止,结果归档 TEST_LOG.md / STATE.json / 测试报告 | ✅ GPU0 峰值 93°C,显存峰值 69065MB,无 OOM/崩溃;报告 docs/2026-08-09-comprehensive-stress-test-report.md |
+| 14:38 | H3 高压测试结束,系统监控停止,结果归档 TEST_LOG.md / STATE.json / 测试报告 | ✅ GPU0 峰值 93°C,显存峰值 69065MB,无 OOM/崩溃;核心数据归档 docs归档说明.md 第二节(原报告已删除) |
 
 ### 2026-08-08 会话(晚,集群重排 S3-S6 收尾)
 
@@ -404,7 +421,7 @@ nas:
 - [ ] Cloud SSH banner 超时排查（HTTPS 正常）
 - [x] ToIV 迁移 core(✅ deploy.sh 持续部署,toiv-api/web 为唯一生产点,见 docs/2026-08-08-core-migration-status.md)
 - [ ] 项目负责人推送 DRT 到 core(备份在 workstation /var/tmp)
-- [ ] Cloud 反代切换指向 core（待 core 业务就绪后）
+- [x] Cloud 反代切换指向 core(✅ 2026-08-11 完成并优化:toiv.dgmt.top openresty proxy_pass 经 frp TCP 隧道 127.0.0.1:18090/13100 → core:8090/3100,弃用 Tailscale 链路;frpc 同步 kcp→tcp,见易错点 25)
 - [x] 清理 .archive 中过期的部署残留（backup-20260722 / deploy-residues）
 - [x] Workstation nvidia-smi 报 NVML mismatch(✅ 2026-08-08 21:45 重启根治,nvidia-smi 恢复;14 个 systemd 服务全自启)
 - [x] llama-70b 退役 + spark01 改 Omni-Captioner(✅ 2026-08-08,L2/L3/L4 切 spark02,最终说明见交接文档第七节;音乐反推链路 e2e 通过)
