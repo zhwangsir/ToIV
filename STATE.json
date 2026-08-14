@@ -735,7 +735,7 @@
   }
  },
  "git": {
-  "latest_commit": "e085ba4 feat(drama): 颜色标记草图在场校验(DramaClaw 借鉴 #4)",
+  "latest_commit": "adcc937 fix(drama): dogfood 实测四缺陷(写回预算循环/reconcile 兜底/合成保音轨/参数随项目)",
   "production_verified": "2026-08-14: core harness profile=full 4 插件激活;/api/system/harness 200;/api/agent/sessions 200;toiv.dgmt.top 200(跨境波动期 7-10s)+ toiv.wineryz.top 200(0.2-0.3s);frpc 断连系链路波动自动重连恢复"
  },
  "roadmap": {
