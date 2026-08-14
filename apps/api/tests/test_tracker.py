@@ -5,12 +5,14 @@
 """
 import asyncio
 import json
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
 import app.comfy.tracker as tracker
+from app.comfy.client import ComfyUIError
 from app.models import Job
 
 
@@ -296,3 +298,130 @@ def test_poll_once_done_with_gifs_field(db):
     j = _job(db)
     assert j.status == "done"
     assert "ToIV_drama_shot0_00001.mp4" in (j.result or "")
+
+
+# ────────────────────────────────
+# 孤儿作业回收(worker 重启丢作业)+ 超时终态 + reconcile 超龄回收
+# ────────────────────────────────
+
+
+class _FakeQueueClient:
+    """带 /queue 能力的假 client:queue 内容/故障可控。"""
+
+    base_url = "http://w"
+
+    def __init__(self, history: dict, queue: set[str] | None = None, queue_down: bool = False):
+        self._h = history
+        self._q = queue or set()
+        self._queue_down = queue_down
+
+    async def get_history(self, prompt_id: str) -> dict:
+        return self._h
+
+    async def get_queue(self) -> set[str]:
+        if self._queue_down:
+            raise ComfyUIError("worker 不可达")
+        return self._q
+
+
+def _fast_track(monkeypatch, queue_check_interval=0.0):
+    """把轮询/检测间隔压到毫秒级,让 _track 在测试里快速收敛。"""
+    monkeypatch.setattr(tracker, "_POLL_START", 0.01)
+    monkeypatch.setattr(tracker, "_POLL_MAX", 0.02)
+    monkeypatch.setattr(tracker, "_QUEUE_CHECK_INTERVAL", queue_check_interval)
+
+
+def test_orphan_check_in_queue_not_orphan(db):
+    """作业正常在 queue 里 → 非孤儿,不误伤。"""
+    c = _FakeQueueClient({}, queue={"p1"})
+    assert asyncio.run(tracker._orphan_check(c, "p1")) is False
+
+
+def test_orphan_check_in_history_not_orphan(db):
+    """queue 已空但 history 有条目(刚跑完)→ 非孤儿。"""
+    c = _FakeQueueClient({"p1": {"outputs": {}, "status": {}}}, queue=set())
+    assert asyncio.run(tracker._orphan_check(c, "p1")) is False
+
+
+def test_orphan_check_queue_and_history_missing_is_orphan(db):
+    """queue 与 history 都无此 prompt → 孤儿。"""
+    c = _FakeQueueClient({}, queue=set())
+    assert asyncio.run(tracker._orphan_check(c, "p1")) is True
+
+
+def test_orphan_check_worker_unreachable_not_orphan(db):
+    """worker 不可达(网络抖动)不算孤儿,保持重试。"""
+    c = _FakeQueueClient({}, queue_down=True)
+    assert asyncio.run(tracker._orphan_check(c, "p1")) is False
+
+
+def test_track_orphan_reclaimed_after_two_strikes(db, monkeypatch):
+    """连续 2 次 queue/history 均无此作业 → 标 error 终态回收。"""
+    _fast_track(monkeypatch)
+    c = _FakeQueueClient({}, queue=set())
+    asyncio.run(tracker._track(c, "p1", timeout=30.0))
+    assert _job(db).status == "error"
+
+
+def test_track_single_strike_then_done_not_reclaimed(db, monkeypatch):
+    """仅 1 次 missing 后作业正常完成 → 不回收(必须连续 2 次才终态)。"""
+    _fast_track(monkeypatch)
+    done_hist = {
+        "p1": {
+            "outputs": {"9": {"images": [{"filename": "a.png", "subfolder": "", "type": "output"}]}},
+            "status": {"completed": True, "status_str": "success"},
+        }
+    }
+
+    class _FlakyClient:
+        base_url = "http://w"
+
+        def __init__(self):
+            self.h_calls = 0
+
+        async def get_history(self, pid):
+            self.h_calls += 1
+            # 第 3 次 history 查询起给出产物(此前还在排队)
+            return done_hist if self.h_calls >= 3 else {}
+
+        async def get_queue(self):
+            return set()  # 第 1 次检查 missing(记 1 strike);第 2 轮 history 已出结果
+
+    marked: list[str] = []
+    orig_mark_status = tracker.mark_status
+    monkeypatch.setattr(
+        tracker, "mark_status", lambda pid, st: (marked.append(st), orig_mark_status(pid, st))
+    )
+    asyncio.run(tracker._track(_FlakyClient(), "p1", timeout=30.0))
+    assert _job(db).status == "done"
+    assert marked == []  # 1 次 missing 不触发孤儿回收(若误杀此处会出现 "error")
+
+
+def test_track_marks_error_on_timeout(db, monkeypatch):
+    """轮询超时时限到达(作业真跑了超时仍无结果)→ 标 error 终态,不留 queued。"""
+    _fast_track(monkeypatch, queue_check_interval=1e9)  # 关闭孤儿检测,纯超时路径
+    c = _FakeClient({})  # history 永远无此 prompt
+    asyncio.run(tracker._track(c, "p1", timeout=0.05))
+    assert _job(db).status == "error"
+
+
+def test_reconcile_reclaims_stale_jobs(db, monkeypatch):
+    """created_at 超过 job_track_timeout+宽限 的 queued/running 作业:
+    一次性标 error 终态回收,且不再 spawn 新追踪。"""
+    called: list[str] = []
+    monkeypatch.setattr(tracker, "spawn", lambda client, pid: called.append(pid))
+    stale_ts = datetime.now(timezone.utc) - timedelta(seconds=7200 + 1800 + 60)
+    with Session(db) as s:
+        s.add(Job(tenant_id="t", user_id="u", prompt_id="pold-q", worker="http://w",
+                  kind="txt2img", status="queued", prompt="x", seed=1, created_at=stale_ts))
+        s.add(Job(tenant_id="t", user_id="u", prompt_id="pold-r", worker="http://w",
+                  kind="i2v", status="running", prompt="x", seed=2, created_at=stale_ts))
+        s.commit()
+    n = tracker.reconcile_pending()
+    assert called == ["p1"]  # 仅 fixture 里的新作业被重挂
+    assert n == 1
+    with Session(db) as s:
+        for pid in ("pold-q", "pold-r"):
+            j = s.exec(select(Job).where(Job.prompt_id == pid)).first()
+            assert j.status == "error", f"{pid} 应被回收为 error"
+    assert _job(db).status == "queued"  # 新作业不受影响

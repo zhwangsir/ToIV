@@ -130,6 +130,7 @@ function ShotRow({ shot }: { shot: BacklotShot }) {
             src={imageUrl(shot.image_url)}
             alt={desc}
             loading="lazy"
+            decoding="async"
           />
         ) : (
           <div className="bl-shot-thumb-placeholder">
@@ -371,6 +372,7 @@ export function BacklotView() {
                       src={imageUrl(card.thumbnail)}
                       alt={card.title}
                       loading="lazy"
+                      decoding="async"
                     />
                   ) : (
                     <div className="bl-thumb-placeholder">

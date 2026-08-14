@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import get_settings
 from app.db import bootstrap_admin, init_db
-from app.logging_config import setup_logging
+from app.logging_config import redact_token_in_query, setup_logging
 from app.routes import (
     account,
     admin,
@@ -63,6 +63,27 @@ from app.routes import (
     workflows,
     opentalking,
 )
+
+
+# 默认 JWT 密钥前缀(config.py jwt_secret 默认值);生产环境必须显式覆盖
+_DEV_JWT_PREFIX = "dev-insecure"
+
+
+def _jwt_secret_guard(settings) -> None:
+    """生产环境禁用默认 JWT 密钥(P1-12):默认值公开在仓库里,任何人可伪造令牌。
+
+    production + 默认密钥 → ERROR 日志并拒绝启动;非 production → WARNING 提醒。
+    """
+    log = logging.getLogger("toiv.security")
+    if not settings.jwt_secret.startswith(_DEV_JWT_PREFIX):
+        return
+    if settings.environment == "production":
+        log.error(
+            "生产环境(TOIV_ENVIRONMENT=production)仍在使用默认 JWT 密钥,拒绝启动;"
+            "请在 .env 配置 TOIV_JWT_SECRET"
+        )
+        raise RuntimeError("生产环境必须配置 TOIV_JWT_SECRET(当前为仓库默认不安全值)")
+    log.warning("JWT 密钥为仓库默认开发值,仅限本地开发;部署生产必须设置 TOIV_JWT_SECRET")
 
 
 @asynccontextmanager
@@ -118,6 +139,9 @@ def create_app() -> FastAPI:
     # 统一日志配置必须在一切 app 日志之前:此前 root 无 handler,
     # 35 个模块的 INFO 日志在生产被静默丢弃(2026-08-12 真机证实)。
     setup_logging(settings.log_level)
+
+    # JWT 密钥护栏:production 仍用仓库默认密钥 → 拒绝启动(默认密钥等于公开签名钥)
+    _jwt_secret_guard(settings)
 
     # Sentry 错误追踪:仅在配置了 DSN 时初始化。
     # 用 try/except ImportError 包裹 —— sentry-sdk 未装(如精简环境)时跳过,不阻断启动;
@@ -176,6 +200,19 @@ def create_app() -> FastAPI:
         h.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
         if request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https":
             h.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+        return response
+
+    # 应用侧访问日志(P1-12):method + path + 脱敏 query + status 一行 INFO(模块 toiv.access)。
+    # ?token= 是 <img>/EventSource 的 JWT 携带方式,明文落日志等于泄露会话凭据,
+    # 这里统一脱敏为 ***;不替换 uvicorn.access 既有日志(避免过度设计)。
+    @app.middleware("http")
+    async def _access_log_mw(request, call_next):
+        response = await call_next(request)
+        query = redact_token_in_query(request.url.query)
+        target = request.url.path + (f"?{query}" if query else "")
+        logging.getLogger("toiv.access").info(
+            "%s %s %d", request.method, target, response.status_code
+        )
         return response
 
     # 按请求 R18 放行标记(/nsfw 专页带 X-NSFW: 1)→ ContextVar;gate/模型列表据此放行,不动账户开关。

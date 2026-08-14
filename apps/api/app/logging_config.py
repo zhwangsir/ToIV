@@ -18,12 +18,24 @@ uvicorn 自带日志(uvicorn/uvicorn.access,propagate=False)不受影响,访问�
 from __future__ import annotations
 
 import logging
+import re
 import sys
 
 _FORMAT = "%(asctime)s %(levelname)s [%(name)s] %(message)s"
 # 第三方降噪名单:这些库在 INFO 级会高频输出(worker 轮询/WS 连接事件),
 # 异常仍经 WARNING+ 落 journal。
 _QUIET_LOGGERS = ("httpx", "httpcore", "websockets")
+
+# 查询串 token 参数值脱敏(?token= 是 <img>/EventSource 的 JWT 携带方式,
+# 明文落访问日志等于把会话凭据写进 journal)。只脱值,保留参数名便于排查。
+_TOKEN_QS_RE = re.compile(r"(?i)(token=)[^&\s]*")
+
+
+def redact_token_in_query(query: str) -> str:
+    """把查询串里 token 参数的值替换为 ***(其它参数原样保留)。"""
+    if "token=" not in query.lower():
+        return query
+    return _TOKEN_QS_RE.sub(r"\1***", query)
 
 
 def setup_logging(level: str = "INFO") -> None:

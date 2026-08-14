@@ -4,8 +4,8 @@
 异常自动报警,确保 GPU 生成功能每日可用。
 
 设计:
-- 走 ComfyUI-LB(8188)提交真实工作流,复用生产构造器(build_txt2img_graph /
-  build_ltx_t2v_graph),冒烟路径与线上出图路径同码同源。
+- 经 settings.worker_urls[0](生产 pool 首选后端)提交真实工作流,复用生产构造器
+  (build_txt2img_graph / build_ltx_t2v_graph),冒烟路径与线上出图路径同码同源。
 - txt2img_small: SD1.5 底模 512×512 / 8 steps,秒级完成,验证图像链路。
 - ltx_t2v_short:  LTX2.3 文生视频 33 帧(~2s)/ 8 steps,关 upscale/RIFE,验证视频链路。
 - 校验: history 产物非空 + 首个产物字节数 > 0(防 0 字节假成功)。
@@ -209,8 +209,13 @@ async def run_gpu_smoke(
 
 
 def lb_client() -> ComfyUIClient:
-    """ComfyUI-LB 入口(5 后端负载均衡)。冒烟走 LB 与生产同路径。"""
-    return ComfyUIClient("http://192.168.71.127:8188", timeout=60.0)
+    """冒烟 ComfyUI 入口:读 settings.worker_urls[0](生产 pool 首选后端,与线上同路径)。
+
+    不再写死 LB :8188 —— LB 端口/拓扑属部署细节,worker_urls 是唯一事实来源。
+    """
+    from app.config import get_settings
+
+    return ComfyUIClient(get_settings().worker_urls[0], timeout=60.0)
 
 
 async def daily_smoke_loop(

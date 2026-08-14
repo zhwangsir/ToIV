@@ -145,3 +145,88 @@ def test_me_returns_profile_and_usage(client):
     assert body["user"]["email"] == "tester"
     assert body["user"]["role"] == "user"
     assert body["usage"]["total"] == 0
+
+
+# ---------- test-login 通道(密钥换 admin token):限流 + 常量时间比较 ----------
+@pytest.fixture
+def testkey_client(monkeypatch):
+    """开启测试通道(test_key 非空)并播种一个 admin 的客户端。"""
+    from types import SimpleNamespace
+
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+
+    def override() -> Session:
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = override
+    with Session(engine) as s:
+        tenant = Tenant(name="t")
+        s.add(tenant)
+        s.commit()
+        s.refresh(tenant)
+        s.add(
+            User(
+                email="admin",
+                hashed_password=hash_password("x"),
+                tenant_id=tenant.id,
+                role="admin",
+            )
+        )
+        s.commit()
+    # 仅替换 auth 路由模块内的 get_settings(测试通道开关),不影响全局配置
+    fake = SimpleNamespace(test_key="secret-test-key", admin_email="admin")
+    monkeypatch.setattr("app.routes.auth.get_settings", lambda: fake)
+    yield TestClient(app)
+    app.dependency_overrides.clear()
+
+
+def test_test_login_disabled_404(client, monkeypatch):
+    """test_key 为空时通道关闭,404 不暴露端点存在性(本地 .env 默认非空,须显式关闭)。"""
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        "app.routes.auth.get_settings",
+        lambda: SimpleNamespace(test_key="", admin_email=""),
+    )
+    r = client.post("/api/auth/test-login", json={"key": "whatever"})
+    assert r.status_code == 404
+
+
+def test_test_login_correct_key_returns_admin_token(testkey_client):
+    r = testkey_client.post("/api/auth/test-login", json={"key": "secret-test-key"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["token"]
+    assert body["user"]["role"] == "admin"
+
+
+def test_test_login_wrong_key_rate_limited(testkey_client):
+    """连续错误密钥:前 5 次 403,第 6 次触发 login scope(60s/5 次)限流 429。"""
+    for i in range(5):
+        r = testkey_client.post("/api/auth/test-login", json={"key": "wrong"})
+        assert r.status_code == 403, f"第 {i + 1} 次应 403 而非 {r.status_code}"
+    r = testkey_client.post("/api/auth/test-login", json={"key": "wrong"})
+    assert r.status_code == 429
+    assert "Retry-After" in r.headers
+
+
+def test_test_login_rate_limit_isolated_by_ip(testkey_client):
+    """限流主体为 IP+端点:换来源 IP 后正确密钥仍可 200(不受上个用例/本用例旧计数影响)。"""
+    for _ in range(6):
+        testkey_client.post(
+            "/api/auth/test-login",
+            json={"key": "wrong"},
+            headers={"X-Forwarded-For": "203.0.113.9"},
+        )
+    r = testkey_client.post(
+        "/api/auth/test-login",
+        json={"key": "secret-test-key"},
+        headers={"X-Forwarded-For": "203.0.113.10"},
+    )
+    assert r.status_code == 200

@@ -13,7 +13,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import main
-from app.logging_config import _QUIET_LOGGERS, setup_logging
+from app.logging_config import _QUIET_LOGGERS, redact_token_in_query, setup_logging
 
 
 @pytest.fixture
@@ -89,3 +89,35 @@ def test_http_exception_not_hijacked_by_global_handler():
     r = client.get("/api/definitely-not-exists")
     assert r.status_code == 404
     assert r.json() == {"detail": "Not Found"}
+
+
+# ── access log 查询串 token 脱敏(P1-12) ──────────────────────────────
+
+
+def test_redact_token_in_query():
+    """token 值脱敏为 ***;大小写不敏感;其它参数原样保留。"""
+    assert redact_token_in_query("token=abc.def.ghi") == "token=***"
+    assert redact_token_in_query("a=1&token=secret&b=2") == "a=1&token=***&b=2"
+    assert redact_token_in_query("TOKEN=Secret") == "TOKEN=***"
+    assert redact_token_in_query("a=1&b=2") == "a=1&b=2"
+    assert redact_token_in_query("") == ""
+
+
+def test_access_log_middleware_redacts_token(caplog):
+    """?token= 明文 JWT 不得落 toiv.access 访问日志;路径/状态码照常记录。"""
+    client = TestClient(main.app)
+    with caplog.at_level(logging.INFO, logger="toiv.access"):
+        r = client.get("/api/health?token=supersecretjwt&x=1")
+    assert r.status_code == 200
+    access = [rec.getMessage() for rec in caplog.records if rec.name == "toiv.access"]
+    assert any("GET /api/health?token=***&x=1 200" in m for m in access), access
+    assert all("supersecretjwt" not in m for m in access)
+
+
+def test_access_log_middleware_without_query(caplog):
+    """无查询串时只记 method+path+status。"""
+    client = TestClient(main.app)
+    with caplog.at_level(logging.INFO, logger="toiv.access"):
+        client.get("/api/health")
+    access = [rec.getMessage() for rec in caplog.records if rec.name == "toiv.access"]
+    assert any("GET /api/health 200" in m for m in access), access

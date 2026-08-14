@@ -82,6 +82,11 @@ class Settings(BaseSettings):
     cors_origins: str = "https://toiv.dgmt.top,http://192.168.71.47:3100,http://192.168.71.47:3101,http://127.0.0.1:3100,http://localhost:3100,http://127.0.0.1:3101,http://localhost:3101"
     request_timeout: float = 30.0
 
+    # 作业追踪(tracker)单作业轮询 /history 上限(秒):超时标记 error 终态回收,
+    # 不再让作业永留 queued。默认 2h,覆盖 LongCat 65min 长视频作业;
+    # reconcile 超龄回收阈值 = 本值 + 1800s 宽限(见 comfy/tracker.reconcile_pending)。
+    job_track_timeout: float = 7200.0
+
     # Redis(限流/画布事件/worker 健康缓存共享状态)。生产 core 与 toiv-api 同机,
     # 仅监听 localhost 无密码。不可达时各调用方自动降级进程内存(见 services/redis_client.py)。
     redis_url: str = "redis://127.0.0.1:6379/0"
@@ -156,8 +161,9 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     # —— 视频质量评估 VLM(video scorer)——
-    # workstation(192.168.71.127:8000, GPU3)上 Nemotron-3-Nano-Omni-30B-A3R 全模态 VLM,
-    # served-model-name=qwen3.6-uncensored(向后兼容别名),OpenAI 兼容 API,支持视频/图像/音频输入。
+    # ⚠️ 默认值是历史遗留:workstation Nemotron-3-Nano-Omni-30B-A3R vLLM(:8000, GPU3)
+    # 已于 2026-08-05 停用;生产必须由 .env 的 TOIV_VLM_SERVER_URL 指向当前可用 VLM
+    # (OpenAI 兼容端点,支持视频/图像/音频输入)。
     # 启用后:视频作业完成时(done 之前)异步评估,低分则推 SSE quality_warning 事件。
     # 评估失败/超时/全 0 一律降级(degraded=True),不阻塞主流程、不推 warning。
     vlm_server_url: str = "http://192.168.71.127:8000"
@@ -169,8 +175,9 @@ class Settings(BaseSettings):
     video_scorer_threshold: float = 0.65
 
     # —— 反推提示词(reverse prompt):上传图/视频/音频 → 反推出可复用提示词 ——
-    # 视觉统一走 Qwen3-VL-8B OpenAI 兼容服务:生产为 studio04 MLX bf16(:9303,.env 覆盖),
-    # 默认值为 workstation GPU3 toiv-vlm(停而不删的回退实例)。
+    # 生产 SFW 反推(图+全部视频)= studio04 mlx-vlm Qwen2.5-VL-72B-Instruct-4bit
+    # (192.168.71.113:9303,2026-08-09 起,.env TOIV_REVERSE_VLM_BASE_URL 覆盖);
+    # 默认值 :9303 为 workstation GPU3 toiv-vlm 停而不删的热回退实例。
     # 图像走 image_url、视频走 video_url(base64 data URL 或 NAS 中转本地路径)。
     reverse_vlm_base_url: str = "http://192.168.71.127:9303/v1"
     # NSFW 图像反推专线:JoyCaption Beta One bf16(toiv-joycaption.service, GPU3, :9304)。

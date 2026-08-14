@@ -141,3 +141,17 @@ def test_history_appends_across_runs(report_dir):
     assert len(lines) == 2
     latest = json.loads((report_dir / "gpu_smoke_latest.json").read_text())
     assert latest["ok"] is False
+
+
+def test_lb_client_reads_worker_urls_first(monkeypatch):
+    """P1-23:lb_client 不再写死 LB :8188,改读 settings.worker_urls[0]。"""
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        "app.config.get_settings",
+        lambda: SimpleNamespace(
+            worker_urls=["http://fake-worker-0:8189", "http://fake-worker-1:8188"]
+        ),
+    )
+    client = gpu_smoke.lb_client()
+    assert client.base_url == "http://fake-worker-0:8189"

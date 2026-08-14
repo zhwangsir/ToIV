@@ -3,7 +3,15 @@
 import { useEffect, useState } from "react";
 
 import { Icon } from "@/components/ui/Icon";
-import { applyTheme, getCurrentTheme, THEMES, type ThemeId } from "@/lib/theme";
+import { useCrossTabSync } from "@/lib/crossTab";
+import {
+  applyTheme,
+  applyThemeDataset,
+  getCurrentTheme,
+  THEME_STORAGE_KEY,
+  THEMES,
+  type ThemeId,
+} from "@/lib/theme";
 
 /**
  * 主题五色行:每主题一个 accent+surface 双色圆点 + 名称,当前主题打勾。
@@ -18,6 +26,15 @@ export function ThemePicker() {
   useEffect(() => {
     setCurrent(getCurrentTheme());
   }, []);
+
+  // P1-8 跨标签页同步:他页切换主题 → 本页即时跟随(只写 DOM,不回写
+  // localStorage——他页已写过,回写无意义且可能在多页间形成事件乒乓)
+  useCrossTabSync(THEME_STORAGE_KEY, (newValue) => {
+    const hit = THEMES.find((x) => x.id === newValue);
+    const id: ThemeId = hit ? hit.id : "paper";
+    applyThemeDataset(id);
+    setCurrent(id); // 值相同 React 自动跳过重渲染,无需手动去重
+  });
 
   const select = (id: ThemeId) => {
     setCurrent(id);

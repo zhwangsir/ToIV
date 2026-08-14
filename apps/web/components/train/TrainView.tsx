@@ -892,7 +892,12 @@ function TrainCard({
                 target="_blank"
                 rel="noreferrer"
               >
-                <img src={imageUrl(url)} alt={`样本 ${i + 1}`} loading="lazy" />
+                <img
+                  src={imageUrl(url)}
+                  alt={`样本 ${i + 1}`}
+                  loading="lazy"
+                  decoding="async"
+                />
               </a>
             ))}
           </div>

@@ -2,6 +2,53 @@
 
 ---
 
+## M12-2026-08-14 · 上轮遗留 P0/P1/P2 全量修复(6 Agent 团队并行)
+
+**时间**: 2026-08-14
+**类型**: 安全加固 + 质量里程碑(用户交接项目时给出的上轮评审清单,25 项)
+
+### P0 — 安全/数据正确性(7 项全修)
+
+| # | 问题 | 修复 | 测试 |
+|---|---|---|---|
+| 1 | workflows.py 全组零认证 + `settings.comfy_worker_urls` 不存在(必 500)+ template_id `..` 穿越 | 三端点认证(templates/download=user, deploy=admin);改 `settings.worker_urls`;`^[A-Za-z0-9_-]{1,64}$` 白名单 | test_workflows.py 11 例 |
+| 2 | drama_analytics.py 全组无认证(埋点可伪造/metrics 可偷看/视频路径穿越) | event 用 token user.id 覆盖上报值;session metrics 仅属主/admin;summary 仅 admin;video 认证+drama_id 白名单 | +8 例 |
+| 3 | images.py IDOR(顺序文件名枚举他人产物) | `tracker.image_url` 追加 sig(HMAC-SHA256[:24],key 派生 jwt_secret);校验端 sig 直通 / 无 sig 走 Job 归属回退(user/tenant) / admin 直通,其余 404;Cache-Control→private | +8 例 |
+| 4 | auth.py test-login 无限流可爆破、明文比较 | `enforce_subject_rate_limit(ip\|test-login, login scope 60s/5)`;hmac.compare_digest | +4 例 |
+| 5 | tracker.py 孤儿作业永 queued + reconcile 反复重挂僵尸 | `client.get_queue()`;/queue+/history 双无连击 2 次标 error(首检推迟 30s 防误杀);`TOIV_JOB_TRACK_TIMEOUT=7200`(覆盖 LongCat 65min,P1-13 一并修);超时标 error 终态;reconcile 跳过并回收超龄僵尸 | +8 例 |
+| 6 | useStudioProject withBusy 只 finally 不 catch(失焦保存失败用户不知) | withBusy catch 写 error+rethrow;saveShots 失败不 refresh 覆盖本地编辑;clearError();StudioView 可关闭错误条 | node:test 10/10 |
+| 7 | trackJob SSE 断线零重连(弱网抖动误报失败) | 状态机:业务 error(带 data)立即 reject;网络断线指数退避重连 5 次;仍败降级轮询 /api/jobs 对账(查不到=仍在跑,绝不误判);35min 总超时 | 同上 |
+
+### P1 — 后端(8 项)
+
+- **跨标签页孤岛**(前端):`lib/crossTab.ts` useCrossTabSync 接入 R18(r18.ts)/主题(theme.ts)/登录态(page.tsx);他页切 R18 本页同步+缓存失效,他页登出本页立即回落登录页
+- **Job 零索引**:`prompt_id`/`status`/`created_at` index=True + db.py 4 条幂等 CREATE INDEX(含 status+created_at 复合,reconcile 300s 全表扫终结)
+- **迁移吞异常**:db.py 两处 `except: pass` 补 warning 日志(语句前 40 字符+异常),幂等语义不变
+- **限流覆盖**:upload(scope 已定义未接线)/reverse(50MB 视频反推)/nas.download/opentalking 6 写端点全部接线;ratelimit 补 `reverse 5/download 10/opentalking 10` 三 scope
+- **JWT**:production + 默认 secret → ERROR+拒启动;新增 toiv.access 中间件,`?token=` 脱敏为 `***`
+- **图片裸奔**:LazyVideo 组件(preload none,IO 200px 提前量)接入作品库 60 视频卡(首屏 60 Range 请求归零)+ResultPanel;全站 `<img>` 补 lazy+decoding=async
+- **陈旧硬编码**:gpu_smoke :8188→`worker_urls[0]`;scoring VLM 默认走 settings;system.py GPU3 注释修正
+- **Studio 长任务无进度(P1-15)**:留待 R3 任务卡片范式一并解决(本期已修错误透出)
+
+### P2 — 测试/工程效能
+
+- 新建 test_video.py(17 例,NSFW 视频主链 4 端点)/test_jobs_events.py(4 例,SSE 含防竞态 done 直推)/test_generate_endpoints.py(11 例)
+- `.github/workflows/ci.yml`:changes 路径过滤 → api-tests(py3.12 最小依赖集)/web-check(node20 tsc)
+- roadmap 追加第八节实证:LTX-2.5 精确轨迹+静态背景弱于 H3(选型路由结论);H3 17k+5 网格无法命中整秒(10s→226 帧 9.42s)
+- **连带修复**:video.py `_submit_ltx_job` pool.pick 抛 ComfyUIError 未捕获会 500 → 包 try/except 转 503(Team E 测试实证)
+
+### 回归
+
+- **pytest 1433 passed**(基线 1339 + 净增 94;3 例限流测试因 scope 从 default 20 收紧为 5/10/10 预填超额,已改按真实配额填充)
+- apps/web node:test 10/10;`tsc --noEmit` ✅;`next build` ✅
+- 行为变化备忘:无 sig 且无归属记录的旧 /api/images 链接将 404(agent/tools.py 手写 URL 走归属回退兼容)
+
+### 调研产出(Team F)
+
+`docs/2026-08-14-competitive-r3-r5-deep-dive.md`(540 行):Mavis 三角色官方名 Leader/Worker/Verifier(修正上轮 Owner);「计划可见」已升级行业标配(Manus Plan Mode 07-22/Skywork 断点续跑),差异化转向 GPU 队列透明+evals 机验;LangGraph 维持终判(PostgresSaver 复用 core PG18);评委 pointwise→pairwise+Elo(GenArena 实证开源 VLM 评委换协议 Spearman 0.36→0.86,利好自托管 Qwen2.5-VL-72B);R3 落地设计(Director Gate L0/L1/L2 分级 + 4 新表 + 9 端点草案 + 任务卡片组件树 + drama_studio 零重写迁移三步走)。
+
+---
+
 ## LTX25-2026-08-13 · LTX-2.5 引擎接入替换 SFW LTX-2.3(音画同出)+ 真机 e2e
 
 **时间**: 2026-08-13

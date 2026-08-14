@@ -313,7 +313,12 @@ async def _submit_ltx_job(
         pool: WorkerPool = get_pool()
         node_set = required_nodes(kind)
         model_set = required_models(kind)
-        picked = await pool.pick(required=model_set, required_nodes=node_set)
+        # pool.pick 无可用 worker 时抛 ComfyUIError(从不返回 None),须捕获转 503,
+        # 否则冒泡成 500(2026-08-14 Team E 测试实证,对齐 generate.py 写法)
+        try:
+            picked = await pool.pick(required=model_set, required_nodes=node_set)
+        except ComfyUIError as e:
+            raise HTTPException(status_code=503, detail=f"无可用 worker(缺 LTX 模型或节点): {e}") from e
         if picked is None:
             raise HTTPException(status_code=503, detail="无可用 worker(缺 LTX 模型或节点)")
         client = picked

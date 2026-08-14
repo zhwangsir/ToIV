@@ -350,7 +350,13 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
               {image ? (
                 <div className="at-gen-file">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={image.previewUrl} alt={image.name} className="at-gen-file-thumb" />
+                  <img
+                    src={image.previewUrl}
+                    alt={image.name}
+                    className="at-gen-file-thumb"
+                    loading="lazy"
+                    decoding="async"
+                  />
                   <span className="at-gen-file-name" title={image.name}>
                     {image.name}
                   </span>

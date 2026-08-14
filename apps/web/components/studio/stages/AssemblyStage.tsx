@@ -30,7 +30,11 @@ export function AssemblyStage({
           className="btn btn-primary btn-sm"
           disabled={assembling || ready.length === 0}
           title={ready.length < d.shots.length ? "存在未就绪分镜,将仅拼接就绪片段" : ""}
-          onClick={() => void project.assemble()}
+          onClick={() =>
+            void project.assemble().catch(() => {
+              /* 错误已由 hook error 提示条透出 */
+            })
+          }
         >
           <Icon name={assembling ? "loading" : "film"} size={13} />
           {assembling ? "合成中…" : "合成成片"}

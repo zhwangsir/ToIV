@@ -7,6 +7,7 @@ import { ENGINE_DRAFT_KEY } from "@/lib/engine";
 import { useR18Mode } from "@/lib/r18";
 import type { JobItem } from "@/lib/types";
 import { Icon } from "@/components/ui/Icon";
+import { LazyVideo } from "@/components/ui/LazyVideo";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
@@ -237,6 +238,7 @@ function ImageThumb({ job, blurred = false }: { job: JobItem; blurred?: boolean 
       src={imageUrl(job.results[0])}
       alt={job.prompt}
       loading="lazy"
+      decoding="async"
       onError={() => setFailed(true)}
       /* R18 模糊卡(M9):缩略图默认模糊,点击可解除/恢复(点击事件冒泡到外层按钮) */
       style={
@@ -644,12 +646,13 @@ export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
                     >
                     {hasResult ? (
                       isVideo ? (
-                        <video
+                        // P1-14:LazyVideo 初始 preload="none",进视口/悬停才拉首帧,
+                        // 避免作品库首屏几十张视频卡同时发 Range 请求
+                        <LazyVideo
                           src={imageUrl(job.results[0])}
                           muted
                           loop
                           playsInline
-                          preload="metadata"
                           style={
                             isBlurred
                               ? {
@@ -1060,7 +1063,13 @@ function LibraryLightbox({
               <audio src={mediaUrl} controls autoPlay />
             </div>
           ) : (
-            <img className="lib-lb-media" src={mediaUrl} alt={job.prompt} />
+            <img
+              className="lib-lb-media"
+              src={mediaUrl}
+              alt={job.prompt}
+              loading="lazy"
+              decoding="async"
+            />
           )
         ) : (
           <div className="lib-lb-placeholder">

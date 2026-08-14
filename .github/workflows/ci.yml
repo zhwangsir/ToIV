@@ -1,0 +1,81 @@
+# ToIV CI —— API 测试 + Web 类型检查
+#
+# 设计要点:
+#   · push/PR 到 main 触发;changes job 用 paths-filter 按变更路径分发,
+#     apps/api/** 变更只跑 api-tests,apps/web/** 变更只跑 web-check。
+#   · api-tests 装**最小依赖集**而非完整 requirements.txt:
+#     requirements 含 faster-whisper/psycopg 等重依赖(CI 装不动/没必要),
+#     且 app 内重依赖(paramiko/sentry/prometheus/whisper)均为惰性或守护导入。
+#     清单以 tests/conftest.py 的 import 链 + 全量 tests 的模块级 import 为准,
+#     新增依赖时若 CI 报 ModuleNotFoundError 请同步此处。
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # 变更路径探测:输出 api/web 两个布尔,供下游 job 条件执行
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # paths-filter 在 push 事件需比对 before 提交
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            api:
+              - "apps/api/**"
+              - ".github/workflows/ci.yml"
+            web:
+              - "apps/web/**"
+              - ".github/workflows/ci.yml"
+
+  api-tests:
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: apps/api/requirements.txt
+      - name: Install minimal test deps
+        run: |
+          pip install \
+            fastapi httpx websockets sse-starlette \
+            pydantic-settings python-dotenv sqlmodel pyjwt python-multipart \
+            pillow redis paramiko pypdf python-docx \
+            pytest pytest-asyncio "fakeredis[lua]"
+      - name: Run API tests
+        run: python -m pytest tests -q
+
+  web-check:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      # package.json 无 test 脚本;类型检查即门槛
+      - run: npx tsc --noEmit

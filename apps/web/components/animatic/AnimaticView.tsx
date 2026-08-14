@@ -289,7 +289,13 @@ export function AnimaticView({
             <li key={it.id} className="anim-card">
               <div className="anim-thumb-wrap">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={it.preview} alt={it.file.name} className="anim-thumb" />
+                <img
+                  src={it.preview}
+                  alt={it.file.name}
+                  className="anim-thumb"
+                  loading="lazy"
+                  decoding="async"
+                />
                 <span className="anim-idx">{idx + 1}</span>
               </div>
               <div className="anim-card-name" title={it.file.name}>

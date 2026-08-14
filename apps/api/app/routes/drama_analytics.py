@@ -8,6 +8,7 @@ GET  /api/drama/video/{drama_id}.mp4        短剧视频静态文件代理
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -19,10 +20,15 @@ from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.models import DramaEvent, DramaSession
+from app.deps import get_current_admin, get_current_user
+from app.models import DramaEvent, DramaSession, User
 from app.storage import drama_output_root
 
 router = APIRouter()
+
+# drama_id 白名单:只含字母数字/下划线/连字符且 ≤128 字符,
+# 防 drama_id 含 ".." 等片段参与文件路径拼接(路径穿越)
+_DRAMA_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 
 
 # ────────────────────────────────
@@ -190,17 +196,22 @@ def _update_session_from_events(sess: DramaSession, events: list[FrontendEvent])
 async def ingest_events(
     req: EventBatchRequest,
     db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
 ) -> EventBatchResponse:
-    """批量写入事件;幂等(event_id 唯一)。"""
+    """批量写入事件;幂等(event_id 唯一)。
+
+    user_id 一律以 token 中的可信身份为准(覆盖客户端上报值),防伪造他人埋点。
+    """
     if not req.events:
         raise HTTPException(status_code=400, detail="events empty")
 
+    uid = user.id  # 服务端可信身份,session 与 event 都写覆盖后的值
     # 取第一条事件定位 session(同批应属同一会话)
     first = req.events[0]
     session = _get_or_create_session(
         db,
         first.session_id,
-        first.user_id,
+        uid,
         first.drama_id,
         req.video_url,
         req.device,
@@ -219,7 +230,7 @@ async def ingest_events(
             DramaEvent(
                 event_id=ev.event_id,
                 session_id=ev.session_id,
-                user_id=ev.user_id,
+                user_id=uid,
                 drama_id=ev.drama_id,
                 event_type=ev.event_type,
                 current_time=ev.current_time,
@@ -241,10 +252,12 @@ async def ingest_events(
 async def session_metrics(
     session_id: str,
     db: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
-    """单个会话的实时指标。"""
+    """单个会话的实时指标(仅会话属主或 admin 可见)。"""
     sess = db.get(DramaSession, session_id)
-    if sess is None:
+    # 不存在与非属主统一 404,不泄露会话存在性
+    if sess is None or (sess.user_id != user.id and user.role != "admin"):
         raise HTTPException(status_code=404, detail="session not found")
 
     events = db.exec(
@@ -271,6 +284,7 @@ async def session_metrics(
 async def drama_summary(
     drama_id: str,
     db: Session = Depends(get_session),
+    admin: User = Depends(get_current_admin),  # 全剧聚合商业数据,仅 admin
 ) -> DramaMetrics:
     """全剧聚合指标。"""
     sessions = db.exec(
@@ -409,8 +423,14 @@ async def drama_summary(
 
 
 @router.get("/drama/video/{drama_id}.mp4", response_model=None)
-async def drama_video(drama_id: str, request: Request) -> FileResponse | StreamingResponse:
+async def drama_video(
+    drama_id: str,
+    request: Request,
+    user: User = Depends(get_current_user),  # <video> 无法带 header,走 ?token= 查询参数
+) -> FileResponse | StreamingResponse:
     """代理本地成片 MP4,支持 range 请求。"""
+    if not _DRAMA_ID_RE.fullmatch(drama_id):
+        raise HTTPException(status_code=400, detail="非法的 drama_id")
     path = _drama_video_path(drama_id)
     if path is None:
         raise HTTPException(status_code=404, detail="video not found")

@@ -169,7 +169,19 @@ export function StudioView() {
         </div>
       </nav>
 
-      {project.error && <p className="studio-error">{project.error}</p>}
+      {project.error && (
+        <p className="studio-error studio-error-bar" role="alert">
+          <span className="studio-error-text">{project.error}</span>
+          <button
+            type="button"
+            className="studio-error-close"
+            aria-label="关闭错误提示"
+            onClick={project.clearError}
+          >
+            <Icon name="close" size={12} />
+          </button>
+        </p>
+      )}
       {project.loading && !d ? (
         <div className="empty-state">
           <div className="empty-state-icon">
@@ -224,6 +236,33 @@ function StudioStyles() {
         border: 1px solid var(--border-subtle);
         border-radius: var(--radius-control);
         padding: var(--space-2) var(--space-3);
+      }
+      /* 可关闭的操作级错误提示条(hook error) */
+      .studio-error-bar {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+      }
+      .studio-error-text {
+        flex: 1;
+        min-width: 0;
+      }
+      .studio-error-close {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        flex-shrink: 0;
+        color: var(--err);
+        background: none;
+        border: none;
+        border-radius: var(--radius-control);
+        cursor: pointer;
+        transition: background-color var(--duration-fast) var(--ease-standard);
+      }
+      .studio-error-close:hover {
+        background: var(--bg-surface-2);
       }
 
       /* ── 项目列表:大行高卡片式,hover 升浮 ── */
@@ -815,6 +854,7 @@ function StudioStyles() {
         .studio-shot,
         .studio-char,
         .studio-back,
+        .studio-error-close,
         .studio-shot-del,
         .studio-shot-mode button,
         .studio-shot-adv-toggle {

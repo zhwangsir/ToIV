@@ -12,6 +12,7 @@ from app.comfy.client import ComfyUIError
 from app.comfy.pool import WorkerPool
 from app.deps import get_current_user, get_pool, resolve_worker
 from app.models import User
+from app.ratelimit import enforce_rate_limit
 
 router = APIRouter()
 
@@ -102,6 +103,8 @@ async def upload_image(
     pool: WorkerPool = Depends(get_pool),
     user: User = Depends(get_current_user),
 ):
+    # 上传限流(60s/10 次,scope="upload" 已在 ratelimit 定义);在读文件/落 worker 前拦截
+    enforce_rate_limit(user, scope="upload")
     content = await image.read()
     if not content:
         raise HTTPException(status_code=400, detail="空文件")

@@ -45,8 +45,11 @@ export function StoryboardStage({
 
   const shots = d.shots;
 
-  /** 全量保存:以 shots 为基线应用变更。 */
-  const commit = (next: StudioShotInput[]) => void project.saveShots(next);
+  /** 全量保存:以 shots 为基线应用变更。失败由 hook error 提示条透出,此处吞掉重抛防 unhandled rejection。 */
+  const commit = (next: StudioShotInput[]) =>
+    void project.saveShots(next).catch(() => {
+      /* 错误已由 hook error 提示条透出 */
+    });
 
   const patchShot = (sid: string, fields: Partial<StudioShotInput>) =>
     commit(shots.map((s) => (s.id === sid ? { ...toInput(s), ...fields } : toInput(s))));
@@ -78,7 +81,11 @@ export function StoryboardStage({
             type="button"
             className="btn btn-primary btn-sm"
             disabled={renderingAll || shots.length === 0}
-            onClick={() => void project.renderAll()}
+            onClick={() =>
+              void project.renderAll().catch(() => {
+                /* 错误已由 hook error 提示条透出 */
+              })
+            }
           >
             <Icon name={renderingAll ? "loading" : "playing"} size={13} />
             {renderingAll ? `批量生成中 ${renderedCount}/${shots.length}` : "全部生成"}
@@ -106,9 +113,21 @@ export function StoryboardStage({
               busyLipsync={Boolean(project.busy[`lipsync:${s.id}`])}
               onModeChange={(mode: StudioRenderMode) => patchShot(s.id, { render_mode: mode })}
               onPatch={(fields) => patchShot(s.id, fields)}
-              onRender={() => void project.renderShot(s.id)}
-              onVoice={() => void project.voiceShot(s.id)}
-              onLipsync={() => void project.lipsyncShot(s.id)}
+              onRender={() =>
+                void project.renderShot(s.id).catch(() => {
+                  /* 错误已由 hook error 提示条透出 */
+                })
+              }
+              onVoice={() =>
+                void project.voiceShot(s.id).catch(() => {
+                  /* 错误已由 hook error 提示条透出 */
+                })
+              }
+              onLipsync={() =>
+                void project.lipsyncShot(s.id).catch(() => {
+                  /* 错误已由 hook error 提示条透出 */
+                })
+              }
               onDelete={() => deleteShot(s.id)}
             />
           ))}

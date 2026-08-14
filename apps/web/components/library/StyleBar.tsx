@@ -45,6 +45,7 @@ export function StyleBar({ cards, onApply, onDelete }: StyleBarProps) {
                   src={c.thumb}
                   alt=""
                   loading="lazy"
+                  decoding="async"
                 />
               ) : (
                 <span

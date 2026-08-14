@@ -12,13 +12,18 @@ ComfyUIClient 底层经模块级 AsyncClient 连接池(client.py)复用连接,
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import hmac
 import json
 import logging
+import time
+from datetime import datetime, timezone
 from urllib.parse import urlencode
 
 from sqlmodel import Session, select
 
 from app.comfy.client import ComfyUIClient, ComfyUIError
+from app.config import get_settings
 from app.db import engine
 from app.models import Job
 
@@ -29,16 +34,42 @@ _tasks: set[asyncio.Task] = set()
 # 正在追踪的 prompt_id(spawn 按此幂等,避免同一作业被重复挂多个追踪)
 _tracked: set[str] = set()
 
-# 单作业追踪上限(视频可能跑数分钟)
-_TRACK_TIMEOUT = 1800.0  # 30 分钟(Wan i2v 14B 单片可达 5-6 分钟,留足余量)
 _POLL_START = 2.0
 _POLL_MAX = 8.0
 # 启动后 + 周期性 reconcile 间隔:重挂仍未终态作业的追踪(防 api 重启孤儿化)
 _RECONCILE_INTERVAL = 300.0
+# 孤儿检测的 /queue 查询间隔:每轮都查太浪费,~30s 一次足够捕捉 worker 重启
+_QUEUE_CHECK_INTERVAL = 30.0
+# 连续多少次「queue 与 history 均无此作业」才认定 worker 重启丢作业(防单次抖动误杀)
+_ORPHAN_STRIKES = 2
+# reconcile 超龄回收在追踪超时之上再留的宽限(刚超时作业的标 error 由 _track 自己完成)
+_RECONCILE_GRACE = 1800.0
+
+
+def image_sig(filename: str, subfolder: str, type_: str, worker: str) -> str:
+    """产物代理 URL 签名(HMAC-SHA256 截断 24 hex):签名即能力,持 URL 即可取产物。
+
+    口径必须与 /api/images 校验端一致:subfolder 缺省 ""、type 缺省 "output",
+    且对未编码的原始参数值签名(查询参数解码后校验端得到同一字符串)。
+    """
+    key = f"toiv-img:{get_settings().jwt_secret}".encode()
+    msg = f"{filename}|{subfolder}|{type_}|{worker}".encode()
+    return hmac.new(key, msg, hashlib.sha256).hexdigest()[:24]
 
 
 def image_url(worker: str, image: dict) -> str:
-    return f"/api/images?{urlencode({**image, 'worker': worker})}"
+    # 规范化缺省口径与校验端一致;sig 覆盖全部定位参数,防 IDOR 枚举他人产物
+    filename = image["filename"]
+    subfolder = image.get("subfolder", "")
+    type_ = image.get("type", "output")
+    params = {
+        "filename": filename,
+        "subfolder": subfolder,
+        "type": type_,
+        "worker": worker,
+        "sig": image_sig(filename, subfolder, type_, worker),
+    }
+    return f"/api/images?{urlencode(params)}"
 
 
 def mark_status(prompt_id: str, status: str) -> None:
@@ -106,20 +137,80 @@ async def _poll_once(client: ComfyUIClient, prompt_id: str) -> str | None:
     return None
 
 
-async def _track(client: ComfyUIClient, prompt_id: str) -> None:
-    """轮询 history 直到完成/出错/超时,把结果落库(独立于任何客户端连接)。"""
+async def _orphan_check(client: ComfyUIClient, prompt_id: str) -> bool:
+    """孤儿检测:/queue 与 /history 均无此 prompt_id → True(疑似 worker 重启丢作业)。
+
+    worker 不可达(ComfyUIError)返回 False:网络抖动 ≠ 孤儿,保持现有重试节奏。
+    """
+    get_queue = getattr(client, "get_queue", None)
+    if get_queue is None:
+        return False  # 无 /queue 能力的替身(测试假 client)不做孤儿判定
+    try:
+        queued = await get_queue()
+    except ComfyUIError:
+        return False
+    if prompt_id in queued:
+        return False
+    # /queue 可达不代表本轮 history 查过(history 查询可能刚失败),这里独立确认
+    try:
+        history = await client.get_history(prompt_id)
+    except ComfyUIError:
+        return False
+    return prompt_id not in history
+
+
+async def _track(
+    client: ComfyUIClient,
+    prompt_id: str,
+    timeout: float | None = None,
+) -> None:
+    """轮询 history 直到完成/出错/孤儿/超时,把结果落库(独立于任何客户端连接)。
+
+    - 孤儿回收:worker 重启会丢队列作业,连续 _ORPHAN_STRIKES 次确认后标 error 终态;
+    - 超时(默认 settings.job_track_timeout,2h 覆盖 LongCat 65min 作业)到达时
+      同样标 error 终态回收,不再让作业永远停在 queued 空转。
+    """
+    if timeout is None:
+        timeout = get_settings().job_track_timeout
     delay, waited = _POLL_START, 0.0
-    while waited < _TRACK_TIMEOUT:
+    strikes = 0
+    # 首次孤儿检测推迟一个间隔:刚提交的作业可能尚未进入 worker /queue,避免误记 strike
+    last_queue_check = time.monotonic()
+    while waited < timeout:
         try:
             outcome = await _poll_once(client, prompt_id)
             if outcome is not None:
                 return
         except Exception as e:  # noqa: BLE001 — 后台任务绝不能因意外冒泡而静默死掉
             logger.warning("job tracker %s poll error: %s", prompt_id, e)
+        now = time.monotonic()
+        if now - last_queue_check >= _QUEUE_CHECK_INTERVAL:
+            last_queue_check = now
+            try:
+                orphan = await _orphan_check(client, prompt_id)
+            except Exception as e:  # noqa: BLE001 — 检测本身失败不误杀,下轮再试
+                logger.warning("job tracker %s orphan check error: %s", prompt_id, e)
+                orphan = False
+            if orphan:
+                strikes += 1
+                if strikes >= _ORPHAN_STRIKES:
+                    logger.warning(
+                        "job tracker %s: 连续 %d 次 queue/history 均无此作业,"
+                        "按 worker 重启丢失回收为 error",
+                        prompt_id,
+                        strikes,
+                    )
+                    mark_status(prompt_id, "error")
+                    return
+            else:
+                strikes = 0
         await asyncio.sleep(delay)
         waited += delay
         delay = min(delay * 1.4, _POLL_MAX)
-    logger.warning("job tracker %s timed out after %.0fs", prompt_id, _TRACK_TIMEOUT)
+    logger.warning(
+        "job tracker %s timed out after %.0fs, 标记 error 终态回收", prompt_id, timeout
+    )
+    mark_status(prompt_id, "error")
 
 
 def spawn(client: ComfyUIClient, prompt_id: str) -> None:
@@ -146,15 +237,39 @@ def reconcile_pending() -> int:
     内存追踪任务在 api 进程重启后会全部丢失 → 那些长视频作业会永远停在 "queued"。
     本函数在启动时 + 周期性调用,把它们重新接上(spawn 幂等,不会重复)。
     需在已有事件循环的上下文调用(spawn 内用 create_task)。返回重挂数量。
-    """
-    from app.config import get_settings
 
-    timeout = get_settings().request_timeout
+    超龄回收:created_at 超过 job_track_timeout + 宽限 的作业,其追踪协程早已
+    超时退出(或历经多次 api 重启),重挂只会再空转一个超时周期 —— 直接标 error
+    终态回收,不再 spawn。
+    """
+    settings = get_settings()
+    timeout = settings.request_timeout
+    max_age = settings.job_track_timeout + _RECONCILE_GRACE
+    now = datetime.now(timezone.utc)
     with Session(engine) as session:
         rows = session.exec(
             select(Job).where(Job.status.in_(("queued", "running")))  # type: ignore[attr-defined]
         ).all()
-        pending = [(j.prompt_id, j.worker) for j in rows if j.prompt_id and j.worker]
+        pending: list[tuple[str, str]] = []
+        stale: list[str] = []
+        for j in rows:
+            if not j.prompt_id or not j.worker:
+                continue
+            created = j.created_at
+            if created is not None:
+                # SQLite 读出为 naive datetime,按 UTC 解释(写入侧即 UTC)
+                if created.tzinfo is None:
+                    created = created.replace(tzinfo=timezone.utc)
+                if (now - created).total_seconds() > max_age:
+                    stale.append(j.prompt_id)
+                    continue
+            pending.append((j.prompt_id, j.worker))
+    for prompt_id in stale:
+        mark_status(prompt_id, "error")
+    if stale:
+        logger.info(
+            "reconcile: 回收 %d 个超龄(>%.0fs)未终态作业为 error", len(stale), max_age
+        )
     n = 0
     for prompt_id, worker in pending:
         if prompt_id in _tracked:

@@ -195,7 +195,13 @@ function SourcePreview({ image }: { image: UploadedImage }) {
       </div>
       <div className="ie-preview-media">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={image.previewUrl} alt={image.name} className="ie-preview-img" />
+        <img
+          src={image.previewUrl}
+          alt={image.name}
+          className="ie-preview-img"
+          loading="lazy"
+          decoding="async"
+        />
       </div>
       <p className="ie-preview-name" title={image.name}>
         {image.name}
@@ -290,7 +296,13 @@ function ResultPanel({ source, resultUrl, resultPaths }: ResultPanelProps) {
       {mode === "result" ? (
         <div className="ie-result-media">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={fullUrl} alt="处理结果" className="ie-result-img" />
+          <img
+            src={fullUrl}
+            alt="处理结果"
+            className="ie-result-img"
+            loading="lazy"
+            decoding="async"
+          />
         </div>
       ) : (
         <div className="ie-compare-grid">
@@ -298,14 +310,26 @@ function ResultPanel({ source, resultUrl, resultPaths }: ResultPanelProps) {
             <span className="ie-compare-tag">原图</span>
             <div className="ie-compare-media">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={source.previewUrl} alt="原图" className="ie-compare-img" />
+              <img
+                src={source.previewUrl}
+                alt="原图"
+                className="ie-compare-img"
+                loading="lazy"
+                decoding="async"
+              />
             </div>
           </div>
           <div className="ie-compare-col">
             <span className="ie-compare-tag is-result">结果</span>
             <div className="ie-compare-media">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={fullUrl} alt="处理结果" className="ie-compare-img" />
+              <img
+                src={fullUrl}
+                alt="处理结果"
+                className="ie-compare-img"
+                loading="lazy"
+                decoding="async"
+              />
             </div>
           </div>
         </div>

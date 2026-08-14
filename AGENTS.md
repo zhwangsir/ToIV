@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-08-11（新增易错点 25:跨境链路性能排查——单时段 A/B 归因陷阱;反代切 frp 本地端口+frpc loginFailExit=false 加固）
+> **最后更新**：2026-08-13（新增北京国内入口 toiv.wineryz.top 双活镜像;LTX-2.5 专用实例 :8198;承接易错点 25 国内入口落地）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 
 ---
@@ -26,7 +26,7 @@
 
 ---
 
-## 一、集群设备清单（17台）
+## 一、集群设备清单（18台）
 
 | # | 设备 | 角色 | LAN IP | Tailscale IP | 类型 | SSH 用户 |
 |---|------|------|--------|-------------|------|---------|
@@ -39,7 +39,8 @@
 | 7 | NAS | SMB 存储 44T | 192.168.71.7 | 100.80.237.96 | Linux | dgmt-nas |
 | 8 | cloud | 网关/1Panel/frps | 43.119.32.180 | 100.83.78.114 | Linux | root |
 | 9 | core | 服务器(待业务) | 192.168.71.47 | 100.77.80.100 | Ubuntu | merlin |
-| 10 | MateBook | 操作终端 | — | 100.74.15.34 | macOS | 本机 |
+| 10 | beijing | 北京国内入口/frps | 8.140.222.24 | — | Linux (阿里云) | root |
+| 11 | MateBook | 操作终端 | — | 100.74.15.34 | macOS | 本机 |
 
 ---
 
@@ -236,7 +237,7 @@ nas:
 - **坑**:按官方 v1.0 示例用 wav2vec2 音频编码,采样时报 `mat1 and mat2 shapes cannot be multiplied (1x46080 and 32000x512)`
 - **原因**:LongCat-Avatar-1.5 的 AudioProjModel 期望 whisper-large-v3 特征(5×5×1280=32000);wav2vec2 是 v1.0 旧路线
 - **正确**:`WhisperModelLoader`(audio_encoders 类目,P0 已下载到 NAS)+ `LongCatAvatarWhisperEmbeds`(fps=25、audio_stride=1);人声分离节点在独立仓库 ComfyUI-MelBandRoFormer(需 `rotary_embedding_torch` 依赖,模型 MelBandRoformer_fp32.safetensors 913MB 放实例 models/diffusion_models/)
-- **附带**:① :8197 的 extra_model_paths.yaml 需补 `audio_encoders` 映射(vocal_separator 类目 WanVideoWrapper 不用,Kim_Vocal_2.onnx 本链路不需要);② 冒烟参数参考:480×832/93帧/25fps/steps=12/shift=12/cfg=1.0/dmd LoRA 1.0/BlockSwap=25/attention=sdpa,130s 出片,GPU2 峰值 ~20GB;③ 冒烟脚本在 workstation `/tmp/longcat_avatar_smoke.py`;④ **已接入 core API**(2026-08-08,commit a132468):`POST /api/avatar/talk`,图片+音频走 `/api/upload?kind=avatar`(multipart 字段名是 `image` 不是 `file`;**两文件须落同一 pool worker**,前端已做互钉);⑤ **长音频续段已实现**(commit 270946e):ExtendEmbeds 图内链式,首段 93 帧+每续段净 80 帧(overlap 13),**每段帧数必须 (T-1)%4==0**(残段自动向上取整 4k+1,最多多 3 帧),num_frames 上限 2500(≈100s);>30min 作业超 tracker `_TRACK_TIMEOUT=1800s`,靠 reconcile_loop 重挂落库,状态更新有间断
+- **附带**:① :8197 的 extra_model_paths.yaml 需补 `audio_encoders` 映射(vocal_separator 类目 WanVideoWrapper 不用,Kim_Vocal_2.onnx 本链路不需要);② 冒烟参数参考:480×832/93帧/25fps/steps=12/shift=12/cfg=1.0/dmd LoRA 1.0/BlockSwap=25/attention=sdpa,130s 出片,GPU2 峰值 ~20GB;③ 冒烟脚本在 workstation `/tmp/longcat_avatar_smoke.py`;④ **已接入 core API**(2026-08-08,commit a132468):`POST /api/avatar/talk`,图片+音频走 `/api/upload?kind=avatar`(multipart 字段名是 `image` 不是 `file`;**两文件须落同一 pool worker**,前端已做互钉);⑤ **长音频续段已实现**(commit 270946e):ExtendEmbeds 图内链式,首段 93 帧+每续段净 80 帧(overlap 13),**每段帧数必须 (T-1)%4==0**(残段自动向上取整 4k+1,最多多 3 帧),num_frames 上限 2500(≈100s);>30min 作业曾超 tracker `_TRACK_TIMEOUT=1800s` 靠 reconcile_loop 重挂落库(2026-08-14 起超时已配置化 `TOIV_JOB_TRACK_TIMEOUT` 默认 7200s 并带 /queue 孤儿检测,见易错点 26)
 
 ### 12. civitai 下载链与 b2 对象存储连通性(2026-08-08)
 - **坑1**:`deploy/.env` 里常有 `# TOIV_NAS_HOST=` 这类注释占位,追加配置前用 `grep -q TOIV_NAS_HOST` 判断会误匹配注释行导致跳过追加,配置永远没生效;判断必须锚定行首(`grep -q '^TOIV_NAS_HOST='`)
@@ -315,9 +316,39 @@ nas:
 - **正确手法**:链路 A/B 测试必须**同时段交替测**两种路径,跨时段结论无效;「服务 502/超时」先看是全局链路事件(多隧道同断、SSH 断、ping 丢包)再怀疑本地配置;隧道加固:core frpc.toml 加 `loginFailExit = false`(抖动期 frpc 内建无限重试,避免 systemd 重启风暴,20:56 靠 systemd Restart 救回过一次)
 - **附带**:openresty/frps 容器均 host 网络,127.0.0.1 直通 frp 端口;1Panel 手工改 conf 可能被面板重写,留 `.bak-frp-switch-20260811` 备份;分层测试顺序:本机→隧道→反代→域名;⚠️ 用户访问路径是「国内用户→香港 cloud→国内 core」双跨境,晚高峰劣化是结构性风险,长期值得评估国内入口/CDN
 
+### 26. /api/images 产物代理已加签名+归属校验(2026-08-14,行为变化)
+- **背景**:原产物代理任何登录用户可枚举顺序文件名(ComfyUI_00001_.png)拉取他人全部产物(IDOR,含 NSFW 区)
+- **现状**:tracker.image_url 生成的 URL 带 `sig`(HMAC-SHA256[:24],key 派生自 jwt_secret),有 sig 直通;无 sig 的旧 URL 走 Job 归属回退(result 含该 filename 且 user/tenant 匹配才放行);admin 直通;其余一律 404 不泄露存在性
+- **坑**:① 手写/硬编码 /api/images URL(如脚本、外部书签)若无对应 Job 归属记录将 404——agent/tools.py:173 是仅剩的手写点,走归属回退兼容;② <img>/<video> 标签走 `?token=` 查询参数认证(deps.get_current_user 内置回退),不带 header;③ 测试里构造产物 URL 必须带 sig 或先建档 Job,否则 404
+- **配套**:workflows deploy 端点仅 admin;test-login 限流 60s/5;production 用默认 jwt_secret 会拒绝启动(护栏)
+
 ---
 
 ## 七、操作历史
+
+### 2026-08-14 会话(M12:P0/P1/P2 全量修复 + R3-R5 调研深化)
+
+| 时间 | 操作 | 结果 |
+|------|------|------|
+| 16:00 | 接手项目,核实上轮评审 25 项问题清单(7 P0 全部代码实证) | ✅ 全部属实,组建 6 Agent 团队并行修复 |
+| 16:20 | Team A 后端 P0:workflows/drama_analytics 认证+路径白名单、images IDOR 签名 URL、test-login 限流、tracker 孤儿作业终态回收(get_queue 双无连击 2 次标 error) | ✅ 39 新测试全绿 |
+| 16:20 | Team B 前端 P0:useStudioProject 错误透出(StudioView 错误条)+ trackJob SSE 重连 5 次+降级轮询 /api/jobs 状态机 | ✅ node:test 10/10,tsc 零错误 |
+| 16:20 | Team C 后端 P1:Job 三列索引+4 幂等 CREATE INDEX、迁移吞异常补日志、upload/reverse/nas.download/opentalking 限流接线、JWT production 护栏、toiv.access token 脱敏 | ✅ 131 测试全绿 |
+| 16:20 | Team D 前端 P1:crossTab.ts 跨标签页同步(R18/主题/登录态)+ LazyVideo 作品库 60 视频卡 preload none + 全站 img lazy | ✅ tsc 通过 |
+| 16:20 | Team E P2:test_video 17 例/test_jobs_events 4 例/test_generate_endpoints 11 例 + .github/workflows/ci.yml + roadmap 第八节实证补记 | ✅ 32 新测试;实证 video.py pool.pick 冒泡 500(已修 503) |
+| 16:40 | Team F 调研:docs/2026-08-14-competitive-r3-r5-deep-dive.md 540 行(Mavis=Leader/Worker/Verifier 修正、LangGraph 终判、pairwise+Elo 评委、R3 落地设计) | ✅ |
+| 17:20 | 全量回归:pytest **1433 passed**(基线 1339+94)、web 10/10、tsc ✅、next build ✅;修限流 scope 收紧导致的 3 例预填超额 | ✅ STATE/TEST_LOG/AGENTS 已更新 |
+
+### 2026-08-13 会话(北京国内入口 toiv.wineryz.top 双活镜像落地)
+
+| 时间 | 操作 | 结果 |
+|------|------|------|
+| 23:20 | 北京服务器环境核查:frps :7000/:7500 监听、OpenResty 容器运行、1Panel 管理面板可用 | ✅ 基础服务正常 |
+| 23:22 | core 新增 frpc-bj.toml,注册 toiv-api-bj(:8090→:18090) + toiv-web-bj(:3100→:13100) TCP 隧道,systemd `frpc-bj.service` enable+start | ✅ login success,双 proxy start success |
+| 23:24 | 北京 OpenResty 新增 `toiv.wineryz.top.conf`:HTTP 80 ACME + 301 HTTPS;HTTPS 443 反代 /api/ → :18090,其余 → :13100;IP 直连兜底 | ✅ 配置路径 `/opt/1panel/www/conf.d/`(容器挂载正确) |
+| 23:26 | 修复 ACME 挑战路径:challenge 文件必须落在 OpenResty 容器挂载目录 `/opt/1panel/apps/openresty/openresty/root/`;acme.sh 成功签发 Let's Encrypt ECC 证书 | ✅ 证书路径 `~/.acme.sh/toiv.wineryz.top_ecc/` |
+| 23:41 | 安装 fullchain/privkey 到容器内 SSL 路径,修正 nginx conf 证书路径为 `/usr/local/openresty/nginx/conf/ssl/toiv.wineryz.top/`,reload OpenResty | ✅ nginx -t 通过,reload 成功 |
+| 23:42 | 端到端验证:HTTP 301→HTTPS、HTTPS / 200、/api/health 200、frp 远端端口 :18090/:13100 监听 | ✅ 国内入口全线打通 |
 
 ### 2026-08-11 会话(晚,toiv.dgmt.top 域名链路优化)
 
@@ -422,6 +453,7 @@ nas:
 - [x] ToIV 迁移 core(✅ deploy.sh 持续部署,toiv-api/web 为唯一生产点,见 docs/2026-08-08-core-migration-status.md)
 - [ ] 项目负责人推送 DRT 到 core(备份在 workstation /var/tmp)
 - [x] Cloud 反代切换指向 core(✅ 2026-08-11 完成并优化:toiv.dgmt.top openresty proxy_pass 经 frp TCP 隧道 127.0.0.1:18090/13100 → core:8090/3100,弃用 Tailscale 链路;frpc 同步 kcp→tcp,见易错点 25)
+- [x] 北京国内双活入口落地(✅ 2026-08-13:toiv.wineryz.top 经 frpc-bj.toml + 北京 frps + OpenResty 反代 → core:8090/3100,HTTPS 200、/api/health 正常;国内用户走北京单跨境,海外用户继续走 toiv.dgmt.top)
 - [x] 清理 .archive 中过期的部署残留（backup-20260722 / deploy-residues）
 - [x] Workstation nvidia-smi 报 NVML mismatch(✅ 2026-08-08 21:45 重启根治,nvidia-smi 恢复;14 个 systemd 服务全自启)
 - [x] llama-70b 退役 + spark01 改 Omni-Captioner(✅ 2026-08-08,L2/L3/L4 切 spark02,最终说明见交接文档第七节;音乐反推链路 e2e 通过)

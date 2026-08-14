@@ -33,6 +33,7 @@ from app.deps import get_current_user
 from app.jsonutil import parse_json_obj
 from app.models import User
 from app.nsfw_ctx import nsfw_allowed
+from app.ratelimit import enforce_rate_limit
 from app.services.audio_sep import separate_accompaniment
 
 router = APIRouter()
@@ -328,6 +329,9 @@ async def reverse_prompt(
     file: UploadFile,
     user: User = Depends(get_current_user),
 ):
+    # 反推限流:视频可达 50MB base64 + VLM 长推理,必须在读文件前拦截。
+    # scope="reverse" 未在 ratelimit._DEFAULT_SCOPES 定义 → 回退 default(60s/20 次)。
+    enforce_rate_limit(user, count=1, scope="reverse")
     content = await file.read()
     if not content:
         raise HTTPException(status_code=400, detail="空文件")

@@ -1,6 +1,7 @@
 """数据库引擎与会话（开发期 SQLite，生产可切 Postgres）。"""
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterator
 
 from sqlalchemy import text
@@ -8,6 +9,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, SQLModel, create_engine
 
 from app.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 _settings = get_settings()
 _connect_args = (
@@ -251,6 +254,15 @@ _SQLITE_RAW_MIGRATIONS: tuple[str, ...] = (
     "ALTER TABLE dramashot ADD COLUMN continue_urls TEXT DEFAULT '[]'",
     "ALTER TABLE dramashot ADD COLUMN continue_concat_url TEXT DEFAULT ''",
     "ALTER TABLE dramashot ADD COLUMN continue_error TEXT DEFAULT ''",
+    # ── Job 表索引(既有库幂等补建;新库由 SQLModel index=True 建 ix_job_*,
+    # 与本 idx_job_* 不同名不冲突,双索引并存代价可忽略)──
+    # tracker 按 prompt_id 反查 Job
+    "CREATE INDEX IF NOT EXISTS idx_job_prompt_id ON job(prompt_id)",
+    # tracker reconcile 每 300s 扫 queued/running
+    "CREATE INDEX IF NOT EXISTS idx_job_status ON job(status)",
+    "CREATE INDEX IF NOT EXISTS idx_job_created_at ON job(created_at)",
+    # 复合:未终态扫描 + created_at 排序
+    "CREATE INDEX IF NOT EXISTS idx_job_status_created ON job(status, created_at)",
 )
 
 
@@ -282,17 +294,19 @@ def _run_column_migrations() -> None:
         try:
             with engine.begin() as conn:
                 conn.execute(text(raw))
-        except SQLAlchemyError:
-            pass
+        except SQLAlchemyError as exc:
+            # 幂等吞掉(语义不变),但必须留痕:语句前 40 字符 + 异常,否则又是静默事故
+            logger.warning("迁移跳过(语句 %.40s): %s", " ".join(raw.split()), exc)
     for table, column, ddl in _SQLITE_MIGRATIONS:
         try:
             with engine.begin() as conn:
                 if column in _existing_columns(conn, table):
                     continue
                 conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {ddl}"))
-        except SQLAlchemyError:
-            # duplicate column(并发/重复执行)或表不存在→ 幂等吞掉。
-            pass
+        except SQLAlchemyError as exc:
+            # duplicate column(并发/重复执行)或表不存在 → 幂等吞掉,但留 warning
+            # (studioproject 缺列 500 事故教训:静默吞异常让缺列长期无人发现)
+            logger.warning("迁移跳过(%s.%s): %s", table, column, exc)
 
 
 def init_db() -> None:

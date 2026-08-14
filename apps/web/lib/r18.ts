@@ -16,6 +16,7 @@
 import { useEffect, useState } from "react";
 
 import { setNsfwIntent } from "@/lib/api";
+import { useCrossTabSync } from "@/lib/crossTab";
 import { invalidatePrefix } from "@/lib/swr-cache";
 
 const R18_MODE_KEY = "toiv_r18_mode";
@@ -79,5 +80,14 @@ export function useR18Mode(): [boolean, (on: boolean) => void] {
     window.addEventListener(R18_CHANGED_EVENT, handler);
     return () => window.removeEventListener(R18_CHANGED_EVENT, handler);
   }, []);
+  // P1-8 跨标签页同步:他页切换 R18 → 本页同步开关态 + X-NSFW 请求头 + 清敏感缓存
+  // (不再广播 CustomEvent——本页 state 已直接更新,且他页事件不应回灌本页事件流)
+  useCrossTabSync(R18_MODE_KEY, (newValue) => {
+    // storage 事件触发时 localStorage 已是新值,直接按事件值对齐本页状态
+    const next = newValue === "1";
+    setNsfwIntent(next);
+    invalidateR18Caches();
+    setOn(next);
+  });
   return [on, setR18Mode];
 }

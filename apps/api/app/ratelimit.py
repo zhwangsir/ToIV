@@ -28,6 +28,9 @@ _DEFAULT_SCOPES: dict[str, tuple[float, int]] = {
     "generation": (60.0, 20),  # 生成类:每分钟 20 次
     "login": (60.0, 5),        # 登录:每分钟 5 次(防爆破)
     "upload": (60.0, 10),      # 上传:每分钟 10 次
+    "reverse": (60.0, 5),      # 反推:每分钟 5 次(50MB 视频反推重资源)
+    "download": (60.0, 10),    # NAS 下载:每分钟 10 次
+    "opentalking": (60.0, 10),  # 数字人写操作:每分钟 10 次(占 GPU3 50GB 实时资源)
     "default": (60.0, 20),     # 默认
 }
 
@@ -223,6 +226,15 @@ def enforce_login_rate_limit(ip: str, account: str) -> None:
     """
     _enforce_subject(f"ip:{ip}", "default")
     _enforce_subject(f"ip:{ip}|acct:{account}", "login")
+
+
+def enforce_subject_rate_limit(subject: str, scope: str, count: int = 1) -> None:
+    """匿名主体限流(认证前接口按自定义主体维度,如 test-login 按 IP+端点防密钥爆破)。
+
+    直接委托 _enforce_subject;scope 取 _DEFAULT_SCOPES 已有维度
+    (如 "login" = 60s/5 次),与登录接口共享配额语义但主体独立计数。
+    """
+    _enforce_subject(subject, scope, count)
 
 
 def enforce_generation_rate_limit(user: User, count: int = 1) -> None:

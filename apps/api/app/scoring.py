@@ -17,6 +17,8 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 import httpx
 from pydantic import BaseModel, Field
 
+from app.config import get_settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -203,10 +205,11 @@ class VideoScoreResult(BaseModel):
 
 
 class VideoScorer:
-    """调 Qwen3-VL VLM Server 评估视频质量。
+    """调 VLM Server(OpenAI 兼容)评估视频质量。
 
-    VLM Server 是 OpenAI 兼容端点(部署在 workstation 192.168.71.127:8000, GPU3,
-    Nemotron-3-Nano-Omni-30B-A3R 全模态,served-name=qwen3.6-uncensored),
+    默认端点读 settings.vlm_server_url(jobs.py 显式传入,同样来自该配置);
+    生产由 .env 指向当前可用 VLM —— 旧默认指向的 workstation Nemotron vLLM :8000
+    已于 2026-08-05 停用,不再写死在代码里。
     支持视频 base64 输入,引导 system prompt(视频后期工程师角色 + 纯技术质量评估,
     不涉及内容审核)后可绕过 NSFW 对齐做像素级技术评估。
 
@@ -236,12 +239,13 @@ class VideoScorer:
 
     def __init__(
         self,
-        vlm_url: str = "http://192.168.71.127:8000",
+        vlm_url: str | None = None,
         model_id: str = "qwen3.6-uncensored",
         timeout: float = 30.0,
     ) -> None:
+        # vlm_url 缺省读 settings.vlm_server_url(不再写死已停用的 Nemotron :8000);
         # trust_env=False 在 _download/_post 内逐处设;这里只存配置。
-        self.vlm_url = vlm_url.rstrip("/")
+        self.vlm_url = (vlm_url or get_settings().vlm_server_url).rstrip("/")
         self.model_id = model_id
         self.timeout = timeout
         self.endpoint = f"{self.vlm_url}/v1/chat/completions"

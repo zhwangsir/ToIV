@@ -71,7 +71,13 @@ export function RefImageUpload({ param, value, onChange, uploadKind, disabled }:
       {value ? (
         <div className="ref-image-preview">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={value.previewUrl} alt={value.name} className="ref-image-thumb" />
+          <img
+            src={value.previewUrl}
+            alt={value.name}
+            className="ref-image-thumb"
+            loading="lazy"
+            decoding="async"
+          />
           <span className="ref-image-name" title={value.name}>
             {value.name}
           </span>

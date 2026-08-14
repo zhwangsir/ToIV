@@ -7,7 +7,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { LandingPage } from "@/components/landing/LandingPage";
 import { CornerNav, type CornerNavItem } from "@/components/nav/CornerNav";
 import { BottomNav, type BottomNavItem } from "@/components/nav/BottomNav";
-import { fetchMe, getToken, setToken, testLogin } from "@/lib/api";
+import { fetchMe, getToken, setToken, testLogin, TOKEN_KEY } from "@/lib/api";
+import { useCrossTabSync } from "@/lib/crossTab";
 import { initR18Mode, isR18Mode, useR18Mode } from "@/lib/r18";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { Icon } from "@/components/ui/Icon";
@@ -344,6 +345,28 @@ function HomeContent() {
     setAccount(null);
     setAuth("out");
   }, []);
+
+  // P1-8 跨标签页登录态同步:他页退出登录(token 被删)→ 本页立即回落登录页;
+  // 他页登录成功(token 写入)→ 本页探测会话并刷新用户态,避免「A 页退出、B 页
+  // 还以为已登录」的状态孤岛。
+  useCrossTabSync(TOKEN_KEY, (newValue) => {
+    if (!newValue) {
+      setAccount(null);
+      setAuth("out");
+      return;
+    }
+    fetchMe()
+      .then((me) => {
+        setAccount(me.user.email);
+        setAuth("in");
+      })
+      .catch(() => {
+        // 他页写入的 token 探测失败(过期/被顶号):按未登录处理
+        setToken(null);
+        setAccount(null);
+        setAuth("out");
+      });
+  });
 
   const changeView = useCallback(
     (next: View) => {

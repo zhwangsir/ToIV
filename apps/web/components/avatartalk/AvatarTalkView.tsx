@@ -739,6 +739,7 @@ function SetupPanel({
                       src={avatarPreviewUrl(a.id)}
                       alt={a.name || a.id}
                       loading="lazy"
+                      decoding="async"
                       onError={(e) => {
                         (e.currentTarget as HTMLImageElement).style.opacity = "0";
                       }}

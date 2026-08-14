@@ -64,8 +64,10 @@ async def llm_model(_: User = Depends(get_current_user)) -> dict:
 async def gpu_stats(_: User = Depends(get_current_admin)) -> dict:
     """Workstation 本地 PRO6000 实时遥测(显存负载 + 队列深度)。仅管理员可查,避免普通用户窥探集群 GPU 拓扑。"""
     settings = get_settings()
-    # 仅取 Workstation 本地 PRO6000(.127,gpu0/1/2 三张)对齐面板;无匹配则退回全部 worker
-    # GPU3 已让给 Nemotron LLM,不再作 ComfyUI 后端
+    # 仅取 Workstation 本地 PRO6000(.127)对齐面板;无匹配则退回全部 worker。
+    # 当前 GPU 分配(2026-08 集群重排):ComfyUI 通用后端仅 GPU0(:8189,另 GPU2 跑
+    # LongCat/H3 专用实例);GPU3 跑 FlashTalk + OpenTalking + JoyCaption + M6 超分
+    # :8263,不作 ComfyUI 通用后端(原 Nemotron LLM 已于 2026-08-05 停用)。
     urls = [u for u in settings.worker_urls if "192.168.71.127" in u] or settings.worker_urls
     async with httpx.AsyncClient(timeout=httpx.Timeout(4.0)) as client:
         cards = await asyncio.gather(*(_probe(client, u, i) for i, u in enumerate(urls)))

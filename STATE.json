@@ -1,7 +1,7 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-13T21:30:00+08:00",
+ "updated_at": "2026-08-14T17:30:00+08:00",
  "sync_baseline": {
   "id": "SYNC-2026-07-18",
   "type": "initial-sync",
@@ -735,7 +735,7 @@
   }
  },
  "git": {
-  "latest_commit": "d2dbd00 fix: NAS 下载跟随 307 重定向",
+  "latest_commit": "ba6e21e feat(security): M12 P0/P1/P2 全量修复 + R3-R5 竞品调研深化",
   "uncommitted": {
    "modified_files": 63,
    "deleted_files": 32,
@@ -3316,5 +3316,77 @@
   ],
   "notes": "生产排查手法:journalctl -u toiv-api -f 实时;grep '\\[app.comfy.tracker\\]' 按模块过滤;TOIV_LOG_LEVEL=DEBUG 可临时提级排障(改 deploy/.env 重启 toiv-api)。访问行仍由 uvicorn.access 输出(propagate=False 不受影响)。前端 global-error.tsx 已有 Sentry 骨架,DSN 配置后前后端异常上报即闭环。",
   "verified_at": "2026-08-12T22:40:00+08:00"
+ },
+ "security_p0p2_2026_08_14": {
+  "id": "M12-2026-08-14",
+  "type": "security+quality",
+  "title": "上轮遗留 P0/P1/P2 全量修复:后端安全缺口 + 前端静默区 + 工程效能(6 Agent 团队并行)",
+  "status": "passed",
+  "scope": "P0 七项(workflows/drama_analytics 零认证+路径穿越、images IDOR、test-login 爆破、tracker 孤儿作业、Studio 静默失败、SSE 断线误报)+ P1 八项(跨标签页孤岛/Job 索引/迁移吞异常/限流缺口/JWT 护栏/超时分裂/图片裸奔)+ P2 四项(关键路由测试/陈旧硬编码/CI/引擎实证)",
+  "tasks": [
+   {
+    "id": "M12.1",
+    "title": "workflows.py 三端点认证 + worker_urls 属性修复 + template_id 白名单",
+    "status": "done",
+    "evidence": "templates/download=get_current_user、deploy=get_current_admin;settings.comfy_worker_urls(不存在,必500)→settings.worker_urls;template_id ^[A-Za-z0-9_-]{1,64}$ 防 .. 穿越;tests/test_workflows.py 11 例"
+   },
+   {
+    "id": "M12.2",
+    "title": "drama_analytics.py 全组认证 + 埋点 user_id 服务端覆盖 + 视频端点白名单",
+    "status": "done",
+    "evidence": "event 用 token user.id 覆盖客户端上报(防伪造);session metrics 仅属主/admin(404 不泄露);summary 仅 admin;video 端点认证+drama_id 白名单;+8 例"
+   },
+   {
+    "id": "M12.3",
+    "title": "images.py IDOR:签名 URL + 旧 URL 归属回退",
+    "status": "done",
+    "evidence": "tracker.image_url 追加 sig=HMAC-SHA256[:24](key 派生自 jwt_secret,覆盖 filename|subfolder|type|worker);有 sig 直通/无 sig 查 Job 归属(user/tenant)/admin 直通,其余 404 不泄露;Cache-Control public→private;+8 例"
+   },
+   {
+    "id": "M12.4",
+    "title": "auth test-login 限流 + 恒定时间比较",
+    "status": "done",
+    "evidence": "ratelimit 新增 enforce_subject_rate_limit;test-login 按 ip|test-login 走 login scope(60s/5次);hmac.compare_digest;+4 例"
+   },
+   {
+    "id": "M12.5",
+    "title": "tracker 孤儿作业终态回收 + 超时配置化(P1-13 一并)",
+    "status": "done",
+    "evidence": "client.get_queue() 新增;轮询期 /queue+/history 双无连击 2 次标 error(首检推迟 30s 防误杀,worker 不可达不计);TOIV_JOB_TRACK_TIMEOUT 默认 7200s(覆盖 LongCat 65min);超时标 error 不再留 queued;reconcile 跳过并一次性回收超龄(2h+30min)僵尸作业;+8 例"
+   },
+   {
+    "id": "M12.6",
+    "title": "前端:useStudioProject 错误透出 + trackJob SSE 重连降级",
+    "status": "done",
+    "evidence": "withBusy catch 写 error+rethrow,saveShots 失败不静默 refresh,clearError(),StudioView 可关闭错误条;trackJob 状态机:业务 error(带 data)立即 reject/网络断线指数退避重连 5 次/降级轮询 /api/jobs 对账/35min 总超时;tests 10/10"
+   },
+   {
+    "id": "M12.7",
+    "title": "P1 后端:Job 索引 + 迁移日志 + 限流覆盖 + JWT 护栏 + token 脱敏",
+    "status": "done",
+    "evidence": "Job prompt_id/status/created_at 索引+4 条幂等 CREATE INDEX;db.py 两处 except:pass 补 warning 日志;upload/reverse/nas.download/opentalking 写端点限流接线(ratelimit 补 reverse 5/download 10/opentalking 10 三 scope);production+默认 jwt_secret 拒启动;toiv.access 中间件 token=*** 脱敏;gpu_smoke :8188→worker_urls[0]、scoring VLM 默认走 settings、system.py 注释修正"
+   },
+   {
+    "id": "M12.8",
+    "title": "P1 前端:跨标签页同步 + 懒加载",
+    "status": "done",
+    "evidence": "lib/crossTab.ts useCrossTabSync:R18(r18.ts+setNsfwIntent+缓存失效)/主题(theme.ts applyThemeDataset 防乒乓)/登录态(page.tsx 删 token 立即登出、写 token fetchMe)三处接入;LazyVideo 组件(IO 200px 提前量,preload none→metadata)接入作品库 60 视频卡+ResultPanel;全站 <img> 补 lazy+decoding=async"
+   },
+   {
+    "id": "M12.9",
+    "title": "P2:关键路由测试 + CI + 引擎实证",
+    "status": "done",
+    "evidence": "test_video.py 17 例/test_jobs_events.py 4 例/test_generate_endpoints.py 11 例;.github/workflows/ci.yml(changes→api-tests/web-check 路径过滤,api 最小依赖集);roadmap 第八节实证补记(LTX-2.5 轨迹弱于 H3、17k+5 网格无整秒);顺带修复 video.py pool.pick 异常冒泡 500→503(Team E 实证)"
+   },
+   {
+    "id": "M12.10",
+    "title": "竞品调研 R3-R5 深化(Team F)",
+    "status": "done",
+    "evidence": "docs/2026-08-14-competitive-r3-r5-deep-dive.md 540 行:Mavis 官方角色为 Leader/Worker/Verifier(修正上轮 Owner);LangGraph 维持终判(PostgresSaver 复用 core PG);评委 pointwise→pairwise+Elo(GenArena:开源 VLM 换协议 Spearman 0.36→0.86);R3 落地设计(4 新表+9 端点+任务卡片组件树+与 drama_studio 零重写迁移)"
+   }
+  ],
+  "regression": "pytest 1433 passed(基线 1339+94);apps/web node:test 10/10;tsc --noEmit ✅;next build ✅",
+  "notes": "行为变化:① /api/images 旧链接无归属记录将 404(agent/tools.py 手写 URL 走归属回退兼容);② workflows deploy 仅 admin;③ test-login 限流 60s/5;④ P1 基础设施项(智能 DNS 分流/H3 散热/NVML 补丁自动化/NAS 自检/监控栈/操作锁)未动,留待 infra 专项",
+  "verified_at": "2026-08-14T17:30:00+08:00"
  }
 }

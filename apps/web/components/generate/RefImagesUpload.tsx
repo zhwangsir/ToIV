@@ -88,7 +88,14 @@ export function RefImagesUpload({ param, values, onChange, uploadKind, disabled 
         {values.map((v, i) => (
           <div key={v.filename} className="ref-images-item">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={v.previewUrl} alt={v.name} className="ref-images-thumb" title={v.name} />
+            <img
+              src={v.previewUrl}
+              alt={v.name}
+              className="ref-images-thumb"
+              title={v.name}
+              loading="lazy"
+              decoding="async"
+            />
             <button
               type="button"
               className="ref-images-remove"

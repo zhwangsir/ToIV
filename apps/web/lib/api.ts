@@ -31,7 +31,8 @@ export const API_BASE =
   typeof window === "undefined"
     ? (process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8090")
     : "";
-const TOKEN_KEY = "toiv_token";
+// 导出供跨标签页同步(lib/crossTab.ts)订阅:他页登录/退出时本页感知
+export const TOKEN_KEY = "toiv_token";
 
 export interface AppUser {
   id: string;

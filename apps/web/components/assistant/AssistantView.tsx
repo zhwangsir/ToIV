@@ -569,6 +569,7 @@ export function AssistantView() {
                                 alt="生成结果"
                                 className="av-media-img"
                                 loading="lazy"
+                                decoding="async"
                               />
                             )}
                             {m.type === "video" && m.urls[0] && (

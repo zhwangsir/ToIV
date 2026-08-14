@@ -25,6 +25,7 @@ from fastapi.responses import Response, StreamingResponse
 from app.config import get_settings
 from app.deps import get_current_user
 from app.models import User
+from app.ratelimit import enforce_rate_limit
 
 router = APIRouter(tags=["opentalking"])
 
@@ -66,6 +67,15 @@ def _check_enabled() -> None:
 
 def _unreachable(detail: str = "数字人引擎暂时不可用") -> HTTPException:
     return HTTPException(status_code=503, detail=detail)
+
+
+def _enforce_write_limit(user: User) -> None:
+    """写操作(建会话/说话/打断/信令)限流:占 GPU3 ~50GB 实时数字人资源。
+
+    scope="opentalking" 未在 ratelimit._DEFAULT_SCOPES 定义 → 回退 default(60s/20 次)。
+    纯 GET 状态查询不限流。
+    """
+    enforce_rate_limit(user, scope="opentalking")
 
 
 # ---------- 响应形状转换(对齐前端契约) ----------
@@ -311,6 +321,7 @@ async def create_session(
 ) -> Response:
     """创建数字人会话。POST /sessions → OpenTalking。"""
     _check_enabled()
+    _enforce_write_limit(user)
     return await _proxy_post(f"{_ot_base()}/sessions", body)
 
 
@@ -321,6 +332,7 @@ async def start_session(
     user: User = Depends(get_current_user),
 ) -> Response:
     _check_enabled()
+    _enforce_write_limit(user)
     return await _proxy_post(f"{_ot_base()}/sessions/{session_id}/start", body)
 
 
@@ -332,6 +344,7 @@ async def speak(
 ) -> Response:
     """文本驱动数字人说话。"""
     _check_enabled()
+    _enforce_write_limit(user)
     return await _proxy_post(f"{_ot_base()}/sessions/{session_id}/speak", body)
 
 
@@ -342,6 +355,7 @@ async def interrupt(
     user: User = Depends(get_current_user),
 ) -> Response:
     _check_enabled()
+    _enforce_write_limit(user)
     return await _proxy_post(f"{_ot_base()}/sessions/{session_id}/interrupt", body)
 
 
@@ -357,6 +371,7 @@ async def speak_audio(
     stt_provider 等表单字段),STT 识别 + LLM + TTS 排队可能超过普通 POST,超时放宽。
     """
     _check_enabled()
+    _enforce_write_limit(user)
     form = await request.form()
     upload = form.get("file")
     if upload is None or not hasattr(upload, "read"):
@@ -398,6 +413,7 @@ async def webrtc_offer(
 ) -> Response:
     """WebRTC SDP 信令代理(媒体流 P2P 直连, 不经过本代理)。"""
     _check_enabled()
+    _enforce_write_limit(user)
     return await _proxy_post(
         f"{_ot_base()}/sessions/{session_id}/webrtc/offer", body
     )

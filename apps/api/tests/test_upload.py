@@ -155,3 +155,17 @@ def test_all_workers_mode_also_validated(ctx):
     assert ok.json()["all_workers"] is True
     bad = _upload(client, h, _EXE, "evil.png", "image/png", all_workers="true")
     assert bad.status_code == 415
+
+
+def test_upload_rate_limited_after_10_in_a_minute(ctx):
+    """P1-11:upload scope(60s/10 次)生效 —— 连发 11 次,第 11 次 429 带 Retry-After。
+
+    conftest 每个用例前清空限流桶,本用例独占配额,不受其它用例污染。
+    """
+    client, h = ctx
+    for i in range(10):
+        r = _upload(client, h, _PNG, "ref.png", "image/png")
+        assert r.status_code == 200, (i, r.text)
+    r = _upload(client, h, _PNG, "ref.png", "image/png")
+    assert r.status_code == 429
+    assert "Retry-After" in r.headers

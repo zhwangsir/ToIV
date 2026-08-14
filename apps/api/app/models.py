@@ -50,10 +50,11 @@ class Job(SQLModel, table=True):
     id: str = Field(default_factory=_uid, primary_key=True)
     tenant_id: str = Field(index=True)
     user_id: str = Field(index=True)
-    prompt_id: str
+    # prompt_id 加索引(tracker 按 prompt_id 反查 Job);不加 unique —— 历史数据可能有重复
+    prompt_id: str = Field(index=True)
     worker: str
     kind: str = "txt2img"
-    status: str = "queued"
+    status: str = "queued"  # 加索引:tracker reconcile 定期扫 queued/running
     prompt: str = ""
     seed: int = Field(default=0, sa_type=BigInteger)  # PG 须 BIGINT:种子上限 2**63-1(见 workflows/txt2img)
     nsfw: bool = False  # 该作品是否成人向(建档时由 checkpoint 是否 NSFW 决定)
@@ -62,7 +63,7 @@ class Job(SQLModel, table=True):
     parent_id: str = ""  # 父版本 Job.id(空=无父,自身即根)
     root_id: str = ""  # 版本树根 Job.id(空=自身即根;查链用 root_id or id)
     params: str = ""  # 建档时完整请求快照(JSON),支撑精确重生/锁seed微调/分支
-    created_at: datetime = Field(default_factory=_now)
+    created_at: datetime = Field(default_factory=_now, index=True)  # 加索引:未终态作业按时间排序扫描
 
 
 # ---------------------------------------------------------------------------

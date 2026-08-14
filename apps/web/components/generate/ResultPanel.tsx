@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Icon } from "@/components/ui/Icon";
+import { LazyVideo } from "@/components/ui/LazyVideo";
 import { Select } from "@/components/ui/Input";
 import { Switch } from "@/components/ui/Switch";
 import { imageUrl } from "@/lib/api";
@@ -61,7 +62,14 @@ function MediaView({ entry, className }: { entry: HistoryEntry; className?: stri
     <>
       {entry.paths.map((p) => (
         // eslint-disable-next-line @next/next/no-img-element
-        <img key={p} src={imageUrl(p)} alt={entry.prompt} className={className} />
+        <img
+          key={p}
+          src={imageUrl(p)}
+          alt={entry.prompt}
+          className={className}
+          loading="lazy"
+          decoding="async"
+        />
       ))}
     </>
   );
@@ -337,10 +345,17 @@ export function ResultPanel({ entries, selectedId, onSelect, liveProgress, quali
                 >
                   {e.status === "done" && e.paths[0] && !AUDIO_PATH_RE.test(e.paths[0]) ? (
                     e.kind === "video" ? (
-                      <video src={imageUrl(e.paths[0])} muted preload="metadata" className="filmstrip-thumb" />
+                      // P1-14:胶片条视频缩略图懒加载,进视口/悬停才拉首帧
+                      <LazyVideo src={imageUrl(e.paths[0])} muted className="filmstrip-thumb" />
                     ) : (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={imageUrl(e.paths[0])} alt="" className="filmstrip-thumb" />
+                      <img
+                        src={imageUrl(e.paths[0])}
+                        alt=""
+                        className="filmstrip-thumb"
+                        loading="lazy"
+                        decoding="async"
+                      />
                     )
                   ) : (
                     <span className="filmstrip-placeholder">

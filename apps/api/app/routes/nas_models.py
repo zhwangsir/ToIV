@@ -27,6 +27,7 @@ from app.db import get_session
 from app.deps import get_current_user
 from app.jobs_persist import persist_job_to_db
 from app.models import Job, User
+from app.ratelimit import enforce_rate_limit
 from app.versioning import params_snapshot
 
 logger = logging.getLogger(__name__)
@@ -335,6 +336,9 @@ async def nas_download(
     """起模型下载→NAS 后台作业。轮询 GET /nas/download/{job}。"""
     require_admin(user)
     require_nas_ready()
+    # 下载限流(scope="download" 未在 ratelimit._DEFAULT_SCOPES 定义 → 回退 default 60s/20 次);
+    # 大文件下载占满带宽/NAS 写入,须防管理员误点连发
+    enforce_rate_limit(user, scope="download")
     return start_download_job(body, user, session)
 
 

@@ -13,6 +13,7 @@ from app.scoring import (
     Scorer,
     ScorerUnavailable,
     ScoringService,
+    VideoScorer,
 )
 
 
@@ -127,3 +128,31 @@ async def test_score_health_endpoint(user):
     service = ScoringService(MockScorer())
     response = await score_health(service, user)
     assert response["available"] is True
+
+
+# ── VideoScorer 默认端点(P1-23:不再写死已停用 Nemotron :8000) ──────────
+
+
+def test_video_scorer_default_url_reads_settings(monkeypatch):
+    """vlm_url 缺省时读 settings.vlm_server_url(生产由 .env 指向当前可用 VLM)。"""
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        "app.scoring.get_settings",
+        lambda: SimpleNamespace(vlm_server_url="http://studio04:9303/"),
+    )
+    scorer = VideoScorer()
+    assert scorer.vlm_url == "http://studio04:9303"  # 尾斜杠已去
+    assert scorer.endpoint == "http://studio04:9303/v1/chat/completions"
+
+
+def test_video_scorer_explicit_url_overrides_settings(monkeypatch):
+    """显式传 vlm_url 时不读配置(jobs.py 就是显式传 settings.vlm_server_url)。"""
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        "app.scoring.get_settings",
+        lambda: SimpleNamespace(vlm_server_url="http://should-not-use:1"),
+    )
+    scorer = VideoScorer("http://explicit:8000")
+    assert scorer.vlm_url == "http://explicit:8000"

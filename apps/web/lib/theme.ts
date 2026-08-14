@@ -28,13 +28,14 @@ export const THEMES: ThemeDef[] = [
   { id: "apricot", name: "奶杏", dataset: "apricot", accent: "#8A5429", surface: "#FAF3E8" },
 ];
 
-const STORAGE_KEY = "toiv_theme";
+// 导出供跨标签页同步(lib/crossTab.ts)订阅:他页切换主题时本页跟随
+export const THEME_STORAGE_KEY = "toiv_theme";
 
 /** 读取当前主题(SSR 安全,服务端回落默认 paper) */
 export function getCurrentTheme(): ThemeId {
   if (typeof window === "undefined") return "paper";
   try {
-    const t = window.localStorage.getItem(STORAGE_KEY);
+    const t = window.localStorage.getItem(THEME_STORAGE_KEY);
     const hit = THEMES.find((x) => x.id === t);
     return hit ? hit.id : "paper";
   } catch {
@@ -42,17 +43,23 @@ export function getCurrentTheme(): ThemeId {
   }
 }
 
-/** 应用主题:写 localStorage + documentElement.dataset.theme,无刷新即时生效 */
-export function applyTheme(id: ThemeId): void {
+/** 把主题写到 documentElement.dataset.theme(不写 localStorage;跨页同步时复用) */
+export function applyThemeDataset(id: ThemeId): void {
   const def = THEMES.find((x) => x.id === id) ?? THEMES[0];
-  try {
-    window.localStorage.setItem(STORAGE_KEY, def.id);
-  } catch {
-    /* localStorage 不可用时仅内存态生效 */
-  }
   if (def.dataset) {
     document.documentElement.dataset.theme = def.dataset;
   } else {
     delete document.documentElement.dataset.theme;
   }
+}
+
+/** 应用主题:写 localStorage + documentElement.dataset.theme,无刷新即时生效 */
+export function applyTheme(id: ThemeId): void {
+  const def = THEMES.find((x) => x.id === id) ?? THEMES[0];
+  try {
+    window.localStorage.setItem(THEME_STORAGE_KEY, def.id);
+  } catch {
+    /* localStorage 不可用时仅内存态生效 */
+  }
+  applyThemeDataset(def.id);
 }

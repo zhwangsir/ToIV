@@ -170,6 +170,20 @@ class ComfyUIClient:
         data = await self._get_json("/queue", timeout=4.0)
         return len(data.get("queue_running", [])) + len(data.get("queue_pending", []))
 
+    async def get_queue(self) -> set[str]:
+        """返回 queue_running + queue_pending 中的 prompt_id 集合(tracker 孤儿作业检测用)。
+
+        ComfyUI 队列条目结构: [number, prompt_id, prompt, extra_data, outputs_to_execute]。
+        短超时:死 worker 快速判不可达(调用方据此区分「网络抖动」与「作业丢失」)。
+        """
+        data = await self._get_json("/queue", timeout=4.0)
+        ids: set[str] = set()
+        for section in ("queue_running", "queue_pending"):
+            for entry in data.get(section, []):
+                if isinstance(entry, (list, tuple)) and len(entry) > 1:
+                    ids.add(str(entry[1]))
+        return ids
+
     async def get_system_stats(self) -> dict:
         """实例系统信息(含 devices[].vram_free/vram_total,字节)。用于显存预检。"""
         return await self._get_json("/system_stats")

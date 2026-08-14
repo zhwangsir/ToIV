@@ -6,16 +6,20 @@ worker 共享同一目录。因此主 worker 掉线时,自动回退到同机存�
 """
 from __future__ import annotations
 
+import hmac
 from pathlib import Path
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
+from sqlmodel import Session, select
 
 from app.comfy.client import ComfyUIError
 from app.comfy.pool import WorkerPool
+from app.comfy.tracker import image_sig
+from app.db import get_session
 from app.deps import get_current_user, get_pool, resolve_worker
-from app.models import User
+from app.models import Job, User
 from app.pathsafe import PathTraversalError, validate_path_component
 
 router = APIRouter()
@@ -39,7 +43,8 @@ def _ranged_response(content: bytes, content_type: str, range_header: str | None
     裸 200 无 Accept-Ranges 会让浏览器媒体元素报 error 4(SRC_NOT_SUPPORTED)。
     产物已整段在内存,这里切片返回即可(体积不大);始终带 Accept-Ranges 声明支持 range。"""
     total = len(content)
-    base = {"Accept-Ranges": "bytes", "Cache-Control": "public, max-age=86400"}
+    # private:产物有归属(签名/归属校验通过才到这里),public 语义会让共享缓存越权复用
+    base = {"Accept-Ranges": "bytes", "Cache-Control": "private, max-age=86400"}
     if range_header and range_header.strip().startswith("bytes="):
         first = range_header.strip()[6:].split(",", 1)[0].strip()
         start_s, _, end_s = first.partition("-")
@@ -69,8 +74,10 @@ async def get_image(
     subfolder: str = "",
     type_: str = Query(default="output", alias="type"),
     worker: str = Query(...),
+    sig: str = Query(default=""),
     pool: WorkerPool = Depends(get_pool),
     user: User = Depends(get_current_user),
+    db: Session = Depends(get_session),
 ):
     try:
         safe_filename = validate_path_component(filename, allow_subdirs=False)
@@ -80,6 +87,23 @@ async def get_image(
 
     if not safe_filename:
         raise HTTPException(status_code=400, detail="filename 不能为空")
+
+    # 归属校验(IDOR 防护,顺序文件名可枚举他人产物):
+    # - 有 sig:HMAC 覆盖全部定位参数,匹配即放行(签名即能力,无 DB 往返);
+    # - 无 sig(旧库 URL):回退 DB 归属查询,本人/同租户 Job 的产物才放行;admin 直接放行。
+    # 不通过统一 404,不泄露产物存在性。
+    if sig:
+        expected = image_sig(filename, subfolder, type_, worker)
+        if not hmac.compare_digest(sig.encode(), expected.encode()):
+            raise HTTPException(status_code=404, detail="产物不存在")
+    elif user.role != "admin":
+        owns = db.exec(
+            select(Job.id)
+            .where(Job.result.like(f"%filename={filename}%"))
+            .where((Job.user_id == user.id) | (Job.tenant_id == user.tenant_id))
+        ).first()
+        if not owns:
+            raise HTTPException(status_code=404, detail="产物不存在")
 
     primary = resolve_worker(worker)  # SSRF 白名单校验
     host = _host(primary.base_url)

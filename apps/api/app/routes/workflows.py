@@ -8,18 +8,32 @@
 - ComfyUI 前端会自动加载该 workflow
 """
 import json
+import re
 from pathlib import Path
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.config import get_settings
+from app.deps import get_current_admin, get_current_user
+from app.models import User
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
 
 WORKFLOW_DIR = Path(__file__).parent.parent / "workflows"
 DEPLOYED_PREFIX = "toiv_"
+
+# 模板 id 白名单:只含字母数字/下划线/连字符且 ≤64 字符,
+# 防 template_id 含 ".." 等片段拼出 WORKFLOW_DIR 外的路径(路径穿越)
+_TEMPLATE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
+def _check_template_id(template_id: str) -> str:
+    """白名单校验模板 id(三个端点共用);不合法直接 400,绝不触文件系统。"""
+    if not _TEMPLATE_ID_RE.fullmatch(template_id):
+        raise HTTPException(status_code=400, detail="非法的模板 id")
+    return template_id
 
 
 def _list_templates() -> list[dict]:
@@ -78,7 +92,7 @@ def _description(nid: str) -> str:
 
 
 @router.get("/templates")
-async def list_templates():
+async def list_templates(user: User = Depends(get_current_user)):
     return {"templates": _list_templates()}
 
 
@@ -90,13 +104,17 @@ class DeployResponse(BaseModel):
 
 
 @router.post("/{template_id}/deploy")
-async def deploy_template(template_id: str) -> DeployResponse:
+async def deploy_template(
+    template_id: str,
+    admin: User = Depends(get_current_admin),  # 会往 worker 写文件,属管理操作
+) -> DeployResponse:
+    _check_template_id(template_id)
     fp = WORKFLOW_DIR / f"{template_id}.json"
     if not fp.exists() or fp.name.startswith("_"):
         raise HTTPException(status_code=404, detail="工作流模板不存在")
 
     settings = get_settings()
-    workers = settings.comfy_worker_urls
+    workers = settings.worker_urls
     if not workers:
         raise HTTPException(status_code=503, detail="未配置 ComfyUI worker")
     worker_url = workers[0].rstrip("/")
@@ -132,8 +150,12 @@ async def deploy_template(template_id: str) -> DeployResponse:
 
 
 @router.get("/{template_id}/download")
-async def download_template(template_id: str):
+async def download_template(
+    template_id: str,
+    user: User = Depends(get_current_user),
+):
     """直接下载工作流 JSON(手动导入用)。"""
+    _check_template_id(template_id)
     fp = WORKFLOW_DIR / f"{template_id}.json"
     if not fp.exists() or fp.name.startswith("_"):
         raise HTTPException(status_code=404, detail="工作流模板不存在")

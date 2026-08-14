@@ -5,6 +5,8 @@
 """
 from __future__ import annotations
 
+import hmac
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, field_validator
 from sqlmodel import Session, select
@@ -13,7 +15,7 @@ from app.config import get_settings
 from app.db import get_session
 from app.deps import get_current_user
 from app.models import User
-from app.ratelimit import enforce_login_rate_limit
+from app.ratelimit import enforce_login_rate_limit, enforce_subject_rate_limit
 from app.security import create_token, verify_password
 from app.usage import user_usage
 
@@ -78,14 +80,18 @@ class TestLoginRequest(BaseModel):
 
 
 @router.post("/auth/test-login")
-def test_login(body: TestLoginRequest, session: Session = Depends(get_session)) -> dict:
+def test_login(body: TestLoginRequest, request: Request, session: Session = Depends(get_session)) -> dict:
     """AI 测试通道:密钥换 admin token,免登录表单。仅 TOIV_TEST_KEY 非空且匹配时放行。
     前端 /?testkey=<key> 调它一跳进 app。密钥可随时在 .env 清空停用。"""
     key = get_settings().test_key.strip()
     # 生产环境关闭测试通道:test_key 为空时直接 404，避免暴露"该端点存在测试通道"这一信息给攻击者
     if not key:
         raise HTTPException(status_code=404, detail="测试通道未启用")
-    if body.key != key:
+    # 认证前限流:复用 login scope(60s/5 次)防密钥爆破;主体按 IP+端点维度,
+    # 与 /auth/login 的配额互不影响。放在 404 判定之后,未启用环境不消耗配额
+    enforce_subject_rate_limit(f"ip:{_client_ip(request)}|test-login", "login")
+    # 常量时间比较,防时序侧信道探测密钥
+    if not hmac.compare_digest(body.key.encode(), key.encode()):
         raise HTTPException(status_code=403, detail="测试通道密钥错误")
     # 发配置的 admin 账号 token(便于 AI 测全部功能,含管理台);无则取任一 admin
     email = get_settings().admin_email.strip().lower()

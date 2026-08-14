@@ -18,6 +18,8 @@ import {
  * Studio 创作工作室项目状态管理。
  * - detail:项目详情(含角色 + 分镜),pid 变化自动重载
  * - busy:按操作 key 的进行中标记(渲染/配音/对口型/合成),供按钮禁用态
+ * - error:操作级报错(saveShots/渲染/配音/对口型/合成失败都会透出),
+ *   由调用方渲染为可关闭提示条,clearError 关闭
  * - 单镜操作成功后局部更新该镜,批量/合成后整体 refresh
  */
 export function useStudioProject(pid: string | null) {
@@ -43,10 +45,17 @@ export function useStudioProject(pid: string | null) {
     void refresh();
   }, [refresh]);
 
-  const withBusy = useCallback(async (key: string, fn: () => Promise<void>) => {
+  const clearError = useCallback(() => setError(null), []);
+
+  // 操作统一入口:失败时把错误透出到 hook error(调用方渲染提示条),
+  // 并继续 rethrow,保持调用方可编程感知(catch 后自行降级)。
+  const withBusy = useCallback(async (key: string, label: string, fn: () => Promise<void>) => {
     setBusy((b) => ({ ...b, [key]: true }));
     try {
       await fn();
+    } catch (e) {
+      setError(`${label}失败:${e instanceof Error ? e.message : "未知错误"}`);
+      throw e;
     } finally {
       setBusy((b) => ({ ...b, [key]: false }));
     }
@@ -58,10 +67,17 @@ export function useStudioProject(pid: string | null) {
     );
   }, []);
 
+  // 失焦自动保存:失败必须显式标记 error(分镜保存失败)并 rethrow;
+  // 不静默 refresh,避免用服务端旧数据覆盖用户正在进行的本地编辑。
   const saveShots = useCallback(
     async (shots: StudioShotInput[]) => {
       if (!pid) return;
-      await saveStudioShots(pid, shots);
+      try {
+        await saveStudioShots(pid, shots);
+      } catch (e) {
+        setError(`分镜保存失败,请重试或复制内容(${e instanceof Error ? e.message : "未知错误"})`);
+        throw e;
+      }
       await refresh();
     },
     [pid, refresh],
@@ -69,13 +85,15 @@ export function useStudioProject(pid: string | null) {
 
   const renderShot = useCallback(
     (sid: string) =>
-      withBusy(`render:${sid}`, async () => patchShotLocal(await renderStudioShot(sid))),
+      withBusy(`render:${sid}`, "生成分镜", async () =>
+        patchShotLocal(await renderStudioShot(sid)),
+      ),
     [withBusy, patchShotLocal],
   );
 
   const renderAll = useCallback(
     () =>
-      withBusy("render:all", async () => {
+      withBusy("render:all", "批量生成分镜", async () => {
         if (pid) {
           await renderStudioAll(pid);
           await refresh();
@@ -86,19 +104,23 @@ export function useStudioProject(pid: string | null) {
 
   const voiceShot = useCallback(
     (sid: string) =>
-      withBusy(`voice:${sid}`, async () => patchShotLocal(await voiceStudioShot(sid))),
+      withBusy(`voice:${sid}`, "分镜配音", async () =>
+        patchShotLocal(await voiceStudioShot(sid)),
+      ),
     [withBusy, patchShotLocal],
   );
 
   const lipsyncShot = useCallback(
     (sid: string) =>
-      withBusy(`lipsync:${sid}`, async () => patchShotLocal(await lipsyncStudioShot(sid))),
+      withBusy(`lipsync:${sid}`, "分镜对口型", async () =>
+        patchShotLocal(await lipsyncStudioShot(sid)),
+      ),
     [withBusy, patchShotLocal],
   );
 
   const assemble = useCallback(
     () =>
-      withBusy("assemble", async () => {
+      withBusy("assemble", "合成成片", async () => {
         if (pid) {
           await assembleStudio(pid);
           await refresh();
@@ -112,6 +134,7 @@ export function useStudioProject(pid: string | null) {
     loading,
     error,
     busy,
+    clearError,
     refresh,
     saveShots,
     renderShot,
