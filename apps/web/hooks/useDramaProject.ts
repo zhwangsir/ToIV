@@ -1242,8 +1242,8 @@ export function useDramaProject(
     const clips = doneShots.map((s) => s.lipsync_video_url || s.video_url);
     const options = {
       transition: "none",
-      aspect: "16:9",
-      fps: current.fps ?? 16,
+      aspect: "auto", // 随项目宽高(2026-08-15 起后端 auto 继承项目分辨率;写死 16:9 会把 1344×768 压成 720p)
+      fps: current.fps ?? 0, // 0=继承项目 fps(后端缺省 16)
       title: current.title,
       sub_box: true,
       voice_volume: 1.0,
