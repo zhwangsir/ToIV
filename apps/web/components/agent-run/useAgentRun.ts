@@ -235,6 +235,10 @@ export function useAgentRun(runId: string | null, opts: UseAgentRunOptions = {})
     try {
       const d = await getAgentRun(runId);
       setDetail(d);
+      // 终态 error 的原始后端 message 不进 UI(展示层用规范中文),留 console 备查
+      if (d.status === "error" && d.error) {
+        console.error("[agent-run] 运行终态错误:", d.error);
+      }
       if (d.status === "awaiting_assembly") setAssemblyGate(true);
       return d;
     } catch (e) {
@@ -315,6 +319,7 @@ export function useAgentRun(runId: string | null, opts: UseAgentRunOptions = {})
           break;
         case "error": {
           const msg = str(data.message) || "运行出错";
+          console.error("[agent-run] 运行终态错误:", msg);
           setDetail((d) => (d ? { ...d, status: "error", error: msg } : d));
           pushEvent("error", msg, "error");
           setSseState("closed");
@@ -369,14 +374,15 @@ export function useAgentRun(runId: string | null, opts: UseAgentRunOptions = {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runId, refresh, pollIntervalMs]);
 
-  // ── 操作统一入口:失败透出 error 条并重抛(与 useStudioProject 同范式)──
+  // ── 操作统一入口:失败透出规范中文错误条(原始 error 留 console)并重抛(与 useStudioProject 同范式)──
   const withBusy = useCallback(
     async (key: string, label: string, fn: () => Promise<void>): Promise<void> => {
       setBusy((b) => ({ ...b, [key]: true }));
       try {
         await fn();
       } catch (e) {
-        setError(`${label}失败:${e instanceof Error ? e.message : "未知错误"}`);
+        console.error(`[agent-run] ${label}失败:`, e);
+        setError(`${label}失败,请稍后重试`);
         throw e;
       } finally {
         setBusy((b) => ({ ...b, [key]: false }));
@@ -451,7 +457,8 @@ export function useAgentRun(runId: string | null, opts: UseAgentRunOptions = {})
       })
       .catch((e) => {
         if (!disposed) {
-          setError(`加载成片失败:${e instanceof Error ? e.message : "未知错误"}`);
+          console.error("[agent-run] 加载成片失败:", e);
+          setError("加载成片失败,请稍后重试");
         }
       });
     return () => {

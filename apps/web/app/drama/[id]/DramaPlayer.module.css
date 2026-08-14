@@ -297,7 +297,7 @@
   width: auto;
   padding: 0 var(--space-3);
   font-size: var(--text-label);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   font-variant-numeric: tabular-nums;
 }
 
@@ -439,14 +439,14 @@
   margin: 0;
   font-family: var(--font-sans);
   font-size: var(--text-section);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   line-height: var(--leading-base);
   color: var(--text-primary);
 }
 
 .panelMeta {
   font-size: var(--text-label);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   color: var(--text-muted);
   white-space: nowrap;
 }
@@ -507,7 +507,7 @@
   background: var(--bg-surface-2);
   color: var(--text-muted);
   font-size: var(--text-label);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   font-variant-numeric: tabular-nums;
 }
 
@@ -519,7 +519,7 @@
 .chapterName {
   flex: 1;
   min-width: 0;
-  font-weight: 500;
+  font-weight: var(--font-medium);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

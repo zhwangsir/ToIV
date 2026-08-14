@@ -10,12 +10,14 @@ import { Icon } from "@/components/ui/Icon";
 import { LazyVideo } from "@/components/ui/LazyVideo";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Modal } from "@/components/ui/Modal";
 import { Popover } from "@/components/ui/Popover";
 import { Input } from "@/components/ui/Input";
 import { Tabs } from "@/components/ui/Tabs";
 import { useToast } from "@/components/ui/Toast";
 import { StyleBar, type StyleCard } from "@/components/library/StyleBar";
+import "@/app/styles/library.css";
 
 /** localStorage 键:风格卡列表(WS4「存为风格」)。 */
 const STYLE_CARDS_KEY = "toiv_style_cards";
@@ -237,6 +239,10 @@ function ImageThumb({ job, blurred = false }: { job: JobItem; blurred?: boolean 
     <img
       src={imageUrl(job.results[0])}
       alt={job.prompt}
+      /* P1-6:属性仅作加载前纵横比提示(设计基准 1:1,与骨架/占位卡一致),
+         CSS width:100%/height:auto 在加载后按自然比例还原,抑制 CLS */
+      width={512}
+      height={512}
       loading="lazy"
       decoding="async"
       onError={() => setFailed(true)}
@@ -278,6 +284,8 @@ export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
   // 删除确认对话框(替代 window.confirm / window.alert)
   const [confirmDelete, setConfirmDelete] = useState<JobItem | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  // 删除风格卡确认对话框(P0-2,与删除作品同一 Modal 基座)
+  const [confirmDeleteStyle, setConfirmDeleteStyle] = useState<StyleCard | null>(null);
   // 沉浸查看器(批 3):当前筛选列表内的索引;失败/音频作品也允许打开(显示对应占位)
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   // 风格卡(WS4):StyleBar 数据源 + 「存为风格」Popover 状态
@@ -504,12 +512,21 @@ export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
     toast.success("风格已注入,到工作台点优化生效");
   };
 
-  const deleteStyleCard = (card: StyleCard) => {
+  // 点击删除风格卡:仅打开确认对话框(P0-2,与删除作品同一交互范式)
+  const requestDeleteStyleCard = (card: StyleCard) => {
+    setConfirmDeleteStyle(card);
+  };
+
+  // 确认删除风格卡:从 localStorage 移除后 toast(原直接删除逻辑下沉到此)
+  const confirmDeleteStyleCard = () => {
+    if (!confirmDeleteStyle) return;
+    const card = confirmDeleteStyle;
     setStyleCards((prev) => {
       const next = prev.filter((c) => c.id !== card.id);
       persistStyleCards(next);
       return next;
     });
+    setConfirmDeleteStyle(null);
     toast.info(`风格「${card.name}」已删除`);
   };
 
@@ -567,14 +584,14 @@ export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
       <StyleBar
         cards={styleCards}
         onApply={applyStyleCard}
-        onDelete={deleteStyleCard}
+        onDelete={requestDeleteStyleCard}
       />
 
       <div className="lib-body">
         {error && !loading && (
+          /* P1-2:错误块收敛为统一 ErrorBar 基座(可关闭),重试交互保留 */
           <div className="lib-error">
-            <Icon name="error" size={36} strokeWidth={1.4} />
-            <div className="lib-error-msg">{error}</div>
+            <ErrorBar message={error} onClose={() => setError(null)} />
             <Button size="sm" onClick={load} icon={<Icon name="refresh" size={14} />}>
               重试
             </Button>
@@ -686,7 +703,8 @@ export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          background: "rgba(0, 0, 0, 0.35)",
+                          /* P2-1:scrim 收编全局 overlay token(原 rgba(0,0,0,0.35) 内联) */
+                          background: "var(--overlay-strong)",
                           color: "var(--text-on-accent)",
                           fontSize: "var(--text-sm)",
                           fontWeight: "var(--font-medium)",
@@ -782,6 +800,7 @@ export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
                           fontWeight: "var(--font-semibold)",
                           lineHeight: 1.2,
                           pointerEvents: "none",
+                          // 层内微调:徽标压过缩略图媒体/hover 提示层,属卡片内局部堆叠,保留内联
                           zIndex: 2,
                         }}
                       >
@@ -836,7 +855,7 @@ export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
           onReuse={reusePromptAsDraft}
           onDelete={handleDelete}
           deletingId={deletingId}
-          dialogsOpen={!!styleTarget || !!confirmDelete}
+          dialogsOpen={!!styleTarget || !!confirmDelete || !!confirmDeleteStyle}
         />
       )}
 
@@ -912,6 +931,40 @@ export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
             <div className="lib-confirm-error">
               <Icon name="error" size={13} /> {deleteError}
             </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* 删除风格卡确认对话框(P0-2):与删除作品同一确认范式,文案同款 */}
+      <Modal
+        open={!!confirmDeleteStyle}
+        onClose={() => setConfirmDeleteStyle(null)}
+        title="删除风格"
+        danger
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => setConfirmDeleteStyle(null)}
+            >
+              取消
+            </Button>
+            <Button
+              variant="danger"
+              icon={<Icon name="delete" size={14} />}
+              onClick={confirmDeleteStyleCard}
+            >
+              确认删除
+            </Button>
+          </>
+        }
+      >
+        <div className="lib-confirm-body">
+          <div className="lib-confirm-warn">
+            确定删除这个风格?此操作不可撤销,风格卡数据将被永久移除。
+          </div>
+          {confirmDeleteStyle && (
+            <div className="lib-confirm-prompt">{confirmDeleteStyle.name}</div>
           )}
         </div>
       </Modal>
@@ -1068,6 +1121,9 @@ function LibraryLightbox({
               className="lib-lb-media"
               src={mediaUrl}
               alt={job.prompt}
+              /* P1-6:纵横比提示(基准 1:1),contain 适配舞台,加载后按自然比例还原 */
+              width={512}
+              height={512}
               loading="lazy"
               decoding="async"
             />

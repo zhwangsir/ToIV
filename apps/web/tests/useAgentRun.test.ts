@@ -127,11 +127,11 @@ test("④ regenerate 后 attempt+1(局部更新);action 失败透出错误条", 
   assert.equal(agentCalls.agentTaskAction, 1);
   assert.equal(h.result.current?.busy["task:t1:regenerate"], false, "busy 复位");
 
-  // 失败:透出错误条 + 重抛 + busy 复位
+  // 失败:透出规范中文错误条(原始 message 留 console) + 重抛 + busy 复位
   agentImpl.agentTaskAction = () => Promise.reject(new Error("GPU 排队已满"));
   await assert.rejects(h.result.current!.taskAction("t1", "approve"), /GPU 排队已满/);
   await flush();
-  assert.match(h.result.current?.error ?? "", /任务操作失败:GPU 排队已满/);
+  assert.match(h.result.current?.error ?? "", /任务操作失败,请稍后重试/);
   assert.equal(h.result.current?.busy["task:t1:approve"], false);
   h.unmount();
 });

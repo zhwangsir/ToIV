@@ -12,6 +12,8 @@ import type {
 } from "@/lib/api";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { ErrorBar } from "@/components/ui/ErrorBar";
+import { LoadingBlock } from "@/components/ui/LoadingBlock";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 // ── 阶段元数据:徽章色调由 CSS data-stage → canonical 状态色映射 ──
 const STAGE_META: Record<
@@ -283,17 +285,20 @@ export function BacklotView() {
 
   return (
     <div className="single-view backlot-view">
-      <header className="page-header bl-header">
-        <div className="page-header-text">
-          <h1 className="page-header-title">看板</h1>
-          <p className="page-header-desc">
+      {/* 页头:UI-A PageHeader(本文件样式为 jsx global,page-header* 选择器照常命中) */}
+      <PageHeader
+        className="bl-header"
+        title="看板"
+        desc={
+          <>
             项目仪表盘 · 全流程进度一览 ·{" "}
             <span className="bl-count" aria-live="polite">
               {loading ? "加载中" : error ? "—" : `${count} 个项目`}
             </span>
-          </p>
-        </div>
-        <div className="page-header-actions">
+          </>
+        }
+        icon="backlot"
+        actions={
           <button
             type="button"
             className="btn bl-refresh"
@@ -307,8 +312,8 @@ export function BacklotView() {
             />
             刷新
           </button>
-        </div>
-      </header>
+        }
+      />
 
       <div className="bl-body">
         {error && !loading && (
@@ -474,16 +479,16 @@ export function BacklotView() {
                 </div>
 
                 {detailLoading && !detail && (
-                  <div className="loading-spinner bl-panel-loading">
-                    <Icon name="loading" size={16} className="bl-spin" />
-                    <span>加载分镜…</span>
+                  /* 加载态(UI-A LoadingBlock):行骨架替代原文字+转圈 */
+                  <div className="bl-panel-loading" role="status" aria-label="加载分镜中">
+                    <LoadingBlock variant="line" count={2} />
                   </div>
                 )}
 
                 {detailError && (
                   <div className="bl-panel-error">
-                    <Icon name="error" size={20} />
-                    <span>{detailError}</span>
+                    {/* 错误态(UI-A ErrorBar):role=alert + 可关闭;重试保留在条外 */}
+                    <ErrorBar message={detailError} onClose={() => setDetailError(null)} />
                     {activeProjectId && (
                       <button
                         type="button"
@@ -546,7 +551,7 @@ export function BacklotView() {
           margin: 0;
           font-family: var(--font-sans);
           font-size: var(--text-title);
-          font-weight: 700;
+          font-weight: var(--font-bold);
           letter-spacing: -0.02em;
           color: var(--text-primary);
           line-height: 1.3;
@@ -682,7 +687,7 @@ export function BacklotView() {
         .bl-card-title {
           margin: 0;
           font-size: var(--text-section);
-          font-weight: 600;
+          font-weight: var(--font-semibold);
           color: var(--text-primary);
           line-height: 1.35;
           letter-spacing: -0.01em;
@@ -734,7 +739,7 @@ export function BacklotView() {
           border: 1px solid;
           border-radius: var(--radius-badge);
           font-size: var(--text-label);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           letter-spacing: 0.01em;
           white-space: nowrap;
           flex-shrink: 0;
@@ -778,7 +783,7 @@ export function BacklotView() {
           align-items: center;
           gap: var(--space-1);
           font-size: var(--text-label);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           color: var(--text-secondary);
         }
         .bl-progress-count {
@@ -813,7 +818,8 @@ export function BacklotView() {
         .bl-overlay {
           position: fixed;
           inset: 0;
-          z-index: 90;
+          /* 右滑详情抽屉:归入全局 z-index 语义档 --z-drawer(200),原裸值 90 */
+          z-index: var(--z-drawer);
           background: var(--overlay-strong);
           backdrop-filter: blur(4px);
           -webkit-backdrop-filter: blur(4px);
@@ -875,7 +881,7 @@ export function BacklotView() {
           margin: 0;
           font-family: var(--font-sans);
           font-size: var(--text-title);
-          font-weight: 700;
+          font-weight: var(--font-bold);
           letter-spacing: -0.02em;
           color: var(--text-primary);
           line-height: 1.25;
@@ -948,7 +954,7 @@ export function BacklotView() {
           align-items: center;
           gap: var(--space-2);
           font-size: var(--text-label);
-          font-weight: 600;
+          font-weight: var(--font-semibold);
           color: var(--text-muted);
           text-transform: uppercase;
           letter-spacing: 0.06em;
@@ -1073,7 +1079,7 @@ export function BacklotView() {
           font-size: var(--text-body);
           color: var(--text-primary);
           line-height: 1.4;
-          font-weight: 500;
+          font-weight: var(--font-medium);
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
@@ -1104,7 +1110,7 @@ export function BacklotView() {
           background: var(--bg-surface-3);
           border-radius: var(--radius-xs);
           font-size: var(--text-label);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           color: var(--text-secondary);
           font-family: var(--font-mono);
           letter-spacing: 0.01em;
@@ -1129,7 +1135,7 @@ export function BacklotView() {
         }
         .bl-shot-status-label {
           font-size: var(--text-label);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           font-family: var(--font-mono);
           letter-spacing: 0.02em;
         }

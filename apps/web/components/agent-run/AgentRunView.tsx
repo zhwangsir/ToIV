@@ -10,7 +10,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { imageUrl } from "@/lib/api";
 import { Icon } from "@/components/ui/Icon";
+import { ErrorBar } from "@/components/ui/ErrorBar";
 import { LazyVideo } from "@/components/ui/LazyVideo";
+import { Modal } from "@/components/ui/Modal";
 import { AckBanner } from "./AckBanner";
 import { ConfirmGateModal } from "./ConfirmGateModal";
 import { EventTicker } from "./EventTicker";
@@ -25,12 +27,16 @@ import "@/app/styles/agent-runs.css";
 export function AgentRunView({ runId, ack }: { runId: string; ack?: string | null }) {
   const run = useAgentRun(runId);
   const [mode, setMode] = useState<"cards" | "pipeline">("cards");
+  // 取消任务确认门(ui/Modal,替代 window.confirm)
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  // run 级终态错误条是否已被用户关闭(终态不再变化,关闭后不再展示)
+  const [runErrorClosed, setRunErrorClosed] = useState(false);
   const d = run.detail;
   const statusMeta = runStatusMeta(d?.status ?? "");
   const terminal = d ? RUN_TERMINAL.has(d.status) : false;
 
   const cancelRun = async (): Promise<void> => {
-    if (!window.confirm("取消该任务?进行中的节点会按作业取消语义终止。")) return;
+    setConfirmCancel(false);
     try {
       await run.cancel();
     } catch {
@@ -87,7 +93,7 @@ export function AgentRunView({ runId, ack }: { runId: string; ack?: string | nul
                 type="button"
                 className="btn btn-sm btn-danger"
                 disabled={run.busy["cancel"]}
-                onClick={() => void cancelRun()}
+                onClick={() => setConfirmCancel(true)}
               >
                 <Icon name="ban" size={12} /> 取消任务
               </button>
@@ -95,20 +101,8 @@ export function AgentRunView({ runId, ack }: { runId: string; ack?: string | nul
           </div>
         </header>
 
-        {/* ── 错误条(可关闭,M12 范式)── */}
-        {run.error && (
-          <p className="agent-error" role="alert">
-            <span className="agent-error-text">{run.error}</span>
-            <button
-              type="button"
-              className="agent-error-close"
-              aria-label="关闭错误提示"
-              onClick={run.clearError}
-            >
-              <Icon name="close" size={12} />
-            </button>
-          </p>
-        )}
+        {/* ── 错误条(可关闭,统一 ErrorBar)── */}
+        <ErrorBar message={run.error} onClose={run.clearError} />
 
         {/* ── SSE 断线提示 ── */}
         {run.sseState === "reconnecting" && (
@@ -141,11 +135,12 @@ export function AgentRunView({ runId, ack }: { runId: string; ack?: string | nul
             {/* ── 秒回横幅 ── */}
             <AckBanner ack={ack} taskCount={d?.plan.length ?? 0} />
 
-            {/* run 级错误(终态 error)透出 */}
-            {d?.status === "error" && d.error && (
-              <p className="agent-error" role="alert">
-                <span className="agent-error-text">运行出错:{d.error}</span>
-              </p>
+            {/* run 级错误(终态 error)透出:规范中文,原始 error 见 console */}
+            {d?.status === "error" && d.error && !runErrorClosed && (
+              <ErrorBar
+                message="运行出错,请稍后重试"
+                onClose={() => setRunErrorClosed(true)}
+              />
             )}
 
             {/* ── 计划确认门(awaiting_confirm)── */}
@@ -200,6 +195,37 @@ export function AgentRunView({ runId, ack }: { runId: string; ack?: string | nul
             run.dismissAssemblyGate();
           }}
         />
+
+        {/* ── 取消任务确认门(danger,替代 window.confirm)── */}
+        <Modal
+          open={confirmCancel}
+          onClose={() => setConfirmCancel(false)}
+          title="取消任务"
+          danger
+          width={420}
+          footer={
+            <>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setConfirmCancel(false)}
+              >
+                再想想
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                disabled={run.busy["cancel"]}
+                onClick={() => void cancelRun()}
+              >
+                <Icon name={run.busy["cancel"] ? "loading" : "ban"} size={14} />
+                {run.busy["cancel"] ? "取消中…" : "确认取消"}
+              </button>
+            </>
+          }
+        >
+          取消该任务?进行中的节点会按作业取消语义终止。
+        </Modal>
       </div>
       <AgentRunStyles />
     </div>

@@ -124,7 +124,14 @@ function TaskCard({ task, ordinal, orderOf, busy, onAction }: TaskCardProps) {
         )}
         {media.kind === "image" && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={imageUrl(media.src)} alt={task.title} loading="lazy" />
+          <img
+            src={imageUrl(media.src)}
+            alt={task.title}
+            width={1280}
+            height={720}
+            loading="lazy"
+            decoding="async"
+          />
         )}
         {media.kind === "audio" && (
           <audio src={imageUrl(media.src)} controls className="agent-task-audio" />

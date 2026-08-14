@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon } from "@/components/ui/Icon";
 import { Select } from "@/components/ui/Input";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
@@ -34,6 +35,8 @@ interface PromptBarProps {
   isRunning: boolean;
   submitting: boolean;
   submitError: string | null;
+  /** 关闭提交错误条(受控:调用方清空 submitError;缺省为 no-op,仅 GenerateView 生产路径传入)。 */
+  onClearError?: () => void;
   onGenerate: () => void;
   onCancel: () => void;
 }
@@ -62,6 +65,7 @@ export function PromptBar({
   isRunning,
   submitting,
   submitError,
+  onClearError = () => {},
   onGenerate,
   onCancel,
 }: PromptBarProps) {
@@ -97,7 +101,8 @@ export function PromptBar({
   return (
     <div className="promptbar-dock">
       <div className="promptbar">
-        {submitError && <p className="promptbar-error">{submitError}</p>}
+        {/* P1-2 收编:提交阶段异步错误走共享 ErrorBar(原自写 promptbar-error 文本) */}
+        <ErrorBar message={submitError} onClose={onClearError} />
 
         <div className="promptbar-input-row" onClick={() => setOpenChip(null)}>
           <textarea

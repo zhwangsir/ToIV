@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Icon } from "@/components/ui/Icon";
 import { ErrorBar } from "@/components/ui/ErrorBar";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { useToast } from "@/components/ui/Toast";
 import { genId } from "@/lib/id";
 import {
@@ -15,6 +16,7 @@ import {
   createDramaProjectFromImage,
   type DramaFromImageResult,
 } from "@/lib/api";
+import "@/app/styles/animatic.css";
 
 // 与后端 apps/api/app/routes/animatic.py 保持一致的限制
 const MAX_IMAGES = 20;
@@ -215,22 +217,21 @@ export function AnimaticView({
 
   return (
     <div className="single-view animatic-view">
-      <header className="page-header">
-        <div>
-          <h1 className="page-header-title">动态分镜</h1>
-          <p className="page-header-desc">
-            {isAi
-              ? "上传分镜图,VLM 自动解析剧情并生成完整短剧(分镜视频 + 配音 + 成片)"
-              : "上传分镜图,设置每镜时长,串成一条可播放的 animatic 视频"}
-          </p>
-        </div>
-        <div className="page-header-actions">
+      <PageHeader
+        title="动态分镜"
+        desc={
+          isAi
+            ? "上传分镜图,VLM 自动解析剧情并生成完整短剧(分镜视频 + 配音 + 成片)"
+            : "上传分镜图,设置每镜时长,串成一条可播放的 animatic 视频"
+        }
+        icon="film"
+        actions={
           <span className="badge">
             <Icon name="film" size={13} />
             {items.length} / {maxImages} 镜{!isAi && ` · 共 ${totalDuration.toFixed(1)}s`}
           </span>
-        </div>
-      </header>
+        }
+      />
 
       <div className="anim-mode-switch" role="tablist" aria-label="生成模式">
         <button

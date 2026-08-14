@@ -26,6 +26,9 @@
 
 /* ── 视图骨架:上页头 + 下主体(纵向 flex);主体内左舞台 + 右控制面板(grid) ── */
 .at-view {
+  /* z-index 语义档(舞台局部层叠,数值不变;全站浮层走 globals --z-*) */
+  --z-at-overlay: 10;  /* 舞台浮层:状态/说话徽章、字幕条 */
+  --z-at-error: 11;    /* 错误条:压字幕条保证可读 */
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -95,7 +98,7 @@
 }
 .at-placeholder-title {
   font-size: var(--text-title);
-  font-weight: 700;
+  font-weight: var(--font-bold);
   color: var(--text-primary);
   line-height: 1.3;
 }
@@ -124,7 +127,7 @@
   position: absolute;
   top: var(--space-4);
   right: var(--space-4);
-  z-index: 10;
+  z-index: var(--z-at-overlay);
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
@@ -137,7 +140,7 @@
   top: var(--space-4);
   /* 位于页头之下(页头 ~56px 高),与触发器(y12-50)垂直无交集,无需左避让 */
   left: var(--space-4);
-  z-index: 10;
+  z-index: var(--z-at-overlay);
   gap: var(--space-2);
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
@@ -180,13 +183,13 @@
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-panel);
   box-shadow: var(--glass-highlight), var(--shadow-xl);
-  z-index: 10;
+  z-index: var(--z-at-overlay);
   animation: at-slide-up var(--duration-base) var(--ease-standard);
 }
 .at-subtitle-text {
   margin: 0;
   font-size: var(--text-body);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   line-height: 1.6;
   color: var(--text-primary);
   text-align: center;
@@ -200,7 +203,7 @@
   bottom: var(--space-5);
   transform: translateX(-50%);
   max-width: 90%;
-  z-index: 11;
+  z-index: var(--z-at-error);
 }
 /* 浮层在视频 scrim 上:err-soft 底补一层玻璃模糊,与字幕条材质一致 */
 .at-error-bar .ui-error-bar {
@@ -245,7 +248,7 @@
 .at-panel-title {
   margin: 0;
   font-size: var(--text-title);
-  font-weight: 700;
+  font-weight: var(--font-bold);
   color: var(--text-primary);
   line-height: 1.3;
 }
@@ -301,7 +304,7 @@
 .at-section-title {
   margin: 0;
   font-size: var(--text-section);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   color: var(--text-primary);
 }
 .at-section-count {
@@ -367,7 +370,7 @@
 }
 .at-avatar-name {
   font-size: var(--text-aux);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -381,7 +384,7 @@
   background: var(--accent-soft);
   border-radius: var(--radius-badge);
   font-size: var(--text-label);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   color: var(--accent);
 }
 
@@ -389,7 +392,7 @@
 .at-avatar-card-skeleton {
   height: auto;
   aspect-ratio: 15 / 14;
-  animation: at-shimmer 1.5s ease-in-out infinite;
+  animation: at-shimmer var(--duration-shimmer) ease-in-out infinite;
 }
 @keyframes at-shimmer {
   0%, 100% { opacity: 1; }
@@ -411,7 +414,7 @@
   border: 1px solid transparent;
   border-radius: var(--radius-full);
   font-size: var(--text-aux);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   color: var(--text-secondary);
   cursor: pointer;
   transition:
@@ -458,7 +461,7 @@
 }
 .at-model-chip-name {
   font-family: var(--font-mono);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
 }
 .at-model-chip-backend {
   font-size: var(--text-label);
@@ -483,7 +486,7 @@
   width: 80px;
   height: 24px;
   border-radius: var(--radius-full);
-  animation: at-shimmer 1.5s ease-in-out infinite;
+  animation: at-shimmer var(--duration-shimmer) ease-in-out infinite;
 }
 
 /* 模型空态(引擎不可达 / 无可用模型) */
@@ -641,7 +644,7 @@
 }
 /* 录音中:红色呼吸脉冲提示 */
 .at-composer .at-mic-recording {
-  animation: at-mic-pulse 1.2s var(--ease-standard) infinite;
+  animation: at-mic-pulse var(--duration-loop) var(--ease-standard) infinite;
 }
 @keyframes at-mic-pulse {
   0%,
@@ -697,7 +700,7 @@
   gap: var(--space-2);
   max-width: 90%;
   font-size: var(--text-aux);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   color: var(--err);
   pointer-events: auto;
 }
@@ -764,7 +767,7 @@
 .at-gen-warn {
   margin: 0;
   font-size: var(--text-aux);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   color: var(--err);
 }
 

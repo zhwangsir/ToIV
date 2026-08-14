@@ -1,4 +1,4 @@
-import { useEffect, RefObject } from "react";
+import { useEffect, type RefObject } from "react";
 
 /**
  * 焦点陷阱 hook:将 Tab 键焦点限制在容器内。

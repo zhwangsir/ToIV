@@ -67,6 +67,10 @@ function MediaView({ entry, className }: { entry: HistoryEntry; className?: stri
           src={imageUrl(p)}
           alt={entry.prompt}
           className={className}
+          /* CLS 防护:优先用提交时快照的真实目标尺寸;缺省回退 1:1 设计基准
+             (CSS 侧 max-width/max-height + object-fit:contain 保持实际纵横比,见 stage.css .media-main) */
+          width={entry.width ?? 1024}
+          height={entry.height ?? 1024}
           loading="lazy"
           decoding="async"
         />

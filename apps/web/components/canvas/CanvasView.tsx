@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon } from "@/components/ui/Icon";
+import { LoadingBlock } from "@/components/ui/LoadingBlock";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 /** ComfyUI 画布地址:改地址只动这里(或设 NEXT_PUBLIC_COMFYUI_WEB_URL) */
 const COMFYUI_URL =
@@ -60,11 +63,21 @@ function probeStaticAsset(url: string): Promise<boolean> {
   });
 }
 
+/**
+ * 画布视图(内嵌 ComfyUI iframe)。
+ * P1-2 收编记录:
+ * - 页头走共享 PageHeader;失败态不再自写头部错误徽章,错误文案由页头下方 ErrorBar 承载;
+ * - 服务探测(probing)加载块收编为 LoadingBlock(原自写 spinner+纯文字);
+ * - 豁免:iframe 就绪遮罩(全出血剧院式加载幕布,含 spinner)与失败/混合内容全屏 fallback 卡
+ *   为设计态容器,不换成 LoadingBlock/ErrorBar(同 ResultPanel 条目级徽章豁免原则)。
+ */
 export function CanvasView() {
   const [status, setStatus] = useState<Status>({ phase: "probing" });
   const [retryTick, setRetryTick] = useState(0);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [iframeKey, setIframeKey] = useState(0);
+  // 页头 ErrorBar 关闭态(受控;重试时复位重新展示)
+  const [headerErrClosed, setHeaderErrClosed] = useState(false);
   // 每轮加载一代:防止过期的 onLoad 探测结果覆盖新一轮状态
   const loadGenRef = useRef(0);
 
@@ -136,6 +149,7 @@ export function CanvasView() {
     setLoadState("loading");
     setIframeKey((k) => k + 1);
     setRetryTick((t) => t + 1);
+    setHeaderErrClosed(false);
   };
 
   const clearCustomAndRetry = () => {
@@ -143,17 +157,15 @@ export function CanvasView() {
     retry();
   };
 
-  /** 统一页头(纯渲染):大标题 + 辅助描述 + 右侧状态徽章/操作区 */
+  /** 统一页头(共享 PageHeader):大标题 + 辅助描述 + 右侧状态徽章/操作区;
+      失败态错误文案不入头部徽章,由页头下方 ErrorBar 承载(P1-2) */
   const renderHeader = (phase: "probing" | "ready" | "failed", src?: string) => (
-    <header className="page-header canvas-header">
-      <div className="canvas-header-text">
-        <h1 className="page-header-title">画布</h1>
-        <p className="page-header-desc">
-          内嵌 ComfyUI 节点画布,拖拽编排与调试生成工作流
-        </p>
-      </div>
-      <div className="page-header-actions">
-        {phase === "ready" && src ? (
+    <PageHeader
+      className="canvas-header"
+      title="画布"
+      desc="内嵌 ComfyUI 节点画布,拖拽编排与调试生成工作流"
+      actions={
+        phase === "ready" && src ? (
           <>
             <span className="canvas-status canvas-status--ok" title={src}>
               <span className="canvas-status-dot" aria-hidden="true" />
@@ -173,14 +185,16 @@ export function CanvasView() {
             <span className="canvas-status-dot" aria-hidden="true" />
             正在连接…
           </span>
-        ) : (
-          <span className="canvas-status canvas-status--err">
-            <span className="canvas-status-dot" aria-hidden="true" />
-            连接失败
-          </span>
-        )}
-      </div>
-    </header>
+        ) : undefined
+      }
+    />
+  );
+
+  /** 页头下方错误条(P1-2:原头部自写错误徽章收编为共享 ErrorBar,可关闭,重试复位)。 */
+  const renderHeaderError = (message: string) => (
+    <div className="canvas-header-error">
+      <ErrorBar message={headerErrClosed ? null : message} onClose={() => setHeaderErrClosed(true)} />
+    </div>
   );
 
   if (status.phase === "ready") {
@@ -193,6 +207,7 @@ export function CanvasView() {
       return (
         <div className="canvas-view">
           {renderHeader("failed")}
+          {renderHeaderError("当前页面为 HTTPS,浏览器已拦截 HTTP 画布(混合内容),请改用局域网 HTTP 访问")}
           <div className="canvas-stage canvas-stage--center">
             <div className="canvas-fallback">
               <div className="canvas-fallback-badge canvas-fallback-badge--warn">
@@ -306,10 +321,15 @@ export function CanvasView() {
   return (
     <div className="canvas-view">
       {renderHeader(status.phase === "probing" ? "probing" : "failed")}
+      {status.phase === "failed" &&
+        renderHeaderError("ComfyUI 连接失败:以下地址均未连通,请确认画布服务状态后重试")}
       <div className="canvas-stage canvas-stage--center">
         {status.phase === "probing" ? (
           <div className="canvas-fallback canvas-fallback--plain">
-            <div className="canvas-spinner" aria-hidden="true" />
+            {/* P1-2 收编:探测加载块走共享 LoadingBlock(原自写 spinner+纯文字) */}
+            <div className="canvas-probe-loading">
+              <LoadingBlock variant="line" count={2} />
+            </div>
             <p className="canvas-load-title">正在连接 ComfyUI</p>
             <p className="canvas-fallback-dim">正在探测画布服务地址…</p>
           </div>
@@ -385,8 +405,14 @@ const styles = `
   .canvas-header {
     flex: none;
   }
-  .canvas-header-text {
-    min-width: 0;
+  /* 页头下方错误条容器(P1-2,ErrorBar 本体样式见 effects.css) */
+  .canvas-header-error {
+    flex: none;
+    margin: calc(-1 * var(--space-2)) var(--space-6) var(--space-4);
+  }
+  /* 探测加载块(P1-2,LoadingBlock 骨架行宽约束) */
+  .canvas-probe-loading {
+    width: min(340px, 72vw);
   }
 
   /* ── 移动端兜底提示条(默认隐藏,≤767px 显示) ── */
@@ -471,7 +497,7 @@ const styles = `
     background: var(--bg-surface-1);
     color: var(--text-primary);
     font-size: var(--text-body);
-    font-weight: 500;
+    font-weight: var(--font-medium);
     text-decoration: none;
     cursor: pointer;
     transition:
@@ -498,7 +524,7 @@ const styles = `
     gap: var(--space-3);
     background: color-mix(in srgb, var(--bg-canvas) 88%, transparent);
     opacity: 1;
-    transition: opacity 0.4s ease;
+    transition: opacity var(--duration-slow) ease;
     z-index: 1;
   }
   .canvas-load-overlay--hidden {
@@ -511,12 +537,12 @@ const styles = `
     border-radius: var(--radius-full);
     border: 3px solid var(--border-subtle);
     border-top-color: var(--accent);
-    animation: canvas-spin 0.9s linear infinite;
+    animation: canvas-spin var(--duration-loop) linear infinite;
   }
   .canvas-load-title {
     margin: var(--space-2) 0 0;
     font-size: var(--text-section);
-    font-weight: 600;
+    font-weight: var(--font-semibold);
     color: var(--text-primary);
   }
   .canvas-load-text {
@@ -564,7 +590,7 @@ const styles = `
   .canvas-error-card h2 {
     margin: 0 0 var(--space-3);
     font-size: var(--text-title);
-    font-weight: 700;
+    font-weight: var(--font-bold);
     color: var(--text-primary);
   }
   .canvas-error-card p {
@@ -582,7 +608,7 @@ const styles = `
     color: var(--text-on-accent);
     cursor: pointer;
     font-size: var(--text-body);
-    font-weight: 500;
+    font-weight: var(--font-medium);
     transition: background var(--duration-fast) var(--ease-standard);
   }
   .canvas-error-retry:hover {
@@ -650,7 +676,7 @@ const styles = `
   .canvas-fallback h2 {
     margin: 0 0 var(--space-3);
     font-size: var(--text-title);
-    font-weight: 700;
+    font-weight: var(--font-bold);
   }
   .canvas-fallback p {
     margin: 0 0 var(--space-3);
@@ -690,7 +716,7 @@ const styles = `
     background: var(--accent-soft);
     border-radius: var(--radius-control);
     color: var(--accent);
-    font-weight: 600;
+    font-weight: var(--font-semibold);
     word-break: break-all;
   }
   .canvas-fallback-note {
@@ -721,7 +747,7 @@ const styles = `
     color: var(--text-primary);
     cursor: pointer;
     font-size: var(--text-body);
-    font-weight: 500;
+    font-weight: var(--font-medium);
     transition:
       background var(--duration-fast) var(--ease-standard),
       border-color var(--duration-fast) var(--ease-standard);
@@ -756,6 +782,9 @@ const styles = `
   @media (max-width: 767px) {
     .canvas-header :global(.page-header-desc) {
       display: none;
+    }
+    .canvas-header-error {
+      margin: calc(-1 * var(--space-2)) var(--space-4) var(--space-3);
     }
     .canvas-mobile-note {
       display: flex;

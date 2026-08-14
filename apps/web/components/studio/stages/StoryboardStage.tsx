@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
 import type { StudioRenderMode, StudioShot, StudioShotInput } from "@/lib/api";
 import { Icon } from "@/components/ui/Icon";
 import type { useStudioProject } from "@/hooks/useStudioProject";
+import { usePoll } from "@/hooks/usePoll";
 import { ShotCard } from "../ShotCard";
 
 /** StudioShot → 保存输入(全量替换语义:每次提交完整列表)。 */
@@ -34,12 +34,13 @@ export function StoryboardStage({
   const d = project.detail;
   const renderingAll = Boolean(project.busy["render:all"]);
 
-  // 批量生成是长任务:期间轮询刷新,分镜状态/媒体实时可见
-  useEffect(() => {
-    if (!renderingAll) return;
-    const t = setInterval(() => void project.refresh(), 5000);
-    return () => clearInterval(t);
-  }, [renderingAll, project]);
+  // 批量生成是长任务:期间 5s 轮询刷新(页面隐藏暂停,失败指数退避),分镜状态/媒体实时可见
+  usePoll(() => project.refresh(), {
+    intervalMs: 5000,
+    enabled: renderingAll,
+    backoff: true,
+    immediate: false,
+  });
 
   if (!d) return null;
 
@@ -111,6 +112,8 @@ export function StoryboardStage({
               busyRender={Boolean(project.busy[`render:${s.id}`]) || renderingAll}
               busyVoice={Boolean(project.busy[`voice:${s.id}`])}
               busyLipsync={Boolean(project.busy[`lipsync:${s.id}`])}
+              saveState={project.saveState}
+              savedAt={project.savedAt}
               onModeChange={(mode: StudioRenderMode) => patchShot(s.id, { render_mode: mode })}
               onPatch={(fields) => patchShot(s.id, fields)}
               onRender={() =>

@@ -8,6 +8,9 @@ import {
   type StudioCharacter,
 } from "@/lib/api";
 import { Icon } from "@/components/ui/Icon";
+import { Modal } from "@/components/ui/Modal";
+import { Button } from "@/components/ui/Button";
+import { useToast } from "@/components/ui/Toast";
 import type { useStudioProject } from "@/hooks/useStudioProject";
 
 /**
@@ -25,6 +28,9 @@ export function CastStage({
   const [newName, setNewName] = useState("");
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState<StudioCharacter | null>(null);
+  const [removing, setRemoving] = useState(false);
+  const toast = useToast();
 
   if (!d) return null;
 
@@ -43,13 +49,19 @@ export function CastStage({
     }
   };
 
-  const remove = async (c: StudioCharacter) => {
-    if (!window.confirm(`删除角色「${c.name}」?引用该角色的分镜说话人将失效。`)) return;
+  const remove = (c: StudioCharacter) => setConfirmRemove(c);
+
+  const doRemove = async () => {
+    if (!confirmRemove || removing) return;
+    setRemoving(true);
     try {
-      await deleteStudioCharacter(c.id);
+      await deleteStudioCharacter(confirmRemove.id);
+      setConfirmRemove(null);
       await project.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "删除失败");
+    } finally {
+      setRemoving(false);
     }
   };
 
@@ -57,6 +69,7 @@ export function CastStage({
     try {
       await patchStudioCharacter(cid, fields);
       await project.refresh();
+      toast.success("角色已保存");
     } catch (e) {
       setError(e instanceof Error ? e.message : "保存失败");
     }
@@ -82,7 +95,7 @@ export function CastStage({
                 type="button"
                 className="studio-shot-del"
                 title="删除角色"
-                onClick={() => void remove(c)}
+                onClick={() => remove(c)}
               >
                 <Icon name="delete" size={13} />
               </button>
@@ -150,6 +163,38 @@ export function CastStage({
           下一步:分镜 <Icon name="chevron-right" size={14} />
         </button>
       </div>
+
+      {/* 删除角色确认(替代原生 window.confirm) */}
+      <Modal
+        open={!!confirmRemove}
+        onClose={() => setConfirmRemove(null)}
+        title="删除角色"
+        danger
+        preventClose={removing}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              disabled={removing}
+              onClick={() => setConfirmRemove(null)}
+            >
+              取消
+            </Button>
+            <Button
+              variant="danger"
+              loading={removing}
+              icon={<Icon name="delete" size={14} />}
+              onClick={() => void doRemove()}
+            >
+              {removing ? "删除中…" : "确认删除"}
+            </Button>
+          </>
+        }
+      >
+        <p style={{ margin: 0, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+          删除角色「{confirmRemove?.name}」?引用该角色的分镜说话人将失效。
+        </p>
+      </Modal>
     </section>
   );
 }

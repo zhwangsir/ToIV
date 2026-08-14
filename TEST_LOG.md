@@ -2,6 +2,43 @@
 
 ---
 
+## UI2-2026-08-14 · UI/UX 二轮优化（诊断驱动 + 量化目标）
+
+**时间**: 2026-08-14
+**类型**: 前端里程碑（诊断报告 docs/2026-08-14-ui-ux-diagnosis-round2.md；三路静态审计全量实测基线）
+
+### 交付（V1-V4，8 并行 Agent + 主控收编 + Wave2 CSS 分割）
+
+- **P0-1 品牌资产从零补齐**：app/icon.svg（素白+墨色 T/播放三角字标）+ app/manifest.ts（standalone/maskable）；themeColor 随主题（layout 防 FOUC 脚本 + theme.ts syncThemeColorMeta 双路，读 --bg-canvas）；apple-icon.png 待设计交付（已注释）
+- **P0-2 删除确认补齐**：助手会话/文档、风格卡 3 处不可逆删除 + window.confirm 6 处（Studio/ScriptStage/CastStage/DramaView×2/AgentRun）全部迁 ui/Modal danger 模式；Admin 自写弹窗→ui/Modal（获得 focus trap）
+- **P0-3 反馈补全**：ShotCard 失焦保存三态指示（保存中/已保存 HH:mm/失败）；Ref*Upload 四件套上传成功 toast
+- **P0-4 CSS 按视图分割**：library/avatartalk/fusion/animatic/settings/landing/docs 7 个视图 css 移入 lazy chunk；layout 级 CSS 127.9KB→**66.2KB（-48%）**；stage.css 因 skeleton-shimmer 层叠依赖+三视图消费保持全局（布局注释说明）；tests/loader.mjs 补 .css 短路
+- **P1 收编**：font-weight 数字 151 处全清零（css 69 + styled-jsx 82，含新增 --font-regular token；DramaView 经门禁补网）；PageHeader 1→15 视图、ErrorBar 13→20、LoadingBlock 6→13；button type 全站补齐（含门禁揪出的 drama 播放器 12 处）；中英混拼错误文案规范（AgentRun/useAgentRun/AvatarTalk）；StoryboardStage 5s setInterval→usePoll（页面隐藏暂停）
+- **P1-6 图片 CLS**：全站 20 处 img 补 width/height 基准尺寸（Library/ResultPanel/ImageEdit/TaskCardList/ShotCard 等）；lib-card 加 content-visibility:auto+contain-intrinsic-size（长列表渲染优化）
+- **生产优化**：next.config compiler.removeConsole（保留 error/warn）；package.json browserslist（现代浏览器，裁剪 polyfills）
+- **CI 门禁**：scripts/ui_lint.mjs 新增（硬门禁：font-weight 数字/window.confirm|alert/button 无 type/非白名单 hex；软提醒：动画字面时长/z-index 裸值；支持 ui-lint-ok 行级豁免；95 文件扫描通过）
+
+### 量化目标达成对照
+
+| 指标 | 基线 | 目标 | 实际 |
+|---|---|---|---|
+| 首屏 layout CSS | 127.9KB | ≤60KB | 66.2KB（stage.css 层叠依赖保留全局，未达标已记录原因） |
+| window.confirm | 6 | 0 | **0** ✅ |
+| font-weight 硬编码 | 69(css)+82(tsx) | 0 | **0** ✅（门禁锁定） |
+| button 无 type | 197+ | ≤5 | **0** ✅（门禁锁定） |
+| PageHeader/ErrorBar/LoadingBlock | 1/13/6 | 18/20/18 | 15/20/13（豁免项已注释；LoadingBlock 因骨架屏更优部分保留） |
+| img 无尺寸 | 20 | 0 | **0** ✅ |
+| 失控轮询 | 1 | 0 | **0** ✅ |
+| 无确认不可逆删除 | 3 | 0 | **0** ✅ |
+
+### 回归
+
+- tsc 零错误；**web 78/78**（含 uiCViews/useAgentRun/uiDViews 三处测试适配 + loader.mjs .css 短路）；next build ✅（First Load JS 180KB shared，icon.svg/manifest.webmanifest 路由生效）
+- node scripts/ui_lint.mjs 通过（0 FAIL，13 条 WARN 均有注释理由）
+- 视觉零变化约束：CSS 分割波零规则改动；token 替换全值等价；e2e symmetry 基线未触发变更
+
+---
+
 ## H-UI-2026-08-14 · AI 底层驱动 Harness 化 + 全站 UI 优化
 
 **时间**: 2026-08-14

@@ -10,6 +10,7 @@ import {
 } from "@/lib/api";
 import { Icon } from "@/components/ui/Icon";
 import { Ripple } from "@/components/ui/Ripple";
+import type { StudioSaveState } from "@/hooks/useStudioProject";
 
 const STATUS_LABEL: Record<string, string> = {
   draft: "草稿",
@@ -35,6 +36,9 @@ export interface ShotCardProps {
   busyRender: boolean;
   busyVoice: boolean;
   busyLipsync: boolean;
+  /** 失焦自动保存状态(项目级,所有卡片共享) */
+  saveState: StudioSaveState;
+  savedAt: Date | null;
   onModeChange: (mode: StudioRenderMode) => void;
   onPatch: (fields: Partial<StudioShotInput>) => void;
   onRender: () => void;
@@ -53,6 +57,8 @@ export function ShotCard({
   busyRender,
   busyVoice,
   busyLipsync,
+  saveState,
+  savedAt,
   onModeChange,
   onPatch,
   onRender,
@@ -69,6 +75,10 @@ export function ShotCard({
   const mediaUrl = shot.final_clip_url || shot.video_url || shot.image_url;
   const isVideo = Boolean(shot.final_clip_url || shot.video_url);
   const rendering = shot.status === "rendering" || busyRender;
+
+  const savedAtLabel = savedAt
+    ? `${String(savedAt.getHours()).padStart(2, "0")}:${String(savedAt.getMinutes()).padStart(2, "0")}`
+    : null;
 
   return (
     <article className="studio-shot" data-status={shot.status}>
@@ -113,6 +123,22 @@ export function ShotCard({
               <Icon name="image" size={11} /> 运镜
             </button>
           </div>
+          {/* 失焦自动保存状态(轻量指示;失败另有顶部错误条) */}
+          {saveState === "saving" && (
+            <span className="shot-save-state" role="status">
+              <Icon name="loading" size={11} /> 保存中…
+            </span>
+          )}
+          {saveState === "saved" && savedAtLabel && (
+            <span className="shot-save-state is-saved" role="status">
+              <Icon name="check" size={11} /> 已保存 {savedAtLabel}
+            </span>
+          )}
+          {saveState === "error" && (
+            <span className="shot-save-state is-error" role="status">
+              <Icon name="error" size={11} /> 保存失败
+            </span>
+          )}
           <button
             type="button"
             className="studio-shot-del"
@@ -248,6 +274,23 @@ export function ShotCard({
           )}
         </div>
       </div>
+      <style jsx>{`
+        .shot-save-state {
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+          margin-left: auto;
+          font-size: var(--text-caption, 11px);
+          color: var(--text-muted);
+          white-space: nowrap;
+        }
+        .shot-save-state.is-saved {
+          color: var(--ok);
+        }
+        .shot-save-state.is-error {
+          color: var(--err);
+        }
+      `}</style>
     </article>
   );
 }

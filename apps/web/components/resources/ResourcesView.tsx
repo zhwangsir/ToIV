@@ -3,6 +3,8 @@
 import { lazy, Suspense, useState } from "react";
 
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { LoadingBlock } from "@/components/ui/LoadingBlock";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Tabs } from "@/components/ui/Tabs";
 
 const ModelsView = lazy(() =>
@@ -43,15 +45,15 @@ export function ResourcesView({ showAdmin = false }: ResourcesViewProps) {
 
   return (
     <div className="resources-view">
-      <header className="page-header resources-head">
-        <div className="resources-head-main">
-          <h1 className="page-header-title">资源中心</h1>
-          <p className="page-header-desc">模型库 · 训练 · 看板 一站式管理工作台</p>
-        </div>
-        <div className="page-header-actions resources-head-tabs">
+      {/* 页头:UI-A PageHeader;resources-head 类经 className 透传,scoped 内边距/避让样式保持生效 */}
+      <PageHeader
+        className="resources-head"
+        title="资源中心"
+        desc="模型库 · 训练 · 看板 一站式管理工作台"
+        actions={
           <Tabs items={items} current={tab} onChange={(k) => setTab(k as ResourceTab)} ariaLabel="资源" />
-        </div>
-      </header>
+        }
+      />
       <div className="resources-body">
         {/* 内层错误边界(UI-B):子视图渲染/chunk 加载异常时只降级内容区,
             页头 tab 条保持可用,切换 tab(key 变更)即自动复位边界 */}
@@ -59,7 +61,7 @@ export function ResourcesView({ showAdmin = false }: ResourcesViewProps) {
           <Suspense
             fallback={
               <div className="view-fallback" role="status" aria-label="加载中">
-                <div className="splash-orb" aria-hidden="true" />
+                <LoadingBlock variant="line" count={3} />
               </div>
             }
           >

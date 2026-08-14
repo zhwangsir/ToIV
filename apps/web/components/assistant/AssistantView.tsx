@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, lazy, Suspense } from "react";
 import { Icon } from "@/components/ui/Icon";
+import { Button } from "@/components/ui/Button";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { useToast } from "@/components/ui/Toast";
@@ -25,9 +26,18 @@ import {
 } from "@/lib/docs";
 import { genId } from "@/lib/id";
 import { useBreakpoint } from "@/lib/useBreakpoint";
+import "@/app/styles/docs.css";
 
 // 模型名从 /api/system/llm 动态读取(display_model),不再硬编码;desc 为通用说明
 const MODEL_DESC = "本地 L1 快速对话模型，适合灵感捕获、提示词润色、简单问答";
+
+// Modal 走 lazy(同 ResourcesView 懒加载范式):node:test 直接 import 本文件但不渲染视图,
+// lazy 可避开链接期触达 ui/Modal → hooks/useFocusTrap(.ts 不经测试 loader 转译,
+// 其 `RefObject` 值导入在 node ESM type-stripping 下会抛 named export 错);
+// 生产端 chunk 随视图挂载即预热,打开确认弹窗无感知
+const Modal = lazy(() =>
+  import("@/components/ui/Modal").then((m) => ({ default: m.Modal })),
+);
 
 export interface Conversation {
   id: string;
@@ -312,6 +322,10 @@ export function AssistantView() {
   const [docsOpen, setDocsOpen] = useState(false);
   const [attachedDocs, setAttachedDocs] = useState<DocItem[]>([]);
   const [docUploading, setDocUploading] = useState(false);
+  // 删除二次确认(P0-2):会话/文档删除均不可逆,统一走 Modal 确认后执行
+  const [confirmDeleteConv, setConfirmDeleteConv] = useState<Conversation | null>(null);
+  const [confirmDeleteDoc, setConfirmDeleteDoc] = useState<DocItem | null>(null);
+  const [docDeleting, setDocDeleting] = useState(false);
   const abortRef = useRef<boolean>(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const activeConvIdRef = useRef<string | null>(null);
@@ -447,14 +461,19 @@ export function AssistantView() {
     [toast],
   );
 
+  // 由确认弹窗触发:删除中阻止关闭;失败保留弹窗可重试/取消,成功即关闭
   const onDeleteDoc = useCallback(
     async (doc: DocItem) => {
+      setDocDeleting(true);
       try {
         await deleteDoc(doc.id);
         setDocList((prev) => prev.filter((d) => d.id !== doc.id));
         setAttachedDocs((prev) => prev.filter((d) => d.id !== doc.id));
+        setConfirmDeleteDoc(null);
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "删除文档失败");
+      } finally {
+        setDocDeleting(false);
       }
     },
     [toast],
@@ -946,7 +965,7 @@ export function AssistantView() {
                   <button
                     type="button"
                     className="av-conv-delete"
-                    onClick={(e) => { e.stopPropagation(); deleteConversation(conv.id); }}
+                    onClick={(e) => { e.stopPropagation(); setConfirmDeleteConv(conv); }}
                     title="删除对话"
                   >
                     <Icon name="delete" size={11} strokeWidth={1.8} />
@@ -1045,7 +1064,7 @@ export function AssistantView() {
                     <button
                       type="button"
                       className="doc-item-delete"
-                      onClick={() => onDeleteDoc(doc)}
+                      onClick={() => setConfirmDeleteDoc(doc)}
                       title="删除文档"
                       aria-label={`删除文档 ${doc.filename}`}
                     >
@@ -1076,6 +1095,70 @@ export function AssistantView() {
         />
       )}
 
+      {/* 删除确认弹窗组(P0-2,lazy Modal 需 Suspense 边界;fallback null 不影响布局) */}
+      <Suspense fallback={null}>
+      {/* 删除对话二次确认(Modal 基座,对齐作品库删除确认模式) */}
+      <Modal
+        open={!!confirmDeleteConv}
+        onClose={() => setConfirmDeleteConv(null)}
+        title="删除对话"
+        danger
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmDeleteConv(null)}>
+              取消
+            </Button>
+            <Button
+              variant="danger"
+              icon={<Icon name="delete" size={14} />}
+              onClick={() => {
+                if (confirmDeleteConv) deleteConversation(confirmDeleteConv.id);
+                setConfirmDeleteConv(null);
+              }}
+            >
+              确认删除
+            </Button>
+          </>
+        }
+      >
+        <div className="av-confirm-warn">
+          确定删除这条对话{confirmDeleteConv?.title ? `「${confirmDeleteConv.title}」` : ""}?此操作不可撤销,全部消息记录将被永久移除。
+        </div>
+      </Modal>
+
+      {/* 删除文档二次确认(删除中阻止关闭,失败保留弹窗可重试) */}
+      <Modal
+        open={!!confirmDeleteDoc}
+        onClose={() => setConfirmDeleteDoc(null)}
+        title="删除文档"
+        danger
+        preventClose={docDeleting}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              disabled={docDeleting}
+              onClick={() => setConfirmDeleteDoc(null)}
+            >
+              取消
+            </Button>
+            <Button
+              variant="danger"
+              loading={docDeleting}
+              icon={<Icon name="delete" size={14} />}
+              onClick={() => confirmDeleteDoc && onDeleteDoc(confirmDeleteDoc)}
+            >
+              {docDeleting ? "删除中…" : "确认删除"}
+            </Button>
+          </>
+        }
+      >
+        <div className="av-confirm-warn">
+          确定删除文档{confirmDeleteDoc ? `「${confirmDeleteDoc.filename}」` : ""}?此操作不可撤销,文档及其索引将被永久移除。
+        </div>
+      </Modal>
+      </Suspense>
+
       <style jsx global>{`
         .av-view {
           position: absolute;
@@ -1097,7 +1180,8 @@ export function AssistantView() {
           padding: var(--space-4) var(--space-6); /* 壳层 app-main padding-top:56px 已垂直让开 CornerNav 触发器,左右对称 */
           background: var(--bg-surface-1);
           border-bottom: 1px solid var(--border-subtle);
-          z-index: 5;
+          /* 悬浮 chrome 档:压过聊天内容层(0/1),让位于抽屉面板(var(--z-drawer)) */
+          z-index: var(--z-sticky);
         }
         .av-header-main {
           display: flex;
@@ -1107,7 +1191,7 @@ export function AssistantView() {
         }
         .av-header-title {
           font-size: var(--text-title);
-          font-weight: 700;
+          font-weight: var(--font-bold);
           color: var(--text-primary);
           letter-spacing: -0.01em;
           line-height: 1.2;
@@ -1136,7 +1220,7 @@ export function AssistantView() {
           border-radius: var(--radius-control);
           color: var(--text-secondary);
           font-size: var(--text-aux);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           font-family: var(--font-sans);
           cursor: pointer;
           transition: color var(--duration-fast) var(--ease-standard),
@@ -1173,7 +1257,7 @@ export function AssistantView() {
           border-radius: var(--radius-full);
           color: var(--text-secondary);
           font-size: var(--text-label);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           font-family: var(--font-mono);
           letter-spacing: 0.02em;
           white-space: nowrap;
@@ -1227,13 +1311,13 @@ export function AssistantView() {
           background-position: 0 0;
           opacity: 0.32;
           pointer-events: none;
-          z-index: 0;
+          z-index: 0; /* 层内微调:点阵质感压底,内容层(1)浮其上 */
         }
 
         /* ───── 空态(欢迎页:hero 式舒展排版) ───── */
         .av-empty {
           position: relative;
-          z-index: 1;
+          z-index: 1; /* 层内微调:内容压过点阵背景(0) */
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -1252,13 +1336,13 @@ export function AssistantView() {
           border: 1px solid var(--accent-glow);
           color: var(--accent);
           font-size: var(--text-label);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           letter-spacing: 0.12em;
           text-transform: uppercase;
         }
         .av-empty-title {
           font-size: 32px;
-          font-weight: 700;
+          font-weight: var(--font-bold);
           color: var(--text-primary);
           letter-spacing: -0.02em;
           line-height: 1.2;
@@ -1312,7 +1396,7 @@ export function AssistantView() {
         }
         .av-quick-label {
           font-size: var(--text-body);
-          font-weight: 600;
+          font-weight: var(--font-semibold);
           color: var(--text-primary);
         }
         .av-quick-desc {
@@ -1329,7 +1413,7 @@ export function AssistantView() {
         /* ───── 消息列表(720px 居中列,气泡尾角+圆形头像) ───── */
         .av-msg-list {
           position: relative;
-          z-index: 1;
+          z-index: 1; /* 层内微调:内容压过点阵背景(0) */
           display: flex;
           flex-direction: column;
           gap: var(--space-6);
@@ -1423,7 +1507,7 @@ export function AssistantView() {
           border-radius: var(--radius-control);
           color: var(--text-primary);
           font-size: var(--text-aux);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           font-family: var(--font-sans);
           cursor: pointer;
           transition: color var(--duration-fast) var(--ease-standard),
@@ -1506,7 +1590,8 @@ export function AssistantView() {
           flex-shrink: 0;
           padding: var(--space-4) var(--space-6) var(--space-5);
           background: linear-gradient(180deg, transparent 0%, var(--bg-surface-1) 24%);
-          z-index: 5;
+          /* 悬浮 chrome 档:与页头同级,让位于抽屉面板(var(--z-drawer)) */
+          z-index: var(--z-sticky);
         }
         .av-composer-box {
           position: relative;
@@ -1562,7 +1647,7 @@ export function AssistantView() {
         }
         .av-composer-actions {
           position: relative;
-          z-index: 1;
+          z-index: 1; /* 层内微调:压过 composer-box::before 渐变描边 */
           display: flex;
           align-items: center;
           gap: var(--space-1);
@@ -1638,7 +1723,7 @@ export function AssistantView() {
         }
         .av-composer-input {
           position: relative;
-          z-index: 1;
+          z-index: 1; /* 层内微调:压过 composer-box::before 渐变描边 */
           flex: 1;
           min-width: 0;
           resize: none;
@@ -1682,7 +1767,8 @@ export function AssistantView() {
           display: flex;
           flex-direction: column;
           background: var(--bg-surface-1);
-          z-index: 15;
+          /* 抽屉档:对齐全局 .drawer 约定(遮罩 +1),压过页头/输入区(var(--z-sticky)) */
+          z-index: calc(var(--z-drawer) + 1);
           transition: transform var(--duration-base) var(--ease-standard);
           box-shadow: var(--shadow-xl);
         }
@@ -1709,7 +1795,7 @@ export function AssistantView() {
         }
         .av-panel-title {
           font-size: var(--text-label);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           color: var(--text-secondary);
           text-transform: uppercase;
           letter-spacing: 0.04em;
@@ -1793,7 +1879,7 @@ export function AssistantView() {
         }
         .av-conv-title {
           font-size: var(--text-aux);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           color: var(--text-primary);
           white-space: nowrap;
           overflow: hidden;
@@ -1849,7 +1935,7 @@ export function AssistantView() {
         }
         .av-prop-label {
           font-size: var(--text-label);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           color: var(--text-muted);
           text-transform: uppercase;
           letter-spacing: 0.04em;
@@ -1875,7 +1961,7 @@ export function AssistantView() {
         }
         .av-stat-value {
           font-size: var(--text-title);
-          font-weight: 600;
+          font-weight: var(--font-semibold);
           color: var(--text-primary);
           font-family: var(--font-mono);
           font-variant-numeric: tabular-nums;
@@ -1891,12 +1977,21 @@ export function AssistantView() {
           inset: 0;
           background: var(--overlay-light);
           backdrop-filter: blur(2px);
-          z-index: 10;
+          /* 抽屉遮罩档:对齐全局 .drawer-overlay,低于面板(+1) */
+          z-index: var(--z-drawer);
           animation: av-overlay-in var(--duration-fast) var(--ease-standard);
         }
         @keyframes av-overlay-in {
           from { opacity: 0; }
           to { opacity: 1; }
+        }
+
+        /* 删除确认弹窗正文(对齐作品库 lib-confirm-warn 排版) */
+        .av-confirm-warn {
+          font-size: var(--text-body);
+          color: var(--text-secondary);
+          line-height: 1.55;
+          word-break: break-word;
         }
 
         @media (prefers-reduced-motion: reduce) {

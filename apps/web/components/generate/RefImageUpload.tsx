@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Field } from "@/components/ui/Input";
+import { useToast } from "@/components/ui/Toast";
 import { uploadImage } from "@/lib/api";
 import type { EngineParam, RefImageHandle } from "@/lib/engines";
 
@@ -35,6 +36,7 @@ interface RefImageUploadProps {
 /** 参考图上传:客户端校验(20MB / 扩展名)→ /api/upload → 缩略预览,可移除重传。 */
 export function RefImageUpload({ param, value, onChange, uploadKind, disabled }: RefImageUploadProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const toast = useToast();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,6 +60,8 @@ export function RefImageUpload({ param, value, onChange, uploadKind, disabled }:
         previewUrl: URL.createObjectURL(file),
         name: file.name,
       });
+      // 成功显式反馈(原静默入列,弱网下用户无法确认已传上);失败仍走内联 setError
+      toast.success("参考图已上传");
     } catch (e) {
       setError(e instanceof Error ? e.message : "上传失败");
     } finally {

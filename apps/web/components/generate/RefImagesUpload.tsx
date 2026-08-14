@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Field } from "@/components/ui/Input";
+import { useToast } from "@/components/ui/Toast";
 import { uploadImage } from "@/lib/api";
 import type { EngineParam } from "@/lib/engines";
 
@@ -35,6 +36,7 @@ interface RefImagesUploadProps {
  */
 export function RefImagesUpload({ param, values, onChange, uploadKind, disabled }: RefImagesUploadProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const toast = useToast();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const max = param.max ?? 4;
@@ -68,6 +70,8 @@ export function RefImagesUpload({ param, values, onChange, uploadKind, disabled 
           name: file.name,
         },
       ]);
+      // 成功显式反馈(原静默入列);失败仍走内联 setError
+      toast.success(`参考图已上传(${values.length + 1}/${max})`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "上传失败");
     } finally {

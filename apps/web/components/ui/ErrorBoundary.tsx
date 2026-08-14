@@ -51,11 +51,12 @@ export class ErrorBoundary extends Component<Props, State> {
           {this.state.error?.message ?? "未知错误"}
         </p>
         <div className="err-actions">
-          <button className="btn" onClick={this.handleReset}>
+          <button type="button" className="btn" onClick={this.handleReset}>
             <Icon name="refresh" size={14} />
             <span>重试</span>
           </button>
           <button
+            type="button"
             className="btn btn-ghost"
             onClick={() => {
               // 回到首页 assistant 视图

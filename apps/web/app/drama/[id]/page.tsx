@@ -242,7 +242,7 @@ export default function DramaPlayerPage() {
             </p>
           </div>
           <div className="page-header-actions">
-            <button className={styles.shareButton} onClick={handleShare}>
+            <button type="button" className={styles.shareButton} onClick={handleShare}>
               <Icon name="share" size={16} />
               分享
             </button>
@@ -273,6 +273,7 @@ export default function DramaPlayerPage() {
 
               {(!isPlaying || currentTime === 0) && (
                 <button
+                  type="button"
                   className={`${styles.centerPlay} ${styles.visible}`}
                   onClick={togglePlay}
                   aria-label={isPlaying ? "暂停" : "播放"}
@@ -285,6 +286,7 @@ export default function DramaPlayerPage() {
 
               <div className={styles.topBar}>
                 <button
+                  type="button"
                   className={`${styles.iconButton} ${isDanmuOn ? styles.active : ""}`}
                   onClick={() => setIsDanmuOn((p) => !p)}
                   aria-label="弹幕开关"
@@ -328,6 +330,7 @@ export default function DramaPlayerPage() {
                 <div className={styles.controlRow}>
                   <div className={styles.controlGroup}>
                     <button
+                      type="button"
                       className={styles.iconButton}
                       onClick={togglePlay}
                       aria-label={isPlaying ? "暂停" : "播放"}
@@ -335,6 +338,7 @@ export default function DramaPlayerPage() {
                       {isPlaying ? <Icon name="pause" size={20} /> : <Icon name="play" size={20} />}
                     </button>
                     <button
+                      type="button"
                       className={styles.iconButton}
                       onClick={toggleMute}
                       aria-label={isMuted ? "取消静音" : "静音"}
@@ -357,10 +361,11 @@ export default function DramaPlayerPage() {
                   </div>
 
                   <div className={styles.controlGroup}>
-                    <button className={styles.rateButton} onClick={cycleRate}>
+                    <button type="button" className={styles.rateButton} onClick={cycleRate}>
                       {RATES[rateIndex]}x
                     </button>
                     <button
+                      type="button"
                       className={styles.iconButton}
                       onClick={toggleFullscreen}
                       aria-label={isFullscreen ? "退出全屏" : "全屏"}
@@ -375,6 +380,7 @@ export default function DramaPlayerPage() {
             <div className={styles.interactionBar}>
               <div className={styles.feedbackGroup}>
                 <button
+                  type="button"
                   className={`${styles.interactionButton} ${liked ? styles.active : ""}`}
                   onClick={handleLike}
                 >
@@ -382,6 +388,7 @@ export default function DramaPlayerPage() {
                   点赞
                 </button>
                 <button
+                  type="button"
                   className={`${styles.interactionButton} ${styles.good} ${goodAt !== null ? styles.active : ""}`}
                   onClick={handleMarkGood}
                 >
@@ -389,6 +396,7 @@ export default function DramaPlayerPage() {
                   这里好看
                 </button>
                 <button
+                  type="button"
                   className={`${styles.interactionButton} ${styles.boring} ${boringAt !== null ? styles.active : ""}`}
                   onClick={handleMarkBoring}
                 >
@@ -397,7 +405,7 @@ export default function DramaPlayerPage() {
                 </button>
               </div>
               <div className={styles.actionGroup}>
-                <button className={styles.interactionButton} onClick={handleReplay}>
+                <button type="button" className={styles.interactionButton} onClick={handleReplay}>
                   <Icon name="replay" size={16} />
                   重播
                 </button>
@@ -419,6 +427,7 @@ export default function DramaPlayerPage() {
                     return (
                       <li key={ch.id}>
                         <button
+                          type="button"
                           className={`${styles.chapterItem} ${active ? styles.active : ""}`}
                           onClick={() => seekToChapter(ch.start)}
                         >

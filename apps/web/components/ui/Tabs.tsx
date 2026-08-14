@@ -66,7 +66,7 @@ export function Tabs({ items, current, onChange, fill = false, ariaLabel }: Tabs
           border-radius: var(--radius-sm);
           color: var(--text-secondary);
           font-size: var(--text-sm);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           cursor: pointer;
           white-space: nowrap;
           transition: background-color var(--duration-fast) var(--ease-standard),

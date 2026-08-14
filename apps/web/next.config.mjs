@@ -9,6 +9,13 @@ const nextConfig = {
   output: "standalone",
   outputFileTracingRoot: __dirname,
   allowedDevOrigins: ["localhost", "127.0.0.1"],
+  // 生产构建剥离 console(保留 error/warn 供线上排障);开发环境不动,保留完整调试输出
+  compiler: {
+    removeConsole:
+      process.env.NODE_ENV === "production"
+        ? { exclude: ["error", "warn"] }
+        : false,
+  },
   // rewrite 代理 /api 时,Next 默认只放行 10MB body → 视频上传会 socket hang up。
   // 拉到极大(等效不限;上传只受带宽/磁盘限制,与本服务无关,按用户要求不设上限)。
   experimental: {

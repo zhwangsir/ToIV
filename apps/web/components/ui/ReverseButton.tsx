@@ -98,7 +98,7 @@ export function ReverseButton({
           border-radius: var(--radius-control);
           color: var(--accent);
           font-size: var(--text-aux);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           cursor: pointer;
           transition: background-color var(--duration-fast) var(--ease-standard),
             color var(--duration-fast) var(--ease-standard),

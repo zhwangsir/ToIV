@@ -941,7 +941,7 @@
 .promptbar:focus-within {
   transform: translateY(-2px);
   border-color: var(--accent-glow);
-  animation: promptbar-breathe 2.4s var(--ease-standard) infinite;
+  animation: promptbar-breathe var(--duration-breathe) var(--ease-standard) infinite;
 }
 @keyframes promptbar-breathe {
   0%, 100% { box-shadow: var(--glass-highlight), var(--shadow-float); }

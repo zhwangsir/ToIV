@@ -13,6 +13,8 @@ import { AgentRunStyles } from "@/components/agent-run/AgentRunStyles";
 import { runStatusMeta } from "@/components/agent-run/agentRunMeta";
 import { useAgentRunList } from "@/components/agent-run/useAgentRunList";
 import { useAuthGuard } from "@/components/agent-run/useAuthGuard";
+import { ErrorBar } from "@/components/ui/ErrorBar";
+import { LoadingBlock } from "@/components/ui/LoadingBlock";
 
 export default function AgentRunsPage() {
   const authed = useAuthGuard();
@@ -59,20 +61,8 @@ export default function AgentRunsPage() {
           </div>
         </header>
 
-        {/* 错误条(可关闭) */}
-        {list.error && (
-          <p className="agent-error" role="alert">
-            <span className="agent-error-text">{list.error}</span>
-            <button
-              type="button"
-              className="agent-error-close"
-              aria-label="关闭错误提示"
-              onClick={list.clearError}
-            >
-              <X size={12} aria-hidden="true" />
-            </button>
-          </p>
-        )}
+        {/* 错误条(可关闭,统一 ErrorBar) */}
+        <ErrorBar message={list.error} onClose={list.clearError} />
 
         {/* L0 秒回提示(链到对话工作台) */}
         {list.l0Ack && (
@@ -124,12 +114,7 @@ export default function AgentRunsPage() {
         {/* 历史 run 列表 */}
         <h2 className="agent-section-title">历史任务</h2>
         {list.loading && list.runs.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state-icon">
-              <Loader2 size={32} aria-hidden="true" className="icon-loading-spin" />
-            </div>
-            <p className="empty-state-desc">加载中…</p>
-          </div>
+          <LoadingBlock variant="line" count={3} />
         ) : list.runs.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon">

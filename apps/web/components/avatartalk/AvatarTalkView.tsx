@@ -6,12 +6,14 @@ import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Field, Input, Textarea } from "@/components/ui/Input";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Switch } from "@/components/ui/Switch";
 import { Tabs } from "@/components/ui/Tabs";
 import { useToast } from "@/components/ui/Toast";
 import { getToken } from "@/lib/api";
 import { genId } from "@/lib/id";
 import { AvatarGenPanel } from "./AvatarGenPanel";
+import "@/app/styles/avatartalk.css";
 import {
   otGetModels,
   otGetAvatars,
@@ -276,8 +278,9 @@ export function AvatarTalkView({ onNavigate }: { onNavigate?: (target: string) =
           })
           .catch((err) => {
             webrtcStartedRef.current = false;
+            // 展示层统一中文文案;后端/浏览器原始错误只进 console,不中英混拼
             console.warn("WebRTC failed:", err);
-            setError(`WebRTC 连接失败: ${err instanceof Error ? err.message : String(err)}`);
+            setError("实时音视频连接失败,请检查网络连接或引擎状态后重试");
           });
       };
 
@@ -496,19 +499,17 @@ export function AvatarTalkView({ onNavigate }: { onNavigate?: (target: string) =
     />
   );
 
-  // 统一页头(全局 .page-header 体系):大标题 + 辅助描述 + 右侧模式切换
+  // 统一页头(UI-A PageHeader,全局 .page-header 体系):大标题 + 辅助描述 + 右侧模式切换
   const pageHeader = (
-    <header className="page-header">
-      <div>
-        <h1 className="page-header-title">数字人</h1>
-        <p className="page-header-desc">
-          {mode === "live"
-            ? "选择形象与模型,与数字人实时对话"
-            : "上传人像与音频,生成对口型的数字人说话视频"}
-        </p>
-      </div>
-      <div className="page-header-actions">{modeTabs}</div>
-    </header>
+    <PageHeader
+      title="数字人"
+      desc={
+        mode === "live"
+          ? "选择形象与模型,与数字人实时对话"
+          : "上传人像与音频,生成对口型的数字人说话视频"
+      }
+      actions={modeTabs}
+    />
   );
 
   if (mode === "gen") {

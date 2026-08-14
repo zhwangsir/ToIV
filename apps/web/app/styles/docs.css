@@ -33,7 +33,7 @@
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-full);
   font-size: var(--text-aux);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   line-height: 1.5;
   white-space: nowrap;
   overflow: hidden;
@@ -85,7 +85,7 @@
   border-radius: var(--radius-panel);
   color: var(--accent);
   font-size: var(--text-aux);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   font-family: var(--font-sans);
   cursor: pointer;
   transition: background-color var(--duration-fast) var(--ease-standard),
@@ -147,7 +147,7 @@
   align-items: center;
   gap: var(--space-1);
   font-size: var(--text-body);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;

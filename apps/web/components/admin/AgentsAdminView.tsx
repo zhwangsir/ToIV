@@ -14,6 +14,7 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Switch } from "@/components/ui/Switch";
 
 /** 已知的智能体图标键(与 Icon.tsx 的 ICON_MAP 对齐)。 */
@@ -305,43 +306,40 @@ export function AgentsAdminView() {
 
   return (
     <div className="agents-admin">
-      <header className="page-header">
-        <div>
-          <h1 className="page-header-title">
-            <Icon name="sparkles" size={18} />
-            智能体管理
-          </h1>
-          <p className="page-header-desc">
-            内置 + 自定义 · 提示词优化方向的源
-          </p>
-        </div>
-        <div className="page-header-actions">
-          <span className="aa-count">
-            {loading ? "加载中…" : `${agents.length} 个智能体`}
-          </span>
-          <button
-            type="button"
-            className="btn btn-sm"
-            onClick={load}
-            disabled={loading}
-          >
-            <Icon
-              name="refresh"
-              size={14}
-              className={loading ? "aa-spin" : undefined}
-            />
-            刷新
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={openCreate}
-          >
-            <Icon name="create" size={14} />
-            新建智能体
-          </button>
-        </div>
-      </header>
+      {/* 页头:UI-A PageHeader(icon 由 ui-page-header-icon 全局样式承载 accent 色) */}
+      <PageHeader
+        title="智能体管理"
+        desc="内置 + 自定义 · 提示词优化方向的源"
+        icon="sparkles"
+        actions={
+          <>
+            <span className="aa-count">
+              {loading ? "加载中…" : `${agents.length} 个智能体`}
+            </span>
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={load}
+              disabled={loading}
+            >
+              <Icon
+                name="refresh"
+                size={14}
+                className={loading ? "aa-spin" : undefined}
+              />
+              刷新
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={openCreate}
+            >
+              <Icon name="create" size={14} />
+              新建智能体
+            </button>
+          </>
+        }
+      />
 
       {error && !loading && (
         <div className="aa-error-row">
@@ -883,7 +881,7 @@ export function AgentsAdminView() {
         .aa-card-title {
           margin: 0;
           font-size: var(--text-section);
-          font-weight: 600;
+          font-weight: var(--font-semibold);
           color: var(--text-primary);
           line-height: 1.3;
           letter-spacing: -0.01em;
@@ -939,7 +937,7 @@ export function AgentsAdminView() {
           background: var(--err-soft);
           border: 1px solid var(--err);
           color: var(--err);
-          font-weight: 600;
+          font-weight: var(--font-semibold);
         }
         .aa-tag-kind {
           background: var(--accent-soft);
@@ -985,7 +983,7 @@ export function AgentsAdminView() {
           align-items: center;
           gap: var(--space-2);
           font-size: var(--text-body);
-          font-weight: 600;
+          font-weight: var(--font-semibold);
           color: var(--text-primary);
         }
         .aa-test-title :global(svg) {
@@ -1035,12 +1033,12 @@ export function AgentsAdminView() {
         .aa-field-label {
           font-size: var(--text-aux);
           color: var(--text-secondary);
-          font-weight: 500;
+          font-weight: var(--font-medium);
         }
         .aa-field-hint-inline {
           font-size: var(--text-label);
           color: var(--text-muted);
-          font-weight: 400;
+          font-weight: var(--font-regular);
           font-style: normal;
         }
         .aa-select {
@@ -1085,7 +1083,7 @@ export function AgentsAdminView() {
           gap: var(--space-1);
           font-size: var(--text-aux);
           color: var(--ok);
-          font-weight: 600;
+          font-weight: var(--font-semibold);
         }
         .aa-test-result-text {
           margin: 0;
@@ -1173,7 +1171,7 @@ export function AgentsAdminView() {
         .aa-modal-title {
           font-family: var(--font-sans);
           font-size: var(--text-section);
-          font-weight: 600;
+          font-weight: var(--font-semibold);
           color: var(--text-primary);
           letter-spacing: -0.01em;
           line-height: 1.3;

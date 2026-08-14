@@ -9,6 +9,14 @@
    借此压过基础卡片规则,层叠关系显式可控。
    ════════════════════════════════════════════════════════════════════ */
 
+/* z-index 语义档(视图局部层叠,数值不变;全站浮层走 globals --z-*)。
+   LibraryLightbox 无 portal、渲染在 .library-view 树内,自定义属性正常继承。 */
+.library-view {
+  --z-lib-badge: 1;    /* 卡内视频角标(.lib-video-badge) */
+  --z-lib-float: 2;    /* 悬浮层:升浮卡 / 删除钮 / 灯箱工具条与穿梭钮 */
+  --z-lib-actions: 3;  /* 卡片快捷操作条(压 float 层) */
+}
+
 /* ── masonry 卡片 hover 升浮:整体上移 + 媒体内缩放,替代整卡 scale ── */
 .library-view .lib-body .lib-card {
   transition: transform var(--duration-slow) var(--ease-spring),
@@ -22,7 +30,7 @@
   border-color: var(--border-strong);
   box-shadow: var(--shadow-lift), var(--accent-glow-shadow);
   /* transform 自带层叠上下文;z-index 保证升浮卡压住相邻列 */
-  z-index: 2;
+  z-index: var(--z-lib-float);
 }
 /* 卡片升浮时媒体在缩略图视口内轻微放大,增加纵深(.lib-thumb overflow:hidden 收边) */
 .library-view .lib-body .lib-thumb img,
@@ -101,7 +109,7 @@
   pointer-events: none;
   transition: opacity var(--duration-base) var(--ease-standard),
     transform var(--duration-slow) var(--ease-spring);
-  z-index: 3;
+  z-index: var(--z-lib-actions);
 }
 .lib-card:hover .lib-actions,
 .lib-card:focus-within .lib-actions {
@@ -334,7 +342,7 @@
   position: absolute;
   left: var(--space-4);
   right: var(--space-4);
-  z-index: 2;
+  z-index: var(--z-lib-float);
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -431,7 +439,7 @@
 .lib-lb-nav {
   position: absolute;
   top: 50%;
-  z-index: 2;
+  z-index: var(--z-lib-float);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -719,6 +727,10 @@
   border-radius: var(--radius-panel);
   overflow: hidden;
   cursor: pointer;
+  /* 长列表渲染优化(P2-7):屏外卡片跳过布局/绘制;contain-intrinsic-size 给未渲染卡
+     估算高度防滚动条跳动(列宽 260 + 方图占位 + 卡脚 ≈ 320,auto 记住实测值,零视觉变化) */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px;
   transition: border-color var(--duration-fast) var(--ease-standard),
     background-color var(--duration-fast) var(--ease-standard),
     box-shadow var(--duration-fast) var(--ease-standard);
@@ -835,7 +847,7 @@
     background-color var(--duration-fast) var(--ease-standard),
     border-color var(--duration-fast) var(--ease-standard),
     color var(--duration-fast) var(--ease-standard);
-  z-index: 2;
+  z-index: var(--z-lib-float);
 }
 .lib-card:hover .lib-delete,
 .lib-card:focus-within .lib-delete {
@@ -874,7 +886,7 @@
   font-size: var(--text-label);
   color: var(--text-secondary);
   letter-spacing: 0.02em;
-  z-index: 1;
+  z-index: var(--z-lib-badge);
 }
 
 .lib-foot {
@@ -931,7 +943,7 @@
     var(--bg-surface-2) 100%
   );
   background-size: 200% 100%;
-  animation: lib-skel-shimmer 1.6s ease-in-out infinite;
+  animation: lib-skel-shimmer var(--duration-pulse) ease-in-out infinite;
 }
 @keyframes lib-skel-shimmer {
   0% {

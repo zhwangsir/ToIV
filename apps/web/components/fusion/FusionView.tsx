@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { Card } from "@/components/ui/Card";
 import { Icon, type IconName } from "@/components/ui/Icon";
+import "@/app/styles/fusion.css";
 
 interface FusionApp {
   /** 打开目标:视图 key,可带查询串(如漫剧走短剧工作室的 manju 模式) */

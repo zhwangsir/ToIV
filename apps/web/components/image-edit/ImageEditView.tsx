@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Field, Input, Select } from "@/components/ui/Input";
+import { PageHeader } from "@/components/ui/PageHeader";
 import {
   generateFaceDetailer,
   generateInpaint,
@@ -199,10 +200,13 @@ function SourcePreview({ image }: { image: UploadedImage }) {
       </div>
       <div className="ie-preview-media">
         {/* eslint-disable-next-line @next/next/no-img-element */}
+        {/* CLS 防护:1:1 设计基准值;CSS max-width/max-height + object-fit:contain 保持实际纵横比(.ie-preview-img) */}
         <img
           src={image.previewUrl}
           alt={image.name}
           className="ie-preview-img"
+          width={1024}
+          height={1024}
           loading="lazy"
           decoding="async"
         />
@@ -300,10 +304,13 @@ function ResultPanel({ source, resultUrl, resultPaths }: ResultPanelProps) {
       {mode === "result" ? (
         <div className="ie-result-media">
           {/* eslint-disable-next-line @next/next/no-img-element */}
+          {/* CLS 防护:1:1 设计基准值;CSS 约束保持实际纵横比(.ie-result-img) */}
           <img
             src={fullUrl}
             alt="处理结果"
             className="ie-result-img"
+            width={1024}
+            height={1024}
             loading="lazy"
             decoding="async"
           />
@@ -314,10 +321,13 @@ function ResultPanel({ source, resultUrl, resultPaths }: ResultPanelProps) {
             <span className="ie-compare-tag">原图</span>
             <div className="ie-compare-media">
               {/* eslint-disable-next-line @next/next/no-img-element */}
+              {/* CLS 防护:1:1 设计基准值;CSS 约束保持实际纵横比(.ie-compare-img) */}
               <img
                 src={source.previewUrl}
                 alt="原图"
                 className="ie-compare-img"
+                width={1024}
+                height={1024}
                 loading="lazy"
                 decoding="async"
               />
@@ -327,10 +337,13 @@ function ResultPanel({ source, resultUrl, resultPaths }: ResultPanelProps) {
             <span className="ie-compare-tag is-result">结果</span>
             <div className="ie-compare-media">
               {/* eslint-disable-next-line @next/next/no-img-element */}
+              {/* CLS 防护:1:1 设计基准值;CSS 约束保持实际纵横比(.ie-compare-img) */}
               <img
                 src={fullUrl}
                 alt="处理结果"
                 className="ie-compare-img"
+                width={1024}
+                height={1024}
                 loading="lazy"
                 decoding="async"
               />
@@ -537,19 +550,17 @@ export function ImageEditView() {
 
   return (
     <div className="single-view ie-view">
-      <header className="page-header">
-        <div className="ie-header-text">
-          <h1 className="page-header-title">图片编辑</h1>
-          <p className="page-header-desc">上传一张图片，选择工具一键处理：去背景、高清增强、局部重绘、人脸修复</p>
-        </div>
-        {source && (
-          <div className="page-header-actions">
+      <PageHeader
+        title="图片编辑"
+        desc="上传一张图片，选择工具一键处理：去背景、高清增强、局部重绘、人脸修复"
+        actions={
+          source ? (
             <Button variant="ghost" size="sm" icon={<Icon name="refresh" size={13} />} onClick={resetSource}>
               重新上传
             </Button>
-          </div>
-        )}
-      </header>
+          ) : undefined
+        }
+      />
 
       {!source ? (
         <DropZone
@@ -697,7 +708,7 @@ export function ImageEditView() {
         }
         .ie-section-label {
           font-size: var(--text-label);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           text-transform: uppercase;
           letter-spacing: 0.06em;
           color: var(--text-muted);
@@ -750,7 +761,7 @@ export function ImageEditView() {
         }
         .ie-dropzone-title {
           font-size: var(--text-lg);
-          font-weight: 600;
+          font-weight: var(--font-semibold);
         }
         .ie-dropzone-desc {
           font-size: var(--text-aux);
@@ -825,7 +836,7 @@ export function ImageEditView() {
         }
         .ie-preview-label {
           font-size: var(--text-label);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           text-transform: uppercase;
           letter-spacing: 0.04em;
           color: var(--text-muted);
@@ -921,7 +932,7 @@ export function ImageEditView() {
         }
         .ie-tool-title {
           font-size: var(--text-md);
-          font-weight: 600;
+          font-weight: var(--font-semibold);
         }
         .ie-tool-desc {
           font-size: var(--text-aux);
@@ -1039,7 +1050,7 @@ export function ImageEditView() {
         }
         .ie-result-label {
           font-size: var(--text-label);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           text-transform: uppercase;
           letter-spacing: 0.04em;
           color: var(--text-muted);
@@ -1058,7 +1069,7 @@ export function ImageEditView() {
         .ie-toggle-btn {
           padding: var(--space-1) var(--space-3);
           font-size: var(--text-xs);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           color: var(--text-secondary);
           background: transparent;
           border: none;
@@ -1111,7 +1122,7 @@ export function ImageEditView() {
         }
         .ie-compare-tag {
           font-size: var(--text-xs);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           color: var(--text-muted);
           text-align: center;
         }

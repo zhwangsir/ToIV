@@ -6,9 +6,13 @@ import { fetchEngines, type EngineInfo, type EngineKind } from "@/lib/engines";
 import { confirmAge, isAgeConfirmed, useR18Mode } from "@/lib/r18";
 import { Icon } from "@/components/ui/Icon";
 import { Button } from "@/components/ui/Button";
+import { ErrorBar } from "@/components/ui/ErrorBar";
+import { LoadingBlock } from "@/components/ui/LoadingBlock";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Switch } from "@/components/ui/Switch";
 import { AgeGateModal } from "@/components/ui/AgeGateModal";
 import { ThemePicker } from "@/components/ui/ThemePicker";
+import "@/app/styles/settings.css";
 
 const KIND_ORDER: EngineKind[] = ["image", "video", "audio"];
 const KIND_LABEL: Record<EngineKind, string> = {
@@ -72,12 +76,11 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
 
   return (
     <div className="single-view settings-view">
-      <header className="page-header">
-        <div>
-          <h1 className="page-header-title">设置</h1>
-          <p className="page-header-desc">账户、界面主题与推理引擎状态总览</p>
-        </div>
-        <div className="page-header-actions">
+      <PageHeader
+        title="设置"
+        desc="账户、界面主题与推理引擎状态总览"
+        icon="settings"
+        actions={
           <Button
             variant="secondary"
             size="sm"
@@ -86,8 +89,8 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
           >
             刷新状态
           </Button>
-        </div>
-      </header>
+        }
+      />
 
       <div className="settings-grid">
         {/* ── 账户 ── */}
@@ -164,8 +167,9 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
             引擎状态
           </h2>
           {enginesError ? (
-            <div className="settings-engines-error" role="alert">
-              <span>{enginesError}</span>
+            <div className="settings-engines-error">
+              {/* 错误态(UI-A ErrorBar):role=alert + 可关闭;重试保留在条外 */}
+              <ErrorBar message={enginesError} onClose={() => setEnginesError(null)} />
               <Button
                 variant="secondary"
                 size="sm"
@@ -176,14 +180,9 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
               </Button>
             </div>
           ) : engines === null ? (
-            <div
-              className="settings-engine-skeleton"
-              role="status"
-              aria-label="引擎状态加载中"
-            >
-              <span className="settings-engine-skeleton-bar" aria-hidden="true" />
-              <span className="settings-engine-skeleton-bar is-short" aria-hidden="true" />
-              <span className="settings-engine-skeleton-bar" aria-hidden="true" />
+            /* 加载态(UI-A LoadingBlock):行骨架;role=status 保留在容器上 */
+            <div role="status" aria-label="引擎状态加载中">
+              <LoadingBlock variant="line" count={3} />
             </div>
           ) : engines.length === 0 ? (
             <div className="settings-engines-empty">

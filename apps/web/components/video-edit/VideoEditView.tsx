@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon } from "@/components/ui/Icon";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { genId } from "@/lib/id";
 import {
   renderVideoEdit,
@@ -385,46 +386,46 @@ export function VideoEditView() {
 
   return (
     <div className="single-view ve-view">
-      <header className="page-header">
-        <div>
-          <h1 className="page-header-title">视频剪辑</h1>
-          <p className="page-header-desc">
-            时间线剪辑:拼接视频片段、叠加音频与文字,本地集群渲染导出成片
-          </p>
-        </div>
-        <div className="page-header-actions ve-settings">
-          <label className="ve-setting">
-            <span>分辨率</span>
-            <select
-              className="input"
-              value={resIdx}
-              disabled={busy}
-              onChange={(e) => setResIdx(Number.parseInt(e.target.value, 10))}
-            >
-              {RESOLUTIONS.map((r, i) => (
-                <option key={r.label} value={i}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="ve-setting">
-            <span>帧率</span>
-            <select
-              className="input"
-              value={fps}
-              disabled={busy}
-              onChange={(e) => setFps(Number.parseInt(e.target.value, 10))}
-            >
-              {FPS_OPTIONS.map((f) => (
-                <option key={f} value={f}>
-                  {f} fps
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      </header>
+      {/* 页头:UI-A PageHeader;ve-settings 包裹保留 scoped 设置组排版 */}
+      <PageHeader
+        title="视频剪辑"
+        desc="时间线剪辑:拼接视频片段、叠加音频与文字,本地集群渲染导出成片"
+        icon="scissors"
+        actions={
+          <div className="ve-settings">
+            <label className="ve-setting">
+              <span>分辨率</span>
+              <select
+                className="input"
+                value={resIdx}
+                disabled={busy}
+                onChange={(e) => setResIdx(Number.parseInt(e.target.value, 10))}
+              >
+                {RESOLUTIONS.map((r, i) => (
+                  <option key={r.label} value={i}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="ve-setting">
+              <span>帧率</span>
+              <select
+                className="input"
+                value={fps}
+                disabled={busy}
+                onChange={(e) => setFps(Number.parseInt(e.target.value, 10))}
+              >
+                {FPS_OPTIONS.map((f) => (
+                  <option key={f} value={f}>
+                    {f} fps
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        }
+      />
 
       {/* 窄屏兜底提示(同画布策略):≤767 显示,时间线编辑建议大屏 */}
       <p className="ve-mobile-note">
@@ -1070,7 +1071,7 @@ export function VideoEditView() {
           flex-direction: column;
           gap: var(--space-1);
           font-size: var(--text-xs);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           color: var(--text-secondary);
         }
         .ve-setting select {
@@ -1120,7 +1121,7 @@ export function VideoEditView() {
           padding-bottom: var(--space-3);
           border-bottom: 1px solid var(--border-subtle);
           font-size: var(--text-section);
-          font-weight: 600;
+          font-weight: var(--font-semibold);
           color: var(--text-primary);
         }
         .ve-panel-name {
@@ -1164,7 +1165,7 @@ export function VideoEditView() {
         }
         .ve-import-title {
           font-size: var(--text-sm);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           color: var(--text-primary);
         }
         .ve-import-hint {
@@ -1219,7 +1220,7 @@ export function VideoEditView() {
         }
         .ve-media-name {
           font-size: var(--text-sm);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           line-height: 1.4;
           color: var(--text-primary);
           white-space: nowrap;
@@ -1295,7 +1296,7 @@ export function VideoEditView() {
           display: inline-flex;
           align-items: center;
           gap: var(--space-1);
-          font-weight: 500;
+          font-weight: var(--font-medium);
         }
         .ve-add-text {
           margin-top: var(--space-1);
@@ -1357,7 +1358,7 @@ export function VideoEditView() {
         }
         .ve-clip-name {
           font-size: var(--text-sm);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           line-height: 1.4;
           color: var(--text-primary);
           white-space: nowrap;
@@ -1383,7 +1384,7 @@ export function VideoEditView() {
           flex-direction: column;
           gap: 2px;
           font-size: var(--text-xs);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           color: var(--text-muted);
           width: 86px;
         }
@@ -1394,7 +1395,7 @@ export function VideoEditView() {
         .ve-field select {
           padding: var(--space-1) var(--space-2);
           font-size: var(--text-xs);
-          font-weight: 400;
+          font-weight: var(--font-regular);
         }
         .ve-color {
           width: 100%;
@@ -1474,7 +1475,7 @@ export function VideoEditView() {
           align-items: center;
           gap: var(--space-2);
           font-size: var(--text-sm);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           color: var(--ok);
         }
         .ve-result-head :global(svg) {

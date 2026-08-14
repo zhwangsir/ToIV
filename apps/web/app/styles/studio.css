@@ -98,7 +98,7 @@
 }
 .studio-project-title {
   font-size: var(--text-section);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -115,7 +115,7 @@
 }
 .studio-badge {
   font-size: var(--text-label);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   padding: 2px var(--space-2);
   border-radius: var(--radius-badge);
   background: var(--bg-surface-2);
@@ -184,7 +184,7 @@
   justify-content: center;
   gap: var(--space-1);
   font-size: var(--text-aux);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   color: var(--text-muted);
   background: none;
   border: none;
@@ -237,7 +237,7 @@
 }
 .studio-label {
   font-size: var(--text-label);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   color: var(--text-muted);
 }
 .studio-stage-actions {
@@ -291,7 +291,7 @@
 .studio-char-name {
   flex: 1;
   min-width: 0;
-  font-weight: 600;
+  font-weight: var(--font-semibold);
 }
 .studio-char-new {
   justify-content: center;
@@ -383,7 +383,7 @@
   top: var(--space-2);
   right: var(--space-2);
   font-size: var(--text-label);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   padding: 2px var(--space-2);
   border-radius: var(--radius-badge);
   background: var(--overlay-light); /* 图片上 scrim 恒深色 */
@@ -409,7 +409,7 @@
 }
 .studio-shot-idx {
   font-size: var(--text-label);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   color: var(--text-muted);
 }
 .studio-shot-mode {
@@ -546,7 +546,7 @@
 }
 .studio-timeline-idx {
   font-size: var(--text-label);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   color: var(--text-muted);
   text-align: center;
 }
@@ -585,7 +585,7 @@
   align-items: center;
   gap: var(--space-2);
   font-size: var(--text-section);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   color: var(--text-primary);
 }
 .studio-final-player {

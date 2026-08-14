@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
+import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon } from "@/components/ui/Icon";
 import { Field, Select, Textarea } from "@/components/ui/Input";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Ripple } from "@/components/ui/Ripple";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Tabs } from "@/components/ui/Tabs";
@@ -405,15 +407,12 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
 
   return (
     <div className={`generate-view${paramsOpen ? " is-params-open" : ""}`}>
-      <header className="page-header generate-header">
-        <div className="page-header-main">
-          <h1 className="page-header-title">
-            {lockedKind ? KIND_LABEL[lockedKind] : "AI 生成工作台"}
-          </h1>
-          <p className="page-header-desc">会话内历史不落库,刷新即清空</p>
-        </div>
-        {!lockedKind && (
-          <div className="page-header-actions generate-header-actions">
+      <PageHeader
+        className="generate-header"
+        title={lockedKind ? KIND_LABEL[lockedKind] : "AI 生成工作台"}
+        desc="会话内历史不落库,刷新即清空"
+        actions={
+          !lockedKind ? (
             <Tabs
               ariaLabel="生成模式"
               items={[
@@ -423,9 +422,9 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
               current={mode}
               onChange={(k) => setMode(k as EngineKind)}
             />
-          </div>
-        )}
-      </header>
+          ) : undefined
+        }
+      />
 
       <div className="generate-body">
         <section
@@ -472,7 +471,8 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
                 <Skeleton height={32} />
               </>
             ) : enginesError ? (
-              <p className="generate-error">{enginesError}</p>
+              /* P1-2 收编:引擎列表异步加载错误走共享 ErrorBar(原自写 generate-error 文本) */
+              <ErrorBar message={enginesError} onClose={() => setEnginesError(null)} />
             ) : kindEngines.length === 0 ? (
               <p className="generate-error">当前上下文没有可用的{KIND_LABEL[mode]}引擎</p>
             ) : (
@@ -701,6 +701,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
           isRunning={gen.isRunning}
           submitting={submitting}
           submitError={submitError}
+          onClearError={() => setSubmitError(null)}
           onGenerate={() => void onGenerate()}
           onCancel={onCancel}
         />

@@ -73,6 +73,7 @@ export function Modal({
           </h3>
           {!preventClose && (
             <button
+              type="button"
               className="modal-close"
               onClick={onClose}
               aria-label="关闭"
@@ -129,7 +130,7 @@ export function Modal({
         }
         .modal-title {
           font-size: var(--text-section);
-          font-weight: 600;
+          font-weight: var(--font-semibold);
           color: var(--text-primary);
           margin: 0;
         }

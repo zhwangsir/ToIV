@@ -56,7 +56,7 @@
 .agent-goal {
   margin: 0;
   font-size: var(--text-section);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -108,7 +108,7 @@
   align-items: center;
   gap: var(--space-1);
   font-size: var(--text-label);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   padding: 2px var(--space-2);
   border-radius: var(--radius-badge);
   white-space: nowrap;
@@ -215,7 +215,7 @@
 }
 .agent-ack-title {
   font-size: var(--text-aux);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   color: var(--text-primary);
 }
 .agent-ack-sub {
@@ -271,14 +271,14 @@
   height: 20px;
   flex-shrink: 0;
   font-size: var(--text-label);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   color: var(--text-muted);
   background: var(--bg-surface-2);
   border-radius: 50%;
 }
 .agent-task-kind {
   font-size: var(--text-label);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   color: var(--accent);
   background: var(--accent-soft);
   padding: 1px var(--space-2);
@@ -291,7 +291,7 @@
   min-width: 0;
   margin: 0;
   font-size: var(--text-aux);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -407,7 +407,7 @@
 .agent-plan-title {
   margin: 0;
   font-size: var(--text-section);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
 }
 .agent-plan-desc {
   margin: 0;
@@ -441,7 +441,7 @@
   height: 22px;
   flex-shrink: 0;
   font-size: var(--text-label);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   color: var(--text-muted);
   background: var(--bg-surface-1);
   border-radius: 50%;
@@ -521,7 +521,7 @@
 }
 .agent-gate-idx {
   font-size: var(--text-label);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   color: var(--text-muted);
   width: 16px;
   text-align: center;
@@ -564,7 +564,7 @@
 }
 .agent-lane-label {
   font-size: var(--text-label);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   color: var(--text-muted);
   padding-top: var(--space-2);
   text-align: center;
@@ -598,7 +598,7 @@
 }
 .agent-node-idx {
   color: var(--text-muted);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
 }
 .agent-node-icon.is-accent {
   color: var(--accent);
@@ -641,7 +641,7 @@
 .agent-ticker-title {
   margin: 0;
   font-size: var(--text-aux);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
 }
 .agent-ticker-empty {
   margin: 0;
@@ -714,7 +714,7 @@
 .agent-final-title {
   margin: 0;
   font-size: var(--text-section);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
 }
 .agent-final-player {
   width: 100%;
@@ -772,7 +772,7 @@
   align-items: center;
   gap: var(--space-1);
   color: var(--accent);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   text-decoration: none;
   white-space: nowrap;
 }
@@ -813,7 +813,7 @@
 }
 .agent-run-goal {
   font-size: var(--text-aux);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -834,7 +834,7 @@
 .agent-section-title {
   margin: 0;
   font-size: var(--text-section);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
 }
 
 /* ── 窄屏 <1024px:事件流落到底部 ── */

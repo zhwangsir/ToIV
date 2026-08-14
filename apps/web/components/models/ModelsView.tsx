@@ -17,6 +17,7 @@ import { useR18Mode } from "@/lib/r18";
 import { usePoll } from "@/hooks/usePoll";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 type Tab = "local" | "market" | "r18";
 
@@ -282,12 +283,11 @@ export function ModelsView() {
 
   return (
     <div className="single-view models-view">
-      <header className="page-header">
-        <div>
-          <h1 className="page-header-title">模型库</h1>
-          <p className="page-header-desc">管理本地已安装模型 · 探索 Civitai 在线市场</p>
-        </div>
-        <div className="page-header-actions">
+      <PageHeader
+        title="模型库"
+        desc="管理本地已安装模型 · 探索 Civitai 在线市场"
+        icon="models"
+        actions={
           <Tabs
             items={[
               { key: "local", label: "本地模型", icon: <Icon name="models" size={14} /> },
@@ -312,8 +312,8 @@ export function ModelsView() {
             onChange={(k) => setTab(k as Tab)}
             ariaLabel="模型库视图切换"
           />
-        </div>
-      </header>
+        }
+      />
 
       {tab === "local" ? (
         <section className="mv-panel">

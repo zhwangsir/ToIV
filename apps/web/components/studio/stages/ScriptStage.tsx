@@ -8,6 +8,9 @@ import {
   patchStudioProject,
 } from "@/lib/api";
 import { Icon } from "@/components/ui/Icon";
+import { Modal } from "@/components/ui/Modal";
+import { Button } from "@/components/ui/Button";
+import { useToast } from "@/components/ui/Toast";
 import type { useStudioProject } from "@/hooks/useStudioProject";
 
 /**
@@ -44,6 +47,8 @@ export function ScriptStage({
   const [fps, setFps] = useState(d?.fps ?? 16);
   const [parsing, setParsing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmParse, setConfirmParse] = useState(false);
+  const toast = useToast();
 
   if (!d) return null;
 
@@ -53,12 +58,22 @@ export function ScriptStage({
   const saveSpec = (idx: number, f: number) => {
     const p = RES_PRESETS[idx];
     patchStudioProject(d.id, { width: p.w, height: p.h, fps: f })
-      .then(() => project.refresh())
+      .then(() => {
+        toast.success("产出规格已保存");
+        return project.refresh();
+      })
       .catch((e) => setError(e instanceof Error ? e.message : "保存产出规格失败"));
   };
 
-  const parse = async () => {
-    if (hasExisting && !window.confirm("重新拆解将替换现有角色与分镜,确认继续?")) return;
+  const parse = () => {
+    if (hasExisting) {
+      setConfirmParse(true);
+      return;
+    }
+    void runParse();
+  };
+
+  const runParse = async () => {
     setParsing(true);
     setError(null);
     try {
@@ -84,6 +99,7 @@ export function ScriptStage({
       await project.saveShots(
         r.shots.map((s) => ({ ...s, render_mode: s.render_mode ?? d.render_mode_default })),
       );
+      setConfirmParse(false);
       onDone();
     } catch (e) {
       setError(e instanceof Error ? e.message : "拆解失败,请重试");
@@ -178,6 +194,37 @@ export function ScriptStage({
         </button>
       </div>
       {error && <p className="studio-error">{error}</p>}
+
+      {/* 重新拆解确认(替代原生 window.confirm) */}
+      <Modal
+        open={confirmParse}
+        onClose={() => setConfirmParse(false)}
+        title="重新拆解"
+        danger
+        preventClose={parsing}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              disabled={parsing}
+              onClick={() => setConfirmParse(false)}
+            >
+              取消
+            </Button>
+            <Button
+              variant="danger"
+              loading={parsing}
+              onClick={() => void runParse()}
+            >
+              {parsing ? "拆解中…" : "确认拆解"}
+            </Button>
+          </>
+        }
+      >
+        <p style={{ margin: 0, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+          重新拆解将替换现有角色与分镜,确认继续?
+        </p>
+      </Modal>
     </section>
   );
 }

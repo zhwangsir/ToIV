@@ -22,11 +22,16 @@ import {
  *   由调用方渲染为可关闭提示条,clearError 关闭
  * - 单镜操作成功后局部更新该镜,批量/合成后整体 refresh
  */
+/** 分镜失焦自动保存状态:idle / saving / saved / error(供 ShotCard 轻量指示) */
+export type StudioSaveState = "idle" | "saving" | "saved" | "error";
+
 export function useStudioProject(pid: string | null) {
   const [detail, setDetail] = useState<StudioProjectDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
+  const [saveState, setSaveState] = useState<StudioSaveState>("idle");
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
 
   const refresh = useCallback(async () => {
     if (!pid) return;
@@ -72,12 +77,16 @@ export function useStudioProject(pid: string | null) {
   const saveShots = useCallback(
     async (shots: StudioShotInput[]) => {
       if (!pid) return;
+      setSaveState("saving");
       try {
         await saveStudioShots(pid, shots);
       } catch (e) {
+        setSaveState("error");
         setError(`分镜保存失败,请重试或复制内容(${e instanceof Error ? e.message : "未知错误"})`);
         throw e;
       }
+      setSaveState("saved");
+      setSavedAt(new Date());
       await refresh();
     },
     [pid, refresh],
@@ -134,6 +143,8 @@ export function useStudioProject(pid: string | null) {
     loading,
     error,
     busy,
+    saveState,
+    savedAt,
     clearError,
     refresh,
     saveShots,

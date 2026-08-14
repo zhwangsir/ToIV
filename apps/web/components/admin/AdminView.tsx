@@ -7,6 +7,7 @@ import type { AdminUser } from "@/lib/types";
 import { Icon } from "@/components/ui/Icon";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
+import { Modal } from "@/components/ui/Modal";
 import { Tabs } from "@/components/ui/Tabs";
 import { AgentsAdminView } from "@/components/admin/AgentsAdminView";
 
@@ -92,25 +93,7 @@ export function AdminView() {
     load();
   }, [load]);
 
-  // Esc 关闭新建弹窗
-  useEffect(() => {
-    if (!modalOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setModalOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [modalOpen]);
-
-  // Esc 关闭删除确认弹窗(删除中不允许关闭)
-  useEffect(() => {
-    if (!confirmDelete) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !deletingId) setConfirmDelete(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [confirmDelete, deletingId]);
+  // Esc / 焦点陷阱 / 滚动锁统一由 ui/Modal 承接(含提交中 preventClose)
 
   const openCreate = () => {
     setForm(EMPTY_FORM);
@@ -350,168 +333,122 @@ export function AdminView() {
         )}
       </div>
 
-      {modalOpen && (
-        <div
-          className="admin-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-label="新建用户"
-          onClick={() => !creating && setModalOpen(false)}
-        >
-          <div
-            className="admin-modal-body"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="admin-modal-head">
-              <div>
-                <div className="admin-modal-title">新建用户</div>
-                <div className="admin-modal-sub">为团队创建一个新账户</div>
-              </div>
-              <button
-                type="button"
-                className="admin-modal-close"
-                aria-label="关闭"
-                disabled={creating}
-                onClick={() => setModalOpen(false)}
-              >
-                <Icon name="close" size={18} />
-              </button>
-            </div>
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title="新建用户"
+        preventClose={creating}
+        width={420}
+      >
+        <form className="admin-form" onSubmit={handleCreate}>
+          <label className="admin-field">
+            <span className="admin-label">邮箱</span>
+            <input
+              type="email"
+              className="input"
+              placeholder="name@example.com"
+              autoComplete="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              disabled={creating}
+              autoFocus
+            />
+          </label>
 
-            <form className="admin-form" onSubmit={handleCreate}>
-              <label className="admin-field">
-                <span className="admin-label">邮箱</span>
-                <input
-                  type="email"
-                  className="input"
-                  placeholder="name@example.com"
-                  autoComplete="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  disabled={creating}
-                  autoFocus
-                />
-              </label>
+          <label className="admin-field">
+            <span className="admin-label">密码</span>
+            <input
+              type="password"
+              className="input"
+              placeholder="至少 6 位"
+              autoComplete="new-password"
+              value={form.password}
+              onChange={(e) =>
+                setForm({ ...form, password: e.target.value })
+              }
+              disabled={creating}
+            />
+          </label>
 
-              <label className="admin-field">
-                <span className="admin-label">密码</span>
-                <input
-                  type="password"
-                  className="input"
-                  placeholder="至少 6 位"
-                  autoComplete="new-password"
-                  value={form.password}
-                  onChange={(e) =>
-                    setForm({ ...form, password: e.target.value })
-                  }
-                  disabled={creating}
-                />
-              </label>
+          <label className="admin-field">
+            <span className="admin-label">角色</span>
+            <select
+              className="input admin-select"
+              value={form.role}
+              onChange={(e) => setForm({ ...form, role: e.target.value })}
+              disabled={creating}
+            >
+              <option value="user">用户</option>
+              <option value="admin">管理员</option>
+            </select>
+          </label>
 
-              <label className="admin-field">
-                <span className="admin-label">角色</span>
-                <select
-                  className="input admin-select"
-                  value={form.role}
-                  onChange={(e) => setForm({ ...form, role: e.target.value })}
-                  disabled={creating}
-                >
-                  <option value="user">用户</option>
-                  <option value="admin">管理员</option>
-                </select>
-              </label>
+          {formError && <div className="admin-form-error">{formError}</div>}
 
-              {formError && <div className="admin-form-error">{formError}</div>}
-
-              <div className="admin-form-actions">
-                <button
-                  type="button"
-                  className="btn"
-                  disabled={creating}
-                  onClick={() => setModalOpen(false)}
-                >
-                  取消
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={creating}
-                >
-                  <Icon name={creating ? "loading" : "send"} size={14} />
-                  {creating ? "创建中…" : "创建用户"}
-                </button>
-              </div>
-            </form>
+          <div className="admin-form-actions">
+            <button
+              type="button"
+              className="btn"
+              disabled={creating}
+              onClick={() => setModalOpen(false)}
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={creating}
+            >
+              <Icon name={creating ? "loading" : "send"} size={14} />
+              {creating ? "创建中…" : "创建用户"}
+            </button>
           </div>
-        </div>
-      )}
+        </form>
+      </Modal>
 
-      {/* 删除确认对话框(替代原生 window.confirm) */}
-      {confirmDelete && (
-        <div
-          className="admin-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-label="确认删除用户"
-          onClick={() => !deletingId && setConfirmDelete(null)}
-        >
-          <div
-            className="admin-modal-body"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="admin-modal-head">
-              <div>
-                <div className="admin-modal-title admin-confirm-title">
-                  <Icon name="delete" size={16} />
-                  删除用户
-                </div>
-                <div className="admin-modal-sub">此操作不可撤销</div>
-              </div>
-              <button
-                type="button"
-                className="admin-modal-close"
-                aria-label="关闭"
-                disabled={deletingId !== null}
-                onClick={() => setConfirmDelete(null)}
-              >
-                <Icon name="close" size={18} />
-              </button>
-            </div>
-
-            <div className="admin-confirm-content">
-              <div className="admin-confirm-warn">
-                确定删除用户
-                「<span className="admin-confirm-email">{confirmDelete.email}</span>」?
-                该操作不可撤销,用户的所有数据将被永久移除。
-              </div>
-              {deleteError && (
-                <div className="admin-form-error admin-confirm-error">
-                  <Icon name="error" size={13} /> {deleteError}
-                </div>
-              )}
-              <div className="admin-form-actions">
-                <button
-                  type="button"
-                  className="btn"
-                  disabled={deletingId !== null}
-                  onClick={() => setConfirmDelete(null)}
-                >
-                  取消
-                </button>
-                <button
-                  type="button"
-                  className="btn admin-confirm-delete"
-                  disabled={deletingId !== null}
-                  onClick={handleConfirmDelete}
-                >
-                  <Icon name={deletingId ? "loading" : "delete"} size={14} />
-                  {deletingId ? "删除中…" : "确认删除"}
-                </button>
-              </div>
-            </div>
+      {/* 删除确认对话框(danger,ui/Modal 承接 focus trap/Esc) */}
+      <Modal
+        open={confirmDelete !== null}
+        onClose={() => setConfirmDelete(null)}
+        title="删除用户"
+        danger
+        preventClose={deletingId !== null}
+        width={420}
+        footer={
+          <>
+            <button
+              type="button"
+              className="btn"
+              disabled={deletingId !== null}
+              onClick={() => setConfirmDelete(null)}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              className="btn admin-confirm-delete"
+              disabled={deletingId !== null}
+              onClick={() => void handleConfirmDelete()}
+            >
+              <Icon name={deletingId ? "loading" : "delete"} size={14} />
+              {deletingId ? "删除中…" : "确认删除"}
+            </button>
+          </>
+        }
+      >
+        <div className="admin-confirm-content">
+          <div className="admin-confirm-warn">
+            确定删除用户
+            「<span className="admin-confirm-email">{confirmDelete?.email}</span>」?
+            该操作不可撤销,用户的所有数据将被永久移除。
           </div>
+          {deleteError && (
+            <div className="admin-form-error admin-confirm-error">
+              <Icon name="error" size={13} /> {deleteError}
+            </div>
+          )}
         </div>
-      )}
+      </Modal>
       </>
       )}
 
@@ -576,14 +513,14 @@ export function AdminView() {
         }
         .admin-stat-label {
           font-size: var(--text-label);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           text-transform: uppercase;
           letter-spacing: 0.05em;
           color: var(--text-muted);
         }
         .admin-stat-value {
           font-size: var(--text-2xl);
-          font-weight: 700;
+          font-weight: var(--font-bold);
           letter-spacing: -0.02em;
           line-height: 1.2;
           color: var(--text-primary);
@@ -652,7 +589,7 @@ export function AdminView() {
           text-align: left;
           padding: var(--space-3) var(--space-5);
           font-size: var(--text-label);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           text-transform: uppercase;
           letter-spacing: 0.05em;
           color: var(--text-muted);
@@ -728,7 +665,7 @@ export function AdminView() {
         .admin-email {
           color: var(--text-primary);
           font-size: var(--text-body);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -778,104 +715,8 @@ export function AdminView() {
           }
         }
 
-        .admin-modal {
-          position: fixed;
-          inset: 0;
-          z-index: var(--z-modal);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: var(--space-4);
-          background: var(--overlay-strong);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-          animation: admin-fade var(--duration-base) var(--ease-standard);
-        }
-        @keyframes admin-fade {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .admin-modal {
-            animation: none;
-          }
-        }
-
-        .admin-modal-body {
-          width: 100%;
-          max-width: 420px;
-          background: var(--bg-surface-1);
-          border: 1px solid var(--border-strong);
-          border-radius: var(--radius-lg);
-          box-shadow: var(--shadow-lg);
-          overflow: hidden;
-          animation: admin-pop var(--duration-base) var(--ease-standard);
-        }
-        @keyframes admin-pop {
-          from {
-            opacity: 0;
-            transform: translateY(8px) scale(0.98);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .admin-modal-body {
-            animation: none;
-          }
-        }
-
-        .admin-modal-head {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: var(--space-3);
-          padding: var(--space-4) var(--space-4) var(--space-3);
-          border-bottom: 1px solid var(--border-subtle);
-        }
-        .admin-modal-title {
-          font-family: var(--font-sans);
-          font-size: var(--text-section);
-          font-weight: 600;
-          color: var(--text-primary);
-          letter-spacing: -0.01em;
-          line-height: 1.3;
-        }
-        .admin-modal-sub {
-          margin-top: var(--space-1);
-          font-size: var(--text-aux);
-          color: var(--text-muted);
-        }
-        .admin-modal-close {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 32px;
-          height: 32px;
-          padding: 0;
-          background: transparent;
-          border: 1px solid transparent;
-          border-radius: var(--radius-xs);
-          color: var(--text-muted);
-          cursor: pointer;
-          transition: background-color var(--duration-fast) var(--ease-standard),
-            color var(--duration-fast) var(--ease-standard);
-        }
-        .admin-modal-close:hover {
-          background: var(--bg-surface-2);
-          color: var(--text-primary);
-        }
-        .admin-modal-close:focus-visible {
-          outline: 1px solid var(--accent);
-          outline-offset: 2px;
-        }
-
+        /* 弹窗壳层(overlay/头部/关闭钮)已由 ui/Modal 统一承接,
+           此处仅保留表单与删除确认的视图特有样式。 */
         .admin-form {
           display: flex;
           flex-direction: column;
@@ -890,7 +731,7 @@ export function AdminView() {
         .admin-label {
           font-size: var(--text-aux);
           color: var(--text-secondary);
-          font-weight: 500;
+          font-weight: var(--font-medium);
         }
         .admin-select {
           appearance: none;
@@ -922,13 +763,7 @@ export function AdminView() {
           margin-top: var(--space-1);
         }
 
-        /* 删除确认对话框 */
-        .admin-confirm-title {
-          display: inline-flex;
-          align-items: center;
-          gap: var(--space-2);
-          color: var(--err);
-        }
+        /* 删除确认对话框(壳层走 ui/Modal,标题 danger 态由 Modal 渲染) */
         .admin-confirm-content {
           display: flex;
           flex-direction: column;
@@ -942,7 +777,7 @@ export function AdminView() {
         }
         .admin-confirm-email {
           color: var(--text-primary);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           font-family: var(--font-mono);
           font-size: var(--text-aux);
         }
@@ -982,14 +817,6 @@ export function AdminView() {
           }
           .col-usage {
             min-width: auto;
-          }
-        }
-
-        /* 移动端触控目标 ≥44px */
-        @media (max-width: 575px) {
-          .admin-modal-close {
-            width: 44px;
-            height: 44px;
           }
         }
       `}</style>

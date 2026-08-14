@@ -28,6 +28,7 @@ import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Input, Select } from "@/components/ui/Input";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { useToast } from "@/components/ui/Toast";
 import { usePoll } from "@/hooks/usePoll";
 
@@ -427,29 +428,29 @@ export function DubView() {
   // ── 渲染 ──
   return (
     <div className="single-view dub-view">
-      {/* 统一页头:大标题 + 辅助描述 + 右侧操作区(page-header* 为全局统一类,下方样式为组件内兜底) */}
-      <header className="page-header dub-header">
-        <div className="dub-titles">
-          <h1 className="page-header-title">译制</h1>
-          <p className="page-header-desc">
-            视频译制 · 听写 · 翻译 · 配音 · 口型同步
-          </p>
-        </div>
-        <div className="page-header-actions dub-meta">
-          {video && (
-            <Badge tone="accent" dot={false} title={video.url}>
-              <Icon name="video" size={12} strokeWidth={2} />
-              {video.name}
-            </Badge>
-          )}
-          {voice && (
-            <Badge tone="neutral" dot={false} title={voice.url}>
-              <Icon name="audio" size={12} strokeWidth={2} />
-              配音轨 · {voice.segment_count} 段
-            </Badge>
-          )}
-        </div>
-      </header>
+      {/* 统一页头(UI-A PageHeader):dub-header/dub-meta 类经 className/包裹透传,scoped 样式保持生效 */}
+      <PageHeader
+        className="dub-header"
+        title="译制"
+        desc="视频译制 · 听写 · 翻译 · 配音 · 口型同步"
+        icon="dub"
+        actions={
+          <div className="dub-meta">
+            {video && (
+              <Badge tone="accent" dot={false} title={video.url}>
+                <Icon name="video" size={12} strokeWidth={2} />
+                {video.name}
+              </Badge>
+            )}
+            {voice && (
+              <Badge tone="neutral" dot={false} title={voice.url}>
+                <Icon name="audio" size={12} strokeWidth={2} />
+                配音轨 · {voice.segment_count} 段
+              </Badge>
+            )}
+          </div>
+        }
+      />
 
       {/* 步骤指示器 */}
       <nav className="dub-stepper" aria-label="译制步骤">
@@ -566,11 +567,11 @@ export function DubView() {
                 <div className="dub-file-actions">
                   {!uploading && (
                     <>
-                      <button className="btn btn-primary btn-sm" onClick={doUpload}>
+                      <button type="button" className="btn btn-primary btn-sm" onClick={doUpload}>
                         <Icon name="upload" size={14} strokeWidth={2} />
                         开始上传
                       </button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => onPick(null)}>
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => onPick(null)}>
                         <Icon name="close" size={14} strokeWidth={2} />
                         重选
                       </button>
@@ -608,6 +609,7 @@ export function DubView() {
                     <Badge tone="neutral" dot={false}>{fmtBytes(video.size)}</Badge>
                   </div>
                   <button
+                    type="button"
                     className="btn btn-primary"
                     onClick={() => setStep(2)}
                   >
@@ -631,6 +633,7 @@ export function DubView() {
 
             <div className="dub-actions-row">
               <button
+                type="button"
                 className="btn btn-primary"
                 onClick={doTranscribe}
                 disabled={subBusy}
@@ -692,6 +695,7 @@ export function DubView() {
                       <option value="es">译为 Español</option>
                     </Select>
                     <button
+                      type="button"
                       className="btn"
                       onClick={doTranslate}
                       disabled={translating}
@@ -734,6 +738,7 @@ export function DubView() {
                 </ul>
                 <div className="dub-panel-foot">
                   <button
+                    type="button"
                     className="btn btn-primary"
                     onClick={() => setStep(3)}
                   >
@@ -792,6 +797,7 @@ export function DubView() {
 
                 <div className="dub-actions-row">
                   <button
+                    type="button"
                     className="btn btn-primary"
                     onClick={doVoice}
                     disabled={voiceBusy}
@@ -849,6 +855,7 @@ export function DubView() {
                     <audio src={imageUrl(voice.url)} controls preload="metadata" />
                     <div className="dub-panel-foot">
                       <button
+                        type="button"
                         className="btn btn-primary"
                         onClick={() => setStep(4)}
                       >
@@ -878,18 +885,21 @@ export function DubView() {
                 <span className="dub-field-label">对口型模式</span>
                 <div className="dub-segmented">
                   <button
+                    type="button"
                     className={lipsyncMode === "latent" ? "is-on" : ""}
                     onClick={() => setLipsyncMode("latent")}
                   >
                     LatentSync
                   </button>
                   <button
+                    type="button"
                     className={lipsyncMode === "anime" ? "is-on" : ""}
                     onClick={() => setLipsyncMode("anime")}
                   >
                     动漫对口型
                   </button>
                   <button
+                    type="button"
                     className={lipsyncMode === "highlights" ? "is-on" : ""}
                     onClick={() => setLipsyncMode("highlights")}
                   >
@@ -907,18 +917,21 @@ export function DubView() {
                     <span className="dub-field-label">切片模式</span>
                     <div className="dub-segmented">
                       <button
+                        type="button"
                         className={cutMode === "even" ? "is-on" : ""}
                         onClick={() => setCutMode("even")}
                       >
                         等分切片
                       </button>
                       <button
+                        type="button"
                         className={cutMode === "scene" ? "is-on" : ""}
                         onClick={() => setCutMode("scene")}
                       >
                         场景检测
                       </button>
                       <button
+                        type="button"
                         className={cutMode === "silence" ? "is-on" : ""}
                         onClick={() => setCutMode("silence")}
                       >
@@ -966,6 +979,7 @@ export function DubView() {
                 </div>
 
                 <button
+                  type="button"
                   className="btn btn-ghost btn-sm dub-advanced-toggle"
                   onClick={() => setShowAdvanced((v) => !v)}
                 >
@@ -1094,6 +1108,7 @@ export function DubView() {
 
             <div className="dub-actions-row">
               <button
+                type="button"
                 className="btn btn-primary"
                 onClick={doLipsync}
                 disabled={lipsyncBusy}
@@ -1307,7 +1322,7 @@ export function DubView() {
         .dub-title {
           margin: 0;
           font-size: var(--text-title);
-          font-weight: 700;
+          font-weight: var(--font-bold);
           letter-spacing: -0.02em;
           color: var(--text-primary);
           line-height: 1.3;
@@ -1383,7 +1398,7 @@ export function DubView() {
           border: 1px solid var(--border-strong);
           color: var(--text-secondary);
           font-size: var(--text-aux);
-          font-weight: 600;
+          font-weight: var(--font-semibold);
           font-variant-numeric: tabular-nums;
           flex-shrink: 0;
           transition: all var(--duration-fast) var(--ease-standard);
@@ -1414,7 +1429,7 @@ export function DubView() {
         }
         .dub-step-label {
           font-size: var(--text-base);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           letter-spacing: -0.01em;
           line-height: 1.25;
           white-space: nowrap;
@@ -1496,7 +1511,7 @@ export function DubView() {
         .dub-panel-head h2 {
           margin: 0 0 var(--space-1) 0;
           font-size: var(--text-section);
-          font-weight: 600;
+          font-weight: var(--font-semibold);
           color: var(--text-primary);
           letter-spacing: -0.01em;
         }
@@ -1536,7 +1551,7 @@ export function DubView() {
         .dub-dropzone-title {
           font-size: var(--text-lg);
           color: var(--text-secondary);
-          font-weight: 500;
+          font-weight: var(--font-medium);
         }
         .dub-dropzone-sub {
           font-size: var(--text-aux);
@@ -1576,7 +1591,7 @@ export function DubView() {
         .dub-file-name {
           font-size: var(--text-base);
           color: var(--text-primary);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           word-break: break-all;
         }
         .dub-file-meta {
@@ -1739,7 +1754,7 @@ export function DubView() {
         }
         .dub-seg-idx {
           color: var(--accent);
-          font-weight: 600;
+          font-weight: var(--font-semibold);
         }
         .dub-seg-range {
           color: var(--text-muted);
@@ -1802,7 +1817,7 @@ export function DubView() {
         }
         .dub-field-label {
           font-size: var(--text-label);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           text-transform: uppercase;
           letter-spacing: 0.04em;
           color: var(--text-muted);
@@ -1833,7 +1848,7 @@ export function DubView() {
           border: none;
           color: var(--text-secondary);
           font-size: var(--text-sm);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           border-radius: var(--radius-sm);
           cursor: pointer;
           white-space: nowrap;
@@ -1982,7 +1997,7 @@ export function DubView() {
         .dub-status-stage {
           font-size: var(--text-base);
           color: var(--text-primary);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           flex: 1;
           min-width: 120px;
         }

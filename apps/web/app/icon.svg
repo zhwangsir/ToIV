@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- ToIV 品牌图标:素白底(--bg-canvas #FAFAF9)+ 墨色(--accent #17181A)几何字标。
+       「T」字标与播放三角同构:横笔 + 右向三角,呼应影视创作平台属性。
+       全幅底色兼容 maskable;图形收在中心 80% 安全区内,小尺寸(16px)可辨。 -->
+  <rect width="64" height="64" fill="#FAFAF9"/>
+  <rect x="16" y="16" width="32" height="9" rx="2" fill="#17181A"/>
+  <path d="M25 29 L39 37.5 L25 46 Z" fill="#17181A"/>
+</svg>

@@ -6,6 +6,7 @@ import { login, setToken } from "@/lib/api";
 import { Icon } from "@/components/ui/Icon";
 import { ParticleButton } from "@/components/ui/ParticleButton";
 import { Ripple } from "@/components/ui/Ripple";
+import "@/app/styles/landing.css";
 
 /** 三个能力关键词:纯排版展示(未登录态无作品数据,不拉接口)。 */
 const CAPABILITIES = [

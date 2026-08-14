@@ -50,7 +50,7 @@
   padding-bottom: var(--space-3);
   border-bottom: 1px solid var(--border-subtle);
   font-size: var(--text-section);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   color: var(--text-primary);
 }
 /* 图标底托:accent-soft 圆角方块,让分区标题从文字行升级为带标识的标题栏 */
@@ -81,7 +81,7 @@
 .settings-row-label {
   flex-shrink: 0;
   font-size: var(--text-label);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   letter-spacing: 0.06em;
   color: var(--text-muted);
 }
@@ -114,7 +114,7 @@
   border-top: 0;
 }
 .settings-about-grid .settings-row-value {
-  font-weight: 500;
+  font-weight: var(--font-medium);
   white-space: normal;
 }
 
@@ -136,7 +136,7 @@
     var(--bg-surface-2)
   );
   background-size: 200% 100%;
-  animation: settings-skeleton 1.4s linear infinite;
+  animation: settings-skeleton var(--duration-skeleton) linear infinite;
 }
 .settings-engine-skeleton-bar.is-short {
   width: 62%;
@@ -202,7 +202,7 @@
 }
 .settings-engine-kind {
   font-size: var(--text-label);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--accent);
@@ -213,7 +213,7 @@
   padding: 1px var(--space-2);
   border-radius: var(--radius-badge);
   font-size: var(--text-label);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   color: var(--text-muted);
   background: var(--bg-surface-1);
 }
@@ -257,7 +257,7 @@
 }
 .settings-engine-label {
   color: var(--text-primary);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -268,7 +268,7 @@
   padding: 2px var(--space-2);
   border-radius: var(--radius-badge);
   font-size: var(--text-aux);
-  font-weight: 500;
+  font-weight: var(--font-medium);
 }
 .settings-engine-state.is-ok {
   color: var(--ok);
@@ -294,8 +294,8 @@
   flex-shrink: 0;
   padding: 1px var(--space-2);
   border-radius: var(--radius-full);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--text-aux);
+  font-weight: var(--font-semibold);
   line-height: 1.5;
   color: var(--text-on-accent);
   background: var(--err);

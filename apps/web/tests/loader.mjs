@@ -31,6 +31,10 @@ function withExt(p) {
 }
 
 export async function resolve(specifier, context, nextResolve) {
+  // V2 CSS 按视图分割后,视图入口 tsx 会 import 全局 css;node:test 不需要样式,短路为空模块
+  if (specifier.endsWith(".css")) {
+    return { url: "data:text/javascript,export default {}", shortCircuit: true };
+  }
   if (specifier === "@/lib/api") {
     return { url: apiMock, shortCircuit: true };
   }

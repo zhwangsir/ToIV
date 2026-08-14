@@ -12,6 +12,7 @@ import { useCrossTabSync } from "@/lib/crossTab";
 import { initR18Mode, isR18Mode, useR18Mode } from "@/lib/r18";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { Icon } from "@/components/ui/Icon";
+import { LoadingBlock } from "@/components/ui/LoadingBlock";
 
 type AuthState = "loading" | "in" | "out";
 
@@ -147,11 +148,11 @@ const AdminView = lazy(() =>
   viewImporters.admin().then((m) => ({ default: m.AdminView })),
 );
 
-/** 视图切换加载占位:与 splash 同源的呼吸圆点,视觉一致且极简。 */
+/** 视图切换加载占位:统一走共享 LoadingBlock(P1-2 收编),保留 role/aria 状态语义。 */
 function ViewFallback({ label }: { label: string }) {
   return (
     <div className="view-fallback" role="status" aria-label={`${label}加载中`}>
-      <div className="splash-orb" aria-hidden="true" />
+      <LoadingBlock variant="line" count={3} />
     </div>
   );
 }

@@ -34,7 +34,7 @@ export function Field({ label, hint, error, children }: FieldProps) {
         }
         .ui-field-label {
           font-size: var(--text-label);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           text-transform: uppercase;
           letter-spacing: 0.04em;
           color: var(--text-muted);

@@ -8,6 +8,7 @@ import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Field, Textarea } from "@/components/ui/Input";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Tabs } from "@/components/ui/Tabs";
 import { GenerateView } from "@/components/generate/GenerateView";
 import {
@@ -452,12 +453,12 @@ export function AudioView() {
 
   return (
     <div className="audio-view">
-      <header className="page-header">
-        <div>
-          <h1 className="page-header-title">音频工坊</h1>
-          <p className="page-header-desc">配乐生成、TTS 配音、ASR 听写与人声分离,一站完成。</p>
-        </div>
-        <div className="page-header-actions">
+      {/* 页头:UI-A PageHeader;布局/避让样式走下方 :global(.page-header*) 覆写 */}
+      <PageHeader
+        title="音频工坊"
+        desc="配乐生成、TTS 配音、ASR 听写与人声分离,一站完成。"
+        icon="audio"
+        actions={
           <Tabs
             ariaLabel="音频模式"
             items={[
@@ -467,8 +468,8 @@ export function AudioView() {
             current={tab}
             onChange={(k) => setTab(k as AudioTab)}
           />
-        </div>
-      </header>
+        }
+      />
 
       {tab === "gen" ? (
         <div className="audio-tab-gen">
@@ -567,7 +568,7 @@ export function AudioView() {
         }
         .audio-view :global(.audio-tool-title) {
           font-size: var(--text-section); /* 区块标题档位 15px/600 */
-          font-weight: 600;
+          font-weight: var(--font-semibold);
           line-height: 1.35;
           color: var(--text-primary);
         }
@@ -596,7 +597,7 @@ export function AudioView() {
         }
         .audio-view :global(.audio-prompt-label) {
           font-size: var(--text-label);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           text-transform: uppercase;
           letter-spacing: 0.04em;
           color: var(--text-muted);

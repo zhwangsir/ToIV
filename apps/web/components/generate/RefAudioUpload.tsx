@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Field } from "@/components/ui/Input";
+import { useToast } from "@/components/ui/Toast";
 import { uploadImage } from "@/lib/api";
 import type { EngineParam, RefImageHandle } from "@/lib/engines";
 
@@ -36,6 +37,7 @@ interface RefAudioUploadProps {
 /** 驱动音频上传:客户端校验(20MB / 扩展名)→ /api/upload(钉参考图所在 worker)→ 可移除重传。 */
 export function RefAudioUpload({ param, value, onChange, uploadKind, pinWorker, disabled }: RefAudioUploadProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const toast = useToast();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,6 +56,8 @@ export function RefAudioUpload({ param, value, onChange, uploadKind, pinWorker, 
     try {
       const r = await uploadImage(file, uploadKind, false, pinWorker ?? undefined);
       onChange({ filename: r.filename, worker: r.worker, name: file.name });
+      // 成功显式反馈(原静默入列);失败仍走内联 setError
+      toast.success("驱动音频已上传");
     } catch (e) {
       setError(e instanceof Error ? e.message : "上传失败");
     } finally {

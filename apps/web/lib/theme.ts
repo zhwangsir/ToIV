@@ -43,6 +43,21 @@ export function getCurrentTheme(): ThemeId {
   }
 }
 
+/** 同步 <meta name="theme-color"> 为当前主题画布色(--bg-canvas 计算值);meta 缺失时创建 */
+function syncThemeColorMeta(): void {
+  const value = getComputedStyle(document.documentElement)
+    .getPropertyValue("--bg-canvas")
+    .trim();
+  if (!value) return;
+  let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+  if (!meta) {
+    meta = document.createElement("meta");
+    meta.name = "theme-color";
+    document.head.appendChild(meta);
+  }
+  if (meta.content !== value) meta.content = value;
+}
+
 /** 把主题写到 documentElement.dataset.theme(不写 localStorage;跨页同步时复用) */
 export function applyThemeDataset(id: ThemeId): void {
   const def = THEMES.find((x) => x.id === id) ?? THEMES[0];
@@ -51,6 +66,7 @@ export function applyThemeDataset(id: ThemeId): void {
   } else {
     delete document.documentElement.dataset.theme;
   }
+  syncThemeColorMeta();
 }
 
 /** 应用主题:写 localStorage + documentElement.dataset.theme,无刷新即时生效 */

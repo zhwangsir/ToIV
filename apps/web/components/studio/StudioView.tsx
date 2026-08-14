@@ -10,6 +10,11 @@ import {
 import { useStudioProject } from "@/hooks/useStudioProject";
 import { Icon } from "@/components/ui/Icon";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Modal } from "@/components/ui/Modal";
+import { Button } from "@/components/ui/Button";
+import { ErrorBar } from "@/components/ui/ErrorBar";
+import { LoadingBlock } from "@/components/ui/LoadingBlock";
+import { useToast } from "@/components/ui/Toast";
 import { ScriptStage } from "./stages/ScriptStage";
 import { CastStage } from "./stages/CastStage";
 import { StoryboardStage } from "./stages/StoryboardStage";
@@ -42,6 +47,9 @@ export function StudioView() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [stage, setStage] = useState<StageKey>("script");
   const [error, setError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<StudioProjectSummary | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const toast = useToast();
   const project = useStudioProject(activeId);
 
   const reload = useCallback(() => {
@@ -63,14 +71,21 @@ export function StudioView() {
     }
   };
 
-  const removeProject = async (p: StudioProjectSummary) => {
-    if (!window.confirm(`删除项目「${p.title || "未命名"}」及其全部分镜?`)) return;
+  const removeProject = (p: StudioProjectSummary) => setConfirmDelete(p);
+
+  const doRemoveProject = async () => {
+    if (!confirmDelete || deleting) return;
+    setDeleting(true);
     try {
-      await deleteStudioProject(p.id);
-      if (activeId === p.id) setActiveId(null);
+      await deleteStudioProject(confirmDelete.id);
+      if (activeId === confirmDelete.id) setActiveId(null);
       reload();
+      toast.success(`项目「${confirmDelete.title || "未命名"}」已删除`);
+      setConfirmDelete(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "删除失败");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -88,7 +103,7 @@ export function StudioView() {
             </button>
           }
         />
-        {error && <p className="studio-error">{error}</p>}
+        <ErrorBar message={error} onClose={() => setError(null)} />
         {projects.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon">
@@ -123,7 +138,7 @@ export function StudioView() {
                   type="button"
                   className="studio-shot-del"
                   title="删除项目"
-                  onClick={() => void removeProject(p)}
+                  onClick={() => removeProject(p)}
                 >
                   <Icon name="delete" size={14} />
                 </button>
@@ -131,6 +146,37 @@ export function StudioView() {
             ))}
           </ul>
         )}
+        {/* 删除项目确认(替代原生 window.confirm) */}
+        <Modal
+          open={!!confirmDelete}
+          onClose={() => setConfirmDelete(null)}
+          title="删除项目"
+          danger
+          preventClose={deleting}
+          footer={
+            <>
+              <Button
+                variant="secondary"
+                disabled={deleting}
+                onClick={() => setConfirmDelete(null)}
+              >
+                取消
+              </Button>
+              <Button
+                variant="danger"
+                loading={deleting}
+                icon={<Icon name="delete" size={14} />}
+                onClick={() => void doRemoveProject()}
+              >
+                {deleting ? "删除中…" : "确认删除"}
+              </Button>
+            </>
+          }
+        >
+          <p style={{ margin: 0, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+            删除项目「{confirmDelete?.title || "未命名"}」及其全部分镜?此操作不可撤销。
+          </p>
+        </Modal>
       </div>
     );
   }
@@ -165,26 +211,9 @@ export function StudioView() {
         </div>
       </nav>
 
-      {project.error && (
-        <p className="studio-error studio-error-bar" role="alert">
-          <span className="studio-error-text">{project.error}</span>
-          <button
-            type="button"
-            className="studio-error-close"
-            aria-label="关闭错误提示"
-            onClick={project.clearError}
-          >
-            <Icon name="close" size={12} />
-          </button>
-        </p>
-      )}
+      <ErrorBar message={project.error} onClose={project.clearError} />
       {project.loading && !d ? (
-        <div className="empty-state">
-          <div className="empty-state-icon">
-            <Icon name="loading" size={32} />
-          </div>
-          <p className="empty-state-desc">项目加载中…</p>
-        </div>
+        <LoadingBlock variant="line" count={4} />
       ) : (
         <>
           {stage === "script" && <ScriptStage project={project} onDone={() => setStage("cast")} />}

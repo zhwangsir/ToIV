@@ -42,7 +42,7 @@ test("AdminView 表格移动端:overflow-x 容器 + 767 档表格 min-width", ()
   assert.ok(src.includes("admin-table-wrap"), "缺少表格滚动容器类");
   assert.ok(/\.admin-table-wrap\s*\{[^}]*overflow-x:\s*auto/.test(src), "容器未开 overflow-x:auto");
   // 767 档内表格保持最小可读宽度,110-180px 固定列不被压缩
-  const media767 = src.match(/@media \(max-width: 767px\)\s*\{[\s\S]*?\n        \}\n\n        \/\* 移动端触控目标/);
+  const media767 = src.match(/@media \(max-width: 767px\)\s*\{[\s\S]*?\.admin-table\s*\{[^}]*min-width:\s*640px/);
   assert.ok(media767, "缺少 767px 媒体查询块");
   assert.ok(media767[0].includes("min-width: 640px"), "767 档缺少表格 min-width");
 });

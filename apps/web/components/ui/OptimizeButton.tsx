@@ -289,7 +289,7 @@ export function OptimizeButton({
           border-radius: var(--radius-control);
           color: var(--accent);
           font-size: var(--text-aux);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           cursor: pointer;
           transition: background-color var(--duration-fast) var(--ease-standard),
             color var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard);
@@ -324,7 +324,7 @@ export function OptimizeButton({
         .ob-popover-header {
           padding: var(--space-2) var(--space-3);
           font-size: var(--text-label);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           color: var(--text-muted);
           letter-spacing: 0.04em;
           text-transform: uppercase;
@@ -375,7 +375,7 @@ export function OptimizeButton({
           border-radius: var(--radius-control);
           color: var(--accent);
           font-size: var(--text-aux);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           cursor: pointer;
           transition: background-color var(--duration-fast) var(--ease-standard);
         }
@@ -433,7 +433,7 @@ export function OptimizeButton({
         .ob-option-name {
           font-size: var(--text-aux);
           color: var(--text-primary);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;

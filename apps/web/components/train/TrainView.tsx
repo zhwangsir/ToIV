@@ -18,6 +18,7 @@ import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 type JobStatus = TrainJob["status"];
 
@@ -315,32 +316,34 @@ export function TrainView() {
 
   return (
     <div className="single-view train-view">
-      <header className="page-header">
-        <div className="page-header-main">
-          <h1 className="page-header-title">训练</h1>
-          <p className="page-header-desc">LoRA 训练 · 数据集打标 → 微调 → 注册</p>
-        </div>
-        <div className="page-header-actions">
-          <button
-            type="button"
-            className="btn btn-sm"
-            onClick={() => void load()}
-            disabled={loading}
-          >
-            <Icon name="refresh" size={14} />
-            刷新
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={() => setShowForm((v) => !v)}
-            disabled={submitting}
-          >
-            <Icon name="upload" size={14} />
-            新建训练
-          </button>
-        </div>
-      </header>
+      {/* 页头:UI-A PageHeader(全局 .page-header 体系,本视图 scoped 衔接见下方样式) */}
+      <PageHeader
+        title="训练"
+        desc="LoRA 训练 · 数据集打标 → 微调 → 注册"
+        icon="train"
+        actions={
+          <>
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={() => void load()}
+              disabled={loading}
+            >
+              <Icon name="refresh" size={14} />
+              刷新
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => setShowForm((v) => !v)}
+              disabled={submitting}
+            >
+              <Icon name="upload" size={14} />
+              新建训练
+            </button>
+          </>
+        }
+      />
 
       {showForm && (
         <section className="card tv-form-card">
@@ -635,7 +638,7 @@ export function TrainView() {
         .tv-form-title {
           margin: 0;
           font-size: var(--text-section);
-          font-weight: 600;
+          font-weight: var(--font-semibold);
           color: var(--text-primary);
           letter-spacing: -0.01em;
         }
@@ -664,7 +667,7 @@ export function TrainView() {
         .tv-label {
           font-size: var(--text-label);
           color: var(--text-secondary);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           letter-spacing: 0.01em;
         }
         .tv-label-row {
@@ -967,7 +970,7 @@ function TrainCard({
         .tv-card-title {
           margin: 0;
           font-size: var(--text-section);
-          font-weight: 600;
+          font-weight: var(--font-semibold);
           color: var(--text-primary);
           letter-spacing: -0.01em;
           overflow: hidden;
@@ -1001,7 +1004,7 @@ function TrainCard({
         }
         .tv-meta-key {
           font-size: var(--text-label);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           color: var(--text-muted);
           text-transform: uppercase;
           letter-spacing: 0.04em;
@@ -1070,7 +1073,7 @@ function TrainCard({
         }
         .tv-samples-label {
           font-size: var(--text-label);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           color: var(--text-muted);
           text-transform: uppercase;
           letter-spacing: 0.04em;
@@ -1186,7 +1189,7 @@ function LossSparkline({ values }: { values: number[] }) {
         }
         .tv-spark-label {
           font-size: var(--text-label);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           color: var(--text-muted);
           text-transform: uppercase;
           letter-spacing: 0.04em;

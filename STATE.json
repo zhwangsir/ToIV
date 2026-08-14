@@ -3470,5 +3470,23 @@
   "regression": "pytest 1531 passed(1452+79);web node:test 78/78;tsc --noEmit 零错误;next build ✅(Fraunces 需 HTTPS_PROXY 拉取,core 部署走 rsync 预构建产物不受影响)",
   "notes": "API 契约零变更;/api/agent/chat SSE 事件不变;新端点:/api/agent/sessions 系列 + /api/system/harness;profile 默认 full 行为与改造前一致;网格基座 .grid-cards 补桌面基础规则;web 新增 npm test/typecheck 脚本",
   "verified_at": "2026-08-14T22:40:00+08:00"
+ },
+ "ui_round2_2026_08_14": {
+  "id": "UI2-2026-08-14",
+  "title": "UI/UX 二轮优化(诊断驱动+量化目标)",
+  "status": "done",
+  "scope": "三路静态审计(视觉/交互/性能,全真实 grep 基线)→ docs/2026-08-14-ui-ux-diagnosis-round2.md(P0×4/P1×8/P2×9)→ V1-V4 八并行 Agent + Wave2 CSS 分割",
+  "deliverables": [
+   "P0-1 品牌资产:app/icon.svg+manifest.ts(standalone/maskable);themeColor 随主题(--bg-canvas,layout 脚本+theme.ts 双路);apple-icon.png 待设计",
+   "P0-2 确认门:3 处不可逆删除+6 处 window.confirm 全迁 ui/Modal;Admin 自写弹窗→Modal(focus trap)",
+   "P0-3 反馈:ShotCard 失焦保存三态;Ref*Upload 上传成功 toast",
+   "P0-4 CSS 按视图分割:7 视图 css 入 lazy chunk,layout CSS 127.9KB→66.2KB(-48%);stage.css 层叠依赖保全局",
+   "P1 收编:font-weight 151 处清零(新增 --font-regular);PageHeader 1→15/ErrorBar 13→20/LoadingBlock 6→13;button type 清零;中英混拼规范;StoryboardStage→usePoll",
+   "P1-6 img 20 处补尺寸;lib-card content-visibility;removeConsole(留 error/warn)+browserslist",
+   "scripts/ui_lint.mjs CI 门禁(font-weight/confirm/button-type/hex 硬门禁+z-index/动画时长软提醒+ui-lint-ok 豁免)"
+  ],
+  "regression": "tsc 零错误;web 78/78(loader.mjs 补 .css 短路);next build ✅;ui_lint 0 FAIL",
+  "notes": "视觉零变化约束;目标未达项:首屏 CSS 66.2KB>60KB(stage.css 与 motion.css shimmer 层叠耦合,解耦需改规则,超出零视觉变更约束);PageHeader/LoadingBlock 目标 18 实达 15/13(骨架屏更优保留,豁免已注释)",
+  "verified_at": "2026-08-14T23:59:00+08:00"
  }
 }

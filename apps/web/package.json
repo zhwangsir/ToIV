@@ -2,6 +2,13 @@
   "name": "toiv-web",
   "version": "0.0.1",
   "private": true,
+  "browserslist": [
+    "chrome >= 111",
+    "safari >= 16.4",
+    "edge >= 111",
+    "firefox >= 111",
+    "not dead"
+  ],
   "scripts": {
     "dev": "next dev -p 3100",
     "build": "next build",

@@ -79,6 +79,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             />
             <span className="toast-msg">{t.message}</span>
             <button
+              type="button"
               className="toast-close"
               onClick={(e) => {
                 e.stopPropagation();
