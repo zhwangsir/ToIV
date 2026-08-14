@@ -156,7 +156,7 @@ def build_upscale_graph(image_name: str, model_name: str, target_w: int, target_
                 "width": target_w,
                 "height": target_h,
                 "upscale_method": "lanczos",
-                "crop": "center",
+                "crop": "disabled",
             },
         },
         "9": {
