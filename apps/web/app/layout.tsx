@@ -13,6 +13,7 @@ import "./styles/stage.css";
 import "./styles/motion.css";
 import "./styles/effects.css";
 import { ToastProvider } from "@/components/ui/Toast";
+import { ReleaseWatch } from "@/components/ReleaseWatch";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -70,7 +71,11 @@ export default function RootLayout({
       </head>
       <body>
         <a href="#main" className="skip-link">跳到主内容</a>
-        <ToastProvider>{children}</ToastProvider>
+        <ToastProvider>
+          {/* 发版软提示(三件套之一):轮询 /version.json 比对 BUILD_ID,不一致 toast 提醒 */}
+          <ReleaseWatch />
+          {children}
+        </ToastProvider>
       </body>
     </html>
   );

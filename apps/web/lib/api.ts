@@ -91,14 +91,29 @@ interface ApiFetchOptions {
 let authRedirectPending = false;
 
 /**
- * 401 统一处理:清除本地 token(复用 setToken 清理路径)并跳转登录入口
- * (登录态在 "/",app/login 只是 redirect("/"))。仅浏览器环境执行,且幂等。
+ * 会话失效全局事件:401 统一处理 / trackJob 冷启动探针确认凭据无效时派发。
+ * 长连接(SSE trackJob)订阅此事件立即关流终止,避免持失效凭据空转重连。
+ * 与跨标签页同步(lib/crossTab.ts 的 storage 事件)互补:本事件管同页内即时广播。
+ */
+export const SESSION_EXPIRED_EVENT = "toiv:session-expired";
+
+/** 广播会话失效(仅浏览器环境);轻量 Event 即可,无需 detail。 */
+export function emitSessionExpired(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+}
+
+/**
+ * 401 统一处理:清除本地 token(复用 setToken 清理路径)、广播会话失效事件
+ * (供 SSE 长连接关流)并跳转登录入口(登录态在 "/",app/login 只是 redirect("/"))。
+ * 仅浏览器环境执行,且幂等。
  */
 function handleUnauthorized(): void {
   if (typeof window === "undefined") return;
   if (authRedirectPending) return;
   authRedirectPending = true;
   setToken(null);
+  emitSessionExpired();
   window.location.assign("/");
 }
 

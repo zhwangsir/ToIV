@@ -2,6 +2,25 @@
 
 ---
 
+## R2-2026-08-15 · DramaClaw 借鉴第二轮:分裂修复推广 + SSE FSM 2.0 + 发版防御
+
+**时间**: 2026-08-15
+**类型**: 前后端里程碑（行动建议表 #5/#6/#10 + 上轮遗留清零）
+
+### 交付
+
+- **分裂修复推广（后端）**：`_writeback_candidate`/`_writeback_lipsync`/`_run_continue_video` 三处同法修复（超时重读 Job 再定性：竞态 done 回写/非终态保持 generating/已 error 才标 error）；wait_for_jobs 9 个调用点全部定性处置（3 同步端点保留 504 诚实语义、LiveAct 自轮询不动）；新增 3 用例
+- **tracker 对照审计（#6）**：幂等入队/僵尸清扫已等价（孤儿检测更强）；车道公平交错→远期 LB 层评估；协作式取消需新契约，列建议不动代码
+- **trackJob SSE FSM 2.0（#5，前端）**：显式状态机（connecting/streaming/reconnecting/polling/done/error/aborted）+ 60s 看门狗软重连（不计失败不报 UI；阈值依据：后端无应用层心跳，最坏正常静默=VideoScorer 30s 评估）+ 重连 500ms 快照窗负载去重 + 冷启动探针分级（401/403 立即终止，网络抖动走退避降级）+ `toiv:session-expired` 全局事件显式关流（api.ts 401 统一广播）；消费方零改动；新增 10 用例
+- **发版防御三件套（#10，前端）**：① 构建指纹=Next BUILD_ID 同源（`日期-gitsha[-dirty]`），`GET /version.json` 运行时读磁盘（回滚安全），ReleaseWatch 5min 轮询（页面隐藏暂停）+ toast 软提示 ② chunk 404 自动恢复（instrumentation-client 生产安装；sessionStorage 按 BUILD_ID 防死循环，先打标再 reload） ③ 翻译插件防崩 domGuard（removeChild/insertBefore 包裹，仅生产）；新增 26 用例
+
+### 回归
+
+- web **120/120**（78+42 新）、tsc 零错误、next build ✅（/version.json 200 实证）、ui_lint 0 FAIL
+- api **1558 passed**（test_redis_integration 2 预存失败，三轮 stash 验证无关）
+
+---
+
 ## PIPE-2026-08-15 · DramaClaw 借鉴落地:SKILL 纪律 + 管线状态重算 + 合法 ID 校验
 
 **时间**: 2026-08-15

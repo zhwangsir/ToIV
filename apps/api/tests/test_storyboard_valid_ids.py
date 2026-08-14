@@ -8,7 +8,8 @@
     ④ 输出结构非法 → 校验错误摘要反馈进 prompt 重试一次 → 成功
     ⑤ 重试仍结构非法 → 502 带明确 detail
     ⑦ 分镜视频回写 wait_for_jobs 超时 → 不再标 error(保持 generating);
-       作业已 error / 超时瞬间恰好 done 的竞态路径行为不变
+       作业已 error / 超时瞬间恰好 done 的竞态路径行为不变;
+       同款修复推广到多候选回写 _writeback_candidate(超时保持/竞态回写并自动 pick)
   链 B(services/studio/storyboard.parse_script):
     ⑥ known_characters 注入后近匹配纠正 + 新名放行;缺省 None 不启用校验(旧行为)
   兼容:
@@ -280,6 +281,104 @@ async def test_writeback_timeout_race_done_writes_back(ctx):
         ok = await ds._await_shot_video_writeback(sid, prompt_id)
     assert ok is True
     with Session(engine) as s:
+        shot = s.get(DramaShot, sid)
+        assert shot.video_status == "done"
+        assert shot.video_url == url
+
+
+# ---------------------------------------------------------------------------
+# 链 A ⑦ 推广:多候选回写 _writeback_candidate 同款分裂修复
+#   超时保持 generating / 作业 error 标 error / 竞态 done 回写并自动 pick
+# ---------------------------------------------------------------------------
+def _seed_candidate(ctx, *, job_status: str, job_result: str = ""):
+    """落库:1 项目 + 1 generating 分镜 + 1 generating 候选 + 1 配套 Job。
+    返回 (shot_id, candidate_id, prompt_id)。"""
+    from app.db import engine
+    from app.models import DramaShotCandidate
+
+    client, token = ctx
+    pid = client.post("/api/drama/projects", headers=_h(token),
+                      json={"title": "candidate-wb"}).json()["id"]
+    with Session(engine) as s:
+        user = s.exec(select(User).where(User.email == "v@toiv.ai")).first()
+        shot = DramaShot(project_id=pid, idx=0, prompt="a boy runs", seed=42,
+                         video_status="generating")
+        s.add(shot)
+        s.commit()
+        s.refresh(shot)
+        cand = DramaShotCandidate(shot_id=shot.id, project_id=pid, seed=42,
+                                  status="generating")
+        s.add(cand)
+        s.commit()
+        s.refresh(cand)
+        s.add(Job(tenant_id=user.tenant_id, user_id=user.id, prompt_id="pid-cand",
+                  worker="http://w:8188", kind="drama_shot_video", status=job_status,
+                  prompt="a boy runs", seed=42, result=job_result))
+        s.commit()
+        return shot.id, cand.id, "pid-cand"
+
+
+@pytest.mark.asyncio
+async def test_candidate_writeback_timeout_keeps_generating(ctx):
+    """wait_for_jobs 超时(作业仍 running)→ 候选保持 generating,不标 error。"""
+    from app.db import engine
+    from app.models import DramaShotCandidate
+    import app.routes.drama_studio as ds
+
+    sid, cid, prompt_id = _seed_candidate(ctx, job_status="running")
+    with patch(
+        "app.routes.drama_studio.wait_for_jobs",
+        AsyncMock(side_effect=RuntimeError("等待作业超时: {'pid-cand'}")),
+    ):
+        await ds._writeback_candidate(prompt_id, cid, sid)
+    with Session(engine) as s:
+        cand = s.get(DramaShotCandidate, cid)
+        assert cand.status == "generating"  # 超时豁免:不再标 error
+        assert cand.error == ""
+        shot = s.get(DramaShot, sid)
+        assert shot.video_status == "generating"
+
+
+@pytest.mark.asyncio
+async def test_candidate_writeback_job_error_still_marks_error(ctx):
+    """作业已 error(非超时豁免路径)→ 维持标 error 旧语义。"""
+    from app.db import engine
+    from app.models import DramaShotCandidate
+    import app.routes.drama_studio as ds
+
+    sid, cid, prompt_id = _seed_candidate(ctx, job_status="error")
+    with patch(
+        "app.routes.drama_studio.wait_for_jobs",
+        AsyncMock(side_effect=RuntimeError("作业 pid-cand 执行失败")),
+    ):
+        await ds._writeback_candidate(prompt_id, cid, sid)
+    with Session(engine) as s:
+        cand = s.get(DramaShotCandidate, cid)
+        assert cand.status == "error"
+        assert "回写异常" in cand.error
+
+
+@pytest.mark.asyncio
+async def test_candidate_writeback_timeout_race_done_writes_back(ctx):
+    """竞态:wait 抛超时瞬间作业恰好 done → 正常回写 url 并自动 pick 到分镜。"""
+    from app.db import engine
+    from app.models import DramaShotCandidate
+    import app.routes.drama_studio as ds
+
+    url = "/api/images?filename=c.mp4&worker=w"
+    sid, cid, prompt_id = _seed_candidate(
+        ctx, job_status="done", job_result=json.dumps([url])
+    )
+    with patch(
+        "app.routes.drama_studio.wait_for_jobs",
+        AsyncMock(side_effect=RuntimeError("等待作业超时: {'pid-cand'}")),
+    ):
+        await ds._writeback_candidate(prompt_id, cid, sid)
+    with Session(engine) as s:
+        cand = s.get(DramaShotCandidate, cid)
+        assert cand.status == "done"
+        assert cand.url == url
+        assert cand.is_picked is True  # 首个完成者自动 pick
         shot = s.get(DramaShot, sid)
         assert shot.video_status == "done"
         assert shot.video_url == url

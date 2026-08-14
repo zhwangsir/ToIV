@@ -2015,8 +2015,35 @@ async def _run_continue_video(
                         s.commit()
                         spawn_tracker(ltx_client, prompt_id)
 
-                    results = await wait_for_jobs(s, [prompt_id], timeout=_job_wait_timeout(900.0))
-                    urls = results.get(prompt_id, [])
+                    # 段等待(2026-08-15 分裂修复,同 _await_shot_video_writeback 思路):
+                    # 本地窗口 ≤900s 超时往往只是作业没跑完,直接判负会分裂为
+                    # Job=done / shot.continue_status=error 且后续段被放弃。
+                    # 单次 split-check:超时/异常后重读 Job 最新状态再定性;
+                    # 竞态 done 直接取产物继续;已 error 判负;非终态仍判负(串行管线
+                    # 不能无限阻塞,保持旧语义,由 reconcile_interrupted 兜底)。
+                    wait_err: RuntimeError | None = None
+                    try:
+                        results = await wait_for_jobs(
+                            s, [prompt_id], timeout=_job_wait_timeout(900.0)
+                        )
+                        urls: list[str] = results.get(prompt_id, [])
+                    except RuntimeError as e:
+                        wait_err = e  # 先读 Job 最新状态再定性
+                        # commit 结束当前读事务快照,看到 tracker 其他 Session 的最新提交
+                        s.commit()
+                        job = s.exec(
+                            select(Job).where(Job.prompt_id == prompt_id)
+                        ).first()
+                        if job and job.status == "done" and job.result:
+                            urls = json.loads(job.result)
+                        else:
+                            if job and job.status not in ("done", "error"):
+                                logger.warning(
+                                    "shot %s continue-video 第 %d 段: 等待超时但作业 %s"
+                                    "仍为 %s,串行管线不无限阻塞,判负待 reconcile 兜底",
+                                    sid, i + 1, prompt_id, job.status,
+                                )
+                            raise wait_err  # 作业已 error / 不存在 / 非终态超时 → 判负(旧语义)
                     if not urls:
                         raise RuntimeError(f"第 {i + 1} 段续写无产物")
                     seg_path = tmp_dir / f"seg-{i + 1:03d}.mp4"
@@ -2411,13 +2438,30 @@ async def generate_shot_lipsync(
     spawn_tracker(client, prompt_id)
 
     async def _writeback_lipsync() -> None:
+        """对口型作业完成后回写 lipsync_video_url/status。
+
+        超时豁免(2026-08-15 分裂修复,同 _await_shot_video_writeback):本地等待
+        窗口(≤900s)远短于 tracker 作业生命周期;超时往往只是作业还没跑完,直接
+        标 error 会分裂为 Job=done / shot=error 且产物永不回写。故超时时保持
+        generating 待 tracker/reconcile 兜底;作业已 error / 不存在维持标 error。
+        """
         from app.comfy.tracker import wait_for_jobs
         from app.db import engine
 
         try:
             with Session(engine) as s:
-                results = await wait_for_jobs(s, [prompt_id], timeout=_job_wait_timeout(900.0))
+                wait_err: RuntimeError | None = None
+                results: dict[str, list[str]] = {}
+                try:
+                    results = await wait_for_jobs(s, [prompt_id], timeout=_job_wait_timeout(900.0))
+                except RuntimeError as e:
+                    wait_err = e  # 先读 Job 最新状态再定性(超时豁免 or 真失败)
+                # commit 结束当前读事务快照,确保看到 tracker 其他 Session 的最新提交
+                s.commit()
+                job = s.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
                 urls = results.get(prompt_id, [])
+                if not urls and job and job.status == "done" and job.result:
+                    urls = json.loads(job.result)  # 竞态 done:wait 抛超时瞬间作业恰好完成
                 shot_obj = s.get(DramaShot, sid)
                 if urls and shot_obj:
                     shot_obj.lipsync_video_url = urls[0]
@@ -2426,6 +2470,17 @@ async def generate_shot_lipsync(
                     s.add(shot_obj)
                     s.commit()
                     return
+                if wait_err is not None:
+                    if job and job.status not in ("done", "error"):
+                        # 超时豁免:作业仍在 tracker 窗口内,保持 generating 不标 error
+                        logger.warning(
+                            "shot %s lipsync writeback: 等待超时但作业 %s 仍为 %s,"
+                            "保持 generating 待 tracker/reconcile 兜底",
+                            sid, prompt_id, job.status,
+                        )
+                        return
+                    raise wait_err  # 作业已 error / 不存在 → 走通用异常标 error(旧语义)
+                # wait 正常返回但无产物 → 失败标记(旧语义)
                 if shot_obj and shot_obj.lipsync_status == "generating":
                     shot_obj.lipsync_status = "error"
                     shot_obj.error = "对口型失败或超时"
@@ -3430,16 +3485,34 @@ def _next_seeds(base_seed: int | None, shot_seed: int, n: int) -> list[int]:
 
 
 async def _writeback_candidate(prompt_id: str, candidate_id: str, shot_id: str) -> None:
-    """候选生成任务完成后回写 candidate.url/status,并自动 pick 首个完成的候选。"""
+    """候选生成任务完成后回写 candidate.url/status,并自动 pick 首个完成的候选。
+
+    超时豁免(2026-08-15 分裂修复,同 _await_shot_video_writeback):本地等待窗口
+    (≤900s)远短于 tracker 作业生命周期(settings.job_track_timeout,默认 7200s);
+    等待超时往往只是作业还没跑完,若直接标 error,900-7200s 间完成的作业会分裂为
+    Job=done / candidate=error 且 url 永不回写。故超时时保持 generating + 返回,
+    由 tracker 窗口 + reconcile 兜底收口;作业已 error / 不存在等其他异常路径维持
+    标 error 不变。
+    """
     from app.db import engine
 
     try:
         with Session(engine) as s:
-            results = await wait_for_jobs(s, [prompt_id], timeout=_job_wait_timeout(900.0))
+            wait_err: RuntimeError | None = None
+            results: dict[str, list[str]] = {}
+            try:
+                results = await wait_for_jobs(s, [prompt_id], timeout=_job_wait_timeout(900.0))
+            except RuntimeError as e:
+                wait_err = e  # 先读 Job 最新状态再定性(超时豁免 or 真失败)
+            # commit 结束当前读事务快照,确保看到 tracker 其他 Session 的最新提交
+            s.commit()
+            job = s.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
+            urls = results.get(prompt_id, [])
+            if not urls and job and job.status == "done" and job.result:
+                urls = json.loads(job.result)  # 竞态 done:wait 抛超时瞬间作业恰好完成
             cand = s.get(DramaShotCandidate, candidate_id)
             if not cand:
                 return
-            urls = results.get(prompt_id, [])
             if urls:
                 cand.url = urls[0]
                 cand.status = "done"
@@ -3451,7 +3524,18 @@ async def _writeback_candidate(prompt_id: str, candidate_id: str, shot_id: str) 
                     shot.video_url = cand.url
                     shot.video_status = "done"
                     s.add(shot)
+            elif wait_err is not None:
+                if job and job.status not in ("done", "error"):
+                    # 超时豁免:作业仍在 tracker 窗口内,保持 generating 不标 error
+                    logger.warning(
+                        "candidate %s writeback: 等待超时但作业 %s 仍为 %s,"
+                        "保持 generating 待 tracker/reconcile 兜底",
+                        candidate_id, prompt_id, job.status,
+                    )
+                    return
+                raise wait_err  # 作业已 error / 不存在 → 走通用异常标 error(旧语义)
             else:
+                # wait 正常返回但无产物(job done 但 result 空)→ 失败标记(旧语义)
                 cand.status = "error"
                 cand.error = "生成结果为空"
             s.add(cand)
