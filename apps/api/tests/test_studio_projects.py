@@ -231,7 +231,10 @@ def test_project_status_counts(ctx):
     _mk_shots(client, H, pid)
     r = client.get(f"/api/studio/projects/{pid}/status", headers=H)
     assert r.status_code == 200
-    assert r.json() == {"total": 2, "by_status": {"draft": 2}}
+    data = r.json()
+    # 原字段契约不变;2026-08-15 起追加 next_step(状态重算),只增不改
+    assert data["total"] == 2 and data["by_status"] == {"draft": 2}
+    assert data["next_step"]["step"] == "render"
 
 
 # ── 项目级产出规格(分辨率/帧率)───────────────────────────────────────────

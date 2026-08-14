@@ -32,6 +32,7 @@ from app.routes import (
     dub_voice,
     drama_studio,
     drama_skills,
+    drama_pipeline,
     documents,
     nas_models,
     auth,
@@ -200,6 +201,9 @@ def create_app() -> FastAPI:
         allow_credentials=True,  # 前端需带 Cookie/JWT 跨域;CORS 规范要求 credentials=True 时 origins 必须是精确域名，禁止 "*"
         allow_methods=["*"],
         allow_headers=["*"],
+        # 智能体对话会话 id 走响应头(agent.py EventSourceResponse);浏览器跨域 fetch 只放行
+        # CORS 安全清单头,不暴露则 H5/小程序 H5 端读不到 → 续聊每次新建会话(M19/MP19 踩坑取证)
+        expose_headers=["X-Agent-Session-Id"],
     )
 
     # 安全响应头(QA-FULL-2026-08-11 P2,六项):API 只产 JSON/文件,统一最严白名单。
@@ -307,6 +311,7 @@ def create_app() -> FastAPI:
         dub_voice,
         drama_studio,
         drama_skills,
+        drama_pipeline,
         documents,
         nas_models,
         cad,

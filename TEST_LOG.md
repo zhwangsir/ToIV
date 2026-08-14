@@ -2,6 +2,25 @@
 
 ---
 
+## PIPE-2026-08-15 · DramaClaw 借鉴落地:SKILL 纪律 + 管线状态重算 + 合法 ID 校验
+
+**时间**: 2026-08-15
+**类型**: 后端里程碑（调研 docs/2026-08-15-dramaclaw-deep-dive.md → 落地；实现文档 docs/2026-08-15-pipeline-recompute-valid-ids.md + docs/2026-08-15-agent-skill-discipline.md）
+
+### 交付
+
+- **T1 SKILL 纪律标准化**：提炼 DramaClaw SKILL.md 七原则（单轮写限制/错误即停/grounding/覆盖确认门优先/状态驱动/大任务拆解/媒体 URL 透传）→ runner.py SYSTEM_SUFFIX 追加条款 7-11（P1 单轮写限制经评估**不采纳**：ToIV 同步生成单轮多产是既有 feature）；test_harness_tools.py LEGACY_SYSTEM 逐字节锁 deliberate 同步
+- **T2/T3a 管线状态重算**：新建 services/drama_pipeline.py(472 行，只读)+ `GET /drama/projects/{pid}/pipeline/status`——七阶段由 DB 行+产物存在性实时重算（本地 URL is_file 2s 缓存 / /api/images 走 Job 行 / 判不了标 unknown 不武断）；next_step 直接给 action；recoverable[] 检出分裂态；studio /status 追加 next_step（契约只增不改）。实测 24 分镜全链重算 **2.61ms**
+- **分裂源头修复**：_await_shot_video_writeback 超时重读 Job 再定性（非终态保持 generating 交 tracker 7200s+reconcile 兜底）；7 处硬编码 900/600 统一 _job_wait_timeout 派生
+- **T3b 合法 ID 校验**：pydantic v2 validation_context（无新依赖）——链 A ShotOut/ShotAnalysisOut + 结构非法带错误摘要重试一次；链 B parse_script(known_characters) 路由已接线；reconcile_character_names 两链单一事实源（精确通过/近匹配纠正/新名放行建行，兼容既有特性）
+
+### 回归
+
+- 新增 23 测试（pipeline 12 + valid_ids 11）全绿；全量 **pytest 1561 passed**（test_redis_integration 2 失败为预存，git stash 双次验证无关）
+- 契约只增不改（唯一既有测试改动：test_studio_projects 精确相等断言追加 next_step 断言）
+
+---
+
 ## UI2-2026-08-14 · UI/UX 二轮优化（诊断驱动 + 量化目标）
 
 **时间**: 2026-08-14

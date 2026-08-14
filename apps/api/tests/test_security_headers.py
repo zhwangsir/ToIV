@@ -60,3 +60,15 @@ def test_docs_exposed_when_enabled(monkeypatch):
     assert client.get("/openapi.json").status_code == 200
     assert client.get("/docs").status_code == 200
     assert client.get("/redoc").status_code == 200
+
+
+def test_cors_exposes_agent_session_header():
+    """M19/MP19: X-Agent-Session-Id 须入 expose_headers。
+
+    智能体对话会话 id 走响应头(agent.py EventSourceResponse);浏览器跨域 fetch
+    只放行 CORS 安全清单头,不暴露则 H5 端读不到 → 续聊每次新建会话。
+    """
+    client = TestClient(main.app)
+    r = client.get("/api/health", headers={"Origin": "https://toiv.dgmt.top"})
+    assert r.headers["Access-Control-Allow-Origin"] == "https://toiv.dgmt.top"
+    assert "X-Agent-Session-Id" in r.headers["Access-Control-Expose-Headers"]

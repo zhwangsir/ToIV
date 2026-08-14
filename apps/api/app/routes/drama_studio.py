@@ -38,7 +38,7 @@ from urllib.parse import urlsplit
 import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, ValidationError, ValidationInfo, field_validator
 from sqlmodel import Session, delete, select
 
 from app.agent import llm
@@ -66,6 +66,7 @@ from app.jsonutil import parse_json_obj
 from app.routes.lipsync import _allowed as _lipsync_allowed, _resolve as _lipsync_resolve
 from app.routes.video import _gate_ltx_nsfw
 from app.services.drama_image import analyze_storyboard_images
+from app.services.studio.schemas import reconcile_character_names
 from app.storage import drama_output_root
 from app.versioning import params_snapshot
 from app.workflows.ipadapter import IPAdapterTxt2ImgParams, build_ipadapter_txt2img_graph
@@ -885,28 +886,158 @@ def _build_user_prompt(script: str, num_shots: int, style: str | None,
     return "\n".join(lines)
 
 
+# ===========================================================================
+# 剧本拆解 LLM 输出模型(pydantic v2 validation_context 注入合法角色名集合,
+# 参照 DramaClaw literal_script_writing;无 pydantic-ai 依赖,用原生 context)
+# ===========================================================================
+class ShotOut(BaseModel):
+    """LLM 拆解的单个镜头输出(键对齐旧 _coerce_shot 手工规整产物)。
+
+    字段级 before-validator 复刻旧手工规整行为(字符串 strip / duration 钳制
+    2-15 / characters 非数组回退空);characters 额外按 validation_context 中的
+    valid_character_names 做合法集合校验(精确命中通过、近匹配纠正、新名放行)。
+    """
+
+    scene: str = ""
+    prompt: str = ""
+    characters: list[str] = Field(default_factory=list)
+    dialogue: str = ""
+    speaker: str = ""
+    duration_sec: int = Field(default=6, ge=2, le=15)
+
+    @field_validator("scene", "prompt", "dialogue", "speaker", mode="before")
+    @classmethod
+    def _normalize_str(cls, v: object) -> str:
+        # 等价旧 _coerce_shot:任意类型 str() 化并 strip,None/0/False → ""
+        return str(v or "").strip()
+
+    @field_validator("duration_sec", mode="before")
+    @classmethod
+    def _clamp_duration(cls, v: object) -> int:
+        # 等价旧逻辑:非数字回退 6,再钳制 [2,15](ge/le 兜底硬约束)
+        try:
+            d = int(v or 6)
+        except (ValueError, TypeError):
+            d = 6
+        return max(2, min(d, 15))
+
+    @field_validator("characters", mode="before")
+    @classmethod
+    def _normalize_characters(cls, v: object, info: ValidationInfo) -> list[str]:
+        if not isinstance(v, list):
+            return []
+        names = [s for s in (str(c).strip() for c in v) if s]
+        return reconcile_character_names(names, info.context, log=logger)
+
+
+class ShotAnalysisOut(BaseModel):
+    """LLM 拆解的顶层输出(shots 至少 1 条;缺字段/类型错抛 ValidationError)。"""
+
+    shots: list[ShotOut] = Field(min_length=1)
+
+
 def _coerce_shot(raw: object, index: int) -> dict:
-    """把 LLM 返回的单个镜头对象规整成 dict(字段缺失/类型不符时回退到安全默认)。"""
+    """把 LLM 返回的单个镜头对象规整成 dict(委托 ShotOut 校验,行为与历史实现等价)。
+
+    grid-storyboard / from-image 共用;无 validation_context 注入 → 角色名原样放行。
+    index 参数仅为兼容既有调用签名保留。
+    """
     obj = raw if isinstance(raw, dict) else {}
-    chars_raw = obj.get("characters")
-    characters = (
-        [str(c).strip() for c in chars_raw if str(c).strip()]
-        if isinstance(chars_raw, list)
-        else []
+    return ShotOut.model_validate(obj).model_dump()
+
+
+def _job_wait_timeout(cap: float) -> float:
+    """wait_for_jobs 本地等待窗口:取既有上限与 tracker 作业生命周期的较小值。
+
+    tracker 在 settings.job_track_timeout(默认 7200s)到达后把作业标 error 回收,
+    本地等待超过该窗口没有意义;cap 保留各链路原有语义(后台回写 900s / 同步等待 600s)。
+    """
+    return min(cap, get_settings().job_track_timeout)
+
+
+async def _request_storyboard_analysis(
+    *,
+    script: str,
+    num_shots: int,
+    style: str | None,
+    characters: list[DramaCharacter],
+    layer: str,
+    pid: str,
+) -> "ShotAnalysisOut":
+    """调 LLM 拆解剧本 + pydantic validation_context 校验(合法角色名集合硬约束)。
+
+    校验策略(与既有「新角色自动建行」特性兼容,见 ShotOut):
+      ① 角色名精确命中项目角色集合 → 通过;
+      ② 大小写/空白近匹配 → 自动纠正为集合内名字(logger.info 留痕);
+      ③ 全新名字 → 放行并记入 new_characters(logger.info),由
+        _create_shots_from_analysis 走既有自动建行路径;
+      ④ 输出结构非法(非 JSON / shots 缺字段或类型错)→ ValidationError,
+        把错误摘要反馈进 user prompt 重调 LLM 重试一次;仍失败 → HTTPException(502)。
+    LLM 不可用 → HTTPException(503)(旧语义不变)。
+    """
+    valid_names = [c.name for c in characters if c.name and c.name.strip()]
+    # validation_context:合法角色名集合 + new_characters 收集桶(校验器就地追加)
+    vctx: dict[str, Any] = {"valid_character_names": valid_names, "new_characters": []}
+    last_error: str | None = None
+    for attempt in (1, 2):
+        user_prompt = _build_user_prompt(script, num_shots, style, characters)
+        if last_error:
+            # 校验失败重试:错误摘要反馈进 prompt,给 LLM 一次自我修正机会
+            user_prompt += (
+                "\n\n【上次输出未通过结构校验,请修正后重新输出完整 JSON】\n" + last_error
+            )
+            logger.info(
+                "storyboard 校验失败,携带错误摘要重试 project=%s attempt=%d err=%s",
+                pid, attempt, last_error,
+            )
+        try:
+            # 默认走配置层;L2/L3 当前依赖 EXO,未就绪时会自动降级,默认 L1 保证可用性。
+            msg = await get_ctx().service("llm").chat_layered(
+                [
+                    {"role": "system", "content": _STORYBOARD_SYSTEM},
+                    {"role": "user", "content": user_prompt},
+                ],
+                layer=layer,
+                max_tokens=8192,
+                temperature=0.5,
+            )
+        except llm.LLMError as e:
+            raise HTTPException(status_code=503, detail=str(e)) from e
+
+        raw = (msg.get("content") or "").strip()
+        obj = _parse_json_obj(raw)
+        if obj is None:
+            logger.warning(
+                "storyboard parse failed layer=%s project=%s raw_length=%d raw_preview=%s",
+                layer, pid, len(raw), raw[:800].replace("\n", " "),
+            )
+            last_error = "输出不是合法 JSON 对象"
+            continue
+        # 与旧行为一致:多余镜头先截断再校验(截断外的坏数据不阻断)
+        shots_raw = obj.get("shots")
+        if isinstance(shots_raw, list):
+            obj = {**obj, "shots": shots_raw[:num_shots]}
+        try:
+            out = ShotAnalysisOut.model_validate(obj, context=vctx)
+        except ValidationError as e:
+            last_error = "; ".join(
+                f"{'.'.join(str(x) for x in err.get('loc', ()))}: {err.get('msg', '')}"
+                for err in e.errors()[:5]
+            )
+            logger.warning(
+                "storyboard validation failed layer=%s project=%s err=%s",
+                layer, pid, last_error,
+            )
+            continue
+        new_names = vctx.get("new_characters") or []
+        if new_names:
+            logger.info(
+                "storyboard project=%s LLM 报出新角色 %s,放行待自动建行", pid, new_names
+            )
+        return out
+    raise HTTPException(
+        status_code=502, detail=f"分镜生成失败,请重试({last_error or '未知错误'})"
     )
-    try:
-        duration = int(obj.get("duration_sec") or 6)
-    except (ValueError, TypeError):
-        duration = 6
-    duration = max(2, min(duration, 15))
-    return {
-        "scene": str(obj.get("scene") or "").strip(),
-        "prompt": str(obj.get("prompt") or "").strip(),
-        "characters": characters,
-        "dialogue": str(obj.get("dialogue") or "").strip(),
-        "speaker": str(obj.get("speaker") or "").strip(),
-        "duration_sec": duration,
-    }
 
 
 def _create_shots_from_analysis(
@@ -1000,33 +1131,16 @@ async def storyboard(
     layer = get_settings().drama_storyboard_layer.upper()
     if layer not in ("L1", "L2", "L3", "L4"):
         layer = "L1"
-    try:
-        # 默认走配置层;L2/L3 当前依赖 EXO,未就绪时会自动降级,默认 L1 保证可用性。
-        msg = await get_ctx().service("llm").chat_layered(
-            [
-                {"role": "system", "content": _STORYBOARD_SYSTEM},
-                {"role": "user", "content": _build_user_prompt(
-                    script, body.num_shots, style, characters
-                )},
-            ],
-            layer=layer,
-            max_tokens=8192,
-            temperature=0.5,
-        )
-    except llm.LLMError as e:
-        raise HTTPException(status_code=503, detail=str(e)) from e
-
-    raw = (msg.get("content") or "").strip()
-    obj = _parse_json_obj(raw)
-    shots_raw = obj.get("shots") if obj else None
-    if not isinstance(shots_raw, list) or not shots_raw:
-        logger.warning(
-            "storyboard parse failed layer=%s project=%s raw_length=%d raw_preview=%s",
-            layer, pid, len(raw), raw[:800].replace("\n", " ")
-        )
-        raise HTTPException(status_code=502, detail="分镜生成失败,请重试")
-
-    coerced = [_coerce_shot(s, i) for i, s in enumerate(shots_raw[: body.num_shots])]
+    # LLM 拆解 + validation_context 校验(合法角色名集合注入);结构非法重试一次
+    analysis = await _request_storyboard_analysis(
+        script=script,
+        num_shots=body.num_shots,
+        style=style,
+        characters=characters,
+        layer=layer,
+        pid=pid,
+    )
+    coerced = [s.model_dump() for s in analysis.shots]
     if not any(s["prompt"] for s in coerced):
         logger.warning(
             "storyboard no valid prompts layer=%s project=%s shots=%s",
@@ -1521,11 +1635,25 @@ async def _await_shot_video_writeback(sid: str, prompt_id: str) -> bool:
     """等待 tracker 完成并把 video_url 回写到 DramaShot;返回是否成功回写。
 
     generate-video 端点 fire-and-forget 调用;from-image 自动管线则 await 串行等待。
+
+    超时豁免(2026-08-15 分裂修复):本地等待窗口(≤900s)远短于 tracker 作业
+    生命周期(settings.job_track_timeout,默认 7200s);等待超时往往只是作业还没
+    跑完,若直接标 error,900-7200s 间完成的作业会分裂为 Job=done / shot=error
+    且 video_url 永不回写。故超时时保持 generating + 返回,由 tracker 窗口 +
+    reconcile_interrupted(按 seed+prompt 找回 Job 重挂回写)兜底收口;
+    作业已 error / 不存在等其他异常路径维持标 error 不变。
     """
     from app.db import engine
     try:
         with Session(engine) as s:
-            await wait_for_jobs(s, [prompt_id], timeout=900.0)
+            wait_err: RuntimeError | None = None
+            try:
+                await wait_for_jobs(s, [prompt_id], timeout=_job_wait_timeout(900.0))
+            except RuntimeError as e:
+                wait_err = e  # 先读 Job 最新状态再定性(超时豁免 or 真失败)
+            # commit 结束当前读事务快照,确保看到 tracker 其他 Session 的最新提交
+            # (与 wait_for_jobs 内每轮 commit 同理)
+            s.commit()
             job = s.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
             if job and job.status == "done" and job.result:
                 urls = json.loads(job.result)
@@ -1537,7 +1665,17 @@ async def _await_shot_video_writeback(sid: str, prompt_id: str) -> bool:
                         s.add(shot_obj)
                         s.commit()
                         return True
-            # 失败标记
+            if wait_err is not None:
+                if job and job.status not in ("done", "error"):
+                    # 超时豁免:作业仍在 tracker 窗口内,保持 generating 不标 error
+                    logger.warning(
+                        "shot %s video writeback: 等待超时但作业 %s 仍为 %s,"
+                        "保持 generating 待 tracker/reconcile 兜底",
+                        sid, prompt_id, job.status,
+                    )
+                    return False
+                raise wait_err  # 作业已 error / 不存在 → 走通用异常标 error(旧语义)
+            # wait 正常返回但无产物(job done 但 result 空)→ 失败标记(旧语义)
             shot_obj = s.get(DramaShot, sid)
             if shot_obj and shot_obj.video_status == "generating":
                 shot_obj.video_status = "error"
@@ -1877,7 +2015,7 @@ async def _run_continue_video(
                         s.commit()
                         spawn_tracker(ltx_client, prompt_id)
 
-                    results = await wait_for_jobs(s, [prompt_id], timeout=900.0)
+                    results = await wait_for_jobs(s, [prompt_id], timeout=_job_wait_timeout(900.0))
                     urls = results.get(prompt_id, [])
                     if not urls:
                         raise RuntimeError(f"第 {i + 1} 段续写无产物")
@@ -2278,7 +2416,7 @@ async def generate_shot_lipsync(
 
         try:
             with Session(engine) as s:
-                results = await wait_for_jobs(s, [prompt_id], timeout=900.0)
+                results = await wait_for_jobs(s, [prompt_id], timeout=_job_wait_timeout(900.0))
                 urls = results.get(prompt_id, [])
                 shot_obj = s.get(DramaShot, sid)
                 if urls and shot_obj:
@@ -2861,7 +2999,7 @@ async def generate_character_reference(
 
     # 同步等待 3 个作业完成
     try:
-        results = await wait_for_jobs(session, prompt_ids, timeout=600.0)
+        results = await wait_for_jobs(session, prompt_ids, timeout=_job_wait_timeout(600.0))
     except RuntimeError as e:
         raise HTTPException(status_code=504, detail=str(e)) from e
 
@@ -2986,7 +3124,7 @@ async def grid_storyboard(
 
     # 同步等待宫格图生成完成
     try:
-        results = await wait_for_jobs(session, [grid_pid], timeout=600.0)
+        results = await wait_for_jobs(session, [grid_pid], timeout=_job_wait_timeout(600.0))
     except RuntimeError as e:
         raise HTTPException(status_code=504, detail=str(e)) from e
 
@@ -3207,7 +3345,7 @@ async def update_scene_layout(
             session.commit()
             spawn_tracker(client, ref_pid)
             try:
-                results = await wait_for_jobs(session, [ref_pid], timeout=600.0)
+                results = await wait_for_jobs(session, [ref_pid], timeout=_job_wait_timeout(600.0))
             except RuntimeError as e:
                 raise HTTPException(status_code=504, detail=str(e)) from e
             urls = results.get(ref_pid, [])
@@ -3297,7 +3435,7 @@ async def _writeback_candidate(prompt_id: str, candidate_id: str, shot_id: str) 
 
     try:
         with Session(engine) as s:
-            results = await wait_for_jobs(s, [prompt_id], timeout=900.0)
+            results = await wait_for_jobs(s, [prompt_id], timeout=_job_wait_timeout(900.0))
             cand = s.get(DramaShotCandidate, candidate_id)
             if not cand:
                 return

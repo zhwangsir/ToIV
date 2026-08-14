@@ -14,6 +14,7 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.deps import get_current_user
 from app.models import StudioCharacter, StudioProject, StudioShot, User
+from app.services.drama_pipeline import compute_studio_next_step
 from app.services.studio import assemble as assemble_svc
 from app.services.studio import lipsync as lipsync_svc
 from app.services.studio import orchestrator, storyboard
@@ -263,9 +264,20 @@ async def parse_script_endpoint(
 ):
     """LLM 拆解 premise → 角色+分镜草稿(不落库,前端确认后走 CRUD 保存)。"""
     _get_project(session, pid, user)
+    # 合法角色名集合注入校验上下文:LLM 输出中既有角色名的大小写/空白变体
+    # 自动纠正为库内名(防同名双角色),全新名放行由前端确认后建行
+    known = [
+        c.name
+        for c in session.exec(
+            select(StudioCharacter).where(StudioCharacter.project_id == pid)
+        ).all()
+    ]
     try:
         characters, shots = await storyboard.parse_script(
-            body.premise, num_shots=body.num_shots, style=body.style
+            body.premise,
+            num_shots=body.num_shots,
+            style=body.style,
+            known_characters=known or None,
         )
     except storyboard.StoryboardError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
@@ -333,7 +345,7 @@ def project_status(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    """聚合状态:各阶段计数,供前端轮询。"""
+    """聚合状态:各阶段计数 + next_step(状态重算),供前端轮询与断点续跑。"""
     _get_project(session, pid, user)
     shots = session.exec(
         select(StudioShot).where(StudioShot.project_id == pid)
@@ -341,7 +353,9 @@ def project_status(
     counts: dict[str, int] = {}
     for s in shots:
         counts[s.status] = counts.get(s.status, 0) + 1
-    return {"total": len(shots), "by_status": counts}
+    next_step = compute_studio_next_step(shots)
+    next_step["action"] = next_step["action"].replace("{pid}", pid)
+    return {"total": len(shots), "by_status": counts, "next_step": next_step}
 
 
 # ── 配音 / 对口型(M3)─────────────────────────────────────────────────────

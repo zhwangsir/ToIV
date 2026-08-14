@@ -43,9 +43,6 @@ _RESOLVE_SYSTEM = """你是分镜提示词修复器。输入:实体注册表(角
 约束:只许使用注册表中的角色;不得新增实体;不得改变镜头意图、运镜与时长;不得输出任何代词(he/she/they/him/her/their)。
 只输出 JSON:{"rewrites": [{"index": 分镜序号, "prompt": "重写后的英文提示词"}]}"""
 
-_VALID_MODES = {"video", "image_motion"}
-
-
 def _extract_json(text: str) -> dict | None:
     """从 LLM 输出提取首个 JSON 对象(容忍 ```json 围栏与前后噪文)。"""
     text = text.strip()
@@ -61,41 +58,19 @@ def _extract_json(text: str) -> dict | None:
     return obj if isinstance(obj, dict) else None
 
 
-def _coerce_character(raw: object) -> CharacterDraft | None:
+def _coerce_character(raw: object, context: dict | None = None) -> CharacterDraft | None:
+    """规整单个角色草稿(委托 CharacterDraft 校验器;空名/非 dict 丢弃)。"""
     if not isinstance(raw, dict):
         return None
-    name = str(raw.get("name") or "").strip()
-    if not name:
-        return None
-    return CharacterDraft(
-        name=name,
-        description=str(raw.get("description") or "").strip(),
-        visual_prompt=str(raw.get("visual_prompt") or "").strip(),
-    )
+    draft = CharacterDraft.model_validate(raw, context=context)
+    return draft if draft.name else None
 
 
-def _coerce_shot(raw: object) -> ShotDraft | None:
+def _coerce_shot(raw: object, context: dict | None = None) -> ShotDraft | None:
+    """规整单个分镜草稿(委托 ShotDraft 校验器;字段缺省/类型错回退安全默认)。"""
     if not isinstance(raw, dict):
         return None
-    mode = str(raw.get("render_mode") or "").strip()
-    if mode not in _VALID_MODES:
-        mode = "video"  # 非法/缺省回退视频链
-    chars = raw.get("characters")
-    try:
-        duration = max(1, min(60, int(raw.get("duration_sec") or 6)))
-    except (ValueError, TypeError):
-        duration = 6
-    return ShotDraft(
-        scene=str(raw.get("scene") or "").strip(),
-        prompt=str(raw.get("prompt") or "").strip(),
-        negative=str(raw.get("negative") or "").strip(),
-        camera=str(raw.get("camera") or "").strip(),
-        dialogue=str(raw.get("dialogue") or "").strip(),
-        speaker=str(raw.get("speaker") or "").strip(),
-        duration_sec=duration,
-        characters=[str(c) for c in chars] if isinstance(chars, list) else [],
-        render_mode=mode,
-    )
+    return ShotDraft.model_validate(raw, context=context)
 
 
 async def resolve_references(
@@ -168,9 +143,19 @@ async def resolve_references(
 
 
 async def parse_script(
-    premise: str, num_shots: int = 8, style: str = ""
+    premise: str,
+    num_shots: int = 8,
+    style: str = "",
+    known_characters: list[str] | None = None,
 ) -> tuple[list[CharacterDraft], list[ShotDraft]]:
-    """拆解剧本。返回 (角色草稿, 分镜草稿);失败抛 StoryboardError。"""
+    """拆解剧本。返回 (角色草稿, 分镜草稿);失败抛 StoryboardError。
+
+    known_characters: 项目既有角色名集合(可选,默认 None 不破坏现有调用方)。
+    提供时经 pydantic validation_context 注入 CharacterDraft/ShotDraft 校验器:
+    精确命中通过、大小写/空白近匹配自动纠正、全新名字放行并记录(不阻断,
+    与 drama 链「新角色自动建行」特性同策略);None 时校验不启用(旧行为)。
+    注:路由层(routes/studio.py)暂不传该参数,后续接线由主控决定。
+    """
     user_prompt = f"剧情:{premise}\n风格:{style or '不限'}\n分镜数量:{num_shots}"
     try:
         msg = await get_ctx().service("llm").chat_layered(
@@ -188,10 +173,24 @@ async def parse_script(
     if not obj:
         raise StoryboardError("LLM 返回不可解析")
 
-    characters = [c for c in (_coerce_character(x) for x in obj.get("characters") or []) if c]
-    shots = [s for s in (_coerce_shot(x) for x in obj.get("shots") or []) if s]
+    # 合法角色名集合注入校验器;new_characters 收集桶就地追加全新名字
+    vctx: dict | None = None
+    if known_characters is not None:
+        vctx = {
+            "valid_character_names": [n for n in known_characters if str(n).strip()],
+            "new_characters": [],
+        }
+    characters = [
+        c for c in (_coerce_character(x, vctx) for x in obj.get("characters") or []) if c
+    ]
+    shots = [s for s in (_coerce_shot(x, vctx) for x in obj.get("shots") or []) if s]
     shots = shots[:num_shots]
     if not shots or not any(s.prompt or s.scene for s in shots):
         raise StoryboardError("LLM 未产出有效分镜")
+    if vctx and vctx["new_characters"]:
+        logger.info(
+            "parse_script: LLM 报出新角色 %s(不在 known_characters 内,已放行)",
+            vctx["new_characters"],
+        )
     await resolve_references(characters, shots)
     return characters, shots

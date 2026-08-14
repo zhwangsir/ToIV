@@ -3488,5 +3488,20 @@
   "regression": "tsc 零错误;web 78/78(loader.mjs 补 .css 短路);next build ✅;ui_lint 0 FAIL",
   "notes": "视觉零变化约束;目标未达项:首屏 CSS 66.2KB>60KB(stage.css 与 motion.css shimmer 层叠耦合,解耦需改规则,超出零视觉变更约束);PageHeader/LoadingBlock 目标 18 实达 15/13(骨架屏更优保留,豁免已注释)",
   "verified_at": "2026-08-14T23:59:00+08:00"
+ },
+ "pipeline_recompute_2026_08_15": {
+  "id": "PIPE-2026-08-15",
+  "title": "DramaClaw 借鉴落地:SKILL 纪律 + 管线状态重算 + 合法 ID 校验",
+  "status": "done",
+  "scope": "调研 docs/2026-08-15-dramaclaw-deep-dive.md → 三项落地;实现文档 docs/2026-08-15-pipeline-recompute-valid-ids.md",
+  "deliverables": [
+   "T1: docs/2026-08-15-agent-skill-discipline.md 七原则;runner.py SYSTEM_SUFFIX 条款 7-11(单轮写限制评估后不采纳);LEGACY_SYSTEM 字节锁 deliberate 同步",
+   "T3a: services/drama_pipeline.py 状态重算(DB 行+产物存在性,ok/missing/unknown 三级)+ GET /drama/projects/{pid}/pipeline/status(next_step+recoverable);studio /status 追加 next_step;24 分镜重算 2.61ms",
+   "分裂修复: 超时重读 Job 再定性(非终态保持 generating);7 处 900/600 统一 _job_wait_timeout",
+   "T3b: pydantic validation_context 合法角色名校验(链 A 重试一次/链 B known_characters 已接线);reconcile_character_names 两链单一事实源"
+  ],
+  "regression": "新增 23 测试全绿;全量 pytest 1561 passed(test_redis_integration 2 预存失败,stash 双证无关);契约只增不改",
+  "notes": "任务书所指 workflows.py/drama_analytics.py 经审计为误指,实际落点 drama_pipeline.py(新建)+drama_studio.py+services/studio;遗留:_writeback_candidate 同类分裂未修、studio error 归因需 error_stage 列、lipsync 是否 gate 成片为产品决策",
+  "verified_at": "2026-08-15T01:30:00+08:00"
  }
 }
