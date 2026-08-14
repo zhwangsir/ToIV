@@ -1,7 +1,7 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-14T17:30:00+08:00",
+ "updated_at": "2026-08-14T18:30:00+08:00",
  "sync_baseline": {
   "id": "SYNC-2026-07-18",
   "type": "initial-sync",
@@ -3388,5 +3388,35 @@
   "regression": "pytest 1433 passed(基线 1339+94);apps/web node:test 10/10;tsc --noEmit ✅;next build ✅",
   "notes": "行为变化:① /api/images 旧链接无归属记录将 404(agent/tools.py 手写 URL 走归属回退兼容);② workflows deploy 仅 admin;③ test-login 限流 60s/5;④ P1 基础设施项(智能 DNS 分流/H3 散热/NVML 补丁自动化/NAS 自检/监控栈/操作锁)未动,留待 infra 专项",
   "verified_at": "2026-08-14T17:30:00+08:00"
+ },
+ "r3_1_agent_team_shell_2026_08_14": {
+  "id": "R3.1-2026-08-14",
+  "type": "feature",
+  "title": "R3 第一步:Agent Team 统一入口「计划可见+秒回+任务卡片」壳(双 Agent 团队并行)",
+  "status": "passed",
+  "scope": "按 docs/2026-08-14-competitive-r3-r5-deep-dive.md §1.3 设计与三步走迁移的第一步:数据底座+9 端点+任务卡片 UX,内部执行仍调现有 Studio 流水线(零 LangGraph 依赖)",
+  "tasks": [
+   {
+    "id": "R3.1-be",
+    "title": "后端:4 表 + agent_team 路由 + 执行器薄适配",
+    "status": "done",
+    "evidence": "AgentRun/AgentTask/AgentEvent/AgentApproval 4 表(SQLModel+db.py 双轨迁移);routes/agent_team.py 9 端点:POST /agent-runs(Director Gate 分级,L0 不建 run,L1/L2 同步拆计划秒回 ack+plan,awaiting_confirm)、列表/详情/events SSE(?token= + after 游标 + 终态关流)/plan 编辑(改删加+悬挂依赖清理)/resume(plan/assembly 双门)/task action(edit/regenerate≤2/approve,upload/reprompt 501)/cancel/result;执行器:内部建 StudioProject,服务层直调 render_shot/voice/assemble,Semaphore(3) 并发,失败不中断分支,全镜头 done→awaiting_assembly 挂起;幂等键 run_id-task_id-attempt;test_agent_team.py 11 例"
+   },
+   {
+    "id": "R3.1-fe",
+    "title": "前端:agent-runs 页面 + 任务卡片组件树",
+    "status": "done",
+    "evidence": "app/agent-runs 列表页+详情页;组件:AgentRunView/PlanPanel(可编辑计划:改标题/删/加/改文案)/AckBanner 秒回横幅/TaskCardList/TaskCard(状态徽章 lucide、attempt 徽标、产物 imageUrl+LazyVideo、edit/regenerate/approve 干预)/ConfirmGateModal 时间线预览/EventTicker 四态流/PipelineView CSS 泳道(策划/图/视频/音/字/合成);SSE 退避重连≤5 次→5s 轮询降级;导航加「Agent 团队」入口;lib/api.ts 追加 9 函数;tests 22 新例(累计 32/32)"
+   },
+   {
+    "id": "R3.1-seam",
+    "title": "前后端契约接缝对齐",
+    "status": "done",
+    "evidence": "plan add 用前端预生成 id 保持 DAG 引用;task edit payload={input:{...}} 后端 unwrap 兼容平铺 dict"
+   }
+  ],
+  "regression": "pytest 1444 passed(1433+11);web node:test 32/32;tsc --noEmit ✅;next build ✅(/agent-runs 已注册)",
+  "r3_2_hooks": "AgentRun.checkpoint_ns=LangGraph thread namespace;run.id=thread_id;幂等键已落库;AgentApproval.decided_by 预接超时默认动作;verdict 字段/事件留给 Verifier;gpu_hint 本期静态;classify_goal() 独立函数待换 Leader LLM 分级",
+  "verified_at": "2026-08-14T18:30:00+08:00"
  }
 }

@@ -114,3 +114,159 @@ export const assembleStudio = (pid: string): Promise<StudioProjectDetail> => {
   calls.assembleStudio++;
   return impl.assembleStudio(pid);
 };
+
+// ===========================================================================
+// Agent Team(R3.1)替身扩展:useAgentRun / useAgentRunList 单测经 loader 映射到这里
+// ===========================================================================
+import type {
+  AgentPlanEditOp,
+  AgentResumeBody,
+  AgentRunCreateResult,
+  AgentRunDetail,
+  AgentRunResult,
+  AgentRunSummary,
+  AgentRunTask,
+  AgentTaskActionBody,
+} from "../../lib/api";
+
+export const agentCalls = {
+  createAgentRun: 0,
+  listAgentRuns: 0,
+  getAgentRun: 0,
+  updateAgentRunPlan: 0,
+  resumeAgentRun: 0,
+  agentTaskAction: 0,
+  cancelAgentRun: 0,
+  getAgentRunResult: 0,
+};
+
+/** 构造详情任务卡片(可字段覆盖)。 */
+export function makeAgentTask(id: string, over: Partial<AgentRunTask> = {}): AgentRunTask {
+  return {
+    id,
+    kind: "video",
+    title: `任务 ${id}`,
+    depends_on: [],
+    status: "pending",
+    attempt: 0,
+    input: { prompt: "" },
+    output: {},
+    verdict: "",
+    gpu_hint: "",
+    ...over,
+  };
+}
+
+/** 构造 run 详情(默认 running,两任务)。 */
+export function makeAgentRunDetail(
+  runId: string,
+  over: Partial<AgentRunDetail> = {},
+): AgentRunDetail {
+  return {
+    id: runId,
+    goal: "拍一支 30 秒短片",
+    level: "L2",
+    status: "running",
+    error: "",
+    plan: [makeAgentTask("t1"), makeAgentTask("t2", { depends_on: ["t1"] })],
+    created_at: "2026-08-14T00:00:00Z",
+    updated_at: "2026-08-14T00:00:00Z",
+    ...over,
+  };
+}
+
+const agentDefaultImpl = {
+  createAgentRun: async (_body: {
+    goal: string;
+    level?: string;
+    opts?: Record<string, unknown>;
+  }): Promise<AgentRunCreateResult> => ({ level: "L0", ack: "已收到", run_id: null }),
+  listAgentRuns: async (_params?: {
+    limit?: number;
+    status?: string;
+  }): Promise<AgentRunSummary[]> => [],
+  getAgentRun: async (runId: string): Promise<AgentRunDetail> => makeAgentRunDetail(runId),
+  updateAgentRunPlan: async (
+    _runId: string,
+    _ops: AgentPlanEditOp[],
+  ): Promise<{ ok: boolean }> => ({ ok: true }),
+  resumeAgentRun: async (
+    _runId: string,
+    _body: AgentResumeBody,
+  ): Promise<{ ok: boolean }> => ({ ok: true }),
+  agentTaskAction: async (
+    runId: string,
+    taskId: string,
+    _body: AgentTaskActionBody,
+  ): Promise<{ ok: boolean; task: AgentRunTask }> => ({
+    ok: true,
+    task: makeAgentTask(taskId),
+  }),
+  cancelAgentRun: async (_runId: string): Promise<{ ok: boolean }> => ({ ok: true }),
+  getAgentRunResult: async (runId: string): Promise<AgentRunResult> => ({
+    final_url: "",
+    duration_sec: 0,
+    tasks: makeAgentRunDetail(runId).plan,
+  }),
+};
+
+export const agentImpl = { ...agentDefaultImpl };
+
+/** 恢复默认实现并清零 agent 调用计数(每个用例前调用)。 */
+export function resetAgentImpl(): void {
+  Object.assign(agentImpl, agentDefaultImpl);
+  for (const k of Object.keys(agentCalls) as (keyof typeof agentCalls)[]) agentCalls[k] = 0;
+}
+
+export const createAgentRun = (body: {
+  goal: string;
+  level?: string;
+  opts?: Record<string, unknown>;
+}): Promise<AgentRunCreateResult> => {
+  agentCalls.createAgentRun++;
+  return agentImpl.createAgentRun(body);
+};
+export const listAgentRuns = (params?: {
+  limit?: number;
+  status?: string;
+}): Promise<AgentRunSummary[]> => {
+  agentCalls.listAgentRuns++;
+  return agentImpl.listAgentRuns(params);
+};
+export const getAgentRun = (runId: string): Promise<AgentRunDetail> => {
+  agentCalls.getAgentRun++;
+  return agentImpl.getAgentRun(runId);
+};
+export const updateAgentRunPlan = (
+  runId: string,
+  ops: AgentPlanEditOp[],
+): Promise<{ ok: boolean }> => {
+  agentCalls.updateAgentRunPlan++;
+  return agentImpl.updateAgentRunPlan(runId, ops);
+};
+export const resumeAgentRun = (
+  runId: string,
+  body: AgentResumeBody,
+): Promise<{ ok: boolean }> => {
+  agentCalls.resumeAgentRun++;
+  return agentImpl.resumeAgentRun(runId, body);
+};
+export const agentTaskAction = (
+  runId: string,
+  taskId: string,
+  body: AgentTaskActionBody,
+): Promise<{ ok: boolean; task: AgentRunTask }> => {
+  agentCalls.agentTaskAction++;
+  return agentImpl.agentTaskAction(runId, taskId, body);
+};
+export const cancelAgentRun = (runId: string): Promise<{ ok: boolean }> => {
+  agentCalls.cancelAgentRun++;
+  return agentImpl.cancelAgentRun(runId);
+};
+export const getAgentRunResult = (runId: string): Promise<AgentRunResult> => {
+  agentCalls.getAgentRunResult++;
+  return agentImpl.getAgentRunResult(runId);
+};
+/** SSE 地址构造替身:返回可控假地址,由 FakeEventSource 捕获。 */
+export const agentRunEventsUrl = (runId: string, after = 0): string =>
+  `mock://agent-run-events/${runId}?after=${after}`;

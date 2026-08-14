@@ -2,6 +2,29 @@
 
 ---
 
+## R3.1-2026-08-14 · Agent Team 统一入口「计划可见+秒回+任务卡片」壳
+
+**时间**: 2026-08-14
+**类型**: 里程碑(R3 三步走第一步;设计依据 docs/2026-08-14-competitive-r3-r5-deep-dive.md §1.3)
+
+### 范围
+数据底座 + 9 端点 + 任务卡片 UX;内部执行仍调现有 Studio 流水线(薄适配,零重写,零 LangGraph 依赖——LangGraph/checkpoint 属 R3.2)。
+
+### 交付
+- **后端**:AgentRun/AgentTask/AgentEvent/AgentApproval 4 表(models.py + db.py 双轨幂等迁移);`routes/agent_team.py`:POST /api/agent-runs(Director Gate 启发式分级:L0 不建 run 直达提示;L1/L2 同步 storyboard 拆计划**秒回** `{run_id, ack:"已拆成 N 步,后台执行,关键节点会找你", plan}`)→ awaiting_confirm;plan 编辑(改/删/加+悬挂依赖清理);resume 双门(plan approve→后台执行器;assembly approve→合成);task action(edit/regenerate≤2 带引导词/approve;upload/reprompt 501 预留);cancel;result;events SSE(?token= 认证 + after 游标 + 终态关流)。执行器:内部建 StudioProject,服务层直调 render_shot/voice/assemble,Semaphore(3),单任务失败不中断分支,全镜头 done→awaiting_assembly 挂起;幂等键 run_id-task_id-attempt 落库
+- **前端**:`/agent-runs` 列表+详情;AckBanner 秒回/PlanPanel 可编辑计划/TaskCard(状态徽章+attempt+产物 LazyVideo+edit/regenerate/approve)/ConfirmGateModal 时间线预览/EventTicker 四态汇报/PipelineView CSS 泳道双形态;SSE 退避重连≤5 次→5s 轮询降级;导航「Agent 团队」入口
+- **接缝对齐**:plan add 用前端预生成 id;task edit payload={input:{...}} 后端 unwrap 兼容
+
+### 测试
+- test_agent_team.py 11 例(L0 不建 run/秒回契约/401/404/计划编辑/全链路双门到 done/cancel/regenerate 上限/SSE 事件/501/LLM 失败 503),全 mock 不触网
+- 前端 22 新例(node:test 累计 32/32):L0 不跳转/事件更新卡片/confirm_required 开门/regenerate attempt+1/断线重连提示+降级/操作失败错误条
+- **全量回归:pytest 1444 passed;web 32/32;tsc ✅;next build ✅(/agent-runs 已注册)**
+
+### R3.2 预留
+run.id=LangGraph thread_id;checkpoint_ns 字段;任务幂等键;AgentApproval.decided_by(timeout_default);verdict 字段/事件(Verifier 回路);gpu_hint 静态(待接 pool.queue_position);classify_goal() 独立函数(待换 Leader LLM 分级)
+
+---
+
 ## M12-2026-08-14 · 上轮遗留 P0/P1/P2 全量修复(6 Agent 团队并行)
 
 **时间**: 2026-08-14

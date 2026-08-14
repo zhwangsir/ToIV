@@ -208,6 +208,8 @@ const VIEW_META: Record<View, { label: string }> = {
  *  桌面端由左上角悬停展开导航(CornerNav)承载,窄屏由底部导航承载。 */
 const ISLAND_ITEMS: CornerNavItem[] = [
   { key: "assistant", label: "对话", icon: "chat" },
+  // R3.1:Agent Team 统一入口(独立路由 /agent-runs,非 SPA 视图,onSelect 拦截跳转)
+  { key: "agentRuns", label: "Agent 团队", icon: "users" },
   { key: "image", label: "图片", icon: "image" },
   { key: "video", label: "视频", icon: "video" },
   { key: "audio", label: "音频", icon: "audio" },
@@ -227,6 +229,8 @@ const BOTTOM_NAV_ITEMS: BottomNavItem[] = [
 ];
 
 const BOTTOM_NAV_MORE_ITEMS: BottomNavItem[] = [
+  // R3.1:Agent Team 统一入口(独立路由 /agent-runs,非 SPA 视图,onSelect 拦截跳转)
+  { key: "agentRuns", label: "Agent 团队", icon: "users" },
   { key: "audio", label: "音频", icon: "audio" },
   { key: "imageEdit", label: "图片编辑", icon: "wand" },
   { key: "videoEdit", label: "视频剪辑", icon: "scissors" },
@@ -379,6 +383,18 @@ function HomeContent() {
     [router],
   );
 
+  // R3.1:Agent 团队是独立路由(/agent-runs),不是 SPA 视图——导航选中时跳路由
+  const handleNavSelect = useCallback(
+    (key: string) => {
+      if (key === "agentRuns") {
+        router.push("/agent-runs");
+        return;
+      }
+      changeView(key as View);
+    },
+    [router, changeView],
+  );
+
   // M9 门控:短剧视图仅 R18 模式可达,SFW 模式直输 ?view=drama 一律回落对话。
   // 判定直接读 localStorage(isR18Mode):useR18Mode 首帧恒 false、effect 中才纠正,
   // 用 hook 态会把已开 R18 的用户误弹走;r18 仅作依赖,驱动模式关闭瞬间的复检。
@@ -446,7 +462,7 @@ function HomeContent() {
       <CornerNav
         items={islandItems}
         current={view}
-        onSelect={(key) => changeView(key as View)}
+        onSelect={handleNavSelect}
         onItemIntent={handleViewIntent}
         account={account}
         onLogout={onLogout}
@@ -489,7 +505,7 @@ function HomeContent() {
         items={BOTTOM_NAV_ITEMS}
         moreItems={bottomNavMoreItems}
         current={view}
-        onSelect={(key) => changeView(key as View)}
+        onSelect={handleNavSelect}
         ctaAction={() => changeView("fusion")}
       />
     </div>

@@ -464,3 +464,66 @@ class ReferenceAsset(SQLModel, table=True):
     nsfw: bool = False  # R18 资产:SFW 上下文(无 X-NSFW 头)查询时过滤
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)
+
+
+# ---------------------------------------------------------------------------
+# R3.1:Agent Team 统一入口(「计划可见+秒回+任务卡片」壳)—— 数据底座 4 表
+# 字段定义照抄 docs/2026-08-14-competitive-r3-r5-deep-dive.md 1.3.2;
+# 本期零 LangGraph 依赖,checkpoint_ns 等字段为 R3.2 接 LangGraph 预留。
+# ---------------------------------------------------------------------------
+
+
+class AgentRun(SQLModel, table=True):
+    """一次 Agent Team 任务(LangGraph 接入后 id 即 thread_id)。"""
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    user_id: str = Field(index=True)  # 归属校验按用户(他人 404)
+    level: str  # L0/L1/L2(Director Gate 判定)
+    goal: str  # 用户原始需求
+    plan_json: str = ""  # DAG 计划快照(可编辑版):{tasks:[...], opts:{}, characters:[...]}
+    status: str = Field(default="planning", index=True)  # planning/awaiting_confirm/running/
+    # awaiting_assembly/done/error/canceled
+    checkpoint_ns: str = "agent_team"  # R3.2 PostgresSaver namespace 预留
+    error: str = ""
+    created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
+
+
+class AgentTask(SQLModel, table=True):
+    """DAG 节点(任务卡片的数据底座)。"""
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    run_id: str = Field(index=True)
+    kind: str  # script/storyboard/image/video/audio/subtitle/verify/assemble
+    title: str  # 卡片标题("镜头 3:雨夜追逐")
+    depends_on: str = "[]"  # 上游 node_id JSON 数组
+    status: str = "pending"  # pending/queued/running/verifying/rejected/approved/done/error
+    attempt: int = 0  # ≤2(Verifier 打回/手动 regenerate 共用上限,防成本爆炸)
+    input_json: str = "{}"  # 提示词/参考资产 entity_id/参数/StudioShot 映射(shot_id)
+    output_json: str = "{}"  # 产物 URL/文本/EDL 片段
+    verdict_json: str = ""  # 评语/失败原因(打回原因对卡片可见;R3.2 Verifier 评语)
+    gpu_hint: str = ""  # 调度提示(本期静态 "pool";真实队列位置 R3.2 接 comfy/pool)
+    idempotency_key: str = ""  # run_id+node_id+attempt(副作用幂等键)
+
+
+class AgentEvent(SQLModel, table=True):
+    """SSE 事件流水(秒回与节点汇报);id 自增,消费端按 after=last_id 增量拉。"""
+
+    id: int | None = Field(default=None, primary_key=True)
+    run_id: str = Field(index=True)
+    ts: datetime = Field(default_factory=_now)
+    type: str  # ack/plan/task_status/verdict/confirm_required/blocked/decision_required/done/error
+    payload_json: str = "{}"
+
+
+class AgentApproval(SQLModel, table=True):
+    """HITL 裁决落库(接 R5 阈值校准/evals 回流)。"""
+
+    id: int | None = Field(default=None, primary_key=True)
+    run_id: str = Field(index=True)
+    task_id: str | None = None  # 空 = 计划级确认门
+    gate: str  # plan/assembly
+    action: str  # approve/reject/modify/regenerate/upload
+    feedback: str = ""  # 方向性批注("角色发色不一致")
+    decided_by: str = "human"  # human/timeout_default(R3.2 超时默认动作)
+    created_at: datetime = Field(default_factory=_now)

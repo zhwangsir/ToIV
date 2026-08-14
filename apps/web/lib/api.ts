@@ -3125,3 +3125,220 @@ export const assembleStudio = (pid: string): Promise<StudioProjectDetail> =>
     longRequest: true,
   });
 
+// ===========================================================================
+// Agent Team 统一入口(R3.1)—— 一句话目标 → Leader 拆解 → DAG 任务卡片流
+// 契约见 docs/2026-08-14-competitive-r3-r5-deep-dive.md §1.3.3(后端按同一契约实现);
+// 前端四要素:秒回横幅 / 计划确认门 / 任务卡片流 / 事件汇报流。
+// ===========================================================================
+
+/** run 状态机:planning/awaiting_confirm/running/awaiting_assembly/done/error/canceled。 */
+export type AgentRunStatus =
+  | "planning"
+  | "awaiting_confirm"
+  | "running"
+  | "awaiting_assembly"
+  | "done"
+  | "error"
+  | "canceled";
+
+/** task 状态机:pending/queued/running/verifying/rejected/approved/done/error
+ *  (verifying/rejected 本期不出现,枚举预留)。 */
+export type AgentTaskStatus =
+  | "pending"
+  | "queued"
+  | "running"
+  | "verifying"
+  | "rejected"
+  | "approved"
+  | "done"
+  | "error";
+
+/** 计划任务(创建秒回 plan.tasks 元素)。 */
+export interface AgentPlanTask {
+  id: string;
+  kind: string; // script/storyboard/image/video/audio/subtitle/verify/assemble
+  title: string;
+  depends_on: string[];
+  status: AgentTaskStatus;
+}
+
+/** 详情任务卡片(GET detail 的 plan 数组元素);input/output 为后端已解析的 JSON 对象。 */
+export interface AgentRunTask extends AgentPlanTask {
+  attempt: number;      // 第 N 次尝试(Verifier 打回/手动重生成 +1)
+  input: Record<string, unknown>;
+  output: Record<string, unknown>;
+  verdict: string;      // Verifier 评语/打回原因(失败透明化)
+  gpu_hint: string;     // GPU 排队提示(队列位置/预计等待)
+}
+
+/** 创建秒回:L0 直链现有工作台(run_id 为 null);L1/L2 携带拆解计划进确认门。 */
+export interface AgentRunAckL0 {
+  level: "L0";
+  ack: string;
+  run_id: null;
+}
+export interface AgentRunAckPlanned {
+  level: "L1" | "L2";
+  ack: string;
+  run_id: string;
+  plan: { tasks: AgentPlanTask[] };
+}
+export type AgentRunCreateResult = AgentRunAckL0 | AgentRunAckPlanned;
+
+export interface AgentRunSummary {
+  id: string;
+  level: string;
+  goal: string;
+  status: AgentRunStatus;
+  created_at: string;
+  task_counts: { total: number; done: number; error: number };
+}
+
+export interface AgentRunDetail {
+  id: string;
+  goal: string;
+  level: string;
+  status: AgentRunStatus;
+  error: string;
+  plan: AgentRunTask[];
+  created_at: string;
+  updated_at: string;
+}
+
+/** 计划编辑操作(Flowith 式):update 改标题/input;remove 删节点;add 加节点(id 由前端临时生成,后端落库时可替换)。 */
+export interface AgentPlanEditOp {
+  id: string;
+  action: "update" | "remove" | "add";
+  title?: string;
+  input?: Record<string, unknown>;
+}
+
+export interface AgentResumeBody {
+  gate: "plan" | "assembly";
+  action: "approve" | "modify" | "reject";
+  feedback?: string;
+}
+
+/** 卡片级干预;upload/reprompt 后端本期 501,UI 置灰不调用。 */
+export interface AgentTaskActionBody {
+  action: "edit" | "regenerate" | "approve" | "upload" | "reprompt";
+  payload?: Record<string, unknown>;
+}
+
+export interface AgentRunResult {
+  final_url: string;
+  duration_sec: number;
+  tasks: AgentRunTask[];
+}
+
+/** Agent Team 统一 JSON 请求(带 auth + 错误归一),风格对齐 studioReq/dramaReq。 */
+async function agentRunReq<T>(
+  path: string,
+  method: string,
+  body?: unknown,
+  fallback = "Agent 团队请求失败",
+): Promise<T> {
+  const res = await apiFetch(`/api${path}`, {
+    method,
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  });
+  if (!res.ok) await raiseApiError(res, fallback);
+  return res.json();
+}
+
+/** 创建 Agent 任务(同步秒回):L0 → 直链;L1/L2 → run_id + 计划。 */
+export const createAgentRun = (body: {
+  goal: string;
+  level?: string;
+  opts?: Record<string, unknown>;
+}): Promise<AgentRunCreateResult> => agentRunReq("/agent-runs", "POST", body, "创建任务失败");
+
+/** 历史 run 列表(按状态/时间过滤)。 */
+export const listAgentRuns = (params?: {
+  limit?: number;
+  status?: string;
+}): Promise<AgentRunSummary[]> => {
+  const qs = new URLSearchParams();
+  if (params?.limit != null) qs.set("limit", String(params.limit));
+  if (params?.status) qs.set("status", params.status);
+  const suffix = qs.toString();
+  return agentRunReq(
+    `/agent-runs${suffix ? `?${suffix}` : ""}`,
+    "GET",
+    undefined,
+    "加载任务列表失败",
+  );
+};
+
+export const getAgentRun = (runId: string): Promise<AgentRunDetail> =>
+  agentRunReq(
+    `/agent-runs/${encodeURIComponent(runId)}`,
+    "GET",
+    undefined,
+    "加载任务详情失败",
+  );
+
+/** 编辑计划(确认门前):增/删/改 DAG 节点。 */
+export const updateAgentRunPlan = (
+  runId: string,
+  ops: AgentPlanEditOp[],
+): Promise<{ ok: boolean }> =>
+  agentRunReq(
+    `/agent-runs/${encodeURIComponent(runId)}/plan`,
+    "POST",
+    { tasks: ops },
+    "保存计划失败",
+  );
+
+/** 确认门裁决:approve 通过 / modify 带修改继续 / reject 打回(可带方向性批注)。 */
+export const resumeAgentRun = (
+  runId: string,
+  body: AgentResumeBody,
+): Promise<{ ok: boolean }> =>
+  agentRunReq(
+    `/agent-runs/${encodeURIComponent(runId)}/resume`,
+    "POST",
+    body,
+    "提交裁决失败",
+  );
+
+/** 卡片级干预:edit 改文案 / regenerate 带引导词重生 / approve 通过(upload/reprompt 本期 501)。 */
+export const agentTaskAction = (
+  runId: string,
+  taskId: string,
+  body: AgentTaskActionBody,
+): Promise<{ ok: boolean; task: AgentRunTask }> =>
+  agentRunReq(
+    `/agent-runs/${encodeURIComponent(runId)}/tasks/${encodeURIComponent(taskId)}/action`,
+    "POST",
+    body,
+    "任务操作失败",
+  );
+
+export const cancelAgentRun = (runId: string): Promise<{ ok: boolean }> =>
+  agentRunReq(
+    `/agent-runs/${encodeURIComponent(runId)}/cancel`,
+    "POST",
+    undefined,
+    "取消任务失败",
+  );
+
+/** 成片与产物清单(合成后)。 */
+export const getAgentRunResult = (runId: string): Promise<AgentRunResult> =>
+  agentRunReq(
+    `/agent-runs/${encodeURIComponent(runId)}/result`,
+    "GET",
+    undefined,
+    "加载成片失败",
+  );
+
+/** SSE 事件流地址(EventSource 无法带请求头,token 走 query,同 jobEventsUrl 模式);
+ *  after 为断线重连时的断点续传游标(服务端按事件 id 重放)。 */
+export function agentRunEventsUrl(runId: string, after = 0): string {
+  const qs = new URLSearchParams({ after: String(after) });
+  return withToken(
+    `${API_BASE}/api/agent-runs/${encodeURIComponent(runId)}/events?${qs.toString()}`,
+  );
+}
+

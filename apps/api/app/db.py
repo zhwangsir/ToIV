@@ -263,6 +263,65 @@ _SQLITE_RAW_MIGRATIONS: tuple[str, ...] = (
     "CREATE INDEX IF NOT EXISTS idx_job_created_at ON job(created_at)",
     # 复合:未终态扫描 + created_at 排序
     "CREATE INDEX IF NOT EXISTS idx_job_status_created ON job(status, created_at)",
+    # ── R3.1:Agent Team 数据底座 4 表(agentrun/agenttask/agentevent/agentapproval)──
+    # 新库由 SQLModel create_all 建立;此处保 prod 既有库幂等补建(PG 上 AUTOINCREMENT
+    # 等 SQLite 方言报错由执行器吞掉,对应表已被 create_all 覆盖,与既有条目同双轨写法)
+    """
+    CREATE TABLE IF NOT EXISTS agentrun (
+        id            TEXT PRIMARY KEY,
+        user_id       TEXT NOT NULL,
+        level         TEXT NOT NULL,
+        goal          TEXT NOT NULL,
+        plan_json     TEXT DEFAULT '',
+        status        TEXT DEFAULT 'planning',
+        checkpoint_ns TEXT DEFAULT 'agent_team',
+        error         TEXT DEFAULT '',
+        created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_agentrun_user ON agentrun(user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_agentrun_status ON agentrun(status)",
+    """
+    CREATE TABLE IF NOT EXISTS agenttask (
+        id              TEXT PRIMARY KEY,
+        run_id          TEXT NOT NULL,
+        kind            TEXT NOT NULL,
+        title           TEXT DEFAULT '',
+        depends_on      TEXT DEFAULT '[]',
+        status          TEXT DEFAULT 'pending',
+        attempt         INTEGER DEFAULT 0,
+        input_json      TEXT DEFAULT '{}',
+        output_json     TEXT DEFAULT '{}',
+        verdict_json    TEXT DEFAULT '',
+        gpu_hint        TEXT DEFAULT '',
+        idempotency_key TEXT DEFAULT ''
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_agenttask_run ON agenttask(run_id)",
+    """
+    CREATE TABLE IF NOT EXISTS agentevent (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        run_id       TEXT NOT NULL,
+        ts           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        type         TEXT NOT NULL,
+        payload_json TEXT DEFAULT '{}'
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_agentevent_run ON agentevent(run_id)",
+    """
+    CREATE TABLE IF NOT EXISTS agentapproval (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        run_id     TEXT NOT NULL,
+        task_id    TEXT,
+        gate       TEXT NOT NULL,
+        action     TEXT NOT NULL,
+        feedback   TEXT DEFAULT '',
+        decided_by TEXT DEFAULT 'human',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_agentapproval_run ON agentapproval(run_id)",
 )
 
 
