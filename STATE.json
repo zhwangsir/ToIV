@@ -735,28 +735,8 @@
   }
  },
  "git": {
-  "latest_commit": "(待提交) H-UI 批次",
-  "uncommitted": {
-   "modified_files": 63,
-   "deleted_files": 32,
-   "untracked": [
-    "apps/web/e2e/symmetry-check.spec.ts",
-    "docs归档说明.md(替代原 docs/2026-08-09-service-replacement-research.md)"
-   ],
-   "areas": [
-    "AGENTS.md / README.md / TEST_LOG.md / STATE.json",
-    "apps/api/app/agent/knowledge/{model-catalog.md,platform-models.md}",
-    "apps/api/app/routes/{marketplace.py,nas_models.py}",
-    "apps/api/app/workflows/{model_health.py,style_presets.py}",
-    "apps/api/tests/test_marketplace_install.py",
-    "apps/web/app/{globals.css,styles/*.css,drama/[id]/*}",
-    "apps/web/components/{generate/*,audio/AudioView,avatartalk/AvatarTalkView,library/LibraryView,admin/*,assistant/AssistantView,dub/DubView,nsfw/*,resources/ResourcesView,studio/StudioView,ui/*}.tsx",
-    "apps/web/e2e/*.spec.ts（含新增 symmetry-check.spec.ts）",
-    "apps/web/lib/{api.ts,useBreakpoint.ts}",
-    "docs/*.md 历史文档删除（32 个旧文档/设计稿）",
-    "docs/2026-08-09-service-replacement-research.md(已删,要点见 docs归档说明.md)"
-   ]
-  }
+  "latest_commit": "1900c96 feat(harness+ui): AI 底层驱动 Harness 化(H1-H3) + 全站 UI 基座与视图优化(UI-A~D)",
+  "production_verified": "2026-08-14: core harness profile=full 4 插件激活;/api/system/harness 200;/api/agent/sessions 200;toiv.dgmt.top 200(跨境波动期 7-10s)+ toiv.wineryz.top 200(0.2-0.3s);frpc 断连系链路波动自动重连恢复"
  },
  "roadmap": {
   "source": "docs/TOIV_MASTER.md 五期路线图",
