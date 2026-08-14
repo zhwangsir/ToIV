@@ -527,3 +527,34 @@ class AgentApproval(SQLModel, table=True):
     feedback: str = ""  # 方向性批注("角色发色不一致")
     decided_by: str = "human"  # human/timeout_default(R3.2 超时默认动作)
     created_at: datetime = Field(default_factory=_now)
+
+
+# ---------------------------------------------------------------------------
+# H2:智能体会话日志(model-visible means logged)—— 会话 + 追加消息事件流。
+# 进 LLM 的 user/assistant/tool 消息逐条落库,回放/分叉/跨设备续聊从日志派生。
+# ---------------------------------------------------------------------------
+
+
+class AgentSession(SQLModel, table=True):
+    """一次对话会话(AssistantView 对话流)。nsfw=True 的会话仅 R18 上下文可见
+    (对齐 Job 过滤语义,见 routes/agent.py 与 nsfw_ctx.nsfw_allowed)。"""
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    user_id: str = Field(index=True)
+    title: str = ""  # 首条 user 消息前 30 字自动生成
+    nsfw: bool = False  # 建档时按请求上下文(X-NSFW)决定
+    created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
+
+
+class AgentMessage(SQLModel, table=True):
+    """会话消息事件(append-only):role=user/assistant/tool;content 即进 LLM 的原文,
+    tool_calls/media 为 JSON 串。id 自增,同会话内按 id 升序即对话顺序。"""
+
+    id: int | None = Field(default=None, primary_key=True)
+    session_id: str = Field(index=True)
+    role: str  # user | assistant | tool
+    content: str = ""
+    tool_calls: str = ""  # JSON:assistant 的 tool_calls 数组 / tool 消息的 {tool_call_id,name,args}
+    media: str = ""  # JSON:该工具产出的媒体事件列表 [{"type":"image","urls":[...]}]
+    created_at: datetime = Field(default_factory=_now)

@@ -662,15 +662,34 @@ def _image_model_params(*, nsfw_only: bool) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# 注册表
+# 注册表(由 EnginePlugin 在 bootstrap 时填充;submit 绑定供前端/CLI 自省)
 # ---------------------------------------------------------------------------
 
-_REGISTRY: list[dict[str, Any]] = [
+# profile 停用引擎集合(minimal/headless 等 profile 裁剪用)
+_disabled_engines: set[str] = set()
+
+
+def set_disabled_engines(engines: set[str]) -> None:
+    """设置 profile 停用的引擎 id 集合;变更后探测缓存失效。"""
+    global _disabled_engines
+    _disabled_engines = set(engines)
+    reset_avail_cache()
+
+
+def get_disabled_engines() -> set[str]:
+    """当前 profile 停用的引擎 id 集合(副本)。"""
+    return set(_disabled_engines)
+
+
+def _default_registry() -> list[dict[str, Any]]:
+    """构建默认引擎注册表(20 条,含 submit 绑定)。由 EnginePlugin 或惰性调用填充。"""
+    return [
     {
         "id": "txt2img",
         "label": "文生图",
         "kind": "image",
         "nsfw": False,
+        "submit": {"route": "/api/generate/txt2img", "kind": "txt2img"},
         "description": "ComfyUI 图像工作流,底模/采样器/调度器/风格预设可选;LoRA 标签(<lora:名称:权重> 可直接写进提示词)",
         "source": {
             "name": "ComfyUI",
@@ -692,6 +711,7 @@ _REGISTRY: list[dict[str, Any]] = [
         "label": "图生图",
         "kind": "image",
         "nsfw": False,
+        "submit": {"route": "/api/generate/img2img", "kind": "img2img"},
         "description": "以上传参考图为底做重绘,denoise 控制偏离程度",
         "source": {
             "name": "ComfyUI",
@@ -717,6 +737,7 @@ _REGISTRY: list[dict[str, Any]] = [
         "label": "文生图(R18)",
         "kind": "image",
         "nsfw": True,
+        "submit": {"route": "/api/generate/txt2img", "kind": "txt2img"},
         "description": "R18 底模成人向文生图,仅 R18 上下文可见;LoRA 标签可写进提示词",
         "source": {
             "name": "URPM (Uber Realistic Porn Merge)",
@@ -738,6 +759,7 @@ _REGISTRY: list[dict[str, Any]] = [
         "label": "图生图(R18)",
         "kind": "image",
         "nsfw": True,
+        "submit": {"route": "/api/generate/img2img", "kind": "img2img"},
         "description": "R18 底模成人向图生图,仅 R18 上下文可见",
         "source": {
             "name": "URPM (Uber Realistic Porn Merge)",
@@ -763,6 +785,7 @@ _REGISTRY: list[dict[str, Any]] = [
         "label": "LTX 2.5 文生视频",
         "kind": "video",
         "nsfw": False,
+        "submit": {"route": "/api/ltx25/t2v", "kind": "ltx25-t2v"},
         "description": "LTX-2.5 22B 音视频基础模型:提示词 → 音画同出 mp4,蒸馏版 8 步快速出片",
         "source": {
             "name": "LTX-2.5 22B Distilled",
@@ -778,6 +801,7 @@ _REGISTRY: list[dict[str, Any]] = [
         "label": "LTX 2.5 图生视频",
         "kind": "video",
         "nsfw": False,
+        "submit": {"route": "/api/ltx25/i2v", "kind": "ltx25-i2v"},
         "description": "LTX-2.5:参考图首帧 → 音画同出短视频,专用实例 :8198",
         "source": {
             "name": "LTX-2.5 22B Distilled",
@@ -798,6 +822,7 @@ _REGISTRY: list[dict[str, Any]] = [
         "label": "LTX 2.3 文生视频(R18)",
         "kind": "video",
         "nsfw": True,
+        "submit": {"route": "/api/generate/ltx-t2v", "kind": "ltx-t2v"},
         "description": "10Eros 底模成人向文生视频,仅 R18 上下文可见",
         "source": {
             "name": "LTX-Video 2.3 + 10Eros v14",
@@ -813,6 +838,7 @@ _REGISTRY: list[dict[str, Any]] = [
         "label": "LTX 2.3 图生视频(R18)",
         "kind": "video",
         "nsfw": True,
+        "submit": {"route": "/api/generate/ltx-i2v", "kind": "ltx-i2v"},
         "description": "10Eros 底模成人向图生视频,仅 R18 上下文可见",
         "source": {
             "name": "LTX-Video 2.3 + 10Eros v14",
@@ -828,6 +854,7 @@ _REGISTRY: list[dict[str, Any]] = [
         "label": "LTX 2.3 对口型(R18)",
         "kind": "video",
         "nsfw": True,
+        "submit": {"route": "/api/generate/ltx-lipsync", "kind": "ltx-lipsync"},
         "description": "10Eros 底模成人向口型同步:人物参考图 + 驱动音频 → 对口型视频",
         "source": {
             "name": "LTX-Video 2.3 + 10Eros v14",
@@ -854,6 +881,7 @@ _REGISTRY: list[dict[str, Any]] = [
         "label": "MiniMax H3 文生视频",
         "kind": "video",
         "nsfw": False,
+        "submit": {"route": "/api/h3/t2v", "kind": "h3-t2v"},
         "description": "MiniMax H3 新一代视频管线:原生 32kHz 音画同发,专用实例 :8195",
         "source": {
             "name": "MiniMax H3(海螺视频开源权重)",
@@ -869,6 +897,7 @@ _REGISTRY: list[dict[str, Any]] = [
         "label": "MiniMax H3 图生视频",
         "kind": "video",
         "nsfw": False,
+        "submit": {"route": "/api/h3/i2v", "kind": "h3-i2v"},
         "description": "MiniMax H3:参考图首帧 → 音画同发短视频,剧情连续性好",
         "source": {
             "name": "MiniMax H3(海螺视频开源权重)",
@@ -887,6 +916,7 @@ _REGISTRY: list[dict[str, Any]] = [
         "label": "MiniMax H3 文生视频(R18)",
         "kind": "video",
         "nsfw": True,
+        "submit": {"route": "/api/h3/t2v", "kind": "h3-t2v"},
         "description": "MiniMax H3 成人向文生视频:原生 32kHz 音画同发,可叠 R18 LoRA,专用实例 :8195",
         "source": {
             "name": "MiniMax H3 + 社区 R18 LoRA",
@@ -902,6 +932,7 @@ _REGISTRY: list[dict[str, Any]] = [
         "label": "MiniMax H3 图生视频(R18)",
         "kind": "video",
         "nsfw": True,
+        "submit": {"route": "/api/h3/i2v", "kind": "h3-i2v"},
         "description": "MiniMax H3 成人向图生视频:参考图首帧 → 音画同发,可叠 R18 LoRA",
         "source": {
             "name": "MiniMax H3 + 社区 R18 LoRA",
@@ -919,6 +950,7 @@ _REGISTRY: list[dict[str, Any]] = [
         "label": "LongCat 文生视频",
         "kind": "video",
         "nsfw": False,
+        "submit": {"route": "/api/longcat/t2v", "kind": "longcat-t2v"},
         "description": "LongCat-Video 长视频引擎:蒸馏 LoRA 低步数出片,专用实例 :8197",
         "source": {
             "name": "LongCat-Video 13.6B",
@@ -934,6 +966,7 @@ _REGISTRY: list[dict[str, Any]] = [
         "label": "LongCat 图生视频",
         "kind": "video",
         "nsfw": False,
+        "submit": {"route": "/api/longcat/i2v", "kind": "longcat-i2v"},
         "description": "LongCat-Video 长视频引擎:首帧参考图 → 长镜头,专用实例 :8197",
         "source": {
             "name": "LongCat-Video 13.6B",
@@ -949,6 +982,7 @@ _REGISTRY: list[dict[str, Any]] = [
         "label": "LongCat 视频续写",
         "kind": "video",
         "nsfw": False,
+        "submit": {"route": "/api/longcat/continue", "kind": "longcat-continue"},
         "description": "LongCat-Video:取已有视频末帧续写下一段长镜头(API 缺省宽高/帧率时自动向源视频实测值对齐)",
         "source": {
             "name": "LongCat-Video 13.6B",
@@ -970,6 +1004,7 @@ _REGISTRY: list[dict[str, Any]] = [
         "label": "LongCat-Avatar 数字人",
         "kind": "video",
         "nsfw": False,
+        "submit": {"route": "/api/avatar/talk", "kind": "avatar-talk"},
         "description": "LongCat-Avatar 音频驱动数字人:人像首帧 + 说话音频 → 口型同步视频,专用实例 :8197",
         "source": {
             "name": "LongCat-Avatar v1.5",
@@ -987,6 +1022,7 @@ _REGISTRY: list[dict[str, Any]] = [
         "label": "Wan2.2 动作迁移",
         "kind": "video",
         "nsfw": False,
+        "submit": {"route": "/api/wan/animate", "kind": "wan-animate"},
         "description": "Wan2.2-Animate 14B:参考图角色按驱动视频动作表演(双轨骨骼+表情迁移),专用实例 :8197",
         "source": {
             "name": "Wan2.2-Animate-14B",
@@ -1003,6 +1039,7 @@ _REGISTRY: list[dict[str, Any]] = [
         "label": "VACE 多参考视频",
         "kind": "video",
         "nsfw": False,
+        "submit": {"route": "/api/wan/vace", "kind": "wan-vace"},
         "description": "Wan2.1-VACE 14B:多参考图(角色/物体/场景)+ 可选首尾帧 → 一致性视频,专用实例 :8197",
         "source": {
             "name": "Wan2.1-VACE-14B",
@@ -1019,6 +1056,7 @@ _REGISTRY: list[dict[str, Any]] = [
         "label": "ACE 文生音乐",
         "kind": "audio",
         "nsfw": False,
+        "submit": {"route": "/api/generate/audio", "kind": "audio"},
         "description": "ACE-Step 1.5:风格标签 + 歌词 → MP3(≤240s);提示词可经 AI 优化为音乐标签",
         "source": {
             "name": "ACE-Step v1.5 3.5B",
@@ -1029,7 +1067,40 @@ _REGISTRY: list[dict[str, Any]] = [
         "params": _ace_audio_params(),
         "probe": _probe_ace,
     },
-]
+    ]
+
+
+# 运行时注册表:由 populate_registry 填充(EnginePlugin bootstrap 或惰性初始化)
+_REGISTRY: list[dict[str, Any]] = []
+_registry_populated = False
+
+
+def populate_registry(disabled: set[str] | None = None) -> None:
+    """填充引擎注册表。由 EnginePlugin 在 bootstrap 时调用;幂等(重复调用不重建)。
+
+    disabled 为 None 时保持当前停用集不变(幂等重入);显式传入则替换。
+    """
+    global _registry_populated
+    if not _registry_populated:
+        _REGISTRY.extend(_default_registry())
+        _registry_populated = True
+    if disabled is not None:
+        set_disabled_engines(disabled)
+
+
+def _ensure_registry() -> None:
+    """惰性填充:未走插件 bootstrap 时(测试直调 list_engines)自动填充。"""
+    if not _registry_populated:
+        populate_registry()
+
+
+def _reset_registry_for_tests() -> None:
+    """测试隔离:清空注册表与停用集,下次 populate_registry 重建。"""
+    global _registry_populated, _disabled_engines
+    _REGISTRY.clear()
+    _registry_populated = False
+    _disabled_engines = set()
+    reset_avail_cache()
 
 
 def _inject_h3_lora_options(p: dict, loras: list[str] | None) -> dict:
@@ -1046,9 +1117,11 @@ def _inject_h3_lora_options(p: dict, loras: list[str] | None) -> dict:
 async def list_engines(pool: WorkerPool, user: User | None = None) -> list[dict[str, Any]]:
     """返回引擎数组(按请求的 R18 上下文过滤 nsfw 引擎与 nsfw 选项)。
 
-    每项:{ id, label, kind, available, unavailable_reason?, nsfw, description?, params }
+    每项:{ id, label, kind, available, unavailable_reason?, nsfw, description?, params, submit? }
     params 元素:{ key, label, type, options?, min?, max?, step?, default, hint? }
+    profile 停用的引擎:available=False, unavailable_reason="disabled by profile"。
     """
+    _ensure_registry()
     r18 = nsfw_allowed(user)
     # 动态选项(底模/采样器/调度器)惰性拉取:仅当引擎声明了 options_source 且
     # 本次响应包含图像引擎时才访问 worker object_info,全失败回退声明态兜底。
@@ -1093,6 +1166,15 @@ async def list_engines(pool: WorkerPool, user: User | None = None) -> list[dict[
         }
         if "source" in spec:
             entry["source"] = spec["source"]
+        if "submit" in spec:
+            entry["submit"] = spec["submit"]
+
+        # profile 停用:跳过探测,直接标不可用
+        if spec["id"] in _disabled_engines:
+            entry["available"] = False
+            entry["unavailable_reason"] = "disabled by profile"
+            engines.append(entry)
+            continue
 
         probe = spec.get("probe")
         if probe is None:

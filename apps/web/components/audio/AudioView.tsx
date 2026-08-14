@@ -4,6 +4,7 @@ import { useRef, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Field, Textarea } from "@/components/ui/Input";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
@@ -212,7 +213,7 @@ function TtsCard() {
         />
       </div>
 
-      {error && <p className="audio-error">{error}</p>}
+      {error && <ErrorBar message={error} onClose={() => setError(null)} />}
       {result && <AudioResult url={result.url} name={result.name} durationSec={result.duration_sec} />}
 
       <div className="audio-actions">
@@ -315,7 +316,7 @@ function AsrCard() {
       </div>
 
       {busy && <ToolProgress pct={pct} label={stage} />}
-      {error && <p className="audio-error">{error}</p>}
+      {error && <ErrorBar message={error} onClose={() => setError(null)} />}
 
       {segments.length > 0 && (
         <div className="audio-transcript">
@@ -417,7 +418,7 @@ function SeparateCard() {
         />
       </div>
 
-      {error && <p className="audio-error">{error}</p>}
+      {error && <ErrorBar message={error} onClose={() => setError(null)} />}
       {result && (
         <AudioResult
           url={result.url}
@@ -553,7 +554,7 @@ export function AudioView() {
           justify-content: center;
           width: 36px; /* 28→36,与加大后的卡头层级匹配 */
           height: 36px;
-          border-radius: 10px;
+          border-radius: var(--radius-panel);
           background: var(--accent-soft);
           color: var(--accent);
           flex-shrink: 0;
@@ -746,15 +747,6 @@ export function AudioView() {
           gap: var(--space-2);
         }
 
-        .audio-view :global(.audio-error) {
-          margin: 0; /* 消除 <p> 默认外边距,避免 flex 间距叠加不均 */
-          padding: var(--space-3) var(--space-4);
-          background: var(--err-soft);
-          border-radius: var(--radius-control);
-          font-size: var(--text-aux);
-          line-height: 1.5;
-          color: var(--err);
-        }
         .audio-view :global(.audio-actions) {
           display: flex;
           align-items: center;

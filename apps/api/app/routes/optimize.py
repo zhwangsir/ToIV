@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session
 
 from app.agent import llm
+from app.harness.ctx import get_ctx
 from app.db import get_session
 from app.deps import get_current_user
 from app.jsonutil import parse_json_obj
@@ -286,7 +287,7 @@ def _style_llm_layer(style_id: str | None) -> str:
 
 async def _llm_text(system: str, prompt: str, layer: str = "L1") -> str:
     try:
-        msg = await llm.chat_layered(
+        msg = await get_ctx().service("llm").chat_layered(
             [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
             layer=layer,
         )

@@ -4,6 +4,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon } from "@/components/ui/Icon";
 import { Field, Input, Select, Textarea } from "@/components/ui/Input";
 import { usePoll } from "@/hooks/usePoll";
@@ -312,10 +313,11 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
               </div>
             )}
             {gen.status === "error" && gen.error && (
-              <div className="at-gen-stage-error">
-                <Icon name="error" size={14} />
-                <span>{gen.error}</span>
-              </div>
+              <ErrorBar
+                className="at-gen-stage-error"
+                message={gen.error}
+                onClose={gen.reset}
+              />
             )}
           </div>
         )}
@@ -624,9 +626,7 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
 
         <div className="at-gen-footer">
           {submitError && (
-            <p className="at-gen-warn" role="alert">
-              {submitError}
-            </p>
+            <ErrorBar message={submitError} onClose={() => setSubmitError(null)} />
           )}
           <Button
             variant="primary"

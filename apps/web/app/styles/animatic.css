@@ -177,7 +177,7 @@
   justify-content: center;
   border-radius: var(--radius-full);
   background: var(--overlay-strong);
-  color: #FFFFFF; /* scrim 恒深色,其上文字恒白 */
+  color: var(--text-on-accent); /* scrim 恒深色,其上文字恒浅色 */
   font-size: var(--text-xs);
   font-weight: 600;
 }

@@ -2,26 +2,18 @@
 
 /**
  * 事件汇报流(EventTicker):四态(开始/阻塞/需决策/完成)+ plan/verdict,
- * 时间倒序(hook 侧已按新→旧 prepend)。图标一律 lucide-react。
+ * 时间倒序(hook 侧已按新→旧 prepend)。图标一律经 ui/Icon。
  */
-import {
-  AlertTriangle,
-  CheckCircle2,
-  Hand,
-  Info,
-  Play,
-  XCircle,
-  type LucideIcon,
-} from "lucide-react";
+import { Icon, type IconName } from "@/components/ui/Icon";
 import type { AgentRunEventItem } from "./useAgentRun";
 
-const TONE_ICON: Record<AgentRunEventItem["tone"], LucideIcon> = {
-  start: Play,
-  blocked: AlertTriangle,
-  decision: Hand,
-  done: CheckCircle2,
-  info: Info,
-  error: XCircle,
+const TONE_ICON: Record<AgentRunEventItem["tone"], IconName> = {
+  start: "play",
+  blocked: "warning",
+  decision: "hand",
+  done: "success",
+  info: "info",
+  error: "x-circle",
 };
 
 const TONE_LABEL: Record<AgentRunEventItem["tone"], string> = {
@@ -42,10 +34,9 @@ export function EventTicker({ events }: { events: AgentRunEventItem[] }) {
       ) : (
         <ul className="agent-ticker-list">
           {events.map((ev) => {
-            const IconCmp = TONE_ICON[ev.tone];
             return (
               <li key={ev.id} className={`agent-ticker-item is-${ev.tone}`}>
-                <IconCmp size={13} aria-hidden="true" className="agent-ticker-icon" />
+                <Icon name={TONE_ICON[ev.tone]} size={13} className="agent-ticker-icon" />
                 <span className="agent-ticker-text">
                   <span className="agent-ticker-tone">{TONE_LABEL[ev.tone]}</span>
                   {ev.text}

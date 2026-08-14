@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Icon } from "@/components/ui/Icon";
+import { ErrorBar } from "@/components/ui/ErrorBar";
 import { useToast } from "@/components/ui/Toast";
 import { genId } from "@/lib/id";
 import {
@@ -509,10 +510,11 @@ export function AnimaticView({
       )}
 
       {error && (
-        <div className="anim-error" role="alert">
-          <Icon name="error" size={15} />
-          <span>{error}</span>
-        </div>
+        <ErrorBar
+          className="anim-error"
+          message={error}
+          onClose={() => setError(null)}
+        />
       )}
 
       {!isAi && result && (

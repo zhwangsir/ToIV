@@ -631,7 +631,8 @@
   }
 }
 
-@media (max-width: 768px) {
+/* 移动端断点对齐全局 -1 约定(767=768-1),与 1023 档之间不留 1px 缝隙带 */
+@media (max-width: 767px) {
   .playerPage {
     padding: var(--space-4) var(--space-2) var(--space-6);
   }

@@ -2,10 +2,20 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Icon } from "@/components/ui/Icon";
+import { ErrorBar } from "@/components/ui/ErrorBar";
+import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { useToast } from "@/components/ui/Toast";
-import { agentChat, AgentEvent, getLlmModel } from "@/lib/api";
 import {
-  agentChatWithDocs,
+  agentChatStream,
+  AgentEvent,
+  AgentSessionMessage,
+  AgentSessionSummary,
+  deleteAgentSession,
+  getAgentSession,
+  getLlmModel,
+  listAgentSessions,
+} from "@/lib/api";
+import {
   deleteDoc,
   DocItem,
   docStatusLabel,
@@ -19,15 +29,17 @@ import { useBreakpoint } from "@/lib/useBreakpoint";
 // 模型名从 /api/system/llm 动态读取(display_model),不再硬编码;desc 为通用说明
 const MODEL_DESC = "本地 L1 快速对话模型，适合灵感捕获、提示词润色、简单问答";
 
-interface Conversation {
+export interface Conversation {
   id: string;
   title: string;
   messages: ChatMessage[];
   createdAt: number;
   updatedAt: number;
+  /** 服务端列表的消息数(回放前 messages 为空,展示以它为准) */
+  messageCount?: number;
 }
 
-interface ChatMessage {
+export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
@@ -39,7 +51,7 @@ interface ChatMessage {
   kind?: "error";
 }
 
-// 后端无对话持久化接口(仅 /api/agent/chat),会话按天存 localStorage 做轻量持久化
+// localStorage 按天存储仅作「离线/未登录兜底」:服务端会话接口不可达时回退现状行为
 const CONV_STORAGE_KEY = (() => {
   const d = new Date();
   const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -59,6 +71,210 @@ function loadStoredConversations(): Conversation[] {
   } catch {
     return [];
   }
+}
+
+// ───── 会话存储(H2):服务端会话优先,localStorage 离线/未登录兜底 ─────
+
+/** 服务端会话摘要 → 列表项(消息留空,打开时才回放拉取)。 */
+export function summaryToConversation(s: AgentSessionSummary): Conversation {
+  return {
+    id: s.id,
+    title: s.title || "新对话",
+    messages: [],
+    createdAt: Date.parse(s.created_at) || Date.now(),
+    updatedAt: Date.parse(s.updated_at) || Date.now(),
+    messageCount: s.message_count,
+  };
+}
+
+/** 服务端消息日志 → 前端气泡:tool 消息的媒体产物并回最近一条 assistant 气泡
+ * (无则补一条空气泡,对齐流式渲染时媒体挂最后一条 assistant 的行为)。 */
+export function messagesToChat(rows: AgentSessionMessage[]): ChatMessage[] {
+  const out: ChatMessage[] = [];
+  for (const m of rows) {
+    const ts = Date.parse(m.created_at) || Date.now();
+    if (m.role === "user" || m.role === "assistant") {
+      out.push({ id: `srv-${m.id}`, role: m.role, content: m.content, timestamp: ts });
+    } else if (m.role === "tool" && m.media?.length) {
+      let last = out[out.length - 1];
+      if (!last || last.role !== "assistant") {
+        last = { id: `srv-${m.id}-media`, role: "assistant", content: "", timestamp: ts };
+        out.push(last);
+      }
+      last.media = [...(last.media ?? []), ...m.media];
+    }
+  }
+  return out;
+}
+
+export interface AgentConversationStore {
+  /** null=探测中;true=服务端会话;false=localStorage 兜底 */
+  serverMode: boolean | null;
+  conversations: Conversation[];
+  listError: string | null;
+  clearListError: () => void;
+  /** 打开会话:server 模式从服务端回放;local 模式读本地缓存。失败返回 null(错误透出)。 */
+  open: (id: string) => Promise<ChatMessage[] | null>;
+  /**
+   * 一轮对话完成后登记列表。getConvId 惰性读取(组件在 setState updater 里调用,
+   * StrictMode 双调用幂等);sessionId 为服务端新会话 id(首轮响应头带回)。
+   */
+  register: (
+    getConvId: () => string | null,
+    sessionId: string | null,
+    msgs: ChatMessage[],
+    onId: (id: string) => void,
+  ) => void;
+  remove: (id: string) => Promise<void>;
+}
+
+export function useAgentConversations(): AgentConversationStore {
+  const [serverMode, setServerMode] = useState<boolean | null>(null);
+  const [serverConvs, setServerConvs] = useState<Conversation[]>([]);
+  const [localConvs, setLocalConvs] = useState<Conversation[]>(loadStoredConversations);
+  const [listError, setListError] = useState<string | null>(null);
+
+  // 进页探测:服务端列表成功 → server 模式;401/网络失败 → localStorage 兜底(迁移前现状行为)
+  useEffect(() => {
+    let cancelled = false;
+    listAgentSessions()
+      .then((rows) => {
+        if (cancelled) return;
+        setServerConvs(rows.map(summaryToConversation));
+        setServerMode(true);
+      })
+      .catch(() => {
+        if (!cancelled) setServerMode(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // local 模式:列表变更即写 localStorage(仅兜底模式写;server 模式消息由服务端落库)
+  useEffect(() => {
+    if (serverMode !== false) return;
+    try {
+      localStorage.setItem(CONV_STORAGE_KEY, JSON.stringify(localConvs));
+    } catch {
+      /* 存储满/隐私模式下静默忽略 */
+    }
+  }, [serverMode, localConvs]);
+
+  const open = useCallback(
+    async (id: string): Promise<ChatMessage[] | null> => {
+      if (serverMode) {
+        try {
+          const detail = await getAgentSession(id);
+          return messagesToChat(detail.messages);
+        } catch (err) {
+          setListError(err instanceof Error ? err.message : "会话加载失败");
+          return null;
+        }
+      }
+      return localConvs.find((c) => c.id === id)?.messages ?? null;
+    },
+    [serverMode, localConvs],
+  );
+
+  const register = useCallback(
+    (
+      getConvId: () => string | null,
+      sessionId: string | null,
+      msgs: ChatMessage[],
+      onId: (id: string) => void,
+    ) => {
+      // 错误气泡不进历史(本地兜底态,非真实对话内容)
+      const cleaned = msgs.filter((m) => m.kind !== "error");
+      if (cleaned.length === 0) return;
+      const userMsg = cleaned.find((m) => m.role === "user");
+      const title = userMsg ? getPreview(userMsg.content, 20) : "新对话";
+      const now = Date.now();
+      if (serverMode) {
+        // 服务端模式:消息已由 chat 端点落库,这里只维护列表摘要
+        const id = getConvId() ?? sessionId;
+        if (!id) return;
+        onId(id);
+        const finalId = id;
+        setServerConvs((prev) => {
+          const exists = prev.some((c) => c.id === finalId);
+          if (exists) {
+            return prev.map((c) =>
+              c.id === finalId
+                ? {
+                    ...c,
+                    messages: cleaned,
+                    title: c.title || title,
+                    updatedAt: now,
+                    messageCount: undefined, // 已有真实 messages,以它为准
+                  }
+                : c,
+            );
+          }
+          const newConv: Conversation = {
+            id: finalId,
+            title,
+            messages: cleaned,
+            createdAt: now,
+            updatedAt: now,
+          };
+          return [newConv, ...prev];
+        });
+        return;
+      }
+      // local 模式:原 saveToHistory 逻辑(全量消息写 localStorage)
+      let id = getConvId();
+      if (!id) {
+        id = genId();
+        onId(id); // 同步回写,StrictMode 双调用幂等(第二次执行读到同一 id)
+      }
+      const finalId = id;
+      setLocalConvs((prev) => {
+        const exists = prev.some((c) => c.id === finalId);
+        if (exists) {
+          return prev.map((c) =>
+            c.id === finalId ? { ...c, messages: cleaned, title, updatedAt: now } : c,
+          );
+        }
+        const newConv: Conversation = {
+          id: finalId,
+          title,
+          messages: cleaned,
+          createdAt: now,
+          updatedAt: now,
+        };
+        return [newConv, ...prev];
+      });
+    },
+    [serverMode],
+  );
+
+  const remove = useCallback(
+    async (id: string) => {
+      if (serverMode) {
+        try {
+          await deleteAgentSession(id);
+        } catch (err) {
+          setListError(err instanceof Error ? err.message : "删除会话失败");
+          return;
+        }
+        setServerConvs((prev) => prev.filter((c) => c.id !== id));
+        return;
+      }
+      setLocalConvs((prev) => prev.filter((c) => c.id !== id));
+    },
+    [serverMode],
+  );
+
+  return {
+    serverMode,
+    conversations: serverMode ? serverConvs : localConvs,
+    listError,
+    clearListError: () => setListError(null),
+    open,
+    register,
+    remove,
+  };
 }
 
 const QUICK_ACTIONS = [
@@ -81,7 +297,9 @@ export function AssistantView() {
   const [busy, setBusy] = useState(false);
   // pending = 已发送、等待首个响应块(打字指示器),出错即替换为错误气泡
   const [pending, setPending] = useState(false);
-  const [conversations, setConversations] = useState<Conversation[]>(loadStoredConversations);
+  // 会话存储:服务端优先,localStorage 兜底(见 useAgentConversations)
+  const convStore = useAgentConversations();
+  const conversations = convStore.conversations;
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [contextOpen, setContextOpen] = useState(false);
@@ -100,20 +318,12 @@ export function AssistantView() {
   const userStoppedRef = useRef<boolean>(false);
   const gotFirstChunkRef = useRef<boolean>(false);
   const lastDocIdsRef = useRef<string[]>([]); // 重试时复用上轮挂载
+  const lastSessionIdRef = useRef<string | null>(null); // 本轮响应头带回的会话 id
   const docFileRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isEmpty = messages.length === 0;
-
-  // 会话列表变更即写入 localStorage(按天)
-  useEffect(() => {
-    try {
-      localStorage.setItem(CONV_STORAGE_KEY, JSON.stringify(conversations));
-    } catch {
-      /* 存储满/隐私模式下静默忽略 */
-    }
-  }, [conversations]);
 
   // 顶栏/设置面板的模型名跟随后端真实配置,避免显示与实际调用不一致
   useEffect(() => {
@@ -164,54 +374,46 @@ export function AssistantView() {
     activeConvIdRef.current = activeConvId;
   }, [activeConvId]);
 
-  const saveToHistory = useCallback((msgs: ChatMessage[], convId: string | null) => {
-    // 错误气泡不进历史(本地兜底态,非真实对话内容)
-    const cleaned = msgs.filter((m) => m.kind !== "error");
-    if (cleaned.length === 0) return;
-    const userMsg = cleaned.find((m) => m.role === "user");
-    const title = userMsg ? getPreview(userMsg.content, 20) : "新对话";
-    const now = Date.now();
+  // 一轮对话收尾:登记列表(server 模式只维护摘要;local 模式写全量)并同步会话 id
+  const finishTurn = useCallback(
+    (msgs: ChatMessage[]) => {
+      convStore.register(
+        () => activeConvIdRef.current,
+        lastSessionIdRef.current,
+        msgs,
+        (id) => {
+          if (id !== activeConvIdRef.current) {
+            setActiveConvId(id);
+            activeConvIdRef.current = id;
+          }
+        },
+      );
+    },
+    [convStore],
+  );
 
-    // id 在 updater 外生成,保证 StrictMode 双调用幂等
-    let id = convId;
-    if (!id) {
-      id = genId();
-      setActiveConvId(id);
-      activeConvIdRef.current = id;
-    }
-    const finalId = id;
-    setConversations((prev) => {
-      const exists = prev.some((c) => c.id === finalId);
-      if (exists) {
-        return prev.map((c) =>
-          c.id === finalId ? { ...c, messages: cleaned, title, updatedAt: now } : c
-        );
+  const loadConversation = useCallback(
+    async (conv: Conversation) => {
+      const msgs = await convStore.open(conv.id);
+      if (msgs === null) return; // 错误已由 store 透出(ErrorBar)
+      setMessages(msgs);
+      setActiveConvId(conv.id);
+      setInput("");
+      setTextareaRows(1);
+      setHistoryOpen(false);
+    },
+    [convStore],
+  );
+
+  const deleteConversation = useCallback(
+    (id: string) => {
+      void convStore.remove(id);
+      if (activeConvId === id) {
+        onNewChat();
       }
-      const newConv: Conversation = {
-        id: finalId,
-        title,
-        messages: cleaned,
-        createdAt: now,
-        updatedAt: now,
-      };
-      return [newConv, ...prev];
-    });
-  }, []);
-
-  const loadConversation = useCallback((conv: Conversation) => {
-    setMessages(conv.messages);
-    setActiveConvId(conv.id);
-    setInput("");
-    setTextareaRows(1);
-    setHistoryOpen(false);
-  }, []);
-
-  const deleteConversation = useCallback((id: string) => {
-    setConversations((prev) => prev.filter((c) => c.id !== id));
-    if (activeConvId === id) {
-      onNewChat();
-    }
-  }, [activeConvId, onNewChat]);
+    },
+    [activeConvId, onNewChat, convStore],
+  );
 
   // ───── 文档挂载 ─────
   const onPickDocFile = useCallback(
@@ -348,11 +550,17 @@ export function AssistantView() {
           }
         };
 
-        if (docIds.length) {
-          await agentChatWithDocs(apiMessages, docIds, onEvent, controller.signal);
-        } else {
-          await agentChat(apiMessages, onEvent, null, controller.signal);
-        }
+        const { sessionId } = await agentChatStream(
+          {
+            messages: apiMessages,
+            document_ids: docIds,
+            // 仅服务端模式携带会话 id(local 兜底模式的 id 是本地 genId,服务端不认)
+            session_id: convStore.serverMode ? (activeConvIdRef.current ?? null) : null,
+          },
+          onEvent,
+          controller.signal,
+        );
+        if (sessionId) lastSessionIdRef.current = sessionId;
       } catch {
         failed = true;
       } finally {
@@ -379,17 +587,17 @@ export function AssistantView() {
         };
         setMessages((prev) => {
           const next = [...prev, errMsg];
-          saveToHistory(next, activeConvIdRef.current);
+          finishTurn(next);
           return next;
         });
       } else {
         setMessages((prev) => {
-          saveToHistory(prev, activeConvIdRef.current);
+          finishTurn(prev);
           return prev;
         });
       }
     },
-    [saveToHistory],
+    [finishTurn, convStore],
   );
 
   const send = useCallback(
@@ -496,6 +704,10 @@ export function AssistantView() {
           </button>
         </div>
       </header>
+
+      {convStore.listError && (
+        <ErrorBar message={convStore.listError} onClose={convStore.clearListError} />
+      )}
 
       <div className="av-chat-wrap" ref={scrollRef}>
         <div className="av-dot-grid" aria-hidden="true" />
@@ -705,7 +917,9 @@ export function AssistantView() {
           </button>
         </div>
         <div className="av-panel-body">
-          {conversations.length === 0 ? (
+          {convStore.serverMode === null ? (
+            <LoadingBlock variant="line" count={4} />
+          ) : conversations.length === 0 ? (
             <div className="av-panel-empty">
               <Icon name="chat" size={20} strokeWidth={1.4} />
               <span>暂无历史对话</span>
@@ -725,7 +939,7 @@ export function AssistantView() {
                     <div className="av-conv-info">
                       <span className="av-conv-title">{conv.title}</span>
                       <span className="av-conv-meta">
-                        {conv.messages.length} 条消息 · {formatTime(conv.updatedAt)}
+                        {conv.messageCount ?? conv.messages.length} 条消息 · {formatTime(conv.updatedAt)}
                       </span>
                     </div>
                   </button>

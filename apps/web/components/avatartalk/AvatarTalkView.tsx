@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Field, Input, Textarea } from "@/components/ui/Input";
 import { Switch } from "@/components/ui/Switch";
 import { Tabs } from "@/components/ui/Tabs";
@@ -596,11 +597,7 @@ export function AvatarTalkView({ onNavigate }: { onNavigate?: (target: string) =
         {/* 错误条(底部居中) */}
         {error && (
           <div className="at-error-bar">
-            <Icon name="error" size={14} />
-            <span>{error}</span>
-            <button className="at-error-dismiss" onClick={() => setError(null)} aria-label="关闭">
-              <Icon name="close" size={12} />
-            </button>
+            <ErrorBar message={error} onClose={() => setError(null)} />
           </div>
         )}
       </div>

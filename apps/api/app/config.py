@@ -274,6 +274,11 @@ class Settings(BaseSettings):
     # 不阻塞 run 创建(见 routes/agent_team.py classify_goal_llm)。
     agent_classify_llm_timeout: float = 8.0
 
+    # —— H3 Harness profile 组合(2026-08-14) ——
+    # 插件裁剪:full=全部内建插件;llm+引擎+质量门;minimal=llm+基础引擎,无质量门;
+    # headless=llm+引擎,无质量门无人格。见 harness/profile.py PROFILES。
+    harness_profile: str = "full"
+
     # —— Wan2.2-Animate / Wan2.1-VACE(GPU2 :8197,与 LongCat 同实例) ——
     # Animate fp8 运行时量化峰值 ~20-24GiB;提交前要求实例卡(GPU2)空闲显存 ≥ 此阈值(GiB)。
     # 不足时先驱逐 :8197 自身模型缓存(队列空闲才动),仍不足 → 503 错峰提示。

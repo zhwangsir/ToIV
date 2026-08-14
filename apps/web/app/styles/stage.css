@@ -5,12 +5,37 @@
    动效:纯 CSS(ease-out / --ease-spring),reduced-motion 由 globals 统一收敛
    ────────────────────────────────────────────────────────── */
 
+/* ========== z-index 语义档映射(UI-B 收编,2026-08-14) ==========
+   舞台局部层叠(0-30)原为裸值,现收编为 .generate-view 作用域语义变量,
+   数值不变、层叠行为不变;全站浮层仍走 globals 的
+   --z-dropdown/sticky/drawer/modal/toast(50-400),两级互不混用。
+     --z-stage-base     0   舞台内容基线(stage-media-wrap / stage-loading / stage-message / stage-error-card)
+     --z-stage-scrim    1   舞台暗角(.stage-main::after)
+     --z-stage-caption  2   舞台题注(.stage-caption)
+     --z-stage-panel    5   质量诊断浮板(.stage-quality)
+     --z-stage-status   6   左上状态胶囊(.stage-status)
+     --z-stage-dock     10  提示词条(.promptbar-dock)
+     --z-stage-popover  12  chip 展开面板(.promptbar-chip-panel)
+     --z-stage-sheet    20  参数浮板 / 参数 FAB(.generate-params / .generate-params-fab)
+     --z-stage-mask     30  窄屏(≤1023px)参数抽屉与 FAB 抬升档
+   ────────────────────────────────────────────────────────── */
+
 /* ========== 布局骨架 ========== */
 
 .generate-view {
   /* 布局尺寸局部变量:参数浮板宽 / 提示词条最小预留高度(下方多处引用,避免散落的魔法数) */
   --params-w: 380px;
   --promptbar-dock-h: 120px;
+  /* z-index 语义档(映射见文首注释块;仅本视图局部层叠,全站浮层走全局 --z-*) */
+  --z-stage-base: 0;
+  --z-stage-scrim: 1;
+  --z-stage-caption: 2;
+  --z-stage-panel: 5;
+  --z-stage-status: 6;
+  --z-stage-dock: 10;
+  --z-stage-popover: 12;
+  --z-stage-sheet: 20;
+  --z-stage-mask: 30;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -70,7 +95,7 @@
 .generate-header .page-header-title {
   margin: 0;
   font-size: var(--text-title);
-  font-weight: 700;
+  font-weight: var(--font-bold);
   letter-spacing: -0.02em;
   line-height: 1.25;
   color: var(--text-primary);
@@ -132,7 +157,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: var(--z-stage-scrim);
   pointer-events: none;
   background: radial-gradient(
     ellipse 72% 62% at 50% 46%,
@@ -147,7 +172,7 @@
   position: absolute;
   top: var(--space-3);
   left: var(--space-3);
-  z-index: 6;
+  z-index: var(--z-stage-status);
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -170,7 +195,7 @@
 /* 作品展示:全出血居中 contain */
 .stage-media-wrap {
   position: relative;
-  z-index: 0;
+  z-index: var(--z-stage-base);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -198,7 +223,7 @@
   position: absolute;
   left: var(--space-4);
   bottom: var(--space-3);
-  z-index: 2;
+  z-index: var(--z-stage-caption);
   max-width: 60%;
   margin: 0;
   font-size: var(--text-aux);
@@ -211,7 +236,7 @@
 /* 生成中:骨架微光(skeleton-shimmer 由 WS5 motion.css 定义)+ 进度条 */
 .stage-loading {
   position: relative;
-  z-index: 0;
+  z-index: var(--z-stage-base);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -252,7 +277,7 @@
 }
 .gen-progress-fill.is-indeterminate {
   width: 30%;
-  animation: gen-progress-slide 1.2s var(--ease-standard) infinite;
+  animation: gen-progress-slide var(--duration-loop) var(--ease-standard) infinite;
 }
 @keyframes gen-progress-slide {
   0% { transform: translateX(-100%); }
@@ -262,7 +287,7 @@
 /* 失败/已取消消息:舞台居中 */
 .stage-message {
   position: relative;
-  z-index: 0;
+  z-index: var(--z-stage-base);
   margin: 0;
   max-width: min(480px, 80%);
   font-size: var(--text-sm);
@@ -274,7 +299,7 @@
 /* 失败错误卡:友好说明 + 可折叠技术详情(底层原文)+ 重试 */
 .stage-error-card {
   position: relative;
-  z-index: 0;
+  z-index: var(--z-stage-base);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -299,7 +324,7 @@
 }
 .stage-error-title {
   font-size: var(--text-md);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   color: var(--text-primary);
 }
 .stage-error-desc {
@@ -340,9 +365,9 @@
 
 .stage-quality {
   position: absolute;
-  top: calc(var(--space-3) + 40px); /* 状态胶囊行之下,不遮舞台中央产物 */
+  top: calc(var(--space-3) + var(--space-10)); /* 状态胶囊行之下,不遮舞台中央产物 */
   left: var(--space-3);
-  z-index: 5;
+  z-index: var(--z-stage-panel);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -367,7 +392,7 @@
 }
 .stage-quality-title {
   font-size: var(--text-body);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   color: var(--text-primary);
 }
 .stage-quality-score {
@@ -378,7 +403,7 @@
   border-radius: var(--radius-full);
   font-size: var(--text-aux);
   font-family: var(--font-mono);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   color: var(--warn);
 }
 .stage-quality-bars {
@@ -501,7 +526,7 @@
 }
 .filmstrip-dot.is-running {
   background: var(--run);
-  animation: filmstrip-pulse 1.6s var(--ease-standard) infinite;
+  animation: filmstrip-pulse var(--duration-pulse) var(--ease-standard) infinite;
 }
 .filmstrip-dot.is-done { background: var(--ok); }
 .filmstrip-dot.is-error { background: var(--err); }
@@ -606,15 +631,16 @@
 }
 .empty-kicker {
   font-size: var(--text-label);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--accent);
 }
 .empty-display {
-  font-size: 40px;
-  font-weight: 650;
-  line-height: 1.15;
+  font-family: var(--font-display);
+  font-size: var(--text-display-lg);
+  font-weight: var(--font-semibold);
+  line-height: var(--leading-display);
   letter-spacing: -0.02em;
   color: var(--text-primary);
   margin: 0;
@@ -639,13 +665,13 @@
 }
 .empty-tip-num {
   font-size: var(--text-label);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   font-variant-numeric: tabular-nums;
   color: var(--accent);
 }
 .empty-tip-title {
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   color: var(--text-primary);
 }
 .empty-tip-desc {
@@ -660,7 +686,7 @@
   position: absolute;
   top: var(--space-3);
   right: var(--space-3);
-  z-index: 20;
+  z-index: var(--z-stage-sheet);
   width: var(--params-w);
   /* 视口高度兜底:浮板永不出视口(顶部灵动岛 + 底部提示词条预留 ~160px,侧边栏加高后仍安全) */
   max-height: min(calc(100% - var(--space-6)), calc(100vh - 160px));
@@ -702,7 +728,7 @@
 }
 .generate-params-title {
   font-size: var(--text-label);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-muted);
@@ -729,18 +755,27 @@
   background: var(--bg-surface-2);
 }
 
-/* 收起态:右下角悬浮球(圆形 accent),固定在舞台右缘并避开底部提示词条 */
+/* 收起态:右下角悬浮球(圆形 accent),固定在舞台右缘并避开底部提示词条。
+   UI-B:按钮本体外套 Ripple(radius="full")水波纹宿主,.generate-params-fab 为宿主层
+   (span.ui-ripple,position:relative)——绝对定位/上浮位移必须挂在宿主上,否则按钮会
+   相对宿主定位而脱离舞台右缘;视觉圆形样式在内层 .generate-params-fab-btn。 */
 .generate-params-fab {
   position: absolute;
   right: var(--space-4);
   top: 50%;
   transform: translateY(-50%);
-  z-index: 20;
+  z-index: var(--z-stage-sheet);
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+.generate-params-fab:hover {
+  transform: translateY(calc(-50% - 2px));
+}
+.generate-params-fab-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: var(--touch-target);
+  height: var(--touch-target);
   padding: 0;
   border: none;
   border-radius: 50%;
@@ -748,12 +783,10 @@
   color: var(--text-on-accent);
   box-shadow: var(--accent-glow-shadow), var(--shadow-float);
   cursor: pointer;
-  transition: background-color var(--duration-fast) var(--ease-standard),
-              transform var(--duration-fast) var(--ease-standard);
+  transition: background-color var(--duration-fast) var(--ease-standard);
 }
-.generate-params-fab:hover {
+.generate-params-fab-btn:hover {
   background: var(--accent-hover);
-  transform: translateY(calc(-50% - 2px));
 }
 
 .engine-status {
@@ -791,7 +824,7 @@
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   font-size: var(--text-label);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-muted);
@@ -880,7 +913,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 10;
+  z-index: var(--z-stage-dock);
   display: flex;
   justify-content: center;
   padding: 0;
@@ -1008,7 +1041,7 @@
   position: absolute;
   bottom: calc(100% + var(--space-2));
   left: var(--space-2);
-  z-index: 12;
+  z-index: var(--z-stage-popover);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -1109,7 +1142,7 @@
     left: var(--space-3);
     right: var(--space-3);
     bottom: var(--space-3);
-    z-index: 30;
+    z-index: var(--z-stage-mask);
     width: auto;
     max-height: 60vh;
     overflow-y: auto;
@@ -1117,15 +1150,15 @@
   }
   /* 触控目标 ≥44px:抽屉收起按钮 / 提示词条 chips / 高级参数折叠头 */
   .generate-params-close {
-    width: 44px;
-    height: 44px;
+    width: var(--touch-target);
+    height: var(--touch-target);
   }
   .promptbar-chip {
-    height: 44px;
+    height: var(--touch-target);
     padding: 0 var(--space-4);
   }
   .adv-params summary {
-    min-height: 44px;
+    min-height: var(--touch-target);
   }
   .generate-params-fab {
     /* 舞台右缘纵向居中:避开底部 sticky 提示词条与系统导航栏的点击热区 */
@@ -1133,7 +1166,7 @@
     top: 45%;
     bottom: auto;
     right: var(--space-3);
-    z-index: 30;
+    z-index: var(--z-stage-mask);
   }
 }
 
@@ -1156,7 +1189,7 @@
     grid-template-columns: 1fr;
   }
   .empty-display {
-    font-size: 30px;
+    font-size: var(--text-display-md);
   }
   .empty-editorial {
     padding: var(--space-4);

@@ -1045,6 +1045,145 @@ export function jobEventsUrl(
   return withToken(`${API_BASE}/api/jobs/${promptId}/events?${qs.toString()}`);
 }
 
+// ---------- 智能体会话(H2 会话日志:服务端持久化;前端 localStorage 仅离线兜底) ----------
+
+export interface AgentSessionSummary {
+  id: string;
+  title: string;
+  nsfw: boolean;
+  created_at: string;
+  updated_at: string;
+  message_count: number;
+}
+
+export interface AgentSessionMessage {
+  id: number;
+  role: string; // user | assistant | tool
+  content: string;
+  tool_calls: unknown | null;
+  media: { type: string; urls: string[] }[];
+  created_at: string;
+}
+
+export interface AgentSessionDetail extends AgentSessionSummary {
+  messages: AgentSessionMessage[];
+}
+
+export interface AgentChatStreamBody {
+  messages: { role: string; content: string }[];
+  image?: AgentImageRef | null;
+  document_ids?: string[];
+  /** 续聊会话 id;空=新会话(服务端创建,id 经响应头返回) */
+  session_id?: string | null;
+}
+
+/**
+ * 统一对话流(SSE):与 agentChat 同一事件契约(text/tool/媒体/error + done),
+ * body 支持文档挂载与会话续聊;返回响应头 X-Agent-Session-Id 携带的会话 id。
+ */
+export async function agentChatStream(
+  body: AgentChatStreamBody,
+  onEvent: (ev: AgentEvent) => void,
+  signal?: AbortSignal,
+): Promise<{ sessionId: string | null }> {
+  const res = await apiFetch(
+    `/api/agent/chat`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify(body),
+      signal,
+      // SSE 流式响应:不设超时(timeoutMs: 0),取消由调用方 signal 控制。
+    },
+    { timeoutMs: 0 },
+  );
+  if (!res.ok || !res.body) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `对话失败 (${res.status})`);
+  }
+  const sessionId = res.headers.get("X-Agent-Session-Id");
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    // 事件以空行分隔;兼容 \r\n\r\n(sse-starlette/反代)与 \n\n
+    const parts = buf.split(/\r?\n\r?\n/);
+    buf = parts.pop() ?? "";
+    let finished = false;
+    for (const block of parts) {
+      let event = "message";
+      let data = "";
+      for (const line of block.split(/\r?\n/)) {
+        if (line.startsWith("event:")) event = line.slice(6).trim();
+        else if (line.startsWith("data:")) data += line.slice(5).trim();
+      }
+      if (event === "done") {
+        finished = true;
+        break;
+      }
+      if (data) {
+        try {
+          onEvent(JSON.parse(data) as AgentEvent);
+        } catch {
+          /* ignore malformed chunk */
+        }
+      }
+    }
+    if (finished) break;
+  }
+  return { sessionId };
+}
+
+/** 当前用户的会话列表(updated_at 倒序,含消息数;R18 会话由后端按上下文过滤)。 */
+export async function listAgentSessions(
+  signal?: AbortSignal,
+): Promise<AgentSessionSummary[]> {
+  const res = await apiFetch(`/api/agent/sessions`, {
+    headers: authHeaders(),
+    signal,
+  });
+  if (!res.ok) await raiseApiError(res, "获取会话列表失败");
+  return res.json();
+}
+
+/** 会话详情:全消息回放(id 升序即对话顺序)。 */
+export async function getAgentSession(
+  id: string,
+  signal?: AbortSignal,
+): Promise<AgentSessionDetail> {
+  const res = await apiFetch(`/api/agent/sessions/${id}`, {
+    headers: authHeaders(),
+    signal,
+  });
+  if (!res.ok) await raiseApiError(res, "获取会话失败");
+  return res.json();
+}
+
+/** 分叉:复制源会话消息(可选截断到 atMessageId,含)生成新会话。 */
+export async function forkAgentSession(
+  id: string,
+  atMessageId?: number,
+): Promise<AgentSessionSummary> {
+  const res = await apiFetch(`/api/agent/sessions/${id}/fork`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(atMessageId != null ? { at_message_id: atMessageId } : {}),
+  });
+  if (!res.ok) await raiseApiError(res, "分叉会话失败");
+  return res.json();
+}
+
+export async function deleteAgentSession(id: string): Promise<void> {
+  const res = await apiFetch(`/api/agent/sessions/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) await raiseApiError(res, "删除会话失败");
+}
+
 // ---------- 漫剧工作室 ----------
 export interface ManjuCharacter {
   name: string;

@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session
 
 from app.agent import llm
+from app.harness.ctx import get_ctx
 from app.comfy.client import ComfyUIError
 from app.comfy.pool import WorkerPool
 from app.comfy.tracker import spawn as spawn_tracker
@@ -165,7 +166,7 @@ async def generate_storyboard(
     enforce_generation_rate_limit(user)
 
     try:
-        msg = await llm.chat(
+        msg = await get_ctx().service("llm").chat(
             [
                 {"role": "system", "content": _STORYBOARD_SYSTEM},
                 {"role": "user", "content": _build_user_prompt(body)},

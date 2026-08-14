@@ -14,6 +14,9 @@ import {
 import type { TrainJob, TrainProgress, TrainStartParams } from "@/lib/types";
 import { Icon } from "@/components/ui/Icon";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
+import { Empty } from "@/components/ui/Empty";
+import { ErrorBar } from "@/components/ui/ErrorBar";
+import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
 
 type JobStatus = TrainJob["status"];
@@ -515,10 +518,11 @@ export function TrainView() {
           </div>
 
           {submitError && (
-            <div className="tv-form-msg tv-form-msg-error">
-              <Icon name="error" size={14} />
-              {submitError}
-            </div>
+            <ErrorBar
+              className="tv-form-msg-slot"
+              message={submitError}
+              onClose={() => setSubmitError(null)}
+            />
           )}
           {submitMsg && (
             <div className="tv-form-msg tv-form-msg-info">
@@ -557,34 +561,25 @@ export function TrainView() {
 
       <div className="tv-body">
         {error && !loading && (
-          <div className="tv-center tv-error-box">
-            <Icon name="error" size={28} strokeWidth={1.4} />
-            <p>{error}</p>
+          <div className="tv-error-row">
+            <ErrorBar message={error} onClose={() => setError(null)} />
             <button type="button" className="btn btn-sm" onClick={() => void load()}>
+              <Icon name="refresh" size={14} />
               重试
             </button>
           </div>
         )}
 
         {loading && !jobs && (
-          <div className="tv-center">
-            <span className="loading-spinner">
-              <Icon name="loading" size={16} />
-              正在加载训练任务…
-            </span>
-          </div>
+          <LoadingBlock variant="line" count={4} className="tv-loading" />
         )}
 
         {isEmpty && (
-          <div className="empty-state">
-            <div className="empty-state-icon">
-              <Icon name="train" size={48} strokeWidth={1.2} />
-            </div>
-            <div className="empty-state-title">还没有训练任务</div>
-            <div className="empty-state-desc">
-              点击「新建训练」上传数据集开始第一次 LoRA 训练
-            </div>
-          </div>
+          <Empty
+            icon="train"
+            title="还没有训练任务"
+            desc="点击「新建训练」上传数据集开始第一次 LoRA 训练"
+          />
         )}
 
         {!error && !loading && sortedJobs.length > 0 && (
@@ -706,9 +701,9 @@ export function TrainView() {
           font-size: var(--text-aux);
           line-height: 1.5;
         }
-        .tv-form-msg-error {
-          background: var(--err-soft);
-          color: var(--err);
+        /* ErrorBar 位(原 tv-form-msg-error 槽位):只补外边距,视觉走 ui-error-bar */
+        .tv-form-msg-slot {
+          margin-top: var(--space-4);
         }
         .tv-form-msg-info {
           background: var(--accent-soft);
@@ -729,20 +724,18 @@ export function TrainView() {
           flex-direction: column;
           gap: var(--space-5);
         }
-        .tv-center {
+        /* 加载失败:ErrorBar + 重试按钮横排 */
+        .tv-error-row {
           display: flex;
-          flex-direction: column;
           align-items: center;
           gap: var(--space-3);
-          padding: var(--space-12) var(--space-4);
-          color: var(--text-muted);
         }
-        .tv-error-box {
-          color: var(--err);
+        .tv-error-row :global(.ui-error-bar) {
+          flex: 1;
+          min-width: 0;
         }
-        .tv-error-box p {
-          margin: 0;
-          font-size: var(--text-body);
+        .tv-loading {
+          padding: var(--space-4) 0;
         }
 
         /* 空态重设计:图标改为浅底圆盘,拉开与标题的层级 */

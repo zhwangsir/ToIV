@@ -7,7 +7,7 @@
  * 打回(reject + feedback)→ POST /plan + /resume。
  */
 import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Icon } from "@/components/ui/Icon";
 import type { AgentPlanEditOp, AgentResumeBody, AgentRunTask } from "@/lib/api";
 import { primaryInputText, taskKindLabel } from "./agentRunMeta";
 
@@ -159,7 +159,7 @@ export function PlanPanel({ tasks, busy, onSavePlan, onResume }: PlanPanelProps)
                     aria-label={`删除任务 ${e.title || t.id}`}
                     onClick={() => removeTask(t.id)}
                   >
-                    <Trash2 size={14} aria-hidden="true" />
+                    <Icon name="delete" size={14} />
                   </button>
                 </div>
                 {t.depends_on.length > 0 && (
@@ -207,7 +207,7 @@ export function PlanPanel({ tasks, busy, onSavePlan, onResume }: PlanPanelProps)
                   aria-label="移除新增任务"
                   onClick={() => dropAdded(a.id)}
                 >
-                  <Trash2 size={14} aria-hidden="true" />
+                  <Icon name="delete" size={14} />
                 </button>
               </div>
               <textarea
@@ -224,7 +224,7 @@ export function PlanPanel({ tasks, busy, onSavePlan, onResume }: PlanPanelProps)
 
       <div className="agent-plan-actions">
         <button type="button" className="btn" onClick={addTask} disabled={submitting}>
-          <Plus size={14} aria-hidden="true" /> 加任务
+          <Icon name="plus" size={14} /> 加任务
         </button>
         <span className="agent-plan-actions-gap" />
         {rejecting ? (

@@ -9,6 +9,7 @@ import {
   type StudioShotInput,
 } from "@/lib/api";
 import { Icon } from "@/components/ui/Icon";
+import { Ripple } from "@/components/ui/Ripple";
 
 const STATUS_LABEL: Record<string, string> = {
   draft: "草稿",
@@ -79,7 +80,7 @@ export function ShotCard({
           // eslint-disable-next-line @next/next/no-img-element
           <img src={imageUrl(mediaUrl)} alt={shot.scene || `分镜 ${shot.idx + 1}`} loading="lazy" />
         ) : (
-          <div className="studio-shot-empty">
+          <div className={`studio-shot-empty${rendering ? " is-rendering" : ""}`}>
             <Icon name={rendering ? "loading" : "image"} size={22} />
             <span>{rendering ? "生成中…" : "未生成"}</span>
           </div>
@@ -211,33 +212,39 @@ export function ShotCard({
 
         {/* ── 操作 ── */}
         <div className="studio-shot-actions">
-          <button type="button" className="btn btn-sm btn-primary" disabled={busy} onClick={onRender}>
-            <Icon name={busyRender ? "loading" : "playing"} size={12} />
-            {busyRender ? "生成中" : "生成"}
-          </button>
-          <button
-            type="button"
-            className="btn btn-sm btn-ghost"
-            disabled={busy || !shot.dialogue}
-            title={shot.dialogue ? "IndexTTS2 合成台词" : "无台词"}
-            onClick={onVoice}
-          >
-            <Icon name={busyVoice ? "loading" : "mic"} size={12} />
-            {busyVoice ? "配音中" : "配音"}
-          </button>
-          {shot.render_mode === "video" && (
+          <Ripple>
+            <button type="button" className="btn btn-sm btn-primary" disabled={busy} onClick={onRender}>
+              <Icon name={busyRender ? "loading" : "playing"} size={12} />
+              {busyRender ? "生成中" : "生成"}
+            </button>
+          </Ripple>
+          <Ripple>
             <button
               type="button"
               className="btn btn-sm btn-ghost"
-              disabled={busy || !shot.video_url || !shot.voice_url}
-              title={
-                shot.video_url && shot.voice_url ? "LatentSync 对口型" : "需先生成视频并配音"
-              }
-              onClick={onLipsync}
+              disabled={busy || !shot.dialogue}
+              title={shot.dialogue ? "IndexTTS2 合成台词" : "无台词"}
+              onClick={onVoice}
             >
-              <Icon name={busyLipsync ? "loading" : "users"} size={12} />
-              {busyLipsync ? "对口型中" : "对口型"}
+              <Icon name={busyVoice ? "loading" : "mic"} size={12} />
+              {busyVoice ? "配音中" : "配音"}
             </button>
+          </Ripple>
+          {shot.render_mode === "video" && (
+            <Ripple>
+              <button
+                type="button"
+                className="btn btn-sm btn-ghost"
+                disabled={busy || !shot.video_url || !shot.voice_url}
+                title={
+                  shot.video_url && shot.voice_url ? "LatentSync 对口型" : "需先生成视频并配音"
+                }
+                onClick={onLipsync}
+              >
+                <Icon name={busyLipsync ? "loading" : "users"} size={12} />
+                {busyLipsync ? "对口型中" : "对口型"}
+              </button>
+            </Ripple>
           )}
         </div>
       </div>

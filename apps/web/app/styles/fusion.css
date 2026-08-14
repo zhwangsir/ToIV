@@ -44,7 +44,7 @@
 .fusion-view .page-header-title {
   margin: 0;
   font-size: var(--text-title);
-  font-weight: 700;
+  font-weight: var(--font-bold);
   color: var(--text-primary);
   letter-spacing: -0.02em;
   line-height: 1.2;
@@ -63,7 +63,7 @@
   display: inline-flex;
   align-items: center;
   font-size: var(--text-aux);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   color: var(--text-muted);
   background: var(--bg-surface-2);
   border: 1px solid var(--border-subtle);
@@ -130,11 +130,18 @@
     transform: translateY(0);
   }
 }
-/* hover 升浮:-4px + 浮起阴影 + accent 描边(压过 .card-hover:hover 的弱阴影) */
-.fusion-view .fusion-card:hover {
+/* hover 升浮:-4px + 浮起阴影 + accent 描边(压过 .card-hover:hover 的弱阴影);
+   focus-visible 与 hover 完全同档(卡片已可键盘聚焦,见 FusionView tabIndex/role) */
+.fusion-view .fusion-card:hover,
+.fusion-view .fusion-card:focus-visible {
   transform: translateY(-4px);
   border-color: var(--accent-glow);
   box-shadow: var(--shadow-float), var(--glass-highlight);
+}
+/* 键盘焦点环:全局 --focus-ring 统一规格(div 卡片默认无焦点样式,显式补齐) */
+.fusion-view .fusion-card:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
 }
 /* hero 卡:更大内边距 + 角部光晕,与普通卡拉开质感层级 */
 .fusion-view .fusion-card.is-flagship {
@@ -173,8 +180,9 @@
   width: 64px;
   height: 64px;
 }
-/* hover 时图标放大点亮,强化升浮反馈 */
-.fusion-view .fusion-card:hover .fusion-card-icon-wrap {
+/* hover/键盘聚焦时图标放大点亮,强化升浮反馈 */
+.fusion-view .fusion-card:hover .fusion-card-icon-wrap,
+.fusion-view .fusion-card:focus-visible .fusion-card-icon-wrap {
   transform: scale(1.08);
   background: var(--accent-glow);
 }
@@ -188,20 +196,20 @@
 .fusion-card-name {
   margin: 0;
   font-size: var(--text-section);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   color: var(--text-primary);
   letter-spacing: -0.01em;
 }
 /* hero 卡名:直接提到标题档(20/700),与普通卡形成一眼可见的字号对比 */
 .fusion-view .fusion-card.is-flagship .fusion-card-name {
   font-size: var(--text-title);
-  font-weight: 700;
+  font-weight: var(--font-bold);
   letter-spacing: -0.02em;
 }
 /* 「旗舰」徽标 */
 .fusion-card-badge {
   font-size: var(--text-label);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   color: var(--accent);
   background: var(--accent-soft);
   border: 1px solid var(--accent-glow);
@@ -218,7 +226,8 @@
     opacity var(--duration-fast) var(--ease-standard),
     transform var(--duration-fast) var(--ease-standard);
 }
-.fusion-view .fusion-card:hover .fusion-card-arrow {
+.fusion-view .fusion-card:hover .fusion-card-arrow,
+.fusion-view .fusion-card:focus-visible .fusion-card-arrow {
   opacity: 1;
   transform: translateX(0);
   color: var(--accent);
@@ -244,7 +253,7 @@
 }
 .fusion-tag {
   font-size: var(--text-label);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   color: var(--text-muted);
   background: var(--bg-surface-2);
   padding: var(--space-1) var(--space-2);
@@ -254,7 +263,8 @@
     color var(--duration-fast) var(--ease-standard),
     box-shadow var(--duration-fast) var(--ease-standard);
 }
-.fusion-view .fusion-card:hover .fusion-tag {
+.fusion-view .fusion-card:hover .fusion-tag,
+.fusion-view .fusion-card:focus-visible .fusion-tag {
   color: var(--accent);
   background: var(--accent-soft);
 }
@@ -271,7 +281,7 @@
   min-height: 32px;
   padding: var(--space-1) var(--space-3);
   font-size: var(--text-aux);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   color: var(--accent);
   background: var(--accent-soft);
   border-radius: var(--radius-badge);
@@ -280,7 +290,8 @@
     background-color var(--duration-fast) var(--ease-standard),
     box-shadow var(--duration-fast) var(--ease-standard);
 }
-.fusion-view .fusion-card:hover .fusion-card-cta {
+.fusion-view .fusion-card:hover .fusion-card-cta,
+.fusion-view .fusion-card:focus-visible .fusion-card-cta {
   gap: var(--space-2);
   background: var(--accent-glow);
   box-shadow: var(--accent-glow-shadow);

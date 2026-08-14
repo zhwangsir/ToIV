@@ -11,6 +11,7 @@ import type {
   BacklotStage,
 } from "@/lib/api";
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { ErrorBar } from "@/components/ui/ErrorBar";
 
 // ── 阶段元数据:徽章色调由 CSS data-stage → canonical 状态色映射 ──
 const STAGE_META: Record<
@@ -311,14 +312,7 @@ export function BacklotView() {
 
       <div className="bl-body">
         {error && !loading && (
-          <div className="bl-error">
-            <Icon name="error" size={36} strokeWidth={1.4} />
-            <div className="bl-error-msg">{error}</div>
-            <button type="button" className="btn btn-sm" onClick={load}>
-              <Icon name="refresh" size={14} />
-              重试
-            </button>
-          </div>
+          <ErrorBar message={error} onClose={load} />
         )}
 
         {!error && loading && (
@@ -802,7 +796,7 @@ export function BacklotView() {
           position: relative;
           height: 6px;
           background: var(--bg-surface-3);
-          border-radius: 3px;
+          border-radius: var(--radius-xs);
           overflow: hidden;
         }
         .bl-progress-fill {
@@ -811,7 +805,7 @@ export function BacklotView() {
           left: 0;
           bottom: 0;
           background: var(--accent);
-          border-radius: 3px;
+          border-radius: var(--radius-xs);
           transition: width var(--duration-base) var(--ease-standard);
         }
 

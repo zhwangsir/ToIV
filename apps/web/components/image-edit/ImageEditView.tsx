@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type DragEvent } from "react"
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Field, Input, Select } from "@/components/ui/Input";
 import {
@@ -112,9 +113,10 @@ interface DropZoneProps {
   onUpload: (file: File) => void;
   uploading: boolean;
   error: string | null;
+  onClearError: () => void;
 }
 
-function DropZone({ onUpload, uploading, error }: DropZoneProps) {
+function DropZone({ onUpload, uploading, error, onClearError }: DropZoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
 
@@ -178,7 +180,9 @@ function DropZone({ onUpload, uploading, error }: DropZoneProps) {
         </span>
         <span className="ie-dropzone-desc">支持 JPG / PNG / WebP，不超过 20MB</span>
       </button>
-      {error && <p className="ie-error">{error}</p>}
+      {error && (
+        <ErrorBar className="ie-error" message={error} onClose={onClearError} />
+      )}
     </div>
   );
 }
@@ -548,7 +552,12 @@ export function ImageEditView() {
       </header>
 
       {!source ? (
-        <DropZone onUpload={handleUpload} uploading={uploading} error={uploadError} />
+        <DropZone
+          onUpload={handleUpload}
+          uploading={uploading}
+          error={uploadError}
+          onClearError={() => setUploadError(null)}
+        />
       ) : (
         <div className="ie-workspace">
           <aside className="ie-rail">
@@ -646,7 +655,11 @@ export function ImageEditView() {
                       <ProgressBar progress={proc.progress} />
                     )}
                     {proc.status === "error" && proc.tool === t.key && (
-                      <p className="ie-error">{proc.error}</p>
+                      <ErrorBar
+                        className="ie-error"
+                        message={proc.error}
+                        onClose={() => setProc((p) => ({ ...p, error: null }))}
+                      />
                     )}
                   </div>
                 </ToolCard>

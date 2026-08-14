@@ -5,6 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import { createUser, deleteUser, listUsers } from "@/lib/api";
 import type { AdminUser } from "@/lib/types";
 import { Icon } from "@/components/ui/Icon";
+import { ErrorBar } from "@/components/ui/ErrorBar";
+import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { Tabs } from "@/components/ui/Tabs";
 import { AgentsAdminView } from "@/components/admin/AgentsAdminView";
 
@@ -260,9 +262,8 @@ export function AdminView() {
 
       <div className="card admin-card">
         {error && !loading && (
-          <div className="admin-error">
-            <Icon name="error" size={36} strokeWidth={1.4} />
-            <div className="admin-error-msg">{error}</div>
+          <div className="admin-error-row">
+            <ErrorBar message={error} onClose={() => setError(null)} />
             <button type="button" className="btn btn-sm" onClick={load}>
               <Icon name="refresh" size={14} />
               重试
@@ -271,10 +272,7 @@ export function AdminView() {
         )}
 
         {!error && loading && (
-          <div className="loading-spinner admin-loading">
-            <Icon name="loading" size={16} />
-            加载用户…
-          </div>
+          <LoadingBlock variant="line" count={4} className="admin-loading" />
         )}
 
         {!error && !loading && isEmpty && (
@@ -602,8 +600,19 @@ export function AdminView() {
         }
 
         .admin-loading {
-          padding: var(--space-8) var(--space-4);
-          justify-content: center;
+          padding: var(--space-6) var(--space-5);
+        }
+
+        /* 加载失败:ErrorBar(可关闭) + 重试按钮,横排撑满卡片 */
+        .admin-error-row {
+          display: flex;
+          align-items: center;
+          gap: var(--space-3);
+          padding: var(--space-4) var(--space-5);
+        }
+        .admin-error-row :global(.ui-error-bar) {
+          flex: 1;
+          min-width: 0;
         }
 
         .admin-empty {
@@ -618,19 +627,6 @@ export function AdminView() {
           margin: 0 auto var(--space-3);
           background: var(--accent-soft);
           border-radius: 50%;
-        }
-
-        .admin-error {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: var(--space-3);
-          padding: var(--space-8);
-          color: var(--text-muted);
-        }
-        .admin-error-msg {
-          font-size: var(--text-body);
-          color: var(--text-secondary);
         }
 
         .admin-table-wrap {
@@ -720,7 +716,7 @@ export function AdminView() {
           align-items: center;
           justify-content: center;
           font-size: var(--text-aux);
-          font-weight: 650;
+          font-weight: var(--font-semibold);
           font-family: var(--font-mono);
         }
         .admin-user-meta {
@@ -978,6 +974,11 @@ export function AdminView() {
           }
           .admin-create-btn {
             align-self: flex-start;
+          }
+          /* 窄屏不压缩 110-180px 固定列宽:表格保持最小可读宽度,
+             由 .admin-table-wrap(overflow-x:auto + 右缘渐隐)横向滚动承载 */
+          .admin-table {
+            min-width: 640px;
           }
           .col-usage {
             min-width: auto;

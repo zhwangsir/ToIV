@@ -2,6 +2,7 @@
 
 import { lazy, Suspense, useState } from "react";
 
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { Tabs } from "@/components/ui/Tabs";
 
 const ModelsView = lazy(() =>
@@ -52,18 +53,22 @@ export function ResourcesView({ showAdmin = false }: ResourcesViewProps) {
         </div>
       </header>
       <div className="resources-body">
-        <Suspense
-          fallback={
-            <div className="view-fallback" role="status" aria-label="加载中">
-              <div className="splash-orb" aria-hidden="true" />
-            </div>
-          }
-        >
-          {tab === "models" && <ModelsView />}
-          {tab === "train" && <TrainView />}
-          {tab === "backlot" && <BacklotView />}
-          {tab === "admin" && showAdmin && <AdminView />}
-        </Suspense>
+        {/* 内层错误边界(UI-B):子视图渲染/chunk 加载异常时只降级内容区,
+            页头 tab 条保持可用,切换 tab(key 变更)即自动复位边界 */}
+        <ErrorBoundary key={tab} viewName={items.find((i) => i.key === tab)?.label ?? "资源"}>
+          <Suspense
+            fallback={
+              <div className="view-fallback" role="status" aria-label="加载中">
+                <div className="splash-orb" aria-hidden="true" />
+              </div>
+            }
+          >
+            {tab === "models" && <ModelsView />}
+            {tab === "train" && <TrainView />}
+            {tab === "backlot" && <BacklotView />}
+            {tab === "admin" && showAdmin && <AdminView />}
+          </Suspense>
+        </ErrorBoundary>
       </div>
       <style jsx>{`
         .resources-view {

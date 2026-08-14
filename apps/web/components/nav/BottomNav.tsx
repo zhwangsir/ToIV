@@ -3,6 +3,8 @@
 import { useState } from "react";
 
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { MagnetFollow } from "@/components/ui/MagnetFollow";
+import { Ripple } from "@/components/ui/Ripple";
 import { ThemePicker } from "@/components/ui/ThemePicker";
 
 export interface BottomNavItem {
@@ -40,16 +42,21 @@ export function BottomNav({ items, moreItems = [], current, onSelect, ctaAction 
         {items.map((item) => {
           const isActive = item.key === current;
           if (item.isCta) {
+            // 主 CTA(UI-A 动效原语接入):MagnetFollow 微吸附 + Ripple 水波纹;
+            // 纯叠加包裹,按钮既有样式/行为不变;reduced-motion 自动退化
             return (
-              <button
-                key={item.key}
-                type="button"
-                className="bottom-nav-cta"
-                onClick={ctaAction ?? (() => onSelect(item.key))}
-                aria-label={item.label}
-              >
-                <Icon name={item.icon} size={22} />
-              </button>
+              <MagnetFollow key={item.key}>
+                <Ripple radius="full">
+                  <button
+                    type="button"
+                    className="bottom-nav-cta"
+                    onClick={ctaAction ?? (() => onSelect(item.key))}
+                    aria-label={item.label}
+                  >
+                    <Icon name={item.icon} size={22} />
+                  </button>
+                </Ripple>
+              </MagnetFollow>
             );
           }
           return (

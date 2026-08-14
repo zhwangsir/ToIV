@@ -13,12 +13,15 @@
 :root {
   color-scheme: light;
 
-  /* ── 字体(next/font 注入;Inter 为正文字体) ── */
+  /* ── 字体(next/font 注入;Inter 为正文字体;Fraunces 为展示位专用衬线) ── */
   --font-sans: var(--font-inter), "Inter", "PingFang SC", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, "HarmonyOS Sans SC", sans-serif;
   --font-mono: var(--font-jetbrains), "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  /* Display 展示位(落地大标题 / empty-display):Fraunces 衬线,中文回退 PingFang SC */
+  --font-display: var(--font-fraunces), "Fraunces", "PingFang SC", "Songti SC", serif;
 
-  /* ── 色彩:画布/面板层级(T1 素白:白画布 + 浅灰面板阶梯) ── */
-  --bg-canvas: #FFFFFF;
+  /* ── 色彩:画布/面板层级(T1 素白:近白画布 + 浅灰面板阶梯;
+     2026-08-14 UI-A:canvas 由纯白降为近白 #FAFAF9(微调不泛黄),配合 body::after 弱暗角) ── */
+  --bg-canvas: #FAFAF9;
   --bg-surface-1: #FAFAFA;
   --bg-surface-2: #F4F4F5;
   --bg-surface-3: #EBEBEE;
@@ -69,6 +72,17 @@
   --text-aux: 12px;
   --text-label: 11px;
 
+  /* ── Display 展示档(2026-08-14 UI-A 新增;落地页/空态大标题,收编 24/32/40 硬编码) ── */
+  --text-display-sm: 24px;
+  --text-display-md: 32px;
+  --text-display-lg: 40px;
+  --leading-display: 1.15;
+
+  /* ── 字重档(2026-08-14 UI-A 新增;禁止 650 等中间值) ── */
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+
   /* 旧字号阶(批 2a 已收敛部分视图;ui 组件与少数视图仍在用,继续向上面五档收敛) */
   --text-xs: 11px;
   --text-sm: 12px;
@@ -79,7 +93,8 @@
   --text-2xl: 24px;
 
   --leading-base: 22px;
-  --leading-md: 22px;
+  /* 2026-08-14 UI-A:去冗余,--leading-md 改别名指向 base(既有引用不断裂,后续向 base 收敛) */
+  --leading-md: var(--leading-base);
   --leading-xl: 26px;
 
   /* ── 间距(4px 基数) ── */
@@ -118,6 +133,9 @@
   --duration-fast: 150ms;
   --duration-base: 200ms;
   --duration-slow: 320ms;
+  /* 2026-08-14 UI-A:收编呼吸循环周期 token */
+  --duration-loop: 1.2s;
+  --duration-pulse: 1.6s;
   --ease-standard: ease-out;
   --ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
   /* CSS linear() 模拟 spring(过冲约 18%,回落收敛) */
@@ -126,12 +144,24 @@
   /* ── 布局 ── */
   --bottomnav-h: 0px;
 
-  /* ── z-index ── */
+  /* ── z-index(2026-08-14 UI-A:stage.css 裸值 0-30 映射建议注释档 ──
+     0  舞台内容基线(stage-media-wrap / stage-loading);
+     1  舞台暗角 ::after;2  舞台题注 stage-caption;
+     5  质量提示浮板 stage-quality;6  状态胶囊 stage-status;
+     10 提示词条 promptbar-dock;12 chip 展开面板;
+     20 参数浮板 generate-params / params-fab;30 窄屏参数抽屉遮罩。
+     后续团队把裸值收编为语义档位:stage-base=0 / stage-scrim=1 / stage-caption=2 /
+     stage-panel=5 / stage-status=6 / stage-dock=10 / stage-popover=12 / stage-sheet=20 / stage-mask=30;
+     全站浮层仍走 token:dropdown=50 / sticky=100 / drawer=200 / modal=300 / toast=400) */
   --z-dropdown: 50;
   --z-sticky: 100;
   --z-drawer: 200;
   --z-modal: 300;
   --z-toast: 400;
+
+  /* ── 焦点环与触控(2026-08-14 UI-A 新增) ── */
+  --focus-ring: 1px solid var(--accent);   /* outline 统一 1px accent */
+  --touch-target: 44px;                    /* WCAG 2.5.5 触控最小目标 */
 
   /* ── 断点令牌(JS 侧经 lib/useBreakpoint.ts 读取;CSS 媒体查询 max 形式统一为令牌值 -1:575/767/1023) ── */
   --bp-sm: 576px;
@@ -262,6 +292,22 @@ body::before {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
+/* 全局弱暗角(2026-08-14 UI-A,Film Atelier 暗房隐喻):
+   径向渐变仅四角轻微压暗(峰值 4%),视线自然聚向中央内容;
+   红线克制——不显脏、不压可读性,层级同噪点覆层(略低一级,噪点在上)。 */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2147482999;
+  background: radial-gradient(
+    ellipse 120% 105% at 50% 46%,
+    transparent 62%,
+    rgba(23, 20, 18, 0.04) 100%
+  );
+}
+
 #__next {
   height: 100%;
 }
@@ -330,9 +376,9 @@ img, video {
   top: var(--space-2);
 }
 
-/* 焦点环:1px accent 外描边 */
+/* 焦点环:1px accent 外描边(token 化,2026-08-14 UI-A) */
 :focus-visible {
-  outline: 1px solid var(--accent);
+  outline: var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -516,8 +562,8 @@ img, video {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: var(--touch-target);
+  height: var(--touch-target);
   margin-top: -14px;
   border-radius: 50%;
   background: var(--accent);
@@ -532,7 +578,8 @@ img, video {
   background: var(--accent-hover);
 }
 .bottom-nav-cta:active {
-  transform: scale(0.92);
+  transform: scale(0.97);
+  transition: transform var(--duration-fast) var(--ease-standard);
 }
 
 /* ========== Common Components(类名兼容旧视图,样式走新 token) ========== */
@@ -553,7 +600,8 @@ img, video {
   cursor: pointer;
   transition: background-color var(--duration-fast) var(--ease-standard),
               border-color var(--duration-fast) var(--ease-standard),
-              color var(--duration-fast) var(--ease-standard);
+              color var(--duration-fast) var(--ease-standard),
+              transform var(--duration-fast) var(--ease-standard);
   white-space: nowrap;
 }
 .btn:hover {
@@ -609,6 +657,17 @@ img, video {
 
 .btn.is-loading {
   pointer-events: none;
+}
+/* .btn 按压态(2026-08-14 UI-A,物理下沉感,scale+微沉降,reduced-motion 仅透明度反馈) */
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn:active:not(:disabled) {
+    transform: none;
+    opacity: 0.85;
+  }
 }
 
 /* 输入框 */
@@ -991,12 +1050,20 @@ select.input {
   /* 触控目标 ≥44px:.btn 是 inline-flex + align-items:center,min-height 撑高后内容自动视觉居中,padding 维持原值 */
   .btn,
   .btn-sm {
-    min-height: 44px;
+    min-height: var(--touch-target);
   }
   /* iOS 输入框字号 <16px 时聚焦会触发自动缩放,移动端提到 16px(桌面端不变) */
   .input {
     font-size: var(--text-lg);
   }
+}
+
+/* 通用卡片栅格:桌面基础定义(此前只有 ≤575px 单列覆盖,桌面列数由使用方各自补,
+   现补基座默认值,LoadingBlock grid 等基座组件直接可用) */
+.grid-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-3);
 }
 
 /* ── 移动端 <576px:触控目标 ≥44px ── */
@@ -1090,6 +1157,11 @@ select.input {
   position: relative;
   z-index: 1;
   letter-spacing: -0.03em;
+  /* 2026-08-14 UI-A:空态大标题走 Display 展示位衬线(中文回退 PingFang SC) */
+  font-family: var(--font-display);
+  font-size: var(--text-display-lg);
+  line-height: var(--leading-display);
+  font-weight: var(--font-bold);
 }
 
 /* 步骤卡片：增强层次感 */
@@ -1174,6 +1246,6 @@ select.input {
   }
   
   .empty-display {
-    font-size: 24px;
+    font-size: var(--text-display-sm);
   }
 }

@@ -18,14 +18,18 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session, select
 
+from app.comfy.client import ComfyUIError
+from app.comfy.pool import WorkerPool
 from app.db import get_session
-from app.deps import get_current_user
+from app.deps import get_current_user, get_pool, resolve_worker
 from app.models import ReferenceAsset, User, _now
 from app.nsfw_ctx import nsfw_allowed
+from app.pathsafe import PathTraversalError, validate_path_component
+from app.routes.images import _host, _ranged_response
 
 router = APIRouter()
 
@@ -187,6 +191,47 @@ def update_asset(
     session.commit()
     session.refresh(a)
     return _to_out(a)
+
+
+@router.get("/assets/{asset_id}/images/{index}")
+async def get_asset_image(
+    asset_id: str,
+    index: int,
+    request: Request,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+    pool: WorkerPool = Depends(get_pool),
+):
+    """资产参考图回显(缩略图/预览)。
+
+    上传句柄(filename, worker)不一定挂在任何 Job 上,/api/images 的 DB 归属
+    回退不适用;资产记录的 user_id + NSFW 上下文即归属证明(复用 _get_visible,
+    他人资产/SFW 上下文 nsfw 资产一律 404)。文件本体从落点 worker 的 input 目录
+    取字节(type=input),主 worker 掉线时回退同机 worker(共享同一输入目录)。
+    """
+    a = _get_visible(session, asset_id, user)
+    if index < 0 or index >= len(a.images):
+        raise HTTPException(status_code=404, detail="图片不存在")
+    img = a.images[index]
+    try:
+        safe_filename = validate_path_component(img["filename"], allow_subdirs=False)
+    except PathTraversalError as e:
+        raise HTTPException(status_code=400, detail=f"非法路径: {e}") from e
+
+    primary = resolve_worker(img["worker"])  # SSRF 白名单校验
+    host = _host(primary.base_url)
+    siblings = [
+        c for c in pool.clients
+        if _host(c.base_url) == host and c.base_url != primary.base_url
+    ]
+    last_err: Exception | None = None
+    for client in [primary, *siblings]:
+        try:
+            content, content_type = await client.get_image_bytes(safe_filename, "", "input")
+            return _ranged_response(content, content_type, request.headers.get("range"))
+        except ComfyUIError as e:
+            last_err = e
+    raise HTTPException(status_code=502, detail=f"图片暂不可取(同机 worker 均不可达): {last_err}")
 
 
 @router.delete("/assets/{asset_id}")

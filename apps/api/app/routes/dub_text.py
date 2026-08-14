@@ -25,6 +25,7 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from app.agent import llm
+from app.harness.ctx import get_ctx
 from app.config import get_settings
 from app.db import get_session
 from app.deps import get_current_user
@@ -365,7 +366,7 @@ async def dub_translate(
     user_msg = json.dumps(items, ensure_ascii=False)
 
     try:
-        msg = await llm.chat(
+        msg = await get_ctx().service("llm").chat(
             [{"role": "system", "content": system}, {"role": "user", "content": user_msg}]
         )
         arr = _extract_json_array(msg.get("content") or "")
@@ -430,7 +431,7 @@ async def dub_highlights(
     user_msg = json.dumps(items, ensure_ascii=False)
 
     try:
-        msg = await llm.chat(
+        msg = await get_ctx().service("llm").chat(
             [{"role": "system", "content": system}, {"role": "user", "content": user_msg}]
         )
         obj = _extract_json_object(msg.get("content") or "")

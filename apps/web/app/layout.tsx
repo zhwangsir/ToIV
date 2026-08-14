@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono, Fraunces } from "next/font/google";
 import "./globals.css";
 import "./styles/glass.css";
 import "./styles/cornernav.css";
@@ -10,6 +10,7 @@ import "./styles/settings.css";
 import "./styles/animatic.css";
 import "./styles/avatartalk.css";
 import "./styles/landing.css";
+import "./styles/effects.css";
 import "./styles/fusion.css";
 import "./styles/docs.css";
 import { ToastProvider } from "@/components/ui/Toast";
@@ -25,6 +26,14 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   weight: ["400", "500"],
   variable: "--font-jetbrains",
+  display: "swap",
+});
+
+/* Display 展示位衬线(2026-08-14 UI-A):落地大标题/empty-display 专用,正文仍 Inter */
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  weight: ["600", "700"],
+  variable: "--font-fraunces",
   display: "swap",
 });
 
@@ -52,7 +61,7 @@ export default function RootLayout({
   return (
     <html
       lang="zh-CN"
-      className={`${inter.variable} ${jetbrainsMono.variable}`}
+      className={`${inter.variable} ${jetbrainsMono.variable} ${fraunces.variable}`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />

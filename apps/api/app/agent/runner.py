@@ -6,22 +6,19 @@ from collections.abc import AsyncIterator
 
 from sqlmodel import Session, select
 
-from app.agent import llm, tools
+from app.agent import llm
 from app.agent.rag import get_kb
 from app.comfy.pool import WorkerPool
+from app.harness.ctx import get_ctx
 from app.models import Document, User
 from app.services import docs as docsvc
 
-SYSTEM = """你是 ToIV——一个由 ComfyUI 集群驱动的 AI 创作平台的智能助手。
+SYSTEM_PREFIX = """你是 ToIV——一个由 ComfyUI 集群驱动的 AI 创作平台的智能助手。
 你能通过工具实时为用户生成内容并直接展示结果:
-- generate_image:文生图(海报/插画/照片/概念图等)
-- generate_video:文生视频(把画面"动起来",约 1-2 分钟,调用前先告知用户需稍候)
-- generate_music:文生音乐(BGM/纯音乐/带词歌曲)
-- edit_image:图生图/重绘(仅当用户本轮上传了图片且想修改它时)
-- generate_3d:生成可旋转的 3D 模型(有上传图则用该图转,否则按描述先出图再转;约 1-3 分钟)
-- list_models:查询可用的图像大模型
-- search_knowledge:检索平台知识库(ComfyUI 节点/工作流配方/模型/提示词)
-- run_workflow:提交自定义 ComfyUI 工作流图(标准工具满足不了时;搭图前先 search_knowledge 查配方与真实模型名)
+"""
+
+# SYSTEM 静态尾(原则段);工具清单段由工具注册表生成,插在两段之间
+SYSTEM_SUFFIX = """
 
 原则:
 1. 用户表达创作意图时,主动调用相应工具完成,而不是只给建议。
@@ -34,6 +31,15 @@ SYSTEM = """你是 ToIV——一个由 ComfyUI 集群驱动的 AI 创作平台�
 _MAX_ROUNDS = 8
 # 挂载文档检索注入的上限:top-k 块数 × 单块 ≤900 字符,控制注入体量不挤爆上下文
 _DOC_TOP_K = 6
+
+
+def system_prompt() -> str:
+    """完整 SYSTEM:静态头 + 工具清单段(ctx.tools 注册表生成) + 静态尾。
+
+    每次调用现拼:reset_ctx 后或插件替换工具集时,提示词随注册表即时变化。
+    """
+    tools_section = get_ctx().service("tools").build_system_prompt()
+    return f"{SYSTEM_PREFIX}{tools_section}{SYSTEM_SUFFIX}"
 
 
 def _last_user_msg(messages: list[dict]) -> str:
@@ -80,10 +86,14 @@ async def run(
     messages: list[dict], pool: WorkerPool, user: User, session,
     attachment: dict | None = None,
     document_ids: list[str] | None = None,
+    on_message=None,
 ) -> AsyncIterator[dict]:
+    """主循环。on_message:可选 async 回调,每条进/出 LLM 的消息调用一次
+    (model-visible means logged;payload = {role, content, tool_calls, media},
+    由路由层落库 AgentMessage)。错误事件不落库(从未进入模型上下文)。"""
     # 把所有 system 内容拼到开头唯一一条 system 消息里(vLLM 要求 system 只能在消息列表开头,
     # 多条 system 会被拒绝;LM Studio 宽容但不保证)。用换行 + 分隔标记区分各段。
-    sys_parts: list[str] = [SYSTEM]
+    sys_parts: list[str] = [system_prompt()]
     context = await _rag_context(messages)
     if context:
         sys_parts.append(context)
@@ -98,9 +108,17 @@ async def run(
     msgs: list[dict] = [{"role": "system", "content": "\n\n".join(sys_parts)}]
     msgs.extend(messages)
 
+    tool_reg = get_ctx().service("tools")
+
+    async def _log(role: str, content: str = "", tool_calls=None, media=None) -> None:
+        if on_message is not None:
+            await on_message(
+                {"role": role, "content": content, "tool_calls": tool_calls, "media": media}
+            )
+
     for _ in range(_MAX_ROUNDS):
         try:
-            assistant = await llm.chat(msgs, tools=tools.TOOL_SCHEMAS)
+            assistant = await get_ctx().service("llm").chat(msgs, tools=tool_reg.schemas())
         except llm.LLMError as e:
             yield {"type": "error", "content": str(e)}
             return
@@ -110,9 +128,13 @@ async def run(
         if content:
             yield {"type": "text", "content": content}
         if not tool_calls:
+            # 最终回答:本轮未再进 LLM,但会随前端历史进入下一轮上下文 → 落库
+            if content:
+                await _log("assistant", content)
             return
 
         msgs.append({"role": "assistant", "content": content, "tool_calls": tool_calls})
+        await _log("assistant", content, tool_calls=tool_calls)
         for tc in tool_calls:
             fn = tc.get("function", {})
             name = fn.get("name", "")
@@ -121,11 +143,21 @@ async def run(
             except json.JSONDecodeError:
                 args = {}
             yield {"type": "tool", "name": name, "args": args}
-            text, events = await tools.execute(
-                name, args, pool, user, session, attachment
+            text, events = await tool_reg.execute(
+                name, args,
+                {"pool": pool, "user": user, "session": session, "attachment": attachment},
             )
+            media: list[dict] = []
             for ev in events:
                 yield ev
+                if isinstance(ev, dict) and ev.get("urls"):
+                    media.append({"type": ev.get("type", ""), "urls": ev["urls"]})
             msgs.append({"role": "tool", "tool_call_id": tc.get("id", ""), "content": text})
+            await _log(
+                "tool", text,
+                tool_calls={"tool_call_id": tc.get("id", ""), "name": name, "args": args},
+                media=media,
+            )
 
     yield {"type": "text", "content": "(已达到最大处理步数,请精简需求后重试)"}
+    await _log("assistant", "(已达到最大处理步数,请精简需求后重试)")

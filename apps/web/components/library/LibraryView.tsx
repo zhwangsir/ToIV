@@ -687,9 +687,9 @@ export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
                           alignItems: "center",
                           justifyContent: "center",
                           background: "rgba(0, 0, 0, 0.35)",
-                          color: "#fff",
+                          color: "var(--text-on-accent)",
                           fontSize: "var(--text-sm)",
-                          fontWeight: 500,
+                          fontWeight: "var(--font-medium)",
                           letterSpacing: "0.05em",
                           pointerEvents: "none",
                         }}
@@ -776,10 +776,10 @@ export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
                           right: "calc(var(--space-2) + 32px)",
                           padding: "3px 8px",
                           background: "var(--err)",
-                          color: "#fff",
+                          color: "var(--text-on-accent)",
                           borderRadius: "var(--radius-full)",
-                          fontSize: "12px",
-                          fontWeight: 600,
+                          fontSize: "var(--text-aux)",
+                          fontWeight: "var(--font-semibold)",
                           lineHeight: 1.2,
                           pointerEvents: "none",
                           zIndex: 2,
@@ -1009,7 +1009,8 @@ function LibraryLightbox({
           title="关闭(Esc)"
           onClick={onClose}
         >
-          <Icon name="close" size={18} />
+          {/* 灯箱工具条图标统一 16px 标尺(下载/存风格/复用/删除同档) */}
+          <Icon name="close" size={16} />
         </button>
       </div>
 

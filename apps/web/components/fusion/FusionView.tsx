@@ -95,6 +95,16 @@ export function FusionView({ onNavigate }: { onNavigate: (target: string) => voi
             className={`fusion-card${app.flagship ? " is-flagship" : ""}${mounted ? " is-mounted" : ""}`}
             style={{ "--delay": `${idx * 60}ms` } as React.CSSProperties}
             onClick={() => onNavigate(app.target)}
+            /* 键盘可操作(UI-B:focus 态补齐的前提):div 卡片获得焦点组语义,
+               Enter/Space 触发与点击一致的跳转;样式侧 focus-visible 与 hover 同档(fusion.css) */
+            tabIndex={0}
+            role="button"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onNavigate(app.target);
+              }
+            }}
           >
             {/* 图标 + 名称 + 旗舰徽标 + 进入箭头 */}
             <div className="fusion-card-head">

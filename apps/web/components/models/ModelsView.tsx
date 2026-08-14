@@ -15,6 +15,8 @@ import { Tabs } from "@/components/ui/Tabs";
 import { NsfwRecsPanel } from "@/components/models/NsfwRecsPanel";
 import { useR18Mode } from "@/lib/r18";
 import { usePoll } from "@/hooks/usePoll";
+import { ErrorBar } from "@/components/ui/ErrorBar";
+import { LoadingBlock } from "@/components/ui/LoadingBlock";
 
 type Tab = "local" | "market" | "r18";
 
@@ -350,16 +352,14 @@ export function ModelsView() {
           </div>
 
           {localLoading && !localModels ? (
+            /* 加载态(UI-A LoadingBlock):行骨架微光;mv-center 预留高度防 CLS */
             <div className="mv-center">
-              <span className="loading-spinner">
-                <Icon name="loading" size={16} />
-                正在加载本地模型…
-              </span>
+              <LoadingBlock variant="line" count={5} />
             </div>
           ) : localError ? (
             <div className="mv-center mv-error-box">
-              <Icon name="error" size={20} />
-              <p>{localError}</p>
+              {/* 错误态(UI-A ErrorBar):role=alert + 可关闭;重试保留在条外 */}
+              <ErrorBar message={localError} onClose={() => setLocalError(null)} />
               <button type="button" className="btn btn-sm" onClick={() => void loadLocal()}>
                 重试
               </button>
@@ -454,16 +454,14 @@ export function ModelsView() {
           </div>
 
           {marketLoading ? (
+            /* 加载态(UI-A LoadingBlock grid):3:4 卡片骨架,版式与真实市场卡对齐 */
             <div className="mv-center">
-              <span className="loading-spinner">
-                <Icon name="loading" size={16} />
-                正在搜索 Civitai…
-              </span>
+              <LoadingBlock variant="grid" count={6} className="mv-market-loading" />
             </div>
           ) : marketError ? (
             <div className="mv-center mv-error-box">
-              <Icon name="error" size={20} />
-              <p>{marketError}</p>
+              {/* 错误态(UI-A ErrorBar):role=alert + 可关闭;重试保留在条外 */}
+              <ErrorBar message={marketError} onClose={() => setMarketError(null)} />
               <button type="button" className="btn btn-sm" onClick={() => void runSearch()}>
                 重试
               </button>
@@ -603,8 +601,8 @@ export function ModelsView() {
           background: var(--err);
           color: var(--text-on-accent);
           border-radius: var(--radius-full);
-          font-size: 12px;
-          font-weight: 600;
+          font-size: var(--text-aux);
+          font-weight: var(--font-semibold);
           line-height: 1.2;
         }
 
@@ -685,25 +683,29 @@ export function ModelsView() {
           text-align: center;
         }
 
-        /* .loading-spinner 无全局定义,在此补齐加载态排版 */
-        .mv-center .loading-spinner {
-          display: inline-flex;
-          align-items: center;
-          gap: var(--space-2);
-          font-size: var(--text-body);
-          color: var(--text-muted);
-        }
-
-        /* 错误态面板化:独立卡片承载,不再裸文本悬浮 */
+        /* 错误态面板化:独立卡片承载 UI-A ErrorBar(role=alert + 可关闭),不再裸文本悬浮 */
         .mv-error-box {
           color: var(--err);
           background: var(--bg-surface-1);
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-panel);
         }
-        .mv-error-box p {
-          margin: 0;
-          font-size: var(--text-body);
+        /* ErrorBar 在居中卡片内限宽、左对齐(长错误文案不撑爆面板) */
+        .mv-error-box :global(.ui-error-bar) {
+          width: 100%;
+          max-width: 560px;
+          text-align: left;
+        }
+        /* 市场加载骨架(UI-A LoadingBlock grid):列宽/宽高比对齐真实市场卡(3:4),
+           骨架 → 真实卡片替换时栅格不跳动 */
+        .mv-panel :global(.ui-loading--grid.mv-market-loading) {
+          grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+          gap: var(--space-5);
+          width: 100%;
+        }
+        .mv-panel :global(.mv-market-loading .ui-loading-block) {
+          aspect-ratio: 3 / 4;
+          border-radius: var(--radius-panel);
         }
 
         .mv-groups {
@@ -745,7 +747,7 @@ export function ModelsView() {
 
         .mv-group-title {
           font-size: var(--text-section);
-          font-weight: 600;
+          font-weight: var(--font-semibold);
           color: var(--text-primary);
           letter-spacing: -0.01em;
         }
@@ -882,7 +884,7 @@ export function ModelsView() {
           border: 1px solid var(--border-strong);
           border-radius: var(--radius-badge);
           font-size: var(--text-label);
-          font-weight: 500;
+          font-weight: var(--font-medium);
           color: var(--text-primary);
           letter-spacing: 0.02em;
         }
@@ -921,7 +923,7 @@ export function ModelsView() {
         .mv-card-name {
           margin: 0;
           font-size: var(--text-body);
-          font-weight: 600;
+          font-weight: var(--font-semibold);
           color: var(--text-primary);
           line-height: 1.35;
           letter-spacing: -0.01em;
@@ -998,18 +1000,35 @@ export function ModelsView() {
           border-color: var(--err);
         }
 
-        /* 移动端触控目标 ≥44px */
+        /* ── 响应式(UI-B 补齐两档,对齐全站断点令牌 1023/767) ── */
+        /* 平板 ≤1023px:市场卡栅格降级(列宽收紧),加载骨架列宽同步 */
+        @media (max-width: 1023px) {
+          .mv-market-grid,
+          .mv-panel :global(.ui-loading--grid.mv-market-loading) {
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: var(--space-4);
+          }
+        }
+
+        /* 移动 ≤767px:触控目标 44px;分组列表行元信息折行(单列化);市场栅格再降级 */
         @media (max-width: 767px) {
           .models-view :global(.ui-tab),
           .mv-toolbar .btn,
           .mv-toolbar .input,
           .mv-card-actions .btn {
-            min-height: 44px;
+            min-height: var(--touch-target);
           }
-        }
-
-        @media (max-width: 640px) {
-          .mv-market-grid {
+          /* 分组列表单列化:扩展名/类型徽标折到文件名之下,长文件名不再挤压溢出
+             (26px = 14px 文件图标 + var(--space-3) 行内距) */
+          .mv-model-row {
+            flex-wrap: wrap;
+            row-gap: 2px;
+          }
+          .mv-model-name {
+            flex: 1 1 calc(100% - 26px);
+          }
+          .mv-market-grid,
+          .mv-panel :global(.ui-loading--grid.mv-market-loading) {
             grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
           }
           .mv-toolbar {

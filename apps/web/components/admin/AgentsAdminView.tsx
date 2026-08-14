@@ -11,6 +11,9 @@ import {
   type Agent,
 } from "@/lib/agents";
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { Empty } from "@/components/ui/Empty";
+import { ErrorBar } from "@/components/ui/ErrorBar";
+import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { Switch } from "@/components/ui/Switch";
 
 /** 已知的智能体图标键(与 Icon.tsx 的 ICON_MAP 对齐)。 */
@@ -341,9 +344,8 @@ export function AgentsAdminView() {
       </header>
 
       {error && !loading && (
-        <div className="aa-error">
-          <Icon name="error" size={20} />
-          <span>{error}</span>
+        <div className="aa-error-row">
+          <ErrorBar message={error} onClose={() => setError(null)} />
           <button type="button" className="btn btn-sm" onClick={load}>
             重试
           </button>
@@ -351,22 +353,15 @@ export function AgentsAdminView() {
       )}
 
       {loading && (
-        <div className="loading-spinner aa-loading">
-          <Icon name="loading" size={16} className="aa-spin" />
-          加载智能体…
-        </div>
+        <LoadingBlock variant="line" count={3} className="aa-loading" />
       )}
 
       {isEmpty && (
-        <div className="empty-state aa-empty">
-          <div className="empty-state-icon">
-            <Icon name="sparkles" size={48} strokeWidth={1.2} />
-          </div>
-          <div className="empty-state-title">还没有智能体</div>
-          <div className="empty-state-desc">
-            内置智能体由后端播种 · 也可点击右上角「新建智能体」创建自定义
-          </div>
-        </div>
+        <Empty
+          icon="sparkles"
+          title="还没有智能体"
+          desc="内置智能体由后端播种 · 也可点击右上角「新建智能体」创建自定义"
+        />
       )}
 
       {!error && !loading && agents.length > 0 && (
@@ -459,7 +454,11 @@ export function AgentsAdminView() {
                 </div>
 
                 {deleteError && deletingId === null && (
-                  <div className="aa-error-inline">{deleteError}</div>
+                  <ErrorBar
+                    className="aa-error-slot"
+                    message={deleteError}
+                    onClose={() => setDeleteError(null)}
+                  />
                 )}
 
                 {/* 测试面板(展开式) */}
@@ -535,7 +534,10 @@ export function AgentsAdminView() {
                       </button>
                     </div>
                     {testState.error && (
-                      <div className="aa-error-inline">{testState.error}</div>
+                      <ErrorBar
+                        message={testState.error}
+                        onClose={() => patchTest({ error: null })}
+                      />
                     )}
                     {testState.result && (
                       <div className="aa-test-result">
@@ -753,7 +755,7 @@ export function AgentsAdminView() {
               </div>
 
               {saveError && (
-                <div className="aa-error-inline">{saveError}</div>
+                <ErrorBar message={saveError} onClose={() => setSaveError(null)} />
               )}
 
               <div className="aa-form-actions">
@@ -810,37 +812,22 @@ export function AgentsAdminView() {
           letter-spacing: 0.01em;
         }
 
-        /* ── Loading / Empty / Error ── */
+        /* ── Loading / Error(Empty 走全局 .empty-state,由 Empty 组件渲染) ── */
         .aa-loading {
-          padding: var(--space-6) var(--space-4);
-          justify-content: center;
+          padding: var(--space-4) 0;
         }
-        .aa-empty {
-          padding: var(--space-7) var(--space-4);
-        }
-        .aa-error {
+        /* 加载失败:ErrorBar(可关闭) + 重试按钮横排 */
+        .aa-error-row {
           display: flex;
           align-items: center;
           gap: var(--space-3);
-          padding: var(--space-3) var(--space-4);
-          background: var(--err-soft);
-          border: 1px solid var(--err);
-          border-radius: var(--radius-control);
-          color: var(--err);
-          font-size: var(--text-body);
-          flex-wrap: wrap;
         }
-        .aa-error :global(.btn) {
-          margin-left: auto;
+        .aa-error-row :global(.ui-error-bar) {
+          flex: 1;
+          min-width: 0;
         }
-        .aa-error-inline {
-          padding: var(--space-2) var(--space-3);
-          background: var(--err-soft);
-          border: 1px solid var(--err);
-          border-radius: var(--radius-xs);
-          color: var(--err);
-          font-size: var(--text-aux);
-          line-height: 1.45;
+        /* 卡内删除失败 ErrorBar 槽位(原 aa-error-inline):只补间距 */
+        .aa-error-slot {
           margin-top: var(--space-2);
         }
 

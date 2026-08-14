@@ -10,6 +10,7 @@ import json
 import logging
 
 from app.agent import llm
+from app.harness.ctx import get_ctx
 from app.quality import coreference
 from app.services.studio.schemas import CharacterDraft, ShotDraft
 
@@ -123,7 +124,7 @@ async def resolve_references(
         ],
     }
     try:
-        msg = await llm.chat_layered(
+        msg = await get_ctx().service("llm").chat_layered(
             [
                 {"role": "system", "content": _RESOLVE_SYSTEM},
                 {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
@@ -172,7 +173,7 @@ async def parse_script(
     """拆解剧本。返回 (角色草稿, 分镜草稿);失败抛 StoryboardError。"""
     user_prompt = f"剧情:{premise}\n风格:{style or '不限'}\n分镜数量:{num_shots}"
     try:
-        msg = await llm.chat_layered(
+        msg = await get_ctx().service("llm").chat_layered(
             [
                 {"role": "system", "content": _SYSTEM},
                 {"role": "user", "content": user_prompt},

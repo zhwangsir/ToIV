@@ -338,7 +338,8 @@ def test_render_image_shot_runs_quality_gate(ctx, monkeypatch):
 
 
 def test_render_quality_gate_exception_does_not_break_render(ctx, monkeypatch):
-    """质量门抛异常 → 降级忽略,渲染照常成功。"""
+    """质量门抛异常 → 降级忽略,渲染照常成功(事件化后由 QualityPlugin 兜底)。"""
+    from app.quality import decision as quality_decision
     from app.services.studio.renderers.base import RenderResult
 
     client, token = ctx
@@ -356,7 +357,9 @@ def test_render_quality_gate_exception_does_not_break_render(ctx, monkeypatch):
             return RenderResult(kind="image", url="/api/studio/files/fake.png")
 
     monkeypatch.setattr(orch, "get_renderer", lambda shot: FakeRenderer())
-    monkeypatch.setattr(orch.quality_decision, "evaluate_image", boom_gate)
+    # H3 事件化:质量门经 QUALITY_ADVISORY 事件 → QualityPlugin → evaluate_image;
+    # 异常由插件 handler 的 try/except 兜底(降级直通语义不变)
+    monkeypatch.setattr(quality_decision, "evaluate_image", boom_gate)
     r = client.post(f"/api/studio/shots/{shots[1]['id']}/render", headers=H)
     assert r.status_code == 200, r.text
     detail = client.get(f"/api/studio/projects/{pid}", headers=H).json()

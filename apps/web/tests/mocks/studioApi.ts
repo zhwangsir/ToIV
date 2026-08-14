@@ -270,3 +270,122 @@ export const getAgentRunResult = (runId: string): Promise<AgentRunResult> => {
 /** SSE 地址构造替身:返回可控假地址,由 FakeEventSource 捕获。 */
 export const agentRunEventsUrl = (runId: string, after = 0): string =>
   `mock://agent-run-events/${runId}?after=${after}`;
+
+// ===========================================================================
+// 智能体会话(H2)替身扩展:useAgentConversations(AssistantView)单测经 loader 映射到这里
+// ===========================================================================
+import type {
+  AgentChatStreamBody,
+  AgentEvent,
+  AgentSessionDetail,
+  AgentSessionSummary,
+} from "../../lib/api";
+
+export const sessCalls = {
+  listAgentSessions: 0,
+  getAgentSession: 0,
+  forkAgentSession: 0,
+  deleteAgentSession: 0,
+  agentChatStream: 0,
+  getLlmModel: 0,
+};
+
+export function makeSessionSummary(
+  id: string,
+  over: Partial<AgentSessionSummary> = {},
+): AgentSessionSummary {
+  return {
+    id,
+    title: `会话 ${id}`,
+    nsfw: false,
+    created_at: "2026-08-14T00:00:00Z",
+    updated_at: "2026-08-14T00:00:00Z",
+    message_count: 0,
+    ...over,
+  };
+}
+
+export function makeSessionDetail(
+  id: string,
+  over: Partial<AgentSessionDetail> = {},
+): AgentSessionDetail {
+  return { ...makeSessionSummary(id), messages: [], ...over };
+}
+
+const sessDefaultImpl = {
+  listAgentSessions: async (_signal?: AbortSignal): Promise<AgentSessionSummary[]> => [],
+  getAgentSession: async (id: string, _signal?: AbortSignal): Promise<AgentSessionDetail> =>
+    makeSessionDetail(id),
+  forkAgentSession: async (id: string, _at?: number): Promise<AgentSessionSummary> =>
+    makeSessionSummary(`${id}-fork`),
+  deleteAgentSession: async (_id: string): Promise<void> => {},
+  agentChatStream: async (
+    _body: AgentChatStreamBody,
+    _onEvent: (ev: AgentEvent) => void,
+    _signal?: AbortSignal,
+  ): Promise<{ sessionId: string | null }> => ({ sessionId: "srv-new" }),
+  getLlmModel: async (_signal?: AbortSignal): Promise<{ display_model?: string } | null> =>
+    null,
+};
+
+export const sessImpl = { ...sessDefaultImpl };
+
+/** 恢复默认实现并清零会话调用计数(每个用例前调用)。 */
+export function resetSessImpl(): void {
+  Object.assign(sessImpl, sessDefaultImpl);
+  for (const k of Object.keys(sessCalls) as (keyof typeof sessCalls)[]) sessCalls[k] = 0;
+}
+
+export const listAgentSessions = (signal?: AbortSignal): Promise<AgentSessionSummary[]> => {
+  sessCalls.listAgentSessions++;
+  return sessImpl.listAgentSessions(signal);
+};
+export const getAgentSession = (
+  id: string,
+  signal?: AbortSignal,
+): Promise<AgentSessionDetail> => {
+  sessCalls.getAgentSession++;
+  return sessImpl.getAgentSession(id, signal);
+};
+export const forkAgentSession = (
+  id: string,
+  at?: number,
+): Promise<AgentSessionSummary> => {
+  sessCalls.forkAgentSession++;
+  return sessImpl.forkAgentSession(id, at);
+};
+export const deleteAgentSession = (id: string): Promise<void> => {
+  sessCalls.deleteAgentSession++;
+  return sessImpl.deleteAgentSession(id);
+};
+export const agentChatStream = (
+  body: AgentChatStreamBody,
+  onEvent: (ev: AgentEvent) => void,
+  signal?: AbortSignal,
+): Promise<{ sessionId: string | null }> => {
+  sessCalls.agentChatStream++;
+  return sessImpl.agentChatStream(body, onEvent, signal);
+};
+export const getLlmModel = (
+  signal?: AbortSignal,
+): Promise<{ display_model?: string } | null> => {
+  sessCalls.getLlmModel++;
+  return sessImpl.getLlmModel(signal);
+};
+
+/** @/lib/docs 经 loader 也会解析到本替身:docs.ts 只需这两个具名导出(链接期)。 */
+export const apiFetch = (): Promise<Response> =>
+  Promise.reject(new Error("apiFetch 未在会话测试中使用"));
+export const authHeaders = (): Record<string, string> => ({});
+
+/** 产物 URL 构造替身:直接透传(测试不断言完整 URL)。 */
+export const imageUrl = (path: string): string => path;
+
+// ===========================================================================
+// UI-B 视图组件替身扩展(uiBViews.test.ts:PromptBar → ReverseButton 经 loader 映射到这里)
+// ===========================================================================
+/** 提示词反推替身:永不真实请求,返回固定空结构。 */
+export const reversePrompt = async (): Promise<{ prompt: string; negative: string }> => ({
+  prompt: "",
+  negative: "",
+});

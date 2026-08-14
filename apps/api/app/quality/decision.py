@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from app.agent import llm
+from app.harness.ctx import get_ctx
 from app.scoring import (
     ScoreResult,
     Scorer,
@@ -115,6 +116,13 @@ async def evaluate_image(
     )
 
 
+# TODO(H3): evaluate_text_faithfulness 当前零调用方(死代码)。目标是接入
+# drama_studio 精修后处理(advisory 只记日志,与 image 门同语义),但
+# drama_studio.py 不在 H3 可改文件清单内,暂不硬接。接入点参考:
+# routes/drama_studio.py polish_script/refine_script 的 LLM 返回后,
+# 对 original vs polished/refined 做 faithfulness 评估,只记日志不阻断。
+
+
 # ── 文案忠实度门(L2 文本)─────────────────────────────────────────────────
 
 _FAITH_SYSTEM = """你是文案质检员。判定「产出文案」是否忠实于「原始需求」。
@@ -149,7 +157,7 @@ async def evaluate_text_faithfulness(
     """
     th = thresholds or Thresholds.from_env()
     try:
-        msg = await llm.chat_layered(
+        msg = await get_ctx().service("llm").chat_layered(
             [
                 {"role": "system", "content": _FAITH_SYSTEM},
                 {

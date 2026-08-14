@@ -11,8 +11,8 @@ from typing import TYPE_CHECKING, Any
 
 from sqlmodel import Session, select
 
+from app.harness import events as ev
 from app.models import StudioCharacter, StudioProject, StudioShot
-from app.quality import decision as quality_decision
 from app.services.studio.renderers.base import RenderError, get_renderer
 
 if TYPE_CHECKING:
@@ -74,20 +74,19 @@ async def render_shot(
         raise
     if result.kind == "image":
         shot.image_url = result.url
-        # L2 质量门(advisory v1):打分→三态决策,只记日志不阻断;
-        # 打分器未装/异常一律降级,渲染结果不受影响。R2 接 best-of-K 重生成。
+        # L2 质量门(advisory v1):渲染完成点发事件,由 QualityPlugin 订阅执行
+        # evaluate_image(打分→三态决策,只记日志不阻断);打分器未装/异常一律降级,
+        # 渲染结果不受影响。R2 接 best-of-K 重生成。
+        # 无订阅者(quality 插件未激活)时 emit 为空操作,零开销。
         try:
-            gate = await quality_decision.evaluate_image(result.url, shot.prompt)
-            if gate.decision is not quality_decision.QualityDecision.PASS:
-                logger.info(
-                    "render_shot 质量门:shot=%s decision=%s score=%s critique=%s",
-                    shot.id,
-                    gate.decision.value,
-                    gate.score,
-                    gate.critique,
-                )
+            from app.harness.ctx import get_ctx
+
+            await get_ctx().events.emit(
+                ev.QUALITY_ADVISORY,
+                {"image_url": result.url, "prompt": shot.prompt, "shot_id": shot.id},
+            )
         except Exception:
-            logger.debug("render_shot 质量门异常(降级忽略):shot=%s", shot.id, exc_info=True)
+            logger.debug("render_shot 质量门事件发射异常(降级忽略):shot=%s", shot.id, exc_info=True)
     else:
         shot.video_url = result.url
         shot.final_clip_url = result.url

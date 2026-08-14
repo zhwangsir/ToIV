@@ -1,0 +1,165 @@
+/* ════════════════════════════════════════════════════════════════════
+   UI-A 动效原语与共享组件样式层(2026-08-14 新建)
+   - ui-ripple:点击中心扩散水波纹(Ripple.tsx,纯叠加层不改按钮样式)
+   - ui-magnet:鼠标跟随微吸附(MagnetFollow.tsx,≤4px 弹性回落)
+   - ui-particles:点击聚集微粒子画布(ParticleButton.tsx,canvas 2d)
+   - ui-error-bar:可关闭错误条(ErrorBar.tsx,StudioView 范式提炼)
+   - ui-loading*:统一加载块(LoadingBlock.tsx,复用 motion.css 微光)
+   - ui-page-header-icon:统一页头图标位(PageHeader.tsx)
+   全部遵守 prefers-reduced-motion;JS 侧另有 matchMedia 兜底。
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── 水波纹宿主与波纹 ─────────────────────────────────────────────── */
+.ui-ripple {
+  position: relative;
+  display: inline-flex;
+  /* 包裹不改按钮既有样式:继承宿主圆角,波纹层仅视觉叠加 */
+  border-radius: var(--radius-control);
+}
+.ui-ripple--full {
+  border-radius: var(--radius-full);
+}
+.ui-ripple-layer {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+  /* 叠在按钮底色之上、文字之下易遮字,统一压到内容之上但以低透明度呈现;
+     波纹本体仅 35% 透明 currentColor,600ms 内衰减到 0,不构成遮挡 */
+  z-index: 1;
+}
+.ui-ripple-wave {
+  position: absolute;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0;
+  transform: scale(0);
+  animation: ui-ripple-spread 600ms var(--ease-standard) forwards;
+  will-change: transform, opacity;
+}
+@keyframes ui-ripple-spread {
+  0% {
+    transform: scale(0);
+    opacity: 0.32;
+  }
+  60% {
+    opacity: 0.18;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+/* ── 鼠标跟随微吸附 ───────────────────────────────────────────────── */
+.ui-magnet {
+  display: inline-flex;
+  /* spring 缓动:跟随带拖尾滞后感,松手弹性回落 */
+  transition: transform var(--duration-base) var(--ease-spring);
+  will-change: transform;
+}
+
+/* ── 粒子按钮画布 ─────────────────────────────────────────────────── */
+.ui-particles {
+  position: relative;
+  display: inline-flex;
+}
+.ui-particles-canvas {
+  position: absolute;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ── 错误条(StudioView studio-error-bar 范式原样提炼) ────────────── */
+.ui-error-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-aux);
+  color: var(--err);
+  background: var(--err-soft);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  animation: ui-error-bar-in var(--duration-base) var(--ease-standard);
+}
+@keyframes ui-error-bar-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+.ui-error-bar-text {
+  flex: 1;
+  min-width: 0;
+}
+.ui-error-bar-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  color: var(--err);
+  background: none;
+  border: none;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+.ui-error-bar-close:hover {
+  background: var(--bg-surface-2);
+}
+
+/* ── 统一加载块(收敛 skeleton-shimmer / Skeleton / ui-skeleton-pulse) ── */
+.ui-loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+}
+.ui-loading-block {
+  display: block;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-2);
+}
+/* line 变体:多行文本骨架,末行缩短模拟段落收尾 */
+.ui-loading--line .ui-loading-block {
+  height: 12px;
+}
+.ui-loading--line .ui-loading-block:last-child {
+  width: 62%;
+}
+/* grid 变体:卡片/作品网格骨架 */
+.ui-loading--grid {
+  display: grid;
+  gap: var(--space-3);
+}
+.ui-loading--grid .ui-loading-block {
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-control);
+}
+
+/* ── 统一页头图标位(PageHeader title 内联图标对齐) ────────────────── */
+.ui-page-header-icon {
+  display: inline-flex;
+  vertical-align: -3px;
+  margin-right: var(--space-2);
+}
+
+/* ── 降级:减少动效偏好 ───────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .ui-ripple-wave {
+    animation: none;
+    display: none;
+  }
+  .ui-magnet {
+    transition: none;
+  }
+  .ui-error-bar {
+    animation: none;
+  }
+  .ui-error-bar-close {
+    transition: none;
+  }
+}

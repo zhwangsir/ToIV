@@ -1,47 +1,37 @@
 /**
  * Agent Team 展示元数据与纯函数工具:
- * 状态徽章(图标一律 lucide-react)、kind 中文名、产物/文案/时长提取(对后端字段防御)。
+ * 状态徽章(图标一律经 ui/Icon 键)、kind 中文名、产物/文案/时长提取(对后端字段防御)。
  */
-import {
-  BadgeCheck,
-  CheckCircle2,
-  Clock,
-  ListOrdered,
-  Loader2,
-  ShieldCheck,
-  Undo2,
-  XCircle,
-  type LucideIcon,
-} from "lucide-react";
+import type { IconName } from "@/components/ui/Icon";
 import type { AgentRunTask, AgentTaskStatus } from "@/lib/api";
 
 export type StatusTone = "neutral" | "accent" | "ok" | "warn" | "err";
 
 export interface TaskStatusMeta {
   label: string;
-  icon: LucideIcon;
+  icon: IconName;
   tone: StatusTone;
   /** 进行态(图标旋转) */
   spin?: boolean;
 }
 
-/** 任务状态 → 徽章(图标按 R3.1 约定:pending=Clock/queued=ListOrdered/running=Loader2/
- *  done=CheckCircle2/error=XCircle/approved=BadgeCheck;verifying/rejected 本期预留)。 */
+/** 任务状态 → 徽章(图标按 R3.1 约定:pending=clock/queued=list-ordered/running=loading/
+ *  done=success/error=x-circle/approved=badge-check;verifying/rejected 本期预留)。 */
 export const TASK_STATUS_META: Record<AgentTaskStatus, TaskStatusMeta> = {
-  pending: { label: "排队中", icon: Clock, tone: "neutral" },
-  queued: { label: "已入队", icon: ListOrdered, tone: "neutral" },
-  running: { label: "生成中", icon: Loader2, tone: "accent", spin: true },
-  verifying: { label: "验收中", icon: ShieldCheck, tone: "warn" },
-  rejected: { label: "被打回", icon: Undo2, tone: "err" },
-  approved: { label: "已通过", icon: BadgeCheck, tone: "ok" },
-  done: { label: "完成", icon: CheckCircle2, tone: "ok" },
-  error: { label: "失败", icon: XCircle, tone: "err" },
+  pending: { label: "排队中", icon: "clock", tone: "neutral" },
+  queued: { label: "已入队", icon: "list-ordered", tone: "neutral" },
+  running: { label: "生成中", icon: "loading", tone: "accent", spin: true },
+  verifying: { label: "验收中", icon: "shield-check", tone: "warn" },
+  rejected: { label: "被打回", icon: "undo", tone: "err" },
+  approved: { label: "已通过", icon: "badge-check", tone: "ok" },
+  done: { label: "完成", icon: "success", tone: "ok" },
+  error: { label: "失败", icon: "x-circle", tone: "err" },
 };
 
 export function taskStatusMeta(status: string): TaskStatusMeta {
   return TASK_STATUS_META[status as AgentTaskStatus] ?? {
     label: status || "未知",
-    icon: Clock,
+    icon: "clock",
     tone: "neutral",
   };
 }

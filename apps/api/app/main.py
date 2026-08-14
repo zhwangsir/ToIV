@@ -89,6 +89,16 @@ def _jwt_secret_guard(settings) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # H1 harness 内核引导:懒触发 get_ctx() 注册内建插件(llm/tool/引擎/质量门),
+    # 按 TOIV_HARNESS_PROFILE 裁剪(full/minimal/headless),打出插件清单
+    from app.harness.ctx import get_ctx, get_registry
+
+    get_ctx()
+    logging.getLogger("toiv.harness").info(
+        "harness 已引导(profile=%s),已注册插件: %s",
+        get_settings().harness_profile,
+        ", ".join(get_registry().plugin_names),
+    )
     init_db()
     bootstrap_admin()
     # 内置提示词优化智能体幂等播种(已存在 id 跳过,不动用户改过的)

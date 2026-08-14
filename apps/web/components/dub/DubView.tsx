@@ -25,6 +25,7 @@ import {
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { Empty } from "@/components/ui/Empty";
+import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Input, Select } from "@/components/ui/Input";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
 import { useToast } from "@/components/ui/Toast";
@@ -586,10 +587,7 @@ export function DubView() {
             )}
 
             {uploadError && (
-              <div className="dub-error">
-                <Icon name="error" size={14} strokeWidth={2} />
-                {uploadError}
-              </div>
+              <ErrorBar message={uploadError} onClose={() => setUploadError(null)} />
             )}
 
             {video && (
@@ -662,10 +660,7 @@ export function DubView() {
               </div>
             )}
             {subError && (
-              <div className="dub-error">
-                <Icon name="error" size={14} strokeWidth={2} />
-                {subError}
-              </div>
+              <ErrorBar message={subError} onClose={() => setSubError(null)} />
             )}
 
             {/* 空态:暂无字幕分段 */}
@@ -707,10 +702,7 @@ export function DubView() {
                   </div>
                 </div>
                 {translateError && (
-                  <div className="dub-error">
-                    <Icon name="error" size={14} strokeWidth={2} />
-                    {translateError}
-                  </div>
+                  <ErrorBar message={translateError} onClose={() => setTranslateError(null)} />
                 )}
                 <ul className="dub-segments">
                   {segments.slice(0, 60).map((seg) => (
@@ -823,10 +815,7 @@ export function DubView() {
                   </div>
                 )}
                 {voiceError && (
-                  <div className="dub-error">
-                    <Icon name="error" size={14} strokeWidth={2} />
-                    {voiceError}
-                  </div>
+                  <ErrorBar message={voiceError} onClose={() => setVoiceError(null)} />
                 )}
               </div>
 
@@ -1120,10 +1109,10 @@ export function DubView() {
                   ? "重新提交"
                   : "提交对口型任务"}
               </button>
-              {lipsyncError && (
-                <span className="dub-hint-text dub-hint-error">{lipsyncError}</span>
-              )}
             </div>
+            {lipsyncError && (
+              <ErrorBar message={lipsyncError} onClose={() => setLipsyncError(null)} />
+            )}
 
             {/* LatentSync 结果 */}
             {lipsyncMode === "latent" && lipsyncStart && lipsyncStatus && (
@@ -1698,9 +1687,6 @@ export function DubView() {
           font-size: var(--text-aux);
           color: var(--text-muted);
         }
-        .dub-hint-error {
-          color: var(--err);
-        }
 
         /* ── 字幕条 ── */
         .dub-subtoolbar {
@@ -1917,6 +1903,28 @@ export function DubView() {
         }
 
         /* ── 配音结果 ── */
+        /* 步骤 3 双栏工作区:左栏参数与操作,右栏配音结果;
+           min-width:0 防 grid 子项被长内容撑破 */
+        .dub-cols {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+          gap: var(--space-4);
+          align-items: start;
+        }
+        .dub-col-main,
+        .dub-col-side {
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-3);
+        }
+        /* 窄屏(≤767):双栏重排为纵向单栏,避免 120-180px min-width 项互相挤压 */
+        @media (max-width: 767px) {
+          .dub-cols {
+            grid-template-columns: 1fr;
+          }
+        }
+
         .dub-voice-result {
           display: flex;
           flex-direction: column;

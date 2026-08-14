@@ -2,6 +2,33 @@
 
 ---
 
+## H-UI-2026-08-14 · AI 底层驱动 Harness 化 + 全站 UI 优化
+
+**时间**: 2026-08-14
+**类型**: 架构 + UI 双战线里程碑(参照 deepseek-ai/deepseek-harness 架构;方案 docs/2026-08-14-harness-driver-plan.md)
+
+### Harness 化(H1-H3,后端,API 契约零变更)
+
+| 里程碑 | 交付 | 测试 |
+|---|---|---|
+| H1 内核+LLM缝 | `app/harness/`:HarnessContext(可逆效应/服务注册)+ EventBus(emit + waterfall next() 委托)+ Plugin 协议 + LayeredLLMProvider(动态委托 app.agent.llm,既有 monkeypatch 全兼容);15 个 llm 直调点迁移 | 25 例 |
+| H2 会话+工具缝 | AgentSession/AgentMessage 追加日志表(model-visible means logged);chat 落库 + sessions 列表/回放/fork/删除(R18 过滤);ToolSpec 注册表(schema+executor+summary 单一事实源,SYSTEM 工具清单自动生成且逐字节等价锁定);守卫 waterfall(R18 门/限流);8 工具逐字迁移;AssistantView 服务端会话优先+localStorage 兜底 | 41 例 |
+| H3 引擎/质量门/profile | 20 引擎插件化注册 + submit 声明绑定 + profile 停用集;质量门 orchestrator 硬编码→quality/advisory 事件订阅;agent_team_exec.py 下沉消循环依赖;profile 三档(full/minimal/headless);GET /api/system/harness 自省 | 14 例 |
+
+### UI 优化(UI-A~D,前端)
+
+- **UI-A 基座**:display 字档/字重/focus-ring/touch-target/duration-loop token;素白 #FAFAF9+弱暗角;Ripple/MagnetFollow/ParticleButton(≤280 粒子红线)动效原语;ErrorBar/LoadingBlock/PageHeader 共享件;错误页脱旧紫;Landing 死类修复;Fraunces 展示字体;.btn :active
+- **UI-B** 生成/作品库/融合/模型/资源:stage z-index 语义档、主 CTA Ripple、fusion 键盘可达、models 响应式两档+ErrorBar
+- **UI-C** Studio/Agent-runs/短剧/画布/看板:styled-jsx 迁移 992 行 CSS(零视觉变更)、DramaView 消灭纯文字加载、Canvas 移动提示
+- **UI-D** 十组:DramaPlayer 767 断点对齐、AdminView 表格横滚、DubView 单栏化、错误条十组统一 ErrorBar
+
+### 回归
+
+- **pytest 1531 passed**(1452 + 净增 79);**web 78/78**(新增 30);tsc 零错误;next build ✅
+- ⚠️ 构建注意:Fraunces 字体走 Google Fonts，本机构建需 HTTPS_PROXY;core 部署走 rsync 预构建 .next 不受影响
+
+---
+
 ## R3.2-2026-08-14 · LangGraph StateGraph + checkpoint 断点续跑 + LLM 分级
 
 **时间**: 2026-08-14

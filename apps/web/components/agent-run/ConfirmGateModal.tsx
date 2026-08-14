@@ -5,8 +5,10 @@
  * 时间线预览(任务卡按序排列 + 时长合计),approve 合成 / reject 返回(可带批注)。
  */
 import { useState } from "react";
-import { CheckCircle2, Undo2 } from "lucide-react";
+import { Icon } from "@/components/ui/Icon";
+import { MagnetFollow } from "@/components/ui/MagnetFollow";
 import { Modal } from "@/components/ui/Modal";
+import { Ripple } from "@/components/ui/Ripple";
 import type { AgentResumeBody, AgentRunTask } from "@/lib/api";
 import { taskDurationSec, taskStatusMeta } from "./agentRunMeta";
 
@@ -65,7 +67,7 @@ export function ConfirmGateModal({ open, tasks, busy, onResume, onClose }: Confi
               disabled={submitting}
               onClick={() => void reject()}
             >
-              <Undo2 size={14} aria-hidden="true" /> 确认打回
+              <Icon name="undo" size={14} /> 确认打回
             </button>
           </>
         ) : (
@@ -76,16 +78,20 @@ export function ConfirmGateModal({ open, tasks, busy, onResume, onClose }: Confi
               disabled={submitting}
               onClick={() => setRejecting(true)}
             >
-              <Undo2 size={14} aria-hidden="true" /> 返回修改
+              <Icon name="undo" size={14} /> 返回修改
             </button>
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={submitting}
-              onClick={() => void approve()}
-            >
-              <CheckCircle2 size={14} aria-hidden="true" /> 确认合成
-            </button>
+            <MagnetFollow>
+              <Ripple>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={submitting}
+                  onClick={() => void approve()}
+                >
+                  <Icon name="success" size={14} /> 确认合成
+                </button>
+              </Ripple>
+            </MagnetFollow>
           </>
         )
       }

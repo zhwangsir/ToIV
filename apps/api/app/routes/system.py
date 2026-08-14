@@ -111,3 +111,44 @@ async def gpu_smoke_latest(_: User = Depends(get_current_admin)) -> dict:
     if not latest.exists():
         raise HTTPException(status_code=404, detail="尚无冒烟报告(等待每日定点或手动触发)")
     return json.loads(latest.read_text())
+
+
+# ── H3 Harness 自省端点(profile/插件/引擎停用清单) ──
+
+
+@router.get("/system/harness")
+async def harness_info(_: User = Depends(get_current_admin)) -> dict:
+    """harness 运行态自省:当前 profile、已激活插件(名称/服务/事件)、停用引擎清单。
+
+    dsh --dump-config 的等价自省端点。仅管理员。
+    """
+    from app.harness.ctx import get_ctx, get_registry
+    from app.services.engine_registry import get_disabled_engines
+
+    ctx = get_ctx()
+    registry = get_registry()
+    settings = get_settings()
+
+    # 插件自省:名称 + 注册的服务 + 订阅的事件
+    plugins: list[dict] = []
+    for name in registry.plugin_names:
+        plugin_info: dict = {"name": name, "services": [], "events": []}
+        # 从 ctx 服务表反查本插件注册的服务(scope 内注册的)
+        # 简化:按插件名映射已知服务/事件
+        if name == "llm-seam":
+            plugin_info["services"] = ["llm"]
+        elif name == "tool-seam":
+            plugin_info["services"] = ["tools"]
+            plugin_info["events"] = ["tools/pre-execute", "tools/post-execute"]
+        elif name == "engine-seam":
+            plugin_info["services"] = ["engines"]
+        elif name == "quality-seam":
+            plugin_info["services"] = ["quality"]
+            plugin_info["events"] = ["quality/advisory"]
+        plugins.append(plugin_info)
+
+    return {
+        "profile": settings.harness_profile,
+        "plugins": plugins,
+        "engines_disabled": sorted(get_disabled_engines()),
+    }

@@ -4,6 +4,8 @@ import { useState } from "react";
 
 import { login, setToken } from "@/lib/api";
 import { Icon } from "@/components/ui/Icon";
+import { ParticleButton } from "@/components/ui/ParticleButton";
+import { Ripple } from "@/components/ui/Ripple";
 
 /** 三个能力关键词:纯排版展示(未登录态无作品数据,不拉接口)。 */
 const CAPABILITIES = [
@@ -136,16 +138,21 @@ export function LandingPage() {
             {formError && (
               <div className="landing-error" role="alert">{formError}</div>
             )}
-            <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? (
-                <>
-                  <Icon name="loading" size={16} />
-                  登录中…
-                </>
-              ) : (
-                "登录"
-              )}
-            </button>
+            {/* 主 CTA(UI-A 动效原语接入):点击微粒子聚集 + 水波纹;reduced-motion 自动退化 */}
+            <ParticleButton className="landing-submit">
+              <Ripple>
+                <button type="submit" className="btn btn-primary" disabled={loading}>
+                  {loading ? (
+                    <>
+                      <Icon name="loading" size={16} />
+                      登录中…
+                    </>
+                  ) : (
+                    "登录"
+                  )}
+                </button>
+              </Ripple>
+            </ParticleButton>
           </form>
         </div>
       </section>

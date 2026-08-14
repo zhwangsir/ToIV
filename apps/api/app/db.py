@@ -322,6 +322,31 @@ _SQLITE_RAW_MIGRATIONS: tuple[str, ...] = (
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_agentapproval_run ON agentapproval(run_id)",
+    # ── H2:智能体会话日志 2 表(agentsession/agentmessage)──
+    # 新库由 SQLModel create_all 建立;此处保 prod 既有库幂等补建(与 agentrun 同双轨写法)
+    """
+    CREATE TABLE IF NOT EXISTS agentsession (
+        id         TEXT PRIMARY KEY,
+        user_id    TEXT NOT NULL,
+        title      TEXT DEFAULT '',
+        nsfw       BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_agentsession_user ON agentsession(user_id)",
+    """
+    CREATE TABLE IF NOT EXISTS agentmessage (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT NOT NULL,
+        role       TEXT NOT NULL,
+        content    TEXT DEFAULT '',
+        tool_calls TEXT DEFAULT '',
+        media      TEXT DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_agentmessage_session ON agentmessage(session_id)",
 )
 
 

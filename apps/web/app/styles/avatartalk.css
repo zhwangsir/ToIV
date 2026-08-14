@@ -192,46 +192,21 @@
   text-align: center;
 }
 
-/* 错误条(底部居中,玻璃浮层;字幕条同现时被其覆盖,z 更高优先可读) */
+/* 错误条(底部居中;视觉由 ErrorBar/ui-error-bar 供给,此处仅保留舞台浮层定位,
+   字幕条同现时被其覆盖,z 更高优先可读) */
 .at-error-bar {
   position: absolute;
   left: 50%;
   bottom: var(--space-5);
   transform: translateX(-50%);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
   max-width: 90%;
-  padding: var(--space-2) var(--space-3);
-  background: var(--glass-bg);
+  z-index: 11;
+}
+/* 浮层在视频 scrim 上:err-soft 底补一层玻璃模糊,与字幕条材质一致 */
+.at-error-bar .ui-error-bar {
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-full);
-  box-shadow: var(--glass-highlight), var(--shadow-xl);
-  font-size: var(--text-aux);
-  font-weight: 500;
-  color: var(--err);
-  z-index: 11;
-  animation: at-slide-up-center var(--duration-base) var(--ease-standard);
-}
-.at-error-dismiss {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: var(--radius-full);
-  color: inherit;
-  opacity: 0.6;
-  cursor: pointer;
-  transition: opacity var(--duration-fast) var(--ease-standard);
-}
-.at-error-dismiss:hover { opacity: 1; }
-.at-error-dismiss:focus-visible {
-  opacity: 1;
-  outline: 1px solid var(--err);
-  outline-offset: 1px;
+  box-shadow: var(--shadow-xl);
 }
 
 @keyframes at-fade-in {
@@ -241,10 +216,6 @@
 @keyframes at-slide-up {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
-}
-@keyframes at-slide-up-center {
-  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
-  to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
 /* ── 右侧控制面板 ── */
@@ -843,9 +814,5 @@
     min-height: 44px;
     display: inline-flex;
     align-items: center;
-  }
-  .at-error-dismiss {
-    width: 28px;
-    height: 28px;
   }
 }

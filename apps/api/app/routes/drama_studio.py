@@ -42,6 +42,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session, delete, select
 
 from app.agent import llm
+from app.harness.ctx import get_ctx
 from app.comfy.client import ComfyUIError
 from app.comfy.pool import WorkerPool
 from app.comfy.tracker import spawn as spawn_tracker, wait_for_jobs
@@ -1001,7 +1002,7 @@ async def storyboard(
         layer = "L1"
     try:
         # 默认走配置层;L2/L3 当前依赖 EXO,未就绪时会自动降级,默认 L1 保证可用性。
-        msg = await llm.chat_layered(
+        msg = await get_ctx().service("llm").chat_layered(
             [
                 {"role": "system", "content": _STORYBOARD_SYSTEM},
                 {"role": "user", "content": _build_user_prompt(
@@ -2907,7 +2908,7 @@ async def grid_storyboard(
     # 与普通 storyboard 一致走配置层(TOIV_DRAMA_STORYBOARD_LAYER),不再绕过配置直调 L1。
     layer = _drama_llm_layer(get_settings().drama_storyboard_layer)
     try:
-        msg = await llm.chat_layered(
+        msg = await get_ctx().service("llm").chat_layered(
             [
                 {"role": "system", "content": _STORYBOARD_SYSTEM},
                 {
@@ -3821,7 +3822,7 @@ async def refine_script(
     layer = _refine_layer()
 
     try:
-        msg = await llm.chat_layered(
+        msg = await get_ctx().service("llm").chat_layered(
             [
                 {"role": "system", "content": _L2_REFINE_SYSTEM},
                 {"role": "user", "content": f"{body.instruction}\n\n{body.text}"},
@@ -3867,7 +3868,7 @@ async def polish_script(
 
     layer = _polish_layer()
     try:
-        msg = await llm.chat_layered(
+        msg = await get_ctx().service("llm").chat_layered(
             [
                 {"role": "system", "content": _L3_POLISH_SYSTEM},
                 {"role": "user", "content": f"{body.instruction}\n\n{body.text}"},
@@ -4008,7 +4009,7 @@ async def _run_batch_polish(
             shot_id = item.get("shot_id")
             text = item["text"]
             try:
-                msg = await llm.chat_layered(
+                msg = await get_ctx().service("llm").chat_layered(
                     [
                         {"role": "system", "content": _L3_POLISH_SYSTEM},
                         {"role": "user", "content": f"{instruction}\n\n{text}"},

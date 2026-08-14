@@ -17,7 +17,7 @@
   );
   background-size: 200% 100%;
   background-position: 100% 0;
-  animation: skeleton-shimmer-sweep 1.6s linear infinite;
+  animation: skeleton-shimmer-sweep var(--duration-pulse) linear infinite;
 }
 
 @keyframes skeleton-shimmer-sweep {

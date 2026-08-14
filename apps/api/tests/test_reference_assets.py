@@ -381,3 +381,92 @@ def test_delete_flow(ctx):
 def test_delete_nonexistent_404(ctx):
     c, alice, _ = ctx
     assert c.delete("/api/assets/ghost", headers=_auth(alice)).status_code == 404
+
+
+# --------------------------------------------------------------------------- #
+# 资产参考图回显(GET /api/assets/{id}/images/{index})
+# --------------------------------------------------------------------------- #
+_DATA = bytes(range(256))  # 256 字节假图
+
+
+class _FakeWorker:
+    """假 worker:直接返回内存字节,不走网络。"""
+
+    base_url = "http://192.168.71.127:8189"
+
+    async def get_image_bytes(self, filename, subfolder, type_):
+        assert type_ == "input"  # 资产句柄取自上传目录
+        return _DATA, "image/png"
+
+
+@pytest.fixture
+def ctx_img(monkeypatch):
+    """在 ctx 基础上覆盖 worker pool,并将 resolve_worker 替换为替身。"""
+    from types import SimpleNamespace
+
+    import app.routes.reference_assets as assets_mod
+    from app.deps import get_pool
+
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+
+    def override() -> Session:
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = override
+    fake = _FakeWorker()
+    app.dependency_overrides[get_pool] = lambda: SimpleNamespace(clients=[fake])
+    monkeypatch.setattr(assets_mod, "resolve_worker", lambda w: fake)
+
+    with Session(engine) as s:
+        alice_id = _make_user(s, "alice@toiv.ai")
+        bob_id = _make_user(s, "bob@toiv.ai")
+    yield TestClient(app), create_token(alice_id), create_token(bob_id)
+    app.dependency_overrides.clear()
+
+
+def test_asset_image_owner_200(ctx_img):
+    """属主回显:200 + 原字节 + content-type 透传 + 私有缓存头。"""
+    c, alice, _ = ctx_img
+    a = _create(c, alice, images=[_img(1), _img(2)])
+    r = c.get(f"/api/assets/{a['id']}/images/1", headers=_auth(alice))
+    assert r.status_code == 200
+    assert r.content == _DATA
+    assert r.headers["content-type"] == "image/png"
+    assert r.headers["Cache-Control"].startswith("private")
+
+
+def test_asset_image_index_bounds(ctx_img):
+    """index 越界(负/超长度)→ 404。"""
+    c, alice, _ = ctx_img
+    a = _create(c, alice, images=[_img(1)])
+    assert c.get(f"/api/assets/{a['id']}/images/1", headers=_auth(alice)).status_code == 404
+    assert c.get(f"/api/assets/{a['id']}/images/-1", headers=_auth(alice)).status_code == 404
+
+
+def test_asset_image_other_user_404(ctx_img):
+    """他人资产图片 → 404(防枚举,与单查语义一致)。"""
+    c, alice, bob = ctx_img
+    a = _create(c, alice)
+    r = c.get(f"/api/assets/{a['id']}/images/0", headers=_auth(bob))
+    assert r.status_code == 404
+
+
+def test_asset_image_nsfw_context(ctx_img):
+    """nsfw 资产图片:SFW 上下文 404,X-NSFW 头 200。"""
+    c, alice, _ = ctx_img
+    a = _create(c, alice, nsfw=True)
+    assert c.get(f"/api/assets/{a['id']}/images/0", headers=_auth(alice)).status_code == 404
+    r = c.get(f"/api/assets/{a['id']}/images/0", headers=_auth(alice, nsfw=True))
+    assert r.status_code == 200
+
+
+def test_asset_image_requires_auth(ctx_img):
+    c, alice, _ = ctx_img
+    a = _create(c, alice)
+    assert c.get(f"/api/assets/{a['id']}/images/0").status_code == 401

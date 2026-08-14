@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Icon } from "@/components/ui/Icon";
 
 /** ComfyUI 画布地址:改地址只动这里(或设 NEXT_PUBLIC_COMFYUI_WEB_URL) */
 const COMFYUI_URL =
@@ -231,6 +232,11 @@ export function CanvasView() {
     return (
       <div className="canvas-view">
         {renderHeader("ready", status.src)}
+        {/* 移动端兜底:画布为桌面导向,窄屏给提示条而非硬渲染不可用料 */}
+        <div className="canvas-mobile-note" role="status">
+          <Icon name="info" size={14} />
+          画布建议桌面端操作,移动端仅支持预览
+        </div>
         <div className="canvas-stage">
           <div className="canvas-frame">
             <iframe
@@ -381,6 +387,11 @@ const styles = `
   }
   .canvas-header-text {
     min-width: 0;
+  }
+
+  /* ── 移动端兜底提示条(默认隐藏,≤767px 显示) ── */
+  .canvas-mobile-note {
+    display: none;
   }
 
   /* ── 画布舞台:四周留白,iframe 收进圆角面板(卡片化) ── */
@@ -741,10 +752,22 @@ const styles = `
       padding: var(--space-4);
     }
   }
-  /* ── <768px:隐藏页头描述给画布让位;触控目标 ≥44px ── */
+  /* ── <768px:隐藏页头描述给画布让位;触控目标 ≥44px;显示移动端提示条 ── */
   @media (max-width: 767px) {
     .canvas-header :global(.page-header-desc) {
       display: none;
+    }
+    .canvas-mobile-note {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      margin: 0 var(--space-4) var(--space-3);
+      padding: var(--space-2) var(--space-3);
+      background: var(--warn-soft);
+      color: var(--warn);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-control);
+      font-size: var(--text-aux);
     }
     .canvas-stage {
       padding: 0 var(--space-3) var(--space-3);

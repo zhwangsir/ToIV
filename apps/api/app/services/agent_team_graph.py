@@ -20,9 +20,9 @@ docs/2026-08-14-competitive-r3-r5-deep-dive.md §1.2/§1.3.1 落地:
   run_id+task_id+attempt 仍由 R3.1 的 _exec_task 落库。
 - 事件/状态写库完全复用 R3.1(AgentEvent/AgentTask/AgentRun 更新点不变,SSE 契约不变)。
 
-单任务执行函数(_exec_task/_setup_studio_project/_mark_task_error 等)留在
-routes/agent_team.py 复用不复制;本模块在节点函数内惰性 import,避免
-routes ↔ services 循环依赖。
+单任务执行函数(_exec_task/_setup_studio_project/_mark_task_error 等)已下沉到
+services/agent_team_exec.py(H3 循环依赖清理),本模块直接 import,
+不再惰性 import routes/agent_team.py。
 """
 from __future__ import annotations
 
@@ -40,11 +40,22 @@ from sqlmodel import Session, select
 
 from app.config import get_settings
 from app.models import AgentRun, AgentTask
+from app.services.agent_team_exec import (
+    _ACTIVE_RUNS,
+    _RENDER_CONCURRENCY,
+    _emit,
+    _exec_task,
+    _finish_run_error,
+    _loads,
+    _mark_task_error,
+    _setup_studio_project,
+    _utcnow,
+)
 
 logger = logging.getLogger(__name__)
 
 # 后台图执行协程强引用表:asyncio 仅持弱引用,不持强引用任务可能被 GC 提前回收
-# (与 routes/agent_team.py 的 _RUNNER_TASKS、comfy/tracker.py 的 _tasks 同一模式)
+# (与 services/agent_team_exec.py 的 _RUNNER_TASKS、comfy/tracker.py 的 _tasks 同一模式)
 _GRAPH_TASKS: set[asyncio.Task] = set()
 
 
@@ -159,8 +170,6 @@ def _setup_node(state: AgentTeamState, bind) -> dict:
     幂等:断点重放/恢复时会再次进入本节点,已建过(任务 input 含 project_id)直接跳过,
     否则每个 run 会重复建工程(R3.1 不恢复所以无此问题,R3.2 必须防)。
     """
-    from app.routes import agent_team as at
-
     run_id = state["run_id"]
     with Session(bind) as s:
         row = s.exec(
@@ -168,7 +177,7 @@ def _setup_node(state: AgentTeamState, bind) -> dict:
         ).first()
         if row and '"project_id"' in (row.input_json or ""):
             return {}
-    at._setup_studio_project(run_id, bind)
+    _setup_studio_project(run_id, bind)
     return {}
 
 
@@ -179,8 +188,6 @@ async def _schedule_node(state: AgentTeamState, bind) -> Command:
     上游失败的任务标 error 打落(doomed);无待办 → join_eval 收口;
     run 被取消 → 直接 END(在跑分支自然结束,R3.1 不追杀语义不变)。
     """
-    from app.routes import agent_team as at
-
     run_id = state["run_id"]
     with Session(bind) as s:
         run = s.get(AgentRun, run_id)
@@ -195,13 +202,13 @@ async def _schedule_node(state: AgentTeamState, bind) -> Command:
     schedulable, doomed = [], []
     for t in pending:
         # 未知依赖(计划编辑已删的)忽略,与 R3.1 一致;上游 error → 本任务打落
-        deps = [d for d in at._loads(t.depends_on, []) if d in work]
+        deps = [d for d in _loads(t.depends_on, []) if d in work]
         if any(states.get(d) == "error" for d in deps):
             doomed.append(t)
         elif all(states.get(d) in ("done", "approved") for d in deps):
             schedulable.append(t)
     for t in doomed:
-        at._mark_task_error(bind, run_id, t.id, "上游任务失败,跳过")
+        _mark_task_error(bind, run_id, t.id, "上游任务失败,跳过")
     if schedulable:
         return Command(
             goto=[Send("worker", {"run_id": run_id, "task_id": t.id}) for t in schedulable]
@@ -212,19 +219,17 @@ async def _schedule_node(state: AgentTeamState, bind) -> Command:
         logger.error("agent run %s 调度死锁,剩余任务标 error", run_id)
         for t in pending:
             if t.id not in {d.id for d in doomed}:
-                at._mark_task_error(bind, run_id, t.id, "调度死锁:依赖无法满足")
+                _mark_task_error(bind, run_id, t.id, "调度死锁:依赖无法满足")
     return Command(goto="join_eval")
 
 
 async def _worker_node(state: dict, bind, sem: asyncio.Semaphore) -> dict:
-    """执行单任务:queued→running→done/error(复用 R3.1 _exec_task,不复制逻辑)。
+    """执行单任务:queued→running→done/error(复用 agent_team_exec._exec_task)。
 
     幂等屏障(§1.2 工程要点:checkpoint 不保证副作用 exactly-once):
     断点恢复/重放会再次进入本节点,任务已 done/approved 直接跳过,
     不重复渲染/扣费。结果经 results reducer 汇报,供测试观测并行度。
     """
-    from app.routes import agent_team as at
-
     run_id, task_id = state["run_id"], state["task_id"]
     with Session(bind) as s:
         task = s.get(AgentTask, task_id)
@@ -233,7 +238,7 @@ async def _worker_node(state: dict, bind, sem: asyncio.Semaphore) -> dict:
             return {"results": [{"task_id": task_id, "status": "canceled"}]}
         if task.status in ("done", "approved"):
             return {"results": [{"task_id": task_id, "status": "skipped"}]}
-    await at._exec_task(run_id, task_id, bind, sem)
+    await _exec_task(run_id, task_id, bind, sem)
     with Session(bind) as s:
         task = s.get(AgentTask, task_id)
         final = task.status if task else "error"
@@ -247,8 +252,6 @@ def _join_eval_node(state: AgentTeamState, bind) -> Command:
     - 有失败任务 → run error + error 事件(已完成产物保留,可单卡 regenerate 挽救);
     - 全部就绪 → run awaiting_assembly + confirm_required 事件 → 合成确认门。
     """
-    from app.routes import agent_team as at
-
     run_id = state["run_id"]
     with Session(bind) as s:
         run = s.get(AgentRun, run_id)
@@ -260,14 +263,14 @@ def _join_eval_node(state: AgentTeamState, bind) -> Command:
             if t.kind != "assemble"
         ]
         failed = [t for t in rows if t.status == "error"]
-        run.updated_at = at._utcnow()
+        run.updated_at = _utcnow()
         if failed:
             run.status = "error"
             run.error = (
                 f"{len(failed)} 个任务失败;已完成产物保留,"
                 "可单卡重生成,或 cancel 后重建"
             )
-            at._emit(
+            _emit(
                 s, run_id, "error",
                 {"message": run.error, "failed": [t.id for t in failed]},
             )
@@ -275,7 +278,7 @@ def _join_eval_node(state: AgentTeamState, bind) -> Command:
             s.commit()
             return Command(goto=END)
         run.status = "awaiting_assembly"
-        at._emit(
+        _emit(
             s, run_id, "confirm_required",
             {"gate": "assembly", "message": "全部镜头已就绪,确认后合成"},
         )
@@ -294,8 +297,6 @@ def _assembly_gate_node(state: AgentTeamState, bind) -> Command:
     approve → assemble;reject → run 回 running 后图结束(用户可单卡 regenerate
     重新到达门,此时 resume 走「幂等重放再投递」路径,见 spawn_assembly_decision)。
     """
-    from app.routes import agent_team as at
-
     decision = interrupt({"gate": "assembly", "message": "全部镜头已就绪,确认后合成"})
     decision = decision if isinstance(decision, dict) else {}
     action = decision.get("action")
@@ -307,7 +308,7 @@ def _assembly_gate_node(state: AgentTeamState, bind) -> Command:
             run = s.get(AgentRun, state["run_id"])
             if run and run.status == "awaiting_assembly":
                 run.status = "running"
-                run.updated_at = at._utcnow()
+                run.updated_at = _utcnow()
                 s.add(run)
                 s.commit()
         return Command(update={"approval": decision}, goto="assemble")
@@ -316,7 +317,7 @@ def _assembly_gate_node(state: AgentTeamState, bind) -> Command:
         run = s.get(AgentRun, state["run_id"])
         if run and run.status == "awaiting_assembly":
             run.status = "running"
-            run.updated_at = at._utcnow()
+            run.updated_at = _utcnow()
             s.add(run)
             s.commit()
     return Command(update={"approval": decision}, goto=END)
@@ -329,8 +330,6 @@ async def _assemble_node(state: AgentTeamState, bind, sem: asyncio.Semaphore) ->
     幂等:合成卡不走 schedule,这里显式查状态,done 则跳过执行只补 run 终态
     (防断点重放重复跑 ffmpeg 合成)。
     """
-    from app.routes import agent_team as at
-
     run_id = state["run_id"]
     with Session(bind) as s:
         run = s.get(AgentRun, run_id)
@@ -348,7 +347,7 @@ async def _assemble_node(state: AgentTeamState, bind, sem: asyncio.Semaphore) ->
                 return {}
             done_already = s.get(AgentTask, tid).status == "done"
         if not done_already:
-            await at._exec_task(run_id, tid, bind, sem)
+            await _exec_task(run_id, tid, bind, sem)
 
     with Session(bind) as s:
         run = s.get(AgentRun, run_id)
@@ -356,23 +355,23 @@ async def _assemble_node(state: AgentTeamState, bind, sem: asyncio.Semaphore) ->
             return {}
         rows = s.exec(select(AgentTask).where(AgentTask.run_id == run_id)).all()
         failed = [t for t in rows if t.kind == "assemble" and t.status == "error"]
-        run.updated_at = at._utcnow()
+        run.updated_at = _utcnow()
         if failed:
-            reason = at._loads(failed[0].verdict_json, {}).get("error") or "合成失败"
+            reason = _loads(failed[0].verdict_json, {}).get("error") or "合成失败"
             run.status = "error"
             run.error = f"合成失败:{reason}"
-            at._emit(s, run_id, "error", {"message": run.error})
+            _emit(s, run_id, "error", {"message": run.error})
         else:
             done_task = next(
                 (t for t in rows if t.kind == "assemble" and t.status == "done"), None
             )
             final_url = (
-                str(at._loads(done_task.output_json, {}).get("url") or "")
+                str(_loads(done_task.output_json, {}).get("url") or "")
                 if done_task
                 else ""
             )
             run.status = "done"
-            at._emit(s, run_id, "done", {"run_id": run_id, "final_url": final_url})
+            _emit(s, run_id, "done", {"run_id": run_id, "final_url": final_url})
         s.add(run)
         s.commit()
     return {}
@@ -432,9 +431,7 @@ def build_graph(bind, checkpointer: Any, sem: asyncio.Semaphore | None = None):
 
 def at_render_concurrency() -> int:
     """渲染并发上限独立成函数:测试可 monkeypatch 调小;与 R3.1 _RENDER_CONCURRENCY 对齐。"""
-    from app.routes import agent_team as at
-
-    return at._RENDER_CONCURRENCY
+    return _RENDER_CONCURRENCY
 
 
 # ---------------------------------------------------------------------------
@@ -450,11 +447,9 @@ def _spawn(coro) -> None:
 
 def spawn_run(run_id: str, bind) -> None:
     """plan 确认门 approve 后启动图(替代 R3.1 的 _spawn_run)。"""
-    from app.routes import agent_team as at
-
-    if run_id in at._ACTIVE_RUNS:
+    if run_id in _ACTIVE_RUNS:
         return
-    at._ACTIVE_RUNS.add(run_id)
+    _ACTIVE_RUNS.add(run_id)
 
     async def _wrap() -> None:
         try:
@@ -463,9 +458,9 @@ def spawn_run(run_id: str, bind) -> None:
             await graph.ainvoke({"run_id": run_id}, _thread_config(run_id))
         except Exception:
             logger.exception("agent run %s 图执行异常", run_id)
-            at._finish_run_error(bind, run_id, "执行器内部异常")
+            _finish_run_error(bind, run_id, "执行器内部异常")
         finally:
-            at._ACTIVE_RUNS.discard(run_id)
+            _ACTIVE_RUNS.discard(run_id)
 
     _spawn(_wrap())
 
@@ -477,11 +472,9 @@ def spawn_assembly_decision(run_id: str, bind, decision: dict) -> None:
     重启丢了 checkpoint):此时先以初始 state 幂等重放(已完成任务节点自查跳过),
     重新武装到 interrupt 后再投递裁决。
     """
-    from app.routes import agent_team as at
-
-    if run_id in at._ACTIVE_RUNS:
+    if run_id in _ACTIVE_RUNS:
         return
-    at._ACTIVE_RUNS.add(run_id)
+    _ACTIVE_RUNS.add(run_id)
 
     async def _wrap() -> None:
         try:
@@ -504,9 +497,9 @@ def spawn_assembly_decision(run_id: str, bind, decision: dict) -> None:
                 )
         except Exception:
             logger.exception("agent run %s 合成裁决投递异常", run_id)
-            at._finish_run_error(bind, run_id, "执行器内部异常")
+            _finish_run_error(bind, run_id, "执行器内部异常")
         finally:
-            at._ACTIVE_RUNS.discard(run_id)
+            _ACTIVE_RUNS.discard(run_id)
 
     _spawn(_wrap())
 
@@ -522,8 +515,6 @@ async def resume_unfinished_runs(bind) -> int:
 
     返回成功重挂的 run 数(记日志用)。
     """
-    from app.routes import agent_team as at
-
     with Session(bind) as s:
         runs = s.exec(
             select(AgentRun).where(AgentRun.status.in_(("running", "awaiting_assembly")))
@@ -545,7 +536,7 @@ async def resume_unfinished_runs(bind) -> int:
         except Exception:
             logger.exception("agent run %s 断点恢复失败,标 error", run_id)
             try:
-                at._finish_run_error(bind, run_id, "api 重启后断点恢复失败")
+                _finish_run_error(bind, run_id, "api 重启后断点恢复失败")
             except Exception:
                 logger.exception("agent run %s 标 error 也失败", run_id)
     if snapshot:
@@ -561,11 +552,9 @@ async def resume_unfinished_runs(bind) -> int:
 
 def _spawn_resume(run_id: str, bind, *, from_checkpoint: bool) -> None:
     """startup 断点续跑协程(与 spawn_run 的区别仅入口:None=从 checkpoint 续)。"""
-    from app.routes import agent_team as at
-
-    if run_id in at._ACTIVE_RUNS:
+    if run_id in _ACTIVE_RUNS:
         return
-    at._ACTIVE_RUNS.add(run_id)
+    _ACTIVE_RUNS.add(run_id)
 
     async def _wrap() -> None:
         try:
@@ -579,8 +568,8 @@ def _spawn_resume(run_id: str, bind, *, from_checkpoint: bool) -> None:
                 await graph.ainvoke({"run_id": run_id}, cfg)
         except Exception:
             logger.exception("agent run %s 断点续跑异常", run_id)
-            at._finish_run_error(bind, run_id, "api 重启后断点恢复失败")
+            _finish_run_error(bind, run_id, "api 重启后断点恢复失败")
         finally:
-            at._ACTIVE_RUNS.discard(run_id)
+            _ACTIVE_RUNS.discard(run_id)
 
     _spawn(_wrap())

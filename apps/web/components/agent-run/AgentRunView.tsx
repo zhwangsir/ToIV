@@ -8,16 +8,8 @@
  */
 import { useState } from "react";
 import Link from "next/link";
-import {
-  Ban,
-  ChevronLeft,
-  LayoutGrid,
-  Loader2,
-  Radio,
-  Workflow,
-  X,
-} from "lucide-react";
 import { imageUrl } from "@/lib/api";
+import { Icon } from "@/components/ui/Icon";
 import { LazyVideo } from "@/components/ui/LazyVideo";
 import { AckBanner } from "./AckBanner";
 import { ConfirmGateModal } from "./ConfirmGateModal";
@@ -28,6 +20,7 @@ import { TaskCardList } from "./TaskCardList";
 import { RUN_TERMINAL, runStatusMeta } from "./agentRunMeta";
 import { useAgentRun } from "./useAgentRun";
 import { AgentRunStyles } from "./AgentRunStyles";
+import "@/app/styles/agent-runs.css";
 
 export function AgentRunView({ runId, ack }: { runId: string; ack?: string | null }) {
   const run = useAgentRun(runId);
@@ -51,7 +44,7 @@ export function AgentRunView({ runId, ack }: { runId: string; ack?: string | nul
         {/* ── 顶部:返回 + 目标 + 状态徽章 + 形态 toggle + 取消 ── */}
         <header className="agent-topbar">
           <Link href="/agent-runs" className="agent-back">
-            <ChevronLeft size={14} aria-hidden="true" /> 任务列表
+            <Icon name="chevron-left" size={14} /> 任务列表
           </Link>
           <div className="agent-topbar-main">
             <h1 className="agent-goal" title={d?.goal}>
@@ -76,7 +69,7 @@ export function AgentRunView({ runId, ack }: { runId: string; ack?: string | nul
                 title="卡片流"
                 onClick={() => setMode("cards")}
               >
-                <LayoutGrid size={14} aria-hidden="true" />
+                <Icon name="layout-grid" size={14} />
               </button>
               <button
                 type="button"
@@ -86,7 +79,7 @@ export function AgentRunView({ runId, ack }: { runId: string; ack?: string | nul
                 title="泳道"
                 onClick={() => setMode("pipeline")}
               >
-                <Workflow size={14} aria-hidden="true" />
+                <Icon name="workflow" size={14} />
               </button>
             </div>
             {d && !terminal && (
@@ -96,7 +89,7 @@ export function AgentRunView({ runId, ack }: { runId: string; ack?: string | nul
                 disabled={run.busy["cancel"]}
                 onClick={() => void cancelRun()}
               >
-                <Ban size={12} aria-hidden="true" /> 取消任务
+                <Icon name="ban" size={12} /> 取消任务
               </button>
             )}
           </div>
@@ -112,7 +105,7 @@ export function AgentRunView({ runId, ack }: { runId: string; ack?: string | nul
               aria-label="关闭错误提示"
               onClick={run.clearError}
             >
-              <X size={12} aria-hidden="true" />
+              <Icon name="close" size={12} />
             </button>
           </p>
         )}
@@ -120,13 +113,13 @@ export function AgentRunView({ runId, ack }: { runId: string; ack?: string | nul
         {/* ── SSE 断线提示 ── */}
         {run.sseState === "reconnecting" && (
           <p className="agent-conn" role="status">
-            <Loader2 size={13} aria-hidden="true" className="icon-loading-spin" />
+            <Icon name="loading" size={13} />
             连接中断,重连中…
           </p>
         )}
         {run.sseState === "polling" && (
           <p className="agent-conn" role="status">
-            <Radio size={13} aria-hidden="true" />
+            <Icon name="radio" size={13} />
             实时连接已断开,已切换为 5 秒轮询
           </p>
         )}
@@ -134,7 +127,7 @@ export function AgentRunView({ runId, ack }: { runId: string; ack?: string | nul
         {run.loading && !d ? (
           <div className="empty-state">
             <div className="empty-state-icon">
-              <Loader2 size={32} aria-hidden="true" className="icon-loading-spin" />
+              <Icon name="loading" size={32} />
             </div>
             <p className="empty-state-desc">任务加载中…</p>
           </div>

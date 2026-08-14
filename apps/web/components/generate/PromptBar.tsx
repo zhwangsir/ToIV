@@ -7,6 +7,7 @@ import { Icon } from "@/components/ui/Icon";
 import { Select } from "@/components/ui/Input";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
 import { ReverseButton } from "@/components/ui/ReverseButton";
+import { Ripple } from "@/components/ui/Ripple";
 import type { EngineInfo, EngineParam } from "@/lib/engines";
 
 import { ParamField } from "./ParamField";
@@ -126,16 +127,20 @@ export function PromptBar({
                 取消
               </Button>
             )}
-            <Button
-              variant="primary"
-              className={isRunning ? "promptbar-submit generate-run" : "promptbar-submit"}
-              loading={submitting}
-              disabled={!canSubmit}
-              icon={isRunning ? <Icon name="loading" size={14} /> : <Icon name="sparkles" size={14} />}
-              onClick={onGenerate}
-            >
-              {isRunning ? "生成中…" : "生成"}
-            </Button>
+            {/* 生成主按钮(UI-A 动效原语):Ripple 纯叠加包裹,按钮既有样式/行为不变,
+                reduced-motion 下自动退化为无波纹 */}
+            <Ripple>
+              <Button
+                variant="primary"
+                className={isRunning ? "promptbar-submit generate-run" : "promptbar-submit"}
+                loading={submitting}
+                disabled={!canSubmit}
+                icon={isRunning ? <Icon name="loading" size={14} /> : <Icon name="sparkles" size={14} />}
+                onClick={onGenerate}
+              >
+                {isRunning ? "生成中…" : "生成"}
+              </Button>
+            </Ripple>
           </div>
         </div>
 

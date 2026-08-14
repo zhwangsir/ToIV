@@ -10,16 +10,10 @@
  * - GpuQueueChip:gpu_hint 非空时展示 GPU 排队提示。
  */
 import { useState } from "react";
-import {
-  BadgeCheck,
-  Cpu,
-  Pencil,
-  RefreshCw,
-  Upload,
-  Wand2,
-} from "lucide-react";
 import { imageUrl, type AgentRunTask } from "@/lib/api";
+import { Icon } from "@/components/ui/Icon";
 import { LazyVideo } from "@/components/ui/LazyVideo";
+import { Ripple } from "@/components/ui/Ripple";
 import {
   extractTaskMedia,
   primaryInputText,
@@ -45,7 +39,7 @@ interface TaskCardProps {
 
 function TaskCard({ task, ordinal, orderOf, busy, onAction }: TaskCardProps) {
   const meta = taskStatusMeta(task.status);
-  const StatusIcon = meta.icon;
+  const statusCls = meta.spin ? "icon-loading-spin" : undefined;
   const media = extractTaskMedia(task.output);
   // 进行中(running/queued)不允许干预;终态卡片仅保留「重生成」
   const inflight = task.status === "running" || task.status === "queued";
@@ -100,7 +94,7 @@ function TaskCard({ task, ordinal, orderOf, busy, onAction }: TaskCardProps) {
           {task.title || `任务 ${ordinal}`}
         </h3>
         <span className={`agent-status is-${meta.tone}`}>
-          <StatusIcon size={12} aria-hidden="true" className={meta.spin ? "icon-loading-spin" : undefined} />
+          <Icon name={meta.icon} size={12} className={statusCls} />
           {meta.label}
         </span>
         {task.attempt > 0 && (
@@ -138,7 +132,7 @@ function TaskCard({ task, ordinal, orderOf, busy, onAction }: TaskCardProps) {
         {media.kind === "text" && <pre className="agent-task-text">{media.text}</pre>}
         {media.kind === "none" && (
           <div className="agent-task-empty">
-            <StatusIcon size={20} aria-hidden="true" className={meta.spin ? "icon-loading-spin" : undefined} />
+            <Icon name={meta.icon} size={20} className={statusCls} />
             <span>
               {task.status === "error"
                 ? "生成失败"
@@ -166,49 +160,55 @@ function TaskCard({ task, ordinal, orderOf, busy, onAction }: TaskCardProps) {
       {/* ── GpuQueueChip ── */}
       {task.gpu_hint && (
         <p className="agent-gpu">
-          <Cpu size={12} aria-hidden="true" /> {task.gpu_hint}
+          <Icon name="cpu" size={12} /> {task.gpu_hint}
         </p>
       )}
 
       {/* ── CardActions ── */}
       <div className="agent-task-actions">
-        <button
-          type="button"
-          className="btn btn-sm"
-          disabled={inflight || editing || cardBusy("edit")}
-          onClick={() => {
-            setDraft(primary.value);
-            setEditing(true);
-            setRegening(false);
-          }}
-        >
-          <Pencil size={12} aria-hidden="true" /> 改文案
-        </button>
-        <button
-          type="button"
-          className="btn btn-sm"
-          disabled={inflight || regening || cardBusy("regenerate")}
-          onClick={() => {
-            setRegening(true);
-            setEditing(false);
-          }}
-        >
-          <RefreshCw size={12} aria-hidden="true" /> 重生成
-        </button>
-        <button
-          type="button"
-          className="btn btn-sm"
-          disabled={inflight || cardBusy("approve")}
-          onClick={() => void submitApprove()}
-        >
-          <BadgeCheck size={12} aria-hidden="true" /> 通过
-        </button>
+        <Ripple>
+          <button
+            type="button"
+            className="btn btn-sm"
+            disabled={inflight || editing || cardBusy("edit")}
+            onClick={() => {
+              setDraft(primary.value);
+              setEditing(true);
+              setRegening(false);
+            }}
+          >
+            <Icon name="pencil" size={12} /> 改文案
+          </button>
+        </Ripple>
+        <Ripple>
+          <button
+            type="button"
+            className="btn btn-sm"
+            disabled={inflight || regening || cardBusy("regenerate")}
+            onClick={() => {
+              setRegening(true);
+              setEditing(false);
+            }}
+          >
+            <Icon name="refresh" size={12} /> 重生成
+          </button>
+        </Ripple>
+        <Ripple>
+          <button
+            type="button"
+            className="btn btn-sm"
+            disabled={inflight || cardBusy("approve")}
+            onClick={() => void submitApprove()}
+          >
+            <Icon name="badge-check" size={12} /> 通过
+          </button>
+        </Ripple>
         {/* upload/reprompt 后端本期 501:置灰占位,不发起调用 */}
         <button type="button" className="btn btn-sm" disabled title="本期未开放">
-          <Upload size={12} aria-hidden="true" /> 替换上传
+          <Icon name="upload" size={12} /> 替换上传
         </button>
         <button type="button" className="btn btn-sm" disabled title="本期未开放">
-          <Wand2 size={12} aria-hidden="true" /> 反推提示词
+          <Icon name="wand" size={12} /> 反推提示词
         </button>
       </div>
 

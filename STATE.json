@@ -1,7 +1,7 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-14T20:10:00+08:00",
+ "updated_at": "2026-08-14T22:40:00+08:00",
  "sync_baseline": {
   "id": "SYNC-2026-07-18",
   "type": "initial-sync",
@@ -735,7 +735,7 @@
   }
  },
  "git": {
-  "latest_commit": "6a4f314 feat(agent-team): R3.2 LangGraph 编排 + PostgresSaver 断点续跑 + LLM 分级",
+  "latest_commit": "(待提交) H-UI 批次",
   "uncommitted": {
    "modified_files": 63,
    "deleted_files": 32,
@@ -3436,5 +3436,59 @@
   "prod_verified": "core 手工 pip install 后 deploy.sh 部署;AsyncPostgresSaver 真机就绪(checkpoints/checkpoint_blobs/checkpoint_writes/checkpoint_migrations 已建);生产 e2e:admin 登录→POST /agent-runs(城市夜景短片)→200 L1 秒回 10 任务→cancel 200 status=canceled;双域名 401 门控正常",
   "note": "core pip 安装(langgraph 三件套)是 deploy.sh 之外的必要手工步骤,已记录 AGENTS.md;websockets 被 langgraph-sdk 约束降 15.0.1,proxy 参数兼容已实测",
   "verified_at": "2026-08-14T20:10:00+08:00"
+ },
+ "harness_ui_2026_08_14": {
+  "id": "H-UI-2026-08-14",
+  "type": "architecture+ui",
+  "title": "AI 底层驱动 Harness 化(H1-H3)+ 全站 UI 基座与视图优化(UI-A~D)",
+  "status": "passed",
+  "scope": "参照 deepseek-ai/deepseek-harness 架构(一切皆插件/Service Provider 缝/会话日志即事实源/工具守卫管线/profile 组合)改造 AI 驱动层;按 UI 审计清单优化全站 20+ 视图",
+  "tasks": [
+   {
+    "id": "H1",
+    "title": "harness 内核 + LLM seam",
+    "status": "done",
+    "evidence": "app/harness/(context/events/plugin/ctx/llm_seam);可逆效应+类型化事件总线(emit/waterfall next() 委托);LayeredLLMProvider 动态委托 app.agent.llm(调用时 getattr,既有 monkeypatch 全兼容);15 调用点 8 文件迁移 get_ctx().service('llm');25 新测试"
+   },
+   {
+    "id": "H2",
+    "title": "会话日志 + 工具缝 + AssistantView 迁移",
+    "status": "done",
+    "evidence": "AgentSession/AgentMessage 2 表(追加日志,model-visible means logged);chat 落库 + sessions 列表/回放/fork/删除 4 端点(R18 过滤);tool_seam ToolSpec 单一事实源(schema+executor+summary),SYSTEM 工具清单注册表自动生成(逐字节等价已锁),TOOLS_PRE_EXECUTE 守卫(R18 门/限流);8 工具逐字迁移;前端服务端会话优先+localStorage 兜底;41 新测试"
+   },
+   {
+    "id": "H3",
+    "title": "引擎/质量门/编排插件化 + profile",
+    "status": "done",
+    "evidence": "engine_seam(20 引擎插件填充注册表+submit 声明绑定+profile 停用集);quality_seam(orchestrator 硬编码 import→quality/advisory 事件订阅,manju 阻断式不动);agent_team_exec.py 下沉消除 routes↔services 循环依赖;profile.py 三档(full/minimal/headless,TOIV_HARNESS_PROFILE);GET /api/system/harness 自省端点(admin);14 新测试"
+   },
+   {
+    "id": "UI-A",
+    "title": "设计系统基座",
+    "status": "done",
+    "evidence": "token 补档(display 字档/字重/focus-ring/touch-target/duration-loop);素白 #FFFFFF→#FAFAF9+全局弱暗角;effects.css + Ripple/MagnetFollow/ParticleButton(≤280 粒子/速度≤1/无连线/reduced-motion 收敛);ErrorBar/LoadingBlock/PageHeader;global-error/not-found 脱紫入 token;Landing 死类修复;Fraunces display 字体;Icon 纪律(agent-run 清零直引);.btn :active;43 测试"
+   },
+   {
+    "id": "UI-B",
+    "title": "生成/作品库/融合/模型/资源",
+    "status": "done",
+    "evidence": "stage.css z-index 语义档+display token+主按钮 Ripple/FAB;library scrim #fff→token+灯箱标尺+active 态;fusion 键盘可达(Enter/Space+focus-ring);models 响应式两档+ErrorBar+LoadingBlock;resources ErrorBoundary;10 测试"
+   },
+   {
+    "id": "UI-C",
+    "title": "Studio/Agent-runs/短剧/画布/看板",
+    "status": "done",
+    "evidence": "styled-jsx 大迁移:studio.css 447 行+agent-runs.css 545 行(零视觉变更平移);TaskCard/ShotCard/确认门接 Ripple;DramaView 4 处纯文字加载→LoadingBlock+ErrorBar;Canvas 移动端提示条;Backlot 3px 收编;10 测试"
+   },
+   {
+    "id": "UI-D",
+    "title": "音频/译制/训练/管理/分镜/数字人/图编/视编/设置/播放器",
+    "status": "done",
+    "evidence": "DramaPlayer 断点 768→767 消 1px 缝隙带;AdminView 表格横滚容器;DubView 双栏→单栏+5 处 ErrorBar;ImageEdit 340px 侧板断点兜底;VideoEdit 移动提示条;全站唯一 10px 圆角收编;十组视图 ErrorBar 统一;9 测试"
+   }
+  ],
+  "regression": "pytest 1531 passed(1452+79);web node:test 78/78;tsc --noEmit 零错误;next build ✅(Fraunces 需 HTTPS_PROXY 拉取,core 部署走 rsync 预构建产物不受影响)",
+  "notes": "API 契约零变更;/api/agent/chat SSE 事件不变;新端点:/api/agent/sessions 系列 + /api/system/harness;profile 默认 full 行为与改造前一致;网格基座 .grid-cards 补桌面基础规则;web 新增 npm test/typecheck 脚本",
+  "verified_at": "2026-08-14T22:40:00+08:00"
  }
 }

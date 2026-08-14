@@ -6,6 +6,7 @@
  * CSS grid 实现(不引 React Flow),节点 = 缩略卡片(序号 + 状态图标 + 标题 + 依赖序号)。
  */
 import type { AgentRunTask } from "@/lib/api";
+import { Icon } from "@/components/ui/Icon";
 import { SWIMLANES, swimlaneIndex, taskStatusMeta } from "./agentRunMeta";
 
 export function PipelineView({ tasks }: { tasks: AgentRunTask[] }) {
@@ -42,15 +43,14 @@ export function PipelineView({ tasks }: { tasks: AgentRunTask[] }) {
           <div className="agent-lane-nodes">
             {lane.nodes.map((t) => {
               const meta = taskStatusMeta(t.status);
-              const StatusIcon = meta.icon;
               return (
                 <div key={t.id} className="agent-node" data-status={t.status} title={t.title}>
                   <span className="agent-node-idx" aria-hidden="true">
                     {orderOf(t.id)}
                   </span>
-                  <StatusIcon
+                  <Icon
+                    name={meta.icon}
                     size={13}
-                    aria-hidden="true"
                     className={`agent-node-icon is-${meta.tone}${meta.spin ? " icon-loading-spin" : ""}`}
                   />
                   <span className="agent-node-title">{t.title || `任务 ${orderOf(t.id)}`}</span>

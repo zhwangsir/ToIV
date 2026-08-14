@@ -297,7 +297,7 @@
   font-size: 12px;
   font-weight: 600;
   line-height: 1.5;
-  color: #fff;
+  color: var(--text-on-accent);
   background: var(--err);
 }
 /* 说明在左、开关在右,与卡片内既有键值行同节奏 */

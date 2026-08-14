@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
 import { Field, Select, Textarea } from "@/components/ui/Input";
+import { Ripple } from "@/components/ui/Ripple";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Tabs } from "@/components/ui/Tabs";
 import { useToast } from "@/components/ui/Toast";
@@ -655,16 +656,21 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
         )}
 
         {!paramsOpen && (
-          <button
-            type="button"
-            className="generate-params-fab"
-            onClick={() => setParamsOpen(true)}
-            aria-expanded={false}
-            aria-label="展开参数面板"
-            title="展开参数面板"
-          >
-            <Icon name="sliders" size={18} />
-          </button>
+          /* 参数 FAB(UI-A 动效原语):Ripple radius="full" 圆形水波纹;
+             定位/z-index 挂在 Ripple 宿主层(.generate-params-fab,见 stage.css 注释),
+             视觉圆形在内层 .generate-params-fab-btn;reduced-motion 自动退化 */
+          <Ripple radius="full" className="generate-params-fab">
+            <button
+              type="button"
+              className="generate-params-fab-btn"
+              onClick={() => setParamsOpen(true)}
+              aria-expanded={false}
+              aria-label="展开参数面板"
+              title="展开参数面板"
+            >
+              <Icon name="sliders" size={18} />
+            </button>
+          </Ripple>
         )}
 
         <PromptBar

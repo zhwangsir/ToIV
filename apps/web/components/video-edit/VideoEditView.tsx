@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Empty } from "@/components/ui/Empty";
+import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon } from "@/components/ui/Icon";
 import { genId } from "@/lib/id";
 import {
@@ -23,6 +24,9 @@ const VIDEO_EXT = ["mp4", "webm", "mov", "mkv"];
 const AUDIO_EXT = ["mp3", "wav", "m4a", "ogg", "aac"];
 const ACCEPT = [...VIDEO_EXT, ...AUDIO_EXT].map((e) => `.${e}`).join(",");
 const FALLBACK_DURATION = 5; // 元数据读不到时的兜底时长(秒)
+// 文字轨默认色:烧录进成片的渲染数据(随 plan 提交后端 ffmpeg drawtext,
+// 必须是十六进制字面值),不是 UI 主题色,禁止换成 var() token
+const DEFAULT_TEXT_COLOR = "#ffffff";
 
 const RESOLUTIONS = [
   { label: "1080p · 1920×1080", width: 1920, height: 1080 },
@@ -267,7 +271,7 @@ export function VideoEditView() {
       end: 3,
       position: "bottom",
       fontSize: 48,
-      color: "#ffffff",
+      color: DEFAULT_TEXT_COLOR,
     };
     setTexts((prev) => [...prev, t]);
     setSel({ kind: "text", id: t.id });
@@ -421,6 +425,12 @@ export function VideoEditView() {
           </label>
         </div>
       </header>
+
+      {/* 窄屏兜底提示(同画布策略):≤767 显示,时间线编辑建议大屏 */}
+      <p className="ve-mobile-note">
+        <Icon name="info" size={13} />
+        当前屏幕较窄,时间线可横向滑动编辑;建议使用平板或桌面端获得完整剪辑体验
+      </p>
 
       <div className="ve-main">
         {/* ── 预览(视觉中心,宽列在前) ── */}
@@ -976,10 +986,7 @@ export function VideoEditView() {
       </section>
 
       {error && (
-        <div className="ve-error" role="alert">
-          <Icon name="error" size={15} />
-          <span>{error}</span>
-        </div>
+        <ErrorBar message={error} onClose={() => setError(null)} />
       )}
 
       {/* ── 导出 ── */}
@@ -1068,6 +1075,24 @@ export function VideoEditView() {
         }
         .ve-setting select {
           min-width: 160px;
+        }
+        /* 窄屏兜底提示条:桌面端隐藏,≤767 显示(见底部媒体查询) */
+        .ve-mobile-note {
+          display: none;
+          align-items: center;
+          gap: var(--space-2);
+          margin: 0;
+          padding: var(--space-2) var(--space-3);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+          font-size: var(--text-aux);
+          color: var(--text-muted);
+          line-height: 1.5;
+        }
+        .ve-mobile-note :global(svg) {
+          flex-shrink: 0;
+          color: var(--text-secondary);
         }
         .ve-main {
           display: grid;
@@ -1419,20 +1444,6 @@ export function VideoEditView() {
           background: var(--err-soft);
           border-color: var(--err);
         }
-        .ve-error {
-          display: flex;
-          align-items: center;
-          gap: var(--space-2);
-          padding: var(--space-3) var(--space-4);
-          border: 1px solid var(--err);
-          border-radius: var(--radius-control);
-          background: var(--err-soft);
-          color: var(--err);
-          font-size: var(--text-sm);
-        }
-        .ve-error :global(svg) {
-          flex-shrink: 0;
-        }
         .ve-footer {
           display: flex;
           align-items: center;
@@ -1509,6 +1520,9 @@ export function VideoEditView() {
         }
         /* 移动端:触控目标 ≥44px,字段弹性占满,导出按钮全宽 */
         @media (max-width: 767px) {
+          .ve-mobile-note {
+            display: flex;
+          }
           .ve-mini-btn {
             width: 44px;
             height: 44px;

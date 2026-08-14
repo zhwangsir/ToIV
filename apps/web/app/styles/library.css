@@ -80,7 +80,7 @@
    胶囊独占底部区,不再把提示词截成两截(移动端同效)。
    前缀 .library-view .lib-body 压过基础 .lib-overlay 的 padding。 */
 .library-view .lib-body .lib-overlay {
-  padding-bottom: calc(44px + var(--space-3));
+  padding-bottom: calc(var(--touch-target) + var(--space-3));
 }
 .lib-actions {
   position: absolute;
@@ -131,6 +131,11 @@
   color: var(--accent);
   box-shadow: var(--accent-glow-shadow);
 }
+/* 按压态:与全局 .btn:active 按压反馈同语言 */
+.lib-action-btn:active {
+  background: var(--bg-surface-3);
+  box-shadow: none;
+}
 .lib-action-btn:focus-visible {
   outline: 1px solid var(--accent);
   outline-offset: -1px;
@@ -151,7 +156,7 @@
 }
 .lib-style-pop-title {
   font-size: var(--text-label);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-muted);
@@ -174,7 +179,7 @@
 }
 .lib-style-bar-kicker {
   font-size: var(--text-label);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--accent);
@@ -406,6 +411,9 @@
   background: var(--accent-soft);
   color: var(--accent);
 }
+.lib-lb-icon-btn:active {
+  background: var(--bg-surface-3);
+}
 .lib-lb-icon-btn:focus-visible {
   outline: 1px solid var(--accent);
   outline-offset: -1px;
@@ -516,15 +524,15 @@
   }
   .lib-lb-nav-prev { left: var(--space-2); }
   .lib-lb-nav-next { right: var(--space-2); }
-  /* 移动端触控目标 ≥44px:灯箱工具条图标钮与穿梭钮放大 */
+  /* 移动端触控目标:灯箱工具条图标钮与穿梭钮放大 */
   .lib-lb-icon-btn {
-    width: 44px;
-    height: 44px;
+    width: var(--touch-target);
+    height: var(--touch-target);
   }
   .lib-lb-nav {
-    width: 44px;
-    height: 44px;
-    margin-top: -22px;
+    width: var(--touch-target);
+    height: var(--touch-target);
+    margin-top: calc(var(--touch-target) / -2);
   }
   /* 移动端底部工具条:提示词让位操作区,最多两行 */
   .lib-lb-bottom {
@@ -576,7 +584,7 @@
 .library-view .page-header-title {
   margin: 0;
   font-size: var(--text-title);
-  font-weight: 700;
+  font-weight: var(--font-bold);
   letter-spacing: -0.02em;
   color: var(--text-primary);
   line-height: 1.25;
@@ -659,8 +667,9 @@
 }
 .lib-empty-display {
   margin: 0;
-  font-size: 32px;
-  font-weight: 650;
+  font-family: var(--font-display);
+  font-size: var(--text-display-md);
+  font-weight: var(--font-semibold);
   letter-spacing: -0.02em;
   line-height: 1.25;
   color: var(--text-primary);
@@ -794,7 +803,7 @@
 .lib-overlay-prompt {
   font-size: var(--text-aux);
   line-height: 1.45;
-  color: #FFFFFF; /* 位于恒深色 scrim 上 */
+  color: var(--text-on-accent); /* 恒深色 scrim 上的文本 */
   display: -webkit-box;
   -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
@@ -1012,8 +1021,8 @@
     flex-direction: column;
     align-items: stretch;
   }
-  /* 空态展示标题随屏宽收敛,避免小屏 32px 过冲 */
+  /* 空态展示标题随屏宽收敛,避免小屏过冲 */
   .lib-empty-display {
-    font-size: var(--text-2xl);
+    font-size: var(--text-display-sm);
   }
 }
