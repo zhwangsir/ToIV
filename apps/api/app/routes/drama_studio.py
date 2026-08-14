@@ -66,6 +66,15 @@ from app.jsonutil import parse_json_obj
 from app.routes.lipsync import _allowed as _lipsync_allowed, _resolve as _lipsync_resolve
 from app.routes.video import _gate_ltx_nsfw
 from app.services.drama_image import analyze_storyboard_images
+from app.services.drama_presence import (
+    assign_character_colors,
+    check_regions,
+    color_mark_prompt_suffix,
+    detect_character_presence,
+    detect_grid_panels,
+    fetch_product_image_bytes,
+    parse_image_url,
+)
 from app.services.studio.schemas import reconcile_character_names
 from app.storage import drama_output_root
 from app.versioning import params_snapshot
@@ -330,6 +339,9 @@ class GridStoryboardRequest(BaseModel):
     num_shots: int = Field(default=9, ge=1, le=25)  # 9 或 25
     style: str | None = Field(default=None, max_length=300)
     script: str | None = Field(default=None, max_length=20000)
+    # DramaClaw 借鉴 #4:为角色分配标记色并注入宫格图 prompt(纯色火柴人草图),
+    # 供 presence-check 事后检测角色在场;默认 False 零行为变更
+    color_mark: bool = False
 
 
 # ===========================================================================
@@ -426,6 +438,10 @@ def _shot_dict(s: DramaShot, session: Session | None = None) -> dict:
         continue_urls = json.loads(s.continue_urls) if s.continue_urls else []
     except (ValueError, TypeError):
         continue_urls = []
+    try:
+        detected_colors = json.loads(s.detected_colors) if s.detected_colors else None
+    except (ValueError, TypeError):
+        detected_colors = None
     candidates: list[dict] = []
     if session is not None:
         rows = session.exec(
@@ -457,6 +473,7 @@ def _shot_dict(s: DramaShot, session: Session | None = None) -> dict:
         "continue_urls": continue_urls,
         "continue_concat_url": s.continue_concat_url,
         "continue_error": s.continue_error,
+        "detected_colors": detected_colors,
         "seed": s.seed,
         "error": s.error,
         "candidates": candidates,
@@ -3139,6 +3156,18 @@ async def grid_storyboard(
         f"cinematic, highly detailed, masterpiece, {panel_summaries}"
     )
 
+    # DramaClaw 借鉴 #4(颜色标记草图):为项目全部角色(含 LLM 本次新识别、
+    # 尚未落库的)分配稳定标记色,注入宫格图 prompt;presence-check 用同一映射检测。
+    # 名字集合在拆镜后即可确定,无需等下方角色建行。
+    color_map: dict[str, str] = {}
+    if body.color_mark:
+        all_names = {c.name for c in characters}
+        for sc in coerced:
+            all_names.update(sc["characters"])
+        color_map = assign_character_colors(list(all_names))
+        if color_map:
+            grid_prompt += color_mark_prompt_suffix(color_map)
+
     settings = get_settings()
     ckpt_name = settings.default_ckpt
     required = _t2i_required_models(ckpt_name)
@@ -3213,6 +3242,16 @@ async def grid_storyboard(
                 shot_prompt = (
                     f"{ch.visual_prompt}, {shot_prompt}" if shot_prompt else ch.visual_prompt
                 )
+        # color_mark:把该 shot 期望在场角色的标记色写入 detected_colors 的 expected 段,
+        # 供前端预览与 presence-check 比对
+        shot_detected = ""
+        if color_map:
+            shot_colors = {n: color_map[n] for n in sc["characters"] if n in color_map}
+            shot_detected = json.dumps(
+                {"color_map": shot_colors, "expected": sc["characters"],
+                 "checked_at": "", "source": "color-mark"},
+                ensure_ascii=False,
+            )
         shot = DramaShot(
             project_id=pid,
             idx=i,
@@ -3223,6 +3262,7 @@ async def grid_storyboard(
             speaker=sc["speaker"],
             duration_sec=sc["duration_sec"],
             grid_image=grid_url,
+            detected_colors=shot_detected,
             width=p.width,
             height=p.height,
         )
@@ -3251,6 +3291,9 @@ class SceneLayoutBody(BaseModel):
 
     layout: dict  # {actors:[{name,x,y,facing,scale}], props:[{name,x,y,scale}], camera:{angle,distance}, notes:str}
     generate_reference: bool = False  # 是否同时生成构图参考图
+    # DramaClaw 借鉴 #4:生成参考图时给 layout 角色注入标记色火柴人指令;
+    # 仅 generate_reference=True 时生效(无图可注则忽略),默认 False 零行为变更
+    color_mark: bool = False
     worker: str | None = Field(default=None, max_length=512)
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
 
@@ -3359,6 +3402,19 @@ async def update_scene_layout(
     if body.generate_reference:
         prompt = _layout_to_prompt(layout)
         if prompt.strip():
+            # DramaClaw 借鉴 #4:layout actors 中与项目角色同名者用项目级稳定色,
+            # 未知名一并分配新色(与项目角色合并排序后取模,保持确定性)
+            if body.color_mark:
+                proj_chars = session.exec(
+                    select(DramaCharacter).where(DramaCharacter.project_id == shot.project_id)
+                ).all()
+                actor_names = [
+                    n for n in (str(a.get("name") or "").strip() for a in actors) if n
+                ]
+                cmap = assign_character_colors([c.name for c in proj_chars] + actor_names)
+                sub = {n: cmap[n] for n in actor_names if n in cmap}
+                if sub:
+                    prompt += color_mark_prompt_suffix(sub)
             enforce_generation_rate_limit(user)
             settings = get_settings()
             ckpt_name = settings.default_ckpt
@@ -3413,6 +3469,146 @@ async def update_scene_layout(
     session.commit()
     session.refresh(shot)
     return _shot_dict(shot, session)
+
+
+# ===========================================================================
+# DramaClaw 借鉴 #4:颜色标记草图在场校验(只读 + CPU 检测,不生成产物,不加生成限流)
+# ===========================================================================
+class PresenceCheckBody(BaseModel):
+    """在场校验请求:shot_ids 为 None 则校验项目下全部分镜。"""
+
+    shot_ids: list[str] | None = None
+    persist: bool = True  # 检测结果写回 shot.detected_colors 并记创作过程
+
+
+@router.post("/drama/projects/{pid}/presence-check")
+async def presence_check(
+    pid: str,
+    body: PresenceCheckBody,
+    pool: WorkerPool = Depends(get_pool),
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """逐分镜核对 grid_image(宫格图或构图参考图)中角色标记色的在场情况。
+
+    宫格判定:同一张 grid_image URL 被项目内多个 shot 共享 → 宫格参考图,
+    按共享数推断 3x3(≤9)/5x5(>9),切第 shot.idx 块(行优先)检测;否则整图检测。
+    与 shot.characters 期望集合比对得出 missing(漏画)/unexpected(多画)。
+    图片取不回的分镜记 status=unavailable,不影响其它分镜。
+    """
+    p = _owned_project(pid, user, session)
+    t0 = time.monotonic()
+
+    # 项目级稳定颜色映射(与 grid-storyboard color_mark 同源:名字排序取模)
+    proj_chars = session.exec(
+        select(DramaCharacter).where(DramaCharacter.project_id == pid)
+    ).all()
+    color_map = assign_character_colors([c.name for c in proj_chars])
+
+    all_shots = session.exec(
+        select(DramaShot).where(DramaShot.project_id == pid).order_by(DramaShot.idx)
+    ).all()
+    # 宫格判定用的引用计数须覆盖项目全部 shot(而非仅本次选中子集)
+    url_refcount: dict[str, int] = {}
+    for s in all_shots:
+        if s.grid_image:
+            url_refcount[s.grid_image] = url_refcount.get(s.grid_image, 0) + 1
+
+    shots = all_shots
+    if body.shot_ids is not None:
+        wanted = set(body.shot_ids)
+        shots = [s for s in all_shots if s.id in wanted]
+
+    results: list[dict] = []
+    bytes_cache: dict[str, bytes | None] = {}  # 宫格图多 shot 共享,同 URL 只取一次
+    for shot in shots:
+        try:
+            expected = json.loads(shot.characters) if shot.characters else []
+        except (ValueError, TypeError):
+            expected = []
+        entry: dict = {"shot_id": shot.id, "idx": shot.idx, "expected": expected}
+        loc = parse_image_url(shot.grid_image)
+        if loc is None:
+            # 无图(空串)或不是产物代理 URL 都无法校验
+            entry.update(
+                status="unavailable",
+                reason="no_image" if not shot.grid_image else "bad_url",
+            )
+            results.append(entry)
+            continue
+        if shot.grid_image not in bytes_cache:
+            bytes_cache[shot.grid_image] = await fetch_product_image_bytes(
+                pool,
+                worker=loc["worker"],
+                filename=loc["filename"],
+                subfolder=loc["subfolder"],
+                type_=loc["type"],
+            )
+        img_bytes = bytes_cache[shot.grid_image]
+        if img_bytes is None:
+            entry.update(status="unavailable", reason="fetch_failed")
+            results.append(entry)
+            continue
+        # 宫格图:切出该 shot 对应面板再检测
+        if url_refcount.get(shot.grid_image, 0) > 1:
+            cols = 3 if url_refcount[shot.grid_image] <= 9 else 5
+            panels = detect_grid_panels(img_bytes, f"{cols}x{cols}")
+            if shot.idx < len(panels):
+                img_bytes = panels[shot.idx]
+        per_character = detect_character_presence(img_bytes, color_map) if color_map else {}
+        detected = sorted(n for n, info in per_character.items() if info["present"])
+        missing = sorted(set(expected) - set(detected))
+        unexpected = sorted(set(detected) - set(expected))
+        entry.update(
+            status="ok",
+            detected=detected,
+            missing=missing,
+            unexpected=unexpected,
+            per_character=per_character,
+        )
+        # 位置感知校验:有 2D 布局(actors 带 x)时附带分带结果
+        if shot.scene_layout and color_map:
+            try:
+                layout_obj = json.loads(shot.scene_layout)
+            except (ValueError, TypeError):
+                layout_obj = None
+            actors = (layout_obj or {}).get("actors") or []
+            if actors:
+                entry["region_check"] = check_regions(img_bytes, color_map, actors)
+        if body.persist:
+            shot.detected_colors = json.dumps(
+                {
+                    "color_map": {n: color_map[n] for n in expected if n in color_map},
+                    "per_character": per_character,
+                    "checked_at": _now().isoformat(),
+                    "source": "presence-check",
+                },
+                ensure_ascii=False,
+            )
+            session.add(shot)
+        results.append(entry)
+
+    total = len(results)
+    ok = sum(1 for r in results if r.get("status") == "ok" and not r.get("missing"))
+    missing_chars = sum(len(r.get("missing") or []) for r in results)
+    no_image = sum(1 for r in results if r.get("status") == "unavailable")
+    if body.persist:
+        _append_process(p, "presence_check", f"在场校验 {ok}/{total} 通过, 缺失 {missing_chars} 角色")
+        session.add(p)
+        session.commit()
+    logger.info(
+        "presence-check project=%s shots=%d ok=%d missing_chars=%d no_image=%d elapsed=%.2fs",
+        pid, total, ok, missing_chars, no_image, time.monotonic() - t0,
+    )
+    return {
+        "shots": results,
+        "summary": {
+            "total": total,
+            "ok": ok,
+            "missing_chars": missing_chars,
+            "no_image": no_image,
+        },
+    }
 
 
 # ===========================================================================

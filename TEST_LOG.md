@@ -2,6 +2,24 @@
 
 ---
 
+## R3-2026-08-15 · DramaClaw 借鉴第三轮:颜色标记草图在场校验(#4)
+
+**时间**: 2026-08-15
+**类型**: 后端里程碑（报告 docs/2026-08-15-color-presence-validation.md）
+
+### 交付
+
+- **services/drama_presence.py**：色相环 12 色调色板（两两 RGB 距离 ≥127 > 2×阈值，数学保证不串色，test_palette_rgb_separable 常驻守住——修正了 DramaClaw 荧光色的串色缺陷）；确定性分配；色标 prompt 后缀；纯 PIL 检测（1024² 典型 14.6ms）；宫格 3x3/5x5 切 panel；layout x 分带位置三级（region/elsewhere/missing）
+- **prompt 注入**：grid-storyboard / scene-layout 加 `color_mark`（默认 False 零行为变更）
+- **`POST /drama/projects/{pid}/presence-check`**：逐 shot 取图（resolve_worker 白名单+同机回退）→检测→期望比对→missing/unexpected/region_check 报告+persist 落 shot.detected_colors（新列幂等 ALTER）
+- 测试 18 例全绿；drama_studio/storyboard_valid_ids 90/90 回归
+
+### 回归
+
+- 全量 **pytest 1576 passed**（test_redis_integration 2 预存失败，四轮 stash 验证无关）
+
+---
+
 ## R2-2026-08-15 · DramaClaw 借鉴第二轮:分裂修复推广 + SSE FSM 2.0 + 发版防御
 
 **时间**: 2026-08-15

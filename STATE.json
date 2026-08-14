@@ -3503,5 +3503,19 @@
   "regression": "新增 23 测试全绿;全量 pytest 1561 passed(test_redis_integration 2 预存失败,stash 双证无关);契约只增不改",
   "notes": "任务书所指 workflows.py/drama_analytics.py 经审计为误指,实际落点 drama_pipeline.py(新建)+drama_studio.py+services/studio;遗留:_writeback_candidate 同类分裂未修、studio error 归因需 error_stage 列、lipsync 是否 gate 成片为产品决策",
   "verified_at": "2026-08-15T01:30:00+08:00"
+ },
+ "color_presence_2026_08_15": {
+  "id": "R3-2026-08-15",
+  "title": "颜色标记草图在场校验(DramaClaw 借鉴 #4)",
+  "status": "done",
+  "scope": "报告 docs/2026-08-15-color-presence-validation.md",
+  "deliverables": [
+   "services/drama_presence.py: 色相环 12 色(两两距离≥127 数学不串色)+确定性分配+色标 prompt+纯 PIL 检测(14.6ms/1024²)+宫格切 panel+位置三级",
+   "POST /drama/projects/{pid}/presence-check: missing/unexpected/region_check 报告+persist;shot.detected_colors 新列(幂等 ALTER)",
+   "grid-storyboard/scene-layout 加 color_mark(默认关零行为变更)"
+  ],
+  "regression": "新增 18 测试全绿;全量 pytest 1576 passed(redis 2 预存失败无关)",
+  "notes": "前端接线点:分镜卡角标+角色色块徽章;反哺 render 参考图过滤待产品确认;角色>12 取模复用",
+  "verified_at": "2026-08-15T02:20:00+08:00"
  }
 }

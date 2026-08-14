@@ -313,6 +313,10 @@ class DramaShot(SQLModel, table=True):
     grid_image: str = ""
     # M3: 空间构图布局(JSON: {characters:[{name,x,y}], props:[], camera:{angle,zoom}})
     scene_layout: str = ""
+    # 颜色标记草图在场校验(DramaClaw 借鉴 #4):
+    # JSON {color_map, per_character, checked_at, source};color_mark 生成时写 expected 段,
+    # presence-check 校验后写 per_character 检测明细
+    detected_colors: str = ""
     # M6: 视频生成模型(ltx / seedance / kling,空=ltx 默认)
     video_model: str = ""
     # 流水线状态

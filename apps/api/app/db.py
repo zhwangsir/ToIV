@@ -254,6 +254,8 @@ _SQLITE_RAW_MIGRATIONS: tuple[str, ...] = (
     "ALTER TABLE dramashot ADD COLUMN continue_urls TEXT DEFAULT '[]'",
     "ALTER TABLE dramashot ADD COLUMN continue_concat_url TEXT DEFAULT ''",
     "ALTER TABLE dramashot ADD COLUMN continue_error TEXT DEFAULT ''",
+    # 颜色标记草图在场校验结果(drama_presence)
+    "ALTER TABLE dramashot ADD COLUMN detected_colors TEXT DEFAULT ''",
     # ── Job 表索引(既有库幂等补建;新库由 SQLModel index=True 建 ix_job_*,
     # 与本 idx_job_* 不同名不冲突,双索引并存代价可忽略)──
     # tracker 按 prompt_id 反查 Job
