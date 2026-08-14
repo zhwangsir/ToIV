@@ -735,7 +735,7 @@
   }
  },
  "git": {
-  "latest_commit": "799f033 feat(drama): 管线状态重算 + 合法 ID 校验 + SKILL 纪律(DramaClaw 借鉴落地)",
+  "latest_commit": "0780418 feat(r2): 分裂修复推广 + trackJob SSE FSM 2.0 + 发版防御三件套(DramaClaw 借鉴 R2)",
   "production_verified": "2026-08-14: core harness profile=full 4 插件激活;/api/system/harness 200;/api/agent/sessions 200;toiv.dgmt.top 200(跨境波动期 7-10s)+ toiv.wineryz.top 200(0.2-0.3s);frpc 断连系链路波动自动重连恢复"
  },
  "roadmap": {
