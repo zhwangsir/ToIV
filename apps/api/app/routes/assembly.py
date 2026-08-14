@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import glob
+import logging
 import re
 import shutil
 import tempfile
@@ -38,6 +39,7 @@ from app.storage import content_subdir, drama_output_root
 from app.ratelimit import enforce_generation_rate_limit
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 # 成片输出目录:容器挂了 toiv-data:/data;无 /data(本地)则回落到临时目录。
 _OUTPUT_DIR = content_subdir("manju")  # 与 voice 同目录(生成内容根,可切 NAS)
@@ -387,6 +389,7 @@ def _build_ffmpeg_command(
     targets: list[float],
     dims: tuple[int, int],
     out: Path,
+    clip_audio: list[bool] | None = None,
 ) -> list[str]:
     """构造 ffmpeg 命令。
 
@@ -394,8 +397,26 @@ def _build_ffmpeg_command(
     - 转场 none:用 concat 滤镜首尾相接;crossfade:用 xfade 链式交叠。
     - 音频:有配音则逐镜按片段起始偏移 adelay 对齐成对白轨,叠可选 BGM(降音垫底)amix;
       无配音仅 BGM 时沿用原单轨逻辑(漫剧片段普遍无声)。
+    - 片段内嵌音轨(clip_audio,可选):无配音、无 BGM、至少一片段有音轨且转场为 none 时,
+      保留片段原生音轨——有音轨片段 aresample 归一,无音轨片段补 anullsrc 静音,
+      concat 带音频输出;其他情形(None/有配音/有 BGM/crossfade)保持旧行为(不映射内嵌音轨)。
     """
     has_voice = any(v is not None for v in voices)
+    # 内嵌音轨模式判定:配音/BGM 优先(内嵌音轨丢弃,仅记日志);
+    # crossfade 的 acrossfade 混音链超出本批范围,保持旧行为并 warning。
+    has_embedded = bool(clip_audio) and any(clip_audio)
+    if has_embedded and (has_voice or bgm is not None):
+        logger.info("合成:片段内嵌音轨被配音/BGM 覆盖,不映射内嵌音轨")
+    use_embedded = (
+        has_embedded
+        and not has_voice
+        and bgm is None
+        and options.transition == "none"
+    )
+    if has_embedded and not has_voice and bgm is None and options.transition != "none":
+        logger.warning(
+            "合成:crossfade 转场暂不支持保留片段内嵌音轨(acrossfade 混音链未实现),内嵌音轨将被丢弃"
+        )
     cmd: list[str] = ["ffmpeg", "-y"]
     for clip in clips:
         cmd += ["-i", str(clip)]
@@ -410,6 +431,18 @@ def _build_ffmpeg_command(
             cmd += ["-i", str(vp)]
             voice_inputs.append((i, _next_idx))
             _next_idx += 1
+    # 内嵌音轨链:无音轨片段补 anullsrc 静音 lavfi 输入(索引接在 clips/BGM/配音之后)
+    # 注意:anullsrc 的选项是 channel_layout(单数),与 aformat 的 channel_layouts(复数)不同
+    silent_idx: dict[int, int] = {}  # 镜序 → anullsrc 输入索引
+    if use_embedded:
+        for i in range(len(clips)):
+            if i >= len(clip_audio) or not clip_audio[i]:
+                cmd += [
+                    "-f", "lavfi",
+                    "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
+                ]
+                silent_idx[i] = _next_idx
+                _next_idx += 1
 
     # 字幕 PNG inputs(drawtext 不可用时):每镜一个 PNG,排在所有输入最后
     subs = options.subtitles
@@ -470,6 +503,7 @@ def _build_ffmpeg_command(
             vlabels[-1] = sub_label  # 替换为带字幕的 label
 
 
+    aout: str | None = None
     if options.transition == "crossfade" and len(clips) > 1:
         prev = vlabels[0]
         offset = 0.0
@@ -484,6 +518,28 @@ def _build_ffmpeg_command(
             )
             prev = out_label
         vout = prev
+    elif use_embedded:
+        # 内嵌音轨链:逐镜音频按该镜有效时长截齐(与视频 trim 对齐防音画漂移),
+        # 有音轨片段归一到 stereo/44.1k,无音轨片段用 anullsrc 补偿,concat 带音频。
+        alabels: list[str] = []
+        for i in range(len(clips)):
+            dur = durations[i] if i < len(durations) else _CLIP_EST_SEC
+            if i in silent_idx:
+                filters.append(
+                    f"[{silent_idx[i]}:a]atrim=0:{dur:.2f},asetpts=PTS-STARTPTS[a{i}]"
+                )
+            else:
+                filters.append(
+                    f"[{i}:a]atrim=0:{dur:.2f},asetpts=PTS-STARTPTS,"
+                    f"aresample=44100,aformat=channel_layouts=stereo[a{i}]"
+                )
+            alabels.append(f"a{i}")
+        concat_inputs = "".join(
+            f"[{vlabels[i]}][{alabels[i]}]" for i in range(len(clips))
+        )
+        filters.append(f"{concat_inputs}concat=n={len(clips)}:v=1:a=1[vout][aout]")
+        vout = "vout"
+        aout = "aout"
     elif len(clips) > 1:
         concat_inputs = "".join(f"[{label}]" for label in vlabels)
         filters.append(f"{concat_inputs}concat=n={len(clips)}:v=1:a=0[vout]")
@@ -492,7 +548,6 @@ def _build_ffmpeg_command(
         vout = vlabels[0]
 
     # ---- 音频:逐镜配音对齐(逐轨音量)+ 可选 BGM(可对白闪避)----
-    aout: str | None = None
     if has_voice:
         offsets: list[float] = []
         acc = 0.0

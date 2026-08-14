@@ -44,7 +44,7 @@ _MP4 = b"\x00\x00\x00\x18ftypmp42"
 # ────────────────────────────────
 
 def _cmd(n: int, options, bgm=None, voices=None, durations=None, targets=None,
-         dims=(1280, 720), out=Path("/t/out.mp4")):
+         dims=(1280, 720), out=Path("/t/out.mp4"), clip_audio=None):
     return _build_ffmpeg_command(
         [Path(f"/t/clip-{i:03d}.mp4") for i in range(n)],
         options,
@@ -54,6 +54,7 @@ def _cmd(n: int, options, bgm=None, voices=None, durations=None, targets=None,
         targets if targets is not None else [],
         dims,
         out,
+        clip_audio=clip_audio,
     )
 
 
@@ -145,6 +146,75 @@ def test_build_cmd_grade_and_trim():
     fc = _filtergraph(cmd)
     assert "hue=s=0" in fc  # 调色滤镜接入
     assert "trim=0:1.50" in fc  # 时间线裁切
+
+
+# ────────────────────────────────
+# P1-a:片段内嵌音轨保留(clip_audio)
+# ────────────────────────────────
+
+def test_build_cmd_embedded_audio_chain():
+    """无配音无 BGM + clip_audio=[True,False,True] → anullsrc 补偿 + concat a=1 + 映射 aout。"""
+    cmd = _cmd(
+        3, AssembleOptions(transition="none"),
+        durations=[2.0, 2.0, 3.0], clip_audio=[True, False, True],
+    )
+    fc = _filtergraph(cmd)
+    # 无音轨的第 1 镜补 anullsrc 静音 lavfi 输入(以 -f lavfi -i 形式入参)
+    # anullsrc 选项为 channel_layout(单数),真机 ffmpeg 已验证可解析
+    assert "-f" in cmd and "lavfi" in cmd
+    assert any("anullsrc=channel_layout=stereo:sample_rate=44100" in a for a in cmd)
+    # 有音轨片段:atrim 截齐 + aresample 归一;无音轨片段:anullsrc 输入 atrim 截齐
+    assert "[0:a]atrim=0:2.00,asetpts=PTS-STARTPTS,aresample=44100,aformat=channel_layouts=stereo[a0]" in fc
+    assert ":a]atrim=0:2.00,asetpts=PTS-STARTPTS[a1]" in fc
+    assert "[2:a]atrim=0:3.00,asetpts=PTS-STARTPTS,aresample=44100,aformat=channel_layouts=stereo[a2]" in fc
+    # concat 带音频 + 映射 [aout] + aac 编码参数
+    assert "concat=n=3:v=1:a=1[vout][aout]" in fc
+    maps = [cmd[i + 1] for i, a in enumerate(cmd) if a == "-map"]
+    assert "[aout]" in maps
+    assert "-c:a" in cmd and "aac" in cmd
+
+
+def test_build_cmd_embedded_audio_all_silent_noop():
+    """clip_audio 全 False(无任何音轨)→ 旧行为:concat 不带音频。"""
+    cmd = _cmd(2, AssembleOptions(), clip_audio=[False, False])
+    assert "concat=n=2:v=1:a=0[vout]" in _filtergraph(cmd)
+    assert "-c:a" not in cmd
+
+
+def test_build_cmd_clip_audio_none_keeps_legacy():
+    """clip_audio=None(默认)→ 旧行为不变(concat 不带音频,不出音轨参数)。"""
+    cmd = _cmd(2, AssembleOptions(), clip_audio=None)
+    assert "concat=n=2:v=1:a=0[vout]" in _filtergraph(cmd)
+    assert "-c:a" not in cmd
+
+
+def test_build_cmd_voice_overrides_embedded():
+    """有配音 + clip_audio 提供 → 旧行为:配音链照旧,内嵌音轨不映射、不补 anullsrc。"""
+    voices = [Path("/t/v0.wav"), None]
+    cmd = _cmd(2, AssembleOptions(), voices=voices, clip_audio=[True, True])
+    fc = _filtergraph(cmd)
+    assert not any("anullsrc" in a for a in cmd)
+    assert "concat=n=2:v=1:a=0[vout]" in fc
+    assert "adelay=0|0" in fc  # 配音链照旧
+    # 映射的是配音混出的 [aout],与内嵌音轨无关
+    assert "amix" in fc or "[aout]" in fc
+
+
+def test_build_cmd_crossfade_drops_embedded_with_warning(caplog):
+    """crossfade + 内嵌音轨 → 保持旧行为(xfade 丢音轨)+ 记 warning。"""
+    import logging
+
+    with caplog.at_level(logging.WARNING, logger="app.routes.assembly"):
+        cmd = _cmd(
+            2, AssembleOptions(transition="crossfade"),
+            durations=[2.0, 3.0], clip_audio=[True, True],
+        )
+    fc = _filtergraph(cmd)
+    assert "xfade" in fc
+    assert "concat" not in fc
+    assert not any("anullsrc" in a for a in cmd)
+    assert "-c:a" not in cmd
+    assert any("内嵌音轨" in r.message for r in caplog.records)
 
 
 # ────────────────────────────────

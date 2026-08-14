@@ -2,6 +2,32 @@
 
 ---
 
+## DOG-2026-08-15 · H3 全链路 dogfood:《诛仙》十镜短剧 + 四个生产实测缺陷修复
+
+**时间**: 2026-08-15
+**类型**: 生产验证 + 缺陷修复（项目 id 5e1da2f4f1524c33ba9c461b71ae6805；成片 59.9s）
+
+### 运行实录
+
+- 建项目（1344×768@24）→ LLM 拆 10 镜 → 逐镜 H3 t2v（真人化 prompt_override）→ 单实例排队 ~6min/镜 → 10/10 Job done → 合成成片
+- 实测发现并已修四个缺陷（见下）；H3 模型自发为名场面生成正确中文字幕（痴情咒/「别管明天了，好吗」，prompt 未给台词——模型先验，音画同出价值实证）
+
+### 缺陷与修复
+
+| # | 缺陷（实测现象） | 根因 | 修复 |
+|---|---|---|---|
+| P0-1 | 批量提交后靠后的 7/10 镜永久 generating | 写回等待 900s 超时豁免后 return，无人再收口（H3 单实例排队必然超窗） | `_await_shot_video_writeback`/`_writeback_candidate` 改预算循环续等（总预算=job_track_timeout 7200s，逐轮重读 Job 定性） |
+| P0-2 | 重启 reconcile 把 7 镜误标 error | `Job.prompt == shot.prompt` 精确匹配在 prompt_override 场景必然失配 | reconcile 两段匹配：精确→（seed≠0 时）kind+seed+属主兜底 |
+| P1-a | 成片无音轨 | `_build_ffmpeg_command` 只在有配音/BGM 时映射音频，concat a=0 | clip_audio 探测+无音轨片段 anullsrc 补偿+concat a=1（crossfade/有配音场景保持旧行为+日志） |
+| P1-b | 成片 1280×720@16 ≠ 项目 1344×768@24 | AssembleOptions 默认 aspect/fps 固定 | aspect 默认 "auto"→项目宽高（取偶）、fps 0→项目 fps；显式旧值不变 |
+
+### 回归
+
+- 新增/改写测试 14 例；全量 **pytest 1588 passed**（redis 2 例预存失败，worktree 基线复现无关）
+- P1 滤镜链真机 ffmpeg 实跑验证（音画对齐 2+2+3=7.0s）
+
+---
+
 ## R3-2026-08-15 · DramaClaw 借鉴第三轮:颜色标记草图在场校验(#4)
 
 **时间**: 2026-08-15

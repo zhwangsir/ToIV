@@ -311,8 +311,10 @@ class AssembleOptions(BaseModel):
     bgm_url: str | None = Field(default=None, max_length=2000)
     title: str = Field(default="", max_length=120)
     credits: str = Field(default="", max_length=600)
-    aspect: str = Field(default="16:9")
-    fps: int = Field(default=16, ge=1, le=60)
+    # aspect="auto"(默认):合成沿用项目宽高(取偶数兜底);显式 16:9/9:16/1:1 走预设尺寸
+    aspect: str = Field(default="auto")
+    # fps=0(默认):合成沿用项目 fps;显式 >0 覆盖
+    fps: int = Field(default=0, ge=0, le=60)
     grade: str = Field(default="none", max_length=20)
     sub_size: int = Field(default=28, ge=12, le=72)
     sub_color: str = Field(default="white", max_length=12)
@@ -1653,53 +1655,77 @@ async def _await_shot_video_writeback(sid: str, prompt_id: str) -> bool:
 
     generate-video 端点 fire-and-forget 调用;from-image 自动管线则 await 串行等待。
 
-    超时豁免(2026-08-15 分裂修复):本地等待窗口(≤900s)远短于 tracker 作业
-    生命周期(settings.job_track_timeout,默认 7200s);等待超时往往只是作业还没
-    跑完,若直接标 error,900-7200s 间完成的作业会分裂为 Job=done / shot=error
-    且 video_url 永不回写。故超时时保持 generating + 返回,由 tracker 窗口 +
-    reconcile_interrupted(按 seed+prompt 找回 Job 重挂回写)兜底收口;
-    作业已 error / 不存在等其他异常路径维持标 error 不变。
+    预算内循环续等(2026-08-15 永久 generating 修复):单轮等待窗口(≤900s)远短于
+    tracker 作业生命周期,排队作业(如 H3 单实例多镜排队 ~6min/镜)极易超窗;此前
+    「超时豁免」直接 return,之后 Job done 也无人回写 → 分镜永久 generating。现改为
+    以 settings.job_track_timeout(默认 7200s,与 tracker 兜底窗口对齐)为总预算
+    循环续等:每轮 wait_for_jobs(min(900, 剩余预算)),超时后 commit 刷新快照重读
+    Job——done 有产物 → 回写返回 True;error / 不存在 → 抛出走通用标 error 路径;
+    仍非终态且预算未尽 → 续等下一轮;预算耗尽 → 标 error(超出 tracker 兜底窗口)。
+    作业已 error / 不存在等其他异常路径维持标 error 旧语义不变。
     """
     from app.db import engine
     try:
         with Session(engine) as s:
-            wait_err: RuntimeError | None = None
-            try:
-                await wait_for_jobs(s, [prompt_id], timeout=_job_wait_timeout(900.0))
-            except RuntimeError as e:
-                wait_err = e  # 先读 Job 最新状态再定性(超时豁免 or 真失败)
-            # commit 结束当前读事务快照,确保看到 tracker 其他 Session 的最新提交
-            # (与 wait_for_jobs 内每轮 commit 同理)
-            s.commit()
-            job = s.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
-            if job and job.status == "done" and job.result:
-                urls = json.loads(job.result)
-                if urls:
+            budget = get_settings().job_track_timeout
+            deadline = time.monotonic() + budget
+            round_no = 0
+            while True:
+                round_no += 1
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    # 预算耗尽:超出 tracker 兜底窗口仍未完成 → 标 error 终态收口
                     shot_obj = s.get(DramaShot, sid)
-                    if shot_obj:
-                        shot_obj.video_url = urls[0]
-                        shot_obj.video_status = "done"
+                    if shot_obj and shot_obj.video_status == "generating":
+                        shot_obj.video_status = "error"
+                        shot_obj.error = "生成超时(超出 tracker 兜底窗口)"
                         s.add(shot_obj)
                         s.commit()
-                        return True
-            if wait_err is not None:
-                if job and job.status not in ("done", "error"):
-                    # 超时豁免:作业仍在 tracker 窗口内,保持 generating 不标 error
                     logger.warning(
-                        "shot %s video writeback: 等待超时但作业 %s 仍为 %s,"
-                        "保持 generating 待 tracker/reconcile 兜底",
-                        sid, prompt_id, job.status,
+                        "shot %s video writeback: 等待预算 %.0fs 耗尽,作业 %s 仍未完成,"
+                        "标 error 收口",
+                        sid, budget, prompt_id,
                     )
                     return False
-                raise wait_err  # 作业已 error / 不存在 → 走通用异常标 error(旧语义)
-            # wait 正常返回但无产物(job done 但 result 空)→ 失败标记(旧语义)
-            shot_obj = s.get(DramaShot, sid)
-            if shot_obj and shot_obj.video_status == "generating":
-                shot_obj.video_status = "error"
-                shot_obj.error = "生成失败或超时"
-                s.add(shot_obj)
+                wait_err: RuntimeError | None = None
+                try:
+                    await wait_for_jobs(
+                        s, [prompt_id], timeout=_job_wait_timeout(min(900.0, remaining))
+                    )
+                except RuntimeError as e:
+                    wait_err = e  # 先读 Job 最新状态再定性(续等 or 真失败)
+                # commit 结束当前读事务快照,确保看到 tracker 其他 Session 的最新提交
+                # (与 wait_for_jobs 内每轮 commit 同理)
                 s.commit()
-            return False
+                job = s.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
+                if job and job.status == "done" and job.result:
+                    urls = json.loads(job.result)
+                    if urls:
+                        shot_obj = s.get(DramaShot, sid)
+                        if shot_obj:
+                            shot_obj.video_url = urls[0]
+                            shot_obj.video_status = "done"
+                            s.add(shot_obj)
+                            s.commit()
+                            return True
+                if wait_err is not None:
+                    if job and job.status not in ("done", "error"):
+                        # 仍非终态且预算未尽:续等下一轮(排队/长跑作业不再永久 generating)
+                        logger.warning(
+                            "shot %s video writeback: 第 %d 轮等待超时但作业 %s 仍为 %s,"
+                            "预算内续等(剩余 %.0fs)",
+                            sid, round_no, prompt_id, job.status, remaining,
+                        )
+                        continue
+                    raise wait_err  # 作业已 error / 不存在 → 走通用异常标 error(旧语义)
+                # wait 正常返回但无产物(job done 但 result 空)→ 失败标记(旧语义)
+                shot_obj = s.get(DramaShot, sid)
+                if shot_obj and shot_obj.video_status == "generating":
+                    shot_obj.video_status = "error"
+                    shot_obj.error = "生成失败或超时"
+                    s.add(shot_obj)
+                    s.commit()
+                return False
     except Exception as e:  # noqa: BLE001
         logger.exception("shot %s video writeback failed: %s", sid, e)
         with Session(engine) as s:
@@ -2773,13 +2799,26 @@ async def _do_assemble(
     name = f"drama-{uuid.uuid4().hex}.mp4"
     out_path = _drama_dir() / name
 
+    # P1-b:aspect="auto"(默认)→ 沿用项目宽高(各取偶数兜底,缺省落 16:9);
+    # fps=0(默认)→ 沿用项目 fps(缺省 16)。显式预设值行为不变。
+    if body.aspect == "auto":
+        pw, ph = p.width or 0, p.height or 0
+        if pw > 0 and ph > 0:
+            # yuv420p/libx264 要求偶数尺寸,奇数向下取偶
+            dims = (max(2, pw - pw % 2), max(2, ph - ph % 2))
+        else:
+            dims = _ASPECT_DIMS["16:9"]
+    else:
+        dims = _ASPECT_DIMS.get(body.aspect, _ASPECT_DIMS["16:9"])
+    eff_fps = body.fps if body.fps > 0 else (p.fps if p.fps and p.fps > 0 else 16)
+
     # 把 AssembleOptions 翻译成 assembly.py 的 AssembleOptions
     from app.routes.assembly import AssembleOptions as _AsmOpt
     asm_opt = _AsmOpt(
         transition=body.transition,
         bgm_url=body.bgm_url,
         subtitles=[s.dialogue for s in ready],  # 逐镜台词作字幕
-        fps=body.fps,
+        fps=eff_fps,
         aspect=body.aspect,
         title=body.title,
         credits=body.credits,
@@ -2827,6 +2866,9 @@ async def _do_assemble(
                     voice_paths[i] = vdest
 
         probed = [await _probe_duration(p) for p in clip_paths]
+        # P1-a:逐镜探测片段是否自带音轨(H3 引擎分镜视频常带原生音轨),
+        # 供 _build_ffmpeg_command 在无配音/无 BGM 时保留内嵌音轨。
+        clip_audio = [await _probe_has_audio(cp) for cp in clip_paths]
         targets = durations_targets
         durations = [
             min(probed[i], targets[i]) if i < len(targets) and targets[i] > 0 else probed[i]
@@ -2850,16 +2892,24 @@ async def _do_assemble(
                     for r in align_recs
                 ),
             )
-        dims = _ASPECT_DIMS.get(body.aspect, _ASPECT_DIMS["16:9"])
+        # dims 已在 asm_opt 构造前按 aspect="auto"/显式预设解析(见上),此处不再重算
         has_bookends = bool(asm_opt.title.strip() or asm_opt.credits.strip())
         film_path = (tmp_dir / "film.mp4") if has_bookends else out_path
         cmd = _build_ffmpeg_command(
-            clip_paths, asm_opt, bgm_path, voice_paths, durations, targets, dims, film_path
+            clip_paths, asm_opt, bgm_path, voice_paths, durations, targets, dims, film_path,
+            clip_audio=clip_audio,
         )
         await _run_ffmpeg(cmd)
 
         if has_bookends:
-            film_has_audio = any(voice_paths) or bgm_path is not None
+            # 内嵌音轨保留时正片同样带音轨,片头/片尾卡需配静音轨才能 concat
+            embedded_used = (
+                any(clip_audio)
+                and not any(voice_paths)
+                and bgm_path is None
+                and asm_opt.transition == "none"
+            )
+            film_has_audio = any(voice_paths) or bgm_path is not None or embedded_used
             parts: list[Path] = []
             if asm_opt.title.strip():
                 tcard = tmp_dir / "title.mp4"
@@ -3683,59 +3733,84 @@ def _next_seeds(base_seed: int | None, shot_seed: int, n: int) -> list[int]:
 async def _writeback_candidate(prompt_id: str, candidate_id: str, shot_id: str) -> None:
     """候选生成任务完成后回写 candidate.url/status,并自动 pick 首个完成的候选。
 
-    超时豁免(2026-08-15 分裂修复,同 _await_shot_video_writeback):本地等待窗口
-    (≤900s)远短于 tracker 作业生命周期(settings.job_track_timeout,默认 7200s);
-    等待超时往往只是作业还没跑完,若直接标 error,900-7200s 间完成的作业会分裂为
-    Job=done / candidate=error 且 url 永不回写。故超时时保持 generating + 返回,
-    由 tracker 窗口 + reconcile 兜底收口;作业已 error / 不存在等其他异常路径维持
-    标 error 不变。
+    预算内循环续等(2026-08-15 永久 generating 修复,同 _await_shot_video_writeback):
+    单轮等待窗口(≤900s)远短于 tracker 作业生命周期,排队作业极易超窗;此前
+    「超时豁免」直接 return,之后 Job done 也无人回写 → 候选永久 generating。现改为
+    以 settings.job_track_timeout(默认 7200s)为总预算循环续等:每轮
+    wait_for_jobs(min(900, 剩余预算)),超时后 commit 刷新快照重读 Job——done(含
+    竞态 done)取产物回写并保持首个完成者自动 pick;error / 不存在 → 抛走通用标
+    error 路径;仍非终态且预算未尽 → 续等下一轮;预算耗尽 → 候选标 error(超出
+    tracker 兜底窗口)。作业已 error / 不存在等其他异常路径维持标 error 旧语义不变。
     """
     from app.db import engine
 
     try:
         with Session(engine) as s:
-            wait_err: RuntimeError | None = None
-            results: dict[str, list[str]] = {}
-            try:
-                results = await wait_for_jobs(s, [prompt_id], timeout=_job_wait_timeout(900.0))
-            except RuntimeError as e:
-                wait_err = e  # 先读 Job 最新状态再定性(超时豁免 or 真失败)
-            # commit 结束当前读事务快照,确保看到 tracker 其他 Session 的最新提交
-            s.commit()
-            job = s.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
-            urls = results.get(prompt_id, [])
-            if not urls and job and job.status == "done" and job.result:
-                urls = json.loads(job.result)  # 竞态 done:wait 抛超时瞬间作业恰好完成
-            cand = s.get(DramaShotCandidate, candidate_id)
-            if not cand:
-                return
-            if urls:
-                cand.url = urls[0]
-                cand.status = "done"
-                cand.error = ""
-                # 自动 pick:以 shot.video_url 为空作为竞争条件,首个完成者写入
-                shot = s.get(DramaShot, shot_id)
-                if shot and not shot.video_url:
-                    cand.is_picked = True
-                    shot.video_url = cand.url
-                    shot.video_status = "done"
-                    s.add(shot)
-            elif wait_err is not None:
-                if job and job.status not in ("done", "error"):
-                    # 超时豁免:作业仍在 tracker 窗口内,保持 generating 不标 error
+            budget = get_settings().job_track_timeout
+            deadline = time.monotonic() + budget
+            round_no = 0
+            while True:
+                round_no += 1
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    # 预算耗尽:超出 tracker 兜底窗口仍未完成 → 候选标 error 终态收口
+                    cand = s.get(DramaShotCandidate, candidate_id)
+                    if cand and cand.status == "generating":
+                        cand.status = "error"
+                        cand.error = "生成超时(超出 tracker 兜底窗口)"
+                        s.add(cand)
+                        s.commit()
                     logger.warning(
-                        "candidate %s writeback: 等待超时但作业 %s 仍为 %s,"
-                        "保持 generating 待 tracker/reconcile 兜底",
-                        candidate_id, prompt_id, job.status,
+                        "candidate %s writeback: 等待预算 %.0fs 耗尽,作业 %s 仍未完成,"
+                        "候选标 error 收口",
+                        candidate_id, budget, prompt_id,
                     )
                     return
-                raise wait_err  # 作业已 error / 不存在 → 走通用异常标 error(旧语义)
-            else:
-                # wait 正常返回但无产物(job done 但 result 空)→ 失败标记(旧语义)
-                cand.status = "error"
-                cand.error = "生成结果为空"
-            s.add(cand)
-            s.commit()
+                wait_err: RuntimeError | None = None
+                results: dict[str, list[str]] = {}
+                try:
+                    results = await wait_for_jobs(
+                        s, [prompt_id], timeout=_job_wait_timeout(min(900.0, remaining))
+                    )
+                except RuntimeError as e:
+                    wait_err = e  # 先读 Job 最新状态再定性(续等 or 真失败)
+                # commit 结束当前读事务快照,确保看到 tracker 其他 Session 的最新提交
+                s.commit()
+                job = s.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
+                urls = results.get(prompt_id, [])
+                if not urls and job and job.status == "done" and job.result:
+                    urls = json.loads(job.result)  # 竞态 done:wait 抛超时瞬间作业恰好完成
+                cand = s.get(DramaShotCandidate, candidate_id)
+                if not cand:
+                    return
+                if urls:
+                    cand.url = urls[0]
+                    cand.status = "done"
+                    cand.error = ""
+                    # 自动 pick:以 shot.video_url 为空作为竞争条件,首个完成者写入
+                    shot = s.get(DramaShot, shot_id)
+                    if shot and not shot.video_url:
+                        cand.is_picked = True
+                        shot.video_url = cand.url
+                        shot.video_status = "done"
+                        s.add(shot)
+                elif wait_err is not None:
+                    if job and job.status not in ("done", "error"):
+                        # 仍非终态且预算未尽:续等下一轮
+                        logger.warning(
+                            "candidate %s writeback: 第 %d 轮等待超时但作业 %s 仍为 %s,"
+                            "预算内续等(剩余 %.0fs)",
+                            candidate_id, round_no, prompt_id, job.status, remaining,
+                        )
+                        continue
+                    raise wait_err  # 作业已 error / 不存在 → 走通用异常标 error(旧语义)
+                else:
+                    # wait 正常返回但无产物(job done 但 result 空)→ 失败标记(旧语义)
+                    cand.status = "error"
+                    cand.error = "生成结果为空"
+                s.add(cand)
+                s.commit()
+                return
     except Exception as e:  # noqa: BLE001
         logger.exception("candidate %s writeback failed: %s", candidate_id, e)
         with Session(engine) as s:
@@ -4831,6 +4906,11 @@ def reconcile_interrupted() -> dict:
       prompt_id → 重挂 _await_shot_video_writeback(Job 本身的追踪由
       tracker.reconcile_pending 重挂);Job 已 done 的直接回写 video_url;
       找不回/已 error 的标 error,不永久 generating。
+      两段匹配(2026-08-15 prompt_override 误标 error 修复):generate-video-v2
+      传 prompt_override 时 Job.prompt 存的是 override 文本,shot.prompt 仍是原
+      LLM 提示词,精确匹配必然落空 → 先按 kind+seed+prompt 精确匹配;查不到且
+      seed 非 0(seed=0 是默认值,碰撞率高,不启用兜底)则回退为 kind+seed+同用户
+      (项目属主)最新一条并 logger.info 记录;仍查不到才标 error。
     - LiveAct 分镜(task_id 未持久化,重启后找不回):标 error,提示重新生成。
     - process_data 中 autorun/批量精修记录停在非终态:标 error 并注明
       「服务重启中断,可重新触发」,不自动重跑整管,避免意外算力消耗。
@@ -4851,6 +4931,7 @@ def reconcile_interrupted() -> dict:
                 s.add(shot)
                 stats["error"] += 1
                 continue
+            # 第一段:kind + seed + prompt 精确匹配
             job = s.exec(
                 select(Job)
                 .where(Job.kind.like("drama_shot_video%"))  # type: ignore[union-attr]
@@ -4858,6 +4939,26 @@ def reconcile_interrupted() -> dict:
                 .where(Job.prompt == shot.prompt.strip())
                 .order_by(Job.created_at.desc())  # type: ignore[attr-defined]
             ).first()
+            if job is None and shot.seed != 0:
+                # 第二段兜底:prompt_override 时 Job.prompt 存的是 override 文本,
+                # 与 shot.prompt(原 LLM 提示词)不一致,精确匹配必然落空 → 回退为
+                # kind + seed + 同用户(项目属主)最新一条。seed=0 是默认值碰撞率高,
+                # 不启用兜底,只认精确匹配,防误配他人/他镜作业。
+                project = s.get(DramaProject, shot.project_id)
+                if project is not None:
+                    job = s.exec(
+                        select(Job)
+                        .where(Job.kind.like("drama_shot_video%"))  # type: ignore[union-attr]
+                        .where(Job.seed == shot.seed)
+                        .where(Job.user_id == project.user_id)
+                        .order_by(Job.created_at.desc())  # type: ignore[attr-defined]
+                    ).first()
+                    if job is not None:
+                        logger.info(
+                            "drama reconcile: shot %s prompt 精确匹配落空,"
+                            "走 seed+属主兜底找回作业 %s",
+                            shot.id, job.prompt_id,
+                        )
             if job and job.prompt_id and job.status in ("queued", "running"):
                 rehang.append((shot.id, job.prompt_id))
                 stats["rehang"] += 1

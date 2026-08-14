@@ -7,9 +7,12 @@
     ③ 全新角色名 → 放行且走既有自动建行路径(不破坏旧特性)
     ④ 输出结构非法 → 校验错误摘要反馈进 prompt 重试一次 → 成功
     ⑤ 重试仍结构非法 → 502 带明确 detail
-    ⑦ 分镜视频回写 wait_for_jobs 超时 → 不再标 error(保持 generating);
+    ⑦ 分镜视频回写预算内循环续等:首轮超时(作业非终态)→ 续等第二轮 done → 回写;
+       预算(job_track_timeout)耗尽 → 标 error(超出 tracker 兜底窗口);
        作业已 error / 超时瞬间恰好 done 的竞态路径行为不变;
-       同款修复推广到多候选回写 _writeback_candidate(超时保持/竞态回写并自动 pick)
+       同款修复推广到多候选回写 _writeback_candidate(续等回写并自动 pick)
+    ⑧ reconcile_interrupted 两段匹配:prompt_override 致 prompt 精确匹配落空且
+       seed 非 0 → seed+属主兜底找回;seed=0 不兜底,标 error
   链 B(services/studio/storyboard.parse_script):
     ⑥ known_characters 注入后近匹配纠正 + 新名放行;缺省 None 不启用校验(旧行为)
   兼容:
@@ -203,7 +206,9 @@ def test_invalid_structure_retry_exhausted_502(ctx):
 
 
 # ---------------------------------------------------------------------------
-# 链 A ⑦:回写等待超时 → 不标 error,保持 generating(分裂修复)
+# 链 A ⑦:回写预算内循环续等(永久 generating 修复)
+#   首轮超时(作业非终态)→ 续等第二轮 done → 回写;预算耗尽 → 标 error;
+#   作业 error / 竞态 done 路径旧语义不变
 # ---------------------------------------------------------------------------
 def _seed_generating_shot(ctx, *, job_status: str, job_result: str = ""):
     """落库:1 项目 + 1 generating 分镜 + 1 配套 Job。返回 (shot_id, prompt_id)。"""
@@ -227,22 +232,62 @@ def _seed_generating_shot(ctx, *, job_status: str, job_result: str = ""):
 
 
 @pytest.mark.asyncio
-async def test_writeback_timeout_keeps_generating(ctx):
-    """wait_for_jobs 超时(作业仍 running)→ 保持 generating,不标 error。"""
+async def test_writeback_timeout_resumes_and_writes_back(ctx):
+    """首轮超时(作业仍 running)→ 预算内续等第二轮,done 后正常回写 video_url。
+
+    回归「豁免 return 后无人收口 → 永久 generating」:续等期间 tracker 落库 done,
+    第二轮重读 Job 必须完成回写,而不是保持 generating 返回。
+    """
+    from app.db import engine
+    import app.routes.drama_studio as ds
+
+    url = "/api/images?filename=x.mp4&worker=w"
+    sid, prompt_id = _seed_generating_shot(ctx, job_status="running")
+    calls: list[float] = []
+
+    async def _fake_wait(session, prompt_ids, timeout=300.0, poll_interval=1.0):
+        calls.append(timeout)
+        if len(calls) == 1:
+            raise RuntimeError("等待作业超时: {'pid-wb'}")
+        # 第二轮:模拟 tracker 在续等期间已把作业落库 done(经同一 Session 提交,
+        # 回写函数随后 commit 刷新快照必然可见)
+        job = session.exec(select(Job).where(Job.prompt_id == "pid-wb")).first()
+        job.status = "done"
+        job.result = json.dumps([url])
+        session.add(job)
+        session.commit()
+        return {"pid-wb": [url]}
+
+    with patch("app.routes.drama_studio.wait_for_jobs", _fake_wait):
+        ok = await ds._await_shot_video_writeback(sid, prompt_id)
+    assert ok is True
+    assert len(calls) == 2  # 首轮超时后续等了一轮,未豁免返回
+    assert all(t <= 900.0 for t in calls)  # 每轮窗口不超 900s 上限
+    with Session(engine) as s:
+        shot = s.get(DramaShot, sid)
+        assert shot.video_status == "done"
+        assert shot.video_url == url
+
+
+@pytest.mark.asyncio
+async def test_writeback_budget_exhausted_marks_error(ctx):
+    """预算(job_track_timeout)耗尽作业仍非终态 → 标 error(超出 tracker 兜底窗口)。"""
     from app.db import engine
     import app.routes.drama_studio as ds
 
     sid, prompt_id = _seed_generating_shot(ctx, job_status="running")
-    with patch(
-        "app.routes.drama_studio.wait_for_jobs",
-        AsyncMock(side_effect=RuntimeError("等待作业超时: {'pid-wb'}")),
-    ):
+    wait_mock = AsyncMock(side_effect=RuntimeError("等待作业超时: {'pid-wb'}"))
+    fake_settings = MagicMock()
+    fake_settings.job_track_timeout = 0.0  # 预算为 0 → 立即耗尽
+    with patch("app.routes.drama_studio.wait_for_jobs", wait_mock), \
+         patch("app.routes.drama_studio.get_settings", return_value=fake_settings):
         ok = await ds._await_shot_video_writeback(sid, prompt_id)
     assert ok is False
+    assert wait_mock.await_count == 0  # 预算已尽,一轮都不再等待
     with Session(engine) as s:
         shot = s.get(DramaShot, sid)
-        assert shot.video_status == "generating"  # 超时豁免:不再标 error
-        assert shot.error == ""
+        assert shot.video_status == "error"
+        assert "超出 tracker 兜底窗口" in shot.error
 
 
 @pytest.mark.asyncio
@@ -287,8 +332,8 @@ async def test_writeback_timeout_race_done_writes_back(ctx):
 
 
 # ---------------------------------------------------------------------------
-# 链 A ⑦ 推广:多候选回写 _writeback_candidate 同款分裂修复
-#   超时保持 generating / 作业 error 标 error / 竞态 done 回写并自动 pick
+# 链 A ⑦ 推广:多候选回写 _writeback_candidate 同款预算内循环续等
+#   首轮超时 → 续等第二轮 done 回写并自动 pick / 作业 error 标 error / 竞态 done 回写
 # ---------------------------------------------------------------------------
 def _seed_candidate(ctx, *, job_status: str, job_result: str = ""):
     """落库:1 项目 + 1 generating 分镜 + 1 generating 候选 + 1 配套 Job。
@@ -319,24 +364,42 @@ def _seed_candidate(ctx, *, job_status: str, job_result: str = ""):
 
 
 @pytest.mark.asyncio
-async def test_candidate_writeback_timeout_keeps_generating(ctx):
-    """wait_for_jobs 超时(作业仍 running)→ 候选保持 generating,不标 error。"""
+async def test_candidate_writeback_timeout_resumes_and_writes_back(ctx):
+    """首轮超时(作业仍 running)→ 预算内续等第二轮,done 后回写 url 并自动 pick。
+
+    与 _await_shot_video_writeback 同款「豁免后无人收口 → 永久 generating」回归。
+    """
     from app.db import engine
     from app.models import DramaShotCandidate
     import app.routes.drama_studio as ds
 
+    url = "/api/images?filename=c.mp4&worker=w"
     sid, cid, prompt_id = _seed_candidate(ctx, job_status="running")
-    with patch(
-        "app.routes.drama_studio.wait_for_jobs",
-        AsyncMock(side_effect=RuntimeError("等待作业超时: {'pid-cand'}")),
-    ):
+    calls: list[float] = []
+
+    async def _fake_wait(session, prompt_ids, timeout=300.0, poll_interval=1.0):
+        calls.append(timeout)
+        if len(calls) == 1:
+            raise RuntimeError("等待作业超时: {'pid-cand'}")
+        # 第二轮:模拟 tracker 在续等期间已把作业落库 done
+        job = session.exec(select(Job).where(Job.prompt_id == "pid-cand")).first()
+        job.status = "done"
+        job.result = json.dumps([url])
+        session.add(job)
+        session.commit()
+        return {"pid-cand": [url]}
+
+    with patch("app.routes.drama_studio.wait_for_jobs", _fake_wait):
         await ds._writeback_candidate(prompt_id, cid, sid)
+    assert len(calls) == 2  # 首轮超时后续等了一轮,未豁免返回
     with Session(engine) as s:
         cand = s.get(DramaShotCandidate, cid)
-        assert cand.status == "generating"  # 超时豁免:不再标 error
-        assert cand.error == ""
+        assert cand.status == "done"
+        assert cand.url == url
+        assert cand.is_picked is True  # 首个完成者自动 pick
         shot = s.get(DramaShot, sid)
-        assert shot.video_status == "generating"
+        assert shot.video_status == "done"
+        assert shot.video_url == url
 
 
 @pytest.mark.asyncio
@@ -382,6 +445,69 @@ async def test_candidate_writeback_timeout_race_done_writes_back(ctx):
         shot = s.get(DramaShot, sid)
         assert shot.video_status == "done"
         assert shot.video_url == url
+
+
+# ---------------------------------------------------------------------------
+# 链 A ⑧:reconcile_interrupted 两段匹配(prompt_override 误标 error 修复)
+#   prompt 精确匹配落空且 seed 非 0 → seed+属主兜底找回;seed=0 不兜底,标 error
+# ---------------------------------------------------------------------------
+def _seed_reconcile_override(ctx, *, shot_seed: int, job_status: str = "done"):
+    """落库:1 项目 + 1 个 generating 分镜(prompt 为原 LLM 提示词)+ 1 个
+    prompt 被 prompt_override 改写的配套 Job(模拟 generate-video-v2 存 override
+    文本导致精确匹配落空的现场)。返回 (shot_id, pid)。"""
+    from app.db import engine
+
+    client, token = ctx
+    pid = client.post("/api/drama/projects", headers=_h(token),
+                      json={"title": "reconcile-override"}).json()["id"]
+    with Session(engine) as s:
+        user = s.exec(select(User).where(User.email == "v@toiv.ai")).first()
+        shot = DramaShot(project_id=pid, idx=0, prompt="original llm prompt",
+                         seed=shot_seed, video_status="generating")
+        s.add(shot)
+        s.commit()
+        s.refresh(shot)
+        s.add(Job(tenant_id=user.tenant_id, user_id=user.id, prompt_id="pid-ovr",
+                  worker="http://w:8188", kind="drama_shot_video_v2", status=job_status,
+                  prompt="override text", seed=shot_seed,
+                  result='["/api/images?filename=o.mp4&worker=w"]'
+                  if job_status == "done" else ""))
+        s.commit()
+        return shot.id, pid
+
+
+def test_reconcile_fallback_seed_owner_recovers_done_job(ctx):
+    """prompt_override 致 prompt 精确匹配落空,但 seed 非 0 → seed+属主兜底找回
+    done Job → 直接回写 video_url,不误标 error。"""
+    from app.db import engine
+    import app.routes.drama_studio as ds
+
+    sid, _ = _seed_reconcile_override(ctx, shot_seed=42)
+    stats = ds.reconcile_interrupted()
+
+    assert stats["writeback"] == 1
+    assert stats["error"] == 0
+    with Session(engine) as s:
+        shot = s.get(DramaShot, sid)
+        assert shot.video_status == "done"
+        assert shot.video_url == "/api/images?filename=o.mp4&worker=w"
+        assert shot.error == ""
+
+
+def test_reconcile_no_fallback_when_seed_zero(ctx):
+    """seed=0(默认值碰撞率高)且 prompt 不匹配 → 不启用兜底,维持标 error。"""
+    from app.db import engine
+    import app.routes.drama_studio as ds
+
+    sid, _ = _seed_reconcile_override(ctx, shot_seed=0)
+    stats = ds.reconcile_interrupted()
+
+    assert stats["error"] == 1
+    assert stats["writeback"] == 0
+    with Session(engine) as s:
+        shot = s.get(DramaShot, sid)
+        assert shot.video_status == "error"
+        assert "服务重启中断" in shot.error
 
 
 # ---------------------------------------------------------------------------
