@@ -1,7 +1,7 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-14T18:30:00+08:00",
+ "updated_at": "2026-08-14T20:10:00+08:00",
  "sync_baseline": {
   "id": "SYNC-2026-07-18",
   "type": "initial-sync",
@@ -735,7 +735,7 @@
   }
  },
  "git": {
-  "latest_commit": "ba6e21e feat(security): M12 P0/P1/P2 全量修复 + R3-R5 竞品调研深化",
+  "latest_commit": "6a4f314 feat(agent-team): R3.2 LangGraph 编排 + PostgresSaver 断点续跑 + LLM 分级",
   "uncommitted": {
    "modified_files": 63,
    "deleted_files": 32,
@@ -3418,5 +3418,23 @@
   "regression": "pytest 1444 passed(1433+11);web node:test 32/32;tsc --noEmit ✅;next build ✅(/agent-runs 已注册)",
   "r3_2_hooks": "AgentRun.checkpoint_ns=LangGraph thread namespace;run.id=thread_id;幂等键已落库;AgentApproval.decided_by 预接超时默认动作;verdict 字段/事件留给 Verifier;gpu_hint 本期静态;classify_goal() 独立函数待换 Leader LLM 分级",
   "verified_at": "2026-08-14T18:30:00+08:00"
+ },
+ "r3_2_langgraph_2026_08_14": {
+  "id": "R3.2-2026-08-14",
+  "type": "feature",
+  "title": "R3 第二步:LangGraph StateGraph + PostgresSaver checkpoint 断点续跑 + Director Gate LLM 分级",
+  "status": "passed",
+  "scope": "R3.1 手写 asyncio 编排升级为 LangGraph(并行 reducer/ Send fan-out / interrupt 确认门 / Command resume);API 契约零变更",
+  "deliverables": [
+   "services/agent_team_graph.py:START→setup→schedule(Send 并行)→join_eval→assembly_gate(interrupt)→assemble→END;results 配 operator.add reducer;worker 节点查 AgentTask done/approved 跳过(副作用幂等)",
+   "checkpointer:生产 AsyncPostgresSaver(AsyncConnectionPool 复用 core PG18,checkpoint 4 表已建);SQLite/测试回退 MemorySaver;TOIV_AGENT_PG_CHECKPOINTER 开关",
+   "main.py lifespan 启动恢复 resume_unfinished_runs:running→checkpoint 续跑/无 checkpoint 幂等重放;awaiting_assembly 不自动推进(等裁决)",
+   "classify_goal_llm:L1 层 LLM 输出 {level, reason},8s 超时/非法 JSON 回退启发式;证据写 plan_json.meta.classify;响应形状不变",
+   "依赖:langgraph 1.2.11 + langgraph-checkpoint-postgres 3.1.2 + psycopg 3.3.4(requirements/pyproject/ci.yml 已钉)"
+  ],
+  "regression": "pytest 1452 passed(1444+8:图 6 例+分级 2 例);R3.1 11 例契约原样全绿",
+  "prod_verified": "core 手工 pip install 后 deploy.sh 部署;AsyncPostgresSaver 真机就绪(checkpoints/checkpoint_blobs/checkpoint_writes/checkpoint_migrations 已建);生产 e2e:admin 登录→POST /agent-runs(城市夜景短片)→200 L1 秒回 10 任务→cancel 200 status=canceled;双域名 401 门控正常",
+  "note": "core pip 安装(langgraph 三件套)是 deploy.sh 之外的必要手工步骤,已记录 AGENTS.md;websockets 被 langgraph-sdk 约束降 15.0.1,proxy 参数兼容已实测",
+  "verified_at": "2026-08-14T20:10:00+08:00"
  }
 }

@@ -53,11 +53,15 @@ jobs:
           cache: pip
           cache-dependency-path: apps/api/requirements.txt
       - name: Install minimal test deps
+        # langgraph:R3.2 Agent Team 图编排(services/agent_team_graph.py 顶层 import)。
+        # 测试只用 MemorySaver(SQLite 无 PG saver);langgraph-checkpoint-postgres/psycopg
+        # 在模块内惰性导入,仅生产 core 需要,CI 最小集不装。
         run: |
           pip install \
             fastapi httpx websockets sse-starlette \
             pydantic-settings python-dotenv sqlmodel pyjwt python-multipart \
             pillow redis paramiko pypdf python-docx \
+            langgraph \
             pytest pytest-asyncio "fakeredis[lua]"
       - name: Run API tests
         run: python -m pytest tests -q

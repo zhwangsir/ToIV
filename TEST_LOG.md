@@ -2,6 +2,30 @@
 
 ---
 
+## R3.2-2026-08-14 · LangGraph StateGraph + checkpoint 断点续跑 + LLM 分级
+
+**时间**: 2026-08-14
+**类型**: 里程碑(R3 三步走第二步;API 契约零变更,前端无改动)
+
+### 交付
+- **图化编排**([agent_team_graph.py](apps/api/app/services/agent_team_graph.py)):START→setup→schedule(Send API 并行 fan-out,results 配 operator.add reducer)→join_eval→assembly_gate(interrupt)→assemble→END;worker 节点执行前查 AgentTask done/approved 直接跳过(副作用幂等,对齐「checkpoint 不保证 exactly-once」告诫);单任务函数复用 R3.1 零复制
+- **checkpointer**:生产 AsyncPostgresSaver(AsyncConnectionPool 复用 core PG18;`TOIV_AGENT_PG_CHECKPOINTER` 开关);SQLite/测试回退 MemorySaver;thread_id=run.id
+- **断点恢复**:main.py lifespan `resume_unfinished_runs`——running 的 run 从 checkpoint 续跑(无 checkpoint 幂等重放),awaiting_assembly 等裁决不自动推进;单 run 失败标 error 不拖垮启动;R3.1「api 重启执行中断」限制解除
+- **Director Gate LLM 分级**:L1 层输出 {level, reason},8s 超时/非法 JSON 回退启发式;证据写 plan_json.meta.classify
+- **依赖**:langgraph 1.2.11 + langgraph-checkpoint-postgres 3.1.2 + psycopg 3.3.4;CI 最小集已补
+
+### 测试
+- test_agent_team_graph.py 6 例:全链路(并行≥2→interrupt→resume→done)/重建图实例恢复(模拟重启)/幂等重放/worker 失败不拖垮分支/cancel 生效/启动恢复幂等
+- test_agent_team.py +2(LLM 分级成功/失败回退);R3.1 原 11 例契约原样全绿
+- **全量回归:pytest 1452 passed(1444+8)**
+
+### 生产验证(core 真机)
+- core 手工 `pip install langgraph 三件套`(deploy.sh 之外必要步骤,已记 AGENTS.md);websockets 被 langgraph-sdk 约束降 15.0.1,`proxy=` 参数兼容实测通过
+- 部署后:AsyncPostgresSaver 真机就绪,PG checkpoint 4 表(checkpoints/blobs/writes/migrations)已建
+- e2e:admin 登录 → `POST /api/agent-runs`(城市夜景短片)→ 200,L1,秒回「已拆成 10 步」→ cancel 200 status=canceled;双域名未认证 401 门控正常
+
+---
+
 ## R3.1-2026-08-14 · Agent Team 统一入口「计划可见+秒回+任务卡片」壳
 
 **时间**: 2026-08-14

@@ -265,6 +265,15 @@ class Settings(BaseSettings):
     ltx25_enabled: bool = True
     ltx25_base_url: str = "http://192.168.71.127:8198"
 
+    # —— R3.2 Agent Team LangGraph 编排(2026-08-14) ——
+    # checkpointer 选型:True 且 database_url 为 postgresql 时用 PostgresSaver(复用 core
+    # PG18,跨进程断点续跑);SQLite(测试/开发)或 PG 不可达时自动回退 MemorySaver
+    # (进程内存,重启即丢,由幂等重放兜底,见 services/agent_team_graph.py)。
+    agent_pg_checkpointer: bool = True
+    # Director Gate LLM 分级超时(秒);超时/解析失败/LLM 不可达一律回退启发式规则,
+    # 不阻塞 run 创建(见 routes/agent_team.py classify_goal_llm)。
+    agent_classify_llm_timeout: float = 8.0
+
     # —— Wan2.2-Animate / Wan2.1-VACE(GPU2 :8197,与 LongCat 同实例) ——
     # Animate fp8 运行时量化峰值 ~20-24GiB;提交前要求实例卡(GPU2)空闲显存 ≥ 此阈值(GiB)。
     # 不足时先驱逐 :8197 自身模型缓存(队列空闲才动),仍不足 → 503 错峰提示。

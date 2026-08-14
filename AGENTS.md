@@ -326,7 +326,7 @@ nas:
 
 ## 七、操作历史
 
-### 2026-08-14 会话(M12:P0/P1/P2 全量修复 + R3-R5 调研深化)
+### 2026-08-14 会话(M12:P0/P1/P2 全量修复 + R3 调研与 R3.1/R3.2 落地)
 
 | 时间 | 操作 | 结果 |
 |------|------|------|
@@ -337,7 +337,11 @@ nas:
 | 16:20 | Team D 前端 P1:crossTab.ts 跨标签页同步(R18/主题/登录态)+ LazyVideo 作品库 60 视频卡 preload none + 全站 img lazy | ✅ tsc 通过 |
 | 16:20 | Team E P2:test_video 17 例/test_jobs_events 4 例/test_generate_endpoints 11 例 + .github/workflows/ci.yml + roadmap 第八节实证补记 | ✅ 32 新测试;实证 video.py pool.pick 冒泡 500(已修 503) |
 | 16:40 | Team F 调研:docs/2026-08-14-competitive-r3-r5-deep-dive.md 540 行(Mavis=Leader/Worker/Verifier 修正、LangGraph 终判、pairwise+Elo 评委、R3 落地设计) | ✅ |
-| 17:20 | 全量回归:pytest **1433 passed**(基线 1339+94)、web 10/10、tsc ✅、next build ✅;修限流 scope 收紧导致的 3 例预填超额 | ✅ STATE/TEST_LOG/AGENTS 已更新 |
+| 17:20 | M12 全量回归:pytest **1433 passed**(1339+94)、web 10/10、tsc ✅、next build ✅;commit 8beaf80 | ✅ |
+| 18:10 | R3.1(双团队):AgentRun/Task/Event/Approval 4 表 + agent_team 9 端点 + /agent-runs 任务卡片页(秒回/可编辑计划/双确认门/泳道双形态);回归 pytest 1444、web 32/32;commit 066be6f | ✅ |
+| 18:40 | 部署 M12+R3.1 到 core(deploy.sh core-ts):双服务就绪;双域名冒烟(health 200、零认证端点已 401、/agent-runs 页 200) | ✅ 生产行为变化已生效 |
+| 19:50 | R3.2:LangGraph StateGraph 化(Send fan-out/interrupt 门/Command resume)+ AsyncPostgresSaver 断点续跑 + 启动恢复 + Director Gate LLM 分级(8s 超时回退启发式);回归 pytest **1452** | ✅ API 契约零变更 |
+| 20:00 | R3.2 部署:core 手工 pip install langgraph 1.2.11 三件套(**deploy.sh 不含 pip install,新增 Python 依赖必须手工装**,websockets 被约束降 15.0.1 已实测 proxy 兼容)→ deploy.sh → AsyncPostgresSaver 真机就绪(checkpoint 4 表已建)→ 生产 e2e(admin 创建 run 秒回 10 任务、cancel 200) | ✅ |
 
 ### 2026-08-13 会话(北京国内入口 toiv.wineryz.top 双活镜像落地)
 

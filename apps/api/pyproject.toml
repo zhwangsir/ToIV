@@ -24,6 +24,11 @@ dependencies = [
     # 可观测性:P2 指标监控 + 错误追踪(空 DSN/未装时自动跳过,不阻断启动)
     "prometheus-fastapi-instrumentator>=7.0",
     "sentry-sdk[fastapi]>=2.0",
+    # R3.2 Agent Team 编排(2026-08-14):LangGraph StateGraph + interrupt 确认门
+    # + PostgresSaver 断点续跑(SQLite 环境自动回退 MemorySaver,见 services/agent_team_graph.py)
+    "langgraph>=1.0,<2",
+    "langgraph-checkpoint-postgres>=3.1,<4",
+    "psycopg[binary,pool]>=3.2",
 ]
 
 [project.optional-dependencies]

@@ -1,30 +1,37 @@
-"""R3.1 Agent Team 统一入口:「计划可见 + 秒回 + 任务卡片」壳。
+"""R3.2 Agent Team 统一入口:「计划可见 + 秒回 + 任务卡片」+ LangGraph 断点续跑。
 
 数据底座 = AgentRun/AgentTask/AgentEvent/AgentApproval 四表(models.py);
-内部执行仍调现有 Studio 流水线服务层(storyboard 拆解 / orchestrator 渲染 /
-voice 配音 / assemble 合成),零 LangGraph 依赖 —— Leader 规划、LangGraph
-checkpoint、Verifier 对抗回路均为 R3.2 范围
-(见 docs/2026-08-14-competitive-r3-r5-deep-dive.md 1.3.5 迁移步骤①)。
+执行器 = LangGraph StateGraph(services/agent_team_graph.py,图定义/拓扑/
+checkpointer 选型见该模块 docstring),单任务执行仍调现有 Studio 流水线
+服务层(storyboard 拆解 / orchestrator 渲染 / voice 配音 / assemble 合成)。
+Verifier 对抗回路为 R3.3 范围
+(见 docs/2026-08-14-competitive-r3-r5-deep-dive.md 1.3.5 迁移步骤②)。
 
-执行器设计要点:
-- 后台协程按 depends_on 拓扑调度 AgentTask;启动时内部建 StudioProject
-  (goal 作 premise,opts 透传产出规格),AgentTask ↔ StudioShot 映射
-  的 shot_id 回写进任务 input_json。
-- 计划确认门(plan)→ 全镜头就绪后挂起待合成(awaiting_assembly,推
-  confirm_required 事件)→ 合成确认门(assembly)→ 成片。本期不做确认门
-  超时自动继续(30min 默认动作是 R3.2 的事)。
+执行器设计要点(R3.1 行为全部保留):
+- 图节点按 depends_on 拓扑调度 AgentTask(Send API 并行扇出);setup 节点建
+  StudioProject(goal 作 premise,opts 透传产出规格),AgentTask ↔ StudioShot
+  映射的 shot_id 回写进任务 input_json。
+- 计划确认门(plan,图外:approve 才启动图)→ 全镜头就绪后挂起待合成
+  (awaiting_assembly,推 confirm_required 事件)→ 合成确认门(assembly,
+  图内 interrupt(),resume 端点投 Command(resume=...))→ 成片。
 - 渲染类任务 asyncio.Semaphore(_RENDER_CONCURRENCY) 限流;单任务失败标
   error + 推 blocked 事件,不中断其他分支;全部结束后有 error → run error
   (已完成任务的产物保留可见)。
-- 执行器重入(api 重启)本期不恢复:内存协程丢失后 run 停在 running,
-  用户可 cancel 后重建(R3.2 用 LangGraph checkpoint/PostgresSaver 断点续跑,
-  幂等键 run_id+task_id+attempt 已落库,恢复时已完成节点直接跳过)。
+- 断点续跑(R3.2 替换 R3.1「api 重启执行中断」限制):thread_id = run.id,
+  生产 PostgresSaver / 测试开发 MemorySaver;api 启动时 resume_unfinished_runs
+  重挂 running run(有 checkpoint 续跑,无则幂等重放);副作用幂等 =
+  幂等键 run_id+task_id+attempt 落库 + 图节点执行前查任务表,done 直接跳过。
+
+Director Gate 任务分级:LLM 分级(L1 层 chat,JSON {level, reason})为正式路径,
+classify_goal 启发式规则为兜底(LLM 超时/不可达/输出非法 JSON 时回退,
+不阻塞创建);分级证据写 plan_json.meta.classify,不改 API 响应形状。
 """
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
+import re
 from contextlib import nullcontext
 from datetime import datetime, timezone
 
@@ -33,6 +40,8 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 from sse_starlette.sse import EventSourceResponse
 
+from app.agent import llm
+from app.config import get_settings
 from app.db import get_session
 from app.deps import get_current_user
 from app.models import (
@@ -46,6 +55,7 @@ from app.models import (
     User,
 )
 from app.ratelimit import enforce_rate_limit
+from app.services import agent_team_graph
 from app.services.studio import assemble as assemble_svc
 from app.services.studio import orchestrator
 from app.services.studio import storyboard as storyboard_svc
@@ -84,7 +94,7 @@ def _loads(raw: str, default):
 
 
 # ---------------------------------------------------------------------------
-# Director Gate:任务分级(规则启发式;R3.2 换 Leader LLM 分级)
+# Director Gate:任务分级(R3.2 起 LLM 分级为正式路径,启发式规则兜底)
 # ---------------------------------------------------------------------------
 
 _L2_KEYWORDS = ("短剧", "分镜", "系列", "多镜", "宣传片")
@@ -92,7 +102,7 @@ _L0_KEYWORDS = ("视频", "生成")
 
 
 def classify_goal(goal: str) -> str:
-    """L2=复杂项目(关键词或长文本);L0=单步生成语义;其余 L1。
+    """启发式兜底:L2=复杂项目(关键词或长文本);L0=单步生成语义;其余 L1。
 
     顺序敏感:先 L2 后 L0——「帮我做一支宣传短片」既含"宣传片"也含"视频",
     必须判 L2 走团队而非 L0 直达,故复杂级优先。
@@ -103,6 +113,67 @@ def classify_goal(goal: str) -> str:
     if any(k in text for k in _L0_KEYWORDS):
         return "L0"
     return "L1"
+
+
+def _classify_messages(goal: str) -> list[dict]:
+    """Director Gate LLM 分级 prompt:强约束只输出 JSON,便于确定性解析。"""
+    return [
+        {
+            "role": "system",
+            "content": (
+                "你是 AIGC 创作平台的任务分级器。把用户需求分三级:"
+                "L0=单步生成(一张图/一个短视频/单次问答,直达生成工具);"
+                "L1=标准单链多步任务(一支短片/宣传片,走固定流水线);"
+                "L2=复杂项目(短剧/多场景/多镜头系列/混合模态,走 Agent Team 并行编排)。"
+                '只输出 JSON:{"level":"L0|L1|L2","reason":"一句话理由"},'
+                "不要任何其他文字或 markdown 代码块。"
+            ),
+        },
+        {"role": "user", "content": goal[:4000]},
+    ]
+
+
+def _extract_json_obj(text: str) -> dict | None:
+    """从 LLM 输出中提取首个 JSON 对象(容忍前后废话/markdown 围栏);失败返回 None。"""
+    m = re.search(r"\{.*\}", text, re.DOTALL)
+    if not m:
+        return None
+    try:
+        data = json.loads(m.group(0))
+    except (ValueError, TypeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+async def classify_goal_llm(goal: str) -> dict:
+    """Director Gate LLM 分级(走 L1 层 chat);返回 {level, reason, source}。
+
+    兜底链(§1.3.1 铁律 4「任务分级省钱」的可用性保障):LLM 超时(默认 8s,
+    TOIV_AGENT_CLASSIFY_LLM_TIMEOUT)/ 不可达 / 输出非法 JSON / level 非法,
+    一律回退 classify_goal 启发式,不阻塞 run 创建——分级只是入口分流,
+    绝不比「能创建任务」更重要。
+    """
+    try:
+        msg = await asyncio.wait_for(
+            llm.chat(_classify_messages(goal), max_tokens=200, temperature=0.0),
+            timeout=get_settings().agent_classify_llm_timeout,
+        )
+        data = _extract_json_obj(str(msg.get("content") or ""))
+        level = str((data or {}).get("level") or "").upper()
+        if level in ("L0", "L1", "L2"):
+            return {
+                "level": level,
+                "reason": str(data.get("reason") or "")[:500],
+                "source": "llm",
+            }
+        logger.warning("Director Gate LLM 输出非法(level=%r),回退启发式", level)
+    except Exception:  # noqa: BLE001 — 超时/连接失败/LLMError 全部兜底,不阻塞创建
+        logger.warning("Director Gate LLM 分级失败,回退启发式", exc_info=True)
+    return {
+        "level": classify_goal(goal),
+        "reason": "启发式规则兜底(LLM 不可用或输出非法)",
+        "source": "heuristic",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -266,7 +337,13 @@ async def create_agent_run(
 ) -> dict:
     """创建 Agent Team 任务。L0 不建 run 直接回指引;L1/L2 同步拆计划后秒回。"""
     enforce_rate_limit(user, scope="generation")
-    level = body.level or classify_goal(body.goal)
+    # Director Gate 分级:显式指定 > LLM 分级 > 启发式兜底;分级证据进 plan.meta,
+    # 响应形状不变(level 字段即最终生效值,来源对前端透明)
+    if body.level:
+        classify_meta = {"level": body.level, "reason": "用户显式指定", "source": "explicit"}
+    else:
+        classify_meta = await classify_goal_llm(body.goal)
+    level = classify_meta["level"]
     if level == "L0":
         return {"level": "L0", "ack": "单步任务建议直达工作台", "run_id": None}
 
@@ -288,6 +365,8 @@ async def create_agent_run(
         "tasks": [_task_brief(t) for t in tasks],
         "opts": body.opts,
         "characters": [c.model_dump() for c in characters],
+        # 分级证据(meta 不进任何响应字段,仅供详情页/排查用;R5 可回流校准)
+        "meta": {"classify": classify_meta},
     }
     run.plan_json = json.dumps(plan, ensure_ascii=False)
     run.status = "awaiting_confirm"  # 计划确认门:approve 后才进执行
@@ -489,7 +568,8 @@ async def resume_run(
             run.updated_at = _utcnow()
             session.add(run)
             session.commit()
-            _spawn_run(run.id, bind)
+            # R3.2:启动 LangGraph 图(替代 R3.1 手写拓扑循环 _spawn_run)
+            agent_team_graph.spawn_run(run.id, bind)
             return {"run_id": run.id, "status": run.status}
         if body.action == "reject":
             # 打回重规划:feedback 记入 run.error 供重规划参考
@@ -513,14 +593,22 @@ async def resume_run(
         run.updated_at = _utcnow()
         session.add(run)
         session.commit()
-        _spawn_assembly(run.id, bind)
+        # R3.2:向图内 assembly_gate 的 interrupt 投递裁决(Command(resume=...));
+        # 图未挂起(reject 后重就绪 / checkpoint 丢失)时先幂等重放再投递
+        agent_team_graph.spawn_assembly_decision(
+            run.id, bind, {"action": "approve", "feedback": body.feedback}
+        )
         return {"run_id": run.id, "status": run.status}
     if body.action == "reject":
-        # 不合成,回 running:可单卡 regenerate 后重新到达待合成
+        # 不合成,回 running:可单卡 regenerate 后重新到达待合成;
+        # 图若挂在门上则把 reject 投递进去让图收尾 END(挂起态才需要,否则端点直接生效)
         run.status = "running"
         run.updated_at = _utcnow()
         session.add(run)
         session.commit()
+        agent_team_graph.spawn_assembly_decision(
+            run.id, bind, {"action": "reject", "feedback": body.feedback}
+        )
         return {"run_id": run.id, "status": run.status}
     session.commit()
     return {"run_id": run.id, "status": run.status}
@@ -648,7 +736,9 @@ def run_result(
 
 
 # ---------------------------------------------------------------------------
-# 后台执行器(薄适配层):AgentTask DAG → Studio 流水线服务层
+# 后台执行器:主链路演化为 LangGraph 图(services/agent_team_graph.py);
+# 本文件保留单任务执行函数(_exec_task/_render_task/_voice_task/_assemble_task,
+# 图节点复用)与单卡重跑(_rerun_single,卡片级 regenerate 干预,图外薄路径)。
 # ---------------------------------------------------------------------------
 
 
@@ -657,35 +747,6 @@ def _spawn(coro) -> None:
     task = asyncio.create_task(coro)
     _RUNNER_TASKS.add(task)
     task.add_done_callback(_RUNNER_TASKS.discard)
-
-
-def _spawn_run(run_id: str, bind) -> None:
-    if run_id in _ACTIVE_RUNS:
-        return
-    _ACTIVE_RUNS.add(run_id)
-
-    async def _wrap() -> None:
-        try:
-            await _execute_run(run_id, bind)
-        finally:
-            _ACTIVE_RUNS.discard(run_id)
-
-    _spawn(_wrap())
-
-
-def _spawn_assembly(run_id: str, bind) -> None:
-    key = f"{run_id}:assembly"
-    if key in _ACTIVE_RUNS:
-        return
-    _ACTIVE_RUNS.add(key)
-
-    async def _wrap() -> None:
-        try:
-            await _execute_assembly(run_id, bind)
-        finally:
-            _ACTIVE_RUNS.discard(key)
-
-    _spawn(_wrap())
 
 
 def _spawn_task_rerun(run_id: str, task_id: str, bind) -> None:
@@ -701,102 +762,6 @@ def _spawn_task_rerun(run_id: str, task_id: str, bind) -> None:
             _ACTIVE_RUNS.discard(key)
 
     _spawn(_wrap())
-
-
-async def _execute_run(run_id: str, bind) -> None:
-    """主执行器:建 Studio 工程 → 拓扑调度非合成任务 → 挂起待合成门。"""
-    try:
-        _setup_studio_project(run_id, bind)
-    except Exception:
-        logger.exception("agent run %s 建 Studio 工程失败", run_id)
-        _finish_run_error(bind, run_id, "初始化 Studio 工程失败")
-        return
-
-    sem = asyncio.Semaphore(_RENDER_CONCURRENCY)
-    running: dict[str, asyncio.Task] = {}
-    try:
-        while True:
-            with Session(bind) as s:
-                run = s.get(AgentRun, run_id)
-                status = run.status if run else "canceled"
-                rows = s.exec(
-                    select(AgentTask).where(AgentTask.run_id == run_id)
-                ).all()
-                work = {t.id: t for t in rows if t.kind != "assemble"}
-                states = {tid: t.status for tid, t in work.items()}
-            if status == "canceled":
-                # 取消:停止调度新任务;在跑任务不追杀,等其自然结束后退出
-                if running:
-                    await asyncio.gather(*running.values(), return_exceptions=True)
-                return
-            pending = [
-                t for t in work.values() if t.status == "pending" and t.id not in running
-            ]
-            if not pending and not running:
-                break
-            schedulable, doomed = [], []
-            for t in pending:
-                # 未知依赖(计划编辑已删的)忽略;上游 error → 本任务不再尝试
-                deps = [d for d in _loads(t.depends_on, []) if d in work]
-                if any(states.get(d) == "error" for d in deps):
-                    doomed.append(t)
-                elif all(states.get(d) in ("done", "approved") for d in deps):
-                    schedulable.append(t)
-            for t in doomed:
-                _mark_task_error(bind, run_id, t.id, "上游任务失败,跳过")
-            for t in schedulable:
-                running[t.id] = asyncio.create_task(_exec_task(run_id, t.id, bind, sem))
-            if running:
-                done, _ = await asyncio.wait(
-                    running.values(), return_when=asyncio.FIRST_COMPLETED
-                )
-                for d in done:
-                    tid = next(k for k, v in running.items() if v is d)
-                    del running[tid]
-                    if not d.cancelled() and d.exception():
-                        logger.error(
-                            "agent run %s 任务协程异常:%s", run_id, d.exception()
-                        )
-            elif pending and not schedulable and not doomed:
-                # 依赖未满足且无任务在跑(不应发生;防死循环安全阀)
-                logger.error("agent run %s 调度死锁,剩余任务标 error", run_id)
-                for t in pending:
-                    _mark_task_error(bind, run_id, t.id, "调度死锁:依赖无法满足")
-    except Exception:
-        logger.exception("agent run %s 执行器异常", run_id)
-        _finish_run_error(bind, run_id, "执行器内部异常")
-        return
-
-    with Session(bind) as s:
-        run = s.get(AgentRun, run_id)
-        if not run or run.status != "running":
-            return  # 调度期间已被 cancel
-        rows = [
-            t
-            for t in s.exec(select(AgentTask).where(AgentTask.run_id == run_id)).all()
-            if t.kind != "assemble"
-        ]
-        failed = [t for t in rows if t.status == "error"]
-        run.updated_at = _utcnow()
-        if failed:
-            # 有失败 → run error;已完成任务的产物保留可见(可单卡 regenerate 挽救)
-            run.status = "error"
-            run.error = (
-                f"{len(failed)} 个任务失败;已完成产物保留,"
-                "可单卡重生成,或 cancel 后重建"
-            )
-            _emit(
-                s, run_id, "error",
-                {"message": run.error, "failed": [t.id for t in failed]},
-            )
-        else:
-            run.status = "awaiting_assembly"
-            _emit(
-                s, run_id, "confirm_required",
-                {"gate": "assembly", "message": "全部镜头已就绪,确认后合成"},
-            )
-        s.add(run)
-        s.commit()
 
 
 def _setup_studio_project(run_id: str, bind) -> None:
@@ -1021,52 +986,6 @@ def _finish_run_error(bind, run_id: str, message: str) -> None:
         run.updated_at = _utcnow()
         s.add(run)
         _emit(s, run_id, "error", {"message": message})
-        s.commit()
-
-
-async def _execute_assembly(run_id: str, bind) -> None:
-    """合成阶段:合成确认门 approve 后触发;成功后 run done + 推 done 事件。"""
-    with Session(bind) as s:
-        run = s.get(AgentRun, run_id)
-        if not run or run.status != "running":
-            return
-        assemble_ids = [
-            t.id
-            for t in s.exec(select(AgentTask).where(AgentTask.run_id == run_id)).all()
-            if t.kind == "assemble"
-        ]
-    sem = asyncio.Semaphore(1)  # 占位;assemble 走 _exec_task 非渲染路径
-    for tid in assemble_ids:
-        with Session(bind) as s:
-            cur = s.get(AgentRun, run_id)
-            if not cur or cur.status == "canceled":
-                return
-        await _exec_task(run_id, tid, bind, sem)
-
-    with Session(bind) as s:
-        run = s.get(AgentRun, run_id)
-        if not run or run.status != "running":
-            return
-        rows = s.exec(select(AgentTask).where(AgentTask.run_id == run_id)).all()
-        failed = [t for t in rows if t.kind == "assemble" and t.status == "error"]
-        run.updated_at = _utcnow()
-        if failed:
-            reason = _loads(failed[0].verdict_json, {}).get("error") or "合成失败"
-            run.status = "error"
-            run.error = f"合成失败:{reason}"
-            _emit(s, run_id, "error", {"message": run.error})
-        else:
-            done_task = next(
-                (t for t in rows if t.kind == "assemble" and t.status == "done"), None
-            )
-            final_url = (
-                str(_loads(done_task.output_json, {}).get("url") or "")
-                if done_task
-                else ""
-            )
-            run.status = "done"
-            _emit(s, run_id, "done", {"run_id": run_id, "final_url": final_url})
-        s.add(run)
         s.commit()
 
 

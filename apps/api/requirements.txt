@@ -130,13 +130,20 @@ websockets==16.0
 # —— PostgreSQL 驱动(生产 core 切换 PG18 后必需,2026-08-01) ——
 # SQLAlchemy 2.x 方言 postgresql+psycopg://;binary 轮免本机编译。
 # 不在 uv export 自动生成范围,手动维护。
-psycopg[binary]==3.2.12
+# 2026-08-14 R3.2:升 3.3.4 并加 pool extra(langgraph-checkpoint-postgres 依赖 psycopg_pool)。
+psycopg[binary,pool]==3.3.4
 
 # —— 文档上传与长文本理解(2026-08-08) ——
 # pdf/docx 解析(txt/md 直读);services/docs.py 惰性导入。
 # 已加入 pyproject dependencies,uv export 会自动带上;此处显式列出便于 core 直接 pip install。
 pypdf==6.15.0
 python-docx==1.2.0
+
+# —— R3.2 Agent Team 编排:LangGraph StateGraph + checkpoint 断点续跑(2026-08-14) ——
+# 图定义见 app/services/agent_team_graph.py;生产 core 用 PostgresSaver(复用 PG18),
+# 测试/开发(SQLite)自动回退 MemorySaver。不在 uv export 范围,手动维护。
+langgraph==1.2.11
+langgraph-checkpoint-postgres==3.1.2
 
 # —— 可选依赖:译制听写(ASR) ——
 # faster-whisper 惰性导入(dub_text.py),不装只影响听写功能,不阻塞主流程。

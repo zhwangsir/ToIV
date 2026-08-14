@@ -106,6 +106,12 @@ async def lifespan(app: FastAPI):
     reconcile_task = asyncio.create_task(reconcile_loop())
     # 短剧后台任务收口:generating 分镜重挂/标 error、中断的 autorun/批量精修标 interrupted
     drama_studio.reconcile_interrupted()
+    # R3.2 Agent Team 断点续跑:api 重启后,running 的 run 从 LangGraph checkpoint
+    # 续跑(无 checkpoint 则幂等重放,已完成任务节点自查跳过);
+    # awaiting_assembly 的 run 正挂确认门等用户裁决,不自动推进;单 run 失败标 error 不拖垮启动
+    from app.services import agent_team_graph
+
+    await agent_team_graph.resume_unfinished_runs(engine)
     # GPU 生成链路每日冒烟(txt2img 小图 + LTX 短视频),失败经 webhook 报警
     from app.config import get_settings as _gs
     from app.services.gpu_smoke import daily_smoke_loop, smoke_report_dir
