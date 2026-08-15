@@ -382,6 +382,21 @@ export const authHeaders = (): Record<string, string> => ({});
 export const imageUrl = (path: string): string => path;
 
 // ===========================================================================
+// 作品库(libraryViews.test.ts:LibraryView 经 loader 映射到这里)
+// ===========================================================================
+import type { JobItem } from "../../lib/types";
+
+/** 作品列表替身:默认空库,用例按需覆盖 impl。 */
+export const libImpl = {
+  listJobs: async (): Promise<JobItem[]> => [],
+};
+export const listJobs = (): Promise<JobItem[]> => libImpl.listJobs();
+export const deleteJob = async (_jobId: string): Promise<void> => {};
+export const invalidateJobs = (): void => undefined;
+/** R18 请求头开关替身(r18.ts 链接期需要,运行期无副作用)。 */
+export const setNsfwIntent = (_on: boolean): void => undefined;
+
+// ===========================================================================
 // UI-B 视图组件替身扩展(uiBViews.test.ts:PromptBar → ReverseButton 经 loader 映射到这里)
 // ===========================================================================
 /** 提示词反推替身:永不真实请求,返回固定空结构。 */

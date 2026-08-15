@@ -128,8 +128,8 @@ test("LibraryView 空态结构类名 + library.css token 收编", () => {
   const src = readSrc("components/library/LibraryView.tsx");
   assert.ok(src.includes('"lib-empty-display"'), "空态标题类名缺失");
   assert.ok(src.includes('"lib-empty-icon"'), "空态图标类名缺失");
-  assert.ok(src.includes('"lib-actions"'), "玻璃操作条类名缺失");
-  assert.ok(src.includes('"lib-overlay-prompt"'), "scrim 提示词类名缺失");
+  assert.ok(src.includes('"lib-actions"'), "hover 快捷操作组类名缺失");
+  assert.ok(src.includes('"lib-card-title"'), "卡片提示词标题类名缺失");
 
   // library.css:32px → var(--text-display-md);650 → var(--font-semibold);#FFFFFF → var(--text-on-accent)
   const css = readSrc("app/styles/library.css");

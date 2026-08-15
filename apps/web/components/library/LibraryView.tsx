@@ -5,16 +5,31 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { deleteJob, imageUrl, invalidateJobs, listJobs } from "@/lib/api";
 import { ENGINE_DRAFT_KEY } from "@/lib/engine";
 import { useR18Mode } from "@/lib/r18";
+import {
+  applyLibraryQuery,
+  countByFilter,
+  deleteJobsBatch,
+  FILTERS,
+  formatTime,
+  isVideoKind,
+  kindLabel,
+  kindToFilter,
+  loadDensity,
+  persistDensity,
+  statusLabel,
+  type ContentFilterKey,
+  type FilterKey,
+  type LibraryDensity,
+  type SortKey,
+} from "@/lib/libraryQuery";
 import type { JobItem } from "@/lib/types";
 import { Icon } from "@/components/ui/Icon";
 import { LazyVideo } from "@/components/ui/LazyVideo";
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Modal } from "@/components/ui/Modal";
 import { Popover } from "@/components/ui/Popover";
 import { Input } from "@/components/ui/Input";
-import { Tabs } from "@/components/ui/Tabs";
 import { useToast } from "@/components/ui/Toast";
 import { StyleBar, type StyleCard } from "@/components/library/StyleBar";
 import "@/app/styles/library.css";
@@ -49,154 +64,8 @@ function persistStyleCards(cards: StyleCard[]): void {
   }
 }
 
-type FilterKey = "all" | "image" | "video" | "audio" | "3d";
-
-/** 内容维度过滤(M9):SFW = 非 nsfw 作品,R18 = nsfw 作品;R18 chip 仅 R18 模式渲染。 */
-type ContentFilterKey = "all" | "sfw" | "r18";
-
-interface FilterDef {
-  key: FilterKey;
-  label: string;
-  kinds: string[];
-}
-
-const FILTERS: FilterDef[] = [
-  { key: "all", label: "全部", kinds: [] },
-  {
-    key: "image",
-    label: "图像",
-    kinds: [
-      "txt2img", "img2img", "controlnet", "upscale", "facedetailer",
-      "inpaint", "removebg", "raw",
-      // 短剧 studio 图像类产物
-      "drama_grid_storyboard", "drama_scene_layout",
-    ],
-  },
-  {
-    key: "video",
-    label: "视频",
-    kinds: [
-      "video", "txt2video", "img2video", "lipsync", "kenburns",
-      "wan_t2v", "wan_i2v", "hunyuan_i2v", "h3_t2v", "h3_i2v",
-      "ltx_t2v", "ltx_i2v", "ltx_lipsync", "ltx2_t2v", "ltx2_i2v",
-      "ltx25_t2v", "ltx25_i2v",
-      "frame_interpolate", "dub_lipsync_long", "manju_lipsync", "anime_lipsync",
-      // LongCat 长视频(t2v/i2v/续写)
-      "longcat_t2v", "longcat_i2v", "longcat_continue",
-      // LongCat-Avatar 数字人说话视频
-      "avatar_talk",
-      // 短剧 studio 视频类产物
-      "drama_shot_video", "drama_shot_video_i2v", "drama_shot_video_v2", "drama_shot_lipsync",
-    ],
-  },
-  {
-    key: "audio",
-    label: "音频",
-    kinds: ["audio", "ace_audio", "audio_sep", "transcribe", "voice_track"],
-  },
-  { key: "3d", label: "3D", kinds: ["3d", "model3d", "hunyuan3d"] },
-];
-
-/** 动态前缀规则(后端按 preset/视角拼 kind):cad_* → 3D;drama_char_reference_* → 图像。 */
-const KIND_PREFIX_RULES: [string, FilterKey][] = [
-  ["cad_", "3d"],
-  ["drama_char_reference_", "image"],
-];
-
 /** 分页大小:每页 60 条,点击「加载更多」追加,避免全量渲染大图列表。 */
 const PAGE_SIZE = 60;
-
-/**
- * kind → 筛选桶。未识别的 kind 返回 null:只在「全部」出现,
- * 不硬塞进「图像」(修复 transcribe/voice_track 等被错算成图像的问题)。
- */
-function kindToFilter(kind: string): FilterKey | null {
-  for (const f of FILTERS) {
-    if (f.kinds.includes(kind)) return f.key;
-  }
-  for (const [prefix, key] of KIND_PREFIX_RULES) {
-    if (kind.startsWith(prefix)) return key;
-  }
-  return null;
-}
-
-/** Badge 短名:映射后的中文短名;未知 kind 兜底「其他」,不回显超长原始 kind 名。 */
-function kindLabel(kind: string): string {
-  const map: Record<string, string> = {
-    txt2img: "文生图",
-    img2img: "图生图",
-    controlnet: "ControlNet",
-    upscale: "放大",
-    facedetailer: "脸部修复",
-    inpaint: "局部重绘",
-    removebg: "抠图",
-    raw: "原图",
-    video: "视频",
-    txt2video: "文生视频",
-    img2video: "图生视频",
-    lipsync: "对口型",
-    kenburns: "运镜",
-    wan_t2v: "文生视频",
-    wan_i2v: "图生视频",
-    hunyuan_i2v: "图生视频",
-    h3_t2v: "文生视频",
-    h3_i2v: "图生视频",
-    ltx_t2v: "文生视频",
-    ltx_i2v: "图生视频",
-    ltx_lipsync: "对口型",
-    ltx2_t2v: "文生视频",
-    ltx2_i2v: "图生视频",
-    ltx25_t2v: "文生视频",
-    ltx25_i2v: "图生视频",
-    frame_interpolate: "补帧",
-    dub_lipsync_long: "长对口型",
-    manju_lipsync: "对口型",
-    anime_lipsync: "动漫对口型",
-    longcat_t2v: "长视频",
-    longcat_i2v: "长视频",
-    longcat_continue: "长视频续写",
-    avatar_talk: "数字人",
-    audio: "音频",
-    ace_audio: "音乐",
-    audio_sep: "人声分离",
-    transcribe: "听写",
-    voice_track: "配音轨",
-    "3d": "3D",
-    model3d: "3D",
-    hunyuan3d: "图生3D",
-    drama_grid_storyboard: "分镜",
-    drama_scene_layout: "场景布局",
-    drama_shot_video: "镜头视频",
-    drama_shot_video_i2v: "镜头视频",
-    drama_shot_video_v2: "镜头视频",
-    drama_shot_lipsync: "镜头对口型",
-  };
-  if (map[kind]) return map[kind];
-  if (kind.startsWith("cad_")) return "CAD";
-  if (kind.startsWith("drama_char_reference_")) return "角色参考";
-  return "其他";
-}
-
-function isVideoKind(kind: string): boolean {
-  return kindToFilter(kind) === "video";
-}
-
-function formatTime(iso: string): string {
-  try {
-    const d = new Date(iso);
-    const diff = Date.now() - d.getTime();
-    const min = 60_000;
-    const hr = 60 * min;
-    const day = 24 * hr;
-    if (diff < min) return "刚刚";
-    if (diff < hr) return `${Math.floor(diff / min)} 分钟前`;
-    if (diff < day) return `${Math.floor(diff / hr)} 小时前`;
-    if (diff < 7 * day) return `${Math.floor(diff / day)} 天前`;
-    return d.toLocaleDateString("zh-CN");
-  } catch {
-    return iso;
-  }
-}
 
 function ThumbPlaceholder({ job }: { job: JobItem }) {
   const filterKey = kindToFilter(job.kind);
@@ -204,7 +73,7 @@ function ThumbPlaceholder({ job }: { job: JobItem }) {
     <div
       className={`lib-thumb-placeholder ${job.status === "error" ? "has-error" : ""}`}
     >
-      {/* 图标居中,状态文本分层为左上角小胶囊,互不重叠 */}
+      {/* 图标居中,状态文本分层为左上角状态 chip,互不重叠 */}
       <Icon
         name={
           job.status === "running"
@@ -219,14 +88,20 @@ function ThumbPlaceholder({ job }: { job: JobItem }) {
                     ? "box"
                     : "image"
         }
-        size={28}
+        size={24}
         strokeWidth={1.4}
       />
       {job.status === "running" && (
-        <span className="lib-thumb-status is-running">生成中…</span>
+        <span className="lib-thumb-status is-running">
+          <span className="lib-thumb-status-dot" aria-hidden="true" />
+          生成中
+        </span>
       )}
       {job.status === "error" && (
-        <span className="lib-thumb-status is-error">生成失败</span>
+        <span className="lib-thumb-status is-error">
+          <span className="lib-thumb-status-dot" aria-hidden="true" />
+          失败
+        </span>
       )}
     </div>
   );
@@ -239,10 +114,10 @@ function ImageThumb({ job, blurred = false }: { job: JobItem; blurred?: boolean 
     <img
       src={imageUrl(job.results[0])}
       alt={job.prompt}
-      /* P1-6:属性仅作加载前纵横比提示(设计基准 1:1,与骨架/占位卡一致),
-         CSS width:100%/height:auto 在加载后按自然比例还原,抑制 CLS */
-      width={512}
-      height={512}
+      /* 属性仅作加载前纵横比提示(16:9,与缩略图视口一致),
+         CSS object-fit:cover 裁切填满,抑制 CLS */
+      width={480}
+      height={270}
       loading="lazy"
       decoding="async"
       onError={() => setFailed(true)}
@@ -256,6 +131,31 @@ function ImageThumb({ job, blurred = false }: { job: JobItem; blurred?: boolean 
   );
 }
 
+/** 作品库空态(库本身为空):细线框图标 + 引导文案 + 去创作 CTA。 */
+export function LibraryEmptyState({ onCreate }: { onCreate?: () => void }) {
+  return (
+    <div className="lib-empty">
+      <div className="lib-empty-icon" aria-hidden="true">
+        <Icon name="image" size={26} strokeWidth={1.2} />
+      </div>
+      <h2 className="lib-empty-display">暂无作品</h2>
+      <p className="lib-empty-desc">
+        每一次生成都会自动收录到这里。先去工作台创作第一件作品,随时回来复用提示词、沉淀风格。
+      </p>
+      {onCreate && (
+        <Button
+          variant="primary"
+          size="sm"
+          icon={<Icon name="create" size={14} />}
+          onClick={onCreate}
+        >
+          去创作
+        </Button>
+      )}
+    </div>
+  );
+}
+
 interface LibraryViewProps {
   /**
    * 视图跳转(复用 page.tsx 的 fusion 导航:写引擎草稿后跳生成工作台)。
@@ -264,7 +164,8 @@ interface LibraryViewProps {
   onNavigate?: (target: string) => void;
 }
 
-export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
+export function LibraryView(props?: LibraryViewProps) {
+  const onNavigate = props?.onNavigate;
   const toast = useToast();
   const [jobs, setJobs] = useState<JobItem[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -278,15 +179,24 @@ export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
   const [revealedIds, setRevealedIds] = useState<ReadonlySet<string>>(new Set());
   // 「点击显示」提示层:hover 模糊卡时显示(记录当前悬停的 job id)
   const [hoveredBlurId, setHoveredBlurId] = useState<string | null>(null);
-  // 分页:首屏只渲染 PAGE_SIZE 条,「加载更多」追加;切筛选时重置
+  // 分页:首屏只渲染 PAGE_SIZE 条,「加载更多」追加;查询条件变更时重置
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  // 工具条(2026-08-15 重设计):prompt 搜索 / 时间排序 / 网格密度(持久化)
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<SortKey>("newest");
+  const [density, setDensity] = useState<LibraryDensity>(() => loadDensity());
+  // 批量管理:进入后点击卡片改为勾选;底部浮动操作条承载批量删除
+  const [batchMode, setBatchMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
+  const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
+  const [batchDeleting, setBatchDeleting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   // 删除确认对话框(替代 window.confirm / window.alert)
   const [confirmDelete, setConfirmDelete] = useState<JobItem | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   // 删除风格卡确认对话框(P0-2,与删除作品同一 Modal 基座)
   const [confirmDeleteStyle, setConfirmDeleteStyle] = useState<StyleCard | null>(null);
-  // 沉浸查看器(批 3):当前筛选列表内的索引;失败/音频作品也允许打开(显示对应占位)
+  // 沉浸查看器:当前查询结果列表内的索引;失败/音频作品也允许打开(显示对应占位)
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   // 风格卡(WS4):StyleBar 数据源 + 「存为风格」Popover 状态
   const [styleCards, setStyleCards] = useState<StyleCard[]>([]);
@@ -312,16 +222,23 @@ export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
     setStyleCards(loadStyleCards());
   }, []);
 
-  const filtered = useMemo(() => {
-    if (!jobs) return [];
-    // 内容维度(M9):SFW = !nsfw,R18 = nsfw;「全部」不过滤
-    const base =
-      contentFilter === "all"
-        ? jobs
-        : jobs.filter((j) => (contentFilter === "r18" ? !!j.nsfw : !j.nsfw));
-    if (filter === "all") return base;
-    return base.filter((j) => kindToFilter(j.kind) === filter);
-  }, [jobs, filter, contentFilter]);
+  // 查询管线(纯函数,见 lib/libraryQuery):内容分级 → 类型 → 搜索 → 排序
+  const filtered = useMemo(
+    () =>
+      applyLibraryQuery(jobs ?? [], {
+        filter,
+        contentFilter,
+        search,
+        sort,
+      }),
+    [jobs, filter, contentFilter, search, sort],
+  );
+
+  // 类型计数(chip 徽标):基于内容分级后的集合,与列表口径一致
+  const counts = useMemo(
+    () => countByFilter(jobs ?? [], contentFilter),
+    [jobs, contentFilter],
+  );
 
   // 灯箱索引越界钳制:删除当前作品后 filtered 收缩,滑到下一件;列表清空则关闭
   useEffect(() => {
@@ -330,60 +247,24 @@ export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
     else if (lightboxIdx >= filtered.length) setLightboxIdx(filtered.length - 1);
   }, [filtered.length, lightboxIdx]);
 
+  // 列表收缩(删除/刷新)后 prune 选中集,避免选中已不存在的作品
+  useEffect(() => {
+    if (!jobs || selectedIds.size === 0) return;
+    const alive = new Set(jobs.map((j) => j.id));
+    setSelectedIds((prev) => {
+      const next = new Set([...prev].filter((id) => alive.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [jobs, selectedIds.size]);
+
   const visibleJobs = useMemo(
     () => filtered.slice(0, visibleCount),
     [filtered, visibleCount],
   );
   const hasMore = filtered.length > visibleCount;
 
-  const counts = useMemo(() => {
-    const c: Record<FilterKey, number> = { all: 0, image: 0, video: 0, audio: 0, "3d": 0 };
-    if (jobs) {
-      c.all = jobs.length;
-      for (const j of jobs) {
-        // 未识别 kind 不计入任何分类桶,只算进「全部」
-        const key = kindToFilter(j.kind);
-        if (key) c[key]++;
-      }
-    }
-    return c;
-  }, [jobs]);
-
-  // 段控 Tabs 项:计数始终渲染预留宽度(visibility 控制),避免计数出现后段宽跳动(CLS 加固)
-  const filterTabs = useMemo(
-    () =>
-      FILTERS.map((f) => ({
-        key: f.key,
-        label: (
-          <>
-            <span>{f.label}</span>
-            <span
-              style={{
-                visibility: counts[f.key] > 0 ? "visible" : "hidden",
-                fontSize: "var(--text-label)",
-                fontVariantNumeric: "tabular-nums",
-                display: "inline-block",
-                minWidth: "1.1em",
-                textAlign: "right",
-              }}
-            >
-              {counts[f.key]}
-            </span>
-          </>
-        ),
-      })),
-    [counts],
-  );
-
-  // 内容维度 chips(M9):复用类型过滤同款段控结构;R18 项仅 R18 模式渲染
-  const contentTabs = useMemo(() => {
-    const items: { key: ContentFilterKey; label: string }[] = [
-      { key: "all", label: "全部" },
-      { key: "sfw", label: "SFW" },
-    ];
-    if (r18Mode) items.push({ key: "r18", label: "R18" });
-    return items;
-  }, [r18Mode]);
+  // 查询条件变更统一重置分页(首屏 60 条)
+  const resetPage = useCallback(() => setVisibleCount(PAGE_SIZE), []);
 
   // R18 模式关闭时若正选中 R18 chip,回退「全部」(chip 已不渲染,避免选中态悬空)
   useEffect(() => {
@@ -398,6 +279,52 @@ export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
       else next.add(jobId);
       return next;
     });
+  };
+
+  // 密度切换:state + localStorage 记忆
+  const changeDensity = (next: LibraryDensity) => {
+    setDensity(next);
+    persistDensity(next);
+  };
+
+  // ── 批量管理 ──
+
+  const toggleSelect = (jobId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(jobId)) next.delete(jobId);
+      else next.add(jobId);
+      return next;
+    });
+  };
+
+  const exitBatchMode = () => {
+    setBatchMode(false);
+    setSelectedIds(new Set());
+    setConfirmBatchDelete(false);
+    setDeleteError(null);
+  };
+
+  // 确认批量删除:顺序执行,成功项移出列表;有失败则保留失败项选中并内联报错
+  const handleConfirmBatchDelete = async () => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    setBatchDeleting(true);
+    setDeleteError(null);
+    const { done, failed } = await deleteJobsBatch(ids, deleteJob);
+    setBatchDeleting(false);
+    if (done.length > 0) {
+      invalidateJobs();
+      const doneSet = new Set(done);
+      setJobs((prev) => (prev ?? []).filter((j) => !doneSet.has(j.id)));
+    }
+    if (failed.length === 0) {
+      toast.success(`已删除 ${done.length} 件作品`);
+      exitBatchMode();
+    } else {
+      setSelectedIds(new Set(failed));
+      setDeleteError(`${failed.length} 件删除失败,已保留选中,可重试`);
+    }
   };
 
   // 点击删除:仅打开确认对话框(不再使用 window.confirm)
@@ -424,7 +351,7 @@ export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
     }
   };
 
-  // 打开沉浸查看器:定位到当前筛选列表中的索引(失败/音频作品同样可打开,灯箱内显示对应占位)
+  // 打开沉浸查看器:定位到当前查询结果列表中的索引(失败/音频作品同样可打开)
   const openLightbox = (job: JobItem) => {
     const idx = filtered.findIndex((j) => j.id === job.id);
     if (idx >= 0) setLightboxIdx(idx);
@@ -466,6 +393,12 @@ export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
     setLightboxIdx(null);
     if (onNavigate) onNavigate(target);
     else window.location.assign(`/?view=${target}`);
+  };
+
+  // 空态「去创作」:跳图像工作台
+  const goCreate = () => {
+    if (onNavigate) onNavigate("image");
+    else window.location.assign("/?view=image");
   };
 
   // 打开「存为风格」Popover:记录锚点按钮与目标作品
@@ -530,16 +463,29 @@ export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
     toast.info(`风格「${card.name}」已删除`);
   };
 
-  const isEmpty = !loading && !error && filtered.length === 0;
+  const libraryEmpty =
+    !loading && !error && (jobs?.length ?? 0) === 0;
+  // 查询无结果(库非空):搜索/筛选收敛掉的,给「清空条件」出口
+  const resultEmpty =
+    !loading && !error && !libraryEmpty && filtered.length === 0;
   const skeletonCount = 8;
 
+  const clearQuery = () => {
+    setSearch("");
+    setFilter("all");
+    setContentFilter("all");
+    resetPage();
+  };
+
   return (
-    <div className="single-view library-view">
+    <div
+      className={`single-view library-view${density === "compact" ? " is-compact" : ""}${batchMode ? " is-batch" : ""}`}
+    >
       <header className="page-header lib-header">
         <div className="page-header-text">
           <h1 className="page-header-title">作品库</h1>
           <p className="page-header-desc">
-            悬停卡片查看提示词,点击沉浸预览 · 支持图像 / 视频 / 音频 / 3D
+            全部生成产物统一收录,支持检索、复用提示词与批量管理
           </p>
         </div>
         <div className="page-header-actions">
@@ -553,30 +499,137 @@ export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
         </div>
       </header>
 
-      {/* 类型筛选独立工具行:从页头拆出,给段控单独的横向节奏 */}
+      {/* 工具条(sticky):搜索 / 类型 chips / 内容分级 / 排序 / 密度 / 批量管理 */}
       <div className="lib-toolbar">
-        <div className="lib-filters">
-          <Tabs
-            items={filterTabs}
-            current={filter}
-            onChange={(key) => {
-              setFilter(key as FilterKey);
-              setVisibleCount(PAGE_SIZE);
+        <div className="lib-search">
+          <span className="lib-search-icon" aria-hidden="true">
+            <Icon name="search" size={14} />
+          </span>
+          <input
+            className="lib-search-input"
+            value={search}
+            placeholder="搜索提示词…"
+            aria-label="搜索提示词"
+            onChange={(e) => {
+              setSearch(e.target.value);
+              resetPage();
             }}
-            ariaLabel="作品类型筛选"
           />
+          {search && (
+            <button
+              type="button"
+              className="lib-search-clear"
+              aria-label="清空搜索"
+              title="清空搜索"
+              onClick={() => {
+                setSearch("");
+                resetPage();
+              }}
+            >
+              <Icon name="close" size={12} />
+            </button>
+          )}
         </div>
-        {/* 内容维度筛选(M9):全部/SFW/R18,R18 chip 仅 R18 模式渲染 */}
-        <div className="lib-filters">
-          <Tabs
-            items={contentTabs}
-            current={contentFilter}
-            onChange={(key) => {
-              setContentFilter(key as ContentFilterKey);
-              setVisibleCount(PAGE_SIZE);
-            }}
-            ariaLabel="内容分级筛选"
-          />
+
+        <div className="lib-chips" role="group" aria-label="作品类型筛选">
+          {FILTERS.map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              className={`lib-chip${filter === f.key ? " is-active" : ""}`}
+              aria-pressed={filter === f.key}
+              onClick={() => {
+                setFilter(f.key);
+                resetPage();
+              }}
+            >
+              <span>{f.label}</span>
+              <span className="lib-chip-count">{counts[f.key]}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="lib-chips" role="group" aria-label="内容分级筛选">
+          {(
+            [
+              { key: "all", label: "全部" },
+              { key: "sfw", label: "SFW" },
+              ...(r18Mode ? [{ key: "r18", label: "R18" }] : []),
+            ] as { key: ContentFilterKey; label: string }[]
+          ).map((c) => (
+            <button
+              key={c.key}
+              type="button"
+              className={`lib-chip lib-chip--sm${contentFilter === c.key ? " is-active" : ""}${c.key === "r18" ? " lib-chip--danger" : ""}`}
+              aria-pressed={contentFilter === c.key}
+              onClick={() => {
+                setContentFilter(c.key);
+                resetPage();
+              }}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="lib-toolbar-cluster">
+          <div className="lib-seg" role="group" aria-label="排序方式">
+            <button
+              type="button"
+              className={`lib-seg-btn${sort === "newest" ? " is-active" : ""}`}
+              aria-pressed={sort === "newest"}
+              onClick={() => {
+                setSort("newest");
+                resetPage();
+              }}
+            >
+              最新
+            </button>
+            <button
+              type="button"
+              className={`lib-seg-btn${sort === "oldest" ? " is-active" : ""}`}
+              aria-pressed={sort === "oldest"}
+              onClick={() => {
+                setSort("oldest");
+                resetPage();
+              }}
+            >
+              最早
+            </button>
+          </div>
+
+          <div className="lib-seg lib-density" role="group" aria-label="密度切换">
+            <button
+              type="button"
+              className={`lib-seg-btn${density === "comfortable" ? " is-active" : ""}`}
+              aria-pressed={density === "comfortable"}
+              aria-label="舒适密度"
+              title="舒适"
+              onClick={() => changeDensity("comfortable")}
+            >
+              <Icon name="layout-grid" size={14} />
+            </button>
+            <button
+              type="button"
+              className={`lib-seg-btn${density === "compact" ? " is-active" : ""}`}
+              aria-pressed={density === "compact"}
+              aria-label="紧凑密度"
+              title="紧凑"
+              onClick={() => changeDensity("compact")}
+            >
+              <Icon name="grid" size={14} />
+            </button>
+          </div>
+
+          <Button
+            size="sm"
+            variant={batchMode ? "primary" : "secondary"}
+            className="lib-batch-toggle"
+            icon={<Icon name={batchMode ? "check" : "list-ordered"} size={14} />}
+            onClick={() => (batchMode ? exitBatchMode() : setBatchMode(true))}
+          >
+            {batchMode ? "完成" : "批量管理"}
+          </Button>
         </div>
       </div>
 
@@ -612,50 +665,69 @@ export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
           </div>
         )}
 
-        {!error && !loading && isEmpty && (
-          <div className="lib-empty">
+        {!error && !loading && libraryEmpty && (
+          <LibraryEmptyState onCreate={goCreate} />
+        )}
+
+        {!error && !loading && resultEmpty && (
+          <div className="lib-empty lib-empty--result">
             <div className="lib-empty-icon" aria-hidden="true">
-              <Icon name="image" size={30} strokeWidth={1.4} />
+              <Icon name="search" size={26} strokeWidth={1.2} />
             </div>
-            <h2 className="lib-empty-display">这里还空空如也</h2>
-            <p className="lib-empty-desc">去图片 / 视频 / 音频工作台生成第一件作品,完成后会自动收录到这里。</p>
+            <h2 className="lib-empty-display">没有匹配的作品</h2>
+            <p className="lib-empty-desc">
+              当前筛选 / 搜索条件下没有结果,试试调整关键词或清空全部条件。
+            </p>
+            <Button
+              size="sm"
+              icon={<Icon name="close" size={14} />}
+              onClick={clearQuery}
+            >
+              清空筛选与搜索
+            </Button>
           </div>
         )}
 
-        {!error && !loading && !isEmpty && (
+        {!error && !loading && !libraryEmpty && !resultEmpty && (
           <>
             <div className="lib-grid">
               {visibleJobs.map((job) => {
               // 后端作业状态枚举为 queued/running/done/error;done 表示成功且有产物
               const hasResult = job.status === "done" && job.results?.length > 0;
               const isVideo = isVideoKind(job.kind);
-              // 失败占位卡:thumb 加修饰类,CSS 收敛为固定矮条(样式见 app/styles/library.css)
-              const isErrorPlaceholder = !hasResult && job.status === "error";
-              // R18 作品(M9):右上角 18+ 徽标 + 缩略图默认模糊,点击单张解除/恢复
+              // R18 作品(M9):18+ 徽标 + 缩略图默认模糊,点击单张解除/恢复
               const isNsfw = !!job.nsfw;
               const isBlurred = isNsfw && !revealedIds.has(job.id);
+              const isSelected = selectedIds.has(job.id);
               return (
                 <article
                   key={job.id}
-                  className={`lib-card ${deletingId === job.id ? "is-deleting" : ""}`}
+                  className={`lib-card${deletingId === job.id ? " is-deleting" : ""}${isSelected ? " is-selected" : ""}`}
                 >
-                  <div className={`lib-thumb ${isErrorPlaceholder ? "lib-thumb--error" : ""}`}>
-                    {/* 预览触发区用真实 <button>,与删除按钮平级,避免嵌套交互控件(WCAG nested-interactive) */}
+                  <div className={`lib-thumb${job.status === "running" && !hasResult ? " is-running" : ""}`}>
+                    {/* 预览/勾选触发区用真实 <button>,避免嵌套交互控件(WCAG nested-interactive) */}
                     <button
                       type="button"
                       className="lib-thumb-hit"
                       aria-label={
-                        isBlurred
-                          ? "点击显示 R18 作品内容"
-                          : isNsfw
-                            ? "恢复模糊(R18 作品)"
-                            : `预览作品: ${job.prompt || "无提示词"}`
+                        batchMode
+                          ? isSelected
+                            ? `取消选择作品: ${job.prompt || "无提示词"}`
+                            : `选择作品: ${job.prompt || "无提示词"}`
+                          : isBlurred
+                            ? "点击显示 R18 作品内容"
+                            : isNsfw
+                              ? "恢复模糊(R18 作品)"
+                              : `预览作品: ${job.prompt || "无提示词"}`
                       }
-                      onClick={() =>
-                        isNsfw ? toggleReveal(job.id) : openLightbox(job)
-                      }
+                      aria-pressed={batchMode ? isSelected : undefined}
+                      onClick={() => {
+                        if (batchMode) toggleSelect(job.id);
+                        else if (isNsfw) toggleReveal(job.id);
+                        else openLightbox(job);
+                      }}
                       onMouseEnter={() => {
-                        if (isBlurred) setHoveredBlurId(job.id);
+                        if (isBlurred && !batchMode) setHoveredBlurId(job.id);
                       }}
                       onMouseLeave={() => {
                         setHoveredBlurId((id) => (id === job.id ? null : id));
@@ -687,95 +759,94 @@ export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
                       <ThumbPlaceholder job={job} />
                     )}
 
-                    <div className="lib-overlay" aria-hidden="true">
-                      <div className="lib-overlay-prompt">
-                        {job.prompt || "（无提示词）"}
-                      </div>
-                    </div>
-
                     {/* R18 模糊卡 hover 提示层:半透明「点击显示」,不拦截点击 */}
-                    {isBlurred && hoveredBlurId === job.id && (
-                      <div
-                        aria-hidden="true"
-                        style={{
-                          position: "absolute",
-                          inset: 0,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          /* P2-1:scrim 收编全局 overlay token(原 rgba(0,0,0,0.35) 内联) */
-                          background: "var(--overlay-strong)",
-                          color: "var(--text-on-accent)",
-                          fontSize: "var(--text-sm)",
-                          fontWeight: "var(--font-medium)",
-                          letterSpacing: "0.05em",
-                          pointerEvents: "none",
-                        }}
-                      >
+                    {isBlurred && !batchMode && hoveredBlurId === job.id && (
+                      <div className="lib-blur-hint" aria-hidden="true">
                         点击显示
                       </div>
                     )}
                     </button>
 
-                    {/* 快捷操作浮层(WS4):底部渐显玻璃条,三键 = 查看大图 / 存为风格 / 复用提示词 */}
-                    <div
-                      className="lib-actions"
-                      onClick={(e) => e.stopPropagation()}
-                    >
+                    {/* 批量模式:左上勾选圈(与缩略图点击同效,提供独立焦点目标) */}
+                    {batchMode && (
                       <button
                         type="button"
-                        className="lib-action-btn"
-                        title="查看大图"
-                        aria-label="查看大图"
+                        className={`lib-check${isSelected ? " is-checked" : ""}`}
+                        aria-label={
+                          isSelected
+                            ? `取消选择作品: ${job.prompt || "无提示词"}`
+                            : `选择作品: ${job.prompt || "无提示词"}`
+                        }
+                        aria-pressed={isSelected}
                         onClick={(e) => {
                           e.stopPropagation();
-                          openLightbox(job);
+                          toggleSelect(job.id);
                         }}
                       >
-                        <Icon name="zoom-in" size={14} />
+                        <Icon name="check" size={12} />
                       </button>
-                      <button
-                        type="button"
-                        className="lib-action-btn"
-                        title="存为风格"
-                        aria-label="存为风格"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openStylePopover(job, e.currentTarget);
-                        }}
-                      >
-                        <Icon name="palette" size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        className="lib-action-btn"
-                        title="复用提示词"
-                        aria-label="复用提示词"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          reusePrompt(job);
-                        }}
-                      >
-                        <Icon name="link" size={14} />
-                      </button>
-                    </div>
+                    )}
 
-                    <button
-                      type="button"
-                      className="lib-delete"
-                      title="删除作品"
-                      aria-label="删除作品"
-                      disabled={deletingId === job.id}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(job);
-                      }}
-                    >
-                      <Icon
-                        name={deletingId === job.id ? "loading" : "delete"}
-                        size={14}
-                      />
-                    </button>
+                    {/* 快捷操作浮层:hover 浮出右上角玻璃操作组(查看/复用/存风格/删除) */}
+                    {!batchMode && (
+                      <div
+                        className="lib-actions"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          type="button"
+                          className="lib-action-btn"
+                          title="查看大图"
+                          aria-label="查看大图"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openLightbox(job);
+                          }}
+                        >
+                          <Icon name="zoom-in" size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="lib-action-btn"
+                          title="复用提示词"
+                          aria-label="复用提示词"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            reusePrompt(job);
+                          }}
+                        >
+                          <Icon name="link" size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="lib-action-btn"
+                          title="存为风格"
+                          aria-label="存为风格"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openStylePopover(job, e.currentTarget);
+                          }}
+                        >
+                          <Icon name="palette" size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="lib-action-btn lib-action-btn--danger"
+                          title="删除作品"
+                          aria-label="删除作品"
+                          disabled={deletingId === job.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(job);
+                          }}
+                        >
+                          <Icon
+                            name={deletingId === job.id ? "loading" : "delete"}
+                            size={14}
+                          />
+                        </button>
+                      </div>
+                    )}
 
                     {isVideo && hasResult && (
                       <div className="lib-video-badge" aria-hidden="true">
@@ -784,45 +855,28 @@ export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
                       </div>
                     )}
 
-                    {/* R18 徽标(M9):缩略图右上角(左移避开删除按钮),仅 nsfw 作品渲染 */}
+                    {/* R18 徽标(M9):缩略图右下角(避开左上状态与右上操作组),仅 nsfw 作品渲染 */}
                     {isNsfw && (
-                      <span
-                        aria-hidden="true"
-                        style={{
-                          position: "absolute",
-                          top: "var(--space-2)",
-                          right: "calc(var(--space-2) + 32px)",
-                          padding: "3px 8px",
-                          background: "var(--err)",
-                          color: "var(--text-on-accent)",
-                          borderRadius: "var(--radius-full)",
-                          fontSize: "var(--text-aux)",
-                          fontWeight: "var(--font-semibold)",
-                          lineHeight: 1.2,
-                          pointerEvents: "none",
-                          // 层内微调:徽标压过缩略图媒体/hover 提示层,属卡片内局部堆叠,保留内联
-                          zIndex: 2,
-                        }}
-                      >
+                      <span className="lib-nsfw-badge" aria-hidden="true">
                         18+
                       </span>
                     )}
                   </div>
 
                   <div className="lib-foot">
-                    <div className="lib-foot-row">
-                      <Badge
-                        tone="accent"
-                        dot={false}
-                        className="lib-kind-badge"
-                        title={kindLabel(job.kind)}
-                      >
-                        <span className="lib-kind-badge-text">{kindLabel(job.kind)}</span>
-                      </Badge>
-                      <span className="lib-time">{formatTime(job.created_at)}</span>
+                    <div className="lib-card-title" title={job.prompt}>
+                      {job.prompt || "(无提示词)"}
                     </div>
-                    <div className="lib-seed" title={`seed · ${job.seed}`}>
-                      seed · {job.seed}
+                    <div className="lib-meta">
+                      <span className="lib-kind" title={kindLabel(job.kind)}>
+                        {kindLabel(job.kind)}
+                      </span>
+                      <span className="lib-time">{formatTime(job.created_at)}</span>
+                      <span
+                        className={`lib-status-dot is-${job.status}`}
+                        title={statusLabel(job.status)}
+                        aria-label={`状态:${statusLabel(job.status)}`}
+                      />
                     </div>
                   </div>
                 </article>
@@ -844,7 +898,31 @@ export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
         )}
       </div>
 
-      {/* 沉浸查看器(批 3):全出血灯箱 + 玻璃工具条 + ←/→ 穿梭 + 快捷操作 */}
+      {/* 批量模式:底部浮动操作条(已选计数 / 批量删除 / 取消) */}
+      {batchMode && (
+        <div className="lib-batchbar" role="region" aria-label="批量操作">
+          <span className="lib-batchbar-count">已选 {selectedIds.size} 项</span>
+          <span className="lib-batchbar-sep" aria-hidden="true" />
+          <Button
+            size="sm"
+            variant="danger"
+            disabled={selectedIds.size === 0 || batchDeleting}
+            loading={batchDeleting}
+            icon={<Icon name="delete" size={14} />}
+            onClick={() => {
+              setDeleteError(null);
+              setConfirmBatchDelete(true);
+            }}
+          >
+            批量删除
+          </Button>
+          <Button size="sm" variant="ghost" onClick={exitBatchMode}>
+            取消
+          </Button>
+        </div>
+      )}
+
+      {/* 沉浸查看器:Frame.io 式左舞台 + 右元信息面板;←/→ 穿梭 + 快捷操作 */}
       {lightboxIdx !== null && filtered[lightboxIdx] && (
         <LibraryLightbox
           jobs={filtered}
@@ -855,7 +933,7 @@ export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
           onReuse={reusePromptAsDraft}
           onDelete={handleDelete}
           deletingId={deletingId}
-          dialogsOpen={!!styleTarget || !!confirmDelete || !!confirmDeleteStyle}
+          dialogsOpen={!!styleTarget || !!confirmDelete || !!confirmDeleteStyle || confirmBatchDelete}
         />
       )}
 
@@ -935,6 +1013,45 @@ export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
         </div>
       </Modal>
 
+      {/* 批量删除确认对话框:列出数量,同一 Modal danger 基座 */}
+      <Modal
+        open={confirmBatchDelete}
+        onClose={() => setConfirmBatchDelete(false)}
+        title="批量删除作品"
+        danger
+        preventClose={batchDeleting}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              disabled={batchDeleting}
+              onClick={() => setConfirmBatchDelete(false)}
+            >
+              取消
+            </Button>
+            <Button
+              variant="danger"
+              loading={batchDeleting}
+              icon={<Icon name="delete" size={14} />}
+              onClick={handleConfirmBatchDelete}
+            >
+              {batchDeleting ? "删除中…" : `确认删除 ${selectedIds.size} 件`}
+            </Button>
+          </>
+        }
+      >
+        <div className="lib-confirm-body">
+          <div className="lib-confirm-warn">
+            确定删除选中的 {selectedIds.size} 件作品?此操作不可撤销,这些作品的所有数据将被永久移除。
+          </div>
+          {deleteError && (
+            <div className="lib-confirm-error">
+              <Icon name="error" size={13} /> {deleteError}
+            </div>
+          )}
+        </div>
+      </Modal>
+
       {/* 删除风格卡确认对话框(P0-2):与删除作品同一确认范式,文案同款 */}
       <Modal
         open={!!confirmDeleteStyle}
@@ -975,20 +1092,20 @@ export function LibraryView({ onNavigate }: LibraryViewProps = {}) {
 
 
 // ────────────────────────────────────────────────────────────────
-// LibraryLightbox:作品沉浸查看器(批 3)
-// 全出血媒体舞台 + 顶部/底部玻璃工具条;←/→ 键盘与按钮穿梭;
-// 操作复用 LibraryView 现有逻辑:下载(anchor download,同 ImageEdit/Audio 模式)、
-// 存为风格(openStylePopover 锚点 Popover)、复用提示词(引擎草稿 + 跳工作台)、
-// 删除(handleDelete → 既有确认 Modal)。
+// LibraryLightbox:作品沉浸查看器(Frame.io 式重设计,2026-08-15)
+// 左侧大预览舞台(深色恒压暗,作品是主角)+ 右侧固定宽元信息面板
+// (类型/状态/时间/kind/seed/提示词全文/操作组);←/→ 键盘与按钮穿梭;
+// 操作复用 LibraryView 现有逻辑:下载(anchor download)、存为风格(锚点 Popover)、
+// 复用提示词(引擎草稿 + 跳工作台)、删除(既有确认 Modal)。
 // ────────────────────────────────────────────────────────────────
 
 interface LibraryLightboxProps {
-  /** 当前筛选列表(穿梭范围) */
+  /** 当前查询结果列表(穿梭范围) */
   jobs: JobItem[];
   index: number;
   onClose: () => void;
   onIndex: (idx: number) => void;
-  /** 存为风格:复用 LibraryView.openStylePopover(锚定到灯箱工具条按钮) */
+  /** 存为风格:复用 LibraryView.openStylePopover(锚定到灯箱面板按钮) */
   onSaveStyle: (job: JobItem, anchor: HTMLButtonElement) => void;
   /** 复用提示词:复用 LibraryView.reusePromptAsDraft(写草稿 + 跳工作台) */
   onReuse: (job: JobItem) => void;
@@ -1037,6 +1154,13 @@ function LibraryLightbox({
     return () => window.removeEventListener("keydown", onKey);
   }, [dialogsOpen, index, jobs.length, onClose, onIndex]);
 
+  let createdFull = job.created_at;
+  try {
+    createdFull = new Date(job.created_at).toLocaleString("zh-CN");
+  } catch {
+    /* 非法日期回显原始串 */
+  }
+
   return (
     <div
       className="lib-lightbox"
@@ -1045,147 +1169,159 @@ function LibraryLightbox({
       aria-label={`作品查看器: ${job.prompt || "无提示词"}`}
       onClick={onClose}
     >
-      {/* 顶部玻璃工具条:作品类型 + 位置计数 + 关闭(时间下沉到底部元信息行) */}
-      <div className="lib-lb-top" onClick={(e) => e.stopPropagation()}>
-        <div className="lib-lb-top-meta">
-          <Badge tone="accent" dot={false}>
-            {kindLabel(job.kind)}
-          </Badge>
-          <span className="lib-lb-counter">
-            {index + 1} / {jobs.length}
-          </span>
-        </div>
-        <button
-          type="button"
-          className="lib-lb-icon-btn"
-          aria-label="关闭预览"
-          title="关闭(Esc)"
-          onClick={onClose}
-        >
-          {/* 灯箱工具条图标统一 16px 标尺(下载/存风格/复用/删除同档) */}
-          <Icon name="close" size={16} />
-        </button>
-      </div>
-
-      {/* 左右穿梭按钮(键盘 ←/→ 同效) */}
-      {index > 0 && (
-        <button
-          type="button"
-          className="lib-lb-nav lib-lb-nav-prev"
-          aria-label="上一作品"
-          title="上一作品(←)"
-          onClick={(e) => {
-            e.stopPropagation();
-            onIndex(index - 1);
-          }}
-        >
-          <Icon name="chevron-left" size={20} />
-        </button>
-      )}
-      {index < jobs.length - 1 && (
-        <button
-          type="button"
-          className="lib-lb-nav lib-lb-nav-next"
-          aria-label="下一作品"
-          title="下一作品(→)"
-          onClick={(e) => {
-            e.stopPropagation();
-            onIndex(index + 1);
-          }}
-        >
-          <Icon name="chevron-right" size={20} />
-        </button>
-      )}
-
-      {/* 媒体舞台:全出血 contain;失败/音频作品显示对应占位 */}
-      <div className="lib-lb-stage" onClick={(e) => e.stopPropagation()}>
-        {hasResult ? (
-          isVideo ? (
-            <video
-              key={mediaUrl}
-              className="lib-lb-media"
-              src={mediaUrl}
-              controls
-              autoPlay
-              loop
-            />
-          ) : isAudio ? (
-            <div className="lib-lb-audio">
-              <div className="lib-lb-audio-icon">
-                <Icon name="audio" size={40} strokeWidth={1.4} />
+      <div className="lib-lb-shell" onClick={(e) => e.stopPropagation()}>
+        {/* 左侧:媒体舞台(全出血 contain;失败/音频作品显示对应占位) */}
+        <div className="lib-lb-stage">
+          {hasResult ? (
+            isVideo ? (
+              <video
+                key={mediaUrl}
+                className="lib-lb-media"
+                src={mediaUrl}
+                controls
+                autoPlay
+                loop
+              />
+            ) : isAudio ? (
+              <div className="lib-lb-audio">
+                <div className="lib-lb-audio-icon">
+                  <Icon name="audio" size={36} strokeWidth={1.4} />
+                </div>
+                <audio src={mediaUrl} controls autoPlay />
               </div>
-              <audio src={mediaUrl} controls autoPlay />
-            </div>
+            ) : (
+              <img
+                className="lib-lb-media"
+                src={mediaUrl}
+                alt={job.prompt}
+                /* 纵横比提示(基准 16:9),contain 适配舞台,加载后按自然比例还原 */
+                width={480}
+                height={270}
+                loading="lazy"
+                decoding="async"
+              />
+            )
           ) : (
-            <img
-              className="lib-lb-media"
-              src={mediaUrl}
-              alt={job.prompt}
-              /* P1-6:纵横比提示(基准 1:1),contain 适配舞台,加载后按自然比例还原 */
-              width={512}
-              height={512}
-              loading="lazy"
-              decoding="async"
-            />
-          )
-        ) : (
-          <div className="lib-lb-placeholder">
-            <ThumbPlaceholder job={job} />
-          </div>
-        )}
-      </div>
-
-      {/* 底部玻璃工具条:信息区(提示词主行 + seed/时间元信息行) + 快捷操作 */}
-      <div className="lib-lb-bottom" onClick={(e) => e.stopPropagation()}>
-        <div className="lib-lb-info">
-          <div className="lib-lb-prompt" title={job.prompt}>
-            {job.prompt || "(无提示词)"}
-          </div>
-          <div className="lib-lb-meta">
-            seed · {job.seed} · {formatTime(job.created_at)}
-          </div>
-        </div>
-        <div className="lib-lb-actions">
-          {hasResult && (
-            <a
-              className="lib-lb-icon-btn"
-              href={mediaUrl}
-              download
-              aria-label="下载作品"
-              title="下载"
-            >
-              <Icon name="download" size={16} />
-            </a>
+            <div className="lib-lb-placeholder">
+              <ThumbPlaceholder job={job} />
+            </div>
           )}
-          <button
-            type="button"
-            className="lib-lb-icon-btn"
-            aria-label="存为风格"
-            title="存为风格"
-            onClick={(e) => onSaveStyle(job, e.currentTarget)}
-          >
-            <Icon name="palette" size={16} />
-          </button>
-          <button
-            type="button"
-            className="lib-lb-icon-btn"
-            aria-label="复用提示词"
-            title="复用提示词(到生成工作台)"
-            onClick={() => onReuse(job)}
-          >
-            <Icon name="link" size={16} />
-          </button>
-          <button
-            type="button"
-            className="lib-lb-icon-btn lib-lb-icon-btn--danger"
-            aria-label="删除作品"
-            title="删除"
-            disabled={deletingId === job.id}
-            onClick={() => onDelete(job)}
-          >
-            <Icon name={deletingId === job.id ? "loading" : "delete"} size={16} />
-          </button>
+
+          {/* 左右穿梭按钮(键盘 ←/→ 同效),悬于舞台两侧 */}
+          {index > 0 && (
+            <button
+              type="button"
+              className="lib-lb-nav lib-lb-nav-prev"
+              aria-label="上一作品"
+              title="上一作品(←)"
+              onClick={() => onIndex(index - 1)}
+            >
+              <Icon name="chevron-left" size={18} />
+            </button>
+          )}
+          {index < jobs.length - 1 && (
+            <button
+              type="button"
+              className="lib-lb-nav lib-lb-nav-next"
+              aria-label="下一作品"
+              title="下一作品(→)"
+              onClick={() => onIndex(index + 1)}
+            >
+              <Icon name="chevron-right" size={18} />
+            </button>
+          )}
         </div>
+
+        {/* 右侧:固定宽元信息面板(类型 / 状态 / 时间 / kind / seed / 提示词全文 / 操作组) */}
+        <aside className="lib-lb-side">
+          <div className="lib-lb-side-head">
+            <span className="lib-kind">{kindLabel(job.kind)}</span>
+            <span className="lib-lb-counter">
+              {index + 1} / {jobs.length}
+            </span>
+            <button
+              type="button"
+              className="lib-lb-close"
+              aria-label="关闭预览"
+              title="关闭(Esc)"
+              onClick={onClose}
+            >
+              <Icon name="close" size={16} />
+            </button>
+          </div>
+
+          <dl className="lib-lb-meta">
+            <div className="lib-lb-meta-row">
+              <dt>状态</dt>
+              <dd>
+                <span
+                  className={`lib-status-dot is-${job.status}`}
+                  aria-hidden="true"
+                />
+                {statusLabel(job.status)}
+              </dd>
+            </div>
+            <div className="lib-lb-meta-row">
+              <dt>类型</dt>
+              <dd className="lib-lb-kind-value">{job.kind}</dd>
+            </div>
+            <div className="lib-lb-meta-row">
+              <dt>时间</dt>
+              <dd>
+                {createdFull}
+                <span className="lib-lb-time-rel">({formatTime(job.created_at)})</span>
+              </dd>
+            </div>
+            <div className="lib-lb-meta-row">
+              <dt>Seed</dt>
+              <dd className="lib-lb-num">{job.seed}</dd>
+            </div>
+          </dl>
+
+          <div className="lib-lb-prompt-block">
+            <span className="lib-lb-prompt-label">提示词</span>
+            <p className="lib-lb-prompt-text">{job.prompt || "(无提示词)"}</p>
+          </div>
+
+          <div className="lib-lb-side-actions">
+            {hasResult && (
+              <a
+                className="lib-lb-action"
+                href={mediaUrl}
+                download
+                aria-label="下载作品"
+              >
+                <Icon name="download" size={14} />
+                下载
+              </a>
+            )}
+            <button
+              type="button"
+              className="lib-lb-action"
+              onClick={() => onReuse(job)}
+            >
+              <Icon name="link" size={14} />
+              复用提示词
+            </button>
+            <button
+              type="button"
+              className="lib-lb-action"
+              onClick={(e) => onSaveStyle(job, e.currentTarget)}
+            >
+              <Icon name="palette" size={14} />
+              存为风格
+            </button>
+            <button
+              type="button"
+              className="lib-lb-action lib-lb-action--danger"
+              disabled={deletingId === job.id}
+              onClick={() => onDelete(job)}
+            >
+              <Icon name={deletingId === job.id ? "loading" : "delete"} size={14} />
+              删除作品
+            </button>
+          </div>
+        </aside>
       </div>
     </div>
   );

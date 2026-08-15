@@ -1,0 +1,288 @@
+/**
+ * 作品库查询纯逻辑(2026-08-15 作品库重设计拆出):
+ * 类型筛选(FILTERS/KIND_PREFIX_RULES)、内容分级、prompt 搜索、时间排序
+ * 全部收敛为 applyLibraryQuery 单一入口,组件侧只负责 state 与渲染;
+ * 密度切换(舒适/紧凑)与批量删除流同为纯函数/小 helper,便于 node:test 直测。
+ */
+import type { JobItem } from "./types";
+
+export type FilterKey = "all" | "image" | "video" | "audio" | "3d";
+
+/** 内容维度过滤(M9):SFW = 非 nsfw 作品,R18 = nsfw 作品;R18 chip 仅 R18 模式渲染。 */
+export type ContentFilterKey = "all" | "sfw" | "r18";
+
+/** 排序:按 created_at 最新/最早。 */
+export type SortKey = "newest" | "oldest";
+
+/** 网格密度:舒适(更大卡)/ 紧凑(更小卡 + 更小字号),localStorage 记忆。 */
+export type LibraryDensity = "comfortable" | "compact";
+
+export interface FilterDef {
+  key: FilterKey;
+  label: string;
+  kinds: string[];
+}
+
+export const FILTERS: FilterDef[] = [
+  { key: "all", label: "全部", kinds: [] },
+  {
+    key: "image",
+    label: "图像",
+    kinds: [
+      "txt2img", "img2img", "controlnet", "upscale", "facedetailer",
+      "inpaint", "removebg", "raw",
+      // 短剧 studio 图像类产物
+      "drama_grid_storyboard", "drama_scene_layout",
+    ],
+  },
+  {
+    key: "video",
+    label: "视频",
+    kinds: [
+      "video", "txt2video", "img2video", "lipsync", "kenburns",
+      "wan_t2v", "wan_i2v", "hunyuan_i2v", "h3_t2v", "h3_i2v",
+      "ltx_t2v", "ltx_i2v", "ltx_lipsync", "ltx2_t2v", "ltx2_i2v",
+      "ltx25_t2v", "ltx25_i2v",
+      "frame_interpolate", "dub_lipsync_long", "manju_lipsync", "anime_lipsync",
+      // LongCat 长视频(t2v/i2v/续写)
+      "longcat_t2v", "longcat_i2v", "longcat_continue",
+      // LongCat-Avatar 数字人说话视频
+      "avatar_talk",
+      // 短剧 studio 视频类产物
+      "drama_shot_video", "drama_shot_video_i2v", "drama_shot_video_v2", "drama_shot_lipsync",
+    ],
+  },
+  {
+    key: "audio",
+    label: "音频",
+    kinds: ["audio", "ace_audio", "audio_sep", "transcribe", "voice_track"],
+  },
+  { key: "3d", label: "3D", kinds: ["3d", "model3d", "hunyuan3d"] },
+];
+
+/** 动态前缀规则(后端按 preset/视角拼 kind):cad_* → 3D;drama_char_reference_* → 图像。 */
+export const KIND_PREFIX_RULES: [string, FilterKey][] = [
+  ["cad_", "3d"],
+  ["drama_char_reference_", "image"],
+];
+
+/**
+ * kind → 筛选桶。未识别的 kind 返回 null:只在「全部」出现,
+ * 不硬塞进「图像」(修复 transcribe/voice_track 等被错算成图像的问题)。
+ */
+export function kindToFilter(kind: string): FilterKey | null {
+  for (const f of FILTERS) {
+    if (f.kinds.includes(kind)) return f.key;
+  }
+  for (const [prefix, key] of KIND_PREFIX_RULES) {
+    if (kind.startsWith(prefix)) return key;
+  }
+  return null;
+}
+
+/** 类型短名:映射后的中文短名;未知 kind 兜底「其他」,不回显超长原始 kind 名。 */
+export function kindLabel(kind: string): string {
+  const map: Record<string, string> = {
+    txt2img: "文生图",
+    img2img: "图生图",
+    controlnet: "ControlNet",
+    upscale: "放大",
+    facedetailer: "脸部修复",
+    inpaint: "局部重绘",
+    removebg: "抠图",
+    raw: "原图",
+    video: "视频",
+    txt2video: "文生视频",
+    img2video: "图生视频",
+    lipsync: "对口型",
+    kenburns: "运镜",
+    wan_t2v: "文生视频",
+    wan_i2v: "图生视频",
+    hunyuan_i2v: "图生视频",
+    h3_t2v: "文生视频",
+    h3_i2v: "图生视频",
+    ltx_t2v: "文生视频",
+    ltx_i2v: "图生视频",
+    ltx_lipsync: "对口型",
+    ltx2_t2v: "文生视频",
+    ltx2_i2v: "图生视频",
+    ltx25_t2v: "文生视频",
+    ltx25_i2v: "图生视频",
+    frame_interpolate: "补帧",
+    dub_lipsync_long: "长对口型",
+    manju_lipsync: "对口型",
+    anime_lipsync: "动漫对口型",
+    longcat_t2v: "长视频",
+    longcat_i2v: "长视频",
+    longcat_continue: "长视频续写",
+    avatar_talk: "数字人",
+    audio: "音频",
+    ace_audio: "音乐",
+    audio_sep: "人声分离",
+    transcribe: "听写",
+    voice_track: "配音轨",
+    "3d": "3D",
+    model3d: "3D",
+    hunyuan3d: "图生3D",
+    drama_grid_storyboard: "分镜",
+    drama_scene_layout: "场景布局",
+    drama_shot_video: "镜头视频",
+    drama_shot_video_i2v: "镜头视频",
+    drama_shot_video_v2: "镜头视频",
+    drama_shot_lipsync: "镜头对口型",
+  };
+  if (map[kind]) return map[kind];
+  if (kind.startsWith("cad_")) return "CAD";
+  if (kind.startsWith("drama_char_reference_")) return "角色参考";
+  return "其他";
+}
+
+export function isVideoKind(kind: string): boolean {
+  return kindToFilter(kind) === "video";
+}
+
+/** 相对时间(中文):<1min 刚刚 / N 分钟前 / N 小时前 / N 天前 / 7 天外落日期。 */
+export function formatTime(iso: string): string {
+  try {
+    const d = new Date(iso);
+    const diff = Date.now() - d.getTime();
+    const min = 60_000;
+    const hr = 60 * min;
+    const day = 24 * hr;
+    if (diff < min) return "刚刚";
+    if (diff < hr) return `${Math.floor(diff / min)} 分钟前`;
+    if (diff < day) return `${Math.floor(diff / hr)} 小时前`;
+    if (diff < 7 * day) return `${Math.floor(diff / day)} 天前`;
+    return d.toLocaleDateString("zh-CN");
+  } catch {
+    return iso;
+  }
+}
+
+/** 作业状态 → 中文短名(状态点 title / 灯箱元信息共用)。 */
+export function statusLabel(status: string): string {
+  const map: Record<string, string> = {
+    done: "已完成",
+    running: "生成中",
+    error: "失败",
+    queued: "排队中",
+  };
+  return map[status] ?? status;
+}
+
+export interface LibraryQuery {
+  filter: FilterKey;
+  contentFilter: ContentFilterKey;
+  /** prompt 搜索词(纯客户端,大小写不敏感,首尾空白忽略)。 */
+  search: string;
+  sort: SortKey;
+}
+
+export const DEFAULT_LIBRARY_QUERY: LibraryQuery = {
+  filter: "all",
+  contentFilter: "all",
+  search: "",
+  sort: "newest",
+};
+
+function createdAtMs(job: JobItem): number {
+  const t = Date.parse(job.created_at);
+  return Number.isNaN(t) ? 0 : t;
+}
+
+/**
+ * 作品库查询管线:内容分级 → 类型筛选 → prompt 搜索 → 时间排序。
+ * 输入不就地修改,返回新数组;空搜索词不参与过滤。
+ */
+export function applyLibraryQuery(jobs: readonly JobItem[], q: LibraryQuery): JobItem[] {
+  // ① 内容维度:SFW = !nsfw,R18 = nsfw;「全部」不过滤
+  let out =
+    q.contentFilter === "all"
+      ? jobs.slice()
+      : jobs.filter((j) => (q.contentFilter === "r18" ? !!j.nsfw : !j.nsfw));
+  // ② 类型维度:未识别 kind 只在「全部」出现
+  if (q.filter !== "all") {
+    const filter = q.filter;
+    out = out.filter((j) => kindToFilter(j.kind) === filter);
+  }
+  // ③ prompt 搜索(大小写不敏感子串)
+  const needle = q.search.trim().toLowerCase();
+  if (needle) {
+    out = out.filter((j) => (j.prompt ?? "").toLowerCase().includes(needle));
+  }
+  // ④ 排序:稳定排序,无效日期沉底(按 0 处理)
+  const dir = q.sort === "oldest" ? 1 : -1;
+  out.sort((a, b) => (createdAtMs(a) - createdAtMs(b)) * dir);
+  return out;
+}
+
+/** 各类型计数(chip 徽标):基于内容分级后的集合,未识别 kind 只计入「全部」。 */
+export function countByFilter(
+  jobs: readonly JobItem[],
+  contentFilter: ContentFilterKey,
+): Record<FilterKey, number> {
+  const counts: Record<FilterKey, number> = { all: 0, image: 0, video: 0, audio: 0, "3d": 0 };
+  const base =
+    contentFilter === "all"
+      ? jobs
+      : jobs.filter((j) => (contentFilter === "r18" ? !!j.nsfw : !j.nsfw));
+  counts.all = base.length;
+  for (const j of base) {
+    const key = kindToFilter(j.kind);
+    if (key) counts[key]++;
+  }
+  return counts;
+}
+
+/** localStorage 键:网格密度(舒适/紧凑)。 */
+export const LIBRARY_DENSITY_KEY = "toiv_library_density";
+
+/** 读取网格密度(SSR/无窗口/值损坏一律回退舒适档)。 */
+export function loadDensity(): LibraryDensity {
+  if (typeof window === "undefined") return "comfortable";
+  try {
+    return window.localStorage.getItem(LIBRARY_DENSITY_KEY) === "compact"
+      ? "compact"
+      : "comfortable";
+  } catch {
+    return "comfortable";
+  }
+}
+
+/** 持久化网格密度;localStorage 不可用时静默忽略。 */
+export function persistDensity(density: LibraryDensity): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(LIBRARY_DENSITY_KEY, density);
+  } catch {
+    /* localStorage 不可用时静默忽略 */
+  }
+}
+
+export interface BatchDeleteResult {
+  /** 已成功删除的 id(按传入顺序)。 */
+  done: string[];
+  /** 删除失败的 id(调用方据此保留选中并提示)。 */
+  failed: string[];
+}
+
+/**
+ * 批量删除:顺序执行(不并发打满后端),单条失败不中断后续;
+ * 全部尝试完毕后返回 done/failed 两组,由调用方更新列表与选中集。
+ */
+export async function deleteJobsBatch(
+  ids: readonly string[],
+  deleteFn: (id: string) => Promise<void>,
+): Promise<BatchDeleteResult> {
+  const done: string[] = [];
+  const failed: string[] = [];
+  for (const id of ids) {
+    try {
+      await deleteFn(id);
+      done.push(id);
+    } catch {
+      failed.push(id);
+    }
+  }
+  return { done, failed };
+}

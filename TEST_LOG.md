@@ -2,6 +2,29 @@
 
 ---
 
+## LIB-RD-2026-08-15 · 作品库清空 + 专业工具风全面重设计
+
+**时间**: 2026-08-15
+**类型**: 前端重设计 + 数据运维（用户决策：UI 全部清空 + 专业工具风方向）
+
+### 交付
+
+- **数据清空**：core PG `job` 表 338 → 0（备份 `/home/merlin/toiv/backups/job-backup-20260815-104546.dump`，pg_dump -Fc 可恢复）
+- **重设计**（LibraryView.tsx/library.css 重写，lib/libraryQuery.ts 新建纯逻辑层）：
+  - sticky 工具条：搜索（prompt 客户端过滤）+ 类型 chips 带计数 + 内容分级 + 排序 + **密度切换（舒适/紧凑，localStorage 记忆）** + 批量管理
+  - 卡片：固定 16/9 缩略图 grid、卡脚单行 meta（类型胶囊·相对时间·状态点）、hover 右上角玻璃快捷组（查看/复用/存风格/删除）、hairline 边框
+  - **批量模式**：勾选圈 + accent 选中环 + 底部浮动条（已选 N · 批量删除 · 取消）+ danger Modal + 部分失败保留选中内联报错
+  - 状态语言统一：done 绿/running 微光脉冲+shimmer/error 红/queued 灰
+  - 灯箱升级 Frame.io 式：左恒深舞台 + 右侧 340px 检查器面板（元信息+操作组+键盘 ←→/Esc）
+  - 双空态：库空（去创作 CTA）/ 查询无结果（清空筛选出口）
+- 逻辑零回归：筛选/分页/R18 模糊揭示/灯箱钳制/删除流/存风格/LazyVideo/content-visibility/CLS 属性全保留；全 token 五主题不破
+
+### 回归
+
+- web **132/132**（新增 libraryViews 12 例 + uiBViews 适配 + mocks 补替身）、tsc 零错误、next build ✅、ui_lint 0 FAIL
+
+---
+
 ## DOG-2026-08-15 · H3 全链路 dogfood:《诛仙》十镜短剧 + 四个生产实测缺陷修复
 
 **时间**: 2026-08-15
