@@ -2,6 +2,35 @@
 
 ---
 
+## SKILL-COMBO-2026-08-18 · Skill × 优化提示词组合贯通(剧本扩写接入 skill_id)
+
+**时间**: 2026-08-18(下午)
+**类型**: 功能增强(三层叠加:style_hint + skill 人格 + kind 系统提示)
+
+### ① 背景
+
+用户确认创作流诉求:优化提示词与 Skill 市场 skill 同时使用控制风格。核实现状:
+- **生成页已支持**(此前就有):OptimizeButton Popover 填自定义风格 + 点选 skill 同时生效,后端 optimize.py `_compose()` 三层叠加
+- **缺口**:剧本 AI 扩写(optimize-shot)只有 style_hint,没接 skill
+
+### ② 改动
+
+- 后端 `ShotOptimizeRequest` + `skill_id`:查 Agent(公共/本人可见性校验 404、NSFW 门控 403),`skill.system_prompt` 拼在 `_SHOT_OPTIMIZE_SYSTEM` 之前(人格拼接非替换,与 /api/optimize 同构)
+- 前端 ShotCard AI 面板:技能下拉(`listAgents("all")`,含「(我的)」标记)+ 补充风格输入框并存,两者同时生效
+
+### ③ 生产 e2e(真实 LLM)
+
+brief「少女在黄昏防波堤骑车」+ skill_id=shinkai + style_hint「胶片颗粒质感」→
+prompt 开头 `Makoto Shinkai style`(skill 生效)、含 `film grain`(style_hint 生效)、
+完整 scene/camera/prompt/negative 结构输出。
+
+### ④ 回归
+
+pytest 8/8(test_skill_market 含新 test_optimize_shot_with_skill:注入断言 + 他人私有 404)/
+web 393 / tsc / ui_lint / 干净构建全绿;已部署双活。
+
+---
+
 ## SKILL-ASSET-2026-08-18 · 剧本 AI 扩写 + Skill 市场 + 资产互通三件套
 
 **时间**: 2026-08-18

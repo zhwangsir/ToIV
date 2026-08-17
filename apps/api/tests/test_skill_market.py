@@ -176,6 +176,34 @@ def test_optimize_shot_bad_json(ctx):
     assert r.status_code == 502
 
 
+def test_optimize_shot_with_skill(ctx):
+    """skill_id 注入:内置技能 system_prompt 拼在分镜系统提示前;他人私有技能 404。"""
+    client, tok, tok2, tok_admin, ids, engine = ctx
+    H, H2 = _h(tok), _h(tok2)
+    pid = ids["project"].id
+    llm_json = '{"scene": "s", "camera": "c", "prompt": "p", "negative": "n", "characters": []}'
+
+    # ① 内置技能(公共)可用,system prompt 被 LLM 收到
+    with patch("app.harness.ctx.get_ctx", return_value=_fake_llm(llm_json)) as m:
+        r = client.post(f"/api/studio/projects/{pid}/optimize-shot", headers=H,
+                        json={"brief": "x", "skill_id": "ghibli"})
+    assert r.status_code == 200, r.text
+    sent = m.return_value.service.return_value.chat_layered.call_args[0][0]
+    assert sent[0]["content"].startswith("你是吉卜力工作室风格")
+    assert "资深影视分镜师" in sent[0]["content"]  # 分镜系统提示仍在(人格拼接而非替换)
+
+    # ② 他人私有技能 404(先让 tok2 导入一个)
+    sk = client.post("/api/skills/import", headers=H2, json=_SKILL_DEF).json()
+    r = client.post(f"/api/studio/projects/{pid}/optimize-shot", headers=H,
+                    json={"brief": "x", "skill_id": sk["id"]})
+    assert r.status_code == 404
+    # 属主本人可用
+    with patch("app.harness.ctx.get_ctx", return_value=_fake_llm(llm_json)):
+        r = client.post(f"/api/studio/projects/{pid}/optimize-shot", headers=H2,
+                        json={"brief": "x", "skill_id": sk["id"]})
+    assert r.status_code == 200
+
+
 # ── ③ 产物 → 参考图转运 ────────────────────────────────────────────
 
 class _FakeClient:

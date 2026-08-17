@@ -13,6 +13,7 @@ import { Icon } from "@/components/ui/Icon";
 import { Ripple } from "@/components/ui/Ripple";
 import { useAutoResize } from "@/hooks/useAutoResize";
 import type { StudioSaveState } from "@/hooks/useStudioProject";
+import { listAgents, type Agent } from "@/lib/agents";
 
 const STATUS_LABEL: Record<string, string> = {
   draft: "草稿",
@@ -79,11 +80,27 @@ export function ShotCard({
   const promptRef = useRef<HTMLTextAreaElement | null>(null);
   useAutoResize(promptRef, prompt);
 
-  // ── AI 扩写(2026-08-18):一句简短描述 → 结构化分镜回填 ──
+  // ── AI 扩写(2026-08-18):一句简短描述 → 结构化分镜回填;可选 Skill 风格人格叠加 ──
   const [brief, setBrief] = useState("");
   const [styleHint, setStyleHint] = useState("");
+  const [skillId, setSkillId] = useState("");
+  const [skills, setSkills] = useState<Agent[]>([]);
   const [optimizing, setOptimizing] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+
+  // 面板展开时拉可选技能(公共 + 本人导入,失败静默降级为无技能可选)
+  useEffect(() => {
+    if (!showAdvanced || skills.length > 0) return;
+    let cancelled = false;
+    listAgents("all")
+      .then((list) => {
+        if (!cancelled) setSkills(list.sort((a, b) => a.sort - b.sort));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [showAdvanced, skills.length]);
 
   async function runOptimize() {
     if (!brief.trim() || optimizing) return;
@@ -94,6 +111,7 @@ export function ShotCard({
         brief: brief.trim(),
         shot_id: shot.id,
         ...(styleHint.trim() ? { style_hint: styleHint.trim() } : {}),
+        ...(skillId ? { skill_id: skillId } : {}),
       });
       onPatch({
         scene: r.scene || scene,
@@ -254,10 +272,25 @@ export function ShotCard({
                 disabled={optimizing}
               />
               <div className="studio-shot-ai-row">
+                <select
+                  className="input studio-shot-skill"
+                  value={skillId}
+                  onChange={(e) => setSkillId(e.target.value)}
+                  disabled={optimizing}
+                  aria-label="风格技能(Skill 市场)"
+                >
+                  <option value="">风格:默认</option>
+                  {skills.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      风格:{s.name}
+                      {s.is_mine ? "(我的)" : ""}
+                    </option>
+                  ))}
+                </select>
                 <input
                   className="input"
                   value={styleHint}
-                  placeholder="风格方向(可选,如「王家卫式霓虹」)"
+                  placeholder="补充风格(可选,如「王家卫式霓虹」)"
                   onChange={(e) => setStyleHint(e.target.value)}
                   disabled={optimizing}
                 />
@@ -422,6 +455,10 @@ export function ShotCard({
         .studio-shot-ai-row .input {
           flex: 1;
           min-width: 0;
+        }
+        .studio-shot-ai-row .studio-shot-skill {
+          flex-shrink: 0;
+          max-width: 40%;
         }
         .studio-shot-ai-error {
           margin: 0;

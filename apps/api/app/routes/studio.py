@@ -310,11 +310,14 @@ class ShotOptimizeRequest(BaseModel):
 
     shot_id 可选:传入时以既有分镜为上下文重写(保留台词/角色骨架);
     省略时纯从 brief 扩写(前端用作「追加新分镜」)。
+    skill_id 可选:Skill 市场技能(公共/本人导入),其 system_prompt 作为风格
+    人格拼在分镜系统提示之前(2026-08-18 与 /api/optimize 三层叠加同构)。
     """
 
     brief: str = Field(min_length=1, max_length=2000)
     shot_id: str | None = None
     style_hint: str | None = Field(default=None, max_length=500)
+    skill_id: str | None = Field(default=None, max_length=64)
 
 
 _SHOT_OPTIMIZE_SYSTEM = """你是资深影视分镜师与 AI 视频提示词工程师。
@@ -373,10 +376,24 @@ async def optimize_shot_endpoint(
     }
     from app.harness.ctx import get_ctx
 
+    # Skill 风格人格(与 /api/optimize 三层叠加同构):
+    # style_hint(用户指定,最高优先级,已在 user_payload)→ skill.system_prompt → 分镜系统提示
+    system_prompt = _SHOT_OPTIMIZE_SYSTEM
+    if body.skill_id:
+        from app.models import Agent
+        from app.nsfw_ctx import nsfw_allowed
+
+        skill = session.get(Agent, body.skill_id)
+        if not skill or (skill.user_id and skill.user_id != user.id):
+            raise HTTPException(status_code=404, detail="技能不存在")
+        if skill.is_nsfw and not nsfw_allowed(user):
+            raise HTTPException(status_code=403, detail="该技能需要 R18 鉴权")
+        system_prompt = f"{skill.system_prompt}\n\n{_SHOT_OPTIMIZE_SYSTEM}"
+
     try:
         msg = await get_ctx().service("llm").chat_layered(
             [
-                {"role": "system", "content": _SHOT_OPTIMIZE_SYSTEM},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
             ],
             layer="L3",  # 分镜级质量:结构化输出走精修层(降级链 L3→L2→L1)

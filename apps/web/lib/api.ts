@@ -3452,10 +3452,11 @@ export interface StudioShotOptimizeResult {
 }
 
 /** AI 扩写分镜(2026-08-18):一句简短描述 → {scene,camera,prompt,negative,characters}。
- *  shot_id 可选(带出该镜现有内容作上下文);style_hint 可选(风格方向);LLM L3,放宽到 120s。 */
+ *  shot_id 可选(带出该镜现有内容作上下文);style_hint 可选(风格方向);
+ *  skill_id 可选(Skill 市场技能,人格拼在分镜系统提示前);LLM L3,放宽到 120s。 */
 export const optimizeStudioShot = (
   pid: string,
-  body: { brief: string; shot_id?: string; style_hint?: string },
+  body: { brief: string; shot_id?: string; style_hint?: string; skill_id?: string },
 ): Promise<StudioShotOptimizeResult> =>
   studioReq(`/studio/projects/${pid}/optimize-shot`, "POST", body, {
     timeoutMs: 120_000,
