@@ -552,6 +552,7 @@ export function ImageEditView() {
   return (
     <div className="single-view ie-view">
       <PageHeader
+        compact
         kicker="IMAGE LAB"
         title="图片编辑"
         desc="上传一张图片，选择工具一键处理：去背景、高清增强、局部重绘、人脸修复"

@@ -74,16 +74,15 @@ test("GenerateView 引擎说明:ⓘ 按钮 + Popover 承载 EngineInfoCard,首�
 });
 
 /* ── ③ 音频页头一致(AudioView) ── */
-test("AudioView 页头:PageHeader 不夹带段控,生成/编辑段控在内容区首行且带图标", () => {
+test("AudioView 页头:compact 单行,段控并入 actions 且按钮带图标(2026-08-18 省空间改版)", () => {
   const src = readSrc("components/audio/AudioView.tsx");
   const header = src.match(/<PageHeader[\s\S]*?\/>/);
   assert.ok(header, "AudioView 缺 PageHeader");
-  assert.ok(!header[0].includes("actions="), "音频页头仍夹带段控(与图片/视频工作台不一致)");
+  // compact 工具化页头:段控在 actions 槽与标题同行(消除独立段控行,首屏还给内容)
+  assert.ok(header[0].includes("compact"), "音频页头未启用 compact");
+  assert.ok(header[0].includes("actions="), "段控未并入页头 actions 槽");
   assert.ok(header[0].includes('kicker="SOUND ATELIER"'), "音频页头 kicker 缺失");
-  // 段控移到内容区首行(页头之后),按钮带图标(与 图像|视频 段控同语言)
-  const iHeaderEnd = src.indexOf("/>", src.indexOf("<PageHeader"));
-  const iModeRow = src.indexOf('className="audio-mode-row"');
-  assert.ok(iModeRow > iHeaderEnd, "段控行未位于页头之后");
+  assert.ok(!src.includes('className="audio-mode-row"'), "旧独立段控行残留");
   assert.ok(src.includes('aria-label="音频模式"'), "段控 aria-label 缺失");
   assert.ok(
     src.includes('name={k === "gen" ? "sparkles" : "scissors"}'),

@@ -553,6 +553,7 @@ export function GenerateView({ initialDraft, lockedKind, hideHeader = false }: G
       {!hideHeader && (
         <PageHeader
           className="generate-header"
+          compact
           kicker={lockedKind ? KIND_KICKER[lockedKind] : "PROMPT ATELIER"}
           title={lockedKind ? KIND_LABEL[lockedKind] : "AI 生成工作台"}
           desc="会话内历史不落库,刷新即清空"

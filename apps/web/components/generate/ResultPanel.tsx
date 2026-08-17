@@ -426,7 +426,7 @@ export function ResultPanel({ entries, selectedId, onSelect, liveProgress, quali
                 </div>
               )}
               {current.status === "done" && !current.postProcessing && (
-                <div className="stage-media-wrap">
+                <div className={`stage-media-wrap${current.paths.length > 1 ? " is-multi" : ""}`}>
                   <MediaView entry={current} className="media-main" />
                 </div>
               )}

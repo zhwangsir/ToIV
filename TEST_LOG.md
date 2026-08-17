@@ -2,6 +2,46 @@
 
 ---
 
+## UI-FIX-2026-08-18B · 预览显示不全修复 + 页头瘦身 compact + Skill 市场排版重做
+
+**时间**: 2026-08-18(晚)
+**类型**: UI 修复三连(用户反馈:预览图片显示不全 / 标题副标题占空间 / Skill 市场排版差)
+
+### ① 预览图片显示不全(根因两条,CSS 修复)
+
+- **根因 A(竖图裁切)**:`.stage-media-wrap` 自身高度不定(仅 max-height 钳制),按 CSS 规范子项 `max-height:100%` 在包含块高度 indefinite 时解析为 none → 竖版长图按宽缩放后溢出被裁
+- **根因 B(多图整块裁掉)**:globals.css 给 wrap 加 `overflow:hidden`(意图裁圆角),多图批次 wrap 成多行后溢出行整块消失
+- **修复**:wrap 显式 `height:100%`(打通百分比链)+ `overflow-y:auto`(可滚不裁);删 globals 的 overflow:hidden(圆角由 .media-main 自身承担);多图加 `.is-multi .media-main{max-height:72%}`(ResultPanel 按 paths.length 加类)
+
+### ② 页头瘦身:PageHeader compact 变体
+
+- PageHeader 加 `compact` prop:单行 标题+actions,隐藏 kicker/desc/编辑双线,标题 32px→20px sans,globals 加 `.page-header.is-compact` 规则
+- 切换五视图:Generate(图/视频)/ Audio / Fusion / ImageEdit / VideoEdit —— 页头从 ~112px 降到 23-36px(浏览器实测)
+- AudioView 顺带把独立段控行并入页头 actions(再省 ~46px);测试护栏同步更新为新契约
+
+### ③ Skill 市场排版重做(接入全站范式)
+
+- 版心:`.single-view`(1240 与 Library 同档,消除自造 1080 版心的导航切换跳动)
+- 页头:compact + icon + 导入按钮 actions 槽;分区标题改全站小写铭牌语言(11px/uppercase)+ 计数
+- 卡片:tags `margin-top:auto` 压底(同行等高,实测底边 0px 偏差)、hover 升浮(border+translateY+shadow)、操作钮 24→28px
+- 网格:`minmax(min(240px,100%),1fr)` 根治超窄溢出;≤575px 双列
+- 表单:图标改受控下拉(9 个已知键)、适用范围中文映射(全部/图片/视频/音频/图片+视频)、R18 开关 space-between 右对齐、提示词字段级 error、模式钮 min-height 40px
+- loading 换 LoadingBlock grid 变体;删除内联样式与 96px 魔法数
+
+### ④ 踩坑:styled-jsx 作用域在子组件元素上静默失效(P0)
+
+- **现象**:首版样式写在组件 styled-jsx 内,浏览器实测 `.skill-grid` 退化单列(computed display:block)
+- **根因**:`.skill-grid` 等元素由 Section 子函数组件渲染,未被 styled-jsx 编译期注入哈希类,而样式选择器是 `.skill-grid.jsx-HASH` 复合形式 → 规则永不命中;同页主组件渲染的元素正常,极具迷惑性
+- **修复**:样式整体迁 `app/styles/skills.css`(文件级,与 library.css 同范式),组件改 `import "@/app/styles/skills.css"`,删 styled-jsx 块
+- **教训**:styled-jsx 作用域样式对「同文件子组件渲染的元素」不可靠,列表类视图一律走独立 css 文件
+
+### ⑤ 验证(浏览器真机 + 回归)
+
+- 浏览器实测:五视图页头 23-36px;Skill 市场桌面 4 列(18 卡 5 行底边 0px 偏差)、移动 390px 双列零横向溢出;`.stage-media-wrap` 全量 stylesheet 规则确认无 overflow:hidden 残留
+- tsc 零错 / ui_lint 通过(119 文件)/ web 393/393(AudioView 测试护栏更新)/ 干净构建 / 双活部署完成
+
+---
+
 ## SKILL-COMBO-2026-08-18 · Skill × 优化提示词组合贯通(剧本扩写接入 skill_id)
 
 **时间**: 2026-08-18(下午)

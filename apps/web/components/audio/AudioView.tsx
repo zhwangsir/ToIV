@@ -470,32 +470,29 @@ export function AudioView() {
        双标题消除——内嵌 GenerateView 走 hideHeader,只保留本页头 + SOUND ATELIER kicker */
     <div className="audio-view view-shell">
       <PageHeader
+        compact
         kicker="SOUND ATELIER"
         title="音频工坊"
-        desc="配乐生成、TTS 配音、ASR 听写与人声分离,一站完成。"
         icon="audio"
+        actions={
+          /* 生成/编辑段控(2026-08-18 并入页头 actions,消除独立段控行):与图片/视频工作台同语言 */
+          <div className="at-seg" role="tablist" aria-label="音频模式">
+            {(["gen", "edit"] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                role="tab"
+                aria-selected={tab === k}
+                className={`at-seg-btn${tab === k ? " is-active" : ""}`}
+                onClick={() => setTab(k)}
+              >
+                <Icon name={k === "gen" ? "sparkles" : "scissors"} size={14} />
+                {k === "gen" ? "生成" : "编辑"}
+              </button>
+            ))}
+          </div>
+        }
       />
-
-      {/* 生成/编辑段控(2026-08-16 视图批 1):移出页头操作区,置于内容区首行——
-          页头结构与图片/视频工作台对齐(kicker+标题+desc,无右侧操作),
-          段控位置对齐各工作台「模式」段控(内容区顶部);按钮补齐图标,与图像|视频段控同语言 */}
-      <div className="audio-mode-row">
-        <div className="at-seg" role="tablist" aria-label="音频模式">
-          {(["gen", "edit"] as const).map((k) => (
-            <button
-              key={k}
-              type="button"
-              role="tab"
-              aria-selected={tab === k}
-              className={`at-seg-btn${tab === k ? " is-active" : ""}`}
-              onClick={() => setTab(k)}
-            >
-              <Icon name={k === "gen" ? "sparkles" : "scissors"} size={14} />
-              {k === "gen" ? "生成" : "编辑"}
-            </button>
-          ))}
-        </div>
-      </div>
 
       {tab === "gen" ? (
         <div className="audio-tab-gen">
@@ -521,13 +518,7 @@ export function AudioView() {
           padding-top: var(--space-4);
           padding-bottom: var(--space-4);
         }
-        /* 页头:统一走全局 .page-header masthead 体系(globals v6.1 编辑双线 + Fraunces 标题) */
-        /* 模式段控行(2026-08-16 视图批 1):页头之下、内容区首行,左对齐与页头文字同缘 */
-        .audio-mode-row {
-          flex-shrink: 0;
-          display: flex;
-          padding: 0 0 var(--space-4);
-        }
+        /* 页头:统一走全局 .page-header 体系(compact 单行,段控在 actions 槽) */
         .audio-tab-gen {
           flex: 1;
           min-height: 0;

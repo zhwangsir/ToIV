@@ -1,0 +1,220 @@
+/* ===========================================================================
+   Skill 市场(SkillMarketView,2026-08-18)
+   独立样式文件而非 styled-jsx:Section 子组件渲染的 .skill-grid 等元素
+   不被 styled-jsx 编译期注入哈希类,作用域样式在子组件静默失效(真机实证
+   网格退化单列)——迁文件级样式与 library.css 同范式,类名 skill- 前缀天然作用域。
+   =========================================================================== */
+
+.skill-market {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-height: 0;
+}
+.skill-market-header {
+  flex-shrink: 0;
+}
+
+/* ── 分区 ── */
+.skill-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.skill-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.skill-section-title {
+  margin: 0;
+  font-size: var(--text-label);
+  font-weight: var(--font-medium);
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+.skill-section-count {
+  font-size: var(--text-label);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 卡片网格:min() 根治超窄容器(分屏/折叠屏)轨道溢出 ── */
+.skill-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
+  gap: var(--space-3);
+}
+.skill-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-aux);
+  padding: var(--space-2) 0 var(--space-1);
+}
+
+/* ── 技能卡:同行等高(tags 压底对齐),hover 升浮 ── */
+.skill-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-3) var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--bg-surface-2);
+  transition: border-color var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+.skill-card:hover {
+  border-color: var(--accent-glow);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lift);
+}
+.skill-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.skill-card-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-body);
+  color: var(--text-primary);
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.skill-card-name:hover {
+  color: var(--accent);
+}
+.skill-card-act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.skill-card-act:hover {
+  background: var(--bg-surface-3);
+  color: var(--text-primary);
+}
+.skill-card-act.is-danger:hover {
+  color: var(--err);
+}
+.skill-card-desc {
+  margin: 0;
+  font-size: var(--text-aux);
+  color: var(--text-muted);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.skill-card-tags {
+  /* 压底:同行网格卡片(有无 desc/R18)底边对齐 */
+  margin-top: auto;
+  display: flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+.skill-tag {
+  font-size: var(--text-caption);
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+}
+.skill-tag.is-nsfw {
+  color: var(--err);
+  border-color: var(--err);
+}
+
+/* ── 导入/编辑弹窗 ── */
+.skill-import-mode {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.skill-mode-btn {
+  flex: 1;
+  min-height: 40px;
+  font-size: var(--text-body);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.skill-mode-btn.is-on {
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+.skill-form-row {
+  display: flex;
+  gap: var(--space-2);
+}
+.skill-form-row > * {
+  flex: 1;
+  min-width: 0;
+}
+.skill-form-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  color: var(--text-secondary);
+  font-size: var(--text-body);
+}
+.skill-form-error {
+  margin: 0;
+  font-size: var(--text-aux);
+  color: var(--err);
+}
+.skill-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+.skill-delete-text {
+  margin: 0;
+  color: var(--text-secondary);
+}
+.skill-prompt-view {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: var(--text-aux);
+  line-height: 1.6;
+  max-height: 50vh;
+  overflow: auto;
+}
+
+/* ── 窄屏:双列紧凑网格 ── */
+@media (max-width: 575px) {
+  .skill-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+  .skill-card {
+    padding: var(--space-2);
+  }
+  .skill-card-act {
+    width: 24px;
+    height: 24px;
+  }
+}

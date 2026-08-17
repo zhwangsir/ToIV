@@ -391,6 +391,7 @@ export function VideoEditView() {
     <div className="single-view ve-view">
       {/* 页头:UI-A PageHeader(kicker 铭牌);ve-settings 包裹保留 scoped 设置组排版 */}
       <PageHeader
+        compact
         kicker="VIDEO LAB"
         title="视频剪辑"
         desc="时间线剪辑:拼接视频片段、叠加音频与文字,本地集群渲染导出成片"

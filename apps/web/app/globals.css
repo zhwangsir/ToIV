@@ -1363,6 +1363,24 @@ select.input {
   }
 }
 
+/* 紧凑页头(2026-08-18):工作台类视图工具化——单行 标题+操作,垂直预算 ~44px;
+   隐藏 kicker/desc 由组件侧控制,此处收敛盒模型与标题档位、去编辑双线 */
+.page-header.is-compact {
+  align-items: center;
+  padding-bottom: 0;
+  margin-bottom: var(--space-3);
+  border-bottom: none;
+}
+.page-header.is-compact::after {
+  display: none;
+}
+.page-header.is-compact .page-header-title {
+  font-family: var(--font-sans);
+  font-size: var(--text-title);
+  letter-spacing: 0;
+  gap: var(--space-1);
+}
+
 /* 空状态增强：视觉聚焦 */
 .empty-editorial {
   position: relative;
@@ -1427,7 +1445,8 @@ select.input {
 
 .stage-media-wrap {
   border-radius: var(--radius-lg);
-  overflow: hidden;
+  /* 2026-08-18 移除 overflow:hidden:多图批次 wrap 溢出被整块裁掉(图片显示不全);
+     圆角裁切已由 .media-main 自身 border-radius 承担 */
   box-shadow: var(--shadow-lg);
 }
 

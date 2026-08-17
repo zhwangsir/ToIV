@@ -173,11 +173,18 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  align-content: center;
   justify-content: center;
   gap: var(--space-3);
   max-width: 100%;
-  max-height: 100%;
+  /* 显式 height(非 max-height):.stage-main 高度确定(flex:1+min-height:0),
+     wrap 自身高度不定会让子项 media-main 的 max-height:100% 按规范解析为 none
+     → 竖版长图溢出被容器裁切(显示不全)。显式 100% 打通百分比链 */
+  height: 100%;
   min-height: 0;
+  /* 多图批次 wrap 成多行时行高合计可超容器:允许滚动而非裁切 */
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 .stage-media-wrap .media-main {
   max-width: 100%;
@@ -190,6 +197,10 @@
 .stage-media-wrap .media-audio {
   width: min(520px, 90%);
   display: block;
+}
+/* 多图批次:每张约束到容器高的一部分,同行多张并排可见(溢出整行可滚动) */
+.stage-media-wrap.is-multi .media-main {
+  max-height: 72%;
 }
 
 /* 媒体加载失败占位(签名 URL 过期/代理 404 兜底):舞台内居中卡,不裸露浏览器破图 */

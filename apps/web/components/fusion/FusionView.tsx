@@ -81,6 +81,7 @@ export function FusionView({ onNavigate }: { onNavigate: (target: string) => voi
       {/* ── 头部:统一 PageHeader(Atelier masthead:kicker + Fraunces 标题 + 编辑双线)── */}
       <PageHeader
         className="fusion-header"
+        compact
         kicker="FUSION ATELIER"
         title="融合应用"
         desc="多能力组合的创作入口:剧本、数字人、译制、图片与视频,一站式完成"

@@ -5,7 +5,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Field, Input, Textarea } from "@/components/ui/Input";
+import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { Modal } from "@/components/ui/Modal";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Switch } from "@/components/ui/Switch";
 import { useToast } from "@/components/ui/Toast";
 import {
@@ -17,14 +19,36 @@ import {
   type Agent,
   type SkillSharePayload,
 } from "@/lib/agents";
+/* 样式在 app/styles/skills.css(文件级):Section 子组件元素不被 styled-jsx
+   注入哈希类,作用域样式会静默失效(网格退化单列),故迁文件样式与 library.css 同范式 */
+import "@/app/styles/skills.css";
 
 /**
- * Skill 市场(2026-08-18,替代「Agent 团队」导航位):
- * 内置技能 / 公共技能 / 我的技能 三区;支持 粘贴 JSON 或手填表单导入个人技能,
- * 个人技能属主可改可删;任意技能可「分享」复制 JSON 给他人导入。
+ * Skill 市场(2026-08-18,替代「Agent 团队」导航位;同日排版重做接入全站范式):
+ * single-view 版心 + compact 页头;内置/公共/我的技能三区;技能卡网格(同行等高、
+ * tags 压底);支持 粘贴 JSON 或手填表单导入个人技能,属主可改可删;任意技能可分享。
  */
 
-const APPLIES_OPTIONS = ["all", "image", "video", "audio", "image,video"] as const;
+const APPLIES_OPTIONS: { value: string; label: string }[] = [
+  { value: "all", label: "全部" },
+  { value: "image", label: "图片" },
+  { value: "video", label: "视频" },
+  { value: "audio", label: "音频" },
+  { value: "image,video", label: "图片 + 视频" },
+];
+
+/** 图标下拉选项(与 Icon.tsx ICON_MAP 智能体图标键对齐,防自由文本填非法名)。 */
+const ICON_OPTIONS: IconName[] = [
+  "sparkles",
+  "camera",
+  "palette",
+  "film",
+  "brush",
+  "cpu",
+  "package",
+  "mic",
+  "database",
+];
 
 const EMPTY_FORM: SkillSharePayload = {
   name: "",
@@ -37,24 +61,24 @@ const EMPTY_FORM: SkillSharePayload = {
 };
 
 function iconOf(a: Agent): IconName {
-  const n = a.icon as IconName;
-  // Icon 组件对未知名会 warn 并渲染占位,这里收敛到已知安全名
-  const known: IconName[] = ["sparkles", "camera", "palette", "film", "brush", "cpu", "package", "mic", "database"];
-  return known.includes(n) ? n : "sparkles";
+  return ICON_OPTIONS.includes(a.icon as IconName) ? (a.icon as IconName) : "sparkles";
+}
+
+function appliesLabel(a: Agent): string {
+  if (a.applies_to.includes("all")) return "全部";
+  const map = new Map(APPLIES_OPTIONS.map((o) => [o.value, o.label]));
+  return a.applies_to.map((v) => map.get(v) ?? v).join(" / ");
 }
 
 export function SkillMarketView() {
   const toast = useToast();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    setError(null);
-    const list = await listAgents();
-    // listAgents 失败静默返回 [],与优化按钮的优雅降级一致;此处网络错误与空列表难区分,给空态即可
-    setAgents(list);
+    // listAgents 失败静默返回 [](优雅降级,与 OptimizeButton 同款);空列表走分区空态
+    setAgents(await listAgents());
     setLoading(false);
   }, []);
 
@@ -74,12 +98,14 @@ export function SkillMarketView() {
   const [jsonText, setJsonText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [promptError, setPromptError] = useState<string | null>(null); // system_prompt 字段级错误
 
   const openImport = () => {
     setEditing(null);
     setForm(EMPTY_FORM);
     setJsonText("");
     setFormError(null);
+    setPromptError(null);
     setImportOpen(true);
   };
 
@@ -88,22 +114,23 @@ export function SkillMarketView() {
     setForm({
       name: a.name,
       description: a.description,
-      icon: a.icon,
+      icon: iconOf(a),
       applies_to: a.applies_to.join(","),
       system_prompt: a.system_prompt,
       is_nsfw: a.is_nsfw,
       llm_model_override: a.llm_model_override,
     });
     setFormError(null);
+    setPromptError(null);
     setImportOpen(true);
   };
 
   async function submitImport() {
     setFormError(null);
+    setPromptError(null);
     setSubmitting(true);
     try {
       if (jsonMode && !editing) {
-        // JSON 粘贴导入:解析 → 合法性粗检 → importSkill
         let payload: SkillSharePayload;
         try {
           payload = JSON.parse(jsonText) as SkillSharePayload;
@@ -113,26 +140,29 @@ export function SkillMarketView() {
         if (!payload?.name || !payload?.system_prompt) {
           throw new Error("JSON 缺少必填字段 name / system_prompt");
         }
-        const a = await importSkill({
-          ...EMPTY_FORM,
-          ...payload,
-        });
+        const a = await importSkill({ ...EMPTY_FORM, ...payload });
         toast.success(`技能「${a.name}」已导入`);
       } else if (editing) {
-        // 编辑我的技能
-        if (!form.name.trim() || !form.system_prompt.trim()) throw new Error("名称与提示词为必填");
+        if (!form.name.trim()) throw new Error("请填写名称");
+        if (!form.system_prompt.trim()) {
+          setPromptError("请填写提示词");
+          throw new Error("请填写提示词");
+        }
         await updateAgent(editing.id, {
           name: form.name.trim(),
           description: form.description,
-          icon: form.icon || "sparkles",
+          icon: form.icon,
           applies_to: form.applies_to.split(","),
           system_prompt: form.system_prompt,
           is_nsfw: form.is_nsfw,
         });
         toast.success("技能已更新");
       } else {
-        // 手填表单导入
-        if (!form.name.trim() || !form.system_prompt.trim()) throw new Error("名称与提示词为必填");
+        if (!form.name.trim()) throw new Error("请填写名称");
+        if (!form.system_prompt.trim()) {
+          setPromptError("请填写提示词");
+          throw new Error("请填写提示词");
+        }
         const a = await importSkill({
           ...form,
           name: form.name.trim(),
@@ -155,7 +185,6 @@ export function SkillMarketView() {
       await navigator.clipboard.writeText(json);
       toast.success("技能 JSON 已复制,发给他人即可导入");
     } catch {
-      // 剪贴板不可用(非 https/权限拒绝):退化为弹窗展示
       window.prompt("复制以下 JSON 分享技能:", json);
     }
   }
@@ -183,54 +212,75 @@ export function SkillMarketView() {
   const [viewing, setViewing] = useState<Agent | null>(null);
 
   return (
-    <div className="skill-market">
-      <header className="skill-market-head">
-        <div>
-          <h1 className="skill-market-title">
-            <Icon name="package" size={20} /> Skill 市场
-          </h1>
-          <p className="skill-market-sub">
-            收集不同风格的提示词技能,导入后个人专属;生成页的「优化」按钮即可选用。
-          </p>
-        </div>
-        <Button variant="primary" size="sm" icon={<Icon name="download" size={14} />} onClick={openImport}>
-          导入技能
-        </Button>
-      </header>
+    <div className="single-view skill-market">
+      <PageHeader
+        compact
+        className="skill-market-header"
+        kicker="SKILL ATELIER"
+        title="Skill 市场"
+        icon="package"
+        actions={
+          <Button
+            variant="primary"
+            size="sm"
+            icon={<Icon name="download" size={14} />}
+            onClick={openImport}
+          >
+            导入技能
+          </Button>
+        }
+      />
 
-      {error && <p className="skill-market-error">{error}</p>}
       {loading ? (
-        <p className="skill-market-empty">加载中…</p>
+        <LoadingBlock variant="grid" count={6} />
       ) : (
         <>
-          <Section title={`我的技能(${mine.length})`} empty="还没有个人技能,点右上「导入技能」或粘贴他人分享的 JSON" agents={mine} onView={setViewing}>
+          <Section
+            title="我的技能"
+            count={mine.length}
+            empty="还没有个人技能——点右上「导入技能」,或粘贴他人分享的 JSON"
+            agents={mine}
+            onView={setViewing}
+          >
             {(a) => (
               <>
                 <button type="button" className="skill-card-act" title="编辑" onClick={() => openEdit(a)}>
-                  <Icon name="pencil" size={12} />
+                  <Icon name="pencil" size={13} />
                 </button>
                 <button type="button" className="skill-card-act" title="分享(复制 JSON)" onClick={() => void share(a)}>
-                  <Icon name="share" size={12} />
+                  <Icon name="share" size={13} />
                 </button>
                 <button type="button" className="skill-card-act is-danger" title="删除" onClick={() => setDeleting(a)}>
-                  <Icon name="delete" size={12} />
+                  <Icon name="delete" size={13} />
                 </button>
               </>
             )}
           </Section>
 
-          <Section title={`公共技能(${pub.length})`} empty="暂无公共自定义技能(admin 可在管理页创建)" agents={pub} onView={setViewing}>
+          <Section
+            title="公共技能"
+            count={pub.length}
+            empty="暂无公共自定义技能(管理员可在管理页创建)"
+            agents={pub}
+            onView={setViewing}
+          >
             {(a) => (
               <button type="button" className="skill-card-act" title="分享(复制 JSON)" onClick={() => void share(a)}>
-                <Icon name="share" size={12} />
+                <Icon name="share" size={13} />
               </button>
             )}
           </Section>
 
-          <Section title={`内置技能(${builtin.length})`} empty="" agents={builtin} onView={setViewing}>
+          <Section
+            title="内置技能"
+            count={builtin.length}
+            empty=""
+            agents={builtin}
+            onView={setViewing}
+          >
             {(a) => (
               <button type="button" className="skill-card-act" title="分享(复制 JSON)" onClick={() => void share(a)}>
-                <Icon name="share" size={12} />
+                <Icon name="share" size={13} />
               </button>
             )}
           </Section>
@@ -246,9 +296,11 @@ export function SkillMarketView() {
         width={560}
       >
         {!editing && (
-          <div className="skill-import-mode">
+          <div className="skill-import-mode" role="tablist" aria-label="导入方式">
             <button
               type="button"
+              role="tab"
+              aria-selected={!jsonMode}
               className={`skill-mode-btn${!jsonMode ? " is-on" : ""}`}
               onClick={() => setJsonMode(false)}
             >
@@ -256,6 +308,8 @@ export function SkillMarketView() {
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={jsonMode}
               className={`skill-mode-btn${jsonMode ? " is-on" : ""}`}
               onClick={() => setJsonMode(true)}
             >
@@ -280,9 +334,9 @@ export function SkillMarketView() {
         ) : (
           <>
             <Field label="名称" error={formError && !form.name.trim() ? formError : undefined}>
-              <Input value={form.name} maxLength={120} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              <Input value={form.name} maxLength={120} placeholder="如:赛璐璐复古风" onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </Field>
-            <Field label="描述">
+            <Field label="描述(可选)">
               <Input
                 value={form.description}
                 maxLength={500}
@@ -292,7 +346,17 @@ export function SkillMarketView() {
             </Field>
             <div className="skill-form-row">
               <Field label="图标">
-                <Input value={form.icon} maxLength={64} onChange={(e) => setForm({ ...form, icon: e.target.value })} />
+                <select
+                  className="input"
+                  value={form.icon}
+                  onChange={(e) => setForm({ ...form, icon: e.target.value })}
+                >
+                  {ICON_OPTIONS.map((i) => (
+                    <option key={i} value={i}>
+                      {i}
+                    </option>
+                  ))}
+                </select>
               </Field>
               <Field label="适用范围">
                 <select
@@ -301,23 +365,27 @@ export function SkillMarketView() {
                   onChange={(e) => setForm({ ...form, applies_to: e.target.value })}
                 >
                   {APPLIES_OPTIONS.map((o) => (
-                    <option key={o} value={o}>
-                      {o === "all" ? "全部" : o}
+                    <option key={o.value} value={o.value}>
+                      {o.label}
                     </option>
                   ))}
                 </select>
               </Field>
             </div>
-            <Field label="提示词(system prompt)" hint="技能人格:优化时拼接在原提示词之前">
+            <Field label="提示词(system prompt)" hint="技能人格:优化时拼接在原提示词之前" error={promptError ?? undefined}>
               <Textarea
                 rows={6}
                 value={form.system_prompt}
                 maxLength={20000}
-                onChange={(e) => setForm({ ...form, system_prompt: e.target.value })}
+                placeholder="你是……风格的提示词工程师。正向提示词必含……"
+                onChange={(e) => {
+                  setForm({ ...form, system_prompt: e.target.value });
+                  if (promptError) setPromptError(null);
+                }}
               />
             </Field>
-            <div className="skill-form-row skill-form-switch">
-              <span>R18 技能</span>
+            <div className="skill-form-switch">
+              <span>R18 技能(需在 R18 模式下导入)</span>
               <Switch
                 checked={form.is_nsfw}
                 onChange={(v) => setForm({ ...form, is_nsfw: v })}
@@ -340,9 +408,7 @@ export function SkillMarketView() {
 
       {/* 删除确认 */}
       <Modal open={Boolean(deleting)} onClose={() => setDeleting(null)} title="删除技能" danger>
-        <p style={{ margin: 0 }}>
-          确定删除技能「{deleting?.name}」?此操作不可撤销。
-        </p>
+        <p className="skill-delete-text">确定删除技能「{deleting?.name}」?此操作不可撤销。</p>
         <div className="skill-form-actions">
           <Button variant="ghost" size="sm" onClick={() => setDeleting(null)} disabled={deleteBusy}>
             取消
@@ -362,103 +428,102 @@ export function SkillMarketView() {
       >
         <pre className="skill-prompt-view">{viewing?.system_prompt}</pre>
       </Modal>
-
       <style jsx>{`
         .skill-market {
-          max-width: 1080px;
-          margin: 0 auto;
-          padding: var(--space-5, 20px) var(--space-4, 16px) 96px;
           display: flex;
           flex-direction: column;
-          gap: var(--space-5, 20px);
-        }
-        .skill-market-head {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: var(--space-3, 12px);
-        }
-        .skill-market-title {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          margin: 0;
-          font-size: 20px;
-        }
-        .skill-market-sub {
-          margin: 4px 0 0;
-          color: var(--text-muted);
-          font-size: 13px;
-        }
-        .skill-market-empty,
-        .skill-market-error {
-          color: var(--text-muted);
-          text-align: center;
-          padding: 32px 0;
-        }
-        .skill-market-error {
-          color: var(--err);
+          gap: var(--space-5);
+          min-height: 0;
         }
         .skill-section {
           display: flex;
           flex-direction: column;
-          gap: var(--space-2, 8px);
+          gap: var(--space-2);
+        }
+        .skill-section-head {
+          display: flex;
+          align-items: baseline;
+          gap: var(--space-2);
         }
         .skill-section-title {
           margin: 0;
-          font-size: 14px;
-          color: var(--text-secondary);
+          font-size: var(--text-label);
+          font-weight: var(--font-medium);
+          letter-spacing: 0.04em;
+          color: var(--text-muted);
+          text-transform: uppercase;
+        }
+        .skill-section-count {
+          font-size: var(--text-label);
+          color: var(--text-muted);
+          font-variant-numeric: tabular-nums;
         }
         .skill-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-          gap: var(--space-3, 12px);
-        }
-        .skill-grid.is-empty {
-          display: block;
+          /* min() 根治超窄容器(分屏/折叠屏)轨道溢出 */
+          grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
+          gap: var(--space-3);
         }
         .skill-empty {
+          margin: 0;
           color: var(--text-muted);
-          font-size: 12px;
-          padding: var(--space-2, 8px) 0;
+          font-size: var(--text-aux);
+          padding: var(--space-2) 0 var(--space-1);
         }
         .skill-card {
           display: flex;
           flex-direction: column;
-          gap: 6px;
-          padding: var(--space-3, 12px);
+          gap: var(--space-2);
+          padding: var(--space-3) var(--space-3) var(--space-2);
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-card, 12px);
-          background: var(--bg-surface-2, transparent);
+          border-radius: var(--radius-card);
+          background: var(--bg-surface-2);
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            transform var(--duration-fast) var(--ease-standard),
+            box-shadow var(--duration-fast) var(--ease-standard);
+        }
+        .skill-card:hover {
+          border-color: var(--accent-glow);
+          transform: translateY(-1px);
+          box-shadow: var(--shadow-lift);
         }
         .skill-card-head {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: var(--space-2);
         }
         .skill-card-name {
           flex: 1;
           min-width: 0;
-          font-size: 14px;
+          font-size: var(--text-body);
+          color: var(--text-primary);
+          text-align: left;
+          border: none;
+          background: transparent;
+          padding: 0;
+          cursor: pointer;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+        }
+        .skill-card-name:hover {
+          color: var(--accent);
         }
         .skill-card-act {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 24px;
-          height: 24px;
+          width: 28px;
+          height: 28px;
           border: none;
-          border-radius: 6px;
+          border-radius: var(--radius-sm);
           background: transparent;
           color: var(--text-muted);
           cursor: pointer;
           flex-shrink: 0;
         }
         .skill-card-act:hover {
-          background: var(--bg-surface-3, rgba(0, 0, 0, 0.06));
+          background: var(--bg-surface-3);
           color: var(--text-primary);
         }
         .skill-card-act.is-danger:hover {
@@ -466,22 +531,25 @@ export function SkillMarketView() {
         }
         .skill-card-desc {
           margin: 0;
-          font-size: 12px;
+          font-size: var(--text-aux);
           color: var(--text-muted);
+          line-height: 1.5;
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
           overflow: hidden;
         }
         .skill-card-tags {
+          /* 压底:同行网格卡片(有无 desc/R18)底边对齐 */
+          margin-top: auto;
           display: flex;
-          gap: 4px;
+          gap: var(--space-1);
           flex-wrap: wrap;
         }
         .skill-tag {
-          font-size: 10px;
-          padding: 1px 7px;
-          border-radius: 999px;
+          font-size: var(--text-caption);
+          padding: 1px 8px;
+          border-radius: var(--radius-full);
           border: 1px solid var(--border-subtle);
           color: var(--text-muted);
         }
@@ -491,15 +559,15 @@ export function SkillMarketView() {
         }
         .skill-import-mode {
           display: flex;
-          gap: var(--space-2, 8px);
-          margin-bottom: var(--space-3, 12px);
+          gap: var(--space-2);
+          margin-bottom: var(--space-3);
         }
         .skill-mode-btn {
           flex: 1;
-          padding: 7px 0;
-          font-size: 13px;
+          min-height: 40px;
+          font-size: var(--text-body);
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-control, 8px);
+          border-radius: var(--radius-control);
           background: transparent;
           color: var(--text-muted);
           cursor: pointer;
@@ -510,51 +578,74 @@ export function SkillMarketView() {
         }
         .skill-form-row {
           display: flex;
-          gap: var(--space-2, 8px);
+          gap: var(--space-2);
         }
         .skill-form-row > :global(*) {
           flex: 1;
           min-width: 0;
         }
         .skill-form-switch {
+          display: flex;
           align-items: center;
+          justify-content: space-between;
+          gap: var(--space-3);
+          padding: var(--space-2) 0;
           color: var(--text-secondary);
-          font-size: 13px;
+          font-size: var(--text-body);
         }
         .skill-form-error {
           margin: 0;
-          font-size: 12px;
+          font-size: var(--text-aux);
           color: var(--err);
         }
         .skill-form-actions {
           display: flex;
           justify-content: flex-end;
-          gap: var(--space-2, 8px);
-          margin-top: var(--space-3, 12px);
+          gap: var(--space-2);
+          margin-top: var(--space-3);
+        }
+        .skill-delete-text {
+          margin: 0;
+          color: var(--text-secondary);
         }
         .skill-prompt-view {
           margin: 0;
           white-space: pre-wrap;
           word-break: break-word;
-          font-size: 12px;
+          font-size: var(--text-aux);
           line-height: 1.6;
           max-height: 50vh;
           overflow: auto;
+        }
+        @media (max-width: 575px) {
+          .skill-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: var(--space-2);
+          }
+          .skill-card {
+            padding: var(--space-2);
+          }
+          .skill-card-act {
+            width: 24px;
+            height: 24px;
+          }
         }
       `}</style>
     </div>
   );
 }
 
-/** 技能分区:标题 + 卡片网格;actions(a) 渲染卡片右上操作按钮。 */
+/** 技能分区:标题行(小写铭牌 + 计数)+ 卡片网格;children(a) 渲染卡片操作按钮。 */
 function Section({
   title,
+  count,
   empty,
   agents,
   onView,
   children,
 }: {
   title: string;
+  count: number;
   empty: string;
   agents: Agent[];
   onView: (a: Agent) => void;
@@ -562,8 +653,13 @@ function Section({
 }) {
   return (
     <section className="skill-section">
-      <h2 className="skill-section-title">{title}</h2>
-      <div className={`skill-grid${agents.length === 0 ? " is-empty" : ""}`}>
+      <div className="skill-section-head">
+        <h2 className="skill-section-title">{title}</h2>
+        <span className="skill-section-count" aria-label={`${count} 个`}>
+          {count}
+        </span>
+      </div>
+      <div className="skill-grid">
         {agents.length === 0 ? (
           <p className="skill-empty">{empty}</p>
         ) : (
@@ -575,7 +671,6 @@ function Section({
                   type="button"
                   className="skill-card-name"
                   title="查看提示词"
-                  style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0, color: "inherit", textAlign: "left" }}
                   onClick={() => onView(a)}
                 >
                   {a.name}
@@ -584,7 +679,8 @@ function Section({
               </div>
               {a.description && <p className="skill-card-desc">{a.description}</p>}
               <div className="skill-card-tags">
-                <span className="skill-tag">{a.applies_to.includes("all") ? "全部" : a.applies_to.join("/")}</span>
+                <span className="skill-tag">{appliesLabel(a)}</span>
+                {a.is_mine && <span className="skill-tag">我的</span>}
                 {a.is_nsfw && <span className="skill-tag is-nsfw">R18</span>}
               </div>
             </article>
