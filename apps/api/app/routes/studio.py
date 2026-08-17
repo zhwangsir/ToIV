@@ -9,6 +9,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -138,6 +139,13 @@ def delete_project(
         for row in session.exec(select(model).where(model.project_id == pid)).all():
             session.delete(row)
     session.delete(p)
+    from app import audit as _audit
+
+    _audit.record(
+        session, user=user, action="project.delete", target_type="studio_project",
+        target_id=pid, summary=f"删除 Studio 项目:{p.title or pid[:8]}",
+        detail={"title": p.title, "project_id": pid},
+    )
     session.commit()
     return {"ok": True}
 
@@ -195,6 +203,13 @@ def delete_character(
         raise HTTPException(status_code=404, detail="角色不存在")
     _get_project(session, c.project_id, user)
     session.delete(c)
+    from app import audit as _audit
+
+    _audit.record(
+        session, user=user, action="character.delete", target_type="studio_character",
+        target_id=cid, summary=f"删除 Studio 角色:{c.name or cid[:8]}",
+        detail={"name": c.name, "project_id": c.project_id},
+    )
     session.commit()
     return {"ok": True}
 
@@ -284,6 +299,120 @@ async def parse_script_endpoint(
     return {
         "characters": [c.model_dump() for c in characters],
         "shots": [s.model_dump() for s in shots],
+    }
+
+
+# ── 分镜 AI 扩写(Skill 化剧本优化,2026-08-18)─────────────────────────────
+
+
+class ShotOptimizeRequest(BaseModel):
+    """简短描述 → 结构化分镜字段(镜头/动作/人物/场景)。
+
+    shot_id 可选:传入时以既有分镜为上下文重写(保留台词/角色骨架);
+    省略时纯从 brief 扩写(前端用作「追加新分镜」)。
+    """
+
+    brief: str = Field(min_length=1, max_length=2000)
+    shot_id: str | None = None
+    style_hint: str | None = Field(default=None, max_length=500)
+
+
+_SHOT_OPTIMIZE_SYSTEM = """你是资深影视分镜师与 AI 视频提示词工程师。
+用户给出一句简短的中文画面描述,你要把它扩写为可直接用于 AI 图像/视频生成的完整分镜。
+
+要求:
+1. scene:中文场景描述——时间、地点、光线氛围、人物位置与动作(2-4 句,具体可视)
+2. camera:中文运镜与景别(如「中近景,缓慢推近」「广角俯拍,跟随横移」)
+3. prompt:英文生成提示词——主体外观+服装+具体动作+表情+环境细节+光线+构图;
+   若提供角色视觉 token,必须原样融入对应角色描述;运动学动词具体(piston/bounce/pan/zoom 等)
+4. negative:英文负向提示词(质量类:blurry, low quality, distorted, watermark, text)
+5. characters:出场角色名列表(只能从提供的角色表选;未提供角色表则返回 [])
+
+只输出 JSON,不要任何解释:
+{"scene": "...", "camera": "...", "prompt": "...", "negative": "...", "characters": ["..."]}"""
+
+
+@router.post("/studio/projects/{pid}/optimize-shot")
+async def optimize_shot_endpoint(
+    pid: str,
+    body: ShotOptimizeRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """分镜 AI 扩写:简短描述 → {scene, camera, prompt, negative, characters}(不落库,前端回填)。"""
+    project = _get_project(session, pid, user)
+
+    # 角色注册表:name + visual_prompt(英文 token)+ 中文描述,注入 LLM 保证人物一致性
+    chars = session.exec(
+        select(StudioCharacter).where(StudioCharacter.project_id == pid)
+    ).all()
+    char_lines = [
+        f"- {c.name}: {c.visual_prompt or '(无视觉token)'} | {c.description[:120]}"
+        for c in chars
+    ] or ["(项目暂无角色,自由设计人物外观)"]
+
+    # 既有分镜上下文:重写模式带原字段(保留台词骨架,动作/场景升维)
+    ref_lines: list[str] = []
+    if body.shot_id:
+        shot = session.get(StudioShot, body.shot_id)
+        if shot and shot.project_id == pid:
+            ref_lines = [
+                f"原场景:{shot.scene or '(空)'}",
+                f"原提示词:{shot.prompt or '(空)'}",
+                f"原台词:{shot.dialogue or '(无)'}(说话人:{shot.speaker or '无'})",
+                f"原时长:{shot.duration_sec}s",
+            ]
+
+    user_payload = {
+        "项目概要": project.premise[:400],
+        "画风": project.style or "不限",
+        "额外风格要求": body.style_hint or "无",
+        "角色表": char_lines,
+        "原分镜(重写模式,空为新写)": ref_lines,
+        "简短描述": body.brief,
+    }
+    from app.harness.ctx import get_ctx
+
+    try:
+        msg = await get_ctx().service("llm").chat_layered(
+            [
+                {"role": "system", "content": _SHOT_OPTIMIZE_SYSTEM},
+                {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
+            ],
+            layer="L3",  # 分镜级质量:结构化输出走精修层(降级链 L3→L2→L1)
+            max_tokens=3000,
+        )
+    except Exception as e:  # noqa: BLE001 —— llm.LLMError 等统一 502
+        raise HTTPException(status_code=502, detail=f"LLM 不可用:{e}") from e
+
+    raw = (msg.get("content") or "").strip()
+    # 容错抽取:容忍 ```json 围栏与前后噪声(与 storyboard._extract_json 同思路,轻量内联)
+    start, end = raw.find("{"), raw.rfind("}")
+    obj = None
+    if start >= 0 and end > start:
+        try:
+            obj = json.loads(raw[start : end + 1])
+        except json.JSONDecodeError:
+            obj = None
+    if not obj or not str(obj.get("prompt") or "").strip():
+        raise HTTPException(status_code=502, detail="LLM 返回不可解析,请重试")
+
+    # 角色名约束:LLM 幻觉出的角色名过滤回库内名(近名纠错,与 parse_script 策略一致)
+    known_lower = {c.name.strip().lower(): c.name for c in chars}
+    picked: list[str] = []
+    for name in obj.get("characters") or []:
+        if not isinstance(name, str) or not name.strip():
+            continue
+        fixed = known_lower.get(name.strip().lower())
+        if fixed and fixed not in picked:
+            picked.append(fixed)
+
+    return {
+        "scene": str(obj.get("scene") or "").strip(),
+        "camera": str(obj.get("camera") or "").strip(),
+        "prompt": str(obj.get("prompt") or "").strip(),
+        "negative": str(obj.get("negative") or "blurry, low quality, text, watermark").strip(),
+        "characters": picked,
     }
 
 

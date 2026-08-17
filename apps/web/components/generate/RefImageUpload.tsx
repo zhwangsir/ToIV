@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 
+import { AssetPicker } from "@/components/generate/AssetPicker";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Field } from "@/components/ui/Input";
@@ -39,6 +40,7 @@ export function RefImageUpload({ param, value, onChange, uploadKind, disabled }:
   const toast = useToast();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   async function onFile(file: File | undefined) {
     if (!file) return;
@@ -95,17 +97,35 @@ export function RefImageUpload({ param, value, onChange, uploadKind, disabled }:
           />
         </div>
       ) : (
-        <Button
-          variant="secondary"
-          size="sm"
-          loading={uploading}
-          icon={<Icon name="upload" size={14} />}
-          disabled={disabled}
-          onClick={() => inputRef.current?.click()}
-        >
-          {uploading ? "上传中…" : "上传参考图"}
-        </Button>
+        <div className="ref-image-actions">
+          <Button
+            variant="secondary"
+            size="sm"
+            loading={uploading}
+            icon={<Icon name="upload" size={14} />}
+            disabled={disabled}
+            onClick={() => inputRef.current?.click()}
+          >
+            {uploading ? "上传中…" : "上传参考图"}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<Icon name="library" size={14} />}
+            disabled={disabled}
+            onClick={() => setPickerOpen(true)}
+          >
+            从作品库选
+          </Button>
+        </div>
       )}
+      <AssetPicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        assetType="image"
+        kind={uploadKind}
+        onPick={(a) => onChange({ ...a })}
+      />
       <input
         ref={inputRef}
         type="file"
@@ -141,6 +161,11 @@ export function RefImageUpload({ param, value, onChange, uploadKind, disabled }:
         }
         .ref-image-preview :global(button) {
           flex-shrink: 0;
+        }
+        .ref-image-actions {
+          display: flex;
+          gap: var(--space-2);
+          flex-wrap: wrap;
         }
       `}</style>
     </Field>

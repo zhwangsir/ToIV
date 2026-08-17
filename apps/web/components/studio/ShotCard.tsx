@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   imageUrl,
+  optimizeStudioShot,
   type StudioCharacter,
   type StudioRenderMode,
   type StudioShot,
@@ -10,6 +11,7 @@ import {
 } from "@/lib/api";
 import { Icon } from "@/components/ui/Icon";
 import { Ripple } from "@/components/ui/Ripple";
+import { useAutoResize } from "@/hooks/useAutoResize";
 import type { StudioSaveState } from "@/hooks/useStudioProject";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -32,6 +34,8 @@ function useSynced(value: string): [string, (v: string) => void] {
 
 export interface ShotCardProps {
   shot: StudioShot;
+  /** 项目 id(AI 扩写端点按项目注入角色表上下文) */
+  projectId: string;
   characters: StudioCharacter[];
   busyRender: boolean;
   busyVoice: boolean;
@@ -53,6 +57,7 @@ export interface ShotCardProps {
  */
 export function ShotCard({
   shot,
+  projectId,
   characters,
   busyRender,
   busyVoice,
@@ -70,6 +75,42 @@ export function ShotCard({
   const [dialogue, setDialogue] = useSynced(shot.dialogue);
   const [prompt, setPrompt] = useSynced(shot.prompt);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  // 分镜提示词自动增高(高级区展开,长 prompt 不再 rows=3 截断)
+  const promptRef = useRef<HTMLTextAreaElement | null>(null);
+  useAutoResize(promptRef, prompt);
+
+  // ── AI 扩写(2026-08-18):一句简短描述 → 结构化分镜回填 ──
+  const [brief, setBrief] = useState("");
+  const [styleHint, setStyleHint] = useState("");
+  const [optimizing, setOptimizing] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  async function runOptimize() {
+    if (!brief.trim() || optimizing) return;
+    setOptimizing(true);
+    setAiError(null);
+    try {
+      const r = await optimizeStudioShot(projectId, {
+        brief: brief.trim(),
+        shot_id: shot.id,
+        ...(styleHint.trim() ? { style_hint: styleHint.trim() } : {}),
+      });
+      onPatch({
+        scene: r.scene || scene,
+        camera: r.camera || shot.camera,
+        prompt: r.prompt || prompt,
+        negative: r.negative || shot.negative,
+        characters: r.characters,
+      });
+      // 本地受控态即时跟随(避免等全量保存回读才刷新)
+      setScene(r.scene || scene);
+      setPrompt(r.prompt || prompt);
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : "扩写失败,请稍后重试");
+    } finally {
+      setOptimizing(false);
+    }
+  }
 
   const busy = busyRender || busyVoice || busyLipsync;
   const mediaUrl = shot.final_clip_url || shot.video_url || shot.image_url;
@@ -88,7 +129,16 @@ export function ShotCard({
           <video src={imageUrl(mediaUrl)} controls playsInline preload="metadata" />
         ) : mediaUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={imageUrl(mediaUrl)} alt={shot.scene || `分镜 ${shot.idx + 1}`} loading="lazy" />
+          <img
+            src={imageUrl(mediaUrl)}
+            alt={shot.scene || `分镜 ${shot.idx + 1}`}
+            loading="lazy"
+            decoding="async"
+            /* CLS 防护:分镜预览统一 16:9;容器 .studio-shot-media 已定比,此处仅给浏览器
+               纵横比提示,加载前后不跳动(对齐 LibraryView/ResultPanel 范式) */
+            width={640}
+            height={360}
+          />
         ) : (
           <div className={`studio-shot-empty${rendering ? " is-rendering" : ""}`}>
             <Icon name={rendering ? "loading" : "image"} size={22} />
@@ -193,7 +243,38 @@ export function ShotCard({
         </button>
         {showAdvanced && (
           <div className="studio-shot-adv">
+            {/* AI 扩写:一句简短中文描述 → 场景/运镜/提示词/负向/角色全回填 */}
+            <div className="studio-shot-ai">
+              <textarea
+                className="input"
+                rows={2}
+                value={brief}
+                placeholder="AI 扩写:一句话描述画面(如「阿豪在雨夜天台点烟」)"
+                onChange={(e) => setBrief(e.target.value)}
+                disabled={optimizing}
+              />
+              <div className="studio-shot-ai-row">
+                <input
+                  className="input"
+                  value={styleHint}
+                  placeholder="风格方向(可选,如「王家卫式霓虹」)"
+                  onChange={(e) => setStyleHint(e.target.value)}
+                  disabled={optimizing}
+                />
+                <button
+                  type="button"
+                  className="btn btn-sm btn-ghost"
+                  disabled={!brief.trim() || optimizing}
+                  onClick={() => void runOptimize()}
+                >
+                  <Icon name={optimizing ? "loading" : "sparkles"} size={12} />
+                  {optimizing ? "扩写中…" : "AI 扩写"}
+                </button>
+              </div>
+              {aiError && <p className="studio-shot-ai-error">{aiError}</p>}
+            </div>
             <textarea
+              ref={promptRef}
               className="input"
               rows={3}
               value={prompt}
@@ -201,6 +282,41 @@ export function ShotCard({
               onChange={(e) => setPrompt(e.target.value)}
               onBlur={() => prompt !== shot.prompt && onPatch({ prompt })}
             />
+            <textarea
+              className="input"
+              rows={2}
+              defaultValue={shot.negative}
+              key={`neg-${shot.id}-${shot.negative}`}
+              placeholder="英文负向提示词(可选)"
+              onBlur={(e) =>
+                e.target.value !== shot.negative && onPatch({ negative: e.target.value })
+              }
+            />
+            {characters.length > 0 && (
+              <div className="studio-shot-chars" role="group" aria-label="出场角色">
+                {characters.map((c) => {
+                  const on = shot.characters.includes(c.name);
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className={`studio-shot-char${on ? " is-on" : ""}`}
+                      title={c.description}
+                      onClick={() =>
+                        onPatch({
+                          characters: on
+                            ? shot.characters.filter((n) => n !== c.name)
+                            : [...shot.characters, c.name],
+                        })
+                      }
+                    >
+                      <Icon name={on ? "check" : "user"} size={11} />
+                      {c.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             <div className="studio-shot-adv-row">
               <label>
                 运镜
@@ -289,6 +405,50 @@ export function ShotCard({
         }
         .shot-save-state.is-error {
           color: var(--err);
+        }
+        .studio-shot-ai {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-1, 4px);
+          padding: var(--space-2, 8px);
+          background: var(--bg-surface-3, rgba(0, 0, 0, 0.04));
+          border: 1px dashed var(--border-subtle);
+          border-radius: var(--radius-control, 8px);
+        }
+        .studio-shot-ai-row {
+          display: flex;
+          gap: var(--space-1, 4px);
+        }
+        .studio-shot-ai-row .input {
+          flex: 1;
+          min-width: 0;
+        }
+        .studio-shot-ai-error {
+          margin: 0;
+          font-size: var(--text-caption, 11px);
+          color: var(--err);
+        }
+        .studio-shot-chars {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+        }
+        .studio-shot-char {
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+          padding: 2px 8px;
+          font-size: var(--text-caption, 11px);
+          border: 1px solid var(--border-subtle);
+          border-radius: 999px;
+          background: transparent;
+          color: var(--text-muted);
+          cursor: pointer;
+        }
+        .studio-shot-char.is-on {
+          border-color: var(--accent);
+          color: var(--text-primary);
+          background: var(--bg-surface-3, rgba(0, 0, 0, 0.06));
         }
       `}</style>
     </article>

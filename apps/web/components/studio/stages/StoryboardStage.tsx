@@ -108,6 +108,7 @@ export function StoryboardStage({
             <ShotCard
               key={s.id}
               shot={s}
+              projectId={d.id}
               characters={d.characters}
               busyRender={Boolean(project.busy[`render:${s.id}`]) || renderingAll}
               busyVoice={Boolean(project.busy[`voice:${s.id}`])}

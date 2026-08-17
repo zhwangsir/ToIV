@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 
+import { AssetPicker } from "@/components/generate/AssetPicker";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Field } from "@/components/ui/Input";
@@ -39,6 +40,7 @@ export function RefImagesUpload({ param, values, onChange, uploadKind, disabled 
   const toast = useToast();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const max = param.max ?? 4;
   // 首张已上传图的 worker 为后续图的钉点;全部移除后恢复自由落点
   const pinWorker = values[0]?.worker ?? null;
@@ -123,7 +125,29 @@ export function RefImagesUpload({ param, values, onChange, uploadKind, disabled 
             {uploading ? "上传中…" : values.length === 0 ? "上传参考图" : "再加一张"}
           </Button>
         )}
+        {values.length < max && (
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<Icon name="library" size={14} />}
+            disabled={disabled}
+            onClick={() => setPickerOpen(true)}
+          >
+            从作品库选
+          </Button>
+        )}
       </div>
+      <AssetPicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        assetType="image"
+        kind={uploadKind}
+        pinWorker={pinWorker}
+        onPick={(a) => {
+          onChange([...values, a]);
+          toast.success(`已引用作品库图片(${values.length + 1}/${max})`);
+        }}
+      />
       <input
         ref={inputRef}
         type="file"

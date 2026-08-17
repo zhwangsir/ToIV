@@ -49,6 +49,20 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("studioproject", "width", "width INTEGER NOT NULL DEFAULT 768"),
     ("studioproject", "height", "height INTEGER NOT NULL DEFAULT 384"),
     ("studioproject", "fps", "fps INTEGER NOT NULL DEFAULT 16"),
+    # 微信小程序登录:用户 openid 绑定列(可空,空=非微信用户)。openid 查询量低,不加索引
+    ('"user"', "wechat_openid", "wechat_openid VARCHAR"),
+    # LibTV 工作台:分镜情绪标签/节拍注记(2026-08-16 重构,既有 dramashot 表补列)
+    ("dramashot", "mood", "mood VARCHAR NOT NULL DEFAULT ''"),
+    ("dramashot", "beat", "beat VARCHAR NOT NULL DEFAULT ''"),
+    # P1 衔接策略层:分镜接缝策略/衔接锚点(既有 dramashot 表补列)
+    ("dramashot", "seam_to_next", "seam_to_next VARCHAR NOT NULL DEFAULT ''"),
+    ("dramashot", "seam_anchor", "seam_anchor VARCHAR NOT NULL DEFAULT ''"),
+    # 时长后处理链标记(trim/extend 进行中,前端结果区据此显示「精确裁切中」)
+    ("job", "post_status", "post_status VARCHAR NOT NULL DEFAULT ''"),
+    # 操作防护体系(SAFETY,2026-08-17):作品软删除(10 分钟撤销窗口)
+    ("job", "deleted_at", "deleted_at TIMESTAMP"),
+    # Skill 市场化(2026-08-18):agents 属主列(空=公共内置/admin 建,非空=个人导入)
+    ("agent", "user_id", "user_id TEXT NOT NULL DEFAULT ''"),
 )
 
 # 整段 SQL 幂等迁移(CREATE TABLE IF NOT EXISTS 等,非 ADD COLUMN 场景)。
@@ -95,6 +109,36 @@ _SQLITE_RAW_MIGRATIONS: tuple[str, ...] = (
     """,
     """
     CREATE INDEX IF NOT EXISTS idx_dramasession_started ON dramasession(started_at)
+    """,
+    # 操作防护体系(SAFETY,2026-08-17):审计日志表(create_all 建新库,此条保 prod 幂等)
+    """
+    CREATE TABLE IF NOT EXISTS auditlog (
+        id               TEXT PRIMARY KEY,
+        tenant_id        TEXT NOT NULL,
+        user_id          TEXT NOT NULL,
+        user_email       TEXT DEFAULT '',
+        action           TEXT NOT NULL,
+        target_type      TEXT DEFAULT '',
+        target_id        TEXT DEFAULT '',
+        summary          TEXT DEFAULT '',
+        detail           TEXT DEFAULT '',
+        undo_token       TEXT,
+        undo_expires_at  TIMESTAMP,
+        undone           BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_auditlog_user ON auditlog(user_id)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_auditlog_action ON auditlog(action)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_auditlog_token ON auditlog(undo_token)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_auditlog_created ON auditlog(created_at)
     """,
     """
     CREATE TABLE IF NOT EXISTS dramaevent (
@@ -265,6 +309,8 @@ _SQLITE_RAW_MIGRATIONS: tuple[str, ...] = (
     "CREATE INDEX IF NOT EXISTS idx_job_created_at ON job(created_at)",
     # 复合:未终态扫描 + created_at 排序
     "CREATE INDEX IF NOT EXISTS idx_job_status_created ON job(status, created_at)",
+    # job.post_status 列见 _SQLITE_MIGRATIONS;启动残留清理由 init_db 的
+    # _clear_stale_post_status 显式执行(须在列迁移后,故不入本 raw 列表)
     # ── R3.1:Agent Team 数据底座 4 表(agentrun/agenttask/agentevent/agentapproval)──
     # 新库由 SQLModel create_all 建立;此处保 prod 既有库幂等补建(PG 上 AUTOINCREMENT
     # 等 SQLite 方言报错由执行器吞掉,对应表已被 create_all 覆盖,与既有条目同双轨写法)
@@ -395,12 +441,28 @@ def _run_column_migrations() -> None:
             logger.warning("迁移跳过(%s.%s): %s", table, column, exc)
 
 
+def _clear_stale_post_status() -> None:
+    """启动自愈:重启后在飞裁切链已死,post_status=processing 必为残留 → 清零。
+
+    必须在列迁移之后执行(列可能刚由 _run_column_migrations 补齐);
+    清零后前端回落原始产物展示(链失败语义:保留未裁原片,不把事情搞砸)。
+    """
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text("UPDATE job SET post_status='' WHERE post_status='processing'")
+            )
+    except SQLAlchemyError as exc:
+        logger.warning("post_status 残留清理跳过: %s", exc)
+
+
 def init_db() -> None:
     import app.models  # noqa: F401  确保模型已注册到元数据
     SQLModel.metadata.create_all(engine)
     # 2026-08-10 起 PG 也跑列迁移:core 生产库的存量表同样需要补列,
     # 此前仅 SQLite 分支执行导致 prod studioproject 缺 width/height/fps 500。
     _run_column_migrations()
+    _clear_stale_post_status()
 
 
 def bootstrap_admin() -> None:

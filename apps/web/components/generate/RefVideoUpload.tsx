@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 
+import { AssetPicker } from "@/components/generate/AssetPicker";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Field } from "@/components/ui/Input";
@@ -40,6 +41,7 @@ export function RefVideoUpload({ param, value, onChange, uploadKind, pinWorker, 
   const toast = useToast();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   async function onFile(file: File | undefined) {
     if (!file) return;
@@ -84,17 +86,36 @@ export function RefVideoUpload({ param, value, onChange, uploadKind, pinWorker, 
           />
         </div>
       ) : (
-        <Button
-          variant="secondary"
-          size="sm"
-          loading={uploading}
-          icon={<Icon name="upload" size={14} />}
-          disabled={disabled}
-          onClick={() => inputRef.current?.click()}
-        >
-          {uploading ? "上传中…" : "上传视频"}
-        </Button>
+        <div className="ref-video-actions">
+          <Button
+            variant="secondary"
+            size="sm"
+            loading={uploading}
+            icon={<Icon name="upload" size={14} />}
+            disabled={disabled}
+            onClick={() => inputRef.current?.click()}
+          >
+            {uploading ? "上传中…" : "上传视频"}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<Icon name="library" size={14} />}
+            disabled={disabled}
+            onClick={() => setPickerOpen(true)}
+          >
+            从作品库选
+          </Button>
+        </div>
       )}
+      <AssetPicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        assetType="video"
+        kind={uploadKind}
+        pinWorker={pinWorker}
+        onPick={(a) => onChange({ filename: a.filename, worker: a.worker, name: a.name })}
+      />
       <input
         ref={inputRef}
         type="file"
@@ -124,6 +145,11 @@ export function RefVideoUpload({ param, value, onChange, uploadKind, pinWorker, 
         }
         .ref-video-preview :global(button) {
           flex-shrink: 0;
+        }
+        .ref-video-actions {
+          display: flex;
+          gap: var(--space-2);
+          flex-wrap: wrap;
         }
       `}</style>
     </Field>

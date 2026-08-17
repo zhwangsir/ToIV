@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { LandingPage } from "@/components/landing/LandingPage";
 import { CornerNav, type CornerNavItem } from "@/components/nav/CornerNav";
+import { AccountButton } from "@/components/nav/AccountButton";
+import { AssistantOverlay } from "@/components/assistant/AssistantOverlay";
 import { BottomNav, type BottomNavItem } from "@/components/nav/BottomNav";
 import { fetchMe, getToken, setToken, testLogin, TOKEN_KEY } from "@/lib/api";
 import { useCrossTabSync } from "@/lib/crossTab";
@@ -13,6 +15,7 @@ import { initR18Mode, isR18Mode, useR18Mode } from "@/lib/r18";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { Icon } from "@/components/ui/Icon";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
+import { useToast } from "@/components/ui/Toast";
 
 type AuthState = "loading" | "in" | "out";
 
@@ -34,6 +37,7 @@ type View =
   | "backlot"
   | "models"
   | "resources"
+  | "skills"
   | "settings"
   | "drama"
   | "admin";
@@ -60,6 +64,7 @@ function resolveView(raw: string | null): View | null {
 
 // ── 视图懒加载:chunk 按需拉取;灵动岛悬停/聚焦期间并行预热,消除切换白屏等待 ──
 const viewImporters = {
+  // assistant 已底层化为 Cmd+K 浮层(非视图),importer 保留仅维持 View 类型索引完整性
   assistant: () => import("@/components/assistant/AssistantView"),
   // 图片/视频共用 GenerateView chunk;音频走 AudioView(内嵌 GenerateView,webpack 共享 chunk)
   image: () => import("@/components/generate/GenerateView"),
@@ -78,6 +83,7 @@ const viewImporters = {
   backlot: () => import("@/components/backlot/BacklotView"),
   models: () => import("@/components/models/ModelsView"),
   resources: () => import("@/components/resources/ResourcesView"),
+  skills: () => import("@/components/skills/SkillMarketView"),
   settings: () => import("@/components/settings/SettingsView"),
   drama: () => import("@/components/drama/DramaView"),
   admin: () => import("@/components/admin/AdminView"),
@@ -90,9 +96,6 @@ function preloadView(key: View) {
   });
 }
 
-const AssistantView = lazy(() =>
-  viewImporters.assistant().then((m) => ({ default: m.AssistantView })),
-);
 const GenerateView = lazy(() =>
   viewImporters.image().then((m) => ({ default: m.GenerateView })),
 );
@@ -138,6 +141,9 @@ const ModelsView = lazy(() =>
 const ResourcesView = lazy(() =>
   viewImporters.resources().then((m) => ({ default: m.ResourcesView })),
 );
+const SkillMarketView = lazy(() =>
+  viewImporters.skills().then((m) => ({ default: m.SkillMarketView })),
+);
 const SettingsView = lazy(() =>
   viewImporters.settings().then((m) => ({ default: m.SettingsView })),
 );
@@ -158,9 +164,9 @@ function ViewFallback({ label }: { label: string }) {
 }
 
 // 旧视图 key(models/train/backlot/admin)保留兼容,旧链接不 404;
-// create/generate/ltxstudio/dramaStudio/manju 不在此列——经 LEGACY_VIEW_REDIRECTS 重定向
+// create/generate/ltxstudio/dramaStudio/manju 不在此列——经 LEGACY_VIEW_REDIRECTS 重定向;
+// assistant 已底层化(2026-08-17):移出 VALID_VIEWS,URL ?view=assistant 在挂载 effect 中重定向 fusion
 const VALID_VIEWS = new Set<View>([
-  "assistant",
   "image",
   "video",
   "audio",
@@ -177,6 +183,7 @@ const VALID_VIEWS = new Set<View>([
   "backlot",
   "models",
   "resources",
+  "skills",
   "settings",
   "drama",
   "admin",
@@ -196,21 +203,22 @@ const VIEW_META: Record<View, { label: string }> = {
   studio:    { label: "创作" },
   dub:       { label: "译制" },
   train:     { label: "训练" },
-  library:   { label: "作品库" },
-  backlot:   { label: "看板" },
-  models:    { label: "模型" },
-  resources: { label: "资源" },
-  settings:  { label: "设置" },
+  library:    { label: "作品库" },
+  backlot:    { label: "看板" },
+  models:     { label: "模型" },
+  resources:  { label: "资源" },
+  skills:     { label: "Skill 市场" },
+  settings:   { label: "设置" },
   drama:     { label: "短剧" },
   admin:     { label: "管理" },
 };
 
-/** M3 新 IA 一级入口 8 项:三大板块 + 融合聚合页;短剧/数字人/译制移入融合,视图保留(旧链接不 404)。
+/** M3 新 IA 一级入口:三大板块 + 融合聚合页;短剧/数字人/译制移入融合,视图保留(旧链接不 404)。
+ *  2026-08-17 底层化:AI 助手移出导航,由 Cmd/Ctrl+K 全局浮层(AssistantOverlay)唤起。
+ *  2026-08-18:Agent 团队入口改为 Skill 市场(/agent-runs 路由保留,直达 URL 仍可访问)。
  *  桌面端由左上角悬停展开导航(CornerNav)承载,窄屏由底部导航承载。 */
 const ISLAND_ITEMS: CornerNavItem[] = [
-  { key: "assistant", label: "对话", icon: "chat" },
-  // R3.1:Agent Team 统一入口(独立路由 /agent-runs,非 SPA 视图,onSelect 拦截跳转)
-  { key: "agentRuns", label: "Agent 团队", icon: "users" },
+  { key: "skills", label: "Skill 市场", icon: "package" },
   { key: "image", label: "图片", icon: "image" },
   { key: "video", label: "视频", icon: "video" },
   { key: "audio", label: "音频", icon: "audio" },
@@ -222,16 +230,15 @@ const ISLAND_ITEMS: CornerNavItem[] = [
 
 /** 窄屏底部导航:主入口 5 个(含 CTA)+「更多」抽屉承载其余 */
 const BOTTOM_NAV_ITEMS: BottomNavItem[] = [
-  { key: "assistant", label: "对话", icon: "chat" },
   { key: "image", label: "图片", icon: "image" },
   { key: "video", label: "视频", icon: "video" },
+  { key: "audio", label: "音频", icon: "audio" },
   { key: "fusion", label: "融合", icon: "sparkles", isCta: true },
   { key: "library", label: "作品", icon: "library" },
 ];
 
 const BOTTOM_NAV_MORE_ITEMS: BottomNavItem[] = [
-  // R3.1:Agent Team 统一入口(独立路由 /agent-runs,非 SPA 视图,onSelect 拦截跳转)
-  { key: "agentRuns", label: "Agent 团队", icon: "users" },
+  { key: "skills", label: "Skill 市场", icon: "package" },
   { key: "audio", label: "音频", icon: "audio" },
   { key: "imageEdit", label: "图片编辑", icon: "wand" },
   { key: "videoEdit", label: "视频剪辑", icon: "scissors" },
@@ -277,19 +284,45 @@ function HomeContent() {
   const searchParams = useSearchParams();
   const [auth, setAuth] = useState<AuthState>("loading");
   const [account, setAccount] = useState<string | null>(null);
-  const [view, setView] = useState<View>(() => resolveView(searchParams.get("view")) ?? "assistant");
+  // 2026-08-17 底层化:AI 助手移出视图体系(默认视图 fusion 聚合页承接门户职能),
+  // 旧链接 ?view=assistant 兼容:落到 fusion 并自动唤起助手浮层
+  const [view, setView] = useState<View>(() => {
+    const raw = searchParams.get("view");
+    if (raw === "assistant") return "fusion";
+    return resolveView(raw) ?? "fusion";
+  });
+  // AI 助手全局浮层(Cmd/Ctrl+K 唤起;旧链接 ?view=assistant 首入自动开)
+  const [assistantOpen, setAssistantOpen] = useState(() => searchParams.get("view") === "assistant");
   // M9:订阅全局 R18 内容模式(短剧视图可见性/导航项按此 computed)
   const [r18] = useR18Mode();
 
+  // 全局快捷键:Cmd/Ctrl+K 唤起/收起 AI 助手浮层(底层常驻,任意视图之上)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        setAssistantOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   useEffect(() => {
     const raw = searchParams.get("view");
+    // assistant 已底层化:URL 不再承载该视图,旧链接重定向 fusion
+    if (raw === "assistant") {
+      if (view !== "fusion") setView("fusion");
+      router.replace("/?view=fusion");
+      return;
+    }
     const resolved = resolveView(raw);
     if (resolved && resolved !== view) {
       setView(resolved);
     }
     // 旧 key(create/generate/ltxstudio)重定向后把 URL 规整为新 key,刷新/分享保持一致
     if (raw && LEGACY_VIEW_REDIRECTS[raw]) {
-      router.replace(`/?view=${resolved ?? "assistant"}`);
+      router.replace(`/?view=${resolved ?? "fusion"}`);
     }
   }, [searchParams, view, router]);
 
@@ -351,6 +384,21 @@ function HomeContent() {
     setAuth("out");
   }, []);
 
+  // ⌘K 可发现性(2026-08-17 助手底层化):登录后首次进入提示一次,不打扰回头客;
+  // 不设入口按钮(用户明确:助手不单独作为功能显示,仅快捷键唤起)
+  const toast = useToast();
+  useEffect(() => {
+    if (auth !== "in") return;
+    if (typeof window === "undefined") return;
+    if (window.localStorage.getItem("toiv_hint_cmdk") === "1") return;
+    window.localStorage.setItem("toiv_hint_cmdk", "1");
+    const t = setTimeout(() => {
+      const isMac = /Mac|iPhone|iPad/.test(window.navigator.platform || window.navigator.userAgent);
+      toast.info(`AI 助手已底层化,${isMac ? "⌘" : "Ctrl+"}K 随时唤起对话`);
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [auth, toast]);
+
   // P1-8 跨标签页登录态同步:他页退出登录(token 被删)→ 本页立即回落登录页;
   // 他页登录成功(token 写入)→ 本页探测会话并刷新用户态,避免「A 页退出、B 页
   // 还以为已登录」的状态孤岛。
@@ -384,23 +432,19 @@ function HomeContent() {
     [router],
   );
 
-  // R3.1:Agent 团队是独立路由(/agent-runs),不是 SPA 视图——导航选中时跳路由
+  // 2026-08-18:导航位改为 Skill 市场(SPA 视图);/agent-runs 路由保留直达
   const handleNavSelect = useCallback(
     (key: string) => {
-      if (key === "agentRuns") {
-        router.push("/agent-runs");
-        return;
-      }
       changeView(key as View);
     },
-    [router, changeView],
+    [changeView],
   );
 
-  // M9 门控:短剧视图仅 R18 模式可达,SFW 模式直输 ?view=drama 一律回落对话。
+  // M9 门控:短剧视图仅 R18 模式可达,SFW 模式直输 ?view=drama 一律回落融合页。
   // 判定直接读 localStorage(isR18Mode):useR18Mode 首帧恒 false、effect 中才纠正,
   // 用 hook 态会把已开 R18 的用户误弹走;r18 仅作依赖,驱动模式关闭瞬间的复检。
   useEffect(() => {
-    if (view === "drama" && !isR18Mode()) changeView("assistant");
+    if (view === "drama" && !isR18Mode()) changeView("fusion");
   }, [view, r18, changeView]);
 
   // 动态分镜 AI 模式:解析成功后跳 studio 创作工作室(旧 drama 工作台已退役)
@@ -412,7 +456,7 @@ function HomeContent() {
   const handleFusionNavigate = useCallback(
     (target: string) => {
       const [key, query] = target.split("?", 2);
-      const next = resolveView(key) ?? "assistant";
+      const next = resolveView(key) ?? "fusion";
       preloadView(next);
       withViewTransition(() => {
         setView(next);
@@ -465,15 +509,29 @@ function HomeContent() {
         current={view}
         onSelect={handleNavSelect}
         onItemIntent={handleViewIntent}
-        account={account}
-        onLogout={onLogout}
+      />
+
+      {/* 右上角账户(2026-08-17 拆分):一跳直达主题/设置/退出,与左上灵动岛对角呼应 */}
+      {account && (
+        <AccountButton
+          account={account}
+          onLogout={onLogout}
+          onOpenSettings={() => handleNavSelect("settings")}
+        />
+      )}
+
+      {/* AI 助手全局浮层(2026-08-17 底层化):Cmd/Ctrl+K 唤起,任意视图之上对话;
+          助手内跳视图先收浮层再切换 */}
+      <AssistantOverlay
+        open={assistantOpen}
+        onClose={() => setAssistantOpen(false)}
+        onNavigate={(v) => handleNavSelect(v)}
       />
 
       <main id="main" className={`app-main${view === "avatartalk" ? " avatartalk-main" : ""}`}>
         <div className="view-root view-stage">
           <ErrorBoundary key={view} viewName={meta.label}>
             <Suspense fallback={<ViewFallback label={meta.label} />}>
-              {view === "assistant" && <AssistantView />}
               {view === "image" && <GenerateView lockedKind="image" />}
               {view === "video" && <GenerateView lockedKind="video" />}
               {view === "audio" && <AudioView />}
@@ -495,6 +553,7 @@ function HomeContent() {
               {view === "backlot" && <BacklotView />}
               {view === "models" && <ModelsView />}
               {view === "resources" && <ResourcesView showAdmin={isAdmin} />}
+              {view === "skills" && <SkillMarketView />}
               {view === "settings" && <SettingsView account={account} onLogout={onLogout} />}
               {view === "admin" && <AdminView />}
             </Suspense>

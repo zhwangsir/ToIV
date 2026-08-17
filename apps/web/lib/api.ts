@@ -335,10 +335,19 @@ export async function generateTxt2img(
   return res.json();
 }
 
-async function fetchJobsRaw(): Promise<JobItem[]> {
-  const res = await apiFetch(`/api/jobs`, { headers: authHeaders() });
+/** 单页拉取(作品库服务端分页,2026-08-16):limit ≤200(后端上限),offset 位置偏移。
+    首页走 swr 缓存(fetchJobsRaw),后续页直连网络不进缓存(防 localStorage 膨胀)。 */
+export async function fetchJobsPage(offset: number, limit = 200): Promise<JobItem[]> {
+  const res = await apiFetch(`/api/jobs?limit=${limit}&offset=${offset}`, { headers: authHeaders() });
   if (!res.ok) throw new Error(`加载作品失败 (${res.status})`);
   return res.json();
+}
+
+/** 首页大小:与后端单页上限一致;返回满页即可能还有下一页。 */
+export const JOBS_PAGE_LIMIT = 200;
+
+async function fetchJobsRaw(): Promise<JobItem[]> {
+  return fetchJobsPage(0, JOBS_PAGE_LIMIT);
 }
 
 /** 作品库,走本机 SWR 缓存(短 TTL):作品库二访秒开,后台刷新补新作品。
@@ -387,14 +396,86 @@ export async function jobVersions(jobKey: string): Promise<JobItem[]> {
   return res.json();
 }
 
-/** 从作品库删除一件作品(按 job id);成功后失效缓存。 */
-export async function deleteJob(jobId: string): Promise<void> {
+/** deleteJob 返回:后端软删除凭据(10 分钟撤销窗口;SAFETY 体系)。 */
+export interface DeleteJobResult {
+  undo_token?: string;
+  undo_ttl?: number;
+}
+
+/** 从作品库删除一件作品(按 job id);成功后失效缓存,返回撤销凭据。 */
+export async function deleteJob(jobId: string): Promise<DeleteJobResult> {
   const res = await apiFetch(`/api/jobs/${jobId}`, {
     method: "DELETE",
     headers: authHeaders(),
   });
   if (!res.ok) await raiseApiError(res, "删除失败");
   invalidateJobs();
+  try {
+    return (await res.json()) as DeleteJobResult;
+  } catch {
+    return {};
+  }
+}
+
+/** 撤销一次作品删除(10 分钟窗口内);成功后失效缓存让作品回归列表。 */
+export async function undoDelete(undoToken: string): Promise<void> {
+  const res = await apiFetch(`/api/undo/${undoToken}`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!res.ok) await raiseApiError(res, "撤销失败(可能已过期)");
+  invalidateJobs();
+}
+
+/** 审计日志条目(admin /api/admin/audit-logs)。 */
+export interface AuditLogItem {
+  id: string;
+  user_id: string;
+  user_email: string;
+  action: string;
+  target_type: string;
+  target_id: string;
+  summary: string;
+  undone: boolean;
+  created_at: string;
+}
+
+/** 管理员:关键操作审计日志(最新在前)。 */
+export async function listAuditLogs(params: { limit?: number; action?: string } = {}): Promise<AuditLogItem[]> {
+  const q = new URLSearchParams();
+  if (params.limit) q.set("limit", String(params.limit));
+  if (params.action) q.set("action", params.action);
+  const res = await apiFetch(`/api/admin/audit-logs?${q.toString()}`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) await raiseApiError(res, "审计日志加载失败");
+  return res.json();
+}
+
+/** 社区精选配方(CivitAI 作品逆向;R18 配方仅 /nsfw 上下文返回)。 */
+export interface CommunityRecipe {
+  id: string;
+  label: string;
+  engine_id: string;
+  nsfw: boolean;
+  source: string;
+  description: string;
+  prompt_template: string;
+  negative_template: string;
+  loras: { name: string; strength: number }[];
+  params: Record<string, number>;
+}
+
+export async function listRecipes(engineId = ""): Promise<CommunityRecipe[]> {
+  const q = engineId ? `?engine=${encodeURIComponent(engineId)}` : "";
+  const res = await apiFetch(`/api/models/recipes${q}`, { headers: authHeaders() });
+  if (!res.ok) return [];
+  try {
+    const data = (await res.json()) as { recipes: CommunityRecipe[] };
+    return data.recipes ?? [];
+  } catch {
+    return [];
+  }
 }
 
 async function fetchLocalModelsRaw(): Promise<LocalModels> {
@@ -499,7 +580,12 @@ export interface WanI2VGenParams {
   height: number;
   length: number;
   fps: number;
+  negative?: string;
   seed?: number | null;
+  // NSFW LoRA 叠加链(仅 R18 上下文生效;名字须在后端 WAN_I2V_NSFW_LORAS 注册表内)
+  loras?: { name: string; strength: number }[];
+  // 满血档:不挂加速 LoRA,20 步 + cfg 3.5/3.0(慢 ~4 倍换质量);缺省 false 加速档
+  full_quality?: boolean;
 }
 
 export async function generateVideo(
@@ -533,7 +619,8 @@ export interface LongcatT2VParams {
   negative?: string;
   width?: number;      // 320-1280,16 对齐(非对齐后端自动向下取整),默认 832
   height?: number;     // 同上,默认 480
-  num_frames?: number; // 17-961,默认 121;961 帧@16fps≈60s 单镜头
+  duration_sec?: number; // 时长(秒),默认 7.5;内部 17-961 帧(16fps≈60s 单镜头),>241 帧自动上下文窗口
+  num_frames?: number; // deprecated:兼容入参,请改用 duration_sec;同给时后端忽略
   steps?: number;      // 1-50,默认 10(蒸馏 LoRA 低步数)
   fps?: number;        // 8-30,默认 16(仅影响成片打包帧率)
   seed?: number | null;
@@ -596,7 +683,8 @@ export interface AvatarTalkParams {
   negative?: string;
   width?: number;      // 320-1280,16 对齐(非对齐后端自动向下取整),默认 480
   height?: number;     // 同上,默认 832
-  num_frames?: number; // 17-961,默认 93(93 帧@25fps≈3.7s)
+  duration_sec?: number; // 时长(秒),默认 3.7;内部 17-2500 帧(25fps,>93 帧自动链式续段)
+  num_frames?: number; // deprecated:兼容入参,请改用 duration_sec;同给时后端忽略
   fps?: number;        // 8-30,默认 25(Whisper 特征帧率与打包帧率同源)
   steps?: number;      // 1-50,默认 12(dmd 蒸馏 LoRA 低步数)
   shift?: number;      // 1-30,默认 12
@@ -730,6 +818,62 @@ export async function generateUpscale(params: UpscaleGenParams): Promise<Generat
     }),
   });
   if (!res.ok) await raiseApiError(res, "放大请求失败");
+  return res.json();
+}
+
+// ---------- 视频超分(4K,M6 fleet 帧级管线;后端长任务,提交秒回 + 状态轮询) ----------
+
+export interface VideoUpscaleParams {
+  /** 作品库产物 URL(/api/images?… 签名 URL 或短剧成片/工作室文件相对路径)。 */
+  video_url: string;
+  /** 档位(当前仅 4k;目标分辨率由服务端按画幅方向推导,禁手填宽高)。 */
+  target?: "4k";
+}
+
+export interface VideoUpscaleResponse {
+  job_id: string;
+  prompt_id: string;
+  kind: string;
+  status: string;
+  target: string;
+}
+
+export interface VideoUpscaleProgress {
+  stage: string;
+  done: number;
+  total: number;
+  /** 0-100;null = 不确定态(排队/api 重启后进度注册表丢失)。 */
+  pct: number | null;
+  detail: string;
+}
+
+export interface VideoUpscaleStatus {
+  job_id: string;
+  prompt_id: string;
+  status: string;
+  results: string[];
+  progress: VideoUpscaleProgress | null;
+}
+
+/** 提交视频超分(秒回 Job);完成后产物自动收录作品库(kind=video_upscale)。 */
+export async function upscaleVideo(
+  params: VideoUpscaleParams,
+): Promise<VideoUpscaleResponse> {
+  const res = await apiFetch(`/api/video/upscale`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ video_url: params.video_url, target: params.target ?? "4k" }),
+  });
+  if (!res.ok) await raiseApiError(res, "超分请求失败");
+  return res.json();
+}
+
+/** 轮询超分作业状态 + 帧级进度(progress 为 null 时前端按 indeterminate 展示)。 */
+export async function getVideoUpscaleStatus(jobId: string): Promise<VideoUpscaleStatus> {
+  const res = await apiFetch(`/api/video/upscale/${encodeURIComponent(jobId)}`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) await raiseApiError(res, "查询超分状态失败");
   return res.json();
 }
 
@@ -2229,8 +2373,21 @@ export interface DramaShotItem {
   // M2:宫格分镜回写(场景布局 / 视频模型)
   scene_layout: string;
   video_model: string;
+  // LibTV 工作台:情绪标签 + 节拍注记(2026-08-16 后端 DramaShot 加列)
+  mood: string;
+  beat: string;
+  // P1 衔接策略层:与下一镜的接缝策略 + 衔接锚点(空=未规划,按硬切处理)
+  seam_to_next: string;    // "" / continue(续写) / overlap(重叠) / matchcut(匹配) / hardcut(硬切)
+  seam_anchor: string;     // matchcut/overlap 时的共享锚体描述
   // M1:单镜多候选生成
   candidates?: DramaShotCandidate[];
+  // P2:宫格阶段B grounding 状态 + color_mark 元数据(后端 detected_colors JSON)
+  detected_colors?: {
+    grounding_status?: string; // grounded(已按实图改写) / fallback(VLM 不可用回落原稿)
+    color_map?: Record<string, string>;
+    expected?: string[];
+    source?: string;
+  } | null;
 }
 
 // M4:创作过程单步记录(后端 process_data 数组元素)
@@ -2366,6 +2523,12 @@ export interface DramaShotPatch {
   speaker?: string;
   duration_sec?: number;
   seed?: number;
+  // LibTV 工作台:情绪标签 + 节拍注记(后端 ShotPatch 已支持,2026-08-16)
+  mood?: string;
+  beat?: string;
+  // P1 衔接策略层:接缝策略("" / continue / overlap / matchcut / hardcut)+ 衔接锚点
+  seam_to_next?: string;
+  seam_anchor?: string;
 }
 
 export interface DramaGenerateVideoRequest {
@@ -3279,6 +3442,50 @@ export const assembleStudio = (pid: string): Promise<StudioProjectDetail> =>
     longRequest: true,
   });
 
+/** 分镜 AI 扩写结果:简短中文描述 → 结构化分镜(不落库,前端回填表单)。 */
+export interface StudioShotOptimizeResult {
+  scene: string;
+  camera: string;
+  prompt: string;
+  negative: string;
+  characters: string[];
+}
+
+/** AI 扩写分镜(2026-08-18):一句简短描述 → {scene,camera,prompt,negative,characters}。
+ *  shot_id 可选(带出该镜现有内容作上下文);style_hint 可选(风格方向);LLM L3,放宽到 120s。 */
+export const optimizeStudioShot = (
+  pid: string,
+  body: { brief: string; shot_id?: string; style_hint?: string },
+): Promise<StudioShotOptimizeResult> =>
+  studioReq(`/studio/projects/${pid}/optimize-shot`, "POST", body, {
+    timeoutMs: 120_000,
+  });
+
+// ---------- 资产互通(2026-08-18):作品库产物 → 参考输入 ----------
+
+/** 产物转运句柄:与 uploadImage 返回同构,直接灌入引擎表单 refImage/refAudio/refVideo。 */
+export interface AssetFromJobHandle {
+  filename: string;
+  worker: string;
+}
+
+/** 把作品库 Job 产物(output 目录)搬运为参考输入(input 目录)。
+ *  归属校验在后端(本人/同租户 + filename ∈ result);worker 省略按 kind 自动选目标。 */
+export async function assetFromJob(body: {
+  job_id: string;
+  filename: string;
+  kind: string;
+  worker?: string;
+}): Promise<AssetFromJobHandle> {
+  const res = await apiFetch(`/api/assets/from-job`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await raiseApiError(res, "产物转运失败");
+  return res.json();
+}
+
 // ===========================================================================
 // Agent Team 统一入口(R3.1)—— 一句话目标 → Leader 拆解 → DAG 任务卡片流
 // 契约见 docs/2026-08-14-competitive-r3-r5-deep-dive.md §1.3.3(后端按同一契约实现);
@@ -3325,7 +3532,8 @@ export interface AgentRunTask extends AgentPlanTask {
   gpu_hint: string;     // GPU 排队提示(队列位置/预计等待)
 }
 
-/** 创建秒回:L0 直链现有工作台(run_id 为 null);L1/L2 携带拆解计划进确认门。 */
+/** 创建秒回:L0 直链现有工作台(run_id 为 null);L1/L2 秒回 run_id 进详情页,
+ *  计划由后台规划完成后经 SSE plan/confirm_required 事件到达(故 plan 可空)。 */
 export interface AgentRunAckL0 {
   level: "L0";
   ack: string;
@@ -3335,7 +3543,8 @@ export interface AgentRunAckPlanned {
   level: "L1" | "L2";
   ack: string;
   run_id: string;
-  plan: { tasks: AgentPlanTask[] };
+  /** 后台规划模式下创建响应不带计划;保留仅为兼容旧端,消费方不得依赖。 */
+  plan?: { tasks: AgentPlanTask[] };
 }
 export type AgentRunCreateResult = AgentRunAckL0 | AgentRunAckPlanned;
 
@@ -3373,7 +3582,8 @@ export interface AgentResumeBody {
   feedback?: string;
 }
 
-/** 卡片级干预;upload/reprompt 后端本期 501,UI 置灰不调用。 */
+/** 卡片级干预;upload 携带 payload={url}(直传文件走 uploadAgentTaskAsset),
+ *  reprompt 反推产物提示词写回 input。 */
 export interface AgentTaskActionBody {
   action: "edit" | "regenerate" | "approve" | "upload" | "reprompt";
   payload?: Record<string, unknown>;
@@ -3401,7 +3611,7 @@ async function agentRunReq<T>(
   return res.json();
 }
 
-/** 创建 Agent 任务(同步秒回):L0 → 直链;L1/L2 → run_id + 计划。 */
+/** 创建 Agent 任务(秒回):L0 → 直链;L1/L2 → run_id,计划经后台规划异步到达。 */
 export const createAgentRun = (body: {
   goal: string;
   level?: string;
@@ -3457,18 +3667,41 @@ export const resumeAgentRun = (
     "提交裁决失败",
   );
 
-/** 卡片级干预:edit 改文案 / regenerate 带引导词重生 / approve 通过(upload/reprompt 本期 501)。 */
+/** 卡片级干预:edit 改文案 / regenerate 带引导词重生 / approve 通过 /
+ *  upload 替换产物(payload={url}) / reprompt 反推提示词写回 input。
+ *  后端直接返回任务详情(顶层即卡片字段,无包装)。 */
 export const agentTaskAction = (
   runId: string,
   taskId: string,
   body: AgentTaskActionBody,
-): Promise<{ ok: boolean; task: AgentRunTask }> =>
+): Promise<AgentRunTask> =>
   agentRunReq(
     `/agent-runs/${encodeURIComponent(runId)}/tasks/${encodeURIComponent(taskId)}/action`,
     "POST",
     body,
     "任务操作失败",
   );
+
+/** 卡片产物直传替换(POST multipart):本地文件 → Studio 输出目录 → 卡片回 done;
+ *  返回任务详情(顶层即卡片字段,与 agentTaskAction 同形)。 */
+export async function uploadAgentTaskAsset(
+  runId: string,
+  taskId: string,
+  file: File,
+): Promise<AgentRunTask> {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await apiFetch(
+    `/api/agent-runs/${encodeURIComponent(runId)}/tasks/${encodeURIComponent(taskId)}/upload`,
+    {
+      method: "POST",
+      headers: authHeaders(), // 不要手动设 Content-Type,让浏览器带 boundary
+      body: fd,
+    },
+  );
+  if (!res.ok) await raiseApiError(res, "替换上传失败");
+  return res.json();
+}
 
 export const cancelAgentRun = (runId: string): Promise<{ ok: boolean }> =>
   agentRunReq(

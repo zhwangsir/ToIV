@@ -22,6 +22,10 @@ export interface Agent {
   is_nsfw: boolean;
   is_builtin: boolean;
   llm_model_override: string | null;
+  /** 本人从 Skill 市场导入的个人技能(属主可改可删;他人不可见) */
+  is_mine: boolean;
+  /** 公共自定义(admin 建,非内置 seed) */
+  is_public_custom: boolean;
   sort: number;
 }
 
@@ -59,6 +63,8 @@ function normalizeAgent(raw: unknown): Agent {
     is_builtin: a.is_builtin === true || a.is_builtin === 1,
     llm_model_override:
       a.llm_model_override == null ? null : String(a.llm_model_override),
+    is_mine: a.is_mine === true,
+    is_public_custom: a.is_public_custom === true,
     sort: typeof a.sort === "number" ? a.sort : Number(a.sort ?? 100) || 100,
   };
 }
@@ -132,6 +138,44 @@ export async function deleteAgent(id: string): Promise<void> {
   if (!res.ok) throw await parseErr(res, "删除失败");
 }
 
+// ---------- Skill 市场(2026-08-18)----------
+
+/** 技能分享/导入载荷:跨用户传播的最小字段集(不含 id/属主,导入端自动生成)。 */
+export interface SkillSharePayload {
+  name: string;
+  description: string;
+  icon: string;
+  applies_to: string;
+  system_prompt: string;
+  is_nsfw: boolean;
+  llm_model_override: string | null;
+}
+
+/** 把技能卡序列化为可分享 JSON(复制给他人 → 对方粘贴导入)。 */
+export function serializeSkillShare(a: Agent): SkillSharePayload {
+  return {
+    name: a.name,
+    description: a.description,
+    icon: a.icon,
+    applies_to: a.applies_to.join(","),
+    system_prompt: a.system_prompt,
+    is_nsfw: a.is_nsfw,
+    llm_model_override: a.llm_model_override,
+  };
+}
+
+/** 从 Skill 市场导入个人技能(普通用户):user_id=属主,仅本人可见/可改/可删。
+ *  粘贴他人分享的 JSON(SkillSharePayload 形态)或手填表单皆走这里。 */
+export async function importSkill(data: SkillSharePayload): Promise<Agent> {
+  const res = await fetch(`${API_BASE}/api/skills/import`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw await parseErr(res, "导入技能失败");
+  return normalizeAgent(await res.json());
+}
+
 /** 把前端 Agent 部分字段序列化为后端期望的形态(applies_to 回写成逗号串)。 */
 function serializeAgent(data: Partial<Agent>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -174,8 +218,12 @@ export async function optimizeWithAgent(params: {
   model?: string;
   agentId?: string | null;
   styleHint?: string;
+  /** 目标引擎 id(视频类按引擎切换方言模板:wan-nsfw-i2v/h3/ltx25) */
+  engine?: string;
+  /** 已选 LoRA 文件名列表(Wan NSFW 注册表内条目触发词由后端确定性注入) */
+  loras?: string[];
 }): Promise<{ optimized: string; negative: string | null }> {
-  const { prompt, kind, model, agentId, styleHint } = params;
+  const { prompt, kind, model, agentId, styleHint, engine, loras } = params;
   const res = await fetch(`${API_BASE}/api/optimize`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
@@ -185,6 +233,8 @@ export async function optimizeWithAgent(params: {
       ...(model ? { model } : {}),
       ...(agentId ? { agent_id: agentId } : {}),
       ...(styleHint?.trim() ? { style_hint: styleHint.trim() } : {}),
+      ...(engine ? { engine } : {}),
+      ...(loras && loras.length > 0 ? { loras } : {}),
     }),
   });
   if (!res.ok) throw await parseErr(res, "优化失败");

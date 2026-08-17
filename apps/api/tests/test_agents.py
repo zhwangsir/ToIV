@@ -94,8 +94,8 @@ def test_seed_is_idempotent():
 
 
 def test_builtin_agents_count():
-    """设计文档表格定义的 15 个内置智能体(8 图像 + 配音 + 训练 + 5 NSFW)。"""
-    assert len(BUILTIN_AGENTS) == 15
+    """内置智能体:15 基础(8 图像 + 配音 + 训练 + 5 NSFW)+ 8 风格扩充(Skill 市场,2026-08-18)。"""
+    assert len(BUILTIN_AGENTS) == 23
     ids = {a["id"] for a in BUILTIN_AGENTS}
     assert "realist" in ids and "nsfw_photographer" in ids and "voice_dub" in ids
     # 2026-08-08 P1-6 新增 3 个 NSFW 视频向智能体(运镜/短剧剧情/LongCat 长镜头)

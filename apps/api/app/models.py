@@ -43,6 +43,8 @@ class User(SQLModel, table=True):
     # 当前默认智能体 id(顶栏全局默认;为空=走 kind 默认系统提示)。见 Agent 表。
     # 外键不强制(删除 agent 时此处自然失效, optimize 端兜底为 kind 默认)。
     default_agent_id: Optional[str] = Field(default=None)
+    # 微信小程序登录绑定(openid);空 = 非微信用户(账密账号)。
+    wechat_openid: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=_now)
 
 
@@ -59,11 +61,38 @@ class Job(SQLModel, table=True):
     seed: int = Field(default=0, sa_type=BigInteger)  # PG 须 BIGINT:种子上限 2**63-1(见 workflows/txt2img)
     nsfw: bool = False  # 该作品是否成人向(建档时由 checkpoint 是否 NSFW 决定)
     result: str = ""  # 完成后的产物 URL 列表(JSON)
+    # 时长后处理(trim/extend)标记:""=无/完成,processing=后台裁切链进行中
+    # (此时 result 是未裁原片,前端结果区应显示「精确裁切中」而非直接播放)
+    post_status: str = ""
     # —— 版本树(精修迭代地基):每次生成挂到父版本,同链共根 ——
     parent_id: str = ""  # 父版本 Job.id(空=无父,自身即根)
     root_id: str = ""  # 版本树根 Job.id(空=自身即根;查链用 root_id or id)
     params: str = ""  # 建档时完整请求快照(JSON),支撑精确重生/锁seed微调/分支
+    # 软删除时间(操作防护体系 SAFETY-2026-08-17):空=正常;非空=已从作品库移除,
+    # 10 分钟撤销窗口内可经 /api/undo/{token} 恢复,过期后由清理任务物理删除。
+    deleted_at: Optional[datetime] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=_now, index=True)  # 加索引:未终态作业按时间排序扫描
+
+
+# ---------------------------------------------------------------------------
+# 操作防护体系(SAFETY,2026-08-17):关键操作审计日志。
+# 记录用户的重要/危险操作(删除、撤销、admin 级动作、分区开关、部署等),
+# undo_token + undo_expires_at 承载「规定时间内恢复误操作」的寻址凭据。
+# ---------------------------------------------------------------------------
+class AuditLog(SQLModel, table=True):
+    id: str = Field(default_factory=_uid, primary_key=True)
+    tenant_id: str = Field(index=True)
+    user_id: str = Field(index=True)
+    user_email: str = ""  # 冗余展示列(用户被删后日志仍可读)
+    action: str = Field(index=True)  # job.delete / job.undo / project.delete / admin.user.delete ...
+    target_type: str = ""  # job / drama_project / studio_project / character / user ...
+    target_id: str = ""
+    summary: str = ""  # 人话摘要(审计页直接展示)
+    detail: str = ""  # 结构化快照 JSON(恢复/排障用;敏感字段由记录方负责脱敏)
+    undo_token: Optional[str] = Field(default=None, index=True)  # 非空=该操作可撤销
+    undo_expires_at: Optional[datetime] = Field(default=None)
+    undone: bool = False  # 已被撤销的删除操作打标(防重复 undo)
+    created_at: datetime = Field(default_factory=_now, index=True)
 
 
 # ---------------------------------------------------------------------------
@@ -167,10 +196,12 @@ class TrainJob(SQLModel, table=True):
 
 
 class Agent(SQLModel, table=True):
-    """提示词优化智能体:绑定一个 system_prompt 主人格,优化时拼接在 kind 系统提示前。
+    """提示词优化智能体(Skill 市场技能卡):绑定一个 system_prompt 主人格,优化时拼接在 kind 系统提示前。
 
     applies_to 为逗号分隔串(如 "image,video" / "all" / "audio" / "train"),
     含 "all" 表示适用所有 kind。is_nsfw=True 的智能体仅 R18 鉴权用户可见。
+    user_id 空 = 公共(内置 seed / admin 建);非空 = 用户从 Skill 市场导入的个人技能,
+    仅属主可见/可改/可删(2026-08-18 Skill 市场化)。
     """
 
     id: str = Field(primary_key=True)  # 'realist' / 'cinematographer' ...
@@ -182,6 +213,8 @@ class Agent(SQLModel, table=True):
     is_nsfw: bool = False
     is_builtin: bool = False  # 内置种子:可改不可删
     llm_model_override: Optional[str] = Field(default=None)  # 绑定特定 LLM(None=走全局)
+    # 属主用户(空=公共)。个人导入技能的归属与可见性边界。
+    user_id: str = Field(default="", index=True)
     sort: int = 100
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)
@@ -319,6 +352,12 @@ class DramaShot(SQLModel, table=True):
     detected_colors: str = ""
     # M6: 视频生成模型(ltx / seedance / kling,空=ltx 默认)
     video_model: str = ""
+    # LibTV 工作台:情绪标签 + 节拍注记(wind-comic 实证,节奏在列表视图可读)
+    mood: str = ""
+    beat: str = ""
+    # P1 衔接策略层:与下一镜的接缝策略(空=未规划,按硬切处理)+ 衔接锚点描述
+    seam_to_next: str = ""  # continue(末帧续写)|overlap(共享帧重叠)|matchcut(匹配切口)|hardcut(硬切)
+    seam_anchor: str = ""  # matchcut/overlap 时 LLM 填写的共享锚体(刀刃/圆环/瞳孔/色块…)
     # 流水线状态
     video_status: str = "pending"  # pending|generating|done|error
     video_url: str = ""

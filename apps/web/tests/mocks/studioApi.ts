@@ -198,10 +198,7 @@ const agentDefaultImpl = {
     runId: string,
     taskId: string,
     _body: AgentTaskActionBody,
-  ): Promise<{ ok: boolean; task: AgentRunTask }> => ({
-    ok: true,
-    task: makeAgentTask(taskId),
-  }),
+  ): Promise<AgentRunTask> => makeAgentTask(taskId),
   cancelAgentRun: async (_runId: string): Promise<{ ok: boolean }> => ({ ok: true }),
   getAgentRunResult: async (runId: string): Promise<AgentRunResult> => ({
     final_url: "",
@@ -255,10 +252,15 @@ export const agentTaskAction = (
   runId: string,
   taskId: string,
   body: AgentTaskActionBody,
-): Promise<{ ok: boolean; task: AgentRunTask }> => {
+): Promise<AgentRunTask> => {
   agentCalls.agentTaskAction++;
   return agentImpl.agentTaskAction(runId, taskId, body);
 };
+export const uploadAgentTaskAsset = (
+  _runId: string,
+  taskId: string,
+  _file: File,
+): Promise<AgentRunTask> => Promise.resolve(makeAgentTask(taskId));
 export const cancelAgentRun = (runId: string): Promise<{ ok: boolean }> => {
   agentCalls.cancelAgentRun++;
   return agentImpl.cancelAgentRun(runId);
@@ -381,6 +383,15 @@ export const authHeaders = (): Record<string, string> => ({});
 /** 产物 URL 构造替身:直接透传(测试不断言完整 URL)。 */
 export const imageUrl = (path: string): string => path;
 
+/** 分镜 AI 扩写替身(ShotCard 链接期需要;交互不触发,返回空结构)。 */
+export const optimizeStudioShot = async (): Promise<{
+  scene: string;
+  camera: string;
+  prompt: string;
+  negative: string;
+  characters: string[];
+}> => ({ scene: "", camera: "", prompt: "", negative: "", characters: [] });
+
 // ===========================================================================
 // 作品库(libraryViews.test.ts:LibraryView 经 loader 映射到这里)
 // ===========================================================================
@@ -391,8 +402,27 @@ export const libImpl = {
   listJobs: async (): Promise<JobItem[]> => [],
 };
 export const listJobs = (): Promise<JobItem[]> => libImpl.listJobs();
-export const deleteJob = async (_jobId: string): Promise<void> => {};
+/** 服务端分页替身(2026-08-16 无限滚动;链接期需要,行为由源码断言覆盖)。 */
+export const JOBS_PAGE_LIMIT = 200;
+export const fetchJobsPage = async (_offset: number, _limit = JOBS_PAGE_LIMIT): Promise<JobItem[]> => [];
+export const deleteJob = async (_jobId: string): Promise<{ undo_token?: string }> => ({});
+export const undoDelete = async (_undoToken: string): Promise<void> => {};
 export const invalidateJobs = (): void => undefined;
+/** 视频超分替身(LibraryView 链接期需要;交互流由 videoUpscale.test.ts 专测)。 */
+export const upscaleVideo = async (): Promise<{
+  job_id: string;
+  prompt_id: string;
+  kind: string;
+  status: string;
+  target: string;
+}> => ({ job_id: "mock-job", prompt_id: "video-upscale-mock", kind: "video_upscale", status: "queued", target: "4k" });
+export const getVideoUpscaleStatus = async (): Promise<{
+  job_id: string;
+  prompt_id: string;
+  status: string;
+  results: string[];
+  progress: { stage: string; done: number; total: number; pct: number | null; detail: string } | null;
+}> => ({ job_id: "mock-job", prompt_id: "video-upscale-mock", status: "queued", results: [], progress: null });
 /** R18 请求头开关替身(r18.ts 链接期需要,运行期无副作用)。 */
 export const setNsfwIntent = (_on: boolean): void => undefined;
 

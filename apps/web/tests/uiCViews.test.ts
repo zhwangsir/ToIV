@@ -44,7 +44,7 @@ test("TaskCard 状态徽章渲染 agent-status is-* 类名", async () => {
     },
   ];
   const html = renderToStaticMarkup(
-    h(TaskCardList, { tasks, busy: {}, onAction: async () => {} }),
+    h(TaskCardList, { tasks, busy: {}, onAction: async () => {}, onUpload: async () => {} }),
   );
   assert.match(html, /agent-status/);
   assert.match(html, /is-accent/); // running → accent tone
@@ -68,11 +68,11 @@ test("TaskCard 干预按钮被 Ripple 包裹", async () => {
     },
   ];
   const html = renderToStaticMarkup(
-    h(TaskCardList, { tasks, busy: {}, onAction: async () => {} }),
+    h(TaskCardList, { tasks, busy: {}, onAction: async () => {}, onUpload: async () => {} }),
   );
-  // 改文案/重生成/通过三个按钮各被一个 Ripple 包裹
+  // 改文案/重生成/通过/替换上传/反推提示词 五个按钮各被一个 Ripple 包裹
   const rippleCount = (html.match(/ui-ripple/g) ?? []).length;
-  assert.ok(rippleCount >= 3, `期望 ≥3 个 ui-ripple,实际 ${rippleCount}`);
+  assert.ok(rippleCount >= 5, `期望 ≥5 个 ui-ripple,实际 ${rippleCount}`);
 });
 
 /* ── ③ DramaView LoadingBlock 存在 ── */
@@ -134,6 +134,7 @@ test("ShotCard 操作按钮被 Ripple 包裹", async () => {
   const html = renderToStaticMarkup(
     h(ShotCard, {
       shot,
+      projectId: "p1",
       characters: [],
       busyRender: false,
       busyVoice: false,
@@ -178,6 +179,7 @@ test("ShotCard 渲染中媒体区带 is-rendering 脉冲类", async () => {
   const html = renderToStaticMarkup(
     h(ShotCard, {
       shot,
+      projectId: "p1",
       characters: [],
       busyRender: true,
       busyVoice: false,
