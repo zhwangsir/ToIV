@@ -206,6 +206,95 @@ def test_wan_i2v_comfy_network_error_becomes_502(client, monkeypatch):
 
 
 # --------------------------------------------------------------------------- #
+# Wan 2.2 i2v NSFW LoRA(2026-08-16 Civitai 配方复刻;仅 R18 上下文生效)
+# --------------------------------------------------------------------------- #
+
+
+def _post_wan(c, uid: str, **extra):
+    return c.post(
+        "/api/generate/video",
+        headers={"Authorization": f"Bearer {create_token(uid)}", **extra.pop("headers", {})},
+        json={"positive": "a", "image": "in.png", "worker": "http://fake-worker", **extra},
+    )
+
+
+def test_wan_i2v_loras_stripped_in_sfw_context(client, monkeypatch):
+    """SFW 请求带 loras 一律静默剔除(不加 LoRA 节点),Job 不打 R18 标。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "wan-sfw-lora")
+    fake = _FakeClient()
+    monkeypatch.setattr(video_route, "resolve_worker", lambda worker: fake)
+    _install_tracker_noop(monkeypatch)
+    r = _post_wan(c, uid, loras=[{"name": "NSFW-22-H-e8.safetensors"}])
+    assert r.status_code == 200
+    names = [n["inputs"]["lora_name"] for n in fake.graphs[0].values()
+             if n["class_type"] == "LoraLoaderModelOnly"]
+    assert "NSFW-22-H-e8.safetensors" not in names  # 被剔除,仅剩默认加速 LoRA ×2
+    assert len(names) == 2
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        assert job is not None and job.nsfw is False
+
+
+def test_wan_i2v_loras_unknown_name_422_in_r18(client, monkeypatch):
+    """R18 上下文:注册表外的 LoRA 名 → 422(防任意文件路径注入)。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "wan-bad-lora")
+    fake = _FakeClient()
+    monkeypatch.setattr(video_route, "resolve_worker", lambda worker: fake)
+    _install_tracker_noop(monkeypatch)
+    r = _post_wan(c, uid, headers=_NSFW,
+                  loras=[{"name": "../../etc/passwd.safetensors"}])
+    assert r.status_code == 422
+    assert "未知 Wan NSFW LoRA" in r.json()["detail"]
+    assert fake.graphs == []  # 未提交上游
+
+
+def test_wan_i2v_loras_mounted_by_side_and_job_marked(client, monkeypatch):
+    """R18 上下文:注册表 LoRA 按侧挂载(high/low 链分离,默认/显式强度),Job 打 R18 标。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "wan-r18-lora")
+    fake = _FakeClient()
+    monkeypatch.setattr(video_route, "resolve_worker", lambda worker: fake)
+    _install_tracker_noop(monkeypatch)
+    r = _post_wan(c, uid, headers=_NSFW, loras=[
+        {"name": "NSFW-22-H-e8.safetensors"},                            # high,注册表默认 0.8
+        {"name": "DR34ML4Y_I2V_14B_LOW_V2.safetensors", "strength": 0.7},  # low,显式 0.7
+    ])
+    assert r.status_code == 200
+    g = fake.graphs[0]
+    # 高噪链:1 → 3(加速) → 20(NSFW-22,0.8) → 15;低噪链:2 → 4 → 21(DR34ML4Y,0.7) → 16
+    assert g["20"]["inputs"] == {"model": ["3", 0], "lora_name": "NSFW-22-H-e8.safetensors", "strength_model": 0.8}
+    assert g["21"]["inputs"] == {"model": ["4", 0], "lora_name": "DR34ML4Y_I2V_14B_LOW_V2.safetensors", "strength_model": 0.7}
+    assert g["15"]["inputs"]["model"] == ["20", 0]
+    assert g["16"]["inputs"]["model"] == ["21", 0]
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        assert job is not None and job.nsfw is True  # R18 上下文产物打标进专区作品库
+
+
+def test_wan_i2v_full_quality_drops_accel_lora(client, monkeypatch):
+    """满血档:不挂加速 LoRA(无 3/4 节点),20 步,cfg 3.5/3.0。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "wan-fullq")
+    fake = _FakeClient()
+    monkeypatch.setattr(video_route, "resolve_worker", lambda worker: fake)
+    _install_tracker_noop(monkeypatch)
+    r = _post_wan(c, uid, headers=_NSFW, full_quality=True)
+    assert r.status_code == 200
+    g = fake.graphs[0]
+    assert "3" not in g and "4" not in g  # 加速 LoRA 节点消失
+    assert g["15"]["inputs"]["model"] == ["1", 0]  # shift 直连 UNET
+    assert g["11"]["inputs"]["steps"] == 20
+    assert g["11"]["inputs"]["cfg"] == 3.5
+    assert g["12"]["inputs"]["cfg"] == 3.0
+
+
+# --------------------------------------------------------------------------- #
 # POST /api/generate/ltx-t2v(pool 选 worker)
 # --------------------------------------------------------------------------- #
 

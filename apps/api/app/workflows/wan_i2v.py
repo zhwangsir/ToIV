@@ -37,6 +37,80 @@ def _random_seed() -> int:
     return secrets.randbelow(MAX_SEED)
 
 
+# ── NSFW LoRA 注册表(2026-08-16 Civitai 爆款配方逆向,见 docs/2026-08-16-wan22-i2v-nsfw-recipe.md)──
+# 2026-08-17 升级为元数据卡(参考 DashBox 提示词 RFC「触发词是确定性知识,不交给 LLM 自由发挥」):
+# 触发词来自 Civitai 作者官方 trainedWords,由 /api/optimize 与提交链确定性注入,
+# 高强度 LoRA(概念/物理)宁低勿高:过强会畸变,社区甜点位 0.6-0.8。
+@dataclass(frozen=True)
+class WanNsfwLoraMeta:
+    """Wan2.2 NSFW LoRA 元数据卡。trigger_mode: all=触发词全置前 / pick_one=按场景选一个。
+    role: concept(通用概念)/physics(物理)/pose(体位)/cumshot(射精)/accel(加速)/aesthetics(质感)。"""
+
+    side: str  # "high"(构图/动作轨迹)| "low"(细节/质感)——双专家架构挂错侧=无效/崩坏
+    default_strength: float
+    trigger_words: tuple[str, ...] = ()
+    trigger_mode: str = "all"
+    role: str = ""
+
+
+WAN_I2V_NSFW_LORAS: dict[str, WanNsfwLoraMeta] = {
+    # HIGH 侧(构图/动作轨迹)
+    "NSFW-22-H-e8.safetensors": WanNsfwLoraMeta(
+        "high", 0.8, ("nsfwsks",), "all", "concept"),  # WAN General NSFW:通用概念解锁
+    "wan22-m4crom4sti4-i2v-20epoc-high-k3nk.safetensors": WanNsfwLoraMeta(
+        "high", 0.7, ("m4crom4sti4",), "all", "physics"),  # 胸部物理
+    "WAN-2.2-I2V-POV-Body-Cumshot-Pullout-HIGH-v1.safetensors": WanNsfwLoraMeta(
+        "high", 0.7, ("b0dyshot", "pull0ut", "sp0ntaneous", "s3lf", "p4rtner"), "pick_one", "cumshot"),
+    # lightx2v v1030 加速 LoRA(kenpechi 同款新版);选中时替代默认 v1 加速 LoRA,不叠加;无触发词
+    "Wan_2_2_I2V_A14B_HIGH_lightx2v_4step_lora_v1030_rank_64_bf16.safetensors": WanNsfwLoraMeta(
+        "high", 0.8, (), "all", "accel"),
+    # LOW 侧(细节/质感)
+    "DR34ML4Y_I2V_14B_LOW_V2.safetensors": WanNsfwLoraMeta(
+        "low", 0.8, ("m15510n4ry", "bl0wj0b", "d0gg1e", "c0wg1rl", "d0ubl3_bj"), "pick_one", "pose"),
+    "56Low-noise-Cumshot-Aesthetics.safetensors": WanNsfwLoraMeta(
+        "low", 0.6, (), "all", "aesthetics"),  # 动漫体液美学(beta,配合 HIGH 词,强度宁低)
+}
+
+
+def pick_trigger_words(lora_names: list[str], scene_text: str = "") -> list[str]:
+    """确定性触发词选择(DashBox L0 思想):注册表内 LoRA 的触发词按场景文本关键词命中。
+
+    - trigger_mode=all:全部必选,原样返回
+    - trigger_mode=pick_one:按 scene_text 关键词命中映射,无命中取第一个
+    未注册的名字静默跳过(调用方负责 422/剔除);返回保序去重。
+    """
+    # pick_one 场景关键词映射(英文小写子串 → 触发词索引)
+    _SCENE_HINTS: dict[str, dict[str, int]] = {
+        "DR34ML4Y_I2V_14B_LOW_V2.safetensors": {
+            "missionary": 0, "blowjob": 1, "fellatio": 1, "deepthroat": 1, "facefuck": 1,
+            "doggy": 2, "cowgirl": 3, "double": 4, "threesome": 4,
+        },
+        "WAN-2.2-I2V-POV-Body-Cumshot-Pullout-HIGH-v1.safetensors": {
+            "pull out": 1, "pullout": 1, "spontaneous": 2, "self": 3, "partner": 4,
+        },
+    }
+    out: list[str] = []
+    low = scene_text.lower()
+    for name in lora_names:
+        meta = WAN_I2V_NSFW_LORAS.get(name)
+        if meta is None or not meta.trigger_words:
+            continue
+        if meta.trigger_mode == "all":
+            picks: list[str] = list(meta.trigger_words)
+        else:
+            idx = 0
+            hints = _SCENE_HINTS.get(name, {})
+            for kw, i in hints.items():
+                if kw in low:
+                    idx = i
+                    break
+            picks = [meta.trigger_words[min(idx, len(meta.trigger_words) - 1)]]
+        for w in picks:
+            if w not in out:
+                out.append(w)
+    return out
+
+
 @dataclass(frozen=True)
 class WanI2VParams:
     positive: str
@@ -46,6 +120,10 @@ class WanI2VParams:
     low_unet: str = "wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors"
     high_lora: str = "wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors"
     low_lora: str = "wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors"
+    # NSFW LoRA 叠加链(2026-08-16):[(文件名, 强度)],由路由层按 WAN_I2V_NSFW_LORAS 分侧;
+    # 串联在加速 LoRA 之后、ModelSamplingSD3 之前(加速贴底模,概念/动作后挂)
+    high_loras: tuple[tuple[str, float], ...] = ()
+    low_loras: tuple[tuple[str, float], ...] = ()
     clip_name: str = "umt5_xxl_fp8_e4m3fn_scaled.safetensors"
     vae_name: str = "wan_2.1_vae.safetensors"
     # 训练甜点档:480p 档为 832×480,81 帧(4n+1)≈5s@16fps
@@ -93,13 +171,31 @@ def build_wan_i2v_graph(p: WanI2VParams) -> dict:
         },
     }
 
-    # 模型链:UNET →(可选 lightx2v 加速 LoRA)→ ModelSamplingSD3(shift)
+    # 模型链:UNET →(可选 lightx2v 加速 LoRA)→(NSFW LoRA 叠加链)→ ModelSamplingSD3(shift)
+    # v1030 加速 LoRA(高噪链选中时)替代默认 v1,不叠加避免双重加速;满血档(不挂加速)忽略 v1030
+    high_extras = list(p.high_loras)
+    v1030 = "Wan_2_2_I2V_A14B_HIGH_lightx2v_4step_lora_v1030_rank_64_bf16.safetensors"
+    use_v1030 = p.use_accel_lora and any(n == v1030 for n, _ in high_extras)
+    high_extras = [(n, s) for n, s in high_extras if n != v1030]
+
     high_src: list = ["1", 0]
     low_src: list = ["2", 0]
+    node_id = 20  # 动态 LoRA 链节点起始 id(避开静态 1-16)
     if p.use_accel_lora:
-        g["3"] = {"class_type": "LoraLoaderModelOnly", "inputs": {"model": ["1", 0], "lora_name": p.high_lora, "strength_model": p.high_lora_strength}}
-        g["4"] = {"class_type": "LoraLoaderModelOnly", "inputs": {"model": ["2", 0], "lora_name": p.low_lora, "strength_model": p.low_lora_strength}}
+        # 加速档:v1030 选中则替代默认 v1 加速 LoRA(贴底模位)
+        g["3"] = {"class_type": "LoraLoaderModelOnly", "inputs": {"model": high_src, "lora_name": v1030 if use_v1030 else p.high_lora, "strength_model": p.high_lora_strength}}
+        g["4"] = {"class_type": "LoraLoaderModelOnly", "inputs": {"model": low_src, "lora_name": p.low_lora, "strength_model": p.low_lora_strength}}
         high_src, low_src = ["3", 0], ["4", 0]
+
+    for name, strength in high_extras:
+        nid = str(node_id); node_id += 1
+        g[nid] = {"class_type": "LoraLoaderModelOnly", "inputs": {"model": high_src, "lora_name": name, "strength_model": strength}}
+        high_src = [nid, 0]
+    for name, strength in p.low_loras:
+        nid = str(node_id); node_id += 1
+        g[nid] = {"class_type": "LoraLoaderModelOnly", "inputs": {"model": low_src, "lora_name": name, "strength_model": strength}}
+        low_src = [nid, 0]
+
     g["15"] = {"class_type": "ModelSamplingSD3", "inputs": {"model": high_src, "shift": p.shift}}
     g["16"] = {"class_type": "ModelSamplingSD3", "inputs": {"model": low_src, "shift": p.shift}}
 

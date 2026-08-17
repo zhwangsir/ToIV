@@ -13,15 +13,21 @@ NSFW 视频仍走 LTX-2.3 + 10Eros(/api/generate/ltx-*),本板块只接 SFW。
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session
 
+from app.db import engine as db_engine
 from app.db import get_session
 from app.deps import get_current_user, resolve_worker
 from app.models import User
 from app.ratelimit import enforce_generation_rate_limit
+from app.workflows.model_profiles import AR_VIDEO, aspect_guard
 from app.services import ltx25 as ltx25_service
+from app.services import video_generators as vgen
+from app.services.duration import DurationLimitError, DurationPlan, resolve_duration
 from app.workflows.ltx25_video import (
     Ltx25I2VParams,
     Ltx25T2VParams,
@@ -50,12 +56,19 @@ def _snap_8k1(v: int) -> int:
 
 
 class Ltx25T2VRequest(BaseModel):
-    """LTX-2.5 文生视频请求(蒸馏单阶段,音画同出)。"""
+    """LTX-2.5 文生视频请求(蒸馏单阶段,音画同出)。
+
+    时长:优先 duration_sec(秒,任意值;超单段上限自动分段续写并精确裁切);
+    length(帧数)为 deprecated 兼容入参,与 duration_sec 同给时忽略。
+    宽高比静默收敛到 9:16~16:9(训练分布;极端比例出主体被裁/文字溢出)。
+    """
     positive: str = Field(min_length=1, max_length=4000)
     negative: str = Field(default="", max_length=2000)
     width: int = Field(default=960, ge=256, le=1920)
     height: int = Field(default=544, ge=256, le=1088)
-    length: int = Field(default=121, ge=9, le=601)
+    duration_sec: float | None = Field(default=None, gt=0, le=600)
+    # deprecated:兼容入参,请改用 duration_sec;同给时忽略
+    length: int | None = Field(default=None, ge=9, le=601)
     fps: int = Field(default=24, ge=8, le=60)
     steps: int = Field(default=8, ge=1, le=50)
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
@@ -65,10 +78,62 @@ class Ltx25T2VRequest(BaseModel):
     def _align32(cls, v: int) -> int:
         return _snap32(v)
 
+    # 宽高比守卫:9:16~16:9(超出自动纠正,如 1920×256 → 1920×1088)
+    _ratio = aspect_guard(*AR_VIDEO, align=32, min_v=256, max_v=1920)
+
     @field_validator("length")
     @classmethod
-    def _grid8k1(cls, v: int) -> int:
-        return _snap_8k1(v)
+    def _grid8k1(cls, v: int | None) -> int | None:
+        return _snap_8k1(v) if v is not None else None
+
+
+# 旧默认时长:5s@24fps → 8k+1 网格 121 帧(与历史默认一致)
+_DEFAULT_SECONDS = 5.0
+
+
+def _resolve_plan(req: Ltx25T2VRequest) -> DurationPlan:
+    """秒数 → 时长计划(统一策略层);legacy length 换算为等价 direct 计划(行为不变)。"""
+    if req.duration_sec is None and req.length is not None:
+        return DurationPlan(
+            engine="ltx25", seconds=req.length / req.fps, fps=req.fps, frames=req.length,
+            segment_frames=(req.length,),
+        )
+    try:
+        return resolve_duration(
+            "ltx25", req.duration_sec if req.duration_sec is not None else _DEFAULT_SECONDS, req.fps
+        )
+    except DurationLimitError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
+
+def _route_extend_submit(
+    *, client, req: Ltx25T2VRequest, user: User, seed0: int,
+):
+    """extend 续段提交(路由链路:末帧 i2v,strength=1.0 硬锁末帧;段作业登记 kind=ltx25_extend_i2v)。"""
+    async def _submit(frame_bytes: bytes, frames: int, idx: int) -> str:
+        image_name = await client.upload_image(frame_bytes, f"ltx25_ext_{uuid.uuid4().hex}.jpg")
+        p = Ltx25I2VParams(
+            positive=req.positive,
+            negative=req.negative,
+            image=image_name,
+            width=req.width,
+            height=req.height,
+            length=frames,
+            fps=req.fps,
+            steps=req.steps,
+            strength=1.0,
+            seed=seed0 + idx,
+            filename_prefix="ToIV_ltx25_extend",
+        )
+        graph = build_ltx25_i2v_graph(p)
+        with Session(db_engine) as s2:
+            res = await ltx25_service.submit_ltx25_job(
+                graph, kind="ltx25_extend_i2v", positive=p.positive, seed=p.seed,
+                req=req, user=user, session=s2, client=client,
+            )
+        return res["prompt_id"]
+
+    return _submit
 
 
 class Ltx25I2VRequest(Ltx25T2VRequest):
@@ -89,21 +154,35 @@ async def generate_ltx25_t2v(
 ):
     """LTX-2.5 文生视频:提示词 → 音画同出 mp4(蒸馏 8 步,GPU0 专用实例)。"""
     enforce_generation_rate_limit(user)
+    plan = _resolve_plan(req)
     params = Ltx25T2VParams(
         positive=req.positive,
         negative=req.negative,
         width=req.width,
         height=req.height,
-        length=req.length,
+        length=plan.frames,
         fps=req.fps,
         steps=req.steps,
         **({"seed": req.seed} if req.seed is not None else {}),
     )
     graph = build_ltx25_t2v_graph(params)
-    return await ltx25_service.submit_ltx25_job(
+    result = await ltx25_service.submit_ltx25_job(
         graph, kind="ltx25_t2v", positive=params.positive, seed=params.seed,
         req=req, user=user, session=session,
     )
+    if plan.strategy != "direct":
+        client = ltx25_service.get_ltx25_client()
+        vgen.spawn_duration_chain(
+            client=client,
+            plan=plan,
+            first_prompt_id=result["prompt_id"],
+            submit_next=_route_extend_submit(
+                client=client, req=req, user=user, seed0=params.seed,
+            ),
+        )
+    if plan.notice:
+        result["duration_notice"] = plan.notice
+    return result
 
 
 @router.post("/ltx25/i2v")
@@ -117,6 +196,7 @@ async def generate_ltx25_i2v(
     参考图从上传落点 worker 转运到 :8198 实例(与 longcat/wan 同一转运模式)。
     """
     enforce_generation_rate_limit(user)
+    plan = _resolve_plan(req)
     client = ltx25_service.get_ltx25_client()
     source = resolve_worker(req.worker)
     image_name = await ltx25_service.transfer_ref_image(client, source, req.image)
@@ -126,14 +206,26 @@ async def generate_ltx25_i2v(
         image=image_name,
         width=req.width,
         height=req.height,
-        length=req.length,
+        length=plan.frames,
         fps=req.fps,
         steps=req.steps,
         strength=req.strength,
         **({"seed": req.seed} if req.seed is not None else {}),
     )
     graph = build_ltx25_i2v_graph(params)
-    return await ltx25_service.submit_ltx25_job(
+    result = await ltx25_service.submit_ltx25_job(
         graph, kind="ltx25_i2v", positive=params.positive, seed=params.seed,
         req=req, user=user, session=session, client=client,
     )
+    if plan.strategy != "direct":
+        vgen.spawn_duration_chain(
+            client=client,
+            plan=plan,
+            first_prompt_id=result["prompt_id"],
+            submit_next=_route_extend_submit(
+                client=client, req=req, user=user, seed0=params.seed,
+            ),
+        )
+    if plan.notice:
+        result["duration_notice"] = plan.notice
+    return result

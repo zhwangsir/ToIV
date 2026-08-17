@@ -8,10 +8,12 @@ import { Icon } from "@/components/ui/Icon";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { Modal } from "@/components/ui/Modal";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Tabs } from "@/components/ui/Tabs";
 import { AgentsAdminView } from "@/components/admin/AgentsAdminView";
+import { AuditLogView } from "@/components/admin/AuditLogView";
 
-type AdminSubView = "users" | "agents";
+type AdminSubView = "users" | "agents" | "audit";
 
 /** 相对时间格式化:刚刚 / N 分钟前 / N 小时前 / N 天前 / 日期。 */
 function formatTime(iso: string): string {
@@ -160,6 +162,7 @@ export function AdminView() {
           items={[
             { key: "users", label: "用户管理", icon: <Icon name="admin" size={14} /> },
             { key: "agents", label: "智能体管理", icon: <Icon name="sparkles" size={14} /> },
+            { key: "audit", label: "操作日志", icon: <Icon name="history" size={14} /> },
           ]}
           current={subView}
           onChange={(k) => setSubView(k as AdminSubView)}
@@ -169,44 +172,45 @@ export function AdminView() {
 
       {subView === "agents" && <AgentsAdminView />}
 
+      {subView === "audit" && <AuditLogView />}
+
       {subView === "users" && (
         <>
-      <header className="page-header">
-        <div>
-          <h1 className="page-header-title">用户管理</h1>
-          <p className="page-header-desc">
-            账户与权限 · 创建、查看与删除平台用户
-          </p>
-        </div>
-        <div className="page-header-actions">
-          <span className="admin-count">
-            {loading
-              ? "加载中…"
-              : error
-                ? "加载失败"
-                : `${users?.length ?? 0} 个用户`}
-          </span>
-          <button
-            type="button"
-            className="btn btn-primary admin-create-btn"
-            onClick={openCreate}
-          >
-            <Icon name="plus" size={14} />
-            新建用户
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        title="用户管理"
+        desc="账户与权限 · 创建、查看与删除平台用户"
+        kicker="ADMIN"
+        actions={
+          <>
+            <span className="admin-count">
+              {loading
+                ? "加载中…"
+                : error
+                  ? "加载失败"
+                  : `${users?.length ?? 0} 个用户`}
+            </span>
+            <button
+              type="button"
+              className="at-btn at-btn--primary admin-create-btn"
+              onClick={openCreate}
+            >
+              <Icon name="plus" size={14} />
+              新建用户
+            </button>
+          </>
+        }
+      />
 
       {!error && (
         <div className="admin-stats">
-          <div className="admin-stat">
+          <div className="admin-stat at-card at-card--lift">
             <span className="admin-stat-label">总用户</span>
             <span className="admin-stat-value">
               {loading ? "—" : (users?.length ?? 0)}
             </span>
             <span className="admin-stat-hint">全部注册账户</span>
           </div>
-          <div className="admin-stat">
+          <div className="admin-stat at-card at-card--lift">
             <span className="admin-stat-label">管理员</span>
             <span className="admin-stat-value">
               {loading
@@ -215,7 +219,7 @@ export function AdminView() {
             </span>
             <span className="admin-stat-hint">拥有管理权限</span>
           </div>
-          <div className="admin-stat">
+          <div className="admin-stat at-card at-card--lift">
             <span className="admin-stat-label">近 7 天新增</span>
             <span className="admin-stat-value">
               {loading
@@ -228,7 +232,7 @@ export function AdminView() {
             </span>
             <span className="admin-stat-hint">新注册账户</span>
           </div>
-          <div className="admin-stat">
+          <div className="admin-stat at-card at-card--lift">
             <span className="admin-stat-label">累计调用</span>
             <span className="admin-stat-value">
               {loading
@@ -243,11 +247,11 @@ export function AdminView() {
         </div>
       )}
 
-      <div className="card admin-card">
+      <div className="at-card admin-card">
         {error && !loading && (
           <div className="admin-error-row">
             <ErrorBar message={error} onClose={() => setError(null)} />
-            <button type="button" className="btn btn-sm" onClick={load}>
+            <button type="button" className="at-btn at-btn--ghost" onClick={load}>
               <Icon name="refresh" size={14} />
               重试
             </button>
@@ -388,7 +392,7 @@ export function AdminView() {
           <div className="admin-form-actions">
             <button
               type="button"
-              className="btn"
+              className="at-btn at-btn--ghost"
               disabled={creating}
               onClick={() => setModalOpen(false)}
             >
@@ -396,7 +400,7 @@ export function AdminView() {
             </button>
             <button
               type="submit"
-              className="btn btn-primary"
+              className="at-btn at-btn--primary"
               disabled={creating}
             >
               <Icon name={creating ? "loading" : "send"} size={14} />
@@ -418,7 +422,7 @@ export function AdminView() {
           <>
             <button
               type="button"
-              className="btn"
+              className="at-btn at-btn--ghost"
               disabled={deletingId !== null}
               onClick={() => setConfirmDelete(null)}
             >
@@ -483,7 +487,7 @@ export function AdminView() {
           white-space: nowrap;
         }
 
-        /* ── 统计卡片区(栅格化) ── */
+        /* ── 统计卡片区(栅格化);卡壳由 .at-card 供给,此处只保留布局 ── */
         .admin-stats {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -494,22 +498,6 @@ export function AdminView() {
           flex-direction: column;
           gap: var(--space-2);
           padding: var(--space-5);
-          background: var(--bg-surface-1);
-          border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-panel);
-          transition: transform var(--duration-fast) var(--ease-standard),
-            box-shadow var(--duration-fast) var(--ease-standard),
-            border-color var(--duration-fast) var(--ease-standard);
-        }
-        .admin-stat:hover {
-          transform: translateY(-2px);
-          box-shadow: var(--shadow-lift);
-          border-color: var(--border-strong);
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .admin-stat:hover {
-            transform: none;
-          }
         }
         .admin-stat-label {
           font-size: var(--text-label);

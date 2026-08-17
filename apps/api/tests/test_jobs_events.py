@@ -168,6 +168,10 @@ def test_events_other_tenant_403(client):
 
 def test_events_done_race_pushes_done_immediately(client, monkeypatch):
     c, engine = client
+    # _emit_done 用 Session(engine) 直连全局引擎做新鲜读(裁切链并发更新 post_status,
+    # 需绕过请求会话身份映射缓存)——测试须把模块级 engine 替身到内存库,
+    # 否则打到本地 dev 库(可能无 post_status 列)
+    monkeypatch.setattr(jobs_route, "engine", engine)
     with Session(engine) as s:
         uid, tid = _seed_user(s, "evt-done")
         _seed_job(s, tenant_id=tid, user_id=uid, prompt_id="p-done")

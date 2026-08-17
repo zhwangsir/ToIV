@@ -22,6 +22,7 @@ import {
   getAgentRunResult,
   resumeAgentRun,
   updateAgentRunPlan,
+  uploadAgentTaskAsset,
   type AgentPlanEditOp,
   type AgentResumeBody,
   type AgentRunDetail,
@@ -258,12 +259,27 @@ export function useAgentRun(runId: string | null, opts: UseAgentRunOptions = {})
     const onEvent = (type: string, data: Record<string, unknown>): void => {
       switch (type) {
         case "ack":
-          pushEvent("ack", str(data.ack) || "已接单,Leader 拆解中", "start");
+          pushEvent(
+            "ack",
+            str(data.ack) || str(data.message) || "已接单,Leader 拆解中",
+            "start",
+          );
           break;
         case "plan": {
           const tasks = extractPlanTasks(data);
           if (tasks) {
-            setDetail((d) => (d ? { ...d, plan: tasks } : d));
+            // plan 事件是简报(仅 id/kind/title/depends_on/status,无 input 等详情
+            // 字段):按事件为准更新成员与顺序,按 id 并回已有详情字段——否则会把
+            // PlanPanel 的文案/卡片产物清空(创建秒回后首个 plan 事件尤为关键)
+            setDetail((d) => {
+              if (!d) return d;
+              const byId = new Map(d.plan.map((t) => [t.id, t]));
+              const merged = tasks.map((b) => {
+                const cur = byId.get(b.id);
+                return cur ? { ...cur, ...b } : b;
+              });
+              return { ...d, plan: merged };
+            });
           }
           pushEvent("plan", `计划已生成,共 ${tasks?.length ?? "?"} 步`, "info");
           break;
@@ -299,6 +315,8 @@ export function useAgentRun(runId: string | null, opts: UseAgentRunOptions = {})
           } else {
             setDetail((d) => (d ? { ...d, status: "awaiting_confirm" } : d));
             pushEvent("confirm_required", "计划确认门已打开,等你确认", "decision");
+            // 拉全量详情(plan 简报缺 input,确认门展示/编辑需要完整卡片)
+            void refresh();
           }
           break;
         }
@@ -376,10 +394,10 @@ export function useAgentRun(runId: string | null, opts: UseAgentRunOptions = {})
 
   // ── 操作统一入口:失败透出规范中文错误条(原始 error 留 console)并重抛(与 useStudioProject 同范式)──
   const withBusy = useCallback(
-    async (key: string, label: string, fn: () => Promise<void>): Promise<void> => {
+    async <T,>(key: string, label: string, fn: () => Promise<T>): Promise<T> => {
       setBusy((b) => ({ ...b, [key]: true }));
       try {
-        await fn();
+        return await fn();
       } catch (e) {
         console.error(`[agent-run] ${label}失败:`, e);
         setError(`${label}失败,请稍后重试`);
@@ -414,18 +432,36 @@ export function useAgentRun(runId: string | null, opts: UseAgentRunOptions = {})
     [runId, withBusy, refresh],
   );
 
-  /** 卡片级干预:edit/regenerate/approve;成功后用返回的 task 局部更新(attempt 随之 +1)。 */
+  /** 卡片级干预:edit/regenerate/approve/upload/reprompt;成功后用返回的 task 局部更新
+   *  (后端直返任务详情,顶层即卡片字段;attempt 随之 +1)。返回更新后的 task 供调用方
+   *  即时读取(reprompt 后取新 prompt 回填编辑区)。 */
   const taskAction = useCallback(
     (tid: string, action: AgentTaskActionBody["action"], payload?: Record<string, unknown>) =>
       withBusy(`task:${tid}:${action}`, "任务操作", async () => {
-        if (!runId) return;
+        if (!runId) return undefined;
         const res = await agentTaskAction(runId, tid, {
           action,
           ...(payload ? { payload } : {}),
         });
-        if (res?.task) {
+        if (res?.id) {
           setDetail((d) =>
-            d ? { ...d, plan: d.plan.map((t) => (t.id === tid ? res.task : t)) } : d,
+            d ? { ...d, plan: d.plan.map((t) => (t.id === tid ? res : t)) } : d,
+          );
+        }
+        return res;
+      }),
+    [runId, withBusy],
+  );
+
+  /** 卡片产物直传替换(multipart);成功后用返回的 task 局部更新。 */
+  const uploadTaskAsset = useCallback(
+    (tid: string, file: File) =>
+      withBusy(`task:${tid}:upload`, "替换上传", async () => {
+        if (!runId) return;
+        const res = await uploadAgentTaskAsset(runId, tid, file);
+        if (res?.id) {
+          setDetail((d) =>
+            d ? { ...d, plan: d.plan.map((t) => (t.id === tid ? res : t)) } : d,
           );
         }
       }),
@@ -480,6 +516,7 @@ export function useAgentRun(runId: string | null, opts: UseAgentRunOptions = {})
     savePlan,
     resume,
     taskAction,
+    uploadTaskAsset,
     cancel,
     dismissAssemblyGate,
   };

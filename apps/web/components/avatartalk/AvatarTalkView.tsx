@@ -8,8 +8,8 @@ import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Field, Input, Textarea } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Switch } from "@/components/ui/Switch";
-import { Tabs } from "@/components/ui/Tabs";
 import { useToast } from "@/components/ui/Toast";
+import { useAutoResize } from "@/hooks/useAutoResize";
 import { getToken } from "@/lib/api";
 import { genId } from "@/lib/id";
 import { AvatarGenPanel } from "./AvatarGenPanel";
@@ -92,6 +92,28 @@ function sessionToConnection(s: SessionState): ConnectionStatus {
     default:
       return "idle";
   }
+}
+
+/** 头像预览图(2026-08-17):加载失败显示占位卡(名称首字),不再 opacity 隐身留空卡。 */
+function AvatarPreview({ src, name }: { src: string; name: string }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <div className="at-avatar-preview">
+      {failed ? (
+        <div className="at-avatar-fallback" aria-label="预览不可用">
+          {name.charAt(0).toUpperCase()}
+        </div>
+      ) : (
+        <img
+          src={src}
+          alt={name}
+          loading="lazy"
+          decoding="async"
+          onError={() => setFailed(true)}
+        />
+      )}
+    </div>
+  );
 }
 
 /** 构建 avatar 预览图 URL(同源代理 + ?token= 鉴权,img 标签可用)。 */
@@ -487,28 +509,56 @@ export function AvatarTalkView({ onNavigate }: { onNavigate?: (target: string) =
   const engineOffline = !!engineStatus && engineStatus.enabled && !engineStatus.reachable;
 
   // 模式段控:实时对话(WebRTC) | 视频生成(LongCat-Avatar 工作台)
+  // Atelier 墨丸段控(共享 .at-seg/.at-seg-btn,替代旧 ui-tabs 灰框语言)
   const modeTabs = (
-    <Tabs
-      ariaLabel="数字人模式"
-      items={[
-        { key: "live", label: "实时对话" },
-        { key: "gen", label: "视频生成" },
-      ]}
-      current={mode}
-      onChange={(k) => setMode(k as "live" | "gen")}
-    />
+    <div className="at-seg at-mode-seg" role="tablist" aria-label="数字人模式">
+      {(
+        [
+          { key: "live", label: "实时对话" },
+          { key: "gen", label: "视频生成" },
+        ] as const
+      ).map((t) => (
+        <button
+          key={t.key}
+          type="button"
+          role="tab"
+          aria-selected={mode === t.key}
+          className={`at-seg-btn${mode === t.key ? " is-active" : ""}`}
+          onClick={() => setMode(t.key)}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
   );
 
-  // 统一页头(UI-A PageHeader,全局 .page-header 体系):大标题 + 辅助描述 + 右侧模式切换
+  // 统一页头(UI-A PageHeader,全局 .page-header 体系):kicker 铭牌 + 大标题 + 辅助描述 + 右侧模式切换
+  // 连接状态 pill(2026-08-16 批 2):自舞台右上浮层移入页头操作区(小字 badge),
+  // 不再悬浮压画面;仅实时对话模式展示
   const pageHeader = (
     <PageHeader
+      kicker="DIGITAL HUMAN"
       title="数字人"
       desc={
         mode === "live"
           ? "选择形象与模型,与数字人实时对话"
           : "上传人像与音频,生成对口型的数字人说话视频"
       }
-      actions={modeTabs}
+      actions={
+        <>
+          {mode === "live" && (
+            <Badge
+              tone={pillMeta.tone}
+              dotPulse={pillMeta.pulse}
+              title={pillMeta.label}
+              className="at-conn-badge"
+            >
+              {pillMeta.label}
+            </Badge>
+          )}
+          {modeTabs}
+        </>
+      }
     />
   );
 
@@ -559,18 +609,23 @@ export function AvatarTalkView({ onNavigate }: { onNavigate?: (target: string) =
                     </>
                   )}
             </p>
+            {/* 引导按钮(2026-08-16 批 2 空态三步式:大号图标 → 标题 → CTA;
+                禁用条件与右栏「开始对话」一致;引擎离线时不给假入口) */}
+            {!engineOffline && (
+              <button
+                type="button"
+                className="at-btn at-btn--primary at-placeholder-cta"
+                disabled={
+                  isConnecting || loadingModels || loadingAvatars || !selectedAvatar || !selectedModel
+                }
+                onClick={() => void startSession()}
+              >
+                <Icon name={isConnecting ? "loading" : "playing"} size={14} />
+                {isConnecting ? "连接中…" : "开始对话"}
+              </button>
+            )}
           </div>
         )}
-
-        {/* 连接状态 pill(右上,Badge 承载):会话进行中按会话状态,否则按引擎探活 */}
-        <Badge
-          tone={pillMeta.tone}
-          dotPulse={pillMeta.pulse}
-          title={pillMeta.label}
-          className="at-status-badge"
-        >
-          {pillMeta.label}
-        </Badge>
 
         {/* 说话指示器(左上) */}
         {hasSession && isSpeaking && (
@@ -708,6 +763,9 @@ function SetupPanel({
 }: SetupPanelProps) {
   // 不可用(未配置)模型默认折叠,避免「没配全」的误导观感
   const [showUnavailableModels, setShowUnavailableModels] = useState(false);
+  // 系统提示词自动增高(长人格设定不再 rows=3 截断)
+  const systemPromptRef = useRef<HTMLTextAreaElement | null>(null);
+  useAutoResize(systemPromptRef, systemPrompt);
   return (
     <div className="at-setup">
       {/* Avatar 卡片网格 */}
@@ -732,17 +790,7 @@ function SetupPanel({
                   }`}
                   onClick={() => onSelectAvatar(a.id)}
                 >
-                  <div className="at-avatar-preview">
-                    <img
-                      src={avatarPreviewUrl(a.id)}
-                      alt={a.name || a.id}
-                      loading="lazy"
-                      decoding="async"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).style.opacity = "0";
-                      }}
-                    />
-                  </div>
+                  <AvatarPreview src={avatarPreviewUrl(a.id)} name={a.name || a.id} />
                   <div className="at-avatar-info">
                     <span className="at-avatar-name">{a.name || a.id}</span>
                     {a.is_custom && <span className="at-avatar-tag">自定义</span>}
@@ -842,6 +890,7 @@ function SetupPanel({
         </Field>
         <Field label="系统提示词">
           <Textarea
+            ref={systemPromptRef}
             rows={3}
             value={systemPrompt}
             onChange={(e) => onSystemPromptChange(e.target.value)}

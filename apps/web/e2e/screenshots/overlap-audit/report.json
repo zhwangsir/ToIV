@@ -1,0 +1,21 @@
+{
+  "desktop-light/image": [],
+  "desktop-dark/image": [],
+  "mobile-light/image": [],
+  "desktop-light/video": [],
+  "desktop-dark/video": [],
+  "mobile-light/video": [],
+  "desktop-light/library": [],
+  "desktop-dark/library": [],
+  "mobile-light/library": [],
+  "desktop-light/models": [],
+  "desktop-dark/models": [],
+  "mobile-light/models": [],
+  "desktop-light/settings": [],
+  "desktop-dark/settings": [],
+  "mobile-light/settings": [],
+  "desktop-light/assistant": [],
+  "desktop-dark/assistant": [],
+  "mobile-light/assistant": [],
+  "desktop-light/video-params-open": []
+}

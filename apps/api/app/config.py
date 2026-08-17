@@ -102,6 +102,15 @@ class Settings(BaseSettings):
     admin_email: str = ""
     admin_password: str = ""
 
+    # 微信小程序登录(POST /api/auth/wechat)。
+    # wechat_appid 为小程序 AppID;wechat_secret 为 AppSecret,仅服务端持有,
+    # 经环境变量/.env 提供,不入仓库。空 + bypass 关 = 微信登录不可用(503)。
+    wechat_appid: str = ""
+    wechat_secret: str = ""
+    # 开发过渡开关:True 时不调腾讯 code2session,直接把 code 映射为 deterministic
+    # openid(格式 "dev-{code}")便于本地/真机联调;生产必须 False。
+    wechat_dev_bypass: bool = False
+
     # AI 测试通道密钥(TOIV_TEST_KEY,走 .env 不入仓库)。非空时开启:
     #   POST /api/auth/test-login {key} 用密钥换 admin token;前端 /?testkey=<key> 一跳进 app,
     #   免登录表单,方便自动化/AI 测试。空 = 关闭(可随时清空停用)。
@@ -220,6 +229,12 @@ class Settings(BaseSettings):
     # 默认保持 L1 不变以免行为突变;EXO 恢复后可切 L3(GLM-5.2-DQ4plus-q8)。
     drama_polish_layer: str = "L1"
 
+    # 宫格分镜「阶段B 纪律」(P2,治 LLM 纯想象导致的动漫偏置):
+    # 宫格图生成后先经 VLM(reverse_vlm_base_url)逐格观察实际画面,再由 LLM 据实
+    # 改写各镜 prompt(人物/服装/姿态以实际成图为准)。VLM/二次 LLM 任一失败自动
+    # 回落 LLM 原始 prompt,分镜 detected_colors 标记 grounding_status=fallback。
+    grid_grounding_enabled: bool = True
+
     # —— 短剧 from-image 自动管线(autorun)并发度 ——
     # 视频阶段:ComfyUI WorkerPool 可按队列把并发任务摊到多个 worker,默认 3。
     drama_autorun_video_concurrency: int = 3
@@ -278,6 +293,11 @@ class Settings(BaseSettings):
     # 插件裁剪:full=全部内建插件;llm+引擎+质量门;minimal=llm+基础引擎,无质量门;
     # headless=llm+引擎,无质量门无人格。见 harness/profile.py PROFILES。
     harness_profile: str = "full"
+
+    # —— 视频超分 fleet(M6,workstation GPU1/2/3 超分专用 ComfyUI 实例) ——
+    # 仅跑 4x-UltraSharp 帧超分(--cache-lru 2),不入 ComfyUI-LB/WorkerPool;
+    # 经标准 HTTP API 访问,产物由 api 取回字节落 core 本地(不经 worker 输出目录)。
+    upscale_workers: str = "http://192.168.71.127:8261,http://192.168.71.127:8262,http://192.168.71.127:8263"
 
     # —— Wan2.2-Animate / Wan2.1-VACE(GPU2 :8197,与 LongCat 同实例) ——
     # Animate fp8 运行时量化峰值 ~20-24GiB;提交前要求实例卡(GPU2)空闲显存 ≥ 此阈值(GiB)。

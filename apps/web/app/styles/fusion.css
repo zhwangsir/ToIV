@@ -1,19 +1,24 @@
 /* ════════════════════════════════════════════════════════════════════
-   融合应用聚合页(第二轮排版重构)
-   - 页头:统一 .page-header 体系(大标题 + 辅助描述 + 右侧操作区),
-     .fusion-header 只做容器对齐与布局兜底,外观由全局类接管
+   融合应用聚合页(2026-08-15 Film Atelier v6.1 收编)
+   - 页头:统一 PageHeader masthead(kicker「FUSION ATELIER」+ Fraunces 标题
+     + 编辑双线),.fusion-view .page-header 只做容器对齐与布局兜底
    - bento 重排:6 列栅格,旗舰卡 4列×2行 做 hero(≈2倍于普通卡),
      其余卡 2 列,末两卡各 3 列补齐底行 —— 旗舰/普通尺寸对比一眼可见
-   - 层级对比:旗舰卡名提到 20/700 标题档 + 「旗舰」徽标 + 角部光晕;
-     标签改中性 chip(hover 才点亮),辅助信息更轻更淡
-   - 呼吸感:页面内边距 24→32、栅格间距 16→24、卡内边距 20→24/32;
-     hover 升浮 -2px→-4px + shadow-float + 图标放大
+   - 共享语言:卡片 = .at-card/.at-card--lift(发夹线+软阴影+hover 轻抬),
+     tag = .at-badge(hairline 编辑徽章),「进入应用」= .at-btn--primary(墨丸主钮),
+     计数 = 衬线数字 hairline 胶囊(同 lib-count-pill)
+   - 旗舰卡重排:描述上移、tags+CTA 沉底,右半留白由双向 accent 洗光 +
+     细线水印图标(.fusion-card-deco,≤1023px 收起)承接
+   - 层级对比:旗舰卡名提到 20/700 标题档;
+     hover 图标放大、箭头位移等微交互保留(≤200ms)
    - 入场错峰走 animation(--delay 内联注入),与 hover transition 解耦;
      遵守 prefers-reduced-motion
-   注:.fusion-view 前缀用于压过 Card 基座的 .card-hover:hover(globals.css)。
    ════════════════════════════════════════════════════════════════════ */
 
 .fusion-view {
+  /* z-index 语义档(卡片局部层叠:装饰水印在下,内容在上;全站浮层走 globals --z-*) */
+  --z-fusion-deco: 0;
+  --z-fusion-content: 1;
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
@@ -23,7 +28,8 @@
   padding: var(--space-8);
 }
 
-/* ── 页头:外观走全局 .page-header*,此处做容器对齐 + 布局兜底 ── */
+/* ── 页头:masthead 外观由全局 .page-header*(v6.1:kicker/Fraunces/编辑双线)接管,
+   此处只做容器对齐与布局兜底 ── */
 .fusion-view .page-header {
   display: flex;
   align-items: flex-end;
@@ -32,43 +38,29 @@
   flex-shrink: 0;
   width: 100%;
   max-width: 1200px;
+  /* 上下间距交给 .fusion-view 的 flex gap,此处仅水平居中 */
   margin: 0 auto;
-}
-.fusion-header-main {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-}
-/* 兜底:全局 .page-header-title/-desc 未就位时仍有正确排版(与全局值一致) */
-.fusion-view .page-header-title {
-  margin: 0;
-  font-size: var(--text-title);
-  font-weight: var(--font-bold);
-  color: var(--text-primary);
-  letter-spacing: -0.02em;
-  line-height: 1.2;
-}
-.fusion-view .page-header-desc {
-  margin: 0;
-  font-size: var(--text-body);
-  color: var(--text-muted);
-  line-height: 1.6;
 }
 .fusion-view .page-header-actions {
   flex-shrink: 0;
   padding-bottom: var(--space-1);
 }
+/* 应用计数:去填充,衬线数字 + hairline 围合,与 lib-count-pill 同一编辑语言 */
 .fusion-count {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
+  justify-content: center;
+  gap: var(--space-1);
+  font-family: var(--font-display);
   font-size: var(--text-aux);
-  font-weight: var(--font-medium);
-  color: var(--text-muted);
-  background: var(--bg-surface-2);
+  font-weight: var(--font-regular);
+  color: var(--text-secondary);
+  background: transparent;
   border: 1px solid var(--border-subtle);
   padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-badge);
+  border-radius: var(--radius-full);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 /* ── bento 网格:6 列,旗舰卡 4列×2行 hero,末两卡 3 列补齐 ── */
@@ -96,7 +88,8 @@
   grid-column: span 3;
 }
 
-/* ── 卡片 ── */
+/* ── 卡片(发夹线 + 软阴影 + hover 轻抬均由共享 .at-card/.at-card--lift 承载;
+   此处保留布局、入场错峰与视图内微交互) ── */
 .fusion-view .fusion-card {
   position: relative;
   display: flex;
@@ -105,9 +98,6 @@
   padding: var(--space-6);
   cursor: pointer;
   overflow: hidden;
-  background: var(--bg-surface-1);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-panel);
   opacity: 0;
   /* hover 升档 transition 不带 delay:错峰延迟只挂在入场 animation 上 */
   transition:
@@ -130,30 +120,91 @@
     transform: translateY(0);
   }
 }
-/* hover 升浮:-4px + 浮起阴影 + accent 描边(压过 .card-hover:hover 的弱阴影);
-   focus-visible 与 hover 完全同档(卡片已可键盘聚焦,见 FusionView tabIndex/role) */
-.fusion-view .fusion-card:hover,
-.fusion-view .fusion-card:focus-visible {
-  transform: translateY(-4px);
-  border-color: var(--accent-glow);
-  box-shadow: var(--shadow-float), var(--glass-highlight);
-}
 /* 键盘焦点环:全局 --focus-ring 统一规格(div 卡片默认无焦点样式,显式补齐) */
 .fusion-view .fusion-card:focus-visible {
   outline: var(--focus-ring);
   outline-offset: 2px;
 }
-/* hero 卡:更大内边距 + 角部光晕,与普通卡拉开质感层级 */
+/* hero 卡:更大内边距 + 双向 accent 洗光引导视线(右上→右下),与普通卡拉开质感层级 */
 .fusion-view .fusion-card.is-flagship {
   padding: var(--space-8);
   border-color: var(--accent-glow);
   background:
     radial-gradient(
-      480px 260px at 88% -8%,
-      color-mix(in srgb, var(--accent) 10%, transparent),
+      520px 300px at 92% -6%,
+      color-mix(in oklab, var(--accent) 10%, transparent),
       transparent 70%
     ),
+    radial-gradient(
+      380px 380px at 82% 96%,
+      color-mix(in oklab, var(--accent) 7%, transparent),
+      transparent 75%
+    ),
     var(--bg-surface-1);
+}
+/* 旗舰卡装饰水印:右侧细线大图标,填补 hero 右半留白;置于内容层之下、不响应事件;
+   2026-08-16 视图批 1(审计 P1):亮色下 accent 15% 线稿几乎隐形,混色转向 text-primary
+   方向(亮=深线稿、暗=浅线稿,五套主题随文字阶梯自适应),水印可辨但不压内容 */
+.fusion-card-deco {
+  position: absolute;
+  right: var(--space-8);
+  top: 50%;
+  transform: translateY(-54%);
+  display: flex;
+  color: color-mix(in oklab, var(--text-primary) 20%, transparent);
+  pointer-events: none;
+  z-index: var(--z-fusion-deco);
+}
+.fusion-view .fusion-card.is-flagship .fusion-card-head,
+.fusion-view .fusion-card.is-flagship .fusion-card-desc,
+.fusion-view .fusion-card.is-flagship .fusion-card-flow,
+.fusion-view .fusion-card.is-flagship .fusion-card-tags,
+.fusion-view .fusion-card.is-flagship .fusion-card-footer {
+  position: relative;
+  z-index: var(--z-fusion-content);
+}
+/* 旗舰卡辅助信息(2026-08-16 视图批 1):流程步骤行,hairline 顶分隔 + 衬线序号,
+   承接 hero 上半部留白;与 tags 同宽上限,不探入右侧水印区 */
+.fusion-card-flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: var(--space-3) 0 0;
+  list-style: none;
+  border-top: 1px solid var(--border-subtle);
+}
+.fusion-view .fusion-card.is-flagship .fusion-card-flow {
+  max-width: 62%;
+}
+.fusion-card-flow-step {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  font-size: var(--text-aux);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.fusion-card-flow-num {
+  font-family: var(--font-display);
+  font-size: var(--text-label);
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+/* 旗舰卡重排:描述上移(不再弹性拉伸),tags+CTA 沉底同一视觉组 */
+.fusion-view .fusion-card.is-flagship .fusion-card-desc {
+  flex: none;
+  max-width: 30em;
+}
+.fusion-view .fusion-card.is-flagship .fusion-card-tags {
+  margin-top: auto;
+  max-width: 62%;
+}
+.fusion-view .fusion-card.is-flagship .fusion-card-cta {
+  min-height: 38px;
+  padding: 0 var(--space-5);
+  font-size: var(--text-body);
 }
 
 /* 图标 + 名称 + 进入箭头 */
@@ -206,15 +257,11 @@
   font-weight: var(--font-bold);
   letter-spacing: -0.02em;
 }
-/* 「旗舰」徽标 */
+/* 「旗舰」徽标:视觉由共享 .at-badge--accent 承载(accent hairline 编辑徽章),
+   此处仅保留与卡名的基线对齐微调 */
 .fusion-card-badge {
-  font-size: var(--text-label);
-  font-weight: var(--font-medium);
-  color: var(--accent);
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-glow);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-badge);
+  flex-shrink: 0;
+  letter-spacing: 0.12em;
 }
 /* 箭头位移微动效:≤200ms(--duration-fast 150ms) */
 .fusion-card-arrow {
@@ -241,60 +288,30 @@
   color: var(--text-secondary);
   line-height: 1.7;
 }
-.fusion-view .fusion-card.is-flagship .fusion-card-desc {
-  max-width: 520px;
-}
 
-/* 能力标签:默认中性 chip,卡片 hover 时才点亮为 accent */
+/* 能力标签:共享 .at-badge(透明 hairline 编辑徽章),卡片 hover 时点亮为 accent */
 .fusion-card-tags {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
 }
+/* 2026-08-16 视图批 1(审计 P2 pills 对比低):描边 subtle → strong,常驻可辨 */
 .fusion-tag {
-  font-size: var(--text-label);
-  font-weight: var(--font-medium);
-  color: var(--text-muted);
-  background: var(--bg-surface-2);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-badge);
+  border-color: var(--border-strong);
   transition:
-    background-color var(--duration-fast) var(--ease-standard),
-    color var(--duration-fast) var(--ease-standard),
-    box-shadow var(--duration-fast) var(--ease-standard);
+    border-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
 }
 .fusion-view .fusion-card:hover .fusion-tag,
 .fusion-view .fusion-card:focus-visible .fusion-tag {
+  border-color: var(--accent-glow);
   color: var(--accent);
-  background: var(--accent-soft);
 }
 
-/* 底部 CTA:去分隔线,改胶囊按钮形态,hover 间隙拉开 */
+/* 底部 CTA:墨丸主钮由共享 .at-btn--primary 承载,此处仅保留右对齐布局 */
 .fusion-card-footer {
   display: flex;
   justify-content: flex-end;
-}
-.fusion-card-cta {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  min-height: 32px;
-  padding: var(--space-1) var(--space-3);
-  font-size: var(--text-aux);
-  font-weight: var(--font-medium);
-  color: var(--accent);
-  background: var(--accent-soft);
-  border-radius: var(--radius-badge);
-  transition:
-    gap var(--duration-fast) var(--ease-standard),
-    background-color var(--duration-fast) var(--ease-standard),
-    box-shadow var(--duration-fast) var(--ease-standard);
-}
-.fusion-view .fusion-card:hover .fusion-card-cta,
-.fusion-view .fusion-card:focus-visible .fusion-card-cta {
-  gap: var(--space-2);
-  background: var(--accent-glow);
-  box-shadow: var(--accent-glow-shadow);
 }
 
 /* 滚动条 */
@@ -327,6 +344,15 @@
   .fusion-view .fusion-card.is-flagship {
     grid-column: 1 / -1;
     grid-row: auto;
+  }
+  /* bento 收起后旗舰卡无右半留白,水印装饰退场,描述/流程行/标签恢复全宽 */
+  .fusion-card-deco {
+    display: none;
+  }
+  .fusion-view .fusion-card.is-flagship .fusion-card-desc,
+  .fusion-view .fusion-card.is-flagship .fusion-card-flow,
+  .fusion-view .fusion-card.is-flagship .fusion-card-tags {
+    max-width: none;
   }
 }
 

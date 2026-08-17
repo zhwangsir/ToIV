@@ -144,3 +144,38 @@ export function taskDurationSec(task: AgentRunTask): number {
   const v = task.input?.duration_sec;
   return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 0;
 }
+
+/** verdict 渲染守卫:契约是 string,但存量/异常数据可能是对象
+ *  (后端曾把 {"error": msg} 直出,React #31 整页崩溃根因)。
+ *  对象时提取 summary/reason/text/error/message 首个非空文本,都没有则 JSON 展开。 */
+export function verdictText(v: unknown): string {
+  if (typeof v === "string") return v;
+  if (v && typeof v === "object" && !Array.isArray(v)) {
+    for (const k of ["summary", "reason", "text", "error", "message"]) {
+      const s = (v as Record<string, unknown>)[k];
+      if (typeof s === "string" && s.trim()) return s;
+    }
+    if (Object.keys(v).length === 0) return ""; // 空对象归空(历史默认 {} 崩溃根因)
+    try {
+      return JSON.stringify(v);
+    } catch {
+      return "";
+    }
+  }
+  return "";
+}
+
+/** goal 轻量 markdown 剥离(列表/详情直渲用):
+ *  去粗体/斜体/行内码/行首 # 标题/链接语法,保持可读纯文本;压平空白成单行。 */
+export function stripMarkdown(text: unknown): string {
+  if (typeof text !== "string") return "";
+  return (
+    text
+      .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1") // [文本](链接) → 文本
+      .replace(/[*_]{1,3}([^*_]+)[*_]{1,3}/g, "$1") // **粗体** / *斜体* / _强调_
+      .replace(/`{1,3}([^`]*)`{1,3}/g, "$1") // `代码` / ```片段```
+      .replace(/^\s{0,3}#{1,6}\s+/gm, "") // 行首 # 标题标记
+      .replace(/\s+/g, " ") // 多行/多余空白压平(卡片单行展示)
+      .trim()
+  );
+}

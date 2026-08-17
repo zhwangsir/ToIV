@@ -114,6 +114,245 @@ def test_delete_missing_job_404(ctx):
     assert r.status_code == 404
 
 
+# --------------------------------------------------------------------------- #
+# offset 分页(作品库无限滚动)
+# --------------------------------------------------------------------------- #
+@pytest.fixture
+def ctx_paged():
+    """5 条作业(created_at 显式递增),验证 offset/limit 翻页不重叠不遗漏。"""
+    from datetime import timedelta
+
+    from app.models import _now
+
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+
+    def override() -> Session:
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = override
+
+    with Session(engine) as s:
+        tenant = Tenant(name="t")
+        s.add(tenant)
+        s.commit()
+        s.refresh(tenant)
+        user = User(
+            email="paged@toiv.ai",
+            hashed_password=hash_password("password1"),
+            tenant_id=tenant.id,
+        )
+        s.add(user)
+        s.commit()
+        s.refresh(user)
+        base = _now()
+        for i in range(5):
+            s.add(
+                Job(
+                    tenant_id=tenant.id,
+                    user_id=user.id,
+                    prompt_id=f"pg{i}",
+                    worker="http://w",
+                    prompt=f"job-{i}",
+                    seed=i,
+                    created_at=base + timedelta(minutes=i),  # job-4 最新
+                )
+            )
+        s.commit()
+        uid = user.id
+
+    yield TestClient(app), create_token(uid)
+    app.dependency_overrides.clear()
+
+
+def test_jobs_offset_pagination_flow(ctx_paged):
+    """limit=2 翻页:2/2/1,最新在前,页间不重叠、合页不遗漏。"""
+    client, token = ctx_paged
+    H = {"Authorization": f"Bearer {token}"}
+    pages = [
+        client.get(f"/api/jobs?limit=2&offset={off}", headers=H).json()
+        for off in (0, 2, 4)
+    ]
+    assert [len(p) for p in pages] == [2, 2, 1]
+    prompts = [j["prompt"] for p in pages for j in p]
+    assert prompts == ["job-4", "job-3", "job-2", "job-1", "job-0"]
+
+
+def test_jobs_offset_beyond_returns_empty(ctx_paged):
+    client, token = ctx_paged
+    H = {"Authorization": f"Bearer {token}"}
+    r = client.get("/api/jobs?limit=2&offset=99", headers=H)
+    assert r.status_code == 200
+    assert r.json() == []
+
+
+def test_jobs_offset_negative_422(ctx_paged):
+    client, token = ctx_paged
+    H = {"Authorization": f"Bearer {token}"}
+    assert client.get("/api/jobs?offset=-1", headers=H).status_code == 422
+
+
+def test_jobs_offset_with_status_filter(ctx_paged):
+    """offset 与 status 过滤叠加:分页作用于过滤后的结果集。"""
+    client, token = ctx_paged
+    H = {"Authorization": f"Bearer {token}"}
+    # 全部 5 条都是 queued
+    r = client.get("/api/jobs?status=queued&limit=2&offset=4", headers=H)
+    assert [j["prompt"] for j in r.json()] == ["job-0"]
+    r_done = client.get("/api/jobs?status=done&limit=2&offset=0", headers=H)
+    assert r_done.json() == []
+
+
+# --------------------------------------------------------------------------- #
+# kind 过滤(作品库服务端分类)
+# --------------------------------------------------------------------------- #
+@pytest.fixture
+def ctx_kind():
+    """不同 kind 的作业,验证 kind 过滤与分页叠加。"""
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+
+    def override() -> Session:
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = override
+
+    with Session(engine) as s:
+        tenant = Tenant(name="t")
+        s.add(tenant)
+        s.commit()
+        s.refresh(tenant)
+        user = User(
+            email="kind@toiv.ai",
+            hashed_password=hash_password("password1"),
+            tenant_id=tenant.id,
+        )
+        s.add(user)
+        s.commit()
+        s.refresh(user)
+        # 不同 kind:图像/视频/音频/3D
+        s.add(
+            Job(
+                tenant_id=tenant.id,
+                user_id=user.id,
+                prompt_id="k1",
+                worker="http://w",
+                prompt="img-job",
+                seed=1,
+                kind="txt2img",
+            )
+        )
+        s.add(
+            Job(
+                tenant_id=tenant.id,
+                user_id=user.id,
+                prompt_id="k2",
+                worker="http://w",
+                prompt="video-job",
+                seed=2,
+                kind="wan_t2v",
+            )
+        )
+        s.add(
+            Job(
+                tenant_id=tenant.id,
+                user_id=user.id,
+                prompt_id="k3",
+                worker="http://w",
+                prompt="audio-job",
+                seed=3,
+                kind="ace_audio",
+            )
+        )
+        s.add(
+            Job(
+                tenant_id=tenant.id,
+                user_id=user.id,
+                prompt_id="k4",
+                worker="http://w",
+                prompt="3d-job",
+                seed=4,
+                kind="hunyuan3d",
+            )
+        )
+        s.commit()
+        uid = user.id
+
+    yield TestClient(app), create_token(uid)
+    app.dependency_overrides.clear()
+
+
+def test_jobs_kind_filter(ctx_kind):
+    """按 kind 过滤:各分类命中正确,空值返回全部。"""
+    client, token = ctx_kind
+    H = {"Authorization": f"Bearer {token}"}
+    # 全部 4 条
+    assert len(client.get("/api/jobs", headers=H).json()) == 4
+    # 图像
+    r = client.get("/api/jobs?kind=txt2img", headers=H)
+    assert [j["prompt"] for j in r.json()] == ["img-job"]
+    # 视频
+    r = client.get("/api/jobs?kind=wan_t2v", headers=H)
+    assert [j["prompt"] for j in r.json()] == ["video-job"]
+    # 音频
+    r = client.get("/api/jobs?kind=ace_audio", headers=H)
+    assert [j["prompt"] for j in r.json()] == ["audio-job"]
+    # 3D
+    r = client.get("/api/jobs?kind=hunyuan3d", headers=H)
+    assert [j["prompt"] for j in r.json()] == ["3d-job"]
+
+
+def test_jobs_kind_multi_values(ctx_kind):
+    """逗号分隔多值 kind:命中任一匹配,空值/空白忽略。"""
+    client, token = ctx_kind
+    H = {"Authorization": f"Bearer {token}"}
+    # 图像+视频
+    r = client.get("/api/jobs?kind=txt2img,wan_t2v", headers=H)
+    assert sorted(j["prompt"] for j in r.json()) == ["img-job", "video-job"]
+    # 带空白
+    r = client.get("/api/jobs?kind= txt2img , ace_audio ", headers=H)
+    assert sorted(j["prompt"] for j in r.json()) == ["audio-job", "img-job"]
+    # 空值等价全部
+    r = client.get("/api/jobs?kind=", headers=H)
+    assert len(r.json()) == 4
+    # 纯空白等价全部
+    r = client.get("/api/jobs?kind= , ", headers=H)
+    assert len(r.json()) == 4
+
+
+def test_jobs_kind_with_pagination(ctx_kind):
+    """kind 过滤与 offset/limit 叠加:分页作用于过滤后结果集。"""
+    client, token = ctx_kind
+    H = {"Authorization": f"Bearer {token}"}
+    # kind=txt2img 只有 1 条,offset=0 返回它,offset=1 返回空
+    r = client.get("/api/jobs?kind=txt2img&limit=1&offset=0", headers=H)
+    assert [j["prompt"] for j in r.json()] == ["img-job"]
+    r = client.get("/api/jobs?kind=txt2img&limit=1&offset=1", headers=H)
+    assert r.json() == []
+
+
+def test_jobs_kind_with_status(ctx_kind):
+    """kind 与 status 叠加过滤。"""
+    client, token = ctx_kind
+    H = {"Authorization": f"Bearer {token}"}
+    # 全部默认 queued,kind=txt2img + status=queued 命中
+    r = client.get("/api/jobs?kind=txt2img&status=queued", headers=H)
+    assert [j["prompt"] for j in r.json()] == ["img-job"]
+    # kind=txt2img + status=done 为空
+    r = client.get("/api/jobs?kind=txt2img&status=done", headers=H)
+    assert r.json() == []
+
+
 def test_delete_requires_auth(ctx):
     client, _ = ctx
     assert client.delete("/api/jobs/whatever").status_code == 401

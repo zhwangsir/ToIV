@@ -74,3 +74,84 @@ def test_decode_and_save_video():
     assert g["14"]["class_type"] == "VHS_VideoCombine"
     assert g["14"]["inputs"]["format"] == "video/h264-mp4"
     assert g["14"]["inputs"]["frame_rate"] == 20.0
+
+
+# --------------------------------------------------------------------------- #
+# NSFW LoRA 叠加链(2026-08-16 Civitai 配方复刻;路由层按 WAN_I2V_NSFW_LORAS 分侧)
+# --------------------------------------------------------------------------- #
+
+_V1030 = "Wan_2_2_I2V_A14B_HIGH_lightx2v_4step_lora_v1030_rank_64_bf16.safetensors"
+
+
+def _lora_nodes(g: dict) -> dict[str, dict]:
+    return {nid: n for nid, n in g.items() if n["class_type"] == "LoraLoaderModelOnly"}
+
+
+def test_nsfw_loras_chain_after_accel_lora_by_side():
+    """NSFW LoRA 分侧串联:加速 LoRA 之后、ModelSamplingSD3 之前(加速贴底模,概念/动作后挂)。"""
+    g = build_wan_i2v_graph(WanI2VParams(
+        positive="x", image="a.png",
+        high_loras=(("NSFW-22-H-e8.safetensors", 0.8),),
+        low_loras=(("DR34ML4Y_I2V_14B_LOW_V2.safetensors", 0.7),),
+    ))
+    # 高噪链:1 → 3(加速) → 20(NSFW) → 15(shift)
+    assert g["20"]["inputs"]["model"] == ["3", 0]
+    assert g["20"]["inputs"]["lora_name"] == "NSFW-22-H-e8.safetensors"
+    assert g["20"]["inputs"]["strength_model"] == 0.8
+    assert g["15"]["inputs"]["model"] == ["20", 0]
+    # 低噪链:2 → 4(加速) → 21(DR34ML4Y) → 16(shift)
+    assert g["21"]["inputs"]["model"] == ["4", 0]
+    assert g["21"]["inputs"]["lora_name"] == "DR34ML4Y_I2V_14B_LOW_V2.safetensors"
+    assert g["21"]["inputs"]["strength_model"] == 0.7
+    assert g["16"]["inputs"]["model"] == ["21", 0]
+
+
+def test_nsfw_loras_multiple_same_side_chain_in_order():
+    """同侧多个 LoRA 按给定顺序依次串联(高噪 2 个:3 → 20 → 21 → 15)。"""
+    g = build_wan_i2v_graph(WanI2VParams(
+        positive="x", image="a.png",
+        high_loras=(("A.safetensors", 0.8), ("B.safetensors", 0.7)),
+    ))
+    assert g["20"]["inputs"]["model"] == ["3", 0]
+    assert g["20"]["inputs"]["lora_name"] == "A.safetensors"
+    assert g["21"]["inputs"]["model"] == ["20", 0]
+    assert g["21"]["inputs"]["lora_name"] == "B.safetensors"
+    assert g["15"]["inputs"]["model"] == ["21", 0]
+    # 低噪侧无叠加:16 直接接加速 LoRA 4
+    assert g["16"]["inputs"]["model"] == ["4", 0]
+
+
+def test_v1030_replaces_default_accel_lora_not_stacked():
+    """v1030 加速 LoRA(高噪链选中)替代默认 v1 加速 LoRA,不双重加速。"""
+    g = build_wan_i2v_graph(WanI2VParams(
+        positive="x", image="a.png", high_loras=((_V1030, 0.8),),
+    ))
+    assert g["3"]["inputs"]["lora_name"] == _V1030
+    # v1030 不再出现在叠加链(节点 ≥20);低噪加速 LoRA 不变
+    extra = [n["inputs"]["lora_name"] for nid, n in _lora_nodes(g).items() if int(nid) >= 20]
+    assert _V1030 not in extra
+    assert g["4"]["inputs"]["lora_name"] == "wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors"
+    # 高噪链无其他叠加:15 直接接 3
+    assert g["15"]["inputs"]["model"] == ["3", 0]
+
+
+def test_v1030_ignored_in_full_quality_mode():
+    """满血档(不挂加速 LoRA):v1030 被忽略,ModelSamplingSD3 直连 UNET。"""
+    g = build_wan_i2v_graph(WanI2VParams(
+        positive="x", image="a.png", use_accel_lora=False, high_loras=((_V1030, 0.8),),
+    ))
+    assert "3" not in g and "4" not in g
+    assert _lora_nodes(g) == {}  # v1030 剔除后无 LoRA 节点
+    assert g["15"]["inputs"]["model"] == ["1", 0]
+    assert g["16"]["inputs"]["model"] == ["2", 0]
+
+
+def test_nsfw_loras_chain_on_unet_in_full_quality_mode():
+    """满血档 + NSFW LoRA:叠加链直接挂 UNET(1 → 20 → 15),加速节点不存在。"""
+    g = build_wan_i2v_graph(WanI2VParams(
+        positive="x", image="a.png", use_accel_lora=False,
+        high_loras=(("NSFW-22-H-e8.safetensors", 0.8),),
+    ))
+    assert "3" not in g and "4" not in g
+    assert g["20"]["inputs"]["model"] == ["1", 0]
+    assert g["15"]["inputs"]["model"] == ["20", 0]

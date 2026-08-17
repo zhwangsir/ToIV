@@ -6,10 +6,18 @@
  * 改标题、删任务、加任务、改 input 文案;确认(approve/有改动则 modify)/
  * 打回(reject + feedback)→ POST /plan + /resume。
  */
-import { useState } from "react";
+import { useRef, useState, type TextareaHTMLAttributes } from "react";
 import { Icon } from "@/components/ui/Icon";
+import { useAutoResize } from "@/hooks/useAutoResize";
 import type { AgentPlanEditOp, AgentResumeBody, AgentRunTask } from "@/lib/api";
 import { primaryInputText, taskKindLabel } from "./agentRunMeta";
+
+/** 计划任务文案框(列表映射场景):每行独立 ref,自动增高替代 rows=2 截断。 */
+function PlanTextarea({ value, ...rest }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const ref = useRef<HTMLTextAreaElement | null>(null);
+  useAutoResize(ref, String(value ?? ""));
+  return <textarea ref={ref} value={value} {...rest} />;
+}
 
 interface PlanPanelProps {
   tasks: AgentRunTask[];
@@ -33,6 +41,9 @@ export function PlanPanel({ tasks, busy, onSavePlan, onResume }: PlanPanelProps)
   const [draft, setDraft] = useState<PlanDraft>({ edits: {}, removed: [], added: [] });
   const [rejecting, setRejecting] = useState(false);
   const [feedback, setFeedback] = useState("");
+  // 打回反馈自动增高(原单行 input 装长文,升级为 textarea 随内容增高)
+  const feedbackRef = useRef<HTMLTextAreaElement | null>(null);
+  useAutoResize(feedbackRef, feedback);
   // 新增任务临时 id 自增(落库时后端可替换)
   const [addSeq, setAddSeq] = useState(1);
 
@@ -173,7 +184,7 @@ export function PlanPanel({ tasks, busy, onSavePlan, onResume }: PlanPanelProps)
                       .join("、")}
                   </p>
                 )}
-                <textarea
+                <PlanTextarea
                   className="input agent-plan-input"
                   rows={2}
                   value={e.inputText}
@@ -210,7 +221,7 @@ export function PlanPanel({ tasks, busy, onSavePlan, onResume }: PlanPanelProps)
                   <Icon name="delete" size={14} />
                 </button>
               </div>
-              <textarea
+              <PlanTextarea
                 className="input agent-plan-input"
                 rows={2}
                 value={a.inputText}
@@ -229,8 +240,10 @@ export function PlanPanel({ tasks, busy, onSavePlan, onResume }: PlanPanelProps)
         <span className="agent-plan-actions-gap" />
         {rejecting ? (
           <>
-            <input
+            <textarea
+              ref={feedbackRef}
               className="input agent-plan-feedback"
+              rows={1}
               value={feedback}
               placeholder="打回原因(方向性批注,可选)"
               onChange={(e) => setFeedback(e.target.value)}

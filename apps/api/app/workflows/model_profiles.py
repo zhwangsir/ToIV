@@ -125,6 +125,70 @@ def detect_model_family(name: str) -> str:
     return "sd15"
 
 
+# 宽高比(w/h)安全域:超出模型训练分布会出主体被裁/文字溢出画面/肢体重复。
+#   AR_VIDEO:视频模型(Wan/LongCat/H3/LTX)训练分布 ~9:16..16:9
+#   AR_IMAGE:SD 系图像(SD1.5/SDXL/Flux/Qwen-Image)~1:2..2:1
+AR_VIDEO = (9 / 16, 16 / 9)
+AR_IMAGE = (0.5, 2.0)
+
+
+def clamp_aspect_ratio(
+    width: int, height: int, *, lo: float, hi: float, align: int = 8,
+    min_v: int = 64, max_v: int = 2048,
+) -> tuple[int, int]:
+    """把宽高比(w/h)静默归一到 [lo, hi]:保长边、抬短边;抬不动(撞上限)再压长边。
+
+    与既有「snap 不报错」哲学一致(fit_resolution 像素自适应/时长网格吸附):
+    极端比例是用户输入失误,自动纠正比 422 友好。步骤:
+      1) 夹回 [min_v, max_v] 并向下对齐 align;
+      2) 比例超界 → 短边向上取整抬高(ceil 保证比例落在界内);
+      3) 抬边撞 max_v → 改压长边(floor);两端场景(1:1 等)原样返回。
+    """
+    def floor_snap(v: float) -> int:
+        return max(min_v, int(v // align) * align)
+
+    def ceil_snap(v: float) -> int:
+        return min(max_v, math.ceil(v / align) * align)
+
+    w = floor_snap(max(min_v, min(max_v, width)))
+    h = floor_snap(max(min_v, min(max_v, height)))
+    if w / h > hi:
+        h = ceil_snap(w / hi)
+        if h >= max_v or w / h > hi:
+            w = floor_snap(h * hi)
+    elif w / h < lo:
+        w = ceil_snap(h * lo)
+        if w >= max_v or w / h < lo:
+            h = floor_snap(w / lo)
+    return w, h
+
+
+def aspect_guard(lo: float, hi: float, *, align: int, min_v: int, max_v: int):
+    """pydantic v2 请求模型宽高比守卫工厂:mode="after" 静默归一 width/height。
+
+    用法(路由文件模块级造一个,模型类里挂为下划线私有属性,pydantic 会自动识别装饰器):
+        _ar_guard = aspect_guard(*AR_VIDEO, align=16, min_v=320, max_v=1280)
+
+        class XRequest(BaseModel):
+            width: int = ...
+            height: int = ...
+            _ratio = _ar_guard
+    width/height 任一缺失(None)时跳过(如续写端点按源视频对齐场景)。
+    """
+    from pydantic import model_validator
+
+    def _guard(self):
+        w = getattr(self, "width", None)
+        h = getattr(self, "height", None)
+        if isinstance(w, int) and isinstance(h, int):
+            self.width, self.height = clamp_aspect_ratio(
+                w, h, lo=lo, hi=hi, align=align, min_v=min_v, max_v=max_v
+            )
+        return self
+
+    return model_validator(mode="after")(_guard)
+
+
 def fit_resolution(ckpt_name: str, width: int, height: int) -> tuple[int, int]:
     """按底模架构把请求宽高缩放到合适像素档(保持宽高比,snap 到 8 的倍数)。
 
@@ -135,10 +199,14 @@ def fit_resolution(ckpt_name: str, width: int, height: int) -> tuple[int, int]:
     次世代族(flux2/flux/qwen_image/z_image)原生支持高分辨率,预算提至 ~1.37MP
     (1024×1360),使 3:4 纵向构图也能达到 ≥1024 双维度——满足质量门(keyframes ≥1024²)
     同时保持纵向构图一致性。SDXL 族维持原生 1MP(超出会出重复/崩坏)。
+
+    宽高比先经 clamp_aspect_ratio 收敛到 AR_IMAGE(1:2~2:1):极端比例
+    (如 2048×128)超出 SD 系训练分布,会出主体被裁/文字溢出画面。
     """
     width = max(64, width)
     height = max(64, height)
     ar = width / height
+    ar = max(AR_IMAGE[0], min(AR_IMAGE[1], ar))
     # 分辨率档按**架构族**定:
     #   - SD1.5: 0.4MP,长边封顶 896(高分辨率出双头)
     #   - 次世代(flux2/flux/qwen_image/z_image): ~1.37MP,长边封顶 1536

@@ -64,11 +64,21 @@ def test_h3_snap32():
 
 
 def test_h3_frames_grid():
-    """帧数吸附 17k+5 网格并钳位 [22, 362]。"""
-    assert H3VideoGenerator._frames_grid(124) == 124
-    assert H3VideoGenerator._frames_grid(144) == 141  # 6s@24fps → 141
-    assert H3VideoGenerator._frames_grid(24) == 22
-    assert H3VideoGenerator._frames_grid(10000) == 362
+    """帧数吸附 17k+5 网格并钳位 [22, 362](2026-08-16 统一时长策略层口径)。
+
+    策略层 services/duration.py 为唯一事实源:up(生成解析默认,向上取整+
+    超出 0.25s 走 trim 精裁)与 down(drama 续写段兼容口径,向下取整)双方向。
+    """
+    from app.services.duration import snap_engine_frames
+
+    # up:时长解析默认(向上吸附,宁可多给帧再精裁,不少给)
+    assert snap_engine_frames("h3", 124, direction="up") == 124
+    assert snap_engine_frames("h3", 144, direction="up") == 158  # 6s@24fps → 158(trim 裁回)
+    assert snap_engine_frames("h3", 10000, direction="up") == 362  # 钳位上限
+    # down:drama 末帧续写段口径(与旧 _frames_grid 行为一致)
+    assert snap_engine_frames("h3", 144, direction="down") == 141
+    assert snap_engine_frames("h3", 24, direction="down") == 22  # 钳位下限
+    assert snap_engine_frames("h3", 10000, direction="down") == 362
 
 
 @pytest.mark.asyncio
@@ -98,7 +108,11 @@ async def test_h3_disabled_returns_failure():
 
 @pytest.mark.asyncio
 async def test_h3_submit_success():
-    """H3 提交成功:图参数 32 对齐 + 17k+5 帧网格,raw 携带 prompt_id/seed。"""
+    """H3 提交成功:图参数 32 对齐 + 17k+5 帧网格,raw 携带 prompt_id/seed。
+
+    6s@24fps=144 → 向上吸附 158(差 0.58s > 0.25)→ trim 计划:挂后处理链精裁至 6s,
+    notice 透出(链路本身在 test_duration.py 覆盖,这里捕获 spawn 不真跑)。
+    """
     client = AsyncMock()
     client.base_url = "http://192.168.71.127:8195"
     client.queue_prompt = AsyncMock(return_value="pid-h3")
@@ -107,7 +121,8 @@ async def test_h3_submit_success():
     with patch("app.services.h3.ensure_h3_enabled"), \
          patch("app.services.h3.get_h3_client", return_value=client), \
          patch("app.services.h3.ensure_h3_ready", new=AsyncMock()), \
-         patch("app.services.h3.ensure_h3_vram", new=AsyncMock()):
+         patch("app.services.h3.ensure_h3_vram", new=AsyncMock()), \
+         patch("app.services.video_generators.spawn_duration_chain") as spawn_mock:
         result = await gen.generate(
             "a boy walking", width=1000, height=700, duration_sec=6, seed=7,
         )
@@ -120,8 +135,55 @@ async def test_h3_submit_success():
     h3_inputs = graph["104"]["inputs"]
     assert h3_inputs["width"] == 992
     assert h3_inputs["height"] == 672
-    assert h3_inputs["length"] == 141  # 24fps × 6s = 144 → 吸附 141
+    assert h3_inputs["length"] == 158  # 24fps × 6s = 144 → 向上吸附 158(trim 精裁至 6s)
     assert (h3_inputs["length"] - 5) % 17 == 0
+    # trim 计划:后处理链挂起 + notice 透出
+    spawn_mock.assert_called_once()
+    assert spawn_mock.call_args.kwargs["plan"].strategy == "trim"
+    assert "精确裁至 6 秒" in result.duration_notice
+    assert result.raw["duration_notice"] == result.duration_notice
+
+
+@pytest.mark.asyncio
+async def test_h3_extend_plan_spawns_chain():
+    """H3 duration_sec=20(超 15s 单段上限)→ extend 计划:首段 362 帧,挂 2 段续写链。"""
+    client = AsyncMock()
+    client.base_url = "http://192.168.71.127:8195"
+    client.queue_prompt = AsyncMock(return_value="pid-h3-ext")
+
+    gen = H3VideoGenerator(tracker=lambda c, p: None)
+    with patch("app.services.h3.ensure_h3_enabled"), \
+         patch("app.services.h3.get_h3_client", return_value=client), \
+         patch("app.services.h3.ensure_h3_ready", new=AsyncMock()), \
+         patch("app.services.h3.ensure_h3_vram", new=AsyncMock()), \
+         patch("app.services.video_generators.spawn_duration_chain") as spawn_mock:
+        result = await gen.generate("a boy walking", duration_sec=20, seed=7)
+
+    assert result.success is True
+    graph = client.queue_prompt.call_args[0][0]
+    assert graph["104"]["inputs"]["length"] == 362  # 首段满网格
+    plan = spawn_mock.call_args.kwargs["plan"]
+    assert plan.strategy == "extend" and plan.segment_frames == (362, 124)
+    assert callable(spawn_mock.call_args.kwargs["submit_next"])
+    assert "分 2 段续写" in result.duration_notice
+
+
+@pytest.mark.asyncio
+async def test_h3_over_60s_returns_failure():
+    """H3 duration_sec=61 超分段续写安全上限 → 返回失败原因(不提交,不抛异常)。"""
+    client = AsyncMock()
+    client.base_url = "http://192.168.71.127:8195"
+
+    gen = H3VideoGenerator(tracker=lambda c, p: None)
+    with patch("app.services.h3.ensure_h3_enabled"), \
+         patch("app.services.h3.get_h3_client", return_value=client), \
+         patch("app.services.h3.ensure_h3_ready", new=AsyncMock()), \
+         patch("app.services.h3.ensure_h3_vram", new=AsyncMock()):
+        result = await gen.generate("a boy walking", duration_sec=61)
+
+    assert result.success is False
+    assert "最长支持 60 秒" in result.error
+    client.queue_prompt.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -191,6 +253,94 @@ async def test_ltx_empty_prompt_returns_failure():
     result = await gen.generate("   ")
     assert result.success is False
     assert "提示词为空" in result.error
+
+
+@pytest.mark.asyncio
+async def test_ltx25_extend_plan_spawns_chain():
+    """LTX-2.5 duration_sec=30@24fps(超 25s 单段上限)→ extend 计划:首段 601 帧,2 段续写链。"""
+    client = AsyncMock()
+    client.base_url = "http://192.168.71.127:8198"
+    client.queue_prompt = AsyncMock(return_value="pid-25-ext")
+
+    gen = LtxVideoGenerator(pool=None, tracker=lambda c, p: None)
+    with patch("app.services.ltx25.ensure_ltx25_enabled"), \
+         patch("app.services.ltx25.get_ltx25_client", return_value=client), \
+         patch("app.services.ltx25.ensure_ltx25_ready", new=AsyncMock()), \
+         patch("app.services.video_generators.spawn_duration_chain") as spawn_mock:
+        result = await gen.generate("a boy walking", duration_sec=30, fps=24, seed=7)
+
+    assert result.success is True
+    g = client.queue_prompt.call_args[0][0]
+    assert g["10"]["inputs"]["length"] == 601
+    plan = spawn_mock.call_args.kwargs["plan"]
+    assert plan.strategy == "extend" and plan.segment_frames == (601, 121)
+    assert callable(spawn_mock.call_args.kwargs["submit_next"])
+    assert "分 2 段续写" in result.duration_notice
+
+
+@pytest.mark.asyncio
+async def test_ltx25_over_60s_returns_failure():
+    """LTX-2.5 duration_sec=61 超安全上限 → 返回失败原因(不提交)。"""
+    client = AsyncMock()
+    client.base_url = "http://192.168.71.127:8198"
+
+    gen = LtxVideoGenerator(pool=None, tracker=lambda c, p: None)
+    with patch("app.services.ltx25.ensure_ltx25_enabled"), \
+         patch("app.services.ltx25.get_ltx25_client", return_value=client), \
+         patch("app.services.ltx25.ensure_ltx25_ready", new=AsyncMock()):
+        result = await gen.generate("a boy walking", duration_sec=61, fps=24)
+
+    assert result.success is False
+    assert "最长支持 60 秒" in result.error
+    client.queue_prompt.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_ltx_nsfw_over_limit_returns_failure():
+    """LTX-2.3(NSFW)不支持 extend:15s@30fps=450>241 → 返回失败原因(单段上限)。"""
+    client = AsyncMock()
+    client.base_url = "http://worker"
+    pool = MagicMock()
+    pool.pick = AsyncMock(return_value=client)
+
+    fake_settings = MagicMock()
+    fake_settings.nsfw_default_video_ckpt = "10eros_v14.safetensors"
+    fake_settings.nsfw_default_gemma = "gemma3_12b_it_bf16/model.safetensors"
+    fake_settings.nsfw_default_vae = "LTX23_video_vae_bf16.safetensors"
+
+    gen = LtxVideoGenerator(pool=pool, tracker=lambda c, p: None)
+    with patch("app.services.video_generators.get_settings", return_value=fake_settings):
+        result = await gen.generate("a boy walking", duration_sec=15, fps=30, nsfw=True)
+
+    assert result.success is False
+    assert "单段上限" in result.error
+    client.queue_prompt.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_ltx_nsfw_trim_plan_spawns_chain():
+    """LTX-2.3(NSFW)trim 计划:4.6s@16fps=74 帧 → 向上吸附 81(5.06s,差 0.46s)→ 挂精裁链。"""
+    client = AsyncMock()
+    client.base_url = "http://worker"
+    client.queue_prompt = AsyncMock(return_value="pid-x")
+    pool = MagicMock()
+    pool.pick = AsyncMock(return_value=client)
+
+    fake_settings = MagicMock()
+    fake_settings.nsfw_default_video_ckpt = "10eros_v14.safetensors"
+    fake_settings.nsfw_default_gemma = "gemma3_12b_it_bf16/model.safetensors"
+    fake_settings.nsfw_default_vae = "LTX23_video_vae_bf16.safetensors"
+
+    gen = LtxVideoGenerator(pool=pool, tracker=lambda c, p: None)
+    with patch("app.services.video_generators.get_settings", return_value=fake_settings), \
+         patch("app.services.video_generators.spawn_duration_chain") as spawn_mock:
+        result = await gen.generate("a boy walking", duration_sec=4.6, fps=16, nsfw=True)
+
+    assert result.success is True
+    g = client.queue_prompt.call_args[0][0]
+    assert g["10"]["inputs"]["length"] == 81  # 74 → 向上吸附 8k+1=81
+    assert spawn_mock.call_args.kwargs["plan"].strategy == "trim"
+    assert "精确裁至 4.6 秒" in result.duration_notice
 
 
 @pytest.mark.asyncio

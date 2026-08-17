@@ -80,6 +80,7 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
         title="设置"
         desc="账户、界面主题与推理引擎状态总览"
         icon="settings"
+        kicker="SETTINGS"
         actions={
           <Button
             variant="secondary"
@@ -94,21 +95,23 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
 
       <div className="settings-grid">
         {/* ── 账户 ── */}
-        <section className="settings-card" aria-labelledby="settings-account">
+        <section className="settings-card at-card at-card--lift" aria-labelledby="settings-account">
           <h2 className="settings-card-title" id="settings-account">
             <span className="settings-card-icon" aria-hidden="true">
               <Icon name="user" size={14} strokeWidth={1.8} />
             </span>
             账户
           </h2>
-          <div className="settings-row">
-            <span className="settings-row-label">当前邮箱</span>
-            <span className="settings-row-value" translate="no">
+          {/* 横向紧凑行(2026-08-16 批 2):头像 + 邮箱 + 退出按钮一行,
+              与界面卡视觉对齐,不再单行键值占半宽大卡 */}
+          <div className="settings-account-row">
+            <span className="settings-account-avatar" aria-hidden="true">
+              <Icon name="user" size={16} strokeWidth={1.6} />
+            </span>
+            <span className="settings-account-mail" translate="no">
               {account ?? "—"}
             </span>
-          </div>
-          {onLogout && (
-            <div className="settings-actions">
+            {onLogout && (
               <Button
                 variant="danger"
                 size="sm"
@@ -117,47 +120,56 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
               >
                 退出登录
               </Button>
-            </div>
-          )}
+            )}
+          </div>
+          <p className="settings-account-desc">
+            修改密码暂未开放;退出登录后可切换账户
+          </p>
         </section>
 
         {/* ── 界面 ── */}
-        <section className="settings-card" aria-labelledby="settings-ui">
+        <section className="settings-card at-card at-card--lift" aria-labelledby="settings-ui">
           <h2 className="settings-card-title" id="settings-ui">
             <span className="settings-card-icon" aria-hidden="true">
               <Icon name="palette" size={14} strokeWidth={1.8} />
             </span>
             界面
           </h2>
+          <p className="settings-ui-desc">
+            模式与色板即时生效,并同步到所有已打开的标签页;自定义强调色优先级最高。
+          </p>
           <ThemePicker />
         </section>
 
         {/* ── 内容偏好(R18 全局模式,M9 F4) ── */}
-        <section className="settings-card" aria-labelledby="settings-content-pref">
+        <section className="settings-card at-card at-card--lift" aria-labelledby="settings-content-pref">
           <h2 className="settings-card-title" id="settings-content-pref">
             <span className="settings-card-icon" aria-hidden="true">
               <Icon name="eye" size={14} strokeWidth={1.8} />
             </span>
             内容偏好
-            <span className="settings-r18-badge">18+</span>
           </h2>
           <div className="settings-r18-row">
             <p className="settings-r18-desc">
               开启后全站展示成人向(R18)生成引擎、作品与推荐模型;产物仅自己可见,请遵守当地法规
             </p>
-            <span className="settings-r18-switch">
-              <Switch
-                checked={r18}
-                onChange={handleR18Change}
-                ariaLabel="R18 成人内容模式"
-              />
+            {/* 18+ 徽章与开关收拢(2026-08-16 批 2):同一行内,间距 --space-2 */}
+            <span className="settings-r18-side">
+              <span className="settings-r18-badge">18+</span>
+              <span className="settings-r18-switch">
+                <Switch
+                  checked={r18}
+                  onChange={handleR18Change}
+                  ariaLabel="R18 成人内容模式"
+                />
+              </span>
             </span>
           </div>
         </section>
 
         {/* ── 引擎状态(只读) ── */}
         <section
-          className="settings-card settings-card--wide"
+          className="settings-card settings-card--wide at-card at-card--lift"
           aria-labelledby="settings-engines"
         >
           <h2 className="settings-card-title" id="settings-engines">
@@ -209,7 +221,9 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
                           />
                           <span className="settings-engine-label">{e.label}</span>
                           <span
-                            className={`settings-engine-state${e.available ? " is-ok" : " is-err"}`}
+                            className={`at-badge settings-engine-state${
+                              e.available ? " at-badge--ok" : " at-badge--err"
+                            }`}
                           >
                             {e.available ? "可用" : "不可用"}
                           </span>
@@ -230,7 +244,7 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
 
         {/* ── 关于 ── */}
         <section
-          className="settings-card settings-card--wide"
+          className="settings-card settings-card--wide at-card at-card--lift"
           aria-labelledby="settings-about"
         >
           <h2 className="settings-card-title" id="settings-about">

@@ -13,6 +13,7 @@ import {
   type StudioShot,
   type StudioShotInput,
 } from "@/lib/api";
+import { begin as genBegin, end as genEnd } from "@/lib/generationBus";
 
 /**
  * Studio 创作工作室项目状态管理。
@@ -54,7 +55,11 @@ export function useStudioProject(pid: string | null) {
 
   // 操作统一入口:失败时把错误透出到 hook error(调用方渲染提示条),
   // 并继续 rethrow,保持调用方可编程感知(catch 后自行降级)。
+  // 全局进度条:withBusy 是 render/voice/lipsync/assemble 唯一扼流点,
+  // 在此统一登记/清除任务(label 即操作名,indeterminate)。
   const withBusy = useCallback(async (key: string, label: string, fn: () => Promise<void>) => {
+    const taskId = `studio-${key}`;
+    genBegin(taskId, label);
     setBusy((b) => ({ ...b, [key]: true }));
     try {
       await fn();
@@ -63,6 +68,7 @@ export function useStudioProject(pid: string | null) {
       throw e;
     } finally {
       setBusy((b) => ({ ...b, [key]: false }));
+      genEnd(taskId);
     }
   }, []);
 

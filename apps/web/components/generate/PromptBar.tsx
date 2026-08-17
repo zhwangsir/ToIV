@@ -9,6 +9,7 @@ import { Select } from "@/components/ui/Input";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
 import { ReverseButton } from "@/components/ui/ReverseButton";
 import { Ripple } from "@/components/ui/Ripple";
+import { useAutoResize } from "@/hooks/useAutoResize";
 import type { EngineInfo, EngineParam } from "@/lib/engines";
 
 import { ParamField } from "./ParamField";
@@ -19,6 +20,8 @@ interface PromptBarProps {
   onChange: (v: string) => void;
   /** 生成中禁用输入(沿用旧 Textarea 语义)。 */
   disabled?: boolean;
+  /** 外部聚焦句柄(T3 快速开始卡:点击后聚焦提示词框);内部自动增高 taRef 同步赋值。 */
+  inputRef?: { current: HTMLTextAreaElement | null };
   /** 当前解析出的引擎(null = 列表未加载/无可用)。 */
   engine: EngineInfo | null;
   /** 当前分组可见引擎列表(chip 展开的选择控件数据源)。 */
@@ -43,7 +46,7 @@ interface PromptBarProps {
 
 /**
  * 提示词条(WS2):底部居中悬浮玻璃条。
- * - 自动增高 textarea(值变化时重算 height,CSS max-height 160px 封顶)
+ * - 自动增高 textarea(scrollHeight 方案,40vh 宽松封顶,超出内滚不遮盖舞台)
  * - 引擎/尺寸以可拆卸 chips 吸附在条内:只读展示当前值,点击展开原有选择控件
  * - OptimizeButton 入口保留,优化结果经 onOptimized 直接回填条内文本
  * - 生成/取消按钮迁入条内(原参数栏 actions 下移动,语义不变)
@@ -53,6 +56,7 @@ export function PromptBar({
   value,
   onChange,
   disabled = false,
+  inputRef,
   engine,
   engines,
   onEngineChange,
@@ -72,13 +76,8 @@ export function PromptBar({
   const taRef = useRef<HTMLTextAreaElement | null>(null);
   const [openChip, setOpenChip] = useState<"engine" | "size" | null>(null);
 
-  // 自动增高:先收回 auto 再按 scrollHeight 撑开(超过 160px 由 CSS 截断出滚动条)
-  useEffect(() => {
-    const ta = taRef.current;
-    if (!ta) return;
-    ta.style.height = "auto";
-    ta.style.height = `${ta.scrollHeight}px`;
-  }, [value]);
+  // 自动增高:scrollHeight 两段式(收到 auto 再撑开),40vh 封顶后框内滚动(不再外溢遮盖舞台)
+  useAutoResize(taRef, value, { maxVh: 40 });
 
   // chip 展开态收敛:Esc 收起(点击条内输入区见 promptbar-input-row onClick)
   useEffect(() => {
@@ -106,19 +105,37 @@ export function PromptBar({
 
         <div className="promptbar-input-row" onClick={() => setOpenChip(null)}>
           <textarea
-            ref={taRef}
+            ref={(el) => {
+              taRef.current = el;
+              if (inputRef) inputRef.current = el;
+            }}
             className="promptbar-textarea"
             rows={1}
             value={value}
-            placeholder="描述想要生成的内容…"
+            placeholder="描述想要生成的内容…(⌘/Ctrl + Enter 快速生成)"
             disabled={disabled}
             aria-label="提示词"
             onChange={(e) => onChange(e.target.value)}
+            onKeyDown={(e) => {
+              // ⌘/Ctrl+Enter 快速生成(Enter 保留换行:提示词常多行);与 assistant/agent-runs 的键盘提交习惯对齐
+              if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && canSubmit && !submitting && !disabled) {
+                e.preventDefault();
+                onGenerate();
+              }
+            }}
           />
           {engine && (
             <OptimizeButton
               prompt={value}
               kind={optimizeKind}
+              engine={engine.id}
+              loras={
+                Array.isArray(values.loras)
+                  ? (values.loras as { name: string }[])
+                      .map((l) => l?.name)
+                      .filter((n): n is string => typeof n === "string")
+                  : undefined
+              }
               onOptimized={onOptimized}
               disabled={disabled}
             />
@@ -128,8 +145,9 @@ export function PromptBar({
           )}
           <div className="promptbar-actions">
             {isRunning && (
-              <Button variant="ghost" onClick={onCancel}>
-                取消
+              /* 语义澄清:仅停止前端跟踪,后端作业继续(真取消需在结果面板作业卡操作) */
+              <Button variant="ghost" onClick={onCancel} title="停止在当前页面跟踪进度,后端作业继续执行">
+                停止跟踪
               </Button>
             )}
             {/* 生成主按钮(UI-A 动效原语):Ripple 纯叠加包裹,按钮既有样式/行为不变,

@@ -19,7 +19,7 @@ import { EventTicker } from "./EventTicker";
 import { PipelineView } from "./PipelineView";
 import { PlanPanel } from "./PlanPanel";
 import { TaskCardList } from "./TaskCardList";
-import { RUN_TERMINAL, runStatusMeta } from "./agentRunMeta";
+import { RUN_TERMINAL, runStatusMeta, stripMarkdown } from "./agentRunMeta";
 import { useAgentRun } from "./useAgentRun";
 import { AgentRunStyles } from "./AgentRunStyles";
 import "@/app/styles/agent-runs.css";
@@ -46,15 +46,15 @@ export function AgentRunView({ runId, ack }: { runId: string; ack?: string | nul
 
   return (
     <div className="agent-page">
-      <div className="agent-shell">
+      <div className="view-shell agent-shell">
         {/* ── 顶部:返回 + 目标 + 状态徽章 + 形态 toggle + 取消 ── */}
         <header className="agent-topbar">
           <Link href="/agent-runs" className="agent-back">
             <Icon name="chevron-left" size={14} /> 任务列表
           </Link>
           <div className="agent-topbar-main">
-            <h1 className="agent-goal" title={d?.goal}>
-              {d?.goal || "Agent 团队任务"}
+            <h1 className="agent-goal" title={stripMarkdown(d?.goal)}>
+              {stripMarkdown(d?.goal) || "Agent 团队任务"}
             </h1>
             <div className="agent-topbar-meta">
               {d && <span className="badge">{d.level}</span>}
@@ -174,7 +174,12 @@ export function AgentRunView({ runId, ack }: { runId: string; ack?: string | nul
               <div className="agent-main">
                 {d &&
                   (mode === "cards" ? (
-                    <TaskCardList tasks={d.plan} busy={run.busy} onAction={run.taskAction} />
+                    <TaskCardList
+                      tasks={d.plan}
+                      busy={run.busy}
+                      onAction={run.taskAction}
+                      onUpload={run.uploadTaskAsset}
+                    />
                   ) : (
                     <PipelineView tasks={d.plan} />
                   ))}

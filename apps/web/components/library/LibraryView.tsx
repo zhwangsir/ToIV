@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { deleteJob, imageUrl, invalidateJobs, listJobs } from "@/lib/api";
+import { deleteJob, fetchJobsPage, getVideoUpscaleStatus, imageUrl, invalidateJobs, JOBS_PAGE_LIMIT, listJobs, undoDelete, upscaleVideo } from "@/lib/api";
 import { ENGINE_DRAFT_KEY } from "@/lib/engine";
+import { begin as genBegin, end as genEnd, progress as genProgress } from "@/lib/generationBus";
 import { useR18Mode } from "@/lib/r18";
 import {
   applyLibraryQuery,
@@ -16,6 +17,7 @@ import {
   kindToFilter,
   loadDensity,
   persistDensity,
+  splitCardTitle,
   statusLabel,
   type ContentFilterKey,
   type FilterKey,
@@ -181,21 +183,32 @@ export function LibraryView(props?: LibraryViewProps) {
   const [hoveredBlurId, setHoveredBlurId] = useState<string | null>(null);
   // 分页:首屏只渲染 PAGE_SIZE 条,「加载更多」追加;查询条件变更时重置
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  // 服务端分页(2026-08-16):首页走 swr 缓存(≤200 条),触底自动拉下一页追加;
+  // serverHasMore = 最后拉取的一页返回满页(==JOBS_PAGE_LIMIT)即可能还有
+  const [serverHasMore, setServerHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   // 工具条(2026-08-15 重设计):prompt 搜索 / 时间排序 / 网格密度(持久化)
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortKey>("newest");
   const [density, setDensity] = useState<LibraryDensity>(() => loadDensity());
-  // 批量管理:进入后点击卡片改为勾选;底部浮动操作条承载批量删除
+  // 删除确认对话框状态:confirmDelete=待删作品;skipConfirmChecked=「不再确认」勾选
+  const [confirmDelete, setConfirmDelete] = useState<JobItem | null>(null);
+  const [skipConfirmChecked, setSkipConfirmChecked] = useState(false);
   const [batchMode, setBatchMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
   const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
   const [batchDeleting, setBatchDeleting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  // 删除确认对话框(替代 window.confirm / window.alert)
-  const [confirmDelete, setConfirmDelete] = useState<JobItem | null>(null);
+  // 删除确认对话框(替代 window.confirm / window.alert);skipConfirmChecked=「不再确认」勾选
   const [deleteError, setDeleteError] = useState<string | null>(null);
   // 删除风格卡确认对话框(P0-2,与删除作品同一 Modal 基座)
   const [confirmDeleteStyle, setConfirmDeleteStyle] = useState<StyleCard | null>(null);
+  // 视频超分到 4K:确认 Modal + 提交 busy 态(防重复提交)
+  const [confirmUpscale, setConfirmUpscale] = useState<JobItem | null>(null);
+  const [upscalingId, setUpscalingId] = useState<string | null>(null);
+  const [upscaleError, setUpscaleError] = useState<string | null>(null);
+  // 超分轮询计时器集合(组件卸载时清理,防 setState on unmounted;支持多作业并发)
+  const upscaleTimerRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
   // 沉浸查看器:当前查询结果列表内的索引;失败/音频作品也允许打开(显示对应占位)
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   // 风格卡(WS4):StyleBar 数据源 + 「存为风格」Popover 状态
@@ -208,10 +221,33 @@ export function LibraryView(props?: LibraryViewProps) {
     setLoading(true);
     setError(null);
     listJobs()
-      .then(setJobs)
+      .then((page1) => {
+        setJobs(page1);
+        // 首页满页 → 服务端可能还有更早的作品(老作品不再被 50 条截断)
+        setServerHasMore(page1.length >= JOBS_PAGE_LIMIT);
+      })
       .catch((err) => setError(err instanceof Error ? err.message : "加载作品失败"))
       .finally(() => setLoading(false));
   }, []);
+
+  // 服务端下一页:offset=已加载条数;按 id 去重(首页缓存 stale 期间新作业插入顶部
+  // 会导致页间位置漂移重叠,去重兜底)
+  const loadMoreServer = useCallback(() => {
+    if (loadingMore || !serverHasMore) return;
+    setLoadingMore(true);
+    fetchJobsPage(jobs?.length ?? 0)
+      .then((page) => {
+        setServerHasMore(page.length >= JOBS_PAGE_LIMIT);
+        if (page.length > 0) {
+          setJobs((prev) => {
+            const seen = new Set((prev ?? []).map((j) => j.id));
+            return [...(prev ?? []), ...page.filter((j) => !seen.has(j.id))];
+          });
+        }
+      })
+      .catch((err) => toast.error(err instanceof Error ? err.message : "加载更多失败"))
+      .finally(() => setLoadingMore(false));
+  }, [jobs?.length, loadingMore, serverHasMore, toast]);
 
   useEffect(() => {
     load();
@@ -263,6 +299,24 @@ export function LibraryView(props?: LibraryViewProps) {
   );
   const hasMore = filtered.length > visibleCount;
 
+  // 统一推进一步:客户端已加载的先看(扩 visibleCount),看完了再拉服务端下一页
+  const advance = useCallback(() => {
+    if (hasMore) setVisibleCount((c) => c + PAGE_SIZE);
+    else loadMoreServer();
+  }, [hasMore, loadMoreServer]);
+
+  // 触底自动加载:监听底部哨兵;客户端/服务端两层分页都对用户透明(无限滚动)
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) advance();
+    }, { rootMargin: "400px" }); // 提前 400px 预拉,滚动到底前就已加载
+    io.observe(el);
+    return () => io.disconnect();
+  }, [advance]);
+
   // 查询条件变更统一重置分页(首屏 60 条)
   const resetPage = useCallback(() => setVisibleCount(PAGE_SIZE), []);
 
@@ -305,13 +359,27 @@ export function LibraryView(props?: LibraryViewProps) {
     setDeleteError(null);
   };
 
+  /** 全选当前已渲染的筛选结果(批量清理免逐张点;已全选时再点切换为清空)。 */
+  const toggleSelectAllVisible = () => {
+    setSelectedIds((prev) => {
+      const allVisibleIds = visibleJobs.map((j) => j.id);
+      const allSelected = allVisibleIds.length > 0 && allVisibleIds.every((id) => prev.has(id));
+      if (allSelected) {
+        const next = new Set(prev);
+        for (const id of allVisibleIds) next.delete(id);
+        return next;
+      }
+      return new Set([...prev, ...allVisibleIds]);
+    });
+  };
+
   // 确认批量删除:顺序执行,成功项移出列表;有失败则保留失败项选中并内联报错
   const handleConfirmBatchDelete = async () => {
     const ids = [...selectedIds];
     if (ids.length === 0) return;
     setBatchDeleting(true);
     setDeleteError(null);
-    const { done, failed } = await deleteJobsBatch(ids, deleteJob);
+    const { done, failed, undoTokens } = await deleteJobsBatch(ids, deleteJob);
     setBatchDeleting(false);
     if (done.length > 0) {
       invalidateJobs();
@@ -319,7 +387,23 @@ export function LibraryView(props?: LibraryViewProps) {
       setJobs((prev) => (prev ?? []).filter((j) => !doneSet.has(j.id)));
     }
     if (failed.length === 0) {
-      toast.success(`已删除 ${done.length} 件作品`);
+      // SAFETY:批量删除同样可撤销(逐件恢复,10 分钟窗口)
+      if (undoTokens.length > 0) {
+        toast.success(`已删除 ${done.length} 件作品`, {
+          label: "全部撤销",
+          onClick: () => {
+            Promise.allSettled(undoTokens.map((t) => undoDelete(t)))
+              .then(() => {
+                invalidateJobs();
+                load();
+                toast.success(`已恢复 ${undoTokens.length} 件作品`);
+              })
+              .catch(() => toast.error("撤销失败(可能已过期)"));
+          },
+        });
+      } else {
+        toast.success(`已删除 ${done.length} 件作品`);
+      }
       exitBatchMode();
     } else {
       setSelectedIds(new Set(failed));
@@ -327,27 +411,131 @@ export function LibraryView(props?: LibraryViewProps) {
     }
   };
 
-  // 点击删除:仅打开确认对话框(不再使用 window.confirm)
+  // 点击删除:确认门可记忆跳过(SAFETY:删除已有 10 分钟撤销兜底,熟练用户免打扰);
+  // 记忆开关在确认对话框内勾选(localStorage 持久化)
   const handleDelete = (job: JobItem) => {
     setDeleteError(null);
+    if (typeof window !== "undefined" && window.localStorage.getItem("toiv_skip_del_confirm") === "1") {
+      void handleConfirmDeleteDirect(job);
+      return;
+    }
+    setSkipConfirmChecked(false);
     setConfirmDelete(job);
   };
 
-  // 确认删除:执行实际删除,失败时把错误信息内联显示在对话框中
+  // 确认删除:执行实际删除,失败时把错误信息内联显示在对话框中;
+  // 勾选「不再确认」时持久化(SAFETY:熟练用户效率;撤销兜底仍在)
   const handleConfirmDelete = async () => {
     if (!confirmDelete) return;
-    const job = confirmDelete;
+    if (typeof window !== "undefined") {
+      if (skipConfirmChecked) window.localStorage.setItem("toiv_skip_del_confirm", "1");
+      else window.localStorage.removeItem("toiv_skip_del_confirm");
+    }
+    await handleConfirmDeleteDirect(confirmDelete);
+  };
+
+  // 删除执行体(确认对话框与「不再确认」直达共用):SAFETY toast 带撤销入口
+  const handleConfirmDeleteDirect = async (job: JobItem) => {
     setDeletingId(job.id);
     try {
-      await deleteJob(job.id);
+      const result = await deleteJob(job.id);
       invalidateJobs();
       setJobs((prev) => (prev ?? []).filter((j) => j.id !== job.id));
       setConfirmDelete(null);
       setDeleteError(null);
+      if (result.undo_token) {
+        toast.success("已删除作品(10 分钟内可撤销)", {
+          label: "撤销",
+          onClick: () => {
+            undoDelete(result.undo_token as string)
+              .then(() => {
+                invalidateJobs();
+                load();
+                toast.success("已恢复作品");
+              })
+              .catch((e: unknown) => toast.error(e instanceof Error ? e.message : "撤销失败(可能已过期)"));
+          },
+        });
+      } else {
+        toast.success("已删除作品");
+      }
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : "删除失败");
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  // ── 视频超分到 4K(M6 fleet 帧级管线) ──
+
+  // 卸载清理:停掉全部超分轮询计时器(防 setState on unmounted)
+  useEffect(() => {
+    const timers = upscaleTimerRef.current;
+    return () => {
+      for (const t of timers) clearTimeout(t);
+      timers.clear();
+    };
+  }, []);
+
+  // 点击「超分到 4K」:仅打开确认 Modal(与删除同一确认范式,不用 window.confirm)
+  const handleUpscale = (job: JobItem) => {
+    setUpscaleError(null);
+    setConfirmUpscale(job);
+  };
+
+  // 轮询超分作业:帧级进度写全局进度条;终态收口(刷新作品库 + toast)
+  const pollUpscale = useCallback(
+    (jobId: string, taskId: string) => {
+      const tick = async () => {
+        try {
+          const st = await getVideoUpscaleStatus(jobId);
+          if (st.progress?.pct != null) genProgress(taskId, st.progress.pct);
+          if (st.status === "done") {
+            genEnd(taskId);
+            invalidateJobs();
+            load();
+            toast.success("超分完成,4K 版本已收录作品库");
+            return;
+          }
+          if (st.status === "error") {
+            genEnd(taskId);
+            toast.error("视频超分失败,可重新发起(已超分帧会断点续跑)");
+            return;
+          }
+        } catch {
+          // 单次轮询失败(网络抖动/重启)不打断,下轮继续
+        }
+        const t = setTimeout(tick, 3000);
+        upscaleTimerRef.current.add(t);
+      };
+      const t = setTimeout(tick, 3000);
+      upscaleTimerRef.current.add(t);
+    },
+    [load, toast],
+  );
+
+  // 确认超分:提交后端(秒回 Job),随后轮询状态;busy 态防重复提交
+  const handleConfirmUpscale = async () => {
+    if (!confirmUpscale) return;
+    const job = confirmUpscale;
+    const src = job.results?.[0];
+    if (!src) {
+      setUpscaleError("该作品没有可用产物");
+      return;
+    }
+    setUpscalingId(job.id);
+    setUpscaleError(null);
+    try {
+      const res = await upscaleVideo({ video_url: src, target: "4k" });
+      const taskId = `video-upscale-${res.job_id}`;
+      genBegin(taskId, "视频超分到 4K");
+      toast.success("超分任务已提交,完成后自动收录作品库");
+      setConfirmUpscale(null);
+      pollUpscale(res.job_id, taskId);
+    } catch (err) {
+      setUpscaleError(err instanceof Error ? err.message : "超分提交失败");
+    } finally {
+      setUpscalingId(null);
     }
   };
 
@@ -549,6 +737,9 @@ export function LibraryView(props?: LibraryViewProps) {
           ))}
         </div>
 
+        {/* 组间 hairline(2026-08-16 审计):类型过滤 / 内容分级 / 排序三组胶囊混排难分边界 */}
+        <span className="lib-toolbar-divider" aria-hidden="true" />
+
         <div className="lib-chips" role="group" aria-label="内容分级筛选">
           {(
             [
@@ -573,6 +764,7 @@ export function LibraryView(props?: LibraryViewProps) {
         </div>
 
         <div className="lib-toolbar-cluster">
+          <span className="lib-toolbar-divider" aria-hidden="true" />
           <div className="lib-seg" role="group" aria-label="排序方式">
             <button
               type="button"
@@ -620,6 +812,10 @@ export function LibraryView(props?: LibraryViewProps) {
               <Icon name="grid" size={14} />
             </button>
           </div>
+
+          {/* 组间 hairline(2026-08-16 视图批 1):「排序与视图」与「批量管理」划界,
+              工具行四组结构成形(类型过滤 | 内容门控 | 排序与视图 | 批量管理) */}
+          <span className="lib-toolbar-divider" aria-hidden="true" />
 
           <Button
             size="sm"
@@ -678,6 +874,12 @@ export function LibraryView(props?: LibraryViewProps) {
             <p className="lib-empty-desc">
               当前筛选 / 搜索条件下没有结果,试试调整关键词或清空全部条件。
             </p>
+            {/* 搜索范围明示:客户端过滤只覆盖已加载分页,避免「搜不到=不存在」的误导 */}
+            {search.trim() && (jobs?.length ?? 0) > 0 && (
+              <p className="lib-empty-scope">
+                注:搜索仅覆盖已加载的 {jobs?.length ?? 0} 件作品,更早的作品需向下滚动加载后可搜。
+              </p>
+            )}
             <Button
               size="sm"
               icon={<Icon name="close" size={14} />}
@@ -699,6 +901,8 @@ export function LibraryView(props?: LibraryViewProps) {
               const isNsfw = !!job.nsfw;
               const isBlurred = isNsfw && !revealedIds.has(job.id);
               const isSelected = selectedIds.has(job.id);
+              // 2026-08-16 视图批 1:标题位优先语义首段,后端写入的元信息串降级为副标
+              const cardText = splitCardTitle(job);
               return (
                 <article
                   key={job.id}
@@ -817,6 +1021,25 @@ export function LibraryView(props?: LibraryViewProps) {
                         >
                           <Icon name="link" size={14} />
                         </button>
+                        {/* 视频超分到 4K:仅视频产物卡渲染(超分产物自身不再二次超分) */}
+                        {isVideo && hasResult && job.kind !== "video_upscale" && (
+                          <button
+                            type="button"
+                            className="lib-action-btn"
+                            title="超分到 4K"
+                            aria-label={`超分到 4K: ${job.prompt || "无提示词"}`}
+                            disabled={upscalingId === job.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUpscale(job);
+                            }}
+                          >
+                            <Icon
+                              name={upscalingId === job.id ? "loading" : "maximize"}
+                              size={14}
+                            />
+                          </button>
+                        )}
                         <button
                           type="button"
                           className="lib-action-btn"
@@ -864,9 +1087,17 @@ export function LibraryView(props?: LibraryViewProps) {
                   </div>
 
                   <div className="lib-foot">
+                    {/* 标题位:prompt 首段(2 行截断);元信息串已拆出,不再整串当标题 */}
                     <div className="lib-card-title" title={job.prompt}>
-                      {job.prompt || "(无提示词)"}
+                      {cardText.title || "(无提示词)"}
                     </div>
+                    {/* 副标:元信息(分辨率/帧数/时长)降级一行,label 档 muted */}
+                    {cardText.meta && (
+                      <div className="lib-card-sub" title={cardText.meta}>
+                        {cardText.meta}
+                      </div>
+                    )}
+                    {/* 来源 + 时间戳同一行 */}
                     <div className="lib-meta">
                       <span className="lib-kind" title={kindLabel(job.kind)}>
                         {kindLabel(job.kind)}
@@ -883,14 +1114,21 @@ export function LibraryView(props?: LibraryViewProps) {
               );
             })}
             </div>
-            {hasMore && (
+            {/* 无限滚动哨兵:触底自动 advance(客户端扩渲染 → 服务端拉下页) */}
+            {(hasMore || serverHasMore) && (
+              <div ref={sentinelRef} className="lib-load-sentinel" aria-hidden="true" />
+            )}
+            {(hasMore || serverHasMore) && (
               <div className="lib-load-more">
                 <Button
                   variant="secondary"
                   className="lib-load-more-btn"
-                  onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+                  loading={loadingMore}
+                  onClick={advance}
                 >
-                  加载更多(已显示 {visibleJobs.length} / {filtered.length})
+                  {hasMore
+                    ? `加载更多(已显示 ${visibleJobs.length} / ${filtered.length})`
+                    : "加载更早的作品"}
                 </Button>
               </div>
             )}
@@ -903,6 +1141,16 @@ export function LibraryView(props?: LibraryViewProps) {
         <div className="lib-batchbar" role="region" aria-label="批量操作">
           <span className="lib-batchbar-count">已选 {selectedIds.size} 项</span>
           <span className="lib-batchbar-sep" aria-hidden="true" />
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={visibleJobs.length === 0 || batchDeleting}
+            icon={<Icon name="grid" size={14} />}
+            onClick={toggleSelectAllVisible}
+            title="选中/取消当前已显示的全部作品"
+          >
+            全选本页
+          </Button>
           <Button
             size="sm"
             variant="danger"
@@ -933,7 +1181,7 @@ export function LibraryView(props?: LibraryViewProps) {
           onReuse={reusePromptAsDraft}
           onDelete={handleDelete}
           deletingId={deletingId}
-          dialogsOpen={!!styleTarget || !!confirmDelete || !!confirmDeleteStyle || confirmBatchDelete}
+          dialogsOpen={!!styleTarget || !!confirmDelete || !!confirmDeleteStyle || confirmBatchDelete || !!confirmUpscale}
         />
       )}
 
@@ -996,7 +1244,7 @@ export function LibraryView(props?: LibraryViewProps) {
       >
         <div className="lib-confirm-body">
           <div className="lib-confirm-warn">
-            确定删除这件作品?此操作不可撤销,作品的所有数据将被永久移除。
+            确定删除这件作品?作品将从作品库移除;<strong>10 分钟内可撤销</strong>(删除提示中点「撤销」即可恢复)。
           </div>
           {confirmDelete?.prompt && (
             <div className="lib-confirm-prompt">
@@ -1005,6 +1253,14 @@ export function LibraryView(props?: LibraryViewProps) {
                 : confirmDelete.prompt}
             </div>
           )}
+          <label className="lib-confirm-skip">
+            <input
+              type="checkbox"
+              checked={skipConfirmChecked}
+              onChange={(e) => setSkipConfirmChecked(e.target.checked)}
+            />
+            <span>不再确认(删除仍可在 10 分钟内撤销)</span>
+          </label>
           {deleteError && (
             <div className="lib-confirm-error">
               <Icon name="error" size={13} /> {deleteError}
@@ -1042,7 +1298,8 @@ export function LibraryView(props?: LibraryViewProps) {
       >
         <div className="lib-confirm-body">
           <div className="lib-confirm-warn">
-            确定删除选中的 {selectedIds.size} 件作品?此操作不可撤销,这些作品的所有数据将被永久移除。
+            确定删除选中的 {selectedIds.size} 件作品?这些作品将从作品库移除;
+            <strong>10 分钟内可逐件撤销</strong>(删除提示中点「全部撤销」)。
           </div>
           {deleteError && (
             <div className="lib-confirm-error">
@@ -1082,6 +1339,53 @@ export function LibraryView(props?: LibraryViewProps) {
           </div>
           {confirmDeleteStyle && (
             <div className="lib-confirm-prompt">{confirmDeleteStyle.name}</div>
+          )}
+        </div>
+      </Modal>
+
+      {/* 视频超分确认对话框(与删除同一 Modal 确认范式;说明耗时与产物去向) */}
+      <Modal
+        open={!!confirmUpscale}
+        onClose={() => setConfirmUpscale(null)}
+        title="超分到 4K"
+        preventClose={upscalingId !== null}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              disabled={upscalingId !== null}
+              onClick={() => setConfirmUpscale(null)}
+            >
+              取消
+            </Button>
+            <Button
+              variant="primary"
+              loading={upscalingId !== null}
+              icon={<Icon name="maximize" size={14} />}
+              onClick={handleConfirmUpscale}
+            >
+              {upscalingId ? "提交中…" : "开始超分"}
+            </Button>
+          </>
+        }
+      >
+        <div className="lib-confirm-body">
+          <div className="lib-confirm-warn">
+            将把该视频逐帧放大到 4K(横屏 3840×2160 / 竖屏 2160×3840,画幅方向自动识别)。
+            耗时约 1-2 分钟/10 秒片,具体取决于片长与引擎占用;完成后新作品自动收录作品库,
+            期间可继续其他操作。
+          </div>
+          {confirmUpscale?.prompt && (
+            <div className="lib-confirm-prompt">
+              {confirmUpscale.prompt.length > 80
+                ? confirmUpscale.prompt.slice(0, 80) + "…"
+                : confirmUpscale.prompt}
+            </div>
+          )}
+          {upscaleError && (
+            <div className="lib-confirm-error">
+              <Icon name="error" size={13} /> {upscaleError}
+            </div>
           )}
         </div>
       </Modal>

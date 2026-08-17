@@ -153,7 +153,9 @@ test("stage.css z-index 裸值收编为语义档位、display/字重 token 化",
   // 40px → var(--text-display-lg);650 → var(--font-semibold);1.2s → var(--duration-loop)
   assert.ok(!css.includes("font-size: 40px"), "40px display 硬编码未收编");
   assert.ok(!css.includes("font-weight: 650"), "650 字重硬编码未收编");
-  assert.ok(css.includes("var(--text-display-lg)"), "display-lg token 未接入");
+  // 2026-08-16 视图批 1:空态主标题 display 档降为标题档(var(--text-title));
+  // display 档仅剩移动档覆盖(@media ≤767px,Team D 移动区)
+  assert.ok(css.includes("var(--text-title)"), "空态标题档 token 未接入");
   assert.ok(css.includes("var(--font-semibold)"), "semibold 字重 token 未接入");
   assert.ok(css.includes("var(--duration-loop)"), "loop 时长 token 未接入");
 });

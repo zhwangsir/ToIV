@@ -39,6 +39,8 @@ from app.workflows.img2img import Img2ImgParams, build_img2img_graph
 from app.workflows.inpaint import InpaintParams, build_inpaint_graph
 from app.workflows.lora import LoraSpec, parse_lora_tags
 from app.workflows.model_profiles import (
+    AR_IMAGE,
+    aspect_guard,
     fit_resolution,
     is_nsfw,
     is_nextgen,
@@ -117,6 +119,9 @@ class Txt2ImgRequest(BaseModel):
     loras: list[LoraInput] = Field(default_factory=list, max_length=_MAX_LORAS)
     # 出图引擎:comfyui(默认,异步工作流)| forge(reForge sdapi 同步出图)
     engine: str = Field(default="comfyui")
+
+    # 宽高比守卫:1:2~2:1 静默归一(SD 系训练分布;极端比例出主体被裁/文字溢出)
+    _ratio = aspect_guard(*AR_IMAGE, align=8, min_v=64, max_v=2048)
 
 
 router = APIRouter()

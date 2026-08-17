@@ -1,12 +1,15 @@
 /* ========== 左上角悬停展开导航(2026-08-07 CornerNav,桌面 ≥1024px,见 components/nav/CornerNav) ========== */
 /* 收起态:左上角一枚玻璃触发器(品牌点 + ToIV + 当前模块 + 箭头),不遮挡内容; */
-/* 悬停/聚焦/点击钉住:向下展开竖向玻璃面板(图标 + 标签列表 + 账户行),纯 CSS 弹簧过渡; */
+/* 悬停/聚焦/点击钉住:向下展开竖向玻璃面板(图标 + 标签列表),纯 CSS 弹簧过渡; */
 /* 触发器与面板同处 .cornernav 容器,面板顶部 6px 透明桥接区保证 hover 连续。 */
+/* 2026-08-17 账户拆分:账户行移除,右上角独立 AccountButton(见本文件末节)。 */
 
 .cornernav {
   position: fixed;
-  top: 12px;
-  left: 12px;
+  /* 2026-08-16 位置修正:12/12 贴边改为 14/16,与 4px 间距基数对齐,
+     左缘与页头内容列(x≈87)距离更舒展,不再视觉贴边 */
+  top: 14px;
+  left: 16px;
   z-index: var(--z-sticky);
 }
 
@@ -22,7 +25,9 @@
   -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-full);
-  box-shadow: var(--glass-highlight), var(--shadow-float);
+  /* 2026-08-16 显示效果修正:常显态 shadow-float(0 12px 40px)过重,浅色下悬浮感突兀;
+     降为 shadow-lg 常显,hover/展开再升 float(交互反馈升浮) */
+  box-shadow: var(--glass-highlight), var(--shadow-lg);
   color: var(--text-primary);
   font-size: var(--text-sm);
   cursor: pointer;
@@ -79,7 +84,7 @@
   top: 100%;
   left: 0;
   padding-top: 6px; /* 透明桥接区:hover 从触发器滑入面板不中断 */
-  min-width: 176px;
+  min-width: 200px; /* 2026-08-16:176→200,「Agent 团队」等 4 字项 + 图标不再贴右缘 */
   max-width: 240px;
   opacity: 0;
   transform: translateY(-6px) scale(0.98);
@@ -162,93 +167,6 @@
   flex-shrink: 0;
 }
 
-.cornernav-sep {
-  height: 1px;
-  margin: var(--space-2) var(--space-1);
-  background: var(--border-subtle);
-}
-
-/* ── 账户行 ── */
-.cornernav-account {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  width: 100%;
-  height: 40px;
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-control);
-  cursor: pointer;
-  transition: background-color var(--duration-fast) var(--ease-standard);
-}
-.cornernav-account:hover {
-  background: var(--bg-surface-2);
-}
-.cornernav-avatar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-size: var(--text-sm);
-  font-weight: var(--font-semibold);
-  flex-shrink: 0;
-}
-.cornernav-account-email {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: left;
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-}
-.cornernav-account-go {
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-
-/* 账户菜单(内容挂在 Popover 玻璃基座内,底/描边/阴影由基座提供,此处只管布局) */
-.cornernav-account-pop {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3);
-}
-.cornernav-account-pop-email {
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding: 0 var(--space-1);
-}
-.cornernav-account-action,
-.cornernav-account-logout {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  height: 32px;
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-control);
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: background-color var(--duration-fast) var(--ease-standard),
-              color var(--duration-fast) var(--ease-standard);
-}
-.cornernav-account-action:hover {
-  background: var(--bg-surface-2);
-  color: var(--text-primary);
-}
-.cornernav-account-logout:hover {
-  background: var(--err-soft);
-  color: var(--err);
-}
-
 @media (prefers-reduced-motion: reduce) {
   .cornernav-trigger,
   .cornernav-panel,
@@ -269,6 +187,119 @@
 /* 横屏低高度 <500px:恢复显示(触发器占地极小,底部导航让位) */
 @media (max-height: 500px) and (orientation: landscape) {
   .cornernav {
+    display: block;
+  }
+}
+
+/* ========== 右上角账户按钮(2026-08-17 AccountButton,自灵动岛拆分,桌面 ≥1024px) ========== */
+/* 独立常驻头像:一跳直达主题/设置/退出;与左上灵动岛同材质(白玻璃)对角呼应;
+   通知 Toast 同在右上(z-toast 更高),出现时短暂覆盖头像属预期(通知优先)。 */
+
+.accountbtn {
+  position: fixed;
+  top: 14px;
+  right: 16px;
+  z-index: var(--z-sticky);
+}
+
+.accountbtn-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-full);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-highlight), var(--shadow-lg);
+  cursor: pointer;
+  transition: box-shadow var(--duration-slow) var(--ease-spring),
+              border-color var(--duration-base) var(--ease-standard);
+}
+.accountbtn-trigger:hover,
+.accountbtn-trigger:focus-visible {
+  border-color: var(--border-strong);
+  box-shadow: var(--glass-highlight), var(--shadow-float), var(--shadow-xl);
+}
+.accountbtn-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+}
+
+/* 账户菜单(内容挂在 Popover 玻璃基座内,底/描边/阴影由基座提供,此处只管布局) */
+.accountbtn-pop {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+.accountbtn-pop-email {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 var(--space-1);
+}
+/* M9:R18 模式只读状态行 */
+.accountbtn-r18 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-label);
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+.accountbtn-r18-badge {
+  padding: 1px var(--space-1);
+  background: var(--err);
+  color: var(--text-on-accent);
+  border-radius: var(--radius-badge);
+  font-weight: var(--font-semibold);
+  flex-shrink: 0;
+}
+.accountbtn-action,
+.accountbtn-logout {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 32px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-control);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-standard),
+              color var(--duration-fast) var(--ease-standard);
+}
+.accountbtn-action:hover {
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+}
+.accountbtn-logout:hover {
+  background: var(--err-soft);
+  color: var(--err);
+}
+
+/* 窄屏 <1024px:隐藏,由底部导航「更多 → 设置」承载;横屏低高度恢复(与灵动岛同断点) */
+@media (max-width: 1023px) {
+  .accountbtn {
+    display: none;
+  }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .accountbtn {
     display: block;
   }
 }

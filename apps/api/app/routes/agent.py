@@ -252,5 +252,11 @@ async def delete_agent_session(
     for r in rows:
         session.delete(r)
     session.delete(sess)
+    from app import audit as _audit
+
+    _audit.record(
+        session, user=user, action="session.delete", target_type="agent_session",
+        target_id=sid, summary=f"删除智能体会话({len(rows)} 条消息)",
+    )
     session.commit()
     return {"ok": True}

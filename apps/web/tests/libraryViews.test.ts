@@ -196,24 +196,28 @@ test("deleteJobsBatch:顺序执行,单条失败不中断,done/failed 分组返�
   const result = await deleteJobsBatch(["a", "b", "c"], async (id) => {
     calls.push(id);
     if (!okIds.has(id)) throw new Error("boom");
+    // 模拟软删除端点:成功项返回撤销凭据
+    return { undo_token: `tok-${id}` };
   });
   assert.deepEqual(calls, ["a", "b", "c"], "必须按传入顺序逐条调用");
   assert.deepEqual(result.done, ["a", "c"]);
   assert.deepEqual(result.failed, ["b"]);
+  assert.deepEqual(result.undoTokens, ["tok-a", "tok-c"], "成功删除项的撤销凭据须收集");
 });
 
-test("deleteJobsBatch:空输入不调用删除函数,全失败时 done 为空", async () => {
+test("deleteJobsBatch:空输入不调用删除函数,全失败时 done/undoTokens 为空", async () => {
   let n = 0;
   const empty = await deleteJobsBatch([], async () => {
     n++;
   });
   assert.equal(n, 0);
-  assert.deepEqual(empty, { done: [], failed: [] });
+  assert.deepEqual(empty, { done: [], failed: [], undoTokens: [] });
   const allFail = await deleteJobsBatch(["x", "y"], async () => {
     throw new Error("nope");
   });
   assert.deepEqual(allFail.done, []);
   assert.deepEqual(allFail.failed, ["x", "y"]);
+  assert.deepEqual(allFail.undoTokens, []);
 });
 
 /* ── ⑤ 工具条渲染(SSR 初始帧:loading 骨架 + 工具条) ── */
@@ -249,6 +253,32 @@ test("LibraryEmptyState:细线框图标 + 暂无作品 + 去创作 CTA", () => {
   assert.match(html, /lib-empty-display/, "空态标题类名缺失");
   assert.match(html, /暂无作品/, "空态标题文案缺失");
   assert.match(html, /去创作/, "缺少去创作 CTA");
+});
+
+/* ── ⑧ 服务端分页(2026-08-16 无限滚动,老作品不再被 50 条截断) ── */
+test("api.ts:fetchJobsPage 带 limit/offset;首页走 JOBS_PAGE_LIMIT", () => {
+  const src = readSrc("lib/api.ts");
+  assert.ok(src.includes("export async function fetchJobsPage"), "fetchJobsPage 未导出");
+  assert.ok(src.includes("offset=${offset}"), "分页未带 offset");
+  assert.ok(src.includes("export const JOBS_PAGE_LIMIT = 200"), "首页档应为 200(后端上限)");
+  // fetchJobsRaw 必须走分页函数(首页),不允许裸调 /api/jobs(默认 50 截断)
+  const raw = src.slice(src.indexOf("async function fetchJobsRaw"));
+  assert.ok(raw.includes("fetchJobsPage(0, JOBS_PAGE_LIMIT)"), "首页未走 fetchJobsPage");
+});
+
+test("LibraryView 服务端分页:触底哨兵 + id 去重 + 两层 advance(源码断言)", () => {
+  const src = readSrc("components/library/LibraryView.tsx");
+  assert.ok(src.includes("fetchJobsPage"), "未引入服务端分页拉取");
+  assert.ok(src.includes("serverHasMore"), "缺服务端分页态");
+  assert.ok(src.includes("IntersectionObserver"), "缺触底哨兵");
+  assert.ok(src.includes("lib-load-sentinel"), "哨兵类名缺失");
+  assert.ok(src.includes("!seen.has(j.id)"), "页间未按 id 去重(新作业插入会页间重叠)");
+  // advance 须先扩客户端渲染、再拉服务端(两层分页对用户透明)
+  const i = src.indexOf("const advance = useCallback");
+  const block = src.slice(i, src.indexOf("}, [", i));
+  assert.ok(block.includes("hasMore") && block.includes("loadMoreServer"), "advance 未覆盖两层分页");
+  const css = readSrc("app/styles/library.css");
+  assert.ok(css.includes(".lib-load-sentinel"), "哨兵样式缺失");
 });
 
 /* ── ⑦ 结构源码断言 ── */

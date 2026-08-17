@@ -9,16 +9,24 @@ import {
 import { Icon } from "./Icon";
 
 type ToastType = "success" | "error" | "info";
+
+/** 可操作 toast 的动作按钮(如删除后的「撤销」);带动作的 toast 停留更久。 */
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 interface ToastItem {
   id: number;
   type: ToastType;
   message: string;
+  action?: ToastAction;
 }
 interface ToastContextValue {
-  show: (type: ToastType, message: string) => void;
-  success: (msg: string) => void;
+  show: (type: ToastType, message: string, action?: ToastAction) => void;
+  success: (msg: string, action?: ToastAction) => void;
   error: (msg: string) => void;
-  info: (msg: string) => void;
+  info: (msg: string, action?: ToastAction) => void;
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
@@ -37,19 +45,20 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const show = useCallback(
-    (type: ToastType, message: string) => {
+    (type: ToastType, message: string, action?: ToastAction) => {
       const id = Date.now() + Math.random();
-      setToasts((prev) => [...prev, { id, type, message }]);
-      setTimeout(() => remove(id), 3500);
+      setToasts((prev) => [...prev, { id, type, message, action }]);
+      // 带动作按钮(如「撤销」)的 toast 停留 60s,给足反应时间;普通 3.5s
+      setTimeout(() => remove(id), action ? 60_000 : 3_500);
     },
     [remove],
   );
 
   const ctx: ToastContextValue = {
     show,
-    success: (msg) => show("success", msg),
+    success: (msg, action) => show("success", msg, action),
     error: (msg) => show("error", msg),
-    info: (msg) => show("info", msg),
+    info: (msg, action) => show("info", msg, action),
   };
 
   return (
@@ -78,6 +87,19 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               size={16}
             />
             <span className="toast-msg">{t.message}</span>
+            {t.action && (
+              <button
+                type="button"
+                className="toast-action"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  t.action?.onClick();
+                  remove(t.id);
+                }}
+              >
+                {t.action.label}
+              </button>
+            )}
             <button
               type="button"
               className="toast-close"
@@ -144,6 +166,23 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           min-width: 0;
           line-height: 1.5;
           word-break: break-word;
+        }
+        /* 可操作动作按钮(如删除后「撤销」):accent 描边轻按钮,hover 提亮 */
+        .toast-action {
+          flex-shrink: 0;
+          padding: var(--space-1) var(--space-3);
+          background: transparent;
+          border: 1px solid var(--accent);
+          color: var(--accent);
+          font-size: var(--text-aux);
+          font-weight: var(--font-medium);
+          border-radius: var(--radius-control);
+          cursor: pointer;
+          transition: background-color var(--duration-fast) var(--ease-standard);
+        }
+        .toast-action:hover {
+          background: var(--accent);
+          color: var(--bg-surface-1);
         }
         .toast-close {
           width: 24px;

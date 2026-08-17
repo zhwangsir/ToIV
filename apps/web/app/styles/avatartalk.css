@@ -36,7 +36,9 @@
   overflow: hidden;
 }
 /* 页头是 .at-view 的 flex 子项,不能落进主体 grid;view-root 无内边距,此处自补。
-   无需避让 CornerNav:壳层 .app-main padding-top:56px 已垂直让开触发器。
+   ⚠️ .avatartalk-main 以 absolute inset 0 脱离壳层文档流,吃不到 .app-main 的
+   padding-top:56px 让位 —— 页头须自补顶部 clearance,否则 kicker 被左上浮动
+   ToIV 导航丸遮挡(2026-08-15 真机实证)。
    段控(实时对话/视频生成)紧邻标题,与 Audio/Generate 页头节奏一致。 */
 .at-view > .page-header {
   flex: none;
@@ -44,7 +46,7 @@
   justify-content: flex-start;
   gap: var(--space-4);
   margin-bottom: 0;
-  padding: var(--space-4) var(--space-6);
+  padding: calc(56px + var(--space-2)) var(--space-6) var(--space-4);
 }
 .at-view > .page-header .page-header-actions {
   align-self: flex-start;
@@ -72,7 +74,7 @@
   background: transparent;
 }
 
-/* 占位空态 */
+/* 占位空态(Atelier 氛围:柔和径向洗光 + 线框 icon 细双线环 + Fraunces 标题) */
 .at-placeholder {
   position: absolute;
   inset: 0;
@@ -84,11 +86,33 @@
   color: var(--text-muted);
   pointer-events: none;
 }
+/* 舞台洗光:token 混色的极淡径向光晕,让大空白有「待亮灯的画框」氛围 */
+.at-placeholder::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(560px, 76%);
+  aspect-ratio: 1;
+  background: radial-gradient(
+    circle,
+    color-mix(in oklab, var(--accent) 7%, transparent) 0%,
+    transparent 68%
+  );
+  pointer-events: none;
+}
+/* 内容压在洗光之上(同层叠上下文,DOM 序保证) */
+.at-placeholder > * {
+  position: relative;
+}
+/* 线框 icon:透明底 + 自身 hairline 为第一环,::after 外扩第二环 —— 细双线环 */
 .at-placeholder-icon {
+  position: relative;
   width: 96px;
   height: 96px;
   border-radius: var(--radius-full);
-  background: var(--bg-surface-2);
+  background: transparent;
   border: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
@@ -96,18 +120,40 @@
   color: var(--text-muted);
   margin-bottom: var(--space-2);
 }
+.at-placeholder-icon::after {
+  content: "";
+  position: absolute;
+  inset: -9px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-subtle);
+  pointer-events: none;
+}
 .at-placeholder-title {
-  font-size: var(--text-title);
-  font-weight: var(--font-bold);
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-display-sm);
+  font-weight: var(--font-semibold);
+  letter-spacing: -0.01em;
   color: var(--text-primary);
-  line-height: 1.3;
+  line-height: var(--leading-display);
 }
 .at-placeholder-desc {
+  margin: 0;
   font-size: var(--text-body);
   color: var(--text-muted);
   max-width: 320px;
   text-align: center;
   line-height: 1.6;
+}
+/* 空态三步式 CTA(2026-08-16 批 2):placeholder 容器 pointer-events:none,按钮须自愈 */
+.at-placeholder-cta {
+  pointer-events: auto;
+  margin-top: var(--space-2);
+}
+/* 页头连接状态 badge(2026-08-16 批 2):自舞台浮层移入页头操作区,小字静态徽章 */
+.at-conn-badge {
+  flex-shrink: 0;
+  align-self: center;
 }
 /* 引导语按端切换:桌面面板在右,窄屏面板在下(≤1023px 堆叠) */
 .at-placeholder-hint-mobile {
@@ -122,7 +168,9 @@
   }
 }
 
-/* ── 舞台浮层 pill(Badge 承载,玻璃材质) ── */
+/* ── 舞台浮层 pill(Badge 承载,玻璃材质) ──
+   注:实时对话的连接状态 pill 已移入页头(.at-conn-badge,2026-08-16 批 2);
+   本浮层样式现仅视频生成工作台(AvatarGenPanel)引擎状态使用 */
 .at-view .at-status-badge {
   position: absolute;
   top: var(--space-4);
@@ -161,7 +209,7 @@
   height: 100%;
   background: var(--ok);
   border-radius: 1px;
-  animation: at-wave 1s ease-in-out infinite;
+  animation: at-wave var(--duration-loop) ease-in-out infinite;
 }
 .at-speaking-wave span:nth-child(2) { animation-delay: 0.15s; }
 .at-speaking-wave span:nth-child(3) { animation-delay: 0.3s; }
@@ -313,7 +361,8 @@
   flex-shrink: 0;
 }
 
-/* Avatar 卡片网格(形象选择:玻璃底/描边/高光,选中态 accent 描边) */
+/* Avatar 卡片网格(Atelier .at-card 语言:发夹线 + 软阴影 + hover 轻抬;
+   名字信息改为图注式 —— 卡下 hairline 分隔,不压图) */
 .at-avatar-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -322,10 +371,10 @@
 .at-avatar-card {
   display: flex;
   flex-direction: column;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-panel);
-  box-shadow: var(--glass-highlight);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
   cursor: pointer;
   padding: 0;
@@ -333,14 +382,16 @@
   transition:
     border-color var(--duration-fast) var(--ease-standard),
     background-color var(--duration-fast) var(--ease-standard),
-    box-shadow var(--duration-fast) var(--ease-standard);
+    box-shadow var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
 }
 .at-avatar-card:hover {
   border-color: var(--border-strong);
-  box-shadow: var(--glass-highlight), var(--shadow-md);
+  box-shadow: var(--shadow-lift);
+  transform: translateY(-2px);
 }
 .at-avatar-card:focus-visible {
-  outline: 1px solid var(--accent);
+  outline: var(--focus-ring);
   outline-offset: 1px;
 }
 .at-avatar-card.is-selected {
@@ -348,7 +399,9 @@
   background: var(--accent-soft);
 }
 .at-avatar-preview {
-  aspect-ratio: 4 / 3;
+  /* 形象缩略图统一 3:4 竖版(2026-08-16 批 2):数字人形象为竖向人像,
+     与原 4:3 横版裁切不一;object-fit:cover 保证任意源图同框 */
+  aspect-ratio: 3 / 4;
   background: var(--bg-surface-3);
   overflow: hidden;
 }
@@ -361,37 +414,64 @@
 .at-avatar-card:hover .at-avatar-preview img {
   transform: scale(1.03);
 }
-.at-avatar-info {
+/* 预览图加载失败占位(2026-08-17):名称首字大写居中,不再隐身留空卡 */
+.at-avatar-fallback {
   display: flex;
   align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: var(--text-display-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-muted);
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      transparent 0 8px,
+      var(--bg-surface-2) 8px 16px
+    );
+}
+/* 图注行:卡下 hairline 之上,小字 muted;选中时名字点亮 accent */
+.at-avatar-info {
+  display: flex;
+  align-items: baseline;
   justify-content: space-between;
-  gap: var(--space-1);
-  padding: var(--space-2);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-surface-1);
 }
 .at-avatar-name {
   font-size: var(--text-aux);
   font-weight: var(--font-medium);
-  color: var(--text-primary);
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
   flex: 1;
 }
+.at-avatar-card.is-selected .at-avatar-name {
+  color: var(--accent);
+}
+/* 「自定义」标记:去填充,accent hairline 徽章(同 .at-badge 语言) */
 .at-avatar-tag {
   flex-shrink: 0;
-  padding: 1px var(--space-1);
-  background: var(--accent-soft);
-  border-radius: var(--radius-badge);
+  padding: 0 var(--space-1);
+  background: transparent;
+  border: 1px solid var(--accent-glow);
+  border-radius: var(--radius-full);
   font-size: var(--text-label);
   font-weight: var(--font-medium);
+  letter-spacing: 0.06em;
   color: var(--accent);
 }
 
-/* 骨架屏与真实卡片等高(预览 4/3 + 信息行 ≈ 15:14),避免加载完成时跳变 */
+/* 骨架屏与真实卡片等高(预览 3/4 + 信息行 ≈ 2:3),避免加载完成时跳变 */
 .at-avatar-card-skeleton {
   height: auto;
-  aspect-ratio: 15 / 14;
+  aspect-ratio: 2 / 3;
   animation: at-shimmer var(--duration-shimmer) ease-in-out infinite;
 }
 @keyframes at-shimmer {
@@ -799,6 +879,10 @@
    移动端(≤767px):触控目标 ≥44px
    ════════════════════════════════════════════════════════════════ */
 @media (max-width: 767px) {
+  /* 页头墨丸段控:触控目标补足(共享 .at-seg-btn 桌面 26px 不变) */
+  .at-mode-seg .at-seg-btn {
+    min-height: 44px;
+  }
   .at-composer .at-composer-input {
     height: 44px;
   }

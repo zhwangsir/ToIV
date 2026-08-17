@@ -651,6 +651,22 @@ async def list_llm(
     }
 
 
+@router.get("/models/recipes")
+async def list_community_recipes(
+    engine: str = "",
+    user: User = Depends(get_current_user),
+) -> dict:
+    """社区精选配方(CivitAI 真实作品逆向):prompt 模板 + 负向模板 + LoRA 组合 + 参数。
+
+    R18 门控:仅 /nsfw 专页上下文(nsfw_allowed)才返回 nsfw 配方,主站一律剔除。
+    engine 可选过滤(如 wan-nsfw-i2v / ltx25-t2v)。
+    """
+    from app.workflows.community_recipes import recipes_for
+
+    rows = recipes_for(engine_id=engine, include_nsfw=nsfw_allowed(user))
+    return {"recipes": rows, "count": len(rows)}
+
+
 @router.get("/models/health")
 async def model_health(
     user: User = Depends(get_current_user),

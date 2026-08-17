@@ -13,6 +13,7 @@ import {
   type VideoEditPlan,
   type VideoEditResult,
 } from "@/lib/api";
+import { begin as genBegin, end as genEnd } from "@/lib/generationBus";
 
 // 与后端 apps/api/app/routes/video_edit.py 保持一致的限制
 const MAX_MEDIA = 30;
@@ -347,6 +348,7 @@ export function VideoEditView() {
     setBusy(true);
     setError(null);
     setResult(null);
+    genBegin("video-edit-export", "导出视频");
     const res = RESOLUTIONS[resIdx];
     try {
       const plan: VideoEditPlan = {
@@ -381,13 +383,15 @@ export function VideoEditView() {
       setError(e instanceof Error ? e.message : "视频渲染失败");
     } finally {
       setBusy(false);
+      genEnd("video-edit-export");
     }
   }, [busy, exportBlock, resIdx, fps, clips, audios, texts, mediaFiles]);
 
   return (
     <div className="single-view ve-view">
-      {/* 页头:UI-A PageHeader;ve-settings 包裹保留 scoped 设置组排版 */}
+      {/* 页头:UI-A PageHeader(kicker 铭牌);ve-settings 包裹保留 scoped 设置组排版 */}
       <PageHeader
+        kicker="VIDEO LAB"
         title="视频剪辑"
         desc="时间线剪辑:拼接视频片段、叠加音频与文字,本地集群渲染导出成片"
         icon="scissors"
@@ -435,7 +439,7 @@ export function VideoEditView() {
 
       <div className="ve-main">
         {/* ── 预览(视觉中心,宽列在前) ── */}
-        <section className="card ve-preview">
+        <section className="card at-card ve-preview">
           <div className="ve-panel-title">
             <span className="ve-panel-name">
               <Icon name="play" size={14} />
@@ -474,7 +478,7 @@ export function VideoEditView() {
         </section>
 
         {/* ── 素材库 ── */}
-        <section className="card ve-media">
+        <section className="card at-card ve-media">
           <div className="ve-panel-title">
             <span className="ve-panel-name">
               <Icon name="upload" size={14} />
@@ -484,7 +488,7 @@ export function VideoEditView() {
               <span className="badge">{mediaFiles.length} / {MAX_MEDIA}</span>
               <button
                 type="button"
-                className="btn btn-ghost btn-sm"
+                className="at-btn at-btn--ghost ve-clear-btn"
                 disabled={
                   busy ||
                   (mediaFiles.length === 0 &&
@@ -548,7 +552,7 @@ export function VideoEditView() {
                   {m.kind === "video" ? (
                     <button
                       type="button"
-                      className="btn btn-sm"
+                      className="at-btn at-btn--ghost ve-track-btn"
                       disabled={busy || clips.length >= MAX_CLIPS}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -560,7 +564,7 @@ export function VideoEditView() {
                   ) : (
                     <button
                       type="button"
-                      className="btn btn-sm"
+                      className="at-btn at-btn--ghost ve-track-btn"
                       disabled={busy || audios.length >= MAX_AUDIOS}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -579,7 +583,7 @@ export function VideoEditView() {
       </div>
 
       {/* ── 时间线 ── */}
-      <section className="card ve-timeline">
+      <section className="card at-card ve-timeline">
         <div className="ve-panel-title">
           <span className="ve-panel-name">
             <Icon name="layers" size={14} />
@@ -848,7 +852,7 @@ export function VideoEditView() {
             </span>
             <button
               type="button"
-              className="btn btn-ghost btn-sm ve-add-text"
+              className="at-btn at-btn--ghost ve-add-text"
               disabled={busy || texts.length >= MAX_TEXTS}
               onClick={addText}
             >
@@ -1007,7 +1011,7 @@ export function VideoEditView() {
         </div>
         <button
           type="button"
-          className="btn btn-primary btn-lg"
+          className="at-btn at-btn--primary ve-export-btn"
           disabled={busy || exportBlock != null}
           onClick={submit}
         >
@@ -1026,7 +1030,7 @@ export function VideoEditView() {
       </footer>
 
       {result && (
-        <section className="card ve-result">
+        <section className="card at-card ve-result">
           <div className="ve-result-head">
             <Icon name="success" size={16} />
             <span>
@@ -1043,7 +1047,7 @@ export function VideoEditView() {
           />
           <div className="ve-result-actions">
             <a
-              className="btn btn-primary"
+              className="at-btn at-btn--primary ve-download-btn"
               href={videoEditOutputUrl(result.url)}
               download={`toiv-edit-${result.job_id}.mp4`}
             >
@@ -1133,6 +1137,19 @@ export function VideoEditView() {
           display: inline-flex;
           align-items: center;
           gap: var(--space-2);
+        }
+        /* Atelier 按钮规格:次钮(共享 .at-btn--ghost)紧凑档,导出主钮 40px 控件档 */
+        .ve-clear-btn,
+        .ve-track-btn,
+        .ve-add-text {
+          min-height: 28px;
+          padding: 0 var(--space-3);
+          font-size: var(--text-aux);
+        }
+        .ve-export-btn {
+          min-height: var(--space-10);
+          padding: 0 var(--space-6);
+          font-size: var(--text-sm);
         }
         .ve-import {
           display: flex;
@@ -1536,14 +1553,14 @@ export function VideoEditView() {
             flex-direction: column;
             align-items: stretch;
           }
-          .ve-footer :global(.btn-lg) {
+          .ve-footer .ve-export-btn {
             width: 100%;
             justify-content: center;
           }
           .ve-result-actions {
             justify-content: stretch;
           }
-          .ve-result-actions :global(.btn) {
+          .ve-result-actions .ve-download-btn {
             width: 100%;
             justify-content: center;
           }

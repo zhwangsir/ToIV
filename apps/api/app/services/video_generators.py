@@ -13,18 +13,35 @@ Seedance/Kling 为 stub(返回占位错误响应),预留接口供后续接入。
 """
 from __future__ import annotations
 
+import asyncio
+import json
+import logging
+import shutil
+import tempfile
 import uuid
 from abc import ABC, abstractmethod
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import httpx
+from sqlmodel import Session, select
 
 from app.comfy.client import ComfyUIError
 from app.comfy.pool import WorkerPool
+from app.comfy.tracker import image_url
 from app.comfy.tracker import spawn as spawn_tracker
 from app.config import get_settings
+from app.models import Job
+from app.services.duration import (
+    DurationLimitError,
+    DurationPlan,
+    resolve_duration,
+)
 from app.workflows.ltx_video import LtxT2VParams, build_ltx_t2v_graph
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -37,6 +54,268 @@ class VideoGenResult:
     model: str = ""
     error: str = ""
     raw: dict | None = None
+    # 时长策略提示(trim/extend/上下文窗口时为人话说明,否则空串)
+    duration_notice: str = ""
+
+
+# ---------------------------------------------------------------------------
+# 时长后处理链(trim / extend)—— 生成完成后 ffmpeg 精确裁剪,产物回写 Job
+# ---------------------------------------------------------------------------
+#
+# 生成器与路由均为 fire-and-forget(提交即返 prompt_id,tracker 异步落库)。
+# resolve_duration 判定 trim/extend 时,本链在后台接力:
+#   trim  :等产物 → 下载 → ffmpeg -t 精确裁 → 回传 worker input → 改写 Job.result
+#   extend:等首段 → 抽末帧 → submit_next(i2v 续段)→ 逐段串接 concat → 精确裁 → 回写
+# 链失败仅记日志(保留原始未裁剪产物,不把事情搞砸);调用方经 notice 告知用户。
+
+_POST_POLL_INTERVAL = 3.0
+_POST_WAIT_TIMEOUT = 3600.0  # 单段产物等待上限(覆盖长视频段)
+_FFMPEG_TIMEOUT = 600.0
+
+# 持有后台链强引用(asyncio 仅持弱引用,防 GC 提前回收;与 tracker 同一手法)
+_post_tasks: set[asyncio.Task] = set()
+
+
+async def _run_ffmpeg(cmd: list[str], timeout: float = _FFMPEG_TIMEOUT) -> None:
+    """执行 ffmpeg(与 routes/assembly._run_ffmpeg 同模式;service 层抛 RuntimeError)。"""
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    try:
+        _, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+    except TimeoutError:
+        proc.kill()
+        await proc.wait()
+        raise RuntimeError(f"ffmpeg 执行超时({timeout:.0f}s)") from None
+    if proc.returncode != 0:
+        tail = (stderr or b"").decode("utf-8", "replace")[-800:]
+        raise RuntimeError(f"ffmpeg 执行失败:{tail}")
+
+
+async def _probe_has_audio(path: Path) -> bool:
+    """ffprobe 探测是否含音轨(决定裁剪是否带音频);无 ffprobe 视为有。"""
+    if shutil.which("ffprobe") is None:
+        return True
+    proc = await asyncio.create_subprocess_exec(
+        "ffprobe", "-v", "error", "-select_streams", "a",
+        "-show_entries", "stream=codec_name", "-of", "csv=p=0", str(path),
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+    )
+    out, _ = await proc.communicate()
+    return bool(out.decode().strip())
+
+
+def _history_files(entry: dict) -> list[dict]:
+    """从 history 条目提取产物文件 [{filename, subfolder, type}](与 client.get_result_files 同口径)。"""
+    files: list[dict] = []
+    for node_out in (entry.get("outputs") or {}).values():
+        for value in node_out.values():
+            if not isinstance(value, list):
+                continue
+            for item in value:
+                if isinstance(item, dict) and "filename" in item:
+                    files.append(
+                        {
+                            "filename": item["filename"],
+                            "subfolder": item.get("subfolder", ""),
+                            "type": item.get("type", "output"),
+                        }
+                    )
+    return files
+
+
+async def _wait_files(
+    client: Any,
+    prompt_id: str,
+    *,
+    timeout: float = _POST_WAIT_TIMEOUT,
+    poll: float = _POST_POLL_INTERVAL,
+) -> list[dict]:
+    """轮询 worker history 直到出现产物文件;执行报错/超时抛 RuntimeError。"""
+    waited = 0.0
+    while waited < timeout:
+        try:
+            history = await client.get_history(prompt_id)
+        except ComfyUIError:
+            history = {}  # worker 暂不可达/历史未就绪,下轮再试
+        entry = history.get(prompt_id) or {}
+        files = _history_files(entry)
+        if files:
+            return files
+        status = entry.get("status") or {}
+        if status.get("status_str") == "error":
+            raise RuntimeError(f"作业 {prompt_id} 执行失败")
+        await asyncio.sleep(poll)
+        waited += poll
+    raise RuntimeError(f"等待作业产物超时: {prompt_id}")
+
+
+async def _concat_trim(
+    seg_paths: list[Path],
+    out: Path,
+    seconds: float,
+    *,
+    ffmpeg: Callable[..., Awaitable[None]],
+) -> None:
+    """concat 多段(单段即纯裁剪)+ -t 精确裁到 seconds(重编码保证帧级精确)。"""
+    audio = True
+    for p in seg_paths:
+        if not await _probe_has_audio(p):
+            audio = False  # 任一段无音轨 → 整体去音轨(混排会炸 concat,丢音轨保时长)
+            break
+    list_file = out.parent / "concat.txt"
+    await asyncio.to_thread(
+        list_file.write_text, "".join(f"file '{p}'\n" for p in seg_paths)
+    )
+    cmd = [
+        "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(list_file),
+        "-t", f"{seconds:.3f}", "-c:v", "libx264", "-pix_fmt", "yuv420p",
+    ]
+    cmd += ["-c:a", "aac"] if audio else ["-an"]
+    cmd += ["-movflags", "+faststart", str(out)]
+    await ffmpeg(cmd)
+
+
+def mark_post_processing(prompt_id: str, flag: str) -> None:
+    """置位/清零时长后处理标记(processing=后台裁切链进行中);Job 不存在则跳过(仅日志)。
+
+    前端据此在结果区显示「精确裁切中」而非直接播放未裁原片。
+    """
+    from app.db import engine as db_engine
+
+    with Session(db_engine) as s:
+        job = s.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
+        if job is None:
+            logger.warning("时长后处理:Job %s 不存在,跳过 post_status=%s", prompt_id, flag)
+            return
+        job.post_status = flag
+        s.add(job)
+        s.commit()
+
+
+def rewrite_job_result(prompt_id: str, urls: list[str]) -> None:
+    """把作业产物改写为后处理最终产物(trim/extend);Job 不存在则跳过(仅日志)。
+
+    同一 commit 内清零 post_status:终产物与「裁切完成」状态原子生效,
+    前端不会出现「已裁产物 + 仍显示裁切中」的中间态。
+    """
+    from app.db import engine as db_engine
+
+    with Session(db_engine) as s:
+        job = s.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
+        if job is None:
+            logger.warning("时长后处理:Job %s 不存在,跳过产物回写", prompt_id)
+            return
+        job.status = "done"
+        job.result = json.dumps(urls)
+        job.post_status = ""
+        s.add(job)
+        s.commit()
+
+
+async def run_duration_chain(
+    *,
+    client: Any,
+    plan: DurationPlan,
+    first_prompt_id: str,
+    submit_next: Callable[[bytes, int, int], Awaitable[str]] | None = None,
+    on_final: Callable[[list[str]], Awaitable[None]] | None = None,
+    wait_files: Callable[..., Awaitable[list[dict]]] | None = None,
+    ffmpeg: Callable[..., Awaitable[None]] | None = None,
+) -> None:
+    """trim/extend 后处理链(direct 直接返回)。
+
+    submit_next(frame_bytes, frames, idx) → 续段 prompt_id(extend 必填):
+      由调用方按引擎构造 i2v 图提交(路由版会登记段 Job;生成器版直接 queue)。
+    on_final(urls):最终产物回写(缺省 rewrite_job_result 到首段 Job)。
+    wait_files / ffmpeg:测试注入点。
+    """
+    if plan.strategy == "direct":
+        return
+    if plan.strategy == "extend" and submit_next is None:
+        raise ValueError("extend 策略需要 submit_next 续段提交回调")
+    wait = wait_files or _wait_files
+    ff = ffmpeg or _run_ffmpeg
+    trim_to = plan.trim_to if plan.trim_to is not None else plan.seconds
+
+    with tempfile.TemporaryDirectory(prefix="toiv-dur-") as tmp:
+        tmp_dir = Path(tmp)
+        seg_ids = [first_prompt_id]
+        seg_paths: list[Path] = []
+        for i in range(plan.segments):
+            files = await wait(client, seg_ids[-1])
+            if not files:
+                raise RuntimeError(f"作业 {seg_ids[-1]} 无产物文件")
+            data, _ = await client.get_image_bytes(
+                files[0]["filename"],
+                files[0].get("subfolder", ""),
+                files[0].get("type", "output"),
+            )
+            seg_path = tmp_dir / f"seg-{i:03d}.mp4"
+            await asyncio.to_thread(seg_path.write_bytes, data)
+            seg_paths.append(seg_path)
+            if i + 1 < plan.segments:
+                frame_path = tmp_dir / f"frame-{i:03d}.jpg"
+                await ff([
+                    "ffmpeg", "-y", "-sseof", "-0.1", "-i", str(seg_path),
+                    "-frames:v", "1", "-q:v", "2", str(frame_path),
+                ])
+                frame_bytes = await asyncio.to_thread(frame_path.read_bytes)
+                if not frame_bytes:
+                    raise RuntimeError("末帧抽取失败(ffmpeg 产物为空)")
+                seg_ids.append(
+                    await submit_next(frame_bytes, plan.segment_frames[i + 1], i + 1)  # type: ignore[misc]
+                )
+
+        final_path = tmp_dir / "final.mp4"
+        await _concat_trim(seg_paths, final_path, trim_to, ffmpeg=ff)
+        final_bytes = await asyncio.to_thread(final_path.read_bytes)
+        if not final_bytes:
+            raise RuntimeError("裁剪合成失败(ffmpeg 产物为空)")
+        name = await client.upload_image(final_bytes, f"toiv_dur_{uuid.uuid4().hex}.mp4")
+        url = image_url(client.base_url, {"filename": name, "type": "input"})
+        if on_final is not None:
+            await on_final([url])
+        else:
+            rewrite_job_result(first_prompt_id, [url])
+
+
+def spawn_duration_chain(
+    *,
+    client: Any,
+    plan: DurationPlan,
+    first_prompt_id: str,
+    submit_next: Callable[[bytes, int, int], Awaitable[str]] | None = None,
+    on_final: Callable[[list[str]], Awaitable[None]] | None = None,
+) -> None:
+    """后台挂时长后处理链(direct 不挂)。异常只记日志,保留原始产物不标错误。
+
+    挂链即把 Job.post_status 置 processing(前端结果区显示「精确裁切中」而非未裁原片);
+    成功由 rewrite_job_result 随终产物同一 commit 清零,失败/异常在此清零回落原始产物。
+    重启后残留 processing 由 db.init_db 的 _clear_stale_post_status 启动自愈清零。
+    """
+    if plan.strategy == "direct":
+        return
+    mark_post_processing(first_prompt_id, "processing")
+
+    async def _runner() -> None:
+        try:
+            await run_duration_chain(
+                client=client,
+                plan=plan,
+                first_prompt_id=first_prompt_id,
+                submit_next=submit_next,
+                on_final=on_final,
+            )
+        except Exception as e:  # noqa: BLE001 — 后台链绝不能冒泡;原始产物仍在
+            logger.warning("时长后处理链 %s 失败(保留原始产物): %s", first_prompt_id, e)
+            mark_post_processing(first_prompt_id, "")
+
+    task = asyncio.create_task(_runner())
+    _post_tasks.add(task)
+    task.add_done_callback(_post_tasks.discard)
 
 
 class VideoGenerator(ABC):
@@ -95,11 +374,28 @@ class LtxVideoGenerator(VideoGenerator):
         v = max(lo, min(hi, int(v)))
         return max(lo, (v // 32) * 32)
 
-    @staticmethod
-    def _frames_grid_8k1(target: int) -> int:
-        """吸附 8k+1 帧网格并钳位 [9, 601](LTX-2.5 约束)。"""
-        k = max(1, round((int(target) - 1) / 8))
-        return min(601, max(9, 8 * k + 1))
+    def _ltx25_extend_submit(self, client: Any, base: Any) -> Callable[[bytes, int, int], Awaitable[str]]:
+        """extend 续段提交(生成器链路:末帧 i2v,直提实例不登记段 Job;strength=1.0 硬锁末帧保连贯)。"""
+        from app.workflows.ltx25_video import Ltx25I2VParams, build_ltx25_i2v_graph
+
+        async def _submit(frame_bytes: bytes, frames: int, idx: int) -> str:
+            image_name = await client.upload_image(frame_bytes, f"toiv_ext_{uuid.uuid4().hex}.jpg")
+            p = Ltx25I2VParams(
+                positive=base.positive,
+                negative=base.negative,
+                image=image_name,
+                width=base.width,
+                height=base.height,
+                length=frames,
+                fps=base.fps,
+                steps=base.steps,
+                strength=1.0,
+                seed=base.seed + idx,
+                filename_prefix=base.filename_prefix,
+            )
+            return await client.queue_prompt(build_ltx25_i2v_graph(p), uuid.uuid4().hex)
+
+        return _submit
 
     async def generate(
         self,
@@ -152,14 +448,20 @@ class LtxVideoGenerator(VideoGenerator):
         except HTTPException as e:
             return VideoGenResult(success=False, model=self.name, error=str(e.detail))
 
+        fps_used = max(8, min(60, int(fps)))
+        try:
+            plan = resolve_duration("ltx25", float(duration_sec), fps_used)
+        except DurationLimitError as e:
+            return VideoGenResult(success=False, model=self.name, error=str(e))
+
         seed_used = seed if seed is not None else Ltx25T2VParams(positive="").seed
         params = Ltx25T2VParams(
             positive=prompt,
             negative=negative,
             width=self._snap32(width, 256, 1920),
             height=self._snap32(height, 256, 1088),
-            length=self._frames_grid_8k1(int(fps) * max(1, int(duration_sec))),
-            fps=max(8, min(60, int(fps))),
+            length=plan.frames,
+            fps=fps_used,
             steps=max(1, min(50, int(kwargs.get("steps", 8)))),
             seed=seed_used,
             filename_prefix=kwargs.get("filename_prefix", "ToIV_drama_video"),
@@ -172,15 +474,24 @@ class LtxVideoGenerator(VideoGenerator):
             return VideoGenResult(success=False, model=self.name, error=str(e))
 
         self._tracker(client, prompt_id)
+        if plan.strategy != "direct":
+            spawn_duration_chain(
+                client=client,
+                plan=plan,
+                first_prompt_id=prompt_id,
+                submit_next=self._ltx25_extend_submit(client, params),
+            )
         return VideoGenResult(
             success=True,
             job_id=prompt_id,
             model=self.name,
+            duration_notice=plan.notice,
             raw={
                 "prompt_id": prompt_id,
                 "client_id": client_id,
                 "worker": client.base_url,
                 "seed": seed_used,
+                "duration_notice": plan.notice,
             },
         )
 
@@ -220,6 +531,10 @@ class LtxVideoGenerator(VideoGenerator):
                 return VideoGenResult(success=False, model=self.name, error=str(e))
 
         settings = get_settings()
+        try:
+            plan = resolve_duration("ltx", float(duration_sec), int(fps))
+        except DurationLimitError as e:
+            return VideoGenResult(success=False, model=self.name, error=str(e))
         # NSFW 专用视频底模(10Eros);gemma/vae 与 SFW 共用同一套
         seed_used = seed if seed is not None else LtxT2VParams(positive="").seed
         params = LtxT2VParams(
@@ -230,7 +545,7 @@ class LtxVideoGenerator(VideoGenerator):
             vae_name=settings.nsfw_default_vae,
             width=width,
             height=height,
-            length=max(9, int(fps * duration_sec)),
+            length=plan.frames,
             fps=fps,
             steps=kwargs.get("steps", 20),
             cfg=kwargs.get("cfg", 1.0),
@@ -248,16 +563,20 @@ class LtxVideoGenerator(VideoGenerator):
 
         # 后台追踪结果(独立于客户端 SSE)
         self._tracker(client, prompt_id)
+        if plan.strategy != "direct":  # ltx 无 extend(超上限已在 resolve 拦截),只会是 trim
+            spawn_duration_chain(client=client, plan=plan, first_prompt_id=prompt_id)
 
         return VideoGenResult(
             success=True,
             job_id=prompt_id,
             model=self.name,
+            duration_notice=plan.notice,
             raw={
                 "prompt_id": prompt_id,
                 "client_id": client_id,
                 "worker": client.base_url,
                 "seed": seed_used,
+                "duration_notice": plan.notice,
             },
         )
 
@@ -287,11 +606,27 @@ class H3VideoGenerator(VideoGenerator):
         v = max(256, min(1344, int(v)))
         return max(256, (v // 32) * 32)
 
-    @staticmethod
-    def _frames_grid(target: int) -> int:
-        """吸附到最近的 17k+5 帧网格,钳位 [22, 362]。"""
-        k = max(1, round((int(target) - 5) / 17))
-        return min(362, max(22, 17 * k + 5))
+    def _h3_extend_submit(self, client: Any, base: Any) -> Callable[[bytes, int, int], Awaitable[str]]:
+        """extend 续段提交(生成器链路:末帧 i2v,直提实例不登记段 Job)。"""
+        from app.workflows.h3_video import H3I2VParams, build_h3_i2v_graph
+
+        async def _submit(frame_bytes: bytes, frames: int, idx: int) -> str:
+            image_name = await client.upload_image(frame_bytes, f"toiv_ext_{uuid.uuid4().hex}.jpg")
+            p = H3I2VParams(
+                positive=base.positive,
+                negative=base.negative,
+                image=image_name,
+                width=base.width,
+                height=base.height,
+                length=frames,
+                steps=base.steps,
+                seed=base.seed + idx,
+                loras=base.loras,
+                filename_prefix=base.filename_prefix,
+            )
+            return await client.queue_prompt(build_h3_i2v_graph(p), uuid.uuid4().hex)
+
+        return _submit
 
     async def generate(
         self,
@@ -323,15 +658,18 @@ class H3VideoGenerator(VideoGenerator):
         except HTTPException as e:
             return VideoGenResult(success=False, model=self.name, error=str(e.detail))
 
-        # H3 固定 24fps(模板 CreateVideo 锁定),分镜时长换算帧数后吸附 17k+5 网格
-        length = self._frames_grid(24 * max(1, int(duration_sec)))
+        # H3 固定 24fps(模板 CreateVideo 锁定),时长经统一策略层解析(17k+5 网格)
+        try:
+            plan = resolve_duration("h3", float(duration_sec), 24)
+        except DurationLimitError as e:
+            return VideoGenResult(success=False, model=self.name, error=str(e))
         seed_used = seed if seed is not None else H3T2VParams(positive="").seed
         params = H3T2VParams(
             positive=prompt,
             negative=negative,
             width=self._snap32(width),
             height=self._snap32(height),
-            length=length,
+            length=plan.frames,
             steps=max(1, min(50, int(kwargs.get("steps", 20)))),
             seed=seed_used,
             filename_prefix=kwargs.get("filename_prefix", "ToIV_drama_h3"),
@@ -344,16 +682,25 @@ class H3VideoGenerator(VideoGenerator):
             return VideoGenResult(success=False, model=self.name, error=str(e))
 
         self._tracker(client, prompt_id)
+        if plan.strategy != "direct":
+            spawn_duration_chain(
+                client=client,
+                plan=plan,
+                first_prompt_id=prompt_id,
+                submit_next=self._h3_extend_submit(client, params),
+            )
 
         return VideoGenResult(
             success=True,
             job_id=prompt_id,
             model=self.name,
+            duration_notice=plan.notice,
             raw={
                 "prompt_id": prompt_id,
                 "client_id": client_id,
                 "worker": client.base_url,
                 "seed": seed_used,
+                "duration_notice": plan.notice,
             },
         )
 

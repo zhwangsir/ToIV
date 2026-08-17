@@ -24,19 +24,19 @@ import * as path from "path";
 // 手动注入 storageState(因文件名不匹配 authed-* 前缀)
 test.use({ storageState: ".auth/admin.json" });
 
-// 侧栏中实际存在的视图(page.tsx 的 SIDEBAR_ITEMS 列表)
+// 侧栏中实际存在的视图(page.tsx 的 ISLAND_ITEMS 列表)
+// 2026-08-17 助手底层化:「对话」移出导航(Cmd+K 浮层唤起),流程起点改 fusion
 // 注意:models/train/backlot/admin/animatic/studio 不在侧栏一级导航中,只能通过 URL 直接访问
 // (studio 经融合页/底部「更多」进入;旧 dramaStudio/manju 已重定向到 studio)
 const VIEW_FLOW: { key: string; label: string }[] = [
-  { key: "assistant",   label: "对话" },       // 初始视图,通过 goto 进入
+  { key: "fusion",      label: "融合" },       // 初始视图(原 assistant 已底层化为 Cmd+K 浮层)
   { key: "image",       label: "图片" },
   { key: "video",       label: "视频" },
   { key: "audio",       label: "音频" },
-  { key: "fusion",      label: "融合" },
   { key: "canvas",      label: "画布" },
   { key: "library",     label: "作品库" },
   { key: "resources",   label: "资源" },
-  { key: "assistant",   label: "对话" },       // 回到 assistant,验证可恢复
+  { key: "fusion",      label: "融合" },       // 回到 fusion,验证可恢复
 ];
 
 const ERROR_PATTERNS = [
@@ -118,7 +118,7 @@ test.describe("灵动岛导航调试 @authed", () => {
 
     // ── 步骤 1:打开默认视图 ──────────────────────────
     const stepStart = Date.now();
-    await page.goto("/?view=assistant", { waitUntil: "domcontentloaded" });
+    await page.goto("/?view=fusion", { waitUntil: "domcontentloaded" });
 
     try {
       await expect(page.locator(".app-shell")).toBeVisible({ timeout: 15000 });
@@ -127,14 +127,14 @@ test.describe("灵动岛导航调试 @authed", () => {
     }
     await page.waitForTimeout(1500);
 
-    const initialShot = "test-results/sidebar-click-assistant-0.png";
+    const initialShot = "test-results/sidebar-click-fusion-0.png";
     await page.screenshot({ path: initialShot, fullPage: true });
 
     const initial = await captureState(
       page,
       1,
-      "assistant",
-      "对话",
+      "fusion",
+      "融合",
       initialShot,
       Date.now() - stepStart,
       allConsoleErrors.slice(),

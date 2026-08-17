@@ -223,6 +223,41 @@ def test_shot_patch(ctx):
     assert r.json()["seed"] == 12345
 
 
+def test_shot_patch_mood_beat(ctx):
+    """LibTV 工作台:mood/beat 两字段 PATCH 写入 + 详情读回往返。"""
+    client, token, _ = ctx
+    H = _h(token)
+    pid = client.post("/api/drama/projects", headers=H, json={"title": "x", "script": "s"}).json()["id"]
+    fake_msg = {
+        "content": '{"shots":[{"scene":"s","prompt":"1boy, running","characters":[],"dialogue":"hi","speaker":"narrator","duration_sec":5}]}'
+    }
+    with patch("app.routes.drama_studio.llm.chat", AsyncMock(return_value=fake_msg)):
+        r = client.post(f"/api/drama/projects/{pid}/storyboard", headers=H, json={"num_shots": 1})
+    shot = r.json()["shots"][0]
+    # 新建分镜默认空串
+    assert shot["mood"] == ""
+    assert shot["beat"] == ""
+    # PATCH 写入
+    r = client.patch(
+        f"/api/drama/shots/{shot['id']}",
+        headers=H,
+        json={"mood": "压抑", "beat": "0-3秒 中景推进,主角回头"},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["mood"] == "压抑"
+    assert r.json()["beat"] == "0-3秒 中景推进,主角回头"
+    # 项目详情读回(确认落库且 _shot_dict 输出)
+    p = client.get(f"/api/drama/projects/{pid}", headers=H).json()
+    s = next(x for x in p["shots"] if x["id"] == shot["id"])
+    assert s["mood"] == "压抑"
+    assert s["beat"] == "0-3秒 中景推进,主角回头"
+    # 超长校验:mood > 64 / beat > 200 → 422
+    r = client.patch(f"/api/drama/shots/{shot['id']}", headers=H, json={"mood": "x" * 65})
+    assert r.status_code == 422
+    r = client.patch(f"/api/drama/shots/{shot['id']}", headers=H, json={"beat": "x" * 201})
+    assert r.status_code == 422
+
+
 def test_assemble_requires_done_shots(ctx):
     """无已完成分镜视频时合成应返回 422。"""
     client, token, _ = ctx
@@ -532,6 +567,57 @@ def test_grid_storyboard_character_injection(ctx):
     # 角色 token 应被前置注入
     assert shot["prompt"].startswith("1boy, black hair, leather jacket")
     assert "walking on street" in shot["prompt"]
+
+
+def test_grid_storyboard_seam_persisted(ctx):
+    """SKILLS-SEAM 遗留补齐:grid 路径与 text storyboard 一致,
+    LLM 规划的 seam_to_next/seam_anchor 必须落库(此前 grid 路径漏传)。"""
+    client, token, _ = ctx
+    H = _h(token)
+    pid = client.post(
+        "/api/drama/projects",
+        headers=H,
+        json={"title": "x", "script": "阿明挥刀,刀光接瞳孔特写。"},
+    ).json()["id"]
+
+    fake_msg = {
+        "content": '{"shots":['
+        '{"scene":"s1","prompt":"slash","characters":[],"dialogue":"","speaker":"",'
+        '"duration_sec":5,"seam_to_next":"matchcut","seam_anchor":"刀刃",'
+        '"mood":"紧张","beat":"对峙"},'
+        '{"scene":"s2","prompt":"eye closeup","characters":[],"dialogue":"","speaker":"",'
+        '"duration_sec":6,"seam_to_next":"hardcut","seam_anchor":"",'
+        '"mood":"释然","beat":"收束"}]}'
+    }
+    pool, _cli = _fake_pool(["grid-pid-seam"])
+    app.dependency_overrides[get_pool] = lambda: pool
+
+    try:
+        with patch("app.routes.drama_studio.llm.chat", AsyncMock(return_value=fake_msg)), \
+             patch("app.routes.drama_studio.spawn_tracker", lambda c, p: None), \
+             patch("app.routes.drama_studio.wait_for_jobs", AsyncMock(return_value={
+                 "grid-pid-seam": ["/img/grid-seam.png"],
+             })):
+            r = client.post(
+                f"/api/drama/projects/{pid}/grid-storyboard",
+                headers=H,
+                json={"num_shots": 2},
+            )
+    finally:
+        app.dependency_overrides.pop(get_pool, None)
+
+    assert r.status_code == 200, r.text
+    shots = r.json()["shots"]
+    assert len(shots) == 2
+    # 首镜 matchcut + 锚点落库
+    assert shots[0]["seam_to_next"] == "matchcut"
+    assert shots[0]["seam_anchor"] == "刀刃"
+    # 次镜 hardcut(锚点空)
+    assert shots[1]["seam_to_next"] == "hardcut"
+    assert shots[1]["seam_anchor"] == ""
+    # mood/beat 同步落库(WORKBENCH follow-up:grid 路径与 text 路径一致)
+    assert shots[0]["mood"] == "紧张" and shots[0]["beat"] == "对峙"
+    assert shots[1]["mood"] == "释然" and shots[1]["beat"] == "收束"
 
 
 def test_grid_storyboard_empty_script(ctx):
@@ -2407,3 +2493,460 @@ def test_generate_video_sfw_default_unaffected(ctx):
             assert r.status_code != 403, f"{url} 不应被 R18 门控拦截: {r.text}"
     finally:
         app.dependency_overrides.pop(get_pool, None)
+
+
+# ---------------------------------------------------------------------------
+# P2: 宫格阶段B 纪律(VLM 逐格观察实际宫格 + 二次 LLM 据实改写各镜 prompt)
+# ---------------------------------------------------------------------------
+def test_grid_storyboard_grounding_rewrites_prompts(ctx):
+    """阶段B grounded 路径:prompt 被据实改写且含 VLM 观察到的实际要素。"""
+    client, token, _ = ctx
+    H = _h(token)
+    pid = client.post(
+        "/api/drama/projects",
+        headers=H,
+        json={"title": "短剧", "script": "阿明走在街上,遇到老朋友。"},
+    ).json()["id"]
+
+    split_msg = {
+        "content": '{"shots":[{"scene":"s0","prompt":"1boy, standing on street",'
+        '"characters":["阿明"],"dialogue":"","speaker":"","duration_sec":5}]}'
+    }
+    rewrite_msg = {
+        "content": '{"prompts":[{"index":0,'
+        '"prompt":"1boy, red hoodie, sitting by window, wide shot"}]}'
+    }
+    vlm_raw = '{"panels":[{"index":1,"description":"实际画面:红帽衫男孩坐在窗边,远景"}]}'
+
+    pool, _cli = _fake_pool(["grid-pid-g"])
+    app.dependency_overrides[get_pool] = lambda: pool
+    try:
+        with patch(
+            "app.routes.drama_studio.llm.chat",
+            AsyncMock(side_effect=[split_msg, rewrite_msg]),
+        ) as chat_mock, patch(
+            "app.routes.drama_studio.spawn_tracker", lambda c, p: None
+        ), patch(
+            "app.routes.drama_studio.wait_for_jobs",
+            AsyncMock(return_value={
+                "grid-pid-g": ["/api/images?filename=g.png&worker=http://worker"],
+            }),
+        ), patch(
+            "app.routes.drama_studio.fetch_product_image_bytes",
+            AsyncMock(return_value=b"\x89PNG-fake"),
+        ) as fetch_mock, patch(
+            "app.routes.drama_studio._chat_completion", AsyncMock(return_value=vlm_raw)
+        ) as vlm_mock:
+            r = client.post(
+                f"/api/drama/projects/{pid}/grid-storyboard",
+                headers=H,
+                json={"num_shots": 1},
+            )
+    finally:
+        app.dependency_overrides.pop(get_pool, None)
+
+    assert r.status_code == 200, r.text
+    shot = r.json()["shots"][0]
+    # prompt 被据实改写,含 VLM 实际观察要素,原想象内容被纠正
+    assert "red hoodie" in shot["prompt"]
+    assert "sitting by window" in shot["prompt"]
+    assert "standing on street" not in shot["prompt"]
+    assert shot["detected_colors"]["grounding_status"] == "grounded"
+    # VLM 调一次:宫格 base64 data URL + 逐格描述 system(1 镜 ≤9 → 3x3 判定口径)
+    assert vlm_mock.await_count == 1
+    vlm_system, vlm_part = vlm_mock.await_args[0][0], vlm_mock.await_args[0][1]
+    assert "3x3" in vlm_system
+    assert vlm_part["type"] == "image_url"
+    assert vlm_part["image_url"]["url"].startswith("data:image/png;base64,")
+    assert fetch_mock.await_count == 1
+    # 两次 LLM:拆镜 + 据实改写
+    assert chat_mock.await_count == 2
+
+
+def test_grid_storyboard_grounding_fallback_on_vlm_failure(ctx):
+    """阶段B 降级路径:VLM 不可用 → 保留 LLM 原 prompt,标记 fallback,不再调二次 LLM。"""
+    from fastapi import HTTPException
+
+    client, token, _ = ctx
+    H = _h(token)
+    pid = client.post(
+        "/api/drama/projects", headers=H, json={"title": "x", "script": "剧本..."}
+    ).json()["id"]
+
+    split_msg = {
+        "content": '{"shots":[{"scene":"s0","prompt":"original prompt",'
+        '"characters":[],"dialogue":"","speaker":"","duration_sec":5}]}'
+    }
+    pool, _cli = _fake_pool(["grid-pid-f"])
+    app.dependency_overrides[get_pool] = lambda: pool
+    try:
+        with patch(
+            "app.routes.drama_studio.llm.chat", AsyncMock(return_value=split_msg)
+        ) as chat_mock, patch(
+            "app.routes.drama_studio.spawn_tracker", lambda c, p: None
+        ), patch(
+            "app.routes.drama_studio.wait_for_jobs",
+            AsyncMock(return_value={
+                "grid-pid-f": ["/api/images?filename=g.png&worker=http://worker"],
+            }),
+        ), patch(
+            "app.routes.drama_studio.fetch_product_image_bytes",
+            AsyncMock(return_value=b"\x89PNG-fake"),
+        ), patch(
+            "app.routes.drama_studio._chat_completion",
+            AsyncMock(side_effect=HTTPException(status_code=502, detail="vlm down")),
+        ):
+            r = client.post(
+                f"/api/drama/projects/{pid}/grid-storyboard",
+                headers=H,
+                json={"num_shots": 1},
+            )
+    finally:
+        app.dependency_overrides.pop(get_pool, None)
+
+    assert r.status_code == 200, r.text
+    shot = r.json()["shots"][0]
+    assert shot["prompt"] == "original prompt"  # 回落保持原 prompt
+    assert shot["detected_colors"]["grounding_status"] == "fallback"
+    assert chat_mock.await_count == 1  # 仅拆镜,VLM 失败不再触发二次改写
+
+
+def test_grid_storyboard_grounding_disabled_by_config(ctx, monkeypatch):
+    """TOIV_GRID_GROUNDING_ENABLED=false:不走 VLM、不写 grounding 元数据(零行为变更)。"""
+    monkeypatch.setattr(get_settings(), "grid_grounding_enabled", False)
+    client, token, _ = ctx
+    H = _h(token)
+    pid = client.post(
+        "/api/drama/projects", headers=H, json={"title": "x", "script": "剧本..."}
+    ).json()["id"]
+
+    split_msg = {
+        "content": '{"shots":[{"scene":"s0","prompt":"original prompt",'
+        '"characters":[],"dialogue":"","speaker":"","duration_sec":5}]}'
+    }
+    pool, _cli = _fake_pool(["grid-pid-d"])
+    app.dependency_overrides[get_pool] = lambda: pool
+    try:
+        with patch(
+            "app.routes.drama_studio.llm.chat", AsyncMock(return_value=split_msg)
+        ), patch(
+            "app.routes.drama_studio.spawn_tracker", lambda c, p: None
+        ), patch(
+            "app.routes.drama_studio.wait_for_jobs",
+            AsyncMock(return_value={
+                "grid-pid-d": ["/api/images?filename=g.png&worker=http://worker"],
+            }),
+        ), patch(
+            "app.routes.drama_studio._chat_completion", AsyncMock()
+        ) as vlm_mock:
+            r = client.post(
+                f"/api/drama/projects/{pid}/grid-storyboard",
+                headers=H,
+                json={"num_shots": 1},
+            )
+    finally:
+        app.dependency_overrides.pop(get_pool, None)
+
+    assert r.status_code == 200, r.text
+    shot = r.json()["shots"][0]
+    assert vlm_mock.await_count == 0
+    assert shot["prompt"] == "original prompt"
+    assert shot["detected_colors"] is None  # 未尝试 grounding,无 color_mark 时仍为空
+
+
+# ---------------------------------------------------------------------------
+# P2: @图片N 多参考图(services/h3_refs)—— H3 引擎分镜 prompt 绝对开头注入
+# ---------------------------------------------------------------------------
+def _mk_h3_shot_with_char(
+    ctx, token: str, *, ref_front: str = "", ref_image: str = ""
+) -> str:
+    """建项目 + 1 分镜(characters=["阿明"]) + 角色卡(可选参考图),返回 sid。"""
+    from app.db import engine
+
+    pid, sid = _make_shot(ctx, token)
+    with Session(engine) as s:
+        shot = s.get(DramaShot, sid)
+        shot.characters = json.dumps(["阿明"], ensure_ascii=False)
+        s.add(shot)
+        s.add(
+            DramaCharacter(
+                project_id=pid,
+                name="阿明",
+                reference_front=ref_front,
+                ref_image=ref_image,
+            )
+        )
+        s.commit()
+    return sid
+
+
+def _post_v2_and_get_prompt(client, H, sid, model: str) -> str:
+    """以 fake 生成器 POST generate-video-v2,返回生成器实际收到的 prompt。"""
+    fake_gen = _fake_video_generator([f"pid-{model}-ref"])
+    with patch(
+        "app.services.video_generators.get_generator", return_value=fake_gen
+    ), patch("app.routes.drama_studio.wait_for_jobs", AsyncMock(return_value={})):
+        r = client.post(
+            f"/api/drama/shots/{sid}/generate-video-v2",
+            headers=H,
+            json={"model": model, "seed": 12345},
+        )
+    assert r.status_code == 200, r.text
+    return fake_gen.generate.call_args[0][0]
+
+
+def test_generate_video_v2_h3_injects_ref_prefix(ctx):
+    """H3 引擎 + 角色有三视图(取正面)→ prompt 绝对开头注入 @图片N 引用行。"""
+    client, token, _ = ctx
+    H = _h(token)
+    sid = _mk_h3_shot_with_char(
+        ctx, token, ref_front="/api/images?filename=front.png&worker=http://worker"
+    )
+    sent_prompt = _post_v2_and_get_prompt(client, H, sid, "h3")
+    # 绝对开头 = 引用行;原 prompt 完整保留在引用行之后
+    assert sent_prompt.startswith("@图片1作为阿明身份与服装参考\n")
+    assert "1boy, walking" in sent_prompt
+
+
+def test_generate_video_v2_h3_without_ref_keeps_prompt(ctx):
+    """H3 引擎但角色无参考图 → 不注入,prompt 原样。"""
+    client, token, _ = ctx
+    H = _h(token)
+    sid = _mk_h3_shot_with_char(ctx, token)  # 无 reference_front / ref_image
+    sent_prompt = _post_v2_and_get_prompt(client, H, sid, "h3")
+    assert not sent_prompt.startswith("@图片")
+    assert sent_prompt == "1boy, walking"
+
+
+def test_generate_video_v2_ltx_ignores_ref_prefix(ctx):
+    """角色有参考图但非 H3 引擎(ltx)→ 不注入 @图片N(H3 专属语法)。"""
+    client, token, _ = ctx
+    H = _h(token)
+    sid = _mk_h3_shot_with_char(
+        ctx, token, ref_front="/api/images?filename=front.png&worker=http://worker"
+    )
+    sent_prompt = _post_v2_and_get_prompt(client, H, sid, "ltx")
+    assert not sent_prompt.startswith("@图片")
+    assert sent_prompt == "1boy, walking"
+
+
+# ---------------------------------------------------------------------------
+# P1 衔接策略层:seam_to_next / seam_anchor 字段端到端 + modifier 注入
+# ---------------------------------------------------------------------------
+def test_storyboard_seam_fields(ctx):
+    """P1:LLM 拆解返回接缝策略/锚点 → 落库并透出;域外值回落空;末镜强制置空。"""
+    client, token, _ = ctx
+    H = _h(token)
+    pid = client.post(
+        "/api/drama/projects", headers=H, json={"title": "x", "script": "三镜短剧"}
+    ).json()["id"]
+    fake_msg = {
+        "content": (
+            '{"shots":['
+            '{"scene":"a","prompt":"1boy, draw sword","characters":[],"dialogue":"",'
+            '"speaker":"","duration_sec":5,"seam_to_next":"matchcut","seam_anchor":"太刀刀刃"},'
+            '{"scene":"b","prompt":"1boy, page flip","characters":[],"dialogue":"",'
+            '"speaker":"","duration_sec":5,"seam_to_next":"dissolve","seam_anchor":"x"},'
+            '{"scene":"c","prompt":"1boy, walking away","characters":[],"dialogue":"",'
+            '"speaker":"","duration_sec":5,"seam_to_next":"hardcut","seam_anchor":""}'
+            "]}"
+        )
+    }
+    with patch("app.routes.drama_studio.llm.chat", AsyncMock(return_value=fake_msg)):
+        r = client.post(
+            f"/api/drama/projects/{pid}/storyboard", headers=H, json={"num_shots": 3}
+        )
+    assert r.status_code == 200, r.text
+    shots = r.json()["shots"]
+    assert len(shots) == 3
+    # matchcut + 锚点透出
+    assert shots[0]["seam_to_next"] == "matchcut"
+    assert shots[0]["seam_anchor"] == "太刀刀刃"
+    # 域外值(dissolve)按未规划回落空串,不阻断拆解
+    assert shots[1]["seam_to_next"] == ""
+    # 末镜没有「下一镜」,LLM 给的 hardcut 被强制纠正为空
+    assert shots[2]["seam_to_next"] == ""
+    # 项目详情读回一致(落库确认)
+    p = client.get(f"/api/drama/projects/{pid}", headers=H).json()
+    s0 = next(x for x in p["shots"] if x["idx"] == 0)
+    assert s0["seam_to_next"] == "matchcut" and s0["seam_anchor"] == "太刀刀刃"
+
+
+def test_storyboard_mood_beat_persisted(ctx):
+    """WORKBENCH follow-up:LLM 拆解返回 mood/beat → 落库并透出;
+    超长截断(mood 64/beat 200,对齐 ShotPatch 上限);缺省空串兼容。"""
+    client, token, _ = ctx
+    H = _h(token)
+    pid = client.post(
+        "/api/drama/projects", headers=H, json={"title": "x", "script": "两镜短剧"}
+    ).json()["id"]
+    long_mood = "紧" * 80
+    long_beat = "对峙" * 120  # 240 字 > 200
+    fake_msg = {
+        "content": (
+            '{"shots":['
+            '{"scene":"a","prompt":"1boy, draw sword","characters":[],"dialogue":"",'
+            '"speaker":"","duration_sec":5,"mood":"紧张","beat":"对峙"},'
+            '{"scene":"b","prompt":"1boy, walking away","characters":[],"dialogue":"",'
+            '"speaker":"","duration_sec":5,"mood":"' + long_mood + '",'
+            '"beat":"' + long_beat + '"}'
+            "]}"
+        )
+    }
+    with patch("app.routes.drama_studio.llm.chat", AsyncMock(return_value=fake_msg)):
+        r = client.post(
+            f"/api/drama/projects/{pid}/storyboard", headers=H, json={"num_shots": 2}
+        )
+    assert r.status_code == 200, r.text
+    shots = r.json()["shots"]
+    assert shots[0]["mood"] == "紧张"
+    assert shots[0]["beat"] == "对峙"
+    # 超长截断不阻断(LLM 输出不可信)
+    assert shots[1]["mood"] == "紧" * 64
+    assert shots[1]["beat"] == "对峙" * 100
+    # 项目详情读回一致(落库确认)
+    p = client.get(f"/api/drama/projects/{pid}", headers=H).json()
+    s0 = next(x for x in p["shots"] if x["idx"] == 0)
+    assert s0["mood"] == "紧张" and s0["beat"] == "对峙"
+
+
+def test_storyboard_without_seam_fields_defaults_empty(ctx):
+    """P1 兼容:LLM 不返回接缝字段 → 缺省空串(旧拆解 JSON 行为不变)。"""
+    client, token, _ = ctx
+    pid, sid = _make_shot(ctx, token)  # mock LLM JSON 无 seam 字段
+    shot = client.get(f"/api/drama/projects/{pid}", headers=_h(token)).json()["shots"][0]
+    assert shot["id"] == sid
+    assert shot["seam_to_next"] == ""
+    assert shot["seam_anchor"] == ""
+
+
+def test_shot_patch_seam(ctx):
+    """P1:seam_to_next/seam_anchor PATCH 写入读回;域外枚举 422。"""
+    client, token, _ = ctx
+    H = _h(token)
+    pid, sid = _make_shot(ctx, token)
+    r = client.patch(
+        f"/api/drama/shots/{sid}",
+        headers=H,
+        json={"seam_to_next": "overlap", "seam_anchor": "圆环"},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["seam_to_next"] == "overlap"
+    assert r.json()["seam_anchor"] == "圆环"
+    # 项目详情读回(确认落库)
+    p = client.get(f"/api/drama/projects/{pid}", headers=H).json()
+    s = next(x for x in p["shots"] if x["id"] == sid)
+    assert s["seam_to_next"] == "overlap" and s["seam_anchor"] == "圆环"
+    # 清空(回到未规划)
+    r = client.patch(f"/api/drama/shots/{sid}", headers=H, json={"seam_to_next": ""})
+    assert r.status_code == 200 and r.json()["seam_to_next"] == ""
+    # 非法枚举 → 422
+    r = client.patch(
+        f"/api/drama/shots/{sid}", headers=H, json={"seam_to_next": "dissolve"}
+    )
+    assert r.status_code == 422
+
+
+def test_apply_seam_modifier_unit():
+    """_apply_seam_modifier:matchcut 追加技能块(锚点/方向槽位渲染);其余原样返回。"""
+    from types import SimpleNamespace
+
+    from app.routes.drama_studio import _apply_seam_modifier
+
+    shot = SimpleNamespace(width=832, height=480)  # 横屏 → 横向
+    prev = SimpleNamespace(seam_to_next="matchcut", seam_anchor="太刀刀刃")
+    out = _apply_seam_modifier("1boy, draw sword", shot, prev)
+    assert out.startswith("1boy, draw sword")
+    assert "转场丝滑度最高优先级" in out
+    assert "太刀刀刃" in out
+    assert "横向" in out
+    assert "{{anchor}}" not in out and "{{direction}}" not in out
+    # 非 matchcut / 首镜(None) → 原样
+    for bad in (
+        SimpleNamespace(seam_to_next="overlap", seam_anchor="x"),
+        SimpleNamespace(seam_to_next="hardcut", seam_anchor=""),
+        SimpleNamespace(seam_to_next="", seam_anchor=""),
+        None,
+    ):
+        assert _apply_seam_modifier("p", shot, bad) == "p"
+    # 竖屏 → 纵向;锚点缺失 → 兜底描述
+    vshot = SimpleNamespace(width=480, height=832)
+    out_v = _apply_seam_modifier(
+        "p", vshot, SimpleNamespace(seam_to_next="matchcut", seam_anchor="")
+    )
+    assert "纵向" in out_v and "上一镜头主导视觉锚点" in out_v
+
+
+def _mk_matchcut_prev_shot(ctx, token: str) -> tuple[str, str]:
+    """建项目 + 两镜,首镜置 matchcut+锚点,返回 (pid, 第二镜 sid)。"""
+    from app.db import engine
+
+    pid, sid0 = _make_shot(ctx, token)
+    with Session(engine) as s:
+        shot0 = s.get(DramaShot, sid0)
+        shot0.seam_to_next = "matchcut"
+        shot0.seam_anchor = "太刀刀刃"
+        s.add(shot0)
+        s.add(
+            DramaShot(
+                project_id=pid, idx=1, prompt="1boy, sheath the sword", duration_sec=5
+            )
+        )
+        s.commit()
+        shot1 = s.exec(
+            select(DramaShot).where(
+                DramaShot.project_id == pid, DramaShot.idx == 1
+            )
+        ).first()
+        return pid, shot1.id
+
+
+def test_generate_video_v2_matchcut_seam_modifier_injected(ctx):
+    """P1:前一镜声明 matchcut → v2 生成 prompt 末尾追加 h3-seam-polish 转场约束。"""
+    client, token, _ = ctx
+    H = _h(token)
+    _, sid1 = _mk_matchcut_prev_shot(ctx, token)
+    sent_prompt = _post_v2_and_get_prompt(client, H, sid1, "ltx")
+    assert sent_prompt.startswith("1boy, sheath the sword")
+    assert "转场丝滑度最高优先级" in sent_prompt
+    assert "太刀刀刃" in sent_prompt
+
+
+def test_generate_video_v2_seam_modifier_with_prompt_override(ctx):
+    """P1:prompt_override 存在时 modifier 同样追加(管线行为,非用户 prompt 一部分)。"""
+    client, token, _ = ctx
+    H = _h(token)
+    _, sid1 = _mk_matchcut_prev_shot(ctx, token)
+    fake_gen = _fake_video_generator(["pid-seam-override"])
+    with patch(
+        "app.services.video_generators.get_generator", return_value=fake_gen
+    ), patch("app.routes.drama_studio.wait_for_jobs", AsyncMock(return_value={})):
+        r = client.post(
+            f"/api/drama/shots/{sid1}/generate-video-v2",
+            headers=H,
+            json={"model": "ltx", "seed": 7, "prompt_override": "1boy, custom override"},
+        )
+    assert r.status_code == 200, r.text
+    sent_prompt = fake_gen.generate.call_args[0][0]
+    assert sent_prompt.startswith("1boy, custom override")
+    assert "转场丝滑度最高优先级" in sent_prompt
+
+
+def test_generate_video_v2_no_matchcut_seam_no_modifier(ctx):
+    """P1:前一镜非 matchcut(hardcut)→ v2 生成 prompt 原样,不追加转场约束。"""
+    client, token, _ = ctx
+    H = _h(token)
+    from app.db import engine
+
+    pid, sid0 = _make_shot(ctx, token)
+    with Session(engine) as s:
+        shot0 = s.get(DramaShot, sid0)
+        shot0.seam_to_next = "hardcut"
+        s.add(shot0)
+        s.add(DramaShot(project_id=pid, idx=1, prompt="1boy, walking", duration_sec=5))
+        s.commit()
+        sid1 = s.exec(
+            select(DramaShot).where(DramaShot.project_id == pid, DramaShot.idx == 1)
+        ).first().id
+    sent_prompt = _post_v2_and_get_prompt(client, H, sid1, "ltx")
+    assert sent_prompt == "1boy, walking"

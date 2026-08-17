@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   createAgent,
@@ -16,6 +16,7 @@ import { ErrorBar } from "@/components/ui/ErrorBar";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Switch } from "@/components/ui/Switch";
+import { useAutoResize } from "@/hooks/useAutoResize";
 
 /** 已知的智能体图标键(与 Icon.tsx 的 ICON_MAP 对齐)。 */
 const ICON_OPTIONS: IconName[] = [
@@ -123,6 +124,12 @@ export function AgentsAdminView() {
 
   // 测试面板:同一时刻只展开一个 agent 的测试面板
   const [testState, setTestState] = useState<TestState | null>(null);
+
+  // 示例 prompt / System Prompt 自动增高(后者大框留 60vh 宽松封顶,超出内滚)
+  const testPromptRef = useRef<HTMLTextAreaElement | null>(null);
+  const sysPromptRef = useRef<HTMLTextAreaElement | null>(null);
+  useAutoResize(testPromptRef, testState?.prompt ?? "");
+  useAutoResize(sysPromptRef, editState?.form.system_prompt ?? "", { maxVh: 60 });
 
   const load = useCallback(() => {
     setLoading(true);
@@ -497,6 +504,7 @@ export function AgentsAdminView() {
                       <label className="aa-field aa-field-wide">
                         <span className="aa-field-label">示例 prompt</span>
                         <textarea
+                          ref={testPromptRef}
                           className="input aa-test-textarea"
                           value={testState.prompt}
                           onChange={(e) =>
@@ -725,6 +733,7 @@ export function AgentsAdminView() {
               <label className="aa-field">
                 <span className="aa-field-label">System Prompt</span>
                 <textarea
+                  ref={sysPromptRef}
                   className="input aa-textarea"
                   value={editState.form.system_prompt}
                   onChange={(e) =>

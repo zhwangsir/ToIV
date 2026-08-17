@@ -194,7 +194,7 @@ function DropZone({ onUpload, uploading, error, onClearError }: DropZoneProps) {
 
 function SourcePreview({ image }: { image: UploadedImage }) {
   return (
-    <Card className="ie-preview-card">
+    <Card className="at-card ie-preview-card">
       <div className="ie-preview-head">
         <span className="ie-preview-label">原图</span>
       </div>
@@ -232,7 +232,7 @@ interface ToolCardProps {
 
 function ToolCard({ tool, active, disabled, onSelect, children }: ToolCardProps) {
   return (
-    <div className={`ie-tool-card${active ? " is-active" : ""}`}>
+    <div className={`at-card ie-tool-card${active ? " is-active" : ""}`}>
       <button
         type="button"
         className="ie-tool-head"
@@ -270,16 +270,16 @@ function ResultPanel({ source, resultUrl, resultPaths }: ResultPanelProps) {
   const downloadName = `toiv-edited-${Date.now()}.${resultUrl.split(".").pop() ?? "png"}`;
 
   return (
-    <Card className="ie-result-card">
+    <Card className="at-card ie-result-card">
       <div className="ie-result-head">
         <span className="ie-result-label">处理结果</span>
         <div className="ie-result-actions">
-          <div className="ie-result-toggle" role="tablist">
+          <div className="at-seg ie-result-toggle" role="tablist">
             <button
               type="button"
               role="tab"
               aria-selected={mode === "result"}
-              className={`ie-toggle-btn${mode === "result" ? " is-active" : ""}`}
+              className={`at-seg-btn ie-toggle-btn${mode === "result" ? " is-active" : ""}`}
               onClick={() => setMode("result")}
             >
               结果
@@ -288,13 +288,13 @@ function ResultPanel({ source, resultUrl, resultPaths }: ResultPanelProps) {
               type="button"
               role="tab"
               aria-selected={mode === "compare"}
-              className={`ie-toggle-btn${mode === "compare" ? " is-active" : ""}`}
+              className={`at-seg-btn ie-toggle-btn${mode === "compare" ? " is-active" : ""}`}
               onClick={() => setMode("compare")}
             >
               对比
             </button>
           </div>
-          <a href={fullUrl} download={downloadName} className="btn btn-primary btn-sm">
+          <a href={fullUrl} download={downloadName} className="at-btn at-btn--primary ie-download-btn">
             <Icon name="download" size={13} />
             下载结果
           </a>
@@ -506,6 +506,7 @@ export function ImageEditView() {
 
     try {
       const paths = await trackJob(res, {
+        label: TOOLS.find((t) => t.key === tool)?.title ?? "图像处理",
         onProgress: (p) => {
           if (!mountedRef.current) return;
           setProc((prev) => ({ ...prev, progress: p }));
@@ -551,6 +552,7 @@ export function ImageEditView() {
   return (
     <div className="single-view ie-view">
       <PageHeader
+        kicker="IMAGE LAB"
         title="图片编辑"
         desc="上传一张图片，选择工具一键处理：去背景、高清增强、局部重绘、人脸修复"
         actions={
@@ -863,24 +865,18 @@ export function ImageEditView() {
           margin: 0;
         }
 
-        /* ── 工具面板 ── */
+        /* ── 工具面板(卡片基底由共享 .at-card 承载,此处保留布局与选中态)── */
         .ie-tools {
           display: flex;
           flex-direction: column;
           gap: var(--space-4);
         }
         .ie-tool-card {
-          background: var(--bg-surface-1);
-          border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-panel);
           overflow: hidden;
-          transition: border-color var(--duration-fast) var(--ease-standard),
-            box-shadow var(--duration-fast) var(--ease-standard),
-            transform var(--duration-fast) var(--ease-standard);
         }
         .ie-tool-card:hover {
           border-color: var(--border-strong);
-          box-shadow: var(--shadow-md);
+          box-shadow: var(--shadow-lift);
           transform: translateY(-2px);
         }
         .ie-tool-card.is-active {
@@ -1060,36 +1056,21 @@ export function ImageEditView() {
           align-items: center;
           gap: var(--space-2);
         }
-        .ie-result-toggle {
-          display: flex;
-          background: var(--bg-surface-3);
-          border-radius: var(--radius-control);
-          padding: 2px;
-        }
-        .ie-toggle-btn {
-          padding: var(--space-1) var(--space-3);
-          font-size: var(--text-xs);
-          font-weight: var(--font-medium);
-          color: var(--text-secondary);
-          background: transparent;
-          border: none;
-          border-radius: calc(var(--radius-control) - 2px);
-          cursor: pointer;
-          transition: all var(--duration-fast) var(--ease-standard);
-        }
-        .ie-toggle-btn:hover {
-          color: var(--text-primary);
-        }
-        .ie-toggle-btn.is-active {
-          background: var(--bg-surface-1);
-          color: var(--text-primary);
-          box-shadow: var(--shadow-sm);
+        /* 结果/对比切换:共享 .at-seg 墨丸段控,此处仅保留布局钩子;
+           下载主钮共享 .at-btn--primary,对齐段控高度的紧凑规格 */
+        .ie-download-btn {
+          min-height: 30px;
+          padding: 0 var(--space-3);
+          font-size: var(--text-aux);
         }
         @media (max-width: 767px) {
           /* 移动端触控目标 ≥44px */
           .ie-toggle-btn {
             min-height: 44px;
             padding: var(--space-1) var(--space-4);
+          }
+          .ie-download-btn {
+            min-height: 44px;
           }
         }
         .ie-result-media {

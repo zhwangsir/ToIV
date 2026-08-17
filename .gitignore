@@ -61,8 +61,11 @@ apps/web/.preview-shots/
 models/
 # opentalking/ 嵌套 git 独立项目(违反项目隔离纪律)
 opentalking/
-# drama/ 生成内容(短剧成片,运行时产出)
-drama/
+# drama/output/ 生成内容(短剧成片/分镜片段/配音等运行时产出);
+# 仅忽略产物目录——drama/scripts/(管线源码,编排器/定妆图/质量门)与
+# apps/web/components/drama/(LibTV 工作台源码)必须入仓(2026-08-16 收窄,
+# 原 drama/ 整目录规则把两处源码一并忽略,LibTV 重构代码零追踪)
+drama/output/
 # 根目录调试预览/脚本(一次性,不入仓)
 preview-*.html
 test_llm_real.py

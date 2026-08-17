@@ -38,7 +38,14 @@ from urllib.parse import urlsplit
 import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field, ValidationError, ValidationInfo, field_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    ValidationError,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 from sqlmodel import Session, delete, select
 
 from app.agent import llm
@@ -64,7 +71,9 @@ from app.models import (
 from app.ratelimit import enforce_generation_rate_limit
 from app.jsonutil import parse_json_obj
 from app.routes.lipsync import _allowed as _lipsync_allowed, _resolve as _lipsync_resolve
+from app.routes.reverse import _chat_completion, _data_url
 from app.routes.video import _gate_ltx_nsfw
+from app.services.h3_refs import ref_prefix_for_shot
 from app.services.drama_image import analyze_storyboard_images
 from app.services.drama_presence import (
     assign_character_colors,
@@ -75,7 +84,9 @@ from app.services.drama_presence import (
     fetch_product_image_bytes,
     parse_image_url,
 )
+from app.services.duration import snap_engine_frames, validate_engine_frames
 from app.services.studio.schemas import reconcile_character_names
+from app.skills.registry import skills_registry
 from app.storage import drama_output_root
 from app.versioning import params_snapshot
 from app.workflows.ipadapter import IPAdapterTxt2ImgParams, build_ipadapter_txt2img_graph
@@ -100,6 +111,8 @@ def _drama_dir() -> Path:
 
 _VOICE_NAME_RE = re.compile(r"^voice(?:ref)?-[0-9a-f]{32}\.wav$")
 _DRAMA_OUTPUT_RE = re.compile(r"^drama-[0-9a-f]{32}\.mp4$")
+# P1 衔接策略层:seam_to_next 枚举域(空串=未规划,按硬切处理)
+_SEAM_KINDS = ("continue", "overlap", "matchcut", "hardcut")
 _TTS_TIMEOUT = 180.0
 # LiveAct 全身数字人:生成时长 = 音频时长(103s 音频约 3.5 分钟),轮询给足余量
 _LIVEACT_POLL_INTERVAL = 3.0
@@ -138,16 +151,31 @@ _STORYBOARD_SYSTEM = (
     "5. 角色出场时用其固定外貌特征(发色/瞳色/服装)保持跨镜一致。\n"
     "6. 视频时长建议 4-8 秒(整数),动作戏可适当延长。\n"
     "\n"
+    "【镜头接缝策略 —— 逐镜规划本镜与下一镜的衔接方式】\n"
+    "除最后一镜外,每个镜头必须给出 seam_to_next,四选一:\n"
+    "- continue:相邻镜为同场景的连续动作(下一镜从本镜末帧直接续写);\n"
+    "- hardcut:时间跳跃 / 场景转换,直接硬切(拿不准一律用 hardcut);\n"
+    "- matchcut:需要图形/动作匹配变形转场(如刀刃拉直成装订线、圆环扩大成表盘),"
+    "必须同时给出 seam_anchor(两镜共享的视觉锚体:刀刃/圆环/瞳孔/色块等);\n"
+    "- overlap:需要柔和叠化过渡,同时给出 seam_anchor(叠化时保持连续的主体/色块)。\n"
+    "seam_anchor 用简短中文名词短语;continue/hardcut 时 seam_anchor 留空。\n"
+    "最后一镜没有下一镜,seam_to_next 必须为空字符串。\n"
+    "\n"
     "对每一个镜头(shot)给出:\n"
     "- scene:该镜的场景/地点简述(中文);\n"
     "- prompt:遵守上述铁律的英文视频提示词(单主体单动作);\n"
     "- characters:该镜出场角色名字数组(只用 characters 列表里给定的名字,没有则空数组);\n"
     "- dialogue:该镜的【中文】台词或旁白(没有则空字符串);\n"
     "- speaker:说话人(角色名 / narrator / 空=无对白);\n"
-    "- duration_sec:该镜建议时长(秒,整数,4-8)。\n"
+    "- duration_sec:该镜建议时长(秒,整数,4-8);\n"
+    "- seam_to_next:与下一镜的接缝策略(continue/overlap/matchcut/hardcut,最后一镜空字符串);\n"
+    "- seam_anchor:matchcut/overlap 时的共享锚体描述(其余策略空字符串);\n"
+    "- mood:该镜情绪标签(简短中文词,如 紧张/悲壮/温情/悬疑);\n"
+    "- beat:该镜叙事节拍(简短中文短语,如 建立/对峙/转折/高潮/收束)。\n"
     "镜头数量严格等于用户要求的数量。若 style 给定请融入画质/氛围标签。\n"
     '只输出 JSON,形如 {"shots":[{"scene":"...","prompt":"1boy, ...",'
-    '"characters":["..."],"dialogue":"...","speaker":"...","duration_sec":6}, ...]},'
+    '"characters":["..."],"dialogue":"...","speaker":"...","duration_sec":6,'
+    '"seam_to_next":"hardcut","seam_anchor":"","mood":"紧张","beat":"对峙"}, ...]},'
     "不要解释,不要代码块标记。"
 )
 
@@ -242,6 +270,19 @@ class ShotPatch(BaseModel):
     speaker: str | None = Field(default=None, max_length=64)
     duration_sec: int | None = Field(default=None, ge=1, le=30)
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
+    # LibTV 工作台:情绪标签 + 节拍注记
+    mood: str | None = Field(default=None, max_length=64)
+    beat: str | None = Field(default=None, max_length=200)
+    # P1 衔接策略层:与下一镜的接缝策略 + 衔接锚点(空=未规划,按硬切处理)
+    seam_to_next: str | None = Field(default=None, max_length=16)
+    seam_anchor: str | None = Field(default=None, max_length=200)
+
+    @field_validator("seam_to_next")
+    @classmethod
+    def _seam_known(cls, v: str | None) -> str | None:
+        if v is not None and v not in ("", *_SEAM_KINDS):
+            raise ValueError("seam_to_next 仅支持 continue/overlap/matchcut/hardcut(空=未规划)")
+        return v
 
 
 class GenerateVideoRequest(BaseModel):
@@ -465,6 +506,10 @@ def _shot_dict(s: DramaShot, session: Session | None = None) -> dict:
         "grid_image": s.grid_image,
         "scene_layout": layout,
         "video_model": s.video_model,
+        "mood": s.mood,
+        "beat": s.beat,
+        "seam_to_next": s.seam_to_next,
+        "seam_anchor": s.seam_anchor,
         "video_status": s.video_status,
         "video_url": s.video_url,
         "voice_status": s.voice_status,
@@ -613,6 +658,14 @@ def delete_project(
     session.exec(delete(DramaShot).where(DramaShot.project_id == pid))
     session.exec(delete(DramaCharacter).where(DramaCharacter.project_id == pid))
     session.delete(p)
+    # SAFETY 审计:不可逆级联删除留底(标题/规格快照;角色/分镜数)
+    from app import audit as _audit
+
+    _audit.record(
+        session, user=user, action="project.delete", target_type="drama_project",
+        target_id=pid, summary=f"删除短剧项目:{p.title or pid[:8]}",
+        detail={"title": p.title, "project_id": pid},
+    )
     session.commit()
     return {"ok": True}
 
@@ -923,12 +976,37 @@ class ShotOut(BaseModel):
     dialogue: str = ""
     speaker: str = ""
     duration_sec: int = Field(default=6, ge=2, le=15)
+    # P1 衔接策略层:与下一镜的接缝策略(空=未规划)+ 共享锚体描述
+    seam_to_next: str = ""
+    seam_anchor: str = ""
+    # WORKBENCH 补齐:情绪标签/叙事节拍(LLM 拆解产出,前端 ShotTableRow 行内可编)
+    mood: str = ""
+    beat: str = ""
 
-    @field_validator("scene", "prompt", "dialogue", "speaker", mode="before")
+    @field_validator("scene", "prompt", "dialogue", "speaker", "seam_anchor", mode="before")
     @classmethod
     def _normalize_str(cls, v: object) -> str:
         # 等价旧 _coerce_shot:任意类型 str() 化并 strip,None/0/False → ""
         return str(v or "").strip()
+
+    @field_validator("mood", "beat", mode="before")
+    @classmethod
+    def _normalize_mood_beat(cls, v: object, info: ValidationInfo) -> str:
+        # LLM 输出不可信:strip + 按 ShotPatch 上限截断(mood 64 / beat 200),不阻断
+        limit = 64 if info.field_name == "mood" else 200
+        return str(v or "").strip()[:limit]
+
+    @field_validator("seam_to_next", mode="before")
+    @classmethod
+    def _normalize_seam(cls, v: object) -> str:
+        return str(v or "").strip().lower()
+
+    @field_validator("seam_to_next")
+    @classmethod
+    def _seam_domain(cls, v: str) -> str:
+        # 枚举域(continue/overlap/matchcut/hardcut);域外值(LLM 自由发挥)
+        # 按未规划回落空串,不阻断整段拆解(grid-storyboard 共用本模型,无重试通道)
+        return v if v in _SEAM_KINDS else ""
 
     @field_validator("duration_sec", mode="before")
     @classmethod
@@ -953,6 +1031,13 @@ class ShotAnalysisOut(BaseModel):
     """LLM 拆解的顶层输出(shots 至少 1 条;缺字段/类型错抛 ValidationError)。"""
 
     shots: list[ShotOut] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _last_shot_no_seam(self) -> "ShotAnalysisOut":
+        # 末镜没有「下一镜」,seam_to_next 强制置空(LLM 违例就地纠正,不阻断)
+        if self.shots:
+            self.shots[-1].seam_to_next = ""
+        return self
 
 
 def _coerce_shot(raw: object, index: int) -> dict:
@@ -1111,6 +1196,12 @@ def _create_shots_from_analysis(
             dialogue=sc["dialogue"],
             speaker=sc["speaker"],
             duration_sec=sc["duration_sec"],
+            # P1 衔接策略层:LLM 规划的接缝策略/锚点落库(缺省空=未规划)
+            seam_to_next=sc.get("seam_to_next", ""),
+            seam_anchor=sc.get("seam_anchor", ""),
+            # 情绪标签/叙事节拍(LLM 拆解产出落库,缺省空)
+            mood=sc.get("mood", ""),
+            beat=sc.get("beat", ""),
             width=p.width,
             height=p.height,
         )
@@ -1260,6 +1351,13 @@ def delete_character(
         raise HTTPException(status_code=404, detail="角色不存在")
     _owned_project(c.project_id, user, session)
     session.delete(c)
+    from app import audit as _audit
+
+    _audit.record(
+        session, user=user, action="character.delete", target_type="drama_character",
+        target_id=cid, summary=f"删除短剧角色:{c.name or cid[:8]}",
+        detail={"name": c.name, "project_id": c.project_id},
+    )
     session.commit()
     return {"ok": True}
 
@@ -1508,6 +1606,44 @@ async def _generate_keyframe_for_shot(
 # ===========================================================================
 # 单分镜视频生成(LTX t2v / i2v)
 # ===========================================================================
+def _prev_shot(session: Session, shot: DramaShot) -> DramaShot | None:
+    """同项目内 idx-1 的前一镜(首镜/缺行返回 None)。"""
+    if shot.idx <= 0:
+        return None
+    return session.exec(
+        select(DramaShot).where(
+            DramaShot.project_id == shot.project_id,
+            DramaShot.idx == shot.idx - 1,
+        )
+    ).first()
+
+
+def _apply_seam_modifier(
+    prompt: str,
+    shot: DramaShot,
+    prev_shot: DramaShot | None,
+    *,
+    project: DramaProject | None = None,
+) -> str:
+    """P1 衔接策略层:前一镜声明 matchcut 接缝时,在本镜生成 prompt 末尾追加
+    h3-seam-polish 转场约束(modifier 是管线行为,非用户 prompt 一部分——
+    prompt_override 存在时同样追加)。其余接缝/首镜/技能未注册时原样返回。
+    direction 槽位按项目画幅推导(横屏→横向,竖屏→纵向)。
+    """
+    if prev_shot is None or prev_shot.seam_to_next != "matchcut":
+        return prompt
+    if skills_registry.get("h3-seam-polish") is None:
+        return prompt
+    anchor = prev_shot.seam_anchor or "上一镜头主导视觉锚点"
+    w = (project.width if project else 0) or getattr(shot, "width", 0) or 0
+    h = (project.height if project else 0) or getattr(shot, "height", 0) or 0
+    direction = "横向" if w >= h else "纵向"
+    block = skills_registry.render(
+        "h3-seam-polish", anchor=anchor, direction=direction
+    ).strip()
+    return f"{prompt}\n\n{block}" if prompt else block
+
+
 async def _submit_shot_video(
     shot: DramaShot,
     project: DramaProject,
@@ -1535,6 +1671,8 @@ async def _submit_shot_video(
     prompt = (prompt_override or shot.prompt).strip()
     if not prompt:
         raise HTTPException(status_code=422, detail="分镜提示词为空")
+    # P1 衔接策略层:前一镜 matchcut 时追加 h3-seam-polish 转场约束
+    prompt = _apply_seam_modifier(prompt, shot, _prev_shot(session, shot), project=project)
 
     # 选 worker
     if worker:
@@ -1789,15 +1927,13 @@ async def generate_shot_video(
 # 末帧续写(continue-video):抽当前视频末帧作 i2v 首帧,逐段延续串长镜头
 # ===========================================================================
 def _snap_ltx_length(n: int) -> int:
-    """LTX 帧数网格 8k+1(9-241),向下取整对齐。"""
-    n = max(9, min(241, n))
-    return ((n - 1) // 8) * 8 + 1
+    """LTX 帧数网格 8k+1(9-241),向下取整对齐(委托 services.duration 统一网格)。"""
+    return snap_engine_frames("ltx", n, direction="down")
 
 
 def _snap_h3_length(n: int) -> int:
-    """H3 帧数网格 17k+5(22-362 @24fps),向下取整对齐。"""
-    n = max(22, min(362, n))
-    return ((n - 5) // 17) * 17 + 5
+    """H3 帧数网格 17k+5(22-362 @24fps),向下取整对齐(委托 services.duration 统一网格)。"""
+    return snap_engine_frames("h3", n, direction="down")
 
 
 def _continue_engine(shot: DramaShot, body: ContinueVideoRequest) -> str:
@@ -1814,18 +1950,14 @@ def _continue_length(
     if engine_name == "h3":
         fps = 24  # H3 固定 24fps(body.fps 覆盖仅 LTX 生效)
         if body.length is not None:
-            if (body.length - 5) % 17 != 0 or not 22 <= body.length <= 362:
-                raise HTTPException(
-                    status_code=422, detail="H3 length 必须为 17k+5 且 22-362(如 124/141/362)"
-                )
+            if err := validate_engine_frames("h3", body.length):
+                raise HTTPException(status_code=422, detail=err)
             return body.length, fps
         return _snap_h3_length(24 * shot.duration_sec), fps
     fps = body.fps if body.fps is not None else project.fps
     if body.length is not None:
-        if (body.length - 1) % 8 != 0 or not 9 <= body.length <= 241:
-            raise HTTPException(
-                status_code=422, detail="LTX length 必须为 8k+1 且 9-241(如 97/121/241)"
-            )
+        if err := validate_engine_frames("ltx", body.length):
+            raise HTTPException(status_code=422, detail=err)
         return body.length, fps
     return _snap_ltx_length(fps * shot.duration_sec), fps
 
@@ -1930,6 +2062,13 @@ async def _run_continue_video(
             prompt = (body.prompt_override or shot.prompt).strip()
             if not prompt:
                 raise RuntimeError("分镜提示词为空")
+            # P1 衔接策略层:前一镜 matchcut 时追加 h3-seam-polish 转场约束
+            prompt = _apply_seam_modifier(prompt, shot, _prev_shot(s, shot), project=project)
+            # @图片N 引用行【刻意不注入】(2026-08-16 评估结论,对照 v2 :4291):
+            # 末帧续写每段真实提交的图片是上一段末帧(i2v 首帧),按正典「实际提交
+            # 顺序编号」规则末帧即图片1;角色参考图引用行从图片1 起编会与真实图片
+            # 槽位错位。角色身份已由首帧承载,引用行边际收益低而错位风险真实;
+            # 待 H3 链路真实下发多图字节 + ref_prefix 支持首图占位偏移后再评估。
             length, fps = _continue_length(engine_name, shot, project, body)
             seeds = _next_seeds(body.seed, shot.seed, body.segments)
 
@@ -2836,6 +2975,11 @@ async def _do_assemble(
     clips = body.clips if body.clips else [s.video_url for s in ready]
     voice_urls = [s.voice_url for s in ready]  # 空串=无配音
     durations_targets = [float(s.duration_sec) for s in ready]  # 用分镜配置的目标时长
+    # P1 衔接策略层:逐镜接缝策略(shot.seam_to_next)传入 ffmpeg 命令构造,
+    # overlap 接缝走 xfade+acrossfade,其余已声明接缝硬切;clips 与分镜对不齐时不传(旧行为)
+    seam_list: list[str] | None = (
+        [s.seam_to_next for s in ready] if len(clips) == len(ready) else None
+    )
 
     with tempfile.TemporaryDirectory(prefix="drama-asm-") as tmp:
         tmp_dir = Path(tmp)
@@ -2898,6 +3042,7 @@ async def _do_assemble(
         cmd = _build_ffmpeg_command(
             clip_paths, asm_opt, bgm_path, voice_paths, durations, targets, dims, film_path,
             clip_audio=clip_audio,
+            seams=seam_list,
         )
         await _run_ffmpeg(cmd)
 
@@ -2907,7 +3052,10 @@ async def _do_assemble(
                 any(clip_audio)
                 and not any(voice_paths)
                 and bgm_path is None
-                and asm_opt.transition == "none"
+                and (
+                    asm_opt.transition == "none"
+                    or bool(seam_list) and any(s == "overlap" for s in seam_list or [])
+                )
             )
             film_has_audio = any(voice_paths) or bgm_path is not None or embedded_used
             parts: list[Path] = []
@@ -3141,6 +3289,141 @@ async def generate_character_reference(
 # ===========================================================================
 # M2: 9/25 宫格分镜(LLM 拆解 + 宫格构图参考图)
 # ===========================================================================
+# P2 阶段B 纪律(dogfood 高优 #1,治动漫偏置):宫格图生成后,先经 VLM 逐格观察
+# 实际画面,再由 LLM 据实改写各镜 prompt;任一环节失败回落 LLM 原始 prompt。
+# {cols}/{n} 由 .replace 注入(正文含 JSON 花括号,禁用 .format)。
+_GRID_OBSERVE_SYSTEM = (
+    "你是短剧分镜校对员。用户上传一张 {cols} 宫格分镜母版图,共 {n} 格,"
+    "从左到右、从上到下依次编号 1 到 {n}。\n"
+    "逐格描述该格**实际可见**的画面内容,每格覆盖:主体与身份特征、姿态/动作、"
+    "镜位与景别、场景环境、可见服装与配色、与相邻格的明显差异。\n"
+    "铁律:只描述实际可见内容,禁止脑补身份、剧情与情绪;某格模糊或被遮挡时"
+    "如实写「不清晰」。\n"
+    '只输出 JSON:{"panels":[{"index":1,"description":"第1格实际画面描述"}]},'
+    "不要解释,不要代码块标记。"
+)
+
+_GRID_GROUND_SYSTEM = (
+    "你是短剧分镜校对员。输入每个镜头的原始生成意图(英文 prompt)与宫格母版"
+    "对应格的实际画面描述。\n"
+    "任务:据实改写每个镜头的英文 prompt —— 人物身份、服装、姿态、镜位、场景"
+    "一律以宫格实际成图为准;宫格描述未覆盖的细节(光线、氛围、质感、风格词)"
+    "允许保留原意图。\n"
+    "约束:逐镜对齐格号(panel_index),不改镜头数量与顺序,不合并/拆分镜头;"
+    "输出英文 prompt;原 prompt 中的角色名与关键外观 token 予以保留,"
+    "除非与实际画面描述冲突。\n"
+    '只输出 JSON:{"prompts":[{"index":0,"prompt":"改写后的英文提示词"}]},'
+    "不要解释,不要代码块标记。"
+)
+
+
+async def _ground_grid_prompts(
+    pool: WorkerPool,
+    grid_url: str,
+    coerced: list[dict],
+    *,
+    layer: str,
+) -> list[str] | None:
+    """阶段B:观察实际宫格图,据实改写各镜 prompt。
+
+    返回与 coerced 等长的改写 prompt 列表(某格 VLM 未描述/LLM 未改写时
+    该镜保留原 prompt);取图失败 / VLM 失败或不可解析 / 二次 LLM 失败 →
+    返回 None,调用方整体回落 LLM 原始 prompt(grounding_status="fallback")。
+    本函数永不抛异常:grounding 是增强链,失败不拖垮宫格分镜主流程。
+    """
+    loc = parse_image_url(grid_url)
+    if loc is None:
+        return None
+    try:
+        img_bytes = await fetch_product_image_bytes(
+            pool,
+            worker=loc["worker"],
+            filename=loc["filename"],
+            subfolder=loc["subfolder"],
+            type_=loc["type"],
+        )
+        if not img_bytes:
+            logger.info("grid grounding: 宫格图取字节失败,回落原 prompt")
+            return None
+        # 宫格数判定与 presence-check(:3609)同口径:≤9 格 3x3,否则 5x5
+        cols = 3 if len(coerced) <= 9 else 5
+        observe_system = _GRID_OBSERVE_SYSTEM.replace("{cols}", f"{cols}x{cols}").replace(
+            "{n}", str(len(coerced))
+        )
+        part = {
+            "type": "image_url",
+            "image_url": {"url": _data_url(img_bytes, "image", "image/png")},
+        }
+        raw = await _chat_completion(
+            observe_system, part, get_settings().reverse_vlm_base_url
+        )
+        obj = parse_json_obj(raw)
+        panels = obj.get("panels") if obj else None
+        if not isinstance(panels, list) or not panels:
+            logger.info("grid grounding: VLM 返回无法解析,回落原 prompt")
+            return None
+        panel_desc: dict[int, str] = {}
+        for item in panels:
+            if not isinstance(item, dict):
+                continue
+            try:
+                pidx = int(item.get("index"))
+            except (TypeError, ValueError):
+                continue
+            desc = str(item.get("description") or "").strip()
+            if desc:
+                panel_desc[pidx] = desc
+        if not panel_desc:
+            return None
+
+        # 二次 LLM(与 storyboard 同层配置):原意图 + 对应格实际描述 → 据实改写
+        payload = {
+            "shots": [
+                {
+                    "index": i,
+                    "panel_index": i + 1,
+                    "intent": sc["prompt"],
+                    "panel_actual": panel_desc.get(i + 1, ""),
+                }
+                for i, sc in enumerate(coerced)
+            ]
+        }
+        msg = await get_ctx().service("llm").chat_layered(
+            [
+                {"role": "system", "content": _GRID_GROUND_SYSTEM},
+                {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+            ],
+            layer=layer,
+            max_tokens=8192,
+            temperature=0.3,
+        )
+        robj = parse_json_obj((msg.get("content") or "").strip())
+        rewrites = robj.get("prompts") if robj else None
+        if not isinstance(rewrites, list) or not rewrites:
+            logger.info("grid grounding: 二次 LLM 返回无法解析,回落原 prompt")
+            return None
+        by_index: dict[int, str] = {}
+        for item in rewrites:
+            if not isinstance(item, dict):
+                continue
+            try:
+                ridx = int(item.get("index"))
+            except (TypeError, ValueError):
+                continue
+            text = str(item.get("prompt") or "").strip()
+            if text:
+                by_index[ridx] = text
+        if not by_index:
+            return None
+        logger.info(
+            "grid grounding: %d/%d 镜据宫格实图改写", len(by_index), len(coerced)
+        )
+        return [by_index.get(i) or sc["prompt"] for i, sc in enumerate(coerced)]
+    except Exception as e:  # noqa: BLE001 — grounding 一律降级,不炸主流程
+        logger.warning("grid grounding 失败,回落原 prompt: %s", e)
+        return None
+
+
 @router.post("/drama/projects/{pid}/grid-storyboard")
 async def grid_storyboard(
     pid: str,
@@ -3265,6 +3548,16 @@ async def grid_storyboard(
     grid_urls = results.get(grid_pid, [])
     grid_url = grid_urls[0] if grid_urls else ""
 
+    # P2 阶段B 纪律:先观察实际宫格,再据实改写各镜 prompt(治 LLM 纯想象偏置)。
+    # VLM/二次 LLM 任一失败 → 回落现状路径(LLM 原 prompt),shots 标 grounding_status。
+    grounded_prompts: list[str] | None = None
+    grounding_status = ""
+    if grid_url and settings.grid_grounding_enabled:
+        grounded_prompts = await _ground_grid_prompts(
+            pool, grid_url, coerced, layer=layer
+        )
+        grounding_status = "grounded" if grounded_prompts is not None else "fallback"
+
     # 清掉旧分镜(重新拆解),角色库保留
     for old in session.exec(select(DramaShot).where(DramaShot.project_id == pid)).all():
         session.delete(old)
@@ -3285,7 +3578,8 @@ async def grid_storyboard(
 
     created: list[DramaShot] = []
     for i, sc in enumerate(coerced):
-        shot_prompt = sc["prompt"]
+        # 阶段B:有据实改写结果时以实际宫格为准,否则用 LLM 原始 prompt
+        shot_prompt = grounded_prompts[i] if grounded_prompts else sc["prompt"]
         for cname in sc["characters"]:
             ch = char_map.get(cname)
             if ch and ch.visual_prompt:
@@ -3295,13 +3589,18 @@ async def grid_storyboard(
         # color_mark:把该 shot 期望在场角色的标记色写入 detected_colors 的 expected 段,
         # 供前端预览与 presence-check 比对
         shot_detected = ""
+        detected_meta: dict[str, Any] = {}
         if color_map:
             shot_colors = {n: color_map[n] for n in sc["characters"] if n in color_map}
-            shot_detected = json.dumps(
+            detected_meta.update(
                 {"color_map": shot_colors, "expected": sc["characters"],
-                 "checked_at": "", "source": "color-mark"},
-                ensure_ascii=False,
+                 "checked_at": "", "source": "color-mark"}
             )
+        # 阶段B grounding 元数据与 color_mark 共存于 detected_colors JSON(免迁移)
+        if grounding_status:
+            detected_meta["grounding_status"] = grounding_status
+        if detected_meta:
+            shot_detected = json.dumps(detected_meta, ensure_ascii=False)
         shot = DramaShot(
             project_id=pid,
             idx=i,
@@ -3313,6 +3612,12 @@ async def grid_storyboard(
             duration_sec=sc["duration_sec"],
             grid_image=grid_url,
             detected_colors=shot_detected,
+            # P1 衔接策略层:与 text storyboard 路径一致,LLM 规划的接缝策略/锚点落库
+            seam_to_next=sc.get("seam_to_next", ""),
+            seam_anchor=sc.get("seam_anchor", ""),
+            # 情绪标签/叙事节拍(与 text 路径一致落库)
+            mood=sc.get("mood", ""),
+            beat=sc.get("beat", ""),
             width=p.width,
             height=p.height,
         )
@@ -3994,6 +4299,11 @@ async def generate_shot_video_v2(
     prompt = (body.prompt_override or shot.prompt).strip()
     if not prompt:
         raise HTTPException(status_code=422, detail="分镜提示词为空")
+    # P1 衔接策略层:前一镜 matchcut 时追加 h3-seam-polish 转场约束
+    prompt = _apply_seam_modifier(prompt, shot, _prev_shot(session, shot), project=project)
+    # P2 @图片N 多参考图(services/h3_refs):H3 引擎且分镜角色有参考图
+    # (三视图取正面)时,prompt 绝对开头加引用行;seam modifier 在末尾,互不干扰
+    prompt = ref_prefix_for_shot(shot, session, engine=body.model) + prompt
 
     from app.services.video_generators import get_generator
 

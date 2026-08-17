@@ -6,6 +6,7 @@ import { Icon } from "@/components/ui/Icon";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useToast } from "@/components/ui/Toast";
+import { useAutoResize } from "@/hooks/useAutoResize";
 import { genId } from "@/lib/id";
 import {
   animaticVideoUrl,
@@ -16,6 +17,7 @@ import {
   createDramaProjectFromImage,
   type DramaFromImageResult,
 } from "@/lib/api";
+import { begin as genBegin, end as genEnd } from "@/lib/generationBus";
 import "@/app/styles/animatic.css";
 
 // 与后端 apps/api/app/routes/animatic.py 保持一致的限制
@@ -74,6 +76,9 @@ export function AnimaticView({
 
   // AI 解析模式参数与结果
   const [hint, setHint] = useState("");
+  // 故事方向自动增高(长描述不再 rows=2 截断)
+  const hintRef = useRef<HTMLTextAreaElement | null>(null);
+  useAutoResize(hintRef, hint);
   const [numShots, setNumShots] = useState(8);
   const [aiResult, setAiResult] = useState<DramaFromImageResult | null>(null);
 
@@ -174,6 +179,7 @@ export function AnimaticView({
     setBusy(true);
     setError(null);
     setResult(null);
+    genBegin("animatic-render", "生成动态分镜");
     const res = RESOLUTIONS[resIdx];
     try {
       const data = await createAnimatic({
@@ -188,6 +194,7 @@ export function AnimaticView({
       setError(e instanceof Error ? e.message : "生成失败");
     } finally {
       setBusy(false);
+      genEnd("animatic-render");
     }
   }, [items, fps, resIdx, busy]);
 
@@ -196,6 +203,7 @@ export function AnimaticView({
     setBusy(true);
     setError(null);
     setAiResult(null);
+    genBegin("animatic-ai", "AI 解析分镜");
     const res = RESOLUTIONS[resIdx];
     try {
       const data = await createDramaProjectFromImage({
@@ -212,12 +220,14 @@ export function AnimaticView({
       setError(e instanceof Error ? e.message : "解析失败");
     } finally {
       setBusy(false);
+      genEnd("animatic-ai");
     }
   }, [items, hint, numShots, resIdx, busy]);
 
   return (
     <div className="single-view animatic-view">
       <PageHeader
+        kicker="ANIMATIC"
         title="动态分镜"
         desc={
           isAi
@@ -369,6 +379,7 @@ export function AnimaticView({
           <label className="anim-field anim-field-grow">
             <span className="anim-field-label">故事方向(可选)</span>
             <textarea
+              ref={hintRef}
               className="input anim-hint-input"
               rows={2}
               placeholder="例:赛博朋克都市里,赏金猎人追捕叛逃的仿生人…"
@@ -409,7 +420,7 @@ export function AnimaticView({
           </label>
           <button
             type="button"
-            className="btn btn-primary btn-lg"
+            className="at-btn at-btn--primary anim-submit"
             disabled={busy || items.length === 0}
             onClick={submitAi}
           >
@@ -490,7 +501,7 @@ export function AnimaticView({
           <div className="anim-params-spacer" />
           <button
             type="button"
-            className="btn btn-primary btn-lg"
+            className="at-btn at-btn--primary anim-submit"
             disabled={busy || items.length === 0}
             onClick={submit}
           >

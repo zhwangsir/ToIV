@@ -38,6 +38,22 @@ const PROJECT_STATUS_LABEL: Record<string, string> = {
   error: "失败",
 };
 
+/** 项目状态 → 编辑徽章色调(.at-badge 变体;草稿走默认 hairline) */
+const PROJECT_STATUS_TONE: Record<string, string> = {
+  storyboard: " at-badge--accent",
+  generating: " at-badge--accent",
+  ready: " at-badge--ok",
+  error: " at-badge--err",
+};
+
+/** 项目状态 → 流水线进度(副标行「进度 n/4」;error 无进度语义)。 */
+const PROJECT_PROGRESS_STEP: Record<string, number> = {
+  draft: 1,
+  storyboard: 2,
+  generating: 3,
+  ready: 4,
+};
+
 /**
  * Studio 创作工作室(替代旧 短剧/漫剧 双模块)。
  * 四阶段流水线:剧本 → 角色 → 分镜(分镜级 视频/图像运镜 混合)→ 合成。
@@ -92,56 +108,85 @@ export function StudioView() {
   // ── 项目列表(首页) ──
   if (!activeId) {
     return (
-      <div className="studio-home">
+      <div className="studio-home view-shell">
         <PageHeader
           title="创作工作室"
           desc="剧本 → 角色 → 分镜混合生成 → 合成,四步完成一部短剧"
           icon="clapperboard"
+          kicker="FILM STUDIO"
           actions={
-            <button type="button" className="btn btn-primary" onClick={() => void createProject()}>
+            /* btn-primary 类保留:e2e(authed-studio)锚点;视觉走 .at-btn--primary 墨丸 */
+            <button
+              type="button"
+              className="at-btn at-btn--primary btn-primary"
+              onClick={() => void createProject()}
+            >
               <Icon name="plus" size={14} /> 新建项目
             </button>
           }
         />
         <ErrorBar message={error} onClose={() => setError(null)} />
         {projects.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state-icon">
-              <Icon name="film" size={40} />
-            </div>
-            <h3 className="empty-state-title">从一段剧情开始</h3>
-            <p className="empty-state-desc">
+          /* empty-state 类保留:e2e(authed-studio)空态计数锚点;视觉走 .at-empty */
+          <div className="at-empty empty-state">
+            <span className="at-empty-kicker">Film Studio</span>
+            <h3 className="at-empty-title">从一段剧情开始</h3>
+            <p className="at-empty-desc">
               输入剧情概要,AI 自动拆解角色与分镜;每个分镜可独立选择「视频生成」或「图像运镜」。
             </p>
           </div>
         ) : (
           <ul className="studio-project-list">
             {projects.map((p) => (
-              <li key={p.id} className="studio-project-item">
-                <button
-                  type="button"
-                  className="studio-project-open"
-                  onClick={() => {
-                    setActiveId(p.id);
-                    setStage("script");
-                  }}
-                >
-                  <span className="studio-project-title">{p.title || "未命名"}</span>
-                  <span className="studio-project-meta">
-                    <span className={`studio-badge is-${p.status}`}>
-                      {PROJECT_STATUS_LABEL[p.status] ?? p.status}
+              <li key={p.id} className="studio-project-item at-card-in">
+                <div className="studio-project-card at-card at-card--lift">
+                  <button
+                    type="button"
+                    className="studio-project-open"
+                    onClick={() => {
+                      setActiveId(p.id);
+                      setStage("script");
+                    }}
+                  >
+                    <span className="studio-project-text">
+                      <span className="studio-project-title">{p.title || "未命名"}</span>
+                      {/* 副标行(2026-08-16 批 2):#短id + 更新时间 + 流水线进度,
+                          同名「未命名项目」可区分;镜数需后端字段,本期不加(不改数据流) */}
+                      <span className="studio-project-sub">
+                        <span className="studio-project-id">#{p.id.slice(0, 6)}</span>
+                        <time className="studio-project-date">
+                          {new Date(p.updated_at).toLocaleString("zh-CN", {
+                            month: "2-digit",
+                            day: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </time>
+                        <span className="studio-project-stage">
+                          {PROJECT_PROGRESS_STEP[p.status]
+                            ? `进度 ${PROJECT_PROGRESS_STEP[p.status]}/4`
+                            : "进度 —"}
+                        </span>
+                      </span>
                     </span>
-                    <time>{new Date(p.updated_at).toLocaleDateString("zh-CN")}</time>
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  className="studio-shot-del"
-                  title="删除项目"
-                  onClick={() => removeProject(p)}
-                >
-                  <Icon name="delete" size={14} />
-                </button>
+                    <span className="studio-project-meta">
+                      <span
+                        className={`at-badge${PROJECT_STATUS_TONE[p.status] ?? ""}`}
+                      >
+                        {PROJECT_STATUS_LABEL[p.status] ?? p.status}
+                      </span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="studio-shot-del studio-project-del"
+                    title="删除项目"
+                    aria-label={`删除项目 ${p.title || "未命名"}`}
+                    onClick={() => removeProject(p)}
+                  >
+                    <Icon name="delete" size={14} />
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

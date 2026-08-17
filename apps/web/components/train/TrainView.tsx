@@ -321,11 +321,12 @@ export function TrainView() {
         title="训练"
         desc="LoRA 训练 · 数据集打标 → 微调 → 注册"
         icon="train"
+        kicker="TRAINING"
         actions={
           <>
             <button
               type="button"
-              className="btn btn-sm"
+              className="at-btn at-btn--ghost"
               onClick={() => void load()}
               disabled={loading}
             >
@@ -334,7 +335,7 @@ export function TrainView() {
             </button>
             <button
               type="button"
-              className="btn btn-primary btn-sm"
+              className="at-btn at-btn--primary"
               onClick={() => setShowForm((v) => !v)}
               disabled={submitting}
             >
@@ -346,12 +347,12 @@ export function TrainView() {
       />
 
       {showForm && (
-        <section className="card tv-form-card">
+        <section className="at-card tv-form-card">
           <div className="tv-form-head">
             <h2 className="tv-form-title">新建训练任务</h2>
             <button
               type="button"
-              className="btn btn-ghost btn-sm"
+              className="at-btn at-btn--ghost tv-form-close"
               onClick={cancelForm}
               disabled={submitting}
               aria-label="关闭表单"
@@ -499,7 +500,7 @@ export function TrainView() {
             <div className="tv-field tv-field-wide">
               <span className="tv-label">数据集图片</span>
               <div className="tv-upload-row">
-                <label className="btn btn-sm tv-upload-btn">
+                <label className="at-btn at-btn--ghost tv-upload-btn">
                   <Icon name="upload" size={14} />
                   选择图片
                   <input
@@ -537,7 +538,7 @@ export function TrainView() {
           <div className="tv-form-actions">
             <button
               type="button"
-              className="btn"
+              className="at-btn at-btn--ghost"
               onClick={cancelForm}
               disabled={submitting}
             >
@@ -545,7 +546,7 @@ export function TrainView() {
             </button>
             <button
               type="button"
-              className="btn btn-primary"
+              className="at-btn at-btn--primary"
               onClick={() => void handleSubmit()}
               disabled={submitting}
             >
@@ -566,7 +567,7 @@ export function TrainView() {
         {error && !loading && (
           <div className="tv-error-row">
             <ErrorBar message={error} onClose={() => setError(null)} />
-            <button type="button" className="btn btn-sm" onClick={() => void load()}>
+            <button type="button" className="at-btn at-btn--ghost" onClick={() => void load()}>
               <Icon name="refresh" size={14} />
               重试
             </button>
@@ -763,11 +764,11 @@ export function TrainView() {
           gap: var(--space-5);
         }
 
-        /* 移动端触控目标 ≥44px */
+        /* 移动端触控目标 ≥44px(页头操作区在 PageHeader 组件内,须 :global 命中) */
         @media (max-width: 767px) {
-          .page-header-actions .btn,
-          .tv-form-head .btn,
-          .tv-form-actions .btn,
+          .train-view :global(.page-header-actions) .at-btn,
+          .tv-form-head .at-btn,
+          .tv-form-actions .at-btn,
           .tv-upload-btn {
             min-height: 44px;
           }
@@ -806,7 +807,7 @@ function TrainCard({
   const showRegisteredTag = isDone && isRegistered;
 
   return (
-    <article className="card tv-card">
+    <article className="at-card tv-card">
       <div className="tv-card-head">
         <div className="tv-card-title-wrap">
           <h3 className="tv-card-title">{job.name || "未命名任务"}</h3>
@@ -905,7 +906,7 @@ function TrainCard({
           {showRegisterBtn && (
             <button
               type="button"
-              className="btn btn-primary btn-sm"
+              className="at-btn at-btn--primary"
               onClick={onRegister}
               disabled={isRegistering}
             >
@@ -1123,7 +1124,7 @@ function TrainCard({
 
         /* 移动端触控目标 ≥44px */
         @media (max-width: 767px) {
-          .tv-card-foot .btn {
+          .tv-card-foot .at-btn {
             min-height: 44px;
           }
         }

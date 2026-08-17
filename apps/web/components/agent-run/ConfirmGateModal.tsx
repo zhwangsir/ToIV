@@ -4,11 +4,12 @@
  * 合成确认门(ConfirmGateModal):confirm_required(gate=assembly)事件触发。
  * 时间线预览(任务卡按序排列 + 时长合计),approve 合成 / reject 返回(可带批注)。
  */
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { MagnetFollow } from "@/components/ui/MagnetFollow";
 import { Modal } from "@/components/ui/Modal";
 import { Ripple } from "@/components/ui/Ripple";
+import { useAutoResize } from "@/hooks/useAutoResize";
 import type { AgentResumeBody, AgentRunTask } from "@/lib/api";
 import { taskDurationSec, taskStatusMeta } from "./agentRunMeta";
 
@@ -28,6 +29,9 @@ interface ConfirmGateModalProps {
 export function ConfirmGateModal({ open, tasks, busy, onResume, onClose }: ConfirmGateModalProps) {
   const [rejecting, setRejecting] = useState(false);
   const [feedback, setFeedback] = useState("");
+  // 打回原因自动增高(长批注不再 rows=2 截断)
+  const feedbackRef = useRef<HTMLTextAreaElement | null>(null);
+  useAutoResize(feedbackRef, feedback);
   const submitting = busy["resume:assembly"] === true;
   const total = tasks.reduce((sum, t) => sum + taskDurationSec(t), 0);
 
@@ -116,6 +120,7 @@ export function ConfirmGateModal({ open, tasks, busy, onResume, onClose }: Confi
       <p className="agent-gate-total">合计时长 ≈ {total > 0 ? `${total}s` : "未知"}</p>
       {rejecting && (
         <textarea
+          ref={feedbackRef}
           className="input"
           rows={2}
           value={feedback}

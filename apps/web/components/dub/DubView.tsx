@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   autocutDub,
@@ -31,6 +31,7 @@ import { OptimizeButton } from "@/components/ui/OptimizeButton";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useToast } from "@/components/ui/Toast";
 import { usePoll } from "@/hooks/usePoll";
+import { begin as genBegin, end as genEnd, progress as genProgress } from "@/lib/generationBus";
 
 // ── 步骤元数据 ──────────────────────────────────────────────
 interface StepMeta {
@@ -270,6 +271,7 @@ export function DubView() {
     setVoicePct(0);
     setVoiceError(null);
     setVoice(null);
+    genBegin("dub-voice", "生成配音轨");
     // 优先用译文,无译文的段落回落到原文
     const segs = segments.map((s) => ({
       start: s.start,
@@ -290,10 +292,14 @@ export function DubView() {
       setVoiceError(e instanceof Error ? e.message : "配音失败");
     } finally {
       setVoiceBusy(false);
+      genEnd("dub-voice");
     }
   }, [video, segments, translated, refSeconds, emoText]);
 
   // ── Step 4: 对口型 ──
+  // 全局进度条:begin 在启动点;end 由下方 useEffect 在 lipsyncBusy 落 false 时
+  // 单一收口(终态分散:启动失败/latent done/error/anime done/error/轮询连续失败);
+  // latent(completed/total)与 anime(progress 0-100)轮询报真实进度,highlights 同步无进度走 indeterminate。
   const doLipsync = useCallback(async () => {
     if (!video) return;
 
@@ -306,6 +312,7 @@ export function DubView() {
       setLipsyncBusy(true);
       setLipsyncError(null);
       setHighlightsResult(null);
+      genBegin("dub-lipsync", "AI 精剪");
       try {
         const r = await highlightsDub(
           segments.map((s) => ({ index: s.index, text: s.text })),
@@ -327,6 +334,11 @@ export function DubView() {
     setLipsyncStart(null);
     setAnimeStatus(null);
     setAnimeStart(null);
+    genBegin(
+      "dub-lipsync",
+      lipsyncMode === "anime" ? "动漫对口型" : "LatentSync 对口型",
+      { determinate: true },
+    );
     try {
       if (lipsyncMode === "anime") {
         // 动漫对口型(本地 CV,非 LatentSync)
@@ -382,6 +394,7 @@ export function DubView() {
           const s = await getLipsyncLongStatus(lipsyncStart.job_id);
           pollFailRef.current = 0;
           setLipsyncStatus(s);
+          if (s.total > 0) genProgress("dub-lipsync", (s.completed / s.total) * 100);
           if (s.status === "done" || s.status === "error") {
             setLipsyncBusy(false);
             if (s.status === "error") {
@@ -392,6 +405,7 @@ export function DubView() {
           const s = await getAnimeLipsyncStatus(animeStart.job_id);
           pollFailRef.current = 0;
           setAnimeStatus(s);
+          genProgress("dub-lipsync", s.progress);
           if (s.status === "done" || s.status === "error") {
             setLipsyncBusy(false);
             if (s.status === "error") {
@@ -413,6 +427,12 @@ export function DubView() {
     { intervalMs: 2000, enabled: lipsyncPolling, backoff: true },
   );
 
+  // 进度条单一收口:lipsyncBusy 任何路径落 false(启动失败/latent·anime done·error/
+  // 轮询连续失败/highlights finally)→ 结束全局任务。未 begin 时 genEnd 为 no-op。
+  useEffect(() => {
+    if (!lipsyncBusy) genEnd("dub-lipsync");
+  }, [lipsyncBusy]);
+
   // ── 步骤可达性 ──
   const canStep2 = !!video;
   const canStep3 = !!video && segments.length > 0;
@@ -428,9 +448,10 @@ export function DubView() {
   // ── 渲染 ──
   return (
     <div className="single-view dub-view">
-      {/* 统一页头(UI-A PageHeader):dub-header/dub-meta 类经 className/包裹透传,scoped 样式保持生效 */}
+      {/* 统一页头(UI-A PageHeader):kicker 铭牌 + dub-header/dub-meta 类经 className/包裹透传,scoped 样式保持生效 */}
       <PageHeader
         className="dub-header"
+        kicker="DUB STUDIO"
         title="译制"
         desc="视频译制 · 听写 · 翻译 · 配音 · 口型同步"
         icon="dub"
@@ -496,8 +517,6 @@ export function DubView() {
               <div className="dub-step-circle">
                 {done ? (
                   <Icon name="success" size={14} strokeWidth={2.4} />
-                ) : !reachable && !active ? (
-                  <Icon name="lock" size={13} strokeWidth={2.2} />
                 ) : (
                   <span>{s.n}</span>
                 )}
@@ -548,7 +567,7 @@ export function DubView() {
                   <Icon name="upload" size={36} strokeWidth={1.4} />
                   <div className="dub-dropzone-title">拖拽视频到此处</div>
                   <div className="dub-dropzone-sub">或点击选择文件</div>
-                  <span className="btn btn-sm dub-dropzone-btn">选择文件</span>
+                  <span className="at-btn at-btn--ghost dub-dropzone-btn">选择文件</span>
                 </div>
               </label>
             )}
@@ -1304,15 +1323,13 @@ export function DubView() {
         }
         /* 无需避让 CornerNav:壳层 app-main padding-top:56px 已垂直让开触发器,视图左右对称 */
 
-        /* ── 顶部 ── */
+        /* ── 顶部(masthead 边框/间距由全局 .page-header v6.1 承载,此处仅布局)── */
         .dub-header {
           display: flex;
           align-items: flex-end;
           justify-content: space-between;
           gap: var(--space-4);
           flex-wrap: wrap;
-          padding-bottom: var(--space-4);
-          border-bottom: 1px solid var(--border-subtle);
         }
         .dub-titles {
           display: flex;
@@ -1347,7 +1364,8 @@ export function DubView() {
           overflow: hidden;
         }
 
-        /* ── 步骤指示器:四步等宽,内容在各自格内居中,节奏均匀 ── */
+        /* ── 步骤指示器(编辑步骤语言:Fraunces 衬线编号 + hairline 连接线 +
+           锁定态 muted;四步等宽,内容在各自格内居中,节奏均匀)── */
         .dub-stepper {
           display: flex;
           align-items: stretch;
@@ -1377,7 +1395,7 @@ export function DubView() {
           color: var(--text-primary);
         }
         .dub-step:focus-visible {
-          outline: 1px solid var(--accent);
+          outline: var(--focus-ring);
           outline-offset: 2px;
         }
         .dub-step.is-locked {
@@ -1387,39 +1405,43 @@ export function DubView() {
         .dub-step.is-active {
           color: var(--text-primary);
         }
+        /* 步骤编号:去黑圆点填充,改透明底 hairline 圆 + Fraunces 衬线数字 */
         .dub-step-circle {
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 28px;
-          height: 28px;
+          width: 30px;
+          height: 30px;
           border-radius: var(--radius-full);
-          background: var(--bg-surface-2);
+          background: transparent;
           border: 1px solid var(--border-strong);
           color: var(--text-secondary);
-          font-size: var(--text-aux);
+          font-family: var(--font-display);
+          font-size: var(--text-body);
           font-weight: var(--font-semibold);
           font-variant-numeric: tabular-nums;
           flex-shrink: 0;
-          transition: all var(--duration-fast) var(--ease-standard);
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard),
+            color var(--duration-fast) var(--ease-standard);
         }
+        /* 当前步:墨丸填充(同 .at-seg-btn.is-active 语言),衬线数字反白 */
         .dub-step.is-active .dub-step-circle {
           background: var(--accent);
           border-color: var(--accent);
           color: var(--text-on-accent);
-          box-shadow: 0 0 0 4px var(--accent-soft);
         }
+        /* 完成步:ok hairline + 对勾 */
         .dub-step.is-done .dub-step-circle {
-          background: var(--ok-soft);
+          background: transparent;
           border-color: var(--ok);
           color: var(--ok);
         }
-        /* 锁定步骤整体弱化:圆圈描边/底色/图标全部降到 muted 层级 */
+        /* 锁定步骤整体弱化到 muted 层级(编号保持衬线,不再用锁形 icon) */
         .dub-step.is-locked .dub-step-circle {
-          background: var(--bg-surface-1);
+          background: transparent;
           border-color: var(--border-subtle);
           color: var(--text-muted);
-          box-shadow: none;
         }
         .dub-step-text {
           display: flex;
@@ -1521,21 +1543,23 @@ export function DubView() {
           color: var(--text-muted);
         }
 
-        /* ── 拖拽区:border-subtle 虚线,hover/拖入时 accent 描边 ── */
+        /* ── 拖拽区(收敛版):1px 虚线 + 大圆角,hover/拖入时 accent 描边 + 淡墨晕 ── */
         .dub-dropzone {
           display: block;
           cursor: pointer;
           padding: var(--space-8) var(--space-4);
-          border: 1.5px dashed var(--border-subtle);
-          border-radius: var(--radius-panel);
-          background: var(--bg-canvas);
+          border: 1px dashed var(--border-strong);
+          border-radius: var(--radius-lg);
+          background: var(--bg-surface-1);
           transition: border-color var(--duration-fast) var(--ease-standard),
-                      background-color var(--duration-fast) var(--ease-standard);
+                      background-color var(--duration-fast) var(--ease-standard),
+                      box-shadow var(--duration-fast) var(--ease-standard);
         }
         .dub-dropzone:hover,
         .dub-dropzone.is-drag {
           border-color: var(--accent);
           background: var(--accent-soft);
+          box-shadow: var(--shadow-sm);
         }
         .dub-dropzone-inner {
           display: flex;

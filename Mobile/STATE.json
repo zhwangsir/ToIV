@@ -1,0 +1,1014 @@
+{
+  "project": "ToIV Mobile",
+  "stack": "React Native 0.86 + Expo SDK 57 + expo-router + TypeScript strict",
+  "standards": {
+    "development": "docs/development-standards.md",
+    "design": "docs/ui-ux-design-guidelines.md",
+    "adr": [
+      "docs/adr/0001-tech-stack-react-native-expo.md"
+    ]
+  },
+  "qualityGate": {
+    "typecheck": "npx tsc --noEmit",
+    "lint": "npx expo lint",
+    "test": "npx jest --coverage",
+    "coverageThreshold": {
+      "branches": 80,
+      "functions": 80,
+      "lines": 80,
+      "statements": 80
+    }
+  },
+  "milestones": [
+    {
+      "id": "M30",
+      "title": "对话助手附图：用户上传图片随消息发送——输入条图片 ghost 钮（ImagePlus，对齐文档钮）→ expo-image-picker 选 1 张（客户端先验 jpg/png/webp ≤20MB，与 upload.py 白名单同源）→ 选图即传 uploadImage(img2img) 换 {filename,worker} 句柄（chip 转 loading）；输入区上方图片 chip（本地缩略预览 + 文件名，ready 态 X 移除、上传中无 X 规避取消竞态）；发送体带 image={filename,worker}（可与 document_ids 同发），chip 清空转移到本条 user 气泡本地展示（后端用户消息落库不含 attachment，回放无图为契约现状）；仅 1 张（后端单 image 契约），已有 chip 再选 = 替换；上传中禁用发送钮与图片钮，流式 busy 图片钮禁用；附图句柄随草稿按会话隔离持久化（assistant_draft:<sid>:image 键，仅 ready 落盘，恢复不重复上传）",
+      "status": "done",
+      "date": "2026-08-15",
+      "subtasks": [
+        {
+          "id": "M30.1",
+          "title": "纯函数层 attachment-utils.ts（新）：状态机 startUpload（选图即传/替换语义）→ applyReady（落句柄）；chipFor 展示模型（uploading 无移除钮/ready 缩略图+X）；attachmentBusy 发送禁用语义；imageForRequest 请求体组装（仅 ready 带 {filename,worker}）；validatePickedImage 客户端先验（扩展名白名单 gif 拒 + 20MB 上限，与 upload.py 同源）；pickedImageName 缺省 upload.<ext>；serializeAttachment/parseAttachment（仅 ready 落盘、畸形防御 null）+ attachmentKeyFor 挂 assistant_draft: 前缀 :image 后缀按会话隔离 + save/load/clearAttachment（null 等价清除不留占位键）；jest attachment-utils.test（新）+11",
+          "status": "done"
+        },
+        {
+          "id": "M30.2",
+          "title": "API 层：types/api.ts +AgentChatImage{filename,worker}；agentChatStream params +image，请求体按需注入 image 字段（与 session_id/document_ids 同规则，缺省省略）；jest api.test M30 块 +2（image 注入 body / 可与 document_ids 同发、缺省不带字段）",
+          "status": "done"
+        },
+        {
+          "id": "M30.3",
+          "title": "UI 接入 assistant-screen：composer 文档钮后 +图片 ghost 钮（testID=assistant-image，accessibilityState disabled=streaming||imageBusy、selected=有 chip，激活 accent 高亮）；pickImage 选图即传（launchImageLibraryAsync mediaTypes:['images'] quality:1 → 先验 → startUpload 落盘 → uploadImage img2img → applyReady；取消/先验失败保留旧 chip，上传失败移除 chip + 内联人话）；chip 渲染（assistant-image-chip/thumb/loading/remove，预计算 imageChip/imageBusy 单次调用）；send 快照 roundImage 随轮上行 + chip 清空 + user 气泡 item.image 本地缩略图（msg-local-*-attachment）；会话切换渲染期回填 loadAttachment（恢复不重复上传）；发送键禁用态接入 imageBusy；jest assistant-screen M30 块 +10（选图即传契约/上传中双禁用+恢复/image 随轮上行可与文档同发/无附图 undefined/移除/替换重传/上传失败人话/picker 取消+gif 拦截/流式 busy 禁用/会话隔离恢复）",
+          "status": "done"
+        },
+        {
+          "id": "M30.4",
+          "title": "全量回归：tsc 0 错 / expo lint 0 警 / jest 40 套件 796 用例全绿（较 M29 口径 39 套件 773 用例净增 +1 套件 +23 用例：attachment-utils 11 + api 2 + assistant-screen 10）；STATE.json（本条目）+ TEST_LOG.md M30 章节",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "M29",
+      "title": "作业进度 SSE 化（会话内）：本次会话提交的作业（GenerateResponse 含 prompt_id+client_id+worker，JobItem 不含）经 GET /api/jobs/{prompt_id}/events SSE 推确定性进度；会话内凭据登记 + FSM 消费层（看门狗软重连/快照窗去重/401·403 立即终止/超限回退轮询）+ 追踪屏接入（确定性进度条/质量提示/错误人话）；其余作业仍走既有 2s 轮询兜底，行为不回退",
+      "status": "done",
+      "date": "2026-08-15",
+      "subtasks": [
+        {
+          "id": "M29.1",
+          "title": "契约复核（读 apps/api/app/routes/jobs.py L380 源码）+ 会话内凭据登记 job-sse-registry.ts（新，纯函数模块级 Map<promptId,{clientId,worker}>：registerJobSseCreds 提交写入（重提交覆盖）/getJobSseCreds 未登记 null/clearJobSseCreds 终态清除幂等/resetJobSseRegistry 会话级清空；无 IO 无网络）；jest job-sse-registry.test（新）+7（登记取回/覆盖/多作业并存/清除/未登记清除幂等/重置）",
+          "status": "done"
+        },
+        {
+          "id": "M29.2",
+          "title": "SSE 消费层 lib/job-events.ts（新）：streamJobEvents(creds, handlers, options) 复用 sse.ts parseSseStream（expo/fetch ReadableStream + 自研 UTF-8 跨块解码，保活注释行天然忽略）；token 走 query+Authorization 头双通道（对齐 watchAgentRunEvents）；FSM 移植 Web trackJob 2.0 简化语义：60s 无业务事件看门狗软重连（streaming 假死不计失败立即重建；connecting 挂死计连接失败）、重连 500ms 快照窗去重（窗口内与断线前末帧同负载 progress/quality_warning 判回放丢弃）、401/403 立即终止 'auth'（expo/fetch 直取状态码，无需 Web 探针迂回）、连续连接失败 ≥3 → 'fallback' 回退轮询；事件分派 progress{value,max}→pct 整数（max>0 才回调）/done{images:urls}/error{message 人话}/quality_warning，坏帧跳过不中断；jest job-events.test（新）+14（URL·请求头契约/progress·done·error·warning 分派/max=0 忽略/坏帧防御/401·403 终止/看门狗软重连/快照窗去重/超限 fallback/外部 abort）",
+          "status": "done"
+        },
+        {
+          "id": "M29.3",
+          "title": "UI 接入：generate-screen 提交 onSuccess 登记凭据（jobs-screen 失败重试同样登记）；job-tracker 挂 streamJobEvents（凭据命中且轮询非终态才建流；轮询先到终态清凭据不建流）——running 且 progress 时确定性进度条（百分比 display 字号 accent + 220×6 轨道 accentSoft/accent 填充，tracker-progress-pct/bar）保留「生成中」标签，无 progress 仍不确定指示；quality_warning → warning 色温和提示（tracker-quality-warning，不阻断舞台）；SSE error → effStatus 失败舞台 + 后端人话优先于通用文案；done → Haptics Success + invalidateQueries(['jobs'])（列表/作品库同根全覆盖）+ 清凭据；401/403/fallback/aborted 静默回退既有轮询；生命周期：组件卸载/AppState 退后台 → AbortSignal 断流（对齐 agent-run-detail 清理写法），回前台轮询兜底重开重建；auth store signOut 清空 registry（凭据不跨会话残留）；jest tracker M29.3 块 +9 / generate-screen +1 / jobs-screen +1 / auth +1",
+          "status": "done"
+        },
+        {
+          "id": "M29.4",
+          "title": "全量回归：tsc 0 错 / expo lint 0 警 / jest 39 套件 773 用例全绿（较 M28 口径 37 套件 740 用例净增 +2 套件 +33 用例：registry 7 + events 14 + tracker 9 + generate 1 + jobs 1 + auth 1）；踩坑：React 19 异步 act 队列，测试驱动 SSE 回调/卸载清理须 await act(async()=>…)（同 agent-run-detail emit 模式），挂载 effect 断言前需 flush；STATE.json（本条目 + 修正 next.id 笔误 M28→M29）+ TEST_LOG.md M29 章节",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "M28",
+      "title": "作品库↔资产库联动（产物一键存为资产）：产物详情操作区新增「存为资产」入口（仅 image 类渲染），下载缓存 → uploadImage(img2img) → router.push /assets/edit 带 prefill（encodeURIComponent JSON：images 句柄+产物 mediaUrl 预览/建议名/nsfw）；资产编辑屏新建态消费 prefill 预填（编辑态忽略、畸形静默）；资产→创作反向联动已由 asset-picker 覆盖",
+      "status": "done",
+      "date": "2026-08-15",
+      "subtasks": [
+        {
+          "id": "M28.1",
+          "title": "纯函数层 asset-prefill.ts（新）+ lib/media.ts 抽出 downloadToCache：suggestAssetName（prompt 去全部空白后按码点取前 12 字，空兜底「作品资产」）/ buildAssetPrefillParam（encodeURIComponent(JSON.stringify({images:[{filename,worker,preview}],name,nsfw}))，单图：每张 image 产物各自独立存为资产）/ parseAssetPrefill（防御：非串/畸形 JSON/非对象/images 缺失或空/缺 filename·worker 均返回 null，缺 name/preview/nsfw 给安全默认）；downloadToCache（复用 M25 下载链路 File.downloadFileAsync → cache，返回 file URI，不碰相册权限），downloadAndSaveToLibrary 重构复用且行为不变（错误顺序：先下载失败后权限）；jest asset-prefill.test（新）+10 / media.test +2",
+          "status": "done"
+        },
+        {
+          "id": "M28.2",
+          "title": "产物详情「存为资产」（artifact-detail.tsx）：仅 isImage 渲染（资产卡只收图片，video/audio/3D 不渲染）；48x48 图标钮（ImagePlus，Icon 注册表 +1）置于下载与删除之间，busy/disabled/opacity 0.5 与下载钮同态；流程 downloadToCache(mediaUrl 拼 token URL) → uploadImage({uri}, ASSET_UPLOAD_KIND='img2img') → Haptics Success → router.push({pathname:'/assets/edit', params:{prefill}})，preview 用产物 mediaUrl（资产未创建前 assetImageUrl 不可用）、nsfw 随 job.nsfw；任一失败 Haptics Error + 内联人话错误（detail-save-asset-error）停留原页；换作业重置 assetSaving/assetError；jest artifact-detail.test M28 块 +6",
+          "status": "done"
+        },
+        {
+          "id": "M28.3",
+          "title": "资产编辑屏消费 prefill（asset-edit-screen.tsx）：useLocalSearchParams 加 prefill；新建态渲染期条件调整消费一次（同 detailData 回填模式）预填 images（previewUri=产物 mediaUrl，name=filename）/name/nsfw，编辑态（带 id）忽略、解析失败静默按空白表单；既有 createAsset 流程不动（预填句柄直接进 images）；jest asset-edit-screen.test M28 块 +4（预填渲染/直接保存句柄正确/畸形静默/编辑忽略）；全量回归：tsc 0 错 / expo lint 0 警 / jest 37 套件 740 用例全绿（较 M27 口径 718 净增 +22：纯函数 10 + media 2 + 详情 6 + 编辑屏 4），覆盖率四项 94.71/89.38/97.54/95.01 全 ≥80%；STATE.json（本条目）+ TEST_LOG.md M28 章节",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "M27",
+      "title": "资产库批量管理（多选模式 + 批量删除）：长按卡片或头部「选择」进多选（左上选择圈 + accent 描边），切桶/下拉刷新清空退出；底部操作条全选/删除（danger，N=0 禁用）/取消；批量删除确认 Alert（worker 图片文件保留声明）→ 并发限速 ≤3 循环单删 → 失败项保留勾选；后端 ReferenceAsset 无 tags 字段，批量打标不做",
+      "status": "done",
+      "date": "2026-08-15",
+      "subtasks": [
+        {
+          "id": "M27.1",
+          "title": "多选模式 UI（assets-screen.tsx）：进入=长按卡片（delayLongPress 300，守卫无）或头部右侧「选择」钮（常态 = 新建 + 选择并排，选择态双双隐藏由操作条「取消」退出，对齐作品库头部布局切换）；AssetCard 图片区左上选择圈（未选空心 rgba(0,0,0,0.35) 底白描边/已选 accent 实心 + Check 图标）+ 已选 accent 细边框 + accessibilityState.selected；选择集 Set<id>；进入多选时清空既有 selectedIds；切 kind 过滤/下拉刷新清空并退出多选（对齐作品库切桶语义）；批量进行中点按/长按冻结；进出选择态/勾选/全选/删除触发 Haptics Light（沿用本屏既有触感惯例，主题 token 全覆盖无硬编码新色值）",
+          "status": "done"
+        },
+        {
+          "id": "M27.2",
+          "title": "底部操作条 + 批量删除：操作条（Screen 底边 SafeArea 已避让，样式对齐作品库 M25）「已选 N 项」/全选/删除（danger，N=0 禁用）/取消，进行中显示「删除中 x/N」且全钮禁用防重复点；删除走 Alert 二次确认（「删除 N 项资产？删除后不可恢复（worker 上的图片文件保留）。」对齐 asset-edit 单删语义）→ runBatchLimited(deleteAsset)（复用 features/library/batch-utils.ts M25 纯函数层，并发默认 BATCH_CONCURRENCY=3，签名未动）→ invalidateQueries(['assets']) 前缀失效重取 → 成功项移出选择集、失败项保留勾选、无剩余退出多选；汇总内联于过滤行下方（summarizeBatch delete 文案复用：全成「已删除 N 项」/部分「成功 N 项，失败 M 项，失败项已保留勾选」）",
+          "status": "done"
+        },
+        {
+          "id": "M27.3",
+          "title": "约束记录：后端 ReferenceAsset 模型仅 kind/name/description/images/nsfw 五字段（无 tags），「批量打标」不可行，本期不做（契约见 types/api.ts AssetItem 与 lib/api.ts M13 资产库区注释）",
+          "status": "done"
+        },
+        {
+          "id": "M27.4",
+          "title": "屏测试 M27 块 +8 与回归落账：「选择」钮进入（操作条出现、头部入口隐藏、点卡勾选而非进编辑、再点取消勾选模式保持）；长按进入并选中（accent 描边 + 左上 Check，兼容函数/对象/数组 style 断言）；取消退出清空且头部恢复；全选 3 项 + N=0 删除禁用；切 kind 过滤清空退出；删除全成（Alert 契约含数量与 worker 文件保留声明 → 循环单删 → invalidate ['assets'] 失效重取 → 汇总退出）；部分失败（失败项保留勾选停留选择模式）；进度态「删除中 x/N」三钮禁用；质量门：tsc 0 错 / expo lint 0 警 / jest 36 套件 718 用例全绿（较 M26 口径 710 净增 +8，均为屏用例，无新套件，batch-utils 复用未改签名不重测），覆盖率四项 94.69/89.38/97.52/94.98 全 ≥80% 且与 M26 持平；踩坑：M27 describe 与 M13.2 describe 平级，外层 beforeEach 的 jest.clearAllMocks 不生效，跨 describe mockPush/mockImplementation 泄漏须在自身 beforeEach 补 clearAllMocks + 双 mockReset；STATE.json（本条目）+ TEST_LOG.md M27 章节",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "M26",
+      "title": "设置页完善（关于 + 清理缓存 + 导出诊断）：关于区三行（关于 ToIV 弹层/清理缓存白名单保护/导出诊断脱敏 JSON 复制剪贴板），版本号行副标题直显，置于高级区后",
+      "status": "done",
+      "date": "2026-08-15",
+      "subtasks": [
+        {
+          "id": "M26.1",
+          "title": "纯函数层 settings-utils.ts（新，Expo v57 官方文档已读确认：expo-file-system 新 API Directory(Paths.cache).size/list()/File.delete() 均同步，与 lib/media.ts 同源；expo-constants expoConfig.version；expo-device modelName；expo-clipboard setStringAsync）：formatBytes（<1KB 取整 B / KB/MB/GB 一位小数，负数 NaN 归 0）/ planCacheClear（白名单 exact+prefixes 分组将删/将留，不改入参）/ estimateCacheBytes（cache 目录大小 + MMKV 非白名单键值合计，目录不可读按 0）/ clearCache（逐项删 cache 内容保留目录本身 + 移除非白名单键，单项失败跳过不中断且不计入释放，返回释放字节）/ buildDiagnostics（app/device/config/storage/generatedAt 五区，osVersion 字符串化，totalBytes 键大小合计）/ collectStorageKeyStats（仅键名+大小不透值）；CACHE_CLEAR_WHITELIST = toiv.settings（zustand persist 主题/色板/API 覆盖/NSFW）+ toiv.cachedUser（登录态快照）exact + assistant_draft:* 前缀（M24 草稿）；token 存 expo-secure-store 不在 MMKV 天然免清；jest settings-utils.test（新）+16",
+          "status": "done"
+        },
+        {
+          "id": "M26.2",
+          "title": "关于区 UI（profile-screen.tsx 高级区后新增「关于」分组）：「关于 ToIV」行（Info 图标）版本号副标题直显（APP_VERSION = Constants.expoConfig?.version ?? '未知'）→ Modal fade 弹层：产品名 ToIV / 版本 / 定位文案「一个工作台，装下图像、视频与数字人的完整创作流程。」（对齐主站落地页）/ 版权行 © 2026 ToIV / 关闭钮；「清理缓存」行（Trash2）副标题 `占用 ${formatBytes(cacheBytes)}`；「导出诊断信息」行（Share2）副标题「不含敏感信息，复制到剪贴板」；Icon.tsx 注册表 +Info/Trash2/Share2",
+          "status": "done"
+        },
+        {
+          "id": "M26.3",
+          "title": "清理缓存交互：点按 → Alert 二次确认（文案声明「仅清理下载缓存与临时数据，保留登录状态、设置与对话草稿。」，destructive 确认钮）→ clearCache() → 重估 cacheBytes + 内联反馈「已清理 N B/KB/MB」；取消路径键与缓存原样保留无反馈",
+          "status": "done"
+        },
+        {
+          "id": "M26.4",
+          "title": "导出诊断：buildDiagnostics 采集（expoConfig.name/version、Platform.OS/Version、Device.modelName、PixelRatio.get()、resolveApiBase()、signedIn 布尔（authStatus==='signedIn'，不含 token）、nsfwIntent、collectStorageKeyStats() 键名+大小、时间戳）→ Clipboard.setStringAsync(JSON 2 空格缩进) → 内联「诊断信息已复制」/失败「复制失败，请重试」",
+          "status": "done"
+        },
+        {
+          "id": "M26.5",
+          "title": "屏测试 M26 块 +7 与回归落账：关于行版本副标题直显；弹层产品名/定位文案/版权行渲染与关闭消失；清理行估算占用副标题（cache 目录 + 非白名单键）；Alert 文案契约（声明保留登录/设置/草稿）；确认清理（非白名单键删除 + cache 项删除 + 白名单三项保留 + 「已清理 105 B」内联）；取消清理（键与缓存原样无反馈）；导出诊断（剪贴板 JSON 五区形状齐备 + 脱敏：无 token/无存储值/无邮箱）；质量门：tsc 0 错 / expo lint 0 警 / jest 36 套件 710 用例全绿（较 M25 口径 687 净增 +23：纯函数 16 + 屏 7），覆盖率四项 94.69/89.38/97.52/94.98 全 ≥80%；踩坑：RNTL 14 的 act 须从 @testing-library/react-native 导入（react-native 侧已移除会抛 act is not a function）；fireEvent.press 触发异步链（Clipboard/状态落盘）须 await 否则断言抢跑；Mock 类空构造器触发 no-useless-constructor 警告（直接删除）；STATE.json（本条目）+ TEST_LOG.md M26 章节",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "M25",
+      "title": "作品库批量管理（多选模式 + 批量删除 + 批量保存相册）：长按卡片或页头「选择」进多选（选择圈 + accent 细边框），选择集 Set<id> 跨分页保持，切桶/下拉刷新清空退出；底部操作条全选（已加载拍平项）/保存/删除/取消；批量删除确认 Alert → 并发限速 ≤3 循环单删 → 失败项保留勾选；批量保存 image/video 走既有下载封装，audio/3D 跳过计汇总",
+      "status": "done",
+      "date": "2026-08-15",
+      "subtasks": [
+        {
+          "id": "M25.1",
+          "title": "纯函数层 batch-utils.ts（新，契约已读 apps/api routes/jobs.py 确认无批量端点）：toggleSelect（返回新 Set 不改入参）/ selectAllIds（已加载拍平项全选）/ splitSavable（image/video 可保存，audio/3D 跳过计数，未知 kind 对齐卡片语义按图像处理）/ summarizeBatch（删除全成「已删除 N 项」/部分「成功 N 失败 M，失败项已保留勾选」；保存成败+跳过六态人话）/ runBatchLimited（工作池限速 BATCH_CONCURRENCY=3，失败不中断，onProgress 逐项回报 done/total，成败 id 收集）；jest batch-utils.test +17",
+          "status": "done"
+        },
+        {
+          "id": "M25.2",
+          "title": "多选模式 UI（library-screen.tsx）：进入=长按卡片或页头「选择」钮，退出=操作条「取消」或操作完成；LibraryCard 右上选择圈（未选空心半透明底/已选 accent 实心 + Check 图标）+ 已选 accent 细边框（克制动效仅 pressed opacity）；选择集跨分页保持；切过滤桶/下拉刷新清空并退出多选；批量进行中点按/长按冻结",
+          "status": "done"
+        },
+        {
+          "id": "M25.3",
+          "title": "底部操作条 + 批量删除：操作条（Screen 底边 SafeArea 已避让）「已选 N 项」/全选/保存/删除/取消，进行中显示「删除中 x/N」且全钮禁用；删除走 Alert 二次确认（「删除 N 项作品？删除后不可恢复。」对齐 asset-edit 惯例）→ runBatchLimited(deleteJob) → invalidateQueries(['jobs']) 前缀失效逐页重取 → 成功项移出选择集、失败项保留勾选、无剩余退出多选；汇总内联于过滤行下方（模式内外均可见）",
+          "status": "done"
+        },
+        {
+          "id": "M25.4",
+          "title": "批量保存相册：splitSavable 分流（audio/3D 跳过计入汇总并保留勾选）；每项首产物 mediaUrl 拼 token 循环走 lib/media.ts downloadAndSaveToLibrary（v57 官方文档复核：File.downloadFileAsync → requestPermissionsAsync → Asset.create 与既有封装一致）；进度态「保存中 x/N」；成功项移出选择集，无剩余退出多选",
+          "status": "done"
+        },
+        {
+          "id": "M25.5",
+          "title": "屏测试 M25 块 +12 与回归落账：进入/退出两路、勾选切换、全选、切桶/刷新清空、删除全成（Alert 契约+失效重取）/部分失败（失败项保留勾选）/删除进度态（钮禁用）、保存分流汇总/保存进度态；质量门：tsc 0 错 / expo lint 0 警 / jest 35 套件 687 用例全绿（较 M24 口径 658 净增 +29：纯函数 17 + 屏 12），覆盖率四项 94.69/89.38/97.52/94.98 全 ≥80%；踩坑：Pressable 函数 style 在 RNTL 侧已被解析（断言需兼容函数/对象/数组形态）；jest.clearAllMocks 不清实现（批量 deferred 泄漏须 mockReset 隔离）；STATE.json（本条目）+ TEST_LOG.md M25 章节",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "M24",
+      "title": "对话助手三期（分叉会话 fork + 媒体产物点开预览 + 输入草稿持久化）：会话列表「分叉副本」全量 fork / 回放消息长按「从此分叉」截断 fork；图片/视频点开全屏 lightbox（翻页/VideoView/保存相册）；输入草稿按 sessionId MMKV 持久化（防抖写/切换回填/发送清空）",
+      "status": "done",
+      "date": "2026-08-15",
+      "subtasks": [
+        {
+          "id": "M24.1",
+          "title": "API 层：lib/api.ts forkAgentSession(sessionId, atMessageId?)——POST /api/agent/sessions/{sid}/fork（契约读 apps/api routes/agent.py fork_agent_session 源码确认：ForkRequest body 可空，at_message_id 截断复制到该消息（含），不在会话内 404「消息不存在」，新会话继承源 title/nsfw，返回会话摘要）；atMessageId 缺省不带 body 全量复制；jest api.test +4（URL/方法/body 两态/sid 路径编码/404 人话透传）",
+          "status": "done"
+        },
+        {
+          "id": "M24.2",
+          "title": "输入草稿持久化纯函数层（features/assistant/draft-utils.ts）：loadDraft/saveDraft/clearDraft/draftKeyFor 走全局 MMKV（lib/mmkv storage，key `assistant_draft:{sid}` 新会话 __new__，空串写等价清除）；useAssistantDraft hook 300ms 防抖写（pendingRef 捕获输入时 sid 防串键）+ 渲染期回填（React 推荐 setState-during-render 模式）+ effect/卸载补写未落盘内容；jest draft-utils.test +6（键拼接/往返/空串清除/隔离/常量契约）",
+          "status": "done"
+        },
+        {
+          "id": "M24.3",
+          "title": "媒体预览组件（features/assistant/media-preview.tsx）：Modal fade + 深色遮罩全屏；图片 FlatList pagingEnabled 多图翻页（contain + 页码胶囊 + 点按关闭）；视频 expo-video v57 useVideoPlayer+VideoView 原生控制条（读 v57 官方文档确认用法，与产物详情 VideoStage 同式）；「保存到相册」复用 lib/media.ts downloadAndSaveToLibrary，saving/saved/失败人话内联三态；target 保活（最后非空 target 渲染保证淡出完整）；chat-utils ChatItem +srvId（回放消息服务端 id，mapSessionMessages 填充，分叉契约入参）；Icon.tsx 注册表 +GitFork",
+          "status": "done"
+        },
+        {
+          "id": "M24.4",
+          "title": "UI 接入：assistant-screen forkMutation（成功 invalidateQueries 会话列表 + loadSession 跳新会话；失败人话内联 error 气泡与载入失败同语义）；回放消息气泡（srvId 存在才注入 onFork）长按 Alert 菜单「从此分叉」截断 fork；MediaBlock 图片/视频卡接 onPreview（audio/model3d 保持纯展示卡）；输入框切换 useAssistantDraft（发送成功 clearDraft 清键）；session-sheet 列表项 +GitFork「分叉副本」钮（非破坏性免二次确认）",
+          "status": "done"
+        },
+        {
+          "id": "M24.5",
+          "title": "屏测试 M24 块 +8：列表分叉流转（全量 fork 无 body → 列表失效重拉 → 跳新会话回放）；消息级分叉 at_message_id 契约上行 + 成功跳转；分叉失败（404 消息不存在）人话内联且原上下文保留；本地消息（无 srvId）长按不出菜单；媒体预览（图片第 2 张点开页码 2/2 → 保存 URL 拼 token 透传 → 已保存 → 关闭；视频卡 VideoView 页；音频卡无预览入口）；草稿重进回填 + 300ms 防抖落盘；按 sessionId 隔离 + 切换补写未落盘 + 回切回填；发送成功清空新旧会话键与输入框",
+          "status": "done"
+        },
+        {
+          "id": "M24.6",
+          "title": "质量门与落账：tsc 0 错 / expo lint 0 警 / jest 34 套件 658 用例全绿（较 M23 口径 640 净增 +18：api 契约 4 + 草稿纯函数 6 + 屏 8），覆盖率四项 94.69/89.38/97.52/94.98 全 ≥80%；踩坑：RNTL 14 无 fireEvent.longPress 便捷方法（须 fireEvent(el,'longPress')，TypeError 抛在 act 内会污染后续渲染致同文件其他用例连锁超时）；react-hooks/refs 禁渲染期访问 ref（useAssistantDraft 切换补写从渲染期迁入 [sessionId] effect，pendingRef 捕获旧 sid 不串键）；STATE.json（本条目）+ TEST_LOG.md M24 章节",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "M23",
+      "title": "Agent 团队三期（计划编辑 POST /plan + 成片结果 GET /result）：计划门抽屉升级可编辑面板（改标题/文案、删/加任务 → 先 POST /plan 再 resume modify/approve）+ done 成片卡（VideoView 播放 + 保存相册）",
+      "status": "done",
+      "date": "2026-08-15",
+      "subtasks": [
+        {
+          "id": "M23.1",
+          "title": "类型与 API 层：types/api.ts AgentPlanEditOp{id,action:'update'|'remove'|'add',title?,input?} / AgentRunPlanUpdateResult / AgentRunResultTask / AgentRunResult{final_url,duration_sec,tasks}（契约读 apps/api routes/agent_team.py edit_plan/run_result 源码确认：仅 awaiting_confirm 可编辑否则 409「仅待确认状态可编辑计划」；update 标题直改/input 按键合并、remove 服务端清理悬挂 depends_on、add 支持前端预生成 id 且 kind/depends_on 从 input 读缺省 video/无依赖；仅 done 可取 result 否则 409「任务尚未完成」，final_url 取 assemble done 卡 output.url 空串=产物缺失，duration_sec 为 video/image 卡 input.duration_sec 合计）；lib/api.ts updateAgentRunPlan（POST body {tasks:ops}）/ getAgentRunResult；jest api.test +7（URL/body 契约/Authorization/runId 编码/409 人话透传）",
+          "status": "done"
+        },
+        {
+          "id": "M23.2",
+          "title": "纯函数 buildPlanOps + PlanDraft（lib/agent-run.ts，语义逐条对齐 Web PlanPanel buildOps）：removed 优先生成 remove（该任务 edits 忽略）；edits 生成 update（title 仅显式编辑带上；inputText 按 inputKey 缺省取 primaryInputText 主键合并进原 input 不动未提交字段）；added 生成 add（title trim 空回落「新任务」，input 固定 {prompt}）；空草稿/幽灵 id → 空序列（确认门直投 approve 不走 POST /plan）；jest agent-run.test +7（空改动/update 三态/inputKey 优先级/remove 覆盖/add 回落与序/幽灵 id 忽略）",
+          "status": "done"
+        },
+        {
+          "id": "M23.3",
+          "title": "计划门抽屉升级可编辑面板（agent-run-detail-screen.tsx PlanGateEditor + SheetInput）：改标题（单行输入）/主文案（多行）、删任务行内移除（本地痕迹）、加任务临时行 new-N（可移除）、依赖行「第 N 步」（对齐 Web PlanPanel）；确认流 submitPlanConfirm：buildPlanOps 汇总 → 有改动先 POST /plan 再 resume(modify)、无改动直 resume(approve)；任一步失败抽屉保持打开、错误人话内联（SheetError）、编辑痕迹保留可重试；全删空确认钮禁用；resume 成功清草稿并刷新；踩坑：临时 id 必须 setState 外捕获（updater 渲染期执行读到已自增的 ref.current，首加错成 new-2）",
+          "status": "done"
+        },
+        {
+          "id": "M23.4",
+          "title": "done 成片卡 ResultCard：effStatus=done 时 useQuery 拉 GET /result（queryKey agent-runs/result/runId，retry:false；409 竞态与 final_url 空串静默不渲染）；VideoView 原生控制条播放（expo-video v57 useVideoPlayer+VideoView，读 v57 官方文档确认用法，与产物详情 VideoStage 同式，URL 走 mediaUrl 拼 token）；「保存到相册」复用 lib/media.ts downloadAndSaveToLibrary（expo-file-system 下载 cache → expo-media-library 入册），saving/saved/失败人话内联三态",
+          "status": "done"
+        },
+        {
+          "id": "M23.5",
+          "title": "组件测试 +12（M23 describe 块）与回归落账：面板预填/依赖行 + 无改动 approve 不调 POST /plan；改标题文案 → ops[update×2] → modify → 关屉刷新；删+加 → ops[remove/add]（空标题回落「新任务」）；新增行可移除 + 全删空禁确认；POST /plan 409 内联不关屉痕迹保留；resume(modify) 失败内联；done 成片卡渲染（VideoView/时长/产物计数/保存钮）；final_url 空串不渲染；409 静默不透出；保存成功/失败两态；非 done 不拉 result；既有 M22 计划门文案断言同步更新；质量门：tsc 0 错 / expo lint 0 警 / jest 33 套件 640 用例全绿（较 M22 口径 614 净增 +26：api 契约 7 + 纯函数 7 + 详情屏 12），覆盖率四项 94.68/89.33/97.5/94.97 全 ≥80%；STATE.json（本条目）+ TEST_LOG.md M23 章节",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "M22",
+      "title": "Agent 团队监控二期（确认门裁决 + 卡片干预）：resume 计划门/合成门 + task 改文案/重生成/通过",
+      "status": "done",
+      "date": "2026-08-15",
+      "subtasks": [
+        {
+          "id": "M22.1",
+          "title": "类型与 API 层：types/api.ts AgentResumeBody{gate:'plan'|'assembly',action:'approve'|'modify'|'reject',feedback?} / AgentTaskActionBody{action:'edit'|'regenerate'|'approve',payload?}（契约读 apps/api routes/agent_team.py resume_run/task_action 源码确认：plan 门需 awaiting_confirm/planning，assembly 门需 awaiting_assembly；edit 合并 payload.input 回 pending，regenerate 仅 done/error 且 attempt<3、assemble 卡走 400 合成门，approve 置 approved）；lib/api.ts resumeAgentRun/agentTaskAction（双段路径 encodeURIComponent，body 原样透传，返回卡片顶层字段无包装）；lib/agent-run.ts taskDurationSec（合成门时间线合计时长）；jest api.test +7（resume URL/body 契约/feedback 缺省省略/runId 编码/409 人话；action 双段编码/edit payload/regenerate guidance/409·400 人话）",
+          "status": "done"
+        },
+        {
+          "id": "M22.2",
+          "title": "确认门裁决 UI：agent-run-detail-screen.tsx 确认门横幅（awaiting_confirm→计划门 Layers 图标「计划待确认」/ awaiting_assembly→合成门 Film 图标「合成前确认」，accent 边框 + 「去裁决」CTA）+ 底部 ActionSheet 抽屉（计划门：任务清单 3 项 + approve/reject + reject 方向性批注输入；合成门：时间线时长列 taskDurationSec + 合计时长 + approve/reject）；resume 成功抽屉/横幅关闭并刷新详情续接 SSE；SSE confirm_required(gate=assembly) 就地开合成门不重拉详情；裁决失败错误内联抽屉不关闭",
+          "status": "done"
+        },
+        {
+          "id": "M22.3",
+          "title": "卡片干预操作行：taskActionable（非 running/queued 且非 assemble 且 run 非终态）出操作行——改文案（Pencil，抽屉预填 primaryInputText 主文案，保存 edit payload={input:{prompt}}）/ 重生成（RefreshCw，taskRegenerable=done/error，抽屉引导词透传 payload.guidance，空引导词不带 payload）/ 通过（Check，success 色直提 approve）；成功用返回卡片局部替换（不重拉详情，attempt 递增上屏「第 N 次」）；直操作失败错误落横幅人话透传；Icon.tsx 注册表 +Pencil",
+          "status": "done"
+        },
+        {
+          "id": "M22.4",
+          "title": "组件测试 agent-run-detail-screen.test +12（M22 describe 块）：计划门横幅→approve→resume(plan/approve)→抽屉关闭并刷新；合成门时间线（时长/合计）→批注打回→resume(assembly/reject/feedback)；SSE confirm_required 就地开门；裁决失败内联不关闭；操作行可见性矩阵（pending 无重生成/done 出重生成/assemble 卡与终态 run 不出操作行/approved 卡隐藏通过）；改文案预填→edit 契约→局部替换不重拉；重生成引导词透传/空引导词省略 payload；通过直提 approved 局部替换；approve 409 错误落横幅；踩坑：双 render 用例跨用例污染拆独立用例去手动 unmount",
+          "status": "done"
+        },
+        {
+          "id": "M22.5",
+          "title": "回归与落账：tsc 0 错 / expo lint 0 警（修复 M22 遗留 3 警：未用 AgentRunDetail 导入/未用 radius/冗余 eslint-disable 指令）/ jest 33 套件 614 用例全绿（较 M21 口径 595 净增 +19：详情屏 M22 块 12 + api.test M22 契约 7），覆盖率行 94%+（四项 ≥80%）；STATE.json（本条目）+ TEST_LOG.md M22 章节",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "M21",
+      "title": "Agent 团队监控一期（只读 + 取消）：运行列表（状态过滤/轮询）+ 运行详情（SSE 事件流/任务卡片/取消确认）",
+      "status": "done",
+      "date": "2026-08-15",
+      "subtasks": [
+        {
+          "id": "M21.1",
+          "title": "类型与 API 层：types/api.ts AgentRunSummary/AgentRunTask/AgentRunDetail/AgentRunEvent 联合类型；lib/agent-run.ts 纯函数（runStatusMeta/taskStatusMeta/taskKindLabel/extractTaskMedia/primaryInputText/toAgentRunEvent 类型守卫）；lib/api.ts listAgentRuns/getAgentRun/cancelAgentRun/watchAgentRunEvents（GET /api/agent-runs、GET /{id}、POST /{id}/cancel、GET /{id}/events?after= SSE）；jest api.test +21（REST 三端点形状/Authorization/cancel 404/SSE after 游标/token query 双通道/事件解析/异常帧过滤）",
+          "status": "done"
+        },
+        {
+          "id": "M21.2",
+          "title": "运行列表屏 agent-runs-screen.tsx：状态过滤 chips（全部/排队中/执行中/待确认/已完成/已失败/已取消/已超时 8 档）+ 运行卡片（goal/runStatusMeta 徽章/level/任务进度 task_counts/相对时间）+ 3s 活跃轮询（refetchInterval 按 hasActiveRuns 动态启停）+ 空态区分（无过滤空库/有过滤无匹配）+ 卡片点按跳详情；jobs-screen.tsx 头部右侧 Bot 图标入口（不占 tab 位，栈页跳转）；agent-runs-screen.test 8 用例",
+          "status": "done"
+        },
+        {
+          "id": "M21.3",
+          "title": "运行详情屏 agent-run-detail-screen.tsx：GET 首屏加载 + SSE after=0 全量重放（task_status 事件合并进任务卡片/ticker 事件流展示/plan 事件初始化任务列表）+ 任务卡片（taskStatusMeta 徽章/taskKindLabel 中文名/primaryInputText 主文案/extractTaskMedia 产物预览：image 缩略图/video·audio·model3d 图标占位/text 文本）+ 取消按钮（确认弹窗 → POST cancel → 失效重查）+ 终态自动关流（RUN_TERMINAL 集合）+ sseConnecting 加载态；status-badge.tsx 共用徽章组件（tone 色调/spin 转圈/accessibilityLabel）；agent-run-detail-screen.test 12 用例",
+          "status": "done"
+        },
+        {
+          "id": "M21.4",
+          "title": "路由与导航：app/agent-runs/index.tsx + app/agent-runs/[id].tsx 两栈页注册（expo-router file-based）；Icon.tsx 注册表 +Bot；导航硬规则遵守（TabBar 4 项上限，走栈页不加 tab）",
+          "status": "done"
+        },
+        {
+          "id": "M21.5",
+          "title": "回归：tsc 0 错 / expo lint 0 警 / jest 33 套件 595 用例全绿（较 M20 口径 30 套件 512 净增 +3 套件 +83：agent-run 纯函数 21、api +21、agent-runs-screen 8、agent-run-detail-screen 12、status-badge 5、routes 2、jobs-screen 入口 1、既有套件联动 +13），覆盖率语句 94.42% / 分支 88.86% / 函数 97.36% / 行 94.71%（四项 ≥80%）；踩坑：SSE 订阅时机需等首屏 detail 加载完成再按 status 决定开流（避免终态 run 误开流）、「执行中」文本同时命中 chip 与徽章改用 testID 断言、React Hook setState-in-effect 警告改 render 期间比较 plan 引用触发状态更新、测试拼写 Acept→Accept；落账 STATE.json（本条目）+ TEST_LOG.md M21 章节",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "M20",
+      "title": "对话助手二期「文档挂载」：/api/docs 上传/列表/删除 + document_ids 随 chat 上行 + 文档面板与挂载 chips",
+      "status": "done",
+      "date": "2026-08-15",
+      "subtasks": [
+        {
+          "id": "M20.1",
+          "title": "API 层：types/api.ts DocItem{id,filename,kind,size,chunk_count,status,created_at}（读 apps/api/app/routes/documents.py 源码核验契约）；lib/doc-utils.ts 纯函数 docStatusLabel（ready→已索引/partial→部分索引(超长截断)/no_embed→未索引(向量服务不可用)/未知原样透传）+ formatDocSize（<1024→{n}B/<1MB→{x.x}KB/否则 {x.x}MB，对齐 Web lib/docs.ts 文案）；lib/api.ts listDocs/uploadDoc（multipart 字段名 file、三段式 {uri,name,type}、fileName 缺失按 mimeType 推扩展名兜底、long 超时档）/deleteDoc（id 转义）+ agentChatStream 加可选 documentIds（非空注入 body.document_ids，空数组省略字段）；jest api.test +11（document_ids 上行与省略/上传 FormData 形状/400/413/422 人话/删除 404）+ doc-utils.test 新建 8 用例（状态文案/尺寸边界 0·1023·1024·1MB±1）",
+          "status": "done"
+        },
+        {
+          "id": "M20.2",
+          "title": "UI：assistant-screen.tsx 输入栏左侧 Paperclip ghost 钮（面板开或有挂载时 accent 高亮 + accessibilityState.selected）+ 输入栏上方横排挂载 chips（File 图标 + filename + X 可移除）+ 发送时快照 attachedDocs：documentIds 随轮上行、chips 清空转移到该条 user 气泡下方留痕（ChatItem.docs）；doc-sheet.tsx 底部抽屉（对齐 SessionSheet 语言）：顶部上传钮（expo-document-picker v57 getDocumentAsync 四 mime 白名单 + copyToCacheDirectory；客户端先验扩展名 pdf/docx/txt/md + ≤50MB 提前拦截）+ 列表项（文件名 + formatDocSize + docStatusLabel + 挂载勾选态 + 删除钮 ConfirmDialog 二次确认，删除挂载中文档由主屏卸载）+ 空态 EmptyState + 面板关闭不拉列表（enabled: visible）；Icon 注册表 +File/Paperclip；chat-utils.ts ChatItem 加 docs?: ChatDocRef[]",
+          "status": "done"
+        },
+        {
+          "id": "M20.3",
+          "title": "组件测试 assistant-screen.test +12（文档钮渲染与激活态/面板开合才拉列表空态/列表文案 formatDocSize·docStatusLabel/勾选挂载出 chips 与 X 移除/发送 document_ids 上行 + chips 清空转移气泡/无挂载空数组/上传成功三段式入参与失效重拉/上传 422 人话/扩展名与 >50MB 先验拦截不发请求/picker 取消静默/删除二次确认与挂载卸载/删除 404 人话不卸载）；mock expo-document-picker 与 listDocs/uploadDoc/deleteDoc",
+          "status": "done"
+        },
+        {
+          "id": "M20.4",
+          "title": "回归：tsc 0 错 / expo lint 0 警 / jest 30 套件 512 用例全绿（较 M19 口径 29 套件 482 净增 +1 套件 +30：doc-utils 8、api +11、assistant-screen +12），覆盖率语句 93.99% / 分支 85.82% / 函数 96.93% / 行 94.34%（四项 ≥80%）；踩坑：列表数据异步落盘需 waitFor 目标内容再断言、useMutation mutationFn 透传 mutationCtx 取首参断言；落账 STATE.json（本条目）+ TEST_LOG.md M20 章节",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "M19",
+      "title": "对话助手（Assistant）一期：SSE 流式对话 + 会话管理（列表/载入/删除）",
+      "status": "done",
+      "date": "2026-08-14",
+      "subtasks": [
+        {
+          "id": "M19.1",
+          "title": "后端契约复核（读 apps/api/app/routes/agent.py 源码：POST /agent/chat SSE 流 + GET/DELETE sessions，fork 不在一期）+ 类型与 API 层：types/api.ts AgentEvent（text/tool/image/video/audio/model3d/error）/AgentChatMessage/AgentSessionSummary/AgentSessionMessage/AgentSessionDetail；lib/sse.ts parseSseStream（Uint8Array 流 → TextDecoder 跨 chunk 拼帧 → event:/data: 行解析，空行派发，多行 data 以 \\n 连接，AbortSignal 联动取消）；lib/api.ts agentChatStream（expo/fetch POST /agent/chat，Accept: text/event-stream，仅派发 msg 帧 JSON，X-Agent-Session-Id 响应头回收会话 id，中止静默等价未开始轮次，无流式 body 报「当前环境不支持流式响应」）+ listAgentSessions/getAgentSession/deleteAgentSession；sse.test 12 用例 + api.test 净增 +13（98→111）",
+          "status": "done"
+        },
+        {
+          "id": "M19.2",
+          "title": "聊天纯逻辑 chat-utils.ts：ChatItem/ChatMedia 模型 + reduceAgentEvent（text 增量换行追加 / tool 记录 / image·video·audio·model3d urls 入媒体 / error 置错）+ historyForApi（AGENT_HISTORY_LIMIT=40 截断防上下文膨胀）+ mapSessionMessages（会话详情 → ChatItem 回放映射）+ nextLocalId；chat-utils.test 10 用例",
+          "status": "done"
+        },
+        {
+          "id": "M19.3",
+          "title": "UI：assistant-screen.tsx（inverted FlatList 消息流 + 贴底输入栏 + 流式中「停止生成」AbortController 取消 + 失败人话横幅 + 空态）+ session-sheet.tsx（会话抽屉：列表查询/点选载入详情回填/删除二次确认/失效刷新/删除活跃会话清空当前对话）+ app/assistant.tsx 栈页路由 + generate-screen 头部 MessageCircle 入口 + Icon 注册表 +MessageCircle/History/Square；assistant-screen.test 11 用例",
+          "status": "done"
+        },
+        {
+          "id": "M19.4",
+          "title": "回归：tsc 0 错 / expo lint 0 警（--fix 清 Array<T> 写法）/ jest 29 套件 482 用例全绿（较 M18 口径 436 净增 +46：sse 12、chat-utils 10、assistant-screen 11、api +13），覆盖率语句 94.47% / 分支 86.29% / 函数 96.73% / 行 94.95%（四项 ≥80%）；job-tracker 疑似超时复核为并行 worker 资源抖动（隔离复跑 10/10 全绿、全量复跑通过）；落账 STATE.json（本条目）+ TEST_LOG.md M19 章节",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "M18",
+      "title": "创作页优化提示词：口语输入 → POST /api/optimize → LLM 扩写专业英文 prompt 回填（对齐 Web OptimizeButton 语义）",
+      "status": "done",
+      "date": "2026-08-14",
+      "subtasks": [
+        {
+          "id": "M18.1",
+          "title": "API 层：types/api.ts OptimizeResult{optimized,negative|null}；lib/api.ts optimizePrompt({prompt,kind}) POST /api/optimize（kind 跟随当前选中引擎直通，后端按 kind 切系统提示；model/style/agent_id/style_hint 为 Web 高阶入参本期走默认；502/503 由 apiFetch 透传人话；negative 缺省/显式 null 归一化 null）；jest api.test +6（请求形状+Authorization/audio 无 negative 归一化/video 带 negative/显式 null 保持/502/503）",
+          "status": "done"
+        },
+        {
+          "id": "M18.2",
+          "title": "prompt-bar.tsx 优化入口（40×40 圆形 ghost 钮，Sparkles 图标，与反推 Wand2 并排；空 prompt/optimizing/reversing/submitting 禁用 + optimizing 中 ActivityIndicator，accessibilityLabel/State 齐备）；generate-screen.tsx optimize()：空 prompt 不发起 + 三态防重复 → optimizePrompt → prompt 覆盖回填 + negative 有值写入表单参数（随提交进请求体）；失败人话横幅不覆盖已有 prompt",
+          "status": "done"
+        },
+        {
+          "id": "M18.3",
+          "title": "组件测试 generate-screen.test +5（按钮渲染+回填且 negative 随提交进请求体/kind 跟随选中视频引擎 ltx25-t2v/negative null 不写入/失败横幅不覆盖 prompt/空 prompt 禁用不调 API）；踩坑：fixture VIDEO(ltx2-t2v) 为白名单外禁用样本不可选中 → 改用 LTX25_T2V 可选视频引擎 fixture",
+          "status": "done"
+        },
+        {
+          "id": "M18.4",
+          "title": "回归：tsc 0 错 / expo lint 0 警 / jest 26 套件 436 用例全绿（425+11：api +6、组件 +5），覆盖率四项达标；落账 STATE.json（本条目）+ TEST_LOG.md M18 章节",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "M17",
+      "title": "创作页反推提示词：选图/视频 → POST /api/reverse → VLM 反推英文 prompt 回填（对齐 Web ReverseButton 语义）",
+      "status": "done",
+      "date": "2026-08-14",
+      "subtasks": [
+        {
+          "id": "M17.1",
+          "title": "API 层：types/api.ts ReverseResult{kind,prompt,negative|null}；lib/api.ts reversePrompt（React Native FormData 文件三段式 {uri,name,type}，字段名 file 非 image；fileName 缺失按 mimeType 推扩展名兜底 reverse.<ext>；long 180s 档对齐 VLM 首 token 慢；X-NSFW 由 apiFetch 全局意图注入；negative 缺省/null 归一化为 null）；jest api.test +7",
+          "status": "done"
+        },
+        {
+          "id": "M17.2",
+          "title": "prompt-bar.tsx 反推入口（40×40 圆形 ghost 钮，Wand2 图标，reversing 中 ActivityIndicator + 禁用防重复，accessibilityLabel/State 齐备）；generate-screen.tsx reverse()：ImagePicker.launchImageLibraryAsync({mediaTypes:['images','videos']}) → 客户端先验体积（图片 ≤20MB / 视频 ≤50MB，与后端 reverse_max_*_mb 同源，超限不进网络）→ reversePrompt → prompt 覆盖回填 + negative 有值写入表单参数；失败人话横幅不覆盖已有 prompt",
+          "status": "done"
+        },
+        {
+          "id": "M17.3",
+          "title": "组件测试 generate-screen.test +6（按钮渲染+图片回填且 negative 随提交进请求体/视频无 negative 请求体不带/失败横幅不覆盖 prompt/取消选图不调 API/图片超 20MB 本地拦截/视频超 50MB 本地拦截）",
+          "status": "done"
+        },
+        {
+          "id": "M17.4",
+          "title": "回归（本轮复核）：tsc 0 错 / expo lint 0 警 / jest 26 套件 425 用例全绿（412+13），覆盖率语句 94.01% / 分支 88.38% / 函数 96.29% / 行 94.48%（四项 ≥80% 阈值）；落账 STATE.json（本条目）+ TEST_LOG.md M17 章节",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "M16",
+      "title": "作品库服务端 kind 过滤：过滤切换整库生效（后端 jobs.py kind 参数 × useInfiniteQuery queryKey 纳入 kind），根治客户端过滤只覆盖已加载流的不完整结果缺陷",
+      "status": "done",
+      "date": "2026-08-14",
+      "subtasks": [
+        {
+          "id": "M16.1",
+          "title": "后端契约落地（与 MP16 同一改动）：apps/api/app/routes/jobs.py list_jobs 新增 kind 查询参数（逗号分隔多值，strip 去空白，空=全部；与 limit/offset/status 叠加）；tests/test_jobs.py 新增 test_jobs_kind_multi_values，16/16 全绿",
+          "status": "done"
+        },
+        {
+          "id": "M16.2",
+          "title": "API 层 lib/api.ts：listJobs 增 kind?: string（非空才 encodeURIComponent 序列化；按 limit→offset→status→kind 序拼接，既有调用方零感知）",
+          "status": "done"
+        },
+        {
+          "id": "M16.3",
+          "title": "library-screen.tsx 接入服务端过滤：filterToKind（过滤桶→FILTERS.kinds 逗号串）；useInfiniteQuery queryKey 改 ['jobs','library',kindParam]——切换过滤桶自动作废旧缓存重新查询，分页随 kind 重置；移除 M15「过滤作用于已加载流」的客户端过滤逻辑与相关空态分支",
+          "status": "done"
+        },
+        {
+          "id": "M16.4",
+          "title": "测试 library-screen.test.tsx：mockJobsServer 假服务端支持 kind 过滤切片；新增 M16 用例（切换过滤桶重置分页+按 kind 重查+只返回匹配类型+切回全部恢复），jest 26 套件 412 用例全绿",
+          "status": "done"
+        },
+        {
+          "id": "M16.5",
+          "title": "质量门全绿：tsc 0 错 / expo lint 0 警 / jest 412 全绿；落账 STATE.json（本条目）+ TEST_LOG.md M16 章节",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "M15",
+      "title": "作品库无限分页（offset 服务端分页 × 客户端类型过滤交互）",
+      "status": "done",
+      "date": "2026-08-14",
+      "subtasks": [
+        {
+          "id": "M15.1",
+          "title": "后端契约复核（读 apps/api routes/jobs.py list_jobs 源码）：limit 1-200 默认 50；offset ≥0 默认 0；返回最新在前；越界返回 []（pytest 35/35 已绿）",
+          "status": "done"
+        },
+        {
+          "id": "M15.2",
+          "title": "API 层：listJobs 增 offset（>0 才进 qs，缺省/=0 不带；按 limit→offset→status 序拼接）+ api.test.ts 净增 +3（103→106）",
+          "status": "done"
+        },
+        {
+          "id": "M15.3",
+          "title": "分页纯逻辑 library-paging.ts：LIBRARY_PAGE_SIZE=50（对齐后端默认档且在 1-200 内；双列网格约 25 行≈3-4 屏，首屏延迟与滚动请求频次折中）+ pageHasMore（本页满 = 可能还有）+ nextOffset（页数×页大小，与去重后可见条数解耦）+ mergePagesUnique（按 id 去重保序，页边界漂移重叠行只留先出现一份）+ firstPageOnly（下拉刷新截断首页，refetch 仅重取 offset=0）+ 新套件 9 用例",
+          "status": "done"
+        },
+        {
+          "id": "M15.4",
+          "title": "作品库屏组件链路：useQuery → useInfiniteQuery（独立 key ['jobs','library']，['jobs'] 前缀失效可模糊命中驱动逐页重取）；loadMore useRef 同步锁防重入（isFetchingNextPage 经 notifyManager setTimeout 异步派发，同帧连续 onEndReached 闭包旧值会重复发请求）；footer 三态（加载中 / 加载失败上拉重试 / 没有更多了）；RefreshControl 截断首页重拉等效 offset=0 重拉；类型过滤作用于已加载流——切换不丢数据、可视项少仍可继续加载、无匹配且可能有更多时网格保持挂载（空态进 ListEmptyComponent）；轮询/新完成作业失效重取新作插顶部不重复 + library-screen 净增 +10（10→20）",
+          "status": "done"
+        },
+        {
+          "id": "M15.5",
+          "title": "质量门全绿：tsc 0 错 / expo lint 0 警 / jest 26 套件 413 用例（较 M14 口径 391 净增 +22、+1 套件），覆盖率语句 93.88% / 分支 90.16% / 函数 96.25% / 行 94.35%（均 ≥80% 阈值且不跌破 M14 基线 93.88/90/96.25/94.35）",
+          "status": "done"
+        },
+        {
+          "id": "M15.6",
+          "title": "落账：STATE.json 新增 M15 条目 + next 更新为 M16；TEST_LOG.md 新增 2026-08-14 M15 回归条目（命令输出/套件清单/架构决策/RNTL 14 async fireEvent 踩坑记录）",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "M14",
+      "title": "avatar-talk（LongCat-Avatar 数字人）引擎接入",
+      "status": "done",
+      "date": "2026-08-14",
+      "subtasks": [
+        {
+          "id": "M14.1",
+          "title": "后端契约复核（读 apps/api 源码）：routes/avatar_studio.py AvatarTalkRequest（POST /api/avatar/talk，image/audio 同 worker 上传句柄，后端转运 LongCat :8197；宽/高 320-1280 十六对齐向下取整；num_frames 17-2500 默认 93，>93 链式续段；fps 8-30 默认 25；steps 1-50 默认 12；shift/cfg/dmd_lora_strength 注册表未暴露由后端默认）+ engine_registry._avatar_talk_params（audio 声明为 text 型）+ capabilities.py kind=avatar 无模型要求仅存文件",
+          "status": "done"
+        },
+        {
+          "id": "M14.2",
+          "title": "类型与 API 层：AvatarTalkRequest 类型 + submitAvatarTalk（长超时档 180s，分钟级续段任务）+ uploadKindForEngine 增 avatar-talk→avatar（人像图与驱动音频同落 pool worker）+ api.test.ts 净增 +4（99→103）",
+          "status": "done"
+        },
+        {
+          "id": "M14.3",
+          "title": "请求构建与提交路由：SUPPORTED_VIDEO_ENGINE_IDS +avatar-talk；normalizeEngineSchema（注册表 text 型 audio 归一为 audio 型，复用 RefAudioField 上传链路与 syncAudioWithRefImage 互钉，引擎加载处统一应用）；buildAvatarTalkRequest（人像+音频缺一不可 null；schema 序列化后宽高 snap16 对齐后端）；buildEngineSubmit 分发（校验文案「请先上传人像首帧」/「请先上传驱动音频」）；mutationFn 接 submitAvatarTalk",
+          "status": "done"
+        },
+        {
+          "id": "M14.4",
+          "title": "质量门全绿：tsc 0 错 / expo lint 0 警 / jest 25 套件 391 用例（较 M13 口径 375 净增 +16），覆盖率语句 93.88% / 分支 90% / 函数 96.25% / 行 94.35%（均 ≥80% 阈值）；既有断言同步：M9.3/M10/M11 芯片用例 avatar-talk 由禁用态转可选，禁用样本换白名单外 UNKNOWN_VIDEO（ltx2-t2v）",
+          "status": "done"
+        },
+        {
+          "id": "M14.5",
+          "title": "落账：STATE.json 新增 M14 条目 + next 更新为 M15；TEST_LOG.md 新增 2026-08-14 M14 回归条目（命令输出/套件清单/架构决策/踩坑记录）",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "M13",
+      "title": "参考资产库接入（管理页 CRUD + 创作页引用）",
+      "status": "done",
+      "date": "2026-08-14",
+      "subtasks": [
+        {
+          "id": "M13.1",
+          "title": "类型与 API 层：AssetKind / AssetImage / AssetItem / AssetCreateBody / AssetPatchBody 类型 + listAssets/createAsset/getAsset/updateAsset/deleteAsset/assetImageUrl API 封装（对齐 lib/api.ts 既有模式，含 Bearer/X-NSFW/媒体代理 URL 构造）+ api.test.ts 净增 +9（99 用例）",
+          "status": "done"
+        },
+        {
+          "id": "M13.2",
+          "title": "资产管理页：列表页 AssetsScreen（kind 过滤 chips / 断点网格 2-4 列 / 首图缩略图 / kind 徽标 / nsfw R18 徽标 / 空态引导 + RefreshControl）+ 编辑页 AssetEditScreen（新建/编辑 / 名称/kind/描述/1-4 张参考图 / 相册多选 + 客户端先验 + 逐张 uploadImage / 第 2-4 张钉第一张落点 worker / NSFW 开关按 nsfwIntent 条件渲染 / Alert 删除确认 → 部分更新 PATCH）+ profile-screen「参考资产库」入口 + expo-router 路由 /assets / /assets/edit + 4 新套件 50 用例",
+          "status": "done"
+        },
+        {
+          "id": "M13.3",
+          "title": "创作页引用：RefImageField（单图字段）与 RefImagesField（多图字段）新增「资产库」次级入口 → AssetPicker Modal（kind 过滤 + 资产列表展开 + 缩略图点选）回填 {filename, worker} 句柄（不重新上传）；单图直接替换，多图追加（不超上限）+ ref-image-field / ref-images-field 净增用例",
+          "status": "done"
+        },
+        {
+          "id": "M13.4",
+          "title": "质量门全绿：tsc 0 错 / expo lint 0 警 / jest 25 套件 375 用例（较 M12 口径 307 净增 +68、套件 +4），覆盖率语句 93.84% / 分支 89.94% / 函数 96.2% / 行 94.3%（均 ≥80% 阈值）；顺手修复既有 jobs-screen / library-screen 漏 await 引发的 flaky",
+          "status": "done"
+        },
+        {
+          "id": "M13.5",
+          "title": "落账：STATE.json 新增 M13 条目 + next 更新为 M14；TEST_LOG.md 新增 2026-08-14 M13 回归条目（命令输出/套件清单/架构决策/踩坑记录）",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "M12",
+      "title": "真机验证载体：EAS Build preview（Android）重建——覆盖 M9-M11 全部新引擎链路（含原生依赖 expo-document-picker）",
+      "status": "done",
+      "date": "2026-08-14",
+      "subtasks": [
+        {
+          "id": "M12.1",
+          "title": "前置核验：package.json expo-document-picker ~57.0.1 已落盘（M11 expo install 对齐）；eas whoami 登录态 wineryz(Owner) 确认（首次 GraphQL 抖动，重试恢复）",
+          "status": "done"
+        },
+        {
+          "id": "M12.2",
+          "title": "云端构建：eas build --profile preview --platform android --non-interactive，构建 ID 9109acb0-4aa2-417e-9a4d-acb74a0c6b44，12:20:18 排队 → 12:36:00 finished（约 16 分钟）",
+          "status": "done"
+        },
+        {
+          "id": "M12.3",
+          "title": "产物：APK https://expo.dev/artifacts/eas/8buBnoQxsdtAUCSDs0DtrX6EnKQCmLhU7Fr4bd3cXQ4.apk，安装页 https://expo.dev/accounts/wineryz/projects/Mobile/builds/9109acb0-4aa2-417e-9a4d-acb74a0c6b44；真机走查项（用户执行）：视频引擎全链路（选视频/多图/驱动音频上传 → 提交 → 轮询 → 播放）+ NSFW 开关二次确认与 R18 引擎可见性切换",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "M11",
+      "title": "R18 视频引擎接入（ltx-nsfw-t2v / ltx-nsfw-i2v / ltx-nsfw-lipsync / h3-nsfw-t2v / h3-nsfw-i2v）",
+      "status": "done",
+      "date": "2026-08-14",
+      "subtasks": [
+        {
+          "id": "M11.1",
+          "title": "类型与 API 层（读 engine_registry.py R18 注册表 + Web lib/engines.ts 核对契约）：UploadedRefAudio + LtxNsfwT2V/LtxNsfwI2V/LtxNsfwLipsyncRequest 类型（h3-nsfw 复用 SFW H3T2V/H3I2V）；submitLtxNsfwT2V/submitLtxNsfwI2V/submitLtxNsfwLipsync 三端点（/api/generate/ltx-t2v|ltx-i2v|ltx-lipsync，长超时档）；uploadAudio（FormData 三段式、字段名 image、worker 钉点 qs、mime 推扩展名）；uploadKindForEngine 增 ltx-nsfw-i2v→ltx_i2v、ltx-nsfw-lipsync→ltx_lipsync、h3-nsfw-i2v→h3_i2v；expo-document-picker ~57.0.1 经 npx expo install 对齐版本；api.test.ts 净增 +13（77→90）",
+          "status": "done"
+        },
+        {
+          "id": "M11.2",
+          "title": "请求构建与提交路由纯逻辑：SUPPORTED 白名单 +5（avatar-talk 保持禁用）；resolution 预设 'WxH'→width/height；LTX 时长秒×16fps 吸附 8k+1 帧网格钳 [9,241]（6s→89）；H3 时长→17k+5 帧网格（6/10/15s→141/243/362，锁 24fps）；buildLtxNsfwT2V/I2V/Lipsync + buildH3NsfwT2V/I2V 五构建器（i2v/lipsync 缺素材 null）；syncAudioWithRefImage（参考图换 worker 强制清空已钉音频，对齐 syncVideoWithRefImage 语义）；buildEngineSubmit 五路分发 + mutationFn 接三 submit（h3-nsfw 复用 SFW submitH3T2V/H3I2V 链路，X-NSFW 头由 api client 注入）",
+          "status": "done"
+        },
+        {
+          "id": "M11.3",
+          "title": "UI：ref-audio-field.tsx 新组件（Expo v57 DocumentPicker.getDocumentAsync({type:'audio/*'})——expo-image-picker 不能选音频；扩展名 wav/mp3/m4a/ogg/flac + ≤20MB 客户端先验与 upload.py 同源；选中即传钉参考图落点）；param-sheet 接 audio 第 7 类动态字段；引擎芯片 R18 徽标（nsfw=true 时渲染，对齐 Web GenerateView Badge tone=warn，取主题 warning 色）；Icon 注册表 +AudioLines",
+          "status": "done"
+        },
+        {
+          "id": "M11.4",
+          "title": "质量门全绿：tsc 0 错 / expo lint 0 警 / jest 20 套件 307 用例（较 M10 净增 +45、+1 套件），覆盖率语句 93.68% / 分支 89.83% / 函数 95.89% / 行 94.14%（均 ≥80% 阈值）；修复测试基建：补装 jest-expo 57 peer 依赖 @react-native/jest-preset@^0.86.2 与 RNTL v14 peer 依赖 test-renderer@^1.0.0（react-test-renderer 的现代替代，均 devDependencies）",
+          "status": "done"
+        },
+        {
+          "id": "M11.5",
+          "title": "落账：STATE.json 新增 M11 条目 + next 更新为 M12；TEST_LOG.md 新增 2026-08-14 M11 回归条目（命令输出/套件清单/架构决策/测试基建踩坑记录）",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "M10",
+      "title": "剩余 SFW 引擎接入（h3-t2v / h3-i2v / longcat-t2v / longcat-i2v / longcat-continue / ace-music）",
+      "status": "done",
+      "date": "2026-08-14",
+      "subtasks": [
+        {
+          "id": "M10.1",
+          "title": "类型与 API 层（读 h3_studio.py / longcat_studio.py / audio.py 源码核对默认值与边界）：LoraValue + H3T2V/H3I2V/LongCatT2V/LongCatI2V/LongCatContinue/AceMusicRequest 类型；submitH3T2V/submitH3I2V/submitLongCatT2V/submitLongCatI2V/submitLongCatContinue/submitAceMusic 六端点统一长超时档；uploadKindForEngine 增 h3-i2v→h3_i2v、longcat-i2v→ltx_i2v（对齐 Web GenerateView 回落）+ api.test.ts 净增 +11（66→77）",
+          "status": "done"
+        },
+        {
+          "id": "M10.2",
+          "title": "请求构建与提交路由纯逻辑：SUPPORTED_VIDEO_ENGINE_IDS +5 / SUPPORTED_AUDIO_ENGINE_IDS +1（ace-music）；parseLoraValues（缺省 0.6、钳 0.5-1.0、脏值剔除）+ buildH3T2V/H3I2V/LongCatT2V/LongCatI2V/LongCatContinue/AceMusic 六构建器；buildEngineSubmit 六路分发（i2v 缺参考图 / continue 缺源视频 URL 走 formError 本地校验）；mutationFn 接六 submit + generate-screen 纯逻辑用例",
+          "status": "done"
+        },
+        {
+          "id": "M10.3",
+          "title": "UI：loras-field.tsx 新组件（多选 ≤3 与后端 _MAX_LORAS 同源 + 强度步进 ±step 钳 [min,max] 规整 2 位小数 + R18 标 + options 空兜底提示 + 脏值按空数组）；param-sheet 接 loras 第 6 类动态字段；Icon 注册表 +Minus；loras-field 8 用例 + generate-screen UI 集成 2 用例（h3-t2v 选 LoRA 步进强度提交携 loras 数组 / 非 H3 引擎不渲染）",
+          "status": "done"
+        },
+        {
+          "id": "M10.4",
+          "title": "质量门全绿：tsc 0 错 / expo lint 0 警（顺手清 2 警：未用 import + Array<T> 写法）/ jest 19 套件 262 用例（较 M9 净增 +43、+1 套件），覆盖率语句 94.88% / 分支 92.5% / 函数 95.58% / 行 95.53%（均 ≥80% 阈值）",
+          "status": "done"
+        },
+        {
+          "id": "M10.5",
+          "title": "落账：STATE.json 新增 M10 条目 + next 更新为 M11；TEST_LOG.md 新增 2026-08-14 M10 回归条目（命令输出/套件清单/6 条架构决策/RNTL v14 异步 API 踩坑记录）",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "M9",
+      "title": "SFW 视频引擎接入（ltx25-t2v / ltx25-i2v / wan-animate / wan-vace）",
+      "status": "done",
+      "date": "2026-08-14",
+      "subtasks": [
+        {
+          "id": "M9.1",
+          "title": "类型与 API 层（前置调研：Expo v57 image-picker 视频 API + Web 参照 uploadKind/互钉/422 + 后端注册表参数形状已核对）：Ltx25T2V/Ltx25I2V/WanAnimate/WanVaceRequest + UploadedRefVideo 类型；submitLtx25T2V/submitLtx25I2V/submitWanAnimate/submitWanVace（长超时档）；uploadVideo（FormData 三段式、字段名 image、worker 钉点 qs）；uploadImage 第三参 pinWorker；uploadKindForEngine 映射；apiFetch 422 detail 数组展开首条 msg + 17 净增用例",
+          "status": "done"
+        },
+        {
+          "id": "M9.2",
+          "title": "请求构建与提交路由纯逻辑：buildLtx25T2VRequest/buildLtx25I2VRequest/buildWanAnimateRequest/buildWanVaceRequest + buildEngineSubmit 按引擎 id 路由（缺素材返回本地校验文案）+ syncVideoWithRefImage（参考图换 worker 强制清空已钉视频）+ 16 净增用例",
+          "status": "done"
+        },
+        {
+          "id": "M9.3",
+          "title": "UI：引擎列表放开视频引擎（h3-t2v 等未接入禁用态不切换选中）；RefImagesField 多图字段（wan-vace max=4，第 2-4 张钉第一张落点）；RefVideoField 驱动视频字段（wan-animate，≤200MB 先验，上传钉参考图落点）；Icon 注册表新增 Video + 9 净增用例",
+          "status": "done"
+        },
+        {
+          "id": "M9.4",
+          "title": "质量门全绿：tsc 0 错 / expo lint 0 警 / jest 18 套件 219 用例（较 M8 净增 +42），覆盖率行 95.39% / 分支 92.4% / 函数 95.16% / 语句 94.73%（均 ≥80% 阈值）",
+          "status": "done"
+        },
+        {
+          "id": "M9.5",
+          "title": "落账：STATE.json 新增 M9 条目 + next 更新为 M10；TEST_LOG.md 新增 2026-08-14 M9 回归条目（命令输出/套件清单/7 条架构决策）",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "M8",
+      "title": "img2img 参考图上传（expo-image-picker）+ 真机验证（EAS Build preview）",
+      "status": "done",
+      "date": "2026-08-12",
+      "subtasks": [
+        {
+          "id": "M8.1",
+          "title": "后端契约复核（读 apps/api 源码）：img2img 提交链路 + POST /api/upload multipart 上传 + 同 worker 约束",
+          "status": "done"
+        },
+        {
+          "id": "M8.2",
+          "title": "Expo v57 文档核对：expo-image-picker launchImageLibraryAsync + app.json photosPermission 插件配置",
+          "status": "done"
+        },
+        {
+          "id": "M8.3",
+          "title": "API 层：uploadImage（FormData 三段式直传不手设 Content-Type）+ submitImg2Img + UploadImageResult/UploadedRefImage/Img2ImgRequest 类型 + 7 净增用例",
+          "status": "done"
+        },
+        {
+          "id": "M8.4",
+          "title": "创作屏：RefImageField 渲染器（选图/先验/上传/预览/移除）+ engineNeedsRefImage 放开过滤 + buildImg2ImgRequest + formError 本地校验 + 18 净增用例",
+          "status": "done"
+        },
+        {
+          "id": "M8.5",
+          "title": "全量回归：tsc 0 错 / lint 0 警 / jest 18 套件 177 用例，覆盖率行 95.87%（分支 93.47%）",
+          "status": "done"
+        },
+        {
+          "id": "M8.6",
+          "title": "真机验证（EAS Build preview 构建）：Android preview 构建成功 @wineryz/Mobile，安装链接 https://expo.dev/accounts/wineryz/projects/Mobile/builds/2ac13ea2-3aad-4c10-8405-9c109d032630",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "M1",
+      "title": "技术选型与规范制定",
+      "status": "done",
+      "date": "2026-08-12",
+      "subtasks": [
+        {
+          "id": "M1.1",
+          "title": "四方向选型分析（Uniapp/React/Flutter/原生）→ React Native (Expo)",
+          "status": "done"
+        },
+        {
+          "id": "M1.2",
+          "title": "ADR-0001 落账",
+          "status": "done"
+        },
+        {
+          "id": "M1.3",
+          "title": "开发规范与流程（代码规范/版本控制/测试/部署/协作）",
+          "status": "done"
+        },
+        {
+          "id": "M1.4",
+          "title": "移动端 UI/UX 设计指南（原则/Token/组件/交互/响应式）",
+          "status": "done"
+        },
+        {
+          "id": "M1.5",
+          "title": "Expo 脚手架 + Metro/Babel/Tailwind/NativeWind/eas.json 工具链",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "M2",
+      "title": "基础层：Token / API / 存储 / 状态",
+      "status": "done",
+      "date": "2026-08-12",
+      "subtasks": [
+        {
+          "id": "M2.1",
+          "title": "theme/tokens.ts 5 色板 × light/dark + 间距/圆角/字阶/阴影",
+          "status": "done"
+        },
+        {
+          "id": "M2.2",
+          "title": "lib/api.ts 统一客户端（token 走 SecureStore、X-NSFW 按请求注入、超时/人话错误）+ 测试",
+          "status": "done"
+        },
+        {
+          "id": "M2.3",
+          "title": "lib/config.ts 运行时基址解析 + 生产回环防呆 + 测试",
+          "status": "done"
+        },
+        {
+          "id": "M2.4",
+          "title": "lib/poll.ts 指数退避轮询 + 测试",
+          "status": "done"
+        },
+        {
+          "id": "M2.5",
+          "title": "lib/mmkv.ts + stores/settings.ts（色板/深浅模/API覆盖/NSFW，MMKV 持久化）+ 测试",
+          "status": "done"
+        },
+        {
+          "id": "M2.6",
+          "title": "stores/auth.ts（恢复/登录/登出，弱网缓存兜底）+ 测试",
+          "status": "done"
+        },
+        {
+          "id": "M2.7",
+          "title": "components/ui/Icon.tsx lucide 唯一白名单封装 + 测试",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "M3",
+      "title": "应用骨架：主题 / Provider / 路由 / 四页",
+      "status": "done",
+      "date": "2026-08-12",
+      "subtasks": [
+        {
+          "id": "M3.1",
+          "title": "hooks/use-app-theme.ts（system 跟随 + 浅色优先）+ providers/query-client.tsx",
+          "status": "done"
+        },
+        {
+          "id": "M3.2",
+          "title": "根布局：GestureHandler + QueryProvider + Splash 门控 + auth gate + 导航主题换肤",
+          "status": "done"
+        },
+        {
+          "id": "M3.3",
+          "title": "(auth)/login 登录屏（zod 校验 / 密码可见性 / 提交态）",
+          "status": "done"
+        },
+        {
+          "id": "M3.4",
+          "title": "(tabs) 四页骨架：创作 / 作业 / 作品库（空状态语义）",
+          "status": "done"
+        },
+        {
+          "id": "M3.5",
+          "title": "我的屏：账户卡片 + 显示模式三段切换 + 五色板换肤 + 退出登录 + 组件测试",
+          "status": "done"
+        },
+        {
+          "id": "M3.6",
+          "title": "全量回归：tsc 0 错 / lint 0 警 / jest 8 套件 54 用例，覆盖率 95.18%（分支 93.47%）",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "M4",
+      "title": "创作主流程：PromptBar / 参数抽屉 / 引擎选择 / 作业提交与轮询回填",
+      "status": "done",
+      "date": "2026-08-12",
+      "subtasks": [
+        {
+          "id": "M4.1",
+          "title": "后端契约验证（读 apps/api 源码）：engines/jobs/txt2img 端点与 JobItem 字段",
+          "status": "done"
+        },
+        {
+          "id": "M4.2",
+          "title": "Expo v57 文档核对（expo-image / KeyboardAvoiding / Modal）",
+          "status": "done"
+        },
+        {
+          "id": "M4.3",
+          "title": "types/api + lib/api 扩展：fetchEngines/submitTxt2Img/listJobs/deleteJob/mediaUrl + 11 净增用例",
+          "status": "done"
+        },
+        {
+          "id": "M4.4",
+          "title": "创作屏：PromptBar 贴底悬浮 + ParamSheet（画幅/负向词）+ 引擎 chips + 提交反馈横幅 + 6 用例",
+          "status": "done"
+        },
+        {
+          "id": "M4.5",
+          "title": "作业屏：JobCard 卡片流 + 活跃作业 2s 轮询回填 + 失败重试 + 15 用例",
+          "status": "done"
+        },
+        {
+          "id": "M4.6",
+          "title": "全量回归：tsc 0 错 / lint 0 警 / jest 11 套件 89 用例，覆盖率 95.6%（分支 94.49%）",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "M5",
+      "title": "作品库 + 产物详情 + 作业详情单点终态追踪",
+      "status": "done",
+      "date": "2026-08-12",
+      "subtasks": [
+        {
+          "id": "M5.1",
+          "title": "后端契约复核（读 apps/api 源码）：无 GET /jobs/{id}，单作业详情由共享 ['jobs'] 缓存 select 派生；DELETE /jobs/{id} 沿用",
+          "status": "done"
+        },
+        {
+          "id": "M5.2",
+          "title": "Expo v57 文档核对：expo-media-library 保存相册 / expo-file-system 下载 + app.json 权限插件配置",
+          "status": "done"
+        },
+        {
+          "id": "M5.3",
+          "title": "lib/media.ts 下载保存相册（剥 query 文件名/权限人话错误）+ 3 用例；stores/generation-draft 一次性草稿（消费即焚）+ 用例",
+          "status": "done"
+        },
+        {
+          "id": "M5.4",
+          "title": "作品库屏：断点网格（2/3/4 列）+ 类型过滤 chips 计数 + 空/载态 + 8 组件用例",
+          "status": "done"
+        },
+        {
+          "id": "M5.5",
+          "title": "产物详情：大图/多产物缩略条/参数 + 复用回填创作屏 + 下载相册 + 删除二次确认 + 8 组件用例",
+          "status": "done"
+        },
+        {
+          "id": "M5.6",
+          "title": "作业详情 JobTracker：共享缓存单点追踪，done→「查看详情」接管 ArtifactDetail + 8 组件用例 + 2 集成用例",
+          "status": "done"
+        },
+        {
+          "id": "M5.7",
+          "title": "全量回归：tsc 0 错 / lint 0 警 / jest 17 套件 130 用例，覆盖率行 96.22%（分支 94.35%）",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "M6",
+      "title": "视频/音频产物播放（expo-video 内嵌）+ 作品库提量虚拟化",
+      "status": "done",
+      "date": "2026-08-12",
+      "subtasks": [
+        {
+          "id": "M6.1",
+          "title": "后端契约验证（读 jobs.py 源码）：listJobs 仅 limit(≤200)+status，无 offset/cursor 分页",
+          "status": "done"
+        },
+        {
+          "id": "M6.2",
+          "title": "Expo v57 文档核对：expo-video useVideoPlayer/VideoView + expo-video ~57.0.2 依赖就位",
+          "status": "done"
+        },
+        {
+          "id": "M6.3",
+          "title": "产物详情：视频内嵌播放（VideoStage/VideoView 原生控制条）+ 音频·3D 图标占位 + JobTracker 非图像 done 预览回退类型图标 + 5 净增用例",
+          "status": "done"
+        },
+        {
+          "id": "M6.4",
+          "title": "作品库列表提量 LIBRARY_LIST_LIMIT=200 + FlatList 虚拟化（initialNumToRender/maxToRenderPerBatch/windowSize/removeClippedSubviews）+ 2 净增用例",
+          "status": "done"
+        },
+        {
+          "id": "M6.5",
+          "title": "全量回归：tsc 0 错 / lint 0 警 / jest 17 套件 135 用例，覆盖率 96.22%（分支 94.35%）",
+          "status": "done"
+        },
+        {
+          "id": "M6.6",
+          "title": "真机验证（EAS Build preview 构建）：随 M8.6 一并完成，Android preview 构建成功",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "M7",
+      "title": "版本链（rerun/versions 精确重生）+ 创作屏引擎参数动态表单",
+      "status": "done",
+      "date": "2026-08-12",
+      "subtasks": [
+        {
+          "id": "M7.1",
+          "title": "后端契约复核（读 apps/api 源码）：rerun/versions 端点 + has_params 门槛 + txt2img 引擎 params 形状",
+          "status": "done"
+        },
+        {
+          "id": "M7.2",
+          "title": "API 层：rerunJob/fetchVersions + SeedMode/RerunRequest/RerunResponse 类型 + 4 净增用例",
+          "status": "done"
+        },
+        {
+          "id": "M7.3",
+          "title": "产物详情：RerunSheet（seed 策略 keep/random）+ 版本链横向条带（选中态/切换回调）+ 净增用例",
+          "status": "done"
+        },
+        {
+          "id": "M7.4",
+          "title": "创作屏：ParamSheet 引擎参数动态表单（text/textarea/number/select/switch 渲染器 + 画幅预设承载 width/height + number 失焦 clamp）+ buildTxt2ImgRequest 序列化 + 草稿回填消费接通 + 6 净增用例",
+          "status": "done"
+        },
+        {
+          "id": "M7.5",
+          "title": "全量回归：tsc 0 错 / lint 0 警 / jest 17 套件 152 用例，覆盖率行 97.28%（分支 94.4%）",
+          "status": "done"
+        }
+      ]
+    }
+  ],
+  "next": {
+    "id": "M30",
+    "title": "候选方向：M18 Android 真机走查仍待用户（安装 APK 全链路点验，覆盖至 M30 全部链路，含对话助手附图选图/上传/发送/会话切换恢复）· Agent 四期 upload/reprompt（后端 501 待 R3.2 提供）· iOS 真机验证（需 Apple Developer 账号与设备 UDID）",
+    "status": "pending"
+  }
+}

@@ -44,6 +44,8 @@ export const FILTERS: FilterDef[] = [
       "ltx_t2v", "ltx_i2v", "ltx_lipsync", "ltx2_t2v", "ltx2_i2v",
       "ltx25_t2v", "ltx25_i2v",
       "frame_interpolate", "dub_lipsync_long", "manju_lipsync", "anime_lipsync",
+      // 视频超分(M6 fleet 帧级 4K 管线)
+      "video_upscale",
       // LongCat 长视频(t2v/i2v/续写)
       "longcat_t2v", "longcat_i2v", "longcat_continue",
       // LongCat-Avatar 数字人说话视频
@@ -109,6 +111,7 @@ export function kindLabel(kind: string): string {
     ltx25_t2v: "文生视频",
     ltx25_i2v: "图生视频",
     frame_interpolate: "补帧",
+    video_upscale: "视频超分",
     dub_lipsync_long: "长对口型",
     manju_lipsync: "对口型",
     anime_lipsync: "动漫对口型",
@@ -168,6 +171,32 @@ export function statusLabel(status: string): string {
     queued: "排队中",
   };
   return map[status] ?? status;
+}
+
+/** 卡片标题/副标拆分结果。 */
+export interface CardText {
+  /** 标题位文案(语义首段;无元信息串时为完整 prompt)。 */
+  title: string;
+  /** 副标元信息(分辨率/帧数/时长等;无则 null,不渲染副标行)。 */
+  meta: string | null;
+}
+
+/**
+ * 卡片标题/副标拆分(2026-08-16 视图批 1,审计 P2):
+ * 部分作业的 prompt 是后端管线写入的元信息串(视频超分:
+ * 「视频超分 4K · 1344×768 → 3840×2160 · 48帧@24fps」),整串当标题截断后可读性差。
+ * 此类作业标题只保留首段语义文案,其余「 · 」分段降级为副标一行;
+ * 普通用户提示词原样返回(用户文本可能含「 · 」,按 kind 白名单拆分,不误伤)。
+ */
+export function splitCardTitle(job: Pick<JobItem, "kind" | "prompt">): CardText {
+  const prompt = job.prompt ?? "";
+  if (job.kind === "video_upscale") {
+    const segs = prompt.split(" · ").map((s) => s.trim()).filter(Boolean);
+    if (segs.length > 1) {
+      return { title: segs[0], meta: segs.slice(1).join(" · ") };
+    }
+  }
+  return { title: prompt, meta: null };
 }
 
 export interface LibraryQuery {
@@ -268,21 +297,24 @@ export interface BatchDeleteResult {
 
 /**
  * 批量删除:顺序执行(不并发打满后端),单条失败不中断后续;
- * 全部尝试完毕后返回 done/failed 两组,由调用方更新列表与选中集。
+ * 全部尝试完毕后返回 done/failed 两组(含每条的撤销凭据),由调用方更新列表与选中集。
  */
 export async function deleteJobsBatch(
   ids: readonly string[],
-  deleteFn: (id: string) => Promise<void>,
-): Promise<BatchDeleteResult> {
+  deleteFn: (id: string) => Promise<{ undo_token?: string } | void>,
+): Promise<BatchDeleteResult & { undoTokens: string[] }> {
   const done: string[] = [];
   const failed: string[] = [];
+  const undoTokens: string[] = [];
   for (const id of ids) {
     try {
-      await deleteFn(id);
+      const r = await deleteFn(id);
       done.push(id);
+      const tok = (r as { undo_token?: string } | void)?.undo_token;
+      if (tok) undoTokens.push(tok);
     } catch {
       failed.push(id);
     }
   }
-  return { done, failed };
+  return { done, failed, undoTokens };
 }

@@ -13,13 +13,13 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, select
 
 import app.services.studio.orchestrator as orch
 from app.agent import llm
 from app.db import get_session
 from app.main import app
-from app.models import AgentRun, Tenant, User
+from app.models import AgentRun, AgentTask, Tenant, User
 from app.security import create_token, hash_password
 from app.services.studio import assemble as assemble_svc
 from app.services.studio import storyboard
@@ -193,7 +193,7 @@ def _create_run(client: TestClient, H: dict, goal: str = "拍一个短剧:雨夜
 
 
 def _wait_run(client: TestClient, H: dict, run_id: str, want: str, timeout: float = 10.0) -> dict:
-    """轮询 run 详情直到目标状态(后台执行器是异步协程)。"""
+    """轮询 run 详情直到目标状态(后台规划/执行器是异步协程)。"""
     deadline = time.time() + timeout
     last = ""
     detail = {}
@@ -207,6 +207,12 @@ def _wait_run(client: TestClient, H: dict, run_id: str, want: str, timeout: floa
     raise AssertionError(
         f"run {run_id} 未在 {timeout}s 内到达 {want}(当前 {last},tasks={states})"
     )
+
+
+def _create_planned(client: TestClient, H: dict, goal: str = "拍一个短剧:雨夜重逢") -> dict:
+    """创建并等后台规划完成(awaiting_confirm),返回详情(计划已可断言/操作)。"""
+    run_id = _create_run(client, H, goal)["run_id"]
+    return _wait_run(client, H, run_id, "awaiting_confirm")
 
 
 # ── ① L0 不建 run ────────────────────────────────────────────────────────────
@@ -223,7 +229,7 @@ def test_create_l0_returns_guidance_without_run(ctx):
     assert client.get("/api/agent-runs", headers=H).json() == []
 
 
-# ── ② L2 秒回契约 ───────────────────────────────────────────────────────────
+# ── ② L2 秒回契约(创建秒回 + 后台规划异步交付计划)───────────────────────────
 
 
 def test_create_l2_ack_plan_contract(ctx, monkeypatch):
@@ -233,8 +239,12 @@ def test_create_l2_ack_plan_contract(ctx, monkeypatch):
     body = _create_run(client, H)
     assert body["level"] == "L2"
     assert body["run_id"]
-    assert "已拆成" in body["ack"] and "后台执行" in body["ack"]
-    tasks = body["plan"]["tasks"]
+    assert "已接单" in body["ack"]
+    # 秒回响应不带计划:拆解在后台协程完成,经详情/SSE 到达
+    assert "plan" not in body
+    # 后台规划完成 → awaiting_confirm,计划结构完整
+    detail = _wait_run(client, H, body["run_id"], "awaiting_confirm")
+    tasks = detail["plan"]
     # 2 渲染卡 + 1 配音卡(视频镜带台词)+ 1 合成卡
     assert len(tasks) == 4
     assert [t["kind"] for t in tasks] == ["video", "audio", "image", "assemble"]
@@ -242,9 +252,6 @@ def test_create_l2_ack_plan_contract(ctx, monkeypatch):
     voice = tasks[1]
     assert voice["depends_on"] == [tasks[0]["id"]]
     assert set(tasks[3]["depends_on"]) == {t["id"] for t in tasks[:3]}
-    # 状态进计划确认门
-    detail = client.get(f"/api/agent-runs/{body['run_id']}", headers=H).json()
-    assert detail["status"] == "awaiting_confirm"
     assert detail["plan"][0]["input"]["prompt"].startswith("rain alley")
 
 
@@ -285,9 +292,9 @@ def test_plan_edit_update_remove_add(ctx, monkeypatch):
     client, token, _, _ = ctx
     H = _h(token)
     _mock_pipeline(monkeypatch)
-    body = _create_run(client, H)
-    run_id = body["run_id"]
-    tasks = body["plan"]["tasks"]
+    detail0 = _create_planned(client, H)
+    run_id = detail0["id"]
+    tasks = detail0["plan"]
     shot_id, voice_id, _, assemble_id = (t["id"] for t in tasks)
 
     r = client.post(
@@ -331,7 +338,7 @@ def test_full_flow_gates_to_done(ctx, monkeypatch):
     client, token, _, _ = ctx
     H = _h(token)
     _mock_pipeline(monkeypatch)
-    run_id = _create_run(client, H)["run_id"]
+    run_id = _create_planned(client, H)["id"]
 
     r = client.post(f"/api/agent-runs/{run_id}/resume", headers=H,
                     json={"gate": "plan", "action": "approve"})
@@ -387,7 +394,7 @@ def test_regenerate_attempt_limit(ctx, monkeypatch):
     client, token, _, _ = ctx
     H = _h(token)
     _mock_pipeline(monkeypatch)
-    run_id = _create_run(client, H)["run_id"]
+    run_id = _create_planned(client, H)["id"]
     client.post(f"/api/agent-runs/{run_id}/resume", headers=H,
                 json={"gate": "plan", "action": "approve"})
     detail = _wait_run(client, H, run_id, "awaiting_assembly")
@@ -421,40 +428,174 @@ def test_events_sse_reads_ack_and_plan(ctx, monkeypatch):
     client, token, _, _ = ctx
     H = _h(token)
     _mock_pipeline(monkeypatch)
-    run_id = _create_run(client, H)["run_id"]
-    # 取消使 run 进终态,SSE 推完残留事件即关流(测试可读完整响应体)
+    # 等后台规划完成(ack/plan 事件已落库),再取消进终态,SSE 推完残留事件即关流
+    run_id = _create_planned(client, H)["id"]
     client.post(f"/api/agent-runs/{run_id}/cancel", headers=H)
     r = client.get(f"/api/agent-runs/{run_id}/events?after=0", headers=H)
     assert r.status_code == 200, r.text
     assert "event: ack" in r.text
     assert "event: plan" in r.text
     assert "已拆成" in r.text
+    assert "event: confirm_required" in r.text
 
 
-# ── ⑩ upload/reprompt → 501 ──────────────────────────────────────────────────
+# ── ⑩ upload/reprompt ────────────────────────────────────────────────────────
 
 
-def test_upload_and_reprompt_501(ctx, monkeypatch):
+def _pin_studio_dir(monkeypatch, tmp_path):
+    """把 agent_team 的 drama_output_root 钉到临时目录(落盘/读取都走这里)。"""
+    from app.routes import agent_team as at
+
+    (tmp_path / "studio").mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(at, "drama_output_root", lambda: tmp_path)
+    return tmp_path / "studio"
+
+
+def test_upload_action_replaces_output(ctx, monkeypatch, tmp_path):
     client, token, _, _ = ctx
     H = _h(token)
     _mock_pipeline(monkeypatch)
-    body = _create_run(client, H)
-    run_id = body["run_id"]
-    task_id = body["plan"]["tasks"][0]["id"]
-    for action in ("upload", "reprompt"):
+    studio_dir = _pin_studio_dir(monkeypatch, tmp_path)
+    (studio_dir / "replacement.png").write_bytes(b"\x89PNG\r\n\x1a\nfake")
+    run_id = _create_planned(client, H)["id"]
+    client.post(f"/api/agent-runs/{run_id}/resume", headers=H,
+                json={"gate": "plan", "action": "approve"})
+    detail = _wait_run(client, H, run_id, "awaiting_assembly")
+    task = [t for t in detail["plan"] if t["kind"] == "video"][0]
+
+    # 合法本地产物 url → output 替换,卡片回 done,shot_id 映射保留
+    r = client.post(
+        f"/api/agent-runs/{run_id}/tasks/{task['id']}/action",
+        headers=H,
+        json={"action": "upload", "payload": {"url": "/api/studio/files/replacement.png"}},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["status"] == "done"
+    assert body["output"]["url"] == "/api/studio/files/replacement.png"
+    assert body["output"]["source"] == "upload"
+    assert body["output"]["shot_id"] == task["input"]["shot_id"]
+
+    # 外链/缺文件/缺 url → 400;合成卡 → 400
+    for bad in ("https://evil.com/x.png", "/api/studio/files/missing.png", ""):
         r = client.post(
-            f"/api/agent-runs/{run_id}/tasks/{task_id}/action",
+            f"/api/agent-runs/{run_id}/tasks/{task['id']}/action",
             headers=H,
-            json={"action": action},
+            json={"action": "upload", "payload": {"url": bad}},
         )
-        assert r.status_code == 501, action
-        assert r.json()["detail"] == "R3.2 提供"
+        assert r.status_code == 400, bad
+    assemble = [t for t in detail["plan"] if t["kind"] == "assemble"][0]
+    r = client.post(
+        f"/api/agent-runs/{run_id}/tasks/{assemble['id']}/action",
+        headers=H,
+        json={"action": "upload", "payload": {"url": "/api/studio/files/replacement.png"}},
+    )
+    assert r.status_code == 400
 
 
-# ── 附加:LLM 规划失败 → 503 ──────────────────────────────────────────────────
+def test_task_upload_multipart(ctx, monkeypatch, tmp_path):
+    client, token, _, _ = ctx
+    H = _h(token)
+    _mock_pipeline(monkeypatch)
+    studio_dir = _pin_studio_dir(monkeypatch, tmp_path)
+    run_id = _create_planned(client, H)["id"]
+    client.post(f"/api/agent-runs/{run_id}/resume", headers=H,
+                json={"gate": "plan", "action": "approve"})
+    detail = _wait_run(client, H, run_id, "awaiting_assembly")
+    task = [t for t in detail["plan"] if t["kind"] == "video"][0]
+
+    png = b"\x89PNG\r\n\x1a\n" + b"0" * 32
+    r = client.post(
+        f"/api/agent-runs/{run_id}/tasks/{task['id']}/upload",
+        headers=H,
+        files={"file": ("replacement.png", png, "image/png")},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["status"] == "done"
+    assert body["output"]["url"].startswith("/api/studio/files/")
+    assert body["output"]["source"] == "upload"
+    name = body["output"]["url"].rsplit("/", 1)[-1]
+    assert (studio_dir / name).read_bytes() == png  # 落盘真实存在
+
+    # 伪造扩展名(魔数不符)→ 415;合成卡 → 400
+    r = client.post(
+        f"/api/agent-runs/{run_id}/tasks/{task['id']}/upload",
+        headers=H,
+        files={"file": ("fake.png", b"MZ not a png", "image/png")},
+    )
+    assert r.status_code == 415
+    assemble = [t for t in detail["plan"] if t["kind"] == "assemble"][0]
+    r = client.post(
+        f"/api/agent-runs/{run_id}/tasks/{assemble['id']}/upload",
+        headers=H,
+        files={"file": ("replacement.png", png, "image/png")},
+    )
+    assert r.status_code == 400
 
 
-def test_create_llm_failure_503(ctx, monkeypatch):
+def test_reprompt_writes_reversed_prompt(ctx, monkeypatch, tmp_path):
+    client, token, _, _ = ctx
+    H = _h(token)
+    _mock_pipeline(monkeypatch)
+    studio_dir = _pin_studio_dir(monkeypatch, tmp_path)
+    run_id = _create_planned(client, H)["id"]
+    client.post(f"/api/agent-runs/{run_id}/resume", headers=H,
+                json={"gate": "plan", "action": "approve"})
+    detail = _wait_run(client, H, run_id, "awaiting_assembly")
+    task = [t for t in detail["plan"] if t["kind"] == "video"][0]
+    # 假渲染产物 url(/api/studio/files/{idx}.mp4)落盘成真文件,供反推读取
+    name = task["output"]["url"].rsplit("/", 1)[-1]
+    (studio_dir / name).write_bytes(b"\x00\x00\x00\x18ftypisom" + b"0" * 16)
+
+    from app.routes import agent_team as at
+    from app.routes.reverse import ReverseResponse
+
+    async def fake_reverse(content, filename, content_type, kind, nsfw):  # noqa: ANN001
+        assert kind == "video" and content.startswith(b"\x00\x00\x00\x18ftyp")
+        return ReverseResponse(kind=kind, prompt="reversed cinematic prompt", negative="blurry")
+
+    monkeypatch.setattr(at.reverse_svc, "reverse_visual", fake_reverse)
+    r = client.post(
+        f"/api/agent-runs/{run_id}/tasks/{task['id']}/action",
+        headers=H,
+        json={"action": "reprompt"},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["input"]["prompt"] == "reversed cinematic prompt"
+    assert body["input"]["negative"] == "blurry"
+    assert body["status"] == "done"  # 卡片保持 done,用户审阅后再决定是否重生成
+
+
+def test_reprompt_guards(ctx, monkeypatch, tmp_path):
+    client, token, _, _ = ctx
+    H = _h(token)
+    _mock_pipeline(monkeypatch)
+    _pin_studio_dir(monkeypatch, tmp_path)
+    detail0 = _create_planned(client, H)
+    run_id = detail0["id"]
+    tasks = detail0["plan"]
+    render = [t for t in tasks if t["kind"] == "video"][0]
+    assemble = [t for t in tasks if t["kind"] == "assemble"][0]
+
+    # 未产出 → 409;合成卡 → 400(非图像/视频)
+    r = client.post(
+        f"/api/agent-runs/{run_id}/tasks/{render['id']}/action",
+        headers=H, json={"action": "reprompt"},
+    )
+    assert r.status_code == 409
+    r = client.post(
+        f"/api/agent-runs/{run_id}/tasks/{assemble['id']}/action",
+        headers=H, json={"action": "reprompt"},
+    )
+    assert r.status_code == 400
+
+
+# ── 附加:后台规划失败 → run 落 error 态(不再同步 503)────────────────────────
+
+
+def test_create_plan_failure_lands_error(ctx, monkeypatch):
     client, token, _, _ = ctx
     H = _h(token)
 
@@ -462,12 +603,27 @@ def test_create_llm_failure_503(ctx, monkeypatch):
         raise storyboard.StoryboardError("LLM 不可用:连接超时")
 
     monkeypatch.setattr(storyboard, "parse_script", boom)
-    r = client.post("/api/agent-runs", headers=H, json={"goal": "拍一个短剧:x"})
-    assert r.status_code == 503
-    assert "规划失败" in r.json()["detail"]
+    # 创建仍秒回 200(规划已转后台);失败在后台落 error 终态 + 原因
+    body = _create_run(client, H, goal="拍一个短剧:x")
+    detail = _wait_run(client, H, body["run_id"], "error")
+    assert "规划失败" in detail["error"]
+    assert "连接超时" in detail["error"]
 
 
-# ── ⑥ Director Gate:LLM 分级成功走 LLM 结果 ─────────────────────────────────
+def test_create_plan_unexpected_error_lands_error(ctx, monkeypatch):
+    client, token, _, _ = ctx
+    H = _h(token)
+
+    async def boom(premise, num_shots=8, style=""):  # noqa: ANN001
+        raise RuntimeError("意外的内部错误")
+
+    monkeypatch.setattr(storyboard, "parse_script", boom)
+    body = _create_run(client, H, goal="拍一个短剧:y")
+    detail = _wait_run(client, H, body["run_id"], "error")
+    assert "规划拆解失败" in detail["error"]  # 意外异常不透原始细节,给规范文案
+
+
+# ── ⑥ Director Gate:LLM 分级成功,后台校准 run.level ─────────────────────────
 
 
 def test_classify_llm_success_uses_llm_level(ctx, monkeypatch):
@@ -479,12 +635,12 @@ def test_classify_llm_success_uses_llm_level(ctx, monkeypatch):
         return {"content": '{"level": "L2", "reason": "多镜头叙事属于复杂项目"}'}
 
     monkeypatch.setattr(llm, "chat", fake_chat)
-    # 「视频」关键词使启发式判 L0;LLM 判 L2 → 响应 level 证明生效的是 LLM 结果
-    r = client.post("/api/agent-runs", headers=H, json={"goal": "帮我做一个视频:小猫的一天"})
-    assert r.status_code == 200, r.text
-    body = r.json()
-    assert body["level"] == "L2"
-    assert body["run_id"]
+    # 无 L0/L2 关键词 → 启发式即时分流判 L1(创建秒回即此值);
+    # 后台 LLM 判 L2 → 规划完成后 run.level 校准为 L2
+    body = _create_run(client, H, goal="小猫的一天")
+    assert body["level"] == "L1"
+    detail = _wait_run(client, H, body["run_id"], "awaiting_confirm")
+    assert detail["level"] == "L2"
     # 分级证据落 plan_json.meta.classify(不进入任何响应字段,响应形状不变)
     with Session(engine) as s:
         run = s.get(AgentRun, body["run_id"])
@@ -506,18 +662,146 @@ def test_classify_llm_failure_falls_back_to_heuristic(ctx, monkeypatch):
     # 场景一:LLM 抛错(autouse 替身已是此行为,显式再覆写以自文档化)
     body = _create_run(client, H)  # goal 含「短剧」关键词 → 启发式 L2
     assert body["level"] == "L2"
+    _wait_run(client, H, body["run_id"], "awaiting_confirm")
     with Session(engine) as s:
         meta = json.loads(s.get(AgentRun, body["run_id"]).plan_json)["meta"]["classify"]
     assert meta["source"] == "heuristic"
     assert meta["level"] == "L2"
 
-    # 场景二:LLM 返回非法 JSON(非 JSON 文本)→ 同样回退,不阻塞创建
+    # 场景二:LLM 返回非法 JSON(非 JSON 文本)→ 同样回退,不阻塞规划
     async def garbage(messages, tools=None, max_tokens=None, temperature=0.4):  # noqa: ANN001
         return {"content": "我觉得这个任务挺复杂的……"}
 
     monkeypatch.setattr(llm, "chat", garbage)
     body2 = _create_run(client, H, goal="拍一个短剧:雨夜告别")
     assert body2["level"] == "L2"
+    _wait_run(client, H, body2["run_id"], "awaiting_confirm")
     with Session(engine) as s:
         meta2 = json.loads(s.get(AgentRun, body2["run_id"]).plan_json)["meta"]["classify"]
     assert meta2["source"] == "heuristic"
+
+
+# ── ⑧ verdict 序列化契约:任何状态一律返回字符串(React #31 崩溃根因修复)──────
+
+
+def test_verdict_serialized_as_string(ctx, monkeypatch):
+    client, token, engine, _ = ctx
+    H = _h(token)
+    _mock_pipeline(monkeypatch)
+    detail = _create_planned(client, H)
+    run_id = detail["id"]
+    task_id = detail["plan"][0]["id"]
+
+    def _set_verdict(raw: str) -> str:
+        with Session(engine) as s:
+            t = s.get(AgentTask, task_id)
+            t.verdict_json = raw
+            s.add(t)
+            s.commit()
+        plan = client.get(f"/api/agent-runs/{run_id}", headers=H).json()["plan"]
+        return [t for t in plan if t["id"] == task_id][0]["verdict"]
+
+    # 空(初始)→ 空串;空 dict → 空串;JSON 字符串 → 原样;dict 提取文本键;
+    # dict 无已知键 → 紧凑 JSON;损坏串 → 空串。全部为 string 类型。
+    assert _set_verdict("") == ""
+    assert _set_verdict("{}") == ""
+    assert _set_verdict('{"error": "显存不足,请降帧"}') == "显存不足,请降帧"
+    assert _set_verdict('{"summary": "验收通过", "score": 9}') == "验收通过"
+    assert _set_verdict('"人工评语:构图合格"') == "人工评语:构图合格"
+    assert _set_verdict('{"score": 3, "tags": ["a"]}') == '{"score":3,"tags":["a"]}'
+    assert _set_verdict("corrupt-not-json") == ""
+    for raw in ('', "{}", '{"error": "x"}', '"s"', '{"a": 1}', "bad"):
+        v = _set_verdict(raw)
+        assert isinstance(v, str), f"verdict 必须是字符串,实际 {type(v)}({raw!r})"
+
+
+# ── ⑨ 创建秒回:慢拆解不挡响应;规划中状态可见;完成后进确认门 ──────────────────
+
+
+def test_create_returns_immediately_while_planning_runs_in_bg(ctx, monkeypatch):
+    client, token, _, _ = ctx
+    H = _h(token)
+
+    async def slow_parse(premise, num_shots=8, style=""):  # noqa: ANN001
+        await asyncio.sleep(2)  # 模拟真实 LLM 拆解耗时(实测 20-30s 的缩放)
+        return await _fake_parse()(premise, num_shots, style)
+
+    monkeypatch.setattr(storyboard, "parse_script", slow_parse)
+    started = time.monotonic()
+    body = _create_run(client, H)
+    elapsed = time.monotonic() - started
+    assert elapsed < 2.0, f"创建必须秒回(实际 {elapsed:.2f}s,撞上 2s 慢拆解)"
+    assert body["run_id"]
+    # 规划未完成:状态 planning,计划为空(前端经 SSE/轮询等 plan)
+    detail = client.get(f"/api/agent-runs/{body['run_id']}", headers=H).json()
+    assert detail["status"] == "planning"
+    assert detail["plan"] == []
+    # 后台规划完成 → 进计划确认门,任务卡片就绪
+    detail = _wait_run(client, H, body["run_id"], "awaiting_confirm", timeout=15.0)
+    assert len(detail["plan"]) == 4
+
+
+# ── ⑩ 规划进行中不可 approve(防空计划启动执行器)─────────────────────────────
+
+
+def test_resume_approve_during_planning_409(ctx, monkeypatch):
+    client, token, _, _ = ctx
+    H = _h(token)
+
+    async def slow_parse(premise, num_shots=8, style=""):  # noqa: ANN001
+        await asyncio.sleep(2)
+        return await _fake_parse()(premise, num_shots, style)
+
+    monkeypatch.setattr(storyboard, "parse_script", slow_parse)
+    body = _create_run(client, H)
+    r = client.post(
+        f"/api/agent-runs/{body['run_id']}/resume",
+        headers=H,
+        json={"gate": "plan", "action": "approve"},
+    )
+    assert r.status_code == 409
+    assert "规划拆解进行中" in r.json()["detail"]
+    # 清理:取消进终态;后台规划醒来看见终态静默退出(不覆盖 canceled)
+    client.post(f"/api/agent-runs/{body['run_id']}/cancel", headers=H)
+    detail = _wait_run(client, H, body["run_id"], "canceled", timeout=15.0)
+    assert detail["status"] == "canceled"
+
+
+# ── ⑪ 启动恢复:planning 且无任务的 run 重挂规划;reject 挂起态不推进 ──────────
+
+
+def test_resume_unfinished_plans_respawns_stuck_planning(ctx, monkeypatch):
+    client, token, engine, _ = ctx
+    H = _h(token)
+    _mock_pipeline(monkeypatch)
+    from app.routes import agent_team as at
+
+    with Session(engine) as s:
+        uid = s.exec(select(User).where(User.email == "leader@toiv.ai")).first().id
+        # 进程在后台规划中途重启的现场:run 停 planning 且 plan 无任务
+        stuck = AgentRun(
+            user_id=uid, level="L2", goal="拍一个短剧:重启恢复", status="planning",
+            plan_json=json.dumps({"tasks": [], "opts": {}, "meta": {}}, ensure_ascii=False),
+        )
+        # reject 打回挂起态:planning 但已有任务(等用户裁决,不自动推进)
+        rejected = AgentRun(
+            user_id=uid, level="L2", goal="打回挂起", status="planning",
+            plan_json=json.dumps(
+                {"tasks": [{"id": "t1"}], "opts": {}, "meta": {}}, ensure_ascii=False
+            ),
+        )
+        s.add(stuck)
+        s.add(rejected)
+        s.commit()
+        s.refresh(stuck)
+        s.refresh(rejected)
+        stuck_id, rejected_id = stuck.id, rejected.id
+
+    n = at.resume_unfinished_plans(engine)
+    assert n == 1, "仅重挂『无任务』的规划中断 run"
+    # 重挂的规划协程跑完 → 进确认门
+    detail = _wait_run(client, H, stuck_id, "awaiting_confirm")
+    assert len(detail["plan"]) == 4
+    # reject 挂起态原样保留
+    detail2 = client.get(f"/api/agent-runs/{rejected_id}", headers=H).json()
+    assert detail2["status"] == "planning"

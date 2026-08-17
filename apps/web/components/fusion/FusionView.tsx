@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { Card } from "@/components/ui/Card";
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { PageHeader } from "@/components/ui/PageHeader";
 import "@/app/styles/fusion.css";
 
 interface FusionApp {
@@ -17,6 +18,8 @@ interface FusionApp {
   tags: string[];
   /** 旗舰卡:bento 网格中跨两列做 hero(更大的信息容量) */
   flagship?: boolean;
+  /** 旗舰卡辅助信息(2026-08-16 视图批 1):流程步骤行,填补 hero 上半部留白 */
+  flow?: string[];
 }
 
 const FUSION_APPS: FusionApp[] = [
@@ -27,6 +30,7 @@ const FUSION_APPS: FusionApp[] = [
     desc: "剧本 → 角色 → 分镜 → 成片:每个分镜独立选择视频生成或图像运镜,一站式创作。",
     tags: ["AI 拆解", "分镜混排", "配音合成"],
     flagship: true,
+    flow: ["剧本", "角色", "分镜", "成片"],
   },
   {
     target: "avatartalk",
@@ -74,26 +78,21 @@ export function FusionView({ onNavigate }: { onNavigate: (target: string) => voi
 
   return (
     <div className="fusion-view">
-      {/* ── 头部(统一 .page-header 体系)── */}
-      <header className="page-header fusion-header">
-        <div className="fusion-header-main">
-          <h1 className="page-header-title">融合应用</h1>
-          <p className="page-header-desc">
-            多能力组合的创作入口:剧本、数字人、译制、图片与视频,一站式完成
-          </p>
-        </div>
-        <div className="page-header-actions">
-          <span className="fusion-count">{FUSION_APPS.length} 个应用</span>
-        </div>
-      </header>
+      {/* ── 头部:统一 PageHeader(Atelier masthead:kicker + Fraunces 标题 + 编辑双线)── */}
+      <PageHeader
+        className="fusion-header"
+        kicker="FUSION ATELIER"
+        title="融合应用"
+        desc="多能力组合的创作入口:剧本、数字人、译制、图片与视频,一站式完成"
+        actions={<span className="fusion-count">{FUSION_APPS.length} 个应用</span>}
+      />
 
       {/* ── bento 应用卡网格 ── */}
       <div className="fusion-grid">
         {FUSION_APPS.map((app, idx) => (
           <Card
             key={app.name}
-            hoverable
-            className={`fusion-card${app.flagship ? " is-flagship" : ""}${mounted ? " is-mounted" : ""}`}
+            className={`at-card at-card--lift fusion-card${app.flagship ? " is-flagship" : ""}${mounted ? " is-mounted" : ""}`}
             style={{ "--delay": `${idx * 60}ms` } as React.CSSProperties}
             onClick={() => onNavigate(app.target)}
             /* 键盘可操作(UI-B:focus 态补齐的前提):div 卡片获得焦点组语义,
@@ -107,6 +106,13 @@ export function FusionView({ onNavigate }: { onNavigate: (target: string) => voi
               }
             }}
           >
+            {/* 旗舰卡装饰:右侧细线水印图标,填补 hero 右半留白(纯装饰,不响应事件) */}
+            {app.flagship && (
+              <div className="fusion-card-deco" aria-hidden="true">
+                <Icon name={app.icon} size={168} strokeWidth={0.5} />
+              </div>
+            )}
+
             {/* 图标 + 名称 + 旗舰徽标 + 进入箭头 */}
             <div className="fusion-card-head">
               <div className="fusion-card-icon-wrap">
@@ -114,7 +120,7 @@ export function FusionView({ onNavigate }: { onNavigate: (target: string) => voi
               </div>
               <div className="fusion-card-title-group">
                 <h2 className="fusion-card-name">{app.name}</h2>
-                {app.flagship && <span className="fusion-card-badge">旗舰</span>}
+                {app.flagship && <span className="at-badge at-badge--accent fusion-card-badge">旗舰</span>}
                 <div className="fusion-card-arrow" aria-hidden="true">
                   <Icon name="chevron-right" size={16} />
                 </div>
@@ -124,18 +130,30 @@ export function FusionView({ onNavigate }: { onNavigate: (target: string) => voi
             {/* 一句话价值描述 */}
             <p className="fusion-card-desc">{app.desc}</p>
 
-            {/* 能力标签 */}
+            {/* 旗舰卡辅助信息:流程步骤行(2026-08-16 视图批 1,填补 hero 上半部留白) */}
+            {app.flow && (
+              <ol className="fusion-card-flow" aria-label={`${app.name}流程`}>
+                {app.flow.map((step, i) => (
+                  <li key={step} className="fusion-card-flow-step">
+                    <span className="fusion-card-flow-num">{String(i + 1).padStart(2, "0")}</span>
+                    {step}
+                  </li>
+                ))}
+              </ol>
+            )}
+
+            {/* 能力标签(编辑徽章 hairline 语言) */}
             <div className="fusion-card-tags">
               {app.tags.map((tag) => (
-                <span key={tag} className="fusion-tag">
+                <span key={tag} className="at-badge fusion-tag">
                   {tag}
                 </span>
               ))}
             </div>
 
-            {/* 底部操作区 */}
+            {/* 底部操作区(墨丸主钮) */}
             <div className="fusion-card-footer">
-              <span className="fusion-card-cta">
+              <span className="at-btn at-btn--primary fusion-card-cta">
                 进入应用
                 <Icon name="chevron-right" size={14} />
               </span>

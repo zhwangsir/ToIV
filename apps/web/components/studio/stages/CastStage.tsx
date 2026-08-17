@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState, type TextareaHTMLAttributes } from "react";
 import {
   addStudioCharacter,
   deleteStudioCharacter,
@@ -11,12 +11,24 @@ import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
+import { useAutoResize } from "@/hooks/useAutoResize";
 import type { useStudioProject } from "@/hooks/useStudioProject";
 
 /**
  * ② 角色阶段:角色卡 CRUD(跨镜一致性锚点)。
  * 内联编辑失焦即存;voice_ref_url M4 只读展示,参考音上传后续扩展。
  */
+
+/**
+ * 角色卡描述框(非受控 defaultValue + onBlur 落库):自动增高包装,
+ * 初始按已有内容撑开,键入由 hook 的 input 监听即时重算。
+ */
+function CastTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const ref = useRef<HTMLTextAreaElement | null>(null);
+  useAutoResize(ref, String(props.defaultValue ?? ""));
+  return <textarea ref={ref} {...props} />;
+}
+
 export function CastStage({
   project,
   onDone,
@@ -101,7 +113,7 @@ export function CastStage({
               </button>
             </div>
             <label className="studio-label">角色描述</label>
-            <textarea
+            <CastTextarea
               className="input"
               rows={2}
               defaultValue={c.description}
@@ -112,7 +124,7 @@ export function CastStage({
               }
             />
             <label className="studio-label">视觉提示词(英文)</label>
-            <textarea
+            <CastTextarea
               className="input"
               rows={2}
               defaultValue={c.visual_prompt}

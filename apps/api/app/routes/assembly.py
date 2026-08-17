@@ -59,6 +59,10 @@ _OUTPUT_NAME_RE = re.compile(r"^manju-[0-9a-f]{32}\.mp4$")
 _DRAMA_OUTPUT_NAME_RE = re.compile(r"^drama-[0-9a-f]{32}\.mp4$")
 _DEFAULT_FPS = 16
 _CROSSFADE_SEC = 0.5  # 相邻片段交叠时长
+# P1 接缝级重叠(overlap seam):12-18 帧按项目 fps 折算,clamp 到 0.4-0.75s
+_OVERLAP_FRAMES = 15
+_OVERLAP_MIN_SEC = 0.4
+_OVERLAP_MAX_SEC = 0.75
 _CLIP_EST_SEC = 2.0  # xfade offset 估计:每片段约 2s(漫剧片段普遍偏短)
 _DOWNLOAD_TIMEOUT = 120.0
 _DOWNLOAD_CONCURRENCY = 4  # 片段并发下载上限(同一 httpx client 复用,限流防压垮源端)
@@ -380,6 +384,36 @@ def _ffmpeg_has_drawtext() -> bool:
 _HAS_DRAWTEXT = _ffmpeg_has_drawtext()
 
 
+def _embedded_clip_audio_filters(
+    n: int, durations: list[float], silent_idx: dict[int, int]
+) -> tuple[list[str], list[str]]:
+    """逐镜内嵌音轨归一(与视频 trim 对齐防音画漂移):有音轨片段 aresample 到
+    stereo/44.1k,无音轨片段用 anullsrc 静音输入(silent_idx)补偿。
+    返回 (filters, alabels),供 concat 或 acrossfade 链引用。
+    """
+    filters: list[str] = []
+    alabels: list[str] = []
+    for i in range(n):
+        dur = durations[i] if i < len(durations) else _CLIP_EST_SEC
+        if i in silent_idx:
+            filters.append(
+                f"[{silent_idx[i]}:a]atrim=0:{dur:.2f},asetpts=PTS-STARTPTS[a{i}]"
+            )
+        else:
+            filters.append(
+                f"[{i}:a]atrim=0:{dur:.2f},asetpts=PTS-STARTPTS,"
+                f"aresample=44100,aformat=channel_layouts=stereo[a{i}]"
+            )
+        alabels.append(f"a{i}")
+    return filters, alabels
+
+
+def _overlap_xfade_sec(fps: int) -> float:
+    """overlap 接缝交叠时长:12-18 帧(取中值 15)按项目 fps 折算,clamp 0.4-0.75s。"""
+    sec = _OVERLAP_FRAMES / max(1, fps)
+    return min(_OVERLAP_MAX_SEC, max(_OVERLAP_MIN_SEC, sec))
+
+
 def _build_ffmpeg_command(
     clips: list[Path],
     options: AssembleOptions,
@@ -390,30 +424,63 @@ def _build_ffmpeg_command(
     dims: tuple[int, int],
     out: Path,
     clip_audio: list[bool] | None = None,
+    seams: list[str] | None = None,
 ) -> list[str]:
     """构造 ffmpeg 命令。
 
     - 字幕:drawtext 可用→逐 clip drawtext;不可用→Pillow 渲染 PNG + overlay(每镜一个 PNG input)。
     - 转场 none:用 concat 滤镜首尾相接;crossfade:用 xfade 链式交叠。
+    - P1 接缝级转场(seams,可选):seams[i] 为第 i 镜与第 i+1 镜的接缝策略——
+      "overlap" → 该接缝 xfade 交叠(12-18 帧按 fps 折算,clamp 0.4-0.75s),
+      内嵌音轨模式下音轨 acrossfade 同 duration 配对;
+      已声明非 overlap(continue/matchcut/hardcut)→ 该接缝硬切;
+      未声明(空串)→ 沿用全局 transition(向后兼容);
+      seams=None 或全部未声明时完全走旧行为(命令形状不变)。
     - 音频:有配音则逐镜按片段起始偏移 adelay 对齐成对白轨,叠可选 BGM(降音垫底)amix;
       无配音仅 BGM 时沿用原单轨逻辑(漫剧片段普遍无声)。
-    - 片段内嵌音轨(clip_audio,可选):无配音、无 BGM、至少一片段有音轨且转场为 none 时,
-      保留片段原生音轨——有音轨片段 aresample 归一,无音轨片段补 anullsrc 静音,
-      concat 带音频输出;其他情形(None/有配音/有 BGM/crossfade)保持旧行为(不映射内嵌音轨)。
+    - 片段内嵌音轨(clip_audio,可选):无配音、无 BGM、至少一片段有音轨且转场为 none
+      (或接缝计划含 xfade)时,保留片段原生音轨——有音轨片段 aresample 归一,
+      无音轨片段补 anullsrc 静音,concat/acrossfade 带音频输出;其他情形保持旧行为。
     """
     has_voice = any(v is not None for v in voices)
-    # 内嵌音轨模式判定:配音/BGM 优先(内嵌音轨丢弃,仅记日志);
-    # crossfade 的 acrossfade 混音链超出本批范围,保持旧行为并 warning。
+    # 内嵌音轨模式判定:配音/BGM 优先(内嵌音轨丢弃,仅记日志)
     has_embedded = bool(clip_audio) and any(clip_audio)
     if has_embedded and (has_voice or bgm is not None):
         logger.info("合成:片段内嵌音轨被配音/BGM 覆盖,不映射内嵌音轨")
+    # 接缝级转场计划:逐接缝 (kind, duration);kind ∈ {"xfade", "cut"}。
+    # 仅当存在已声明(非空)接缝时启用;全部未声明走旧分支,命令形状与历史完全一致。
+    seam_plan: list[tuple[str, float]] | None = None
+    if (
+        seams is not None
+        and len(clips) > 1
+        and any((seams[i] if i < len(seams) else "") for i in range(len(clips) - 1))
+    ):
+        seam_plan = []
+        for i in range(len(clips) - 1):
+            s = seams[i] if i < len(seams) else ""
+            if s == "overlap":
+                seam_plan.append(("xfade", _overlap_xfade_sec(options.fps)))
+            elif s in ("continue", "matchcut", "hardcut"):
+                seam_plan.append(("cut", 0.0))
+            elif options.transition == "crossfade":
+                seam_plan.append(("xfade", _CROSSFADE_SEC))
+            else:
+                seam_plan.append(("cut", 0.0))
+    plan_has_xfade = bool(seam_plan) and any(k == "xfade" for k, _ in seam_plan)
     use_embedded = (
         has_embedded
         and not has_voice
         and bgm is None
-        and options.transition == "none"
+        and (options.transition == "none" or plan_has_xfade)
     )
-    if has_embedded and not has_voice and bgm is None and options.transition != "none":
+    if (
+        has_embedded
+        and not has_voice
+        and bgm is None
+        and options.transition != "none"
+        and not plan_has_xfade
+    ):
+        # 旧全局 crossfade(无接缝声明)仍不支持保留内嵌音轨;接缝级 xfade 走 acrossfade
         logger.warning(
             "合成:crossfade 转场暂不支持保留片段内嵌音轨(acrossfade 混音链未实现),内嵌音轨将被丢弃"
         )
@@ -504,7 +571,46 @@ def _build_ffmpeg_command(
 
 
     aout: str | None = None
-    if options.transition == "crossfade" and len(clips) > 1:
+    if seam_plan is not None and len(clips) > 1:
+        # ── P1 接缝级混合链:xfade 接缝交叠 / 硬切接缝 concat,同一条 filtergraph 混排 ──
+        prev = vlabels[0]
+        acc = durations[0] if durations else _CLIP_EST_SEC
+        for i in range(1, len(clips)):
+            kind, dsec = seam_plan[i - 1]
+            cur_dur = durations[i] if i < len(durations) else _CLIP_EST_SEC
+            if kind == "xfade":
+                # 交叠落在累积时间线尾部:offset = 已累积时长 - 交叠时长(精确不漂移)
+                offset = max(0.1, acc - dsec)
+                filters.append(
+                    f"[{prev}][{vlabels[i]}]xfade=transition=fade"
+                    f":duration={dsec:.2f}:offset={offset:.2f}[xf{i}]"
+                )
+                acc = acc + cur_dur - dsec
+                prev = f"xf{i}"
+            else:
+                filters.append(f"[{prev}][{vlabels[i]}]concat=n=2:v=1:a=0[cc{i}]")
+                acc += cur_dur
+                prev = f"cc{i}"
+        vout = prev
+        if use_embedded:
+            # 内嵌音轨与视频链配对:xfade 接缝 acrossfade(同 duration),硬切接缝 a=1 concat
+            af, alabels = _embedded_clip_audio_filters(len(clips), durations, silent_idx)
+            filters.extend(af)
+            aprev = alabels[0]
+            for i in range(1, len(clips)):
+                kind, dsec = seam_plan[i - 1]
+                if kind == "xfade":
+                    filters.append(
+                        f"[{aprev}][{alabels[i]}]acrossfade=d={dsec:.2f}[ax{i}]"
+                    )
+                    aprev = f"ax{i}"
+                else:
+                    filters.append(
+                        f"[{aprev}][{alabels[i]}]concat=n=2:v=0:a=1[ac{i}]"
+                    )
+                    aprev = f"ac{i}"
+            aout = aprev
+    elif options.transition == "crossfade" and len(clips) > 1:
         prev = vlabels[0]
         offset = 0.0
         for i in range(1, len(clips)):
@@ -521,19 +627,8 @@ def _build_ffmpeg_command(
     elif use_embedded:
         # 内嵌音轨链:逐镜音频按该镜有效时长截齐(与视频 trim 对齐防音画漂移),
         # 有音轨片段归一到 stereo/44.1k,无音轨片段用 anullsrc 补偿,concat 带音频。
-        alabels: list[str] = []
-        for i in range(len(clips)):
-            dur = durations[i] if i < len(durations) else _CLIP_EST_SEC
-            if i in silent_idx:
-                filters.append(
-                    f"[{silent_idx[i]}:a]atrim=0:{dur:.2f},asetpts=PTS-STARTPTS[a{i}]"
-                )
-            else:
-                filters.append(
-                    f"[{i}:a]atrim=0:{dur:.2f},asetpts=PTS-STARTPTS,"
-                    f"aresample=44100,aformat=channel_layouts=stereo[a{i}]"
-                )
-            alabels.append(f"a{i}")
+        af, alabels = _embedded_clip_audio_filters(len(clips), durations, silent_idx)
+        filters.extend(af)
         concat_inputs = "".join(
             f"[{vlabels[i]}][{alabels[i]}]" for i in range(len(clips))
         )

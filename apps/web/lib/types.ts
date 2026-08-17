@@ -72,6 +72,8 @@ export interface GenerateResponse {
   client_id: string;
   worker: string;
   seed: number;
+  /** 时长策略提示(网格裁切/分段续写时后端给的人话说明;结果区 muted 展示) */
+  duration_notice?: string;
 }
 
 // ── LTX2.3 视频生成(NSFW 专区)──
@@ -80,7 +82,10 @@ export interface LtxT2VParams {
   negative?: string;
   width: number;
   height: number;
-  length: number;
+  /** 时长(秒),优先于 length;网格/裁切由后端统一策略层负责 */
+  duration_sec?: number;
+  /** 兼容入参(deprecated):帧数 8k+1,9-241 */
+  length?: number;
   fps: number;
   steps: number;
   cfg: number;
@@ -158,6 +163,9 @@ export interface JobItem {
   has_params?: boolean;
   /** R18 标记:仅 /nsfw 专区(带 X-NSFW)列表含 R18 作品,前端据此过滤专区作品库。 */
   nsfw?: boolean;
+  /** 时长后处理标记:processing 时 results 为未裁原片,结果区应显示「精确裁切中」;
+   *  清零后 results 为终产物(trim/extend 完成后回写)。 */
+  post_status?: string;
 }
 
 export type LocalModels = Record<string, string[]>;

@@ -1,7 +1,8 @@
 /**
  * Agent Team(R3.1)API client 单测(node:test,真实 ../lib/api + fetch 桩):
  * 逐函数断言 URL / 方法 / body / Authorization 头(契约 §1.3.3 不得偏离);
- * 501(upload/reprompt 本期未开放)断言 detail 原样透出。
+ * upload/reprompt 已开放:agentTaskAction 直返任务详情(顶层无包装),
+ * uploadAgentTaskAsset 走 multipart(FormData 透传,不手设 Content-Type)。
  * token 经假 window.localStorage 注入(API_BASE 在模块加载期已定,不影响断言)。
  */
 import assert from "node:assert/strict";
@@ -47,7 +48,8 @@ beforeEach(() => {
       url: String(input),
       method: init?.method ?? "GET",
       headers: (init?.headers ?? {}) as Record<string, string>,
-      body: typeof init?.body === "string" ? JSON.parse(init.body) : undefined,
+      // JSON 字符串 body 解析为对象;FormData 等非串 body 原样透传(multipart 断言用)
+      body: typeof init?.body === "string" ? JSON.parse(init.body) : init?.body,
     });
     const next = responds.shift() ?? { status: 200, body: {} };
     return new Response(JSON.stringify(next.body), {
@@ -133,18 +135,30 @@ test("resumeAgentRun:POST /resume,gate/action/feedback 契约字段", async () =
   assert.deepEqual(c.body, { gate: "plan", action: "reject", feedback: "角色发色不一致" });
 });
 
-test("agentTaskAction:POST tasks/{tid}/action;501 detail 原样透出", async () => {
-  responds.push({ status: 200, body: { ok: true, task: { id: "t2", attempt: 1 } } });
+test("agentTaskAction:POST tasks/{tid}/action;后端直返任务详情(顶层无包装)", async () => {
+  responds.push({ status: 200, body: { id: "t2", attempt: 1 } });
   const res = await agentTaskAction("r1", "t2", { action: "regenerate", payload: { guidance: "发色一致" } });
   const c = fetchCalls[0];
   assert.equal(c.method, "POST");
   assert.ok(c.url.endsWith("/api/agent-runs/r1/tasks/t2/action"));
   assert.deepEqual(c.body, { action: "regenerate", payload: { guidance: "发色一致" } });
-  assert.equal(res.task.attempt, 1);
+  assert.equal(res.attempt, 1);
 
-  // upload/reprompt 本期 501:错误 detail 原样抛出(UI 置灰不调用,但函数行为要对)
-  responds.push({ status: 501, body: { detail: "本期未开放" } });
-  await assert.rejects(agentTaskAction("r1", "t2", { action: "upload" }), /本期未开放/);
+  // 错误 detail 原样抛出(如 upload 非法 url 的 400)
+  responds.push({ status: 400, body: { detail: "产物不存在或非法 url(仅支持本地产物)" } });
+  await assert.rejects(agentTaskAction("r1", "t2", { action: "upload" }), /非法 url/);
+});
+
+test("uploadAgentTaskAsset:POST multipart,不手设 Content-Type", async () => {
+  const { uploadAgentTaskAsset } = await import("../lib/api");
+  responds.push({ status: 200, body: { id: "t2", status: "done", output: { url: "/api/studio/files/x.png", source: "upload" } } });
+  const file = new File(["png-bytes"], "replacement.png", { type: "image/png" });
+  const res = await uploadAgentTaskAsset("r1", "t2", file);
+  const c = fetchCalls[0];
+  assert.equal(c.method, "POST");
+  assert.ok(c.url.endsWith("/api/agent-runs/r1/tasks/t2/upload"));
+  assert.ok(c.body instanceof FormData, "body 为 FormData");
+  assert.equal(res.output?.source, "upload");
 });
 
 test("cancelAgentRun:POST /cancel 无 body", async () => {

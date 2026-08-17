@@ -31,8 +31,9 @@ import asyncio
 import json
 import logging
 import re
+import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 from sse_starlette.sse import EventSourceResponse
@@ -49,7 +50,10 @@ from app.models import (
     AgentTask,
     User,
 )
+from app.nsfw_ctx import nsfw_allowed
 from app.ratelimit import enforce_rate_limit
+from app.routes import reverse as reverse_svc
+from app.routes.upload import _validate_upload
 from app.services import agent_team_graph
 from app.services.agent_team_exec import (
     _ACTIVE_RUNS,
@@ -69,6 +73,7 @@ from app.services.agent_team_exec import (
     _utcnow,
 )
 from app.services.studio import storyboard as storyboard_svc
+from app.storage import drama_output_root
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -176,14 +181,42 @@ def _task_brief(t: AgentTask) -> dict:
     }
 
 
+# verdict 提取为文本时的优先键(执行器写 {"error": ...};Verifier/存量数据
+# 可能是 {"summary"/"reason"/"text": ...} 等布局)
+_VERDICT_TEXT_KEYS = ("summary", "reason", "text", "error", "message")
+
+
+def _verdict_text(raw: str) -> str:
+    """verdict 序列化契约:任何状态一律返回字符串(前端按 string 直渲 JSX)。
+
+    存量 dict(如 _mark_task_error 写的 {"error": msg})提取summary/reason/
+    text/error/message 首个非空文本字段;都没有则紧凑 JSON 展开;空/损坏 → "";
+    JSON 字符串原样返回。历史返回对象会让 React 以「Objects are not valid as a
+    React child」整页崩溃,故此处钉死 string 契约。
+    """
+    v = _loads(raw, "")
+    if isinstance(v, str):
+        return v
+    if not v:
+        return ""  # None/空串/空 dict/空 list 一律归空
+    if isinstance(v, dict):
+        for k in _VERDICT_TEXT_KEYS:
+            s = v.get(k)
+            if isinstance(s, str) and s.strip():
+                return s
+        return json.dumps(v, ensure_ascii=False, separators=(",", ":"))
+    # 其他标量(list/number/bool)紧凑展开兜底,不抛
+    return json.dumps(v, ensure_ascii=False, separators=(",", ":"))
+
+
 def _task_detail(t: AgentTask) -> dict:
-    """卡片详情视图(input/output/verdict 解析为对象)。"""
+    """卡片详情视图(input/output 解析为对象;verdict 一律为字符串)。"""
     return {
         **_task_brief(t),
         "attempt": t.attempt,
         "input": _loads(t.input_json, {}),
         "output": _loads(t.output_json, {}),
-        "verdict": _loads(t.verdict_json, {}),
+        "verdict": _verdict_text(t.verdict_json),
         "gpu_hint": t.gpu_hint,
     }
 
@@ -203,6 +236,52 @@ def _get_run(session: Session, run_id: str, user: User) -> AgentRun:
     if not run or run.user_id != user.id:
         raise HTTPException(status_code=404, detail="任务不存在")
     return run
+
+
+# ---------------------------------------------------------------------------
+# 卡片级干预:upload(替换产物)/ reprompt(反推提示词)辅助
+# ---------------------------------------------------------------------------
+
+_STUDIO_FILES_PREFIX = "/api/studio/files/"
+
+
+def _studio_file_path(url: str):
+    """/api/studio/files/{name} → 本地路径;非本前缀/路径穿越/缺文件一律 None。"""
+    if not isinstance(url, str) or not url.startswith(_STUDIO_FILES_PREFIX):
+        return None
+    name = url[len(_STUDIO_FILES_PREFIX):]
+    # 仅允许纯文件名(与 studio.py 文件服务端点同防护)
+    if not name or "/" in name or "\\" in name or name in (".", ".."):
+        return None
+    path = drama_output_root() / "studio" / name
+    return path if path.is_file() else None
+
+
+def _save_studio_bytes(content: bytes, ext: str) -> str:
+    """落盘 Studio 输出目录(NAS 优先降级本地),返回可访问 URL。"""
+    out_dir = drama_output_root() / "studio"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    name = f"{uuid.uuid4().hex}{ext}"
+    (out_dir / name).write_bytes(content)
+    return f"{_STUDIO_FILES_PREFIX}{name}"
+
+
+def _apply_task_upload(session: Session, run: AgentRun, task: AgentTask, url: str) -> dict:
+    """替换上传落库:output 指向新产物(保留 shot_id 映射),卡片回 done 并广播。"""
+    inp = _loads(task.input_json, {})
+    output = {"url": url, "source": "upload"}
+    if inp.get("shot_id"):
+        output["shot_id"] = inp["shot_id"]
+    task.output_json = json.dumps(output, ensure_ascii=False)
+    task.status = "done"
+    session.add(task)
+    _emit(
+        session, run.id, "task_status",
+        {"task_id": task.id, "status": "done", "title": task.title, "output": output},
+    )
+    session.commit()
+    session.refresh(task)
+    return _task_detail(task)
 
 
 # ---------------------------------------------------------------------------
@@ -297,52 +376,46 @@ async def create_agent_run(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> dict:
-    """创建 Agent Team 任务。L0 不建 run 直接回指引;L1/L2 同步拆计划后秒回。"""
+    """创建 Agent Team 任务(秒回):立即落 run(status=planning)并返回,
+    LLM 分级细化 + 剧本拆解在后台协程完成(_plan_run),前端经 SSE/轮询拿 plan。
+
+    同步段只做启发式 Director Gate 分流(毫秒级):L0 不建 run 直接回指引;
+    L1/L2 建 run 后秒回。LLM 分级(≤8s)+ parse_script(实测 20-30s)若留在
+    请求内会撞前端 30s 超时:请求被中止但 run 已落库,用户无反馈(死路 A)。
+    """
     enforce_rate_limit(user, scope="generation")
-    # Director Gate 分级:显式指定 > LLM 分级 > 启发式兜底;分级证据进 plan.meta,
-    # 响应形状不变(level 字段即最终生效值,来源对前端透明)
+    # Director Gate 即时分流:显式指定 > 启发式(同步,保证秒回);LLM 分级细化
+    # 在后台规划协程内完成(L1↔L2 校准 + meta 证据),不挡创建响应
     if body.level:
         classify_meta = {"level": body.level, "reason": "用户显式指定", "source": "explicit"}
     else:
-        classify_meta = await classify_goal_llm(body.goal)
+        classify_meta = {
+            "level": classify_goal(body.goal),
+            "reason": "启发式即时分流(LLM 细化在后台规划内完成)",
+            "source": "heuristic",
+        }
     level = classify_meta["level"]
     if level == "L0":
         return {"level": "L0", "ack": "单步任务建议直达工作台", "run_id": None}
 
-    try:
-        num_shots = max(1, min(50, int(body.opts.get("num_shots") or 8)))
-    except (ValueError, TypeError):
-        num_shots = 8
-    try:
-        characters, shots = await storyboard_svc.parse_script(
-            body.goal, num_shots=num_shots, style=str(body.opts.get("style") or "")
-        )
-    except storyboard_svc.StoryboardError as e:
-        # 规划阶段强依赖 LLM;失败必须明确 503(前端据此提示稍后重试)
-        raise HTTPException(status_code=503, detail=f"规划失败:{e}") from e
-
     run = AgentRun(user_id=user.id, level=level, goal=body.goal)
-    tasks = _build_tasks(shots)
     plan = {
-        "tasks": [_task_brief(t) for t in tasks],
+        "tasks": [],  # 后台规划完成后重建(plan 事件广播),此处空 = 规划中
         "opts": body.opts,
-        "characters": [c.model_dump() for c in characters],
+        "characters": [],
         # 分级证据(meta 不进任何响应字段,仅供详情页/排查用;R5 可回流校准)
         "meta": {"classify": classify_meta},
     }
     run.plan_json = json.dumps(plan, ensure_ascii=False)
-    run.status = "awaiting_confirm"  # 计划确认门:approve 后才进执行
+    run.status = "planning"  # 规划拆解中:完成后转 awaiting_confirm 进计划确认门
     session.add(run)
     session.commit()
     session.refresh(run)
-    for t in tasks:
-        t.run_id = run.id
-        session.add(t)
-    ack = f"已拆成 {len(tasks)} 步,后台执行,关键节点会找你"
+    ack = "已接单,Agent 团队规划拆解中,好了会请你确认计划"
     _emit(session, run.id, "ack", {"message": ack, "level": level})
-    _emit(session, run.id, "plan", {"tasks": plan["tasks"]})
     session.commit()
-    return {"run_id": run.id, "level": level, "ack": ack, "plan": {"tasks": plan["tasks"]}}
+    _spawn_planning(run.id, session.get_bind())
+    return {"run_id": run.id, "level": level, "ack": ack}
 
 
 @router.get("/agent-runs")
@@ -525,6 +598,10 @@ async def resume_run(
                 status_code=409, detail=f"当前状态({run.status})不可操作计划确认门"
             )
         if body.action == "approve":
+            # 创建秒回后规划拆解中的 run 也是 planning,但尚无计划可确认——
+            # 仅「reject 打回挂起(plan 已有任务)」的 planning 允许原位 approve
+            if run.status == "planning" and not _loads(run.plan_json, {}).get("tasks"):
+                raise HTTPException(status_code=409, detail="规划拆解进行中,计划生成后即可确认")
             run.status = "running"
             run.error = ""
             run.updated_at = _utcnow()
@@ -584,16 +661,52 @@ async def task_action(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> dict:
-    """卡片级干预:edit 改文案 / regenerate 带引导词重生 / approve 通过。
+    """卡片级干预:edit 改文案 / regenerate 带引导词重生 / approve 通过 /
+    upload 替换产物(payload={url})/ reprompt 反推提示词写回 input。
 
-    upload(替换上传)与 reprompt(反推提示词)本期未实现,501 明示 R3.2 提供。
+    - upload:产物必须是已落盘的 /api/studio/files/{name}(直传文件走
+      POST .../upload multipart 端点,先落盘再回流到本 action 语义一致);
+      合成卡不可替换(走合成确认门)。
+    - reprompt:仅图像/视频卡;取当前 output.url 本地产物 → VLM 反推 →
+      prompt/negative 写回 input(卡片保持 done,用户审阅后再决定是否重生成)。
     """
     run = _get_run(session, run_id, user)
     task = session.get(AgentTask, task_id)
     if not task or task.run_id != run.id:
         raise HTTPException(status_code=404, detail="任务卡片不存在")
-    if body.action in ("upload", "reprompt"):
-        raise HTTPException(status_code=501, detail="R3.2 提供")
+    if body.action == "upload":
+        if task.kind == "assemble":
+            raise HTTPException(status_code=400, detail="合成任务请走合成确认门")
+        url = str(body.payload.get("url") or "").strip()
+        if not url:
+            raise HTTPException(status_code=400, detail="缺少产物 url")
+        if _studio_file_path(url) is None:
+            raise HTTPException(status_code=400, detail="产物不存在或非法 url(仅支持本地产物)")
+        return _apply_task_upload(session, run, task, url)
+    if body.action == "reprompt":
+        if task.kind not in ("image", "video"):
+            raise HTTPException(status_code=400, detail="仅图像/视频任务支持反推提示词")
+        out = _loads(task.output_json, {})
+        url = str(out.get("url") or "")
+        if not url:
+            raise HTTPException(status_code=409, detail="任务尚未产出,无法反推")
+        path = _studio_file_path(url)
+        if path is None:
+            raise HTTPException(status_code=404, detail="产物文件已丢失或非本地产物")
+        mime = reverse_svc._MIME_FALLBACK[task.kind]
+        result = await reverse_svc.reverse_visual(
+            path.read_bytes(), path.name, mime, task.kind, nsfw_allowed(user)
+        )
+        inp = _loads(task.input_json, {})
+        # 反推结果整体替换主文案(用户意图=从产物逆向提取提示词);有 negative 才覆盖
+        inp["prompt"] = result.prompt
+        if result.negative:
+            inp["negative"] = result.negative
+        task.input_json = json.dumps(inp, ensure_ascii=False)
+        session.add(task)
+        session.commit()
+        session.refresh(task)
+        return _task_detail(task)
     if body.action == "approve":
         task.status = "approved"
         session.add(task)
@@ -640,6 +753,39 @@ async def task_action(
     session.refresh(task)
     _spawn_task_rerun(run.id, task.id, session.get_bind())
     return _task_detail(task)
+
+
+@router.post("/agent-runs/{run_id}/tasks/{task_id}/upload")
+async def task_upload(
+    run_id: str,
+    task_id: str,
+    file: UploadFile,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """卡片产物直传替换(multipart):本地文件 → Studio 输出目录 → 卡片回 done。
+
+    与 action=upload(payload={url}) 共享落库语义;三重白名单校验(扩展名+
+    Content-Type+魔数)复用 /api/upload 同款,大小上限图/音频 20MB、视频 200MB。
+    """
+    run = _get_run(session, run_id, user)
+    task = session.get(AgentTask, task_id)
+    if not task or task.run_id != run.id:
+        raise HTTPException(status_code=404, detail="任务卡片不存在")
+    if task.kind == "assemble":
+        raise HTTPException(status_code=400, detail="合成任务请走合成确认门")
+    enforce_rate_limit(user, scope="upload")
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="空文件")
+    safe_ext = _validate_upload(file.filename, file.content_type, content)
+    is_video = safe_ext in (".mp4", ".mov", ".webm")
+    limit = (200 if is_video else 20) * 1024 * 1024
+    if len(content) > limit:
+        raise HTTPException(
+            status_code=413, detail=f"文件过大(上限 {limit // 1024 // 1024}MB)")
+    url = _save_studio_bytes(content, safe_ext)
+    return _apply_task_upload(session, run, task, url)
 
 
 @router.post("/agent-runs/{run_id}/cancel")
@@ -703,6 +849,138 @@ def run_result(
 # services/agent_team_exec.py。本文件仅保留 _spawn_task_rerun 薄封装
 # (测试 monkeypatch at._spawn 兼容)。
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# 后台规划:创建秒回后的 LLM 分级细化 + 剧本拆解(_plan_run)。
+# 与执行器同模式:_ACTIVE_RUNS 去重 + _spawn 强引用(测试 monkeypatch at._spawn
+# 兼容);进程重启由 resume_unfinished_plans(main.py lifespan)重挂,不丢任务。
+# ---------------------------------------------------------------------------
+
+
+async def _plan_run(run_id: str, bind) -> None:
+    """后台规划:LLM 分级细化(非显式时)→ parse_script 拆解 → 任务落库 →
+    转 awaiting_confirm 并广播 ack/plan/confirm_required 事件。
+
+    幂等且可重入(启动恢复重挂同一 run 时安全):
+    - 拆解产物(AgentTask 行)仅在全部就绪后的最终 commit 落库,中途崩无半成品;
+    - 进入时若已有任务(重复触发/竞态)直接退出,不重复建卡;
+    - run 已非 planning(用户取消/打回后重规划语义变化)时不覆盖状态,静默退出;
+    - 失败(StoryboardError / 意外异常)落 error 态 + 原因 + error 事件,
+      用户可在详情页看到失败原因后重建。
+    """
+    with Session(bind) as s:
+        run = s.get(AgentRun, run_id)
+        if not run or run.status != "planning":
+            return
+        if _loads(run.plan_json, {}).get("tasks"):
+            return  # 已有计划(理论不可达:planning 且无任务才会被调度)
+        goal, opts = run.goal, _loads(run.plan_json, {}).get("opts") or {}
+        explicit = (
+            _loads(run.plan_json, {}).get("meta", {}).get("classify", {}).get("source")
+            == "explicit"
+        )
+
+    # ① LLM 分级细化(显式指定跳过):仅校准 L1↔L2;LLM 判 L0 时保留启发式
+    # 入口裁决(run 已建,直接取消用户体验差),其证据仍落 meta 供 R5 回流校准
+    classify_meta: dict | None = None
+    if not explicit:
+        llm_meta = await classify_goal_llm(goal)
+        if llm_meta["source"] == "llm":
+            classify_meta = llm_meta
+
+    # ② 剧本拆解(规划阶段强依赖 LLM,实测 20-30s,必须在请求外)
+    try:
+        num_shots = max(1, min(50, int(opts.get("num_shots") or 8)))
+    except (ValueError, TypeError):
+        num_shots = 8
+    try:
+        characters, shots = await storyboard_svc.parse_script(
+            goal, num_shots=num_shots, style=str(opts.get("style") or "")
+        )
+    except storyboard_svc.StoryboardError as e:
+        _fail_planning(bind, run_id, f"规划失败:{e}")
+        return
+    except Exception:  # noqa: BLE001 — 意外异常同样落 error,不留僵尸 planning
+        logger.exception("agent run %s 后台规划异常", run_id)
+        _fail_planning(bind, run_id, "规划拆解失败,请重新创建任务")
+        return
+
+    # ③ 任务落库 + 状态推进(仅仍 planning 时;取消/打回不覆盖)
+    tasks = _build_tasks(shots)
+    with Session(bind) as s:
+        run = s.get(AgentRun, run_id)
+        if not run or run.status != "planning":
+            return
+        plan = _loads(run.plan_json, {})
+        if classify_meta:
+            # LLM 证据始终落 meta(R5 回流校准);level 仅 L1↔L2 校准生效,
+            # LLM 判 L0 时保留启发式入口裁决(run 已建,不打断用户流程)
+            plan.setdefault("meta", {})["classify"] = classify_meta
+            if classify_meta["level"] in ("L1", "L2"):
+                run.level = classify_meta["level"]
+        plan["tasks"] = [_task_brief(t) for t in tasks]
+        plan["characters"] = [c.model_dump() for c in characters]
+        run.plan_json = json.dumps(plan, ensure_ascii=False)
+        run.status = "awaiting_confirm"
+        run.updated_at = _utcnow()
+        s.add(run)
+        for t in tasks:
+            t.run_id = run.id
+            s.add(t)
+        ack = f"已拆成 {len(tasks)} 步,后台执行,关键节点会找你"
+        _emit(s, run_id, "ack", {"message": ack, "level": run.level})
+        _emit(s, run_id, "plan", {"tasks": plan["tasks"]})
+        _emit(
+            s, run_id, "confirm_required",
+            {"gate": "plan", "message": "计划已生成,等你确认"},
+        )
+        s.commit()
+
+
+def _fail_planning(bind, run_id: str, message: str) -> None:
+    """规划失败落 error 终态(仅仍 planning 时,不覆盖用户取消)+ error 事件。"""
+    with Session(bind) as s:
+        run = s.get(AgentRun, run_id)
+        if not run or run.status != "planning":
+            return
+        run.status = "error"
+        run.error = message
+        run.updated_at = _utcnow()
+        s.add(run)
+        _emit(s, run_id, "error", {"message": message})
+        s.commit()
+
+
+def _spawn_planning(run_id: str, bind) -> None:
+    """fire-and-forget 启动后台规划协程;与图执行器共用 _ACTIVE_RUNS 键空间
+    (run_id),保证规划与执行绝不并发。"""
+    if run_id in _ACTIVE_RUNS:
+        return
+    _ACTIVE_RUNS.add(run_id)
+
+    async def _wrap() -> None:
+        try:
+            await _plan_run(run_id, bind)
+        finally:
+            _ACTIVE_RUNS.discard(run_id)
+
+    _spawn(_wrap())
+
+
+def resume_unfinished_plans(bind) -> int:
+    """api 启动恢复(创建秒回链路的断点兜底):planning 且尚无任务的 run =
+    创建后进程在规划拆解中途重启,重新后台规划(幂等,见 _plan_run docstring);
+    planning 且已有任务 = reject 打回挂起态,等用户裁决,不自动推进。
+    返回重挂数(记日志用)。"""
+    with Session(bind) as s:
+        runs = s.exec(select(AgentRun).where(AgentRun.status == "planning")).all()
+        stuck = [r.id for r in runs if not _loads(r.plan_json, {}).get("tasks")]
+    for run_id in stuck:
+        _spawn_planning(run_id, bind)
+    if stuck:
+        logger.info("Agent Team 启动恢复:重挂规划中的 run %d 个", len(stuck))
+    return len(stuck)
 
 
 def _spawn_task_rerun(run_id: str, task_id: str, bind) -> None:

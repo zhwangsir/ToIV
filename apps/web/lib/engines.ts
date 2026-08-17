@@ -12,6 +12,7 @@ import {
   generateLtxLipsync,
   generateLtxT2V,
   generateTxt2img,
+  generateVideo,
   type AudioGenParams,
   type LongcatT2VParams,
 } from "./api";
@@ -45,6 +46,9 @@ export interface EngineParam {
   min?: number;
   max?: number;
   step?: number;
+  /** 宽高比(w/h)安全域,仅挂在 width 参数上:超出会造成主体被裁/文字溢出,
+   *  前端据此做宽高联动纠正(后端同规则静默归一兜底)。 */
+  ar?: [number, number];
   default: unknown;
   hint?: string;
 }
@@ -316,10 +320,19 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
         worker: refImage!.worker,
       });
 
+    case "wan-nsfw-i2v":
+      // R18 Wan2.2 主链:与 /api/generate/video 同一提交;专区内自带 X-NSFW 头
+      // → 后端 loras 入参生效 + Job 打标进 R18 作品库
+      return generateVideo({
+        ..._wanNsfwI2vPayload(values, positive, negative, seed),
+        image: refImage!.filename,
+        worker: refImage!.worker,
+      });
+
     case "wan-animate":
       // 参考图 + 驱动视频互钉同 worker(上传时已钉);后端转运到 :8197 实例
       return _postWan("/api/wan/animate", {
-        ..._wanPayload(values, positive, negative, seed, 121),
+        ..._wanPayload(values, positive, negative, seed, 7.5),
         image: refImage!.filename,
         video: refVideo!.filename,
         worker: refImage!.worker,
@@ -329,7 +342,7 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
     case "wan-vace":
       // 多参考图(1-4 张,全部互钉同 worker,worker 取第一张落点)
       return _postWan("/api/wan/vace", {
-        ..._wanPayload(values, positive, negative, seed, 81),
+        ..._wanPayload(values, positive, negative, seed, 5),
         images: refImages!.map((r) => r.filename),
         worker: refImages![0].worker,
       });
@@ -356,7 +369,8 @@ function _ltx25Payload(values: Record<string, unknown>, positive: string, negati
     negative,
     width: _num(values, "width", 960),
     height: _num(values, "height", 544),
-    length: _num(values, "length", 121),
+    // 时长按秒直传;后端统一策略层做 8k+1 网格/分段续写/精确裁切
+    duration_sec: _num(values, "duration", 5),
     fps: _num(values, "fps", 24),
     steps: _num(values, "steps", 8),
     seed,
@@ -370,13 +384,10 @@ function _resolution(values: Record<string, unknown>, fallback: string): { width
   return { width: w, height: h };
 }
 
-/** R18 时长预设换算:duration 秒 × fps → 吸附 8k+1 网格并钳到 [9, 241](LTX 帧数约束)。 */
-function _ltxNsfwLength(values: Record<string, unknown>): number {
-  const secs = parseFloat(_str(values, "duration", "6")) || 6;
-  const fps = _num(values, "fps", 16);
-  const raw = Math.max(9, Math.round(secs * fps));
-  const snapped = ((raw - 1) >> 3) * 8 + 1; // 8k+1
-  return Math.min(241, snapped);
+/** R18 时长预设:select 值即秒数,直传 duration_sec(网格/裁切由后端统一策略层负责)。 */
+function _durationSec(values: Record<string, unknown>, fallback = 6): number {
+  const n = parseFloat(_str(values, "duration", String(fallback)));
+  return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
 function _ltxNsfwPayload(values: Record<string, unknown>, positive: string, negative: string, seed: number | null) {
@@ -386,7 +397,7 @@ function _ltxNsfwPayload(values: Record<string, unknown>, positive: string, nega
     negative,
     width,
     height,
-    length: _ltxNsfwLength(values),
+    duration_sec: _durationSec(values),
     fps: _num(values, "fps", 16),
     steps: _num(values, "steps", 20),
     cfg: _num(values, "cfg", 1),
@@ -396,34 +407,34 @@ function _ltxNsfwPayload(values: Record<string, unknown>, positive: string, nega
   };
 }
 
-/** LongCat 提交负载:无 cfg(蒸馏链路固定 1.0,builder 内锁定)。 */
+/** LongCat 提交负载:时长按秒直传(后端统一策略层换算帧数/裁切);无 cfg(蒸馏链路固定 1.0,builder 内锁定)。 */
 function _longcatPayload(values: Record<string, unknown>, positive: string, negative: string, seed: number | null): LongcatT2VParams {
   return {
     positive,
     negative,
     width: _num(values, "width", 832),
     height: _num(values, "height", 480),
-    num_frames: _num(values, "num_frames", 121),
+    duration_sec: _num(values, "duration", 7.5),
     steps: _num(values, "steps", 10),
     fps: _num(values, "fps", 16),
     seed,
   };
 }
 
-/** Wan2.2-Animate / Wan2.1-VACE 提交负载:与 routes/wan_studio.py 请求模型同一套范围。 */
+/** Wan2.2-Animate / Wan2.1-VACE 提交负载:与 routes/wan_studio.py 请求模型同一套范围;时长按秒直传。 */
 function _wanPayload(
   values: Record<string, unknown>,
   positive: string,
   negative: string,
   seed: number | null,
-  defaultFrames: number,
+  defaultSeconds: number,
 ) {
   return {
     positive,
     negative,
     width: _num(values, "width", 832),
     height: _num(values, "height", 480),
-    num_frames: _num(values, "num_frames", defaultFrames),
+    duration_sec: _num(values, "duration", defaultSeconds),
     steps: _num(values, "steps", 6),
     fps: _num(values, "fps", 16),
     seed,
@@ -449,24 +460,21 @@ async function _postWan(path: string, body: object): Promise<GenerateResponse> {
   return res.json();
 }
 
-/** H3 提交负载:无 fps/cfg(H3 固定 24fps + res_multistep/simple,模板内锁定)。 */
+/** H3 提交负载:无 fps/cfg(H3 固定 24fps + res_multistep/simple,模板内锁定);时长按秒直传。 */
 function _h3Payload(values: Record<string, unknown>, positive: string, negative: string, seed: number | null) {
   return {
     positive,
     negative,
     width: _num(values, "width", 1344),
     height: _num(values, "height", 768),
-    length: _num(values, "length", 124),
+    duration_sec: _num(values, "duration", 5),
     steps: _num(values, "steps", 20),
     seed,
     loras: _loras(values),
   };
 }
 
-// R18 H3 时长预设 → 17k+5 帧网格(固定 24fps;与注册表 _H3_NSFW_DURATIONS 同源)
-const _H3_NSFW_DURATION_FRAMES: Record<string, number> = { "6": 141, "10": 243, "15": 362 };
-
-/** R18 H3 提交负载:resolution/duration 预设换算成后端硬校验的 32 对齐宽高 + 17k+5 帧数。 */
+/** R18 H3 提交负载:resolution 预设换算为 32 对齐宽高;duration 预设即秒数直传。 */
 function _h3NsfwPayload(values: Record<string, unknown>, positive: string, negative: string, seed: number | null) {
   const { width, height } = _resolution(values, "1280x736");
   return {
@@ -474,10 +482,30 @@ function _h3NsfwPayload(values: Record<string, unknown>, positive: string, negat
     negative,
     width,
     height,
-    length: _H3_NSFW_DURATION_FRAMES[_str(values, "duration", "6")] ?? 141,
+    duration_sec: _durationSec(values),
     steps: _num(values, "steps", 20),
     seed,
     loras: _loras(values),
+  };
+}
+
+/** R18 Wan2.2 I2V 提交负载:resolution 预设换算宽高;duration 秒 → 4n+1 帧
+ *  (固定 16fps Wan 甜点帧率,就近吸附 4n+1 网格:3s→49 / 5s→81 / 7.5s→121 上限)。 */
+function _wanNsfwI2vPayload(values: Record<string, unknown>, positive: string, negative: string, seed: number | null) {
+  const { width, height } = _resolution(values, "832x480");
+  const sec = _durationSec(values, 5);
+  const frames = Math.min(121, Math.max(9, Math.round(sec * 16)));
+  const length = Math.round((frames - 1) / 4) * 4 + 1; // Wan 硬要求 4n+1(就近吸附)
+  return {
+    positive,
+    ...(negative ? { negative } : {}),
+    width,
+    height,
+    length,
+    fps: 16,
+    seed,
+    loras: _loras(values),
+    full_quality: _bool(values, "full_quality"),
   };
 }
 

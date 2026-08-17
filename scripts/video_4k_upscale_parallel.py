@@ -204,6 +204,19 @@ def main() -> int:
     report.source_resolution = (meta["width"], meta["height"])
     report.source_fps = meta["fps"]
 
+    # 画幅方向护栏:源与目标的横竖方向必须一致,否则 ImageScale 会拉伸变形
+    # (2026-08-15 实证:竖屏 576×1024 源误用默认 3840×2160,7320 帧全部拉伸报废)
+    src_landscape = meta["width"] >= meta["height"]
+    dst_landscape = args.target_w >= args.target_h
+    if src_landscape != dst_landscape:
+        print(
+            f"错误:源 {meta['width']}×{meta['height']} 与目标 "
+            f"{args.target_w}×{args.target_h} 横竖方向不一致(会拉伸变形)。"
+            f"竖屏源请用 --target-w 2160 --target-h 3840",
+            file=sys.stderr,
+        )
+        return 1
+
     tmp_dir = args.temp_dir / f"{args.video.stem}_parallel"
     frames_dir = tmp_dir / "frames"
     merged_dir = tmp_dir / "upscaled"

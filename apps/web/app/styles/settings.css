@@ -21,25 +21,13 @@
   grid-column: 1 / -1;
 }
 
+/* 卡片壳:发夹线 + 软阴影 + hover 呼吸由全局 .at-card/.at-card--lift 供给(2026-08-15 Atelier);
+   本类只保留布局(原白玻璃材质收编) */
 .settings-card {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-6);
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-panel);
-  box-shadow: var(--glass-highlight), var(--shadow-sm);
-  transition:
-    transform var(--duration-base) var(--ease-emphasized),
-    box-shadow var(--duration-base) var(--ease-emphasized);
-}
-/* 悬停升浮:位移 + 阴影加深,层级反馈一眼可见 */
-.settings-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--glass-highlight), var(--shadow-lift);
 }
 
 .settings-card-title {
@@ -92,10 +80,34 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.settings-actions {
+
+/* ── 账户卡横向紧凑行(2026-08-16 批 2):头像 + 邮箱 + 退出按钮一行 ── */
+.settings-account-row {
   display: flex;
-  justify-content: flex-end;
-  padding-top: var(--space-2);
+  align-items: center;
+  gap: var(--space-3);
+}
+/* 头像底托:与分区标题图标同款 accent-soft 圆,跨卡视觉对齐 */
+.settings-account-avatar {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.settings-account-mail {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-body);
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ── 关于(通栏):键值行重排为三列定义栅格,标签在上值在下 ── */
@@ -262,21 +274,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* 状态徽章:可用/不可用,ok/err 浅底色药丸 */
+/* 状态徽章:可用/不可用,视觉走全局 .at-badge(--ok/--err),此处只保留布局 */
 .settings-engine-state {
   flex-shrink: 0;
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-badge);
-  font-size: var(--text-aux);
-  font-weight: var(--font-medium);
-}
-.settings-engine-state.is-ok {
-  color: var(--ok);
-  background: color-mix(in oklab, var(--ok) 10%, transparent);
-}
-.settings-engine-state.is-err {
-  color: var(--err);
-  background: color-mix(in oklab, var(--err) 10%, transparent);
 }
 .settings-engine-reason {
   flex: 1;
@@ -288,8 +288,25 @@
   text-overflow: ellipsis;
 }
 
+/* ── 主题圆点选中态:globals 内联 accent 环之上再浮一圈 accent 外环(2026-08-15 Atelier) ── */
+.settings-view .theme-swatch.is-active .theme-swatch-dot {
+  box-shadow:
+    inset 0 0 0 1px var(--accent),
+    0 0 0 2px var(--bg-surface-1),
+    0 0 0 4px var(--accent);
+}
+
+/* ── 界面卡/账户卡说明行(2026-08-16 v7 模式×色板 + 账户卡补说明):弱层级辅助文字 ── */
+.settings-ui-desc,
+.settings-account-desc {
+  margin: 0;
+  font-size: var(--text-aux);
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
 /* ── 内容偏好(R18 全局模式,M9 F4) ── */
-/* 18+ 徽标:err 底白字小胶囊,跟在卡片标题文字后 */
+/* 18+ 徽标:err 底白字小胶囊,与开关同行收拢(见 .settings-r18-side) */
 .settings-r18-badge {
   flex-shrink: 0;
   padding: 1px var(--space-2);
@@ -306,6 +323,13 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
+}
+/* 18+ 徽章与开关收拢(2026-08-16 批 2):同一行内,间距 --space-2 */
+.settings-r18-side {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 .settings-r18-desc {
   flex: 1;

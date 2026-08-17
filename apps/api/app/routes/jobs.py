@@ -9,6 +9,7 @@ import asyncio
 import inspect
 import json
 import logging
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 
 import websockets
@@ -17,6 +18,7 @@ from pydantic import BaseModel, Field, ValidationError
 from sqlmodel import Session, or_, select
 from sse_starlette.sse import EventSourceResponse
 
+from app import audit
 from app.comfy.client import ComfyUIClient, ComfyUIError
 from app.comfy.pool import WorkerPool
 from app.comfy.tracker import mark_status, record_result
@@ -59,6 +61,9 @@ def _job_dict(j: Job) -> dict:
         "seed": j.seed,
         "created_at": j.created_at.isoformat(),
         "results": json.loads(j.result) if j.result else [],
+        # 时长后处理(trim/extend)标记:processing 时 results 为未裁原片,
+        # 前端结果区应显示「精确裁切中」,待清零后重拉取终产物
+        "post_status": j.post_status or "",
         # R18 标记:专区内(/nsfw 带 X-NSFW)前端据此过滤出 R18 作品库
         "nsfw": bool(j.nsfw),
         # 版本树:parent 空=根;root_id 归一为自身 id,前端按它分组
@@ -71,18 +76,28 @@ def _job_dict(j: Job) -> dict:
 @router.get("/jobs")
 def list_jobs(
     limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0, description="分页偏移(作品库无限滚动;返回数==limit 即可能还有下一页)"),
     status: str = Query(default="", description="按状态过滤:queued/running/done/error,空=全部"),
+    kind: str = Query(default="", description="按媒体类型过滤:txt2img/img2img/video/txt2video/audio/3d 等,逗号分隔多值,空=全部"),
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> list[dict]:
-    """当前用户的作业历史(最新在前)。limit 可调,默认 50,上限 200。"""
+    """当前用户的作业历史(最新在前)。limit 可调,默认 50,上限 200;offset 分页;kind/status 过滤叠加。"""
     stmt = select(Job).where(Job.user_id == user.id)
+    # 软删除(SAFETY):撤销窗口内已移除的作品不进列表;undo 恢复后自动回归
+    stmt = stmt.where(Job.deleted_at == None)  # noqa: E712
     # R18 门槛:仅 /nsfw 专页(带 X-NSFW header)才返回成人向作品;主站一律剔除。
     if not nsfw_allowed(user):
         stmt = stmt.where(Job.nsfw == False)  # noqa: E712  SQLModel 需 == 比较生成 SQL
     if status:
         stmt = stmt.where(Job.status == status)
-    rows = session.exec(stmt.order_by(Job.created_at.desc()).limit(limit)).all()
+    if kind:
+        kinds = [k.strip() for k in kind.split(",") if k.strip()]
+        if kinds:
+            stmt = stmt.where(Job.kind.in_(kinds))
+    rows = session.exec(
+        stmt.order_by(Job.created_at.desc()).offset(offset).limit(limit)
+    ).all()
     return [_job_dict(j) for j in rows]
 
 
@@ -92,17 +107,33 @@ def delete_job(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> dict:
-    """从作品库删除当前用户的一件作品(删库记录使其从作品库消失)。
+    """从作品库移除当前用户的一件作品(SAFETY:软删除 + 10 分钟撤销窗口)。
 
     仅删自己的作业(user_id 校验);非本人/不存在一律 404(不泄露存在性)。
-    产物文件留在 worker 输出目录(物理清理属另一关注点,不在此处理)。
+    产物文件留在 worker 输出目录;行只打 deleted_at 标记,凭返回的 undo_token
+    在窗口内 POST /api/undo/{token} 即可恢复(误删保护)。
     """
     job = session.exec(select(Job).where(Job.id == job_id)).first()
     if not job or job.user_id != user.id:
         raise HTTPException(status_code=404, detail="作品不存在")
-    session.delete(job)
+    job.deleted_at = datetime.now(timezone.utc)
+    session.add(job)
+    _, token = audit.record(
+        session, user=user, action="job.delete", target_type="job", target_id=job.id,
+        summary=f"删除作品:{(job.prompt or '')[:40]}",
+        detail={"kind": job.kind, "status": job.status},
+        undo_ttl=audit.UNDO_TTL_SECONDS,
+    )
     session.commit()
-    return {"ok": True, "id": job_id}
+    return {
+        "ok": True,
+        "id": job_id,
+        "undo_token": token,
+        "undo_expires_at": (
+            job.deleted_at + timedelta(seconds=audit.UNDO_TTL_SECONDS)
+        ).isoformat(),
+        "undo_ttl": audit.UNDO_TTL_SECONDS,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -118,6 +149,9 @@ def _owned_job(session: Session, user: User, key: str) -> Job:
         job = session.exec(
             select(Job).where(Job.prompt_id == key, Job.user_id == user.id)
         ).first()
+    # 软删除(SAFETY):已移除作品视同不存在(rerun/版本链/详情均不可达;undo 恢复后回归)
+    if job is not None and job.deleted_at is not None:
+        job = None
     if job is None or (job.nsfw and not nsfw_allowed(user)):
         raise HTTPException(status_code=404, detail="作品不存在")
     return job
@@ -136,6 +170,7 @@ def _rerun_registry() -> dict[str, tuple[type[BaseModel], object]]:
     from app.routes.manju import ShotRenderRequest, render_shot
     from app.routes.threed import Gen3DRequest, generate_3d
     from app.routes.video import WanI2VRequest, generate_video
+    from app.routes.video_upscale import VideoUpscaleRequest, upscale_video
 
     return {
         "txt2img": (g.Txt2ImgRequest, g.generate_txt2img),
@@ -153,6 +188,7 @@ def _rerun_registry() -> dict[str, tuple[type[BaseModel], object]]:
         "manju_lipsync": (LipsyncRequest, lipsync_shot),
         "manju_shot_txt2img": (ShotRenderRequest, render_shot),
         "manju_shot_ipadapter": (ShotRenderRequest, render_shot),
+        "video_upscale": (VideoUpscaleRequest, upscale_video),
     }
 
 
@@ -264,9 +300,15 @@ async def _emit_done(client: ComfyUIClient, prompt_id: str) -> tuple[dict, list[
 
     返回 (done_event, urls) 元组,urls 一并返回给调用方用于在 yield done 之前
     异步评估视频质量并可能推 quality_warning(见 _maybe_quality_warning)。
+
+    done 事件带 post_status(emit 时现读 DB):trim/extend 链进行中为 processing,
+    前端结果区据此显示「精确裁切中」而非直接播放未裁原片;清零后前端重拉终产物。
     """
     urls = await record_result(client, prompt_id)
-    return {"event": "done", "data": json.dumps({"images": urls})}, urls
+    with Session(engine) as s:
+        db = s.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
+        post = (db.post_status if db else "") or ""
+    return {"event": "done", "data": json.dumps({"images": urls, "post_status": post})}, urls
 
 
 async def _maybe_quality_warning(job: Job | None, video_url: str | None) -> dict | None:

@@ -65,7 +65,7 @@
   cursor: not-allowed;
 }
 
-/* ── 上传区:加大留白,图标放进圆形徽章,hover 升浮 ── */
+/* ── 上传区(收敛版):1px 虚线 + 大圆角,hover 时 accent 描边 + 淡墨晕(不再位移) ── */
 .anim-drop {
   display: flex;
   flex-direction: column;
@@ -75,14 +75,13 @@
   margin-top: var(--space-5);
   padding: var(--space-10) var(--space-6);
   background: var(--bg-surface-1);
-  border: 1.5px dashed var(--border-strong);
+  border: 1px dashed var(--border-strong);
   border-radius: var(--radius-lg);
   color: var(--text-secondary);
   cursor: pointer;
   transition: border-color var(--duration-fast) var(--ease-standard),
               background-color var(--duration-fast) var(--ease-standard),
-              box-shadow var(--duration-fast) var(--ease-standard),
-              transform var(--duration-fast) var(--ease-standard);
+              box-shadow var(--duration-fast) var(--ease-standard);
 }
 
 /* 图标徽章:圆形底板让上传区视觉重心更明确 */
@@ -100,10 +99,9 @@
 }
 
 .anim-drop:hover:not(:disabled) {
-  border-color: var(--text-muted);
-  background: var(--bg-surface-2);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: var(--shadow-sm);
 }
 
 .anim-drop:hover:not(:disabled) .anim-drop-icon {
@@ -267,10 +265,25 @@
   flex-wrap: wrap;
 }
 
-/* 控件高度统一:输入框/下拉与大按钮(.btn-lg)同为 40px,底部对齐后视觉齐平 */
+/* 控件统一 hairline 圆角(全局 .input 默认透明边+填充底,此处收编为编辑语言);
+   高度统一:输入框/下拉与主按钮同为 40px,底部对齐后视觉齐平 */
 .anim-params input.input,
-.anim-params select.input {
+.anim-params select.input,
+.anim-params textarea.input {
   height: var(--space-10);
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+}
+.anim-params textarea.input {
+  height: auto;
+}
+
+/* 主按钮:共享 .at-btn--primary 墨丸主钮,此处补齐与 40px 控件行对齐的规格 */
+.anim-submit {
+  min-height: var(--space-10);
+  padding: 0 var(--space-5);
+  font-size: var(--text-sm);
 }
 
 .anim-field {
@@ -422,7 +435,7 @@
     display: none;
   }
 
-  .anim-params .btn-lg {
+  .anim-params .anim-submit {
     width: 100%;
   }
 

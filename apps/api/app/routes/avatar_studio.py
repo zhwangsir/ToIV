@@ -8,7 +8,9 @@ POST /api/avatar/talk —— 数字人说话视频(LongCat-Avatar v1.5,专用实
 (ComfyUI /upload/image 接受任意文件,LoadAudio 从 input 目录读取音频)。
 
 参数约束(参考 workstation /tmp/longcat_avatar_smoke.py 真机冒烟):
-  · 帧数 17-2500(默认 93;>93 帧自动按 93 帧窗口链式续段,段间 13 帧
+  · 时长按秒选择(duration_sec,任意值;内部经统一策略层 services/duration 换算,
+    4k+1 网格吸附后秒差大时生成后精确裁切);num_frames(帧数)为 deprecated 兼容入参
+  · 帧数 17-2500(旧默认 93 ≈ 3.7s@25fps;>93 帧自动按 93 帧窗口链式续段,段间 13 帧
     warmup 重编码垫底后切掉;残段向上取整 4k+1 采样网格,实际产出最多
     多 3 帧;2500 帧@25fps≈100s。续段链路 2026-08-08 真机验证:186 帧
     3 段链式出片 189 帧/7.56s,缝口无跳帧)
@@ -22,7 +24,7 @@ POST /api/avatar/talk —— 数字人说话视频(LongCat-Avatar v1.5,专用实
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session
 
@@ -31,7 +33,10 @@ from app.deps import get_current_user, resolve_worker
 from app.models import User
 from app.nsfw_ctx import nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
+from app.workflows.model_profiles import AR_VIDEO, aspect_guard
 from app.services import longcat as longcat_service
+from app.services import video_generators as vgen
+from app.services.duration import DurationLimitError, DurationPlan, resolve_duration
 from app.workflows.longcat_avatar import (
     DEFAULT_NEGATIVE,
     LongCatAvatarParams,
@@ -43,7 +48,11 @@ router = APIRouter()
 
 class AvatarTalkRequest(BaseModel):
     """LongCat-Avatar 数字人请求:image/audio 为上传句柄文件名,worker 为上传落点
-    (防 SSRF,两者须在同一 worker)。宽/高非 16 对齐时向下取整(同 longcat_studio)。"""
+    (防 SSRF,两者须在同一 worker)。宽/高非 16 对齐时向下取整(同 longcat_studio)。
+
+    时长:优先 duration_sec(秒,任意值;4k+1 网格吸附后秒差大时生成后精确裁切);
+    num_frames(帧数)为 deprecated 兼容入参,与 duration_sec 同给时忽略。
+    """
     image: str = Field(min_length=1, max_length=512)
     audio: str = Field(min_length=1, max_length=512)
     worker: str
@@ -51,7 +60,9 @@ class AvatarTalkRequest(BaseModel):
     negative: str = Field(default=DEFAULT_NEGATIVE, max_length=2000)
     width: int = Field(default=480, ge=320, le=1280)
     height: int = Field(default=832, ge=320, le=1280)
-    num_frames: int = Field(default=93, ge=17, le=2500)
+    duration_sec: float | None = Field(default=None, gt=0, le=600)
+    # deprecated:兼容入参,请改用 duration_sec;同给时忽略
+    num_frames: int | None = Field(default=None, ge=17, le=2500)
     fps: int = Field(default=25, ge=8, le=30)
     steps: int = Field(default=12, ge=1, le=50)
     shift: float = Field(default=12.0, ge=1.0, le=30.0)
@@ -64,6 +75,9 @@ class AvatarTalkRequest(BaseModel):
     def _snap16(cls, v: int) -> int:
         return v // 16 * 16
 
+    # 宽高比守卫:9:16~16:9 静默归一(训练分布;极端比例出主体被裁/文字溢出)
+    _ratio = aspect_guard(*AR_VIDEO, align=16, min_v=320, max_v=1280)
+
     @field_validator("image", "audio")
     @classmethod
     def _no_traversal(cls, v: str) -> str:
@@ -71,6 +85,27 @@ class AvatarTalkRequest(BaseModel):
         if ".." in name or name.startswith("/"):
             raise ValueError("文件名不允许路径穿越")
         return name
+
+
+# 旧默认时长:93 帧@25fps=3.72s → 3.7s(4k+1 网格吸附回 93 帧,与历史默认一致)
+_DEFAULT_SECONDS = 3.7
+
+
+def _resolve_plan(req: AvatarTalkRequest) -> DurationPlan:
+    """秒数 → 时长计划(统一策略层);legacy num_frames 换算为等价 direct 计划(行为不变)。"""
+    if req.duration_sec is None and req.num_frames is not None:
+        return DurationPlan(
+            engine="avatar", seconds=req.num_frames / req.fps, fps=req.fps,
+            frames=req.num_frames, segment_frames=(req.num_frames,),
+        )
+    try:
+        return resolve_duration(
+            "avatar",
+            req.duration_sec if req.duration_sec is not None else _DEFAULT_SECONDS,
+            req.fps,
+        )
+    except DurationLimitError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
 
 @router.post("/avatar/talk")
@@ -81,6 +116,7 @@ async def generate_avatar_talk(
 ):
     """LongCat-Avatar 数字人说话视频。实例不可达/缺 WanVideo 节点 → 503(同 longcat)。"""
     enforce_generation_rate_limit(user)
+    plan = _resolve_plan(req)
     client = longcat_service.get_longcat_client()
     source = resolve_worker(req.worker)
     image_name = await longcat_service.transfer_ref_image(client, source, req.image)
@@ -92,7 +128,7 @@ async def generate_avatar_talk(
         audio=audio_name,
         width=req.width,
         height=req.height,
-        num_frames=req.num_frames,
+        num_frames=plan.frames,
         fps=req.fps,
         steps=req.steps,
         shift=req.shift,
@@ -101,10 +137,19 @@ async def generate_avatar_talk(
         **({"seed": req.seed} if req.seed is not None else {}),
     )
     graph = build_longcat_avatar_graph(params)
-    return await longcat_service.submit_longcat_job(
+    result = await longcat_service.submit_longcat_job(
         graph, kind="avatar_talk", positive=params.positive, seed=params.seed,
         req=req, user=user, session=session, client=client,
         # R18 上下文(X-NSFW 头)打标进 /nsfw 专区作品库;nsfw_allowed 含未成年硬阻断,
         # 与 longcat_studio 同一判定来源,主站(无头)恒 False 行为不变
         nsfw=nsfw_allowed(user),
     )
+    if plan.strategy != "direct":
+        vgen.spawn_duration_chain(
+            client=client,
+            plan=plan,
+            first_prompt_id=result["prompt_id"],
+        )
+    if plan.notice:
+        result["duration_notice"] = plan.notice
+    return result

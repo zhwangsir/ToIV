@@ -7,12 +7,14 @@ import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon } from "@/components/ui/Icon";
 import { Field, Select, Textarea } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Popover } from "@/components/ui/Popover";
 import { Ripple } from "@/components/ui/Ripple";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { Tabs } from "@/components/ui/Tabs";
 import { useToast } from "@/components/ui/Toast";
 import { usePoll } from "@/hooks/usePoll";
-import { invalidateJobs } from "@/lib/api";
+import { useAutoResize } from "@/hooks/useAutoResize";
+import { invalidateJobs, apiFetch, authHeaders, listRecipes, type CommunityRecipe } from "@/lib/api";
+import type { JobItem } from "@/lib/types";
 import { consumeEngineDraft, type EngineDraft } from "@/lib/engine";
 import {
   engineDefaults,
@@ -32,7 +34,10 @@ import { useGeneration } from "@/lib/useGeneration";
 import { BREAKPOINTS } from "@/lib/useBreakpoint";
 import { friendlyError } from "@/lib/friendlyError";
 
+import { EngineInfoCard } from "./EngineInfoCard";
 import { ParamField } from "./ParamField";
+import { applyAspectPair } from "@/lib/aspectPair";
+import { PARAM_PANEL_GROUPS, groupEngineParams } from "./paramGroups";
 import { PromptBar } from "./PromptBar";
 import { RefAudioUpload, type UploadedAudio } from "./RefAudioUpload";
 import { RefImageUpload, type UploadedRef } from "./RefImageUpload";
@@ -61,6 +66,11 @@ interface GenerateViewProps {
    * 顶部模式段控隐藏;未传保持旧行为(图像|视频段控,兼容旧用法)。
    */
   lockedKind?: EngineKind;
+  /**
+   * 隐藏内置页头(2026-08-15 Film Atelier):工作台被嵌在已有页头的视图内时
+   * (如音频工坊内嵌 ACE 生成台)由外层承载页头,消除双标题叠印。
+   */
+  hideHeader?: boolean;
 }
 
 /** 板块标题/文案用的 kind 中文名。 */
@@ -70,6 +80,13 @@ const KIND_LABEL: Record<EngineKind, string> = {
   audio: "AI音频",
 };
 
+/** Film Atelier masthead 拉丁 kicker(按 kind;非锁定模式回退 PROMPT ATELIER)。 */
+const KIND_KICKER: Record<EngineKind, string> = {
+  image: "IMAGE ATELIER",
+  video: "VIDEO ATELIER",
+  audio: "SOUND ATELIER",
+};
+
 /** 文生/图生分组标签(按 kind 语义化)。 */
 const GROUP_LABEL: Record<EngineKind, { gen: string; edit: string }> = {
   image: { gen: "文生图", edit: "图生图" },
@@ -77,10 +94,7 @@ const GROUP_LABEL: Record<EngineKind, { gen: string; edit: string }> = {
   audio: { gen: "生成", edit: "编辑" },
 };
 
-/** 高级参数抽屉收纳的参数 key(步数/CFG/种子;负向提示词单独判定一并收进)。 */
-const ADVANCED_PARAM_KEYS: ReadonlySet<string> = new Set(["steps", "cfg", "seed"]);
-
-/** 尺寸参数 key(两项都存在时吸附到提示词条的尺寸 chip,浮板内不再重复渲染)。 */
+/** 尺寸参数 key(两项都存在时吸附到提示词条的尺寸 chip,浮板「画幅与时长」组不再重复渲染)。 */
 const SIZE_PARAM_KEYS: ReadonlySet<string> = new Set(["width", "height"]);
 
 /**
@@ -94,12 +108,15 @@ const SIZE_PARAM_KEYS: ReadonlySet<string> = new Set(["width", "height"]);
  *   ←/→ 方向键在舞台容器上切换选中条目
  * - 提示词条(PromptBar):底部居中悬浮玻璃条,自动增高 textarea + 引擎/尺寸 chips
  *   + OptimizeButton + 生成/取消按钮
- * - 参数玻璃浮板:position:absolute 浮于舞台右侧(不占布局列,舞台始终全宽),
- *   收起态为右下角悬浮球;步数/CFG/种子/负向收进「高级参数」折叠区(默认折叠)
+ * - 参数浮板(2026-08-17 Inspector 化):position:absolute 浮于舞台右侧(不占布局列,
+ *   舞台始终全宽),收起态为右下角悬浮球;头部「参数台+引擎名」固定在滚动区外
+ *   (内容超高滚动时不再裁剪标题),参数按 paramGroups 分组卡渲染(模型与引擎/
+ *   画幅与时长/采样/LoRA 叠加),负向提示词与未识别 key 收进「高级参数」折叠区;
+ *   引擎行 ⓘ 按钮弹出引擎说明卡(description/出处/参数个数,EngineInfoCard)
  * 提交链路:按引擎 id 路由到既有 API(lib/engines.submitEngineGeneration),
  * SSE 进度复用 useGeneration/trackJob;NSFW 引擎由后端按 R18 上下文过滤,前端不判断。
  */
-export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
+export function GenerateView({ initialDraft, lockedKind, hideHeader = false }: GenerateViewProps) {
   // 草稿:显式 prop 优先;否则消费 localStorage 引擎草稿(target=drama/manju 由短剧/漫剧视图消费,此处忽略)。
   // 锁定 kind 时只消费 target 匹配的草稿(不匹配不消费,留给对应板块;audio 无草稿来源,天然为空)。
   const draft = useMemo<GenerateDraft | null>(
@@ -115,6 +132,12 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
   const toast = useToast();
   // 高级参数抽屉引用:优化回填负向提示词时自动展开,让用户看见填入结果
   const advDetailsRef = useRef<HTMLDetailsElement>(null);
+  const negativeRef = useRef<HTMLTextAreaElement | null>(null);
+  // 提示词输入框句柄(T3):快速开始卡点击后聚焦,用户即刻开写
+  const promptInputRef = useRef<HTMLTextAreaElement | null>(null);
+  // 引擎说明卡(T2):ⓘ 按钮为 Popover 锚点,卡片内容见 EngineInfoCard
+  const [engineInfoOpen, setEngineInfoOpen] = useState(false);
+  const engineInfoBtnRef = useRef<HTMLButtonElement | null>(null);
   // 参数浮板开关:收起时为右下角悬浮球(会话级);窄屏(≤1023px,与 stage.css 浮板底部抽屉档一致)默认收起为 FAB,舞台优先
   const [paramsOpen, setParamsOpen] = useState(
     () =>
@@ -189,6 +212,27 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
     );
   }, [visibleEngines, engineIdByKind, mode]);
 
+  // 社区精选配方(CivitAI 作品逆向):按当前引擎加载,一键回填提示词/负向/LoRA/参数;
+  // R18 配方由后端按 X-NSFW 上下文放行(authHeaders 自动注入),主站天然不可见
+  const [recipes, setRecipes] = useState<CommunityRecipe[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    if (!engine) {
+      setRecipes([]);
+      return;
+    }
+    listRecipes(engine.id)
+      .then((rs) => {
+        if (!cancelled) setRecipes(rs);
+      })
+      .catch(() => {
+        if (!cancelled) setRecipes([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [engine?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // 参数状态:按引擎 id 分槽保存,切换引擎不丢输入(会话级)
   const [valuesByEngine, setValuesByEngine] = useState<Record<string, Record<string, unknown>>>({});
   const [promptByEngine, setPromptByEngine] = useState<Record<string, string>>({});
@@ -202,6 +246,8 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
     [engine, valuesByEngine],
   );
   const positive = engine ? promptByEngine[engine.id] ?? "" : "";
+  // 负向提示词自动增高(无上限,resize:vertical 兜底;closed <details> 内 hook 自动跳过)
+  useAutoResize(negativeRef, String(values["negative"] ?? ""));
   const refImage = engine ? refByEngine[engine.id] ?? null : null;
   const refImages = engine ? refsByEngine[engine.id] ?? [] : [];
   const refAudio = engine ? audioByEngine[engine.id] ?? null : null;
@@ -212,7 +258,9 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
   // images 类型 max>1 = 多参考图(VACE);单图引擎仍走旧单槽
   const multiImage = engine ? engineMaxImages(engine) > 1 : false;
 
-  // 参数分区:尺寸(width/height 成对)→ PromptBar chip;高级(steps/cfg/seed)→ 浮板折叠区;其余 → 浮板主区
+  // 参数分区(T1 Inspector 化):尺寸(width/height 成对)→ PromptBar chip;
+  // 参考输入(images/audio/video)→ 上传组件独立成节;其余按 paramGroups 分组卡
+  // (模型与引擎/画幅与时长/采样/LoRA 叠加);negative 与未识别 key → 高级参数折叠区
   const sizeParams = useMemo(
     () =>
       engine
@@ -221,26 +269,21 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
     [engine],
   );
   const showSizeChip = sizeParams.length === 2;
-  const mainParams = useMemo(
-    () =>
-      engine
-        ? engine.params.filter(
-            (p) =>
-              p.type !== "images" &&
-              p.type !== "audio" &&
-              p.type !== "video" &&
-              p.key !== "negative" &&
-              !ADVANCED_PARAM_KEYS.has(p.key) &&
-              !(showSizeChip && SIZE_PARAM_KEYS.has(p.key)),
-          )
-        : [],
+  const paramGroups = useMemo(
+    () => (engine ? groupEngineParams(engine.params, { sizeChip: showSizeChip }) : null),
     [engine, showSizeChip],
   );
+  // 高级组:negative 由下方 Textarea 特判渲染(自动增高 + 优化回填联动),其余走 ParamField
   const advancedParams = useMemo(
-    () => (engine ? engine.params.filter((p) => ADVANCED_PARAM_KEYS.has(p.key)) : []),
-    [engine],
+    () => (paramGroups ? paramGroups.advanced.filter((p) => p.key !== "negative") : []),
+    [paramGroups],
   );
-  const showAdvanced = advancedParams.length > 0 || (engine ? engineSupportsNegative(engine) : false);
+  const showAdvanced = (paramGroups?.advanced.length ?? 0) > 0;
+
+  // 参数浮板收起时同步关闭引擎说明卡:锚点(ⓘ 按钮)随之卸载,浮层不能悬空
+  useEffect(() => {
+    if (!paramsOpen) setEngineInfoOpen(false);
+  }, [paramsOpen]);
 
   // OptimizeButton kind 映射:文生图→image、图生图(含 images 参数)→image_edit、视频→video、音频→audio
   const optimizeKind = !engine
@@ -254,6 +297,39 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
   const setValue = (key: string, v: unknown) => {
     if (!engine) return;
     setValuesByEngine((prev) => ({ ...prev, [engine.id]: { ...(prev[engine.id] ?? {}), [key]: v } }));
+  };
+
+  /** 应用社区配方:提示词/负向/LoRA 一键回填;尺寸走 handleParamChange 保留宽高联动,其余参数直填。 */
+  function applyRecipe(r: CommunityRecipe) {
+    if (!engine) return;
+    setPromptByEngine((prev) => ({ ...prev, [engine.id]: r.prompt_template }));
+    setValue("negative", r.negative_template);
+    if (r.loras.length > 0) setValue("loras", r.loras);
+    for (const [k, v] of Object.entries(r.params)) {
+      handleParamChange(k, v);
+    }
+    toast.success(`已应用配方「${r.label}」,可在此基础上修改提示词`);
+    promptInputRef.current?.focus();
+  }
+
+  // 宽高联动(T-AR,2026-08-17):width/height 任一输入越出比例安全域(视频 9:16~16:9,
+  // 图像 1:2~2:1)时,联动抬另一维度回界内——防极端比例导致生成内容主体被裁/文字溢出;
+  // 后端同规则静默归一兜底(lib/aspectPair ↔ workflows/model_profiles.clamp_aspect_ratio)
+  const handleParamChange = (key: string, v: unknown) => {
+    if (!engine) return;
+    const pair = applyAspectPair(key, v, values, engine.params);
+    if (!pair) {
+      setValue(key, v);
+      return;
+    }
+    setValuesByEngine((prev) => ({
+      ...prev,
+      [engine.id]: {
+        ...(prev[engine.id] ?? {}),
+        [pair.key]: pair.value,
+        [pair.otherKey]: pair.otherValue,
+      },
+    }));
   };
 
   // 草稿预填:引擎列表异步加载,待目标引擎解析后一次性回填 prompt/参考图(仅 image/video 草稿)
@@ -274,13 +350,49 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const runningIdRef = useRef<string | null>(null);
+  const runningPromptIdRef = useRef<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  /**
+   * 裁切链轮询:done 时 post_status=processing(trim/extend 后台裁切中),
+   * 当前 paths 是未裁原片;10s 间隔轮询 /api/jobs,post_status 清零后写回终产物。
+   * 30min 封顶(extend 多段长链);超时/失败清标记回落原片展示(诚实降级)。
+   */
+  async function pollFinalResult(entryId: string, promptId: string): Promise<void> {
+    const deadline = Date.now() + 30 * 60_000;
+    for (;;) {
+      await new Promise((r) => setTimeout(r, 10_000));
+      if (Date.now() > deadline) break;
+      try {
+        const res = await apiFetch("/api/jobs?limit=200", { headers: authHeaders() });
+        if (!res.ok) continue;
+        const jobs = (await res.json()) as JobItem[];
+        const job = jobs.find((j) => j.prompt_id === promptId);
+        if (!job) continue;
+        if (job.status === "done" && job.post_status !== "processing") {
+          setEntries((prev) =>
+            prev.map((e) =>
+              e.id === entryId
+                ? { ...e, paths: job.results?.length ? job.results : e.paths, postProcessing: false }
+                : e,
+            ),
+          );
+          invalidateJobs(); // 终产物已回写,作品库刷新
+          return;
+        }
+      } catch {
+        /* 网络抖动下轮再试 */
+      }
+    }
+    setEntries((prev) => prev.map((e) => (e.id === entryId ? { ...e, postProcessing: false } : e)));
+  }
 
   const gen = useGeneration({
     onDone: (paths) => {
       const id = runningIdRef.current;
       runningIdRef.current = null;
+      runningPromptIdRef.current = null;
       if (id) {
         setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, status: "done", paths } : e)));
       }
@@ -289,9 +401,18 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
     onError: (msg, detail) => {
       const id = runningIdRef.current;
       runningIdRef.current = null;
+      runningPromptIdRef.current = null;
       if (id) {
         setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, status: "error", error: msg, errorDetail: detail ?? null } : e)));
       }
+    },
+    // 裁切链进行中(done 先于终产物):标记条目转「精确裁切中」并起轮询
+    onPostProcessing: () => {
+      const id = runningIdRef.current;
+      const promptId = runningPromptIdRef.current;
+      if (!id || !promptId) return;
+      setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, postProcessing: true } : e)));
+      void pollFinalResult(id, promptId);
     },
   });
 
@@ -332,6 +453,10 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
         prompt: promptText,
         status: "running",
         paths: [],
+        // 裁切链终产物轮询的寻址键(post_status=processing 时启用)
+        promptId: res.prompt_id,
+        // 时长策略提示(网格精确裁切/分段续写时后端返回;结果区 muted 一行)
+        notice: res.duration_notice ?? null,
         width: numVal(targetValues["width"]),
         height: numVal(targetValues["height"]),
         createdAt: Date.now(),
@@ -339,8 +464,9 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
       setEntries((prev) => [entry, ...prev]);
       setSelectedId(entry.id);
       runningIdRef.current = entry.id;
+      runningPromptIdRef.current = res.prompt_id ?? null;
       // start 永远 resolve:出错经 onError 回调更新条目状态
-      await gen.start(res);
+      await gen.start(res, { label: target.label });
     } catch (e) {
       // 提交阶段失败(参数校验/网络/上传缺失):不入历史,直接显示错误(已知模式包装为友好文案)
       const raw = e instanceof Error ? e.message : "生成请求失败";
@@ -378,6 +504,23 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
     }
   }
 
+  /**
+   * 空态快速开始卡(T3):选中对应引擎并聚焦提示词框。
+   * 目标引擎在另一分组(文生/图生)时先切组,否则选择经 visibleEngines 解析会
+   * 落回当前组第一个可用引擎(点了 LongCat 却选中别人的歧义)。
+   */
+  function onQuickStart(engineId: string) {
+    const target = kindEngines.find((e) => e.id === engineId);
+    if (target) {
+      const targetGroup = engineNeedsImage(target) === null ? "gen" : "edit";
+      if (showGroupTabs && group !== targetGroup) {
+        setGroupByKind((prev) => ({ ...prev, [mode]: targetGroup }));
+      }
+      setEngineIdByKind((prev) => ({ ...prev, [mode]: engineId }));
+    }
+    promptInputRef.current?.focus();
+  }
+
   // 舞台容器 ←/→ 方向键:在会话条目间切换选中(输入控件内的按键不拦截)
   function onResultsKeyDown(e: React.KeyboardEvent<HTMLElement>) {
     if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
@@ -406,27 +549,40 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
               : "ltx_i2v";
 
   return (
-    <div className={`generate-view${paramsOpen ? " is-params-open" : ""}`}>
-      <PageHeader
-        className="generate-header"
-        title={lockedKind ? KIND_LABEL[lockedKind] : "AI 生成工作台"}
-        desc="会话内历史不落库,刷新即清空"
-        actions={
-          !lockedKind ? (
-            <Tabs
-              ariaLabel="生成模式"
-              items={[
-                { key: "image", label: "图像", icon: <Icon name="image" size={14} /> },
-                { key: "video", label: "视频", icon: <Icon name="video" size={14} /> },
-              ]}
-              current={mode}
-              onChange={(k) => setMode(k as EngineKind)}
-            />
-          ) : undefined
-        }
-      />
+    <div className="generate-view">
+      {!hideHeader && (
+        <PageHeader
+          className="generate-header"
+          kicker={lockedKind ? KIND_KICKER[lockedKind] : "PROMPT ATELIER"}
+          title={lockedKind ? KIND_LABEL[lockedKind] : "AI 生成工作台"}
+          desc="会话内历史不落库,刷新即清空"
+          actions={
+            !lockedKind ? (
+              /* 模式段控:Film Atelier 墨丸语言(.at-seg 共享类) */
+              <div className="at-seg" role="tablist" aria-label="生成模式">
+                {(["image", "video"] as const).map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    role="tab"
+                    aria-selected={mode === k}
+                    className={`at-seg-btn${mode === k ? " is-active" : ""}`}
+                    onClick={() => setMode(k)}
+                  >
+                    <Icon name={k === "image" ? "image" : "video"} size={14} />
+                    {k === "image" ? "图像" : "视频"}
+                  </button>
+                ))}
+              </div>
+            ) : undefined
+          }
+        />
+      )}
 
       <div className="generate-body">
+        {/* 舞台列(2026-08-17 停靠布局):结果面板 + 提示词条同列纵排,与参数列并排成行,
+            互不遮挡——替代「全出血舞台 + 浮板叠加」 */}
+        <div className="generate-stage-col">
         <section
           className="generate-results"
           aria-label="生成结果"
@@ -445,13 +601,60 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
             }}
             onCancel={onCancel}
             onRetry={onRetry}
+            kind={mode}
+            quickStartEngines={kindEngines}
+            onQuickStart={onQuickStart}
           />
         </section>
 
+        <PromptBar
+          value={positive}
+          onChange={(v) => {
+            if (!engine) return;
+            setPromptByEngine((prev) => ({ ...prev, [engine.id]: v }));
+          }}
+          disabled={gen.isRunning}
+          inputRef={promptInputRef}
+          engine={engine}
+          engines={visibleEngines}
+          onEngineChange={(id) => setEngineIdByKind((prev) => ({ ...prev, [mode]: id }))}
+          sizeParams={showSizeChip ? sizeParams : []}
+          values={values}
+          onValueChange={setValue}
+          optimizeKind={optimizeKind}
+          onOptimized={(text, negative) => {
+            if (!engine) return;
+            setPromptByEngine((prev) => ({ ...prev, [engine.id]: text }));
+            if (negative && engineSupportsNegative(engine)) {
+              setValue("negative", negative);
+              // 可见化:展开高级参数抽屉(若已挂载)并提示,避免用户不知道负向已自动填入
+              if (advDetailsRef.current) advDetailsRef.current.open = true;
+              toast.success("已自动填入负向提示词,可在「高级参数」中调整");
+            }
+          }}
+          canSubmit={canSubmit}
+          isRunning={gen.isRunning}
+          submitting={submitting}
+          submitError={submitError}
+          onClearError={() => setSubmitError(null)}
+          onGenerate={() => void onGenerate()}
+          onCancel={onCancel}
+        />
+        </div>
+
         {paramsOpen && (
-          <aside className="generate-params" aria-label="生成参数">
+          <aside className="generate-params" aria-label="参数台">
+            {/* 头部固定在滚动区外(Inspector 语言):内容超高滚动时标题不再被裁剪,
+                引擎名副标题取代原「生成参数」大标题(与分组标题不再重复) */}
             <div className="generate-params-head">
-              <span className="generate-params-title">生成参数</span>
+              <div className="generate-params-heading">
+                <span className="generate-params-title">参数台</span>
+                {engine && (
+                  <span className="generate-params-sub" title={engine.label}>
+                    {engine.label}
+                  </span>
+                )}
+              </div>
               <button
                 type="button"
                 className="generate-params-close"
@@ -463,6 +666,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
                 <Icon name="panel-right" size={14} />
               </button>
             </div>
+            <div className="generate-params-body">
             {engines === null && !enginesError ? (
               <>
                 <Skeleton height={32} />
@@ -478,39 +682,68 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
             ) : (
               <>
                 <div className="params-section">
-                  <h3 className="params-section-title">引擎</h3>
                   {showGroupTabs && (
-                    <Tabs
-                      ariaLabel={mode === "image" ? "文生图或图生图" : mode === "video" ? "文生视频或图生视频" : "生成或编辑"}
-                      fill
-                      items={[
-                        { key: "gen", label: GROUP_LABEL[mode].gen },
-                        { key: "edit", label: GROUP_LABEL[mode].edit },
-                      ]}
-                      current={group}
-                      onChange={(k) => setGroupByKind((prev) => ({ ...prev, [mode]: k as "gen" | "edit" }))}
-                    />
+                    /* 文生/图生段控 = 模式(非引擎):独立小节标题「模式」,与下方引擎下拉区分,
+                       消除「引擎」标签连续出现两次的歧义(2026-08-16 审计;图像/视频页同一组件,同步生效) */
+                    <>
+                      <h3 className="params-section-title">模式</h3>
+                      <div
+                        className="at-seg generate-group-seg"
+                        role="tablist"
+                        aria-label={mode === "image" ? "文生图或图生图" : mode === "video" ? "文生视频或图生视频" : "生成或编辑"}
+                      >
+                        {(["gen", "edit"] as const).map((g) => (
+                          <button
+                            key={g}
+                            type="button"
+                            role="tab"
+                            aria-selected={group === g}
+                            className={`at-seg-btn${group === g ? " is-active" : ""}`}
+                            onClick={() => setGroupByKind((prev) => ({ ...prev, [mode]: g }))}
+                          >
+                            {GROUP_LABEL[mode][g]}
+                          </button>
+                        ))}
+                      </div>
+                    </>
                   )}
 
-                  <Field label="引擎">
-                    <Select
-                      value={engine?.id ?? ""}
-                      onChange={(e) => setEngineIdByKind((prev) => ({ ...prev, [mode]: e.target.value }))}
-                      aria-label="选择引擎"
-                    >
-                      {visibleEngines.map((e) => (
-                        <option
-                          key={e.id}
-                          value={e.id}
-                          disabled={!e.available}
-                          title={e.available ? undefined : e.unavailable_reason}
-                        >
-                          {e.label}
-                          {e.available ? "" : ` — 不可用:${e.unavailable_reason ?? "未知原因"}`}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
+                  {/* 引擎行:下拉 + ⓘ 说明卡入口(T2)。描述/出处不再平铺首屏,
+                      收进 EngineInfoCard(点击展开,面板更贴合 Inspector 密度) */}
+                  <div className="engine-select-row">
+                    <Field label="引擎">
+                      <Select
+                        value={engine?.id ?? ""}
+                        onChange={(e) => setEngineIdByKind((prev) => ({ ...prev, [mode]: e.target.value }))}
+                        aria-label="选择引擎"
+                      >
+                        {visibleEngines.map((e) => (
+                          <option
+                            key={e.id}
+                            value={e.id}
+                            disabled={!e.available}
+                            title={e.available ? undefined : e.unavailable_reason}
+                          >
+                            {e.label}
+                            {e.available ? "" : ` — 不可用:${e.unavailable_reason ?? "未知原因"}`}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                    {engine && (
+                      <button
+                        type="button"
+                        ref={engineInfoBtnRef}
+                        className={`engine-info-btn${engineInfoOpen ? " is-open" : ""}`}
+                        onClick={() => setEngineInfoOpen((v) => !v)}
+                        aria-expanded={engineInfoOpen}
+                        aria-label={`引擎说明:${engine.label}`}
+                        title="引擎说明"
+                      >
+                        <Icon name="info" size={14} />
+                      </button>
+                    )}
+                  </div>
 
                   {engine && (
                     <div className="engine-status">
@@ -533,20 +766,33 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
                       </button>
                     </div>
                   )}
-                  {engine?.description && <p className="engine-desc">{engine.description}</p>}
-                  {engine?.source && (
-                    <p className="engine-source">
-                      出处:
-                      <a
-                        href={engine.source.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        {engine.source.name}
-                      </a>
-                      <span> · {engine.source.author}</span>
-                      {engine.source.note && <span> · {engine.source.note}</span>}
-                    </p>
+
+                  {engine && recipes.length > 0 && (
+                    <div className="recipes-section">
+                      <h3 className="params-section-title">社区精选配方</h3>
+                      <p className="recipes-hint">
+                        来自社区作品的成熟参数组合(CivitAI 逆向),点击一键回填提示词与 LoRA,可再修改。
+                      </p>
+                      <div className="recipes-list">
+                        {recipes.map((r) => (
+                          <button
+                            key={r.id}
+                            type="button"
+                            className="recipe-chip"
+                            onClick={() => applyRecipe(r)}
+                            disabled={gen.isRunning}
+                            title={r.source}
+                          >
+                            {r.nsfw && (
+                              <span className="recipe-nsfw-badge" aria-label="R18 配方">
+                                R18
+                              </span>
+                            )}
+                            <span className="recipe-chip-label">{r.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
 
@@ -603,20 +849,26 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
                   </div>
                 )}
 
-                {mainParams.length > 0 && (
-                  <div className="params-section">
-                    <h3 className="params-section-title">生成参数</h3>
-                    {mainParams.map((p) => (
-                      <ParamField
-                        key={p.key}
-                        param={p}
-                        value={values[p.key]}
-                        disabled={gen.isRunning}
-                        onChange={setValue}
-                      />
-                    ))}
-                  </div>
-                )}
+                {/* T1 Inspector 分组卡:模型与引擎 / 画幅与时长 / 采样 / LoRA 叠加,
+                    空组不渲染;组间 hairline 由 .params-section + .params-section 承担 */}
+                {paramGroups &&
+                  PARAM_PANEL_GROUPS.map(
+                    (g) =>
+                      paramGroups[g.id].length > 0 && (
+                        <div className="params-section" key={g.id}>
+                          <h3 className="params-section-title">{g.label}</h3>
+                          {paramGroups[g.id].map((p) => (
+                            <ParamField
+                              key={p.key}
+                              param={p}
+                              value={values[p.key]}
+                              disabled={gen.isRunning}
+                              onChange={handleParamChange}
+                            />
+                          ))}
+                        </div>
+                      ),
+                  )}
 
                 {engine && showAdvanced && (
                   <details className="adv-params" ref={advDetailsRef}>
@@ -630,6 +882,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
                       {engineSupportsNegative(engine) && (
                         <Field label="负向提示词">
                           <Textarea
+                            ref={negativeRef}
                             rows={2}
                             value={String(values["negative"] ?? "")}
                             placeholder="描述不想要的内容,可留空"
@@ -644,7 +897,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
                           param={p}
                           value={values[p.key]}
                           disabled={gen.isRunning}
-                          onChange={setValue}
+                          onChange={handleParamChange}
                         />
                       ))}
                     </div>
@@ -652,7 +905,23 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
                 )}
               </>
             )}
+            </div>
           </aside>
+        )}
+
+        {/* 引擎说明卡(T2):Popover portal 浮层,实底发夹线语言(stage.css .engine-info-pop) */}
+        {engine && (
+          <Popover
+            open={engineInfoOpen}
+            anchorRef={engineInfoBtnRef}
+            onClose={() => setEngineInfoOpen(false)}
+            width={300}
+            className="engine-info-pop"
+            role="dialog"
+            ariaLabel={`引擎说明:${engine.label}`}
+          >
+            <EngineInfoCard engine={engine} />
+          </Popover>
         )}
 
         {!paramsOpen && (
@@ -672,61 +941,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
             </button>
           </Ripple>
         )}
-
-        <PromptBar
-          value={positive}
-          onChange={(v) => {
-            if (!engine) return;
-            setPromptByEngine((prev) => ({ ...prev, [engine.id]: v }));
-          }}
-          disabled={gen.isRunning}
-          engine={engine}
-          engines={visibleEngines}
-          onEngineChange={(id) => setEngineIdByKind((prev) => ({ ...prev, [mode]: id }))}
-          sizeParams={showSizeChip ? sizeParams : []}
-          values={values}
-          onValueChange={setValue}
-          optimizeKind={optimizeKind}
-          onOptimized={(text, negative) => {
-            if (!engine) return;
-            setPromptByEngine((prev) => ({ ...prev, [engine.id]: text }));
-            if (negative && engineSupportsNegative(engine)) {
-              setValue("negative", negative);
-              // 可见化:展开高级参数抽屉(若已挂载)并提示,避免用户不知道负向已自动填入
-              if (advDetailsRef.current) advDetailsRef.current.open = true;
-              toast.success("已自动填入负向提示词,可在「高级参数」中调整");
-            }
-          }}
-          canSubmit={canSubmit}
-          isRunning={gen.isRunning}
-          submitting={submitting}
-          submitError={submitError}
-          onClearError={() => setSubmitError(null)}
-          onGenerate={() => void onGenerate()}
-          onCancel={onCancel}
-        />
       </div>
-
-      <style jsx>{`
-        /* 引擎出处行(M9):克制灰调,仅外链用主题强调色 */
-        .engine-source {
-          font-size: var(--text-aux);
-          color: var(--text-muted);
-          line-height: 1.6;
-        }
-        .engine-source a {
-          color: var(--accent);
-          text-decoration: none;
-        }
-        .engine-source a:hover {
-          text-decoration: underline;
-        }
-        /* 「重新检测」按钮:吸附状态行右侧 */
-        .engine-refresh {
-          margin-left: auto;
-          flex-shrink: 0;
-        }
-      `}</style>
     </div>
   );
 }

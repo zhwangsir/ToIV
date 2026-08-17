@@ -18,10 +18,11 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from app.capabilities import required_nodes
+from app.capabilities import required_models, required_nodes
 from app.comfy.client import ComfyUIError
 from app.comfy.pool import WorkerPool
 from app.config import get_settings
+from app.workflows.model_profiles import AR_IMAGE, AR_VIDEO
 from app.models import User
 from app.nsfw_ctx import nsfw_allowed
 from app.services.h3 import H3_NODE, get_h3_client, is_h3_nsfw_lora
@@ -29,6 +30,7 @@ from app.services.longcat import LONGCAT_NODE, get_longcat_client
 from app.services.ltx25 import LTX25_NODE, get_ltx25_client
 from app.workflows.model_profiles import is_nextgen, is_nsfw
 from app.workflows.style_presets import MediaType, list_presets
+from app.workflows.wan_i2v import WAN_I2V_NSFW_LORAS
 
 # probe:async (pool) -> (available, reason|None);None 表示静态可用性(不做 pool 探测)
 ProbeFn = Callable[[WorkerPool], Awaitable["tuple[bool, str | None]"]]
@@ -224,18 +226,31 @@ async def _probe_ace(pool: WorkerPool) -> tuple[bool, str | None]:
     return await _probe_pool(pool, {_ACE_STEP_CKPT}, set())
 
 
+async def _probe_wan_i2v(pool: WorkerPool) -> tuple[bool, str | None]:
+    """Wan2.2 I2V NSFW 链路(pool worker):底模/加速 LoRA/节点链 + 6 个 Civitai 配方 LoRA 全量校验。
+
+    配方 LoRA 缺失直接标不可用并透出缺哪个(比生成期 ComfyUI 400 更易定位);
+    与 routes/video.py 的 /generate/video 同一能力要求(capabilities kind="video")。
+    """
+    models = required_models("video") | set(WAN_I2V_NSFW_LORAS)
+    return await _probe_pool(pool, models, required_nodes("video"))
+
+
 # ---------------------------------------------------------------------------
 # 参数 schema 构件
 # ---------------------------------------------------------------------------
 
 def _num(key: str, label: str, default: float, *, min_: float, max_: float,
-         step: float = 1, hint: str | None = None) -> dict:
+         step: float = 1, hint: str | None = None, ar: tuple[float, float] | None = None) -> dict:
     d: dict[str, Any] = {
         "key": key, "label": label, "type": "number",
         "min": min_, "max": max_, "step": step, "default": default,
     }
     if hint:
         d["hint"] = hint
+    if ar is not None:
+        # 宽高比(w/h)安全域:仅挂在 width 参数上,前端据此做宽高联动纠正
+        d["ar"] = [ar[0], ar[1]]
     return d
 
 
@@ -267,22 +282,22 @@ def _audio(label: str = "驱动音频", hint: str = "wav / mp3 / m4a / ogg / fla
 
 
 # LTX-2.5 视频参数(与 routes/ltx25_studio.py 请求模型同一套范围;
-# 32 对齐 + 8k+1 帧网格,蒸馏版 cfg=1 固定不外露)
+# 32 对齐 + 时长按秒(内部 8k+1 网格,超上限自动分段续写),蒸馏版 cfg=1 固定不外露)
 def _ltx25_video_params() -> list[dict]:
     return [
         _negative(),
         _num("width", "宽度", 960, min_=256, max_=1920, step=32,
-             hint="32 对齐,非对齐自动向下取整"),
+             hint="32 对齐;比例限 9:16~16:9,超出自动纠正", ar=AR_VIDEO),
         _num("height", "高度", 544, min_=256, max_=1088, step=32, hint="32 对齐"),
-        _num("length", "时长(帧)", 121, min_=9, max_=601,
-             hint="8k+1 帧网格;121 帧@24fps≈5s,上限 601≈25s"),
+        _num("duration", "时长(秒)", 5, min_=0.5, max_=60, step=0.5,
+             hint="支持任意时长;超 25s 单段上限自动分段续写并精确裁切"),
         _num("fps", "帧率", 24, min_=8, max_=60, hint="官方 conditioning 默认 24fps"),
         _num("steps", "采样步数", 8, min_=1, max_=50, hint="蒸馏版默认 8 步(cfg=1 固定)"),
         _seed(),
     ]
 
 
-# R18 LTX 视频参数:分辨率/时长改预设下拉(8 对齐 + 8k+1 由提交层换算),
+# R18 LTX 视频参数:分辨率/时长改预设下拉(8 对齐 + 秒数由提交层经统一策略层解析),
 # 其余(步数/CFG/种子/高清放大/RIFE 补帧)与 SFW 链路一致。
 _LTX_NSFW_RESOLUTIONS = [
     ("864x480", "480p 横版 (864×480)"),
@@ -293,7 +308,9 @@ _LTX_NSFW_RESOLUTIONS = [
 ]
 
 _LTX_NSFW_DURATIONS = [
+    ("4", "4 秒"),
     ("6", "6 秒"),
+    ("8", "8 秒"),
     ("10", "10 秒"),
     ("15", "15 秒"),
 ]
@@ -309,7 +326,7 @@ def _ltx_nsfw_video_params() -> list[dict]:
         {
             "key": "duration", "label": "时长", "type": "select", "default": "6",
             "options": [{"value": v, "label": label} for v, label in _LTX_NSFW_DURATIONS],
-            "hint": "实际帧数按帧率换算并吸附 8k+1 网格",
+            "hint": "实际帧数按帧率换算并吸附 8k+1 网格,秒差大时生成后精确裁切",
         },
         _num("fps", "帧率", 16, min_=4, max_=30),
         _num("steps", "采样步数", 20, min_=1, max_=50),
@@ -322,26 +339,29 @@ def _ltx_nsfw_video_params() -> list[dict]:
 
 def _image_size_params(default: int = 1024) -> list[dict]:
     return [
-        _num("width", "宽度", default, min_=64, max_=2048, step=8),
+        _num("width", "宽度", default, min_=64, max_=2048, step=8,
+             hint="比例限 1:2~2:1,超出自动纠正", ar=AR_IMAGE),
         _num("height", "高度", default, min_=64, max_=2048, step=8),
     ]
 
 
-# H3 视频参数(与 routes/h3_studio.py 请求模型同一套范围;32 对齐、17k+5 帧网格)
+# H3 视频参数(与 routes/h3_studio.py 请求模型同一套范围;32 对齐、时长按秒,
+# 内部 17k+5 网格 @24fps,超 15s 单段上限自动分段续写并精确裁切)
 def _h3_video_params() -> list[dict]:
     return [
         _negative(),
-        _num("width", "宽度", 1344, min_=256, max_=1344, step=32, hint="32 对齐,上限 1344×768"),
+        _num("width", "宽度", 1344, min_=256, max_=1344, step=32,
+             hint="32 对齐,上限 1344×768;比例限 9:16~16:9", ar=AR_VIDEO),
         _num("height", "高度", 768, min_=256, max_=1344, step=32, hint="32 对齐"),
-        _num("length", "时长(帧)", 124, min_=22, max_=362,
-             hint="17k+5 帧网格 @24fps(124≈5.2s,362≈15s)"),
+        _num("duration", "时长(秒)", 5, min_=0.5, max_=60, step=0.5,
+             hint="支持任意时长;超 15s 单段上限自动分段续写并精确裁切"),
         _num("steps", "采样步数", 20, min_=1, max_=50),
         _seed(),
         _h3_loras_select(),
     ]
 
 
-# R18 H3 视频参数:分辨率/时长改预设下拉(32 对齐 + 17k+5 硬校验,自由数值易 422),
+# R18 H3 视频参数:分辨率/时长改预设下拉(32 对齐 + 秒数由提交层经统一策略层解析),
 # 其余(步数/种子/LoRA)与 SFW H3 链路一致;固定 24fps,无 cfg(H3 模板内锁定)。
 # 注意 720 非 32 对齐,720p 档用 1280×736 / 736×1280 替代。
 _H3_NSFW_RESOLUTIONS = [
@@ -353,11 +373,13 @@ _H3_NSFW_RESOLUTIONS = [
     ("768x1344", "768p 竖版 (768×1344)"),
 ]
 
-# 固定 24fps 下的 17k+5 网格:6s→141 / 10s→243 / 15s→362(上限)
+# 固定 24fps;非网格时长自动吸附 17k+5 网格后精确裁切
 _H3_NSFW_DURATIONS = [
-    ("6", "6 秒 (141 帧)"),
-    ("10", "10 秒 (243 帧)"),
-    ("15", "15 秒 (362 帧)"),
+    ("4", "4 秒"),
+    ("6", "6 秒"),
+    ("8", "8 秒"),
+    ("10", "10 秒"),
+    ("15", "15 秒"),
 ]
 
 
@@ -371,7 +393,7 @@ def _h3_nsfw_video_params() -> list[dict]:
         {
             "key": "duration", "label": "时长", "type": "select", "default": "6",
             "options": [{"value": v, "label": label} for v, label in _H3_NSFW_DURATIONS],
-            "hint": "H3 固定 24fps,帧数吸附 17k+5 网格",
+            "hint": "H3 固定 24fps;非网格时长自动吸附 17k+5 网格后精确裁切",
         },
         _num("steps", "采样步数", 20, min_=1, max_=50),
         _seed(),
@@ -396,14 +418,84 @@ def _h3_loras_select() -> dict:
     }
 
 
-# LongCat 视频参数(与 routes/longcat_studio.py 请求模型同一套范围;16 对齐、17-961 帧)
+# ── Wan2.2 I2V NSFW(2026-08-17 Civitai 爆款配方复刻,见 docs/2026-08-16-wan22-i2v-nsfw-recipe.md)──
+# 分辨率预设:Wan 训练甜点 832×480 + kenpechi 720p 档 1280×704(请求模型钳位上限 1280)
+_WAN_NSFW_RESOLUTIONS = [
+    ("832x480", "480p 横版 (832×480)"),
+    ("480x832", "480p 竖版 (480×832)"),
+    ("1280x704", "720p 横版 (1280×704,kenpechi 档)"),
+    ("704x1280", "720p 竖版 (704×1280,kenpechi 档)"),
+]
+
+# 时长预设:fps 固定 16(Wan 甜点帧率),帧数须 4n+1 且 ≤121(单段上限)
+# 3s→49 帧 / 5s→81 帧 / 7.5s→121 帧,更长走作品库末帧续写
+_WAN_NSFW_DURATIONS = [
+    ("3", "3 秒 (49 帧)"),
+    ("5", "5 秒 (81 帧)"),
+    ("7.5", "7.5 秒 (121 帧,单段上限)"),
+]
+
+# LoRA 选项标签:文件名 → (中文标签,含触发词);值集合须与 WAN_I2V_NSFW_LORAS 一致
+_WAN_NSFW_LORA_LABELS: dict[str, str] = {
+    "NSFW-22-H-e8.safetensors": "通用 NSFW 概念·HIGH(触发词 nsfwsks)",
+    "wan22-m4crom4sti4-i2v-20epoc-high-k3nk.safetensors": "胸部物理·HIGH(m4crom4sti4)",
+    "WAN-2.2-I2V-POV-Body-Cumshot-Pullout-HIGH-v1.safetensors": "POV 体精/拔出·HIGH(b0dyshot)",
+    "Wan_2_2_I2V_A14B_HIGH_lightx2v_4step_lora_v1030_rank_64_bf16.safetensors": "加速 v1030·HIGH(替代默认加速,4 步档)",
+    "DR34ML4Y_I2V_14B_LOW_V2.safetensors": "体位五件套·LOW(m15510n4ry/bl0wj0b/d0gg1e/c0wg1rl/d0ubl3_bj)",
+    "56Low-noise-Cumshot-Aesthetics.safetensors": "体液美学(动漫)·LOW",
+}
+
+
+def _wan_nsfw_loras_select() -> dict:
+    """Wan2.2 NSFW LoRA 叠加(多选 + 单项强度):静态策划清单(只露配方内 6 个,不暴露整目录)。
+
+    与 H3 不同:Wan 配方是固定逆向结果,文件名/侧别/默认强度由后端注册表
+    WAN_I2V_NSFW_LORAS 判定;前端只传 name+strength,侧别用户无感。
+    min/max/step 为强度滑杆范围(甜点位 0.6-0.8,与 routes/video.WanLoraInput 约束兼容)。
+    """
+    return {
+        "key": "loras", "label": "NSFW LoRA 叠加", "type": "loras",
+        "default": [],
+        "options": [
+            {"value": name, "label": _WAN_NSFW_LORA_LABELS.get(name, name), "nsfw": True}
+            for name in WAN_I2V_NSFW_LORAS
+        ],
+        "min": 0.3, "max": 1.2, "step": 0.05,
+        "hint": "HIGH 侧管构图/动作,LOW 侧管细节/质感;触发词须写进提示词句首,推荐强度 0.6-0.8,最多 4 个",
+    }
+
+
+def _wan_nsfw_i2v_params() -> list[dict]:
+    """Wan2.2 I2V NSFW 参数(与 routes/video.py WanI2VRequest 同一套范围;
+    时长按秒,前端换算 4n+1 帧;fps 固定 16 不外露)。"""
+    return [
+        _negative(),
+        {
+            "key": "resolution", "label": "分辨率", "type": "select", "default": "832x480",
+            "options": [{"value": v, "label": label} for v, label in _WAN_NSFW_RESOLUTIONS],
+        },
+        {
+            "key": "duration", "label": "时长", "type": "select", "default": "5",
+            "options": [{"value": v, "label": label} for v, label in _WAN_NSFW_DURATIONS],
+            "hint": "固定 16fps;单段上限 121 帧(7.5s),更长用作品库末帧续写",
+        },
+        {"key": "full_quality", "label": "满血档(成片)", "type": "switch", "default": False,
+         "hint": "不挂加速 LoRA,20 步 + cfg 3.5/3.0;质量更高但慢约 4 倍"},
+        _seed(),
+        _wan_nsfw_loras_select(),
+    ]
+
+
+# LongCat 视频参数(与 routes/longcat_studio.py 请求模型同一套范围;16 对齐、时长按秒,
+# 内部 17-961 帧无网格,>241 帧自动上下文窗口;超单段上限由统一策略层报 422)
 def _longcat_video_params() -> list[dict]:
     return [
         _negative(),
-        _num("width", "宽度", 832, min_=320, max_=1280, step=16, hint="16 对齐,非对齐自动向下取整"),
+        _num("width", "宽度", 832, min_=320, max_=1280, step=16,
+             hint="16 对齐;比例限 9:16~16:9,超出自动纠正", ar=AR_VIDEO),
         _num("height", "高度", 480, min_=320, max_=1280, step=16, hint="16 对齐"),
-        _num("num_frames", "时长(帧)", 121, min_=17, max_=961,
-             hint="长视频引擎,961 帧@16fps≈60s 单镜头"),
+        _num("duration", "时长(秒)", 7.5, min_=0.5, max_=60, step=0.5,
+             hint="长视频引擎,单镜头上限 961 帧(16fps≈60s);>15s 自动启用上下文窗口分段采样"),
         _num("steps", "采样步数", 10, min_=1, max_=50, hint="蒸馏 LoRA 低步数,默认 10 即可"),
         _num("fps", "帧率", 16, min_=8, max_=30, hint="仅影响成片打包帧率"),
         _seed(),
@@ -411,50 +503,56 @@ def _longcat_video_params() -> list[dict]:
 
 
 # LongCat-Avatar 数字人参数(与 routes/avatar_studio.py 请求模型同一套范围;
-# 16 对齐、17-2500 帧(>93 帧自动续段)、fps 默认 25 与 WhisperEmbeds 特征帧率同源)
+# 16 对齐、时长按秒(内部 17-2500 帧,4k+1 网格;>93 帧自动续段),
+# fps 默认 25 与 WhisperEmbeds 特征帧率同源)
 def _avatar_talk_params() -> list[dict]:
     return [
         _images(label="人像首帧", hint="jpg / png,单张 ≤ 20MB"),
         {"key": "audio", "label": "驱动音频", "type": "text", "default": "",
          "hint": "wav / mp3,经 /api/upload 上传(kind=avatar,≤20MB)"},
         _negative(),
-        _num("width", "宽度", 480, min_=320, max_=1280, step=16, hint="16 对齐,非对齐自动向下取整"),
+        _num("width", "宽度", 480, min_=320, max_=1280, step=16,
+             hint="16 对齐;比例限 9:16~16:9,超出自动纠正", ar=AR_VIDEO),
         _num("height", "高度", 832, min_=320, max_=1280, step=16, hint="16 对齐"),
-        _num("num_frames", "时长(帧)", 93, min_=17, max_=2500,
-             hint="93 帧@25fps≈3.7s;>93 帧自动按 93 帧窗口续段,2500 帧≈100s"),
+        _num("duration", "时长(秒)", 3.7, min_=0.5, max_=100, step=0.1,
+             hint="默认 25fps;>3.7s 自动按 93 帧窗口续段,上限 2500 帧(25fps≈100s)"),
         _num("fps", "帧率", 25, min_=8, max_=30, hint="Whisper 特征帧率与打包帧率同源"),
         _num("steps", "采样步数", 12, min_=1, max_=50, hint="dmd 蒸馏 LoRA 低步数,默认 12"),
         _seed(),
     ]
 
 
-# Wan2.2-Animate 动作迁移参数(与 routes/wan_studio.py WanAnimateRequest 同一套范围)
+# Wan2.2-Animate 动作迁移参数(与 routes/wan_studio.py WanAnimateRequest 同一套范围;
+# 时长按秒,内部 4k+1 网格吸附,秒差大时生成后精确裁切)
 def _wan_animate_params() -> list[dict]:
     return [
         _ref_image_required(),
         {"key": "video", "label": "驱动视频", "type": "video", "default": None,
          "hint": "mp4 / webm / mov,≤200MB;动作来源(与参考图同 worker 互钉)"},
         _negative(),
-        _num("width", "宽度", 832, min_=320, max_=1280, step=16, hint="16 对齐,非对齐自动向下取整"),
+        _num("width", "宽度", 832, min_=320, max_=1280, step=16,
+             hint="16 对齐;比例限 9:16~16:9,超出自动纠正", ar=AR_VIDEO),
         _num("height", "高度", 480, min_=320, max_=1280, step=16, hint="16 对齐"),
-        _num("num_frames", "时长(帧)", 121, min_=17, max_=501,
-             hint="自动取整 4k+1;121 帧@16fps≈7.5s,驱动视频截断到该帧数"),
+        _num("duration", "时长(秒)", 7.5, min_=0.5, max_=31, step=0.5,
+             hint="上限 501 帧(16fps≈31s);驱动视频截断到该时长,非网格时长生成后精确裁切"),
         _num("steps", "采样步数", 6, min_=1, max_=50, hint="官方示例 6 步(dpm++_sde)"),
         _num("fps", "帧率", 16, min_=8, max_=30, hint="与驱动视频重采样/打包帧率同源"),
         _seed(),
     ]
 
 
-# Wan2.1-VACE 多参考图参数(与 routes/wan_studio.py WanVaceRequest 同一套范围)
+# Wan2.1-VACE 多参考图参数(与 routes/wan_studio.py WanVaceRequest 同一套范围;
+# 时长按秒,内部 4k+1 网格吸附,秒差大时生成后精确裁切)
 def _wan_vace_params() -> list[dict]:
     return [
         {"key": "images", "label": "参考图(1-4 张)", "type": "images", "max": 4,
          "default": None, "hint": "角色/物体/场景参考,jpg / png / webp,单张 ≤ 20MB"},
         _negative(),
-        _num("width", "宽度", 832, min_=320, max_=1280, step=16, hint="16 对齐,非对齐自动向下取整"),
+        _num("width", "宽度", 832, min_=320, max_=1280, step=16,
+             hint="16 对齐;比例限 9:16~16:9,超出自动纠正", ar=AR_VIDEO),
         _num("height", "高度", 480, min_=320, max_=1280, step=16, hint="16 对齐"),
-        _num("num_frames", "时长(帧)", 81, min_=17, max_=241,
-             hint="自动取整 4k+1;81 帧@16fps≈5s"),
+        _num("duration", "时长(秒)", 5, min_=0.5, max_=15, step=0.5,
+             hint="上限 241 帧(16fps≈15s);非网格时长生成后精确裁切"),
         _num("steps", "采样步数", 20, min_=1, max_=50, hint="官方示例 20 步(unipc)"),
         _num("fps", "帧率", 16, min_=8, max_=30, hint="仅影响成片打包帧率"),
         _seed(),
@@ -942,6 +1040,26 @@ def _default_registry() -> list[dict[str, Any]]:
         },
         "params": [_ref_image_required(), *_h3_nsfw_video_params()],
         "probe": _probe_h3,
+    },
+    # Wan2.2 I2V NSFW(2026-08-17 Civitai 爆款配方复刻):与 SFW 主链同一路由
+    # (POST /api/generate/video),pool worker 执行;专区内自带 X-NSFW 头 →
+    # 产物打标进 R18 作品库、loras 入参生效(SFW 请求带 loras 一律静默剔除)。
+    # LoRA 清单为静态策划(WAN_I2V_NSFW_LORAS 6 个),侧别由后端注册表判定。
+    {
+        "id": "wan-nsfw-i2v",
+        "label": "Wan2.2 图生视频(R18)",
+        "kind": "video",
+        "nsfw": True,
+        "submit": {"route": "/api/generate/video", "kind": "wan_i2v"},
+        "description": "Wan2.2 双专家 14B 成人向图生视频:Civitai 爆款配方复刻(通用概念 + 体位/物理 LoRA 双专家分侧叠加)",
+        "source": {
+            "name": "Wan2.2 I2V-A14B + Civitai 社区 NSFW LoRA 配方",
+            "url": "https://civitai.com/models/2073605",
+            "author": "阿里巴巴(Wan 团队)× Civitai 社区(kenpechi 等配方作者)",
+            "note": "底模为 Wan2.2 开源权重;NSFW 能力由社区 LoRA 分侧叠加提供,仅 R18 上下文可选",
+        },
+        "params": [_ref_image_required(), *_wan_nsfw_i2v_params()],
+        "probe": _probe_wan_i2v,
     },
     # LongCat-Video:专用 ComfyUI 实例(TOIV_LONGCAT_BASE_URL,默认 workstation GPU2 :8197),
     # 长镜头引擎(961 帧@16fps≈60s);probe 探测实例 /object_info 是否含 WanVideo 节点

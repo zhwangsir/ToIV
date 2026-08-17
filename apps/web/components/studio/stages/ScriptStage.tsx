@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   addStudioCharacter,
   deleteStudioCharacter,
@@ -11,6 +11,7 @@ import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
+import { useAutoResize } from "@/hooks/useAutoResize";
 import type { useStudioProject } from "@/hooks/useStudioProject";
 
 /**
@@ -49,6 +50,9 @@ export function ScriptStage({
   const [error, setError] = useState<string | null>(null);
   const [confirmParse, setConfirmParse] = useState(false);
   const toast = useToast();
+  // 剧情概要自动增高(长原文不再 rows=10 截断出内滚条)
+  const premiseRef = useRef<HTMLTextAreaElement | null>(null);
+  useAutoResize(premiseRef, premise);
 
   if (!d) return null;
 
@@ -115,6 +119,7 @@ export function ScriptStage({
           剧情概要 / 原文
         </label>
         <textarea
+          ref={premiseRef}
           id="studio-premise"
           className="input"
           value={premise}

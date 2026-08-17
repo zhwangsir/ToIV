@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon } from "@/components/ui/Icon";
 import { Field, Input, Select, Textarea } from "@/components/ui/Input";
+import { useAutoResize } from "@/hooks/useAutoResize";
 import { usePoll } from "@/hooks/usePoll";
 import {
   generateAvatarTalk,
@@ -77,8 +78,13 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
 
   const [positive, setPositive] = useState("");
   const [negative, setNegative] = useState("");
+  // 正/负向提示词自动增高(负向在 closed <details> 内时 hook 自动跳过,展开后随输入增高)
+  const positiveRef = useRef<HTMLTextAreaElement | null>(null);
+  const negativeRef = useRef<HTMLTextAreaElement | null>(null);
+  useAutoResize(positiveRef, positive);
+  useAutoResize(negativeRef, negative);
   const [resPreset, setResPreset] = useState<string>("480x832");
-  const [numFrames, setNumFrames] = useState(93);
+  const [durationSec, setDurationSec] = useState(3.7);
   const [fps, setFps] = useState(25);
   const [steps, setSteps] = useState(12);
   const [seedText, setSeedText] = useState("");
@@ -201,7 +207,7 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
   const seedInvalid = seedText.trim() !== "" && seedParsed === null;
 
   const preset = RES_PRESETS.find((p) => p.key === resPreset) ?? RES_PRESETS[0];
-  const videoSeconds = numFrames / Math.max(1, fps);
+  const estFrames = Math.round(durationSec * Math.max(1, fps));
   const engineReady = !!engine && engine.available;
 
   const canSubmit =
@@ -229,7 +235,7 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
         ...(negative.trim() ? { negative: negative.trim() } : {}),
         width: preset.width,
         height: preset.height,
-        num_frames: numFrames,
+        duration_sec: durationSec,
         fps,
         steps,
         shift,
@@ -238,7 +244,7 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
         seed: seedParsed,
       });
       // start 永远 resolve:出错经 onError → gen.error 展示
-      await gen.start(res);
+      await gen.start(res, { label: engine?.label ?? "对口型视频" });
     } catch (e) {
       const raw = e instanceof Error ? e.message : "生成请求失败";
       setSubmitError(friendlyError(raw).message);
@@ -247,11 +253,11 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
     }
   }
 
-  /** 按音频时长匹配帧数(向上取整,夹到 17-961)。 */
-  function matchFramesToAudio() {
+  /** 按音频时长匹配视频时长(0.1s 粒度,夹到 0.5-100s)。 */
+  function matchDurationToAudio() {
     if (!audio?.duration) return;
-    const frames = Math.min(961, Math.max(17, Math.ceil(audio.duration * fps)));
-    setNumFrames(frames);
+    const secs = Math.min(100, Math.max(0.5, Math.round(audio.duration * 10) / 10));
+    setDurationSec(secs);
   }
 
   const statusLabel = !engineChecked
@@ -457,6 +463,7 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
               </div>
             <Field label="正向提示词">
               <Textarea
+                ref={positiveRef}
                 rows={3}
                 value={positive}
                 placeholder="描述人物状态、表情与场景,如:一位女士面对镜头自然说话"
@@ -490,24 +497,24 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
             </Field>
 
             <Field
-              label="时长(帧)"
-              hint={`${numFrames} 帧 @ ${fps}fps ≈ ${videoSeconds.toFixed(1)}s`}
+              label="时长(秒)"
+              hint={`${durationSec}s @ ${fps}fps ≈ ${estFrames} 帧;>3.7s 自动续段`}
             >
               <div className="at-gen-inline">
                 <Input
                   type="number"
-                  min={17}
-                  max={961}
-                  step={4}
-                  value={numFrames}
+                  min={0.5}
+                  max={100}
+                  step={0.1}
+                  value={durationSec}
                   disabled={gen.isRunning}
                   onChange={(e) => {
                     const n = Number(e.target.value);
-                    if (Number.isFinite(n)) setNumFrames(Math.min(961, Math.max(17, Math.round(n))));
+                    if (Number.isFinite(n)) setDurationSec(Math.min(100, Math.max(0.5, Math.round(n * 10) / 10)));
                   }}
                 />
                 {audio?.duration ? (
-                  <Button variant="ghost" size="sm" onClick={matchFramesToAudio} disabled={gen.isRunning}>
+                  <Button variant="ghost" size="sm" onClick={matchDurationToAudio} disabled={gen.isRunning}>
                     匹配音频时长
                   </Button>
                 ) : null}
@@ -555,6 +562,7 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
               <div className="adv-params-body">
                 <Field label="负向提示词">
                   <Textarea
+                    ref={negativeRef}
                     rows={2}
                     value={negative}
                     placeholder="留空使用引擎默认负向"

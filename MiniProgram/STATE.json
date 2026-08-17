@@ -1,0 +1,1055 @@
+{
+ "project": "ToIV MiniProgram",
+ "stack": "UniApp 3.0 (vite5) + Vue3 <script setup lang=\"ts\"> + TypeScript strict + Pinia 持久化 + 自研 UI 组件层（Lucide 白名单图标）",
+ "standards": {
+  "techSpec": "docs/mini-program-tech-spec.md",
+  "mobileDesign": "../Mobile/docs/ui-ux-design-guidelines.md",
+  "mobileStandards": "../Mobile/docs/development-standards.md"
+ },
+ "qualityGate": {
+  "typecheck": "npm run typecheck (vue-tsc --noEmit)",
+  "lint": "npm run lint (eslint . --ext .ts,.vue --max-warnings=0)",
+  "test": "npm run test (vitest run)",
+  "build": "npm run build:mp-weixin"
+ },
+ "updated_at": "2026-08-16",
+ "next": "交付完成（MP1-MP32 全量收口）。剩余外部依赖：MP9 Round 2 微信真机人工走查（相册/摄像头/文件权限链路）· M18 Android 真机走查（APK: https://expo.dev/artifacts/eas/hNld96BNysKQDuE548C4-Hl7hdw2yJU4yMPOKF9DQlk.apk）· iOS 真机（需 Apple Developer 账号 + 设备 UDID，见 CLOSEOUT.md 指引）",
+ "milestones": [
+  {
+   "id": "MP32",
+   "title": "登录页原生 button 重写 + 微信登录恢复：MP31 回退根因（uni 编译器对自定义组件 <Button @click> 的 prop 事件映射在微信渲染层不可靠）绕开——登录/微信按钮全部改用原生 <button @tap>（内建组件直绑原生触摸事件，不经 prop 映射），微信一键登录 CTA 随原生按钮恢复（#ifdef MP-WEIXIN 条件编译仅微信端渲染，链路 uni.login→code→/auth/wechat→store.signInWithWechat）",
+   "status": "done",
+   "date": "2026-08-16",
+   "subtasks": [
+    {
+     "id": "MP32.1",
+     "title": "登录页重写：提交钮/微信 CTA 改原生 <button @tap>（hover-class 按压态 + ::after 描边复位 + 设计令牌对齐 ui-btn primary block）；微信 CTA 条件编译仅 mp-weixin（H5 产物 grep 无「微信一键登录」残留，signInWithWechat store 代码跨端保留备查）",
+     "status": "done"
+    },
+    {
+     "id": "MP32.2",
+     "title": "走查脚本同步：H5 C1/R18 登录选择器 .login__form .ui-btn → .login__submit（2 处）；微信 W1 改原生按钮 page.$('.login__submit').tap()，W1.1 断言新增微信 CTA 在册（wechat=true）",
+     "status": "done"
+    },
+    {
+     "id": "MP32.3",
+     "title": "回归与落账：vue-tsc 0 错 / eslint 0 警 / vitest 565/565 / 四端构建全 DONE / H5 走查 111/111 / 微信走查 30/30（mock 定向包验证后恢复真实基址 192.168.71.47:8090，grep 核验无 mock 残留）",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP31",
+   "title": "微信登录改造（前端侧）：已回退——实测 uni 编译器对 <Button @click> 的 prop 事件映射在微信渲染层不可靠（按钮无响应），链路本身（wx.login→code→/auth/wechat）通畅但 UX 效果差。恢复纯账密登录（管理员发放账号），后端 /api/auth/wechat 端点与 store.signInWithWechat 保留备查",
+   "status": "done",
+   "date": "2026-08-15",
+   "subtasks": [
+    {
+     "id": "MP31.1",
+     "title": "契约与 API 层：types/api.ts 新增 WechatLoginRequest{code,nickname?}；api/index.ts 新增 wechatLogin(code)（POST /api/auth/wechat，响应与 /auth/login 同形 {token,user}，缺 token 协议守卫与 setToken 落库逐行照抄 login()）",
+     "status": "done"
+    },
+    {
+     "id": "MP31.2",
+     "title": "store 层：auth.ts 新增 signInWithWechat(code)（wechatLogin → setJson 缓存 → 状态落定，与 signIn 逐行对齐；restore/signOut 不动）",
+     "status": "done"
+    },
+    {
+     "id": "MP31.3",
+     "title": "登录页改版（后回退）：初版「微信主 CTA + 账密折叠兜底」→ 实测微信渲染层按钮无响应，回退为纯账密登录（zod 校验/密码可见/提交态原逻辑不动，无折叠直渲）",
+     "status": "done"
+    },
+    {
+     "id": "MP31.4",
+     "title": "测试与走查：vitest 26 套件 565 用例全绿（删除 wechat-login 8 用例 + api 3 用例 + stores 2 用例）；H5 走查 111/111（删除 C34 微信降级 3 检查点）；微信走查 30/30（W1 改纯账密直渲断言）",
+     "status": "done"
+    },
+    {
+     "id": "MP31.5",
+     "title": "回归与落账：vue-tsc 0 错 / eslint 0 警 / vitest 565 / H5 走查 111 / 微信走查 30 / h5+mp-weixin+mp-alipay+mp-toutiao 四端构建成功；STATE.json（本条目）+ TEST_LOG.md MP31 章节",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP30",
+   "title": "对话助手附图：用户上传图片随消息发送（showActionSheet+chooseImage 选图即传 → chip 缩略预览 → ChatRequest.image={filename,worker} 上行 → user 气泡本地留痕）",
+   "status": "done",
+   "date": "2026-08-15",
+   "subtasks": [
+    {
+     "id": "MP30.1",
+     "title": "纯函数 src/utils/assistant-image.ts（新）：AttachedImage{previewUri,status:'uploading'|'ready',filename,worker} 单图状态机——attachImageState（替换语义：已有 chip 再选直接覆盖，不确认，行为测试钉死）/readyImageState（竞态护栏：previewUri 不匹配或已非 uploading 的迟到回调原样返回）/failImageState（失败清 chip，toast 页面层补）/canSendWithImage（上传中禁发）/buildChatImage（ready→{filename,worker}，其余→null 不带字段）/serializeImageDraft/parseImageDraft（仅 ready 句柄落盘，恢复即用不重复上传；畸形 JSON/缺字段防御→null）/chooseAssistantImage（showActionSheet 拍照/相册 + chooseImage count 1 compressed 三件套——uni.chooseMedia 未入 uni-h5 导出清单 MP17 既有教训同律，取消静默→null）；vitest tests/assistant-image.test.ts 新文件 +12（状态机替换/竞态/失败、发送门、上行组装有/无、草稿序列化往返/畸形防御、选图封装 action sheet 取消/拍照/相册/chooseImage 失败）",
+     "status": "done"
+    },
+    {
+     "id": "MP30.2",
+     "title": "API 契约：types/api.ts 新增 AgentChatImage{filename,worker}（ChatRequest.image，runner 注入系统提示「用户上传了一张图片」并把 attachment 传给 edit_image/generate_3d 工具从 worker input 目录读字节；后端用户消息落库不含 attachment，回放历史气泡无图——后端契约现状，TEST_LOG 记录该限制）；api/index.ts agentChatStream params 增 image?: AgentChatImage（有附图才带字段，与 document_ids 可同发）；vitest tests/api-agent.test.ts +2（附图上行 image={filename,worker} 与 document_ids 同发断言 / 无附图请求体不带 image 字段）",
+     "status": "done"
+    },
+    {
+     "id": "MP30.3",
+     "title": "stores/assistant.ts：attachedImage 状态 + imageEpoch 世代号防竞态（上传中被替换/移除/切会话/发送，迟到回调直接丢弃）+ attachAndUploadImage（选图即传 uploadImage kind=img2img，成功转 ready 并按会话键 imageStorageKey(sessionId) 落盘句柄，失败清 chip 抛错页面 toast）+ detachImage（移除 chip 清草稿键）+ send 转移（roundImage 快照 → 清 chip 清草稿键 → userMsg.image={previewUri} 本地留痕 + lastImage=buildChatImage 供 retry 复用；上传中 store 层同律禁发）+ 会话隔离（newChat/openSession 按会话键 loadImageChip 恢复 ready 句柄不重复上传，瞬态 uploading 不入草稿）+ ChatMessage.image 类型；tests/helpers/mock-uni.ts 扩展 showActionSheet/chooseImage 行为捕获与预设（MP30）；vitest tests/assistant-store.test.ts 新增「对话助手附图（MP30）」describe +11（选图上传 chip 生命周期/替换/移除/失败清 chip 抛错、发送体含 image 且 chip 清空转移气泡、上传中禁发、retry 复用 lastImage、切会话/新会话草稿恢复与隔离、世代号迟到回调丢弃）",
+     "status": "done"
+    },
+    {
+     "id": "MP30.4",
+     "title": "pages/assistant/assistant.vue：输入条新增「图片」钮（.assistant__imgbtn 复用 docbtn ghost 样式，image 图标 accent 高亮=有附图；流式中 --disabled 对齐输入框 busy 语义）→ chooseAttachedImage（sending 拦截 + store 失败 toast 人话）；chips 行 v-if 扩展为 attachedImage || attachedDocs>0，附图 chip（.assistant__imgchip）= 缩略预览 aspectFill（本地 previewUri）+ uploading 态 loading 遮罩（loader-circle 旋转）+ X 移除（store.detachImage）；user 气泡新增 .assistant__msg-image（v-if=msg.image，本地 previewUri 渲染，回放无图为已知限制）；canSend 计算并入 canSendWithImage（上传中禁发，行为与 store 同律）；Icon 复用 icons.generated 白名单 image/x/loader-circle 零新增",
+     "status": "done"
+    },
+    {
+     "id": "MP30.5",
+     "title": "mock-server + 走查 + 回归落账：mock 新增 lastChatBody 内存态（/__reset 复位）+ /api/agent/chat 每次记录请求体 + GET /__lastChatBody 调试端点（走查断言 image/document_ids 上行）；Edit 工具对 mock-server.mjs 再现缓存不同步（报成功未落盘，md5 不变实证），改 Python 直写 + wc -l/md5/node --check/Grep 交叉验证（1303→1313 行）；走查 C33.1-C33.3 三检查点（C33.1 图片钮→action sheet 拍照/相册→相册 filechooser 拦截 chooseImage→chip 出现缩略图可见+loading 消失转 ready；C33.2 发送→/__lastChatBody 含 image={filename:'walkthrough-c33.png',worker:'w1'}+回复流正常+user 气泡 .assistant__msg-image 留痕+chip 清空；C33.3 再选图→chip X 移除→发送→请求体无 image 字段+停止键起止收口）全过，全量走查 111/111（较 MP29 口径 108 净增 +3，既有全数无回归；修复 C23 文档钮选择器与新增 imgbtn 的 strict 冲突——.assistant__docbtn 收窄为 :not(.assistant__imgbtn) 两处）；vue-tsc 0 错 / eslint 0 警 / vitest 26 套件 565 用例全绿（较 MP29 口径 540 净增 +25=12 纯函数+2 api+11 store）/ h5+mp-weixin+mp-alipay+mp-toutiao 四端构建成功（alipay/toutiao 无 npm script 走 npx uni build -p 直跑）；STATE.json（本条目）+ TEST_LOG.md MP30 章节",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP29",
+   "title": "作业进度 SSE 化（会话内）：提交回包凭据登记 → 作业页 SSE 实时进度/质量预警 → 终态收口，无凭据作业轮询兜底不回退",
+   "status": "done",
+   "date": "2026-08-15",
+   "subtasks": [
+    {
+     "id": "MP29.1",
+     "title": "会话内凭据登记 src/utils/job-sse-registry.ts（新）：JobSseCredentials{clientId,worker}；GenerateResponse 含 client_id/worker 但 JobItem 不持久化 → SSE 仅限「本次会话内刚提交」作业，重启/离开后自动回既有轮询；纯内存 Map 模块单例（不落地 storage），容量上限 32（重登记先删后插刷新位次，超容摘最旧 LRU 淘汰）；register/get/unregister/clear/size 五接口纯函数无运行时依赖；types/api.ts 新增 JobSseEventType('progress'|'done'|'error'|'quality_warning')/JobSseEvent{type,data}；vitest tests/job-sse-registry.test.ts 新文件 +7（登记读取驼峰映射/重登记覆盖/删除/清除/容量 32 淘汰最旧/未登记 undefined/多键隔离）",
+     "status": "done"
+    },
+    {
+     "id": "MP29.2",
+     "title": "streamJobEvents（src/api/index.ts）：GET /api/jobs/{prompt_id}/events?client_id=&worker=（promptId/clientId/worker 三段 encodeURIComponent）+ buildRequestHeaders Accept: text/event-stream + Bearer 同源注入；复用 uni.request enableChunked 分块 + src/utils/sse.ts 自研增量 UTF-8 跨块解码器（不依赖 TextDecoder，MP19 起既有）；返回 JobEventsHandle{ promise, abort }；onOpen 首字节回调；非 2xx/网络错误 reject ApiError 人话；abort 幂等静默收口；vitest tests/api-jobs-events.test.ts 新文件 +13（请求构造 method/url 编码/SSE 头/Bearer、progress/done/error/quality_warning 事件分派、跨块多字节 UTF-8 切片重组、event+data 多行帧、onOpen 时机、401/403/500 reject、abort 后帧忽略、空流正常结束）",
+     "status": "done"
+    },
+    {
+     "id": "MP29.3",
+     "title": "FSM 跟踪层 src/utils/job-tracker.ts（新）：trackJobSse(promptId,creds,handlers,options)——progress{value,max} → onProgress 派生 pct（value/max 百分比、>100 钳制、缺字段忽略）；quality_warning → onQualityWarning（流内去重仅一次）；done/error → 终态回调后自闭环不再重连；60s 看门狗无事件软重连（abort 旧流起新流）；重连退避 1s→2s→4s 封顶 8s；500ms 快照窗去重（重连后重复事件抑制）；401/403 → onFallback 永久回退轮询不再重试（行为不回退）；abort 幂等、终态后迟到帧忽略；planJobSseSync 纯函数（活跃 queued/running + 有凭据 + 未跟踪 → toStart；跟踪中转终态 done/error 或从列表消失 → toStop）；vitest tests/job-tracker.test.ts 新文件 +23（pct 派生/钳制/缺字段、预警去重、done/error 自闭环、看门狗软重连、退避序列、快照窗去重、401/403 回退、abort 幂等、plan 六态）",
+     "status": "done"
+    },
+    {
+     "id": "MP29.4",
+     "title": "UI 接入：index.vue handleSubmit 全链路分支汇入 registerJobSseCredentials(submitted)（20 个 submit 函数统一收口点，含 jobs.vue handleRetry 重试登记）；jobs.vue 流编排——ssePct/sseWarned 响应式 + trackers Map + startSseTracker（onProgress 写 pct/onQualityWarning 置位+toast「质量预警：产物可能低于预期」/onDone/onError 终态刷新取产物/onFallback 静默收口）+ finalizeSseTracker（abort+清凭据+清状态，终态立即 refreshAndPoll）+ syncSseTrackers 挂轮询 onUpdate/删除后 + stopAllSseTrackers 挂 onUnload/onHide；job-card.vue 新增 progressPct(0-100|null)/qualityWarning props——进度条仅活跃态渲染（8rpx 轨道 border 色/accent 填充 240ms ease-out/pct 文本 accent 色），circle-alert 预警图标 var(--color-warning) 28rpx 入状态行；Icon 复用 icons.generated 白名单零新增",
+     "status": "done"
+    },
+    {
+     "id": "MP29.5",
+     "title": "mock-server + 走查 + 回归落账：mock 新增 sseJobs 内存态（__reset 复位）+ /__seed sseJobs 剧本种子[{prompt_id,scenario?}] + GET /api/jobs/:id/events（未登记 404 对齐「仅会话内作业可起流」；success=progress×5→done、warning=中段插 quality_warning 再 done、error=中段 error；300ms 帧间隔；终态帧写出前翻转 libraryJobs 内存态紧随刷新即见终态/产物）；走查 C32.1-C32.3 三检查点（C32.1 进度条出现+pct 10→30 单调增长→done 收口徽章已完成+产物图；C32.2 预警图标+toast 质量预警→done；C32.3 error→徽章失败+无凭据作业早/晚双采样全程无进度条）全过，全量走查 108/108（较 MP28 口径 105 净增 +3，既有全数无回归）；uni-h5 reLaunch 实证为 SPA router.replace（node_modules uni-h5.es.js navigate() 实现），模块态凭据 Map 存活；vue-tsc 0 错 / eslint 0 警 / vitest 25 套件 540 用例全绿（较 MP28 口径 497 净增 +43）/ h5+mp-weixin+mp-alipay+mp-toutiao 四端构建成功；STATE.json（本条目）+ TEST_LOG.md MP29 章节",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP28",
+   "title": "作品库↔资产库联动：产物一键存为资产（详情页入口 + 下载上传 + prefill 自动开新建弹层预填）",
+   "status": "done",
+   "date": "2026-08-15",
+   "subtasks": [
+    {
+     "id": "MP28.1",
+     "title": "纯函数 utils/asset-prefill.ts（新）：AssetPrefill/AssetPrefillImage 形状；suggestAssetName（prompt 去空白取前 12 字，空兜底「作品资产」）；canSaveArtifactAsAsset（仅 image 类作业 + 当前产物非视频扩展名才渲染入口，index 越界钳制，null/空产物 false）；buildAssetPrefillQuery（{path,prompt,nsfw,upload} + resolveUrl → encodeURIComponent(JSON)：images[0]={filename,worker,preview=产物 mediaUrl}/name 建议名/nsfw 透传）；parseAssetPrefill（防御解析：先 JSON.parse 再 decodeURIComponent 重试——兼容 uni onLoad query 已解码/未解码双场景，畸形 JSON/非对象/images 非数组/全缺句柄 → null，部分图片缺句柄过滤保留合法项，name 空白兜底/nsfw 非 true→false/preview 缺省空串）；assetPrefillToForm（previewUri←产物 preview——资产未创建前 assetImageUrl 不可用、name←filename、名称/nsfw 透传）；saveArtifactAsAsset 流程函数（showLoading「准备中…」→ uni.downloadFile(mediaUrl(path)) 拉产物字节 → uploadImage(tempFilePath,'img2img') 上传 pool worker 得 {filename,worker} → hideLoading → uni.navigateTo /pages/assets/index?prefill=<query>；下载网络失败/非 200/上传失败 → hideLoading + toast 人话错误停留原页返回 false）；vitest tests/asset-prefill.test.ts 新文件 +24（建议名截断/空兜底、入口谓词六态、build→parse 往返/已编码断言、防御解析七态、表单映射、成功全链路 mock 断言/默认上传 kind=img2img/三类失败路径 toast 不跳转）；tests/helpers/mock-uni.ts 扩展 downloadFile/showLoading/hideLoading/showToast/navigateTo 记录与注入",
+     "status": "done"
+    },
+    {
+     "id": "MP28.2",
+     "title": "页面接入：artifact.vue 操作区新增「存为资产」图标钮（image-plus，data-action=save-asset，v-if=canSaveAsset 仅 image 产物渲染，与下载/删除同排最小改动不重构；saveAsAsset 复用 acting 防重入，多产物 job 按当前 index 各自独立可存）；assets/index.vue onLoad 解析 prefill query（解析失败静默忽略）→ 与 MP27 多选态无冲突：先 exitSelecting → editing=null + formKind=character + formDesc 空 + assetPrefillToForm 预填 formName/formNsfw/formImages → editorVisible=true 自动开新建弹层，用户可改名/选类别/补图后走既有 createAsset 正常保存",
+     "status": "done"
+    },
+    {
+     "id": "MP28.3",
+     "title": "走查 + 回归落账：C31.1-C31.3 三检查点（/__seed 种 image 作业 c31-src prompt「走查存资产：雨夜霓虹街区胶片感」；C31.1 详情页「存为资产」入口可见；C31.2 点击 → 下载+上传 → 跳资产页 + 新建弹层自动打开、名称预填建议名「走查存资产：雨夜霓虹街区」、预览图命中产物 /outputs/a.png；C31.3 直接保存 → toast「已创建」+ 列表资产数 +1 + 缩略图可见）；mock 零改动（/api/upload 回显 MP10 已有、/api/assets POST 真建内存 MP13 已有、/outputs/* 静态图已有）；vue-tsc 0 错 / eslint 0 警 / vitest 22 套件 497 用例全绿（较 MP27 口径 473 净增 +24）/ h5+mp-weixin+mp-alipay+mp-toutiao 四端构建成功 / 全量走查 105/105 全绿（C31 新增三检查点 + 既有 102 全数无回归）；STATE.json（本条目）+ TEST_LOG.md MP28 章节",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP27",
+   "title": "资产库批量管理：多选模式（长按/选择钮双入口 + 编辑弹层守卫）+ 批量删除（二次确认 + 并发限速≤3 + 部分失败保留勾选）",
+   "status": "done",
+   "date": "2026-08-15",
+   "subtasks": [
+    {
+     "id": "MP27.1",
+     "title": "纯函数 utils/assets-batch.ts（新）：AssetSelectState/AssetSelectGuard 形状；canEnterAssetSelecting（editorOpen/acting 双守卫——编辑弹层打开长按让位、批量执行中防重入）；assetSelectIdle/enterAssetSelecting/longPressAssetCard（未在选择态时长按 = 进入并选中该卡）/tapAssetCard（选择态 toggle、非选择态返回 null 让位 openEdit）/selectAllAssets（按当前过滤可见项全选）/exitAssetSelecting（清空回 idle）/applyAssetBatchDelete（复用 library-batch summarizeBatch + deleteSummaryText：全成 → 退出选择态+清空勾选+removedIds 全量+toast「已删除 N 项」；部分失败 → 失败 Id 保留勾选+停留选择态+汇总文案「成功 X 失败 Y，失败项已保留勾选」）/removeDeletedAssets（本地列表移除成功项，不重拉）；复用 library-batch 的 runBatch（并发限速≤3 + onProgress）零重构；vitest tests/assets-batch.test.ts 新文件 +20（进入守卫三态/双入口/toggle/全选/取消清空/全成/部分失败/全败/removeDeletedAssets 幂等）",
+     "status": "done"
+    },
+    {
+     "id": "MP27.2",
+     "title": "assets/index.vue 接入：顶行 chips 右侧「选择」入口（data-action=enter-select，选择态下让位隐藏）；卡片 @longpress 进选择 + @tap 选择态 toggle/非选择态开编辑，longPressGuard 350ms 窗口吞咽微信/uni-h5 长按松开后合成的尾随 tap（防刚选中即被取消）；选择态卡片左上选择圈（选中填充 accent + check 图标）+ 高亮描边、编辑/删除小钮 v-if 隐藏、assets__footer 新建入口让位；底部 fixed 批量操作条（safe-area-inset-bottom，z-index 50 低于编辑 Sheet）：计数「已选 N 项」/执行中转进度态「删除中 x/N」+ 全选/删除（danger，N=0 或 acting 禁用）/取消（acting 禁用）；confirmBatchDelete 二次确认 modal 文案含数量「删除 N 件资产后不可恢复（worker 上的图片文件保留）」；runBatchDelete 并发限速≤3 循环单删 deleteAsset → applyAssetBatchDelete 落地（失败保留勾选停留/全成退出+本地移除成功项）→ 汇总 toast；watch(kindFilter) 切桶清空退出（选择集=当前可见项语义，防跨桶不可见勾选误删）；本页无震动反馈，与作品库一致；mock-server /__seed 扩展 assets 种子（默认 kind=character + 1 张 seed.png 句柄，id 可指定，返回 seededAssets；DELETE /api/assets/:id MP13 已真删内存，列表减项可断言）",
+     "status": "done"
+    },
+    {
+     "id": "MP27.3",
+     "title": "走查 + 回归落账：C30.1-C30.3 三检查点（/__seed 种 3 件资产；C30.1 选择钮进多选 → 3 枚未选选择圈 + 编辑/删除小钮隐藏 + 操作条接管底栏；C30.2 勾 2 件 → 计数「已选 2 项」→ 删除确认弹窗文案含数量/不可恢复/文件保留；C30.3 确认 → toast「已删除 2 项」+ 列表 3→1 保留件仍在 + 退出选择态）；vue-tsc 0 错 / eslint 0 警 / vitest 21 套件 473 用例全绿（较 MP26 口径 453 净增 +20）/ h5+mp-weixin+mp-alipay+mp-toutiao 四端构建成功 / 全量走查 102/102 全绿（C30 新增三检查点 + 既有 99 全数无回归）；STATE.json（本条目）+ TEST_LOG.md MP27 章节；约束记录：后端 ReferenceAsset 无 tags 字段，「批量打标」不可行不做",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP26",
+   "title": "设置页完善：关于区（版本/定位/版权展开 + 检查更新降级）+ 清理缓存（白名单保护）+ 导出诊断（脱敏剪贴板）",
+   "status": "done",
+   "date": "2026-08-15",
+   "subtasks": [
+    {
+     "id": "MP26.1",
+     "title": "纯函数 utils/maintenance.ts（新）：formatBytes（1024 进制 B/KB/MB/GB，非整数一位小数去尾零，非有限/非正 → 0 B）/ planCacheClear(keys, whitelist?)（精确键 + 前缀双通道保护，toRemove/toKeep 双列表保持输入顺序；默认 CACHE_WHITELIST = toiv_token / toiv.cachedUser / toiv.settings 精确 + assistant_draft: 前缀，与 stores/api 落盘键对齐）/ buildDiagnostics(input)（app/env/apiBase/session/features/storage/generatedAt 形状，storage 合计 totalSize + totalSizeText；脱敏由输入侧结构保证——只收键名+大小与登录态布尔，token 本体无从进入）；vitest maintenance.test.ts 新文件 +14",
+     "status": "done"
+    },
+    {
+     "id": "MP26.2",
+     "title": "profile.vue 关于区（置于高级区后、退出登录前，data-action 断言钩子）：「关于 ToIV」行内展开（ToIV · vX.Y.Z / AI 创作平台 · 私有化部署 · 本地推理集群——对齐 apps/web 设置页关于区文案 / © 2026 ToIV）；「检查更新」副标题当前版本，小程序端 uni.getUpdateManager 监听单绑一次（onCheckForUpdate 无更新 toast / onUpdateReady 重启 modal / onUpdateFailed toast），H5 无此 API 降级「H5 端自动保持最新」；「清理缓存」副标题估算占用（collectStorageStats 逐键 键长+值长 → formatBytes），二次确认 modal（明示保留登录/设置/草稿）→ planCacheClear 白名单外逐项 removeStorageSync（不用 clearStorageSync 防误伤）→ toast「已清理 N」，空缓存短路「暂无缓存可清理」；「导出诊断」buildDiagnostics（版本 import manifest from '@/manifest.json'，resolveJsonModule 继承 @vue/tsconfig；env 取 getSystemInfoSync platform/system/pixelRatio/SDKVersion/hostVersion；apiBase effective；loggedIn 布尔；键清单不含值）→ setClipboardData → toast「诊断信息已复制」；platformName() 收敛进 utils/platform.ts（.vue 不吃 @typescript-eslint 对 no-undef 的 *.ts 豁免）",
+     "status": "done"
+    },
+    {
+     "id": "MP26.3",
+     "title": "走查 + 回归落账：C29.1-C29.3 三检查点（关于区：检查更新行版本副标题动态取版本 + 关于展开定位/版权断言 + H5 检查更新降级 toast；清理缓存：种 2 垃圾键 + 草稿键 → 确认弹窗 → toast「已清理 2.6 KB」→ localStorage 断言 token/settings/assistant_draft:__new__ 保留、垃圾键删除；导出诊断：toast + 剪贴板双通道读取（context 授 clipboard-read/write → navigator.clipboard.readText，兜底 uni-h5 #clipboard textarea 残值）JSON 形状（版本=关于区同源/平台 h5/apiBase 含 mock 端口/loggedIn/键清单含 toiv_token 键名/totalSize 数值/generatedAt）+ 全文不含 token 值）；vue-tsc 0 错 / eslint 0 警 / vitest 20 套件 453 用例全绿（较 MP25 口径 439 净增 +14）/ h5+mp-weixin+mp-alipay+mp-toutiao 四端构建成功 / 全量走查 99/99 全绿（C29 新增三检查点 + 既有 96 全数无回归）；STATE.json（本条目）+ TEST_LOG.md MP26 章节",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP25",
+   "title": "作品库批量管理：多选模式（长按/选择钮进入）+ 批量删除（并发限速 ≤3 + 部分失败保留勾选）+ 批量保存相册（仅 image/video，audio/3D 跳过计入汇总）",
+   "status": "done",
+   "date": "2026-08-15",
+   "subtasks": [
+    {
+     "id": "MP25.1",
+     "title": "纯函数 utils/library-batch.ts（新）：toggleSelect（不可变 Set 语义不改入参）/ selectAll（当前已加载项全量 id 集合）/ splitSavable（kindToFilter 分流 image·video 可保存、audio/3d/未知跳过，保持相对顺序）/ summarizeBatch（成败计数 + failedIds 按输入序收集）/ deleteSummaryText 三态（已删除 N 项 / 成功 N 失败 M，失败项已保留勾选 / 全败「删除失败，请稍后重试」不报成功 0）/ saveSummaryText 六态（已保存 N 项 / +M 项不支持保存 / +M 项保存失败 / 跳过+失败组合 / 全败「保存失败，请检查相册权限」/ 全跳过「仅图像与视频支持保存相册」）/ runBatch 并发限速执行器（lane 模式 BATCH_CONCURRENCY=3，结果与输入同序，逐项 onProgress 回调，单项失败不中断其余）；vitest library-batch.test.ts 新文件 +23",
+     "status": "done"
+    },
+    {
+     "id": "MP25.2",
+     "title": "library.vue 多选模式：进入=长按卡片（onCardLongPress；微信/uni-h5 longpress 松开后仍合成 tap，longPressGuard 350ms 守卫吞咽这一次 tap 防刚选中又被 toggle 掉）或顶栏「选择」钮（data-action=enter-select，作品为空不出入口）；退出=操作条「取消」或全部操作完成；选择态视觉=卡片右上选择圈（未选空心圈边框 token / 已选 accent 实心 + check 图标，data-selected 断言钩子）+ 已选卡 accent 细边框（克制动效守设计规范）；onCardTap 选择态 toggle/非选择态 openDetail；选择集独立持 Set<id> 跨无限分页加载保持；watch(filter)/onPullDownRefresh 清空选择并退出选择模式",
+     "status": "done"
+    },
+    {
+     "id": "MP25.3",
+     "title": "底部批量操作条：固定底部 + safe-area 适配（padding-bottom: env(safe-area-inset-bottom)）；计数「已选 N 项」/ 批量进行中转进度态「删除中 x/N」「保存中 x/N」（acting 防重复点）；操作=全选当前已加载（data-action=select-all）/ 保存（batch-save）/ 删除（batch-delete）/ 取消（exit-select）",
+     "status": "done"
+    },
+    {
+     "id": "MP25.4",
+     "title": "批量删除：uni.showModal 二次确认（「删除 N 项作品？删除后不可恢复」）→ runBatch 并发限速 3 循环 deleteJob → 操作条进度态「删除中 x/N」→ summarizeBatch：全成清空选择退出选择模式 / 部分失败（含全败）selected=Set(failedIds) 保留勾选停留选择模式待重试 → toast 汇总（deleteSummaryText）→ refresh() 重置分页游标重拉第一页（删除后服务端流缩短，旧 offset 会跳项）",
+     "status": "done"
+    },
+    {
+     "id": "MP25.5",
+     "title": "批量保存相册：splitSavable 分流（savable 空直接 toast「仅图像与视频支持保存相册」不进执行器）；saveJobToAlbum 单件链路复用 artifact.vue 下载（mediaUrl(job.results[0]) → uni.downloadFile → isVideoPath 分 saveVideo/saveImageToPhotosAlbum；save 非函数 reject「当前平台不支持」，下载 fail「下载失败，请检查网络」，保存 fail 转人话「保存失败，请检查相册权限」）；H5 端 uni-h5 save*ToPhotosAlbum 为 unsupported 实现必走 fail → 汇总文案降级（走查以 downloadFile 调用计数 + 汇总文案断言，真机同链路正常 success）；完成后 exitSelecting",
+     "status": "done"
+    },
+    {
+     "id": "MP25.6",
+     "title": "mock-server + 走查 + 回归落账：libraryJobs 可变（defaultLibraryJobs 工厂，/__reset 恢复默认 52 件）+ DELETE /api/jobs/:id 真删内存（走查断言列表减项）+ magic id 含 'fail' 注入 500「mock 注入删除失败」（部分失败分支）+ /__seed 扩展 jobs 种子（unshift 置顶走查首屏可见）；走查 C28.1-C28.5 五检查点（选择钮多选：选 2 计数/选中圈→全选已加载 24→取消退出；批量删除全成功：确认弹窗→列表减项+「已删除 2 项」+退出；部分失败：失败项保留勾选「已选 1 项」+「成功 1 失败 1，失败项已保留勾选」；批量保存：仅 image/video 触发下载（audio/3D 跳过）+ H5 降级汇总+退出；跨分页保持：两页各选 1 计数「已选 2 项」→切过滤桶退出清空）；vue-tsc 0 错 / eslint 0 警 / vitest 19 套件 439 用例全绿（较 MP24 口径 416 净增 +23）/ h5+mp-weixin+mp-alipay+mp-toutiao 四端构建成功 / 全量走查 96/96 全绿（C28 新增五检查点 + 既有 91 全数无回归）；STATE.json（本条目）+ TEST_LOG.md MP25 章节",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP24",
+   "title": "对话助手三期：分叉会话 fork（全量 + 消息级截断）+ 媒体产物点开预览（图 previewImage / 视频全屏覆盖层）+ 输入草稿按会话持久化",
+   "status": "done",
+   "date": "2026-08-15",
+   "subtasks": [
+    {
+     "id": "MP24.1",
+     "title": "API 层：forkAgentSession(sid, atMessageId?)（POST /api/agent/sessions/{sid}/fork；契约读 apps/api routes/agent.py fork_agent_session 源码确认：空 body 全量复制 / {at_message_id} 截断到该消息含（id<=at），at 不在会话 404「消息不存在」、会话缺失 404「会话不存在」，响应 _session_dict 摘要五字段 + message_count，新会话继承 title/nsfw）；vitest api-agent +3（全量空 body 不带 Content-Type / 截断 body + sid 路径编码 / 404 人话透传）",
+     "status": "done"
+    },
+    {
+     "id": "MP24.2",
+     "title": "stores/assistant.ts：ChatMessage 增 backendId（回放映射：user/assistant 行取行 id，tool 媒体并入前条 assistant 气泡取 tool 行 id，供消息级分叉定位）；forkSession action（fork 插列表头并 openSession 跳新会话，sending 中拒入）；草稿持久化 assistant_draft:{sid}（新会话 __new__）：saveDraft 防抖 300ms（Map 按键攒批修复单槽异键丢写缺陷）/ loadDraft / clearDraft（取消待写防回魂）/ flushDraft（onHide/切会话/分叉前强制落盘）/ send 即清当前键；vitest assistant-store +11（分叉 4 + backendId 映射 2 + 草稿 5）",
+     "status": "done"
+    },
+    {
+     "id": "MP24.3",
+     "title": "纯函数 utils/assistant.ts（新）：previewUrls（整组解析）/ firstPreviewUrl（首张，空组 null）；vitest assistant.test 新文件 +4",
+     "status": "done"
+    },
+    {
+     "id": "MP24.4",
+     "title": "assistant.vue UI：会话列表项 copy 分叉钮（@tap.stop 全量 fork）；气泡 @longpress=offerForkFrom（仅回放消息 backendId 非空出入口，action sheet「从此分叉」截断 fork）；视频产物改封面卡（480×270 播放钮，小程序原生 video 层级最高不内联）点击开全屏覆盖层（z-index 100 高于 inputbar 50/sheet 90，backdrop/X 关闭，内嵌 video controls autoplay）；图片点击 uni.previewImage 整组预览（current 定位）；草稿接线：watch(draft)→saveDraft / onShow restoreDraft / onHide flushDraft / pickSession·newChat·runFork 先 flush 后 restore",
+     "status": "done"
+    },
+    {
+     "id": "MP24.5",
+     "title": "mock-server：POST /api/agent/sessions/:sid/fork（空 body 全量 / at_message_id 截断含，id<=at，404 双人话对齐后端；消息重排 id 从 1 起）+ /__seed 扩展 agentSessions 种子（消息 id 升序对齐 chat 落库编号）；Edit 工具对该文件缓存脱同步复发（Grep 交叉验证发现未落盘），改 node fs 补丁脚本直写（1119→1179 行）后 curl 六态验证全过；走查 C27.1-C27.4（图片 previewImage 层开关 / 视频封面卡→覆盖层 src 命中→X 关闭 / 气泡长按截断叉 2 气泡 + 列表 copy 全量叉 4 气泡 / 草稿输入→切会话清空→切回回填；C27.4 首轮因 openSession await 链未完即读输入框的走查竞态失败，修为等气泡数收敛后读）",
+     "status": "done"
+    },
+    {
+     "id": "MP24.6",
+     "title": "回归与落账：vue-tsc 0 错 / eslint 0 警 / vitest 18 套件 416 用例全绿（较 MP23 口径 398 净增 +18：api-agent +3 fork、assistant-store +11 分叉/backendId/草稿、assistant +4 预览纯函数新文件）/ h5+mp-weixin+mp-alipay+mp-toutiao 四端构建成功 / 全量走查 91/91 全绿（C27 新增四检查点 + 既有 87 全数无回归）；STATE.json（本条目）+ TEST_LOG.md MP24 章节",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP23",
+   "title": "Agent 团队三期（计划编辑 + 成片结果）：POST /plan 可编辑计划门面板（改标题文案/删任务/加任务）+ GET /result done 成片卡",
+   "status": "done",
+   "date": "2026-08-15",
+   "subtasks": [
+    {
+     "id": "MP23.1",
+     "title": "API 层：types/api.ts 新增 AgentPlanEditOp{id,action:'update'|'remove'|'add',title?,input?} / AgentRunTaskBrief（简报五字段 id/kind/title/depends_on/status）/ AgentRunPlanResult / AgentRunResultTask / AgentRunResult{final_url,duration_sec,tasks}（契约读 apps/api routes/agent_team.py edit_plan/run_result 源码确认：edit_plan 仅 awaiting_confirm 可改 409「仅待确认状态可编辑计划」，update 按键合并 input / remove 删卡并清理 depends_on 悬挂引用 / add 从 input 提 kind·depends_on，返回 {run_id,plan:{tasks:简报}}；run_result done 外 409「任务尚未完成」，final_url 取 assemble done 卡 output.url，duration_sec 合计 video/image 卡 input.duration_sec）；api/index.ts updateAgentRunPlan(runId,ops)（POST /plan，body {tasks:ops}）/ getAgentRunResult(runId)（GET /result）；vitest api-agent-runs +7（/plan URL/方法/body 契约 + runId 路径编码 + 409 人话透传 + 404 硬映射人话；/result URL+返回形状原样 + runId 编码 + 409 人话）",
+     "status": "done"
+    },
+    {
+     "id": "MP23.2",
+     "title": "纯函数 utils/agent-run.ts：PlanDraft{edits,removed,added} / emptyPlanDraft / buildPlanOps(tasks,draft)（对齐 Web buildOps 语义：removed 优先且跳过同 id edit 留痕；update 的 input 为 {...t.input,[inputKey ?? primaryInputText 主键]:inputText} 合并保留未提交键（如 duration_sec），仅标题/仅文案留痕各带对应字段；add 追加末尾、空标题兜底「新任务」、input 固定 {prompt}；未改动任务不产生 op，空草稿返回空数组）/ planDirty(ops)（空 ops→false，确认执行直 approve 不调 /plan）；vitest agent-run.test +9（空草稿/update 合并保留/update inputKey 回退主键/仅标题仅文案/remove 跳过 edit/add 兜底/混合顺序/planDirty 两态）",
+     "status": "done"
+    },
+    {
+     "id": "MP23.3",
+     "title": "detail.vue 计划门抽屉升级为可编辑面板（对齐 Web PlanPanel 交互）：任务行=序号 + kind 中文名 + 标题 input + 删除钮（本地 removed 标记行内隐藏）+ 主文案 textarea（预填 primaryInputText）+ depends_on 非空显示「依赖 第 N 步」；底部「加任务」新增临时行（new-N，标题/文案可填、可移除该行）；确认执行=buildPlanOps → planDirty 则先 updateAgentRunPlan 再 resumeAgentRun('plan','modify')（后端 modify 仅记录裁决 run 保持挂起态，计划落库上屏徽章仍待确认，二次确认无改动直 resume('plan','approve') 图启动徽章执行中）；失败错误内联抽屉不关闭；打回路径保持 MP22 行为（reject+feedback）；data-action=plan-confirm/plan-add/plan-remove:{id} + data-plan-dirty + data-field=plan-title/plan-input:{id} 供走查断言；合成门只读时间线行为不变",
+     "status": "done"
+    },
+    {
+     "id": "MP23.4",
+     "title": "done 成片卡：detail.status==='done' 拉 getAgentRunResult（409 静默忽略不渲染）；final_url 非空渲染成片卡：video 内联 controls（src 走 resolveUrl 解析）+「合计时长 ≈ Ns · 产物 N 项」meta 行 +「保存」钮（复用 artifact.vue 下载链路 downloadFile → saveVideoToPhotosAlbum，resultSaving 防重复）；data-result=final 供走查断言",
+     "status": "done"
+    },
+    {
+     "id": "MP23.5",
+     "title": "mock-server：POST /api/agent-runs/:id/plan（awaiting_confirm 白名单 409；update 按键合并 input / remove 删卡 / add 从 input 提 kind·depends_on 落内存 + 清理悬挂 depends_on；返回 {run_id,plan:{tasks:简报五字段}}）+ GET /:id/result（done 外 409「任务尚未完成」；final_url 取 assemble done 卡 output.url，duration_sec 合计 video/image input.duration_sec）；走查 C26.1/C26.1b/C26.2/C26.3/C26.4 五检查点（编辑改标题+改文案→/plan update×2+resume(modify)→落库上屏→二次确认 approve 徽章执行中；删任务+加任务→remove+add ops；无改动不调 /plan 直 approve；done run 成片卡 video+合计 ≈7s+产物 2 项）",
+     "status": "done"
+    },
+    {
+     "id": "MP23.6",
+     "title": "回归与落账：vue-tsc 0 错 / eslint 0 警 / vitest 17 套件 398 用例全绿（较 MP22 口径 382 净增 +16：agent-run +9 buildPlanOps/planDirty、api-agent-runs +7 plan/result）/ h5+mp-weixin+mp-alipay+mp-toutiao 四端构建成功 / 全量走查 87/87 全绿（C26 新增五检查点 + 既有 82 全数无回归）；STATE.json（本条目）+ TEST_LOG.md MP23 章节",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP22",
+   "title": "Agent 团队监控二期（确认门裁决 + 卡片干预）：resume 计划门/合成门抽屉 + 任务卡改文案/重生成/通过",
+   "status": "done",
+   "date": "2026-08-15",
+   "subtasks": [
+    {
+     "id": "MP22.1",
+     "title": "API 层：types/api.ts AgentResumeBody{gate:'plan'|'assembly',action:'approve'|'modify'|'reject',feedback?} / AgentTaskActionBody{action:'edit'|'regenerate'|'approve',payload?}（契约读 apps/api routes/agent_team.py resume_run/task_action 源码确认：plan 门需 awaiting_confirm/planning，assembly 门需 awaiting_assembly；regenerate 仅 done/error 且 attempt<3、assemble 卡 400 走合成门）；api/index.ts resumeAgentRun/agentTaskAction（双段路径 encode，body 原样透传，返回卡片顶层字段无包装）；vitest api-agent-runs.test +8（resume 契约字段/feedback 缺省省略+路径编码/409 人话；action 双段编码/edit payload 透传/approve 无 payload/409·400 人话）",
+     "status": "done"
+    },
+    {
+     "id": "MP22.2",
+     "title": "详情页 detail.vue 二期：确认门横幅（awaiting_confirm→计划门 layers 图标「计划待确认」/ awaiting_assembly→合成门 film 图标「合成前确认」，accent 边框 + 「去裁决」CTA，data-gate/data-action=open-gate 供走查断言）+ Sheet 底部抽屉裁决（计划门：任务清单逐项 + approve/reject + reject 方向性批注输入；合成门：时间线时长列 taskDurationSec + 合计时长 ≈ Ns）；resume 成功抽屉/横幅关闭并刷新详情续接 SSE；裁决失败错误内联抽屉不关闭",
+     "status": "done"
+    },
+    {
+     "id": "MP22.3",
+     "title": "卡片干预操作行：taskActionable/taskRegenerable 本地纯函数（非 running/queued 且非 assemble 且 run 非终态出操作行；done/error 出重生成）——改文案（pencil，抽屉预填 primaryInputText 主文案，保存 edit payload={input:{...}}）/ 重生成（refresh-cw，抽屉引导词透传 payload.guidance，空不带 payload）/ 通过（check success 色直提 approve）；成功用返回卡片局部替换不重拉详情（attempt 递增「第 N 次」）；data-action=task-edit/task-regen/task-approve:{id} 供走查断言",
+     "status": "done"
+    },
+    {
+     "id": "MP22.4",
+     "title": "mock-server：POST /api/agent-runs/:id/resume（plan 门 awaiting_confirm/planning 白名单 409，approve→running / reject→planning+feedback 落 error；assembly 门需 awaiting_assembly，approve/reject 均回 running）+ POST /:id/tasks/:tid/action（approve→approved 直返卡；edit 合并 payload.input 回 pending；regenerate 409 非 done·error / 400 合成卡 / 400 attempt≥3，guidance 拼主文案 attempt+1 回 pending，run error/done/awaiting_assembly 回 running）；走查 C25.1-C25.7 七检查点（计划门横幅→抽屉清单 3 项/approve 徽章跃迁执行中/合成门时间线合计 ≈7s/reject 批注回执行中/改文案预填→保存回排队中/重生成引导词第 2 次尝试/通过徽章「已通过」）",
+     "status": "done"
+    },
+    {
+     "id": "MP22.5",
+     "title": "回归与落账：vue-tsc 0 错 / eslint 0 警 / vitest 17 套件 382 用例全绿（较 MP21 口径 374 净增 +8：api-agent-runs M22 块）/ h5+mp-weixin+mp-alipay+mp-toutiao 四端构建成功 / 全量走查 82/82 全绿（C25.1-C25.7 新增七检查点 + 既有 75 全数无回归）；STATE.json（本条目）+ TEST_LOG.md MP22 章节",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP21",
+   "title": "Agent 团队监控（一期：只读 + 取消）：运行列表过滤 / 详情 SSE 实时事件流 / 取消 / 入口集成",
+   "status": "done",
+   "date": "2026-08-15",
+   "subtasks": [
+    {
+     "id": "MP21.1",
+     "title": "API 层：types/api.ts 新增 AgentRunStatus/AgentRunTaskCounts/AgentRunSummary/AgentRunDetail/AgentRunSseEvent（snake_case 原样，读 agent_team.py + services/agent_team_exec.py 源码确认：cancel_run 409 白名单=planning/awaiting_confirm/running/awaiting_assembly，list_agent_runs 排序+approved 计入 done，get_agent_run 含 plan 全量）；utils/agent-run.ts 纯函数工具集（RUN_STATUS_META/TASK_STATUS_META 徽章文案+五态 tone 对齐 Web agentRunMeta.ts；RUN_FILTERS 语义桶客户端分桶；RUN_TERMINAL 终态集；hasActiveRuns/inRunFilter/runCancellable；taskKindLabel/taskKindIcon；extractTaskMedia 产物提取防御式布局；primaryInputText/verdictText/taskDurationSec；mergeTaskStatus/mergePlanTasks 双包法容错；agentRunEventText SSE 事件→动态流条目）；api/index.ts listAgentRuns/getAgentRun/cancelAgentRun/watchAgentRunEvents（复用 MP19 SSE 解析器 createSseParser，uni.request 非 enableChunked 常规读取；abort 停流+降级 2s 轮询）；vitest agent-run.test.ts 47 用例 + api-agent-runs.test.ts 14 用例",
+     "status": "done"
+    },
+    {
+     "id": "MP21.2",
+     "title": "列表页 pages/agent-runs/agent-runs.vue：横向 scroll-view chips 过滤（全部/进行中/待确认/已完成/已终止，带计数）；run 卡片流（goal/level/进度/时间/状态 Tag）；空态引导（主站发起）；页面原生滚动保下拉刷新；轮询语义对齐 jobs 页（有非终态 2s 轮询，全终态即停）；pages.json 注册（agent-runs + detail）",
+     "status": "done"
+    },
+    {
+     "id": "MP21.3",
+     "title": "详情页 pages/agent-runs/detail.vue：NavBar 右侧「取消」（runCancellable 白名单可见，showModal 二次确认）；首屏 GET 详情（plan 全任务卡片：状态 Tag/输入摘要/产物渲染（视频内联/图像预览/音频占位/文本截断）/验收意见）；非终态订阅 SSE 事件流（task_status/plan/done/error/confirm_required → 纯函数合并驱动增量）；事件动态流倒序 ≤50 条（agentRunEventText 逐事件上屏+语义色）；SSE 断线降级 2s 轮询直至终态；取消成功本地置 canceled 并断开（随后到达 cancel 帧幂等）；代际令牌防旧通道回调污染新状态",
+     "status": "done"
+    },
+    {
+     "id": "MP21.4",
+     "title": "入口：jobs.vue nav 区 Agent 团队按钮（zap 图标 + accent 边框 + 文字 Agent）→ navigateTo agent-runs 列表页；data-action=open-agent-runs 供走查断言",
+     "status": "done"
+    },
+    {
+     "id": "MP21.5",
+     "title": "mock-server 端点：/api/agent-runs GET 列表（status 单值过滤+approved 计入 done）；/:id GET 详情；/:id/cancel POST（409 白名单）；/:id/events SSE（三场景：success=7 帧接力到 done/gate=history 回放/pending=仅排队）；/__seed 支持 agentRuns 种子（goal/status/level/scenario/plan/history）；/__reset 清空 agentRuns/agentRunSeq。走查 C24.1-C24.9（入口导航/3 卡渲染/过滤桶/SSE 接力徽章跃迁 done+动态流+产物/终态取消按钮隐藏/确认门回放/取消二次确认+徽章已取消/已终止桶回看），75/75 全绿",
+     "status": "done"
+    },
+    {
+     "id": "MP21.6",
+     "title": "回归与落账：vue-tsc 0 错 / eslint 0 警 / vitest 17 套件 374 用例全绿（313+61：agent-run 47 + api-agent-runs 14）/ h5+mp-weixin+mp-alipay+mp-toutiao 四端构建成功 / 全量走查 75/75 全绿；STATE.json（本条目）+ TEST_LOG.md MP21 章节",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP20",
+   "title": "对话助手二期·文档挂载：/api/docs 三端点 + 文档面板（上传/挂载/删除）+ 输入栏 chips（≤8）+ document_ids 随 chat 上行 + user 气泡留痕 + retry 复用上轮挂载",
+   "status": "done",
+   "date": "2026-08-14",
+   "subtasks": [
+    {
+     "id": "MP20.1",
+     "title": "API 层：types/api.ts DocItem（id/filename/kind/size/chunk_count/status/created_at；契约读 apps/api/app/routes/documents.py + services/docs.py 源码确认——_KINDS={pdf,docx,txt,md}、MAX_FILE_BYTES=50MB、upload 201 返回 DocItem、status 三态 ready/partial(超长截断)/no_embed(向量服务不可用)）；utils/doc.ts 新纯逻辑（DOC_EXTS/DOC_MAX_BYTES + docStatusLabel 三态人话映射对齐 Web/Mobile 文案、未知状态原样透传前向兼容 + formatDocSize B/KB/MB 换算 + validateDocFile 扩展名大小写不敏感 + 尺寸先验）；api/index.ts listDocs/uploadDoc（apiUpload multipart 字段名 file 非 image，与 /api/upload 区分）/deleteDoc + agentChatStream 增 documentIds 可选参（非空才序列化 document_ids，空不带字段保 MP19 调用兼容）；vitest doc.test.ts 11 用例 + api-index +5（列表原样/字段名 file 201/400 detail 透传/DELETE 路径编码/404 人话）",
+     "status": "done"
+    },
+    {
+     "id": "MP20.2",
+     "title": "stores/assistant.ts：docList/docListLoading/docListError/docUploading/attachedDocs 五态 + ATTACHED_DOCS_MAX=8；loadDocs（失败入 docListError 不阻塞对话）；toggleAttachDoc（再点卸载/上限先验截停）/detachDoc；uploadAndAttach（201 插列表头保 created_at 倒序 + 未满自动挂载，docUploading 防重复，失败复位抛错 UI toast）；removeDoc（列表与挂载同步移除）；send 挂载快照→chips 清空→user 气泡 docs 留痕（{id,filename}）→document_ids 随 chat 上行；retry 复用上轮挂载（模块级 lastDocIds 快照，末尾非错误气泡不重试，newChat 清空快照）；vitest assistant-store +10",
+     "status": "done"
+    },
+    {
+     "id": "MP20.3",
+     "title": "pages/assistant/assistant.vue：输入栏左侧 paperclip ghost 钮（面板开或有挂载时 accent 高亮，对齐 Web 激活态）开文档 Sheet 面板；面板内上限提示（已挂载 N/8）+ 上传入口（loader-circle 旋转防重复）+ 空态/错误态（失败不阻塞对话可重开重试）+ 文档行（file-text 图标/名称/状态·尺寸·段数 meta/挂载 check/trash-2 删除 @tap.stop 防穿透挂载切换）；输入栏上方 chips 横滑行（file-text + 名称 + X 移除）；user 气泡 docs 文档留痕行；chooseDoc 跨平台（#ifdef MP-WEIXIN chooseMessageFile 会话文件 / #ifndef chooseFile，同 ref-audio-field 模式）+ validateDocFile 客户端先验 + 上传成败 toast；删除 showModal 二次确认；gen-icons 白名单 +paperclip/file-text（check/trash-2/upload/loader-circle/x 既有）重跑生成",
+     "status": "done"
+    },
+    {
+     "id": "MP20.4",
+     "title": "mock-server.mjs 文档端点（GET /api/docs 列表 / POST /api/docs/upload——multipart 首部 8KB 前缀解析 filename、binary→utf8 解码防中文名乱码、扩展名白名单 400 兜底、201 DocItem chunk_count=4 status=ready / DELETE /api/docs/{id}；docs 内存态 /__reset 一并清空，unshift 保 created_at 倒序）+ chat 端点 document_ids 回显（回复文案「已挂载 N 份文档：名称」供走查断言挂载随消息到达后端）；curl 五态验证（txt 201 中文名不乱码/exe 400/列表倒序/document_ids 回显/删除 200）；走查 C23.1-C23.5（面板空态/上传两份双双自动挂载/chips×2→X 卸载首枚/发送 document_ids 回显+chips 清空+气泡留痕/二次确认删除列表减一）",
+     "status": "done"
+    },
+    {
+     "id": "MP20.5",
+     "title": "回归：vue-tsc 0 错 / eslint 0 警 / vitest 15 套件 313 用例全绿（287+26：doc 11 + api-index 5 + assistant-store 10）/ h5+mp-weixin+mp-alipay+mp-toutiao 四端构建成功 / 全量走查 66/66（61+5，C1-C23 无回归）；落账 STATE.json（本条目）+ TEST_LOG.md MP20 章节",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP19",
+   "title": "对话助手一期：/api/agent/chat SSE 流式对话（自研增量解析器 + enableChunked 分块渲染）+ 会话管理 + 对话页 UI",
+   "status": "done",
+   "date": "2026-08-14",
+   "subtasks": [
+    {
+     "id": "MP19.1",
+     "title": "API 层：types/api.ts Agent 契约（AgentEvent/AgentChatMessage/AgentSessionSummary/AgentSessionDetail，读 agent.py/runner.py 源码验证）；utils/sse.ts 自研 SSE 增量解析器（跨块二进制拼接 + 自实现 UTF-8 增量解码不依赖 TextDecoder——微信真机可能无；多字节跨块挂起、残缺字节 U+FFFD 容错、空 data 帧不派发）；api/index.ts agentChatStream（uni.request enableChunked + onHeadersReceived 取 X-Agent-Session-Id + onChunkReceived 增量喂解析器，abort→「已停止生成」，非 2xx 走人话体系）+ 会话三端点；client.ts 导出 friendlyMessage + buildRequestHeaders 同源头部构造；mock-uni 扩展 enableChunked 分块任务（headers→chunks→success 异步派发 + abort 停流）；vitest sse.test.ts 17 用例 + api-agent.test.ts 16 用例",
+     "status": "done"
+    },
+    {
+     "id": "MP19.2",
+     "title": "stores/assistant.ts（非持久化：ChatMessage UI 模型 text/media/toolActivity/error/streaming；send 压缩历史为 {role,content} 上行、纯媒体占位空文本不上行；openSession 回放 tool 媒体并入前条 assistant 气泡；流句柄模块级持有防 Proxy 包裹；11 项单测）+ pages/assistant/assistant.vue（NavBar 返回+新对话/历史；user 右/assistant 左气泡、工具活动条、三点思考动画、媒体内联（图网格点击预览/video 播放/audio·3d 芯片）、错误内联；底部输入栏 Enter 发送、流式中变停止键；会话 Sheet 列表/回放/二次确认删除）+ pages.json 注册 + 创作页 NavBar 助手入口 + square/message-square 图标登记",
+     "status": "done"
+    },
+    {
+     "id": "MP19.3",
+     "title": "mock-server.mjs agent 端点（POST /api/agent/chat SSE 五帧 150ms 间隔流 + X-Agent-Session-Id 头 + Access-Control-Expose-Headers——H5 fetch 跨域读自定义头必须显式暴露；会话内存 CRUD + /__reset 复位；curl 六态验证：新会话流/续聊复用/列表/回放/删除/404）；走查 C22.1-C22.6（入口空态/发送流式回复+生成图内联+输入清空/流式中停止恢复/历史抽屉标题回填/回放消息媒体/删除双空态）",
+     "status": "done"
+    },
+    {
+     "id": "MP19.4",
+     "title": "踩坑修复两条：① mock-server.mjs 编辑失步第五次复发（Edit 回执成功 Read 可见新内容，node 读磁盘无 MP19 痕迹）→ 按固化流程 patch 脚本直写磁盘 + 落盘断言 + 语法检查生效；② 助手页输入栏 z-index:100 压过 ui-sheet 遮罩（90）拦截抽屉会话点击（MP13 资产页 footer 同因层叠约定违例）→ 降 50 并注释约定，C22.5 复测通过",
+     "status": "done"
+    },
+    {
+     "id": "MP19.5",
+     "title": "回归：vue-tsc 0 错 / eslint 0 警 / vitest 14 套件 287 用例全绿（276+11）/ h5+mp-weixin+mp-alipay+mp-toutiao 四端构建成功（mp-weixin 产物 app.json 含 pages/assistant/assistant）/ 全量走查 61/61（55+6）；落账 STATE.json（本条目）+ TEST_LOG.md MP19 章节",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP18",
+   "title": "创作页优化提示词：口语输入 → POST /api/optimize → LLM 扩写专业英文 prompt 回填（对齐 Web OptimizeButton 语义）",
+   "status": "done",
+   "date": "2026-08-14",
+   "subtasks": [
+    {
+     "id": "MP18.1",
+     "title": "API 层：types/api.ts OptimizeResult{optimized,negative|null}；api/index.ts optimizePrompt({prompt,kind}) POST /api/optimize（kind 跟随当前选中引擎直通，后端按 kind 切系统提示；model/style/agent_id/style_hint 为 Web 高阶入参本期走默认；502/503 由 apiFetch 透传人话；negative 缺省归一化 null）；vitest api-index +5（请求形状/audio 无 negative 归一化/video 带 negative/502/503）",
+     "status": "done"
+    },
+    {
+     "id": "MP18.2",
+     "title": "创作页 index.vue：prompt 卡右下角 ghost 钮组（优化 sparkles + 反推 wand-sparkles 并排，对齐 Web OptimizeButton/ReverseButton ob-btn 语言）；handleOptimize 空 prompt 禁用 + optimizing/reversing/submitting 防重复 → prompt 覆盖回填 + negative 有值展开填入 + toast 反馈；失败人话进 formError 不覆盖已有 prompt",
+     "status": "done"
+    },
+    {
+     "id": "MP18.3",
+     "title": "mock-server.mjs 新增 POST /api/optimize（JSON 入参 {prompt,kind}：image/video 带 negative / audio negative=null / 空 prompt 422，契约对齐 optimize.py）；走查新增 C21.1-C21.2（按钮渲染/优化扩写+负向框展开填入），55/55 全绿（53+2）",
+     "status": "done"
+    },
+    {
+     "id": "MP18.4",
+     "title": "踩坑修复两条：① Edit 工具对 mock-server.mjs 落盘失步（磁盘旧版无 /api/optimize 路由，curl 取证 404 未覆盖）→ python 直写 + grep/md5 验证生效；② 引擎选择随 pinia 持久化，C21 首跑 kind=video 致断言漂移 → 走查先 clickEngine 切回 SDXL 文生图保证 kind=image 确定性",
+     "status": "done"
+    },
+    {
+     "id": "MP18.5",
+     "title": "回归：vue-tsc 0 错 / eslint 0 警 / vitest 11 套件 243 用例全绿（238+5）/ h5+mp-weixin+mp-alipay+mp-toutiao 四端构建成功；落账 STATE.json（本条目）+ TEST_LOG.md MP18 章节",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP17",
+   "title": "创作页反推提示词：选图/视频 → POST /api/reverse → VLM 反推英文 prompt 回填（含 uni.chooseMedia H5 死路取证修复）",
+   "status": "done",
+   "date": "2026-08-14",
+   "subtasks": [
+    {
+     "id": "MP17.1",
+     "title": "API 层：types/api.ts ReverseResult{kind,prompt,negative|null}；api/index.ts reversePrompt(filePath) 走 apiUpload('/api/reverse', filePath, 'file')（multipart 字段名 file 非 image，与 /api/upload 区分）；client.ts apiUpload 注入 X-NSFW（NSFW 图像触发 JoyCaption 专线条件）；negative 缺省/null 归一化为 null；vitest api-index +6（字段名 file/Authorization/X-NSFW 开关/归一化/413/502）",
+     "status": "done"
+    },
+    {
+     "id": "MP17.2",
+     "title": "创作页 index.vue：prompt 卡右下角 ghost 反推钮（wand-sparkles 图标，对齐 Web ReverseButton ob-btn 语言，reversing 中禁用防重复）；handleReverse 选媒体 → runReverse 上传反推 → prompt 覆盖回填 + negative 有值展开填入 + toast 反馈（图/视频文案区分）；失败人话进 formError 不覆盖已有 prompt",
+     "status": "done"
+    },
+    {
+     "id": "MP17.3",
+     "title": "跨平台取证修复（本轮走查发现）：uni.chooseMedia 未入 uni-h5 导出清单（node_modules/@dcloudio/uni-h5/dist/uni-h5.es.js 源码验证，chooseImage/chooseVideo/showActionSheet 均在册），H5 端反推钮点按无响应——改走 showActionSheet(图片/视频) + chooseImage/chooseVideo 全端已实现三件套，与 ref-image-field/ref-video-field 同构，四端行为一致",
+     "status": "done"
+    },
+    {
+     "id": "MP17.4",
+     "title": "mock-server.mjs 新增 POST /api/reverse（multipart 头解析 filename/Content-Type 定 kind：图片带 negative / 视频 negative=null / 未识别类型 400，契约对齐 reverse.py）；走查新增 C20.1-C20.4（按钮渲染/action sheet 三项/视频反推回填不展开负向框/图片反推覆盖+负向框填入），53/53 全绿（49+4）",
+     "status": "done"
+    },
+    {
+     "id": "MP17.5",
+     "title": "回归：vue-tsc 0 错 / eslint 0 警 / vitest 11 套件 238 用例全绿（232+6）/ h5+mp-weixin+mp-alipay+mp-toutiao 四端构建成功；落账 STATE.json（本条目）+ TEST_LOG.md MP17 章节",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP16",
+   "title": "作品库服务端 kind 过滤：过滤切换整库生效（后端 jobs.py kind 参数 × 双端 filterToKind 接入），根治客户端过滤只覆盖已加载流的不完整结果缺陷",
+   "status": "done",
+   "date": "2026-08-14",
+   "subtasks": [
+    {
+     "id": "MP16.1",
+     "title": "后端 apps/api/app/routes/jobs.py：list_jobs 新增 kind 查询参数（逗号分隔多值，strip 去空白，空值/纯空白=全部；与 limit/offset/status 叠加），SQLModel Job.kind.in_(kinds)；tests/test_jobs.py 新增 test_jobs_kind_multi_values（多值命中任一/带空白/空值/纯空白 4 断言），test_jobs.py 16/16 全绿",
+     "status": "done"
+    },
+    {
+     "id": "MP16.2",
+     "title": "API 层 api/index.ts：listJobs 增 kind?: string（非空才 encodeURIComponent 序列化进 qs，空=全部不带参；按 limit→offset→status→kind 序拼接）",
+     "status": "done"
+    },
+    {
+     "id": "MP16.3",
+     "title": "library.vue 接入服务端过滤：filterToKind（过滤桶→FILTERS.kinds 逗号串，all→空串）；refresh 与 loadMore 均携带 kind 参数；watch(filter) 重置分页游标（offset=0/hasMore=true/loading=true）后重新拉取——切换过滤桶整库生效，替代 MP15 的「只作用于已加载流+可视不足自动填补」交互（maybeFill/needsAutoFill 链路退役）",
+     "status": "done"
+    },
+    {
+     "id": "MP16.4",
+     "title": "回归：vue-tsc 0 错 / eslint 0 警 / vitest 11 套件 232 用例全绿 / h5+mp-weixin+mp-alipay+mp-toutiao 四端构建成功；后端 pytest tests/test_jobs.py 16/16 全绿",
+     "status": "done"
+    },
+    {
+     "id": "MP16.5",
+     "title": "落账：STATE.json（本条目）+ TEST_LOG.md MP16 章节（契约要点/改动清单/测试矩阵/后端全量 pytest 193 failed 取证——pytest_asyncio 未安装的历史遗留，与本次改动无关）",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP15",
+   "title": "作品库无限分页：listJobs offset 契约接入 + 触底续拉状态机 + 客户端过滤自动填补 + 底部分页反馈",
+   "status": "done",
+   "date": "2026-08-14",
+   "subtasks": [
+    {
+     "id": "MP15.1",
+     "title": "契约复核（读 apps/api/app/routes/jobs.py 确认）：GET /api/jobs?limit(1-200,默认50)&offset(≥0,默认0) → JobItem[]（无 total，越界返回 []）；api/index.ts listJobs 增 offset 可选参（>0 才序列化，缺省/0 不拼 qs 保持既有调用兼容）；vitest api-index +2（offset=48 拼参 / 缺省与 0 均不序列化）",
+     "status": "done"
+    },
+    {
+     "id": "MP15.2",
+     "title": "utils/pagination.ts 新纯逻辑（TDD 先 RED）：PageCursor{offset,hasMore} + INITIAL_CURSOR + appendPage（按 id 去重，保留先出现者，不改入参）+ cursorAfterFirst/cursorAfterNext（hasMore=「本页返回数===页大小」启发式；offset 按服务端原始返回数推进，与去重后可见长度解耦——防新作业插顶造成页间重叠时游标回退死循环）+ needsAutoFill（过滤后可视不足且 hasMore → 续拉填补）；vitest pagination 12 用例",
+     "status": "done"
+    },
+    {
+     "id": "MP15.3",
+     "title": "library.vue 接入无限分页：状态机 loading（首屏）/refreshing（下拉）/loadingMore（触底）/hasMore/error + loadMoreError 底部分层；代际令牌 generation 使 refresh 后在途 loadMore 结果作废；refresh（onShow/下拉）重置 offset=0 全量重拉第一页；onReachBottom 触底 loadMore（防重入）；过滤 chips 作用于已加载流切换不重置数据，可视不足一屏（列数×4 行）自动续拉填补（maybeFill 链长上限 5 防极端稀疏过滤打满全库）；底部反馈 spinner/「加载失败点击重试」/「没有更多了」/「上拉加载更多」（可点按兜底）；utils/library.ts LIBRARY_PAGE_SIZE=24（2/3/4 列公倍数，vitest +2）",
+     "status": "done"
+    },
+    {
+     "id": "MP15.4",
+     "title": "mock-server.mjs：52 件 done 作品分页数据集（doneJob + 51 件 makeLibraryJob，kind 按 i%9==8→ace_audio 5 件 / i%5==4→wan_t2v / 余 txt2img；24+24+4 三页）；/api/jobs 支持 limit/offset 服务端切片（clamp 对齐后端契约）；保留前 6 次调用含 runningJob 的轮询演示语义",
+     "status": "done"
+    },
+    {
+     "id": "MP15.5",
+     "title": "走查 C19.1-C19.7：首屏 24 卡 / 触底 48 卡无重复 / 尾页 52 收齐+「没有更多了」 / 过滤「音频」5 卡作用于已加载流 / 重进后过滤可视不足自动续拉至全量 5 卡 / 切回「全部」52 卡原样在 / 下拉刷新重置回第一页 24 卡；49/49 全绿（42+7）；取证修复两个走查环境缺陷（见 TEST_LOG 踩坑记录）",
+     "status": "done"
+    },
+    {
+     "id": "MP15.6",
+     "title": "回归与落账：vue-tsc 0 错 / eslint 0 警 / vitest 11 套件 232 全绿（216+16）/ h5+mp-weixin+mp-alipay+mp-toutiao 四端构建成功；STATE.json（本条目）+ TEST_LOG.md MP15 章节",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP14",
+   "title": "avatar-talk（LongCat-Avatar 数字人）引擎接入：人像首帧 + 驱动音频互钉上传 → 口型同步视频，主站引擎全景 100% 收口",
+   "status": "done",
+   "date": "2026-08-14",
+   "subtasks": [
+    {
+     "id": "MP14.1",
+     "title": "契约复核（读 apps/api/app/routes/avatar_studio.py 源码确认）：POST /api/avatar/talk，AvatarTalkRequest{image,audio,worker,positive + negative?/width?/height?/num_frames?/fps?/steps?/shift?/cfg?/dmd_lora_strength?/seed?}；image/audio 为上传句柄文件名（min_length 1 + 防路径穿越校验），worker 防 SSRF 两者须同机；宽/高非 16 对齐后端向下取整；上传走 pool worker（kind=avatar），后端转运 LongCat 实例 input 目录",
+     "status": "done"
+    },
+    {
+     "id": "MP14.2",
+     "title": "类型与 API 层：types/api.ts 新增 AvatarTalkRequest（snake_case 原样）；api/index.ts submitAvatarTalk（POST /api/avatar/talk，LONG 180s 档）；vitest api-index +2（POST 全字段序列化 + SFW 引擎主站上下文无 X-NSFW 头直接放行）",
+     "status": "done"
+    },
+    {
+     "id": "MP14.3",
+     "title": "utils/build-request.ts：SUPPORTED_ENGINE_IDS 放行 avatar-talk（isEngineSupported → true，引擎栅格解除禁用）；uploadKindForEngine('avatar-talk')→'avatar'（人像/音频同 kind 互钉，后端转运 LongCat 实例）；engineNeedsAudio 追加识别 text 占位 audio 键（注册表 audio 为 text 占位，Web 走独立面板，本端渲染为上传字段）；新增 engineSheetParams（抽屉剔除该 text 占位 audio 键，其余参数原样）；buildAvatarTalkRequest（positive trim + image/audio 句柄 + worker 取人像落点 + VIDEO_STRING_KEYS 字符串 + AVATAR_TALK_NUMBER_KEYS 8 数值白名单 + seed；shift/cfg/dmd_lora_strength 注册表未外露出现即透传，缺省后端补默认）；vitest build-request +10",
+     "status": "done"
+    },
+    {
+     "id": "MP14.4",
+     "title": "创作页 index.vue：refImageLabel computed（单图字段标签取注册表 images 参数 label「人像首帧」，缺省「参考图」）；sheetParams 改走 engineSheetParams；RefAudioField 复用 MP12 组件（kind=avatar 钉人像 worker，参考图变更 :key 重建强制重传）；提交分支 case 'avatar-talk'（缺人像首帧/缺驱动音频/互钉 worker 失配三层表单拦截）→ submitAvatarTalk；组件层零改动（ref-audio-field 的 kind/pinWorker 泛化 MP12 已满足）",
+     "status": "done"
+    },
+    {
+     "id": "MP14.5",
+     "title": "走查与回归：mock-server.mjs avatar-talk 引擎定义占位替换为注册表全量对齐版（images max1 人像首帧 + text 占位 audio + negative/width/height/num_frames/fps/steps/seed）+ /api/avatar/talk 端点；走查新增 C18.1-C18.6（双字段渲染且标签取注册表/抽屉剔除 audio 占位其余 7 参在册/缺媒体生成钮禁用/人像就绪缺音频仍禁用/音频就绪放行/提交成功跳作业页），42/42 全绿（36+6）；vitest 216 全绿（204+12）；vue-tsc 0 错 / eslint 0 警；h5/mp-weixin/mp-alipay/mp-toutiao 四端构建成功",
+     "status": "done"
+    },
+    {
+     "id": "MP14.6",
+     "title": "落账：STATE.json（本条目）+ TEST_LOG.md MP14 章节（契约要点/改动清单/测试矩阵/走查结果/踩坑记录——含 9800/9810 端口被 MP13 版旧进程占用、新端点 404 取证与重建过程）",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP13",
+   "title": "参考资产库接入：管理页 CRUD（kind 过滤/卡片网格/同页弹层新建编辑/删除）+ 创作页引用（资产选择器点选回填句柄，不重新上传）",
+   "status": "done",
+   "date": "2026-08-14",
+   "subtasks": [
+    {
+     "id": "MP13.1",
+     "title": "API 层：types/api.ts 新增 AssetKind/AssetImage/AssetItem/AssetCreateBody/AssetPatchBody；api/index.ts 新增 listAssets(kind?)/createAsset/getAsset/updateAsset(PATCH)/deleteAsset/assetImageUrl（mediaUrl 拼 token）；client.ts PATCH 方法 @dcloudio/types 联合类型缺 PATCH 显式断言；vitest api-assets 10 用例（URL/method/body 序列化/kind qs/错误透传）",
+     "status": "done"
+    },
+    {
+     "id": "MP13.2",
+     "title": "资产管理页 pages/assets/index.vue（pages.json 注册「参考资产库」+ profile 入口 folder 图标）：kind 过滤 chips（全部/角色/场景/道具/风格）本地过滤 + 卡片网格（首图 assetImageUrl 缩略/名称/kind 徽标/N 张/R18 徽标对齐引擎芯片）+ 空态新建引导 + 下拉刷新；同页 Sheet 弹层新建/编辑（名称/kind chips/描述多行/图片 1-4 张 chooseImage+uploadImage 第 2 张起钉第 1 张 worker/可移除/本地先验放行/编辑回显 buildAssetPatch 差量 PATCH）；NSFW 开关仅 nsfwIntent 渲染；删除二次确认；utils/assets.ts 纯逻辑（ASSET_KINDS/assetKindLabel/filterAssetsByKind/assetToDraft/buildAssetPatch/validateAssetDraft/appendAssetImage 泛型）vitest 18 用例",
+     "status": "done"
+    },
+    {
+     "id": "MP13.3",
+     "title": "创作页引用：asset-picker-sheet.vue 新组件（kind 过滤 + 资产卡片 → 展开图网格 → 点选回填 {filename,worker} 句柄不重新上传，多图模式达上限截停）；ref-image-field.vue 增「从资产库选择」次级入口（单图替换/多图追加，达上限隐藏），与上传即钉 worker 逻辑兼容（资产句柄自带 worker 视为已上传态）",
+     "status": "done"
+    },
+    {
+     "id": "MP13.4",
+     "title": "测试与四端构建：mock-server.mjs 资产内存 CRUD（/api/assets GET/POST/PATCH/DELETE + /images/{index} 1x1 png + /__reset 清空 + CORS 放行 PATCH）；validateRefImage 对 H5 blob: URL 跳过扩展名校验（保留 20MB 上限，MIME 由 accept 约束+后端魔数兜底）+2 用例；vitest 204 全绿（174+30）；vue-tsc 0 错 / eslint 0 警；h5/mp-weixin/mp-alipay/mp-toutiao 四端构建成功",
+     "status": "done"
+    },
+    {
+     "id": "MP13.5",
+     "title": "走查与落账：走查新增 C17.1-C17.9（入口导航/空态/创建 mock 上传出卡/选择器列表/点选回填计数/句柄复用代理预览/编辑回显/改名 PATCH 列表更新/二次确认删除回空态），36/36 全绿；修复走查取证发现的资产页 footer z-index:100 高于 ui-sheet:90 导致弹层点击被底栏拦截缺陷（降 50）；C17.2 空态断言改 waitForSelector 等异步 load；STATE.json（本条目）+ TEST_LOG.md MP13 章节",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP12",
+   "title": "R18 视频引擎接入（ltx-nsfw-t2v / ltx-nsfw-i2v / ltx-nsfw-lipsync / h3-nsfw-t2v / h3-nsfw-i2v），与主站工作台引擎全景 100% 对齐（avatar-talk 除外）",
+   "status": "done",
+   "date": "2026-08-14",
+   "subtasks": [
+    {
+     "id": "MP12.1",
+     "title": "类型层 types/api.ts：EngineParamType 增加 'audio'；UploadedRefAudio{filename,worker,name} 句柄；LtxNsfwT2V/I2V/LipsyncRequest（width/height/length 数值 + image/worker/audio/id_lora 等 snake_case 原样）；H3 R18 复用 H3T2V/H3I2VRequest",
+     "status": "done"
+    },
+    {
+     "id": "MP12.2",
+     "title": "API 层 api/index.ts：submitLtxNsfwT2V/I2V/Lipsync（POST /api/generate/ltx-t2v|ltx-i2v|ltx-lipsync，LONG 180s）；uploadAudio(filePath, kind, pinWorker?) 复用 multipart 字段名 image；h3-nsfw 复用 submitH3T2V/H3I2V 链路",
+     "status": "done"
+    },
+    {
+     "id": "MP12.3",
+     "title": "utils/build-request.ts：SUPPORTED_ENGINE_IDS 扩至 19（5 个 R18 在册，avatar-talk 仍禁用）；engineNeedsAudio；uploadKind ltx-nsfw-i2v→ltx_i2v / ltx-nsfw-lipsync→ltx_lipsync / h3-nsfw-i2v→h3_i2v；parseResolution 预设串→宽/高；ltxNsfwLength（secs×fps→round→≥9→吸附 8k+1→钳 241）；H3_NSFW_DURATION_FRAMES 静态映射 6/10/15s→141/243/362；5 个 builder 白名单透传（lipsync 图/音互钉句柄 + id_lora trim 空省略）；validateRefAudio（wav/mp3/m4a/ogg/flac + ≤20MB）；defaultParamValues 跳过 audio",
+     "status": "done"
+    },
+    {
+     "id": "MP12.4",
+     "title": "UI：ref-audio-field.vue 新组件（条件编译 chooseMessageFile/chooseFile → 原始文件名先验 → 钉参考图 worker 上传 → 预览/移除；修复 H5 blob URL 无扩展名误杀——校验按原始文件名）；param-sheet 将 audio 移出「不支持」提示；index.vue 引擎卡片 R18 徽标（item.nsfw）+ 5 个提交分支（lipsync 缺图/缺音分层拦截；h3-nsfw 走 SFW H3 同一 submit 链路，X-NSFW 头由 client 自动注入）；单图变更互钉失配清音/视频",
+     "status": "done"
+    },
+    {
+     "id": "MP12.5",
+     "title": "走查与回归：mock-server 补 5 个 R18 引擎定义（参数逐字段对齐 engine_registry）+ /api/models/engines 按 X-NSFW 头过滤（SFW 12 / R18 17）+ 3 个 R18 LTX 提交端点 + upload 回显真实文件名；走查新增 C8.2（SFW 零 R18 徽标）/C14（R18 上下文 5 徽标 + ltx-nsfw-t2v 无媒体字段 + 提交跳作业页）/C15（lipsync 图+音双字段 + 缺媒体生成钮禁用）/C16（h3-nsfw-t2v 复用 /api/h3/t2v 提交成功），27/27 全绿；vue-tsc 0 错 / eslint 0 警 / vitest 174 全绿 / build:h5 + build:mp-weixin 双平台成功",
+     "status": "done"
+    },
+    {
+     "id": "MP12.6",
+     "title": "落账：STATE.json（本条目）+ TEST_LOG.md MP12 章节（契约要点/改动清单/测试矩阵/走查结果/踩坑记录——含 mock-server.mjs IDE 覆盖层与磁盘失步取证）",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP11",
+   "title": "剩余 SFW 引擎接入（h3-t2v / h3-i2v / longcat-t2v / longcat-i2v / longcat-continue / ace-music）+ 修复抽屉 H5 滚动失效与 reactive v-model 静默丢失两个现役缺陷",
+   "status": "done",
+   "date": "2026-08-14",
+   "subtasks": [
+    {
+     "id": "MP11.1",
+     "title": "类型层 types/api.ts：新增 LoraValue{name,strength}、H3T2V/H3I2VRequest（loras 数组）、LongCatT2V/I2V/ContinueRequest（snake_case）、AceMusicRequest（tags/lyrics/seconds）；EngineParamType 增加 'loras'，EngineParam.options? 增 nsfw 标记位",
+     "status": "done"
+    },
+    {
+     "id": "MP11.2",
+     "title": "API 层 api/index.ts：submitH3T2V/H3I2V（/api/h3/*）、submitLongCatT2V/I2V/Continue（/api/longcat/*）、submitAceMusic（/api/generate/audio），统一 LONG 180s 超时档，GenerateResponse 形状",
+     "status": "done"
+    },
+    {
+     "id": "MP11.3",
+     "title": "utils/build-request.ts：SUPPORTED_ENGINE_IDS 扩至 14（仅余 avatar-talk 未接入）；uploadKind h3-i2v→h3_i2v、longcat-i2v→ltx_i2v；parseLoraValues（默认强度 0.6、越界钳 0.5-1.0、非数组/缺 name 兜底剔除）；6 个 builder 白名单键透传（continue 的空 width/height/fps 显式省略 = 后端对齐源视频；ace-music positive→tags 映射）",
+     "status": "done"
+    },
+    {
+     "id": "MP11.4",
+     "title": "UI：loras-field.vue 新组件（多选 ≤3 + 单项强度滑杆 min/max/step 取注册表 + R18 角标 + 达上限未选项截停灰化 + options 空显式提示）；param-sheet 支持 loras 类型；index.vue 提交路由新增 6 分支（h3-i2v/longcat-i2v 缺参考图、longcat-continue 缺源视频 URL 均表单层拦截）",
+     "status": "done"
+    },
+    {
+     "id": "MP11.5",
+     "title": "走查与回归 + 两个现役缺陷修复：①ui-sheet H5 端滚动失效（panel 靠 max-height 钳制 → uni scroll-view 内层两层 div 的 height:100% 百分比参照链 indefinite 断裂 → 内层被内容撑高不可滚动；探针 E1-E4 对照实验取证，全 flex 链修复，小程序原生组件无此 DOM 无副作用）；②paramValues 为 const reactive 却直接 v-model（Vue 编译为 const 重新赋值，运行时被错误吞掉 → 抽屉所有参数编辑静默丢失，MP3 起潜伏）改显式 :model-value + @update:model-value 清空合并保引用；mock-server 补 6 提交端点 + 引擎定义（loras 4 选项含 R18 样例）；走查 20/20（新增 C11 LoRA 渲染/选中强度/提交、C12 续写源视频必填拦截+提交、C13 ace-music 提交）",
+     "status": "done"
+    },
+    {
+     "id": "MP11.6",
+     "title": "落账：STATE.json（本条目）+ TEST_LOG.md MP11 章节（契约要点/改动清单/测试矩阵/两个缺陷取证过程/踩坑记录）",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP10",
+   "title": "SFW 视频引擎接入（ltx25-t2v / ltx25-i2v / wan-animate / wan-vace）+ 修复创作页选视频引擎错提 txt2img 的现役缺陷",
+   "status": "done",
+   "date": "2026-08-14",
+   "subtasks": [
+    {
+     "id": "MP10.1",
+     "title": "类型层 types/api.ts：EngineParamType 增加 'video'；EngineInfo.source?（M9 透传）；新增 Ltx25T2VRequest/Ltx25I2VRequest/WanAnimateRequest/WanVaceRequest（snake_case 原样）与 UploadedRefVideo 句柄",
+     "status": "done"
+    },
+    {
+     "id": "MP10.2",
+     "title": "API 层：api/index.ts 新增 submitLtx25T2V/I2V、submitWanAnimate/Vace（LONG 180s）+ uploadVideo(kind, pinWorker?)；uploadImage 加可选 pinWorker 不破坏既有调用；client.ts 错误 detail 提取兼容 FastAPI 422 数组（展开首条 msg）",
+     "status": "done"
+    },
+    {
+     "id": "MP10.3",
+     "title": "请求构建 utils/build-request.ts：SUPPORTED_ENGINE_IDS 白名单 + isEngineSupported、engineNeedsVideo、engineImagesMax/engineNeedsMultiImage、uploadKindForEngine（ltx_i2v/wan_animate/wan_vace）；4 个 builder 白名单键透传（不传后端默认键）；validateRefVideo（mp4/webm/mov + ≤200MB）；defaultParamValues 跳过 video；txt2img/img2img 既有行为不变",
+     "status": "done"
+    },
+    {
+     "id": "MP10.4",
+     "title": "UI：index.vue 提交按引擎 id switch 路由（根治错提 txt2img），引擎栅格禁用态（未接入灰化 +「即将支持」，自动选择只在可选集合内），参考图/驱动视频字段按引擎渲染 + :key 绑引擎 id 防串状态，wan-animate 图变更后视频互钉失配自动清除；ref-image-field 多图模式（计数/逐张移除/第 2 张起钉第 1 张 worker）；ref-video-field 新组件（chooseVideo→校验→钉 worker 上传→预览卡片）；param-sheet 将 video 类型移出「不支持」提示",
+     "status": "done"
+    },
+    {
+     "id": "MP10.5",
+     "title": "走查与回归：mock-server 补 4 视频端点 + upload worker 互钉回显；走查新增 C8 禁用态/C9 ltx25-t2v 提交跳作业页/C10 wan-vace 多图计数，13/13 全绿；vitest 121（91+30 新增：build-request +21 / api-index +9）；vue-tsc 0 错 / eslint 0 警 / build:h5 + build:mp-weixin 双平台成功",
+     "status": "done"
+    },
+    {
+     "id": "MP10.6",
+     "title": "落账：STATE.json（本条目）+ TEST_LOG.md MP10 章节（契约要点/改动清单/测试矩阵/踩坑记录）",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP9",
+   "title": "微信开发者工具自动化走查 Round 1（mock 后端全自动轮）：miniprogram-automator 30 检查点全绿；Round 2 真机人工走查待执行",
+   "status": "partial",
+   "date": "2026-08-15",
+   "subtasks": [
+    {
+     "id": "MP9.1",
+     "title": "走查设施：scripts/mp-walkthrough-weixin.cjs（新）——miniprogram-automator 连开发者工具 9420 自动化端口，W1-W9 共 30 检查点（登录/创作页/提交+作业 SSE/产物详情/作品库/资产库/对话助手/Agent 团队含确认门裁决/我的页）+ docs/ux-walkthrough-weixin/ 18 截图；mock 定向包构建 VITE_API_BASE=http://127.0.0.1:9800 CLI 覆盖 .env.production（env 变量优先级高于 .env 文件，不污染真实配置）",
+     "status": "done"
+    },
+    {
+     "id": "MP9.2",
+     "title": "平台差异适配层（automator 0.12.1 缺陷绕行）：导航统一 evaluate 直发 wx API + waitRoute 轮询（changeRoute 把 {url} 二次包装且 wx.navigateTo success/complete 回调在自动化通道被吞）；curPage/tapNav 收纳 devtools 页面栈切换竞态的 page stack 错；mustPage 页面就绪轮询（带路由上下文报错）；findHost/findHosts 以 u-i 属性定位自定义组件宿主 + tapInner 影子树内元素点击；textOf 影子树文本抽取（text()→文本节点→wxml 剥离兜底）；mp 选择器引擎不匹配 data-* 裸存在性选择器须带值（[data-run-status=\"done\"]）探针实证",
+     "status": "done"
+    },
+    {
+     "id": "MP9.3",
+     "title": "微信端特有问题修复：①mock-server SSE 回放过滤已消费 confirm_required 帧（run 过确认门后 status 非 awaiting_* 时剔除历史确认帧，否则前端 onSseEvent 把徽章打回待确认——与 mock 状态机矛盾，H5 因 waitForSelector 捕到 transient 未暴露，mp IPC 采样延迟下 100% 复现，W8.4b 根因）②mock error 场景进度帧 2→6 加密扩检测窗（W3.4 稳定复现）③W5.2 过滤桶视频改音频对齐 H5 C19.4（服务端整库 5 卡）④助手回复断言 findByText→findByInnerText 适配影子树",
+     "status": "done"
+    },
+    {
+     "id": "MP9.4",
+     "title": "Round 1 走查 30/30 全绿（含 W8.4b 计划确认通过徽章跃迁执行中）+ 全量回归：vue-tsc 0 错 / eslint --max-warnings=0 0 警 / vitest 26 套件 565 全绿 / H5 走查 111/111 无回归（confirm_required 过滤对 H5 无副作用）/ 四端构建 h5+mp-weixin+mp-alipay+mp-toutiao 全 DONE / dist 恢复真实基址 192.168.71.47:8090 四端核验无 mock 残留",
+     "status": "done"
+    },
+    {
+     "id": "MP9.5",
+     "title": "【manual 残留】Round 2 真机人工走查：导入 dist/build/mp-weixin，核对渲染差异、相册下载/chooseMessageFile 会话文件权限链路、R18 引擎可见性随 NSFW 开关切换，及 MP17-MP30 各真机体验点（细目见 next 字段）",
+     "status": "pending"
+    }
+   ]
+  },
+  {
+   "id": "MP8",
+   "title": "H5 自动化 UX 走查 + 组件事件契约根治（tap→click）",
+   "status": "done",
+   "date": "2026-08-14",
+   "subtasks": [
+    {
+     "id": "MP8.1",
+     "title": "走查设施：scripts/mock-server.mjs 零依赖 Mock API（9800，端点逐条对齐 api/index.ts，含 /__reset 计数归零）+ scripts/ux-walkthrough-h5.mjs Playwright 全流程（登录→创作→作业→详情→作品库→我的，9 检查点 + docs/ux-walkthrough/ 截图）",
+     "status": "done"
+    },
+    {
+     "id": "MP8.2",
+     "title": "根治组件 tap 契约缺陷：uni 编译器将模板 @tap 统一映射为 onClick prop，子组件 emit('tap') 父级永远收不到（H5 点击作业卡无响应根因，运行时实例链取证确认）→ button/job-card 改 emit('click')，login/index/jobs 三处父级改 @click；微信端验证 bindclick + emits:[click] 契约一致",
+     "status": "done"
+    },
+    {
+     "id": "MP8.3",
+     "title": "走查 9/9 全绿：C1 登录跳转 / C2 引擎加载 / C3 作业列表 2 卡 / C4 点卡进详情 / C5 eventChannel+预览+操作钮 / C6 过滤芯片 / C7 深浅切换 #FAF9F7→#141312；回归 vue-tsc 0 错 / eslint 0 警 / vitest 91 全绿 / build:h5 + build:mp-weixin 双平台成功",
+     "status": "done"
+    },
+    {
+     "id": "MP8.4",
+     "title": "跨平台构建验证：mp-alipay（onClick/onRemove/onRetry 契约）+ mp-toutiao（bindclick 契约）双端构建成功，tab-bar 四件套与 5 主页 + artifact 子包产物齐全——四平台（h5/weixin/alipay/toutiao）事件契约一致收口",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP7",
+   "title": "UX/一致性审计 + 跨平台收口：底栏重构（全平台可用）+ 主题硬编码清除 + H5 构建验证",
+   "status": "done",
+   "date": "2026-08-14",
+   "subtasks": [
+    {
+     "id": "MP7.1",
+     "title": "跨平台验证：build:h5 成功；发现并修复致命缺陷——微信私有 custom-tab-bar 被编译为原始 .vue 拷贝（底栏不渲染）且其他平台无底栏",
+     "status": "done"
+    },
+    {
+     "id": "MP7.2",
+     "title": "底栏重构：shared components/business/tab-bar.vue（fixed 悬浮条+占位块，四 tab 页内嵌 selected 0-3），pages.json 移除原生 tabBar，全局 switchTab → reLaunch（6 处）",
+     "status": "done"
+    },
+    {
+     "id": "MP7.3",
+     "title": "UI 一致性审计：修复 2 处 switch color 硬编码 #B4532A（换肤不跟随）→ :color=\"palette.accent\"（param-sheet/profile）；#FFFFFF 媒体浮层白与 Mobile 约定一致保留；裸 rpx 均为组件专属尺寸合规",
+     "status": "done"
+    },
+    {
+     "id": "MP7.4",
+     "title": "功能完整性审计：12 处导航调用全部核对 pages.json 路由（含 pages-sub 子包）；死样式 __bottom-gap ×3 清除",
+     "status": "done"
+    },
+    {
+     "id": "MP7.5",
+     "title": "回归：vue-tsc 0 错 / eslint 0 警 / vitest 91 全绿 / build:mp-weixin（tab-bar 四件套正常、app.json 无 tabBar）+ build:h5 双平台成功",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP6",
+   "title": "全量回归：vue-tsc / eslint / vitest / build:mp-weixin + 落账",
+   "status": "done",
+   "date": "2026-08-14",
+   "subtasks": [
+    {
+     "id": "MP6.1",
+     "title": "vue-tsc --noEmit 0 错误",
+     "status": "done"
+    },
+    {
+     "id": "MP6.2",
+     "title": "eslint --max-warnings=0 0 错误 0 警告（修复 artifact.vue isAudioOr3d 未使用：音频/3D 产物舞台改图标占位 music/box，消除破图 <image>）",
+     "status": "done"
+    },
+    {
+     "id": "MP6.3",
+     "title": "vitest 8 套件 91 用例全绿（build-request 13 / library 10 / format 12 / poll 5 / tokens-icons 7 / api-index 14 / api-client 19 / stores 11）",
+     "status": "done"
+    },
+    {
+     "id": "MP6.4",
+     "title": "build:mp-weixin 成功：5 主包页（创作/作业/作品库/我的/登录）+ pages-sub/artifact 子包 + custom-tab-bar 产物齐全",
+     "status": "done"
+    },
+    {
+     "id": "MP6.5",
+     "title": "STATE.json / TEST_LOG.md 落账（本文件）",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP5",
+   "title": "作品库 + 我的页：类型过滤网格 / 产物详情 / 设置（主题·API·NSFW）",
+   "status": "done",
+   "date": "2026-08-13",
+   "subtasks": [
+    {
+     "id": "MP5.1",
+     "title": "utils/library.ts 移植 Mobile library-utils：FILTERS 五桶（全部/图像/视频/音频/3D）+ kindLabel 中文标签 + collectArtifacts + countByFilter + 断点列数/卡边长 + isVideoPath，vitest 10 用例",
+     "status": "done"
+    },
+    {
+     "id": "MP5.2",
+     "title": "pages/library/library.vue：过滤 chips（含计数）+ 等宽网格（2/3/4 列断点）+ 视频角标 + 下拉刷新 + onShow 重拉 + 空态",
+     "status": "done"
+    },
+    {
+     "id": "MP5.3",
+     "title": "pages-sub/artifact/artifact.vue：eventChannel 主路径 + query.id 兜底恢复；图像点按预览/视频内嵌/音频·3D 图标占位；多产物缩略条；版本链横滑条带；复用（draft 回填）/重新生成（seed 三策略）/下载（相册）/删除（二次确认）",
+     "status": "done"
+    },
+    {
+     "id": "MP5.4",
+     "title": "pages/profile/profile.vue：账户卡片 + 显示模式三段（浅/深/跟随系统）+ 五色板换肤 + API 基址覆盖（校验 http(s) 前缀）+ NSFW 二次确认开关 + 退出登录",
+     "status": "done"
+    },
+    {
+     "id": "MP5.5",
+     "title": "gen-icons.mjs 白名单 +3（music/box/sun-moon），重跑生成 icons.generated.ts",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP4",
+   "title": "作业页：卡片流 + 活跃轮询 + 删除/失败重试",
+   "status": "done",
+   "date": "2026-08-13",
+   "subtasks": [
+    {
+     "id": "MP4.1",
+     "title": "utils/format.ts 增补 isActiveStatus/hasActiveJobs（queued/running 驱动轮询，全终态即停，语义对齐 Mobile）",
+     "status": "done"
+    },
+    {
+     "id": "MP4.2",
+     "title": "components/business/job-card.vue：缩略图 + 提示词摘要 + 状态 Tag + 相对时间 + 终态删除（showModal 确认）+ error 重试按钮（retrying 防重复，loader-circle 旋转态）",
+     "status": "done"
+    },
+    {
+     "id": "MP4.3",
+     "title": "pages/jobs/jobs.vue：pollUntil 2s 轮询 + onShow 启动/onHide·onUnload 取消 + 页面原生下拉刷新 + done 点按跳详情（eventChannel 传 job）",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP3",
+   "title": "创作页：PromptBar + 引擎选择 + 参数抽屉 + img2img 参考图",
+   "status": "done",
+   "date": "2026-08-13",
+   "subtasks": [
+    {
+     "id": "MP3.1",
+     "title": "utils/build-request.ts 请求构建纯逻辑（zod 校验）+ vitest 13 用例",
+     "status": "done"
+    },
+    {
+     "id": "MP3.2",
+     "title": "components/business/param-sheet.vue 参数抽屉 + ref-image-field.vue 参考图字段（chooseImage → upload → 预览/移除，tempFiles 归一化取 size）",
+     "status": "done"
+    },
+    {
+     "id": "MP3.3",
+     "title": "pages/index/index.vue：提示词输入 + 引擎栅格 + 提交 → 作业页跳转 + draft store 回填消费",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP2",
+   "title": "登录鉴权：登录页 + auth gate + token 持久化",
+   "status": "done",
+   "date": "2026-08-13",
+   "subtasks": [
+    {
+     "id": "MP2.1",
+     "title": "stores/auth.ts：restore（token → /auth/me 校验，401 清理踢出，弱网缓存用户兜底保持会话）/ signIn / signOut",
+     "status": "done"
+    },
+    {
+     "id": "MP2.2",
+     "title": "composables/use-auth-guard.ts：requireAuth 页面级守卫（未登录 reLaunch 登录页）",
+     "status": "done"
+    },
+    {
+     "id": "MP2.3",
+     "title": "pages/login/login.vue：邮箱+密码表单、人话错误、登录成功回创作页",
+     "status": "done"
+    }
+   ]
+  },
+  {
+   "id": "MP1",
+   "title": "脚手架 + 基础层：模板/依赖/配置/theme/storage/http/types/stores/icon",
+   "status": "done",
+   "date": "2026-08-13",
+   "subtasks": [
+    {
+     "id": "MP1.1",
+     "title": "UniApp vite 模板 + TS strict + vitest/eslint/vue-tsc 工具链 + pages.json 五页骨架（artifact 入 pages-sub 子包）",
+     "status": "done"
+    },
+    {
+     "id": "MP1.2",
+     "title": "theme/tokens.ts 移植 Mobile 5 色板 × light/dark（4pt 网格 ×2 换算 rpx）+ use-app-theme CSS vars 注入",
+     "status": "done"
+    },
+    {
+     "id": "MP1.3",
+     "title": "api/client.ts：uni.request 封装（Bearer 注入 / X-NSFW 全局+单次覆盖 / DEFAULT 30s·LONG 180s 超时 / 401·403·404·429·500 人话 ApiError）+ config.ts 基址解析 + mediaUrl token 拼参",
+     "status": "done"
+    },
+    {
+     "id": "MP1.4",
+     "title": "api/index.ts 业务契约（login/me/engines/txt2img/img2img/jobs/versions/rerun/upload/delete）+ utils/storage.ts JSON 存取",
+     "status": "done"
+    },
+    {
+     "id": "MP1.5",
+     "title": "stores/settings.ts（色板/深浅模/API覆盖/NSFW，pinia 持久化桥接 client 模块态）+ stores/draft.ts（一次性回填语义）",
+     "status": "done"
+    },
+    {
+     "id": "MP1.6",
+     "title": "composables/use-poll.ts 指数退避 + PollHandle 取消 + PollAbortedError",
+     "status": "done"
+    },
+    {
+     "id": "MP1.7",
+     "title": "scripts/gen-icons.mjs Lucide 白名单生成器（lucide-static 提取 SVG 内部内容 → icons.generated.ts）+ components/ui 八件（icon/button/card/tag/empty/sheet/nav-bar）+ business/job-card",
+     "status": "done"
+    }
+   ]
+  }
+ ]
+}

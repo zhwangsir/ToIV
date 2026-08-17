@@ -103,17 +103,18 @@ test.describe("R18 全局内容模式", () => {
       await page.keyboard.press("Escape");
 
       // 作品库内容分级筛选:只有 全部/SFW,无 R18 chip
+      // (LIB-RD 重设计后语义为 button + aria-pressed,不再是 tab/aria-selected)
       await gotoSfw(page, "/?view=library");
       const contentTabs = page.locator('[aria-label="内容分级筛选"]');
       await expect(contentTabs).toBeVisible({ timeout: 10000 });
       await expect(
-        contentTabs.getByRole("tab", { name: "全部" }),
+        contentTabs.getByRole("button", { name: "全部" }),
       ).toBeVisible();
       await expect(
-        contentTabs.getByRole("tab", { name: "SFW" }),
+        contentTabs.getByRole("button", { name: "SFW" }),
       ).toBeVisible();
       await expect(
-        contentTabs.getByRole("tab", { name: "R18" }),
+        contentTabs.getByRole("button", { name: "R18" }),
       ).toHaveCount(0);
 
       // 无错误文案
@@ -200,8 +201,9 @@ test.describe("R18 全局内容模式", () => {
       await sel.selectOption(r18Value!);
       await expect(page.locator(".engine-status")).toContainText("R18");
 
-      // 出处区:链接 + 出品方;href 为 http 外链
-      const source = page.locator(".engine-source");
+      // 引擎说明卡(2026-08-17 T2 重构:出处自面板首屏收进 ⓘ 说明卡):点 ⓘ 展开,链接 + 出品方
+      await page.locator(".engine-info-btn").click();
+      const source = page.locator(".engine-info-card");
       await expect(source).toBeVisible();
       const link = source.locator("a").first();
       await expect(link).toBeVisible();
@@ -256,19 +258,20 @@ test.describe("R18 全局内容模式", () => {
 
       const contentTabs = page.locator('[aria-label="内容分级筛选"]');
       await expect(contentTabs).toBeVisible({ timeout: 10000 });
-      const r18Tab = contentTabs.getByRole("tab", { name: "R18" });
+      // LIB-RD 语义:button + aria-pressed(原 tab/aria-selected)
+      const r18Tab = contentTabs.getByRole("button", { name: "R18" });
       await expect(r18Tab).toBeVisible();
-      await expect(r18Tab).toHaveAttribute("aria-selected", "false");
+      await expect(r18Tab).toHaveAttribute("aria-pressed", "false");
 
       // 切到 R18:只展示 R18 作品(无 R18 作品时空态,chip 行为本身正确即可)
       await r18Tab.click();
-      await expect(r18Tab).toHaveAttribute("aria-selected", "true");
+      await expect(r18Tab).toHaveAttribute("aria-pressed", "true");
 
       // 切回全部
-      await contentTabs.getByRole("tab", { name: "全部" }).click();
+      await contentTabs.getByRole("button", { name: "全部" }).click();
       await expect(
-        contentTabs.getByRole("tab", { name: "全部" }),
-      ).toHaveAttribute("aria-selected", "true");
+        contentTabs.getByRole("button", { name: "全部" }),
+      ).toHaveAttribute("aria-pressed", "true");
     },
   );
 
@@ -298,16 +301,16 @@ test.describe("R18 全局内容模式", () => {
     },
   );
 
-  // ─── 用例 7:SFW 模式直输 ?view=drama 弹回对话视图 ───
+  // ─── 用例 7:SFW 模式直输 ?view=drama 弹回融合页(2026-08-17 助手底层化,回落目标 fusion) ───
   test(
-    "authed-r18: SFW 直输短剧 URL 弹回对话",
+    "authed-r18: SFW 直输短剧 URL 弹回融合",
     { tag: "@authed" },
     async ({ page }) => {
       await gotoSfw(page, "/?view=drama");
-      // 门控 effect 弹回 assistant:短剧工作台不渲染,当前视图显示「对话」
+      // 门控 effect 弹回 fusion:短剧工作台不渲染,当前视图显示「融合」
       await page.waitForTimeout(1500); // 等门控 effect 执行
       await expect(page.locator(".nsfw-drama")).toHaveCount(0);
-      await expect(page.locator(".cornernav-current")).toContainText("对话");
+      await expect(page.locator(".cornernav-current")).toContainText("融合");
     },
   );
 

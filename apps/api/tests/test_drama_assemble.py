@@ -193,3 +193,120 @@ def test_assemble_no_embedded_audio_legacy(ctx, monkeypatch):
     assert "concat=n=2:v=1:a=0[vout]" in fc
     assert not any("anullsrc" in a for a in cmd)
     assert "-c:a" not in cmd
+
+
+# ---------------------------------------------------------------------------
+# P1 衔接策略层:接缝级转场(overlap → xfade+acrossfade,其余声明接缝硬切)
+# ---------------------------------------------------------------------------
+
+def _make_seam_project(engine, seams: list[str]) -> str:
+    """建 24fps 项目 + len(seams)+1 个 done 分镜,逐镜写 seam_to_next,返回 pid。"""
+    with Session(engine) as s:
+        user = s.exec(select(User).where(User.email == "asm@toiv.ai")).first()
+        p = DramaProject(
+            tenant_id=user.tenant_id, user_id=user.id, title="接缝",
+            width=1344, height=768, fps=24,
+        )
+        s.add(p)
+        s.commit()
+        s.refresh(p)
+        for i in range(len(seams) + 1):
+            s.add(DramaShot(
+                project_id=p.id, idx=i, prompt=f"shot{i}",
+                duration_sec=5, video_status="done",
+                video_url=f"/media/clip{i}.mp4",
+                seam_to_next=seams[i] if i < len(seams) else "",
+            ))
+        s.commit()
+        return p.id
+
+
+def test_overlap_xfade_sec_clamp():
+    """时长折算:12-18 帧(中值 15)按 fps 折算,clamp 0.4-0.75s。"""
+    from app.routes.assembly import _overlap_xfade_sec
+
+    assert _overlap_xfade_sec(24) == 15 / 24  # 0.625,区间内不 clamp
+    assert _overlap_xfade_sec(30) == 0.5
+    assert _overlap_xfade_sec(16) == 0.75  # 15/16=0.9375 → 上限
+    assert _overlap_xfade_sec(60) == 0.4  # 15/60=0.25 → 下限
+
+
+def test_assemble_mixed_seams_xfade_and_hardcut(ctx, monkeypatch):
+    """P1:overlap 接缝 xfade+acrossfade(同 duration),hardcut 接缝保持 concat;内嵌音轨配对。"""
+    client, token, engine, _, tmp_path = ctx
+    pid = _make_seam_project(engine, ["overlap", "hardcut"])
+    captured: dict = {}
+    _mock_pipeline(monkeypatch, tmp_path, captured, clip_audio=True)
+
+    r = client.post(f"/api/drama/projects/{pid}/assemble", headers=_h(token), json={})
+    assert r.status_code == 200, r.text
+    assert len(captured["cmds"]) == 1
+    cmd = captured["cmds"][0]
+    fc = _filtergraph(cmd)
+    d = 15 / 24  # fps=24 → 0.625s
+    # 接缝1(overlap):xfade 交叠,offset = 首镜时长 - 交叠时长;音轨 acrossfade 同 duration
+    assert f"xfade=transition=fade:duration={d:.2f}:offset={5.0 - d:.2f}[xf1]" in fc
+    assert f"acrossfade=d={d:.2f}" in fc
+    # 接缝2(hardcut):视频/音轨均 concat 硬切
+    assert "concat=n=2:v=1:a=0[cc2]" in fc
+    assert "concat=n=2:v=0:a=1[ac2]" in fc
+    # 映射混排链末端 + aac 编码
+    maps = [cmd[i + 1] for i, a in enumerate(cmd) if a == "-map"]
+    assert "[cc2]" in maps and "[ac2]" in maps
+    assert "-c:a" in cmd and "aac" in cmd
+
+
+def test_assemble_overlap_seam_silent_clip_anullsrc(ctx, monkeypatch):
+    """P1:overlap 接缝中无音轨片段补 anullsrc 静音(stereo/44.1k),acrossfade 链不断。"""
+    client, token, engine, _, tmp_path = ctx
+    pid = _make_seam_project(engine, ["overlap"])
+    captured: dict = {}
+    _mock_pipeline(monkeypatch, tmp_path, captured, clip_audio=True)
+
+    async def fake_has_audio(path):  # 第二镜无内嵌音轨
+        return "clip-000" in str(path)
+
+    monkeypatch.setattr(drama_studio_route, "_probe_has_audio", fake_has_audio)
+
+    r = client.post(f"/api/drama/projects/{pid}/assemble", headers=_h(token), json={})
+    assert r.status_code == 200, r.text
+    cmd = captured["cmds"][0]
+    fc = _filtergraph(cmd)
+    assert any("anullsrc=channel_layout=stereo" in a for a in cmd)
+    assert "acrossfade" in fc
+
+
+def test_assemble_declared_cut_seams_no_xfade(ctx, monkeypatch):
+    """P1:全部已声明非 overlap 接缝(continue/matchcut/hardcut)→ 纯硬切,无 xfade/acrossfade。"""
+    client, token, engine, _, tmp_path = ctx
+    pid = _make_seam_project(engine, ["continue", "matchcut"])
+    captured: dict = {}
+    _mock_pipeline(monkeypatch, tmp_path, captured, clip_audio=False)
+
+    r = client.post(f"/api/drama/projects/{pid}/assemble", headers=_h(token), json={})
+    assert r.status_code == 200, r.text
+    fc = _filtergraph(captured["cmds"][0])
+    assert "xfade" not in fc and "acrossfade" not in fc
+    assert "concat=n=2:v=1:a=0[cc1]" in fc
+    assert "concat=n=2:v=1:a=0[cc2]" in fc
+
+
+def test_assemble_undeclared_seam_falls_back_global_crossfade(ctx, monkeypatch):
+    """P1 向后兼容:全局 transition=crossfade 时未声明接缝沿用 0.5s xfade;声明 overlap 用折算时长。"""
+    client, token, engine, _, tmp_path = ctx
+    pid = _make_seam_project(engine, ["overlap", ""])
+    captured: dict = {}
+    _mock_pipeline(monkeypatch, tmp_path, captured, clip_audio=True)
+
+    r = client.post(
+        f"/api/drama/projects/{pid}/assemble",
+        headers=_h(token), json={"transition": "crossfade"},
+    )
+    assert r.status_code == 200, r.text
+    fc = _filtergraph(captured["cmds"][0])
+    d = 15 / 24
+    # 接缝1(overlap):折算 0.625s;接缝2(未声明):沿用全局 0.5s
+    assert f"duration={d:.2f}" in fc
+    assert "duration=0.50" in fc
+    # 两接缝全 xfade:无硬切 concat
+    assert "concat=n=2:v=1:a=0" not in fc

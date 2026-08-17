@@ -289,6 +289,7 @@ export function BacklotView() {
       <PageHeader
         className="bl-header"
         title="看板"
+        kicker="BACKLOT"
         desc={
           <>
             项目仪表盘 · 全流程进度一览 ·{" "}
@@ -301,7 +302,7 @@ export function BacklotView() {
         actions={
           <button
             type="button"
-            className="btn bl-refresh"
+            className="at-btn at-btn--ghost bl-refresh"
             onClick={load}
             disabled={loading}
           >
@@ -531,42 +532,10 @@ export function BacklotView() {
           gap: var(--space-6);
         }
 
-        /* ── 统一页头(全局 .page-header* 类;本作用域内补齐排版,与全局样式兼容) ── */
-        .backlot-view .page-header {
-          display: flex;
-          align-items: flex-end;
-          justify-content: space-between;
-          gap: var(--space-6);
+        /* ── 统一页头:版型/masthead 走全局 .page-header*(2026-08-15 v6.1,编辑双线+Fraunces
+             标题+kicker),本视图不再覆盖标题字体/边框;此处只保留计数等特有样式 ── */
+        .bl-header {
           flex-wrap: wrap;
-          padding-bottom: var(--space-6);
-          border-bottom: 1px solid var(--border-subtle);
-        }
-        .backlot-view .page-header-text {
-          display: flex;
-          flex-direction: column;
-          gap: var(--space-2);
-          min-width: 0;
-        }
-        .backlot-view .page-header-title {
-          margin: 0;
-          font-family: var(--font-sans);
-          font-size: var(--text-title);
-          font-weight: var(--font-bold);
-          letter-spacing: -0.02em;
-          color: var(--text-primary);
-          line-height: 1.3;
-        }
-        .backlot-view .page-header-desc {
-          margin: 0;
-          font-size: var(--text-body);
-          color: var(--text-muted);
-          line-height: 1.5;
-        }
-        .backlot-view .page-header-actions {
-          display: flex;
-          align-items: center;
-          gap: var(--space-3);
-          flex-shrink: 0;
         }
         .bl-count {
           font-family: var(--font-mono);
@@ -1162,14 +1131,6 @@ export function BacklotView() {
 
         /* ── 移动端 ── */
         @media (max-width: 767px) {
-          .bl-header {
-            flex-direction: column;
-            align-items: stretch;
-            gap: var(--space-3);
-          }
-          .bl-header-left {
-            justify-content: space-between;
-          }
           .bl-grid {
             grid-template-columns: 1fr;
             gap: var(--space-3);

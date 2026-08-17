@@ -1,0 +1,52 @@
+{
+  "skill": "editorial-mg-pv",
+  "version": 1,
+  "judge": "确定性结构断言(不调 LLM):对 skills_registry.render(name, **input) 产物断言 expect.contains 全部存在、expect.not_contains 全部不存在",
+  "cases": [
+    {
+      "id": "default-20s-169",
+      "note": "默认槽位 20s 横屏:标题文案出现/palette hex 出现/变形链规则键/分段数 2/视觉权重配比/负面清单键",
+      "input": {"character": "22岁年轻女性,黑蓝齐肩短发,冰青色瞳孔,黑色立领制服", "weapon": "单刃太刀", "palette": "午夜深蓝#07152D,钴蓝#1746D1,冰青#69E4E8,墨黑#05070A,暖纸白#F4F2EA,危险猩红#D93636", "title": "SILENT ECLIPSE", "duration": 20, "aspect": "16:9", "segments": 2},
+      "expect": {
+        "contains": ["成片总时长 20 秒", "拆分为 2 段生成", "SILENT ECLIPSE", "#07152D", "#1746D1", "#69E4E8", "#05070A", "#F4F2EA", "#D93636", "单刃太刀 驱动的二维 Editorial MG 视觉系统", "安静压迫", "母题变形链", "Editorial 排版约 55%", "二维硬边人物与 单刃太刀 约 35%", "共享锚点缝合", "共享帧重叠缝合", "至少 18 帧", "负空间", "严格限制", "交付前自检"],
+        "not_contains": ["{{duration}}", "{{aspect}}", "{{character}}", "{{weapon}}", "{{palette}}", "{{title}}", "{{segments}}"]
+      }
+    },
+    {
+      "id": "vertical-30s-916",
+      "note": "竖屏 30s:9:16 画幅规则/上下分布负空间/安全区/三段拼装/落版稳定帧数",
+      "input": {"character": "银白色短发、冷蓝色眼睛、黑色修身制服", "weapon": "直身大太刀", "palette": "深海蓝、钴蓝、青蓝、黑色、象牙白,红色单强调", "title": "MOON SLASH", "duration": 30, "aspect": "9:16", "segments": 2},
+      "expect": {
+        "contains": ["成片总时长 30 秒", "拆分为 2 段生成", "9:16", "负空间上下分布", "中轴", "安全区", "单强调", "直身大太刀", "MOON SLASH", "标题落版三段拼装", "至少 18 帧", "共享帧重叠缝合"],
+        "not_contains": ["{{duration}}", "{{aspect}}", "{{title}}", "{{character}}", "{{weapon}}", "{{palette}}", "{{segments}}"]
+      }
+    },
+    {
+      "id": "weapon-variant-20s",
+      "note": "武器变体验证变形链由 weapon 派生:长弓替换入创意与美术规则,样例链太刀→装订线→圆环→瞳孔→刀光保留",
+      "input": {"character": "高挑精灵,银发及腰,翠绿瞳孔,白色轻甲", "weapon": "长弓", "palette": "森林绿#0B3D2E,翠绿#2ECC71,月白#F8F9FA,墨黑#111111,骨白#F4F1EA,危险赤红#C0392B", "title": "ARROWFALL", "duration": 20, "aspect": "16:9", "segments": 2},
+      "expect": {
+        "contains": ["ARROWFALL", "长弓 驱动的二维 Editorial MG 视觉系统", "从 长弓 派生全片反复出现的核心母题", "弓弦", "太刀刀刃", "装订线", "圆环", "瞳孔", "刀光", "#0B3D2E", "#C0392B"],
+        "not_contains": ["{{weapon}}", "{{palette}}", "{{title}}"]
+      }
+    },
+    {
+      "id": "golden-structure-keys-30s",
+      "note": "与黄金稿 30s 结构对齐:章节标题键全列存在(序列对齐率≥80% 由 tests/skills/test_editorial_mg_pv.py 计算)",
+      "input": {"character": "22岁年轻女性,黑蓝齐肩短发,冰青色瞳孔,黑色立领制服", "weapon": "单刃太刀", "palette": "午夜深蓝#07152D,钴蓝#1746D1,冰青#69E4E8,墨黑#05070A,暖纸白#F4F2EA,危险猩红#D93636", "title": "SILENT ECLIPSE", "duration": 30, "aspect": "16:9", "segments": 2},
+      "expect": {
+        "contains": ["整体创意", "美术风格", "角色锁定", "母题变形链", "空间与运动规则", "分段结构与段间缝合", "标题落版三段拼装", "严格限制"],
+        "not_contains": []
+      }
+    },
+    {
+      "id": "negative-list-keys",
+      "note": "负面清单通用键:不要写实/3D/景深/淡入淡出/频闪/单锚点/元素同时高速运动/无因果换景",
+      "input": {"character": "黑长直少女,红色瞳孔,白色连衣裙", "weapon": "西洋刺剑", "palette": "纯白#FFFFFF,雾灰#B8BCC4,鸦黑#0A0A0C,冰蓝#7FD8E8,米白#F5F1E8,危险赤红#E02020", "title": "PIERCE", "duration": 20, "aspect": "16:9", "segments": 2},
+      "expect": {
+        "contains": ["不要写实", "不要三维空间穿越", "不要真实景深", "不要普通淡入淡出", "不要连续频闪", "一个主要视觉锚点", "同时高速运动", "不允许无因果换景", "西洋刺剑"],
+        "not_contains": ["{{weapon}}"]
+      }
+    }
+  ]
+}

@@ -76,6 +76,7 @@ def _job_verdict(session: Session, tenant_id: str, user_id: str, filename: str) 
         .where(Job.tenant_id == tenant_id)
         .where(Job.user_id == user_id)
         .where(Job.result.contains(filename))
+        .where(Job.deleted_at == None)  # noqa: E712  软删作品产物不参与归属判定(SAFETY)
         .order_by(Job.created_at.desc())  # type: ignore[union-attr]
     ).all()
     for job in jobs:

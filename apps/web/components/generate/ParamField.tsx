@@ -1,7 +1,10 @@
 "use client";
 
+import { useRef } from "react";
+
 import { Field, Input, Select, Textarea } from "@/components/ui/Input";
 import { Switch } from "@/components/ui/Switch";
+import { useAutoResize } from "@/hooks/useAutoResize";
 import type { EngineParam, LoraValue } from "@/lib/engines";
 
 interface ParamFieldProps {
@@ -18,6 +21,9 @@ interface ParamFieldProps {
  */
 export function ParamField({ param, value, onChange, disabled }: ParamFieldProps) {
   const set = (v: unknown) => onChange(param.key, v);
+  // 引擎 textarea 参数自动增高(无上限;非 textarea 类型 ref 为空,hook 自动空转)
+  const taRef = useRef<HTMLTextAreaElement | null>(null);
+  useAutoResize(taRef, param.type === "textarea" ? String(value ?? "") : "");
 
   switch (param.type) {
     case "loras": {
@@ -89,6 +95,7 @@ export function ParamField({ param, value, onChange, disabled }: ParamFieldProps
       return (
         <Field label={param.label} hint={param.hint}>
           <Textarea
+            ref={taRef}
             rows={2}
             value={String(value ?? "")}
             placeholder={param.hint}

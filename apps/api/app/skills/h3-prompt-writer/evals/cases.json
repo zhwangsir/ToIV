@@ -1,0 +1,70 @@
+{
+  "skill": "h3-prompt-writer",
+  "version": 1,
+  "judge": "确定性结构断言(不调 LLM):对 skills_registry.render(name, **input) 产物断言 expect.contains 全部存在、expect.not_contains 全部不存在",
+  "cases": [
+    {
+      "id": "drama-6s-169",
+      "note": "文戏 6s 横屏无图:首行时长/画幅替换、文戏 6s 档节奏数字、无旧档残留",
+      "input": {"duration": 6, "aspect": "16:9", "flow": "drama", "story": "雨夜,女儿把修好的手表还给父亲", "images": "", "style": ""},
+      "expect": {
+        "contains": ["生成一段6秒、16:9、2K、原生立体声", "0—6 秒", "3—5", "0.5—1.2", "文戏", "雨夜,女儿把修好的手表还给父亲"],
+        "not_contains": ["生成一段5秒", "生成一段10秒", "生成一段15秒", "{{duration}}", "{{aspect}}", "{{flow}}", "{{story}}"]
+      }
+    },
+    {
+      "id": "action-10s-169",
+      "note": "武戏 10s 横屏:动作密度关键词 + 10s 档节奏数字",
+      "input": {"duration": 10, "aspect": "16:9", "flow": "action", "story": "巷口遭遇战,主角夺刀反制", "images": "", "style": ""},
+      "expect": {
+        "contains": ["生成一段10秒、16:9", "10—16", "0.20—0.35", "1.2—2.0", "有效动作", "受力", "武戏"],
+        "not_contains": ["生成一段6秒", "生成一段15秒"]
+      }
+    },
+    {
+      "id": "grid-15s-169",
+      "note": "九宫格 15s 横屏:阶段A/B 标记、九格映射标注、15s 档每格时长与画板尺寸",
+      "input": {"duration": 15, "aspect": "16:9", "flow": "grid", "story": "一株植物从种子到开花", "images": "", "style": ""},
+      "expect": {
+        "contains": ["生成一段15秒、16:9", "阶段 A", "阶段 B", "（@图片N）", "1.2—1.8", "2048×1152", "九宫格"],
+        "not_contains": ["生成一段6秒", "生成一段10秒"]
+      }
+    },
+    {
+      "id": "drama-10s-916",
+      "note": "竖屏画幅参数化:首行 9:16 替换 + 竖屏构图规则(负空间上下/主体中轴/安全区)",
+      "input": {"duration": 10, "aspect": "9:16", "flow": "drama", "story": "外卖员在电梯里捡到一封信", "images": "", "style": ""},
+      "expect": {
+        "contains": ["生成一段10秒、9:16、2K、原生立体声", "9:16", "中轴", "安全区", "负空间", "1152×2048"],
+        "not_contains": ["生成一段10秒、16:9"]
+      }
+    },
+    {
+      "id": "images-prefix-6s",
+      "note": "@图片N 规则:绝对开头整行连续引用示例、引用紧贴对象、images 槽位落参数区",
+      "input": {"duration": 6, "aspect": "16:9", "flow": "drama", "story": "主角与对手隔桌对峙", "images": "主角定妆照,对手定妆照,茶馆场景", "style": ""},
+      "expect": {
+        "contains": ["@图片1作为主角身份与服装参考@图片2作为对手身份与装备参考@图片3作为场景与光影参考", "绝对开头", "（@图片1）", "九宫格时序、构图与画面状态参考", "主角定妆照,对手定妆照,茶馆场景"],
+        "not_contains": ["{{images}}"]
+      }
+    },
+    {
+      "id": "modifier-rules-10s",
+      "note": "修改规则键:上游结构分类清单 + 重出完整成品;style 槽位落参数区",
+      "input": {"duration": 10, "aspect": "16:9", "flow": "action", "story": "天台风衣对决", "images": "", "style": "雨夜黑色电影"},
+      "expect": {
+        "contains": ["人物锁定、时间预算、动作因果、关系变化、九格映射", "结构统一", "修改规则", "雨夜黑色电影"],
+        "not_contains": ["{{style}}"]
+      }
+    },
+    {
+      "id": "self-check-15s",
+      "note": "交付前自检清单键名:无缺口/单次关系变化/依据实际成图/非 JSON/一镜到底辨析",
+      "input": {"duration": 15, "aspect": "16:9", "flow": "drama", "story": "告别", "images": "", "style": ""},
+      "expect": {
+        "contains": ["交付前自检", "无缺口覆盖 0—15 秒", "只有一次清楚的关系变化", "依据实际成图", "而不是JSON", "一镜到底"],
+        "not_contains": []
+      }
+    }
+  ]
+}

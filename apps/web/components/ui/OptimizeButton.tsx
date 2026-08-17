@@ -61,6 +61,10 @@ interface OptimizeButtonProps {
   kind?: string;
   /** 新:目标 checkpoint(传给后端让 LLM 适配模型族方言) */
   model?: string;
+  /** 新:目标引擎 id(视频类按引擎切换方言模板,如 wan-nsfw-i2v/h3-t2v/ltx25-i2v) */
+  engine?: string;
+  /** 新:已选 LoRA 文件名列表(Wan NSFW 注册表内条目触发词由后端确定性注入) */
+  loras?: string[];
   /** 旧/新统一:优化成功后回调。
    *  新式调用接收 (text, negative);旧式调用若 onClick 返回字符串,会作为 text 转发。 */
   onOptimized?: (text: string, negative?: string) => void;
@@ -91,6 +95,8 @@ export function OptimizeButton({
   prompt,
   kind,
   model,
+  engine,
+  loras,
   onOptimized,
   allowAgentOverride = true,
   disabled = false,
@@ -149,6 +155,8 @@ export function OptimizeButton({
         prompt,
         kind,
         ...(model ? { model } : {}),
+        ...(engine ? { engine } : {}),
+        ...(loras && loras.length > 0 ? { loras } : {}),
         ...(agentId ? { agentId } : {}),
         ...(hint ? { styleHint: hint } : {}),
       });

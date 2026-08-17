@@ -87,11 +87,18 @@ export function BottomNav({ items, moreItems = [], current, onSelect, ctaAction 
       </nav>
 
       <div
-        className={`drawer-overlay${moreOpen ? " is-open" : ""}`}
+        className={`drawer-overlay bottom-nav-overlay${moreOpen ? " is-open" : ""}`}
         onClick={() => setMoreOpen(false)}
         aria-hidden="true"
       />
-      <div className={`sheet${moreOpen ? " is-open" : ""}`} role="dialog" aria-label="更多入口">
+      {/* bottom-nav-sheet:桌面 ≥1024px 整体 display:none(globals.css 断点门控);
+          闭合态 visibility:hidden,视口外按钮不再进 tab 序(2026-08-16 审计修复) */}
+      <div
+        className={`sheet bottom-nav-sheet${moreOpen ? " is-open" : ""}`}
+        role="dialog"
+        aria-label="更多入口"
+        aria-hidden={!moreOpen}
+      >
         <div className="sheet-handle" aria-hidden="true" />
         <div className="sheet-body">
           {moreItems.map((item) => {

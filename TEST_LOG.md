@@ -2,6 +2,1130 @@
 
 ---
 
+## SKILL-ASSET-2026-08-18 · 剧本 AI 扩写 + Skill 市场 + 资产互通三件套
+
+**时间**: 2026-08-18
+**类型**: 功能三连(创作效率 / 技能分发 / 资产复用)
+
+### ① 需求(用户原话拆解)
+
+1. 创作工作室「优化剧本」:简短语言描述 → 自动生成详细镜头/动作/人物/场景描述,同样适用于视频生成提示词优化
+2. 「Agent 团队」改为「Skill 市场」:收集市面不同风格 skill,支持导入使用
+3. 资产互通:系统内生成的图片/视频/音频可互相引用(如图片生成产物直接作图生视频参考图)
+
+### ② 后端实现(3 端点 + 数据层)
+
+| 端点/改动 | 说明 |
+|------|------|
+| `POST /studio/projects/{pid}/optimize-shot` | LLM L3 结构化扩写:{scene,camera,prompt,negative,characters};项目角色表注入上下文,角色名幻觉过滤回库内名;非 JSON 502;不落库前端回填 |
+| `POST /skills/import` + `Agent.user_id` | 个人技能导入(属主 user_id,id 自动 slug+后缀防冲突);可见性=公共+本人;他人详情 404 不泄露存在性;属主可改可删,公共/内置 admin 管,内置拒删;sqlite 迁移幂等加列 |
+| `POST /assets/from-job` | 作品产物 output→input 转运:归属校验(Job 属本人/同租户 + filename∈result,与 images IDOR 口径一致)+ pathsafe 白名单 + 扩展名/体积上限对齐 upload(图音 20MB/视频 200MB)+ 同机兄弟 worker 取件回退 + caps 门控(钉定 worker 或按 kind 选型) |
+| seed 扩充 | 8 新内置风格:吉卜力/新海诚/像素艺术/黑色电影/3D 动画/暗黑哥特/蒸汽波/宝丽来(共 23 内置,幂等补齐) |
+
+### ③ 前端实现
+
+- **ShotCard AI 扩写**:高级区顶部虚线面板(brief + 可选 style_hint → 一键扩写回填五字段);补 negative 编辑框 + 角色 chip 勾选(此前两字段无 UI);`projectId` 透传
+- **SkillMarketView**(components/skills/):我的/公共/内置三区卡片;导入弹窗双模式(表单 / 粘贴 JSON);我的技能可编辑/删除(确认门)/分享复制 JSON;卡片名点击查看完整 system_prompt;导航 ISLAND_ITEMS/BOTTOM_NAV_MORE agentRuns→skills(package 图标);/agent-runs 路由保留直达
+- **AssetPicker**(components/generate/):作品库产物网格(image 缩略图 / video / audio 图标位),点击经 from-job 转运返回 {filename,worker}(与上传句柄同构);四件套接入:RefImageUpload/RefImagesUpload/RefAudioUpload/RefVideoUpload 全部新增「从作品库选」;多图场景钉首张 worker(与直传互钉语义一致)
+
+### ④ 测试与回归(全绿)
+
+- 新增 `apps/api/tests/test_skill_market.py`(7 用例):导入可见性/id 冲突 409/公共权限 403/内置拒删/结构化扩写(LLM mock,角色幻觉过滤)/坏 JSON 502/转运成功+归属 404+路径穿越 400
+- pytest 全量 **1829 passed**(含 7 新);web node:test **393/393**(mock 替身补 optimizeStudioShot 导出);tsc 零错误;ui_lint 通过(118 文件,0 FAIL);`rm -rf .next` 干净构建通过
+- 踩坑记录:① `@/lib/api` 在 node:test 经 loader 映射到 tests/mocks/studioApi.ts,新增导出必须同步补替身;② 转运测试 caps 门控需 `patch.multiple(required_models/required_nodes → set())`,否则 img2img 默认模型要求 503;③ resolve_worker 源/目标各调一次(call_count==2)
+
+---
+
+## NAV-REFACTOR-2026-08-17 · 导航重构三连(灵动岛拆分/UX 九项/助手底层化)+ 生产部署
+
+**时间**: 2026-08-17(晚)
+**类型**: 信息架构调整 + UX 批量优化 + 生产部署
+
+### ① 导航重构(用户驱动三连)
+
+| 变更 | 内容 |
+|------|------|
+| 灵动岛拆分 | 账户行移出 CornerNav → 新建右上角 AccountButton(头像+Popover:主题/R18状态/设置/退出);退出登录/主题切换从 3 跳降 1 跳;灵动岛变纯导航(179→87 行);e2e 选择器同步 |
+| UX 九项 | ① PromptBar ⌘/Ctrl+Enter 快速生成(placeholder 标注)② ResultPanel 媒体 onError 兜底占位(video 补 playsInline/preload)③ 生成已耗时(running 态每秒跳动)④ 「取消」→「停止跟踪」语义澄清 ⑤ AvatarTalk 头像失败占位卡(原 opacity 隐身)⑥ 作品库批量「全选本页」⑦ 搜索空态范围明示(仅已加载 N 件)⑧ drama-workbench 1024px 断点缝隙(min-width 1025→1024,iPad Pro 横屏修复)⑨ ShotCard img 补宽高防 CLS |
+| 助手底层化 | AI 助手移出视图体系:新建 AssistantOverlay(⌘/Ctrl+K 全局浮层,懒加载+保持挂载——关掉再开对话还在);导航移除「对话」(底部导航补「音频」);默认视图 assistant→fusion;短剧门控回落 fusion;旧链接 ?view=assistant 兼容(SPA 重定向 fusion+自动弹浮层);登录后首次 ⌘K toast 提示(localStorage 记忆);不设任何入口按钮(仅快捷键) |
+
+### ② 回归(全绿)
+
+pytest 1822 / web 393/393 / tsc 零错误 / ui_lint 116 文件 0 FAIL / `rm -rf .next` 干净构建通过
+
+### ③ 生产部署 + 双活冒烟
+
+- `deploy/deploy.sh` → core:api 第 2 次探测就绪,web 第 2 次探测就绪
+- toiv.dgmt.top:health 200、web 200、?view=assistant 200(SPA 重定向,服务端正确)
+- 新端点路由验证(未认证 401 = 路由存在+认证拦截):/api/models/recipes、/api/admin/audit-logs、/api/undo/{token} 全 401 ✅
+- 北京双活 toiv.wineryz.top:web 200(0.25s)、recipes 401 ✅
+
+---
+
+## SAFETY-UX-2026-08-17 · 用户操作防护机制五件套 + CivitAI 社区配方预设
+
+**时间**: 2026-08-17
+**类型**: 安全 UX 机制 + 数据保护(软删除/撤销/审计) + 社区配方接入
+
+### ① 需求
+
+防止不熟悉系统的用户误操作/破坏性操作,五大核心:二次确认、权限分级、操作引导、
+限时撤销、操作日志;同时不拖累熟练用户效率。附带:7 个 CivitAI 视频配方逆向为
+可直接使用的预设。
+
+### ② 实现
+
+| 能力 | 实现 |
+|------|------|
+| 软删除+限时撤销 | `Job.deleted_at` 标记(列表过滤);`DELETE /api/jobs/{id}` 返回 `undo_token`/`undo_ttl=600s`;`POST /api/undo/{undo_token}` 校验属主+过期+幂等后恢复;db.py 启动迁移 |
+| 审计日志 | `app/audit.py`(record/snapshot)+ `AuditLog` 表;覆盖 job 删除/批量删除/撤销回填/用户创建删除/智能体会话删除;`GET /api/admin/audit-logs` admin-only 分页+action 过滤 |
+| 二次确认 | 作品库删除 Modal(ui/Modal 焦点陷阱)明示「10 分钟内可撤销」;「不再询问」勾选落 `toiv_skip_del_confirm`(熟练用户直删免打扰) |
+| 撤销入口 | Toast 扩展 `ToastAction`(动作按钮停留 60s);单条删除即点即撤;批量删除 toast 带「撤销全部」 |
+| 权限分级 | 审计日志查询/用户管理/workflow deploy 维持 admin-only(`_require_admin`);undo 强校验属主(user_id 匹配) |
+| 管理界面 | AdminView 新增「操作日志」Tab → `AuditLogView`(操作者/动作/对象/摘要/生效-已撤销徽章/相对时间,动作下拉筛选) |
+| 社区配方 | `workflows/community_recipes.py` 7 条(CivitAI 139346628 等:kenpechi 三体位 POV/写实光影/口型等,含 prompt 骨架+负向+LoRA 强度+704×1280 等参数);`GET /api/models/recipes?engine=`(R18 仅 X-NSFW 上下文返回);GenerateView 引擎面板「社区精选配方」chip 区,applyRecipe 回填提示词/负向/loras/params(width/height 走 applyAspectPair 宽高联动) |
+
+关键代码锚点:
+
+```python
+# routes/safety.py —— 撤销端点(属主校验 + 过期/幂等守卫)
+@router.post("/undo/{undo_token}")
+def undo(undo_token, user=Depends(get_current_user), ...):
+    log = session.exec(select(AuditLog).where(AuditLog.undo_token == undo_token)).first()
+    if log is None or log.user_id != user.id:
+        raise HTTPException(404, "撤销凭据不存在")
+    if log.undone: raise HTTPException(409, "该操作已被撤销过")
+    if log.undo_expires_at and log.undo_expires_at < _now():
+        raise HTTPException(410, "撤销窗口已过期")
+```
+
+```tsx
+// LibraryView.tsx —— 删除即撤(toast 动作按钮)
+toast.success("已删除作品(10 分钟内可撤销)", {
+  label: "撤销",
+  onClick: () => undoDelete(result.undo_token).then(() => load()),
+});
+```
+
+### ③ 测试
+
+- 后端新增 `tests/test_safety.py` 9 例:软删除隐藏/undo 恢复/重复撤销 409/他人凭据 404/
+  过期 410/审计列表 admin-only(普通用户 403)/action 过滤/recipes R18 门控/引擎过滤
+- 前端 `libraryViews.test.ts` ④ 更新为 undoTokens 契约(顺序执行/部分失败/凭据收集/空输入)
+- mock `studioApi.ts` 补 `undoDelete` + `deleteJob` 返回 undo_token(修 SSR 链接期炸)
+
+### ④ 回归(全绿)
+
+| 项 | 结果 |
+|----|------|
+| pytest 全量 | **1822 passed / 0 failed** |
+| web node:test | **393/393** |
+| tsc --noEmit | 零错误 |
+| ui_lint.mjs | 114 文件 0 FAIL(10 软提醒) |
+| next build | `rm -rf .next` 干净构建通过(易错点 29) |
+
+修复过程中顺手收编:Toast.tsx `font-weight: 500` → `var(--font-medium)`(ui_lint 门禁)。
+
+### ⑤ 遗留
+
+- 软删除过期物理清理定时任务未做(仅标记不影响功能);配方最终出片效果由用户真机验收。
+
+---
+
+## CLOSEOUT-R60-2026-08-17 · 生成内容宽高比安全域(防极端比例溢出)
+
+**时间**: 2026-08-17
+**类型**: 生成质量修复 + 前后端双层防线 + 生产部署
+
+### ① 问题
+
+图片/视频生成的宽高字段只有各自独立的 min/max,无比例约束——1920×256(7.5:1)这类极端
+比例直接放行,超出模型训练分布(视频 ~9:16..16:9,SD 系图像 ~1:2..2:1),导致生成内容
+主体被裁出画面/画面内文字溢出边框/肢体重复。
+
+### ② 修复(双层防线,同规则:保长边、抬短边、step 对齐、撞上限压长边)
+
+| 层 | 内容 |
+|------|------|
+| 后端纯函数 | `workflows/model_profiles.clamp_aspect_ratio` + `AR_VIDEO`(9:16~16:9)/`AR_IMAGE`(1:2~2:1);`fit_resolution` 入口同步收敛(覆盖 generate/manju/drama 图像链) |
+| 请求模型守卫 | `aspect_guard` pydantic 工厂(mode="after" 静默归一)接入 9 个模型:Ltx25T2V(含 I2V)/H3T2V(含 I2V)/LongCatT2V(含 I2V/Continue)/WanAnimate/WanVace/AvatarTalk/video.py WanI2V+LtxT2V/Txt2Img |
+| 元数据 | `engine_registry` width 参数带 `ar` 界限(11 引擎),hint 注明「比例限…超出自动纠正」 |
+| 前端联动 | `lib/aspectPair.ts applyAspectPair`(与后端同规则)+ GenerateView `handleParamChange`:改宽/高即时联动抬另一维度,中间输入态(空串/带尾点)不干预 |
+
+纠正示例(真机实测):LTX 1920×256→1920×1088;H3 1344×256→1344×768;LongCat 320×1280→720×1280;
+图像 2048×64→2048×1024;合规值(1024×1024/1280×736)原样通过。
+
+### 测试与回归
+
+- 后端 **1813 passed**(+13:`tests/test_aspect_guard.py` 纯函数/9 模型守卫/fit_resolution 收敛+回归保护)
+- 前端 **393/393**(+8:`tests/aspectPair.test.ts`)+ tsc 零错误 + `rm -rf .next` 干净构建通过(易错点 29)
+
+### 部署与生产验证
+
+- `deploy/deploy.sh` → core 双服务第 2 次探测就绪
+- 生产 `/api/models/engines` 实测:**11 个引擎** width 参数带 ar(图像 1:2~2:1,视频全部 9:16~16:9)
+- 极端 2048×64 txt2img 提交被接受(请求层已归一 2048×1024)
+
+---
+
+## CLOSEOUT-R59-2026-08-17 · 生成工作台专业创作台化重构 + 全模型说明书
+
+**时间**: 2026-08-17
+**类型**: UI 重构 + E2E 验证 + 测试隔离修复 + 文档交付 + 生产部署
+
+### ① UI 重构(专业创作台风格)
+
+| 改动 | 内容 |
+|------|------|
+| `paramGroups.ts` | 参数面板 Inspector 化:平铺字段 → 分组卡(模型与引擎/画幅与时长/采样/LoRA 叠加);refs 由上传组件承载,高级参数折叠 |
+| `EngineInfoCard.tsx` | 引擎说明卡(定位/来源/参数范围),GenerateView 经 Popover 挂载,每引擎一页「设备卡」 |
+| `QuickStartGrid.tsx` | 空态快速上手栅格(按 mode/engine 出引导卡),消除新用户「空而冷」 |
+| `stage.css` | 移动端底部重叠修复:`.generate-results:has(.empty-editorial)` 高度自适应(`height:auto; min-height:60vh; overflow:visible`),空态步骤条/快速上手卡不再被裁;移除移动端无效 `--promptbar-dock-h` 引用 |
+| `authed-overlap-audit.spec.ts` | 审计选择器扩面(button/a/input/select/textarea/h1-h4/p/label/chip/card/badge/title/empty/promptbar/dock/bottomnav/fab),page.evaluate 容错 |
+
+### ② 全模型说明书
+
+`docs/2026-08-17-models-guide.md`:21 引擎一页一卡(图像 4 / 视频 SFW 9 / 视频 R18 6 / 音频 1),
+含底模族速查+甜点位参数表、LoRA 用法、Wan2.2 R18 六件套配方与搭配公式 A/B、通用参数词典、
+跨引擎翻车点速查总表。LongCat 系状态经真机核正**在线**(实例 :8197 active/1265 节点;
+忙时探测 8s 超时暂标不可用属预期,点「重新检测」即恢复)。
+
+### ③ 测试隔离修复(全量跑 1 失败根治)
+
+- **现象**:`pytest -q` 全量 1799 passed + `test_drama_studio.py::test_generate_video_sfw_default_unaffected` 失败;单跑/整文件跑均通过 → 测试污染
+- **根因**:`comfy/client.py` `_pooled_client` 模块级 AsyncClient 池,传输连接(httpx `read_event`)绑定创建时的事件循环;pytest-asyncio 每用例一个新循环,前序用例用过的池化 client 在后续用例复用 → `RuntimeError: bound to a different event loop`
+- **修复**:conftest 补 autouse 夹具 `_clear_comfy_client_pool`,用例间清空 `_http_clients` 字典;**不能用 `close_clients()`**——旧循环绑定的传输在新循环 aclose 会再抛同款错,测试环境允许连接随 GC 回收
+
+### 测试与回归
+
+- 后端:**1800 passed**(修复前 1799+1 污染失败)
+- 前端:tsc 零错误;`rm -rf .next && npm run build` 干净重建通过(易错点 29)
+- E2E 重叠审计:**0 命中**(6 视图 × 桌面光暗 × 移动断点 + 参数展开态),报告 `e2e/screenshots/overlap-audit/report.json`
+
+### 部署与生产验证
+
+- `deploy/deploy.sh` → core:toiv-api/toiv-web 均第 2 次探测就绪;回滚快照已存
+- toiv.wineryz.top(北京):200(0.5s)+ /api/health ok(workers×3)
+- toiv.dgmt.top(香港):部署后恰逢跨境链路波动 502 约 3min(core frpc `login success` 后 `connection write timeout`,与部署无关),链路自愈后复测 **200(2-4.7s)**——符合易错点 25 模式
+
+---
+
+## WAN-NSFW-R2-2026-08-17 · pc02 修复 + 生产 e2e 出片 + 提示词优化 DashBox 化改造
+
+**时间**: 2026-08-17
+**类型**: 设备修复 + 生产部署 + 真机出片验证 + 提示词优化系统升级(参考 DashBox RFC)
+
+### ① pc02 NAS 挂载根治(根因超预期)
+
+| 层 | 发现 | 处置 |
+|----|------|------|
+| 表象 | loras/unet/ckpt 枚举全空,pool 自动淘汰 | — |
+| 初判 | Z: 掉线 → 触发 MountNAS + 重启 ComfyUI 无效 | MountNAS(InteractiveToken/W 用户)挂的 Z: 只在桌面 session |
+| **根因** | **ComfyUI 计划任务以 SYSTEM(S-1-5-18)运行**;驱动器映射 per-logon-session,W 桌面挂的 Z: 对 SYSTEM 进程不可见 | 重写 `start_comfyui.ps1`:SYSTEM session 内自挂 Z:(带凭据/先删后挂),启动前执行 |
+| 验证 | loras 98/unet 43,6 配方 LoRA 全在位;不依赖用户登录,比 pc01 模式更稳 | ✅ |
+
+### ② 生产 e2e 出片(G6 级实证)
+
+- 部署:clean rebuild(易错点 29)+ deploy.sh,双服务就绪;21 引擎,`wan-nsfw-i2v` available=True
+- 首帧:R18 文生图(lustifySDXL apexV8)832×480 落 pc02(顺带验证 pc02 复活)
+- 出片:3 LoRA(NSFW-22-H 0.8 + DR34ML4Y 0.8 + POV-Cumshot 0.7)+ 触发词置前提示词,
+  81 帧 8 步加速档 **<45s 出片**;产物 h264 832×480 16fps **81 帧整** 5.06s 1MB,签名 URL 可下载,Job nsfw=True
+
+### ③ 提示词优化 DashBox 化(触发词=确定性知识)
+
+| 改动 | 内容 |
+|------|------|
+| `wan_i2v.py` | WAN_I2V_NSFW_LORAS 升级元数据卡(side/strength/**trigger_words**/trigger_mode/role)+ `pick_trigger_words`(all 全选/pick_one 场景关键词命中兜底组首) |
+| `optimize.py` | 请求加 engine/loras;视频引擎方言(wan-nsfw-i2v 骨架/H3 全正向/ltx25 音画同出);触发词 system 注入(必选置前+候选组透出)+ 后处理补齐(缺一个补一个,组全缺补预选);**SFW 上下文不注入不补齐**;LLM 坏 JSON 兜底同样补齐 |
+| 前端 | agents.ts/OptimizeButton/PromptBar 透传 engine+loras(从 values.loras 自动取名单) |
+
+**生产真 LLM 验证**(spark02 uncensored):种子 "kneeling blowjob scene" → 输出 `nsfwsks, bl0wj0b, ...` 开头,
+bl0wj0b 为 LLM 从候选组按场景语义选中(预选机制生效),negative 为视频瑕疵词。
+
+### 测试与回归
+
+- 后端新增 7 例(方言注入/漏写补齐/SFW 忽略/坏 JSON 兜底/H3/LTX25 方言/pick_trigger_words 纯函数)
+- 前端新增 3 例(optimizePayload:engine/loras 透传/缺省不带/空数组不带)
+- 全量:pytest **1799 passed**(仅基线既有 drama anyio flake 间歇挂,stash 对照证实与本次无关);web **369 pass**;tsc 0 错
+
+### 顺带发现的既有问题(未修,记录)
+
+- `/api/jobs` 返回 JSON 含未转义控制字符(prompt 含原始换行),严格 JSON 解析器会炸(curl|python json 需 strict=False);建议 Job.prompt 落库前或序列化时规范化
+- test_duration.py::test_ltx_nsfw_route_duration_sec_over_limit_422 基线间歇失败(与本次改动无关)
+
+---
+
+## WAN-NSFW-2026-08-17 · Wan2.2 I2V R18 引擎落地:Civitai 爆款配方全量接入工作台
+
+**时间**: 2026-08-17
+**类型**: 新引擎接入(用户驱动:8 个 Civitai 热门 NSFW 视频配方逆向 → 现框架直接生成)
+
+### 交付链路
+
+| 层 | 变更 | 要点 |
+|----|------|------|
+| 模型 | 6 配方 LoRA 已在 NAS(pool 三 worker 共享) | MD5 互异、safetensors 头合法;v1030 为 diff_b 格式(ComfyUI 原生支持) |
+| builder | `workflows/wan_i2v.py`(上轮已含) | NSFW LoRA 动态链:加速 LoRA 之后、ModelSamplingSD3 之前;v1030 替代默认 v1 不叠加;满血档忽略 v1030 |
+| 路由 | `routes/video.py` | `loras` 入参(R18 才生效,SFW 静默剔除,表外 422 防路径注入)+ `full_quality` 开关(20 步/cfg 3.5/3.0)+ R18 上下文 Job 打 `nsfw=True`(对齐 H3 `nsfw_allowed` 模式) |
+| 注册表 | `services/engine_registry.py` | 新引擎 `wan-nsfw-i2v`(SFW 隐藏);probe = capabilities 主链 + 6 配方 LoRA 全量校验;LoRA 静态策划清单(只露 6 个,不暴露整目录) |
+| 前端 | `lib/engines.ts` + `lib/api.ts` | case `wan-nsfw-i2v` → `/api/generate/video`;resolution 预设换算宽高;duration 秒→就近 4n+1 帧(3s→49/5s→81/7.5s→121);loras(name+strength)透传 |
+| 教学 | `docs/2026-08-16-wan22-i2v-nsfw-recipe.md` | 双专家架构讲解 + kenpechi 四层配方 + 公式 A/B 提示词骨架 + 翻车点表 + ToIV 操作步骤 |
+
+### 测试(新增 12 例)
+
+- builder 5 例:分侧挂载/同侧顺序串联/v1030 替代不叠加/满血档忽略 v1030/满血档直连 UNET
+- 路由 4 例:SFW 剔除 loras 不打标 / R18 表外名 422 / R18 分侧挂载+Job 打标 / 满血档图结构断言
+- 注册表 3 例:SFW 隐藏 / R18 可见可用+loras 清单与注册表全等+预设合法性 / 缺配方 LoRA → 不可用透出原因
+- 前端 4 例(enginesWanNsfw.test.ts):路由+互钉+5s→81 帧 / 3s→49+7.5s→121+缺省回落 / full_quality 透传 / 缺参考图本地拦截
+
+### 回归
+
+| 端 | 结果 |
+|----|------|
+| 后端 pytest | **1793 passed / 0 failed**(全量;基线既有 2 失败已 stash 对照证实与本次无关:`test_duration.py::test_ltx_nsfw_route_duration_sec_over_limit_422` 持续挂 + `test_drama_studio.py::test_generate_video_sfw_default_unaffected` anyio TaskGroup 间歇 flake) |
+| Web(node:test) | **366 pass / 0 fail**(含 4 新例)+ tsc 0 错 |
+
+### 真机验证(2026-08-17)
+
+| worker | 6 配方 LoRA 枚举 | 结论 |
+|--------|-----------------|------|
+| workstation :8189 (GPU0) | ✅ 全在 | 可跑 |
+| pc01 :8188 | ✅ 全在 | 可跑 |
+| pc02 :8193 | ❌ loras/unet/ckpt 枚举全空 | **Z: NAS 挂载掉线(既有故障,与本次无关)**;pool.pick 能力校验自动淘汰,不会吃到 wan 作业;修复需重挂 NAS + 重启 ComfyUI(Windows session 计划任务链路,见 AGENTS.md 易错点 5) |
+
+### 未做(待用户拍板)
+
+- 未 commit/未部署:工作树含跨功能未提交改动,deploy.sh core 会把全部推上生产,需用户明确指令
+- pc02 NAS 重挂:需真机操作(或用户桌面登录触发 MountNAS 计划任务)
+
+---
+
+## UI-POLISH-R1-2026-08-16 · 整体 UI 排版系统性优化:参数面板分节缺失根治 + 加载动画补齐
+
+**时间**: 2026-08-16
+**类型**: UI 排版优化(goal 驱动:布局结构/视觉层次/空间分配/字体/对比度/响应式全面评估调整)
+
+### 审计发现与修复
+
+| # | 问题 | 根因 | 修复 |
+|---|------|------|------|
+| 1 | 生成参数面板「内容全挤在一起」 | `GenerateView` 用 `.params-section`/`.params-section-title` 组织「模式/参考输入/生成参数」三小节,但 `stage.css` **从未定义这两个类** → 多个 ui-field 零间距堆叠、小节无分隔、小节标题用浏览器默认 h3 大粗体(与 11px 标签档位冲突) | stage.css 补定义:flex 列 + `gap: --space-3`(12px)字段间距;`+ .params-section` hairline 上边框 + 16px padding 分节;标题统一 11/500 大写 muted 档位 |
+| 2 | 优化/反推/数字人加载图标不旋转 | 三组件注释声称「复用全局 `.loading-spinner`」,globals.css 实际只有 `.icon-loading-spin` → 动画从未生效 | globals.css 补 `.loading-spinner` 容器 + 子元素 spin 动画 + reduced-motion 降级 |
+| 3 | `test_jobs_events` 全量跑挂 | `_emit_done` 直连全局 engine 新鲜读 `post_status`(绕请求会话身份映射缓存,R58 设计),该测试只替身 `get_session` → 打到本地 dev 库(无新列) | 测试补 `monkeypatch.setattr(jobs_route, "engine", engine)` 替身(与 R58 test_duration 双 engine 打桩同构) |
+
+### 防回归守卫(新增 2 例,uiFixes.test.ts)
+
+- params-section/title CSS 存在性 + flex/gap/hairline/margin 关键属性断言
+- loading-spinner 全局定义 + 子元素动画规则断言
+
+### 前后对比截图(48 张)
+
+- 基线 29 张:`docs/assets/ui-polish-2026-08-16/before/`(12 视图 × 桌面光/暗 + 4 移动)
+- 优化后 18 张:`docs/assets/ui-polish-2026-08-16/after/`(6 核心视图 × 桌面光/暗 + 移动)
+- e2e 实测断言:params-section `display:flex/gap:12px`、分节线 `1px`、标题 `11px` 全命中
+
+### 回归
+
+| 端 | 结果 |
+|----|------|
+| 后端 pytest | **1781 passed / 0 failed**(53.6s) |
+| Web(node:test) | **360 pass / 0 fail**(含 2 新守卫)+ tsc 0 错 |
+| e2e(登录态) | authed-params-section 1/1 + authed-ui-after 6/6(截图+样式断言) |
+
+### 未做(待用户拍板)
+
+- 未 commit/未部署:工作树含 187 个未推送 commit + 跨功能改动(duration/upscale/skills/MiniProgram 等远超 UI 范围),deploy.sh core 会把全部推上生产,需用户明确指令
+- 另 26 个「TSX 使用但 CSS 未定义」的次要类名(Backlot 骨架屏/Admin 表格列/Dub 面板标题等)已列清单,影响为装饰性,建议下轮收敛
+
+---
+
+## CLOSEOUT-R58-2026-08-17 · 收尾第八轮:裁切链窗口期「未裁原片闪现」根治(post_status 全端接线)
+
+**时间**: 2026-08-17
+**类型**: 产品级 UX 遗留根治(fixpack known_issues 在账项:「裁切链异步重写期结果区短暂显示未裁原片」)
+
+### 根因与方案
+
+trim/extend 时长后处理链是后台异步:worker 完成 → tracker 落 done+原始产物 → 链下载/ffmpeg 精确裁/上传/回写 Job.result。窗口期(秒级~分钟级)前端已看到 done,结果区直接播放**未裁原片**,链完成后才静默变成终产物。
+
+方案:Job 新增 `post_status` 字段(`""`/`"processing"`),全端接线:
+
+| 层 | 改动 |
+|----|------|
+| 模型/迁移 | `Job.post_status`(models.py);幂等补列(`_SQLITE_MIGRATIONS` 元组轨,存在即跳不刷 warning);**启动自愈** `_clear_stale_post_status`(init_db 末尾,列迁移后执行——重启后在飞链已死,残留 processing 清零回落原片) |
+| 服务层 | `spawn_duration_chain` 挂链同步置位(direct 提前返回不置位);`rewrite_job_result` 终产物与清零**同一 commit**(原子,无「终产物+裁切中」中间态);链失败 `_runner` 清零回落原片不标 error;新增 `mark_post_processing`(Job 不存在仅日志,容忍生成器版无 Job 行) |
+| API | `_job_dict` 透出 post_status;`_emit_done` SSE done 事件携带(emit 时现读 DB,tracker/路由时序免疫) |
+| Web | trackJob done/降级轮询双通道识别 → `onPostProcessing`(resolve 前触发);useGeneration 透传;GenerateView 条目新增 promptId/postProcessing + `pollFinalResult`(10s 轮询 /api/jobs,清零后写回终产物,30min 封顶,超时/失败诚实回落);ResultPanel 裁切中态(indeterminate 进度条+文案,不渲染 MediaView) |
+| Mobile | JobItem 类型;`hasActiveJobs` 把 processing 视为活跃(**关键**:否则 done 即停轮询,裁切中永远等不到回写);JobTracker 裁切中舞台(ActivityIndicator+文案,testID `post-processing`)+ 藏预览/详情按钮 |
+| MiniProgram | JobItem 类型;`hasActiveJobs` 同上;jobs 页 handleTap 门控(processing 拦截进详情,toast「精确裁切中,请稍候」) |
+
+### 测试(新增 15 例,四端全绿)
+
+- **后端 +6**(test_duration.py):挂链置位→成功清零终产物 / 失败清零保原片 / direct 不置位不建任务 / `_job_dict` 透出 / `_emit_done` 携带(tracker+jobs 双 engine 打桩)/ 启动自愈清零
+- **Web +3**(trackJob.test.ts):SSE done 带 processing 先触发后 resolve / 无标记不触发 / 降级轮询命中同样通知
+- **Mobile +5**:tracker 裁切中态(无预览无详情钮)/ 清零回落预览 / hasActiveJobs 三例(processing 保持轮询)
+- **MiniProgram +1**:hasActiveJobs processing 保持轮询
+- **顺带修复**:e2e/ui-optimization-after.spec.ts tsc 错误(querySelector Element 无 offsetHeight,外部会话遗留)
+
+### 回归
+
+| 端 | 结果 |
+|----|------|
+| 后端 pytest | **1781 passed / 0 failed** |
+| Web | **358/358** + tsc 0 错 |
+| Mobile | **806/806** + tsc 0 错 |
+| MiniProgram | **564/564** + vue-tsc 0 错 |
+| 生产部署 | deploy.sh core 双服务就绪(干净构建,易错点 29);`/api/jobs` 实证透出 `post_status` |
+
+---
+
+## CLOSEOUT-R57-2026-08-17 · 收尾第七轮:R55/R56 后全端回归再认证 + 运维项核查
+
+**时间**: 2026-08-17
+**类型**: 回归认证轮(R55 生产部署 + R56 APK 重建后,确认工作树零漂移)
+
+### 四端回归(当前工作树实测)
+
+| 端 | 结果 | 说明 |
+|----|------|------|
+| 后端 pytest | **1775 passed / 0 failed**(51.3s) | 与 R54 持平 |
+| Web(node:test) | **355 pass / 0 fail** | 外部会话后续新增用例并入,全绿 |
+| Mobile(jest) | **801/801**(R56 出货前复跑,树未变) | tsc 0 错 |
+| MiniProgram(vitest) | **563/563**(26 套件,2.3s) | 与 R54 持平 |
+
+### 运维核查(设备管家视角,仅查不改)
+
+- **生产健康**:core:3100 → 200、core:8090/api/health → 200(R55 修复后持续稳定)
+- **core 磁盘**:26%(647G 可用),无 upscaled 帧目录(fleet 帧文件在 GPU worker 机,非 core)——无清理压力
+- **pc02 Tailscale offline 10 天**(pc01-3 在线):TOIV_COMFY_WORKERS 含 pc02:8193 死节点,引擎探测靠 pick 重试容忍;**建议**(待用户拍板):core `.env` 剔除 pc02:8193 收敛为 2 worker,或恢复 pc02 在线——涉及生产配置变更,按设备管家规则先提影响分析不擅动
+- **workstation SSH 别名免密失效**(Permission denied):仅影响该别名直连,不影响业务;待用户核对 device_connection_guide 凭据
+
+### 结论
+
+代码侧全量任务闭环且持续绿;剩余 P1-1/P1-2(真机走查,产物均已就绪:mp-weixin dist 含 R54、APK build 3d933ea9 含 R54)与 P2-2(iOS,需 Apple Developer 账号+UDID)全部为用户侧动作,AI 无可推进项。
+
+---
+
+## CLOSEOUT-R56-2026-08-17 · 收尾第六轮:Android APK 含 R54 重建 + ThemePicker 窄屏目测核销
+
+**时间**: 2026-08-17
+**类型**: 收尾补漏(P1-2 走查产物过期 + STATE 遗留目测项核销)
+
+### 背景
+
+P1-2 验收用 APK(build fe05ac5f,2026-08-16 构建)**不含 R54 duration 断链修复**——旧包走查 SFW h3/ltx25 会命中「时长静默落 5s 默认」、R18 H3 缺 4s/8s 档两个已修复 bug,走查结论将失真。另 STATE theme_input_progress known_issues 有「窄屏三层 ThemePicker 排版待目测」待核销。
+
+### 本轮明细
+
+1. **出货前回归**:Mobile tsc 0 错 + jest **801/801**(41 套件,6.5s)——确认打包容器即 R54 绿态代码
+2. **EAS preview 重建**:`eas build --platform android --profile preview --non-interactive`(wineryz Owner 鉴权;远程 keystore HHf1pIrVad;上传 51.4MB)
+   - Build: https://expo.dev/accounts/wineryz/projects/Mobile/builds/3d933ea9-e417-4859-a558-b13a184ed4e4
+   - 状态 FINISHED(13:54:35Z 创建 → 14:11:04Z 完成,约 16.5min)
+   - **APK 直链(替代 fe05ac5f)**: https://expo.dev/artifacts/eas/UCobGR1SfeWVkcr3gtvy7eC_i_rg36ASQxUuSVrYmgE.apk (HEAD 307→api.expo.dev artifact,链接有效;与旧链接同分发模式)
+   - 包内容:含 R54 全量(`applySchemaParams` duration→duration_sec 映射、R18 直传 duration_sec)、`DEFAULT_API_BASE=http://192.168.71.47:8090` 生产 LAN 基址不变
+3. **ThemePicker 窄屏目测核销**(生产 core:3100,admin 会话,390×844 视口,Puppeteer 实证):
+   - `documentElement.scrollWidth === clientWidth === 390`,**零横向溢出**;无任何元素 right 越界
+   - 模式(亮色/暗色)+色板(素白/浅木/中性/薄荷/奶杏)+自定义三层全部落在视口内(最大 right=197px)
+   - DOM 中第二组 ThemePicker 为 BottomNav 底部抽屉(`.bottom-nav-sheet`)内实例:`aria-hidden=true` + `visibility:hidden` + `translateY(450px)` 完全离屏,属「更多」菜单闭合态,非排版 bug
+   - **结论:排版正常,known issue 核销**
+
+### 回归
+
+| 项 | 结果 |
+|----|------|
+| Mobile tsc | 0 错 |
+| Mobile jest | 801/801(出货代码级) |
+| 生产 core:3100 / :8090 health | 200 / 200(R55 修复后持续健康) |
+| EAS preview 构建 | FINISHED,直链 HEAD 200(经 307) |
+
+---
+
+## CLOSEOUT-R55-2026-08-17 · 收尾第五轮:生产 toiv-web 500 修复(陈旧 .next 缓存污染)
+
+**时间**: 2026-08-17
+**类型**: 生产事故修复(core:3100 toiv-web 持续 500,距 DEPLOY-2026-08-16 健康部署后约 1 天)
+
+### 现象与根因(逐层实证)
+
+| 层 | 证据 | 结论 |
+|----|------|------|
+| 现象 | `curl core:3100/` → 500;`core:8090/api/health` → 200 | 仅 Web 层故障,API 健康 |
+| 远端日志 | journalctl:`Cannot find module './522.js'`,requireStack 经 `.next/server/webpack-runtime.js` → `instrumentation.js` | Sentry 异步 chunk 加载失败 |
+| 文件核验 | 远端 `chunks/522.js` 存在且与本地 MD5 一致(`6a3d6253…`)、`instrumentation.js` 双端一致(`8bd0a1f4…`) | **非 rsync 丢文件** |
+| 构建核验 | 本地 `next start` 复现 500 → 同一构建产物自身缺陷;`webpack-runtime.js` 中 `__webpack_require__.u = (chunkId) => "" + chunkId + ".js"`(扁平路径)与 chunk 实际落位 `chunks/522.js` 不匹配 | **同一构建内部自相矛盾** |
+| 根因 | `rm -rf .next` 干净重建 → 本地 `next start` 200、零 module 错误 | **陈旧 `.next/cache` 污染**:增量 webpack 缓存把旧 chunk 命名模板混入新构建,产物内部运行时用扁平模板而 chunk 落位 chunks/ 子目录 |
+
+### 修复与验证
+
+1. `cd apps/web && rm -rf .next && npm run build`(环境无 INTERNAL_API_BASE 污染,routes-manifest 烘焙 `localhost:8090` 生产默认)
+2. 本地冒烟:`next start -p 3125` → `/` 200,日志 0 条 `Cannot find module`
+3. `deploy/deploy.sh core`:rsync 源码+`.next` → toiv-api 第 2 次探测就绪 → **toiv-web 第 2 次探测就绪**
+4. 生产外网核验:`core:3100/` → 200、`/api/health` 经 Next 代理 → 200、`core:8090/api/health` → 200、`/version.json` → `20260816-134310-9eca3b2-dirty`(新指纹生效)、`/login` → 307 正常跳转
+5. 回滚快照 `.rollback-previous` 部署前自动留存(无需动用)
+
+### 易错点(新增)
+
+- **生产部署前本地构建必须 `rm -rf .next` 干净重建**:本次事故的直接诱因是部署用了带陈旧增量缓存的 `.next`。webpack 增量缓存跨构建复用 chunk 命名模板,可产生「运行时模板与 chunk 落位目录不一致」的自相矛盾产物,`next start` 即 500。deploy.sh 的 8200 防呆只查 routes-manifest,拦不住这类内部错位;干净构建是唯一可靠前置。
+- 排障路径范式:远端 journalctl 看到 `Cannot find module './N.js'` 且文件实际存在时,先怀疑构建产物内部错位,本地 `next start` 复现即可区分「部署丢文件」vs「构建本身坏」。
+
+---
+
+## CLOSEOUT-R54-2026-08-17 · 收尾第四轮:longcat/wan/avatar 秒数化收口 + 移动端 duration 断链修复
+
+**时间**: 2026-08-17
+**类型**: /goal 收尾轮(fixpack 遗留「longcat/wan/avatar 秒数化待下轮」+ 调研新发现的外部会话时长改造移动端断链)
+
+### 背景:两个外部会话遗留断链(本轮调研实证,非推测)
+
+外部会话「时长按秒选择」改造把注册表 h3/ltx25 参数键从 `length` 改为 `duration`(秒),路由契约改为 `duration_sec`,但只验证了后端 legacy 通道(test_h3_route_legacy_length_still_works 显式传 length),未核验移动端**运行时**链路:
+
+- **断链 1(SFW h3/ltx25 移动端时长静默失效)**:Mobile `applySchemaParams` 按 schema key 直抄 → 提交体带 `duration` 键;后端字段是 `duration_sec`,pydantic extra=ignore 静默丢弃 → 用户选任何时长恒落 5s 默认。MiniProgram `pickNumbers(LTX25_NUMBER_KEYS 含 'length')` 同样取不到值。影响面:Mobile + MiniProgram 的 SFW h3-t2v/i2v、ltx25-t2v/i2v 四个引擎
+- **断链 2(R18 H3 新增 4s/8s 档静默回落)**:注册表 R18 时长预设扩为 4/6/8/10/15s,但 Mobile/MiniProgram 的 `H3_NSFW_DURATION_FRAMES` 静态帧数表仍只有 6/10/15 → 用户选 4s/8s 静默回落 141 帧(6s)
+
+### 本轮明细
+
+- **后端三路由接 duration_sec**(longcat_studio / avatar_studio / wan_studio,与 h3_studio 同一模式):
+  - 请求模型 `duration_sec: float|None` 优先 + `num_frames` deprecated 兼容通道(同给忽略);`_resolve_plan` legacy 换算等价 direct 计划(行为不变)
+  - `_attach_duration_chain` 惰性 `get_client()`:仅 trim 策略才取实例客户端,保持 t2v 路由「引擎禁用 → submit 内部先 503」原有顺序语义(test_t2v_disabled_returns_503 锁定)
+  - trim 复用 `spawn_duration_chain`(submit_next=None;四引擎不支持 extend,超上限由策略层 422 人话提示)
+  - 默认秒数与历史默认帧等价:longcat 7.5s(120 帧≈旧 121)/avatar 3.7s(4k+1 吸附回 93)/animate 7.5s(吸附回 121)/vace 5s(吸附回 81)
+- **注册表四参数组秒数化**:`_longcat_video_params` 0.5-60s 步进 0.5(上下文窗口提示)/`_avatar_talk_params` 0.5-100s 步进 0.1(>3.7s 自动续段提示)/`_wan_animate_params` 0.5-31s/`_wan_vace_params` 0.5-15s
+- **Web**:`_longcatPayload`/`_wanPayload` 直传 `duration_sec`(缺省回落 7.5/5);AvatarGenPanel 帧数输入改秒数输入(0.5-100 步进 0.1,hint 显示估算帧数;「匹配音频时长」改按秒设置);api.ts `LongcatT2VParams`/`AvatarTalkParams` 补 duration_sec(legacy 保留注释)
+- **Mobile 断链修复**:`applySchemaParams` 注册表 `duration` 键统一映射 `duration_sec`(注释写明断链根因);R18 构建器删前端网格换算(`ltxNsfwLength`/`H3_NSFW_DURATION_FRAMES`),改 `nsfwDurationSec` 直传(与 Web `_durationSec` 同语义);5 个请求类型补 `duration_sec?`(legacy 字段保留)
+- **MiniProgram 断链修复**:新增 `pickDurationSec`(注册表 duration → duration_sec);LTX25/H3/LONGCAT/WAN/AVATAR 五组 NUMBER_KEYS 删 `length`/`num_frames`;R18 同样直传;6 个请求类型补 `duration_sec?`
+- **mock-server.mjs 七组 schema 对齐**(ltx25/wan/h3/longcat/avatar 帧→秒 + R18 双预设补 4s/8s 档):Edit 工具对该文件缓存失步(五次编辑报告成功但磁盘未变),按 project_memory 既定模式 python 脚本直接落盘 + md5/grep 交叉验证
+- **真机脚本防误**:`e2e/authed-h3-prompt-ab.spec.ts` 时长填「141」(帧)→「6」(秒);若不改,真实生产跑 A/B 会把 141 写进 max=60 的秒数框,触发 60s 四段 extend 续写(约 4 倍预期 GPU 成本)
+- **P1-1 产物**:mp-weixin dist 重建(真实基址 192.168.71.47:8090,无 mock 残留,build-request.js 含 duration_sec)
+
+### 回归(四端全绿)
+
+| 端 | 结果 | 变化 |
+|----|------|------|
+| 后端 pytest | **1775 passed / 0 failed** | +13:test_duration.py 四引擎 direct/trim/上下文窗口提示/422/legacy 等价/双缺省默认;test_engine_registry 2 例断言对齐 duration |
+| Web(node:test) | **280/280** + tsc 0 错 | +4:enginesDuration longcat/continue/animate/vace payload 用例 |
+| Mobile(jest) | **801/801** + tsc 0 错 | 12 例 R18/SFW 断言对齐 duration_sec;fixture schema 同步新注册表 |
+| MiniProgram(vitest) | **563/563** + vue-tsc 0 错 | 净 -5:删前端网格换算 7 例(ltxNsfwLength×6 + H3 静态表×1),新增 nsfwDurationSec 2 例 |
+| H5 走查 | **113/113** | mock 契约同步后全链绿(含 C14-C16 R18、C18 avatar-talk) |
+
+### 遗留
+
+- R18 LTX(video.py)/H3 legacy `length` 通道与四引擎 legacy `num_frames` 通道长期保留(外部调用方/drama scripts 仍在用);删除时机待全端真机回归后评估
+- 微信端走查(30/30 通道)需在用户微信开发者工具复跑新 dist(P1-1 清单不变)
+- STATE.json 两处过期 known_issues 本轮核销:fixpack「longcat/wan/avatar 秒数化待下轮」(已完成);theme_input_progress「DubView.doLipsync 进度与 drama autorun 管线留二期」(实证已在更早轮次完成,progressWiring.test.ts 源码断言锁定)
+
+---
+
+## FIXPACK-2026-08-16 · Agent 团队修复 + 视频超分产品化 + 时长按秒 + UI 设计调整
+
+**时间**: 2026-08-16
+**类型**: 用户反馈四问题修复(①Agent团队没有作用 ②视频没有超分功能 ③UI 设计调整 ④生成时长按秒选择,不支持想办法生成)
+**执行**: 浏览器取证 Agent + 代码调研 Agent + 四团队并行(A Agent 修复/B 超分/C 时长/D UI)
+
+### ① Agent 团队「没有作用」根因与修复(Team A)
+
+- **根因(浏览器实锤)**:双死路——A:创建请求同步跑 LLM 拆解 29-31s,撞前端 30s 超时(api.ts DEFAULT_TIMEOUT_MS),用户无反馈但服务端静默落库;B:详情页 100% 崩溃——agent_team.py 把 verdict 序列化成对象 `{}`,前端按 string 渲染,React error #31,且无路由级 error boundary 整页白屏
+- **修复**:后端 `_verdict_text()` 六态归一(string 原样/dict 提取文本键/紧凑 JSON 兜底/空串);前端 `verdictText()` 守卫 + depends_on Array 守卫;创建端点重写为**真秒回**(落 planning 即返回,`_plan_run` 后台 LLM 分级+parse_script 拆解,三事件同 commit;`resume_unfinished_plans` lifespan 启动恢复,重启不丢;planning 态 approve 409 防空计划);新增 `agent-runs/error.tsx` + `[runId]/error.tsx` 兜底;goal 纯文本化 `stripMarkdown()`
+- **行为变化(取舍)**:启发式判 L0 的目标不再经 LLM 复核(换创建零等待);L1↔L2 徽章仍 LLM 后台校准
+
+### ② 视频超分产品化(Team B)
+
+- 新端点 `POST /api/video/upscale`(秒回 Job)+ `GET /api/video/upscale/{id}`(进度)+ output 路由;Job kind `video_upscale` 注册+作品库类目「视频超分」
+- 管线:产物签名 URL(含 IDOR 校验/R18 继承)→ ffprobe → 目标推导(横 3840×2160/竖 2160×3840,方向护栏,禁手填)→ 抽帧 → M6 fleet(:8261-8263)round-robin 逐帧(每实例 ≤2 并发+失败换实例重试)→ 缺失帧检测 → libx264 合并(音轨回接/静音补偿)→ 分辨率校验 → 回写;断点续跑(帧目录成功才清,重启 reconcile 重挂)
+- 前端:作品库视频卡「超分到 4K」+ 确认 Modal(耗时说明)+ 3s 轮询 + generationBus 帧级进度;实测 2s 片超分 49.8s 完成
+
+### ③ 时长按秒选择(Team C)
+
+- 新策略层 `services/duration.py`:`resolve_duration(engine, seconds, fps) -> {frames, strategy: direct|trim|extend, segments, notice}`;规则=direct(网格向上取整)/trim(秒差>0.25s,ffmpeg -t 精裁)/extend(超上限分段续写+精裁,H3/LTX-2.5 ≤60s);其余引擎超上限 422 人话提示
+- SFW 引擎时长参数从「帧数」改「秒」(0.5 步进,hint 说明策略);R18 预设扩 4/6/8/10/15s;删除 6 处重复换算中的前端 2 处+生成器 2 处,drama snap 委托统一网格原语
+- **真机实证**:H3 选 2 秒(非网格)→ 生成 56 帧 → 裁切链自动重写产物 → 作品库最终产物实测 **2.016s**;notice 透出「精确裁至 2 秒」
+- 已知:trim/extend 是生成后异步链,结果区可能先短暂显示未裁原片,作品库为最终版(notice 已告知)
+
+### ④ UI 设计调整(Team D,8 项)
+
+- **[高]助手 markdown 泄漏**:根因=气泡根本没有渲染器(纯文本直出);新增 `renderInlineMarkdown`(CommonMark flanking 简化规则,容忍全角引号/嵌套星号),仅助手气泡走渲染器
+- **[中]首页英雄标题裁切**:门户态容器 scrollTop 归零(挂载/视图切回/清空会话三路径)
+- **[中]引擎标签重复**:段控件组独立小节标题「模式」,下拉保持「引擎」
+- **[中]ThemePicker 双实例不同步**:新增 `toiv:theme-changed` 同页 CustomEvent 总线(三 apply 广播+订阅),跨标签 storage 同步保留
+- **[中]底部 dock 桌面错位**:根因=sheet/遮罩无断点门控常年挂 DOM;≥1024 隐藏 overlay/sheet + 闭合态 visibility 修复
+- **[中]路由级 error boundary**:app/error.tsx 共享(agent-runs 由 Team A 嵌套)
+- **[低]暗色微调**:--text-muted 提亮 #8B8E95→#9A9EA6(实测 5.6:1 AA);作品库视频徽章恒白+描边;账户卡补说明行;取色圈与色丸同尺寸
+- **[低]作品库工具行**:三语义组间 hairline 分隔
+
+### 回归 + 部署 + 真实浏览器验收
+
+- 后端 pytest **1762 passed / 0 failed**(基线 1670 + 四队新增 92);前端 **276/276**;tsc ✅;ui_lint 0 FAIL(111 文件);next build ✅;deploy.sh core-ts 双服务就绪
+- **生产真实浏览器验收** `e2e/authed-acceptance-20260816.spec.ts` **5/5 通过(2.2min)**:
+  1. agent-run 创建秒回(<20s 跳转)+详情页不崩+计划门出现+取消清理 ✓
+  2. H3 选 2 秒 → 产物 done + notice 透出 + 作品库最终产物实测 2.016s(trim 生效)✓
+  3. 作品库视频「超分到 4K」→ 提交 toast → 完成 toast(49.8s 真实 fleet 超分)✓
+  4. ThemePicker 设置页⇄导航弹层双向同步 + data-mode 落 DOM ✓
+  5. 桌面端 dock sheet/overlay 隐藏 + 模式/引擎标签唯一 ✓
+- 回归保险:authed-drama-workbench **6/6 复跑通过**(23.1s)
+- 验收手法修正记录:①引擎下拉值提交(h3-t2v)②时长字段精确定位(label.ui-field:has-text)③notice 断言须避开参数静态 hint 文案④异步裁切链须在作品库测最终产物(结果区短暂显示未裁原片)
+
+### 遗留
+
+- 裁切链异步重写期间结果区短暂显示未裁原片(一期已知,notice 告知);drama v2 分镜 shot.video_url 与后处理链有先后竞态(作品库为最终版)
+- longcat/wan/avatar 引擎秒数化待下轮(duration.py 规则已就绪,接路由即可)
+- 超分 fleet 实例 input/output 目录帧文件需运维定期清理;api 重启后帧级进度注册表丢失(作业断点续跑不受影响)
+- 验收过程在作品库产生少量测试产物(小猫 2s 片及其 4K 版),如需可删
+- 本里程碑与另一并行会话(小程序线)同仓工作,TEST_LOG/STATE 双方增量已并存核对
+
+---
+
+## MP-DIST-2026-08-16 · MiniProgram dist 重建:P1-1 真机走查产物就绪
+
+**时间**: 2026-08-16
+**类型**: 走查产物准备(P1-1 前置)
+
+### 发现与处置
+
+- **dist 过期**:部署后核查发现 `dist/build/mp-weixin` 构建于当日 12:31,**早于 MP32 微信登录原生 button 恢复(17:00)**——用户若直接导入真机走查,拿到的是无微信 CTA 的旧产物
+- **走查轮**(对齐 mp-walkthrough-weixin.cjs 前提):mock-server 9800 在线 + `VITE_API_BASE=http://127.0.0.1:9800` 重建 → 微信走查 **30/30 通过**(W1.1 微信 CTA wechat=true 实证新产物生效;W8.x Agent 确认门/W9.x 设置页全链绿)
+- **H5 走查**(ux-walkthrough-h5.mjs,同期新 dist):**113/113 通过**(较上轮 +2 例)
+- **终建恢复真实基址**(memory 硬性规定):默认 `192.168.71.47:8090` 重新构建;校验三件套——config.js 真实基址 ✓ / 全产物无 9800·43121 mock 残留 ✓ / login.wxml 含 login__wechat CTA ✓;产物时间 19:26
+
+### 交付态
+
+`MiniProgram/dist/build/mp-weixin`(19:26,全量最新源码,生产直连)= **用户可直接导入微信开发者工具执行 P1-1 真机走查**,清单见 CLOSEOUT.md。
+
+---
+
+## DEPLOY-2026-08-16 · 生产部署:R51-R53 收尾 + 时长按秒改造全量上线
+
+**时间**: 2026-08-16
+**类型**: 部署里程碑(三轮收尾 + 外部会话时长改造的累积变更生产化)
+
+### 部署前状态确认
+
+- 外部会话 19:08 停笔(h3_studio/ltx25_studio 最后写入),观察 5 分钟无变化后启动
+- 部署前全量复跑:后端 **1762 passed / 0 failed**(较 R53 轮 +4 例,外部会话路由收尾自带测试);Web **276/276** + tsc 0 错 + next build ✅
+
+### 部署(deploy/deploy.sh core-ts)
+
+- rsync 源码 + .next 构建产物 → core-ts;远端重载配置;toiv-api 就绪(第 2 次探测)、toiv-web 就绪(第 2 次探测);回滚快照自动保存(.rollback-previous)
+
+### 生产冒烟
+
+| 检查 | 结果 |
+|------|------|
+| API /api/health | **200** |
+| Web :3100 | **200** |
+| toiv.wineryz.top | **200**(0.2s 级) |
+| toiv.dgmt.top | 000(跨境链路波动,既有状态,frpc 自动重连恢复模式) |
+| 生产 e2e authed-drama-workbench | **6/6 通过(16.8s)**——含分镜接缝徽章行内切换落库刷新仍在(mood/beat/seam 落库链路生产实证) |
+
+### 本次生产化内容总览(相对上一生产态)
+
+- 后端:grid seam/mood/beat 落库、R5.1 转场链质量门 advisory、redis Lua 限流真实路径(lupa)、统一时长策略层 duration.py(direct/trim/extend)、引擎注册表按秒参数、视频超分新路由(video_upscale)、agent_team 四期 upload/reprompt
+- 前端:LibTV 工作台、双主题系统、全局生成进度条(含 DubView/autorun 二期)、时长按秒 UI、视频超分作品库入口
+- 运维:.gitignore drama/ 收窄(apps/web/components/drama 与 drama/scripts 恢复 git 可见,待用户 commit)
+
+---
+
+## CLOSEOUT-R53-2026-08-16 · 收尾第三轮:时长改造测试收口 + trackJob 进度解耦 + 四端契约兼容实证
+
+**时间**: 2026-08-16
+**类型**: /goal 收尾轮(外部会话「时长按秒选择」改造的测试对齐 + THEME-INPUT-PROGRESS minor 遗留清零)
+
+### 背景:外部会话的「时长按秒选择」改造(本轮在其停笔后收口)
+
+外部会话落地了统一时长策略层 `services/duration.py`(秒→帧计划 direct/trim/extend,6 处重复换算收敛唯一事实源)+ 引擎注册表参数改版(length 帧数 → duration 秒数,ltx25/h3 SFW 自由输入 0.5-60s 步进 0.5;R18 预设新增 4s/8s 档)+ 前端 payload 直传 duration_sec。改造方向正确(向上吸附+精确裁剪优于旧向下少给),但停笔时双端 6 例测试红。
+
+### 本轮收口明细
+
+- **duration.py fps 语义修正**:`int(fps) if fps else default` 把显式 fps=0 静默回退默认;改为 `fps is None` 才回退,显式 0/负数抛 DurationLimitError(路由层 ge≥4 约束,生产路径到不了,纯策略层防御);对方 test_resolve_errors 断言自此成立
+- **后端旧期望对齐**(实证值非推测):test_h3_submit_success 141→**158**(24fps×6s=144 向上吸附+trim 裁回 6s);test_h3_frames_grid → `snap_engine_frames` 双方向(up 158/down 141 兼容口径并存);test_ltx25_engine_entries length→**duration**(0.5/60/5/0.5);test_h3_nsfw duration 预设 **['4','6','8','10','15']**(帧映射 107/158/192/243/362 全 17k+5 实证)
+- **web 断言惯例修复**:enginesDuration.test.ts 4 处 `assert.equal(url, "/api/...")` 严格等相对路径 → `endsWith`(测试环境 API_BASE 定型 localhost:8090;同外部会话自己 videoUpscale.test.ts 的惯例)
+- **trackJob busProgress 解耦 opts.onProgress**(THEME-INPUT-PROGRESS minor 遗留):此前 `!onProgress` 整体 return,总线广播被跳过,未传回调的调用方只显 indeterminate;改为广播独立、回调可选链;generationBus.test.ts 新增用例(无回调仍显 30% 真进度)
+- **四端契约兼容实证**:Mobile/MiniProgram 提交仍传 length 帧数;h3_studio/ltx25_studio/video.py(LTX NSFW)均保留 length deprecated 兼容通道(网格校验+换算等价 direct 计划,test_h3_route_legacy_length_still_works 覆盖),移动端零改动不受时长改造影响
+
+### 回归(2026-08-16 第三轮,四端全绿)
+
+| 端 | 结果 |
+|----|------|
+| 后端 pytest | **1758 passed / 0 failed**(外部会话 duration 55 例等 + 本轮收口) |
+| Web | **276/276** + tsc 0 错 |
+| Mobile jest | **801/801**(41 套件) |
+| MiniProgram vitest | **568/568**(26 套件) |
+
+### 遗留
+
+- P1-1 微信真机 / P1-2 Android 真机 / P2-2 iOS(需 Apple Developer 账号)——用户侧执行
+- 移动端提交契约可择期迁 duration_sec(非必须,legacy 通道长期保留)
+
+---
+
+## CLOSEOUT-R52-2026-08-16 · 收尾第二轮:gitignore 源码解放 + mood/beat LLM 接入 + 进度条二期 + @图片N 续写评估
+
+**时间**: 2026-08-16
+**类型**: /goal 收尾轮(WORKBENCH/WORKBENCH-TEST/THEME-INPUT-PROGRESS/SKILLS-SEAM 四个里程碑的遗留清偿)
+
+### ① .gitignore drama/ 规则收窄(WORKBENCH-TEST 发现项)
+
+- 问题:`.gitignore:65` `drama/` 整目录规则把两处源码一并忽略——`apps/web/components/drama/`(LibTV 工作台 9 组件,WORKBENCH 重构主体)与 `drama/scripts/`(编排器/定妆图/质量门管线脚本,M5 链路引用)**零 git 追踪**
+- 修复:规则收窄为 `drama/output/`(成片/分镜片段/配音等运行时产物继续忽略);check-ignore 实证两源码目录不再命中、产物 mp4 仍命中
+- 注意:修复后两目录以 untracked 可见,是否入库由用户拍板(用户规则:不主动 commit)
+
+### ② mood/beat 接入 storyboard LLM 输出(WORKBENCH follow-up)
+
+- 背景:DramaShot mood/beat 列 + 幂等迁移 + ShotPatch/_shot_dict 早已就绪(WORKBENCH 轮),前端 ShotTableRow 行内可编;缺口在 LLM 拆解从不产出 → 两列恒空
+- 全链接入:`_STORYBOARD_SYSTEM` 增 mood(情绪标签)/beat(叙事节拍)字段说明+JSON 示例;`ShotOut` 加两字段 + 截断 validator(mood 64/beat 200,对齐 ShotPatch 上限,LLM 输出不可信故截断不阻断);text storyboard 与 grid storyboard 双路径 DramaShot 构造落库
+- 测试:`test_storyboard_mood_beat_persisted`(落库+透出+超长截断);`test_grid_storyboard_seam_persisted` 扩展 mood/beat 断言;`test_coerce_shot_pydantic_equivalence` 期望 dict 同步(精确等价断言,新增两键)
+- drama_studio 套件 **92/92** 绿
+
+### ③ DubView.doLipsync 全局进度条接入(THEME-INPUT-PROGRESS 二期遗留)
+
+- 三模式 begin:AI 精剪(同步,indeterminate)/ LatentSync·动漫对口型(后台轮询,determinate)
+- 真实进度:latent 轮询报 `completed/total×100`;anime 报 `progress`(0-100)
+- **终态分散 6 处单一收口**:新增 useEffect 监听 lipsyncBusy 落 false → genEnd(覆盖启动失败/latent done·error/anime done·error/轮询连续失败/highlights finally 全部出口;未 begin 时 genEnd no-op)
+
+### ④ drama autorun 后台管线进度接入(同上遗留)
+
+- useDramaProject 新增双 effect:autorun.running 期 genBegin(label 带当前步骤,determinate=total>0)+ genProgress(done/total);终态(!running)genEnd 收口;切项目/卸载 cleanup genEnd 第二收口;任务 id 按项目隔离(`drama-autorun-{pid}`)
+- begin/progress 幂等同值不 emit,轮询驱动的高频重跑开销可忽略
+
+### ⑤ continue-video @图片N 注入评估(SKILLS-SEAM 遗留#2)→ 结论:不注入
+
+- v2(:4291)注入的是纯文本引用行(h3_refs 头注释:暂不下发字节),t2v 无真实图片槽位,指向 H3 主体参考注册语义,成立
+- continue-video H3 i2v 每段**真实提交一张图**(上一段末帧作首帧);按正典「实际提交顺序编号」末帧即图片1,角色参考图引用行从图片1 起编会与真实图片槽位**错位**
+- 角色身份已由首帧承载,引用行边际收益低、错位风险真实;正确支持需首图占位偏移 + H3 多图字节下发(未落地)
+- 决策注记落 `_run_continue_video`(drama_studio.py:2057-2061),防重复评估
+
+### 回归(2026-08-16 第二轮)
+
+| 端 | 结果 |
+|----|------|
+| 后端 pytest | 改动目标套件 **141/141**(drama_studio 92 + storyboard_valid_ids + transition_chain + coreference + redis_integration);全量终态 **1679 passed / 2 failed**(2 例均为外部会话 H3 帧网格重构的旧期望,见下注) |
+| Web | **239/239**(234+5 新增 progressWiring 源码断言)+ tsc 0 错 + next build ✅ |
+| MiniProgram / Mobile | 本轮零改动,沿用上轮 568/568、801/801 |
+
+- 测试新增:`tests/progressWiring.test.ts` 5 例(三模式 begin/双路真实进度/单一收口/autorun 双收口源码断言,对齐 themeMode/autoResizeInputs 成熟模式)
+
+### 并发工作区注意(本轮实证)
+
+- 收尾期间工作区有**另一会话活跃开发**,我方避让/顺手修复明细:
+  - agent_team.py(18:30-18:34):对方重构致 16 例短暂红,对方自修至 17/17 绿(我方复验)
+  - agentRunMeta.ts(18:31):JSDoc 内 `*/` 提前闭合致 next build 挂;停笔 7 分钟后**我方修注释表述**(行为零变更),build 恢复 ✅
+  - video_upscale.py(18:38,untracked 新文件「视频超分」路由):`-> FileResponse | StreamingResponse` 返回注解在 fastapi 0.137 下非法,import app.main 即炸(50 例 collection error,**若此时重启 API 服务起不来**);停笔 4 分钟后**我方按 FastAPI 官方指引加 `response_model=None`**(流式响应不走 Pydantic 序列化),collection 全恢复
+  - video_generators.py(18:41,对方 H3 帧网格重构进行中):`_frames_grid` 移除、6s 档吸附 141→158;旧期望测试 2 例(test_h3_frames_grid/test_h3_submit_success)红,**正确值属对方设计决策,测试期望归对方更新**
+
+### 遗留
+
+- P1-1 微信真机 / P1-2 Android 真机 / P2-2 iOS(需 Apple Developer 账号)——用户侧执行
+- video_upscale 新功能(外部会话进行中)的注解修复与测试补强——归属外部会话
+- R4+ 路线图大项(技能广场/画布编辑器/工作流商品化)——产品级方向,非收尾范围
+
+---
+
+## CLOSEOUT-R51-2026-08-16 · 收尾遗留清零:grid seam 落库 + redis flaky 根治 + R5.1 质量门接线
+
+**时间**: 2026-08-16
+**类型**: /goal 收尾轮(SKILLS-SEAM 遗留 3 项 + 预存 flaky 2 例)
+
+### ① grid_storyboard seam 落库(SKILLS-SEAM 遗留#1)
+
+- 缺口:grid 路径 `DramaShot` 内联构造漏传 `seam_to_next`/`seam_anchor`(text storyboard `_create_shots_from_analysis` 与 from-image 共用路径早已落库),LLM 规划的接缝策略在 grid 分镜丢失,前端接缝徽章/xfade 无数据
+- 修复:`drama_studio.py:3585-3587` 构造补传两字段(与 text 路径同一行位);`_coerce_shot`(ShotOut)本已校验 seam 枚举域,无需额外规整
+- 测试:`test_grid_storyboard_seam_persisted`(matchcut+锚点/hardcut 落库断言);grid 相关 **9/9** 绿
+
+### ② test_redis_integration 2 例 flaky 根治(预存)
+
+- 现象:`test_ratelimit_redis_path_consumes_and_429`/`test_ratelimit_redis_remaining` 断言失败(zcard=0/remaining=20),日志示「unknown command 'evalsha'」
+- 根因:**venv 缺 lupa**——pyproject 已声明 `fakeredis[lua]>=2.23` 且注释明示「缺 lupa 时 fakeredis 不注册 eval/evalsha,限流 Lua 路径测试会静默降级内存而失败」;uv.lock 含 lupa 但 venv 未 `uv sync --all-extras`,环境漂移所致
+- 修复:`uv pip install lupa`(2.8)+ `uv sync --all-extras` 全量对齐;非代码问题,零代码改动
+- 验证:**10/10** 绿(此前 8 passed 2 failed;另查实 `test_ratelimit_shared_across_clients` 此前是「内存桶巧合通过」,lupa 补齐后才真正走共享 Redis 桶)
+
+### ③ R5.1 质量门接线 transition_chain(SKILLS-SEAM 遗留#4)
+
+- 设计:照 coref advisory 范本接入 `gateway.run_quality_checks`——`QualityReport` 增 `transitions` 字段(score_transition_chain 全量 dict),**advisory 不参与阻断**(passed/blocking_reason 只看三重防线);同步热路径只用确定性预检(零 LLM,judge 注入留离线评估)
+- 兼容:无 seam 声明的分镜(manju 等既有调用方)全链不计分,报告仅多一个字段,行为零变化;transition_chain.py 模块 docstring「预留」表述同步更新
+- 测试:`test_gateway_report_includes_transitions`(seam 分镜计分+advisory 语义)、`test_gateway_transitions_advisory_no_seam_declared`(无声明不计分+不阻断);transition_chain+coreference **22/22** 绿
+
+### 全量回归(2026-08-16 收尾轮)
+
+| 端 | 结果 |
+|----|------|
+| 后端 pytest | **1675 passed / 0 failed**(1670+2 flaky 根治+1 seam+2 接线;预存 flaky 清零) |
+| Web | **234/234** + tsc 0 错 |
+| MiniProgram vitest | **568/568** |
+| Mobile jest | **801/801**(41 套件) |
+
+### 遗留
+
+- continue-video H3 i2v 的 @图片N 注入(引用语义与 v2 不同,维持待评估)
+- P1-1 微信真机 / P1-2 Android 真机 / P2-2 iOS(需 Apple Developer 账号)——用户侧执行,CLOSEOUT.md 指引就绪
+
+---
+
+## AGENT-R32-2026-08-16 · Agent Team 四期:upload/reprompt 端点开放(501 解除) + Web 卡片接线
+
+**时间**: 2026-08-16
+**类型**: 收尾待办 P2-1(后端 R3.2 缺口的补齐实现)
+
+### 后端(apps/api)
+
+- **reverse.py 重构**:图像/视频反推链提取为公共函数 `reverse_visual(content, filename, content_type, kind, nsfw)`(JoyCaption 专线/NAS 中转/JSON 解析/纯文本降级全保留),`POST /api/reverse` 端点改调它,行为零变化(31 个 reverse/upload 测试全绿)
+- **agent_team.py 501 解除**(`POST /agent-runs/{id}/tasks/{tid}/action`):
+  - `upload`(payload={url}):替换任务产物——仅收 `/api/studio/files/{name}` 本地产物(路径穿越/外链/缺文件 400),output 写 `{url, source:"upload", shot_id}`,卡片回 done + SSE `task_status` 广播;合成卡 400(走合成确认门)
+  - `reprompt`:仅图像/视频卡(其余 400);读 output.url 本地产物(未产出 409/丢失 404)→ `reverse_visual` 反推 → prompt/negative 写回 input(卡片保持 done,用户审阅后再决定是否重生成);NSFW 上下文经 `nsfw_allowed(user)` 透传
+- **新端点** `POST /agent-runs/{id}/tasks/{tid}/upload`(multipart):本地文件直传替换——复用 `/api/upload` 三重白名单校验(扩展名+Content-Type+魔数,伪造 415),图/音频 20MB、视频 200MB 上限,落盘 Studio 输出目录后与 action=upload 共享落库语义;`enforce_rate_limit(scope="upload")`
+- **测试**:test_agent_team.py 501 用例替换为 4 个真实行为用例(url 替换/非法 url 400/合成卡 400、multipart 落盘+魔数伪造 415、反推 prompt/negative 写回+done 保持、未产出 409)
+
+### 前端(apps/web)
+
+- **契约修正**:agentTaskAction 返回类型 `{ok,task}` → 后端真实形状(顶层直返任务详情);useAgentRun 局部更新条件 `res?.task` → `res?.id`(此前永为 undefined,局部更新从未生效,仅靠 SSE 兜底);withBusy 泛型化回传结果(taskAction 返回更新后 task,reprompt 后取新 prompt 回填编辑区,不用过期闭包旧 task)
+- **新增** `uploadAgentTaskAsset(runId, taskId, file)`(multipart,不手设 Content-Type)+ useAgentRun.uploadTaskAsset
+- **TaskCardList**:替换上传/反推提示词两按钮解禁——上传走隐藏 file input(multipart 直传,合成卡不出入口),反推仅图像/视频卡,成功后自动开编辑区回填反推 prompt 供审阅微调
+- **测试**:agentRunsApi 直返契约+FormData 透传(fetch 桩修非串 body 透传);useAgentRun ④ 用例改新契约;uiCViews Ripple ≥3→≥5;mocks/studioApi 同步新形状+uploadAgentTaskAsset 替身
+
+### 回归
+
+- 后端 pytest **1670 passed**(2 个 test_redis_integration 预存 flaky,已实证与本改动无关)
+- 前端 web **234/234**;tsc 零错误(e2e/authed-h3-prompt-ab.spec.ts 遗留 cast 缺 `id` 字段一并修复)
+
+---
+
+## SKILLS-SEAM-2026-08-16 · 技能体系 P0-P3:技能正典化 + 衔接策略层 + 宫格 grounding + 黄金集
+
+**时间**: 2026-08-16
+**类型**: 用户 /goal 里程碑(docs/skill 资料正典化;🔒 约束:验收必须真实浏览器,禁止直接调接口)
+**执行**: 调研 Agent + 五团队(A 技能正典/E 浏览器 A/B/B 衔接策略/C 宫格 grounding/D 模板+黄金集)
+
+### P0 · 技能正典化(Team A + Team E)
+
+- **技能包基座** `apps/api/app/skills/`:`registry.py`(pyyaml frontmatter;`skills_registry.list()/get()/render(name,**slots)` {{slot}} 替换);下游契约钉死
+- **正典技能** `h3-prompt-writer/SKILL.md`(kind: prompt-writer,v1.0.0):三份时长技能+10s模板.txt 合并去重;**5s 档固化改 6s**(对齐产品 17k+5 帧网格);时长节奏预算收敛表(文戏段落 3-5/5-7/6-8、武戏动作 14-20/10-16/因果链、九宫格格秒 0.5-0.6/0.8-1.3/1.2-1.8 等 8 行);@图片N 绝对开头引用/修改规则/自检清单完整并入;画幅 16:9/9:16 参数化;evals/cases.json 7 例
+- **单一事实源清理**:docs/skill/ 三 SKILL.md + 10s模板.txt 已删;转场 txt 由 Team B 封装后删;两个 PV 黄金稿移入 editorial-mg-pv/evals/golden/;docs/skill 目录已删
+- **A/B 真机对比(Team E,真实浏览器 Playwright × prod)**:e2e/authed-h3-prompt-ab.spec.ts,引擎「MiniMax H3 文生视频」(h3-t2v),1344×768×141帧,3 场景×2 风格 6 条全部 done(233-245s/条,24.4min);产物 18 帧截图+report.json 落 test-results/h3-ab/
+- **结论(已回写正典 SKILL.md)**:**全正向组整体更稳;严格限制组 2/3 明确负向违反**——「不要字幕」反而自带台词字幕、「不要多人同框」仍双人同框,负向表述对 H3 不可靠(疑似暗示反效果);规则升级:负向词只进引擎 negative 通道,正文全正向,「不要 X」一律改写正向锁定
+
+### P1 · 衔接策略层(Team B)
+
+- **seam 字段端到端**:DramaShot 加 `seam_to_next`/`seam_anchor`(models.py:327 + db.py:57 幂等迁移,照 mood/beat 范本);枚举 continue/overlap/matchcut/hardcut;`_STORYBOARD_SYSTEM` 增接缝规划规则(LLM 按分镜关系自动选策略+写锚点,末镜强制空);ShotOut/ShotPatch/_shot_dict 全链透出
+- **modifier 技能** `h3-seam-polish/SKILL.md`(kind: modifier;三阶段 6-8/12-18/6-10 帧+速度继承+单主导机制+跨镜连续;槽位 {{anchor}}/{{direction}});`_apply_seam_modifier`(drama_studio.py:1590)在 prev.seam==matchcut 时注入生成 prompt 末尾;三入口(v1 :1644/continue :2041/v2 :4267)统一接入,prompt_override 也追加
+- **接缝级 xfade**(assembly.py):overlap 接缝 → xfade 15帧/fps clamp 0.4-0.75s + 音轨 acrossfade;其余硬切;未声明沿用全局 transition(全空 seam 逐字节保持旧命令,向后兼容);静音补偿/concat a=1 保留
+- **前端**:ShotTableRow 接缝徽章 4 态+行内选择器+锚点框(matchcut/overlap 才显示);web 单测 +5 例
+
+### P2 · 宫格阶段B grounding(Team C,治动漫偏置 dogfood 高优#1)
+
+- grid_storyboard 拿到宫格图后:`_ground_grid_prompts`(:3274)取图 base64 → studio04 VLM 逐格观察(`_GRID_OBSERVE_SYSTEM`:只描述实际可见,禁脑补,JSON panels)→ 二次 LLM 据实改写各镜 prompt(`_GRID_GROUND_SYSTEM`:身份/服装/姿态以实际成图为准,未覆盖细节保留原意图)
+- 降级永不抛:VLM/二次LLM 失败→fallback 保原 prompt;`grounding_status` grounded/fallback 落 detected_colors JSON(免迁移);配置 `TOIV_GRID_GROUNDING_ENABLED`(默认开)
+- **@图片N 模板**:技能 `h3-multi-ref`(kind: template)+ `services/h3_refs.py`(`build_ref_prefix`/`refs_from_characters`(三视图取 front)/`ref_prefix_for_shot`(H3 引擎门控+按分镜出场序排角色防编号漂移));注入 v2 :4254(引用行绝对开头 × seam modifier 末尾,兼容共存);v1 纯 LTX 不注入
+- 前端:宫格预览头部 grounding 徽章(已按实图改写/未按实图改写·已回落)
+
+### P2/P3 · 模板技能 + 黄金集(Team D)
+
+- `editorial-mg-pv/SKILL.md`(kind: template):风格 DNA 全槽化(7 变量槽 character/weapon/palette/title/duration/aspect/segments);视觉权重 55/35/10、负空间规则、母题变形链、标题落版三段拼装、20s/30s 双档时长预算表;evals 4 例+黄金稿章节对齐率实测 100%
+- **黄金集** `quality/golden.py`:zhuxian-25shots(元数据壳)+ silent-eclipse-pv(指向 golden/30s.txt/20s.txt);register/load/list
+- **转场链 judge** `quality/transition_chain.py`:anchor_overlap_score(软转场才计分,字符 bigram Jaccard,阈值 0.3)+ score_transition_chain(逐缝评分+锚点匹配率;LLM judge 可注入 `(prev,next)->{score,reason}`,异常回退确定性);供 R5.1 接线
+
+### 回归 + 部署 + 浏览器验收
+
+- 后端 pytest **1670 passed**(新增 A 12 + B 17 + C 15 + D 22 + 既有;2 个 test_redis_integration 预存 flaky,多队实证与本改动无关)
+- 前端 **234/234**;tsc 零错误;ui_lint 0 FAIL;next build ✅;deploy.sh core-ts 双服务就绪
+- **生产真实浏览器验收**:authed-drama-workbench **6/6 通过(24.9s)**——含新增用例 6「分镜接缝徽章渲染+行内选择器切换落库+刷新仍在」(真实 UI 驱动,接口仅备数据)
+
+### 遗留
+
+- grid_storyboard 落库路径暂不持久化 LLM 返回的 seam 字段(text storyboard 路径已持久化;grid 路径补两行即可,下期)
+- continue-video H3 i2v 的 @图片N 注入未做(v2 已做;continue 属续段链,引用语义不同,待评估)
+- Team E 报告的 A/B 小样本局限(种子未固定);R5.1 质量门接线 transition_chain 待启动
+- test_redis_integration 2 个预存 flaky(顺序依赖/fakeredis),与本里程碑无关,建议独立修
+
+---
+
+## THEME-INPUT-PROGRESS-2026-08-16 · 明暗双主题+自定义主题 / 输入框解放 / 全局生成进度条
+
+**时间**: 2026-08-16
+**类型**: 用户 /goal 里程碑(三团队并行:Team A 主题、Team B 输入框、Team C 进度条)
+
+### Team A · 主题系统(明暗双主題 + 自定义)
+
+- **架构**:模式(亮/暗 `data-mode`)× 色板(5 套 `data-theme`)双维度 + 自定义覆盖;三存储键 `toiv_theme`/`toiv_mode`/`toiv_theme_custom`(JSON:accent+pureBlack);layout.tsx 防 FOUC 脚本升级三 key 白名单校验+内联派生
+- **暗色 token**(globals.css `[data-mode="dark"]` 块,置于色板块后同优先级靠顺序赢):bg `#101114/#16181C/#1C1F24/#23262D`;文字 `#F4F4F3/#A9ACB2/#8B8E95`(AA 4.6:1);paper/mono accent 近白 `#F5F5F4`(黑白单色美学);wood/mint/apricot 暗色变体亮蓝/亮薄荷/亮杏(对比 6.9-9:1);状态色调亮;玻璃/阴影/噪点/压角全暗色变体;`color-scheme:dark`;纯黑开关 `[data-pure-black]` canvas 压 #000
+- **自定义 accent 派生**(RGB mix):hover 亮向黑 10%/暗向白 12%;soft=accent 11%+画布 89%;glow=30% alpha;on-accent 加权亮度阈值;inline setProperty 优先级最高,切模式/色板自动重派生
+- **ThemePicker 三层重构**:模式段控/五色板/自定义区(5 预设丸+自由取色+恢复默认+纯黑 Switch),三入口(CornerNav/BottomNav/设置页)复用;三 key 跨页同步(只写 DOM 防乒乓)
+- **drama-workbench 暗房适配**:新增 `[data-mode="dark"] .wb-root` 与 darkroom 覆盖块(底色向 --abs-black 压一档),修复「暗色下 color-mix 算出亮底」隐患;文件头写明四组合推导
+- 测试 themeMode.test.ts **19 例**(deriveAccentVars 纯函数 5+apply 系假 DOM 7+渲染 2+源码断言 7)
+
+### Team B · 输入框去高度限制(19 点/17 文件)
+
+- 新建 `hooks/useAutoResize.ts`(scrollHeight 两段式,value 受控+input 事件双通道,超 cap 内滚;纯函数 computeAutoHeight/capFromVh/applyAutoHeight 可单测;SSR 安全);`ui/Input.tsx` Textarea 增 ref 透传
+- **删硬顶**:AssistantView composer 176px max-height+resize:none+行数封顶逻辑 → hook maxVh:40;AudioView 情感描述 resize:none → vertical;stage.css `.promptbar-textarea` max-height:none→**40vh**(修无限增高遮盖舞台的反向问题,过期注释同步修正)
+- **单行升级多行**:PlanPanel 打回反馈 input→textarea
+- 接线全覆盖:GenerateView 负向/ParamField/PromptBar、drama ShotTableRow/StageAssets/DramaView 梗概、studio ScriptStage/CastStage/ShotCard、Animatic、Audio TTS、AvatarGenPanel 正负向、AvatarTalk 系统提示词、PlanPanel/TaskCardList/ConfirmGateModal、AgentsAdmin×2、agent-runs 新建
+- 刻意不动:`.wb-script-input` 填充式剧本编辑器、AudioView 只读转写展示框、全局 min-height:80px 下限
+- 测试 autoResizeInputs.test.ts **15 例**(纯函数 4+假 ref hook 全链路 3+源码断言 8)
+
+### Team C · 全局生成进度条
+
+- 新建 `lib/generationBus.ts`(Map+Set pub/sub;begin 幂等/progress/end/subscribe/getSnapshot 缓存数组稳定引用)+ `components/ui/GlobalProgress.tsx`(useSyncExternalStore;3px 顶部细条 var(--accent);determinate 均值/全不确定 40% 滑动;胶囊单任务 `label pct%` 多任务 `N 项生成中`;role=progressbar;reduced-motion 降级;SSR 零渲染);样式在 effects.css 末尾(零 hex);layout.tsx ToastProvider 内挂载
+- **A 类真进度**(trackJob 扼流点,FSM 零改动):GenerateView(引擎名)/AvatarGenPanel/ImageEditView(四工具各自文案);begin/progress/end 全覆盖 done/error/超时/降级轮询
+- **B 类 indeterminate**:useDramaProject 六动作(逐镜 `分镜 #N 视频生成/配音/对口型/末帧续写`+合成成片,批量自然聚合 N 项);useStudioProject withBusy 一处扼流全覆盖;Audio/Dub.doVoice/VideoEdit 导出/Animatic 双动作
+- 未接:DubView.doLipsync(三模式轮询终态分散 6 处,留二期)、drama autorun 后台管线
+- 测试 generationBus.test.ts **18 例**(bus 10+渲染 5+trackJob 行为 2+CSS 断言 1)
+
+### 中央回归 + 部署 + 真机验证
+
+- web **228/228**(176+19+15+18);tsc 零错误;ui_lint 0 FAIL(108 文件);next build ✅
+- `deploy/deploy.sh core-ts` 双服务就绪(toiv-api/toiv-web 第 2 次探测通过)
+- 生产冒烟:首页 HTML 含 toiv_mode/toiv_theme_custom 防 FOUC 脚本,HTTP 200
+- 生产 E2E 重跑 authed-drama-workbench **5/5 通过(10.1s)**(主题/输入框/进度条改动后工作台零回归)
+
+### 遗留(二期)
+
+- DubView.doLipsync 进度接入(终态分散);drama autorun 管线接入
+- ThemePicker 点色板会清自定义 accent(防语义困惑的刻意取舍);CornerNav/BottomNav 三层 ThemePicker 窄屏排版待目测
+- trackJob busProgress 依赖 opts.onProgress 存在(当前 A 类调用方全传,未来不传的新调用方只显 indeterminate)
+
+---
+
+## WORKBENCH-TEST-2026-08-16 · UI 测试全量评估 + 工作台测试补强(P0/P1/P2)
+
+**时间**: 2026-08-16
+**类型**: 测试评估 + 补强里程碑(用户指令:针对所有 UI 测试进行评估 → 按 P0/P1/P2 执行)
+
+### 评估结论(补强前)
+
+- 单测 136/136 全绿,但 LibTV 工作台 **9 组件 + drama-workbench.css 1840 行零测试引用**(grep 实证)
+- E2E 仅 r18-mode 用例 6 点到项目列表壳(`.nsfw-drama-side` 空态),从未打开项目 → wb-root/步进器/四阶段零 E2E 覆盖
+- DramaView.tsx 残留 ~1900 行旧 DramaDetail 死代码(重构注释自述待删)
+
+### P0 · workbench 单测(tests/dramaWorkbench.test.ts,40 用例)
+
+- 六大功能点全覆盖:① `initialStage` 三态推导(draft→script/storyboard→assets|shots/generating·ready→produce)② Shell 步进器 reachable/stepDone 门控矩阵(F,F/T,F/T,T 三组合 + aria-current)③ 双确认门回调(patchProject({status:"storyboard"|"generating"}) spy 验证 + 已确认态不回写)④ data-zone 切换(aria-label/onZone 对立值)⑤ FilmStrip 条件渲染(仅 produce)+ 本体(done keyframe→img/video 回落/四态/汇总/合成门控)⑥ Inspector 三态(镜头/角色/项目摘要,含内部自管理真实 setState 交互);附 ShotTableRow 8 例 + 容器挂载 2 例
+- 手法:node:test + renderToStaticMarkup + 元素树 props 直查调用 onClick(uiDViews 成熟模式);mock dp 普通对象强转;`mocks/studioApi.ts` 已有 imageUrl 透传
+- **覆盖率(--experimental-test-coverage,branch %)**:DramaWorkbench 95.45 / WorkbenchShell 98.57 / FilmStrip 100 / Inspector 93.02 / ShotTableRow 90.91,均 ≥80% 达标
+- 源码改动唯一处:DramaWorkbench.tsx 三标识符加 `export`(initialStage/SCRIPT_CONFIRMED_STATUSES/SHOTS_CONFIRMED_STATUSES,零行为变更)
+
+### P1 · E2E 链路(e2e/authed-drama-workbench.spec.ts,5 用例)
+
+- 链路:cornernav 进短剧 → 新建项目(唯一前缀 E2E短剧-时间戳)→ `.wb-root` + 步进器门控(剧本 current,资产/分镜/短片 disabled)→ 保存剧本→「确认剧本 →」解锁资产/分镜(is-done + `.wb-assets`)→ 检查器收叠(aria-expanded + wb-main--inspector-closed)→ 浅/暗 data-zone 切换 → 返回列表重进项目(步进器与后端 storyboard status 一致)
+- 每用例 finally 自删测试项目;跑完查生产库 `E2E短剧-` 前缀残留 0
+- **真机运行:5/5 通过(10.9s)**——走既有 playwright.prod.config.ts 直连 core 生产(API :8090 / Web :3100);本地 :3100 被无关 python http.server 占用致默认 config 误判复用,未擅杀他人进程
+- 已确认实现行为(非 bug):「确认剧本 →」需先保存剧本(disabled 依赖 savedScript);1280px 视口检查器初始收起(window.innerWidth>=1600 定初值)
+
+### P2 · 死代码清理(DramaView.tsx 2502 → 574 行,净删 1928 行)
+
+- 删除:DramaDetail/ShotCard(drama 内,非 studio 同名)/CandidateGrid/TaskLogPanel/AssetPanel/StatusBadge/ASSET_KINDS/fmtDur + L223 死引用 + 旧注释
+- **TaskLogPanel 恒假推导**:L223 `{activeId && dp.current && <TaskLogPanel/>}` 位于 `!wbOpen` 分支,而 `wbOpen=Boolean(activeId && dp.current)` → 分支内守卫恒 false,永不可达
+- 引用核查:⚠️ Grep 工具在大目录静默漏报属实(components 目录查不到 drama 子目录匹配),已用 20+ 窄路径分别验证零引用;import 清理 5 项(ReactMouseEvent/imageUrl/DramaShotItem/DramaShotCandidate/DramaAssetKind)
+
+### 回归(三线合并后统一验证)
+
+- web **176/176**(136+40);tsc 零错误;ui_lint 0 FAIL(107 文件,10 条预存软提醒)
+- ⚠️ **发现(待用户拍板)**:`.gitignore:65` 的 `drama/` 规则(本意:短剧成片运行时产物)把 `apps/web/components/drama/` 源码目录整体忽略,LibTV 工作台全部重构代码未入 git——建议收窄规则到运行时产物路径或加 `!apps/web/components/drama/` 否定行
+
+---
+
+## WORKBENCH-2026-08-16 · LibTV 式工作台大重构(短剧工作台 + 首页门户)
+
+**时间**: 2026-08-16
+**类型**: UI 大重构里程碑(用户 /goal:参考 9 开源短剧管线 + 10 商业平台 UI,把项目重构为 LibTV 那种形式)
+**设计文档**: [docs/2026-08-16-libtv-workbench-redesign.md](docs/2026-08-16-libtv-workbench-redesign.md)
+
+### 调研(4 路实机,2026-08-16)
+
+- **开源 9 项目 GitHub 实读**:Jellyfish(候选确认筐/readiness 门控/任务中心回跳)、wind-comic(11-tab 导演工作站/情绪标签/stale 检测/诚实降级徽章)、ArcReel(三栏+版本回滚+剪映草稿)、VideoClaw(6 阶段页)、waoowaoo(角色外观版本化)、Nomi(批准门主进程强制)、Forge-Film(plan/run 分离/引擎路由)、Micro-Drama(SSE 重放)、Script-Weaver(双 prompt 分列)
+- **LibTV/RHSTORY 形态钉死**:四步进器(剧本→美术→分镜→短片)+双确认门+**分镜表格**(非卡片流)+底部镜头胶片条+资产@引用+深色专业主题;LibTV 7 节点画布+Agent 同画布为二期方向
+- 堆友(对话框 C 位+@skill+分层编辑)、千问创作(四入口)、Mavis(任务卡状态视觉)、Lovart(Tab/Tune)、即梦(项目制画布)、可灵(分镜卡片墙)、Flowith(计划可编辑+级联刷新)、Skywork(澄清卡片+手动编辑免积分)
+
+### 实施(A 骨架 → B/C 阶段页并行 → D 首页并行 → 集成修复)
+
+- **短剧工作台全重构**(components/drama/workbench/ 9 组件):四步进器恒显顶栏+双确认门(确认前禁烧视频算力)、剧本三栏(AI 编剧对话/正文高亮编辑/分场大纲定位)、资产卡墙(三视图/引用计数/Jellyfish 候选筐)、**7 列分镜表格**(镜号/资产/双行描述/故事板/状态/时长/操作,25 镜扫读;行内编辑含 mood/beat 新字段;批量生成 dry-run 预估;error 诚实降级徽章)、短片阶段(大播放器+连续播放+镜头详情三槽)、**底部胶片条**(四态+视频首帧缩略+汇总+合成)、右栏检查器三态
+- **暗房主题**:token 派生零 hex,浅/暗即时切换;工作台打开时外层项目列表收 52px 窄轨+页头让位全高;<1600px 检查器覆盖式默认收起(保表格右列可见)
+- **首页门户化(堆友范式)**:引擎状态胶囊条(H3/LTX-2.5/LongCat/Wan/图像/音乐)+C 位对话框(placeholder「@调用技能」+@面板一期=工作台入口)+场景胶囊×4+最近作品瀑布流(排 R18);保留 v6.1 Film Atelier 美学
+- **后端**:dramashot +mood/beat 幂等迁移,ShotPatch/_shot_dict 同步,测试 77/77
+
+### 回归与真机验证
+
+- tsc 0 错误;ui_lint 0 FAIL(107 文件);web **136/136**;next build ✅;deploy.sh core-ts 双服务就绪
+- Puppeteer 生产实开诛仙项目(25 镜 305s):剧本三栏/资产卡墙(被 12 镜引用)/分镜表格全列/短片播放器+胶片条钉底(thumbs 25/25)/浅暗双 zone/窄轨——断言脚本全过;截图 /tmp/wb_verify/
+- 已知 follow-ups:旧 DramaDetail 死代码待清;mood/beat 待 storyboard LLM 输出接入;@面板 R4 接真技能;画布卡片墙二期
+
+---
+
+## COMPETE-V2-2026-08-15 · 竞品局差分析 v2 + R4→R7 刷新路线图
+
+**时间**: 2026-08-15
+**类型**: 调研里程碑(用户 /goal:10 平台系统调研→局差→可直接指导重构的路线图)
+**详细报告**: [docs/2026-08-15-competitive-gap-v2.md](docs/2026-08-15-competitive-gap-v2.md)
+
+### 调研方法
+
+四路并行实机调研(2026-08-15 当日):A=Liblib/堆友/RunningHub、B=MiniMax Design/千问创作、C=Lovart/Flowith/Skywork、D=即梦/可灵+LMArena 一手榜单(60.7 万/172 万票直读);维度=功能模块/UX/架构/性能/交互/商业模式/近 3 月动态。
+
+### 关键结论
+
+- **H3 = LMArena I2V 全球第一(1489 Elo)+ Video Edit 第一(1390)+ T2V 第五(1453,前五唯一开源)**——榜单冠军引擎已在自有集群,诛仙短剧实证背书,对外叙事升级为「榜单冠军引擎,自托管零排队」
+- **Agent 工程化方向全对**:Mavis Team Engine 确定性状态机、Skywork Dynamic Workflows 断点续跑、Flowith 计划可编辑——与 R3.2 LangGraph+Verifier+PostgresSaver 一一对应
+- **三大未达预期根因**:① 生成完即结束(缺画布编辑器,最大体验缺口)② 每次从零开始(Skills/模板/资产飞轮未启动)③ 质量靠运气(Verifier 仍是 LLM 自觉,诛仙靠人工 QA 逮 2 镜幻视证明需机制化)
+- **H3 Video Edit 榜一能力未产品化**(手里有牌没打);千问文档直喂/Seedance 50 多模态参考/可灵元素音色双绑定/手动编辑免积分为新情报要点
+- **计费范式收敛**:按秒透明锚点(RunningHub 元/秒)+档位递减+手动编辑/资产引用免计费(Skywork/Flowith)+成本预估前置
+
+### 路线图(R4→R7,均带验收标准,全自托管)
+
+R4 技能广场+模板飞轮(SKILL.md+强制 evals+@skill 显式调用+对话造技能+诛仙模板一键复用)→ R5 评测闭环+画布编辑器(L2 质量门 Q-Align/SenseVoice+Verifier 确定性状态机+改字/扩图/局部重绘+HITL+计划 DAG 参数级编辑)→ R6 工作流商品化+短剧工业化(RHSTORY 对标)+文档直喂+视频编辑+数字人方言/动作复刻+4K 提速 → R7 商业化(透明锚点+编辑免费)+首页本地叙事+创作者分成
+
+---
+
+## ZHUXIAN-V-2026-08-15 · H3 竖屏真人短剧《诛仙·镇魔古洞》5 分钟全链路
+
+**时间**: 2026-08-15
+**类型**: 长片生产实测(用户脚本:5min 竖屏 9:16 真人仙侠,影视级/口型匹配/颜值统一,全链路监督+找优化方案)
+**详细报告**: [docs/2026-08-15-zhuxian-h3-vertical-film.md](docs/2026-08-15-zhuxian-h3-vertical-film.md)
+
+### 规格与策略
+
+- 项目 `c921571d831b4bdebfb71d979e1b03af`,**576×1024@24fps**(精确 9:16;ProjectIn height≤1080 封杀 768×1344,576×1024 为上限内最大精确 9:16);25 镜 = 243f×14 + 362f×11 ≈ 307.5s
+- **分镜全手工编写英文 prompt**(storyboard 占位后 PATCH 覆写,绕开 _STORYBOARD_SYSTEM 动漫偏置,dogfood 遗留高优 #1 同点承接)
+- **一致性**:6 个面部台词镜 h3-i2v 锁定妆首帧(角色卡 generate-reference 三视图,FLUX 真人写实);19 镜 t2v 注入固定角色块+风格块
+- **台词口型**:prompt 内嵌中文台词 + lip-sync 指令,靠 H3 音画同出先验
+
+### 结果(全真机实证)
+
+- 首轮 **25/25 全成**(16:54→19:48,稳态 ~6min/镜,滑动窗口 8 + 85°C 熔断编排器);中段 QA 联络表逮出 **2 镜幻视**(#13 群众演员/#16 铠甲陌生人)→ 正向追加人数/角色约束重提,双过
+- **台词 QA(SenseVoice /analyze 核对音轨)**:#19「别管明天了，好吗？」#20「好。」**一字不差**,情绪 SAD+BGM 在场;i2v 镜脸与锚点逐帧一致
+- 合成:aspect auto/fps 0/保音轨/零二次烧字幕(H3 已自烧台词字幕,#24 金字幕先验再触发)→ 母版 **305s,h264+aac**,16s 完成
+- 4K:M6 fleet :8261/:8262/:8263 三卡并行超分 7320 帧 → **2160×3840 竖屏 4K 版**(974MB,0 错误);⚠️ v1 误用默认 3840×2160 横屏目标致 7320 帧拉伸报废(97min 学费)→ 给 video_4k_upscale_parallel.py 加**画幅方向护栏**(源与目标横竖不一致即报错)→ v2 显式 `--target-w 2160 --target-h 3840 --keep-frames` 重跑通过(103min);教训固化 AGENTS.md 易错点 28
+
+### 热管理博弈(最大运维发现)
+
+600W 默认 2min 触 85°C 熔断 → 500W 仍触 → **揪出风扇曲线懒惰(400W 负载风扇仅 37%)** → NVML `SetFanSpeed_v2` 锁双扇 85% → **450W + 85% 扇 = 稳态**(SM 2137MHz,连续 2h+ 零熔断);风扇值守脚本 60s 重设防回退(5h 自退)。
+> **2026-08-16 政策变更(用户拍板)**:85°C 软件熔断废止,温度高属正常,GPU 自降频即保护;GPU2 已恢复 600W;锁扇保留为吞吐优化而非安全措施(AGENTS.md 易错点 27/20 已同步)。
+
+### 优化方案(报告第四节,ROI 序)
+
+热管理标准件固化(✅已验证) / t2v 正向人数+角色硬约束进 prompt 模板(✅已验证) / drama i2v 一等公民化(本次 psql 绕行已验证,建议 v2 透传 image_url) / SenseVoice 台词 QA 标准件(✅已验证) / whisper.cpp :9212 转写空应答待修 / 熔断恢复精确化(编排器已修) / assemble 增 burn_subtitles 开关
+
+---
+
+## ATELIER-2026-08-15 · 全站 UI 系统性重构「Film Atelier v6.1」(19 视图)
+
+**时间**: 2026-08-15
+**类型**: 全站 UI 重构(用户目标:全面审查所有界面 → 记录问题 → 制定并实施完整方案,确保一致性与专业性)
+
+### 流程
+
+1. **审计**:13 视图 Puppeteer 真机截图(1280×850 素白)+ 19 视图代码盘点 → [docs/2026-08-15-ui-atelier-audit.md](docs/2026-08-15-ui-atelier-audit.md)
+   - P0×3:页头体系崩坏(14 视图 PageHeader 无层级;音频/画布/资源贴边溢出;音频双标题叠印)、/agent-runs 全站最糙(纯文字流)、空态无设计(大黑标题无字体性格)
+   - P1×3:段控/chip 三代同堂、徽章状态语言不统一、按钮层级混乱
+   - P2×5:卡片千卡一面、布局失衡(融合旗舰卡/数字人舞台/译制下半屏)、容器嵌套、步骤条简陋、项目行裸排
+2. **L0 共享层**(先于并行,避免冲突):
+   - `ui/PageHeader.tsx` 新增可选 `kicker` prop(拉丁铭牌 .page-header-kicker)
+   - `globals.css` masthead 化:编辑双线(border-strong + 其上 3px 淡线 ::after)+ Fraunces 展示标题 —— **14 个 PageHeader 视图零改动自动获得**
+   - 新共享类:`.view-shell`(视图壳节奏) `.at-chip`(墨丸+水波纹) `.at-seg/.at-seg-btn` `.at-card/.at-card--lift` `.at-badge(--ok/--err/--accent)` `.at-btn(--primary/--ghost/--danger)` `.at-empty 系列` `.at-card-in`(错落入场);零 hex、字重/时长全 token、reduced-motion 全覆盖
+3. **三团队并行实施**(各自门禁全绿):
+   - **Team B(核心创作)**:GenerateView kicker 按 kind 动态(IMAGE/VIDEO/SOUND ATELIER)+ 新增 `hideHeader` prop + 三处 Tabs→at-seg;ResultPanel 空态 at-empty 化(步骤卡 Fraunces 编号);AudioView 双标题消除(hideHeader)+ view-shell;AssistantView 空态 Fraunces+点阵 0.32→0.16+建议卡 at-card+模型胶囊 at-badge
+   - **Team C(工作室)**:Fusion 旗舰卡重排(描述上移+CTA 沉底+细线水印 icon)+ 手写头→PageHeader;AvatarTalk Tabs→at-seg+舞台空态氛围(径向洗光+细双线环)+形象卡图注化;Dub 步骤条(Fraunces 编号+墨丸当前步+去锁 icon)+上传框收敛;Animatic 控件统一 hairline;Image/VideoEdit 卡片按钮
+   - **Team D(系统)**:/agent-runs 重塑 —— **发现真 bug:`agent-runs.css` 只被详情页 import,列表页完全无样式**(纯文字流根因),补 import + 任务卡片流(at-card-in 错落+状态点+Fraunces n/N)+ 玻璃命令条输入区;资源去双重容器(styled-jsx scoped 死规则 :global 修正)+段控徽章 at 化;Studio 项目行卡片化(e2e 锚点 .btn-primary/.empty-state 附加保留);Settings/Canvas/Admin/Train/Backlot/Models 页头卡片按钮全对齐
+
+### 回归与真机验证
+
+- web **133/133**(新增 PageHeader kicker 测试)、tsc 零错误、ui_lint 0 FAIL(96 文件)、next build ✅、deploy.sh core-ts 双服务就绪
+- Puppeteer 抽查(素白):图片(IMAGE ATELIER+墨丸段控+PROMPT ATELIER 空态)、对话(DIALOGUE ATELIER+点阵收敛)、/agent-runs(AGENT TEAM+任务卡片流)、音频(**双标题消除**,仅 1 个 .page-header,SOUND ATELIER)、资源(RESOURCES+墨丸段控+hairline 徽章)—— 全部生效
+- **全量核验(目标收尾审计)**:13 剩余视图 DOM 断言扫描(kicker 全对/page-header 恰 1/无运行错误)+ 目验 imageEdit/融合/数字人;**发现并修复追加 bug**:数字人页头被左上 ToIV 导航遮挡 —— 根因 `.avatartalk-main` absolute inset 0 脱离壳层吃不到 app-main padding-top:56px 让位,页头自补 `calc(56px + space-2)` 顶部 clearance(avatartalk.css),复验 kicker top=64 完整可见 ✅
+- 已知边界:中文标题按设计系统既定回退 PingFang SC(非衬线),Fraunces 衬线作用于拉丁文/数字(kicker/编号/计数);styled-jsx scoped 死规则为存量问题,Team D 仅修正其触及选择器,其余视图建议后续统一排查
+
+---
+
+## LIBV2-2026-08-15 · 作品库「Film Atelier 放映厅」美学重塑(CSS-only v2)
+
+**时间**: 2026-08-15
+**类型**: 前端美学迭代(用户反馈「UI 并不美观」→ 在专业工具风基础上升级为编辑/暗房气质)
+
+### 设计决策(library.css 全量重写,DOM/类名 1:1 不动)
+
+- **页头 masthead**:`MEDIA ATELIER` 拉丁小型大写 kicker(::before 注入)+ Fraunces 衬线 32px 标题 + 编辑双线 hairline(border-strong + 其上 3px 淡线)
+- **工具条**:改悬浮玻璃命令条(glass-bg + blur + 圆角面板 + 高光内描边);激活 chip 从灰盒改**墨丸填充**(accent 底/on-accent 字,计数 72% 白);按压触发**水波纹**(::after 中心墨点 scale 0→18 慢扩散 320ms,走 --duration-slow)
+- **卡片媒体优先**:卡身去边框透明,缩略图承载圆角发夹线 + 软阴影;卡脚去分隔线、类型标注去胶囊化改小型大写图注;**错落入场**(lib-card-in 透明+10px 上浮,前 15 张 30ms 逐级,16+ 同拍 450ms 封顶,大数据量不拖尾)
+- **hover 呼吸**:缩略图 translateY(-2px) + shadow-lift + 媒体 1.04 慢放大(--ease-emphasized),操作组改玻璃圆条
+- **灯箱**:计数改 Fraunces 衬线数字「1 / 50」放映场次感;元信息 label 小型大写;操作钮圆角 full
+- **氛围**:视图顶部一束 token 混色(color-mix accent 4%)编辑台灯洗光,极淡不盖内容
+- 纪律:零 hex、字重/时长全 token、z-index 语义档、prefers-reduced-motion 全覆盖(入场/水波纹/抬升全降级)
+
+### 回归与真机验证
+
+- web **132/132** ✅、tsc 零错误 ✅、ui_lint 0 FAIL(96 文件)✅、next build ✅
+- 部署 core(deploy.sh core-ts,先本地 build 再同步 .next)双服务就绪
+- Puppeteer 实测:50 卡渲染稳定 764ms(与 v1 的 812ms 持平,入场动画零性能代价);素白/浅木双主题截图核验 token 自适应;灯箱/hover 抬升(computed transform/shadow 实测生效)✅
+
+---
+
+## H3I2V-2026-08-15 · H3 i2v 转运链冒烟(dogfood 遗留项 #6 闭环)
+
+**时间**: 2026-08-15
+**类型**: 引擎链路冒烟(H3 dogfood 报告第三节 #6「i2v 转运链未 dogfood」闭环)
+
+### 链路实测
+
+- 首帧:GEN50 古风作品(768×512,32 对齐)→ `POST /api/upload?kind=h3_i2v`(multipart `image`)→ 落 pool worker :8189
+- 提交:`POST /api/h3/i2v`{image, worker, 768×512, **length=22**(最小 17k+5 网格), steps 20}
+- **预检实战**:GPU0 空闲 23.8GiB < 36GiB 被 503 拦(彼时 :8195 有另一 i2v 作业在跑,`video_agent_3be70735.png`,预检正确地不驱逐在跑作业);等其完成 + 双 free(:8189/:8195)后一次提交通过 —— 预检三件套(自身驱逐/同卡协调/503 错峰提示)行为符合设计
+- 生成::8195 单实例 ~160s 出片,终态 done
+
+### 产物验收(i2v_00021_.mp4)
+
+| 项 | 实测 | 判定 |
+|----|------|------|
+| 规格 | h264 768×512 @24fps,0.917s(22 帧 ✓) | ✅ |
+| 音轨 | **aac 音画同出**(i2v 链同样保留) | ✅ |
+| 首帧保真 | 剑客/悬崖/云海/日出构图全保持 | ✅ |
+| 运动合理 | 衣袂发丝飘动、云海流动、姿态自然延续,无崩坏 | ✅ |
+| 下载 | 签名 URL + `?token=` 认证(裸 curl 无 token → 401「未认证」,符合易错点 26 设计) | ✅ |
+
+### 结论
+
+H3 i2v 转运链(上传→转运→出片→签名落库→下载)全通,dogfood 报告遗留项 #6 闭环。H3 t2v/i2v 双链路现均有真机实证。
+
+---
+
+## GEN50-2026-08-15 · 作品库 50 条多风格 LoRA 测试数据 + 大数据量渲染/筛选性能验证
+
+**时间**: 2026-08-15
+**类型**: 测试数据构造 + 性能实测（用户需求:50 条不同风格、每风格搭配不同 LoRA,验证作品库大数据量渲染性能与筛选响应）
+
+### 底模与 LoRA 选型(真机核验)
+
+- **底模** `flux1-dev-fp8.safetensors`(Comfy-Org repack 17.2GB 全量包,worker :8189 CheckpointLoaderSimple 枚举实测在列);走传统 checkpoint 图(非 nextgen),采样档自取:768×512 / steps 20 / **cfg 1.0** / euler / simple
+- **LoRA 全部来自 NAS 存量**(worker LoraLoader 枚举实测;含上轮 HF 新下载 2 个),safetensors 头核验均为 Flux 架构键(`lora_unet_double_blocks_*` / `double_blocks.*` / `lora_te1_*`)
+
+| 风格 | LoRA(均 NAS) | 权重 | 来源 |
+|------|--------------|------|------|
+| 赛博朋克 | cyberpunk-horror-anime-style-flux-lora.safetensors | 0.8 | HF 新下载(Muapi) |
+| 古风 | xianxia_ancient_chinese.safetensors | 0.8 | NAS 存量 |
+| 写实 | flux_realism_xlabs.safetensors | 1.0 | HF 新下载(XLabs-AI) |
+| 3D卡通 | DL_3D_Cartoon_Style.safetensors | 0.8 | NAS 存量 |
+| 动漫 | Anime_Style_Flux1D.safetensors | 0.8 | NAS 存量 |
+
+### 生成执行(脚本 /tmp/gen50.py)
+
+- 提交:限流 20/min → 16/窗 × 4 窗(窗间 65s),50/50 提交成功
+- 终态:**50/50 done,0 error**(轮询 /api/jobs 确认;3 worker 池分发:gpu0 :8189 + pc01 + pc02)
+- 每风格 10 条独立场景 prompt,统一中文风格标签前缀(`赛博朋克风格。/古风仙侠。/写实摄影。/3D卡通风格。/动漫风格。`)供作品库 prompt 搜索命中
+- 抽样视觉验证 5/5:赛博朋克雨夜霓虹(风格强烈)、古风云海剑客(仙侠)、写实老人肖像(照片级)、3D 卡通机器人厨师(皮克斯风)、动漫夕阳站台(新海诚风)
+
+### 性能实测(Puppeteer 真机,core :3100,admin 会话)
+
+| 指标 | 实测值 | 判定 |
+|------|--------|------|
+| 作品库首屏(50 卡) | 首卡 407ms / 全部稳定渲染 812ms | ✅ |
+| 类型筛选(全部→图像) | **6.9ms**(50→50) | ✅ |
+| prompt 搜索「赛博朋克」 | **6.4ms** → 精确命中 10 卡 | ✅ |
+| prompt 搜索「古风」 | **7.9ms** → 精确命中 10 卡 | ✅ |
+| prompt 搜索「pixar」 | 23.6ms → 10 卡 | ✅ |
+| 清空搜索恢复 | 10.8ms → 50 卡 | ✅ |
+| 排序切换(最新→最早) | **17.8ms**,首卡从动漫→赛博朋克(序正确反转) | ✅ |
+| API `/api/jobs?limit=100` | 24-93ms(均值 ~44ms,载荷 32KB) | ✅ |
+
+### 结论
+
+- 50 卡量级下作品库筛选/搜索/排序全部 <30ms(纯客户端管线 `applyLibraryQuery`),首屏 <1s,无性能瓶颈
+- Flux + 5 风格 LoRA 链路(提交→路由→出图→签名 URL 落库→作品库呈现)全通;LoRA 风格区分度高,中文风格标签可被 prompt 搜索精确分桶
+
+---
+
 ## LIB-RD-2026-08-15 · 作品库清空 + 专业工具风全面重设计
 
 **时间**: 2026-08-15

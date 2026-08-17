@@ -164,6 +164,7 @@ export function CanvasView() {
       className="canvas-header"
       title="画布"
       desc="内嵌 ComfyUI 节点画布,拖拽编排与调试生成工作流"
+      kicker="NODE CANVAS"
       actions={
         phase === "ready" && src ? (
           <>
@@ -402,13 +403,25 @@ const styles = `
     display: flex;
     flex-direction: column;
   }
-  .canvas-header {
+  /* ── 页头:进 .view-shell 节奏(1200 版心 + 两侧 32px 呼吸),iframe 画布区保持全宽 ──
+     (页头元素在 PageHeader 组件内渲染,scoped 选择器须 :global 才能命中) */
+  .canvas-view :global(.canvas-header) {
     flex: none;
+    width: 100%;
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: var(--space-8);
+    padding-right: var(--space-8);
   }
-  /* 页头下方错误条容器(P1-2,ErrorBar 本体样式见 effects.css) */
+  /* 页头下方错误条容器(P1-2,ErrorBar 本体样式见 effects.css);与页头同版心 */
   .canvas-header-error {
     flex: none;
-    margin: calc(-1 * var(--space-2)) var(--space-6) var(--space-4);
+    width: 100%;
+    max-width: 1200px;
+    margin: calc(-1 * var(--space-2)) auto var(--space-4);
+    padding-left: var(--space-8);
+    padding-right: var(--space-8);
   }
   /* 探测加载块(P1-2,LoadingBlock 骨架行宽约束) */
   .canvas-probe-loading {
@@ -778,13 +791,19 @@ const styles = `
       padding: var(--space-4);
     }
   }
-  /* ── <768px:隐藏页头描述给画布让位;触控目标 ≥44px;显示移动端提示条 ── */
+  /* ── <768px:隐藏页头描述给画布让位;页头/错误条收内距;触控目标 ≥44px;显示移动端提示条 ── */
   @media (max-width: 767px) {
-    .canvas-header :global(.page-header-desc) {
+    .canvas-view :global(.canvas-header) {
+      padding-left: var(--space-3);
+      padding-right: var(--space-3);
+    }
+    .canvas-view :global(.canvas-header .page-header-desc) {
       display: none;
     }
     .canvas-header-error {
-      margin: calc(-1 * var(--space-2)) var(--space-4) var(--space-3);
+      margin: calc(-1 * var(--space-2)) auto var(--space-3);
+      padding-left: var(--space-3);
+      padding-right: var(--space-3);
     }
     .canvas-mobile-note {
       display: flex;

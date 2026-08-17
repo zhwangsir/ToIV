@@ -29,6 +29,7 @@ from app.nsfw_ctx import nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
 from app.workflows.model_profiles import detect_model_family
 from app.workflows.style_presets import ALL_PRESETS
+from app.workflows.wan_i2v import WAN_I2V_NSFW_LORAS, pick_trigger_words
 
 router = APIRouter()
 
@@ -165,6 +166,95 @@ _VIDEO_SYSTEM = (
     '只输出 JSON:{"positive": "...", "negative": "..."},不要解释,不要代码块标记。'
 )
 
+# ── 视频引擎「方言」(2026-08-17 参考 DashBox 提示词 RFC:触发词是确定性知识)──
+# 不同引擎提示词结构差异极大:Wan2.2 NSFW 要触发词置前;H3 负向不可靠需全正向;
+# LTX-2.5 音画同出可描述声音。通用模板产出会静默失效(挂错 LoRA/触发词缺失)。
+_VIDEO_ENGINE_SYSTEMS: dict[str, str] = {
+    # Wan2.2 I2V NSFW(Civitai 爆款配方):触发词置前 + 动作连续 + 镜头 + 质感
+    "wan-nsfw-i2v": (
+        "你是 Wan2.2 图生视频(I2V)成人向提示词工程师。该引擎为双专家架构(高噪管构图/动作,"
+        "低噪管细节),用户已选定 LoRA,其触发词必须在 positive 中原样出现且置于句首"
+        "(触发词是编码串,改写/翻译/遗漏任何一个字符都会让 LoRA 静默失效)。\n"
+        "把用户的想法扩写成一段英文正向提示词,结构:\n"
+        "1) 触发词(给定的全部原样置前,逗号分隔);\n"
+        "2) 主体与动作:自然语言连贯描述谁、在哪里、做什么、怎么做——动作要有连续运动感,"
+        "幅度适合 5 秒短视频(单一动作链,不堆砌多个场景);\n"
+        "3) 镜头:视角与机位(side view / pov / from behind 等);\n"
+        "4) 神态与物理细节:表情、呼吸、身体物理反馈(bounce / tremble / glistening);\n"
+        "5) 质量收尾:4k, very high quality。\n"
+        "negative:一段英文负向,排除画质/闪烁/形变/抖动/解剖瑕疵,精炼 5~15 词。\n"
+        '只输出 JSON:{"positive": "...", "negative": "..."},不要解释,不要代码块标记。'
+    ),
+    # MiniMax H3(含 R18 版):负向不可靠(2026-08-16 真机 A/B 实证),一切写正向指令
+    "h3": (
+        "你是 MiniMax H3 视频提示词工程师。H3 特性:负面约束不可靠(实测「不要 X」反而易出 X),"
+        "所有要求一律改写成**正向指令**(例:不要字幕→画面只有角色与场景;不要多人→只有一个人)。"
+        "剧情连续性好,吃流畅长描述。\n"
+        "把用户的想法扩写成:\n"
+        "1) positive:一段流畅英文长句描述(主体、外貌、动作、环境、光线、镜头、氛围,"
+        "动作带连续过程感);\n"
+        "2) negative:留一段最精简的通用画质负向即可(blurry, lowres, watermark)。\n"
+        '只输出 JSON:{"positive": "...", "negative": "..."},不要解释,不要代码块标记。'
+    ),
+    # LTX-2.5:原生音画同出,positive 可含声音描述
+    "ltx25": (
+        "你是 LTX-2.5 音视频模型提示词工程师。该模型原生音画同出:positive 除画面与运动外,"
+        "鼓励描述声音(环境音、动作声、氛围声,如 waves crashing, soft wind, distant birds)。\n"
+        "把用户的想法扩写成:\n"
+        "1) positive:英文流畅描述画面(主体/动作/环境/光线/镜头)+ 运动过程 + 声音氛围;\n"
+        "2) negative:一段英文负向(画质/闪烁/形变/抖动),精炼 5~15 词。\n"
+        '只输出 JSON:{"positive": "...", "negative": "..."},不要解释,不要代码块标记。'
+    ),
+}
+
+
+def _video_system_for(engine: str | None) -> str:
+    """按引擎 id 选视频方言模板;h3-t2v/h3-nsfw-i2v/ltx25-t2v 等前缀匹配,无命中走通用。"""
+    if engine:
+        for prefix, sys_ in _VIDEO_ENGINE_SYSTEMS.items():
+            if engine == prefix or engine.startswith(prefix + "-"):
+                return sys_
+    return _VIDEO_SYSTEM
+
+
+def _wan_triggers_for(body: "OptimizeRequest", user: User) -> tuple[list[str], list[list[str]]]:
+    """Wan NSFW LoRA 触发词确定性解析:仅 R18 上下文 + 注册表内条目生效(SFW 静默忽略,
+    防主站被诱导产出 R18 词)。返回 (必选词, 候选组):
+    - 必选词(trigger_mode=all):system 告知「全部置前」,后处理逐个补齐
+    - 候选组(trigger_mode=pick_one):按种子文本关键词预选一个;system 告知全候选,
+      LLM 可按场景语义改选;后处理校验「组内任一词在文中」,全缺才补预选词
+    """
+    if not body.loras or not nsfw_allowed(user):
+        return [], []
+    required: list[str] = []
+    choices: list[list[str]] = []
+    for name in body.loras:
+        meta = WAN_I2V_NSFW_LORAS.get(name)
+        if meta is None or not meta.trigger_words:
+            continue
+        if meta.trigger_mode == "all":
+            for w in meta.trigger_words:
+                if w not in required:
+                    required.append(w)
+        else:
+            picked = pick_trigger_words([name], body.prompt)  # 关键词命中或取第一个
+            group = list(meta.trigger_words)
+            # 预选词排组首,LLM 无更强语义倾向时自然沿用
+            if picked and picked[0] in group:
+                group.remove(picked[0])
+                group.insert(0, picked[0])
+            choices.append(group)
+    return required, choices
+
+
+def _ensure_trigger_words(positive: str, required: list[str], choices: list[list[str]]) -> str:
+    """触发词后处理(DashBox L0 确定性保障):必选一个不缺;候选组至少含一,全缺补组首。"""
+    prefix: list[str] = [w for w in required if w not in positive]
+    for group in choices:
+        if not any(w in positive for w in group):
+            prefix.append(group[0])
+    return (", ".join(prefix) + ", " + positive) if prefix else positive
+
 # 视频兜底负面:LLM 没给 / 解析失败时用
 _VIDEO_GENERIC_NEGATIVE = (
     "blurry, lowres, jpeg artifacts, watermark, flickering, morphing, "
@@ -252,6 +342,11 @@ class OptimizeRequest(BaseModel):
     kind: str = Field(default="image")
     # 目标模型(checkpoint 文件名);传入则按模型族切换改写方言,不传则用通用基底
     model: str | None = Field(default=None, max_length=300)
+    # 目标引擎 id(如 wan-nsfw-i2v / h3-t2v / ltx25-i2v);视频类按引擎切换方言模板
+    engine: str | None = Field(default=None, max_length=64)
+    # 已选 LoRA 文件名列表(如工作台 loras 参数);Wan NSFW 注册表内条目触发词
+    # 由后端确定性注入(参考 DashBox RFC:触发词不交给 LLM 自由发挥)
+    loras: list[str] | None = Field(default=None, max_length=8)
     # 风格预设 id;传入且预设写了 llm_layer 时,提示词优化走对应 LLM 层
     # (预设无该字段/层不可用时由 chat_layered 降级链自动回落 L1)
     style: str | None = Field(default=None, max_length=64)
@@ -365,18 +460,32 @@ async def optimize_prompt(
             raise HTTPException(status_code=502, detail="优化失败,请重试")
         return OptimizeResponse(optimized=cleaned, negative=_heuristic_negative(cleaned))
 
-    # 视频类:与图像类同构 —— JSON positive + negative(视频引擎吃 negative)
+    # 视频类:引擎方言模板(Wan/H3/LTX25 结构差异大,通用模板会静默失效)+
+    # Wan NSFW LoRA 触发词确定性注入(DashBox L0:不交给 LLM 自由发挥)
     if body.kind == "video":
-        raw = await _llm_text(_compose(_VIDEO_SYSTEM), body.prompt, layer=llm_layer)
+        required, choices = _wan_triggers_for(body, user)
+        system = _video_system_for(body.engine)
+        if required or choices:
+            parts: list[str] = []
+            if required:
+                parts.append(f"必须全部原样置前:{', '.join(required)}")
+            for group in choices:
+                parts.append(f"按场景任选一个置前(预选 {group[0]}):{', '.join(group)}")
+            system += "\n\n【已选 LoRA 触发词】" + ";".join(parts)
+        raw = await _llm_text(_compose(system), body.prompt, layer=llm_layer)
         obj = _parse_json_obj(raw)
         if obj and obj.get("positive"):
             positive = str(obj["positive"]).strip().strip('"')
+            positive = _ensure_trigger_words(positive, required, choices)
             negative = str(obj.get("negative") or "").strip().strip('"') or _VIDEO_GENERIC_NEGATIVE
             return OptimizeResponse(optimized=positive, negative=negative)
         cleaned = raw.strip().strip('"').strip()
         if not cleaned:
             raise HTTPException(status_code=502, detail="优化失败,请重试")
-        return OptimizeResponse(optimized=cleaned, negative=_VIDEO_GENERIC_NEGATIVE)
+        return OptimizeResponse(
+            optimized=_ensure_trigger_words(cleaned, required, choices),
+            negative=_VIDEO_GENERIC_NEGATIVE,
+        )
 
     # 其它类:单段(未知 kind 走通用兜底)
     system = _TEXT_SYSTEMS.get(body.kind) or (

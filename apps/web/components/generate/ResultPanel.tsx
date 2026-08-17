@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -10,8 +10,10 @@ import { LazyVideo } from "@/components/ui/LazyVideo";
 import { Select } from "@/components/ui/Input";
 import { Switch } from "@/components/ui/Switch";
 import { imageUrl } from "@/lib/api";
-import type { EngineKind } from "@/lib/engines";
+import type { EngineInfo, EngineKind } from "@/lib/engines";
 import type { QualityWarning } from "@/lib/trackJob";
+
+import { QuickStartGrid } from "./QuickStartGrid";
 
 /** 会话内生成历史条目(不落库,刷新即清空)。 */
 export interface HistoryEntry {
@@ -26,6 +28,13 @@ export interface HistoryEntry {
   error?: string | null;
   /** 底层错误原文:「技术详情」展开内容(未知模式为 null,不重复展示)。 */
   errorDetail?: string | null;
+  /** 时长策略提示(后端 duration_notice:网格精确裁切/分段续写时的人话说明,muted 一行)。 */
+  notice?: string | null;
+  /** 后端作业寻址键(裁切链终产物轮询用;提交时快照)。 */
+  promptId?: string;
+  /** 时长后处理进行中(trim/extend):paths 为未裁原片,结果区显示「精确裁切中」,
+   *  轮询到 post_status 清零后自动替换终产物。 */
+  postProcessing?: boolean;
   /** 目标尺寸(提交时快照):生成中骨架按此宽高比渲染,避免与目标尺寸不符。 */
   width?: number;
   height?: number;
@@ -42,39 +51,77 @@ const STATUS_META: Record<HistoryEntry["status"], { tone: "run" | "ok" | "err" |
 /** 音频产物扩展名:结果路径以此结尾时渲染 <audio> 播放器(而非 img/video)。 */
 const AUDIO_PATH_RE = /\.(mp3|wav|flac|ogg)$/i;
 
+/** 媒体加载失败占位(签名 URL 过期/代理 404 时兜底,不给用户看浏览器破图)。 */
+function MediaFailPlaceholder({ kind }: { kind: "video" | "image" | "audio" }) {
+  return (
+    <div className="media-fail" role="status">
+      <Icon name={kind === "audio" ? "audio" : kind === "video" ? "video" : "image"} size={28} />
+      <span>{kind === "audio" ? "音频加载失败" : "内容加载失败"}</span>
+      <span className="media-fail-hint">链接可能已过期,可刷新页面重试</span>
+    </div>
+  );
+}
+
 function MediaView({ entry, className }: { entry: HistoryEntry; className?: string }) {
+  const [failed, setFailed] = useState<Set<string>>(new Set());
   const first = entry.paths[0];
   if (!first) return null;
   if (AUDIO_PATH_RE.test(first)) {
     return (
       <>
-        {entry.paths.map((p) => (
-          <audio key={p} src={imageUrl(p)} controls preload="metadata" className="media-audio" />
-        ))}
+        {entry.paths.map((p) =>
+          failed.has(p) ? (
+            <MediaFailPlaceholder key={p} kind="audio" />
+          ) : (
+            <audio
+              key={p}
+              src={imageUrl(p)}
+              controls
+              preload="metadata"
+              className="media-audio"
+              onError={() => setFailed((prev) => new Set(prev).add(p))}
+            />
+          ),
+        )}
       </>
     );
   }
   const url = imageUrl(first);
   if (entry.kind === "video") {
-    return <video src={url} controls className={className} />;
+    if (failed.has(first)) return <MediaFailPlaceholder kind="video" />;
+    return (
+      <video
+        src={url}
+        controls
+        playsInline
+        preload="metadata"
+        className={className}
+        onError={() => setFailed((prev) => new Set(prev).add(first))}
+      />
+    );
   }
   return (
     <>
-      {entry.paths.map((p) => (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          key={p}
-          src={imageUrl(p)}
-          alt={entry.prompt}
-          className={className}
-          /* CLS 防护:优先用提交时快照的真实目标尺寸;缺省回退 1:1 设计基准
-             (CSS 侧 max-width/max-height + object-fit:contain 保持实际纵横比,见 stage.css .media-main) */
-          width={entry.width ?? 1024}
-          height={entry.height ?? 1024}
-          loading="lazy"
-          decoding="async"
-        />
-      ))}
+      {entry.paths.map((p) =>
+        failed.has(p) ? (
+          <MediaFailPlaceholder key={p} kind="image" />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={p}
+            src={imageUrl(p)}
+            alt={entry.prompt}
+            className={className}
+            /* CLS 防护:优先用提交时快照的真实目标尺寸;缺省回退 1:1 设计基准
+               (CSS 侧 max-width/max-height + object-fit:contain 保持实际纵横比,见 stage.css .media-main) */
+            width={entry.width ?? 1024}
+            height={entry.height ?? 1024}
+            loading="lazy"
+            decoding="async"
+            onError={() => setFailed((prev) => new Set(prev).add(p))}
+          />
+        ),
+      )}
     </>
   );
 }
@@ -100,6 +147,12 @@ interface ResultPanelProps {
   onCancel: () => void;
   /** 失败条目重试(沿用该条目的引擎/提示词/参数快照);不传则不渲染重试按钮。 */
   onRetry?: (entry: HistoryEntry) => void;
+  /** 空态「快速开始」卡(T3):当前板块 kind(决定渲染哪组策划卡)。 */
+  kind?: EngineKind;
+  /** 快速开始卡可用性数据源(当前 kind 全部引擎;null=加载中,卡区不渲染)。 */
+  quickStartEngines?: EngineInfo[] | null;
+  /** 点击快速开始卡:选中引擎 + 聚焦提示词框(GenerateView 承载);不传则空态不渲染卡区。 */
+  onQuickStart?: (engineId: string) => void;
 }
 
 /** 质量维度条:label + 横向条 + 百分比,颜色按值分段(对齐后端评估语义)。 */
@@ -117,6 +170,21 @@ function QualityBar({ label, value }: { label: string; value: number }) {
   );
 }
 
+/** 生成已耗时(active 时每秒跳动):长作业等待期给「没卡死」的时间感知。 */
+function useElapsed(active: boolean, since: number | undefined): string {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    const t = setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(t);
+  }, [active]);
+  if (!since) return "";
+  const s = Math.max(0, Math.floor((Date.now() - since) / 1000));
+  if (s < 60) return `${s} 秒`;
+  const m = Math.floor(s / 60);
+  return m < 60 ? `${m} 分 ${s % 60} 秒` : `${Math.floor(m / 60)} 时 ${m % 60} 分`;
+}
+
 /**
  * 结果区(WS2 剧场化):全出血暗舞台 —— 选中作品居中 contain 展示(带轻微暗角),
  * 状态/引擎/取消/A/B 对比开关合并为左上玻璃胶囊行(浮板锚右上,避免遮挡);
@@ -125,13 +193,15 @@ function QualityBar({ label, value }: { label: string; value: number }) {
  * 失败态为舞台中央错误卡:友好说明 + 可折叠技术详情(底层原文)+ 重试。
  * 全部样式在 app/styles/stage.css;生成中骨架用全局 skeleton-shimmer(WS5 motion.css)。
  */
-export function ResultPanel({ entries, selectedId, onSelect, liveProgress, qualityWarning, onApplyPrompt, onCancel, onRetry }: ResultPanelProps) {
+export function ResultPanel({ entries, selectedId, onSelect, liveProgress, qualityWarning, onApplyPrompt, onCancel, onRetry, kind, quickStartEngines, onQuickStart }: ResultPanelProps) {
   const [compare, setCompare] = useState(false);
   const [compareA, setCompareA] = useState<string>("");
   const [compareB, setCompareB] = useState<string>("");
 
   const doneEntries = useMemo(() => entries.filter((e) => e.status === "done"), [entries]);
   const current = entries.find((e) => e.id === selectedId) ?? entries[0] ?? null;
+  // 当前条目生成已耗时(running 态每秒跳动;长作业「没卡死」的时间感知)
+  const elapsed = useElapsed(current?.status === "running", current?.createdAt);
   const entryA = doneEntries.find((e) => e.id === compareA) ?? doneEntries[0] ?? null;
   const entryB =
     doneEntries.find((e) => e.id === compareB) ?? doneEntries.find((e) => e.id !== entryA?.id) ?? null;
@@ -140,30 +210,39 @@ export function ResultPanel({ entries, selectedId, onSelect, liveProgress, quali
     // tabIndex=0:空态容器 overflow-y:auto 可滚动,axe scrollable-region-focusable 要求键盘可达
     return (
       <div className="result-panel result-panel-empty" tabIndex={0}>
+        {/* Film Atelier 空态(P0-3):拉丁 kicker + Fraunces 展示标题;
+            引导步骤卡升级为 .at-card 发夹线语言(去灰框),编号走 Fraunces 衬线(stage.css) */}
         <div className="empty-editorial">
-          <span className="empty-kicker">工作台</span>
+          <span className="at-empty-kicker">PROMPT ATELIER</span>
           <h2 className="empty-display">你的作品
             <br />
             将在这里呈现
           </h2>
-          <span className="empty-rule" aria-hidden="true" />
           <div className="empty-tips">
-            <div className="empty-tip">
+            <div className="empty-tip at-card at-card--lift">
               <span className="empty-tip-num">01</span>
               <span className="empty-tip-title">选择引擎</span>
               <span className="empty-tip-desc">左侧挑选图片 / 视频 / 音频引擎与模型</span>
             </div>
-            <div className="empty-tip">
+            <div className="empty-tip at-card at-card--lift">
               <span className="empty-tip-num">02</span>
               <span className="empty-tip-title">描述画面</span>
               <span className="empty-tip-desc">填写提示词,可用「优化」让 AI 二次润色</span>
             </div>
-            <div className="empty-tip">
+            <div className="empty-tip at-card at-card--lift">
               <span className="empty-tip-num">03</span>
               <span className="empty-tip-title">生成与对比</span>
               <span className="empty-tip-desc">点击生成,完成后可开启 A/B 对比</span>
             </div>
           </div>
+          {/* T3 快速开始:推荐起点卡,点击 = 选引擎 + 聚焦提示词(engines 为 null 时不渲染) */}
+          {onQuickStart && (
+            <QuickStartGrid
+              kind={kind ?? "video"}
+              engines={quickStartEngines ?? null}
+              onPick={onQuickStart}
+            />
+          )}
         </div>
       </div>
     );
@@ -217,8 +296,14 @@ export function ResultPanel({ entries, selectedId, onSelect, liveProgress, quali
                 <Badge tone={STATUS_META[current.status].tone}>{STATUS_META[current.status].label}</Badge>
                 <span className="stage-engine">{current.engineLabel}</span>
                 {current.status === "running" && (
-                  <Button variant="ghost" size="sm" icon={<Icon name="close" size={13} />} onClick={onCancel}>
-                    取消
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon={<Icon name="close" size={13} />}
+                    onClick={onCancel}
+                    title="停止在当前页面跟踪进度,后端作业继续执行"
+                  >
+                    停止跟踪
                   </Button>
                 )}
                 {compareSwitch}
@@ -290,7 +375,10 @@ export function ResultPanel({ entries, selectedId, onSelect, liveProgress, quali
                       />
                     </div>
                     <span className="stage-progress-text">
-                      {liveProgress.max > 0 ? `采样 ${liveProgress.value}/${liveProgress.max}` : "排队中…"}
+                      {liveProgress.max > 0
+                        ? `采样 ${liveProgress.value}/${liveProgress.max}`
+                        : "排队中…"}
+                      {elapsed && <span className="stage-elapsed">已用时 {elapsed}</span>}
                     </span>
                   </div>
                 </div>
@@ -326,13 +414,27 @@ export function ResultPanel({ entries, selectedId, onSelect, liveProgress, quali
               {current.status === "cancelled" && (
                 <p className="stage-message">已停止前端跟踪;后端作业完成后仍可在作品库查看。</p>
               )}
-              {current.status === "done" && (
+              {current.status === "done" && current.postProcessing && (
+                <div className="stage-loading" role="status" aria-live="polite">
+                  <div className="stage-progress">
+                    <div className="gen-progress">
+                      <div className="gen-progress-fill is-indeterminate" />
+                    </div>
+                    <span className="stage-progress-text">精确裁切中…</span>
+                  </div>
+                  <p className="stage-message">时长后处理进行中,完成后自动替换为终产物。</p>
+                </div>
+              )}
+              {current.status === "done" && !current.postProcessing && (
                 <div className="stage-media-wrap">
                   <MediaView entry={current} className="media-main" />
                 </div>
               )}
 
               <p className="stage-caption" title={current.prompt}>{current.prompt}</p>
+              {current.notice && (
+                <p className="stage-message" role="status">{current.notice}</p>
+              )}
             </div>
 
             <div className="filmstrip" role="listbox" aria-label="会话历史">

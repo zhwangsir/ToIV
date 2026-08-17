@@ -7,6 +7,7 @@
  * ⑤ SSE 断线 → reconnecting;连续 5 次全败 → 转 5s 轮询详情
  * ⑥ 终态 run 不订阅 SSE,直接 closed 并拉取成片
  * ⑦ 计划门 approve / 取消 调用契约端点
+ * ⑧ plan 简报事件按 id 并回详情字段;计划门打开时拉全量详情
  * @/lib/api 经 tests/loader.mjs 映射到 mocks/studioApi 可控替身。
  */
 import assert from "node:assert/strict";
@@ -100,6 +101,11 @@ test("② task_status 事件更新对应卡片 + 事件流记录", async () => {
 });
 
 test("③ confirm_required(gate=assembly)弹出合成门;计划门改 run 状态", async () => {
+  // 计划门事件会触发 refresh 拉全量详情(plan 简报缺 input);后端事件与状态同
+  // commit,故第二次拉取即新状态——mock 按调用序模拟该推进
+  let calls = 0;
+  agentImpl.getAgentRun = async (id) =>
+    makeAgentRunDetail(id, { status: calls++ === 0 ? "running" : "awaiting_confirm" });
   const h = renderHook(() => useAgentRun("r1"));
   await flush();
   const es = FakeEventSource.instances[0];
@@ -115,10 +121,8 @@ test("③ confirm_required(gate=assembly)弹出合成门;计划门改 run 状态
 test("④ regenerate 后 attempt+1(局部更新);action 失败透出错误条", async () => {
   const h = renderHook(() => useAgentRun("r1"));
   await flush();
-  agentImpl.agentTaskAction = async (_r, tid) => ({
-    ok: true,
-    task: makeAgentTask(tid, { attempt: 1, status: "queued" }),
-  });
+  agentImpl.agentTaskAction = async (_r, tid) =>
+    makeAgentTask(tid, { attempt: 1, status: "queued" });
   await h.result.current!.taskAction("t1", "regenerate", { guidance: "发色保持一致" });
   await flush();
   const t1 = h.result.current?.detail?.plan.find((t) => t.id === "t1");
@@ -204,5 +208,44 @@ test("⑦ 确认门 approve 与取消:契约端点被调用,门随之关闭", as
   await h.result.current!.cancel();
   await flush();
   assert.equal(agentCalls.cancelAgentRun, 1);
+  h.unmount();
+});
+
+test("⑧ plan 简报事件按 id 并回详情字段;计划门打开时拉全量详情", async () => {
+  agentImpl.getAgentRun = async (id) =>
+    makeAgentRunDetail(id, {
+      status: "awaiting_confirm",
+      plan: [makeAgentTask("t1", { input: { prompt: "雨夜" } }), makeAgentTask("t2")],
+    });
+  const h = renderHook(() => useAgentRun("r1"));
+  await flush();
+  const es = FakeEventSource.instances[0];
+  es.emit("open");
+  // plan 事件是简报(无 input/output 等详情字段)
+  es.emit(
+    "plan",
+    JSON.stringify({
+      tasks: [
+        { id: "t1", kind: "video", title: "镜头 1", depends_on: [], status: "pending" },
+        { id: "t3", kind: "audio", title: "配音", depends_on: ["t1"], status: "pending" },
+      ],
+    }),
+  );
+  await flush();
+  const plan = h.result.current?.detail?.plan ?? [];
+  assert.deepEqual(
+    plan.map((t) => t.id),
+    ["t1", "t3"],
+    "成员/顺序以事件为准(t2 被删、新增 t3)",
+  );
+  assert.equal(plan[0]?.input?.prompt, "雨夜", "已有详情字段并回,未被简报清空");
+  assert.equal(plan[1]?.title, "配音");
+
+  // 计划门打开 → 拉全量详情(简报缺 input,确认门展示/编辑需要完整卡片)
+  const before = agentCalls.getAgentRun;
+  es.emit("confirm_required", JSON.stringify({ gate: "plan" }));
+  await flush();
+  assert.equal(h.result.current?.detail?.status, "awaiting_confirm");
+  assert.ok(agentCalls.getAgentRun > before, "开门时拉全量详情");
   h.unmount();
 });

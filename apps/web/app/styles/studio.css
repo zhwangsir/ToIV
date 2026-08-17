@@ -1,6 +1,13 @@
 /* Studio 模块样式(自 StudioView.tsx styled-jsx 平移,样式值零变更)
-   ── 布局:内容区 max-width 1200 居中,与 single-view 版型对齐 ── */
-.studio-home,
+   ── 布局:内容区 max-width 1200 居中,与 single-view 版型对齐 ──
+   2026-08-15 Atelier:项目列表首页 .studio-home 改由全局 .view-shell 供版心/内边距;
+   工作台 .studio-view 保留自管(sticky 阶段条需内部滚动) */
+.studio-home {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+  width: 100%;
+}
 .studio-view {
   display: flex;
   flex-direction: column;
@@ -58,21 +65,28 @@
   background: var(--bg-surface-2);
 }
 
-/* ── 项目列表:大行高卡片式,hover 升浮 ── */
+/* ── 项目列表:Atelier 卡片流(.at-card 壳 + .at-card-in 错落入场),删除钮收入卡内 hover 显现 ── */
 .studio-project-list {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  max-width: 800px;
   list-style: none;
   margin: 0;
   padding: 0;
 }
-.studio-project-item {
+.studio-project-card {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  padding-right: var(--space-3);
+  /* 行边框加深(2026-08-16 批 2):亮色下 --border-subtle 与背景融合,静止态即 strong */
+  border-color: var(--border-strong);
 }
+/* hover 态:描边转 accent 作强反馈(浮起/投影由 .at-card--lift 供给) */
+.studio-project-card:hover {
+  border-color: var(--accent);
+}
+/* 打开区:卡壳由 .at-card 供给,此处只排内 layout */
 .studio-project-open {
   flex: 1;
   min-width: 0;
@@ -81,28 +95,59 @@
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-4) var(--space-5);
-  background: var(--bg-surface-1);
-  border: 1px solid var(--border-subtle);
+  background: none;
+  border: none;
   border-radius: var(--radius-panel);
   cursor: pointer;
   text-align: left;
-  transition:
-    border-color var(--duration-fast) var(--ease-standard),
-    box-shadow var(--duration-fast) var(--ease-standard),
-    transform var(--duration-fast) var(--ease-standard);
+  font: inherit;
+  color: inherit;
 }
-.studio-project-open:hover {
-  border-color: var(--border-strong);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
+.studio-project-open:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 1px;
+}
+/* 标题 + 副标两行块(2026-08-16 批 2) */
+.studio-project-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 .studio-project-title {
+  font-family: var(--font-display);
   font-size: var(--text-section);
   font-weight: var(--font-semibold);
+  letter-spacing: -0.01em;
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* 副标行:#短id + 更新时间 + 进度,同名项目区分信息 */
+.studio-project-sub {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--text-aux);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.studio-project-id {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+}
+.studio-project-date {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.studio-project-stage {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .studio-project-meta {
   display: flex;
@@ -113,22 +158,28 @@
   white-space: nowrap;
   flex-shrink: 0;
 }
-.studio-badge {
-  font-size: var(--text-label);
-  font-weight: var(--font-medium);
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-badge);
-  background: var(--bg-surface-2);
-  color: var(--text-muted);
-  white-space: nowrap;
+/* 删除钮:收入卡片内,桌面端 hover/聚焦显现;触屏与窄屏常驻
+   ( specificity 需压过后文的 .studio-shot-del 基础 transition,故带父级) */
+.studio-project-card .studio-project-del {
+  flex-shrink: 0;
+  margin-left: 0;
+  opacity: 0;
+  transition:
+    opacity var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
 }
-.studio-badge.is-ready {
-  color: var(--accent);
-  background: var(--accent-soft);
+.studio-project-card:hover .studio-project-del,
+.studio-project-card:focus-within .studio-project-del {
+  opacity: 1;
 }
-.studio-badge.is-error {
-  color: var(--err);
-  background: var(--err-soft);
+@media (hover: none), (max-width: 767px) {
+  .studio-project-card .studio-project-del {
+    opacity: 0.7;
+  }
+  .studio-project-card .studio-project-del:hover {
+    opacity: 1;
+  }
 }
 
 /* ── 阶段导航:长列表滚动时吸附顶部 ── */
@@ -598,9 +649,8 @@
   align-self: flex-start;
 }
 
-/* ── 窄屏 <1024px:内容区 padding 对齐 single-view ── */
+/* ── 窄屏 <1024px:工作台 padding 对齐 single-view(首页由 .view-shell 自控) ── */
 @media (max-width: 1023px) {
-  .studio-home,
   .studio-view {
     padding: var(--space-5);
   }
@@ -608,7 +658,6 @@
 
 /* ── 移动 <768px:触控目标 ≥44px,时间轴压缩,项目标题让位 ── */
 @media (max-width: 767px) {
-  .studio-home,
   .studio-view {
     padding: var(--space-4);
   }
@@ -645,7 +694,6 @@
 
 /* ── 小屏 <576px ── */
 @media (max-width: 575px) {
-  .studio-home,
   .studio-view {
     padding: var(--space-3);
   }
@@ -655,7 +703,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .studio-project-open,
+  .studio-project-card .studio-project-del,
   .studio-stage-btn,
   .studio-shot,
   .studio-char,

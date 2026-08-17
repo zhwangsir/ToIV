@@ -5,6 +5,11 @@ import {
   emitSessionExpired,
   jobEventsUrl,
 } from "./api";
+import {
+  begin as busBegin,
+  end as busEnd,
+  progress as busProgress,
+} from "./generationBus";
 import type { GenerateResponse, JobItem } from "./types";
 
 /** SSE 透传的采样进度(value/max 来自 ComfyUI,pct 为派生百分比)。 */
@@ -47,11 +52,19 @@ export interface QualityWarning {
 export interface TrackJobOptions {
   /** 采样进度回调(SSE `progress` 事件;仅 max>0 时触发)。 */
   onProgress?: (p: JobProgress) => void;
+  /** 全局进度条任务文案(引擎显示名/操作名);缺省「生成」。 */
+  label?: string;
   /**
    * 质量评估警告回调(SSE `quality_warning` 事件)。
    * 在 done 之前触发;不阻塞 done。degraded=true 表示评估模型失败。
    */
   onQualityWarning?: (warning: QualityWarning) => void;
+  /**
+   * 时长后处理通知(done 事件/轮询对账时 post_status=processing):
+   * trim/extend 裁切链仍在后台跑,本次 resolve 的 paths 是未裁原片;
+   * 调用方应显示「精确裁切中」并轮询终产物。在 resolve 之前触发一次。
+   */
+  onPostProcessing?: () => void;
   /**
    * 暴露内部 EventSource 供调用方在组件卸载时清理:
    * 创建后以 es 调用一次(每次断线重建都会重新暴露),
@@ -176,6 +189,12 @@ export function trackJob(
     const pollIntervalMs = opts.pollIntervalMs ?? 5_000;
     const watchdogMs = opts.watchdogMs ?? DEFAULT_WATCHDOG_MS;
 
+    // 全局进度条:进入即登记(排队期 indeterminate),首个 max>0 进度事件起转确定
+    // 百分比;cleanup 统一 end(done/error/超时/会话失效/轮询终态全覆盖),
+    // 重连/降级轮询期间任务保留不清除。
+    const busId = res.prompt_id || `job-${Date.now()}`;
+    busBegin(busId, opts.label ?? "生成");
+
     let state: TrackState = "connecting";
     let es: EventSource | null = null;
     let settled = false;
@@ -213,6 +232,7 @@ export function trackJob(
 
     /** 终态收尾:关连接、清定时器、摘会话监听、向调用方交还 EventSource 句柄。 */
     const cleanup = (): void => {
+      busEnd(busId);
       closeEs();
       if (reconnectTimer) clearTimeout(reconnectTimer);
       if (pollTimer) clearTimeout(pollTimer);
@@ -334,6 +354,8 @@ export function trackJob(
           const jobs = (await listRes.json()) as JobItem[];
           const job = jobs.find((j) => j.prompt_id === res.prompt_id);
           if (job?.status === "done") {
+            // 轮询对账同样可能撞上裁切链窗口期(post_status 由 /api/jobs 透出)
+            if (job.post_status === "processing") opts.onPostProcessing?.();
             finishOk(job.results ?? []);
             return;
           }
@@ -377,7 +399,6 @@ export function trackJob(
 
       es.addEventListener("progress", (e) => {
         armWatchdog();
-        if (!opts.onProgress) return;
         const sig = (e as MessageEvent).data;
         // 快照窗内与断线前末帧相同 → 回放重复,丢弃(防进度回跳)
         if (Date.now() < snapshotUntil && sig != null && sig === lastProgressSig) return;
@@ -385,11 +406,12 @@ export function trackJob(
           const d = JSON.parse(sig);
           if (d.max > 0) {
             lastProgressSig = sig ?? null;
-            opts.onProgress({
-              value: d.value ?? 0,
-              max: d.max,
-              pct: Math.min(100, Math.round(((d.value ?? 0) / d.max) * 100)),
-            });
+            // 全局总线广播不依赖 opts.onProgress:未传回调的调用方也显示真实进度
+            // (THEME-INPUT-PROGRESS 二期遗留清零;此前 !onProgress 整体 return,
+            // 新调用方只显 indeterminate)
+            const pct = Math.min(100, Math.round(((d.value ?? 0) / d.max) * 100));
+            busProgress(busId, pct);
+            opts.onProgress?.({ value: d.value ?? 0, max: d.max, pct });
           }
         } catch {
           /* 忽略畸形分片 */
@@ -416,11 +438,16 @@ export function trackJob(
 
       es.addEventListener("done", (e) => {
         let paths: string[] = [];
+        let postStatus = "";
         try {
-          paths = (JSON.parse((e as MessageEvent).data).images as string[]) ?? [];
+          const payload = JSON.parse((e as MessageEvent).data);
+          paths = (payload.images as string[]) ?? [];
+          postStatus = (payload.post_status as string) ?? "";
         } catch {
           /* 忽略 */
         }
+        // 时长后处理链进行中(trim/extend):paths 为未裁原片,通知调用方转「精确裁切中」
+        if (postStatus === "processing") opts.onPostProcessing?.();
         finishOk(paths); // settled 幂等:窗口期回放重复 done 无副作用
       });
 

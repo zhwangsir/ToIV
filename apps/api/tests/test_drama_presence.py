@@ -520,7 +520,11 @@ def test_grid_storyboard_color_mark_injects_prompt(ctx):
 
 
 def test_grid_storyboard_color_mark_default_off(ctx):
-    """color_mark 缺省 False:prompt 不含颜色指令,detected_colors 为空(零行为变更)。"""
+    """color_mark 缺省 False:prompt 不含颜色指令,detected_colors 无 color_map(零行为变更)。
+
+    P2 注:阶段B grounding 默认开启,测试环境 VLM 不可达 → 回落标记
+    grounding_status=fallback;这与 color_mark 的零变更语义正交。
+    """
     client, token, _ = ctx
     H = _h(token)
     pid = client.post(
@@ -538,7 +542,9 @@ def test_grid_storyboard_color_mark_default_off(ctx):
     assert r.status_code == 200, r.text
     grid_graph = cli.queue_prompt.call_args_list[0][0][0]
     assert "stick figure" not in _graph_texts(grid_graph)
-    assert r.json()["shots"][0]["detected_colors"] is None
+    detected = r.json()["shots"][0]["detected_colors"]
+    assert "color_map" not in detected
+    assert detected["grounding_status"] == "fallback"
 
 
 def test_scene_layout_color_mark_injects_prompt(ctx):

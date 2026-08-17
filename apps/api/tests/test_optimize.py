@@ -400,3 +400,127 @@ def test_train_kind_uses_trigger_word_system(client_token, monkeypatch):
     assert r.status_code == 200, r.text
     assert "触发词" in captured["system"]
     assert r.json()["optimized"] == "zhenyu_girl"
+
+
+# ── 视频引擎方言 + Wan NSFW 触发词确定性注入(2026-08-17 参考 DashBox 提示词 RFC)──
+# 触发词是确定性知识:system 注入 + 后处理补齐双保险,不靠 LLM 记忆;SFW 上下文静默忽略。
+
+_WAN_LORAS = ["NSFW-22-H-e8.safetensors", "DR34ML4Y_I2V_14B_LOW_V2.safetensors"]
+_NSFW_H = {"X-NSFW": "1"}
+
+
+def _patch_layered(monkeypatch, content: str, captured: dict) -> None:
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):  # noqa: ANN001
+        captured["system"] = messages[0]["content"]
+        return {"content": content}
+
+    monkeypatch.setattr("app.routes.optimize.llm.chat_layered", fake_chat_layered)
+
+
+def test_video_wan_nsfw_dialect_and_trigger_injection(client_token, monkeypatch):
+    """wan-nsfw-i2v 引擎 + R18 上下文:system 含 Wan 方言与触发词清单;LLM 写全则原样返回。"""
+    captured: dict = {}
+    _patch_layered(monkeypatch, '{"positive": "nsfwsks, bl0wj0b, she kneels, side view", "negative": "blur"}', captured)
+    client, token = client_token
+    r = client.post(
+        "/api/optimize",
+        headers={"Authorization": f"Bearer {token}", **_NSFW_H},
+        json={"prompt": "跪姿口交", "kind": "video", "engine": "wan-nsfw-i2v", "loras": _WAN_LORAS},
+    )
+    assert r.status_code == 200, r.text
+    assert "Wan2.2" in captured["system"]  # 引擎方言,非通用视频模板
+    assert "nsfwsks" in captured["system"]  # 必选触发词注入 system
+    assert "bl0wj0b" in captured["system"] or "m15510n4ry" in captured["system"]  # 候选组透出
+    assert r.json()["optimized"] == "nsfwsks, bl0wj0b, she kneels, side view"  # 写全不补
+
+
+def test_video_wan_trigger_backfill_when_llm_omits(client_token, monkeypatch):
+    """LLM 漏写触发词:必选逐个补齐,pick_one 组全缺补预选(确定性兜底,不靠 LLM 记忆)。"""
+    captured: dict = {}
+    _patch_layered(monkeypatch, '{"positive": "she kneels and leans forward", "negative": "blur"}', captured)
+    client, token = client_token
+    r = client.post(
+        "/api/optimize",
+        headers={"Authorization": f"Bearer {token}", **_NSFW_H},
+        json={"prompt": "kneeling blowjob", "kind": "video", "engine": "wan-nsfw-i2v", "loras": _WAN_LORAS},
+    )
+    assert r.status_code == 200, r.text
+    out = r.json()["optimized"]
+    assert "nsfwsks" in out  # 必选补齐
+    # 种子含 blowjob → 预选 bl0wj0b 排组首;LLM 没写任何组内词 → 补 bl0wj0b
+    assert out.startswith("nsfwsks, bl0wj0b, ")
+
+
+def test_video_wan_triggers_ignored_in_sfw_context(client_token, monkeypatch):
+    """SFW 上下文(无 X-NSFW):注册表 LoRA 触发词不注入 system、后处理不补(防主站诱导 R18 词)。"""
+    captured: dict = {}
+    _patch_layered(monkeypatch, '{"positive": "she kneels", "negative": "blur"}', captured)
+    client, token = client_token
+    r = client.post(
+        "/api/optimize",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"prompt": "kneeling blowjob", "kind": "video", "engine": "wan-nsfw-i2v", "loras": _WAN_LORAS},
+    )
+    assert r.status_code == 200, r.text
+    assert "nsfwsks" not in captured["system"]
+    assert r.json()["optimized"] == "she kneels"  # 原样,不补触发词
+
+
+def test_video_wan_trigger_backfill_on_parse_failure(client_token, monkeypatch):
+    """LLM 输出坏 JSON 走整段兜底时,触发词同样确定性补齐。"""
+    _patch_layered(monkeypatch, "not a json at all", {})
+    client, token = client_token
+    r = client.post(
+        "/api/optimize",
+        headers={"Authorization": f"Bearer {token}", **_NSFW_H},
+        json={"prompt": "kneeling blowjob", "kind": "video", "engine": "wan-nsfw-i2v", "loras": _WAN_LORAS},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["optimized"].startswith("nsfwsks, bl0wj0b, not a json at all")
+
+
+def test_video_engine_dialect_h3(client_token, monkeypatch):
+    """h3 系引擎(h3-nsfw-i2v 前缀匹配):全正向方言(负向不可靠实证),触发词逻辑不介入。"""
+    captured: dict = {}
+    _patch_layered(monkeypatch, '{"positive": "a cat walks, slow motion", "negative": "blur"}', captured)
+    client, token = client_token
+    r = client.post(
+        "/api/optimize",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"prompt": "一只猫走过", "kind": "video", "engine": "h3-nsfw-i2v"},
+    )
+    assert r.status_code == 200, r.text
+    assert "正向指令" in captured["system"]  # H3 方言
+    assert r.json()["optimized"] == "a cat walks, slow motion"
+
+
+def test_video_engine_dialect_ltx25_audio(client_token, monkeypatch):
+    """ltx25 系引擎:音画同出方言(positive 可含声音描述)。"""
+    captured: dict = {}
+    _patch_layered(monkeypatch, '{"positive": "waves, gentle surf sound", "negative": "blur"}', captured)
+    client, token = client_token
+    r = client.post(
+        "/api/optimize",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"prompt": "海浪", "kind": "video", "engine": "ltx25-t2v"},
+    )
+    assert r.status_code == 200, r.text
+    assert "音画同出" in captured["system"]
+
+
+def test_pick_trigger_words_modes():
+    """pick_trigger_words 纯函数:all 全选 / pick_one 场景命中与兜底 / 未注册静默跳过 / 保序去重。"""
+    from app.workflows.wan_i2v import pick_trigger_words
+
+    assert pick_trigger_words(["NSFW-22-H-e8.safetensors"]) == ["nsfwsks"]  # all
+    # pick_one:场景关键词命中
+    assert pick_trigger_words(["DR34ML4Y_I2V_14B_LOW_V2.safetensors"], "a blowjob scene") == ["bl0wj0b"]
+    assert pick_trigger_words(["DR34ML4Y_I2V_14B_LOW_V2.safetensors"], "doggy style") == ["d0gg1e"]
+    # pick_one 无命中取第一个
+    assert pick_trigger_words(["DR34ML4Y_I2V_14B_LOW_V2.safetensors"], "") == ["m15510n4ry"]
+    # 组合:all + pick_one 保序,未注册静默跳过
+    out = pick_trigger_words(
+        ["NSFW-22-H-e8.safetensors", "unknown.safetensors", "DR34ML4Y_I2V_14B_LOW_V2.safetensors"],
+        "doggy style",
+    )
+    assert out == ["nsfwsks", "d0gg1e"]

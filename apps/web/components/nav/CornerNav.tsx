@@ -1,11 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 
 import { Icon, type IconName } from "@/components/ui/Icon";
-import { Popover } from "@/components/ui/Popover";
-import { ThemePicker } from "@/components/ui/ThemePicker";
-import { useR18Mode } from "@/lib/r18";
 
 export interface CornerNavItem {
   key: string;
@@ -19,24 +16,17 @@ interface CornerNavProps {
   onSelect: (key: string) => void;
   /** 悬停/聚焦预热目标视图 chunk */
   onItemIntent?: (key: string) => void;
-  account?: string | null;
-  onLogout?: () => void;
 }
 
 /**
- * 左上角悬停展开导航(浅色五色板 · 白玻璃):
+ * 左上角悬停展开导航(浅色五色板 · 白玻璃;2026-08-17 起纯导航,账户已拆至右上角 AccountButton):
  * 收起态只有左上角一枚玻璃触发器(品牌点 + ToIV + 当前模块 + 展开箭头),不遮挡内容;
- * 悬停/聚焦/点击触发器后,向下展开竖向玻璃面板(图标 + 文字标签逐行列出全部模块,
- * 底部为账户行);移出即收起,点击触发器可钉住展开态(触屏/触控板友好);
- * 账户菜单走 Popover 基座(portal,脱离面板 hover 生命周期,点击开关)。
+ * 悬停/聚焦/点击触发器后,向下展开竖向玻璃面板(图标 + 文字标签逐行列出全部模块);
+ * 移出即收起,点击触发器可钉住展开态(触屏/触控板友好)。
  * 窄屏 <1024px 隐藏,由底部导航接管;横屏低高度仍显示(触发器占地极小,面板限高滚动)。
  */
-export function CornerNav({ items, current, onSelect, onItemIntent, account, onLogout }: CornerNavProps) {
-  const avatarRef = useRef<HTMLButtonElement | null>(null);
-  const [accountOpen, setAccountOpen] = useState(false);
+export function CornerNav({ items, current, onSelect, onItemIntent }: CornerNavProps) {
   const [pinned, setPinned] = useState(false);
-  // M9:订阅 R18 模式,账户菜单展示只读状态行
-  const [r18] = useR18Mode();
 
   const currentItem = items.find((i) => i.key === current);
 
@@ -90,88 +80,6 @@ export function CornerNav({ items, current, onSelect, onItemIntent, account, onL
               );
             })}
           </div>
-
-          {account && (
-            <>
-              <span className="cornernav-sep" aria-hidden="true" />
-              <button
-                ref={avatarRef}
-                type="button"
-                className="cornernav-account"
-                onClick={() => setAccountOpen((v) => !v)}
-                aria-label={`账户 ${account}`}
-                aria-expanded={accountOpen}
-                title={account}
-              >
-                <span className="cornernav-avatar">{account.charAt(0).toUpperCase()}</span>
-                <span className="cornernav-account-email" translate="no">
-                  {account}
-                </span>
-                <Icon name="chevron-right" size={12} className="cornernav-account-go" />
-              </button>
-              <Popover
-                open={accountOpen}
-                anchorRef={avatarRef}
-                onClose={() => setAccountOpen(false)}
-                width={240}
-                role="menu"
-                ariaLabel="账户菜单"
-              >
-                <div className="cornernav-account-pop">
-                  <div className="cornernav-account-pop-email" title={account} translate="no">
-                    {account}
-                  </div>
-                  <ThemePicker />
-                  {/* M9:R18 模式只读状态行(正式开关在设置页「内容偏好」) */}
-                  {r18 && (
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "var(--space-2)",
-                        padding: "var(--space-1) var(--space-2)",
-                        fontSize: "var(--text-label)",
-                        lineHeight: 1.4,
-                        color: "var(--text-muted)",
-                      }}
-                    >
-                      <span
-                        style={{
-                          padding: "1px var(--space-1)",
-                          background: "var(--err)",
-                          color: "var(--text-on-accent)",
-                          borderRadius: "var(--radius-badge)",
-                          fontWeight: 600,
-                          flexShrink: 0,
-                        }}
-                      >
-                        18+
-                      </span>
-                      R18 模式已开启
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    className="cornernav-account-action"
-                    onClick={() => {
-                      setAccountOpen(false);
-                      setPinned(false);
-                      onSelect("settings");
-                    }}
-                  >
-                    <Icon name="settings" size={13} />
-                    设置
-                  </button>
-                  {onLogout && (
-                    <button type="button" className="cornernav-account-logout" onClick={onLogout}>
-                      <Icon name="close" size={13} />
-                      退出登录
-                    </button>
-                  )}
-                </div>
-              </Popover>
-            </>
-          )}
         </div>
       </nav>
     </div>

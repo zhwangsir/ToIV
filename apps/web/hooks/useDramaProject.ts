@@ -51,6 +51,7 @@ import type {
   DramaAssetKind,
 } from "@/lib/api";
 import { useToast } from "@/components/ui/Toast";
+import { begin as genBegin, end as genEnd, progress as genProgress } from "@/lib/generationBus";
 
 // 轮询节奏:每 3.5s 拉一次,15 分钟超时
 const POLL_INTERVAL = 3500;
@@ -136,7 +137,18 @@ export interface UseDramaProjectReturn {
   // 分镜
   saveShot: (
     shot: DramaShotItem,
-    patch: { prompt: string; dialogue: string; scene: string },
+    patch: {
+      prompt: string;
+      dialogue: string;
+      scene: string;
+      // LibTV 工作台追加(可选,缺省不提交):情绪标签/节拍注记/关联角色
+      mood?: string;
+      beat?: string;
+      characters?: string[];
+      // P1 衔接策略层(可选):接缝策略/衔接锚点
+      seam_to_next?: string;
+      seam_anchor?: string;
+    },
   ) => Promise<void>;
   generateVideo: (shot: DramaShotItem) => void;
   generateVideoV2: (sid: string, body: GenerateVideoV2Body) => void;
@@ -662,12 +674,32 @@ export function useDramaProject(
   const saveShot = useCallback(
     (
       shot: DramaShotItem,
-      patch: { prompt: string; dialogue: string; scene: string },
+      patch: {
+        prompt: string;
+        dialogue: string;
+        scene: string;
+        mood?: string;
+        beat?: string;
+        characters?: string[];
+        seam_to_next?: string;
+        seam_anchor?: string;
+      },
     ): Promise<void> => {
       return patchDramaShot(shot.id, {
         prompt: patch.prompt,
         dialogue: patch.dialogue,
         scene: patch.scene,
+        ...(patch.mood !== undefined ? { mood: patch.mood } : {}),
+        ...(patch.beat !== undefined ? { beat: patch.beat } : {}),
+        ...(patch.characters !== undefined
+          ? { characters: patch.characters }
+          : {}),
+        ...(patch.seam_to_next !== undefined
+          ? { seam_to_next: patch.seam_to_next }
+          : {}),
+        ...(patch.seam_anchor !== undefined
+          ? { seam_anchor: patch.seam_anchor }
+          : {}),
       })
         .then((updated) => {
           setCurrent((d) =>
@@ -694,22 +726,28 @@ export function useDramaProject(
   // ── 单镜视频生成轮询:直到该镜 video_status 变为 done/error 或超时 ──
   const pollShotVideo = useCallback(
     (pid: string, shotId: string, shotIdx: number) => {
+      const taskId = `drama-shot-${shotId}`;
       let attempts = 0;
+      // 全局进度条收尾:任一语义终态(切项目/镜头删除/done/error/超时/轮询失败)统一清除
+      const clearBusy = () => {
+        setBusyShot(null);
+        genEnd(taskId);
+      };
       const tick = () => {
         if (currentIdRef.current !== pid) {
-          setBusyShot(null);
+          clearBusy();
           return;
         }
         attempts++;
         getDramaProject(pid)
           .then((d) => {
             if (currentIdRef.current !== pid) {
-              setBusyShot(null);
+              clearBusy();
               return;
             }
             const shot = d.shots?.find((s) => s.id === shotId);
             if (!shot) {
-              setBusyShot(null);
+              clearBusy();
               showToast("error", `分镜 #${shotIdx} 已被删除,轮询终止`);
               return;
             }
@@ -720,12 +758,12 @@ export function useDramaProject(
               updated_at: d.updated_at,
             });
             if (st === "done" || st === "ready" || st === "completed") {
-              setBusyShot(null);
+              clearBusy();
               showToast("success", `分镜 #${shotIdx} 视频已生成`);
               return;
             }
             if (st === "error" || st === "failed") {
-              setBusyShot(null);
+              clearBusy();
               showToast(
                 "error",
                 `分镜 #${shotIdx} 视频生成失败:${shot.error || st}`,
@@ -733,7 +771,7 @@ export function useDramaProject(
               return;
             }
             if (attempts >= POLL_MAX_ATTEMPTS) {
-              setBusyShot(null);
+              clearBusy();
               showToast(
                 "error",
                 `分镜 #${shotIdx} 视频生成超时(15 分钟),请稍后重试`,
@@ -743,7 +781,7 @@ export function useDramaProject(
             safeSetTimeout(tick, POLL_INTERVAL);
           })
           .catch(() => {
-            setBusyShot(null);
+            clearBusy();
             showToast("error", "轮询项目状态失败,请刷新查看");
           });
       };
@@ -757,6 +795,8 @@ export function useDramaProject(
     (shot: DramaShotItem, onError?: () => void) => {
       const pid = currentIdRef.current;
       if (!pid) return;
+      // 全局进度条:提交即登记(轮询接管至终态清除)
+      genBegin(`drama-shot-${shot.id}`, `分镜 #${shot.idx} 视频生成`);
       generateDramaShotVideo(shot.id, {
         steps: 20,
         cfg: 1.0,
@@ -767,6 +807,7 @@ export function useDramaProject(
           pollShotVideo(pid, shot.id, shot.idx);
         })
         .catch((err) => {
+          genEnd(`drama-shot-${shot.id}`);
           onError?.();
           showToast(
             "error",
@@ -800,6 +841,8 @@ export function useDramaProject(
       const shotIdx = shot?.idx ?? 0;
       const numCandidates = body.num_candidates ?? 1;
       setBusyShot(sid);
+      // 全局进度条:逐镜登记(批量生成时胶囊自然聚合成「N 项生成中」)
+      genBegin(`drama-shot-${sid}`, `分镜 #${shotIdx} 视频生成`);
       dramaGenerateVideoV2(sid, { ...body, ...(nsfw ? { nsfw: true } : {}) })
         .then(() => {
           const message =
@@ -811,6 +854,7 @@ export function useDramaProject(
         })
         .catch((err) => {
           setBusyShot(null);
+          genEnd(`drama-shot-${sid}`);
           showToast(
             "error",
             err instanceof Error ? err.message : "提交视频生成失败",
@@ -848,34 +892,40 @@ export function useDramaProject(
   // ── 末帧续写:轮询直到 shot.continue_status 变为 done/error 或超时 ──
   const pollShotContinue = useCallback(
     (pid: string, shotId: string, shotIdx: number) => {
+      const taskId = `drama-continue-${shotId}`;
       let attempts = 0;
+      // 全局进度条收尾:任一语义终态(切项目/镜头删除/done/error/超时/轮询失败)统一清除
+      const clearBusy = () => {
+        setBusyContinue(null);
+        genEnd(taskId);
+      };
       const tick = () => {
         if (currentIdRef.current !== pid) {
-          setBusyContinue(null);
+          clearBusy();
           return;
         }
         attempts++;
         getDramaProject(pid)
           .then((d) => {
             if (currentIdRef.current !== pid) {
-              setBusyContinue(null);
+              clearBusy();
               return;
             }
             const shot = d.shots?.find((s) => s.id === shotId);
             if (!shot) {
-              setBusyContinue(null);
+              clearBusy();
               showToast("error", `分镜 #${shotIdx} 已被删除,轮询终止`);
               return;
             }
             const st = (shot.continue_status || "").toLowerCase();
             setCurrent(d);
             if (st === "done" || st === "ready" || st === "completed") {
-              setBusyContinue(null);
+              clearBusy();
               showToast("success", `分镜 #${shotIdx} 续写已完成`);
               return;
             }
             if (st === "error" || st === "failed") {
-              setBusyContinue(null);
+              clearBusy();
               showToast(
                 "error",
                 `分镜 #${shotIdx} 续写失败:${shot.continue_error || st}`,
@@ -883,7 +933,7 @@ export function useDramaProject(
               return;
             }
             if (attempts >= POLL_MAX_ATTEMPTS) {
-              setBusyContinue(null);
+              clearBusy();
               showToast(
                 "error",
                 `分镜 #${shotIdx} 续写超时(15 分钟),请稍后重试`,
@@ -893,7 +943,7 @@ export function useDramaProject(
             safeSetTimeout(tick, POLL_INTERVAL);
           })
           .catch(() => {
-            setBusyContinue(null);
+            clearBusy();
             showToast("error", "轮询项目状态失败,请刷新查看");
           });
       };
@@ -916,6 +966,7 @@ export function useDramaProject(
         return;
       }
       setBusyContinue(shot.id);
+      genBegin(`drama-continue-${shot.id}`, `分镜 #${shot.idx} 末帧续写`);
       continueDramaShotVideo(shot.id, {
         segments: 1,
         auto_concat: true,
@@ -927,6 +978,7 @@ export function useDramaProject(
         })
         .catch((err) => {
           setBusyContinue(null);
+          genEnd(`drama-continue-${shot.id}`);
           showToast(
             "error",
             err instanceof Error ? err.message : "提交续写任务失败",
@@ -1011,6 +1063,7 @@ export function useDramaProject(
         return;
       }
       setBusyVoice(shot.id);
+      genBegin(`drama-voice-${shot.id}`, `分镜 #${shot.idx} 配音`);
       generateDramaShotVoice(shot.id, {})
         .then((res) => {
           setCurrent((d) =>
@@ -1037,7 +1090,10 @@ export function useDramaProject(
         .catch((err) =>
           showToast("error", err instanceof Error ? err.message : "配音失败"),
         )
-        .finally(() => setBusyVoice(null));
+        .finally(() => {
+          setBusyVoice(null);
+          genEnd(`drama-voice-${shot.id}`);
+        });
     },
     [busyVoice, showToast],
   );
@@ -1045,22 +1101,28 @@ export function useDramaProject(
   // ── M3:单镜对口型(异步 + 轮询)──
   const pollShotLipsync = useCallback(
     (pid: string, shotId: string, shotIdx: number) => {
+      const taskId = `drama-lipsync-${shotId}`;
       let attempts = 0;
+      // 全局进度条收尾:任一语义终态(切项目/镜头删除/done/error/超时/轮询失败)统一清除
+      const clearBusy = () => {
+        setBusyLipsync(null);
+        genEnd(taskId);
+      };
       const tick = () => {
         if (currentIdRef.current !== pid) {
-          setBusyLipsync(null);
+          clearBusy();
           return;
         }
         attempts++;
         getDramaProject(pid)
           .then((d) => {
             if (currentIdRef.current !== pid) {
-              setBusyLipsync(null);
+              clearBusy();
               return;
             }
             const shot = d.shots?.find((s) => s.id === shotId);
             if (!shot) {
-              setBusyLipsync(null);
+              clearBusy();
               showToast("error", `分镜 #${shotIdx} 已被删除,轮询终止`);
               return;
             }
@@ -1071,12 +1133,12 @@ export function useDramaProject(
               updated_at: d.updated_at,
             });
             if (st === "done" || st === "ready" || st === "completed") {
-              setBusyLipsync(null);
+              clearBusy();
               showToast("success", `分镜 #${shotIdx} 对口型已完成`);
               return;
             }
             if (st === "error" || st === "failed") {
-              setBusyLipsync(null);
+              clearBusy();
               showToast(
                 "error",
                 `分镜 #${shotIdx} 对口型失败:${shot.error || st}`,
@@ -1084,7 +1146,7 @@ export function useDramaProject(
               return;
             }
             if (attempts >= POLL_MAX_ATTEMPTS) {
-              setBusyLipsync(null);
+              clearBusy();
               showToast(
                 "error",
                 `分镜 #${shotIdx} 对口型超时(15 分钟),请稍后重试`,
@@ -1094,7 +1156,7 @@ export function useDramaProject(
             safeSetTimeout(tick, POLL_INTERVAL);
           })
           .catch(() => {
-            setBusyLipsync(null);
+            clearBusy();
             showToast("error", "轮询项目状态失败,请刷新查看");
           });
       };
@@ -1114,6 +1176,7 @@ export function useDramaProject(
       const shot = current?.shots?.find((s) => s.id === sid);
       const shotIdx = shot?.idx ?? 0;
       setBusyLipsync(sid);
+      genBegin(`drama-lipsync-${sid}`, `分镜 #${shotIdx} 对口型`);
       return generateDramaShotLipsync(sid, {})
         .then(() => {
           showToast("info", "对口型任务已提交");
@@ -1121,6 +1184,7 @@ export function useDramaProject(
         })
         .catch((err) => {
           setBusyLipsync(null);
+          genEnd(`drama-lipsync-${sid}`);
           showToast(
             "error",
             err instanceof Error ? err.message : "提交对口型任务失败",
@@ -1251,6 +1315,7 @@ export function useDramaProject(
       duck: true,
       clips,
     };
+    genBegin(`drama-assemble-${pid}`, "合成成片");
     return assembleDrama(pid, options)
       .then((res) => {
         setAssembleResult(res);
@@ -1260,7 +1325,10 @@ export function useDramaProject(
       .catch((err) =>
         setAssembleError(err instanceof Error ? err.message : "合成成片失败"),
       )
-      .finally(() => setAssembling(false));
+      .finally(() => {
+        setAssembling(false);
+        genEnd(`drama-assemble-${pid}`);
+      });
   }, [current, onSummaryChange, showToast]);
 
   const clearAssembleResult = useCallback(() => setAssembleResult(null), []);
@@ -1329,6 +1397,32 @@ export function useDramaProject(
     enabled: autorun?.running === true,
     backoff: true,
   });
+
+  // ── 全局进度条:autorun 后台管线接入(THEME-INPUT-PROGRESS 二期遗留) ──
+  // running 期 begin + 按 done/total 报真实进度(label 带当前步骤,begin 幂等仅更新);
+  // 终态(done/error)收口 end;切换项目/卸载由下方 cleanup 收口。两 effect 均对
+  // 未 begin 的 id no-op,重复轮询触发重跑开销可忽略(begin/progress 同值不 emit)。
+  const autorunPid = current?.id ?? null;
+  useEffect(() => {
+    if (!autorunPid || !autorun) return;
+    const id = `drama-autorun-${autorunPid}`;
+    if (!autorun.running) {
+      genEnd(id);
+      return;
+    }
+    genBegin(
+      id,
+      autorun.current ? `自动管线 · ${autorun.current}` : "自动管线",
+      { determinate: autorun.total > 0 },
+    );
+    if (autorun.total > 0) genProgress(id, (autorun.done / autorun.total) * 100);
+  }, [autorunPid, autorun]);
+
+  useEffect(() => {
+    if (!autorunPid) return;
+    const id = `drama-autorun-${autorunPid}`;
+    return () => genEnd(id);
+  }, [autorunPid]);
 
   // ── 派生值 ──
   const characters = current?.characters ?? [];

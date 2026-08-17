@@ -324,6 +324,58 @@ async def _music_caption(content: bytes, filename: str, mime: str) -> str | None
         return None
 
 
+async def reverse_visual(
+    content: bytes,
+    filename: str,
+    content_type: str,
+    kind: str,
+    nsfw: bool,
+) -> ReverseResponse:
+    """图像/视频字节流 → 反推提示词(/reverse 端点与 Agent Team reprompt 共用链)。
+
+    kind 仅收 image/video(音频走 SenseVoice 专线,不在此列);NSFW 图像走
+    JoyCaption 专线,视频一律 Qwen3-VL;reverse_video_mac_prefix 非空时视频
+    经 NAS 中转本地路径(studio04 MLX 只认路径),用后清理。
+    """
+    s = get_settings()
+    staged_remote: str | None = None
+    if kind == "image":
+        system = _IMAGE_SYSTEM + (_NSFW_CLAUSE if nsfw else "")
+        part = {"type": "image_url", "image_url": {"url": _data_url(content, kind, content_type)}}
+        # NSFW 图像 → JoyCaption 专线(无审查设计);未配置时回退 Qwen3-VL
+        base_url = (
+            s.joycaption_base_url.strip()
+            if nsfw and s.joycaption_base_url.strip()
+            else s.reverse_vlm_base_url
+        )
+    else:
+        system = _VIDEO_SYSTEM + (_NSFW_CLAUSE if nsfw else "")
+        base_url = s.reverse_vlm_base_url  # JoyCaption 是纯图像模型,视频一律走 Qwen3-VL
+        if s.reverse_video_mac_prefix.strip():
+            # studio04 MLX 模式:video_url 只认本地路径 → SFTP 中转 NAS 传挂载路径
+            ext = os.path.splitext(filename or "")[1].lower() or ".mp4"
+            mac_path, staged_remote = await _stage_video_to_nas(content, ext)
+            part = {"type": "video_url", "video_url": {"url": mac_path}}
+        else:
+            part = {"type": "video_url", "video_url": {"url": _data_url(content, kind, content_type)}}
+
+    try:
+        raw = await _chat_completion(system, part, base_url)
+    finally:
+        if staged_remote:
+            await _remove_staged(staged_remote)
+    obj = parse_json_obj(raw)
+    if not obj or not (obj.get("prompt") or "").strip():
+        # 模型没按 JSON 输出时,原文本通常就是可用描述,宽松降级不 502
+        logger.info("反推结果非 JSON,按纯文本降级: %s", raw[:200])
+        return ReverseResponse(kind=kind, prompt=_salvage_prompt(raw))
+    return ReverseResponse(
+        kind=kind,
+        prompt=obj["prompt"].strip(),
+        negative=(obj.get("negative") or "").strip() or None,
+    )
+
+
 @router.post("/reverse", response_model=ReverseResponse)
 async def reverse_prompt(
     file: UploadFile,
@@ -372,40 +424,4 @@ async def reverse_prompt(
             },
         )
 
-    s = get_settings()
-    staged_remote: str | None = None
-    if kind == "image":
-        system = _IMAGE_SYSTEM + (_NSFW_CLAUSE if nsfw else "")
-        part = {"type": "image_url", "image_url": {"url": _data_url(content, kind, file.content_type or "")}}
-        # NSFW 图像 → JoyCaption 专线(无审查设计);未配置时回退 Qwen3-VL
-        base_url = (
-            s.joycaption_base_url.strip()
-            if nsfw and s.joycaption_base_url.strip()
-            else s.reverse_vlm_base_url
-        )
-    else:
-        system = _VIDEO_SYSTEM + (_NSFW_CLAUSE if nsfw else "")
-        base_url = s.reverse_vlm_base_url  # JoyCaption 是纯图像模型,视频一律走 Qwen3-VL
-        if s.reverse_video_mac_prefix.strip():
-            # studio04 MLX 模式:video_url 只认本地路径 → SFTP 中转 NAS 传挂载路径
-            ext = os.path.splitext(file.filename or "")[1].lower() or ".mp4"
-            mac_path, staged_remote = await _stage_video_to_nas(content, ext)
-            part = {"type": "video_url", "video_url": {"url": mac_path}}
-        else:
-            part = {"type": "video_url", "video_url": {"url": _data_url(content, kind, file.content_type or "")}}
-
-    try:
-        raw = await _chat_completion(system, part, base_url)
-    finally:
-        if staged_remote:
-            await _remove_staged(staged_remote)
-    obj = parse_json_obj(raw)
-    if not obj or not (obj.get("prompt") or "").strip():
-        # 模型没按 JSON 输出时,原文本通常就是可用描述,宽松降级不 502
-        logger.info("反推结果非 JSON,按纯文本降级: %s", raw[:200])
-        return ReverseResponse(kind=kind, prompt=_salvage_prompt(raw))
-    return ReverseResponse(
-        kind=kind,
-        prompt=obj["prompt"].strip(),
-        negative=(obj.get("negative") or "").strip() or None,
-    )
+    return await reverse_visual(content, file.filename or "", file.content_type or "", kind, nsfw)

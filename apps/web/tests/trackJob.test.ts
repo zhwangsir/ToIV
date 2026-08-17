@@ -220,6 +220,70 @@ test("④ 降级轮询查到 error → reject(生成出错)", async () => {
   await rejection;
 });
 
+test("④a SSE done 带 post_status=processing → onPostProcessing 先于 resolve 触发", async () => {
+  const calls: string[] = [];
+  const p = trackJob(RES, {
+    reconnectBaseMs: 1,
+    pollIntervalMs: 1,
+    timeoutMs: 5_000,
+    onPostProcessing: () => calls.push("post"),
+  });
+  const es1 = FakeEventSource.instances[0];
+  es1.emit("open");
+  es1.emit("done", JSON.stringify({ images: ["out/raw.mp4"], post_status: "processing" }));
+  const paths = await p;
+  calls.push("resolved");
+  assert.deepEqual(paths, ["out/raw.mp4"], "resolve 的仍是当前(未裁)产物");
+  assert.deepEqual(calls, ["post", "resolved"], "onPostProcessing 在 resolve 之前触发");
+});
+
+test("④b SSE done 无 post_status → 不触发 onPostProcessing", async () => {
+  let hits = 0;
+  const p = trackJob(RES, {
+    reconnectBaseMs: 1,
+    pollIntervalMs: 1,
+    timeoutMs: 5_000,
+    onPostProcessing: () => { hits += 1; },
+  });
+  const es1 = FakeEventSource.instances[0];
+  es1.emit("open");
+  es1.emit("done", JSON.stringify({ images: ["out/a.png"] }));
+  assert.deepEqual(await p, ["out/a.png"]);
+  assert.equal(hits, 0);
+});
+
+test("④c 降级轮询撞上裁切窗口期(post_status=processing)→ 同样触发 onPostProcessing", async () => {
+  let hits = 0;
+  jobsResponse = [
+    {
+      id: "j1",
+      prompt_id: "pid-1",
+      kind: "h3_t2v",
+      status: "done",
+      prompt: "",
+      seed: 1,
+      created_at: "",
+      results: ["out/raw.mp4"],
+      post_status: "processing",
+    },
+  ];
+  const p = trackJob(RES, {
+    reconnectBaseMs: 1,
+    maxReconnectAttempts: 1,
+    pollIntervalMs: 1,
+    timeoutMs: 5_000,
+    onPostProcessing: () => { hits += 1; },
+  });
+
+  FakeEventSource.instances[0].emit("error");
+  await sleep(10); // 第 1 次重连
+  FakeEventSource.instances[1].emit("error");
+  await sleep(10); // 连续失败超限 → 降级轮询
+
+  assert.deepEqual(await p, ["out/raw.mp4"]);
+  assert.equal(hits, 1, "轮询对账命中 processing 同样通知一次");
+});
+
 test("⑤ 轮询查不到作业 + 总超时 → reject 且 register(null)", async () => {
   jobsResponse = []; // 查不到 prompt_id:按「仍在跑」持续轮询,直到总超时
   const registered: unknown[] = [];

@@ -9,8 +9,8 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { Field, Textarea } from "@/components/ui/Input";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Tabs } from "@/components/ui/Tabs";
 import { GenerateView } from "@/components/generate/GenerateView";
+import { useAutoResize } from "@/hooks/useAutoResize";
 import {
   imageUrl,
   separateAudio,
@@ -21,6 +21,7 @@ import {
   type AudioSeparateResult,
   type ManjuVoiceResult,
 } from "@/lib/api";
+import { begin as genBegin, end as genEnd } from "@/lib/generationBus";
 
 type AudioTab = "gen" | "edit";
 
@@ -100,6 +101,11 @@ function AudioResult({ url, name, durationSec }: { url: string; name: string; du
 function TtsCard() {
   const [text, setText] = useState("");
   const [emo, setEmo] = useState("");
+  // 台词/情感描述自动增高(长台词不再 rows=3 截断;情感描述保留 36px 单行下限)
+  const textRef = useRef<HTMLTextAreaElement | null>(null);
+  const emoRef = useRef<HTMLTextAreaElement | null>(null);
+  useAutoResize(textRef, text);
+  useAutoResize(emoRef, emo);
   const [refUrl, setRefUrl] = useState("");
   const [refName, setRefName] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -129,6 +135,7 @@ function TtsCard() {
     setError(null);
     setResult(null);
     setSynthing(true);
+    genBegin("audio-tts", "TTS 配音合成");
     try {
       const r = await synthManjuVoice({
         text: text.trim(),
@@ -140,6 +147,7 @@ function TtsCard() {
       setError(e instanceof Error ? e.message : "配音合成失败");
     } finally {
       setSynthing(false);
+      genEnd("audio-tts");
     }
   }
 
@@ -156,6 +164,7 @@ function TtsCard() {
           />
         </div>
         <Textarea
+          ref={textRef}
           rows={3}
           value={text}
           placeholder="输入要配音的文本(600 字以内)…"
@@ -167,6 +176,7 @@ function TtsCard() {
 
       <Field label="情感描述(可选)" hint="如:平静叙述 / 激动 / 低声耳语">
         <Textarea
+          ref={emoRef}
           rows={1}
           className="audio-oneline-input"
           value={emo}
@@ -256,6 +266,7 @@ function AsrCard() {
     setBusy(true);
     setStage("上传文件");
     setPct(0);
+    genBegin("audio-asr", "ASR 听写");
     try {
       const up = await uploadDubVideo(file, (p) => setPct(p));
       setStage("启动 Whisper");
@@ -271,6 +282,7 @@ function AsrCard() {
       setError(e instanceof Error ? e.message : "听写失败");
     } finally {
       setBusy(false);
+      genEnd("audio-asr");
     }
   }
 
@@ -381,12 +393,14 @@ function SeparateCard() {
     setError(null);
     setResult(null);
     setBusy(true);
+    genBegin("audio-separate", "人声分离");
     try {
       setResult(await separateAudio(file));
     } catch (e) {
       setError(e instanceof Error ? e.message : "人声分离失败");
     } finally {
       setBusy(false);
+      genEnd("audio-separate");
     }
   }
 
@@ -452,29 +466,41 @@ export function AudioView() {
   const [tab, setTab] = useState<AudioTab>("gen");
 
   return (
-    <div className="audio-view">
-      {/* 页头:UI-A PageHeader;布局/避让样式走下方 :global(.page-header*) 覆写 */}
+    /* Film Atelier(P0-1):根容器补 .view-shell 节奏,页头不再贴左边缘;
+       双标题消除——内嵌 GenerateView 走 hideHeader,只保留本页头 + SOUND ATELIER kicker */
+    <div className="audio-view view-shell">
       <PageHeader
+        kicker="SOUND ATELIER"
         title="音频工坊"
         desc="配乐生成、TTS 配音、ASR 听写与人声分离,一站完成。"
         icon="audio"
-        actions={
-          <Tabs
-            ariaLabel="音频模式"
-            items={[
-              { key: "gen", label: "生成" },
-              { key: "edit", label: "编辑" },
-            ]}
-            current={tab}
-            onChange={(k) => setTab(k as AudioTab)}
-          />
-        }
       />
+
+      {/* 生成/编辑段控(2026-08-16 视图批 1):移出页头操作区,置于内容区首行——
+          页头结构与图片/视频工作台对齐(kicker+标题+desc,无右侧操作),
+          段控位置对齐各工作台「模式」段控(内容区顶部);按钮补齐图标,与图像|视频段控同语言 */}
+      <div className="audio-mode-row">
+        <div className="at-seg" role="tablist" aria-label="音频模式">
+          {(["gen", "edit"] as const).map((k) => (
+            <button
+              key={k}
+              type="button"
+              role="tab"
+              aria-selected={tab === k}
+              className={`at-seg-btn${tab === k ? " is-active" : ""}`}
+              onClick={() => setTab(k)}
+            >
+              <Icon name={k === "gen" ? "sparkles" : "scissors"} size={14} />
+              {k === "gen" ? "生成" : "编辑"}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {tab === "gen" ? (
         <div className="audio-tab-gen">
           <div className="audio-workbench">
-            <GenerateView lockedKind="audio" />
+            <GenerateView lockedKind="audio" hideHeader />
           </div>
         </div>
       ) : (
@@ -491,8 +517,17 @@ export function AudioView() {
           flex-direction: column;
           height: 100%;
           overflow: hidden;
+          /* 全高工作台:底距收敛(view-shell 默认 space-12 文档节奏,此处舞台贴底呼吸即可) */
+          padding-top: var(--space-4);
+          padding-bottom: var(--space-4);
         }
-        /* 页头:统一走全局 .page-header 体系(标题/描述/右侧操作区,桌面端自动避让 CornerNav) */
+        /* 页头:统一走全局 .page-header masthead 体系(globals v6.1 编辑双线 + Fraunces 标题) */
+        /* 模式段控行(2026-08-16 视图批 1):页头之下、内容区首行,左对齐与页头文字同缘 */
+        .audio-mode-row {
+          flex-shrink: 0;
+          display: flex;
+          padding: 0 0 var(--space-4);
+        }
         .audio-tab-gen {
           flex: 1;
           min-height: 0;
@@ -505,9 +540,9 @@ export function AudioView() {
           display: flex;
           flex-direction: column;
         }
-        /* GenerateView 自带 padding 与音频板块一致,避免页头距离异常 */
+        /* 内嵌工作台:水平/底部留白由 .view-shell 承担,舞台与页头左缘对齐 */
         .audio-workbench :global(.generate-view) {
-          padding-top: var(--space-6);
+          padding: var(--space-4) 0 0;
         }
         /* 歌词 textarea:占位文本与字段说明同源(ParamField hint),说明去重只留占位 */
         .audio-workbench :global(.ui-field:has(textarea) .ui-field-hint) {
@@ -517,7 +552,8 @@ export function AudioView() {
           flex: 1;
           min-height: 0;
           overflow-y: auto;
-          padding: var(--space-5) var(--space-6) var(--space-8);
+          /* 水平留白由 .view-shell 承担(与页头同节奏),此处只保留纵向间距 */
+          padding: var(--space-5) 0 var(--space-8);
           display: flex;
           flex-direction: column;
           gap: var(--space-6); /* 卡片间距 16→24,拉开工具卡层级 */
@@ -605,7 +641,7 @@ export function AudioView() {
         /* 单行 textarea(如情感描述 rows=1):抵消全局 textarea 80px min-height,按单行控件渲染 */
         .audio-view :global(.audio-oneline-input) {
           min-height: 36px;
-          resize: none;
+          resize: vertical;
         }
 
         /* 上传行:虚线投放区样式,与表单控件拉开材质层级 */
@@ -759,26 +795,17 @@ export function AudioView() {
              此处保持 flex 定高链,舞台不再被工具卡挤压、页面可滚动 */
           .audio-tab-edit {
             max-width: none;
-            padding: var(--space-4) var(--space-5) var(--space-6);
+            padding: var(--space-4) 0 var(--space-6);
           }
-        }
-
-        /* 音频板块页头:标题/描述与段控水平紧邻,避免 space-between 造成的大片留白 */
-        .audio-view :global(.page-header) {
-          justify-content: flex-start;
-          align-items: flex-start;
-          gap: var(--space-4);
-          margin-bottom: var(--space-4);
-        }
-        .audio-view :global(.page-header-actions) {
-          align-self: flex-start;
-          padding-top: 2px;
         }
 
         /* 移动端:触控目标 ≥44px,主操作撑满整行 */
         @media (max-width: 767px) {
+          .audio-view {
+            padding: var(--space-3) var(--space-3) var(--space-3);
+          }
           .audio-tab-edit {
-            padding: var(--space-4) var(--space-4) var(--space-6);
+            padding: var(--space-4) 0 var(--space-6);
             gap: var(--space-4);
           }
           .audio-view :global(.audio-tool-card) {

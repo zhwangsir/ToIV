@@ -10,8 +10,7 @@ import {
   type InstallModelResult,
 } from "@/lib/api";
 import type { LocalModels, MarketItem } from "@/lib/types";
-import { Icon } from "@/components/ui/Icon";
-import { Tabs } from "@/components/ui/Tabs";
+import { Icon, type IconName } from "@/components/ui/Icon";
 import { NsfwRecsPanel } from "@/components/models/NsfwRecsPanel";
 import { useR18Mode } from "@/lib/r18";
 import { usePoll } from "@/hooks/usePoll";
@@ -61,13 +60,6 @@ const TYPE_LABELS: Record<string, string> = {
 
 function typeLabel(key: string): string {
   return TYPE_LABELS[key] ?? key;
-}
-
-function fileExt(name: string): string {
-  // 防御:后端 LocalModels 含 checkpoints_tagged 等非字符串字段,统一转字符串
-  const s = typeof name === "string" ? name : String(name ?? "");
-  const i = s.lastIndexOf(".");
-  return i >= 0 ? s.slice(i + 1).toLowerCase() : "";
 }
 
 function formatDownloads(n: number | null): string {
@@ -281,37 +273,39 @@ export function ModelsView() {
     { intervalMs: 2000, enabled: hasInstalling, backoff: true },
   );
 
+  // 段控项(P1-1 墨丸 .at-seg);R18 推荐 tab 仅 R18 模式渲染,SFW 模式连 tab 头都不出现
+  const tabItems: { key: Tab; label: string; icon: IconName }[] = [
+    { key: "local", label: "本地模型", icon: "models" },
+    { key: "market", label: "在线市场", icon: "search" },
+    ...(r18 ? [{ key: "r18" as Tab, label: "R18 推荐", icon: "lock" as IconName }] : []),
+  ];
+
   return (
     <div className="single-view models-view">
       <PageHeader
         title="模型库"
         desc="管理本地已安装模型 · 探索 Civitai 在线市场"
         icon="models"
+        kicker="MODELS"
         actions={
-          <Tabs
-            items={[
-              { key: "local", label: "本地模型", icon: <Icon name="models" size={14} /> },
-              { key: "market", label: "在线市场", icon: <Icon name="search" size={14} /> },
-              // M9:R18 推荐 tab 仅 R18 模式渲染;SFW 模式连 tab 头都不出现
-              ...(r18
-                ? [
-                    {
-                      key: "r18",
-                      label: (
-                        <>
-                          R18 推荐
-                          <span className="mv-tab-r18-badge">18+</span>
-                        </>
-                      ),
-                      icon: <Icon name="lock" size={14} />,
-                    },
-                  ]
-                : []),
-            ]}
-            current={tab}
-            onChange={(k) => setTab(k as Tab)}
-            ariaLabel="模型库视图切换"
-          />
+          <div className="at-seg" role="tablist" aria-label="模型库视图切换">
+            {tabItems.map((i) => (
+              <button
+                key={i.key}
+                type="button"
+                role="tab"
+                aria-selected={tab === i.key}
+                className={`at-seg-btn${tab === i.key ? " is-active" : ""}`}
+                onClick={() => setTab(i.key)}
+              >
+                <Icon name={i.icon} size={14} />
+                <span>
+                  {i.label}
+                  {i.key === "r18" && <span className="mv-tab-r18-badge">18+</span>}
+                </span>
+              </button>
+            ))}
+          </div>
         }
       />
 
@@ -341,7 +335,7 @@ export function ModelsView() {
               </span>
               <button
                 type="button"
-                className="btn btn-sm"
+                className="at-btn at-btn--ghost mv-refresh"
                 onClick={() => void loadLocal()}
                 disabled={localLoading}
               >
@@ -360,7 +354,7 @@ export function ModelsView() {
             <div className="mv-center mv-error-box">
               {/* 错误态(UI-A ErrorBar):role=alert + 可关闭;重试保留在条外 */}
               <ErrorBar message={localError} onClose={() => setLocalError(null)} />
-              <button type="button" className="btn btn-sm" onClick={() => void loadLocal()}>
+              <button type="button" className="at-btn at-btn--ghost" onClick={() => void loadLocal()}>
                 重试
               </button>
             </div>
@@ -381,33 +375,31 @@ export function ModelsView() {
           ) : (
             <div className="mv-groups">
               {filteredGroups.map((g) => (
-                <div className="card mv-group" key={g.type}>
+                <div className="at-card mv-group" key={g.type}>
                   <div className="mv-group-header">
                     <div className="mv-group-title-wrap">
                       <span className="mv-group-title">{typeLabel(g.type)}</span>
                       <span className="mv-group-key">{g.type}</span>
                     </div>
-                    <span className="badge badge-accent">
+                    <span className="at-badge at-badge--accent">
                       {g.files.length}
                       {g.total !== g.files.length ? ` / ${g.total}` : ""}
                     </span>
                   </div>
                   <ul className="mv-model-list">
-                    {g.files.map((f) => {
-                      const ext = fileExt(f);
-                      return (
-                        <li className="mv-model-row" key={`${g.type}/${f}`}>
-                          <span className="mv-model-file-icon">
-                            <Icon name="file" size={14} />
-                          </span>
-                          <span className="mv-model-name" title={f}>
-                            {f}
-                          </span>
-                          {ext && <span className="mv-model-ext">{ext}</span>}
-                          <span className="badge mv-model-type">{typeLabel(g.type)}</span>
-                        </li>
-                      );
-                    })}
+                    {g.files.map((f) => (
+                      <li className="mv-model-row" key={`${g.type}/${f}`}>
+                        <span className="mv-model-file-icon">
+                          <Icon name="file" size={14} />
+                        </span>
+                        <span className="mv-model-name" title={f}>
+                          {f}
+                        </span>
+                        {/* 徽章去重(2026-08-16 批 2):扩展名徽章删除(文件名已带后缀),
+                            仅保留类型徽章一个 */}
+                        <span className="at-badge mv-model-type">{typeLabel(g.type)}</span>
+                      </li>
+                    ))}
                   </ul>
                 </div>
               ))}
@@ -444,7 +436,7 @@ export function ModelsView() {
             </select>
             <button
               type="button"
-              className="btn btn-primary"
+              className="at-btn at-btn--primary"
               onClick={() => void runSearch()}
               disabled={marketLoading || !marketQuery.trim()}
             >
@@ -462,7 +454,7 @@ export function ModelsView() {
             <div className="mv-center mv-error-box">
               {/* 错误态(UI-A ErrorBar):role=alert + 可关闭;重试保留在条外 */}
               <ErrorBar message={marketError} onClose={() => setMarketError(null)} />
-              <button type="button" className="btn btn-sm" onClick={() => void runSearch()}>
+              <button type="button" className="at-btn at-btn--ghost" onClick={() => void runSearch()}>
                 重试
               </button>
             </div>
@@ -490,7 +482,7 @@ export function ModelsView() {
                   const thumbOk = m.thumbnail && !failedThumbs.has(m.id);
                   const inst = installState[m.id];
                   return (
-                    <div className="card mv-card" key={`${m.source}/${m.id}`}>
+                    <div className="at-card mv-card" key={`${m.source}/${m.id}`}>
                       <a
                         className="mv-card-thumb"
                         href={m.url}
@@ -530,7 +522,7 @@ export function ModelsView() {
                         </div>
                         <div className="mv-card-actions">
                           <a
-                            className="btn btn-sm mv-card-link"
+                            className="at-btn at-btn--ghost mv-card-link"
                             href={m.url}
                             target="_blank"
                             rel="noopener noreferrer"
@@ -540,7 +532,7 @@ export function ModelsView() {
                           </a>
                           <button
                             type="button"
-                            className="btn btn-sm btn-primary mv-card-install"
+                            className="at-btn at-btn--primary mv-card-install"
                             onClick={() => void installOne(m)}
                             disabled={
                               inst?.status === "installing" ||
@@ -725,7 +717,7 @@ export function ModelsView() {
           justify-content: space-between;
           gap: var(--space-3);
           padding: var(--space-4) var(--space-5);
-          background: var(--bg-surface-2);
+          /* 编辑语言:组头去灰底,只留发夹线分隔 */
           border-bottom: 1px solid var(--border-subtle);
         }
 
@@ -761,23 +753,21 @@ export function ModelsView() {
         .mv-model-list {
           list-style: none;
           margin: 0;
-          /* 列表四周留白,行 hover 高亮块不贴卡片边缘 */
-          padding: var(--space-2);
+          padding: var(--space-1) var(--space-3);
           display: flex;
           flex-direction: column;
         }
 
-        /* 行样式:去掉通栏分隔线,改为无分隔 + 圆角 hover 高亮块(Finder 式列表) */
+        /* 编辑语言列表行:发夹线行分隔,去圆角灰底 hover 块;
+           行高密度收紧(2026-08-16 批 2:padding 减一档,纵向 space-2 → space-1) */
         .mv-model-row {
           display: flex;
           align-items: center;
           gap: var(--space-3);
-          padding: var(--space-2) var(--space-3);
-          border-radius: var(--radius-control);
-          transition: background-color var(--duration-fast) var(--ease-standard);
+          padding: var(--space-1) var(--space-2);
         }
-        .mv-model-row:hover {
-          background: var(--bg-surface-2);
+        .mv-model-row + .mv-model-row {
+          border-top: 1px solid var(--border-subtle);
         }
 
         .mv-model-file-icon {
@@ -798,18 +788,7 @@ export function ModelsView() {
           letter-spacing: -0.01em;
         }
 
-        .mv-model-ext {
-          font-family: var(--font-mono);
-          font-size: var(--text-label);
-          color: var(--text-muted);
-          text-transform: uppercase;
-          padding: 2px var(--space-2);
-          background: var(--bg-surface-2);
-          border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-badge);
-          flex-shrink: 0;
-        }
-
+        /* 类型徽章:视觉走全局 .at-badge,此处只保留布局属性(扩展名徽章已去重删除) */
         .mv-model-type {
           flex-shrink: 0;
         }
@@ -1012,10 +991,10 @@ export function ModelsView() {
 
         /* 移动 ≤767px:触控目标 44px;分组列表行元信息折行(单列化);市场栅格再降级 */
         @media (max-width: 767px) {
-          .models-view :global(.ui-tab),
-          .mv-toolbar .btn,
+          .models-view .at-seg-btn,
+          .mv-toolbar .at-btn,
           .mv-toolbar .input,
-          .mv-card-actions .btn {
+          .mv-card-actions .at-btn {
             min-height: var(--touch-target);
           }
           /* 分组列表单列化:扩展名/类型徽标折到文件名之下,长文件名不再挤压溢出

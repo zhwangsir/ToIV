@@ -4,23 +4,34 @@
  * Agent Team 统一入口(列表页,R3.1):
  * 大目标输入框(一句话需求)+ 创建按钮 + 历史 run 卡片列表(状态徽章 + 任务进度)。
  * 创建后:L0 → 秒回提示并链到对话工作台;L1/L2 → 跳详情页进计划确认门。
+ *
+ * Film Atelier 重塑(2026-08-15,P0-2):
+ * - 直接 import agent-runs.css(此前仅详情页 AgentRunView 引入,列表页无样式 = 贴边裸排根因);
+ * - 版心 .view-shell;页头 masthead(kicker AGENT TEAM + Fraunces 标题 + 编辑双线);
+ * - 历史任务 → .at-card 卡片流(.at-card-in 错落入场):标题行 + 状态点/文字 + Fraunces n/N 进度
+ *   + tabular-nums 日期分行;空态 .at-empty;需求输入区 → 玻璃命令条;主钮 .at-btn--primary;
+ * - 图标统一 ui/Icon。
  */
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bot, ChevronLeft, ChevronRight, Loader2, Send, X } from "lucide-react";
-import { AgentRunStyles } from "@/components/agent-run/AgentRunStyles";
-import { runStatusMeta } from "@/components/agent-run/agentRunMeta";
+import { runStatusMeta, stripMarkdown } from "@/components/agent-run/agentRunMeta";
 import { useAgentRunList } from "@/components/agent-run/useAgentRunList";
 import { useAuthGuard } from "@/components/agent-run/useAuthGuard";
 import { ErrorBar } from "@/components/ui/ErrorBar";
+import { Icon } from "@/components/ui/Icon";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
+import { useAutoResize } from "@/hooks/useAutoResize";
+import "@/app/styles/agent-runs.css";
 
 export default function AgentRunsPage() {
   const authed = useAuthGuard();
   const router = useRouter();
   const list = useAgentRunList();
   const [goal, setGoal] = useState("");
+  // 大目标输入框自动增高(长需求不再固定高截断)
+  const goalRef = useRef<HTMLTextAreaElement | null>(null);
+  useAutoResize(goalRef, goal);
 
   const submit = async (): Promise<void> => {
     const outcome = await list.create(goal);
@@ -46,14 +57,15 @@ export default function AgentRunsPage() {
 
   return (
     <div className="agent-page">
-      <div className="agent-shell">
+      <div className="view-shell agent-shell">
         <header className="page-header">
-          <div>
+          <div className="page-header-text">
             <Link href="/" className="agent-back" aria-label="返回首页">
-              <ChevronLeft size={14} aria-hidden="true" /> 首页
+              <Icon name="chevron-left" size={14} /> 首页
             </Link>
+            <span className="page-header-kicker">Agent Team</span>
             <h1 className="page-header-title agent-page-title">
-              <Bot size={22} aria-hidden="true" /> Agent 团队
+              <Icon name="bot" size={22} /> Agent 团队
             </h1>
             <p className="page-header-desc">
               一句话说清需求,Agent 团队拆成计划逐步执行;计划可见,关键节点会找你确认
@@ -69,7 +81,7 @@ export default function AgentRunsPage() {
           <p className="agent-l0" role="status">
             <span className="agent-l0-text">{list.l0Ack}</span>
             <Link href="/?view=assistant" className="agent-l0-link">
-              前往对话工作台 <ChevronRight size={13} aria-hidden="true" />
+              前往对话工作台 <Icon name="chevron-right" size={13} />
             </Link>
             <button
               type="button"
@@ -77,14 +89,15 @@ export default function AgentRunsPage() {
               aria-label="关闭提示"
               onClick={list.clearL0Ack}
             >
-              <X size={12} aria-hidden="true" />
+              <Icon name="close" size={12} />
             </button>
           </p>
         )}
 
-        {/* 目标输入 */}
+        {/* 目标输入(玻璃命令条) */}
         <section className="agent-goal-box" aria-label="新建任务">
           <textarea
+            ref={goalRef}
             className="input agent-goal-input"
             value={goal}
             placeholder="一句话描述你的需求,例如:拍一支 30 秒的咖啡店开业宣传短片,温暖治愈风,配轻爵士背景乐"
@@ -97,31 +110,25 @@ export default function AgentRunsPage() {
             <span className="agent-goal-hint">⌘/Ctrl + Enter 直接创建;简单问题会直链对话工作台</span>
             <button
               type="button"
-              className="btn btn-primary"
+              className="at-btn at-btn--primary"
               disabled={list.creating || !goal.trim()}
               onClick={() => void submit()}
             >
-              {list.creating ? (
-                <Loader2 size={14} aria-hidden="true" className="icon-loading-spin" />
-              ) : (
-                <Send size={14} aria-hidden="true" />
-              )}
+              <Icon name={list.creating ? "loading" : "send"} size={14} />
               创建并拆解
             </button>
           </div>
         </section>
 
-        {/* 历史 run 列表 */}
+        {/* 历史 run 卡片列表 */}
         <h2 className="agent-section-title">历史任务</h2>
         {list.loading && list.runs.length === 0 ? (
           <LoadingBlock variant="line" count={3} />
         ) : list.runs.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state-icon">
-              <Bot size={40} aria-hidden="true" />
-            </div>
-            <h3 className="empty-state-title">还没有 Agent 任务</h3>
-            <p className="empty-state-desc">
+          <div className="at-empty">
+            <span className="at-empty-kicker">Agent Team</span>
+            <h3 className="at-empty-title">还没有 Agent 任务</h3>
+            <p className="at-empty-desc">
               在上方输入一句话需求,Agent 团队会自动拆解计划并逐步执行。
             </p>
           </div>
@@ -130,25 +137,33 @@ export default function AgentRunsPage() {
             {list.runs.map((r) => {
               const meta = runStatusMeta(r.status);
               return (
-                <li key={r.id}>
+                <li key={r.id} className="at-card-in">
                   <button
                     type="button"
-                    className="agent-run-open"
+                    className="agent-run-open at-card at-card--lift"
                     onClick={() => router.push(`/agent-runs/${encodeURIComponent(r.id)}`)}
                   >
-                    <span className="agent-run-goal">{r.goal || "未命名任务"}</span>
-                    <span className="agent-run-meta">
-                      <span className="badge">{r.level}</span>
-                      <span className={`agent-status is-${meta.tone}`}>{meta.label}</span>
-                      <span className="agent-run-progress">
-                        {r.task_counts.done}/{r.task_counts.total} 完成
-                        {r.task_counts.error > 0 ? ` · ${r.task_counts.error} 失败` : ""}
+                    <span className="agent-run-main">
+                      <span className="agent-run-goal">{stripMarkdown(r.goal) || "未命名任务"}</span>
+                      {/* 副标行(2026-08-16 批 2):进度计数降档收进副标,时间戳+任务数
+                          作重复标题的区分信息;原右侧 Fraunces 大数字已撤(视觉重心颠倒) */}
+                      <span className="agent-run-sub">
+                        <span
+                          className={`agent-status-dot is-${meta.tone}`}
+                          aria-hidden="true"
+                        />
+                        <span>{meta.label}</span>
+                        <span className="at-badge">{r.level}</span>
+                        <span className="agent-run-progress">
+                          {r.task_counts.done}/{r.task_counts.total} 完成
+                          {r.task_counts.error > 0 ? ` · ${r.task_counts.error} 失败` : ""}
+                        </span>
+                        <time className="agent-run-date">
+                          {r.created_at
+                            ? new Date(r.created_at).toLocaleDateString("zh-CN")
+                            : ""}
+                        </time>
                       </span>
-                      <time>
-                        {r.created_at
-                          ? new Date(r.created_at).toLocaleDateString("zh-CN")
-                          : ""}
-                      </time>
                     </span>
                   </button>
                 </li>
@@ -157,7 +172,6 @@ export default function AgentRunsPage() {
           </ul>
         )}
       </div>
-      <AgentRunStyles />
     </div>
   );
 }

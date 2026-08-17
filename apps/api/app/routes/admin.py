@@ -111,5 +111,12 @@ def delete_user(
     session.flush()
     if tenant and not session.exec(select(User).where(User.tenant_id == tenant.id)).first():
         session.delete(tenant)
+    from app import audit as _audit
+
+    _audit.record(
+        session, user=admin, action="admin.user.delete", target_type="user",
+        target_id=user_id, summary=f"管理员删除用户:{user.email}",
+        detail={"email": user.email, "tenant_id": user.tenant_id},
+    )
     session.commit()
     return {"deleted": user_id}

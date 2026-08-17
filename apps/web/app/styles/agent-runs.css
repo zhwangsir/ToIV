@@ -5,14 +5,15 @@
   background: var(--bg-canvas);
   color: var(--text-primary);
 }
+/* 版心节奏由全局 .view-shell 供给(2026-08-15 Atelier);独立路由无壳层让位,顶部加呼吸 */
 .agent-shell {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
   width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: var(--space-8);
+  /* 容器宽度收编(2026-08-16 批 2):与其他宽列表对齐;token 由 Team A 供给,fallback 兜底 */
+  max-width: var(--content-wide, 1240px);
+  padding-top: var(--space-8);
 }
 
 /* ── 顶栏:吸附,返回 + 目标 + 徽章 + 操作 ── */
@@ -729,17 +730,21 @@
   align-items: center;
   gap: var(--space-2);
 }
+/* 需求输入区:玻璃命令条(--glass-* token,对齐作品库 .lib-toolbar 语言) */
 .agent-goal-box {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding: var(--space-5);
-  background: var(--bg-surface-1);
-  border: 1px solid var(--border-subtle);
+  padding: var(--space-3);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-panel);
+  box-shadow: var(--glass-highlight), var(--shadow-md);
 }
 .agent-goal-input {
-  min-height: 120px;
+  min-height: 104px;
   font-size: var(--text-base);
 }
 .agent-goal-actions {
@@ -783,53 +788,88 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  max-width: 800px;
   list-style: none;
   margin: 0;
   padding: 0;
 }
+/* 任务卡片:卡壳由 .at-card 供给(hover 呼吸走 .at-card--lift),此处只排内 layout */
 .agent-run-open {
-  flex: 1;
-  min-width: 0;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--space-4);
   padding: var(--space-4) var(--space-5);
-  background: var(--bg-surface-1);
-  border: 1px solid var(--border-subtle);
+  background: none;
+  border: none;
   border-radius: var(--radius-panel);
   cursor: pointer;
   text-align: left;
-  transition:
-    border-color var(--duration-fast) var(--ease-standard),
-    box-shadow var(--duration-fast) var(--ease-standard),
-    transform var(--duration-fast) var(--ease-standard);
+  font: inherit;
+  color: inherit;
 }
-.agent-run-open:hover {
-  border-color: var(--border-strong);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
+.agent-run-open:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 1px;
+}
+.agent-run-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 .agent-run-goal {
-  font-size: var(--text-aux);
+  font-size: var(--text-base);
   font-weight: var(--font-semibold);
   color: var(--text-primary);
+  /* 标题截断(2026-08-16 批 2):最多 2 行 ellipsis——整段剧本当标题时不再撑爆;
+     stripMarkdown 已先压平空白,clamp 对纯文本生效 */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
-.agent-run-meta {
+.agent-run-sub {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
   font-size: var(--text-label);
   color: var(--text-muted);
-  white-space: nowrap;
-  flex-shrink: 0;
 }
+/* 状态点(tone 语义色,与 .agent-status 徽章同谱) */
+.agent-status-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+.agent-status-dot.is-accent {
+  background: var(--accent);
+}
+.agent-status-dot.is-ok {
+  background: var(--ok);
+}
+.agent-status-dot.is-warn {
+  background: var(--warn);
+}
+.agent-status-dot.is-err {
+  background: var(--err);
+}
+/* 进度计数(2026-08-16 批 2):副标位小字一档,与原右侧 Fraunces 大数字去重心颠倒;
+   时间戳同进副标作区分信息,原右侧进度栏已撤 */
 .agent-run-progress {
+  font-size: var(--text-aux);
+  color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.agent-run-date {
+  font-size: var(--text-label);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .agent-section-title {
   margin: 0;
@@ -839,9 +879,6 @@
 
 /* ── 窄屏 <1024px:事件流落到底部 ── */
 @media (max-width: 1023px) {
-  .agent-shell {
-    padding: var(--space-5);
-  }
   .agent-layout {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -853,7 +890,7 @@
 /* ── 移动 <768px:触控目标 ≥44px;泳道纵向堆叠 ── */
 @media (max-width: 767px) {
   .agent-shell {
-    padding: var(--space-4);
+    padding-top: var(--space-4);
   }
   .agent-topbar {
     flex-wrap: wrap;
@@ -871,6 +908,13 @@
   }
   .agent-task-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+  /* 任务卡片:内距收敛,进度数字降级 */
+  .agent-run-open {
+    padding: var(--space-4);
+  }
+  .agent-run-progress {
+    font-size: var(--text-section);
   }
   /* 泳道:标签行上移,节点纵向堆叠 */
   .agent-lane {
@@ -890,14 +934,7 @@
   }
 }
 
-@media (max-width: 575px) {
-  .agent-shell {
-    padding: var(--space-3);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .agent-run-open,
   .agent-task,
   .agent-back,
   .agent-mode-btn,

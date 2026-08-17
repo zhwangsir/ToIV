@@ -12,6 +12,7 @@ from __future__ import annotations
 import pytest
 
 from app import ratelimit
+from app.comfy import client as comfy_client
 from app.services import engine_registry, redis_client
 
 
@@ -37,3 +38,15 @@ def _clear_engine_avail_cache():
     engine_registry.reset_avail_cache()
     yield
     engine_registry.reset_avail_cache()
+
+
+@pytest.fixture(autouse=True)
+def _clear_comfy_client_pool():
+    """comfy.client 模块级 AsyncClient 池的传输连接绑定创建时的事件循环;
+    pytest-asyncio 每用例一个新循环,跨用例复用会抛
+    'bound to a different event loop'(全量跑时污染后续用例)。
+    用例间直接清空缓存字典——测试环境允许连接随 GC 回收,
+    不能走 close_clients()(旧循环绑定的传输在新循环 aclose 会再抛同款错)。"""
+    comfy_client._http_clients.clear()
+    yield
+    comfy_client._http_clients.clear()

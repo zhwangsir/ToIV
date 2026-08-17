@@ -1,17 +1,28 @@
 /* ──────────────────────────────────────────────────────────
-   ToIV 设计系统 v6 — 浅色五色板主题系统(2026-08-07)
-   取代 v5「曜石熔岩」深色单主题(用户决策:转向浅色体系)。
+   ToIV 设计系统 v7 — 模式(亮/暗)× 色板(5 套)双维度主题(2026-08-16)
+   取代 v5「曜石熔岩」深色单主题(用户决策:转向浅色体系);v6 浅色五色板
+   之上新增 data-mode="dark" 第二维度(默认 light,不写属性即亮色)。
    :root = 默认主题「素白 paper」;其余 4 套(wood/mono/mint/apricot)
-   用 [data-theme] 覆盖差异 token;选择持久化 localStorage["toiv_theme"],
-   layout.tsx 内联脚本首帧前写 documentElement.dataset.theme 防 FOUC。
-   依据:docs/2026-08-07-light-theme-system.md(色值以该文档为准,勿自创)
-   浅色多主题 · token 驱动 · 4px 间距基数 · 动效 ease-out + spring
+   用 [data-theme] 覆盖差异 token;[data-mode="dark"] 基础块置于全部
+   data-theme 块之后(同优先级靠顺序赢),各板暗色 accent 变体走
+   [data-mode="dark"][data-theme="xxx"](只覆盖 accent 系);
+   自定义覆盖(localStorage["toiv_theme_custom"] JSON)经 JS inline
+   setProperty 注入,优先级天然最高;pureBlack 走 [data-pure-black="1"]。
+   持久化:toiv_theme / toiv_mode / toiv_theme_custom 三 key,
+   layout.tsx 内联脚本首帧前写 documentElement.dataset 防 FOUC。
+   色板色值依据:docs/2026-08-07-light-theme-system.md;暗色阶梯为
+   v7 新增中性深灰阶(纸感,不泛蓝紫),状态色向亮提保 AA。
+   token 驱动 · 4px 间距基数 · 动效 ease-out + spring
    ────────────────────────────────────────────────────────── */
 
 /* ========== Design Tokens(canonical 层) ========== */
 
 :root {
   color-scheme: light;
+
+  /* ── 绝对锚点(2026-08-16 v7):供 color-mix 跨模式派生,不随主题/模式变化 ── */
+  --abs-black: #000000;
+  --abs-white: #FFFFFF;
 
   /* ── 字体(next/font 注入;Inter 为正文字体;Fraunces 为展示位专用衬线) ── */
   --font-sans: var(--font-inter), "Inter", "PingFang SC", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, "HarmonyOS Sans SC", sans-serif;
@@ -30,10 +41,11 @@
   --border-subtle: rgba(0, 0, 0, 0.08);
   --border-strong: rgba(0, 0, 0, 0.16);
 
-  /* ── 文字(近黑阶梯;muted #686A70 在 canvas 5.4:1、最深 surface-3 上 ≈4.7:1,全场景过 AA) ── */
+  /* ── 文字(近黑阶梯;2026-08-16 基座对比度复核:muted #64666C 在 canvas 5.5:1、
+     最深 surface-3 上 4.82:1,全场景过 AA 且留余量;旧值 #686A70 在 surface-3 仅 4.54 贴边) ── */
   --text-primary: #17181A;
   --text-secondary: #54565C;
-  --text-muted: #686A70;
+  --text-muted: #64666C;
 
   /* ── 强调色(T1 素白:近黑 CTA) ── */
   --accent: #17181A;
@@ -42,14 +54,16 @@
   --accent-glow: rgba(23, 24, 26, 0.18);
   --text-on-accent: #FFFFFF;
 
-  /* ── 状态色(五套共用;仅状态用语;深色取值保证文本在自身 soft 底上 ≥4.5:1;运行态收敛进 accent) ── */
+  /* ── 状态色(五套共用;仅状态用语;深色取值保证文本在自身 soft 底上 ≥4.5:1;运行态收敛进 accent。
+     2026-08-16 基座复核:warn/err 原值在 surface-3 的 soft 合成底上仅 4.25/4.14,压深至
+     #8A4A06/#B41919(只调明度不动色相),soft 底合成色同步换轨,worst-case 5.00/4.84) ── */
   --ok: #0C6B34;
-  --warn: #9A5408;
-  --err: #C81E1E;
+  --warn: #8A4A06;
+  --err: #B41919;
   --run: var(--accent);
   --ok-soft: rgba(15, 123, 60, 0.10);
-  --warn-soft: rgba(154, 84, 8, 0.10);
-  --err-soft: rgba(200, 30, 30, 0.10);
+  --warn-soft: rgba(138, 74, 6, 0.10);
+  --err-soft: rgba(180, 25, 25, 0.10);
   --run-soft: var(--accent-soft);
 
   /* ── 叠加与模糊(五套共用;overlay 恒深色:模态背板/图片视频 scrim 不随主题变浅) ── */
@@ -58,8 +72,9 @@
   --overlay-stage: rgba(24, 20, 16, 0.85); /* 媒体查看(灯箱)深压暗:视线聚到作品 */
   --backdrop-blur: blur(12px);
 
-  /* ── 玻璃材质(白玻璃:72% 白底 + 20px 高斯模糊,保证文字对比度) ── */
-  --glass-bg: rgba(255, 255, 255, 0.72);
+  /* 玻璃材质:白玻璃(80% 白底 + 20px 高斯模糊,保证文字对比度;
+     2026-08-16 灵动岛面板透字修复:0.72→0.80,display 大标题笔画不再透入浮层) */
+  --glass-bg: rgba(255, 255, 255, 0.80);
   --glass-border: rgba(0, 0, 0, 0.08);
   --glass-blur: blur(20px) saturate(1.4);
   --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.65); /* 高光内描边 */
@@ -97,6 +112,12 @@
   /* 2026-08-14 UI-A:去冗余,--leading-md 改别名指向 base(既有引用不断裂,后续向 base 收敛) */
   --leading-md: var(--leading-base);
   --leading-xl: 26px;
+  /* 行高三档使用场景(2026-08-16 基座):
+     紧凑 1.4  —— 标签/徽章/单行控件内文案(控件自带 min-height,行高不参与撑高);
+     正文 base —— 22px 固定档,14px 正文的默认行高(≈1.57 倍),列表/表单/卡片描述;
+     长文 loose —— 1.7 倍率,长文描述/剧本正文/英文 prompt 等多行连续阅读场景,
+     行距随字号缩放,不钉死 px(16px 英文 prompt 得 27.2px,比 22px 更透气)。 */
+  --leading-loose: 1.7;
 
   /* ── 间距(4px 基数) ── */
   --space-1: 4px;
@@ -144,6 +165,11 @@
 
   /* ── 布局 ── */
   --bottomnav-h: 0px;
+  /* 内容版心双档(2026-08-16 基座):常规视图(表单/详情/设置)走 max,
+     宽列表(项目库/作品网格/agent-runs)走 wide;基座壳 .single-view/.view-shell
+     统一消费 wide,各视图需要窄版心时在自有容器覆盖为 max(禁止再写裸 px) */
+  --content-max: 1000px;
+  --content-wide: 1240px;
 
   /* ── z-index(2026-08-14 UI-A:stage.css 裸值 0-30 映射建议注释档 ──
      0  舞台内容基线(stage-media-wrap / stage-loading);
@@ -182,7 +208,8 @@
   --border-subtle: rgba(74, 59, 42, 0.10);
   --border-strong: rgba(74, 59, 42, 0.20);
   --text-primary: #2B2723;
-  --text-secondary: #6B6154;
+  /* 2026-08-16 基座复核:secondary 原值 #6B6154 在 surface-3 仅 4.58 贴边,压深至 #655C4F(4.97) */
+  --text-secondary: #655C4F;
   --text-muted: #665D4F;
   --accent: #2F63B4;
   --accent-hover: #2755A0;
@@ -257,6 +284,121 @@
   --glass-border: rgba(90, 64, 40, 0.10);
 }
 
+/* ========== 暗色模式(2026-08-16 v7,模式 × 色板双维度) ==========
+   data-mode="dark" 基础覆盖块:置于全部 [data-theme] 块之后,同优先级 (0,1,0)
+   靠源码顺序赢——浅色色板的画布/描边/文字/玻璃/阴影全部被压回暗色中性阶梯,
+   色板个性由下方 [data-mode="dark"][data-theme="xxx"] 块仅覆盖 accent 系保留。
+   data-mode 缺省 = light(:root 原样,零成本);localStorage["toiv_mode"] 持久化。
+   暗色默认 accent = paper 暗色变体(近白墨丸 + 深色文字,呈黑白单色美学)。 */
+[data-mode="dark"] {
+  color-scheme: dark;
+
+  /* 画布/面板:中性深灰阶梯(纸感,不泛蓝不泛紫) */
+  --bg-canvas: #101114;
+  --bg-surface-1: #16181C;
+  --bg-surface-2: #1C1F24;
+  --bg-surface-3: #23262D;
+
+  /* 描边:亮侧双档 */
+  --border-subtle: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.18);
+
+  /* 文字:近白三级(muted #9A9EA6 在最浅 surface-3 上 ≈5.6:1、canvas 上 ≈7:1,全场景过 AA;
+     2026-08-16 较上一档提亮,暗色辅助文字可读性审计修复) */
+  --text-primary: #F4F4F3;
+  --text-secondary: #A9ACB2;
+  --text-muted: #9A9EA6;
+
+  /* 强调色(paper 暗色变体):近白 CTA,hover 向纯白提拉 */
+  --accent: #F5F5F4;
+  --accent-hover: #FFFFFF;
+  --accent-soft: rgba(245, 245, 244, 0.10);
+  --accent-glow: rgba(245, 245, 244, 0.22);
+  --text-on-accent: #17181A;
+  --accent-glow-shadow: 0 2px 12px rgba(245, 245, 244, 0.22);
+
+  /* 状态色:向亮提,文本在深面板及自身 soft 底上均 ≥4.5:1;运行态仍收敛进 accent。
+     2026-08-16 基座复核:err 原值 #F06A6A 在 surface-3 的 soft 合成底上仅 4.12,
+     提亮至 #F58484(worst-case 4.86),soft 底同步换轨 */
+  --ok: #46BE7E;
+  --warn: #E5A34B;
+  --err: #F58484;
+  --ok-soft: rgba(70, 190, 126, 0.14);
+  --warn-soft: rgba(229, 163, 75, 0.14);
+  --err-soft: rgba(245, 132, 132, 0.14);
+
+  /* 叠加层:恒深色基调不变,暗色下压更纯更沉 */
+  --overlay-strong: rgba(0, 0, 0, 0.50);
+  --overlay-light: rgba(0, 0, 0, 0.60);
+  --overlay-stage: rgba(0, 0, 0, 0.88);
+
+  /* 玻璃材质:深玻璃(86% 底 + 28px 强模糊;2026-08-16 灵动岛暗色透字修复:
+     0.72/20px 打不散 display 大标题粗笔画,面板展开透出页头文字,alpha+blur 双提) */
+  --glass-bg: rgba(22, 24, 28, 0.86);
+  --glass-border: rgba(255, 255, 255, 0.09);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --glass-blur: blur(28px) saturate(1.2);
+
+  /* 阴影:浅色中性灰软阴影在暗底不可见,alpha 加深保持浮层可读 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.40);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.50);
+  --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.55);
+  --shadow-pop: 0 4px 20px rgba(0, 0, 0, 0.50), 0 0 0 1px var(--border-subtle);
+  --shadow-lift: 0 8px 30px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--border-subtle);
+  --shadow-float: 0 12px 40px rgba(0, 0, 0, 0.60), 0 0 0 1px var(--border-subtle);
+}
+
+/* ── 色板暗色 accent 变体(只覆盖 accent 系;paper 即上方基础块,无 data-theme 属性) ── */
+
+/* mono 暗色:比 paper 更冷一档的近白,黑白灰经典 */
+[data-mode="dark"][data-theme="mono"] {
+  --accent: #F0F0F1;
+  --accent-hover: #FFFFFF;
+  --accent-soft: rgba(240, 240, 241, 0.10);
+  --accent-glow: rgba(240, 240, 241, 0.22);
+  --text-on-accent: #111111;
+  --accent-glow-shadow: 0 2px 12px rgba(240, 240, 241, 0.22);
+}
+
+/* wood 暗色:亮蓝(深底上 6.9:1) */
+[data-mode="dark"][data-theme="wood"] {
+  --accent: #7FA6E6;
+  --accent-hover: #96B8EE;
+  --accent-soft: rgba(127, 166, 230, 0.16);
+  --accent-glow: rgba(127, 166, 230, 0.32);
+  --text-on-accent: #10141C;
+  --accent-glow-shadow: 0 2px 12px rgba(127, 166, 230, 0.30);
+}
+
+/* mint 暗色:亮薄荷(深底上 9:1) */
+[data-mode="dark"][data-theme="mint"] {
+  --accent: #3BC99E;
+  --accent-hover: #58D6B1;
+  --accent-soft: rgba(59, 201, 158, 0.16);
+  --accent-glow: rgba(59, 201, 158, 0.32);
+  --text-on-accent: #0E1A15;
+  --accent-glow-shadow: 0 2px 12px rgba(59, 201, 158, 0.30);
+}
+
+/* apricot 暗色:亮杏(深底上 9:1) */
+[data-mode="dark"][data-theme="apricot"] {
+  --accent: #E2A668;
+  --accent-hover: #EEB87F;
+  --accent-soft: rgba(226, 166, 104, 0.16);
+  --accent-glow: rgba(226, 166, 104, 0.32);
+  --text-on-accent: #1B130B;
+  --accent-glow-shadow: 0 2px 12px rgba(226, 166, 104, 0.30);
+}
+
+/* 纯黑背景(自定义,仅暗色生效):画布压到纯黑,面板阶梯整体下压一档保层级 */
+[data-mode="dark"][data-pure-black="1"] {
+  --bg-canvas: #000000;
+  --bg-surface-1: #101114;
+  --bg-surface-2: #16181C;
+  --bg-surface-3: #1C1F24;
+}
+
 /* ========== Reset & Base ========== */
 
 *, *::before, *::after {
@@ -306,6 +448,20 @@ body::after {
     ellipse 120% 105% at 50% 46%,
     transparent 62%,
     rgba(23, 20, 18, 0.04) 100%
+  );
+}
+
+/* 暗色装饰层变体(2026-08-16 v7):噪点反相为亮颗粒并微提 alpha(暗颗粒在深底不可见);
+   压角改向纯黑加深(峰值 22%),深底上取代浅色暗角,视线仍聚向中央 */
+[data-mode="dark"] body::before {
+  opacity: 0.03;
+  filter: invert(1);
+}
+[data-mode="dark"] body::after {
+  background: radial-gradient(
+    ellipse 120% 105% at 50% 46%,
+    transparent 58%,
+    rgba(0, 0, 0, 0.22) 100%
   );
 }
 
@@ -479,8 +635,9 @@ img, video {
 .single-view {
   /* 批 4 节奏重排:顶部收敛(壳层已留 52px),两侧 24→32 加呼吸,底部 40→48 */
   padding: var(--space-4) var(--space-8) var(--space-12);
-  /* 工作台版版型:内容区 max-width 1200 居中(批 3 版型对齐,1400 → 1200) */
-  max-width: 1200px;
+  /* 版心 token 化(2026-08-16 基座):1200 裸值收编为 --content-wide(1240),
+     与 .view-shell 同档,页头壳与内容宽度自此单一来源 */
+  max-width: var(--content-wide);
   margin: 0 auto;
 }
 
@@ -753,6 +910,21 @@ select.input {
 .icon-loading-spin {
   animation: spin 1s linear infinite;
 }
+/* 通用加载容器(OptimizeButton/ReverseButton/AvatarTalkView 等复用):
+   内层 Icon 自带 icon-loading-spin 时此处仅做布局;reduced-motion 停动画 */
+.loading-spinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.loading-spinner > * {
+  animation: spin 1s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .loading-spinner > * {
+    animation: none;
+  }
+}
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
@@ -962,7 +1134,11 @@ select.input {
   border-radius: var(--radius-panel) var(--radius-panel) 0 0;
   z-index: calc(var(--z-drawer) + 1);
   transform: translateY(100%);
-  transition: transform var(--duration-base) var(--ease-standard);
+  /* 闭合态移出渲染树视觉与 tab 序(2026-08-16 审计:sheet 常挂 DOM,translateY(100%) 藏视口外
+     但按钮仍可聚焦/命中);visibility 延迟过渡,滑出动画播完再隐藏 */
+  visibility: hidden;
+  transition: transform var(--duration-base) var(--ease-standard),
+    visibility 0s linear var(--duration-base);
   box-shadow: var(--shadow-float);
   display: flex;
   flex-direction: column;
@@ -970,6 +1146,8 @@ select.input {
 }
 .sheet.is-open {
   transform: translateY(0);
+  visibility: visible;
+  transition-delay: 0s;
 }
 .sheet-handle {
   width: 36px;
@@ -1031,11 +1209,25 @@ select.input {
   .app-main {
     padding-top: 0;
   }
+  /* 固定底 nav 遮挡滚动内容修复(2026-08-16 基座):滚动容器底部统一让位
+     nav 高 + 16px 呼吸;横屏 nav 收起时 --bottomnav-h=0 自动收敛为纯呼吸 */
+  .view-root {
+    padding-bottom: calc(var(--bottomnav-h) + var(--space-4));
+  }
   .app-bottom-nav {
     display: flex;
   }
   .single-view {
     padding: var(--space-5) var(--space-5) var(--space-8);
+  }
+}
+
+/* ── 桌面 ≥1024px:底部导航是移动端组件,nav 本就 display:none;
+   「更多」sheet/遮罩同步退场,不再常挂 DOM(2026-08-16 审计:桌面视口外 y≈1122 仍可命中) ── */
+@media (min-width: 1024px) {
+  .bottom-nav-overlay,
+  .bottom-nav-sheet {
+    display: none;
   }
 }
 
@@ -1067,7 +1259,8 @@ select.input {
   gap: var(--space-3);
 }
 
-/* ── 移动端 <576px:触控目标 ≥44px ── */
+/* ── 小手机 <576px(合法第三断点档 575 = --bp-sm 576 - 1,与 767/1023 同为全站
+   约定档,仅用于小屏间距压缩/单列化/触控目标,禁止再新增其他数值) ── */
 @media (max-width: 575px) {
   :root {
     --space-2: 6px;
@@ -1117,22 +1310,57 @@ select.input {
   position: relative;
 }
 
-/* 页头优化：更强的视觉锚点 */
+/* 页头优化:更强的视觉锚点(Film Atelier masthead,2026-08-15 v6.1)
+   编辑双线细规 + Fraunces 展示标题 + 可选拉丁 kicker 铭牌(.page-header-kicker);
+   14 个 PageHeader 视图自动获得,视图级覆盖(如 library)仍优先。 */
 .page-header {
   position: relative;
-  padding-bottom: var(--space-5);
+  padding-bottom: var(--space-3);
   margin-bottom: var(--space-6);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-strong);
 }
-
+.page-header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 3px;
+  height: 1px;
+  background: var(--border-subtle);
+  pointer-events: none;
+}
+.page-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.page-header-kicker {
+  font-size: var(--text-label);
+  font-weight: var(--font-medium);
+  letter-spacing: 0.22em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
 .page-header-title {
-  letter-spacing: -0.02em;
+  font-family: var(--font-display);
+  font-size: var(--text-display-md);
+  font-weight: var(--font-semibold);
+  letter-spacing: -0.01em;
+  line-height: var(--leading-display);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
-
 .page-header-desc {
-  margin-top: var(--space-2);
-  max-width: 480px;
+  margin-top: 0;
+  max-width: 52em;
   line-height: 1.6;
+}
+@media (max-width: 767px) {
+  .page-header-title {
+    font-size: var(--text-display-sm);
+  }
 }
 
 /* 空状态增强：视觉聚焦 */
@@ -1248,5 +1476,314 @@ select.input {
   
   .empty-display {
     font-size: var(--text-display-sm);
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   Film Atelier 共享类 (2026-08-15 v6.1,依据 docs/2026-08-15-ui-atelier-audit.md)
+   作品库 v2 验证的设计语言抽象为全站共享类:墨丸 chip/段控、发夹线卡片、
+   编辑徽章、墨丸主钮、Fraunces 空态、错落入场、中心水波纹。
+   视图把旧控件换用这些类即获得一致性;零 hex,字重/时长全 token。
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── 视图壳:未用 .single-view 的视图根容器直接套用同节奏 ──────────── */
+.view-shell {
+  padding: var(--space-4) var(--space-8) var(--space-12);
+  /* 版心 token 化(2026-08-16 基座):与 .single-view 同消费 --content-wide */
+  max-width: var(--content-wide);
+  margin: 0 auto;
+}
+@media (max-width: 767px) {
+  .view-shell {
+    padding: var(--space-3) var(--space-3) var(--space-10);
+  }
+}
+
+/* ── 墨丸 chip(激活 = 墨底白字;按压中心水波纹慢扩散) ──────────────── */
+.at-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 30px;
+  padding: 0 var(--space-3);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--text-aux);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: background-color var(--duration-base) var(--ease-standard),
+    color var(--duration-base) var(--ease-standard);
+}
+.at-chip::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: var(--radius-full);
+  background: color-mix(in oklab, var(--accent) 14%, transparent);
+  transform: scale(0);
+  opacity: 0;
+  pointer-events: none;
+}
+.at-chip:active::after {
+  animation: at-ripple var(--duration-slow) var(--ease-standard);
+}
+@keyframes at-ripple {
+  0% { transform: scale(0); opacity: 1; }
+  100% { transform: scale(18); opacity: 0; }
+}
+.at-chip:hover:not(.is-active):not(:disabled) {
+  background: var(--accent-soft);
+  color: var(--text-primary);
+}
+.at-chip.is-active {
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+.at-chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.at-chip:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 1px;
+}
+.at-chip .at-chip-count {
+  font-size: var(--text-label);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.at-chip.is-active .at-chip-count {
+  color: color-mix(in oklab, var(--text-on-accent) 72%, transparent);
+}
+
+/* ── 墨丸段控(hairline 围合,激活段墨丸浮起) ───────────────────────── */
+.at-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+}
+.at-seg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-height: 26px;
+  min-width: 26px;
+  padding: 0 var(--space-3);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--text-aux);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color var(--duration-base) var(--ease-standard),
+    color var(--duration-base) var(--ease-standard);
+}
+.at-seg-btn:hover:not(.is-active) {
+  color: var(--text-primary);
+}
+.at-seg-btn.is-active {
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+.at-seg-btn:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: -1px;
+}
+
+/* ── 发夹线卡片(软阴影 + hover 呼吸轻抬) ──────────────────────────── */
+.at-card {
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--duration-slow) var(--ease-emphasized),
+    border-color var(--duration-slow) var(--ease-emphasized),
+    transform var(--duration-slow) var(--ease-emphasized);
+}
+.at-card--lift:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-lift);
+  transform: translateY(-2px);
+}
+
+/* ── 编辑徽章(小型大写 hairline 标签,替代彩色填充徽章) ────────────── */
+.at-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 1px var(--space-2);
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  font-size: var(--text-label);
+  font-weight: var(--font-medium);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.at-badge--ok {
+  border-color: color-mix(in oklab, var(--ok) 40%, transparent);
+  color: var(--ok);
+}
+.at-badge--err {
+  border-color: color-mix(in oklab, var(--err) 40%, transparent);
+  color: var(--err);
+}
+.at-badge--accent {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ── 按钮:墨丸主钮 / 发夹线次钮 ───────────────────────────────────── */
+.at-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 34px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-full);
+  font: inherit;
+  font-size: var(--text-aux);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: background-color var(--duration-base) var(--ease-standard),
+    border-color var(--duration-base) var(--ease-standard),
+    color var(--duration-base) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
+}
+.at-btn--primary {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: var(--text-on-accent);
+}
+.at-btn--primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+.at-btn--ghost {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+.at-btn--ghost:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+.at-btn--danger:hover:not(:disabled) {
+  border-color: var(--err);
+  background: var(--err-soft);
+  color: var(--err);
+}
+.at-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.at-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.at-btn:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 1px;
+}
+
+/* ── Fraunces 空态(kicker + 展示标题 + 引导 + 细线框) ─────────────── */
+.at-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-3);
+  padding: var(--space-12) var(--space-6);
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-panel);
+}
+.at-empty-kicker {
+  font-size: var(--text-label);
+  font-weight: var(--font-medium);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.at-empty-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-display-md);
+  font-weight: var(--font-semibold);
+  letter-spacing: -0.01em;
+  line-height: var(--leading-display);
+  color: var(--text-primary);
+}
+.at-empty-desc {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  max-width: 460px;
+  line-height: 1.6;
+}
+@media (max-width: 767px) {
+  .at-empty-title {
+    font-size: var(--text-display-sm);
+  }
+}
+
+/* ── 错落入场(通用;前 15 张 30ms 逐级,其后同拍) ───────────────────── */
+.at-card-in {
+  animation: at-card-in var(--duration-slow) var(--ease-emphasized) both;
+}
+.at-card-in:nth-child(1) { animation-delay: 0ms; }
+.at-card-in:nth-child(2) { animation-delay: 30ms; }
+.at-card-in:nth-child(3) { animation-delay: 60ms; }
+.at-card-in:nth-child(4) { animation-delay: 90ms; }
+.at-card-in:nth-child(5) { animation-delay: 120ms; }
+.at-card-in:nth-child(6) { animation-delay: 150ms; }
+.at-card-in:nth-child(7) { animation-delay: 180ms; }
+.at-card-in:nth-child(8) { animation-delay: 210ms; }
+.at-card-in:nth-child(9) { animation-delay: 240ms; }
+.at-card-in:nth-child(10) { animation-delay: 270ms; }
+.at-card-in:nth-child(11) { animation-delay: 300ms; }
+.at-card-in:nth-child(12) { animation-delay: 330ms; }
+.at-card-in:nth-child(13) { animation-delay: 360ms; }
+.at-card-in:nth-child(14) { animation-delay: 390ms; }
+.at-card-in:nth-child(15) { animation-delay: 420ms; }
+.at-card-in:nth-child(n+16) { animation-delay: 450ms; }
+@keyframes at-card-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── 减弱动效(共享类全覆盖) ──────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .at-chip::after {
+    display: none;
+  }
+  .at-card--lift:hover {
+    transform: none;
+  }
+  .at-card-in,
+  .at-card-in:nth-child(n) {
+    animation: none;
   }
 }

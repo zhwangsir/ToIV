@@ -230,3 +230,95 @@ def test_test_login_rate_limit_isolated_by_ip(testkey_client):
         headers={"X-Forwarded-For": "203.0.113.10"},
     )
     assert r.status_code == 200
+
+
+# ---------- 微信登录(/auth/wechat):bypass 开发通道 + code2session ----------
+def _wechat_settings(**kw):
+    """构造仅含微信登录三项配置的假 settings(与 testkey_client 同思路,不影响全局配置)。"""
+    from types import SimpleNamespace
+
+    base = {"wechat_appid": "", "wechat_secret": "", "wechat_dev_bypass": False}
+    base.update(kw)
+    return SimpleNamespace(**base)
+
+
+def test_wechat_login_not_configured_503(client, monkeypatch):
+    """bypass 关 + appid/secret 未配置 → 503 微信登录未配置。"""
+    monkeypatch.setattr("app.routes.auth.get_settings", lambda: _wechat_settings())
+    r = client.post("/api/auth/wechat", json={"code": "abc"})
+    assert r.status_code == 503
+
+
+def test_wechat_login_bypass_auto_signup(client, monkeypatch):
+    """bypass 开:code 映射 dev-{code} openid,首登自动开户并签发可过 /auth/me 的 token。"""
+    monkeypatch.setattr(
+        "app.routes.auth.get_settings",
+        lambda: _wechat_settings(wechat_dev_bypass=True),
+    )
+    r = client.post("/api/auth/wechat", json={"code": "abc", "nickname": "小明"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["token"]
+    assert body["user"]["email"] == "wx-dev-abc@wechat.local"
+    assert body["user"]["role"] == "user"
+    me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {body['token']}"})
+    assert me.status_code == 200
+    assert me.json()["user"]["email"] == "wx-dev-abc@wechat.local"
+
+
+def test_wechat_login_same_code_same_user(client, monkeypatch):
+    """同 code 二次登录幂等绑定:返回同一 user id,不重复开户。"""
+    monkeypatch.setattr(
+        "app.routes.auth.get_settings",
+        lambda: _wechat_settings(wechat_dev_bypass=True),
+    )
+    first = client.post("/api/auth/wechat", json={"code": "abc"}).json()
+    second = client.post("/api/auth/wechat", json={"code": "abc"}).json()
+    assert first["user"]["id"] == second["user"]["id"]
+
+
+def test_wechat_login_blank_code_422(client, monkeypatch):
+    """code 为空串或纯空白 → 422(长度校验 1-128)。"""
+    monkeypatch.setattr(
+        "app.routes.auth.get_settings",
+        lambda: _wechat_settings(wechat_dev_bypass=True),
+    )
+    assert client.post("/api/auth/wechat", json={"code": ""}).status_code == 422
+    assert client.post("/api/auth/wechat", json={"code": "   "}).status_code == 422
+
+
+def test_wechat_login_errcode_401(client, monkeypatch):
+    """配置齐全 + 腾讯返回 errcode(40029 invalid code)→ 401,detail 含 errcode。"""
+    monkeypatch.setattr(
+        "app.routes.auth.get_settings",
+        lambda: _wechat_settings(wechat_appid="wx-appid", wechat_secret="wx-secret"),
+    )
+    monkeypatch.setattr(
+        "app.routes.auth._wechat_code2session",
+        lambda code, appid, secret: {"errcode": 40029, "errmsg": "invalid code"},
+    )
+    r = client.post("/api/auth/wechat", json={"code": "bad-code"})
+    assert r.status_code == 401
+    assert "40029" in r.json()["detail"]
+
+
+def test_wechat_login_real_openid_bound(client, monkeypatch):
+    """配置齐全 + 腾讯返回 openid → 200,自动开户绑定该 openid,token 可过 /auth/me。"""
+    monkeypatch.setattr(
+        "app.routes.auth.get_settings",
+        lambda: _wechat_settings(wechat_appid="wx-appid", wechat_secret="wx-secret"),
+    )
+    monkeypatch.setattr(
+        "app.routes.auth._wechat_code2session",
+        lambda code, appid, secret: {
+            "errcode": 0,
+            "openid": "real-openid",
+            "session_key": "sk",
+        },
+    )
+    r = client.post("/api/auth/wechat", json={"code": "good-code"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["user"]["email"] == "wx-real-openid@wechat.local"
+    me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {body['token']}"})
+    assert me.status_code == 200

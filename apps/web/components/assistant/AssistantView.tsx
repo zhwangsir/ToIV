@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, lazy, Suspense } from "react";
-import { Icon } from "@/components/ui/Icon";
+import { useState, useRef, useEffect, useCallback, useMemo, lazy, Suspense, type ReactNode } from "react";
+import { Icon, type IconName } from "@/components/ui/Icon";
 import { Button } from "@/components/ui/Button";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
+import { LazyVideo } from "@/components/ui/LazyVideo";
 import { useToast } from "@/components/ui/Toast";
 import {
   agentChatStream,
@@ -14,8 +15,14 @@ import {
   deleteAgentSession,
   getAgentSession,
   getLlmModel,
+  imageUrl,
   listAgentSessions,
+  listJobs,
 } from "@/lib/api";
+import { fetchEngines, type EngineInfo } from "@/lib/engines";
+import { isVideoKind, kindLabel, kindToFilter } from "@/lib/libraryQuery";
+import { useR18Mode } from "@/lib/r18";
+import type { JobItem } from "@/lib/types";
 import {
   deleteDoc,
   DocItem,
@@ -26,7 +33,9 @@ import {
 } from "@/lib/docs";
 import { genId } from "@/lib/id";
 import { useBreakpoint } from "@/lib/useBreakpoint";
+import { useAutoResize } from "@/hooks/useAutoResize";
 import "@/app/styles/docs.css";
+import "@/app/styles/assistant.css";
 
 // 模型名从 /api/system/llm 动态读取(display_model),不再硬编码;desc 为通用说明
 const MODEL_DESC = "本地 L1 快速对话模型，适合灵感捕获、提示词润色、简单问答";
@@ -299,8 +308,126 @@ function getPreview(text: string, max = 28) {
   return t.length > max ? t.slice(0, max) + "…" : t;
 }
 
+// ───── 助手气泡行内 markdown(2026-08-16 审计修复):最小手写解析,不引第三方 md 库 ─────
+// 此前气泡纯文本直出,LLM 的 `**` 标记原样泄漏。边界规则(CommonMark flanking 简化版):
+// 开定界符后随空白不成立(`* *操作:…` 保持原文,不吞星号),闭定界符前是空白也不成立;
+// 内容可含全角引号与单 `*`(`**…"视频超分"…**` 整体加粗,不会被引号/嵌套星号截断)。
+const BOLD_RE = /\*\*(?=\S)([\s\S]*?\S)\*\*/g;
+const ITALIC_RE = /\*(?=\S)([^*\n]*?\S)\*/g;
 
-export function AssistantView() {
+/** 片段内斜体替换(星号配对失败的按原文保留)。 */
+function renderItalicSegments(text: string, keyPrefix: string): ReactNode[] {
+  const out: ReactNode[] = [];
+  let last = 0;
+  for (const m of text.matchAll(ITALIC_RE)) {
+    const idx = m.index ?? 0;
+    if (idx > last) out.push(text.slice(last, idx));
+    out.push(<em key={`${keyPrefix}i${idx}`}>{m[1]}</em>);
+    last = idx + m[0].length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
+
+/** 助手消息行内渲染:`**加粗**` / `*斜体*`;仅助手气泡使用(用户消息纯文本直出,避免 `2*3*5` 误斜体)。 */
+export function renderInlineMarkdown(text: string): ReactNode[] {
+  const out: ReactNode[] = [];
+  let last = 0;
+  for (const m of text.matchAll(BOLD_RE)) {
+    const idx = m.index ?? 0;
+    if (idx > last) out.push(...renderItalicSegments(text.slice(last, idx), `p${idx}`));
+    out.push(<strong key={`b${idx}`}>{renderItalicSegments(m[1], `b${idx}`)}</strong>);
+    last = idx + m[0].length;
+  }
+  if (last < text.length) out.push(...renderItalicSegments(text.slice(last), `t${last}`));
+  return out;
+}
+
+// ───── 首页门户(2026-08-16 堆友范式):引擎胶囊 / 场景胶囊 / @ 技能面板 / 最近作品 ─────
+
+/** 引擎状态胶囊分组:按注册表 id 前缀归类;组内任一引擎可用即绿灯,组在注册表缺席则不渲染。 */
+const ENGINE_CAPSULE_GROUPS: { key: string; label: string; match: (id: string) => boolean }[] = [
+  { key: "h3", label: "H3", match: (id) => id.startsWith("h3-") },
+  { key: "ltx25", label: "LTX-2.5", match: (id) => id.startsWith("ltx25-") },
+  { key: "longcat", label: "LongCat", match: (id) => id.startsWith("longcat-") },
+  { key: "wan", label: "Wan", match: (id) => id.startsWith("wan-") },
+  { key: "image", label: "图像", match: (id) => id === "txt2img" || id === "img2img" },
+  { key: "audio", label: "音乐", match: (id) => id.startsWith("ace-") },
+];
+
+export interface EngineCapsule {
+  key: string;
+  label: string;
+  available: boolean;
+}
+
+/** 引擎注册表 → 胶囊条数据(纯函数,单测锚点)。 */
+export function buildEngineCapsules(engines: readonly EngineInfo[]): EngineCapsule[] {
+  return ENGINE_CAPSULE_GROUPS.filter((g) =>
+    engines.some((e) => g.match(e.id)),
+  ).map((g) => ({
+    key: g.key,
+    label: g.label,
+    available: engines.some((e) => g.match(e.id) && e.available),
+  }));
+}
+
+/** 门户「最近作品」挑选(纯函数,单测锚点):完成态有产物、排除 R18、按创建时间倒序、截取前 N 件。 */
+export function pickRecentWorks(jobs: readonly JobItem[], limit = 12): JobItem[] {
+  return jobs
+    .filter(
+      (j) =>
+        !j.nsfw && j.status === "done" && Array.isArray(j.results) && j.results.length > 0,
+    )
+    .slice()
+    .sort((a, b) => (Date.parse(b.created_at) || 0) - (Date.parse(a.created_at) || 0))
+    .slice(0, limit);
+}
+
+interface PortalEntry {
+  view: string;
+  icon: IconName;
+  label: string;
+  desc: string;
+  /** r18 = 仅 R18 模式渲染(drama 视图受 page.tsx 全局门控);sfwOnly = 仅 SFW 模式补位 */
+  r18?: boolean;
+  sfwOnly?: boolean;
+}
+
+/** 场景胶囊(对话框下方):R18 模式首位=短剧工作台;SFW 模式由视频创作补位(drama 受全局门控不可达)。 */
+export const SCENE_CAPSULES: PortalEntry[] = [
+  { view: "drama", icon: "clapperboard", label: "短剧工作台", desc: "剧本 · 资产 · 分镜 · 成片", r18: true },
+  { view: "video", icon: "video", label: "视频创作", desc: "LTX-2.5 · H3 · LongCat 长视频", sfwOnly: true },
+  { view: "image", icon: "image", label: "图像创作", desc: "文生图 · 图生图 · 风格预设" },
+  { view: "avatartalk", icon: "user", label: "数字人", desc: "照片开口说话 · 对口型" },
+  { view: "library", icon: "library", label: "作品库", desc: "灵感与成果的档案馆" },
+];
+
+/** @ 技能面板一期内容 = 工作台快捷入口(二期接 Skills 广场)。 */
+export const SKILL_ENTRIES: PortalEntry[] = [
+  { view: "drama", icon: "clapperboard", label: "短剧工作台", desc: "剧本到成片的全链路工作台", r18: true },
+  { view: "image", icon: "image", label: "图像创作", desc: "文生图 / 图生图" },
+  { view: "video", icon: "video", label: "视频创作", desc: "LTX-2.5 / H3 / LongCat" },
+  { view: "audio", icon: "audio", label: "音频工坊", desc: "音乐 / 配音 / 人声分离" },
+  { view: "avatartalk", icon: "user", label: "数字人", desc: "照片说话 / 对口型" },
+  { view: "library", icon: "library", label: "作品库", desc: "全部生成产物" },
+];
+
+/** 按 R18 模式过滤门户入口(纯函数,单测锚点)。 */
+export function filterPortalEntries(
+  entries: readonly PortalEntry[],
+  r18: boolean,
+): PortalEntry[] {
+  return entries.filter((e) => (e.r18 ? r18 : true) && (e.sfwOnly ? !r18 : true));
+}
+
+export interface AssistantViewProps {
+  /** 视图跳转(page.tsx SPA 切换机制);未注入时退化为整页跳转 ?view= */
+  onNavigate?: (view: string) => void;
+}
+
+export function AssistantView(props?: AssistantViewProps) {
+  const onNavigate = props?.onNavigate;
   const toast = useToast();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -313,7 +440,6 @@ export function AssistantView() {
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [contextOpen, setContextOpen] = useState(false);
-  const [textareaRows, setTextareaRows] = useState(1);
   const [modelName, setModelName] = useState("L1 对话模型");
   // 移动端断点:placeholder 文案按端适配(移动端无 Enter 键)
   const isMobileMq = useBreakpoint("md");
@@ -339,6 +465,82 @@ export function AssistantView() {
 
   const isEmpty = messages.length === 0;
 
+  // ───── 门户状态(2026-08-16):引擎胶囊 / 最近作品 / @ 面板 / R18 模式 ─────
+  const [r18] = useR18Mode();
+  // 引擎状态胶囊:失败兜底 = 整条隐藏,不报错穿帮
+  const [engines, setEngines] = useState<EngineInfo[] | null>(null);
+  // 最近作品:仅门户空态加载(listJobs 走 SWR 缓存,二访秒开)
+  const [recentJobs, setRecentJobs] = useState<JobItem[] | null>(null);
+  // @ 技能面板:Esc/选定后关闭;输入再变化时重新允许弹出
+  const [skillDismissed, setSkillDismissed] = useState(false);
+
+  /** 视图跳转:优先 page.tsx SPA 切换(带 View Transitions),缺省整页跳转。 */
+  const goView = useCallback(
+    (view: string) => {
+      if (onNavigate) onNavigate(view);
+      else if (typeof window !== "undefined") window.location.assign(`/?view=${view}`);
+    },
+    [onNavigate],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchEngines()
+      .then((rows) => {
+        if (!cancelled) setEngines(rows);
+      })
+      .catch(() => {
+        /* 接口挂了就隐藏胶囊条(engines 保持 null) */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isEmpty) return;
+    let cancelled = false;
+    listJobs()
+      .then((rows) => {
+        if (!cancelled) setRecentJobs(rows);
+      })
+      .catch(() => {
+        /* 失败隐藏作品流,不阻塞对话 */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isEmpty]);
+
+  const engineCapsules = useMemo(
+    () => (engines ? buildEngineCapsules(engines) : []),
+    [engines],
+  );
+  const recentWorks = useMemo(() => pickRecentWorks(recentJobs ?? []), [recentJobs]);
+  const sceneCapsules = useMemo(() => filterPortalEntries(SCENE_CAPSULES, r18), [r18]);
+  // @ 触发:取最后一个 @ 之后的文本作过滤词(空词=全量入口)
+  const skillEntries = useMemo(() => {
+    const idx = input.lastIndexOf("@");
+    if (idx < 0) return [];
+    const q = input.slice(idx + 1).trim().toLowerCase();
+    return filterPortalEntries(SKILL_ENTRIES, r18).filter(
+      (e) => !q || e.label.toLowerCase().includes(q),
+    );
+  }, [input, r18]);
+  // 无匹配项时收敛面板,Enter 照常发送原文
+  const skillPanelVisible =
+    input.includes("@") && !skillDismissed && !busy && skillEntries.length > 0;
+
+  /** 选定技能入口:剥掉尾部的 @触发词,跳转对应视图。 */
+  const onPickSkill = useCallback(
+    (view: string) => {
+      setInput((prev) => prev.replace(/@[^@]*$/, ""));
+      setSkillDismissed(true);
+      goView(view);
+    },
+    [goView],
+  );
+
   // 顶栏/设置面板的模型名跟随后端真实配置,避免显示与实际调用不一致
   useEffect(() => {
     const ac = new AbortController();
@@ -360,27 +562,25 @@ export function AssistantView() {
   }, []);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const el = scrollRef.current;
+    if (!el) return;
+    // 门户首页(空态):滚动容器顶对齐——会话态沉底逻辑会把英雄标题推出裁剪窗(审计实测残留 163.5px);
+    // 挂载/视图切回 assistant/清空会话三条路径都汇聚到 isEmpty=true,一并归零
+    if (isEmpty) {
+      el.scrollTop = 0;
+      return;
     }
-  }, [messages, busy]);
+    el.scrollTop = el.scrollHeight;
+  }, [messages, busy, isEmpty]);
 
-  useEffect(() => {
-    if (textareaRef.current) {
-      const lineCount = input.split("\n").length;
-      const newRows = Math.min(Math.max(lineCount, 1), 8);
-      setTextareaRows(newRows);
-      textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = Math.min(newRows * 22, 176) + "px";
-    }
-  }, [input]);
+  // composer 自动增高(scrollHeight 方案,40vh 宽松封顶,超出内滚;替代原行数估算 176px 硬顶)
+  useAutoResize(textareaRef, input, { maxVh: 40 });
 
   const onNewChat = useCallback(() => {
     setMessages([]);
     setActiveConvId(null);
     activeConvIdRef.current = null;
     setInput("");
-    setTextareaRows(1);
   }, []);
 
   // activeConvId 同步到 ref,供流式回调结束时拿到最新会话 id
@@ -413,7 +613,6 @@ export function AssistantView() {
       setMessages(msgs);
       setActiveConvId(conv.id);
       setInput("");
-      setTextareaRows(1);
       setHistoryOpen(false);
     },
     [convStore],
@@ -636,9 +835,9 @@ export function AssistantView() {
       setMessages(newMsgs);
       if (!presetPrompt) {
         setInput("");
-        setTextareaRows(1);
       }
       setAttachedDocs([]); // 挂载随消息发出,芯片转移到消息气泡上
+      setSkillDismissed(true); // 发送后收敛 @ 面板
       await requestReply(newMsgs, docs.map((d) => d.id));
     },
     [input, busy, messages, attachedDocs, requestReply],
@@ -663,17 +862,129 @@ export function AssistantView() {
     setPending(false);
   }, []);
 
-  const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-      e.preventDefault();
-      send();
-    }
-  }, [send]);
+  const onKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key === "Escape" && skillPanelVisible) {
+        e.preventDefault();
+        setSkillDismissed(true);
+        return;
+      }
+      if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+        e.preventDefault();
+        // @ 面板展开时 Enter = 选定首项(堆友交互);面板关闭/无候选时照常发送
+        if (skillPanelVisible) {
+          onPickSkill(skillEntries[0].view);
+          return;
+        }
+        send();
+      }
+    },
+    [send, skillPanelVisible, skillEntries, onPickSkill],
+  );
 
   const formatTime = (ts: number) => {
     const d = new Date(ts);
     return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
   };
+
+  /* 对话框(门户 C 位 / 会话底部两处复用):portal=true 时褪去底部固定档的渐变底与内边距 */
+  const renderComposer = (portal: boolean) => (
+    <div className={`av-composer${portal ? " av-composer--portal" : ""}`}>
+      {attachedDocs.length > 0 && (
+        <div className="doc-chips doc-chips--composer">
+          {attachedDocs.map((d) => (
+            <span key={d.id} className="doc-chip doc-chip--removable">
+              <Icon name="file" size={11} strokeWidth={1.8} />
+              {d.filename}
+              <button
+                type="button"
+                className="doc-chip-x"
+                onClick={() => removeAttachedDoc(d.id)}
+                aria-label={`移除文档 ${d.filename}`}
+                title="移除"
+              >
+                <Icon name="close" size={10} strokeWidth={2} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="av-composer-anchor">
+        {/* @ 技能面板(一期 = 工作台快捷入口;视觉与 at-card 同构) */}
+        {skillPanelVisible && (
+          <div className="av-skill-panel at-card" role="menu" aria-label="技能与工作台快捷入口">
+            <div className="av-skill-panel-head">
+              <span className="av-skill-panel-title">技能 / 工作台</span>
+              <span className="av-skill-panel-hint">Enter 选定首项 · Esc 关闭</span>
+            </div>
+            {skillEntries.map((entry) => (
+              <button
+                key={entry.view}
+                type="button"
+                role="menuitem"
+                className="av-skill-item"
+                onClick={() => onPickSkill(entry.view)}
+              >
+                <span className="av-skill-item-icon">
+                  <Icon name={entry.icon} size={14} strokeWidth={1.8} />
+                </span>
+                <span className="av-skill-item-main">
+                  <span className="av-skill-item-label">{entry.label}</span>
+                  <span className="av-skill-item-desc">{entry.desc}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="av-composer-box">
+          <div className="av-composer-actions av-composer-actions--left">
+            {busy ? (
+              <button type="button" className="av-composer-btn av-composer-stop" onClick={onStop} title="停止生成">
+                <Icon name="minus" size={12} strokeWidth={2.2} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={`av-composer-btn av-composer-btn-ghost av-composer-tool${docsOpen || attachedDocs.length ? " is-active" : ""}`}
+                title="文档(上传/挂载,供长文本理解)"
+                aria-label="文档"
+                onClick={() => setDocsOpen((v) => !v)}
+              >
+                <Icon name="plus" size={14} strokeWidth={1.8} />
+              </button>
+            )}
+          </div>
+          <textarea
+            ref={textareaRef}
+            className="av-composer-input"
+            placeholder={isMobileMq ? "说出你的创意,或输入 @ 调用技能…" : "说出你的创意,或输入 @ 调用技能…（Enter 发送 / Shift+Enter 换行）"}
+            value={input}
+            onChange={(e) => {
+              setInput(e.target.value);
+              setSkillDismissed(false); // 输入变化时重新允许 @ 面板弹出
+            }}
+            onKeyDown={onKeyDown}
+            rows={1}
+            disabled={busy}
+          />
+          <div className="av-composer-actions">
+            <button
+              type="button"
+              className="av-composer-btn av-composer-send"
+              onClick={() => send()}
+              disabled={!input.trim() || busy}
+              title="发送"
+            >
+              <Icon name="send" size={14} strokeWidth={1.8} />
+            </button>
+          </div>
+        </div>
+      </div>
+      <div className="av-composer-hint">
+        <span>内容由 AI 生成，请注意甄别</span>
+      </div>
+    </div>
+  );
 
   return (
     <div className="av-view">
@@ -686,10 +997,13 @@ export function AssistantView() {
           </p>
         </div>
         <div className="page-header-actions av-header-actions">
-          <div className="av-model-pill">
+          {/* 模型胶囊:Film Atelier 编辑徽章语言(.at-badge hairline,去灰底填充);
+              模型名单独成元素——flex 容器内的匿名文本节点无法 text-overflow 省略,
+              移动端长模型名靠 .av-model-name 真省略截断(assistant.css ≤767) */}
+          <div className="av-model-pill at-badge">
             <span className="av-model-dot" />
             <Icon name="braincircuit" size={12} strokeWidth={1.8} />
-            {modelName}
+            <span className="av-model-name">{modelName}</span>
           </div>
           <button
             type="button"
@@ -732,16 +1046,60 @@ export function AssistantView() {
         <div className="av-dot-grid" aria-hidden="true" />
 
         {isEmpty ? (
-          <div className="av-empty">
-            <div className="av-empty-kicker">ToIV · AI 对话助手</div>
+          /* 首页门户(2026-08-16 堆友范式):引擎胶囊条 → kicker/标题 → 对话框 C 位
+             → 场景胶囊 → 提示词建议卡 → 最近作品瀑布流;
+             保留 v6.1 空态美学(DIALOGUE ATELIER kicker / Fraunces 标题 / at-card 建议卡) */
+          <div className="av-empty av-portal">
+            {engineCapsules.length > 0 && (
+              /* 2026-08-16 视图批 1:胶囊行补语义化小标题「引擎状态」(label 档),
+                 孤立悬浮的徽章行锚定语境;aria-labelledby 关联可见标签,不重复播报 */
+              <div className="av-eng-block">
+                <span className="av-eng-label" id="av-eng-label">引擎状态</span>
+                <div className="av-eng-strip" role="status" aria-labelledby="av-eng-label">
+                  {engineCapsules.map((c) => (
+                    <span
+                      key={c.key}
+                      className={`at-badge av-eng-pill${c.available ? " is-ok" : " is-err"}`}
+                      title={c.available ? `${c.label} 引擎可用` : `${c.label} 引擎离线`}
+                    >
+                      <span
+                        className={`av-eng-dot${c.available ? " is-ok" : " is-err"}`}
+                        aria-hidden="true"
+                      />
+                      {c.label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="av-empty-kicker">DIALOGUE ATELIER</div>
             <div className="av-empty-title">今天想创作什么?</div>
             <div className="av-empty-desc">{MODEL_DESC}</div>
+            <div className="av-portal-composer">{renderComposer(true)}</div>
+            <div className="av-scene-grid">
+              {sceneCapsules.map((c) => (
+                <button
+                  key={c.view}
+                  type="button"
+                  className="av-scene-card at-card at-card--lift at-card-in"
+                  onClick={() => goView(c.view)}
+                >
+                  <span className="av-scene-text">
+                    <span className="av-scene-title">{c.label}</span>
+                    <span className="av-scene-desc">{c.desc}</span>
+                  </span>
+                  <span className="av-scene-icon">
+                    <Icon name={c.icon} size={20} strokeWidth={1.6} />
+                  </span>
+                </button>
+              ))}
+            </div>
             <div className="av-quick-grid">
               {QUICK_ACTIONS.map((a) => (
                 <button
                   key={a.label}
                   type="button"
-                  className="av-quick-card"
+                  className="av-quick-card at-card at-card--lift at-card-in"
                   onClick={() => send(a.prompt)}
                 >
                   <span className="av-quick-icon">
@@ -752,6 +1110,75 @@ export function AssistantView() {
                 </button>
               ))}
             </div>
+            {recentWorks.length > 0 && (
+              <section className="av-works" aria-label="最近作品">
+                <div className="av-works-head">
+                  <span className="av-works-title">最近作品</span>
+                  <button
+                    type="button"
+                    className="at-btn at-btn--ghost av-works-more"
+                    onClick={() => goView("library")}
+                  >
+                    查看全部
+                  </button>
+                </div>
+                <div className="av-works-grid">
+                  {recentWorks.map((job) => {
+                    const filterKey = kindToFilter(job.kind);
+                    return (
+                      <button
+                        key={job.id}
+                        type="button"
+                        className="av-work-card at-card at-card--lift at-card-in"
+                        onClick={() => goView("library")}
+                        aria-label={`在作品库查看: ${job.prompt || "未命名作品"}`}
+                      >
+                        <span className="av-work-thumb">
+                          {isVideoKind(job.kind) ? (
+                            <LazyVideo
+                              src={imageUrl(job.results[0])}
+                              muted
+                              loop
+                              playsInline
+                            />
+                          ) : filterKey === "image" ? (
+                            <img
+                              src={imageUrl(job.results[0])}
+                              alt={job.prompt || "作品缩略图"}
+                              /* 属性仅作加载前纵横比提示(16:9),CSS object-fit 裁切填满 */
+                              width={480}
+                              height={270}
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          ) : (
+                            <span className="av-work-thumb-icon" aria-hidden="true">
+                              <Icon
+                                name={
+                                  filterKey === "audio"
+                                    ? "audio"
+                                    : filterKey === "3d"
+                                      ? "box"
+                                      : "file"
+                                }
+                                size={20}
+                                strokeWidth={1.4}
+                              />
+                            </span>
+                          )}
+                        </span>
+                        <span className="av-work-meta">
+                          <span className="av-work-kind">{kindLabel(job.kind)}</span>
+                          <span className="av-work-prompt">
+                            {getPreview(job.prompt || "", 40)}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
           </div>
         ) : (
           <div className="av-msg-list">
@@ -791,7 +1218,7 @@ export function AssistantView() {
                             ))}
                           </span>
                         ) : null}
-                        {msg.content}
+                        {msg.role === "assistant" ? renderInlineMarkdown(msg.content) : msg.content}
                         {msg.media?.map((m, idx) => (
                           <div key={idx} className="av-media">
                             {m.type === "image" && m.urls[0] && (
@@ -863,70 +1290,8 @@ export function AssistantView() {
         )}
       </div>
 
-      <div className="av-composer">
-        {attachedDocs.length > 0 && (
-          <div className="doc-chips doc-chips--composer">
-            {attachedDocs.map((d) => (
-              <span key={d.id} className="doc-chip doc-chip--removable">
-                <Icon name="file" size={11} strokeWidth={1.8} />
-                {d.filename}
-                <button
-                  type="button"
-                  className="doc-chip-x"
-                  onClick={() => removeAttachedDoc(d.id)}
-                  aria-label={`移除文档 ${d.filename}`}
-                  title="移除"
-                >
-                  <Icon name="close" size={10} strokeWidth={2} />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-        <div className="av-composer-box">
-          <div className="av-composer-actions av-composer-actions--left">
-            {busy ? (
-              <button type="button" className="av-composer-btn av-composer-stop" onClick={onStop} title="停止生成">
-                <Icon name="minus" size={12} strokeWidth={2.2} />
-              </button>
-            ) : (
-              <button
-                type="button"
-                className={`av-composer-btn av-composer-btn-ghost av-composer-tool${docsOpen || attachedDocs.length ? " is-active" : ""}`}
-                title="文档(上传/挂载,供长文本理解)"
-                aria-label="文档"
-                onClick={() => setDocsOpen((v) => !v)}
-              >
-                <Icon name="plus" size={14} strokeWidth={1.8} />
-              </button>
-            )}
-          </div>
-          <textarea
-            ref={textareaRef}
-            className="av-composer-input"
-            placeholder={isMobileMq ? "输入你的创作需求…" : "输入你的创作需求…（Enter 发送 / Shift+Enter 换行）"}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={onKeyDown}
-            rows={textareaRows}
-            disabled={busy}
-          />
-          <div className="av-composer-actions">
-            <button
-              type="button"
-              className="av-composer-btn av-composer-send"
-              onClick={() => send()}
-              disabled={!input.trim() || busy}
-              title="发送"
-            >
-              <Icon name="send" size={14} strokeWidth={1.8} />
-            </button>
-          </div>
-        </div>
-        <div className="av-composer-hint">
-          <span>内容由 AI 生成，请注意甄别</span>
-        </div>
-      </div>
+      {/* 会话态:对话框沉底(门户态时由 C 位 renderComposer(true) 承担) */}
+      {!isEmpty && renderComposer(false)}
 
       <div className={`av-panel av-panel--left${historyOpen ? " is-open" : ""}`}>
         <div className="av-panel-head">
@@ -990,7 +1355,7 @@ export function AssistantView() {
             <div className="av-prop-value">
               <div className="av-model-pill av-model-pill--sm">
                 <span className="av-model-dot" />
-                {modelName}
+                <span className="av-model-name">{modelName}</span>
               </div>
             </div>
           </div>
@@ -1252,14 +1617,15 @@ export function AssistantView() {
           gap: var(--space-2);
           height: 26px;
           padding: 0 var(--space-3);
-          background: var(--bg-surface-2);
+          /* Film Atelier:去灰底填充,编辑徽章 hairline(顶栏实例再叠 .at-badge) */
+          background: transparent;
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-full);
           color: var(--text-secondary);
           font-size: var(--text-label);
           font-weight: var(--font-medium);
           font-family: var(--font-mono);
-          letter-spacing: 0.02em;
+          letter-spacing: 0.04em;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -1302,14 +1668,14 @@ export function AssistantView() {
           border-radius: 3px;
         }
 
-        /* 点阵网格背景(极弱,仅作画布质感) */
+        /* 点阵网格背景(Film Atelier 收敛:0.32→0.16,仅余极淡画布质感,空态 Fraunces 标题为主角) */
         .av-dot-grid {
           position: absolute;
           inset: 0;
           background-image: radial-gradient(circle, var(--border-strong) 1px, transparent 1px);
           background-size: 20px 20px;
           background-position: 0 0;
-          opacity: 0.32;
+          opacity: 0.16;
           pointer-events: none;
           z-index: 0; /* 层内微调:点阵质感压底,内容层(1)浮其上 */
         }
@@ -1327,25 +1693,22 @@ export function AssistantView() {
           min-height: 100%;
           text-align: center;
         }
+        /* 空态 kicker:Film Atelier 拉丁铭牌(.at-empty-kicker 语言,去 accent 药丸填充) */
         .av-empty-kicker {
-          display: inline-flex;
-          align-items: center;
-          padding: var(--space-1) var(--space-3);
-          border-radius: var(--radius-full);
-          background: var(--accent-soft);
-          border: 1px solid var(--accent-glow);
-          color: var(--accent);
           font-size: var(--text-label);
           font-weight: var(--font-medium);
-          letter-spacing: 0.12em;
+          letter-spacing: 0.22em;
           text-transform: uppercase;
+          color: var(--text-muted);
         }
+        /* 空态大标题:Fraunces 展示位衬线(中文回退 PingFang SC),替代系统黑体 */
         .av-empty-title {
-          font-size: 32px;
-          font-weight: var(--font-bold);
+          font-family: var(--font-display);
+          font-size: var(--text-display-md);
+          font-weight: var(--font-semibold);
           color: var(--text-primary);
-          letter-spacing: -0.02em;
-          line-height: 1.2;
+          letter-spacing: -0.01em;
+          line-height: var(--leading-display);
         }
         .av-empty-desc {
           font-size: var(--text-body);
@@ -1361,27 +1724,16 @@ export function AssistantView() {
           width: 100%;
           max-width: 560px;
         }
+        /* 建议卡:材质由 .at-card 承担(发夹线 + 软阴影),入场走 .at-card-in 错落;
+           本类只保留布局;hover 升浮走 .at-card--lift */
         .av-quick-card {
           display: flex;
           flex-direction: column;
           align-items: flex-start;
           gap: var(--space-2);
           padding: var(--space-4) var(--space-5);
-          background: var(--bg-surface-1);
-          border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-xl);
           cursor: pointer;
           text-align: left;
-          transition: background-color var(--duration-fast) var(--ease-standard),
-            border-color var(--duration-fast) var(--ease-standard),
-            box-shadow var(--duration-fast) var(--ease-standard),
-            transform var(--duration-fast) var(--ease-standard);
-        }
-        .av-quick-card:hover {
-          background: var(--bg-surface-2);
-          border-color: var(--border-strong);
-          box-shadow: var(--shadow-md);
-          transform: translateY(-2px);
         }
         .av-quick-icon {
           display: inline-flex;
@@ -1640,8 +1992,10 @@ export function AssistantView() {
         .av-composer-box:focus-within {
           border-color: var(--accent-glow);
           transform: translateY(-2px);
+          /* Film Atelier:聚焦态补 accent 软晕(accent-soft 外环 + accent 投影) */
           box-shadow:
             0 0 0 1px var(--accent-glow),
+            0 0 0 5px var(--accent-soft),
             0 12px 32px color-mix(in oklab, var(--accent) 16%, transparent),
             inset 0 1px 1px color-mix(in oklab, var(--text-primary) 5%, transparent);
         }
@@ -1726,7 +2080,7 @@ export function AssistantView() {
           z-index: 1; /* 层内微调:压过 composer-box::before 渐变描边 */
           flex: 1;
           min-width: 0;
-          resize: none;
+          resize: vertical;
           border: none;
           background: transparent;
           color: var(--text-primary);
@@ -1735,7 +2089,6 @@ export function AssistantView() {
           line-height: 1.55;
           padding: calc(var(--space-1) + 2px) var(--space-2) calc(var(--space-1) + 2px) 0;
           outline: none;
-          max-height: 176px;
         }
         .av-composer-input::placeholder {
           color: var(--text-muted);
@@ -2035,7 +2388,7 @@ export function AssistantView() {
             padding: var(--space-8) var(--space-4) var(--space-5);
           }
           .av-empty-title {
-            font-size: 26px;
+            font-size: var(--text-display-sm);
           }
           .av-quick-grid {
             grid-template-columns: 1fr;

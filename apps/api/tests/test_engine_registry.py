@@ -270,14 +270,14 @@ async def test_h3_unavailable_when_node_missing(live_pool, user, h3_stub):
 
 
 async def test_longcat_engine_entry(live_pool, user, longcat_stub):
-    """longcat-t2v 条目:视频 kind + 参数表(帧数/宽高/steps/fps/seed),实例在线即可用。"""
+    """longcat-t2v 条目:视频 kind + 参数表(时长秒/宽高/steps/fps/seed),实例在线即可用。"""
     ids = _by_id(await list_engines(live_pool, user))
     e = ids["longcat-t2v"]
     assert e["kind"] == "video" and e["nsfw"] is False
     assert e["available"] is True and "unavailable_reason" not in e
-    frames = _param(e, "num_frames")
-    assert (frames["min"], frames["max"], frames["default"]) == (17, 961, 121)
-    assert "60s" in frames["hint"]
+    dur = _param(e, "duration")
+    assert (dur["min"], dur["max"], dur["default"]) == (0.5, 60, 7.5)
+    assert "961" in dur["hint"]
     steps = _param(e, "steps")
     assert (steps["min"], steps["max"], steps["default"]) == (1, 50, 10)
     fps = _param(e, "fps")
@@ -319,8 +319,10 @@ async def test_ltx25_engine_entries(live_pool, user):
     t2v = ids["ltx25-t2v"]
     w = _param(t2v, "width")
     assert (w["min"], w["max"], w["default"], w["step"]) == (256, 1920, 960, 32)
-    length = _param(t2v, "length")
-    assert (length["min"], length["max"], length["default"]) == (9, 601, 121)
+    # 2026-08-16 时长按秒选择改造:length 帧数参数 → duration 秒数(0.5-60,step 0.5),
+    # 帧数换算/网格吸附收敛统一策略层 services/duration.py
+    dur = _param(t2v, "duration")
+    assert (dur["min"], dur["max"], dur["default"], dur["step"]) == (0.5, 60, 5, 0.5)
     fps = _param(t2v, "fps")
     assert (fps["min"], fps["max"], fps["default"]) == (8, 60, 24)
     steps = _param(t2v, "steps")
@@ -685,7 +687,9 @@ async def test_h3_nsfw_params_presets_match_h3_validation(live_pool, user):
         assert w % 32 == 0 and h % 32 == 0, f"{o['value']} 非 32 对齐"
         assert 256 <= w <= 1344 and 256 <= h <= 1344
     dur = _param(ids["h3-nsfw-t2v"], "duration")
-    frames = {"6": 141, "10": 243, "15": 362}
+    # 2026-08-16 时长按秒选择:新增 4s/8s 档;帧数为统一策略层 up 吸附实证值
+    # (4s→107 / 6s→158 / 8s→192 恰在网格 / 10s→243 / 15s→362)
+    frames = {"4": 107, "6": 158, "8": 192, "10": 243, "15": 362}
     assert [o["value"] for o in dur["options"]] == list(frames)
     for n in frames.values():
         assert (n - 5) % 17 == 0 and 22 <= n <= 362, f"{n} 不在 17k+5 网格"
@@ -790,6 +794,81 @@ async def test_engines_refresh_forces_reprobe(live_pool, user, monkeypatch):
         engine_registry.reset_avail_cache()
 
 
+# --------------------------------------------------------------------------- #
+# Wan2.2 I2V NSFW 引擎(wan-nsfw-i2v,2026-08-17 Civitai 爆款配方复刻)
+# pool worker 执行;probe 校验 capabilities 主链模型/节点 + 6 配方 LoRA 全量
+# --------------------------------------------------------------------------- #
+
+
+def _wan_i2v_requirements() -> tuple[set[str], set[str]]:
+    """Wan2.2 I2V 能力要求:capabilities 主链模型/节点 + WAN_I2V_NSFW_LORAS 全量。"""
+    from app.capabilities import required_models, required_nodes
+    from app.workflows.wan_i2v import WAN_I2V_NSFW_LORAS
+
+    return set(required_models("video")) | set(WAN_I2V_NSFW_LORAS), required_nodes("video")
+
+
+@pytest.fixture
+def wan_pool() -> WorkerPool:
+    """持有 Wan2.2 全套模型 + 6 配方 LoRA + 视频节点链的 worker。"""
+    models, nodes = _wan_i2v_requirements()
+    return WorkerPool([_FakeClient(models, nodes)])
+
+
+async def test_wan_nsfw_i2v_hidden_in_sfw_context(wan_pool, user):
+    """SFW 上下文:wan-nsfw-i2v 不可见(与 ltx-nsfw/h3-nsfw 同一过滤链路)。"""
+    ids = _by_id(await list_engines(wan_pool, user))
+    assert "wan-nsfw-i2v" not in ids
+
+
+async def test_wan_nsfw_i2v_exposed_and_available_in_r18(wan_pool, user):
+    """R18 上下文:引擎出现且可用;loras 静态清单与后端注册表全等,全部打 R18 标。"""
+    from app.workflows.wan_i2v import WAN_I2V_NSFW_LORAS
+
+    token = nsfw_intent_var.set(True)
+    try:
+        ids = _by_id(await list_engines(wan_pool, user))
+    finally:
+        nsfw_intent_var.reset(token)
+    e = ids["wan-nsfw-i2v"]
+    assert e["nsfw"] is True and e["kind"] == "video"
+    assert e["available"] is True
+    assert _param(e, "images")["type"] == "images"  # i2v 必传参考图
+    loras = _param(e, "loras")
+    assert loras["type"] == "loras"
+    assert {o["value"] for o in loras["options"]} == set(WAN_I2V_NSFW_LORAS)  # 不多不漏
+    assert all(o.get("nsfw") for o in loras["options"])
+    # 分辨率预设全部在请求模型钳位范围内(128-1280)
+    res = _param(e, "resolution")
+    assert res["default"] == "832x480"
+    for o in res["options"]:
+        w, h = map(int, o["value"].split("x"))
+        assert 128 <= w <= 1280 and 128 <= h <= 1280, f"{o['value']} 越界"
+    # 时长预设:3/5/7.5s(16fps → 就近吸附 4n+1 = 49/81/121 帧,与前端换算/标签一致)
+    dur = _param(e, "duration")
+    assert [o["value"] for o in dur["options"]] == ["3", "5", "7.5"]
+    for sec, want in (("3", 49), ("5", 81), ("7.5", 121)):
+        n = round(float(sec) * 16)
+        n = round((n - 1) / 4) * 4 + 1  # 前端 engines.ts 同一就近吸附
+        assert n == want, f"{sec}s → {n} 帧 ≠ 标签承诺 {want}"
+        assert (n - 1) % 4 == 0 and 9 <= n <= 121, f"{sec}s → {n} 帧不在 4n+1 网格"
+
+
+async def test_wan_nsfw_i2v_unavailable_when_recipe_lora_missing(user):
+    """配方 LoRA 缺一个 → 引擎标不可用并给原因(比生成期 ComfyUI 400 更早透出)。"""
+    models, nodes = _wan_i2v_requirements()
+    models -= {"NSFW-22-H-e8.safetensors"}
+    pool = WorkerPool([_FakeClient(models, nodes)])
+    token = nsfw_intent_var.set(True)
+    try:
+        ids = _by_id(await list_engines(pool, user))
+    finally:
+        nsfw_intent_var.reset(token)
+    e = ids["wan-nsfw-i2v"]
+    assert e["available"] is False
+    assert e["unavailable_reason"]
+
+
 def test_engines_refresh_requires_login(live_pool):
     """refresh 端点未登录 → 401(与 GET  engines 同一鉴权口径)。"""
     from fastapi.testclient import TestClient
@@ -822,7 +901,7 @@ async def test_wan_engines_available_with_wrapper_nodes(live_pool, user, longcat
         assert e["kind"] == "video" and e["nsfw"] is False
         assert e["available"] is True and "unavailable_reason" not in e
         assert e["source"]["url"].startswith("http")
-        _param(e, "num_frames")
+        _param(e, "duration")
         _param(e, "width")
         _param(e, "height")
         _param(e, "seed")
@@ -831,11 +910,11 @@ async def test_wan_engines_available_with_wrapper_nodes(live_pool, user, longcat
     assert _param(ids["wan-animate"], "images")["type"] == "images"
     vace_images = _param(ids["wan-vace"], "images")
     assert vace_images["type"] == "images" and vace_images["max"] == 4
-    # 帧数范围与 routes/wan_studio.py 请求模型同源
-    a_frames = _param(ids["wan-animate"], "num_frames")
-    assert (a_frames["min"], a_frames["max"], a_frames["default"]) == (17, 501, 121)
-    v_frames = _param(ids["wan-vace"], "num_frames")
-    assert (v_frames["min"], v_frames["max"], v_frames["default"]) == (17, 241, 81)
+    # 时长按秒(与 routes/wan_studio.py 请求模型同源;内部 4k+1 网格由统一策略层吸附)
+    a_dur = _param(ids["wan-animate"], "duration")
+    assert (a_dur["min"], a_dur["max"], a_dur["default"]) == (0.5, 31, 7.5)
+    v_dur = _param(ids["wan-vace"], "duration")
+    assert (v_dur["min"], v_dur["max"], v_dur["default"]) == (0.5, 15, 5)
 
 
 async def test_wan_engines_unavailable_when_wrapper_nodes_missing(live_pool, user, longcat_stub):

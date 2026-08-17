@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-08-13（新增北京国内入口 toiv.wineryz.top 双活镜像;LTX-2.5 专用实例 :8198;承接易错点 25 国内入口落地）
+> **最后更新**：2026-08-17（晚·DashBox 记忆交叉真机复核:GPU 归属大改——H3 纯 GPU2、LTX-2.5 迁 GPU3、JoyCaption 迁 GPU2、新增 CosyVoice2/3+Qwen3-TTS+FireRedASR;🚨 P0:studio04 VLM :9303 与 demucs 全集群离线而 core 生产配置仍指向死服务;EXO :52415 实跑 MiniMax-M2.7-4bit 非 GLM-5.2）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 
 ---
@@ -11,7 +11,7 @@
 
 > **所有 AI/算力后端服务（ComfyUI/LB、IndexTTS2、ASR、Embedding、LiveAct、H3、LongCat、FlashTalk、OpenTalking、JoyCaption 等）全部运行在 Workstation(192.168.71.127 / 100.68.100.90)上。**
 >
-> - ⚠️ **2026-08-09 更新**：studio04(192.168.71.113) 已实际部署 **Qwen2.5-VL-72B-Instruct-4bit** mlx-vlm 服务 :9303,替换原计划 Qwen3-VL-8B。模型 39GB、常驻内存 ~42GB、首次加载 ~1.5s、单张图片反推 ~5.4s。Workstation GPU3 的 `toiv-vlm.service` 保持 **stop+disable（停而不删）** 作热回退。排查反推故障先确认 studio04 服务状态(`launchctl list com.dgmt.toiv-vlm-mlx`)与端口监听,再决定是否回退。
+> - ⚠️ **2026-08-17 晚真机复核（推翻 08-09 记录，已当场修复）**：studio04 VLM 反推 :9303 plist 被删致服务停——已重建 plist 复活（KeepAlive 常驻）；studio01 demucs-mlx :9221、studio02 whisper.cpp :9212 均已不存在（plist 全无）——demucs 已回落 Workstation `toiv-audio-sep :9220`（active+enabled），ASR 主用 Workstation `toiv-asr :9210`（active）。core .env 死指向已修：`TOIV_VLM_SERVER_URL`→spark01:8000(molmo2-8b)。生产 `/api/reverse` 实测 200。详见易错点 31。
 > - core(192.168.71.47)只跑 ToIV web/api + PostgreSQL/Redis，是业务网关，不是算力来源
 > - 本机 Mac 只是操作终端；任何配置里出现的 `127.0.0.1` / `localhost` 服务地址（如 `opentalking_base_url` 默认 `http://127.0.0.1:4403`）都只是本地 dev 兜底，**真机排查一律先查 Workstation**
 > - 排查「服务离线/引擎不可达」时，第一反应必须是 SSH 到 Workstation 查 systemd 状态和端口监听，禁止臆断服务不存在
@@ -30,9 +30,9 @@
 
 | # | 设备 | 角色 | LAN IP | Tailscale IP | 类型 | SSH 用户 |
 |---|------|------|--------|-------------|------|---------|
-| 1 | studio01-04 | EXO RDMA 推理(studio04 兼任 VLM 反推节点 :9303) | .109/.111/.112/.113 | 100.67.43.40 / 100.91.0.121 / 100.115.27.68 / 100.126.182.23 | **Mac Studio M3 Ultra 32核 512GB**（⚠️ 不是 M2 Pro，已确认 2026-08-02） | dgmt-studio01-04 |
+| 1 | studio01-04 | EXO RDMA 推理(:52415,**2026-08-17 真机实跑 MiniMax-M2.7-4bit 122.7GB**,非 GLM-5.2;studio04 VLM 反推 :9303 **已于 2026-08-17 查实离线**,launchctl 无 toiv-vlm-mlx 条目) | .109/.111/.112/.113 | 100.67.43.40 / 100.91.0.121 / 100.115.27.68 / 100.126.182.23 | **Mac Studio M3 Ultra 32核 512GB**（⚠️ 不是 M2 Pro，已确认 2026-08-02） | dgmt-studio01-04 |
 | 2 | openclaw01-04 | OpenClaw 网关 | .86/.75/.81/.85 | 100.69.0.4 / 100.76.35.7 / 100.76.140.121 / 100.91.128.30 | Mac mini M2 | dgmt-openclaw01-04 |
-| 3 | spark01-02 | spark01: Omni-Captioner 音乐反推(:8000);spark02: LLM L1-L4 主力(qwen3.6-uncensored) | .82/.84 | 100.81.235.124 / 100.86.42.89 | Linux GB10 | dgmt-spark |
+| 3 | spark01-02 | spark01: **Molmo2-8B** 音乐反推(双名 omni-captioner/molmo2-8b,容器 molmo2_captioner, :8000);spark02: LLM L1-L4 主力(**Qwen3.8-27B-NVFP4**,别名 qwen3.6-uncensored 仍有效, :8000) | .82/.84 | 100.81.235.124 / 100.86.42.89 | Linux GB10 | dgmt-spark |
 | 4 | workstation | 算力+真机服务 | 192.168.71.127 | 100.68.100.90 | Linux 4×RTX PRO 6000 | merlin |
 | 5 | pc01 | ComfyUI worker | 192.168.71.115 | 100.69.134.27 | Windows RTX 5090 | home |
 | 6 | pc02 | ComfyUI worker | 192.168.71.114 | 100.107.94.26 | Windows RTX 5090 | w |
@@ -78,33 +78,40 @@ net use Z: \\192.168.71.7\NAS /persistent:yes
 > 
 > ⚠️ **2026-08-09 更新**：下表「显存占用」为**2026-08-09 10:46 真机 `nvidia-smi` 快照**，实际会随缓存策略(`--cache-lru`)、模型加载状态、是否正在采样、进程共享/分片等因素动态变化。**禁止把表中数字当成静态真理**，做容量规划前必须重新 SSH 核查。详见第六节「易错点 19」及归档摘要 `docs归档说明.md` 第一节(原交接文档已删除)。
 >
-> ⚠️ **2026-08-09 18:00 更新**：Phase 1 服务迁移已执行——GPU2 `qwen3-embed-vllm.service :1234` 已 stop+disable；`demucs` 已迁移至 **studio01 demucs-mlx :9221**；`ASR(faster-whisper)` 已迁移至 **studio02 whisper.cpp large-v3-turbo :9212**，WER/CER 对比为 0。Workstation GPU2 仅保留 SenseVoice、LongCat-Video、H3 CLIP/VAE。
+> ⚠️ **2026-08-09 18:00 更新（⚠️ 已被 2026-08-17 复核推翻）**：~~Phase 1 服务迁移已执行——GPU2 `qwen3-embed-vllm.service :1234` 已 stop+disable；`demucs` 已迁移至 **studio01 demucs-mlx :9221**；`ASR(faster-whisper)` 已迁移至 **studio02 whisper.cpp large-v3-turbo :9212**~~。2026-08-17 真机查实：studio01/02 的 plist 均已不存在、端口全不通，demucs 全集群离线，ASR 已回落 Workstation toiv-asr :9210（active）。**教训：一次性手工迁移的状态必须定期真机复核，见易错点 30。**
 > 
 > 🔒 **Mac Studio 格式优先级**：Apple Silicon 优先使用 **MLX** 原生格式；GGUF/llama.cpp 仅作为无 MLX 支持时的备选，且通常更慢、效果更难保证。
 
-| GPU | 服务 | 端口 | 显存占用(2026-08-09) | systemd 服务 | 备注 |
+| GPU | 服务 | 端口 | 显存占用(2026-08-17 晚真机) | systemd 服务 | 备注 |
 |-----|------|------|---------------------|-------------|------|
-| GPU0 | ComfyUI #1 | :8189 | **~0.8GB** | **comfyui-gpu0.service** | 与 IndexTTS2、H3 共卡;2026-08-08 起带 `--cache-lru 8` 缓存上限 |
-| GPU0 | IndexTTS2 | :9200 | **~7.0GB** | **toiv-tts.service** | `CUDA_VISIBLE_DEVICES=0`;**质量优先，不迁移** |
-| GPU0 | MiniMax H3 (ComfyUI worker) | :8195 | **~32GB** (UNet bf16 分片) | **toiv-comfyui-h3.service** | UNet 跨 GPU0/GPU2/CPU，CLIP/VAE 在 GPU2;2026-08-08 extra_model_paths 补 `loras` 映射(NAS toiv/comfyui-models/h3/loras/),LoRA 走 LoraLoaderModelOnly 链(musubi 系只含 DiT 权重),NSFW LoRA 门控在 services/h3.py H3_NSFW_LORAS 名单 |
-| GPU0 | ComfyUI LTX-2.5 专用实例 | :8198 | **~34GB**(常驻,2026-08-13 16:40 真机 33950MiB) | **comfyui-ltx25.service** | 2026-08-13 新增;**SFW 视频主力引擎(音画同出)**,替换 SFW LTX-2.3;实例 /home/merlin/ComfyUI-ltx25(ComfyUI 0.32.x,与生产 :8189 的 0.27 隔离),权重 /home/merlin/models/ltx25/(nvfp4 蒸馏 transformer 18.7GB + gemma4-12b-with-proj int8 15.4GB + 双 VAE bf16);core 经 `TOIV_LTX25_BASE_URL` 接入,不入 LB 池;checkpoints/ 软链 transformer 供 LTXAVTextEncoderLoader 抽 embeddings_connector 键(同易错点 21) |
-| GPU1 | Qwen3-Embedding-4B | :9302 | **~9.6GB** | **qwen3-embedding.service** | `CUDA_VISIBLE_DEVICES=1`;生产保持 sentence-transformers |
+| GPU0 | ComfyUI #1 | :8189 | **~7.5GB** | **comfyui-gpu0.service** | 与 IndexTTS2、CosyVoice2 共卡(H3 已不在此卡);2026-08-08 起带 `--cache-lru 8` 缓存上限 |
+| GPU0 | IndexTTS2 | :9200 | **~8.6GB** | **toiv-tts.service** | `CUDA_VISIBLE_DEVICES=0`;**质量优先，不迁移** |
+| GPU0 | CosyVoice2 | :9201 | **~3.5GB** | (cosyvoice server.py) | 2026-08-17 复核确认在跑;/home/merlin/cosyvoice |
+| GPU0(合计) | — | — | **19.6GB / 97.9GB** | — | H3 已于此前迁出(见 GPU2) |
+| GPU1 | Qwen3-Embedding-4B | :9302 | **~19.9GB** | **qwen3-embedding.service** | `CUDA_VISIBLE_DEVICES=1`;生产保持 sentence-transformers;⚠️ 另有第二实例(PID 级)**误占 :9303**(1.3GB,本应是 VLM 热回退端口,2026-08-17 查实) |
 | GPU1 | LiveAct batch worker | :9400 | **~59GB** | **toiv-liveact.service** | `nproc_per_node=1`，单卡 GPU1 |
-| GPU1 | ComfyUI 超分专用实例 | :8261 | **~0.6GB**(空闲)/~1GB(超分中) | **comfyui-upscale-gpu1.service** | 2026-08-10 新增;M6 并行超分 fleet,仅跑 4x-UltraSharp 帧超分,与 LiveAct 共卡实测无冲突;`--cache-lru 2 --disable-smart-memory` |
-| GPU2 | AI-Omni ASR (faster-whisper large-v3) | :9210 | **~0GB**(已停) | **toiv-asr.service** | 2026-08-09 已迁移至 **studio02 whisper.cpp large-v3-turbo :9212**;Workstation 实例保留作回退 |
-| GPU2 | demucs 人声分离 | :9220 | **~0GB**(已停) | **toiv-audio-sep.service** | 2026-08-09 已迁移至 **studio01 demucs-mlx :9221**;Workstation 实例保留作回退 |
-| GPU2 | SenseVoice 语音情绪/事件标注 | :9211 | **~1.5GB** | **toiv-sensevoice.service** | 2026-08-08 新增,反推提示词音频链路;/opt/toiv-sensevoice,FunASR+torch 2.11,与 /opt/ai-omni-asr 隔离;**短期保留,无完整 MLX 替代** |
-| GPU2 | MiniMax H3 (ComfyUI worker) | :8195 | **~0.6GB** (CLIP/VAE 部分) | **toiv-comfyui-h3.service** | 与 GPU0 共享 H3 工作进程 |
-| GPU2 | LongCat-Video (ComfyUI 独立实例) | :8197 | **~16-30GB** (fp8 + Block Swap) | **comfyui-longcat.service** | 2026-08-07 新增;实例在 /home/merlin/ComfyUI-longcat,与生产 /opt/ComfyUI 隔离;2026-08-08 起含 LongCat-Avatar 链路(GGUF Q8_0 + whisper-large-v3 + MelBandRoFormer 节点,冒烟峰值 ~20GB 可与其他服务共存) |
-| GPU2 | ComfyUI 超分专用实例 | :8262 | **~0.6GB**(空闲)/~1GB(超分中) | **comfyui-upscale-gpu2.service** | 2026-08-10 新增;M6 并行超分 fleet;`--cache-lru 2 --disable-smart-memory` |
-| GPU3 | FlashTalk WebSocket Server | — | **~50GB** | **flashtalk.service** | 数字人实时对话 |
+| GPU1 | ComfyUI 超分专用实例 | :8261 | **~0.75GB**(空闲) | **comfyui-upscale-gpu1.service** | M6 并行超分 fleet,仅跑 4x-UltraSharp 帧超分,与 LiveAct 共卡实测无冲突;`--cache-lru 2 --disable-smart-memory` |
+| GPU1(合计) | — | — | **81.1GB / 97.9GB** | — | |
+| GPU2 | AI-Omni ASR (faster-whisper large-v3) | :9210 | **~4.3GB(在跑)** | **toiv-asr.service(active)** | ⚠️ **2026-08-17 复核:本服务 active 且是生产 ASR 主用**;studio02 whisper.cpp :9212 已不存在(launchctl 无条目/端口不通)——「已迁移 studio02」记录作废;core 无独立 ASR 配置项,走 workstation |
+| GPU2 | FireRedASR | :8300 | **~5.4GB** | (fireredasr server.py) | 2026-08-17 复核确认;ASR 回退;/home/merlin/fireredasr |
+| GPU2 | CosyVoice3 | :9202 | **~4.3GB** | **toiv-cosyvoice3.service** | 2026-08-17 新增确认;/home/merlin/cosyvoice3 |
+| GPU2 | Qwen3-TTS 1.7B | :9203 | **~5.3GB** | **toiv-qwen3tts.service** | 2026-08-17 新增确认;97ms 低延迟克隆 |
+| GPU2 | demucs 人声分离 | :9220 | **~1GB(2026-08-17 复活)** | **toiv-audio-sep.service(active+enabled)** | ✅ 2026-08-17 晚 `enable --now` 恢复;此前 inactive+disabled,core `TOIV_AUDIO_SEP_URL` 指向它 → 链路已修通 |
+| GPU2 | SenseVoice 语音情绪/事件标注 | :9211 | **~1.7GB** | **toiv-sensevoice.service** | 反推提示词音频链路;/opt/toiv-sensevoice |
+| GPU2 | MiniMax H3 (ComfyUI worker) | :8195 | **~41.3GB** | **toiv-comfyui-h3.service** | ⚠️ **2026-08-17 真机:进程仅在 GPU2**(GPU0 已无 H3 进程;此前「UNet 跨 GPU0/GPU2/CPU」描述作废) |
+| GPU2 | JoyCaption Beta One(NSFW 反推专线) | :9304 | **~16.7GB** (bf16) | **toiv-joycaption.service** | ⚠️ **已从 GPU3 迁入 GPU2**(2026-08-17 复核确认,DashBox 负载均衡调整);transformers 直跑(vLLM 0.11.2 跑 LLaVA 会 device-side assert,勿用) |
+| GPU2 | LongCat-Video (ComfyUI 独立实例) | :8197 | **~0.9GB**(空闲,采样时 16-30GB) | **comfyui-longcat.service** | 实例 /home/merlin/ComfyUI-longcat;含 LongCat-Avatar 链路 |
+| GPU2 | ComfyUI 超分专用实例 | :8262 | **~0.75GB**(空闲) | **comfyui-upscale-gpu2.service** | M6 并行超分 fleet |
+| GPU2(合计) | — | — | **80.9GB / 97.9GB** | — | ⚠️ 已接近 80GB 共卡红线,新增服务前必查 |
+| GPU3 | FlashTalk WebSocket Server | :9004 | **~50.7GB** | **flashtalk.service** | ⚠️ 端口已从 :9000 迁到 **:9004**(避免 MinIO 冲突,DashBox 调整,2026-08-17 确认) |
 | GPU3 | OpenTalking 数字人统一 API | — | **~1.5GB** | **opentalking.service** | + opentalking-tts-shim |
-| GPU3 | JoyCaption Beta One(NSFW 反推专线) | :9304 | **~16.7GB** (bf16) | **toiv-joycaption.service** | 2026-08-08 新增;transformers 直跑(⚠️ vLLM 0.11.2 跑 LLaVA 架构 device-side assert,勿用);/opt/toiv-joycaption,模型 /home/merlin/models/joycaption-beta-one;**无 MLX 支持,留在 GPU3** |
-| GPU3 | Qwen3-VL-8B 反推 VLM | :9303 | (停) | toiv-vlm.service(⏸ stop+disable) | workstation 端已停用;**studio04 已部署 Qwen2.5-VL-72B-Instruct-4bit**,本服务仅作热回退 |
-| GPU3 | ComfyUI 超分专用实例 | :8263 | **~0.6GB**(空闲)/~1GB(超分中) | **comfyui-upscale-gpu3.service** | 2026-08-10 新增;M6 并行超分 fleet,与 FlashTalk/OpenTalking/JoyCaption 共卡实测无冲突;`--cache-lru 2 --disable-smart-memory` |
-| —(studio04) | Qwen2.5-VL-72B-Instruct-4bit 反推 VLM | :9303 | **~42GB** 统一内存(4bit) | launchd `com.dgmt.toiv-vlm-mlx.plist` | 192.168.71.113,mlx-vlm,模型 39GB;SFW 图+全部视频走此;⚠️ 视频只认本地路径→core NAS 中转(TOIV_REVERSE_VIDEO_MAC_PREFIX);首次加载 ~1.5s,单图反推 ~5.4s |
-| —(studio01) | demucs-mlx 人声分离 | :9221 | **~0.5GB**(常驻) | launchd `com.dgmt.toiv-demucs-mlx.plist` | 192.168.71.109,M3 Ultra 统一内存;htdemucs 模型,与 PyTorch bit-exact;输出目录 `~/toiv-demucs-mlx/outputs/` |
-| —(studio02) | whisper.cpp ASR(large-v3-turbo) | :9212 | **~1.9GB**(常驻) | launchd `com.dgmt.toiv-whisper-cpp.plist` | 192.168.71.111,M3 Ultra 统一内存;OpenAI `/v1/audio/transcriptions` 兼容;JFK 样本 WER/CER=0 |
+| GPU3 | ComfyUI LTX-2.5 专用实例 | :8198 | **~36GB**(常驻) | **comfyui-ltx25.service** | ⚠️ **已从 GPU0 迁入 GPU3**(2026-08-17 复核确认,DashBox 负载均衡调整);SFW 视频主力引擎(音画同出);实例 /home/merlin/ComfyUI-ltx25;core 经 `TOIV_LTX25_BASE_URL` 接入,不入 LB 池 |
+| GPU3 | Qwen3-VL-8B 反推 VLM | :9303 | (停) | toiv-vlm.service(⏸ inactive+disabled) | ⚠️ 热回退端口 :9303 被 embedding 第二实例占用;主用已恢复在 studio04(见下),本回退保持停用 |
+| GPU3 | ComfyUI 超分专用实例 | :8263 | **~0.75GB**(空闲) | **comfyui-upscale-gpu3.service** | M6 并行超分 fleet |
+| GPU3(合计) | — | — | **88.3GB / 97.9GB** | — | ⚠️ 四卡中最满,新增服务原则禁止 |
+| —(studio04) | Qwen2.5-VL-72B-Instruct-4bit 反推 VLM | :9303 | **~42GB 统一内存(2026-08-17 复活)** | launchd `com.dgmt.toiv-vlm-mlx.plist`(✅ 已重建) | ✅ 2026-08-17 晚修复:plist 曾被删致今晨 04:37 服务停;miniconda env `toiv-vlm` + 39GB 模型完好,重建 plist(RunAtLoad+KeepAlive)拉起;core `TOIV_REVERSE_VLM_BASE_URL` 指向它,生产 /api/reverse 实测 200(10.2s) |
+| —(studio01) | ~~demucs-mlx 人声分离~~ | :9221 | **0(已死)** | (plist 已不存在) | 2026-08-17 查实 plist 无;人声分离已回落 Workstation toiv-audio-sep :9220(active+enabled) |
+| —(studio02) | ~~whisper.cpp ASR(large-v3-turbo)~~ | :9212 | **0(已死)** | (plist 已不存在) | 2026-08-17 查实离线;ASR 主用已回落 Workstation toiv-asr :9210 |
 
 ### ComfyUI-LB 后端配置
 - 本地 1 后端：:8189(GPU0)
@@ -282,7 +289,7 @@ nas:
 ### 20. H3 长视频散热是硬性瓶颈,温度熔断≠模型失败(2026-08-09)
 - **坑**:MiniMax H3 192 帧高压测试触发 GPU0 88°C 熔断,误以为是模型/代码问题;实际 243/294/345/362 帧冷却后均可成功,说明长帧数可生成,但散热窗口不稳定
 - **原因**:GPU0 满载功耗 ~600W,当前机箱风道/风扇曲线无法持续驱散热量;连续/并发作业会叠加温度,并发 124+141 帧峰值达 92°C
-- **正确**:H3 长视频生产部署必须配温度熔断保护(≥85°C 中止,冷却后重试);高负载测试脚本要主动冷却(目标 <60°C);容量规划不能把单点成功当成可持续吞吐
+- **正确**:~~H3 长视频生产部署必须配温度熔断保护(≥85°C 中止,冷却后重试)~~【2026-08-16 用户拍板废止:取消 85°C 软件熔断,温度高属正常,GPU 自降频为保护,生产禁止以温度为由中止任务,详见易错点 27】;容量规划不能把单点成功当成可持续吞吐
 - **教训**:🔒 评估 H3 生成能力时必须同时看散热可持续性;单作业最大长度通过不代表同帧数队列能稳定通过
 
 ### 21. LTXVAudioVAELoader 只认内嵌 audio_vae.* 键的 LTX 全量底模(2026-08-11)
@@ -321,6 +328,36 @@ nas:
 - **现状**:tracker.image_url 生成的 URL 带 `sig`(HMAC-SHA256[:24],key 派生自 jwt_secret),有 sig 直通;无 sig 的旧 URL 走 Job 归属回退(result 含该 filename 且 user/tenant 匹配才放行);admin 直通;其余一律 404 不泄露存在性
 - **坑**:① 手写/硬编码 /api/images URL(如脚本、外部书签)若无对应 Job 归属记录将 404——agent/tools.py:173 是仅剩的手写点,走归属回退兼容;② <img>/<video> 标签走 `?token=` 查询参数认证(deps.get_current_user 内置回退),不带 header;③ 测试里构造产物 URL 必须带 sig 或先建档 Job,否则 404
 - **配套**:workflows deploy 端点仅 admin;test-login 限流 60s/5;production 用默认 jwt_secret 会拒绝启动(护栏)
+
+### 27. H3 长片热管理:风扇曲线影响吞吐,熔断已按用户决定取消(2026-08-15 发现/2026-08-16 政策变更)
+- **政策(用户拍板 2026-08-16)**:🔒 **取消 85°C 软件熔断**——「显卡温度高一点很正常」。RTX PRO 6000 设计工作温度上限 ~92°C,85-90°C 持续运行在规格内;到达上限时 GPU 自身降频保护,软件层不再拦截。生产任务禁止再以温度为由中止/排队等待。GPU2 功率帽已于当日恢复 600W 满血
+- **保留的发现(吞吐优化而非安全熔断)**:诛仙 25 镜生产实测,GPU2 在 400W 负载时风扇仅 37%——风扇曲线懒惰导致热量积聚提前触碰降频点,**锁扇是提速手段不是安全措施**:NVML 锁扇 85%(`pynvml.nvmlDeviceSetFanSpeed_v2`,sudo -n /opt/nemotron-venv/bin/python,系统 python3 无 pynvml)可让 600W 持续输出不降频;不锁扇则 2min 冲 85°C+ 并触发硬件降频变慢
+- **注意**:功率帽与 NVML 扇速均不持久(persistence mode disabled,重启/驱动重载即失);风扇值守脚本模板在 workstation /tmp/h3_fan_guard.sh(60s 重设);如观察到持续 ≥95°C(逼近关机阈值)再人工介入,不设软件自动熔断
+
+### 28. video_4k_upscale_parallel 竖屏源必须显式 --target-w 2160 --target-h 3840(2026-08-15)
+- **坑**:诛仙竖屏 576×1024 母版用默认参数(3840×2160)超分,脚本 ImageScale 节点把每帧**拉伸成横屏**,7320 帧/97min 全部报废,且脚本完成后 rmtree 删帧无法补救
+- **正确**:竖屏源显式传 `--target-w 2160 --target-h 3840 --keep-frames`(保帧防白烧);已给脚本加**画幅方向护栏**(源与目标横竖不一致即报错退出,commit 前先看脚本头注释)
+- **附带**:① 该脚本完成后默认删除 upscaled/ 帧目录,任何失败都无法续跑,生产一律 --keep-frames;② 吞吐实测 ~75-148 帧/min(3 卡 :8261-8263,受共卡与温度影响),7320 帧约 50-97min,规划按 100min 估;③ GPU3 与 FlashTalk/OpenTalking/JoyCaption 共卡时分片最慢,尾部效应明显
+
+### 29. Next.js 生产构建必须 rm -rf .next 干净重建,陈旧缓存会导致 chunk 内部错位(2026-08-17)
+- **坑**:部署时复用了带旧 `.next/cache` 的增量构建产物,webpack 缓存把旧 chunk 命名模板混入新构建:运行时模板生成扁平路径 `./522.js`,而 chunk 实际落位 `chunks/522.js`;`next start` 启动即 500,`Cannot find module './522.js'`(远端文件存在且 MD5 一致,不是 rsync 丢文件)
+- **正确**:每次生产部署前 `rm -rf .next && npm run build`;deploy.sh 的 `8200` 防呆只查 routes-manifest,拦不住构建内部错位;干净构建是唯一可靠前置
+- **教训**:远端 journalctl 看到 `Cannot find module './N.js'` 且文件实际存在时,先本地 `next start` 复现——若本地同样 500,即为构建本身坏(需 clean rebuild);若本地正常,再怀疑部署丢文件
+
+### 30. Windows 计划任务以 SYSTEM 运行时看不到用户态驱动器映射(2026-08-17,⚠️ pc02 修复根因)
+- **坑**:pc02 ComfyUI 突然「全模型不可见」(loras/unet/ckpt 枚举全空),触发 MountNAS 任务(InteractiveToken/W 用户)挂 Z: 后重启 ComfyUI 仍无效——因为 **ComfyUI 计划任务以 SYSTEM(S-1-5-18)运行**,而驱动器映射是 per-logon-session 的:W 桌面 session 的 Z: 对 SYSTEM 进程天然不可见。ps1 里那句 `net use \\host\share /user:...`(UNC 认证无盘符)也救不了 extra_model_paths 里的 `Z:/` 盘符路径
+- **排查手法**:`schtasks /query /tn <任务> /xml | findstr "LogonType UserId"`——S-1-5-18=SYSTEM,S-1-5-21-...-1001=用户 W;ComfyUI 进程视角的模型枚举(object_info)才是最终裁判,SSH session 里 `dir Z:` 是假阴性(又是另一个 session)
+- **正确**:start_comfyui.ps1 开头改为 **在任务自己的 session 里挂盘**:`net use Z: /delete /y` + `net use Z: \\192.168.71.7\NAS /user:dgmt-nas <pwd> /persistent:yes`(SYSTEM session 自挂,对 ComfyUI 进程可见,且不依赖任何用户登录,比 pc01 的 InteractiveToken 模式更稳)
+- **附带**:① `schtasks /change /tr` 在 SSH 非交互下会挂起等密码,改用 `/create /f` 覆盖重建;② Windows SSH 里 `timeout` 命令报「不支持此接口」是无害噪音;③ 长 heredoc/超长单行命令经 Mac 终端 SSH 会被换行截断损坏,写远端文件用 PowerShell `-EncodedCommand`(UTF-16LE base64)最稳
+
+### 31. 跨项目记忆交叉复核揪出「迁移记录全过时」+ 两个生产链路指向死服务(2026-08-17,⚠️ P0)
+- **起因**:DashBox 项目记忆与本文档多处冲突(LTX-2.5/JoyCaption 卡归属、ASR 死活、EXO 模型名),按第二硬性规则全集群真机复核
+- **查实(DashBox 对、本文档过时)**:① LTX-2.5 :8198 已从 GPU0 迁 **GPU3**(~36GB);② JoyCaption :9304 已从 GPU3 迁 **GPU2**;③ H3 进程已纯 GPU2(41.3GB,GPU0 无);④ 新增 CosyVoice2 :9201(GPU0)/CosyVoice3 :9202(GPU2)/Qwen3-TTS :9203(GPU2)/FireRedASR :8300(GPU2)全部 active;⑤ FlashTalk 端口 :9000→**:9004**;⑥ spark02 底模已是 **Qwen3.8-27B-NVFP4**(qwen3.6-uncensored 只是别名,core .env 别名调用仍有效);⑦ EXO :52415 实跑 **MiniMax-M2.7-4bit**(122.7GB)非 GLM-5.2;⑧ cloud :8002 caddy 已清
+- **查实(两边都错/都漏)**:🚨 **P0 三连**——① studio04 VLM :9303 离线(launchctl 无 plist)且 workstation `toiv-vlm` inactive+disabled、**回退端口 :9303 被 embedding 第二实例(PID 1441928)误占**;② demucs 全集群离线(studio01 plist 消失 + ws toiv-audio-sep disabled);③ core 生产 .env `TOIV_REVERSE_VLM_BASE_URL→studio04:9303`、`TOIV_AUDIO_SEP_URL→ws:9220`、`TOIV_VLM_SERVER_URL→ws:8000` 实测全 000——**反推(SFW 图+全部视频)与人声分离链路在生产上就是坏的**;另 studio02 whisper.cpp :9212 也没了,ASR 静默回落 ws toiv-asr(幸运:它是 active 的,否则 ASR 也断)
+- **根因**:一次性手工迁移/调整没有守护(plist 被谁删、何时删无人知),文档「已迁移」记录长期未复核;core .env 无启动期依赖可达性检查
+- **正确手法**:① 「已迁移/已部署」类记录**每次跨项目记忆冲突时必须真机复核**;② 修复死链优先级:VLM 反推 = 恢复 studio04 mlx-vlm(需找回/重建 plist + 39GB 模型确认在盘)或改 core 指向备用反推(spark01 Molmo2 :8000 有 caption 能力);demucs = `systemctl enable --now toiv-audio-sep`(ws 回退实例)最快;③ 修完必须把 core .env 指向与真机对齐并重启 toiv-api 实测 /api/reverse
+- **修复(同会话当场完成)**:① studio04 VLM 复活——服务今晨 04:37 才停(plist 被删,环境 `~/miniconda3/envs/toiv-vlm` 与 39GB 模型完好),重建 `com.dgmt.toiv-vlm-mlx.plist`(RunAtLoad+KeepAlive)拉起,模型加载 7.4s,health 200;② demucs 复活——ws `systemctl enable --now toiv-audio-sep`,active(:9220 监听);③ core `.env` `TOIV_VLM_SERVER_URL` ws:8000→**spark01:8000 + molmo2-8b**(scoring/宫格反推要 OpenAI 视觉端点,实测 chat/completions 200),`TOIV_VLM_MODEL_ID` 同步改;④ 生产实测 `/api/reverse` 200(10.2s 完整 prompt+negative)。备份 `.env.bak-20260817-vlmfix`
+- **遗留风险**:ws 回退端口 :9303 被 DashBox 部署的 embedding 第二实例(PID 级,1.3GB)占用——若未来要重启 workstation `toiv-vlm` 热回退须先协调端口;station 侧 plist 谁删的仍未知(疑并行会话)
 
 ---
 

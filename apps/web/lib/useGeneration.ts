@@ -14,6 +14,9 @@ export interface UseGenerationOptions {
   /** 生成出错回调(此时 error 已写入,state 已切到 error)。
    *  message 为友好文案(经 friendlyError 包装已知模式);detail 为底层原文(未知模式为 null)。 */
   onError?: (message: string, detail?: string | null) => void;
+  /** 时长后处理通知(done 但 trim/extend 裁切链仍在后台跑,paths 为未裁原片);
+   *  在 onDone 之前触发,调用方据此转「精确裁切中」并轮询终产物。 */
+  onPostProcessing?: () => void;
 }
 
 export interface UseGenerationResult {
@@ -34,8 +37,9 @@ export interface UseGenerationResult {
    * 注意:start 永远 resolve(不会 reject)——出错时通过 onError 回调 + error state 通知。
    * Why:让调用方可以用 try/catch 捕获"前置 API 调用(generateXxx)的异常",
    *     而不必再为 SSE 错误写第二套 catch。
+   * runOpts.label:全局进度条任务文案(引擎显示名/操作名),透传 trackJob。
    */
-  start: (res: GenerateResponse) => Promise<void>;
+  start: (res: GenerateResponse, runOpts?: { label?: string }) => Promise<void>;
   /** 重置为 idle,清空 progress / resultPaths / error / qualityWarning,并关闭未完成的 EventSource。 */
   reset: () => void;
 }
@@ -82,7 +86,7 @@ export function useGeneration(opts: UseGenerationOptions = {}): UseGenerationRes
     };
   }, []);
 
-  const start = useCallback(async (res: GenerateResponse): Promise<void> => {
+  const start = useCallback(async (res: GenerateResponse, runOpts?: { label?: string }): Promise<void> => {
     // 进入 running 态,清空上次产物 / 错误 / 进度 / 质量警告
     if (mountedRef.current) {
       setStatus("running");
@@ -95,6 +99,7 @@ export function useGeneration(opts: UseGenerationOptions = {}): UseGenerationRes
 
     try {
       const paths = await trackJob(res, {
+        label: runOpts?.label,
         onProgress: (p) => {
           if (!mountedRef.current) return;
           setProgress({ value: p.value, max: p.max });
@@ -103,6 +108,10 @@ export function useGeneration(opts: UseGenerationOptions = {}): UseGenerationRes
         onQualityWarning: (warning) => {
           if (!mountedRef.current) return;
           setQualityWarning(warning);
+        },
+        onPostProcessing: () => {
+          if (!mountedRef.current) return;
+          optsRef.current.onPostProcessing?.();
         },
         register: (es) => {
           esRef.current = es;

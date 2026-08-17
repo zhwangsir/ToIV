@@ -5,6 +5,7 @@ import {
   ReactNode,
   SelectHTMLAttributes,
   TextareaHTMLAttributes,
+  type Ref,
 } from "react";
 
 interface FieldProps {
@@ -59,10 +60,19 @@ export function Input({ className, ...rest }: InputProps) {
   return <input className={["input", className ?? ""].filter(Boolean).join(" ")} {...rest} />;
 }
 
-type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement>;
+type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & {
+  /** React 19 ref-as-prop:自动增高 hook(useAutoResize)需拿到底层 textarea 节点。 */
+  ref?: Ref<HTMLTextAreaElement>;
+};
 
-export function Textarea({ className, ...rest }: TextareaProps) {
-  return <textarea className={["input", className ?? ""].filter(Boolean).join(" ")} {...rest} />;
+export function Textarea({ className, ref, ...rest }: TextareaProps) {
+  return (
+    <textarea
+      ref={ref}
+      className={["input", className ?? ""].filter(Boolean).join(" ")}
+      {...rest}
+    />
+  );
 }
 
 type SelectProps = SelectHTMLAttributes<HTMLSelectElement>;

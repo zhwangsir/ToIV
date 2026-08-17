@@ -568,6 +568,10 @@ def test_coerce_shot_pydantic_equivalence():
     assert d == {
         "scene": "s", "prompt": "123", "characters": [],
         "dialogue": "", "speaker": "", "duration_sec": 15,  # 钳制上限
+        # P1 衔接策略层:新增两字段随 model_dump 透出(缺省空=未规划)
+        "seam_to_next": "", "seam_anchor": "",
+        # WORKBENCH 补齐:mood/beat 随 model_dump 透出(缺省空)
+        "mood": "", "beat": "",
     }
     # 非数字 duration 回退 6;1 触发下限钳制 2(0 为 falsy 走「or 6」回退,旧逻辑同)
     assert _coerce_shot({"duration_sec": "abc"}, 0)["duration_sec"] == 6

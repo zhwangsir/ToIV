@@ -1,0 +1,15 @@
+/**
+ * uni.scss —— 全局 SCSS 变量（编译期注入每个组件）
+ * 运行时可变的颜色一律走 CSS 变量（use-app-theme 注入），这里只放结构常量
+ */
+
+/* 字阶（rpx，= pt × 2） */
+$font-display: 64rpx;
+$font-title: 48rpx;
+$font-heading: 36rpx;
+$font-body: 32rpx;
+$font-caption: 26rpx;
+$font-mono: 28rpx;
+
+/* 触碰热区下限（指南：>= 48pt） */
+$touch-min: 96rpx;
