@@ -1,13 +1,25 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-08-19T10:30:00+08:00",
+  "updated_at": "2026-08-19T14:20:00+08:00",
   "sync_baseline": {
     "id": "SYNC-2026-07-18",
     "type": "initial-sync",
     "note": "项目状态初始化基线：首次建立 STATE.json / TEST_LOG.md 追踪，记录当前真实验证结果，不代表新里程碑完成。"
   },
   "health": {
+    "harness_m2_proto_2026_08_19": {
+      "status": "completed",
+      "scope": "可观测性埋点 + 子 Agent 编排原型(AgentRun 底座复用) + 压缩预算本地验证脚本",
+      "deliverables": [
+        "埋点:context.compress(skills.match/agent.loop/agent.tool)三级日志——数量/长度/技能名/轮次,不落用户内容;压缩决策与技能匹配可观测",
+        "原型:app/agent/subagent.py——plan_subagents(LLM 拆 DAG,围栏容错,max_tasks 上限)+execute_run(就绪即调度,Semaphore(3),上游产物注入)+create_run(复用 AgentRun/AgentTask/AgentEvent 零新表);未接路由",
+        "验证:scripts/verify_context_budget.py(43 消息/32 单元 Mock,4 档预算四不变量全过,6k 档 15292→4722 字符)"
+      ],
+      "regression": "pytest 全量 1896 passed(新增 test_agent_subagent_proto.py 4 例);脚本实跑不变量全过",
+      "next": "路由接入 POST /api/agent/subagent(复用 /agent-team events SSE);子任务多轮工具循环;审批阶梯",
+      "verified_at": "2026-08-19T14:20:00+08:00"
+    },
     "harness_runtime_m1_2026_08_19": {
       "status": "completed",
       "scope": "AI 助手运行时 Harness 增强三件套(参照 DeepSeek Harness 思想):上下文预算压缩 + Skill 市场技能按需注入 + 轮次/预算配置化",

@@ -10,7 +10,9 @@ Harness 化 M1(2026-08-19,参照 DeepSeek Harness 思想):
 from __future__ import annotations
 
 import json
+import logging
 import re
+import time
 from collections.abc import AsyncIterator
 
 from sqlmodel import Session, select
@@ -24,6 +26,8 @@ from app.harness.ctx import get_ctx
 from app.models import Agent, Document, User
 from app.nsfw_ctx import nsfw_allowed
 from app.services import docs as docsvc
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PREFIX = """你是 ToIV——一个由 ComfyUI 集群驱动的 AI 创作平台的智能助手。
 你能通过工具实时为用户生成内容并直接展示结果:
@@ -131,6 +135,15 @@ def _skills_context(messages: list[dict], user: User, session: Session) -> str |
 
     scored = sorted(((_score(a), a) for a in rows), key=lambda x: -x[0])
     hits = [a for s, a in scored if s >= 2][:topk]
+    # 埋点:匹配决策可观测(技能名+分数;query 长度代替原文,不落用户内容)
+    r18_filtered = [a.name for s, a in scored if s == -1]
+    logger.info(
+        "skills.match: query_len=%d candidates=%d hits=%d topk=%d "
+        "scores=%s r18_filtered=%s",
+        len(query), len(rows), len(hits), topk,
+        [(a.name, s) for s, a in scored if s >= 2][:topk + 2],
+        r18_filtered if r18_filtered else [],
+    )
     if not hits:
         return None
     parts = []
@@ -189,8 +202,15 @@ async def run(
             # Harness 化:每轮请求前按预算折叠中间历史(长对话/多工具结果防溢出;
             # 压缩只作用于本次调用的 working copy,AgentMessage 日志始终全量)
             working = compress_history(msgs, settings.agent_context_budget)
+            logger.debug(
+                "agent.loop: round=%d/%d msgs=%d chars=%d budget=%d tool_calls_pending=%d",
+                rnd, settings.agent_max_rounds, len(working),
+                sum(len(m.get("content") or "") for m in working),
+                settings.agent_context_budget, len(msgs) - len(working),
+            )
             assistant = await get_ctx().service("llm").chat(working, tools=tool_reg.schemas())
         except llm.LLMError as e:
+            logger.warning("agent.loop: llm error round=%d err=%s", rnd, e)
             yield {"type": "error", "content": str(e)}
             return
 
@@ -215,9 +235,15 @@ async def run(
                 args = {}
             # round 字段:契约增量(前端可忽略),标示本工具调用所在的模型请求轮次
             yield {"type": "tool", "name": name, "args": args, "round": rnd}
+            t0 = time.monotonic()
             text, events = await tool_reg.execute(
                 name, args,
                 {"pool": pool, "user": user, "session": session, "attachment": attachment},
+            )
+            logger.info(
+                "agent.tool: name=%s round=%d took_ms=%d result_len=%d events=%d",
+                name, rnd, int((time.monotonic() - t0) * 1000),
+                len(text or ""), len(events),
             )
             media: list[dict] = []
             for ev in events:

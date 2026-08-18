@@ -11,6 +11,9 @@
 from __future__ import annotations
 
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 _FOLD_NOTE = "\n\n(系统注:更早的部分对话已因上下文预算折叠省略,关键任务起点与最近上下文已保留)"
 
@@ -78,6 +81,15 @@ def compress_history(msgs: list[dict], budget: int) -> list[dict]:
                 break
             keep |= set(units[ui])
             acc += ul
+
+    # 埋点:压缩决策可观测(只记数量/长度/单元序号,不落消息内容)
+    folded = [u for u in units if not set(u) & keep]
+    logger.info(
+        "context.compress: budget=%d total_chars=%d units=%d kept=%d folded=%d "
+        "folded_unit_pos=%s kept_chars=%d",
+        budget, total, len(units), len(units) - len(folded), len(folded),
+        [units.index(u) + 1 for u in folded], acc,
+    )
 
     dropped_any = len(keep) < len(non_idx)
     compressed = [m for i, m in enumerate(out) if m.get("role") == "system" or i in keep]

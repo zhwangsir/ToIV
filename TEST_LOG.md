@@ -2,6 +2,38 @@
 
 ---
 
+## HARNESS-M2-PROTO-2026-08-19 · 核心流程日志埋点 / 子 Agent 编排原型(AgentRun 底座复用) / 压缩预算本地验证脚本
+
+**时间**: 2026-08-19(午)
+**类型**: 后端可观测性 + 原型代码 + 本地验证工具;零路由变更,原型未接线
+
+### ① 交付内容
+
+**日志埋点(隐私纪律:只记数量/长度/技能名/轮次,不落用户内容原文)**:
+- [context.py](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/api/app/agent/context.py):压缩发生时 INFO `context.compress: budget/total_chars/units/kept/folded/folded_unit_pos/kept_chars`——排查"为什么某轮历史变短"一眼定位;
+- [runner.py](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/api/app/agent/runner.py):技能匹配 INFO `skills.match: query_len/candidates/hits/topk/scores/r18_filtered`(含 R18 被过滤名单);主循环 DEBUG `agent.loop: round/msgs/chars/budget`(LLM error 升 WARNING);工具执行 INFO `agent.tool: name/round/took_ms/result_len/events`。
+
+**子 Agent 编排原型**:[app/agent/subagent.py](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/api/app/agent/subagent.py)(M2 草案,参照 DeepSeek Harness Turn/Step 语义)——
+- `plan_subagents()`:LLM 把大需求拆成子任务 DAG(kind 自由:research/draft/image/polish…,≤max_tasks 防成本爆炸,markdown 围栏容错);
+- `execute_run()`:依赖就绪即调度(asyncio.gather + Semaphore 并行度 3),上游产物注入下游 system(平铺;大产物后续可走 RAG),事件流对齐 Agent Team 契约(plan/task_status/done/error);
+- `create_run()`:复用 **AgentRun/AgentTask/AgentEvent 三表零新表**(level="subagent",plan 存 plan_json/input_json,SSE 流水直接可被现有 /agent-team events 端点消费);
+- 与 agent_team_exec/graph(短剧固定流水线)互补:本模块面向 AI 助手任意大需求拆解;单轮请求从简,多轮工具循环后续包一层。
+
+**本地验证脚本**:[scripts/verify_context_budget.py](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/scripts/verify_context_budget.py)——构造 43 消息/32 原子单元 Mock(首锚点 + 10 轮[指令→tool_calls→~1.6KB 结果→总结] + 尾部),多档预算对比表 + 四不变量校验(首尾锚定/tool 配对/折叠注/system 位置)。
+
+### ② 验证结果
+
+- 脚本实跑:4 档预算(∞/6k/12k/24k)不变量**全部通过**;6k 档 15292→4722 字符(保留首锚点+最近 4 轮),埋点日志同步可见;
+- 新增 [tests/test_agent_subagent_proto.py](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/api/tests/test_agent_subagent_proto.py) 4 例:围栏 JSON 解析+缺省补齐/空任务 ValueError/全链路 DAG 调度+产物传递(t2 system 含 t1 产物)+底座落库/子任务失败传播 run=error;
+- 全量回归 **1896 passed**(1892+4);
+- 踩坑记录:① `_PLAN_SYSTEM` 模板里 JSON 花括号未双写,`.format()` 把 `"tasks"` 当字段名 KeyError——str.format 模板含 JSON 必须 `{{}}` 转义;② SQLModel 构造器不认别名参数,`AgentEvent(type_=...)` 静默丢字段致 NOT NULL IntegrityError,须用模型真名 `type=`。
+
+### ③ 后续路线(未接线,待用户指令)
+
+- 路由接入:`POST /api/agent/subagent {goal}` → 复用现有 /agent-team events SSE 消费;子任务多轮工具循环;审批阶梯(高危操作确认门)。
+
+---
+
 ## HARNESS-M1-2026-08-19 · AI 助手运行时增强——上下文预算压缩 / Skill 市场技能按需注入 / 轮次配置化
 
 **时间**: 2026-08-19(上午)
