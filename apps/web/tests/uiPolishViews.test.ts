@@ -4,7 +4,7 @@
  *    引导卡序号墨丸化(accent 墨底白字),段控轨道下沉
  * ② GenerateView 引擎说明(2026-08-17 T2 重构):描述/出处收进 ⓘ 说明卡(Popover+EngineInfoCard),
  *    面板首屏不再平铺;卡内渲染断言见 generateInspector.test.ts
- * ③ AudioView 页头一致:PageHeader 不再夹带段控,生成/编辑段控移到内容区首行并补图标
+ * ③ AudioView 页头一致:页头已移除,生成/编辑段控独立窄行并带图标
  * ④ 首页门户:引擎胶囊行补「引擎状态」语义化小标题;门户垂直节奏收紧(顶距 --space-6)
  * ⑤ FusionView:旗舰卡补流程步骤行辅助信息;线稿水印转向 text-primary 混色;pills 描边提强
  * ⑥ 作品库:splitCardTitle 元信息串拆分(标题/副标);卡脚副标行;工具行四组三条 hairline
@@ -74,20 +74,18 @@ test("GenerateView 引擎说明:ⓘ 按钮 + Popover 承载 EngineInfoCard,首�
 });
 
 /* ── ③ 音频页头一致(AudioView) ── */
-test("AudioView 页头:compact 单行,段控并入 actions 且按钮带图标(2026-08-18 省空间改版)", () => {
+test("AudioView 无页头:生成/编辑段控独立窄行且带图标(2026-08-18 页头移除改版)", () => {
   const src = readSrc("components/audio/AudioView.tsx");
-  const header = src.match(/<PageHeader[\s\S]*?\/>/);
-  assert.ok(header, "AudioView 缺 PageHeader");
-  // compact 工具化页头:段控在 actions 槽与标题同行(消除独立段控行,首屏还给内容)
-  assert.ok(header[0].includes("compact"), "音频页头未启用 compact");
-  assert.ok(header[0].includes("actions="), "段控未并入页头 actions 槽");
-  assert.ok(header[0].includes('kicker="SOUND ATELIER"'), "音频页头 kicker 缺失");
-  assert.ok(!src.includes('className="audio-mode-row"'), "旧独立段控行残留");
+  // 页头整体移除:灵动岛已指示当前板块,工作台首屏全给内容
+  assert.ok(!src.includes("PageHeader"), "AudioView 页头应已移除");
+  assert.ok(src.includes('className="audio-mode-row"'), "段控窄行缺失");
   assert.ok(src.includes('aria-label="音频模式"'), "段控 aria-label 缺失");
   assert.ok(
     src.includes('name={k === "gen" ? "sparkles" : "scissors"}'),
     "段控按钮未补图标",
   );
+  // 内嵌生成台不再传已退役的 hideHeader
+  assert.ok(!src.includes("hideHeader"), "hideHeader prop 已退役,不应再传");
 });
 
 /* ── ④ 首页门户(AssistantView + assistant.css) ── */

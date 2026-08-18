@@ -2,6 +2,44 @@
 
 ---
 
+## UI-FIX-2026-08-18C · 工作台页头整体移除(灵动岛即位置指示)
+
+**时间**: 2026-08-18(夜)
+**类型**: UI 改版(用户拍板:标题完全可以省略,灵动岛高亮已代表所在页面)
+
+### ① 改动(七视图)
+
+| 视图 | 页头处理 | 原页头动作落位 |
+|------|---------|--------------|
+| GenerateView(图/视频) | 整体移除(hideHeader prop 退役,AudioView 调用同步清理) | 无动作(lockedKind 恒传,模式段控为死代码一并移除) |
+| AudioView | 整体移除 | 生成\|编辑段控恢复独立窄行(~32px) |
+| FusionView | 整体移除(计数徽章去) | 无动作 |
+| ImageEditView | 整体移除 | 「重新上传」收进工作区上方右对齐窄行(.ie-actions) |
+| VideoEditView | 整体移除 | 分辨率/帧率收进顶部右对齐工具行(.ve-toolbar) |
+| SkillMarketView | 整体移除 | 「导入技能」收进「我的技能」区头行右侧(.skill-section-actions) |
+
+非工作台类视图(作品库/资源/设置/看板/译制/数字人/动态分镜/创作/管理)保留 masthead——
+它们是内容列表页,标题承担页面定位与首屏锚点;工作台类视图舞台即全部。
+
+### ② 验证(浏览器真机)
+
+七视图 .page-header 全部 null;首内容 top=56px(紧贴导航无空隙);audio 段控/编辑切换、
+skills 导入弹窗、videoEdit 设置行功能落位全过。
+
+### ③ 顺带核实:风格预设(style_preset)前端休眠事实
+
+后端 style_presets.py 预设体系完整(底模+采样+负向+尾缀+LoRA+llm_layer),
+/api/models/presets 端点与前端 listStylePresets() 封装均在,但**零组件消费**、
+engineRegistry 无该参数——用户提问「风格预设与 Skill 关系」时据实回答:
+预设=引擎层(选模型组合),Skill=提示词优化层(LLM 人格),设计可叠加;
+当前 UI 仅 Skill 可见,预设为休眠能力。
+
+### ④ 回归
+
+tsc 零错 / ui_lint 通过 / web 393/393(uiPolishViews ③ 护栏改为无页头契约)/ 干净构建 / 双活部署。
+
+---
+
 ## UI-FIX-2026-08-18B · 预览显示不全修复 + 页头瘦身 compact + Skill 市场排版重做
 
 **时间**: 2026-08-18(晚)

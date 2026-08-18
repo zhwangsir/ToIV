@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/Badge";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon } from "@/components/ui/Icon";
 import { Field, Select, Textarea } from "@/components/ui/Input";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { Popover } from "@/components/ui/Popover";
 import { Ripple } from "@/components/ui/Ripple";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -67,10 +66,8 @@ interface GenerateViewProps {
    */
   lockedKind?: EngineKind;
   /**
-   * 隐藏内置页头(2026-08-15 Film Atelier):工作台被嵌在已有页头的视图内时
-   * (如音频工坊内嵌 ACE 生成台)由外层承载页头,消除双标题叠印。
+   * (2026-08-18 页头整体移除:灵动岛已指示当前板块;原 hideHeader prop 退役)
    */
-  hideHeader?: boolean;
 }
 
 /** 板块标题/文案用的 kind 中文名。 */
@@ -78,13 +75,6 @@ const KIND_LABEL: Record<EngineKind, string> = {
   image: "AI图片",
   video: "AI视频",
   audio: "AI音频",
-};
-
-/** Film Atelier masthead 拉丁 kicker(按 kind;非锁定模式回退 PROMPT ATELIER)。 */
-const KIND_KICKER: Record<EngineKind, string> = {
-  image: "IMAGE ATELIER",
-  video: "VIDEO ATELIER",
-  audio: "SOUND ATELIER",
 };
 
 /** 文生/图生分组标签(按 kind 语义化)。 */
@@ -116,7 +106,7 @@ const SIZE_PARAM_KEYS: ReadonlySet<string> = new Set(["width", "height"]);
  * 提交链路:按引擎 id 路由到既有 API(lib/engines.submitEngineGeneration),
  * SSE 进度复用 useGeneration/trackJob;NSFW 引擎由后端按 R18 上下文过滤,前端不判断。
  */
-export function GenerateView({ initialDraft, lockedKind, hideHeader = false }: GenerateViewProps) {
+export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
   // 草稿:显式 prop 优先;否则消费 localStorage 引擎草稿(target=drama/manju 由短剧/漫剧视图消费,此处忽略)。
   // 锁定 kind 时只消费 target 匹配的草稿(不匹配不消费,留给对应板块;audio 无草稿来源,天然为空)。
   const draft = useMemo<GenerateDraft | null>(
@@ -550,35 +540,8 @@ export function GenerateView({ initialDraft, lockedKind, hideHeader = false }: G
 
   return (
     <div className="generate-view">
-      {!hideHeader && (
-        <PageHeader
-          className="generate-header"
-          compact
-          kicker={lockedKind ? KIND_KICKER[lockedKind] : "PROMPT ATELIER"}
-          title={lockedKind ? KIND_LABEL[lockedKind] : "AI 生成工作台"}
-          desc="会话内历史不落库,刷新即清空"
-          actions={
-            !lockedKind ? (
-              /* 模式段控:Film Atelier 墨丸语言(.at-seg 共享类) */
-              <div className="at-seg" role="tablist" aria-label="生成模式">
-                {(["image", "video"] as const).map((k) => (
-                  <button
-                    key={k}
-                    type="button"
-                    role="tab"
-                    aria-selected={mode === k}
-                    className={`at-seg-btn${mode === k ? " is-active" : ""}`}
-                    onClick={() => setMode(k)}
-                  >
-                    <Icon name={k === "image" ? "image" : "video"} size={14} />
-                    {k === "image" ? "图像" : "视频"}
-                  </button>
-                ))}
-              </div>
-            ) : undefined
-          }
-        />
-      )}
+      {/* 2026-08-18 页头整体移除:灵动岛已指示当前板块,工作台首屏全给舞台
+          (kind 语义由导航高亮承载;hideHeader prop 已随之退役) */}
 
       <div className="generate-body">
         {/* 舞台列(2026-08-17 停靠布局):结果面板 + 提示词条同列纵排,与参数列并排成行,

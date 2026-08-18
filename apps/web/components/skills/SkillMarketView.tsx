@@ -7,7 +7,6 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { Field, Input, Textarea } from "@/components/ui/Input";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { Modal } from "@/components/ui/Modal";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { Switch } from "@/components/ui/Switch";
 import { useToast } from "@/components/ui/Toast";
 import {
@@ -213,49 +212,67 @@ export function SkillMarketView() {
 
   return (
     <div className="single-view skill-market">
-      <PageHeader
-        compact
-        className="skill-market-header"
-        kicker="SKILL ATELIER"
-        title="Skill 市场"
-        icon="package"
-        actions={
-          <Button
-            variant="primary"
-            size="sm"
-            icon={<Icon name="download" size={14} />}
-            onClick={openImport}
-          >
-            导入技能
-          </Button>
-        }
-      />
-
+      {/* 2026-08-18 页头移除(灵动岛已指示当前板块):导入按钮收进首区头行右侧 */}
       {loading ? (
         <LoadingBlock variant="grid" count={6} />
       ) : (
         <>
-          <Section
-            title="我的技能"
-            count={mine.length}
-            empty="还没有个人技能——点右上「导入技能」,或粘贴他人分享的 JSON"
-            agents={mine}
-            onView={setViewing}
-          >
-            {(a) => (
-              <>
-                <button type="button" className="skill-card-act" title="编辑" onClick={() => openEdit(a)}>
-                  <Icon name="pencil" size={13} />
-                </button>
-                <button type="button" className="skill-card-act" title="分享(复制 JSON)" onClick={() => void share(a)}>
-                  <Icon name="share" size={13} />
-                </button>
-                <button type="button" className="skill-card-act is-danger" title="删除" onClick={() => setDeleting(a)}>
-                  <Icon name="delete" size={13} />
-                </button>
-              </>
-            )}
-          </Section>
+          <section className="skill-section">
+            <div className="skill-section-head">
+              <h2 className="skill-section-title">我的技能</h2>
+              <span className="skill-section-count" aria-label={`${mine.length} 个`}>
+                {mine.length}
+              </span>
+              <div className="skill-section-actions">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<Icon name="download" size={14} />}
+                  onClick={openImport}
+                >
+                  导入技能
+                </Button>
+              </div>
+            </div>
+            <div className="skill-grid">
+              {mine.length === 0 ? (
+                <p className="skill-empty">
+                  还没有个人技能——点右上「导入技能」,或粘贴他人分享的 JSON
+                </p>
+              ) : (
+                mine.map((a) => (
+                  <article key={a.id} className="skill-card">
+                    <div className="skill-card-head">
+                      <Icon name={iconOf(a)} size={15} />
+                      <button
+                        type="button"
+                        className="skill-card-name"
+                        title="查看提示词"
+                        onClick={() => setViewing(a)}
+                      >
+                        {a.name}
+                      </button>
+                      <button type="button" className="skill-card-act" title="编辑" onClick={() => openEdit(a)}>
+                        <Icon name="pencil" size={13} />
+                      </button>
+                      <button type="button" className="skill-card-act" title="分享(复制 JSON)" onClick={() => void share(a)}>
+                        <Icon name="share" size={13} />
+                      </button>
+                      <button type="button" className="skill-card-act is-danger" title="删除" onClick={() => setDeleting(a)}>
+                        <Icon name="delete" size={13} />
+                      </button>
+                    </div>
+                    {a.description && <p className="skill-card-desc">{a.description}</p>}
+                    <div className="skill-card-tags">
+                      <span className="skill-tag">{appliesLabel(a)}</span>
+                      <span className="skill-tag">我的</span>
+                      {a.is_nsfw && <span className="skill-tag is-nsfw">R18</span>}
+                    </div>
+                  </article>
+                ))
+              )}
+            </div>
+          </section>
 
           <Section
             title="公共技能"

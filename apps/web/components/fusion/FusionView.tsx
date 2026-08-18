@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 
 import { Card } from "@/components/ui/Card";
 import { Icon, type IconName } from "@/components/ui/Icon";
-import { PageHeader } from "@/components/ui/PageHeader";
 import "@/app/styles/fusion.css";
 
 interface FusionApp {
@@ -78,15 +77,7 @@ export function FusionView({ onNavigate }: { onNavigate: (target: string) => voi
 
   return (
     <div className="fusion-view">
-      {/* ── 头部:统一 PageHeader(Atelier masthead:kicker + Fraunces 标题 + 编辑双线)── */}
-      <PageHeader
-        className="fusion-header"
-        compact
-        kicker="FUSION ATELIER"
-        title="融合应用"
-        desc="多能力组合的创作入口:剧本、数字人、译制、图片与视频,一站式完成"
-        actions={<span className="fusion-count">{FUSION_APPS.length} 个应用</span>}
-      />
+      {/* 2026-08-18 页头移除(灵动岛已指示当前板块):bento 网格即视图全部 */}
 
       {/* ── bento 应用卡网格 ── */}
       <div className="fusion-grid">

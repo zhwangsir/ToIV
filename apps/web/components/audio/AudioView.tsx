@@ -8,7 +8,6 @@ import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Field, Textarea } from "@/components/ui/Input";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { GenerateView } from "@/components/generate/GenerateView";
 import { useAutoResize } from "@/hooks/useAutoResize";
 import {
@@ -467,37 +466,31 @@ export function AudioView() {
 
   return (
     /* Film Atelier(P0-1):根容器补 .view-shell 节奏,页头不再贴左边缘;
-       双标题消除——内嵌 GenerateView 走 hideHeader,只保留本页头 + SOUND ATELIER kicker */
+       2026-08-18:页头移除(灵动岛已指示板块),内嵌 GenerateView 亦无页头 */
     <div className="audio-view view-shell">
-      <PageHeader
-        compact
-        kicker="SOUND ATELIER"
-        title="音频工坊"
-        icon="audio"
-        actions={
-          /* 生成/编辑段控(2026-08-18 并入页头 actions,消除独立段控行):与图片/视频工作台同语言 */
-          <div className="at-seg" role="tablist" aria-label="音频模式">
-            {(["gen", "edit"] as const).map((k) => (
-              <button
-                key={k}
-                type="button"
-                role="tab"
-                aria-selected={tab === k}
-                className={`at-seg-btn${tab === k ? " is-active" : ""}`}
-                onClick={() => setTab(k)}
-              >
-                <Icon name={k === "gen" ? "sparkles" : "scissors"} size={14} />
-                {k === "gen" ? "生成" : "编辑"}
-              </button>
-            ))}
-          </div>
-        }
-      />
+      {/* 2026-08-18 页头移除(灵动岛已指示当前板块):仅保留生成/编辑段控窄行 */}
+      <div className="audio-mode-row">
+        <div className="at-seg" role="tablist" aria-label="音频模式">
+          {(["gen", "edit"] as const).map((k) => (
+            <button
+              key={k}
+              type="button"
+              role="tab"
+              aria-selected={tab === k}
+              className={`at-seg-btn${tab === k ? " is-active" : ""}`}
+              onClick={() => setTab(k)}
+            >
+              <Icon name={k === "gen" ? "sparkles" : "scissors"} size={14} />
+              {k === "gen" ? "生成" : "编辑"}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {tab === "gen" ? (
         <div className="audio-tab-gen">
           <div className="audio-workbench">
-            <GenerateView lockedKind="audio" hideHeader />
+            <GenerateView lockedKind="audio" />
           </div>
         </div>
       ) : (
@@ -518,7 +511,12 @@ export function AudioView() {
           padding-top: var(--space-4);
           padding-bottom: var(--space-4);
         }
-        /* 页头:统一走全局 .page-header 体系(compact 单行,段控在 actions 槽) */
+        /* 段控窄行(页头已移除):仅高度 ~32px,首屏还给工作台 */
+        .audio-mode-row {
+          flex-shrink: 0;
+          display: flex;
+          padding: 0 0 var(--space-3);
+        }
         .audio-tab-gen {
           flex: 1;
           min-height: 0;

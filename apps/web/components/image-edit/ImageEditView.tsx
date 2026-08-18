@@ -7,7 +7,6 @@ import { Card } from "@/components/ui/Card";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Field, Input, Select } from "@/components/ui/Input";
-import { PageHeader } from "@/components/ui/PageHeader";
 import {
   generateFaceDetailer,
   generateInpaint,
@@ -551,20 +550,7 @@ export function ImageEditView() {
 
   return (
     <div className="single-view ie-view">
-      <PageHeader
-        compact
-        kicker="IMAGE LAB"
-        title="图片编辑"
-        desc="上传一张图片，选择工具一键处理：去背景、高清增强、局部重绘、人脸修复"
-        actions={
-          source ? (
-            <Button variant="ghost" size="sm" icon={<Icon name="refresh" size={13} />} onClick={resetSource}>
-              重新上传
-            </Button>
-          ) : undefined
-        }
-      />
-
+      {/* 2026-08-18 页头移除(灵动岛已指示当前板块):「重新上传」收进工作区顶部窄行 */}
       {!source ? (
         <DropZone
           onUpload={handleUpload}
@@ -573,7 +559,13 @@ export function ImageEditView() {
           onClearError={() => setUploadError(null)}
         />
       ) : (
-        <div className="ie-workspace">
+        <>
+          <div className="ie-actions">
+            <Button variant="ghost" size="sm" icon={<Icon name="refresh" size={13} />} onClick={resetSource}>
+              重新上传
+            </Button>
+          </div>
+          <div className="ie-workspace">
           <aside className="ie-rail">
             <span className="ie-section-label">处理工具</span>
             <div className="ie-tools">
@@ -695,7 +687,8 @@ export function ImageEditView() {
               <ResultPanel source={source} resultUrl={proc.resultUrl} resultPaths={proc.resultPaths} />
             )}
           </div>
-        </div>
+          </div>
+        </>
       )}
 
       {/* DropZone/ToolCard 等子组件在主组件之外定义,styled-jsx 作用域属性不会传递,必须用 global(ie- 前缀类名全项目唯一) */}
@@ -782,6 +775,10 @@ export function ImageEditView() {
         }
 
         /* ── 工作区布局:左侧工具栏(340px 吸附) + 右侧画布 ── */
+        .ie-actions {
+          display: flex;
+          justify-content: flex-end;
+        }
         .ie-workspace {
           display: flex;
           gap: var(--space-8);

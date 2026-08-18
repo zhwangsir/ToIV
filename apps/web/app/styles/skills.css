@@ -39,6 +39,12 @@
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
+/* 区头行右侧动作槽(导入按钮;页头移除后动作落位于此) */
+.skill-section-actions {
+  margin-left: auto;
+  display: flex;
+  gap: var(--space-2);
+}
 
 /* ── 卡片网格:min() 根治超窄容器(分屏/折叠屏)轨道溢出 ── */
 .skill-grid {

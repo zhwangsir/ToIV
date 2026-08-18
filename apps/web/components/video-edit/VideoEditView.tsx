@@ -5,7 +5,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon } from "@/components/ui/Icon";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { genId } from "@/lib/id";
 import {
   renderVideoEdit,
@@ -389,48 +388,41 @@ export function VideoEditView() {
 
   return (
     <div className="single-view ve-view">
-      {/* 页头:UI-A PageHeader(kicker 铭牌);ve-settings 包裹保留 scoped 设置组排版 */}
-      <PageHeader
-        compact
-        kicker="VIDEO LAB"
-        title="视频剪辑"
-        desc="时间线剪辑:拼接视频片段、叠加音频与文字,本地集群渲染导出成片"
-        icon="scissors"
-        actions={
-          <div className="ve-settings">
-            <label className="ve-setting">
-              <span>分辨率</span>
-              <select
-                className="input"
-                value={resIdx}
-                disabled={busy}
-                onChange={(e) => setResIdx(Number.parseInt(e.target.value, 10))}
-              >
-                {RESOLUTIONS.map((r, i) => (
-                  <option key={r.label} value={i}>
-                    {r.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="ve-setting">
-              <span>帧率</span>
-              <select
-                className="input"
-                value={fps}
-                disabled={busy}
-                onChange={(e) => setFps(Number.parseInt(e.target.value, 10))}
-              >
-                {FPS_OPTIONS.map((f) => (
-                  <option key={f} value={f}>
-                    {f} fps
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        }
-      />
+      {/* 2026-08-18 页头移除(灵动岛已指示当前板块):分辨率/帧率收进顶部工具行 */}
+      <div className="ve-toolbar">
+        <div className="ve-settings">
+          <label className="ve-setting">
+            <span>分辨率</span>
+            <select
+              className="input"
+              value={resIdx}
+              disabled={busy}
+              onChange={(e) => setResIdx(Number.parseInt(e.target.value, 10))}
+            >
+              {RESOLUTIONS.map((r, i) => (
+                <option key={r.label} value={i}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="ve-setting">
+            <span>帧率</span>
+            <select
+              className="input"
+              value={fps}
+              disabled={busy}
+              onChange={(e) => setFps(Number.parseInt(e.target.value, 10))}
+            >
+              {FPS_OPTIONS.map((f) => (
+                <option key={f} value={f}>
+                  {f} fps
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </div>
 
       {/* 窄屏兜底提示(同画布策略):≤767 显示,时间线编辑建议大屏 */}
       <p className="ve-mobile-note">
@@ -1065,7 +1057,11 @@ export function VideoEditView() {
           flex-direction: column;
           gap: var(--space-8);
         }
-        /* 页头改用全局 .page-header 系列类(含 CornerNav 避让),本地只保留设置组样式 */
+        /* 2026-08-18 页头移除:设置组独立成顶部工具行(右对齐) */
+        .ve-toolbar {
+          display: flex;
+          justify-content: flex-end;
+        }
         .ve-settings {
           display: flex;
           gap: var(--space-3);
