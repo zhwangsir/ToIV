@@ -489,6 +489,64 @@ export function listLocalModels(): Promise<LocalModels> {
   return swr(_nsfwIntent ? `${CACHE_KEYS.localModels}:nsfw` : CACHE_KEYS.localModels, fetchLocalModelsRaw, TTL.localModels);
 }
 
+// ---------- 模型百科 + RAG 问答(WIKI-2026-08-18) ----------
+
+export interface ModelWikiCard {
+  id: string;
+  filename: string;
+  model_type: string;
+  label: string;
+  base_model: string;
+  description: string;
+  usage: string;
+  prompt_dialect: string;
+  trigger_words: string[];
+  negative_hint: string;
+  tags: string[];
+  creator: string;
+  license: string;
+  civitai_url: string;
+  downloads: number;
+  nsfw: boolean;
+  sources: string[];
+  enriched: boolean;
+  has_detail: boolean;
+}
+
+export async function listModelWiki(params?: { type?: string; q?: string }): Promise<ModelWikiCard[]> {
+  const qs = new URLSearchParams();
+  if (params?.type) qs.set("type", params.type);
+  if (params?.q) qs.set("q", params.q);
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  const res = await apiFetch(`/api/models/wiki${suffix}`, { headers: authHeaders() });
+  if (!res.ok) await raiseApiError(res, "加载模型百科失败");
+  const data = (await res.json()) as { cards: ModelWikiCard[] };
+  return data.cards ?? [];
+}
+
+export async function askModelWiki(question: string): Promise<{ answer: string; matched: ModelWikiCard[] }> {
+  const res = await apiFetch("/api/models/ask", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ question }),
+  });
+  if (!res.ok) await raiseApiError(res, "模型问答失败");
+  return res.json();
+}
+
+export async function enrichModelWiki(opts?: {
+  force?: boolean;
+  max?: number;
+}): Promise<{ enriched: number; skipped: number; failed: number }> {
+  const res = await apiFetch("/api/models/wiki/enrich", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ force: opts?.force ?? false, max: opts?.max ?? 40 }),
+  });
+  if (!res.ok) await raiseApiError(res, "富化失败");
+  return res.json();
+}
+
 export async function searchMarketplace(
   source: string,
   query: string,

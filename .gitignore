@@ -57,8 +57,9 @@ apps/web/.preview-shots/
 .heartbeat/
 
 # 仓库卫生(2026-07-27 P2):大目录/生成内容/嵌套 git/调试脚本不入仓
-# models/ 33GB 模型文件(ComfyUI 本地缓存,不走仓库)
-models/
+# models/ 33GB 模型文件(ComfyUI 本地缓存,不走仓库;锚定根目录,
+# 不再误伤 apps/web/components/models/ 等源码目录 —— 2026-08-18 WIKI 修复)
+/models/
 # opentalking/ 嵌套 git 独立项目(违反项目隔离纪律)
 opentalking/
 # drama/output/ 生成内容(短剧成片/分镜片段/配音等运行时产出);

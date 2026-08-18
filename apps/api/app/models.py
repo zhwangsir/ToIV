@@ -75,6 +75,33 @@ class Job(SQLModel, table=True):
 
 
 # ---------------------------------------------------------------------------
+# 模型百科(WIKI-2026-08-18):civitai 富化结果缓存(按 文件名+类目 唯一)。
+# curated 部分在 workflows/model_wiki.py(纯代码,不落库);本表只存外部
+# 富化事实(描述/触发词/基模/许可/下载量),RAG 问答语料 = curated ∪ 本表。
+# ---------------------------------------------------------------------------
+class ModelCard(SQLModel, table=True):
+    """模型百科富化缓存。id = sha1(filename|model_type)[:16](稳定派生,幂等 upsert)。"""
+
+    id: str = Field(primary_key=True)
+    filename: str = Field(index=True)  # worker 上的完整文件名(含子目录)
+    model_type: str = "checkpoints"  # checkpoints/loras/vae/controlnet/upscale/diffusion_models
+    source: str = "civitai"  # 富化来源(civitai/huggingface/manual)
+    label: str = ""  # 官方名
+    base_model: str = ""  # 基模(SDXL/Illustrious/Pony/Flux.1/...)
+    description: str = ""  # 用途描述(富化原文或人工整理,中文优先)
+    trigger_words: str = "[]"  # JSON 数组:LoRA 触发词
+    negative_hint: str = ""
+    creator: str = ""
+    license: str = ""
+    civitai_id: str = ""  # civitai model id(再次富化/详情跳转用)
+    civitai_url: str = ""
+    downloads: int = 0
+    nsfw: bool = False
+    enriched_at: datetime = Field(default_factory=_now)  # 富化时间(过期可重拉)
+
+
+
+# ---------------------------------------------------------------------------
 # 操作防护体系(SAFETY,2026-08-17):关键操作审计日志。
 # 记录用户的重要/危险操作(删除、撤销、admin 级动作、分区开关、部署等),
 # undo_token + undo_expires_at 承载「规定时间内恢复误操作」的寻址凭据。

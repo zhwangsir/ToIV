@@ -116,6 +116,20 @@ TOOL_SCHEMAS = [
     {
         "type": "function",
         "function": {
+            "name": "model_qa",
+            "description": "模型百科问答:用户问「某个模型是什么/怎么用/适合什么场景/来源许可」,或不知道选哪个模型(写实人像/二次元/极速草稿/长视频/对口型…)时调用。返回模型卡片(用途/采样建议/提示词方言/触发词/来源),比 list_models 信息全。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "question": {"type": "string", "description": "关于模型的问题或需求,如「画写实人像用哪个底模」「wai 是什么模型」「长视频用什么引擎」"},
+                },
+                "required": ["question"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "search_knowledge",
             "description": "检索平台知识库(ComfyUI 节点/工作流配方/模型清单/提示词技巧)。搭自定义工作流前、或不确定模型名/参数/节点用法时先调用查证,避免编造。",
             "parameters": {
@@ -219,6 +233,35 @@ async def exec_list_models(args: dict, pool: WorkerPool, user: User, session, at
     except ComfyUIError:
         opts = []
     return "当前可用图像大模型: " + (", ".join(opts[:30]) or "(查询失败)"), []
+
+
+async def exec_model_qa(args: dict, pool: WorkerPool, user: User, session, attachment: dict | None = None) -> tuple[str, list[dict]]:
+    """模型百科问答(WIKI-2026-08-18):RAG 检索本地模型卡片,给 LLM 一段话可直接引用。
+
+    与直接调 /api/models/ask 的差异:助手场景已有外层 LLM,这里只做检索返回卡片文本,
+    避免嵌套 LLM 调用(延迟/费用双省);embedding 失败自动降级关键词命中。
+    """
+    from app.nsfw_ctx import nsfw_allowed
+    from app.services import model_wiki as wiki
+
+    question = str(args.get("question") or "").strip()[:300]
+    if not question:
+        return "问题为空。", []
+    inventory = await wiki.local_inventory(pool)
+    cards = wiki.build_cards(inventory, session)
+    cards = [c for c in cards if (not c["nsfw"]) or nsfw_allowed(user)]
+    matched = await wiki._topk_by_embed(question, cards) or wiki._keyword_hits(question, cards)
+    if not matched:
+        return "本地模型库未匹配到相关模型。可请管理员在模型库页运行「Civitai 富化」补全介绍。", []
+    lines = [f"匹配到 {len(matched)} 个模型卡片(名称 | 文件名 | 用途摘要):"]
+    for c in matched:
+        desc = (c.get("description") or "")[:100]
+        lines.append(f"- {c['label']} | {c['filename']} | {desc}")
+        if c.get("usage"):
+            lines.append(f"  用法: {c['usage'][:160]}")
+        if c.get("trigger_words"):
+            lines.append(f"  触发词: {', '.join(c['trigger_words'][:6])}")
+    return "\n".join(lines), []
 
 
 async def exec_generate_image(args: dict, pool: WorkerPool, user: User, session, attachment: dict | None = None) -> tuple[str, list[dict]]:

@@ -2,6 +2,63 @@
 
 ---
 
+## WIKI-2026-08-18 · 模型百科 + RAG 问答:每个模型「是什么/怎么用/哪里来」
+
+**时间**: 2026-08-18(深夜)
+**类型**: 新功能(用户诉求:所有模型需要确切介绍与来源判断,并整理成 RAG 支持自然语言询问)
+
+### ① 架构与实现
+
+三层语料合成一张卡(curated ∪ civitai 富化 ∪ 本地事实):
+
+| 层 | 载体 | 内容 |
+|----|------|------|
+| curated | [workflows/model_wiki.py](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/api/app/workflows/model_wiki.py)(纯代码,~28 张) | 平台在用底模/视频引擎/场景LoRA类别/放大模型的确定性中文卡片:用途、采样参数、提示词方言、推荐负向、civitai 链接 |
+| civitai 富化 | ModelCard 表(新) | admin 触发 `POST /models/wiki/enrich`:文件名清洗→按名搜 civitai→落库描述/触发词/基模/作者/许可/下载量(1.2s/个限速,幂等 upsert) |
+| 本地事实 | worker object_info(6 类目,含 UNETLoader 次世代) | 文件名+类目+R18 过滤(与 /models/local 同口径) |
+
+**端点**(routes/models.py):
+- `GET /models/wiki?type=&q=` 列表(has_detail 标记完整性)
+- `GET /models/wiki/detail?filename=&type=` 单卡(R18 主站 404 不泄露)
+- `POST /models/wiki/enrich` admin 富化
+- `POST /models/ask` **RAG 问答**
+
+**RAG 链**(services/model_wiki.py):卡片文本化 → Qwen3-Embedding-4B(:9302,复用
+agent/rag._embed)→ 内存余弦 top-k(数百卡片量级,无需 pgvector;fingerprint 缓存
+向量,卡片变化自动失效)→ LLM L2 中文作答引用模型名。**embedding 失败降级关键词
+检索、LLM 失败降级卡片直出,链路永不 503**。
+
+**AI 助手**:第 9 个内建工具 `model_qa`(tool_seam 注册)——⌘K 助手直接问
+「wai 是什么模型」「画写实人像用哪个底模」;助手场景只做检索(外层已有 LLM,
+不嵌套调用)。
+
+**前端**(ModelsView 本地 tab):
+- 文件行改可点击 → Modal 五段式详情卡(这是什么/怎么用/提示词写法/触发词/来源),未收录提示富化或直达 civitai 搜索;
+- 工具栏下方「问 AI」输入框 → 回答 + 匹配模型 chip(点击开同款详情);
+- admin 可见「富化介绍」按钮(批量 40/次)。
+
+### ② TDD 与回归
+
+| 项 | 结果 |
+|----|------|
+| test_model_wiki(新 14 例) | curated 匹配/三层合并/R18 过滤/enrich admin 门+幂等/ask 空参 422+LLM 降级+无匹配/exec_model_qa/注册表 |
+| test_harness_tools | 8→9 工具护栏按有意变更更新(LEGACY_SYSTEM + BUILTIN_ORDER + 行数=len) |
+| pytest 全量 | **1850 passed** |
+| web(modelWiki 新 4) | **409/409** |
+| tsc / ui_lint / 干净构建 | 零错 / 通过 / 成功 |
+
+### ③ 设计决策
+
+- **按名搜 civitai 而非 hash 精确匹配**:全库 500GB+ sha256 代价过高;文件名清洗
+  (去版本/量化/基模噪音词)后模糊搜索对主流模型命中率足够,hash 精确匹配留作后续
+  admin 作业;
+- **向量存内存而非 PG**:卡片量级数百,余弦毫秒级;引 pgvector 属过度设计;
+- **富化 nsfw=true 查询**:富化要完整信息(含 R18 模型触发词),展示层按用户
+  R18 上下文过滤,与全站口径一致;
+- **助手工具只检索不作答**:避免 LLM 嵌套(外层助手 LLM 已负责组织语言)。
+
+---
+
 ## QUEUE-2026-08-18 · H3 同实例排队:显存预检让位 ComfyUI 原生队列 + 排队位次透传
 
 **时间**: 2026-08-18(深夜)

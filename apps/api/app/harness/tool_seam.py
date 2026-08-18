@@ -174,6 +174,8 @@ def builtin_tool_specs() -> list[ToolSpec]:
                  "生成可旋转的 3D 模型(有上传图则用该图转,否则按描述先出图再转;约 1-3 分钟)"),
         ToolSpec("list_models", schema("list_models"), _wrap(tools.exec_list_models),
                  "查询可用的图像大模型"),
+        ToolSpec("model_qa", schema("model_qa"), _wrap(tools.exec_model_qa),
+                 "模型百科问答(某模型是什么/怎么用/选型推荐;比 list_models 信息全)"),
         ToolSpec("search_knowledge", schema("search_knowledge"), _wrap(tools.exec_search_knowledge),
                  "检索平台知识库(ComfyUI 节点/工作流配方/模型/提示词)"),
         ToolSpec("run_workflow", schema("run_workflow"), _wrap(tools.exec_run_workflow),

@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-08-18 11:23:26",
+  "updated_at": "2026-08-18 12:38:57",
   "sync_baseline": {
     "id": "SYNC-2026-07-18",
     "type": "initial-sync",
@@ -1048,6 +1048,12 @@
         "task": "三层联动整合(2026-08-18 /goal):风格预设×Skill×优化提示词贯通——预设上下文+底模方言注入优化 LLM、预设选中即时回显推荐参数、预设→skill 智能预选",
         "owner": "主会话",
         "recheck": "TEST_LOG LINKAGE-2026-08-18;pytest 1836 passed;web 402/402;tsc 零错;ui_lint 通过;干净构建成功",
+        "status": "done_verified"
+      },
+      {
+        "task": "模型百科+RAG 问答(2026-08-18 WIKI):250 本地模型三层卡片(curated 28∪civitai 富化∪本地事实),/models/wiki 列表详情,/models/ask 自然语言问答(真机 LLM+embedding 全链路 200),AI 助手第 9 工具 model_qa,前端详情卡+问AI+admin 富化",
+        "owner": "主会话",
+        "recheck": "TEST_LOG WIKI-2026-08-18;pytest 1850;web 409;core 生产真机:wiki 250 卡/麦橘检索/R18 过滤/ask 200(enriched 2)",
         "status": "done_verified"
       }
     ],

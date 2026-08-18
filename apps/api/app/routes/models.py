@@ -9,13 +9,16 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlmodel import Session
 
 from app.comfy.client import ComfyUIError
 from app.comfy.pool import WorkerPool
 from app.config import get_settings
+from app.db import get_session
 from app.deps import get_current_user, get_pool
-from app.models import User
+from app.models import ModelCard, User
 from app.nsfw_ctx import nsfw_allowed
+from app.ratelimit import enforce_generation_rate_limit
 from app.services.engine_registry import list_engines, reset_avail_cache
 from app.workflows.ace_step import AceStepParams
 from app.workflows.hunyuan3d import Hunyuan3DParams
@@ -665,6 +668,115 @@ async def list_community_recipes(
 
     rows = recipes_for(engine_id=engine, include_nsfw=nsfw_allowed(user))
     return {"recipes": rows, "count": len(rows)}
+
+
+# ---------------------------------------------------------------------------
+# 模型百科(WIKI-2026-08-18):每个模型「是什么/怎么用/哪里来」+ RAG 自然语言问答
+# ---------------------------------------------------------------------------
+
+def _visible(card: dict, user: User) -> bool:
+    """R18 门控:主站剔除 nsfw 卡片(与 /models/local 的过滤口径一致)。"""
+    return (not card.get("nsfw")) or nsfw_allowed(user)
+
+
+@router.get("/models/wiki")
+async def model_wiki_list(
+    type: str = "",
+    q: str = "",
+    pool: WorkerPool = Depends(get_pool),
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """模型百科列表:worker 本地清单 × curated 卡片 × civitai 富化缓存 合成。
+
+    type 过滤类目;q 模糊匹配 文件名/名称/标签/描述;未富化模型 has_detail=False。
+    """
+    from app.services import model_wiki as svc
+
+    inventory = await svc.local_inventory(pool)
+    cards = svc.build_cards(inventory, session)
+    cards = [c for c in cards if _visible(c, user)]
+    if type:
+        cards = [c for c in cards if c["model_type"] == type]
+    if q:
+        ql = q.lower()
+        cards = [
+            c for c in cards
+            if ql in c["filename"].lower() or ql in c["label"].lower()
+            or any(ql in t.lower() for t in c.get("tags", []))
+            or ql in c.get("description", "").lower()
+        ]
+    return {"cards": cards, "count": len(cards)}
+
+
+@router.get("/models/wiki/detail")
+async def model_wiki_detail(
+    filename: str,
+    type: str,
+    pool: WorkerPool = Depends(get_pool),
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """单模型卡片详情(模型库文件点击展开);R18 模型主站 404(不泄露存在性)。"""
+    from app.services import model_wiki as svc
+
+    card = svc._merge(filename, type, session.get(ModelCard, svc._card_id(filename, type)))
+    if not _visible(card, user):
+        raise HTTPException(status_code=404, detail="模型不存在")
+    return card
+
+
+@router.post("/models/wiki/enrich")
+async def model_wiki_enrich(
+    body: dict,
+    pool: WorkerPool = Depends(get_pool),
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """admin:civitai 批量富化(补全介绍/触发词/基模/许可),结果落库缓存。
+
+    body: {"force": bool, "max": int, "targets": [[filename, type], ...]}
+    targets 缺省 = 全部未富化模型(按文件名序取前 max 条)。
+    """
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="仅管理员可执行富化")
+    from app.services import model_wiki as svc
+
+    targets = body.get("targets") or []
+    if not targets:
+        inventory = await svc.local_inventory(pool)
+        cards = svc.build_cards(inventory, session)
+        targets = [[c["filename"], c["model_type"]] for c in cards if not c["has_detail"]]
+    force = bool(body.get("force"))
+    max_count = int(body.get("max") or 40)
+    result = await svc.enrich_models(
+        [tuple(t) for t in targets if isinstance(t, (list, tuple)) and len(t) == 2],
+        session, force=force, max_count=max_count,
+    )
+    return result
+
+
+@router.post("/models/ask")
+async def model_wiki_ask(
+    body: dict,
+    pool: WorkerPool = Depends(get_pool),
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """自然语言问模型(RAG):embedding 检索 → LLM 中文作答,附匹配卡片。
+
+    例:「画写实人像用哪个底模」「wai 是什么模型」「长视频用什么」。
+    """
+    from app.services import model_wiki as svc
+
+    question = str(body.get("question") or "").strip()[:500]
+    if not question:
+        raise HTTPException(status_code=422, detail="问题不能为空")
+    enforce_generation_rate_limit(user)
+    inventory = await svc.local_inventory(pool)
+    cards = [c for c in svc.build_cards(inventory, session) if _visible(c, user)]
+    result = await svc.ask_model_wiki(question, cards)
+    return result
 
 
 @router.get("/models/health")

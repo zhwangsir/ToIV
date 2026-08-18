@@ -2,15 +2,21 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  askModelWiki,
+  enrichModelWiki,
+  getMe,
   getNasDownloadStatus,
   installModel,
   listLocalModels,
+  listModelWiki,
   searchMarketplace,
   type InstallModelParams,
   type InstallModelResult,
+  type ModelWikiCard,
 } from "@/lib/api";
 import type { LocalModels, MarketItem } from "@/lib/types";
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { Modal } from "@/components/ui/Modal";
 import { NsfwRecsPanel } from "@/components/models/NsfwRecsPanel";
 import { useR18Mode } from "@/lib/r18";
 import { usePoll } from "@/hooks/usePoll";
@@ -96,6 +102,101 @@ export function ModelsView() {
   const [localLoading, setLocalLoading] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const [localQuery, setLocalQuery] = useState("");
+
+  // ---- 模型百科(WIKI-2026-08-18):卡片索引 + 详情弹窗 + 问 AI ----
+  const [wikiCards, setWikiCards] = useState<ModelWikiCard[]>([]);
+  const [detailCard, setDetailCard] = useState<ModelWikiCard | null>(null);
+  const [askQ, setAskQ] = useState("");
+  const [askA, setAskA] = useState<string | null>(null);
+  const [askMatched, setAskMatched] = useState<ModelWikiCard[]>([]);
+  const [askBusy, setAskBusy] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [enriching, setEnriching] = useState(false);
+  const [enrichMsg, setEnrichMsg] = useState<string | null>(null);
+
+  // wiki 索引:`${model_type}/${filename}` → 卡片(行徽标/点击详情用);失败静默降级
+  const wikiMap = useMemo(() => {
+    const m = new Map<string, ModelWikiCard>();
+    for (const c of wikiCards) m.set(`${c.model_type}/${c.filename}`, c);
+    return m;
+  }, [wikiCards]);
+
+  const loadWiki = useCallback(async () => {
+    try {
+      setWikiCards(await listModelWiki());
+    } catch {
+      /* 百科不可达:文件行仍可点击,弹「暂无介绍」 */
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadWiki();
+    getMe()
+      .then((me) => setIsAdmin(me.user?.role === "admin"))
+      .catch(() => {});
+  }, [loadWiki]);
+
+  const runEnrich = useCallback(async () => {
+    setEnriching(true);
+    setEnrichMsg(null);
+    try {
+      const r = await enrichModelWiki({ max: 40 });
+      setEnrichMsg(`富化完成:新增 ${r.enriched} · 跳过 ${r.skipped} · 失败 ${r.failed}`);
+      await loadWiki();
+    } catch (e) {
+      setEnrichMsg(e instanceof Error ? e.message : "富化失败");
+    } finally {
+      setEnriching(false);
+    }
+  }, [loadWiki]);
+
+  const runAsk = useCallback(async () => {
+    const q = askQ.trim();
+    if (!q || askBusy) return;
+    setAskBusy(true);
+    setAskA(null);
+    setAskMatched([]);
+    try {
+      const r = await askModelWiki(q);
+      setAskA(r.answer);
+      setAskMatched(r.matched ?? []);
+    } catch (e) {
+      setAskA(e instanceof Error ? e.message : "问答失败,请重试");
+    } finally {
+      setAskBusy(false);
+    }
+  }, [askQ, askBusy]);
+
+  const openCard = useCallback(
+    (filename: string, type: string) => {
+      const card = wikiMap.get(`${type}/${filename}`);
+      // 未命中(未富化/后端不可达):合成最小卡,弹窗提示补全途径
+      setDetailCard(
+        card ?? {
+          id: `${type}/${filename}`,
+          filename,
+          model_type: type,
+          label: filename,
+          base_model: "",
+          description: "",
+          usage: "",
+          prompt_dialect: "",
+          trigger_words: [],
+          negative_hint: "",
+          tags: [],
+          creator: "",
+          license: "",
+          civitai_url: "",
+          downloads: 0,
+          nsfw: false,
+          sources: [],
+          enriched: false,
+          has_detail: false,
+        },
+      );
+    },
+    [wikiMap],
+  );
 
   const loadLocal = useCallback(async () => {
     setLocalLoading(true);
@@ -333,6 +434,18 @@ export function ModelsView() {
               >
                 {totalCount > 0 ? `${totalCount} 个模型` : "0 个模型"}
               </span>
+              {isAdmin && (
+                <button
+                  type="button"
+                  className="at-btn at-btn--ghost mv-refresh"
+                  onClick={() => void runEnrich()}
+                  disabled={enriching}
+                  title="从 Civitai 拉取缺失介绍/触发词/许可,批量补全模型百科"
+                >
+                  <Icon name={enriching ? "loading" : "download"} size={14} />
+                  {enriching ? "富化中…" : "富化介绍"}
+                </button>
+              )}
               <button
                 type="button"
                 className="at-btn at-btn--ghost mv-refresh"
@@ -343,6 +456,59 @@ export function ModelsView() {
                 刷新
               </button>
             </div>
+          </div>
+
+          {/* 问 AI(WIKI-2026-08-18):自然语言问模型,不懂选型/不知道某模型是什么时用 */}
+          <div className="mv-ask">
+            <div className="mv-ask-row">
+              <span className="mv-ask-icon">
+                <Icon name="sparkles" size={15} />
+              </span>
+              <input
+                className="input mv-ask-input"
+                placeholder="问 AI:如「画写实人像用哪个底模」「wai 是什么模型」「长视频用什么引擎」…"
+                value={askQ}
+                maxLength={500}
+                onChange={(e) => setAskQ(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && askQ.trim()) {
+                    e.preventDefault();
+                    void runAsk();
+                  }
+                }}
+                aria-label="自然语言问模型"
+              />
+              <button
+                type="button"
+                className="at-btn at-btn--primary mv-ask-go"
+                onClick={() => void runAsk()}
+                disabled={!askQ.trim() || askBusy}
+              >
+                {askBusy ? "思考中…" : "问 AI"}
+              </button>
+            </div>
+            {askA && (
+              <div className="mv-ask-answer">
+                <p className="mv-ask-text">{askA}</p>
+                {askMatched.length > 0 && (
+                  <div className="mv-ask-matched">
+                    {askMatched.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        className="mv-ask-chip"
+                        onClick={() => setDetailCard(c)}
+                        title={c.description.slice(0, 80)}
+                      >
+                        <Icon name="file" size={12} />
+                        {c.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {enrichMsg && isAdmin && <p className="mv-ask-note">{enrichMsg}</p>}
           </div>
 
           {localLoading && !localModels ? (
@@ -387,19 +553,32 @@ export function ModelsView() {
                     </span>
                   </div>
                   <ul className="mv-model-list">
-                    {g.files.map((f) => (
-                      <li className="mv-model-row" key={`${g.type}/${f}`}>
-                        <span className="mv-model-file-icon">
-                          <Icon name="file" size={14} />
-                        </span>
-                        <span className="mv-model-name" title={f}>
-                          {f}
-                        </span>
-                        {/* 徽章去重(2026-08-16 批 2):扩展名徽章删除(文件名已带后缀),
-                            仅保留类型徽章一个 */}
-                        <span className="at-badge mv-model-type">{typeLabel(g.type)}</span>
-                      </li>
-                    ))}
+                    {g.files.map((f) => {
+                      const card = wikiMap.get(`${g.type}/${f}`);
+                      return (
+                        <li className="mv-model-row" key={`${g.type}/${f}`}>
+                          <button
+                            type="button"
+                            className="mv-model-main"
+                            title={card?.has_detail ? `查看「${card.label}」介绍` : "暂无介绍,点击查看"}
+                            onClick={() => openCard(f, g.type)}
+                          >
+                            <span className="mv-model-file-icon">
+                              <Icon name="file" size={14} />
+                            </span>
+                            <span className="mv-model-name">{f}</span>
+                            {card?.has_detail && (
+                              <span className="at-badge at-badge--accent mv-model-wiki" title="已收录模型百科">
+                                介绍
+                              </span>
+                            )}
+                          </button>
+                          {/* 徽章去重(2026-08-16 批 2):扩展名徽章删除(文件名已带后缀),
+                              仅保留类型徽章一个 */}
+                          <span className="at-badge mv-model-type">{typeLabel(g.type)}</span>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               ))}
@@ -581,9 +760,245 @@ export function ModelsView() {
         <NsfwRecsPanel />
       ) : null}
 
+      {/* 模型百科详情卡(WIKI-2026-08-18):是什么/怎么用/方言/触发词/来源 */}
+      <Modal
+        open={Boolean(detailCard)}
+        onClose={() => setDetailCard(null)}
+        title={detailCard ? `模型百科 · ${detailCard.label}` : ""}
+        width={560}
+      >
+        {detailCard && (
+          <div className="mv-card-detail">
+            <p className="mv-card-file" title={detailCard.filename}>
+              {detailCard.filename}
+            </p>
+            <div className="mv-card-meta">
+              <span className="at-badge">{typeLabel(detailCard.model_type)}</span>
+              {detailCard.base_model && (
+                <span className="at-badge">基模 {detailCard.base_model}</span>
+              )}
+              {detailCard.downloads > 0 && (
+                <span className="at-badge">{formatDownloads(detailCard.downloads)} 下载</span>
+              )}
+              {detailCard.nsfw && <span className="at-badge at-badge--danger">R18</span>}
+            </div>
+
+            {detailCard.has_detail ? (
+              <>
+                {detailCard.description && (
+                  <section>
+                    <h4>这是什么</h4>
+                    <p>{detailCard.description}</p>
+                  </section>
+                )}
+                {detailCard.usage && (
+                  <section>
+                    <h4>怎么用</h4>
+                    <p>{detailCard.usage}</p>
+                  </section>
+                )}
+                {detailCard.prompt_dialect && (
+                  <section>
+                    <h4>提示词写法</h4>
+                    <p>{detailCard.prompt_dialect}</p>
+                  </section>
+                )}
+                {detailCard.trigger_words.length > 0 && (
+                  <section>
+                    <h4>触发词</h4>
+                    <div className="mv-card-tags">
+                      {detailCard.trigger_words.map((t) => (
+                        <code key={t}>{t}</code>
+                      ))}
+                    </div>
+                  </section>
+                )}
+                {detailCard.negative_hint && (
+                  <section>
+                    <h4>推荐负向</h4>
+                    <p className="mv-card-neg">{detailCard.negative_hint}</p>
+                  </section>
+                )}
+                {(detailCard.creator || detailCard.license) && (
+                  <section>
+                    <h4>来源</h4>
+                    <p>
+                      {detailCard.creator && <>作者 {detailCard.creator} · </>}
+                      {detailCard.license || "许可见来源页"}
+                    </p>
+                  </section>
+                )}
+                {detailCard.civitai_url && (
+                  <a
+                    className="mv-card-link"
+                    href={detailCard.civitai_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Icon name="link" size={13} />
+                    在 Civitai 查看完整介绍与版本
+                  </a>
+                )}
+              </>
+            ) : (
+              <p className="mv-card-empty">
+                该模型暂未收录介绍。管理员可点上方「富化介绍」从 Civitai
+                自动补全(用途/触发词/基模/许可);也可直接
+                <a
+                  className="mv-card-link-inline"
+                  href={`https://civitai.red/search/models?query=${encodeURIComponent(detailCard.filename.replace(/\.[^.]+$/, "").slice(0, 60))}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  去 Civitai 搜索
+                </a>
+                。
+              </p>
+            )}
+          </div>
+        )}
+      </Modal>
+
       <style jsx>{`
         .models-view {
           padding-top: var(--space-4);
+        }
+
+        /* ── 问 AI 区(WIKI-2026-08-18) ─────────────────────────── */
+        .mv-ask {
+          margin: 0 var(--space-3) var(--space-3);
+          padding: var(--space-3);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-panel);
+          background: var(--bg-surface-1);
+        }
+        .mv-ask-row {
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+        }
+        .mv-ask-icon {
+          display: inline-flex;
+          color: var(--accent);
+          flex-shrink: 0;
+        }
+        .mv-ask-input {
+          flex: 1;
+          min-width: 0;
+        }
+        .mv-ask-go {
+          flex-shrink: 0;
+        }
+        .mv-ask-answer {
+          margin-top: var(--space-3);
+          padding-top: var(--space-3);
+          border-top: 1px dashed var(--border-subtle);
+        }
+        .mv-ask-text {
+          margin: 0 0 var(--space-2);
+          font-size: var(--text-body);
+          line-height: 1.7;
+          white-space: pre-wrap;
+          color: var(--text-primary);
+        }
+        .mv-ask-matched {
+          display: flex;
+          flex-wrap: wrap;
+          gap: var(--space-2);
+        }
+        .mv-ask-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: var(--space-1);
+          padding: var(--space-1) var(--space-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+          background: var(--bg-surface-2);
+          color: var(--text-secondary);
+          font-size: var(--text-aux);
+          cursor: pointer;
+        }
+        .mv-ask-chip:hover {
+          border-color: var(--accent-glow);
+          color: var(--accent);
+        }
+        .mv-ask-note {
+          margin: var(--space-2) 0 0;
+          font-size: var(--text-aux);
+          color: var(--text-muted);
+        }
+
+        /* ── 百科详情卡 ──────────────────────────────────────────── */
+        .mv-card-detail {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-3);
+        }
+        .mv-card-detail section h4 {
+          margin: 0 0 var(--space-1);
+          font-size: var(--text-label);
+          font-weight: var(--font-medium);
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          color: var(--text-muted);
+        }
+        .mv-card-detail section p {
+          margin: 0;
+          font-size: var(--text-body);
+          line-height: 1.7;
+          color: var(--text-primary);
+          word-break: break-word;
+        }
+        .mv-card-file {
+          margin: 0;
+          padding: var(--space-2);
+          background: var(--bg-surface-2);
+          border-radius: var(--radius-control);
+          font-size: var(--text-aux);
+          color: var(--text-secondary);
+          word-break: break-all;
+        }
+        .mv-card-meta {
+          display: flex;
+          flex-wrap: wrap;
+          gap: var(--space-2);
+        }
+        .mv-card-tags {
+          display: flex;
+          flex-wrap: wrap;
+          gap: var(--space-1);
+        }
+        .mv-card-tags code {
+          padding: 2px var(--space-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+          font-size: var(--text-aux);
+          color: var(--accent);
+          background: var(--bg-surface-2);
+        }
+        .mv-card-neg {
+          color: var(--text-secondary);
+          font-size: var(--text-aux);
+        }
+        .mv-card-link {
+          display: inline-flex;
+          align-items: center;
+          gap: var(--space-1);
+          color: var(--accent);
+          font-size: var(--text-aux);
+          text-decoration: none;
+        }
+        .mv-card-link:hover {
+          text-decoration: underline;
+        }
+        .mv-card-link-inline {
+          color: var(--accent);
+        }
+        .mv-card-empty {
+          margin: 0;
+          font-size: var(--text-body);
+          line-height: 1.7;
+          color: var(--text-muted);
         }
 
         /* R18 推荐 tab 的 18+ 徽标:红底白字圆角胶囊 */
@@ -768,6 +1183,27 @@ export function ModelsView() {
         }
         .mv-model-row + .mv-model-row {
           border-top: 1px solid var(--border-subtle);
+        }
+        /* WIKI-2026-08-18:文件名主体改按钮(点开百科卡),视觉与纯文本行一致 */
+        .mv-model-main {
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+          flex: 1;
+          min-width: 0;
+          padding: 0;
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          text-align: left;
+          color: inherit;
+          font: inherit;
+        }
+        .mv-model-main:hover .mv-model-name {
+          color: var(--accent);
+        }
+        .mv-model-wiki {
+          flex-shrink: 0;
         }
 
         .mv-model-file-icon {

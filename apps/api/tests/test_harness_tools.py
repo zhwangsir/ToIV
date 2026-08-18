@@ -35,7 +35,8 @@ async def _fresh_ctx():
     await reset_ctx()
 
 
-# 迁移前 runner.SYSTEM 字面量(锁:生成的提示词必须与之逐字节一致)
+# 迁移前 runner.SYSTEM 字面量(锁:生成的提示词必须与之逐字节一致;
+# WIKI-2026-08-18 起新增第 9 工具 model_qa,插在 list_models 之后)
 LEGACY_SYSTEM = """你是 ToIV——一个由 ComfyUI 集群驱动的 AI 创作平台的智能助手。
 你能通过工具实时为用户生成内容并直接展示结果:
 - generate_image:文生图(海报/插画/照片/概念图等)
@@ -44,6 +45,7 @@ LEGACY_SYSTEM = """你是 ToIV——一个由 ComfyUI 集群驱动的 AI 创作�
 - edit_image:图生图/重绘(仅当用户本轮上传了图片且想修改它时)
 - generate_3d:生成可旋转的 3D 模型(有上传图则用该图转,否则按描述先出图再转;约 1-3 分钟)
 - list_models:查询可用的图像大模型
+- model_qa:模型百科问答(某模型是什么/怎么用/选型推荐;比 list_models 信息全)
 - search_knowledge:检索平台知识库(ComfyUI 节点/工作流配方/模型/提示词)
 - run_workflow:提交自定义 ComfyUI 工作流图(标准工具满足不了时;搭图前先 search_knowledge 查配方与真实模型名)
 
@@ -62,7 +64,7 @@ LEGACY_SYSTEM = """你是 ToIV——一个由 ComfyUI 集群驱动的 AI 创作�
 
 BUILTIN_ORDER = [
     "generate_image", "generate_video", "generate_music", "edit_image",
-    "generate_3d", "list_models", "search_knowledge", "run_workflow",
+    "generate_3d", "list_models", "model_qa", "search_knowledge", "run_workflow",
 ]
 
 
@@ -91,7 +93,7 @@ def test_build_system_prompt_contains_all_tools():
     prompt = reg.build_system_prompt()
     for name in BUILTIN_ORDER:
         assert f"- {name}:" in prompt
-    assert len(prompt.splitlines()) == 8
+    assert len(prompt.splitlines()) == len(BUILTIN_ORDER)
 
 
 def test_runner_system_prompt_byte_identical_to_legacy():
