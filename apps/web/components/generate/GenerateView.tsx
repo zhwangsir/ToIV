@@ -483,16 +483,21 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
         paths: [],
         // 裁切链终产物轮询的寻址键(post_status=processing 时启用)
         promptId: res.prompt_id,
-        // 时长策略提示 + 排队位次(QUEUE-2026-08-18:让用户知道是排队而非故障)
+        // 时长策略提示 + 排队位次 + 超分挂链提示(QUEUE/RES-2026-08-18)
         notice:
           [
             res.duration_notice ?? null,
             typeof res.queued_behind === "number" && res.queued_behind > 0
               ? `排队中:前方还有 ${res.queued_behind} 个作业,依次自动执行`
               : null,
+            res.upscale_notice ?? null,
           ]
             .filter(Boolean)
             .join(" · ") || null,
+        // RES-2026-08-18:融合超分档快照(postProcessing 文案区分「超分中/精确裁切中」)
+        upscaleTarget: res.upscale_notice
+          ? String(targetValues["resolution_target"] ?? "")
+          : undefined,
         width: numVal(targetValues["width"]),
         height: numVal(targetValues["height"]),
         createdAt: Date.now(),
@@ -507,6 +512,10 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
           `已加入 ${target.label} 队列:前方还有 ${res.queued_behind} 个作业,` +
             "完成后自动开始生成(排队等待,非故障)",
         );
+      }
+      // 超分挂链提示(RES-2026-08-18):原生生成完成后自动二次超分
+      if (res.upscale_notice) {
+        toast.info(res.upscale_notice);
       }
       // start 永远 resolve:出错经 onError 回调更新条目状态
       await gen.start(res, { label: target.label });

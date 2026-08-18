@@ -2,6 +2,48 @@
 
 ---
 
+## RES-2026-08-18 · 视频输出分辨率 720p→4K 全阶梯(原生直出/生成后自动二次超分)
+
+**时间**: 2026-08-18(晚)
+**类型**: 新功能(用户诉求:视频分辨率选择太少,从 720p 一路支持到 4K,原生不支持的分档经二次超分完成)
+
+### ① 架构与实现
+
+**档位**([workflows/video_upscale.py](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/api/app/workflows/video_upscale.py)):`_TARGETS` 扩为 720p/1080p/2k/4k 四档(各含横竖目标;Wan 原生甜点 832×480=480p,720p 也须经超分达成);`validate_resolution_target` 公共校验(None/空串 = 原生直出,非法档 ValueError → 路由 422)。
+
+**融合超分链**([services/video_upscale.py](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/api/app/services/video_upscale.py)):
+- `run_pipeline(..., fused=True)`:挂在生成 Job 上而非独立 video_upscale Job——成功经 `_fused_finish` 同一 commit 原子回写 result(超分产物 URL)+ 清 post_status;失败仅 `_mark_post_status("")` 回落原片,**不标 error**(超分是增强,失败不能毁掉已成功的生成);
+- `maybe_chain_upscale(prompt_id, target)`:后台等待链——等生成 Job 终态(`done 且 post_status 清零`,即生成+时长链均完成后;error 放弃)→ 置 post_status=processing → 执行 fused 管线;同 prompt_id 幂等。复用 M6 超分 fleet(:8261-8263)帧级放大 + 音轨回接。
+
+**路由挂接**(12 个端点):h3 t2v/i2v、ltx25 t2v/i2v、longcat t2v/i2v/continue、wan i2v、ltx-2.3 t2v/i2v/lipsync——请求模型加 `resolution_target` 字段 + validator;提交成功后 `maybe_chain_upscale` 挂链,响应透出 `upscale_notice`。longcat 经 `_attach_duration_chain` 集中挂链,ltx 族经 `_apply_duration`(与时长链同点)。
+
+**引擎注册表**:`_resolution_target_select()`(原生直出/720P/1080P/2K/4K)注入全部 13 个视频生成引擎参数表。
+
+**前端**:
+- [engines.ts](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/web/lib/engines.ts) `_resolutionTarget` helper(空串转 undefined 不随负载下发)+ 五族 payload 透传;
+- [GenerateView.tsx](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/web/components/generate/GenerateView.tsx):notice 拼接 upscale_notice + `upscaleTarget` 快照 + toast 挂链提示;
+- [ResultPanel.tsx](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/web/components/generate/ResultPanel.tsx):done+postProcessing 文案按 upscaleTarget 区分「超分中(4K)…」/「精确裁切中…」,复用既有 post_status 轮询机制(pollFinalResult 10s 间隔,post_status 清零自动替换终产物)。
+
+### ② TDD 与回归
+
+- 新增 [tests/test_resolution_chain.py](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/api/tests/test_resolution_chain.py) 30 例:TARGET_CHOICES 四档/derive 七参数化/validate 三分支/五族请求模型(含 longcat-continue)合法+非法/H3 挂链(mock maybe_chain:合法档调用+notice、未传不挂、非法 422)/registry 13 引擎全覆盖/maybe_chain 等待语义(done+清零触发 fused、error 放弃、幂等)/_fused_finish 原子回写/fused 失败回落原片不标 error;
+- 全量回归:后端 **1880 passed**;web `npm test` **409/409**;tsc 零错误;`rm -rf .next && npm run build` 干净构建通过(易错点 29);
+- 测试排障记录:① patch 全局 `asyncio.sleep` 后 drain 循环 `await asyncio.sleep(0)` 同被 patch → 永不让出事件循环 → 后台 task 不被调度忙等死锁,修法:模块导入时留存 `_REAL_SLEEP` 供 drain;② fused 失败用例须直调 `run_pipeline(fused=True)`(生产路径),`spawn_upscale` 是 fused=False 独立作业入口,语义不同。
+
+### ③ 部署与真机验证
+
+- `deploy.sh core` 全量 + `--skip-web` 二次部署(longcat-continue 补挂),toiv-api/toiv-web 双就绪;
+- 生产真机(core :8090):`GET /api/models/engines` SFW 上下文 7 引擎、X-NSFW 上下文 **13 引擎**全部含 resolution_target 参数;`POST /api/h3/t2v|/api/generate/video|/api/generate/ltx-t2v` 带 `resolution_target="8k"` 实测 **422**。
+
+### ④ 行为备注
+
+- 超分链与时长链共用 post_status=processing 通道(前端同轮询机制,文案按 upscaleTarget 区分);
+- 时长链失败回落原片时,超分链仍会对原片执行(诚实降级,产物始终可用);
+- 产物 URL `/api/video/upscale/output/{name}` core 直服(Range 206 + ?token= 回退鉴权,与 /api/images 同口径);
+- 超分吞吐参考 M6 实测 ~75-148 帧/min/3 卡,4K 长片(数千帧)耗时数十分钟级,前端有「超分中」进度态兜底。
+
+---
+
 ## WIKI-2026-08-18 · 模型百科 + RAG 问答:每个模型「是什么/怎么用/哪里来」
 
 **时间**: 2026-08-18(深夜)

@@ -26,10 +26,12 @@ from app.models import User
 from app.nsfw_ctx import nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
 from app.workflows.model_profiles import AR_VIDEO, aspect_guard
+from app.workflows.video_upscale import validate_resolution_target
 from app.services import h3 as h3_service
 from app.services import video_generators as vgen
 from app.services.duration import DurationLimitError, DurationPlan, resolve_duration
 from app.services.h3 import is_h3_nsfw_lora
+from app.services.video_upscale import maybe_chain_upscale
 from app.workflows.h3_video import H3I2VParams, H3T2VParams, build_h3_i2v_graph, build_h3_t2v_graph
 from app.workflows.lora import LoraSpec
 
@@ -83,6 +85,14 @@ class H3T2VRequest(BaseModel):
     length: int | None = Field(default=None, ge=22, le=362)
     steps: int = Field(default=20, ge=1, le=50)
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
+    # RES-2026-08-18:输出分辨率档(1080p/2k/4k)。宽高始终按原生上限(H3≤1344×768)
+    # 生成,选档后由超分集群二次放大;空 = 原生直出
+    resolution_target: str | None = Field(default=None, max_length=8)
+
+    @field_validator("resolution_target")
+    @classmethod
+    def _v_target(cls, v: str | None) -> str | None:
+        return validate_resolution_target(v)
 
     @field_validator("width", "height")
     @classmethod
@@ -209,6 +219,10 @@ async def generate_h3_t2v(
         )
     if plan.notice:
         result["duration_notice"] = plan.notice
+    if req.resolution_target and maybe_chain_upscale(result["prompt_id"], req.resolution_target):
+        result["upscale_notice"] = (
+            f"按原生上限生成完成后将自动二次超分至 {req.resolution_target.upper()}"
+        )
     return result
 
 
@@ -254,4 +268,8 @@ async def generate_h3_i2v(
         )
     if plan.notice:
         result["duration_notice"] = plan.notice
+    if req.resolution_target and maybe_chain_upscale(result["prompt_id"], req.resolution_target):
+        result["upscale_notice"] = (
+            f"按原生上限生成完成后将自动二次超分至 {req.resolution_target.upper()}"
+        )
     return result

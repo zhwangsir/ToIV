@@ -35,6 +35,10 @@ export interface HistoryEntry {
   /** 时长后处理进行中(trim/extend):paths 为未裁原片,结果区显示「精确裁切中」,
    *  轮询到 post_status 清零后自动替换终产物。 */
   postProcessing?: boolean;
+  /** RES-2026-08-18:融合超分目标档(720p/1080p/2k/4k;提交时快照)。
+   *  有值且 postProcessing 时,后处理文案显示「超分中」而非「精确裁切中」
+   *  (超分链与时长链共用 post_status,前端按是否挂链区分文案)。 */
+  upscaleTarget?: string;
   /** 目标尺寸(提交时快照):生成中骨架按此宽高比渲染,避免与目标尺寸不符。 */
   width?: number;
   height?: number;
@@ -420,9 +424,15 @@ export function ResultPanel({ entries, selectedId, onSelect, liveProgress, quali
                     <div className="gen-progress">
                       <div className="gen-progress-fill is-indeterminate" />
                     </div>
-                    <span className="stage-progress-text">精确裁切中…</span>
+                    <span className="stage-progress-text">
+                      {current.upscaleTarget ? `超分中(${current.upscaleTarget.toUpperCase()})…` : "精确裁切中…"}
+                    </span>
                   </div>
-                  <p className="stage-message">时长后处理进行中,完成后自动替换为终产物。</p>
+                  <p className="stage-message">
+                    {current.upscaleTarget
+                      ? `已完成原生生成,正在经超分集群二次放大至 ${current.upscaleTarget.toUpperCase()},完成后自动替换终产物。`
+                      : "时长后处理进行中,完成后自动替换为终产物。"}
+                  </p>
                 </div>
               )}
               {current.status === "done" && !current.postProcessing && (

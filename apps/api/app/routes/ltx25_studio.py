@@ -28,6 +28,8 @@ from app.workflows.model_profiles import AR_VIDEO, aspect_guard
 from app.services import ltx25 as ltx25_service
 from app.services import video_generators as vgen
 from app.services.duration import DurationLimitError, DurationPlan, resolve_duration
+from app.services.video_upscale import maybe_chain_upscale
+from app.workflows.video_upscale import validate_resolution_target
 from app.workflows.ltx25_video import (
     Ltx25I2VParams,
     Ltx25T2VParams,
@@ -72,6 +74,13 @@ class Ltx25T2VRequest(BaseModel):
     fps: int = Field(default=24, ge=8, le=60)
     steps: int = Field(default=8, ge=1, le=50)
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
+    # RES-2026-08-18:输出分辨率档(1080p/2k/4k);空 = 原生直出
+    resolution_target: str | None = Field(default=None, max_length=8)
+
+    @field_validator("resolution_target")
+    @classmethod
+    def _v_target(cls, v: str | None) -> str | None:
+        return validate_resolution_target(v)
 
     @field_validator("width", "height")
     @classmethod
@@ -182,6 +191,10 @@ async def generate_ltx25_t2v(
         )
     if plan.notice:
         result["duration_notice"] = plan.notice
+    if req.resolution_target and maybe_chain_upscale(result["prompt_id"], req.resolution_target):
+        result["upscale_notice"] = (
+            f"原生生成完成后将自动二次超分至 {req.resolution_target.upper()}"
+        )
     return result
 
 
@@ -228,4 +241,8 @@ async def generate_ltx25_i2v(
         )
     if plan.notice:
         result["duration_notice"] = plan.notice
+    if req.resolution_target and maybe_chain_upscale(result["prompt_id"], req.resolution_target):
+        result["upscale_notice"] = (
+            f"原生生成完成后将自动二次超分至 {req.resolution_target.upper()}"
+        )
     return result

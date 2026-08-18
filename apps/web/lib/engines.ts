@@ -374,7 +374,14 @@ function _ltx25Payload(values: Record<string, unknown>, positive: string, negati
     fps: _num(values, "fps", 24),
     steps: _num(values, "steps", 8),
     seed,
+    resolution_target: _resolutionTarget(values),
   };
+}
+
+/** RES-2026-08-18:输出分辨率档(融合超分);空串「原生直出」转 undefined 不随负载下发。 */
+function _resolutionTarget(values: Record<string, unknown>): string | undefined {
+  const v = _str(values, "resolution_target", "");
+  return v ? v : undefined;
 }
 
 /** R18 分辨率预设换算:select 值 "WxH" → {width, height};非法/缺失 → fallback 预设。 */
@@ -404,6 +411,7 @@ function _ltxNsfwPayload(values: Record<string, unknown>, positive: string, nega
     seed,
     use_upscale: _bool(values, "use_upscale"),
     use_rife: _bool(values, "use_rife"),
+    resolution_target: _resolutionTarget(values),
   };
 }
 
@@ -418,6 +426,7 @@ function _longcatPayload(values: Record<string, unknown>, positive: string, nega
     steps: _num(values, "steps", 10),
     fps: _num(values, "fps", 16),
     seed,
+    resolution_target: _resolutionTarget(values),
   };
 }
 
@@ -471,6 +480,7 @@ function _h3Payload(values: Record<string, unknown>, positive: string, negative:
     steps: _num(values, "steps", 20),
     seed,
     loras: _loras(values),
+    resolution_target: _resolutionTarget(values),
   };
 }
 
@@ -486,6 +496,7 @@ function _h3NsfwPayload(values: Record<string, unknown>, positive: string, negat
     steps: _num(values, "steps", 20),
     seed,
     loras: _loras(values),
+    resolution_target: _resolutionTarget(values),
   };
 }
 
@@ -506,6 +517,7 @@ function _wanNsfwI2vPayload(values: Record<string, unknown>, positive: string, n
     seed,
     loras: _loras(values),
     full_quality: _bool(values, "full_quality"),
+    resolution_target: _resolutionTarget(values),
   };
 }
 

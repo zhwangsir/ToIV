@@ -30,6 +30,8 @@ from app.workflows.model_profiles import AR_VIDEO, aspect_guard
 from app.services import longcat as longcat_service
 from app.services import video_generators as vgen
 from app.services.duration import DurationLimitError, DurationPlan, resolve_duration
+from app.services.video_upscale import maybe_chain_upscale
+from app.workflows.video_upscale import validate_resolution_target
 from app.workflows.longcat_video import (
     LongCatI2VParams,
     LongCatT2VParams,
@@ -61,6 +63,13 @@ class LongCatT2VRequest(BaseModel):
     steps: int = Field(default=10, ge=1, le=50)
     fps: int = Field(default=16, ge=8, le=30)
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
+    # RES-2026-08-18:输出分辨率档(1080p/2k/4k);空 = 原生直出
+    resolution_target: str | None = Field(default=None, max_length=8)
+
+    @field_validator("resolution_target")
+    @classmethod
+    def _v_target(cls, v: str | None) -> str | None:
+        return validate_resolution_target(v)
 
     @field_validator("width", "height")
     @classmethod
@@ -103,10 +112,17 @@ class LongCatContinueRequest(BaseModel):
     steps: int = Field(default=10, ge=1, le=50)
     fps: int | None = Field(default=None, ge=8, le=30)
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
+    # RES-2026-08-18:输出分辨率档(引擎参数表与 t2v/i2v 同源,此处同步支持);空 = 原生直出
+    resolution_target: str | None = Field(default=None, max_length=8)
+
+    @field_validator("resolution_target")
+    @classmethod
+    def _v_target(cls, v: str | None) -> str | None:
+        return validate_resolution_target(v)
 
     @field_validator("width", "height")
     @classmethod
-    def _snap16(cls, v: int | None) -> int | None:
+    def _snap16_opt(cls, v: int | None) -> int | None:
         return v if v is None else v // 16 * 16
 
     # 宽高比守卫(仅双值齐给时生效;缺省走源视频对齐)
@@ -136,11 +152,18 @@ def _resolve_plan(
         raise HTTPException(status_code=422, detail=str(e)) from e
 
 
-def _attach_duration_chain(result: dict, plan: DurationPlan, get_client) -> dict:
+def _attach_duration_chain(
+    result: dict,
+    plan: DurationPlan,
+    get_client,
+    resolution_target: str | None = None,
+) -> dict:
     """非 direct 计划(trim)挂后台后处理链;notice 透出为 duration_notice。
 
     get_client 惰性调用:仅非 direct 时才取实例客户端(引擎禁用时 submit 已先 503,
     不额外创建客户端,保持 t2v 路由原有顺序语义)。
+    resolution_target(RES-2026-08-18):非空时挂融合超分链(等生成+时长链终态后
+    自动二次超分);notice 透出为 upscale_notice。
     """
     if plan.strategy != "direct":
         vgen.spawn_duration_chain(
@@ -150,6 +173,10 @@ def _attach_duration_chain(result: dict, plan: DurationPlan, get_client) -> dict
         )
     if plan.notice:
         result["duration_notice"] = plan.notice
+    if resolution_target and maybe_chain_upscale(result["prompt_id"], resolution_target):
+        result["upscale_notice"] = (
+            f"原生生成完成后将自动二次超分至 {resolution_target.upper()}"
+        )
     return result
 
 
@@ -181,7 +208,9 @@ async def generate_longcat_t2v(
         # 与 LTX 门控同一判定来源,主站(无头)恒 False 行为不变
         nsfw=nsfw_allowed(user),
     )
-    return _attach_duration_chain(result, plan, longcat_service.get_longcat_client)
+    return _attach_duration_chain(
+        result, plan, longcat_service.get_longcat_client, req.resolution_target
+    )
 
 
 @router.post("/longcat/i2v")
@@ -213,7 +242,9 @@ async def generate_longcat_i2v(
         req=req, user=user, session=session, client=client,
         nsfw=nsfw_allowed(user),  # R18 上下文打标(同 t2v)
     )
-    return _attach_duration_chain(result, plan, lambda: client)
+    return _attach_duration_chain(
+        result, plan, lambda: client, req.resolution_target
+    )
 
 
 @router.post("/longcat/continue")
@@ -251,4 +282,6 @@ async def generate_longcat_continue(
         req=req, user=user, session=session, client=client,
         nsfw=nsfw_allowed(user),  # R18 上下文打标(同 t2v)
     )
-    return _attach_duration_chain(result, plan, lambda: client)
+    return _attach_duration_chain(
+        result, plan, lambda: client, req.resolution_target
+    )

@@ -281,6 +281,24 @@ def _audio(label: str = "驱动音频", hint: str = "wav / mp3 / m4a / ogg / fla
     return {"key": "audio", "label": label, "type": "audio", "max": 1, "default": None, "hint": hint}
 
 
+# RES-2026-08-18:输出分辨率档(融合超分)。所有视频生成引擎统一后处理选项:
+# 原生直出(默认)或 720p→4K 二次超分(生成完成后自动经超分集群帧级放大,
+# 后端 maybe_chain_upscale 挂链,前端结果卡显示「超分中」)。与
+# workflows/video_upscale.TARGET_CHOICES 同源;值透传到路由 resolution_target。
+def _resolution_target_select() -> dict:
+    return {
+        "key": "resolution_target", "label": "输出分辨率", "type": "select", "default": "",
+        "options": [
+            {"value": "", "label": "原生直出(不超分)"},
+            {"value": "720p", "label": "720P (1280×720,二次超分)"},
+            {"value": "1080p", "label": "1080P (1920×1080,二次超分)"},
+            {"value": "2k", "label": "2K (2560×1440,二次超分)"},
+            {"value": "4k", "label": "4K (3840×2160,二次超分)"},
+        ],
+        "hint": "选档后先按引擎原生上限生成,完成后自动二次超分至目标分辨率(横竖随源画幅)",
+    }
+
+
 # LTX-2.5 视频参数(与 routes/ltx25_studio.py 请求模型同一套范围;
 # 32 对齐 + 时长按秒(内部 8k+1 网格,超上限自动分段续写),蒸馏版 cfg=1 固定不外露)
 def _ltx25_video_params() -> list[dict]:
@@ -294,6 +312,7 @@ def _ltx25_video_params() -> list[dict]:
         _num("fps", "帧率", 24, min_=8, max_=60, hint="官方 conditioning 默认 24fps"),
         _num("steps", "采样步数", 8, min_=1, max_=50, hint="蒸馏版默认 8 步(cfg=1 固定)"),
         _seed(),
+        _resolution_target_select(),
     ]
 
 
@@ -334,6 +353,7 @@ def _ltx_nsfw_video_params() -> list[dict]:
         _seed(),
         {"key": "use_upscale", "label": "高清放大(2 阶段)", "type": "switch", "default": False},
         {"key": "use_rife", "label": "RIFE 补帧", "type": "switch", "default": False},
+        _resolution_target_select(),
     ]
 
 
@@ -358,6 +378,7 @@ def _h3_video_params() -> list[dict]:
         _num("steps", "采样步数", 20, min_=1, max_=50),
         _seed(),
         _h3_loras_select(),
+        _resolution_target_select(),
     ]
 
 
@@ -398,6 +419,7 @@ def _h3_nsfw_video_params() -> list[dict]:
         _num("steps", "采样步数", 20, min_=1, max_=50),
         _seed(),
         _h3_loras_select(),
+        _resolution_target_select(),
     ]
 
 
@@ -483,6 +505,7 @@ def _wan_nsfw_i2v_params() -> list[dict]:
          "hint": "不挂加速 LoRA,20 步 + cfg 3.5/3.0;质量更高但慢约 4 倍"},
         _seed(),
         _wan_nsfw_loras_select(),
+        _resolution_target_select(),
     ]
 
 
@@ -499,6 +522,7 @@ def _longcat_video_params() -> list[dict]:
         _num("steps", "采样步数", 10, min_=1, max_=50, hint="蒸馏 LoRA 低步数,默认 10 即可"),
         _num("fps", "帧率", 16, min_=8, max_=30, hint="仅影响成片打包帧率"),
         _seed(),
+        _resolution_target_select(),
     ]
 
 

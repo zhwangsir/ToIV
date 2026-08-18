@@ -24,7 +24,9 @@ from app.ratelimit import enforce_generation_rate_limit
 from app.workflows.model_profiles import AR_VIDEO, aspect_guard
 from app.services import video_generators as vgen
 from app.services.duration import DurationLimitError, DurationPlan, resolve_duration
+from app.services.video_upscale import maybe_chain_upscale
 from app.versioning import params_snapshot
+from app.workflows.video_upscale import validate_resolution_target
 from app.workflows.ltx_video import (
     LtxI2VParams,
     LtxLipsyncParams,
@@ -61,6 +63,13 @@ class WanI2VRequest(BaseModel):
     loras: list[WanLoraInput] = Field(default_factory=list, max_length=4)
     # 满血档:不挂加速 LoRA,20 步 + cfg 3.5/3.0(慢 ~4 倍换质量,成片用);默认加速档 8 步
     full_quality: bool = False
+    # RES-2026-08-18:输出分辨率档(1080p/2k/4k);空 = 原生直出
+    resolution_target: str | None = Field(default=None, max_length=8)
+
+    @field_validator("resolution_target")
+    @classmethod
+    def _v_target(cls, v: str | None) -> str | None:
+        return validate_resolution_target(v)
 
     # 数值字段:越界/小数一律钳到合法区间,不硬报 422(生成场景静默钳位比报错友好)。
     # 前端各面板/画布节点可能灌进大图尺寸、复用的巨大 seed 等 → 这里兜底,免整条 i2v 崩。
@@ -166,12 +175,17 @@ async def generate_video(
     # 启动服务端后台追踪:前端 SSE 断开后仍可把结果落库,避免"一直生成中"
     spawn_tracker(client, prompt_id)
 
-    return {
+    result = {
         "prompt_id": prompt_id,
         "client_id": client_id,
         "worker": client.base_url,
         "seed": params.seed,
     }
+    if req.resolution_target and maybe_chain_upscale(prompt_id, req.resolution_target):
+        result["upscale_notice"] = (
+            f"原生生成完成后将自动二次超分至 {req.resolution_target.upper()}"
+        )
+    return result
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -214,6 +228,13 @@ class LtxT2VRequest(BaseModel):
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
     use_upscale: bool = False
     use_rife: bool = False
+    # RES-2026-08-18:输出分辨率档(1080p/2k/4k);空 = 原生直出
+    resolution_target: str | None = Field(default=None, max_length=8)
+
+    @field_validator("resolution_target")
+    @classmethod
+    def _v_target(cls, v: str | None) -> str | None:
+        return validate_resolution_target(v)
 
     @field_validator("width", "height", mode="before")
     @classmethod
@@ -237,18 +258,23 @@ def _resolve_ltx_plan(req: LtxT2VRequest) -> DurationPlan | None:
         raise HTTPException(status_code=422, detail=str(e)) from e
 
 
-def _apply_duration(result: dict, plan: DurationPlan | None) -> dict:
-    """时长策略透出:notice 进响应;trim 时后台挂精确裁剪链(ltx 无 extend)。"""
-    if plan is None:
-        return result
-    if plan.strategy != "direct":
+def _apply_duration(result: dict, plan: DurationPlan | None, resolution_target: str | None = None) -> dict:
+    """时长策略透出:notice 进响应;trim 时后台挂精确裁剪链(ltx 无 extend)。
+
+    resolution_target(RES-2026-08-18):非空时挂融合超分链(生成+裁剪终态后自动二次超分)。
+    """
+    if plan is not None and plan.strategy != "direct":
         vgen.spawn_duration_chain(
             client=ComfyUIClient(result["worker"]),
             plan=plan,
             first_prompt_id=result["prompt_id"],
         )
-    if plan.notice:
+    if plan is not None and plan.notice:
         result["duration_notice"] = plan.notice
+    if resolution_target and maybe_chain_upscale(result["prompt_id"], resolution_target):
+        result["upscale_notice"] = (
+            f"原生生成完成后将自动二次超分至 {resolution_target.upper()}"
+        )
     return result
 
 
@@ -296,7 +322,9 @@ async def generate_ltx_t2v(
         use_rife=req.use_rife,
     )
     graph = build_ltx_t2v_graph(params)
-    return _apply_duration(await _submit_ltx_job(graph, params, "ltx_t2v", user, session), plan)
+    return _apply_duration(
+        await _submit_ltx_job(graph, params, "ltx_t2v", user, session), plan, req.resolution_target
+    )
 
 
 @router.post("/generate/ltx-i2v")
@@ -330,7 +358,9 @@ async def generate_ltx_i2v(
         use_rife=req.use_rife,
     )
     graph = build_ltx_i2v_graph(params)
-    return _apply_duration(await _submit_ltx_job(graph, params, "ltx_i2v", user, session, client=client), plan)
+    return _apply_duration(
+        await _submit_ltx_job(graph, params, "ltx_i2v", user, session, client=client), plan, req.resolution_target
+    )
 
 
 @router.post("/generate/ltx-lipsync")
@@ -367,7 +397,9 @@ async def generate_ltx_lipsync(
         use_rife=req.use_rife,
     )
     graph = build_ltx_lipsync_graph(params)
-    return _apply_duration(await _submit_ltx_job(graph, params, "ltx_lipsync", user, session, client=client), plan)
+    return _apply_duration(
+        await _submit_ltx_job(graph, params, "ltx_lipsync", user, session, client=client), plan, req.resolution_target
+    )
 
 
 async def _submit_ltx_job(

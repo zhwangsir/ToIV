@@ -86,6 +86,9 @@ export interface GenerateResponse {
   /** QUEUE-2026-08-18:提交时实例队列前方的作业数(>0 = 已排队等待,非故障);
    *  仅 H3 等专用实例返回,pool 引擎无此字段 */
   queued_behind?: number;
+  /** RES-2026-08-18:融合超分挂链提示(选了输出分辨率档时返回;
+   *  生成完成后自动二次超分,结果卡先显示「超分中」) */
+  upscale_notice?: string;
 }
 
 // ── LTX2.3 视频生成(NSFW 专区)──
@@ -104,6 +107,8 @@ export interface LtxT2VParams {
   seed?: number | null;
   use_upscale: boolean;
   use_rife: boolean;
+  /** RES-2026-08-18:输出分辨率档(720p/1080p/2k/4k);缺省原生直出 */
+  resolution_target?: string;
 }
 
 export interface LtxI2VParams extends LtxT2VParams {

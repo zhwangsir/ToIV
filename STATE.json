@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-08-18 12:38:57",
+  "updated_at": "2026-08-18T21:50:00+08:00",
   "sync_baseline": {
     "id": "SYNC-2026-07-18",
     "type": "initial-sync",
@@ -3925,5 +3925,22 @@
     "regression": "后端 1813 passed(+13 tests/test_aspect_guard.py);web 393/393(+8 tests/aspectPair.test.ts)+ tsc 零错误 + rm -rf .next 干净构建通过",
     "deployment": "deploy.sh core 双服务就绪;生产 /api/models/engines 实测 11 引擎 width 带 ar;极端 2048×64 提交被归一接受",
     "docs": "docs/2026-08-17-models-guide.md 通用参数词典新增『宽高比安全域』行;TEST_LOG.md CLOSEOUT-R60 章节"
+  },
+  "resolution_chain_2026_08_18": {
+    "id": "RES-2026-08-18",
+    "title": "视频输出分辨率 720p→4K 全阶梯:原生直出或生成后自动二次超分(融合链)",
+    "status": "done",
+    "scope": "用户需求:视频分辨率选择太少,须从 720p 一路支持到 4K;模型原生不支持的分档经二次超分完成",
+    "deliverables": [
+      "workflows/video_upscale:_TARGETS 扩为 720p/1080p/2k/4k 四档(各含横竖目标;Wan 原生甜点 480p,720p 亦经超分达成)+ validate_resolution_target 公共校验(None/空=原生直出)",
+      "services/video_upscale:run_pipeline 增 fused 融合模式(挂在生成 Job 上,成功经 _fused_finish 原子回写 result+清 post_status,失败仅清标记回落原片不毁已成功生成)+ maybe_chain_upscale 等待链(生成+时长链终态后才触发,幂等)",
+      "7 个视频路由挂接 resolution_target(h3 t2v/i2v、ltx25 t2v/i2v、longcat t2v/i2v/continue、wan i2v、ltx-2.3 t2v/i2v/lipsync 共 12 端点):非法档 422,合法档挂链并透出 upscale_notice",
+      "engine_registry:_resolution_target_select 公共参数注入全部 13 个视频生成引擎(原生直出/720P/1080P/2K/4K)",
+      "前端:engines.ts 五族 payload 透传(_resolutionTarget 空串转 undefined)+ types/api 字段 + GenerateView notice 拼接与 upscaleTarget 快照 + toast + ResultPanel 后处理文案区分「超分中(4K)…/精确裁切中…」(复用 post_status 轮询机制自动替换终产物)"
+    ],
+    "regression": "后端 1880 passed(+30 test_resolution_chain.py);web 409/409 + tsc 零错误 + rm -rf .next 干净构建通过",
+    "deployment": "deploy.sh core 全量+skip-web 二次部署,双服务就绪",
+    "verification": "生产真机:/api/models/engines SFW 7 引擎+NSFW 上下文 13 引擎全部带 resolution_target;h3/wan/ltx 非法档 8k 实测 422",
+    "notes": "超分链与时长链共用 post_status=processing 通道;时长链失败回落原片时超分链仍会对原片执行(诚实降级);产物经 /api/video/upscale/output/ 直服(Range 206+token 回退)"
   }
 }

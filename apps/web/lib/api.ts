@@ -644,6 +644,8 @@ export interface WanI2VGenParams {
   loras?: { name: string; strength: number }[];
   // 满血档:不挂加速 LoRA,20 步 + cfg 3.5/3.0(慢 ~4 倍换质量);缺省 false 加速档
   full_quality?: boolean;
+  // RES-2026-08-18:输出分辨率档(720p/1080p/2k/4k,生成后自动二次超分);缺省原生直出
+  resolution_target?: string;
 }
 
 export async function generateVideo(
@@ -682,6 +684,8 @@ export interface LongcatT2VParams {
   steps?: number;      // 1-50,默认 10(蒸馏 LoRA 低步数)
   fps?: number;        // 8-30,默认 16(仅影响成片打包帧率)
   seed?: number | null;
+  // RES-2026-08-18:输出分辨率档(720p/1080p/2k/4k,生成后自动二次超分);缺省原生直出
+  resolution_target?: string;
 }
 
 export async function generateLongcatT2V(

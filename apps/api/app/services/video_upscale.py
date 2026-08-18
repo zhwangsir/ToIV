@@ -529,11 +529,18 @@ async def run_pipeline(
     video_url: str,
     target: str,
     workers: list[str] | None = None,
+    *,
+    fused: bool = False,
 ) -> None:
     """超分管线主体(后台):probe → 推导 → 抽帧 → fleet 并行 → 合并 → 回写。
 
     可恢复:源帧/超分帧/音轨落工作目录,已存在即跳过(续跑语义);
     成功后才清工作目录,失败/超时保留供重试。
+
+    fused=True(RES-2026-08-18 生成链融合模式):挂在生成 Job 上而非独立
+    video_upscale Job——不覆盖生成提示词、不改 done 状态,终产物经
+    _fused_finish 原子回写(result+post_status 清零);失败仅清 post_status
+    保留原生成原片(超分是增强,失败不能毁掉已成功的生成)。
     """
     settings = get_settings()
     work = _work_root(job_id)
@@ -543,7 +550,8 @@ async def run_pipeline(
     audio_path = work / "audio.m4a"
     deadline = time.monotonic() + settings.job_track_timeout
     try:
-        _set_job_status(prompt_id, "running")
+        if not fused:
+            _set_job_status(prompt_id, "running")
         _set_progress(job_id, "preparing")
 
         # 1. 源视频落本地 + probe(无 ffprobe 直接报错)
@@ -563,11 +571,12 @@ async def run_pipeline(
             total = await extract_frames(source_video, src_dir)
         if total <= 0:
             raise VideoUpscaleError("抽帧结果为空(源视频可能损坏)")
-        _set_job_prompt(
-            prompt_id,
-            f"视频超分 {target.upper()} · {meta['width']}×{meta['height']} → "
-            f"{target_w}×{target_h} · {total}帧@{meta['fps']:g}fps",
-        )
+        if not fused:
+            _set_job_prompt(
+                prompt_id,
+                f"视频超分 {target.upper()} · {meta['width']}×{meta['height']} → "
+                f"{target_w}×{target_h} · {total}帧@{meta['fps']:g}fps",
+            )
         if meta["has_audio"] and not audio_path.exists():
             await extract_audio(source_video, audio_path)
 
@@ -647,7 +656,10 @@ async def run_pipeline(
                 f"{target_w}×{target_h} 不符"
             )
 
-        _set_job_done(prompt_id, [f"/api/video/upscale/output/{name}"])
+        if fused:
+            _fused_finish(prompt_id, [f"/api/video/upscale/output/{name}"])
+        else:
+            _set_job_done(prompt_id, [f"/api/video/upscale/output/{name}"])
         _set_progress(job_id, "done", total, total)
         # 成功后才清工作目录(keep-frames 语义:失败保留,成功清理)
         await asyncio.to_thread(shutil.rmtree, work, True)
@@ -655,10 +667,99 @@ async def run_pipeline(
             "视频超分完成 job=%s: %d 帧 → %s(%d×%d)",
             job_id, total, name, target_w, target_h,
         )
-    except Exception as e:  # noqa: BLE001 — 后台管线任何意外都必须落 error 终态
+    except Exception as e:  # noqa: BLE001 — 后台管线任何意外都必须落终态
         logger.exception("视频超分失败 job=%s: %s", job_id, e)
         _set_progress(job_id, "error", detail=str(e)[:200])
-        _set_job_status(prompt_id, "error")
+        if fused:
+            # 生成原片是成功的:只清后处理标记回落原片,不标 error
+            _mark_post_status(prompt_id, "")
+        else:
+            _set_job_status(prompt_id, "error")
+
+
+def _mark_post_status(prompt_id: str, flag: str) -> None:
+    from sqlmodel import Session, select
+
+    from app.db import engine
+
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
+        if job:
+            job.post_status = flag
+            s.add(job)
+            s.commit()
+
+
+def _fused_finish(prompt_id: str, urls: list[str]) -> None:
+    """融合模式终态:同一 commit 原子写 result + 清 post_status(status 已是 done)。
+
+    与 duration 链的 rewrite_job_result 同语义;本地实现避免与
+    services.video_generators 互相 import(该模块族较重,防环)。
+    """
+    from sqlmodel import Session, select
+
+    from app.db import engine
+
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
+        if job:
+            job.status = "done"
+            job.result = json.dumps(urls)
+            job.post_status = ""
+            s.add(job)
+            s.commit()
+
+
+# ---------------------------------------------------------------------------
+# 生成链融合超分(RES-2026-08-18):请求目标超引擎原生上限时自动挂链
+# ---------------------------------------------------------------------------
+
+def maybe_chain_upscale(prompt_id: str, target: str, workers: list[str] | None = None) -> bool:
+    """生成提交成功后挂融合超分链;返回是否实际挂链。
+
+    流程(后台 task):
+    1. 等待生成 Job 终态(done 且 post_status 清零 = 生成与时长链均完成;error 则放弃);
+    2. 置 post_status=processing(前端转「超分中」并轮询终产物);
+    3. run_pipeline(fused) → 原子回写超分产物;失败清标记回落原片。
+    幂等:同 prompt_id 已有在跑链则跳过。
+    """
+    key = f"gen-upscale:{prompt_id}"
+    for t in _BG_TASKS:
+        if t.get_name() == key and not t.done():
+            return False
+
+    async def _wait_and_run() -> None:
+        settings = get_settings()
+        deadline = time.monotonic() + settings.job_track_timeout
+        from sqlmodel import Session, select
+
+        from app.db import engine
+
+        while time.monotonic() < deadline:
+            await asyncio.sleep(5.0)
+            with Session(engine) as s:
+                job = s.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
+                if not job:
+                    return
+                if job.status == "error":
+                    logger.info("生成失败,放弃超分链 %s", prompt_id)
+                    return
+                if job.status == "done" and not job.post_status:
+                    video_url = (json.loads(job.result) or [""])[0] if job.result else ""
+                    if not video_url:
+                        return
+                    _mark_post_status(prompt_id, "processing")
+                    gen_job_id = job.id
+                    break
+        else:
+            logger.warning("超分链等待生成超时 %s", prompt_id)
+            return
+        await run_pipeline(gen_job_id, prompt_id, video_url, target, workers, fused=True)
+
+    task = asyncio.create_task(_wait_and_run(), name=key)
+    _BG_TASKS.add(task)
+    task.add_done_callback(_BG_TASKS.discard)
+    return True
 
 
 def reconcile_interrupted() -> int:

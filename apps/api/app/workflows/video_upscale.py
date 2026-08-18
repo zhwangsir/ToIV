@@ -16,8 +16,13 @@ from dataclasses import dataclass
 # M6 超分 fleet 加载的超分模型(4x 原生;fleet 实例仅此用途,--cache-lru 2)
 DEFAULT_UPSCALE_MODEL = "4x-UltraSharp.pth"
 
-# target 档位 → (横屏目标, 竖屏目标)。当前仅开 4K;"2k" 预留(2560×1440/1440×2560)。
+# target 档位 → (横屏目标, 竖屏目标)。4K 主力;720p/1080p/2K(RES-2026-08-18)供生成链
+# 「原生上限 → 二次超分」自动挂链用(H3 原生 1344×768、Wan/LongCat 1280 上限;
+# Wan 原生甜点 832×480,720p 也须经超分达成)。
 _TARGETS: dict[str, tuple[tuple[int, int], tuple[int, int]]] = {
+    "720p": ((1280, 720), (720, 1280)),
+    "1080p": ((1920, 1080), (1080, 1920)),
+    "2k": ((2560, 1440), (1440, 2560)),
     "4k": ((3840, 2160), (2160, 3840)),
 }
 TARGET_CHOICES: tuple[str, ...] = tuple(_TARGETS)
@@ -41,6 +46,16 @@ def assert_orientation_compatible(src_w: int, src_h: int, dst_w: int, dst_h: int
         raise ValueError(
             f"源 {src_w}×{src_h} 与目标 {dst_w}×{dst_h} 横竖方向不一致(会拉伸变形)"
         )
+
+
+def validate_resolution_target(v: str | None) -> str | None:
+    """生成路由 resolution_target 字段的公共校验(RES-2026-08-18):
+    None/"" = 原生直出;否则必须是 TARGET_CHOICES 内档位。"""
+    if v is None or v == "":
+        return None
+    if v not in _TARGETS:
+        raise ValueError(f"resolution_target 须为 {list(_TARGETS)} 之一(或留空原生直出)")
+    return v
 
 
 @dataclass(frozen=True)
