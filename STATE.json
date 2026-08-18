@@ -1,13 +1,25 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-08-18T23:30:00+08:00",
+  "updated_at": "2026-08-19T10:30:00+08:00",
   "sync_baseline": {
     "id": "SYNC-2026-07-18",
     "type": "initial-sync",
     "note": "项目状态初始化基线：首次建立 STATE.json / TEST_LOG.md 追踪，记录当前真实验证结果，不代表新里程碑完成。"
   },
   "health": {
+    "harness_runtime_m1_2026_08_19": {
+      "status": "completed",
+      "scope": "AI 助手运行时 Harness 增强三件套(参照 DeepSeek Harness 思想):上下文预算压缩 + Skill 市场技能按需注入 + 轮次/预算配置化",
+      "deliverables": [
+        "上下文预算:app/agent/context.py compress_history——tool_calls+tool 结果原子单元配对不变量(防协议拒收)、首锚点+最近尾优先、中间折叠、system 追加折叠注;压缩只作用 LLM working copy,AgentMessage 日志全量",
+        "Skills 按需注入:runner._skills_context 按最近用户消息打分(名称 3/描述词 1,score≥2 取 topk),人格要点(截断 600)进 system;R18 门控;个人技能不注入;topk=0 关闭——打通 Skill 市场↔助手",
+        "配置化:agent_max_rounds=12 / agent_context_budget=24000 / agent_skills_topk=3;主循环每轮前压缩;tool 事件带 round 字段(SSE 契约增量,旧前端可忽略)"
+      ],
+      "regression": "pytest 全量 1892 passed(新增 tests/test_agent_harness_m1.py 12 例);前端零改动无 tsc/build 需求",
+      "next": "子 Agent 编排(大需求拆解并行)、沙箱审批阶梯(高危操作确认门)——待用户指令",
+      "verified_at": "2026-08-19T10:30:00+08:00"
+    },
     "nav_refactor_2026_08_17": {
       "status": "completed",
       "scope": "导航重构三连:灵动岛账户拆分右上角 + UX 审计九项落地 + AI 助手底层化(⌘K 全局浮层)+ 生产部署双活冒烟",

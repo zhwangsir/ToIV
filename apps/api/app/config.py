@@ -87,6 +87,15 @@ class Settings(BaseSettings):
     # reconcile 超龄回收阈值 = 本值 + 1800s 宽限(见 comfy/tracker.reconcile_pending)。
     job_track_timeout: float = 7200.0
 
+    # Agent 主循环(Harness 化 M1,2026-08-19;参照 DeepSeek Harness 思想):
+    # agent_max_rounds 单 Turn 最大模型请求轮数(每轮可含多个工具调用),默认 12;
+    # agent_context_budget 非 system 消息总字符预算,超出经 agent/context.compress_history
+    #   折叠中间历史(首任务锚点+最近上下文保留,tool 配对不变量保证协议合法),默认 24k 字符;
+    # agent_skills_topk 每轮按需注入的 Skill 市场技能数(0=关闭注入),默认 3。
+    agent_max_rounds: int = 12
+    agent_context_budget: int = 24000
+    agent_skills_topk: int = 3
+
     # Redis(限流/画布事件/worker 健康缓存共享状态)。生产 core 与 toiv-api 同机,
     # 仅监听 localhost 无密码。不可达时各调用方自动降级进程内存(见 services/redis_client.py)。
     redis_url: str = "redis://127.0.0.1:6379/0"

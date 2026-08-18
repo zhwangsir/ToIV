@@ -2,6 +2,34 @@
 
 ---
 
+## HARNESS-M1-2026-08-19 · AI 助手运行时增强——上下文预算压缩 / Skill 市场技能按需注入 / 轮次配置化
+
+**时间**: 2026-08-19(上午)
+**类型**: 后端(agent 运行时);前端零改动,SSE 事件契约增量(tool 事件新增 round 字段,旧前端可忽略)
+
+### ① 交付内容
+
+**上下文预算管理(压缩而非截断)**:新增 [app/agent/context.py](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/api/app/agent/context.py) `compress_history`——
+- 「配对不变量」:带 tool_calls 的 assistant 与其后 tool 结果为原子单元,整组保留或整组折叠(孤儿 tool 消息会被 vLLM/OpenAI 协议拒收);
+- 锚定策略:首单元(任务起点)+尽量多的尾部单元(最近上下文)永远优先,超预算从中间最老单元折叠;发生折叠时在 system 尾追加折叠注(模型可感知历史不完整);
+- 纯函数返回新列表;压缩只作用于本次 LLM 调用的 working copy,**AgentMessage 会话日志始终全量落库**(事实源不被压缩污染)。
+
+**Skills 按需注入(连接 Skill 市场 ↔ 助手)**:[runner.py](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/api/app/agent/runner.py) `_skills_context`——按最近用户消息对公共/内置技能打分(名称整体命中权重 3/描述词各 1,score≥2 入选取 topk),人格要点(截断 600 字符)拼进 system;R18 技能仅 R18 上下文注入;个人技能不注入(属主私人配置);`agent_skills_topk=0` 可关闭。
+
+**轮次与预算配置化**:[config.py](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/api/app/config.py) 新增 `agent_max_rounds`(默认 12)/`agent_context_budget`(默认 24000 字符)/`agent_skills_topk`(默认 3);主循环每轮请求前经 compress_history 折叠(长对话+多工具结果防溢出),tool 事件带 `round` 字段标示所在模型请求轮次。
+
+### ② TDD 与回归
+
+- 新增 [tests/test_agent_harness_m1.py](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/api/tests/test_agent_harness_m1.py) 12 例:compress_history 6 例(配对分组/预算内原样/超预算折叠中间保首尾/极端预算不空/无 system 透传/纯函数不改入参)+ _skills_context 5 例(名称命中注入人格且截断/R18 无上下文不可见/R18 有上下文注入/噪声不命中/topk=0 关闭)+ 主循环 1 例(3 轮模型调用,第 3 轮历史含折叠注且仅保留最近工具结果,tool 事件 round=[1,2],收尾文本正确);
+- 踩坑记录:`"z"*300`.count(`"z"*100`) 非重叠计数恒为 3,断言"至多保留一个工具结果"须按 `ok:` 前缀计数——测试断言修正后全绿;
+- 回归:pytest 全量 **1892 passed**(1880+12),零破坏。
+
+### ③ 后续路线(未做)
+
+- 子 Agent 编排(大需求拆解多 agent 并行)、沙箱审批阶梯(高危操作确认门)——参照 DeepSeek Harness 的 Turn/Step 语义与审批策略,待用户指令。
+
+---
+
 ## DOCS-POPUP-2026-08-18 · Skill 市场指南+模型分类目录双文档 / AI 助手弹窗化+霓虹动画 / 4K 档位前端落位
 
 **时间**: 2026-08-18(深夜)

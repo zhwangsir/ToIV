@@ -1,16 +1,28 @@
-"""智能体主循环:LLM 工具调用 → 执行 ComfyUI 能力 → 回灌结果,流式产出事件。"""
+"""智能体主循环:LLM 工具调用 → 执行 ComfyUI 能力 → 回灌结果,流式产出事件。
+
+Harness 化 M1(2026-08-19,参照 DeepSeek Harness 思想):
+- 上下文预算:每轮模型请求前经 agent/context.compress_history 折叠超预算的中间
+  历史(首任务锚点+最近上下文保留,tool 配对不变量保证协议合法);
+- Skills 按需注入:按最近用户消息从 Skill 市场匹配公共/内置技能,人格要点进
+  system(连接 Skill 市场 ↔ 助手,agent_skills_topk=0 关闭);
+- 轮次预算配置化:agent_max_rounds(默认 12),tool 事件带 round 字段(契约增量)。
+"""
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import AsyncIterator
 
 from sqlmodel import Session, select
 
 from app.agent import llm
+from app.agent.context import compress_history
 from app.agent.rag import get_kb
 from app.comfy.pool import WorkerPool
+from app.config import get_settings
 from app.harness.ctx import get_ctx
-from app.models import Document, User
+from app.models import Agent, Document, User
+from app.nsfw_ctx import nsfw_allowed
 from app.services import docs as docsvc
 
 SYSTEM_PREFIX = """你是 ToIV——一个由 ComfyUI 集群驱动的 AI 创作平台的智能助手。
@@ -33,7 +45,6 @@ SYSTEM_SUFFIX = """
 10. 多阶段的大需求(如"做一部短片")先与用户确认拆解方案再动手,不自动连发一整串生成调用;必要时引导使用 Agent Team 任务编排。
 11. 生成结果由工具直接展示;不要自己输出媒体链接、markdown 图片语法或本地文件路径。"""
 
-_MAX_ROUNDS = 8
 # 挂载文档检索注入的上限:top-k 块数 × 单块 ≤900 字符,控制注入体量不挤爆上下文
 _DOC_TOP_K = 6
 
@@ -87,6 +98,54 @@ async def _docs_context(
     )
 
 
+# Skills 按需注入人格要点的截断长度(卡片可能长达 2 万字符,注入须克制)
+_SKILL_PROMPT_MAX = 600
+
+
+def _skills_context(messages: list[dict], user: User, session: Session) -> str | None:
+    """Harness 化 M1:按最近用户消息从 Skill 市场匹配技能(公共/内置),注入人格要点。
+
+    匹配:技能名整体命中(权重 3)或描述词逐个命中(各 1),score≥2 入选,
+    取 top agent_skills_topk(0=关闭)。R18 技能仅在 R18 上下文注入;
+    个人技能不注入(属主人格属私人配置,助手不做代理人)。
+    """
+    topk = get_settings().agent_skills_topk
+    if topk <= 0:
+        return None
+    query = _last_user_msg(messages)
+    if not query:
+        return None
+    rows = session.exec(select(Agent).where(Agent.user_id == "")).all()
+    nsfw_ok = nsfw_allowed(user)
+
+    def _score(a: Agent) -> int:
+        if a.is_nsfw and not nsfw_ok:
+            return -1
+        s = 0
+        if a.name and a.name in query:
+            s += 3
+        for tok in re.split(r"[^\w\u4e00-\u9fff]+", a.description or ""):
+            if len(tok) >= 2 and tok in query:
+                s += 1
+        return s
+
+    scored = sorted(((_score(a), a) for a in rows), key=lambda x: -x[0])
+    hits = [a for s, a in scored if s >= 2][:topk]
+    if not hits:
+        return None
+    parts = []
+    for a in hits:
+        persona = (a.system_prompt or "")[:_SKILL_PROMPT_MAX]
+        entry = f"### {a.name}" + (f"\n{a.description}" if a.description else "")
+        entry += f"\n人格要点: {persona}"
+        parts.append(entry)
+    return (
+        "以下是与用户请求可能相关的风格技能(来自 Skill 市场)。"
+        "若用户明确点名某技能或意图与其强相关,按其人格与偏好组织回应与提示词:\n\n"
+        + "\n\n".join(parts)
+    )
+
+
 async def run(
     messages: list[dict], pool: WorkerPool, user: User, session,
     attachment: dict | None = None,
@@ -105,6 +164,9 @@ async def run(
     docs_context = await _docs_context(messages, document_ids or [], user, session)
     if docs_context:
         sys_parts.append(docs_context)
+    skills_context = _skills_context(messages, user, session)
+    if skills_context:
+        sys_parts.append(skills_context)
     if attachment and attachment.get("filename"):
         sys_parts.append(
             "用户本轮上传了一张图片。若用户想修改/重绘它,调用 edit_image;"
@@ -114,6 +176,7 @@ async def run(
     msgs.extend(messages)
 
     tool_reg = get_ctx().service("tools")
+    settings = get_settings()
 
     async def _log(role: str, content: str = "", tool_calls=None, media=None) -> None:
         if on_message is not None:
@@ -121,9 +184,12 @@ async def run(
                 {"role": role, "content": content, "tool_calls": tool_calls, "media": media}
             )
 
-    for _ in range(_MAX_ROUNDS):
+    for rnd in range(1, settings.agent_max_rounds + 1):
         try:
-            assistant = await get_ctx().service("llm").chat(msgs, tools=tool_reg.schemas())
+            # Harness 化:每轮请求前按预算折叠中间历史(长对话/多工具结果防溢出;
+            # 压缩只作用于本次调用的 working copy,AgentMessage 日志始终全量)
+            working = compress_history(msgs, settings.agent_context_budget)
+            assistant = await get_ctx().service("llm").chat(working, tools=tool_reg.schemas())
         except llm.LLMError as e:
             yield {"type": "error", "content": str(e)}
             return
@@ -147,7 +213,8 @@ async def run(
                 args = json.loads(fn.get("arguments") or "{}")
             except json.JSONDecodeError:
                 args = {}
-            yield {"type": "tool", "name": name, "args": args}
+            # round 字段:契约增量(前端可忽略),标示本工具调用所在的模型请求轮次
+            yield {"type": "tool", "name": name, "args": args, "round": rnd}
             text, events = await tool_reg.execute(
                 name, args,
                 {"pool": pool, "user": user, "session": session, "attachment": attachment},
