@@ -202,12 +202,23 @@ async def execute_run(
     remaining = {t["_id"]: t for t in plan}
     failed: list[str] = []
 
+    def _record(tid: str, ok: bool, out: str) -> None:
+        """任务终态即刻落库 + AgentEvent(前端经 events 表增量拉,不等整批)。"""
+        with session_factory() as s:
+            _update_task(s, run_id, tid, ok, out)
+            _emit(s, run_id, "task_status", {
+                "task": tid, "status": "done" if ok else "error",
+                **({"out_len": len(out)} if ok else {"error": out[:300]}),
+            })
+
     while remaining:
         # 就绪判定:依赖全部在 done_outputs(失败依赖直接判失败,不无限等)
         ready = [t for t in remaining.values()
                  if all(d in done_outputs or d in failed for d in t["depends_on"])]
         if not ready:
             yield {"type": "error", "content": f"deadlock: {list(remaining)}"}
+            with session_factory() as s:
+                _emit(s, run_id, "error", {"message": f"deadlock: {list(remaining)}"})
             return
         results = await asyncio.gather(
             *(_run_one(sem, t, goal, done_outputs, tool_ctx) for t in ready)
@@ -222,8 +233,7 @@ async def execute_run(
                 failed.append(tid)
                 del remaining[tid]
                 yield {"type": "task_status", "task": tid, "status": "error", "error": out}
-            with session_factory() as s:
-                _update_task(s, run_id, tid, ok, out)
+            _record(tid, ok, out)
 
     if failed:
         yield {"type": "error", "content": f"failed subtasks: {failed}"}
@@ -231,6 +241,7 @@ async def execute_run(
             s.query(AgentRun).filter(AgentRun.id == run_id).update(
                 {"status": "error", "error": f"failed: {failed}"})
             s.commit()
+            _emit(s, run_id, "error", {"message": f"failed subtasks: {failed}"})
         return
     # 学习沉淀(可选):产物 → 技能卡(个人技能,Skill 市场可编辑/分享)
     if learn:
@@ -240,12 +251,17 @@ async def execute_run(
         except Exception as e:  # noqa: BLE001 —— 沉淀失败不影响 run 终态
             logger.warning("subagent.distill.fail: run=%s err=%s", run_id, e)
             yield {"type": "learn", "status": "error", "error": str(e)}
+            with session_factory() as s:
+                _emit(s, run_id, "learn", {"status": "error", "error": str(e)[:300]})
         else:
             yield {"type": "learn", "status": "done", "skills": learned}
+            with session_factory() as s:
+                _emit(s, run_id, "learn", {"status": "done", "skills": learned})
     yield {"type": "done", "outputs": done_outputs}
     with session_factory() as s:
         s.query(AgentRun).filter(AgentRun.id == run_id).update({"status": "done"})
         s.commit()
+        _emit(s, run_id, "done", {"outputs": {k: v[:200] for k, v in done_outputs.items()}})
 
 
 # ---------------------------------------------------------------------------
