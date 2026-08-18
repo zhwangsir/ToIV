@@ -94,18 +94,29 @@ def _cuda_free_gib(stats: dict) -> float | None:
 async def ensure_h3_vram(client: ComfyUIClient) -> None:
     """提交前显存预检:H3 int8 档增量峰值 ~30-33GiB(评测实测),空闲不足则:
 
-    1. H3 自身队列空闲时先驱逐自身模型缓存
+    0. **实例自身队列非空(有 H3 作业在跑/等待)→ 直接放行,走 ComfyUI 原生排队**
+       —— 此时模型必已驻留显存(上个/当前作业加载过),串行执行无需显存增量,
+       排队等待属正常调度而非故障(QUEUE-2026-08-18 用户诉求);
+    1. H3 自身队列空闲时,先驱逐自身模型缓存
        —— 上一作业的驻留缓存(实测 ~39GiB)是占卡大头,驱逐后本次重新加载即可跑;
     2. 协调驱逐同卡 pool worker(settings.h3_co_workers)的模型缓存
        —— 仅在其队列完全空闲时(有作业在跑绝不动,否则会杀死在跑作业);
     3. 复查仍不足 → 503 + 错峰提示(清晰原因,而非 ComfyUI 裸崩 VRAM grow failed)。
 
+    注:Wan 实例(wan_video.ensure_wan_vram)不做第 0 步——其队列忙时低显存成因
+    常是 H3 邻居占卡(跨实例不共队列),排队执行时会 OOM,503 错峰是正确行为。
     /system_stats 读取失败时放行(降级为不预检,由 ComfyUI 自身错误兜底)。
     """
     settings = get_settings()
     threshold = settings.h3_min_free_vram_gb
     if threshold <= 0:  # 阈值设为 0 = 显式关闭预检
         return
+    try:
+        if await client.queue_len() > 0:
+            logger.info("H3 实例队列非空,跳过显存预检(ComfyUI 原生排队,模型已驻留)")
+            return
+    except ComfyUIError as e:
+        logger.warning("H3 队列读取失败,继续显存预检: %s", e)
     try:
         free = _cuda_free_gib(await client.get_system_stats())
     except ComfyUIError as e:
@@ -193,6 +204,15 @@ async def submit_h3_job(
     await ensure_h3_ready(client)
     await ensure_h3_vram(client)
 
+    # 排队位次提示(QUEUE-2026-08-18):提交前统计 pending 数,让前端明确告知
+    # 「已排队,前方还有 N 个」——排队等待是正常调度而非技术性故障。
+    # 读取失败静默归 0(提示降级,不影响提交本身)。
+    queued_behind = 0
+    try:
+        _running, queued_behind = await client.queue_counts()
+    except ComfyUIError:
+        queued_behind = 0
+
     client_id = uuid.uuid4().hex
     try:
         prompt_id = await client.queue_prompt(graph, client_id)
@@ -225,4 +245,5 @@ async def submit_h3_job(
         "client_id": client_id,
         "worker": client.base_url,
         "seed": seed,
+        "queued_behind": queued_behind,
     }

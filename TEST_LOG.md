@@ -2,6 +2,52 @@
 
 ---
 
+## QUEUE-2026-08-18 · H3 同实例排队:显存预检让位 ComfyUI 原生队列 + 排队位次透传
+
+**时间**: 2026-08-18(深夜)
+**类型**: 行为改进(用户诉求:同服务被占用时排队等待,让用户知道不是技术性故障)
+
+### ① 背景与方案
+
+用户提交 H3 生成时,若同实例有作业在跑(模型驻留显存,实例空闲仅 ~13G < 36G 阈值),
+旧预检直接 503「显存不足」——排队场景被误读为故障。
+
+**核心洞察**:H3 实例队列非空 ⇒ 模型必已驻留显存(上个/当前作业加载过),后续作业
+串行执行**无需显存增量**,ComfyUI 原生队列就是现成的排队机制——此时显存预检应让位。
+
+**改动**:
+- `services/h3.py ensure_h3_vram` 新增第 0 步:实例队列非空 → 跳过预检直接放行
+  (原生排队);队列读失败降级走原预检。1-3 步(自身驱逐/同卡协调/503)仅冷启动场景生效;
+- `submit_h3_job` 提交前 `queue_counts()` 统计 pending → 响应新增 `queued_behind`
+  (前方作业数;读取失败静默 0);
+- `comfy/client.py` 新增 `queue_counts() -> (running, pending)`;
+- 前端:types.ts `GenerateResponse.queued_behind`;GenerateView 提交成功
+  queued_behind>0 时 **toast「排队等待,非故障」+ 结果卡 notice 常驻排队位次**(双通道,
+  走开再回来也看得见);
+- drama 链路(H3VideoGenerator/duration chain extend)自动受益于预检让位。
+
+**关键设计决策——Wan(:8197)不做此改动**:Wan 队列忙时低显存成因常是 H3 邻居占卡
+(跨实例不共队列,ComfyUI 各自串行不同步),Wan 作业排队到执行时若 H3 仍在跑会 OOM;
+Wan 的 503 错峰是正确行为(注释已写明因果)。
+
+### ② 真机证据链(改动依据)
+
+GPU2 89.4/97.9GB:邻居常驻 ~39GB(SenseVoice/ASR/FireRedASR/CosyVoice3/Qwen3TTS/
+JoyCaption16.7G/LongCat/超分)+ H3 作业期 49.8GB(模型 41.3+激活);作业跑完驱逐缓存后
+空闲 55.5G——串行链路资源自洽,排队安全。queue_running=1 时旧逻辑 503 即用户所见报错。
+
+### ③ 回归
+
+| 项 | 结果 |
+|----|------|
+| test_h3_studio self_busy 用例改新语义 | 队列忙 → 200 + 零驱逐 + queued_behind=2 透传 |
+| test_duration fake 补 queue_counts | 5 处恢复 |
+| pytest 全量 | **1836 passed** |
+| web(新增 queueNotice 3) | **405/405** |
+| tsc / 干净构建 | 零错 / 通过 |
+
+---
+
 ## LINKAGE-2026-08-18 · 三层联动整合:风格预设(模型层)×Skill(人格层)×优化提示词(语言层)
 
 **时间**: 2026-08-18(深夜)

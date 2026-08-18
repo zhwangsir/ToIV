@@ -483,8 +483,16 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
         paths: [],
         // 裁切链终产物轮询的寻址键(post_status=processing 时启用)
         promptId: res.prompt_id,
-        // 时长策略提示(网格精确裁切/分段续写时后端返回;结果区 muted 一行)
-        notice: res.duration_notice ?? null,
+        // 时长策略提示 + 排队位次(QUEUE-2026-08-18:让用户知道是排队而非故障)
+        notice:
+          [
+            res.duration_notice ?? null,
+            typeof res.queued_behind === "number" && res.queued_behind > 0
+              ? `排队中:前方还有 ${res.queued_behind} 个作业,依次自动执行`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" · ") || null,
         width: numVal(targetValues["width"]),
         height: numVal(targetValues["height"]),
         createdAt: Date.now(),
@@ -493,6 +501,13 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
       setSelectedId(entry.id);
       runningIdRef.current = entry.id;
       runningPromptIdRef.current = res.prompt_id ?? null;
+      // 排队提示(QUEUE-2026-08-18):入队成功即刻告知「这是排队,不是故障」
+      if (typeof res.queued_behind === "number" && res.queued_behind > 0) {
+        toast.info(
+          `已加入 ${target.label} 队列:前方还有 ${res.queued_behind} 个作业,` +
+            "完成后自动开始生成(排队等待,非故障)",
+        );
+      }
       // start 永远 resolve:出错经 onError 回调更新条目状态
       await gen.start(res, { label: target.label });
     } catch (e) {

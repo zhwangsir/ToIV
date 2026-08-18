@@ -85,6 +85,7 @@ class _FakeH3Client:
         free_vram_gib: float = 96.0,
         stats_fail: bool = False,
         self_queue: int = 0,
+        pending: int = 0,
         on_self_free=None,
     ) -> None:
         self.base_url = "http://fake-h3"
@@ -93,6 +94,7 @@ class _FakeH3Client:
         self.free_gib = free_vram_gib  # 公开可变:模拟驱逐同卡缓存后空闲回升
         self._stats_fail = stats_fail
         self._self_queue = self_queue  # H3 自身队列长度(0=空闲,可驱逐自身缓存)
+        self._pending = pending  # pending 数(queued_behind 提示用)
         self._on_self_free = on_self_free  # 驱逐自身缓存后的回调(如回升 free_gib)
         self.self_free_calls = 0
         self.graphs: list[dict] = []
@@ -114,7 +116,10 @@ class _FakeH3Client:
         return f"h3-{filename}"
 
     async def queue_len(self) -> int:
-        return self._self_queue
+        return self._self_queue + self._pending
+
+    async def queue_counts(self) -> tuple[int, int]:
+        return self._self_queue, self._pending
 
     async def free_memory(self) -> None:
         self.self_free_calls += 1
@@ -465,14 +470,16 @@ def test_vram_insufficient_evicts_self_cache_then_ok(client, monkeypatch):
 
 
 def test_vram_insufficient_self_busy_skips_self_evict(client, monkeypatch):
-    """H3 自身队列非空闲:不驱逐自身(会杀死在跑作业),转协调同卡 worker。"""
+    """QUEUE-2026-08-18 新语义:H3 自身队列非空(有作业在跑/等待)→ 跳过显存预检
+    直接放行,走 ComfyUI 原生排队(模型已驻留,串行执行无需显存增量);
+    不驱逐任何人(自身忙不能驱逐;同卡 worker 无需打扰),响应带 queued_behind。"""
     c, engine = client
     with Session(engine) as s:
         uid = _seed_user(s, "h3vramselfbusy")
-    fake = _FakeH3Client(free_vram_gib=1.0, self_queue=1)
+    fake = _FakeH3Client(free_vram_gib=1.0, self_queue=1, pending=2)
     _install_h3(monkeypatch, fake)
     _stub_settings(monkeypatch)
-    co = _FakeCoWorker(queue=0, on_free=lambda: setattr(fake, "free_gib", 40.0))
+    co = _FakeCoWorker(queue=0)
     _install_co_worker(monkeypatch, co)
     r = c.post(
         "/api/h3/t2v",
@@ -481,7 +488,9 @@ def test_vram_insufficient_self_busy_skips_self_evict(client, monkeypatch):
     )
     assert r.status_code == 200, r.text
     assert fake.self_free_calls == 0  # 自身忙,未驱逐
-    assert co.free_calls == 1
+    assert co.free_calls == 0  # 原生排队,无需协调驱逐
+    assert len(fake.graphs) == 1  # 已进 ComfyUI 队列
+    assert r.json()["queued_behind"] == 2  # 排队位次透传(前方还有 2 个)
 
 
 def test_vram_insufficient_evicts_idle_coworker_then_ok(client, monkeypatch):

@@ -170,6 +170,11 @@ class ComfyUIClient:
         data = await self._get_json("/queue", timeout=4.0)
         return len(data.get("queue_running", [])) + len(data.get("queue_pending", []))
 
+    async def queue_counts(self) -> tuple[int, int]:
+        """(running, pending) 队列计数;提交侧排队位次提示用。短超时同 queue_len。"""
+        data = await self._get_json("/queue", timeout=4.0)
+        return len(data.get("queue_running", [])), len(data.get("queue_pending", []))
+
     async def get_queue(self) -> set[str]:
         """返回 queue_running + queue_pending 中的 prompt_id 集合(tracker 孤儿作业检测用)。
 

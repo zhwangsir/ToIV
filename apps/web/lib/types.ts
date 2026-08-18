@@ -83,6 +83,9 @@ export interface GenerateResponse {
   seed: number;
   /** 时长策略提示(网格裁切/分段续写时后端给的人话说明;结果区 muted 展示) */
   duration_notice?: string;
+  /** QUEUE-2026-08-18:提交时实例队列前方的作业数(>0 = 已排队等待,非故障);
+   *  仅 H3 等专用实例返回,pool 引擎无此字段 */
+  queued_behind?: number;
 }
 
 // ── LTX2.3 视频生成(NSFW 专区)──

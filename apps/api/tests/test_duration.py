@@ -594,6 +594,9 @@ class _FakeInstanceClient:
     async def queue_len(self) -> int:
         return 0
 
+    async def queue_counts(self) -> tuple[int, int]:
+        return 0, 0
+
     async def get_system_stats(self) -> dict:
         return {
             "devices": [{
