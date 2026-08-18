@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, lazy, useCallback, useEffect, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -18,6 +18,23 @@ import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { useToast } from "@/components/ui/Toast";
 
 type AuthState = "loading" | "in" | "out";
+
+// 霓虹边缘动画(2026-08-18)的角度插值注册:CSS.registerProperty 让
+// --neon-angle 可动画(等价 CSS @property,但可在 JS 侧 try/catch 容错)。
+// 不支持的内核此调用不存在 → page.tsx 快捷键探测 "registerProperty" in CSS
+// 直接跳过动画;重复注册(hmr)静默忽略。
+if (typeof window !== "undefined" && "registerProperty" in CSS) {
+  try {
+    CSS.registerProperty({
+      name: "--neon-angle",
+      syntax: "<angle>",
+      inherits: false,
+      initialValue: "0deg",
+    });
+  } catch {
+    /* 已注册/hmr 重复,忽略 */
+  }
+}
 
 type View =
   | "assistant"
@@ -293,19 +310,56 @@ function HomeContent() {
   });
   // AI 助手全局浮层(Cmd/Ctrl+K 唤起;旧链接 ?view=assistant 首入自动开)
   const [assistantOpen, setAssistantOpen] = useState(() => searchParams.get("view") === "assistant");
+  // 开闭态 ref 镜像:快捷键 handler 读当前值,避免在 setState updater 内做副作用
+  const assistantOpenRef = useRef(assistantOpen);
+  assistantOpenRef.current = assistantOpen;
+  // 霓虹边缘动画(2026-08-18):Cmd/Ctrl+K 开启前沿视口边缘扫描一圈,再平滑过渡出弹窗
+  const [neonPlaying, setNeonPlaying] = useState(false);
   // M9:订阅全局 R18 内容模式(短剧视图可见性/导航项按此 computed)
   const [r18] = useR18Mode();
 
-  // 全局快捷键:Cmd/Ctrl+K 唤起/收起 AI 助手浮层(底层常驻,任意视图之上)
+  // 全局快捷键:Cmd/Ctrl+K 唤起/收起 AI 助手浮层(底层常驻,任意视图之上)。
+  // 开启序列(2026-08-18):霓虹光沿页面边缘扫一圈(~640ms)→ 弹窗弹簧展开;
+  // prefers-reduced-motion / 不支持 CSS.registerProperty 的浏览器直接开启(无动画)。
   useEffect(() => {
+    const NEON_MS = 640;
+    const canNeon =
+      typeof window !== "undefined" &&
+      "registerProperty" in CSS &&
+      !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
         e.preventDefault();
-        setAssistantOpen((v) => !v);
+        if (timer) {
+          // 霓虹进行中再次按下:取消动画,直接展开(连按不等候)
+          clearTimeout(timer);
+          timer = null;
+          setNeonPlaying(false);
+          setAssistantOpen(true);
+          return;
+        }
+        if (assistantOpenRef.current) {
+          setAssistantOpen(false); // 已开 → 直接收起(不播霓虹)
+          return;
+        }
+        if (canNeon) {
+          setNeonPlaying(true);
+          timer = setTimeout(() => {
+            setNeonPlaying(false);
+            setAssistantOpen(true);
+            timer = null;
+          }, NEON_MS);
+        } else {
+          setAssistantOpen(true);
+        }
       }
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      if (timer) clearTimeout(timer);
+    };
   }, []);
 
   useEffect(() => {
@@ -519,6 +573,10 @@ function HomeContent() {
           onOpenSettings={() => handleNavSelect("settings")}
         />
       )}
+
+      {/* 霓虹边缘动画(2026-08-18):Cmd/Ctrl+K 开启序列第一步——光带沿视口
+          边缘扫一圈(~640ms),随后 AI 助手弹窗平滑展开(样式见 assistant.css) */}
+      {neonPlaying && <div className="neon-edge" aria-hidden="true" />}
 
       {/* AI 助手全局浮层(2026-08-17 底层化):Cmd/Ctrl+K 唤起,任意视图之上对话;
           助手内跳视图先收浮层再切换 */}

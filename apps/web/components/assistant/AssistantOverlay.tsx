@@ -2,10 +2,11 @@
 
 import { Suspense, lazy, useEffect, useState } from "react";
 
+import { Icon } from "@/components/ui/Icon";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 
 interface AssistantOverlayProps {
-  /** 浮层显隐(Cmd/Ctrl+K 切换)。 */
+  /** 浮层显隐(Cmd/Ctrl+K 切换;开启前由 page.tsx 先播霓虹边缘动画)。 */
   open: boolean;
   onClose: () => void;
   /** 视图跳转:先关浮层再切视图(page.tsx 承接,带预热/过渡)。 */
@@ -20,6 +21,10 @@ const AssistantView = lazy(() =>
 /**
  * AI 助手全局浮层(2026-08-17 底层化):助手不再作为一级视图占据导航,
  * 由 Cmd/Ctrl+K 随时唤起,任意视图之上对话。
+ *
+ * 2026-08-18 弹窗化(variant="popup"):界面仅保留对话显示区与输入框——
+ * 页头/历史/设置/文档面板与门户空态全部隐藏,空态为极简品牌提示;
+ * 面板右上角保留一个最小关闭按钮(弹窗 chrome,Esc/遮罩点击同效)。
  *
  * 挂载策略:首次打开后保持挂载(关闭仅视觉隐藏)——对话 messages/会话状态
  * 全在 AssistantView 内,卸载即丢;常驻 DOM 让「关掉再开,对话还在」,
@@ -72,6 +77,16 @@ export function AssistantOverlay({ open, onClose, onNavigate }: AssistantOverlay
     >
       <div className="av-overlay-backdrop" onClick={onClose} aria-hidden="true" />
       <div className="av-overlay-panel">
+        {/* 最小关闭按钮(popup 形态无页头,关闭 affordance 由浮层 chrome 承担) */}
+        <button
+          type="button"
+          className="av-overlay-close"
+          onClick={onClose}
+          aria-label="关闭 AI 助手"
+          title="关闭 (Esc)"
+        >
+          <Icon name="close" size={14} strokeWidth={1.8} />
+        </button>
         <Suspense
           fallback={
             <div className="av-overlay-loading">
@@ -80,6 +95,7 @@ export function AssistantOverlay({ open, onClose, onNavigate }: AssistantOverlay
           }
         >
           <AssistantView
+            variant="popup"
             onNavigate={(v) => {
               onClose();
               onNavigate(v);

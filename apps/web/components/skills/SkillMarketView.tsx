@@ -27,6 +27,9 @@ import "@/app/styles/skills.css";
  * Skill 市场(2026-08-18,替代「Agent 团队」导航位;同日排版重做接入全站范式):
  * single-view 版心 + compact 页头;内置/公共/我的技能三区;技能卡网格(同行等高、
  * tags 压底);支持 粘贴 JSON 或手填表单导入个人技能,属主可改可删;任意技能可分享。
+ *
+ * 2026-08-18 检索增强:工具栏提供 名称/描述搜索 + 适用范围筛选(全部/图片/视频/音频)
+ * + R18 过滤,三区共用同一过滤条件(客户端过滤,即时生效)。
  */
 
 const APPLIES_OPTIONS: { value: string; label: string }[] = [
@@ -35,6 +38,14 @@ const APPLIES_OPTIONS: { value: string; label: string }[] = [
   { value: "video", label: "视频" },
   { value: "audio", label: "音频" },
   { value: "image,video", label: "图片 + 视频" },
+];
+
+/** 检索工具栏的适用范围 chips(all=不过滤;其余按 applies_to 包含匹配,含 all 的技能恒中)。 */
+const SCOPE_CHIPS: { value: string; label: string }[] = [
+  { value: "all", label: "全部范围" },
+  { value: "image", label: "图片" },
+  { value: "video", label: "视频" },
+  { value: "audio", label: "音频" },
 ];
 
 /** 图标下拉选项(与 Icon.tsx ICON_MAP 智能体图标键对齐,防自由文本填非法名)。 */
@@ -75,6 +86,11 @@ export function SkillMarketView() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // ── 检索(2026-08-18):搜索词 + 适用范围 + R18,三区共用 ──
+  const [query, setQuery] = useState("");
+  const [scope, setScope] = useState("all");
+  const [nsfwOnly, setNsfwOnly] = useState(false);
+
   const refresh = useCallback(async () => {
     setLoading(true);
     // listAgents 失败静默返回 [](优雅降级,与 OptimizeButton 同款);空列表走分区空态
@@ -86,9 +102,23 @@ export function SkillMarketView() {
     void refresh();
   }, [refresh]);
 
-  const mine = useMemo(() => agents.filter((a) => a.is_mine), [agents]);
-  const builtin = useMemo(() => agents.filter((a) => a.is_builtin && !a.is_mine), [agents]);
-  const pub = useMemo(() => agents.filter((a) => a.is_public_custom), [agents]);
+  /** 客户端过滤:名称/描述包含搜索词(不区分大小写)+ 范围包含匹配 + R18 开关。 */
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return agents.filter((a) => {
+      if (q && !`${a.name}\n${a.description}`.toLowerCase().includes(q)) return false;
+      if (scope !== "all" && !(a.applies_to.includes("all") || a.applies_to.includes(scope))) {
+        return false;
+      }
+      if (nsfwOnly && !a.is_nsfw) return false;
+      return true;
+    });
+  }, [agents, query, scope, nsfwOnly]);
+
+  const mine = useMemo(() => filtered.filter((a) => a.is_mine), [filtered]);
+  const builtin = useMemo(() => filtered.filter((a) => a.is_builtin && !a.is_mine), [filtered]);
+  const pub = useMemo(() => filtered.filter((a) => a.is_public_custom), [filtered]);
+  const filtering = query.trim() !== "" || scope !== "all" || nsfwOnly;
 
   // ── 导入 / 编辑 弹窗 ──
   const [importOpen, setImportOpen] = useState(false);
@@ -218,6 +248,49 @@ export function SkillMarketView() {
         <LoadingBlock variant="grid" count={6} />
       ) : (
         <>
+          {/* 检索工具栏:搜索 + 适用范围 chips + R18(客户端即时过滤,三区共用) */}
+          <div className="skill-toolbar" role="search">
+            <div className="skill-toolbar-search">
+              <Icon name="search" size={14} strokeWidth={1.8} />
+              <input
+                type="search"
+                className="skill-search-input"
+                placeholder="搜索技能名称或描述…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                aria-label="搜索技能"
+              />
+            </div>
+            <div className="skill-toolbar-chips" role="group" aria-label="按适用范围筛选">
+              {SCOPE_CHIPS.map((c) => (
+                <button
+                  key={c.value}
+                  type="button"
+                  className={`skill-chip${scope === c.value ? " is-on" : ""}`}
+                  aria-pressed={scope === c.value}
+                  onClick={() => setScope(c.value)}
+                >
+                  {c.label}
+                </button>
+              ))}
+              <button
+                type="button"
+                className={`skill-chip skill-chip--nsfw${nsfwOnly ? " is-on" : ""}`}
+                aria-pressed={nsfwOnly}
+                onClick={() => setNsfwOnly((v) => !v)}
+                title="仅显示 R18 技能(需在 R18 模式下可见)"
+              >
+                R18
+              </button>
+            </div>
+          </div>
+
+          {(filtering && mine.length + builtin.length + pub.length === 0) && (
+            <p className="skill-filter-empty">
+              没有匹配的技能——换个关键词,或清除筛选条件
+            </p>
+          )}
+
           <section className="skill-section">
             <div className="skill-section-head">
               <h2 className="skill-section-title">我的技能</h2>

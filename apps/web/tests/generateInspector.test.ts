@@ -63,8 +63,8 @@ test("groupEngineParam:命名 key 各归其组", () => {
   for (const k of ["ckpt_name", "style_preset", "sampler", "scheduler"]) {
     assert.equal(groupEngineParam(param(k, k === "ckpt_name" ? "text" : "select")), "model", k);
   }
-  for (const k of ["width", "height", "resolution", "duration", "fps", "denoise", "strength"]) {
-    assert.equal(groupEngineParam(param(k)), "frame", k);
+  for (const k of ["width", "height", "resolution", "resolution_target", "duration", "fps", "denoise", "strength"]) {
+    assert.equal(groupEngineParam(param(k, k === "resolution" || k === "resolution_target" ? "select" : "number")), "frame", k);
   }
   for (const k of ["steps", "cfg", "seed", "batch_size", "use_upscale", "use_rife", "full_quality"]) {
     assert.equal(groupEngineParam(param(k, k.startsWith("use_") || k === "full_quality" ? "switch" : "number")), "sampling", k);

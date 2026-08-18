@@ -2,6 +2,43 @@
 
 ---
 
+## DOCS-POPUP-2026-08-18 · Skill 市场指南+模型分类目录双文档 / AI 助手弹窗化+霓虹动画 / 4K 档位前端落位
+
+**时间**: 2026-08-18(深夜)
+**类型**: 文档(长期维护) + 前端功能(弹窗化/动画/检索/参数落位);后端零改动
+
+### ① 交付内容
+
+**双文档(用户明示要求的长期文档)**:
+- [docs/2026-08-18-skill-market-guide.md](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/docs/2026-08-18-skill-market-guide.md):市场三区导航/搜索筛选/双模式导入/权限矩阵/集成链路(OptimizeButton+Shot 扩写三层叠加)/最佳实践/已知限制 5 项/维护机制;
+- [docs/2026-08-18-model-catalog.md](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/docs/2026-08-18-model-catalog.md):图片底模 15(三分组)/视频引擎 21 家族→底模映射(含输出分辨率档)/LoRA 关联(WAN 6 侧别-触发词-模式表、H3 9、短剧 42 五类别、LTX 配套)/放大-3D-音频/LLM 四层/选型速查/维护机制(四事实源+更新触发点+每月复核)。
+
+**Skill 市场检索增强**(指南所述搜索/筛选能力落地):[SkillMarketView.tsx](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/web/components/skills/SkillMarketView.tsx) 工具栏 = 名称/描述搜索(type=search)+ 范围 chips(全部/图片/视频/音频,applies_to 包含匹配,all 恒中)+ R18 过滤,三条件 AND 客户端即时过滤,三区共用;空结果提示。
+
+**GenerateView 4K 档位落位**:[paramGroups.ts](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/web/components/generate/paramGroups.ts) `resolution_target` 收编 FRAME_KEYS →「画幅与时长」组下拉(原生直出/720P/1080P/2K/4K);绑定链(engineDefaults→ParamField select→engines.ts `_resolutionTarget` 透传→后端 maybe_chain_upscale)RES-2026-08-18 已就绪。
+
+**AI 助手弹窗化(variant=popup)**:[AssistantView.tsx](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/web/components/assistant/AssistantView.tsx) 新增 `variant` prop——popup 形态隐藏页头/历史/设置/文档三侧面板与 composer 文档按钮,门户空态(引擎胶囊/场景卡/建议卡/最近作品)换极简空态「AI ASSISTANT · 有什么可以帮你?」,空态也走底部输入框;[AssistantOverlay.tsx](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/web/components/assistant/AssistantOverlay.tsx) 传 `variant="popup"` + 右上最小关闭按钮(Esc/遮罩同效)。
+
+**⌘K 霓虹边缘动画**:[page.tsx](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/web/app/page.tsx) 开启序列 = `CSS.registerProperty(--neon-angle)` 客户端注册 → 按键触发霓虹(640ms)→ 弹窗弹簧展开;reduced-motion/无 registerProperty 内核直接开(无动画);霓虹中连按取消直开;`assistantOpenRef` 镜像避免 setState updater 副作用(StrictMode 双调用安全)。[assistant.css](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/web/app/styles/assistant.css):彗星式 conic-gradient(亮白头+accent 拖尾)环形 mask 扫描一圈,`-webkit-mask-composite:xor` 兜底 Safari,`@supports not` 静态柔光回退,reduced-motion 定格收尾位。
+
+**气泡 UI 优化**:popup 气泡列 720→640px 收窄+顶部 padding 收敛(弹窗内无灵动岛让位),视觉焦点集中、AI(左)/用户(右)层次更分明;用户 accent 实底/助手 surface 底+尾角指向头像的既有层次保留。
+
+### ② TDD 与回归
+
+- 新增 [tests/assistantPopupNeon.test.ts](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/web/tests/assistantPopupNeon.test.ts) 7 例源码断言(popup 形态五要素/640px/overlay 传递+关闭 a11y/霓虹序列四要点/CSS 三回退/Skill 三条件过滤/样式存在);generateInspector.test.ts 补 `resolution_target→frame`;
+- 回归:`npm test` **416/416**;tsc 零错误;ui_lint 门禁通过(119 文件);`rm -rf .next && npm run build` 干净构建通过;后端零改动(无 pytest)。
+
+### ③ 部署与真机验证
+
+- `deploy.sh core` 全量,toiv-api/toiv-web 双就绪,web=200/api=200;
+- 生产 chunk 实证(core `web/.next/static/chunks`):`av-popup-empty` ✅ / `neon-edge` ✅ / `skill-toolbar` ✅ / `resolution_target` ✅ 四标记全部命中。
+
+### ④ 长期维护约定(本里程碑确立)
+
+双文档各带「维护机制」章节:模型四事实源(model_wiki.py/engine_registry/LoRA 注册表/NSFW 推荐)任一变更须回写目录;Skill 市场代码变化须回写指南;建议每月真机复核一次(`/models/local` diff + 技能计数)。已知文档滞后项已在目录中登记(engine_registry docstring 20→21、wan_t2v 复用 i2v UNET、agents_seed 头注释 15→23)。
+
+---
+
 ## RES-2026-08-18 · 视频输出分辨率 720p→4K 全阶梯(原生直出/生成后自动二次超分)
 
 **时间**: 2026-08-18(晚)

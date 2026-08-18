@@ -424,10 +424,18 @@ export function filterPortalEntries(
 export interface AssistantViewProps {
   /** 视图跳转(page.tsx SPA 切换机制);未注入时退化为整页跳转 ?view= */
   onNavigate?: (view: string) => void;
+  /**
+   * 展示形态(2026-08-18 弹窗化):
+   * - page(默认):整页视图,门户空态/历史/设置/文档面板全量;
+   * - popup:Cmd/Ctrl+K 全局弹窗——界面仅保留对话显示区与输入框
+   *   (隐藏页头/三个侧面板/文档挂载入口,空态为极简提示,输入框沉底)。
+   */
+  variant?: "page" | "popup";
 }
 
 export function AssistantView(props?: AssistantViewProps) {
   const onNavigate = props?.onNavigate;
+  const popup = props?.variant === "popup";
   const toast = useToast();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -942,7 +950,7 @@ export function AssistantView(props?: AssistantViewProps) {
               <button type="button" className="av-composer-btn av-composer-stop" onClick={onStop} title="停止生成">
                 <Icon name="minus" size={12} strokeWidth={2.2} />
               </button>
-            ) : (
+            ) : !popup ? (
               <button
                 type="button"
                 className={`av-composer-btn av-composer-btn-ghost av-composer-tool${docsOpen || attachedDocs.length ? " is-active" : ""}`}
@@ -952,7 +960,7 @@ export function AssistantView(props?: AssistantViewProps) {
               >
                 <Icon name="plus" size={14} strokeWidth={1.8} />
               </button>
-            )}
+            ) : null}
           </div>
           <textarea
             ref={textareaRef}
@@ -987,8 +995,9 @@ export function AssistantView(props?: AssistantViewProps) {
   );
 
   return (
-    <div className="av-view">
+    <div className={`av-view${popup ? " av-view--popup" : ""}`}>
       <h1 className="sr-only">对话流</h1>
+      {!popup && (
       <header className="page-header av-header">
         <div className="av-header-main">
           <div className="page-header-title av-header-title">对话流</div>
@@ -1037,6 +1046,7 @@ export function AssistantView(props?: AssistantViewProps) {
           </button>
         </div>
       </header>
+      )}
 
       {convStore.listError && (
         <ErrorBar message={convStore.listError} onClose={convStore.clearListError} />
@@ -1046,6 +1056,14 @@ export function AssistantView(props?: AssistantViewProps) {
         <div className="av-dot-grid" aria-hidden="true" />
 
         {isEmpty ? (
+          popup ? (
+            /* 弹窗极简空态(2026-08-18):仅品牌提示一行,输入框由底部 renderComposer 承担 */
+            <div className="av-empty av-popup-empty">
+              <div className="av-empty-kicker">AI ASSISTANT</div>
+              <div className="av-empty-title">有什么可以帮你?</div>
+              <div className="av-empty-desc">输入内容开始对话 · Esc 或点击遮罩关闭</div>
+            </div>
+          ) : (
           /* 首页门户(2026-08-16 堆友范式):引擎胶囊条 → kicker/标题 → 对话框 C 位
              → 场景胶囊 → 提示词建议卡 → 最近作品瀑布流;
              保留 v6.1 空态美学(DIALOGUE ATELIER kicker / Fraunces 标题 / at-card 建议卡) */
@@ -1180,6 +1198,7 @@ export function AssistantView(props?: AssistantViewProps) {
               </section>
             )}
           </div>
+          )
         ) : (
           <div className="av-msg-list">
             {messages.map((msg) => (
@@ -1290,9 +1309,12 @@ export function AssistantView(props?: AssistantViewProps) {
         )}
       </div>
 
-      {/* 会话态:对话框沉底(门户态时由 C 位 renderComposer(true) 承担) */}
-      {!isEmpty && renderComposer(false)}
+      {/* 会话态:对话框沉底(门户态时由 C 位 renderComposer(true) 承担;
+          popup 形态空态也走底部输入框,保持「仅对话区+输入框」的弹窗心智) */}
+      {(!isEmpty || popup) && renderComposer(false)}
 
+      {!popup && (
+        <>
       <div className={`av-panel av-panel--left${historyOpen ? " is-open" : ""}`}>
         <div className="av-panel-head">
           <span className="av-panel-title">对话历史</span>
@@ -1442,6 +1464,8 @@ export function AssistantView(props?: AssistantViewProps) {
           )}
         </div>
       </div>
+        </>
+      )}
 
       <input
         ref={docFileRef}
@@ -1453,7 +1477,7 @@ export function AssistantView(props?: AssistantViewProps) {
         tabIndex={-1}
       />
 
-      {(historyOpen || contextOpen || docsOpen) && (
+      {!popup && (historyOpen || contextOpen || docsOpen) && (
         <div
           className="av-panel-overlay"
           onClick={() => { setHistoryOpen(false); setContextOpen(false); setDocsOpen(false); }}
@@ -1773,6 +1797,25 @@ export function AssistantView(props?: AssistantViewProps) {
           padding: var(--space-12) var(--space-6) var(--space-8);
           max-width: 720px;
           margin: 0 auto;
+        }
+        /* popup 形态(2026-08-18):弹窗居中卡内无灵动岛让位,顶部收敛;
+           气泡列同步收窄到 640px——视觉焦点更集中,AI/用户两侧层次更分明 */
+        .av-view--popup .av-msg-list {
+          padding-top: var(--space-8);
+          max-width: 640px;
+        }
+        /* 弹窗极简空态:垂直水平居中,仅品牌一行(popup 形态对话区空态) */
+        .av-popup-empty {
+          position: relative;
+          z-index: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: var(--space-3);
+          height: 100%;
+          padding: var(--space-6);
+          text-align: center;
         }
         .av-msg {
           display: flex;

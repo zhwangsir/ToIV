@@ -33,11 +33,13 @@ const MODEL_KEYS: ReadonlySet<string> = new Set([
   "scheduler",
 ]);
 
-/** 「画幅与时长」组参数 key。 */
+/** 「画幅与时长」组参数 key。resolution_target(RES-2026-08-18)为输出分辨率档
+ *  (原生直出/720P→4K 二次超分),与画幅同域归此组。 */
 const FRAME_KEYS: ReadonlySet<string> = new Set([
   "width",
   "height",
   "resolution",
+  "resolution_target",
   "duration",
   "fps",
   "denoise",

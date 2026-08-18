@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-08-18T21:50:00+08:00",
+  "updated_at": "2026-08-18T23:30:00+08:00",
   "sync_baseline": {
     "id": "SYNC-2026-07-18",
     "type": "initial-sync",
@@ -3942,5 +3942,24 @@
     "deployment": "deploy.sh core 全量+skip-web 二次部署,双服务就绪",
     "verification": "生产真机:/api/models/engines SFW 7 引擎+NSFW 上下文 13 引擎全部带 resolution_target;h3/wan/ltx 非法档 8k 实测 422",
     "notes": "超分链与时长链共用 post_status=processing 通道;时长链失败回落原片时超分链仍会对原片执行(诚实降级);产物经 /api/video/upscale/output/ 直服(Range 206+token 回退)"
+  },
+  "docs_popup_2026_08_18": {
+    "id": "DOCS-POPUP-2026-08-18",
+    "title": "Skill 市场指南/模型分类目录双文档 + AI 助手弹窗化(霓虹动画) + 4K 档位前端落位 + Skill 检索",
+    "status": "done",
+    "scope": "用户需求:①Skill 市场使用指南文档(导航/搜索/筛选/安装/管理);②全模型系统性分类目录(功能类型/场景/LoRA 关联);③GenerateView 4K 档位下拉;④⌘K AI 助手弹窗仅留对话+输入、霓虹边缘动画过渡、气泡 UI 优化",
+    "deliverables": [
+      "docs/2026-08-18-skill-market-guide.md:三区导航/搜索筛选(本次新增)/双模式导入/权限矩阵/集成链路/最佳实践/已知限制/长期维护机制",
+      "docs/2026-08-18-model-catalog.md:图片底模 15(SFW 主力/二次元/R18)+视频引擎 21 家族→底模映射(含输出分辨率档)+LoRA 关联目录(WAN 6 侧别表/H3 9/短剧 42 五类别/LTX 配套)+放大 3D 音频+LLM 四层+选型速查+维护机制(四事实源/更新触发点/每月复核)",
+      "SkillMarketView:检索工具栏(名称描述搜索+范围 chips 全部/图片/视频/音频+R18 过滤,三条件 AND 客户端即时过滤)+skills.css 样式+空结果提示",
+      "GenerateView 4K 档位:paramGroups FRAME_KEYS 收编 resolution_target(「画幅与时长」组下拉,ParamField select 渲染+engineDefaults 默认空+engines.ts 透传链 RES-2026-08-18 已就绪)",
+      "AssistantView variant=popup:隐藏页头/历史/设置/文档三面板与文档按钮、门户空态换极简空态、空态也走底部输入框;AssistantOverlay 传 popup+右上最小关闭按钮",
+      "⌘K 霓虹边缘动画:page.tsx registerProperty(--neon-angle)+reduced-motion/旧内核跳过+连按直开+ref 镜像防 updater 副作用;assistant.css 彗星式 conic 扫描(640ms 一圈)+环形 mask(-webkit- 兜底)+@supports 静态回退;扫描毕弹窗弹簧展开",
+      "气泡优化:popup 气泡列 640px 收窄+顶部 padding 收敛(无灵动岛让位),层次聚焦"
+    ],
+    "regression": "web npm test 416/416(+7 assistantPopupNeon 源码断言,generateInspector 补 resolution_target→frame);tsc 零错误;ui_lint 门禁通过;rm -rf .next 干净构建通过;后端零改动",
+    "deployment": "deploy.sh core 全量,双服务就绪",
+    "verification": "生产 chunk 实证:av-popup-empty/neon-edge/skill-toolbar/resolution_target 四标记全部命中 core .next chunks;web=200/api=200",
+    "long_term": "双文档自带维护机制章节(更新触发点+每月复核清单);模型分类事实源四处的变更须回写目录;Skill 市场功能变化须回写指南"
   }
 }

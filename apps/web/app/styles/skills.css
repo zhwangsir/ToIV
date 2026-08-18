@@ -15,6 +15,86 @@
   flex-shrink: 0;
 }
 
+/* ── 检索工具栏(2026-08-18):搜索框 + 范围 chips + R18,客户端即时过滤 ── */
+.skill-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.skill-toolbar-search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1 1 260px;
+  min-width: 0;
+  height: 34px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--bg-surface-1);
+  color: var(--text-muted);
+  transition: border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+.skill-toolbar-search:focus-within {
+  border-color: var(--accent-glow);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.skill-search-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: var(--text-aux);
+  font-family: var(--font-sans);
+}
+.skill-search-input::placeholder {
+  color: var(--text-muted);
+}
+.skill-toolbar-chips {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.skill-chip {
+  height: 28px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  background: var(--bg-surface-1);
+  color: var(--text-secondary);
+  font-size: var(--text-aux);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
+}
+.skill-chip:hover {
+  border-color: var(--accent-glow);
+  color: var(--text-primary);
+}
+.skill-chip.is-on {
+  background: var(--accent-soft);
+  border-color: var(--accent-glow);
+  color: var(--accent);
+}
+.skill-chip--nsfw.is-on {
+  border-color: var(--err);
+  color: var(--err);
+  background: color-mix(in oklab, var(--err) 10%, transparent);
+}
+.skill-filter-empty {
+  margin: 0;
+  padding: var(--space-4) 0;
+  color: var(--text-muted);
+  font-size: var(--text-aux);
+  text-align: center;
+}
+
 /* ── 分区 ── */
 .skill-section {
   display: flex;

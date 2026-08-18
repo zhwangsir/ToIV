@@ -396,3 +396,92 @@
     transition: none;
   }
 }
+
+/* ── 霓虹边缘动画(2026-08-18):Cmd/Ctrl+K 开启序列 ──
+   光带(彗星式:亮白头 + accent 拖尾)沿视口边缘顺时针扫描一圈,约 640ms;
+   扫描结束移除节点,紧接 av-overlay 弹窗弹簧展开,构成「边缘点亮 → 汇聚成窗」
+   的过渡叙事。跨浏览器:@property 角度插值经 JS CSS.registerProperty 注册
+   (page.tsx 已探测,不支持/减弱动效时根本不渲染本节点);
+   mask 环形裁切带 -webkit- 前缀兜底 Safari。z 低于浮层(--z-modal)。 */
+.neon-edge {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-modal) - 1);
+  pointer-events: none;
+  /* 边缘柔光晕(与扫描光同源的静息辉光,入场即亮) */
+  box-shadow: inset 0 0 32px color-mix(in oklab, var(--accent) 14%, transparent);
+}
+.neon-edge::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 2px; /* 环宽:content-box 与外框之间即光带 */
+  border-radius: 2px;
+  /* 彗星光:长拖尾 accent → 亮白头,from 角度由 @property --neon-angle 插值驱动 */
+  background: conic-gradient(
+    from var(--neon-angle, 0deg),
+    transparent 0deg,
+    transparent 248deg,
+    color-mix(in oklab, var(--accent) 35%, transparent) 296deg,
+    var(--accent-glow) 328deg,
+    var(--accent) 344deg,
+    #fff 356deg,
+    var(--accent) 360deg
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  animation: neon-edge-sweep 640ms var(--ease-standard) forwards;
+  filter: drop-shadow(0 0 6px var(--accent-glow));
+}
+@keyframes neon-edge-sweep {
+  from {
+    --neon-angle: 0deg;
+  }
+  to {
+    --neon-angle: 360deg;
+  }
+}
+/* 静态回退:@property 未注册(极旧内核,JS 探测已拦截,双保险)时光带不转,
+   仅以整体呼吸辉光示意,绝不静止显示刺眼高亮 */
+@supports not (background: conic-gradient(from var(--neon-angle, 0deg), red, blue)) {
+  .neon-edge::before {
+    background: none;
+    animation: none;
+    border: 1px solid var(--accent-glow);
+    box-shadow: inset 0 0 24px var(--accent-soft);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .neon-edge::before {
+    animation: none;
+    --neon-angle: 360deg; /* 定格在收尾位,呈现完整一圈微光 */
+  }
+}
+
+/* 浮层最小关闭按钮(popup 形态无页头,关闭 affordance 由浮层 chrome 承担) */
+.av-overlay-close {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--bg-surface-1);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
+}
+.av-overlay-close:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+  background: var(--bg-surface-2);
+}
