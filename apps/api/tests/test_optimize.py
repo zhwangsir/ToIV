@@ -524,3 +524,136 @@ def test_pick_trigger_words_modes():
         "doggy style",
     )
     assert out == ["nsfwsks", "d0gg1e"]
+
+
+# ── 三层联动(2026-08-18):风格预设 → 优化提示词 ──────────────────────────
+
+def _patch_layered_capture_layer(monkeypatch, content: str, captured: dict) -> None:
+    """同 _patch_layered,额外捕获 layer 参数(断言预设 llm_layer 路由)。"""
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):  # noqa: ANN001
+        captured["system"] = messages[0]["content"]
+        captured["layer"] = layer
+        return {"content": content}
+
+    monkeypatch.setattr("app.routes.optimize.llm.chat_layered", fake_chat_layered)
+
+
+def test_style_context_injected_into_system(client_token, monkeypatch):
+    """预设→优化:选 cinematic 预设,system 注入【风格预设上下文】+ prompt_hint 要素;
+    realistic 预设(带推荐负向)注入 negative 参考。"""
+    captured: dict = {}
+    _patch_layered_capture_layer(
+        monkeypatch,
+        '{"positive": "wide cinematic shot, neon city in rain", "negative": "blurry"}',
+        captured,
+    )
+    client, token = client_token
+    r = client.post(
+        "/api/optimize",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"prompt": "雨夜城市", "kind": "image", "style": "cinematic"},
+    )
+    assert r.status_code == 200, r.text
+    sysmsg = captured["system"]
+    assert "【风格预设上下文】" in sysmsg
+    assert "电影感" in sysmsg  # 预设 label
+    assert "cinematic lighting" in sysmsg  # prompt_hint 要素
+    assert "film grain" in sysmsg
+
+    # realistic 预设带推荐负向 → negative 参考注入(cinematic 是 CFG1 族,负向为空合法)
+    captured2: dict = {}
+    _patch_layered_capture_layer(
+        monkeypatch, '{"positive": "realistic portrait photo", "negative": "ugly"}', captured2
+    )
+    r2 = client.post(
+        "/api/optimize",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"prompt": "写实人像", "kind": "image", "style": "realistic"},
+    )
+    assert r2.status_code == 200, r2.text
+    assert "negative 参考" in captured2["system"]
+    assert "bad anatomy" in captured2["system"]
+
+
+def test_style_preset_ckpt_supplies_dialect_when_no_model(client_token, monkeypatch):
+    """预设底模补位方言:style=fantasy(Pony)且未显式传 model → system 含 pony 族方言(booru 标签);
+    用户显式传 model 时 model 优先(预设方言让位)。"""
+    captured: dict = {}
+    _patch_layered_capture_layer(
+        monkeypatch, '{"positive": "1girl, fantasy castle", "negative": "worst quality"}', captured
+    )
+    client, token = client_token
+    r = client.post(
+        "/api/optimize",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"prompt": "奇幻城堡少女", "kind": "image", "style": "fantasy"},
+    )
+    assert r.status_code == 200, r.text
+    assert "【目标模型方言" in captured["system"]  # pony 底模触发了方言块
+    assert "booru" in captured["system"].lower()
+
+    # 显式 model 优先于预设底模
+    captured2: dict = {}
+    _patch_layered_capture_layer(
+        monkeypatch, '{"positive": "photo of a man", "negative": "ugly"}', captured2
+    )
+    r2 = client.post(
+        "/api/optimize",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"prompt": "奇幻城堡少女", "kind": "image", "style": "fantasy",
+              "model": "flux2_dev_fp8mixed.safetensors"},
+    )
+    assert r2.status_code == 200, r2.text
+    assert "FLUX" in captured2["system"]
+    # pony 方言特征(质量分标签)让位给 FLUX 方言(FLUX 块含「禁止 danbooru」字样,故断言 pony 特征词)
+    assert "score_9" not in captured2["system"]
+
+
+def test_style_context_compose_order(client_token, monkeypatch):
+    """三层叠加顺序:style_hint(最高) → 风格上下文 → kind 基底;无 style 不注入。
+    (agent 人格拼接顺序已由 test_skill_market.test_optimize_shot_with_skill 覆盖)"""
+    captured: dict = {}
+    _patch_layered_capture_layer(
+        monkeypatch, '{"positive": "cyberpunk street market", "negative": "ugly"}', captured
+    )
+    client, token = client_token
+    r = client.post(
+        "/api/optimize",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"prompt": "夜市", "kind": "image", "style": "cinematic",
+              "style_hint": "赛博朋克霓虹"},
+    )
+    assert r.status_code == 200, r.text
+    sysmsg = captured["system"]
+    i_hint = sysmsg.index("【用户指定风格")
+    i_style = sysmsg.index("【风格预设上下文】")
+    i_base = sysmsg.index("提示词工程师") if "提示词工程师" in sysmsg else len(sysmsg) - 50
+    assert i_hint < i_style  # 用户手打风格最高优先
+    assert i_style < i_base  # 风格上下文在 kind 基底之前
+
+    # 无 style:不注入风格上下文(向后兼容)
+    captured2: dict = {}
+    _patch_layered_capture_layer(monkeypatch, '{"positive": "a cat", "negative": "ugly"}', captured2)
+    r2 = client.post(
+        "/api/optimize",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"prompt": "一只猫", "kind": "image"},
+    )
+    assert r2.status_code == 200, r2.text
+    assert "【风格预设上下文】" not in captured2["system"]
+
+
+def test_style_llm_layer_routing(client_token, monkeypatch):
+    """预设 llm_layer 路由:cinematic 预设(L3)→ chat_layered 收 layer='L3';无预设回 L1。"""
+    captured: dict = {}
+    _patch_layered_capture_layer(
+        monkeypatch, '{"positive": "moody night scene", "negative": "blurry"}', captured
+    )
+    client, token = client_token
+    r = client.post(
+        "/api/optimize",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"prompt": "夜景", "kind": "image", "style": "cinematic"},
+    )
+    assert r.status_code == 200, r.text
+    assert captured["layer"] == "L3"

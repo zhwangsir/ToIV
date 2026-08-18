@@ -51,6 +51,36 @@ class TestStylePresets:
             ids.add(preset_id)
         assert len(ids) == len(ALL_PRESETS), "预设 id 有重复"
 
+    def test_recommended_skills_align_with_builtin_agents(self):
+        """三层联动(2026-08-18):list_presets 输出 recommended_skill;
+        非空值必须命中内置技能种子 id(防映射表与 agents_seed 漂移后静默失效)。"""
+        from app.agents_seed import BUILTIN_AGENTS
+
+        builtin_ids = {spec["id"] for spec in BUILTIN_AGENTS}
+        presets = list_presets()
+        assert presets, "预设列表非空"
+        with_rec = [p for p in presets if p.get("recommended_skill")]
+        assert with_rec, "至少有预设携带推荐技能"
+        for p in with_rec:
+            assert p["recommended_skill"] in builtin_ids, (
+                f"预设 {p['id']} 推荐技能 {p['recommended_skill']} 不在内置种子中"
+            )
+
+    def test_list_presets_outputs_linkage_fields(self):
+        """list_presets 输出联动字段:回显用采样/画幅推荐 + prompt_hint/negative_prompt。"""
+        presets = {p["id"]: p for p in list_presets()}
+        cinematic = presets["cinematic"]
+        assert cinematic["prompt_hint"]  # 有必含要素
+        assert cinematic["recommended_sampler"] == "euler"
+        assert cinematic["recommended_scheduler"] == "simple"
+        assert cinematic["recommended_steps"] == 28
+        assert cinematic["recommended_cfg"] == 1.0
+        # realistic 带推荐负向(cinematic 是 CFG1 族负向为空,属合法设计)
+        assert presets["realistic"]["negative_prompt"]
+        # turbo 类预设无 prompt_hint 也合法(字段恒存在)
+        assert presets["turbo"]["prompt_hint"] == ""
+
+
     def test_image_presets_point_to_deployed_models(self):
         """图像预设的 ckpt_name 必须指向 worker 已部署的模型(文件名需在已知列表中)。"""
         deployed_checkpoints = {

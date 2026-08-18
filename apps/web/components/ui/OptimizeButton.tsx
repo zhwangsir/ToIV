@@ -65,6 +65,11 @@ interface OptimizeButtonProps {
   engine?: string;
   /** 新:已选 LoRA 文件名列表(Wan NSFW 注册表内条目触发词由后端确定性注入) */
   loras?: string[];
+  /** 新:风格预设 id(三层联动:后端注入预设上下文/底模方言,并路由预设 llm_layer) */
+  stylePreset?: string;
+  /** 新:预设→skill 智能预选(轻量联动):预设携带的推荐内置 skill id;
+   *  打开 Popover 时若用户无全局默认智能体,推荐项置顶并带「推荐」标,可自由改选 */
+  recommendedSkill?: string;
   /** 旧/新统一:优化成功后回调。
    *  新式调用接收 (text, negative);旧式调用若 onClick 返回字符串,会作为 text 转发。 */
   onOptimized?: (text: string, negative?: string) => void;
@@ -97,6 +102,8 @@ export function OptimizeButton({
   model,
   engine,
   loras,
+  stylePreset,
+  recommendedSkill,
   onOptimized,
   allowAgentOverride = true,
   disabled = false,
@@ -113,6 +120,17 @@ export function OptimizeButton({
   const newMode = !!kind && !!onOptimized;
 
   const isDisabled = disabled || loading || !prompt.trim();
+
+  // 三层联动:预设→skill 智能预选。用户已设全局默认智能体时尊重其选择(不覆盖);
+  // 无默认时,预设推荐 skill 置顶展示并标「推荐」——预选而非绑定,可自由改选。
+  const localAgent = getLocalAgent();
+  const recSkill =
+    !localAgent && recommendedSkill && agents.some((a) => a.id === recommendedSkill)
+      ? recommendedSkill
+      : null;
+  const sortedAgents = recSkill
+    ? [...agents].sort((a, b) => (a.id === recSkill ? -1 : b.id === recSkill ? 1 : 0))
+    : agents;
 
   // 打开 Popover 时回填上次输入的风格描述(定位/关闭交给 ui/Popover 基座)
   useEffect(() => {
@@ -159,6 +177,7 @@ export function OptimizeButton({
         ...(loras && loras.length > 0 ? { loras } : {}),
         ...(agentId ? { agentId } : {}),
         ...(hint ? { styleHint: hint } : {}),
+        ...(stylePreset ? { stylePreset } : {}),
       });
       onOptimized?.(r.optimized, r.negative ?? undefined);
     } finally {
@@ -250,8 +269,9 @@ export function OptimizeButton({
               <div className="ob-empty">暂无可用智能体</div>
             ) : (
               <ul className="ob-list" role="listbox">
-                {agents.map((a) => {
-                  const isSel = a.id === getLocalAgent();
+                {sortedAgents.map((a) => {
+                  const isSel = a.id === (localAgent ?? recSkill);
+                  const isRec = a.id === recSkill;
                   return (
                     <li
                       key={a.id}
@@ -267,7 +287,10 @@ export function OptimizeButton({
                         className="ob-option-icon"
                       />
                       <span className="ob-option-main">
-                        <span className="ob-option-name">{a.name}</span>
+                        <span className="ob-option-name">
+                          {a.name}
+                          {isRec && <span className="ob-option-rec">推荐</span>}
+                        </span>
                         {a.description && (
                           <span className="ob-option-desc">{a.description}</span>
                         )}
@@ -445,6 +468,18 @@ export function OptimizeButton({
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+        }
+        /* 三层联动:预设→skill 推荐标(预选提示,非绑定) */
+        .ob-option-rec {
+          display: inline-block;
+          margin-left: var(--space-1);
+          padding: 0 var(--space-1);
+          border: 1px solid var(--accent-glow);
+          border-radius: var(--radius-control);
+          color: var(--accent);
+          font-size: var(--text-micro, 10px);
+          line-height: 1.4;
+          vertical-align: 1px;
         }
         .ob-option.is-selected .ob-option-name {
           color: var(--accent);

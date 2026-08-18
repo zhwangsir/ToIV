@@ -6,15 +6,17 @@ import { Badge } from "@/components/ui/Badge";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon } from "@/components/ui/Icon";
 import { Field, Select, Textarea } from "@/components/ui/Input";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Popover } from "@/components/ui/Popover";
 import { Ripple } from "@/components/ui/Ripple";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { usePoll } from "@/hooks/usePoll";
 import { useAutoResize } from "@/hooks/useAutoResize";
-import { invalidateJobs, apiFetch, authHeaders, listRecipes, type CommunityRecipe } from "@/lib/api";
-import type { JobItem } from "@/lib/types";
+import { invalidateJobs, apiFetch, authHeaders, listRecipes, listStylePresets, type CommunityRecipe } from "@/lib/api";
+import type { JobItem, StylePreset } from "@/lib/types";
 import { consumeEngineDraft, type EngineDraft } from "@/lib/engine";
+import { presetParamPatch } from "@/lib/presetApply";
 import {
   engineDefaults,
   engineMaxImages,
@@ -231,6 +233,20 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
   const [audioByEngine, setAudioByEngine] = useState<Record<string, UploadedAudio | null>>({});
   const [videoByEngine, setVideoByEngine] = useState<Record<string, UploadedVideo | null>>({});
 
+  // 三层联动:风格预设清单(回显推荐参数 + skill 预选用;swr 长缓存,失败静默降级)
+  const [stylePresets, setStylePresets] = useState<StylePreset[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    listStylePresets()
+      .then((ps) => {
+        if (!cancelled) setStylePresets(ps);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const values = useMemo(
     () => (engine ? { ...engineDefaults(engine), ...(valuesByEngine[engine.id] ?? {}) } : {}),
     [engine, valuesByEngine],
@@ -284,6 +300,15 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
         : "image"
       : engine.kind;
 
+  // 三层联动:当前预设 id(优化注入用)+ 预设推荐 skill(智能预选用)
+  const currentStylePreset =
+    typeof values.style_preset === "string" && values.style_preset
+      ? values.style_preset
+      : undefined;
+  const currentRecommendedSkill = currentStylePreset
+    ? stylePresets.find((p) => p.id === currentStylePreset)?.recommended_skill || undefined
+    : undefined;
+
   const setValue = (key: string, v: unknown) => {
     if (!engine) return;
     setValuesByEngine((prev) => ({ ...prev, [engine.id]: { ...(prev[engine.id] ?? {}), [key]: v } }));
@@ -307,6 +332,19 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
   // 后端同规则静默归一兜底(lib/aspectPair ↔ workflows/model_profiles.clamp_aspect_ratio)
   const handleParamChange = (key: string, v: unknown) => {
     if (!engine) return;
+    // 三层联动:选中风格预设时即时回显推荐参数(所见即所得,后可继续微调);
+    // 切回「不使用」不回滚参数(避免误清用户已调好的值)
+    if (key === "style_preset" && typeof v === "string" && v) {
+      const preset = stylePresets.find((p) => p.id === v);
+      if (preset) {
+        const patch = presetParamPatch(preset, valuesByEngine[engine.id] ?? {});
+        setValuesByEngine((prev) => ({
+          ...prev,
+          [engine.id]: { ...(prev[engine.id] ?? {}), ...patch },
+        }));
+        return;
+      }
+    }
     const pair = applyAspectPair(key, v, values, engine.params);
     if (!pair) {
       setValue(key, v);
@@ -586,6 +624,8 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
           values={values}
           onValueChange={setValue}
           optimizeKind={optimizeKind}
+          stylePreset={currentStylePreset}
+          recommendedSkill={currentRecommendedSkill}
           onOptimized={(text, negative) => {
             if (!engine) return;
             setPromptByEngine((prev) => ({ ...prev, [engine.id]: text }));

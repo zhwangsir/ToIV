@@ -222,8 +222,10 @@ export async function optimizeWithAgent(params: {
   engine?: string;
   /** 已选 LoRA 文件名列表(Wan NSFW 注册表内条目触发词由后端确定性注入) */
   loras?: string[];
+  /** 风格预设 id(三层联动:后端注入预设上下文+底模方言,并路由预设 llm_layer) */
+  stylePreset?: string;
 }): Promise<{ optimized: string; negative: string | null }> {
-  const { prompt, kind, model, agentId, styleHint, engine, loras } = params;
+  const { prompt, kind, model, agentId, styleHint, engine, loras, stylePreset } = params;
   const res = await fetch(`${API_BASE}/api/optimize`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
@@ -235,6 +237,7 @@ export async function optimizeWithAgent(params: {
       ...(styleHint?.trim() ? { style_hint: styleHint.trim() } : {}),
       ...(engine ? { engine } : {}),
       ...(loras && loras.length > 0 ? { loras } : {}),
+      ...(stylePreset ? { style: stylePreset } : {}),
     }),
   });
   if (!res.ok) throw await parseErr(res, "优化失败");

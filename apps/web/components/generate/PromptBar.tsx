@@ -34,6 +34,10 @@ interface PromptBarProps {
   /** OptimizeButton 的 kind 映射(image/image_edit/video/audio)。 */
   optimizeKind: string;
   onOptimized: (text: string, negative?: string) => void;
+  /** 三层联动:当前选中的风格预设 id(优化时传后端注入预设上下文/方言) */
+  stylePreset?: string;
+  /** 三层联动:预设推荐的内置 skill id(OptimizeButton 智能预选,轻量可改) */
+  recommendedSkill?: string;
   canSubmit: boolean;
   isRunning: boolean;
   submitting: boolean;
@@ -65,6 +69,8 @@ export function PromptBar({
   onValueChange,
   optimizeKind,
   onOptimized,
+  stylePreset,
+  recommendedSkill,
   canSubmit,
   isRunning,
   submitting,
@@ -136,6 +142,8 @@ export function PromptBar({
                       .filter((n): n is string => typeof n === "string")
                   : undefined
               }
+              stylePreset={stylePreset}
+              recommendedSkill={recommendedSkill}
               onOptimized={onOptimized}
               disabled={disabled}
             />

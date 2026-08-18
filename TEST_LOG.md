@@ -2,6 +2,63 @@
 
 ---
 
+## LINKAGE-2026-08-18 · 三层联动整合:风格预设(模型层)×Skill(人格层)×优化提示词(语言层)
+
+**时间**: 2026-08-18(深夜)
+**类型**: 功能贯通(/goal 目标驱动;打破三功能信息孤岛,构建「风格上下文」贯通系统)
+
+### ① 架构与改动
+
+三层正交风格控制:预设=模型层(底模+采样怎么渲染)、Skill=人格层(什么视角描述画面)、
+优化=语言层(什么方言写提示词:FLUX 自然语言长句 / SDXL·Pony booru 标签)。
+
+**后端(app/routes/optimize.py + workflows/style_presets.py)**:
+- 新增 `_style_context_block(style_id)`:预设 label/定位/prompt_hint(必含要素)/推荐负向
+  注入 LLM 系统提示,块名【风格预设上下文】;
+- 预设底模补位方言:`effective_model = body.model or preset.ckpt_name`——用户没显式选
+  底模时,按预设 ckpt 判模型族方言(FLUX→自然语言 / pony→score_9 标签体系);
+- `_compose` 叠加顺序(优先级):style_hint(用户手打,最高)→ agent 人格 → 风格上下文 →
+  kind 基底(含模型族方言);无 style 不注入(向后兼容);
+- `_PRESET_SKILL_RECOMMENDATIONS` 36 项映射(预设→内置 skill 推荐,如 二次元→新海诚、
+  奇幻→dark_gothic、NSFW写实→nsfw_photographer),id 与 agents_seed 内置种子对齐校验;
+- `list_presets()` 补 6 联动字段:prompt_hint/negative_prompt/recommended_sampler/
+  recommended_scheduler/recommended_skill(回显与预选数据源)。
+
+**前端(web)**:
+- `lib/presetApply.ts`(新,纯函数):`presetParamPatch`——预设选中即时回显推荐
+  steps/cfg/sampler/scheduler/宽高到参数面板(所见即所得,可继续微调);负向仅空时回填;
+- GenerateView:style_preset 特判走 presetParamPatch;当前预设 id+推荐 skill 传 PromptBar;
+- PromptBar→OptimizeButton 透传 `stylePreset`(进 /api/optimize body 的 style 字段)+
+  `recommendedSkill`;
+- OptimizeButton:无全局默认智能体时,预设推荐 skill 置顶+「推荐」chip(预选非绑定,
+  有全局默认则尊重用户选择不覆盖);
+- types.ts StylePreset 补 7 联动字段(编译契约)。
+
+### ② TDD 与回归
+
+| 项 | 结果 |
+|----|------|
+| 后端新增测试(test_optimize 4 + test_style_presets 2) | 上下文注入/底模补方言(model 优先)/compose 顺序/llm_layer 路由 L3/推荐 skill 种子对齐/联动字段输出 |
+| pytest 全量 | **1836 passed** |
+| web 新增(stylePresetLinkage 7 + optimizePayload 2) | presetParamPatch 纯函数 + 源码接线断言 + style 透传/缺省不出现 |
+| web node:test | **402/402** |
+| tsc --noEmit | 零错误 |
+| ui_lint 门禁 | 通过(119 文件,10 软提醒) |
+| 干净构建(rm -rf .next) | 成功 |
+
+顺带修复上会话遗留:AudioView hideHeader 已退役 prop 传递(触发 TS2322)+ PageHeader
+未用 import + 过时注释(uiPolishViews 护栏测试本就断言此契约,尾巴文件收编)。
+
+### ③ 设计决策记录
+
+- **视频预设不做提交接入**:视频引擎走专用实例(ckpt 由引擎决定),预设自动套 ckpt 无
+  意义且提交端点无 style_preset 字段;视频预设保留在数据层供优化链路复用;
+- **推荐 skill 是预选非绑定**:用户已设全局默认智能体时尊重其选择;
+- **预设回显只写一次不锁定**:回显后用户微调任何参数均生效(后端仅在参数=默认值时
+  套预设,显式值优先,与 _submit_txt2img 语义一致)。
+
+---
+
 ## UI-FIX-2026-08-18C · 工作台页头整体移除(灵动岛即位置指示)
 
 **时间**: 2026-08-18(夜)

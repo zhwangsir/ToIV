@@ -578,6 +578,56 @@ ALL_PRESETS: dict[str, StylePreset] = {**_IMAGE_PRESETS, **_VIDEO_PRESETS}
 IMAGE_PRESET_IDS: tuple[str, ...] = tuple(_IMAGE_PRESETS.keys())
 VIDEO_PRESET_IDS: tuple[str, ...] = tuple(_VIDEO_PRESETS.keys())
 
+# ─────────────────────────────────────────────────────────────────────────────
+# 预设 → Skill 推荐映射(三层联动 2026-08-18)
+# 预设(模型层)选中后,优化提示词的 skill(人格层)下拉自动预选推荐项;空串 = 无推荐。
+# 仅为预选,用户可自由改选,不构成强制绑定。skill id 与 agents_seed.py 内置种子对齐。
+# ─────────────────────────────────────────────────────────────────────────────
+_PRESET_SKILL_RECOMMENDATIONS: dict[str, str] = {
+    # 写实类 → 写实摄影师/产品摄影人格
+    "realistic": "realist",
+    "photo": "realist",
+    "portrait": "realist",
+    "cinematic": "cinematic",
+    "product": "product",
+    "chinese_text": "minimal",
+    "commercial_design": "minimal",
+    # 二次元类 → 新海诚/吉卜力/二次元插画师
+    "anime": "shinkai",
+    "anime_soft": "ghibli",
+    "chibi": "anime",
+    "anime_high_quality": "shinkai",
+    "concept_art": "cyberpunk",
+    "fantasy": "dark_gothic",
+    # 极速/草稿类:追求速度,不需要风格人格
+    "turbo": "",
+    "draft": "",
+    # NSFW 类 → NSFW 摄影师/动漫向人格(R18 鉴权由 Agent.is_nsfw 门控)
+    "nsfw_realistic": "nsfw_photographer",
+    "nsfw_anime": "nsfw_anime",
+    "nsfw_pony": "nsfw_anime",
+    "nsfw_wai_shufflenoob": "nsfw_anime",
+    "nsfw_noobai_vpred": "nsfw_anime",
+    "nsfw_urpm": "nsfw_photographer",
+    # 短剧场景类
+    "ancient_chinese": "ink_wash",
+    "modern_urban": "cyberpunk",
+    "campus": "anime",
+    "luxury_business": "minimal",
+    "special_effects": "cyberpunk",
+    "horror_thriller": "dark_gothic",
+    "comedy_romantic": "polaroid",
+    "history_war": "film_noir",
+    "camera_movement": "cinematic",
+    "director_style": "cinematic",
+    # 视频类
+    "video_realistic": "cinematic",
+    "video_realistic_fast": "",
+    "video_anime": "shinkai",
+    "video_fast": "",
+    "video_i2v": "cinematic",
+}
+
 DEFAULT_IMAGE_PRESET = "chinese_text"
 DEFAULT_VIDEO_PRESET = "video_realistic_fast"
 
@@ -611,6 +661,11 @@ def list_presets(media: MediaType | None = None) -> list[dict]:
             "description": p.description,
             "recommended_steps": p.sampling.steps,
             "recommended_cfg": p.sampling.cfg,
+            "recommended_sampler": p.sampling.sampler,
+            "recommended_scheduler": p.sampling.scheduler,
+            "prompt_hint": p.prompt_hint,
+            "negative_prompt": p.negative_prompt,
+            "recommended_skill": _PRESET_SKILL_RECOMMENDATIONS.get(p.id, ""),
             "commercial_safe": p.commercial_safe,
             "llm_layer": p.llm_layer,
             "sfw_intent": p.sfw_intent,

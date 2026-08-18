@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-08-18T05:40:00+08:00",
+  "updated_at": "2026-08-18 11:23:26",
   "sync_baseline": {
     "id": "SYNC-2026-07-18",
     "type": "initial-sync",
@@ -1042,6 +1042,12 @@
         "task": "Mac Studio Phase 1 服务迁移（vLLM 停止、demucs-mlx、whisper.cpp）",
         "owner": "设备管家+子代理",
         "recheck": "2026-08-09 SSH 复核 studio01/02 服务 running + curl health 200",
+        "status": "done_verified"
+      },
+      {
+        "task": "三层联动整合(2026-08-18 /goal):风格预设×Skill×优化提示词贯通——预设上下文+底模方言注入优化 LLM、预设选中即时回显推荐参数、预设→skill 智能预选",
+        "owner": "主会话",
+        "recheck": "TEST_LOG LINKAGE-2026-08-18;pytest 1836 passed;web 402/402;tsc 零错;ui_lint 通过;干净构建成功",
         "status": "done_verified"
       }
     ],

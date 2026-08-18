@@ -64,3 +64,16 @@ test("空 loras 数组不透传(避免后端误解析为空选择语义)", async
   assert.equal(body.engine, "h3-t2v");
   assert.equal("loras" in body, false);
 });
+
+// ── 三层联动(2026-08-18):风格预设 id 透传 ─────────────────────────────
+
+test("stylePreset 透传为 style 字段(预设→优化联动)", async () => {
+  await optimizeWithAgent({ prompt: "雨夜城市", kind: "image", stylePreset: "cinematic" });
+  const body = fetchCalls[0].body;
+  assert.equal(body.style, "cinematic");
+});
+
+test("缺省 stylePreset 不出现在 body(向后兼容,无预设调用方 payload 不变)", async () => {
+  await optimizeWithAgent({ prompt: "湖", kind: "image" });
+  assert.equal("style" in fetchCalls[0].body, false);
+});

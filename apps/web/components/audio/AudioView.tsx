@@ -465,8 +465,7 @@ export function AudioView() {
   const [tab, setTab] = useState<AudioTab>("gen");
 
   return (
-    /* Film Atelier(P0-1):根容器补 .view-shell 节奏,页头不再贴左边缘;
-       2026-08-18:页头移除(灵动岛已指示板块),内嵌 GenerateView 亦无页头 */
+    /* Film Atelier(P0-1):根容器补 .view-shell 节奏,页头不再贴左边缘 */
     <div className="audio-view view-shell">
       {/* 2026-08-18 页头移除(灵动岛已指示当前板块):仅保留生成/编辑段控窄行 */}
       <div className="audio-mode-row">

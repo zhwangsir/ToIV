@@ -380,6 +380,32 @@ def _style_llm_layer(style_id: str | None) -> str:
     return layer if layer in ("L1", "L2", "L3", "L4") else "L1"
 
 
+def _style_context_block(style_id: str | None) -> str:
+    """三层联动(2026-08-18):把风格预设(模型层)的关键事实注入优化系统提示。
+
+    内容:预设名与定位描述 + prompt_hint(该风格必含要素) + 推荐负向参考。
+    生成「风格上下文」块,与用户 style_hint(最高优先级)/智能体人格(视角)正交叠加。
+    返回空串 = 无预设/预设无可用信息,不注入(向后兼容)。
+    """
+    if not style_id:
+        return ""
+    preset = ALL_PRESETS.get(style_id)
+    if not preset:
+        return ""
+    lines: list[str] = [f"【风格预设上下文】用户已选择风格预设「{preset.label}」"
+                        f"(目标底模:{preset.ckpt_name})。"]
+    if preset.description:
+        lines.append(f"预设定位:{preset.description}")
+    if preset.prompt_hint:
+        hint = preset.prompt_hint.strip().lstrip(",").strip()
+        lines.append(
+            f"该风格的必含画面要素(须自然融入 positive,不要逐字照抄成标签堆):{hint}"
+        )
+    if preset.negative_prompt:
+        lines.append(f"该风格推荐的 negative 参考:{preset.negative_prompt}")
+    return "\n".join(lines)
+
+
 async def _llm_text(system: str, prompt: str, layer: str = "L1") -> str:
     try:
         msg = await get_ctx().service("llm").chat_layered(
@@ -428,10 +454,16 @@ async def optimize_prompt(
     # 风格预设决定提示词优化的 LLM 层(预设写了 llm_layer 才分层,否则保持 L1)
     llm_layer = _style_llm_layer(body.style)
 
+    # 三层联动:预设的关键事实(必含要素/定位/推荐负向)注入系统提示;
+    # 预设的底模在用户未显式传 model 时补位方言判断(FLUX→自然语言 / pony→booru 标签)
+    style_ctx = _style_context_block(body.style)
+    preset_ckpt = ALL_PRESETS[body.style].ckpt_name if body.style in ALL_PRESETS else None
+    effective_model = body.model or preset_ckpt
+
     style_hint = (body.style_hint or "").strip()
 
     def _compose(base_system: str) -> str:
-        """用户风格描述(最高优先级) + 智能体主人格 + kind 系统提示(含模型族方言)。"""
+        """用户风格描述(最高优先级) + 智能体主人格 + 风格预设上下文 + kind 系统提示(含模型族方言)。"""
         parts: list[str] = []
         if style_hint:
             parts.append(
@@ -441,12 +473,14 @@ async def optimize_prompt(
             )
         if agent_prefix:
             parts.append(agent_prefix)
+        if style_ctx:
+            parts.append(style_ctx)
         parts.append(base_system)
         return "\n\n".join(parts)
 
     # 图像类:内容感知 + 模型族方言 —— 先判题材,再用目标模型母语产出正向 + 负面
     if body.kind in _IMAGE_SYSTEMS:
-        raw = await _llm_text(_compose(_image_system_for(body.kind, body.model)), body.prompt, layer=llm_layer)
+        raw = await _llm_text(_compose(_image_system_for(body.kind, effective_model)), body.prompt, layer=llm_layer)
         obj = _parse_json_obj(raw)
         if obj and obj.get("positive"):
             positive = str(obj["positive"]).strip().strip('"')

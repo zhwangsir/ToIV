@@ -48,6 +48,15 @@ export interface StylePreset {
   description: string;
   llm_layer: string;
   commercial_safe: boolean;
+  /** 三层联动(2026-08-18):回显与优化注入用字段 */
+  recommended_steps?: number | null;
+  recommended_cfg?: number | null;
+  recommended_sampler?: string | null;
+  recommended_scheduler?: string | null;
+  prompt_hint?: string;
+  negative_prompt?: string;
+  /** 预设选中后 OptimizeButton 智能预选的内置 skill id(空=无推荐) */
+  recommended_skill?: string;
 }
 
 export interface Txt2ImgParams {

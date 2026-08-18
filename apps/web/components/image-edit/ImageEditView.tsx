@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Field, Input, Select } from "@/components/ui/Input";
+import { PageHeader } from "@/components/ui/PageHeader";
 import {
   generateFaceDetailer,
   generateInpaint,
