@@ -80,6 +80,19 @@ test("assistant.css:霓虹扫描 + 环形 mask + 双回退", () => {
   assert.ok(css.includes(".av-overlay-close"), "关闭按钮样式缺失");
 });
 
+test("assistant.css:极光配色(多色柔和)——≥3 色彩带、无纯白硬头、双层柔辉光", () => {
+  const css = readSrc("app/styles/assistant.css");
+  const neon = css.slice(css.indexOf(".neon-edge::before"), css.indexOf("@keyframes neon-edge-sweep"));
+  // 多色极光板:琥珀/玫紫/靛/青/翡翠 至少命中 4 色
+  const palette = ["#fbbf24", "#e879f9", "#818cf8", "#22d3ee", "#34d399"];
+  const hits = palette.filter((c) => neon.includes(c));
+  assert.ok(hits.length >= 4, `多色极光配色不足(仅 ${hits.length} 色): ${hits.join(",")}`);
+  // 柔和:禁止纯白硬头(单色时代的 #fff 亮头)
+  assert.ok(!/#fff\s+\d+deg/.test(neon), "出现纯白硬头色标(应全彩柔和)");
+  // 双层柔辉光(非单束刺眼)
+  assert.ok((neon.match(/drop-shadow/g) ?? []).length >= 2, "双层柔辉光缺失");
+});
+
 /* ── ⑤ SkillMarketView 检索 ── */
 
 test("SkillMarketView:搜索+范围+R18 三条件客户端过滤", () => {
