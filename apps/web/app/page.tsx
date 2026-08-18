@@ -319,10 +319,11 @@ function HomeContent() {
   const [r18] = useR18Mode();
 
   // 全局快捷键:Cmd/Ctrl+K 唤起/收起 AI 助手浮层(底层常驻,任意视图之上)。
-  // 开启序列(2026-08-18):霓虹光沿页面边缘扫一圈(~640ms)→ 弹窗弹簧展开;
+  // 开启序列(2026-08-18):霓虹光沿页面边缘扫一圈(~1100ms,舒缓)→ 弹窗弹簧展开;
   // prefers-reduced-motion / 不支持 CSS.registerProperty 的浏览器直接开启(无动画)。
+  // 注意:NEON_MS 须与 assistant.css 的 neon-edge-sweep 时长保持一致。
   useEffect(() => {
-    const NEON_MS = 640;
+    const NEON_MS = 1100;
     const canNeon =
       typeof window !== "undefined" &&
       "registerProperty" in CSS &&

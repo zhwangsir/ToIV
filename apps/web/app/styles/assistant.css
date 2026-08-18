@@ -398,10 +398,12 @@
 }
 
 /* ── 霓虹边缘动画(2026-08-18):Cmd/Ctrl+K 开启序列 ──
-   多色柔和极光带沿视口边缘顺时针扫描一圈,约 640ms;扫描结束移除节点,
-   紧接 av-overlay 弹窗弹簧展开,构成「边缘点亮 → 汇聚成窗」的过渡叙事。
+   多色柔和极光带沿视口边缘顺时针扫描一圈,约 1100ms(舒缓从容,让色彩可读);
+   扫描结束移除节点,紧接 av-overlay 弹窗弹簧展开,构成「边缘点亮 → 汇聚成窗」
+   的过渡叙事。时长须与 page.tsx NEON_MS 保持一致。
    · 配色(暗底高级极光板,循扫描方向 头→尾):琥珀 → 玫紫 → 靛蓝 → 青 → 翡翠,
      全部 color-mix 降透明(22-55%),无纯白硬头 —— 柔和但旋转时色彩流动炫酷;
+   · 光芒:双层宽幅弥散辉光(大范围柔光晕染,非紧贴光带的细线辉光);
    · 跨浏览器:@property 角度插值经 JS CSS.registerProperty 注册
      (page.tsx 已探测,不支持/减弱动效时根本不渲染本节点);
      mask 环形裁切带 -webkit- 前缀兜底 Safari。z 低于浮层(--z-modal)。 */
@@ -410,8 +412,8 @@
   inset: 0;
   z-index: calc(var(--z-modal) - 1);
   pointer-events: none;
-  /* 边缘静息柔光晕(入场即亮,与扫描光同源的低调底衬) */
-  box-shadow: inset 0 0 28px color-mix(in oklab, var(--accent) 12%, transparent);
+  /* 边缘静息柔光晕(入场即亮,与扫描光同源的底衬;宽幅 44px 柔染) */
+  box-shadow: inset 0 0 44px color-mix(in oklab, var(--accent) 15%, transparent);
 }
 .neon-edge::before {
   content: "";
@@ -437,11 +439,12 @@
   -webkit-mask-composite: xor;
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   mask-composite: exclude;
-  animation: neon-edge-sweep 640ms var(--ease-standard) forwards;
-  /* 双层柔辉光(暖头一束 + 冷尾一片),强度收敛:柔和弥散而非刺眼高亮 */
+  /* 1100ms 舒缓扫描(page.tsx NEON_MS 同步),色彩流转清晰可感 */
+  animation: neon-edge-sweep 1100ms var(--ease-standard) forwards;
+  /* 双层宽幅柔辉光:暖头一束 + 冷尾大范围弥散 —— 光芒外扩明显但仍柔和无硬边 */
   filter:
-    drop-shadow(0 0 5px color-mix(in oklab, #e879f9 26%, transparent))
-    drop-shadow(0 0 14px color-mix(in oklab, #818cf8 16%, transparent));
+    drop-shadow(0 0 9px color-mix(in oklab, #e879f9 32%, transparent))
+    drop-shadow(0 0 26px color-mix(in oklab, #818cf8 20%, transparent));
 }
 @keyframes neon-edge-sweep {
   from {

@@ -93,6 +93,26 @@ test("assistant.css:极光配色(多色柔和)——≥3 色彩带、无纯白�
   assert.ok((neon.match(/drop-shadow/g) ?? []).length >= 2, "双层柔辉光缺失");
 });
 
+test("霓虹节奏与光芒幅度:CSS 扫描时长 = page NEON_MS,且 ≥1000ms 舒缓;辉光宽幅外扩", () => {
+  const css = readSrc("app/styles/assistant.css");
+  const page = readSrc("app/page.tsx");
+  // CSS 动画时长(唯一 neon-edge-sweep animation 行)
+  const m = css.match(/animation:\s*neon-edge-sweep\s+(\d+)ms/);
+  assert.ok(m, "扫描时长声明缺失");
+  const cssMs = Number(m![1]);
+  // page 侧 NEON_MS 常量
+  const p = page.match(/const NEON_MS = (\d+)/);
+  assert.ok(p, "NEON_MS 缺失");
+  const pageMs = Number(p![1]);
+  assert.equal(cssMs, pageMs, "CSS 扫描时长与 NEON_MS 不同步(弹窗展开时机错位)");
+  assert.ok(cssMs >= 1000, `扫描过快(${cssMs}ms < 1000ms),应为舒缓节奏`);
+  // 光芒幅度:主弥散辉光 ≥20px + 静息底衬 ≥36px(宽幅光晕,非细线辉光)
+  const neon = css.slice(css.indexOf(".neon-edge {"), css.indexOf("@keyframes neon-edge-sweep"));
+  const glows = [...neon.matchAll(/(?:drop-shadow\(0 0|box-shadow: inset 0 0) (\d+)px/g)].map((g) => Number(g[1]));
+  assert.ok(Math.max(...glows) >= 20, `主辉光幅度不足(最大 ${Math.max(...glows)}px < 20px)`);
+  assert.ok(/box-shadow: inset 0 0 (\d+)px/.test(neon) && Number(RegExp.$1) >= 36, "静息底衬光晕未宽幅化");
+});
+
 /* ── ⑤ SkillMarketView 检索 ── */
 
 test("SkillMarketView:搜索+范围+R18 三条件客户端过滤", () => {
