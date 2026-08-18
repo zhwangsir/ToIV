@@ -1,13 +1,29 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-08-19T14:20:00+08:00",
+  "updated_at": "2026-08-19T19:40:00+08:00",
   "sync_baseline": {
     "id": "SYNC-2026-07-18",
     "type": "initial-sync",
     "note": "项目状态初始化基线：首次建立 STATE.json / TEST_LOG.md 追踪，记录当前真实验证结果，不代表新里程碑完成。"
   },
   "health": {
+    "harness_m2_wired_2026_08_19": {
+      "status": "completed",
+      "scope": "子 Agent 编排正式接线:web_search 联网工具 + POST /api/agent/subagent 路由 + research 工具循环 + distill_skills 学习成长闭环",
+      "deliverables": [
+        "web_search 工具:websearch.py(DDG 免 key,UDDG 还原,enabled/proxy 双配置),TOOL_SCHEMAS+tool_seam 注册(工具 9→10),主助手与子代理共用;Mac 经 Clash 真机验证 3 条真实结果",
+        "路由:POST /api/agent/subagent(goal/max_tasks/learn)→202+run_id+events_url;拆解同步报错(422/502),执行后台 spawn(session/user 生命周期解耦);事件复用 /agent-team/agent-runs/{id}/events",
+        "research 工具循环:kind=research 默认 web_search/search_knowledge/model_qa/list_models 白名单,≤4 轮多轮换词深挖,结果回灌综合,达上限无工具收尾",
+        "学习闭环:distill_skills 产物→0-3 张个人技能卡(learned_*,graduation-cap,空壳过滤,Skill 市场可编辑/分享)+ learn 事件;_skills_context 升级注入属主个人技能——沉淀知识后续对话直接生效"
+      ],
+      "regression": "pytest 全量 1903 passed(test_agent_subagent_proto 11 例+test_harness_tools 契约同步);DDG 经代理真机联通",
+      "known_issues": [
+        "core 国内直连 DDG 大概率不通(web_search 友好降级不炸链路);需配 TOIV_WEB_SEARCH_PROXY(待用户定代理方案)"
+      ],
+      "next": "learn 卡 applies_to 细分;前端卡片页展示 learn 事件;技能去重",
+      "verified_at": "2026-08-19T19:40:00+08:00"
+    },
     "harness_m2_proto_2026_08_19": {
       "status": "completed",
       "scope": "可观测性埋点 + 子 Agent 编排原型(AgentRun 底座复用) + 压缩预算本地验证脚本",

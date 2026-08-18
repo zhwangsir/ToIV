@@ -144,6 +144,21 @@ TOOL_SCHEMAS = [
     {
         "type": "function",
         "function": {
+            "name": "web_search",
+            "description": "联网搜索(DuckDuckGo)。查平台知识库没有的新知识:最新模型/插件/LoRA 动态、行业趋势、事实核查、深度调研等。可多轮换关键词深挖。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "搜索关键词(一轮一个重点,想深挖就分多轮换词)"},
+                    "k": {"type": "integer", "description": "返回条数(1-8,默认 5)"},
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "run_workflow",
             "description": "提交一张自定义的 ComfyUI API 格式工作流图并展示产物。用于标准工具(generate_image/video/music)满足不了的定制需求(指定 seed/批量/特定模型/特殊节点组合)。搭图前务必先 search_knowledge 查配方与真实模型名。",
             "parameters": {
@@ -499,3 +514,7 @@ async def execute(
         name, args,
         {"pool": pool, "user": user, "session": session, "attachment": attachment},
     )
+
+
+# 联网搜索执行器(实现在 websearch.py;re-export 供 tool_seam._wrap 引用)
+from app.agent.websearch import exec_web_search  # noqa: E402,F401

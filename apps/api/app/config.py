@@ -95,6 +95,10 @@ class Settings(BaseSettings):
     agent_max_rounds: int = 12
     agent_context_budget: int = 24000
     agent_skills_topk: int = 3
+    # 联网搜索工具开关(DuckDuckGo 免 key;false 时 web_search 返回未启用文本)
+    web_search_enabled: bool = True
+    # 联网搜索出站代理(国内直连 DDG 不可达时配,如 http://127.0.0.1:7897;空=直连)
+    web_search_proxy: str = ""
 
     # Redis(限流/画布事件/worker 健康缓存共享状态)。生产 core 与 toiv-api 同机,
     # 仅监听 localhost 无密码。不可达时各调用方自动降级进程内存(见 services/redis_client.py)。

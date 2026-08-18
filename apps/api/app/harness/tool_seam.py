@@ -178,6 +178,8 @@ def builtin_tool_specs() -> list[ToolSpec]:
                  "模型百科问答(某模型是什么/怎么用/选型推荐;比 list_models 信息全)"),
         ToolSpec("search_knowledge", schema("search_knowledge"), _wrap(tools.exec_search_knowledge),
                  "检索平台知识库(ComfyUI 节点/工作流配方/模型/提示词)"),
+        ToolSpec("web_search", schema("web_search"), _wrap(tools.exec_web_search),
+                 "联网搜索(查平台没有的新知识:最新模型/插件/LoRA/行业动态/事实核查;可多轮换词深挖)"),
         ToolSpec("run_workflow", schema("run_workflow"), _wrap(tools.exec_run_workflow),
                  "提交自定义 ComfyUI 工作流图(标准工具满足不了时;搭图前先 search_knowledge 查配方与真实模型名)"),
     ]

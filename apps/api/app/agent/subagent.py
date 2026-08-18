@@ -54,8 +54,19 @@ _SUBAGENT_SYSTEM = """你是子代理「{title}」。
 
 上游产物(可直接引用):
 {upstream}
+{tool_hint}
+只做本任务范围内的事;完成后用简洁的结构化文本交付结果(要点/清单优先),不要寒暄。"""
 
-只做本任务范围内的事;完成后用 1-3 句话交付结果(纯文本),不要寒暄。"""
+# 工具循环配置:research 类任务默认工具集 + 最大轮数(每轮可多个调用)
+_RESEARCH_TOOLS = ["web_search", "search_knowledge", "model_qa", "list_models"]
+_SUB_MAX_TOOL_ROUNDS = 4
+
+_TOOL_HINT = """
+可用工具(按需调用,可多轮换关键词深挖;查完再综合输出):
+{tools}
+- 优先 web_search 联网查新知识;平台内模型/节点细节用 search_knowledge/model_qa。
+- 引用事实时标注来源 URL;查不到就明说,不要编造。
+"""
 
 # 默认并行度(每子任务一次 LLM 调用,IO 型;再高对 vLLM 排队不友好)
 _DEFAULT_CONCURRENCY = 3
@@ -105,29 +116,73 @@ def _upstream_context(task: dict, done_outputs: dict[str, str]) -> str:
     return "\n".join(f"[{d}] {done_outputs.get(d, '(上游无产物)')}" for d in deps)
 
 
-async def _run_subagent(task: dict, goal: str, done_outputs: dict[str, str]) -> str:
-    """阶段二单点:执行一个子任务(单轮 LLM;工具子集为原型简化——工具执行后续接)。"""
+async def _run_subagent(task: dict, goal: str, done_outputs: dict[str, str],
+                        tool_ctx: dict | None = None) -> str:
+    """阶段二单点:执行一个子任务。
+
+    工具循环:task.tools 非空、或 kind=research(默认联网调研集)时,子代理可
+    多轮调用工具(≤_SUB_MAX_TOOL_ROUNDS),达上限强制无工具收尾一轮。
+    tool_ctx:{pool,user,session}(路由层传入;单测可 None=纯 LLM)。
+    """
+    allowed = [t for t in (task.get("tools") or []) if isinstance(t, str)]
+    if not allowed and task.get("kind") == "research":
+        allowed = list(_RESEARCH_TOOLS)
+    tool_hint = _TOOL_HINT.format(tools="\n".join(f"- {t}" for t in allowed)) if allowed else ""
+
     system = _SUBAGENT_SYSTEM.format(
         title=task["title"], persona=task.get("persona") or "通用创作助手",
         instruction=task["instruction"], upstream=_upstream_context(task, done_outputs),
+        tool_hint=tool_hint,
     )
-    rsp = await get_ctx().service("llm").chat(
-        [{"role": "system", "content": system},
-         {"role": "user", "content": f"总目标:{goal}\n现在执行你的任务。"}],
-    )
+    llm = get_ctx().service("llm")
+    msgs: list[dict] = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": f"总目标:{goal}\n现在执行你的任务。"},
+    ]
+    if not allowed or tool_ctx is None:
+        rsp = await llm.chat(msgs)
+        out = (rsp.get("content") or "").strip()
+        logger.info("subagent.exec: id=%s kind=%s plain out_len=%d",
+                    task["_id"], task.get("kind"), len(out))
+        return out
+
+    reg = get_ctx().service("tools")
+    schemas = [s for s in reg.schemas() if s.get("function", {}).get("name") in allowed]
+    for rnd in range(1, _SUB_MAX_TOOL_ROUNDS + 1):
+        rsp = await llm.chat(msgs, tools=schemas)
+        calls = rsp.get("tool_calls") or []
+        content = rsp.get("content") or ""
+        if not calls:
+            logger.info("subagent.exec: id=%s kind=%s rounds=%d out_len=%d",
+                        task["_id"], task.get("kind"), rnd, len(content))
+            return content.strip() or "(空产出)"
+        msgs.append({"role": "assistant", "content": content, "tool_calls": calls})
+        for tc in calls:
+            fn = tc.get("function", {})
+            try:
+                args = json.loads(fn.get("arguments") or "{}")
+            except json.JSONDecodeError:
+                args = {}
+            text, _ = await reg.execute(fn.get("name", ""), args, tool_ctx)
+            msgs.append({"role": "tool", "tool_call_id": tc.get("id", ""), "content": text})
+    # 达轮次上限:无工具强制收尾
+    rsp = await llm.chat(msgs)
     out = (rsp.get("content") or "").strip()
-    logger.info("subagent.exec: id=%s kind=%s title_len=%d out_len=%d",
-                task["_id"], task["kind"], len(task["title"]), len(out))
-    return out
+    logger.info("subagent.exec: id=%s kind=%s capped out_len=%d",
+                task["_id"], task.get("kind"), len(out))
+    return out or "(达到工具轮次上限,未产出)"
 
 
 async def execute_run(
     run_id: str, session_factory, user: User, concurrency: int = _DEFAULT_CONCURRENCY,
+    tool_ctx: dict | None = None, learn: bool = False,
 ) -> AsyncIterator[dict]:
     """阶段二:按 DAG 调度执行(依赖就绪即跑,信号量控并行),产出事件流。
 
     session_factory:() -> Session(异步上下文里按需开短会话,不跨 await 持有)。
-    事件契约对齐 Agent Team:{type:plan|task_status|done|error}。
+    tool_ctx:{pool,user,session}——传入即启用子代理工具循环(联网调研)。
+    learn=True 且 run 成功时,结束后把产物提炼为技能卡(见 distill_skills)。
+    事件契约对齐 Agent Team:{type:plan|task_status|learn|done|error}。
     """
     with session_factory() as s:
         run = s.get(AgentRun, run_id)
@@ -155,7 +210,7 @@ async def execute_run(
             yield {"type": "error", "content": f"deadlock: {list(remaining)}"}
             return
         results = await asyncio.gather(
-            *(_run_one(sem, t, goal, done_outputs) for t in ready)
+            *(_run_one(sem, t, goal, done_outputs, tool_ctx) for t in ready)
         )
         for t, (ok, out) in zip(ready, results):
             tid = t["_id"]
@@ -177,17 +232,81 @@ async def execute_run(
                 {"status": "error", "error": f"failed: {failed}"})
             s.commit()
         return
+    # 学习沉淀(可选):产物 → 技能卡(个人技能,Skill 市场可编辑/分享)
+    if learn:
+        try:
+            with session_factory() as s:
+                learned = await distill_skills(s, user, goal, done_outputs)
+        except Exception as e:  # noqa: BLE001 —— 沉淀失败不影响 run 终态
+            logger.warning("subagent.distill.fail: run=%s err=%s", run_id, e)
+            yield {"type": "learn", "status": "error", "error": str(e)}
+        else:
+            yield {"type": "learn", "status": "done", "skills": learned}
     yield {"type": "done", "outputs": done_outputs}
     with session_factory() as s:
         s.query(AgentRun).filter(AgentRun.id == run_id).update({"status": "done"})
         s.commit()
 
 
-async def _run_one(sem: asyncio.Semaphore, task: dict, goal: str, done_outputs: dict):
+# ---------------------------------------------------------------------------
+# 学习成长闭环:run 产物 → 技能卡(Agent 表个人技能)
+# ---------------------------------------------------------------------------
+
+_DISTILL_SYSTEM = """你是知识沉淀器。把一次多任务协作的产物提炼为可复用的技能卡。
+只输出 JSON:
+{{"skills": [{{"name": "技能名(≤12字,如「水母主题提示词配方」)",
+  "description": "一句话简介,含适用场景关键词(供后续按用户消息匹配注入)",
+  "system_prompt": "完整人格/方法论 system prompt:如何复用本次沉淀的知识(要点式,含具体提示词模式/参数/来源结论)"}}]}}
+规则:0-3 张;没有值得沉淀的(如纯一次性执行)输出 {{"skills": []}};
+system_prompt 是核心资产,要具体可执行,不要空话;保留关键事实与来源。"""
+
+
+async def distill_skills(session: Session, user: User, goal: str,
+                         outputs: dict[str, str]) -> list[dict]:
+    """把 run 产物提炼成技能卡,落 Agent 表为用户个人技能。
+
+    返回 [{'id','name','description'}] 快照(dict,不返回 ORM——调用方
+    事件构造时对象可能已 detach)。闭环:learn 产出的技能卡在 Skill 市场
+    可见/可编辑/可分享;且属主对话时参与 _skills_context 匹配注入(见
+    runner)——AI 学到的东西会在后续对话中直接生效。
+    """
+    from app.models import Agent as SkillCard, _uid
+
+    digest = "\n\n".join(f"[{tid}] {out[:2500]}" for tid, out in outputs.items())[:9000]
+    rsp = await get_ctx().service("llm").chat(
+        [{"role": "system", "content": _DISTILL_SYSTEM},
+         {"role": "user", "content": f"总目标:{goal}\n\n各任务产物:\n{digest}"}],
+    )
+    raw = (rsp.get("content") or "").strip()
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[1].rsplit("```", 1)[0]
+    data = json.loads(raw)
+    cards: list[dict] = []
+    for c in (data.get("skills") or [])[:3]:
+        name = (c.get("name") or "").strip()[:24]
+        prompt = (c.get("system_prompt") or "").strip()
+        if not name or len(prompt) < 20:  # 过滤空壳卡
+            continue
+        card = SkillCard(
+            id=f"learned_{_uid()[:10]}", name=name, user_id=user.id,
+            description=(c.get("description") or "").strip()[:200],
+            system_prompt=prompt[:6000], applies_to="all", icon="graduation-cap",
+        )
+        session.add(card)
+        cards.append({"id": card.id, "name": name, "description": card.description})
+    if cards:
+        session.commit()
+    logger.info("subagent.distill: goal_len=%d outputs=%d skills=%d",
+                len(goal), len(outputs), len(cards))
+    return cards
+
+
+async def _run_one(sem: asyncio.Semaphore, task: dict, goal: str, done_outputs: dict,
+                   tool_ctx: dict | None = None):
     """信号量包裹的单任务执行;返回 (ok, out)。"""
     async with sem:
         try:
-            return True, await _run_subagent(task, goal, done_outputs)
+            return True, await _run_subagent(task, goal, done_outputs, tool_ctx)
         except Exception as e:  # noqa: BLE001 —— 子任务失败不拖垮整 run
             logger.warning("subagent.fail: id=%s err=%s", task.get("_id"), e)
             return False, str(e)

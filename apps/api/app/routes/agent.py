@@ -8,6 +8,7 @@ nsfw=True 会话仅 X-NSFW 上下文可见(对齐 Job 过滤语义)。
 """
 from __future__ import annotations
 
+import asyncio
 import json
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -16,7 +17,7 @@ from sqlalchemy import func
 from sqlmodel import Session, select
 from sse_starlette.sse import EventSourceResponse
 
-from app.agent import runner
+from app.agent import llm, runner
 from app.comfy.pool import WorkerPool
 from app.db import get_session
 from app.deps import get_current_user, get_pool
@@ -260,3 +261,57 @@ async def delete_agent_session(
     )
     session.commit()
     return {"ok": True}
+
+
+# --------------------------------------------------------------------------- #
+# 子 Agent 编排(M2:大需求拆解 DAG;复用 AgentRun 底座,事件经 /agent-runs 消费)
+# --------------------------------------------------------------------------- #
+class SubagentRequest(BaseModel):
+    goal: str = Field(min_length=4, max_length=2000)
+    max_tasks: int = Field(default=5, ge=2, le=8)
+    learn: bool = False  # 完成后把产物提炼为个人技能卡(Skill 市场可编辑/分享)
+
+
+@router.post("/agent/subagent", status_code=202)
+async def create_subagent_run(
+    body: SubagentRequest,
+    user: User = Depends(get_current_user),
+    pool: WorkerPool = Depends(get_pool),
+    session: Session = Depends(get_session),
+):
+    """大需求 → 子任务 DAG 后台执行(research 类子代理可联网调研)。
+
+    返回 run_id;进度/产物事件流复用现有 GET /api/agent-team/agent-runs/{id}/events
+    (同底座同归属校验)。learn=true 时 run 成功后自动沉淀 0-3 张个人技能卡。
+    """
+    enforce_generation_rate_limit(user)
+    from app.agent import subagent as sa
+
+    try:
+        run = await sa.create_run(session, user, body.goal, body.max_tasks)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=f"任务拆解失败:{e}") from e
+    except llm.LLMError as e:
+        raise HTTPException(status_code=502, detail=f"拆解模型不可用:{e}") from e
+
+    bind = session.get_bind()
+    owner_id = user.id
+
+    def _factory():
+        return Session(bind)
+
+    async def _drive() -> None:
+        """后台驱动:工具循环的 session/user 与请求生命周期解耦(独立会话重绑)。"""
+        with _factory() as tool_session:
+            fresh_user = tool_session.get(User, owner_id) or user
+            tool_ctx = {"pool": pool, "user": fresh_user, "session": tool_session}
+            async for _ in sa.execute_run(
+                run.id, _factory, fresh_user, tool_ctx=tool_ctx, learn=body.learn,
+            ):
+                pass
+
+    asyncio.create_task(_drive())
+    return {
+        "run_id": run.id, "status": run.status, "learn": body.learn,
+        "events_url": f"/api/agent-team/agent-runs/{run.id}/events",
+    }

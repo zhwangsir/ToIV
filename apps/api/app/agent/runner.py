@@ -107,11 +107,12 @@ _SKILL_PROMPT_MAX = 600
 
 
 def _skills_context(messages: list[dict], user: User, session: Session) -> str | None:
-    """Harness 化 M1:按最近用户消息从 Skill 市场匹配技能(公共/内置),注入人格要点。
+    """Harness 化:按最近用户消息从 Skill 市场匹配技能,注入人格要点。
 
+    匹配范围:公共/内置(user_id="")+ **属主自己的个人技能**——个人技能含
+    subagent learn 沉淀的学习卡,注入后 AI 学到的知识直接在对话生效(闭环)。
     匹配:技能名整体命中(权重 3)或描述词逐个命中(各 1),score≥2 入选,
-    取 top agent_skills_topk(0=关闭)。R18 技能仅在 R18 上下文注入;
-    个人技能不注入(属主人格属私人配置,助手不做代理人)。
+    取 top agent_skills_topk(0=关闭)。R18 技能仅在 R18 上下文注入。
     """
     topk = get_settings().agent_skills_topk
     if topk <= 0:
@@ -119,7 +120,9 @@ def _skills_context(messages: list[dict], user: User, session: Session) -> str |
     query = _last_user_msg(messages)
     if not query:
         return None
-    rows = session.exec(select(Agent).where(Agent.user_id == "")).all()
+    rows = session.exec(
+        select(Agent).where((Agent.user_id == "") | (Agent.user_id == user.id))
+    ).all()
     nsfw_ok = nsfw_allowed(user)
 
     def _score(a: Agent) -> int:

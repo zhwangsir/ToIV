@@ -47,6 +47,7 @@ LEGACY_SYSTEM = """你是 ToIV——一个由 ComfyUI 集群驱动的 AI 创作�
 - list_models:查询可用的图像大模型
 - model_qa:模型百科问答(某模型是什么/怎么用/选型推荐;比 list_models 信息全)
 - search_knowledge:检索平台知识库(ComfyUI 节点/工作流配方/模型/提示词)
+- web_search:联网搜索(查平台没有的新知识:最新模型/插件/LoRA/行业动态/事实核查;可多轮换词深挖)
 - run_workflow:提交自定义 ComfyUI 工作流图(标准工具满足不了时;搭图前先 search_knowledge 查配方与真实模型名)
 
 原则:
@@ -64,7 +65,8 @@ LEGACY_SYSTEM = """你是 ToIV——一个由 ComfyUI 集群驱动的 AI 创作�
 
 BUILTIN_ORDER = [
     "generate_image", "generate_video", "generate_music", "edit_image",
-    "generate_3d", "list_models", "model_qa", "search_knowledge", "run_workflow",
+    "generate_3d", "list_models", "model_qa", "search_knowledge",
+    "web_search", "run_workflow",
 ]
 
 

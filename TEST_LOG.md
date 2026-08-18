@@ -2,6 +2,38 @@
 
 ---
 
+## HARNESS-M2-2026-08-19 · 子 Agent 编排正式接线(路由+联网调研+学习闭环)
+
+**时间**: 2026-08-19(下午)
+**类型**: 后端(新工具/新端点);前端零改动(事件流复用 /agent-runs 现有端点)
+
+### ① 交付内容
+
+**web_search 联网工具**(主助手 + 子代理共用):[app/agent/websearch.py](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/api/app/agent/websearch.py) DuckDuckGo HTML 免 key(httpx 异步,12s 超时,失败返回友好文本不抛);UDDG 跳转链接还原;`TOIV_WEB_SEARCH_ENABLED`(关)与 `TOIV_WEB_SEARCH_PROXY`(国内出站代理)双配置;注册进 TOOL_SCHEMAS + tool_seam(工具清单 9→10,SYSTEM 工具段自动含)。
+
+**子 Agent 编排接线**:
+- 路由 [routes/agent.py](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/api/app/routes/agent.py) `POST /api/agent/subagent {goal, max_tasks=2..8, learn}` → 202 + run_id + events_url;生成限流;拆解同步(失败 422/502 明确报错),执行后台 spawn(session/user 与请求生命周期解耦);事件消费复用现有 `GET /api/agent-team/agent-runs/{id}/events`(同底座同归属)。
+- [subagent.py](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/api/app/agent/subagent.py) 工具循环:kind=research 或 task.tools 非空时子代理带工具多轮调用(≤4 轮,达上限无工具强制收尾);research 默认工具集 web_search/search_knowledge/model_qa/list_models;工具结果回灌 LLM 再综合。
+
+**学习成长闭环**(AI 越用越强):
+- `distill_skills()`:run 成功后 learn=true 把各任务产物经 LLM 提炼为 0-3 张技能卡(name/description/system_prompt),落 Agent 表为**个人技能**(id=learned_*,icon=graduation-cap,空壳卡过滤);Skill 市场可见/可编辑/可分享;事件流新增 `learn` 事件(失败不影响 run 终态)。
+- [runner.py](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/api/app/agent/runner.py) `_skills_context` 匹配范围升级:公共/内置 + **属主个人技能**——learn 沉淀的知识在后续对话按消息命中直接注入 system,闭环生效(低分不注入,与 M1 断言兼容)。
+
+### ② TDD 与验证
+
+- [test_agent_subagent_proto.py](file:///Users/wangzhenyu/Desktop/ALLProject/ToIV/apps/api/tests/test_agent_subagent_proto.py) 4→11 例:research 工具循环(schema 注入/tool 执行/结果回灌/综合产出)/distill 落库+空壳过滤+dict 快照/learn 事件/路由 202+events_url+后台落库/短 goal 422/未认证 401/websearch URL 还原+关停文本;
+- **联网真机验证**:Mac 经 Clash 代理 `duckduckgo_search('ComfyUI FLUX')` 真实返回 3 条(docs.comfy.org Flux.2 Dev 等);直连被墙(国内网络预期行为);
+- 契约同步:test_harness_tools LEGACY_SYSTEM/BUILTIN_ORDER 补 web_search(9→10);
+- 全量回归 **1903 passed**(1896+7 净增);
+- 踩坑:① distill 返回 ORM 对象跨会话 DetachedInstanceError——改返回 dict 快照;② 路由后台 task 的 user 须在新会话重绑(`tool_session.get(User, owner_id)`);③ subagent 测试的 mock ctx 缺 tools 服务致 research 子任务失败——RouteCtx 双服务。
+
+### ③ 已知限制与后续
+
+- core(国内)直连 DDG 大概率不通:web_search 返回友好降级文本不炸链路;需联网调研时给 core 配 `TOIV_WEB_SEARCH_PROXY`(待用户确认代理方案);
+- 后续:learn 卡的 applies_to 细分(按产物类型)、前端 AgentRun 卡片页展示 learn 事件、技能去重(同名合并)。
+
+---
+
 ## HARNESS-M2-PROTO-2026-08-19 · 核心流程日志埋点 / 子 Agent 编排原型(AgentRun 底座复用) / 压缩预算本地验证脚本
 
 **时间**: 2026-08-19(午)
