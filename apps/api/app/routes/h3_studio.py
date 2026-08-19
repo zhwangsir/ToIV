@@ -132,7 +132,12 @@ def _resolve_plan(req: H3T2VRequest) -> DurationPlan:
 def _route_extend_submit(
     *, client, req: H3T2VRequest, user: User, seed0: int, nsfw: bool,
 ):
-    """extend 续段提交(路由链路:末帧 i2v,段作业登记 kind=h3_extend_i2v 并进作品库)。"""
+    """extend 续段提交(路由链路:末帧 i2v,段作业登记 kind=h3_extend_i2v 并进作品库)。
+
+    后台链执行时机晚于请求生命周期:闭包只捕获 user_id,回调内以独立会话
+    重取 User,避免 DetachedInstanceError(同 ltx25 2026-08-19 修复)。
+    """
+    owner_id = user.id  # 请求期内取值(安全)
     loras = tuple(LoraSpec(name=l.name, weight=l.strength) for l in req.loras)
 
     async def _submit(frame_bytes: bytes, frames: int, idx: int) -> str:
@@ -151,9 +156,10 @@ def _route_extend_submit(
         )
         graph = build_h3_i2v_graph(p)
         with Session(db_engine) as s2:
+            fresh_user = s2.get(User, owner_id) or user
             res = await h3_service.submit_h3_job(
                 graph, kind="h3_extend_i2v", positive=p.positive, seed=p.seed,
-                req=req, user=user, session=s2, client=client, nsfw=nsfw,
+                req=req, user=fresh_user, session=s2, client=client, nsfw=nsfw,
             )
         return res["prompt_id"]
 

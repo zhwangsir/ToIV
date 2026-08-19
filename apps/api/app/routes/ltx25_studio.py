@@ -118,7 +118,14 @@ def _resolve_plan(req: Ltx25T2VRequest) -> DurationPlan:
 def _route_extend_submit(
     *, client, req: Ltx25T2VRequest, user: User, seed0: int,
 ):
-    """extend 续段提交(路由链路:末帧 i2v,strength=1.0 硬锁末帧;段作业登记 kind=ltx25_extend_i2v)。"""
+    """extend 续段提交(路由链路:末帧 i2v,strength=1.0 硬锁末帧;段作业登记 kind=ltx25_extend_i2v)。
+
+    后台链执行时机晚于请求生命周期:闭包只捕获 user_id,回调内以独立会话
+    重取 User,避免 DetachedInstanceError(2026-08-19 生产实例:extend 链在
+    请求 session 关闭后访问 expired user 崩溃,降级只剩第一段)。
+    """
+    owner_id = user.id  # 请求期内取值(安全)
+
     async def _submit(frame_bytes: bytes, frames: int, idx: int) -> str:
         image_name = await client.upload_image(frame_bytes, f"ltx25_ext_{uuid.uuid4().hex}.jpg")
         p = Ltx25I2VParams(
@@ -136,9 +143,10 @@ def _route_extend_submit(
         )
         graph = build_ltx25_i2v_graph(p)
         with Session(db_engine) as s2:
+            fresh_user = s2.get(User, owner_id) or user
             res = await ltx25_service.submit_ltx25_job(
                 graph, kind="ltx25_extend_i2v", positive=p.positive, seed=p.seed,
-                req=req, user=user, session=s2, client=client,
+                req=req, user=fresh_user, session=s2, client=client,
             )
         return res["prompt_id"]
 
