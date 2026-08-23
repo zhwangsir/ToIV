@@ -8,6 +8,7 @@ import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Field, Input, Select } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { AssetPicker, type PickedAsset } from "@/components/generate/AssetPicker";
 import {
   generateFaceDetailer,
   generateInpaint,
@@ -45,7 +46,8 @@ interface ProcessState {
 }
 
 interface UploadedImage {
-  file: File;
+  /** 本地上传的原文件;从作品库选取时为 null(预览走签名产物 URL) */
+  file: File | null;
   filename: string;
   worker: string;
   previewUrl: string;
@@ -140,12 +142,14 @@ function isValidImage(file: File): boolean {
 
 interface DropZoneProps {
   onUpload: (file: File) => void;
+  /** 打开作品库选择器(二次创作:直接用已生成的图) */
+  onPickLibrary: () => void;
   uploading: boolean;
   error: string | null;
   onClearError: () => void;
 }
 
-function DropZone({ onUpload, uploading, error, onClearError }: DropZoneProps) {
+function DropZone({ onUpload, onPickLibrary, uploading, error, onClearError }: DropZoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
 
@@ -212,6 +216,16 @@ function DropZone({ onUpload, uploading, error, onClearError }: DropZoneProps) {
       {error && (
         <ErrorBar className="ie-error" message={error} onClose={onClearError} />
       )}
+      <Button
+        size="sm"
+        variant="secondary"
+        className="ie-library-pick"
+        icon={<Icon name="image" size={14} />}
+        onClick={onPickLibrary}
+        disabled={uploading}
+      >
+        从作品库选择
+      </Button>
     </div>
   );
 }
@@ -424,6 +438,8 @@ export function ImageEditView() {
   const [qwenPositive, setQwenPositive] = useState("");
   const [qwenCamera, setQwenCamera] = useState<string>("");
   const [qwenSpeed, setQwenSpeed] = useState<string>("fast");
+  // 作品库选图(二次创作):AssetPicker 转运句柄与上传产物同构,直接灌 source
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const [proc, setProc] = useState<ProcessState>({
     status: "idle",
@@ -460,12 +476,25 @@ export function ImageEditView() {
   }, []);
 
   const resetSource = useCallback(() => {
-    if (source?.previewUrl) URL.revokeObjectURL(source.previewUrl);
+    // 只 revoke 本地上传的 blob: URL;作品库选取的 previewUrl 是签名 HTTP URL,revoke 无意义
+    if (source?.previewUrl.startsWith("blob:")) URL.revokeObjectURL(source.previewUrl);
     setSource(null);
     setUploadError(null);
     setProc({ status: "idle", tool: null, progress: null, resultUrl: null, resultPaths: [], error: null });
     stopTracking();
   }, [source, stopTracking]);
+
+  /** 从作品库选图:转运完成即设为源图(与上传产物同构:PickedAsset={filename,worker,previewUrl,name})。 */
+  const handlePickLibrary = useCallback(
+    (a: PickedAsset) => {
+      if (source?.previewUrl.startsWith("blob:")) URL.revokeObjectURL(source.previewUrl);
+      setSource({ file: null, filename: a.filename, worker: a.worker, previewUrl: a.previewUrl, name: a.name });
+      setUploadError(null);
+      setProc({ status: "idle", tool: null, progress: null, resultUrl: null, resultPaths: [], error: null });
+      setPickerOpen(false);
+    },
+    [source],
+  );
 
   const handleUpload = useCallback(
     async (file: File) => {
@@ -615,6 +644,7 @@ export function ImageEditView() {
       {!source ? (
         <DropZone
           onUpload={handleUpload}
+          onPickLibrary={() => setPickerOpen(true)}
           uploading={uploading}
           error={uploadError}
           onClearError={() => setUploadError(null)}
@@ -783,6 +813,15 @@ export function ImageEditView() {
           </div>
         </>
       )}
+
+      {/* 作品库选图(二次创作):转运产物到目标 worker 的 input,句柄直接灌 source */}
+      <AssetPicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        assetType="image"
+        kind="img2img"
+        onPick={handlePickLibrary}
+      />
 
       {/* DropZone/ToolCard 等子组件在主组件之外定义,styled-jsx 作用域属性不会传递,必须用 global(ie- 前缀类名全项目唯一) */}
       <style jsx global>{`

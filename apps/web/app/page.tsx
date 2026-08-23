@@ -590,14 +590,14 @@ function HomeContent() {
   const meta = VIEW_META[view];
 
   // M9:R18 模式追加「短剧」导航项 —— 灵动岛插到「融合」后,底部「更多」插到「创作」后
-  const islandItems: CornerNavItem[] = r18
+  let islandItems: CornerNavItem[] = r18
     ? [
         ...ISLAND_ITEMS.slice(0, 5),
         { key: "drama", label: "短剧", icon: "clapperboard" },
         ...ISLAND_ITEMS.slice(5),
       ]
     : ISLAND_ITEMS;
-  const bottomNavMoreItems: BottomNavItem[] = r18
+  let bottomNavMoreItems: BottomNavItem[] = r18
     ? [
         ...BOTTOM_NAV_MORE_ITEMS.slice(0, 5),
         { key: "drama", label: "短剧", icon: "clapperboard" },
@@ -610,9 +610,12 @@ function HomeContent() {
     label: "观测",
     icon: "monitor",
   };
+  // 注意:ISLAND_ITEMS / BOTTOM_NAV_MORE_ITEMS 是模块级常量,r18 分支的 slice 拼接
+  // 产生新数组,非 r18 分支是同一引用——必须再复制一层才能 push,否则每次渲染
+  // 都往共享常量里追加,菜单重复(2026-08-24「观测」×7 实证)。
   if (isAdmin) {
-    islandItems.push(observabilityItem);
-    bottomNavMoreItems.push(observabilityItem);
+    islandItems = [...islandItems, observabilityItem];
+    bottomNavMoreItems = [...bottomNavMoreItems, observabilityItem];
   }
 
   if (auth === "loading") {

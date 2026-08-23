@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon } from "@/components/ui/Icon";
 import { Field, Input, Select, Textarea } from "@/components/ui/Input";
+import { AssetPicker, type PickedAsset } from "@/components/generate/AssetPicker";
 import { useAutoResize } from "@/hooks/useAutoResize";
 import { usePoll } from "@/hooks/usePoll";
 import {
@@ -100,6 +101,8 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
 
   const imgInputRef = useRef<HTMLInputElement | null>(null);
   const audInputRef = useRef<HTMLInputElement | null>(null);
+  // 作品库选取(二次创作):非 null 即打开对应类型的 AssetPicker
+  const [pickerFor, setPickerFor] = useState<"image" | "audio" | null>(null);
 
   // 引擎可用性:进入即拉取 + 30s 轮询(同 GenerateView;avatar-talk 不可用时禁提交)
   usePoll(
@@ -131,6 +134,22 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
       return uploadImage(file, "avatar", false, pinWorker);
     },
     [],
+  );
+
+  /** 从作品库选取:PickedAsset 与 UploadedFile 同构;音频时长未知留空(不影响提交)。 */
+  const handlePickAsset = useCallback(
+    (a: PickedAsset) => {
+      const file = { filename: a.filename, worker: a.worker, name: a.name, previewUrl: a.previewUrl };
+      if (pickerFor === "image") {
+        setImage(file);
+        setImgError(null);
+      } else if (pickerFor === "audio") {
+        setAudio(file);
+        setAudError(null);
+      }
+      setPickerFor(null);
+    },
+    [pickerFor],
   );
 
   async function onImageFile(file: File | undefined) {
@@ -378,16 +397,27 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
                   />
                 </div>
               ) : (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  loading={imgUploading}
-                  icon={<Icon name="upload" size={14} />}
-                  disabled={gen.isRunning}
-                  onClick={() => imgInputRef.current?.click()}
-                >
-                  {imgUploading ? "上传中…" : "上传人像图"}
-                </Button>
+                <div style={{ display: "flex", gap: "var(--space-2)" }}>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    loading={imgUploading}
+                    icon={<Icon name="upload" size={14} />}
+                    disabled={gen.isRunning}
+                    onClick={() => imgInputRef.current?.click()}
+                  >
+                    {imgUploading ? "上传中…" : "上传人像图"}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon={<Icon name="image" size={14} />}
+                    disabled={gen.isRunning}
+                    onClick={() => setPickerFor("image")}
+                  >
+                    作品库
+                  </Button>
+                </div>
               )}
               <input
                 ref={imgInputRef}
@@ -428,16 +458,27 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
                   <audio src={audio.previewUrl} controls className="at-gen-audio-player" />
                 </div>
               ) : (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  loading={audUploading}
-                  icon={<Icon name="upload" size={14} />}
-                  disabled={gen.isRunning}
-                  onClick={() => audInputRef.current?.click()}
-                >
-                  {audUploading ? "上传中…" : "上传音频"}
-                </Button>
+                <div style={{ display: "flex", gap: "var(--space-2)" }}>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    loading={audUploading}
+                    icon={<Icon name="upload" size={14} />}
+                    disabled={gen.isRunning}
+                    onClick={() => audInputRef.current?.click()}
+                  >
+                    {audUploading ? "上传中…" : "上传音频"}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon={<Icon name="audio" size={14} />}
+                    disabled={gen.isRunning}
+                    onClick={() => setPickerFor("audio")}
+                  >
+                    作品库
+                  </Button>
+                </div>
               )}
               <input
                 ref={audInputRef}
@@ -658,6 +699,16 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
           )}
         </div>
       </div>
+
+      {/* 作品库选取(人像/音频);钉住另一文件所在 worker,防跨机 */}
+      <AssetPicker
+        open={pickerFor !== null}
+        onClose={() => setPickerFor(null)}
+        assetType={pickerFor ?? "image"}
+        kind="avatar"
+        pinWorker={pickerFor === "image" ? audio?.worker : image?.worker}
+        onPick={handlePickAsset}
+      />
     </>
   );
 }

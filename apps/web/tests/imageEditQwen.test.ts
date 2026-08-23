@@ -57,3 +57,30 @@ test("api.ts:generateQwenEdit 路径与字段", () => {
   assert.ok(fn.includes("camera: params.camera"), "camera 未提交");
   assert.ok(fn.includes("fast: params.fast"), "fast 未提交");
 });
+
+/* ── ④ 作品库选图(2026-08-24,二次创作) ── */
+test("ImageEditView:作品库选图接 AssetPicker,转运句柄灌 source", () => {
+  const src = readSrc("components/image-edit/ImageEditView.tsx");
+  assert.ok(src.includes("AssetPicker"), "未引入 AssetPicker");
+  assert.ok(src.includes("从作品库选择"), "DropZone 缺作品库入口");
+  assert.ok(src.includes("handlePickLibrary"), "缺选图回调");
+  assert.ok(src.includes('assetType="image"'), "选择器类型应为 image");
+  // blob 守卫:作品库选取的签名 URL 不可 revoke
+  assert.ok(src.includes('startsWith("blob:")'), "缺 blob: revoke 守卫");
+});
+
+test("AvatarGenPanel:人像/音频均可从作品库选取,钉住对方 worker", () => {
+  const src = readSrc("components/avatartalk/AvatarGenPanel.tsx");
+  assert.ok(src.includes("AssetPicker"), "未引入 AssetPicker");
+  assert.ok(src.includes("pickerFor"), "缺 pickerFor 状态");
+  assert.ok(src.includes('setPickerFor("image")') && src.includes('setPickerFor("audio")'), "缺两类入口");
+  assert.ok(src.includes('kind="avatar"'), "选择器 kind 应为 avatar");
+  assert.ok(src.includes("pinWorker"), "缺同机钉定");
+});
+
+test("page.tsx:灵动岛导航不突变模块级常量(观测重复 bug 回归)", () => {
+  const src = readSrc("app/page.tsx");
+  assert.ok(!src.includes("islandItems.push("), "islandItems 不得 push 突变(2026-08-24 观测×7)");
+  assert.ok(!src.includes("bottomNavMoreItems.push("), "bottomNavMoreItems 不得 push 突变");
+  assert.ok(src.includes("[...islandItems, observabilityItem]"), "admin 观测项应复制后追加");
+});
