@@ -19,7 +19,7 @@ def required_models(kind: str) -> set[str]:
     if kind == "hunyuan_video":
         p = HunyuanI2VParams(positive="", image="")
         return {p._model_name, p._vae_name, p._lora_name}
-    if kind == "threed":
+    if kind in ("threed", "hunyuan3d"):  # hunyuan3d:前端上传 kind;threed:agent/optimize 侧别名
         return {Hunyuan3DParams(image="").ckpt_name}
     if kind == "img2img":
         return {Txt2ImgParams(positive="").ckpt_name}
@@ -42,6 +42,9 @@ def required_models(kind: str) -> set[str]:
     # Wan Animate(参考图+驱动视频)/ VACE(多参考图):同 avatar 转运模式,
     # 上传 worker 只需能存文件,提交时转运到 :8197 实例 input 目录。
     if kind in ("wan_animate", "wan_vace"):
+        return set()
+    # Wan-Animate-2:同一转运模式,提交时转运到 :8199 实例 input 目录。
+    if kind == "wan_animate2":
         return set()
     if kind == "ltx_lipsync":
         p = LtxLipsyncParams(positive="", image="", audio="")
@@ -76,6 +79,11 @@ def required_nodes(kind: str) -> set[str]:
         }
     if kind == "hunyuan_video":
         return {"DownloadAndLoadHyVideoTextEncoder", "HyVideoModelLoader", "HyVideoVAELoader", "HyVideoI2VEncode", "HyVideoSampler", "HyVideoDecode", "VHS_VideoCombine"}
+    # Hunyuan3D 图生3D:Hy3D 自定义节点链,上传/选 worker 须钉到装有节点的实例
+    if kind in ("threed", "hunyuan3d"):
+        return {"ImageOnlyCheckpointLoader", "LoadImage", "CLIPVisionEncode",
+                "Hunyuan3Dv2Conditioning", "EmptyLatentHunyuan3Dv2", "KSampler",
+                "VAEDecodeHunyuan3D", "VoxelToMeshBasic", "SaveGLB"}
     if kind == "frame_interpolate":
         return {"FrameInterpolationModelLoader", "FrameInterpolate", "VHS_LoadVideo", "VHS_VideoCombine"}
     # 抠图去背:ComfyUI_essentials rembg 节点链(仅 workstation ComfyUI 安装,上传/生成须钉到具备节点的 worker)

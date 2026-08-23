@@ -59,6 +59,7 @@ ToIV 的“文生视频”一般先文生底图，再用 Wan 驱动其运动；W
 | `flux2_dev_fp8mixed.safetensors` | Flux.2 Dev。 |
 | `flux-2-klein-4b.safetensors` | Flux.2 Klein 4B。 |
 | `z_image_turbo_bf16.safetensors` | Z-Image Turbo。 |
+| `z_image_bf16.safetensors` | Z-Image Base（非蒸馏质量档，CFG≈4/30 步/负向有效，LoRA 训练正确底座）。 |
 | `qwen_image_fp8_e4m3fn.safetensors` | Qwen-Image。 |
 | `wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors` | Wan 2.2 t2v low noise。 |
 | `wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors` | Wan 2.2 t2v high noise。 |
@@ -105,6 +106,7 @@ ToIV 的“文生视频”一般先文生底图，再用 Wan 驱动其运动；W
 | 模型 | 说明 |
 |------|------|
 | `pixel_art_style_z_image_turbo.safetensors` | 像素艺术 |
+| `zimage_i2l_flatvector_smoke.safetensors` | i2L 平涂矢量风（Z-Image base/turbo 通用，图→LoRA 冒烟实证产物） |
 | `wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors` | Wan i2v 4 步加速 low noise |
 | `wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors` | Wan i2v 4 步加速 high noise |
 | `wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors` | Wan t2v 4 步加速 low noise |

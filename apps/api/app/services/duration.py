@@ -55,6 +55,8 @@ _ENGINE_SPECS: dict[str, EngineDurationSpec] = {
                                   context_notice_frames=241),
     # Wan2.2-Animate:4k+1 ∈[17,501]
     "animate": EngineDurationSpec(17, 501, (4, 1), 16, extend_max_sec=None),
+    # Wan-Animate-2(原生节点 :8199):4k+1 ∈[17,501],与 v1 同一时序网格
+    "animate2": EngineDurationSpec(17, 501, (4, 1), 16, extend_max_sec=None),
     # Wan2.1-VACE:4k+1 ∈[17,241]
     "vace": EngineDurationSpec(17, 241, (4, 1), 16, extend_max_sec=None),
     # LongCat-Avatar:4k+1 ∈[17,2500](图内多段,无需外层续写)

@@ -290,6 +290,7 @@ def test_fit_resolution_square_sdxl_is_1024():
         "flux1-dev-fp8.safetensors",
         "qwen_image_fp8.safetensors",
         "z_image_turbo_fp8.safetensors",
+        "z_image_bf16.safetensors",
     ],
 )
 def test_fit_resolution_nextgen_portrait_both_dims_above_1024(name: str):

@@ -130,6 +130,11 @@ _FAMILY_GUIDANCE: dict[str, str] = {
         "目标模型是 Z-Image(次世代极速)。positive 用**简洁自然语言**清晰描述画面重点"
         "(主体/环境/光线/风格),不必冗长。**禁止**质量词/标签堆砌;negative 失效,留空。"
     ),
+    "z_image_base": (
+        "目标模型是 Z-Image 非蒸馏底座(次世代质量档,真 CFG 有效)。positive 用**流畅自然语言**"
+        "详细描述画面(主体/动作/环境/光线/镜头/氛围),语序清晰;**禁止**质量词/标签堆砌。"
+        "该模型 negative **有效**,negative 给一段简洁英文负向(排除瑕疵/畸变/低质),不必冗长。"
+    ),
     "sd15": (
         "目标模型是 SD1.5。positive 用逗号标签 + 强质量词"
         "(masterpiece, best quality, highly detailed, sharp focus);"

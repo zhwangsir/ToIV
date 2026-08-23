@@ -451,7 +451,8 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
   const canSubmit =
     !!engine &&
     engine.available &&
-    positive.trim().length > 0 &&
+    // wan-animate-2 提示词可留空(后端自动反推参考图外观 caption,官方提示词要求)
+    (engine.id === "wan-animate-2" || positive.trim().length > 0) &&
     !gen.isRunning &&
     !submitting &&
     (!imageParam || (multiImage ? refImages.length > 0 : !!refImage)) &&
@@ -602,9 +603,11 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
             ? "ltx_lipsync"
             : engine?.id === "wan-animate"
               ? "wan_animate"
-              : engine?.id === "wan-vace"
-                ? "wan_vace"
-                : "ltx_i2v";
+              : engine?.id === "wan-animate-2"
+                ? "wan_animate2"
+                : engine?.id === "wan-vace"
+                  ? "wan_vace"
+                  : "ltx_i2v";
 
   return (
     <div className="generate-view">

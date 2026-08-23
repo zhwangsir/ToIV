@@ -56,6 +56,7 @@ from app.routes import (
     reference_assets,
     reverse,
     score,
+    scope,
     studio,
     system,
     threed,
@@ -143,6 +144,10 @@ async def lifespan(app: FastAPI):
     from app.services import bestof as bestof_svc
 
     bestof_svc.reconcile_interrupted()
+    # SCoPE 运镜作业收口:后台任务是进程内的,api 重启后 queued/running 标 error
+    from app.routes import scope as scope_routes
+
+    scope_routes.reconcile_interrupted()
     # R3.2 Agent Team 断点续跑:api 重启后,running 的 run 从 LangGraph checkpoint
     # 续跑(无 checkpoint 则幂等重放,已完成任务节点自查跳过);
     # awaiting_assembly 的 run 正挂确认门等用户裁决,不自动推进;单 run 失败标 error 不拖垮启动
@@ -370,6 +375,7 @@ def create_app() -> FastAPI:
         longcat_studio,
         avatar_studio,
         wan_studio,
+        scope,
         safety,
     ):
         app.include_router(module.router, prefix="/api")

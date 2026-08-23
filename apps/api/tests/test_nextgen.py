@@ -25,6 +25,7 @@ from app.workflows.nextgen import (
 
 QWEN = "qwen_image_fp8_e4m3fn.safetensors"
 ZIMG = "z_image_turbo_bf16.safetensors"
+ZIMG_BASE = "z_image_bf16.safetensors"
 FLUX2 = "flux-2-klein-4b.safetensors"
 SD15 = "DreamShaper_8_pruned.safetensors"
 
@@ -45,6 +46,7 @@ def _by_type(graph: dict, ctype: str) -> dict:
     [
         (QWEN, "qwen_image"),
         (ZIMG, "z_image"),
+        (ZIMG_BASE, "z_image_base"),
         (FLUX2, "flux2"),
         (SD15, "sd15"),
         ("ponyDiffusionV6XL.safetensors", "pony"),
@@ -73,6 +75,12 @@ def test_distilled_families_force_cfg1_no_negative():
     assert 2.0 <= pq.cfg <= 5.0
     assert pq.neg_prompt is True
     assert pq.scheduler == "simple"
+    # Z-Image **非蒸馏底座**:真 CFG≈4 + 负向有效 + euler+simple + 30 步质量档
+    pz = profile_for(ZIMG_BASE)
+    assert pz.cfg == 4.0
+    assert pz.neg_prompt is True
+    assert pz.sampler == "euler" and pz.scheduler == "simple"
+    assert pz.steps == 30
     # 传统族保留常规 CFG + 负向
     assert profile_for(SD15).neg_prompt is True
     assert profile_for(SD15).cfg > 1.0
@@ -92,6 +100,23 @@ def test_zimage_graph_uses_zimage_encoder_and_res_multistep():
     assert "CLIPTextEncode" not in t  # Z-Image 走专用编码节点
     ks = _by_type(g, "KSampler")
     assert ks["cfg"] == 1.0 and ks["sampler_name"] == "res_multistep"
+
+
+def test_zimage_base_graph_shares_zimage_recipe_with_negative():
+    """z_image_base 与 turbo 共用图配方(TE/VAE/TextEncodeZImageOmni),但负向有效。"""
+    g = build_nextgen_graph(NextgenParams(model_name=ZIMG_BASE, positive="a fox",
+                                          negative="blurry", cfg=4.0,
+                                          sampler="euler", scheduler="simple", steps=30))
+    t = _types(g)
+    assert "UNETLoader" in t and "TextEncodeZImageOmni" in t and "VAELoader" in t
+    assert "CLIPTextEncode" not in t
+    ks = _by_type(g, "KSampler")
+    assert ks["cfg"] == 4.0 and ks["sampler_name"] == "euler" and ks["steps"] == 30
+    # 负向确实进入图(非空 TextEncodeZImageOmni 节点存在)
+    encs = [n for n in g.values() if n["class_type"] == "TextEncodeZImageOmni"]
+    assert any(e["inputs"]["prompt"] == "blurry" for e in encs)
+    clip = _by_type(g, "CLIPLoader")
+    assert clip["clip_name"] == "qwen_3_4b.safetensors"
 
 
 def test_qwen_graph_has_auraflow_sd3latent_no_fluxguidance():

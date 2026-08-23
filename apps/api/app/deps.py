@@ -53,6 +53,11 @@ def resolve_worker(worker: str) -> ComfyUIClient:
     qwen_edit_base = getattr(settings, "qwen_edit_base", "")
     if qwen_edit_base and normalized == qwen_edit_base:
         return ComfyUIClient(normalized, timeout=settings.request_timeout)
+    # Wan-Animate-2 专用实例(workstation :8199,不在 pool 白名单):同上,
+    # hostname 回退会错配到同机 pool worker(其 output 目录没有 Animate-2 产物)
+    wan_animate2_base = getattr(settings, "wan_animate2_base", "")
+    if wan_animate2_base and normalized == wan_animate2_base:
+        return ComfyUIClient(normalized, timeout=settings.request_timeout)
     # hostname 级回退:兼容旧产物 URL(worker 端口已退役但同机仍存活)
     target_host = _host(normalized)
     for url in settings.worker_urls:

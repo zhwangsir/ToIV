@@ -1,0 +1,21 @@
+[Unit]
+Description=ToIV SCoPE 相机运镜视频服务(Wan2.2-A14B + SCoPE, :9401)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=merlin
+WorkingDirectory=/home/merlin/scope-src
+Environment=CUDA_VISIBLE_DEVICES=3
+Environment=SCOPE_VRAM_LIMIT_GB=40
+Environment=SCOPE_MODEL_PATH=/home/merlin/nas_mount/toiv/comfyui-models/scope
+ExecStart=/home/merlin/scope-src/.venv/bin/python /home/merlin/scope-src/toiv_scope_server.py --host 0.0.0.0 --port 9401
+Restart=on-failure
+RestartSec=10
+# 67G 模型 offload 到 RAM;给足上限防 OOM killer 误伤(参考 H3 MemoryMax 纪律)
+MemoryMax=100G
+TimeoutStartSec=900
+
+[Install]
+WantedBy=multi-user.target

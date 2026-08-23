@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session
 
 from app.comfy.client import ComfyUIError
+from app.comfy.tracker import spawn as spawn_tracker
 from app.db import get_session
 from app.deps import get_current_user, resolve_worker
 from app.models import Job, User
@@ -66,6 +67,8 @@ async def generate_3d(
         )
     )
     session.commit()
+
+    spawn_tracker(client, prompt_id)
 
     return {
         "prompt_id": prompt_id,

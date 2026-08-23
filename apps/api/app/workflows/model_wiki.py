@@ -262,6 +262,23 @@ _IMAGE_CKPT_CARDS: list[CardSpec] = [
         tags=("极速", "草稿", "可商用", "次世代"),
     ),
     CardSpec(
+        filename_prefix="z_image_bf16",
+        label="Z-Image Base(非蒸馏质量档,Apache 2.0)",
+        base_model="Z-Image 6B",
+        description=(
+            "6B 非蒸馏底座:真 CFG≈4、负向有效、30 步出图,细节/质感优于 "
+            "Turbo 蒸馏档;是 LoRA 训练与风格化的正确底座(Turbo 训出的 LoRA 不通用);"
+            "Apache 2.0 可商用。"
+        ),
+        usage=(
+            "采样 28-30 步 / CFG 4 / euler+simple;1024²;负向有效,"
+            "给一段简洁英文负向排除瑕疵即可。"
+        ),
+        prompt_dialect="流畅自然语言长句(主体/环境/光线/镜头/氛围),忌标签堆砌",
+        negative_hint="blurry, lowres, deformed, bad anatomy, watermark, text",
+        tags=("质量档", "LoRA底座", "可商用", "次世代"),
+    ),
+    CardSpec(
         filename_prefix="qwen_image_edit_2511",
         label="Qwen-Image-Edit 2511(编辑专用:3D 相机/语义编辑)",
         base_model="Qwen-Image-Edit",
@@ -526,6 +543,20 @@ _VIDEO_CARDS: list[CardSpec] = [
 # ─────────────────────────────────────────────────────────────────────────────
 
 _LORA_CATEGORY_CARDS: list[CardSpec] = [
+    CardSpec(
+        filename_prefix="zimage_i2l_flatvector_smoke",
+        label="i2L 平涂矢量风 LoRA(Z-Image,冒烟实证)",
+        model_type="loras",
+        base_model="Z-Image 6B(base/turbo 通用)",
+        description=(
+            "平台首个 i2L(图→LoRA)冒烟产物:3 张平涂矢量风图经 DiffSynth-Studio "
+            "ZImage-i2L-v2 元模型一次前向导出(476 张量/rank4),键名已转 ComfyUI 兼容格式,"
+            "LoraLoaderModelOnly 真机加载出图风格生效(2026-08-24 实证)。"
+        ),
+        usage="配 z_image_bf16 / z_image_turbo_bf16 底模;LoraLoaderModelOnly 权重 1.0;复跑导出见 scripts/zimage_i2l_export.py。",
+        prompt_dialect="自然语言(随底模方言)",
+        tags=("LoRA", "风格", "i2L", "次世代"),
+    ),
     CardSpec(
         filename_prefix="elie-xl-nvwls",
         label="Elie MacDowell 角色 LoRA(碧轨)",

@@ -266,6 +266,13 @@ class Settings(BaseSettings):
     # 空 = 未部署,选择该模型提交时返回固定错误。
     liveact_base_url: str = ""
 
+    # —— SCoPE 相机运镜视频引擎(TencentARC,Wan2.2-A14B 双专家,workstation :9401) ——
+    # 首帧图 + prompt + 轨迹预设 → 81 帧运镜视频;服务常驻 GPU3(vram_limit offload),
+    # 串行队列,单次 40 步实测 ~11min。空 = 未部署,/api/scope/* 503。
+    scope_base_url: str = "http://192.168.71.127:9401"
+    # 单次生成超时(秒):含服务侧排队;40 步 ~11min,默认 3600 给足余量。
+    scope_timeout_sec: float = 3600.0
+
     # —— MiniMax H3 视频生成引擎(专用 ComfyUI ≥ 0.30 实例,workstation :8195) ——
     # 独立于 ComfyUI-LB 集群/WorkerPool(生产 ComfyUI 0.27/0.28 无 H3 节点);
     # 实例由 systemd 托管,权重经 extra_model_paths 挂 NAS h3/。
@@ -332,6 +339,20 @@ class Settings(BaseSettings):
     wan_min_free_vram_gb: float = 26.0
     # 宿主机 RAM 预检阈值(GiB,语义同 h3_min_free_ram_gb;与 H3/LongCat 同宿主机)。
     wan_min_free_ram_gb: float = 15.0
+
+    # —— Wan-Animate-2 动作迁移/视频换人(专用 ComfyUI 实例,workstation GPU3 :8199) ——
+    # ComfyUI master 原生 WanAnimate2ToVideo 节点(与 v1 wrapper 路线 :8197 完全独立);
+    # systemd comfyui-animate2.service 托管,权重经 extra_model_paths 挂 NAS。
+    # int8 蒸馏 DiT ~16.6G(动态加载实测 staged ~15.9G)+ umt5 fp8 + CLIP-ViT-H,
+    # GPU3 与 FlashTalk 共卡(满载后空闲 ~33.7G),ComfyUI 原生自动 offload;10 步无 CFG。
+    wan_animate2_enabled: bool = True
+    wan_animate2_base_url: str = "http://192.168.71.127:8199"
+    # 提交前要求实例卡(GPU3)空闲显存 ≥ 此阈值(GiB);不足先驱逐 :8199 自身模型缓存
+    # (队列空闲才动),仍不足 → 503/hold 错峰。绝不驱逐 FlashTalk。
+    # 阈值 30:GPU3 驱逐自身缓存后实测空闲 ~33.7G(2026-08-24),34 会永远差 0.3G 卡死。
+    wan_animate2_min_free_vram_gb: float = 30.0
+    # 宿主机 RAM 预检阈值(GiB,语义同 h3_min_free_ram_gb;offload 权重驻留 RAM)。
+    wan_animate2_min_free_ram_gb: float = 25.0
 
     # —— 资源预算二期:hold 排队(预检不足不直接 503,作业 held 入库等资源释放) ——
     # 预检(RAM/VRAM)仍不足时作业置 held + HeldJob 票(graph/原因/需求快照入库),
@@ -406,6 +427,11 @@ class Settings(BaseSettings):
     def qwen_edit_base(self) -> str:
         """Qwen-Image-Edit 专用实例基址(已去尾斜杠)。"""
         return self.qwen_edit_base_url.strip().rstrip("/")
+
+    @property
+    def wan_animate2_base(self) -> str:
+        """Wan-Animate-2 专用实例基址(已去尾斜杠)。"""
+        return self.wan_animate2_base_url.strip().rstrip("/")
 
     @property
     def h3_co_worker_urls(self) -> list[str]:

@@ -24,13 +24,14 @@ from app.pathsafe import PathTraversalError, validate_path_component
 
 router = APIRouter()
 
-# 音频产物扩展名 → content-type:ComfyUI /view 对非图片可能回落默认 image/png,
-# 浏览器 <audio> 拿到 image/* 会拒播,这里按扩展名强制修正。
-_AUDIO_CONTENT_TYPES = {
+# 音频/3D 产物扩展名 → content-type:ComfyUI /view 对非图片可能回落默认 image/png,
+# 浏览器 <audio> 拿到 image/* 会拒播,GLB 需要 model/* 才能被预览器/下载器正确识别。
+_EXTRA_CONTENT_TYPES = {
     ".mp3": "audio/mpeg",
     ".wav": "audio/wav",
     ".flac": "audio/flac",
     ".ogg": "audio/ogg",
+    ".glb": "model/gltf-binary",
 }
 
 
@@ -116,8 +117,8 @@ async def get_image(
     for client in [primary, *siblings]:
         try:
             content, content_type = await client.get_image_bytes(safe_filename, safe_subfolder, type_)
-            # 音频产物按扩展名修正 content-type(/view 可能给默认 image/png)
-            content_type = _AUDIO_CONTENT_TYPES.get(Path(safe_filename).suffix.lower(), content_type)
+            # 音频/3D 产物按扩展名修正 content-type(/view 可能给默认 image/png)
+            content_type = _EXTRA_CONTENT_TYPES.get(Path(safe_filename).suffix.lower(), content_type)
             # 视频/图片统一走 range 感知返回:视频靠 206+Accept-Ranges 才能播
             return _ranged_response(content, content_type, request.headers.get("range"))
         except ComfyUIError as e:

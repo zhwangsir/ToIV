@@ -28,6 +28,7 @@ from app.nsfw_ctx import nsfw_allowed
 from app.services.h3 import H3_NODE, get_h3_client, is_h3_nsfw_lora
 from app.services.longcat import LONGCAT_NODE, get_longcat_client
 from app.services.qwen_edit import QWEN_EDIT_NODE, get_qwen_edit_client
+from app.services.wan_animate2 import WAN_ANIMATE2_NODE, get_animate2_client
 from app.workflows.qwen_edit import CAMERA_PRESETS, QWEN_EDIT_UNET
 from app.workflows.model_profiles import is_image_ckpt, is_nextgen, is_nsfw
 from app.workflows.model_wiki import card_for
@@ -191,6 +192,32 @@ async def _probe_wan_animate(pool: WorkerPool) -> tuple[bool, str | None]:
 
 async def _probe_wan_vace(pool: WorkerPool) -> tuple[bool, str | None]:
     return await _probe_wan_node(pool, WAN_VACE_NODE, "Wan-VACE")
+
+
+# Wan-Animate-2 探测超时:实例挂起时不能拖垮 /api/models/engines 端点
+_WAN_ANIMATE2_PROBE_TIMEOUT = 8.0
+
+
+async def _fetch_animate2_nodes() -> set[str]:
+    """Wan-Animate-2 实例 /object_info 节点集(模块级独立函数,便于测试替身)。"""
+    return await get_animate2_client().node_names()
+
+
+async def _probe_wan_animate2(pool: WorkerPool) -> tuple[bool, str | None]:
+    """Wan-Animate-2 专用实例探测:含 WanAnimate2ToVideo 节点即可用;失败给原因。
+
+    与 pool 探测不同:走 GPU3 独立实例(TOIV_WAN_ANIMATE2_BASE_URL),pool 参数仅签名占位。
+    若 TOIV_WAN_ANIMATE2_ENABLED=false,直接标不可用,避免前端展示不可提交的引擎。
+    """
+    if not getattr(get_settings(), "wan_animate2_enabled", True):
+        return False, "Wan-Animate-2 引擎已禁用(TOIV_WAN_ANIMATE2_ENABLED=false)"
+    try:
+        nodes = await asyncio.wait_for(_fetch_animate2_nodes(), timeout=_WAN_ANIMATE2_PROBE_TIMEOUT)
+    except Exception as e:  # 不可达/超时/替身异常一律降级为不可用 + 原因
+        return False, f"Wan-Animate-2 实例不可达: {e}"
+    if WAN_ANIMATE2_NODE not in nodes:
+        return False, f"Wan-Animate-2 实例缺少 {WAN_ANIMATE2_NODE} 节点(需 ComfyUI master 原生支持)"
+    return True, None
 
 
 # Qwen-Image-Edit 探测超时:实例挂起时不能拖垮 /api/models/engines 端点
@@ -579,6 +606,25 @@ def _wan_animate_params() -> list[dict]:
              hint="上限 501 帧(16fps≈31s);驱动视频截断到该时长,非网格时长生成后精确裁切"),
         _num("steps", "采样步数", 6, min_=1, max_=50, hint="官方示例 6 步(dpm++_sde)"),
         _num("fps", "帧率", 16, min_=8, max_=30, hint="与驱动视频重采样/打包帧率同源"),
+        _seed(),
+    ]
+
+
+# Wan-Animate-2 动作迁移参数(与 routes/wan_studio.py WanAnimate2Request 同一套范围;
+# 原生节点 :8199;positive 留空 = 自动反推外观 caption)
+def _wan_animate2_params() -> list[dict]:
+    return [
+        _ref_image_required(),
+        {"key": "video", "label": "驱动视频", "type": "video", "default": None,
+         "hint": "mp4 / webm / mov,≤200MB;动作来源(与参考图同 worker 互钉);帧 1:1 映射,帧率请与输出对齐"},
+        _negative(),
+        _num("width", "宽度", 832, min_=320, max_=1280, step=16,
+             hint="16 对齐;比例限 9:16~16:9,超出自动纠正", ar=AR_VIDEO),
+        _num("height", "高度", 480, min_=320, max_=1280, step=16, hint="16 对齐"),
+        _num("duration", "时长(秒)", 7.5, min_=0.5, max_=31, step=0.5,
+             hint="上限 501 帧(16fps≈31s);驱动视频截断到该时长,非网格时长生成后精确裁切"),
+        _num("steps", "采样步数", 10, min_=1, max_=50, hint="蒸馏版官方 10 步(无 CFG,euler)"),
+        _num("fps", "帧率", 16, min_=8, max_=30, hint="仅成片打包帧率;驱动视频帧 1:1 映射不重采样"),
         _seed(),
     ]
 
@@ -1207,6 +1253,24 @@ def _default_registry() -> list[dict[str, Any]]:
         },
         "params": _wan_vace_params(),
         "probe": _probe_wan_vace,
+    },
+    # Wan-Animate-2:参考图角色 + 驱动视频 → 动作迁移/视频换人(换代模型,端到端 DiT
+    # 直吃驱动视频,无需 DWPose);ComfyUI 原生节点,专用实例 :8199(GPU3),与 v1 完全独立
+    {
+        "id": "wan-animate-2",
+        "label": "Wan Animate 2 换人",
+        "kind": "video",
+        "nsfw": False,
+        "submit": {"route": "/api/wan/animate2", "kind": "wan-animate-2"},
+        "description": "Wan-Animate-2 14B(蒸馏版 10 步):参考图角色按驱动视频动作/表情表演,专用实例 :8199;提示词留空自动反推外观描述",
+        "source": {
+            "name": "Wan-Animate-2-14B",
+            "url": "https://huggingface.co/Wan-AI/Wan-Animate-2",
+            "author": "阿里巴巴(Wan 团队)",
+            "note": "2026-08-07 开源;端到端动作迁移/视频换人,本地自部署专用实例",
+        },
+        "params": _wan_animate2_params(),
+        "probe": _probe_wan_animate2,
     },
     # ACE-Step 文生音乐:kind=audio(音频板块生成区;提交路由 /api/generate/audio 既有)
     {

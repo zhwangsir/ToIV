@@ -184,6 +184,24 @@ def qwen_edit_stub(monkeypatch):
     return state
 
 
+@pytest.fixture(autouse=True)
+def wan_animate2_stub(monkeypatch):
+    """Wan-Animate-2 实例探测替身:默认在线且含 WanAnimate2ToVideo 节点;置 .nodes=None 模拟不可达。
+
+    无此替身时 _probe_wan_animate2 会向真实 TOIV_WAN_ANIMATE2_BASE_URL(默认 workstation :8199)
+    发 HTTP,单元测试不允许依赖局域网真实实例。
+    """
+    state = SimpleNamespace(nodes={"WanAnimate2ToVideo"})
+
+    async def _fake() -> set[str]:
+        if state.nodes is None:
+            raise ComfyUIError("connection refused")
+        return set(state.nodes)
+
+    monkeypatch.setattr(engine_registry, "_fetch_animate2_nodes", _fake)
+    return state
+
+
 async def test_structure_four_engines_plus_h3(live_pool, user):
     engines = await list_engines(live_pool, user)
     ids = _by_id(engines)
@@ -939,3 +957,44 @@ async def test_wan_engines_unavailable_when_instance_down(live_pool, user, longc
         assert ids[eid]["available"] is False
         assert "不可达" in ids[eid]["unavailable_reason"]
     assert ids["txt2img"]["available"] is True
+
+
+# --------------------------------------------------------------------------- #
+# Wan-Animate-2 引擎(原生节点 :8199,独立实例探测,与 v1 wrapper 路线无关)
+# --------------------------------------------------------------------------- #
+
+
+async def test_wan_animate2_engine_registered_and_available(live_pool, user, wan_animate2_stub):
+    """实例含 WanAnimate2ToVideo 节点 → 引擎可用 + 参数表/出处完整。"""
+    ids = _by_id(await list_engines(live_pool, user))
+    e = ids["wan-animate-2"]
+    assert e["kind"] == "video" and e["nsfw"] is False
+    assert e["available"] is True and "unavailable_reason" not in e
+    assert e["source"]["url"].startswith("http")
+    assert e["submit"] == {"route": "/api/wan/animate2", "kind": "wan-animate-2"}
+    # 参考图 + 驱动视频双输入;时长按秒(与 WanAnimate2Request 同源)
+    assert _param(e, "video")["type"] == "video"
+    assert _param(e, "images")["type"] == "images"
+    dur = _param(e, "duration")
+    assert (dur["min"], dur["max"], dur["default"]) == (0.5, 31, 7.5)
+    steps = _param(e, "steps")
+    assert steps["default"] == 10  # 蒸馏版官方 10 步
+    _param(e, "seed")
+
+
+async def test_wan_animate2_unavailable_when_node_missing(live_pool, user, wan_animate2_stub):
+    """实例在线但缺 WanAnimate2ToVideo 节点(ComfyUI 版本过旧)→ 不可用 + 原因。"""
+    wan_animate2_stub.nodes = {"KSampler"}
+    ids = _by_id(await list_engines(live_pool, user))
+    assert ids["wan-animate-2"]["available"] is False
+    assert "WanAnimate2ToVideo" in ids["wan-animate-2"]["unavailable_reason"]
+
+
+async def test_wan_animate2_unavailable_when_instance_down(live_pool, user, wan_animate2_stub, longcat_stub):
+    """实例不可达 → 不可用 + 原因;v1 wan-animate(走 :8197 替身)不受影响。"""
+    longcat_stub.nodes = set(_WAN_NODES)  # v1 可用前提:wrapper 节点齐全
+    wan_animate2_stub.nodes = None
+    ids = _by_id(await list_engines(live_pool, user))
+    assert ids["wan-animate-2"]["available"] is False
+    assert "不可达" in ids["wan-animate-2"]["unavailable_reason"]
+    assert ids["wan-animate"]["available"] is True

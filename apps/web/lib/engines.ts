@@ -363,6 +363,15 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
         relight_lora: _bool(values, "relight_lora"),
       });
 
+    case "wan-animate-2":
+      // v2 原生节点实例 :8199;positive 留空 = 后端自动反推外观 caption(官方提示词要求)
+      return _postWan("/api/wan/animate2", {
+        ..._wanPayload(values, positive, negative, seed, 7.5),
+        image: refImage!.filename,
+        video: refVideo!.filename,
+        worker: refImage!.worker,
+      });
+
     case "wan-vace":
       // 多参考图(1-4 张,全部互钉同 worker,worker 取第一张落点)
       return _postWan("/api/wan/vace", {

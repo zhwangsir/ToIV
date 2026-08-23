@@ -177,6 +177,23 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（决策记录,替代操作历史）
 
+### 2026-08-24（深夜·五模型集成批量上线:Hunyuan3D 修复/Wan-Animate-2/SCoPE/Z-Image base/i2L）
+- **Hunyuan3D 图生3D 修复上线**:threed.py 从未 spawn_tracker(作业永远 queued)+ /api/images 缺 .glb content-type(model/gltf-binary)+ capabilities 上传 kind=hunyuan3d 落空集——三处修复;前端图像编辑第 7 工具「图生3D(Hunyuan3D)」(步数/octree/seed,GLB 结果卡+下载);真机实证 :8193 出 ToIV_3d_00001_.glb;⚠️ 原生 2.0 只有几何无纹理,要纹理上 2.1 all-in-one(未装)
+- **Wan-Animate-2 上线(v1 不动)**:🚨 Wan-AI 官方 safetensors ComfyUI 加载不了(嵌套键+无 metadata),必须用 **Comfy-Org 转换版**(NAS wan2.2-animate-2-14b/wan_animate_2/comfyui/,int8_convrot 16.6G 默认);新专用实例 **:8199 GPU3**(ComfyUI 0.33.0 原生 WanAnimate2ToVideo/WanAnimate2Cache,systemd comfyui-animate2 **enabled**);引擎 wan-animate-2(蒸馏 10 步 cfg1,自动外观 caption 走 VLM,显存预检阈值定 30G 别设 34——GPU3 驱逐缓存后实测只有 33.7G);⚠️ NAS toiv 的 umt5 fp8 是 kijai 键名 CLIPLoader 不认,要用 Windows 库 umt5_xxl_fp8_e4m3fn_scaled;真机+hold 放行+core 链路 e2e 全过(身份/表情迁移优秀)
+- **SCoPE 视频运镜上线**(腾讯 ARC,首帧+文本+相机轨迹→81 帧视频):权重 67G 落 NAS scope/(双专家,与 Wan2.2 不复用);独立 venv(/home/merlin/scope-src/.venv,torch 必须 2.9.1+cu128,换版本改变数值输出);服务 :9401(systemd toiv-scope enabled,112 个轨迹预设=100 官方示例+12 参数化);core 端点 routes/scope.py(图经 NAS 中转);⚠️ 40 步 18 分钟,慢,UI 要管理预期
+- **Z-Image 非蒸馏底座接入**:z_image_bf16(12.3G,Comfy-Org 单文件)落 NAS diffusion_models;新族 **z_image_base**(cfg4/30步/负向有效/euler+simple,与 turbo 蒸馏档分流——detect_model_family 按 turbo/lightning/distill 字样判);⚠️ routes/train.py 把族名发 trainer(:9100),新族名 trainer 不识别,用 base 训 LoRA 前需 trainer 同步
+- **i2L 风格 LoRA 管线实证可用**(DiffSynth-Studio ZImage-i2L-v2,3.6G):风格图 1-8 张→一次前向→LoRA;脚本 scripts/zimage_i2l_export.py(键转换内置:加 diffusion_model. 前缀+去 .default,DiffSynth 原生键 ComfyUI 不认);需 diffusers 格式基座(NAS toiv/zimage_diffusers/ 20G);demo LoRA(zimage_i2l_flatvector_smoke)ComfyUI LoraLoaderModelOnly 实证出图;⚠️ API 产品化未做(剩上传流转+常驻服务)
+- **下载路径再实证**:hf-mirror 直连+aria2c -x16,50G 约 4 分钟;⚠️ aria2c 经重定向落地是 CDN 哈希文件名需按大小重命名;ModelScope resolve URL 同样可直连
+- **回归**:后端 2004 passed / 前端 460 passed / tsc 0;test_probes_run_parallel_and_cached 有计时类 flaky(非本轮引入)
+
+### 2026-08-24（晚间·IndexTTS 2.0→2.5 升级）
+- **toiv-tts(:9200)升级 IndexTTS 2.5**：同仓库 git pull(经 ghfast.top,GitHub 直连不通)+`uv sync`(⚠️ 会清掉 ad-hoc 装的 fastapi/uvicorn/python-multipart/soundfile,须补 `uv pip install`;`--all-extras` 会因 flash-attn 需 CUDA_HOME 失败,accel 不需要,用默认 extras)
+- **权重布局**:2.5 落 `checkpoints/`(gpt.pth 3.26G/s2mel.pth 415M/codec.pth 607M/多语种 tiktoken/config.yaml,ModelScope 直连+sha256 全核对),2.0 挪 `checkpoints_2/` 硬链接保留可回滚;feat1/feat2/wav2vec2bert_stats/qwen0.6bemo4-merge/hf_cache 辅助模型复用(sha256 与 ModelScope 一致)
+- **wrapper 接口适配**:infer_v2_5/use_bf16/use_qwen_emo;infer 新增必选 `lang`(请求 language 字段规范化 ZH/EN/JA/ES/AR,缺省按文本启发式)与可选 `duration_factor`(0.5-2.0 语速);对 core 的 HTTP 契约不变
+- **🚨 行为变更**:`TOIV_TTS_ENABLE_EMO_TEXT` 默认 false→**true**(2.5 已修 2.0 的 Qwen3 情感推理卡死问题;生产实证 emo_text 经 QwenEmotion 出情感向量 happy=0.95);回退设环境变量 false 即可
+- **验证**:加载 11.9s(bf16);中文 6.19s/情感 3.23s/英文 4.75s(多语种新能力)/dur1.5 慢速 5.03s;core 生产链路 /api/manju/voice 带 emo_text 全通
+- **备份**:旧 wrapper `~/toiv_tts_server.py.pre25.bak`;仓库 `deploy/tts-service/indextts_server.py` 已同步为 2.5 版
+
 ### 2026-08-24（晚间·模型目录治理+底模选择器简介）
 - **底模选择器人话化**：底模下拉命中模型百科 curated 卡片后 label 变「人话名 · 文件名」并附 desc 一句话简介(ParamField 选中项下方展示);新增/修复 14 张卡(qwen_image 族三件套最长前缀分流、flux-2-klein/flux1-dev/DreamShaper/novaAnimeXL/animagine/autismmix/pornmaster/prefectIllustrious/waiREALCN,修 waiSHUFFLENOOB 下划线不匹配)
 - **🚨 剔除清单漂移事故根治**:routes/models.py 与 engine_registry.py 各自维护 _NON_IMAGE_CKPT_HINTS 已漂移——08-23 审计剔除的 10eros/SUPIR/krea2/ltx/sulphur 仍混在生成页底模下拉;唯一事实源收编为 `model_profiles.NON_IMAGE_CKPT_HINTS` + `is_image_ckpt()`,两处共用,新增剔除项只改那里

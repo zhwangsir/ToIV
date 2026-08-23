@@ -1,18 +1,23 @@
-"""ToIV TTS Service —— IndexTTS2 FastAPI 封装,接口兼容 ToIV /tts 契约。
+"""ToIV TTS Service —— IndexTTS 2.5 FastAPI 封装,接口兼容 ToIV /tts 契约。
 
-兼容契约(ToIV voice.py / dub_voice.py 调用方期望):
+兼容契约(ToIV voice.py / dub_voice.py 调用方期望,2.5 升级后保持不变):
   POST /tts
-    Form: text, emo_text(可选), emo_alpha(可选,默认 0.8), language(可选,仅日志)
+    Form: text, emo_text(可选), emo_alpha(可选,默认 0.8), language(可选),
+          top_p/temperature(可选,采样透传), duration_factor(可选,0.5-2.0 语速,默认 1.0)
     Files: ref_audio(可选, multipart) —— 音色克隆参考音频;无则用默认音色兜底
     Response: 200 + wav 二进制(24kHz/16bit/mono);失败 JSON {"detail": "..."}
 
-IndexTTS2 推理参数映射:
+IndexTTS 2.5 推理参数映射:
   spk_audio_prompt  ← ref_audio(临时落盘)
   text              ← text
+  lang              ← language 字段(规范化)或按文本启发式判定(ZH/JA/AR/EN),默认 ZH
+                      2.5 新增必选参数,合法值 ZH/EN/JA/ES/AR
   use_emo_text      ← True if emo_text else False
                       True 时调用 Qwen3 推情感向量(如 "开心地说" / "愤怒地")
+                      需构造时 use_qwen_emo=True(由 TOIV_TTS_ENABLE_EMO_TEXT 控制)
   emo_text          ← emo_text
   emo_alpha         ← emo_alpha(0.0-1.0,情感混合权重)
+  duration_factor   ← duration_factor(0.5-2.0,<1 加速 >1 减速,2.5 新增)
   output_path       ← 临时 wav 文件
   emo_audio_prompt  ← None(use_emo_text=True 时由 IndexTTS2 内部置空,情感与音色解耦)
 
@@ -29,6 +34,7 @@ import argparse
 import asyncio
 import logging
 import os
+import re
 import tempfile
 import time
 from pathlib import Path
@@ -55,12 +61,42 @@ DEFAULT_REF_CANDIDATES = [
 MAX_TEXT_LEN = 2000
 # IndexTTS2 推荐 emo_alpha 接近 1.0(情感向量与音色解耦,alpha 控制情感强度)
 DEFAULT_EMO_ALPHA = 0.8
-# Qwen3 情感文本推理(use_emo_text=True)在部分环境会触发 max_length 警告并卡死,
-# 默认禁用:emo_text 仅作日志记录,不调 Qwen3。设 TOIV_TTS_ENABLE_EMO_TEXT=true 启用。
-# 禁用时仍支持:音色克隆(ref_audio)+ 基础合成 + emo_alpha(透传但不影响输出)。
-_ENABLE_EMO_TEXT = os.environ.get("TOIV_TTS_ENABLE_EMO_TEXT", "false").lower() in ("1", "true", "yes")
+# 2.5 的 Qwen3 情感文本推理(use_emo_text=True)已稳定(2.0 时代 max_length 卡死问题不再),
+# 默认启用;设 TOIV_TTS_ENABLE_EMO_TEXT=false 回退为仅记录日志不调 Qwen3。
+# 启用时构造 IndexTTS2 会传 use_qwen_emo=True(2.5 强制要求,否则 RuntimeError)。
+_ENABLE_EMO_TEXT = os.environ.get("TOIV_TTS_ENABLE_EMO_TEXT", "true").lower() in ("1", "true", "yes")
 
-app = FastAPI(title="ToIV TTS Service (IndexTTS2)")
+# 2.5 lang 合法值:ZH/EN/JA/ES/AR(infer_v2_5 必选参数)
+_LANG_ALIASES = {
+    "zh": "ZH", "zhen": "ZH", "cn": "ZH", "zh-cn": "ZH", "cmn": "ZH",
+    "yue": "ZH",  # 粤语用 ZH 前缀(多语种 tokenizer 已含粤字表)
+    "en": "EN", "en-us": "EN", "en-gb": "EN",
+    "ja": "JA", "jp": "JA",
+    "es": "ES",
+    "ar": "AR",
+}
+_RE_KANA = re.compile(r"[぀-ヿ]")
+_RE_CJK = re.compile(r"[一-鿿]")
+_RE_ARABIC = re.compile(r"[؀-ۿݐ-ݿ]")
+
+
+def _resolve_lang(language: Optional[str], text: str) -> str:
+    """language 字段优先(规范化到 ZH/EN/JA/ES/AR);否则按文本字符启发式判定,默认 ZH。"""
+    if language and language.strip():
+        mapped = _LANG_ALIASES.get(language.strip().lower())
+        if mapped:
+            return mapped
+        logger.warning("未识别的 language=%r,回退启发式判定", language)
+    if _RE_KANA.search(text):
+        return "JA"
+    if _RE_ARABIC.search(text):
+        return "AR"
+    if _RE_CJK.search(text):
+        return "ZH"
+    return "EN"
+
+
+app = FastAPI(title="ToIV TTS Service (IndexTTS 2.5)")
 
 # 全局模型实例 + 推理锁(避免 GPU 并发竞争)
 _tts = None
@@ -96,16 +132,30 @@ def _save_upload_to_tmp(upload: UploadFile, suffix: str = ".wav") -> str:
     return tmp_path
 
 
-def _do_infer(spk_audio: str, text: str, output_path: str,
-              use_emo_text: bool, emo_text: Optional[str], emo_alpha: float) -> None:
-    """同步调用 IndexTTS2.infer;在 threadpool 里跑,不阻塞 event loop。"""
+def _do_infer(spk_audio: str, text: str, output_path: str, lang: str,
+              use_emo_text: bool, emo_text: Optional[str], emo_alpha: float,
+              duration_factor: float,
+              top_p: Optional[float] = None, temperature: Optional[float] = None) -> None:
+    """同步调用 IndexTTS2.infer;在 threadpool 里跑,不阻塞 event loop。
+
+    top_p/temperature 非空时经 generation_kwargs 透传给 GPT 采样
+    (库默认 top_p=0.8/temperature=0.8;AI-Omni M32.30 基准 0.75/0.65,输出更收敛稳定)。
+    """
+    gen_kwargs: dict = {}
+    if top_p is not None:
+        gen_kwargs["top_p"] = top_p
+    if temperature is not None:
+        gen_kwargs["temperature"] = temperature
     result = _tts.infer(
         spk_audio_prompt=spk_audio,
         text=text,
         output_path=output_path,
+        lang=lang,
         use_emo_text=use_emo_text,
         emo_text=emo_text if use_emo_text else None,
         emo_alpha=emo_alpha,
+        duration_factor=duration_factor,
+        **gen_kwargs,
     )
     if result is None:
         raise RuntimeError("IndexTTS2.infer 返回 None(可能因输入被过滤或内部错误)")
@@ -113,29 +163,46 @@ def _do_infer(spk_audio: str, text: str, output_path: str,
 
 @app.on_event("startup")
 async def _load_model() -> None:
-    """启动时加载 IndexTTS2 模型(耗时 30-60s);加载完成前 /health 返回 loading。"""
+    """启动时加载 IndexTTS 2.5 模型(耗时 30-60s);加载完成前 /health 返回 loading。"""
     global _tts, _default_ref_audio
     model_dir = os.environ.get("INDEXTTS_MODEL_DIR", "checkpoints")
     cfg_path = os.environ.get("INDEXTTS_CFG_PATH", f"{model_dir}/config.yaml")
     device = os.environ.get("INDEXTTS_DEVICE", "")  # 空 = 自动(cuda:0)
-    use_fp16 = os.environ.get("INDEXTTS_USE_FP16", "true").lower() in ("1", "true", "yes")
+    use_bf16 = os.environ.get("INDEXTTS_USE_BF16", "true").lower() in ("1", "true", "yes")
 
-    logger.info("加载 IndexTTS2 模型:cfg=%s model_dir=%s device=%s fp16=%s",
-                cfg_path, model_dir, device or "auto", use_fp16)
+    logger.info("加载 IndexTTS 2.5 模型:cfg=%s model_dir=%s device=%s bf16=%s qwen_emo=%s",
+                cfg_path, model_dir, device or "auto", use_bf16, _ENABLE_EMO_TEXT)
     t0 = time.perf_counter()
 
-    from indextts.infer_v2 import IndexTTS2  # type: ignore
+    # M32.30 修复:torchaudio 的 sox 后端在本机段错误(libtorchaudio_sox.so),
+    # 强制 load/save 走 soundfile 后端(已验证可用,24kHz ref 读取正常)。
+    import torchaudio as _ta
+
+    _ta_load_orig, _ta_save_orig = _ta.load, _ta.save
+
+    def _ta_load_sf(*args, **kwargs):  # type: ignore
+        kwargs.setdefault("backend", "soundfile")
+        return _ta_load_orig(*args, **kwargs)
+
+    def _ta_save_sf(*args, **kwargs):  # type: ignore
+        kwargs.setdefault("backend", "soundfile")
+        return _ta_save_orig(*args, **kwargs)
+
+    _ta.load, _ta.save = _ta_load_sf, _ta_save_sf
+
+    from indextts.infer_v2_5 import IndexTTS2  # type: ignore
 
     kwargs = {
         "cfg_path": cfg_path,
         "model_dir": model_dir,
-        "use_fp16": use_fp16,
+        "use_bf16": use_bf16,
+        "use_qwen_emo": _ENABLE_EMO_TEXT,
     }
     if device:
         kwargs["device"] = device
     _tts = IndexTTS2(**kwargs)
     _default_ref_audio = _resolve_default_ref()
-    logger.info("IndexTTS2 加载完成,耗时 %.1fs;默认参考音频=%s",
+    logger.info("IndexTTS 2.5 加载完成,耗时 %.1fs;默认参考音频=%s",
                 time.perf_counter() - t0, _default_ref_audio or "(无,需 caller 传 ref_audio)")
 
 
@@ -144,8 +211,10 @@ async def health() -> dict:
     return {
         "status": "ok" if _tts is not None else "loading",
         "engine": "indextts2",
+        "version": "2.5",
         "model_loaded": _tts is not None,
         "default_ref_audio": _default_ref_audio is not None,
+        "emo_text_enabled": _ENABLE_EMO_TEXT,
         "device": getattr(_tts, "device", None) if _tts else None,
     }
 
@@ -156,10 +225,13 @@ async def tts(
     emo_text: Optional[str] = Form(None),
     emo_alpha: Optional[str] = Form(str(DEFAULT_EMO_ALPHA)),
     language: Optional[str] = Form(None),
+    duration_factor: Optional[str] = Form(None),
+    top_p: Optional[str] = Form(None),
+    temperature: Optional[str] = Form(None),
     ref_audio: Optional[UploadFile] = File(None),
 ):
     if _tts is None:
-        raise HTTPException(status_code=503, detail="IndexTTS2 模型尚未加载完成,请稍后重试")
+        raise HTTPException(status_code=503, detail="IndexTTS 2.5 模型尚未加载完成,请稍后重试")
 
     text = text.strip()
     if not text:
@@ -172,6 +244,19 @@ async def tts(
     except (ValueError, TypeError):
         alpha = DEFAULT_EMO_ALPHA
     alpha = max(0.0, min(1.0, alpha))
+
+    def _parse_opt_float(value: Optional[str], lo: float, hi: float) -> Optional[float]:
+        try:
+            v = float(value) if value is not None else None
+        except (ValueError, TypeError):
+            return None
+        return max(lo, min(hi, v)) if v is not None else None
+
+    top_p_value = _parse_opt_float(top_p, 0.0, 1.0)
+    temperature_value = _parse_opt_float(temperature, 0.05, 1.5)
+    duration_value = _parse_opt_float(duration_factor, 0.5, 2.0) or 1.0
+
+    lang = _resolve_lang(language, text)
 
     use_emo_text = _ENABLE_EMO_TEXT and bool(emo_text and emo_text.strip())
     emo_text_value = emo_text.strip() if (emo_text and emo_text.strip()) else None
@@ -203,17 +288,18 @@ async def tts(
             t0 = time.perf_counter()
             await asyncio.to_thread(
                 _do_infer,
-                spk_audio, text, out_path,
-                use_emo_text, emo_text_value, alpha,
+                spk_audio, text, out_path, lang,
+                use_emo_text, emo_text_value, alpha, duration_value,
+                top_p_value, temperature_value,
             )
             elapsed = time.perf_counter() - t0
 
         if not Path(out_path).is_file() or os.path.getsize(out_path) == 0:
-            raise HTTPException(status_code=500, detail="IndexTTS2 未生成音频文件")
+            raise HTTPException(status_code=500, detail="IndexTTS 2.5 未生成音频文件")
 
         logger.info(
-            "tts ok: text_len=%d emo_text=%s alpha=%.2f lang=%s ref=%s elapsed=%.2fs",
-            len(text), emo_text_value or "-", alpha, language or "-",
+            "tts ok: text_len=%d lang=%s emo_text=%s alpha=%.2f dur=%.2f ref=%s elapsed=%.2fs",
+            len(text), lang, emo_text_value or "-", alpha, duration_value,
             "upload" if tmp_ref_path else "default", elapsed,
         )
         with open(out_path, "rb") as f:
@@ -223,7 +309,7 @@ async def tts(
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("IndexTTS2 推理失败")
+        logger.exception("IndexTTS 2.5 推理失败")
         raise HTTPException(status_code=502, detail=f"TTS 合成失败: {e}")
     finally:
         for p in (tmp_ref_path, out_path):
@@ -235,7 +321,7 @@ async def tts(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="ToIV TTS Service (IndexTTS2)")
+    parser = argparse.ArgumentParser(description="ToIV TTS Service (IndexTTS 2.5)")
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=9200)
     parser.add_argument("--workers", type=int, default=1,
@@ -244,7 +330,7 @@ def main() -> None:
 
     import uvicorn
 
-    logger.info("启动 ToIV TTS Service (IndexTTS2) on %s:%d", args.host, args.port)
+    logger.info("启动 ToIV TTS Service (IndexTTS 2.5) on %s:%d", args.host, args.port)
     uvicorn.run(
         "toiv_tts_server:app",
         host=args.host,

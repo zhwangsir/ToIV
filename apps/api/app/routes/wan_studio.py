@@ -20,6 +20,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session
 
+from app.comfy.client import ComfyUIError
 from app.db import get_session
 from app.deps import get_current_user, resolve_worker
 from app.models import User
@@ -29,6 +30,7 @@ from app.workflows.model_profiles import AR_VIDEO, aspect_guard
 from app.services import longcat as longcat_service
 from app.services import hold_queue
 from app.services import video_generators as vgen
+from app.services import wan_animate2 as animate2_service
 from app.services import wan_video as wan_service
 from app.services.duration import DurationLimitError, DurationPlan, resolve_duration
 from app.workflows.wan_animate import (
@@ -36,6 +38,7 @@ from app.workflows.wan_animate import (
     WanAnimateParams,
     build_wan_animate_graph,
 )
+from app.workflows.wan_animate2 import WanAnimate2Params, build_wan_animate2_graph
 from app.workflows.wan_vace import MAX_REF_IMAGES, WanVaceParams, build_wan_vace_graph
 
 router = APIRouter()
@@ -64,10 +67,10 @@ async def _wan_precheck_or_hold(client) -> HTTPException | None:
 
 
 # 旧默认时长:Animate 121 帧 / VACE 81 帧 @16fps(4k+1 网格吸附后与历史默认一致)
-_DEFAULT_SECONDS = {"animate": 7.5, "vace": 5.0}
+_DEFAULT_SECONDS = {"animate": 7.5, "vace": 5.0, "animate2": 7.5}
 
 
-def _resolve_plan(req: "WanAnimateRequest | WanVaceRequest", engine: str) -> DurationPlan:
+def _resolve_plan(req: "WanAnimateRequest | WanVaceRequest | WanAnimate2Request", engine: str) -> DurationPlan:
     """秒数 → 时长计划(统一策略层);legacy num_frames 换算为等价 direct 计划(行为不变)。"""
     if req.duration_sec is None and req.num_frames is not None:
         return DurationPlan(
@@ -264,4 +267,114 @@ async def generate_wan_vace(
         prechecked=True,  # 上方 _wan_precheck_or_hold 已做显存+RAM 预检(Wan 阈值独立)
         hold_exc=hold_exc,  # 预检失败转 hold 排队(None=预检通过,正常提交)
     )
+    return _attach_duration_chain(result, plan, lambda: client)
+
+
+# --------------------------------------------------------------------------- #
+# Wan-Animate-2(原生节点 :8199,与 v1 wrapper 路线完全独立)
+# --------------------------------------------------------------------------- #
+
+
+async def _animate2_precheck_or_hold(client) -> HTTPException | None:
+    """GPU3 显存/RAM 互斥预检(与 FlashTalk 共卡;语义同 _wan_precheck_or_hold)。"""
+    try:
+        await animate2_service.ensure_animate2_vram(client)
+    except HTTPException as e:
+        if hold_queue.holdable(e):
+            return e
+        raise
+    return None
+
+
+class WanAnimate2Request(BaseModel):
+    """Wan-Animate-2 动作迁移/视频换人请求。image=参考图,video=驱动视频(均为上传句柄
+    文件名,与 worker 指定的落点同机);宽/高非 16 对齐时向下取整。
+
+    positive 可留空:官方要求 prompt 只描述参考图「外观+背景」、不描述动作,
+    留空时后端用 VLM 按官方反推指令自动生成外观 caption(蒸馏版 10 步无 CFG,
+    cfg 固定 1.0 不开放)。
+
+    时长:优先 duration_sec(秒,任意值;4k+1 网格吸附后秒差大时生成后精确裁切);
+    num_frames(帧数)为 deprecated 兼容入参,与 duration_sec 同给时忽略。
+    """
+    positive: str = Field(default="", max_length=4000)  # 空 → 自动反推外观 caption
+    image: str = Field(min_length=1, max_length=512)
+    video: str = Field(min_length=1, max_length=512)
+    worker: str
+    negative: str = Field(default="", max_length=2000)
+    width: int = Field(default=832, ge=320, le=1280)
+    height: int = Field(default=480, ge=320, le=1280)
+    duration_sec: float | None = Field(default=None, gt=0, le=600)
+    # deprecated:兼容入参,请改用 duration_sec;同给时忽略
+    num_frames: int | None = Field(default=None, ge=17, le=501)
+    steps: int = Field(default=10, ge=1, le=50)
+    fps: int = Field(default=16, ge=8, le=30)
+    seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
+
+    _img_ok = field_validator("image", "video")(_no_traversal)
+
+    @field_validator("width", "height")
+    @classmethod
+    def _snap16(cls, v: int) -> int:
+        return v // 16 * 16
+
+    # 宽高比守卫:9:16~16:9 静默归一(训练分布;与 v1 同一惯例)
+    _ratio = aspect_guard(*AR_VIDEO, align=16, min_v=320, max_v=1280)
+
+
+@router.post("/wan/animate2")
+async def generate_wan_animate2(
+    req: WanAnimate2Request,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Wan-Animate-2 动作迁移:参考图角色按驱动视频动作生成视频(原生节点 :8199)。
+
+    参考图/驱动视频从上传落点 worker 转运到 :8199 实例;positive 留空时先 VLM
+    反推外观 caption(官方提示词要求);提交前 GPU3 显存互斥预检(FlashTalk 共卡,
+    见 services/wan_animate2.ensure_animate2_vram)。
+    """
+    enforce_generation_rate_limit(user)
+    plan = _resolve_plan(req, "animate2")
+    client = animate2_service.get_animate2_client()
+    source = resolve_worker(req.worker)
+
+    positive = req.positive.strip()
+    if positive:
+        image_name = await longcat_service.transfer_ref_image(client, source, req.image)
+    else:
+        # 自动 caption:读一次参考图字节,先反推外观描述再上传(避免二次读取)
+        try:
+            content, content_type = await source.get_image_bytes(req.image, "", "input")
+        except ComfyUIError as e:
+            raise HTTPException(status_code=502, detail=f"从参考图所在 worker 读取失败: {e}") from e
+        positive = (await animate2_service.caption_reference_appearance(content, content_type)).strip()
+        try:
+            image_name = await client.upload_image(content, req.image)
+        except ComfyUIError as e:
+            raise HTTPException(status_code=502, detail=f"参考图上传到 Wan-Animate-2 实例失败: {e}") from e
+    video_name = await wan_service.transfer_drive_video(client, source, req.video)
+    hold_exc = await _animate2_precheck_or_hold(client)
+    params = WanAnimate2Params(
+        positive=positive,
+        negative=req.negative,
+        image=image_name,
+        video=video_name,
+        width=req.width,
+        height=req.height,
+        num_frames=plan.frames,
+        steps=req.steps,
+        fps=req.fps,
+        **({"seed": req.seed} if req.seed is not None else {}),
+    )
+    graph = build_wan_animate2_graph(params)
+    result = await animate2_service.submit_animate2_job(
+        graph, kind="wan_animate2", positive=params.positive, seed=params.seed,
+        req=req, user=user, session=session, client=client,
+        nsfw=nsfw_allowed(user),
+        prechecked=True,  # 上方 _animate2_precheck_or_hold 已做显存+RAM 预检
+        hold_exc=hold_exc,  # 预检失败转 hold 排队(None=预检通过,正常提交)
+    )
+    if req.positive.strip() == "":
+        result["auto_caption"] = positive  # 透出自动反推的提示词,便于前端展示/复用
     return _attach_duration_chain(result, plan, lambda: client)

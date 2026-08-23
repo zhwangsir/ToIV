@@ -128,6 +128,7 @@ async def _precheck(ticket: HeldJob, client: ComfyUIClient) -> None:
     预检内部失败降级放行(读不到 stats)与 503(资源仍不足)语义与提交时一致。
     """
     from app.services import h3 as h3_service
+    from app.services import wan_animate2 as animate2_service
     from app.services import wan_video as wan_service
     from app.services.resource_budget import ensure_host_ram, ensure_vram
 
@@ -136,6 +137,8 @@ async def _precheck(ticket: HeldJob, client: ComfyUIClient) -> None:
         await h3_service.ensure_h3_vram(client)
     elif ticket.engine == "wan":
         await wan_service.ensure_wan_vram(client)
+    elif ticket.engine == "wan_animate2":
+        await animate2_service.ensure_animate2_vram(client)
     else:  # longcat(Wan 系直投,经 submit_longcat_job 非 prechecked 路径入 hold)
         await ensure_vram(client, settings.longcat_min_free_vram_gb, "LongCat")
         await ensure_host_ram(client, settings.longcat_min_free_ram_gb, "LongCat")

@@ -10,6 +10,7 @@ import { Field, Input, Select } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { AssetPicker, type PickedAsset } from "@/components/generate/AssetPicker";
 import {
+  generate3D,
   generateFaceDetailer,
   generateInpaint,
   generateQwenEdit,
@@ -26,7 +27,7 @@ import { trackJob, TrackJobAbortError, type JobProgress } from "@/lib/trackJob";
 // 类型定义
 // ─────────────────────────────────────────────────────────────────────────────
 
-type EditTool = "removebg" | "upscale" | "inpaint" | "facedetailer" | "qwenedit" | "camera3d";
+type EditTool = "removebg" | "upscale" | "inpaint" | "facedetailer" | "qwenedit" | "camera3d" | "hunyuan3d";
 
 interface ToolDef {
   key: EditTool;
@@ -101,6 +102,13 @@ const TOOLS: ToolDef[] = [
     desc: "精确控制方位/俯仰/距离，环绕一圈看全貌",
     runLabel: "生成视角",
   },
+  {
+    key: "hunyuan3d",
+    icon: "model3d",
+    title: "图生3D(Hunyuan3D)",
+    desc: "单图生成 3D 模型，输出 GLB 网格文件",
+    runLabel: "生成 3D 模型",
+  },
 ];
 
 const REMOVE_BG_MODES = [
@@ -160,6 +168,15 @@ const CAM3D_DISTANCES = [
 const CAM3D_SPEEDS = [
   { value: "fast", label: "快速(Lightning 4 步)" },
   { value: "standard", label: "标准(20 步,更细腻)" },
+] as const;
+
+// ── 图生3D(Hunyuan3D):octree 分辨率档位(后端允许 64-512,常用取 2 的幂)──
+const THREED_OCTREES = [
+  { value: 64, label: "64(最快,粗糙)" },
+  { value: 128, label: "128" },
+  { value: 256, label: "256(默认,均衡)" },
+  { value: 384, label: "384" },
+  { value: 512, label: "512(最精细,最慢)" },
 ] as const;
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB，与后端一致
@@ -436,6 +453,34 @@ function ResultPanel({ source, resultUrl, resultPaths }: ResultPanelProps) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 子组件:3D 模型结果卡(GLB 非图片,不渲染 <img>,仅展示文件名+下载)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function Model3DResult({ resultUrl }: { resultUrl: string }) {
+  const fullUrl = imageUrl(resultUrl); // 带 token 查询参数,与图片产物同规则
+  const filename = resultUrl.split("?")[0].split("/").pop() ?? "model.glb";
+
+  return (
+    <Card className="at-card ie-result-card">
+      <div className="ie-result-head">
+        <span className="ie-result-label">3D 模型已生成</span>
+        <a href={fullUrl} download={filename} className="at-btn at-btn--primary ie-download-btn">
+          <Icon name="download" size={13} />
+          下载 GLB
+        </a>
+      </div>
+      <div className="ie-model3d-body">
+        <Icon name="model3d" size={40} />
+        <span className="ie-model3d-name" title={filename}>
+          {filename}
+        </span>
+        <span className="ie-model3d-hint">GLB 网格文件，可导入 Blender / 3D 查看器，已存入作品库(3D 筛选)</span>
+      </div>
+    </Card>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // 子组件:进度条
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -479,6 +524,10 @@ export function ImageEditView() {
   const [cam3dNote, setCam3dNote] = useState("");
   const [cam3dSpeed, setCam3dSpeed] = useState<string>("fast");
   const [cam3dOrbit, setCam3dOrbit] = useState(false);
+  // 图生3D(Hunyuan3D):步数/octree 分辨率/seed(可空=随机)
+  const [threedSteps, setThreedSteps] = useState(30);
+  const [threedOctree, setThreedOctree] = useState(256);
+  const [threedSeed, setThreedSeed] = useState("");
   // 作品库选图(二次创作):AssetPicker 转运句柄与上传产物同构,直接灌 source
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -671,6 +720,33 @@ export function ImageEditView() {
             fast: cam3dSpeed === "fast",
           });
           break;
+        case "hunyuan3d": {
+          if (threedSteps < 10 || threedSteps > 100) {
+            setProc((p) => ({ ...p, status: "error", error: "步数须在 10-100 之间" }));
+            return;
+          }
+          const seedText = threedSeed.trim();
+          const seed = seedText === "" ? null : Number(seedText);
+          if (seed !== null && (!Number.isInteger(seed) || seed < 0)) {
+            setProc((p) => ({ ...p, status: "error", error: "seed 须为非负整数(留空随机)" }));
+            return;
+          }
+          // Hunyuan3D 只在持有该模型/节点的 worker 上跑:本地源图按 kind=hunyuan3d 重传,
+          // 由上传路由钉到具备能力的 worker;作品库选取的图沿用转运后的句柄
+          let target = base;
+          if (source.file) {
+            const up = await uploadImage(source.file, "hunyuan3d");
+            target = { image: up.filename, worker: up.worker };
+          }
+          res = await generate3D({
+            ...target,
+            steps: threedSteps,
+            cfg: 5.0,
+            octree_resolution: threedOctree,
+            seed,
+          });
+          break;
+        }
         default:
           return;
       }
@@ -736,6 +812,9 @@ export function ImageEditView() {
     cam3dNote,
     cam3dSpeed,
     cam3dOrbit,
+    threedSteps,
+    threedOctree,
+    threedSeed,
     stopTracking,
   ]);
 
@@ -940,6 +1019,47 @@ export function ImageEditView() {
                     </div>
                   )}
 
+                  {t.key === "hunyuan3d" && (
+                    <div className="ie-field-group">
+                      <Field label={`步数 ${threedSteps}(10-100)`}>
+                        <input
+                          type="range"
+                          min={10}
+                          max={100}
+                          step={5}
+                          value={threedSteps}
+                          onChange={(e) => setThreedSteps(Number(e.target.value))}
+                          disabled={isRunning}
+                          className="ie-slider"
+                          aria-label="步数"
+                        />
+                      </Field>
+                      <Field label="Octree 分辨率">
+                        <Select
+                          value={String(threedOctree)}
+                          onChange={(e) => setThreedOctree(Number(e.target.value))}
+                          disabled={isRunning}
+                        >
+                          {THREED_OCTREES.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </Select>
+                      </Field>
+                      <Field label="Seed(可选,留空随机)">
+                        <Input
+                          value={threedSeed}
+                          onChange={(e) => setThreedSeed(e.target.value)}
+                          placeholder="非负整数,留空随机"
+                          inputMode="numeric"
+                          disabled={isRunning}
+                        />
+                      </Field>
+                      <p className="ie-tool-desc">单一居中主体、干净背景的图效果最佳;输出 GLB 网格文件</p>
+                    </div>
+                  )}
+
                   <div className="ie-tool-run">
                     <Button
                       variant="primary"
@@ -976,8 +1096,8 @@ export function ImageEditView() {
           <div className="ie-canvas">
             <span className="ie-section-label">画布</span>
             <SourcePreview image={source} />
-            {/* 多结果(360° 环绕序列)胶片条:逐张落地即追加,点击切主图 */}
-            {proc.resultPaths.length > 1 && (
+            {/* 多结果(360° 环绕序列)胶片条:逐张落地即追加,点击切主图(GLB 产物非图片,不进胶片条) */}
+            {proc.resultPaths.length > 1 && proc.tool !== "hunyuan3d" && (
               <div className="ie-strip" role="listbox" aria-label="环绕序列">
                 {proc.resultPaths.map((p, i) => (
                   <button
@@ -992,8 +1112,12 @@ export function ImageEditView() {
                 ))}
               </div>
             )}
-            {proc.resultUrl && (
-              <ResultPanel source={source} resultUrl={proc.resultUrl} resultPaths={proc.resultPaths} />
+            {proc.resultUrl && proc.tool === "hunyuan3d" ? (
+              <Model3DResult resultUrl={proc.resultUrl} />
+            ) : (
+              proc.resultUrl && (
+                <ResultPanel source={source} resultUrl={proc.resultUrl} resultPaths={proc.resultPaths} />
+              )
             )}
           </div>
           </div>
@@ -1443,6 +1567,31 @@ export function ImageEditView() {
           font-size: var(--text-aux);
           color: var(--text-muted);
           margin: 0;
+        }
+
+        /* ── 3D 模型结果卡(GLB 无预览,图标+文件名+下载) ── */
+        .ie-model3d-body {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: var(--space-2);
+          padding: var(--space-8) var(--space-4);
+          background: var(--bg-canvas);
+          border-radius: var(--radius-control);
+          color: var(--text-muted);
+        }
+        .ie-model3d-name {
+          font-size: var(--text-md);
+          font-weight: var(--font-medium);
+          color: var(--text-primary);
+          max-width: 100%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .ie-model3d-hint {
+          font-size: var(--text-aux);
+          text-align: center;
         }
 
         /* ── 3D 相机:方位罗盘 + 环绕胶片条 ── */

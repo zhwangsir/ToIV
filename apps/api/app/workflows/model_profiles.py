@@ -93,15 +93,20 @@ def is_sdxl(name: str) -> bool:
 def detect_model_family(name: str) -> str:
     """按模型文件名判定族(决定图构造 + 采样档 + 提示词方言)。命不中归 sd15。
 
-    次世代族(flux2 / qwen_image / z_image)优先于通用 flux/qwen 判定,因其文件名也含
-    "flux"/"qwen" 子串,顺序敏感(先特殊后通用)。
+    次世代族(flux2 / qwen_image / z_image / z_image_base)优先于通用 flux/qwen 判定,因其文件名也含
+    "flux"/"qwen" 子串,顺序敏感(先特殊后通用)。Z-Image 内部再按蒸馏字样分流:
+    turbo/lightning/distill → z_image(蒸馏档),裸 z_image_bf16 等 → z_image_base(非蒸馏底座)。
     """
     low = (name or "").lower()
     # —— 次世代(UNET/diffusion_models 图,CFG≈1,负向失效)——
     if "flux.2" in low or "flux-2" in low or "flux2" in low:
         return "flux2"
     if "z_image" in low or "z-image" in low or "zimage" in low:
-        return "z_image"
+        # 蒸馏档(turbo/lightning/distill 字样)归 z_image:CFG=1、负向失效、8 步;
+        # 非蒸馏底座(裸 z_image_bf16 等)归 z_image_base:CFG≈4、负向有效、30 步档。
+        if any(h in low for h in ("turbo", "lightning", "distill")):
+            return "z_image"
+        return "z_image_base"
     if "qwen_image" in low or "qwen-image" in low:
         return "qwen_image"
     # —— LTX 视频(轻量,12G 可跑,CFG=1 + 无负向)——
@@ -209,14 +214,14 @@ def fit_resolution(ckpt_name: str, width: int, height: int) -> tuple[int, int]:
     ar = max(AR_IMAGE[0], min(AR_IMAGE[1], ar))
     # 分辨率档按**架构族**定:
     #   - SD1.5: 0.4MP,长边封顶 896(高分辨率出双头)
-    #   - 次世代(flux2/flux/qwen_image/z_image): ~1.37MP,长边封顶 1536
+    #   - 次世代(flux2/flux/qwen_image/z_image/z_image_base): ~1.37MP,长边封顶 1536
     #     (原生高分辨率支持;2026-08-10 从 1MP 上调,使纵向 keyframes 过质量门)
     #   - SDXL/SDXL动漫/Pony: ~1MP,长边封顶 1536(原生档,超出易崩)
     family = detect_model_family(ckpt_name)
     if family == "sd15":
         budget = 640 * 640
         long_cap = 896
-    elif family in ("flux2", "flux", "qwen_image", "z_image"):
+    elif family in ("flux2", "flux", "qwen_image", "z_image", "z_image_base"):
         budget = 1024 * 1360
         long_cap = 1536
     else:
@@ -363,7 +368,7 @@ _VPRED_NODE_ID = "50"
 # (合成器不发负向)。以下把每族的「采样参数」与「图结构配方」作数据集中于此,
 # 端点只据此分发,不写 per-model 分支(见开发协议)。
 
-_NEXTGEN_FAMILIES: tuple[str, ...] = ("flux2", "qwen_image", "z_image")
+_NEXTGEN_FAMILIES: tuple[str, ...] = ("flux2", "qwen_image", "z_image", "z_image_base")
 
 
 @dataclass(frozen=True)
@@ -411,6 +416,11 @@ _PROFILES: dict[str, GenProfile] = {
                              megapixels=1.0, neg_prompt=True, graph="qwen_image"),
     "z_image": GenProfile(sampler="res_multistep", scheduler="simple", cfg=1.0, steps=8,
                           megapixels=1.0, neg_prompt=False, graph="z_image"),
+    # Z-Image **非蒸馏底座**(z_image_bf16,Comfy-Org 单文件):与 turbo 共用 TE/VAE/图,
+    # 但采样档不同——真 CFG≈4、负向有效、euler+simple、30 步质量档
+    # (LoRA 训练/风格化的正确底座;turbo 是蒸馏极速档,训出的 LoRA 不通用)。
+    "z_image_base": GenProfile(sampler="euler", scheduler="simple", cfg=4.0, steps=30,
+                               megapixels=1.0, neg_prompt=True, graph="z_image"),
     # LTX2.3 视频(轻量,distilled CFG=1,无负向;10Eros 为 NSFW 变体,同采样档)
     "ltx": GenProfile(sampler="euler", scheduler="normal", cfg=1.0, steps=20,
                       megapixels=1.0, neg_prompt=False, graph="ltx"),
@@ -460,6 +470,14 @@ _NEXTGEN_RECIPES: dict[str, NextgenRecipe] = {
     ),
     "z_image": NextgenRecipe(
         clip_type="lumina2",  # ⚠️ 待 worker smoke 校准(Z-Image 用 qwen_3_4b + TextEncodeZImageOmni)
+        clip_name="qwen_3_4b.safetensors",
+        vae_name="ae.safetensors",
+        text_encode="TextEncodeZImageOmni",
+        latent_node="EmptySD3LatentImage",
+    ),
+    # Z-Image 非蒸馏底座:TE(qwen_3_4b)/VAE(ae)/图结构与 turbo 完全共用,仅采样档分族(_PROFILES)
+    "z_image_base": NextgenRecipe(
+        clip_type="lumina2",
         clip_name="qwen_3_4b.safetensors",
         vae_name="ae.safetensors",
         text_encode="TextEncodeZImageOmni",
