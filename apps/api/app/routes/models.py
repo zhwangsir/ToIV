@@ -25,6 +25,7 @@ from app.workflows.hunyuan3d import Hunyuan3DParams
 from app.workflows.llm_router import list_content_types, list_llm_endpoints
 from app.workflows.model_profiles import (
     detect_model_family,
+    is_image_ckpt,
     is_nextgen,
     is_nsfw,
     is_vpred,
@@ -64,26 +65,8 @@ def _tagged(names: list[str]) -> list[dict]:
     ]
 
 
-# 非图像底模的 checkpoint(由别的模式/管线使用),从图像 checkpoint 列表中剔除。
-# 用子串匹配(大小写不敏感),避免把音频/3D/视频专用 checkpoint 混入图像选择器。
-_NON_IMAGE_CKPT_HINTS = (
-    "ace_step",     # ACE-Step 音频
-    "mmaudio",      # MMAudio 音频
-    "hunyuan3d",    # Hunyuan3D 三维
-    # LTX 视频底模:LTXVGemmaCLIPModelLoader 的 ltxv_path 只枚举 checkpoints 目录,
-    # 故视频 DiT 必须落 checkpoints/,但不筛掉会混进图像底模下拉(选中即报错)。
-    "ltx-",         # LTX-2.3 视频 DiT(t2v/i2v/lipdub)
-    "10eros",       # 10Eros LTX 系 NSFW 视频 UNET(经 UNETLoader 加载,非图像底模)
-    # 2026-08-23 库存审计(safetensors 头实证):
-    "sulphur",      # Sulphur-2 = LTX-2 系视频 DiT(含 audio/video 交叉注意力键+LTX-2 许可证),非图像
-    "supir",        # SUPIR 图像修复/超分模型(first_stage_model.denoise_encoder 键),非生成底模
-    "krea2",        # Krea-2 Turbo 是纯 DiT(432 键,无 TE/VAE),CheckpointLoaderSimple 加载不了,待按 flux2 图模式接线后再开放
-)
-
-
-def _is_image_ckpt(name: str) -> bool:
-    low = name.lower()
-    return not any(h in low for h in _NON_IMAGE_CKPT_HINTS)
+# 非图像底模判定见 workflows/model_profiles.is_image_ckpt(唯一事实源,本文件不另维护)。
+_is_image_ckpt = is_image_ckpt
 
 
 def _image_checkpoints(all_ckpts: list[str]) -> list[str]:

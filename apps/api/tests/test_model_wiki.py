@@ -105,6 +105,28 @@ def test_card_for_unknown_returns_none():
     assert card_for("totally_unknown_thing.safetensors", "checkpoints") is None
 
 
+def test_card_for_qwen_image_family_longest_prefix():
+    """qwen_image 族:基础模与两个编辑专用 DiT 各命中各卡(最长前缀优先)。"""
+    base = card_for("qwen_image_fp8_e4m3fn.safetensors", "checkpoints")
+    assert base and "中文文字渲染" in base["label"]
+    e2509 = card_for("qwen_image_edit_2509_fp8_e4m3fn.safetensors", "checkpoints")
+    assert e2509 and "2509" in e2509["label"]
+    e2511 = card_for("qwen_image_edit_2511_fp8mixed.safetensors", "checkpoints")
+    assert e2511 and "2511" in e2511["label"]
+
+
+def test_card_for_case_and_underscore_variants():
+    """历史前缀不匹配回归:waiSHUFFLENOOB(无下划线)须命中卡片。"""
+    card = card_for("waiSHUFFLENOOB_vPred04.safetensors", "checkpoints")
+    assert card and "ShuffleNoob" in card["label"]
+
+
+def test_card_for_elie_lora_trigger_words():
+    """elie-xl-nvwls-v1 实为角色 LoRA(误放 checkpoints 已归位),卡片带触发词。"""
+    card = card_for("elie-xl-nvwls-v1.safetensors", "loras")
+    assert card and "elie macdowell" in card["trigger_words"]
+
+
 def test_list_card_summaries_complete():
     rows = list_card_summaries()
     assert len(rows) >= 20

@@ -372,6 +372,62 @@ async def test_image_engines_dynamic_model_params(live_pool, user):
         assert len(preset["options"]) > 1
 
 
+async def test_ckpt_options_enriched_with_wiki_card(live_pool, user):
+    """底模下拉:命中模型百科卡片的选项 label 为「人话名 · 文件名」并附 desc 一句话简介。"""
+    ids = _by_id(await list_engines(live_pool, user))
+    ckpt = _param(ids["txt2img"], "ckpt_name")
+    by_value = {o["value"]: o for o in ckpt["options"]}
+    majic = by_value[_SFW_CKPT]
+    assert majic["label"].startswith("麦橘写实")
+    assert _SFW_CKPT in majic["label"]
+    assert majic.get("desc")
+
+
+async def test_ckpt_options_unknown_keeps_bare_filename(user):
+    """未命中卡片的底模保持裸文件名 label、无 desc(旧行为兼容)。"""
+    pool = WorkerPool([_FakeClient(
+        {_DISTILLED, _EROS, _GEMMA, _VAE}, _ltx_nodes(),
+        ckpts=["someUnknownMerge_v9.safetensors"], unets=[],
+    )])
+    ids = _by_id(await list_engines(pool, user))
+    ckpt = _param(ids["txt2img"], "ckpt_name")
+    by_value = {o["value"]: o for o in ckpt["options"]}
+    opt = by_value["someUnknownMerge_v9.safetensors"]
+    assert opt["label"] == "someUnknownMerge_v9.safetensors"
+    assert "desc" not in opt
+
+
+async def test_edit_only_unet_excluded_from_ckpt_options(user):
+    """编辑专用 DiT(qwen_image_edit_2509/2511)不进文生图底模下拉(无参考图必败)。"""
+    pool = WorkerPool([_FakeClient(
+        {_DISTILLED, _EROS, _GEMMA, _VAE}, _ltx_nodes(),
+        ckpts=[], unets=["qwen_image_edit_2511_fp8mixed.safetensors", _NEXTGEN_UNET],
+    )])
+    ids = _by_id(await list_engines(pool, user))
+    ckpt = _param(ids["txt2img"], "ckpt_name")
+    values = [o["value"] for o in ckpt["options"]]
+    assert _NEXTGEN_UNET in values
+    assert not any("qwen_image_edit" in v for v in values)
+
+
+async def test_non_image_ckpts_excluded_from_selector(user):
+    """剔除清单回归(2026-08-24 漂移事故):视频 DiT/修复/纯 DiT 不得混进图像底模下拉。"""
+    junk = [
+        "10eros_v14.safetensors", "SUPIR-v0Q_fp16.safetensors",
+        "krea2TurboFP8_krea2TURBO.safetensors", "ltx-2.3-22b-dev.safetensors",
+        "sulphur_dev_fp8mixed.safetensors",
+    ]
+    pool = WorkerPool([_FakeClient(
+        {_DISTILLED, _EROS, _GEMMA, _VAE}, _ltx_nodes(),
+        ckpts=[*junk, _SFW_CKPT], unets=[],
+    )])
+    ids = _by_id(await list_engines(pool, user))
+    values = [o["value"] for o in _param(ids["txt2img"], "ckpt_name")["options"]]
+    assert _SFW_CKPT in values
+    for j in junk:
+        assert j not in values, f"{j} 应被剔除"
+
+
 async def test_sfw_context_strips_nsfw_ckpt_options(live_pool, user):
     """SFW 上下文:txt2img 底模选项剔除 NSFW ckpt,风格预设剔除指向 R18 底模的项。"""
     token = nsfw_intent_var.set(False)

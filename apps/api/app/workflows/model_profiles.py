@@ -318,6 +318,36 @@ def is_nsfw(name: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# 非图像底模剔除(图像 checkpoint 列表/底模下拉共用)
+# ---------------------------------------------------------------------------
+
+# 非图像底模的 checkpoint(由别的模式/管线使用),从图像 checkpoint 列表中剔除。
+# 用子串匹配(大小写不敏感),避免把音频/3D/视频专用 checkpoint 混入图像选择器。
+# 🔒 唯一事实源:routes/models.py 与 services/engine_registry.py 共用——
+# 2026-08-24 前两处各自维护已漂移(routes 侧审计剔除的 10eros/SUPIR/krea2/ltx/sulphur
+# 仍混在生成页底模下拉),新增剔除项只能改这里。
+NON_IMAGE_CKPT_HINTS: tuple[str, ...] = (
+    "ace_step",     # ACE-Step 音频
+    "mmaudio",      # MMAudio 音频
+    "hunyuan3d",    # Hunyuan3D 三维
+    # LTX 视频底模:LTXVGemmaCLIPModelLoader 的 ltxv_path 只枚举 checkpoints 目录,
+    # 故视频 DiT 必须落 checkpoints/,但不筛掉会混进图像底模下拉(选中即报错)。
+    "ltx-",         # LTX-2.3 视频 DiT(t2v/i2v/lipdub)
+    "10eros",       # 10Eros LTX 系 NSFW 视频 UNET(经 UNETLoader 加载,非图像底模)
+    # 2026-08-23 库存审计(safetensors 头实证):
+    "sulphur",      # Sulphur-2 = LTX-2 系视频 DiT(含 audio/video 交叉注意力键+LTX-2 许可证),非图像
+    "supir",        # SUPIR 图像修复/超分模型(first_stage_model.denoise_encoder 键),非生成底模
+    "krea2",        # Krea-2 Turbo 是纯 DiT(432 键,无 TE/VAE),CheckpointLoaderSimple 加载不了,待按 flux2 图模式接线后再开放
+)
+
+
+def is_image_ckpt(name: str) -> bool:
+    """是否可出图底模(剔除音频/3D/视频/修复等专用 checkpoint)。"""
+    low = name.lower()
+    return not any(h in low for h in NON_IMAGE_CKPT_HINTS)
+
+
+# ---------------------------------------------------------------------------
 # ModelSamplingDiscrete 节点注入(v-pred 出图链修正)
 # ---------------------------------------------------------------------------
 

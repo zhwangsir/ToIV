@@ -29,7 +29,8 @@ from app.services.h3 import H3_NODE, get_h3_client, is_h3_nsfw_lora
 from app.services.longcat import LONGCAT_NODE, get_longcat_client
 from app.services.qwen_edit import QWEN_EDIT_NODE, get_qwen_edit_client
 from app.workflows.qwen_edit import CAMERA_PRESETS, QWEN_EDIT_UNET
-from app.workflows.model_profiles import is_nextgen, is_nsfw
+from app.workflows.model_profiles import is_image_ckpt, is_nextgen, is_nsfw
+from app.workflows.model_wiki import card_for
 from app.workflows.style_presets import MediaType, list_presets
 from app.workflows.wan_i2v import WAN_I2V_NSFW_LORAS
 
@@ -634,13 +635,14 @@ def _enum(info: dict, node: str, field: str) -> list[str]:
     return opts[0] if opts and isinstance(opts[0], list) else []
 
 
-# 非图像底模的 checkpoint(音频/3D 等),从图像底模选项中剔除(与 routes/models.py 一致)
-_NON_IMAGE_CKPT_HINTS = ("ace_step", "mmaudio", "hunyuan3d")
+# 编辑专用 DiT(qwen_image_edit_2509/2511):纯图像编辑模型,无参考图走文生图必败,
+# 不掺进文生图/图生图底模下拉(编辑走 qwen-image-edit 引擎的专用实例与固定图)。
+_EDIT_ONLY_UNET_HINTS = ("qwen_image_edit",)
 
 
 def _is_image_ckpt(name: str) -> bool:
-    low = name.lower()
-    return not any(h in low for h in _NON_IMAGE_CKPT_HINTS)
+    # 唯一事实源在 workflows/model_profiles(与 routes/models.py 同一份剔除清单)
+    return is_image_ckpt(name)
 
 
 # 组件分片/子文件:diffusion_models 下按目录拆放的 HF 组件(text_encoder/transformer/vae 等)
@@ -690,8 +692,12 @@ async def _image_form_options(pool: WorkerPool) -> dict[str, list[str]] | None:
     except Exception:
         unet_info = {}
     # 次世代出图族在 diffusion_models(UNETLoader)里,并入图像可选底模并排前
-    # (剔除组件分片:Qwen-Image/text_encoder|transformer|vae 等目录件选中即报错)
-    ckpts = [n for n in _enum(unet_info, "UNETLoader", "unet_name") if _is_nextgen_image_ckpt(n)]
+    # (剔除组件分片:Qwen-Image/text_encoder|transformer|vae 等目录件选中即报错;
+    #  再剔除编辑专用 DiT:qwen_image_edit 系不能文生图)
+    ckpts = [
+        n for n in _enum(unet_info, "UNETLoader", "unet_name")
+        if _is_nextgen_image_ckpt(n) and not any(h in n.lower() for h in _EDIT_ONLY_UNET_HINTS)
+    ]
     ckpts += [c for c in _enum(ckpt_info, "CheckpointLoaderSimple", "ckpt_name") if _is_image_ckpt(c)]
     # 去重保序(同名不同子目录的 basename 重复)
     seen: set[str] = set()
@@ -755,6 +761,20 @@ def _style_preset_select() -> dict:
     }
 
 
+def _ckpt_option(name: str, *, nsfw: bool) -> dict:
+    """底模下拉项:命中 curated 卡片时用「人话名 · 文件名」做 label 并附一句话简介(desc),
+    未命中保持裸文件名(行为与旧版一致)。"""
+    card = card_for(name, "checkpoints")
+    opt: dict[str, Any] = {"value": name, "label": name}
+    if card:
+        opt["label"] = f"{card['label']} · {name}"
+        if card.get("description"):
+            opt["desc"] = card["description"]
+    if nsfw:
+        opt["nsfw"] = True
+    return opt
+
+
 def _inject_dynamic_options(p: dict, dyn: dict[str, list[str]] | None) -> dict:
     """把 options_source 标记的参数注入运行时选项;dyn 为 None(worker 不可达)时保留声明态兜底。"""
     src = p.pop("options_source", None)
@@ -763,13 +783,13 @@ def _inject_dynamic_options(p: dict, dyn: dict[str, list[str]] | None) -> dict:
         return p
     if src == "image_ckpt":
         p["options"] = [{"value": "", "label": "平台默认底模"}] + [
-            {"value": n, "label": n, **({"nsfw": True} if is_nsfw(n) else {})}
+            _ckpt_option(n, nsfw=is_nsfw(n))
             for n in dyn["ckpts"]
         ]
         p["default"] = ""
     elif src == "image_ckpt_nsfw":
         opts = [
-            {"value": n, "label": n, "nsfw": True}
+            _ckpt_option(n, nsfw=True)
             for n in dyn["ckpts"] if is_nsfw(n)
         ]
         if opts:

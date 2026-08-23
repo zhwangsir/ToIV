@@ -130,7 +130,12 @@ export function ParamField({ param, value, onChange, disabled }: ParamFieldProps
           />
         </Field>
       );
-    case "select":
+    case "select": {
+      // 命中模型百科卡片的选项带一句话简介(desc):选中后展示在下拉下方,
+      // 解决底模列表「全是裸文件名看不出谁是谁」的问题。
+      const selectedOpt = (param.options ?? []).find(
+        (o) => o.value === String(value ?? ""),
+      );
       return (
         <Field label={param.label} hint={param.hint}>
           <Select
@@ -144,8 +149,14 @@ export function ParamField({ param, value, onChange, disabled }: ParamFieldProps
               </option>
             ))}
           </Select>
+          {selectedOpt?.desc && (
+            <span style={{ fontSize: "var(--text-aux)", color: "var(--text-muted)" }}>
+              {selectedOpt.desc}
+            </span>
+          )}
         </Field>
       );
+    }
     case "switch":
       return (
         <Field label={param.label} hint={param.hint}>

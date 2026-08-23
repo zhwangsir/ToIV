@@ -207,7 +207,7 @@ _IMAGE_CKPT_CARDS: list[CardSpec] = [
         tags=("二次元", "R18", "VPRED", "ILLUSTRIOUS"),
     ),
     CardSpec(
-        filename_prefix="wai_shufflenoob",
+        filename_prefix="waishufflenoob",
         label="WAI ShuffleNoob vPred(WAI×NoobAI 混血)",
         base_model="Illustrious-XL(v-pred)",
         nsfw=True,
@@ -262,7 +262,38 @@ _IMAGE_CKPT_CARDS: list[CardSpec] = [
         tags=("极速", "草稿", "可商用", "次世代"),
     ),
     CardSpec(
-        filename_prefix="qwen-image",
+        filename_prefix="qwen_image_edit_2511",
+        label="Qwen-Image-Edit 2511(编辑专用:3D 相机/语义编辑)",
+        base_model="Qwen-Image-Edit",
+        description=(
+            "2511 版图像编辑 DiT:配 fal Multiple-Angles-LoRA 做真 360° 相机"
+            "(96 机位:8 方位×4 俯仰×3 距离),语义编辑一致性优于 2509;"
+            "是纯编辑模型,不能用于文生图。"
+        ),
+        usage=(
+            "平台入口:图像编辑「3D 相机(360°)」/「智能编辑(Qwen)」工具;"
+            "触发词 <sks> {azimuth} {elevation} {distance} 由后端自动注入;Lightning 4 步加速。"
+        ),
+        prompt_dialect="英文自然语言编辑指令;机位参数走结构化字段",
+        tags=("编辑", "3D相机", "次世代"),
+    ),
+    CardSpec(
+        filename_prefix="qwen_image_edit_2509",
+        label="Qwen-Image-Edit 2509(编辑专用:智能编辑)",
+        base_model="Qwen-Image-Edit",
+        description=(
+            "2509 版图像编辑 DiT:指令式增删改/风格迁移/文字编辑,"
+            "配多角度 LoRA 做 10 档相机变换;纯编辑模型,不能用于文生图。"
+        ),
+        usage=(
+            "平台入口:图像编辑「智能编辑(Qwen)」工具;快速档 Lightning 8 步,"
+            "标准档 20 步质量更高;⚠️ 风景场景相机旋转是 LoRA 数据分布硬限制。"
+        ),
+        prompt_dialect="英文自然语言编辑指令",
+        tags=("编辑", "次世代"),
+    ),
+    CardSpec(
+        filename_prefix="qwen_image",
         label="Qwen-Image(中文文字渲染,可商用)",
         base_model="Qwen-Image",
         description=(
@@ -286,6 +317,121 @@ _IMAGE_CKPT_CARDS: list[CardSpec] = [
         prompt_dialect="SDXL 逗号标签",
         negative_hint="worst quality, low quality, flat",
         tags=("3D", "CG", "风格化"),
+    ),
+    CardSpec(
+        filename_prefix="flux-2-klein",
+        label="FLUX.2 Klein 9B(轻量次世代,速度/质量平衡)",
+        base_model="FLUX.2",
+        description=(
+            "FLUX.2 的 9B 轻量成员:保留次世代架构的构图与文字理解,"
+            "显存与耗时远低于 Dev;日常出图的高性价比选择。"
+        ),
+        usage="采样 20-28 步 / CFG 1.0;1024²;英文自然语言长句;负向留空。",
+        prompt_dialect="英文自然语言长句",
+        negative_hint="",
+        tags=("写实", "轻量", "次世代"),
+    ),
+    CardSpec(
+        filename_prefix="flux1-dev",
+        label="FLUX.1 Dev fp8(上一代旗舰)",
+        base_model="FLUX.1",
+        description=(
+            "上代旗舰写实底模:构图美学与光影表现仍是一线水准,"
+            "社区 LoRA/工作流生态最成熟;被 FLUX.2 接棒但不过时。"
+        ),
+        usage="采样 20-28 步 / CFG 1.0(distilled);英文自然语言长句;负向留空。",
+        prompt_dialect="英文自然语言长句",
+        negative_hint="",
+        tags=("写实", "全能"),
+    ),
+    CardSpec(
+        filename_prefix="DreamShaper",
+        label="DreamShaper 8(SD1.5 经典全能)",
+        base_model="SD 1.5",
+        description=(
+            "SD1.5 时代最经典的通用底模:插画/写实/概念通吃,"
+            "体积小出图快,老 LoRA 生态(8051 系)只认 SD1.5 时用它。"
+        ),
+        usage="采样 20-25 步 / CFG 7;512×768 起步再高清修复;适合批量草稿与老 LoRA。",
+        prompt_dialect="SD1.5 逗号标签 + 质量词",
+        negative_hint="ugly, deformed, blurry, bad anatomy, watermark, text",
+        tags=("全能", "SD15", "经典"),
+    ),
+    CardSpec(
+        filename_prefix="novaAnimeXL",
+        label="Nova Anime XL(明丽动漫插画)",
+        base_model="Illustrious-XL",
+        description=(
+            "Illustrious 系动漫底模:上色明丽、人物甜美,"
+            "轻小说封面/ galgame 立绘风见长。"
+        ),
+        usage="采样 25 步 / CFG 5 / euler_a;832×1216;booru 标签。",
+        prompt_dialect="ILLUSTRIOUS booru 标签",
+        negative_hint="worst quality, low quality, bad anatomy",
+        tags=("二次元", "插画", "ILLUSTRIOUS"),
+    ),
+    CardSpec(
+        filename_prefix="autismmix",
+        label="AutismMix SDXL(Pony 系动漫经典)",
+        base_model="Pony Diffusion V6 XL",
+        nsfw=True,
+        description=(
+            "Pony 基底老牌动漫合并模:保留 score 标签体系同时弱化「Pony 脸」,"
+            "二次元通用稳定,社区长盛经典。"
+        ),
+        usage="采样 25 步 / CFG 5-7 / euler_a;832×1216;score_9 前缀置前。",
+        prompt_dialect="Pony score_9 前缀 + danbooru 标签",
+        negative_hint="score_6, score_5, score_4, worst quality, low quality",
+        tags=("二次元", "PONY", "R18"),
+    ),
+    CardSpec(
+        filename_prefix="animagineXL",        label="Animagine XL 4.0(动漫角色专精)",
+        base_model="SDXL 1.0",
+        nsfw=True,
+        description=(
+            "老牌动漫底模 4.0:角色还原(已有 IP 角色)与 booru 标签遵循度强,"
+            "同人创作社区保有量最大的一批。"
+        ),
+        usage="采样 25-28 步 / CFG 5-7;832×1216;质量词 masterpiece, best quality 有效。",
+        prompt_dialect="danbooru 标签(角色名/作品名直接可查)",
+        negative_hint="worst quality, low quality, bad anatomy, extra digits",
+        tags=("二次元", "角色", "R18"),
+    ),
+    CardSpec(
+        filename_prefix="pornmaster",
+        label="Pornmaster Pro V8(写实 NSFW)",
+        base_model="SDXL 1.0",
+        nsfw=True,
+        description="写实成人向 SDXL 底模,真人质感与场景还原稳定,欧美题材取向。",
+        usage="采样 25-30 步 / CFG 5-7;832×1216;R18 上下文可见。",
+        prompt_dialect="SDXL 逗号标签",
+        negative_hint="ugly, deformed, bad anatomy, watermark",
+        tags=("写实", "R18"),
+    ),
+    CardSpec(
+        filename_prefix="prefectIllustriousXL",
+        label="Prefect Illustrious XL(精致动漫 NSFW)",
+        base_model="Illustrious-XL",
+        nsfw=True,
+        description="Illustrious 系精致向动漫底模,面部刻画与完成度高,R18 题材兼容。",
+        usage="采样 25 步 / CFG 5;832×1216;booru 标签;R18 上下文可见。",
+        prompt_dialect="ILLUSTRIOUS booru 标签",
+        negative_hint="worst quality, low quality, bad anatomy",
+        tags=("二次元", "R18", "ILLUSTRIOUS"),
+    ),
+    CardSpec(
+        filename_prefix="waiREALCN",
+        label="WAI-REAL_CN(中国脸写实 Pony)",
+        base_model="Pony Diffusion V6 XL",
+        nsfw=True,
+        description=(
+            "WAI 系列写实分支:面向中国/亚洲面孔的 Pony 系写实模,"
+            "v15 起不再依赖正负质量词堆叠,直出即用;score 标签体系兼容。"
+        ),
+        usage="采样 25-30 步 / CFG 5-6;1024×1360 直出;score_9 前缀可省。",
+        prompt_dialect="Pony score 前缀 + danbooru 标签(中文题材友好)",
+        negative_hint="worst quality, low quality",
+        tags=("写实", "亚洲面孔", "PONY", "R18"),
     ),
 ]
 
@@ -380,6 +526,20 @@ _VIDEO_CARDS: list[CardSpec] = [
 # ─────────────────────────────────────────────────────────────────────────────
 
 _LORA_CATEGORY_CARDS: list[CardSpec] = [
+    CardSpec(
+        filename_prefix="elie-xl-nvwls",
+        label="Elie MacDowell 角色 LoRA(碧轨)",
+        model_type="loras",
+        base_model="SDXL 1.0",
+        description=(
+            "《英雄传说 碧之轨迹》Elie MacDowell 角色 LoRA(作者 NVWLS);"
+            "2026-08-24 审计发现误放 checkpoints 目录(LoRA 无法当底模加载),已归位 loras/。"
+        ),
+        usage="提示词内 <lora:elie-xl-nvwls-v1:0.8>;触发词 elie macdowell;配 SDXL 动漫底模。",
+        prompt_dialect="booru 标签",
+        trigger_words=("elie macdowell", "hairband", "ascot", "white dress", "uniform"),
+        tags=("LoRA", "角色", "二次元"),
+    ),
     CardSpec(
         filename_prefix="ancient",
         label="古风/古装场景 LoRA",

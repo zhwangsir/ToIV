@@ -177,6 +177,13 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（决策记录,替代操作历史）
 
+### 2026-08-24（晚间·模型目录治理+底模选择器简介）
+- **底模选择器人话化**：底模下拉命中模型百科 curated 卡片后 label 变「人话名 · 文件名」并附 desc 一句话简介(ParamField 选中项下方展示);新增/修复 14 张卡(qwen_image 族三件套最长前缀分流、flux-2-klein/flux1-dev/DreamShaper/novaAnimeXL/animagine/autismmix/pornmaster/prefectIllustrious/waiREALCN,修 waiSHUFFLENOOB 下划线不匹配)
+- **🚨 剔除清单漂移事故根治**:routes/models.py 与 engine_registry.py 各自维护 _NON_IMAGE_CKPT_HINTS 已漂移——08-23 审计剔除的 10eros/SUPIR/krea2/ltx/sulphur 仍混在生成页底模下拉;唯一事实源收编为 `model_profiles.NON_IMAGE_CKPT_HINTS` + `is_image_ckpt()`,两处共用,新增剔除项只改那里
+- **编辑专用 DiT 剔出生成下拉**:qwen_image_edit_2509/2511 是纯编辑模型(无参考图文生图必败),从 txt2img/img2img 底模下拉剔除(`_EDIT_ONLY_UNET_HINTS`),编辑走 qwen-image-edit 引擎不受影响
+- **elie-xl-nvwls-v1 实为角色 LoRA**:safetensors 头实证(architecture=lora,触发词 elie macdowell,碧之轨迹角色,作者 NVWLS),误放 NAS checkpoints/ 已归位 loras/;SFW 下拉 11→8 全实证可出图,NSFW 16 全卡片覆盖
+- **回归**:后端 1957 passed(新增 6 例:卡片前缀/选择器富化/编辑 DiT 剔除/非图像剔除)/ 前端 456 / tsc 0;已部署 core
+
 ### 2026-08-24（凌晨·3D 相机 360° + 两处 UX 修复）
 - **真·360° 相机上线(对标 ModelScope AMD 工作室)**：底层是 **Qwen-Image-Edit-2511 + fal Multiple-Angles-LoRA**(96 机位=8 方位×4 俯仰×3 距离,3DGS 渲染训练,触发词 `<sks> {azimuth} {elevation} {distance}`)+ 2511-Lightning-4 步加速;权重全落 NAS(2511 fp8mixed 20G 走 hf-mirror 直连 aria2c 67MB/s)。端点复用 /api/generate/qwen-edit(新增 azimuth/elevation/distance,与 legacy camera 互斥,422 校验);前端图像编辑第 6 工具「3D 相机(360°)」:方位罗盘 8 键+俯仰 4 档+距离 3 档+附加指令+**360° 环绕序列**(8 方位逐个生成,胶片条逐张落地、点击切主图、可 abort)。真机+生产 e2e:180° 背面完美、315° 高机位特写优秀。⚠️ 2511 倾向重绘背景(「保持纯白背景」附加指令只能部分约束);2509 路径不动
 - **导航「观测」×7 bug 根治**:page.tsx admin 分支 `islandItems.push()` 突变了模块级常量 ISLAND_ITEMS(非 R18 分支同一引用),每次渲染追加一次→改复制后追加+源码断言防回归

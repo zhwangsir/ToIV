@@ -31,6 +31,8 @@ export interface EngineParamOption {
   value: string;
   label: string;
   nsfw?: boolean;
+  /** 一句话简介(命中模型百科 curated 卡片时由后端注入,选中后展示) */
+  desc?: string;
 }
 
 /** LoRA 叠加参数值(loras 类型):多选 + 单项强度。 */
