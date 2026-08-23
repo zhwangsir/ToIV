@@ -80,6 +80,8 @@ async def test_video_ckpts_excluded_from_image_list(user, monkeypatch):
 
     背景:LTXVGemmaCLIPModelLoader 的 ltxv_path 只枚举 checkpoints 目录,视频 DiT 必须落
     checkpoints/,但不筛掉会混进图像下拉,选中即报错(2026-08-10 真机 /api/models 实测)。
+    2026-08-23 库存审计(safetensors 头实证)补三个:
+    sulphur(LTX-2 系视频 DiT)/ supir(修复模型,非生成底模)/ krea2(纯 DiT,加载不了)。
     """
     from app.config import get_settings
     get_settings.cache_clear()
@@ -89,9 +91,12 @@ async def test_video_ckpts_excluded_from_image_list(user, monkeypatch):
         "ltx-2.3-22b-distilled-1.1.safetensors",
         "ltx-2.3-22b-dev.safetensors",
         "10eros_v14.safetensors",
+        "sulphur_dev_fp8mixed.safetensors",
+        "SUPIR-v0Q_fp16.safetensors",
+        "krea2TurboFP8_krea2TURBO.safetensors",
     ]]
     pool = WorkerPool([FakeComfyClient(info)])  # 重建 pool,替身枚举含视频底模
     response = await list_models(pool, user)
     assert SDXL_CKPT in response["checkpoints"]
-    assert not any("ltx-" in c.lower() for c in response["checkpoints"])
-    assert not any("10eros" in c.lower() for c in response["checkpoints"])
+    for bad in ("ltx-", "10eros", "sulphur", "supir", "krea2"):
+        assert not any(bad in c.lower() for c in response["checkpoints"]), bad

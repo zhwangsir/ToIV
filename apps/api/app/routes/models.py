@@ -74,6 +74,10 @@ _NON_IMAGE_CKPT_HINTS = (
     # 故视频 DiT 必须落 checkpoints/,但不筛掉会混进图像底模下拉(选中即报错)。
     "ltx-",         # LTX-2.3 视频 DiT(t2v/i2v/lipdub)
     "10eros",       # 10Eros LTX 系 NSFW 视频 UNET(经 UNETLoader 加载,非图像底模)
+    # 2026-08-23 库存审计(safetensors 头实证):
+    "sulphur",      # Sulphur-2 = LTX-2 系视频 DiT(含 audio/video 交叉注意力键+LTX-2 许可证),非图像
+    "supir",        # SUPIR 图像修复/超分模型(first_stage_model.denoise_encoder 键),非生成底模
+    "krea2",        # Krea-2 Turbo 是纯 DiT(432 键,无 TE/VAE),CheckpointLoaderSimple 加载不了,待按 flux2 图模式接线后再开放
 )
 
 

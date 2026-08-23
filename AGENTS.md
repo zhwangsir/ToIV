@@ -180,11 +180,12 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ### 2026-08-23（午后·自主循环第二波,全部已部署 core 并生产验证）
 - **H3 矩阵收敛落地**：`TOIV_H3_NSFW_UNET`(默认 10Eros_Max_h3_TURBO_ref2va_beta2_int8_convrot.safetensors)接入 submit_h3_job 收口,NSFW 场景默认 10Eros-Max,SFW 不动;生产 2 条 R18 回归 done(h264+aac),本地同图直提验证 unet 确为 10Eros-Max;矩阵正式「H3 主力+Wan2.2 兜底」
 - **生成观测面板**：GET /api/observability(仅 admin,10s 缓存单飞,单实例 2s 超时降级)——队列分桶/24h 成功率/held 原因/四卡 VRAM(ComfyUI /system_stats 聚合,GPU 拓扑写死带注释);前端 ObservabilityView(admin 专属,12s 轮询)。生产实测四卡在线,24h 成功率 86.5%。⚠️ PC01/PC02 从 core 不可达(000,机器离线非 bug)
-- **B 评测管线**：best-of-n(EvalBatch/EvalScore 两表,job_ids 存 Job.id 非 prompt_id——hold 换名不丢);评分器抽象 HeuristicScorer(ffprobe 实测,维度探测不到跳过不打 0)+VLMScorer(OpenAI 兼容,TOIV_EVAL_VLM_BASE_URL 配置化,失败降级启发式标 degraded,绝不静默出假分);端点 POST /api/eval/best-of-n/h3 + GET /api/eval/batches[/{id}]。⚠️ watcher 是进程内任务,api 重启 generating 批次需手动重调 finalize(reconcile 待补)
+- **B 评测管线**：best-of-n(EvalBatch/EvalScore 两表,job_ids 存 Job.id 非 prompt_id——hold 换名不丢);评分器抽象 HeuristicScorer(ffprobe 实测,维度探测不到跳过不打 0)+VLMScorer(OpenAI 兼容,TOIV_EVAL_VLM_BASE_URL 配置化,失败降级启发式标 degraded,绝不静默出假分);端点 POST /api/eval/best-of-n/h3 + GET /api/eval/batches[/{id}]。watcher 是进程内任务,api 重启 generating 批次由 `bestof.reconcile_interrupted()`(挂 lifespan)自动重挂,已补)
 - **E 数据飞轮**：偏好对导出(DPO JSONL:chosen/rejected/score_gap/scorer/nsfw),阈值 TOIV_PREF_PAIR_MIN_GAP=0.15,degraded/error/空产物排除,nsfw 分文件,EvalDatasetExport 表幂等;finalize 自动导出(TOIV_PREF_EXPORT_AUTO)+手动 POST /api/eval/dataset/export + GET stats;默认目录 data/preference_dataset
 - **C 音频编排层**：POST /api/audio/orchestrate(steps 判别联合:tts 多角色 voices 映射/separate 复用 demucs 白名单防 SSRF/concat 走 ffmpeg,core 已有 /usr/bin/ffmpeg;mix/sfx/variant 501 占位不造假),产物建 Job(kind=audio_orchestrate),GET /api/audio/orch/files/{name} 带 Range;失败即中断原码上抛
 - **前端工程债**：trackJob abort 接全(ImageEditView/TrainView);hydration mismatch 修两处(useState 恒值+挂载 effect 校正);ltx25 前端 11 文件零残留(QuickStartGrid 视频区 3→2 卡,H3 升首卡)
 - **回归基线**：后端 1927 passed / 前端 445 passed / tsc 0
+- **图像底模清单审计(2026-08-23 傍晚)**：/api/models 图像列表是 worker object_info 实时枚举,混入非生成模型;按 safetensors 头实证剔除三个——sulphur(LTX-2 系视频 DiT,8411 键含音视交叉注意力)、SUPIR(修复模型,非生成底模)、krea2TurboFP8(Krea-2 Turbo 是纯 DiT 432 键无 TE/VAE,CheckpointLoaderSimple 加载不了,待按 flux2 图模式接线后再开放);SFW 列表 12→9 全实证可出图。顺带修正 core `TOIV_DEFAULT_CKPT` 残留旧值(DreamShaper→flux2_dev_fp8mixed,对齐 roadmap A 拍板)。NSFW 列表 16 个全 SDXL/SD15 架构抽验无误(cyberrealistic_v120/waiREALCN 实为 SDXL 2515 键,族标 sdxl_anime 系架构标签非内容标签,不误导)
 
 ### 2026-08-23（晚间·H3 LoRA 训练管线上线）
 - **musubi-tuner 不支持 H3**：上游 kohya-ss/musubi-tuner 无 MiniMax 架构(issue #1017 仍 open);H3 原生 LoRA 训练改走 **ostris/ai-toolkit 的 `minimax_h3` 扩展**(2026-08-03 入库,arch=`minimax_h3`,T2V/I2V 均可训)
