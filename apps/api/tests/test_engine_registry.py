@@ -164,6 +164,26 @@ def h3_lora_stub(monkeypatch):
     return state
 
 
+@pytest.fixture(autouse=True)
+def qwen_edit_stub(monkeypatch):
+    """Qwen-Image-Edit 实例探测替身:默认在线且含编辑节点+UNET;置 .nodes/.models=None 模拟不可达。
+
+    无此替身时 _probe_qwen_edit 会向真实 TOIV_QWEN_EDIT_BASE_URL(默认 pc02 :8194)发 HTTP,
+    单元测试不允许依赖局域网真实实例。
+    """
+    from app.workflows.qwen_edit import QWEN_EDIT_UNET
+
+    state = SimpleNamespace(nodes={"TextEncodeQwenImageEdit"}, models={QWEN_EDIT_UNET})
+
+    async def _fake() -> tuple[set[str], set[str]]:
+        if state.nodes is None or state.models is None:
+            raise ComfyUIError("connection refused")
+        return set(state.nodes), set(state.models)
+
+    monkeypatch.setattr(engine_registry, "_fetch_qwen_edit_meta", _fake)
+    return state
+
+
 async def test_structure_four_engines_plus_h3(live_pool, user):
     engines = await list_engines(live_pool, user)
     ids = _by_id(engines)
@@ -181,6 +201,26 @@ async def test_structure_four_engines_plus_h3(live_pool, user):
     assert ids["txt2img"]["kind"] == "image"
     assert ids["h3-t2v"]["kind"] == "video"
     assert ids["h3-i2v"]["kind"] == "video"
+
+
+async def test_qwen_image_edit_engine_registered(live_pool, user, qwen_edit_stub):
+    """qwen-image-edit 引擎注册:kind=image、stub 在线时可用、含 camera/fast 参数。"""
+    ids = _by_id(await list_engines(live_pool, user))
+    e = ids["qwen-image-edit"]
+    assert e["kind"] == "image"
+    assert e["available"] is True
+    keys = [p["key"] for p in e["params"]]
+    assert "camera" in keys and "fast" in keys and "images" in keys
+    assert e["submit"] == {"route": "/api/generate/qwen-edit", "kind": "qwen_edit"}
+
+
+async def test_qwen_image_edit_unavailable_without_unet(live_pool, user, qwen_edit_stub):
+    """实例缺编辑 UNET → 不可用并透出缺的文件名。"""
+    qwen_edit_stub.models = set()
+    ids = _by_id(await list_engines(live_pool, user))
+    e = ids["qwen-image-edit"]
+    assert e["available"] is False
+    assert "qwen_image_edit_2509" in e["unavailable_reason"]
 
 
 async def test_sfw_context_filters_nsfw_engines_and_options(live_pool, user):

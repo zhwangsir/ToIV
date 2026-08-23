@@ -48,6 +48,11 @@ def resolve_worker(worker: str) -> ComfyUIClient:
     longcat_base = getattr(settings, "longcat_base", "")
     if longcat_base and normalized == longcat_base:
         return ComfyUIClient(normalized, timeout=settings.request_timeout)
+    # Qwen-Image-Edit 专用实例(pc02 :8194,不在 pool 白名单):同 H3/LongCat,
+    # hostname 回退会错配到同机池实例 :8193(其 output 目录没有编辑产物),必须先行精确匹配
+    qwen_edit_base = getattr(settings, "qwen_edit_base", "")
+    if qwen_edit_base and normalized == qwen_edit_base:
+        return ComfyUIClient(normalized, timeout=settings.request_timeout)
     # hostname 级回退:兼容旧产物 URL(worker 端口已退役但同机仍存活)
     target_host = _host(normalized)
     for url in settings.worker_urls:

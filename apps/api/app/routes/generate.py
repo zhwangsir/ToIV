@@ -49,6 +49,8 @@ from app.workflows.model_profiles import (
 )
 from app.workflows.nextgen import NextgenImg2ImgParams, NextgenParams, build_nextgen_graph, build_nextgen_img2img_graph
 from app.workflows.removebg import REMBG_MODES, RemoveBgParams, build_removebg_graph
+from app.workflows.qwen_edit import CAMERA_PRESETS, QwenEditParams, build_qwen_edit_graph
+from app.services.qwen_edit import get_qwen_edit_client
 from app.workflows.style_presets import MediaType, resolve_style_preset
 from app.workflows.upscale import UPSCALE_MODELS, UpscaleParams, build_upscale_graph
 from app.workflows.frame_interpolate import RIFE_MODELS, FrameInterpolateParams, build_frame_interpolate_graph
@@ -1115,6 +1117,86 @@ async def generate_inpaint(
          "client_id": client_id,
          "worker": client.base_url,
          "seed": params.seed,
+    }
+
+
+class QwenEditRequest(BaseModel):
+    image: str = Field(min_length=1, max_length=512)  # 上传后得到的源图文件名
+    worker: str  # 源图所在 worker(同 img2img)
+    positive: str = Field(default="", max_length=2000)  # 编辑指令(纯相机操作时可空)
+    camera: str | None = Field(default=None, max_length=32)  # CAMERA_PRESETS 的 key
+    fast: bool = True  # True=8 步 Lightning 加速档;False=20 步标准档
+    seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
+
+
+@router.post("/generate/qwen-edit")
+async def generate_qwen_edit(
+    req: QwenEditRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Qwen-Image-Edit-2509 语义图像编辑(含多角度相机控制),专用实例 :8194。
+
+    LoadImage 只能读本实例 input 目录,而源图在源 worker 上 → 服务端转存:
+    从源 worker /view 拉字节,POST 到编辑实例 /upload/image,用新文件名进图。
+    不经过 LB 池;固定 SFW 模型,不涉 R18 门控。
+    """
+    enforce_generation_rate_limit(user)
+    if req.camera is not None and req.camera not in CAMERA_PRESETS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"不支持的相机角度:{req.camera!r};可选 {list(CAMERA_PRESETS)}",
+        )
+    if not req.positive.strip() and req.camera is None:
+        raise HTTPException(status_code=422, detail="编辑指令与相机角度至少填一项")
+    src = resolve_worker(req.worker)  # 源图所在 worker(resolve_worker 防 SSRF)
+    try:
+        content, _ = await src.get_image_bytes(req.image, "", "input")
+    except ComfyUIError as e:
+        raise HTTPException(status_code=502, detail=f"读取源图失败: {e}") from e
+    client = get_qwen_edit_client()  # 专用编辑实例,不入池
+    try:
+        transferred = await client.upload_image(content, req.image)
+    except ComfyUIError as e:
+        raise HTTPException(status_code=502, detail=f"转存源图到编辑实例失败: {e}") from e
+
+    params = QwenEditParams(
+        image=transferred,
+        positive=req.positive,
+        camera=req.camera,
+        fast=req.fast,
+        **({"seed": req.seed} if req.seed is not None else {}),
+    )
+    graph = build_qwen_edit_graph(params)
+    client_id = uuid.uuid4().hex
+    try:
+        prompt_id = await client.queue_prompt(graph, client_id)
+    except ComfyUIError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+    session.add(
+        Job(
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            prompt_id=prompt_id,
+            worker=client.base_url,
+            kind="qwen_edit",
+            status="queued",
+            prompt=req.positive + (f" [camera:{req.camera}]" if req.camera else ""),
+            seed=params.seed,
+            nsfw=False,
+            params=params_snapshot(req, seed=params.seed),
+        )
+    )
+    session.commit()
+
+    spawn_tracker(client, prompt_id)
+
+    return {
+        "prompt_id": prompt_id,
+        "client_id": client_id,
+        "worker": client.base_url,
+        "seed": params.seed,
     }
 
 

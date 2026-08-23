@@ -27,6 +27,8 @@ from app.models import User
 from app.nsfw_ctx import nsfw_allowed
 from app.services.h3 import H3_NODE, get_h3_client, is_h3_nsfw_lora
 from app.services.longcat import LONGCAT_NODE, get_longcat_client
+from app.services.qwen_edit import QWEN_EDIT_NODE, get_qwen_edit_client
+from app.workflows.qwen_edit import CAMERA_PRESETS, QWEN_EDIT_UNET
 from app.workflows.model_profiles import is_nextgen, is_nsfw
 from app.workflows.style_presets import MediaType, list_presets
 from app.workflows.wan_i2v import WAN_I2V_NSFW_LORAS
@@ -188,6 +190,65 @@ async def _probe_wan_animate(pool: WorkerPool) -> tuple[bool, str | None]:
 
 async def _probe_wan_vace(pool: WorkerPool) -> tuple[bool, str | None]:
     return await _probe_wan_node(pool, WAN_VACE_NODE, "Wan-VACE")
+
+
+# Qwen-Image-Edit 探测超时:实例挂起时不能拖垮 /api/models/engines 端点
+_QWEN_EDIT_PROBE_TIMEOUT = 8.0
+
+
+async def _fetch_qwen_edit_meta() -> tuple[set[str], set[str]]:
+    """Qwen-Image-Edit 实例 (节点集, 模型名集)(模块级独立函数,便于测试替身)。"""
+    client = get_qwen_edit_client()
+    return await client.node_names(), await client.model_names()
+
+
+async def _probe_qwen_edit(pool: WorkerPool) -> tuple[bool, str | None]:
+    """Qwen-Image-Edit 专用实例探测:含 TextEncodeQwenImageEdit 节点 + 编辑 UNET 在枚举即可用。
+
+    与 pool 探测不同:走 pc02 独立实例(TOIV_QWEN_EDIT_BASE_URL),pool 参数仅签名占位。
+    """
+    try:
+        nodes, models = await asyncio.wait_for(
+            _fetch_qwen_edit_meta(), timeout=_QWEN_EDIT_PROBE_TIMEOUT
+        )
+    except Exception as e:  # 不可达/超时/替身异常一律降级为不可用 + 原因
+        return False, f"Qwen-Image-Edit 实例不可达: {e}"
+    if QWEN_EDIT_NODE not in nodes:
+        return False, f"Qwen-Image-Edit 实例缺少 {QWEN_EDIT_NODE} 节点"
+    if QWEN_EDIT_UNET not in models:
+        return False, f"Qwen-Image-Edit 实例缺少编辑 UNET {QWEN_EDIT_UNET}"
+    return True, None
+
+
+# Qwen-Image-Edit 相机角度下拉标签(指令原文见 workflows/qwen_edit.CAMERA_PRESETS)
+_QWEN_EDIT_CAMERA_LABELS: dict[str, str] = {
+    "forward": "镜头前移",
+    "left": "镜头左移",
+    "right": "镜头右移",
+    "up": "镜头上移",
+    "down": "镜头下移",
+    "rotate_left": "向左旋转 45°",
+    "rotate_right": "向右旋转 45°",
+    "top_down": "俯视",
+    "wide": "广角",
+    "closeup": "特写",
+}
+
+
+# Qwen-Image-Edit 参数(与 routes/generate.py QwenEditRequest 同一套约束)
+def _qwen_edit_params() -> list[dict]:
+    return [
+        _ref_image_required(),
+        {
+            "key": "camera", "label": "相机角度", "type": "select", "default": "",
+            "options": [{"value": "", "label": "无(仅语义编辑)"}]
+            + [{"value": k, "label": _QWEN_EDIT_CAMERA_LABELS.get(k, k)} for k in CAMERA_PRESETS],
+            "hint": "多角度相机控制 LoRA;选择后自动把运镜指令拼进提示词",
+        },
+        {"key": "fast", "label": "快速档(Lightning 8 步)", "type": "switch", "default": True,
+         "hint": "关闭走 20 步标准档,质量更高但慢约 2.5 倍"},
+        _seed(),
+    ]
 
 
 # ACE-Step 文生音乐底模(与 workflows/ace_step.py AceStepParams.ckpt_name 一致)
@@ -806,6 +867,24 @@ def _default_registry() -> list[dict[str, Any]]:
             *_image_sampling_params(),
         ],
         "probe": _probe_image,
+    },
+    # Qwen-Image-Edit-2509:专用 ComfyUI 实例(TOIV_QWEN_EDIT_BASE_URL,默认 pc02 :8194),
+    # 语义编辑 + 多角度相机控制;probe 探测实例 TextEncodeQwenImageEdit 节点 + 编辑 UNET
+    {
+        "id": "qwen-image-edit",
+        "label": "智能编辑(Qwen)",
+        "kind": "image",
+        "nsfw": False,
+        "submit": {"route": "/api/generate/qwen-edit", "kind": "qwen_edit"},
+        "description": "Qwen-Image-Edit-2509:自然语言语义编辑 + 多角度相机控制,专用实例 :8194",
+        "source": {
+            "name": "Qwen-Image-Edit-2509",
+            "url": "https://huggingface.co/Qwen/Qwen-Image-Edit-2509",
+            "author": "阿里巴巴(Qwen 团队)",
+            "note": "开源权重语义图像编辑;相机控制为社区 Multiple-angles LoRA,本地自部署专用实例",
+        },
+        "params": _qwen_edit_params(),
+        "probe": _probe_qwen_edit,
     },
     # R18 图像引擎(NSFW 专区图像 tab):与 txt2img/img2img 同一提交链路,
     # 底模选项只注入 R18 ckpt(旧 CreateView nsfw 模式的 listModels 行为);

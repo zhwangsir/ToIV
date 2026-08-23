@@ -301,6 +301,11 @@ class Settings(BaseSettings):
     longcat_min_free_vram_gb: float = 26.0
     longcat_min_free_ram_gb: float = 15.0
 
+    # —— Qwen-Image-Edit-2509 语义图像编辑引擎(专用 ComfyUI 实例,pc02 RTX 5090 :8194) ——
+    # 独立于 ComfyUI-LB/WorkerPool(与同机池实例 :8193 隔离);TextEncodeQwenImageEdit
+    # 节点仅该实例装有,权重经 NAS 共享(清单见 workflows/qwen_edit.py)。
+    qwen_edit_base_url: str = "http://192.168.71.114:8194"
+
     # —— R3.2 Agent Team LangGraph 编排(2026-08-14) ——
     # checkpointer 选型:True 且 database_url 为 postgresql 时用 PostgresSaver(复用 core
     # PG18,跨进程断点续跑);SQLite(测试/开发)或 PG 不可达时自动回退 MemorySaver
@@ -396,6 +401,11 @@ class Settings(BaseSettings):
     def longcat_base(self) -> str:
         """LongCat 专用实例基址(已去尾斜杠)。"""
         return self.longcat_base_url.strip().rstrip("/")
+
+    @property
+    def qwen_edit_base(self) -> str:
+        """Qwen-Image-Edit 专用实例基址(已去尾斜杠)。"""
+        return self.qwen_edit_base_url.strip().rstrip("/")
 
     @property
     def h3_co_worker_urls(self) -> list[str]:

@@ -2,34 +2,41 @@
 
 ---
 
-## LOOP2-2026-08-23 · 自主循环第二波:H3矩阵收敛/hold排队/观测面板/评测管线/数据飞轮/音频编排/工程债
+## QWEN-EDIT-2026-08-24 · Qwen-Image-Edit 上 pc02 全链路 + 评测矩阵首秀
 
-**时间**: 2026-08-23(午后→傍晚)
-**类型**: 八任务并行 swarm 交付(均已部署 core 并生产验证)
+**时间**: 2026-08-24(凌晨)
+**类型**: 新引擎接入(pc02 5090 专用实例)+ 全面评测 + 低分项优化
 
-### 回归基线
+### 链路验证
 
-- 后端全量 **1927 passed**(4m37s);前端 **445 passed / 0 fail**;`tsc --noEmit` 0 错误
-- test_duration 连续 5 次单文件全绿(flaky 根治:差集精确等待替代 gather 全局 _post_tasks)
+- pc02 :8194 专用实例(StartComfyUIEdit 计划任务);源图服务端转存(源 worker /view → :8194 /upload/image)
+- 生产 e2e:upload → POST /api/generate/qwen-edit(camera=rotate_left,fast) → done,签名产物 URL 200;卡通男孩 45° 侧转完美
+- 图构造:UNETLoader(fp8)+CLIPLoader(qwen_2.5_vl_7b)+双 LoRA 链(多角度仅选角度时挂,Lightning 常挂)+TextEncodeQwenImageEdit(正接 vae+image)
 
-### 生产验证(core 100.77.80.100)
+### 评测矩阵(12 例,molmo2 初评 + 人工目检校准)
 
-- `GET /api/observability`:四卡在线实时 VRAM(GPU0 16.3/95、GPU1 67.8/95、GPU2 72.1/95、GPU3 52.8/95),24h 成功率 86.5%(32 done/5 error);PC01/PC02 离线如实标 OFFLINE(core 侧 000 实测机器不可达,非面板 bug)
-- `GET /api/eval/batches` / `GET /api/eval/dataset/stats` 在线(空数据符合预期);`/api/audio/orch/files/x` 400(路由已注册,参数校验生效)
-- R18 回归:2 条生产 H3 作业 done(h264+aac 32kHz);10Eros-Max 默认 UNET 路径用仓库新代码构建同图直提 :8195 验证成功(history 确认 unet=10Eros-Max TURBO)
+| 用例 | VLM(molmo2-8B) | 人工目检(ground truth) |
+|---|---|---|
+| char 语义×2+相机×4 | 8-10 | 9-10,全优(赛博朋克/红帽/双旋转/俯视/特写全生效) |
+| ink 语义·赛博朋克 | 1/3/2 | IF 2(只变了对比度+飞鸟),跨美学风格迁移失败 |
+| ink 语义·红帽 | 0(误判"完全相同") | IF 6(亭顶变红,无人物主体可戴帽) |
+| ink 相机·特写 | 5/3/2(过严) | IF 7(亭子特写真推近了) |
+| ink 相机·旋转/俯视×3 | 10(幻觉,实际没变) | IF 2,确认未生效 |
 
-### 各任务交付要点
+**教训:molmo2-8B 不能当编辑质量评委**(没变化的打 10、有效编辑打 0);规模化评委候选=studio04 72B caption + spark02 文本评审两段式。
 
-- ① H3 矩阵收敛:`TOIV_H3_NSFW_UNET` 默认 10Eros-Max TURBO,收口在 submit_h3_job(t2v/i2v/extend/drama 分镜四链单点覆盖)
-- ② hold 排队:HeldJob 票+FIFO 放行+超时兜底,配置 TOIV_HOLD_QUEUE_ENABLED/CHECK_INTERVAL_SEC(30)/RELEASE_MAX_PER_ROUND(2)/TIMEOUT_SEC(3600);held 的 SSE 推 held 事件不连 WS
-- ④ B 评测:EvalBatch/EvalScore,Heuristic+VLM 双评分器(VLM 失败降级标 degraded);遗留:watcher 进程内,重启需手动重调 finalize
-- ⑤ E 飞轮:DPO JSONL 导出,阈值 0.15,nsfw 分文件,幂等票
-- ⑦ C 编排:/api/audio/orchestrate(tts/separate/concat;mix/sfx 501 占位),core ffmpeg 在 /usr/bin/ffmpeg
-- ⑧ 工程债:ltx25 双端零残留(后端 1811→全绿、前端 438→445);trackJob abort 接全;hydration 修 2 处
+### 低分项优化(⑦)与结论
+
+风景场景相机旋转四组对照(strength 1.3 / 标准档 20 步 cfg2.5 / cfg 3.5 / 英文指令)**全部无效** → 结论是 LoRA 训练分布硬限制(主体/角色向),非管线 bug。处置:前端相机下拉加适用范围提示,不硬凹。
+
+### 回归
+
+后端 1944 passed / 前端 450 passed / tsc 0;已部署 core;引擎计数 SFW 12 / R18 20。
 
 ---
 
 ## UX-2026-08-23 · 内容管控下线 + 作品库回收站 + 助手 Shift+Enter 与灯带重设计
+ · 内容管控下线 + 作品库回收站 + 助手 Shift+Enter 与灯带重设计
 
 **时间**: 2026-08-23(午后)
 **类型**: 用户拍板的功能下线 + 两个 UX 特性(均已部署 core)

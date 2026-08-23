@@ -177,6 +177,15 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（决策记录,替代操作历史）
 
+### 2026-08-24（凌晨·Qwen-Image-Edit 上 pc02 + 评测体系首秀）
+- **pc02(5090)复活+专用实例**:OS 在线但 ComfyUI/Tailscale 停 → `schtasks /run StartComfyUI` 拉起 :8193(LB 池);新建 :8194 专用编辑实例(bat+计划任务 StartComfyUIEdit,onstart,W 交互态)。pc01 仍关机待用户开机。⚠️ pc02 Tailscale 服务 1068 依赖失败未修,core 走 LAN 不受影响
+- **Qwen-Image-Edit-2509 全链路上线**:权重 fp8(19G)+多角度 LoRA(226M)+Lightning 8步加速 LoRA(850M)落 NAS;端点 POST /api/generate/qwen-edit(源图服务端转存 :8194,resolve_worker 精确匹配防错配);前端图像编辑第 5 工具「智能编辑(Qwen)」:指令+10 相机角度+快速/标准档;引擎注册 qwen-image-edit(SFW 12/R18 20 条)
+- **生产 e2e 实证**:相机左旋转 45° 出片完美(卡通男孩侧脸,白底保持);语义编辑(竹→红枫/赛博朋克/加帽子)全部生效
+- **大文件下载新路径(重要)**：HF 经 Mac Clash 代理大文件会被压到 144KB/s;**hf-mirror.com 从 workstation 直连**(不走代理)+ aria2c -x16 实测 67MB/s,20G 文件 5 分钟。aria2 稀疏文件表观大小≠真实进度,看日志 DL 行
+- **评测体系首秀+评分器教训**：12 例矩阵(2 主体×语义 2+相机 4)经生产 API 生成;**molmo2-8B 当评委被实证不可信**(没变化的旋转打 10 分、有效编辑打 0 分,幻觉严重);人工目检为 ground truth:char 主体全项 9-10 分,ink 风景旋转/俯视全败(IF 2)。规模化评分器候选:studio04 72B caption(:9303 只有 /reverse 自定义端点)+spark02 文本评审两段式,未接线
+- **优化结论(诚实记录)**:风景场景相机旋转是 LoRA 数据分布硬限制——strength 1.3/标准档 20 步/cfg 3.5/英文指令四组对照全部无效,非管线 bug;前端相机下拉已加适用范围提示。人物/物品主体的旋转/俯视/特写全部优秀
+- **回归**:后端 1944 passed / 前端 450 passed / tsc 0;test_engine_plugins 计数断言随新引擎 11→12/19→20
+
 ### 2026-08-23（午后·自主循环第二波,全部已部署 core 并生产验证）
 - **H3 矩阵收敛落地**：`TOIV_H3_NSFW_UNET`(默认 10Eros_Max_h3_TURBO_ref2va_beta2_int8_convrot.safetensors)接入 submit_h3_job 收口,NSFW 场景默认 10Eros-Max,SFW 不动;生产 2 条 R18 回归 done(h264+aac),本地同图直提验证 unet 确为 10Eros-Max;矩阵正式「H3 主力+Wan2.2 兜底」
 - **生成观测面板**：GET /api/observability(仅 admin,10s 缓存单飞,单实例 2s 超时降级)——队列分桶/24h 成功率/held 原因/四卡 VRAM(ComfyUI /system_stats 聚合,GPU 拓扑写死带注释);前端 ObservabilityView(admin 专属,12s 轮询)。生产实测四卡在线,24h 成功率 86.5%。⚠️ PC01/PC02 从 core 不可达(000,机器离线非 bug)

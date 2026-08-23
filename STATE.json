@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-08-23T18:40:00+08:00",
+  "updated_at": "2026-08-24T02:00:00+08:00",
   "health": {
     "engine_r3_2026_08_21": {
       "status": "completed",
@@ -1508,5 +1508,17 @@
       "eval watcher 进程内,api 重启需手动重调 finalize",
       "contentpolicy 孤儿表仍可手动 DROP"
     ]
+  },
+  "qwen_edit_2026_08_24": {
+    "status": "completed",
+    "scope": "Qwen-Image-Edit-2509 部署 pc02:8194 专用实例并全链接入(语义编辑+多角度相机控制+Lightning 8步加速);12例评测矩阵+低分项优化",
+    "infra": "pc02 :8193(LB)+:8194(专用编辑,StartComfyUIEdit 计划任务);pc01 仍关机;权重在 NAS toiv/comfyui-models(diffusion_models+loras)",
+    "endpoint": "POST /api/generate/qwen-edit(image/worker/positive/camera/fast/seed),源图服务端转存",
+    "eval_report": "/tmp/qwen_eval/r1/report.json;结论:主体类相机控制优秀,风景场景旋转是 LoRA 分布硬限制(4组对照实证),前端已加提示;molmo2-8B 不可当评委(幻觉评分实证)",
+    "tests": {
+      "backend": "1944 passed",
+      "frontend": "450 passed"
+    },
+    "download_lesson": "大文件走 hf-mirror 直连+aria2c -x16(67MB/s),勿经 Mac 代理"
   }
 }

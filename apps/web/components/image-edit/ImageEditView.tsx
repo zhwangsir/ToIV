@@ -11,6 +11,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import {
   generateFaceDetailer,
   generateInpaint,
+  generateQwenEdit,
   generateRemoveBg,
   generateUpscale,
   imageUrl,
@@ -24,7 +25,7 @@ import { trackJob, TrackJobAbortError, type JobProgress } from "@/lib/trackJob";
 // 类型定义
 // ─────────────────────────────────────────────────────────────────────────────
 
-type EditTool = "removebg" | "upscale" | "inpaint" | "facedetailer";
+type EditTool = "removebg" | "upscale" | "inpaint" | "facedetailer" | "qwenedit";
 
 interface ToolDef {
   key: EditTool;
@@ -84,6 +85,13 @@ const TOOLS: ToolDef[] = [
     desc: "智能检测并修复模糊、低质量人脸",
     runLabel: "开始修复",
   },
+  {
+    key: "qwenedit",
+    icon: "sparkles",
+    title: "智能编辑(Qwen)",
+    desc: "自然语言语义编辑，支持多角度相机控制",
+    runLabel: "开始编辑",
+  },
 ];
 
 const REMOVE_BG_MODES = [
@@ -96,6 +104,26 @@ const UPSCALE_SCALES = [
   { value: 2, label: "2 倍" },
   { value: 3, label: "3 倍" },
   { value: 4, label: "4 倍" },
+] as const;
+
+// Qwen-Image-Edit 相机角度预设(value 与后端 workflows/qwen_edit.CAMERA_PRESETS 的 key 一致)
+const QWEN_CAMERAS = [
+  { value: "", label: "无(仅语义编辑)" },
+  { value: "forward", label: "镜头前移" },
+  { value: "left", label: "镜头左移" },
+  { value: "right", label: "镜头右移" },
+  { value: "up", label: "镜头上移" },
+  { value: "down", label: "镜头下移" },
+  { value: "rotate_left", label: "向左旋转 45°" },
+  { value: "rotate_right", label: "向右旋转 45°" },
+  { value: "top_down", label: "俯视" },
+  { value: "wide", label: "广角" },
+  { value: "closeup", label: "特写" },
+] as const;
+
+const QWEN_SPEEDS = [
+  { value: "fast", label: "快速(Lightning 8 步)" },
+  { value: "standard", label: "标准(20 步,更细腻)" },
 ] as const;
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB，与后端一致
@@ -393,6 +421,9 @@ export function ImageEditView() {
   const [inpaintPositive, setInpaintPositive] = useState("");
   const [inpaintNegative, setInpaintNegative] = useState("");
   const [faceDenoise, setFaceDenoise] = useState(0.5);
+  const [qwenPositive, setQwenPositive] = useState("");
+  const [qwenCamera, setQwenCamera] = useState<string>("");
+  const [qwenSpeed, setQwenSpeed] = useState<string>("fast");
 
   const [proc, setProc] = useState<ProcessState>({
     status: "idle",
@@ -502,6 +533,18 @@ export function ImageEditView() {
         case "facedetailer":
           res = await generateFaceDetailer({ ...base, denoise: faceDenoise });
           break;
+        case "qwenedit":
+          if (!qwenPositive.trim() && !qwenCamera) {
+            setProc((p) => ({ ...p, status: "error", error: "请填写编辑指令或选择相机角度" }));
+            return;
+          }
+          res = await generateQwenEdit({
+            ...base,
+            positive: qwenPositive.trim(),
+            camera: qwenCamera || undefined,
+            fast: qwenSpeed === "fast",
+          });
+          break;
         default:
           return;
       }
@@ -558,6 +601,9 @@ export function ImageEditView() {
     inpaintPositive,
     inpaintNegative,
     faceDenoise,
+    qwenPositive,
+    qwenCamera,
+    qwenSpeed,
     stopTracking,
   ]);
 
@@ -660,6 +706,38 @@ export function ImageEditView() {
                         aria-label="修复强度"
                       />
                     </Field>
+                  )}
+                  {t.key === "qwenedit" && (
+                    <div className="ie-field-group">
+                      <Field label="编辑指令">
+                        <Input
+                          value={qwenPositive}
+                          onChange={(e) => setQwenPositive(e.target.value)}
+                          placeholder="例如：把衣服换成红色、给人物戴上墨镜"
+                          disabled={isRunning}
+                        />
+                      </Field>
+                      <Field label="相机角度(可选)">
+                        <Select value={qwenCamera} onChange={(e) => setQwenCamera(e.target.value)} disabled={isRunning}>
+                          {QWEN_CAMERAS.map((cm) => (
+                            <option key={cm.value} value={cm.value}>
+                              {cm.label}
+                            </option>
+                          ))}
+                        </Select>
+                        {/* 评测实证(2026-08-24):主体/角色类旋转效果好;大场景风景超分布,可能无明显变化 */}
+                        <p className="ie-tool-desc">人物/物品主体效果最佳;大场景风景的旋转可能不明显</p>
+                      </Field>
+                      <Field label="档位">
+                        <Select value={qwenSpeed} onChange={(e) => setQwenSpeed(e.target.value)} disabled={isRunning}>
+                          {QWEN_SPEEDS.map((s) => (
+                            <option key={s.value} value={s.value}>
+                              {s.label}
+                            </option>
+                          ))}
+                        </Select>
+                      </Field>
+                    </div>
                   )}
 
                   <div className="ie-tool-run">
