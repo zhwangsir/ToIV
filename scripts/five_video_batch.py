@@ -25,11 +25,14 @@ def get_token() -> str:
     import os
 
     os.chdir("/home/merlin/toiv/api")
-    with open("/home/merlin/toiv/deploy/.env") as f:
-        for line in f:
-            if line.startswith("export ") or "=" not in line or line.strip().startswith("#"):
-                continue
-    # 直接用库拿 admin token(与此前冒烟同法)
+    for line in open("/home/merlin/toiv/deploy/.env"):
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, _, v = line.partition("=")
+        os.environ.setdefault(k.removeprefix("export ").strip(), v.strip().strip('"').strip("'"))
+    # 显式取 admin(2026-08-20 教训:limit(1) 无序取到微信冒烟账号,
+    # 作品挂错属主在作品库不可见)
     from app.db import engine
     from sqlmodel import Session, select
 
@@ -37,7 +40,7 @@ def get_token() -> str:
     from app.security import create_token
 
     with Session(engine) as s:
-        u = s.exec(select(User).limit(1)).first()
+        u = s.exec(select(User).where(User.role == "admin")).first()
         return create_token(str(u.id))
 
 
