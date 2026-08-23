@@ -592,13 +592,15 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
       ? "img2img"
       : engine?.id === "h3-i2v"
         ? "h3_i2v"
-        : engine?.id === "ltx-nsfw-lipsync"
-          ? "ltx_lipsync"
-          : engine?.id === "wan-animate"
-            ? "wan_animate"
-            : engine?.id === "wan-vace"
-              ? "wan_vace"
-              : "ltx_i2v";
+        : engine?.id === "avatar-talk"
+          ? "avatar"
+          : engine?.id === "ltx-nsfw-lipsync"
+            ? "ltx_lipsync"
+            : engine?.id === "wan-animate"
+              ? "wan_animate"
+              : engine?.id === "wan-vace"
+                ? "wan_vace"
+                : "ltx_i2v";
 
   return (
     <div className="generate-view">

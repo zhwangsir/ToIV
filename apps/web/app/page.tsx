@@ -17,6 +17,11 @@ import { Icon } from "@/components/ui/Icon";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { useToast } from "@/components/ui/Toast";
 
+// assistant.css 随主包 eager 加载(2026-08-23):它同时是 .neon-edge 灯带与
+// .av-overlay 浮层样式的唯一来源;若只由懒加载的 AssistantView 引入,
+// 首次 Shift+Enter 时 CSS chunk 尚未到达,灯带整段隐形(修复前实测首开无光)。
+import "@/app/styles/assistant.css";
+
 type AuthState = "loading" | "in" | "out";
 
 // 霓虹边缘动画(2026-08-18)的角度插值注册:CSS.registerProperty 让
@@ -35,6 +40,11 @@ if (typeof window !== "undefined" && "registerProperty" in CSS) {
     /* 已注册/hmr 重复,忽略 */
   }
 }
+
+// 霓虹扫描节奏(2026-08-23 rAF 驱动):1400ms 扫满一圈并过冲 70deg 收尾,
+// 余光尽头由同步淡入的弹窗磨砂遮罩自然吞没
+const NEON_MS = 1400;
+const NEON_SWEEP_DEG = 430;
 
 type View =
   | "assistant"
@@ -81,7 +91,7 @@ function resolveView(raw: string | null): View | null {
 
 // ── 视图懒加载:chunk 按需拉取;灵动岛悬停/聚焦期间并行预热,消除切换白屏等待 ──
 const viewImporters = {
-  // assistant 已底层化为 Cmd+K 浮层(非视图),importer 保留仅维持 View 类型索引完整性
+  // assistant 已底层化为 Shift+Enter 浮层(非视图),importer 保留仅维持 View 类型索引完整性
   assistant: () => import("@/components/assistant/AssistantView"),
   // 图片/视频共用 GenerateView chunk;音频走 AudioView(内嵌 GenerateView,webpack 共享 chunk)
   image: () => import("@/components/generate/GenerateView"),
@@ -231,7 +241,7 @@ const VIEW_META: Record<View, { label: string }> = {
 };
 
 /** M3 新 IA 一级入口:三大板块 + 融合聚合页;短剧/数字人/译制移入融合,视图保留(旧链接不 404)。
- *  2026-08-17 底层化:AI 助手移出导航,由 Cmd/Ctrl+K 全局浮层(AssistantOverlay)唤起。
+ *  2026-08-17 底层化:AI 助手移出导航,由 Shift+Enter 全局浮层(AssistantOverlay)唤起。
  *  2026-08-18:Agent 团队入口改为 Skill 市场(/agent-runs 路由保留,直达 URL 仍可访问)。
  *  桌面端由左上角悬停展开导航(CornerNav)承载,窄屏由底部导航承载。 */
 const ISLAND_ITEMS: CornerNavItem[] = [
@@ -308,52 +318,62 @@ function HomeContent() {
     if (raw === "assistant") return "fusion";
     return resolveView(raw) ?? "fusion";
   });
-  // AI 助手全局浮层(Cmd/Ctrl+K 唤起;旧链接 ?view=assistant 首入自动开)
+  // AI 助手全局浮层(Shift+Enter 唤起;旧链接 ?view=assistant 首入自动开)
   const [assistantOpen, setAssistantOpen] = useState(() => searchParams.get("view") === "assistant");
   // 开闭态 ref 镜像:快捷键 handler 读当前值,避免在 setState updater 内做副作用
   const assistantOpenRef = useRef(assistantOpen);
   assistantOpenRef.current = assistantOpen;
-  // 霓虹边缘动画(2026-08-18):Cmd/Ctrl+K 开启前沿视口边缘扫描一圈,再平滑过渡出弹窗
+  // 霓虹边缘动画(2026-08-18):Shift+Enter 开启前沿视口边缘扫描一圈,再平滑过渡出弹窗
   const [neonPlaying, setNeonPlaying] = useState(false);
+  const neonRef = useRef<HTMLDivElement | null>(null);
   // M9:订阅全局 R18 内容模式(短剧视图可见性/导航项按此 computed)
   const [r18] = useR18Mode();
 
-  // 全局快捷键:Cmd/Ctrl+K 唤起/收起 AI 助手浮层(底层常驻,任意视图之上)。
-  // 开启序列(2026-08-18):霓虹光沿页面边缘扫一圈(~1100ms,舒缓)→ 弹窗弹簧展开;
+  // 全局快捷键:Shift+Enter 唤起/收起 AI 助手浮层(底层常驻,任意视图之上)。
+  // 开启序列(2026-08-18):霓虹光沿页面边缘扫一圈(~1400ms,舒缓)→ 弹窗弹簧展开;
   // prefers-reduced-motion / 不支持 CSS.registerProperty 的浏览器直接开启(无动画)。
-  // 注意:NEON_MS 须与 assistant.css 的 neon-edge-sweep 时长保持一致。
+  // 守卫:焦点在 input/textarea/select/contenteditable 时不触发,避免与输入框换行冲突;
+  // 仅纯 Shift+Enter(不带 Cmd/Ctrl/Alt),不与 ⌘Enter 提交类快捷键(agent-runs/PromptBar)相碰。
   useEffect(() => {
-    const NEON_MS = 1100;
     const canNeon =
       typeof window !== "undefined" &&
       "registerProperty" in CSS &&
       !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let timer: ReturnType<typeof setTimeout> | null = null;
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
-        e.preventDefault();
-        if (timer) {
-          // 霓虹进行中再次按下:取消动画,直接展开(连按不等候)
-          clearTimeout(timer);
-          timer = null;
+      if (e.key !== "Enter" || !e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return; // 输入上下文内 Shift+Enter 保留原生换行
+      }
+      e.preventDefault();
+      if (timer) {
+        // 霓虹进行中再次按下:取消动画,直接展开(连按不等候)
+        clearTimeout(timer);
+        timer = null;
+        setNeonPlaying(false);
+        setAssistantOpen(true);
+        return;
+      }
+      if (assistantOpenRef.current) {
+        setAssistantOpen(false); // 已开 → 直接收起(不播霓虹)
+        return;
+      }
+      if (canNeon) {
+        setNeonPlaying(true);
+        timer = setTimeout(() => {
           setNeonPlaying(false);
           setAssistantOpen(true);
-          return;
-        }
-        if (assistantOpenRef.current) {
-          setAssistantOpen(false); // 已开 → 直接收起(不播霓虹)
-          return;
-        }
-        if (canNeon) {
-          setNeonPlaying(true);
-          timer = setTimeout(() => {
-            setNeonPlaying(false);
-            setAssistantOpen(true);
-            timer = null;
-          }, NEON_MS);
-        } else {
-          setAssistantOpen(true);
-        }
+          timer = null;
+        }, NEON_MS);
+      } else {
+        setAssistantOpen(true);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -362,6 +382,32 @@ function HomeContent() {
       if (timer) clearTimeout(timer);
     };
   }, []);
+
+  // 霓虹扫描驱动(2026-08-23 重写):JS rAF 逐帧写 --neon-angle/opacity 内联值。
+  // 为什么不用 CSS 自定义属性动画:在本页层叠树下,keyframes 驱动 --neon-angle 的
+  // 逐帧重绘会被 Chromium 整体丢弃(灯带全程隐形,dev/prod/headed 均实证,
+  // 注入同名规则或层提升只能偶发缓解);内联 style 更新走常规 style recalc,
+  // 每次必重绘——可靠优先,且 easing/淡入淡出可在 JS 里精确编排。
+  useEffect(() => {
+    if (!neonPlaying) return;
+    const el = neonRef.current;
+    if (!el) return;
+    const start = performance.now();
+    let raf = 0;
+    const tick = (now: number) => {
+      const k = Math.min(1, (now - start) / NEON_MS);
+      // easeInOutQuart:起步轻盈、中段流动、收尾减速
+      const eased = k < 0.5 ? 8 * k ** 4 : 1 - (-2 * k + 2) ** 4 / 2;
+      el.style.setProperty("--neon-angle", `${(eased * NEON_SWEEP_DEG).toFixed(2)}deg`);
+      // 首尾淡入淡出(前 12% 淡入,末 16% 淡出,不戛然而止)
+      const fadeIn = Math.min(1, k / 0.12);
+      const fadeOut = k < 0.84 ? 1 : Math.max(0, (1 - k) / 0.16);
+      el.style.opacity = (fadeIn * fadeOut).toFixed(3);
+      if (k < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [neonPlaying]);
 
   useEffect(() => {
     const raw = searchParams.get("view");
@@ -439,17 +485,16 @@ function HomeContent() {
     setAuth("out");
   }, []);
 
-  // ⌘K 可发现性(2026-08-17 助手底层化):登录后首次进入提示一次,不打扰回头客;
+  // Shift+Enter 可发现性(2026-08-17 助手底层化):登录后首次进入提示一次,不打扰回头客;
   // 不设入口按钮(用户明确:助手不单独作为功能显示,仅快捷键唤起)
   const toast = useToast();
   useEffect(() => {
     if (auth !== "in") return;
     if (typeof window === "undefined") return;
-    if (window.localStorage.getItem("toiv_hint_cmdk") === "1") return;
-    window.localStorage.setItem("toiv_hint_cmdk", "1");
+    if (window.localStorage.getItem("toiv_hint_shiftenter") === "1") return;
+    window.localStorage.setItem("toiv_hint_shiftenter", "1");
     const t = setTimeout(() => {
-      const isMac = /Mac|iPhone|iPad/.test(window.navigator.platform || window.navigator.userAgent);
-      toast.info(`AI 助手已底层化,${isMac ? "⌘" : "Ctrl+"}K 随时唤起对话`);
+      toast.info("AI 助手已底层化,Shift+Enter 随时唤起对话");
     }, 1200);
     return () => clearTimeout(t);
   }, [auth, toast]);
@@ -575,11 +620,11 @@ function HomeContent() {
         />
       )}
 
-      {/* 霓虹边缘动画(2026-08-18):Cmd/Ctrl+K 开启序列第一步——光带沿视口
-          边缘扫一圈(~640ms),随后 AI 助手弹窗平滑展开(样式见 assistant.css) */}
-      {neonPlaying && <div className="neon-edge" aria-hidden="true" />}
+      {/* 霓虹边缘动画(2026-08-18):Shift+Enter 开启序列第一步——光带沿视口
+          边缘扫一圈(~1400ms),随后 AI 助手弹窗平滑展开(样式见 assistant.css) */}
+      {neonPlaying && <div className="neon-edge" ref={neonRef} aria-hidden="true" />}
 
-      {/* AI 助手全局浮层(2026-08-17 底层化):Cmd/Ctrl+K 唤起,任意视图之上对话;
+      {/* AI 助手全局浮层(2026-08-17 底层化):Shift+Enter 唤起,任意视图之上对话;
           助手内跳视图先收浮层再切换 */}
       <AssistantOverlay
         open={assistantOpen}

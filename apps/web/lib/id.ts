@@ -1,5 +1,5 @@
 /** 生成唯一 id。
- * crypto.randomUUID 仅安全上下文(HTTPS/localhost)可用;HTTP 明文(如 LAN http://192.168.71.47:3100)
+ * crypto.randomUUID 仅安全上下文(HTTPS/localhost)可用;HTTP 明文(如 Tailscale http://100.77.80.100:3100)
  * 下为 undefined,直接调用会抛 "crypto.randomUUID is not a function"(2026-07-30 数字人页实测)。
  * 降级链: randomUUID → getRandomValues(非安全上下文也可用)拼 v4 → 时间戳+随机串。
  */

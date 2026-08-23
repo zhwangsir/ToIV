@@ -14,6 +14,8 @@
  * ⑫ 冷启动失败分级:探针异常/5xx → 按网络抖动走退避重连
  * ⑬ 会话失效事件:streaming 中收到 → 立即关流 reject
  * ⑭ 会话失效事件:降级轮询中收到 → 终止轮询 reject
+ * ⑯ 外部 signal 中止:streaming 中 abort → 立即关流 reject(AbortError),不重连不轮询
+ * ⑰ 外部 signal 中止:abort 幂等;已 aborted 的 signal 进入即 settle(不建连接)
  * ⑮ apiFetch 401 统一处理广播 SESSION_EXPIRED_EVENT(关流信号源;须最后跑,
  *    其内部幂等标记 authRedirectPending 一旦置位不可复位)
  * EventSource 用假实现,apiFetch 底层 fetch 用桩;退避/轮询/看门狗/超时经 opts 缩放成毫秒级。
@@ -21,7 +23,7 @@
 import assert from "node:assert/strict";
 import { after, beforeEach, test } from "node:test";
 import { apiFetch, SESSION_EXPIRED_EVENT } from "../lib/api";
-import { trackJob } from "../lib/trackJob";
+import { trackJob, TrackJobAbortError } from "../lib/trackJob";
 import type { GenerateResponse, JobItem } from "../lib/types";
 
 interface FakeEvent {
@@ -539,10 +541,62 @@ test("⑭ 会话失效事件:降级轮询中收到 → 终止轮询并 reject", 
   assert.equal(fetchCalls.length, callsAtSettle, "关流后轮询定时器已清");
 });
 
+/* ── 外部中止(opts.signal):用户取消/卸载场景,立即关流 settle ──
+   回归锚点:此前只 close EventSource 不会让 trackJob 的 Promise 落定
+   (close 后无事件到达,看门狗还会软重连复活跟踪),await 方(useGeneration.start
+   → 视图 finally)永久挂起,submitting 卡死。 */
+
+test("⑯ 外部 signal 中止:streaming 中 abort → 立即关流 reject(AbortError),不重连不轮询", async () => {
+  const ac = new AbortController();
+  const registered: unknown[] = [];
+  const p = trackJob(RES, {
+    signal: ac.signal,
+    reconnectBaseMs: 1,
+    pollIntervalMs: 1,
+    timeoutMs: 5_000,
+    watchdogMs: 50, // 缩小看门狗:若 abort 未生效,软重连会复活连接,用例能抓到
+    register: (es) => registered.push(es),
+  });
+  const rejection = assert.rejects(p, (e: unknown) => {
+    assert.ok(e instanceof TrackJobAbortError, "中止错误应为 TrackJobAbortError");
+    assert.equal((e as Error).name, "AbortError");
+    return true;
+  });
+
+  const es1 = FakeEventSource.instances[0];
+  es1.emit("open");
+  ac.abort(); // 用户点「取消」/ 组件卸载
+
+  await rejection;
+  assert.equal(es1.closed, true, "abort 后 EventSource 已显式关闭");
+  assert.equal(registered.at(-1), null, "终态时 register(null) 交还句柄");
+  await sleep(80); // 越过看门狗窗口
+  assert.equal(FakeEventSource.instances.length, 1, "abort 后看门狗不得软重连复活跟踪");
+  assert.equal(fetchCalls.length, 0, "abort 后不降级轮询");
+});
+
+test("⑰ 外部 signal 中止:abort 幂等(重复 abort 无副作用);已 aborted 的 signal 进入即 settle", async () => {
+  // 重复 abort:第二次不得再触发任何动作
+  const ac1 = new AbortController();
+  const p1 = trackJob(RES, { signal: ac1.signal, reconnectBaseMs: 1, pollIntervalMs: 1, timeoutMs: 5_000 });
+  const rejection1 = assert.rejects(p1, TrackJobAbortError);
+  ac1.abort();
+  ac1.abort();
+  await rejection1;
+  assert.equal(FakeEventSource.instances.length, 1, "首次 abort 前建立的连接被关闭,无新增");
+  assert.equal(FakeEventSource.instances[0].closed, true);
+
+  // 调用前就 aborted:不建连接,立即 settle
+  const ac2 = new AbortController();
+  ac2.abort();
+  const p2 = trackJob(RES, { signal: ac2.signal, reconnectBaseMs: 1, pollIntervalMs: 1, timeoutMs: 5_000 });
+  await assert.rejects(p2, TrackJobAbortError);
+  assert.equal(FakeEventSource.instances.length, 1, "已 aborted 的 signal 不再建立 EventSource");
+});
+
 // ⚠️ 本用例须最后跑:apiFetch 的 401 统一处理内置幂等标记(authRedirectPending),
 // 一旦触发不可复位,若提前跑会影响其他用例的 401 路径。
-test("⑮ apiFetch 401 统一处理广播 SESSION_EXPIRED_EVENT(关流信号源)", async () => {
-  const win = installFakeWindow();
+test("⑮ apiFetch 401 统一处理广播 SESSION_EXPIRED_EVENT(关流信号源)", async () => {  const win = installFakeWindow();
   let fired = 0;
   win.addEventListener(SESSION_EXPIRED_EVENT, () => {
     fired += 1;

@@ -799,6 +799,24 @@
   text-overflow: ellipsis;
   min-width: 0;
 }
+/* 回收站(2026-08-23):剩余保留期一行(label 档 muted,tabular-nums 防跳动) */
+.lib-trash-retention {
+  font-size: var(--text-label);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 回收站卡片操作行:恢复 / 彻底删除,撑满卡脚宽度 */
+.lib-trash-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+.lib-trash-actions > * {
+  flex: 1;
+}
 /* 状态点:done 绿 / running 微光 / error 红 / queued 灰 */
 .lib-status-dot {
   width: 6px;

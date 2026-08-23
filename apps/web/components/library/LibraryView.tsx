@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { deleteJob, fetchJobsPage, getVideoUpscaleStatus, imageUrl, invalidateJobs, JOBS_PAGE_LIMIT, listJobs, undoDelete, upscaleVideo } from "@/lib/api";
+import { deleteJob, fetchJobsPage, fetchTrash, getVideoUpscaleStatus, imageUrl, invalidateJobs, JOBS_PAGE_LIMIT, listJobs, permanentDeleteJob, restoreJob, undoDelete, upscaleVideo } from "@/lib/api";
 import { ENGINE_DRAFT_KEY } from "@/lib/engine";
 import { begin as genBegin, end as genEnd, progress as genProgress } from "@/lib/generationBus";
 import { useR18Mode } from "@/lib/r18";
@@ -11,6 +11,7 @@ import {
   countByFilter,
   deleteJobsBatch,
   FILTERS,
+  formatRetention,
   formatTime,
   isVideoKind,
   kindLabel,
@@ -24,7 +25,7 @@ import {
   type LibraryDensity,
   type SortKey,
 } from "@/lib/libraryQuery";
-import type { JobItem } from "@/lib/types";
+import type { JobItem, TrashJobItem } from "@/lib/types";
 import { Icon } from "@/components/ui/Icon";
 import { LazyVideo } from "@/components/ui/LazyVideo";
 import { Button } from "@/components/ui/Button";
@@ -216,6 +217,8 @@ export function LibraryView(props?: LibraryViewProps) {
   const [styleTarget, setStyleTarget] = useState<JobItem | null>(null);
   const [styleName, setStyleName] = useState("");
   const styleAnchorRef = useRef<HTMLButtonElement | null>(null);
+  // 回收站(2026-08-23):组件内条件渲染切换,不动路由
+  const [showTrash, setShowTrash] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -387,7 +390,7 @@ export function LibraryView(props?: LibraryViewProps) {
       setJobs((prev) => (prev ?? []).filter((j) => !doneSet.has(j.id)));
     }
     if (failed.length === 0) {
-      // SAFETY:批量删除同样可撤销(逐件恢复,10 分钟窗口)
+      // SAFETY:批量删除同样可撤销(逐件恢复,回收站保留期 72h)
       if (undoTokens.length > 0) {
         toast.success(`已删除 ${done.length} 件作品`, {
           label: "全部撤销",
@@ -411,7 +414,7 @@ export function LibraryView(props?: LibraryViewProps) {
     }
   };
 
-  // 点击删除:确认门可记忆跳过(SAFETY:删除已有 10 分钟撤销兜底,熟练用户免打扰);
+  // 点击删除:确认门可记忆跳过(SAFETY:删除已有回收站 72h 恢复兜底,熟练用户免打扰);
   // 记忆开关在确认对话框内勾选(localStorage 持久化)
   const handleDelete = (job: JobItem) => {
     setDeleteError(null);
@@ -444,7 +447,7 @@ export function LibraryView(props?: LibraryViewProps) {
       setConfirmDelete(null);
       setDeleteError(null);
       if (result.undo_token) {
-        toast.success("已删除作品(10 分钟内可撤销)", {
+        toast.success("已移入回收站(72 小时内可恢复)", {
           label: "撤销",
           onClick: () => {
             undoDelete(result.undo_token as string)
@@ -665,6 +668,19 @@ export function LibraryView(props?: LibraryViewProps) {
     resetPage();
   };
 
+  // 回收站视图(组件内条件渲染,不动路由;恢复后失效缓存并刷新主列表)
+  if (showTrash) {
+    return (
+      <LibraryTrashView
+        onBack={() => setShowTrash(false)}
+        onRestored={() => {
+          invalidateJobs();
+          load();
+        }}
+      />
+    );
+  }
+
   return (
     <div
       className={`single-view library-view${density === "compact" ? " is-compact" : ""}${batchMode ? " is-batch" : ""}`}
@@ -825,6 +841,17 @@ export function LibraryView(props?: LibraryViewProps) {
             onClick={() => (batchMode ? exitBatchMode() : setBatchMode(true))}
           >
             {batchMode ? "完成" : "批量管理"}
+          </Button>
+
+          {/* 回收站入口(72h 保留期;与工具行同款次要按钮) */}
+          <Button
+            size="sm"
+            variant="secondary"
+            className="lib-trash-toggle"
+            icon={<Icon name="delete" size={14} />}
+            onClick={() => setShowTrash(true)}
+          >
+            回收站
           </Button>
         </div>
       </div>
@@ -1244,7 +1271,7 @@ export function LibraryView(props?: LibraryViewProps) {
       >
         <div className="lib-confirm-body">
           <div className="lib-confirm-warn">
-            确定删除这件作品?作品将从作品库移除;<strong>10 分钟内可撤销</strong>(删除提示中点「撤销」即可恢复)。
+            确定删除这件作品?作品将移入回收站;<strong>72 小时内可恢复</strong>(删除提示中点「撤销」,或到回收站恢复)。
           </div>
           {confirmDelete?.prompt && (
             <div className="lib-confirm-prompt">
@@ -1259,7 +1286,7 @@ export function LibraryView(props?: LibraryViewProps) {
               checked={skipConfirmChecked}
               onChange={(e) => setSkipConfirmChecked(e.target.checked)}
             />
-            <span>不再确认(删除仍可在 10 分钟内撤销)</span>
+            <span>不再确认(删除后仍可在回收站恢复)</span>
           </label>
           {deleteError && (
             <div className="lib-confirm-error">
@@ -1298,8 +1325,8 @@ export function LibraryView(props?: LibraryViewProps) {
       >
         <div className="lib-confirm-body">
           <div className="lib-confirm-warn">
-            确定删除选中的 {selectedIds.size} 件作品?这些作品将从作品库移除;
-            <strong>10 分钟内可逐件撤销</strong>(删除提示中点「全部撤销」)。
+            确定删除选中的 {selectedIds.size} 件作品?这些作品将移入回收站;
+            <strong>72 小时内可逐件恢复</strong>(删除提示中点「全部撤销」,或到回收站恢复)。
           </div>
           {deleteError && (
             <div className="lib-confirm-error">
@@ -1627,6 +1654,261 @@ function LibraryLightbox({
           </div>
         </aside>
       </div>
+    </div>
+  );
+}
+
+
+// ────────────────────────────────────────────────────────────────
+// LibraryTrashView:回收站(2026-08-23)
+// 软删作品 72h 保留期内的浏览/恢复/彻底删除;网格复用作品卡片样式,
+// 卡片脚部显示删除时间与剩余保留期;彻底删除走 Modal 二次确认(物理删除不可恢复)。
+// ────────────────────────────────────────────────────────────────
+
+interface LibraryTrashViewProps {
+  onBack: () => void;
+  /** 恢复成功后回调(失效作品库缓存 + 刷新主列表) */
+  onRestored?: () => void;
+}
+
+export function LibraryTrashView({ onBack, onRestored }: LibraryTrashViewProps) {
+  const toast = useToast();
+  const [items, setItems] = useState<TrashJobItem[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  // 恢复/彻底删除进行中的条目 id(按钮 busy + 防重复提交,与主列表 deletingId 同范式)
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [confirmPurge, setConfirmPurge] = useState<TrashJobItem | null>(null);
+  const [purgeError, setPurgeError] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    fetchTrash()
+      .then(setItems)
+      .catch((err) => setError(err instanceof Error ? err.message : "加载回收站失败"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // 恢复:移出回收站条目 + 失效作品库缓存(作品回归主列表)
+  const handleRestore = async (item: TrashJobItem) => {
+    setBusyId(item.id);
+    try {
+      await restoreJob(item.id);
+      setItems((prev) => (prev ?? []).filter((j) => j.id !== item.id));
+      toast.success("已恢复到作品库");
+      onRestored?.();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "恢复失败(可能已过保留期)");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  // 彻底删除:Modal 二次确认后物理删除,失败内联报错在对话框中
+  const handleConfirmPurge = async () => {
+    if (!confirmPurge) return;
+    setBusyId(confirmPurge.id);
+    setPurgeError(null);
+    try {
+      await permanentDeleteJob(confirmPurge.id);
+      setItems((prev) => (prev ?? []).filter((j) => j.id !== confirmPurge.id));
+      setConfirmPurge(null);
+      toast.info("已彻底删除");
+    } catch (err) {
+      setPurgeError(err instanceof Error ? err.message : "彻底删除失败");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const trashEmpty = !loading && !error && (items?.length ?? 0) === 0;
+  const skeletonCount = 8;
+
+  return (
+    <div className="single-view library-view">
+      <header className="page-header lib-header">
+        <div className="page-header-text">
+          <h1 className="page-header-title">回收站</h1>
+          <p className="page-header-desc">
+            删除的作品在此保留 72 小时,期间可恢复;到期自动彻底删除
+          </p>
+        </div>
+        <div className="page-header-actions">
+          <Button
+            size="sm"
+            variant="secondary"
+            className="lib-trash-back"
+            icon={<Icon name="chevron-left" size={14} />}
+            onClick={onBack}
+          >
+            返回作品库
+          </Button>
+        </div>
+      </header>
+
+      <div className="lib-body">
+        {error && !loading && (
+          <div className="lib-error">
+            <ErrorBar message={error} onClose={() => setError(null)} />
+            <Button size="sm" onClick={load} icon={<Icon name="refresh" size={14} />}>
+              重试
+            </Button>
+          </div>
+        )}
+
+        {!error && loading && (
+          <div className="lib-grid">
+            {Array.from({ length: skeletonCount }).map((_, i) => (
+              <div key={i} className="lib-card lib-skeleton" aria-hidden="true">
+                <div className="lib-thumb-skel" />
+                <div className="lib-foot-skel">
+                  <div className="skel-line skel-w-1" />
+                  <div className="skel-line skel-w-2" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {!error && !loading && trashEmpty && (
+          <div className="lib-empty">
+            <div className="lib-empty-icon" aria-hidden="true">
+              <Icon name="delete" size={26} strokeWidth={1.2} />
+            </div>
+            <h2 className="lib-empty-display">回收站是空的</h2>
+            <p className="lib-empty-desc">
+              删除的作品会在这里保留 72 小时,期间随时可以恢复到作品库。
+            </p>
+          </div>
+        )}
+
+        {!error && !loading && !trashEmpty && (
+          <div className="lib-grid">
+            {(items ?? []).map((job) => {
+              const hasResult = job.status === "done" && job.results?.length > 0;
+              const isVideo = isVideoKind(job.kind);
+              const cardText = splitCardTitle(job);
+              return (
+                <article key={job.id} className="lib-card">
+                  <div className="lib-thumb">
+                    {hasResult ? (
+                      isVideo ? (
+                        <LazyVideo
+                          src={imageUrl(job.results[0])}
+                          muted
+                          loop
+                          playsInline
+                        />
+                      ) : (
+                        <ImageThumb job={job} />
+                      )
+                    ) : (
+                      <ThumbPlaceholder job={job} />
+                    )}
+                    {isVideo && hasResult && (
+                      <div className="lib-video-badge" aria-hidden="true">
+                        <Icon name="playing" size={11} />
+                        视频
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="lib-foot">
+                    <div className="lib-card-title" title={job.prompt}>
+                      {cardText.title || "(无提示词)"}
+                    </div>
+                    {/* 删除时间 + 剩余保留期(到期后端清理任务物理删除) */}
+                    <div className="lib-meta">
+                      <span className="lib-kind" title={kindLabel(job.kind)}>
+                        {kindLabel(job.kind)}
+                      </span>
+                      <span className="lib-time">删除于 {formatTime(job.deleted_at)}</span>
+                    </div>
+                    <div className="lib-trash-retention">
+                      {formatRetention(job.restore_remaining_seconds)}后彻底删除
+                    </div>
+                    <div className="lib-trash-actions">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={busyId === job.id}
+                        loading={busyId === job.id}
+                        icon={<Icon name="undo" size={14} />}
+                        onClick={() => handleRestore(job)}
+                      >
+                        恢复
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        disabled={busyId === job.id}
+                        icon={<Icon name="delete" size={14} />}
+                        onClick={() => {
+                          setPurgeError(null);
+                          setConfirmPurge(job);
+                        }}
+                      >
+                        彻底删除
+                      </Button>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* 彻底删除确认对话框(与删除作品同一 Modal danger 基座;后果文案明示不可恢复) */}
+      <Modal
+        open={!!confirmPurge}
+        onClose={() => setConfirmPurge(null)}
+        title="彻底删除作品"
+        danger
+        preventClose={busyId !== null}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              disabled={busyId !== null}
+              onClick={() => setConfirmPurge(null)}
+            >
+              取消
+            </Button>
+            <Button
+              variant="danger"
+              loading={busyId !== null}
+              icon={<Icon name="delete" size={14} />}
+              onClick={handleConfirmPurge}
+            >
+              {busyId ? "删除中…" : "彻底删除"}
+            </Button>
+          </>
+        }
+      >
+        <div className="lib-confirm-body">
+          <div className="lib-confirm-warn">
+            确定彻底删除这件作品?<strong>此操作不可恢复</strong>,作品数据将被永久移除。
+          </div>
+          {confirmPurge?.prompt && (
+            <div className="lib-confirm-prompt">
+              {confirmPurge.prompt.length > 80
+                ? confirmPurge.prompt.slice(0, 80) + "…"
+                : confirmPurge.prompt}
+            </div>
+          )}
+          {purgeError && (
+            <div className="lib-confirm-error">
+              <Icon name="error" size={13} /> {purgeError}
+            </div>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }

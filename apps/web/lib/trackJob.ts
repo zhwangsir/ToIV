@@ -55,6 +55,13 @@ export interface TrackJobOptions {
   /** 全局进度条任务文案(引擎显示名/操作名);缺省「生成」。 */
   label?: string;
   /**
+   * 外部中止信号(用户取消/组件卸载):abort 后立即关流、清定时器并 settle
+   * (reject TrackJobAbortError)。Why:此前只经 register 暴露 EventSource 供外部
+   * close,但 close 后无任何事件到达,Promise 永不 settle(看门狗还会软重连
+   * 复活跟踪)——调用方 await 卡死,submitting 等状态无法复位。
+   */
+  signal?: AbortSignal;
+  /**
    * 质量评估警告回调(SSE `quality_warning` 事件)。
    * 在 done 之前触发;不阻塞 done。degraded=true 表示评估模型失败。
    */
@@ -101,7 +108,19 @@ type TrackState =
   | "polling" // 连续重连失败,降级 GET /api/jobs 轮询对账
   | "done" // 终态:拿到产物路径,resolve
   | "error" // 终态:业务错误 / 轮询确认失败 / 冷启动鉴权失败 / 总超时,reject
-  | "aborted"; // 终态:会话失效(全局 401/登出广播)显式关流,reject
+  | "aborted"; // 终态:会话失效(全局 401/登出广播)/ 外部 signal 中止,显式关流 reject
+
+/**
+ * 外部中止(opts.signal)的 settle 错误:name=AbortError。
+ * 调用方据此把「用户主动停止跟踪」与真实生成失败区分开,静默吞掉即可
+ * (后端作业仍继续,产物完成后可在作品库查看)。
+ */
+export class TrackJobAbortError extends Error {
+  constructor() {
+    super("已停止跟踪该作业(后端仍继续,完成后可在作品库查看)");
+    this.name = "AbortError";
+  }
+}
 
 /** 看门狗默认阈值(ms);取值决策见 trackJob 文档注释。 */
 const DEFAULT_WATCHDOG_MS = 60_000;
@@ -135,6 +154,7 @@ const COLD_START_PROBE_AFTER = 2;
  *     polling      --查到 error----------------------> error
  *     polling      --401(apiFetch 全局处理广播)------> aborted
  *     any          --SESSION_EXPIRED_EVENT-----------> aborted(显式关流)
+ *     any          --opts.signal.abort---------------> aborted(用户取消/卸载显式关流)
  *     any          --总超时---------------------------> error
  *
  * 四项工程化能力(参照 DramaClaw stream-client,按 ToIV 适配):
@@ -241,6 +261,7 @@ export function trackJob(
       if (typeof window !== "undefined") {
         window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
       }
+      opts.signal?.removeEventListener("abort", onAbortSignal);
       opts.register?.(null);
     };
     const finishOk = (paths: string[]): void => {
@@ -268,6 +289,13 @@ export function trackJob(
       if (settled) return;
       setState("aborted");
       finishErr(new Error("登录状态已失效,请重新登录"));
+    };
+
+    /** 外部中止(opts.signal,用户取消/卸载):同会话失效路径,立即关流 settle。 */
+    const onAbortSignal = (): void => {
+      if (settled) return;
+      setState("aborted");
+      finishErr(new TrackJobAbortError());
     };
 
     /** 看门狗计时:任何业务事件到达 = 连接存活,刷新计时。 */
@@ -473,6 +501,11 @@ export function trackJob(
     // 会话失效显式关流:全局登出 / api 401 统一处理 / 冷启动探针确认凭据无效时广播
     if (typeof window !== "undefined") {
       window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+    }
+    // 外部中止显式关流:用户取消/组件卸载;已 aborted 则立即 settle,connect 空转
+    if (opts.signal) {
+      if (opts.signal.aborted) onAbortSignal();
+      else opts.signal.addEventListener("abort", onAbortSignal);
     }
     connect();
   });

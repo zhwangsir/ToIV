@@ -15,6 +15,7 @@ import type {
   TrainProgress,
   TrainStartParams,
   TrainJob,
+  TrashJobItem,
   Txt2ImgParams,
   Usage,
 } from "./types";
@@ -396,7 +397,7 @@ export async function jobVersions(jobKey: string): Promise<JobItem[]> {
   return res.json();
 }
 
-/** deleteJob 返回:后端软删除凭据(10 分钟撤销窗口;SAFETY 体系)。 */
+/** deleteJob 返回:后端软删除凭据(回收站保留期 72h,期内可撤销/恢复;SAFETY 体系)。 */
 export interface DeleteJobResult {
   undo_token?: string;
   undo_ttl?: number;
@@ -417,7 +418,7 @@ export async function deleteJob(jobId: string): Promise<DeleteJobResult> {
   }
 }
 
-/** 撤销一次作品删除(10 分钟窗口内);成功后失效缓存让作品回归列表。 */
+/** 撤销一次作品删除(回收站保留期 72h 内);成功后失效缓存让作品回归列表。 */
 export async function undoDelete(undoToken: string): Promise<void> {
   const res = await apiFetch(`/api/undo/${undoToken}`, {
     method: "POST",
@@ -425,6 +426,35 @@ export async function undoDelete(undoToken: string): Promise<void> {
   });
   if (!res.ok) await raiseApiError(res, "撤销失败(可能已过期)");
   invalidateJobs();
+}
+
+// ---------- 回收站(2026-08-23):软删作品 72h 保留期内可恢复/彻底删除 ----------
+
+/** 回收站列表(删除时间倒序;offset/limit 分页,与 fetchJobsPage 同范式)。
+    不进 swr 缓存:回收站低频访问,且恢复/删除后必须立即反映。 */
+export async function fetchTrash(offset = 0, limit = 200): Promise<TrashJobItem[]> {
+  const res = await apiFetch(`/api/jobs/trash?limit=${limit}&offset=${offset}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(`加载回收站失败 (${res.status})`);
+  return res.json();
+}
+
+/** 从回收站恢复一件作品(回归作品库);成功后失效缓存。 */
+export async function restoreJob(jobId: string): Promise<void> {
+  const res = await apiFetch(`/api/jobs/${jobId}/restore`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!res.ok) await raiseApiError(res, "恢复失败(可能已过保留期)");
+  invalidateJobs();
+}
+
+/** 彻底删除回收站中的一件作品(物理删除,不可恢复)。 */
+export async function permanentDeleteJob(jobId: string): Promise<void> {
+  const res = await apiFetch(`/api/jobs/${jobId}/permanent`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) await raiseApiError(res, "彻底删除失败");
 }
 
 /** 审计日志条目(admin /api/admin/audit-logs)。 */
@@ -3551,7 +3581,7 @@ export async function assetFromJob(body: {
 
 // ===========================================================================
 // Agent Team 统一入口(R3.1)—— 一句话目标 → Leader 拆解 → DAG 任务卡片流
-// 契约见 docs/2026-08-14-competitive-r3-r5-deep-dive.md §1.3.3(后端按同一契约实现);
+// 前后端按同一契约实现;
 // 前端四要素:秒回横幅 / 计划确认门 / 任务卡片流 / 事件汇报流。
 // ===========================================================================
 

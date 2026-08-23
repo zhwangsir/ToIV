@@ -1,7 +1,6 @@
 /**
  * LibTV 式短剧工作台 —— 组件契约(钉死,团队并行依据)。
  *
- * 依据:docs/2026-08-16-libtv-workbench-redesign.md 第三节。
  * Team B(阶段①剧本/②资产)、Team C(阶段③分镜表格/④短片+胶片条/检查器)
  * 实现各自 Stage 组件时,props 形状以本文件为准,零新 API(全部数据/动作
  * 来自 useDramaProject 返回的 dp 对象)。

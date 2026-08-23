@@ -1,6 +1,6 @@
 /**
  * 极简 hook 渲染器:在无 DOM 的 node:test 环境里驱动自定义 React hook。
- * 仅实现 useState / useCallback / useEffect(被测 hook 用到的三个),
+ * 仅实现 useState / useCallback / useEffect / useRef(被测 hook 用到的四个),
  * 通过 React 19 共享内部的 H(Hooks dispatcher)注入自制 dispatcher。
  *
  * 语义与 React 近似、对单测够用:
@@ -112,6 +112,11 @@ export function renderHook<R>(fn: () => R): HookHandle<R> {
         slots[i] = { deps, effect };
         pendingEffects.push(i);
       }
+    },
+    useRef(initial: unknown): { current: unknown } {
+      const i = cursor++;
+      if (!slots[i]) slots[i] = { value: { current: initial } };
+      return slots[i].value as { current: unknown };
     },
   };
 

@@ -185,6 +185,16 @@ export interface JobItem {
   post_status?: string;
 }
 
+/** 回收站条目(2026-08-23):作品库字段 + 删除时间/恢复截止/剩余秒数(72h 保留期)。 */
+export interface TrashJobItem extends JobItem {
+  /** 软删除时间(ISO)。 */
+  deleted_at: string;
+  /** 恢复截止时间(ISO,= deleted_at + 72h);到期由后端清理任务物理删除。 */
+  restore_expires_at: string;
+  /** 距彻底删除的剩余秒数(后端按当前时间算出,前端直接格式化展示)。 */
+  restore_remaining_seconds: number;
+}
+
 export type LocalModels = Record<string, string[]>;
 
 export interface MarketItem {

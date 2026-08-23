@@ -2,7 +2,7 @@
  * RES2-2026-08-18 前端弹窗化/霓虹动画/Skill 检索 源码断言:
  * ① AssistantView popup 形态:仅对话区+输入框(页头/三面板/文档按钮/门户空态隐藏)
  * ② AssistantOverlay:variant="popup" 传递 + 最小关闭按钮
- * ③ page.tsx ⌘K 霓虹序列:registerProperty 注册 / reduced-motion 跳过 / neon-edge 渲染
+ * ③ page.tsx Shift+Enter 霓虹序列:registerProperty 注册 / reduced-motion 跳过 / neon-edge 渲染
  * ④ assistant.css:霓虹扫描 keyframes + 环形 mask + reduced-motion 静态回退
  * ⑤ SkillMarketView:搜索+范围筛选+R18 过滤三条件客户端过滤
  */
@@ -48,7 +48,7 @@ test("AssistantOverlay:variant=popup 传递 + 最小关闭按钮 + a11y", () => 
 
 /* ── ③ page.tsx 霓虹序列 ── */
 
-test("page.tsx:⌘K 霓虹序列(registerProperty/reduced-motion/连按直开/neon-edge 渲染)", () => {
+test("page.tsx:Shift+Enter 霓虹序列(registerProperty/reduced-motion/连按直开/neon-edge 渲染)", () => {
   const src = readSrc("app/page.tsx");
   // @property 注册 + 容错
   assert.ok(src.includes('"registerProperty" in CSS'), "registerProperty 探测缺失");
@@ -63,54 +63,81 @@ test("page.tsx:⌘K 霓虹序列(registerProperty/reduced-motion/连按直开/ne
   assert.ok(src.includes("assistantOpenRef"), "开闭态 ref 镜像缺失");
 });
 
+test("page.tsx:霓虹 rAF 驱动(2026-08-23 重写:CSS 自定义属性动画在本页层叠树下不重绘)", () => {
+  const src = readSrc("app/page.tsx");
+  // rAF 逐帧写内联 --neon-angle(内联 style 更新走 style recalc,每帧必重绘)
+  assert.ok(src.includes("requestAnimationFrame"), "rAF 驱动缺失");
+  assert.ok(src.includes('el.style.setProperty("--neon-angle"'), "内联角度写入缺失");
+  // 首尾淡入淡出(不戛然而止)+ 扫满一圈后过冲收尾
+  assert.ok(src.includes("el.style.opacity"), "淡出写入缺失");
+  const sweep = src.match(/const NEON_SWEEP_DEG = (\d+)/);
+  assert.ok(sweep && Number(sweep[1]) > 360, "收尾未过冲(应 >360deg 让软尾滑过终点)");
+  // 单常量 NEON_MS 同时驱动 rAF 与开弹窗计时(时机不错位)
+  const ms = src.match(/const NEON_MS = (\d+)/);
+  assert.ok(ms && Number(ms[1]) >= 1000, "NEON_MS 缺失或过快(应 ≥1000ms 舒缓)");
+});
+
+test("page.tsx:Shift+Enter 触发键语义(纯 Shift+Enter + 输入上下文守卫)", () => {
+  const src = readSrc("app/page.tsx");
+  // 仅 Shift+Enter:Enter 键 + shiftKey,排除 Cmd/Ctrl/Alt(不碰 ⌘Enter 提交类快捷键)
+  assert.ok(
+    src.includes('e.key !== "Enter" || !e.shiftKey || e.metaKey || e.ctrlKey || e.altKey'),
+    "纯 Shift+Enter 判定缺失",
+  );
+  // 焦点在 input/textarea/select/contenteditable 时不触发(保留输入框换行)
+  assert.ok(src.includes('target.tagName === "INPUT"'), "input 守卫缺失");
+  assert.ok(src.includes('target.tagName === "TEXTAREA"'), "textarea 守卫缺失");
+  assert.ok(src.includes("target.isContentEditable"), "contenteditable 守卫缺失");
+  // 可发现性提示文案同步(旧 ⌘K 提示键位已更换)
+  assert.ok(src.includes("toiv_hint_shiftenter"), "首访提示 localStorage 键未更换");
+  assert.ok(src.includes("Shift+Enter 随时唤起对话"), "首访提示文案未同步");
+});
+
 /* ── ④ assistant.css 霓虹样式 ── */
 
-test("assistant.css:霓虹扫描 + 环形 mask + 双回退", () => {
+test("assistant.css:霓虹环带 + 环形 mask + 双回退", () => {
   const css = readSrc("app/styles/assistant.css");
   assert.ok(css.includes(".neon-edge"), "neon-edge 样式缺失");
-  assert.ok(css.includes("@keyframes neon-edge-sweep"), "扫描 keyframes 缺失");
-  assert.ok(css.includes("--neon-angle: 360deg"), "角度未扫满一圈");
+  // 彗核直接画在 .neon-edge 本体(伪元素承载在本页层叠树下不重绘)
+  assert.ok(/\.neon-edge \{[^}]*conic-gradient/.test(css), "彗核未画在真实元素上");
+  // 动画由 JS rAF 驱动:CSS 侧不得残留 keyframes 扫描动画(实证不重绘)
+  assert.ok(!/\.neon-edge \{[^}]*animation:/.test(css), "neon-edge 不得使用 CSS 动画(用 rAF)");
   // 环形 mask(-webkit- 兜底 Safari)
   assert.ok(css.includes("-webkit-mask-composite: xor"), "Safari mask 兜底缺失");
   assert.ok(css.includes("mask-composite: exclude"), "标准 mask 缺失");
   // reduced-motion 静态定格 + @supports 回退
-  assert.ok(/prefers-reduced-motion[\s\S]*\.neon-edge::before/.test(css), "reduced-motion 回退缺失");
+  assert.ok(/prefers-reduced-motion[\s\S]*\.neon-edge \{/.test(css), "reduced-motion 回退缺失");
   assert.ok(css.includes("@supports not"), "旧内核静态回退缺失");
   // 关闭按钮样式
   assert.ok(css.includes(".av-overlay-close"), "关闭按钮样式缺失");
 });
 
-test("assistant.css:极光配色(多色柔和)——≥3 色彩带、无纯白硬头、双层柔辉光", () => {
+test("assistant.css:极光配色(青→紫→品红柔和流动)——3 色齐备、无纯白硬头、三层柔辉光", () => {
   const css = readSrc("app/styles/assistant.css");
-  const neon = css.slice(css.indexOf(".neon-edge::before"), css.indexOf("@keyframes neon-edge-sweep"));
-  // 多色极光板:琥珀/玫紫/靛/青/翡翠 至少命中 4 色
-  const palette = ["#fbbf24", "#e879f9", "#818cf8", "#22d3ee", "#34d399"];
+  const neonStart = css.indexOf(".neon-edge {");
+  const neon = css.slice(neonStart, css.indexOf("@supports not", neonStart));
+  // 青/紫/品红三色极光板
+  const palette = ["#67e8f9", "#a78bfa", "#f0abfc"];
   const hits = palette.filter((c) => neon.includes(c));
-  assert.ok(hits.length >= 4, `多色极光配色不足(仅 ${hits.length} 色): ${hits.join(",")}`);
+  assert.ok(hits.length >= 3, `极光配色不足(仅 ${hits.length} 色): ${hits.join(",")}`);
   // 柔和:禁止纯白硬头(单色时代的 #fff 亮头)
   assert.ok(!/#fff\s+\d+deg/.test(neon), "出现纯白硬头色标(应全彩柔和)");
-  // 双层柔辉光(非单束刺眼)
-  assert.ok((neon.match(/drop-shadow/g) ?? []).length >= 2, "双层柔辉光缺失");
+  // 三层柔辉光(贴核/中层/远景弥散),最大 ≥40px 宽幅外扩
+  assert.ok((neon.match(/drop-shadow/g) ?? []).length >= 3, "三层柔辉光缺失");
+  const glows = [...neon.matchAll(/drop-shadow\(0 0 (\d+)px/g)].map((g) => Number(g[1]));
+  assert.ok(Math.max(...glows) >= 40, `主辉光幅度不足(最大 ${Math.max(...glows)}px < 40px)`);
 });
 
-test("霓虹节奏与光芒幅度:CSS 扫描时长 = page NEON_MS,且 ≥1000ms 舒缓;辉光宽幅外扩", () => {
+test("assistant.css:2026-08-23 重设计——静态三色底环 + 弹窗玻璃拟态", () => {
   const css = readSrc("app/styles/assistant.css");
-  const page = readSrc("app/page.tsx");
-  // CSS 动画时长(唯一 neon-edge-sweep animation 行)
-  const m = css.match(/animation:\s*neon-edge-sweep\s+(\d+)ms/);
-  assert.ok(m, "扫描时长声明缺失");
-  const cssMs = Number(m![1]);
-  // page 侧 NEON_MS 常量
-  const p = page.match(/const NEON_MS = (\d+)/);
-  assert.ok(p, "NEON_MS 缺失");
-  const pageMs = Number(p![1]);
-  assert.equal(cssMs, pageMs, "CSS 扫描时长与 NEON_MS 不同步(弹窗展开时机错位)");
-  assert.ok(cssMs >= 1000, `扫描过快(${cssMs}ms < 1000ms),应为舒缓节奏`);
-  // 光芒幅度:主弥散辉光 ≥20px + 静息底衬 ≥36px(宽幅光晕,非细线辉光)
-  const neon = css.slice(css.indexOf(".neon-edge {"), css.indexOf("@keyframes neon-edge-sweep"));
-  const glows = [...neon.matchAll(/(?:drop-shadow\(0 0|box-shadow: inset 0 0) (\d+)px/g)].map((g) => Number(g[1]));
-  assert.ok(Math.max(...glows) >= 20, `主辉光幅度不足(最大 ${Math.max(...glows)}px < 20px)`);
-  assert.ok(/box-shadow: inset 0 0 (\d+)px/.test(neon) && Number(RegExp.$1) >= 36, "静息底衬光晕未宽幅化");
+  const neonStart = css.indexOf(".neon-edge {");
+  const neon = css.slice(neonStart, css.indexOf("@supports not", neonStart));
+  // 双层背景:彗核(随 --neon-angle 旋转)+ 静态三色整环(任意时刻四边有色彩)
+  assert.ok((neon.match(/conic-gradient/g) ?? []).length >= 2, "静态三色底环缺失");
+  // 弹窗玻璃拟态 + 开场光晕(灯带联动收束拍)
+  assert.ok(css.includes("backdrop-filter: var(--glass-blur)"), "面板玻璃模糊缺失");
+  assert.ok(css.includes("background: var(--glass-bg)"), "面板玻璃底色缺失");
+  assert.ok(css.includes("@keyframes av-panel-aura"), "开场光晕 keyframes 缺失");
 });
 
 /* ── ⑤ SkillMarketView 检索 ── */

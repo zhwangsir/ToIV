@@ -4,11 +4,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon } from "@/components/ui/Icon";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
-import { PageHeader } from "@/components/ui/PageHeader";
 
-/** ComfyUI 画布地址:改地址只动这里(或设 NEXT_PUBLIC_COMFYUI_WEB_URL) */
+/**
+ * ComfyUI 画布地址(2026-08-23 跨地区访问改造):
+ * 默认走 Tailscale IP(设备不在同一物理网络时唯一可靠路径);同地局域网地址作回退候选。
+ * 覆盖方式:NEXT_PUBLIC_COMFYUI_WEB_URL 或 localStorage(STORAGE_KEY)。
+ */
 const COMFYUI_URL =
-  process.env.NEXT_PUBLIC_COMFYUI_WEB_URL || "http://192.168.71.127:8188";
+  process.env.NEXT_PUBLIC_COMFYUI_WEB_URL || "http://100.68.100.90:8188";
+/** 同地局域网回退候选(仅默认地址未显式覆盖时参与探测) */
+const COMFYUI_URL_LAN = "http://192.168.71.127:8188";
 const STORAGE_KEY = "toiv_comfyui_web_url";
 const PROBE_TIMEOUT_MS = 4000;
 /** iframe 渲染后的加载兜底时限:超时未完成加载视为失败 */
@@ -84,9 +89,11 @@ export function CanvasView() {
   const candidates = useMemo(() => {
     if (typeof window === "undefined") return [COMFYUI_URL];
     const custom = window.localStorage.getItem(STORAGE_KEY);
-    const list = custom && custom !== COMFYUI_URL
-      ? [custom, COMFYUI_URL]
-      : [COMFYUI_URL];
+    // Tailscale 优先,局域网回退(设备同地时 TS 也可达,仍先 TS 保持行为一致)
+    const base = [COMFYUI_URL, COMFYUI_URL_LAN];
+    const list = custom && !base.includes(custom)
+      ? [custom, ...base]
+      : base;
     return list;
   }, [retryTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -157,16 +164,12 @@ export function CanvasView() {
     retry();
   };
 
-  /** 统一页头(共享 PageHeader):大标题 + 辅助描述 + 右侧状态徽章/操作区;
-      失败态错误文案不入头部徽章,由页头下方 ErrorBar 承载(P1-2) */
+  /** 顶栏(2026-08-23 用户要求去掉标题/副标题):只保留右侧连接状态徽章与新窗口入口;
+      失败态错误文案由顶栏下方 ErrorBar 承载(P1-2 沿革) */
   const renderHeader = (phase: "probing" | "ready" | "failed", src?: string) => (
-    <PageHeader
-      className="canvas-header"
-      title="画布"
-      desc="内嵌 ComfyUI 节点画布,拖拽编排与调试生成工作流"
-      kicker="NODE CANVAS"
-      actions={
-        phase === "ready" && src ? (
+    <header className="canvas-header">
+      <div className="canvas-bar">
+        {phase === "ready" && src ? (
           <>
             <span className="canvas-status canvas-status--ok" title={src}>
               <span className="canvas-status-dot" aria-hidden="true" />
@@ -186,9 +189,9 @@ export function CanvasView() {
             <span className="canvas-status-dot" aria-hidden="true" />
             正在连接…
           </span>
-        ) : undefined
-      }
-    />
+        ) : null}
+      </div>
+    </header>
   );
 
   /** 页头下方错误条(P1-2:原头部自写错误徽章收编为共享 ErrorBar,可关闭,重试复位)。 */
@@ -233,12 +236,14 @@ export function CanvasView() {
                   <circle cx="12" cy="16.8" r="0.9" fill="currentColor" />
                 </svg>
               </div>
-              <h2>画布需要通过局域网 HTTP 访问</h2>
+              <h2>画布需要通过 HTTP 访问</h2>
               <p>
                 当前页面为 HTTPS,浏览器会拦截 HTTP 的 ComfyUI
-                页面(混合内容)。请改用局域网地址访问:
+                页面(混合内容)。请改用 Tailscale 或局域网 HTTP 地址访问本站:
               </p>
-              <p className="canvas-fallback-url">http://192.168.71.47:3100/?view=canvas</p>
+              <p className="canvas-fallback-url">
+                {`http://${typeof window !== "undefined" ? window.location.host : "100.77.80.100:3100"}/?view=canvas`}
+              </p>
             </div>
           </div>
           <style jsx>{styles}</style>
@@ -403,9 +408,8 @@ const styles = `
     display: flex;
     flex-direction: column;
   }
-  /* ── 页头:进 .view-shell 节奏(1200 版心 + 两侧 32px 呼吸),iframe 画布区保持全宽 ──
-     (页头元素在 PageHeader 组件内渲染,scoped 选择器须 :global 才能命中) */
-  .canvas-view :global(.canvas-header) {
+  /* ── 顶栏(无标题版):与 .view-shell 同节奏(1200 版心 + 两侧留白),只承载连接状态/操作 ── */
+  .canvas-view .canvas-header {
     flex: none;
     width: 100%;
     max-width: 1200px;
@@ -413,6 +417,13 @@ const styles = `
     margin-right: auto;
     padding-left: var(--space-8);
     padding-right: var(--space-8);
+  }
+  .canvas-bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--space-3);
+    min-height: 48px;
   }
   /* 页头下方错误条容器(P1-2,ErrorBar 本体样式见 effects.css);与页头同版心 */
   .canvas-header-error {
@@ -791,14 +802,11 @@ const styles = `
       padding: var(--space-4);
     }
   }
-  /* ── <768px:隐藏页头描述给画布让位;页头/错误条收内距;触控目标 ≥44px;显示移动端提示条 ── */
+  /* ── <768px:顶栏/错误条收内距;触控目标 ≥44px;显示移动端提示条 ── */
   @media (max-width: 767px) {
-    .canvas-view :global(.canvas-header) {
+    .canvas-view .canvas-header {
       padding-left: var(--space-3);
       padding-right: var(--space-3);
-    }
-    .canvas-view :global(.canvas-header .page-header-desc) {
-      display: none;
     }
     .canvas-header-error {
       margin: calc(-1 * var(--space-2)) auto var(--space-3);

@@ -57,7 +57,7 @@ export const FILTERS: FilterDef[] = [
   {
     key: "audio",
     label: "音频",
-    kinds: ["audio", "ace_audio", "audio_sep", "transcribe", "voice_track"],
+    kinds: ["audio", "ace_audio", "audio_sep", "transcribe", "voice_track", "manju_voice"],
   },
   { key: "3d", label: "3D", kinds: ["3d", "model3d", "hunyuan3d"] },
 ];
@@ -124,6 +124,7 @@ export function kindLabel(kind: string): string {
     audio_sep: "人声分离",
     transcribe: "听写",
     voice_track: "配音轨",
+    manju_voice: "配音",
     "3d": "3D",
     model3d: "3D",
     hunyuan3d: "图生3D",
@@ -160,6 +161,19 @@ export function formatTime(iso: string): string {
   } catch {
     return iso;
   }
+}
+
+/** 回收站剩余保留期(中文):<1h 剩 N 分钟 / <1d 剩 N 小时 / 否则 剩 D 天 H 小时;≤0 已到期。 */
+export function formatRetention(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return "已到期";
+  const min = 60;
+  const hr = 3600;
+  const day = 86400;
+  if (seconds < hr) return `剩 ${Math.max(1, Math.ceil(seconds / min))} 分钟`;
+  if (seconds < day) return `剩 ${Math.floor(seconds / hr)} 小时`;
+  const d = Math.floor(seconds / day);
+  const h = Math.floor((seconds % day) / hr);
+  return h > 0 ? `剩 ${d} 天 ${h} 小时` : `剩 ${d} 天`;
 }
 
 /** 作业状态 → 中文短名(状态点 title / 灯箱元信息共用)。 */

@@ -6,7 +6,7 @@ import { Icon } from "@/components/ui/Icon";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 
 interface AssistantOverlayProps {
-  /** 浮层显隐(Cmd/Ctrl+K 切换;开启前由 page.tsx 先播霓虹边缘动画)。 */
+  /** 浮层显隐(Shift+Enter 切换;开启前由 page.tsx 先播霓虹边缘动画)。 */
   open: boolean;
   onClose: () => void;
   /** 视图跳转:先关浮层再切视图(page.tsx 承接,带预热/过渡)。 */
@@ -20,7 +20,7 @@ const AssistantView = lazy(() =>
 
 /**
  * AI 助手全局浮层(2026-08-17 底层化):助手不再作为一级视图占据导航,
- * 由 Cmd/Ctrl+K 随时唤起,任意视图之上对话。
+ * 由 Shift+Enter 随时唤起,任意视图之上对话。
  *
  * 2026-08-18 弹窗化(variant="popup"):界面仅保留对话显示区与输入框——
  * 页头/历史/设置/文档面板与门户空态全部隐藏,空态为极简品牌提示;

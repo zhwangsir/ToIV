@@ -395,7 +395,7 @@ export const optimizeStudioShot = async (): Promise<{
 // ===========================================================================
 // 作品库(libraryViews.test.ts:LibraryView 经 loader 映射到这里)
 // ===========================================================================
-import type { JobItem } from "../../lib/types";
+import type { JobItem, TrashJobItem } from "../../lib/types";
 
 /** 作品列表替身:默认空库,用例按需覆盖 impl。 */
 export const libImpl = {
@@ -405,9 +405,27 @@ export const listJobs = (): Promise<JobItem[]> => libImpl.listJobs();
 /** 服务端分页替身(2026-08-16 无限滚动;链接期需要,行为由源码断言覆盖)。 */
 export const JOBS_PAGE_LIMIT = 200;
 export const fetchJobsPage = async (_offset: number, _limit = JOBS_PAGE_LIMIT): Promise<JobItem[]> => [];
+/** 产物转运替身(AssetPicker 链接期需要;分页/去重逻辑由 assetPicker.test.ts 覆盖)。 */
+export const assetFromJob = async (_body: {
+  job_id: string;
+  filename: string;
+  kind: string;
+  worker?: string;
+}): Promise<{ filename: string; worker: string }> => ({ filename: "mock.wav", worker: "mock-worker" });
 export const deleteJob = async (_jobId: string): Promise<{ undo_token?: string }> => ({});
 export const undoDelete = async (_undoToken: string): Promise<void> => {};
 export const invalidateJobs = (): void => undefined;
+/** 回收站替身(2026-08-23,LibraryTrashView 链接期需要):默认空桶,用例按需覆盖 impl。 */
+export const trashImpl = {
+  fetchTrash: async (): Promise<TrashJobItem[]> => [],
+  restoreJob: async (_jobId: string): Promise<void> => {},
+  permanentDeleteJob: async (_jobId: string): Promise<void> => {},
+};
+export const fetchTrash = (_offset = 0, _limit = 200): Promise<TrashJobItem[]> =>
+  trashImpl.fetchTrash();
+export const restoreJob = (jobId: string): Promise<void> => trashImpl.restoreJob(jobId);
+export const permanentDeleteJob = (jobId: string): Promise<void> =>
+  trashImpl.permanentDeleteJob(jobId);
 /** 视频超分替身(LibraryView 链接期需要;交互流由 videoUpscale.test.ts 专测)。 */
 export const upscaleVideo = async (): Promise<{
   job_id: string;

@@ -12,6 +12,7 @@ import { GenerateView } from "@/components/generate/GenerateView";
 import { useAutoResize } from "@/hooks/useAutoResize";
 import {
   imageUrl,
+  invalidateJobs,
   separateAudio,
   synthManjuVoice,
   transcribeDub,
@@ -142,6 +143,9 @@ function TtsCard() {
         ...(refUrl ? { ref_audio_url: refUrl } : {}),
       });
       setResult(r);
+      // 配音产物经后端 Job 建档(kind=manju_voice)后作品库可见;
+      // 失效缓存让下次进作品库立即拉到最新(与图像/视频生成同口径)
+      invalidateJobs();
     } catch (e) {
       setError(e instanceof Error ? e.message : "配音合成失败");
     } finally {

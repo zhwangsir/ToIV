@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { friendlyError } from "./friendlyError";
-import { trackJob } from "./trackJob";
+import { trackJob, TrackJobAbortError } from "./trackJob";
 import type { GenerateResponse } from "./types";
 import type { QualityWarning } from "./trackJob";
 
@@ -40,7 +40,7 @@ export interface UseGenerationResult {
    * runOpts.label:全局进度条任务文案(引擎显示名/操作名),透传 trackJob。
    */
   start: (res: GenerateResponse, runOpts?: { label?: string }) => Promise<void>;
-  /** 重置为 idle,清空 progress / resultPaths / error / qualityWarning,并关闭未完成的 EventSource。 */
+  /** 重置为 idle,清空 progress / resultPaths / error / qualityWarning,并中止未完成的作业跟踪(trackJob 立即 settle)。 */
   reset: () => void;
 }
 
@@ -76,11 +76,16 @@ export function useGeneration(opts: UseGenerationOptions = {}): UseGenerationRes
   optsRef.current = opts;
   // 持有当前 EventSource,卸载 / reset 时关闭(trackJob 通过 register 注入)
   const esRef = useRef<EventSource | null>(null);
+  // 当前跟踪的中止控制器:reset/卸载/重入 start 时 abort,让 trackJob 立即 settle
+  // (只 close EventSource 不会让 trackJob 的 Promise 落定,await start 会永久挂起)
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      abortRef.current?.abort();
+      abortRef.current = null;
       esRef.current?.close();
       esRef.current = null;
     };
@@ -98,8 +103,13 @@ export function useGeneration(opts: UseGenerationOptions = {}): UseGenerationRes
     }
 
     try {
+      // 防重入:上一次跟踪若仍未 settle(如连点生成),先显式中止再启新跟踪
+      abortRef.current?.abort();
+      const ac = new AbortController();
+      abortRef.current = ac;
       const paths = await trackJob(res, {
         label: runOpts?.label,
+        signal: ac.signal,
         onProgress: (p) => {
           if (!mountedRef.current) return;
           setProgress({ value: p.value, max: p.max });
@@ -124,6 +134,9 @@ export function useGeneration(opts: UseGenerationOptions = {}): UseGenerationRes
       optsRef.current.onDone?.(paths);
     } catch (e) {
       if (!mountedRef.current) return;
+      // 用户取消/卸载触发的显式中止:静默——状态已由 reset/卸载置 idle,
+      // 不能按失败处理(error 态会让已取消的条目误标失败)
+      if (e instanceof TrackJobAbortError) return;
       const raw = e instanceof Error ? e.message : "生成失败";
       // 走查 P3:底层原文(1011/keepalive/ECONNREFUSED/timeout/5xx)包装为友好文案,原文进 detail
       const { message, detail } = friendlyError(raw);
@@ -135,6 +148,9 @@ export function useGeneration(opts: UseGenerationOptions = {}): UseGenerationRes
   }, []);
 
   const reset = useCallback(() => {
+    // 先 abort 让 trackJob 立即 settle(走 cleanup 关流/清总线),再兜底 close
+    abortRef.current?.abort();
+    abortRef.current = null;
     esRef.current?.close();
     esRef.current = null;
     if (!mountedRef.current) return;

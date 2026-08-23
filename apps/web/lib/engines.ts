@@ -4,6 +4,7 @@ import {
   apiFetch,
   authHeaders,
   generateAudio,
+  generateAvatarTalk,
   generateImg2img,
   generateLongcatContinue,
   generateLongcatI2V,
@@ -77,12 +78,28 @@ export interface EngineInfo {
   source?: EngineSource;
 }
 
+/**
+ * 注册表归一(前端侧兼容):avatar-talk 的「驱动音频」在后端注册表里声明为
+ * text 类型(仅 hint 提示经 /api/upload 上传),而真实提交契约(POST /api/avatar/talk)
+ * 要求已上传的音频文件名 + 同 worker。这里把它归一为 audio 类型,GenerateView
+ * 才会渲染 RefAudioUpload(钉参考图同 worker)并据此门控提交。
+ */
+function normalizeEngine(engine: EngineInfo): EngineInfo {
+  if (engine.id !== "avatar-talk") return engine;
+  return {
+    ...engine,
+    params: engine.params.map((p) =>
+      p.key === "audio" && p.type === "text" ? { ...p, type: "audio" as const, max: 1 } : p,
+    ),
+  };
+}
+
 /** 拉取引擎注册表(NSFW 引擎由后端按 R18 上下文过滤,前端不再判断)。 */
 export async function fetchEngines(): Promise<EngineInfo[]> {
   const res = await apiFetch(`/api/models/engines`, { headers: authHeaders() });
   if (!res.ok) throw new Error(`加载引擎列表失败 (${res.status})`);
   const data = (await res.json()) as { engines?: EngineInfo[] };
-  return data.engines ?? [];
+  return (data.engines ?? []).map(normalizeEngine);
 }
 
 /** 强制重新探测引擎可用性(清后端缓存后重查;「重新检测」按钮用)。 */
@@ -93,7 +110,7 @@ export async function refreshEngines(): Promise<EngineInfo[]> {
   });
   if (!res.ok) throw new Error(`重新检测引擎失败 (${res.status})`);
   const data = (await res.json()) as { engines?: EngineInfo[] };
-  return data.engines ?? [];
+  return (data.engines ?? []).map(normalizeEngine);
 }
 
 /** 引擎参数默认值表(动态参数区初始值;images/audio/video 由上传组件承载,不进 values)。 */
@@ -304,6 +321,23 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
         video,
       });
     }
+
+    case "avatar-talk":
+      // LongCat-Avatar 数字人(POST /api/avatar/talk,与 longcat 同实例 :8197):
+      // 人像首帧 + 驱动音频须同 worker(上传时已互钉);对齐 AvatarGenPanel 参照实现
+      return generateAvatarTalk({
+        image: refImage!.filename,
+        audio: refAudio!.filename,
+        worker: refImage!.worker,
+        positive,
+        ...(negative ? { negative } : {}),
+        width: _num(values, "width", 480),
+        height: _num(values, "height", 832),
+        duration_sec: _num(values, "duration", 3.7),
+        fps: _num(values, "fps", 25),
+        steps: _num(values, "steps", 12),
+        seed,
+      });
 
     case "h3-i2v":
       // 参考图经 /api/upload 落在 pool worker,后端会转运到 H3 专用实例

@@ -427,7 +427,7 @@ export interface AssistantViewProps {
   /**
    * 展示形态(2026-08-18 弹窗化):
    * - page(默认):整页视图,门户空态/历史/设置/文档面板全量;
-   * - popup:Cmd/Ctrl+K 全局弹窗——界面仅保留对话显示区与输入框
+   * - popup:Shift+Enter 全局弹窗——界面仅保留对话显示区与输入框
    *   (隐藏页头/三个侧面板/文档挂载入口,空态为极简提示,输入框沉底)。
    */
   variant?: "page" | "popup";

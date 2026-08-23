@@ -25,11 +25,11 @@ import * as path from "path";
 test.use({ storageState: ".auth/admin.json" });
 
 // 侧栏中实际存在的视图(page.tsx 的 ISLAND_ITEMS 列表)
-// 2026-08-17 助手底层化:「对话」移出导航(Cmd+K 浮层唤起),流程起点改 fusion
+// 2026-08-17 助手底层化:「对话」移出导航(Shift+Enter 浮层唤起),流程起点改 fusion
 // 注意:models/train/backlot/admin/animatic/studio 不在侧栏一级导航中,只能通过 URL 直接访问
 // (studio 经融合页/底部「更多」进入;旧 dramaStudio/manju 已重定向到 studio)
 const VIEW_FLOW: { key: string; label: string }[] = [
-  { key: "fusion",      label: "融合" },       // 初始视图(原 assistant 已底层化为 Cmd+K 浮层)
+  { key: "fusion",      label: "融合" },       // 初始视图(原 assistant 已底层化为 Shift+Enter 浮层)
   { key: "image",       label: "图片" },
   { key: "video",       label: "视频" },
   { key: "audio",       label: "音频" },

@@ -12,9 +12,20 @@ import type { JobItem } from "@/lib/types";
  * 资产互通选择器(2026-08-18):作品库产物 → 参考输入。
  * 列出已完成 Job 的产物,点击后经 /api/assets/from-job 把 output 文件转运到
  * 目标 worker 的 input 目录,返回与上传句柄同构的 {filename, worker}。
+ * 分页(2026-08-22):首页满页可「加载更多」,offset=已加载条数,按 Job id 去重
+ * (拉取间隙新作业插入顶部会导致页间位置漂移重叠,与作品库同一去重口径)。
  */
 
 export type AssetType = "image" | "video" | "audio";
+
+/** 每页大小(后端单页上限 200;选择器场景 120 足够首屏)。 */
+const PAGE_LIMIT = 120;
+
+/** 分页合并:按 Job id 去重后追加(页间重叠兜底,防同一产物条目重复出现)。 */
+export function mergeJobsPage(prev: JobItem[], page: JobItem[]): JobItem[] {
+  const seen = new Set(prev.map((j) => j.id));
+  return [...prev, ...page.filter((j) => !seen.has(j.id))];
+}
 
 export interface PickedAsset {
   filename: string;
@@ -65,6 +76,9 @@ export function AssetPicker({ open, onClose, assetType, kind, pinWorker, onPick 
   const toast = useToast();
   const [jobs, setJobs] = useState<JobItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  // 首页满页 = 服务端可能还有更早的作品(老作品资产也可选,不再被首页截断)
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [transferring, setTransferring] = useState<string | null>(null); // 正在转运的 "jobId:filename"
 
@@ -72,14 +86,31 @@ export function AssetPicker({ open, onClose, assetType, kind, pinWorker, onPick 
     setLoading(true);
     setError(null);
     try {
-      const list = await fetchJobsPage(0, 120);
+      const list = await fetchJobsPage(0, PAGE_LIMIT);
       setJobs(list);
+      setHasMore(list.length >= PAGE_LIMIT);
     } catch (e) {
       setError(e instanceof Error ? e.message : "加载作品库失败");
     } finally {
       setLoading(false);
     }
   }, []);
+
+  /** 服务端下一页:offset=已加载条数;按 Job id 去重(页间漂移重叠兜底)。 */
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const page = await fetchJobsPage(jobs.length, PAGE_LIMIT);
+      setHasMore(page.length >= PAGE_LIMIT);
+      if (page.length > 0) setJobs((prev) => mergeJobsPage(prev, page));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "加载更多失败");
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [jobs.length, loadingMore, hasMore]);
 
   useEffect(() => {
     if (open) void load();
@@ -168,6 +199,16 @@ export function AssetPicker({ open, onClose, assetType, kind, pinWorker, onPick 
           })}
         </div>
       )}
+      {!loading && hasMore && (
+        <button
+          type="button"
+          className="asset-picker-more"
+          disabled={loadingMore}
+          onClick={() => void loadMore()}
+        >
+          {loadingMore ? "加载中…" : "加载更多"}
+        </button>
+      )}
       {error && <p className="asset-picker-error">{error}</p>}
       <style jsx>{`
         .asset-picker-grid {
@@ -229,6 +270,24 @@ export function AssetPicker({ open, onClose, assetType, kind, pinWorker, onPick 
           text-align: center;
           color: var(--text-muted);
           font-size: 13px;
+        }
+        .asset-picker-more {
+          display: block;
+          margin: var(--space-2, 8px) auto 0;
+          padding: 6px 16px;
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control, 8px);
+          background: var(--bg-surface-3, transparent);
+          color: var(--text-secondary);
+          font-size: 12px;
+          cursor: pointer;
+        }
+        .asset-picker-more:hover:not(:disabled) {
+          border-color: var(--accent);
+        }
+        .asset-picker-more:disabled {
+          opacity: 0.6;
+          cursor: default;
         }
         .asset-picker-error {
           margin: var(--space-2, 8px) 0 0;
