@@ -244,6 +244,36 @@ def permanent_delete_job(
     return {"ok": True, "id": job_id}
 
 
+@router.post("/jobs/trash/purge")
+def purge_trash(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """一键清空回收站:当前用户保留期内的软删作品全部物理删除(不可恢复)。
+
+    路径用 /jobs/trash/purge 而非 DELETE /jobs/trash:DELETE /jobs/{job_id} 注册
+    在前,会把 "trash" 当成 job_id 吞掉。归属/门控口径与 GET /jobs/trash 一致
+    (只看自己的;主站上下文不碰 R18 条目——它们留在桶里等过期清理)。
+    """
+    stmt = select(Job).where(
+        Job.user_id == user.id,
+        Job.deleted_at != None,  # noqa: E712  SQLModel 需 == 比较生成 SQL
+        Job.deleted_at > _trash_cutoff(),
+    )
+    if not nsfw_allowed(user):
+        stmt = stmt.where(Job.nsfw == False)  # noqa: E712
+    rows = session.exec(stmt).all()
+    for job in rows:
+        audit.purge_job_row(session, job)
+    audit.record(
+        session, user=user, action="job.purge_all", target_type="job",
+        summary=f"清空回收站:{len(rows)} 件作品彻底删除",
+        detail={"count": len(rows)},
+    )
+    session.commit()
+    return {"ok": True, "purged": len(rows)}
+
+
 # ---------------------------------------------------------------------------
 # 版本树:任意历史作业可精确重生(rerun)/ 查同根版本链(versions)。
 # 寻址同时接受 Job.id 与 prompt_id(前端结果卡只拿得到 prompt_id)。

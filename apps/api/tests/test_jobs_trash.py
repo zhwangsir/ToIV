@@ -173,3 +173,36 @@ def test_expired_not_listed_and_purged(ctx):
     with Session(engine) as s:
         rows = s.exec(select(Job)).all()
         assert len(rows) == 1 and rows[0].prompt_id == "pid-keep"
+
+
+# ── ⑥ 一键清空(2026-08-23)────────────────────────────────────────
+
+def test_purge_trash_empties_bucket(ctx):
+    """POST /api/jobs/trash/purge:整桶物理删除,他人条目与未删作品不受影响。"""
+    client, token, other_token, job_id, engine = ctx
+    H = _h(token)
+    # 桶里再放一件本人的 + 一件他人的
+    with Session(engine) as s:
+        mine2 = Job(tenant_id="t", user_id=s.exec(select(User).where(User.email == "s@toiv.ai")).one().id,
+                    prompt_id="pid-b", worker="w", kind="txt2img", status="done", prompt="第二件")
+        other = Job(tenant_id="t", user_id=s.exec(select(User).where(User.email == "o@toiv.ai")).one().id,
+                    prompt_id="pid-c", worker="w", kind="txt2img", status="done", prompt="他人的")
+        s.add(mine2); s.add(other); s.commit()
+        s.refresh(mine2); s.refresh(other)
+        mine2_id, other_id = mine2.id, other.id
+    client.delete(f"/api/jobs/{job_id}", headers=H)
+    client.delete(f"/api/jobs/{mine2_id}", headers=H)
+    client.delete(f"/api/jobs/{other_id}", headers=_h(other_token))
+    assert len(client.get("/api/jobs/trash", headers=H).json()) == 2
+
+    r = client.post("/api/jobs/trash/purge", headers=H)
+    assert r.status_code == 200 and r.json() == {"ok": True, "purged": 2}
+    # 本人桶清空、DB 行物理消失;他人条目仍在
+    assert client.get("/api/jobs/trash", headers=H).json() == []
+    assert len(client.get("/api/jobs/trash", headers=_h(other_token)).json()) == 1
+    with Session(engine) as s:
+        remaining = s.exec(select(Job)).all()
+        assert [j.prompt_id for j in remaining] == ["pid-c"]
+    # 空桶再清空是幂等 0 件;路径不被 /jobs/{job_id} 吞掉(不是 404/405)
+    r2 = client.post("/api/jobs/trash/purge", headers=H)
+    assert r2.status_code == 200 and r2.json()["purged"] == 0

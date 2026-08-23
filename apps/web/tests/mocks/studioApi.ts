@@ -420,12 +420,14 @@ export const trashImpl = {
   fetchTrash: async (): Promise<TrashJobItem[]> => [],
   restoreJob: async (_jobId: string): Promise<void> => {},
   permanentDeleteJob: async (_jobId: string): Promise<void> => {},
+  purgeTrash: async (): Promise<number> => 0,
 };
 export const fetchTrash = (_offset = 0, _limit = 200): Promise<TrashJobItem[]> =>
   trashImpl.fetchTrash();
 export const restoreJob = (jobId: string): Promise<void> => trashImpl.restoreJob(jobId);
 export const permanentDeleteJob = (jobId: string): Promise<void> =>
   trashImpl.permanentDeleteJob(jobId);
+export const purgeTrash = (): Promise<number> => trashImpl.purgeTrash();
 /** 视频超分替身(LibraryView 链接期需要;交互流由 videoUpscale.test.ts 专测)。 */
 export const upscaleVideo = async (): Promise<{
   job_id: string;

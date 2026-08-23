@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { deleteJob, fetchJobsPage, fetchTrash, getVideoUpscaleStatus, imageUrl, invalidateJobs, JOBS_PAGE_LIMIT, listJobs, permanentDeleteJob, restoreJob, undoDelete, upscaleVideo } from "@/lib/api";
+import { deleteJob, fetchJobsPage, fetchTrash, getVideoUpscaleStatus, imageUrl, invalidateJobs, JOBS_PAGE_LIMIT, listJobs, permanentDeleteJob, purgeTrash, restoreJob, undoDelete, upscaleVideo } from "@/lib/api";
 import { ENGINE_DRAFT_KEY } from "@/lib/engine";
 import { begin as genBegin, end as genEnd, progress as genProgress } from "@/lib/generationBus";
 import { useR18Mode } from "@/lib/r18";
@@ -1680,6 +1680,8 @@ export function LibraryTrashView({ onBack, onRestored }: LibraryTrashViewProps) 
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirmPurge, setConfirmPurge] = useState<TrashJobItem | null>(null);
   const [purgeError, setPurgeError] = useState<string | null>(null);
+  // 一键清空:独立确认态与进行中态(复用 busyId 语义,"__all__" 表示整桶操作)
+  const [confirmPurgeAll, setConfirmPurgeAll] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -1726,6 +1728,22 @@ export function LibraryTrashView({ onBack, onRestored }: LibraryTrashViewProps) 
     }
   };
 
+  // 一键清空:Modal 二次确认后整桶物理删除,成功后本地清空并提示件数
+  const handleConfirmPurgeAll = async () => {
+    setBusyId("__all__");
+    setPurgeError(null);
+    try {
+      const purged = await purgeTrash();
+      setItems([]);
+      setConfirmPurgeAll(false);
+      toast.info(`已彻底删除 ${purged} 件作品`);
+    } catch (err) {
+      setPurgeError(err instanceof Error ? err.message : "清空回收站失败");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const trashEmpty = !loading && !error && (items?.length ?? 0) === 0;
   const skeletonCount = 8;
 
@@ -1739,6 +1757,20 @@ export function LibraryTrashView({ onBack, onRestored }: LibraryTrashViewProps) 
           </p>
         </div>
         <div className="page-header-actions">
+          {(items?.length ?? 0) > 0 && (
+            <Button
+              size="sm"
+              variant="danger"
+              className="lib-trash-purge-all"
+              icon={<Icon name="delete" size={14} />}
+              onClick={() => {
+                setPurgeError(null);
+                setConfirmPurgeAll(true);
+              }}
+            >
+              清空回收站
+            </Button>
+          )}
           <Button
             size="sm"
             variant="secondary"
@@ -1902,6 +1934,46 @@ export function LibraryTrashView({ onBack, onRestored }: LibraryTrashViewProps) 
                 : confirmPurge.prompt}
             </div>
           )}
+          {purgeError && (
+            <div className="lib-confirm-error">
+              <Icon name="error" size={13} /> {purgeError}
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* 一键清空确认对话框(整桶物理删除,不可恢复;件数在文案里明示) */}
+      <Modal
+        open={confirmPurgeAll}
+        onClose={() => setConfirmPurgeAll(false)}
+        title="清空回收站"
+        danger
+        preventClose={busyId !== null}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              disabled={busyId !== null}
+              onClick={() => setConfirmPurgeAll(false)}
+            >
+              取消
+            </Button>
+            <Button
+              variant="danger"
+              loading={busyId !== null}
+              icon={<Icon name="delete" size={14} />}
+              onClick={handleConfirmPurgeAll}
+            >
+              {busyId ? "删除中…" : "全部彻底删除"}
+            </Button>
+          </>
+        }
+      >
+        <div className="lib-confirm-body">
+          <div className="lib-confirm-warn">
+            确定清空回收站?{items?.length ?? 0} 件作品将被全部彻底删除,
+            <strong>此操作不可恢复</strong>。
+          </div>
           {purgeError && (
             <div className="lib-confirm-error">
               <Icon name="error" size={13} /> {purgeError}

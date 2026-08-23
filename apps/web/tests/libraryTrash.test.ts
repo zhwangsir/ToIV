@@ -114,4 +114,24 @@ test("mocks/studioApi:回收站替身默认可调用", async () => {
   assert.deepEqual(await trashImpl.fetchTrash(), []);
   await assert.doesNotReject(() => trashImpl.restoreJob("j1"));
   await assert.doesNotReject(() => trashImpl.permanentDeleteJob("j1"));
+  assert.equal(await trashImpl.purgeTrash(), 0);
+});
+
+/* ── ⑦ 一键清空(2026-08-23,源码断言 + api 契约) ── */
+test("LibraryTrashView:清空回收站走 purgeTrash + Modal 二次确认", () => {
+  const src = readSrc("components/library/LibraryView.tsx");
+  const trash = src.slice(src.indexOf("export function LibraryTrashView"));
+  assert.ok(trash.includes("purgeTrash("), "清空未走 purgeTrash");
+  assert.ok(trash.includes("confirmPurgeAll"), "清空缺二次确认态");
+  assert.ok(trash.includes("lib-trash-purge-all"), "缺清空入口按钮");
+  assert.ok(trash.includes("全部彻底删除"), "确认按钮文案缺失");
+  assert.ok(trash.includes("此操作不可恢复"), "清空确认缺后果文案");
+});
+
+test("api.ts:purgeTrash 路径与方法", () => {
+  const src = readSrc("lib/api.ts");
+  assert.ok(src.includes("export async function purgeTrash"), "purgeTrash 未导出");
+  assert.ok(src.includes("`/api/jobs/trash/purge`"), "清空路径错误");
+  const purge = src.slice(src.indexOf("export async function purgeTrash"));
+  assert.ok(purge.slice(0, 300).includes('method: "POST"'), "清空应为 POST");
 });

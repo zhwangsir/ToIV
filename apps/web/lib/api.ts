@@ -457,6 +457,17 @@ export async function permanentDeleteJob(jobId: string): Promise<void> {
   if (!res.ok) await raiseApiError(res, "彻底删除失败");
 }
 
+/** 一键清空回收站:保留期内的软删作品全部物理删除(不可恢复);返回删除件数。 */
+export async function purgeTrash(): Promise<number> {
+  const res = await apiFetch(`/api/jobs/trash/purge`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!res.ok) await raiseApiError(res, "清空回收站失败");
+  const data = (await res.json()) as { purged?: number };
+  return data.purged ?? 0;
+}
+
 /** 审计日志条目(admin /api/admin/audit-logs)。 */
 export interface AuditLogItem {
   id: string;
