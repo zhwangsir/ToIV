@@ -261,3 +261,66 @@ def test_ok_creates_job(client, monkeypatch):
     assert job.nsfw is False
     assert "把背景换成海边" in job.prompt
     assert "camera:top_down" in job.prompt
+
+
+# ── 3D 相机(2511,2026-08-24)──────────────────────────────────────────────
+
+from app.workflows.qwen_edit import (
+    CAMERA3D_LORA,
+    LIGHTNING_2511_LORA,
+    QWEN_EDIT_2511_UNET,
+    camera3d_prompt,
+)
+
+
+def test_camera3d_prompt_format():
+    assert camera3d_prompt(0, 0, "medium") == "<sks> front view eye-level shot medium shot"
+    assert camera3d_prompt(180, 60, "wide") == "<sks> back view high-angle shot wide shot"
+    assert camera3d_prompt(315, -30, "closeup") == "<sks> front-left quarter view low-angle shot close-up"
+
+
+def test_camera3d_prompt_rejects_unknown():
+    with pytest.raises(QwenEditError):
+        camera3d_prompt(30, 0, "medium")  # 30° 不在 8 机位
+    with pytest.raises(QwenEditError):
+        camera3d_prompt(0, 15, "medium")
+    with pytest.raises(QwenEditError):
+        camera3d_prompt(0, 0, "far")
+
+
+def test_camera3d_graph_uses_2511_and_fal_lora():
+    g = build_qwen_edit_graph(QwenEditParams(
+        image="a.png", positive="", azimuth=90, elevation=30, distance="closeup",
+    ))
+    assert g["1"]["inputs"]["unet_name"] == QWEN_EDIT_2511_UNET
+    lora_names = [n["inputs"]["lora_name"] for n in g.values() if n["class_type"] == "LoraLoader"]
+    assert CAMERA3D_LORA in lora_names
+    assert LIGHTNING_2511_LORA in lora_names  # fast 默认挂 2511 Lightning
+    pos = g["4"]["inputs"]["prompt"]
+    assert pos == "<sks> right side view elevated shot close-up"
+    assert g["8"]["inputs"]["steps"] == 4 and g["8"]["inputs"]["cfg"] == 1.0
+
+
+def test_camera3d_std_mode_drops_lightning():
+    g = build_qwen_edit_graph(QwenEditParams(
+        image="a.png", positive="", azimuth=0, elevation=0, distance="medium", fast=False,
+    ))
+    lora_names = [n["inputs"]["lora_name"] for n in g.values() if n["class_type"] == "LoraLoader"]
+    assert lora_names == [CAMERA3D_LORA]
+    assert g["8"]["inputs"]["steps"] == 20
+
+
+def test_camera3d_appends_user_instruction():
+    g = build_qwen_edit_graph(QwenEditParams(
+        image="a.png", positive="把衣服换成红色", azimuth=180, elevation=0, distance="medium",
+    ))
+    assert g["4"]["inputs"]["prompt"] == "<sks> back view eye-level shot medium shot, 把衣服换成红色"
+
+
+def test_camera3d_mutex_and_incomplete():
+    with pytest.raises(QwenEditError):
+        build_qwen_edit_graph(QwenEditParams(
+            image="a.png", positive="", camera="rotate_left", azimuth=0, elevation=0, distance="medium",
+        ))
+    with pytest.raises(QwenEditError):
+        build_qwen_edit_graph(QwenEditParams(image="a.png", positive="", azimuth=90))

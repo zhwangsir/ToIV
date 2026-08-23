@@ -84,3 +84,34 @@ test("page.tsx:灵动岛导航不突变模块级常量(观测重复 bug 回归)"
   assert.ok(!src.includes("bottomNavMoreItems.push("), "bottomNavMoreItems 不得 push 突变");
   assert.ok(src.includes("[...islandItems, observabilityItem]"), "admin 观测项应复制后追加");
 });
+
+/* ── ⑤ 3D 相机(2511,2026-08-24) ── */
+test("ImageEditView:3D 相机工具注册 + 罗盘/俯仰/距离/环绕控件", () => {
+  const src = readSrc("components/image-edit/ImageEditView.tsx");
+  assert.ok(src.includes('"camera3d"'), "EditTool 缺 camera3d");
+  assert.ok(src.includes('key: "camera3d"'), "TOOLS 缺 camera3d 条目");
+  assert.ok(src.includes("3D 相机(360°)"), "工具标题缺失");
+  assert.ok(src.includes("CAM3D_AZIMUTHS"), "缺方位预设");
+  assert.ok(src.includes("ie-cam3d-compass"), "缺方位罗盘");
+  assert.ok(src.includes("cam3dOrbit"), "缺环绕序列开关");
+  assert.ok(src.includes("ie-strip"), "缺环绕胶片条");
+});
+
+test("ImageEditView:camera3d 提交携带 azimuth/elevation/distance,环绕走 8 方位循环", () => {
+  const src = readSrc("components/image-edit/ImageEditView.tsx");
+  const single = src.slice(src.indexOf('case "camera3d"'));
+  assert.ok(single.includes("azimuth: cam3dAzimuth"), "单视角未传 azimuth");
+  assert.ok(single.includes("elevation: cam3dElevation"), "未传 elevation");
+  assert.ok(single.includes("distance: cam3dDistance"), "未传 distance");
+  const orbit = src.slice(src.indexOf('tool === "camera3d" && cam3dOrbit'));
+  assert.ok(orbit.includes("for (const az of CAM3D_AZIMUTHS)"), "环绕未遍历 8 方位");
+  assert.ok(orbit.includes("TrackJobAbortError"), "环绕缺 abort 静默处理");
+});
+
+test("api.ts:generateQwenEdit 支持 3D 相机字段", () => {
+  const src = readSrc("lib/api.ts");
+  const fn = src.slice(src.indexOf("export async function generateQwenEdit"));
+  assert.ok(fn.includes("azimuth: params.azimuth"), "azimuth 未提交");
+  assert.ok(fn.includes("elevation: params.elevation"), "elevation 未提交");
+  assert.ok(fn.includes("distance: params.distance"), "distance 未提交");
+});

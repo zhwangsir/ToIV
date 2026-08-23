@@ -26,7 +26,7 @@ import { trackJob, TrackJobAbortError, type JobProgress } from "@/lib/trackJob";
 // 类型定义
 // ─────────────────────────────────────────────────────────────────────────────
 
-type EditTool = "removebg" | "upscale" | "inpaint" | "facedetailer" | "qwenedit";
+type EditTool = "removebg" | "upscale" | "inpaint" | "facedetailer" | "qwenedit" | "camera3d";
 
 interface ToolDef {
   key: EditTool;
@@ -94,6 +94,13 @@ const TOOLS: ToolDef[] = [
     desc: "自然语言语义编辑，支持多角度相机控制",
     runLabel: "开始编辑",
   },
+  {
+    key: "camera3d",
+    icon: "rotate-cw",
+    title: "3D 相机(360°)",
+    desc: "精确控制方位/俯仰/距离，环绕一圈看全貌",
+    runLabel: "生成视角",
+  },
 ];
 
 const REMOVE_BG_MODES = [
@@ -125,6 +132,33 @@ const QWEN_CAMERAS = [
 
 const QWEN_SPEEDS = [
   { value: "fast", label: "快速(Lightning 8 步)" },
+  { value: "standard", label: "标准(20 步,更细腻)" },
+] as const;
+
+// ── 3D 相机(2511 底模 + fal 96 机位 LoRA;value 与后端 CAMERA3D_* 一致)──
+const CAM3D_AZIMUTHS = [
+  { value: 0, label: "正面" },
+  { value: 45, label: "右前 45°" },
+  { value: 90, label: "右侧" },
+  { value: 135, label: "右后 45°" },
+  { value: 180, label: "背面" },
+  { value: 225, label: "左后 45°" },
+  { value: 270, label: "左侧" },
+  { value: 315, label: "左前 45°" },
+] as const;
+const CAM3D_ELEVATIONS = [
+  { value: -30, label: "仰视(低机位)" },
+  { value: 0, label: "平视" },
+  { value: 30, label: "俯视(浅)" },
+  { value: 60, label: "俯视(高机位)" },
+] as const;
+const CAM3D_DISTANCES = [
+  { value: "closeup", label: "特写" },
+  { value: "medium", label: "标准" },
+  { value: "wide", label: "广角" },
+] as const;
+const CAM3D_SPEEDS = [
+  { value: "fast", label: "快速(Lightning 4 步)" },
   { value: "standard", label: "标准(20 步,更细腻)" },
 ] as const;
 
@@ -438,6 +472,13 @@ export function ImageEditView() {
   const [qwenPositive, setQwenPositive] = useState("");
   const [qwenCamera, setQwenCamera] = useState<string>("");
   const [qwenSpeed, setQwenSpeed] = useState<string>("fast");
+  // 3D 相机(2511):方位/俯仰/距离 + 附加指令 + 360° 环绕序列
+  const [cam3dAzimuth, setCam3dAzimuth] = useState<number>(45);
+  const [cam3dElevation, setCam3dElevation] = useState<number>(0);
+  const [cam3dDistance, setCam3dDistance] = useState<string>("medium");
+  const [cam3dNote, setCam3dNote] = useState("");
+  const [cam3dSpeed, setCam3dSpeed] = useState<string>("fast");
+  const [cam3dOrbit, setCam3dOrbit] = useState(false);
   // 作品库选图(二次创作):AssetPicker 转运句柄与上传产物同构,直接灌 source
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -537,6 +578,52 @@ export function ImageEditView() {
     abortRef.current = ac;
     setProc({ status: "running", tool, progress: null, resultUrl: null, resultPaths: [], error: null });
 
+    // 360° 环绕序列:8 个方位逐个提交+跟踪,全部完成后成组展示(随时可 abort)
+    if (tool === "camera3d" && cam3dOrbit) {
+      try {
+        const paths: string[] = [];
+        for (const az of CAM3D_AZIMUTHS) {
+          const res = await generateQwenEdit({
+            image: source.filename,
+            worker: source.worker,
+            positive: cam3dNote.trim(),
+            azimuth: az.value,
+            elevation: cam3dElevation,
+            distance: cam3dDistance,
+            fast: cam3dSpeed === "fast",
+          });
+          const got = await trackJob(res, {
+            label: `3D 相机 ${az.value}°`,
+            signal: ac.signal,
+            register: (es) => {
+              esRef.current = es;
+            },
+          });
+          if (!mountedRef.current) return;
+          paths.push(...got);
+          // 逐张落地即更新:结果区先出已完成的方位,不必等满 8 张
+          setProc((prev) => ({
+            ...prev,
+            resultUrl: prev.resultUrl ?? got[0] ?? null,
+            resultPaths: [...paths],
+          }));
+        }
+        if (!mountedRef.current) return;
+        setProc((prev) => ({ ...prev, status: "done", progress: null }));
+        invalidateJobs();
+      } catch (e) {
+        if (!mountedRef.current) return;
+        if (e instanceof TrackJobAbortError) return; // 显式中止:静默(部分结果已落地保留)
+        setProc((prev) => ({
+          ...prev,
+          status: "error",
+          error: e instanceof Error ? e.message : "环绕序列生成失败",
+          progress: null,
+        }));
+      }
+      return;
+    }
+
     let res: GenerateResponse;
     try {
       const base = { image: source.filename, worker: source.worker };
@@ -572,6 +659,16 @@ export function ImageEditView() {
             positive: qwenPositive.trim(),
             camera: qwenCamera || undefined,
             fast: qwenSpeed === "fast",
+          });
+          break;
+        case "camera3d":
+          res = await generateQwenEdit({
+            ...base,
+            positive: cam3dNote.trim(),
+            azimuth: cam3dAzimuth,
+            elevation: cam3dElevation,
+            distance: cam3dDistance,
+            fast: cam3dSpeed === "fast",
           });
           break;
         default:
@@ -633,6 +730,12 @@ export function ImageEditView() {
     qwenPositive,
     qwenCamera,
     qwenSpeed,
+    cam3dAzimuth,
+    cam3dElevation,
+    cam3dDistance,
+    cam3dNote,
+    cam3dSpeed,
+    cam3dOrbit,
     stopTracking,
   ]);
 
@@ -770,6 +873,73 @@ export function ImageEditView() {
                     </div>
                   )}
 
+                  {t.key === "camera3d" && (
+                    <div className="ie-field-group">
+                      <Field label="方位(绕主体水平旋转)">
+                        <div className="ie-cam3d-compass" role="radiogroup" aria-label="方位">
+                          {CAM3D_AZIMUTHS.map((az) => (
+                            <button
+                              key={az.value}
+                              type="button"
+                              role="radio"
+                              aria-checked={cam3dAzimuth === az.value}
+                              className={`ie-cam3d-btn${cam3dAzimuth === az.value ? " is-active" : ""}`}
+                              disabled={isRunning}
+                              onClick={() => setCam3dAzimuth(az.value)}
+                            >
+                              {az.label}
+                            </button>
+                          ))}
+                        </div>
+                      </Field>
+                      <Field label="俯仰">
+                        <Select value={cam3dElevation} onChange={(e) => setCam3dElevation(Number(e.target.value))} disabled={isRunning}>
+                          {CAM3D_ELEVATIONS.map((el) => (
+                            <option key={el.value} value={el.value}>
+                              {el.label}
+                            </option>
+                          ))}
+                        </Select>
+                      </Field>
+                      <Field label="距离">
+                        <Select value={cam3dDistance} onChange={(e) => setCam3dDistance(e.target.value)} disabled={isRunning}>
+                          {CAM3D_DISTANCES.map((d) => (
+                            <option key={d.value} value={d.value}>
+                              {d.label}
+                            </option>
+                          ))}
+                        </Select>
+                      </Field>
+                      <Field label="附加指令(可选)">
+                        <Input
+                          value={cam3dNote}
+                          onChange={(e) => setCam3dNote(e.target.value)}
+                          placeholder="例如:保持白底、换成红色衣服"
+                          disabled={isRunning}
+                        />
+                      </Field>
+                      <Field label="档位">
+                        <Select value={cam3dSpeed} onChange={(e) => setCam3dSpeed(e.target.value)} disabled={isRunning}>
+                          {CAM3D_SPEEDS.map((s) => (
+                            <option key={s.value} value={s.value}>
+                              {s.label}
+                            </option>
+                          ))}
+                        </Select>
+                      </Field>
+                      <label className="ie-cam3d-orbit">
+                        <input
+                          type="checkbox"
+                          checked={cam3dOrbit}
+                          onChange={(e) => setCam3dOrbit(e.target.checked)}
+                          disabled={isRunning}
+                        />
+                        360° 环绕序列(8 个方位全部生成,约 2 分钟)
+                      </label>
+                      <p className="ie-tool-desc">人物/物品主体效果最佳;大场景风景的环绕可能不明显</p>
+                    </div>
+                  )}
+
                   <div className="ie-tool-run">
                     <Button
                       variant="primary"
@@ -806,7 +976,23 @@ export function ImageEditView() {
           <div className="ie-canvas">
             <span className="ie-section-label">画布</span>
             <SourcePreview image={source} />
-            {proc.status === "done" && proc.resultUrl && (
+            {/* 多结果(360° 环绕序列)胶片条:逐张落地即追加,点击切主图 */}
+            {proc.resultPaths.length > 1 && (
+              <div className="ie-strip" role="listbox" aria-label="环绕序列">
+                {proc.resultPaths.map((p, i) => (
+                  <button
+                    key={p}
+                    type="button"
+                    className={`ie-strip-item${proc.resultUrl === p ? " is-active" : ""}`}
+                    onClick={() => setProc((prev) => ({ ...prev, resultUrl: p }))}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={imageUrl(p)} alt={`视角 ${i + 1}`} loading="lazy" decoding="async" />
+                  </button>
+                ))}
+              </div>
+            )}
+            {proc.resultUrl && (
               <ResultPanel source={source} resultUrl={proc.resultUrl} resultPaths={proc.resultPaths} />
             )}
           </div>
@@ -1257,6 +1443,69 @@ export function ImageEditView() {
           font-size: var(--text-aux);
           color: var(--text-muted);
           margin: 0;
+        }
+
+        /* ── 3D 相机:方位罗盘 + 环绕胶片条 ── */
+        .ie-cam3d-compass {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: var(--space-2);
+        }
+        .ie-cam3d-btn {
+          padding: var(--space-2) var(--space-1);
+          font-size: var(--text-aux);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+          background: var(--bg-surface-2);
+          color: var(--text-secondary);
+          cursor: pointer;
+          transition: border-color 0.15s, color 0.15s, background 0.15s;
+        }
+        .ie-cam3d-btn:hover:not(:disabled) {
+          border-color: var(--accent);
+          color: var(--text-primary);
+        }
+        .ie-cam3d-btn.is-active {
+          border-color: var(--accent);
+          background: var(--accent-soft);
+          color: var(--accent);
+          font-weight: 600;
+        }
+        .ie-cam3d-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        .ie-cam3d-orbit {
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+          font-size: var(--text-aux);
+          color: var(--text-secondary);
+          cursor: pointer;
+        }
+        .ie-strip {
+          display: flex;
+          gap: var(--space-2);
+          overflow-x: auto;
+          padding: var(--space-1) 0;
+        }
+        .ie-strip-item {
+          flex: 0 0 auto;
+          width: 96px;
+          border: 2px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+          overflow: hidden;
+          padding: 0;
+          background: var(--bg-surface-2);
+          cursor: pointer;
+        }
+        .ie-strip-item.is-active {
+          border-color: var(--accent);
+        }
+        .ie-strip-item img {
+          width: 100%;
+          height: auto;
+          display: block;
         }
 
         /* ── 错误 / 完成提示 ── */

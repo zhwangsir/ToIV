@@ -177,8 +177,13 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（决策记录,替代操作历史）
 
-### 2026-08-24（凌晨·Qwen-Image-Edit 上 pc02 + 评测体系首秀）
-- **pc02(5090)复活+专用实例**:OS 在线但 ComfyUI/Tailscale 停 → `schtasks /run StartComfyUI` 拉起 :8193(LB 池);新建 :8194 专用编辑实例(bat+计划任务 StartComfyUIEdit,onstart,W 交互态)。pc01 仍关机待用户开机。⚠️ pc02 Tailscale 服务 1068 依赖失败未修,core 走 LAN 不受影响
+### 2026-08-24（凌晨·3D 相机 360° + 两处 UX 修复）
+- **真·360° 相机上线(对标 ModelScope AMD 工作室)**：底层是 **Qwen-Image-Edit-2511 + fal Multiple-Angles-LoRA**(96 机位=8 方位×4 俯仰×3 距离,3DGS 渲染训练,触发词 `<sks> {azimuth} {elevation} {distance}`)+ 2511-Lightning-4 步加速;权重全落 NAS(2511 fp8mixed 20G 走 hf-mirror 直连 aria2c 67MB/s)。端点复用 /api/generate/qwen-edit(新增 azimuth/elevation/distance,与 legacy camera 互斥,422 校验);前端图像编辑第 6 工具「3D 相机(360°)」:方位罗盘 8 键+俯仰 4 档+距离 3 档+附加指令+**360° 环绕序列**(8 方位逐个生成,胶片条逐张落地、点击切主图、可 abort)。真机+生产 e2e:180° 背面完美、315° 高机位特写优秀。⚠️ 2511 倾向重绘背景(「保持纯白背景」附加指令只能部分约束);2509 路径不动
+- **导航「观测」×7 bug 根治**:page.tsx admin 分支 `islandItems.push()` 突变了模块级常量 ISLAND_ITEMS(非 R18 分支同一引用),每次渲染追加一次→改复制后追加+源码断言防回归
+- **上传点接作品库(二次创作)**：图像编辑 DropZone 加「从作品库选择」+avatar-talk 人像/音频双入口(AssetPicker 转运句柄直接灌,钉住对方 worker 防跨机);blob: revoke 守卫防误清签名 URL
+- **回归**:后端 1950 passed / 前端 456 passed / tsc 0;已部署 core
+
+### 2026-08-24（凌晨·Qwen-Image-Edit 上 pc02 + 评测体系首秀）- **pc02(5090)复活+专用实例**:OS 在线但 ComfyUI/Tailscale 停 → `schtasks /run StartComfyUI` 拉起 :8193(LB 池);新建 :8194 专用编辑实例(bat+计划任务 StartComfyUIEdit,onstart,W 交互态)。pc01 仍关机待用户开机。⚠️ pc02 Tailscale 服务 1068 依赖失败未修,core 走 LAN 不受影响
 - **Qwen-Image-Edit-2509 全链路上线**:权重 fp8(19G)+多角度 LoRA(226M)+Lightning 8步加速 LoRA(850M)落 NAS;端点 POST /api/generate/qwen-edit(源图服务端转存 :8194,resolve_worker 精确匹配防错配);前端图像编辑第 5 工具「智能编辑(Qwen)」:指令+10 相机角度+快速/标准档;引擎注册 qwen-image-edit(SFW 12/R18 20 条)
 - **生产 e2e 实证**:相机左旋转 45° 出片完美(卡通男孩侧脸,白底保持);语义编辑(竹→红枫/赛博朋克/加帽子)全部生效
 - **大文件下载新路径(重要)**：HF 经 Mac Clash 代理大文件会被压到 144KB/s;**hf-mirror.com 从 workstation 直连**(不走代理)+ aria2c -x16 实测 67MB/s,20G 文件 5 分钟。aria2 稀疏文件表观大小≠真实进度,看日志 DL 行

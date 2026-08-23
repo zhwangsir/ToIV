@@ -49,7 +49,12 @@ from app.workflows.model_profiles import (
 )
 from app.workflows.nextgen import NextgenImg2ImgParams, NextgenParams, build_nextgen_graph, build_nextgen_img2img_graph
 from app.workflows.removebg import REMBG_MODES, RemoveBgParams, build_removebg_graph
-from app.workflows.qwen_edit import CAMERA_PRESETS, QwenEditParams, build_qwen_edit_graph
+from app.workflows.qwen_edit import (
+    CAMERA_PRESETS,
+    QwenEditError,
+    QwenEditParams,
+    build_qwen_edit_graph,
+)
 from app.services.qwen_edit import get_qwen_edit_client
 from app.workflows.style_presets import MediaType, resolve_style_preset
 from app.workflows.upscale import UPSCALE_MODELS, UpscaleParams, build_upscale_graph
@@ -1125,7 +1130,11 @@ class QwenEditRequest(BaseModel):
     worker: str  # 源图所在 worker(同 img2img)
     positive: str = Field(default="", max_length=2000)  # 编辑指令(纯相机操作时可空)
     camera: str | None = Field(default=None, max_length=32)  # CAMERA_PRESETS 的 key
-    fast: bool = True  # True=8 步 Lightning 加速档;False=20 步标准档
+    # 3D 相机(2511 底模,96 机位):三项同时给出才生效,与 camera 互斥
+    azimuth: int | None = None  # 0/45/90/135/180/225/270/315(0=正面,顺时针)
+    elevation: int | None = None  # -30/0/30/60
+    distance: str | None = Field(default=None, max_length=16)  # closeup/medium/wide
+    fast: bool = True  # True=Lightning 加速档;False=20 步标准档
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
 
 
@@ -1147,7 +1156,10 @@ async def generate_qwen_edit(
             status_code=422,
             detail=f"不支持的相机角度:{req.camera!r};可选 {list(CAMERA_PRESETS)}",
         )
-    if not req.positive.strip() and req.camera is None:
+    has_cam3d = req.azimuth is not None or req.elevation is not None or req.distance is not None
+    if has_cam3d and req.camera is not None:
+        raise HTTPException(status_code=422, detail="3D 相机与相机角度预设只能二选一")
+    if not req.positive.strip() and req.camera is None and not has_cam3d:
         raise HTTPException(status_code=422, detail="编辑指令与相机角度至少填一项")
     src = resolve_worker(req.worker)  # 源图所在 worker(resolve_worker 防 SSRF)
     try:
@@ -1164,10 +1176,16 @@ async def generate_qwen_edit(
         image=transferred,
         positive=req.positive,
         camera=req.camera,
+        azimuth=req.azimuth,
+        elevation=req.elevation,
+        distance=req.distance,
         fast=req.fast,
         **({"seed": req.seed} if req.seed is not None else {}),
     )
-    graph = build_qwen_edit_graph(params)
+    try:
+        graph = build_qwen_edit_graph(params)
+    except QwenEditError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
     client_id = uuid.uuid4().hex
     try:
         prompt_id = await client.queue_prompt(graph, client_id)
@@ -1182,7 +1200,11 @@ async def generate_qwen_edit(
             worker=client.base_url,
             kind="qwen_edit",
             status="queued",
-            prompt=req.positive + (f" [camera:{req.camera}]" if req.camera else ""),
+            prompt=(
+                req.positive
+                + (f" [camera:{req.camera}]" if req.camera else "")
+                + (f" [3d:{req.azimuth}°/{req.elevation}°/{req.distance}]" if has_cam3d else "")
+            ).strip(),
             seed=params.seed,
             nsfw=False,
             params=params_snapshot(req, seed=params.seed),

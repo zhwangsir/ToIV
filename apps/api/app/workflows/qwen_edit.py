@@ -47,11 +47,44 @@ CAMERA_PRESETS: dict[str, str] = {
     "closeup": "将镜头转为特写镜头",
 }
 
+# ── 2511 3D 相机系统(2026-08-24,fal Multiple-Angles-LoRA)──────────────
+# 96 机位 = 8 方位 × 4 俯仰 × 3 距离,训练数据为 3000+ 张 3DGS 渲染图,
+# 真 360° 方位控制(2509 的中文指令 LoRA 只有定性档位)。触发格式:
+#   <sks> {azimuth} {elevation} {distance}
+# 参考工作流(fal 官方):2511 底模 + 本 LoRA + 2511-Lightning-4steps,4 步 cfg 1.0。
+QWEN_EDIT_2511_UNET = "qwen_image_edit_2511_fp8mixed.safetensors"
+CAMERA3D_LORA = "qwen-image-edit-2511-multiple-angles-lora.safetensors"
+LIGHTNING_2511_LORA = "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors"
+
+CAMERA3D_AZIMUTH: dict[int, str] = {
+    0: "front view",
+    45: "front-right quarter view",
+    90: "right side view",
+    135: "back-right quarter view",
+    180: "back view",
+    225: "back-left quarter view",
+    270: "left side view",
+    315: "front-left quarter view",
+}
+CAMERA3D_ELEVATION: dict[int, str] = {
+    -30: "low-angle shot",   # 相机在下仰视
+    0: "eye-level shot",
+    30: "elevated shot",
+    60: "high-angle shot",   # 相机在高俯视
+}
+CAMERA3D_DISTANCE: dict[str, str] = {
+    "closeup": "close-up",
+    "medium": "medium shot",
+    "wide": "wide shot",
+}
+
 # 采样档位:fast=True 挂 Lightning 加速 LoRA 走 8 步;标准档 20 步(与作者示例一致)
 _FAST_STEPS = 8
 _FAST_CFG = 1.0
 _STD_STEPS = 20
 _STD_CFG = 2.5
+# 2511 3D 相机档:fal 参考工作流为 4 步 cfg 1.0(挂 2511-Lightning-4steps)
+_FAST_2511_STEPS = 4
 
 
 class QwenEditError(ValueError):
@@ -69,31 +102,75 @@ class QwenEditParams:
     image: str  # 编辑实例 input 目录中的文件名(端点服务端转存后得到)
     positive: str  # 编辑指令(如「把衣服换成红色」)
     camera: str | None = None  # CAMERA_PRESETS 的 key;None = 不做相机控制
+    # 3D 相机(2511):三者同时给出才生效;与 legacy camera 互斥
+    azimuth: int | None = None  # 0/45/…/315(0=正面,顺时针)
+    elevation: int | None = None  # -30/0/30/60
+    distance: str | None = None  # closeup/medium/wide
     fast: bool = True  # True=8 步 Lightning 加速档;False=20 步标准档
     seed: int = field(default_factory=_random_seed)
     filename_prefix: str = "ToIV_qwen_edit"
+
+    @property
+    def camera3d(self) -> bool:
+        return self.azimuth is not None or self.elevation is not None or self.distance is not None
+
+
+def camera3d_prompt(azimuth: int, elevation: int, distance: str) -> str:
+    """fal 96 机位触发词:<sks> {azimuth} {elevation} {distance}。"""
+    if azimuth not in CAMERA3D_AZIMUTH:
+        raise QwenEditError(f"未知方位角:{azimuth!r};可选 {list(CAMERA3D_AZIMUTH)}")
+    if elevation not in CAMERA3D_ELEVATION:
+        raise QwenEditError(f"未知俯仰角:{elevation!r};可选 {list(CAMERA3D_ELEVATION)}")
+    if distance not in CAMERA3D_DISTANCE:
+        raise QwenEditError(f"未知距离档:{distance!r};可选 {list(CAMERA3D_DISTANCE)}")
+    return (
+        f"<sks> {CAMERA3D_AZIMUTH[azimuth]} "
+        f"{CAMERA3D_ELEVATION[elevation]} {CAMERA3D_DISTANCE[distance]}"
+    )
 
 
 def build_qwen_edit_graph(p: QwenEditParams) -> dict:
     """把参数编译成 ComfyUI API 格式图。纯函数,返回新 dict。"""
     if p.camera is not None and p.camera not in CAMERA_PRESETS:
         raise QwenEditError(f"未知相机角度:{p.camera!r};可选 {list(CAMERA_PRESETS)}")
+    if p.camera3d and p.camera is not None:
+        raise QwenEditError("3D 相机(azimuth/elevation/distance)与 legacy camera 预设互斥")
 
-    positive = p.positive
-    if p.camera is not None:
-        # 纯相机操作时 positive 为空,避免出现前导逗号
-        instr = CAMERA_PRESETS[p.camera]
-        positive = f"{p.positive}, {instr}" if p.positive.strip() else instr
-
-    steps = _FAST_STEPS if p.fast else _STD_STEPS
-    cfg = _FAST_CFG if p.fast else _STD_CFG
+    # 3D 相机(2511 底模 + fal 机位 LoRA):方位/俯仰/距离必须三项齐全
+    if p.camera3d:
+        if p.azimuth is None or p.elevation is None or p.distance is None:
+            raise QwenEditError("3D 相机需同时给出 azimuth/elevation/distance")
+        positive = camera3d_prompt(p.azimuth, p.elevation, p.distance)
+        if p.positive.strip():
+            positive = f"{positive}, {p.positive}"
+        unet_name = QWEN_EDIT_2511_UNET
+        loras: list[LoraSpec] = [LoraSpec(name=CAMERA3D_LORA, weight=1.0)]
+        if p.fast:
+            loras.append(LoraSpec(name=LIGHTNING_2511_LORA, weight=1.0))
+            steps, cfg = _FAST_2511_STEPS, _FAST_CFG
+        else:
+            steps, cfg = _STD_STEPS, _STD_CFG
+    else:
+        positive = p.positive
+        if p.camera is not None:
+            # 纯相机操作时 positive 为空,避免出现前导逗号
+            instr = CAMERA_PRESETS[p.camera]
+            positive = f"{p.positive}, {instr}" if p.positive.strip() else instr
+        unet_name = QWEN_EDIT_UNET
+        loras = []
+        if p.camera is not None:
+            loras.append(LoraSpec(name=CAMERA_LORA, weight=1.0))
+        if p.fast:
+            loras.append(LoraSpec(name=LIGHTNING_LORA, weight=1.0))
+        steps = _FAST_STEPS if p.fast else _STD_STEPS
+        cfg = _FAST_CFG if p.fast else _STD_CFG
 
     nodes: dict = {}
 
     # 1) UNET 主模型 + 2) 文本编码器 + 3) VAE
     nodes["1"] = {
         "class_type": "UNETLoader",
-        "inputs": {"unet_name": QWEN_EDIT_UNET, "weight_dtype": "default"},
+        "inputs": {"unet_name": unet_name, "weight_dtype": "default"},
     }
     nodes["3"] = {
         "class_type": "CLIPLoader",
@@ -101,11 +178,8 @@ def build_qwen_edit_graph(p: QwenEditParams) -> dict:
     }
     nodes["9"] = {"class_type": "VAELoader", "inputs": {"vae_name": QWEN_EDIT_VAE}}
 
-    # 4) LoRA 链:相机 LoRA 仅选了角度时挂(强度 1.0),Lightning 加速始终挂
-    loras: list[LoraSpec] = []
-    if p.camera is not None:
-        loras.append(LoraSpec(name=CAMERA_LORA, weight=1.0))
-    loras.append(LoraSpec(name=LIGHTNING_LORA, weight=1.0))
+    # 4) LoRA 链(2509:相机 LoRA 仅选了角度时挂+Lightning 常挂;
+    #    2511 3D 相机:fal 机位 LoRA 常挂,Lightning 仅快速档)
     lora_nodes, model_ref, clip_ref = lora_chain(tuple(loras), ["1", 0], ["3", 0])
     nodes.update(lora_nodes)
 

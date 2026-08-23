@@ -1059,7 +1059,11 @@ export interface QwenEditParams {
   worker: string;
   positive: string; // 编辑指令(如「把衣服换成红色」)
   camera?: string; // 相机角度预设 key(workflows/qwen_edit.CAMERA_PRESETS);不传 = 仅语义编辑
-  fast?: boolean; // 默认 true=8 步 Lightning 加速档;false=20 步标准档
+  // 3D 相机(2511 底模,96 机位):三项同时给出才生效,与 camera 互斥
+  azimuth?: number; // 0/45/90/135/180/225/270/315(0=正面,顺时针)
+  elevation?: number; // -30/0/30/60
+  distance?: string; // closeup/medium/wide
+  fast?: boolean; // 默认 true=Lightning 加速档;false=20 步标准档
   seed?: number;
 }
 
@@ -1072,6 +1076,9 @@ export async function generateQwenEdit(params: QwenEditParams): Promise<Generate
       worker: params.worker,
       positive: params.positive,
       ...(params.camera ? { camera: params.camera } : {}),
+      ...(params.azimuth != null ? { azimuth: params.azimuth } : {}),
+      ...(params.elevation != null ? { elevation: params.elevation } : {}),
+      ...(params.distance ? { distance: params.distance } : {}),
       ...(params.fast != null ? { fast: params.fast } : {}),
       ...(params.seed != null ? { seed: params.seed } : {}),
     }),
