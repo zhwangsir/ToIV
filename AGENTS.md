@@ -186,6 +186,14 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - **前端工程债**：trackJob abort 接全(ImageEditView/TrainView);hydration mismatch 修两处(useState 恒值+挂载 effect 校正);ltx25 前端 11 文件零残留(QuickStartGrid 视频区 3→2 卡,H3 升首卡)
 - **回归基线**：后端 1927 passed / 前端 445 passed / tsc 0
 
+### 2026-08-23（晚间·H3 LoRA 训练管线上线）
+- **musubi-tuner 不支持 H3**：上游 kohya-ss/musubi-tuner 无 MiniMax 架构(issue #1017 仍 open);H3 原生 LoRA 训练改走 **ostris/ai-toolkit 的 `minimax_h3` 扩展**(2026-08-03 入库,arch=`minimax_h3`,T2V/I2V 均可训)
+- **管线落位(workstation)**：`/home/merlin/ai-toolkit`(venv `.venv`,torch 2.13.0+cu130);权重直读 NAS `toiv/comfyui-models/h3`(MODELS_PATH 指过去即可,DiT int8/TE nvfp4/VAE 全在);tokenizer 小文件已进 HF cache(MiniMaxAI/MiniMax-H3)
+- **仓库脚本**：`scripts/h3_lora_dataset.py`(core EvalScore winner→媒体+caption 目录,纯 HTTP API)+`scripts/h3_lora_train.example.yaml`(保守默认:rank16/lr1e-4/adamw8bit)+`scripts/h3_lora_smoke.sh`(冒烟 runner)
+- **冒烟实证(GPU2,30 步/25s)**：产出 516 张量 rank16 LoRA(310MB),已留档 NAS `h3/loras/toiv_h3_smoke_v1_30steps.safetensors`(md5 校验一致)
+- **⚠️ 两个坑**：①H3 视频 VAE 帧网格是 **17n+5**(合法值 5/22/39/56),num_frames 填其他值会被静默裁短;②训练环境**别设 HF_HUB_OFFLINE=1**——AutoTokenizer 会探子目录不存在的 config.json,离线时缓存缺失直接 OSError,用 `HF_ENDPOINT=https://hf-mirror.com` 让小文件 404 正常回落(大权重全本地不会触发下载)
+- **依赖**：uv pip 装 git+ 依赖会被 ghfast.top 重定向回 github 失败——先手动 clone 再改 requirements 指本地路径(/home/merlin/diffusers-hf)
+
 ### 2026-08-23（凌晨）
 - **spark02 无审查模型替换**：Qwen3.8-27B-NVFP4 → **Qwen3.8-27B-Uncensored-FP8**(OrcaRouter abliterated,同架构拒答方向移除;别名保留,core .env 零改动;360s 就绪;成人写作请求直接产出验证通过;旧模型在盘可回滚;L1-L4+AI 助手全链路即时生效)
 - **内容限制管控上线→同日下线**：三档策略上线后,用户拍板该板块自行重做 → 全量移除(nsfw_ctx 回退 HEAD/ContentPolicy 表/双端点/设置页卡/12 测试,零残留);未成年硬阻断保留

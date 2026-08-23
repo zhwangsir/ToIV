@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import json
+import asyncio
+
 
 import httpx
 import pytest
@@ -382,3 +384,56 @@ async def test_finalize_idempotent_on_done_batch(db, user):
     with Session(db) as s:
         recs = s.exec(select(EvalScore).where(EvalScore.batch_id == batch_id)).all()
         assert len(recs) == 1
+
+
+# ---------------------------------------------------------------------------
+# 5. 重启收口(watcher 是进程内任务,api 重启后需 reconcile 重挂)
+# ---------------------------------------------------------------------------
+
+
+def _mk_batch(s, user, jobs, status):
+    batch = EvalBatch(
+        tenant_id=user.tenant_id, user_id=user.id, n=len(jobs), scorer="heuristic",
+        seeds=json.dumps([j.seed for j in jobs]), job_ids=json.dumps([j.id for j in jobs]),
+        status=status,
+    )
+    s.add(batch)
+    s.commit()
+    return batch.id
+
+
+async def test_reconcile_resumes_generating_and_scoring_batches(db, user):
+    """generating(Job 已终态)重挂 watcher 后自动评分;卡 scoring 的直接重调 finalize;done 不动。"""
+    with Session(db) as s:
+        jobs_a = [
+            Job(tenant_id=user.tenant_id, user_id=user.id, prompt_id=f"ra{i}", worker="http://h3",
+                kind="h3_t2v", status="done", prompt="a", seed=i,
+                result=json.dumps([f"/api/images?filename=ra{i}.mp4&worker=http://h3"]))
+            for i in range(2)
+        ]
+        jobs_b = [
+            Job(tenant_id=user.tenant_id, user_id=user.id, prompt_id="rb0", worker="http://h3",
+                kind="h3_t2v", status="done", prompt="b", seed=9,
+                result=json.dumps(["/api/images?filename=rb0.mp4&worker=http://h3"]))
+        ]
+        for j in jobs_a + jobs_b:
+            s.add(j)
+        s.commit()
+        gen_id = _mk_batch(s, user, jobs_a, "generating")
+        scoring_id = _mk_batch(s, user, jobs_b, "scoring")
+        done_id = _mk_batch(s, user, jobs_b, "done")
+
+    n = bestof.reconcile_interrupted(poll_interval=0.01)
+    assert n == 2  # done 批次不重挂
+    for _ in range(100):
+        await asyncio.sleep(0.02)
+        with Session(db) as s:
+            if s.get(EvalBatch, gen_id).status == "done" and s.get(EvalBatch, scoring_id).status == "done":
+                break
+    with Session(db) as s:
+        assert s.get(EvalBatch, gen_id).status == "done"
+        assert s.get(EvalBatch, scoring_id).status == "done"
+        assert s.get(EvalBatch, done_id).status == "done"
+        # scoring 重跑 finalize 落过评分行;generating 经 watcher 同样评分
+        assert s.exec(select(EvalScore).where(EvalScore.batch_id == gen_id)).all()
+        assert s.exec(select(EvalScore).where(EvalScore.batch_id == scoring_id)).all()

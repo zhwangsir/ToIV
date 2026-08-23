@@ -138,6 +138,11 @@ async def lifespan(app: FastAPI):
     from app.services import video_upscale as video_upscale_svc
 
     video_upscale_svc.reconcile_interrupted()
+    # 评测批次收口:watcher 是进程内任务,api 重启后 generating 批次重挂、
+    # 卡在 scoring 的重调 finalize(幂等)
+    from app.services import bestof as bestof_svc
+
+    bestof_svc.reconcile_interrupted()
     # R3.2 Agent Team 断点续跑:api 重启后,running 的 run 从 LangGraph checkpoint
     # 续跑(无 checkpoint 则幂等重放,已完成任务节点自查跳过);
     # awaiting_assembly 的 run 正挂确认门等用户裁决,不自动推进;单 run 失败标 error 不拖垮启动

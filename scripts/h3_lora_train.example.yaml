@@ -1,0 +1,80 @@
+# ToIV H3(MiniMax-H3)风格 LoRA 训练配置 —— ai-toolkit 模板(保守默认)
+#
+# 背景:musubi-tuner 上游不支持 H3 架构(kohya-ss/musubi-tuner issue #1017 仍 open),
+# H3 原生 LoRA 训练走 ostris/ai-toolkit 的 minimax_h3 扩展(2026-08-03 入库)。
+# 权重直读 NAS ComfyUI 布局(MODELS_PATH 指向 toiv/comfyui-models/h3):
+#   diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors  (DiT,int8)
+#   text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors         (TE,nvfp4)
+#   vae/minimax_h3_video_vae_fp16.safetensors / minimax_h3_audio_vae_fp32.safetensors
+#
+# 运行(workstation):
+#   export MODELS_PATH=/home/merlin/nas_mount/toiv/comfyui-models/h3
+#   export HF_ENDPOINT=https://hf-mirror.com   # tokenizer/processor 小文件;勿用 HF_HUB_OFFLINE(见 smoke.sh 注释)
+#   cd /home/merlin/ai-toolkit && CUDA_VISIBLE_DEVICES=2 \
+#     .venv/bin/python run.py config/toiv_h3_style_lora.yaml
+#
+# 数据集:scripts/h3_lora_dataset.py 产出的「媒体 + 同名 .txt caption」目录。
+---
+job: extension
+config:
+  name: "toiv_h3_style_lora_v1"
+  process:
+    - type: 'sd_trainer'
+      training_folder: "output"
+      device: cuda:0   # 由 CUDA_VISIBLE_DEVICES 指定物理卡(生产用 GPU2)
+      network:
+        type: "lora"
+        linear: 16            # 秩 16:风格固化够用,体积小(~150MB 级)
+        linear_alpha: 16
+      save:
+        dtype: float16
+        save_every: 250
+        max_step_saves_to_keep: 4
+      datasets:
+        - folder_path: "/home/merlin/datasets/h3_lora_eval_winners"
+          caption_ext: "txt"
+          caption_dropout_rate: 0.05
+          num_frames: 39        # ⚠️ H3 视频 VAE 网格是 17n+5(5/22/39/56),其他值会被裁;39 ≈ 1.6s@24fps
+          resolution: [512]     # 冒烟/保守档;显存充裕再上 [512, 768]
+      train:
+        batch_size: 1
+        steps: 1500             # 风格 LoRA 保守档 1000-2000
+        gradient_accumulation: 1
+        train_unet: true
+        train_text_encoder: false
+        gradient_checkpointing: true
+        noise_scheduler: "flowmatch"
+        timestep_type: 'linear'
+        optimizer: "adamw8bit"
+        lr: 1e-4                # 保守学习率;过拟合迹象就砍半
+        optimizer_params:
+          weight_decay: 1e-4
+        cache_text_embeddings: true   # caption 预编码后可卸载 32B TE,省 16G 显存
+        dtype: bf16
+      model:
+        name_or_path: "MiniMaxAI/MiniMax-H3"   # 仅取 tokenizer/processor/config 小文件
+        arch: 'minimax_h3'
+        quantize: false         # DiT 文件本身已是 int8 convrot,勿二次量化
+        quantize_te: false      # TE 本身已是 nvfp4(代码自动识别跳过)
+        low_vram: false         # 余量紧张时改 true(Transformer/TE 驻留 CPU 按需换入)
+        model_kwargs:
+          partition: fl2va_pruned   # 对应 NAS 上 int8 剪枝版 DiT
+          sample_audio: false       # 采样不生成音轨,省时间
+      sample:
+        sampler: "flowmatch"
+        sample_every: 250
+        sample_start_step: 250
+        width: 512
+        height: 512
+        num_frames: 33
+        fps: 24
+        prompts:
+          - "cinematic shot, a young woman walking through a neon-lit street at night, rain reflections"
+        neg: ""
+        seed: 42
+        walk_seed: true
+        guidance_scale: 3.5
+        sample_steps: 20
+meta:
+  name: "[name]"
+  version: '1.0'

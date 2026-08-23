@@ -195,6 +195,28 @@ async def _watch_loop(batch_id: str, poll: float) -> None:
         logger.exception("批次 %s 评测 watcher 异常退出", batch_id)
 
 
+def reconcile_interrupted(*, poll_interval: float | None = None) -> int:
+    """api 重启收口:watcher 是进程内任务,重启后 generating 批次无人监听、
+    评分中途崩的批次卡在 scoring。此处重挂——generating 重开 watcher,
+    scoring 直接重调 finalize(幂等,EvalScore append-only 取最新)。
+    返回重挂批次数。"""
+    with Session(engine) as session:
+        batches = session.exec(
+            select(EvalBatch).where(EvalBatch.status.in_(["generating", "scoring"]))  # type: ignore[attr-defined]
+        ).all()
+        stale = [(b.id, b.status) for b in batches]
+    for batch_id, status in stale:
+        if status == "generating":
+            spawn_batch_watcher(batch_id, poll_interval=poll_interval)
+        else:
+            task = asyncio.create_task(finalize_batch(batch_id))
+            _WATCH_TASKS.add(task)
+            task.add_done_callback(_WATCH_TASKS.discard)
+    if stale:
+        logger.info("评测批次收口:重挂 %d 个未完成批次", len(stale))
+    return len(stale)
+
+
 async def finalize_batch(
     batch_id: str,
     *,
