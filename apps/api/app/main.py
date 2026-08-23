@@ -118,6 +118,10 @@ async def lifespan(app: FastAPI):
 
     reconcile_pending()
     reconcile_task = asyncio.create_task(reconcile_loop())
+    # 回收站兜底清理:超过 72h 保留期的软删作品物理删除(audit.trash_purge_loop)
+    from app import audit as _audit
+
+    trash_task = asyncio.create_task(_audit.trash_purge_loop(engine))
     # 短剧后台任务收口:generating 分镜重挂/标 error、中断的 autorun/批量精修标 interrupted
     drama_studio.reconcile_interrupted()
     # 视频超分作业收口:未终态 video_upscale 重挂后台管线(帧目录保留,断点续跑)
@@ -155,6 +159,7 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         reconcile_task.cancel()
+        trash_task.cancel()
         if smoke_task is not None:
             smoke_task.cancel()
         # 统一关闭 ComfyUI HTTP 连接池缓存的 AsyncClient

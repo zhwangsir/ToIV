@@ -6,7 +6,7 @@ POST /api/h3/i2v —— 图生视频(首帧参考图;先经 /api/upload 上传�
 
 与 LTX2 工作室的区别:H3 走独立 ComfyUI ≥ 0.30 实例(默认 workstation :8195,
 不走 WorkerPool 集群);产物链路(tracker 落库 + /api/images 代理进作品库)与 ltx2 同路。
-参数约束(见 docs/2026-08-03-minimax-h3-eval.md):
+参数约束(真机压测):
   · 分辨率 256-1344 且 32 对齐(上限 1344×768)
   · 帧数 17k+5 网格,22-362 @24fps(124≈5.2s,362≈15s)
   · 采样 res_multistep/simple,steps 1-50(默认 20)

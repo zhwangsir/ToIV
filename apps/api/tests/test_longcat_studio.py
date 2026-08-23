@@ -78,7 +78,7 @@ def client(engine):
 
 
 class _FakeLongCatClient:
-    """LongCat 实例替身:object_info/queue_prompt 可控,不联网。"""
+    """LongCat 实例替身:object_info/queue_prompt/system_stats 可控,不联网。"""
 
     def __init__(self, *, reachable: bool = True, has_node: bool = True) -> None:
         self.base_url = "http://fake-longcat"
@@ -96,6 +96,22 @@ class _FakeLongCatClient:
     async def queue_prompt(self, graph: dict, client_id: str) -> str:
         self.graphs.append(graph)
         return "prompt-longcat-1"
+
+    # 资源预算预检(2026-08-21 OOM 防线)需要的实例接口:默认资源充足,直接放行
+    async def queue_len(self) -> int:
+        return 0
+
+    async def free_memory(self) -> None:
+        pass
+
+    async def get_system_stats(self) -> dict:
+        return {
+            "devices": [{
+                "name": "cuda:0 FakeGPU", "type": "cuda",
+                "vram_free": 96 * (1 << 30), "vram_total": 96 * (1 << 30),
+            }],
+            "system": {"ram_free": 128 * (1 << 30), "ram_total": 183 * (1 << 30)},
+        }
 
 
 def _install_longcat(monkeypatch, fake: _FakeLongCatClient) -> None:

@@ -440,7 +440,7 @@ def _h3_loras_select() -> dict:
     }
 
 
-# ── Wan2.2 I2V NSFW(2026-08-17 Civitai 爆款配方复刻,见 docs/2026-08-16-wan22-i2v-nsfw-recipe.md)──
+# ── Wan2.2 I2V NSFW(2026-08-17 Civitai 爆款配方复刻)──
 # 分辨率预设:Wan 训练甜点 832×480 + kenpechi 720p 档 1280×704(请求模型钳位上限 1280)
 _WAN_NSFW_RESOLUTIONS = [
     ("832x480", "480p 横版 (832×480)"),

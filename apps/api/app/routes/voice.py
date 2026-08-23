@@ -11,6 +11,8 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import logging
 import re
 import shutil
 import tempfile
@@ -23,12 +25,16 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
+from sqlmodel import Session
 
 from app.config import get_settings
+from app.db import get_session
 from app.deps import get_current_user
-from app.models import User
+from app.models import Job, User
 from app.storage import content_subdir
 from app.ratelimit import enforce_generation_rate_limit
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -86,6 +92,7 @@ def _wav_duration(path: Path) -> float:
 async def synth_voice(
     body: VoiceRequest,
     user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
 ) -> VoiceResponse:
     enforce_generation_rate_limit(user)
     settings = get_settings()
@@ -144,6 +151,32 @@ async def synth_voice(
     name = f"voice-{uuid.uuid4().hex}.wav"
     path = _VOICE_DIR / name
     path.write_bytes(resp.content)
+
+    # 建档(2026-08-23):TTS 产物与图像/视频同口径入作品库(kind=manju_voice,
+    # 前端 libraryQuery 已映射「配音」桶)。合成已成功,建档失败不炸主流程。
+    try:
+        session.add(
+            Job(
+                tenant_id=user.tenant_id,
+                user_id=user.id,
+                prompt_id=f"tts-{name.removesuffix('.wav')}",
+                worker="local",
+                kind="manju_voice",
+                status="done",
+                prompt=body.text[:500],
+                seed=0,
+                result=json.dumps([f"/api/manju/voice/{name}"], ensure_ascii=False),
+                params=json.dumps(
+                    {"text": body.text[:600], "language": body.language,
+                     "emo_text": body.emo_text, "emo_alpha": body.emo_alpha},
+                    ensure_ascii=False,
+                ),
+            )
+        )
+        session.commit()
+    except Exception:
+        session.rollback()
+        logger.warning("TTS 产物建档失败(音频已落盘): %s", name, exc_info=True)
 
     return VoiceResponse(url=f"/api/manju/voice/{name}", name=name, duration_sec=_wav_duration(path))
 

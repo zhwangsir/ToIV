@@ -1,5 +1,5 @@
 """操作防护体系(SAFETY,2026-08-17)测试:
-  ① 作品软删除:列表隐藏 + 10 分钟 undo 恢复 + 二次 undo 409 + 过期 410 + 越权 404
+  ① 作品软删除:列表隐藏 + 保留期内 undo 恢复 + 二次 undo 409 + 过期 410 + 越权 404
   ② 审计日志:删除落 log(带 undo_token);admin 可查 /admin/audit-logs;普通用户 403
   ③ 关键删除端点全部落审计(drama/studio 项目与角色、agent 会话、admin 删用户)
   ④ 社区配方:R18 门控(主站剔除 nsfw 配方)+ engine 过滤
@@ -8,6 +8,7 @@ from sqlmodel import Session, SQLModel, select
 from sqlalchemy import create_engine
 from sqlalchemy.pool import StaticPool
 
+from app.audit import UNDO_TTL_SECONDS
 from app.db import get_session
 from app.main import app
 from app.models import AuditLog, Job, Tenant, User
@@ -64,7 +65,7 @@ def test_job_delete_soft_and_undo(ctx):
     r = client.delete(f"/api/jobs/{job_id}", headers=H)
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["undo_token"] and body["undo_ttl"] == 600
+    assert body["undo_token"] and body["undo_ttl"] == UNDO_TTL_SECONDS
     # 列表隐藏
     assert client.get("/api/jobs", headers=H).json() == []
     # undo 恢复

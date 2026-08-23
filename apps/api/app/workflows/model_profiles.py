@@ -411,11 +411,10 @@ _PROFILES: dict[str, GenProfile] = {
 # 次世代图配方(worker :8002 /object_info 实测:节点存在、类型枚举含 qwen_image/flux2)。
 #    Z-Image 三件套(z_image_turbo/qwen_3_4b/ae)已在;FLUX.2 dev 用 mistral_3_small,Klein 用 qwen_3_4b。
 _QWEN_IMAGE_CLIP_CANDIDATES: tuple[str, ...] = (
-    # 当前默认: Qwen-Image 2.0 已部署的 Qwen3-VL-8B-Instruct(目录形式)
-    "qwen_3_vl_8b_instruct",
-    # Qwen-Image 2.0 单文件转换后候选
-    # "qwen_3_vl_8b.safetensors",           # 满血 Qwen3-VL 8B 单文件转换后
-    # "qwen_3_vl_7b.safetensors",           # 兼容旧命名(7B 单文件转换后)
+    # 当前默认: Qwen3-VL 4B 单文件 fp8(worker 实测存在,匹配 Qwen-Image 2.0 的 Qwen3-VL 架构)
+    # (2026-08-23 修正:原首选目录名 "qwen_3_vl_8b_instruct" 在 worker 上只以分片文件
+    #  model-0000X-of-00004 形式出现,first_available 永远命不中 → 静默落到 1.0 编码器)
+    "qwen3vl_4b_fp8_scaled.safetensors",
     # Qwen-Image 1.0 兼容兜底
     "qwen_2.5_vl_7b_fp8_scaled.safetensors",
 )

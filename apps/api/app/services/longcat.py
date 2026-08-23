@@ -11,8 +11,10 @@ systemd comfyui-longcat.service 托管),不走 ComfyUI-LB 集群/WorkerPool
   · submit_longcat_job:queue_prompt → 落 Job → spawn_tracker 后台轮询落库;
     产物经 /api/images 代理进作品库,与 h3/ltx2 完全同一条路
 
-GPU2 与 ASR(:9210)/H3 worker 共卡,但 LongCat 全程 offload(实测 480p49f 峰值 ~21GB),
-不做 H3 那样的显存预检/驱逐协调;实例真挤爆时由 ComfyUI 自身错误兜底。
+GPU2 与 ASR(:9210)/H3 worker 共卡。LongCat 全程 offload(实测 480p49f 峰值 ~21GB);
+提交前经 services/resource_budget 做显存 + 宿主机 RAM 双预检(2026-08-21 多引擎
+并跑耗尽 183G RAM、OOM killer 杀 H3 的防线),不足 → 503 错峰,不做 H3 那样的
+同卡协调驱逐。
 """
 from __future__ import annotations
 
@@ -34,6 +36,7 @@ from app.config import get_settings
 from app.deps import resolve_worker
 from app.models import Job, User
 from app.routes.video import _raise_from_comfy_error
+from app.services.resource_budget import ensure_host_ram, ensure_vram
 from app.versioning import params_snapshot
 
 logger = logging.getLogger(__name__)
@@ -193,15 +196,24 @@ async def submit_longcat_job(
     session: Session,
     client: ComfyUIClient | None = None,
     nsfw: bool = False,
+    prechecked: bool = False,
 ) -> dict:
-    """提交 LongCat 作业:开关检查 → 就绪检查 → queue_prompt → 落 Job → 后台追踪(结果落库进作品库)。
+    """提交 LongCat 作业:开关检查 → 就绪检查 → 资源预算预检 → queue_prompt → 落 Job
+    → 后台追踪(结果落库进作品库)。
 
     nsfw=True 时 Job 打 R18 标(进 /nsfw 专区作品库);调用方须先过 R18 门控
     (routes 层用 nsfw_allowed(user) 判定,含未成年硬阻断),此处不重复校验。
+    prechecked=True 表示调用方已做过显存/RAM 预检(Wan 路由的 ensure_wan_vram,
+    阈值语义独立),此处跳过避免重复拦截。
     """
     ensure_longcat_enabled()
     client = client or get_longcat_client()
     await ensure_longcat_ready(client)
+    if not prechecked:
+        # 资源预算预检:LongCat 与 H3/Wan 共 GPU2、同宿主机 RAM(2026-08-21 OOM 防线)
+        settings = get_settings()
+        await ensure_vram(client, settings.longcat_min_free_vram_gb, "LongCat")
+        await ensure_host_ram(client, settings.longcat_min_free_ram_gb, "LongCat")
 
     client_id = uuid.uuid4().hex
     try:

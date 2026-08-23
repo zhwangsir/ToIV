@@ -45,7 +45,7 @@ def undo(
 
         expired = log.undo_expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc)
         if expired:
-            raise HTTPException(status_code=410, detail="撤销窗口已过期(10 分钟)")
+            raise HTTPException(status_code=410, detail="撤销窗口已过期(72 小时)")
 
     if log.action == "job.delete" and log.target_type == "job":
         job = session.exec(select(Job).where(Job.id == log.target_id)).first()

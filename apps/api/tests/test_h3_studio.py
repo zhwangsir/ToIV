@@ -31,6 +31,12 @@ from app.workflows.h3_video import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _fast_vram_settle(monkeypatch):
+    """显存驱逐后的落定等待压到 0(生产 5s):否则每个驱逐路径测试各拖 5-10s。"""
+    monkeypatch.setattr(h3_service, "_VRAM_SETTLE_SEC", 0.0)
+
+
 # --------------------------------------------------------------------------- #
 # 公共 fixtures / fakes
 # --------------------------------------------------------------------------- #
@@ -87,6 +93,7 @@ class _FakeH3Client:
         self_queue: int = 0,
         pending: int = 0,
         on_self_free=None,
+        self_free_delay_sec: float | None = None,
     ) -> None:
         self.base_url = "http://fake-h3"
         self._reachable = reachable
@@ -96,6 +103,7 @@ class _FakeH3Client:
         self._self_queue = self_queue  # H3 自身队列长度(0=空闲,可驱逐自身缓存)
         self._pending = pending  # pending 数(queued_behind 提示用)
         self._on_self_free = on_self_free  # 驱逐自身缓存后的回调(如回升 free_gib)
+        self._self_free_delay = self_free_delay_sec  # 模拟 /free 异步卸载延迟
         self.self_free_calls = 0
         self.graphs: list[dict] = []
         self.uploads: list[tuple[bytes, str]] = []
@@ -123,8 +131,19 @@ class _FakeH3Client:
 
     async def free_memory(self) -> None:
         self.self_free_calls += 1
-        if self._on_self_free:
+        if not self._on_self_free:
+            return
+        if self._self_free_delay is None:
             self._on_self_free()
+            return
+        # 模拟真实 ComfyUI /free:HTTP 立即 200,权重卸载在后台延迟生效
+        import asyncio as _asyncio
+
+        async def _apply_later() -> None:
+            await _asyncio.sleep(self._self_free_delay)  # type: ignore[arg-type]
+            self._on_self_free()
+
+        _asyncio.get_running_loop().create_task(_apply_later())
 
     async def get_system_stats(self) -> dict:
         if self._stats_fail:
@@ -419,6 +438,7 @@ def _stub_settings(monkeypatch, *, threshold: float = 36.0, co_workers=("http://
         lambda: SimpleNamespace(
             h3_enabled=enabled,
             h3_min_free_vram_gb=threshold,
+            h3_min_free_ram_gb=25.0,  # fake stats 无 system 段 → RAM 预检解析 None 放行
             h3_co_worker_urls=list(co_workers),
             request_timeout=30.0,
         ),
@@ -467,6 +487,30 @@ def test_vram_insufficient_evicts_self_cache_then_ok(client, monkeypatch):
     assert r.status_code == 200, r.text
     assert fake.self_free_calls == 1
     assert co.free_calls == 0  # 自身驱逐已达标,不打扰同卡 worker
+
+
+def test_vram_self_evict_settle_waits_for_async_release(client, monkeypatch):
+    """回归(2026-08-21):/free 卸载异步生效——驱逐后立即复查读到旧值误报 503,
+    批量补段被整批误杀。ensure_h3_vram 必须等显存实际释放(_VRAM_SETTLE_SEC)再复查。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "h3vramsettle")
+    fake = _FakeH3Client(free_vram_gib=1.0, self_free_delay_sec=0.1)
+    fake._on_self_free = lambda: setattr(fake, "free_gib", 40.0)
+    _install_h3(monkeypatch, fake)
+    _stub_settings(monkeypatch)
+    co = _FakeCoWorker(queue=0)
+    _install_co_worker(monkeypatch, co)
+    # 本测试覆写 autouse 的 0s:驱逐 0.1s 后生效,落定等待 0.5s 覆盖之
+    monkeypatch.setattr(h3_service, "_VRAM_SETTLE_SEC", 0.5)
+    r = c.post(
+        "/api/h3/t2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={"positive": "a cat"},
+    )
+    assert r.status_code == 200, r.text
+    assert fake.self_free_calls == 1  # 等待落定后自身驱逐已达标
+    assert co.free_calls == 0  # 无需打扰同卡 worker
 
 
 def test_vram_insufficient_self_busy_skips_self_evict(client, monkeypatch):

@@ -13,6 +13,7 @@ systemd 托管),不走 ComfyUI-LB 集群/WorkerPool。本模块封装:
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 
@@ -25,9 +26,13 @@ from app.comfy.tracker import spawn as spawn_tracker
 from app.config import get_settings
 from app.models import Job, User
 from app.routes.video import _raise_from_comfy_error
+from app.services.resource_budget import ensure_host_ram
 from app.versioning import params_snapshot
 
 logger = logging.getLogger(__name__)
+
+# 驱逐模型缓存(/free)是异步操作:41G 级权重释放需数秒,复查前等显存实际落地
+_VRAM_SETTLE_SEC = 5.0
 
 # H3 管线核心节点(评测 /object_info 实测);实例缺此节点 = ComfyUI 版本不支持 H3
 H3_NODE = "MiniMaxH3ImageToVideo"
@@ -101,7 +106,9 @@ async def ensure_h3_vram(client: ComfyUIClient) -> None:
        —— 上一作业的驻留缓存(实测 ~39GiB)是占卡大头,驱逐后本次重新加载即可跑;
     2. 协调驱逐同卡 pool worker(settings.h3_co_workers)的模型缓存
        —— 仅在其队列完全空闲时(有作业在跑绝不动,否则会杀死在跑作业);
-    3. 复查仍不足 → 503 + 错峰提示(清晰原因,而非 ComfyUI 裸崩 VRAM grow failed)。
+    3. 复查仍不足 → 503 + 错峰提示(清晰原因,而非 ComfyUI 裸崩 VRAM grow failed);
+    4. 显存通过后追加宿主机 RAM 预检(resource_budget.ensure_host_ram)
+       —— 2026-08-21 多引擎并跑耗尽 183G RAM、OOM killer 杀 H3 的防线。
 
     注:Wan 实例(wan_video.ensure_wan_vram)不做第 0 步——其队列忙时低显存成因
     常是 H3 邻居占卡(跨实例不共队列),排队执行时会 OOM,503 错峰是正确行为。
@@ -123,6 +130,7 @@ async def ensure_h3_vram(client: ComfyUIClient) -> None:
         logger.warning("H3 显存预检读取失败,跳过预检: %s", e)
         return
     if free is None or free >= threshold:
+        await ensure_host_ram(client, settings.h3_min_free_ram_gb, "H3")
         return
 
     # 1) H3 自身驻留缓存(队列空闲才可驱逐)
@@ -131,8 +139,12 @@ async def ensure_h3_vram(client: ComfyUIClient) -> None:
         if await client.queue_len() == 0:
             await client.free_memory()
             logger.info("已驱逐 H3 自身模型缓存")
+            # /free 卸载是异步的(41G 级权重释放需数秒),立即复查会读到旧值
+            # 误报 503(2026-08-21 竞态实证:驱逐后 9ms 复查仍 26.1G → 误杀批量补段)
+            await asyncio.sleep(_VRAM_SETTLE_SEC)
             free = _cuda_free_gib(await client.get_system_stats())
             if free is None or free >= threshold:
+                await ensure_host_ram(client, settings.h3_min_free_ram_gb, "H3")
                 return
         else:
             logger.info("H3 队列非空闲,不驱逐自身缓存")
@@ -141,6 +153,7 @@ async def ensure_h3_vram(client: ComfyUIClient) -> None:
 
     # 2) 同卡 pool worker 空闲缓存
     logger.warning("H3 显存仍不足,尝试驱逐同卡 worker 缓存")
+    evicted_any = False
     for url in settings.h3_co_worker_urls:
         co = ComfyUIClient(url, timeout=settings.request_timeout)
         try:
@@ -148,10 +161,13 @@ async def ensure_h3_vram(client: ComfyUIClient) -> None:
                 logger.info("同卡 worker %s 队列非空闲,不驱逐", url)
                 continue
             await co.free_memory()
+            evicted_any = True
             logger.info("已驱逐同卡 worker %s 的模型缓存", url)
         except ComfyUIError as e:
             logger.warning("驱逐同卡 worker %s 缓存失败(忽略,继续复查): %s", url, e)
     try:
+        if evicted_any:
+            await asyncio.sleep(_VRAM_SETTLE_SEC)
         free = _cuda_free_gib(await client.get_system_stats())
     except ComfyUIError as e:
         logger.warning("H3 显存复查读取失败,跳过预检: %s", e)
@@ -164,6 +180,8 @@ async def ensure_h3_vram(client: ComfyUIClient) -> None:
                 "(与同卡其他服务错峰,或释放其模型缓存后重试)"
             ),
         )
+    # 显存预检通过 → 宿主机 RAM 预检(2026-08-21 OOM 防线)
+    await ensure_host_ram(client, settings.h3_min_free_ram_gb, "H3")
 
 
 async def transfer_ref_image(client: ComfyUIClient, source: ComfyUIClient, image: str) -> str:

@@ -268,13 +268,18 @@ class Settings(BaseSettings):
 
     # —— MiniMax H3 视频生成引擎(专用 ComfyUI ≥ 0.30 实例,workstation :8195) ——
     # 独立于 ComfyUI-LB 集群/WorkerPool(生产 ComfyUI 0.27/0.28 无 H3 节点);
-    # 实例由 systemd 托管,权重经 extra_model_paths 挂 NAS h3/(见 docs/2026-08-03-minimax-h3-eval.md)。
+    # 实例由 systemd 托管,权重经 extra_model_paths 挂 NAS h3/。
     h3_enabled: bool = True
     h3_base_url: str = "http://192.168.71.127:8195"
     # H3 int8 档增量峰值 ~30-33GiB(评测实测);提交前要求实例卡空闲显存 ≥ 此阈值(GiB)。
     # 不足时先尝试驱逐 h3_co_workers(同卡 pool worker,空闲队列才动)的模型缓存,
     # 仍不足 → 503 错峰提示,不让 ComfyUI 以 "VRAM grow failed" 裸崩(2026-08-04 实发)。
     h3_min_free_vram_gb: float = 36.0
+    # 宿主机 RAM 预检阈值(GiB):2026-08-21 多引擎并跑耗尽 workstation 183G、
+    # OOM killer 杀 H3(14 作业 error)的防线。同一宿主机所有 ComfyUI 实例
+    # /system_stats 的 system.ram_free 是整机水位;不足时先驱逐自身模型缓存,
+    # 仍不足 → 503(见 services/resource_budget.ensure_host_ram)。
+    h3_min_free_ram_gb: float = 25.0
     # 与 H3 实例同卡的 ComfyUI 实例(逗号分隔,用于显存不足时的协调驱逐);空串=禁用自动驱逐。
     # 2026-08-10 起 H3 实例独占 GPU2(CUDA_VISIBLE_DEVICES=2,GPU0 温度/显存双高压),
     # 同卡实例为 LongCat :8197 与 M6 超分 :8262(空闲队列才驱逐,在跑作业绝不动)。
@@ -285,6 +290,11 @@ class Settings(BaseSettings):
     # 权重经 extra_model_paths 挂 NAS LongCat/(参考 scripts/longcat_smoke.py)。
     longcat_enabled: bool = True
     longcat_base_url: str = "http://192.168.71.127:8197"
+    # LongCat 与 H3/Wan 共 GPU2、同宿主机 RAM:提交前显存 + RAM 双预检
+    # (services/resource_budget;阈值语义同 h3_min_free_vram/ram_gb)。
+    # 480p49f 实测峰值 ~21GB,显存阈值取 26 与 Wan 对齐。
+    longcat_min_free_vram_gb: float = 26.0
+    longcat_min_free_ram_gb: float = 15.0
 
     # —— LTX-2.5 SFW 视频引擎(专用 ComfyUI 0.32 实例,workstation GPU0 :8198) ——
     # 独立于 WorkerPool(生产 :8189 为 0.27,无 LTX-2.5 节点);systemd comfyui-ltx25.service
@@ -317,6 +327,8 @@ class Settings(BaseSettings):
     # 不足时先驱逐 :8197 自身模型缓存(队列空闲才动),仍不足 → 503 错峰提示。
     # 绝不驱逐 H3(硬规则:H3 必须可用);H3 突发 48GB 时本预检天然拦截并发。
     wan_min_free_vram_gb: float = 26.0
+    # 宿主机 RAM 预检阈值(GiB,语义同 h3_min_free_ram_gb;与 H3/LongCat 同宿主机)。
+    wan_min_free_ram_gb: float = 15.0
 
     @property
     def embed_url(self) -> str:

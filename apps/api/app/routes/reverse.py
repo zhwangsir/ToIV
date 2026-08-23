@@ -1,6 +1,6 @@
 """POST /api/reverse —— 反推提示词:上传图/视频/音频,反推出可复用的生成提示词。
 
-链路(2026-08-08 集群重排后,见 docs/2026-08-08-cluster-reallocation-plan.md):
+链路(2026-08-08 集群重排后):
 - SFW 图像 + 全部视频 → studio04 MLX Qwen2.5-VL-72B-Instruct-4bit 自定义 /v1/reverse
   服务(reverse_vlm_base_url;GPU3 toiv-vlm 停而不删作热回退)。图像走 image_url、视频走
   video_url(base64 data URL;reverse_video_mac_prefix 非空时走 NAS 中转本地路径)。

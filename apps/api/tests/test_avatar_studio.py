@@ -111,6 +111,22 @@ class _FakeLongCatClient:
         self.uploads.append((content, filename))
         return f"lc-{filename}"
 
+    # 资源预算预检(2026-08-21 OOM 防线)需要的实例接口:默认资源充足,直接放行
+    async def queue_len(self) -> int:
+        return 0
+
+    async def free_memory(self) -> None:
+        pass
+
+    async def get_system_stats(self) -> dict:
+        return {
+            "devices": [{
+                "name": "cuda:0 FakeGPU", "type": "cuda",
+                "vram_free": 96 * (1 << 30), "vram_total": 96 * (1 << 30),
+            }],
+            "system": {"ram_free": 128 * (1 << 30), "ram_total": 183 * (1 << 30)},
+        }
+
 
 class _FakeSourceWorker:
     """上传落点 pool worker 替身:get_image_bytes 按文件名返回图片/音频字节。"""

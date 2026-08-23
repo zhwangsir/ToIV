@@ -18,6 +18,7 @@ import json
 import logging
 import shutil
 import tempfile
+import time
 import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
@@ -69,7 +70,10 @@ class VideoGenResult:
 # 链失败仅记日志(保留原始未裁剪产物,不把事情搞砸);调用方经 notice 告知用户。
 
 _POST_POLL_INTERVAL = 3.0
-_POST_WAIT_TIMEOUT = 3600.0  # 单段产物等待上限(覆盖长视频段)
+# 单段产物等待上限:与 TOIV_JOB_TRACK_TIMEOUT 默认对齐——多条 extend 链共用单实例
+# 排队时,单段从提交到出片实测可超 80min(2026-08-19 五路批量 H3×2 链均在此超时);
+# 超时则整链放弃、Job 回落首段产物。调用方可按需注入更短超时(测试)。
+_POST_WAIT_TIMEOUT = 7200.0
 _FFMPEG_TIMEOUT = 600.0
 
 # 持有后台链强引用(asyncio 仅持弱引用,防 GC 提前回收;与 tracker 同一手法)
@@ -133,9 +137,14 @@ async def _wait_files(
     timeout: float = _POST_WAIT_TIMEOUT,
     poll: float = _POST_POLL_INTERVAL,
 ) -> list[dict]:
-    """轮询 worker history 直到出现产物文件;执行报错/超时抛 RuntimeError。"""
-    waited = 0.0
-    while waited < timeout:
+    """轮询 worker history 直到出现产物文件;执行报错/超时抛 RuntimeError。
+
+    超时按挂钟计(2026-08-20 修复):此前以 poll 累加计数,get_history 本身耗时
+    (大 history 响应秒级)不计入,实际等待可达名义值的 ~1.4×(3600s 名义 →
+    实测 5000s+ 才超时),与调用方预期不符。
+    """
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
         try:
             history = await client.get_history(prompt_id)
         except ComfyUIError:
@@ -148,7 +157,6 @@ async def _wait_files(
         if status.get("status_str") == "error":
             raise RuntimeError(f"作业 {prompt_id} 执行失败")
         await asyncio.sleep(poll)
-        waited += poll
     raise RuntimeError(f"等待作业产物超时: {prompt_id}")
 
 

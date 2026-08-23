@@ -25,6 +25,7 @@ from fastapi import HTTPException
 from app.comfy.client import ComfyUIClient, ComfyUIError
 from app.config import get_settings
 from app.services.h3 import _cuda_free_gib
+from app.services.resource_budget import ensure_host_ram
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +78,9 @@ async def ensure_wan_vram(client: ComfyUIClient) -> None:
 
     1. 实例卡(GPU2)空闲 ≥ 阈值(TOIV_WAN_MIN_FREE_VRAM_GB,默认 26GiB)直接放行;
     2. 不足且 :8197 队列空闲 → 驱逐自身模型缓存后复查(LongCat/Avatar 驻留缓存);
-    3. 仍不足 → 503 错峰提示。典型场景:H3 作业在跑(突发 ~48GB)。
+    3. 仍不足 → 503 错峰提示。典型场景:H3 作业在跑(突发 ~48GB);
+    4. 显存通过后追加宿主机 RAM 预检(2026-08-21 多引擎并跑 OOM 事故防线,
+       见 services/resource_budget.ensure_host_ram)。
 
     /system_stats 读取失败时放行(降级为不预检,由 ComfyUI 自身错误兜底)。
     阈值设为 0 = 显式关闭预检。
@@ -92,6 +95,7 @@ async def ensure_wan_vram(client: ComfyUIClient) -> None:
         logger.warning("Wan 显存预检读取失败,跳过预检: %s", e)
         return
     if free is None or free >= threshold:
+        await ensure_host_ram(client, settings.wan_min_free_ram_gb, "Wan")
         return
 
     logger.warning("Wan 显存不足(空闲 %.1fG < 阈值 %.1fG),尝试驱逐实例自身缓存", free, threshold)
@@ -113,6 +117,8 @@ async def ensure_wan_vram(client: ComfyUIClient) -> None:
                 "(H3/其他作业在跑,请错峰重试)"
             ),
         )
+    # 显存预检通过 → 宿主机 RAM 预检(2026-08-21 OOM 防线)
+    await ensure_host_ram(client, settings.wan_min_free_ram_gb, "Wan")
 
 
 async def transfer_drive_video(client: ComfyUIClient, source: ComfyUIClient, video: str) -> str:

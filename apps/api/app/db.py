@@ -59,7 +59,7 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("dramashot", "seam_anchor", "seam_anchor VARCHAR NOT NULL DEFAULT ''"),
     # 时长后处理链标记(trim/extend 进行中,前端结果区据此显示「精确裁切中」)
     ("job", "post_status", "post_status VARCHAR NOT NULL DEFAULT ''"),
-    # 操作防护体系(SAFETY,2026-08-17):作品软删除(10 分钟撤销窗口)
+    # 操作防护体系(SAFETY,2026-08-17):作品软删除(回收站 72h 保留期)
     ("job", "deleted_at", "deleted_at TIMESTAMP"),
     # Skill 市场化(2026-08-18):agents 属主列(空=公共内置/admin 建,非空=个人导入)
     ("agent", "user_id", "user_id TEXT NOT NULL DEFAULT ''"),

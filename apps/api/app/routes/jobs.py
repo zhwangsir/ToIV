@@ -107,11 +107,12 @@ def delete_job(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> dict:
-    """从作品库移除当前用户的一件作品(SAFETY:软删除 + 10 分钟撤销窗口)。
+    """从作品库移除当前用户的一件作品(SAFETY:软删除 + 72 小时回收站保留期)。
 
     仅删自己的作业(user_id 校验);非本人/不存在一律 404(不泄露存在性)。
-    产物文件留在 worker 输出目录;行只打 deleted_at 标记,凭返回的 undo_token
-    在窗口内 POST /api/undo/{token} 即可恢复(误删保护)。
+    产物文件留在 worker 输出目录;行只打 deleted_at 标记,保留期内凭返回的
+    undo_token POST /api/undo/{token} 或经回收站 POST /api/jobs/{id}/restore 恢复;
+    过期由清理任务物理删除(audit.trash_purge_loop)。
     """
     job = session.exec(select(Job).where(Job.id == job_id)).first()
     if not job or job.user_id != user.id:
@@ -134,6 +135,110 @@ def delete_job(
         ).isoformat(),
         "undo_ttl": audit.UNDO_TTL_SECONDS,
     }
+
+
+# ---------------------------------------------------------------------------
+# 回收站(2026-08-23):软删作品在保留期(audit.UNDO_TTL_SECONDS,72h)内可浏览/恢复/
+# 彻底删除;过期行由 audit.trash_purge_loop 物理删除,不再出现在列表。
+# deleted_at 列是 naive UTC TIMESTAMP,读出统一 _as_utc 归一再算剩余时间。
+# ---------------------------------------------------------------------------
+
+
+def _as_utc(dt: datetime) -> datetime:
+    """naive UTC datetime → aware(库列是 naive TIMESTAMP;已 aware 则原样)。"""
+    return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
+
+
+def _trash_cutoff() -> datetime:
+    """保留期截止点(naive UTC,与 deleted_at 列同口径,可直接进 WHERE)。"""
+    return (datetime.now(timezone.utc) - timedelta(seconds=audit.UNDO_TTL_SECONDS)).replace(
+        tzinfo=None
+    )
+
+
+def _trash_dict(j: Job) -> dict:
+    """回收站条目 = 作品库条目形状 + 删除时间/恢复截止/剩余秒数。"""
+    deleted = _as_utc(j.deleted_at)  # type: ignore[arg-type]  调用方保证非空
+    expires = deleted + timedelta(seconds=audit.UNDO_TTL_SECONDS)
+    remaining = max(0, int((expires - datetime.now(timezone.utc)).total_seconds()))
+    return {
+        **_job_dict(j),
+        "deleted_at": deleted.isoformat(),
+        "restore_expires_at": expires.isoformat(),
+        "restore_remaining_seconds": remaining,
+    }
+
+
+def _trashed_owned_job(session: Session, user: User, job_id: str) -> Job:
+    """取当前用户回收站中的一件作品;不存在/非本人/未删除一律 404(不泄露存在性)。"""
+    job = session.exec(select(Job).where(Job.id == job_id)).first()
+    if not job or job.user_id != user.id or job.deleted_at is None:
+        raise HTTPException(status_code=404, detail="回收站中没有该作品")
+    return job
+
+
+@router.get("/jobs/trash")
+def list_trash(
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> list[dict]:
+    """当前用户的回收站(删除时间倒序;仅保留期内的条目,过期由清理任务物理删除)。
+
+    归属/门控规则与 GET /api/jobs 一致:只看自己的;主站(非 X-NSFW 上下文)剔除 R18。
+    """
+    stmt = select(Job).where(
+        Job.user_id == user.id,
+        Job.deleted_at != None,  # noqa: E712  SQLModel 需 == 比较生成 SQL
+        Job.deleted_at > _trash_cutoff(),
+    )
+    if not nsfw_allowed(user):
+        stmt = stmt.where(Job.nsfw == False)  # noqa: E712
+    rows = session.exec(
+        stmt.order_by(Job.deleted_at.desc()).offset(offset).limit(limit)
+    ).all()
+    return [_trash_dict(j) for j in rows]
+
+
+@router.post("/jobs/{job_id}/restore")
+def restore_job(
+    job_id: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """从回收站恢复一件作品(清 deleted_at,作品回归作品库;与 undo 同一条复活路径)。"""
+    job = _trashed_owned_job(session, user, job_id)
+    if _as_utc(job.deleted_at) + timedelta(seconds=audit.UNDO_TTL_SECONDS) < datetime.now(
+        timezone.utc
+    ):
+        raise HTTPException(status_code=410, detail="保留期已过,作品已被清理,无法恢复")
+    job.deleted_at = None
+    session.add(job)
+    audit.record(
+        session, user=user, action="job.restore", target_type="job", target_id=job.id,
+        summary=f"回收站恢复作品:{(job.prompt or '')[:40]}",
+    )
+    session.commit()
+    return {"ok": True, "restored": True, "id": job.id}
+
+
+@router.delete("/jobs/{job_id}/permanent")
+def permanent_delete_job(
+    job_id: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """立即物理删除回收站中的一件作品(不可恢复;与定期清理同一删除路径)。"""
+    job = _trashed_owned_job(session, user, job_id)
+    audit.purge_job_row(session, job)
+    audit.record(
+        session, user=user, action="job.purge", target_type="job", target_id=job_id,
+        summary=f"彻底删除作品:{(job.prompt or '')[:40]}",
+        detail={"kind": job.kind, "status": job.status},
+    )
+    session.commit()
+    return {"ok": True, "id": job_id}
 
 
 # ---------------------------------------------------------------------------

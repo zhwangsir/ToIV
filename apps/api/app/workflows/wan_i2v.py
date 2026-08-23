@@ -37,7 +37,7 @@ def _random_seed() -> int:
     return secrets.randbelow(MAX_SEED)
 
 
-# ── NSFW LoRA 注册表(2026-08-16 Civitai 爆款配方逆向,见 docs/2026-08-16-wan22-i2v-nsfw-recipe.md)──
+# ── NSFW LoRA 注册表(2026-08-16 Civitai 爆款配方逆向)──
 # 2026-08-17 升级为元数据卡(参考 DashBox 提示词 RFC「触发词是确定性知识,不交给 LLM 自由发挥」):
 # 触发词来自 Civitai 作者官方 trainedWords,由 /api/optimize 与提交链确定性注入,
 # 高强度 LoRA(概念/物理)宁低勿高:过强会畸变,社区甜点位 0.6-0.8。

@@ -6,11 +6,22 @@
 - 非法语言 422。
 """
 import io
+import json
+
 import pytest
 from fastapi import HTTPException
+from sqlmodel import Session, select
 
-from app.models import User
+from app.db import engine, init_db
+from app.models import Job, User
 from app.routes.voice import VoiceRequest, synth_voice
+
+
+def _session() -> Session:
+    return Session(engine)
+
+
+init_db()  # 本地 sqlite 可能是旧结构;迁移幂等,确保 job 表列齐全
 
 
 def _minimal_wav() -> bytes:
@@ -91,7 +102,7 @@ async def test_zh_uses_default_tts_url_and_no_language(monkeypatch, tmp_path):
     fake = _FakeClient()
     monkeypatch.setattr("httpx.AsyncClient", lambda *a, **k: fake)
 
-    result = await synth_voice(VoiceRequest(text="你好"), _user())
+    result = await synth_voice(VoiceRequest(text="你好"), _user(), _session())
 
     assert len(fake.calls) == 1
     method, url, data, files = fake.calls[0]
@@ -111,7 +122,7 @@ async def test_ja_uses_multilingual_tts_url_and_language(monkeypatch, tmp_path):
     monkeypatch.setattr("httpx.AsyncClient", lambda *a, **k: fake)
 
     result = await synth_voice(
-        VoiceRequest(text="こんにちは", language="ja"), _user()
+        VoiceRequest(text="こんにちは", language="ja"), _user(), _session()
     )
 
     assert len(fake.calls) == 1
@@ -129,7 +140,7 @@ async def test_ja_without_multilingual_config_returns_503(monkeypatch, tmp_path)
 
     with pytest.raises(HTTPException) as exc:
         await synth_voice(
-            VoiceRequest(text="こんにちは", language="ja"), _user()
+            VoiceRequest(text="こんにちは", language="ja"), _user(), _session()
         )
     assert exc.value.status_code == 503
 
@@ -140,5 +151,47 @@ async def test_invalid_language_returns_422(monkeypatch, tmp_path):
     monkeypatch.setattr("app.routes.voice._VOICE_DIR", tmp_path)
 
     with pytest.raises(HTTPException) as exc:
-        await synth_voice(VoiceRequest(text="x", language="fr"), _user())
+        await synth_voice(VoiceRequest(text="x", language="fr"), _user(), _session())
     assert exc.value.status_code == 422
+
+
+async def test_synth_registers_job_for_library(monkeypatch, tmp_path):
+    """TTS 产物建档:合成成功 → Job(kind=manju_voice, status=done) 落库,结果 URL 可回放。"""
+    _patch_settings(monkeypatch, "")
+    _patch_ratelimit(monkeypatch)
+    monkeypatch.setattr("app.routes.voice._VOICE_DIR", tmp_path)
+    fake = _FakeClient()
+    monkeypatch.setattr("httpx.AsyncClient", lambda *a, **k: fake)
+
+    result = await synth_voice(VoiceRequest(text="建档测试台词"), _user(), _session())
+
+    with _session() as s:
+        job = s.exec(
+            select(Job)
+            .where(Job.kind == "manju_voice", Job.prompt == "建档测试台词")
+            .order_by(Job.created_at.desc())  # 本地库可复用,同名历史行取最新
+        ).first()
+    assert job is not None
+    assert job.status == "done"
+    assert job.prompt == "建档测试台词"
+    assert json.loads(job.result) == [result.url]
+    assert job.prompt_id.startswith("tts-voice-")
+
+
+async def test_synth_job_register_failure_does_not_break(monkeypatch, tmp_path):
+    """建档失败不炸主流程:音频已落盘,响应照常返回。"""
+    _patch_settings(monkeypatch, "")
+    _patch_ratelimit(monkeypatch)
+    monkeypatch.setattr("app.routes.voice._VOICE_DIR", tmp_path)
+    fake = _FakeClient()
+    monkeypatch.setattr("httpx.AsyncClient", lambda *a, **k: fake)
+
+    class _BadSession:
+        def add(self, obj):
+            raise RuntimeError("db down")
+
+        def rollback(self):
+            pass
+
+    result = await synth_voice(VoiceRequest(text="容错"), _user(), _BadSession())
+    assert result.url.startswith("/api/manju/voice/")

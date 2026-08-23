@@ -121,7 +121,7 @@ async def test_image_motion_no_images(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_video_render_delegates_to_generator(monkeypatch):
-    """视频链封装 services/video_generators.get_generator(ltx),角色 token 注入。"""
+    """视频链封装 services/video_generators.get_generator(默认 h3),角色 token 注入。"""
     from app.services.video_generators import VideoGenResult
 
     seen: dict[str, object] = {}
@@ -132,7 +132,11 @@ async def test_video_render_delegates_to_generator(monkeypatch):
             seen.update(kwargs)
             return VideoGenResult(success=True, video_url="/api/video/x.mp4", job_id="j1")
 
-    monkeypatch.setattr(video_mod, "get_generator", lambda name, pool: FakeGen())
+    def _capture_gen(name, pool):
+        seen["gen_name"] = name
+        return FakeGen()
+
+    monkeypatch.setattr(video_mod, "get_generator", _capture_gen)
     shot = StudioShot(
         project_id="p", idx=0, render_mode="video",
         prompt="rainy alley, neon", duration_sec=6,
@@ -143,6 +147,12 @@ async def test_video_render_delegates_to_generator(monkeypatch):
     assert "1girl, silver hair" in seen["prompt"]
     assert "rainy alley, neon" in seen["prompt"]
     assert seen["duration_sec"] == 6
+    # 默认引擎 = h3(LTX-2.5 退役,2026-08-21;回归防退回死链 "ltx")
+    assert seen["gen_name"] == "h3"
+    # 显式 video_model 覆盖默认(kw 透传)
+    seen.clear()
+    await video_mod.VideoRenderer().render(shot, cast, pool=None, video_model="ltx")
+    assert seen["gen_name"] == "ltx"
 
 
 @pytest.mark.asyncio
@@ -174,7 +184,11 @@ async def test_video_render_unsuccess_result(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_video_render_fire_and_forget_waits(monkeypatch):
-    """ltx 提交后不直接返回 URL(success + job_id + raw.worker)→ 轮询 worker history。"""
+    """ltx 提交后不直接返回 URL(success + job_id + raw.worker)→ 轮询 worker history。
+
+    产物下载落盘 Studio 目录(2026-08-22 修复):此前返回 /api/images 代理 URL,
+    assemble 只认 /api/studio/files/ 前缀 → render_mode=video 分镜无法合成。
+    """
     from app.services.video_generators import VideoGenResult
 
     class SubmitOnlyGen:
@@ -192,15 +206,57 @@ async def test_video_render_fire_and_forget_waits(monkeypatch):
         async def get_result_files(self, prompt_id):
             return [{"filename": "out.mp4", "subfolder": "", "type": "output"}]
 
+        async def get_image_bytes(self, filename, subfolder, type_):
+            return b"\x00\x00mp4-fake", "video/mp4"
+
+    saved: list[tuple[bytes, str]] = []
+
+    def fake_save(data: bytes, ext: str) -> str:
+        saved.append((data, ext))
+        return f"/api/studio/files/abc123{ext}"
+
+    monkeypatch.setattr(video_mod, "get_generator", lambda name, pool: SubmitOnlyGen())
+    monkeypatch.setattr(video_mod, "ComfyUIClient", FakeClient)
+    monkeypatch.setattr(video_mod, "_POLL_INTERVAL", 0.01)
+    monkeypatch.setattr(video_mod, "_save_output", fake_save)
+
+    shot = StudioShot(project_id="p", idx=0, render_mode="video", prompt="x")
+    r = await video_mod.VideoRenderer().render(shot, [], pool=None)
+    assert r.kind == "video"
+    assert r.url == "/api/studio/files/abc123.mp4"  # Studio 落盘 URL(assemble 可合成)
+    assert saved == [(b"\x00\x00mp4-fake", ".mp4")]  # 产物已下载并落盘
+
+
+@pytest.mark.asyncio
+async def test_video_render_download_empty(monkeypatch):
+    """worker history 有产物但下载为空 → RenderError(不静默落空文件)。"""
+    from app.services.video_generators import VideoGenResult
+
+    class SubmitOnlyGen:
+        async def generate(self, prompt, **kwargs):
+            return VideoGenResult(
+                success=True,
+                job_id="pid-9",
+                raw={"worker": "http://fake:8188", "prompt_id": "pid-9"},
+            )
+
+    class FakeClient:
+        def __init__(self, base_url, timeout=30.0):
+            self.base_url = base_url
+
+        async def get_result_files(self, prompt_id):
+            return [{"filename": "out.mp4", "subfolder": "", "type": "output"}]
+
+        async def get_image_bytes(self, filename, subfolder, type_):
+            return b"", "video/mp4"
+
     monkeypatch.setattr(video_mod, "get_generator", lambda name, pool: SubmitOnlyGen())
     monkeypatch.setattr(video_mod, "ComfyUIClient", FakeClient)
     monkeypatch.setattr(video_mod, "_POLL_INTERVAL", 0.01)
 
     shot = StudioShot(project_id="p", idx=0, render_mode="video", prompt="x")
-    r = await video_mod.VideoRenderer().render(shot, [], pool=None)
-    assert r.kind == "video"
-    assert r.url.startswith("/api/images?")  # 代理 URL(tracker.image_url 格式)
-    assert "out.mp4" in r.url
+    with pytest.raises(base.RenderError, match="下载为空"):
+        await video_mod.VideoRenderer().render(shot, [], pool=None)
 
 
 # ── 项目级产出规格(分辨率/帧率)贯通 ──────────────────────────────────────

@@ -3,7 +3,7 @@
 关键锁定:
 - 注册表 schemas() 与旧 tools.TOOL_SCHEMAS 逐键等价(同一对象来源);
 - build_system_prompt 含全部 8 工具名;runner.system_prompt() 与迁移前 SYSTEM 逐字节一致
-  (2026-08-15 起原则段含 DramaClaw 纪律条款 7-11,见 docs/2026-08-15-agent-skill-discipline.md);
+  (2026-08-15 起原则段含 DramaClaw 纪律条款 7-11);
 - 守卫:NSFW 工具无 X-NSFW 上下文被拦(403 语义文本回给 LLM,executor 不被调用);
   限流守卫命中记配额,超额返回 429 语义文本;
 - 8 工具经注册表执行的输入输出与旧 if/elif 链一致(fake pool/client + 真库 session);

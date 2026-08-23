@@ -5,7 +5,7 @@
 + KSamplerSelect(res_multistep) → SamplerCustomAdvanced → VAEDecode + VAEDecodeAudio
 → CreateVideo(24fps) → SaveVideo(h264 + AAC 32kHz)。
 
-关键参数事实(见 docs/2026-08-03-minimax-h3-eval.md):
+关键参数事实(真机压测):
   · 分辨率上限 1344×768,32 对齐
   · 帧数 17k+5 网格 @24fps(124≈5.2s,上限 362≈15s)
   · 采样 20 steps,res_multistep/simple(模板内固定)

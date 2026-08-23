@@ -178,7 +178,10 @@ def _install_wan(monkeypatch, fake: _FakeWanClient) -> None:
 def _stub_wan_settings(monkeypatch, threshold: float = 26.0) -> None:
     """替换 wan_video 服务层 settings:显存预检阈值可控。"""
     monkeypatch.setattr(
-        wan_service, "get_settings", lambda: SimpleNamespace(wan_min_free_vram_gb=threshold)
+        wan_service,
+        "get_settings",
+        # fake stats 无 system 段 → RAM 预检解析 None 放行(不占本文件用例语义)
+        lambda: SimpleNamespace(wan_min_free_vram_gb=threshold, wan_min_free_ram_gb=15.0),
     )
 
 

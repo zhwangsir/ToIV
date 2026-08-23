@@ -1,7 +1,7 @@
 """R3.2 Agent Team 执行器:LangGraph StateGraph + checkpoint 断点续跑。
 
 承接 R3.1(routes/agent_team.py 的手写 asyncio 拓扑循环),按
-docs/2026-08-14-competitive-r3-r5-deep-dive.md §1.2/§1.3.1 落地:
+Agent Team 图谱落地:
 
 - 拓扑:START → setup(建 Studio 工程,幂等)→ schedule(确定性调度,非 LLM)
     ⇄ worker(Send API 并行 fan-out,每波完成后 join 回 schedule 再调度下一波)

@@ -112,9 +112,9 @@ def test_qwen_graph_clip_override_wins():
     )
     clip = _by_type(g, "CLIPLoader")
     assert clip["clip_name"] == "qwen_2.5_vl_7b_fp8_scaled.safetensors"
-    # 不传覆盖时用配方默认(候选列表第一个)
+    # 不传覆盖时用配方默认(候选列表第一个,worker 实测存在的 Qwen3-VL 单文件)
     g2 = build_nextgen_graph(NextgenParams(model_name=QWEN, positive="a fox"))
-    assert _by_type(g2, "CLIPLoader")["clip_name"] == "qwen_3_vl_8b_instruct"
+    assert _by_type(g2, "CLIPLoader")["clip_name"] == "qwen3vl_4b_fp8_scaled.safetensors"
 
 
 def test_flux2_graph_has_fluxguidance_and_flux2latent():

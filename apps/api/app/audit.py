@@ -17,12 +17,18 @@ import json
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from sqlmodel import Session
+import asyncio
+import logging
 
-from app.models import AuditLog, User
+from sqlmodel import Session, select
 
-# 撤销窗口:作品软删除后 10 分钟内可恢复(前端 toast 展示倒计时入口)
-UNDO_TTL_SECONDS = 600
+from app.models import AuditLog, Job, User
+
+# 撤销/回收站保留期:作品软删除后 72 小时内可恢复(undo token 与回收站共用同一窗口;
+# 过期行由 trash_purge_loop 物理删除)。前端 toast/回收站倒计时均以此为准。
+UNDO_TTL_SECONDS = 72 * 3600
+
+logger = logging.getLogger(__name__)
 
 
 def _utcnow() -> datetime:
@@ -69,3 +75,47 @@ def snapshot(obj) -> dict:
             continue
         data[k] = v
     return data
+
+
+# ---------------------------------------------------------------------------
+# 回收站兜底清理:超过保留期(UNDO_TTL_SECONDS)的软删作品物理删除。
+# DELETE /api/jobs/{id}/permanent 与 trash_purge_loop 共用 purge_job_row 删除路径。
+# ---------------------------------------------------------------------------
+
+
+def purge_job_row(session: Session, job: Job) -> None:
+    """物理删除一条作品行(不 commit,由调用方同一事务提交)。
+
+    产物文件留在 worker 输出目录(与软删除一致),只清 DB 行。
+    """
+    session.delete(job)
+
+
+def purge_expired_trash(engine, ttl: int = UNDO_TTL_SECONDS) -> int:
+    """物理删除超过保留期的软删作品;返回清理行数(独立短事务)。"""
+    # deleted_at 列是 naive UTC TIMESTAMP(models.py 注释),截止值同样按 naive 比较
+    cutoff = (_utcnow() - timedelta(seconds=ttl)).replace(tzinfo=None)
+    with Session(engine) as session:
+        rows = session.exec(
+            select(Job).where(Job.deleted_at != None, Job.deleted_at < cutoff)  # noqa: E712
+        ).all()
+        for job in rows:
+            purge_job_row(session, job)
+        session.commit()
+    return len(rows)
+
+
+# 清理节奏:每小时扫一次(保留期 72h,1h 粒度足够)
+TRASH_PURGE_INTERVAL = 3600
+
+
+async def trash_purge_loop(engine, interval: int = TRASH_PURGE_INTERVAL) -> None:
+    """周期性清理过期回收站行(防任何原因导致的堆积,自我修复;同 tracker.reconcile_loop 范式)。"""
+    while True:
+        await asyncio.sleep(interval)
+        try:
+            n = purge_expired_trash(engine)
+            if n:
+                logger.info("回收站清理:物理删除 %d 件过期作品", n)
+        except Exception as e:  # noqa: BLE001 — 后台任务绝不能因意外冒泡而静默死掉
+            logger.warning("trash purge loop error: %s", e)

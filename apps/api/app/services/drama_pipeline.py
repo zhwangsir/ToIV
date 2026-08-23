@@ -1,4 +1,4 @@
-"""短剧/Studio 管线状态重算(参照 DramaClaw pipeline.py,docs/2026-08-15 第二节第 1 条)。
+"""短剧/Studio 管线状态重算(参照 DramaClaw pipeline.py)。
 
 核心思想:不存全局状态机,管线状态由「DB 行 + 产物文件存在性」实时重算,
 直接给出 next_step;断点续跑 = 从首个缺失阶段继续,天然免疫状态漂移。

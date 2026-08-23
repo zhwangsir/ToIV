@@ -137,26 +137,28 @@ async def _poll_once(client: ComfyUIClient, prompt_id: str) -> str | None:
     return None
 
 
-async def _orphan_check(client: ComfyUIClient, prompt_id: str) -> bool:
-    """孤儿检测:/queue 与 /history 均无此 prompt_id → True(疑似 worker 重启丢作业)。
+async def _orphan_check(client: ComfyUIClient, prompt_id: str) -> tuple[bool, bool]:
+    """孤儿检测:返回 (orphan, in_queue)。
 
-    worker 不可达(ComfyUIError)返回 False:网络抖动 ≠ 孤儿,保持现有重试节奏。
+    orphan=True:/queue 与 /history 均无此 prompt_id(疑似 worker 重启丢作业);
+    in_queue=True:仍在 worker 队列(排队/执行中)—— 调用方可据此豁免超时计数。
+    worker 不可达(ComfyUIError)两者均 False:网络抖动 ≠ 孤儿,保持现有重试节奏。
     """
     get_queue = getattr(client, "get_queue", None)
     if get_queue is None:
-        return False  # 无 /queue 能力的替身(测试假 client)不做孤儿判定
+        return False, False  # 无 /queue 能力的替身(测试假 client)不做孤儿判定
     try:
         queued = await get_queue()
     except ComfyUIError:
-        return False
+        return False, False
     if prompt_id in queued:
-        return False
+        return False, True
     # /queue 可达不代表本轮 history 查过(history 查询可能刚失败),这里独立确认
     try:
         history = await client.get_history(prompt_id)
     except ComfyUIError:
-        return False
-    return prompt_id not in history
+        return False, False
+    return prompt_id not in history, False
 
 
 async def _track(
@@ -187,10 +189,10 @@ async def _track(
         if now - last_queue_check >= _QUEUE_CHECK_INTERVAL:
             last_queue_check = now
             try:
-                orphan = await _orphan_check(client, prompt_id)
+                orphan, in_queue = await _orphan_check(client, prompt_id)
             except Exception as e:  # noqa: BLE001 — 检测本身失败不误杀,下轮再试
                 logger.warning("job tracker %s orphan check error: %s", prompt_id, e)
-                orphan = False
+                orphan, in_queue = False, False
             if orphan:
                 strikes += 1
                 if strikes >= _ORPHAN_STRIKES:
@@ -204,6 +206,13 @@ async def _track(
                     return
             else:
                 strikes = 0
+                if in_queue:
+                    # 作业仍在 worker 队列排队/执行:排队等待不计入超时窗口。
+                    # 2026-08-21 教训:H3 单实例 17 段串行排队,后位作业光排队
+                    # 就超 7200s,被超时误标 error 而 ComfyUI 实际全部生成成功
+                    # (产物在盘上仅 DB 状态错)。超时只回收「worker 已不认识」
+                    # 的作业,排队中的作业归 orphan/正常轮询管。
+                    waited = 0.0
         await asyncio.sleep(delay)
         waited += delay
         delay = min(delay * 1.4, _POLL_MAX)
@@ -240,7 +249,8 @@ def reconcile_pending() -> int:
 
     超龄回收:created_at 超过 job_track_timeout + 宽限 的作业,其追踪协程早已
     超时退出(或历经多次 api 重启),重挂只会再空转一个超时周期 —— 直接标 error
-    终态回收,不再 spawn。
+    终态回收,不再 spawn。追踪协程仍在世(_tracked)的作业豁免:排队等待已由
+    _track 的队列豁免不计入超时(2026-08-21 教训),存活追踪会自行终态化。
     """
     settings = get_settings()
     timeout = settings.request_timeout
@@ -254,6 +264,9 @@ def reconcile_pending() -> int:
         stale: list[str] = []
         for j in rows:
             if not j.prompt_id or not j.worker:
+                continue
+            if j.prompt_id in _tracked:
+                pending.append((j.prompt_id, j.worker))  # 追踪在世,不超龄回收
                 continue
             created = j.created_at
             if created is not None:

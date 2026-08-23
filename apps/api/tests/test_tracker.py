@@ -332,27 +332,27 @@ def _fast_track(monkeypatch, queue_check_interval=0.0):
 
 
 def test_orphan_check_in_queue_not_orphan(db):
-    """作业正常在 queue 里 → 非孤儿,不误伤。"""
+    """作业正常在 queue 里 → 非孤儿,且报告 in_queue(供超时豁免)。"""
     c = _FakeQueueClient({}, queue={"p1"})
-    assert asyncio.run(tracker._orphan_check(c, "p1")) is False
+    assert asyncio.run(tracker._orphan_check(c, "p1")) == (False, True)
 
 
 def test_orphan_check_in_history_not_orphan(db):
     """queue 已空但 history 有条目(刚跑完)→ 非孤儿。"""
     c = _FakeQueueClient({"p1": {"outputs": {}, "status": {}}}, queue=set())
-    assert asyncio.run(tracker._orphan_check(c, "p1")) is False
+    assert asyncio.run(tracker._orphan_check(c, "p1")) == (False, False)
 
 
 def test_orphan_check_queue_and_history_missing_is_orphan(db):
     """queue 与 history 都无此 prompt → 孤儿。"""
     c = _FakeQueueClient({}, queue=set())
-    assert asyncio.run(tracker._orphan_check(c, "p1")) is True
+    assert asyncio.run(tracker._orphan_check(c, "p1")) == (True, False)
 
 
 def test_orphan_check_worker_unreachable_not_orphan(db):
     """worker 不可达(网络抖动)不算孤儿,保持重试。"""
     c = _FakeQueueClient({}, queue_down=True)
-    assert asyncio.run(tracker._orphan_check(c, "p1")) is False
+    assert asyncio.run(tracker._orphan_check(c, "p1")) == (False, False)
 
 
 def test_track_orphan_reclaimed_after_two_strikes(db, monkeypatch):
@@ -403,6 +403,59 @@ def test_track_marks_error_on_timeout(db, monkeypatch):
     c = _FakeClient({})  # history 永远无此 prompt
     asyncio.run(tracker._track(c, "p1", timeout=0.05))
     assert _job(db).status == "error"
+
+
+def test_track_queued_wait_does_not_count_toward_timeout(db, monkeypatch):
+    """回归(2026-08-21 事故):作业仍在 worker 队列排队时,排队等待不计入超时窗口。
+
+    事故复现口径:H3 单实例 17 段串行排队,后位作业光排队就超 7200s,
+    tracker 把「还在排队」当「超时」标 error,而 ComfyUI 实际全部生成成功。
+    本测试让作业在 queue 里停留远超 timeout 时限(无修复时第 ~4 轮就被
+    误标 error),随后正常完成 —— 期望最终落库 done 而非 error。
+    """
+    _fast_track(monkeypatch)
+    done_hist = {
+        "p1": {
+            "outputs": {"9": {"images": [{"filename": "a.png", "subfolder": "", "type": "output"}]}},
+            "status": {"completed": True, "status_str": "success"},
+        }
+    }
+
+    class _SlowQueueClient:
+        base_url = "http://w"
+
+        def __init__(self):
+            self.h_calls = 0
+
+        async def get_history(self, pid):
+            self.h_calls += 1
+            return done_hist if self.h_calls >= 6 else {}
+
+        async def get_queue(self):
+            # 前 5 轮 history 查询期间作业仍在队列排队(此时 waited 已远超 timeout)
+            return {"p1"} if self.h_calls < 6 else set()
+
+    asyncio.run(tracker._track(_SlowQueueClient(), "p1", timeout=0.05))
+    assert _job(db).status == "done"
+
+
+def test_reconcile_exempts_live_tracked_from_stale(db, monkeypatch):
+    """追踪协程仍在世的超龄作业不被 reconcile 盲回收(队列豁免由 _track 负责)。"""
+    called: list[str] = []
+    monkeypatch.setattr(tracker, "spawn", lambda client, pid: called.append(pid))
+    stale_ts = datetime.now(timezone.utc) - timedelta(seconds=7200 + 1800 + 60)
+    with Session(db) as s:
+        s.add(Job(tenant_id="t", user_id="u", prompt_id="plive", worker="http://w",
+                  kind="txt2img", status="queued", prompt="x", seed=1, created_at=stale_ts))
+        s.commit()
+    tracker._tracked.add("plive")
+    try:
+        tracker.reconcile_pending()
+        with Session(db) as s:
+            j = s.exec(select(Job).where(Job.prompt_id == "plive")).first()
+        assert j.status == "queued"  # 存活追踪豁免,不标 error
+    finally:
+        tracker._tracked.discard("plive")
 
 
 def test_reconcile_reclaims_stale_jobs(db, monkeypatch):

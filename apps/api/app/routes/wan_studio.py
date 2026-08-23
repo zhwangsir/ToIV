@@ -192,6 +192,7 @@ async def generate_wan_animate(
         graph, kind="wan_animate", positive=params.positive, seed=params.seed,
         req=req, user=user, session=session, client=client,
         nsfw=nsfw_allowed(user),
+        prechecked=True,  # 上方 ensure_wan_vram 已做显存+RAM 预检(Wan 阈值独立)
     )
     return _attach_duration_chain(result, plan, lambda: client)
 
@@ -242,5 +243,6 @@ async def generate_wan_vace(
         graph, kind="wan_vace", positive=params.positive, seed=params.seed,
         req=req, user=user, session=session, client=client,
         nsfw=nsfw_allowed(user),
+        prechecked=True,  # 上方 ensure_wan_vram 已做显存+RAM 预检(Wan 阈值独立)
     )
     return _attach_duration_chain(result, plan, lambda: client)

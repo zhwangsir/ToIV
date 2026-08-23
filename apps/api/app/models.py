@@ -68,8 +68,9 @@ class Job(SQLModel, table=True):
     parent_id: str = ""  # 父版本 Job.id(空=无父,自身即根)
     root_id: str = ""  # 版本树根 Job.id(空=自身即根;查链用 root_id or id)
     params: str = ""  # 建档时完整请求快照(JSON),支撑精确重生/锁seed微调/分支
-    # 软删除时间(操作防护体系 SAFETY-2026-08-17):空=正常;非空=已从作品库移除,
-    # 10 分钟撤销窗口内可经 /api/undo/{token} 恢复,过期后由清理任务物理删除。
+    # 软删除时间(操作防护体系 SAFETY-2026-08-17):空=正常;非空=已进回收站,
+    # 保留期(audit.UNDO_TTL_SECONDS,72h)内可经 /api/undo/{token} 或回收站恢复,
+    # 过期后由清理任务(audit.trash_purge_loop)物理删除。
     deleted_at: Optional[datetime] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=_now, index=True)  # 加索引:未终态作业按时间排序扫描
 
@@ -538,7 +539,7 @@ class ReferenceAsset(SQLModel, table=True):
 
 # ---------------------------------------------------------------------------
 # R3.1:Agent Team 统一入口(「计划可见+秒回+任务卡片」壳)—— 数据底座 4 表
-# 字段定义照抄 docs/2026-08-14-competitive-r3-r5-deep-dive.md 1.3.2;
+# 字段定义与后端 Agent Team 契约一致;
 # 本期零 LangGraph 依赖,checkpoint_ns 等字段为 R3.2 接 LangGraph 预留。
 # ---------------------------------------------------------------------------
 

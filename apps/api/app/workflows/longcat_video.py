@@ -30,7 +30,7 @@ DEFAULT_DISTILL_LORA = "LongCat_distill_lora_alpha64_bf16.safetensors"
 DEFAULT_T5 = "umt5-xxl-enc-fp8_e4m3fn.safetensors"
 DEFAULT_VAE = "Wan2_1_VAE_bf16.safetensors"
 
-# 长帧数自动上下文窗口(P1b 压测经验,见 docs/2026-08-07-long-video-services.md 3.4)
+# 长帧数自动上下文窗口(P1b 压测经验)
 CONTEXT_WINDOW_THRESHOLD = 241  # >241 帧必须开窗;≤121 帧实测无需开窗,留一档余量
 CONTEXT_FRAMES = 81             # 上下文窗口帧数(压测值)
 CONTEXT_OVERLAP = 16            # 窗口重叠帧数(压测值)
