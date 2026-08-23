@@ -87,7 +87,7 @@ test("内容分级:sfw 只留非 nsfw,r18 只留 nsfw,all 不过滤", () => {
 test("类型筛选:kind 精确映射 + 前缀规则,未识别 kind 只在「全部」出现", () => {
   const jobs = [
     makeJob("img", { kind: "txt2img" }),
-    makeJob("vid", { kind: "ltx25_t2v" }),
+    makeJob("vid", { kind: "h3_t2v" }),
     makeJob("cad", { kind: "cad_front" }),
     makeJob("ref", { kind: "drama_char_reference_hero" }),
     makeJob("unknown", { kind: "some_future_kind" }),

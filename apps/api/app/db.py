@@ -63,6 +63,8 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("job", "deleted_at", "deleted_at TIMESTAMP"),
     # Skill 市场化(2026-08-18):agents 属主列(空=公共内置/admin 建,非空=个人导入)
     ("agent", "user_id", "user_id TEXT NOT NULL DEFAULT ''"),
+    # 资源预算二期(2026-08-23):hold 排队原因列(held 作业的前端可读说明)
+    ("job", "hold_reason", "hold_reason VARCHAR NOT NULL DEFAULT ''"),
 )
 
 # 整段 SQL 幂等迁移(CREATE TABLE IF NOT EXISTS 等,非 ADD COLUMN 场景)。
@@ -395,6 +397,66 @@ _SQLITE_RAW_MIGRATIONS: tuple[str, ...] = (
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_agentmessage_session ON agentmessage(session_id)",
+    # ── B 评测管线(2026-08-23):evalbatch/evalscore 两表 ──
+    # 新库由 SQLModel create_all 建立;此处保 prod 既有库幂等补建(与 agentrun 同双轨写法)
+    """
+    CREATE TABLE IF NOT EXISTS evalbatch (
+        id            TEXT PRIMARY KEY,
+        tenant_id     TEXT NOT NULL,
+        user_id       TEXT NOT NULL,
+        engine        TEXT DEFAULT 'h3',
+        kind          TEXT DEFAULT 'h3_t2v',
+        prompt        TEXT DEFAULT '',
+        params        TEXT DEFAULT '{}',
+        seeds         TEXT DEFAULT '[]',
+        job_ids       TEXT DEFAULT '[]',
+        n             INTEGER DEFAULT 0,
+        scorer        TEXT DEFAULT 'auto',
+        status        TEXT DEFAULT 'generating',
+        winner_job_id TEXT DEFAULT '',
+        nsfw          BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_evalbatch_user ON evalbatch(user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_evalbatch_created ON evalbatch(created_at)",
+    """
+    CREATE TABLE IF NOT EXISTS evalscore (
+        id         TEXT PRIMARY KEY,
+        batch_id   TEXT NOT NULL,
+        job_id     TEXT NOT NULL,
+        user_id    TEXT NOT NULL,
+        prompt     TEXT DEFAULT '',
+        params     TEXT DEFAULT '{}',
+        result     TEXT DEFAULT '[]',
+        seed       BIGINT DEFAULT 0,
+        score      REAL DEFAULT 0,
+        breakdown  TEXT DEFAULT '{}',
+        scorer     TEXT DEFAULT '',
+        degraded   BOOLEAN NOT NULL DEFAULT FALSE,
+        critique   TEXT DEFAULT '',
+        rank       INTEGER DEFAULT 0,
+        is_winner  BOOLEAN NOT NULL DEFAULT FALSE,
+        error      TEXT DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_evalscore_batch ON evalscore(batch_id)",
+    "CREATE INDEX IF NOT EXISTS idx_evalscore_job ON evalscore(job_id)",
+    # ── E 数据飞轮(2026-08-23):偏好数据集导出幂等票 ──
+    """
+    CREATE TABLE IF NOT EXISTS evaldatasetexport (
+        id          TEXT PRIMARY KEY,
+        batch_id    TEXT NOT NULL,
+        nsfw        BOOLEAN NOT NULL DEFAULT FALSE,
+        pair_count  INTEGER DEFAULT 0,
+        file_path   TEXT DEFAULT '',
+        skip_reason TEXT DEFAULT '',
+        created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_evaldatasetexport_batch ON evaldatasetexport(batch_id)",
 )
 
 

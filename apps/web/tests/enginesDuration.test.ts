@@ -1,6 +1,6 @@
 /**
  * 时长按秒选择(2026-08-16)web 侧单测(node:test + fetch 桩 + react-dom/server):
- * ① engines.ts payload:SFW(ltx25/h3)与 R18(ltx-2.3/h3)引擎时长一律直传
+ * ① engines.ts payload:SFW(h3)与 R18(ltx-2.3/h3)引擎时长一律直传
  *    duration_sec(秒),不再前端换算帧数(旧 _ltxNsfwLength/_H3_NSFW_DURATION_FRAMES 已删);
  * ② ParamField:number 类型小数步进(step=0.5)与 hint 渲染;
  * ③ ResultPanel:条目带 duration_notice 时渲染一行 muted 提示(stage-message)。
@@ -58,19 +58,6 @@ function _engine(id: string, label: string): EngineInfo {
 }
 
 /* ── ① payload 直传秒 ── */
-
-test("ltx25-t2v payload:duration 秒数直传 duration_sec,无 length 帧数", async () => {
-  await submitEngineGeneration({
-    engine: _engine("ltx25-t2v", "LTX 2.5 文生视频"),
-    positive: "海边日落",
-    values: { duration: "7.5", width: "960", height: "544", fps: "24", steps: "8", seed: "" },
-  });
-  const body = fetchCalls[0].body as Record<string, unknown>;
-  // API_BASE 在模块加载期定型(测试环境 localhost:8090),断言路径尾部(同 videoUpscale 惯例)
-  assert.ok(fetchCalls[0].url.endsWith("/api/ltx25/t2v"));
-  assert.equal(body.duration_sec, 7.5);
-  assert.equal("length" in body, false);
-});
 
 test("h3-t2v payload:duration 秒数直传 duration_sec,无 length", async () => {
   await submitEngineGeneration({

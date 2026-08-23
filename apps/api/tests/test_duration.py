@@ -8,7 +8,7 @@
   · validate_engine_frames 文案(与旧 drama 422 文案一致)
   · run_duration_chain:trim 单段 ffmpeg 精确裁 + 产物回传 input + on_final 回写;
     extend 两段(末帧抽取 + 续段帧数 + concat);缺 submit_next 报错
-  · 路由:H3/LTX-2.5 duration_sec 入参(direct/trim/extend/422)、legacy length 兼容、
+  · 路由:H3 duration_sec 入参(direct/trim/extend/422)、legacy length 兼容、
     R18 LTX duration_sec(direct/422)
   · 路由(2026-08-17 收口):LongCat/Avatar/Wan-Animate/Wan-VACE duration_sec
     (direct/trim/上下文窗口提示/422)、legacy num_frames 兼容、双缺省默认秒数
@@ -29,7 +29,6 @@ import app.routes.avatar_studio as avatar_route
 import app.routes.wan_studio as wan_route
 import app.services.h3 as h3_service
 import app.services.longcat as longcat_service
-import app.services.ltx25 as ltx25_service
 import app.services.video_generators as vgen
 from app.comfy.client import ComfyUIError
 from app.db import get_session
@@ -59,12 +58,6 @@ from app.services.duration import (
         ("h3", 6, 24, 158, "trim"),        # 144→158(6.58s,差 0.58 → 裁)
         ("h3", 0.5, 24, 22, "trim"),       # 12→22 帧(0.92s,差 0.42 → 裁)
         ("h3", 10, 24, 243, "direct"),     # 240→243(10.125s,差 0.125)
-        # LTX-2.5 8k+1 [9,601] @24
-        ("ltx25", 5, 24, 121, "direct"),   # 120→121(5.04s)
-        ("ltx25", 25, 24, 601, "direct"),  # 600→601(25.04s)
-        ("ltx25", 6, 16, 97, "direct"),    # 96→97(6.06s)
-        ("ltx25", 0.5, 24, 17, "direct"),  # 12→17(0.71s,差 0.21 ≤0.25)
-        ("ltx25", 0.4, 24, 17, "trim"),    # 10→17(0.71s,差 0.31 → 裁)
         # LTX-2.3 8k+1 [9,241] @16
         ("ltx", 6, 16, 97, "direct"),
         ("ltx", 15, 16, 241, "direct"),
@@ -94,12 +87,12 @@ def test_resolve_direct_and_trim(engine, seconds, fps, frames, strategy):
 
 
 def test_resolve_trim_threshold_exact_025_not_trimmed():
-    """秒差恰好 0.25s 不裁(> 才裁):fps=8 时 17 帧=2.125s,请求 1.875s 差 0.25 → direct。"""
-    plan = resolve_duration("ltx25", 1.875, 8)
-    assert plan.frames == 17
+    """秒差恰好 0.25s 不裁(> 才裁):fps=4 时 H3 下限 22 帧=5.5s,请求 5.25s 差 0.25 → direct。"""
+    plan = resolve_duration("h3", 5.25, 4)
+    assert plan.frames == 22
     assert plan.strategy == "direct"
-    # 多一丝(1.874 → 差 0.251)→ trim
-    plan2 = resolve_duration("ltx25", 1.874, 8)
+    # 多一丝(5.24 → 差 0.26)→ trim
+    plan2 = resolve_duration("h3", 5.24, 4)
     assert plan2.strategy == "trim"
 
 
@@ -124,18 +117,6 @@ def test_resolve_h3_extend_max_60s():
         resolve_duration("h3", 60.5, 24)
 
 
-def test_resolve_ltx25_extend():
-    """LTX-2.5 30s@24=720 → [601,121];60s → [601,601,241];61s 报错。"""
-    plan = resolve_duration("ltx25", 30, 24)
-    assert plan.strategy == "extend"
-    assert plan.segment_frames == (601, 121)
-    assert plan.trim_to == 30
-    plan60 = resolve_duration("ltx25", 60, 24)
-    assert plan60.segment_frames == (601, 601, 241)
-    with pytest.raises(DurationLimitError):
-        resolve_duration("ltx25", 61, 24)
-
-
 @pytest.mark.parametrize(
     "engine,seconds,fps",
     [("ltx", 16, 16), ("ltx", 15, 30), ("longcat", 61, 16), ("animate", 32, 16), ("vace", 16, 16)],
@@ -154,7 +135,7 @@ def test_resolve_longcat_context_window_notice():
 
 def test_resolve_direct_no_notice():
     assert resolve_duration("h3", 5, 24).notice == ""
-    assert resolve_duration("ltx25", 5, 24).notice == ""
+    assert resolve_duration("ltx", 6, 16).notice == ""
 
 
 def test_resolve_errors():
@@ -196,7 +177,7 @@ def test_snap_up_grid():
     assert snap_engine_frames("h3", 124, direction="up") == 124
     assert snap_engine_frames("h3", 125, direction="up") == 141
     assert snap_engine_frames("h3", 1, direction="up") == 22
-    assert snap_engine_frames("ltx25", 120, direction="up") == 121
+    assert snap_engine_frames("ltx", 120, direction="up") == 121
     assert snap_engine_frames("longcat", 5, direction="up") == 17  # 无网格仅钳位
     with pytest.raises(ValueError, match="未知吸附方向"):
         snap_engine_frames("h3", 124, direction="nearest")
@@ -431,10 +412,17 @@ def test_spawn_trim_marks_then_rewrite_clears(monkeypatch):
     monkeypatch.setattr(vgen, "run_duration_chain", _fake_chain)
 
     async def _main():
+        before = set(vgen._post_tasks)
         vgen.spawn_duration_chain(client=None, plan=plan, first_prompt_id="pid-pp")
         # 同步置位(事件循环尚未调度后台任务,此刻必为 processing)
         assert _pp_read(eng, "pid-pp").post_status == "processing"
-        await asyncio.gather(*list(vgen._post_tasks))
+        # 只等本次 spawn 新建的任务:_post_tasks 是进程级全局集合,全量高负载下
+        # 可能残留其他用例挂在已关闭/异事件循环上的任务(done 回调 discard 不一定
+        # 已跑),gather 整个集合会被无关残留牵连(CancelledError/跨循环 RuntimeError)
+        # ——flaky 根因。按前后差集精确取本用例的任务,确定性等待。
+        new_tasks = [t for t in vgen._post_tasks if t not in before]
+        assert len(new_tasks) == 1
+        await asyncio.gather(*new_tasks)
 
     asyncio.run(_main())
     job = _pp_read(eng, "pid-pp")
@@ -455,9 +443,13 @@ def test_spawn_chain_failure_clears_flag_keeps_raw(monkeypatch):
     monkeypatch.setattr(vgen, "run_duration_chain", _boom)
 
     async def _main():
+        before = set(vgen._post_tasks)
         vgen.spawn_duration_chain(client=None, plan=plan, first_prompt_id="pid-fail")
         assert _pp_read(eng, "pid-fail").post_status == "processing"
-        await asyncio.gather(*list(vgen._post_tasks))
+        # 同上:只等本次 spawn 新建的任务,不 gather 进程级全局集合(flaky 根因)。
+        new_tasks = [t for t in vgen._post_tasks if t not in before]
+        assert len(new_tasks) == 1
+        await asyncio.gather(*new_tasks)
 
     asyncio.run(_main())
     job = _pp_read(eng, "pid-fail")
@@ -532,7 +524,7 @@ def test_clear_stale_post_status_on_startup(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# 路由集成:H3 / LTX-2.5 / R18 LTX 的 duration_sec
+# 路由集成:H3 / R18 LTX 的 duration_sec
 # ---------------------------------------------------------------------------
 
 
@@ -573,7 +565,7 @@ def client(engine):
 
 
 class _FakeInstanceClient:
-    """专用实例替身(H3/LTX-2.5 通用):object_info/queue_prompt/upload_image/stats。"""
+    """专用实例替身(H3 等专用实例通用):object_info/queue_prompt/upload_image/stats。"""
 
     def __init__(self, base_url: str = "http://fake-inst") -> None:
         self.base_url = base_url
@@ -617,11 +609,6 @@ class _FakePool:
 def _install_h3(monkeypatch, fake: _FakeInstanceClient) -> None:
     monkeypatch.setattr(h3_service, "get_h3_client", lambda: fake)
     monkeypatch.setattr(h3_service, "spawn_tracker", lambda client, prompt_id: None)
-
-
-def _install_ltx25(monkeypatch, fake: _FakeInstanceClient) -> None:
-    monkeypatch.setattr(ltx25_service, "get_ltx25_client", lambda: fake)
-    monkeypatch.setattr(ltx25_service, "spawn_tracker", lambda client, prompt_id: None)
 
 
 def _capture_spawn(monkeypatch) -> list[dict]:
@@ -749,83 +736,6 @@ def test_h3_route_default_is_5s(client, monkeypatch):
     )
     assert r.status_code == 200, r.text
     assert fake.graphs[0]["104"]["inputs"]["length"] == 124
-
-
-# ── LTX-2.5 路由 ──
-
-
-def test_ltx25_route_duration_sec_direct(client, monkeypatch):
-    """LTX-2.5 duration_sec=6@24fps:144→145 帧 direct(差 0.04s),无 notice。"""
-    c, eng = client
-    with Session(eng) as s:
-        uid = _seed_user(s, "dur-l25-dir")
-    fake = _FakeInstanceClient("http://fake-ltx25")
-    _install_ltx25(monkeypatch, fake)
-    spawns = _capture_spawn(monkeypatch)
-    r = c.post(
-        "/api/ltx25/t2v",
-        headers={"Authorization": f"Bearer {create_token(uid)}"},
-        json={"positive": "海上风暴", "duration_sec": 6},
-    )
-    assert r.status_code == 200, r.text
-    assert fake.graphs[0]["10"]["inputs"]["length"] == 145
-    assert "duration_notice" not in r.json()
-    assert spawns == []
-
-
-def test_ltx25_route_duration_sec_extend(client, monkeypatch):
-    """LTX-2.5 duration_sec=30:2 段续写 [601,121],notice 说明,挂链。"""
-    c, eng = client
-    with Session(eng) as s:
-        uid = _seed_user(s, "dur-l25-ext")
-    fake = _FakeInstanceClient("http://fake-ltx25")
-    _install_ltx25(monkeypatch, fake)
-    spawns = _capture_spawn(monkeypatch)
-    r = c.post(
-        "/api/ltx25/t2v",
-        headers={"Authorization": f"Bearer {create_token(uid)}"},
-        json={"positive": "海上风暴", "duration_sec": 30},
-    )
-    assert r.status_code == 200, r.text
-    body = r.json()
-    assert "分 2 段续写" in body["duration_notice"]
-    assert fake.graphs[0]["10"]["inputs"]["length"] == 601
-    plan = spawns[0]["plan"]
-    assert plan.segment_frames == (601, 121)
-    assert callable(spawns[0]["submit_next"])
-
-
-def test_ltx25_route_legacy_length_still_works(client, monkeypatch):
-    """legacy length=120 → 吸附 113(与旧行为一致),无 notice。"""
-    c, eng = client
-    with Session(eng) as s:
-        uid = _seed_user(s, "dur-l25-legacy")
-    fake = _FakeInstanceClient("http://fake-ltx25")
-    _install_ltx25(monkeypatch, fake)
-    spawns = _capture_spawn(monkeypatch)
-    r = c.post(
-        "/api/ltx25/t2v",
-        headers={"Authorization": f"Bearer {create_token(uid)}"},
-        json={"positive": "a", "length": 120},
-    )
-    assert r.status_code == 200, r.text
-    assert fake.graphs[0]["10"]["inputs"]["length"] == 113
-    assert "duration_notice" not in r.json()
-    assert spawns == []
-
-
-def test_ltx25_route_duration_sec_over_60_422(client, monkeypatch):
-    c, eng = client
-    with Session(eng) as s:
-        uid = _seed_user(s, "dur-l25-max")
-    _install_ltx25(monkeypatch, _FakeInstanceClient("http://fake-ltx25"))
-    r = c.post(
-        "/api/ltx25/t2v",
-        headers={"Authorization": f"Bearer {create_token(uid)}"},
-        json={"positive": "a", "duration_sec": 61},
-    )
-    assert r.status_code == 422
-    assert "最长支持 60 秒" in r.json()["detail"]
 
 
 # ── R18 LTX 路由(/api/generate/ltx-t2v)──

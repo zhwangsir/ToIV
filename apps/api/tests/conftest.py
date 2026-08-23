@@ -50,3 +50,14 @@ def _clear_comfy_client_pool():
     comfy_client._http_clients.clear()
     yield
     comfy_client._http_clients.clear()
+
+
+@pytest.fixture(autouse=True)
+def _pref_dataset_tmp(monkeypatch, tmp_path):
+    """偏好数据集导出目录指向临时目录:finalize 自动导出钩子默认开,
+    不隔离的话任何跑 finalize 的用例会往仓库 data/preference_dataset/ 写文件。"""
+    from app.config import get_settings
+
+    monkeypatch.setattr(
+        get_settings(), "pref_dataset_dir", str(tmp_path / "preference_dataset")
+    )

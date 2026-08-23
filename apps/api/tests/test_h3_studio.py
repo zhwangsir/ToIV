@@ -18,6 +18,7 @@ from sqlmodel import Session, SQLModel, create_engine, select
 
 import app.routes.h3_studio as h3_route
 import app.services.h3 as h3_service
+import app.services.hold_queue as hold_queue
 from app.comfy.client import ComfyUIError
 from app.db import get_session
 from app.main import app
@@ -557,6 +558,7 @@ def test_vram_insufficient_evicts_idle_coworker_then_ok(client, monkeypatch):
 
 
 def test_vram_insufficient_coworker_busy_no_evict_503(client, monkeypatch):
+    monkeypatch.setattr(hold_queue, "holdable", lambda exc: False)  # 预检拦截单测:关 hold 保一期 503 语义(资源预算二期)
     """同卡 worker 队列非空闲:绝不驱逐(会杀死在跑作业)→ 503 错峰提示。"""
     c, engine = client
     with Session(engine) as s:
@@ -577,6 +579,7 @@ def test_vram_insufficient_coworker_busy_no_evict_503(client, monkeypatch):
 
 
 def test_vram_insufficient_no_recovery_503(client, monkeypatch):
+    monkeypatch.setattr(hold_queue, "holdable", lambda exc: False)  # 预检拦截单测:关 hold 保一期 503 语义(资源预算二期)
     """驱逐后复查仍不足 → 503(原因清晰,而非 ComfyUI 裸崩 VRAM grow failed)。"""
     c, engine = client
     with Session(engine) as s:
@@ -675,6 +678,66 @@ def test_t2v_marks_job_nsfw_with_x_nsfw_header(client, monkeypatch):
         job = s.exec(select(Job).where(Job.user_id == uid)).first()
         assert job is not None
         assert job.kind == "h3_t2v" and job.nsfw is True
+
+
+def test_t2v_nsfw_swaps_unet_to_10eros_max(client, monkeypatch):
+    """/nsfw 专区(X-NSFW: 1)提交:UNETLoader(节点 6)换成 10Eros-Max TURBO
+    (TOIV_H3_NSFW_UNET 默认值),Job 打 nsfw 标。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "h3nsfw-unet")
+    fake = _FakeH3Client()
+    _install_h3(monkeypatch, fake)
+    r = c.post(
+        "/api/h3/t2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}", "X-NSFW": "1"},
+        json={"positive": "a girl, cinematic"},
+    )
+    assert r.status_code == 200, r.text
+    assert fake.graphs[0]["6"]["inputs"]["unet_name"] == (
+        "10Eros_Max_h3_TURBO_ref2va_beta2_int8_convrot.safetensors"
+    )
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        assert job is not None and job.nsfw is True
+
+
+def test_t2v_sfw_keeps_template_unet(client, monkeypatch):
+    """主站(无 X-NSFW 头):UNET 保持模板 minimax 底模,不换 10Eros-Max。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "h3sfw-unet")
+    fake = _FakeH3Client()
+    _install_h3(monkeypatch, fake)
+    r = c.post(
+        "/api/h3/t2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={"positive": "a cat"},
+    )
+    assert r.status_code == 200, r.text
+    assert fake.graphs[0]["6"]["inputs"]["unet_name"] == (
+        "minimax_h3_fl2va_pruned_int8_convrot.safetensors"
+    )
+
+
+def test_i2v_nsfw_swaps_unet_to_10eros_max(client, monkeypatch):
+    """i2v 同款:nsfw 上下文换 10Eros-Max UNET,首帧转运逻辑不受影响。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "h3i2vnsfw-unet")
+    fake = _FakeH3Client()
+    _install_h3(monkeypatch, fake)
+    monkeypatch.setattr(h3_route, "resolve_worker", lambda worker: _FakeSourceWorker())
+    r = c.post(
+        "/api/h3/i2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}", "X-NSFW": "1"},
+        json={"positive": "x", "image": "in.png", "worker": "http://fake-worker"},
+    )
+    assert r.status_code == 200, r.text
+    assert fake.graphs[0]["6"]["inputs"]["unet_name"] == (
+        "10Eros_Max_h3_TURBO_ref2va_beta2_int8_convrot.safetensors"
+    )
+    assert fake.graphs[0]["100"]["inputs"]["image"] == "h3-in.png"
 
 
 def test_i2v_marks_job_nsfw_with_x_nsfw_header(client, monkeypatch):

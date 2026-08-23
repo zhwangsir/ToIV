@@ -20,7 +20,7 @@ import time
 from datetime import datetime, timezone
 from urllib.parse import urlencode
 
-from sqlmodel import Session, select
+from sqlmodel import Session, or_, select
 
 from app.comfy.client import ComfyUIClient, ComfyUIError
 from app.config import get_settings
@@ -314,7 +314,11 @@ async def wait_for_jobs(
 
     任一作业进入 error 或超时即抛出 RuntimeError。
 
-    每轮用单条 `prompt_id IN (...)` 查询取回全部候选(替代逐 pid 的 N+1)。
+    每轮用单条查询取回全部候选(替代逐 pid 的 N+1)。
+
+    资源预算二期:held 作业放行后 prompt_id 会从占位符(hold-*)换成 worker
+    真实值;首次见到即记录 job.id,后续轮次按 id 跟踪,不受换名影响
+    (见 services/hold_queue)。查询条件 = 已知 id ∪ 未解析 prompt_id,仍单条。
 
     关键:每次循环前显式 commit() 结束当前事务。SQLAlchemy 同步 Session
     在第一次 SQL 时开启事务,后续 SELECT 在同一事务快照内,看不到其他
@@ -325,20 +329,28 @@ async def wait_for_jobs(
     pending = set(prompt_ids)
     waited = 0.0
     results: dict[str, list[str]] = {}
+    id_by_pid: dict[str, str] = {}  # 原始 pid -> job.id(held 放行换名后仍按 id 跟踪)
     while pending and waited < timeout:
         # commit() 保留:纯读但会结束当前事务,下一轮 SELECT 重开新快照,
         # 才能看到 tracker.mark_done 等其他 Session 的提交(见 docstring)。
         session.commit()
-        # 单条 IN 查询取回全部候选,替代逐 pid SELECT 的 N+1
-        rows = session.exec(
-            select(Job).where(Job.prompt_id.in_(pending))  # type: ignore[attr-defined]
-        ).all()
+        # 单条查询取回全部候选,替代逐 pid SELECT 的 N+1
+        known_ids = [id_by_pid[p] for p in pending if p in id_by_pid]
+        unknown_pids = [p for p in pending if p not in id_by_pid]
+        conds = []
+        if known_ids:
+            conds.append(Job.id.in_(known_ids))  # type: ignore[attr-defined]
+        if unknown_pids:
+            conds.append(Job.prompt_id.in_(unknown_pids))  # type: ignore[attr-defined]
+        rows = session.exec(select(Job).where(or_(*conds))).all()
         by_pid = {j.prompt_id: j for j in rows}
+        by_id = {j.id: j for j in rows}
         done: set[str] = set()
         for pid in list(pending):
-            job = by_pid.get(pid)
+            job = by_id.get(id_by_pid[pid]) if pid in id_by_pid else by_pid.get(pid)
             if not job:
                 raise RuntimeError(f"作业 {pid} 不存在")
+            id_by_pid[pid] = job.id
             if job.status == "done":
                 results[pid] = json.loads(job.result) if job.result else []
                 done.add(pid)

@@ -103,6 +103,9 @@ export function TrainView() {
   // api 层仅在 promise 终态(done/error)时主动 es.close();组件卸载时若 promise 仍 pending,
   // 需在此主动 close 以避免连接泄漏。
   const sseRef = useRef<Map<string, EventSource>>(new Map());
+  // 每个在途跟踪的中止控制器:卸载时统一 abort,让 trackTrainJob 立即 settle
+  // (只 close EventSource 不会让 Promise 落定,.finally 清理永不执行,跟踪闭包悬挂)
+  const abortRef = useRef<Map<string, AbortController>>(new Map());
   const [, setForceRender] = useState(0);
 
   const load = useCallback(() => {
@@ -141,7 +144,11 @@ export function TrainView() {
       if (trackingRef.current.has(jobId)) return;
       trackingRef.current.add(jobId);
 
+      const ac = new AbortController();
+      abortRef.current.set(jobId, ac);
+
       trackTrainJob(jobId, {
+        signal: ac.signal,
         onProgress: (p: TrainProgress) => {
           patchJob(jobId, { progress: p, status: "training" });
         },
@@ -158,6 +165,8 @@ export function TrainView() {
           patchJob(jobId, { status: "done" });
         })
         .catch((err) => {
+          // 卸载触发的显式中止:静默——组件已卸载,不能按失败标 error
+          if (err instanceof Error && err.name === "AbortError") return;
           patchJob(jobId, {
             status: "error",
             error: err instanceof Error ? err.message : "训练失败",
@@ -166,6 +175,7 @@ export function TrainView() {
         .finally(() => {
           trackingRef.current.delete(jobId);
           sseRef.current.delete(jobId);
+          abortRef.current.delete(jobId);
           setForceRender((n) => n + 1);
         });
     },
@@ -182,12 +192,13 @@ export function TrainView() {
     }
   }, [jobs, trackJob]);
 
-  // 卸载时清空追踪集合,并主动关闭所有活跃 SSE 连接。
-  // api 层 trackTrainJob 仅在 promise 终态(done/error)时 es.close();
-  // 若组件在 promise 仍 pending 时卸载,需在此兜底 close 以避免连接泄漏。
+  // 卸载时清空追踪集合,abort 所有在途跟踪(trackTrainJob 立即 settle 并自行关流),
+  // 并兜底关闭所有活跃 SSE 连接。
   useEffect(() => {
     return () => {
       trackingRef.current.clear();
+      abortRef.current.forEach((ac) => ac.abort());
+      abortRef.current.clear();
       sseRef.current.forEach((es) => es.close());
       sseRef.current.clear();
     };

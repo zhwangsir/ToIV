@@ -118,6 +118,11 @@ def _inject_loras(graph: dict, loras: tuple[LoraSpec, ...]) -> None:
         graph[consumer]["inputs"]["model"] = model_ref
 
 
+def apply_nsfw_unet(graph: dict, unet_name: str) -> None:
+    """NSFW 场景切换 UNETLoader(节点 "6")底模(如 10Eros-Max 嫁接版);SFW 不调用。"""
+    graph[_NODE_UNET]["inputs"]["unet_name"] = unet_name
+
+
 def build_h3_t2v_graph(params: H3T2VParams) -> dict:
     """文生视频图:模板 + 参数注入(+ 可选 LoRA 链)。"""
     graph = copy.deepcopy(_load_template("t2v_prompt.json"))

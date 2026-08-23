@@ -2,6 +2,33 @@
 
 ---
 
+## LOOP2-2026-08-23 · 自主循环第二波:H3矩阵收敛/hold排队/观测面板/评测管线/数据飞轮/音频编排/工程债
+
+**时间**: 2026-08-23(午后→傍晚)
+**类型**: 八任务并行 swarm 交付(均已部署 core 并生产验证)
+
+### 回归基线
+
+- 后端全量 **1927 passed**(4m37s);前端 **445 passed / 0 fail**;`tsc --noEmit` 0 错误
+- test_duration 连续 5 次单文件全绿(flaky 根治:差集精确等待替代 gather 全局 _post_tasks)
+
+### 生产验证(core 100.77.80.100)
+
+- `GET /api/observability`:四卡在线实时 VRAM(GPU0 16.3/95、GPU1 67.8/95、GPU2 72.1/95、GPU3 52.8/95),24h 成功率 86.5%(32 done/5 error);PC01/PC02 离线如实标 OFFLINE(core 侧 000 实测机器不可达,非面板 bug)
+- `GET /api/eval/batches` / `GET /api/eval/dataset/stats` 在线(空数据符合预期);`/api/audio/orch/files/x` 400(路由已注册,参数校验生效)
+- R18 回归:2 条生产 H3 作业 done(h264+aac 32kHz);10Eros-Max 默认 UNET 路径用仓库新代码构建同图直提 :8195 验证成功(history 确认 unet=10Eros-Max TURBO)
+
+### 各任务交付要点
+
+- ① H3 矩阵收敛:`TOIV_H3_NSFW_UNET` 默认 10Eros-Max TURBO,收口在 submit_h3_job(t2v/i2v/extend/drama 分镜四链单点覆盖)
+- ② hold 排队:HeldJob 票+FIFO 放行+超时兜底,配置 TOIV_HOLD_QUEUE_ENABLED/CHECK_INTERVAL_SEC(30)/RELEASE_MAX_PER_ROUND(2)/TIMEOUT_SEC(3600);held 的 SSE 推 held 事件不连 WS
+- ④ B 评测:EvalBatch/EvalScore,Heuristic+VLM 双评分器(VLM 失败降级标 degraded);遗留:watcher 进程内,重启需手动重调 finalize
+- ⑤ E 飞轮:DPO JSONL 导出,阈值 0.15,nsfw 分文件,幂等票
+- ⑦ C 编排:/api/audio/orchestrate(tts/separate/concat;mix/sfx 501 占位),core ffmpeg 在 /usr/bin/ffmpeg
+- ⑧ 工程债:ltx25 双端零残留(后端 1811→全绿、前端 438→445);trackJob abort 接全;hydration 修 2 处
+
+---
+
 ## UX-2026-08-23 · 内容管控下线 + 作品库回收站 + 助手 Shift+Enter 与灯带重设计
 
 **时间**: 2026-08-23(午后)

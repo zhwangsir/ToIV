@@ -494,20 +494,6 @@ def test_video_engine_dialect_h3(client_token, monkeypatch):
     assert r.json()["optimized"] == "a cat walks, slow motion"
 
 
-def test_video_engine_dialect_ltx25_audio(client_token, monkeypatch):
-    """ltx25 系引擎:音画同出方言(positive 可含声音描述)。"""
-    captured: dict = {}
-    _patch_layered(monkeypatch, '{"positive": "waves, gentle surf sound", "negative": "blur"}', captured)
-    client, token = client_token
-    r = client.post(
-        "/api/optimize",
-        headers={"Authorization": f"Bearer {token}"},
-        json={"prompt": "海浪", "kind": "video", "engine": "ltx25-t2v"},
-    )
-    assert r.status_code == 200, r.text
-    assert "音画同出" in captured["system"]
-
-
 def test_pick_trigger_words_modes():
     """pick_trigger_words 纯函数:all 全选 / pick_one 场景命中与兜底 / 未注册静默跳过 / 保序去重。"""
     from app.workflows.wan_i2v import pick_trigger_words

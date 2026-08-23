@@ -23,6 +23,7 @@ from sqlmodel import Session, SQLModel, create_engine
 
 import app.routes.wan_studio as wan_route
 import app.services.h3 as h3_service
+import app.services.hold_queue as hold_queue
 import app.services.longcat as longcat_service
 import app.services.resource_budget as rb
 from app.comfy.client import ComfyUIError
@@ -256,11 +257,18 @@ async def test_vram_still_low_503():
 
 
 # --------------------------------------------------------------------------- #
-# 接线回归:三处提交链路在低 RAM 下一律 503(显存充足也拦)
+# 接线回归:三处提交链路在低 RAM 下一律拦截(显存充足也拦)。
+# 资源预算二期起预检不足默认转 hold 排队(见 test_hold_queue.py);本组用例
+# 统一关 hold(holdable=False),验证 hold 不可用时维持一期 503 语义。
 # --------------------------------------------------------------------------- #
 
 
-def test_h3_wiring_low_ram_503(client, monkeypatch):
+@pytest.fixture
+def _hold_off(monkeypatch):
+    monkeypatch.setattr(hold_queue, "holdable", lambda exc: False)
+
+
+def test_h3_wiring_low_ram_503(client, monkeypatch, _hold_off):
     """h3.ensure_h3_vram 尾部已接 RAM 预检:显存 96G 充足、RAM 3G → 503,不提交。"""
     c, eng = client
     with Session(eng) as s:
@@ -278,7 +286,7 @@ def test_h3_wiring_low_ram_503(client, monkeypatch):
     assert fake.graphs == []  # 未提交
 
 
-def test_wan_wiring_low_ram_503(client, monkeypatch):
+def test_wan_wiring_low_ram_503(client, monkeypatch, _hold_off):
     """wan_video.ensure_wan_vram 尾部已接 RAM 预检:显存充足、RAM 3G → 503。"""
     c, eng = client
     with Session(eng) as s:
@@ -298,7 +306,7 @@ def test_wan_wiring_low_ram_503(client, monkeypatch):
     assert fake.graphs == []
 
 
-def test_longcat_wiring_low_ram_503(client, monkeypatch):
+def test_longcat_wiring_low_ram_503(client, monkeypatch, _hold_off):
     """submit_longcat_job 已接 VRAM+RAM 双预检:显存充足、RAM 3G → 503。"""
     c, eng = client
     with Session(eng) as s:
@@ -316,7 +324,7 @@ def test_longcat_wiring_low_ram_503(client, monkeypatch):
     assert fake.graphs == []
 
 
-def test_longcat_wiring_low_vram_503(client, monkeypatch):
+def test_longcat_wiring_low_vram_503(client, monkeypatch, _hold_off):
     """LongCat 新增显存预检(此前完全没有):显存 10G < 26G 阈值 → 503。"""
     c, eng = client
     with Session(eng) as s:

@@ -33,7 +33,7 @@ from app.security import create_token, hash_password
 
 
 # --------------------------------------------------------------------------- #
-# 公共 fixtures / fakes(与 test_ltx25_studio.py 同一模式)
+# 公共 fixtures / fakes
 # --------------------------------------------------------------------------- #
 
 

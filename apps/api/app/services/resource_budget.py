@@ -5,6 +5,10 @@
 宿主机 RAM 毫无护栏。同一宿主机上所有 ComfyUI 实例的 /system_stats 报告同一份
 system.ram_free(字节),经任一实例读取即代表整机水位。
 
+本模块抛出的 503 自 2026-08-23 起由提交收口(services/h3、longcat、routes/wan_studio)
+经 services/hold_queue 转为 hold 排队(资源释放后自动放行);仅 hold 开关关闭时
+才以 503 直达调用方。
+
 降级原则与既有显存预检完全一致:
   · /system_stats 读取失败 → 放行(降级不预检,由 ComfyUI 自身错误兜底);
   · 阈值 ≤ 0 → 显式关闭预检;

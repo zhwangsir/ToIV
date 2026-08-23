@@ -61,7 +61,7 @@ interface OptimizeButtonProps {
   kind?: string;
   /** 新:目标 checkpoint(传给后端让 LLM 适配模型族方言) */
   model?: string;
-  /** 新:目标引擎 id(视频类按引擎切换方言模板,如 wan-nsfw-i2v/h3-t2v/ltx25-i2v) */
+  /** 新:目标引擎 id(视频类按引擎切换方言模板,如 wan-nsfw-i2v/h3-t2v) */
   engine?: string;
   /** 新:已选 LoRA 文件名列表(Wan NSFW 注册表内条目触发词由后端确定性注入) */
   loras?: string[];

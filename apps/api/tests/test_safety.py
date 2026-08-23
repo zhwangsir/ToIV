@@ -180,10 +180,11 @@ def test_recipes_nsfw_gating(ctx):
     rows = r.json()["recipes"]
     # 主站(无 X-NSFW)只有 SFW 配方
     assert all(not x["nsfw"] for x in rows)
-    assert any(x["id"] == "ltx25-vlog-dialogue" for x in rows)
     # /nsfw 上下文可见 R18 配方
     rows2 = client.get("/api/models/recipes", headers={**H, "X-NSFW": "1"}).json()["recipes"]
     assert any(x["id"] == "wan-kenpechi-missionary" for x in rows2)
     # engine 过滤
-    rows3 = client.get("/api/models/recipes?engine=ltx25-t2v", headers=H).json()["recipes"]
-    assert all(x["engine_id"] == "ltx25-t2v" for x in rows3)
+    rows3 = client.get(
+        "/api/models/recipes?engine=wan-nsfw-i2v", headers={**H, "X-NSFW": "1"}
+    ).json()["recipes"]
+    assert rows3 and all(x["engine_id"] == "wan-nsfw-i2v" for x in rows3)

@@ -284,6 +284,11 @@ class Settings(BaseSettings):
     # 2026-08-10 起 H3 实例独占 GPU2(CUDA_VISIBLE_DEVICES=2,GPU0 温度/显存双高压),
     # 同卡实例为 LongCat :8197 与 M6 超分 :8262(空闲队列才驱逐,在跑作业绝不动)。
     h3_co_workers: str = "http://192.168.71.127:8197,http://192.168.71.127:8262"
+    # H3 NSFW 场景默认 UNET:10Eros-Max H3 嫁接版 TURBO(NAS toiv/comfyui-models/h3/
+    # diffusion_models/,经 extra_model_paths 对 H3 实例可见;2026-08-23 真机实测 R18+音画
+    # 直出完好)。仅 nsfw=True(X-NSFW 专区)提交时替换模板节点 "6" 的 unet_name;
+    # SFW 保持模板 minimax_h3_fl2va_pruned_int8_convrot 不变。
+    h3_nsfw_unet: str = "10Eros_Max_h3_TURBO_ref2va_beta2_int8_convrot.safetensors"
 
     # —— LongCat-Video 长视频引擎(专用 ComfyUI 实例,workstation GPU2 :8197) ——
     # 独立于 WorkerPool(WanVideo 系节点仅该实例装有);systemd comfyui-longcat.service 托管,
@@ -295,13 +300,6 @@ class Settings(BaseSettings):
     # 480p49f 实测峰值 ~21GB,显存阈值取 26 与 Wan 对齐。
     longcat_min_free_vram_gb: float = 26.0
     longcat_min_free_ram_gb: float = 15.0
-
-    # —— LTX-2.5 SFW 视频引擎(专用 ComfyUI 0.32 实例,workstation GPU0 :8198) ——
-    # 独立于 WorkerPool(生产 :8189 为 0.27,无 LTX-2.5 节点);systemd comfyui-ltx25.service
-    # 托管,权重在 /home/merlin/models/ltx25/(nvfp4 蒸馏 transformer + gemma4 with-proj +
-    # 双 VAE,经 extra_model_paths 注册)。替换原 SFW LTX-2.3 链路;NSFW 仍走 2.3+10Eros。
-    ltx25_enabled: bool = True
-    ltx25_base_url: str = "http://192.168.71.127:8198"
 
     # —— R3.2 Agent Team LangGraph 编排(2026-08-14) ——
     # checkpointer 选型:True 且 database_url 为 postgresql 时用 PostgresSaver(复用 core
@@ -329,6 +327,40 @@ class Settings(BaseSettings):
     wan_min_free_vram_gb: float = 26.0
     # 宿主机 RAM 预检阈值(GiB,语义同 h3_min_free_ram_gb;与 H3/LongCat 同宿主机)。
     wan_min_free_ram_gb: float = 15.0
+
+    # —— 资源预算二期:hold 排队(预检不足不直接 503,作业 held 入库等资源释放) ——
+    # 预检(RAM/VRAM)仍不足时作业置 held + HeldJob 票(graph/原因/需求快照入库),
+    # 调度循环周期性复查,资源够按提交时间 FIFO 自动放行(见 services/hold_queue)。
+    hold_queue_enabled: bool = True
+    # 调度复查间隔(秒)。保守 30s:预检本身可能触发缓存驱逐+5s 落定,不宜过密。
+    hold_check_interval_sec: float = 30.0
+    # 单轮最多放行数量(防雪崩:资源刚回升时一次性放行过多会立刻又打爆 GPU2)。
+    hold_release_max_per_round: int = 2
+    # hold 超时上限(秒):超过仍未放行标 error(hold_reason 写超时说明),不无限等。
+    hold_timeout_sec: float = 3600.0
+
+    # —— B 评测管线(best-of-n + 自动评分,2026-08-23) ——
+    # eval_scorer: 默认评分器。auto=配了 eval_vlm_base_url 走 VLM、否则启发式;
+    # heuristic=零外部依赖基线(分辨率/时长/完整性/音轨,经 ffprobe 探测,探测不到
+    # 自动跳过对应维度);vlm=强制 VLM(不可达时逐变体降级启发式,不炸链路)。
+    eval_scorer: str = "auto"
+    # VLM/LLM 评分端点(OpenAI 兼容;生产可指 studio04 mlx-vlm :9303 或 spark02 :8000)。
+    # 空 = 未配置,auto 档直接用启发式。
+    eval_vlm_base_url: str = ""
+    eval_vlm_model: str = "qwen3.6-uncensored"
+    eval_vlm_timeout: float = 60.0
+    # 批次 watcher 轮询 Job 终态间隔(秒)。
+    eval_watch_poll_sec: float = 5.0
+
+    # —— E 数据飞轮:评测评分 → 偏好数据集导出(2026-08-23) ——
+    # pref_export_auto: 批次 finalize 完成后自动尝试导出该批次(不合格批次落 0 对
+    # 幂等票记原因,不重复处理);关掉则只靠手动 POST /api/eval/dataset/export。
+    pref_export_auto: bool = True
+    # chosen/rejected 最低分差(严格大于才入集):分差太小 = 变体无区分度,训练噪声。
+    pref_pair_min_gap: float = 0.15
+    # JSONL 输出目录(core 本地);按导出日期滚动 + SFW/NSFW 分文件
+    # (pref_sfw_YYYY-MM-DD.jsonl / pref_nsfw_YYYY-MM-DD.jsonl)。
+    pref_dataset_dir: str = "data/preference_dataset"
 
     @property
     def embed_url(self) -> str:
@@ -364,11 +396,6 @@ class Settings(BaseSettings):
     def longcat_base(self) -> str:
         """LongCat 专用实例基址(已去尾斜杠)。"""
         return self.longcat_base_url.strip().rstrip("/")
-
-    @property
-    def ltx25_base(self) -> str:
-        """LTX-2.5 专用实例基址(已去尾斜杠)。"""
-        return self.ltx25_base_url.strip().rstrip("/")
 
     @property
     def h3_co_worker_urls(self) -> list[str]:

@@ -19,8 +19,7 @@ export interface QuickStartDef {
  */
 export const QUICK_START_DEFS: Record<EngineKind, QuickStartDef[]> = {
   video: [
-    { engineId: "ltx25-t2v", title: "LTX 2.5 文生视频", desc: "音画同出,8 步快速出片", icon: "zap" },
-    { engineId: "h3-t2v", title: "MiniMax H3", desc: "剧情连续性强,适合叙事分镜", icon: "film" },
+    { engineId: "h3-t2v", title: "MiniMax H3", desc: "音画直出,剧情连续性强", icon: "zap" },
     { engineId: "longcat-t2v", title: "LongCat 长镜头", desc: "单镜头最长 60s 连贯画面", icon: "video" },
   ],
   image: [

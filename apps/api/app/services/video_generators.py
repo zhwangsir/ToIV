@@ -1,13 +1,13 @@
 """视频生成模型聚合层 —— 抽象 VideoGenerator 接口,支持多模型可选。
 
-对标 liblib.tv 的多模型聚合(Seedance/Kling)。LTX(SFW 走 LTX-2.5 专用实例,
-NSFW 走 LTX-2.3 ComfyUI pool)与 LiveAct(独立 worker)实际可用,
+对标 liblib.tv 的多模型聚合(Seedance/Kling)。LTX(仅 NSFW 走 LTX-2.3 ComfyUI pool;
+SFW 的 LTX-2.5 链路 2026-08-23 随引擎退役移除)与 LiveAct(独立 worker)实际可用,
 Seedance/Kling 为 stub(返回占位错误响应),预留接口供后续接入。
 
 设计要点:
   · VideoGenerator 抽象基类统一 generate() 签名,各实现按需翻译参数
-  · LtxVideoGenerator 双链路:SFW → LTX-2.5 专用实例(build_ltx25_t2v_graph,
-    音画同出);NSFW → LTX-2.3+10Eros(build_ltx_t2v_graph + pool.pick)
+  · LtxVideoGenerator 仅保留 R18 链路:LTX-2.3+10Eros(build_ltx_t2v_graph + pool.pick);
+    SFW 请求直接返回退役提示(请改用 H3 引擎)
   · 实际等待(wait_for_jobs)由调用方决定,生成器只负责提交 + 返回 job_id
   · list_generators() / get_generator() 工厂供路由层与前端选择器使用
 """
@@ -142,9 +142,34 @@ async def _wait_files(
     超时按挂钟计(2026-08-20 修复):此前以 poll 累加计数,get_history 本身耗时
     (大 history 响应秒级)不计入,实际等待可达名义值的 ~1.4×(3600s 名义 →
     实测 5000s+ 才超时),与调用方预期不符。
+
+    资源预算二期:首段/续段可能处于 held(资源排队),其占位 prompt_id(hold-*)
+    永远不会出现在 worker history;每轮先从 DB 跟进:仍 held → 等待(豁免超时,
+    同 tracker 排队豁免——排队是正常调度不是故障);放行 → 换真实 prompt_id
+    继续等产物;error → 抛错让链回落原始产物。
     """
     deadline = time.monotonic() + timeout
+    hold_job_id: str | None = None  # 首次见到 held 作业后记 id,放行换名仍按 id 跟踪
     while time.monotonic() < deadline:
+        if hold_job_id is not None or prompt_id.startswith("hold-"):
+            from app.db import engine as db_engine
+
+            with Session(db_engine) as s:
+                job = (
+                    s.get(Job, hold_job_id)
+                    if hold_job_id
+                    else s.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
+                )
+            if job is None:
+                raise RuntimeError(f"作业 {prompt_id} 不存在")
+            hold_job_id = job.id
+            if job.status == "held":
+                deadline = time.monotonic() + timeout  # hold 等待不计入超时窗口
+                await asyncio.sleep(poll)
+                continue
+            if job.status == "error":
+                raise RuntimeError(f"作业 {prompt_id} 执行失败")
+            prompt_id = job.prompt_id  # 已放行:换成 worker 真实 prompt_id
         try:
             history = await client.get_history(prompt_id)
         except ComfyUIError:
@@ -355,55 +380,24 @@ class VideoGenerator(ABC):
 
 
 class LtxVideoGenerator(VideoGenerator):
-    """LTX 视频生成器:SFW 走 LTX-2.5 专用实例(音画同出),NSFW 保留 LTX-2.3 pool 链路。
+    """LTX 视频生成器:仅保留 NSFW 链路(LTX-2.3 + 10Eros pool,R18 不迁移)。
 
-    SFW(2026-08-13 起替换 LTX-2.3 链路):
-      Ltx25T2VParams → build_ltx25_t2v_graph → :8198 专用实例
-      (ensure_ltx25_enabled/ensure_ltx25_ready)→ queue_prompt → spawn_tracker;
-      与 WorkerPool 无关(独立实例,同 H3 模式),worker 钉选不适用。
-    NSFW(R18 保留,不迁移):
+    SFW 的 LTX-2.5 专用实例链路已于 2026-08-23 随引擎退役移除:SFW 请求
+    直接返回失败原因(引导改用 H3),不再提交。
+    NSFW(R18 保留):
       LtxT2VParams(10Eros)→ build_ltx_t2v_graph → pool.pick → queue_prompt → spawn_tracker
     只提交不等待,调用方拿 job_id 自行决定是否同步 wait_for_jobs。
     """
 
     name = "ltx"
-    display_name = "LTX 2.5"
-    description = "LTX-2.5 音画同出视频(SFW 主力);R18 走 LTX-2.3 + 10Eros"
+    display_name = "LTX 2.3"
+    description = "LTX-2.3 + 10Eros(R18 专用);SFW 视频请用 MiniMax H3"
     supports_image2video = True
     supports_text2video = True
 
     def __init__(self, pool: WorkerPool | None = None, tracker=spawn_tracker) -> None:
         self._pool = pool
         self._tracker = tracker  # 测试时可注入 mock
-
-    @staticmethod
-    def _snap32(v: int, lo: int, hi: int) -> int:
-        """吸附 32 对齐并钳位 [lo, hi](LTX-2.5 分辨率约束)。"""
-        v = max(lo, min(hi, int(v)))
-        return max(lo, (v // 32) * 32)
-
-    def _ltx25_extend_submit(self, client: Any, base: Any) -> Callable[[bytes, int, int], Awaitable[str]]:
-        """extend 续段提交(生成器链路:末帧 i2v,直提实例不登记段 Job;strength=1.0 硬锁末帧保连贯)。"""
-        from app.workflows.ltx25_video import Ltx25I2VParams, build_ltx25_i2v_graph
-
-        async def _submit(frame_bytes: bytes, frames: int, idx: int) -> str:
-            image_name = await client.upload_image(frame_bytes, f"toiv_ext_{uuid.uuid4().hex}.jpg")
-            p = Ltx25I2VParams(
-                positive=base.positive,
-                negative=base.negative,
-                image=image_name,
-                width=base.width,
-                height=base.height,
-                length=frames,
-                fps=base.fps,
-                steps=base.steps,
-                strength=1.0,
-                seed=base.seed + idx,
-                filename_prefix=base.filename_prefix,
-            )
-            return await client.queue_prompt(build_ltx25_i2v_graph(p), uuid.uuid4().hex)
-
-        return _submit
 
     async def generate(
         self,
@@ -426,81 +420,10 @@ class LtxVideoGenerator(VideoGenerator):
                 prompt, negative=negative, width=width, height=height,
                 duration_sec=duration_sec, fps=fps, seed=seed, worker=worker, **kwargs,
             )
-        return await self._generate_ltx25(
-            prompt, negative=negative, width=width, height=height,
-            duration_sec=duration_sec, fps=fps, seed=seed, **kwargs,
-        )
-
-    async def _generate_ltx25(
-        self,
-        prompt: str,
-        *,
-        negative: str,
-        width: int,
-        height: int,
-        duration_sec: int,
-        fps: int,
-        seed: int | None,
-        **kwargs: Any,
-    ) -> VideoGenResult:
-        """SFW 链路:LTX-2.5 专用实例(音画同出,蒸馏单阶段)。"""
-        from fastapi import HTTPException
-
-        from app.services import ltx25 as ltx25_service
-        from app.workflows.ltx25_video import Ltx25T2VParams, build_ltx25_t2v_graph
-
-        try:
-            ltx25_service.ensure_ltx25_enabled()
-            client = ltx25_service.get_ltx25_client()
-            await ltx25_service.ensure_ltx25_ready(client)
-        except HTTPException as e:
-            return VideoGenResult(success=False, model=self.name, error=str(e.detail))
-
-        fps_used = max(8, min(60, int(fps)))
-        try:
-            plan = resolve_duration("ltx25", float(duration_sec), fps_used)
-        except DurationLimitError as e:
-            return VideoGenResult(success=False, model=self.name, error=str(e))
-
-        seed_used = seed if seed is not None else Ltx25T2VParams(positive="").seed
-        params = Ltx25T2VParams(
-            positive=prompt,
-            negative=negative,
-            width=self._snap32(width, 256, 1920),
-            height=self._snap32(height, 256, 1088),
-            length=plan.frames,
-            fps=fps_used,
-            steps=max(1, min(50, int(kwargs.get("steps", 8)))),
-            seed=seed_used,
-            filename_prefix=kwargs.get("filename_prefix", "ToIV_drama_video"),
-        )
-        graph = build_ltx25_t2v_graph(params)
-        client_id = uuid.uuid4().hex
-        try:
-            prompt_id = await client.queue_prompt(graph, client_id)
-        except ComfyUIError as e:
-            return VideoGenResult(success=False, model=self.name, error=str(e))
-
-        self._tracker(client, prompt_id)
-        if plan.strategy != "direct":
-            spawn_duration_chain(
-                client=client,
-                plan=plan,
-                first_prompt_id=prompt_id,
-                submit_next=self._ltx25_extend_submit(client, params),
-            )
+        # SFW 链路已随 LTX-2.5 退役(2026-08-23)移除,引导改用 H3
         return VideoGenResult(
-            success=True,
-            job_id=prompt_id,
-            model=self.name,
-            duration_notice=plan.notice,
-            raw={
-                "prompt_id": prompt_id,
-                "client_id": client_id,
-                "worker": client.base_url,
-                "seed": seed_used,
-                "duration_notice": plan.notice,
-            },
+            success=False, model=self.name,
+            error="LTX SFW 链路已退役:SFW 视频请改用 H3 引擎(R18 请开启 nsfw)",
         )
 
     async def _generate_nsfw_pool(

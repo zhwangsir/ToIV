@@ -22,6 +22,7 @@ from app.routes import (
     assets,
     assembly,
     audio,
+    audio_orchestrate,
     audio_tools,
     avatar_studio,
     backlot,
@@ -31,6 +32,7 @@ from app.routes import (
     dub_anime,
     dub_text,
     dub_voice,
+    eval_batch,
     drama_studio,
     drama_skills,
     drama_pipeline,
@@ -44,12 +46,12 @@ from app.routes import (
     jobs,
     lipsync,
     longcat_studio,
-    ltx25_studio,
     ltx_studio,
     manju,
     manju_project,
     marketplace,
     models,
+    observability,
     optimize,
     reference_assets,
     reverse,
@@ -118,6 +120,14 @@ async def lifespan(app: FastAPI):
 
     reconcile_pending()
     reconcile_task = asyncio.create_task(reconcile_loop())
+    # 资源预算二期:hold 排队调度循环(held 作业资源到位后按 FIFO 自动放行)
+    from app.services import hold_queue
+
+    hold_task = (
+        asyncio.create_task(hold_queue.hold_scheduler_loop())
+        if get_settings().hold_queue_enabled
+        else None
+    )
     # 回收站兜底清理:超过 72h 保留期的软删作品物理删除(audit.trash_purge_loop)
     from app import audit as _audit
 
@@ -159,6 +169,8 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         reconcile_task.cancel()
+        if hold_task is not None:
+            hold_task.cancel()
         trash_task.cancel()
         if smoke_task is not None:
             smoke_task.cancel()
@@ -311,6 +323,7 @@ def create_app() -> FastAPI:
         video_upscale,
         threed,
         audio,
+        audio_orchestrate,
         audio_tools,
         agent,
         agent_team,
@@ -328,6 +341,7 @@ def create_app() -> FastAPI:
         dub_anime,
         dub_text,
         dub_voice,
+        eval_batch,
         drama_studio,
         drama_skills,
         drama_pipeline,
@@ -336,6 +350,7 @@ def create_app() -> FastAPI:
         cad,
         drama_analytics,
         forge,
+        observability,
         system,
         studio,
         upload,
@@ -346,7 +361,6 @@ def create_app() -> FastAPI:
         workflows,
         opentalking,
         ltx_studio,
-        ltx25_studio,
         h3_studio,
         longcat_studio,
         avatar_studio,

@@ -2189,6 +2189,58 @@ export async function getGpuStats(signal?: AbortSignal): Promise<LiveTelemetry |
   }
 }
 
+// ---------- 观测面板(2026-08-23):GET /api/observability 聚合快照 ----------
+
+export interface ObservabilityInstance {
+  name: string;
+  url: string;
+  online: boolean;
+  vram_total_gb: number | null;
+  vram_used_gb: number | null;
+  vram_used_pct: number | null;
+  queue_running: number;
+  queue_pending: number;
+}
+
+export interface ObservabilityGpu {
+  id: string;
+  host: string;
+  online: boolean;
+  vram_total_gb: number | null;
+  vram_used_gb: number | null;
+  vram_used_pct: number | null;
+  queue_running: number;
+  queue_pending: number;
+  instances: ObservabilityInstance[];
+}
+
+export interface ObservabilitySnapshot {
+  generated_at: string;
+  cache_ttl_sec: number;
+  queue: { queued: number; held: number; running: number; other: number };
+  success_24h: {
+    window_hours: number;
+    done: number;
+    error: number;
+    total: number;
+    rate: number | null;
+  };
+  held: { total: number; reasons: { reason: string; count: number }[] };
+  gpus: ObservabilityGpu[];
+}
+
+/** 观测面板聚合快照(队列分桶/24h 成功率/GPU VRAM)。仅管理员;非 2xx 抛错由视图展示。 */
+export async function fetchObservability(
+  signal?: AbortSignal,
+): Promise<ObservabilitySnapshot> {
+  const res = await apiFetch(`/api/observability`, {
+    headers: authHeaders(),
+    signal,
+  });
+  if (!res.ok) await raiseApiError(res, "加载观测数据失败");
+  return res.json();
+}
+
 // ===========================================================================
 // LoRA 训练(D 期)—— 上传数据集 → Florence2 打标 → AI-Toolkit 训练 → 注册
 // ===========================================================================
@@ -2242,10 +2294,16 @@ export async function startTraining(
   return res.json();
 }
 
-/** SSE 追踪训练进度。resolve 时训练完成(lora_path 在 TrainJob 里),reject 时失败。 */
+/** SSE 追踪训练进度。resolve 时训练完成(lora_path 在 TrainJob 里),reject 时失败。
+ *  opts.signal:外部中止(组件卸载等)——abort 后立即关流并以 name=AbortError 的
+ *  Error reject;只 close EventSource 不会让 Promise 落定,调用方 await 会永久挂起。 */
 export function trackTrainJob(
   jobId: string,
-  opts: { onProgress?: (p: TrainProgress) => void; register?: (es: EventSource | null) => void },
+  opts: {
+    onProgress?: (p: TrainProgress) => void;
+    register?: (es: EventSource | null) => void;
+    signal?: AbortSignal;
+  },
 ): Promise<void> {
   const token = getToken();
   const url = `${API_BASE}/api/train/${jobId}/events${token ? `?token=${token}` : ""}`;
@@ -2254,6 +2312,30 @@ export function trackTrainJob(
   let done = false;
 
   return new Promise<void>((resolve, reject) => {
+    /** 终态收尾:关流、交还句柄、摘 abort 监听。 */
+    const settle = (fn: () => void): void => {
+      done = true;
+      es.close();
+      opts.register?.(null);
+      opts.signal?.removeEventListener("abort", onAbort);
+      fn();
+    };
+    /** 外部中止(组件卸载):显式关流并 reject(AbortError),调用方静默吞掉即可。 */
+    const onAbort = (): void => {
+      if (done) return;
+      settle(() => {
+        const err = new Error("已停止跟踪该训练作业(后端仍继续)");
+        err.name = "AbortError";
+        reject(err);
+      });
+    };
+    if (opts.signal) {
+      if (opts.signal.aborted) {
+        onAbort();
+        return;
+      }
+      opts.signal.addEventListener("abort", onAbort);
+    }
     es.addEventListener("message", (e) => {
       try {
         const data = JSON.parse(e.data);
@@ -2266,15 +2348,9 @@ export function trackTrainJob(
             recent_losses: data.recent_losses ?? [],
           });
         } else if (evt === "done") {
-          done = true;
-          es.close();
-          opts.register?.(null);
-          resolve();
+          settle(resolve);
         } else if (evt === "error") {
-          done = true;
-          es.close();
-          opts.register?.(null);
-          reject(new Error(data.message ?? "训练失败"));
+          settle(() => reject(new Error(data.message ?? "训练失败")));
         }
       } catch {
         // 忽略解析错误
@@ -2282,9 +2358,7 @@ export function trackTrainJob(
     });
     es.onerror = () => {
       if (!done) {
-        es.close();
-        opts.register?.(null);
-        reject(new Error("训练连接中断"));
+        settle(() => reject(new Error("训练连接中断")));
       }
     };
   });

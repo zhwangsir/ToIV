@@ -1,14 +1,12 @@
 """引擎注册表端点(GET /api/models/engines)测试。
 
 覆盖:
-  · 结构:首批引擎(txt2img/img2img/ltx25-t2v/ltx25-i2v)+ h3-t2v/h3-i2v 条目,
+  · 结构:首批引擎(txt2img/img2img)+ h3-t2v/h3-i2v 条目,
     每项含 id/label/kind/available/nsfw/params;params 元素 type 在允许集合内
   · NSFW 过滤:SFW 上下文无 nsfw 引擎(LTX-2.3 10Eros / h3-nsfw 全部隐藏);
     R18 上下文(nsfw_intent_var 置位)nsfw 引擎出现
   · 可用性:fake pool 可达 → 图像引擎 available=True;全不可达 → False + 原因;
-    h3/ltx25/longcat/wan 走独立实例探测(各自 stub 替身),与 pool 死活无关
-  · LTX-2.5(2026-08-13 起替换 SFW LTX-2.3 链路):实例探测替身 ltx25_stub,
-    实例不可达 / 缺 LTXAVTextEncoderLoader 节点 / TOIV_LTX25_ENABLED=false → 不可用 + 原因
+    h3/longcat/wan 走独立实例探测(各自 stub 替身),与 pool 死活无关
 """
 from __future__ import annotations
 
@@ -152,24 +150,6 @@ def longcat_stub(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def ltx25_stub(monkeypatch):
-    """LTX-2.5 实例探测替身:默认在线且含 LTXAVTextEncoderLoader 节点;置 .nodes=None 模拟不可达。
-
-    无此替身时 _probe_ltx25 会向真实 TOIV_LTX25_BASE_URL(默认 workstation :8198)发 HTTP,
-    单元测试不允许依赖局域网真实实例。
-    """
-    state = SimpleNamespace(nodes={"LTXAVTextEncoderLoader"})
-
-    async def _fake() -> set[str]:
-        if state.nodes is None:
-            raise ComfyUIError("connection refused")
-        return set(state.nodes)
-
-    monkeypatch.setattr(engine_registry, "_fetch_ltx25_nodes", _fake)
-    return state
-
-
-@pytest.fixture(autouse=True)
 def h3_lora_stub(monkeypatch):
     """H3 LoRA 枚举替身:默认空列表;置 .loras=None 模拟实例不可达(声明态空 options)。
 
@@ -187,7 +167,7 @@ def h3_lora_stub(monkeypatch):
 async def test_structure_four_engines_plus_h3(live_pool, user):
     engines = await list_engines(live_pool, user)
     ids = _by_id(engines)
-    for eid in ("txt2img", "img2img", "ltx25-t2v", "ltx25-i2v", "h3-t2v", "h3-i2v"):
+    for eid in ("txt2img", "img2img", "h3-t2v", "h3-i2v"):
         assert eid in ids, f"缺引擎 {eid}"
     for e in engines:
         for key in ("id", "label", "kind", "available", "nsfw", "description", "params"):
@@ -204,7 +184,7 @@ async def test_structure_four_engines_plus_h3(live_pool, user):
 
 
 async def test_sfw_context_filters_nsfw_engines_and_options(live_pool, user):
-    """SFW 上下文(默认):无 nsfw 引擎,ltx-nsfw 三条(10Eros)整条目隐藏;SFW 视频主力为 ltx25。"""
+    """SFW 上下文(默认):无 nsfw 引擎,ltx-nsfw 三条(10Eros)整条目隐藏;SFW 视频主力为 h3。"""
     token = nsfw_intent_var.set(False)
     try:
         engines = await list_engines(live_pool, user)
@@ -214,7 +194,7 @@ async def test_sfw_context_filters_nsfw_engines_and_options(live_pool, user):
     ids = _by_id(engines)
     for eid in ("ltx-nsfw-t2v", "ltx-nsfw-i2v", "ltx-nsfw-lipsync"):
         assert eid not in ids
-    assert "ltx25-t2v" in ids and "ltx25-i2v" in ids
+    assert "h3-t2v" in ids and "h3-i2v" in ids
 
 
 async def test_r18_context_exposes_nsfw_engines_and_options(live_pool, user):
@@ -234,7 +214,7 @@ async def test_r18_context_exposes_nsfw_engines_and_options(live_pool, user):
 async def test_available_when_pool_has_ltx_assets(live_pool, user):
     engines = await list_engines(live_pool, user)
     ids = _by_id(engines)
-    for eid in ("txt2img", "ltx25-t2v", "ltx25-i2v", "h3-t2v", "h3-i2v"):
+    for eid in ("txt2img", "h3-t2v", "h3-i2v"):
         assert ids[eid]["available"] is True, f"{eid} 应可用"
         assert "unavailable_reason" not in ids[eid]
 
@@ -244,11 +224,9 @@ async def test_unavailable_reason_when_pool_dead(dead_pool, user):
     ids = _by_id(engines)
     assert ids["txt2img"]["available"] is False
     assert ids["txt2img"]["unavailable_reason"], "txt2img 缺不可用原因"
-    # h3/ltx25 走独立实例探测(各自 stub 默认在线),与 pool 死活无关
+    # h3 走独立实例探测(stub 默认在线),与 pool 死活无关
     assert ids["h3-t2v"]["available"] is True
     assert ids["h3-i2v"]["available"] is True
-    assert ids["ltx25-t2v"]["available"] is True
-    assert ids["ltx25-i2v"]["available"] is True
 
 
 async def test_h3_unavailable_when_instance_down_even_with_live_pool(live_pool, user, h3_stub):
@@ -258,7 +236,7 @@ async def test_h3_unavailable_when_instance_down_even_with_live_pool(live_pool, 
     for eid in ("h3-t2v", "h3-i2v"):
         assert ids[eid]["available"] is False
         assert "不可达" in ids[eid]["unavailable_reason"]
-    assert ids["ltx25-t2v"]["available"] is True
+    assert ids["longcat-t2v"]["available"] is True
 
 
 async def test_h3_unavailable_when_node_missing(live_pool, user, h3_stub):
@@ -292,7 +270,6 @@ async def test_longcat_unavailable_when_instance_down(live_pool, user, longcat_s
     ids = _by_id(await list_engines(live_pool, user))
     assert ids["longcat-t2v"]["available"] is False
     assert "不可达" in ids["longcat-t2v"]["unavailable_reason"]
-    assert ids["ltx25-t2v"]["available"] is True
     assert ids["h3-t2v"]["available"] is True
 
 
@@ -302,77 +279,6 @@ async def test_longcat_unavailable_when_node_missing(live_pool, user, longcat_st
     ids = _by_id(await list_engines(live_pool, user))
     assert ids["longcat-t2v"]["available"] is False
     assert "WanVideoModelLoader" in ids["longcat-t2v"]["unavailable_reason"]
-
-
-# --------------------------------------------------------------------------- #
-# LTX-2.5 引擎(2026-08-13 起替换 SFW LTX-2.3 链路):专用实例 :8198 探测
-# --------------------------------------------------------------------------- #
-
-async def test_ltx25_engine_entries(live_pool, user):
-    """ltx25-t2v/i2v 条目:视频 kind + SFW + 参数表与 routes/ltx25_studio.py 同源;实例在线即可用。"""
-    ids = _by_id(await list_engines(live_pool, user))
-    for eid in ("ltx25-t2v", "ltx25-i2v"):
-        e = ids[eid]
-        assert e["kind"] == "video" and e["nsfw"] is False
-        assert e["available"] is True and "unavailable_reason" not in e
-        assert e["source"]["url"].startswith("http")
-    t2v = ids["ltx25-t2v"]
-    w = _param(t2v, "width")
-    assert (w["min"], w["max"], w["default"], w["step"]) == (256, 1920, 960, 32)
-    # 2026-08-16 时长按秒选择改造:length 帧数参数 → duration 秒数(0.5-60,step 0.5),
-    # 帧数换算/网格吸附收敛统一策略层 services/duration.py
-    dur = _param(t2v, "duration")
-    assert (dur["min"], dur["max"], dur["default"], dur["step"]) == (0.5, 60, 5, 0.5)
-    fps = _param(t2v, "fps")
-    assert (fps["min"], fps["max"], fps["default"]) == (8, 60, 24)
-    steps = _param(t2v, "steps")
-    assert (steps["min"], steps["max"], steps["default"]) == (1, 50, 8)
-    for key in ("negative", "height", "seed"):
-        _param(t2v, key)
-    # i2v 追加:参考图(images)+ 首帧强度
-    i2v = ids["ltx25-i2v"]
-    assert _param(i2v, "images")["type"] == "images"
-    strength = _param(i2v, "strength")
-    assert (strength["min"], strength["max"], strength["default"]) == (0.0, 1.0, 0.7)
-
-
-async def test_ltx25_unavailable_when_instance_down(live_pool, user, ltx25_stub):
-    """LTX-2.5 实例不可达 → 双引擎不可用 + 原因;pool/H3 引擎不受影响。"""
-    ltx25_stub.nodes = None
-    ids = _by_id(await list_engines(live_pool, user))
-    for eid in ("ltx25-t2v", "ltx25-i2v"):
-        assert ids[eid]["available"] is False
-        assert "不可达" in ids[eid]["unavailable_reason"]
-    assert ids["txt2img"]["available"] is True
-    assert ids["h3-t2v"]["available"] is True
-
-
-async def test_ltx25_unavailable_when_node_missing(live_pool, user, ltx25_stub):
-    """实例在线但缺 LTXAVTextEncoderLoader 节点(ComfyUI < 0.32)→ 不可用 + 原因指明节点。"""
-    ltx25_stub.nodes = set()
-    ids = _by_id(await list_engines(live_pool, user))
-    for eid in ("ltx25-t2v", "ltx25-i2v"):
-        assert ids[eid]["available"] is False
-        assert "LTXAVTextEncoderLoader" in ids[eid]["unavailable_reason"]
-
-
-async def test_ltx25_unavailable_when_disabled(live_pool, user, monkeypatch):
-    """TOIV_LTX25_ENABLED=false 时 ltx25 引擎标不可用 + 原因,不探测实例。"""
-    monkeypatch.setattr(
-        engine_registry,
-        "get_settings",
-        lambda: SimpleNamespace(
-            ltx25_enabled=False,
-            h3_enabled=True,
-            default_video_ckpt=_DISTILLED,
-            nsfw_default_gemma=_GEMMA,
-            nsfw_default_vae=_VAE,
-        ),
-    )
-    ids = _by_id(await list_engines(live_pool, user))
-    for eid in ("ltx25-t2v", "ltx25-i2v"):
-        assert ids[eid]["available"] is False
-        assert "已禁用" in ids[eid]["unavailable_reason"]
 
 
 async def test_h3_unavailable_when_disabled(live_pool, user, monkeypatch):
@@ -601,13 +507,13 @@ async def test_probes_run_parallel_and_cached(live_pool, user, monkeypatch):
     """① 多引擎 probe 经 gather 并行(总耗时 < 串行累加);
     ② TTL 内二次调用零新探测;③ reset_avail_cache 后重新探测。
 
-    计数口径(2026-08-13 LTX-2.5 替换后):SFW 上下文 _probe_pool 仅剩 ace-music 一路
+    计数口径(2026-08-23 LTX-2.5 退役后):SFW 上下文 _probe_pool 仅剩 ace-music 一路
     (ltx2 旧链路曾贡献 2 路),单路探针无法区分串/并行(45ms 界 < 50ms 单程),
-    故与 ltx25-t2v/i2v 的 _fetch_ltx25_nodes(经 ltx25_stub 替身,2 路)合并计数 = 3 路。
+    故与 h3-t2v/i2v 的 _fetch_h3_nodes(经 h3_stub 替身,2 路)合并计数 = 3 路。
     """
     calls = 0
     real_probe = engine_registry._probe_pool
-    real_fetch = engine_registry._fetch_ltx25_nodes  # ltx25_stub 替身
+    real_fetch = engine_registry._fetch_h3_nodes  # h3_stub 替身
 
     async def _counting_probe(pool, models, nodes):
         nonlocal calls
@@ -622,13 +528,13 @@ async def test_probes_run_parallel_and_cached(live_pool, user, monkeypatch):
         return await real_fetch()
 
     monkeypatch.setattr(engine_registry, "_probe_pool", _counting_probe)
-    monkeypatch.setattr(engine_registry, "_fetch_ltx25_nodes", _counting_fetch)
+    monkeypatch.setattr(engine_registry, "_fetch_h3_nodes", _counting_fetch)
 
     t0 = time.monotonic()
     await list_engines(live_pool, user)
     elapsed = time.monotonic() - t0
     first = calls
-    assert first >= 2, "SFW 上下文至少 ace + ltx25 两路 probe"
+    assert first >= 2, "SFW 上下文至少 ace + h3 两路 probe"
     assert elapsed < first * 0.05 * 0.9, f"疑似串行: {elapsed:.3f}s ≥ {first}×50ms"
 
     await list_engines(live_pool, user)
@@ -936,4 +842,4 @@ async def test_wan_engines_unavailable_when_instance_down(live_pool, user, longc
     for eid in ("wan-animate", "wan-vace"):
         assert ids[eid]["available"] is False
         assert "不可达" in ids[eid]["unavailable_reason"]
-    assert ids["ltx25-t2v"]["available"] is True
+    assert ids["txt2img"]["available"] is True

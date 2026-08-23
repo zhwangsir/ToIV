@@ -26,8 +26,10 @@ from app.comfy.tracker import spawn as spawn_tracker
 from app.config import get_settings
 from app.models import Job, User
 from app.routes.video import _raise_from_comfy_error
+from app.services import hold_queue
 from app.services.resource_budget import ensure_host_ram
 from app.versioning import params_snapshot
+from app.workflows.h3_video import apply_nsfw_unet
 
 logger = logging.getLogger(__name__)
 
@@ -220,7 +222,33 @@ async def submit_h3_job(
     ensure_h3_enabled()
     client = client or get_h3_client()
     await ensure_h3_ready(client)
-    await ensure_h3_vram(client)
+
+    # NSFW 场景(X-NSFW 专区)默认换 10Eros-Max H3 嫁接版 UNET(TOIV_H3_NSFW_UNET);
+    # SFW 保持模板底模不动。在预检/hold 分支之前完成替换:hold 时 graph 直接入库,
+    # 放行由 hold_queue 原样提交,不再经过本函数。
+    if nsfw:
+        nsfw_unet = getattr(get_settings(), "h3_nsfw_unet", "")
+        if nsfw_unet:
+            apply_nsfw_unet(graph, nsfw_unet)
+
+    try:
+        await ensure_h3_vram(client)
+    except HTTPException as e:
+        # 资源预算二期:预检不足不再直接 503,转 hold 排队(资源释放后自动放行);
+        # 开关关闭则维持一期 503 行为(见 services/hold_queue)
+        if hold_queue.holdable(e):
+            settings = get_settings()
+            return hold_queue.place_hold(
+                engine="h3", graph=graph, kind=kind, positive=positive, seed=seed,
+                req=req, user=user, session=session, client=client,
+                reason=str(e.detail),
+                needs={
+                    "vram_gb": settings.h3_min_free_vram_gb,
+                    "ram_gb": settings.h3_min_free_ram_gb,
+                },
+                nsfw=nsfw,
+            )
+        raise
 
     # 排队位次提示(QUEUE-2026-08-18):提交前统计 pending 数,让前端明确告知
     # 「已排队,前方还有 N 个」——排队等待是正常调度而非技术性故障。

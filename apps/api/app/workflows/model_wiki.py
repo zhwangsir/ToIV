@@ -341,34 +341,20 @@ _VIDEO_CARDS: list[CardSpec] = [
     ),
     CardSpec(
         filename_prefix="ltx-video",
-        label="LTX-Video(LTX-2.5,音画同出)",
+        label="LTX-Video(LTX-2.3,音画同出)",
         base_model="LTX-Video",
         model_type="diffusion_models",
         description=(
             "Lightricks LTX 系列:原生音画同出(生成画面同时出音效),"
-            "速度快;LTX-2.5 对口型工作流成熟;不适合精确轨迹控制。"
+            "速度快;LTX-2.3 对口型工作流成熟;不适合精确轨迹控制。"
         ),
         usage=(
-            "平台入口:视频组 LTX 引擎;positive 鼓励写声音(waves crashing, "
-            "soft wind);对口型走引擎内 ltx-nsfw-lipsync 工作流。"
+            "平台入口:R18 视频组 LTX 引擎(10Eros 底模);positive 鼓励写声音"
+            "(waves crashing, soft wind);对口型走引擎内 ltx-nsfw-lipsync 工作流。"
         ),
         prompt_dialect="英文画面+运动+声音氛围描述",
         negative_hint="blurry, lowres, watermark, flickering",
         tags=("视频", "音画同出", "对口型", "极速"),
-    ),
-    CardSpec(
-        filename_prefix="ltx-2",
-        label="LTX-2.5 22B(音画同出主力,SFW)",
-        base_model="LTX-2.5",
-        model_type="diffusion_models",
-        description=(
-            "LTX-2.5 distilled 22B:音画同出质量主力,音画同步好;"
-            "平台专用实例 :8198 常驻(GPU3)。"
-        ),
-        usage="平台入口:视频组 LTX-2.5 引擎(TOIV_LTX25_BASE_URL 接入);audio_vae 内嵌底模。",
-        prompt_dialect="英文画面+运动+声音氛围",
-        negative_hint="",
-        tags=("视频", "音画同出", "SFW"),
     ),
     CardSpec(
         filename_prefix="h3",

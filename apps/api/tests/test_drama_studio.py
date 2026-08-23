@@ -912,13 +912,12 @@ def test_list_video_generators(ctx, monkeypatch):
     """M6: GET /api/drama/video-generators 返回 5 个生成器(含 H3)。
 
     QA-FULL-2026-08-11 P3(引擎状态一致性):available/reason 由后端统一下发,
-    与 /api/models/engines 同源——ltx 可用性跟随 LTX-2.5 专用实例探测(替身不可达 →
-    不可用,2026-08-13 起 SFW 链路切 ltx25-t2v,与 pool 死活无关);H3 走独立实例探测
+    与 /api/models/engines 同源——ltx 仅余 R18 链路(LTX-2.5 SFW 2026-08-23 退役),
+    映射 ltx-nsfw-t2v:SFW 上下文该引擎被过滤 → 不可用 + 原因;H3 走独立实例探测
     (替身在线)可用;stub(seedance/kling)固定不可用;liveact 随配置开关。
     """
     client, token, _ = ctx
     H = _h(token)
-    from app.comfy.client import ComfyUIError
     from app.config import get_settings
     from app.services import engine_registry
 
@@ -928,12 +927,8 @@ def test_list_video_generators(ctx, monkeypatch):
     async def _longcat_nodes():
         return {"WanVideoModelLoader"}
 
-    async def _ltx25_down():
-        raise ComfyUIError("connection refused")
-
     monkeypatch.setattr(engine_registry, "_fetch_h3_nodes", _h3_nodes)
     monkeypatch.setattr(engine_registry, "_fetch_longcat_nodes", _longcat_nodes)
-    monkeypatch.setattr(engine_registry, "_fetch_ltx25_nodes", _ltx25_down)
     app.dependency_overrides[get_pool] = _dead_pool
     try:
         r = client.get("/api/drama/video-generators", headers=H)
@@ -942,7 +937,7 @@ def test_list_video_generators(ctx, monkeypatch):
     assert r.status_code == 200, r.text
     gens = {g["name"]: g for g in r.json()["generators"]}
     assert set(gens) == {"ltx", "h3", "seedance", "kling", "liveact"}
-    # 死 pool → ltx 不可用且带原因;h3 独立实例在线 → 可用
+    # ltx 仅余 R18 链路:SFW 上下文 ltx-nsfw-t2v 被过滤 → 不可用且带原因;h3 独立实例在线 → 可用
     assert gens["ltx"]["available"] is False
     assert gens["ltx"]["unavailable_reason"]
     assert gens["h3"]["available"] is True

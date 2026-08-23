@@ -348,7 +348,6 @@ export function renderInlineMarkdown(text: string): ReactNode[] {
 /** 引擎状态胶囊分组:按注册表 id 前缀归类;组内任一引擎可用即绿灯,组在注册表缺席则不渲染。 */
 const ENGINE_CAPSULE_GROUPS: { key: string; label: string; match: (id: string) => boolean }[] = [
   { key: "h3", label: "H3", match: (id) => id.startsWith("h3-") },
-  { key: "ltx25", label: "LTX-2.5", match: (id) => id.startsWith("ltx25-") },
   { key: "longcat", label: "LongCat", match: (id) => id.startsWith("longcat-") },
   { key: "wan", label: "Wan", match: (id) => id.startsWith("wan-") },
   { key: "image", label: "图像", match: (id) => id === "txt2img" || id === "img2img" },
@@ -397,7 +396,7 @@ interface PortalEntry {
 /** 场景胶囊(对话框下方):R18 模式首位=短剧工作台;SFW 模式由视频创作补位(drama 受全局门控不可达)。 */
 export const SCENE_CAPSULES: PortalEntry[] = [
   { view: "drama", icon: "clapperboard", label: "短剧工作台", desc: "剧本 · 资产 · 分镜 · 成片", r18: true },
-  { view: "video", icon: "video", label: "视频创作", desc: "LTX-2.5 · H3 · LongCat 长视频", sfwOnly: true },
+  { view: "video", icon: "video", label: "视频创作", desc: "H3 · LongCat 长视频", sfwOnly: true },
   { view: "image", icon: "image", label: "图像创作", desc: "文生图 · 图生图 · 风格预设" },
   { view: "avatartalk", icon: "user", label: "数字人", desc: "照片开口说话 · 对口型" },
   { view: "library", icon: "library", label: "作品库", desc: "灵感与成果的档案馆" },
@@ -407,7 +406,7 @@ export const SCENE_CAPSULES: PortalEntry[] = [
 export const SKILL_ENTRIES: PortalEntry[] = [
   { view: "drama", icon: "clapperboard", label: "短剧工作台", desc: "剧本到成片的全链路工作台", r18: true },
   { view: "image", icon: "image", label: "图像创作", desc: "文生图 / 图生图" },
-  { view: "video", icon: "video", label: "视频创作", desc: "LTX-2.5 / H3 / LongCat" },
+  { view: "video", icon: "video", label: "视频创作", desc: "H3 / LongCat" },
   { view: "audio", icon: "audio", label: "音频工坊", desc: "音乐 / 配音 / 人声分离" },
   { view: "avatartalk", icon: "user", label: "数字人", desc: "照片说话 / 对口型" },
   { view: "library", icon: "library", label: "作品库", desc: "全部生成产物" },

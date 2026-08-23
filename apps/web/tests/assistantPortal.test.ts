@@ -76,13 +76,13 @@ test("② buildEngineCapsules:组内任一可用即绿灯;注册表缺席的组�
   const capsules = buildEngineCapsules([
     makeEngine("h3-t2v", false),
     makeEngine("h3-i2v", true),
-    makeEngine("ltx25-t2v", true),
+    makeEngine("longcat-t2v", true),
   ]);
   const h3 = capsules.find((c) => c.key === "h3");
-  const ltx25 = capsules.find((c) => c.key === "ltx25");
+  const longcat = capsules.find((c) => c.key === "longcat");
   assert.equal(h3?.available, true); // i2v 可用 → 整组绿灯
-  assert.equal(ltx25?.available, true);
-  assert.equal(capsules.some((c) => c.key === "longcat"), false); // 缺席不渲染
+  assert.equal(longcat?.available, true);
+  assert.equal(capsules.some((c) => c.key === "wan"), false); // 缺席不渲染
   // 全组离线 → 红灯保留展示
   const down = buildEngineCapsules([makeEngine("h3-t2v", false)]);
   assert.equal(down.find((c) => c.key === "h3")?.available, false);

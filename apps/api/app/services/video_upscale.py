@@ -735,12 +735,20 @@ def maybe_chain_upscale(prompt_id: str, target: str, workers: list[str] | None =
 
         from app.db import engine
 
+        # 资源预算二期:held 作业放行后 prompt_id 从占位符(hold-*)换真实值,
+        # 首次见到即记 job.id,后续按 id 跟踪,不受换名影响(见 services/hold_queue)
+        job_id: str | None = None
         while time.monotonic() < deadline:
             await asyncio.sleep(5.0)
             with Session(engine) as s:
-                job = s.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
+                job = (
+                    s.get(Job, job_id)
+                    if job_id
+                    else s.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
+                )
                 if not job:
                     return
+                job_id = job.id
                 if job.status == "error":
                     logger.info("生成失败,放弃超分链 %s", prompt_id)
                     return

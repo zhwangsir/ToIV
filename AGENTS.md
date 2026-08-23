@@ -103,7 +103,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 | toiv-api :8090 / toiv-web :3100 | ✅ systemd 常驻,deploy/deploy.sh 部署 |
 | PostgreSQL 18 / Redis | ✅ 真机运行 |
 | **内容限制管控**(2026-08-23) | ❌ **已下线**(同日午后用户拍板自行重做,全量移除零残留);nsfw_allowed 回退为未成年硬阻断+X-NSFW 头历史语义;生产库 contentpolicy 孤儿表可手动 DROP |
-| **LLM 引擎矩阵**(2026-08-21 拍板) | R18=Wan2.2+LTX2.3(NSFW 生态最丰);SFW 视频=MiniMax H3 全面替代 LTX2.5(质量优先);spark02 已换 **Qwen3.8-27B-Uncensored-FP8**(abliterated 无审查,别名保留 core .env 零改动,旧 NVFP4 在盘可回滚) |
+| **LLM 引擎矩阵**(2026-08-23 更新) | R18=**H3 主力(10Eros-Max 嫁接版 TURBO 为 NSFW 默认 UNET,`TOIV_H3_NSFW_UNET`)+Wan2.2 生态兜底**;SFW 视频=MiniMax H3 全面替代 LTX2.5(质量优先);spark02 已换 **Qwen3.8-27B-Uncensored-FP8**(abliterated 无审查,别名保留 core .env 零改动,旧 NVFP4 在盘可回滚) |
 | web_search 出站代理 | `TOIV_WEB_SEARCH_PROXY=http://192.168.71.123:7897`(MateBook Clash);⚠️ 依赖 Mac 在线,离线时自动降级不炸链路;Tailscale 备选 100.74.15.34:7897(慢 4×) |
 | 域名双入口 | toiv.dgmt.top(香港 cloud,frp-kcp) + toiv.wineryz.top(北京,frpc-bj);openresty proxy_pass 经 frp 本地端口 127.0.0.1:18090/13100 |
 
@@ -177,6 +177,15 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（决策记录,替代操作历史）
 
+### 2026-08-23（午后·自主循环第二波,全部已部署 core 并生产验证）
+- **H3 矩阵收敛落地**：`TOIV_H3_NSFW_UNET`(默认 10Eros_Max_h3_TURBO_ref2va_beta2_int8_convrot.safetensors)接入 submit_h3_job 收口,NSFW 场景默认 10Eros-Max,SFW 不动;生产 2 条 R18 回归 done(h264+aac),本地同图直提验证 unet 确为 10Eros-Max;矩阵正式「H3 主力+Wan2.2 兜底」
+- **生成观测面板**：GET /api/observability(仅 admin,10s 缓存单飞,单实例 2s 超时降级)——队列分桶/24h 成功率/held 原因/四卡 VRAM(ComfyUI /system_stats 聚合,GPU 拓扑写死带注释);前端 ObservabilityView(admin 专属,12s 轮询)。生产实测四卡在线,24h 成功率 86.5%。⚠️ PC01/PC02 从 core 不可达(000,机器离线非 bug)
+- **B 评测管线**：best-of-n(EvalBatch/EvalScore 两表,job_ids 存 Job.id 非 prompt_id——hold 换名不丢);评分器抽象 HeuristicScorer(ffprobe 实测,维度探测不到跳过不打 0)+VLMScorer(OpenAI 兼容,TOIV_EVAL_VLM_BASE_URL 配置化,失败降级启发式标 degraded,绝不静默出假分);端点 POST /api/eval/best-of-n/h3 + GET /api/eval/batches[/{id}]。⚠️ watcher 是进程内任务,api 重启 generating 批次需手动重调 finalize(reconcile 待补)
+- **E 数据飞轮**：偏好对导出(DPO JSONL:chosen/rejected/score_gap/scorer/nsfw),阈值 TOIV_PREF_PAIR_MIN_GAP=0.15,degraded/error/空产物排除,nsfw 分文件,EvalDatasetExport 表幂等;finalize 自动导出(TOIV_PREF_EXPORT_AUTO)+手动 POST /api/eval/dataset/export + GET stats;默认目录 data/preference_dataset
+- **C 音频编排层**：POST /api/audio/orchestrate(steps 判别联合:tts 多角色 voices 映射/separate 复用 demucs 白名单防 SSRF/concat 走 ffmpeg,core 已有 /usr/bin/ffmpeg;mix/sfx/variant 501 占位不造假),产物建 Job(kind=audio_orchestrate),GET /api/audio/orch/files/{name} 带 Range;失败即中断原码上抛
+- **前端工程债**：trackJob abort 接全(ImageEditView/TrainView);hydration mismatch 修两处(useState 恒值+挂载 effect 校正);ltx25 前端 11 文件零残留(QuickStartGrid 视频区 3→2 卡,H3 升首卡)
+- **回归基线**：后端 1927 passed / 前端 445 passed / tsc 0
+
 ### 2026-08-23（凌晨）
 - **spark02 无审查模型替换**：Qwen3.8-27B-NVFP4 → **Qwen3.8-27B-Uncensored-FP8**(OrcaRouter abliterated,同架构拒答方向移除;别名保留,core .env 零改动;360s 就绪;成人写作请求直接产出验证通过;旧模型在盘可回滚;L1-L4+AI 助手全链路即时生效)
 - **内容限制管控上线→同日下线**：三档策略上线后,用户拍板该板块自行重做 → 全量移除(nsfw_ctx 回退 HEAD/ContentPolicy 表/双端点/设置页卡/12 测试,零残留);未成年硬阻断保留
@@ -187,6 +196,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - **🚨 ltx25 复活→已根治**：退役时未 disable,BIOS 重启后自动拉回;08-23 凌晨经调研拍板(Civitai/HF 生态实证 LTX2.5 生态空白、定位被 H3 覆盖)执行 `disable --now`,GPU3 释放 36G、RAM available 54→90G;模型文件留盘(HF gated:auto 难再下)
 - **自主循环工程(用户授权完全自主)**：①前端 P0/P1 四项修复(avatar-talk 断链接入+生产 e2e 成片/trackJob abort 卡死/TTS 产物建档 voice.py/AssetPicker 分页去重) ②资源预算预检上线(services/resource_budget.py,RAM+VRAM 双预检接入 H3/Wan/LongCat,生产实证拦截 LongCat 23.7<26G 错峰) ③10Eros-Max H3 嫁接版实测:R18+音画直出完好(H3 正式具备 R18 能力,矩阵可向「H3 主力+Wan2.2 兜底」演进;模型在 NAS h3/diffusion_models) ④roadmap A 闭环:次世代三族 GPU 冒烟+API e2e 全过,修 qwen_image 编码器目录名命不中静默降级 bug(→qwen3vl_4b_fp8_scaled);1934+431 测试全绿,已部署 core
 - **模型资产新增(NAS toiv/comfyui-models)**:10Eros-Max H3 三件套(fl2va/ref2va/TURBO,~58G)、Sulphur-2 dev fp8mixed(29G,LTX2.3 系 t2v 补强)+distill LoRA、Sulphur 无审查提示词增强器 GGUF(sulphur_prompt_enhancer/);下载脚本 /home/merlin/toiv_model_pull.py(经 TS 代理)
+- **资源预算二期:hold 排队上线(2026-08-23)**：预检(RAM/VRAM)不足不再直接 503,作业置 `held` 入库(Job.hold_reason + HeldJob 票:graph/原因/所需资源快照,api 重启不丢),`services/hold_queue.hold_scheduler_loop` 周期复查,资源够按票 created_at **严格 FIFO** 自动放行(换真实 prompt_id→queued→挂 tracker;队首不够即停不插队,单轮上限防雪崩);超 `TOIV_HOLD_TIMEOUT_SEC`(默认 3600s)标 error;软删除(回收站)即取消 held。配置:`TOIV_HOLD_QUEUE_ENABLED/CHECK_INTERVAL_SEC(30)/RELEASE_MAX_PER_ROUND(2)/TIMEOUT_SEC(3600)`。接入点:h3.submit_h3_job、longcat.submit_longcat_job(含 wan 路由 hold_exc)。下游等待方(wait_for_jobs/_wait_files/超分链/SSE)均按 job.id 跟随放行后的 prompt_id 换名。⚠️ held 作业的 SSE 不连 WS,推 `held` 事件;H3VideoGenerator(生成器抽象层)未接 hold,仍返回错峰错误串
 
 ### 2026-08-22（晚间）
 - **R2 视频样本全量交付**：时长矩阵(5/15/30/60s)×赛道(动漫/真人/3D)×音画直出×参考链(i2v/VACE/Avatar/Animate/LongCat 续写)×R18 系列×真人专项(打斗/微表情/对白)全部完成并挂 1080p 超分
@@ -202,9 +212,9 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 八、待办事项
 
-- [x] **ltx25 处置(✅ 2026-08-23 已根治)**：`systemctl disable --now comfyui-ltx25` 已执行(inactive+disabled),GPU3 释放 36G、RAM 54→90G;模型文件留盘可回滚;注册表条目移除专项待做(涉 7 个测试文件)
-- [ ] ImageEditView 卸载时 trackJob 只 close ES(abort 未接),存在同类跟踪泄漏隐患(2026-08-23 前端修复时发现,影响面小:无取消按钮)
-- [ ] test_duration 2 例(spawn_trim/chain_failure)全量高负载下偶发失败,单跑全过——计时敏感 flaky,待加固
+- [x] **ltx25 处置(✅ 2026-08-23 已根治)**：`systemctl disable --now comfyui-ltx25` 已执行(inactive+disabled),GPU3 释放 36G、RAM 54→90G;模型文件留盘可回滚;注册表条目移除专项 ✅ 同日完成(engine_registry 双条目/probe、services+ltx25.py、routes+ltx25_studio.py、workflows+ltx25_video.py 删除,capabilities/config/deps/main/duration/optimize/model_wiki/community_recipes/harness profile/drama_studio 同步清理;LtxVideoGenerator 仅余 R18 链路,SFW 返回退役提示;测试 1811 全绿,test_duration.py 由并行 agent 处理)
+- [x] ~~ImageEditView trackJob 泄漏~~(✅ 2026-08-23 abort 已接,TrainView trackTrainJob 同类隐患同修;顺带修 resetSource 复活已重置 proc 的连带 bug)
+- [x] ~~test_duration flaky~~(✅ 2026-08-23 根治:根因是 gather 进程级全局 _post_tasks 被跨事件循环残留任务牵连→改前后差集精确等待;5 连跑全绿。ltx25 段同步删除,74→64 例)
 - [ ] 项目负责人推送 DRT 到 core（备份在 workstation /var/tmp）
 - [ ] Cloud SSH banner 超时排查（HTTPS 正常）
 - [x] ToIV 迁移 core(✅ deploy.sh 持续部署,唯一生产点)

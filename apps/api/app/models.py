@@ -72,7 +72,29 @@ class Job(SQLModel, table=True):
     # 保留期(audit.UNDO_TTL_SECONDS,72h)内可经 /api/undo/{token} 或回收站恢复,
     # 过期后由清理任务(audit.trash_purge_loop)物理删除。
     deleted_at: Optional[datetime] = Field(default=None, index=True)
+    # 资源预算二期(hold 排队):status=held 时为 hold 原因(预检 503 detail);
+    # 放行/正常作业为空;hold 超时标 error 时改写为超时说明(前端列表直接可读)。
+    hold_reason: str = ""
     created_at: datetime = Field(default_factory=_now, index=True)  # 加索引:未终态作业按时间排序扫描
+
+
+class HeldJob(SQLModel, table=True):
+    """资源预算二期 hold 排队票:预检(RAM/VRAM)不足的作业在此等资源释放。
+
+    每票对应一个 status=held 的 Job(列表可见);graph 入库使 api 重启后仍可放行。
+    调度循环(services/hold_queue.hold_scheduler_loop)按 created_at FIFO 复查,
+    资源够 → queue_prompt + Job 换真实 prompt_id 转 queued + 删票;
+    超 TOIV_HOLD_TIMEOUT_SEC → Job 标 error 删票;Job 被删/状态脱离 held → 票作废。
+    """
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    job_id: str = Field(index=True)  # 对应 Job.id(status=held)
+    engine: str  # h3/longcat/wan —— 决定放行时跑哪套预检(见 hold_queue._precheck)
+    worker: str  # 目标 ComfyUI 实例 base_url
+    graph: str  # 待提交 graph(JSON;建图时随机性已固化,放行即原样提交)
+    reason: str = ""  # hold 原因(预检 503 detail)
+    needs: str = "{}"  # 所需资源快照(JSON,如 {"vram_gb":36.0,"ram_gb":25.0})
+    created_at: datetime = Field(default_factory=_now, index=True)  # FIFO 依据
 
 
 # ---------------------------------------------------------------------------
@@ -628,4 +650,83 @@ class AgentMessage(SQLModel, table=True):
     content: str = ""
     tool_calls: str = ""  # JSON:assistant 的 tool_calls 数组 / tool 消息的 {tool_call_id,name,args}
     media: str = ""  # JSON:该工具产出的媒体事件列表 [{"type":"image","urls":[...]}]
+    created_at: datetime = Field(default_factory=_now)
+
+
+# ---------------------------------------------------------------------------
+# B 评测管线(2026-08-23):best-of-n 批次分组 + 自动评分记录。
+# EvalBatch 把「同 prompt/参数、seed 递增的 n 个变体 Job」聚成一批;
+# EvalScore 是评分落库表,(prompt, params, 产物引用, 分数, 评分器)五元组存全,
+# 即后续偏好数据集(数据飞轮)导出的直接数据源——导出直接查 EvalScore,本表即 schema 预留。
+# ---------------------------------------------------------------------------
+
+
+class EvalBatch(SQLModel, table=True):
+    """一次 best-of-n 评测批次。
+
+    job_ids 存 Job.id 而非 prompt_id:hold 排队放行后 prompt_id 会换名
+    (hold-* 占位 → worker 真实 id),Job.id 全程稳定。
+    status: generating(有变体未终态) → scoring → done;
+    winner_job_id 空 = 全部变体失败,无胜者。
+    """
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    tenant_id: str = Field(index=True)
+    user_id: str = Field(index=True)
+    engine: str = "h3"  # 生成引擎(h3;后续图像链等同表复用)
+    kind: str = "h3_t2v"  # 变体 Job 的 kind
+    prompt: str = ""
+    params: str = "{}"  # 请求快照(JSON,同 Job.params 语义;逐变体 seed 在 seeds)
+    seeds: str = "[]"  # JSON 数组:逐变体 seed(基础 seed 递增)
+    job_ids: str = "[]"  # JSON 数组:逐变体 Job.id(与 seeds 同序)
+    n: int = 0
+    scorer: str = "auto"  # 请求指定的评分器:auto | heuristic | vlm
+    status: str = "generating"  # generating | scoring | done
+    winner_job_id: str = ""
+    nsfw: bool = False  # 建档时按请求上下文(X-NSFW)打标,查询对齐 Job 过滤语义
+    created_at: datetime = Field(default_factory=_now, index=True)
+    updated_at: datetime = Field(default_factory=_now)
+
+
+class EvalScore(SQLModel, table=True):
+    """单变体评分记录(append-only:同 job_id 重评插新行,消费端取 created_at 最新)。
+
+    偏好数据集导出字段已存全:prompt / params(生成参数快照) / result(产物引用) /
+    seed / score / breakdown(维度明细) / scorer(实际产出分数的评分器,VLM 降级时
+    为 heuristic) / degraded。error 非空 = 该变体生成失败(score 恒 0,排名末位)。
+    """
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    batch_id: str = Field(index=True)
+    job_id: str = Field(index=True)
+    user_id: str = Field(index=True)
+    prompt: str = ""
+    params: str = "{}"
+    result: str = "[]"  # 产物 URL 列表 JSON(同 Job.result)
+    seed: int = Field(default=0, sa_type=BigInteger)  # PG 须 BIGINT(同 Job.seed)
+    score: float = 0.0
+    breakdown: str = "{}"  # 维度明细 JSON
+    scorer: str = ""
+    degraded: bool = False
+    critique: str = ""  # 评分器评语(VLM 产出;启发式/终态分为原因说明)
+    rank: int = 0  # 批次内名次(1 起;score 降序,同分按 seed 升序保确定性)
+    is_winner: bool = False
+    error: str = ""  # 变体非 done 终态时的状态(error/canceled/...)
+    created_at: datetime = Field(default_factory=_now)
+
+
+class EvalDatasetExport(SQLModel, table=True):
+    """偏好数据集导出记录(幂等票,E 数据飞轮,2026-08-23)。
+
+    每个 EvalBatch 最多一条(batch_id 唯一):不合格批次也落票(pair_count=0 +
+    skip_reason 记原因),防止手动全量导出反复重试同一批。file_path 指向写入的
+    JSONL 文件(SFW/NSFW 分文件、按日期滚动,见 services/pref_dataset)。
+    """
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    batch_id: str = Field(index=True, unique=True)  # 幂等键:同批次只处理一次
+    nsfw: bool = False
+    pair_count: int = 0
+    file_path: str = ""  # 写入的 JSONL 路径;不合格批次为空
+    skip_reason: str = ""  # insufficient_valid_variants | gap_below_threshold;合格为空
     created_at: datetime = Field(default_factory=_now)

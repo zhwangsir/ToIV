@@ -70,6 +70,9 @@ def _job_dict(j: Job) -> dict:
         "parent_id": j.parent_id or "",
         "root_id": (j.root_id or j.id) if j.id else "",
         "has_params": bool(j.params),  # 有快照才能精确重生(旧数据无)
+        # 资源预算二期:held 作业的排队原因(资源不足说明/超时说明);非 held 为空串。
+        # 纯增量键,旧前端忽略;status=held 属未知状态,前端按排队态展示不炸。
+        "hold_reason": j.hold_reason or "",
     }
 
 
@@ -77,7 +80,7 @@ def _job_dict(j: Job) -> dict:
 def list_jobs(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0, description="分页偏移(作品库无限滚动;返回数==limit 即可能还有下一页)"),
-    status: str = Query(default="", description="按状态过滤:queued/running/done/error,空=全部"),
+    status: str = Query(default="", description="按状态过滤:queued/held/running/done/error,空=全部"),
     kind: str = Query(default="", description="按媒体类型过滤:txt2img/img2img/video/txt2video/audio/3d 等,逗号分隔多值,空=全部"),
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
@@ -538,6 +541,29 @@ async def job_events(
     client = resolve_worker(worker)
 
     async def stream():
+        nonlocal prompt_id
+        # 资源预算二期:held 作业(资源排队中)尚未提交,占位 prompt_id 在 worker 上
+        # 不存在;周期查库等放行/终态,期间推 held 事件让前端显示「资源排队中」。
+        # 不连 WS(连上也不会有事件),更不会因 WS 异常把 held 误标 error。
+        while job is not None and prompt_id.startswith("hold-"):
+            with Session(engine) as s:
+                db = s.get(Job, job.id)
+            if db is None:
+                return  # 作业被物理删除(回收站 purge)
+            if db.status == "held":
+                if await request.is_disconnected():
+                    return
+                yield {"event": "held", "data": json.dumps({"reason": db.hold_reason or ""})}
+                await asyncio.sleep(3.0)
+                continue
+            prompt_id = db.prompt_id  # 放行后占位符已换成 worker 真实 prompt_id
+            if db.status == "error":
+                yield {"event": "error", "data": json.dumps({"message": db.hold_reason or "执行失败"})}
+                return
+            if db.status == "done":
+                yield {"event": "done", "data": json.dumps({"images": json.loads(db.result or "[]"), "post_status": db.post_status or ""})}
+                return
+            break  # queued/running:已放行,转正常 WS 流程
         # 防竞态：若任务在 WS 连接前已完成，直接回推结果
         try:
             if await client.get_result_files(prompt_id):

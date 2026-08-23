@@ -3,7 +3,7 @@
 覆盖:
   · workflows:TARGET_CHOICES 四档(720p/1080p/2k/4k)+ derive 横竖推导
     + validate_resolution_target 三分支(None/空串/合法/非法)
-  · 路由请求模型:H3/LTX25/LongCat/Wan/LTX-NSFW 五族 resolution_target 校验一致
+  · 路由请求模型:H3/LongCat/Wan/LTX-NSFW 四族 resolution_target 校验一致
   · H3 路由挂链:合法档 → maybe_chain_upscale 调用 + upscale_notice 透出;
     未传档 → 不挂链;非法档 → 422
   · engine_registry:全部视频生成引擎含「输出分辨率」select(720p→4k+原生直出)
@@ -81,7 +81,6 @@ _BASE = {"positive": "x"}
     "model_cls,extra",
     [
         ("H3T2VRequest", {}),
-        ("Ltx25T2VRequest", {}),
         ("LongCatT2VRequest", {}),
         ("LongCatContinueRequest", {"video": "/api/images?filename=v.mp4&worker=w1"}),
         ("WanI2VRequest", {"image": "a.png", "worker": "w1"}),
@@ -90,11 +89,9 @@ _BASE = {"positive": "x"}
 )
 def test_route_models_accept_valid_target(model_cls, extra):
     from app.routes import h3_studio, longcat_studio, video
-    from app.routes.ltx25_studio import Ltx25T2VRequest
 
     cls = {
         "H3T2VRequest": h3_studio.H3T2VRequest,
-        "Ltx25T2VRequest": Ltx25T2VRequest,
         "LongCatT2VRequest": longcat_studio.LongCatT2VRequest,
         "LongCatContinueRequest": longcat_studio.LongCatContinueRequest,
         "WanI2VRequest": video.WanI2VRequest,
@@ -108,7 +105,6 @@ def test_route_models_accept_valid_target(model_cls, extra):
     "model_cls,extra",
     [
         ("H3T2VRequest", {}),
-        ("Ltx25T2VRequest", {}),
         ("LongCatT2VRequest", {}),
         ("LongCatContinueRequest", {"video": "/api/images?filename=v.mp4&worker=w1"}),
         ("WanI2VRequest", {"image": "a.png", "worker": "w1"}),
@@ -117,11 +113,9 @@ def test_route_models_accept_valid_target(model_cls, extra):
 )
 def test_route_models_reject_invalid_target(model_cls, extra):
     from app.routes import h3_studio, longcat_studio, video
-    from app.routes.ltx25_studio import Ltx25T2VRequest
 
     cls = {
         "H3T2VRequest": h3_studio.H3T2VRequest,
-        "Ltx25T2VRequest": Ltx25T2VRequest,
         "LongCatT2VRequest": longcat_studio.LongCatT2VRequest,
         "LongCatContinueRequest": longcat_studio.LongCatContinueRequest,
         "WanI2VRequest": video.WanI2VRequest,
@@ -255,7 +249,7 @@ def test_all_video_gen_engines_have_resolution_target():
     from app.services.engine_registry import _default_registry
 
     expected = {
-        "ltx25-t2v", "ltx25-i2v", "h3-t2v", "h3-i2v",
+        "h3-t2v", "h3-i2v",
         "ltx-nsfw-t2v", "ltx-nsfw-i2v", "ltx-nsfw-lipsync",
         "h3-nsfw-t2v", "h3-nsfw-i2v", "longcat-t2v", "longcat-i2v",
         "wan-nsfw-i2v",

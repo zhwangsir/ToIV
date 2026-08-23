@@ -10,7 +10,8 @@ POST /api/wan/vace    —— 多参考图(1-4 张,+可选首尾帧)→ 视频(ki
   · 帧数 17-501(Animate,旧默认 121 ≈ 7.5s@16fps)/ 17-241(VACE,旧默认 81 ≈ 5s@16fps),
     自动取整 4k+1(WanVideo 系时序网格)
   · 宽/高 320-1280,16 对齐(非对齐自动向下取整,与 longcat 同一惯例)
-  · 提交前 GPU2 显存互斥预检(ensure_wan_vram):H3 突发占卡时 503 错峰
+  · 提交前 GPU2 显存互斥预检(ensure_wan_vram):H3 突发占卡时转 hold 排队
+    (资源释放后自动放行;hold 开关关闭则维持 503 错峰,见 services/hold_queue)
 产物链路(tracker 落库 + /api/images 代理进作品库)与 longcat/h3/ltx2 同路。
 """
 from __future__ import annotations
@@ -26,6 +27,7 @@ from app.nsfw_ctx import nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
 from app.workflows.model_profiles import AR_VIDEO, aspect_guard
 from app.services import longcat as longcat_service
+from app.services import hold_queue
 from app.services import video_generators as vgen
 from app.services import wan_video as wan_service
 from app.services.duration import DurationLimitError, DurationPlan, resolve_duration
@@ -44,6 +46,21 @@ def _no_traversal(v: str) -> str:
     if ".." in name or name.startswith("/"):
         raise ValueError("文件名不允许路径穿越")
     return name
+
+
+async def _wan_precheck_or_hold(client) -> HTTPException | None:
+    """GPU2 显存/RAM 互斥预检(资源预算二期改造点)。
+
+    通过 → None;不足且 hold 开关开 → 返回 503 异常对象,由 submit_longcat_job
+    转 hold 排队(engine=wan);开关关 → 维持一期行为原样抛 503。
+    """
+    try:
+        await wan_service.ensure_wan_vram(client)
+    except HTTPException as e:
+        if hold_queue.holdable(e):
+            return e
+        raise
+    return None
 
 
 # 旧默认时长:Animate 121 帧 / VACE 81 帧 @16fps(4k+1 网格吸附后与历史默认一致)
@@ -171,7 +188,7 @@ async def generate_wan_animate(
     source = resolve_worker(req.worker)
     image_name = await longcat_service.transfer_ref_image(client, source, req.image)
     video_name = await wan_service.transfer_drive_video(client, source, req.video)
-    await wan_service.ensure_wan_vram(client)
+    hold_exc = await _wan_precheck_or_hold(client)
     params = WanAnimateParams(
         positive=req.positive,
         negative=req.negative,
@@ -192,7 +209,8 @@ async def generate_wan_animate(
         graph, kind="wan_animate", positive=params.positive, seed=params.seed,
         req=req, user=user, session=session, client=client,
         nsfw=nsfw_allowed(user),
-        prechecked=True,  # 上方 ensure_wan_vram 已做显存+RAM 预检(Wan 阈值独立)
+        prechecked=True,  # 上方 _wan_precheck_or_hold 已做显存+RAM 预检(Wan 阈值独立)
+        hold_exc=hold_exc,  # 预检失败转 hold 排队(None=预检通过,正常提交)
     )
     return _attach_duration_chain(result, plan, lambda: client)
 
@@ -222,7 +240,7 @@ async def generate_wan_vace(
         await longcat_service.transfer_ref_image(client, source, req.end_image)
         if req.end_image else ""
     )
-    await wan_service.ensure_wan_vram(client)
+    hold_exc = await _wan_precheck_or_hold(client)
     params = WanVaceParams(
         positive=req.positive,
         negative=req.negative,
@@ -243,6 +261,7 @@ async def generate_wan_vace(
         graph, kind="wan_vace", positive=params.positive, seed=params.seed,
         req=req, user=user, session=session, client=client,
         nsfw=nsfw_allowed(user),
-        prechecked=True,  # 上方 ensure_wan_vram 已做显存+RAM 预检(Wan 阈值独立)
+        prechecked=True,  # 上方 _wan_precheck_or_hold 已做显存+RAM 预检(Wan 阈值独立)
+        hold_exc=hold_exc,  # 预检失败转 hold 排队(None=预检通过,正常提交)
     )
     return _attach_duration_chain(result, plan, lambda: client)

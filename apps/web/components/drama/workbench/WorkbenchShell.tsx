@@ -10,7 +10,7 @@
  * 组件契约见 ./types.ts(钉死);zone(浅/暗)由容器 DramaWorkbench 持有,
  * 本组件经 data-zone 落到 .wb-root,色值全部由 drama-workbench.css token 派生。
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { FilmStrip } from "./FilmStrip";
@@ -42,10 +42,13 @@ export function WorkbenchShell({
   onZone,
 }: WorkbenchShellProps) {
   // <1600px 时检查器为覆盖式浮层,默认收起以免遮挡分镜表格右列(状态/时长/操作);
-  // ≥1600px 固定栏,默认展开。SSR 安全:无 window 时按展开。
-  const [inspectorOpen, setInspectorOpen] = useState(() =>
-    typeof window === "undefined" ? true : window.innerWidth >= 1600,
-  );
+  // ≥1600px 固定栏,默认展开。
+  // hydration 安全:首渲(SSR 与客户端水合)恒为展开,挂载后按实际视口校正,
+  // 避免 useState 初始化读 window.innerWidth 导致服务端/客户端首渲不一致。
+  const [inspectorOpen, setInspectorOpen] = useState(true);
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 1600) setInspectorOpen(false);
+  }, []);
 
   const shots = dp.shots;
   const totalSec = useMemo(

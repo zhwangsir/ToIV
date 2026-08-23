@@ -256,43 +256,13 @@ async def test_ltx_empty_prompt_returns_failure():
 
 
 @pytest.mark.asyncio
-async def test_ltx25_extend_plan_spawns_chain():
-    """LTX-2.5 duration_sec=30@24fps(超 25s 单段上限)→ extend 计划:首段 601 帧,2 段续写链。"""
-    client = AsyncMock()
-    client.base_url = "http://192.168.71.127:8198"
-    client.queue_prompt = AsyncMock(return_value="pid-25-ext")
-
+async def test_ltx_sfw_retired_returns_failure():
+    """SFW 链路已随 LTX-2.5 退役(2026-08-23):直接返回失败原因,不提交任何作业。"""
     gen = LtxVideoGenerator(pool=None, tracker=lambda c, p: None)
-    with patch("app.services.ltx25.ensure_ltx25_enabled"), \
-         patch("app.services.ltx25.get_ltx25_client", return_value=client), \
-         patch("app.services.ltx25.ensure_ltx25_ready", new=AsyncMock()), \
-         patch("app.services.video_generators.spawn_duration_chain") as spawn_mock:
-        result = await gen.generate("a boy walking", duration_sec=30, fps=24, seed=7)
-
-    assert result.success is True
-    g = client.queue_prompt.call_args[0][0]
-    assert g["10"]["inputs"]["length"] == 601
-    plan = spawn_mock.call_args.kwargs["plan"]
-    assert plan.strategy == "extend" and plan.segment_frames == (601, 121)
-    assert callable(spawn_mock.call_args.kwargs["submit_next"])
-    assert "分 2 段续写" in result.duration_notice
-
-
-@pytest.mark.asyncio
-async def test_ltx25_over_60s_returns_failure():
-    """LTX-2.5 duration_sec=61 超安全上限 → 返回失败原因(不提交)。"""
-    client = AsyncMock()
-    client.base_url = "http://192.168.71.127:8198"
-
-    gen = LtxVideoGenerator(pool=None, tracker=lambda c, p: None)
-    with patch("app.services.ltx25.ensure_ltx25_enabled"), \
-         patch("app.services.ltx25.get_ltx25_client", return_value=client), \
-         patch("app.services.ltx25.ensure_ltx25_ready", new=AsyncMock()):
-        result = await gen.generate("a boy walking", duration_sec=61, fps=24)
-
+    result = await gen.generate("a boy walking", duration_sec=6, fps=24)
     assert result.success is False
-    assert "最长支持 60 秒" in result.error
-    client.queue_prompt.assert_not_called()
+    assert result.model == "ltx"
+    assert "已退役" in result.error
 
 
 @pytest.mark.asyncio
@@ -341,55 +311,6 @@ async def test_ltx_nsfw_trim_plan_spawns_chain():
     assert g["10"]["inputs"]["length"] == 81  # 74 → 向上吸附 8k+1=81
     assert spawn_mock.call_args.kwargs["plan"].strategy == "trim"
     assert "精确裁至 4.6 秒" in result.duration_notice
-
-
-@pytest.mark.asyncio
-async def test_ltx_sfw_routes_to_ltx25_instance():
-    """SFW 链路走 LTX-2.5 专用实例(与 pool 无关):nvfp4 transformer + AV 拼接音画同出图。"""
-    from app.workflows.ltx25_video import DEFAULT_LTX25_UNET
-
-    client = AsyncMock()
-    client.base_url = "http://192.168.71.127:8198"
-    client.queue_prompt = AsyncMock(return_value="pid-25")
-
-    gen = LtxVideoGenerator(pool=None, tracker=lambda c, p: None)
-    with patch("app.services.ltx25.ensure_ltx25_enabled"), \
-         patch("app.services.ltx25.get_ltx25_client", return_value=client), \
-         patch("app.services.ltx25.ensure_ltx25_ready", new=AsyncMock()):
-        r = await gen.generate(
-            "a boy walking", width=1000, height=700, duration_sec=6, fps=16, seed=7,
-        )
-
-    assert r.success is True
-    assert r.job_id == "pid-25"
-    assert r.raw["worker"] == "http://192.168.71.127:8198"
-    assert r.raw["seed"] == 7
-    g = client.queue_prompt.call_args[0][0]
-    assert g["1"]["inputs"]["unet_name"] == DEFAULT_LTX25_UNET
-    # 32 对齐吸附 + 8k+1 帧网格(6s×16fps=96 → 97)
-    assert g["10"]["inputs"]["width"] == 992
-    assert g["10"]["inputs"]["height"] == 672
-    length = g["10"]["inputs"]["length"]
-    assert (length - 1) % 8 == 0
-    # 音画同出:AV latent 拼接采样 + CreateVideo 带音频
-    assert g["12"]["class_type"] == "LTXVConcatAVLatent"
-    assert g["21"]["inputs"]["audio"] == ["20", 0]
-
-
-@pytest.mark.asyncio
-async def test_ltx25_disabled_returns_failure():
-    """LTX-2.5 被配置关闭 → 返回失败原因(HTTPException detail 翻译为 error,不抛异常)。"""
-    from fastapi import HTTPException
-
-    gen = LtxVideoGenerator(pool=None, tracker=lambda c, p: None)
-    with patch(
-        "app.services.ltx25.ensure_ltx25_enabled",
-        side_effect=HTTPException(status_code=503, detail="LTX-2.5 视频生成引擎已禁用"),
-    ):
-        result = await gen.generate("a boy walking")
-    assert result.success is False
-    assert result.model == "ltx"
-    assert "已禁用" in result.error
 
 
 @pytest.mark.asyncio

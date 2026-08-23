@@ -6,7 +6,7 @@
 - headless:llm + tool + 引擎,无质量门无人格
 
 引擎子集通过 EnginePlugin 的 disabled_engines 传入,minimal 档停用
-专用实例引擎(H3/LongCat/LTX-2.5/Wan/Avatar)与 NSFW 引擎,仅保留
+专用实例引擎(H3/LongCat/Wan/Avatar)与 NSFW 引擎,仅保留
 基础图像(txt2img/img2img)与 ACE 音乐。
 """
 from __future__ import annotations
@@ -22,7 +22,6 @@ logger = logging.getLogger(__name__)
 
 # minimal/headless 档停用的引擎(专用实例 + NSFW + 高级视频引擎)
 _MINIMAL_DISABLED = {
-    "ltx25-t2v", "ltx25-i2v",
     "ltx-nsfw-t2v", "ltx-nsfw-i2v", "ltx-nsfw-lipsync",
     "h3-t2v", "h3-i2v", "h3-nsfw-t2v", "h3-nsfw-i2v",
     "longcat-t2v", "longcat-i2v", "longcat-continue",

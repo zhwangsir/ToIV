@@ -154,12 +154,12 @@ test("GenerateView:滚动区迁移 .generate-params-body,头部在滚动区外(�
 /* ── T2 ④⑤ 引擎说明卡 ── */
 
 test("EngineInfoCard:description/出处/参数个数全透出,url 新窗口 noopener(静态渲染)", () => {
-  const eng = engine("ltx25-t2v", {
-    label: "LTX 2.5 文生视频",
+  const eng = engine("ltx-nsfw-t2v", {
+    label: "LTX 2.3 文生视频(R18)",
     description: "音画同出,8 步快速出片",
     params: [param("width"), param("height"), param("steps")],
     source: {
-      name: "LTX-2.5 22B Distilled",
+      name: "LTX-2.3 22B Distilled",
       url: "https://huggingface.co/Lightricks/LTX-Video",
       author: "Lightricks",
       note: "nvfp4 蒸馏 transformer",
@@ -167,7 +167,7 @@ test("EngineInfoCard:description/出处/参数个数全透出,url 新窗口 noop
   });
   const html = renderToStaticMarkup(h(EngineInfoCard, { engine: eng }));
   assert.ok(html.includes("engine-info-card"), "缺卡容器类");
-  assert.ok(html.includes("LTX 2.5 文生视频"), "引擎名缺失");
+  assert.ok(html.includes("LTX 2.3 文生视频(R18)"), "引擎名缺失");
   assert.ok(html.includes("3 项参数"), "参数个数概览缺失");
   assert.ok(html.includes("音画同出,8 步快速出片"), "description 缺失");
   assert.ok(html.includes('href="https://huggingface.co/Lightricks/LTX-Video"'), "出处外链缺失");
@@ -196,20 +196,19 @@ test("EngineInfoCard:无 description/source 兜底不渲染对应块;source 无 
 /* ── T3 ⑥⑦⑧ 快速开始卡 ── */
 
 const VIDEO_ENGINES: EngineInfo[] = [
-  engine("ltx25-t2v", { label: "LTX 2.5 文生视频" }),
   engine("h3-t2v", { label: "MiniMax H3 文生视频" }),
   engine("longcat-t2v", { label: "LongCat 文生视频" }),
 ];
 
-test("QuickStartGrid:视频 3 卡 + 区标题 + at-card 语言(静态渲染)", () => {
+test("QuickStartGrid:视频 2 卡 + 区标题 + at-card 语言(静态渲染)", () => {
   const html = renderToStaticMarkup(
     h(QuickStartGrid, { kind: "video", engines: VIDEO_ENGINES, onPick: () => {} }),
   );
   assert.ok(html.includes("快速开始"), "缺区标题");
-  assert.equal((html.match(/quick-start-card/g) ?? []).length, 3, "视频视图应 3 张卡");
+  assert.equal((html.match(/quick-start-card/g) ?? []).length, 2, "视频视图应 2 张卡");
   assert.ok(html.includes("at-card"), "卡未走 at-card 发夹线语言");
-  assert.ok(html.includes("LTX 2.5 文生视频") && html.includes("MiniMax H3") && html.includes("LongCat"));
-  assert.ok(html.includes("音画同出,8 步快速出片"), "卡文案缺失");
+  assert.ok(html.includes("MiniMax H3") && html.includes("LongCat"));
+  assert.ok(html.includes("音画直出,剧情连续性强"), "卡文案缺失");
   assert.ok(!/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(html), "禁 emoji(图标走 Icon/lucide)");
 });
 
@@ -243,13 +242,13 @@ test("QuickStartGrid:点击卡回调 onPick 透传对应 engineId(元素树直�
   const picked: string[] = [];
   const tree = QuickStartGrid({ kind: "video", engines: VIDEO_ENGINES, onPick: (id) => picked.push(id) });
   const buttons = cardButtons(tree);
-  assert.equal(buttons.length, 3);
+  assert.equal(buttons.length, 2);
   buttons.forEach((btn, i) => {
     assert.equal(btn.props.type, "button", "卡必须是 type=button(ui_lint 门禁)");
     (btn.props.onClick as () => void)();
     assert.equal(picked[i], QUICK_START_DEFS.video[i].engineId, `第 ${i} 张卡回调 id 不符`);
   });
-  assert.deepEqual(picked, ["ltx25-t2v", "h3-t2v", "longcat-t2v"]);
+  assert.deepEqual(picked, ["h3-t2v", "longcat-t2v"]);
 });
 
 test("QuickStartGrid:可用性门控——null 不渲染 / 不在列表不渲染 / 不可用 disabled", () => {
@@ -260,18 +259,17 @@ test("QuickStartGrid:可用性门控——null 不渲染 / 不在列表不渲染
     QuickStartGrid({ kind: "video", engines: [engine("wan-nsfw-i2v")], onPick: () => {} }),
     null,
   );
-  // 部分缺失 + 部分不可用:缺失卡不渲染,不可用卡 disabled 且 title 透出原因
+  // 部分不可用:不可用卡 disabled 且 title 透出原因,可用卡不受影响
   const tree = QuickStartGrid({
     kind: "video",
     engines: [
-      engine("ltx25-t2v"),
-      engine("h3-t2v", { available: false, unavailable_reason: "worker 离线" }),
-      // longcat-t2v 缺席 → 卡不渲染
+      engine("h3-t2v"),
+      engine("longcat-t2v", { available: false, unavailable_reason: "worker 离线" }),
     ],
     onPick: () => {},
   });
   const buttons = cardButtons(tree);
-  assert.equal(buttons.length, 2, "缺席引擎的卡不得渲染");
+  assert.equal(buttons.length, 2, "两张策划卡都应渲染");
   assert.ok(!buttons[0].props.disabled, "可用卡不得 disabled");
   assert.equal(buttons[1].props.disabled, true, "不可用卡须 disabled(DOM 层屏蔽真实点击)");
   assert.ok(String(buttons[1].props.title).includes("worker 离线"), "不可用原因须透出到 title");

@@ -210,7 +210,7 @@ function _seed(values: Record<string, unknown>): number | null {
 
 /**
  * 按引擎 id 路由到对应既有生成 API(图像走 generate 的 txt2img/img2img,
- * 视频走 ltx25 t2v/i2v 或 H3 专用实例 /api/h3/*;R18 引擎走 NSFW 专区 /api/generate/ltx-*)。
+ * 视频走 H3 专用实例 /api/h3/*(LongCat/Wan 同模式工作室路由);R18 引擎走 NSFW 专区 /api/generate/ltx-*)。
  * 返回的 GenerateResponse 交给 useGeneration/trackJob 做 SSE 进度跟踪。
  */
 export async function submitEngineGeneration(input: EngineSubmitInput): Promise<GenerateResponse> {
@@ -260,18 +260,6 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
         seed,
         ...(_str(values, "style_preset") ? { style_preset: _str(values, "style_preset") } : {}),
       } satisfies Img2ImgGenParams);
-
-    case "ltx25-t2v":
-      return _postLtx25("/api/ltx25/t2v", _ltx25Payload(values, positive, negative, seed));
-
-    case "ltx25-i2v":
-      // 参考图经 /api/upload 落在 pool worker,后端会转运到 LTX-2.5 专用实例(:8198)
-      return _postLtx25("/api/ltx25/i2v", {
-        ..._ltx25Payload(values, positive, negative, seed),
-        image: refImage!.filename,
-        worker: refImage!.worker,
-        strength: _num(values, "strength", 0.7),
-      });
 
     case "ltx-nsfw-t2v":
       return generateLtxT2V(_ltxNsfwPayload(values, positive, negative, seed));
@@ -395,21 +383,6 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
     default:
       throw new Error(`引擎「${engine.label}」尚未接入提交链路`);
   }
-}
-
-function _ltx25Payload(values: Record<string, unknown>, positive: string, negative: string, seed: number | null) {
-  return {
-    positive,
-    negative,
-    width: _num(values, "width", 960),
-    height: _num(values, "height", 544),
-    // 时长按秒直传;后端统一策略层做 8k+1 网格/分段续写/精确裁切
-    duration_sec: _num(values, "duration", 5),
-    fps: _num(values, "fps", 24),
-    steps: _num(values, "steps", 8),
-    seed,
-    resolution_target: _resolutionTarget(values),
-  };
 }
 
 /** RES-2026-08-18:输出分辨率档(融合超分);空串「原生直出」转 undefined 不随负载下发。 */
@@ -555,7 +528,7 @@ function _wanNsfwI2vPayload(values: Record<string, unknown>, positive: string, n
   };
 }
 
-/** H3 工作室提交(POST /api/h3/*):与 _postLtx25 同模式,422 展开首条校验信息。 */
+/** H3 工作室提交(POST /api/h3/*):走 apiFetch 统一超时/401,422 展开首条校验信息。 */
 async function _postH3(path: string, body: object): Promise<GenerateResponse> {
   const res = await apiFetch(path, {
     method: "POST",
@@ -569,25 +542,6 @@ async function _postH3(path: string, body: object): Promise<GenerateResponse> {
       : typeof detail?.detail === "string"
         ? detail.detail
         : `H3 视频生成请求失败 (${res.status})`;
-    throw new Error(msg);
-  }
-  return res.json();
-}
-
-/** LTX-2.5 工作室提交(POST /api/ltx25/*):走 apiFetch 统一超时/401,422 展开首条校验信息。 */
-async function _postLtx25(path: string, body: object): Promise<GenerateResponse> {
-  const res = await apiFetch(path, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const detail = (await res.json().catch(() => null)) as { detail?: unknown } | null;
-    const msg = Array.isArray(detail?.detail)
-      ? ((detail.detail[0] as { msg?: string } | undefined)?.msg ?? "LTX 视频请求参数校验失败")
-      : typeof detail?.detail === "string"
-        ? detail.detail
-        : `LTX 视频生成请求失败 (${res.status})`;
     throw new Error(msg);
   }
   return res.json();

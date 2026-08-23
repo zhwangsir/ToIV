@@ -110,14 +110,14 @@ def test_profile_plugin_sets_differ():
 
 
 def test_profile_minimal_disables_advanced_engines():
-    """minimal profile 停用专用实例引擎(H3/LongCat/LTX-2.5 等),保留基础图像。"""
+    """minimal profile 停用专用实例引擎(H3/LongCat 等),保留基础图像。"""
     from app.harness.profile import _PROFILES
 
     disabled = _PROFILES["minimal"]["disabled_engines"]
     assert "txt2img" not in disabled
     assert "img2img" not in disabled
     assert "ace-music" not in disabled
-    for eid in ("h3-t2v", "longcat-t2v", "ltx25-t2v", "wan-animate", "avatar-talk"):
+    for eid in ("h3-t2v", "longcat-t2v", "wan-animate", "avatar-talk"):
         assert eid in disabled, f"{eid} 应在 minimal 停用集"
     # NSFW 引擎也停用
     for eid in ("nsfw-txt2img", "h3-nsfw-t2v", "ltx-nsfw-t2v"):

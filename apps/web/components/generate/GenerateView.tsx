@@ -131,13 +131,17 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
   const [engineInfoOpen, setEngineInfoOpen] = useState(false);
   const engineInfoBtnRef = useRef<HTMLButtonElement | null>(null);
   // 参数浮板开关:收起时为右下角悬浮球(会话级);窄屏(≤1023px,与 stage.css 浮板底部抽屉档一致)默认收起为 FAB,舞台优先
-  const [paramsOpen, setParamsOpen] = useState(
-    () =>
-      !(
-        typeof window !== "undefined" &&
-        window.matchMedia(`(max-width: ${BREAKPOINTS.lg - 1}px)`).matches
-      ),
-  );
+  // hydration 安全:首渲(SSR 与客户端水合)恒为展开,挂载后按实际视口校正,
+  // 避免 useState 初始化读 matchMedia 导致服务端/客户端首渲不一致。
+  const [paramsOpen, setParamsOpen] = useState(true);
+  useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      window.matchMedia(`(max-width: ${BREAKPOINTS.lg - 1}px)`).matches
+    ) {
+      setParamsOpen(false);
+    }
+  }, []);
   const [engines, setEngines] = useState<EngineInfo[] | null>(null);
   const [enginesError, setEnginesError] = useState<string | null>(null);
   const [refreshingEngines, setRefreshingEngines] = useState(false);

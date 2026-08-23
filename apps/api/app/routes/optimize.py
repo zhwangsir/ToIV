@@ -167,8 +167,8 @@ _VIDEO_SYSTEM = (
 )
 
 # ── 视频引擎「方言」(2026-08-17 参考 DashBox 提示词 RFC:触发词是确定性知识)──
-# 不同引擎提示词结构差异极大:Wan2.2 NSFW 要触发词置前;H3 负向不可靠需全正向;
-# LTX-2.5 音画同出可描述声音。通用模板产出会静默失效(挂错 LoRA/触发词缺失)。
+# 不同引擎提示词结构差异极大:Wan2.2 NSFW 要触发词置前;H3 负向不可靠需全正向。
+# 通用模板产出会静默失效(挂错 LoRA/触发词缺失)。
 _VIDEO_ENGINE_SYSTEMS: dict[str, str] = {
     # Wan2.2 I2V NSFW(Civitai 爆款配方):触发词置前 + 动作连续 + 镜头 + 质感
     "wan-nsfw-i2v": (
@@ -196,20 +196,11 @@ _VIDEO_ENGINE_SYSTEMS: dict[str, str] = {
         "2) negative:留一段最精简的通用画质负向即可(blurry, lowres, watermark)。\n"
         '只输出 JSON:{"positive": "...", "negative": "..."},不要解释,不要代码块标记。'
     ),
-    # LTX-2.5:原生音画同出,positive 可含声音描述
-    "ltx25": (
-        "你是 LTX-2.5 音视频模型提示词工程师。该模型原生音画同出:positive 除画面与运动外,"
-        "鼓励描述声音(环境音、动作声、氛围声,如 waves crashing, soft wind, distant birds)。\n"
-        "把用户的想法扩写成:\n"
-        "1) positive:英文流畅描述画面(主体/动作/环境/光线/镜头)+ 运动过程 + 声音氛围;\n"
-        "2) negative:一段英文负向(画质/闪烁/形变/抖动),精炼 5~15 词。\n"
-        '只输出 JSON:{"positive": "...", "negative": "..."},不要解释,不要代码块标记。'
-    ),
 }
 
 
 def _video_system_for(engine: str | None) -> str:
-    """按引擎 id 选视频方言模板;h3-t2v/h3-nsfw-i2v/ltx25-t2v 等前缀匹配,无命中走通用。"""
+    """按引擎 id 选视频方言模板;h3-t2v/h3-nsfw-i2v 等前缀匹配,无命中走通用。"""
     if engine:
         for prefix, sys_ in _VIDEO_ENGINE_SYSTEMS.items():
             if engine == prefix or engine.startswith(prefix + "-"):
@@ -342,7 +333,7 @@ class OptimizeRequest(BaseModel):
     kind: str = Field(default="image")
     # 目标模型(checkpoint 文件名);传入则按模型族切换改写方言,不传则用通用基底
     model: str | None = Field(default=None, max_length=300)
-    # 目标引擎 id(如 wan-nsfw-i2v / h3-t2v / ltx25-i2v);视频类按引擎切换方言模板
+    # 目标引擎 id(如 wan-nsfw-i2v / h3-t2v);视频类按引擎切换方言模板
     engine: str | None = Field(default=None, max_length=64)
     # 已选 LoRA 文件名列表(如工作台 loras 参数);Wan NSFW 注册表内条目触发词
     # 由后端确定性注入(参考 DashBox RFC:触发词不交给 LLM 自由发挥)
@@ -494,7 +485,7 @@ async def optimize_prompt(
             raise HTTPException(status_code=502, detail="优化失败,请重试")
         return OptimizeResponse(optimized=cleaned, negative=_heuristic_negative(cleaned))
 
-    # 视频类:引擎方言模板(Wan/H3/LTX25 结构差异大,通用模板会静默失效)+
+    # 视频类:引擎方言模板(Wan/H3 结构差异大,通用模板会静默失效)+
     # Wan NSFW LoRA 触发词确定性注入(DashBox L0:不交给 LLM 自由发挥)
     if body.kind == "video":
         required, choices = _wan_triggers_for(body, user)

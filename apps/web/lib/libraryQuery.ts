@@ -42,7 +42,6 @@ export const FILTERS: FilterDef[] = [
       "video", "txt2video", "img2video", "lipsync", "kenburns",
       "wan_t2v", "wan_i2v", "hunyuan_i2v", "h3_t2v", "h3_i2v",
       "ltx_t2v", "ltx_i2v", "ltx_lipsync", "ltx2_t2v", "ltx2_i2v",
-      "ltx25_t2v", "ltx25_i2v",
       "frame_interpolate", "dub_lipsync_long", "manju_lipsync", "anime_lipsync",
       // 视频超分(M6 fleet 帧级 4K 管线)
       "video_upscale",
@@ -108,8 +107,6 @@ export function kindLabel(kind: string): string {
     ltx_lipsync: "对口型",
     ltx2_t2v: "文生视频",
     ltx2_i2v: "图生视频",
-    ltx25_t2v: "文生视频",
-    ltx25_i2v: "图生视频",
     frame_interpolate: "补帧",
     video_upscale: "视频超分",
     dub_lipsync_long: "长对口型",

@@ -452,3 +452,83 @@ export const reversePrompt = async (): Promise<{ prompt: string; negative: strin
   prompt: "",
   negative: "",
 });
+
+// ===========================================================================
+// 观测面板(observability.test.ts:ObservabilityView 经 loader 映射到这里)
+// ===========================================================================
+import type { ObservabilitySnapshot } from "../../lib/api";
+
+/** 固定快照:queued1/held2/running3,成功率 75%,GPU0 双档实例在线 + GPU2 一实例离线。 */
+export function makeObservabilitySnapshot(): ObservabilitySnapshot {
+  return {
+    generated_at: "2026-08-23T09:00:00+00:00",
+    cache_ttl_sec: 10,
+    queue: { queued: 1, held: 2, running: 3, other: 0 },
+    success_24h: { window_hours: 24, done: 3, error: 1, total: 4, rate: 0.75 },
+    held: { total: 2, reasons: [{ reason: "显存不足: 需 36G", count: 2 }] },
+    gpus: [
+      {
+        id: "GPU0",
+        host: "workstation · ComfyUI 通用",
+        online: true,
+        vram_total_gb: 95,
+        vram_used_gb: 10.9,
+        vram_used_pct: 11.5,
+        queue_running: 1,
+        queue_pending: 0,
+        instances: [
+          {
+            name: "ComfyUI 通用",
+            url: "http://192.168.71.127:8189",
+            online: true,
+            vram_total_gb: 95,
+            vram_used_gb: 10.9,
+            vram_used_pct: 11.5,
+            queue_running: 1,
+            queue_pending: 0,
+          },
+        ],
+      },
+      {
+        id: "GPU2",
+        host: "workstation · H3/LongCat/超分",
+        online: true,
+        vram_total_gb: 95,
+        vram_used_gb: 58,
+        vram_used_pct: 61.1,
+        queue_running: 0,
+        queue_pending: 0,
+        instances: [
+          {
+            name: "H3 主力视频",
+            url: "http://192.168.71.127:8195",
+            online: true,
+            vram_total_gb: 95,
+            vram_used_gb: 58,
+            vram_used_pct: 61.1,
+            queue_running: 0,
+            queue_pending: 0,
+          },
+          {
+            name: "LongCat",
+            url: "http://192.168.71.127:8197",
+            online: false,
+            vram_total_gb: null,
+            vram_used_gb: null,
+            vram_used_pct: null,
+            queue_running: 0,
+            queue_pending: 0,
+          },
+        ],
+      },
+    ],
+  };
+}
+
+/** 观测快照替身:默认固定快照,用例可覆盖 obsImpl.fetchObservability 模拟失败。 */
+export const obsImpl = {
+  fetchObservability: async (): Promise<ObservabilitySnapshot> =>
+    makeObservabilitySnapshot(),
+};
+export const fetchObservability = (_signal?: AbortSignal): Promise<ObservabilitySnapshot> =>
+  obsImpl.fetchObservability();

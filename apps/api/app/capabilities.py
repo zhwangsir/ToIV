@@ -43,10 +43,6 @@ def required_models(kind: str) -> set[str]:
     # 上传 worker 只需能存文件,提交时转运到 :8197 实例 input 目录。
     if kind in ("wan_animate", "wan_vace"):
         return set()
-    # LTX-2.5(SFW 主力视频,专用实例 :8198 不在 pool):i2v 参考图同转运模式,
-    # 上传落 pool worker 仅存文件,提交时由后端转运到专用实例 input 目录。
-    if kind in ("ltx25_t2v", "ltx25_i2v"):
-        return set()
     if kind == "ltx_lipsync":
         p = LtxLipsyncParams(positive="", image="", audio="")
         models = {p.unet_name, p.gemma_name, p.vae_name, p.audio_vae_name}
@@ -98,10 +94,6 @@ def required_nodes(kind: str) -> set[str]:
         return set()
     # Avatar 数字人参考图/驱动音频上传:同 h3_i2v,pool worker 只需能存文件。
     if kind == "avatar":
-        return set()
-    # LTX-2.5 专用实例(:8198):上传落点仅存文件,节点校验由 engine_registry 的
-    # 实例探测承担(_probe_ltx25 查 :8198 /object_info),不在 pool 侧要求节点。
-    if kind in ("ltx25_t2v", "ltx25_i2v"):
         return set()
     if kind == "ltx_lipsync":
         # LTX2.3 + 口型同步(LTXV 音频驱动节点 + LoadAudio + ID LoRA)

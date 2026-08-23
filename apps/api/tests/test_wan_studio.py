@@ -27,6 +27,7 @@ from sqlmodel import Session, SQLModel, create_engine, select
 
 import app.routes.wan_studio as wan_route
 import app.services.longcat as longcat_service
+import app.services.hold_queue as hold_queue
 import app.services.wan_video as wan_service
 from app.comfy.client import ComfyUIError
 from app.db import get_session
@@ -828,6 +829,7 @@ def test_vram_low_evicts_self_cache_then_passes(client, monkeypatch):
 
 
 def test_vram_low_and_queue_busy_503(client, monkeypatch):
+    monkeypatch.setattr(hold_queue, "holdable", lambda exc: False)  # 预检拦截单测:关 hold 保一期 503 语义(资源预算二期)
     """空闲不足 + 实例队列非空闲(或 H3 突发占卡):不驱逐,直接 503 错峰。"""
     c, engine = client
     with Session(engine) as s:
@@ -845,6 +847,7 @@ def test_vram_low_and_queue_busy_503(client, monkeypatch):
 
 
 def test_vram_still_low_after_evict_503(client, monkeypatch):
+    monkeypatch.setattr(hold_queue, "holdable", lambda exc: False)  # 预检拦截单测:关 hold 保一期 503 语义(资源预算二期)
     """驱逐自身缓存后仍不足(H3 在跑,突发 ~48GB)→ 503;绝不驱逐 H3。"""
     c, engine = client
     with Session(engine) as s:
@@ -894,6 +897,7 @@ def test_vram_precheck_disabled_with_zero_threshold(client, monkeypatch):
 
 
 def test_vace_submission_also_vram_checked(client, monkeypatch):
+    monkeypatch.setattr(hold_queue, "holdable", lambda exc: False)  # 预检拦截单测:关 hold 保一期 503 语义(资源预算二期)
     """VACE 端点同走显存互斥预检(与 animate 共卡同实例)。"""
     c, engine = client
     with Session(engine) as s:

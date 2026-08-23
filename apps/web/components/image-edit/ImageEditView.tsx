@@ -18,7 +18,7 @@ import {
   uploadImage,
 } from "@/lib/api";
 import type { GenerateResponse } from "@/lib/types";
-import { trackJob, type JobProgress } from "@/lib/trackJob";
+import { trackJob, TrackJobAbortError, type JobProgress } from "@/lib/trackJob";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 类型定义
@@ -404,18 +404,26 @@ export function ImageEditView() {
   });
 
   const esRef = useRef<EventSource | null>(null);
+  // 当前跟踪的中止控制器:卸载/重新上传/重入 runTool 时 abort,让 trackJob 立即 settle
+  // (只 close EventSource 不会让 trackJob 的 Promise 落定,看门狗还会软重连复活跟踪)
+  const abortRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      abortRef.current?.abort();
+      abortRef.current = null;
       esRef.current?.close();
       esRef.current = null;
     };
   }, []);
 
-  const closeEs = useCallback(() => {
+  /** 中止当前作业跟踪(abort 优先,close 兜底):trackJob 立即 settle 并自行关流。 */
+  const stopTracking = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
     esRef.current?.close();
     esRef.current = null;
   }, []);
@@ -425,8 +433,8 @@ export function ImageEditView() {
     setSource(null);
     setUploadError(null);
     setProc({ status: "idle", tool: null, progress: null, resultUrl: null, resultPaths: [], error: null });
-    closeEs();
-  }, [source, closeEs]);
+    stopTracking();
+  }, [source, stopTracking]);
 
   const handleUpload = useCallback(
     async (file: File) => {
@@ -464,7 +472,9 @@ export function ImageEditView() {
 
   const runTool = useCallback(async () => {
     if (!source || proc.status === "running") return;
-    closeEs();
+    stopTracking();
+    const ac = new AbortController();
+    abortRef.current = ac;
     setProc({ status: "running", tool, progress: null, resultUrl: null, resultPaths: [], error: null });
 
     let res: GenerateResponse;
@@ -507,6 +517,7 @@ export function ImageEditView() {
     try {
       const paths = await trackJob(res, {
         label: TOOLS.find((t) => t.key === tool)?.title ?? "图像处理",
+        signal: ac.signal,
         onProgress: (p) => {
           if (!mountedRef.current) return;
           setProc((prev) => ({ ...prev, progress: p }));
@@ -527,6 +538,9 @@ export function ImageEditView() {
       invalidateJobs();
     } catch (e) {
       if (!mountedRef.current) return;
+      // 卸载/重新上传/重入触发的显式中止:静默——状态已由对应路径复位,
+      // 不能按失败处理(error 态会让已取消的任务误标失败)
+      if (e instanceof TrackJobAbortError) return;
       setProc((prev) => ({
         ...prev,
         status: "error",
@@ -544,7 +558,7 @@ export function ImageEditView() {
     inpaintPositive,
     inpaintNegative,
     faceDenoise,
-    closeEs,
+    stopTracking,
   ]);
 
   const isRunning = proc.status === "running";

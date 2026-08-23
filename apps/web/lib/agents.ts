@@ -217,7 +217,7 @@ export async function optimizeWithAgent(params: {
   model?: string;
   agentId?: string | null;
   styleHint?: string;
-  /** 目标引擎 id(视频类按引擎切换方言模板:wan-nsfw-i2v/h3/ltx25) */
+  /** 目标引擎 id(视频类按引擎切换方言模板:wan-nsfw-i2v/h3) */
   engine?: string;
   /** 已选 LoRA 文件名列表(Wan NSFW 注册表内条目触发词由后端确定性注入) */
   loras?: string[];

@@ -246,7 +246,7 @@ function makeShot(id: string, over: Partial<DramaShotItem> = {}): DramaShotItem 
     error: "",
     updated_at: "",
     scene_layout: "",
-    video_model: "ltx25",
+    video_model: "h3",
     mood: "",
     beat: "",
     seam_to_next: "",
@@ -306,8 +306,8 @@ function makeDp(over: Record<string, unknown> = {}): {
     doneCount: 0,
     selectedShotId: null,
     selectedShot: null,
-    videoModel: "ltx25",
-    videoGenerators: [{ name: "ltx25", display_name: "LTX 2.5 标准版", available: true }],
+    videoModel: "h3",
+    videoGenerators: [{ name: "h3", display_name: "MiniMax H3", available: true }],
     taskLog: [],
     patchProject: async (patch: Record<string, unknown>) => {
       spies.patch.push(patch);
@@ -580,19 +580,21 @@ test("左栏入口:场次统计/资产计数与可达门控、点击跳阶段", 
   r.unmount();
 });
 
-test("检查器收叠:窄视口默认收起(SSR 无 window 默认展开),切换按钮联动", async () => {
+test("检查器收叠:窄视口挂载后收起(首渲恒展开保 hydration 一致),切换按钮联动", async () => {
   const g = globalThis as { window?: { innerWidth: number } };
   const { dp } = makeDp();
   // 无 window(SSR 语义):默认展开
   const r0 = renderTree(() => WorkbenchShell(shellProps(dp)));
   assert.ok(findByAria(r0.result.current, "收叠检查器"), "SSR 默认展开检查器");
   r0.unmount();
-  // <1600px:默认收起,点击展开
+  // <1600px:首渲恒为展开(与 SSR 一致,避免 hydration mismatch),挂载 effect 校正为收起
   g.window = { innerWidth: 800 };
   try {
     const r = renderTree(() => WorkbenchShell(shellProps(dp)));
+    assert.ok(findByAria(r.result.current, "收叠检查器"), "首渲恒展开(hydration 安全)");
+    await r.flush();
     const toggle = findByAria(r.result.current, "展开检查器");
-    assert.ok(toggle, "<1600px 默认收起");
+    assert.ok(toggle, "<1600px 挂载后收起");
     assert.equal(toggle.props["aria-expanded"], false);
     const main = findByClass(r.result.current, "wb-main")[0];
     assert.ok((main.props.className as string).includes("wb-main--inspector-closed"));
@@ -1079,7 +1081,7 @@ test("Inspector 项目摘要:进度环/镜数/总时长/状态/模型 display_na
   const dds = walk(r.result.current)
     .filter((el) => el.type === "dd")
     .map(textOf);
-  assert.deepEqual(dds, ["4", "1", "00:16", "storyboard", "LTX 2.5 标准版", "2"]);
+  assert.deepEqual(dds, ["4", "1", "00:16", "storyboard", "MiniMax H3", "2"]);
   const chips = findByClass(r.result.current, "wb-chip-btn").map(textOf);
   assert.deepEqual(chips, ["碧瑶", "雪琪"]);
   r.unmount();

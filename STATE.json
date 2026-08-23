@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-08-23T14:45:00+08:00",
+  "updated_at": "2026-08-23T18:40:00+08:00",
   "health": {
     "engine_r3_2026_08_21": {
       "status": "completed",
@@ -1481,5 +1481,32 @@
     "name": "内容管控下线 + 回收站 + 助手 Shift+Enter/灯带重设计",
     "status": "done",
     "summary": "CONTROL 功能全量移除(零残留,nsfw_allowed 回退历史语义);作品库回收站全栈(保留期 72h+trash_purge_loop);助手唤起 ⌘K→Shift+Enter,灯带隐形存量 bug 根治(JS rAF 驱动)+玻璃拟态弹窗;1930+439 测试全绿,已部署 core"
+  },
+  "loop2_2026_08_23": {
+    "status": "completed",
+    "scope": "自主循环第二波八任务:H3矩阵收敛(10Eros NSFW默认UNET)/hold排队二期/观测面板/B评测管线/E数据飞轮/C音频编排/工程债全清/D musubi管线(后台进行中)",
+    "tests": {
+      "backend": "1927 passed",
+      "frontend": "445 passed",
+      "tsc": "0 errors"
+    },
+    "deployed": "core 100.77.80.100(deploy.sh,回滚快照 .rollback-previous)",
+    "production_verified": [
+      "/api/observability 四卡实时VRAM+24h成功率86.5%",
+      "/api/eval/batches+/api/eval/dataset/stats 在线",
+      "/api/audio/orch 路由注册",
+      "R18 H3 回归 h264+aac"
+    ],
+    "new_config_keys": [
+      "TOIV_H3_NSFW_UNET",
+      "TOIV_HOLD_QUEUE_ENABLED/CHECK_INTERVAL_SEC/RELEASE_MAX_PER_ROUND/TIMEOUT_SEC",
+      "TOIV_EVAL_SCORER/EVAL_VLM_BASE_URL/EVAL_VLM_MODEL/EVAL_VLM_TIMEOUT/EVAL_WATCH_POLL_SEC",
+      "TOIV_PREF_PAIR_MIN_GAP/PREF_DATASET_DIR/PREF_EXPORT_AUTO"
+    ],
+    "notes": [
+      "PC01/PC02 当前离线(机器不可达,非故障)",
+      "eval watcher 进程内,api 重启需手动重调 finalize",
+      "contentpolicy 孤儿表仍可手动 DROP"
+    ]
   }
 }

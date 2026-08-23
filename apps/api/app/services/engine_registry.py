@@ -27,7 +27,6 @@ from app.models import User
 from app.nsfw_ctx import nsfw_allowed
 from app.services.h3 import H3_NODE, get_h3_client, is_h3_nsfw_lora
 from app.services.longcat import LONGCAT_NODE, get_longcat_client
-from app.services.ltx25 import LTX25_NODE, get_ltx25_client
 from app.workflows.model_profiles import is_nextgen, is_nsfw
 from app.workflows.style_presets import MediaType, list_presets
 from app.workflows.wan_i2v import WAN_I2V_NSFW_LORAS
@@ -191,32 +190,6 @@ async def _probe_wan_vace(pool: WorkerPool) -> tuple[bool, str | None]:
     return await _probe_wan_node(pool, WAN_VACE_NODE, "Wan-VACE")
 
 
-async def _fetch_ltx25_nodes() -> set[str]:
-    """LTX-2.5 实例 /object_info 节点集(模块级独立函数,便于测试替身)。"""
-    return await get_ltx25_client().node_names()
-
-
-_LTX25_PROBE_TIMEOUT = 8.0
-
-
-async def _probe_ltx25(pool: WorkerPool) -> tuple[bool, str | None]:
-    """LTX-2.5 专用实例探测:/object_info 含 LTXAVTextEncoderLoader 节点即可用;失败给原因。
-
-    与 pool 探测不同:LTX-2.5 走 GPU0 独立实例(TOIV_LTX25_BASE_URL,默认 :8198),
-    pool 参数仅签名占位。若 TOIV_LTX25_ENABLED=false,直接标不可用。
-    getattr 兜底:测试替身 settings 缺该字段时按启用处理(probe 绝不能拖垮端点)。
-    """
-    if not getattr(get_settings(), "ltx25_enabled", True):
-        return False, "LTX-2.5 视频生成引擎已禁用(TOIV_LTX25_ENABLED=false)"
-    try:
-        nodes = await asyncio.wait_for(_fetch_ltx25_nodes(), timeout=_LTX25_PROBE_TIMEOUT)
-    except Exception as e:  # 不可达/超时/替身异常一律降级为不可用 + 原因
-        return False, f"LTX-2.5 实例不可达: {e}"
-    if LTX25_NODE not in nodes:
-        return False, f"LTX-2.5 实例缺少 {LTX25_NODE} 节点(需 ComfyUI ≥ 0.32)"
-    return True, None
-
-
 # ACE-Step 文生音乐底模(与 workflows/ace_step.py AceStepParams.ckpt_name 一致)
 _ACE_STEP_CKPT = "ace_step_v1_3.5b.safetensors"
 
@@ -297,23 +270,6 @@ def _resolution_target_select() -> dict:
         ],
         "hint": "选档后先按引擎原生上限生成,完成后自动二次超分至目标分辨率(横竖随源画幅)",
     }
-
-
-# LTX-2.5 视频参数(与 routes/ltx25_studio.py 请求模型同一套范围;
-# 32 对齐 + 时长按秒(内部 8k+1 网格,超上限自动分段续写),蒸馏版 cfg=1 固定不外露)
-def _ltx25_video_params() -> list[dict]:
-    return [
-        _negative(),
-        _num("width", "宽度", 960, min_=256, max_=1920, step=32,
-             hint="32 对齐;比例限 9:16~16:9,超出自动纠正", ar=AR_VIDEO),
-        _num("height", "高度", 544, min_=256, max_=1088, step=32, hint="32 对齐"),
-        _num("duration", "时长(秒)", 5, min_=0.5, max_=60, step=0.5,
-             hint="支持任意时长;超 25s 单段上限自动分段续写并精确裁切"),
-        _num("fps", "帧率", 24, min_=8, max_=60, hint="官方 conditioning 默认 24fps"),
-        _num("steps", "采样步数", 8, min_=1, max_=50, hint="蒸馏版默认 8 步(cfg=1 固定)"),
-        _seed(),
-        _resolution_target_select(),
-    ]
 
 
 # R18 LTX 视频参数:分辨率/时长改预设下拉(8 对齐 + 秒数由提交层经统一策略层解析),
@@ -899,46 +855,7 @@ def _default_registry() -> list[dict[str, Any]]:
         ],
         "probe": _probe_image,
     },
-    # LTX-2.5:SFW 主力视频引擎(替换 LTX-2.3 SFW 链路),专用 ComfyUI 0.32 实例
-    # (TOIV_LTX25_BASE_URL,默认 GPU0 :8198);原生音画同出,蒸馏版 8 步出片;
-    # probe 探测实例 /object_info 是否含 LTXAVTextEncoderLoader 节点
-    {
-        "id": "ltx25-t2v",
-        "label": "LTX 2.5 文生视频",
-        "kind": "video",
-        "nsfw": False,
-        "submit": {"route": "/api/ltx25/t2v", "kind": "ltx25-t2v"},
-        "description": "LTX-2.5 22B 音视频基础模型:提示词 → 音画同出 mp4,蒸馏版 8 步快速出片",
-        "source": {
-            "name": "LTX-2.5 22B Distilled",
-            "url": "https://huggingface.co/Lightricks/LTX-2.5",
-            "author": "Lightricks",
-            "note": "开源权重音视频基础模型,原生音画同构;nvfp4 蒸馏版本地自部署专用实例",
-        },
-        "params": _ltx25_video_params(),
-        "probe": _probe_ltx25,
-    },
-    {
-        "id": "ltx25-i2v",
-        "label": "LTX 2.5 图生视频",
-        "kind": "video",
-        "nsfw": False,
-        "submit": {"route": "/api/ltx25/i2v", "kind": "ltx25-i2v"},
-        "description": "LTX-2.5:参考图首帧 → 音画同出短视频,专用实例 :8198",
-        "source": {
-            "name": "LTX-2.5 22B Distilled",
-            "url": "https://huggingface.co/Lightricks/LTX-2.5",
-            "author": "Lightricks",
-            "note": "开源权重音视频基础模型,原生音画同构;nvfp4 蒸馏版本地自部署专用实例",
-        },
-        "params": [
-            _ref_image_required(),
-            *_ltx25_video_params(),
-            _num("strength", "首帧强度", 0.7, min_=0.0, max_=1.0, step=0.05,
-                 hint="1.0 = 完全锁定首帧"),
-        ],
-        "probe": _probe_ltx25,
-    },
+    # LTX-2.3 NSFW(R18 保留;SFW 的 LTX-2.5 已于 2026-08-23 退役移除)
     {
         "id": "ltx-nsfw-t2v",
         "label": "LTX 2.3 文生视频(R18)",

@@ -67,6 +67,7 @@ type View =
   | "skills"
   | "settings"
   | "drama"
+  | "observability"
   | "admin";
 
 /** M1 三大板块拆分:generate 退役拆为 图片/视频/音频,旧链接按 kind 重定向(不 404)。
@@ -113,6 +114,7 @@ const viewImporters = {
   skills: () => import("@/components/skills/SkillMarketView"),
   settings: () => import("@/components/settings/SettingsView"),
   drama: () => import("@/components/drama/DramaView"),
+  observability: () => import("@/components/observability/ObservabilityView"),
   admin: () => import("@/components/admin/AdminView"),
 } as const;
 
@@ -180,6 +182,9 @@ const DramaView = lazy(() =>
 const AdminView = lazy(() =>
   viewImporters.admin().then((m) => ({ default: m.AdminView })),
 );
+const ObservabilityView = lazy(() =>
+  viewImporters.observability().then((m) => ({ default: m.ObservabilityView })),
+);
 
 /** 视图切换加载占位:统一走共享 LoadingBlock(P1-2 收编),保留 role/aria 状态语义。 */
 function ViewFallback({ label }: { label: string }) {
@@ -213,6 +218,7 @@ const VALID_VIEWS = new Set<View>([
   "skills",
   "settings",
   "drama",
+  "observability",
   "admin",
 ]);
 
@@ -237,6 +243,7 @@ const VIEW_META: Record<View, { label: string }> = {
   skills:     { label: "Skill 市场" },
   settings:   { label: "设置" },
   drama:     { label: "短剧" },
+  observability: { label: "观测" },
   admin:     { label: "管理" },
 };
 
@@ -547,6 +554,14 @@ function HomeContent() {
     if (view === "drama" && !isR18Mode()) changeView("fusion");
   }, [view, r18, changeView]);
 
+  // 观测面板仅管理员(端点 admin-only):非管理员直输 ?view=observability 弹回融合页;
+  // 等会话探测完成(account 非 null)再判,避免登录中误弹。
+  useEffect(() => {
+    if (view === "observability" && account !== null && account !== "admin") {
+      changeView("fusion");
+    }
+  }, [view, account, changeView]);
+
   // 动态分镜 AI 模式:解析成功后跳 studio 创作工作室(旧 drama 工作台已退役)
   const handleOpenDramaProject = useCallback(() => {
     changeView("studio");
@@ -589,6 +604,16 @@ function HomeContent() {
         ...BOTTOM_NAV_MORE_ITEMS.slice(5),
       ]
     : BOTTOM_NAV_MORE_ITEMS;
+  // 观测面板仅管理员可见(端点 admin-only,普通用户加入口只会 403)
+  const observabilityItem: BottomNavItem = {
+    key: "observability",
+    label: "观测",
+    icon: "monitor",
+  };
+  if (isAdmin) {
+    islandItems.push(observabilityItem);
+    bottomNavMoreItems.push(observabilityItem);
+  }
 
   if (auth === "loading") {
     return (
@@ -660,6 +685,7 @@ function HomeContent() {
               {view === "skills" && <SkillMarketView />}
               {view === "settings" && <SettingsView account={account} onLogout={onLogout} />}
               {view === "admin" && <AdminView />}
+              {view === "observability" && isAdmin && <ObservabilityView />}
             </Suspense>
           </ErrorBoundary>
         </div>

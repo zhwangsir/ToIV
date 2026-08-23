@@ -9,7 +9,6 @@ from app.routes.avatar_studio import AvatarTalkRequest
 from app.routes.generate import Txt2ImgRequest
 from app.routes.h3_studio import H3T2VRequest
 from app.routes.longcat_studio import LongCatT2VRequest
-from app.routes.ltx25_studio import Ltx25T2VRequest
 from app.routes.video import LtxT2VRequest, WanI2VRequest
 from app.routes.wan_studio import WanAnimateRequest, WanVaceRequest
 from app.workflows.model_profiles import (
@@ -57,11 +56,6 @@ def _mk(model, **kw):
     base = dict(positive="x")
     base.update(kw)
     return model(**base)
-
-
-def test_ltx25_request_guard():
-    r = _mk(Ltx25T2VRequest, width=1920, height=256)
-    assert (r.width, r.height) == (1920, 1088)
 
 
 def test_h3_request_guard():

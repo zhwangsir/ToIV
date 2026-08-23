@@ -7,7 +7,7 @@
       - direct:理想帧数在引擎 [min,max] 内,网格向上取整后秒差 ≤0.25s,直接生成
       - trim:网格帧对应秒数与请求差 >0.25s,生成后用 ffmpeg 精确裁到请求秒数
       - extend:理想帧数超单段上限,按 max 网格分段续写(末帧 i2v 链),拼好后精确裁剪;
-               安全上限 extend_max_sec(H3/LTX-2.5 ≤60s),超出报错
+               安全上限 extend_max_sec(H3 ≤60s),超出报错
       - 引擎不支持 extend(extend_max_sec=None)→ 超上限报错(调用方转 422)
   · snap_engine_frames / validate_engine_frames:drama 末帧续写链的网格取整/显式
     帧数校验也委托此处,消灭重复换算(行为口径与旧 _snap_*_length 完全一致)。
@@ -48,8 +48,6 @@ class EngineDurationSpec:
 _ENGINE_SPECS: dict[str, EngineDurationSpec] = {
     # MiniMax H3:17k+5 ∈[22,362] @24fps(362≈15s)
     "h3": EngineDurationSpec(22, 362, (17, 5), 24, extend_max_sec=60.0),
-    # LTX-2.5:8k+1 ∈[9,601](601@24fps≈25s)
-    "ltx25": EngineDurationSpec(9, 601, (8, 1), 24, extend_max_sec=60.0),
     # LTX-2.3(NSFW/drama 续写段):8k+1 ∈[9,241];一期不支持 extend
     "ltx": EngineDurationSpec(9, 241, (8, 1), 16, extend_max_sec=None),
     # LongCat-Video:[17,961] 无网格(>241 自动上下文窗口);单镜头引擎不续写

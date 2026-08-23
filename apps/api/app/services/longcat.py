@@ -36,6 +36,7 @@ from app.config import get_settings
 from app.deps import resolve_worker
 from app.models import Job, User
 from app.routes.video import _raise_from_comfy_error
+from app.services import hold_queue
 from app.services.resource_budget import ensure_host_ram, ensure_vram
 from app.versioning import params_snapshot
 
@@ -197,6 +198,7 @@ async def submit_longcat_job(
     client: ComfyUIClient | None = None,
     nsfw: bool = False,
     prechecked: bool = False,
+    hold_exc: HTTPException | None = None,
 ) -> dict:
     """提交 LongCat 作业:开关检查 → 就绪检查 → 资源预算预检 → queue_prompt → 落 Job
     → 后台追踪(结果落库进作品库)。
@@ -205,15 +207,45 @@ async def submit_longcat_job(
     (routes 层用 nsfw_allowed(user) 判定,含未成年硬阻断),此处不重复校验。
     prechecked=True 表示调用方已做过显存/RAM 预检(Wan 路由的 ensure_wan_vram,
     阈值语义独立),此处跳过避免重复拦截。
+    hold_exc:调用方预检已失败(Wan 路由 ensure_wan_vram 的 503)且 hold 开关开时
+    传入,直接转 hold 排队(engine=wan,放行时重跑 ensure_wan_vram);
+    自身预检失败同理转 hold(engine=longcat)。见 services/hold_queue。
     """
     ensure_longcat_enabled()
     client = client or get_longcat_client()
     await ensure_longcat_ready(client)
+    settings = get_settings()
+    if hold_exc is not None:
+        return hold_queue.place_hold(
+            engine="wan", graph=graph, kind=kind, positive=positive, seed=seed,
+            req=req, user=user, session=session, client=client,
+            reason=str(hold_exc.detail),
+            needs={
+                "vram_gb": settings.wan_min_free_vram_gb,
+                "ram_gb": settings.wan_min_free_ram_gb,
+            },
+            nsfw=nsfw,
+        )
     if not prechecked:
         # 资源预算预检:LongCat 与 H3/Wan 共 GPU2、同宿主机 RAM(2026-08-21 OOM 防线)
-        settings = get_settings()
-        await ensure_vram(client, settings.longcat_min_free_vram_gb, "LongCat")
-        await ensure_host_ram(client, settings.longcat_min_free_ram_gb, "LongCat")
+        try:
+            await ensure_vram(client, settings.longcat_min_free_vram_gb, "LongCat")
+            await ensure_host_ram(client, settings.longcat_min_free_ram_gb, "LongCat")
+        except HTTPException as e:
+            # 资源预算二期:预检不足转 hold 排队(资源释放后自动放行);
+            # 开关关闭维持一期 503 行为
+            if hold_queue.holdable(e):
+                return hold_queue.place_hold(
+                    engine="longcat", graph=graph, kind=kind, positive=positive,
+                    seed=seed, req=req, user=user, session=session, client=client,
+                    reason=str(e.detail),
+                    needs={
+                        "vram_gb": settings.longcat_min_free_vram_gb,
+                        "ram_gb": settings.longcat_min_free_ram_gb,
+                    },
+                    nsfw=nsfw,
+                )
+            raise
 
     client_id = uuid.uuid4().hex
     try:

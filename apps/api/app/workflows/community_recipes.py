@@ -75,31 +75,6 @@ RECIPES: list[dict[str, Any]] = [
         ],
         "params": {"width": 704, "height": 1280, "duration": 15, "steps": 6},
     },
-    {
-        "id": "ltx25-vlog-dialogue",
-        "label": "对白 Vlog·雨声咖啡馆(LTX2.5 音画同出)",
-        "engine_id": "ltx25-t2v",
-        "nsfw": False,
-        "source": "CivitAI 139882029(shimeajiRTX,640×1216 6s 高帧率,日语对白+环境音)",
-        "description": (
-            "对白 Vlog 骨架:上半身构图+人物描写 → 引号内台词原文 → 逐层环境音描写 → "
-            "氛围关键词收尾。LTX-2.5 音画同出:台词与环境音直接写进提示词即可出声。"
-        ),
-        "prompt_template": (
-            "This is an upper-body shot of {人物描写:年龄感/肤色/气质}. She is speaking "
-            "casually and calmly to the camera, creating a relaxed atmosphere as if she were "
-            "right there beside the viewer. \"{台词原文,引号内保留原语言}\" \n "
-            "{环境音逐层描写,如:Gentle rain continuously pattering against the café window. "
-            "Subtle clinking of ceramic cups.} \n {氛围关键词,如:Cozy, peaceful, intimate, "
-            "and relaxing.}"
-        ),
-        "negative_template": (
-            "watermark, text, subtitles, letterbox, noise, artifacts, blur, 静态,"
-            "最差质量,低质量,畸形手指,画面静止"
-        ),
-        "loras": [],
-        "params": {"width": 640, "height": 1216, "duration": 6, "steps": 8},
-    },
 ]
 
 

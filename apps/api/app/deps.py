@@ -48,11 +48,6 @@ def resolve_worker(worker: str) -> ComfyUIClient:
     longcat_base = getattr(settings, "longcat_base", "")
     if longcat_base and normalized == longcat_base:
         return ComfyUIClient(normalized, timeout=settings.request_timeout)
-    # LTX-2.5 专用实例(:8198,不在 pool 白名单):同机(127)会被 hostname 回退
-    # 错配到 pool worker(其 output 目录没有 LTX-2.5 产物),必须先行精确匹配
-    ltx25_base = getattr(settings, "ltx25_base", "")
-    if ltx25_base and normalized == ltx25_base:
-        return ComfyUIClient(normalized, timeout=settings.request_timeout)
     # hostname 级回退:兼容旧产物 URL(worker 端口已退役但同机仍存活)
     target_host = _host(normalized)
     for url in settings.worker_urls:

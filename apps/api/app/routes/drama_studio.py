@@ -292,7 +292,8 @@ class GenerateVideoRequest(BaseModel):
     cfg: float = Field(default=1.0, ge=0.0, le=20.0)
     use_upscale: bool = False
     use_rife: bool = False
-    # NSFW 开关:True 走 LTX-2.3 + 10Eros pool 链路(R18 保留);False(默认)走 LTX-2.5 专用实例(SFW 主力,音画同出)
+    # NSFW 开关:True 走 LTX-2.3 + 10Eros pool 链路(R18 保留);False(默认)SFW 链路
+    # 已随 LTX-2.5 退役(2026-08-23)移除,生成器返回退役提示(SFW 请用 h3)
     nsfw: bool = False
     # 覆盖该镜的 prompt(空=用分镜已存的 prompt)
     prompt_override: str | None = Field(default=None, max_length=2000)
@@ -3979,7 +3980,8 @@ class GenerateVideoV2Request(BaseModel):
     cfg: float = Field(default=1.0, ge=0.0, le=20.0)
     use_upscale: bool = False
     use_rife: bool = False
-    # NSFW 开关:True 走 LTX-2.3 + 10Eros pool 链路(R18 保留);False(默认)走 LTX-2.5 专用实例(SFW 主力,音画同出)
+    # NSFW 开关:True 走 LTX-2.3 + 10Eros pool 链路(R18 保留);False(默认)SFW 链路
+    # 已随 LTX-2.5 退役(2026-08-23)移除,生成器返回退役提示(SFW 请用 h3)
     nsfw: bool = False
     prompt_override: str | None = Field(default=None, max_length=2000)
     num_candidates: int = Field(default=1, ge=1, le=4)
@@ -4000,18 +4002,25 @@ async def list_video_generators(
     from app.services.video_generators import list_generators
 
     engines = {e["id"]: e for e in await list_engines(pool, user)}
-    # 生成器 → 引擎注册表条目映射;liveact 无注册表条目(走独立 worker,可用性=已配置
+    # 生成器 → 引擎注册表条目映射;ltx 仅余 R18 链路(LTX-2.5 SFW 已退役),
+    # 映射 ltx-nsfw-t2v——SFW 上下文该条目被过滤,eng=None → 标不可用;
+    # liveact 无注册表条目(走独立 worker,可用性=已配置
     # 基址);seedance/kling 为 stub(规划中,generate 返回固定错误),固定不可用。
-    _ENGINE_OF = {"ltx": "ltx25-t2v", "h3": "h3-t2v"}
+    _ENGINE_OF = {"ltx": "ltx-nsfw-t2v", "h3": "h3-t2v"}
     liveact_ready = bool(get_settings().liveact_base)
     out: list[dict] = []
     for g in list_generators():
         eid = _ENGINE_OF.get(g["name"])
         if eid is not None:
-            eng = engines.get(eid, {})
-            g["available"] = bool(eng.get("available"))
-            if eng.get("unavailable_reason"):
-                g["unavailable_reason"] = eng["unavailable_reason"]
+            eng = engines.get(eid)
+            if eng is None:
+                # 映射条目在当前上下文不可见(如 R18 引擎在 SFW 上下文被过滤)
+                g["available"] = False
+                g["unavailable_reason"] = "引擎在当前内容上下文不可用(R18 专用或已退役)"
+            else:
+                g["available"] = bool(eng.get("available"))
+                if eng.get("unavailable_reason"):
+                    g["unavailable_reason"] = eng["unavailable_reason"]
         elif g["name"] == "liveact":
             g["available"] = liveact_ready
             if not liveact_ready:
