@@ -177,6 +177,14 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（决策记录,替代操作历史）
 
+### 2026-08-24（深夜·AI 助手深度接管 P1:异步工具+提案确认门）
+- **异步作业模型**(结构性修复):旧生成工具同步阻塞 200-400s(H3 单段 15min 必炸)且够不着专用实例;新 `tools_gen.py` 四工具——submit_generation(21 引擎全覆盖,直接委托路由端点函数零复制,held/tracker/资源预检全继承,R18 按引擎逐条门控)、check_jobs(用户隔离)、optimize_prompt(复用 routes/optimize 单一事实源)、propose_plan(提案卡)
+- **提案-确认门**:SSE 新增顶层事件 tool/job/proposal(命名事件,data 无 type 字段,前端按 event 名分流);POST /api/agent/chat/resume(approve/modify/reject,404/409/422);AgentSession.pending_proposal 列(_SQLITE_MIGRATIONS 幂等补列);⚠️ resume 重建历史只带 user/assistant 原文,对决消息内嵌方案要点回顾
+- **前端 AssistantView**:tool 小条(同 id upsert)/job 卡(8s 轮询 fetchJobsPage 按 id 过滤,done 自动渲染媒体;⚠️ 不能用 SWR 缓存的 listJobs 轮询会读陈旧快照)/提案卡三按钮(resume 流豁免零内容失败规则)
+- **生产实证两金链**:①中文→优化→submit→job 卡→签名产物(旧 generate_image 工具 400 翻车,助手用新工具链自救成功——旧工具 bug 留待治理:agent_workflow 作业 done 但 results 空)②大需求→提案卡→modify 带意见→重新提案
+- **已知 LLM 行为瑕疵**(下轮治):推理过程英文泄漏进 text 流;长对话里题材漂移(都市悬疑→自创新题材),需系统提示强调忠实用户题材
+- 回归:后端 2026 / 前端 472 / tsc 0;已部署 core
+
 ### 2026-08-24（深夜·提示词优化全功能覆盖）
 - **方案定论**:全走既有 /api/optimize(L1=spark02 Qwen3.8-27B,英文产出已在 system prompt 强制),按模型族/引擎切「方言」;不新建 LLM 通路
 - **新增三条方言**:qwen_edit(编辑指令:保留约束/引号文字/禁画质词,与 image_edit 的 SD 重绘方言分流)、wan-animate-2(纯外观 caption 严禁动作词)、scope(内容+氛围严禁运镜词)
