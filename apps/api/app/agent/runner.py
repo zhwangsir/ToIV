@@ -47,7 +47,11 @@ SYSTEM_SUFFIX = """
 8. 只确认工具实际成功返回的结果;未执行或未成功的步骤不说成已完成。
 9. 用户问模型清单/能力等状态类问题时,先调用工具查当前结果再回答,不凭记忆猜测。
 10. 多阶段的大需求(如"做一部短片")先与用户确认拆解方案再动手,不自动连发一整串生成调用;必要时引导使用 Agent Team 任务编排。
-11. 生成结果由工具直接展示;不要自己输出媒体链接、markdown 图片语法或本地文件路径。"""
+11. 生成结果由工具直接展示;不要自己输出媒体链接、markdown 图片语法或本地文件路径。
+12. 生成走两条路:单张小图/短音乐用 generate_image/generate_music 直接出;视频、批量、长耗时或指定引擎/底模的一律用 submit_generation 异步提交(立即返回 job_id,不会卡住对话)。
+13. 提交生成前一律先 optimize_prompt 把用户描述优化成目标引擎/底模的专业提示词(除非用户输入已是详细英文提示词);优化结果原样用于提交。
+14. 视频/批量/多步/整集类大需求:先用自然语言与用户敲定风格与关键细节(题材/画风/镜头/时长/NSFW 档位),达成一致后调 propose_plan 出方案;提案发出后本轮结束,等用户确认/修改/拒绝后再执行,不要边问边做。
+15. submit_generation 成功后,主动告知用户 job_id 与预计耗时(H3 约 15 分钟/段、SCoPE 运镜约 19 分钟、Wan-Animate-2 数分钟、池内图像约 1 分钟);用户追问进度时用 check_jobs 查询,done 的产物会自动展示给用户,不要谎称完成。"""
 
 # 挂载文档检索注入的上限:top-k 块数 × 单块 ≤900 字符,控制注入体量不挤爆上下文
 _DOC_TOP_K = 6
@@ -64,6 +68,15 @@ def system_prompt() -> str:
 
 def _last_user_msg(messages: list[dict]) -> str:
     return next((m["content"] for m in reversed(messages) if m.get("role") == "user"), "")
+
+
+# 工具结果的失败粗判(仅用于 tool_event 默认终态;执行器自带 tool_event 时不走这里)
+_TOOL_ERROR_HINTS = ("失败", "超时", "不可用", "仅 R18", "过于频繁", "未知工具", "不存在")
+
+
+def _looks_like_error(text: str) -> bool:
+    head = (text or "")[:60]
+    return any(h in head for h in _TOOL_ERROR_HINTS)
 
 
 async def _rag_context(messages: list[dict]) -> str | None:
@@ -167,10 +180,18 @@ async def run(
     attachment: dict | None = None,
     document_ids: list[str] | None = None,
     on_message=None,
+    agent_session=None,
 ) -> AsyncIterator[dict]:
     """主循环。on_message:可选 async 回调,每条进/出 LLM 的消息调用一次
     (model-visible means logged;payload = {role, content, tool_calls, media},
-    由路由层落库 AgentMessage)。错误事件不落库(从未进入模型上下文)。"""
+    由路由层落库 AgentMessage)。错误事件不落库(从未进入模型上下文)。
+
+    agent_session:本会话 AgentSession 行(对话链路传入,进工具 ctx 供
+    propose_plan 落 pending 提案;subagent 等非会话链路为 None)。
+
+    事件契约:除既有的 text/error/tool(旧)/媒体事件外,新增
+    tool_event(start/ok|error)/job/proposal 三类 dict,由路由层映射为
+    同名 SSE 事件(深度接管协议,前端按 event 名订阅)。"""
     # 把所有 system 内容拼到开头唯一一条 system 消息里(vLLM 要求 system 只能在消息列表开头,
     # 多条 system 会被拒绝;LM Studio 宽容但不保证)。用换行 + 分隔标记区分各段。
     sys_parts: list[str] = [system_prompt()]
@@ -238,10 +259,20 @@ async def run(
                 args = {}
             # round 字段:契约增量(前端可忽略),标示本工具调用所在的模型请求轮次
             yield {"type": "tool", "name": name, "args": args, "round": rnd}
+            # 深度接管协议:tool 状态事件(start → ok/error);id 取 LLM 的 tool_call id
+            tc_id = tc.get("id") or f"tc_{rnd}"
+            # getattr 兜底:测试替身的 tools 服务可能没有 get(只要 schemas/execute)
+            _get_spec = getattr(tool_reg, "get", None)
+            spec = _get_spec(name) if _get_spec else None
+            yield {"type": "tool_event", "data": {
+                "id": tc_id, "name": name, "status": "start",
+                "summary": spec.summary if spec else name,
+            }}
             t0 = time.monotonic()
             text, events = await tool_reg.execute(
                 name, args,
-                {"pool": pool, "user": user, "session": session, "attachment": attachment},
+                {"pool": pool, "user": user, "session": session,
+                 "attachment": attachment, "agent_session": agent_session},
             )
             logger.info(
                 "agent.tool: name=%s round=%d took_ms=%d result_len=%d events=%d",
@@ -249,10 +280,23 @@ async def run(
                 len(text or ""), len(events),
             )
             media: list[dict] = []
+            has_status_event = False
             for ev in events:
+                if isinstance(ev, dict) and ev.get("type") == "tool_event":
+                    # 执行器自带终态(如 submit_generation 的失败语义):补 id/name 后透出
+                    ev.setdefault("data", {})
+                    ev["data"].setdefault("id", tc_id)
+                    ev["data"].setdefault("name", name)
+                    has_status_event = True
                 yield ev
                 if isinstance(ev, dict) and ev.get("urls"):
                     media.append({"type": ev.get("type", ""), "urls": ev["urls"]})
+            if not has_status_event:
+                yield {"type": "tool_event", "data": {
+                    "id": tc_id, "name": name,
+                    "status": "error" if _looks_like_error(text) else "ok",
+                    "summary": (text or "").splitlines()[0][:60],
+                }}
             msgs.append({"role": "tool", "tool_call_id": tc.get("id", ""), "content": text})
             await _log(
                 "tool", text,

@@ -277,6 +277,7 @@ export const agentRunEventsUrl = (runId: string, after = 0): string =>
 // 智能体会话(H2)替身扩展:useAgentConversations(AssistantView)单测经 loader 映射到这里
 // ===========================================================================
 import type {
+  AgentChatResumeBody,
   AgentChatStreamBody,
   AgentEvent,
   AgentSessionDetail,
@@ -289,6 +290,7 @@ export const sessCalls = {
   forkAgentSession: 0,
   deleteAgentSession: 0,
   agentChatStream: 0,
+  agentChatResume: 0,
   getLlmModel: 0,
 };
 
@@ -323,6 +325,11 @@ const sessDefaultImpl = {
   deleteAgentSession: async (_id: string): Promise<void> => {},
   agentChatStream: async (
     _body: AgentChatStreamBody,
+    _onEvent: (ev: AgentEvent) => void,
+    _signal?: AbortSignal,
+  ): Promise<{ sessionId: string | null }> => ({ sessionId: "srv-new" }),
+  agentChatResume: async (
+    _body: AgentChatResumeBody,
     _onEvent: (ev: AgentEvent) => void,
     _signal?: AbortSignal,
   ): Promise<{ sessionId: string | null }> => ({ sessionId: "srv-new" }),
@@ -367,6 +374,14 @@ export const agentChatStream = (
 ): Promise<{ sessionId: string | null }> => {
   sessCalls.agentChatStream++;
   return sessImpl.agentChatStream(body, onEvent, signal);
+};
+export const agentChatResume = (
+  body: AgentChatResumeBody,
+  onEvent: (ev: AgentEvent) => void,
+  signal?: AbortSignal,
+): Promise<{ sessionId: string | null }> => {
+  sessCalls.agentChatResume++;
+  return sessImpl.agentChatResume(body, onEvent, signal);
 };
 export const getLlmModel = (
   signal?: AbortSignal,

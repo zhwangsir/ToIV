@@ -1278,6 +1278,22 @@ export interface AgentEvent {
   name?: string;
   urls?: string[];
   args?: Record<string, unknown>;
+  /** tool 事件:工具调用 id / 状态(start|ok|error) / 一句话摘要 / 失败详情 */
+  id?: string;
+  status?: string;
+  summary?: string;
+  detail?: string;
+  /** job 事件:生成作业卡(results 为完整签名 URL,可直接渲染) */
+  job_id?: string;
+  kind?: string;
+  label?: string;
+  hold_reason?: string;
+  results?: string[];
+  /** proposal 事件:方案确认卡(markdown 正文 + 预计耗时) */
+  proposal_id?: string;
+  title?: string;
+  body?: string;
+  estimate?: string;
 }
 
 export interface AgentImageRef {
@@ -1373,6 +1389,52 @@ export interface AgentChatStreamBody {
 }
 
 /**
+ * 智能体 SSE 事件流消费(agentChatStream / agentChatResume 共用):
+ * 逐块解析 event/data,done 事件终止;命名事件(tool/job/proposal)的 data 不带
+ * type 字段,以 event 名回填为事件类型。
+ */
+async function consumeAgentSse(
+  body: ReadableStream<Uint8Array>,
+  onEvent: (ev: AgentEvent) => void,
+): Promise<void> {
+  const reader = body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    // 事件以空行分隔;兼容 \r\n\r\n(sse-starlette/反代)与 \n\n
+    const parts = buf.split(/\r?\n\r?\n/);
+    buf = parts.pop() ?? "";
+    let finished = false;
+    for (const block of parts) {
+      let event = "message";
+      let data = "";
+      for (const line of block.split(/\r?\n/)) {
+        if (line.startsWith("event:")) event = line.slice(6).trim();
+        else if (line.startsWith("data:")) data += line.slice(5).trim();
+      }
+      if (event === "done") {
+        finished = true;
+        break;
+      }
+      if (data) {
+        try {
+          const parsed = JSON.parse(data) as AgentEvent;
+          // 命名 SSE 事件(tool/job/proposal)的 data 不带 type:以 event 名为类型
+          if (!parsed.type && event !== "message") parsed.type = event;
+          onEvent(parsed);
+        } catch {
+          /* ignore malformed chunk */
+        }
+      }
+    }
+    if (finished) break;
+  }
+}
+
+/**
  * 统一对话流(SSE):与 agentChat 同一事件契约(text/tool/媒体/error + done),
  * body 支持文档挂载与会话续聊;返回响应头 X-Agent-Session-Id 携带的会话 id。
  */
@@ -1397,38 +1459,44 @@ export async function agentChatStream(
     throw new Error(detail?.detail ?? `对话失败 (${res.status})`);
   }
   const sessionId = res.headers.get("X-Agent-Session-Id");
-  const reader = res.body.getReader();
-  const dec = new TextDecoder();
-  let buf = "";
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += dec.decode(value, { stream: true });
-    // 事件以空行分隔;兼容 \r\n\r\n(sse-starlette/反代)与 \n\n
-    const parts = buf.split(/\r?\n\r?\n/);
-    buf = parts.pop() ?? "";
-    let finished = false;
-    for (const block of parts) {
-      let event = "message";
-      let data = "";
-      for (const line of block.split(/\r?\n/)) {
-        if (line.startsWith("event:")) event = line.slice(6).trim();
-        else if (line.startsWith("data:")) data += line.slice(5).trim();
-      }
-      if (event === "done") {
-        finished = true;
-        break;
-      }
-      if (data) {
-        try {
-          onEvent(JSON.parse(data) as AgentEvent);
-        } catch {
-          /* ignore malformed chunk */
-        }
-      }
-    }
-    if (finished) break;
+  await consumeAgentSse(res.body, onEvent);
+  return { sessionId };
+}
+
+export interface AgentChatResumeBody {
+  conversation_id: string;
+  proposal_id: string;
+  action: "approve" | "modify" | "reject";
+  /** modify 时用户填写的修改意见 */
+  note?: string;
+}
+
+/**
+ * 提案确认回执(2026-08-24 助手升级协议):响应仍是与 chat 同构的 SSE 流,
+ * 调用方把它当一次新的发送接进现有流处理;同样返回 X-Agent-Session-Id。
+ */
+export async function agentChatResume(
+  body: AgentChatResumeBody,
+  onEvent: (ev: AgentEvent) => void,
+  signal?: AbortSignal,
+): Promise<{ sessionId: string | null }> {
+  const res = await apiFetch(
+    `/api/agent/chat/resume`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify(body),
+      signal,
+      // SSE 流式响应:不设超时(timeoutMs: 0),取消由调用方 signal 控制。
+    },
+    { timeoutMs: 0 },
+  );
+  if (!res.ok || !res.body) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `提案回执失败 (${res.status})`);
   }
+  const sessionId = res.headers.get("X-Agent-Session-Id");
+  await consumeAgentSse(res.body, onEvent);
   return { sessionId };
 }
 

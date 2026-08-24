@@ -1316,6 +1316,16 @@ def _ensure_registry() -> None:
         populate_registry()
 
 
+def get_engine_spec(engine_id: str) -> dict[str, Any] | None:
+    """取注册表原始条目(含 nsfw 标/submit 绑定,不做 R18 上下文过滤);未知 id → None。
+
+    供助手 submit_generation 做逐引擎 R18 判定:list_engines 在 SFW 上下文会过滤
+    R18 引擎,拿不到条目就无法区分「不存在」与「无权限」,故需要不过滤的查询口。
+    """
+    _ensure_registry()
+    return next((s for s in _REGISTRY if s["id"] == engine_id), None)
+
+
 def _reset_registry_for_tests() -> None:
     """测试隔离:清空注册表与停用集,下次 populate_registry 重建。"""
     global _registry_populated, _disabled_engines

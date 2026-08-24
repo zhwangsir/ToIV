@@ -636,6 +636,9 @@ class AgentSession(SQLModel, table=True):
     user_id: str = Field(index=True)
     title: str = ""  # 首条 user 消息前 30 字自动生成
     nsfw: bool = False  # 建档时按请求上下文(X-NSFW)决定
+    # 深度接管:待确认的提案(JSON 字符串,可空)。propose_plan 工具写入
+    # (status=pending),/agent/chat/resume 确认/修改/拒绝后改写 status 保留存根。
+    pending_proposal: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)
 

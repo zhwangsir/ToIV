@@ -8,14 +8,18 @@ import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { LazyVideo } from "@/components/ui/LazyVideo";
 import { useToast } from "@/components/ui/Toast";
 import {
+  agentChatResume,
   agentChatStream,
+  AgentChatResumeBody,
   AgentEvent,
   AgentSessionMessage,
   AgentSessionSummary,
   deleteAgentSession,
+  fetchJobsPage,
   getAgentSession,
   getLlmModel,
   imageUrl,
+  JOBS_PAGE_LIMIT,
   listAgentSessions,
   listJobs,
 } from "@/lib/api";
@@ -68,6 +72,49 @@ export interface ChatMessage {
   docs?: { id: string; filename: string }[];
   /** error = 失败态气泡(不进历史、不回传后端) */
   kind?: "error";
+  /** tool 事件:内联工具调用小条(同 id 更新) */
+  tools?: ToolChip[];
+  /** job 事件:生成作业卡(进行中前端 8s 轮询) */
+  jobs?: AgentJobCard[];
+  /** proposal 事件:方案确认卡(确认/修改/放弃 后只读) */
+  proposals?: AgentProposalCard[];
+}
+
+/** 工具调用小条(tool 事件,2026-08-24 助手升级协议)。 */
+export interface ToolChip {
+  id: string;
+  name: string;
+  status: "start" | "ok" | "error";
+  summary: string;
+  detail?: string;
+}
+
+/** 生成作业卡(job 事件):kind/label/状态徽章,done 后渲染 results 媒体。 */
+export interface AgentJobCard {
+  jobId: string;
+  kind: string;
+  status: string; // queued | held | running | done | error
+  label: string;
+  holdReason?: string;
+  results?: string[];
+}
+
+/** 提案确认卡(proposal 事件):resolution 非空即只读态。 */
+export interface AgentProposalCard {
+  proposalId: string;
+  title: string;
+  body: string;
+  estimate?: string;
+  resolution?: "approve" | "modify" | "reject";
+  note?: string;
+}
+
+/** 提案确认决策:resume 回执仍是同构 SSE 流,当一次新的发送接进现有流处理。 */
+export interface ResumeDecision {
+  proposalId: string;
+  action: "approve" | "modify" | "reject";
+  note?: string;
+  conversationId: string;
 }
 
 // localStorage 按天存储仅作「离线/未登录兜底」:服务端会话接口不可达时回退现状行为
@@ -124,6 +171,154 @@ export function messagesToChat(rows: AgentSessionMessage[]): ChatMessage[] {
     }
   }
   return out;
+}
+
+// ───── 工具条 / 作业卡 / 提案卡(2026-08-24 助手升级协议:tool/job/proposal 三类 SSE 事件) ─────
+
+/** tool/job/proposal 事件归并到最后一条 assistant 气泡(无则补一条空气泡,
+ *  对齐 messagesToChat 的 tool 媒体归并行为);返回 [新数组, 目标气泡]。 */
+function mutateLastAssistant(
+  msgs: ChatMessage[],
+  fn: (m: ChatMessage) => ChatMessage,
+): [ChatMessage[], ChatMessage] {
+  const last = msgs[msgs.length - 1];
+  if (last && last.role === "assistant" && last.kind !== "error") {
+    const target = fn(last);
+    return [[...msgs.slice(0, -1), target], target];
+  }
+  const fresh: ChatMessage = {
+    id: genId(),
+    role: "assistant",
+    content: "",
+    timestamp: Date.now(),
+  };
+  const target = fn(fresh);
+  return [[...msgs, target], target];
+}
+
+/** tool 事件 upsert:同 id 更新而非追加(纯函数,单测锚点)。 */
+export function upsertToolChip(msgs: ChatMessage[], chip: ToolChip): ChatMessage[] {
+  const [next] = mutateLastAssistant(msgs, (m) => {
+    const tools = [...(m.tools ?? [])];
+    const idx = tools.findIndex((t) => t.id === chip.id);
+    if (idx >= 0) tools[idx] = { ...tools[idx], ...chip };
+    else tools.push(chip);
+    return { ...m, tools };
+  });
+  return next;
+}
+
+/** job 事件 upsert:同 jobId 更新(状态推进/hold_reason/results)(纯函数,单测锚点)。 */
+export function upsertJobCard(msgs: ChatMessage[], card: AgentJobCard): ChatMessage[] {
+  const [next] = mutateLastAssistant(msgs, (m) => {
+    const jobs = [...(m.jobs ?? [])];
+    const idx = jobs.findIndex((j) => j.jobId === card.jobId);
+    if (idx >= 0) jobs[idx] = { ...jobs[idx], ...card };
+    else jobs.push(card);
+    return { ...m, jobs };
+  });
+  return next;
+}
+
+/** proposal 事件 upsert(纯函数,单测锚点)。 */
+export function upsertProposalCard(
+  msgs: ChatMessage[],
+  card: AgentProposalCard,
+): ChatMessage[] {
+  const [next] = mutateLastAssistant(msgs, (m) => {
+    const proposals = [...(m.proposals ?? [])];
+    const idx = proposals.findIndex((p) => p.proposalId === card.proposalId);
+    if (idx >= 0) proposals[idx] = { ...proposals[idx], ...card };
+    else proposals.push(card);
+    return { ...m, proposals };
+  });
+  return next;
+}
+
+/** 提案卡落锤:写入用户选择,卡片转只读态(纯函数,单测锚点)。 */
+export function markProposalResolved(
+  msgs: ChatMessage[],
+  proposalId: string,
+  action: "approve" | "modify" | "reject",
+  note?: string,
+): ChatMessage[] {
+  return msgs.map((m) =>
+    m.proposals?.some((p) => p.proposalId === proposalId)
+      ? {
+          ...m,
+          proposals: m.proposals.map((p) =>
+            p.proposalId === proposalId ? { ...p, resolution: action, note } : p,
+          ),
+        }
+      : m,
+  );
+}
+
+/** 进行中作业状态(需前端轮询跟进)。 */
+export const JOB_CARD_ACTIVE_STATUSES = ["queued", "held", "running"] as const;
+
+export function isJobCardActive(status: string): boolean {
+  return (JOB_CARD_ACTIVE_STATUSES as readonly string[]).includes(status);
+}
+
+/** 作业卡状态徽章文案(纯函数,单测锚点)。 */
+export function jobCardStatusLabel(status: string): string {
+  switch (status) {
+    case "queued":
+      return "排队中";
+    case "held":
+      return "资源等待";
+    case "running":
+      return "运行中";
+    case "done":
+      return "完成";
+    case "error":
+      return "失败";
+    default:
+      return status || "排队中";
+  }
+}
+
+/** 作业产物 → 媒体渲染分支:优先 kind 映射,未知 kind 按扩展名兜底(纯函数,单测锚点)。 */
+export function mediaTypeForJob(kind: string, url = ""): string {
+  const f = kindToFilter(kind);
+  if (f === "image" || f === "video" || f === "audio") return f;
+  if (f === "3d") return "model3d";
+  // 签名 URL 文件名常在查询串(/api/images?f=a.mp4&sig=…),扩展名匹配不剥查询
+  const u = url.toLowerCase();
+  if (/\.(mp4|webm|mov|m4v)(\?|&|$)/.test(u)) return "video";
+  if (/\.(mp3|wav|ogg|flac|m4a|aac)(\?|&|$)/.test(u)) return "audio";
+  if (/\.(glb|gltf)(\?|&|$)/.test(u)) return "model3d";
+  return "image";
+}
+
+/** 作业卡轮询快照回写(纯函数,单测锚点):进行中卡片按 job id / prompt_id 匹配
+ *  列表行,推进状态;done 时灌入产物 URL(经 imageUrl 归一签名/相对路径)。
+ *  无变化时原样返回(引用不变,避免轮询空转触发重渲染)。 */
+export function applyJobSnapshots(msgs: ChatMessage[], rows: JobItem[]): ChatMessage[] {
+  let changed = false;
+  const next = msgs.map((m) => {
+    if (!m.jobs?.length) return m;
+    let mChanged = false;
+    const jobs = m.jobs.map((card) => {
+      if (!isJobCardActive(card.status)) return card;
+      const row = rows.find((r) => r.id === card.jobId || r.prompt_id === card.jobId);
+      if (!row || !row.status || row.status === card.status) return card;
+      mChanged = true;
+      return {
+        ...card,
+        status: row.status,
+        results:
+          row.status === "done" && row.results?.length
+            ? row.results.map(imageUrl)
+            : card.results,
+      };
+    });
+    if (!mChanged) return m;
+    changed = true;
+    return { ...m, jobs };
+  });
+  return changed ? next : msgs;
 }
 
 export interface AgentConversationStore {
@@ -341,6 +536,43 @@ export function renderInlineMarkdown(text: string): ReactNode[] {
   }
   if (last < text.length) out.push(...renderItalicSegments(text.slice(last), `t${last}`));
   return out;
+}
+
+/** 媒体产物渲染(image/video/audio/model3d 四分支):消息气泡媒体与作业卡 done 产物共用。 */
+export function renderAvMedia(
+  m: { type: string; urls: string[] },
+  key: number | string,
+): ReactNode {
+  return (
+    <div key={key} className="av-media">
+      {m.type === "image" && m.urls[0] && (
+        <img
+          src={m.urls[0]}
+          alt="生成结果"
+          className="av-media-img"
+          loading="lazy"
+          decoding="async"
+        />
+      )}
+      {m.type === "video" && m.urls[0] && (
+        <video src={m.urls[0]} controls className="av-media-video" />
+      )}
+      {m.type === "audio" && m.urls[0] && (
+        <audio src={m.urls[0]} controls className="av-media-audio" />
+      )}
+      {m.type === "model3d" && m.urls[0] && (
+        <a
+          href={m.urls[0]}
+          target="_blank"
+          rel="noreferrer"
+          className="av-media-link"
+        >
+          <Icon name="box" size={14} strokeWidth={1.8} />
+          3D 模型
+        </a>
+      )}
+    </div>
+  );
 }
 
 // ───── 首页门户(2026-08-16 堆友范式):引擎胶囊 / 场景胶囊 / @ 技能面板 / 最近作品 ─────
@@ -699,8 +931,9 @@ export function AssistantView(props?: AssistantViewProps) {
 
   // 发起一次对话请求:立即进入 pending(打字指示器),30s 无首个响应块按失败处理,
   // 失败/超时 → 错误气泡 + 重试;成功/失败均写入历史。docIds = 本轮挂载的文档。
+  // resume = 提案确认回执(POST /api/agent/chat/resume,响应同构 SSE,不再发 messages)
   const requestReply = useCallback(
-    async (baseMsgs: ChatMessage[], docIds: string[] = []) => {
+    async (baseMsgs: ChatMessage[], docIds: string[] = [], resume?: ResumeDecision) => {
       setBusy(true);
       setPending(true);
       abortRef.current = false;
@@ -772,19 +1005,68 @@ export function AssistantView(props?: AssistantViewProps) {
               ];
               return [...prev.slice(0, -1), { ...last, media }];
             });
+          } else if (ev.type === "tool" || ev.type === "job" || ev.type === "proposal") {
+            // 工具条/作业卡/提案卡:upsert 归并到最后一条 assistant 气泡(同 id 更新);
+            // 本轮尚无文本气泡且事件新建了气泡时,后续 text 增量续到该气泡(避免碎片化)
+            setMessages((prev) => {
+              let next: ChatMessage[];
+              if (ev.type === "tool") {
+                next = upsertToolChip(prev, {
+                  id: ev.id || genId(),
+                  name: ev.name || "tool",
+                  status: ev.status === "ok" ? "ok" : ev.status === "error" ? "error" : "start",
+                  summary: ev.summary || "",
+                  detail: ev.detail,
+                });
+              } else if (ev.type === "job") {
+                next = upsertJobCard(prev, {
+                  jobId: ev.job_id || genId(),
+                  kind: ev.kind || "",
+                  status: ev.status || "queued",
+                  label: ev.label || "",
+                  holdReason: ev.hold_reason,
+                  results: ev.results?.length ? ev.results : undefined,
+                });
+              } else {
+                next = upsertProposalCard(prev, {
+                  proposalId: ev.proposal_id || genId(),
+                  title: ev.title || "执行方案",
+                  body: ev.body || "",
+                  estimate: ev.estimate,
+                });
+              }
+              if (!assistantMsg) {
+                const last = next[next.length - 1];
+                if (last?.role === "assistant" && !prev.some((m) => m.id === last.id)) {
+                  assistantMsg = last;
+                }
+              }
+              return next;
+            });
           }
         };
 
-        const { sessionId } = await agentChatStream(
-          {
-            messages: apiMessages,
-            document_ids: docIds,
-            // 仅服务端模式携带会话 id(local 兜底模式的 id 是本地 genId,服务端不认)
-            session_id: convStore.serverMode ? (activeConvIdRef.current ?? null) : null,
-          },
-          onEvent,
-          controller.signal,
-        );
+        const { sessionId } = resume
+          ? await agentChatResume(
+              {
+                conversation_id: resume.conversationId,
+                proposal_id: resume.proposalId,
+                action: resume.action,
+                ...(resume.note?.trim() ? { note: resume.note.trim() } : {}),
+              } satisfies AgentChatResumeBody,
+              onEvent,
+              controller.signal,
+            )
+          : await agentChatStream(
+              {
+                messages: apiMessages,
+                document_ids: docIds,
+                // 仅服务端模式携带会话 id(local 兜底模式的 id 是本地 genId,服务端不认)
+                session_id: convStore.serverMode ? (activeConvIdRef.current ?? null) : null,
+              },
+              onEvent,
+              controller.signal,
+            );
         if (sessionId) lastSessionIdRef.current = sessionId;
       } catch {
         failed = true;
@@ -796,8 +1078,8 @@ export function AssistantView(props?: AssistantViewProps) {
         abortControllerRef.current = null;
       }
 
-      // 流内错误或零内容空响应,统一按失败处理
-      if (streamError || !gotFirstChunkRef.current) failed = true;
+      // 流内错误或零内容空响应,统一按失败处理;resume 回执允许空流(如 reject 仅确认落库)
+      if (streamError || (!resume && !gotFirstChunkRef.current)) failed = true;
 
       // 用户主动停止:不补错误气泡,也不重写历史(保留已流出的内容)
       if (failed && userStoppedRef.current) return;
@@ -824,6 +1106,65 @@ export function AssistantView(props?: AssistantViewProps) {
     },
     [finishTurn, convStore],
   );
+
+  // ───── 提案确认卡 / 作业卡轮询(2026-08-24 助手升级) ─────
+  // 最新 messages 快照:提案按钮回调里发 resume 需要当前完整消息基(不依赖闭包旧值)
+  const messagesRef = useRef<ChatMessage[]>([]);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+  // 「修改」展开的提案卡 id + 修改意见草稿
+  const [modifyFor, setModifyFor] = useState<string | null>(null);
+  const [modifyNote, setModifyNote] = useState("");
+
+  /** 提案卡三按钮:先落锤转只读,再走 resume(approve/modify/reject)接回流式处理。 */
+  const onProposalDecision = useCallback(
+    (card: AgentProposalCard, action: "approve" | "modify" | "reject", note?: string) => {
+      setModifyFor(null);
+      setModifyNote("");
+      setMessages((prev) => markProposalResolved(prev, card.proposalId, action, note));
+      const conversationId =
+        activeConvIdRef.current ?? lastSessionIdRef.current ?? "";
+      void requestReply(messagesRef.current, [], {
+        proposalId: card.proposalId,
+        action,
+        note,
+        conversationId,
+      });
+    },
+    [requestReply],
+  );
+
+  // 进行中作业卡 8s 轮询:无单 job 查询端点,复用列表端点(fetchJobsPage 直连网络,
+  // 不走 listJobs 的 SWR 缓存防陈旧)按 job id / prompt_id 过滤回写;done 自动出列停轮询
+  const activeJobKey = useMemo(() => {
+    const ids: string[] = [];
+    for (const m of messages) {
+      for (const j of m.jobs ?? []) {
+        if (isJobCardActive(j.status)) ids.push(j.jobId);
+      }
+    }
+    return ids.sort().join(",");
+  }, [messages]);
+
+  useEffect(() => {
+    if (!activeJobKey) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const rows = await fetchJobsPage(0, JOBS_PAGE_LIMIT);
+        if (!cancelled) setMessages((prev) => applyJobSnapshots(prev, rows));
+      } catch {
+        /* 网络抖动下轮再试,卡片保持当前状态 */
+      }
+    };
+    void poll();
+    const timer = window.setInterval(poll, 8000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [activeJobKey]);
 
   const send = useCallback(
     async (presetPrompt?: string) => {
@@ -1224,7 +1565,7 @@ export function AssistantView(props?: AssistantViewProps) {
                           <span>重试</span>
                         </button>
                       </>
-                    ) : msg.content || msg.media?.length ? (
+                    ) : msg.content || msg.media?.length || msg.tools?.length || msg.jobs?.length || msg.proposals?.length ? (
                       <>
                         {msg.docs?.length ? (
                           <span className="doc-chips doc-chips--msg">
@@ -1237,44 +1578,134 @@ export function AssistantView(props?: AssistantViewProps) {
                           </span>
                         ) : null}
                         {msg.role === "assistant" ? renderInlineMarkdown(msg.content) : msg.content}
-                        {msg.media?.map((m, idx) => (
-                          <div key={idx} className="av-media">
-                            {m.type === "image" && m.urls[0] && (
-                              <img
-                                src={m.urls[0]}
-                                alt="生成结果"
-                                className="av-media-img"
-                                loading="lazy"
-                                decoding="async"
+                        {/* 工具调用小条:转圈(start)/绿勾(ok)/红叉(error+detail) */}
+                        {msg.tools?.map((t) => (
+                          <div key={t.id} className={`av-tool-chip is-${t.status}`}>
+                            <span className="av-tool-chip-icon">
+                              <Icon
+                                name={t.status === "start" ? "loading" : t.status === "ok" ? "check" : "close"}
+                                size={12}
+                                strokeWidth={2}
                               />
-                            )}
-                            {m.type === "video" && m.urls[0] && (
-                              <video
-                                src={m.urls[0]}
-                                controls
-                                className="av-media-video"
-                              />
-                            )}
-                            {m.type === "audio" && m.urls[0] && (
-                              <audio
-                                src={m.urls[0]}
-                                controls
-                                className="av-media-audio"
-                              />
-                            )}
-                            {m.type === "model3d" && m.urls[0] && (
-                              <a
-                                href={m.urls[0]}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="av-media-link"
-                              >
-                                <Icon name="box" size={14} strokeWidth={1.8} />
-                                3D 模型
-                              </a>
+                            </span>
+                            <span className="av-tool-chip-text">
+                              <span className="av-tool-chip-summary">{t.summary || t.name}</span>
+                              {t.status === "error" && t.detail ? (
+                                <span className="av-tool-chip-detail">{t.detail}</span>
+                              ) : null}
+                            </span>
+                          </div>
+                        ))}
+                        {/* 生成作业卡:kind 中文名 + label + 状态徽章;done 渲染产物媒体 */}
+                        {msg.jobs?.map((j) => (
+                          <div key={j.jobId} className={`av-job-card is-${isJobCardActive(j.status) ? "active" : j.status}`}>
+                            <div className="av-job-card-head">
+                              <span className="av-job-card-kind">
+                                <Icon name={isVideoKind(j.kind) ? "video" : kindToFilter(j.kind) === "audio" ? "audio" : kindToFilter(j.kind) === "3d" ? "box" : "image"} size={12} strokeWidth={1.8} />
+                                {kindLabel(j.kind)}
+                              </span>
+                              <span className={`av-job-badge is-${j.status}`}>
+                                {jobCardStatusLabel(j.status)}
+                              </span>
+                            </div>
+                            {j.label ? <div className="av-job-card-label">{j.label}</div> : null}
+                            {j.status === "held" && j.holdReason ? (
+                              <div className="av-job-card-hold">{j.holdReason}</div>
+                            ) : null}
+                            {j.status === "done" && j.results?.length
+                              ? j.results.map((u, i) =>
+                                  renderAvMedia(
+                                    { type: mediaTypeForJob(j.kind, u), urls: [u] },
+                                    `${j.jobId}-${i}`,
+                                  ),
+                                )
+                              : null}
+                          </div>
+                        ))}
+                        {/* 提案确认卡:确认执行/修改/放弃;落锤后只读 */}
+                        {msg.proposals?.map((p) => (
+                          <div key={p.proposalId} className={`av-proposal${p.resolution ? " is-resolved" : ""}`}>
+                            <div className="av-proposal-head">
+                              <Icon name="sparkles" size={13} strokeWidth={1.8} />
+                              <span className="av-proposal-title">{p.title}</span>
+                              {p.estimate ? (
+                                <span className="av-proposal-estimate">{p.estimate}</span>
+                              ) : null}
+                            </div>
+                            {p.body ? (
+                              <div className="av-proposal-body">{renderInlineMarkdown(p.body)}</div>
+                            ) : null}
+                            {p.resolution ? (
+                              <div className={`av-proposal-result is-${p.resolution}`}>
+                                <Icon
+                                  name={p.resolution === "reject" ? "close" : "check"}
+                                  size={12}
+                                  strokeWidth={2}
+                                />
+                                {p.resolution === "approve"
+                                  ? "已确认执行"
+                                  : p.resolution === "modify"
+                                    ? "已修改并执行"
+                                    : "已放弃"}
+                                {p.resolution === "modify" && p.note ? (
+                                  <span className="av-proposal-result-note">{p.note}</span>
+                                ) : null}
+                              </div>
+                            ) : (
+                              <>
+                                <div className="av-proposal-actions">
+                                  <button
+                                    type="button"
+                                    className="av-proposal-btn is-primary"
+                                    disabled={busy}
+                                    onClick={() => onProposalDecision(p, "approve")}
+                                  >
+                                    确认执行
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="av-proposal-btn"
+                                    disabled={busy}
+                                    onClick={() => {
+                                      setModifyFor(modifyFor === p.proposalId ? null : p.proposalId);
+                                      setModifyNote("");
+                                    }}
+                                  >
+                                    修改
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="av-proposal-btn is-danger"
+                                    disabled={busy}
+                                    onClick={() => onProposalDecision(p, "reject")}
+                                  >
+                                    放弃
+                                  </button>
+                                </div>
+                                {modifyFor === p.proposalId && (
+                                  <div className="av-proposal-modify">
+                                    <textarea
+                                      className="av-proposal-note"
+                                      placeholder="填写修改意见…"
+                                      value={modifyNote}
+                                      onChange={(e) => setModifyNote(e.target.value)}
+                                      rows={3}
+                                    />
+                                    <button
+                                      type="button"
+                                      className="av-proposal-btn is-primary"
+                                      disabled={busy || !modifyNote.trim()}
+                                      onClick={() => onProposalDecision(p, "modify", modifyNote.trim())}
+                                    >
+                                      提交修改
+                                    </button>
+                                  </div>
+                                )}
+                              </>
                             )}
                           </div>
                         ))}
+                        {msg.media?.map((m, idx) => renderAvMedia(m, idx))}
                       </>
                     ) : (
                       <span className="av-typing">
@@ -1956,6 +2387,252 @@ export function AssistantView(props?: AssistantViewProps) {
         .av-media-link:hover {
           border-color: var(--border-strong);
           background: var(--bg-surface-3);
+        }
+
+        /* ───── 工具调用小条(tool 事件,2026-08-24) ───── */
+        .av-tool-chip {
+          display: flex;
+          align-items: flex-start;
+          gap: var(--space-2);
+          margin-top: var(--space-2);
+          padding: var(--space-2) var(--space-3);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+          font-size: var(--text-aux);
+          white-space: normal; /* 气泡 pre-wrap 不传染卡片内部排版 */
+        }
+        .av-tool-chip-icon {
+          flex-shrink: 0;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 18px;
+          height: 18px;
+          margin-top: 1px;
+          color: var(--text-muted);
+        }
+        .av-tool-chip.is-ok .av-tool-chip-icon {
+          color: var(--ok);
+        }
+        .av-tool-chip.is-error .av-tool-chip-icon {
+          color: var(--err);
+        }
+        .av-tool-chip-text {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          min-width: 0;
+        }
+        .av-tool-chip-summary {
+          color: var(--text-secondary);
+          line-height: 1.45;
+        }
+        .av-tool-chip-detail {
+          color: var(--err);
+          font-size: var(--text-label);
+          line-height: 1.45;
+          word-break: break-word;
+        }
+
+        /* ───── 生成作业卡(job 事件) ───── */
+        .av-job-card {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-2);
+          min-width: 220px;
+          margin-top: var(--space-2);
+          padding: var(--space-3);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+          white-space: normal;
+        }
+        .av-job-card-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: var(--space-2);
+        }
+        .av-job-card-kind {
+          display: inline-flex;
+          align-items: center;
+          gap: var(--space-1);
+          font-size: var(--text-aux);
+          font-weight: var(--font-medium);
+          color: var(--text-primary);
+        }
+        .av-job-badge {
+          flex-shrink: 0;
+          padding: 1px var(--space-2);
+          border-radius: var(--radius-full);
+          border: 1px solid var(--border-subtle);
+          font-size: var(--text-label);
+          color: var(--text-secondary);
+        }
+        .av-job-badge.is-running {
+          color: var(--run);
+          border-color: color-mix(in oklab, var(--run) 40%, transparent);
+          background: var(--run-soft);
+        }
+        .av-job-badge.is-held {
+          color: var(--warn);
+          border-color: color-mix(in oklab, var(--warn) 40%, transparent);
+          background: var(--warn-soft);
+        }
+        .av-job-badge.is-done {
+          color: var(--ok);
+          border-color: color-mix(in oklab, var(--ok) 40%, transparent);
+        }
+        .av-job-badge.is-error {
+          color: var(--err);
+          border-color: color-mix(in oklab, var(--err) 40%, transparent);
+          background: var(--err-soft);
+        }
+        .av-job-card-label {
+          font-size: var(--text-aux);
+          color: var(--text-secondary);
+          line-height: 1.45;
+          word-break: break-word;
+        }
+        .av-job-card-hold {
+          font-size: var(--text-label);
+          color: var(--warn);
+          line-height: 1.45;
+          word-break: break-word;
+        }
+
+        /* ───── 提案确认卡(proposal 事件) ───── */
+        .av-proposal {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-2);
+          min-width: 260px;
+          margin-top: var(--space-2);
+          padding: var(--space-3) var(--space-4);
+          background: linear-gradient(145deg, var(--bg-surface-2), var(--bg-surface-3));
+          border: 1px solid var(--accent-glow);
+          border-radius: var(--radius-panel);
+          box-shadow: 0 0 0 1px var(--accent-soft);
+          white-space: normal;
+        }
+        .av-proposal.is-resolved {
+          border-color: var(--border-subtle);
+          box-shadow: none;
+        }
+        .av-proposal-head {
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+          color: var(--accent);
+        }
+        .av-proposal-title {
+          font-size: var(--text-body);
+          font-weight: var(--font-semibold);
+          color: var(--text-primary);
+        }
+        .av-proposal-estimate {
+          margin-left: auto;
+          font-size: var(--text-label);
+          color: var(--text-muted);
+          font-family: var(--font-mono);
+        }
+        .av-proposal-body {
+          font-size: var(--text-aux);
+          color: var(--text-secondary);
+          line-height: 1.6;
+          white-space: pre-wrap;
+          word-break: break-word;
+        }
+        .av-proposal-actions {
+          display: flex;
+          gap: var(--space-2);
+        }
+        .av-proposal-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          height: 28px;
+          padding: 0 var(--space-3);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-strong);
+          border-radius: var(--radius-control);
+          color: var(--text-primary);
+          font-size: var(--text-aux);
+          font-weight: var(--font-medium);
+          font-family: var(--font-sans);
+          cursor: pointer;
+          transition: color var(--duration-fast) var(--ease-standard),
+            background-color var(--duration-fast) var(--ease-standard),
+            border-color var(--duration-fast) var(--ease-standard);
+        }
+        .av-proposal-btn:hover:not(:disabled) {
+          color: var(--accent);
+          border-color: var(--accent-glow);
+          background: var(--bg-surface-3);
+        }
+        .av-proposal-btn:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
+        .av-proposal-btn.is-primary {
+          background: var(--accent);
+          border-color: transparent;
+          color: var(--text-on-accent);
+        }
+        .av-proposal-btn.is-primary:hover:not(:disabled) {
+          background: var(--accent-hover);
+          color: var(--text-on-accent);
+        }
+        .av-proposal-btn.is-danger:hover:not(:disabled) {
+          color: var(--err);
+          border-color: color-mix(in oklab, var(--err) 45%, transparent);
+          background: var(--err-soft);
+        }
+        .av-proposal-modify {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-2);
+        }
+        .av-proposal-note {
+          width: 100%;
+          resize: vertical;
+          padding: var(--space-2) var(--space-3);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+          color: var(--text-primary);
+          font-size: var(--text-aux);
+          font-family: var(--font-sans);
+          line-height: 1.55;
+          outline: none;
+        }
+        .av-proposal-note:focus {
+          border-color: var(--accent-glow);
+        }
+        .av-proposal-note::placeholder {
+          color: var(--text-muted);
+        }
+        .av-proposal-result {
+          display: flex;
+          align-items: center;
+          gap: var(--space-1);
+          font-size: var(--text-aux);
+          font-weight: var(--font-medium);
+        }
+        .av-proposal-result.is-approve,
+        .av-proposal-result.is-modify {
+          color: var(--ok);
+        }
+        .av-proposal-result.is-reject {
+          color: var(--text-muted);
+        }
+        .av-proposal-result-note {
+          font-weight: var(--font-regular, 400);
+          color: var(--text-secondary);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
         /* 打字指示器(运行态,用 --run) */

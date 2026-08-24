@@ -4,7 +4,8 @@
   rate_scope} —— schema/执行器/SYSTEM 说明单一事实源,消灭 TOOL_SCHEMAS、execute
   if/elif、runner.SYSTEM 三处手工同步。
 - Provider:ToolPlugin —— harness bootstrap 时在 LLMPlugin 之后激活(见
-  plugin.bootstrap_default),注册 8 个内建工具(执行器事实源在 app.agent.tools)
+  plugin.bootstrap_default),注册内建工具(10 个同步小工具,执行器事实源在
+  app.agent.tools;+ 4 个深度接管生成工具,事实源在 app.agent.tools_gen)
   与两条内建守卫(R18 门 / 限流记配额)。
 - Consumer:agent/runner 与 routes 经 get_ctx().service("tools") 取用;
   app.agent.tools.execute 保留兼容入口(委托本注册表)。
@@ -32,8 +33,9 @@ from app.ratelimit import enforce_rate_limit
 
 logger = logging.getLogger(__name__)
 
-# 工具执行器签名:(LLM 给的参数, 调用上下文) → (给 LLM 的文字结果, 推前端的媒体事件)
-# 调用上下文 dict 约定键:pool / user / session / attachment(可空)。
+# 工具执行器签名:(LLM 给的参数, 调用上下文) → (给 LLM 的文字结果, 推前端的事件列表)
+# 调用上下文 dict 约定键:pool / user / session / attachment(可空) /
+# agent_session(可空,本会话 AgentSession 行;仅对话链路有,propose_plan 落提案用)。
 ToolExecutor = Callable[[dict, dict], Awaitable[tuple[str, list[dict]]]]
 
 
@@ -150,16 +152,23 @@ def _wrap(fn) -> ToolExecutor:
 
 
 def builtin_tool_specs() -> list[ToolSpec]:
-    """8 个内建工具的 ToolSpec(顺序即 SYSTEM 工具清单顺序,与迁移前 runner.SYSTEM 逐字一致)。
+    """内建工具的 ToolSpec(顺序即 SYSTEM 工具清单顺序)。
 
-    惰性 import app.agent.tools:本模块可能被 harness bootstrap 早期加载,
+    前 10 个为 tools.py 的同步直出小工具(与迁移前 runner.SYSTEM 逐字一致);
+    后 4 个为 tools_gen.py 的深度接管工具(异步提交/查状态/提示词优化/提案)。
+    submit/optimize 走 routes 端点函数自带限流,故 rate_scope="" 防双记配额。
+
+    惰性 import app.agent.tools / tools_gen:本模块可能被 harness bootstrap 早期加载,
     而 tools 依赖 harness.ctx(兼容入口),模块级互导会成环。
     """
-    from app.agent import tools
+    from app.agent import tools, tools_gen
 
     def schema(name: str) -> dict:
         # schema 与 tools.TOOL_SCHEMAS 同对象,保证注册表与旧清单逐键等价
         return next(s for s in tools.TOOL_SCHEMAS if s["function"]["name"] == name)
+
+    def gen_schema(name: str) -> dict:
+        return next(s for s in tools_gen.TOOL_SCHEMAS_GEN if s["function"]["name"] == name)
 
     return [
         ToolSpec("generate_image", schema("generate_image"), _wrap(tools.exec_generate_image),
@@ -182,6 +191,16 @@ def builtin_tool_specs() -> list[ToolSpec]:
                  "联网搜索(查平台没有的新知识:最新模型/插件/LoRA/行业动态/事实核查;可多轮换词深挖)"),
         ToolSpec("run_workflow", schema("run_workflow"), _wrap(tools.exec_run_workflow),
                  "提交自定义 ComfyUI 工作流图(标准工具满足不了时;搭图前先 search_knowledge 查配方与真实模型名)"),
+        # ── 深度接管生成工具(tools_gen.py;executor 直接吃 (args, ctx))──
+        # rate_scope="":提交/优化走 routes 端点函数自带限流,守卫不重复记配额
+        ToolSpec("submit_generation", gen_schema("submit_generation"), tools_gen.exec_submit_generation,
+                 "异步提交任意引擎的生成作业(视频/批量/专用实例引擎一律用它;立即返回 job_id,约耗时见引擎说明)", rate_scope=""),
+        ToolSpec("check_jobs", gen_schema("check_jobs"), tools_gen.exec_check_jobs,
+                 "查询生成作业状态与产物(用户追问进度时;done 的自动把产物展示给用户)", rate_scope=""),
+        ToolSpec("optimize_prompt", gen_schema("optimize_prompt"), tools_gen.exec_optimize_prompt,
+                 "提示词优化(提交生成前必调;按引擎/底模自动切方言)", rate_scope=""),
+        ToolSpec("propose_plan", gen_schema("propose_plan"), tools_gen.exec_propose_plan,
+                 "大需求提案(视频/批量/多步/整集类先出方案等用户确认再执行)", rate_scope=""),
     ]
 
 

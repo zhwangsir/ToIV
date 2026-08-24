@@ -5,6 +5,14 @@ user/assistant/tool 消息逐条追加落库(AgentMessage);会话 id 经响应�
 X-Agent-Session-Id 立即返回前端(SSE 事件类型零变更)。会话管理端点:
 列表 / 回放 / 分叉 / 删除,全部 get_current_user + 归属校验(404 不泄露),
 nsfw=True 会话仅 X-NSFW 上下文可见(对齐 Job 过滤语义)。
+
+深度接管(2026-08-24):在既有 msg 包络(text/error/tool/媒体)之外新增三类
+顶层 SSE 事件(协议固定,前端按 event 名订阅):
+  event: tool      data: {"id","name","status":"start|ok|error","summary","detail"?}
+  event: job       data: {"job_id","kind","status","label","hold_reason"?,"results"?}
+  event: proposal  data: {"proposal_id","title","body","estimate"}
+确认回执:POST /api/agent/chat/resume 把用户对决(proposal approve/modify/reject)
+注入对话上下文并继续 chat 循环,响应仍是同构 SSE 流。
 """
 from __future__ import annotations
 
@@ -26,6 +34,18 @@ from app.nsfw_ctx import nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
 
 router = APIRouter()
+
+# runner 事件 type → 顶层 SSE event 名(深度接管协议;其余事件仍走 msg 包络)
+_STREAM_EVENT_NAMES = {"tool_event": "tool", "job": "job", "proposal": "proposal"}
+
+
+def _sse_event(ev: dict) -> dict:
+    """把 runner 产出的事件 dict 映射为 SSE 帧(新协议事件拆顶层,其余包 msg)。"""
+    t = ev.get("type") if isinstance(ev, dict) else None
+    if t in _STREAM_EVENT_NAMES:
+        return {"event": _STREAM_EVENT_NAMES[t],
+                "data": json.dumps(ev.get("data", {}), ensure_ascii=False)}
+    return {"event": "msg", "data": json.dumps(ev, ensure_ascii=False)}
 
 
 class ChatMessage(BaseModel):
@@ -147,12 +167,106 @@ async def agent_chat(
     async def stream():
         async for ev in runner.run(
             msgs, pool, user, session, attachment, body.document_ids,
-            on_message=on_message,
+            on_message=on_message, agent_session=sess,
         ):
-            yield {"event": "msg", "data": json.dumps(ev, ensure_ascii=False)}
+            yield _sse_event(ev)
         yield {"event": "done", "data": "{}"}
 
     # 会话 id 走响应头:SSE 事件契约不变,新/旧前端都能安全忽略
+    return EventSourceResponse(stream(), headers={"X-Agent-Session-Id": sess.id})
+
+
+# --------------------------------------------------------------------------- #
+# 提案确认回执(深度接管):approve/modify/reject 注入对话上下文并继续 chat 循环
+# --------------------------------------------------------------------------- #
+class ResumeRequest(BaseModel):
+    conversation_id: str = Field(max_length=64)
+    proposal_id: str = Field(max_length=64)
+    action: str  # approve | modify | reject
+    note: str | None = Field(default=None, max_length=2000)
+
+
+_ACTION_STATUS = {"approve": "approved", "modify": "modified", "reject": "rejected"}
+
+
+def _decision_message(prop: dict, action: str, note: str | None) -> str:
+    """把用户对决拼成一条 user 消息(含方案要点回顾,保证模型看得到方案全文)。"""
+    title = prop.get("title", "")
+    pid = prop.get("proposal_id", "")
+    body = (prop.get("body") or "")[:2000]
+    head = {
+        "approve": f"【方案确认】我批准了方案「{title}」(proposal_id={pid})。",
+        "modify": f"【方案修改】我原则上同意方案「{title}」(proposal_id={pid}),但有修改意见。",
+        "reject": f"【方案拒绝】我拒绝了方案「{title}」(proposal_id={pid})。",
+    }[action]
+    parts = [head]
+    if note:
+        parts.append(f"我的意见:{note}")
+    parts.append(f"方案要点回顾:\n{body}")
+    parts.append({
+        "approve": "请按该方案开始执行(逐步 optimize_prompt → submit_generation,提交后告知 job_id 与预计耗时)。",
+        "modify": "请按我的意见调整方案;若改动大请重新 propose_plan,改动小可直接按调整后方向执行。",
+        "reject": "先不要执行任何生成,和我重新讨论方向。",
+    }[action])
+    return "\n\n".join(parts)
+
+
+@router.post("/agent/chat/resume")
+async def agent_chat_resume(
+    body: ResumeRequest,
+    user: User = Depends(get_current_user),
+    pool: WorkerPool = Depends(get_pool),
+    session: Session = Depends(get_session),
+):
+    """提案回执:确认/修改/拒绝注入对话上下文,继续 chat 循环(同构 SSE 流)。"""
+    enforce_generation_rate_limit(user)
+    if body.action not in _ACTION_STATUS:
+        raise HTTPException(status_code=422, detail="action 必须是 approve|modify|reject")
+    sess = _get_owned_session(session, user, body.conversation_id)
+    if not sess.pending_proposal:
+        raise HTTPException(status_code=404, detail="该会话没有待确认的提案")
+    prop = json.loads(sess.pending_proposal)
+    if prop.get("proposal_id") != body.proposal_id:
+        raise HTTPException(status_code=404, detail="提案不存在或已被新提案覆盖")
+    if prop.get("status") != "pending":
+        raise HTTPException(status_code=409, detail="该提案已处理过,请勿重复提交")
+
+    # 落对决存根(状态保留在会话上,供前端回放展示)
+    prop["status"] = _ACTION_STATUS[body.action]
+    prop["note"] = body.note or ""
+    sess.pending_proposal = json.dumps(prop, ensure_ascii=False)
+    session.add(sess)
+    session.commit()
+
+    # 从消息日志重建模型可见历史(user/assistant 原文;tool 中间结果不回放,
+    # 与前端续聊只带两类消息的口径一致),再注入对决消息
+    rows = session.exec(
+        select(AgentMessage)
+        .where(AgentMessage.session_id == sess.id)
+        .order_by(AgentMessage.id.asc())
+    ).all()
+    msgs = [
+        {"role": r.role, "content": r.content}
+        for r in rows
+        if r.role in ("user", "assistant") and r.content
+    ]
+    decision = _decision_message(prop, body.action, body.note)
+    msgs.append({"role": "user", "content": decision})
+    _append_message(session, sess, "user", decision)
+
+    async def on_message(msg: dict) -> None:
+        _append_message(
+            session, sess, msg["role"], msg.get("content", ""),
+            msg.get("tool_calls"), msg.get("media"),
+        )
+
+    async def stream():
+        async for ev in runner.run(
+            msgs, pool, user, session, on_message=on_message, agent_session=sess,
+        ):
+            yield _sse_event(ev)
+        yield {"event": "done", "data": "{}"}
+
     return EventSourceResponse(stream(), headers={"X-Agent-Session-Id": sess.id})
 
 

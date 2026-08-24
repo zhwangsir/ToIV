@@ -184,3 +184,25 @@ ToIV 的“文生视频”一般先文生底图，再用 Wan 驱动其运动；W
 - ToIV 与 AICG 共用同一 NAS 模型目录，物理文件已自动保持一致。
 - 本知识文档需随 NAS 模型增减同步维护；新增 Flux.1 D 风格 LoRA 已加入，LoRA 适配由 `model_profiles.py` 统一处理，无需额外代码改动。
 - 部分 checkpoint / LoRA 为成人内容（NSFW），按需使用。
+
+## 专用引擎实例(视频/编辑主力,助手 submit_generation 的 engine_id)
+
+| 引擎 | engine_id | 说明 |
+|------|-----------|------|
+| MiniMax H3 文/图生视频 | `h3-t2v` / `h3-i2v`(R18:`h3-nsfw-t2v` / `h3-nsfw-i2v`) | **平台视频主力**(专用实例 :8195)。原生 32kHz 音画同出;负向不可靠,一切约束写正向指令;帧数 17n+5 网格(5/22/39/56…124/362),固定 24fps,宽/高 32 对齐 ≤1344×768;单段约 15 分钟,超 15s 自动分段续写。 |
+| LongCat 长视频 | `longcat-t2v` / `longcat-i2v` / `longcat-continue` | 长镜头引擎(:8197),单镜头最长 ≈60s(961 帧@16fps),蒸馏低步数(默认 10);continue 取已有视频末帧续写。 |
+| LongCat-Avatar 数字人 | `avatar-talk` | 人像首帧 + 驱动音频 → 口型同步视频(:8197),默认 25fps,最长 ≈100s。 |
+| Wan2.2-Animate 动作迁移 | `wan-animate` | 参考图角色按驱动视频表演(双轨骨骼+表情,:8197)。 |
+| Wan-Animate-2 换人 | `wan-animate-2` | 换代动作迁移/视频换人(:8199,蒸馏 10 步,数分钟);positive **只写外观 caption 严禁动作词**,留空自动 VLM 反推。 |
+| Wan2.1-VACE 多参考视频 | `wan-vace` | 1-4 张参考图(+可选首尾帧)→ 一致性视频(:8197)。 |
+| Wan2.2 I2V(R18 兜底) | `wan-nsfw-i2v` | 双专家 14B + Civitai NSFW LoRA 配方;触发词必须原样置句首;单段上限 121 帧(7.5s@16fps)。 |
+| LTX 2.3(R18) | `ltx-nsfw-t2v` / `ltx-nsfw-i2v` / `ltx-nsfw-lipsync` | 10Eros 底模成人向视频,仅 R18 上下文。 |
+| 智能编辑(Qwen) | `qwen-image-edit` | Qwen-Image-Edit-2509/2511(:8194):自然语言语义编辑 + 相机角度预设 + 3D 相机 360°(azimuth/elevation/distance);吃编辑指令不吃画面描述。 |
+| SCoPE 运镜 | (路由 `/api/scope/generate`,未入引擎注册表) | 首帧图 + 文本 + 相机轨迹预设 → 81 帧视频;提示词严禁运镜词(轨迹负责运镜);40 步约 19 分钟,很慢,要先告知用户。 |
+| ACE 文生音乐 | `ace-music` | 风格标签 + 可选歌词 → MP3(≤240s)。 |
+
+## 其他新能力速记
+
+- **Z-Image 底模分流**:`z_image_turbo_bf16`(蒸馏极速,cfg≈1/负向失效)与 `z_image_bf16`(非蒸馏质量档,cfg≈4/30 步/负向有效,LoRA 训练正确底座)是两个族,采样参数不通用。
+- **Hunyuan3D 图生3D**:原生 2.0 只有几何**无纹理**(要纹理需 2.1 all-in-one,未装);输入主体居中、背景干净的单图效果最好。
+- **IndexTTS 2.5**(语音服务):支持中/英/日/西/阿五语种、0.5-2.0 语速、情感文本控制(emo_text);对话内 TTS 台词/情绪描述是直送引擎的内容,**不要**用提示词优化改写。

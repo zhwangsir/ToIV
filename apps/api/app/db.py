@@ -65,6 +65,8 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("agent", "user_id", "user_id TEXT NOT NULL DEFAULT ''"),
     # 资源预算二期(2026-08-23):hold 排队原因列(held 作业的前端可读说明)
     ("job", "hold_reason", "hold_reason VARCHAR NOT NULL DEFAULT ''"),
+    # 深度接管(2026-08-24):智能体会话待确认提案(JSON,可空;空=无 pending)
+    ("agentsession", "pending_proposal", "pending_proposal TEXT"),
 )
 
 # 整段 SQL 幂等迁移(CREATE TABLE IF NOT EXISTS 等,非 ADD COLUMN 场景)。
