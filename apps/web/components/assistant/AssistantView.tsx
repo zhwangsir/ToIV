@@ -25,6 +25,8 @@ import {
 } from "@/lib/api";
 import { fetchEngines, type EngineInfo } from "@/lib/engines";
 import { isVideoKind, kindLabel, kindToFilter } from "@/lib/libraryQuery";
+import { mediaKindOf } from "@/lib/mediaKind";
+import { ModelViewer } from "@/components/ui/ModelViewer";
 import { useR18Mode } from "@/lib/r18";
 import type { JobItem } from "@/lib/types";
 import {
@@ -279,17 +281,10 @@ export function jobCardStatusLabel(status: string): string {
   }
 }
 
-/** 作业产物 → 媒体渲染分支:优先 kind 映射,未知 kind 按扩展名兜底(纯函数,单测锚点)。 */
+/** 作业产物 → 媒体渲染分支(纯函数,单测锚点)。
+ *  已收敛为 lib/mediaKind.mediaKindOf 的薄封装(扩展名优先、kind 兜底),勿再各自维护正则。 */
 export function mediaTypeForJob(kind: string, url = ""): string {
-  const f = kindToFilter(kind);
-  if (f === "image" || f === "video" || f === "audio") return f;
-  if (f === "3d") return "model3d";
-  // 签名 URL 文件名常在查询串(/api/images?f=a.mp4&sig=…),扩展名匹配不剥查询
-  const u = url.toLowerCase();
-  if (/\.(mp4|webm|mov|m4v)(\?|&|$)/.test(u)) return "video";
-  if (/\.(mp3|wav|ogg|flac|m4a|aac)(\?|&|$)/.test(u)) return "audio";
-  if (/\.(glb|gltf)(\?|&|$)/.test(u)) return "model3d";
-  return "image";
+  return mediaKindOf(url, kind);
 }
 
 /** 作业卡轮询快照回写(纯函数,单测锚点):进行中卡片按 job id / prompt_id 匹配
@@ -561,15 +556,20 @@ export function renderAvMedia(
         <audio src={m.urls[0]} controls className="av-media-audio" />
       )}
       {m.type === "model3d" && m.urls[0] && (
-        <a
-          href={m.urls[0]}
-          target="_blank"
-          rel="noreferrer"
-          className="av-media-link"
-        >
-          <Icon name="box" size={14} strokeWidth={1.8} />
-          3D 模型
-        </a>
+        <>
+          <div className="av-media-3d">
+            <ModelViewer src={m.urls[0]} />
+          </div>
+          <a
+            href={m.urls[0]}
+            target="_blank"
+            rel="noreferrer"
+            className="av-media-link"
+          >
+            <Icon name="box" size={14} strokeWidth={1.8} />
+            下载 3D 模型
+          </a>
+        </>
       )}
     </div>
   );
@@ -2369,6 +2369,14 @@ export function AssistantView(props?: AssistantViewProps) {
         }
         .av-media-video {
           max-height: 320px;
+        }
+        /* 3D 模型内联查看器(高度约束在容器,查看器 100% 填充) */
+        .av-media-3d {
+          height: 260px;
+          border-radius: var(--radius-control);
+          border: 1px solid var(--border-subtle);
+          overflow: hidden;
+          margin-bottom: var(--space-2);
         }
         .av-media-link {
           display: inline-flex;

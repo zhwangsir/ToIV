@@ -11,6 +11,7 @@ import { OptimizeButton } from "@/components/ui/OptimizeButton";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { AssetPicker, type PickedAsset } from "@/components/generate/AssetPicker";
 import { OrbitViewer } from "@/components/image-edit/OrbitViewer";
+import { ModelViewer } from "@/components/ui/ModelViewer";
 import {
   generate3D,
   generateFaceDetailer,
@@ -455,7 +456,7 @@ function ResultPanel({ source, resultUrl, resultPaths }: ResultPanelProps) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 子组件:3D 模型结果卡(GLB 非图片,不渲染 <img>,仅展示文件名+下载)
+// 子组件:3D 模型结果卡(内联 model-viewer 交互预览 + 文件名 + 下载)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function Model3DResult({ resultUrl }: { resultUrl: string }) {
@@ -470,6 +471,10 @@ function Model3DResult({ resultUrl }: { resultUrl: string }) {
           <Icon name="download" size={13} />
           下载 GLB
         </a>
+      </div>
+      {/* 浏览器内交互预览:轨道旋转/缩放,高度约束在容器 */}
+      <div className="ie-model3d-viewer">
+        <ModelViewer src={fullUrl} />
       </div>
       <div className="ie-model3d-body">
         <Icon name="model3d" size={40} />
@@ -1626,7 +1631,14 @@ export function ImageEditView() {
           margin: 0;
         }
 
-        /* ── 3D 模型结果卡(GLB 无预览,图标+文件名+下载) ── */
+        /* ── 3D 模型结果卡(内联 model-viewer 预览 + 图标+文件名+下载) ── */
+        .ie-model3d-viewer {
+          height: 320px;
+          margin-bottom: var(--space-3);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
+          overflow: hidden;
+        }
         .ie-model3d-body {
           display: flex;
           flex-direction: column;

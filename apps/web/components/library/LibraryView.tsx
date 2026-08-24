@@ -29,8 +29,10 @@ import {
   type SortKey,
 } from "@/lib/libraryQuery";
 import type { JobItem, TrashJobItem } from "@/lib/types";
+import { mediaKindOf } from "@/lib/mediaKind";
 import { Icon } from "@/components/ui/Icon";
 import { LazyVideo } from "@/components/ui/LazyVideo";
+import { ModelViewer } from "@/components/ui/ModelViewer";
 import { Button } from "@/components/ui/Button";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Modal } from "@/components/ui/Modal";
@@ -985,6 +987,9 @@ export function LibraryView(props?: LibraryViewProps) {
               {openFolder.members.map((job) => {
                 const hasResult = job.status === "done" && job.results?.length > 0;
                 const isVideo = isVideoKind(job.kind);
+                // 3D 产物:网格不尝试 <img> 加载,图标占位(预览进灯箱)
+                const is3d =
+                  hasResult && mediaKindOf(job.results[0], job.kind) === "model3d";
                 const cardText = splitCardTitle(job);
                 return (
                   <article
@@ -999,7 +1004,9 @@ export function LibraryView(props?: LibraryViewProps) {
                         onClick={() => openLightbox(job, openFolder.members)}
                       >
                         {hasResult ? (
-                          isVideo ? (
+                          is3d ? (
+                            <ThumbPlaceholder job={job} />
+                          ) : isVideo ? (
                             <LazyVideo src={imageUrl(job.results[0])} muted loop playsInline />
                           ) : (
                             <ImageThumb job={job} />
@@ -1112,6 +1119,9 @@ export function LibraryView(props?: LibraryViewProps) {
               // 后端作业状态枚举为 queued/running/done/error;done 表示成功且有产物
               const hasResult = job.status === "done" && job.results?.length > 0;
               const isVideo = isVideoKind(job.kind);
+              // 3D 产物(GLB/GLTF):网格不尝试 <img> 加载,图标占位 + 「3D」角标,预览进灯箱
+              const is3d =
+                hasResult && mediaKindOf(job.results[0], job.kind) === "model3d";
               // R18 作品(M9):18+ 徽标 + 缩略图默认模糊,点击单张解除/恢复
               const isNsfw = !!job.nsfw;
               const isBlurred = isNsfw && !revealedIds.has(job.id);
@@ -1153,7 +1163,9 @@ export function LibraryView(props?: LibraryViewProps) {
                       }}
                     >
                     {hasResult ? (
-                      isVideo ? (
+                      is3d ? (
+                        <ThumbPlaceholder job={job} />
+                      ) : isVideo ? (
                         // P1-14:LazyVideo 初始 preload="none",进视口/悬停才拉首帧,
                         // 避免作品库首屏几十张视频卡同时发 Range 请求
                         <LazyVideo
@@ -1185,6 +1197,14 @@ export function LibraryView(props?: LibraryViewProps) {
                       </div>
                     )}
                     </button>
+
+                    {/* 3D 作业角标:缩略图是图标占位,角标标明可进灯箱交互预览 */}
+                    {is3d && (
+                      <span className="lib-3d-badge" aria-hidden="true">
+                        <Icon name="box" size={11} />
+                        3D
+                      </span>
+                    )}
 
                     {/* 批量模式:左上勾选圈(与缩略图点击同效,提供独立焦点目标) */}
                     {batchMode && (
@@ -1649,9 +1669,10 @@ function LibraryLightbox({
 }: LibraryLightboxProps) {
   const job = jobs[index];
   const hasResult = job.status === "done" && job.results?.length > 0;
-  const isVideo = isVideoKind(job.kind);
-  const isAudio = kindToFilter(job.kind) === "audio";
   const mediaUrl = hasResult ? imageUrl(job.results[0]) : "";
+  // 统一格式识别(扩展名优先、kind 兜底):glb 不再落进 <img> 裂图;
+  // kind 非音频类但产物是 .mp3/.wav 的作业也能进音频分支
+  const mediaKind = hasResult ? mediaKindOf(mediaUrl, job.kind) : null;
 
   // 打开期间锁定 body 滚动(与 ui/Modal 同一模式;overscroll-behavior 在 CSS 侧拦截滚轮链)
   useEffect(() => {
@@ -1693,7 +1714,9 @@ function LibraryLightbox({
         {/* 左侧:媒体舞台(全出血 contain;失败/音频作品显示对应占位) */}
         <div className="lib-lb-stage">
           {hasResult ? (
-            isVideo ? (
+            mediaKind === "model3d" ? (
+              <ModelViewer src={mediaUrl} className="lib-lb-model3d" />
+            ) : mediaKind === "video" ? (
               <video
                 key={mediaUrl}
                 className="lib-lb-media"
@@ -1702,7 +1725,7 @@ function LibraryLightbox({
                 autoPlay
                 loop
               />
-            ) : isAudio ? (
+            ) : mediaKind === "audio" ? (
               <div className="lib-lb-audio">
                 <div className="lib-lb-audio-icon">
                   <Icon name="audio" size={36} strokeWidth={1.4} />
@@ -2013,12 +2036,17 @@ export function LibraryTrashView({ onBack, onRestored }: LibraryTrashViewProps) 
             {(items ?? []).map((job) => {
               const hasResult = job.status === "done" && job.results?.length > 0;
               const isVideo = isVideoKind(job.kind);
+              // 3D 产物:不尝试 <img> 加载,图标占位
+              const is3d =
+                hasResult && mediaKindOf(job.results[0], job.kind) === "model3d";
               const cardText = splitCardTitle(job);
               return (
                 <article key={job.id} className="lib-card">
                   <div className="lib-thumb">
                     {hasResult ? (
-                      isVideo ? (
+                      is3d ? (
+                        <ThumbPlaceholder job={job} />
+                      ) : isVideo ? (
                         <LazyVideo
                           src={imageUrl(job.results[0])}
                           muted

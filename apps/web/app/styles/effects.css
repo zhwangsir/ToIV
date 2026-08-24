@@ -140,6 +140,35 @@
   border-radius: var(--radius-control);
 }
 
+/* ── 3D 模型查看器(ModelViewer.tsx,@google/model-viewer 封装) ──
+   100% 充满父容器,高度一律由调用方容器定;is-loading/is-error 占位同尺寸不抖动 */
+.ui-model-viewer {
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+  border-radius: var(--radius-control);
+  overflow: hidden;
+  background: var(--bg-canvas);
+}
+.ui-model-viewer.is-loading .ui-loading {
+  height: 100%;
+  justify-content: center;
+}
+.ui-model-viewer.is-loading .ui-loading-block {
+  height: 100%;
+}
+.ui-model-viewer.is-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+}
+.ui-model-viewer-error-text {
+  font-size: var(--text-aux);
+}
+
 /* ── 统一页头图标位(PageHeader title 内联图标对齐) ────────────────── */
 .ui-page-header-icon {
   display: inline-flex;

@@ -734,7 +734,8 @@
 /* ── 内容分组(2026-08-24):文件夹卡角标 + 下钻面包屑 ──────────────────────
    带 batch_id 的同批作业(360° 环绕序列)折叠为一张文件夹卡;
    封面=首张产物缩略图(成员签名 URL 直接复用),右上角成员数角标。 */
-.lib-folder-badge {
+.lib-folder-badge,
+.lib-3d-badge {
   position: absolute;
   top: var(--space-2);
   right: var(--space-2);
@@ -1264,6 +1265,12 @@
   max-height: 100%;
   object-fit: contain;
   border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-float);
+}
+/* 3D 模型:交互式查看器(model-viewer),全舞台填充 */
+.lib-lb-model3d {
+  width: 100%;
+  height: 100%;
   box-shadow: var(--shadow-float);
 }
 /* 音频作品:占位图标 + 原生播放器 */
