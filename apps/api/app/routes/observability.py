@@ -2,9 +2,14 @@
 
 一接口聚合三类信号,替代 SSH 上机看日志:
 1. 作业队列分桶计数(queued/held/running,软删除不计);
-2. 近 24h 成功率(done vs error,按 created_at 窗口);
+2. 近 24h 成功率(done vs error,按 created_at 窗口)+ 逐小时分桶(hourly,
+   ORM 取列后 Python 分桶,SQLite/PostgreSQL 双方言行为一致);
 3. 各 GPU 卡 VRAM 负载:逐一探测各 ComfyUI 实例 /system_stats(vram_total/free)
    + /queue(运行/排队深度),按写死的 GPU 拓扑归并到卡。
+
+时序字段 series:每次缓存重建采样一条进进程内环形缓冲(deque maxlen=720
+≈ 2h@10s),含 timestamps/queued/held/running/每卡 vram_pct(离线卡 null,
+各数组等长对齐)。⚠️ 缓冲驻留内存,api 重启丢历史(可接受,面板只看近 2h 趋势)。
 
 设计约束:
 - 单实例探测 2s 超时,任一实例挂了只标 offline,不拖垮整接口;
@@ -28,6 +33,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections import deque
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -75,12 +81,44 @@ _cache: dict | None = None
 _cache_at: float = 0.0
 _cache_lock = asyncio.Lock()
 
+# 时序环形缓冲:每次重建快照(缓存 miss)采样一条,maxlen 720 ≈ 2h@10s 缓存周期。
+# 进程内驻留,api 重启丢历史(可接受——面板只展示近 2h 趋势,不做长期归档)。
+_SERIES_MAXLEN = 720
+_series: deque[dict] = deque(maxlen=_SERIES_MAXLEN)
+
 
 def reset_observability_cache() -> None:
-    """清空快照缓存(测试隔离/运维即时刷新用)。"""
+    """清空快照缓存与时序缓冲(测试隔离/运维即时刷新用)。"""
     global _cache, _cache_at
     _cache = None
     _cache_at = 0.0
+    _series.clear()
+
+
+def _sample_series(snapshot: dict) -> None:
+    """快照重建时采样入队:队列三桶 + 每卡 vram_pct(离线卡 None,保持对齐)。"""
+    _series.append({
+        "ts": snapshot["generated_at"],
+        "queued": snapshot["queue"]["queued"],
+        "held": snapshot["queue"]["held"],
+        "running": snapshot["queue"]["running"],
+        "vram_pct": {gpu["id"]: gpu["vram_used_pct"] for gpu in snapshot["gpus"]},
+    })
+
+
+def _series_payload() -> dict:
+    """缓冲 → 响应结构:各数组等长对齐(timestamps[i] 对应当次采样的全部值)。"""
+    samples = list(_series)
+    card_ids = [card_id for card_id, _host, _insts in GPU_TOPOLOGY]
+    return {
+        "timestamps": [s["ts"] for s in samples],
+        "queued": [s["queued"] for s in samples],
+        "held": [s["held"] for s in samples],
+        "running": [s["running"] for s in samples],
+        "vram_pct": {
+            cid: [s["vram_pct"].get(cid) for s in samples] for cid in card_ids
+        },
+    }
 
 
 async def _fetch_instance_stats(client: httpx.AsyncClient, url: str) -> dict:
@@ -211,17 +249,55 @@ def _queue_snapshot(session: Session) -> tuple[dict, dict, dict]:
     return queue, success, held
 
 
+def _hourly_success(session: Session) -> list[dict]:
+    """24h 逐小时成功/失败分桶(近 24 个整点桶,零填充,按时间升序)。
+
+    只取 created_at/status 两列在 Python 侧分桶——SQLite(测试)与
+    PostgreSQL(生产)行为一致,避开 strftime/date_trunc 双方言分叉;
+    24h 窗口行数有界(千级),内存分桶代价可忽略。
+    """
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    # 当前整点为最后一桶,向前共 24 桶
+    last_bucket = now.replace(minute=0, second=0, microsecond=0)
+    first_bucket = last_bucket - timedelta(hours=_SUCCESS_WINDOW_HOURS - 1)
+    rows = session.exec(
+        select(Job.created_at, Job.status)
+        .where(Job.deleted_at.is_(None), Job.created_at >= first_bucket,
+               Job.status.in_(["done", "error"]))
+    ).all()
+    buckets: dict[datetime, dict] = {}
+    for created, status in rows:
+        b = created.replace(minute=0, second=0, microsecond=0)
+        slot = buckets.setdefault(b, {"done": 0, "error": 0})
+        slot[status] += 1
+    hourly = []
+    for i in range(_SUCCESS_WINDOW_HOURS):
+        b = first_bucket + timedelta(hours=i)
+        slot = buckets.get(b, {"done": 0, "error": 0})
+        hourly.append({
+            "hour": b.isoformat(),
+            "done": slot["done"],
+            "error": slot["error"],
+        })
+    return hourly
+
+
 async def _build_snapshot(session: Session) -> dict:
     queue, success, held = _queue_snapshot(session)
     gpus = await _probe_gpus()
-    return {
+    snapshot = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "cache_ttl_sec": int(_CACHE_TTL_SEC),
         "queue": queue,
         "success_24h": success,
         "held": held,
         "gpus": gpus,
+        # 逐小时分桶只在重建时算一次(10s 缓存内共享同一组桶)
+        "hourly": _hourly_success(session),
     }
+    _sample_series(snapshot)
+    snapshot["series"] = _series_payload()
+    return snapshot
 
 
 @router.get("/observability")

@@ -57,7 +57,7 @@ test("page.tsx:Shift+Enter 霓虹序列(registerProperty/reduced-motion/连按�
   assert.ok(src.includes("prefers-reduced-motion: reduce"), "reduced-motion 未探测");
   // 霓虹后开弹窗 + 连按取消直开
   assert.ok(src.includes("setNeonPlaying(true)"), "霓虹未触发");
-  assert.ok(src.includes("neonPlaying && <div className=\"neon-edge\""), "neon-edge 未条件渲染");
+  assert.ok(/neonPlaying && \([\s\S]*className="neon-edge"/.test(src), "neon-edge 未条件渲染");
   assert.ok(/连按不等候/.test(src), "霓虹中连按直开逻辑缺失");
   // 关闭不播霓虹(ref 镜像避免 updater 副作用)
   assert.ok(src.includes("assistantOpenRef"), "开闭态 ref 镜像缺失");
@@ -112,14 +112,16 @@ test("assistant.css:霓虹环带 + 环形 mask + 双回退", () => {
   assert.ok(css.includes(".av-overlay-close"), "关闭按钮样式缺失");
 });
 
-test("assistant.css:极光配色(青→紫→品红柔和流动)——3 色齐备、无纯白硬头、三层柔辉光", () => {
+test("assistant.css:极光配色(2026-08-24 品牌双色 cyan→violet)——无品红残留、无纯白硬头、三层柔辉光", () => {
   const css = readSrc("app/styles/assistant.css");
   const neonStart = css.indexOf(".neon-edge {");
   const neon = css.slice(neonStart, css.indexOf("@supports not", neonStart));
-  // 青/紫/品红三色极光板
-  const palette = ["#67e8f9", "#a78bfa", "#f0abfc"];
-  const hits = palette.filter((c) => neon.includes(c));
-  assert.ok(hits.length >= 3, `极光配色不足(仅 ${hits.length} 色): ${hits.join(",")}`);
+  // 品牌极光双色板:cyan #22d3ee → violet #a78bfa
+  assert.ok(neon.includes("#22d3ee"), "品牌 cyan #22d3ee 缺失");
+  assert.ok(neon.includes("#a78bfa"), "品牌 violet #a78bfa 缺失");
+  // 双色升级:旧三色板的品红/浅青不得残留
+  assert.ok(!neon.includes("#f0abfc"), "品红 #f0abfc 残留(已收敛为双色)");
+  assert.ok(!neon.includes("#67e8f9"), "浅青 #67e8f9 残留(已升级为品牌 cyan)");
   // 柔和:禁止纯白硬头(单色时代的 #fff 亮头)
   assert.ok(!/#fff\s+\d+deg/.test(neon), "出现纯白硬头色标(应全彩柔和)");
   // 三层柔辉光(贴核/中层/远景弥散),最大 ≥40px 宽幅外扩
@@ -128,12 +130,12 @@ test("assistant.css:极光配色(青→紫→品红柔和流动)——3 色齐�
   assert.ok(Math.max(...glows) >= 40, `主辉光幅度不足(最大 ${Math.max(...glows)}px < 40px)`);
 });
 
-test("assistant.css:2026-08-23 重设计——静态三色底环 + 弹窗玻璃拟态", () => {
+test("assistant.css:静态双色底环 + 弹窗玻璃拟态 + 开场辉光", () => {
   const css = readSrc("app/styles/assistant.css");
   const neonStart = css.indexOf(".neon-edge {");
   const neon = css.slice(neonStart, css.indexOf("@supports not", neonStart));
-  // 双层背景:彗核(随 --neon-angle 旋转)+ 静态三色整环(任意时刻四边有色彩)
-  assert.ok((neon.match(/conic-gradient/g) ?? []).length >= 2, "静态三色底环缺失");
+  // 双层背景:彗核(随 --neon-angle 旋转)+ 静态双色整环(任意时刻四边有色彩)
+  assert.ok((neon.match(/conic-gradient/g) ?? []).length >= 2, "静态双色底环缺失");
   // 弹窗玻璃拟态 + 开场光晕(灯带联动收束拍)
   assert.ok(css.includes("backdrop-filter: var(--glass-blur)"), "面板玻璃模糊缺失");
   assert.ok(css.includes("background: var(--glass-bg)"), "面板玻璃底色缺失");

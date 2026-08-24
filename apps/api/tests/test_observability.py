@@ -206,3 +206,91 @@ def test_cache_avoids_reprobe_within_ttl(ctx):
     res3 = client.get("/api/observability", headers=headers)
     assert len(ctx["calls"]) == first + n_instances
     assert res3.status_code == 200
+
+
+def test_series_sampling_and_alignment(ctx):
+    """每次重建采样一条;各数组等长对齐;离线卡 vram_pct 为 null(8197 挂掉的 GPU2 仍在线→非 null)。"""
+    client = ctx["client"]
+    headers = _auth(ctx["admin_token"])
+
+    with Session(ctx["session_engine"]) as s:
+        _make_job(s, ctx["user_id"], ctx["tenant_id"], status="queued")
+        _make_job(s, ctx["user_id"], ctx["tenant_id"], status="running")
+
+    res1 = client.get("/api/observability", headers=headers)
+    s1 = res1.json()["series"]
+    assert len(s1["timestamps"]) == 1
+    for key in ("queued", "held", "running"):
+        assert len(s1[key]) == 1, f"{key} 应与 timestamps 等长"
+    assert s1["queued"] == [1] and s1["running"] == [1] and s1["held"] == [0]
+    card_ids = [c for c, _h, _i in obs.GPU_TOPOLOGY]
+    assert list(s1["vram_pct"].keys()) == card_ids
+    for cid in card_ids:
+        assert len(s1["vram_pct"][cid]) == 1
+    # 替身 8G/16G = 50%;GPU2 虽有一实例挂掉但卡在线 → 50.0 而非 null
+    assert s1["vram_pct"]["GPU0"] == [50.0]
+    assert s1["vram_pct"]["GPU2"] == [50.0]
+
+    # 缓存命中不再采样;强制缓存过期(不动缓冲)后重建追加一条,时间戳即 generated_at
+    res2 = client.get("/api/observability", headers=headers)
+    assert len(res2.json()["series"]["timestamps"]) == 1, "TTL 内不应追加采样"
+    obs._cache_at = 0.0
+    res3 = client.get("/api/observability", headers=headers)
+    body3 = res3.json()
+    s3 = body3["series"]
+    assert len(s3["timestamps"]) == 2
+    assert s3["timestamps"][-1] == body3["generated_at"]
+    assert all(len(s3[k]) == 2 for k in ("queued", "held", "running"))
+
+
+def test_series_offline_card_null(ctx, monkeypatch):
+    """全实例挂掉 → 每卡 vram_pct 采样为 null(保持数组长度对齐)。"""
+    async def always_fail(_client, url: str) -> dict:
+        raise ConnectionError("cluster down")
+
+    monkeypatch.setattr(obs, "_fetch_instance_stats", always_fail)
+    obs.reset_observability_cache()
+
+    res = ctx["client"].get("/api/observability", headers=_auth(ctx["admin_token"]))
+    assert res.status_code == 200
+    series = res.json()["series"]
+    assert len(series["timestamps"]) == 1
+    for cid, values in series["vram_pct"].items():
+        assert values == [None], f"{cid} 离线应采样 null"
+
+
+def test_hourly_bucket_distribution(ctx):
+    """24 个整点桶零填充升序;done/error 按 created_at 落桶;窗口外/软删除不计。"""
+    engine = ctx["session_engine"]
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    this_hour = now.replace(minute=0, second=0, microsecond=0)
+    with Session(engine) as s:
+        uid, tid = ctx["user_id"], ctx["tenant_id"]
+        # 当前整点:2 done + 1 error
+        _make_job(s, uid, tid, status="done", created_at=this_hour + timedelta(minutes=3))
+        _make_job(s, uid, tid, status="done", created_at=this_hour + timedelta(minutes=40))
+        _make_job(s, uid, tid, status="error", created_at=this_hour + timedelta(minutes=59, seconds=59))
+        # 3 小时前那一桶:1 done
+        _make_job(s, uid, tid, status="done", created_at=this_hour - timedelta(hours=3) + timedelta(minutes=10))
+        # 24h 整点窗口外(25h 前)不计
+        _make_job(s, uid, tid, status="error", created_at=this_hour - timedelta(hours=25))
+        # 软删除不计
+        _make_job(s, uid, tid, status="done", created_at=this_hour, deleted_at=now)
+        # 非终态不影响分桶
+        _make_job(s, uid, tid, status="queued", created_at=this_hour)
+
+    res = ctx["client"].get("/api/observability", headers=_auth(ctx["admin_token"]))
+    assert res.status_code == 200
+    hourly = res.json()["hourly"]
+    assert len(hourly) == 24
+    by_hour = {b["hour"]: b for b in hourly}
+    cur = by_hour[this_hour.isoformat()]
+    assert cur["done"] == 2 and cur["error"] == 1
+    prev = by_hour[(this_hour - timedelta(hours=3)).isoformat()]
+    assert prev["done"] == 1 and prev["error"] == 0
+    # 零填充:24 桶内 done 合计 = 3(25h 前那条被窗口排除)
+    assert sum(b["done"] for b in hourly) == 3
+    assert sum(b["error"] for b in hourly) == 1
+    # 升序:首桶 = 当前整点 -23h,末桶 = 当前整点
+    assert hourly[0]["hour"] == (this_hour - timedelta(hours=23)).isoformat()
+    assert hourly[-1]["hour"] == this_hour.isoformat()

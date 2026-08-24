@@ -36,15 +36,30 @@ if (typeof window !== "undefined" && "registerProperty" in CSS) {
       inherits: false,
       initialValue: "0deg",
     });
+    // 阶段一核点雷达弧的扫描角(同 --neon-angle,rAF 内联驱动)
+    CSS.registerProperty({
+      name: "--core-sweep",
+      syntax: "<angle>",
+      inherits: false,
+      initialValue: "0deg",
+    });
   } catch {
     /* 已注册/hmr 重复,忽略 */
   }
 }
 
-// 霓虹扫描节奏(2026-08-23 rAF 驱动):1400ms 扫满一圈并过冲 70deg 收尾,
-// 余光尽头由同步淡入的弹窗磨砂遮罩自然吞没
-const NEON_MS = 1400;
-const NEON_SWEEP_DEG = 430;
+// ── AI 助手启动序列·设计参数表(2026-08-24 重做:极光双色 #22d3ee→#a78bfa) ──
+// 阶段一「核心点亮」  0–350ms :视口中心核点(cyan)脉冲成环 + 雷达弧扫描一圈
+// 阶段二「灯带扫边」  0–1000ms:neon-edge 双色极光 conic 扫 430deg,easeInOutQuart,
+//                               扫边同时中心核淡出(与阶段一同场融合)
+// 阶段三「弹窗降临」 700–1100ms:灯带收尾前 300ms 起播,面板 scale .92→1 + 淡入
+//                               (400ms cubic-bezier(.22,1,.36,1),assistant.css)
+// 关闭 200ms ease-in(scale→.96 + 淡出,assistant.css 方向性 transition);
+// 全程再按 Shift+Enter/Esc 可跳过(直开),prefers-reduced-motion 一切直开
+const NEON_MS = 1000; // 阶段二:灯带扫边总时长(提速自 1400ms)
+const NEON_SWEEP_DEG = 430; // 扫满一圈并过冲 70deg,让软尾滑过终点
+const NEON_CORE_MS = 350; // 阶段一:核点点亮时长
+const NEON_PANEL_LEAD_MS = 300; // 阶段三:弹窗相对灯带收尾的提前量(700ms 处起播)
 
 type View =
   | "assistant"
@@ -333,11 +348,14 @@ function HomeContent() {
   // 霓虹边缘动画(2026-08-18):Shift+Enter 开启前沿视口边缘扫描一圈,再平滑过渡出弹窗
   const [neonPlaying, setNeonPlaying] = useState(false);
   const neonRef = useRef<HTMLDivElement | null>(null);
+  // 阶段一核点(2026-08-24):与灯带同场,同一 rAF 逐帧驱动
+  const coreRef = useRef<HTMLDivElement | null>(null);
   // M9:订阅全局 R18 内容模式(短剧视图可见性/导航项按此 computed)
   const [r18] = useR18Mode();
 
   // 全局快捷键:Shift+Enter 唤起/收起 AI 助手浮层(底层常驻,任意视图之上)。
-  // 开启序列(2026-08-18):霓虹光沿页面边缘扫一圈(~1400ms,舒缓)→ 弹窗弹簧展开;
+  // 开启序列(2026-08-24 重做,总时长 ≤1.4s):阶段一核点点亮(350ms)→ 阶段二
+  // 极光灯带扫边(1000ms,双色)→ 阶段三弹窗降临(收尾前 300ms 起播,与余光交叠);
   // prefers-reduced-motion / 不支持 CSS.registerProperty 的浏览器直接开启(无动画)。
   // 守卫:焦点在 input/textarea/select/contenteditable 时不触发,避免与输入框换行冲突;
   // 仅纯 Shift+Enter(不带 Cmd/Ctrl/Alt),不与 ⌘Enter 提交类快捷键(agent-runs/PromptBar)相碰。
@@ -346,7 +364,19 @@ function HomeContent() {
       typeof window !== "undefined" &&
       "registerProperty" in CSS &&
       !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    let timer: ReturnType<typeof setTimeout> | null = null;
+    // 双定时器:openTimer 在灯带收尾前 300ms 起播弹窗,doneTimer 在扫边结束收起灯带
+    let openTimer: ReturnType<typeof setTimeout> | null = null;
+    let doneTimer: ReturnType<typeof setTimeout> | null = null;
+    const clearTimers = () => {
+      if (openTimer) {
+        clearTimeout(openTimer);
+        openTimer = null;
+      }
+      if (doneTimer) {
+        clearTimeout(doneTimer);
+        doneTimer = null;
+      }
+    };
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Enter" || !e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) return;
       const target = e.target as HTMLElement | null;
@@ -360,10 +390,9 @@ function HomeContent() {
         return; // 输入上下文内 Shift+Enter 保留原生换行
       }
       e.preventDefault();
-      if (timer) {
-        // 霓虹进行中再次按下:取消动画,直接展开(连按不等候)
-        clearTimeout(timer);
-        timer = null;
+      if (openTimer || doneTimer) {
+        // 启动序列进行中再次按下:取消动画,直接展开(连按不等候)
+        clearTimers();
         setNeonPlaying(false);
         setAssistantOpen(true);
         return;
@@ -374,10 +403,14 @@ function HomeContent() {
       }
       if (canNeon) {
         setNeonPlaying(true);
-        timer = setTimeout(() => {
-          setNeonPlaying(false);
+        // 阶段三:弹窗在灯带收尾前 300ms 起播(700ms 处),与灯带余光交叠
+        openTimer = setTimeout(() => {
           setAssistantOpen(true);
-          timer = null;
+          openTimer = null;
+        }, NEON_MS - NEON_PANEL_LEAD_MS);
+        doneTimer = setTimeout(() => {
+          setNeonPlaying(false);
+          doneTimer = null;
         }, NEON_MS);
       } else {
         setAssistantOpen(true);
@@ -386,7 +419,7 @@ function HomeContent() {
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("keydown", onKey);
-      if (timer) clearTimeout(timer);
+      clearTimers();
     };
   }, []);
 
@@ -399,10 +432,12 @@ function HomeContent() {
     if (!neonPlaying) return;
     const el = neonRef.current;
     if (!el) return;
+    const core = coreRef.current;
     const start = performance.now();
     let raf = 0;
     const tick = (now: number) => {
-      const k = Math.min(1, (now - start) / NEON_MS);
+      const t = now - start;
+      const k = Math.min(1, t / NEON_MS);
       // easeInOutQuart:起步轻盈、中段流动、收尾减速
       const eased = k < 0.5 ? 8 * k ** 4 : 1 - (-2 * k + 2) ** 4 / 2;
       el.style.setProperty("--neon-angle", `${(eased * NEON_SWEEP_DEG).toFixed(2)}deg`);
@@ -410,6 +445,19 @@ function HomeContent() {
       const fadeIn = Math.min(1, k / 0.12);
       const fadeOut = k < 0.84 ? 1 : Math.max(0, (1 - k) / 0.16);
       el.style.opacity = (fadeIn * fadeOut).toFixed(3);
+      if (core) {
+        // 阶段一「核心点亮」(0–350ms):核点 ease-out 脉冲放大成环 + 雷达弧扫满一圈
+        const ck = Math.min(1, t / NEON_CORE_MS);
+        const cEase = 1 - (1 - ck) ** 3; // easeOutCubic
+        core.style.transform = `scale(${(0.55 + 0.45 * cEase).toFixed(3)})`;
+        core.style.setProperty("--core-sweep", `${(cEase * 360).toFixed(2)}deg`);
+        // 阶段二:扫边同时中心核淡出(350ms 后线性退场,随灯带收尾归于 0)
+        const coreOpacity =
+          ck < 1
+            ? Math.min(1, t / 90) // 核点快速点亮,不黑场硬闪
+            : Math.max(0, 1 - (t - NEON_CORE_MS) / (NEON_MS - NEON_CORE_MS));
+        core.style.opacity = coreOpacity.toFixed(3);
+      }
       if (k < 1) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -648,9 +696,18 @@ function HomeContent() {
         />
       )}
 
-      {/* 霓虹边缘动画(2026-08-18):Shift+Enter 开启序列第一步——光带沿视口
-          边缘扫一圈(~1400ms),随后 AI 助手弹窗平滑展开(样式见 assistant.css) */}
-      {neonPlaying && <div className="neon-edge" ref={neonRef} aria-hidden="true" />}
+      {/* 启动序列(2026-08-24 重做):Shift+Enter 开启后——阶段一核点点亮(中心,
+          350ms)+ 阶段二极光灯带扫边(1000ms,cyan→violet),随后弹窗降临
+          (样式见 assistant.css;伪元素在本页层叠树下不重绘,核点用真实子节点) */}
+      {neonPlaying && (
+        <>
+          <div className="neon-edge" ref={neonRef} aria-hidden="true" />
+          <div className="neon-core" ref={coreRef} aria-hidden="true">
+            <div className="neon-core-arc" />
+            <div className="neon-core-dot" />
+          </div>
+        </>
+      )}
 
       {/* AI 助手全局浮层(2026-08-17 底层化):Shift+Enter 唤起,任意视图之上对话;
           助手内跳视图先收浮层再切换 */}

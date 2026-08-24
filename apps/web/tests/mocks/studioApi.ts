@@ -477,12 +477,32 @@ import type { ObservabilitySnapshot } from "../../lib/api";
 
 /** 固定快照:queued1/held2/running3,成功率 75%,GPU0 双档实例在线 + GPU2 一实例离线。 */
 export function makeObservabilitySnapshot(): ObservabilitySnapshot {
+  const hourly: ObservabilitySnapshot["hourly"] = Array.from({ length: 24 }, (_, i) => {
+    const hour = new Date(Date.UTC(2026, 7, 22, 10 + i, 0, 0)).toISOString();
+    // 末桶(当前整点)落 done3/error1,与 success_24h 对齐;其余零填充
+    return i === 23 ? { hour, done: 3, error: 1 } : { hour, done: 0, error: 0 };
+  });
   return {
     generated_at: "2026-08-23T09:00:00+00:00",
     cache_ttl_sec: 10,
     queue: { queued: 1, held: 2, running: 3, other: 0 },
     success_24h: { window_hours: 24, done: 3, error: 1, total: 4, rate: 0.75 },
     held: { total: 2, reasons: [{ reason: "显存不足: 需 36G", count: 2 }] },
+    series: {
+      timestamps: [
+        "2026-08-23T08:59:40+00:00",
+        "2026-08-23T08:59:50+00:00",
+        "2026-08-23T09:00:00+00:00",
+      ],
+      queued: [0, 1, 1],
+      held: [2, 2, 2],
+      running: [3, 3, 3],
+      vram_pct: {
+        GPU0: [11.2, 11.5, 11.5],
+        GPU2: [60.8, 61.1, null],
+      },
+    },
+    hourly,
     gpus: [
       {
         id: "GPU0",

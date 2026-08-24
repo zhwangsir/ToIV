@@ -3,7 +3,6 @@
 import { Suspense, lazy, useEffect, useState } from "react";
 
 import { Icon } from "@/components/ui/Icon";
-import { LoadingBlock } from "@/components/ui/LoadingBlock";
 
 interface AssistantOverlayProps {
   /** 浮层显隐(Shift+Enter 切换;开启前由 page.tsx 先播霓虹边缘动画)。 */
@@ -17,6 +16,17 @@ interface AssistantOverlayProps {
 const AssistantView = lazy(() =>
   import("@/components/assistant/AssistantView").then((m) => ({ default: m.AssistantView })),
 );
+
+/** 加载态「核心启动」(2026-08-24):极光双色小核呼吸(1↔1.15,1.6s 循环)+
+ *  状态文字淡入,替代原 LoadingBlock 线条(样式见 assistant.css .av-boot)。 */
+function AssistantBoot() {
+  return (
+    <div className="av-boot" role="status" aria-label="AI 助手加载中">
+      <div className="av-boot-core" aria-hidden="true" />
+      <p className="av-boot-text">正在接入引擎矩阵…</p>
+    </div>
+  );
+}
 
 /**
  * AI 助手全局浮层(2026-08-17 底层化):助手不再作为一级视图占据导航,
@@ -87,13 +97,7 @@ export function AssistantOverlay({ open, onClose, onNavigate }: AssistantOverlay
         >
           <Icon name="close" size={14} strokeWidth={1.8} />
         </button>
-        <Suspense
-          fallback={
-            <div className="av-overlay-loading">
-              <LoadingBlock variant="line" count={4} />
-            </div>
-          }
-        >
+        <Suspense fallback={<AssistantBoot />}>
           <AssistantView
             variant="popup"
             onNavigate={(v) => {

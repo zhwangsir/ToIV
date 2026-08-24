@@ -1,3 +1,13 @@
+/* ── AI 助手启动序列·动画参数总表(2026-08-24 重做:极光双色 #22d3ee→#a78bfa) ──
+   扫边:1000ms easeInOutQuart 430deg(JS rAF 驱动,page.tsx NEON_MS/NEON_SWEEP_DEG)
+   核点:350ms ease-out(中心核脉冲成环 + 雷达弧一圈,page.tsx NEON_CORE_MS)
+   弹窗:400ms cubic-bezier(.22,1,.36,1)(scale .92→1 + 淡入 + backdrop blur 0→12px)
+   辉光:600ms 内衰减到稳态微光(av-panel-aura,forwards 不归零)
+   关闭:200ms ease-in(scale→.96 + 淡出,方向性 transition,常驻挂载仅切 class)
+   呼吸:1.6s ease-in-out infinite(加载态小核,av-boot-breathe)
+   性能红线:只动 transform/opacity/filter;--neon-angle/--core-sweep 走 rAF 内联;
+   prefers-reduced-motion 一切直开(JS 侧不渲染 neon 节点,CSS 侧动画全停) */
+
 /* ── 首页门户(2026-08-16 堆友范式重构):Agent 对话框 C 位 ──────────────
    范围:AssistantView 空态门户新增区块(引擎胶囊条 / @技能面板 / 场景胶囊 / 最近作品)。
    视觉延续 Film Atelier v6.1:材质由 .at-card/.at-badge 等共享类承担,本文件只补布局;
@@ -343,21 +353,33 @@
   z-index: var(--z-modal);
   visibility: hidden;
   opacity: 0;
-  transition: opacity var(--duration-base) var(--ease-standard),
-    visibility 0s linear var(--duration-base);
+  /* 关闭:200ms ease-in 淡出,visibility 延迟到动画播完再隐藏(常驻挂载仅切 class,
+     不靠 closing 态延时卸载) */
+  transition: opacity 200ms ease-in, visibility 0s linear 200ms;
 }
 .av-overlay.is-open {
   visibility: visible;
   opacity: 1;
-  transition-delay: 0s;
+  /* 开启:容器快速淡入,视觉主角交给面板 400ms 降临动画 */
+  transition: opacity 160ms ease-out, visibility 0s;
 }
 .av-overlay-backdrop {
   position: absolute;
   inset: 0;
   background: var(--scrim);
-  /* 磨砂景深:模糊略深 + 轻提饱和,底层视图化作柔和色场,面板成为唯一焦点 */
-  backdrop-filter: blur(8px) saturate(1.15);
-  -webkit-backdrop-filter: blur(8px) saturate(1.15);
+  /* 阶段三联动:磨砂 0→12px 随面板降临渐入;关闭 200ms 收回 */
+  backdrop-filter: blur(0) saturate(1.15);
+  -webkit-backdrop-filter: blur(0) saturate(1.15);
+  transition:
+    backdrop-filter 200ms ease-in,
+    -webkit-backdrop-filter 200ms ease-in;
+}
+.av-overlay.is-open .av-overlay-backdrop {
+  backdrop-filter: blur(12px) saturate(1.15);
+  -webkit-backdrop-filter: blur(12px) saturate(1.15);
+  transition:
+    backdrop-filter 400ms ease-out,
+    -webkit-backdrop-filter 400ms ease-out;
 }
 /* 面板:大幅居中玻璃卡片,四缘留出底层视图呼吸(底层内容仍是主角)。
    2026-08-23 视觉重设计:玻璃拟态(共享 --glass-* token)+ 顶部高光内描边 +
@@ -377,8 +399,11 @@
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
-  transform: translateY(18px) scale(0.965);
-  transition: transform var(--duration-slow) var(--ease-spring);
+  /* 关闭(2026-08-24):200ms ease-in,scale→.96 + 淡出;方向性 transition——
+     关闭态(本规则)管退出,开启态(下条)管进入,常驻挂载仅切 class 即双向正确 */
+  opacity: 0;
+  transform: scale(0.96);
+  transition: transform 200ms ease-in, opacity 200ms ease-in;
 }
 /* 兼容性兜底:不支持 backdrop-filter 时退化为不透明画布色,保证对比度 */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -387,11 +412,26 @@
   }
 }
 .av-overlay.is-open .av-overlay-panel {
-  transform: translateY(0) scale(1);
+  opacity: 1;
+  transform: scale(1);
+  /* 阶段三「弹窗降临」:400ms cubic-bezier(.22,1,.36,1)(easeOutExpo 感),
+     keyframes 从 scale(.92) 起播(关闭落点是 .96,入场起点更低、弹感更足);
+     is-open 类名每次重挂即重播,与灯带收尾 300ms 交叠 */
+  animation: av-panel-in 400ms cubic-bezier(0.22, 1, 0.36, 1);
 }
-/* 开场光晕(灯带联动):霓虹扫完弹窗展开瞬间,面板内缘浮起一层
-   青→紫同源柔光,1.1s 内自然淡出——「边缘点亮 → 汇聚成窗」的收束拍。
-   is-open 每次重新挂载类名即重播,关闭态不残留。 */
+@keyframes av-panel-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+/* 开场辉光(灯带联动):弹窗降临瞬间,面板四缘浮起一层 cyan→violet 同源柔光,
+   600ms 内衰减到稳态微光(forwards 停在 0.38,不归零)——「边缘点亮 → 汇聚成窗」
+   的收束拍。is-open 每次重新挂载类名即重播,关闭态不残留。 */
 .av-overlay.is-open .av-overlay-panel::after {
   content: "";
   position: absolute;
@@ -399,24 +439,70 @@
   border-radius: inherit;
   pointer-events: none;
   box-shadow:
-    inset 0 0 0 1px color-mix(in oklab, #a78bfa 30%, transparent),
-    inset 0 0 36px color-mix(in oklab, #67e8f9 10%, transparent);
-  animation: av-panel-aura 1100ms var(--ease-standard) forwards;
+    inset 0 0 0 1px color-mix(in oklab, #a78bfa 32%, transparent),
+    inset 0 0 36px color-mix(in oklab, #22d3ee 14%, transparent),
+    inset 0 0 72px color-mix(in oklab, #a78bfa 10%, transparent);
+  animation: av-panel-aura 600ms var(--ease-standard) forwards;
 }
 @keyframes av-panel-aura {
   from {
     opacity: 1;
   }
   to {
-    opacity: 0;
+    opacity: 0.38; /* 稳态微光:四缘残留一层可感的极光余晖 */
   }
 }
 /* AssistantView .av-view 为 absolute inset-0 布局,面板提供 relative 定位锚 */
 .av-overlay-panel > * {
   position: relative;
 }
-.av-overlay-loading {
+/* ── 加载态「核心启动」(2026-08-24):AssistantView chunk 的 Suspense fallback ──
+   极光双色小核呼吸(1↔1.15,1.6s 循环)+ 状态文字淡入;全部 transform/opacity */
+.av-boot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  min-height: 240px;
   padding: var(--space-8) var(--space-6);
+}
+.av-boot-core {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #22d3ee, #a78bfa);
+  filter:
+    drop-shadow(0 0 8px color-mix(in oklab, #22d3ee 65%, transparent))
+    drop-shadow(0 0 20px color-mix(in oklab, #a78bfa 40%, transparent));
+  animation: av-boot-breathe 1.6s ease-in-out infinite;
+}
+@keyframes av-boot-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+}
+.av-boot-text {
+  margin: 0;
+  font-size: var(--text-aux);
+  color: var(--text-secondary);
+  animation: av-boot-text-in 400ms ease-out both;
+}
+@keyframes av-boot-text-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 @media (max-width: 767px) {
   /* 窄屏全幅(底部导航 z-dock 之下,浮层盖过内容) */
@@ -428,28 +514,36 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .av-overlay,
-  .av-overlay-panel {
+  .av-overlay-panel,
+  .av-overlay-backdrop {
     transition: none;
+  }
+  .av-overlay.is-open .av-overlay-panel {
+    animation: none;
   }
   .av-overlay.is-open .av-overlay-panel::after {
     animation: none;
     opacity: 0;
   }
+  .av-boot-core,
+  .av-boot-text {
+    animation: none;
+  }
 }
 
-/* ── 霓虹边缘动画(2026-08-23 重设计):Shift+Enter 开启序列 ──
-   设计:「流光一周,聚而后散」。一颗青→紫→品红的极光彗核沿视口边缘
-   顺时针流动一周(~1400ms),拖一条长而软的渐隐尾;彗核之下整条边缘
-   还有一圈静态的三色微光底环,任意时刻四边都有色彩;首尾淡入淡出,
-   余光尽头由同步淡入的弹窗磨砂遮罩自然吞没,绝不戛然而止。
-   · 配色:青 #67e8f9(彗头最亮)→ 紫 #a78bfa → 品红 #f0abfc,色标之间
+/* ── 霓虹边缘动画(2026-08-24 重做:品牌极光双色)──
+   设计:「核心点亮,流光一周,聚而后散」。一颗 cyan→violet 的极光彗核沿视口
+   边缘顺时针流动一周(1000ms),拖一条长而软的渐隐尾;彗核之下整条边缘
+   还有一圈静态的双色微光底环,任意时刻四边都有色彩;首尾淡入淡出,
+   余光尽头由同步降临的弹窗磨砂遮罩自然吞没,绝不戛然而止。
+   · 配色:品牌极光双色 cyan #22d3ee(彗头最亮)→ violet #a78bfa,色标之间
      大角度交叠过渡,无硬切;全部 color-mix 降透明,无纯白硬头;
    · 驱动:JS rAF 逐帧写 --neon-angle/opacity 内联值(page.tsx,含
      easeInOutQuart 与首尾淡出)。⚠️ 不要用 CSS 自定义属性动画替代——
      2026-08-23 逐变量二分实证:keyframes 驱动 --neon-angle 的逐帧重绘
      在本页层叠树下被 Chromium 整体丢弃(灯带全程隐形,dev/prod/headed
      同现);内联 style 更新走常规 style recalc,每帧必重绘;
-   · 光晕:三层 drop-shadow(贴核青光 6px / 中层紫光 18px / 远景品红 44px),
+   · 光晕:三层 drop-shadow(贴核青光 6px / 中层紫光 18px / 远景青色 44px),
      柔而无边;will-change 提升独立合成层,与页面其余合成内容隔离;
    · 跨浏览器:@property 角度插值经 JS CSS.registerProperty 注册
      (page.tsx 已探测,不支持/减弱动效时根本不渲染本节点);
@@ -463,36 +557,81 @@
   padding: 4px; /* 环宽:content-box 与外框之间即光带 */
   border-radius: 4px;
   /* 双层极光:上层彗核(from 角度由 rAF 驱动的 --neon-angle 插值)——
-     0deg 即彗头(青最亮),向后经紫过渡到品红,再沉入 240deg 长透明软尾;
-     下层静态三色整环,彗核未到处也有柔和色彩 */
+     0deg 即彗头(cyan 最亮),向后沉入 violet,再没入 240deg 长透明软尾;
+     下层静态双色整环,彗核未到处也有柔和色彩 */
   background:
     conic-gradient(
       from var(--neon-angle, 0deg),
       transparent 0deg,
-      color-mix(in oklab, #67e8f9 72%, transparent) 5deg,
-      color-mix(in oklab, #67e8f9 46%, transparent) 26deg,
-      color-mix(in oklab, #a78bfa 50%, transparent) 72deg,
-      color-mix(in oklab, #f0abfc 34%, transparent) 128deg,
-      color-mix(in oklab, #f0abfc 14%, transparent) 190deg,
+      color-mix(in oklab, #22d3ee 72%, transparent) 5deg,
+      color-mix(in oklab, #22d3ee 46%, transparent) 26deg,
+      color-mix(in oklab, #a78bfa 52%, transparent) 76deg,
+      color-mix(in oklab, #a78bfa 30%, transparent) 140deg,
+      color-mix(in oklab, #22d3ee 12%, transparent) 195deg,
       transparent 245deg,
       transparent 360deg
     ),
     conic-gradient(
       from 0deg,
-      color-mix(in oklab, #67e8f9 30%, transparent),
-      color-mix(in oklab, #a78bfa 30%, transparent) 120deg,
-      color-mix(in oklab, #f0abfc 30%, transparent) 240deg,
-      color-mix(in oklab, #67e8f9 30%, transparent) 360deg
+      color-mix(in oklab, #22d3ee 30%, transparent),
+      color-mix(in oklab, #a78bfa 30%, transparent) 180deg,
+      color-mix(in oklab, #22d3ee 30%, transparent) 360deg
     );
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   mask-composite: exclude;
-  /* 三层柔辉光:贴核青光 / 中层紫光 / 远景品红大范围弥散 —— 柔而无硬边 */
+  /* 三层柔辉光:贴核青光 / 中层紫光 / 远景青色大范围弥散 —— 柔而无硬边 */
   filter:
-    drop-shadow(0 0 6px color-mix(in oklab, #67e8f9 50%, transparent))
-    drop-shadow(0 0 18px color-mix(in oklab, #a78bfa 34%, transparent))
-    drop-shadow(0 0 44px color-mix(in oklab, #f0abfc 20%, transparent));
+    drop-shadow(0 0 6px color-mix(in oklab, #22d3ee 55%, transparent))
+    drop-shadow(0 0 18px color-mix(in oklab, #a78bfa 38%, transparent))
+    drop-shadow(0 0 44px color-mix(in oklab, #22d3ee 22%, transparent));
+}
+/* ── 阶段一「核心点亮」(0–350ms,2026-08-24):视口中心核点脉冲成环 + 雷达弧 ──
+   与灯带同一场景、同一 rAF 驱动(page.tsx 写 transform/opacity/--core-sweep
+   内联值);阶段二扫边进行中核点线性淡出。子节点必须是真实元素——伪元素
+   承载的逐帧重绘在本页层叠树下会被 Chromium 丢弃(2026-08-23 实证)。 */
+.neon-core {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 132px;
+  height: 132px;
+  margin: -66px 0 0 -66px;
+  z-index: calc(var(--z-modal) - 1);
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+/* 雷达弧:cyan→violet 渐变弧带,conic(from --core-sweep)+ 径向 mask 裁成环 */
+.neon-core-arc {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from var(--core-sweep, 0deg),
+    color-mix(in oklab, #22d3ee 85%, transparent) 0deg,
+    color-mix(in oklab, #a78bfa 55%, transparent) 70deg,
+    transparent 130deg
+  );
+  -webkit-mask: radial-gradient(closest-side, transparent 62%, #fff 68%, #fff 78%, transparent 84%);
+  mask: radial-gradient(closest-side, transparent 62%, #fff 68%, #fff 78%, transparent 84%);
+  filter:
+    drop-shadow(0 0 6px color-mix(in oklab, #22d3ee 55%, transparent))
+    drop-shadow(0 0 16px color-mix(in oklab, #a78bfa 35%, transparent));
+}
+/* 核点:中心 cyan 亮点,脉冲放大成环的「芯」 */
+.neon-core-dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: #22d3ee;
+  filter:
+    drop-shadow(0 0 8px color-mix(in oklab, #22d3ee 80%, transparent))
+    drop-shadow(0 0 22px color-mix(in oklab, #a78bfa 45%, transparent));
 }
 /* 静态回退:@property 未注册(极旧内核,JS 探测已拦截,双保险)时光带不转,
    仅以整体呼吸辉光示意,绝不静止显示刺眼高亮 */

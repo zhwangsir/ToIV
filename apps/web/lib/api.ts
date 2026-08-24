@@ -2326,6 +2326,23 @@ export interface ObservabilityGpu {
   instances: ObservabilityInstance[];
 }
 
+/** 队列/VRAM 时序(进程内环形缓冲,重启清零;各数组与 timestamps 等长对齐)。 */
+export interface ObservabilitySeries {
+  timestamps: string[];
+  queued: number[];
+  held: number[];
+  running: number[];
+  /** 每卡 VRAM 占用百分比历史;离线卡该次采样为 null */
+  vram_pct: Record<string, (number | null)[]>;
+}
+
+/** 24h 逐小时成功/失败桶(hour = 整点 ISO,升序零填充)。 */
+export interface ObservabilityHourlyBucket {
+  hour: string;
+  done: number;
+  error: number;
+}
+
 export interface ObservabilitySnapshot {
   generated_at: string;
   cache_ttl_sec: number;
@@ -2339,6 +2356,8 @@ export interface ObservabilitySnapshot {
   };
   held: { total: number; reasons: { reason: string; count: number }[] };
   gpus: ObservabilityGpu[];
+  series: ObservabilitySeries;
+  hourly: ObservabilityHourlyBucket[];
 }
 
 /** 观测面板聚合快照(队列分桶/24h 成功率/GPU VRAM)。仅管理员;非 2xx 抛错由视图展示。 */

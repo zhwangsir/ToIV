@@ -58,12 +58,40 @@ test("formatGb:null 占位 / 整数去小数 / 非整数 1 位", () => {
   assert.equal(formatGb(0), "0");
 });
 
-/* ── ② 初始渲染(SSR 首帧 = loading 骨架) ── */
-test("ObservabilityView:页头标题 + 加载骨架渲染", () => {
+/* ── ② 初始渲染(SSR 首帧 = 骨架屏) ── */
+test("ObservabilityView:页头标题 + 骨架屏加载态", () => {
   const html = renderToStaticMarkup(h(ObservabilityView));
   assert.match(html, /观测面板/);
   assert.match(html, /OBSERVABILITY/);
   assert.match(html, /aria-label="观测数据加载中"/);
+  assert.match(html, /ui-skeleton-pulse/, "首屏应为骨架屏样式");
+});
+
+/* ── ②b 重改版式源码断言 ── */
+test("ObservabilityView:接入图表库四件套 + 新版式区块", () => {
+  const src = readSrc("components/observability/ObservabilityView.tsx");
+  assert.match(src, /from "@\/components\/ui\/charts"/);
+  for (const comp of ["LineChart", "BarChart", "DonutChart", "Sparkline"]) {
+    assert.match(src, new RegExp(`<${comp}`), `应渲染 ${comp}`);
+  }
+  assert.match(src, /obs-kpis/, "KPI 条");
+  assert.match(src, /obs-charts-row/, "图表区第一行");
+  assert.match(src, /obs-live-dot/, "实时脉冲点");
+  assert.match(src, /@media \(max-width: 860px\)/, "860px 响应式断点");
+  assert.match(src, /prefers-reduced-motion/, "reduced-motion 关闭动效");
+  assert.match(src, /linear-gradient\(90deg, #22d3ee, #a78bfa\)/, "VRAM 条品牌渐变");
+  assert.match(src, /data\.series\.vram_pct/, "每卡 VRAM 历史 sparkline 数据");
+  assert.match(src, /data\.hourly/, "24h 逐小时分桶数据");
+});
+
+/* ── ②c api.ts 契约:series/hourly 类型 ── */
+test("api.ts:ObservabilitySnapshot 含 series/hourly 字段", () => {
+  const src = readSrc("lib/api.ts");
+  assert.match(src, /export interface ObservabilitySeries/);
+  assert.match(src, /vram_pct: Record<string, \(number \| null\)\[\]>/);
+  assert.match(src, /export interface ObservabilityHourlyBucket/);
+  assert.match(src, /series: ObservabilitySeries;/);
+  assert.match(src, /hourly: ObservabilityHourlyBucket\[\];/);
 });
 
 /* ── ③ page.tsx 挂载源码断言 ── */
@@ -107,4 +135,22 @@ test("mocks/studioApi:fetchObservability 替身返回完整快照", async () => 
   assert.ok(dead, "应含离线实例(降级展示路径)");
   assert.equal(dead.vram_used_gb, null);
   assert.equal(makeObservabilitySnapshot().held.reasons[0].count, 2);
+  // 时序/分桶字段:数组等长对齐;hourly 24 桶;离线卡 null 采样
+  assert.equal(snap.series.timestamps.length, snap.series.queued.length);
+  assert.equal(snap.series.vram_pct.GPU0.length, snap.series.timestamps.length);
+  assert.equal(snap.hourly.length, 24);
+  assert.deepEqual(
+    snap.hourly[23],
+    { hour: snap.hourly[23].hour, done: 3, error: 1 },
+    "hourly 末桶与 success_24h 对齐",
+  );
+});
+
+/* ── 回归(2026-08-24 生产实测):视图样式块必须 jsx global ──
+   styled-jsx 的 jsxId 只打在主组件自身 JSX,同文件子组件(KpiStrip/各 Card)
+   拿不到作用域类,scoped <style jsx> 会整段静默失效(KPI 条 display:block)。 */
+test("ObservabilityView:样式块为 jsx global(子组件覆盖回归)", () => {
+  const src = readSrc("components/observability/ObservabilityView.tsx");
+  assert.match(src, /<style jsx global>/, "obs-* 规则必须 jsx global");
+  assert.doesNotMatch(src, /<style jsx>\{`/, "禁止退回 scoped style jsx");
 });
