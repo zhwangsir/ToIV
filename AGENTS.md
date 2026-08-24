@@ -179,6 +179,14 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（决策记录,替代操作历史）
 
+### 2026-08-24（午后·3D 调整服务 + 助手会话管理 + 格式预览）
+- **toiv-3dops :9402**(workstation,systemd enabled):trimesh+pyrender(PYOPENGL_PLATFORM=egl 真机可用);6 材质预设(clay/matte/metal/glossy/wireframe/normal)×3 灯光×3 背景,快照 PNG/turntable MP4 + GLB 材质改写(染色/金属度/粗糙度,trimesh 写回 PBR);坑:EGL 下 glPolygonMode 线框不生效(改手工 LINES 图元+quadric 简化)、normal 顶点色须 material=None
+- **core /api/3d/ops**:GLB 经签名 URL 取回上传 3dops,产物落 core 存储建 Job(threed_render/threed_material,libraryQuery 已归 3D 桶),文件端点带 Range;助手新工具 adjust_3d(自然语言→材质/渲染,自动选最近 GLB 作业);纹理绘画(真贴图)未做——需 Hunyuan3D 2.1 纹理管线或 Kijai wrapper 编译,助手系统提示已要求如实说明
+- **格式预览**:@google/model-viewer 4.3.1(async chunk 不进主包)封装 ui/ModelViewer;lib/mediaKind.ts 扩展名优先统一识别;灯箱/助手/图生3D 结果卡三处内联 3D 查看器;网格卡 GLB 走图标占位+3D 角标
+- **助手弹窗会话管理**:输入框左侧时钟按钮开抽屉(新建/切换/删除二次确认,复用页形态同一 renderConvList,零复制);Esc 分层(overlay capture 让位给抽屉)
+- **环绕序列文件夹+OrbitViewer**:batch_id 分组(Job.params 快照+列表透出,不加 DB 列);libraryQuery.groupLibraryEntries 折叠 ≥2 成员为文件夹卡,下钻成员网格;OrbitViewer 32px/帧拖拽+自动播放,reduced-motion 默认停
+- 回归:后端 2047 / 前端 533 / tsc 0;全部已部署 core 并生产截图/链路实证
+
 ### 2026-08-24（深夜·AI 助手深度接管 P1:异步工具+提案确认门）
 - **异步作业模型**(结构性修复):旧生成工具同步阻塞 200-400s(H3 单段 15min 必炸)且够不着专用实例;新 `tools_gen.py` 四工具——submit_generation(21 引擎全覆盖,直接委托路由端点函数零复制,held/tracker/资源预检全继承,R18 按引擎逐条门控)、check_jobs(用户隔离)、optimize_prompt(复用 routes/optimize 单一事实源)、propose_plan(提案卡)
 - **提案-确认门**:SSE 新增顶层事件 tool/job/proposal(命名事件,data 无 type 字段,前端按 event 名分流);POST /api/agent/chat/resume(approve/modify/reject,404/409/422);AgentSession.pending_proposal 列(_SQLITE_MIGRATIONS 幂等补列);⚠️ resume 重建历史只带 user/assistant 原文,对决消息内嵌方案要点回顾
