@@ -158,8 +158,8 @@ async def _call_with_retry(
                 httpx.RemoteProtocolError, httpx.PoolTimeout) as e:
             last_exc = e  # 瞬时:LM Studio 重启/换模型/网络抖动 → 重试
             logger.warning(
-                "LLM 瞬时错误 label=%s model=%s attempt=%d error=%s",
-                label, model, attempt + 1, e,
+                "LLM 瞬时错误 label=%s model=%s attempt=%d error=%r",
+                label, model, attempt + 1, e,  # repr:httpx 部分异常 str(e) 为空串
             )
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 429:
@@ -196,7 +196,7 @@ async def _call_with_retry(
 
     raise LLMError(
         f"{label}暂不可用(已重试 {_MAX_ATTEMPTS} 次,耗时 {time.monotonic() - start:.1f}s)。"
-        f"请确认 {base_url} 的 LLM 服务在线且已加载 {model}: {last_exc}"
+        f"请确认 {base_url} 的 LLM 服务在线且已加载 {model}: {last_exc!r}"
     )
 
 

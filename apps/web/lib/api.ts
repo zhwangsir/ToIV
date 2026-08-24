@@ -1255,11 +1255,13 @@ export async function generate3D(params: Gen3DParams): Promise<GenerateResponse>
   return res.json();
 }
 
-/** 3D 产物调整(/api/3d/ops):job_id 或 source 句柄二选一;render=材质预设渲染,material=PBR 改写。 */
+/** 3D 产物调整(/api/3d/ops):job_id 或 source 句柄二选一;render=材质预设渲染
+ * (out=glb 默认:材质烘焙回模型出新 GLB;png/mp4 为快照/旋转视频),material=PBR 改写。 */
 export interface ThreeDOpsParams {
   op: "render" | "material";
   job_id?: string;
   source?: { filename: string; worker: string };
+  out?: "glb" | "png" | "mp4";
   material?: "clay" | "matte" | "metal" | "glossy" | "wireframe" | "normal";
   lighting?: "environment" | "studio" | "rim";
   background?: "transparent" | "white" | "dark";
@@ -1429,10 +1431,13 @@ export interface AgentChatStreamBody {
  * 智能体 SSE 事件流消费(agentChatStream / agentChatResume 共用):
  * 逐块解析 event/data,done 事件终止;命名事件(tool/job/proposal)的 data 不带
  * type 字段,以 event 名回填为事件类型。
+ * onActivity:收到任何字节(含后端保活 comment 行 `: ping`)即回调,
+ * 供调用方重置不活跃计时——后端活着就不误杀,真断连走 fetch 报错路径。
  */
 async function consumeAgentSse(
   body: ReadableStream<Uint8Array>,
   onEvent: (ev: AgentEvent) => void,
+  onActivity?: () => void,
 ): Promise<void> {
   const reader = body.getReader();
   const dec = new TextDecoder();
@@ -1441,6 +1446,7 @@ async function consumeAgentSse(
     const { done, value } = await reader.read();
     if (done) break;
     buf += dec.decode(value, { stream: true });
+    onActivity?.();
     // 事件以空行分隔;兼容 \r\n\r\n(sse-starlette/反代)与 \n\n
     const parts = buf.split(/\r?\n\r?\n/);
     buf = parts.pop() ?? "";
@@ -1479,6 +1485,7 @@ export async function agentChatStream(
   body: AgentChatStreamBody,
   onEvent: (ev: AgentEvent) => void,
   signal?: AbortSignal,
+  onActivity?: () => void,
 ): Promise<{ sessionId: string | null }> {
   const res = await apiFetch(
     `/api/agent/chat`,
@@ -1496,7 +1503,7 @@ export async function agentChatStream(
     throw new Error(detail?.detail ?? `对话失败 (${res.status})`);
   }
   const sessionId = res.headers.get("X-Agent-Session-Id");
-  await consumeAgentSse(res.body, onEvent);
+  await consumeAgentSse(res.body, onEvent, onActivity);
   return { sessionId };
 }
 
@@ -1516,6 +1523,7 @@ export async function agentChatResume(
   body: AgentChatResumeBody,
   onEvent: (ev: AgentEvent) => void,
   signal?: AbortSignal,
+  onActivity?: () => void,
 ): Promise<{ sessionId: string | null }> {
   const res = await apiFetch(
     `/api/agent/chat/resume`,
@@ -1533,7 +1541,7 @@ export async function agentChatResume(
     throw new Error(detail?.detail ?? `提案回执失败 (${res.status})`);
   }
   const sessionId = res.headers.get("X-Agent-Session-Id");
-  await consumeAgentSse(res.body, onEvent);
+  await consumeAgentSse(res.body, onEvent, onActivity);
   return { sessionId };
 }
 

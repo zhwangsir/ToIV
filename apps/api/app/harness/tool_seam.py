@@ -202,7 +202,7 @@ def builtin_tool_specs() -> list[ToolSpec]:
         ToolSpec("propose_plan", gen_schema("propose_plan"), tools_gen.exec_propose_plan,
                  "大需求提案(视频/批量/多步/整集类先出方案等用户确认再执行)", rate_scope=""),
         ToolSpec("adjust_3d", gen_schema("adjust_3d"), tools_gen.exec_adjust_3d,
-                 "3D 模型材质/渲染调整(换材质/渲染快照/360° 旋转视频/染色;立即出产物)", rate_scope=""),
+                 "3D 模型材质/渲染调整(材质烘焙成新 GLB 模型/染色;旋转视频、快照为可选查看产物;立即出产物)", rate_scope=""),
     ]
 
 

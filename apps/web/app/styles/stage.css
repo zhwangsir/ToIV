@@ -39,7 +39,8 @@
   flex-direction: column;
   gap: 0;
   height: 100%;
-  padding: var(--space-6);
+  /* 2026-08-24 密度优化:四周 24→顶 12/底 16,水平统一消费 --page-gutter */
+  padding: var(--space-3) var(--page-gutter) var(--space-4);
   overflow: hidden;
 }
 
@@ -70,7 +71,7 @@
    (编辑双线 + Fraunces 展示标题 + kicker 铭牌),本处只保留舞台间距节奏 */
 .generate-header {
   flex-shrink: 0;
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-3);
   /* 无需避让 CornerNav:壳层 .app-main padding-top:56px 已让开触发器(底缘 y50 < 页头 y80),
      标题左缘与舞台左缘对齐,视觉对称 */
 }
@@ -83,7 +84,7 @@
   flex: 1;
   min-height: 0;
   display: flex;
-  gap: var(--space-4);
+  gap: var(--space-3);
   align-items: stretch;
 }
 
@@ -125,7 +126,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-6);
+  padding: var(--space-4);
 }
 .stage-main::after {
   content: "";
@@ -1375,13 +1376,13 @@
 @media (max-width: 1023px) {
   .generate-view {
     overflow-y: auto; /* 页面可滚动:空态三步卡/胶片条均可达 */
-    padding: var(--space-4);
+    padding: var(--space-3) var(--page-gutter);
   }
   .generate-body {
     position: static;
     display: flex;
     flex-direction: column;
-    gap: var(--space-4);
+    gap: var(--space-3);
     overflow: visible;
   }
   /* 舞台列让位:列纵向堆叠(结果区 72vh + sticky 词条),与重构前的直接子项行为一致 */
@@ -1466,7 +1467,7 @@
 
 @media (max-width: 767px) {
   .generate-view {
-    padding: var(--space-3);
+    padding: var(--space-2) var(--page-gutter);
     gap: 0;
   }
   /* 辅助说明让位:小屏头部只留模式段控/板块标题 */

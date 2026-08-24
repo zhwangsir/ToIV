@@ -4,9 +4,10 @@
 core 经 /api/images 同源逻辑(resolve_worker 白名单 + get_image_bytes)取回 GLB 字节,
 multipart 上传到 toiv-3dops 执行:
 
-- op=render:材质预设(clay/matte/metal/glossy/wireframe/normal)× 灯光
-  (environment/studio/rim)× 背景(transparent/white/dark)→ 快照 PNG 或
-  360° turntable MP4。
+- op=render:out=glb(默认)把材质预设(clay/matte/metal/glossy)烘焙为 GLB 的
+  PBR 材质,产出新 3D 模型;out=png/mp4 为快照/360° turntable 视频(纯查看产物,
+  灯光 environment/studio/rim × 背景 transparent/white/dark);wireframe/normal
+  是纯查看模式,glb 输出下 422 拒绝。
 - op=material:PBR 材质改写(base_color 染色/金属度/粗糙度)→ 新 GLB。
 
 产物落 content_subdir("threed") 并建档 Job(kind=threed_render/threed_material,
@@ -77,11 +78,13 @@ class ThreeDOpsRequest(BaseModel):
     # 来源二选一:作品库作业 id(归属校验后取 .glb 产物)或直接句柄
     job_id: str | None = Field(default=None, max_length=64)
     source: OpsSource | None = None
-    # render 参数
+    # render 参数;out=glb(默认):材质预设烘焙为 PBR 材质回写 GLB,产出新 3D 模型;
+    # png/mp4 为快照/旋转视频(纯查看产物)。format 为旧参数,out 缺省时生效
+    out: Literal["glb", "png", "mp4"] | None = None
     material: Literal["clay", "matte", "metal", "glossy", "wireframe", "normal"] = "clay"
     lighting: Literal["environment", "studio", "rim"] = "studio"
     background: Literal["transparent", "white", "dark"] = "dark"
-    format: Literal["png", "mp4"] = "png"
+    format: Literal["png", "mp4"] | None = None
     azimuth: float = Field(default=30.0, ge=-360.0, le=360.0)
     frames: Literal[24, 36] = 36
     size: int = Field(default=768, ge=256, le=1080)
@@ -166,7 +169,7 @@ async def _fetch_glb_bytes(source: OpsSource, pool: WorkerPool | None) -> bytes:
 
 def _verify_output(data: bytes, op: str, fmt: str) -> str:
     """产物 magic 校验,返回扩展名;造假/损坏一律 502。"""
-    if op == "material":
+    if op == "material" or fmt == "glb":
         if data[:4] == b"glTF":
             return "glb"
     elif fmt == "png":
@@ -218,17 +221,25 @@ async def threed_ops(
 
     # ---- 委托 toiv-3dops ----
     if body.op == "render":
+        out_mode = body.out or body.format or "glb"
+        if out_mode == "glb" and body.material in ("wireframe", "normal"):
+            raise HTTPException(
+                status_code=422,
+                detail=f"{body.material} 是纯查看模式,无法烘焙为 GLB;"
+                       f"请改用 png/mp4 输出,或选 clay/matte/metal/glossy 材质预设",
+            )
         path = "/render"
         data: dict[str, object] = {
             "material": body.material,
             "lighting": body.lighting,
             "background": body.background,
-            "format": body.format,
+            "out": out_mode,
             "azimuth": str(body.azimuth),
             "frames": str(body.frames),
             "size": str(body.size),
         }
     else:
+        out_mode = "glb"  # material 恒出 GLB
         if not _HEX_COLOR_RE.match(body.base_color):
             raise HTTPException(status_code=422, detail="base_color 须为 #RRGGBB")
         path = "/material"
@@ -258,7 +269,7 @@ async def threed_ops(
         except (ValueError, KeyError, AttributeError):
             pass
         raise HTTPException(status_code=502, detail=detail)
-    ext = _verify_output(resp.content, body.op, body.format)
+    ext = _verify_output(resp.content, body.op, out_mode)
 
     # ---- 产物落盘 + 建档 ----
     name = f"threedops-{uuid.uuid4().hex}.{ext}"
@@ -276,7 +287,8 @@ async def threed_ops(
     elif body.op == "render":
         label = _MATERIAL_LABELS.get(body.material, body.material)
         prompt = (
-            f"3D 旋转视频({label}材质)" if body.format == "mp4"
+            f"3D 材质模型({label})" if out_mode == "glb"
+            else f"3D 旋转视频({label}材质)" if out_mode == "mp4"
             else f"3D 渲染快照({label}材质)"
         )
     else:
@@ -301,7 +313,7 @@ async def threed_ops(
                     "material": body.material,
                     "lighting": body.lighting,
                     "background": body.background,
-                    "format": body.format,
+                    "out": out_mode,
                     "base_color": body.base_color,
                     "metallic": body.metallic,
                     "roughness": body.roughness,

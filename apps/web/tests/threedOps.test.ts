@@ -1,8 +1,8 @@
 /**
  * 3D 调整(/api/3d/ops)前端单测(node:test,无 DOM,源码断言风格):
  * ① api.ts 契约:threeDOps 路径/方法/longRequest
- * ② 作品库灯箱 3D 分支:ThreeDOpsBar 材质预设 + 快照/旋转视频按钮,<style jsx global> + t3dops- 前缀(P-2b)
- * ③ ImageEditView 图生3D 结果卡:「渲染旋转视频」入口(source 句柄解析自签名 URL)
+ * ② 作品库灯箱 3D 分支:ThreeDOpsBar 主按钮「应用材质生成新模型」(out=glb)+ 快照/视频折叠,<style jsx global> + t3dops- 前缀(P-2b)
+ * ③ ImageEditView 图生3D 结果卡:「应用材质生成新模型」入口(source 句柄解析自签名 URL)
  * ④ libraryQuery:threed_render/threed_material 进 3D 筛选桶 + 中文短名
  */
 import assert from "node:assert/strict";
@@ -30,7 +30,7 @@ test("api.ts:threeDOps 路径/方法/长超时", () => {
 });
 
 /* ── ② 作品库灯箱 3D 操作条 ── */
-test("LibraryView:灯箱 3D 分支挂 ThreeDOpsBar(材质预设+快照+旋转视频)", () => {
+test("LibraryView:灯箱 3D 分支挂 ThreeDOpsBar(主按钮烘焙新模型+快照/视频折叠)", () => {
   const src = readSrc("components/library/LibraryView.tsx");
   assert.ok(src.includes("threeDOps"), "未引入 threeDOps");
   assert.ok(src.includes("function ThreeDOpsBar"), "缺 ThreeDOpsBar 组件");
@@ -42,8 +42,15 @@ test("LibraryView:灯箱 3D 分支挂 ThreeDOpsBar(材质预设+快照+旋转视
   for (const p of ["clay", "matte", "metal", "glossy", "wireframe", "normal"]) {
     assert.ok(src.includes(`value: "${p}"`), `缺材质预设 ${p}`);
   }
+  // 渲染语义纠偏:主按钮=应用材质生成新模型(out=glb 烘焙回 GLB)
+  assert.ok(src.includes("应用材质生成新模型"), "缺主按钮「应用材质生成新模型」");
+  assert.ok(src.includes('run("glb")'), "主按钮未走 out=glb");
+  // 快照/旋转视频降级为折叠次要项(接口保留)
+  assert.ok(src.includes('className="t3dops-more"'), "次要项未折叠");
   assert.ok(src.includes("渲染快照"), "缺渲染快照按钮");
   assert.ok(src.includes("渲染旋转视频"), "缺渲染旋转视频按钮");
+  // 线框/法线是纯查看模式:glb 烘焙禁用
+  assert.ok(src.includes("T3DOPS_VIEW_ONLY"), "缺纯查看模式守卫");
   assert.ok(src.includes('job_id: job.id'), "操作条未以 job_id 为来源");
   assert.ok(src.includes("invalidateJobs()"), "成功后未失效作品库缓存");
   // P-2b:样式必须 global + 前缀(子组件拿不到主组件 styled-jsx 作用域)
@@ -51,15 +58,15 @@ test("LibraryView:灯箱 3D 分支挂 ThreeDOpsBar(材质预设+快照+旋转视
   assert.ok(src.includes(".t3dops-bar"), "缺 t3dops- 前缀样式");
 });
 
-/* ── ③ ImageEditView 3D 结果卡旋转视频入口 ── */
-test("ImageEditView:Model3DResult 挂渲染旋转视频(source 句柄自签名 URL 解析)", () => {
+/* ── ③ ImageEditView 3D 结果卡材质烘焙入口 ── */
+test("ImageEditView:Model3DResult 挂「应用材质生成新模型」(source 句柄自签名 URL 解析)", () => {
   const src = readSrc("components/image-edit/ImageEditView.tsx");
   assert.ok(src.includes("threeDOps"), "未引入 threeDOps");
   const card = src.slice(src.indexOf("function Model3DResult"));
-  assert.ok(card.includes("渲染旋转视频"), "结果卡缺旋转视频入口");
+  assert.ok(card.includes("应用材质生成新模型"), "结果卡缺材质烘焙入口");
+  assert.ok(card.includes('out: "glb"'), "材质烘焙未指定 out=glb");
   assert.ok(card.includes('qs.get("filename")') && card.includes('qs.get("worker")'),
     "未从签名 URL 解析 source 句柄");
-  assert.ok(card.includes('format: "mp4"'), "旋转视频未指定 mp4");
   assert.ok(card.includes("invalidateJobs()"), "成功后未失效作品库缓存");
 });
 

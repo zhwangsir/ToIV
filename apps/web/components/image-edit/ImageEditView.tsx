@@ -465,12 +465,14 @@ function Model3DResult({ resultUrl }: { resultUrl: string }) {
   const fullUrl = imageUrl(resultUrl); // 带 token 查询参数,与图片产物同规则
   const filename = resultUrl.split("?")[0].split("/").pop() ?? "model.glb";
   const toast = useToast();
-  const [turntableBusy, setTurntableBusy] = useState(false);
+  const [bakeBusy, setBakeBusy] = useState(false);
+  const [bakePreset, setBakePreset] = useState<string>("clay");
 
-  // 渲染旋转视频:从签名产物 URL 解析 filename/worker 作为 /api/3d/ops 的 source 句柄;
-  // 产物(threed_render mp4)作为新作业进作品库,与灯箱 3D 操作条同一链路
-  const renderTurntable = async () => {
-    if (turntableBusy) return;
+  // 应用材质生成新模型:从签名产物 URL 解析 filename/worker 作为 /api/3d/ops 的
+  // source 句柄;out=glb 把材质预设烘焙回模型,产物(threed_render GLB)作为新作业
+  // 进作品库 3D 桶,与灯箱 3D 操作条同一链路
+  const bakeMaterial = async () => {
+    if (bakeBusy) return;
     let qs: URLSearchParams;
     try {
       qs = new URLSearchParams(resultUrl.split("?")[1] ?? "");
@@ -484,21 +486,20 @@ function Model3DResult({ resultUrl }: { resultUrl: string }) {
       toast.error("无法解析 3D 产物来源");
       return;
     }
-    setTurntableBusy(true);
+    setBakeBusy(true);
     try {
       await threeDOps({
         op: "render",
         source: { filename: glbFilename, worker },
-        material: "clay",
-        format: "mp4",
-        frames: 36,
+        material: bakePreset as "clay",
+        out: "glb",
       });
       invalidateJobs();
-      toast.success("旋转视频已生成,已收入作品库");
+      toast.success("新 3D 模型已生成,已收入作品库(3D 筛选)");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "3D 渲染失败");
     } finally {
-      setTurntableBusy(false);
+      setBakeBusy(false);
     }
   };
 
@@ -507,14 +508,26 @@ function Model3DResult({ resultUrl }: { resultUrl: string }) {
       <div className="ie-result-head">
         <span className="ie-result-label">3D 模型已生成</span>
         <div className="ie-model3d-actions">
+          <select
+            className="ie-model3d-preset"
+            aria-label="材质预设"
+            value={bakePreset}
+            disabled={bakeBusy}
+            onChange={(e) => setBakePreset(e.target.value)}
+          >
+            <option value="clay">黏土</option>
+            <option value="matte">哑光</option>
+            <option value="metal">金属</option>
+            <option value="glossy">陶瓷</option>
+          </select>
           <button
             type="button"
-            className="at-btn ie-model3d-turntable-btn"
-            disabled={turntableBusy}
-            onClick={renderTurntable}
+            className="at-btn ie-model3d-bake-btn"
+            disabled={bakeBusy}
+            onClick={bakeMaterial}
           >
-            <Icon name={turntableBusy ? "loading" : "film"} size={13} />
-            渲染旋转视频
+            <Icon name={bakeBusy ? "loading" : "model3d"} size={13} />
+            应用材质生成新模型
           </button>
           <a href={fullUrl} download={filename} className="at-btn at-btn--primary ie-download-btn">
             <Icon name="download" size={13} />
@@ -1712,18 +1725,26 @@ export function ImageEditView() {
           font-size: var(--text-aux);
           text-align: center;
         }
-        /* 结果卡头部操作组(旋转视频 + 下载) */
+        /* 结果卡头部操作组(材质烘焙 + 下载) */
         .ie-model3d-actions {
           display: flex;
           align-items: center;
           gap: var(--space-2);
         }
-        .ie-model3d-turntable-btn {
+        .ie-model3d-preset {
+          padding: 5px 6px;
+          font-size: var(--text-aux);
+          color: var(--text-primary);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: 8px;
+        }
+        .ie-model3d-bake-btn {
           display: inline-flex;
           align-items: center;
           gap: 6px;
         }
-        .ie-model3d-turntable-btn:disabled {
+        .ie-model3d-bake-btn:disabled {
           opacity: 0.6;
           cursor: wait;
         }

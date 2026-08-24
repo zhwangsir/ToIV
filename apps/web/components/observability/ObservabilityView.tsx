@@ -751,8 +751,8 @@ function ObsStyles() {
         .obs-body {
           display: flex;
           flex-direction: column;
-          gap: var(--space-4, 16px);
-          padding-bottom: var(--space-6, 24px);
+          gap: var(--space-3, 12px);
+          padding-bottom: var(--space-4, 16px);
         }
         /* ── KPI 条 ── */
         .obs-kpis {
@@ -763,7 +763,7 @@ function ObsStyles() {
         .obs-kpi {
           border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
           border-radius: var(--radius-md, 10px);
-          padding: var(--space-3, 12px) var(--space-4, 16px);
+          padding: var(--space-2, 8px) var(--space-3, 12px);
           background: var(--surface-1, rgba(255, 255, 255, 0.02));
           transition: border-color 600ms ease;
         }
@@ -803,7 +803,7 @@ function ObsStyles() {
         .obs-card {
           border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
           border-radius: var(--radius-lg, 14px);
-          padding: var(--space-4, 16px);
+          padding: var(--space-3, 12px);
           background: var(--surface-1, rgba(255, 255, 255, 0.02));
           transition: border-color 600ms ease;
         }
@@ -811,7 +811,7 @@ function ObsStyles() {
           border-color: rgba(167, 139, 250, 0.3);
         }
         .obs-card-title {
-          margin: 0 0 var(--space-3, 12px);
+          margin: 0 0 var(--space-2, 8px);
           font-size: 13px;
           font-weight: 600;
           color: var(--text-muted, #888);
@@ -820,7 +820,7 @@ function ObsStyles() {
         .obs-charts-row {
           display: grid;
           grid-template-columns: 2fr 1fr;
-          gap: var(--space-4, 16px);
+          gap: var(--space-3, 12px);
         }
         .obs-chart-empty {
           display: flex;
@@ -835,7 +835,7 @@ function ObsStyles() {
         .obs-held-reasons {
           list-style: none;
           margin: 0;
-          padding: var(--space-3, 12px) var(--space-4, 16px);
+          padding: var(--space-2, 8px) var(--space-3, 12px);
           border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
           border-radius: var(--radius-md, 10px);
           background: var(--surface-1, rgba(255, 255, 255, 0.02));
@@ -1022,7 +1022,7 @@ function ObsStyles() {
         .obs-usage-row {
           display: flex;
           flex-wrap: wrap;
-          gap: var(--space-4, 16px);
+          gap: var(--space-3, 12px);
           justify-content: space-around;
         }
         .obs-usage {

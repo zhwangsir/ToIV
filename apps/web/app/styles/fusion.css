@@ -21,11 +21,12 @@
   --z-fusion-content: 1;
   display: flex;
   flex-direction: column;
-  gap: var(--space-8);
+  /* 2026-08-24 密度优化:区距 32→20,页面槽统一消费 --page-gutter(顶 12/底 24) */
+  gap: var(--space-5);
   height: 100%;
   overflow-y: auto;
   /* 对称边距:壳层 .app-main padding-top:56px 已垂直让开 CornerNav 触发器,左右无需偏移 */
-  padding: var(--space-8);
+  padding: var(--space-3) var(--page-gutter) var(--space-6);
 }
 
 /* ── 页头:masthead 外观由全局 .page-header*(v6.1:kicker/Fraunces/编辑双线)接管,
@@ -68,7 +69,7 @@
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   grid-auto-rows: minmax(200px, auto);
-  gap: var(--space-6);
+  gap: var(--space-4);
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
@@ -94,8 +95,8 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-6);
+  gap: var(--space-3);
+  padding: var(--space-5);
   cursor: pointer;
   overflow: hidden;
   opacity: 0;
@@ -127,7 +128,7 @@
 }
 /* hero 卡:更大内边距 + 双向 accent 洗光引导视线(右上→右下),与普通卡拉开质感层级 */
 .fusion-view .fusion-card.is-flagship {
-  padding: var(--space-8);
+  padding: var(--space-6);
   border-color: var(--accent-glow);
   background:
     radial-gradient(
@@ -328,13 +329,13 @@
 /* 窄屏 <1024px:6 列 bento 收起,退回「旗舰整行 + 两列」 */
 @media (max-width: 1023px) {
   .fusion-view {
-    gap: var(--space-6);
-    padding: var(--space-5);
+    gap: var(--space-4);
+    padding: var(--space-3) var(--page-gutter) var(--space-5);
   }
   .fusion-grid {
     grid-template-columns: repeat(2, 1fr);
     grid-auto-rows: auto;
-    gap: var(--space-5);
+    gap: var(--space-4);
   }
   .fusion-view .fusion-card,
   .fusion-view .fusion-card:nth-child(4),
@@ -359,18 +360,18 @@
 /* 移动 <768px(--bp-md):单列 + 内边距再收缩 */
 @media (max-width: 767px) {
   .fusion-view {
-    gap: var(--space-5);
-    padding: var(--space-4);
+    gap: var(--space-4);
+    padding: var(--space-3) var(--page-gutter) var(--space-4);
   }
   .fusion-grid {
     grid-template-columns: 1fr;
-    gap: var(--space-4);
+    gap: var(--space-3);
   }
   .fusion-view .fusion-card {
-    padding: var(--space-5);
+    padding: var(--space-4);
   }
   .fusion-view .fusion-card.is-flagship {
-    padding: var(--space-6);
+    padding: var(--space-5);
   }
   .fusion-view .page-header {
     align-items: flex-start;

@@ -1633,9 +1633,12 @@ export function LibraryView(props?: LibraryViewProps) {
 
 // ────────────────────────────────────────────────────────────────
 // ────────────────────────────────────────────────────────────────
-// ThreeDOpsBar:灯箱 3D 分支的材质/渲染操作条(2026-08-24)
-// 材质预设下拉 + 「渲染快照」「渲染旋转视频」→ POST /api/3d/ops(job_id 来源),
-// 产物作为新作业(threed_render)进作品库;样式走 <style jsx global> + t3dops- 前缀
+// ThreeDOpsBar:灯箱 3D 分支的材质/渲染操作条(2026-08-24;渲染语义纠偏同日)
+// 主按钮「应用材质生成新模型」→ POST /api/3d/ops op=render out=glb(材质烘焙回
+// 模型本身,产物新 GLB 作为 threed_render 作业进作品库 3D 桶);
+// 快照 PNG / 旋转视频 MP4 为纯查看产物,折叠进「更多渲染方式」。
+// wireframe/normal 是纯查看模式,不能烘焙成 GLB,主按钮禁用并提示。
+// 样式走 <style jsx global> + t3dops- 前缀
 // (P-2b:子组件元素拿不到主组件 styled-jsx 作用域类,必须 global)。
 // ────────────────────────────────────────────────────────────────
 
@@ -1648,25 +1651,32 @@ const T3DOPS_PRESETS = [
   { value: "normal", label: "法线" },
 ] as const;
 
+// 纯查看模式:不能烘焙为 GLB 材质(仅快照/视频可用)
+const T3DOPS_VIEW_ONLY = new Set<string>(["wireframe", "normal"]);
+
 function ThreeDOpsBar({ job }: { job: JobItem }) {
   const toast = useToast();
   const [preset, setPreset] = useState<string>("clay");
-  const [busy, setBusy] = useState<"png" | "mp4" | null>(null);
+  const [busy, setBusy] = useState<"glb" | "png" | "mp4" | null>(null);
 
-  const run = async (format: "png" | "mp4") => {
+  const run = async (out: "glb" | "png" | "mp4") => {
     if (busy) return;
-    setBusy(format);
+    setBusy(out);
     try {
       await threeDOps({
         op: "render",
         job_id: job.id,
         material: preset as "clay",
-        format,
+        out,
         frames: 36,
       });
       invalidateJobs();
       toast.success(
-        format === "mp4" ? "旋转视频已生成,已收入作品库" : "渲染快照已生成,已收入作品库",
+        out === "glb"
+          ? "新 3D 模型已生成,已收入作品库(3D 筛选)"
+          : out === "mp4"
+            ? "旋转视频已生成,已收入作品库"
+            : "渲染快照已生成,已收入作品库",
       );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "3D 渲染失败");
@@ -1675,9 +1685,11 @@ function ThreeDOpsBar({ job }: { job: JobItem }) {
     }
   };
 
+  const viewOnly = T3DOPS_VIEW_ONLY.has(preset);
+
   return (
     <div className="t3dops-bar">
-      <span className="t3dops-label">3D 渲染</span>
+      <span className="t3dops-label">3D 材质 / 渲染</span>
       <select
         className="t3dops-select"
         aria-label="材质预设"
@@ -1694,23 +1706,38 @@ function ThreeDOpsBar({ job }: { job: JobItem }) {
       <div className="t3dops-actions">
         <button
           type="button"
-          className="t3dops-btn"
-          disabled={busy !== null}
-          onClick={() => run("png")}
+          className="t3dops-btn t3dops-btn--primary"
+          disabled={busy !== null || viewOnly}
+          title={viewOnly ? "线框/法线是纯查看模式,请用下方快照/旋转视频" : "把材质烘焙回模型,产出新 GLB"}
+          onClick={() => run("glb")}
         >
-          <Icon name={busy === "png" ? "loading" : "image"} size={13} />
-          渲染快照
-        </button>
-        <button
-          type="button"
-          className="t3dops-btn"
-          disabled={busy !== null}
-          onClick={() => run("mp4")}
-        >
-          <Icon name={busy === "mp4" ? "loading" : "film"} size={13} />
-          渲染旋转视频
+          <Icon name={busy === "glb" ? "loading" : "model3d"} size={13} />
+          应用材质生成新模型
         </button>
       </div>
+      <details className="t3dops-more">
+        <summary>更多渲染方式(快照 / 旋转视频)</summary>
+        <div className="t3dops-actions">
+          <button
+            type="button"
+            className="t3dops-btn"
+            disabled={busy !== null}
+            onClick={() => run("png")}
+          >
+            <Icon name={busy === "png" ? "loading" : "image"} size={13} />
+            渲染快照
+          </button>
+          <button
+            type="button"
+            className="t3dops-btn"
+            disabled={busy !== null}
+            onClick={() => run("mp4")}
+          >
+            <Icon name={busy === "mp4" ? "loading" : "film"} size={13} />
+            渲染旋转视频
+          </button>
+        </div>
+      </details>
       {/* global + t3dops- 前缀(P-2b):子组件样式不进主组件 styled-jsx 作用域 */}
       <style jsx global>{`
         .t3dops-bar {
@@ -1763,6 +1790,20 @@ function ThreeDOpsBar({ job }: { job: JobItem }) {
         .t3dops-btn:disabled {
           opacity: 0.6;
           cursor: wait;
+        }
+        .t3dops-btn--primary {
+          border-color: var(--accent, #7c6cff);
+          color: var(--accent, #7c6cff);
+          font-weight: var(--font-medium, 500);
+        }
+        .t3dops-more summary {
+          cursor: pointer;
+          font-size: var(--text-label, 11px);
+          color: var(--text-muted, #888);
+          user-select: none;
+        }
+        .t3dops-more[open] summary {
+          margin-bottom: var(--space-2, 8px);
         }
       `}</style>
     </div>
@@ -1964,7 +2005,7 @@ function LibraryLightbox({
             <p className="lib-lb-prompt-text">{job.prompt || "(无提示词)"}</p>
           </div>
 
-          {/* 3D 产物:材质预设 + 快照/旋转视频渲染(产物作为新作业进作品库) */}
+          {/* 3D 产物:材质烘焙成新模型(默认)+ 快照/旋转视频(折叠,产物作为新作业进作品库) */}
           {mediaKind === "model3d" && <ThreeDOpsBar job={job} />}
 
           <div className="lib-lb-side-actions">

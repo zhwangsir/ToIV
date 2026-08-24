@@ -126,8 +126,9 @@ const CONV_STORAGE_KEY = (() => {
   return `toiv_av_convs_${day}`;
 })();
 
-// 等待首个响应块的超时;超时按「服务不可用」处理并允许重试
-const FIRST_CHUNK_TIMEOUT_MS = 30000;
+// 不活跃超时上限:后端 LLM 等待期每 10s 发 SSE 保活 comment,任何字节都会重置
+// 计时;只有 120s 完全无字节(真断连/服务死)才中止,超时按失败处理并允许重试
+const FIRST_CHUNK_TIMEOUT_MS = 120_000;
 
 function loadStoredConversations(): Conversation[] {
   if (typeof window === "undefined") return [];
@@ -958,7 +959,8 @@ export function AssistantView(props?: AssistantViewProps) {
     setAttachedDocs((prev) => prev.filter((d) => d.id !== id));
   }, []);
 
-  // 发起一次对话请求:立即进入 pending(打字指示器),30s 无首个响应块按失败处理,
+  // 发起一次对话请求:立即进入 pending(打字指示器),120s 完全无字节(含保活
+  // comment 也算活动,每次活动重置计时)才按失败处理,
   // 失败/超时 → 错误气泡 + 重试;成功/失败均写入历史。docIds = 本轮挂载的文档。
   // resume = 提案确认回执(POST /api/agent/chat/resume,响应同构 SSE,不再发 messages)
   const requestReply = useCallback(
@@ -973,9 +975,12 @@ export function AssistantView(props?: AssistantViewProps) {
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
-      const timeoutId = window.setTimeout(() => {
-        if (!gotFirstChunkRef.current) controller.abort();
-      }, FIRST_CHUNK_TIMEOUT_MS);
+      // 不活跃计时:任何字节(含后端 10s 保活 comment)都重置;120s 无活动才中止
+      let timeoutId = window.setTimeout(() => controller.abort(), FIRST_CHUNK_TIMEOUT_MS);
+      const resetInactivityTimer = () => {
+        window.clearTimeout(timeoutId);
+        timeoutId = window.setTimeout(() => controller.abort(), FIRST_CHUNK_TIMEOUT_MS);
+      };
 
       let failed = false;
       // 后端以 SSE msg 事件下发 {type:"error"}(如「主模型暂不可用」),HTTP 仍 200,
@@ -995,7 +1000,6 @@ export function AssistantView(props?: AssistantViewProps) {
           if (controller.signal.aborted) return;
           if (!gotFirstChunkRef.current) {
             gotFirstChunkRef.current = true;
-            window.clearTimeout(timeoutId);
             setPending(false);
           }
           if (ev.type === "text") {
@@ -1085,6 +1089,7 @@ export function AssistantView(props?: AssistantViewProps) {
               } satisfies AgentChatResumeBody,
               onEvent,
               controller.signal,
+              resetInactivityTimer,
             )
           : await agentChatStream(
               {
@@ -1095,6 +1100,7 @@ export function AssistantView(props?: AssistantViewProps) {
               },
               onEvent,
               controller.signal,
+              resetInactivityTimer,
             );
         if (sessionId) lastSessionIdRef.current = sessionId;
       } catch {
@@ -1117,7 +1123,7 @@ export function AssistantView(props?: AssistantViewProps) {
         const errMsg: ChatMessage = {
           id: genId(),
           role: "assistant",
-          content: "回复失败:服务暂时不可用",
+          content: "回复失败:连接中断或超时,请重试",
           timestamp: Date.now(),
           kind: "error",
         };

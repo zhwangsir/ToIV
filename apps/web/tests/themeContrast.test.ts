@@ -167,6 +167,14 @@ test("基座新 token 存在:--content-max / --content-wide / --leading-loose", 
   assert.match(globals, /--leading-loose:\s*1\.7/);
 });
 
+test("页面槽 token 存在且双壳统一消费:--page-gutter(2026-08-24 密度优化)", () => {
+  assert.match(globals, /--page-gutter:\s*clamp\(12px, 2vw, 24px\)/);
+  const single = globals.match(/\.single-view\s*\{([^}]*)\}/);
+  const shell = globals.match(/\.view-shell\s*\{([^}]*)\}/);
+  assert.ok(single && /var\(--page-gutter\)/.test(single[1]), ".single-view 未消费 --page-gutter");
+  assert.ok(shell && /var\(--page-gutter\)/.test(shell[1]), ".view-shell 未消费 --page-gutter");
+});
+
 test(".single-view 与 .view-shell 版心统一消费 var(--content-wide)", () => {
   const single = globals.match(/\.single-view\s*\{([^}]*)\}/);
   const shell = globals.match(/\.view-shell\s*\{([^}]*)\}/);

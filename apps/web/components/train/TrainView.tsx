@@ -615,15 +615,16 @@ export function TrainView() {
 
       <style jsx>{`
         .train-view {
-          padding-top: var(--space-6);
-          padding-bottom: var(--space-8);
+          /* 2026-08-24 密度优化:壳层 .single-view 已供顶/底节奏,本视图只留微呼吸 */
+          padding-top: var(--space-2);
+          padding-bottom: var(--space-2);
         }
 
         /* ── Header ── */
         /* 页头版式统一走全局 .page-header*(标题/描述/右侧操作区/桌面端避让导航),
            此处只保留本视图与全局页头之间的间距衔接。 */
         .train-view .page-header {
-          margin-bottom: var(--space-8);
+          margin-bottom: var(--space-4);
         }
         .train-view .page-header-actions {
           display: inline-flex;
@@ -634,8 +635,8 @@ export function TrainView() {
 
         /* ── Form ── */
         .tv-form-card {
-          margin-bottom: var(--space-8);
-          padding: var(--space-6);
+          margin-bottom: var(--space-4);
+          padding: var(--space-4);
           background: var(--bg-surface-1);
           border-color: var(--border-strong);
           box-shadow: var(--shadow-md);
@@ -645,7 +646,7 @@ export function TrainView() {
           align-items: center;
           justify-content: space-between;
           gap: var(--space-3);
-          margin-bottom: var(--space-5);
+          margin-bottom: var(--space-3);
         }
         .tv-form-title {
           margin: 0;
@@ -728,8 +729,8 @@ export function TrainView() {
           display: flex;
           justify-content: flex-end;
           gap: var(--space-2);
-          margin-top: var(--space-5);
-          padding-top: var(--space-4);
+          margin-top: var(--space-4);
+          padding-top: var(--space-3);
           border-top: 1px solid var(--border-subtle);
         }
 
@@ -737,7 +738,7 @@ export function TrainView() {
         .tv-body {
           display: flex;
           flex-direction: column;
-          gap: var(--space-5);
+          gap: var(--space-4);
         }
         /* 加载失败:ErrorBar + 重试按钮横排 */
         .tv-error-row {

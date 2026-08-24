@@ -150,7 +150,38 @@ test("AssistantView:作业卡 8s 轮询(列表+id 过滤)+ done 复用媒体渲�
   assert.ok(src.includes("mediaTypeForJob(j.kind, u)"), "done 产物未按 kind 分流媒体类型");
 });
 
-/* ── ③ 纯函数 ── */
+/* ── ④ 保活与不活跃超时(2026-08-24「回复失败:服务暂时不可用」修复) ── */
+test("api.ts:consumeAgentSse 任何字节(含 : ping 注释行)回调 onActivity", () => {
+  const src = readSrc("lib/api.ts");
+  const fn = src.slice(src.indexOf("async function consumeAgentSse"));
+  assert.ok(fn.includes("onActivity?: () => void"), "consumeAgentSse 缺 onActivity 形参");
+  // 必须在字节入缓冲后即回调(comment 行不进事件解析,只能在这一层感知)
+  assert.ok(fn.includes("onActivity?.()"), "收到字节未回调 onActivity");
+  // 两条流入口都透传
+  for (const entry of ["export async function agentChatStream", "export async function agentChatResume"]) {
+    const f = src.slice(src.indexOf(entry));
+    assert.ok(f.includes("onActivity"), `${entry} 未声明/透传 onActivity`);
+    assert.ok(f.includes("consumeAgentSse(res.body, onEvent, onActivity)"), `${entry} 未把 onActivity 传入消费器`);
+  }
+});
+
+test("AssistantView:120s 不活跃超时按活动重置;失败文案精确", () => {
+  const src = readSrc("components/assistant/AssistantView.tsx");
+  assert.ok(src.includes("FIRST_CHUNK_TIMEOUT_MS = 120_000"), "超时上限未调到 120s");
+  assert.ok(!src.includes("30000"), "残留 30s 旧超时");
+  // 重置逻辑:clearTimeout 后重新 setTimeout(controller.abort)
+  assert.ok(src.includes("resetInactivityTimer"), "缺活动重置计时器");
+  const reset = src.slice(src.indexOf("const resetInactivityTimer"));
+  assert.ok(reset.includes("window.clearTimeout(timeoutId)"), "重置未先清旧计时");
+  assert.ok(reset.includes("window.setTimeout(() => controller.abort(), FIRST_CHUNK_TIMEOUT_MS)"), "重置未重挂 abort 计时");
+  // 两个调用点都接 onActivity
+  assert.equal(src.split("resetInactivityTimer,").length - 1 >= 2, true, "chat/resume 调用点未都接 resetInactivityTimer");
+  // 文案:不再承诺「服务不可用」细分
+  assert.ok(src.includes("回复失败:连接中断或超时,请重试"), "失败气泡文案未更新");
+  assert.ok(!src.includes("回复失败:服务暂时不可用"), "旧文案残留");
+});
+
+/* ── ⑤ 纯函数 ── */
 test("upsertToolChip:同 id 更新而非追加;无 assistant 气泡时补空气泡", () => {
   let msgs: ChatMessage[] = [makeMsg("u1", "user", { content: "hi" })];
   msgs = upsertToolChip(msgs, { id: "tc_1", name: "search", status: "start", summary: "检索资料" });

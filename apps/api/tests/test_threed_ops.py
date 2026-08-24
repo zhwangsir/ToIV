@@ -116,6 +116,72 @@ def _patch_common(monkeypatch, tmp_path, http: _FakeHttp, worker_content: bytes 
     monkeypatch.setattr("httpx.AsyncClient", lambda *a, **k: http)
 
 
+async def test_render_default_out_glb_bakes_new_model(monkeypatch, tmp_path):
+    """渲染语义纠偏:render 默认 out=glb,材质烘焙回模型,产物是新 GLB。"""
+    http = _FakeHttp(_FakeResponse(200, _GLB))
+    _patch_common(monkeypatch, tmp_path, http)
+    user = _user()
+    job_id = _seed_3d_job(user)
+
+    req = ThreeDOpsRequest(op="render", job_id=job_id, material="metal")
+    result = await run_ops(req, user, _session(), None)
+
+    assert result["kind"] == "threed_render"
+    assert result["format"] == "glb"
+    assert str(result["url"]).endswith(".glb")
+    url, data, files = http.calls[0]
+    assert url.endswith("/render")
+    assert data["out"] == "glb"
+    assert "format" not in data  # 新协议只发 out
+    assert files["file"][1][:4] == b"glTF"
+    name = str(result["url"]).rsplit("/", 1)[-1]
+    assert (tmp_path / "threed" / name).read_bytes() == _GLB
+    with _session() as s:
+        job = s.exec(
+            select(Job).where(Job.kind == "threed_render").order_by(Job.created_at.desc())
+        ).first()
+    assert "3D 材质模型" in job.prompt and "金属" in job.prompt
+
+
+async def test_render_glb_rejects_view_only_material(monkeypatch, tmp_path):
+    """wireframe/normal 是纯查看模式,out=glb 下 422 且不触达 3dops。"""
+    http = _FakeHttp(_FakeResponse(200, _GLB))
+    _patch_common(monkeypatch, tmp_path, http)
+    user = _user()
+    job_id = _seed_3d_job(user)
+
+    for mat in ("wireframe", "normal"):
+        req = ThreeDOpsRequest(op="render", job_id=job_id, material=mat)
+        with pytest.raises(HTTPException) as exc:
+            await run_ops(req, user, _session(), None)
+        assert exc.value.status_code == 422
+        assert "纯查看模式" in exc.value.detail
+    assert http.calls == []
+
+
+async def test_adjust_3d_tool_default_render_bakes_glb(monkeypatch):
+    """adjust_3d 默认 render 出 GLB 新模型,job 事件标签为 3D 材质模型。"""
+    from app.agent import tools_gen
+
+    user = _user()
+    _seed_3d_job(user, "烘焙来源")
+
+    async def _fake_ops(req, u, s, pool):
+        assert req.op == "render" and req.out is None and req.format is None
+        return {
+            "kind": "threed_render", "url": "/api/3d/ops/files/threedops-y.glb",
+            "job_id": "newjob", "op": "render", "format": "glb",
+        }
+
+    monkeypatch.setattr(threed_ops, "threed_ops", _fake_ops)
+    text, events = await tools_gen.exec_adjust_3d(
+        {"op": "render", "material": "metal"},
+        {"user": user, "session": _session(), "pool": None},
+    )
+    assert "3D 材质模型" in text
+    assert events[0]["data"]["results"] == ["/api/3d/ops/files/threedops-y.glb"]
+
+
 async def test_render_png_via_job_id_registers_job(monkeypatch, tmp_path):
     http = _FakeHttp(_FakeResponse(200, _PNG))
     _patch_common(monkeypatch, tmp_path, http)

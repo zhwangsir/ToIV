@@ -4,8 +4,10 @@
 PYOPENGL_PLATFORM=egl;workstation 真机实证 GPU EGL 可用)。
 
 端点:
-- POST /render:GLB(上传 file 或 source_path 本地路径)→ 材质预设 × 灯光 × 背景
-  渲染,format=png 出静态快照(可指定方位角),format=mp4 出 360° 旋转视频(turntable)。
+- POST /render:GLB(上传 file 或 source_path 本地路径)→ out=glb(默认)把材质预设
+  (clay/matte/metal/glossy)烘焙为 GLB 的 PBR 材质,返回新 GLB;out=png 出静态快照
+  (可指定方位角),out=mp4 出 360° 旋转视频(turntable)。wireframe/normal 是纯查看
+  模式,glb 输出下拒绝(422)。
 - POST /material:改 GLB PBR 材质(base_color 染色/金属度/粗糙度)→ 导出新 GLB。
 - GET /health:探活。
 
@@ -20,7 +22,6 @@ import math
 import os
 import tempfile
 from pathlib import Path
-from typing import Literal
 
 import numpy as np
 import trimesh
@@ -285,6 +286,36 @@ def _material_sync(glb: bytes, base_color: str, metallic: float, roughness: floa
     return data
 
 
+def _bake_material_glb(glb: bytes, material: str) -> bytes:
+    """out=glb:把材质预设烘焙为 GLB 的 PBR 材质,返回新 GLB。
+
+    wireframe/normal 是纯查看模式(线框图元/顶点法线色,无法表达为 PBR 材质),
+    glb 输出下拒绝并说明。
+    """
+    if material in ("wireframe", "normal"):
+        raise HTTPException(
+            status_code=422,
+            detail=f"{material} 是纯查看模式,无法烘焙为 GLB;请改用 png/mp4 输出,"
+                   f"或选 clay/matte/metal/glossy 材质预设",
+        )
+    if material not in _RENDER_MATERIALS:
+        raise HTTPException(status_code=422, detail=f"未知材质预设:{material}")
+    scene = _read_glb(glb)
+    base, metallic, roughness = _RENDER_MATERIALS[material]
+    mat = trimesh.visual.material.PBRMaterial(
+        baseColorFactor=[*base, 1.0],
+        metallicFactor=metallic,
+        roughnessFactor=roughness,
+    )
+    for geom in scene.geometry.values():
+        if isinstance(geom, trimesh.Trimesh):
+            geom.visual.material = mat
+    data = scene.export(file_type="glb")
+    if not data or data[:4] != b"glTF":
+        raise HTTPException(status_code=500, detail="GLB 导出失败")
+    return data
+
+
 async def _resolve_input(file: UploadFile | None, source_path: str | None) -> bytes:
     """GLB 输入:上传字节优先;否则读 workstation 本地路径(限 _SOURCE_PATH_ROOT 下 .glb)。"""
     if file is not None:
@@ -320,29 +351,40 @@ async def render(
     material: str = Form(default="clay"),
     lighting: str = Form(default="studio"),
     background: str = Form(default="dark"),
-    format: Literal["png", "mp4"] = Form(default="png"),
+    out: str | None = Form(default=None),
+    format: str | None = Form(default=None),  # 旧参数:out 缺省时生效(png/mp4)
     azimuth: float = Form(default=30.0),
     frames: int = Form(default=36),
     size: int = Form(default=768),
 ) -> Response:
+    # 输出模式:out 优先,兼容旧 format;默认 glb(材质烘焙回模型本身)
+    mode = out or format or "glb"
+    if mode not in ("glb", "png", "mp4"):
+        raise HTTPException(status_code=422, detail=f"未知输出模式:{mode}(glb/png/mp4)")
     glb = await _resolve_input(file, source_path)
     frames = frames if frames in (24, 36) else 36
     size = max(256, min(int(size), 1080))
     async with _LOCK:
         try:
-            data = await asyncio.wait_for(
-                asyncio.get_running_loop().run_in_executor(
-                    None, _render_sync, glb, material, lighting, background,
-                    format, float(azimuth), frames, size,
-                ),
-                timeout=_TIMEOUT_SEC,
-            )
+            if mode == "glb":
+                data = await asyncio.wait_for(
+                    asyncio.get_running_loop().run_in_executor(
+                        None, _bake_material_glb, glb, material,
+                    ),
+                    timeout=_TIMEOUT_SEC,
+                )
+            else:
+                data = await asyncio.wait_for(
+                    asyncio.get_running_loop().run_in_executor(
+                        None, _render_sync, glb, material, lighting, background,
+                        mode, float(azimuth), frames, size,
+                    ),
+                    timeout=_TIMEOUT_SEC,
+                )
         except asyncio.TimeoutError as e:
             raise HTTPException(status_code=504, detail="渲染超时") from e
-    return Response(
-        content=data,
-        media_type="image/png" if format == "png" else "video/mp4",
-    )
+    media_type = {"glb": "model/gltf-binary", "png": "image/png", "mp4": "video/mp4"}[mode]
+    return Response(content=data, media_type=media_type)
 
 
 @app.post("/material")

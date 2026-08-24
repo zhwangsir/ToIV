@@ -13,11 +13,16 @@ nsfw=True 会话仅 X-NSFW 上下文可见(对齐 Job 过滤语义)。
   event: proposal  data: {"proposal_id","title","body","estimate"}
 确认回执:POST /api/agent/chat/resume 把用户对决(proposal approve/modify/reject)
 注入对话上下文并继续 chat 循环,响应仍是同构 SSE 流。
+
+保活(2026-08-24):chat/resume 流包装 _events_with_keepalive——LLM 等待超过 10s
+无事件就下发 SSE comment(`: ping`),前端据此重置不活跃计时,不再误杀长思考。
 """
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
+from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -46,6 +51,58 @@ def _sse_event(ev: dict) -> dict:
         return {"event": _STREAM_EVENT_NAMES[t],
                 "data": json.dumps(ev.get("data", {}), ensure_ascii=False)}
     return {"event": "msg", "data": json.dumps(ev, ensure_ascii=False)}
+
+
+# SSE 保活间隔:LLM 首 token 在大上下文/高负载下可超过前端容忍,等待期间
+# 每 10s 下发一帧 comment(`: ping`),让前端能区分「思考中」与「连接死了」
+_KEEPALIVE_INTERVAL_SEC = 10.0
+
+
+async def _events_with_keepalive(
+    events: AsyncIterator[dict],
+    ping_interval: float = _KEEPALIVE_INTERVAL_SEC,
+) -> AsyncIterator[dict]:
+    """把 runner 事件迭代包一层「生产者 task + asyncio.Queue + wait_for」。
+
+    空闲超过 ping_interval 就向下游 yield 一条 SSE comment 保活帧
+    (sse-starlette 的 dict 支持 comment 键,序列化为 ``: ping``);
+    生产者异常捕获暂存,事件排干后重新抛出(不吞)。
+    """
+    queue: asyncio.Queue = asyncio.Queue()
+    done_sentinel = object()
+
+    async def _produce() -> None:
+        try:
+            async for ev in events:
+                await queue.put(ev)
+        except BaseException as exc:  # noqa: BLE001 — 暂存,由消费侧重抛
+            await queue.put(exc)
+        finally:
+            await queue.put(done_sentinel)
+
+    task = asyncio.create_task(_produce())
+    pending_exc: BaseException | None = None
+    try:
+        while True:
+            try:
+                item = await asyncio.wait_for(queue.get(), timeout=ping_interval)
+            except asyncio.TimeoutError:
+                yield {"comment": "ping"}
+                continue
+            if item is done_sentinel:
+                break
+            if isinstance(item, BaseException):
+                # 异常后 done_sentinel 紧随(finally 保证),排干本轮再统一重抛
+                pending_exc = item
+                continue
+            yield item
+    finally:
+        if not task.done():
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+    if pending_exc is not None:
+        raise pending_exc
 
 
 class ChatMessage(BaseModel):
@@ -165,11 +222,12 @@ async def agent_chat(
         )
 
     async def stream():
-        async for ev in runner.run(
+        async for ev in _events_with_keepalive(runner.run(
             msgs, pool, user, session, attachment, body.document_ids,
             on_message=on_message, agent_session=sess,
-        ):
-            yield _sse_event(ev)
+        )):
+            # comment 保活帧原样下发(不是 runner 事件,不走 _sse_event 包络)
+            yield ev if "comment" in ev else _sse_event(ev)
         yield {"event": "done", "data": "{}"}
 
     # 会话 id 走响应头:SSE 事件契约不变,新/旧前端都能安全忽略
@@ -261,10 +319,10 @@ async def agent_chat_resume(
         )
 
     async def stream():
-        async for ev in runner.run(
+        async for ev in _events_with_keepalive(runner.run(
             msgs, pool, user, session, on_message=on_message, agent_session=sess,
-        ):
-            yield _sse_event(ev)
+        )):
+            yield ev if "comment" in ev else _sse_event(ev)
         yield {"event": "done", "data": "{}"}
 
     return EventSourceResponse(stream(), headers={"X-Agent-Session-Id": sess.id})

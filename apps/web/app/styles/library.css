@@ -22,7 +22,8 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  /* 2026-08-24 密度优化:区块节奏 20→16 */
+  gap: var(--space-4);
 }
 
 /* 氛围:顶部一束柔和的编辑台灯洗光(token 混色,极淡,不盖内容) */
@@ -49,7 +50,7 @@
   justify-content: space-between;
   gap: var(--space-3) var(--space-5);
   flex-wrap: wrap;
-  padding-bottom: var(--space-3);
+  padding-bottom: var(--space-2);
   /* 编辑双线细规:hairline + 其上 3px 处更淡的一线 */
   border-bottom: 1px solid var(--border-strong);
 }
@@ -363,7 +364,8 @@
 .lib-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: var(--space-4) var(--space-3);
+  /* 2026-08-24 密度优化:行列距 16/12→12/12(≥8px 呼吸线之上) */
+  gap: var(--space-3);
 }
 .library-view.is-compact .lib-grid {
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -381,7 +383,7 @@
 .lib-load-more {
   display: flex;
   justify-content: center;
-  margin-top: var(--space-4);
+  margin-top: var(--space-3);
 }
 .lib-load-more-btn {
   font-variant-numeric: tabular-nums;
@@ -389,7 +391,7 @@
 /* 无限滚动哨兵(2026-08-16 服务端分页):1px 高不可见,IntersectionObserver 观测用 */
 .lib-load-sentinel {
   height: 1px;
-  margin-top: var(--space-4);
+  margin-top: var(--space-3);
 }
 
 /* ── 卡片:媒体优先,错落入场(一次编排的页面亮相) ───────────────────── */
@@ -1003,7 +1005,7 @@
   flex-direction: column;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-6);
+  padding: var(--space-4);
   color: var(--text-muted);
 }
 

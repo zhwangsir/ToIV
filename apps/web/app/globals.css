@@ -171,6 +171,13 @@
   --content-max: 1000px;
   --content-wide: 1240px;
 
+  /* ── 页面槽与区块节奏(2026-08-24 排版密度优化):全站页面左右内边距与区块间距的
+     唯一来源;.single-view/.view-shell/工作台视图壳(generate/fusion 等)统一消费
+     --page-gutter,各页面禁止再自写裸的水平 padding;--section-gap 为区块(卡/区段)
+     间距基准档,网格最小呼吸 ≥8px(--space-2) ── */
+  --page-gutter: clamp(12px, 2vw, 24px);
+  --section-gap: 16px;
+
   /* ── z-index(2026-08-14 UI-A:stage.css 裸值 0-30 映射建议注释档 ──
      0  舞台内容基线(stage-media-wrap / stage-loading);
      1  舞台暗角 ::after;2  舞台题注 stage-caption;
@@ -633,8 +640,9 @@ img, video {
 }
 
 .single-view {
-  /* 批 4 节奏重排:顶部收敛(壳层已留 52px),两侧 24→32 加呼吸,底部 40→48 */
-  padding: var(--space-4) var(--space-8) var(--space-12);
+  /* 2026-08-24 密度优化:水平槽统一消费 --page-gutter(全站单一来源),
+     顶部 16→12、底部 48→24(页面尾部不再留大片空白) */
+  padding: var(--space-3) var(--page-gutter) var(--space-6);
   /* 版心 token 化(2026-08-16 基座):1200 裸值收编为 --content-wide(1240),
      与 .view-shell 同档,页头壳与内容宽度自此单一来源 */
   max-width: var(--content-wide);
@@ -648,7 +656,7 @@ img, video {
   align-items: flex-end;
   justify-content: space-between;
   gap: var(--space-4);
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-4);
   flex-wrap: wrap;
 }
 .page-header-title {
@@ -861,12 +869,12 @@ select.input {
   cursor: pointer;
 }
 
-/* 卡片/面板(批 4:padding 16→20,hover 阴影升一档 + 轻微升浮) */
+/* 卡片/面板(2026-08-24 密度优化:padding 20→16,hover 阴影升一档 + 轻微升浮) */
 .card {
   background: var(--bg-surface-1);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-panel);
-  padding: var(--space-5);
+  padding: var(--space-4);
   transition: border-color var(--duration-fast) var(--ease-standard),
               box-shadow var(--duration-fast) var(--ease-standard),
               transform var(--duration-fast) var(--ease-standard);
@@ -940,7 +948,7 @@ select.input {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: var(--space-12) var(--space-4);
+  padding: var(--space-8) var(--space-4);
   text-align: center;
   color: var(--text-muted);
 }
@@ -961,10 +969,10 @@ select.input {
   line-height: var(--leading-md);
 }
 
-/* 网格 */
+/* 网格(2026-08-24 密度优化:gap 16→12,保留 ≥8px 最小呼吸档) */
 .grid {
   display: grid;
-  gap: var(--space-4);
+  gap: var(--space-3);
 }
 
 /* ── ThemePicker(ui/ThemePicker;CornerNav 账户 Popover 与 BottomNav「更多」抽屉共用) ── */
@@ -1218,7 +1226,7 @@ select.input {
     display: flex;
   }
   .single-view {
-    padding: var(--space-5) var(--space-5) var(--space-8);
+    padding: var(--space-3) var(--page-gutter) var(--space-5);
   }
 }
 
@@ -1238,7 +1246,7 @@ select.input {
     --text-sm: 13px;
   }
   .single-view {
-    padding: var(--space-4) var(--space-4) var(--space-6);
+    padding: var(--space-3) var(--page-gutter) var(--space-5);
   }
   /* 触控目标 ≥44px:.btn 是 inline-flex + align-items:center,min-height 撑高后内容自动视觉居中,padding 维持原值 */
   .btn,
@@ -1268,7 +1276,7 @@ select.input {
     --space-4: 14px;
   }
   .single-view {
-    padding: var(--space-3) var(--space-3) var(--space-6);
+    padding: var(--space-3) var(--page-gutter) var(--space-5);
   }
   .grid-cards {
     grid-template-columns: 1fr;
@@ -1315,8 +1323,9 @@ select.input {
    14 个 PageHeader 视图自动获得,视图级覆盖(如 library)仍优先。 */
 .page-header {
   position: relative;
-  padding-bottom: var(--space-3);
-  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-2);
+  /* 2026-08-24 密度优化:页头下距 24→16 */
+  margin-bottom: var(--space-4);
   border-bottom: 1px solid var(--border-strong);
 }
 .page-header::after {
@@ -1482,8 +1491,8 @@ select.input {
   }
   
   .page-header {
-    padding-bottom: var(--space-4);
-    margin-bottom: var(--space-5);
+    padding-bottom: var(--space-2);
+    margin-bottom: var(--space-3);
   }
 }
 
@@ -1507,14 +1516,15 @@ select.input {
 
 /* ── 视图壳:未用 .single-view 的视图根容器直接套用同节奏 ──────────── */
 .view-shell {
-  padding: var(--space-4) var(--space-8) var(--space-12);
+  /* 2026-08-24 密度优化:与 .single-view 同一节奏(水平 --page-gutter,顶 12/底 24) */
+  padding: var(--space-3) var(--page-gutter) var(--space-6);
   /* 版心 token 化(2026-08-16 基座):与 .single-view 同消费 --content-wide */
   max-width: var(--content-wide);
   margin: 0 auto;
 }
 @media (max-width: 767px) {
   .view-shell {
-    padding: var(--space-3) var(--space-3) var(--space-10);
+    padding: var(--space-3) var(--page-gutter) var(--space-5);
   }
 }
 
@@ -1734,7 +1744,7 @@ select.input {
   align-items: center;
   text-align: center;
   gap: var(--space-3);
-  padding: var(--space-12) var(--space-6);
+  padding: var(--space-8) var(--space-6);
   background: var(--bg-surface-1);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-panel);

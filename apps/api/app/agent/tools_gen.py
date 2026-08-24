@@ -151,9 +151,13 @@ TOOL_SCHEMAS_GEN = [
             "name": "adjust_3d",
             "description": (
                 "对已有 3D 模型(GLB)做材质/渲染级调整,立即返回产物(秒级~一分钟)。"
-                "自然语言映射:「换成金属/哑光/黏土/陶瓷/线框/法线质感」→ op=render + material 预设;"
-                "「出个旋转视频/转一圈看看」→ op=render + format=mp4;"
-                "「渲染快照/看看某个角度」→ op=render + format=png(+azimuth);"
+                "渲染的默认语义是把材质效果烘焙回 3D 模型本身,产出新的 3D 模型(GLB),"
+                "不是生成图片/视频。"
+                "自然语言映射:「换成金属/哑光/黏土/陶瓷质感」「渲染一下这个模型」"
+                "→ op=render + material 预设(out 默认 glb,新模型进作品库 3D 桶);"
+                "「出个旋转视频/转一圈看看」→ op=render + out=mp4;"
+                "「渲染快照/看看某个角度/线框/法线看看」→ op=render + out=png(+azimuth;"
+                "wireframe/normal 是纯查看模式,只能出 png/mp4,不能烘焙成 GLB);"
                 "「染成青铜色/改成金色/更光滑」→ op=material + base_color/metallic/roughness(导出新 GLB)。"
                 "来源:source_job_id 指定作品库 3D 作业,不传则用用户最近一个 3D 产物。"
                 "注意:这是材质/渲染调整,不改变模型几何;纹理绘画能力暂不支持。"
@@ -164,7 +168,7 @@ TOOL_SCHEMAS_GEN = [
                     "op": {
                         "type": "string",
                         "enum": ["render", "material"],
-                        "description": "render=材质预设渲染(快照/旋转视频);material=PBR 材质改写导出新 GLB",
+                        "description": "render=材质预设渲染(默认烘焙成新 GLB 模型);material=PBR 材质改写导出新 GLB",
                     },
                     "source_job_id": {
                         "type": "string",
@@ -173,7 +177,12 @@ TOOL_SCHEMAS_GEN = [
                     "material": {
                         "type": "string",
                         "enum": ["clay", "matte", "metal", "glossy", "wireframe", "normal"],
-                        "description": "render 材质预设:clay 黏土/matte 哑光/metal 金属/glossy 陶瓷/wireframe 线框/normal 法线(默认 clay)",
+                        "description": "render 材质预设:clay 黏土/matte 哑光/metal 金属/glossy 陶瓷(默认 clay);wireframe 线框/normal 法线仅查看模式(out=png/mp4)",
+                    },
+                    "out": {
+                        "type": "string",
+                        "enum": ["glb", "png", "mp4"],
+                        "description": "render 输出:glb 材质烘焙成新 3D 模型(默认)/ png 静态快照 / mp4 360° 旋转视频",
                     },
                     "lighting": {
                         "type": "string",
@@ -188,11 +197,11 @@ TOOL_SCHEMAS_GEN = [
                     "format": {
                         "type": "string",
                         "enum": ["png", "mp4"],
-                        "description": "render 输出:png 静态快照 / mp4 360° 旋转视频(默认 png)",
+                        "description": "旧参数,等价于 out;out 缺省时生效(默认 png)",
                     },
                     "azimuth": {
                         "type": "number",
-                        "description": "快照方位角(度,0=正面,默认 30;仅 format=png)",
+                        "description": "快照方位角(度,0=正面,默认 30;仅 out=png)",
                     },
                     "base_color": {
                         "type": "string",
@@ -662,7 +671,7 @@ async def exec_adjust_3d(args: dict, ctx: dict) -> tuple[str, list[dict]]:
     req_body: dict = {"op": op, "job_id": job.id}
     if args.get("prompt"):
         req_body["prompt"] = str(args["prompt"])[:500]
-    for key in ("material", "lighting", "background", "format", "base_color"):
+    for key in ("material", "lighting", "background", "format", "out", "base_color"):
         if args.get(key):
             req_body[key] = str(args[key])
     for key in ("azimuth", "metallic", "roughness"):
@@ -683,8 +692,9 @@ async def exec_adjust_3d(args: dict, ctx: dict) -> tuple[str, list[dict]]:
         return f"3D 调整参数不合法:{first.get('msg', e)}", [_err_event("参数不合法", str(e))]
 
     url = result["url"]
+    render_labels = {"glb": "3D 材质模型", "mp4": "3D 旋转视频", "png": "3D 渲染快照"}
     label = req.prompt or (
-        f"3D {'旋转视频' if result['format'] == 'mp4' else '渲染快照'}"
+        render_labels.get(str(result["format"]), "3D 渲染")
         if op == "render" else "3D 材质调整"
     )
     event = _job_event(
