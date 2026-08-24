@@ -177,6 +177,13 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（决策记录,替代操作历史）
 
+### 2026-08-24（深夜·提示词优化全功能覆盖）
+- **方案定论**:全走既有 /api/optimize(L1=spark02 Qwen3.8-27B,英文产出已在 system prompt 强制),按模型族/引擎切「方言」;不新建 LLM 通路
+- **新增三条方言**:qwen_edit(编辑指令:保留约束/引号文字/禁画质词,与 image_edit 的 SD 重绘方言分流)、wan-animate-2(纯外观 caption 严禁动作词)、scope(内容+氛围严禁运镜词)
+- **前端补口**:ImageEditView 智能编辑/3D相机附加指令、AvatarGenPanel 正向提示词接 OptimizeButton;⚠️ 反向修正:AudioView 台词文本、DubView 情绪提示上误接的优化按钮已摘除(朗读文本/情绪描述是要直送引擎的内容,优化=损毁;TTS 类输入永不接优化)
+- **边界记录**:AnimaticView 故事方向(给 VLM 拆镜的中文叙事)刻意不接;drama/studio 有独立 optimize-shot 体系不动
+- llm_display_name 修正 Qwen3.8-27B-Uncensored;回归 2009+462 绿,已部署 core 并真机验证三方言
+
 ### 2026-08-24（深夜·五模型集成批量上线:Hunyuan3D 修复/Wan-Animate-2/SCoPE/Z-Image base/i2L）
 - **Hunyuan3D 图生3D 修复上线**:threed.py 从未 spawn_tracker(作业永远 queued)+ /api/images 缺 .glb content-type(model/gltf-binary)+ capabilities 上传 kind=hunyuan3d 落空集——三处修复;前端图像编辑第 7 工具「图生3D(Hunyuan3D)」(步数/octree/seed,GLB 结果卡+下载);真机实证 :8193 出 ToIV_3d_00001_.glb;⚠️ 原生 2.0 只有几何无纹理,要纹理上 2.1 all-in-one(未装)
 - **Wan-Animate-2 上线(v1 不动)**:🚨 Wan-AI 官方 safetensors ComfyUI 加载不了(嵌套键+无 metadata),必须用 **Comfy-Org 转换版**(NAS wan2.2-animate-2-14b/wan_animate_2/comfyui/,int8_convrot 16.6G 默认);新专用实例 **:8199 GPU3**(ComfyUI 0.33.0 原生 WanAnimate2ToVideo/WanAnimate2Cache,systemd comfyui-animate2 **enabled**);引擎 wan-animate-2(蒸馏 10 步 cfg1,自动外观 caption 走 VLM,显存预检阈值定 30G 别设 34——GPU3 驱逐缓存后实测只有 33.7G);⚠️ NAS toiv 的 umt5 fp8 是 kijai 键名 CLIPLoader 不认,要用 Windows 库 umt5_xxl_fp8_e4m3fn_scaled;真机+hold 放行+core 链路 e2e 全过(身份/表情迁移优秀)
