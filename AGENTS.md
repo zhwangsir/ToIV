@@ -179,6 +179,13 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（决策记录,替代操作历史）
 
+### 2026-08-24（傍晚·观测面板升级集群舰队）
+- **GET /api/fleet + /api/fleet/{id}**(仅 admin):fleet_registry.py 纯数据注册表(17 设备全量,源自第一节清单)+ fleet.py 并发探测(HTTP 2s/TCP 1.5s,任何 HTTP 响应含 404 即 up;ComfyUI 带 /system_stats VRAM、vLLM 带模型列表;15s 缓存单飞+延迟时序环形缓冲)
+- **sysmetrics :9403**(workstation,systemd enabled):CPU/RAM/磁盘/NAS 挂载与余量/四卡 VRAM 温度;坑:systemd 空 PATH 下 nvidia-smi 须绝对路径、CSV 列数守卫
+- **事实修正**:OpenTalking 实际端口 :4403(非文档旧记);core 的 PG/Redis 只 bind 127.0.0.1——探测这类本机服务 probe_host 要用回环,用 LAN IP 会误报 down
+- **前端**:观测面板顶部设备舰队卡(在线点/x/y/headline)→ 点击进视图内二级页(服务清单+延迟折线+workstation 系统 Donut);charts.tsx 网格线/十字线改 CSS 变量适配浅色主题
+- 回归:后端 2057 / 前端 540 / tsc 0;已部署 core 并生产截图实证(15/17 在线,pc01 关机+studio02 离线为真机态)
+
 ### 2026-08-24（午后·3D 调整服务 + 助手会话管理 + 格式预览）
 - **toiv-3dops :9402**(workstation,systemd enabled):trimesh+pyrender(PYOPENGL_PLATFORM=egl 真机可用);6 材质预设(clay/matte/metal/glossy/wireframe/normal)×3 灯光×3 背景,快照 PNG/turntable MP4 + GLB 材质改写(染色/金属度/粗糙度,trimesh 写回 PBR);坑:EGL 下 glPolygonMode 线框不生效(改手工 LINES 图元+quadric 简化)、normal 顶点色须 material=None
 - **core /api/3d/ops**:GLB 经签名 URL 取回上传 3dops,产物落 core 存储建 Job(threed_render/threed_material,libraryQuery 已归 3D 桶),文件端点带 Range;助手新工具 adjust_3d(自然语言→材质/渲染,自动选最近 GLB 作业);纹理绘画(真贴图)未做——需 Hunyuan3D 2.1 纹理管线或 Kijai wrapper 编译,助手系统提示已要求如实说明
