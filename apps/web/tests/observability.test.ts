@@ -15,13 +15,19 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import {
-  ObservabilityView,
+  fleetDotClass,
   formatGb,
+  formatMs,
   formatRate,
+  ObservabilityView,
+  pickLatencySeries,
   vramTone,
 } from "../components/observability/ObservabilityView";
 import {
+  fetchFleet,
+  fetchFleetDevice,
   fetchObservability,
+  makeFleetDeviceDetail,
   makeObservabilitySnapshot,
 } from "./mocks/studioApi";
 
@@ -153,4 +159,85 @@ test("ObservabilityView:样式块为 jsx global(子组件覆盖回归)", () => {
   const src = readSrc("components/observability/ObservabilityView.tsx");
   assert.match(src, /<style jsx global>/, "obs-* 规则必须 jsx global");
   assert.doesNotMatch(src, /<style jsx>\{`/, "禁止退回 scoped style jsx");
+});
+
+/* ── ⑥ 设备舰队:纯函数 ── */
+test("fleetDotClass:在线绿 / 离线红 / 未知灰", () => {
+  assert.equal(fleetDotClass(true), "obs-dot is-on");
+  assert.equal(fleetDotClass(false), "obs-dot is-down");
+  assert.equal(fleetDotClass(null), "obs-dot is-unknown");
+});
+
+test("formatMs:null 占位 / 取整毫秒", () => {
+  assert.equal(formatMs(null), "—");
+  assert.equal(formatMs(12.5), "13ms");
+  assert.equal(formatMs(0), "0ms");
+});
+
+test("pickLatencySeries:滤掉无数据服务,按最近延迟降序截断", () => {
+  const detail = makeFleetDeviceDetail();
+  const picked = pickLatencySeries(detail);
+  // LongCat 近两条 null 但首条 20 有数据 → 保留且排最前
+  assert.equal(picked.length, 2);
+  assert.equal(picked[0].name, "LongCat");
+  assert.deepEqual(picked[1].values, [10, 11, 12.5]);
+  // 全空服务被过滤
+  const empty = {
+    ...detail,
+    series: { ...detail.series, latency: { A: [null, null, null] } },
+  };
+  assert.equal(pickLatencySeries(empty).length, 0);
+});
+
+/* ── ⑥b 舰队区块源码断言 ── */
+test("ObservabilityView:舰队区 + 二级详情页(视图内切换,不加路由)", () => {
+  const src = readSrc("components/observability/ObservabilityView.tsx");
+  assert.match(src, /fetchFleet/, "一级摘要请求");
+  assert.match(src, /fetchFleetDevice/, "详情请求");
+  assert.match(src, /obs-fleet-grid/, "设备卡网格");
+  assert.match(src, /FleetSection/, "舰队区组件");
+  assert.match(src, /DeviceDetailView/, "详情页组件");
+  assert.match(src, /‹ 返回观测面板/, "返回按钮");
+  assert.match(src, /obs-svc-table/, "服务清单表");
+  assert.match(src, /onSelect=\{setSelected\}/, "点击卡片进详情(状态切换)");
+  assert.match(src, /onBack=\{\(\) => setSelected\(null\)\}/, "返回即清选中态");
+  assert.match(src, /aria-label="设备舰队"/, "舰队区语义标签");
+});
+
+/* ── ⑥c api.ts 契约:fleet 端点 ── */
+test("api.ts:fetchFleet / fetchFleetDevice 路径与鉴权头", () => {
+  const src = readSrc("lib/api.ts");
+  assert.match(src, /export async function fetchFleet\(/);
+  assert.match(src, /apiFetch\(`\/api\/fleet`, \{/);
+  assert.match(src, /export async function fetchFleetDevice\(/);
+  assert.match(src, /apiFetch\(`\/api\/fleet\/\$\{encodeURIComponent\(deviceId\)\}`, \{/);
+  assert.match(src, /export interface FleetDeviceDetail extends FleetDeviceSummary/);
+  assert.match(src, /series: \{\n\s+timestamps: string\[\];\n\s+online: \(number \| null\)\[\];\n\s+latency: Record<string, \(number \| null\)\[\]>;/);
+});
+
+/* ── ⑥d mock 替身形状 ── */
+test("mocks/studioApi:fetchFleet / fetchFleetDevice 替身形状完整", async () => {
+  const summary = await fetchFleet();
+  assert.equal(summary.devices.length, 2);
+  const pc01 = summary.devices.find((d) => d.id === "pc01");
+  assert.equal(pc01?.online, false, "应含离线设备(降级展示路径)");
+  assert.equal(pc01?.services_up, 0);
+  const detail = await fetchFleetDevice("workstation");
+  assert.equal(detail.meta.lan_ip, "192.168.71.127");
+  assert.equal(detail.services.length, 2);
+  assert.equal(detail.sys?.nas?.mounted, true);
+  assert.equal(detail.sys?.gpus?.length, 2);
+  // 时序等长对齐
+  assert.equal(detail.series.timestamps.length, detail.series.online.length);
+  for (const values of Object.values(detail.series.latency)) {
+    assert.equal(values.length, detail.series.timestamps.length);
+  }
+});
+
+/* ── ⑥e 浅色主题:图表网格线 CSS 变量化(生产为浅色主题) ── */
+test("charts.tsx:网格/十字线走 CSS 变量,浅色默认深灰细线", () => {
+  const src = readSrc("components/ui/charts.tsx");
+  assert.match(src, /var\(--uichart-grid, rgba\(15,23,42,\.10\)\)/, "浅色默认网格线");
+  assert.match(src, /\[data-mode="dark"\] \.uichart/, "暗色覆盖块");
+  assert.match(src, /var\(--uichart-crosshair/, "十字线同步变量化");
 });

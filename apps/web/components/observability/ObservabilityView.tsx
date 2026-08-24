@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 
 import {
+  fetchFleet,
+  fetchFleetDevice,
   fetchObservability,
+  type FleetDeviceDetail,
+  type FleetDeviceSummary,
+  type FleetSummary,
   type ObservabilitySnapshot,
 } from "@/lib/api";
 import { ErrorBar } from "@/components/ui/ErrorBar";
@@ -40,6 +45,330 @@ export function vramTone(pct: number | null): "is-hot" | "is-warm" | "is-ok" | "
 export function formatGb(gb: number | null): string {
   if (gb === null) return "—";
   return Number.isInteger(gb) ? `${gb}` : gb.toFixed(1);
+}
+
+/* ─────────────────────────── 设备舰队 ─────────────────────────── */
+
+/** 设备在线状态点:绿在线 / 红离线 / 灰未知。 */
+export function fleetDotClass(online: boolean | null): string {
+  if (online === null) return "obs-dot is-unknown";
+  return online ? "obs-dot is-on" : "obs-dot is-down";
+}
+
+/** 延迟展示:null → —(离线/未知)。 */
+export function formatMs(ms: number | null): string {
+  return ms === null ? "—" : `${Math.round(ms)}ms`;
+}
+
+/** 详情页延迟折线:取有采样数据的服务,按最近延迟降序最多 max 条。 */
+export function pickLatencySeries(
+  detail: FleetDeviceDetail,
+  max = 6,
+): { name: string; values: (number | null)[] }[] {
+  return Object.entries(detail.series.latency)
+    .filter(([, values]) => values.some((v) => v !== null))
+    .map(([name, values]) => ({
+      name,
+      values,
+      last: [...values].reverse().find((v) => v !== null) ?? 0,
+    }))
+    .sort((a, b) => b.last - a.last)
+    .slice(0, max)
+    .map(({ name, values }) => ({ name, values }));
+}
+
+/** 设备卡(一级网格):状态点 + 名称 + x/y + 角色 + headline。 */
+function FleetCard({
+  device,
+  onSelect,
+}: {
+  device: FleetDeviceSummary;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`obs-fleet-card${device.online === false ? " is-offline" : ""}`}
+      onClick={() => onSelect(device.id)}
+      aria-label={`查看 ${device.name} 详情`}
+    >
+      <div className="obs-fleet-head">
+        <span className={fleetDotClass(device.online)} aria-hidden="true" />
+        <span className="obs-fleet-name">{device.name}</span>
+        <span className="obs-fleet-xy">
+          {device.services_up}/{device.services_total}
+        </span>
+      </div>
+      <div className="obs-fleet-role">{device.role}</div>
+      <div className="obs-fleet-headline">{device.headline}</div>
+    </button>
+  );
+}
+
+function FleetSection({
+  fleet,
+  onSelect,
+}: {
+  fleet: FleetSummary;
+  onSelect: (id: string) => void;
+}) {
+  const online = fleet.devices.filter((d) => d.online === true).length;
+  return (
+    <section className="obs-card obs-fleet" aria-label="设备舰队">
+      <h2 className="obs-card-title">
+        设备舰队({online}/{fleet.devices.length} 在线)
+      </h2>
+      <div className="obs-fleet-grid">
+        {fleet.devices.map((d) => (
+          <FleetCard key={d.id} device={d} onSelect={onSelect} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** 容量环形图(sysmetrics 单项:used vs free/available)。 */
+function UsageDonut({
+  title,
+  usedGb,
+  freeGb,
+  centerLabel,
+}: {
+  title: string;
+  usedGb: number;
+  freeGb: number;
+  centerLabel: string;
+}) {
+  return (
+    <div className="obs-usage">
+      <div className="obs-usage-title">{title}</div>
+      <DonutChart
+        ariaLabel={`${title}用量`}
+        centerLabel={centerLabel}
+        size={140}
+        slices={[
+          { name: "已用", value: Math.round(usedGb), color: CHART_COLORS[1] },
+          { name: "可用", value: Math.round(freeGb), color: CHART_SEMANTIC.ok },
+        ]}
+      />
+    </div>
+  );
+}
+
+/** sysmetrics 区块:RAM/磁盘/NAS 环形 + 四卡 VRAM 条(sparkline 复用观测时序)。 */
+function SysSection({
+  detail,
+  obsSeries,
+}: {
+  detail: FleetDeviceDetail;
+  obsSeries: ObservabilitySnapshot["series"] | null;
+}) {
+  const sys = detail.sys;
+  if (!sys) return null;
+  const nas = sys.nas;
+  return (
+    <section className="obs-card" aria-label="系统指标">
+      <h2 className="obs-card-title">系统指标(sysmetrics)</h2>
+      <div className="obs-usage-row">
+        {sys.memory && (
+          <UsageDonut
+            title="RAM"
+            usedGb={sys.memory.used_gb}
+            freeGb={sys.memory.available_gb}
+            centerLabel={`${sys.memory.used_pct ?? "—"}%`}
+          />
+        )}
+        {sys.disk_root && (
+          <UsageDonut
+            title="磁盘 /"
+            usedGb={sys.disk_root.used_gb}
+            freeGb={sys.disk_root.free_gb}
+            centerLabel={`${sys.disk_root.used_pct ?? "—"}%`}
+          />
+        )}
+        {nas && nas.mounted && nas.used_gb !== null && nas.free_gb !== null && (
+          <UsageDonut
+            title="NAS"
+            usedGb={nas.used_gb}
+            freeGb={nas.free_gb}
+            centerLabel={`剩 ${formatGb(Math.round((nas.free_gb / 1024) * 10) / 10)}T`}
+          />
+        )}
+        {nas && !nas.mounted && (
+          <div className="obs-usage obs-nas-down" role="alert">
+            NAS 未挂载:{nas.mountpoint}
+          </div>
+        )}
+      </div>
+      {sys.cpu && (
+        <div className="obs-sys-cpu">
+          CPU {sys.cpu.percent ?? "—"}% · load {sys.cpu.load1 ?? "—"} /{" "}
+          {sys.cpu.load5 ?? "—"} / {sys.cpu.load15 ?? "—"} · {sys.cpu.cores ?? "—"} 核
+        </div>
+      )}
+      {sys.gpus && sys.gpus.length > 0 && (
+        <div className="obs-sys-gpus">
+          {sys.gpus.map((g) => {
+            const pct = g.vram_used_pct;
+            const tone = vramTone(pct);
+            return (
+              <div key={g.index} className="obs-sys-gpu">
+                <div className="obs-gpu-head">
+                  <span className="obs-gpu-id">GPU{g.index}</span>
+                  <span className="obs-gpu-host">{g.temp_c}°C</span>
+                  <Sparkline
+                    values={obsSeries?.vram_pct[`GPU${g.index}`] ?? []}
+                    color={
+                      tone === "is-hot"
+                        ? CHART_SEMANTIC.hot
+                        : tone === "is-warm"
+                          ? CHART_SEMANTIC.warn
+                          : CHART_COLORS[0]
+                    }
+                    yMax={100}
+                    ariaLabel={`GPU${g.index} VRAM 历史`}
+                  />
+                </div>
+                <div className="obs-vram-row">
+                  <div
+                    className="obs-vram-bar"
+                    role="progressbar"
+                    aria-valuenow={pct ?? 0}
+                  >
+                    <div
+                      className={`obs-vram-fill ${tone}`}
+                      style={{ width: `${pct ?? 0}%` }}
+                    />
+                  </div>
+                </div>
+                <div className="obs-vram-text">
+                  {formatGb(Math.round((g.vram_used_mb / 1024) * 10) / 10)} /{" "}
+                  {formatGb(Math.round(g.vram_total_mb / 1024))} GB ({pct ?? 0}%)
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** 服务清单表:状态点 / 名称+备注 / 端口 / 延迟。 */
+function ServiceTable({ detail }: { detail: FleetDeviceDetail }) {
+  return (
+    <section className="obs-card" aria-label="服务清单">
+      <h2 className="obs-card-title">
+        服务清单({detail.services_up}/{detail.services_total} 正常)
+      </h2>
+      <table className="obs-svc-table">
+        <thead>
+          <tr>
+            <th aria-label="状态" />
+            <th>服务</th>
+            <th>端口</th>
+            <th>延迟</th>
+            <th>备注</th>
+          </tr>
+        </thead>
+        <tbody>
+          {detail.services.map((s) => (
+            <tr
+              key={`${s.name}:${s.port}`}
+              className={s.status === "up" ? "" : "is-degraded"}
+            >
+              <td>
+                <span
+                  className={
+                    s.status === "up"
+                      ? "obs-dot is-on"
+                      : s.status === "down"
+                        ? "obs-dot is-down"
+                        : "obs-dot is-unknown"
+                  }
+                  aria-label={
+                    s.status === "up"
+                      ? "正常"
+                      : s.status === "down"
+                        ? "离线"
+                        : "未知"
+                  }
+                />
+              </td>
+              <td className="obs-svc-name">{s.name}</td>
+              <td className="obs-svc-port">:{s.port}</td>
+              <td className="obs-svc-latency">{formatMs(s.latency_ms)}</td>
+              <td className="obs-svc-note">{s.note ?? ""}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
+/** 二级设备详情页(视图内切换,不加路由)。 */
+function DeviceDetailView({
+  detail,
+  error,
+  obsSeries,
+  onBack,
+}: {
+  detail: FleetDeviceDetail | null;
+  error: string | null;
+  obsSeries: ObservabilitySnapshot["series"] | null;
+  onBack: () => void;
+}) {
+  return (
+    <div className="obs-body obs-detail">
+      <div className="obs-detail-head">
+        <button type="button" className="obs-back" onClick={onBack}>
+          ‹ 返回观测面板
+        </button>
+        {detail && (
+          <>
+            <span className={fleetDotClass(detail.online)} aria-hidden="true" />
+            <h1 className="obs-detail-title">{detail.name}</h1>
+            <span className="obs-detail-headline">{detail.headline}</span>
+          </>
+        )}
+      </div>
+      {error && <ErrorBar message={error} onClose={() => undefined} />}
+      {!detail && !error && <Skeleton height={320} className="obs-skel" />}
+      {detail && (
+        <>
+          <div className="obs-detail-meta">
+            <span>LAN {detail.meta.lan_ip ?? "—"}</span>
+            <span>Tailscale {detail.meta.ts_ip ?? "—"}</span>
+            <span>{detail.role}</span>
+            <span>{detail.meta.hardware ?? ""}</span>
+          </div>
+          <ServiceTable detail={detail} />
+          <SysSection detail={detail} obsSeries={obsSeries} />
+          <section className="obs-card obs-chart" aria-label="服务延迟时序">
+            <h2 className="obs-card-title">服务延迟(近 2h,ms)</h2>
+            {detail.series.timestamps.length >= 2 &&
+            pickLatencySeries(detail).length > 0 ? (
+              <LineChart
+                ariaLabel="服务延迟折线图"
+                labels={detail.series.timestamps}
+                series={pickLatencySeries(detail).map((s, i) => ({
+                  name: s.name,
+                  color: CHART_COLORS[i % CHART_COLORS.length],
+                  values: s.values,
+                }))}
+                height={220}
+              />
+            ) : (
+              <div className="obs-chart-empty">
+                时序采样积累中(每 {POLL_MS / 1000}s 一条,重启后从零开始)
+              </div>
+            )}
+          </section>
+        </>
+      )}
+    </div>
+  );
 }
 
 /** KPI 数字:key 变更触发 600ms 淡入上移(reduced-motion 下由全局 CSS 关闭)。 */
@@ -238,6 +567,11 @@ export function ObservabilityView() {
   const [data, setData] = useState<ObservabilitySnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [fleet, setFleet] = useState<FleetSummary | null>(null);
+  const [fleetError, setFleetError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [detail, setDetail] = useState<FleetDeviceDetail | null>(null);
+  const [detailError, setDetailError] = useState<string | null>(null);
 
   const load = useCallback(async (silent: boolean) => {
     if (!silent) setLoading(true);
@@ -250,6 +584,13 @@ export function ObservabilityView() {
     } finally {
       setLoading(false);
     }
+    // 舰队探测独立成败:快照面板已渲染,舰队失败只在该区显示错误条
+    try {
+      setFleet(await fetchFleet());
+      setFleetError(null);
+    } catch (err) {
+      setFleetError(err instanceof Error ? err.message : "加载设备舰队失败");
+    }
   }, []);
 
   useEffect(() => {
@@ -258,13 +599,57 @@ export function ObservabilityView() {
     return () => clearInterval(timer);
   }, [load]);
 
+  // 二级详情:选中期间独立 12s 轮询,退出即清理
+  useEffect(() => {
+    if (!selected) {
+      setDetail(null);
+      setDetailError(null);
+      return;
+    }
+    let cancelled = false;
+    const loadDetail = async () => {
+      try {
+        const d = await fetchFleetDevice(selected);
+        if (!cancelled) {
+          setDetail(d);
+          setDetailError(null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setDetailError(err instanceof Error ? err.message : "加载设备详情失败");
+        }
+      }
+    };
+    loadDetail();
+    const timer = setInterval(loadDetail, POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [selected]);
+
+  if (selected) {
+    return (
+      <div className="obs-view view-shell">
+        <ChartStyles />
+        <DeviceDetailView
+          detail={detail}
+          error={detailError}
+          obsSeries={data?.series ?? null}
+          onBack={() => setSelected(null)}
+        />
+        <ObsStyles />
+      </div>
+    );
+  }
+
   return (
     <div className="obs-view view-shell">
       <ChartStyles />
       <PageHeader
         kicker="OBSERVABILITY"
         title="观测面板"
-        desc="队列 · 成功率 · GPU 负载 实时聚合(12s 自动刷新)"
+        desc="设备舰队 · 队列 · 成功率 · GPU 负载 实时聚合(12s 自动刷新)"
         actions={
           data ? (
             <span className="obs-live">
@@ -284,6 +669,10 @@ export function ObservabilityView() {
         </div>
       ) : data ? (
         <div className="obs-body">
+          {fleetError && (
+            <ErrorBar message={fleetError} onClose={() => setFleetError(null)} />
+          )}
+          {fleet && <FleetSection fleet={fleet} onSelect={setSelected} />}
           <KpiStrip data={data} />
           {data.held.reasons.length > 0 && (
             <ul className="obs-held-reasons">
@@ -314,9 +703,17 @@ export function ObservabilityView() {
           </section>
         </div>
       ) : null}
-      {/* obs-* 规则用 global:styled-jsx 的 jsxId 只打在主组件自身 JSX 上,
-          同文件子组件(KpiStrip/各 Card)的元素拿不到作用域类,整段样式静默失效
-          (2026-08-24 生产实测:KPI 条 display:block 无网格)。obs- 前缀已防碰撞。 */}
+      <ObsStyles />
+    </div>
+  );
+}
+
+/** obs-* 样式(一级+二级共用)。
+ * 用 jsx global:styled-jsx 的 jsxId 只打在主组件自身 JSX 上,
+ * 同文件子组件(KpiStrip/各 Card/FleetSection/DeviceDetailView)的元素拿不到作用域类,
+ * 整段样式静默失效(2026-08-24 生产实测:KPI 条 display:block 无网格)。obs- 前缀防碰撞。 */
+function ObsStyles() {
+  return (
       <style jsx global>{`
         .obs-view {
           display: flex;
@@ -498,6 +895,174 @@ export function ObservabilityView() {
         .obs-dot.is-on {
           background: #34d399;
         }
+        .obs-dot.is-down {
+          background: #f87171;
+        }
+        .obs-dot.is-unknown {
+          background: #64748b;
+        }
+        /* ── 设备舰队(一级网格) ── */
+        .obs-fleet-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          gap: var(--space-3, 12px);
+        }
+        .obs-fleet-card {
+          border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+          border-radius: var(--radius-md, 10px);
+          padding: var(--space-3, 12px);
+          background: var(--surface-1, rgba(255, 255, 255, 0.02));
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          text-align: left;
+          font: inherit;
+          color: inherit;
+          cursor: pointer;
+          transition: border-color 600ms ease, transform 200ms ease;
+        }
+        .obs-fleet-card:hover {
+          border-color: rgba(34, 211, 238, 0.45);
+          transform: translateY(-1px);
+        }
+        .obs-fleet-card.is-offline {
+          opacity: 0.6;
+        }
+        .obs-fleet-head {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .obs-fleet-name {
+          font-size: 13px;
+          font-weight: 700;
+        }
+        .obs-fleet-xy {
+          margin-left: auto;
+          font-size: 12px;
+          color: var(--text-muted, #888);
+          font-variant-numeric: tabular-nums;
+        }
+        .obs-fleet-role {
+          font-size: 11px;
+          color: var(--text-muted, #888);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .obs-fleet-headline {
+          font-size: 12px;
+          color: #22d3ee;
+          font-variant-numeric: tabular-nums;
+        }
+        /* ── 二级详情页 ── */
+        .obs-detail-head {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+        .obs-back {
+          border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+          border-radius: var(--radius-md, 10px);
+          background: var(--surface-1, rgba(255, 255, 255, 0.02));
+          padding: 6px 12px;
+          font: inherit;
+          font-size: 13px;
+          color: inherit;
+          cursor: pointer;
+          transition: border-color 300ms ease;
+        }
+        .obs-back:hover {
+          border-color: rgba(34, 211, 238, 0.45);
+        }
+        .obs-detail-title {
+          margin: 0;
+          font-size: 18px;
+          font-weight: 700;
+        }
+        .obs-detail-headline {
+          font-size: 12px;
+          color: #22d3ee;
+        }
+        .obs-detail-meta {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px 18px;
+          font-size: 12px;
+          color: var(--text-muted, #888);
+          font-variant-numeric: tabular-nums;
+        }
+        .obs-svc-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 12px;
+        }
+        .obs-svc-table th {
+          text-align: left;
+          font-weight: 600;
+          color: var(--text-muted, #888);
+          padding: 4px 8px;
+          border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+        }
+        .obs-svc-table td {
+          padding: 5px 8px;
+          border-bottom: 1px dashed var(--border, rgba(255, 255, 255, 0.08));
+          font-variant-numeric: tabular-nums;
+        }
+        .obs-svc-table tr.is-degraded td {
+          color: var(--text-muted, #888);
+        }
+        .obs-svc-name {
+          font-weight: 600;
+        }
+        .obs-svc-note {
+          color: var(--text-muted, #888);
+        }
+        .obs-usage-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: var(--space-4, 16px);
+          justify-content: space-around;
+        }
+        .obs-usage {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 4px;
+        }
+        .obs-usage-title {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--text-muted, #888);
+        }
+        .obs-nas-down {
+          justify-content: center;
+          color: #f87171;
+          font-size: 13px;
+          font-weight: 600;
+          min-width: 140px;
+        }
+        .obs-sys-cpu {
+          margin-top: var(--space-3, 12px);
+          font-size: 12px;
+          color: var(--text-muted, #888);
+          font-variant-numeric: tabular-nums;
+        }
+        .obs-sys-gpus {
+          margin-top: var(--space-3, 12px);
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+          gap: var(--space-3, 12px);
+        }
+        .obs-sys-gpu {
+          border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+          border-radius: var(--radius-md, 10px);
+          padding: var(--space-3, 12px);
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
         .obs-gpu-id {
           font-weight: 700;
         }
@@ -607,6 +1172,5 @@ export function ObservabilityView() {
           }
         }
       `}</style>
-    </div>
   );
 }

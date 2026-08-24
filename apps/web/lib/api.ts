@@ -2410,6 +2410,112 @@ export async function fetchObservability(
 }
 
 // ===========================================================================
+// 设备舰队(fleet)—— /api/fleet 全设备摘要 + /api/fleet/{id} 详情(仅管理员)
+// ===========================================================================
+
+/** 服务探测状态:up / down / unknown(声明式占位,探测路径不明)。 */
+export type FleetServiceStatus = "up" | "down" | "unknown";
+
+export interface FleetService {
+  name: string;
+  port: number;
+  status: FleetServiceStatus;
+  latency_ms: number | null;
+  note?: string;
+  extra: Record<string, unknown>;
+}
+
+export interface FleetDeviceSummary {
+  id: string;
+  name: string;
+  role: string;
+  /** true 在线 / false 离线 / null 未知(灰点) */
+  online: boolean | null;
+  services_up: number;
+  services_total: number;
+  headline: string;
+}
+
+export interface FleetSummary {
+  generated_at: string;
+  cache_ttl_sec: number;
+  devices: FleetDeviceSummary[];
+}
+
+/** workstation sysmetrics(:9403)全量指标;NAS 详情只含 nas 段。 */
+export interface FleetSysmetrics {
+  cpu?: {
+    percent: number | null;
+    load1: number | null;
+    load5: number | null;
+    load15: number | null;
+    cores: number | null;
+  } | null;
+  memory?: {
+    total_gb: number;
+    used_gb: number;
+    available_gb: number;
+    used_pct: number | null;
+  } | null;
+  disk_root?: {
+    total_gb: number;
+    used_gb: number;
+    free_gb: number;
+    used_pct: number | null;
+  } | null;
+  nas?: {
+    mountpoint: string;
+    mounted: boolean;
+    total_gb: number | null;
+    used_gb: number | null;
+    free_gb: number | null;
+  } | null;
+  gpus?: {
+    index: number;
+    name: string;
+    vram_used_mb: number;
+    vram_total_mb: number;
+    vram_used_pct: number | null;
+    temp_c: number;
+  }[] | null;
+}
+
+export interface FleetDeviceDetail extends FleetDeviceSummary {
+  meta: { lan_ip: string | null; ts_ip: string | null; hardware: string | null };
+  services: FleetService[];
+  sys: FleetSysmetrics | null;
+  generated_at: string;
+  series: {
+    timestamps: string[];
+    online: (number | null)[];
+    latency: Record<string, (number | null)[]>;
+  };
+}
+
+/** 设备舰队摘要(仅管理员)。 */
+export async function fetchFleet(signal?: AbortSignal): Promise<FleetSummary> {
+  const res = await apiFetch(`/api/fleet`, {
+    headers: authHeaders(),
+    signal,
+  });
+  if (!res.ok) await raiseApiError(res, "加载设备舰队失败");
+  return res.json();
+}
+
+/** 单设备详情(服务清单 + sysmetrics + 时序)。 */
+export async function fetchFleetDevice(
+  deviceId: string,
+  signal?: AbortSignal,
+): Promise<FleetDeviceDetail> {
+  const res = await apiFetch(`/api/fleet/${encodeURIComponent(deviceId)}`, {
+    headers: authHeaders(),
+    signal,
+  });
+  if (!res.ok) await raiseApiError(res, "加载设备详情失败");
+  return res.json();
+}
+
+// ===========================================================================
 // LoRA 训练(D 期)—— 上传数据集 → Florence2 打标 → AI-Toolkit 训练 → 注册
 // ===========================================================================
 

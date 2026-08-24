@@ -577,3 +577,104 @@ export const obsImpl = {
 };
 export const fetchObservability = (_signal?: AbortSignal): Promise<ObservabilitySnapshot> =>
   obsImpl.fetchObservability();
+
+// ===========================================================================
+// 设备舰队(observability.test.ts:ObservabilityView 经 loader 映射到这里)
+// ===========================================================================
+import type {
+  FleetDeviceDetail,
+  FleetSummary,
+} from "../../lib/api";
+
+/** 固定舰队摘要:workstation 在线(23/23)+ pc01 关机(0/1,离线降级路径)。 */
+export function makeFleetSummary(): FleetSummary {
+  return {
+    generated_at: "2026-08-23T09:00:00+00:00",
+    cache_ttl_sec: 15,
+    devices: [
+      {
+        id: "workstation",
+        name: "Workstation",
+        role: "算力 + 全部 AI 后端服务",
+        online: true,
+        services_up: 23,
+        services_total: 23,
+        headline: "VRAM 峰值 87% · RAM 54%",
+      },
+      {
+        id: "pc01",
+        name: "PC01",
+        role: "ComfyUI worker",
+        online: false,
+        services_up: 0,
+        services_total: 1,
+        headline: "全部离线",
+      },
+    ],
+  };
+}
+
+/** workstation 详情替身:meta + 双服务(一 up 一 down)+ sysmetrics + 时序。 */
+export function makeFleetDeviceDetail(): FleetDeviceDetail {
+  const ts = [
+    "2026-08-23T08:59:30+00:00",
+    "2026-08-23T08:59:45+00:00",
+    "2026-08-23T09:00:00+00:00",
+  ];
+  return {
+    id: "workstation",
+    name: "Workstation",
+    role: "算力 + 全部 AI 后端服务",
+    online: true,
+    services_up: 1,
+    services_total: 2,
+    headline: "VRAM 峰值 82% · RAM 54%",
+    meta: {
+      lan_ip: "192.168.71.127",
+      ts_ip: "100.68.100.90",
+      hardware: "Linux · 4×RTX PRO 6000(96G) · RAM 183G",
+    },
+    services: [
+      { name: "ComfyUI 通用", port: 8189, status: "up", latency_ms: 12.5, extra: {} },
+      { name: "LongCat", port: 8197, status: "down", latency_ms: null, extra: {} },
+    ],
+    sys: {
+      cpu: { percent: 5, load1: 1, load5: 1.2, load15: 1.1, cores: 64 },
+      memory: { total_gb: 183.8, used_gb: 100, available_gb: 83.8, used_pct: 54.4 },
+      disk_root: { total_gb: 7000, used_gb: 1000, free_gb: 6000, used_pct: 14.3 },
+      nas: {
+        mountpoint: "/home/merlin/nas_mount",
+        mounted: true,
+        total_gb: 44000,
+        used_gb: 13000,
+        free_gb: 31744,
+      },
+      gpus: [
+        { index: 0, name: "RTX PRO 6000", vram_used_mb: 8000, vram_total_mb: 97000, vram_used_pct: 8.2, temp_c: 40 },
+        { index: 1, name: "RTX PRO 6000", vram_used_mb: 80000, vram_total_mb: 97000, vram_used_pct: 82.5, temp_c: 55 },
+      ],
+    },
+    series: {
+      timestamps: ts,
+      online: [1, 1, 1],
+      latency: {
+        "ComfyUI 通用": [10, 11, 12.5],
+        LongCat: [20, null, null],
+      },
+    },
+    generated_at: "2026-08-23T09:00:00+00:00",
+  };
+}
+
+/** 舰队替身:默认固定快照,用例可覆盖 fleetImpl 模拟失败。 */
+export const fleetImpl = {
+  fetchFleet: async (): Promise<FleetSummary> => makeFleetSummary(),
+  fetchFleetDevice: async (_id: string): Promise<FleetDeviceDetail> =>
+    makeFleetDeviceDetail(),
+};
+export const fetchFleet = (_signal?: AbortSignal): Promise<FleetSummary> =>
+  fleetImpl.fetchFleet();
+export const fetchFleetDevice = (
+  deviceId: string,
+  _signal?: AbortSignal,
+): Promise<FleetDeviceDetail> => fleetImpl.fetchFleetDevice(deviceId);

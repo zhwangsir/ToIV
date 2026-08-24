@@ -28,7 +28,9 @@ export const CHART_SEMANTIC = {
   off: "#64748b",
 } as const;
 
-export const CHART_GRID = "rgba(255,255,255,.06)";
+/** 网格/十字线颜色走 CSS 变量:浅色主题(默认)深灰细线,[data-mode="dark"] 白细线;
+ * 生产当前为浅色主题,硬编码白线会隐形(2026-08-24 舰队视图落地时修)。 */
+export const CHART_GRID = "var(--uichart-grid, rgba(15,23,42,.10))";
 
 /* ─────────────────────────── 纯函数(可单测) ─────────────────────────── */
 
@@ -269,7 +271,7 @@ export function LineChart({
                 x2={x(hover)}
                 y1={PAD.t}
                 y2={PAD.t + innerH}
-                stroke="rgba(255,255,255,.25)"
+                stroke="var(--uichart-crosshair, rgba(15,23,42,.30))"
                 strokeDasharray="3 3"
               />
               {visible.map((s) => {
@@ -589,6 +591,14 @@ export function Sparkline({
 export function ChartStyles() {
   return (
     <style jsx global>{`
+      .uichart {
+        --uichart-grid: rgba(15, 23, 42, 0.10);
+        --uichart-crosshair: rgba(15, 23, 42, 0.30);
+      }
+      [data-mode="dark"] .uichart {
+        --uichart-grid: rgba(255, 255, 255, 0.06);
+        --uichart-crosshair: rgba(255, 255, 255, 0.25);
+      }
       .uichart-axis {
         font-size: 11px;
         fill: var(--text-muted, #888);

@@ -1,0 +1,17 @@
+[Unit]
+# ToIV 系统指标小服务(CPU/RAM/磁盘/NAS 挂载/GPU):FastAPI 全 stdlib 采集
+# 端口 :9403;依赖见 /home/merlin/toiv-sysmetrics/.venv(fastapi+uvicorn)
+Description=ToIV sysmetrics service (host metrics, :9403)
+After=network-online.target
+
+[Service]
+Type=simple
+User=merlin
+WorkingDirectory=/home/merlin/toiv-sysmetrics
+ExecStart=/home/merlin/toiv-sysmetrics/.venv/bin/uvicorn sysmetrics_server:app --host 0.0.0.0 --port 9403 --workers 1
+Restart=on-failure
+RestartSec=5
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target
