@@ -163,7 +163,9 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 **P-1 产物 URL 已签名+归属校验(2026-08-14)**：tracker 生成的 /api/images URL 带 sig(HMAC);无 sig 旧 URL 走 Job 归属回退;admin 直通;其余 404。测试构造产物 URL 必须带 sig 或先建档。<img>/<video> 标签走 `?token=` 查询参数认证。
 
-**P-2 Next.js 生产构建必须 rm -rf .next 干净重建(2026-08-17)**：陈旧 .next/cache 会导致 chunk 内部错位,next start 即 500(`Cannot find module './N.js'` 但文件在);deploy.sh 防呆拦不住,干净构建是唯一可靠前置。
+**P-2 Next.js 生产构建必须 rm -rf .next 干净重建(2026-08-17)**：陈旧 .next/cache 会导致 chunk 内部错位,next start 即 500(`Cannot find module './N.js'` 但文件在);deploy.sh 防呆拦不住,干净构建是唯一可靠前置。**补(2026-08-24 实证):deploy.sh 只 rsync 不重建——部署前必须确认本地 .next BUILD_ID 是当次代码的新构建,否则静默上线陈旧前端(观测面板/助手 P1 曾因此白部署两轮,API 验证全过但 UI 是旧的;验证前端变更必须截图/查 BUILD_ID,不能只看 API)**。
+
+**P-2b styled-jsx 作用域坑(2026-08-24 生产实证)**:`<style jsx>` 的 jsxId 只打在**主组件自身**的 JSX 上;同文件子组件(如 KpiStrip/各 Card)的元素拿不到作用域类,整段样式静默失效且测试全绿(单测不查计算样式)。多组件文件一律 `<style jsx global>` + 前缀命名(obs-/uichart- 已是惯例);UI 改动必须真机截图验证,别信组件渲染测试。
 
 **P-3 浏览器自动化测 React(2026-08-11)**：原生事件不触发合成事件——select 要用 native setter+dispatchEvent 派发 change;多 textarea 时 querySelector 要用 `.promptbar-textarea` 类选择器精确定位。
 
