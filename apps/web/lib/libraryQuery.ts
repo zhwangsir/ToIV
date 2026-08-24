@@ -60,7 +60,7 @@ export const FILTERS: FilterDef[] = [
     label: "音频",
     kinds: ["audio", "ace_audio", "audio_sep", "transcribe", "voice_track", "manju_voice"],
   },
-  { key: "3d", label: "3D", kinds: ["3d", "model3d", "hunyuan3d"] },
+  { key: "3d", label: "3D", kinds: ["3d", "model3d", "hunyuan3d", "threed_material", "threed_render"] },
 ];
 
 /** 动态前缀规则(后端按 preset/视角拼 kind):cad_* → 3D;drama_char_reference_* → 图像。 */
@@ -128,6 +128,8 @@ export function kindLabel(kind: string): string {
     "3d": "3D",
     model3d: "3D",
     hunyuan3d: "图生3D",
+    threed_material: "3D 材质",
+    threed_render: "3D 渲染",
     drama_grid_storyboard: "分镜",
     drama_scene_layout: "场景布局",
     drama_shot_video: "镜头视频",

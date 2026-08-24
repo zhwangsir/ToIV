@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { deleteJob, fetchJobsPage, fetchTrash, getVideoUpscaleStatus, imageUrl, invalidateJobs, JOBS_PAGE_LIMIT, listJobs, permanentDeleteJob, purgeTrash, restoreJob, undoDelete, upscaleVideo } from "@/lib/api";
+import { deleteJob, fetchJobsPage, fetchTrash, getVideoUpscaleStatus, imageUrl, invalidateJobs, JOBS_PAGE_LIMIT, listJobs, permanentDeleteJob, purgeTrash, restoreJob, threeDOps, undoDelete, upscaleVideo } from "@/lib/api";
 import { ENGINE_DRAFT_KEY } from "@/lib/engine";
 import { begin as genBegin, end as genEnd, progress as genProgress } from "@/lib/generationBus";
 import { useR18Mode } from "@/lib/r18";
@@ -1632,6 +1632,144 @@ export function LibraryView(props?: LibraryViewProps) {
 
 
 // ────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────
+// ThreeDOpsBar:灯箱 3D 分支的材质/渲染操作条(2026-08-24)
+// 材质预设下拉 + 「渲染快照」「渲染旋转视频」→ POST /api/3d/ops(job_id 来源),
+// 产物作为新作业(threed_render)进作品库;样式走 <style jsx global> + t3dops- 前缀
+// (P-2b:子组件元素拿不到主组件 styled-jsx 作用域类,必须 global)。
+// ────────────────────────────────────────────────────────────────
+
+const T3DOPS_PRESETS = [
+  { value: "clay", label: "黏土" },
+  { value: "matte", label: "哑光" },
+  { value: "metal", label: "金属" },
+  { value: "glossy", label: "陶瓷" },
+  { value: "wireframe", label: "线框" },
+  { value: "normal", label: "法线" },
+] as const;
+
+function ThreeDOpsBar({ job }: { job: JobItem }) {
+  const toast = useToast();
+  const [preset, setPreset] = useState<string>("clay");
+  const [busy, setBusy] = useState<"png" | "mp4" | null>(null);
+
+  const run = async (format: "png" | "mp4") => {
+    if (busy) return;
+    setBusy(format);
+    try {
+      await threeDOps({
+        op: "render",
+        job_id: job.id,
+        material: preset as "clay",
+        format,
+        frames: 36,
+      });
+      invalidateJobs();
+      toast.success(
+        format === "mp4" ? "旋转视频已生成,已收入作品库" : "渲染快照已生成,已收入作品库",
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "3D 渲染失败");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="t3dops-bar">
+      <span className="t3dops-label">3D 渲染</span>
+      <select
+        className="t3dops-select"
+        aria-label="材质预设"
+        value={preset}
+        disabled={busy !== null}
+        onChange={(e) => setPreset(e.target.value)}
+      >
+        {T3DOPS_PRESETS.map((p) => (
+          <option key={p.value} value={p.value}>
+            {p.label}
+          </option>
+        ))}
+      </select>
+      <div className="t3dops-actions">
+        <button
+          type="button"
+          className="t3dops-btn"
+          disabled={busy !== null}
+          onClick={() => run("png")}
+        >
+          <Icon name={busy === "png" ? "loading" : "image"} size={13} />
+          渲染快照
+        </button>
+        <button
+          type="button"
+          className="t3dops-btn"
+          disabled={busy !== null}
+          onClick={() => run("mp4")}
+        >
+          <Icon name={busy === "mp4" ? "loading" : "film"} size={13} />
+          渲染旋转视频
+        </button>
+      </div>
+      {/* global + t3dops- 前缀(P-2b):子组件样式不进主组件 styled-jsx 作用域 */}
+      <style jsx global>{`
+        .t3dops-bar {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-2, 8px);
+          padding: var(--space-3, 12px);
+          border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+          border-radius: var(--radius-card, 10px);
+          background: var(--bg-surface-1, rgba(255, 255, 255, 0.03));
+        }
+        .t3dops-label {
+          font-size: var(--text-label, 11px);
+          font-weight: var(--font-medium, 500);
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          color: var(--text-muted, #888);
+        }
+        .t3dops-select {
+          width: 100%;
+          padding: 6px 8px;
+          font-size: var(--text-aux, 13px);
+          color: var(--text-primary, #eee);
+          background: var(--bg-surface-2, rgba(255, 255, 255, 0.06));
+          border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+          border-radius: 8px;
+        }
+        .t3dops-actions {
+          display: flex;
+          gap: var(--space-2, 8px);
+        }
+        .t3dops-btn {
+          flex: 1;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          padding: 7px 8px;
+          font-size: var(--text-aux, 13px);
+          color: var(--text-primary, #eee);
+          background: var(--bg-surface-2, rgba(255, 255, 255, 0.06));
+          border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+          border-radius: 8px;
+          cursor: pointer;
+        }
+        .t3dops-btn:hover:not(:disabled) {
+          border-color: var(--accent, #7c6cff);
+          color: var(--accent, #7c6cff);
+        }
+        .t3dops-btn:disabled {
+          opacity: 0.6;
+          cursor: wait;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+
 // LibraryLightbox:作品沉浸查看器(Frame.io 式重设计,2026-08-15)
 // 左侧大预览舞台(深色恒压暗,作品是主角)+ 右侧固定宽元信息面板
 // (类型/状态/时间/kind/seed/提示词全文/操作组);←/→ 键盘与按钮穿梭;
@@ -1825,6 +1963,9 @@ function LibraryLightbox({
             <span className="lib-lb-prompt-label">提示词</span>
             <p className="lib-lb-prompt-text">{job.prompt || "(无提示词)"}</p>
           </div>
+
+          {/* 3D 产物:材质预设 + 快照/旋转视频渲染(产物作为新作业进作品库) */}
+          {mediaKind === "model3d" && <ThreeDOpsBar job={job} />}
 
           <div className="lib-lb-side-actions">
             {hasResult && (

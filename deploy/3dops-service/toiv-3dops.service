@@ -1,0 +1,20 @@
+[Unit]
+# ToIV 3D 调整服务(GLB 材质改写 / 离屏渲染):FastAPI + trimesh + pyrender(EGL)
+# 端口 :9402;依赖见 /home/merlin/toiv-3dops/.venv(清华镜像 uv pip)
+Description=ToIV 3D Ops service (GLB material/render, :9402)
+After=network-online.target
+
+[Service]
+Type=simple
+User=merlin
+WorkingDirectory=/home/merlin/toiv-3dops
+Environment=PYOPENGL_PLATFORM=egl
+Environment=THREEDOPS_TIMEOUT_SEC=300
+ExecStart=/home/merlin/toiv-3dops/.venv/bin/uvicorn app:app --host 0.0.0.0 --port 9402 --workers 1
+Restart=on-failure
+RestartSec=5
+# 渲染线程可能占满单核;内存兜底防 pyrender/trimesh 大 GLB 失控
+MemoryMax=8G
+
+[Install]
+WantedBy=multi-user.target

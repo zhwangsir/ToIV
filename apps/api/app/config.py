@@ -274,6 +274,13 @@ class Settings(BaseSettings):
     # 单次生成超时(秒):含服务侧排队;40 步 ~11min,默认 3600 给足余量。
     scope_timeout_sec: float = 3600.0
 
+    # —— 3D 调整服务(trimesh+pyrender EGL,workstation :9402,toiv-3dops.service) ——
+    # GLB 材质改写(PBR 参数)/材质预设渲染(快照 PNG / 360° turntable MP4)。
+    # 空 = 未部署,/api/3d/ops 503。
+    threed_ops_url: str = "http://192.168.71.127:9402"
+    # 单请求超时(秒):turntable 36 帧 1080p 实测秒级,默认 300 给足大网格余量。
+    threed_ops_timeout_sec: float = 300.0
+
     # —— MiniMax H3 视频生成引擎(专用 ComfyUI ≥ 0.30 实例,workstation :8195) ——
     # 独立于 ComfyUI-LB 集群/WorkerPool(生产 ComfyUI 0.27/0.28 无 H3 节点);
     # 实例由 systemd 托管,权重经 extra_model_paths 挂 NAS h3/。

@@ -21,9 +21,11 @@ import {
   generateUpscale,
   imageUrl,
   invalidateJobs,
+  threeDOps,
   uploadImage,
 } from "@/lib/api";
 import type { GenerateResponse } from "@/lib/types";
+import { useToast } from "@/components/ui/Toast";
 import { trackJob, TrackJobAbortError, type JobProgress } from "@/lib/trackJob";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -462,15 +464,63 @@ function ResultPanel({ source, resultUrl, resultPaths }: ResultPanelProps) {
 function Model3DResult({ resultUrl }: { resultUrl: string }) {
   const fullUrl = imageUrl(resultUrl); // 带 token 查询参数,与图片产物同规则
   const filename = resultUrl.split("?")[0].split("/").pop() ?? "model.glb";
+  const toast = useToast();
+  const [turntableBusy, setTurntableBusy] = useState(false);
+
+  // 渲染旋转视频:从签名产物 URL 解析 filename/worker 作为 /api/3d/ops 的 source 句柄;
+  // 产物(threed_render mp4)作为新作业进作品库,与灯箱 3D 操作条同一链路
+  const renderTurntable = async () => {
+    if (turntableBusy) return;
+    let qs: URLSearchParams;
+    try {
+      qs = new URLSearchParams(resultUrl.split("?")[1] ?? "");
+    } catch {
+      toast.error("无法解析 3D 产物来源");
+      return;
+    }
+    const glbFilename = qs.get("filename");
+    const worker = qs.get("worker");
+    if (!glbFilename || !worker) {
+      toast.error("无法解析 3D 产物来源");
+      return;
+    }
+    setTurntableBusy(true);
+    try {
+      await threeDOps({
+        op: "render",
+        source: { filename: glbFilename, worker },
+        material: "clay",
+        format: "mp4",
+        frames: 36,
+      });
+      invalidateJobs();
+      toast.success("旋转视频已生成,已收入作品库");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "3D 渲染失败");
+    } finally {
+      setTurntableBusy(false);
+    }
+  };
 
   return (
     <Card className="at-card ie-result-card">
       <div className="ie-result-head">
         <span className="ie-result-label">3D 模型已生成</span>
-        <a href={fullUrl} download={filename} className="at-btn at-btn--primary ie-download-btn">
-          <Icon name="download" size={13} />
-          下载 GLB
-        </a>
+        <div className="ie-model3d-actions">
+          <button
+            type="button"
+            className="at-btn ie-model3d-turntable-btn"
+            disabled={turntableBusy}
+            onClick={renderTurntable}
+          >
+            <Icon name={turntableBusy ? "loading" : "film"} size={13} />
+            渲染旋转视频
+          </button>
+          <a href={fullUrl} download={filename} className="at-btn at-btn--primary ie-download-btn">
+            <Icon name="download" size={13} />
+            下载 GLB
+          </a>
+        </div>
       </div>
       {/* 浏览器内交互预览:轨道旋转/缩放,高度约束在容器 */}
       <div className="ie-model3d-viewer">
@@ -1661,6 +1711,21 @@ export function ImageEditView() {
         .ie-model3d-hint {
           font-size: var(--text-aux);
           text-align: center;
+        }
+        /* 结果卡头部操作组(旋转视频 + 下载) */
+        .ie-model3d-actions {
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+        }
+        .ie-model3d-turntable-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .ie-model3d-turntable-btn:disabled {
+          opacity: 0.6;
+          cursor: wait;
         }
 
         /* ── 3D 相机:方位罗盘 + 环绕胶片条 ── */

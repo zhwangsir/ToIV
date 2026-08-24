@@ -145,6 +145,67 @@ TOOL_SCHEMAS_GEN = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "adjust_3d",
+            "description": (
+                "对已有 3D 模型(GLB)做材质/渲染级调整,立即返回产物(秒级~一分钟)。"
+                "自然语言映射:「换成金属/哑光/黏土/陶瓷/线框/法线质感」→ op=render + material 预设;"
+                "「出个旋转视频/转一圈看看」→ op=render + format=mp4;"
+                "「渲染快照/看看某个角度」→ op=render + format=png(+azimuth);"
+                "「染成青铜色/改成金色/更光滑」→ op=material + base_color/metallic/roughness(导出新 GLB)。"
+                "来源:source_job_id 指定作品库 3D 作业,不传则用用户最近一个 3D 产物。"
+                "注意:这是材质/渲染调整,不改变模型几何;纹理绘画能力暂不支持。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "op": {
+                        "type": "string",
+                        "enum": ["render", "material"],
+                        "description": "render=材质预设渲染(快照/旋转视频);material=PBR 材质改写导出新 GLB",
+                    },
+                    "source_job_id": {
+                        "type": "string",
+                        "description": "作品库 3D 作业 id(可选;不传自动取用户最近一个 GLB 产物)",
+                    },
+                    "material": {
+                        "type": "string",
+                        "enum": ["clay", "matte", "metal", "glossy", "wireframe", "normal"],
+                        "description": "render 材质预设:clay 黏土/matte 哑光/metal 金属/glossy 陶瓷/wireframe 线框/normal 法线(默认 clay)",
+                    },
+                    "lighting": {
+                        "type": "string",
+                        "enum": ["environment", "studio", "rim"],
+                        "description": "灯光:environment 天光/studio 三点布光(默认)/rim 轮廓光",
+                    },
+                    "background": {
+                        "type": "string",
+                        "enum": ["transparent", "white", "dark"],
+                        "description": "背景:transparent 透明(仅 png)/white 白/dark 深灰渐变(默认)",
+                    },
+                    "format": {
+                        "type": "string",
+                        "enum": ["png", "mp4"],
+                        "description": "render 输出:png 静态快照 / mp4 360° 旋转视频(默认 png)",
+                    },
+                    "azimuth": {
+                        "type": "number",
+                        "description": "快照方位角(度,0=正面,默认 30;仅 format=png)",
+                    },
+                    "base_color": {
+                        "type": "string",
+                        "description": "op=material 染色,#RRGGBB(如青铜 #b87333、金 #d4af37、银 #c0c0c0)",
+                    },
+                    "metallic": {"type": "number", "description": "op=material 金属度 0-1(默认 0.85)"},
+                    "roughness": {"type": "number", "description": "op=material 粗糙度 0-1(默认 0.35)"},
+                    "prompt": {"type": "string", "description": "用户意图原文(作为作品库展示标题)"},
+                },
+                "required": ["op"],
+            },
+        },
+    },
 ]
 
 
@@ -543,3 +604,95 @@ async def exec_propose_plan(args: dict, ctx: dict) -> tuple[str, list[dict]]:
         f"方案已提交给用户确认(proposal_id={proposal['proposal_id']})。"
         "本轮到此结束:简要告诉用户方案要点,等其确认/修改/拒绝,不要自行开始执行。"
     ), [event]
+
+
+# 可作为 adjust_3d 来源的 3D 作业 kind(产物含 .glb)
+_3D_SOURCE_KINDS = ("hunyuan3d", "threed_material")
+
+
+def _find_3d_source_job(session, user: User, source_job_id: str | None) -> Job | None:
+    """定位调整来源:指定 job_id 精确查(用户隔离),否则取最近一个 GLB 产物作业。"""
+    if source_job_id:
+        job = session.get(Job, source_job_id)
+        if job is None or (
+            user.role != "admin"
+            and job.user_id != user.id
+            and job.tenant_id != user.tenant_id
+        ):
+            return None
+        return job
+    rows = session.exec(
+        select(Job)
+        .where(
+            Job.user_id == user.id,
+            Job.status == "done",
+            Job.result.like("%.glb%"),
+        )
+        .order_by(Job.created_at.desc())
+        .limit(5)
+    ).all()
+    return rows[0] if rows else None
+
+
+async def exec_adjust_3d(args: dict, ctx: dict) -> tuple[str, list[dict]]:
+    """3D 材质/渲染调整:同步委托 routes/threed_ops(秒级~一分钟),产物经 job 事件展示。"""
+    from app.routes import threed_ops
+
+    user: User = ctx["user"]
+    session = ctx["session"]
+    pool = ctx.get("pool")
+
+    op = str(args.get("op") or "").strip()
+    if op not in ("render", "material"):
+        return "op 须为 render(材质预设渲染)或 material(材质改写)。", [
+            _err_event("op 参数不合法", op)
+        ]
+
+    source_job_id = str(args.get("source_job_id") or "").strip() or None
+    job = _find_3d_source_job(session, user, source_job_id)
+    if job is None:
+        if source_job_id:
+            return f"作业 {source_job_id} 不存在或不属于当前用户。", [
+                _err_event("3D 来源作业不存在", source_job_id)
+            ]
+        return "没有找到可调整的 3D 产物。先用 generate_3d 生成一个 3D 模型,再让我调整。", [
+            _err_event("无 3D 产物可调整")
+        ]
+
+    req_body: dict = {"op": op, "job_id": job.id}
+    if args.get("prompt"):
+        req_body["prompt"] = str(args["prompt"])[:500]
+    for key in ("material", "lighting", "background", "format", "base_color"):
+        if args.get(key):
+            req_body[key] = str(args[key])
+    for key in ("azimuth", "metallic", "roughness"):
+        if args.get(key) is not None:
+            try:
+                req_body[key] = float(args[key])
+            except (TypeError, ValueError):
+                pass
+    try:
+        req = threed_ops.ThreeDOpsRequest.model_validate(req_body)
+        result = await threed_ops.threed_ops(req, user, session, pool)
+    except HTTPException as e:
+        return f"3D 调整失败({e.status_code}):{e.detail}", [
+            _err_event("3D 调整失败", str(e.detail))
+        ]
+    except ValidationError as e:
+        first = (e.errors() or [{}])[0]
+        return f"3D 调整参数不合法:{first.get('msg', e)}", [_err_event("参数不合法", str(e))]
+
+    url = result["url"]
+    label = req.prompt or (
+        f"3D {'旋转视频' if result['format'] == 'mp4' else '渲染快照'}"
+        if op == "render" else "3D 材质调整"
+    )
+    event = _job_event(
+        job_id=str(result.get("job_id") or ""),
+        kind=result["kind"], status="done", label=label, results=[url],
+    )
+    text = (
+        f"3D 调整完成(产物已展示给用户并进作品库):{label}。"
+        "如需继续调整(换材质/出旋转视频/染色),直接说即可。"
+    )
+    return text, [event]

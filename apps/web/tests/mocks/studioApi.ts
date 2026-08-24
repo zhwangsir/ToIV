@@ -460,6 +460,14 @@ export const getVideoUpscaleStatus = async (): Promise<{
 }> => ({ job_id: "mock-job", prompt_id: "video-upscale-mock", status: "queued", results: [], progress: null });
 /** R18 请求头开关替身(r18.ts 链接期需要,运行期无副作用)。 */
 export const setNsfwIntent = (_on: boolean): void => undefined;
+/** 3D 调整替身(LibraryView 灯箱 3D 操作条链接期需要;交互流由 threedOps.test.ts 源码断言覆盖)。 */
+export const threeDOps = async (): Promise<{
+  kind: string;
+  url: string;
+  job_id: string | null;
+  op: string;
+  format: string;
+}> => ({ kind: "threed_render", url: "/api/3d/ops/files/mock.mp4", job_id: "mock-job", op: "render", format: "mp4" });
 
 // ===========================================================================
 // UI-B 视图组件替身扩展(uiBViews.test.ts:PromptBar → ReverseButton 经 loader 映射到这里)

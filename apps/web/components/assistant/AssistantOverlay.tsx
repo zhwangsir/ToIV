@@ -33,8 +33,9 @@ function AssistantBoot() {
  * 由 Shift+Enter 随时唤起,任意视图之上对话。
  *
  * 2026-08-18 弹窗化(variant="popup"):界面仅保留对话显示区与输入框——
- * 页头/历史/设置/文档面板与门户空态全部隐藏,空态为极简品牌提示;
+ * 页头/设置/文档面板与门户空态全部隐藏,空态为极简品牌提示;
  * 面板右上角保留一个最小关闭按钮(弹窗 chrome,Esc/遮罩点击同效)。
+ * 2026-08-24:会话管理(历史/新建/删除)以输入区「会话」抽屉回归 popup。
  *
  * 挂载策略:首次打开后保持挂载(关闭仅视觉隐藏)——对话 messages/会话状态
  * 全在 AssistantView 内,卸载即丢;常驻 DOM 让「关掉再开,对话还在」,
@@ -51,11 +52,14 @@ export function AssistantOverlay({ open, onClose, onNavigate }: AssistantOverlay
     if (open) setMounted(true);
   }, [open]);
 
-  // Esc 关闭(capture 优先于浮层内面板自身的 Esc 处理,一次按键直接收起浮层)
+  // Esc 关闭(capture 优先于浮层内面板自身的 Esc 处理,一次按键直接收起浮层);
+  // 会话抽屉(.av-pop-conv.is-open)展开时让位——事件放行至 AssistantView 自己的
+  // Esc 监听先收抽屉,不一次按键连浮层一起关掉
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        if (document.querySelector(".av-pop-conv.is-open")) return;
         e.stopPropagation();
         onClose();
       }

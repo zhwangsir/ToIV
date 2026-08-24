@@ -659,7 +659,9 @@ export interface AssistantViewProps {
    * 展示形态(2026-08-18 弹窗化):
    * - page(默认):整页视图,门户空态/历史/设置/文档面板全量;
    * - popup:Shift+Enter 全局弹窗——界面仅保留对话显示区与输入框
-   *   (隐藏页头/三个侧面板/文档挂载入口,空态为极简提示,输入框沉底)。
+   *   (隐藏页头/三个侧面板/文档挂载入口,空态为极简提示,输入框沉底);
+   *   会话管理(列表/切换/新建/删除)由输入区左侧「会话」按钮弹出的
+   *   抽屉承担,与页形态历史面板共用同一份列表渲染(renderConvList)。
    */
   variant?: "page" | "popup";
 }
@@ -701,6 +703,8 @@ export function AssistantView(props?: AssistantViewProps) {
   const docFileRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // popup 会话抽屉根节点(点外部关闭判定用)
+  const convDrawerRef = useRef<HTMLDivElement>(null);
 
   const isEmpty = messages.length === 0;
 
@@ -866,6 +870,31 @@ export function AssistantView(props?: AssistantViewProps) {
     },
     [activeConvId, onNewChat, convStore],
   );
+
+  // popup 会话抽屉:Esc 关闭。浮层全局 Esc 是 capture 监听(AssistantOverlay),
+  // 见 .av-pop-conv.is-open 即让位不吞事件;事件冒泡回 window 时由这里收敛抽屉
+  useEffect(() => {
+    if (!popup || !historyOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setHistoryOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [popup, historyOpen]);
+
+  // popup 会话抽屉:点外部关闭(抽屉本体/触发按钮之外的 mousedown 即收敛)
+  useEffect(() => {
+    if (!popup || !historyOpen) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (!t) return;
+      if (convDrawerRef.current?.contains(t)) return;
+      if (t.closest(".av-pop-conv-toggle")) return;
+      setHistoryOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [popup, historyOpen]);
 
   // ───── 文档挂载 ─────
   const onPickDocFile = useCallback(
@@ -1235,6 +1264,49 @@ export function AssistantView(props?: AssistantViewProps) {
     return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
   };
 
+  /* 会话列表(页形态历史面板 / popup 会话抽屉共用):加载态/空态/列表三分支,
+     点击切换走 loadConversation(复用服务端回放),删除走二次确认 Modal */
+  const renderConvList = () =>
+    convStore.serverMode === null ? (
+      <LoadingBlock variant="line" count={4} />
+    ) : conversations.length === 0 ? (
+      <div className="av-panel-empty">
+        <Icon name="chat" size={20} strokeWidth={1.4} />
+        <span>暂无历史对话</span>
+      </div>
+    ) : (
+      <div className="av-conv-list">
+        {conversations.map((conv) => (
+          <div
+            key={conv.id}
+            className={`av-conv-item${activeConvId === conv.id ? " is-active" : ""}`}
+          >
+            <button
+              type="button"
+              className="av-conv-main"
+              onClick={() => loadConversation(conv)}
+            >
+              <div className="av-conv-info">
+                <span className="av-conv-title">{conv.title}</span>
+                <span className="av-conv-meta">
+                  {conv.messageCount ?? conv.messages.length} 条消息 · {formatTime(conv.updatedAt)}
+                </span>
+              </div>
+            </button>
+            <button
+              type="button"
+              className="av-conv-delete"
+              onClick={(e) => { e.stopPropagation(); setConfirmDeleteConv(conv); }}
+              title="删除对话"
+              aria-label={`删除对话 ${conv.title}`}
+            >
+              <Icon name="delete" size={11} strokeWidth={1.8} />
+            </button>
+          </div>
+        ))}
+      </div>
+    );
+
   /* 对话框(门户 C 位 / 会话底部两处复用):portal=true 时褪去底部固定档的渐变底与内边距 */
   const renderComposer = (portal: boolean) => (
     <div className={`av-composer${portal ? " av-composer--portal" : ""}`}>
@@ -1258,6 +1330,35 @@ export function AssistantView(props?: AssistantViewProps) {
         </div>
       )}
       <div className="av-composer-anchor">
+        {/* popup 会话抽屉(锚于输入框上方,与 @ 技能面板同位):
+            列表/切换/新建/删除全复用页形态逻辑;Esc/点外部关闭 */}
+        {popup && (
+          <div
+            ref={convDrawerRef}
+            className={`av-pop-conv${historyOpen ? " is-open" : ""}`}
+            role="menu"
+            aria-label="会话管理"
+            aria-hidden={!historyOpen}
+          >
+            <div className="av-pop-conv-head">
+              <span className="av-pop-conv-title">会话</span>
+              <button
+                type="button"
+                className="av-tb-btn av-pop-conv-new"
+                onClick={() => {
+                  onNewChat();
+                  setHistoryOpen(false);
+                }}
+                title="新会话"
+                aria-label="新会话"
+              >
+                <Icon name="create" size={13} strokeWidth={1.8} />
+                <span>新会话</span>
+              </button>
+            </div>
+            <div className="av-pop-conv-body">{renderConvList()}</div>
+          </div>
+        )}
         {/* @ 技能面板(一期 = 工作台快捷入口;视觉与 at-card 同构) */}
         {skillPanelVisible && (
           <div className="av-skill-panel at-card" role="menu" aria-label="技能与工作台快捷入口">
@@ -1300,7 +1401,18 @@ export function AssistantView(props?: AssistantViewProps) {
               >
                 <Icon name="plus" size={14} strokeWidth={1.8} />
               </button>
-            ) : null}
+            ) : (
+              /* popup:文档入口让位于「会话」按钮(历史/新建/删除抽屉) */
+              <button
+                type="button"
+                className={`av-composer-btn av-composer-btn-ghost av-composer-tool av-pop-conv-toggle${historyOpen ? " is-active" : ""}`}
+                title="会话(历史/新建/删除)"
+                aria-label="会话管理"
+                onClick={() => setHistoryOpen((v) => !v)}
+              >
+                <Icon name="history" size={14} strokeWidth={1.8} />
+              </button>
+            )}
           </div>
           <textarea
             ref={textareaRef}
@@ -1397,11 +1509,12 @@ export function AssistantView(props?: AssistantViewProps) {
 
         {isEmpty ? (
           popup ? (
-            /* 弹窗极简空态(2026-08-18):仅品牌提示一行,输入框由底部 renderComposer 承担 */
+            /* 弹窗极简空态(2026-08-18):品牌提示 + Shift+Enter 唤起提示,输入框由底部 renderComposer 承担 */
             <div className="av-empty av-popup-empty">
               <div className="av-empty-kicker">AI ASSISTANT</div>
               <div className="av-empty-title">有什么可以帮你?</div>
               <div className="av-empty-desc">输入内容开始对话 · Esc 或点击遮罩关闭</div>
+              <div className="av-popup-empty-hint">Shift+Enter 随时唤起/关闭</div>
             </div>
           ) : (
           /* 首页门户(2026-08-16 堆友范式):引擎胶囊条 → kicker/标题 → 对话框 C 位
@@ -1753,44 +1866,7 @@ export function AssistantView(props?: AssistantViewProps) {
           </button>
         </div>
         <div className="av-panel-body">
-          {convStore.serverMode === null ? (
-            <LoadingBlock variant="line" count={4} />
-          ) : conversations.length === 0 ? (
-            <div className="av-panel-empty">
-              <Icon name="chat" size={20} strokeWidth={1.4} />
-              <span>暂无历史对话</span>
-            </div>
-          ) : (
-            <div className="av-conv-list">
-              {conversations.map((conv) => (
-                <div
-                  key={conv.id}
-                  className={`av-conv-item${activeConvId === conv.id ? " is-active" : ""}`}
-                >
-                  <button
-                    type="button"
-                    className="av-conv-main"
-                    onClick={() => loadConversation(conv)}
-                  >
-                    <div className="av-conv-info">
-                      <span className="av-conv-title">{conv.title}</span>
-                      <span className="av-conv-meta">
-                        {conv.messageCount ?? conv.messages.length} 条消息 · {formatTime(conv.updatedAt)}
-                      </span>
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    className="av-conv-delete"
-                    onClick={(e) => { e.stopPropagation(); setConfirmDeleteConv(conv); }}
-                    title="删除对话"
-                  >
-                    <Icon name="delete" size={11} strokeWidth={1.8} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+          {renderConvList()}
         </div>
       </div>
 
@@ -2246,6 +2322,69 @@ export function AssistantView(props?: AssistantViewProps) {
           height: 100%;
           padding: var(--space-6);
           text-align: center;
+        }
+        .av-popup-empty-hint {
+          font-size: var(--text-label);
+          color: var(--text-muted);
+          font-family: var(--font-mono);
+          letter-spacing: 0.04em;
+        }
+
+        /* ───── popup 会话抽屉(锚于 av-composer-anchor,输入框上方弹出) ───── */
+        .av-pop-conv {
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: calc(100% + var(--space-2));
+          z-index: 2; /* 层内微调:压过 composer-box 渐变描边 */
+          display: flex;
+          flex-direction: column;
+          max-height: 320px;
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-panel);
+          box-shadow: var(--shadow-xl);
+          overflow: hidden;
+          /* 常驻 DOM + visibility/opacity/transform 过渡:开/关均有 200ms 轻过渡,
+             关闭态 visibility:hidden 自动退出 Tab 序与命中测试 */
+          opacity: 0;
+          transform: translateY(6px);
+          visibility: hidden;
+          pointer-events: none;
+          transition: opacity 200ms var(--ease-standard),
+            transform 200ms var(--ease-standard),
+            visibility 200ms var(--ease-standard);
+        }
+        .av-pop-conv.is-open {
+          opacity: 1;
+          transform: translateY(0);
+          visibility: visible;
+          pointer-events: auto;
+        }
+        .av-pop-conv-head {
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: var(--space-2);
+          padding: var(--space-2) var(--space-3);
+          border-bottom: 1px solid var(--border-subtle);
+        }
+        .av-pop-conv-title {
+          font-size: var(--text-label);
+          font-weight: var(--font-medium);
+          color: var(--text-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+        }
+        .av-pop-conv-new {
+          height: 26px;
+        }
+        .av-pop-conv-body {
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+          padding: var(--space-2);
         }
         .av-msg {
           display: flex;
@@ -3080,6 +3219,7 @@ export function AssistantView(props?: AssistantViewProps) {
           .av-composer-stop { animation: none; }
           .av-composer-input::placeholder { animation: none; }
           .av-panel-overlay { animation: none; }
+          .av-pop-conv { transition: none; }
         }
 
         /* 移动端 */

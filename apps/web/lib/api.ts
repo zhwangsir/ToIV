@@ -1255,6 +1255,41 @@ export async function generate3D(params: Gen3DParams): Promise<GenerateResponse>
   return res.json();
 }
 
+/** 3D 产物调整(/api/3d/ops):job_id 或 source 句柄二选一;render=材质预设渲染,material=PBR 改写。 */
+export interface ThreeDOpsParams {
+  op: "render" | "material";
+  job_id?: string;
+  source?: { filename: string; worker: string };
+  material?: "clay" | "matte" | "metal" | "glossy" | "wireframe" | "normal";
+  lighting?: "environment" | "studio" | "rim";
+  background?: "transparent" | "white" | "dark";
+  format?: "png" | "mp4";
+  azimuth?: number;
+  frames?: 24 | 36;
+  base_color?: string;
+  metallic?: number;
+  roughness?: number;
+  prompt?: string;
+}
+
+export interface ThreeDOpsResult {
+  kind: "threed_render" | "threed_material";
+  url: string;
+  job_id: string | null;
+  op: string;
+  format: string;
+}
+
+export async function threeDOps(params: ThreeDOpsParams): Promise<ThreeDOpsResult> {
+  const res = await apiFetch(`/api/3d/ops`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(params),
+  }, { longRequest: true });
+  if (!res.ok) await raiseApiError(res, "3D 调整请求失败");
+  return res.json();
+}
+
 export interface AudioGenParams {
   tags: string;
   lyrics: string;

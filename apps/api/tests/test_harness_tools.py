@@ -2,8 +2,9 @@
 
 关键锁定:
 - 注册表 schemas() 与 tools.TOOL_SCHEMAS + tools_gen.TOOL_SCHEMAS_GEN 逐键等价(同一对象来源);
-- build_system_prompt 含全部 14 工具名;runner.system_prompt() 与锁定字面量逐字节一致
-  (2026-08-24 深度接管:追加 4 生成工具 + 原则 12-15 导演行为准则);
+- build_system_prompt 含全部 15 工具名;runner.system_prompt() 与锁定字面量逐字节一致
+  (2026-08-24 深度接管:追加 4 生成工具 + 原则 12-15 导演行为准则;
+  2026-08-24 3D 调整:追加 adjust_3d + 原则 16);
 - 守卫:NSFW 工具无 X-NSFW 上下文被拦(403 语义文本回给 LLM,executor 不被调用);
   限流守卫命中记配额,超额返回 429 语义文本;
 - 10 个同步小工具经注册表执行的输入输出与旧 if/elif 链一致(fake pool/client + 真库 session);
@@ -55,6 +56,7 @@ LEGACY_SYSTEM = """你是 ToIV——一个由 ComfyUI 集群驱动的 AI 创作�
 - check_jobs:查询生成作业状态与产物(用户追问进度时;done 的自动把产物展示给用户)
 - optimize_prompt:提示词优化(提交生成前必调;按引擎/底模自动切方言)
 - propose_plan:大需求提案(视频/批量/多步/整集类先出方案等用户确认再执行)
+- adjust_3d:3D 模型材质/渲染调整(换材质/渲染快照/360° 旋转视频/染色;立即出产物)
 
 原则:
 1. 用户表达创作意图时,主动调用相应工具完成,而不是只给建议。
@@ -71,7 +73,8 @@ LEGACY_SYSTEM = """你是 ToIV——一个由 ComfyUI 集群驱动的 AI 创作�
 12. 生成走两条路:单张小图/短音乐用 generate_image/generate_music 直接出;视频、批量、长耗时或指定引擎/底模的一律用 submit_generation 异步提交(立即返回 job_id,不会卡住对话)。
 13. 提交生成前一律先 optimize_prompt 把用户描述优化成目标引擎/底模的专业提示词(除非用户输入已是详细英文提示词);优化结果原样用于提交。
 14. 视频/批量/多步/整集类大需求:先用自然语言与用户敲定风格与关键细节(题材/画风/镜头/时长/NSFW 档位),达成一致后调 propose_plan 出方案;提案发出后本轮结束,等用户确认/修改/拒绝后再执行,不要边问边做。
-15. submit_generation 成功后,主动告知用户 job_id 与预计耗时(H3 约 15 分钟/段、SCoPE 运镜约 19 分钟、Wan-Animate-2 数分钟、池内图像约 1 分钟);用户追问进度时用 check_jobs 查询,done 的产物会自动展示给用户,不要谎称完成。"""
+15. submit_generation 成功后,主动告知用户 job_id 与预计耗时(H3 约 15 分钟/段、SCoPE 运镜约 19 分钟、Wan-Animate-2 数分钟、池内图像约 1 分钟);用户追问进度时用 check_jobs 查询,done 的产物会自动展示给用户,不要谎称完成。
+16. 3D 产物(generate_3d 或 adjust_3d 的 GLB)可继续用 adjust_3d 调整:换材质质感(黏土/哑光/金属/陶瓷/线框/法线)、渲染指定角度快照、出 360° 旋转视频、改材质参数(染色/金属度/粗糙度)导出新 GLB;纹理绘画暂不支持,用户要"贴图/画纹理"时如实说明。"""
 
 BUILTIN_ORDER = [
     "generate_image", "generate_video", "generate_music", "edit_image",
@@ -79,6 +82,7 @@ BUILTIN_ORDER = [
     "web_search", "run_workflow",
     # 深度接管生成工具(tools_gen.py,2026-08-24)
     "submit_generation", "check_jobs", "optimize_prompt", "propose_plan",
+    "adjust_3d",
 ]
 
 
