@@ -773,7 +773,7 @@ export function TrainView() {
         .tv-list {
           display: flex;
           flex-direction: column;
-          gap: var(--space-5);
+          gap: var(--section-gap);
         }
 
         /* 移动端触控目标 ≥44px(页头操作区在 PageHeader 组件内,须 :global 命中) */
@@ -949,7 +949,7 @@ function TrainCard({
 
       <style jsx>{`
         .tv-card {
-          padding: var(--space-6);
+          padding: var(--space-4);
           transition:
             border-color var(--duration-fast) var(--ease-standard),
             box-shadow var(--duration-fast) var(--ease-standard),

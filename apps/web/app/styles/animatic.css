@@ -124,12 +124,12 @@
   color: var(--text-muted);
 }
 
-/* ── 分镜图网格与卡片:卡片放大(minmax 160→200),间距 12→20,hover 升浮 ── */
+/* ── 分镜图网格与卡片(2026-08-24 排版统一:间距消费 --section-gap) ── */
 .anim-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: var(--space-5);
-  margin-top: var(--space-6);
+  gap: var(--section-gap);
+  margin-top: var(--section-gap);
   list-style: none;
   padding: 0;
 }
@@ -224,14 +224,14 @@
   margin-left: auto;
 }
 
-/* ── 参数面板(两种模式共用):「头部 + 控件行」两段式,
-   padding 16→24,与上方区块间隔 16→32 ── */
+/* ── 参数面板(两种模式共用):「头部 + 控件行」两段式
+   (2026-08-24 排版统一:卡内 padding 回 16 档,区块间隔消费 --section-gap) ── */
 .anim-params {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
-  margin-top: var(--space-8);
-  padding: var(--space-6);
+  gap: var(--space-4);
+  margin-top: var(--section-gap);
+  padding: var(--space-4);
   background: var(--bg-surface-1);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
@@ -261,7 +261,7 @@
 .anim-params-body {
   display: flex;
   align-items: flex-end;
-  gap: var(--space-5);
+  gap: var(--space-4);
   flex-wrap: wrap;
 }
 
@@ -331,12 +331,12 @@
 }
 
 .anim-result {
-  margin-top: var(--space-8);
+  margin-top: var(--section-gap);
 }
 
 /* stitch 成片结果:面板化,视频带白框底板 */
 .anim-result-panel {
-  padding: var(--space-5);
+  padding: var(--space-4);
   background: var(--bg-surface-1);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
@@ -366,7 +366,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding: var(--space-6);
+  padding: var(--space-4);
   background: var(--bg-surface-1);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);

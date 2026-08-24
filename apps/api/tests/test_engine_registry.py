@@ -348,6 +348,7 @@ async def test_h3_unavailable_when_disabled(live_pool, user, monkeypatch):
         "get_settings",
         lambda: SimpleNamespace(
             h3_enabled=False,
+            default_ckpt="flux2_dev_fp8mixed.safetensors",
             default_video_ckpt=_DISTILLED,
             nsfw_default_gemma=_GEMMA,
             nsfw_default_vae=_VAE,
@@ -378,6 +379,11 @@ async def test_image_engines_dynamic_model_params(live_pool, user):
         assert values[0] == ""
         assert _NEXTGEN_UNET in values
         assert _SFW_CKPT in values
+        # 空值首项透出实际默认底模(settings.default_ckpt):「平台默认(人话名) · 文件名」+ desc
+        first = ckpt["options"][0]
+        assert first["label"].startswith("平台默认("), f"默认项 label 未带人话名: {first['label']}"
+        assert "flux2_dev_fp8mixed.safetensors" in first["label"]
+        assert first.get("desc"), "默认项应附百科卡片简介 desc(ParamField 选中展示)"
         sampler = _param(e, "sampler")
         assert [o["value"] for o in sampler["options"]] == _SAMPLERS
         assert sampler["default"] == "euler"
@@ -399,6 +405,24 @@ async def test_ckpt_options_enriched_with_wiki_card(live_pool, user):
     assert majic["label"].startswith("麦橘写实")
     assert _SFW_CKPT in majic["label"]
     assert majic.get("desc")
+
+
+async def test_nsfw_default_option_labels_urpm(user):
+    """R18 引擎 worker 无 R18 ckpt 时,空值首项透出 R18 默认底模 URPM(人话名 · 文件名 + desc)。"""
+    pool = WorkerPool([_FakeClient(
+        {_DISTILLED, _EROS, _GEMMA, _VAE}, _ltx_nodes(),
+        ckpts=[_SFW_CKPT], unets=[],
+    )])
+    token = nsfw_intent_var.set(True)
+    try:
+        ids = _by_id(await list_engines(pool, user))
+    finally:
+        nsfw_intent_var.reset(token)
+    first = _param(ids["nsfw-txt2img"], "ckpt_name")["options"][0]
+    assert first["value"] == ""
+    assert first["label"].startswith("平台默认(")
+    assert "uberRealisticPornMerge_urpmv13.safetensors" in first["label"]
+    assert first.get("desc")
 
 
 async def test_ckpt_options_unknown_keeps_bare_filename(user):

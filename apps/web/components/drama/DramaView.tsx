@@ -304,8 +304,9 @@ export function DramaView() {
         /* 统一页头在双栏布局内的落位:与内容左右对齐,不参与滚动 */
         .nsfw-drama-root > .page-header {
           flex-shrink: 0;
-          padding: var(--space-5) var(--space-6) 0;
-          margin-bottom: var(--space-5);
+          /* 2026-08-24 排版统一:水平槽 --page-gutter,页头下距 --section-gap */
+          padding: var(--space-3) var(--page-gutter) 0;
+          margin-bottom: var(--section-gap);
         }
         .nsfw-drama {
           flex: 1;
@@ -547,8 +548,8 @@ export function DramaView() {
         }
         @media (max-width: 767px) {
           .nsfw-drama-root > .page-header {
-            padding: var(--space-4) var(--space-4) 0;
-            margin-bottom: var(--space-4);
+            padding: var(--space-3) var(--page-gutter) 0;
+            margin-bottom: var(--section-gap);
           }
           .nsfw-drama {
             flex-direction: column;

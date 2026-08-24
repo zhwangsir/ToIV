@@ -821,6 +821,24 @@ def _ckpt_option(name: str, *, nsfw: bool) -> dict:
     return opt
 
 
+# R18 默认底模(URPM v1.3,与 style_presets.nsfw_urpm 同源):worker 枚举不到任何
+# R18 ckpt 时,NSFW 引擎空值首项透出它,保持「默认是谁」对用户可见。
+_NSFW_DEFAULT_CKPT = "uberRealisticPornMerge_urpmv13.safetensors"
+
+
+def _default_ckpt_option(name: str) -> dict:
+    """空值首项「平台默认」:label 透出实际默认底模(人话名 · 文件名),
+    命中模型百科卡片时附 desc(ParamField 选中项简介对默认项同样生效)。"""
+    card = card_for(name, "checkpoints")
+    opt: dict[str, Any] = {
+        "value": "",
+        "label": f"平台默认({card['label']}) · {name}" if card else f"平台默认 · {name}",
+    }
+    if card and card.get("description"):
+        opt["desc"] = card["description"]
+    return opt
+
+
 def _inject_dynamic_options(p: dict, dyn: dict[str, list[str]] | None) -> dict:
     """把 options_source 标记的参数注入运行时选项;dyn 为 None(worker 不可达)时保留声明态兜底。"""
     src = p.pop("options_source", None)
@@ -828,7 +846,8 @@ def _inject_dynamic_options(p: dict, dyn: dict[str, list[str]] | None) -> dict:
         p.pop("options_source", None)
         return p
     if src == "image_ckpt":
-        p["options"] = [{"value": "", "label": "平台默认底模"}] + [
+        # 空值 = 后端实际默认(settings.default_ckpt,路由 req.ckpt_name or default_ckpt)
+        p["options"] = [_default_ckpt_option(get_settings().default_ckpt)] + [
             _ckpt_option(n, nsfw=is_nsfw(n))
             for n in dyn["ckpts"]
         ]
@@ -843,7 +862,7 @@ def _inject_dynamic_options(p: dict, dyn: dict[str, list[str]] | None) -> dict:
             # R18 专区图像引擎默认落到第一个 R18 底模(对齐旧 CreateView 行为)
             p["default"] = opts[0]["value"]
         else:
-            p["options"] = [{"value": "", "label": "平台默认底模"}]
+            p["options"] = [_default_ckpt_option(_NSFW_DEFAULT_CKPT)]
             p["default"] = ""
     elif src == "sampler":
         if dyn["samplers"]:

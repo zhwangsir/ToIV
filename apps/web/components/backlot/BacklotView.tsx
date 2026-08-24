@@ -529,7 +529,7 @@ export function BacklotView() {
         .backlot-view {
           display: flex;
           flex-direction: column;
-          gap: var(--space-6);
+          gap: var(--section-gap);
         }
 
         /* ── 统一页头:版型/masthead 走全局 .page-header*(2026-08-15 v6.1,编辑双线+Fraunces
@@ -564,11 +564,11 @@ export function BacklotView() {
           color: var(--text-secondary);
         }
 
-        /* ── 卡片网格(密度重排:更宽卡片 + 更大间隔) ── */
+        /* ── 卡片网格(2026-08-24 排版统一:间距消费 --section-gap) ── */
         .bl-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-          gap: var(--space-6);
+          gap: var(--section-gap);
         }
 
         .bl-card {
@@ -638,12 +638,12 @@ export function BacklotView() {
             var(--bg-surface-2);
         }
 
-        /* 卡片正文(留白加大:12→20px,区块间隔 8→12px) */
+        /* 卡片正文(2026-08-24 排版统一:卡内 padding 回 16 档) */
         .bl-card-body {
           display: flex;
           flex-direction: column;
           gap: var(--space-3);
-          padding: var(--space-5);
+          padding: var(--space-4);
           flex: 1;
         }
         .bl-card-head {
@@ -835,7 +835,7 @@ export function BacklotView() {
           align-items: flex-start;
           justify-content: space-between;
           gap: var(--space-4);
-          padding: var(--space-6);
+          padding: var(--space-4);
           border-bottom: 1px solid var(--border-subtle);
           flex-shrink: 0;
         }

@@ -164,10 +164,10 @@ export function AuditLogView() {
           overflow: hidden;
         }
         .audit-loading {
-          padding: var(--space-6) var(--space-5);
+          padding: var(--space-4);
         }
         .audit-error-row {
-          padding: var(--space-4) var(--space-5);
+          padding: var(--space-4);
         }
 
         .audit-table-wrap {

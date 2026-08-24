@@ -215,7 +215,8 @@
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
-  padding: var(--space-6);
+  /* 2026-08-24 排版统一:工作区卡内 padding 回 16 档 */
+  padding: var(--space-4);
 }
 .wb-inspector {
   min-height: 0;

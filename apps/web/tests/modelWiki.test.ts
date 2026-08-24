@@ -51,3 +51,13 @@ test("ModelsView:admin 富化按钮存在且调 enrichModelWiki", () => {
   assert.ok(src.includes("富化介绍"));
   assert.ok(src.includes('isAdmin && ('), "富化按钮未做 admin 门控");
 });
+
+test("ParamField:选中项 desc 对空值默认项同样生效(平台默认透出实际底模,2026-08-24)", () => {
+  const src = readSrc("components/generate/ParamField.tsx");
+  // 查找选中项须按字符串化 value 匹配——空串(平台默认项)也能命中,desc 才会展示
+  assert.ok(
+    src.includes('o.value === String(value ?? "")'),
+    "selectedOpt 查找未字符串化匹配,空值默认项会丢失 desc",
+  );
+  assert.ok(src.includes("selectedOpt?.desc"), "缺选中项 desc 渲染");
+});

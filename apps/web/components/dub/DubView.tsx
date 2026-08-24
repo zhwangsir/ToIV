@@ -1510,7 +1510,7 @@ export function DubView() {
           gap: var(--space-4);
         }
         .dub-panel {
-          padding: var(--space-5);
+          padding: var(--space-4);
           display: flex;
           flex-direction: column;
           gap: var(--space-4);

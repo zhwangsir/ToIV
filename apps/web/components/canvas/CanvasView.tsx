@@ -415,8 +415,9 @@ const styles = `
     max-width: 1200px;
     margin-left: auto;
     margin-right: auto;
-    padding-left: var(--space-8);
-    padding-right: var(--space-8);
+    /* 2026-08-24 排版统一:水平槽消费 --page-gutter */
+    padding-left: var(--page-gutter);
+    padding-right: var(--page-gutter);
   }
   .canvas-bar {
     display: flex;
@@ -431,8 +432,8 @@ const styles = `
     width: 100%;
     max-width: 1200px;
     margin: calc(-1 * var(--space-2)) auto var(--space-4);
-    padding-left: var(--space-8);
-    padding-right: var(--space-8);
+    padding-left: var(--page-gutter);
+    padding-right: var(--page-gutter);
   }
   /* 探测加载块(P1-2,LoadingBlock 骨架行宽约束) */
   .canvas-probe-loading {
@@ -444,17 +445,17 @@ const styles = `
     display: none;
   }
 
-  /* ── 画布舞台:四周留白,iframe 收进圆角面板(卡片化) ── */
+  /* ── 画布舞台:四周留白,iframe 收进圆角面板(卡片化);水平槽消费 --page-gutter ── */
   .canvas-stage {
     flex: 1;
     min-height: 0;
     position: relative;
-    padding: 0 var(--space-6) var(--space-6);
+    padding: 0 var(--page-gutter) var(--space-6);
   }
   .canvas-stage--center {
     overflow: auto;
     display: flex;
-    padding: var(--space-6);
+    padding: var(--space-4);
   }
   .canvas-frame {
     position: relative;

@@ -523,7 +523,7 @@ export function SkillMarketView() {
         .skill-market {
           display: flex;
           flex-direction: column;
-          gap: var(--space-5);
+          gap: var(--section-gap);
           min-height: 0;
         }
         .skill-section {

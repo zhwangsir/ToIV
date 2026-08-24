@@ -315,14 +315,14 @@ export function NsfwRecsPanel() {
         .nsfw-recs-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-          gap: var(--space-5);
-          padding: var(--space-2) 0 var(--space-6);
+          gap: var(--section-gap);
+          padding: var(--space-2) 0 var(--space-4);
         }
         .nsfw-rec-card {
           display: flex;
           flex-direction: column;
           gap: var(--space-2);
-          padding: var(--space-5);
+          padding: var(--space-4);
           background: var(--bg-surface-1);
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-panel); /* 卡片与面板圆角一致 */

@@ -319,7 +319,7 @@
   max-width: min(460px, 84%);
   max-height: 100%;
   overflow-y: auto;
-  padding: var(--space-5);
+  padding: var(--space-4);
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
@@ -608,10 +608,11 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--space-5);
+  /* 2026-08-24 排版统一:空态区块间距消费 --section-gap */
+  gap: var(--section-gap);
   max-width: 640px;
   margin: auto 0;
-  padding: var(--space-6);
+  padding: var(--space-4);
 }
 /* 2026-08-17 停靠列重构:原「浮板展开避让」padding-right/动态宽度补丁整组删除——
    参数台已是真实网格列,舞台列自成居中参照系,空态/词条无需任何避让计算 */

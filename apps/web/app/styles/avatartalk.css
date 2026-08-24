@@ -46,7 +46,8 @@
   justify-content: flex-start;
   gap: var(--space-4);
   margin-bottom: 0;
-  padding: calc(56px + var(--space-2)) var(--space-6) var(--space-4);
+  /* 2026-08-24 排版统一:水平槽消费 --page-gutter(顶部 56px clearance 保留) */
+  padding: calc(56px + var(--space-2)) var(--page-gutter) var(--space-4);
 }
 .at-view > .page-header .page-header-actions {
   align-self: flex-start;
@@ -331,7 +332,7 @@
 .at-setup {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--section-gap);
   padding: var(--space-4);
   overflow-y: auto;
   flex: 1;

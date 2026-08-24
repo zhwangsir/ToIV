@@ -5,19 +5,21 @@
 .studio-home {
   display: flex;
   flex-direction: column;
-  gap: var(--space-7);
+  /* 2026-08-24 排版统一:区块间距消费 --section-gap(全站单一节奏) */
+  gap: var(--section-gap);
   width: 100%;
 }
 .studio-view {
   display: flex;
   flex-direction: column;
-  gap: var(--space-7);
+  gap: var(--section-gap);
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
   height: 100%;
   overflow-y: auto;
-  padding: var(--space-8);
+  /* 2026-08-24 排版统一:页面槽与 .view-shell 同节奏(水平 --page-gutter) */
+  padding: var(--space-3) var(--page-gutter) var(--space-6);
 }
 /* 首页页头用全局 .page-header*(桌面端自动避让 CornerNav);容器 gap 已提供间距 */
 .studio-home .page-header {
@@ -652,7 +654,7 @@
 /* ── 窄屏 <1024px:工作台 padding 对齐 single-view(首页由 .view-shell 自控) ── */
 @media (max-width: 1023px) {
   .studio-view {
-    padding: var(--space-5);
+    padding: var(--space-3) var(--page-gutter) var(--space-5);
   }
 }
 

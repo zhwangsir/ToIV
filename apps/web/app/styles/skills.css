@@ -8,7 +8,8 @@
 .skill-market {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  /* 2026-08-24 排版统一:区块间距消费 --section-gap */
+  gap: var(--section-gap);
   min-height: 0;
 }
 .skill-market-header {

@@ -460,7 +460,7 @@ export function AdminView() {
         .admin-view {
           display: flex;
           flex-direction: column;
-          gap: var(--space-6);
+          gap: var(--section-gap);
         }
 
         .admin-tabs {
@@ -497,7 +497,7 @@ export function AdminView() {
           display: flex;
           flex-direction: column;
           gap: var(--space-2);
-          padding: var(--space-5);
+          padding: var(--space-4);
         }
         .admin-stat-label {
           font-size: var(--text-label);
@@ -525,7 +525,7 @@ export function AdminView() {
         }
 
         .admin-loading {
-          padding: var(--space-6) var(--space-5);
+          padding: var(--space-4);
         }
 
         /* 加载失败:ErrorBar(可关闭) + 重试按钮,横排撑满卡片 */

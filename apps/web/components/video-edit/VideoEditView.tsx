@@ -1056,7 +1056,7 @@ export function VideoEditView() {
         .ve-view {
           display: flex;
           flex-direction: column;
-          gap: var(--space-8);
+          gap: var(--section-gap);
         }
         /* 2026-08-18 页头移除:设置组独立成顶部工具行(右对齐) */
         .ve-toolbar {
@@ -1101,14 +1101,14 @@ export function VideoEditView() {
           display: grid;
           /* 预览宽列在前做视觉中心,素材库收敛为右侧 340px 侧栏 */
           grid-template-columns: minmax(0, 1fr) 340px;
-          gap: var(--space-6);
+          gap: var(--section-gap);
           align-items: start;
         }
-        /* 三区面板统一加厚内边距(16→24),拉开与全局 .card 默认值的层级 */
+        /* 三区面板内边距回 16 档(2026-08-24 排版统一,与全局 .card 同节奏) */
         .ve-preview,
         .ve-media,
         .ve-timeline {
-          padding: var(--space-6);
+          padding: var(--space-4);
         }
         /* 预览区常驻升浮,成为页面视觉中心 */
         .ve-preview {
@@ -1119,7 +1119,7 @@ export function VideoEditView() {
           align-items: center;
           justify-content: space-between;
           gap: var(--space-2);
-          margin-bottom: var(--space-5);
+          margin-bottom: var(--space-4);
           padding-bottom: var(--space-3);
           border-bottom: 1px solid var(--border-subtle);
           font-size: var(--text-section);
@@ -1483,7 +1483,7 @@ export function VideoEditView() {
           display: flex;
           flex-direction: column;
           gap: var(--space-3);
-          padding: var(--space-6);
+          padding: var(--space-4);
         }
         .ve-result-head {
           display: flex;

@@ -9,11 +9,12 @@
 .agent-shell {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  /* 2026-08-24 排版统一:区块间距消费 --section-gap,顶距对齐 .view-shell(space-3) */
+  gap: var(--section-gap);
   width: 100%;
   /* 容器宽度收编(2026-08-16 批 2):与其他宽列表对齐;token 由 Team A 供给,fallback 兜底 */
   max-width: var(--content-wide, 1240px);
-  padding-top: var(--space-8);
+  padding-top: var(--space-3);
 }
 
 /* ── 顶栏:吸附,返回 + 目标 + 徽章 + 操作 ── */
@@ -228,7 +229,7 @@
 .agent-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 300px;
-  gap: var(--space-5);
+  gap: var(--section-gap);
   align-items: start;
 }
 .agent-main {

@@ -1249,7 +1249,7 @@ export function ImageEditView() {
         .ie-view {
           display: flex;
           flex-direction: column;
-          gap: var(--space-8);
+          gap: var(--section-gap);
         }
         .ie-header-text {
           display: flex;
@@ -1334,7 +1334,7 @@ export function ImageEditView() {
         }
         .ie-workspace {
           display: flex;
-          gap: var(--space-8);
+          gap: var(--section-gap);
           align-items: flex-start;
         }
         .ie-rail {
@@ -1360,7 +1360,7 @@ export function ImageEditView() {
         @media (max-width: 1023px) {
           .ie-workspace {
             flex-direction: column;
-            gap: var(--space-6);
+            gap: var(--section-gap);
           }
           .ie-rail {
             width: 100%;
@@ -1375,7 +1375,7 @@ export function ImageEditView() {
 
         /* ── 预览卡片 ── */
         .card.ie-preview-card {
-          padding: var(--space-6);
+          padding: var(--space-4);
           gap: var(--space-4);
         }
         .ie-preview-card {
@@ -1595,7 +1595,7 @@ export function ImageEditView() {
 
         /* ── 结果卡片 ── */
         .card.ie-result-card {
-          padding: var(--space-6);
+          padding: var(--space-4);
           gap: var(--space-4);
         }
         .ie-result-card {

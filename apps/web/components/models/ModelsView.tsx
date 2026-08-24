@@ -1019,7 +1019,7 @@ export function ModelsView() {
         .mv-panel {
           display: flex;
           flex-direction: column;
-          gap: var(--space-5);
+          gap: var(--section-gap);
         }
 
         /* 工具栏面板化:搜索/筛选/统计聚合为一条独立面板,与下方内容拉开层级 */
@@ -1107,7 +1107,7 @@ export function ModelsView() {
            骨架 → 真实卡片替换时栅格不跳动 */
         .mv-panel :global(.ui-loading--grid.mv-market-loading) {
           grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-          gap: var(--space-5);
+          gap: var(--section-gap);
           width: 100%;
         }
         .mv-panel :global(.mv-market-loading .ui-loading-block) {
@@ -1118,7 +1118,7 @@ export function ModelsView() {
         .mv-groups {
           display: flex;
           flex-direction: column;
-          gap: var(--space-6);
+          gap: var(--section-gap);
         }
 
         .mv-group {
@@ -1238,7 +1238,7 @@ export function ModelsView() {
         .mv-market-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-          gap: var(--space-5);
+          gap: var(--section-gap);
         }
 
         .mv-card {

@@ -539,10 +539,11 @@ export function AudioView() {
           min-height: 0;
           overflow-y: auto;
           /* 水平留白由 .view-shell 承担(与页头同节奏),此处只保留纵向间距 */
-          padding: var(--space-5) 0 var(--space-8);
+          padding: var(--space-4) 0 var(--space-6);
           display: flex;
           flex-direction: column;
-          gap: var(--space-6); /* 卡片间距 16→24,拉开工具卡层级 */
+          /* 2026-08-24 排版统一:卡片间距回 16 档(--section-gap) */
+          gap: var(--section-gap);
           width: 100%;
           max-width: 880px; /* 内容列 760→880,配合更宽松的卡内留白 */
           margin: 0 auto; /* 宽屏下内容列居中,不再贴左侧 */
@@ -552,8 +553,9 @@ export function AudioView() {
         .audio-view :global(.audio-tool-card) {
           display: flex;
           flex-direction: column;
-          gap: var(--space-5);
-          padding: var(--space-6); /* 卡内留白 20→24,舒展优先 */
+          gap: var(--space-4);
+          /* 2026-08-24 排版统一:卡内留白回 16 档 */
+          padding: var(--space-4);
           transition: transform var(--duration-base) var(--ease-standard),
                       border-color var(--duration-fast) var(--ease-standard),
                       box-shadow var(--duration-fast) var(--ease-standard);
@@ -795,7 +797,7 @@ export function AudioView() {
             gap: var(--space-4);
           }
           .audio-view :global(.audio-tool-card) {
-            padding: var(--space-5);
+            padding: var(--space-4);
           }
           .audio-view :global(.audio-actions .btn) {
             width: 100%;
