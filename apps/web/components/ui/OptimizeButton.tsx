@@ -57,7 +57,7 @@ interface OptimizeButtonProps {
   onClick?: () => Promise<string | void> | string | void;
   /** 当前提示词:为空时按钮自动禁用(避免对空文本发起优化) */
   prompt: string;
-  /** 新:优化目标类型 image/video/audio/train/image_edit */
+  /** 新:优化目标类型 image/video/audio/train/image_edit/qwen_edit/scope */
   kind?: string;
   /** 新:目标 checkpoint(传给后端让 LLM 适配模型族方言) */
   model?: string;

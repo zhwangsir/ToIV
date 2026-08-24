@@ -7,7 +7,6 @@ import { Card } from "@/components/ui/Card";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Field, Textarea } from "@/components/ui/Input";
-import { OptimizeButton } from "@/components/ui/OptimizeButton";
 import { GenerateView } from "@/components/generate/GenerateView";
 import { useAutoResize } from "@/hooks/useAutoResize";
 import {
@@ -159,12 +158,7 @@ function TtsCard() {
       <div className="audio-prompt-field">
         <div className="audio-prompt-head">
           <span className="audio-prompt-label">台词文本</span>
-          <OptimizeButton
-            prompt={text}
-            kind="audio"
-            onOptimized={(t) => setText(t)}
-            disabled={synthing}
-          />
+          {/* 台词是要念出来的内容,不接提示词优化(会被改写成英文标签串,内容损毁) */}
         </div>
         <Textarea
           ref={textRef}

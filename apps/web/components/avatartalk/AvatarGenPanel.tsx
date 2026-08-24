@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon } from "@/components/ui/Icon";
 import { Field, Input, Select, Textarea } from "@/components/ui/Input";
+import { OptimizeButton } from "@/components/ui/OptimizeButton";
 import { AssetPicker, type PickedAsset } from "@/components/generate/AssetPicker";
 import { useAutoResize } from "@/hooks/useAutoResize";
 import { usePoll } from "@/hooks/usePoll";
@@ -500,7 +501,20 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
             <section className="at-gen-section">
               <div className="at-section-head">
                 <h3 className="at-section-title">提示词</h3>
-                <span className="at-section-count">必填</span>
+                {/* AI 优化:中文意图 → 英文视频提示词(通用视频方言,negative 回填高级参数负向) */}
+                <span className="at-gen-inline">
+                  <span className="at-section-count">必填</span>
+                  <OptimizeButton
+                    prompt={positive}
+                    kind="video"
+                    engine="avatar-talk"
+                    onOptimized={(text, neg) => {
+                      setPositive(text);
+                      if (neg) setNegative(neg);
+                    }}
+                    disabled={gen.isRunning}
+                  />
+                </span>
               </div>
             <Field label="正向提示词">
               <Textarea

@@ -643,3 +643,86 @@ def test_style_llm_layer_routing(client_token, monkeypatch):
     )
     assert r.status_code == 200, r.text
     assert captured["layer"] == "L3"
+
+
+# ── 2026-08-24 覆盖补齐:Wan-Animate-2 引擎方言 + qwen_edit / scope 专用 kind ──
+
+def test_video_engine_dialect_wan_animate2(client_token, monkeypatch):
+    """wan-animate-2 引擎:外观 caption 方言(只描述参考图外观+背景,严禁动作词)。"""
+    captured: dict = {}
+    _patch_layered(
+        monkeypatch,
+        '{"positive": "a young woman with long black hair, red dress, standing in a sunlit cafe", '
+        '"negative": "blurry, flickering"}',
+        captured,
+    )
+    client, token = client_token
+    r = client.post(
+        "/api/optimize",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"prompt": "黑发红裙女孩在咖啡馆", "kind": "video", "engine": "wan-animate-2"},
+    )
+    assert r.status_code == 200, r.text
+    sys = captured["system"]
+    assert "Wan-Animate-2" in sys  # 命中专用方言而非通用视频模板
+    assert "外观" in sys and "驱动视频" in sys
+    assert "严禁" in sys  # 禁动作词约束透出
+    assert r.json()["optimized"].startswith("a young woman")
+
+
+def test_video_engine_prefix_wan_animate2_not_hijacked():
+    """方言前缀匹配:wan-animate-2 不被 wan-nsfw-i2v 抢占,h3 前缀匹配仍正常。"""
+    from app.routes.optimize import _video_system_for
+
+    assert "Wan-Animate-2" in _video_system_for("wan-animate-2")
+    assert "Wan2.2" in _video_system_for("wan-nsfw-i2v")
+    assert "Wan-Animate-2" not in _video_system_for("wan-nsfw-i2v")
+    assert "正向指令" in _video_system_for("h3-t2v")
+
+
+def test_qwen_edit_kind_uses_instruction_dialect(client_token, monkeypatch):
+    """qwen_edit kind:自然语言编辑指令方言(保留约束/文字引号),单段返回无 negative。"""
+    captured: dict = {}
+    _patch_layered(monkeypatch, 'Change the jacket to red leather, keep the background unchanged', captured)
+    client, token = client_token
+    r = client.post(
+        "/api/optimize",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"prompt": "把夹克换成红色皮衣,背景别动", "kind": "qwen_edit"},
+    )
+    assert r.status_code == 200, r.text
+    sys = captured["system"]
+    assert "编辑指令" in sys
+    assert "保留约束" in sys
+    assert '"OPEN"' in sys  # 文字编辑引号规则透出
+    data = r.json()
+    assert data["optimized"] == "Change the jacket to red leather, keep the background unchanged"
+    assert data["negative"] is None  # 单段类:不产生 negative
+
+
+def test_qwen_edit_differs_from_image_edit():
+    """语义分流:qwen_edit 是指令方言;image_edit 仍是 SD 重绘风格描述(positive+negative)。"""
+    from app.routes.optimize import _IMAGE_SYSTEMS, _TEXT_SYSTEMS
+
+    assert "编辑指令" in _TEXT_SYSTEMS["qwen_edit"]
+    assert "negative" in _IMAGE_SYSTEMS["image_edit"]  # 旧 kind 不动
+    assert "qwen_edit" not in _IMAGE_SYSTEMS
+
+
+def test_scope_kind_dialect(client_token, monkeypatch):
+    """scope kind(SCoPE 运镜):首帧已由用户提供,禁运镜词,只写内容+氛围+主体运动感受。"""
+    captured: dict = {}
+    _patch_layered(monkeypatch, "a misty harbor at dawn, boats gently rocking on calm water", captured)
+    client, token = client_token
+    r = client.post(
+        "/api/optimize",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"prompt": "清晨雾中的港口,船轻轻摇晃", "kind": "scope"},
+    )
+    assert r.status_code == 200, r.text
+    sys = captured["system"]
+    assert "SCoPE" in sys
+    assert "轨迹预设" in sys
+    assert "严禁" in sys  # 禁运镜词约束透出
+    assert r.json()["optimized"].startswith("a misty harbor")
+    assert r.json()["negative"] is None

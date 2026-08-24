@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Field, Input, Select } from "@/components/ui/Input";
+import { OptimizeButton } from "@/components/ui/OptimizeButton";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { AssetPicker, type PickedAsset } from "@/components/generate/AssetPicker";
 import {
@@ -921,7 +922,18 @@ export function ImageEditView() {
                   )}
                   {t.key === "qwenedit" && (
                     <div className="ie-field-group">
-                      <Field label="编辑指令">
+                      <Field>
+                        <div className="ie-field-head">
+                          <span className="ie-field-label">编辑指令</span>
+                          {/* AI 优化:中文修改意图 → 英文编辑指令(后端 kind=qwen_edit 指令方言,
+                              不套画风/画质词方言;仅文本回填,不改其它参数) */}
+                          <OptimizeButton
+                            prompt={qwenPositive}
+                            kind="qwen_edit"
+                            onOptimized={(text) => setQwenPositive(text)}
+                            disabled={isRunning}
+                          />
+                        </div>
                         <Input
                           value={qwenPositive}
                           onChange={(e) => setQwenPositive(e.target.value)}
@@ -989,7 +1001,17 @@ export function ImageEditView() {
                           ))}
                         </Select>
                       </Field>
-                      <Field label="附加指令(可选)">
+                      <Field>
+                        <div className="ie-field-head">
+                          <span className="ie-field-label">附加指令(可选)</span>
+                          {/* 与编辑指令同方言:附加指令同样进 generateQwenEdit 的 positive */}
+                          <OptimizeButton
+                            prompt={cam3dNote}
+                            kind="qwen_edit"
+                            onOptimized={(text) => setCam3dNote(text)}
+                            disabled={isRunning}
+                          />
+                        </div>
                         <Input
                           value={cam3dNote}
                           onChange={(e) => setCam3dNote(e.target.value)}
@@ -1392,6 +1414,20 @@ export function ImageEditView() {
           padding: var(--space-3);
           background: var(--bg-surface-2);
           border-radius: var(--radius-control);
+        }
+        /* 字段头:标签 + 优化提示词按钮同行(对齐 ui/Field 的 ui-field-label 视觉) */
+        .ie-field-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: var(--space-2);
+        }
+        .ie-field-label {
+          font-size: var(--text-label);
+          font-weight: var(--font-medium);
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          color: var(--text-muted);
         }
         .ie-tool-run {
           display: flex;

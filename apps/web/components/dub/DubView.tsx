@@ -27,7 +27,6 @@ import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Input, Select } from "@/components/ui/Input";
-import { OptimizeButton } from "@/components/ui/OptimizeButton";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useToast } from "@/components/ui/Toast";
 import { usePoll } from "@/hooks/usePoll";
@@ -798,12 +797,8 @@ export function DubView() {
                   <label className="dub-field dub-field-wide">
                     <div className="dub-field-label-row">
                       <span className="dub-field-label">情绪提示(可选)</span>
-                      <OptimizeButton
-                        prompt={emoText}
-                        kind="audio"
-                        onOptimized={(t) => setEmoText(t)}
-                        label="优化提示"
-                      />
+                      {/* 情绪提示直送 IndexTTS 情感推理(原生支持中文),不接提示词优化
+                          (优化会改写成英文音乐标签串,语义损毁) */}
                     </div>
                     <Input
                       type="text"

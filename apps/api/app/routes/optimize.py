@@ -190,6 +190,20 @@ _VIDEO_ENGINE_SYSTEMS: dict[str, str] = {
         "negative:一段英文负向,排除画质/闪烁/形变/抖动/解剖瑕疵,精炼 5~15 词。\n"
         '只输出 JSON:{"positive": "...", "negative": "..."},不要解释,不要代码块标记。'
     ),
+    # Wan-Animate-2(动作迁移/视频换人):positive 只描述参考图「外观+背景」,
+    # 动作/表情/镜头运动全由驱动视频决定——写动作词会与驱动视频冲突(官方提示词要求,
+    # 见 routes/wan_studio.py WanAnimate2Request;positive 留空时后端走 VLM 自动反推同款 caption)
+    "wan-animate-2": (
+        "你是 Wan-Animate-2 动作迁移提示词工程师。该引擎用参考图 + 驱动视频生成视频:"
+        "动作、表情、镜头运动全部由驱动视频决定,positive **只描述参考图的静态外观与背景**,"
+        "**严禁写任何动作、姿态变化或镜头运动词**(写了会与驱动视频打架、画面崩坏)。\n"
+        "把用户的想法改写成:\n"
+        "1) positive:一段英文外观 caption,结构:人物外观(年龄/发型/五官/体态)→ 服装配饰 → "
+        "场景与背景 → 光线氛围 → 镜头感(仅静态取景描述,如 medium shot, looking at camera,"
+        "不含任何运动);\n"
+        "2) negative:一段英文负向,排除画质/闪烁/形变瑕疵,精炼 5~15 词。\n"
+        '只输出 JSON:{"positive": "...", "negative": "..."},不要解释,不要代码块标记。'
+    ),
     # MiniMax H3(含 R18 版):负向不可靠(2026-08-16 真机 A/B 实证),一切写正向指令
     "h3": (
         "你是 MiniMax H3 视频提示词工程师。H3 特性:负面约束不可靠(实测「不要 X」反而易出 X),"
@@ -273,6 +287,33 @@ _TEXT_SYSTEMS: dict[str, str] = {
         "一个规范的英文触发词:全小写、单词间用下划线连接、独特不易与普通词撞车、简短易记"
         "(如 zhenyu_girl, mocha_style)。若用户给了多个候选,原样保留逗号分隔。"
         "只输出触发词本身,不要解释、不要引号、不要换行。"
+    ),
+    # Qwen-Image-Edit(2509/2511 + 3D 相机附加指令):吃的是**自然语言编辑指令**,
+    # 不是画面描述——与 image_edit(SD 重绘风格描述 + negative)语义不同,故独立 kind
+    "qwen_edit": (
+        "你是 Qwen-Image-Edit 指令工程师。用户上传了一张图,要写的是**自然语言编辑指令**"
+        "(不是画面描述)。\n"
+        "把用户的修改意图改写成一句简洁明确的英文编辑指令:\n"
+        "- 直接说「改什么、改成什么」(如 Change the jacket to red leather / "
+        "Add sunglasses to the man);\n"
+        "- 未提及的部分默认保持原样;用户要求保留主体/背景/构图时,显式写出保留约束"
+        "(如 keep the background and lighting unchanged);\n"
+        "- 修改画面内文字时,目标文字必须用英文双引号标出(如 change the sign to \"OPEN\");\n"
+        "- 不要堆画质词(masterpiece/8k 等对编辑模型无效),不要复述与修改无关的画面内容。\n"
+        "只输出指令本身,不要解释、不要引号包裹整句、不要换行。"
+    ),
+    # SCoPE 运镜视频(routes/scope.py):首帧图由用户提供,相机运动由轨迹预设负责,
+    # 提示词只写画面内容+氛围+画面内主体的运动感受,写运镜词会干扰轨迹
+    "scope": (
+        "你是 SCoPE 运镜视频提示词工程师。用户已提供首帧图,并已选定相机轨迹预设——"
+        "相机运动完全由轨迹预设负责,提示词里**严禁写任何运镜/相机运动词**"
+        "(pan/zoom/dolly/orbit/static camera 等,写了会干扰轨迹)。\n"
+        "把用户的想法改写成一段英文提示词,只描述:\n"
+        "1) 画面内容与主体(与首帧图一致的场景/主体);\n"
+        "2) 氛围与光线(如 misty morning, neon glow);\n"
+        "3) 期望的运动感受——画面内主体自身的运动与节奏"
+        "(如 hair flowing in the wind, crowd drifting slowly),不是相机运动。\n"
+        "只输出提示词本身,不要解释、不要引号、不要换行。"
     ),
 }
 

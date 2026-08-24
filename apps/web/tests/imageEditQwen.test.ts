@@ -78,6 +78,15 @@ test("AvatarGenPanel:人像/音频均可从作品库选取,钉住对方 worker",
   assert.ok(src.includes("pinWorker"), "缺同机钉定");
 });
 
+test("AvatarGenPanel:正向提示词接 OptimizeButton(kind=video, engine=avatar-talk)", () => {
+  const src = readSrc("components/avatartalk/AvatarGenPanel.tsx");
+  assert.ok(src.includes('from "@/components/ui/OptimizeButton"'), "未引入 OptimizeButton");
+  assert.ok(src.includes('kind="video"'), "kind 应为 video");
+  assert.ok(src.includes('engine="avatar-talk"'), "engine 应为 avatar-talk");
+  assert.ok(src.includes("setPositive(text)"), "优化结果未回填正向提示词");
+  assert.ok(src.includes("setNegative(neg)"), "negative 未回填高级参数负向");
+});
+
 test("page.tsx:灵动岛导航不突变模块级常量(观测重复 bug 回归)", () => {
   const src = readSrc("app/page.tsx");
   assert.ok(!src.includes("islandItems.push("), "islandItems 不得 push 突变(2026-08-24 观测×7)");
@@ -114,4 +123,24 @@ test("api.ts:generateQwenEdit 支持 3D 相机字段", () => {
   assert.ok(fn.includes("azimuth: params.azimuth"), "azimuth 未提交");
   assert.ok(fn.includes("elevation: params.elevation"), "elevation 未提交");
   assert.ok(fn.includes("distance: params.distance"), "distance 未提交");
+});
+
+/* ── ⑥ AI 优化覆盖(2026-08-24,kind=qwen_edit 指令方言) ── */
+test("ImageEditView:编辑指令与 3D 相机附加指令均接 OptimizeButton(kind=qwen_edit)", () => {
+  const src = readSrc("components/image-edit/ImageEditView.tsx");
+  assert.ok(src.includes('from "@/components/ui/OptimizeButton"'), "未引入 OptimizeButton");
+  // 两处接入:编辑指令(qwenPositive)+ 附加指令(cam3dNote)
+  assert.ok(src.includes('kind="qwen_edit"'), "缺 kind=qwen_edit");
+  const occurrences = src.split('kind="qwen_edit"').length - 1;
+  assert.ok(occurrences >= 2, `kind=qwen_edit 应至少出现 2 次(编辑指令+附加指令),实际 ${occurrences}`);
+  assert.ok(
+    src.includes("onOptimized={(text) => setQwenPositive(text)}"),
+    "优化结果未回填编辑指令",
+  );
+  assert.ok(
+    src.includes("onOptimized={(text) => setCam3dNote(text)}"),
+    "优化结果未回填附加指令",
+  );
+  // 标签行布局:标签 + 按钮同行
+  assert.ok(src.includes("ie-field-head"), "缺字段头布局类");
 });
