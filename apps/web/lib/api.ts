@@ -1065,6 +1065,7 @@ export interface QwenEditParams {
   distance?: string; // closeup/medium/wide
   fast?: boolean; // 默认 true=Lightning 加速档;false=20 步标准档
   seed?: number;
+  batchId?: string; // 内容分组 id(360° 环绕序列同批 8 张归组,作品库折叠为文件夹)
 }
 
 export async function generateQwenEdit(params: QwenEditParams): Promise<GenerateResponse> {
@@ -1081,6 +1082,7 @@ export async function generateQwenEdit(params: QwenEditParams): Promise<Generate
       ...(params.distance ? { distance: params.distance } : {}),
       ...(params.fast != null ? { fast: params.fast } : {}),
       ...(params.seed != null ? { seed: params.seed } : {}),
+      ...(params.batchId ? { batch_id: params.batchId } : {}),
     }),
   });
   if (!res.ok) await raiseApiError(res, "智能编辑请求失败");

@@ -11,8 +11,10 @@ import {
   countByFilter,
   deleteJobsBatch,
   FILTERS,
+  folderCover,
   formatRetention,
   formatTime,
+  groupLibraryEntries,
   isVideoKind,
   kindLabel,
   kindToFilter,
@@ -20,6 +22,7 @@ import {
   persistDensity,
   splitCardTitle,
   statusLabel,
+  type BatchFolder,
   type ContentFilterKey,
   type FilterKey,
   type LibraryDensity,
@@ -212,6 +215,10 @@ export function LibraryView(props?: LibraryViewProps) {
   const upscaleTimerRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
   // 沉浸查看器:当前查询结果列表内的索引;失败/音频作品也允许打开(显示对应占位)
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
+  // 灯箱穿梭范围:null=主列表;文件夹下钻内点开成员时=该文件夹成员(不穿梭出组)
+  const [lightboxScope, setLightboxScope] = useState<readonly JobItem[] | null>(null);
+  // 内容分组下钻:当前打开的文件夹 batch_id(null=主网格)
+  const [openBatchId, setOpenBatchId] = useState<string | null>(null);
   // 风格卡(WS4):StyleBar 数据源 + 「存为风格」Popover 状态
   const [styleCards, setStyleCards] = useState<StyleCard[]>([]);
   const [styleTarget, setStyleTarget] = useState<JobItem | null>(null);
@@ -279,12 +286,30 @@ export function LibraryView(props?: LibraryViewProps) {
     [jobs, contentFilter],
   );
 
-  // 灯箱索引越界钳制:删除当前作品后 filtered 收缩,滑到下一件;列表清空则关闭
+  // 内容分组(2026-08-24):带 batch_id 的作业(360° 环绕序列)折叠为文件夹卡,
+  // 主网格不再平铺成员;筛选已先作用于成员 → 文件夹按成员 kind 归属对应类型桶
+  const entries = useMemo(() => groupLibraryEntries(filtered), [filtered]);
+
+  // 当前打开的文件夹(下钻);成员删到 <2 时文件夹自然消失 → 自动退回主网格
+  const openFolder: BatchFolder | null = useMemo(() => {
+    if (!openBatchId) return null;
+    const hit = entries.find((e) => e.type === "batch" && e.folder.batchId === openBatchId);
+    return hit && hit.type === "batch" ? hit.folder : null;
+  }, [entries, openBatchId]);
+
+  useEffect(() => {
+    if (openBatchId && !openFolder) setOpenBatchId(null);
+  }, [openBatchId, openFolder]);
+
+  // 灯箱穿梭列表:文件夹下钻内点开成员时限定在组内,否则为整个查询结果
+  const lightboxJobs = lightboxScope ?? filtered;
+
+  // 灯箱索引越界钳制:删除当前作品后列表收缩,滑到下一件;列表清空则关闭
   useEffect(() => {
     if (lightboxIdx === null) return;
-    if (filtered.length === 0) setLightboxIdx(null);
-    else if (lightboxIdx >= filtered.length) setLightboxIdx(filtered.length - 1);
-  }, [filtered.length, lightboxIdx]);
+    if (lightboxJobs.length === 0) setLightboxIdx(null);
+    else if (lightboxIdx >= lightboxJobs.length) setLightboxIdx(lightboxJobs.length - 1);
+  }, [lightboxJobs.length, lightboxIdx]);
 
   // 列表收缩(删除/刷新)后 prune 选中集,避免选中已不存在的作品
   useEffect(() => {
@@ -296,11 +321,11 @@ export function LibraryView(props?: LibraryViewProps) {
     });
   }, [jobs, selectedIds.size]);
 
-  const visibleJobs = useMemo(
-    () => filtered.slice(0, visibleCount),
-    [filtered, visibleCount],
+  const visibleEntries = useMemo(
+    () => entries.slice(0, visibleCount),
+    [entries, visibleCount],
   );
-  const hasMore = filtered.length > visibleCount;
+  const hasMore = entries.length > visibleCount;
 
   // 统一推进一步:客户端已加载的先看(扩 visibleCount),看完了再拉服务端下一页
   const advance = useCallback(() => {
@@ -362,10 +387,11 @@ export function LibraryView(props?: LibraryViewProps) {
     setDeleteError(null);
   };
 
-  /** 全选当前已渲染的筛选结果(批量清理免逐张点;已全选时再点切换为清空)。 */
+  /** 全选当前已渲染的筛选结果(批量清理免逐张点;已全选时再点切换为清空)。
+   *  文件夹成员不参与主网格批量选择(防整组误删),仅普通作品卡可选。 */
   const toggleSelectAllVisible = () => {
     setSelectedIds((prev) => {
-      const allVisibleIds = visibleJobs.map((j) => j.id);
+      const allVisibleIds = visibleEntries.flatMap((e) => (e.type === "job" ? [e.job.id] : []));
       const allSelected = allVisibleIds.length > 0 && allVisibleIds.every((id) => prev.has(id));
       if (allSelected) {
         const next = new Set(prev);
@@ -542,10 +568,21 @@ export function LibraryView(props?: LibraryViewProps) {
     }
   };
 
-  // 打开沉浸查看器:定位到当前查询结果列表中的索引(失败/音频作品同样可打开)
-  const openLightbox = (job: JobItem) => {
-    const idx = filtered.findIndex((j) => j.id === job.id);
-    if (idx >= 0) setLightboxIdx(idx);
+  // 打开沉浸查看器:定位到穿梭列表中的索引(失败/音频作品同样可打开);
+  // scope 缺省=主列表,文件夹下钻内传成员列表(穿梭不出组)
+  const openLightbox = (job: JobItem, scope?: readonly JobItem[]) => {
+    const list = scope ?? filtered;
+    const idx = list.findIndex((j) => j.id === job.id);
+    if (idx >= 0) {
+      setLightboxScope(scope ?? null);
+      setLightboxIdx(idx);
+    }
+  };
+
+  /** 关闭灯箱:同时清空穿梭范围(回到主列表口径)。 */
+  const closeLightbox = () => {
+    setLightboxIdx(null);
+    setLightboxScope(null);
   };
 
   // ── WS4 快捷操作 + 风格卡 ──
@@ -582,6 +619,7 @@ export function LibraryView(props?: LibraryViewProps) {
       /* localStorage 不可用时仍跳转,草稿缺失不阻塞 */
     }
     setLightboxIdx(null);
+    setLightboxScope(null);
     if (onNavigate) onNavigate(target);
     else window.location.assign(`/?view=${target}`);
   };
@@ -703,7 +741,9 @@ export function LibraryView(props?: LibraryViewProps) {
         </div>
       </header>
 
-      {/* 工具条(sticky):搜索 / 类型 chips / 内容分级 / 排序 / 密度 / 批量管理 */}
+      {/* 工具条(sticky):搜索 / 类型 chips / 内容分级 / 排序 / 密度 / 批量管理;
+          文件夹下钻视图隐藏(返回主网格即恢复) */}
+      {!openFolder && (
       <div className="lib-toolbar">
         <div className="lib-search">
           <span className="lib-search-icon" aria-hidden="true">
@@ -855,13 +895,16 @@ export function LibraryView(props?: LibraryViewProps) {
           </Button>
         </div>
       </div>
+      )}
 
       {/* 风格库横条(WS4):空态 StyleBar 内部返回 null,不渲染整条 */}
+      {!openFolder && (
       <StyleBar
         cards={styleCards}
         onApply={applyStyleCard}
         onDelete={requestDeleteStyleCard}
       />
+      )}
 
       <div className="lib-body">
         {error && !loading && (
@@ -917,10 +960,155 @@ export function LibraryView(props?: LibraryViewProps) {
           </div>
         )}
 
-        {!error && !loading && !libraryEmpty && !resultEmpty && (
+        {/* 文件夹下钻视图(内容分组,2026-08-24):面包屑 + 成员网格;
+            成员卡与普通作品卡同行为(点开大图组内穿梭/单独删除),不做整组删除 */}
+        {!error && !loading && openFolder && (
+          <>
+            <nav className="lib-breadcrumb" aria-label="位置">
+              <button
+                type="button"
+                className="lib-breadcrumb-back"
+                onClick={() => setOpenBatchId(null)}
+              >
+                <Icon name="chevron-left" size={14} />
+                作品库
+              </button>
+              <span className="lib-breadcrumb-sep" aria-hidden="true">
+                /
+              </span>
+              <span className="lib-breadcrumb-current">
+                环绕序列 {openFolder.batchId.slice(0, 8)}
+              </span>
+              <span className="lib-breadcrumb-count">{openFolder.members.length} 张</span>
+            </nav>
+            <div className="lib-grid">
+              {openFolder.members.map((job) => {
+                const hasResult = job.status === "done" && job.results?.length > 0;
+                const isVideo = isVideoKind(job.kind);
+                const cardText = splitCardTitle(job);
+                return (
+                  <article
+                    key={job.id}
+                    className={`lib-card${deletingId === job.id ? " is-deleting" : ""}`}
+                  >
+                    <div className="lib-thumb">
+                      <button
+                        type="button"
+                        className="lib-thumb-hit"
+                        aria-label={`预览作品: ${job.prompt || "无提示词"}`}
+                        onClick={() => openLightbox(job, openFolder.members)}
+                      >
+                        {hasResult ? (
+                          isVideo ? (
+                            <LazyVideo src={imageUrl(job.results[0])} muted loop playsInline />
+                          ) : (
+                            <ImageThumb job={job} />
+                          )
+                        ) : (
+                          <ThumbPlaceholder job={job} />
+                        )}
+                      </button>
+                      {/* 快捷操作浮层:查看大图(组内穿梭)/ 单独删除 */}
+                      <div className="lib-actions" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          className="lib-action-btn"
+                          title="查看大图"
+                          aria-label="查看大图"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openLightbox(job, openFolder.members);
+                          }}
+                        >
+                          <Icon name="zoom-in" size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="lib-action-btn lib-action-btn--danger"
+                          title="删除作品"
+                          aria-label="删除作品"
+                          disabled={deletingId === job.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(job);
+                          }}
+                        >
+                          <Icon
+                            name={deletingId === job.id ? "loading" : "delete"}
+                            size={14}
+                          />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="lib-foot">
+                      <div className="lib-card-title" title={job.prompt}>
+                        {cardText.title || "(无提示词)"}
+                      </div>
+                      {cardText.meta && (
+                        <div className="lib-card-sub" title={cardText.meta}>
+                          {cardText.meta}
+                        </div>
+                      )}
+                      <div className="lib-meta">
+                        <span className="lib-kind" title={kindLabel(job.kind)}>
+                          {kindLabel(job.kind)}
+                        </span>
+                        <span className="lib-time">{formatTime(job.created_at)}</span>
+                        <span
+                          className={`lib-status-dot is-${job.status}`}
+                          title={statusLabel(job.status)}
+                          aria-label={`状态:${statusLabel(job.status)}`}
+                        />
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {!error && !loading && !openFolder && !libraryEmpty && !resultEmpty && (
           <>
             <div className="lib-grid">
-              {visibleJobs.map((job) => {
+              {visibleEntries.map((entry) => {
+              // 文件夹卡(内容分组):同批成员折叠为一卡,封面=首张产物缩略图,点击进入下钻
+              if (entry.type === "batch") {
+                const folder = entry.folder;
+                const cover = folderCover(folder);
+                const coverDone = cover.status === "done" && cover.results?.length > 0;
+                return (
+                  <article key={`batch-${folder.batchId}`} className="lib-card lib-folder-card">
+                    <div className="lib-thumb">
+                      <button
+                        type="button"
+                        className="lib-thumb-hit"
+                        aria-label={`打开文件夹: 360° 环绕序列,共 ${folder.members.length} 张`}
+                        onClick={() => setOpenBatchId(folder.batchId)}
+                      >
+                        {coverDone ? (
+                          <ImageThumb job={cover} />
+                        ) : (
+                          <ThumbPlaceholder job={cover} />
+                        )}
+                      </button>
+                      {/* 文件夹角标:右上角成员数(成员产物 URL 带 sig,封面直接复用) */}
+                      <span className="lib-folder-badge" aria-hidden="true">
+                        <Icon name="library" size={11} />
+                        ×{folder.members.length}
+                      </span>
+                    </div>
+                    <div className="lib-foot">
+                      <div className="lib-card-title">360° 环绕序列</div>
+                      <div className="lib-meta">
+                        <span className="lib-kind">{kindLabel(cover.kind)}</span>
+                        <span className="lib-time">{formatTime(cover.created_at)}</span>
+                      </div>
+                    </div>
+                  </article>
+                );
+              }
+              const job = entry.job;
               // 后端作业状态枚举为 queued/running/done/error;done 表示成功且有产物
               const hasResult = job.status === "done" && job.results?.length > 0;
               const isVideo = isVideoKind(job.kind);
@@ -1154,7 +1342,7 @@ export function LibraryView(props?: LibraryViewProps) {
                   onClick={advance}
                 >
                   {hasMore
-                    ? `加载更多(已显示 ${visibleJobs.length} / ${filtered.length})`
+                    ? `加载更多(已显示 ${visibleEntries.length} / ${entries.length})`
                     : "加载更早的作品"}
                 </Button>
               </div>
@@ -1163,15 +1351,15 @@ export function LibraryView(props?: LibraryViewProps) {
         )}
       </div>
 
-      {/* 批量模式:底部浮动操作条(已选计数 / 批量删除 / 取消) */}
-      {batchMode && (
+      {/* 批量模式:底部浮动操作条(已选计数 / 批量删除 / 取消);文件夹下钻内不显示 */}
+      {batchMode && !openFolder && (
         <div className="lib-batchbar" role="region" aria-label="批量操作">
           <span className="lib-batchbar-count">已选 {selectedIds.size} 项</span>
           <span className="lib-batchbar-sep" aria-hidden="true" />
           <Button
             size="sm"
             variant="ghost"
-            disabled={visibleJobs.length === 0 || batchDeleting}
+            disabled={visibleEntries.length === 0 || batchDeleting}
             icon={<Icon name="grid" size={14} />}
             onClick={toggleSelectAllVisible}
             title="选中/取消当前已显示的全部作品"
@@ -1197,12 +1385,13 @@ export function LibraryView(props?: LibraryViewProps) {
         </div>
       )}
 
-      {/* 沉浸查看器:Frame.io 式左舞台 + 右元信息面板;←/→ 穿梭 + 快捷操作 */}
-      {lightboxIdx !== null && filtered[lightboxIdx] && (
+      {/* 沉浸查看器:Frame.io 式左舞台 + 右元信息面板;←/→ 穿梭 + 快捷操作;
+          文件夹下钻内点开成员时穿梭范围限定为该组成员(lightboxScope) */}
+      {lightboxIdx !== null && lightboxJobs[lightboxIdx] && (
         <LibraryLightbox
-          jobs={filtered}
+          jobs={lightboxJobs as JobItem[]}
           index={lightboxIdx}
-          onClose={() => setLightboxIdx(null)}
+          onClose={closeLightbox}
           onIndex={setLightboxIdx}
           onSaveStyle={openStylePopover}
           onReuse={reusePromptAsDraft}

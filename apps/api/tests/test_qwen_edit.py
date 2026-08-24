@@ -324,3 +324,67 @@ def test_camera3d_mutex_and_incomplete():
         ))
     with pytest.raises(QwenEditError):
         build_qwen_edit_graph(QwenEditParams(image="a.png", positive="", azimuth=90))
+
+
+
+# ── batch_id 内容分组(2026-08-24,360° 环绕序列归组)──────────────────────────
+
+import json as _json
+
+
+def test_batch_id_accepted_and_snapshotted(client, monkeypatch):
+    """batch_id 合法时接受,并经 params_snapshot 进入 Job.params(归组唯一事实源)。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "qe-batch-ok")
+    _install_fakes(monkeypatch, _FakeEditClient())
+    r = _post(c, uid, azimuth=0, elevation=0, distance="medium",
+              batch_id="orbit-3f9c2a_ab-01")
+    assert r.status_code == 200, r.text
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+    assert job is not None
+    snap = _json.loads(job.params)
+    assert snap["batch_id"] == "orbit-3f9c2a_ab-01"
+
+
+def test_batch_id_omitted_by_default(client, monkeypatch):
+    """不传 batch_id 时快照里为 None,不产生分组。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "qe-batch-none")
+    _install_fakes(monkeypatch, _FakeEditClient())
+    r = _post(c, uid, camera="wide")
+    assert r.status_code == 200, r.text
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+    assert _json.loads(job.params)["batch_id"] is None
+
+
+def test_batch_id_rejects_unsafe_chars(client, monkeypatch):
+    """安全字符白名单:空格/斜杠/中文等一律 422。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "qe-batch-bad")
+    _install_fakes(monkeypatch, _FakeEditClient())
+    for bad in ("bad id", "a/b", "a.b", "环绕批次", "", "a" * 65):
+        r = _post(c, uid, camera="wide", batch_id=bad)
+        assert r.status_code == 422, f"batch_id={bad!r} 应 422,实得 {r.status_code}"
+
+
+def test_batch_id_listed_in_jobs(client, monkeypatch):
+    """/api/jobs 列表项透出 batch_id;无分组作业回落空串。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "qe-batch-list")
+    _install_fakes(monkeypatch, _FakeEditClient())
+    r = _post(c, uid, azimuth=45, elevation=0, distance="medium", batch_id="orbit-list-1")
+    assert r.status_code == 200, r.text
+    r2 = _post(c, uid, camera="wide")  # 无分组对照
+    assert r2.status_code == 200, r2.text
+
+    headers = {"Authorization": f"Bearer {create_token(uid)}"}
+    items = c.get("/api/jobs", headers=headers).json()
+    by_batch = {i["batch_id"] for i in items}
+    assert "orbit-list-1" in by_batch
+    assert "" in by_batch  # 无分组作业为空串而非缺键

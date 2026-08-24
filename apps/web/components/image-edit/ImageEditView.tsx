@@ -10,6 +10,7 @@ import { Field, Input, Select } from "@/components/ui/Input";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { AssetPicker, type PickedAsset } from "@/components/generate/AssetPicker";
+import { OrbitViewer } from "@/components/image-edit/OrbitViewer";
 import {
   generate3D,
   generateFaceDetailer,
@@ -525,6 +526,8 @@ export function ImageEditView() {
   const [cam3dNote, setCam3dNote] = useState("");
   const [cam3dSpeed, setCam3dSpeed] = useState<string>("fast");
   const [cam3dOrbit, setCam3dOrbit] = useState(false);
+  // 360° 旋转查看器当前帧(环绕序列集齐后启用;胶片条点击/拖拽/箭头共用)
+  const [orbitFrame, setOrbitFrame] = useState(0);
   // 图生3D(Hunyuan3D):步数/octree 分辨率/seed(可空=随机)
   const [threedSteps, setThreedSteps] = useState(30);
   const [threedOctree, setThreedOctree] = useState(256);
@@ -631,6 +634,9 @@ export function ImageEditView() {
     // 360° 环绕序列:8 个方位逐个提交+跟踪,全部完成后成组展示(随时可 abort)
     if (tool === "camera3d" && cam3dOrbit) {
       try {
+        setOrbitFrame(0);
+        // 内容分组 id:同批 8 张作业务带同一 batch_id,作品库折叠为一个文件夹
+        const batchId = crypto.randomUUID();
         const paths: string[] = [];
         for (const az of CAM3D_AZIMUTHS) {
           const res = await generateQwenEdit({
@@ -641,6 +647,7 @@ export function ImageEditView() {
             elevation: cam3dElevation,
             distance: cam3dDistance,
             fast: cam3dSpeed === "fast",
+            batchId,
           });
           const got = await trackJob(res, {
             label: `3D 相机 ${az.value}°`,
@@ -820,6 +827,18 @@ export function ImageEditView() {
   ]);
 
   const isRunning = proc.status === "running";
+  // 环绕序列集齐 8 帧且完成:主预览区换 360° 旋转查看器(进行中/未集齐保持主图+胶片条)
+  const orbitReady =
+    proc.tool === "camera3d" &&
+    cam3dOrbit &&
+    proc.status === "done" &&
+    proc.resultPaths.length === CAM3D_AZIMUTHS.length;
+
+  /** 查看器/胶片条共用切帧:同步当前帧与主图路径(胶片高亮跟随)。 */
+  const handleOrbitFrame = useCallback((i: number) => {
+    setOrbitFrame(i);
+    setProc((prev) => ({ ...prev, resultUrl: prev.resultPaths[i] ?? prev.resultUrl }));
+  }, []);
 
   return (
     <div className="single-view ie-view">
@@ -1118,7 +1137,7 @@ export function ImageEditView() {
           <div className="ie-canvas">
             <span className="ie-section-label">画布</span>
             <SourcePreview image={source} />
-            {/* 多结果(360° 环绕序列)胶片条:逐张落地即追加,点击切主图(GLB 产物非图片,不进胶片条) */}
+            {/* 多结果(360° 环绕序列)胶片条:逐张落地即追加,点击切主图/查看器当前帧(GLB 产物非图片,不进胶片条) */}
             {proc.resultPaths.length > 1 && proc.tool !== "hunyuan3d" && (
               <div className="ie-strip" role="listbox" aria-label="环绕序列">
                 {proc.resultPaths.map((p, i) => (
@@ -1126,7 +1145,7 @@ export function ImageEditView() {
                     key={p}
                     type="button"
                     className={`ie-strip-item${proc.resultUrl === p ? " is-active" : ""}`}
-                    onClick={() => setProc((prev) => ({ ...prev, resultUrl: p }))}
+                    onClick={() => handleOrbitFrame(i)}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={imageUrl(p)} alt={`视角 ${i + 1}`} loading="lazy" decoding="async" />
@@ -1136,6 +1155,8 @@ export function ImageEditView() {
             )}
             {proc.resultUrl && proc.tool === "hunyuan3d" ? (
               <Model3DResult resultUrl={proc.resultUrl} />
+            ) : orbitReady ? (
+              <OrbitViewer frames={proc.resultPaths} frame={orbitFrame} onFrame={handleOrbitFrame} />
             ) : (
               proc.resultUrl && (
                 <ResultPanel source={source} resultUrl={proc.resultUrl} resultPaths={proc.resultPaths} />

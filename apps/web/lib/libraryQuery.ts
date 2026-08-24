@@ -31,6 +31,8 @@ export const FILTERS: FilterDef[] = [
     kinds: [
       "txt2img", "img2img", "controlnet", "upscale", "facedetailer",
       "inpaint", "removebg", "raw",
+      // Qwen-Image-Edit 语义编辑 / 3D 相机(360° 环绕序列成员 kind)
+      "qwen_edit",
       // 短剧 studio 图像类产物
       "drama_grid_storyboard", "drama_scene_layout",
     ],
@@ -92,6 +94,7 @@ export function kindLabel(kind: string): string {
     inpaint: "局部重绘",
     removebg: "抠图",
     raw: "原图",
+    qwen_edit: "智能编辑",
     video: "视频",
     txt2video: "文生视频",
     img2video: "图生视频",
@@ -274,9 +277,65 @@ export function countByFilter(
   return counts;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 内容分组(2026-08-24):带 batch_id 的作业(360° 环绕序列同批 8 张)折叠为文件夹卡
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** 文件夹:同一 batch_id 的成员集合(顺序沿用传入列表,成员卡行为与普通作品一致)。 */
+export interface BatchFolder {
+  batchId: string;
+  members: JobItem[];
+}
+
+/** 主网格条目:普通作品卡 或 文件夹卡。 */
+export type LibraryEntry =
+  | { type: "job"; job: JobItem }
+  | { type: "batch"; folder: BatchFolder };
+
+/**
+ * 分组折叠(在 applyLibraryQuery 之后调用,输入已过滤+排序):
+ * - 带 batch_id 且同批成员 ≥2 的作业折叠为一个文件夹,位置取首个(最新)成员处;
+ * - 成员不足 2 个(其余被删/被筛选掉)回落为普通作品卡;无 batch_id 的旧作业原样;
+ * - 筛选后调用 → 文件夹天然按成员 kind 归属对应类型桶(成员全被滤掉即不显示)。
+ */
+export function groupLibraryEntries(jobs: readonly JobItem[]): LibraryEntry[] {
+  const byBatch = new Map<string, JobItem[]>();
+  for (const j of jobs) {
+    if (!j.batch_id) continue;
+    const g = byBatch.get(j.batch_id);
+    if (g) g.push(j);
+    else byBatch.set(j.batch_id, [j]);
+  }
+  const emitted = new Set<string>();
+  const out: LibraryEntry[] = [];
+  for (const j of jobs) {
+    const b = j.batch_id;
+    if (!b) {
+      out.push({ type: "job", job: j });
+      continue;
+    }
+    if (emitted.has(b)) continue;
+    emitted.add(b);
+    const members = byBatch.get(b) ?? [j];
+    if (members.length >= 2) {
+      out.push({ type: "batch", folder: { batchId: b, members } });
+    } else {
+      out.push({ type: "job", job: members[0] });
+    }
+  }
+  return out;
+}
+
+/** 文件夹封面:首个有产物的成员(无产物成员回退占位卡)。 */
+export function folderCover(folder: BatchFolder): JobItem {
+  return (
+    folder.members.find((m) => m.status === "done" && m.results?.length > 0) ??
+    folder.members[0]
+  );
+}
+
 /** localStorage 键:网格密度(舒适/紧凑)。 */
 export const LIBRARY_DENSITY_KEY = "toiv_library_density";
-
 /** 读取网格密度(SSR/无窗口/值损坏一律回退舒适档)。 */
 export function loadDensity(): LibraryDensity {
   if (typeof window === "undefined") return "comfortable";

@@ -1136,6 +1136,8 @@ class QwenEditRequest(BaseModel):
     distance: str | None = Field(default=None, max_length=16)  # closeup/medium/wide
     fast: bool = True  # True=Lightning 加速档;False=20 步标准档
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
+    # 内容分组 id(360° 环绕序列同批 8 张归组,作品库折叠为文件夹):仅标识用,安全字符白名单
+    batch_id: str | None = Field(default=None, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
 
 
 @router.post("/generate/qwen-edit")

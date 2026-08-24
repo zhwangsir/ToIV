@@ -731,6 +731,68 @@
   left: calc(var(--space-2) + 26px);
 }
 
+/* ── 内容分组(2026-08-24):文件夹卡角标 + 下钻面包屑 ──────────────────────
+   带 batch_id 的同批作业(360° 环绕序列)折叠为一张文件夹卡;
+   封面=首张产物缩略图(成员签名 URL 直接复用),右上角成员数角标。 */
+.lib-folder-badge {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  background: var(--overlay-light);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-strong);
+  font-size: var(--text-label);
+  font-weight: var(--font-semibold);
+  color: var(--abs-white);
+  letter-spacing: 0.02em;
+  z-index: var(--z-lib-badge);
+  pointer-events: none;
+}
+.lib-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  font-size: var(--text-aux);
+  color: var(--text-muted);
+}
+.lib-breadcrumb-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-aux);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
+}
+.lib-breadcrumb-back:hover {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.lib-breadcrumb-current {
+  color: var(--text-primary);
+  font-weight: var(--font-medium);
+}
+.lib-breadcrumb-count {
+  margin-left: var(--space-1);
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--bg-surface-2);
+  color: var(--text-muted);
+  font-size: var(--text-label);
+}
+
 /* ── 卡脚:编辑图注(标题截断 + meta 行) ────────────────────────────── */
 .lib-foot {
   display: flex;

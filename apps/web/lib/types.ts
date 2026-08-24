@@ -183,6 +183,8 @@ export interface JobItem {
   /** 时长后处理标记:processing 时 results 为未裁原片,结果区应显示「精确裁切中」;
    *  清零后 results 为终产物(trim/extend 完成后回写)。 */
   post_status?: string;
+  /** 内容分组 id(360° 环绕序列同批归组,作品库折叠为文件夹;无分组为空串)。 */
+  batch_id?: string;
 }
 
 /** 回收站条目(2026-08-23):作品库字段 + 删除时间/恢复截止/剩余秒数(72h 保留期)。 */

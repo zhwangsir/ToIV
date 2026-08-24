@@ -50,6 +50,20 @@ VIDEO_KINDS = frozenset(
 )
 
 
+def _batch_id_of(j: Job) -> str:
+    """内容分组 id(360° 环绕序列同批归组):从 params 快照解析,快照缺失/损坏回落空串。
+
+    纯增量键,旧前端忽略;不新增列——params 快照已是唯一事实源。
+    """
+    if not j.params:
+        return ""
+    try:
+        v = json.loads(j.params).get("batch_id")
+    except (ValueError, AttributeError):
+        return ""
+    return v if isinstance(v, str) else ""
+
+
 def _job_dict(j: Job) -> dict:
     """作业 → 前端条目(作品库列表与版本链共用同一形状)。"""
     return {
@@ -73,6 +87,8 @@ def _job_dict(j: Job) -> dict:
         # 资源预算二期:held 作业的排队原因(资源不足说明/超时说明);非 held 为空串。
         # 纯增量键,旧前端忽略;status=held 属未知状态,前端按排队态展示不炸。
         "hold_reason": j.hold_reason or "",
+        # 内容分组 id(360° 环绕序列同批归组):无分组为空串;从 params 快照解析
+        "batch_id": _batch_id_of(j),
     }
 
 
