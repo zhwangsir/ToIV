@@ -179,6 +179,12 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（决策记录,替代操作历史）
 
+### 2026-08-24（傍晚·助手可靠性 + 3D 渲染纠偏 + 全局排版压缩）
+- **助手「服务暂时不可用」根治**:前端一次性 30s 首块超时是元凶(LLM 大上下文首 token 慢于 30s 即被前端 abort);改为后端 SSE 每 10s 空闲注入 `: ping` 保活帧(生产者 task+Queue,异常暂存重抛),前端「任意字节活动续命 120s」;llm 瞬时错误日志 str→repr(httpx 部分异常 str 为空串,无法诊断)
+- **3D「渲染」语义纠偏**:render 默认 out=glb——材质预设(clay/matte/metal/glossy)烘焙 PBR 回新 3D 模型,不是出图/视频;快照/旋转视频保留为可选查看产物;wireframe/normal 是纯查看模式,glb 下 422
+- **全局排版**:`--page-gutter: clamp(12px,2vw,24px)` + `--section-gap: 16px` 令牌统一页面槽,卡片/网格/表单间距系统收紧约 25%,网格最小 12px;图像编辑 DropZone 大 padding 刻意保留(拖拽命中区)
+- 回归:后端 2065 / 前端 543 / tsc 0;已部署 core 并生产实证(保活帧 7 连、GLB 烘焙 PBR 写入、排版截图)
+
 ### 2026-08-24（傍晚·观测面板升级集群舰队）
 - **GET /api/fleet + /api/fleet/{id}**(仅 admin):fleet_registry.py 纯数据注册表(17 设备全量,源自第一节清单)+ fleet.py 并发探测(HTTP 2s/TCP 1.5s,任何 HTTP 响应含 404 即 up;ComfyUI 带 /system_stats VRAM、vLLM 带模型列表;15s 缓存单飞+延迟时序环形缓冲)
 - **sysmetrics :9403**(workstation,systemd enabled):CPU/RAM/磁盘/NAS 挂载与余量/四卡 VRAM 温度;坑:systemd 空 PATH 下 nvidia-smi 须绝对路径、CSV 列数守卫
