@@ -152,22 +152,26 @@ def test_aggregate_queue_success_and_held(ctx):
     assert held["reasons"][0] == {"reason": "显存不足: 需 36G", "count": 2}
     assert {r["reason"] for r in held["reasons"]} == {"显存不足: 需 36G", "RAM 不足"}
 
-    # GPU 拓扑:卡数 = 拓扑表行数;GPU2 三实例(8195/8197/8262)
+    # GPU 拓扑:卡数 = 拓扑表行数;GPU2 两实例(8195/8262),GPU0 两实例(8189/8197)
     cards = {c["id"]: c for c in body["gpus"]}
     assert len(cards) == len(obs.GPU_TOPOLOGY)
     gpu2 = cards["GPU2"]
-    assert len(gpu2["instances"]) == 3
-    # 8197 挂掉 → 该实例 offline;卡仍在线(其余实例上报),卡级 VRAM = 8/16G = 50%
-    inst_by_url = {i["url"]: i for i in gpu2["instances"]}
-    dead = inst_by_url["http://192.168.71.127:8197"]
+    assert len(gpu2["instances"]) == 2
+    assert len(cards["GPU0"]["instances"]) == 2
+    # 8197 挂掉 → 该实例 offline(现属 GPU0);GPU0 卡仍在线(8189 上报)
+    gpu0 = cards["GPU0"]
+    dead = {i["url"]: i for i in gpu0["instances"]}["http://192.168.71.127:8197"]
     assert dead["online"] is False and dead["vram_used_gb"] is None
+    assert gpu0["online"] is True
+    assert gpu0["vram_used_gb"] == 8.0 and gpu0["vram_used_pct"] == 50.0
+    inst_by_url = {i["url"]: i for i in gpu2["instances"]}
     live = inst_by_url["http://192.168.71.127:8195"]
     assert live["online"] is True
     assert live["vram_used_gb"] == 8.0 and live["vram_total_gb"] == 16.0
     assert live["vram_used_pct"] == 50.0
     assert gpu2["online"] is True
     assert gpu2["vram_used_gb"] == 8.0 and gpu2["vram_used_pct"] == 50.0
-    # 卡级队列 = 在线实例之和(8195+8262 各 running1+pending2;8197 离线计 0)
+    # 卡级队列 = 在线实例之和(8195+8262 各 running1+pending2)
     assert gpu2["queue_running"] == 2 and gpu2["queue_pending"] == 4
 
 
@@ -227,7 +231,7 @@ def test_series_sampling_and_alignment(ctx):
     assert list(s1["vram_pct"].keys()) == card_ids
     for cid in card_ids:
         assert len(s1["vram_pct"][cid]) == 1
-    # 替身 8G/16G = 50%;GPU2 虽有一实例挂掉但卡在线 → 50.0 而非 null
+    # 替身 8G/16G = 50%;GPU0 虽 8197 挂掉但卡在线 → 50.0 而非 null
     assert s1["vram_pct"]["GPU0"] == [50.0]
     assert s1["vram_pct"]["GPU2"] == [50.0]
 

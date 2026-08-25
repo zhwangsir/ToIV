@@ -2,6 +2,40 @@
 
 ---
 
+## GPU-REBALANCE-2026-08-25 · GPU2 过载三方换卡均衡 + 后室成片交付
+
+**时间**: 2026-08-25(晚)
+**类型**: 运维拓扑调整 + 观测/预检代码同步(用户诉求:四卡摊开负载避免单卡 OOM)
+
+### 成片交付
+
+后室 Level-1 12 段批次全 done,无损 concat **94.6s / 18.3MB** → NAS `toiv/films/backrooms_level1_final.mp4`,DB result 回填(作品库可播)。
+
+### 换卡方案(真机 nvidia-smi 进程级核查后定)
+
+GPU2 峰值 92.9% 根因 = H3 40G + JoyCaption 16.3G 常驻(transformers 不驱逐)+ LongCat 按需 25G 三叠加;GPU1/3 大块(LiveAct 57.7G/FlashTalk 49.5G)无处可接不动。三方换卡:
+
+1. JoyCaption GPU2→GPU0:`start.sh` 改 `CUDA_VISIBLE_DEVICES=0`
+2. LongCat GPU2→GPU0:drop-in `gpu0.conf` 覆盖 ExecStart,**新增 `--cache-lru 3`**(原无驱逐,空闲常驻 25G;改后作业完自动释放)
+3. 四小音频(sensevoice/qwen3tts/cosyvoice3/fireredasr)GPU0→GPU2:改既有 `gpu0.conf`
+
+### 落卡实证
+
+joycaption/longcat pid 归 GPU0,四音频归 GPU2;GPU0 69.4G / GPU2 55.7G(原 92.9%);六服务 active + 端口响应。新稳态:GPU2 = H3+demucs+超分+四音频,峰值 ~78G 安全;GPU0 常驻 ~66G + 池缓存可驱逐。
+
+### 代码同步(共卡假设纠偏)
+
+- `config.h3_co_workers` 默认值剔除 :8197(LongCat 已不在 GPU2,跨卡驱逐无意义),仅留 :8262
+- `routes/observability.py` GPU_TOPOLOGY:8197 归 GPU0 卡;`services/fleet_registry.py` 标签同步
+- longcat/wan_video/wan_animate/wan_vace/longcat_studio/engine_registry 注释 GPU2→GPU0 同步
+- `tests/test_observability.py` 断言随拓扑更新(8197 离线实例归 GPU0 卡)
+
+### 回归
+
+后端 **2079 passed** / tsc 无前端改动;已部署 core(`deploy.sh --skip-web`)。AGENTS.md 第三节 GPU 分配表 + 第七节决策记录已同步。
+
+---
+
 ## H3-MULTI-2026-08-25 · H3 多实例 least-loaded 调度框架(资源窗口即插即用)
 
 **时间**: 2026-08-25(午后)

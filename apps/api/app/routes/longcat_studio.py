@@ -6,7 +6,7 @@ POST /api/longcat/i2v      —— 图生视频(首帧参考图;先经 /api/uploa
 POST /api/longcat/continue —— 视频续写(源视频 = /api/images? 产物 URL 或上传视频文件名;
                               后端 ffmpeg 抽末帧作 i2v 首帧续写下一段,同 drama continue-video 模式)
 
-与 LTX2/H3 工作室的区别:LongCat 走 GPU2 独立实例(默认 workstation :8197,
+与 LTX2/H3 工作室的区别:LongCat 走 GPU0 独立实例(默认 workstation :8197,
 不走 WorkerPool 集群);产物链路(tracker 落库 + /api/images 代理进作品库)与 h3/ltx2 同路。
 参数约束(参考 scripts/longcat_smoke.py 真机实测):
   · 时长按秒选择(duration_sec,任意值;内部经统一策略层 services/duration 换算,

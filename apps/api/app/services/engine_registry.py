@@ -1166,7 +1166,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "params": [_ref_image_required(), *_wan_nsfw_i2v_params()],
         "probe": _probe_wan_i2v,
     },
-    # LongCat-Video:专用 ComfyUI 实例(TOIV_LONGCAT_BASE_URL,默认 workstation GPU2 :8197),
+    # LongCat-Video:专用 ComfyUI 实例(TOIV_LONGCAT_BASE_URL,默认 workstation GPU0 :8197),
     # 长镜头引擎(961 帧@16fps≈60s);probe 探测实例 /object_info 是否含 WanVideo 节点
     {
         "id": "longcat-t2v",

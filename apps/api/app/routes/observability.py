@@ -21,11 +21,11 @@
 - 仅管理员(与 /system/gpu 同口径,避免普通用户窥探集群拓扑)。
 
 GPU 拓扑(2026-08-23 AGENTS.md 分配表,写死+注释;变更时同步此处):
-- GPU0(workstation 192.168.71.127):ComfyUI 通用 :8189(另 TTS :9200/:9201 非 ComfyUI,无 /system_stats 不探)
+- GPU0(workstation 192.168.71.127):ComfyUI 通用 :8189 / LongCat :8197(cache-lru 3;另 TTS :9200/:9201、JoyCaption :9304 非 ComfyUI,无 /system_stats 不探)
 - GPU1:超分 :8261(另 Embedding :9302 / LiveAct :9400 非 ComfyUI)
-- GPU2:H3 主力视频 :8195 / LongCat :8197 / 超分 :8262(另 JoyCaption :9304 transformers 直跑)
+- GPU2:H3 主力视频 :8195 / 超分 :8262(另四小音频服务 ASR/TTS 系非 ComfyUI)
 - GPU3:超分 :8263(另 FlashTalk :9004 非 ComfyUI 链路;LTX2.5 :8198 已退役)
-- PC01(192.168.71.115 RTX 5090):ComfyUI worker :8188
+- PC01(192.168.71.116 RTX 5090,DHCP 2026-08-25 由 .115 漂移):ComfyUI worker :8188
 - PC02(192.168.71.114 RTX 5090):ComfyUI worker :8193
 core→workstation/pc 服务间调用走 LAN(共址直连,AGENTS.md 跨地区访问原则)。
 """
@@ -53,22 +53,22 @@ _SUCCESS_WINDOW_HOURS = 24
 
 # (卡 id, 主机说明, [(实例名, base_url), ...]) —— 拓扑变更时同步模块 docstring。
 GPU_TOPOLOGY: list[tuple[str, str, list[tuple[str, str]]]] = [
-    ("GPU0", "workstation · ComfyUI 通用", [
+    ("GPU0", "workstation · ComfyUI 通用/LongCat/JoyCaption", [
         ("ComfyUI 通用", "http://192.168.71.127:8189"),
+        ("LongCat", "http://192.168.71.127:8197"),
     ]),
     ("GPU1", "workstation · Embedding/LiveAct/超分", [
         ("超分 #1", "http://192.168.71.127:8261"),
     ]),
-    ("GPU2", "workstation · H3/LongCat/ASR/超分", [
+    ("GPU2", "workstation · H3/ASR/超分", [
         ("H3 主力视频", "http://192.168.71.127:8195"),
-        ("LongCat", "http://192.168.71.127:8197"),
         ("超分 #2", "http://192.168.71.127:8262"),
     ]),
     ("GPU3", "workstation · FlashTalk/超分", [
         ("超分 #3", "http://192.168.71.127:8263"),
     ]),
     ("PC01", "pc01 · RTX 5090 ComfyUI worker", [
-        ("ComfyUI worker", "http://192.168.71.115:8188"),
+        ("ComfyUI worker", "http://192.168.71.116:8188"),
     ]),
     ("PC02", "pc02 · RTX 5090 ComfyUI worker", [
         ("ComfyUI worker", "http://192.168.71.114:8193"),

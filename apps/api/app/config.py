@@ -308,21 +308,21 @@ class Settings(BaseSettings):
     # 仍不足 → 503(见 services/resource_budget.ensure_host_ram)。
     h3_min_free_ram_gb: float = 25.0
     # 与 H3 实例同卡的 ComfyUI 实例(逗号分隔,用于显存不足时的协调驱逐);空串=禁用自动驱逐。
-    # 2026-08-10 起 H3 实例独占 GPU2(CUDA_VISIBLE_DEVICES=2,GPU0 温度/显存双高压),
-    # 同卡实例为 LongCat :8197 与 M6 超分 :8262(空闲队列才驱逐,在跑作业绝不动)。
-    h3_co_workers: str = "http://192.168.71.127:8197,http://192.168.71.127:8262"
+    # 2026-08-25 换卡后 H3 在 GPU2 的同卡实例仅 M6 超分 :8262(LongCat :8197 已迁 GPU0,
+    # 跨卡驱逐无意义);空闲队列才驱逐,在跑作业绝不动。
+    h3_co_workers: str = "http://192.168.71.127:8262"
     # H3 NSFW 场景默认 UNET:10Eros-Max H3 嫁接版 TURBO(NAS toiv/comfyui-models/h3/
     # diffusion_models/,经 extra_model_paths 对 H3 实例可见;2026-08-23 真机实测 R18+音画
     # 直出完好)。仅 nsfw=True(X-NSFW 专区)提交时替换模板节点 "6" 的 unet_name;
     # SFW 保持模板 minimax_h3_fl2va_pruned_int8_convrot 不变。
     h3_nsfw_unet: str = "10Eros_Max_h3_TURBO_ref2va_beta2_int8_convrot.safetensors"
 
-    # —— LongCat-Video 长视频引擎(专用 ComfyUI 实例,workstation GPU2 :8197) ——
+    # —— LongCat-Video 长视频引擎(专用 ComfyUI 实例,workstation GPU0 :8197) ——
     # 独立于 WorkerPool(WanVideo 系节点仅该实例装有);systemd comfyui-longcat.service 托管,
-    # 权重经 extra_model_paths 挂 NAS LongCat/(参考 scripts/longcat_smoke.py)。
+    # 2026-08-25 自 GPU2 迁 GPU0 并加 --cache-lru 3(作业完自动驱逐,空闲不占显存)。
     longcat_enabled: bool = True
     longcat_base_url: str = "http://192.168.71.127:8197"
-    # LongCat 与 H3/Wan 共 GPU2、同宿主机 RAM:提交前显存 + RAM 双预检
+    # LongCat 与 ComfyUI 池/JoyCaption 共 GPU0、同宿主机 RAM:提交前显存 + RAM 双预检
     # (services/resource_budget;阈值语义同 h3_min_free_vram/ram_gb)。
     # 480p49f 实测峰值 ~21GB,显存阈值取 26 与 Wan 对齐。
     longcat_min_free_vram_gb: float = 26.0
@@ -352,8 +352,8 @@ class Settings(BaseSettings):
     # 经标准 HTTP API 访问,产物由 api 取回字节落 core 本地(不经 worker 输出目录)。
     upscale_workers: str = "http://192.168.71.127:8261,http://192.168.71.127:8262,http://192.168.71.127:8263"
 
-    # —— Wan2.2-Animate / Wan2.1-VACE(GPU2 :8197,与 LongCat 同实例) ——
-    # Animate fp8 运行时量化峰值 ~20-24GiB;提交前要求实例卡(GPU2)空闲显存 ≥ 此阈值(GiB)。
+    # —— Wan2.2-Animate / Wan2.1-VACE(GPU0 :8197,与 LongCat 同实例) ——
+    # Animate fp8 运行时量化峰值 ~20-24GiB;提交前要求实例卡(GPU0)空闲显存 ≥ 此阈值(GiB)。
     # 不足时先驱逐 :8197 自身模型缓存(队列空闲才动),仍不足 → 503 错峰提示。
     # 绝不驱逐 H3(硬规则:H3 必须可用);H3 突发 48GB 时本预检天然拦截并发。
     wan_min_free_vram_gb: float = 26.0

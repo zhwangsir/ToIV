@@ -1,6 +1,6 @@
 """LongCat-Video 长视频引擎服务 —— 专用 ComfyUI 实例(独立于 WorkerPool 集群)。
 
-LongCat 跑在 workstation GPU2 的独立实例(TOIV_LONGCAT_BASE_URL,默认 :8197,
+LongCat 跑在 workstation GPU0 的独立实例(TOIV_LONGCAT_BASE_URL,默认 :8197,
 systemd comfyui-longcat.service 托管),不走 ComfyUI-LB 集群/WorkerPool
 (WanVideo 系节点仅该实例装有)。与 app/services/h3.py 同一模式:
   · get_longcat_client:实例客户端(与 pool worker 同一 ComfyUIClient 协议)

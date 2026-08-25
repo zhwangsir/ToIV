@@ -121,7 +121,7 @@ def ctx(monkeypatch):
         if svc.get("probe") == "none":
             return {**base, "status": "unknown", "latency_ms": None}
         # pc01 全挂(模拟关机);core Redis 挂(部分降级);其余 up
-        if host == "192.168.71.115":
+        if host == "192.168.71.116":
             return {**base, "status": "down", "latency_ms": None}
         if svc["port"] == 6379:
             return {**base, "status": "down", "latency_ms": None}

@@ -9,7 +9,7 @@
   · rope_function 必须 "comfy"(同 LongCat,否则 4096 vs 128 维度错);
   · base_precision="bf16"、load_device="offload_device"、attention_mode="sdpa"、
     quantization="fp8_e4m3fn"(bf16 合并权重运行时量化,等效 fp8 权重显存 ~16-20GB)
-    —— GPU2 与 H3/LongCat 共卡,全程 offload 控制峰值;
+    —— GPU0 与 ComfyUI 池/LongCat 共卡,全程 offload 控制峰值;
   · 姿态提取用 wrapper 自带 WanVideoUniAnimateDWPoseDetector(yolox+dwpose 已预置
     custom_nodes/ComfyUI-WanVideoWrapper/unianimate/models/DWPose/);官方示例的
     DWPreprocessor(controlnet_aux):8197 未安装,不可换用;

@@ -1,4 +1,4 @@
-"""Wan2.2-Animate / Wan2.1-VACE 引擎服务 —— 与 LongCat 同实例(GPU2 :8197)。
+"""Wan2.2-Animate / Wan2.1-VACE 引擎服务 —— 与 LongCat 同实例(GPU0 :8197)。
 
 复用 services/longcat.py 的 client/就绪检查/追踪/提交链路(get_longcat_client、
 ensure_longcat_ready、submit_longcat_job、transfer_ref_image);

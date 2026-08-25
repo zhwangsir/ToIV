@@ -37,7 +37,7 @@
 | spark01 | **Qwen3-VL-32B-Instruct-FP8** 评分/反推 VLM(容器 qwen3vl32b, :8000;2026-08-25 替换 molmo2-8B,幻觉实测根治;别名 molmo2-8b/omni-captioner 保留) | .82 | 100.81.235.124 | Linux GB10 | dgmt-spark |
 | spark02 | LLM L1-L4 主力(**Qwen3.8-27B-Uncensored-FP8 无审查版**,2026-08-23 替换;别名 qwen3.8-27b/qwen3.6-uncensored 均有效, :8000) | .84 | 100.86.42.89 | Linux GB10 | dgmt-spark |
 | workstation | 算力+全部后端服务 | 192.168.71.127 | **100.68.100.90** | Linux 4×RTX PRO 6000 | merlin |
-| pc01 | ComfyUI worker :8188 | 192.168.71.115 | 100.69.134.27 | Windows RTX 5090 | home |
+| pc01 | ComfyUI worker :8188 | **192.168.71.116**(2026-08-25 DHCP 由 .115 漂移,MAC 指纹实证;LB/SSH/代码已同步) | 100.69.134.27 | Windows RTX 5090 | home |
 | pc02 | ComfyUI worker :8193 | 192.168.71.114 | 100.107.94.26 | Windows RTX 5090 | w |
 | NAS | SMB 存储 44T | 192.168.71.7 | 100.80.237.96 | Linux | dgmt-nas |
 | cloud | 香港网关/frps/OpenResty | 43.119.32.180 | 100.83.78.114 | Linux | root |
@@ -70,9 +70,9 @@
 
 | GPU | 服务 | 端口 | 显存(08-23) | systemd |
 |-----|------|------|------|---------|
-| GPU0(10.9G) | ComfyUI #1 / IndexTTS2 / CosyVoice2 / **hy3dtex 纹理管线** | :8189 / :9200 / :9201 / :9404 | 共~11G(纹理按需加载) | comfyui-gpu0 / toiv-tts / (cosyvoice) / **toiv-hy3dtex** |
+| GPU0(~69G) | ComfyUI #1(cache-lru 8) / IndexTTS2 / CosyVoice2 / **hy3dtex 纹理管线** / **JoyCaption :9304(~17G)** / **LongCat :8197(cache-lru 3,作业完自动驱逐)** | :8189 / :9200 / :9201 / :9404 / :9304 / :8197 | 08-25 换卡后快照 | comfyui-gpu0 / toiv-tts / (cosyvoice) / toiv-hy3dtex / toiv-joycaption / comfyui-longcat |
 | GPU1(69.4G) | Qwen3-Embedding-4B / LiveAct / 超分实例 | :9302 / :9400 / :8261 | ~20+59+0.75G | qwen3-embedding / toiv-liveact / comfyui-upscale-gpu1 |
-| GPU2(73.0G) | **MiniMax H3(主力视频引擎)** :8195(~41G) / JoyCaption :9304(~17G) / LongCat :8197 / ASR :9210 / FireRedASR :8300 / CosyVoice3 :9202 / Qwen3-TTS :9203 / demucs :9220 / SenseVoice :9211 / 超分 :8262 | — | — | toiv-comfyui-h3 等;⚠️ 接近共卡红线,新增服务前必查 |
+| GPU2(~56G) | **MiniMax H3(主力视频引擎)** :8195(~41G) / ASR :9210 / FireRedASR :8300 / CosyVoice3 :9202 / Qwen3-TTS :9203 / demucs :9220 / SenseVoice :9211 / 超分 :8262(四小音频服务 08-25 自 GPU0 迁入) | — | — | toiv-comfyui-h3 等;H3 峰值~78G 安全,新增常驻服务前必查 |
 | GPU3(54.1G) | FlashTalk :9004(~51G) / OpenTalking / 超分 :8263 | — | — | ~~LTX-2.5 :8198~~ **已彻底退役**(2026-08-23 用户授权自主决断:`disable --now` 已执行,enabled→disabled,GPU3 释放 36G、RAM 54→90G;NVFP4 模型文件留盘可回滚) |
 
 **ComfyUI-LB 后端**（3 后端）：本地 :8189(GPU0) + pc01 :8188 + pc02 :8193。GPU1/2/3 不入 LB 池（专用实例 :8197/:8195/:8198/:8261-8263 均为专用,不入池;每新增同机专用实例必须补 `deps.resolve_worker()` 精确匹配,见 E-3）。
@@ -180,6 +180,13 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（决策记录,替代操作历史）
+
+### 2026-08-25（晚·GPU2 过载三方换卡均衡）
+- **背景**:GPU2 峰值 92.9%(H3+JoyCaption 常驻+LongCat 按需 25G 三叠加),GPU0 相对宽松;GPU1/3 大块(LiveAct/FlashTalk 50-58G)无处可接不动
+- **三方换卡**(端口/core 零改动,仅改 GPU 绑定):①JoyCaption GPU2→GPU0(start.sh 改 CUDA_VISIBLE_DEVICES=0);②LongCat GPU2→GPU0 且**新增 `--cache-lru 3`**(此前无驱逐,空闲也占 25G 常驻,改后作业完自动释放);③四小音频服务(sensevoice/qwen3tts/cosyvoice3/fireredasr)GPU0→GPU2(吸收小碎块)
+- **落卡实证**:joycaption/longcat pid 在 GPU0,四音频在 GPU2(fireredasr 懒加载,env 已 =2);GPU0 69.4G / GPU2 55.7G(原 92.9%)
+- **新稳态**:GPU0 常驻~66G+池缓存可驱逐(28G 余量);GPU2 = H3+demucs+超分+四音频,峰值~78G 安全;绑定方式:longcat 用 drop-in gpu0.conf(ExecStart 覆盖加 cache-lru),音频服务改既有 gpu0.conf
+- 后室 Level-1 成片同日交付:12 段无损 concat 94.6s/18.3MB,NAS toiv/films/backrooms_level1_final.mp4,DB 回填
 
 ### 2026-08-25（P0 服务替换双落地:Qwen3-VL-32B + Hunyuan3D 2.1 纹理管线）
 - **P0-a spark01 molmo2→Qwen3-VL-32B-Instruct-FP8**:容器 qwen3vl32b(vLLM),别名 qwen3-vl-32b/molmo2-8b/omni-captioner 三在线 core 零改动;scoring.py/eval_scorers.py `video`→`video_url` 修复(vLLM Qwen3-VL 只认 OpenAI 标准);core→spark01 双模态 e2e(白图→White、红视频→Red)无幻觉;`TOIV_VIDEO_SCORER_ENABLED` 生产仍 false(灰度就绪未开)

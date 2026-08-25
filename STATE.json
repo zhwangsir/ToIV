@@ -1,7 +1,7 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-25T12:30:00+08:00",
+ "updated_at": "2026-08-25T14:00:00+08:00",
  "health": {
   "engine_r3_2026_08_21": {
    "status": "completed",
@@ -1534,5 +1534,13 @@
    "tsc": "0"
   },
   "note": "TOIV_VIDEO_SCORER_ENABLED 生产仍 false(灰度开关就绪未开);hy3d_tex_url 默认 http://192.168.71.127:9404;纹理参考图三优先级:显式>原作业 params 回填>纯白+文本引导"
+ },
+ "assistant_timeout_fix_2026_08_25": {
+  "status": "completed",
+  "bug": "用户实证:对话时真实错误不显示;刷新+点历史才能看到之前的问题;再提问立即「超时」",
+  "root_cause": "①catch 丢弃 Error、流内 error 事件丢弃 content → 一律误报「连接中断或超时」;②404(刷新后携带失效会话 id)被同样误报且无自愈",
+  "fix": "agentChatStream/Resume 抛错携带 HTTP status;AssistantView 透出真实错误原因;404 自动清会话 id 以新会话重试一次",
+  "verify": "前端 549 passed(新增 3 断言)/tsc 0;生产实证:正常流 text+done 通、假会话 404 自动降级不再显示超时",
+  "commit": "047dfba"
  }
 }

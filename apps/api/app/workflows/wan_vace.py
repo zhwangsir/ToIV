@@ -8,7 +8,7 @@ nodes_model_loading.py:1325),无需 VACEModelSelect。
 关键约束(踩坑记录,勿改):
   · rope_function 必须 "comfy"(同 LongCat,否则 4096 vs 128 维度错);
   · base_precision="bf16"、load_device="offload_device"、attention_mode="sdpa"、
-    quantization="fp8_e4m3fn"(fp16 权重运行时量化,等效 fp8 显存)—— GPU2 与 H3/LongCat 共卡;
+    quantization="fp8_e4m3fn"(fp16 权重运行时量化,等效 fp8 显存)—— GPU0 与 ComfyUI 池/LongCat 共卡;
   · num_frames 必须 4k+1(WanVideo 系时序网格);
   · 多参考图经 ImageConcatMulti(KJNodes,direction=right,match_image_size=True)合成 batch
     喂 WanVideoVACEEncode.ref_images;单张则直连,不走 concat(节点 inputcount≥2);
