@@ -971,6 +971,10 @@ export function AssistantView(props?: AssistantViewProps) {
       userStoppedRef.current = false;
       gotFirstChunkRef.current = false;
       lastDocIdsRef.current = docIds;
+      // 真实错误原因(2026-08-25 修复):HTTP 错误(status+detail)/流内 error 事件
+      // 不再被吞成统一「连接中断或超时」,错误气泡显示真实原因
+      let errorDetail: string | null = null;
+      let errorStatus: number | null = null;
 
       const controller = new AbortController();
       abortControllerRef.current = controller;
@@ -1026,6 +1030,8 @@ export function AssistantView(props?: AssistantViewProps) {
             }
           } else if (ev.type === "error") {
             streamError = true;
+            // 保留后端真实错误(LLM 暂不可用/工具失败等),供错误气泡展示
+            if (ev.content) errorDetail = ev.content;
           } else if (
             ["image", "video", "audio", "model3d"].includes(ev.type)
           ) {
@@ -1103,14 +1109,28 @@ export function AssistantView(props?: AssistantViewProps) {
               resetInactivityTimer,
             );
         if (sessionId) lastSessionIdRef.current = sessionId;
-      } catch {
+      } catch (e) {
         failed = true;
+        // 保留真实 HTTP 错误(如「会话不存在」「对话失败 (502)」)供展示与 404 判定
+        if (e instanceof Error) {
+          errorDetail = e.message || errorDetail;
+          errorStatus = (e as Error & { status?: number }).status ?? null;
+        }
       } finally {
         window.clearTimeout(timeoutId);
         setBusy(false);
         setPending(false);
         abortRef.current = false;
         abortControllerRef.current = null;
+      }
+
+      // 404「会话不存在」(刷新后携带失效会话 id):自动降级为新会话重试一次,
+      // 不再把 404 误报为「超时」(2026-08-25 用户实证「刷新后再提问立即超时」根因)
+      if (failed && errorStatus === 404 && !resume) {
+        activeConvIdRef.current = null;
+        setActiveConvId(null);
+        lastSessionIdRef.current = null;
+        return requestReply(baseMsgs, docIds);
       }
 
       // 流内错误或零内容空响应,统一按失败处理;resume 回执允许空流(如 reject 仅确认落库)
@@ -1123,7 +1143,10 @@ export function AssistantView(props?: AssistantViewProps) {
         const errMsg: ChatMessage = {
           id: genId(),
           role: "assistant",
-          content: "回复失败:连接中断或超时,请重试",
+          // 真实原因优先(后端 error 事件/HTTP detail);无法归因才回退通用超时文案
+          content: errorDetail
+            ? `回复失败:${errorDetail}`
+            : "回复失败:连接中断或超时,请重试",
           timestamp: Date.now(),
           kind: "error",
         };

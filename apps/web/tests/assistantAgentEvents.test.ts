@@ -181,6 +181,40 @@ test("AssistantView:120s 不活跃超时按活动重置;失败文案精确", () 
   assert.ok(!src.includes("回复失败:服务暂时不可用"), "旧文案残留");
 });
 
+/* ── ④b 真实错误透出 + 404 会话降级(2026-08-25「立即超时」修复) ── */
+test("api.ts:agentChatStream/Resume 非 2xx 抛错携带 HTTP status", () => {
+  const src = readSrc("lib/api.ts");
+  for (const entry of ["export async function agentChatStream", "export async function agentChatResume"]) {
+    const fn = src.slice(src.indexOf(entry), src.indexOf(entry) + 1600);
+    assert.ok(fn.includes("err.status = res.status"), `${entry} 抛错未携带 status`);
+  }
+});
+
+test("AssistantView:真实错误原因透出(不再一律「连接中断或超时」)", () => {
+  const src = readSrc("components/assistant/AssistantView.tsx");
+  // catch 保留 Error.message 与 status
+  assert.ok(src.includes("errorDetail = e.message"), "catch 丢弃了真实错误消息");
+  assert.ok(src.includes("errorStatus"), "缺 errorStatus 记录");
+  // 流内 error 事件保留 content
+  assert.ok(src.includes("if (ev.content) errorDetail = ev.content"), "流内 error 事件 content 被丢弃");
+  // 错误气泡优先真实原因
+  assert.ok(src.includes("`回复失败:${errorDetail}`"), "错误气泡未透出真实原因");
+});
+
+test("AssistantView:404 会话失效自动降级新会话重试一次(不带 session_id)", () => {
+  const src = readSrc("components/assistant/AssistantView.tsx");
+  const i = src.indexOf("errorStatus === 404");
+  assert.ok(i > 0, "缺 404 判定");
+  const seg = src.slice(i - 80, i + 420);
+  assert.ok(seg.includes("activeConvIdRef.current = null"), "404 未清会话 id");
+  assert.ok(seg.includes("return requestReply(baseMsgs, docIds)"), "404 未自动重试");
+  // 重试路径不再携带 session_id(agentChatStream 入参 session_id 为 null)
+  assert.ok(
+    src.includes("session_id: convStore.serverMode ? (activeConvIdRef.current ?? null) : null"),
+    "session_id 来源被破坏",
+  );
+});
+
 /* ── ⑤ 纯函数 ── */
 test("upsertToolChip:同 id 更新而非追加;无 assistant 气泡时补空气泡", () => {
   let msgs: ChatMessage[] = [makeMsg("u1", "user", { content: "hi" })];

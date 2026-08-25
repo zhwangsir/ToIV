@@ -1529,7 +1529,10 @@ export async function agentChatStream(
   );
   if (!res.ok || !res.body) {
     const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `对话失败 (${res.status})`);
+    // 附带 HTTP status:前端据此区分「会话不存在(404,可降级新会话重试)」与真断连
+    const err = new Error(detail?.detail ?? `对话失败 (${res.status})`) as Error & { status?: number };
+    err.status = res.status;
+    throw err;
   }
   const sessionId = res.headers.get("X-Agent-Session-Id");
   await consumeAgentSse(res.body, onEvent, onActivity);
@@ -1567,7 +1570,9 @@ export async function agentChatResume(
   );
   if (!res.ok || !res.body) {
     const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `提案回执失败 (${res.status})`);
+    const err = new Error(detail?.detail ?? `提案回执失败 (${res.status})`) as Error & { status?: number };
+    err.status = res.status;
+    throw err;
   }
   const sessionId = res.headers.get("X-Agent-Session-Id");
   await consumeAgentSse(res.body, onEvent, onActivity);
