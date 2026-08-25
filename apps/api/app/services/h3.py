@@ -65,8 +65,56 @@ _GIB = 1 << 30
 
 
 def get_h3_client() -> ComfyUIClient:
+    """单实例客户端(h3_base_url);探测/回放等非提交路径与单实例部署继续用它。"""
     settings = get_settings()
     return ComfyUIClient(settings.h3_base, timeout=settings.request_timeout)
+
+
+def h3_instances() -> list[str]:
+    """全部 H3 实例基址:h3_base_urls(逗号分隔)> 单 h3_base_url。
+
+    生产 Settings 恒有 h3_base_url 默认值,列表非空;getattr 防御兼容旧测试的
+    SimpleNamespace 桩(字段全缺 → 空列表,pick 走 get_h3_client 单实例入口)。
+    """
+    settings = get_settings()
+    raw = getattr(settings, "h3_base_urls", "") or getattr(
+        settings, "h3_base_url", ""
+    )
+    return [u.strip().rstrip("/") for u in raw.split(",") if u.strip()]
+
+
+_PICK_PROBE_TIMEOUT = 3.0
+
+
+async def pick_h3_client() -> ComfyUIClient:
+    """多实例最少负载调度(2026-08-25):并发探各实例 queue_len,队列最短者优先。
+
+    单实例部署(默认)直接按 h3_instances() 构造客户端,零行为变化。
+    多实例时:探测不可达的实例跳过(其产物追踪不受影响);全不可达回退首实例,
+    由后续 ensure_h3_ready 报 503(错误语义与单实例一致)。
+    时长链/duration chain 等粘性场景由调用方持同一 client(参考图已转运到该实例)。
+    """
+    settings = get_settings()
+    urls = h3_instances()
+    if len(urls) <= 1:
+        # 单实例:走 get_h3_client(与其余调用点/既有测试桩同一入口,零行为变化)
+        return get_h3_client()
+
+    async def _probe(url: str):
+        try:
+            c = ComfyUIClient(url, timeout=settings.request_timeout)
+            ql = await asyncio.wait_for(c.queue_len(), timeout=_PICK_PROBE_TIMEOUT)
+            return (ql, url, c)
+        except Exception:  # noqa: BLE001 — 探测失败仅意味着该实例本轮不参与调度
+            return None
+
+    results = await asyncio.gather(*[_probe(u) for u in urls])
+    alive = [r for r in results if r is not None]
+    if not alive:
+        logger.warning("H3 多实例全部探测失败,回退首实例 %s", urls[0])
+        return ComfyUIClient(urls[0], timeout=settings.request_timeout)
+    alive.sort(key=lambda r: r[0])  # 队列最短优先;并列时首实例(列表序)胜出
+    return alive[0][2]
 
 
 def ensure_h3_enabled() -> None:
@@ -220,7 +268,7 @@ async def submit_h3_job(
     (routes 层用 nsfw_allowed(user) 判定,含未成年硬阻断),此处不重复校验。
     """
     ensure_h3_enabled()
-    client = client or get_h3_client()
+    client = client or await pick_h3_client()
     await ensure_h3_ready(client)
 
     # NSFW 场景(X-NSFW 专区)默认换 10Eros-Max H3 嫁接版 UNET(TOIV_H3_NSFW_UNET);

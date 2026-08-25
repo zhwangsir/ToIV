@@ -214,7 +214,7 @@ async def generate_h3_t2v(
         nsfw=nsfw,
     )
     if plan.strategy != "direct":
-        client = h3_service.get_h3_client()
+        client = await h3_service.pick_h3_client()
         vgen.spawn_duration_chain(
             client=client,
             plan=plan,
@@ -242,7 +242,7 @@ async def generate_h3_i2v(
     enforce_generation_rate_limit(user)
     _gate_h3_nsfw_loras(req.loras, user)
     plan = _resolve_plan(req)
-    client = h3_service.get_h3_client()
+    client = await h3_service.pick_h3_client()
     source = resolve_worker(req.worker)
     image_name = await h3_service.transfer_ref_image(client, source, req.image)
     params = H3I2VParams(

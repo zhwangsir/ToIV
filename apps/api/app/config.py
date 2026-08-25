@@ -293,6 +293,11 @@ class Settings(BaseSettings):
     # 实例由 systemd 托管,权重经 extra_model_paths 挂 NAS h3/。
     h3_enabled: bool = True
     h3_base_url: str = "http://192.168.71.127:8195"
+    # H3 多实例(2026-08-25):逗号分隔的实例基址,提交时 least-loaded 调度(队列最短者优先,
+    # 全不可达回退首实例由 ensure_h3_ready 报 503)。空 = 单实例(h3_base_url)零行为变化。
+    # 注意:每实例常驻 RAM ~30G(匿名内存,不可回收)+ 显存 30-33G,扩实例前先核
+    # workstation free -h 与 nvidia-smi(H-3/H-2 纪律)。
+    h3_base_urls: str = ""
     # H3 int8 档增量峰值 ~30-33GiB(评测实测);提交前要求实例卡空闲显存 ≥ 此阈值(GiB)。
     # 不足时先尝试驱逐 h3_co_workers(同卡 pool worker,空闲队列才动)的模型缓存,
     # 仍不足 → 503 错峰提示,不让 ComfyUI 以 "VRAM grow failed" 裸崩(2026-08-04 实发)。

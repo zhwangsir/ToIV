@@ -583,7 +583,7 @@ class H3VideoGenerator(VideoGenerator):
 
         try:
             h3_service.ensure_h3_enabled()
-            client = h3_service.get_h3_client()
+            client = await h3_service.pick_h3_client()
             await h3_service.ensure_h3_ready(client)
             await h3_service.ensure_h3_vram(client)
         except HTTPException as e:

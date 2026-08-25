@@ -2128,7 +2128,7 @@ async def _run_continue_video(
                             build_h3_i2v_graph,
                         )
 
-                        h3_client = h3_service.get_h3_client()
+                        h3_client = await h3_service.pick_h3_client()
                         # 后端直传 H3 实例 input(不经 /api/upload 的 pool worker 转运)
                         image_name = await h3_client.upload_image(
                             frame_bytes, f"drama_cont_{uuid.uuid4().hex}.jpg"
