@@ -2,6 +2,53 @@
 
 ---
 
+## H3-MULTI-2026-08-25 · H3 多实例 least-loaded 调度框架(资源窗口即插即用)
+
+**时间**: 2026-08-25(午后)
+**类型**: 吞吐扩容框架(用户诉求"加速但不影响质量、不停服务")
+
+### 资源账真机核查(为什么现在不能双实例)
+
+- H3 进程 37.2G RSS 中 **30.5G 是 RssAnon(匿名内存,不可回收)**,页缓存仅 0.13G——第二实例 RAM 增量实打实 30G+,workstation available 仅 12G ❌
+- pc02(RTX 5090) 32G < H3 int8 峰值 30-33G+开销 ❌(且 SSH 直连不通,只能经 core 跳板)
+- GPU1/3 空闲各 12-16G < 30G ❌;降 steps/蒸馏/分辨率=质量变化 ❌;停 animate2/scope 用户否决 ❌
+- 结论:当前 12 段批次数学上无法无损加速(S1 实测 14min/段),照跑
+
+### 交付:多实例调度框架
+
+- config 新增 `TOIV_H3_BASE_URLS`(逗号分隔);`pick_h3_client()` 并发探 queue_len 选最短,探测失败跳过、全挂回退首实例
+- 单实例配置走 `get_h3_client()` 原路径,**零行为变化**(所有旧测试桩 get_h3_client 自动兼容)
+- 提交路径统一接 pick:t2v/i2v 路由、时长链 duration chain、drama 续镜、生成器抽象层
+- 未来窗口(RAM 扩容/某大 RAM 服务退役)→ workstation 起 :8196 + 改一行 .env 即吞吐×2
+
+### 回归
+
+后端 2143 passed(全量 2079 + duration 64;新增 test_h3_multi_instance 7 例)/ 已部署 core(api 重启零影响在跑批次,4/12 done 继续)。commit 3e99f2c。
+
+---
+
+## ASSISTANT-FIX-2026-08-25 · 助手「立即超时」根治:真实错误透出 + 404 会话降级
+
+**时间**: 2026-08-25
+**类型**: Bug 修复(用户实证三连:真实错误不显示 / 刷新+历史才能看到问题 / 再提问立即「超时」)
+
+### 根因
+
+1. **真实错误被吞**:`AssistantView.requestReply` 的 `catch { failed = true }` 丢弃 Error、SSE 流内 `{type:"error"}` 事件只置 `streamError` 丢弃 `content` → 一律误报「回复失败:连接中断或超时,请重试」
+2. **404 无自愈**:刷新后携带失效会话 id(session_id 404「会话不存在」),被同样误报为「超时」且永远不自愈
+
+### 修复
+
+- `agentChatStream`/`agentChatResume` 非 2xx 抛错携带 `err.status = res.status`(lib/api.ts)
+- AssistantView:catch 保留 `e.message`+`status`、流内 error 事件保留 `content`,错误气泡优先显示真实原因,无法归因才回退通用超时文案
+- 404(!resume)自动清 `activeConvIdRef/lastSessionIdRef` 并以新会话重试一次(不再显示超时)
+
+### 验证
+
+前端 549 passed(assistantAgentEvents 新增 3 断言)/ tsc 0;生产实证:正常对话流 text+done 通、假 session_id 404「会话不存在」由前端自动降级新会话重试、不再误报超时。commit 047dfba。
+
+---
+
 ## P0-SWAP-2026-08-25 · Qwen3-VL-32B 替换 molmo2 + Hunyuan3D 2.1 纹理管线上线
 
 **时间**: 2026-08-25
