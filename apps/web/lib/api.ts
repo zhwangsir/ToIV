@@ -1292,6 +1292,35 @@ export async function threeDOps(params: ThreeDOpsParams): Promise<ThreeDOpsResul
   return res.json();
 }
 
+/** 3D 纹理(/api/3d/texture):Hunyuan3D 2.1 多视图扩散生成真 PBR 贴图烘焙回模型,
+ * 分钟级耗时(服务端上限 900s,客户端 960s 超时覆盖);产物新 GLB 进作品库 3D 桶。
+ * 图生3D 作业的原始参考图由服务端自动回填,无需前端传。 */
+export interface ThreeDTextureParams {
+  job_id?: string;
+  source?: { filename: string; worker: string };
+  /** 风格/材质文本(可选),如「青铜锈蚀质感」;空则默认 high quality */
+  prompt?: string;
+  texture_size?: 1024 | 2048 | 4096;
+}
+
+export interface ThreeDTextureResult {
+  kind: "threed_texture";
+  url: string;
+  job_id: string | null;
+  op: string;
+  format: string;
+}
+
+export async function threeDTexture(params: ThreeDTextureParams): Promise<ThreeDTextureResult> {
+  const res = await apiFetch(`/api/3d/texture`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(params),
+  }, { timeoutMs: 960_000 });
+  if (!res.ok) await raiseApiError(res, "3D 纹理生成失败");
+  return res.json();
+}
+
 export interface AudioGenParams {
   tags: string;
   lyrics: string;

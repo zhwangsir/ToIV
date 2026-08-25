@@ -70,11 +70,34 @@ test("ImageEditView:Model3DResult 挂「应用材质生成新模型」(source �
   assert.ok(card.includes("invalidateJobs()"), "成功后未失效作品库缓存");
 });
 
+/* ── ⑤ AI 纹理贴图(/api/3d/texture,2026-08-25 P0)── */
+test("api.ts:threeDTexture 路径/方法/960s 超时", () => {
+  const src = readSrc("lib/api.ts");
+  assert.ok(src.includes("export async function threeDTexture"), "threeDTexture 未导出");
+  const fn = src.slice(src.indexOf("export async function threeDTexture"));
+  assert.ok(fn.includes("`/api/3d/texture`"), "纹理路径错误");
+  assert.ok(fn.slice(0, 400).includes('method: "POST"'), "应为 POST");
+  assert.ok(fn.includes("timeoutMs: 960_000"), "纹理分钟级,须 960s 超时覆盖");
+  assert.ok(src.includes('kind: "threed_texture"'), "ThreeDTextureResult 类型缺失");
+});
+
+test("LibraryView:ThreeDOpsBar 挂 AI 纹理贴图折叠区(风格输入+分钟级预期)", () => {
+  const src = readSrc("components/library/LibraryView.tsx");
+  assert.ok(src.includes("threeDTexture"), "未引入 threeDTexture");
+  assert.ok(src.includes("AI 纹理贴图(约几分钟)"), "缺纹理折叠区");
+  assert.ok(src.includes("runTexture"), "缺 runTexture 动作");
+  assert.ok(src.includes("生成纹理贴图新模型"), "缺纹理主按钮");
+  assert.ok(src.includes("纹理生成中(约几分钟)"), "缺分钟级等待提示");
+  assert.ok(src.includes(".t3dops-input"), "缺纹理输入框样式(global 前缀)");
+});
+
 /* ── ④ libraryQuery 筛选/短名 ── */
-test("libraryQuery:threed_render/threed_material 进 3D 桶且有中文短名", () => {
+test("libraryQuery:threed_render/threed_material/threed_texture 进 3D 桶且有中文短名", () => {
   const src = readSrc("lib/libraryQuery.ts");
-  assert.ok(src.includes('"threed_material"') && src.includes('"threed_render"'),
+  assert.ok(src.includes('"threed_material"') && src.includes('"threed_render"')
+    && src.includes('"threed_texture"'),
     "3D 筛选桶未收录新 kind");
   assert.ok(src.includes('threed_material: "3D 材质"'), "缺 threed_material 短名");
   assert.ok(src.includes('threed_render: "3D 渲染"'), "缺 threed_render 短名");
+  assert.ok(src.includes('threed_texture: "3D 纹理"'), "缺 threed_texture 短名");
 });

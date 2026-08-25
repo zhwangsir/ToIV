@@ -1,0 +1,23 @@
+[Unit]
+Description=ToIV Hunyuan3D 2.1 texture service (hy3dpaint native pipeline, port 9404, GPU0)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=merlin
+WorkingDirectory=/home/merlin/toiv-hy3dtex
+# GPU0 余量最大(08-25 快照 66G free);多视图扩散+DINOv2-giant+RealESRGAN 峰值 ~20G
+Environment=CUDA_VISIBLE_DEVICES=0
+# 小文件缺缓存时经 hf-mirror 回落,不设 HF_HUB_OFFLINE(H3 LoRA 教训:离线会炸 AutoTokenizer 探测)
+Environment=HF_ENDPOINT=https://hf-mirror.com
+Environment=HY3D_TEX_SIZE=2048
+Environment=HY3D_WEIGHTS_DIR=/home/merlin/nas_mount/toiv/hunyuan3d-2.1
+ExecStart=/home/merlin/toiv-hy3dtex/.venv/bin/python -m uvicorn server:app --host 0.0.0.0 --port 9404
+Restart=on-failure
+RestartSec=5
+# 管线载入后 RSS ~10-20G,给 48G 上限防失控(H-3 RAM 预算纪律)
+MemoryMax=48G
+
+[Install]
+WantedBy=multi-user.target

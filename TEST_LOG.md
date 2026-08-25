@@ -2,6 +2,40 @@
 
 ---
 
+## P0-SWAP-2026-08-25 · Qwen3-VL-32B 替换 molmo2 + Hunyuan3D 2.1 纹理管线上线
+
+**时间**: 2026-08-25
+**类型**: P0 服务替换 ×2(评分/反推 VLM + 3D 纹理缺口)
+
+### P0-a Qwen3-VL-32B-Instruct-FP8(spark01 替换 molmo2-8B)
+
+- spark01 `qwen3vl32b` 容器(vLLM):served 别名 `qwen3-vl-32b`/`molmo2-8b`/`omni-captioner` 三在线,core .env 零改动兼容
+- core 指向(生产 .env 实证):`TOIV_VLM_SERVER_URL`/`TOIV_EVAL_VLM_BASE_URL+MODEL`/`TOIV_OMNI_CAPTIONER_BASE_URL` 全部 spark01:8000
+- **video→video_url 修复**:vLLM Qwen3-VL 只认 OpenAI 标准 `video_url`(scoring.py + eval_scorers.py 两处),旧 `"video"` 字段直接 400
+- e2e(core→spark01):白底 PNG→"White"、红色 1s 视频(video_url)→"Red",双模态无幻觉;对照 08-24 molmo2 评分幻觉(没变化打 10/有效编辑打 0)根治
+- fleet_registry:spark01 角色/服务名同步(vllm 探测 /v1/models)
+- 注:`TOIV_VIDEO_SCORER_ENABLED` 生产保持 false(灰度开关,就绪未开)
+
+### P0-b Hunyuan3D 2.1 纹理管线(toiv-hy3dtex :9404)
+
+- **架构**:core `POST /api/3d/texture` → workstation toiv-hy3dtex(原生 hy3dpaint v2-1:多视图扩散 6 视角 + DINOv2-giant + RealESRGAN×4 增强 + PBR 烘焙)→ GLB 产物 + Job(kind=threed_texture);systemd enabled,GPU0,MemoryMax=48G
+- **环境攻坚(sm_120 Blackwell)**:torch 2.7.1+cu126 无 sm_120 内核 → 换 torch 2.13.0+cu130;custom_rasterizer 源码重建(CUDA_HOME 借 ComfyUI-hunyuan3d venv 的 nvidia/cu13,pip cuda-toolkit 不含 nvcc);basicsr 打 torchvision functional_tensor 补丁 + `--no-build-isolation --no-deps` 装法(setup.py 需 torch/scipy 且依赖 tb-nightly 不存在);realesrgan 同法;diffusers 0.40 自定义管线须 `trust_remote_code=True` 补丁;trimesh 5.x `simplify_quadric_decimation` 首位参数变 percent,改 `face_count=` 关键字
+- **Blender 缺位**:官方 obj→glb 依赖 bpy(静默失败)→ server.py 内改 trimesh `PBRMaterial`(albedo + metallicRoughness 合并贴图 R=AO/G=rough/B=metal)自转 GLB
+- **参考图三优先级**:显式 image > 原图生3D 作业 params 回填 > 纯白图+文本引导(管线 text_prompt ToIV 补丁)
+- 冒烟:球体+参考图 38.7s(含冷载)/9.5s(暖);产物 GLB 实证含 baseColorTexture + metallicRoughnessTexture
+- **生产 e2e**:hunyuan3d 作业 7dd05aaa → 「金属质感,轻微锈蚀」→ 47.5s 产出 3.4MB PBR GLB,文件端点 200,作品库 3D 桶可见;fleet 探测 :8200/:9404 双 up
+
+### 前端/工具
+
+- 灯箱 ThreeDOpsBar 新增「AI 纹理贴图(约几分钟)」折叠区:风格描述输入 + 生成按钮(busy 态分钟级提示);lib/api threeDTexture(960s timeoutMs 覆盖);libraryQuery 收录 threed_texture(3D 桶+「3D 纹理」短名——路由注释声称已收录实为漂移,本轮回补)
+- 助手 adjust_3d 新增 op=texture(系统提示同步,旧「纹理绘画暂不支持」断言同步更新)
+
+### 回归
+
+后端 2077 passed(新增 test_threed_texture.py 6 例)/ 前端 546 passed(新增纹理 2 例+mock 替身)/ tsc 0;已部署 core(deploy.sh core-ts,Mac 离 LAN 走 Tailscale)。
+
+---
+
 ## QWEN-EDIT-2026-08-24 · Qwen-Image-Edit 上 pc02 全链路 + 评测矩阵首秀
 
 **时间**: 2026-08-24(凌晨)

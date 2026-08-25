@@ -286,7 +286,8 @@ class VideoScorer:
                 {
                     "role": "user",
                     "content": [
-                        {"type": "video", "video": video_data_url},
+                        # video_url(OpenAI 标准)而非 "video":vLLM Qwen3-VL 只认 video_url
+                        {"type": "video_url", "video_url": {"url": video_data_url}},
                         {"type": "text", "text": user_text},
                     ],
                 },

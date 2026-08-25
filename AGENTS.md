@@ -34,7 +34,7 @@
 |---|---|---|---|---|---|
 | studio01-04 | EXO RDMA 推理 :52415(实跑 MiniMax-M2.7-4bit);studio04 另跑 VLM 反推 :9303(mlx-vlm 72B,plist `com.dgmt.toiv-vlm-mlx`) | .109/.111/.112/.113 | 100.67.43.40 / 100.91.0.121 / 100.115.27.68 / 100.126.182.23 | **Mac Studio M3 Ultra 32核 512GB** | dgmt-studio01-04 |
 | openclaw01-04 | OpenClaw 网关 | .86/.75/.81/.85 | 100.69.0.4 / 100.76.35.7 / 100.76.140.121 / 100.91.128.30 | Mac mini M2 | dgmt-openclaw01-04 |
-| spark01 | Molmo2-8B 音乐/图像反推 VLM(容器 molmo2_captioner, :8000) | .82 | 100.81.235.124 | Linux GB10 | dgmt-spark |
+| spark01 | **Qwen3-VL-32B-Instruct-FP8** 评分/反推 VLM(容器 qwen3vl32b, :8000;2026-08-25 替换 molmo2-8B,幻觉实测根治;别名 molmo2-8b/omni-captioner 保留) | .82 | 100.81.235.124 | Linux GB10 | dgmt-spark |
 | spark02 | LLM L1-L4 主力(**Qwen3.8-27B-Uncensored-FP8 无审查版**,2026-08-23 替换;别名 qwen3.8-27b/qwen3.6-uncensored 均有效, :8000) | .84 | 100.86.42.89 | Linux GB10 | dgmt-spark |
 | workstation | 算力+全部后端服务 | 192.168.71.127 | **100.68.100.90** | Linux 4×RTX PRO 6000 | merlin |
 | pc01 | ComfyUI worker :8188 | 192.168.71.115 | 100.69.134.27 | Windows RTX 5090 | home |
@@ -70,7 +70,7 @@
 
 | GPU | 服务 | 端口 | 显存(08-23) | systemd |
 |-----|------|------|------|---------|
-| GPU0(10.9G) | ComfyUI #1 / IndexTTS2 / CosyVoice2 | :8189 / :9200 / :9201 | 共~11G | comfyui-gpu0 / toiv-tts / (cosyvoice) |
+| GPU0(10.9G) | ComfyUI #1 / IndexTTS2 / CosyVoice2 / **hy3dtex 纹理管线** | :8189 / :9200 / :9201 / :9404 | 共~11G(纹理按需加载) | comfyui-gpu0 / toiv-tts / (cosyvoice) / **toiv-hy3dtex** |
 | GPU1(69.4G) | Qwen3-Embedding-4B / LiveAct / 超分实例 | :9302 / :9400 / :8261 | ~20+59+0.75G | qwen3-embedding / toiv-liveact / comfyui-upscale-gpu1 |
 | GPU2(73.0G) | **MiniMax H3(主力视频引擎)** :8195(~41G) / JoyCaption :9304(~17G) / LongCat :8197 / ASR :9210 / FireRedASR :8300 / CosyVoice3 :9202 / Qwen3-TTS :9203 / demucs :9220 / SenseVoice :9211 / 超分 :8262 | — | — | toiv-comfyui-h3 等;⚠️ 接近共卡红线,新增服务前必查 |
 | GPU3(54.1G) | FlashTalk :9004(~51G) / OpenTalking / 超分 :8263 | — | — | ~~LTX-2.5 :8198~~ **已彻底退役**(2026-08-23 用户授权自主决断:`disable --now` 已执行,enabled→disabled,GPU3 释放 36G、RAM 54→90G;NVFP4 模型文件留盘可回滚) |
@@ -79,7 +79,7 @@
 
 **超分 fleet**：:8261/:8262/:8263 三卡并行 4x-UltraSharp 帧超分,由融合超分链/`scripts/video_4k_upscale_parallel.py` 调用。
 
-**关键服务路径**：ComfyUI=/opt/ComfyUI(venv) · IndexTTS2=/home/merlin/index-tts · H3 实例=/home/merlin/ComfyUI-h3-eval · LongCat=/home/merlin/ComfyUI-longcat · LTX2.5=/home/merlin/ComfyUI-ltx25 · JoyCaption=/opt/toiv-joycaption(transformers 直跑,勿用 vLLM) · pynvml 锁扇用 /opt/nemotron-venv/bin/python(系统 python3 无该库)
+**关键服务路径**：ComfyUI=/opt/ComfyUI(venv) · IndexTTS2=/home/merlin/index-tts · H3 实例=/home/merlin/ComfyUI-h3-eval · LongCat=/home/merlin/ComfyUI-longcat · LTX2.5=/home/merlin/ComfyUI-ltx25 · JoyCaption=/opt/toiv-joycaption(transformers 直跑,勿用 vLLM) · pynvml 锁扇用 /opt/nemotron-venv/bin/python(系统 python3 无该库) · **hy3dtex 纹理=/home/merlin/toiv-hy3dtex(原生 hy3dpaint v2-1,torch 2.13+cu130)** · Hunyuan3D Kijai 实例=/home/merlin/ComfyUI-hunyuan3d(:8200 GPU1)
 
 **散热政策(2026-08-16 用户拍板)**：🔒 **无软件温度熔断**——温度高属正常,GPU 自降频即保护,生产禁止以温度为由中止任务;锁扇(NVML SetFanSpeed_v2,fan_guard.py 常驻 /tmp,⚠️ /tmp 是 tmpfs 重启即清,须重传)是吞吐优化;仅持续 ≥95°C 才人工介入。BIOS 机箱风扇曲线已由用户调满速(2026-08-23)。
 
@@ -175,9 +175,17 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 **P-6 杂项**：workstation pip 用清华镜像、github 用 ghfast.top;core 登录接口返回字段是 `token` 不是 `access_token`;上传 kind 必须下划线风格(ltx_i2v 等),连字符导致 capabilities 门控失效;H3 生成前置校验显存,调用前先 free 缓存。
 
+**P-7 新 Python 服务环境三坑(2026-08-25 hy3dtex 实证)**：①RTX PRO 6000 是 sm_120(Blackwell),torch cu126 及以下**无内核**(报 `no kernel image`),必须 cu128+/cu130;pip `cuda-toolkit` 包不含 nvcc,编译 CUDA 扩展借现存 venv 的 `nvidia/cu13`(CUDA_HOME 指过去即可)。②老牌 CV 包(basicsr/realesrgan)sdist setup.py 需 torch/scipy 且钉死不存在依赖(tb-nightly)——`--no-build-isolation --no-deps` 安装 + torchvision `functional_tensor`→`functional` 补丁。③三方库主版本升级静默改语义:trimesh 5.x `simplify_quadric_decimation` 首位参数从 face_count 变 percent(关键字传参保命);diffusers 0.40 自定义管线强制 trust_remote_code;**库升级后旧调用约定必须逐处核对,能跑≠语义对**。
+
 ---
 
 ## 七、近期关键变更（决策记录,替代操作历史）
+
+### 2026-08-25（P0 服务替换双落地:Qwen3-VL-32B + Hunyuan3D 2.1 纹理管线）
+- **P0-a spark01 molmo2→Qwen3-VL-32B-Instruct-FP8**:容器 qwen3vl32b(vLLM),别名 qwen3-vl-32b/molmo2-8b/omni-captioner 三在线 core 零改动;scoring.py/eval_scorers.py `video`→`video_url` 修复(vLLM Qwen3-VL 只认 OpenAI 标准);core→spark01 双模态 e2e(白图→White、红视频→Red)无幻觉;`TOIV_VIDEO_SCORER_ENABLED` 生产仍 false(灰度就绪未开)
+- **P0-b toiv-hy3dtex :9404(workstation GPU0,systemd enabled)**:原生 hy3dpaint v2-1(多视图扩散+DINOv2-giant+RealESRGAN+PBR 烘焙)补「3D 无贴图」缺口;core `POST /api/3d/texture`(job_id|source,参考图三优先级:显式>原作业回填>纯白+文本引导)产物建 Job(kind=threed_texture);adjust_3d op=texture + 灯箱「AI 纹理贴图」折叠区(960s 超时);生产 e2e 47.5s 出 3.4MB PBR GLB 实证
+- **环境攻坚(sm_120 Blackwell)**:torch 2.7.1+cu126 无 sm_120 内核→2.13.0+cu130;custom_rasterizer 源码重建(CUDA_HOME 借 ComfyUI-hunyuan3d venv nvidia/cu13);basicsr/realesrgan 须 `--no-build-isolation --no-deps`(tb-nightly 不存在)+torchvision functional_tensor 补丁;diffusers 0.40 自定义管线须 trust_remote_code 补丁;trimesh 5.x `simplify_quadric_decimation` 首位参数变 percent 须 `face_count=` 关键字;官方 obj→glb 依赖 Blender(bpy) 静默失败→server 内 trimesh PBRMaterial 自转
+- 回归:后端 2077 / 前端 546 / tsc 0;已部署 core(deploy.sh core-ts,Mac 离 LAN 走 Tailscale)
 
 ### 2026-08-24（傍晚·助手可靠性 + 3D 渲染纠偏 + 全局排版压缩）
 - **助手「服务暂时不可用」根治**:前端一次性 30s 首块超时是元凶(LLM 大上下文首 token 慢于 30s 即被前端 abort);改为后端 SSE 每 10s 空闲注入 `: ping` 保活帧(生产者 task+Queue,异常暂存重抛),前端「任意字节活动续命 120s」;llm 瞬时错误日志 str→repr(httpx 部分异常 str 为空串,无法诊断)

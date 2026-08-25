@@ -96,7 +96,7 @@ class ThreeDOpsRequest(BaseModel):
     prompt: str | None = Field(default=None, max_length=500)
 
 
-_LOCAL_GLB_RE = re.compile(r"^/api/3d/ops/files/(threedops-[0-9a-f]{32}\.glb)$")
+_LOCAL_GLB_RE = re.compile(r"^/api/3d/(?:ops|texture)/files/((?:threedops|threedtex)-[0-9a-f]{32}\.glb)$")
 
 
 def _glb_locator_from_job(job: Job) -> OpsSource | str:

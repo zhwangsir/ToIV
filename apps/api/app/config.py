@@ -281,6 +281,13 @@ class Settings(BaseSettings):
     # 单请求超时(秒):turntable 36 帧 1080p 实测秒级,默认 300 给足大网格余量。
     threed_ops_timeout_sec: float = 300.0
 
+    # —— Hunyuan3D 2.1 纹理服务(hy3dpaint 管线,workstation :9404,toiv-hy3dtex.service) ——
+    # 输入白模 GLB(+可选参考图/风格文本),多视图扩散 + 烘焙产出带 PBR 贴图的新 GLB。
+    # 空 = 未部署,/api/3d/texture 503。
+    hy3d_tex_url: str = "http://192.168.71.127:9404"
+    # 单请求超时(秒):纹理生成是分钟级(多视图扩散 + 4K 烘焙),默认 900。
+    hy3d_tex_timeout_sec: float = 900.0
+
     # —— MiniMax H3 视频生成引擎(专用 ComfyUI ≥ 0.30 实例,workstation :8195) ——
     # 独立于 ComfyUI-LB 集群/WorkerPool(生产 ComfyUI 0.27/0.28 无 H3 节点);
     # 实例由 systemd 托管,权重经 extra_model_paths 挂 NAS h3/。

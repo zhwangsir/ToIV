@@ -468,6 +468,14 @@ export const threeDOps = async (): Promise<{
   op: string;
   format: string;
 }> => ({ kind: "threed_render", url: "/api/3d/ops/files/mock.mp4", job_id: "mock-job", op: "render", format: "mp4" });
+/** 3D 纹理替身(灯箱操作条 AI 纹理贴图链接期需要)。 */
+export const threeDTexture = async (): Promise<{
+  kind: string;
+  url: string;
+  job_id: string | null;
+  op: string;
+  format: string;
+}> => ({ kind: "threed_texture", url: "/api/3d/texture/files/mock.glb", job_id: "mock-job", op: "texture", format: "glb" });
 
 // ===========================================================================
 // UI-B 视图组件替身扩展(uiBViews.test.ts:PromptBar → ReverseButton 经 loader 映射到这里)

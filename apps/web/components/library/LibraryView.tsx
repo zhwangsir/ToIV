@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { deleteJob, fetchJobsPage, fetchTrash, getVideoUpscaleStatus, imageUrl, invalidateJobs, JOBS_PAGE_LIMIT, listJobs, permanentDeleteJob, purgeTrash, restoreJob, threeDOps, undoDelete, upscaleVideo } from "@/lib/api";
+import { deleteJob, fetchJobsPage, fetchTrash, getVideoUpscaleStatus, imageUrl, invalidateJobs, JOBS_PAGE_LIMIT, listJobs, permanentDeleteJob, purgeTrash, restoreJob, threeDOps, threeDTexture, undoDelete, upscaleVideo } from "@/lib/api";
 import { ENGINE_DRAFT_KEY } from "@/lib/engine";
 import { begin as genBegin, end as genEnd, progress as genProgress } from "@/lib/generationBus";
 import { useR18Mode } from "@/lib/r18";
@@ -1657,7 +1657,8 @@ const T3DOPS_VIEW_ONLY = new Set<string>(["wireframe", "normal"]);
 function ThreeDOpsBar({ job }: { job: JobItem }) {
   const toast = useToast();
   const [preset, setPreset] = useState<string>("clay");
-  const [busy, setBusy] = useState<"glb" | "png" | "mp4" | null>(null);
+  const [busy, setBusy] = useState<"glb" | "png" | "mp4" | "texture" | null>(null);
+  const [texPrompt, setTexPrompt] = useState<string>("");
 
   const run = async (out: "glb" | "png" | "mp4") => {
     if (busy) return;
@@ -1680,6 +1681,24 @@ function ThreeDOpsBar({ job }: { job: JobItem }) {
       );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "3D 渲染失败");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  // AI 纹理贴图(Hunyuan3D 2.1):分钟级同步等待,产物新 GLB 进作品库 3D 桶
+  const runTexture = async () => {
+    if (busy) return;
+    setBusy("texture");
+    try {
+      await threeDTexture({
+        job_id: job.id,
+        prompt: texPrompt.trim() || undefined,
+      });
+      invalidateJobs();
+      toast.success("纹理贴图模型已生成,已收入作品库(3D 筛选)");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "3D 纹理生成失败");
     } finally {
       setBusy(null);
     }
@@ -1738,6 +1757,32 @@ function ThreeDOpsBar({ job }: { job: JobItem }) {
           </button>
         </div>
       </details>
+      {/* AI 纹理贴图(Hunyuan3D 2.1,2026-08-25 P0):真 PBR 贴图烘焙,分钟级同步等待 */}
+      <details className="t3dops-more">
+        <summary>AI 纹理贴图(约几分钟)</summary>
+        <div className="t3dops-texture">
+          <input
+            className="t3dops-input"
+            type="text"
+            placeholder="风格描述(可选),如:青铜锈蚀质感"
+            aria-label="纹理风格描述"
+            maxLength={200}
+            value={texPrompt}
+            disabled={busy !== null}
+            onChange={(e) => setTexPrompt(e.target.value)}
+          />
+          <button
+            type="button"
+            className="t3dops-btn"
+            disabled={busy !== null}
+            title="Hunyuan3D 2.1 多视图扩散生成真 PBR 贴图并烘焙回模型,分钟级耗时"
+            onClick={runTexture}
+          >
+            <Icon name={busy === "texture" ? "loading" : "palette"} size={13} />
+            {busy === "texture" ? "纹理生成中(约几分钟)…" : "生成纹理贴图新模型"}
+          </button>
+        </div>
+      </details>
       {/* global + t3dops- 前缀(P-2b):子组件样式不进主组件 styled-jsx 作用域 */}
       <style jsx global>{`
         .t3dops-bar {
@@ -1763,7 +1808,25 @@ function ThreeDOpsBar({ job }: { job: JobItem }) {
           color: var(--text-primary, #eee);
           background: var(--bg-surface-2, rgba(255, 255, 255, 0.06));
           border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
-          border-radius: 8px;
+          border-radius: var(--radius-btn, 8px);
+        }
+        .t3dops-texture {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-2, 8px);
+          margin-top: var(--space-2, 8px);
+        }
+        .t3dops-input {
+          width: 100%;
+          padding: 6px 8px;
+          font-size: var(--text-aux, 13px);
+          color: var(--text-primary, #eee);
+          background: var(--bg-surface-2, rgba(255, 255, 255, 0.06));
+          border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+          border-radius: var(--radius-btn, 8px);
+        }
+        .t3dops-input::placeholder {
+          color: var(--text-muted, #888);
         }
         .t3dops-actions {
           display: flex;

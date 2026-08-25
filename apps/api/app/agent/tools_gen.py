@@ -150,7 +150,7 @@ TOOL_SCHEMAS_GEN = [
         "function": {
             "name": "adjust_3d",
             "description": (
-                "对已有 3D 模型(GLB)做材质/渲染级调整,立即返回产物(秒级~一分钟)。"
+                "对已有 3D 模型(GLB)做材质/渲染/纹理级调整,立即返回产物。"
                 "渲染的默认语义是把材质效果烘焙回 3D 模型本身,产出新的 3D 模型(GLB),"
                 "不是生成图片/视频。"
                 "自然语言映射:「换成金属/哑光/黏土/陶瓷质感」「渲染一下这个模型」"
@@ -158,17 +158,20 @@ TOOL_SCHEMAS_GEN = [
                 "「出个旋转视频/转一圈看看」→ op=render + out=mp4;"
                 "「渲染快照/看看某个角度/线框/法线看看」→ op=render + out=png(+azimuth;"
                 "wireframe/normal 是纯查看模式,只能出 png/mp4,不能烘焙成 GLB);"
-                "「染成青铜色/改成金色/更光滑」→ op=material + base_color/metallic/roughness(导出新 GLB)。"
+                "「染成青铜色/改成金色/更光滑」→ op=material + base_color/metallic/roughness(导出新 GLB);"
+                "「上色/贴图/画纹理/换皮肤/生成真实材质贴图」→ op=texture(Hunyuan3D 2.1 多视图扩散"
+                "生成真 PBR 贴图烘焙回模型,分钟级耗时,prompt 传风格描述如「青铜锈蚀质感」;"
+                "图生3D 作业会自动复用原始参考图,无需用户提供)。"
                 "来源:source_job_id 指定作品库 3D 作业,不传则用用户最近一个 3D 产物。"
-                "注意:这是材质/渲染调整,不改变模型几何;纹理绘画能力暂不支持。"
+                "注意:render/material 是秒级~一分钟,texture 是分钟级;都不改变模型几何。"
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "op": {
                         "type": "string",
-                        "enum": ["render", "material"],
-                        "description": "render=材质预设渲染(默认烘焙成新 GLB 模型);material=PBR 材质改写导出新 GLB",
+                        "enum": ["render", "material", "texture"],
+                        "description": "render=材质预设渲染(默认烘焙成新 GLB 模型);material=PBR 材质改写导出新 GLB;texture=Hunyuan3D 2.1 生成真 PBR 贴图(分钟级)",
                     },
                     "source_job_id": {
                         "type": "string",
@@ -616,7 +619,7 @@ async def exec_propose_plan(args: dict, ctx: dict) -> tuple[str, list[dict]]:
 
 
 # 可作为 adjust_3d 来源的 3D 作业 kind(产物含 .glb)
-_3D_SOURCE_KINDS = ("hunyuan3d", "threed_material")
+_3D_SOURCE_KINDS = ("hunyuan3d", "threed_material", "threed_texture")
 
 
 def _find_3d_source_job(session, user: User, source_job_id: str | None) -> Job | None:
@@ -644,16 +647,16 @@ def _find_3d_source_job(session, user: User, source_job_id: str | None) -> Job |
 
 
 async def exec_adjust_3d(args: dict, ctx: dict) -> tuple[str, list[dict]]:
-    """3D 材质/渲染调整:同步委托 routes/threed_ops(秒级~一分钟),产物经 job 事件展示。"""
-    from app.routes import threed_ops
+    """3D 材质/渲染/纹理调整:同步委托 routes/threed_ops(/threed_texture),产物经 job 事件展示。"""
+    from app.routes import threed_ops, threed_texture
 
     user: User = ctx["user"]
     session = ctx["session"]
     pool = ctx.get("pool")
 
     op = str(args.get("op") or "").strip()
-    if op not in ("render", "material"):
-        return "op 须为 render(材质预设渲染)或 material(材质改写)。", [
+    if op not in ("render", "material", "texture"):
+        return "op 须为 render(材质预设渲染)/ material(材质改写)/ texture(生成纹理贴图)。", [
             _err_event("op 参数不合法", op)
         ]
 
@@ -668,21 +671,28 @@ async def exec_adjust_3d(args: dict, ctx: dict) -> tuple[str, list[dict]]:
             _err_event("无 3D 产物可调整")
         ]
 
-    req_body: dict = {"op": op, "job_id": job.id}
-    if args.get("prompt"):
-        req_body["prompt"] = str(args["prompt"])[:500]
-    for key in ("material", "lighting", "background", "format", "out", "base_color"):
-        if args.get(key):
-            req_body[key] = str(args[key])
-    for key in ("azimuth", "metallic", "roughness"):
-        if args.get(key) is not None:
-            try:
-                req_body[key] = float(args[key])
-            except (TypeError, ValueError):
-                pass
     try:
-        req = threed_ops.ThreeDOpsRequest.model_validate(req_body)
-        result = await threed_ops.threed_ops(req, user, session, pool)
+        if op == "texture":
+            tex_body: dict = {"job_id": job.id}
+            if args.get("prompt"):
+                tex_body["prompt"] = str(args["prompt"])[:500]
+            req = threed_texture.ThreeDTextureRequest.model_validate(tex_body)
+            result = await threed_texture.threed_texture(req, user, session, pool)
+        else:
+            req_body: dict = {"op": op, "job_id": job.id}
+            if args.get("prompt"):
+                req_body["prompt"] = str(args["prompt"])[:500]
+            for key in ("material", "lighting", "background", "format", "out", "base_color"):
+                if args.get(key):
+                    req_body[key] = str(args[key])
+            for key in ("azimuth", "metallic", "roughness"):
+                if args.get(key) is not None:
+                    try:
+                        req_body[key] = float(args[key])
+                    except (TypeError, ValueError):
+                        pass
+            req = threed_ops.ThreeDOpsRequest.model_validate(req_body)
+            result = await threed_ops.threed_ops(req, user, session, pool)
     except HTTPException as e:
         return f"3D 调整失败({e.status_code}):{e.detail}", [
             _err_event("3D 调整失败", str(e.detail))
@@ -694,8 +704,11 @@ async def exec_adjust_3d(args: dict, ctx: dict) -> tuple[str, list[dict]]:
     url = result["url"]
     render_labels = {"glb": "3D 材质模型", "mp4": "3D 旋转视频", "png": "3D 渲染快照"}
     label = req.prompt or (
-        render_labels.get(str(result["format"]), "3D 渲染")
-        if op == "render" else "3D 材质调整"
+        "3D 纹理模型"
+        if op == "texture"
+        else render_labels.get(str(result["format"]), "3D 渲染")
+        if op == "render"
+        else "3D 材质调整"
     )
     event = _job_event(
         job_id=str(result.get("job_id") or ""),
@@ -703,6 +716,6 @@ async def exec_adjust_3d(args: dict, ctx: dict) -> tuple[str, list[dict]]:
     )
     text = (
         f"3D 调整完成(产物已展示给用户并进作品库):{label}。"
-        "如需继续调整(换材质/出旋转视频/染色),直接说即可。"
+        "如需继续调整(换材质/出旋转视频/染色/重新生成纹理),直接说即可。"
     )
     return text, [event]

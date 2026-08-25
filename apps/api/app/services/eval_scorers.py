@@ -299,9 +299,10 @@ class VLMScorer(ArtifactScorer):
 
         b64 = base64.b64encode(content).decode("ascii")
         if _is_video(ctx):
+            # video_url(OpenAI 标准)而非 "video":vLLM Qwen3-VL 只认 video_url
             media_block: dict[str, Any] = {
-                "type": "video",
-                "video": f"data:video/mp4;base64,{b64}",
+                "type": "video_url",
+                "video_url": {"url": f"data:video/mp4;base64,{b64}"},
             }
         else:
             media_block = {
