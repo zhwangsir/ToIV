@@ -1,4 +1,38 @@
+# TEST_LOG.md — ToIV
+
+- 2026-08-27 项目管家文档治理：根目录收敛为 5 件套。
+
 # ToIV · 测试日志（TEST_LOG）
+
+---
+
+## FLYWHEEL-2026-08-27 · H3 数据飞轮接线(trainer h3 支持 + 编排脚本,真训练实证)
+
+**时间**: 2026-08-27
+**类型**: 遗留推进「E_data_flywheel 在线训练回环未接线(依赖 D)」
+
+### 落地
+
+- **trainer agent h3 族支持**(arch=minimax_h3,模板按 8-23 实证 example.yaml):num_frames 17n+5 网格向上吸附(5/22/39/56,warning 透传)、cache_text_embeddings、MODELS_PATH 注入(仅 h3)、H3_LORAS_DIR 独立产物目录、跳过 ckpt 拼接(name_or_path 只取 tokenizer)
+- **飞轮编排** `scripts/h3/h3_flywheel.py`:h3_lora_dataset 导出 winner 数据集 → 软链进 trainer DATASETS_DIR → `--free-h3` 驱逐推理缓存 → POST /train → GET /train/{id}(新增状态端点)轮询 → LoRA 路径报告
+- **agent 新增** `GET /train/{id}` JSON 状态端点(飞轮轮询依赖,未知 id 404)
+
+### 真机攻坚(4 连败 → 实证通过,全部转化为模板修正+回归测试)
+
+1. **KeyError batch_size**(空回复断连):可选参数无默认值 → 全量默认值对齐 core TrainStartRequest,必填缺失 ValueError→400 不断连
+2. **OOM 物理 GPU0**:YAML `device: cuda:2` 与 CUDA_VISIBLE_DEVICES 单卡视图冲突回退物理 GPU0 → 模板恒 `device: cuda:0`(物理卡由 subprocess env 指定,H3 实证范式)
+3. **OOM GPU2 余量不足**(low_vram 仍差 74MB):GPU2 多租户(H3 推理 :8195 常驻 39G)→ low_vram 默认 true + 训练前 `POST :8195/free` 驱逐(56.3G→17.2G,推理自动重载)
+4. **resume 误捡 + DONE 空路径**:共享 loras 根被 ai-toolkit resume 发现误捡 smoke4 的 optimizer.pt(torch.load 崩) → training_folder 每作业独立;ai-toolkit 自附加 name 层致产物双嵌套 → `_find_lora_file` 递归发现最新 safetensors
+
+### 实证
+
+- `h3_flywheel_smoke6_20260827.safetensors` **310MB rank16**(与 8-23 冒烟同规格),30 步 1:37(loss 0.137),DONE 路径正确回填
+- ⚠️ **生产飞轮真实 e2e 待数据**:core evalbatch/evalscore 当前为空(核实 0 行),需先跑 best-of-n 评测批次累积 winner;编排脚本数据集为空时明确报错引导
+
+### 测试/回归
+
+- trainer agent 测试 21→**39 例**(h3 模板/吸附/device cuda:0/默认值/必填 400/每作业隔离/递归发现/状态端点)
+- 全量:后端 **2333 passed**(144s)
 
 ---
 

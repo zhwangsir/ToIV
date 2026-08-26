@@ -1,4 +1,4 @@
-# AGENTS.md — Mobile
+# AGENTS.md — MiniProgram
 
 > **最后更新**：2026-08-27（项目管家文档治理）
 > **集群真相源**：`../../ToIV/AGENTS.md`（禁止把设备清单/凭据复制进本文件）
@@ -6,9 +6,9 @@
 
 ## 本项目
 
-ToIV 移动端（Expo/RN）。
+ToIV 小程序（uni-app）。
 
-路径：`ALLProject/Mobile`
+路径：`ALLProject/MiniProgram`
 
 ## 硬性规则
 
@@ -16,7 +16,3 @@ ToIV 移动端（Expo/RN）。
 2. 禁止跨项目改代码。共享基础设施不耦合。
 3. 未要求不要主动 git commit / push。
 4. 旧文档已归档到 `ALLProject/.archive/docs-legacy-20260827/`，不要在项目根再堆副本。
-
-## 旧 AGENTS 说明
-
-本项目曾有一份独立 AGENTS.md（含过时集群拷贝），已归档。项目专属章节见 DEVELOPMENT.md。

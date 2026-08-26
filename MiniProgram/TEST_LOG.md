@@ -1,3 +1,7 @@
+# TEST_LOG.md — MiniProgram
+
+- 2026-08-27 项目管家文档治理：根目录收敛为 5 件套。
+
 # ToIV MiniProgram 测试日志
 
 > 技术栈：UniApp 3.0 (vite5) + Vue3 `<script setup lang="ts">` + TS strict + Pinia + vitest

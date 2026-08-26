@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-08-26（网络拓扑根治:小米 BE10000 Pro 切 AP 模式并入 71 段 .42,NAS/core 孤岛消除;设备清单补小米路由器/光猫条目）
+> **最后更新**：2026-08-27（项目管家真机复核 + 全项目文档 5 件套治理）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 
 ---
@@ -11,7 +11,7 @@
 
 ### 规则一：所有后端服务都来源于 Workstation
 
-> 所有 AI/算力后端服务（ComfyUI/LB、IndexTTS2、ASR、Embedding、LiveAct、H3、LongCat、FlashTalk、OpenTalking、JoyCaption 等）全部运行在 Workstation(192.168.71.127 / 100.68.100.90)上。
+> 所有 AI/算力后端服务（ComfyUI/LB、IndexTTS2.5、ASR、Embedding、LiveAct、H3、LongCat、FlashTalk、OpenTalking、JoyCaption 等）全部运行在 Workstation(192.168.71.127 / 100.68.100.90)上。
 >
 > - core(192.168.71.47)只跑 ToIV web/api + PostgreSQL/Redis，是业务网关，不是算力来源
 > - 本机 Mac 只是操作终端；配置里的 `127.0.0.1`/`localhost` 地址只是本地 dev 兜底，**真机排查一律先查 Workstation**
@@ -33,12 +33,12 @@
 | 设备 | 角色 | LAN IP | Tailscale IP | 类型 | SSH 用户 |
 |---|---|---|---|---|---|
 | studio01-04 | EXO RDMA 推理 :52415(实跑 MiniMax-M2.7-4bit);~~studio04 另跑 VLM 反推 :9303~~(2026-08-26 ToIV 零依赖,退役观察期) | .109/.111/.112/.113 | 100.67.43.40 / 100.91.0.121 / 100.115.27.68 / 100.126.182.23 | **Mac Studio M3 Ultra 32核 512GB** | dgmt-studio01-04 |
-| openclaw01-04 | OpenClaw 网关 | .86/.75/.81/.85 | 100.69.0.4 / 100.76.35.7 / 100.76.140.121 / 100.91.128.30 | Mac mini M2 | dgmt-openclaw01-04 |
+| openclaw01-04 | OpenClaw 网关 | .86/.75/.81/.85 | **100.115.23.67** / 100.76.35.7 / 100.76.140.121 / **100.125.217.11**（01/04 以 Tailscale 2026-08-27 为准，旧 100.69.0.4 / 100.91.128.30 作废） | Mac mini M2 | dgmt-openclaw01-04 |
 | spark01 | **Qwen3-VL-32B-Instruct-FP8** 评分/反推 VLM(容器 qwen3vl32b, :8000;2026-08-25 替换 molmo2-8B,幻觉实测根治;**2026-08-26 起接管图像/视频反推+宫格 grounding**,别名 molmo2-8b/omni-captioner 保留) | .82 | 100.81.235.124 | Linux GB10 | dgmt-spark |
 | spark02 | LLM L1-L4 主力(**Qwen3.8-27B-Uncensored-FP8 无审查版**,2026-08-23 替换;别名 qwen3.8-27b/qwen3.6-uncensored 均有效, :8000) | .84 | 100.86.42.89 | Linux GB10 | dgmt-spark |
 | workstation | 算力+全部后端服务 | 192.168.71.127 | **100.68.100.90** | Linux 4×RTX PRO 6000 | merlin |
 | pc01 | ComfyUI worker :8188 | **192.168.71.116**(2026-08-25 DHCP 由 .115 漂移,MAC 指纹实证;LB/SSH/代码已同步) | 100.69.134.27 | Windows RTX 5090 | home |
-| pc02 | ComfyUI worker :8193 + 编辑实例 :8194 | 192.168.71.114 | 100.107.94.26 | Windows RTX 5090 | w |
+| pc02 | ComfyUI worker :8193 + 编辑实例 :8194；⚠️ Tailscale 2026-08-27 离线 21d（8-24 复活记录过时） | 192.168.71.114 | 100.107.94.26 | Windows RTX 5090 | w |
 | NAS | SMB 存储 44T | 192.168.71.7 | 100.80.237.96 | Linux | dgmt-nas |
 | 小米路由器 | BE10000 Pro(DRT_MI),**AP/有线中继模式**(2026-08-26 由二级路由切换,原 192.168.31.1→.42),管理页 192.168.71.42 | 192.168.71.42 | — | — | — |
 | 光猫 | 主网关/拨号(192.168.71.1,MAC 7c:c9:26:ef:01:93) | 192.168.71.1 | — | — | — |
@@ -106,7 +106,9 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 | PostgreSQL 18 / Redis | ✅ 真机运行 |
 | **内容限制管控**(2026-08-23) | ❌ **已下线**(同日午后用户拍板自行重做,全量移除零残留);nsfw_allowed 回退为未成年硬阻断+X-NSFW 头历史语义;contentpolicy 表 2026-08-27 核实不存在(零残留核销) |
 | **视频评分器灰度**(2026-08-27) | ✅ `TOIV_VIDEO_SCORER_ENABLED=true`(用户授权,阈值 0.65);评委 spark01 Qwen3-VL-32B;观察降级率,异常回滚备份 `.env.bak-20260827-scorer` |
-| **LoRA trainer :9100**(2026-08-27) | ✅ `toiv-trainer.service` active+enabled(workstation);core `TOIV_TRAINER_URL=http://192.168.71.127:9100`;⚠️ arch 字符串以 workstation ai-toolkit 实测为准(zimage 无下划线/qwen_image/flux2/内置 flux),run.py 配置为**位置参数**;不支持族(10eros/ltx/pony/sd15/h3)400 拒绝 |
+| **LoRA trainer :9100**(2026-08-27) | ✅ `toiv-trainer.service` active+enabled(workstation);core `TOIV_TRAINER_URL=http://192.168.71.127:9100`;⚠️ arch 字符串以 workstation ai-toolkit 实测为准(zimage 无下划线/qwen_image/flux2/内置 flux),run.py 配置为**位置参数**;不支持族(10eros/ltx/pony/sd15)400 拒绝;**h3 族已支持**(arch=minimax_h3,num_frames 17n+5 吸附,真训练 310MB rank16 实证) |
+| **trainer 易错点**(2026-08-27 四连败实证) | ①YAML `device` 恒 `cuda:0`(物理卡由 subprocess `CUDA_VISIBLE_DEVICES` 单卡视图指定,写 cuda:2 回退物理 GPU0 OOM)②GPU2 多租户训练前必须 `POST :8195/free` 驱逐 H3 推理缓存(39G→17G,自动重载)+ h3 `low_vram` 默认 true ③`training_folder` 必须每作业独立(共享 loras 根被 ai-toolkit resume 误捡其他 LoRA optimizer.pt 致 torch.load 崩)④产物在 training_folder/\<name\>/\<name\>.safetensors(双嵌套),`_find_lora_file` 递归发现 ⑤可选参数全量默认值(缺 batch_size 曾 KeyError 断连) |
+| **H3 数据飞轮**(2026-08-27) | ✅ 接线完成:`scripts/h3/h3_flywheel.py`(winner 数据集导出→软链→free-h3→train→`GET /train/{id}` 轮询);⚠️ 生产真实飞轮待 eval 数据(evalbatch/evalscore 0 行,需先跑 best-of-n 批次) |
 | **IndexTTS2 守护**(2026-08-27) | ✅ `toiv-indextts.service` 替代 nohup 裸进程(active+enabled,health cuda:0);emo_text=true 为 2.5 正常默认(2.0 卡死 issue 已核销) |
 | **音频编排**(2026-08-27) | mix(ffmpeg amix)/variant(duration_factor 语速变体)落地;sfx 仍 501(需音效引擎);可用步骤 tts/separate/concat/mix/variant |
 | **i2L 风格 LoRA**(2026-08-27) | ✅ `toiv-i2l.service`(workstation GPU3 :9101,惰性加载常驻显存 ~26G)+ core `POST /api/train/i2l`(1-8 风格图→LoRA 落 NAS loras 自动发现);e2e 1:59 出 476 张量 rank4 19.9MB 键名 0 坏键;⚠️ core 新端点须 deploy.sh 后才可 e2e |
@@ -188,6 +190,17 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（决策记录,替代操作历史）
+
+
+### 2026-08-27（项目管家真机复核，MateBook LAN + Tailscale）
+
+- **core**：`toiv-api :8090` / `toiv-web :3100` / PostgreSQL / Redis 均为 active。env：`TOIV_VIDEO_SCORER_ENABLED=true`，`TOIV_REVERSE_VLM_BASE_URL=http://192.168.71.82:8000/v1`，`TOIV_REVERSE_VIDEO_MAC_PREFIX` 空，`TOIV_TRAINER_URL=http://192.168.71.127:9100`
+- **workstation**：NAS `/home/merlin/nas_mount` 已挂载。`comfyui-ltx25` inactive。active：comfyui-gpu0 / toiv-comfyui-h3 / toiv-tts / toiv-indextts / toiv-trainer / toiv-joycaption / comfyui-longcat / qwen3-embedding / toiv-liveact / toiv-hy3dtex / toiv-scope
+- **GPU 显存快照**（idle）：0=55172 / 1=75285 / 2=56312 / 3=64459 MiB（总量各 97887）。RAM available ≈19Gi（偏紧，低于 ltx25 退役后那次 ~90Gi）
+- **spark01** `192.168.71.82`：Qwen3-VL-32B-Instruct-FP8，别名 `qwen3-vl-32b` / `molmo2-8b` / `omni-captioner`
+- **spark02** `192.168.71.84`：Qwen3.8-27B-Uncensored-FP8，别名 `qwen3.8-27b` / `qwen3.6-uncensored`
+- **Tailscale**：studio01-04 离线（与 08-26/27 退役记录相符）；pc01 在线；pc02 离线 21d
+- **文档**：集群真相只留本文件。ALLProject 各项目根目录统一 5 件套，旧副本进 `.archive/docs-legacy-20260827/`
 
 ### 2026-08-26（网络拓扑根治:小米路由器切 AP 模式,孤岛消除）
 - **故障现象**:NAS(.7)与 core(.47)互相可达但都到不了网关 .1,workstation 的 `/home/merlin/nas_mount` 挂载断开;观测面板显示设备离线

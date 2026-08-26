@@ -1,3 +1,7 @@
+# TEST_LOG.md — Mobile
+
+- 2026-08-27 项目管家文档治理：根目录收敛为 5 件套。
+
 # TEST_LOG — ToIV Mobile
 
 按时间倒序记录每次回归。质量门禁：`tsc --noEmit` 0 错 · `expo lint` 0 警 · `jest --coverage` 全绿且四项覆盖率 ≥ 80%。

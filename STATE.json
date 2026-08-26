@@ -1,7 +1,7 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-27T02:10:00+08:00",
+ "updated_at": "2026-08-27T03:05:00+08:00",
  "health": {
   "engine_r3_2026_08_21": {
    "status": "completed",
@@ -63,8 +63,8 @@
    "evidence": "2026-08-23 H3 LoRA 训练管线(ostris/ai-toolkit minimax_h3)冒烟实证(rank16 310MB 产出留档 NAS);剩余: trainer :9100 未部署、z_image_base 族 trainer 同步、i2L API 产品化;2026-08-27 trainer :9100 systemd 常驻(toiv-trainer.service,arch 实测核验修正,run.py 位置参数修复,core TOIV_TRAINER_URL 接通);剩余: i2L API 产品化(方案已出);2026-08-27 i2L 产品化落地(toiv-i2l.service GPU3 :9101 + POST /api/train/i2l,e2e 1:59 出 476 张量 rank4 LoRA 19.9MB 键名 0 坏键)"
   },
   "E_data_flywheel": {
-   "status": "partial",
-   "evidence": "2026-08-23 偏好对导出闭环(DPO JSONL,finalize 自动+手动导出,/api/eval/dataset/stats);剩余: 在线训练回环未接线(依赖 D)"
+   "status": "wired_pending_data",
+   "evidence": "2026-08-23 偏好对导出闭环(DPO JSONL,finalize 自动+手动导出,/api/eval/dataset/stats);剩余: 在线训练回环未接线(依赖 D);2026-08-27 在线回环接线完成(trainer h3 支持+scripts/h3/h3_flywheel.py 编排+GET /train/{id} 状态端点,真训练 30 步出 310MB rank16 LoRA);⚠️ 生产真实飞轮待 eval winner 数据(evalbatch/evalscore 当前 0 行,需先跑 best-of-n 批次)"
   }
  },
  "infra": {
@@ -1698,5 +1698,21 @@
   "e2e": "3 张平涂矢量图 → 1:59 出 i2l_smoke_20260827.safetensors(19.9MB/476 张量 rank4/0 坏键)+demo.png 落 NAS loras",
   "tests": "agent 25 例 + core 14 例;全量后端 2315 passed",
   "verified_at": "2026-08-27T02:10:00+08:00"
+ },
+ "flywheel_wiring_2026_08_27": {
+  "status": "completed",
+  "scope": "H3 数据飞轮接线:trainer h3 族支持 + 飞轮编排脚本 + 状态端点,真训练实证",
+  "agent_fixes": [
+   "可选参数全量默认值(修 KeyError batch_size 断连),必填缺失 400",
+   "YAML device 恒 cuda:0(物理卡由 CUDA_VISIBLE_DEVICES 单卡视图指定,修回退 GPU0 OOM)",
+   "low_vram 默认 true + 训练前 POST :8195/free 驱逐(修 GPU2 多租户 OOM)",
+   "training_folder 每作业独立(修 resume 误捡 optimizer.pt);_find_lora_file 递归发现(修 DONE 空路径)",
+   "num_frames 17n+5 吸附 warning;GET /train/{id} 状态端点"
+  ],
+  "flywheel_script": "scripts/h3/h3_flywheel.py(dataset 导出→软链→free-h3→train→轮询→报告)",
+  "proof": "h3_flywheel_smoke6_20260827.safetensors 310MB rank16,30 步 1:37 loss 0.137",
+  "blocker": "生产真实飞轮 e2e 待 eval winner 数据(evalbatch/evalscore 0 行,需先跑 best-of-n 批次)",
+  "regression": "后端 2333 passed(trainer agent 39 例)",
+  "verified_at": "2026-08-27T03:05:00+08:00"
  }
 }
