@@ -30,6 +30,10 @@ DEFAULT_VAE = "Wan2_1_VAE_bf16.safetensors"
 BLOCK_SWAP = 20  # 块交换(GPU2 共卡控制峰值)
 MAX_REF_IMAGES = 4  # 多参考图上限(拼接 batch 喂 VACEEncode)
 
+# 视频到视频编辑(Runway Aleph 式 in-context):编辑模式枚举 + 关键帧锚点上限
+EDIT_MODES = ("object_replace", "object_remove", "style_transfer", "relight", "camera_change")
+MAX_KEYFRAMES = 5  # 关键帧锚点上限(对标 Aleph 2.0 ≤5 关键帧)
+
 
 def _random_seed() -> int:
     return secrets.randbelow(MAX_SEED)
@@ -53,6 +57,10 @@ class WanVaceParams:
     negative: str = ""
     start_image: str = ""
     end_image: str = ""
+    # Motion Brush 局部动效 mask(POST /api/motion-brush/mask 产物,:8197 input 目录文件名):
+    # 灰度 0=静止/255=运动,接 VACEEncode.input_masks;与首尾帧支路同给时
+    # 经 MaskComposite(add) 合并(官方示例 input_masks 只此一口,首尾帧 masks 优先保留)
+    motion_mask: str = ""
     width: int = 832
     height: int = 480
     num_frames: int = 81    # 17-241,自动取整 4k+1;81 帧@16fps≈5s
@@ -169,6 +177,219 @@ def build_wan_vace_graph(p: WanVaceParams) -> dict:
         graph["44"] = {"class_type": "WanVideoVACEStartToEndFrame", "inputs": s2e_inputs}
         vace_inputs["input_frames"] = ["44", 0]
         vace_inputs["input_masks"] = ["44", 1]
+
+    # Motion Brush 局部动效 mask 支路(services/motion_brush 产物,:8197 input 目录):
+    # LoadImage → ImageToMask(channel="red";alpha 通道是方向角编码,不可直接当 MASK)
+    if p.motion_mask:
+        graph["50"] = {"class_type": "LoadImage", "inputs": {"image": p.motion_mask}}
+        graph["51"] = {"class_type": "ImageToMask", "inputs": {
+            "image": ["50", 0], "channel": "red"}}
+        if "input_masks" in vace_inputs:
+            # 与首尾帧 masks 并存:input_masks 官方示例只此一口,MaskComposite multiply
+            # 取交集(首尾帧保持区 × 动效区 → 仅标记区域可动,两约束同时生效)
+            graph["52"] = {"class_type": "MaskComposite", "inputs": {
+                "destination": vace_inputs["input_masks"], "source": ["51", 0],
+                "x": 0, "y": 0, "operation": "multiply"}}
+            vace_inputs["input_masks"] = ["52", 0]
+        else:
+            vace_inputs["input_masks"] = ["51", 0]
+
+    graph["10"] = {"class_type": "WanVideoVACEEncode", "inputs": vace_inputs}
+    return graph
+
+
+# --------------------------------------------------------------------------- #
+# 视频到视频编辑(Runway Aleph 式 in-context 编辑)
+# --------------------------------------------------------------------------- #
+#
+# 原理(节点语义经 :8197 object_info + WanVideoWrapper nodes.py 源码双重实证,2026-08-26):
+#   源视频帧序列喂 WanVideoVACEEncode.input_frames,input_masks 逐帧控制保留/重生成:
+#     mask=0 → 该帧/区域作为不可变锚点保留(inactive 潜变量);
+#     mask=1 → 该帧/区域由模型按 prompt 重生成(reactive 潜变量);
+#   edit_prompt 描述编辑指令(只改你要求的),VACE 在潜空间做 in-context 编辑,
+#   关键帧锚点的内容向全片传播(改一帧 → 全片传播)。
+#   不传 input_masks 时 wrapper 默认全 1(整片按源帧上下文重生成,风格/打光/机位类编辑)。
+#
+# mask 批构建约束(:8197 object_info 2026-08-26 实证):
+#   实例无 RepeatMaskBatch/MaskFromBatch,MASK 批只能经 IMAGE 批组装
+#   (RepeatImageBatch/ImageBatch)→ ImageToMask(channel=red) 转换;
+#   ImageBatch 拼接要求同尺寸,fill/锚点图像统一归一到 p.width×p.height
+#   (preserve_mask 任意尺寸经 ImageScale nearest-exact 归一,ImageScale 已实证存在)。
+
+
+@dataclass(frozen=True)
+class WanVaceEditParams(WanVaceParams):
+    """Wan2.1-VACE 视频到视频编辑参数(继承多参考图参数;ref_images 置空不走参考支路)。
+
+    source_video 为 :8197 实例 input 目录文件名(路由层负责从 pool worker 转运);
+    edit_prompt 为编辑指令(英文;置空回退 positive);keyframe_indices 为可选编辑锚点
+    (0 基帧索引,≤5;锚点帧 mask=0 整帧保留,其余帧重生成);preserve_mask 为可选区域
+    保留 mask(实例 input 目录图片文件名;白色区域保留不动,黑色区域重生成,
+    与 Motion Brush 集成预留)。
+
+    ⚠️ motion_mask 字段继承自父类但编辑图**不消费**(节点 50 已被源视频占用);
+    编辑区域控制唯一通道是 preserve_mask。误传 motion_mask 会在 __post_init__ 拒绝。
+    """
+
+    source_video: str = ""
+    edit_prompt: str = ""
+    edit_mode: str = "style_transfer"
+    keyframe_indices: tuple[int, ...] = ()
+    preserve_mask: str = ""
+    filename_prefix: str = "ToIV_wan/vace_edit"  # 编辑产物独立前缀(与多参考图产物分流)
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.motion_mask:
+            raise ValueError(
+                "视频编辑不支持 motion_mask(节点冲突);编辑区域控制请用 preserve_mask"
+            )
+
+
+def _edit_mask_branch(graph: dict, p: WanVaceEditParams) -> list:
+    """构建 num_frames 长度的编辑 mask 批 → 喂 VACEEncode.input_masks 的 [node, 0] 引用。
+
+    关键帧位=0(整帧保留锚点),其余帧=fill(全 1 重生成 / preserve_mask 区域控制)。
+    """
+    kfs = sorted(set(p.keyframe_indices))
+    # fill(重生成)图像:有区域保留 mask → LoadImage→ImageToMask(red)→InvertMask(白=保留→0)
+    # →MaskToImage→ImageScale 归一;否则 SolidMask(1.0) 全白(整帧重生成)
+    if p.preserve_mask:
+        graph["62"] = {"class_type": "LoadImage", "inputs": {"image": p.preserve_mask}}
+        graph["63"] = {"class_type": "ImageToMask", "inputs": {
+            "image": ["62", 0], "channel": "red"}}
+        graph["64"] = {"class_type": "InvertMask", "inputs": {"mask": ["63", 0]}}
+        graph["65"] = {"class_type": "MaskToImage", "inputs": {"mask": ["64", 0]}}
+        graph["66"] = {"class_type": "ImageScale", "inputs": {
+            "image": ["65", 0], "upscale_method": "nearest-exact",
+            "width": p.width, "height": p.height, "crop": "disabled"}}
+        fill_ref = "66"
+    else:
+        graph["62"] = {"class_type": "SolidMask", "inputs": {
+            "value": 1.0, "width": p.width, "height": p.height}}
+        graph["65"] = {"class_type": "MaskToImage", "inputs": {"mask": ["62", 0]}}
+        fill_ref = "65"
+
+    if not kfs:
+        # 无关键帧:整条 fill(mask 全 1 / 区域控制)
+        graph["70"] = {"class_type": "RepeatImageBatch", "inputs": {
+            "image": [fill_ref, 0], "amount": p.num_frames}}
+        graph["90"] = {"class_type": "ImageToMask", "inputs": {
+            "image": ["70", 0], "channel": "red"}}
+        return ["90", 0]
+
+    # 关键帧锚点帧:SolidMask(0.0) 全黑(整帧保留)
+    graph["60"] = {"class_type": "SolidMask", "inputs": {
+        "value": 0.0, "width": p.width, "height": p.height}}
+    graph["61"] = {"class_type": "MaskToImage", "inputs": {"mask": ["60", 0]}}
+
+    # 段组装:fill 连续段 RepeatImageBatch + 锚点单帧,ImageBatch 链接
+    segments: list[str] = []
+    prev = 0
+    nid = 70
+    for k in kfs:
+        if k - prev > 0:
+            graph[str(nid)] = {"class_type": "RepeatImageBatch", "inputs": {
+                "image": [fill_ref, 0], "amount": k - prev}}
+            segments.append(str(nid))
+            nid += 1
+        segments.append("61")
+        prev = k + 1
+    if p.num_frames - prev > 0:
+        graph[str(nid)] = {"class_type": "RepeatImageBatch", "inputs": {
+            "image": [fill_ref, 0], "amount": p.num_frames - prev}}
+        segments.append(str(nid))
+        nid += 1
+    cur = segments[0]
+    for seg in segments[1:]:
+        graph[str(nid)] = {"class_type": "ImageBatch", "inputs": {
+            "image1": [cur, 0], "image2": [seg, 0]}}
+        cur = str(nid)
+        nid += 1
+    graph["90"] = {"class_type": "ImageToMask", "inputs": {
+        "image": [cur, 0], "channel": "red"}}
+    return ["90", 0]
+
+
+def build_wan_vace_edit_graph(p: WanVaceEditParams) -> dict:
+    """VACE 视频到视频编辑图(与 build_wan_vace_graph 零冲突:独立函数,骨架节点同构)。
+
+    骨架(模型/T5/VAE/采样/解码/打包)照搬多参考图链路;编辑支路:
+      VHS_LoadVideo(源视频,帧数截断同步 num_frames)→ StartToEndFrame.control_images
+      (灰帧补齐/截断到 num_frames,VACEEncode 帧数硬约束)→ VACEEncode.input_frames;
+      有关键帧/区域 mask 时接 input_masks(全 1 缺省由 wrapper 兜底,不接);
+      源视频原声回打包(audio=[50,2],转运层 ensure_audio_track 已兜底无音轨素材)。
+    """
+    if not p.source_video:
+        raise ValueError("VACE 编辑链路需要源视频")
+    if p.edit_mode not in EDIT_MODES:
+        raise ValueError(f"未知编辑模式(支持 {'/'.join(EDIT_MODES)})")
+    if len(p.keyframe_indices) > MAX_KEYFRAMES:
+        raise ValueError(f"关键帧锚点最多 {MAX_KEYFRAMES} 个")
+    if any(i < 0 or i >= p.num_frames for i in p.keyframe_indices):
+        raise ValueError(f"关键帧索引须在 0-{p.num_frames - 1} 之间")
+    prompt = p.edit_prompt.strip() or p.positive
+    if not prompt:
+        raise ValueError("编辑指令不能为空")
+
+    graph: dict[str, dict] = {
+        "1": {"class_type": "WanVideoModelLoader", "inputs": {
+            "model": p.model_name,
+            "base_precision": "bf16", "quantization": "fp8_e4m3fn",
+            "load_device": "offload_device", "attention_mode": "sdpa",
+            "block_swap_args": ["2", 0]}},
+        "2": {"class_type": "WanVideoBlockSwap", "inputs": {
+            "blocks_to_swap": BLOCK_SWAP, "offload_img_emb": True, "offload_txt_emb": True,
+            # vace_blocks_to_swap 缺省会炸 TypeError(同 build_wan_vace_graph 踩坑)
+            "use_non_blocking": True, "vace_blocks_to_swap": 8,
+            "prefetch_blocks": 1, "block_swap_debug": False}},
+        "3": {"class_type": "WanVideoVAELoader", "inputs": {
+            "model_name": p.vae_name, "precision": "bf16"}},
+        "4": {"class_type": "LoadWanVideoT5TextEncoder", "inputs": {
+            "model_name": p.t5_name,
+            "precision": "bf16", "load_device": "offload_device"}},
+        "5": {"class_type": "WanVideoTextEncode", "inputs": {
+            "positive_prompt": prompt,
+            "negative_prompt": p.negative,
+            "t5": ["4", 0]}},
+        "13": {"class_type": "WanVideoSampler", "inputs": {
+            "model": ["1", 0], "text_embeds": ["5", 0], "image_embeds": ["10", 0],
+            "steps": p.steps, "cfg": p.cfg, "shift": p.shift, "seed": p.seed,
+            "force_offload": True, "scheduler": "unipc",
+            "riflex_freq_index": 0, "rope_function": "comfy"}},
+        "14": {"class_type": "WanVideoDecode", "inputs": {
+            "vae": ["3", 0], "samples": ["13", 0], "enable_vae_tiling": False,
+            "tile_x": 272, "tile_y": 272, "tile_stride_x": 144, "tile_stride_y": 128}},
+        # audio=[50,2]:源视频原声回打包(编辑保留原声;无音轨素材转运层已补静音轨)
+        "15": {"class_type": "VHS_VideoCombine", "inputs": {
+            "images": ["14", 0], "audio": ["50", 2], "frame_rate": p.fps, "loop_count": 0,
+            "filename_prefix": p.filename_prefix, "format": "video/h264-mp4",
+            "pix_fmt": "yuv420p", "crf": 19, "save_metadata": True,
+            "trim_to_audio": False, "pingpong": False, "save_output": True}},
+        # 源视频支路:VHS_LoadVideo(帧数截断与 num_frames 同步;force_rate 重采样到目标 fps;
+        # custom_width/height 为 VHS 必填——2026-08-26 冒烟 /prompt 400 实证,同 wan_animate)
+        "50": {"class_type": "VHS_LoadVideo", "inputs": {
+            "video": p.source_video, "force_rate": p.fps,
+            "custom_width": p.width, "custom_height": p.height,
+            "frame_load_cap": p.num_frames, "skip_first_frames": 0,
+            "select_every_nth": 1, "format": "AnimateDiff"}},
+    }
+
+    # 帧数对齐:VACEEncode 要求 input_frames 恰为 num_frames(2026-08-26 冒烟实证:
+    # 源视频截断后 16 帧 vs num_frames 17 → vace_encode_frames zip 维度错 RuntimeError);
+    # 经 StartToEndFrame control_images 支路(官方喂视频帧的口)灰帧补齐/截断到 num_frames,
+    # 其 masks 输出(全 0)弃用,编辑 mask 由 _edit_mask_branch 独立供给
+    graph["51"] = {"class_type": "WanVideoVACEStartToEndFrame", "inputs": {
+        "num_frames": p.num_frames, "empty_frame_level": 0.5,
+        "control_images": ["50", 0]}}
+
+    vace_inputs: dict = {
+        "vae": ["3", 0], "input_frames": ["51", 0],
+        "width": p.width, "height": p.height, "num_frames": p.num_frames,
+        "strength": p.strength, "vace_start_percent": 0.0, "vace_end_percent": 1.0}
+    # mask 支路:关键帧锚点/区域保留任一给出才接 input_masks(全 1 由 wrapper 缺省兜底)
+    if p.keyframe_indices or p.preserve_mask:
+        vace_inputs["input_masks"] = _edit_mask_branch(graph, p)
 
     graph["10"] = {"class_type": "WanVideoVACEEncode", "inputs": vace_inputs}
     return graph

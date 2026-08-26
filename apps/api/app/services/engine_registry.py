@@ -471,6 +471,13 @@ def _h3_nsfw_video_params() -> list[dict]:
     ]
 
 
+# H3 多镜头单次生成参数(2-4 镜头「镜头一…镜头二…」单 prompt 协议,与 routes/h3_studio.py
+# H3MultiShotRequest 同一套范围;时长由逐镜头时长决定,故比 _h3_video_params 少 duration;
+# 前端选中该引擎时渲染 MultiShotEditor 专用编辑器,参数仅声明契约/分组)
+def _multishot_params() -> list[dict]:
+    return [p for p in _h3_video_params() if p["key"] != "duration"]
+
+
 def _h3_loras_select() -> dict:
     """H3 LoRA 叠加(多选 + 单项强度):options 运行时来自 H3 实例 LoraLoaderModelOnly 枚举。
 
@@ -685,6 +692,38 @@ def _keyframe_chain_params() -> list[dict]:
         _num("height", "高度", 480, min_=320, max_=1280, step=16, hint="16 对齐"),
         _num("steps", "采样步数", 20, min_=1, max_=50, hint="官方示例 20 步(unipc)"),
         _num("cfg", "CFG", 5.0, min_=0.0, max_=20.0, step=0.5, hint="官方示例 4-5 区间"),
+        _seed(),
+    ]
+
+
+# VACE 视频到视频编辑参数(与 routes/wan_studio.py WanVaceEditRequest 同一套范围;
+# 源视频 ≤10s;前端选中该引擎时渲染 AiVideoEditView 专用编辑器,video 参数仅声明
+# 契约/分组,不由通用上传组件渲染;关键帧锚点/区域 mask 由编辑器自承载)
+_VACE_EDIT_MODES: list[tuple[str, str]] = [
+    ("object_replace", "对象替换"),
+    ("object_remove", "对象移除"),
+    ("style_transfer", "风格迁移"),
+    ("relight", "重打光"),
+    ("camera_change", "相机变换"),
+]
+
+
+def _wan_vace_edit_params() -> list[dict]:
+    return [
+        {"key": "video", "label": "源视频", "type": "video", "default": None,
+         "hint": "mp4 / webm / mov,≤200MB,≤10s;编辑对象(与区域 mask 同 worker 互钉)"},
+        {"key": "edit_mode", "label": "编辑模式", "type": "select", "default": "style_transfer",
+         "options": [{"value": v, "label": lbl} for v, lbl in _VACE_EDIT_MODES],
+         "hint": "in-context 编辑类型;编辑指令用英文,只描述要改的内容"},
+        _negative(),
+        _num("width", "宽度", 832, min_=320, max_=1280, step=16,
+             hint="16 对齐;比例限 9:16~16:9,超出自动纠正", ar=AR_VIDEO),
+        _num("height", "高度", 480, min_=320, max_=1280, step=16, hint="16 对齐"),
+        _num("duration", "时长(秒)", 5, min_=0.5, max_=10, step=0.5,
+             hint="编辑链路上限 10s;建议与源视频时长一致(源视频截断到该时长)"),
+        _num("steps", "采样步数", 20, min_=1, max_=50, hint="官方示例 20 步(unipc)"),
+        _num("cfg", "CFG", 5.0, min_=0.0, max_=20.0, step=0.5, hint="官方示例 4-5 区间"),
+        _num("fps", "帧率", 16, min_=8, max_=30, hint="源视频重采样/成片打包帧率同源"),
         _seed(),
     ]
 
@@ -1172,6 +1211,26 @@ def _default_registry() -> list[dict[str, Any]]:
         "params": [_ref_image_required(), *_h3_video_params()],
         "probe": _probe_h3,
     },
+    # H3 多镜头单次生成(对标 Vidu Q3 单 prompt 多镜头 / PixVerse MultiShot):
+    # 2-4 个镜头按「镜头一…镜头二…」协议组装单 prompt,单段视频内按序自动切镜
+    # (总长 ≤15s H3 单段上限,复用 t2v 提交链路,同实例 :8195);
+    # 前端选中渲染 MultiShotEditor 专用编辑器(镜头卡/时长滑块/运镜与转场提示/总时长预览)
+    {
+        "id": "h3-multishot",
+        "label": "H3 多镜头",
+        "kind": "video",
+        "nsfw": False,
+        "submit": {"route": "/api/h3/multishot", "kind": "h3-multishot"},
+        "description": "MiniMax H3 多镜头单次生成:2-4 个镜头单 prompt 一次成片,单段内按序自动切镜(总长 ≤15s),音画同发,专用实例 :8195",
+        "source": {
+            "name": "MiniMax H3(海螺视频开源权重)",
+            "url": "https://huggingface.co/MiniMaxAI",
+            "author": "MiniMax",
+            "note": "开源权重视频模型,原生音画同发;多镜头为单 prompt 协议组装,非多段拼接",
+        },
+        "params": _multishot_params(),
+        "probe": _probe_h3,
+    },
     # R18 H3 引擎(NSFW 专区视频 tab):与 h3-t2v/h3-i2v 同一提交链路(POST /api/h3/*),
     # 专区内自带 X-NSFW 头 → 产物打标进 R18 作品库、R18 LoRA 门控放行;
     # probe 复用 _probe_h3,可用性与 SFW 版天然一致。仅 R18 上下文可见。
@@ -1369,6 +1428,26 @@ def _default_registry() -> list[dict[str, Any]]:
             "note": "Apache 2.0 开源权重;多参考图/首尾帧/局部编辑一体化视频模型",
         },
         "params": _keyframe_chain_params(),
+        "probe": _probe_wan_vace,
+    },
+    # VACE 视频到视频编辑(Runway Aleph 式 in-context 编辑):源视频 + 编辑指令 →
+    # 对象增删换/重打光/换风格/换机位(≤10s);可选 ≤5 关键帧锚点(整帧保留,内容向全片
+    # 传播)与区域保留 mask(Motion Brush 集成预留);同实例(:8197),复用 VACE 探测;
+    # 前端选中渲染 AiVideoEditView 专用编辑器(源视频/模式/指令/关键帧标记/并排预览)
+    {
+        "id": "vace-edit",
+        "label": "VACE 视频编辑",
+        "kind": "video",
+        "nsfw": False,
+        "submit": {"route": "/api/generate/video-edit", "kind": "vace-edit"},
+        "description": "Wan2.1-VACE 14B 视频到视频编辑(对标 Runway Aleph in-context):源视频 + 英文编辑指令 → 对象替换/移除/风格迁移/重打光/相机变换,可锚定 ≤5 关键帧与区域保留 mask(≤10s),专用实例 :8197",
+        "source": {
+            "name": "Wan2.1-VACE-14B",
+            "url": "https://huggingface.co/ali-vilab/VACE-Wan2.1-14B",
+            "author": "阿里巴巴(VILAB)",
+            "note": "Apache 2.0 开源权重;多参考图/首尾帧/局部编辑一体化视频模型",
+        },
+        "params": _wan_vace_edit_params(),
         "probe": _probe_wan_vace,
     },
     # Wan-Animate-2:参考图角色 + 驱动视频 → 动作迁移/视频换人(换代模型,端到端 DiT

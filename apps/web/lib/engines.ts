@@ -170,6 +170,11 @@ export interface EngineSubmitInput {
   /** 驱动视频(video 类型参数必填,须与参考图同 worker)。 */
   refVideo?: RefImageHandle | null;
   /**
+   * Motion Brush 局部动效 mask 文件名(POST /api/motion-brush/mask 产物,
+   * 与参考图同 worker;仅 VACE 链路引擎 wan-vace/wan-transition 携带,其余引擎忽略)。
+   */
+  motionMask?: string;
+  /**
    * @主体引用(2026-08-26):prompt 内 @实体名 解析出的主体库 id(提及首现序)。
    * 仅 H3 链路提交(entity_ids 字段);后端据此在绝对开头注入 @图片N 引用行
    * (services/h3_refs,编号顺序=此数组序);空/未给 = 不携带,后端行为不变。
@@ -222,7 +227,7 @@ function _seed(values: Record<string, unknown>): number | null {
  * 返回的 GenerateResponse 交给 useGeneration/trackJob 做 SSE 进度跟踪。
  */
 export async function submitEngineGeneration(input: EngineSubmitInput): Promise<GenerateResponse> {
-  const { engine, positive, values, refImage, refImages, refAudio, refVideo, entityIds } = input;
+  const { engine, positive, values, refImage, refImages, refAudio, refVideo, motionMask, entityIds } = input;
   const id = engine.id;
   const imageParam = engineNeedsImage(engine);
   const multiImage = imageParam !== null && (imageParam.max ?? 1) > 1;
@@ -387,11 +392,13 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
       });
 
     case "wan-vace":
-      // 多参考图(1-4 张,全部互钉同 worker,worker 取第一张落点)
+      // 多参考图(1-4 张,全部互钉同 worker,worker 取第一张落点);
+      // Motion Brush mask(可选)随参考图同 worker,后端同路转运接 VACEEncode.input_masks
       return _postWan("/api/wan/vace", {
         ..._wanPayload(values, positive, negative, seed, 5),
         images: refImages!.map((r) => r.filename),
         worker: refImages![0].worker,
+        ...(motionMask ? { motion_mask: motionMask } : {}),
       });
 
     case "wan-transition":
@@ -405,6 +412,7 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
         first_frame: refImages[0].filename,
         last_frame: refImages[1].filename,
         worker: refImages[0].worker,
+        ...(motionMask ? { motion_mask: motionMask } : {}),
       });
 
     case "ace-music":

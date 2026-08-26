@@ -1,7 +1,7 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-26T04:30:00+08:00",
+ "updated_at": "2026-08-26T07:00:00+08:00",
  "health": {
   "engine_r3_2026_08_21": {
    "status": "completed",
@@ -1606,6 +1606,30 @@
    "prod_verify": "@图片1作为倒霉蛋身份与服装参考 引用行正确注入 prompt 绝对开头"
   },
   "regression": "后端 2133 passed / 前端 588 passed / tsc 0",
-  "commits": "未提交(工作区保留,待用户验收后统一 commit)"
+  "commits": "已提交:35f855b(P0/P1 四任务+Studio 迁移)"
+ },
+ "keyframe_chain_2026_08_26": {
+  "status": "completed_deployed",
+  "scope": "关键帧链式转场(对标 Pika 2.5 Pikaframes):2-5 张关键帧 → N-1 段首尾帧转场 → 串行拼接至 ≤25s",
+  "data_structures": {
+   "KeyframeSegment": "first_frame/last_frame/prompt/duration_sec/frames/steps/cfg/seed(段种子=基础 seed+段序号)",
+   "KeyframeChainPlan": "segments tuple/total_duration/fps/width/height/seed + to_params() 快照"
+  },
+  "algorithm": "N 帧→N-1 段,段 i 尾帧=段 i+1 首帧(用户关键帧,天然零跳变);durations 缺省每段 5s 均分;帧数按 VACE 4k+1 网格向上吸附;整链一次资源预检;后台合并链逐段等产物→concat_trim 精确裁→回传 worker→rewrite_job_result",
+  "api": "POST /api/generate/keyframes-chain:keyframes(2-5)/prompts(单 string 或 list)/durations(list 或 None=均分)/width/height/steps/cfg/seed/worker;合并 Job(kind=keyframe_chain)+段 Job(kind=transition 保留调试)",
+  "frontend": "KeyframeChainEditor.tsx(2-5 槽位上传/拖拽排序/段参数卡/总时长预览/段进度);GenerateView「关键帧链」引擎选项;libraryQuery 归视频桶",
+  "compatibility": "既有 transition 端点零改动(复用内部函数);与 DurationPlan extend 策略正交(多组独立转场 vs 单视频续写);tracker reconcile 跳过 kind=keyframe_chain 重挂(防孤儿误杀);R18 全链打标",
+  "tests": {
+   "backend": "test_keyframe_chain.py 35 例(校验 8/拆分 7/合并链 2/端点 18)",
+   "frontend": "keyframeChain.test.ts 13 例(总时长/拖拽/门控/载荷契约)",
+   "regression": "后端 2168 passed / 前端 601 passed / tsc 0"
+  },
+  "prod_verify": [
+   "keyframe-chain 引擎上架(video 类)",
+   "校验路径:1 帧 422(too_short)",
+   "3 帧链式转场提交成功:合并 Job prompt_id=chain-*,2 段 segment prompt_ids,total_duration=6.0",
+   "合并 Job + 2 段 Job 全部建档 queued"
+  ],
+  "commit": "20dca29"
  }
 }

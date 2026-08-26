@@ -5,6 +5,9 @@ POST /api/wan/animate —— 参考图角色 + 驱动视频 → 动作迁移视�
 POST /api/wan/vace    —— 多参考图(1-4 张,+可选首尾帧)→ 视频(kind=wan_vace 同上)
 POST /api/generate/transition —— 首尾帧转场(首帧+尾帧 → 过渡视频,kind=transition;
                         复用 VACE 工作流,首帧兼作参考图;路由挂 /generate 前缀对齐竞品语义入口)
+POST /api/generate/video-edit —— VACE 视频到视频编辑(Runway Aleph 式 in-context:
+                        源视频+编辑指令 → 对象增删换/重打光/换风格/换机位,kind=video_edit;
+                        可选 ≤5 关键帧锚点(整帧保留,内容向全片传播)与区域保留 mask)
 
 参数约束(参考官方示例真机节点参数):
   · 时长按秒选择(duration_sec,任意值;内部经统一策略层 services/duration 换算,
@@ -46,7 +49,15 @@ from app.workflows.wan_animate import (
     build_wan_animate_graph,
 )
 from app.workflows.wan_animate2 import WanAnimate2Params, build_wan_animate2_graph
-from app.workflows.wan_vace import MAX_REF_IMAGES, WanVaceParams, build_wan_vace_graph
+from app.workflows.wan_vace import (
+    EDIT_MODES,
+    MAX_KEYFRAMES,
+    MAX_REF_IMAGES,
+    WanVaceEditParams,
+    WanVaceParams,
+    build_wan_vace_edit_graph,
+    build_wan_vace_graph,
+)
 
 router = APIRouter()
 
@@ -157,6 +168,9 @@ class WanVaceRequest(BaseModel):
     worker: str
     start_image: str = Field(default="", max_length=512)
     end_image: str = Field(default="", max_length=512)
+    # Motion Brush 局部动效 mask(POST /api/motion-brush/mask 产物文件名,同 worker 落点):
+    # 灰度 0=静止/255=运动,接 VACEEncode.input_masks;与首尾帧同给时取交集(两约束并存)
+    motion_mask: str = Field(default="", max_length=512)
     negative: str = Field(default="", max_length=2000)
     width: int = Field(default=832, ge=320, le=1280)
     height: int = Field(default=480, ge=320, le=1280)
@@ -169,7 +183,7 @@ class WanVaceRequest(BaseModel):
     fps: int = Field(default=16, ge=8, le=30)
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
 
-    _imgs_ok = field_validator("images", "start_image", "end_image", mode="before")(
+    _imgs_ok = field_validator("images", "start_image", "end_image", "motion_mask", mode="before")(
         lambda v: [_no_traversal(x) for x in v] if isinstance(v, list) else _no_traversal(v))
 
     @field_validator("width", "height")
@@ -250,6 +264,11 @@ async def generate_wan_vace(
         await longcat_service.transfer_ref_image(client, source, req.end_image)
         if req.end_image else ""
     )
+    # Motion Brush mask 与参考图同路转运(同 worker 落点,PNG 与图片同通道)
+    mask_name = (
+        await longcat_service.transfer_ref_image(client, source, req.motion_mask)
+        if req.motion_mask else ""
+    )
     hold_exc = await _wan_precheck_or_hold(client)
     params = WanVaceParams(
         positive=req.positive,
@@ -257,6 +276,7 @@ async def generate_wan_vace(
         ref_images=tuple(ref_names),
         start_image=start_name,
         end_image=end_name,
+        motion_mask=mask_name,
         width=req.width,
         height=req.height,
         num_frames=plan.frames,
@@ -289,6 +309,8 @@ class TransitionRequest(BaseModel):
     first_frame: str = Field(min_length=1, max_length=512)
     last_frame: str = Field(min_length=1, max_length=512)
     worker: str
+    # Motion Brush 局部动效 mask(同 VACE;与首尾帧 masks 经 MaskComposite 取交集并存)
+    motion_mask: str = Field(default="", max_length=512)
     negative: str = Field(default="", max_length=2000)
     width: int = Field(default=832, ge=320, le=1280)
     height: int = Field(default=480, ge=320, le=1280)
@@ -301,7 +323,7 @@ class TransitionRequest(BaseModel):
     fps: int = Field(default=16, ge=8, le=30)
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
 
-    _frames_ok = field_validator("first_frame", "last_frame")(_no_traversal)
+    _frames_ok = field_validator("first_frame", "last_frame", "motion_mask")(_no_traversal)
 
     @field_validator("width", "height")
     @classmethod
@@ -329,6 +351,11 @@ async def generate_transition(
     source = resolve_worker(req.worker)
     first_name = await longcat_service.transfer_ref_image(client, source, req.first_frame)
     last_name = await longcat_service.transfer_ref_image(client, source, req.last_frame)
+    # Motion Brush mask 与首尾帧同路转运(同 worker 落点)
+    mask_name = (
+        await longcat_service.transfer_ref_image(client, source, req.motion_mask)
+        if req.motion_mask else ""
+    )
     hold_exc = await _wan_precheck_or_hold(client)
     params = WanVaceParams(
         positive=req.positive,
@@ -336,6 +363,7 @@ async def generate_transition(
         ref_images=(first_name,),  # VACE 至少 1 张参考图:首帧兼作条件锚点
         start_image=first_name,
         end_image=last_name,
+        motion_mask=mask_name,
         width=req.width,
         height=req.height,
         num_frames=plan.frames,
@@ -362,6 +390,8 @@ class KeyframeChainRequest(BaseModel):
     keyframes 为上传句柄文件名(与 worker 指定的落点同机,前端互钉),按链序排列;
     prompts 单 string 全段共用 / list[str] 逐段(数量须=N-1);durations 缺省每段
     5s 均分,显式给出时逐段 1-10s 且总长 ≤25s(校验细节见 services/keyframe_chain)。
+    motion_mask 为可选 Motion Brush 局部动效 mask(与参考图同路转运到 :8197),
+    各段统一应用(段 i 与段 i+1 共享同一运动区域标记)。
     """
     keyframes: list[str] = Field(min_length=2, max_length=5)
     prompts: str | list[str]
@@ -375,9 +405,10 @@ class KeyframeChainRequest(BaseModel):
     shift: float = Field(default=8.0, ge=0.0, le=20.0)
     fps: int = Field(default=16, ge=8, le=30)
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
+    motion_mask: str = Field(default="", max_length=512)
 
-    _frames_ok = field_validator("keyframes", mode="before")(
-        lambda v: [_no_traversal(x) for x in v] if isinstance(v, list) else v)
+    _frames_ok = field_validator("keyframes", "motion_mask", mode="before")(
+        lambda v: [_no_traversal(x) for x in v] if isinstance(v, list) else (_no_traversal(v) if v else v))
 
     @field_validator("width", "height")
     @classmethod
@@ -417,6 +448,11 @@ async def generate_keyframe_chain(
     names = [
         await longcat_service.transfer_ref_image(client, source, kf) for kf in req.keyframes
     ]
+    # Motion Brush mask 同路转运(可选;各段统一应用同一运动区域标记)
+    mask_name = (
+        await longcat_service.transfer_ref_image(client, source, req.motion_mask)
+        if req.motion_mask else ""
+    )
     hold_exc = await _wan_precheck_or_hold(client)
     nsfw = nsfw_allowed(user)
     seg_prompt_ids: list[str] = []
@@ -434,6 +470,7 @@ async def generate_keyframe_chain(
             cfg=seg.cfg,
             shift=req.shift,
             fps=plan.fps,
+            motion_mask=mask_name,
             **({"seed": seg.seed} if seg.seed is not None else {}),
         )
         graph = build_wan_vace_graph(params)
@@ -452,6 +489,7 @@ async def generate_keyframe_chain(
             shift=req.shift,
             fps=plan.fps,
             seed=seg.seed,
+            motion_mask=req.motion_mask,  # 段 Job params 快照(精确重生用)
         )
         result = await longcat_service.submit_longcat_job(
             graph, kind="transition", positive=params.positive, seed=params.seed,
@@ -504,6 +542,122 @@ async def generate_keyframe_chain(
             else {}
         ),
     }
+
+
+class WanVaceEditRequest(BaseModel):
+    """VACE 视频到视频编辑请求(Runway Aleph 式 in-context 编辑)。
+
+    source_video 为上传句柄文件名(与 worker 指定的落点同机,前端互钉;≤10s);
+    edit_prompt 为英文编辑指令(只描述要改的内容);keyframe_indices 可选编辑锚点
+    (0 基帧索引,≤5,越界 422);preserve_mask 可选区域保留 mask(同机,白色区域保留,
+    与 Motion Brush 集成预留)。宽/高非 16 对齐时向下取整。时长上限 10s(编辑链路
+    全帧上下文,比生成链路显存压力大)。
+    """
+    source_video: str = Field(min_length=1, max_length=512)
+    edit_prompt: str = Field(min_length=1, max_length=4000)
+    edit_mode: str = Field(default="style_transfer")
+    worker: str
+    keyframe_indices: list[int] | None = Field(default=None, max_length=MAX_KEYFRAMES)
+    preserve_mask: str = Field(default="", max_length=512)
+    negative: str = Field(default="", max_length=2000)
+    width: int = Field(default=832, ge=320, le=1280)
+    height: int = Field(default=480, ge=320, le=1280)
+    duration_sec: float | None = Field(default=None, gt=0, le=10)
+    steps: int = Field(default=20, ge=1, le=50)
+    cfg: float = Field(default=5.0, ge=0.0, le=20.0)
+    shift: float = Field(default=8.0, ge=0.0, le=20.0)
+    fps: int = Field(default=16, ge=8, le=30)
+    seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
+
+    _media_ok = field_validator("source_video", "preserve_mask")(_no_traversal)
+
+    @field_validator("edit_mode")
+    @classmethod
+    def _mode_ok(cls, v: str) -> str:
+        if v not in EDIT_MODES:
+            raise ValueError(f"edit_mode 仅支持 {'/'.join(EDIT_MODES)}")
+        return v
+
+    @field_validator("keyframe_indices")
+    @classmethod
+    def _kfs_ok(cls, v: list[int] | None) -> list[int] | None:
+        if v is None:
+            return v
+        if any(isinstance(i, bool) or not isinstance(i, int) or i < 0 for i in v):
+            raise ValueError("keyframe_indices 须为非负整数帧索引")
+        return v
+
+    @field_validator("width", "height")
+    @classmethod
+    def _snap16(cls, v: int) -> int:
+        return v // 16 * 16
+
+    # 宽高比守卫:9:16~16:9 静默归一(训练分布;极端比例出主体被裁/文字溢出)
+    _ratio = aspect_guard(*AR_VIDEO, align=16, min_v=320, max_v=1280)
+
+
+@router.post("/generate/video-edit")
+async def generate_video_edit(
+    req: WanVaceEditRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """VACE 视频到视频编辑(Runway Aleph 式 in-context):源视频 + 编辑指令 → 编辑后视频。
+
+    源视频/区域 mask 从上传落点 worker 转运到 :8197 实例(transfer_drive_video
+    同 animate 驱动视频通道,无音轨素材自动补静音轨);关键帧锚点(≤5)整帧保留,
+    其余帧按 edit_prompt 重生成并向锚点传播;提交前 GPU2 显存互斥预检(同 vace)。
+    """
+    enforce_generation_rate_limit(user)
+    try:
+        plan = resolve_duration(
+            "vace",
+            req.duration_sec if req.duration_sec is not None else _DEFAULT_SECONDS["vace"],
+            req.fps,
+        )
+    except DurationLimitError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    kfs = tuple(req.keyframe_indices or ())
+    if kfs and max(kfs) >= plan.frames:
+        raise HTTPException(
+            status_code=422,
+            detail=f"关键帧索引越界(输出共 {plan.frames} 帧,索引须 ≤ {plan.frames - 1})",
+        )
+    client = longcat_service.get_longcat_client()
+    source = resolve_worker(req.worker)
+    video_name = await wan_service.transfer_drive_video(client, source, req.source_video)
+    mask_name = (
+        await longcat_service.transfer_ref_image(client, source, req.preserve_mask)
+        if req.preserve_mask else ""
+    )
+    hold_exc = await _wan_precheck_or_hold(client)
+    params = WanVaceEditParams(
+        positive=req.edit_prompt,
+        ref_images=(),  # 编辑链路不走参考图支路(条件全部来自源视频帧)
+        negative=req.negative,
+        width=req.width,
+        height=req.height,
+        num_frames=plan.frames,
+        steps=req.steps,
+        cfg=req.cfg,
+        shift=req.shift,
+        fps=req.fps,
+        source_video=video_name,
+        edit_prompt=req.edit_prompt,
+        edit_mode=req.edit_mode,
+        keyframe_indices=kfs,
+        preserve_mask=mask_name,
+        **({"seed": req.seed} if req.seed is not None else {}),
+    )
+    graph = build_wan_vace_edit_graph(params)
+    result = await longcat_service.submit_longcat_job(
+        graph, kind="video_edit", positive=params.positive, seed=params.seed,
+        req=req, user=user, session=session, client=client,
+        nsfw=nsfw_allowed(user),
+        prechecked=True,  # 上方 _wan_precheck_or_hold 已做显存+RAM 预检(Wan 阈值独立)
+        hold_exc=hold_exc,  # 预检失败转 hold 排队(None=预检通过,正常提交)
+    )
+    return _attach_duration_chain(result, plan, lambda: client)
 
 
 # --------------------------------------------------------------------------- #

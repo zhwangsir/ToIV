@@ -1,557 +1,599 @@
-"""视频编辑 /api/video-edit 单测。
+"""VACE 视频到视频编辑(Runway Aleph 式 in-context)—— 图构建 / 参数校验 / 端点 测试。
 
-- parse_plan: JSON/范围/类型/越界/奇数取偶/总时长/层级校验 → 422, 合法最小 plan → dict。
-- build_render_plan_cmd: 单 clip/多 clip + audio + text / -an / drawtext 转义 / 路径空格引号。
-- POST render: 未认证 401 / 非法 plan 422 / 空 media 422 / 穿越文件名 422 / 非法格式 422 /
-  超量 422 / 空文件 422 / 成功路径(模拟 ssh + NAS 落盘) / ffmpeg 失败 502 且清理 /
-  ffprobe 失败降级。
-- GET output: 白名单 404 / 缺失 404 / 存在 200 video/mp4。
+覆盖:
+  · 编辑图构建器:骨架节点与多参考图链路同构(rope=comfy/scheduler=unipc/fp8 量化/
+    vace_blocks_to_swap 防 TypeError)、源视频 VHS_LoadVideo → VACEEncode.input_frames
+    (frame_load_cap 与 num_frames 同步截断)、源视频原声回打包(audio=[50,2])、
+    无关键帧/区域 mask 时不接 input_masks(wrapper 缺省全 1 兜底)、
+    关键帧锚点 mask 批(SolidMask 0=保留锚点/1=重生成,RepeatImageBatch+ImageBatch
+    段组装 → ImageToMask)、preserve_mask 区域支路(LoadImage→ImageToMask→InvertMask
+    →MaskToImage→ImageScale 归一)、帧数 4k+1 取整、edit_prompt 回退 positive
+  · 构建器校验:缺源视频/未知编辑模式/>5 关键帧/关键帧越界/空指令 ValueError
+  · 请求校验:edit_mode 枚举 422;keyframe_indices 负数/超 5 个 422;
+    关键帧索引 ≥ 输出帧数 422;时长 >10s 422;源视频路径穿越 422
+  · POST /api/generate/video-edit:源视频转运到 :8197 后提交,图内引用转运文件名,
+    Job kind=video_edit;实例不可达 → 503;X-NSFW 头 → Job 打标
 """
 from __future__ import annotations
 
-import json
-import re
-import shlex
-import subprocess
-from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, select
 
+import app.routes.wan_studio as wan_route
+import app.services.longcat as longcat_service
+import app.services.wan_video as wan_service
+from app.comfy.client import ComfyUIError
 from app.db import get_session
 from app.main import app
-from app.models import Tenant, User
-from app.routes.video_edit import (
-    _escape_drawtext,
-    build_render_plan_cmd,
-    parse_plan,
-)
+from app.models import Job, Tenant, User
 from app.security import create_token, hash_password
+from app.workflows.wan_vace import (
+    BLOCK_SWAP as VACE_BLOCK_SWAP,
+    DEFAULT_MODEL as VACE_MODEL,
+    EDIT_MODES,
+    MAX_KEYFRAMES,
+    WanVaceEditParams,
+    build_wan_vace_edit_graph,
+)
 
-_MP4 = b"\x00\x00\x00\x18ftypmp42"
-_MP3 = b"\xff\xfb" + b"\x00" * 32
+
+# --------------------------------------------------------------------------- #
+# 公共 fixtures / fakes(与 test_wan_studio 同模式)
+# --------------------------------------------------------------------------- #
 
 
-def _make_user(session: Session, email: str) -> str:
-    tenant = Tenant(name=email.split("@")[0])
+def _seed_user(session: Session, email: str) -> str:
+    tenant = Tenant(name=email)
     session.add(tenant)
     session.commit()
     session.refresh(tenant)
-    user = User(email=email, hashed_password=hash_password("password1"), tenant_id=tenant.id)
+    user = User(
+        email=email,
+        hashed_password=hash_password("password1"),
+        tenant_id=tenant.id,
+    )
     session.add(user)
     session.commit()
     session.refresh(user)
     return user.id
 
 
-@pytest.fixture()
-def ctx(tmp_path, monkeypatch):
-    engine = create_engine(
+@pytest.fixture
+def engine():
+    eng = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
-    SQLModel.metadata.create_all(engine)
+    SQLModel.metadata.create_all(eng)
+    yield eng
 
-    def override():
+
+@pytest.fixture
+def client(engine):
+    def override() -> Session:
         with Session(engine) as session:
             yield session
 
     app.dependency_overrides[get_session] = override
-    with Session(engine) as s:
-        uid = _make_user(s, "ve@toiv.ai")
-
-    imp = tmp_path / "imports"
-    out = tmp_path / "outputs"
-    monkeypatch.setattr("app.routes.video_edit._IMPORT_DIR", imp)
-    monkeypatch.setattr("app.routes.video_edit._OUTPUT_DIR", out)
-    monkeypatch.setattr("app.routes.video_edit._WS_IMPORT_DIR", "/ws/imports")
-    monkeypatch.setattr("app.routes.video_edit._WS_OUTPUT_DIR", "/ws/outputs")
-    monkeypatch.setattr("app.routes.video_edit._SSH_TARGET", "merlin@192.168.71.127")
-    monkeypatch.setattr(
-        "app.routes.video_edit.enforce_generation_rate_limit", lambda *a, **k: None
-    )
-    yield TestClient(app), {"Authorization": f"Bearer {create_token(uid)}"}, imp, out
+    yield TestClient(app), engine
     app.dependency_overrides.clear()
 
 
-def _fake_run_ok(out_dir: Path, captured: list):
-    """模拟 ssh: ffprobe 返回 1\n0\n; ffmpeg 在 out_dir 造同名成片。"""
-    def fake_run(cmd, **kwargs):
-        captured.append(cmd)
-        remote = cmd[-1]
-        if "ffprobe" in remote:
-            return subprocess.CompletedProcess(cmd, 0, "1\n0\n", "")
-        # ffmpeg
-        last = remote.rsplit(None, 1)[-1].strip("'\"")
-        name = Path(last).name
-        out_dir.mkdir(parents=True, exist_ok=True)
-        (out_dir / name).write_bytes(b"\x00\x00\x00\x18ftypmp42")
-        return subprocess.CompletedProcess(cmd, 0, "", "")
+class _FakeWanClient:
+    """:8197 实例替身:object_info/queue_prompt/upload_image/system_stats 可控。"""
 
-    return fake_run
+    def __init__(self, *, reachable: bool = True, free_vram_gib: float = 96.0) -> None:
+        self.base_url = "http://fake-wan"
+        self._reachable = reachable
+        self.free_gib = free_vram_gib
+        self.graphs: list[dict] = []
+        self.uploads: list[tuple[bytes, str]] = []
 
+    async def object_info(self, node: str) -> dict:
+        if not self._reachable:
+            raise ComfyUIError("connection refused")
+        return {node: {}}
 
-def _fake_run_fail(cmd, **kwargs):
-    return subprocess.CompletedProcess(cmd, 1, "", "x" * 600 + "boom-tail")
+    async def queue_prompt(self, graph: dict, client_id: str) -> str:
+        self.graphs.append(graph)
+        return "prompt-edit-1"
 
+    async def upload_image(self, content: bytes, filename: str) -> str:
+        self.uploads.append((content, filename))
+        return f"wan-{filename}"
 
-def _post(client, auth, files, data):
-    return client.post("/api/video-edit/render", files=files, data=data, headers=auth)
+    async def queue_len(self) -> int:
+        return 0
 
+    async def free_memory(self) -> None:
+        return None
 
-# ────────────────────────────────
-# parse_plan 校验
-# ────────────────────────────────
-
-def test_parse_not_json_422():
-    with pytest.raises(Exception) as exc:
-        parse_plan("not json", 1)
-    assert exc.value.status_code == 422
-
-
-def test_parse_not_dict_json_422():
-    with pytest.raises(Exception) as exc:
-        parse_plan('"[]"', 1)
-    assert exc.value.status_code == 422
-
-
-def test_parse_media_count_zero_422():
-    with pytest.raises(Exception) as exc:
-        parse_plan('{"clips":[{"file":0,"duration":1}]}', 0)
-    assert exc.value.status_code == 422
-
-
-def test_parse_width_height_fps_bounds_422():
-    for val, key in [(100, "width"), (5000, "height"), (5, "fps")]:
-        plan = json.dumps({"clips": [{"file": 0, "duration": 1}], key: val})
-        with pytest.raises(Exception) as exc:
-            parse_plan(plan, 1)
-        assert exc.value.status_code == 422
-
-
-def test_parse_bool_width_422():
-    plan = json.dumps({"clips": [{"file": 0, "duration": 1}], "width": True})
-    with pytest.raises(Exception) as exc:
-        parse_plan(plan, 1)
-    assert exc.value.status_code == 422
-
-
-def test_parse_odd_dimensions_snapped_even():
-    plan = json.dumps({"clips": [{"file": 0, "duration": 1}], "width": 1279, "height": 719})
-    result = parse_plan(plan, 1)
-    assert result["width"] == 1278
-    assert result["height"] == 718
-
-
-def test_parse_clips_missing_empty_too_many_422():
-    # missing
-    with pytest.raises(Exception) as exc:
-        parse_plan('{}', 1)
-    assert exc.value.status_code == 422
-    # empty
-    with pytest.raises(Exception) as exc:
-        parse_plan('{"clips":[]}', 1)
-    assert exc.value.status_code == 422
-    # too many
-    with pytest.raises(Exception) as exc:
-        parse_plan(json.dumps({"clips": [{"file": 0, "duration": 1}] * 21}), 1)
-    assert exc.value.status_code == 422
-
-
-def test_parse_clips_item_not_object_422():
-    plan = json.dumps({"clips": ["not-dict"]})
-    with pytest.raises(Exception) as exc:
-        parse_plan(plan, 1)
-    assert exc.value.status_code == 422
-
-
-def test_parse_clip_duration_bounds_422():
-    for dur in [0.05, 601]:
-        plan = json.dumps({"clips": [{"file": 0, "duration": dur}]})
-        with pytest.raises(Exception) as exc:
-            parse_plan(plan, 1)
-        assert exc.value.status_code == 422
-
-
-def test_parse_file_index_bounds_422():
-    for idx in [1, -1, "a", True]:
-        plan = json.dumps({"clips": [{"file": idx, "duration": 1}]})
-        with pytest.raises(Exception) as exc:
-            parse_plan(plan, 1)
-        assert exc.value.status_code == 422
-
-
-def test_parse_total_duration_over_600_422():
-    clips = [{"file": 0, "duration": 301}, {"file": 0, "duration": 301}]
-    plan = json.dumps({"clips": clips})
-    with pytest.raises(Exception) as exc:
-        parse_plan(plan, 1)
-    assert exc.value.status_code == 422
-
-
-def test_parse_audios_too_many_422():
-    audios = [{"file": 0, "duration": 1, "start": 0}] * 11
-    plan = json.dumps({"clips": [{"file": 0, "duration": 1}], "audios": audios})
-    with pytest.raises(Exception) as exc:
-        parse_plan(plan, 1)
-    assert exc.value.status_code == 422
-
-
-def test_parse_audios_start_oob_422():
-    plan = json.dumps(
-        {"clips": [{"file": 0, "duration": 1}], "audios": [{"file": 0, "duration": 1, "start": 601}]}
-    )
-    with pytest.raises(Exception) as exc:
-        parse_plan(plan, 1)
-    assert exc.value.status_code == 422
-
-
-def test_parse_texts_too_many_empty_space_long_422():
-    base = {"clips": [{"file": 0, "duration": 1}]}
-    # too many
-    texts = [{"text": "a", "start": 0, "end": 1}] * 21
-    with pytest.raises(Exception) as exc:
-        parse_plan(json.dumps({**base, "texts": texts}), 1)
-    assert exc.value.status_code == 422
-    # empty
-    with pytest.raises(Exception) as exc:
-        parse_plan(json.dumps({**base, "texts": [{"text": "", "start": 0, "end": 1}]}), 1)
-    assert exc.value.status_code == 422
-    # pure space
-    with pytest.raises(Exception) as exc:
-        parse_plan(json.dumps({**base, "texts": [{"text": "   ", "start": 0, "end": 1}]}), 1)
-    assert exc.value.status_code == 422
-    # too long (>200)
-    with pytest.raises(Exception) as exc:
-        parse_plan(
-            json.dumps({**base, "texts": [{"text": "a" * 201, "start": 0, "end": 1}]}), 1
-        )
-    assert exc.value.status_code == 422
-
-
-def test_parse_text_end_le_start_422():
-    plan = json.dumps(
-        {"clips": [{"file": 0, "duration": 1}], "texts": [{"text": "hi", "start": 2, "end": 1}]}
-    )
-    with pytest.raises(Exception) as exc:
-        parse_plan(plan, 1)
-    assert exc.value.status_code == 422
-
-
-def test_parse_text_position_invalid_422():
-    plan = json.dumps(
-        {
-            "clips": [{"file": 0, "duration": 1}],
-            "texts": [{"text": "hi", "start": 0, "end": 1, "position": "left"}],
+    async def get_system_stats(self) -> dict:
+        return {
+            "devices": [
+                {
+                    "name": "cuda:0 FakeGPU",
+                    "type": "cuda",
+                    "vram_free": int(self.free_gib * (1 << 30)),
+                    "vram_total": 96 * (1 << 30),
+                }
+            ]
         }
+
+
+class _FakeSourceWorker:
+    """上传落点 pool worker 替身:get_image_bytes 可控。"""
+
+    def __init__(self, content: bytes = b"media-bytes") -> None:
+        self.base_url = "http://fake-worker"
+        self._content = content
+
+    async def get_image_bytes(self, filename: str, subfolder: str, type_: str) -> tuple[bytes, str]:
+        return self._content, "application/octet-stream"
+
+
+def _install_wan(monkeypatch, fake: _FakeWanClient) -> None:
+    monkeypatch.setattr(longcat_service, "get_longcat_client", lambda: fake)
+    monkeypatch.setattr(longcat_service, "spawn_tracker", lambda client, prompt_id: None)
+    monkeypatch.setattr(wan_route, "resolve_worker", lambda worker: _FakeSourceWorker())
+
+
+def _stub_wan_settings(monkeypatch, threshold: float = 26.0) -> None:
+    """替换 wan_video 服务层 settings:显存预检阈值可控(fake stats 无 system 段 → RAM 放行)。"""
+    monkeypatch.setattr(
+        wan_service,
+        "get_settings",
+        lambda: SimpleNamespace(wan_min_free_vram_gb=threshold, wan_min_free_ram_gb=15.0),
     )
-    with pytest.raises(Exception) as exc:
-        parse_plan(plan, 1)
-    assert exc.value.status_code == 422
 
 
-def test_parse_text_color_invalid_422():
-    plan = json.dumps(
-        {
-            "clips": [{"file": 0, "duration": 1}],
-            "texts": [{"text": "hi", "start": 0, "end": 1, "color": "red"}],
-        }
+def _edit_params(**over) -> WanVaceEditParams:
+    base = dict(
+        positive="replace the car with a bicycle",
+        ref_images=(),
+        source_video="src.mp4",
+        edit_prompt="replace the car with a bicycle",
+        edit_mode="object_replace",
+        num_frames=81,
+        seed=42,
     )
-    with pytest.raises(Exception) as exc:
-        parse_plan(plan, 1)
-    assert exc.value.status_code == 422
+    base.update(over)
+    return WanVaceEditParams(**base)
 
 
-def test_parse_text_fontsize_bounds_422():
-    for sz in [5, 300]:
-        plan = json.dumps(
-            {
-                "clips": [{"file": 0, "duration": 1}],
-                "texts": [{"text": "hi", "start": 0, "end": 1, "fontSize": sz}],
-            }
-        )
-        with pytest.raises(Exception) as exc:
-            parse_plan(plan, 1)
-        assert exc.value.status_code == 422
+# --------------------------------------------------------------------------- #
+# 编辑图构建器
+# --------------------------------------------------------------------------- #
 
 
-def test_parse_minimal_plan_ok():
-    plan = json.dumps({"clips": [{"file": 0, "duration": 1.5}]})
-    result = parse_plan(plan, 1)
-    assert result["width"] == 1920
-    assert result["height"] == 1080
-    assert result["fps"] == 30
-    assert result["clips"] == [{"file": 0, "in": 0, "duration": 1.5, "volume": 1}]
-    assert result["audios"] == []
-    assert result["texts"] == []
-    assert result["total"] == 1.5
+def test_edit_builder_structure_and_critical_inputs():
+    """骨架与多参考图链路同构;源视频帧 → input_frames;无 mask 支路不接 input_masks。"""
+    g = build_wan_vace_edit_graph(_edit_params())
+
+    assert g["1"]["class_type"] == "WanVideoModelLoader"
+    assert g["1"]["inputs"]["model"] == VACE_MODEL
+    assert g["1"]["inputs"]["quantization"] == "fp8_e4m3fn"
+    assert g["2"]["inputs"]["blocks_to_swap"] == VACE_BLOCK_SWAP
+    # vace_blocks_to_swap 缺省会炸 TypeError(同多参考图链路踩坑)
+    assert g["2"]["inputs"]["vace_blocks_to_swap"] == 8
+
+    # 编辑指令进文本编码;采样器关键输入锁定
+    assert g["5"]["inputs"]["positive_prompt"] == "replace the car with a bicycle"
+    s = g["13"]["inputs"]
+    assert s["rope_function"] == "comfy"
+    assert s["scheduler"] == "unipc"
+    assert s["cfg"] == 5.0 and s["shift"] == 8.0 and s["steps"] == 20
+    assert s["model"] == ["1", 0] and s["image_embeds"] == ["10", 0]
+
+    # 源视频支路:VHS_LoadVideo(帧数截断与 num_frames 同步)→ input_frames
+    assert g["50"]["class_type"] == "VHS_LoadVideo"
+    assert g["50"]["inputs"]["video"] == "src.mp4"
+    # custom_width/height 为 VHS 必填(2026-08-26 真机 /prompt 400 冒烟实证)
+    assert g["50"]["inputs"]["custom_width"] == 832
+    assert g["50"]["inputs"]["custom_height"] == 480
+    assert g["50"]["inputs"]["frame_load_cap"] == g["10"]["inputs"]["num_frames"]
+    assert g["50"]["inputs"]["force_rate"] == 16
+
+    # 帧数对齐:StartToEndFrame.control_images(灰帧补齐/截断到 num_frames)→ input_frames
+    # (VACEEncode 帧数硬约束,2026-08-26 冒烟实证;masks 输出弃用,编辑 mask 独立供给)
+    assert g["51"]["class_type"] == "WanVideoVACEStartToEndFrame"
+    assert g["51"]["inputs"]["control_images"] == ["50", 0]
+    assert g["51"]["inputs"]["num_frames"] == g["10"]["inputs"]["num_frames"]
+
+    v = g["10"]
+    assert v["class_type"] == "WanVideoVACEEncode"
+    assert v["inputs"]["vae"] == ["3", 0]
+    assert v["inputs"]["input_frames"] == ["51", 0]
+    assert v["inputs"]["strength"] == 1.0
+    # 无关键帧/区域 mask:不接 input_masks(wrapper 缺省全 1 重生成)
+    assert "input_masks" not in v["inputs"]
+    # 编辑链路不走参考图支路
+    assert "ref_images" not in v["inputs"]
+    assert "30" not in g  # 无 concat
+
+    # 源视频原声回打包 + 独立产物前缀
+    assert g["15"]["inputs"]["audio"] == ["50", 2]
+    assert g["15"]["inputs"]["filename_prefix"] == "ToIV_wan/vace_edit"
 
 
-# ────────────────────────────────
-# build_render_plan_cmd 命令构造
-# ────────────────────────────────
-
-def test_build_single_clip_no_audio_no_text():
-    cmd = build_render_plan_cmd(
-        ["/ws/in/001.mp4"],
-        {"width": 1280, "height": 720, "fps": 30, "clips": [{"file": 0, "in": 0, "duration": 3, "volume": 1}], "audios": [], "texts": [], "total": 3},
-        [False],
-        font_path="/usr/share/fonts/font.ttf",
-        out_path="/ws/out/job.mp4",
-    )
-    assert "scale=1280:720:force_original_aspect_ratio=decrease" in cmd
-    assert "pad=1280:720:(ow-iw)/2:(oh-ih)/2:color=black" in cmd
-    assert "fps=30" in cmd
-    assert "format=yuv420p" in cmd
-    assert "setsar=1" in cmd
-    assert "concat=n=1:v=1:a=0" in cmd
-    assert "[vcat]null[vout]" in cmd
-    assert "-an" in cmd
-    assert "-c:v libx264" in cmd
-    assert cmd.endswith("-y /ws/out/job.mp4")
+def test_edit_builder_frames_snap_4k1():
+    """WanVideo 系时序网格 (T-1)%4==0:80 → 81,条件与视频截断同步。"""
+    g = build_wan_vace_edit_graph(_edit_params(num_frames=80))
+    assert g["10"]["inputs"]["num_frames"] == 81
+    assert g["50"]["inputs"]["frame_load_cap"] == 81
 
 
-def test_build_two_clips_one_audio_one_text():
-    plan = {
-        "width": 1920,
-        "height": 1080,
-        "fps": 24,
-        "clips": [
-            {"file": 0, "in": 0, "duration": 2, "volume": 1},
-            {"file": 0, "in": 5, "duration": 3, "volume": 0},
-        ],
-        "audios": [{"file": 1, "in": 0, "duration": 5, "start": 0, "volume": 1}],
-        "texts": [{"text": "hello", "start": 0, "end": 2, "position": "bottom", "fontSize": 48, "color": "#ffffff"}],
-        "total": 5,
+def test_edit_builder_keyframe_mask_single_anchor():
+    """单锚点(帧 0):黑帧(保留) + Repeat(fill, N-1) 段组装 → ImageToMask。"""
+    g = build_wan_vace_edit_graph(_edit_params(keyframe_indices=(0,), num_frames=81))
+
+    # 锚点帧:SolidMask(0.0) 全黑保留
+    assert g["60"]["class_type"] == "SolidMask"
+    assert g["60"]["inputs"]["value"] == 0.0
+    assert g["61"]["class_type"] == "MaskToImage"
+    # fill:SolidMask(1.0) 全白重生成
+    assert g["62"]["class_type"] == "SolidMask"
+    assert g["62"]["inputs"]["value"] == 1.0
+    # 段:黑帧 + Repeat(fill, 80),一次 ImageBatch 链接
+    assert g["70"]["class_type"] == "RepeatImageBatch"
+    assert g["70"]["inputs"]["amount"] == 80
+    assert g["71"]["class_type"] == "ImageBatch"
+    assert g["71"]["inputs"]["image1"] == ["61", 0]
+    assert g["71"]["inputs"]["image2"] == ["70", 0]
+    assert g["90"]["class_type"] == "ImageToMask"
+    assert g["90"]["inputs"]["image"] == ["71", 0]
+    assert g["90"]["inputs"]["channel"] == "red"
+    assert g["10"]["inputs"]["input_masks"] == ["90", 0]
+
+
+def test_edit_builder_keyframe_mask_multi_anchors():
+    """多锚点(帧 2/5,共 9 帧):段 Repeat 量 {2,2,3},锚点帧引用 2 次,4 次 ImageBatch。"""
+    g = build_wan_vace_edit_graph(_edit_params(keyframe_indices=(2, 5), num_frames=9))
+
+    repeats = {
+        nid: n["inputs"]["amount"]
+        for nid, n in g.items()
+        if n["class_type"] == "RepeatImageBatch"
     }
-    cmd = build_render_plan_cmd(
-        ["/ws/in/001.mp4", "/ws/in/002.mp3"],
-        plan,
-        [True, False],
-        font_path="/usr/share/fonts/font.ttf",
-        out_path="/ws/out/job.mp4",
+    assert sorted(repeats.values()) == [2, 2, 3]
+    batches = [n for n in g.values() if n["class_type"] == "ImageBatch"]
+    assert len(batches) == 4
+    anchor_refs = [
+        tuple(n["inputs"][k])
+        for n in batches
+        for k in ("image1", "image2")
+        if n["inputs"][k] == ["61", 0]
+    ]
+    assert anchor_refs == [("61", 0), ("61", 0)]
+    assert g["10"]["inputs"]["input_masks"] == ["90", 0]
+
+
+def test_edit_builder_preserve_mask_branch():
+    """区域保留 mask:LoadImage→ImageToMask(red)→InvertMask(白=保留→0)→MaskToImage
+    →ImageScale 归一(ImageBatch 拼接同尺寸约束)→ Repeat 整条 → ImageToMask。"""
+    g = build_wan_vace_edit_graph(_edit_params(preserve_mask="mask.png", num_frames=81))
+
+    assert g["62"]["class_type"] == "LoadImage"
+    assert g["62"]["inputs"]["image"] == "mask.png"
+    assert g["63"]["class_type"] == "ImageToMask"
+    assert g["63"]["inputs"]["channel"] == "red"
+    assert g["64"]["class_type"] == "InvertMask"
+    assert g["64"]["inputs"]["mask"] == ["63", 0]
+    assert g["65"]["class_type"] == "MaskToImage"
+    assert g["66"]["class_type"] == "ImageScale"
+    assert g["66"]["inputs"]["upscale_method"] == "nearest-exact"
+    assert g["66"]["inputs"]["width"] == 832 and g["66"]["inputs"]["height"] == 480
+    # 无锚点:整条 fill Repeat(num_frames)
+    assert "60" not in g and "61" not in g
+    assert g["70"]["inputs"]["image"] == ["66", 0]
+    assert g["70"]["inputs"]["amount"] == 81
+    assert g["10"]["inputs"]["input_masks"] == ["90", 0]
+
+
+def test_edit_builder_keyframes_compose_with_preserve_mask():
+    """锚点 × 区域 mask 并存:锚点帧全黑(整帧保留),其余帧走区域控制 fill。"""
+    g = build_wan_vace_edit_graph(
+        _edit_params(keyframe_indices=(0,), preserve_mask="mask.png", num_frames=81)
     )
-    # 3 路输入(2 视频段 + 1 音频段),每路各一对 -ss/-t
-    argv = shlex.split(cmd)
-    assert argv.count("-ss") == 3
-    assert argv.count("-t") == 3
-    assert "-ss 0 -t 2 -i /ws/in/001.mp4" in cmd
-    assert "-ss 5 -t 3 -i /ws/in/001.mp4" in cmd
-    assert "-ss 0 -t 5 -i /ws/in/002.mp3" in cmd
-    # filtergraph(shlex 去引号后):drawtext 字体/字号/颜色/时间窗
-    fc = argv[argv.index("-filter_complex") + 1]
-    assert "drawtext=fontfile=/usr/share/fonts/font.ttf:text='hello':" in fc
-    assert "fontsize=48" in fc
-    assert "fontcolor=#ffffff" in fc
-    assert "enable='between(t,0,2)'" in fc
-    # clip0 原声(volume=1 且有音轨) + audio 轨 = 2 路混音;clip1 volume=0 丢弃
-    assert "amix=inputs=2:duration=longest:normalize=0" in fc
-    assert "adelay=0|0" in fc
-    # -map [vout] / -map [aout]
-    maps = [argv[i + 1] for i, tok in enumerate(argv) if tok == "-map"]
-    assert maps == ["[vout]", "[aout]"]
-    assert "-c:a aac" in cmd
-    assert "-b:a 192k" in cmd
+    assert g["66"]["class_type"] == "ImageScale"  # 区域 fill 归一
+    assert g["61"]["class_type"] == "MaskToImage"  # 锚点黑帧
+    assert g["70"]["inputs"]["image"] == ["66", 0]
+    assert g["10"]["inputs"]["input_masks"] == ["90", 0]
 
 
-def test_build_no_clip_audio_and_no_audios_an():
-    cmd = build_render_plan_cmd(
-        ["/ws/in/001.mp4"],
-        {"width": 1280, "height": 720, "fps": 30, "clips": [{"file": 0, "in": 0, "duration": 2, "volume": 1}], "audios": [], "texts": [], "total": 2},
-        [False],
-        font_path="/usr/share/fonts/font.ttf",
-        out_path="/ws/out/job.mp4",
+def test_edit_builder_edit_prompt_falls_back_to_positive():
+    """edit_prompt 置空回退 positive(dataclass 双字段的兼容语义)。"""
+    g = build_wan_vace_edit_graph(_edit_params(edit_prompt="", positive="make it anime style"))
+    assert g["5"]["inputs"]["positive_prompt"] == "make it anime style"
+
+
+def test_edit_builder_requires_source_video():
+    with pytest.raises(ValueError, match="源视频"):
+        build_wan_vace_edit_graph(_edit_params(source_video=""))
+
+
+def test_edit_builder_rejects_unknown_mode():
+    with pytest.raises(ValueError, match="未知编辑模式"):
+        build_wan_vace_edit_graph(_edit_params(edit_mode="teleport"))
+
+
+def test_edit_builder_rejects_too_many_keyframes():
+    kfs = tuple(range(MAX_KEYFRAMES + 1))
+    with pytest.raises(ValueError, match="最多"):
+        build_wan_vace_edit_graph(_edit_params(keyframe_indices=kfs))
+
+
+def test_edit_builder_rejects_out_of_range_keyframe():
+    with pytest.raises(ValueError, match="0-80"):
+        build_wan_vace_edit_graph(_edit_params(keyframe_indices=(81,)))
+    with pytest.raises(ValueError, match="0-80"):
+        build_wan_vace_edit_graph(_edit_params(keyframe_indices=(-1,)))
+
+
+def test_edit_builder_requires_prompt():
+    with pytest.raises(ValueError, match="编辑指令不能为空"):
+        build_wan_vace_edit_graph(_edit_params(edit_prompt="", positive=""))
+
+
+def test_edit_modes_enum_complete():
+    """编辑模式五枚举固定(对象替换/移除/风格迁移/重打光/相机变换)。"""
+    assert EDIT_MODES == (
+        "object_replace", "object_remove", "style_transfer", "relight", "camera_change",
     )
-    assert "-an" in cmd
-    assert "amix" not in cmd
+    for mode in EDIT_MODES:
+        g = build_wan_vace_edit_graph(_edit_params(edit_mode=mode))
+        assert g["10"]["class_type"] == "WanVideoVACEEncode"
 
 
-def test_escape_drawtext():
-    assert _escape_drawtext("a\nb") == "a b"
-    assert _escape_drawtext("a\rb") == "a b"
-    assert _escape_drawtext("\\") == "\\\\"
-    assert _escape_drawtext("'") == "\\'"
-    assert _escape_drawtext("`") == "\\`"
-    assert _escape_drawtext(":") == "\\:"
-    assert _escape_drawtext(",") == "\\,"
-    assert _escape_drawtext(";") == "\\;"
-    assert _escape_drawtext("%") == "\\%"
-    assert _escape_drawtext("[") == "\\["
-    assert _escape_drawtext("]") == "\\]"
+# --------------------------------------------------------------------------- #
+# 请求校验(422)
+# --------------------------------------------------------------------------- #
 
 
-def test_build_path_with_spaces_quoted():
-    cmd = build_render_plan_cmd(
-        ["/ws/my dir/001.mp4"],
-        {"width": 1280, "height": 720, "fps": 30, "clips": [{"file": 0, "in": 0, "duration": 2, "volume": 0}], "audios": [], "texts": [], "total": 2},
-        [False],
-        font_path="/usr/share/fonts/font.ttf",
-        out_path="/ws/my dir/out.mp4",
+def _edit_payload(**over) -> dict:
+    payload = {
+        "source_video": "src.mp4",
+        "edit_prompt": "replace the car with a bicycle",
+        "edit_mode": "object_replace",
+        "worker": "http://fake-worker",
+    }
+    payload.update(over)
+    return payload
+
+
+def test_edit_rejects_unknown_edit_mode(client):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "vemode")
+    r = c.post(
+        "/api/generate/video-edit",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json=_edit_payload(edit_mode="teleport"),
     )
-    assert "'/ws/my dir/001.mp4'" in cmd
-    assert "'/ws/my dir/out.mp4'" in cmd
+    assert r.status_code == 422
 
 
-# ────────────────────────────────
-# POST /api/video-edit/render
-# ────────────────────────────────
+@pytest.mark.parametrize("mode", EDIT_MODES)
+def test_edit_accepts_all_modes(client, monkeypatch, mode):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, f"vemode-{mode}")
+    fake = _FakeWanClient()
+    _install_wan(monkeypatch, fake)
+    _stub_wan_settings(monkeypatch)
+    r = c.post(
+        "/api/generate/video-edit",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json=_edit_payload(edit_mode=mode),
+    )
+    assert r.status_code == 200, r.text
 
-def test_render_unauthenticated_401(ctx):
-    client, _, _, _ = ctx
-    files = [("media", ("a.mp4", _MP4, "video/mp4"))]
-    r = client.post("/api/video-edit/render", files=files, data={"plan": json.dumps({"clips": [{"file": 0, "duration": 1}]})})
+
+def test_edit_rejects_missing_source_video(client):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "venovid")
+    r = c.post(
+        "/api/generate/video-edit",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json=_edit_payload(source_video=""),
+    )
+    assert r.status_code == 422
+
+
+def test_edit_rejects_path_traversal(client):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "vetrav")
+    r = c.post(
+        "/api/generate/video-edit",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json=_edit_payload(source_video="../evil.mp4"),
+    )
+    assert r.status_code == 422
+    r = c.post(
+        "/api/generate/video-edit",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json=_edit_payload(preserve_mask="../evil.png"),
+    )
+    assert r.status_code == 422
+
+
+def test_edit_rejects_too_many_keyframes(client):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "vemanykf")
+    r = c.post(
+        "/api/generate/video-edit",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json=_edit_payload(keyframe_indices=list(range(MAX_KEYFRAMES + 1))),
+    )
+    assert r.status_code == 422
+
+
+def test_edit_rejects_negative_keyframe(client):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "venegkf")
+    r = c.post(
+        "/api/generate/video-edit",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json=_edit_payload(keyframe_indices=[-1]),
+    )
+    assert r.status_code == 422
+
+
+def test_edit_rejects_keyframe_beyond_output_frames(client, monkeypatch):
+    """关键帧索引 ≥ 输出帧数(1s@16fps → 17 帧,索引 20 越界)→ 422。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "vekfidx")
+    fake = _FakeWanClient()
+    _install_wan(monkeypatch, fake)
+    _stub_wan_settings(monkeypatch)
+    r = c.post(
+        "/api/generate/video-edit",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json=_edit_payload(duration_sec=1, keyframe_indices=[20]),
+    )
+    assert r.status_code == 422
+    assert "越界" in r.json()["detail"]
+    assert fake.graphs == []  # 未提交
+
+
+def test_edit_rejects_duration_over_10s(client):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "vedur")
+    r = c.post(
+        "/api/generate/video-edit",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json=_edit_payload(duration_sec=10.5),
+    )
+    assert r.status_code == 422
+
+
+# --------------------------------------------------------------------------- #
+# POST /api/generate/video-edit
+# --------------------------------------------------------------------------- #
+
+
+def test_edit_ok_transfers_video_and_submits(client, monkeypatch):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "veok")
+    fake = _FakeWanClient()
+    _install_wan(monkeypatch, fake)
+    _stub_wan_settings(monkeypatch)
+    r = c.post(
+        "/api/generate/video-edit",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json=_edit_payload(duration_sec=5, seed=7, keyframe_indices=[0, 40]),
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["prompt_id"] == "prompt-edit-1"
+    assert body["worker"] == "http://fake-wan"
+    assert body["seed"] == 7
+
+    # 源视频从源 worker 转运到 :8197;图内引用转运文件名
+    assert fake.uploads == [(b"media-bytes", "src.mp4")]
+    graph = fake.graphs[0]
+    assert graph["50"]["inputs"]["video"] == "wan-src.mp4"
+    assert graph["10"]["inputs"]["input_frames"] == ["51", 0]
+    assert graph["10"]["inputs"]["num_frames"] == 81  # 5s@16fps → 81
+    assert graph["10"]["inputs"]["input_masks"] == ["90", 0]  # 双锚点 mask 支路
+    assert graph["13"]["inputs"]["seed"] == 7
+
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        assert job is not None
+        assert job.kind == "video_edit"
+        assert job.nsfw is False
+        assert job.seed == 7
+        assert job.worker == "http://fake-wan"
+
+
+def test_edit_ok_transfers_preserve_mask(client, monkeypatch):
+    """区域保留 mask 与源视频同路转运(同 worker 落点,PNG 与图片同通道)。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "vemask")
+    fake = _FakeWanClient()
+    _install_wan(monkeypatch, fake)
+    _stub_wan_settings(monkeypatch)
+    r = c.post(
+        "/api/generate/video-edit",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json=_edit_payload(preserve_mask="keep.png"),
+    )
+    assert r.status_code == 200, r.text
+    names = [name for _, name in fake.uploads]
+    assert names == ["src.mp4", "keep.png"]
+    graph = fake.graphs[0]
+    assert graph["62"]["inputs"]["image"] == "wan-keep.png"
+    assert graph["10"]["inputs"]["input_masks"] == ["90", 0]
+
+
+def test_edit_without_masks_has_no_mask_branch(client, monkeypatch):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "venomask")
+    fake = _FakeWanClient()
+    _install_wan(monkeypatch, fake)
+    _stub_wan_settings(monkeypatch)
+    r = c.post(
+        "/api/generate/video-edit",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json=_edit_payload(),
+    )
+    assert r.status_code == 200, r.text
+    graph = fake.graphs[0]
+    assert "input_masks" not in graph["10"]["inputs"]
+    assert "90" not in graph
+
+
+def test_edit_instance_unreachable_503(client, monkeypatch):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "vedown")
+    _install_wan(monkeypatch, _FakeWanClient(reachable=False))
+    _stub_wan_settings(monkeypatch)
+    r = c.post(
+        "/api/generate/video-edit",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json=_edit_payload(),
+    )
+    assert r.status_code == 503
+    assert "不可达" in r.json()["detail"]
+
+
+def test_edit_requires_auth(client):
+    c, _ = client
+    r = c.post("/api/generate/video-edit", json=_edit_payload())
     assert r.status_code == 401
 
 
-def test_render_bad_plan_json_422(ctx):
-    client, auth, _, _ = ctx
-    files = [("media", ("a.mp4", _MP4, "video/mp4"))]
-    r = _post(client, auth, files, {"plan": "not-json"})
-    assert r.status_code == 422
-
-
-def test_render_no_media_422(ctx):
-    client, auth, _, _ = ctx
-    r = client.post("/api/video-edit/render", data={"plan": json.dumps({"clips": [{"file": 0, "duration": 1}]})}, headers=auth)
-    assert r.status_code == 422
-
-
-def test_render_traversal_filename_422(ctx):
-    client, auth, _, _ = ctx
-    files = [("media", ("../../evil.mp4", _MP4, "video/mp4"))]
-    r = _post(client, auth, files, {"plan": json.dumps({"clips": [{"file": 0, "duration": 1}]})})
-    assert r.status_code == 422
-    assert "穿越" in r.json()["detail"]
-
-
-def test_render_invalid_extension_422(ctx):
-    client, auth, _, _ = ctx
-    files = [("media", ("a.txt", b"text", "text/plain"))]
-    r = _post(client, auth, files, {"plan": json.dumps({"clips": [{"file": 0, "duration": 1}]})})
-    assert r.status_code == 422
-
-
-def test_render_too_many_media_422(ctx):
-    client, auth, _, _ = ctx
-    files = [("media", (f"{i:03d}.mp4", _MP4, "video/mp4")) for i in range(31)]
-    r = _post(client, auth, files, {"plan": json.dumps({"clips": [{"file": 0, "duration": 1}] * 31})})
-    assert r.status_code == 422
-
-
-def test_render_empty_file_422(ctx):
-    client, auth, _, _ = ctx
-    files = [("media", ("a.mp4", b"", "video/mp4"))]
-    r = _post(client, auth, files, {"plan": json.dumps({"clips": [{"file": 0, "duration": 1}]})})
-    assert r.status_code == 422
-    assert "空文件" in r.json()["detail"]
-
-
-def test_render_success(ctx, monkeypatch):
-    client, auth, imp, out = ctx
-    captured: list = []
-    monkeypatch.setattr("subprocess.run", _fake_run_ok(out, captured))
-
-    files = [
-        ("media", ("movie.mp4", _MP4, "video/mp4")),
-        ("media", ("bgm.mp3", _MP3, "audio/mpeg")),
-    ]
-    plan = {
-        "width": 1920,
-        "height": 1080,
-        "fps": 30,
-        "clips": [{"file": 0, "in": 0, "duration": 3, "volume": 1}],
-        "audios": [{"file": 1, "in": 0, "duration": 3, "start": 0, "volume": 0.8}],
-        "texts": [{"text": "Hello", "start": 0, "end": 3, "position": "center", "fontSize": 64, "color": "#FF0000"}],
-    }
-    r = _post(client, auth, files, {"plan": json.dumps(plan)})
+def test_edit_marks_job_nsfw_with_x_nsfw_header(client, monkeypatch):
+    """/nsfw 专区(X-NSFW: 1)提交视频编辑:Job 打 nsfw 标,主站作品库不可见。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "vensfw")
+    fake = _FakeWanClient()
+    _install_wan(monkeypatch, fake)
+    _stub_wan_settings(monkeypatch)
+    r = c.post(
+        "/api/generate/video-edit",
+        headers={"Authorization": f"Bearer {create_token(uid)}", "X-NSFW": "1"},
+        json=_edit_payload(edit_prompt="make it neon noir style", edit_mode="style_transfer"),
+    )
     assert r.status_code == 200, r.text
-    data = r.json()
-    assert re.fullmatch(r"[a-z0-9]{12}", data["job_id"])
-    assert data["url"] == f"/api/video-edit/output/{data['job_id']}.mp4"
-    assert data["duration"] == 3
-    assert data["clips"] == 1 and data["audios"] == 1 and data["texts"] == 1
-
-    job_dir = imp / data["job_id"]
-    assert (job_dir / "001.mp4").is_file()
-    assert (job_dir / "002.mp3").is_file()
-
-    # ffprobe call
-    assert len(captured) == 2
-    probe_cmd = captured[0]
-    assert probe_cmd[0] == "ssh"
-    assert "for f in" in probe_cmd[-1]
-    # ffmpeg call
-    ffmpeg_cmd = captured[1]
-    assert ffmpeg_cmd[0] == "ssh"
-    remote = ffmpeg_cmd[-1]
-    assert "ffmpeg" in remote
-    assert f"/ws/imports/{data['job_id']}/001.mp4" in remote
-    assert f"/ws/outputs/{data['job_id']}.mp4" in remote
-
-    assert (out / f"{data['job_id']}.mp4").is_file()
-
-
-def test_render_ffmpeg_failure_502_and_cleanup(ctx, monkeypatch):
-    client, auth, imp, out = ctx
-    monkeypatch.setattr("subprocess.run", _fake_run_fail)
-    files = [("media", ("a.mp4", _MP4, "video/mp4"))]
-    r = _post(client, auth, files, {"plan": json.dumps({"clips": [{"file": 0, "duration": 1}]})})
-    assert r.status_code == 502
-    assert "boom-tail" in r.json()["detail"]
-    assert list(imp.iterdir()) == []
-    assert list(out.glob("*.mp4")) == []
-
-
-def test_render_ffprobe_failure_degrades_no_audio(ctx, monkeypatch):
-    """ffprobe ssh 失败 → 降级为全部无音轨,ffmpeg 继续渲染不报错。"""
-    client, auth, imp, out = ctx
-    captured: list = []
-
-    def _fake_run_probe_fail(cmd, **kwargs):
-        captured.append(cmd)
-        remote = cmd[-1]
-        if "ffprobe" in remote:
-            # ssh 返回非零 → _run_ssh 抛 502 → _probe_audio_streams 捕获降级
-            return subprocess.CompletedProcess(cmd, 1, "", "ssh connect fail")
-        # ffmpeg success
-        last = remote.rsplit(None, 1)[-1].strip("'\"")
-        name = Path(last).name
-        out.mkdir(parents=True, exist_ok=True)
-        (out / name).write_bytes(b"\x00\x00\x00\x18ftypmp42")
-        return subprocess.CompletedProcess(cmd, 0, "", "")
-
-    monkeypatch.setattr("subprocess.run", _fake_run_probe_fail)
-    files = [("media", ("a.mp4", _MP4, "video/mp4"))]
-    r = _post(client, auth, files, {"plan": json.dumps({"clips": [{"file": 0, "duration": 1}]})})
-    assert r.status_code == 200, r.text
-    assert (out / f"{r.json()['job_id']}.mp4").is_file()
-
-
-# ────────────────────────────────
-# GET /api/video-edit/output
-# ────────────────────────────────
-
-def test_output_whitelist_404(ctx):
-    client, auth, _, _ = ctx
-    for bad in ["../../etc/passwd", "abc.mp4", "ABC123DEF456.mp4", "abc123def456.mp4.bak", "abc123def456"]:
-        r = client.get(f"/api/video-edit/output/{bad}", headers=auth)
-        assert r.status_code == 404, bad
-
-
-def test_output_missing_404(ctx):
-    client, auth, _, _ = ctx
-    r = client.get("/api/video-edit/output/abc123def456.mp4", headers=auth)
-    assert r.status_code == 404
-
-
-def test_output_served(ctx):
-    client, auth, _, out = ctx
-    out.mkdir(parents=True, exist_ok=True)
-    (out / "abc123def456.mp4").write_bytes(b"\x00\x00\x00\x18ftypmp42")
-    r = client.get("/api/video-edit/output/abc123def456.mp4", headers=auth)
-    assert r.status_code == 200
-    assert r.headers["content-type"] == "video/mp4"
-    assert r.content == b"\x00\x00\x00\x18ftypmp42"
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        assert job is not None
+        assert job.kind == "video_edit" and job.nsfw is True

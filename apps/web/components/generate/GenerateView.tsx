@@ -40,6 +40,9 @@ import { friendlyError } from "@/lib/friendlyError";
 import { EngineInfoCard } from "./EngineInfoCard";
 import { EntityPicker, entityCover } from "@/components/entities/EntityPicker";
 import { KeyframeChainEditor } from "./KeyframeChainEditor";
+import { AiVideoEditView } from "@/components/video-edit/AiVideoEditView";
+import { MotionBrushEditor } from "@/components/motion-brush/MotionBrushEditor";
+import { MultiShotEditor } from "./MultiShotEditor";
 import { ParamField } from "./ParamField";
 import { applyAspectPair } from "@/lib/aspectPair";
 import { PARAM_PANEL_GROUPS, groupEngineParams } from "./paramGroups";
@@ -92,6 +95,9 @@ const GROUP_LABEL: Record<EngineKind, { gen: string; edit: string }> = {
 
 /** 尺寸参数 key(两项都存在时吸附到提示词条的尺寸 chip,浮板「画幅与时长」组不再重复渲染)。 */
 const SIZE_PARAM_KEYS: ReadonlySet<string> = new Set(["width", "height"]);
+
+/** Motion Brush 局部动效支持的引擎(VACE 链路,:8197 input_masks);其余引擎不开放入口。 */
+const MOTION_BRUSH_ENGINES: ReadonlySet<string> = new Set(["wan-vace", "wan-transition"]);
 
 /**
  * 统一生成工作台(W1 信息架构 + WS2 剧场化布局)。
@@ -191,10 +197,17 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
     [engines, mode],
   );
 
-  // 板块内「生成 | 编辑」分组(数据驱动:params 含 images 类型 = 编辑组,否则生成组)。
+  // 板块内「生成 | 编辑」分组(数据驱动:params 含 images 或 video 类型 = 编辑组,否则生成组;
+  // video 规则为 vace-edit 视频到视频编辑而加,此前无仅 video 参数的引擎)。
   // 两组都有引擎时才显示段控(如音频板块当前仅 ace-music 生成组,段控自动不显示)。
-  const genGroup = useMemo(() => kindEngines.filter((e) => engineNeedsImage(e) === null), [kindEngines]);
-  const editGroup = useMemo(() => kindEngines.filter((e) => engineNeedsImage(e) !== null), [kindEngines]);
+  const genGroup = useMemo(
+    () => kindEngines.filter((e) => engineNeedsImage(e) === null && engineNeedsVideo(e) === null),
+    [kindEngines],
+  );
+  const editGroup = useMemo(
+    () => kindEngines.filter((e) => engineNeedsImage(e) !== null || engineNeedsVideo(e) !== null),
+    [kindEngines],
+  );
   const showGroupTabs = genGroup.length > 0 && editGroup.length > 0;
   const [groupByKind, setGroupByKind] = useState<Partial<Record<EngineKind, "gen" | "edit">>>({});
   const group = groupByKind[mode] ?? "gen";
@@ -240,6 +253,10 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
   const [refsByEngine, setRefsByEngine] = useState<Record<string, UploadedRef[]>>({});
   const [audioByEngine, setAudioByEngine] = useState<Record<string, UploadedAudio | null>>({});
   const [videoByEngine, setVideoByEngine] = useState<Record<string, UploadedVideo | null>>({});
+  // Motion Brush 局部动效 mask(按引擎分槽保存文件名;VACE 链路引擎可用,
+  // 由 MotionBrushEditor 生成后回填;参考图变更时失效清除)
+  const [motionMaskByEngine, setMotionMaskByEngine] = useState<Record<string, string>>({});
+  const [motionBrushOpen, setMotionBrushOpen] = useState(false);
 
   // 三层联动:风格预设清单(回显推荐参数 + skill 预选用;swr 长缓存,失败静默降级)
   const [stylePresets, setStylePresets] = useState<StylePreset[]>([]);
@@ -274,6 +291,18 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
   // 关键帧链式转场:选中 keyframe-chain 引擎时,舞台列渲染 KeyframeChainEditor 专用编辑器
   // (替代 PromptBar;槽位/逐段参数/提交进度全部自承载),参数台的标准分组同步让位
   const isChain = engine?.id === "keyframe-chain";
+  // H3 多镜头:选中 h3-multishot 引擎时,舞台列渲染 MultiShotEditor 专用编辑器
+  // (镜头卡/逐镜头时长/总时长护栏/提交自承载),参数台标准分组同步让位
+  const isMultiShot = engine?.id === "h3-multishot";
+  // VACE 视频编辑:选中 vace-edit 引擎时,舞台列渲染 AiVideoEditView 专用编辑器
+  // (源视频/编辑模式/指令/关键帧锚点/区域 mask/并排对比自承载),参数台标准分组同步让位
+  const isVaceEdit = engine?.id === "vace-edit";
+  // 专用编辑器引擎(链/多镜头/视频编辑):标准 PromptBar 与参数分组让位
+  const customEditor = isChain || isMultiShot || isVaceEdit;
+  // Motion Brush 局部动效:仅 VACE 链路(:8197,VACEEncode.input_masks)支持;
+  // H3 节点无 mask 输入、SCoPE 服务契约无 mask 字段,均不开放(后端同规则)
+  const motionBrushSupported = engine ? MOTION_BRUSH_ENGINES.has(engine.id) : false;
+  const motionMask = engine ? motionMaskByEngine[engine.id] ?? "" : "";
 
   // 参数分区(T1 Inspector 化):尺寸(width/height 成对)→ PromptBar chip;
   // 参考输入(images/audio/video)→ 上传组件独立成节;其余按 paramGroups 分组卡
@@ -458,8 +487,10 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
   const canSubmit =
     !!engine &&
     engine.available &&
-    // 关键帧链引擎由 KeyframeChainEditor 自承载提交(标准链路永不触发)
+    // 关键帧链/多镜头/视频编辑引擎由专用编辑器自承载提交(标准链路永不触发)
     engine.id !== "keyframe-chain" &&
+    engine.id !== "h3-multishot" &&
+    engine.id !== "vace-edit" &&
     // wan-animate-2 提示词可留空(后端自动反推参考图外观 caption,官方提示词要求)
     (engine.id === "wan-animate-2" || positive.trim().length > 0) &&
     !gen.isRunning &&
@@ -600,6 +631,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
         refImages: refsByEngine[target.id] ?? [],
         refAudio: audioByEngine[target.id] ?? null,
         refVideo: videoByEngine[target.id] ?? null,
+        motionMask: motionMaskByEngine[target.id] || undefined,
         entityIds: resolveEntityIds(promptText, subjectEntities),
       });
       const entry: HistoryEntry = {
@@ -731,7 +763,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
                 ? "wan_animate2"
                 : engine?.id === "wan-vace"
                   ? "wan_vace"
-                  : engine?.id === "wan-transition"
+                  : engine?.id === "wan-transition" || engine?.id === "vace-edit"
                     ? "wan_vace" // 与 VACE 同实例(:8197),复用同一上传 kind
                     : "ltx_i2v";
 
@@ -772,6 +804,14 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
           /* 关键帧链引擎:舞台列渲染专用编辑器(槽位/逐段参数/总时长/提交进度自承载),
              PromptBar 让位(链有逐段提示词,单条输入框不适用) */
           <KeyframeChainEditor />
+        ) : isMultiShot ? (
+          /* H3 多镜头引擎:舞台列渲染专用编辑器(镜头卡/逐镜头时长/总时长护栏自承载),
+             PromptBar 让位(多镜头有逐镜头提示词,单条输入框不适用) */
+          <MultiShotEditor />
+        ) : isVaceEdit ? (
+          /* VACE 视频编辑引擎:舞台列渲染专用编辑器(源视频/模式/指令/关键帧锚点/并排对比
+             自承载),PromptBar 让位(编辑指令随模式切换示例,通用提示词条不适用) */
+          <AiVideoEditView />
         ) : (
         <PromptBar
           value={positive}
@@ -965,7 +1005,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
                   )}
                 </div>
 
-                {!isChain && engine && (imageParam || audioParam || videoParam) && (
+                {!customEditor && engine && (imageParam || audioParam || videoParam) && (
                   <div className="params-section">
                     <h3 className="params-section-title">参考输入</h3>
                     {imageParam && multiImage && (
@@ -974,8 +1014,47 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
                         values={refImages}
                         uploadKind={uploadKind}
                         disabled={gen.isRunning}
-                        onChange={(v) => setRefsByEngine((prev) => ({ ...prev, [engine.id]: v }))}
+                        onChange={(v) => {
+                          setRefsByEngine((prev) => ({ ...prev, [engine.id]: v }));
+                          // 参考图变更 → 已生成的 Motion Brush mask 失效(尺寸/内容错位),清除待重标
+                          setMotionMaskByEngine((prev) => ({ ...prev, [engine.id]: "" }));
+                        }}
                       />
+                    )}
+                    {/* Motion Brush 局部动效(VACE 链路):涂抹标记运动区域 → mask 接
+                        VACEEncode.input_masks;源图 = 第 1 张参考图(与 mask 同 worker 互钉) */}
+                    {motionBrushSupported && refImages.length > 0 && (
+                      <div className="motion-brush-row">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          icon={<Icon name="brush" size={14} />}
+                          disabled={gen.isRunning}
+                          onClick={() => setMotionBrushOpen(true)}
+                        >
+                          Motion Brush
+                        </Button>
+                        {motionMask && (
+                          <span className="motion-brush-chip" title={motionMask}>
+                            <Icon name="check" size={11} />
+                            <span className="motion-brush-chip-name">已标记动效区域</span>
+                            <button
+                              type="button"
+                              className="motion-brush-chip-remove"
+                              aria-label="移除动效标记"
+                              disabled={gen.isRunning}
+                              onClick={() =>
+                                setMotionMaskByEngine((prev) => ({ ...prev, [engine.id]: "" }))
+                              }
+                            >
+                              <Icon name="close" size={10} />
+                            </button>
+                          </span>
+                        )}
+                        <p className="motion-brush-hint">
+                          涂抹指定画面中要动的区域与方向,其余保持静止(可选)。
+                        </p>
+                      </div>
                     )}
                     {imageParam && !multiImage && (
                       <RefImageUpload
@@ -1020,7 +1099,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
 
                 {/* 主体引用(P1 全局主体库):多选主体 → 主体图钉同机 worker 注入参考图链,
                     prompt_hint 注入提示词;chip 移除同步摘除其注入的参考图 */}
-                {!isChain && engine && (
+                {!customEditor && engine && (
                   <div className="params-section">
                     <h3 className="params-section-title">主体引用</h3>
                     <div className="entity-ref-row">
@@ -1063,7 +1142,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
 
                 {/* T1 Inspector 分组卡:模型与引擎 / 画幅与时长 / 采样 / LoRA 叠加,
                     空组不渲染;组间 hairline 由 .params-section + .params-section 承担 */}
-                {!isChain &&
+                {!customEditor &&
                   paramGroups &&
                   PARAM_PANEL_GROUPS.map(
                     (g) =>
@@ -1083,7 +1162,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
                       ),
                   )}
 
-                {!isChain && engine && showAdvanced && (
+                {!customEditor && engine && showAdvanced && (
                   <details className="adv-params" ref={advDetailsRef}>
                     <summary>
                       高级参数
@@ -1162,6 +1241,23 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
           selectedIds={pickedEntities.map((e) => e.id)}
           onConfirm={(selected) => void applyPickedEntities(selected)}
         />
+
+        {/* Motion Brush 局部动效编辑器(VACE 链路):源图 = 第 1 张参考图,
+            mask 尺寸跟随引擎当前宽高;生成后回填 motionMask 随提交携带 */}
+        {motionBrushSupported && refImages.length > 0 && (
+          <MotionBrushEditor
+            open={motionBrushOpen}
+            onClose={() => setMotionBrushOpen(false)}
+            sourceImageUrl={refImages[0].previewUrl}
+            sourceRef={{ filename: refImages[0].filename, worker: refImages[0].worker }}
+            maskWidth={numVal(values["width"]) ?? 832}
+            maskHeight={numVal(values["height"]) ?? 480}
+            onApply={(maskName) => {
+              if (!engine) return;
+              setMotionMaskByEngine((prev) => ({ ...prev, [engine.id]: maskName }));
+            }}
+          />
+        )}
       </div>
       <style jsx>{`
         .entity-ref-row {
@@ -1213,6 +1309,50 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
         }
         .entity-ref-hint {
           margin: 6px 0 0;
+          font-size: 11px;
+          color: var(--text-muted);
+        }
+        .motion-brush-row {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: var(--space-2);
+          margin-top: var(--space-2);
+        }
+        .motion-brush-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 3px 6px;
+          border: 1px solid var(--border-subtle);
+          border-radius: 999px;
+          background: var(--bg-surface-3);
+          color: var(--text-secondary);
+          font-size: 11px;
+        }
+        .motion-brush-chip-name {
+          white-space: nowrap;
+        }
+        .motion-brush-chip-remove {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 14px;
+          height: 14px;
+          border: none;
+          border-radius: 50%;
+          background: transparent;
+          color: var(--text-muted);
+          cursor: pointer;
+          padding: 0;
+          flex-shrink: 0;
+        }
+        .motion-brush-chip-remove:hover:not(:disabled) {
+          color: var(--text-primary);
+        }
+        .motion-brush-hint {
+          flex-basis: 100%;
+          margin: 0;
           font-size: 11px;
           color: var(--text-muted);
         }

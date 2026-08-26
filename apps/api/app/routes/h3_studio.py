@@ -28,6 +28,7 @@ from app.ratelimit import enforce_generation_rate_limit
 from app.workflows.model_profiles import AR_VIDEO, aspect_guard
 from app.workflows.video_upscale import validate_resolution_target
 from app.services import h3 as h3_service
+from app.services import multishot_protocol as multishot
 from app.services import video_generators as vgen
 from app.services.duration import DurationLimitError, DurationPlan, resolve_duration
 from app.services.effect_presets import apply_effect_preset, validate_effect_key
@@ -274,6 +275,146 @@ async def generate_h3_t2v(
         result["upscale_notice"] = (
             f"按原生上限生成完成后将自动二次超分至 {req.resolution_target.upper()}"
         )
+    return result
+
+
+# ──────────────────────────────────────────────────────────────
+# POST /api/h3/multishot —— 多镜头单次生成(「镜头一…镜头二…」单 prompt 协议)
+# ──────────────────────────────────────────────────────────────
+
+
+class H3ShotInput(BaseModel):
+    """单镜头规格:prompt 必填;duration_sec 留空 = 参与均分(须全部留空 + 显式 total_duration)。
+
+    camera_hint(推/拉/摇/移/跟/固定)与 transition_hint(硬切/淡入淡出/匹配切口)
+    可选,白名单由 services/multishot_protocol 校验;transition 挂在被进入的镜头上。
+    """
+    prompt: str = Field(min_length=1, max_length=2000)
+    duration_sec: float | None = Field(default=None, gt=0, le=multishot.MAX_TOTAL_SEC)
+    camera_hint: str | None = Field(default=None, max_length=16)
+    transition_hint: str | None = Field(default=None, max_length=16)
+
+
+class H3MultiShotRequest(BaseModel):
+    """H3 多镜头单次生成请求(2-4 个镜头 → 单段视频内按序切镜,总长 ≤15s 单段上限)。
+
+    提交链路与 t2v 完全同源(组装单 prompt 后委托同一 submit_h3_job);
+    产物 Job kind=h3_multishot,params 存多镜头计划快照(shots + total_duration)。
+    """
+    shots: list[H3ShotInput] = Field(min_length=multishot.MIN_SHOTS, max_length=multishot.MAX_SHOTS)
+    # 均分模式:全部镜头 duration_sec 留空时必填;自定义模式忽略(总长=各镜头之和)
+    total_duration: float | None = Field(default=None, gt=0, le=multishot.MAX_TOTAL_SEC)
+    negative: str = Field(default="", max_length=2000)
+    loras: list[H3LoraInput] = Field(default_factory=list, max_length=_MAX_LORAS)
+    width: int = Field(default=1344, ge=256, le=1344)
+    height: int = Field(default=768, ge=256, le=1344)
+    steps: int = Field(default=20, ge=1, le=50)
+    seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
+    effect_preset: str | None = Field(default=None, max_length=64)
+    resolution_target: str | None = Field(default=None, max_length=8)
+
+    @field_validator("effect_preset")
+    @classmethod
+    def _v_effect_preset(cls, v: str | None) -> str | None:
+        return validate_effect_key(v)
+
+    @field_validator("resolution_target")
+    @classmethod
+    def _v_target(cls, v: str | None) -> str | None:
+        return validate_resolution_target(v)
+
+    @field_validator("width", "height")
+    @classmethod
+    def _aligned32(cls, v: int) -> int:
+        if v % 32 != 0:
+            raise ValueError("宽高必须 32 对齐(H3 分辨率约束)")
+        return v
+
+    # 宽高比守卫:9:16~16:9 静默归一(与 t2v 同一约束)
+    _ratio = aspect_guard(*AR_VIDEO, align=32, min_v=256, max_v=1344)
+
+
+@router.post("/h3/multishot")
+async def generate_h3_multishot(
+    req: H3MultiShotRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """H3 多镜头单次生成:「镜头一…镜头二…」协议组装单 prompt,单段内自动切镜。
+
+    与 drama_studio 分镜线独立(单 prompt 协议 vs 分镜表驱动);与关键帧链正交
+    (单段内切镜 vs 多段独立转场拼接)。R18 上下文(X-NSFW 头)打标进 /nsfw 专区。
+    """
+    enforce_generation_rate_limit(user)
+    _gate_h3_nsfw_loras(req.loras, user)
+    try:
+        ms_plan = multishot.plan_multishot(
+            [
+                multishot.ShotSpec(
+                    prompt=s.prompt,
+                    duration_sec=s.duration_sec,
+                    camera_hint=s.camera_hint,
+                    transition_hint=s.transition_hint,
+                )
+                for s in req.shots
+            ],
+            total_duration=req.total_duration,
+            width=req.width,
+            height=req.height,
+            seed=req.seed,
+        )
+    except multishot.MultiShotError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
+    # 委托 t2v 提交链路(零改动):组装后的单 prompt 作为 positive,时长=总时长;
+    # effect 预设/LoRA/分辨率档/时长策略(trim)/R18 UNET 替换全部继承
+    t2v_req = H3T2VRequest(
+        positive=ms_plan.to_prompt(),
+        negative=req.negative,
+        loras=req.loras,
+        width=req.width,
+        height=req.height,
+        duration_sec=ms_plan.total_duration,
+        steps=req.steps,
+        seed=req.seed,
+        effect_preset=req.effect_preset,
+        resolution_target=req.resolution_target,
+    )
+    t2v_req = _apply_effect(t2v_req)
+    plan = _resolve_plan(t2v_req)
+    params = H3T2VParams(
+        positive=t2v_req.positive,
+        negative=t2v_req.negative,
+        width=t2v_req.width,
+        height=t2v_req.height,
+        length=plan.frames,
+        steps=t2v_req.steps,
+        loras=tuple(LoraSpec(name=l.name, weight=l.strength) for l in t2v_req.loras),
+        **({"seed": t2v_req.seed} if t2v_req.seed is not None else {}),
+    )
+    graph = build_h3_t2v_graph(params)
+    nsfw = nsfw_allowed(user)
+    result = await h3_service.submit_h3_job(
+        graph, kind="h3_multishot", positive=params.positive, seed=params.seed,
+        # params 快照存多镜头计划(shots + total_duration,精确重生的事实源)
+        req=req, user=user, session=session,
+        nsfw=nsfw,  # R18 上下文打标(同 t2v)
+    )
+    # 多镜头总长 ≤15s 单段上限,策略仅 direct/trim(不触发 extend,无需续段回调)
+    if plan.strategy != "direct":
+        client = await h3_service.pick_h3_client()
+        vgen.spawn_duration_chain(
+            client=client,
+            plan=plan,
+            first_prompt_id=result["prompt_id"],
+        )
+    if plan.notice:
+        result["duration_notice"] = plan.notice
+    if req.resolution_target and maybe_chain_upscale(result["prompt_id"], req.resolution_target):
+        result["upscale_notice"] = (
+            f"按原生上限生成完成后将自动二次超分至 {req.resolution_target.upper()}"
+        )
+    result["multishot"] = ms_plan.to_params()
     return result
 
 

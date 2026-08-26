@@ -2,6 +2,123 @@
 
 ---
 
+## VIDEO-PIPELINE-INTEGRATION-2026-08-26 · 视频创作管线四模块兼容性与无缝衔接验证
+
+**时间**: 2026-08-26
+**类型**: 集成验证(多镜头单次生成 × 关键帧链式转场 × 视频到视频编辑 × Motion Brush)
+
+### 模块边界(输入/输出契约)
+
+| 模块 | 端点 | 请求模型特有参数 | 产物 Job kind | 算力落点 |
+|---|---|---|---|---|
+| 多镜头单次生成 | `POST /api/h3/multishot` | `shots`(2-4 镜头)/`total_duration` | `h3_multishot` | H3 :8195(GPU2) |
+| 关键帧链式转场 | `POST /api/generate/keyframe-chain` | `keyframes`(2-5)/`prompts`/`durations` | `keyframe_chain`(合并)+ `transition`(段) | VACE :8197(GPU0) |
+| 视频到视频编辑(Aleph) | `POST /api/generate/video-edit` | `source_video`/`edit_prompt`/`edit_mode`/`keyframe_indices`(≤5)/`preserve_mask` | `video_edit` | VACE :8197(GPU0) |
+| Motion Brush | `POST /api/motion-brush/mask` | `source_image`/`strokes`(≤64) | (mask PNG,不产生 Job) | 任意 worker(input 目录) |
+
+### 模块间数据流(集成点)
+
+- **产物 → 编辑源**:多镜头/关键帧链成片落 worker input 目录,文件名直传 `video-edit.source_video`(端点内 `transfer_drive_video` 同机直达/跨机转运;无音轨自动补静音轨,原声经 `audio=[50,2]` 回打包)
+- **Motion Brush mask → 消费方**(PNG 文件名,三条通路):
+  - `wan-vace`/`transition` 的 `motion_mask` 入参 → 生成图节点 50/51(`ImageToMask channel=red`,⚠️ alpha 是方向角编码不可直接当 MASK),与首尾帧并存时 52 `MaskComposite multiply` 取交集
+  - `video-edit` 的 `preserve_mask` 入参 → 编辑图节点 62-66(`LoadImage→ImageToMask(red)→InvertMask`,白=保留→0 锚点语义;⚠️ 与 motion_mask 语义相反:brush 灰度=运动,preserve 白=静止)
+  - `keyframe-chain` 端点段级透传 **未接通(已知缺口)**,替代路径=逐段 transition 已可用
+
+### 兼容性矩阵
+
+| 组合 | 状态 | 集成点/说明 |
+|---|---|---|
+| 多镜头 → 视频编辑(场景 A) | ✅ 可组合 | `h3_multishot` 产物文件名直作 `source_video`;e2e 断言编辑图 50 节点 `VHS_LoadVideo` |
+| Motion Brush → 视频编辑(场景 B) | ✅ 可组合 | `preserve_mask` 与 `edit_prompt` 同参共存;图支路 62-66 + 出口 90 |
+| 关键帧链 → 视频编辑(场景 C) | ✅ 可组合 | `keyframe_chain` 合并产物直作 `source_video`;`keyframe_indices` 锚点整帧保留向全片传播;三类 Job(段/合并/编辑)共存建档无 kind 冲突 |
+| Motion Brush → 转场(场景 D 段层) | ✅ 可组合 | `transition.motion_mask` 已接通;与首尾帧 masks 经 `MaskComposite multiply` 交集(两约束同时生效) |
+| Motion Brush → 关键帧链(场景 D 链层) | ⚠️ 缺口 | `KeyframeChainRequest` 无 `motion_mask` 字段(段 seg_req 按 TransitionRequest 构造,链路具备透传能力,接通需端点+段透传两行改动) |
+| 多镜头 × 关键帧链 | ⛔ 互斥(设计) | 单段内切镜(H3 单 prompt 协议)vs 多段独立转场拼接(VACE),语义正交不同时使用 |
+| 视频编辑 × 超分/时长链 | ✅ 可组合 | video-edit 复用 `_attach_duration_chain`(trim 策略)+ `resolution_target` 超分链 |
+
+### 冲突点验证(全部通过)
+
+- **参数命名空间**:四模块请求模型特有字段两两不相交(`keyframes/prompts/durations` vs `shots/total_duration` vs `source_video/edit_prompt/edit_mode/keyframe_indices/preserve_mask` vs `source_image/strokes`);共享接缝仅 `motion_mask`(生成/转场)与 `preserve_mask`(编辑),语义文档化
+- **工作流图节点 ID**:生成图 mask 支路 50-52 / 编辑图源视频支路 50 + mask 批支路 60-90;两 builder 独立函数图实例各自唯一;⚠️ `WanVaceEditParams` 继承的 `motion_mask` 字段在编辑图**不消费**(节点 50 已被源视频占用),误传静默无效——测试已钉死,编辑区域控制唯一通道是 `preserve_mask`
+- **资源占用**:transition/keyframe-chain/video-edit 共用 :8197,三端点均经同一 `_wan_precheck_or_hold` 显存/RAM 预检(hold FIFO 排队);关键帧链整链只预检一次不逐段叠加;多镜头走 H3 :8195 独立预检,与 VACE 链路无资源竞争
+- **路由命名**:Aleph `/api/generate/video-edit` 与 OpenCut 时间线剪辑 `/api/video-edit/render`(既有不同模块)并存不冲突
+- **tracker 孤儿检测**:`keyframe_chain` 合成 id(chain-*)已豁免;`video_edit`/`h3_multishot` 为真实 prompt_id 无需豁免
+- **作品库归桶**:`h3_multishot`/`keyframe_chain`/`transition`/`video_edit` 全部归前端视频桶(编辑源选择器可选)
+- **助手工具链**:`h3-multishot`/`keyframe-chain` 已注册 `submit_generation` 分发;`video-edit`/`motion-brush` 未注册(落地时按同表扩展)
+
+### 前端编辑器共存(GenerateView)
+
+- 数据驱动引擎列表;`customEditor`(isChain/isMultiShot/isVaceEdit)专用编辑器互斥让位标准 PromptBar+参数分组
+- 参数按引擎 id 分槽(`valuesByEngine`/`motionMaskByEngine`),切引擎不丢输入、参数面板互不干扰
+- Motion Brush 按钮仅 `MOTION_BRUSH_ENGINES`(wan-vace/wan-transition)门控显示(H3 无 mask 输入、SCoPE 契约无 mask 字段,后端同规则);参考图变更自动失效清除已生成 mask
+- `AiVideoEditView`(vace-edit 引擎)/`MultiShotEditor`(h3-multishot)/`KeyframeChainEditor`(keyframe-chain)各自承载提交链路,canSubmit 标准链路对专用编辑器引擎永不触发
+
+### 测试
+
+- 后端 `test_integration_video_pipeline.py` **18 例**(横向兼容性 10:命名空间/路由/注册表/agent 分发/tracker 豁免/双图节点布局/语义陷阱/共享预检/前端归桶 + 场景 A-D 7 + brush 服务层 1)
+- **全量回归:后端 2248 passed / 前端 626 passed / tsc 0**(含并行落地的模块自测:multishot/motion_brush/video_edit/keyframe_chain)
+- 前端脆弱性修复 1 处:`enginesTransition.test.ts` ③ uploadKind 断言 `indexOf`→`lastIndexOf`(Motion Brush 门控引入同名字符串前置出现)
+
+### 遗留缺口(后续任务)
+
+1. **场景 D 链层**:keyframe-chain 端点段级 `motion_mask` 透传未接通(测试 `test_scenario_d_keyframe_chain_mask_gap` 已钉死现状,接通后翻转)
+2. **语义陷阱**:`WanVaceEditParams.motion_mask` 继承字段编辑图不消费,误传静默无效(测试已固化;长期可在参数类 `__post_init__` 拒绝或映射到 `preserve_mask`)
+3. **助手工具链**:`video-edit`/`motion-brush` 未注册 submit_generation 分发(注册后助手可自然语言驱动编辑/动效)
+
+---
+
+## KEYFRAME-CHAIN-2026-08-26 · 关键帧链式转场(对标 Pika 2.5 Pikaframes)
+
+**时间**: 2026-08-26
+**类型**: P2 路线图任务落地(用户诉求「多镜头单次生成功能中的关键帧链式转场」)
+
+### 数据结构与接口
+
+- `KeyframeSegment`:first_frame/last_frame/prompt/duration_sec/frames/steps/cfg/seed(段种子=基础 seed+段序号)
+- `KeyframeChainPlan`:segments tuple/total_duration/fps/width/height/seed + `to_params()` 快照
+- `validate_keyframe_chain()`:2-5 帧/段 1-10s/总长 ≤25s/prompts/durations 数量=段数 → `KeyframeChainError` 转 422
+
+### 平滑过渡算法
+
+N 帧→N-1 段,段 i 尾帧=段 i+1 首帧(用户关键帧,天然零跳变);durations 缺省每段 5s 均分;帧数按 VACE 4k+1 网格向上吸附(`snap_engine_frames`);整链一次 `_wan_precheck_or_hold` 资源预检。
+
+### API
+
+`POST /api/generate/keyframes-chain`:
+- 参数:keyframes(2-5 上传句柄)/prompts(单 string 全段共用 或 list 逐段)/durations(list 或 None=均分)/width/height/steps/cfg/seed/worker
+- 合并 Job(kind=keyframe_chain,params 存链计划+段 prompt_ids)+段 Job(kind=transition 保留调试)
+- 后台合并链:`_wait_files` 逐段等产物→`_concat_trim` 精确裁→回传 worker→`rewrite_job_result` 回写;api 重启按 params 快照幂等重挂
+
+### 前端
+
+`KeyframeChainEditor.tsx`:2-5 槽位上传(AssetPicker)/拖拽排序/段参数卡(时长滑块/提示词)/总时长预览/段进度;GenerateView「关键帧链」引擎选项;canSubmit 护栏。
+
+### 兼容性
+
+- 既有 transition 端点零改动(复用 `generate_transition` 内部函数)
+- 与 DurationPlan extend 策略正交(多组独立转场 vs 单视频续写)
+- tracker reconcile 跳过 `kind=keyframe_chain` 重挂(合成 prompt_id 防孤儿误杀)
+- R18:X-NSFW 上下文段 Job 与合并 Job 全链打标
+
+### 测试
+
+- 后端 `test_keyframe_chain.py` **35 例**(校验 8/拆分 7/合并链 2/端点 18)
+- 前端 `keyframeChain.test.ts` **13 例**(总时长/拖拽/门控/载荷契约/段进度)
+- **全量回归:后端 2168 passed / 前端 601 passed / tsc 0**
+
+### 生产 e2e
+
+| 验证点 | 结果 |
+|---|---|
+| keyframe-chain 引擎上架 | ✅ video 类 |
+| 校验路径(1 帧) | ✅ 422 too_short |
+| 3 帧链式转场提交 | ✅ 合并 Job prompt_id=chain-*,2 段 segment prompt_ids,total_duration=6.0 |
+| 合并 Job + 段 Job 建档 | ✅ keyframe_chain + 2× transition 全部 queued |
+
+**commit**: 20dca29
+
+---
+
 ## ROADMAP-2026-08-26 · 竞品调研路线图 P0/P1 四任务全落地
 
 **时间**: 2026-08-26(凌晨)

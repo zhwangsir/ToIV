@@ -43,6 +43,8 @@ export const FILTERS: FilterDef[] = [
     kinds: [
       "video", "txt2video", "img2video", "lipsync", "kenburns",
       "wan_t2v", "wan_i2v", "hunyuan_i2v", "h3_t2v", "h3_i2v",
+      // H3 多镜头单次生成(单段内切镜)
+      "h3_multishot",
       "ltx_t2v", "ltx_i2v", "ltx_lipsync", "ltx2_t2v", "ltx2_i2v",
       "frame_interpolate", "dub_lipsync_long", "manju_lipsync", "anime_lipsync",
       // 视频超分(M6 fleet 帧级 4K 管线)
@@ -53,6 +55,8 @@ export const FILTERS: FilterDef[] = [
       "avatar_talk",
       // Wan2.1-VACE 首尾帧转场
       "transition",
+      // VACE 视频到视频编辑(in-context:对象增删换/重打光/换风格/换机位)
+      "video_edit",
       // 关键帧链式转场(合并成片;段产物 kind=transition 已在上)
       "keyframe_chain",
       // 短剧 studio 视频类产物
@@ -109,6 +113,7 @@ export function kindLabel(kind: string): string {
     hunyuan_i2v: "图生视频",
     h3_t2v: "文生视频",
     h3_i2v: "图生视频",
+    h3_multishot: "多镜头",
     ltx_t2v: "文生视频",
     ltx_i2v: "图生视频",
     ltx_lipsync: "对口型",
@@ -124,6 +129,7 @@ export function kindLabel(kind: string): string {
     longcat_continue: "长视频续写",
     avatar_talk: "数字人",
     transition: "首尾帧转场",
+    video_edit: "视频编辑",
     keyframe_chain: "关键帧链",
     audio: "音频",
     ace_audio: "音乐",

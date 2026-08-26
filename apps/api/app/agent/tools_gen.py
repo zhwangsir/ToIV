@@ -313,6 +313,15 @@ async def _submit_h3_i2v(pos, neg, params, pool, user, session) -> dict:
     return await h3_studio.generate_h3_i2v(req, user, session)
 
 
+async def _submit_h3_multishot(pos, neg, params, pool, user, session) -> dict:
+    from app.routes import h3_studio
+
+    # 多镜头:shots(2-4 个镜头规格)由 LLM 按参数表显式给出;positive 仅作对话语境,
+    # 不注入提示词(镜头内容全部由 shots 承载)
+    req = h3_studio.H3MultiShotRequest(negative=neg, **params)
+    return await h3_studio.generate_h3_multishot(req, user, session)
+
+
 async def _submit_ltx_t2v(pos, neg, params, pool, user, session) -> dict:
     from app.routes import video as video_route
 
@@ -394,6 +403,17 @@ async def _submit_wan_vace(pos, neg, params, pool, user, session) -> dict:
     return await wan_studio.generate_wan_vace(req, user, session)
 
 
+async def _submit_vace_edit(pos, neg, params, pool, user, session) -> dict:
+    from app.routes import wan_studio
+
+    # VACE 视频编辑:positive 作为编辑指令(edit_prompt 缺省回填);
+    # source_video/worker 须由 LLM 按参数表显式给出(媒体为视频,不做图片附件回填)
+    kw = dict(params)
+    kw.setdefault("edit_prompt", pos)
+    req = wan_studio.WanVaceEditRequest(negative=neg, **kw)
+    return await wan_studio.generate_video_edit(req, user, session)
+
+
 async def _submit_wan_transition(pos, neg, params, pool, user, session) -> dict:
     from app.routes import wan_studio
 
@@ -422,6 +442,7 @@ _DISPATCH = {
     "h3-nsfw-t2v": (_submit_h3_t2v, ()),
     "h3-i2v": (_submit_h3_i2v, ("image", "worker")),
     "h3-nsfw-i2v": (_submit_h3_i2v, ("image", "worker")),
+    "h3-multishot": (_submit_h3_multishot, ()),
     "ltx-nsfw-t2v": (_submit_ltx_t2v, ()),
     "ltx-nsfw-i2v": (_submit_ltx_i2v, ("image", "worker")),
     "ltx-nsfw-lipsync": (_submit_ltx_lipsync, ("image", "worker")),
@@ -433,6 +454,7 @@ _DISPATCH = {
     "wan-animate": (_submit_wan_animate, ("image", "worker")),
     "wan-animate-2": (_submit_wan_animate2, ("image", "worker")),
     "wan-vace": (_submit_wan_vace, ()),
+    "vace-edit": (_submit_vace_edit, ()),
     "wan-transition": (_submit_wan_transition, ()),
     "keyframe-chain": (_submit_keyframe_chain, ()),
 }

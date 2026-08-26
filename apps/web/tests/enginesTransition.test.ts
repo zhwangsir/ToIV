@@ -134,7 +134,8 @@ test("③ GenerateView 接线:恰好 2 张门控 + uploadKind 复用 wan_vace", 
     "canSubmit 缺首尾帧恰好 2 张门控",
   );
   // uploadKind 映射:wan-transition 与 VACE 同实例(:8197),复用同一上传 kind
-  const idx = src.indexOf('engine?.id === "wan-transition"');
+  // (用 lastIndexOf:motionBrushSupported 等前置判断也含该字符串,锚定 uploadKind 分支)
+  const idx = src.lastIndexOf('engine?.id === "wan-transition"');
   assert.ok(idx > 0, "uploadKind 缺 wan-transition 分支");
   assert.ok(
     src.slice(idx, idx + 200).includes('"wan_vace"'),
