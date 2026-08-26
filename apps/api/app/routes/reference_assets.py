@@ -33,8 +33,8 @@ from app.routes.images import _host, _ranged_response
 
 router = APIRouter()
 
-# 参考资产类别:角色/场景/道具/风格卡
-AssetKind = Literal["character", "scene", "prop", "style"]
+# 参考资产类别:角色/场景/道具/风格卡/数字人形象(avatar,对标 aigcpanel「我的形象」)
+AssetKind = Literal["character", "scene", "prop", "style", "avatar"]
 
 
 def _no_traversal(v: str) -> str:
@@ -64,6 +64,9 @@ class AssetCreate(BaseModel):
     # 1-4 张三视图/多角度(≤4 是质量拐点,硬上限)
     images: list[AssetImage] = Field(min_length=1, max_length=4)
     nsfw: bool = False
+    # 数字人形象(kind=avatar)扩展:绿幕素材标记 / 默认音色参考音频 URL
+    green_screen: bool = False
+    ref_audio: str = Field(default="", max_length=2000)
 
 
 class AssetPatch(BaseModel):
@@ -74,6 +77,8 @@ class AssetPatch(BaseModel):
     description: str | None = Field(default=None, max_length=2000)
     images: list[AssetImage] | None = Field(default=None, min_length=1, max_length=4)
     nsfw: bool | None = None
+    green_screen: bool | None = None
+    ref_audio: str | None = Field(default=None, max_length=2000)
 
 
 class AssetOut(BaseModel):
@@ -83,6 +88,8 @@ class AssetOut(BaseModel):
     description: str
     images: list[AssetImage]
     nsfw: bool
+    green_screen: bool
+    ref_audio: str
     created_at: datetime
     updated_at: datetime
 
@@ -98,6 +105,8 @@ def _to_out(a: ReferenceAsset) -> AssetOut:
         description=a.description,
         images=[AssetImage(**img) for img in a.images],
         nsfw=a.nsfw,
+        green_screen=a.green_screen,
+        ref_audio=a.ref_audio,
         created_at=a.created_at,
         updated_at=a.updated_at,
     )
@@ -150,6 +159,8 @@ def create_asset(
         description=body.description,
         images=[img.model_dump() for img in body.images],
         nsfw=body.nsfw,
+        green_screen=body.green_screen,
+        ref_audio=body.ref_audio,
     )
     session.add(a)
     session.commit()
@@ -186,6 +197,10 @@ def update_asset(
         a.images = [img.model_dump() for img in body.images]
     if body.nsfw is not None:
         a.nsfw = body.nsfw
+    if body.green_screen is not None:
+        a.green_screen = body.green_screen
+    if body.ref_audio is not None:
+        a.ref_audio = body.ref_audio
     a.updated_at = _now()
     session.add(a)
     session.commit()

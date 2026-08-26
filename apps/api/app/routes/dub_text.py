@@ -2,7 +2,7 @@
 
   POST /api/dub/import-srt        multipart(file) 解析 SRT/VTT → [{index,start,end,text}]
   POST /api/dub/transcribe        起后台听写作业(内置 faster-whisper / 外部 whisper_url)
-  GET  /api/dub/transcribe/{job}  听写进度 + 完成片段
+  GET  /api/dub/transcribe/{job}  听写进度 + 完成片段(?format=srt 导出 SRT 字幕附件)
   POST /api/dub/translate         复用 LLM 把片段批量翻成目标语(口语自然、贴近朗读时长)
 
 转录来源二选一:已有字幕 → import-srt(零部署);无字幕 → transcribe。听写默认用 api 容器
@@ -20,7 +20,7 @@ import time
 import uuid
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
@@ -79,6 +79,30 @@ def _parse_srt(text: str) -> list[dict]:
         segs.append({"start": round(start, 3), "end": round(end, 3), "text": body})
     segs.sort(key=lambda s: s["start"])
     return [{"index": i, **s} for i, s in enumerate(segs[:_MAX_SEGMENTS])]
+
+
+def _sec_to_srt_ts(sec: float) -> str:
+    """秒 → SRT 时间戳 HH:MM:SS,mmm(支持跨小时;负值钳到 0)。"""
+    ms = max(0, int(round(float(sec) * 1000)))
+    h, rem = divmod(ms, 3_600_000)
+    m, rem = divmod(rem, 60_000)
+    s, milli = divmod(rem, 1000)
+    return f"{h:02d}:{m:02d}:{s:02d},{milli:03d}"
+
+
+def _segments_to_srt(segments: list[dict]) -> str:
+    """[{start,end,text}] → 标准 SRT(序号/时间轴/文本/空行)。无有效片段返回空串。"""
+    blocks: list[str] = []
+    for seg in segments:
+        text = str(seg.get("text") or "").strip()
+        if not text:
+            continue
+        blocks.append(
+            f"{len(blocks) + 1}\n"
+            f"{_sec_to_srt_ts(seg['start'])} --> {_sec_to_srt_ts(seg['end'])}\n"
+            f"{text}"
+        )
+    return "\n\n".join(blocks) + "\n" if blocks else ""
 
 
 @router.post("/dub/import-srt")
@@ -301,28 +325,48 @@ _TRANSCRIBE_JOB_PUBLIC = (
 )
 
 
-@router.get("/dub/transcribe/{job_id}")
-async def dub_transcribe_status(
-    job_id: str,
-    user: User = Depends(get_current_user),
-    session: Session = Depends(get_session),
-) -> dict[str, object]:
+def _resolve_transcribe_job(job_id: str, session: Session) -> dict:
+    """解析听写作业数据(优先 DB,运行中回退内存实时态;未命中 → 404)。"""
     # 优先查 DB Job(api 重启后内存丢,DB 保终态);运行中且内存还在则用内存(实时进度)
     db_job = session.exec(select(Job).where(Job.prompt_id == job_id)).first()
     if db_job:
         mem = _transcribe_jobs.get(job_id)
         if db_job.status == "running" and mem:
-            return {k: mem[k] for k in _TRANSCRIBE_JOB_PUBLIC}
+            return mem
         try:
-            data = json.loads(db_job.result) if db_job.result else {}
+            return json.loads(db_job.result) if db_job.result else {}
         except ValueError:
-            data = {}
-        return {k: data.get(k) for k in _TRANSCRIBE_JOB_PUBLIC}
+            return {}
     # 内存兜底:迁移前老作业或 DB 未命中(向后兼容)
     job = _transcribe_jobs.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="听写任务不存在(可能已过期或 api 重启)")
-    return {k: job[k] for k in _TRANSCRIBE_JOB_PUBLIC}
+    return job
+
+
+@router.get("/dub/transcribe/{job_id}")
+async def dub_transcribe_status(
+    job_id: str,
+    format: str = Query(default="json", pattern="^(json|srt)$"),
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """format=json(默认)返回进度+片段;format=srt 导出 SRT 字幕附件(需已完成的听写)。"""
+    data = _resolve_transcribe_job(job_id, session)
+    if format == "srt":
+        if data.get("status") != "done":
+            raise HTTPException(status_code=409, detail="听写未完成,无法导出 SRT")
+        srt = _segments_to_srt(data.get("segments") or [])
+        if not srt:
+            raise HTTPException(status_code=400, detail="该转写结果无时间戳,无法导出 SRT")
+        return Response(
+            content=srt,
+            media_type="application/x-subrip; charset=utf-8",
+            headers={
+                "Content-Disposition": f'attachment; filename="transcribe-{job_id[:8]}.srt"'
+            },
+        )
+    return {k: data.get(k) for k in _TRANSCRIBE_JOB_PUBLIC}
 
 
 _LANG_NAME = {"zh": "简体中文", "en": "英语", "ja": "日语", "ko": "韩语"}

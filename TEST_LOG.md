@@ -6,6 +6,44 @@
 
 ---
 
+## DIGIHUMAN-2026-08-27 · aigcpanel 调研 + 数字人完善 M1-M3 落地
+
+**时间**: 2026-08-27
+**类型**: 用户诉求「调研 modstart-lib/aigcpanel + 数字人功能完善,方案自定」
+
+### aigcpanel 调研摘要(Electron 桌面面板,697 commits)
+
+- **数字人合成**:口型同步模型矩阵(MuseTalk/LatentSync/Wav2Lip/Heygem)切换,文本(TTS)或音频双驱动,**绿幕形象模板管理**
+- **语音**:多模型 TTS(CosyVoice/FishSpeech/IndexTTS/SparkTTS/GPT-SoVITS)、克隆、**ASR 时间戳+SRT 字幕导出**、声音替换
+- **工具箱 25+**(长文本转音频/字幕转音频/智能剪辑/字幕/变速/压缩/合并/格式/ffmpeg 自定义)
+- **可视化工作流**(VIP:LLM/JS/分支/MCP 节点拖拽编排)、**智能直播**(VIP:五平台弹幕+知识库问答)、AI 模型管理面(一键启停+日志)
+
+**借鉴映射**:ToIV 已有 Agent Team(langgraph 图编排≈工作流)、音频编排(tts/separate/concat/mix/variant≈工具箱音频半区)、模型引擎注册表(≈模型管理);**真缺口**=形象模板管理/文本直通驱动/ASR 字幕导出 → 即 M1/M2/M3。通用对口型模型矩阵(Wav2Lip 系)列 M4 后续评估;智能直播不采纳(产品方向不同)。
+
+### M1 数字人形象库(对标「我的形象」)
+
+- ReferenceAsset `kind="avatar"` + `green_screen`(BOOLEAN DEFAULT FALSE,过 PG 守卫)+ `ref_audio`(默认音色参考)两列,幂等迁移
+- 前端 AvatarGenPanel「形象模板」区:模板卡网格(绿幕 Badge)、点击免上传填充、「存为模板」、空列表引导、手动改图解除选中
+- 生产实证:创建「冒烟形象0827」(green_screen=true) → `kind=avatar` 过滤列表命中;PG 两列在(reference_assets)
+
+### M2 avatar-talk TTS 直通(文本→IndexTTS→驱动一单)
+
+- `POST /api/avatar/talk` 新增 `drive_text`(≤2000)/`voice`(音色参考音 URL,SSRF 白名单复用)/`speed`(0.5-2.0→duration_factor);与 audio **互斥**(都给/都不给 400);TTS 不可达 **502 零半成品**(实例零写入零 Job);params 自动溯源;NSFW/hold/预检零绕行
+- 前端驱动源段控:上传音频|文本驱动(textarea 字数提示+音色输入+语速滑块),`buildAvatarTalkPayload` 纯函数保证互斥
+- 生产实证:drive_text 提交 → TTS wav `toiv-tts-8940ee7d…wav`(165KB)**实证落 LongCat 实例 input** → hold 预检正常拦截(GPU0 余量 15.5G<26G,排队自动放行,环境容量非代码问题)
+
+### M3 ASR→SRT 字幕导出(对标工具箱「声音识别含时间戳/字幕导出」)
+
+- `GET /api/dub/transcribe/{id}?format=srt`(json 默认不变):未完成 409、无时间戳 400(不造假)、`application/x-subrip` 附件下载
+- 上游(faster-whisper :9210 / OpenAI 兼容 verbose_json / 内置 faster-whisper)**原生带 segments 时间戳**,零上游改动
+
+### 测试/回归
+
+- 后端新增 29 例(M1×6/M2×5/M3×18),全量 **2368 passed**;前端新增 6 例,**647 passed + tsc 0**
+- 已全量部署(API+Web,BUILD_ID 20260826-205917)
+
+---
+
 ## SCORER-SFX-2026-08-27 · 评分器灰度缺口修复 + sfx 引擎选型
 
 **时间**: 2026-08-27

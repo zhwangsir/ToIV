@@ -1,7 +1,7 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-27T04:30:00+08:00",
+ "updated_at": "2026-08-27T05:20:00+08:00",
  "health": {
   "engine_r3_2026_08_21": {
    "status": "completed",
@@ -1724,5 +1724,16 @@
   "sfx_selection": "首选 MOSS-SoundEffect v2.0(Apache 2.0/中英双语/48kHz/1.3B/≤30s 可控);备选 Stable Audio 3.0 Small-SFX(CPU 零 GPU 争用);落地 toiv-sfx.service :9102 → sfx 步 501 解除(下轮)",
   "regression": "后端 2339 passed(新增 6 例)",
   "verified_at": "2026-08-27T04:30:00+08:00"
+ },
+ "digihuman_m1_m3_2026_08_27": {
+  "status": "completed",
+  "scope": "aigcpanel 调研 + 数字人完善 M1 形象库 / M2 TTS 直通 / M3 SRT 导出",
+  "aigcpanel_mapping": "口型模型矩阵/绿幕形象模板/文本或音频双驱动/ASR+SRT/25 工具箱/可视化工作流(VIP)/智能直播(VIP);ToIV 真缺口=形象模板/文本直通/SRT,工作流≈Agent Team 已有,直播不采纳",
+  "m1": "ReferenceAsset kind=avatar+green_screen+ref_audio(迁移);前端模板卡/存为模板/绿幕 Badge;生产 CRUD 实证",
+  "m2": "avatar/talk drive_text/voice/speed 与 audio 互斥;TTS 失败 502 零半成品;生产实证 TTS wav 落 LongCat input,hold 预检正常排队(GPU0 容量)",
+  "m3": "GET /api/dub/transcribe/{id}?format=srt(409/400 语义);上游原生时间戳零改动",
+  "m4_backlog": "通用对口型模型矩阵(MuseTalk/LatentSync/Wav2Lip)评估 —— 后续",
+  "regression": "后端 2368 passed(+29) / 前端 647 passed(+6) / tsc 0;已全量部署",
+  "verified_at": "2026-08-27T05:20:00+08:00"
  }
 }

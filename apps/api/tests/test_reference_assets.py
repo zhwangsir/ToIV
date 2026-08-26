@@ -470,3 +470,139 @@ def test_asset_image_requires_auth(ctx_img):
     c, alice, _ = ctx_img
     a = _create(c, alice)
     assert c.get(f"/api/assets/{a['id']}/images/0").status_code == 401
+
+
+# --------------------------------------------------------------------------- #
+# 数字人形象库(kind=avatar,对标 aigcpanel「我的形象」)
+# --------------------------------------------------------------------------- #
+def test_avatar_kind_create_and_defaults(ctx):
+    """kind=avatar 创建:green_screen/ref_audio 缺省 False/"";显式值原样往返。"""
+    c, alice, _ = ctx
+    a = _create(c, alice, kind="avatar", name="默认形象")
+    assert a["kind"] == "avatar"
+    assert a["green_screen"] is False
+    assert a["ref_audio"] == ""
+
+    b = _create(
+        c,
+        alice,
+        kind="avatar",
+        name="绿幕形象",
+        green_screen=True,
+        ref_audio="/api/manju/voice/voiceref-abc.wav",
+    )
+    assert b["green_screen"] is True
+    assert b["ref_audio"] == "/api/manju/voice/voiceref-abc.wav"
+
+    # 单查回显两字段(其他既有 kind 同样带默认值,零影响)
+    r = c.get(f"/api/assets/{b['id']}", headers=_auth(alice))
+    assert r.status_code == 200
+    assert r.json()["green_screen"] is True
+    old = _create(c, alice, kind="character", name="旧角色")
+    assert old["green_screen"] is False and old["ref_audio"] == ""
+
+
+def test_avatar_kind_list_filter(ctx):
+    """GET /api/assets?kind=avatar 只回形象;列表项带 green_screen/ref_audio。"""
+    c, alice, _ = ctx
+    _create(c, alice, name="角色A", kind="character")
+    _create(c, alice, name="形象B", kind="avatar", green_screen=True)
+    _create(c, alice, name="形象C", kind="avatar", ref_audio="/api/manju/voice/v.wav")
+
+    r = c.get("/api/assets?kind=avatar", headers=_auth(alice))
+    assert r.status_code == 200
+    rows = r.json()
+    assert [a["name"] for a in rows] == ["形象B", "形象C"]
+    assert rows[0]["green_screen"] is True
+    assert rows[1]["ref_audio"] == "/api/manju/voice/v.wav"
+
+
+def test_avatar_green_screen_roundtrip(ctx):
+    """green_screen 往返:创建 True → 列表/单查均 True;PATCH 翻回 False 生效。"""
+    c, alice, _ = ctx
+    a = _create(c, alice, kind="avatar", name="绿幕", green_screen=True)
+    assert c.get(f"/api/assets/{a['id']}", headers=_auth(alice)).json()[
+        "green_screen"
+    ] is True
+
+    r = c.patch(
+        f"/api/assets/{a['id']}", headers=_auth(alice), json={"green_screen": False}
+    )
+    assert r.status_code == 200
+    assert r.json()["green_screen"] is False
+    # 持久化后再查仍是 False(不是只在响应里翻)
+    assert c.get(f"/api/assets/{a['id']}", headers=_auth(alice)).json()[
+        "green_screen"
+    ] is False
+
+
+def test_avatar_patch_updates_new_fields(ctx):
+    """PATCH 部分更新 green_screen/ref_audio;未给字段原样保留。"""
+    c, alice, _ = ctx
+    a = _create(c, alice, kind="avatar", name="形象", ref_audio="/api/manju/voice/a.wav")
+    r = c.patch(
+        f"/api/assets/{a['id']}",
+        headers=_auth(alice),
+        json={"green_screen": True, "ref_audio": "/api/manju/voice/b.wav"},
+    )
+    assert r.status_code == 200
+    b = r.json()
+    assert b["green_screen"] is True
+    assert b["ref_audio"] == "/api/manju/voice/b.wav"
+    assert b["name"] == "形象" and b["kind"] == "avatar"
+
+    # 只 PATCH name 不动两新字段
+    r2 = c.patch(f"/api/assets/{a['id']}", headers=_auth(alice), json={"name": "新名"})
+    assert r2.json()["green_screen"] is True
+    assert r2.json()["ref_audio"] == "/api/manju/voice/b.wav"
+
+
+def test_avatar_ref_audio_length_bound(ctx):
+    """ref_audio >2000 字符 → 422(POST/PATCH 同口径)。"""
+    c, alice, _ = ctx
+    r = c.post(
+        "/api/assets",
+        headers=_auth(alice),
+        json={
+            "kind": "avatar",
+            "name": "x",
+            "images": [_img()],
+            "ref_audio": "u" * 2001,
+        },
+    )
+    assert r.status_code == 422
+    a = _create(c, alice, kind="avatar", name="形象")
+    assert (
+        c.patch(
+            f"/api/assets/{a['id']}",
+            headers=_auth(alice),
+            json={"ref_audio": "u" * 2001},
+        ).status_code
+        == 422
+    )
+
+
+def test_reference_assets_avatar_columns_migration_idempotent(monkeypatch):
+    """green_screen/ref_audio 两列迁移幂等:对缺列旧表跑两遍不炸,列齐备。"""
+    import app.db as db_mod
+
+    eng = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    with eng.begin() as conn:
+        conn.exec_driver_sql(
+            "CREATE TABLE reference_assets (id TEXT PRIMARY KEY, user_id TEXT, kind TEXT)"
+        )
+    monkeypatch.setattr(db_mod, "engine", eng)
+
+    db_mod._run_column_migrations()  # 第一次:补列
+    db_mod._run_column_migrations()  # 第二次:幂等,不应报错
+
+    with eng.begin() as conn:
+        cols = {
+            r[1]
+            for r in conn.exec_driver_sql("PRAGMA table_info(reference_assets)").fetchall()
+        }
+    assert {"green_screen", "ref_audio"} <= cols

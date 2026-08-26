@@ -542,7 +542,7 @@ export function AvatarTalkView({ onNavigate }: { onNavigate?: (target: string) =
       desc={
         mode === "live"
           ? "选择形象与模型,与数字人实时对话"
-          : "上传人像与音频,生成对口型的数字人说话视频"
+          : "上传人像,用音频或文本驱动生成对口型视频"
       }
       actions={
         <>

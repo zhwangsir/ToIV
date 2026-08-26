@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -12,11 +12,25 @@ import { AssetPicker, type PickedAsset } from "@/components/generate/AssetPicker
 import { useAutoResize } from "@/hooks/useAutoResize";
 import { usePoll } from "@/hooks/usePoll";
 import {
+  avatarAssetImageUrl,
+  createAvatarAsset,
   generateAvatarTalk,
   imageUrl,
   invalidateJobs,
+  listAvatarAssets,
   uploadImage,
+  type AvatarAsset,
 } from "@/lib/api";
+import {
+  buildAvatarTalkPayload,
+  clampSpeed,
+  driveTextReady,
+  DRIVE_TEXT_MAX,
+  SPEED_DEFAULT,
+  SPEED_MAX,
+  SPEED_MIN,
+  type AvatarDriveMode,
+} from "@/lib/avatarTalk";
 import { fetchEngines, type EngineInfo } from "@/lib/engines";
 import { friendlyError } from "@/lib/friendlyError";
 import { useGeneration } from "@/lib/useGeneration";
@@ -78,13 +92,29 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
   const [imgError, setImgError] = useState<string | null>(null);
   const [audError, setAudError] = useState<string | null>(null);
 
+  // 形象模板(参考资产库 kind=avatar):选中即填入形象图,免重复上传
+  const [templates, setTemplates] = useState<AvatarAsset[]>([]);
+  const [templatesLoaded, setTemplatesLoaded] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [saveName, setSaveName] = useState("");
+  const [savingTpl, setSavingTpl] = useState(false);
+  const [tplError, setTplError] = useState<string | null>(null);
+
+  // 驱动源:上传音频(现有行为) | 文本驱动(TTS 直通,与音频互斥由 UI 保证)
+  const [driveMode, setDriveMode] = useState<AvatarDriveMode>("audio");
+  const [driveText, setDriveText] = useState("");
+  const [voice, setVoice] = useState("");
+  const [speed, setSpeed] = useState(SPEED_DEFAULT);
+
   const [positive, setPositive] = useState("");
   const [negative, setNegative] = useState("");
   // 正/负向提示词自动增高(负向在 closed <details> 内时 hook 自动跳过,展开后随输入增高)
   const positiveRef = useRef<HTMLTextAreaElement | null>(null);
   const negativeRef = useRef<HTMLTextAreaElement | null>(null);
+  const driveTextRef = useRef<HTMLTextAreaElement | null>(null);
   useAutoResize(positiveRef, positive);
   useAutoResize(negativeRef, negative);
+  useAutoResize(driveTextRef, driveText);
   const [resPreset, setResPreset] = useState<string>("480x832");
   const [durationSec, setDurationSec] = useState(3.7);
   const [fps, setFps] = useState(25);
@@ -126,6 +156,65 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
     },
   });
 
+  // 形象模板列表:进入即拉取一次(失败不阻断主流程,保存成功后本地追加)
+  useEffect(() => {
+    let cancelled = false;
+    listAvatarAssets()
+      .then((list) => {
+        if (!cancelled) setTemplates(Array.isArray(list) ? list : []);
+      })
+      .catch(() => {
+        /* 模板拉取失败仅影响模板区,不阻断上传/生成 */
+      })
+      .finally(() => {
+        if (!cancelled) setTemplatesLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /** 选中模板:直接引用其上传句柄填入形象图(免重复上传;预览走资产图回显端点)。 */
+  function applyTemplate(t: AvatarAsset) {
+    const img = t.images[0];
+    if (!img) return;
+    setImage({
+      filename: img.filename,
+      worker: img.worker,
+      name: t.name,
+      previewUrl: avatarAssetImageUrl(t.id, 0),
+    });
+    setSelectedTemplateId(t.id);
+    setImgError(null);
+  }
+
+  /** 存为模板:把当前已上传形象图落为 avatar 资产(默认非绿幕),成功即选中。 */
+  async function saveAsTemplate() {
+    if (!image || savingTpl) return;
+    const name = saveName.trim();
+    if (!name) {
+      setTplError("请先输入模板名称");
+      return;
+    }
+    setTplError(null);
+    setSavingTpl(true);
+    try {
+      const created = await createAvatarAsset({
+        name,
+        images: [{ filename: image.filename, worker: image.worker }],
+        green_screen: false,
+      });
+      setTemplates((prev) => [created, ...prev]);
+      setSelectedTemplateId(created.id);
+      setSaveName("");
+    } catch (e) {
+      const raw = e instanceof Error ? e.message : "模板保存失败";
+      setTplError(friendlyError(raw).message);
+    } finally {
+      setSavingTpl(false);
+    }
+  }
+
   /** 通用上传:kind=avatar(后端只要求 worker 能存文件);已存在的另一文件钉住同 worker。 */
   const doUpload = useCallback(
     async (
@@ -143,6 +232,7 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
       const file = { filename: a.filename, worker: a.worker, name: a.name, previewUrl: a.previewUrl };
       if (pickerFor === "image") {
         setImage(file);
+        setSelectedTemplateId(null); // 手动换图后不再与任何模板对应
         setImgError(null);
       } else if (pickerFor === "audio") {
         setAudio(file);
@@ -173,6 +263,7 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
         name: file.name,
         previewUrl: URL.createObjectURL(file),
       });
+      setSelectedTemplateId(null); // 手动上传与模板无关
     } catch (e) {
       setImgError(e instanceof Error ? e.message : "上传失败");
     } finally {
@@ -215,8 +306,10 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
     }
   }
 
-  // 同 worker 兜底校验(钉住上传后理论恒等;不一致即提示重传)
-  const workerMismatch = !!image && !!audio && image.worker !== audio.worker;
+  // 同 worker 兜底校验(钉住上传后理论恒等;不一致即提示重传)。仅音频模式参与:
+  // 文本模式不带音频字段,残留音频句柄不参与提交。
+  const workerMismatch =
+    driveMode === "audio" && !!image && !!audio && image.worker !== audio.worker;
 
   const seedParsed = useMemo((): number | null => {
     const raw = seedText.trim();
@@ -230,9 +323,12 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
   const estFrames = Math.round(durationSec * Math.max(1, fps));
   const engineReady = !!engine && engine.available;
 
+  // 驱动源就绪:音频模式需已上传音频;文本模式需非空文本(≤2000 字)
+  const driveReady = driveMode === "audio" ? !!audio : driveTextReady(driveText);
+
   const canSubmit =
     !!image &&
-    !!audio &&
+    driveReady &&
     !workerMismatch &&
     positive.trim().length > 0 &&
     !seedInvalid &&
@@ -243,26 +339,33 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
     !audUploading;
 
   async function onGenerate() {
-    if (!image || !audio || !canSubmit) return;
+    if (!image || !canSubmit) return;
+    if (driveMode === "audio" && !audio) return;
     setSubmitError(null);
     setSubmitting(true);
     try {
-      const res = await generateAvatarTalk({
-        image: image.filename,
-        audio: audio.filename,
-        worker: image.worker,
-        positive: positive.trim(),
-        ...(negative.trim() ? { negative: negative.trim() } : {}),
-        width: preset.width,
-        height: preset.height,
-        duration_sec: durationSec,
-        fps,
-        steps,
-        shift,
-        cfg,
-        dmd_lora_strength: dmdStrength,
-        seed: seedParsed,
-      });
+      const res = await generateAvatarTalk(
+        buildAvatarTalkPayload(
+          {
+            image: image.filename,
+            worker: image.worker,
+            positive,
+            negative,
+            width: preset.width,
+            height: preset.height,
+            duration_sec: durationSec,
+            fps,
+            steps,
+            shift,
+            cfg,
+            dmd_lora_strength: dmdStrength,
+            seed: seedParsed,
+          },
+          driveMode === "audio"
+            ? { mode: "audio", audio: audio!.filename }
+            : { mode: "text", driveText, voice, speed },
+        ),
+      );
       // start 永远 resolve:出错经 onError → gen.error 展示
       await gen.start(res, { label: engine?.label ?? "对口型视频" });
     } catch (e) {
@@ -312,7 +415,7 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
                 ? "正在生成,完成后在此播放;也可随时去作品库查看"
                 : gen.status === "error"
                   ? "生成失败,调整参数后可重新生成"
-                  : "上传人像与驱动音频,生成对口型的数字人说话视频"}
+                  : "上传人像,用音频或文本驱动,生成对口型的数字人说话视频"}
             </p>
             {gen.status === "running" && (
               <div className="at-gen-progress" role="status" aria-label="生成进度">
@@ -361,12 +464,86 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
       <div className="at-panel">
         <div className="at-panel-body">
           <div className="at-gen-form">
+            {/* 形象模板:选中即填入形象图(免重复上传);当前形象可存为模板复用 */}
+            <section className="at-gen-section">
+              <div className="at-section-head">
+                <h3 className="at-section-title">形象模板</h3>
+                <span className="at-section-count">
+                  {!templatesLoaded ? "加载中" : `${templates.length} 个已存`}
+                </span>
+              </div>
+              {templates.length > 0 ? (
+                <div className="at-avatar-grid">
+                  {templates.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      className={`at-avatar-card${t.id === selectedTemplateId ? " is-selected" : ""}`}
+                      disabled={gen.isRunning}
+                      onClick={() => applyTemplate(t)}
+                      title={t.description || t.name}
+                    >
+                      <div className="at-avatar-preview">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={avatarAssetImageUrl(t.id, 0)}
+                          alt={t.name}
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      </div>
+                      <div className="at-avatar-info">
+                        <span className="at-avatar-name">{t.name}</span>
+                        {t.green_screen && (
+                          <Badge tone="ok" dot={false}>
+                            绿幕
+                          </Badge>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                templatesLoaded && (
+                  <p className="at-models-empty">
+                    暂无形象模板:先上传人像图,点下方「存为模板」,下次一键复用
+                  </p>
+                )
+              )}
+              <div className="at-gen-inline">
+                <Input
+                  type="text"
+                  value={saveName}
+                  maxLength={100}
+                  placeholder={image ? "模板名称(存当前形象图)" : "先上传人像图,再存为模板"}
+                  disabled={gen.isRunning || savingTpl || !image}
+                  onChange={(e) => setSaveName(e.target.value)}
+                  aria-label="模板名称"
+                />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  loading={savingTpl}
+                  icon={<Icon name="save" size={14} />}
+                  disabled={gen.isRunning || !image || !saveName.trim()}
+                  onClick={() => void saveAsTemplate()}
+                >
+                  存为模板
+                </Button>
+              </div>
+              {tplError && (
+                <p className="at-gen-warn" role="alert">
+                  {tplError}
+                </p>
+              )}
+            </section>
+
             {/* 素材:人像首帧 + 驱动音频 */}
             <section className="at-gen-section">
               <div className="at-section-head">
                 <h3 className="at-section-title">素材</h3>
                 <span className="at-section-count">
-                  {(image ? 1 : 0) + (audio ? 1 : 0)}/2 已上传
+                  {(image ? 1 : 0) + (driveReady ? 1 : 0)}/2 已就绪
                 </span>
               </div>
             {/* 人像首帧 */}
@@ -394,7 +571,10 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
                     icon={<Icon name="close" size={13} />}
                     aria-label="移除人像图"
                     disabled={gen.isRunning}
-                    onClick={() => setImage(null)}
+                    onClick={() => {
+                      setImage(null);
+                      setSelectedTemplateId(null);
+                    }}
                   />
                 </div>
               ) : (
@@ -429,7 +609,32 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
               />
             </Field>
 
-            {/* 驱动音频 */}
+            {/* 驱动源:上传音频(现有行为) | 文本驱动(TTS 直通),互斥由段控保证 */}
+            <Field label="驱动源">
+              <div className="at-seg" role="tablist" aria-label="驱动源">
+                {(
+                  [
+                    { key: "audio", label: "上传音频" },
+                    { key: "text", label: "文本驱动" },
+                  ] as const
+                ).map((t) => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={driveMode === t.key}
+                    className={`at-seg-btn${driveMode === t.key ? " is-active" : ""}`}
+                    disabled={gen.isRunning}
+                    onClick={() => setDriveMode(t.key)}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </Field>
+
+            {driveMode === "audio" ? (
+            /* 驱动音频 */
             <Field
               label="驱动音频"
               hint={audError ? undefined : "wav / mp3,≤ 20MB"}
@@ -489,6 +694,46 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
                 onChange={(e) => void onAudioFile(e.target.files?.[0])}
               />
             </Field>
+            ) : (
+            /* 文本驱动(TTS 直通):drive_text ≤2000 字 + 音色(可选)+ 语速 0.5-2.0 */
+            <>
+            <Field
+              label="驱动文本"
+              hint={`${driveText.length}/${DRIVE_TEXT_MAX} 字,经 IndexTTS 合成语音驱动`}
+            >
+              <Textarea
+                ref={driveTextRef}
+                rows={4}
+                value={driveText}
+                maxLength={DRIVE_TEXT_MAX}
+                placeholder="输入数字人要说的内容(≤2000 字)"
+                disabled={gen.isRunning}
+                onChange={(e) => setDriveText(e.target.value)}
+              />
+            </Field>
+            <Field label="音色(可选)" hint="留空使用引擎默认音色">
+              <Input
+                type="text"
+                value={voice}
+                placeholder="默认音色"
+                disabled={gen.isRunning}
+                onChange={(e) => setVoice(e.target.value)}
+              />
+            </Field>
+            <Field label={`语速 ${speed.toFixed(2)}×`} hint="0.5-2.0,默认 1.0">
+              <input
+                type="range"
+                min={SPEED_MIN}
+                max={SPEED_MAX}
+                step={0.05}
+                value={speed}
+                disabled={gen.isRunning}
+                aria-label="语速"
+                onChange={(e) => setSpeed(clampSpeed(Number(e.target.value)))}
+              />
+            </Field>
+            </>
+            )}
 
             {workerMismatch && (
               <p className="at-gen-warn" role="alert">

@@ -883,9 +883,13 @@ export async function generateLongcatContinue(
 // 音频同字段)落到同一 pool worker(上传时用 worker 参数钉住),提交时后端转运到实例。
 export interface AvatarTalkParams {
   image: string;   // 已上传的人像首帧文件名
-  audio: string;   // 已上传的驱动音频文件名(wav/mp3 ≤20MB)
+  audio?: string;  // 已上传的驱动音频文件名(wav/mp3 ≤20MB);与 drive_text 互斥(都给/都不给后端 400)
   worker: string;  // image/audio 落点的 pool worker(两者须一致)
   positive: string;
+  // TTS 直通(与 audio 互斥):文本 → IndexTTS → 驱动音频
+  drive_text?: string; // ≤2000 字
+  voice?: string;      // 音色参考音 URL,空=引擎默认音色
+  speed?: number;      // 0.5-2.0,默认 1.0(透传 IndexTTS duration_factor)
   negative?: string;
   width?: number;      // 320-1280,16 对齐(非对齐后端自动向下取整),默认 480
   height?: number;     // 同上,默认 832
@@ -909,6 +913,56 @@ export async function generateAvatarTalk(
   });
   if (!res.ok) await raiseApiError(res, "数字人视频生成请求失败");
   return res.json();
+}
+
+// ── 形象模板(参考资产库 kind=avatar,契约 routes/reference_assets.py)──
+// images 只持久化 /api/upload 返回的 {filename, worker} 句柄;列表仅当前用户资产。
+export interface AvatarAssetImage {
+  filename: string;
+  worker: string;
+}
+
+export interface AvatarAsset {
+  id: string;
+  kind: string;
+  name: string;
+  description: string;
+  images: AvatarAssetImage[];
+  nsfw: boolean;
+  green_screen: boolean;
+  ref_audio: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/** 形象模板列表。契约:GET /api/assets?kind=avatar(直接返回数组)。 */
+export async function listAvatarAssets(): Promise<AvatarAsset[]> {
+  const res = await apiFetch(`/api/assets?kind=avatar`, {
+    headers: { ...authHeaders() },
+  });
+  if (!res.ok) await raiseApiError(res, "形象模板加载失败");
+  return res.json();
+}
+
+/** 存为形象模板(默认非绿幕)。契约:POST /api/assets {kind:"avatar",...}。 */
+export async function createAvatarAsset(body: {
+  name: string;
+  images: AvatarAssetImage[];
+  green_screen?: boolean;
+  ref_audio?: string;
+}): Promise<AvatarAsset> {
+  const res = await apiFetch(`/api/assets`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ kind: "avatar", green_screen: false, ...body }),
+  });
+  if (!res.ok) await raiseApiError(res, "形象模板保存失败");
+  return res.json();
+}
+
+/** 模板缩略图 URL(资产图回显端点 + ?token= 鉴权,<img> 标签可用)。 */
+export function avatarAssetImageUrl(assetId: string, index = 0): string {
+  return withToken(`${API_BASE}/api/assets/${encodeURIComponent(assetId)}/images/${index}`);
 }
 
 export async function generateLtxI2V(

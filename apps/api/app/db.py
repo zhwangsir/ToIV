@@ -72,6 +72,10 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     # ⚠️ BOOLEAN 默认值必须 FALSE 而非 0:PG 不认 DEFAULT 0(2026-08-27 部署启动失败实证)
     ("job", "quality_degraded", "quality_degraded BOOLEAN NOT NULL DEFAULT FALSE"),
     ("job", "quality_issues", "quality_issues VARCHAR NOT NULL DEFAULT ''"),
+    # 数字人形象库(2026-08-27):reference_assets 支持 kind=avatar 的两列扩展
+    # (绿幕素材标记 / 形象默认音色参考音频 URL)。BOOLEAN 默认值必须 FALSE(PG 不认 0)。
+    ("reference_assets", "green_screen", "green_screen BOOLEAN NOT NULL DEFAULT FALSE"),
+    ("reference_assets", "ref_audio", "ref_audio VARCHAR NOT NULL DEFAULT ''"),
 )
 
 # 整段 SQL 幂等迁移(CREATE TABLE IF NOT EXISTS 等,非 ADD COLUMN 场景)。

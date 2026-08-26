@@ -585,13 +585,16 @@ class ReferenceAsset(SQLModel, table=True):
 
     id: str = Field(default_factory=_uid, primary_key=True)
     user_id: str = Field(foreign_key="user.id", index=True)  # 资产属主(他人不可见/不可改)
-    kind: str = "character"  # character | scene | prop | style
+    kind: str = "character"  # character | scene | prop | style | avatar
     name: str = ""  # 资产名(1-100 字符,长度校验在路由层 pydantic)
     description: str = ""  # 提示词语义描述(后续反哺 prompt;≤2000 字符,校验在路由层)
     # 参考图句柄列表 list[{filename, worker}]。选 JSON 列而非关联表:
     # 数量硬上限 4 张、无独立生命周期、不跨资产复用,关联表纯属过度设计。
     images: list[dict] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
     nsfw: bool = False  # R18 资产:SFW 上下文(无 X-NSFW 头)查询时过滤
+    # 数字人形象(kind=avatar,对标 aigcpanel「我的形象」)扩展两列:
+    green_screen: bool = False  # 绿幕素材标记(后续抠像/合成工作流用)
+    ref_audio: str = ""  # 形象默认音色参考音频 URL(可空;空=合成时用默认音色)
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)
 

@@ -18,6 +18,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
@@ -584,3 +585,145 @@ def test_talk_underage_hard_blocked_from_nsfw(client, monkeypatch):
         job = s.exec(select(Job).where(Job.user_id == uid)).first()
         assert job is not None
         assert job.kind == "avatar_talk" and job.nsfw is False
+
+
+# --------------------------------------------------------------------------- #
+# drive_text TTS 直通(文本 → IndexTTS → 驱动;与 audio 互斥)
+# --------------------------------------------------------------------------- #
+
+_TTS_WAV = b"RIFF" + b"\x00" * 44  # 假 wav(RIFF 头)
+
+
+def _install_tts(monkeypatch, wav: bytes = _TTS_WAV) -> list[tuple]:
+    """TTS 替身:记录 (text, voice, speed) 调用参数,返回假 wav 字节。"""
+    calls: list[tuple] = []
+
+    async def _fake_synth(text: str, voice: str, speed: float) -> bytes:
+        calls.append((text, voice, speed))
+        return wav
+
+    monkeypatch.setattr(avatar_route, "_synth_drive_audio", _fake_synth)
+    return calls
+
+
+def test_talk_drive_text_success_chain(client, monkeypatch):
+    """drive_text 成功链路:TTS 被调(文本/音色/语速透传)→ 合成音频上传实例 →
+    图内引用上传后文件名 → Job params 记录 drive_text/voice(溯源)。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "avtts")
+    fake = _FakeLongCatClient()
+    _install_longcat(monkeypatch, fake)
+    tts_calls = _install_tts(monkeypatch)
+
+    body = {k: v for k, v in _BASE.items() if k != "audio"}
+    body.update(
+        drive_text="大家好,我是数字人", voice="/api/manju/voice/voiceref-x.wav",
+        speed=1.5, seed=7,
+    )
+    r = c.post(
+        "/api/avatar/talk",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json=body,
+    )
+    assert r.status_code == 200, r.text
+
+    # TTS 被调一次,文本/音色/语速原样透传
+    assert tts_calls == [("大家好,我是数字人", "/api/manju/voice/voiceref-x.wav", 1.5)]
+
+    # 图片仍从源 worker 转运;合成音频直接上传实例(与现有音频同一落点机制)
+    assert fake.uploads[0] == (b"img-bytes", "f.png")
+    assert len(fake.uploads) == 2
+    wav_bytes, wav_name = fake.uploads[1]
+    assert wav_bytes == _TTS_WAV
+    assert wav_name.startswith("toiv-tts-") and wav_name.endswith(".wav")
+
+    # 图内音频节点引用上传后的实例侧文件名
+    graph = fake.graphs[0]
+    assert graph["3"]["inputs"]["audio"] == f"lc-{wav_name}"
+
+    # Job params 记录 drive_text/voice/speed(溯源);audio 为 None
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        assert job is not None and job.kind == "avatar_talk"
+        import json
+
+        params = json.loads(job.params)
+        assert params["drive_text"] == "大家好,我是数字人"
+        assert params["voice"] == "/api/manju/voice/voiceref-x.wav"
+        assert params["speed"] == 1.5
+        assert params["audio"] is None
+
+
+def test_talk_drive_source_mutex_400_both_given(client, monkeypatch):
+    """audio 与 drive_text 同时提供 → 400(明确文案,不进入提交流程)。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "avboth")
+    fake = _FakeLongCatClient()
+    _install_longcat(monkeypatch, fake)
+    tts_calls = _install_tts(monkeypatch)
+    r = _post(c, uid, drive_text="两个都给")
+    assert r.status_code == 400
+    assert "二选一" in r.json()["detail"]
+    assert tts_calls == [] and fake.graphs == [] and fake.uploads == []
+
+
+def test_talk_drive_source_mutex_400_neither(client, monkeypatch):
+    """audio 与 drive_text 都不提供 → 400(明确文案)。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "avnone")
+    fake = _FakeLongCatClient()
+    _install_longcat(monkeypatch, fake)
+    body = {k: v for k, v in _BASE.items() if k != "audio"}
+    r = c.post(
+        "/api/avatar/talk",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json=body,
+    )
+    assert r.status_code == 400
+    assert "二选一" in r.json()["detail"]
+    assert fake.graphs == [] and fake.uploads == []
+
+
+def test_talk_drive_text_tts_unreachable_502_no_partial_submit(client, monkeypatch):
+    """TTS 不可达 → 502 明确文案;不半提交:实例零写入、零图提交、零 Job。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "avttsdown")
+    fake = _FakeLongCatClient()
+    _install_longcat(monkeypatch, fake)
+
+    async def _down(text: str, voice: str, speed: float) -> bytes:
+        raise HTTPException(status_code=502, detail="TTS 服务不可达:connection refused")
+
+    monkeypatch.setattr(avatar_route, "_synth_drive_audio", _down)
+    body = {k: v for k, v in _BASE.items() if k != "audio"}
+    body["drive_text"] = "合成会失败"
+    r = c.post(
+        "/api/avatar/talk",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json=body,
+    )
+    assert r.status_code == 502
+    assert "TTS 服务不可达" in r.json()["detail"]
+    assert fake.uploads == [] and fake.graphs == []
+    with Session(engine) as s:
+        assert s.exec(select(Job).where(Job.user_id == uid)).first() is None
+
+
+def test_talk_audio_path_unaffected_by_tts_fields(client, monkeypatch):
+    """现有音频路径零影响:只给 audio(不带 drive_text)时 TTS 不被调用,
+    音频仍走源 worker 转运(与既有行为一致)。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "avaudioonly")
+    fake = _FakeLongCatClient()
+    _install_longcat(monkeypatch, fake)
+    tts_calls = _install_tts(monkeypatch)
+    r = _post(c, uid, num_frames=93)
+    assert r.status_code == 200, r.text
+    assert tts_calls == []  # TTS 未被触碰
+    assert fake.uploads == [(b"img-bytes", "f.png"), (b"audio-bytes", "a.wav")]
+    assert fake.graphs[0]["3"]["inputs"]["audio"] == "lc-a.wav"
