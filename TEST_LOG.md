@@ -6,6 +6,39 @@
 
 ---
 
+## SCORER-SFX-2026-08-27 · 评分器灰度缺口修复 + sfx 引擎选型
+
+**时间**: 2026-08-27
+**类型**: 用户诉求「修复评分器灰度降级问题 + 排查 sfx 音效引擎选型」
+
+### ① 评分器灰度缺口修复
+
+**核实结论(先实证后动手)**:灰度开启后无视频作业完成,生产零点火;手动点火 total=0.94 全链路正常——降级非机制故障,真缺口为三处:
+1. **超时可疑**:VideoScorer 30s + 外层 wait_for 30s,对 32B VLM 长视频评分系统性降级 → `TOIV_VIDEO_SCORER_TIMEOUT` 默认 **120s**(外层 +10s)
+2. **降级静默**:degraded 直返 None 无任何记录 → 每次点火(含 degraded/超时/异常)结构化日志 `quality_eval job=%s total=%.3f quality_score=%d degraded=%s reason=%s dur_ms=%d`
+3. **评分不落库**:quality_warning 纯 SSE 瞬态 → job 表新增 `quality_total/quality_degraded/quality_issues` 三列(降级率 SQL 可统计:`count(*) FILTER (WHERE quality_degraded)*1.0/count(*)`)
+
+**部署攻坚战(PG 迁移 bug)**:
+- 首次部署 toiv-api 启动失败:`column job.quality_degraded does not exist`——迁移 DDL `BOOLEAN NOT NULL DEFAULT 0` **PG 不认整型布尔默认**(SQLite 认),该列未应用而 ORM 已引用
+- 修复:`DEFAULT 0`→`DEFAULT FALSE`(3 处:job.quality_degraded + 存量 user.nsfw_enabled/job.nsfw 同类隐患一并修)
+- 防回归守卫:`test_boolean_migrations_pg_safe_default`——`_SQLITE_MIGRATIONS` 所有 BOOLEAN 必须 TRUE/FALSE
+- 终验:三列齐上 PG(quality_degraded boolean default false),API healthy,真实评分 degraded=False total=0.94
+
+**测试**:新增 6 例(超时接线/degraded 落库+日志/低分落库/超时 reason/迁移幂等/BOOLEAN 守卫);全量 **2339 passed**
+
+### ② sfx 音效引擎选型(调研结论)
+
+| 候选 | 参数 | 许可 | 关键特性 | 结论 |
+|---|---|---|---|---|
+| **MOSS-SoundEffect v2.0**(OpenMOSS,2026-05) | 1.3B DiT+Flow Matching,Qwen3-1.7B TE,DAC VAE | **Apache 2.0** | **48kHz**、≤30s 可控时长、**中英双语**、影视音效定位(拟音/环境/材质区分);SGLang 3× 加速/GGUF 轻量路径 | ✅ **首选** |
+| Stable Audio 3.0 Small-SFX(Stability,2026-05) | 433M | Community(<$1M 商用) | **CPU 可跑零 GPU 争用**、≤120s、官方 LoRA 文档 | 备选(降级路径) |
+| Stable Audio Open 1.0 | ~2.5G | 同上 | 44.1kHz/47s,被 3.0 取代 | 不选 |
+| MMAudio/AudioLDM2 | — | — | 上一代,质量落后 | 不选 |
+
+**落地建议**(下轮实施):`toiv-sfx.service`(workstation :9102,i2l 同构 HTTP agent,~3-4G VRAM 放 GPU3 或 CPU offload)→ audio_orchestrate sfx 步调用(48kHz 经 aresample 入 24kHz 链)→ 501 解除。验证项:OpenMOSS-Team HF 权重 hf-mirror 可下、真实出音冒烟、时长对齐、采样率链。
+
+---
+
 ## FLYWHEEL-2026-08-27 · H3 数据飞轮接线(trainer h3 支持 + 编排脚本,真训练实证)
 
 **时间**: 2026-08-27

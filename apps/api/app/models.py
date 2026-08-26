@@ -75,6 +75,12 @@ class Job(SQLModel, table=True):
     # 资源预算二期(hold 排队):status=held 时为 hold 原因(预检 503 detail);
     # 放行/正常作业为空;hold 超时标 error 时改写为超时说明(前端列表直接可读)。
     hold_reason: str = ""
+    # —— 视频评分器灰度观察(2026-08-27):点火结果落库,降级率/低分率可回溯 ——
+    # quality_total=None = 未点火(开关关/非视频/无 URL);degraded=True = 评估降级
+    # (VLM 不可达/解析失败/全 0 对齐降级),此时 total 无信息,统计时应单列。
+    quality_total: Optional[float] = None
+    quality_degraded: bool = False
+    quality_issues: str = ""  # issues 前 3 条(JSON list 字符串,同 result/params 风格)
     created_at: datetime = Field(default_factory=_now, index=True)  # 加索引:未终态作业按时间排序扫描
 
 

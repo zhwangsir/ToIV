@@ -1,7 +1,7 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-27T03:05:00+08:00",
+ "updated_at": "2026-08-27T04:30:00+08:00",
  "health": {
   "engine_r3_2026_08_21": {
    "status": "completed",
@@ -1714,5 +1714,15 @@
   "blocker": "生产真实飞轮 e2e 待 eval winner 数据(evalbatch/evalscore 0 行,需先跑 best-of-n 批次)",
   "regression": "后端 2333 passed(trainer agent 39 例)",
   "verified_at": "2026-08-27T03:05:00+08:00"
+ },
+ "scorer_gap_fix_2026_08_27": {
+  "status": "completed",
+  "scope": "评分器灰度三缺口修复(超时/静默/不落库)+ sfx 引擎选型",
+  "scorer_facts": "灰度后无视频完成零点火;手动点火 total=0.94 机制正常;缺口=30s 超时/降级静默/评分不落库",
+  "fixes": "TOIV_VIDEO_SCORER_TIMEOUT 默认 120s(外层+10);每次点火 quality_eval 结构化日志;job 表 quality_total/quality_degraded/quality_issues 三列(降级率 SQL 可统计)",
+  "deploy_battle": "PG 不认 BOOLEAN DEFAULT 0(SQLite 认)致 toiv-api 启动失败;3 处 DDL 改 DEFAULT FALSE(含存量 nsfw_enabled/nsfw 隐患);守卫测试防回归;三列已上 PG,终验 total=0.94",
+  "sfx_selection": "首选 MOSS-SoundEffect v2.0(Apache 2.0/中英双语/48kHz/1.3B/≤30s 可控);备选 Stable Audio 3.0 Small-SFX(CPU 零 GPU 争用);落地 toiv-sfx.service :9102 → sfx 步 501 解除(下轮)",
+  "regression": "后端 2339 passed(新增 6 例)",
+  "verified_at": "2026-08-27T04:30:00+08:00"
  }
 }

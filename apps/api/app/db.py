@@ -22,8 +22,8 @@ engine = create_engine(_settings.database_url, connect_args=_connect_args)
 # R18 软开关相关的幂等迁移。create_all 只建新表、不 ALTER 既有表,
 # 所以 prod 上已存在的 user/job 表需手动补列。每项 (表, 列, DDL 片段)。
 _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
-    ('"user"', "nsfw_enabled", "nsfw_enabled BOOLEAN NOT NULL DEFAULT 0"),
-    ("job", "nsfw", "nsfw BOOLEAN NOT NULL DEFAULT 0"),
+    ('"user"', "nsfw_enabled", "nsfw_enabled BOOLEAN NOT NULL DEFAULT FALSE"),
+    ("job", "nsfw", "nsfw BOOLEAN NOT NULL DEFAULT FALSE"),
     # 漫剧逐镜配音 wav URL(音频层),已存在的 manjushot 表需补列
     ("manjushot", "voice_url", "voice_url VARCHAR NOT NULL DEFAULT ''"),
     # 角色定妆音色 URL(音色克隆参考),manjuasset 补列
@@ -67,6 +67,11 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("job", "hold_reason", "hold_reason VARCHAR NOT NULL DEFAULT ''"),
     # 深度接管(2026-08-24):智能体会话待确认提案(JSON,可空;空=无 pending)
     ("agentsession", "pending_proposal", "pending_proposal TEXT"),
+    # 视频评分器灰度观察(2026-08-27):评分落库三列(降级率/低分率可回溯)
+    ("job", "quality_total", "quality_total FLOAT"),
+    # ⚠️ BOOLEAN 默认值必须 FALSE 而非 0:PG 不认 DEFAULT 0(2026-08-27 部署启动失败实证)
+    ("job", "quality_degraded", "quality_degraded BOOLEAN NOT NULL DEFAULT FALSE"),
+    ("job", "quality_issues", "quality_issues VARCHAR NOT NULL DEFAULT ''"),
 )
 
 # 整段 SQL 幂等迁移(CREATE TABLE IF NOT EXISTS 等,非 ADD COLUMN 场景)。

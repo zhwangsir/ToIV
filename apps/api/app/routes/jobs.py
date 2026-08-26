@@ -9,6 +9,7 @@ import asyncio
 import inspect
 import json
 import logging
+import time
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 
@@ -27,7 +28,7 @@ from app.db import engine, get_session
 from app.deps import get_current_user, get_pool, resolve_worker
 from app.models import Job, User
 from app.nsfw_ctx import nsfw_allowed
-from app.scoring import VideoScorer
+from app.scoring import VideoScorer, VideoScoreResult
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -465,6 +466,25 @@ async def _emit_done(client: ComfyUIClient, prompt_id: str) -> tuple[dict, list[
     return {"event": "done", "data": json.dumps({"images": urls, "post_status": post})}, urls
 
 
+def _persist_quality_eval(job: Job, result: VideoScoreResult) -> None:
+    """评分结果(含 degraded)落库 Job 三列,供灰度观察期回溯统计降级率/低分率。
+
+    落库失败仅 warning,绝不影响主流程(SSE done/quality_warning 照常)。
+    """
+    try:
+        with Session(engine) as s:
+            db = s.get(Job, job.id)
+            if db is None:
+                return
+            db.quality_total = result.total
+            db.quality_degraded = result.degraded
+            db.quality_issues = json.dumps(result.issues[:3], ensure_ascii=False)
+            s.add(db)
+            s.commit()
+    except Exception as e:  # noqa: BLE001 — 观察性写入,失败不阻塞
+        logger.warning("quality_eval 落库失败 job=%s: %s", job.prompt_id, e)
+
+
 async def _maybe_quality_warning(job: Job | None, video_url: str | None) -> dict | None:
     """视频质量评估 → 低分时返回 quality_warning SSE 事件,其余情况返回 None。
 
@@ -482,19 +502,39 @@ async def _maybe_quality_warning(job: Job | None, video_url: str | None) -> dict
     if not video_url:
         return None
 
+    started = time.monotonic()
     try:
-        scorer = VideoScorer(settings.vlm_server_url, settings.vlm_model_id)
-        # 单独 wait_for:VideoScorer 内部已 30s 超时,这里再套一层兜底防 VLM 卡死拖死 SSE。
+        scorer = VideoScorer(
+            settings.vlm_server_url, settings.vlm_model_id, timeout=settings.video_scorer_timeout
+        )
+        # 单独 wait_for:VideoScorer 内部 httpx 已按 video_scorer_timeout 超时,
+        # 这里 +10s 套一层兜底防 VLM 卡死拖死 SSE。
         result = await asyncio.wait_for(
             scorer.score(video_url, job.prompt or None),
-            timeout=30.0,
+            timeout=settings.video_scorer_timeout + 10,
         )
     except asyncio.TimeoutError:
-        logger.warning("quality_warning 评估超时 job=%s", job.prompt_id)
+        logger.warning(
+            "quality_eval job=%s total=%.3f quality_score=%d degraded=%s reason=%s dur_ms=%d",
+            job.prompt_id, 0.0, 0, True, "timeout", int((time.monotonic() - started) * 1000),
+        )
         return None
     except Exception as e:  # noqa: BLE001 — 评估失败绝不能影响主流程
-        logger.warning("quality_warning 评估失败 job=%s: %s", job.prompt_id, e)
+        logger.warning(
+            "quality_eval job=%s total=%.3f quality_score=%d degraded=%s reason=%s dur_ms=%d",
+            job.prompt_id, 0.0, 0, True, f"error: {e}",
+            int((time.monotonic() - started) * 1000),
+        )
         return None
+
+    # 每次真实点火都留结构化日志 + 落库(灰度观察期降级率/低分率回溯的唯一数据源)。
+    logger.info(
+        "quality_eval job=%s total=%.3f quality_score=%d degraded=%s reason=%s dur_ms=%d",
+        job.prompt_id, result.total, result.quality_score, result.degraded,
+        result.issues[0] if result.degraded and result.issues else "",
+        int((time.monotonic() - started) * 1000),
+    )
+    _persist_quality_eval(job, result)
 
     # 4. 模型对齐降级(全 0)/解析失败:无信息,不推 warning(避免噪声)
     if result.degraded:

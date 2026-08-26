@@ -201,6 +201,9 @@ class Settings(BaseSettings):
     video_scorer_enabled: bool = False
     # 综合分(total)低于此阈值才推 quality_warning;0.65 ≈ 视频质量明显可改进的临界。
     video_scorer_threshold: float = 0.65
+    # 评分调用超时(秒):32B VLM 视频评分实测 10-60s,长视频更久;30s 旧值会系统性降级。
+    # VideoScorer 内部 httpx 与 jobs.py 外层 wait_for(+10s 兜底)同读此值。
+    video_scorer_timeout: float = 120.0
 
     # —— 反推提示词(reverse prompt):上传图/视频/音频 → 反推出可复用提示词 ——
     # 生产 SFW 反推(图+全部视频)= studio04 mlx-vlm Qwen2.5-VL-72B-Instruct-4bit
