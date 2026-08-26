@@ -1,7 +1,7 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-26T07:00:00+08:00",
+ "updated_at": "2026-08-26T18:10:00+08:00",
  "health": {
   "engine_r3_2026_08_21": {
    "status": "completed",
@@ -1631,5 +1631,32 @@
    "合并 Job + 2 段 Job 全部建档 queued"
   ],
   "commit": "20dca29"
+ },
+ "video_pipeline_modules_2026_08_26": {
+  "status": "completed_deployed",
+  "scope": "视频创作四模块落地——多镜头协议/视频编辑(Aleph)/Motion Brush/兼容性修复",
+  "multishot": {
+   "deliverables": "services/multishot_protocol.py(「镜头一…镜头二…」协议组装)+POST /api/h3/multishot(2-4 镜头,总时长 ≤15s)+MultiShotEditor.tsx",
+   "tests": "后端 29 例/前端 9 例",
+   "prod_verify": "多镜头 prompt 协议正确组装(「生成一段10秒...全片共两个镜头...镜头一(约5秒)...镜头切换:匹配切口...镜头二(约5秒)...」)"
+  },
+  "video_edit": {
+   "deliverables": "WanVaceEditParams+build_wan_vace_edit_graph(源视频帧序列→VACEEncode.input_frames,关键帧锚点 mask=0 保留)+POST /api/generate/video-edit(五模式)+AiVideoEditView.tsx",
+   "tests": "后端 31 例/前端 20 例",
+   "prod_verify": "端点存在;⚠️ motion_mask 继承但不消费,__post_init__ 显式拒绝(防静默无效)"
+  },
+  "motion_brush": {
+   "deliverables": "services/motion_brush.py(RGBA mask:R=G=B 强度,A 方向角)+POST /api/motion-brush/mask+MotionBrushEditor.tsx(canvas 涂抹/方向箭头/强度滑块)",
+   "tests": "后端 39 例/前端 15 例",
+   "prod_verify": "mask 生成成功(motion-brush-032a9860339e.png)"
+  },
+  "compatibility_fixes": {
+   "fix_1": "WanVaceEditParams.motion_mask 显式拒绝(节点冲突,preserve_mask 是唯一通道)",
+   "fix_2": "keyframe-chain 端点段级 motion_mask 透传接通(KeyframeChainRequest.motion_mask + 段 WanVaceParams.motion_mask + seg_req 快照)",
+   "integration_tests": "18 例(场景 A/B/C/D 全覆盖)"
+  },
+  "regression": "后端 2248 passed / 前端 641 passed / tsc 0",
+  "prod_verify_final": "数据库实证:transition Job params motion_mask='motion-brush-032a9860339e.png' 完全正确(API 列表不返回 params 内容,设计如此)",
+  "commit": "c9e5cf9"
  }
 }

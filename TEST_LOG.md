@@ -2,6 +2,71 @@
 
 ---
 
+## VIDEO-PIPELINE-2026-08-26 · 视频创作四模块落地 + 兼容性修复
+
+**时间**: 2026-08-26
+**类型**: 用户诉求「多镜头单次生成/关键帧链式转场/视频到视频编辑/Motion Brush 四模块无缝衔接」
+
+### 四模块落地
+
+**①多镜头单次生成(H3「镜头一…镜头二…」协议)**
+- `services/multishot_protocol.py`:ShotSpec/MultiShotPlan + build_multishot_prompt 协议组装
+- `POST /api/h3/multishot`(2-4 镜头,总时长 ≤15s,均分/自定义)
+- 生产实证:多镜头 prompt 协议正确组装(「生成一段10秒...全片共两个镜头...镜头一(约5秒)...镜头切换:匹配切口...镜头二(约5秒)...」)
+
+**②视频到视频编辑(Runway Aleph 式 in-context)**
+- `WanVaceEditParams`+`build_wan_vace_edit_graph`(源视频帧序列→VACEEncode.input_frames,关键帧锚点 mask=0 保留/其余重生成)
+- `POST /api/generate/video-edit`(五模式:object_replace/object_remove/style_transfer/relight/camera_change;关键帧 ≤5;preserve_mask 区域控制)
+- ⚠️ motion_mask 继承但不消费,__post_init__ 显式拒绝(防静默无效)
+
+**③Motion Brush 局部动效标记**
+- `services/motion_brush.py`:BrushStroke/MotionBrushMask + generate_mask(RGBA:R=G=B 强度,A 方向角)
+- `POST /api/motion-brush/mask`(源图+笔画→mask PNG)
+- 生产实证:mask 生成成功(motion-brush-032a9860339e.png)
+
+**④关键帧链式转场(≤5 帧,Pikaframes 指标)**
+- 已完成(commit 20dca29):2-5 帧/段 1-10s/总长 ≤25s
+
+### 兼容性修复(集成测试发现)
+
+**修复 1**:`WanVaceEditParams.motion_mask` 显式拒绝(节点 50 已被源视频占用,编辑区域控制唯一通道是 preserve_mask)
+
+**修复 2**:keyframe-chain 端点段级 motion_mask 透传接通:
+- `KeyframeChainRequest.motion_mask` 字段补齐
+- 段循环 `WanVaceParams.motion_mask=mask_name` 传入
+- `seg_req.motion_mask=req.motion_mask` 快照存 Job params
+
+### 集成测试(18 例)
+
+| 场景 | 验证点 | 结果 |
+|---|---|---|
+| A | 多镜头→视频编辑(产物直作 source_video) | ✅ |
+| B | Motion Brush mask→视频编辑(preserve_mask 区域控制) | ✅ |
+| C | 关键帧链→视频编辑(三类 Job 共存) | ✅ |
+| D | Motion Brush mask→转场链(段层+链端点双路径) | ✅ |
+
+### 生产 e2e 最终验证
+
+| 模块 | 验证点 | 结果 |
+|---|---|---|
+| 多镜头 | h3-multishot 引擎上架;协议组装正确 | ✅ |
+| 视频编辑 | vace-edit 引擎上架;端点存在 | ✅ |
+| Motion Brush | mask 生成成功 | ✅ |
+| mask→关键帧链 | 段级透传;数据库实证 params motion_mask 完全正确 | ✅ |
+
+**关键发现**:API `/api/jobs` 列表不返回 params 内容(设计如此,只有 `has_params: bool` 标记);数据库直接查询实证 `motion_mask='motion-brush-032a9860339e.png'` 完全正确。
+
+### 回归与部署
+
+- 后端 **2248 passed**(多镜头 29/视频编辑 31/Motion Brush 39/集成 18)
+- 前端 **641 passed**(多镜头 9/视频编辑 20/Motion Brush 15)
+- tsc 0 错误
+- 部署:deploy.sh 全量;BUILD_ID 20260826-093929-c9e5cf9
+
+**commit**: c9e5cf9
+
+---
+
 ## VIDEO-PIPELINE-INTEGRATION-2026-08-26 · 视频创作管线四模块兼容性与无缝衔接验证
 
 **时间**: 2026-08-26
