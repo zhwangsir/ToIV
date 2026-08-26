@@ -8,7 +8,7 @@ POST /api/longcat/continue —— 视频续写(源视频 = /api/images? 产物 U
 
 与 LTX2/H3 工作室的区别:LongCat 走 GPU0 独立实例(默认 workstation :8197,
 不走 WorkerPool 集群);产物链路(tracker 落库 + /api/images 代理进作品库)与 h3/ltx2 同路。
-参数约束(参考 scripts/longcat_smoke.py 真机实测):
+参数约束(参考 scripts/e2e/longcat_smoke.py 真机实测):
   · 时长按秒选择(duration_sec,任意值;内部经统一策略层 services/duration 换算,
     网格/下限吸附后秒差大时生成后精确裁切);num_frames(帧数)为 deprecated 兼容入参
   · 帧数 17-961(旧默认 121 ≈ 7.5s@16fps);宽/高 320-1280,16 对齐(非对齐自动向下取整)

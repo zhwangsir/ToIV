@@ -4,6 +4,7 @@ __pycache__/
 .venv/
 apps/api/.venv/
 .pytest_cache/
+.coverage
 
 # Node / Next.js
 node_modules
@@ -33,21 +34,6 @@ next-env.d.ts
 # Trae IDE 本地配置
 .trae/
 
-# 根目录临时调试脚本(开发期随手写的,不入仓)
-_check_nodes*.py
-check_status.py
-download_llm.py
-download_lora.py
-edit_gemma_*.py
-patch_llava.py
-poll_history.py
-query_history.py
-query_ltxv_nodes.py
-submit_test.py
-debug_e2e_workflow.json
-generation_config.json
-ltx_workflow_v4.json
-
 # RAG 缓存(运行时生成)
 apps/api/app/agent/knowledge/rag_cache_*.json
 
@@ -56,21 +42,18 @@ apps/web/.preview-*.png
 apps/web/.preview-shots/
 .heartbeat/
 
-# 仓库卫生(2026-07-27 P2):大目录/生成内容/嵌套 git/调试脚本不入仓
+# 仓库卫生(2026-07-27 P2):大目录/生成内容/嵌套 git 不入仓
 # models/ 33GB 模型文件(ComfyUI 本地缓存,不走仓库;锚定根目录,
 # 不再误伤 apps/web/components/models/ 等源码目录 —— 2026-08-18 WIKI 修复)
 /models/
-# opentalking/ 嵌套 git 独立项目(违反项目隔离纪律)
+# opentalking/ 嵌套 git 独立项目 —— 禁止 vendor 进仓(2026-08-27 已移出至兄弟目录
+# ../opentalking 常驻运行,代码仅经 URL 127.0.0.1:4403 引用;此条目留作防回潮守卫)
 opentalking/
 # drama/output/ 生成内容(短剧成片/分镜片段/配音等运行时产出);
 # 仅忽略产物目录——drama/scripts/(管线源码,编排器/定妆图/质量门)与
 # apps/web/components/drama/(LibTV 工作台源码)必须入仓(2026-08-16 收窄,
 # 原 drama/ 整目录规则把两处源码一并忽略,LibTV 重构代码零追踪)
 drama/output/
-# 根目录调试预览/脚本(一次性,不入仓)
-preview-*.html
-test_llm_real.py
-test_parse.py
 # 设备说明.md:core 监控中心维护分发到各项目的集群拓扑副本,非 ToIV 源码
 # (记忆已存设备清单;AGENTS.md 引用本地路径,clone 者按 core 分发获取)
 设备说明.md

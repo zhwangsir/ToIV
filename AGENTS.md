@@ -79,7 +79,7 @@
 
 **ComfyUI-LB 后端**（3 后端）：本地 :8189(GPU0) + pc01 :8188 + pc02 :8193。GPU1/2/3 不入 LB 池（专用实例 :8197/:8195/:8198/:8261-8263 均为专用,不入池;每新增同机专用实例必须补 `deps.resolve_worker()` 精确匹配,见 E-3）。
 
-**超分 fleet**：:8261/:8262/:8263 三卡并行 4x-UltraSharp 帧超分,由融合超分链/`scripts/video_4k_upscale_parallel.py` 调用。
+**超分 fleet**：:8261/:8262/:8263 三卡并行 4x-UltraSharp 帧超分,由融合超分链/`scripts/ops/video_4k_upscale_parallel.py` 调用。
 
 **关键服务路径**：ComfyUI=/opt/ComfyUI(venv) · IndexTTS2=/home/merlin/index-tts · H3 实例=/home/merlin/ComfyUI-h3-eval · LongCat=/home/merlin/ComfyUI-longcat · LTX2.5=/home/merlin/ComfyUI-ltx25 · JoyCaption=/opt/toiv-joycaption(transformers 直跑,勿用 vLLM) · pynvml 锁扇用 /opt/nemotron-venv/bin/python(系统 python3 无该库) · **hy3dtex 纹理=/home/merlin/toiv-hy3dtex(原生 hy3dpaint v2-1,torch 2.13+cu130)** · Hunyuan3D Kijai 实例=/home/merlin/ComfyUI-hunyuan3d(:8200 GPU1)
 
@@ -246,7 +246,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - **Wan-Animate-2 上线(v1 不动)**:🚨 Wan-AI 官方 safetensors ComfyUI 加载不了(嵌套键+无 metadata),必须用 **Comfy-Org 转换版**(NAS wan2.2-animate-2-14b/wan_animate_2/comfyui/,int8_convrot 16.6G 默认);新专用实例 **:8199 GPU3**(ComfyUI 0.33.0 原生 WanAnimate2ToVideo/WanAnimate2Cache,systemd comfyui-animate2 **enabled**);引擎 wan-animate-2(蒸馏 10 步 cfg1,自动外观 caption 走 VLM,显存预检阈值定 30G 别设 34——GPU3 驱逐缓存后实测只有 33.7G);⚠️ NAS toiv 的 umt5 fp8 是 kijai 键名 CLIPLoader 不认,要用 Windows 库 umt5_xxl_fp8_e4m3fn_scaled;真机+hold 放行+core 链路 e2e 全过(身份/表情迁移优秀)
 - **SCoPE 视频运镜上线**(腾讯 ARC,首帧+文本+相机轨迹→81 帧视频):权重 67G 落 NAS scope/(双专家,与 Wan2.2 不复用);独立 venv(/home/merlin/scope-src/.venv,torch 必须 2.9.1+cu128,换版本改变数值输出);服务 :9401(systemd toiv-scope enabled,112 个轨迹预设=100 官方示例+12 参数化);core 端点 routes/scope.py(图经 NAS 中转);⚠️ 40 步 18 分钟,慢,UI 要管理预期
 - **Z-Image 非蒸馏底座接入**:z_image_bf16(12.3G,Comfy-Org 单文件)落 NAS diffusion_models;新族 **z_image_base**(cfg4/30步/负向有效/euler+simple,与 turbo 蒸馏档分流——detect_model_family 按 turbo/lightning/distill 字样判);⚠️ routes/train.py 把族名发 trainer(:9100),新族名 trainer 不识别,用 base 训 LoRA 前需 trainer 同步
-- **i2L 风格 LoRA 管线实证可用**(DiffSynth-Studio ZImage-i2L-v2,3.6G):风格图 1-8 张→一次前向→LoRA;脚本 scripts/zimage_i2l_export.py(键转换内置:加 diffusion_model. 前缀+去 .default,DiffSynth 原生键 ComfyUI 不认);需 diffusers 格式基座(NAS toiv/zimage_diffusers/ 20G);demo LoRA(zimage_i2l_flatvector_smoke)ComfyUI LoraLoaderModelOnly 实证出图;⚠️ API 产品化未做(剩上传流转+常驻服务)
+- **i2L 风格 LoRA 管线实证可用**(DiffSynth-Studio ZImage-i2L-v2,3.6G):风格图 1-8 张→一次前向→LoRA;脚本 scripts/ops/zimage_i2l_export.py(键转换内置:加 diffusion_model. 前缀+去 .default,DiffSynth 原生键 ComfyUI 不认);需 diffusers 格式基座(NAS toiv/zimage_diffusers/ 20G);demo LoRA(zimage_i2l_flatvector_smoke)ComfyUI LoraLoaderModelOnly 实证出图;⚠️ API 产品化未做(剩上传流转+常驻服务)
 - **下载路径再实证**:hf-mirror 直连+aria2c -x16,50G 约 4 分钟;⚠️ aria2c 经重定向落地是 CDN 哈希文件名需按大小重命名;ModelScope resolve URL 同样可直连
 - **回归**:后端 2004 passed / 前端 460 passed / tsc 0;test_probes_run_parallel_and_cached 有计时类 flaky(非本轮引入)
 
@@ -292,7 +292,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ### 2026-08-23（晚间·H3 LoRA 训练管线上线）
 - **musubi-tuner 不支持 H3**：上游 kohya-ss/musubi-tuner 无 MiniMax 架构(issue #1017 仍 open);H3 原生 LoRA 训练改走 **ostris/ai-toolkit 的 `minimax_h3` 扩展**(2026-08-03 入库,arch=`minimax_h3`,T2V/I2V 均可训)
 - **管线落位(workstation)**：`/home/merlin/ai-toolkit`(venv `.venv`,torch 2.13.0+cu130);权重直读 NAS `toiv/comfyui-models/h3`(MODELS_PATH 指过去即可,DiT int8/TE nvfp4/VAE 全在);tokenizer 小文件已进 HF cache(MiniMaxAI/MiniMax-H3)
-- **仓库脚本**：`scripts/h3_lora_dataset.py`(core EvalScore winner→媒体+caption 目录,纯 HTTP API)+`scripts/h3_lora_train.example.yaml`(保守默认:rank16/lr1e-4/adamw8bit)+`scripts/h3_lora_smoke.sh`(冒烟 runner)
+- **仓库脚本**：`scripts/h3/h3_lora_dataset.py`(core EvalScore winner→媒体+caption 目录,纯 HTTP API)+`scripts/h3/h3_lora_train.example.yaml`(保守默认:rank16/lr1e-4/adamw8bit)+`scripts/h3/h3_lora_smoke.sh`(冒烟 runner)
 - **冒烟实证(GPU2,30 步/25s)**：产出 516 张量 rank16 LoRA(310MB),已留档 NAS `h3/loras/toiv_h3_smoke_v1_30steps.safetensors`(md5 校验一致)
 - **⚠️ 两个坑**：①H3 视频 VAE 帧网格是 **17n+5**(合法值 5/22/39/56),num_frames 填其他值会被静默裁短;②训练环境**别设 HF_HUB_OFFLINE=1**——AutoTokenizer 会探子目录不存在的 config.json,离线时缓存缺失直接 OSError,用 `HF_ENDPOINT=https://hf-mirror.com` 让小文件 404 正常回落(大权重全本地不会触发下载)
 - **依赖**：uv pip 装 git+ 依赖会被 ghfast.top 重定向回 github 失败——先手动 clone 再改 requirements 指本地路径(/home/merlin/diffusers-hf)

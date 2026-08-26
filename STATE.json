@@ -1,7 +1,7 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-26T18:10:00+08:00",
+ "updated_at": "2026-08-27T00:05:00+08:00",
  "health": {
   "engine_r3_2026_08_21": {
    "status": "completed",
@@ -1658,5 +1658,25 @@
   "regression": "后端 2248 passed / 前端 641 passed / tsc 0",
   "prod_verify_final": "数据库实证:transition Job params motion_mask='motion-brush-032a9860339e.png' 完全正确(API 列表不返回 params 内容,设计如此)",
   "commit": "c9e5cf9"
+ },
+ "repo_restructure_2026_08_27": {
+  "status": "completed",
+  "scope": "仓库结构系统性重组:混乱点识别 12 类 → 删除垃圾 + git mv 分组 + 引用全量更新 + 零残留验证",
+  "deleted": [
+   "根目录 toiv.db(误从仓库根启动产生的 SQLite;正主 apps/api/toiv.db 不受影响)",
+   "apps/web pnpm-lock.yaml+pnpm-workspace.yaml(双包管理器陈旧轨,统一 npm)",
+   "apps/web responsive-test.js + scripts/ 9 个一次性调试脚本(debug_*×8/recon_login/_dump_metrics,零引用)",
+   "apps/web tmp/、test-results/、test-results-prod/(未追踪实验/产物)",
+   "apps/api/.coverage 移出 git 追踪(.gitignore 补 .coverage)"
+  ],
+  "moved_out": "opentalking/(2.7G 嵌套 git 独立项目)→ 兄弟目录 ../opentalking;代码仅经 URL 127.0.0.1:4403 引用,lsof 确认无进程占用;.gitignore 留守卫防回潮",
+  "reorganized": [
+   "deploy/e2e_*_check.py ×5 → scripts/e2e/(docstring 用法行同步)",
+   "scripts/ 26 扁平脚本 → e2e/(13)/eval/(6)/h3/(4)/ops/(9) 四分组(git mv 保历史)"
+  ],
+  "refs_updated": "AGENTS.md 3 处 + 代码 docstring 4 处(video_upscale/longcat_video/model_wiki/longcat_studio)+ .gitignore 修剪 16 条陈旧条目;生产引用不动:deploy.sh/bare-metal/*-service/docker-compose.yml/drama/",
+  "regression": "旧路径 grep 零残留;后端 pytest 2248 passed;前端 tsc 0 + 641 passed",
+  "docs": "DEVELOPMENT.md 新增「9. 仓库结构与命名规范」(顶层布局/边界规则/deploy 约定/scripts 四分组/命名规范);TEST_LOG.md REPO-RESTRUCTURE-2026-08-27 条目",
+  "verified_at": "2026-08-27T00:05:00+08:00"
  }
 }

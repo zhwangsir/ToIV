@@ -16,6 +16,7 @@
 6. [测试指南](#6-测试指南)
 7. [常见问题排查](#7-常见问题排查)
 8. [代码托管](#8-代码托管)
+9. [仓库结构与命名规范](#9-仓库结构与命名规范)
 
 ---
 
@@ -535,4 +536,61 @@ git ls-files | xargs ls -l 2>/dev/null | awk '$5>50*1024*1024{print $5, $9}'
 
 ---
 
-**文档维护**: 本文档随代码变更同步更新，最后更新 2026-08-26。如有疑问请联系开发团队。
+## 9. 仓库结构与命名规范
+
+> 2026-08-27 系统性重组定版。新增文件/目录必须按下表归位，禁止在根目录与 `apps/web` 根新增松散脚本。
+
+### 9.1 顶层布局
+
+```
+ToIV/
+├── apps/
+│   ├── api/            # FastAPI 后端(app/ 源码、tests/ pytest、migrations/)
+│   └── web/            # Next.js 前端(app/ 路由、components/、lib/、tests/ 单测、e2e/ Playwright)
+├── MiniProgram/        # uni-app 小程序(自治子项目,自带 STATE.json/TEST_LOG.md)
+├── Mobile/             # Expo React Native(自治子项目,自带 AGENTS.md/STATE.json/TEST_LOG.md)
+├── deploy/             # 生产部署与运维(见 9.2)
+├── scripts/            # 仓库级脚本,按职能四分(见 9.3)
+├── drama/              # 短剧运行时数据(assets/ 素材、output/ 产物,被代码+生产挂载引用,勿移动)
+├── .github/workflows/  # CI(按 apps/api/** / apps/web/** 路径分发)
+├── AGENTS.md           # 集群操作记忆与决策记录
+├── STATE.json          # 项目状态快照
+├── TEST_LOG.md         # 测试日志(时间倒序)
+├── DEVELOPMENT.md      # 本文档
+└── README.md           # 项目入口
+```
+
+**边界规则**:
+- `opentalking` 等第三方独立项目**禁止 vendor 进仓**,以兄弟目录常驻(`../opentalking`),代码仅经 URL 引用(`.gitignore` 有防回潮守卫)。
+- 运行时产物(`*.db`、`drama/output/`、`.coverage`、`test-results*/`)一律不入仓。
+- `apps/web` 包管理器唯一 **npm**(package-lock.json);pnpm 文件已清除,禁止重新引入。
+
+### 9.2 deploy/ 内部约定(生产路径引用,移动前必须查引用)
+
+| 子项 | 职能 |
+|------|------|
+| `deploy.sh` | core/workstation 一键部署(rsync+重启+健康等待+回滚) |
+| `bare-metal/` | core 裸机 systemd 安装(install.sh 被 deploy.sh --install 远端调用) |
+| `mac-services/` | Mac 端 launchd 服务(demucs-mlx/vlm-72b/whisper-cpp) |
+| `*-service/` | 独立微服务源码(tts/hy3dtex/scope/sysmetrics/3dops) |
+| `docker-compose.yml` / `openresty-toiv.conf` / `toiv_model_paths.yaml` | 容器编排/反代/模型路径 |
+| `download_models.sh` / `download-model.py` / `start-toiv-*.py` / `toiv-trainer.py` | 远端模型下载与进程拉起 |
+
+### 9.3 scripts/ 四分组
+
+| 分组 | 职能 | 示例 |
+|------|------|------|
+| `scripts/e2e/` | 端到端冒烟/链路验证(含生产 e2e 检查) | `e2e_prod_check.py`、`h3_core_e2e.py`、`longcat_smoke.py` |
+| `scripts/eval/` | 质量评估/评分 harness | `r2v_eval*.py`、`qwen_edit_eval.py` |
+| `scripts/h3/` | H3 LoRA 训练/恢复 | `h3_lora_dataset.py`、`h3_lora_smoke.sh` |
+| `scripts/ops/` | 设备运维/探测/工具 | `device_connectivity_check.py`、`video_4k_upscale_parallel.py`、`ui_lint.mjs` |
+
+### 9.4 命名规范
+
+- 目录全小写,多词用连字符(`motion-brush`)或下划线(服务源码沿用 `snake_case`,新目录优先连字符)。
+- 脚本名带职能前缀:e2e 检查 `e2e_*_check.py`,评估 `*_eval.py`,一次性调试脚本**不入仓**(本地用完即删)。
+- 子项目(MiniProgram/Mobile)自治:各自维护文档与测试,顶层文档不重复其内容。
+
+---
+
+**文档维护**: 本文档随代码变更同步更新，最后更新 2026-08-27。如有疑问请联系开发团队。

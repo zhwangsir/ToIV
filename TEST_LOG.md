@@ -2,6 +2,42 @@
 
 ---
 
+## REPO-RESTRUCTURE-2026-08-27 · 仓库结构系统性重组
+
+**时间**: 2026-08-27
+**类型**: 用户诉求「全面检查项目结构,识别混乱,按行业最佳实践重组并验证引用正确性」
+
+### 变更清单
+
+**删除(垃圾/陈旧)**:
+- 根目录 `toiv.db`(误从仓库根启动 uvicorn 产生的 SQLite;正主 `apps/api/toiv.db` 不受影响)
+- `apps/web/pnpm-lock.yaml` + `pnpm-workspace.yaml`(双包管理器陈旧轨,CI/构建统一 npm)
+- `apps/web/responsive-test.js` + `scripts/` 内 9 个一次性调试脚本(debug_*×8/recon_login/_dump_metrics,零引用,Playwright spec 已覆盖)
+- `apps/web/tmp/`、`test-results/`、`test-results-prod/`(未追踪实验/产物)
+- `apps/api/.coverage` 移出 git 追踪(`.gitignore` 补 `.coverage`)
+
+**移出仓库**:
+- `opentalking/`(2.7G 嵌套 git 独立项目)→ 兄弟目录 `../opentalking`;代码仅经 URL `127.0.0.1:4403` 引用,移动前 `lsof +D` 确认无进程占用;`.gitignore` 保留 `opentalking/` 作防回潮守卫
+
+**git mv 重组(保历史)**:
+- `deploy/e2e_{audio,comprehensive,drama,h3,prod}_check.py` → `scripts/e2e/`(5 个 docstring 用法行同步更新)
+- `scripts/` 26 个扁平脚本按职能四分:`e2e/`(冒烟链路 13)、`eval/`(评估 6)、`h3/`(LoRA 训练/恢复 4)、`ops/`(运维/探测/工具 9)
+
+**引用更新**:
+- AGENTS.md 3 处(超分 fleet/i2L 脚本/H3 LoRA 仓库脚本)
+- 代码 docstring/注释 4 处:`workflows/video_upscale.py`、`workflows/longcat_video.py`、`workflows/model_wiki.py`(usage 用户可见串)、`routes/longcat_studio.py`
+- `.gitignore` 修剪 16 条已不存在文件的陈旧条目,opentalking 注释更新
+- 生产引用不动的部分:`deploy/deploy.sh`、`bare-metal/`、`*-service/`、`docker-compose.yml`、`drama/`(代码+compose 挂载引用)
+
+### 验证结果
+
+- 旧路径 grep 全仓扫描:**零残留**(`scripts/video_4k_upscale|scripts/longcat_smoke|deploy/e2e_|...` 16 个旧路径模式)
+- 后端:`apps/api/.venv/bin/python -m pytest tests -q` → **2248 passed**(137s)
+- 前端:`tsc --noEmit` **0 错误** + `npm test` **641 passed**
+- 文档:DEVELOPMENT.md 新增「9. 仓库结构与命名规范」(顶层布局/边界规则/deploy 约定/scripts 四分组/命名规范)
+
+---
+
 ## VIDEO-PIPELINE-2026-08-26 · 视频创作四模块落地 + 兼容性修复
 
 **时间**: 2026-08-26

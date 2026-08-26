@@ -1,6 +1,6 @@
 """视频超分(4K)—— 帧级工作流构造器 + 目标分辨率推导(纯函数,返回新 dict,不可变)。
 
-单帧超分图(与 scripts/video_4k_upscale.py build_upscale_graph 同构,
+单帧超分图(与 scripts/ops/video_4k_upscale.py build_upscale_graph 同构,
 M6 fleet :8261/:8262/:8263 真机实测链路):
   UpscaleModelLoader(4x-UltraSharp) → LoadImage → ImageUpscaleWithModel
   → ImageScale(lanczos → 目标宽高) → SaveImage

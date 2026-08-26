@@ -553,7 +553,7 @@ _LORA_CATEGORY_CARDS: list[CardSpec] = [
             "ZImage-i2L-v2 元模型一次前向导出(476 张量/rank4),键名已转 ComfyUI 兼容格式,"
             "LoraLoaderModelOnly 真机加载出图风格生效(2026-08-24 实证)。"
         ),
-        usage="配 z_image_bf16 / z_image_turbo_bf16 底模;LoraLoaderModelOnly 权重 1.0;复跑导出见 scripts/zimage_i2l_export.py。",
+        usage="配 z_image_bf16 / z_image_turbo_bf16 底模;LoraLoaderModelOnly 权重 1.0;复跑导出见 scripts/ops/zimage_i2l_export.py。",
         prompt_dialect="自然语言(随底模方言)",
         tags=("LoRA", "风格", "i2L", "次世代"),
     ),

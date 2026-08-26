@@ -1,6 +1,6 @@
 """LongCat-Video 工作流构建 —— t2v / i2v / 视频续写(复用 i2v 图)。
 
-节点结构/连线照搬真机已验证出片的 scripts/longcat_smoke.py build_graph():
+节点结构/连线照搬真机已验证出片的 scripts/e2e/longcat_smoke.py build_graph():
   WanVideoLoraSelect(蒸馏加速 LoRA)→ WanVideoModelLoader(+ WanVideoBlockSwap 10 块)
   → WanVideoSampler(scheduler=longcat_distill_euler, cfg=1.0, shift=12.0)
   → WanVideoDecode → VHS_VideoCombine(h264-mp4)
