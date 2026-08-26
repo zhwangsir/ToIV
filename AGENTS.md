@@ -109,6 +109,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 | **LoRA trainer :9100**(2026-08-27) | ✅ `toiv-trainer.service` active+enabled(workstation);core `TOIV_TRAINER_URL=http://192.168.71.127:9100`;⚠️ arch 字符串以 workstation ai-toolkit 实测为准(zimage 无下划线/qwen_image/flux2/内置 flux),run.py 配置为**位置参数**;不支持族(10eros/ltx/pony/sd15/h3)400 拒绝 |
 | **IndexTTS2 守护**(2026-08-27) | ✅ `toiv-indextts.service` 替代 nohup 裸进程(active+enabled,health cuda:0);emo_text=true 为 2.5 正常默认(2.0 卡死 issue 已核销) |
 | **音频编排**(2026-08-27) | mix(ffmpeg amix)/variant(duration_factor 语速变体)落地;sfx 仍 501(需音效引擎);可用步骤 tts/separate/concat/mix/variant |
+| **i2L 风格 LoRA**(2026-08-27) | ✅ `toiv-i2l.service`(workstation GPU3 :9101,惰性加载常驻显存 ~26G)+ core `POST /api/train/i2l`(1-8 风格图→LoRA 落 NAS loras 自动发现);e2e 1:59 出 476 张量 rank4 19.9MB 键名 0 坏键;⚠️ core 新端点须 deploy.sh 后才可 e2e |
 | **LLM 引擎矩阵**(2026-08-23 更新) | R18=**H3 主力(10Eros-Max 嫁接版 TURBO 为 NSFW 默认 UNET,`TOIV_H3_NSFW_UNET`)+Wan2.2 生态兜底**;SFW 视频=MiniMax H3 全面替代 LTX2.5(质量优先);spark02 已换 **Qwen3.8-27B-Uncensored-FP8**(abliterated 无审查,别名保留 core .env 零改动,旧 NVFP4 在盘可回滚) |
 | web_search 出站代理 | `TOIV_WEB_SEARCH_PROXY=http://192.168.71.123:7897`(MateBook Clash);⚠️ 依赖 Mac 在线,离线时自动降级不炸链路;Tailscale 备选 100.74.15.34:7897(慢 4×) |
 | 域名双入口 | toiv.dgmt.top(香港 cloud,frp-kcp) + toiv.wineryz.top(北京,frpc-bj);openresty proxy_pass 经 frp 本地端口 127.0.0.1:18090/13100 |

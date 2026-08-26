@@ -170,6 +170,11 @@ class Settings(BaseSettings):
     # 空 = 未部署，训练相关端点返回 503。
     trainer_url: str = ""
 
+    # i2L 风格 LoRA agent(DiffSynth ZImage-i2L-v2,workstation 常驻 :9101):
+    # 1-8 张风格参考图 → 单次前向导出 Z-Image 族风格 LoRA(非训练作业)。
+    # 空 = 未部署,端点 503;生产 http://192.168.71.127:9101。
+    i2l_url: str = ""
+
     # 可观测性 —— Sentry 错误追踪 DSN。空 = 不启用(本地开发默认关);
     # 配置真实 DSN 后,app 启动时初始化 sentry-sdk 自动上报未捕获异常 + 10% 性能采样。
     sentry_dsn: str = ""

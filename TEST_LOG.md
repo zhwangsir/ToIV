@@ -2,6 +2,30 @@
 
 ---
 
+## I2L-2026-08-27 · i2L 风格 LoRA 产品化(D_finetune → done)
+
+**时间**: 2026-08-27
+**类型**: 遗留推进「i2L API 产品化(剩上传流转+常驻服务)」
+
+### 落地
+
+- **agent**:`deploy/i2l-service/server.py`(标准库 http.server 与 toiv-trainer 同风格,torch/diffsynth 惰性 import 首调加载常驻显存 bf16 ~26G);流程逐行对齐 8-24 实证脚本(ZImagePipeline base+turbo TE/VAE → ZImage-i2L-v2 元模型一次前向 → 键名转 ComfyUI 兼容);multipart 自实现解析(cgi 已于 3.13 移除);单并发忙 409、同名 400(overwrite=true 除外)
+- **部署**:`toiv-i2l.service` active+enabled(workstation GPU3 :9101,MemoryMax=48G);/health 双模型探测 true
+- **core**:`POST /api/train/i2l`(multipart 1-8 图+lora_name,httpx 透传 600s;503 未配置/409 busy/400 透传/502/504 映射表;不写 TrainJob——单次前向无状态机,产物直落 NAS loras 自动发现);`TOIV_I2L_URL=http://192.168.71.127:9101`;已 deploy.sh 部署
+
+### e2e 冒烟(真实链路)
+
+- 3 张平涂矢量风 PNG → core `/api/train/i2l` → agent GPU3 → **1:59 出 LoRA**(首调含 NAS 模型加载)
+- 产物核验:`i2l_smoke_20260827.safetensors` 19.9MB / **476 张量 rank4**(与 8-24 demo 一致)/ 键名 `diffusion_model.*.lora_A.weight` **0 坏键**;demo.png 438KB 落 NAS
+- ⚠️ 教训:core 端新端点必须 deploy.sh 后才可 e2e(首跑 Method Not Allowed 系远端旧代码)
+
+### 测试/回归
+
+- 新增:agent 25 例(health/lora_name 清洗/busy 409/同名/multipart 解析/env)+ core 14 例(错误映射+成功链路+401)
+- 全量:后端 **2315 passed**(88s)
+
+---
+
 ## BACKLOG-2026-08-27 · 遗留盘点四连:评分器灰度 + trainer 部署 + 音频 mix/variant + 快速清理包
 
 **时间**: 2026-08-27

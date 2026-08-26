@@ -9,10 +9,11 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from pathlib import Path
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 from sse_starlette.sse import EventSourceResponse
@@ -471,3 +472,88 @@ def get_train_job(
     if not job:
         raise HTTPException(status_code=404, detail="训练作业不存在")
     return _trainjob_dict(job)
+
+
+# ---------------------------------------------------------------------------
+# i2L 风格 LoRA(DiffSynth ZImage-i2L-v2,图 → LoRA 单次前向)
+# ---------------------------------------------------------------------------
+
+_I2L_NAME_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
+
+
+def _i2l_base() -> str:
+    url = get_settings().i2l_url.strip().rstrip("/")
+    if not url:
+        raise HTTPException(status_code=503, detail="i2L 风格 LoRA 服务未部署(TOIV_I2L_URL 未配置)")
+    return url
+
+
+def _i2l_agent_detail(resp: httpx.Response, fallback: str) -> str:
+    """从 agent 错误响应提取 detail 字段透传,提取失败用兜底文案。"""
+    try:
+        return str(resp.json().get("detail") or fallback)
+    except (ValueError, AttributeError):
+        return fallback
+
+
+@router.post("/train/i2l")
+async def i2l_style_lora(
+    files: list[UploadFile] = File(...),
+    lora_name: str = Form(...),
+    demo_prompt: str = Form(""),
+    user: User = Depends(get_current_user),
+) -> dict:
+    """i2L 风格 LoRA:1-8 张风格参考图 → 单次前向导出 Z-Image 族 LoRA。
+
+    设计理由(不写 TrainJob):i2L 是单次前向推理而非迭代训练——无步数/loss/进度
+    概念,同步等待即得产物,TrainJob 的 queued/training/done 状态机与 SSE 进度
+    转发对它不适用。LoRA 产物由 agent 直落 NAS loras/(ComfyUI
+    LoraLoaderModelOnly 自动发现),返回字段与 register_lora 端点风格对齐。
+    """
+    base = _i2l_base()
+
+    name = lora_name.strip()
+    if not name or not _I2L_NAME_RE.match(name):
+        raise HTTPException(status_code=400, detail="lora_name 仅允许字母/数字/下划线/连字符")
+    if len(files) > 8:
+        raise HTTPException(status_code=400, detail="单次上限 8 张")
+
+    mp_files = []
+    for i, f in enumerate(files):
+        ctype = (f.content_type or "").lower()
+        if not ctype.startswith("image/"):
+            raise HTTPException(status_code=400, detail=f"{f.filename} 不是图片(content-type: {ctype or '未知'})")
+        content = await f.read()
+        if not content:
+            raise HTTPException(status_code=400, detail=f"图片为空: {f.filename}")
+        if len(content) > _MAX_IMAGE_BYTES:
+            raise HTTPException(status_code=400, detail=f"{f.filename} 超过 20MB 上限")
+        ext = Path(f.filename or "img.png").suffix.lower() or ".png"
+        mp_files.append(("files", (f"img-{i:03d}{ext}", content, ctype)))
+
+    data = {"lora_name": name}
+    if demo_prompt.strip():
+        data["demo_prompt"] = demo_prompt.strip()
+
+    try:
+        async with httpx.AsyncClient(timeout=600.0) as client:
+            resp = await client.post(f"{base}/i2l", files=mp_files, data=data)
+    except httpx.TimeoutException as e:
+        raise HTTPException(status_code=504, detail=f"i2L 服务超时: {e}") from e
+    except httpx.HTTPError as e:
+        raise HTTPException(status_code=502, detail=f"i2L 服务不可达: {e}") from e
+
+    if resp.status_code == 200:
+        payload = resp.json()
+        return {
+            "ok": True,
+            "lora_name": payload.get("lora_name", f"{name}.safetensors"),
+            "size_mb": payload.get("size_mb", 0.0),
+            "family": "z_image",  # i2L 元模型基于 Z-Image(DiffSynth ZImage-i2L-v2)
+            "demo_png": payload.get("demo_png"),
+        }
+    if resp.status_code == 409:
+        raise HTTPException(status_code=409, detail=_i2l_agent_detail(resp, "i2L 服务忙(已有任务在跑),请稍后重试"))
+    if resp.status_code == 400:
+        raise HTTPException(status_code=400, detail=_i2l_agent_detail(resp, "i2L 输入错误"))
+    raise HTTPException(status_code=502, detail=_i2l_agent_detail(resp, f"i2L 导出失败(HTTP {resp.status_code})"))

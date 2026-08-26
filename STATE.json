@@ -1,7 +1,7 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-27T01:30:00+08:00",
+ "updated_at": "2026-08-27T02:10:00+08:00",
  "health": {
   "engine_r3_2026_08_21": {
    "status": "completed",
@@ -59,8 +59,8 @@
    "evidence": "2026-08-23 音频编排层 POST /api/audio/orchestrate 上线(tts/separate/concat 可用);2026-08-24 IndexTTS 2.5 升级(多语种+情感修复);剩余: mix/sfx/variant 为 501 占位;2026-08-27 mix(ffmpeg aresample+amix)/variant(duration_factor 语速变体)落地,sfx 保持 501 文案改进,14/14 测试"
   },
   "D_finetune": {
-   "status": "partial_70pct",
-   "evidence": "2026-08-23 H3 LoRA 训练管线(ostris/ai-toolkit minimax_h3)冒烟实证(rank16 310MB 产出留档 NAS);剩余: trainer :9100 未部署、z_image_base 族 trainer 同步、i2L API 产品化;2026-08-27 trainer :9100 systemd 常驻(toiv-trainer.service,arch 实测核验修正,run.py 位置参数修复,core TOIV_TRAINER_URL 接通);剩余: i2L API 产品化(方案已出)"
+   "status": "done",
+   "evidence": "2026-08-23 H3 LoRA 训练管线(ostris/ai-toolkit minimax_h3)冒烟实证(rank16 310MB 产出留档 NAS);剩余: trainer :9100 未部署、z_image_base 族 trainer 同步、i2L API 产品化;2026-08-27 trainer :9100 systemd 常驻(toiv-trainer.service,arch 实测核验修正,run.py 位置参数修复,core TOIV_TRAINER_URL 接通);剩余: i2L API 产品化(方案已出);2026-08-27 i2L 产品化落地(toiv-i2l.service GPU3 :9101 + POST /api/train/i2l,e2e 1:59 出 476 张量 rank4 LoRA 19.9MB 键名 0 坏键)"
   },
   "E_data_flywheel": {
    "status": "partial",
@@ -1689,5 +1689,14 @@
   "cleanup": "IndexTTS2 toiv-indextts.service 替代 nohup(emo_text 行为核实一致);contentpolicy 表核实不存在核销;avatar-talk 641 全过核销",
   "regression": "后端 2276 passed / 前端 641 passed / tsc 0",
   "verified_at": "2026-08-27T01:30:00+08:00"
+ },
+ "i2l_productization_2026_08_27": {
+  "status": "completed",
+  "scope": "i2L 风格 LoRA 产品化:常驻服务 + 上传流转 + LoRA 落 NAS 自动发现(D_finetune 收官)",
+  "agent": "deploy/i2l-service/server.py(惰性加载常驻显存 bf16 ~26G,单并发 409,同名 400);toiv-i2l.service active+enabled(workstation GPU3 :9101)",
+  "core": "POST /api/train/i2l(1-8 图+lora_name,600s 透传,503/409/400/502/504 映射);TOIV_I2L_URL 接通;deploy.sh 已部署",
+  "e2e": "3 张平涂矢量图 → 1:59 出 i2l_smoke_20260827.safetensors(19.9MB/476 张量 rank4/0 坏键)+demo.png 落 NAS loras",
+  "tests": "agent 25 例 + core 14 例;全量后端 2315 passed",
+  "verified_at": "2026-08-27T02:10:00+08:00"
  }
 }
