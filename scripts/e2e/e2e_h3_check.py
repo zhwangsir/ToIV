@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """MiniMax H3 视频 E2E 单独验证(云端 toiv.dgmt.top):t2v + i2v。
 
-用法: python3 e2e_h3_check.py [base_url]   默认 https://toiv.dgmt.top
+用法: python3 scripts/e2e/e2e_h3_check.py [base_url]   默认 https://toiv.dgmt.top
 产物落盘: /tmp/toiv_e2e_artifacts/h3/
 """
 from __future__ import annotations

@@ -2,7 +2,7 @@
 """音频板块链式 E2E(云端 toiv.dgmt.top):TTS → 人声分离 → ASR 听写 + ACE 音乐。
 TTS 产物作为分离/ASR 的真实输入,全链路产物校验魔数与大小。
 
-用法: python3 e2e_audio_check.py [base_url]   默认 https://toiv.dgmt.top
+用法: python3 scripts/e2e/e2e_audio_check.py [base_url]   默认 https://toiv.dgmt.top
 产物落盘: /tmp/toiv_e2e_artifacts/audio/
 """
 from __future__ import annotations

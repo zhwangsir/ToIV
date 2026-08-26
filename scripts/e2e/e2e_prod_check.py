@@ -5,7 +5,7 @@
 LTX2 文生视频 / H3 文生视频 / H3 图生视频 / 登录限流 429。
 生成类用例全部轮询至完成并下载产物校验魔数与大小,确保"真实可用有产物"。
 
-用法: python3 e2e_prod_check.py [base_url]   默认 https://toiv.dgmt.top
+用法: python3 scripts/e2e/e2e_prod_check.py [base_url]   默认 https://toiv.dgmt.top
 产物落盘: /tmp/toiv_e2e_artifacts/
 """
 from __future__ import annotations

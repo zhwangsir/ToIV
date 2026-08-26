@@ -2,7 +2,7 @@
 """短剧工作室链式 E2E(云端 toiv.dgmt.top):
 项目创建 → LLM 分镜拆解 → 分镜视频(LTX) → 分镜配音(IndexTTS2) → 一键合成成片 → 下载校验。
 
-用法: python3 e2e_drama_check.py [base_url]   默认 https://toiv.dgmt.top
+用法: python3 scripts/e2e/e2e_drama_check.py [base_url]   默认 https://toiv.dgmt.top
 产物落盘: /tmp/toiv_e2e_artifacts/drama/
 """
 from __future__ import annotations

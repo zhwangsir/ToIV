@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """ToIV 全面系统测试 —— 功能/边界/异常/安全/性能 五维覆盖(core 线上)。
 
-用法: python3 deploy/e2e_comprehensive_check.py [base_url]
+用法: python3 scripts/e2e/e2e_comprehensive_check.py [base_url]
 默认 base_url = http://192.168.71.47:8090 (core LAN 直连)
 
 测试矩阵:
