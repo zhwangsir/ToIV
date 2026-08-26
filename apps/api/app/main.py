@@ -152,6 +152,11 @@ async def lifespan(app: FastAPI):
     from app.routes import scope as scope_routes
 
     scope_routes.reconcile_interrupted()
+    # 关键帧链合并作业收口:拼接链是进程内任务,api 重启后 queued 的合并作业
+    # 按 params 快照(段 prompt_id + 总时长)重挂拼接链(幂等;params 损坏标 error)
+    from app.services import keyframe_chain as keyframe_chain_svc
+
+    keyframe_chain_svc.reconcile_interrupted()
     # R3.2 Agent Team 断点续跑:api 重启后,running 的 run 从 LangGraph checkpoint
     # 续跑(无 checkpoint 则幂等重放,已完成任务节点自查跳过);
     # awaiting_assembly 的 run 正挂确认门等用户裁决,不自动推进;单 run 失败标 error 不拖垮启动

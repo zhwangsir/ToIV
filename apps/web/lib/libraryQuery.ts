@@ -53,6 +53,8 @@ export const FILTERS: FilterDef[] = [
       "avatar_talk",
       // Wan2.1-VACE 首尾帧转场
       "transition",
+      // 关键帧链式转场(合并成片;段产物 kind=transition 已在上)
+      "keyframe_chain",
       // 短剧 studio 视频类产物
       "drama_shot_video", "drama_shot_video_i2v", "drama_shot_video_v2", "drama_shot_lipsync",
     ],
@@ -122,6 +124,7 @@ export function kindLabel(kind: string): string {
     longcat_continue: "长视频续写",
     avatar_talk: "数字人",
     transition: "首尾帧转场",
+    keyframe_chain: "关键帧链",
     audio: "音频",
     ace_audio: "音乐",
     audio_sep: "人声分离",

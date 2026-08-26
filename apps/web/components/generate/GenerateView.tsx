@@ -39,6 +39,7 @@ import { friendlyError } from "@/lib/friendlyError";
 
 import { EngineInfoCard } from "./EngineInfoCard";
 import { EntityPicker, entityCover } from "@/components/entities/EntityPicker";
+import { KeyframeChainEditor } from "./KeyframeChainEditor";
 import { ParamField } from "./ParamField";
 import { applyAspectPair } from "@/lib/aspectPair";
 import { PARAM_PANEL_GROUPS, groupEngineParams } from "./paramGroups";
@@ -270,6 +271,9 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
   const videoParam = engine ? engineNeedsVideo(engine) : null;
   // images 类型 max>1 = 多参考图(VACE);单图引擎仍走旧单槽
   const multiImage = engine ? engineMaxImages(engine) > 1 : false;
+  // 关键帧链式转场:选中 keyframe-chain 引擎时,舞台列渲染 KeyframeChainEditor 专用编辑器
+  // (替代 PromptBar;槽位/逐段参数/提交进度全部自承载),参数台的标准分组同步让位
+  const isChain = engine?.id === "keyframe-chain";
 
   // 参数分区(T1 Inspector 化):尺寸(width/height 成对)→ PromptBar chip;
   // 参考输入(images/audio/video)→ 上传组件独立成节;其余按 paramGroups 分组卡
@@ -454,6 +458,8 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
   const canSubmit =
     !!engine &&
     engine.available &&
+    // 关键帧链引擎由 KeyframeChainEditor 自承载提交(标准链路永不触发)
+    engine.id !== "keyframe-chain" &&
     // wan-animate-2 提示词可留空(后端自动反推参考图外观 caption,官方提示词要求)
     (engine.id === "wan-animate-2" || positive.trim().length > 0) &&
     !gen.isRunning &&
@@ -762,6 +768,11 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
           />
         </section>
 
+        {isChain ? (
+          /* 关键帧链引擎:舞台列渲染专用编辑器(槽位/逐段参数/总时长/提交进度自承载),
+             PromptBar 让位(链有逐段提示词,单条输入框不适用) */
+          <KeyframeChainEditor />
+        ) : (
         <PromptBar
           value={positive}
           onChange={(v) => {
@@ -797,6 +808,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
           onGenerate={() => void onGenerate()}
           onCancel={onCancel}
         />
+        )}
         </div>
 
         {paramsOpen && (
@@ -953,7 +965,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
                   )}
                 </div>
 
-                {engine && (imageParam || audioParam || videoParam) && (
+                {!isChain && engine && (imageParam || audioParam || videoParam) && (
                   <div className="params-section">
                     <h3 className="params-section-title">参考输入</h3>
                     {imageParam && multiImage && (
@@ -1008,7 +1020,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
 
                 {/* 主体引用(P1 全局主体库):多选主体 → 主体图钉同机 worker 注入参考图链,
                     prompt_hint 注入提示词;chip 移除同步摘除其注入的参考图 */}
-                {engine && (
+                {!isChain && engine && (
                   <div className="params-section">
                     <h3 className="params-section-title">主体引用</h3>
                     <div className="entity-ref-row">
@@ -1051,7 +1063,8 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
 
                 {/* T1 Inspector 分组卡:模型与引擎 / 画幅与时长 / 采样 / LoRA 叠加,
                     空组不渲染;组间 hairline 由 .params-section + .params-section 承担 */}
-                {paramGroups &&
+                {!isChain &&
+                  paramGroups &&
                   PARAM_PANEL_GROUPS.map(
                     (g) =>
                       paramGroups[g.id].length > 0 && (
@@ -1070,7 +1083,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
                       ),
                   )}
 
-                {engine && showAdvanced && (
+                {!isChain && engine && showAdvanced && (
                   <details className="adv-params" ref={advDetailsRef}>
                     <summary>
                       高级参数

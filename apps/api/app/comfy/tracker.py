@@ -276,6 +276,11 @@ def reconcile_pending() -> int:
                 if (now - created).total_seconds() > max_age:
                     stale.append(j.prompt_id)
                     continue
+            # keyframe_chain 合并作业由进程内拼接链管理(prompt_id 是 chain-* 合成占位,
+            # worker 上无对应 prompt),重挂追踪只会被孤儿检测误杀;重启恢复走
+            # keyframe_chain.reconcile_interrupted,超龄仍由上方 stale 分支兜底回收
+            if j.kind == "keyframe_chain":
+                continue
             pending.append((j.prompt_id, j.worker))
     for prompt_id in stale:
         mark_status(prompt_id, "error")

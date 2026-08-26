@@ -123,10 +123,10 @@ def test_gen_tools_registered_after_builtin():
 
 
 def test_dispatch_covers_all_registry_engines():
-    """注册表 22 个引擎全部有提交分发(防新增引擎漏接)。"""
+    """注册表 23 个引擎全部有提交分发(防新增引擎漏接)。"""
     engine_registry.populate_registry()
     ids = [s["id"] for s in engine_registry._REGISTRY]
-    assert len(ids) == 22
+    assert len(ids) == 23
     missing = [eid for eid in ids if eid not in tools_gen._DISPATCH]
     assert missing == []
 

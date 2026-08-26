@@ -671,6 +671,24 @@ def _wan_transition_params() -> list[dict]:
     ]
 
 
+# 关键帧链式转场参数(2-5 张关键帧 → N-1 段转场拼接,与 routes/wan_studio.py
+# KeyframeChainRequest 同一套范围;前端选中该引擎时渲染 KeyframeChainEditor 专用编辑器,
+# images 参数仅声明契约/分组,不由通用上传组件渲染)
+def _keyframe_chain_params() -> list[dict]:
+    return [
+        {"key": "images", "label": "关键帧(链序)", "type": "images", "max": 5,
+         "default": None,
+         "hint": "按链序上传 2-5 张关键帧:相邻两帧生成一段转场并拼接;jpg / png / webp,单张 ≤ 20MB"},
+        _negative(),
+        _num("width", "宽度", 832, min_=320, max_=1280, step=16,
+             hint="16 对齐;比例限 9:16~16:9,超出自动纠正", ar=AR_VIDEO),
+        _num("height", "高度", 480, min_=320, max_=1280, step=16, hint="16 对齐"),
+        _num("steps", "采样步数", 20, min_=1, max_=50, hint="官方示例 20 步(unipc)"),
+        _num("cfg", "CFG", 5.0, min_=0.0, max_=20.0, step=0.5, hint="官方示例 4-5 区间"),
+        _seed(),
+    ]
+
+
 # ACE-Step 文生音乐参数(与 routes/audio.py AudioRequest 同一套范围)
 def _ace_audio_params() -> list[dict]:
     return [
@@ -1332,6 +1350,25 @@ def _default_registry() -> list[dict[str, Any]]:
             "note": "Apache 2.0 开源权重;多参考图/首尾帧/局部编辑一体化视频模型",
         },
         "params": _wan_transition_params(),
+        "probe": _probe_wan_vace,
+    },
+    # 关键帧链式转场(对标 Pika 2.5 Pikaframes):2-5 张关键帧 → N-1 段首尾帧转场
+    # (复用 transition 链路,同实例 :8197)→ 后台拼接为整条视频(单段 1-10s,总长 ≤25s);
+    # 前端选中渲染 KeyframeChainEditor 专用编辑器(上传槽位/逐段参数/总时长预览)
+    {
+        "id": "keyframe-chain",
+        "label": "关键帧链",
+        "kind": "video",
+        "nsfw": False,
+        "submit": {"route": "/api/generate/keyframe-chain", "kind": "keyframe-chain"},
+        "description": "关键帧链式转场:按链序给 2-5 张关键帧,相邻两帧各生成一段平滑转场并拼接为整条视频(单段 1-10s,总长 ≤25s),Wan2.1-VACE 专用实例 :8197",
+        "source": {
+            "name": "Wan2.1-VACE-14B",
+            "url": "https://huggingface.co/ali-vilab/VACE-Wan2.1-14B",
+            "author": "阿里巴巴(VILAB)",
+            "note": "Apache 2.0 开源权重;多参考图/首尾帧/局部编辑一体化视频模型",
+        },
+        "params": _keyframe_chain_params(),
         "probe": _probe_wan_vace,
     },
     # Wan-Animate-2:参考图角色 + 驱动视频 → 动作迁移/视频换人(换代模型,端到端 DiT

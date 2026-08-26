@@ -18,6 +18,9 @@ POST /api/generate/transition —— 首尾帧转场(首帧+尾帧 → 过渡视
 """
 from __future__ import annotations
 
+import json
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session
@@ -25,16 +28,18 @@ from sqlmodel import Session
 from app.comfy.client import ComfyUIError
 from app.db import get_session
 from app.deps import get_current_user, resolve_worker
-from app.models import User
+from app.models import Job, User
 from app.nsfw_ctx import nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
 from app.workflows.model_profiles import AR_VIDEO, aspect_guard
+from app.services import keyframe_chain as keychain_service
 from app.services import longcat as longcat_service
 from app.services import hold_queue
 from app.services import video_generators as vgen
 from app.services import wan_animate2 as animate2_service
 from app.services import wan_video as wan_service
 from app.services.duration import DurationLimitError, DurationPlan, resolve_duration
+from app.services.keyframe_chain import KeyframeChainError
 from app.workflows.wan_animate import (
     DEFAULT_RELIGHT_LORA,
     WanAnimateParams,
@@ -349,6 +354,156 @@ async def generate_transition(
         hold_exc=hold_exc,  # 预检失败转 hold 排队(None=预检通过,正常提交)
     )
     return _attach_duration_chain(result, plan, lambda: client)
+
+
+class KeyframeChainRequest(BaseModel):
+    """关键帧链式转场请求(2-5 张关键帧 → N-1 段首尾帧转场 → 拼接整条视频,:8197)。
+
+    keyframes 为上传句柄文件名(与 worker 指定的落点同机,前端互钉),按链序排列;
+    prompts 单 string 全段共用 / list[str] 逐段(数量须=N-1);durations 缺省每段
+    5s 均分,显式给出时逐段 1-10s 且总长 ≤25s(校验细节见 services/keyframe_chain)。
+    """
+    keyframes: list[str] = Field(min_length=2, max_length=5)
+    prompts: str | list[str]
+    worker: str
+    durations: list[float] | None = Field(default=None)
+    negative: str = Field(default="", max_length=2000)
+    width: int = Field(default=832, ge=320, le=1280)
+    height: int = Field(default=480, ge=320, le=1280)
+    steps: int = Field(default=20, ge=1, le=50)
+    cfg: float = Field(default=5.0, ge=0.0, le=20.0)
+    shift: float = Field(default=8.0, ge=0.0, le=20.0)
+    fps: int = Field(default=16, ge=8, le=30)
+    seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
+
+    _frames_ok = field_validator("keyframes", mode="before")(
+        lambda v: [_no_traversal(x) for x in v] if isinstance(v, list) else v)
+
+    @field_validator("width", "height")
+    @classmethod
+    def _snap16(cls, v: int) -> int:
+        return v // 16 * 16
+
+    # 宽高比守卫:9:16~16:9 静默归一(训练分布;极端比例出主体被裁/文字溢出)
+    _ratio = aspect_guard(*AR_VIDEO, align=16, min_v=320, max_v=1280)
+
+
+@router.post("/generate/keyframe-chain")
+async def generate_keyframe_chain(
+    req: KeyframeChainRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """关键帧链式转场(对标 Pika 2.5 Pikaframes):2-5 张关键帧逐段转场并拼接。
+
+    关键帧从上传落点 worker 转运到 :8197 实例(每张一次,相邻段共享衔接帧);
+    各段复用 transition 提交链路(段 Job kind=transition 各自保留,便于调试);
+    合并 Job(kind=keyframe_chain)由后台拼接链在各段完成后 ffmpeg concat 出整条成片
+    (api 重启由 keyframe_chain.reconcile_interrupted 按 params 快照重挂)。
+    提交前 GPU2 显存互斥预检(整链一次):不足时各段转 hold 排队,资源释放后 FIFO 放行。
+    """
+    enforce_generation_rate_limit(user)
+    try:
+        plan = keychain_service.plan_keyframe_chain(
+            req.keyframes, req.prompts, req.durations,
+            fps=req.fps, width=req.width, height=req.height,
+            steps=req.steps, cfg=req.cfg, seed=req.seed,
+        )
+    except KeyframeChainError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    client = longcat_service.get_longcat_client()
+    source = resolve_worker(req.worker)
+    # 关键帧全部转运到 :8197(每张一次;相邻段共享衔接帧,不重复转运)
+    names = [
+        await longcat_service.transfer_ref_image(client, source, kf) for kf in req.keyframes
+    ]
+    hold_exc = await _wan_precheck_or_hold(client)
+    nsfw = nsfw_allowed(user)
+    seg_prompt_ids: list[str] = []
+    for i, seg in enumerate(plan.segments):
+        params = WanVaceParams(
+            positive=seg.prompt,
+            negative=req.negative,
+            ref_images=(names[i],),  # 与 transition 同:VACE 至少 1 张参考图,首帧兼作锚点
+            start_image=names[i],
+            end_image=names[i + 1],
+            width=plan.width,
+            height=plan.height,
+            num_frames=seg.frames,
+            steps=seg.steps,
+            cfg=seg.cfg,
+            shift=req.shift,
+            fps=plan.fps,
+            **({"seed": seg.seed} if seg.seed is not None else {}),
+        )
+        graph = build_wan_vace_graph(params)
+        # 段 Job params 按等价 transition 请求建档(支撑精确重生/锁 seed 微调)
+        seg_req = TransitionRequest(
+            positive=seg.prompt,
+            first_frame=seg.first_frame,
+            last_frame=seg.last_frame,
+            worker=req.worker,
+            negative=req.negative,
+            width=plan.width,
+            height=plan.height,
+            duration_sec=seg.duration_sec,
+            steps=seg.steps,
+            cfg=seg.cfg,
+            shift=req.shift,
+            fps=plan.fps,
+            seed=seg.seed,
+        )
+        result = await longcat_service.submit_longcat_job(
+            graph, kind="transition", positive=params.positive, seed=params.seed,
+            req=seg_req, user=user, session=session, client=client,
+            nsfw=nsfw,
+            prechecked=True,  # 上方 _wan_precheck_or_hold 已做显存+RAM 预检(整链一次)
+            hold_exc=hold_exc,  # 预检失败各段均转 hold 排队(None=预检通过,正常提交)
+        )
+        seg_prompt_ids.append(result["prompt_id"])
+    # 合并 Job:params 存完整链计划 + 段 prompt_id(拼接链/重启重挂的事实源)
+    merged_prompt_id = f"chain-{uuid.uuid4().hex[:16]}"
+    session.add(
+        Job(
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            prompt_id=merged_prompt_id,
+            worker=client.base_url,
+            kind="keyframe_chain",
+            status="queued",
+            prompt=" → ".join(dict.fromkeys(s.prompt for s in plan.segments)),
+            seed=plan.seed if plan.seed is not None else 0,
+            nsfw=nsfw,
+            params=json.dumps(
+                {
+                    **plan.to_params(),
+                    "keyframes": req.keyframes,
+                    "segment_prompt_ids": seg_prompt_ids,
+                    "worker": req.worker,
+                },
+                ensure_ascii=False,
+            ),
+        )
+    )
+    session.commit()
+    keychain_service.spawn_keyframe_chain_merge(
+        client=client,
+        prompt_ids=seg_prompt_ids,
+        seconds=plan.total_duration,
+        merged_prompt_id=merged_prompt_id,
+    )
+    return {
+        "prompt_id": merged_prompt_id,
+        "worker": client.base_url,
+        "seed": plan.seed,
+        "segments": seg_prompt_ids,
+        "total_duration": plan.total_duration,
+        **(
+            {"held": True, "hold_reason": str(hold_exc.detail)}
+            if hold_exc is not None
+            else {}
+        ),
+    }
 
 
 # --------------------------------------------------------------------------- #

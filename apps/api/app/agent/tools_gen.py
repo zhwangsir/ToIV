@@ -401,6 +401,15 @@ async def _submit_wan_transition(pos, neg, params, pool, user, session) -> dict:
     return await wan_studio.generate_transition(req, user, session)
 
 
+async def _submit_keyframe_chain(pos, neg, params, pool, user, session) -> dict:
+    from app.routes import wan_studio
+
+    # 关键帧链:positive 作为全段共用提示词(prompts 单 string 语义);
+    # keyframes(2-5 张链序上传句柄)/worker/durations 由 LLM 按参数表显式给出
+    req = wan_studio.KeyframeChainRequest(prompts=pos, negative=neg, **params)
+    return await wan_studio.generate_keyframe_chain(req, user, session)
+
+
 # (分发函数, 参考媒体回填键)——回填键为空元组 = 纯文本引擎
 _DISPATCH = {
     "txt2img": (_submit_txt2img, ()),
@@ -425,6 +434,7 @@ _DISPATCH = {
     "wan-animate-2": (_submit_wan_animate2, ("image", "worker")),
     "wan-vace": (_submit_wan_vace, ()),
     "wan-transition": (_submit_wan_transition, ()),
+    "keyframe-chain": (_submit_keyframe_chain, ()),
 }
 
 

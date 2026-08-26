@@ -331,5 +331,4 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - [x] ToIV 迁移 core(✅ deploy.sh 持续部署,唯一生产点)
 - [x] 域名双入口(✅ toiv.dgmt.top 香港 + toiv.wineryz.top 北京)
 - [x] spark02 无审查模型替换(✅ 2026-08-23,别名兼容零改动)
-- [x] ~~内容限制管控三档~~(2026-08-23 上线后同日下线,用户自行重做该板块)
 - [x] core 配 `TOIV_CIVITAI_API_KEY`(✅ 已配置,secret 禁止提交)
