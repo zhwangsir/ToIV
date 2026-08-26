@@ -1677,6 +1677,7 @@
   "refs_updated": "AGENTS.md 3 处 + 代码 docstring 4 处(video_upscale/longcat_video/model_wiki/longcat_studio)+ .gitignore 修剪 16 条陈旧条目;生产引用不动:deploy.sh/bare-metal/*-service/docker-compose.yml/drama/",
   "regression": "旧路径 grep 零残留;后端 pytest 2248 passed;前端 tsc 0 + 641 passed",
   "docs": "DEVELOPMENT.md 新增「9. 仓库结构与命名规范」(顶层布局/边界规则/deploy 约定/scripts 四分组/命名规范);TEST_LOG.md REPO-RESTRUCTURE-2026-08-27 条目",
+  "commit": "8f64f3e + a06f356(e2e docstring 补提)",
   "verified_at": "2026-08-27T00:05:00+08:00"
  }
 }
