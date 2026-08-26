@@ -24,6 +24,15 @@ import {
   listJobs,
 } from "@/lib/api";
 import { fetchEngines, type EngineInfo } from "@/lib/engines";
+import {
+  filterEntities,
+  resolveEntityIds,
+  useEntities,
+  entityKindLabel,
+  entityThumbUrl,
+  type EntityInfo,
+} from "@/lib/entities";
+import { EntityRefsPreview } from "@/components/ui/PromptWithEntities";
 import { isVideoKind, kindLabel, kindToFilter } from "@/lib/libraryQuery";
 import { mediaKindOf } from "@/lib/mediaKind";
 import { ModelViewer } from "@/components/ui/ModelViewer";
@@ -771,9 +780,21 @@ export function AssistantView(props?: AssistantViewProps) {
       (e) => !q || e.label.toLowerCase().includes(q),
     );
   }, [input, r18]);
+  // 主体库(@主体引用,2026-08-26):与技能同一 @ 面板,第二分组「主体」;
+  // 选定不跳转,把 @触发词 替换为 `@实体名 ` 引用(chip 预览由 EntityRefsPreview 承担)
+  const subjectEntities = useEntities();
+  const entityEntries = useMemo(() => {
+    const idx = input.lastIndexOf("@");
+    if (idx < 0) return [];
+    const q = input.slice(idx + 1);
+    // 触发词含空白 = 已离开 @ 语境(继续写正文),不再提示
+    if (/\s/.test(q)) return [];
+    return filterEntities(subjectEntities, q).slice(0, 6);
+  }, [input, subjectEntities]);
   // 无匹配项时收敛面板,Enter 照常发送原文
   const skillPanelVisible =
-    input.includes("@") && !skillDismissed && !busy && skillEntries.length > 0;
+    input.includes("@") && !skillDismissed && !busy &&
+    (skillEntries.length > 0 || entityEntries.length > 0);
 
   /** 选定技能入口:剥掉尾部的 @触发词,跳转对应视图。 */
   const onPickSkill = useCallback(
@@ -784,6 +805,13 @@ export function AssistantView(props?: AssistantViewProps) {
     },
     [goView],
   );
+
+  /** 选定主体:@触发词 → `@实体名 `(文本内引用,不跳转;发送时解析为 entity_ids)。 */
+  const onPickEntity = useCallback((ent: EntityInfo) => {
+    setInput((prev) => prev.replace(/@[^@]*$/, `@${ent.name} `));
+    setSkillDismissed(true);
+    textareaRef.current?.focus();
+  }, []);
 
   // 顶栏/设置面板的模型名跟随后端真实配置,避免显示与实际调用不一致
   useEffect(() => {
@@ -964,7 +992,7 @@ export function AssistantView(props?: AssistantViewProps) {
   // 失败/超时 → 错误气泡 + 重试;成功/失败均写入历史。docIds = 本轮挂载的文档。
   // resume = 提案确认回执(POST /api/agent/chat/resume,响应同构 SSE,不再发 messages)
   const requestReply = useCallback(
-    async (baseMsgs: ChatMessage[], docIds: string[] = [], resume?: ResumeDecision) => {
+    async (baseMsgs: ChatMessage[], docIds: string[] = [], resume?: ResumeDecision, entityIds?: string[]) => {
       setBusy(true);
       setPending(true);
       abortRef.current = false;
@@ -1103,6 +1131,8 @@ export function AssistantView(props?: AssistantViewProps) {
                 document_ids: docIds,
                 // 仅服务端模式携带会话 id(local 兜底模式的 id 是本地 genId,服务端不认)
                 session_id: convStore.serverMode ? (activeConvIdRef.current ?? null) : null,
+                // @主体引用:@实体名 解析出的主体库 id(提及首现序),空则不携带
+                ...(entityIds?.length ? { entity_ids: entityIds } : {}),
               },
               onEvent,
               controller.signal,
@@ -1244,9 +1274,10 @@ export function AssistantView(props?: AssistantViewProps) {
       }
       setAttachedDocs([]); // 挂载随消息发出,芯片转移到消息气泡上
       setSkillDismissed(true); // 发送后收敛 @ 面板
-      await requestReply(newMsgs, docs.map((d) => d.id));
+      // @主体引用:把文本里的 @实体名 解析为 entity_ids(提及首现序)随本轮发送
+      await requestReply(newMsgs, docs.map((d) => d.id), undefined, resolveEntityIds(text, subjectEntities));
     },
-    [input, busy, messages, attachedDocs, requestReply],
+    [input, busy, messages, attachedDocs, subjectEntities, requestReply],
   );
 
   // 重试:摘掉末尾错误气泡,重发上一条用户消息所在的对话(复用上轮挂载的文档)
@@ -1277,15 +1308,17 @@ export function AssistantView(props?: AssistantViewProps) {
       }
       if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
         e.preventDefault();
-        // @ 面板展开时 Enter = 选定首项(堆友交互);面板关闭/无候选时照常发送
+        // @ 面板展开时 Enter = 选定首项(堆友交互;技能优先,无技能候选取首个主体);
+        // 面板关闭/无候选时照常发送
         if (skillPanelVisible) {
-          onPickSkill(skillEntries[0].view);
+          if (skillEntries.length > 0) onPickSkill(skillEntries[0].view);
+          else onPickEntity(entityEntries[0]);
           return;
         }
         send();
       }
     },
-    [send, skillPanelVisible, skillEntries, onPickSkill],
+    [send, skillPanelVisible, skillEntries, entityEntries, onPickSkill, onPickEntity],
   );
 
   const formatTime = (ts: number) => {
@@ -1358,6 +1391,9 @@ export function AssistantView(props?: AssistantViewProps) {
           ))}
         </div>
       )}
+      {/* @主体引用预览:输入中的 @实体名 实时显示绑定 chip(图N);
+          × 移除引用;实体库为空/未加载时自动隐藏,纯文本输入零影响 */}
+      <EntityRefsPreview value={input} entities={subjectEntities} onChange={setInput} />
       <div className="av-composer-anchor">
         {/* popup 会话抽屉(锚于输入框上方,与 @ 技能面板同位):
             列表/切换/新建/删除全复用页形态逻辑;Esc/点外部关闭 */}
@@ -1388,13 +1424,17 @@ export function AssistantView(props?: AssistantViewProps) {
             <div className="av-pop-conv-body">{renderConvList()}</div>
           </div>
         )}
-        {/* @ 技能面板(一期 = 工作台快捷入口;视觉与 at-card 同构) */}
+        {/* @ 技能面板(一期 = 工作台快捷入口;视觉与 at-card 同构)。
+            2026-08-26 起并入第二分组「主体」(@主体引用):选定插入 @实体名 文本引用,
+            不跳转;发送时解析为 entity_ids 传给后端 */}
         {skillPanelVisible && (
-          <div className="av-skill-panel at-card" role="menu" aria-label="技能与工作台快捷入口">
-            <div className="av-skill-panel-head">
-              <span className="av-skill-panel-title">技能 / 工作台</span>
-              <span className="av-skill-panel-hint">Enter 选定首项 · Esc 关闭</span>
-            </div>
+          <div className="av-skill-panel at-card" role="menu" aria-label="技能、工作台与主体库快捷入口">
+            {skillEntries.length > 0 && (
+              <div className="av-skill-panel-head">
+                <span className="av-skill-panel-title">技能 / 工作台</span>
+                <span className="av-skill-panel-hint">Enter 选定首项 · Esc 关闭</span>
+              </div>
+            )}
             {skillEntries.map((entry) => (
               <button
                 key={entry.view}
@@ -1409,6 +1449,36 @@ export function AssistantView(props?: AssistantViewProps) {
                 <span className="av-skill-item-main">
                   <span className="av-skill-item-label">{entry.label}</span>
                   <span className="av-skill-item-desc">{entry.desc}</span>
+                </span>
+              </button>
+            ))}
+            {entityEntries.length > 0 && (
+              <div className="av-skill-panel-head">
+                <span className="av-skill-panel-title">主体</span>
+                <span className="av-skill-panel-hint">选定后插入 @名字 引用</span>
+              </div>
+            )}
+            {entityEntries.map((ent) => (
+              <button
+                key={ent.id}
+                type="button"
+                role="menuitem"
+                className="av-skill-item"
+                onClick={() => onPickEntity(ent)}
+              >
+                <span className="av-skill-item-icon">
+                  {entityThumbUrl(ent) ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img className="av-skill-item-thumb" src={entityThumbUrl(ent)} alt="" aria-hidden="true" />
+                  ) : (
+                    <Icon name="user" size={14} strokeWidth={1.8} />
+                  )}
+                </span>
+                <span className="av-skill-item-main">
+                  <span className="av-skill-item-label">@{ent.name}</span>
+                  <span className="av-skill-item-desc">
+                    {entityKindLabel(ent.kind)} · 引用为 图片{resolveEntityIds(input, subjectEntities).length + 1}
+                  </span>
                 </span>
               </button>
             ))}
@@ -1446,7 +1516,7 @@ export function AssistantView(props?: AssistantViewProps) {
           <textarea
             ref={textareaRef}
             className="av-composer-input"
-            placeholder={isMobileMq ? "说出你的创意,或输入 @ 调用技能…" : "说出你的创意,或输入 @ 调用技能…（Enter 发送 / Shift+Enter 换行）"}
+            placeholder={isMobileMq ? "说出你的创意,或输入 @ 调用技能/引用主体…" : "说出你的创意,或输入 @ 调用技能/引用主体…（Enter 发送 / Shift+Enter 换行）"}
             value={input}
             onChange={(e) => {
               setInput(e.target.value);

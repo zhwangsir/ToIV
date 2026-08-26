@@ -1490,3 +1490,223 @@
     gap: var(--space-4);
   }
 }
+
+/* ========== @主体引用(PromptWithEntities,2026-08-26):选择器/chip/绑定详情 ========== */
+
+/* 容器:选择器面板的定位锚(向上展开,与 promptbar-chip-panel 同策略) */
+.pwe-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+/* 宿主 textarea 由调用方类名决定(promptbar-textarea/input),容器不抢样式 */
+.pwe-wrap textarea {
+  width: 100%;
+}
+
+/* @ 主体选择器:向上展开的玻璃面板,避免顶出视口底边 */
+.pwe-panel {
+  position: absolute;
+  bottom: calc(100% + var(--space-2));
+  left: 0;
+  z-index: var(--z-stage-popover);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: min(300px, calc(100vw - var(--space-8)));
+  max-height: min(280px, 50vh);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+  padding: var(--space-2);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--glass-highlight), var(--shadow-float);
+  animation: chip-panel-in var(--duration-base) var(--ease-standard);
+}
+.pwe-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2) var(--space-2);
+  font-size: var(--text-label);
+  font-weight: var(--font-medium);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.pwe-panel-hint {
+  font-weight: var(--font-normal);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.pwe-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: var(--text-aux);
+  text-align: left;
+  cursor: pointer;
+}
+.pwe-option.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.pwe-thumb {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm, 4px);
+  object-fit: cover;
+  background: var(--bg-surface-2);
+}
+.pwe-thumb-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+.pwe-option-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pwe-option-kind {
+  flex-shrink: 0;
+  font-size: var(--text-label);
+  color: var(--text-muted);
+}
+
+/* 「已引用主体」预览行:chip = @名字(图N),× 移除引用 */
+.pwe-refs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-aux);
+  color: var(--text-muted);
+}
+.pwe-refs-label {
+  flex-shrink: 0;
+}
+.pwe-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  background: var(--bg-surface-2);
+  transition: border-color var(--duration-fast) var(--ease-standard);
+}
+.pwe-chip.is-open {
+  border-color: var(--accent-glow);
+  background: var(--accent-soft);
+}
+.pwe-chip-main {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px 0 2px var(--space-2);
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: var(--text-aux);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.pwe-chip-idx {
+  font-size: var(--text-label);
+  color: var(--text-muted);
+}
+.pwe-chip-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-right: 2px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.pwe-chip-x:hover {
+  color: var(--err);
+  background: var(--bg-surface-1);
+}
+
+/* chip 绑定详情:哪张图 = 哪个编号(@图片N 注入说明) */
+.pwe-detail {
+  position: absolute;
+  bottom: calc(100% + var(--space-2));
+  left: 0;
+  z-index: var(--z-stage-popover);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: min(340px, calc(100vw - var(--space-8)));
+  padding: var(--space-3);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--glass-highlight), var(--shadow-float);
+  animation: chip-panel-in var(--duration-base) var(--ease-standard);
+}
+.pwe-detail-thumb {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: var(--radius-control);
+  object-fit: cover;
+  background: var(--bg-surface-2);
+}
+.pwe-detail-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pwe-detail-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-aux);
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+}
+.pwe-detail-desc {
+  font-size: var(--text-label);
+  color: var(--text-muted);
+  line-height: var(--leading-base);
+}
+.pwe-detail-remove {
+  flex-shrink: 0;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--err);
+  font-size: var(--text-label);
+  cursor: pointer;
+}
+.pwe-detail-remove:hover {
+  border-color: var(--err);
+}

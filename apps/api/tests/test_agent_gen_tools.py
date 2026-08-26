@@ -107,11 +107,11 @@ def _stub_engines_available(monkeypatch, *engine_ids: str):
 def test_gen_tools_registered_after_builtin():
     reg = get_ctx().service("tools")
     names = reg.names
-    for n in ("submit_generation", "check_jobs", "optimize_prompt", "propose_plan", "adjust_3d"):
+    for n in ("submit_generation", "list_entities", "check_jobs", "optimize_prompt", "propose_plan", "adjust_3d"):
         assert n in names
     # 追加在 10 个同步小工具之后
-    assert names[-5:] == [
-        "submit_generation", "check_jobs", "optimize_prompt", "propose_plan", "adjust_3d"
+    assert names[-6:] == [
+        "submit_generation", "list_entities", "check_jobs", "optimize_prompt", "propose_plan", "adjust_3d"
     ]
     schemas = {s["function"]["name"]: s for s in reg.schemas()}
     assert schemas["submit_generation"]["function"]["parameters"]["required"] == [
@@ -123,10 +123,10 @@ def test_gen_tools_registered_after_builtin():
 
 
 def test_dispatch_covers_all_registry_engines():
-    """注册表 21 个引擎全部有提交分发(防新增引擎漏接)。"""
+    """注册表 22 个引擎全部有提交分发(防新增引擎漏接)。"""
     engine_registry.populate_registry()
     ids = [s["id"] for s in engine_registry._REGISTRY]
-    assert len(ids) == 21
+    assert len(ids) == 22
     missing = [eid for eid in ids if eid not in tools_gen._DISPATCH]
     assert missing == []
 
@@ -170,6 +170,87 @@ async def test_submit_unknown_engine(db_env):
     assert "未知引擎" in text
     assert events[0]["data"]["status"] == "error"
     assert s.exec(select(Job)).all() == []
+
+
+# --------------------------------------------------------------------------- #
+# 全局主体库:list_entities 工具 + submit_generation 的 entity_ids 注入
+# --------------------------------------------------------------------------- #
+def _entity(session, user, name: str, *, kind: str = "character",
+            prompt_hint: str = "", ref_image: str = "") -> "Entity":
+    from app.models import Entity as _E
+
+    e = _E(tenant_id=user.tenant_id, user_id=user.id, kind=kind, name=name,
+           prompt_hint=prompt_hint, ref_image=ref_image)
+    session.add(e)
+    session.commit()
+    session.refresh(e)
+    return e
+
+
+async def test_list_entities_tool(db_env):
+    """list_entities:列出当前用户主体(含 id/kind/有图标记);空库给引导文案。"""
+    s, user = db_env
+    reg = get_ctx().service("tools")
+    text, _ = await reg.execute("list_entities", {}, _ctx(_FakePool(_FakeClient()), user, s))
+    assert "主体库为空" in text
+
+    e = _entity(s, user, "阿明", prompt_hint="1boy, silver hair",
+                ref_image='{"filename":"a.png","worker":"http://w:8189"}')
+    _entity(s, user, "旧仓库", kind="scene")
+    text, _ = await reg.execute("list_entities", {}, _ctx(_FakePool(_FakeClient()), user, s))
+    assert f"id={e.id}" in text and "阿明" in text and "有图" in text
+    # kind 过滤
+    text, _ = await reg.execute(
+        "list_entities", {"kind": "scene"}, _ctx(_FakePool(_FakeClient()), user, s)
+    )
+    assert "旧仓库" in text and "阿明" not in text
+
+
+def test_apply_entity_refs_injects_hint_and_image(db_env):
+    """entity_ids 注入:prompt_hint 拼入提示词;首个有图主体补 image/worker(显式优先)。"""
+    s, user = db_env
+    e1 = _entity(s, user, "阿明", prompt_hint="1boy, silver hair",
+                 ref_image='{"filename":"aming.png","worker":"http://w:8189"}')
+    e2 = _entity(s, user, "旧仓库", kind="scene", prompt_hint="old warehouse, night")
+    pos, params, names = tools_gen._apply_entity_refs(
+        s, user, [e1.id, e2.id], "a boy runs", {}, ("image", "worker"),
+    )
+    assert names == ["阿明", "旧仓库"]
+    assert "a boy runs" in pos and "1boy, silver hair" in pos and "old warehouse" in pos
+    assert params["image"] == "aming.png" and params["worker"] == "http://w:8189"
+
+    # 显式 image 参数优先,不被主体覆盖
+    pos, params, _ = tools_gen._apply_entity_refs(
+        s, user, [e1.id], "p", {"image": "explicit.png"}, ("image", "worker"),
+    )
+    assert params["image"] == "explicit.png"
+
+    # 纯文本引擎(无 image 媒体键):只注入提示词,不补图
+    _, params, _ = tools_gen._apply_entity_refs(s, user, [e1.id], "p", {}, ())
+    assert "image" not in params
+
+
+def test_apply_entity_refs_isolation_and_url_form(db_env):
+    """他人主体静默跳过;站内 /api/images URL 形态可还原注入句柄。"""
+    s, user = db_env
+    other = User(email="other@toiv.ai", hashed_password="x", tenant_id=user.tenant_id)
+    s.add(other)
+    s.commit()
+    s.refresh(other)
+    foreign = _entity(s, other, "别人的", prompt_hint="not yours")
+    _, params, names = tools_gen._apply_entity_refs(
+        s, user, [foreign.id], "p", {}, ("image", "worker"),
+    )
+    assert names == [] and "image" not in params, "他人主体不解析不注入"
+
+    url_entity = _entity(
+        s, user, "URL图", ref_image="/api/images?filename=u.png&worker=http://w:8189&type=output"
+    )
+    _, params, names = tools_gen._apply_entity_refs(
+        s, user, [url_entity.id], "p", {}, ("image", "worker"),
+    )
+    assert names == ["URL图"]
+    assert params["image"] == "u.png" and params["worker"] == "http://w:8189"
 
 
 async def test_submit_engine_unavailable(db_env, monkeypatch):

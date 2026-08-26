@@ -76,6 +76,7 @@ type View =
   | "dub"
   | "train"
   | "library"
+  | "entities"
   | "backlot"
   | "models"
   | "resources"
@@ -123,6 +124,7 @@ const viewImporters = {
   dub: () => import("@/components/dub/DubView"),
   train: () => import("@/components/train/TrainView"),
   library: () => import("@/components/library/LibraryView"),
+  entities: () => import("@/components/entities/EntitiesView"),
   backlot: () => import("@/components/backlot/BacklotView"),
   models: () => import("@/components/models/ModelsView"),
   resources: () => import("@/components/resources/ResourcesView"),
@@ -176,6 +178,9 @@ const TrainView = lazy(() =>
 const LibraryView = lazy(() =>
   viewImporters.library().then((m) => ({ default: m.LibraryView })),
 );
+const EntitiesView = lazy(() =>
+  viewImporters.entities().then((m) => ({ default: m.EntitiesView })),
+);
 const BacklotView = lazy(() =>
   viewImporters.backlot().then((m) => ({ default: m.BacklotView })),
 );
@@ -227,6 +232,7 @@ const VALID_VIEWS = new Set<View>([
   "dub",
   "train",
   "library",
+  "entities",
   "backlot",
   "models",
   "resources",
@@ -252,6 +258,7 @@ const VIEW_META: Record<View, { label: string }> = {
   dub:       { label: "译制" },
   train:     { label: "训练" },
   library:    { label: "作品库" },
+  entities:   { label: "主体库" },
   backlot:    { label: "看板" },
   models:     { label: "模型" },
   resources:  { label: "资源" },
@@ -274,6 +281,7 @@ const ISLAND_ITEMS: CornerNavItem[] = [
   { key: "fusion", label: "融合", icon: "sparkles" },
   { key: "canvas", label: "画布", icon: "workflow" },
   { key: "library", label: "作品库", icon: "library" },
+  { key: "entities", label: "主体库", icon: "users" },
   { key: "resources", label: "资源", icon: "models" },
 ];
 
@@ -293,6 +301,7 @@ const BOTTOM_NAV_MORE_ITEMS: BottomNavItem[] = [
   { key: "videoEdit", label: "视频剪辑", icon: "scissors" },
   { key: "canvas", label: "画布", icon: "workflow" },
   { key: "studio", label: "创作", icon: "clapperboard" },
+  { key: "entities", label: "主体库", icon: "users" },
   { key: "avatartalk", label: "数字人", icon: "user" },
   { key: "dub", label: "译制", icon: "dub" },
   { key: "animatic", label: "动态分镜", icon: "clapperboard" },
@@ -739,6 +748,7 @@ function HomeContent() {
               {view === "avatartalk" && <AvatarTalkView onNavigate={handleFusionNavigate} />}
               {view === "train" && <TrainView />}
               {view === "library" && <LibraryView onNavigate={handleFusionNavigate} />}
+              {view === "entities" && <EntitiesView />}
               {view === "backlot" && <BacklotView />}
               {view === "models" && <ModelsView />}
               {view === "resources" && <ResourcesView showAdmin={isAdmin} />}

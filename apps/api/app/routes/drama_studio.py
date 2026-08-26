@@ -73,6 +73,7 @@ from app.jsonutil import parse_json_obj
 from app.routes.lipsync import _allowed as _lipsync_allowed, _resolve as _lipsync_resolve
 from app.routes.reverse import _chat_completion, _data_url
 from app.routes.video import _gate_ltx_nsfw
+from app.services.entities import CharacterRef, resolve_shot_characters
 from app.services.h3_refs import ref_prefix_for_shot
 from app.services.drama_image import analyze_storyboard_images
 from app.services.drama_presence import (
@@ -1473,21 +1474,15 @@ def apply_asset_to_project(
     return _character_dict(c)
 
 
-def _shot_characters(shot: DramaShot, session: Session) -> list[DramaCharacter]:
-    """返回该分镜出场角色对应的数据库记录。"""
+def _shot_characters(shot: DramaShot, session: Session) -> list[CharacterRef]:
+    """返回该分镜出场角色:同名优先全局主体库 Entity,否则回退项目内角色卡。"""
     try:
         names = json.loads(shot.characters) if shot.characters else []
     except (ValueError, TypeError):
         names = []
     if not names:
         return []
-    chars = session.exec(
-        select(DramaCharacter).where(
-            DramaCharacter.project_id == shot.project_id,
-            DramaCharacter.name.in_(names),
-        )
-    ).all()
-    return list(chars)
+    return resolve_shot_characters(session, project_id=shot.project_id, names=names)
 
 
 async def _wait_result_files(client, prompt_id: str, timeout: float = 180.0) -> list[dict]:

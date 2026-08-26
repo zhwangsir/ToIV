@@ -615,6 +615,109 @@ export async function getNsfwRecommendations(): Promise<NsfwRecommendation[]> {
   return data.items;
 }
 
+// ---------------------------------------------------------------------------
+// P1 全局主体库(2026-08-26):角色/场景/道具三类主体跨项目复用
+// ---------------------------------------------------------------------------
+
+export type EntityKind = "character" | "scene" | "prop";
+
+/** 上传句柄形态的图片引用(/api/upload 或 /api/assets/from-job 返回)。 */
+export interface EntityImageHandle {
+  filename: string;
+  worker: string;
+}
+
+export interface EntityItem {
+  id: string;
+  kind: EntityKind;
+  name: string;
+  description: string;
+  prompt_hint: string;
+  ref_image: string;
+  reference_front: string;
+  reference_side: string;
+  reference_back: string;
+  /** 已解析的上传句柄(注入参考图链直接用;URL 形态或空则无该槽) */
+  handles: Partial<Record<"ref" | "front" | "side" | "back", EntityImageHandle>>;
+  /** 预览 URL(/api/entities/{id}/images/{slot},过 imageUrl 带 token) */
+  image_urls: Partial<Record<"ref" | "front" | "side" | "back", string>>;
+  created_at: string;
+  updated_at: string;
+}
+
+/** 图片字段输入:句柄对象 / URL 字符串 / 空串(清除)。 */
+export type EntityImageInput = EntityImageHandle | string | undefined;
+
+export interface EntityInput {
+  kind?: EntityKind;
+  name: string;
+  description?: string;
+  prompt_hint?: string;
+  ref_image?: EntityImageInput;
+  reference_front?: EntityImageInput;
+  reference_side?: EntityImageInput;
+  reference_back?: EntityImageInput;
+}
+
+export async function listEntities(kind?: EntityKind): Promise<EntityItem[]> {
+  const qs = kind ? `?kind=${kind}` : "";
+  const res = await apiFetch(`/api/entities${qs}`, { headers: authHeaders() });
+  if (!res.ok) await raiseApiError(res, "加载主体库失败");
+  return res.json();
+}
+
+export async function createEntity(body: EntityInput): Promise<EntityItem> {
+  const res = await apiFetch(`/api/entities`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await raiseApiError(res, "创建主体失败");
+  return res.json();
+}
+
+export async function updateEntity(id: string, body: Partial<EntityInput>): Promise<EntityItem> {
+  const res = await apiFetch(`/api/entities/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await raiseApiError(res, "更新主体失败");
+  return res.json();
+}
+
+export async function deleteEntity(id: string): Promise<void> {
+  const res = await apiFetch(`/api/entities/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) await raiseApiError(res, "删除主体失败");
+}
+
+/** 主体参考图句柄(resolve-refs 返回,已钉到目标 worker,可直接灌入引擎参考图)。 */
+export interface EntityRefHandle {
+  entity_id: string;
+  name: string;
+  prompt_hint: string;
+  filename: string;
+  worker: string;
+}
+
+/** entity_ids → 钉定 worker 的参考图句柄(生成页「引用主体」注入参考图链)。 */
+export async function resolveEntityRefs(params: {
+  entity_ids: string[];
+  kind: string;
+  worker?: string;
+}): Promise<{ refs: EntityRefHandle[]; skipped: { entity_id: string; reason: string }[]; worker: string }> {
+  const res = await apiFetch(`/api/entities/resolve-refs`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) await raiseApiError(res, "解析主体参考图失败");
+  return res.json();
+}
+
 export async function uploadImage(
   file: File,
   kind: string = "img2img",
@@ -1066,6 +1169,8 @@ export interface QwenEditParams {
   fast?: boolean; // 默认 true=Lightning 加速档;false=20 步标准档
   seed?: number;
   batchId?: string; // 内容分组 id(360° 环绕序列同批 8 张归组,作品库折叠为文件夹)
+  /** @主体引用(2026-08-26):编辑指令内 @实体名 解析出的主体库 id(提及首现序);空/未给不携带 */
+  entityIds?: string[];
 }
 
 export async function generateQwenEdit(params: QwenEditParams): Promise<GenerateResponse> {
@@ -1083,6 +1188,7 @@ export async function generateQwenEdit(params: QwenEditParams): Promise<Generate
       ...(params.fast != null ? { fast: params.fast } : {}),
       ...(params.seed != null ? { seed: params.seed } : {}),
       ...(params.batchId ? { batch_id: params.batchId } : {}),
+      ...(params.entityIds?.length ? { entity_ids: params.entityIds } : {}),
     }),
   });
   if (!res.ok) await raiseApiError(res, "智能编辑请求失败");
@@ -1454,6 +1560,8 @@ export interface AgentChatStreamBody {
   document_ids?: string[];
   /** 续聊会话 id;空=新会话(服务端创建,id 经响应头返回) */
   session_id?: string | null;
+  /** @主体引用(2026-08-26):@实体名 解析出的主体库 id(提及首现序);空/未给不携带 */
+  entity_ids?: string[];
 }
 
 /**

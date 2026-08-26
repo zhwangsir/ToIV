@@ -9,6 +9,7 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { Field, Input, Select } from "@/components/ui/Input";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { PromptWithEntities } from "@/components/ui/PromptWithEntities";
 import { AssetPicker, type PickedAsset } from "@/components/generate/AssetPicker";
 import { OrbitViewer } from "@/components/image-edit/OrbitViewer";
 import { ModelViewer } from "@/components/ui/ModelViewer";
@@ -26,6 +27,7 @@ import {
 } from "@/lib/api";
 import type { GenerateResponse } from "@/lib/types";
 import { useToast } from "@/components/ui/Toast";
+import { resolveEntityIds, useEntities } from "@/lib/entities";
 import { trackJob, TrackJobAbortError, type JobProgress } from "@/lib/trackJob";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -587,6 +589,8 @@ export function ImageEditView() {
   const [qwenPositive, setQwenPositive] = useState("");
   const [qwenCamera, setQwenCamera] = useState<string>("");
   const [qwenSpeed, setQwenSpeed] = useState<string>("fast");
+  // 主体库(@主体引用):编辑指令里的 @实体名 提交时解析为 entity_ids 传给后端
+  const subjectEntities = useEntities();
   // 3D 相机(2511):方位/俯仰/距离 + 附加指令 + 360° 环绕序列
   const [cam3dAzimuth, setCam3dAzimuth] = useState<number>(45);
   const [cam3dElevation, setCam3dElevation] = useState<number>(0);
@@ -784,6 +788,8 @@ export function ImageEditView() {
             positive: qwenPositive.trim(),
             camera: qwenCamera || undefined,
             fast: qwenSpeed === "fast",
+            // @主体引用:编辑指令中的 @实体名 → entity_ids(后端就绪后生效)
+            entityIds: resolveEntityIds(qwenPositive, subjectEntities),
           });
           break;
         case "camera3d":
@@ -882,6 +888,7 @@ export function ImageEditView() {
     qwenPositive,
     qwenCamera,
     qwenSpeed,
+    subjectEntities,
     cam3dAzimuth,
     cam3dElevation,
     cam3dDistance,
@@ -1021,11 +1028,16 @@ export function ImageEditView() {
                             disabled={isRunning}
                           />
                         </div>
-                        <Input
+                        {/* @主体引用:输入 @ 弹主体选择器,插入后预览行显示图N绑定 chip;
+                            实体库不可用时自动隐身,纯文本指令输入零影响 */}
+                        <PromptWithEntities
                           value={qwenPositive}
-                          onChange={(e) => setQwenPositive(e.target.value)}
-                          placeholder="例如：把衣服换成红色、给人物戴上墨镜"
+                          onChange={setQwenPositive}
+                          placeholder="例如：把衣服换成红色、给人物戴上墨镜;@ 引用主体库"
                           disabled={isRunning}
+                          ariaLabel="编辑指令"
+                          className="input"
+                          rows={2}
                         />
                       </Field>
                       <Field label="相机角度(可选)">

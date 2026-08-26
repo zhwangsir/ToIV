@@ -51,6 +51,8 @@ export const FILTERS: FilterDef[] = [
       "longcat_t2v", "longcat_i2v", "longcat_continue",
       // LongCat-Avatar 数字人说话视频
       "avatar_talk",
+      // Wan2.1-VACE 首尾帧转场
+      "transition",
       // 短剧 studio 视频类产物
       "drama_shot_video", "drama_shot_video_i2v", "drama_shot_video_v2", "drama_shot_lipsync",
     ],
@@ -119,6 +121,7 @@ export function kindLabel(kind: string): string {
     longcat_i2v: "长视频",
     longcat_continue: "长视频续写",
     avatar_talk: "数字人",
+    transition: "首尾帧转场",
     audio: "音频",
     ace_audio: "音乐",
     audio_sep: "人声分离",

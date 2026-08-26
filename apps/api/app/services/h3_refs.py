@@ -17,10 +17,12 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
+from typing import Any
 
 from sqlmodel import Session, select
 
-from app.models import DramaCharacter, DramaShot
+from app.models import DramaProject, DramaShot, Entity
+from app.services.entities import resolve_shot_characters
 
 logger = logging.getLogger(__name__)
 
@@ -51,11 +53,12 @@ def build_ref_prefix(refs: list[RefImage]) -> str:
     return "".join(f"@图片{i + 1}作为{r.label}" for i, r in enumerate(refs)) + "\n"
 
 
-def refs_from_characters(characters: list[DramaCharacter]) -> list[RefImage]:
+def refs_from_characters(characters: list[Any]) -> list[RefImage]:
     """实体注册表(角色卡)→ 参考图映射。
 
-    有三视图用正面(reference_front),否则退回单张 ref_image;无图角色跳过。
-    编号顺序 = 传入列表顺序(调用方负责确定性排序,见 ref_prefix_for_shot)。
+    duck-typing:DramaCharacter 与 services/entities.CharacterRef 同字段
+    (name/reference_front/ref_image)。有三视图用正面,否则退回单张 ref_image;
+    无图角色跳过。编号顺序 = 传入列表顺序(调用方负责确定性排序)。
     """
     refs: list[RefImage] = []
     for c in characters:
@@ -68,14 +71,122 @@ def refs_from_characters(characters: list[DramaCharacter]) -> list[RefImage]:
     return refs
 
 
-def ref_prefix_for_shot(shot: DramaShot, session: Session, *, engine: str) -> str:
+# ---------------------------------------------------------------------------
+# 全局主体库(@主体引用前台化):entity_ids 显式优先路径
+# ---------------------------------------------------------------------------
+# 资产类别 → 引用行用途后缀(与正典「一图多功能合并为一句」同构)。
+_ENTITY_KIND_SUFFIX = {
+    "character": "身份与服装参考",
+    "scene": "场景与光影参考",
+    "prop": "道具参考",
+    "style": "风格参考",
+}
+
+
+def _entity_image_url(entity: Any) -> str:
+    """实体参考图来源(duck-typing),按优先级取一:
+
+    1. ``image_url`` 直填;
+    2. ``images[0]``(list 形态,兼容 dict 句柄 {filename, worker} / 纯字符串);
+    3. 主体库 Entity 四图列:reference_front → ref_image → reference_side →
+       reference_back(与 services/entities.best_image_value 同序)。
+    取不到图 → 空串(该实体跳过,不占编号)。
+    """
+    url = str(getattr(entity, "image_url", "") or "").strip()
+    if url:
+        return url
+    images = getattr(entity, "images", None) or []
+    if images:
+        first = images[0]
+        if isinstance(first, dict):
+            url = str(first.get("filename", "") or "").strip()
+        else:
+            url = str(first or "").strip()
+        if url:
+            return url
+    for col in ("reference_front", "ref_image", "reference_side", "reference_back"):
+        url = str(getattr(entity, col, "") or "").strip()
+        if url:
+            return url
+    return ""
+
+
+def refs_from_entities(entities: list[Any]) -> list[RefImage]:
+    """全局主体库实体 → 参考图映射。
+
+    编号顺序 = 传入列表顺序(即 entity_ids 顺序,前端 @ 提及的首次出现序);
+    无图实体跳过(与 refs_from_characters 同一语义)。label 按 kind 给
+    「身份与服装/场景与光影/道具/风格」用途后缀,未知 kind 兜底「参考」。
+    """
+    refs: list[RefImage] = []
+    for e in entities:
+        name = str(getattr(e, "name", "") or "").strip()
+        if not name:
+            continue
+        url = _entity_image_url(e)
+        if not url:
+            continue
+        kind = str(getattr(e, "kind", "") or "").strip()
+        suffix = _ENTITY_KIND_SUFFIX.get(kind, "参考")
+        refs.append(RefImage(label=f"{name}{suffix}", role=name, image_url=url))
+    return refs
+
+
+def resolve_entity_refs(
+    session: Session, entity_ids: list[str], *, owner_id: str | None = None
+) -> list[RefImage]:
+    """按 entity_ids 顺序解析全局主体库(models.Entity)为参考图映射。
+
+    - 编号确定性:结果按 entity_ids 传入顺序排序(SQL in_ 不保证返回序);
+    - 不存在的 id 静默跳过(用户可能删了主体,不阻塞生成);
+    - owner_id 给出时按属主过滤(防跨用户引用他人主体)。
+    """
+    ids = [i for i in entity_ids if isinstance(i, str) and i.strip()]
+    if not ids:
+        return []
+    rows = list(session.exec(select(Entity).where(Entity.id.in_(ids))).all())
+    if owner_id:
+        rows = [r for r in rows if r.user_id == owner_id]
+    order = {i: n for n, i in enumerate(ids)}
+    rows.sort(key=lambda r: order.get(r.id, len(ids)))
+    return refs_from_entities(rows)
+
+
+def ref_prefix_for_shot(
+    shot: DramaShot,
+    session: Session,
+    *,
+    engine: str,
+    entity_ids: list[str] | None = None,
+) -> str:
     """分镜 + 引擎 → @图片N 引用行;非 H3 引擎 / 无出场角色 / 角色无参考图 → 空串。
 
     编号确定性:按 shot.characters 的出场顺序排序角色卡,保证同一分镜多次
     提交得到完全一致的 @图片N 绑定(SQL in_ 查询不保证返回顺序)。
+
+    entity_ids(@主体引用前台化):显式给出时**优先于** shot.characters 自动匹配——
+    编号顺序 = entity_ids 顺序;空列表 = 用户显式清空全部引用,直接返回空串
+    (不回退自动匹配);属主按分镜项目归属隔离。
     """
     if engine != "h3":
         return ""
+    if entity_ids is not None:
+        if not entity_ids:
+            return ""
+        owner_id = ""
+        project = session.get(DramaProject, shot.project_id)
+        if project is not None:
+            owner_id = project.user_id
+        prefix = build_ref_prefix(
+            resolve_entity_refs(session, entity_ids, owner_id=owner_id or None)
+        )
+        if prefix:
+            logger.info(
+                "h3 分镜 #%s 注入 %d 张主体库参考图引用行(entity_ids 显式路径)",
+                shot.idx,
+                prefix.count("@图片"),
+            )
+        return prefix
     try:
         names = json.loads(shot.characters) if shot.characters else []
     except (ValueError, TypeError):
@@ -83,16 +194,9 @@ def ref_prefix_for_shot(shot: DramaShot, session: Session, *, engine: str) -> st
     names = [n for n in names if isinstance(n, str) and n.strip()]
     if not names:
         return ""
-    chars = list(
-        session.exec(
-            select(DramaCharacter).where(
-                DramaCharacter.project_id == shot.project_id,
-                DramaCharacter.name.in_(names),
-            )
-        ).all()
-    )
-    order = {n: i for i, n in enumerate(names)}
-    chars.sort(key=lambda c: order.get(c.name, len(names)))
+    # P1 全局主体库:同名优先 Entity(kind=character),未命中回退项目内 DramaCharacter;
+    # resolve_shot_characters 已按 names 出场顺序排序(编号确定性)
+    chars = resolve_shot_characters(session, project_id=shot.project_id, names=names)
     prefix = build_ref_prefix(refs_from_characters(chars))
     if prefix:
         logger.info(

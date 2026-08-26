@@ -195,6 +195,8 @@ def builtin_tool_specs() -> list[ToolSpec]:
         # rate_scope="":提交/优化走 routes 端点函数自带限流,守卫不重复记配额
         ToolSpec("submit_generation", gen_schema("submit_generation"), tools_gen.exec_submit_generation,
                  "异步提交任意引擎的生成作业(视频/批量/专用实例引擎一律用它;立即返回 job_id,约耗时见引擎说明)", rate_scope=""),
+        ToolSpec("list_entities", gen_schema("list_entities"), tools_gen.exec_list_entities,
+                 "查询用户全局主体库(角色/场景/道具,生成中保持主体一致时先查)", rate_scope=""),
         ToolSpec("check_jobs", gen_schema("check_jobs"), tools_gen.exec_check_jobs,
                  "查询生成作业状态与产物(用户追问进度时;done 的自动把产物展示给用户)", rate_scope=""),
         ToolSpec("optimize_prompt", gen_schema("optimize_prompt"), tools_gen.exec_optimize_prompt,

@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-08-23（凌晨·大重整:同步引擎矩阵/无审查模型/内容管控三档/Tailscale 化等近期变更;易错点 32 条主题化合并;🚨 新发现:ltx25 退役时只 stop 未 disable,BIOS 重启后自动复活）
+> **最后更新**：2026-08-26（网络拓扑根治:小米 BE10000 Pro 切 AP 模式并入 71 段 .42,NAS/core 孤岛消除;设备清单补小米路由器/光猫条目）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 
 ---
@@ -28,18 +28,20 @@
 
 ---
 
-## 一、集群设备清单（11 组）
+## 一、集群设备清单（13 组）
 
 | 设备 | 角色 | LAN IP | Tailscale IP | 类型 | SSH 用户 |
 |---|---|---|---|---|---|
-| studio01-04 | EXO RDMA 推理 :52415(实跑 MiniMax-M2.7-4bit);studio04 另跑 VLM 反推 :9303(mlx-vlm 72B,plist `com.dgmt.toiv-vlm-mlx`) | .109/.111/.112/.113 | 100.67.43.40 / 100.91.0.121 / 100.115.27.68 / 100.126.182.23 | **Mac Studio M3 Ultra 32核 512GB** | dgmt-studio01-04 |
+| studio01-04 | EXO RDMA 推理 :52415(实跑 MiniMax-M2.7-4bit);~~studio04 另跑 VLM 反推 :9303~~(2026-08-26 ToIV 零依赖,退役观察期) | .109/.111/.112/.113 | 100.67.43.40 / 100.91.0.121 / 100.115.27.68 / 100.126.182.23 | **Mac Studio M3 Ultra 32核 512GB** | dgmt-studio01-04 |
 | openclaw01-04 | OpenClaw 网关 | .86/.75/.81/.85 | 100.69.0.4 / 100.76.35.7 / 100.76.140.121 / 100.91.128.30 | Mac mini M2 | dgmt-openclaw01-04 |
-| spark01 | **Qwen3-VL-32B-Instruct-FP8** 评分/反推 VLM(容器 qwen3vl32b, :8000;2026-08-25 替换 molmo2-8B,幻觉实测根治;别名 molmo2-8b/omni-captioner 保留) | .82 | 100.81.235.124 | Linux GB10 | dgmt-spark |
+| spark01 | **Qwen3-VL-32B-Instruct-FP8** 评分/反推 VLM(容器 qwen3vl32b, :8000;2026-08-25 替换 molmo2-8B,幻觉实测根治;**2026-08-26 起接管图像/视频反推+宫格 grounding**,别名 molmo2-8b/omni-captioner 保留) | .82 | 100.81.235.124 | Linux GB10 | dgmt-spark |
 | spark02 | LLM L1-L4 主力(**Qwen3.8-27B-Uncensored-FP8 无审查版**,2026-08-23 替换;别名 qwen3.8-27b/qwen3.6-uncensored 均有效, :8000) | .84 | 100.86.42.89 | Linux GB10 | dgmt-spark |
 | workstation | 算力+全部后端服务 | 192.168.71.127 | **100.68.100.90** | Linux 4×RTX PRO 6000 | merlin |
 | pc01 | ComfyUI worker :8188 | **192.168.71.116**(2026-08-25 DHCP 由 .115 漂移,MAC 指纹实证;LB/SSH/代码已同步) | 100.69.134.27 | Windows RTX 5090 | home |
-| pc02 | ComfyUI worker :8193 | 192.168.71.114 | 100.107.94.26 | Windows RTX 5090 | w |
+| pc02 | ComfyUI worker :8193 + 编辑实例 :8194 | 192.168.71.114 | 100.107.94.26 | Windows RTX 5090 | w |
 | NAS | SMB 存储 44T | 192.168.71.7 | 100.80.237.96 | Linux | dgmt-nas |
+| 小米路由器 | BE10000 Pro(DRT_MI),**AP/有线中继模式**(2026-08-26 由二级路由切换,原 192.168.31.1→.42),管理页 192.168.71.42 | 192.168.71.42 | — | — | — |
+| 光猫 | 主网关/拨号(192.168.71.1,MAC 7c:c9:26:ef:01:93) | 192.168.71.1 | — | — | — |
 | cloud | 香港网关/frps/OpenResty | 43.119.32.180 | 100.83.78.114 | Linux | root |
 | core | **ToIV 生产服务器**(web :3100 + api :8090 + PG + Redis) | 192.168.71.47 | **100.77.80.100** | Ubuntu | merlin |
 | beijing | 北京国内入口/frps(toiv.wineryz.top) | 8.140.222.24 | — | Linux (阿里云) | root |
@@ -106,6 +108,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 | **LLM 引擎矩阵**(2026-08-23 更新) | R18=**H3 主力(10Eros-Max 嫁接版 TURBO 为 NSFW 默认 UNET,`TOIV_H3_NSFW_UNET`)+Wan2.2 生态兜底**;SFW 视频=MiniMax H3 全面替代 LTX2.5(质量优先);spark02 已换 **Qwen3.8-27B-Uncensored-FP8**(abliterated 无审查,别名保留 core .env 零改动,旧 NVFP4 在盘可回滚) |
 | web_search 出站代理 | `TOIV_WEB_SEARCH_PROXY=http://192.168.71.123:7897`(MateBook Clash);⚠️ 依赖 Mac 在线,离线时自动降级不炸链路;Tailscale 备选 100.74.15.34:7897(慢 4×) |
 | 域名双入口 | toiv.dgmt.top(香港 cloud,frp-kcp) + toiv.wineryz.top(北京,frpc-bj);openresty proxy_pass 经 frp 本地端口 127.0.0.1:18090/13100 |
+| **Studio 依赖迁移**(2026-08-26) | ✅ 反推 VLM studio04:9303 → **spark01 Qwen3-VL-32B**(`TOIV_REVERSE_VLM_BASE_URL=http://192.168.71.82:8000/v1`,`TOIV_REVERSE_VIDEO_MAC_PREFIX` 清空,base64 video_url 直传无 NAS 中转);L2/L3 此前已在 spark02;core 对 Studio 集群零依赖;备份 `.env.bak-20260826-studio-migration`;studio04 :9303/NAS 挂载保留观察,稳定后 launchctl unload |
 
 ---
 
@@ -155,7 +158,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 **E-4 vLLM 相关(2026-08-08)**：① NVML mismatch 会炸 vLLM 平台探测(补丁 /home/merlin/patch_vllm_nvml.py,pip 重装后重跑);② vLLM 0.11.2 跑不了 LLaVA 架构 JoyCaption(device-side assert),transformers 直跑即可;③ spark 的 vllm-node 镜像缺 vllm[audio],启动脚本须 entrypoint 里 pip install;④ served-model-name 别名机制——换模型保别名=core 零改动(2026-08-23 无审查模型替换实证)。
 
-**E-5 mlx-vlm(studio04)视频只认本地路径**：视频反推走 NAS 中转(core SFTP 落 NAS,发挂载路径),图像 base64 正常;开关 `TOIV_REVERSE_VIDEO_MAC_PREFIX`。
+**E-5 mlx-vlm(studio04)视频只认本地路径**(2026-08-26 已退役该依赖):反推 VLM 已迁 spark01 Qwen3-VL-32B(base64 video_url 直传,无 NAS 中转),`TOIV_REVERSE_VIDEO_MAC_PREFIX` 已清空;这条坑只在回滚到 studio04 时复活(回滚=恢复 .env 两行+重启)。studio04 挂载 08-26 又静默失效一次(D-2 教训),迁移后此单点已消除。
 
 **E-6 超分竖屏源必须显式 --target-w 2160 --target-h 3840(2026-08-15)**：默认参数会把竖屏每帧拉伸成横屏全报废;生产一律 `--keep-frames`(默认删帧无法续跑);画幅方向护栏已内建。
 
@@ -180,6 +183,14 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ---
 
 ## 七、近期关键变更（决策记录,替代操作历史）
+
+### 2026-08-26（网络拓扑根治:小米路由器切 AP 模式,孤岛消除）
+- **故障现象**:NAS(.7)与 core(.47)互相可达但都到不了网关 .1,workstation 的 `/home/merlin/nas_mount` 挂载断开;观测面板显示设备离线
+- **根因**:小米 BE10000 Pro(DRT_MI)作为**二级路由**挂在光猫 71 段下(WAN=192.168.71.42 DHCP,LAN=192.168.31.1),NAS/core 物理接在小米 LAN 后,但静态网关仍指 .1(光猫),二层广播域隔离导致 .1 ARP 永远 INCOMPLETE
+- **诊断关键**:NAS/core ARP 表 `.1=INCOMPLETE` 但存在 IPv6 RA 路由器(MAC d4:53:2a:49:0a:b8 广播公网前缀 240e:);从 core 加临时地址 192.168.31.200 打通小米管理页
+- **修复**:经 `api/xqnetwork/set_lan_ap` 切**有线中继(AP)模式**,小米停二级路由,所有口变交换口,并入 71 段(现 192.168.71.42);WiFi 名/密不变
+- **实证**:ws/core→.7/.47/.42/.82/.114/.116 全通;NAS 挂载自动恢复;16/17 设备在线(仅本机 .123 离线正常)
+- **教训**:「设备离线」先查**二层拓扑/网关一致性**,别急着归因物理断线;多路由级联时静态 IP 设备的网关必须与其所在广播域的路由器一致
 
 ### 2026-08-25（晚·GPU2 过载三方换卡均衡）
 - **背景**:GPU2 峰值 92.9%(H3+JoyCaption 常驻+LongCat 按需 25G 三叠加),GPU0 相对宽松;GPU1/3 大块(LiveAct/FlashTalk 50-58G)无处可接不动

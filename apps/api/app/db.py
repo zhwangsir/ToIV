@@ -459,6 +459,27 @@ _SQLITE_RAW_MIGRATIONS: tuple[str, ...] = (
     )
     """,
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_evaldatasetexport_batch ON evaldatasetexport(batch_id)",
+    # ── P1 全局主体库(2026-08-26):entity 表 ──
+    # 新库由 SQLModel create_all 建立;此处保 prod 既有库幂等补建(与 evalbatch 同双轨写法)
+    """
+    CREATE TABLE IF NOT EXISTS entity (
+        id              TEXT PRIMARY KEY,
+        tenant_id       TEXT NOT NULL,
+        user_id         TEXT NOT NULL,
+        kind            TEXT NOT NULL DEFAULT 'character',
+        name            TEXT NOT NULL,
+        description     TEXT DEFAULT '',
+        ref_image       TEXT DEFAULT '',
+        reference_front TEXT DEFAULT '',
+        reference_side  TEXT DEFAULT '',
+        reference_back  TEXT DEFAULT '',
+        prompt_hint     TEXT DEFAULT '',
+        created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_entity_user ON entity(tenant_id, user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_entity_kind ON entity(kind)",
 )
 
 
@@ -520,6 +541,62 @@ def _clear_stale_post_status() -> None:
         logger.warning("post_status 残留清理跳过: %s", exc)
 
 
+def _migrate_drama_characters_to_entities() -> None:
+    """旧数据一次性迁移(P1 全局主体库):DramaCharacter → Entity(kind=character)。
+
+    幂等:按 (user_id, kind='character', name) 判重,已存在即跳过;租户/属主取自
+    所属 DramaProject。copy 语义而非 move——DramaCharacter 表原样保留(兼容旧链路),
+    后续读取侧优先命中全局 Entity(见 services/entities.resolve_shot_characters)。
+    """
+    from sqlmodel import Session, select
+
+    from app.models import DramaCharacter, DramaProject, Entity
+
+    try:
+        with Session(engine) as s:
+            chars = s.exec(select(DramaCharacter)).all()
+            if not chars:
+                return
+            proj_ids = {c.project_id for c in chars}
+            projects = {
+                p.id: p
+                for p in s.exec(
+                    select(DramaProject).where(DramaProject.id.in_(proj_ids))  # type: ignore[attr-defined]
+                ).all()
+            }
+            existing = {
+                (e.user_id, e.name)
+                for e in s.exec(select(Entity).where(Entity.kind == "character")).all()
+            }
+            added = 0
+            for c in chars:
+                proj = projects.get(c.project_id)
+                if proj is None or (proj.user_id, c.name) in existing:
+                    continue
+                s.add(
+                    Entity(
+                        tenant_id=proj.tenant_id,
+                        user_id=proj.user_id,
+                        kind="character",
+                        name=c.name,
+                        description=c.description,
+                        ref_image=c.ref_image,
+                        reference_front=c.reference_front,
+                        reference_side=c.reference_side,
+                        reference_back=c.reference_back,
+                        prompt_hint=c.visual_prompt,
+                    )
+                )
+                existing.add((proj.user_id, c.name))
+                added += 1
+            if added:
+                s.commit()
+                logger.info("DramaCharacter→Entity 迁移完成:新增 %d 条全局角色主体", added)
+    except SQLAlchemyError as exc:
+        # 表刚由迁移补齐前的竞态/方言问题不阻断启动,留痕即可(与其他迁移同一纪律)
+        logger.warning("DramaCharacter→Entity 迁移跳过: %s", exc)
+
+
 def init_db() -> None:
     import app.models  # noqa: F401  确保模型已注册到元数据
     SQLModel.metadata.create_all(engine)
@@ -527,6 +604,7 @@ def init_db() -> None:
     # 此前仅 SQLite 分支执行导致 prod studioproject 缺 width/height/fps 500。
     _run_column_migrations()
     _clear_stale_post_status()
+    _migrate_drama_characters_to_entities()
 
 
 def bootstrap_admin() -> None:

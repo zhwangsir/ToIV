@@ -122,6 +122,9 @@ class ChatRequest(BaseModel):
     document_ids: list[str] = Field(default_factory=list, max_length=8)
     # 会话 id(H2):空=新会话(创建后 id 经响应头返回);带值=续聊(归属/R18 校验失败 404)
     session_id: str | None = Field(default=None, max_length=64)
+    # @主体引用(2026-08-26):前端解析 prompt 内 @实体名 上送的主体库 id(提及首现序);
+    # 仅接收落契约(生成工具调用时透传),注入参考图链由主体库任务接线
+    entity_ids: list[str] = Field(default_factory=list, max_length=8)
 
 
 # --------------------------------------------------------------------------- #

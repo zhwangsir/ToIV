@@ -25,10 +25,12 @@ export const PARAM_PANEL_GROUPS: ReadonlyArray<{ id: ParamPanelGroupId; label: s
   { id: "lora", label: "LoRA 叠加" },
 ];
 
-/** 「模型与引擎」组参数 key。 */
+/** 「模型与引擎」组参数 key。effect_preset(2026-08-26 Pikaffects 式特效预设)
+ *  与 style_preset 同域:都是「选中后由后端自动改提示词/模型行为」的创作意图开关。 */
 const MODEL_KEYS: ReadonlySet<string> = new Set([
   "ckpt_name",
   "style_preset",
+  "effect_preset",
   "sampler",
   "scheduler",
 ]);

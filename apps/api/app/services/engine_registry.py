@@ -25,6 +25,7 @@ from app.config import get_settings
 from app.workflows.model_profiles import AR_IMAGE, AR_VIDEO
 from app.models import User
 from app.nsfw_ctx import nsfw_allowed
+from app.services.effect_presets import list_effect_presets
 from app.services.h3 import H3_NODE, get_h3_client, is_h3_nsfw_lora
 from app.services.longcat import LONGCAT_NODE, get_longcat_client
 from app.services.qwen_edit import QWEN_EDIT_NODE, get_qwen_edit_client
@@ -415,6 +416,7 @@ def _image_size_params(default: int = 1024) -> list[dict]:
 def _h3_video_params() -> list[dict]:
     return [
         _negative(),
+        _effect_preset_select(),
         _num("width", "宽度", 1344, min_=256, max_=1344, step=32,
              hint="32 对齐,上限 1344×768;比例限 9:16~16:9", ar=AR_VIDEO),
         _num("height", "高度", 768, min_=256, max_=1344, step=32, hint="32 对齐"),
@@ -452,6 +454,7 @@ _H3_NSFW_DURATIONS = [
 def _h3_nsfw_video_params() -> list[dict]:
     return [
         _negative(),
+        _effect_preset_select(),
         {
             "key": "resolution", "label": "分辨率", "type": "select", "default": "1280x736",
             "options": [{"value": v, "label": label} for v, label in _H3_NSFW_RESOLUTIONS],
@@ -537,6 +540,7 @@ def _wan_nsfw_i2v_params() -> list[dict]:
     时长按秒,前端换算 4n+1 帧;fps 固定 16 不外露)。"""
     return [
         _negative(),
+        _effect_preset_select(),
         {
             "key": "resolution", "label": "分辨率", "type": "select", "default": "832x480",
             "options": [{"value": v, "label": label} for v, label in _WAN_NSFW_RESOLUTIONS],
@@ -642,6 +646,26 @@ def _wan_vace_params() -> list[dict]:
         _num("duration", "时长(秒)", 5, min_=0.5, max_=15, step=0.5,
              hint="上限 241 帧(16fps≈15s);非网格时长生成后精确裁切"),
         _num("steps", "采样步数", 20, min_=1, max_=50, hint="官方示例 20 步(unipc)"),
+        _num("fps", "帧率", 16, min_=8, max_=30, hint="仅影响成片打包帧率"),
+        _seed(),
+    ]
+
+
+# 首尾帧转场参数(Wan2.1-VACE,与 routes/wan_studio.py TransitionRequest 同一套范围;
+# 两张图按顺序语义:第 1 张=首帧,第 2 张=尾帧;时长按秒,内部 4k+1 网格吸附)
+def _wan_transition_params() -> list[dict]:
+    return [
+        {"key": "images", "label": "首尾帧(首帧→尾帧)", "type": "images", "max": 2,
+         "default": None,
+         "hint": "按顺序上传:第 1 张为首帧,第 2 张为尾帧;jpg / png / webp,单张 ≤ 20MB"},
+        _negative(),
+        _num("width", "宽度", 832, min_=320, max_=1280, step=16,
+             hint="16 对齐;比例限 9:16~16:9,超出自动纠正", ar=AR_VIDEO),
+        _num("height", "高度", 480, min_=320, max_=1280, step=16, hint="16 对齐"),
+        _num("duration", "时长(秒)", 5, min_=0.5, max_=15, step=0.5,
+             hint="上限 241 帧(16fps≈15s);非网格时长生成后精确裁切"),
+        _num("steps", "采样步数", 20, min_=1, max_=50, hint="官方示例 20 步(unipc)"),
+        _num("cfg", "CFG", 5.0, min_=0.0, max_=20.0, step=0.5, hint="官方示例 4-5 区间"),
         _num("fps", "帧率", 16, min_=8, max_=30, hint="仅影响成片打包帧率"),
         _seed(),
     ]
@@ -804,6 +828,25 @@ def _style_preset_select() -> dict:
             for p in list_presets(MediaType.IMAGE)
         ],
         "hint": "选择后由后端自动套用底模/采样参数(显式选的底模优先)",
+    }
+
+
+def _effect_preset_select() -> dict:
+    """特效预设(静态清单,与 services/effect_presets 同源;Pikaffects 式一键物理特效)。
+
+    选中后由后端把特效描述确定性拼接到用户提示词前部(不经过 LLM);
+    每项带 desc(中文一句话描述 + R18 兼容注明),前端选中即展示。
+    仅视频引擎(H3 优先,Wan2.2 兜底)挂载;图像引擎无此字段。
+    """
+    return {
+        "key": "effect_preset", "label": "特效预设", "type": "select",
+        "default": "",
+        "options": [{"value": "", "label": "不使用"}]
+        + [
+            {"value": p.key, "label": p.label_zh, "desc": p.description}
+            for p in list_effect_presets()
+        ],
+        "hint": "一键物理特效(融化/爆炸/压碎…):选中后由后端自动拼接到提示词前部,可再叠加自己的描述",
     }
 
 
@@ -1271,6 +1314,24 @@ def _default_registry() -> list[dict[str, Any]]:
             "note": "Apache 2.0 开源权重;多参考图/首尾帧/局部编辑一体化视频模型",
         },
         "params": _wan_vace_params(),
+        "probe": _probe_wan_vace,
+    },
+    # 首尾帧转场(Wan2.1-VACE 首尾帧支路的独立入口,与 VACE 同实例 :8197):
+    # 首帧+尾帧 → 过渡视频(对标即梦/PixVerse 首尾帧卖点);复用 VACE 探测
+    {
+        "id": "wan-transition",
+        "label": "首尾帧转场",
+        "kind": "video",
+        "nsfw": False,
+        "submit": {"route": "/api/generate/transition", "kind": "wan-transition"},
+        "description": "Wan2.1-VACE 14B 首尾帧转场:给定首帧与尾帧,生成中间平滑过渡视频,专用实例 :8197",
+        "source": {
+            "name": "Wan2.1-VACE-14B",
+            "url": "https://huggingface.co/ali-vilab/VACE-Wan2.1-14B",
+            "author": "阿里巴巴(VILAB)",
+            "note": "Apache 2.0 开源权重;多参考图/首尾帧/局部编辑一体化视频模型",
+        },
+        "params": _wan_transition_params(),
         "probe": _probe_wan_vace,
     },
     # Wan-Animate-2:参考图角色 + 驱动视频 → 动作迁移/视频换人(换代模型,端到端 DiT

@@ -686,3 +686,80 @@ export const fetchFleetDevice = (
   deviceId: string,
   _signal?: AbortSignal,
 ): Promise<FleetDeviceDetail> => fleetImpl.fetchFleetDevice(deviceId);
+
+// ===========================================================================
+// P1 全局主体库(EntitiesView)替身
+// ===========================================================================
+import type { EntityInput, EntityItem, EntityKind } from "../../lib/api";
+
+export const entityCalls = {
+  listEntities: 0,
+  createEntity: 0,
+  updateEntity: 0,
+  deleteEntity: 0,
+};
+
+export function makeEntity(id: string, over: Partial<EntityItem> = {}): EntityItem {
+  return {
+    id,
+    kind: "character",
+    name: `主体${id}`,
+    description: "",
+    prompt_hint: "",
+    ref_image: "",
+    reference_front: "",
+    reference_side: "",
+    reference_back: "",
+    handles: {},
+    image_urls: {},
+    created_at: "2026-08-26T00:00:00",
+    updated_at: "2026-08-26T00:00:00",
+    ...over,
+  };
+}
+
+export const entityImpl = {
+  listEntities: async (_kind?: EntityKind): Promise<EntityItem[]> => [],
+  createEntity: async (body: EntityInput): Promise<EntityItem> =>
+    makeEntity("new", { name: body.name, kind: body.kind ?? "character" }),
+  updateEntity: async (id: string, body: Partial<EntityInput>): Promise<EntityItem> =>
+    makeEntity(id, { name: body.name ?? `主体${id}` }),
+  deleteEntity: async (_id: string): Promise<void> => {},
+};
+
+/** 恢复默认实现并清零调用计数(每个用例前调用)。 */
+export function resetEntityImpl(): void {
+  entityImpl.listEntities = async () => [];
+  entityImpl.createEntity = async (body: EntityInput) =>
+    makeEntity("new", { name: body.name, kind: body.kind ?? "character" });
+  entityImpl.updateEntity = async (id: string, body: Partial<EntityInput>) =>
+    makeEntity(id, { name: body.name ?? `主体${id}` });
+  entityImpl.deleteEntity = async () => {};
+  for (const k of Object.keys(entityCalls) as (keyof typeof entityCalls)[]) entityCalls[k] = 0;
+}
+
+export const listEntities = (kind?: EntityKind): Promise<EntityItem[]> => {
+  entityCalls.listEntities++;
+  return entityImpl.listEntities(kind);
+};
+export const createEntity = (body: EntityInput): Promise<EntityItem> => {
+  entityCalls.createEntity++;
+  return entityImpl.createEntity(body);
+};
+export const updateEntity = (id: string, body: Partial<EntityInput>): Promise<EntityItem> => {
+  entityCalls.updateEntity++;
+  return entityImpl.updateEntity(id, body);
+};
+export const deleteEntity = (id: string): Promise<void> => {
+  entityCalls.deleteEntity++;
+  return entityImpl.deleteEntity(id);
+};
+export const uploadImage = async (
+  _file: File,
+  _kind = "img2img",
+  _allWorkers = false,
+  _worker?: string,
+): Promise<{ filename: string; worker: string }> => ({
+  filename: "uploaded.png",
+  worker: "http://w:8189",
+});

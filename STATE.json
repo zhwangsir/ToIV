@@ -1,7 +1,7 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-25T14:00:00+08:00",
+ "updated_at": "2026-08-26T04:30:00+08:00",
  "health": {
   "engine_r3_2026_08_21": {
    "status": "completed",
@@ -51,17 +51,20 @@
    ]
   },
   "B_eval_prompt_pipeline": {
-   "status": "partial",
-   "evidence": "routes/score.py + generate best-of-n 测试存在（test_generate_best_of_n.py）"
+   "status": "mostly_done",
+   "evidence": "2026-08-23 best-of-n 评测管线上线(EvalBatch/EvalScore+HeuristicScorer+VLMScorer+reconcile_interrupted);2026-08-25 评委换 Qwen3-VL-32B-Instruct-FP8(molmo2 幻觉根治,video_url 修复);剩余:TOIV_VIDEO_SCORER_ENABLED 生产灰度开启"
   },
   "C_audio_upgrade": {
-   "status": "not_started"
+   "status": "partial",
+   "evidence": "2026-08-23 音频编排层 POST /api/audio/orchestrate 上线(tts/separate/concat 可用);2026-08-24 IndexTTS 2.5 升级(多语种+情感修复);剩余: mix/sfx/variant 为 501 占位"
   },
   "D_finetune": {
-   "status": "not_started"
+   "status": "partial",
+   "evidence": "2026-08-23 H3 LoRA 训练管线(ostris/ai-toolkit minimax_h3)冒烟实证(rank16 310MB 产出留档 NAS);剩余: trainer :9100 未部署、z_image_base 族 trainer 同步、i2L API 产品化"
   },
   "E_data_flywheel": {
-   "status": "not_started"
+   "status": "partial",
+   "evidence": "2026-08-23 偏好对导出闭环(DPO JSONL,finalize 自动+手动导出,/api/eval/dataset/stats);剩余: 在线训练回环未接线(依赖 D)"
   }
  },
  "infra": {
@@ -1542,5 +1545,67 @@
   "fix": "agentChatStream/Resume 抛错携带 HTTP status;AssistantView 透出真实错误原因;404 自动清会话 id 以新会话重试一次",
   "verify": "前端 549 passed(新增 3 断言)/tsc 0;生产实证:正常流 text+done 通、假会话 404 自动降级不再显示超时",
   "commit": "047dfba"
+ },
+ "studio_dependency_migration_2026_08_26": {
+  "status": "completed",
+  "scope": "core 反推 VLM 依赖从 studio04 迁往 spark01 Qwen3-VL-32B,core 对 Studio 集群零依赖",
+  "trigger": "EXO 集群模型实例丢失(Kimi-K2.7/GLM-5.2 全 404 No instance found)+studio04 NAS 挂载静默失效(视频反推 502)",
+  "changes": [
+   "TOIV_REVERSE_VLM_BASE_URL: http://192.168.71.113:9303/v1 → http://192.168.71.82:8000/v1(spark01)",
+   "TOIV_REVERSE_VIDEO_MAC_PREFIX 清空(vLLM 认 base64 video_url,消除 NAS 中转单点)",
+   "L2/L3 此前已在 spark02(生产 .env 实证),EXO 丢失零影响"
+  ],
+  "e2e": [
+   "①SFW 图反推:紫色纯色图准确描述+negative ✓",
+   "②R18 图反推:JoyCaption 专线照常输出露骨描述 ✓(迁移不影响)",
+   "③R18 视频反推:spark01 直传 30s 完成 828 字符忠实描述 ✓",
+   "④SFW 视频反推:18MB 大视频 48s ✓"
+  ],
+  "nsfw_verified": "R18 视频/图像反推均如实描述无拒答(用户本地测试诉求;评分器 system prompt 框架引导+实测三次通过)",
+  "rollback": "core /home/merlin/toiv/deploy/.env.bak-20260826-studio-migration,恢复两行+重启 30s 内完成;studio04 :9303 保留不删",
+  "docs": "AGENTS.md(设备清单/E-5/Core 状态表)+ fleet_registry.py(studio04 标注退役观察)+ STATE.json 本条",
+  "post": "studio04 :9303/NAS 挂载观察一周,稳定后 launchctl unload com.dgmt.toiv-vlm-mlx"
+ },
+ "competitive_analysis_roadmap_2026_08_26": {
+  "status": "completed_p0_p1",
+  "scope": "五家竞品调研(liblib/即梦/Runway/Pika+Vidu/PixVerse+海螺)→ 8 项低分/缺失项识别 → P0/P1 四任务全部落地并生产验证",
+  "competitors": "liblib.tv(画布+宫格+3D导演台+Agent Skill)/即梦(全能参考+Agent小章鱼)/Runway(Aleph in-context编辑+Act-Two表演捕捉+Media Router)/Pika(特效预设Pikaffects+关键帧链)/Vidu(16s声画同出+@主体库)/PixVerse(首尾帧+MultiShot)/海螺(导演模式运镜指令)",
+  "moat_confirmed": "R18无审查全链路/私有算力零边际成本/数据飞轮/LoRA训练管线/3D管线——五家全空白",
+  "gaps_identified": [
+   "特效/转场预设空白(P0✅)",
+   "首尾帧无产品形态(P0✅)",
+   "主体库非全局(P1✅)",
+   "@主体引用用户无感知(P1✅)",
+   "多镜头单次生成(P1,未启动)",
+   "关键帧链式转场(P2)",
+   "视频编辑Aleph式(P2)",
+   "Motion Brush局部动效(P2)"
+  ],
+  "p0_effect_presets": {
+   "status": "completed_deployed",
+   "deliverables": "services/effect_presets.py(17物理特效预设,H3自然语言风格,R18兼容注明)+engine_registry三链路注入+GenerateView特效下拉+描述展示",
+   "tests": "后端16例+前端8例",
+   "prod_verify": "H3 melt 特效提交成功,Job prompt 以英文特效描述开头('The subject melts like warm wax...')"
+  },
+  "p0_transition": {
+   "status": "completed_deployed",
+   "deliverables": "POST /api/generate/transition(Wan VACE 首尾帧)+wan-transition 引擎注册+前端双上传框+Job kind=transition",
+   "tests": "后端14例+前端4例",
+   "prod_verify": "wan-transition 引擎上架(14 SFW/22 R18 全量)"
+  },
+  "p1_global_entities": {
+   "status": "completed_deployed",
+   "deliverables": "Entity 全局表(kind=character|scene|prop)+CRUD API+drama_studio 双源读取+启动幂等迁移+EntitiesView 管理页+GenerateView 主体引用多选",
+   "tests": "后端11例+前端6例",
+   "prod_verify": "entities count: 17(含迁移);新建主体 API 200"
+  },
+  "p1_at_mention": {
+   "status": "completed_deployed",
+   "deliverables": "PromptWithEntities 组件(@触发/键盘导航/chip 预览/删除联动)+三处接入+h3_refs entity_ids 优先路径+H3 直接路由 _apply_entity_refs 注入层",
+   "tests": "前端17例+后端 h3_refs 12例",
+   "prod_verify": "@图片1作为倒霉蛋身份与服装参考 引用行正确注入 prompt 绝对开头"
+  },
+  "regression": "后端 2133 passed / 前端 588 passed / tsc 0",
+  "commits": "未提交(工作区保留,待用户验收后统一 commit)"
  }
 }

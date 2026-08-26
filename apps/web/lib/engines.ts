@@ -169,6 +169,12 @@ export interface EngineSubmitInput {
   refAudio?: RefImageHandle | null;
   /** 驱动视频(video 类型参数必填,须与参考图同 worker)。 */
   refVideo?: RefImageHandle | null;
+  /**
+   * @主体引用(2026-08-26):prompt 内 @实体名 解析出的主体库 id(提及首现序)。
+   * 仅 H3 链路提交(entity_ids 字段);后端据此在绝对开头注入 @图片N 引用行
+   * (services/h3_refs,编号顺序=此数组序);空/未给 = 不携带,后端行为不变。
+   */
+  entityIds?: string[];
 }
 
 function _str(values: Record<string, unknown>, key: string, fallback = ""): string {
@@ -216,7 +222,7 @@ function _seed(values: Record<string, unknown>): number | null {
  * 返回的 GenerateResponse 交给 useGeneration/trackJob 做 SSE 进度跟踪。
  */
 export async function submitEngineGeneration(input: EngineSubmitInput): Promise<GenerateResponse> {
-  const { engine, positive, values, refImage, refImages, refAudio, refVideo } = input;
+  const { engine, positive, values, refImage, refImages, refAudio, refVideo, entityIds } = input;
   const id = engine.id;
   const imageParam = engineNeedsImage(engine);
   const multiImage = imageParam !== null && (imageParam.max ?? 1) > 1;
@@ -285,11 +291,17 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
       });
 
     case "h3-t2v":
-      return _postH3("/api/h3/t2v", _h3Payload(values, positive, negative, seed));
+      return _postH3("/api/h3/t2v", {
+        ..._h3Payload(values, positive, negative, seed),
+        ..._entityIdsPayload(entityIds),
+      });
 
     case "h3-nsfw-t2v":
       // R18 版与 SFW 同一提交链路:专区内自带 X-NSFW 头,后端据此打标/放行 R18 LoRA
-      return _postH3("/api/h3/t2v", _h3NsfwPayload(values, positive, negative, seed));
+      return _postH3("/api/h3/t2v", {
+        ..._h3NsfwPayload(values, positive, negative, seed),
+        ..._entityIdsPayload(entityIds),
+      });
 
     case "longcat-t2v":
       return generateLongcatT2V(_longcatPayload(values, positive, negative, seed));
@@ -333,6 +345,7 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
       // 参考图经 /api/upload 落在 pool worker,后端会转运到 H3 专用实例
       return _postH3("/api/h3/i2v", {
         ..._h3Payload(values, positive, negative, seed),
+        ..._entityIdsPayload(entityIds),
         image: refImage!.filename,
         worker: refImage!.worker,
       });
@@ -340,6 +353,7 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
     case "h3-nsfw-i2v":
       return _postH3("/api/h3/i2v", {
         ..._h3NsfwPayload(values, positive, negative, seed),
+        ..._entityIdsPayload(entityIds),
         image: refImage!.filename,
         worker: refImage!.worker,
       });
@@ -380,6 +394,19 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
         worker: refImages![0].worker,
       });
 
+    case "wan-transition":
+      // 首尾帧转场:恰好 2 张,按顺序语义(第 1 张=首帧,第 2 张=尾帧,互钉同 worker)
+      if (!refImages || refImages.length !== 2) {
+        throw new Error("请按顺序上传首帧与尾帧(共 2 张)");
+      }
+      return _postWan("/api/generate/transition", {
+        ..._wanPayload(values, positive, negative, seed, 5),
+        cfg: _num(values, "cfg", 5),
+        first_frame: refImages[0].filename,
+        last_frame: refImages[1].filename,
+        worker: refImages[0].worker,
+      });
+
     case "ace-music":
       // ACE-Step 文生音乐:positive 即风格标签(tags);歌词/时长等走动态参数
       return generateAudio({
@@ -399,6 +426,13 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
 /** RES-2026-08-18:输出分辨率档(融合超分);空串「原生直出」转 undefined 不随负载下发。 */
 function _resolutionTarget(values: Record<string, unknown>): string | undefined {
   const v = _str(values, "resolution_target", "");
+  return v ? v : undefined;
+}
+
+/** 特效预设(Pikaffects 式一键物理特效,2026-08-26):preset key 直传后端,
+ *  由后端把特效描述确定性拼到提示词前部;空串「不使用」转 undefined 不随负载下发。 */
+function _effectPreset(values: Record<string, unknown>): string | undefined {
+  const v = _str(values, "effect_preset", "");
   return v ? v : undefined;
 }
 
@@ -487,6 +521,11 @@ async function _postWan(path: string, body: object): Promise<GenerateResponse> {
   return res.json();
 }
 
+/** @主体引用负载(2026-08-26):仅 H3 链路携带 entity_ids;空/未给 → 不带字段,后端行为不变。 */
+function _entityIdsPayload(entityIds?: string[]): { entity_ids: string[] } | Record<string, never> {
+  return entityIds && entityIds.length > 0 ? { entity_ids: entityIds } : {};
+}
+
 /** H3 提交负载:无 fps/cfg(H3 固定 24fps + res_multistep/simple,模板内锁定);时长按秒直传。 */
 function _h3Payload(values: Record<string, unknown>, positive: string, negative: string, seed: number | null) {
   return {
@@ -498,6 +537,7 @@ function _h3Payload(values: Record<string, unknown>, positive: string, negative:
     steps: _num(values, "steps", 20),
     seed,
     loras: _loras(values),
+    effect_preset: _effectPreset(values),
     resolution_target: _resolutionTarget(values),
   };
 }
@@ -514,6 +554,7 @@ function _h3NsfwPayload(values: Record<string, unknown>, positive: string, negat
     steps: _num(values, "steps", 20),
     seed,
     loras: _loras(values),
+    effect_preset: _effectPreset(values),
     resolution_target: _resolutionTarget(values),
   };
 }
@@ -535,6 +576,7 @@ function _wanNsfwI2vPayload(values: Record<string, unknown>, positive: string, n
     seed,
     loras: _loras(values),
     full_quality: _bool(values, "full_quality"),
+    effect_preset: _effectPreset(values),
     resolution_target: _resolutionTarget(values),
   };
 }

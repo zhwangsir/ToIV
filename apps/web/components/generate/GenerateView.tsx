@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon } from "@/components/ui/Icon";
 import { Field, Select, Textarea } from "@/components/ui/Input";
@@ -13,9 +14,10 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { usePoll } from "@/hooks/usePoll";
 import { useAutoResize } from "@/hooks/useAutoResize";
-import { invalidateJobs, apiFetch, authHeaders, listRecipes, listStylePresets, type CommunityRecipe } from "@/lib/api";
+import { invalidateJobs, apiFetch, authHeaders, imageUrl, listRecipes, listStylePresets, resolveEntityRefs, type CommunityRecipe, type EntityItem } from "@/lib/api";
 import type { JobItem, StylePreset } from "@/lib/types";
 import { consumeEngineDraft, type EngineDraft } from "@/lib/engine";
+import { resolveEntityIds, useEntities } from "@/lib/entities";
 import { presetParamPatch } from "@/lib/presetApply";
 import {
   engineDefaults,
@@ -36,6 +38,7 @@ import { BREAKPOINTS } from "@/lib/useBreakpoint";
 import { friendlyError } from "@/lib/friendlyError";
 
 import { EngineInfoCard } from "./EngineInfoCard";
+import { EntityPicker, entityCover } from "@/components/entities/EntityPicker";
 import { ParamField } from "./ParamField";
 import { applyAspectPair } from "@/lib/aspectPair";
 import { PARAM_PANEL_GROUPS, groupEngineParams } from "./paramGroups";
@@ -456,12 +459,126 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
     !gen.isRunning &&
     !submitting &&
     (!imageParam || (multiImage ? refImages.length > 0 : !!refImage)) &&
+    // 首尾帧转场必须恰好 2 张(第 1 张首帧,第 2 张尾帧),缺一张不可提交
+    (engine.id !== "wan-transition" || refImages.length === 2) &&
     (!audioParam || !!refAudio) &&
     (!videoParam || !!refVideo);
 
   /** 取数值参数(仅有限 number 有效,其余视为未设置)。 */
   const numVal = (v: unknown): number | undefined =>
     typeof v === "number" && Number.isFinite(v) ? v : undefined;
+
+  // 主体库(@主体引用):提交时把 prompt 里的 @实体名 解析为 entity_ids(提及首现序),
+  // 后端 h3_refs 按此序在绝对开头注入 @图片N 引用行;清单与 PromptBar 选择器共享缓存
+  const subjectEntities = useEntities();
+
+  // 「引用主体」多选(P1 全局主体库):选中后主体图经 resolve-refs 钉到同机 worker
+  // 注入参考图链,prompt_hint 注入提示词;entityRefFiles 记 entity_id→注入文件名,
+  // 移除 chip 时同步摘除对应参考图
+  const [entityPickerOpen, setEntityPickerOpen] = useState(false);
+  const [pickedEntities, setPickedEntities] = useState<EntityItem[]>([]);
+  const [entityRefFiles, setEntityRefFiles] = useState<Record<string, string[]>>({});
+  const [entityResolving, setEntityResolving] = useState(false);
+
+  /** 引用主体确认:提示词注入 prompt_hint;有图引擎把主体图注入参考图链(钉同机 worker)。 */
+  async function applyPickedEntities(selected: EntityItem[]) {
+    if (!engine || selected.length === 0) return;
+    const merged = [...pickedEntities];
+    for (const e of selected) {
+      if (!merged.some((m) => m.id === e.id)) merged.push(e);
+    }
+    setPickedEntities(merged);
+
+    // ① prompt_hint(空回退 description)注入提示词,同名片段去重
+    const hints = selected
+      .map((e) => (e.prompt_hint || e.description || "").trim())
+      .filter((h) => h.length > 0);
+    if (hints.length > 0) {
+      setPromptByEngine((prev) => {
+        const cur = prev[engine.id] ?? "";
+        const add = hints.filter((h) => !cur.includes(h));
+        if (add.length === 0) return prev;
+        const sep = cur.trim().length > 0 ? ", " : "";
+        return { ...prev, [engine.id]: `${cur}${sep}${add.join(", ")}` };
+      });
+    }
+
+    // ② 主体图注入参考图链(仅有图主体 + 引擎吃 images 参数时)
+    const withImage = selected.filter((e) => entityCover(e));
+    if (!imageParam || withImage.length === 0) {
+      if (withImage.length === 0) toast.info(`已引用 ${merged.length} 个主体(无参考图,仅注入提示词)`);
+      return;
+    }
+    setEntityResolving(true);
+    try {
+      const pin = multiImage
+        ? (refsByEngine[engine.id] ?? [])[0]?.worker
+        : refByEngine[engine.id]?.worker;
+      const r = await resolveEntityRefs({
+        entity_ids: withImage.map((e) => e.id),
+        kind: uploadKind,
+        ...(pin ? { worker: pin } : {}),
+      });
+      const max = engineMaxImages(engine);
+      const filesByEntity: Record<string, string[]> = {};
+      const newRefs: UploadedRef[] = r.refs.map((h) => {
+        filesByEntity[h.entity_id] = [...(filesByEntity[h.entity_id] ?? []), h.filename];
+        const src = withImage.find((e) => e.id === h.entity_id);
+        return {
+          filename: h.filename,
+          worker: h.worker,
+          previewUrl: src ? imageUrl(entityCover(src)) : "",
+          name: h.name,
+        };
+      });
+      if (multiImage) {
+        setRefsByEngine((prev) => {
+          const cur = prev[engine.id] ?? [];
+          const seen = new Set(cur.map((v) => v.filename));
+          const add = newRefs.filter((v) => !seen.has(v.filename));
+          return { ...prev, [engine.id]: [...cur, ...add].slice(0, max) };
+        });
+      } else {
+        setRefByEngine((prev) =>
+          prev[engine.id] ? prev : { ...prev, [engine.id]: newRefs[0] ?? null },
+        );
+      }
+      setEntityRefFiles((prev) => {
+        const next = { ...prev };
+        for (const [eid, files] of Object.entries(filesByEntity)) {
+          next[eid] = [...(next[eid] ?? []), ...files];
+        }
+        return next;
+      });
+      const skippedNote = r.skipped.length > 0 ? `,${r.skipped.length} 个跳过` : "";
+      toast.success(`已把 ${r.refs.length} 张主体图加入参考图${skippedNote}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "主体参考图解析失败");
+    } finally {
+      setEntityResolving(false);
+    }
+  }
+
+  /** 移除已引用主体:同步摘除其注入的参考图(提示词已注入文本不回收,可手改)。 */
+  function removePickedEntity(eid: string) {
+    setPickedEntities((prev) => prev.filter((e) => e.id !== eid));
+    const files = entityRefFiles[eid] ?? [];
+    if (files.length > 0 && engine) {
+      setRefsByEngine((prev) => ({
+        ...prev,
+        [engine.id]: (prev[engine.id] ?? []).filter((v) => !files.includes(v.filename)),
+      }));
+      setRefByEngine((prev) => {
+        const cur = prev[engine.id];
+        return cur && files.includes(cur.filename) ? { ...prev, [engine.id]: null } : prev;
+      });
+    }
+    setEntityRefFiles((prev) => {
+      const next = { ...prev };
+      delete next[eid];
+      return next;
+    });
+  }
 
   /** 提交一次生成:引擎/提示词显式传入,参数/参考图取该引擎分槽快照(onGenerate 与失败重试共用)。 */
   async function submitGeneration(target: EngineInfo, promptText: string) {
@@ -477,6 +594,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
         refImages: refsByEngine[target.id] ?? [],
         refAudio: audioByEngine[target.id] ?? null,
         refVideo: videoByEngine[target.id] ?? null,
+        entityIds: resolveEntityIds(promptText, subjectEntities),
       });
       const entry: HistoryEntry = {
         id: newEntryId(),
@@ -607,7 +725,9 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
                 ? "wan_animate2"
                 : engine?.id === "wan-vace"
                   ? "wan_vace"
-                  : "ltx_i2v";
+                  : engine?.id === "wan-transition"
+                    ? "wan_vace" // 与 VACE 同实例(:8197),复用同一上传 kind
+                    : "ltx_i2v";
 
   return (
     <div className="generate-view">
@@ -886,6 +1006,49 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
                   </div>
                 )}
 
+                {/* 主体引用(P1 全局主体库):多选主体 → 主体图钉同机 worker 注入参考图链,
+                    prompt_hint 注入提示词;chip 移除同步摘除其注入的参考图 */}
+                {engine && (
+                  <div className="params-section">
+                    <h3 className="params-section-title">主体引用</h3>
+                    <div className="entity-ref-row">
+                      {pickedEntities.map((e) => (
+                        <span key={e.id} className="entity-ref-chip" title={e.prompt_hint || e.description || e.name}>
+                          {entityCover(e) ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={imageUrl(entityCover(e))} alt={e.name} className="entity-ref-chip-img" />
+                          ) : (
+                            <Icon name={e.kind === "character" ? "user" : e.kind === "scene" ? "image" : "box"} size={12} />
+                          )}
+                          <span className="entity-ref-chip-name">{e.name}</span>
+                          <button
+                            type="button"
+                            className="entity-ref-chip-remove"
+                            aria-label={`移除主体 ${e.name}`}
+                            disabled={gen.isRunning}
+                            onClick={() => removePickedEntity(e.id)}
+                          >
+                            <Icon name="close" size={10} />
+                          </button>
+                        </span>
+                      ))}
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        loading={entityResolving}
+                        icon={<Icon name="users" size={14} />}
+                        disabled={gen.isRunning}
+                        onClick={() => setEntityPickerOpen(true)}
+                      >
+                        引用主体
+                      </Button>
+                    </div>
+                    <p className="entity-ref-hint">
+                      选中后主体图自动加入参考图(钉定同机 worker),主体的提示词描述注入正向提示词。
+                    </p>
+                  </div>
+                )}
+
                 {/* T1 Inspector 分组卡:模型与引擎 / 画幅与时长 / 采样 / LoRA 叠加,
                     空组不渲染;组间 hairline 由 .params-section + .params-section 承担 */}
                 {paramGroups &&
@@ -978,7 +1141,69 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
             </button>
           </Ripple>
         )}
+
+        {/* 主体库多选器(P1):确认后主体图钉同机 worker 注入参考图链 + prompt_hint 注入提示词 */}
+        <EntityPicker
+          open={entityPickerOpen}
+          onClose={() => setEntityPickerOpen(false)}
+          selectedIds={pickedEntities.map((e) => e.id)}
+          onConfirm={(selected) => void applyPickedEntities(selected)}
+        />
       </div>
+      <style jsx>{`
+        .entity-ref-row {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: var(--space-2);
+        }
+        .entity-ref-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 3px 6px;
+          border: 1px solid var(--border-subtle);
+          border-radius: 999px;
+          background: var(--bg-surface-3);
+          color: var(--text-secondary);
+          font-size: 11px;
+          max-width: 160px;
+        }
+        .entity-ref-chip-img {
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          object-fit: cover;
+          flex-shrink: 0;
+        }
+        .entity-ref-chip-name {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .entity-ref-chip-remove {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 14px;
+          height: 14px;
+          border: none;
+          border-radius: 50%;
+          background: transparent;
+          color: var(--text-muted);
+          cursor: pointer;
+          padding: 0;
+          flex-shrink: 0;
+        }
+        .entity-ref-chip-remove:hover:not(:disabled) {
+          color: var(--text-primary);
+        }
+        .entity-ref-hint {
+          margin: 6px 0 0;
+          font-size: 11px;
+          color: var(--text-muted);
+        }
+      `}</style>
     </div>
   );
 }

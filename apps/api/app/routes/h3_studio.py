@@ -30,6 +30,7 @@ from app.workflows.video_upscale import validate_resolution_target
 from app.services import h3 as h3_service
 from app.services import video_generators as vgen
 from app.services.duration import DurationLimitError, DurationPlan, resolve_duration
+from app.services.effect_presets import apply_effect_preset, validate_effect_key
 from app.services.h3 import is_h3_nsfw_lora
 from app.services.video_upscale import maybe_chain_upscale
 from app.workflows.h3_video import H3I2VParams, H3T2VParams, build_h3_i2v_graph, build_h3_t2v_graph
@@ -85,9 +86,20 @@ class H3T2VRequest(BaseModel):
     length: int | None = Field(default=None, ge=22, le=362)
     steps: int = Field(default=20, ge=1, le=50)
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
+    # 特效预设(Pikaffects 式一键物理特效;静态清单见 services/effect_presets):
+    # 选中后后端把特效英文描述确定性拼到 positive 前部,不经过 LLM;未知 key → 422
+    effect_preset: str | None = Field(default=None, max_length=64)
+    # 主体引用(@主体前台化):全局主体库 Entity id 列表,选中后注入 @图片N 引用行
+    # 到 prompt 绝对开头(与 drama 线 h3_refs 同规则);空列表 = 显式清空
+    entity_ids: list[str] | None = Field(default=None, max_length=16)
     # RES-2026-08-18:输出分辨率档(1080p/2k/4k)。宽高始终按原生上限(H3≤1344×768)
     # 生成,选档后由超分集群二次放大;空 = 原生直出
     resolution_target: str | None = Field(default=None, max_length=8)
+
+    @field_validator("effect_preset")
+    @classmethod
+    def _v_effect_preset(cls, v: str | None) -> str | None:
+        return validate_effect_key(v)
 
     @field_validator("resolution_target")
     @classmethod
@@ -114,6 +126,37 @@ class H3T2VRequest(BaseModel):
 
 # 旧默认时长:5s@24fps → 17k+5 网格 124 帧(与历史默认一致)
 _DEFAULT_SECONDS = 5.0
+
+
+def _apply_effect(req: H3T2VRequest) -> H3T2VRequest:
+    """特效预设注入层:选中后把特效描述确定性拼到 positive 前部(不经过 LLM)。
+
+    用 model_copy 覆盖 req,使下游(params 构图 / extend 续段闭包 / Job.prompt
+    落库 / params 快照)全部同源注入后的提示词,续段与首段特效一致。
+    """
+    if not req.effect_preset:
+        return req
+    pos, neg = apply_effect_preset(req.positive, req.negative, req.effect_preset)
+    return req.model_copy(update={"positive": pos, "negative": neg})
+
+
+def _apply_entity_refs(req: H3T2VRequest, session: Session, user: User) -> H3T2VRequest:
+    """主体引用注入层:entity_ids → @图片N 引用行拼到 prompt 绝对开头。
+
+    与 drama 线 h3_refs.ref_prefix_for_shot 同规则;entity_ids 为空列表时显式
+    清空(不注入);主体不存在/无图跳过(h3_refs 内部处理,不让坏主体拖垮整批)。
+    """
+    if req.entity_ids is None:
+        return req
+    if not req.entity_ids:
+        return req.model_copy(update={"positive": req.positive})
+    from app.services.h3_refs import build_ref_prefix, resolve_entity_refs
+    prefix = build_ref_prefix(
+        resolve_entity_refs(session, req.entity_ids, owner_id=user.id)
+    )
+    if not prefix:
+        return req
+    return req.model_copy(update={"positive": f"{prefix}{req.positive}"})
 
 
 def _resolve_plan(req: H3T2VRequest) -> DurationPlan:
@@ -193,6 +236,8 @@ async def generate_h3_t2v(
     """H3 文生视频。实例不可达/缺 H3 节点 → 503(见 services/h3.ensure_h3_ready)。"""
     enforce_generation_rate_limit(user)
     _gate_h3_nsfw_loras(req.loras, user)
+    req = _apply_effect(req)
+    req = _apply_entity_refs(req, session, user)
     plan = _resolve_plan(req)
     params = H3T2VParams(
         positive=req.positive,
@@ -241,6 +286,8 @@ async def generate_h3_i2v(
     """H3 图生视频。参考图从上传落点 worker 转运到 H3 实例后提交。"""
     enforce_generation_rate_limit(user)
     _gate_h3_nsfw_loras(req.loras, user)
+    req = _apply_effect(req)
+    req = _apply_entity_refs(req, session, user)
     plan = _resolve_plan(req)
     client = await h3_service.pick_h3_client()
     source = resolve_worker(req.worker)

@@ -2,6 +2,113 @@
 
 ---
 
+## ROADMAP-2026-08-26 · 竞品调研路线图 P0/P1 四任务全落地
+
+**时间**: 2026-08-26(凌晨)
+**类型**: 竞品驱动功能开发(用户诉求「市场调研→路线图→直接开始推进→优化低分项」)
+
+### 竞品调研(5 家并行)
+
+| 竞品 | 核心启示 | ToIV 差距 |
+|---|---|---|
+| liblib.tv | 画布抽象层级/宫格分镜/3D 导演台/Agent Skill 开放 | 画布 UX/模板生态 |
+| 即梦 AI | 全能参考一致性/Agent 小章鱼/分镜时间轴 | 多模态参考/自动成片 |
+| Runway Gen-4.5 | Aleph in-context 编辑(改一帧传播全片+预览帧)/Act-Two 手指级表演捕捉/Media Router 语义路由 | 视频到视频编辑/局部动效 |
+| Pika 2.5 | **Pikaffects 一键物理特效**(melt/explode/crush)/Pikaframes 关键帧链 | **特效预设空白**(P0) |
+| Vidu Q3 | **@主体库全局资产**(@牛仔 @酒吧)/16s 声画同出/多镜头自动切镜 | **主体库非全局**/**@引用无感知**(P1) |
+| PixVerse V6 | **首尾帧 Transition**/MultiShot 多镜头 | **首尾帧无产品形态**(P0) |
+| 海螺 H3 | 导演模式 15 运镜指令/Motion Brush 局部动效 | 局部动效(P2) |
+
+**护城河确认**:R18 无审查/私有算力零边际成本/数据飞轮/LoRA 训练管线/3D 管线——五家全空白。
+
+### P0 落地(已部署 core)
+
+**①特效预设体系**(对标 Pikaffects)
+- `services/effect_presets.py`:17 物理特效(melt/explode/crush/inflate/squish/levitate/dissolve/deflate/eye-pop/shatter/freeze/burn/vanish/transform/camera-shake/petrify/crystallize),H3 自然语言风格英文 prompt,R18 兼容注明
+- engine_registry 三链路注入(h3-t2v/h3-nsfw-t2v/wan-nsfw-i2v),GenerateView 特效下拉+描述展示
+- 生产实证:H3 melt 特效提交,Job prompt 以「The subject melts like warm wax...」开头
+
+**②首尾帧生成入口**(对标即梦/PixVerse)
+- `POST /api/generate/transition`(Wan VACE 首尾帧,首帧兼作 ref 锚点)+ wan-transition 引擎注册
+- 前端双上传框(AssetPicker 从作品库选)+ Job kind=transition
+- 生产实证:wan-transition 引擎上架(14 SFW/22 R18 全量)
+
+### P1 落地(已部署 core)
+
+**③全局主体库**(对标 Vidu My References)
+- `Entity` 全局表(kind=character|scene|prop)+ CRUD API+drama_studio 双源读取(同名优先全局,回退项目卡)+启动幂等迁移(3 次 init_db 只产 1 条)
+- EntitiesView 管理页(三类 tab+卡片网格)+GenerateView 主体引用多选
+- 生产实证:entities count: 17(含迁移);新建主体 200
+
+**④@主体引用前台化**(对标 Vidu @语法)
+- `PromptWithEntities` 组件(@触发选择器/↑↓Enter 键盘导航/chip 预览绑定详情/×删除联动重编号)
+- 三处接入:GenerateView 视频 prompt/ImageEditView 编辑指令/AssistantView 助手输入框
+- h3_refs entity_ids 优先路径+H3 直接路由 `_apply_entity_refs` 注入层(本会话补接)
+- 生产实证:`@图片1作为倒霉蛋身份与服装参考` 引用行正确注入 prompt 绝对开头
+
+### 回归与部署
+
+- 后端 **2133 passed**(P0 +30 例/P1 +29 例/h3_studio entity_ids 2 例)
+- 前端 **588 passed**(P0 +12 例/P1 +23 例)
+- tsc 0 错误
+- 部署:deploy.sh 全量(P0)→ --skip-web(P1 路由补接);BUILD_ID 20260825-205715-dc03f53-dirty
+
+### 剩余路线图(P1 未完/P2)
+
+| 优先级 | 任务 | 状态 |
+|---|---|---|
+| P1 | 多镜头单次生成(H3 单段「镜头一…镜头二…」协议) | 未启动 |
+| P2 | 关键帧链式转场(≤5 帧,Pikaframes 对标) | 未启动 |
+| P2 | 视频到视频编辑(Aleph 式 in-context) | 未启动 |
+| P2 | Motion Brush 局部动效标记 | 未启动 |
+
+---
+
+## STUDIO-MIGRATION-2026-08-26 · Studio 依赖全迁离:反推 VLM → spark01,core 对 Studio 零依赖
+
+**时间**: 2026-08-26(凌晨)
+**类型**: 生产拓扑迁移(用户诉求「Studio 无法使用,所有服务全部转移」)
+
+### 根因真机核查
+
+- EXO 集群(studio01:52415)端口活着但**模型实例全部丢失**:`/v1/models` 只剩 MiniMax-M2.7-4bit,Kimi-K2.7/GLM-5.2 请求 404 "No instance found"
+- studio04 :9303 NAS 挂载静默失效(D-2 重演,≥9 天)→ 本会话先手动 `mount_smbfs` 修复了一次
+- L2/L3 文本层**已事实在 spark02**(生产 .env 实证 `TOIV_LLM_L2/L3_BASE_URL=192.168.71.84`),EXO 丢失零影响
+- core 对 Studio 唯一硬依赖 = 反推 VLM(`TOIV_REVERSE_VLM_BASE_URL` + NAS 中转 `TOIV_REVERSE_VIDEO_MAC_PREFIX`)
+
+### 迁移动作(2 行 .env,零新增部署)
+
+```
+TOIV_REVERSE_VLM_BASE_URL=http://192.168.71.113:9303/v1 → http://192.168.71.82:8000/v1  # spark01 Qwen3-VL-32B
+TOIV_REVERSE_VIDEO_MAC_PREFIX=/Users/dgmt-studio04/nas_mnt → (空)                        # vLLM 认 base64 video_url,免 NAS 中转
+```
+
+- 备份:`/home/merlin/toiv/deploy/.env.bak-20260826-studio-migration`;`sudo systemctl restart toiv-api`(SSH merlin 无免密 sudo,须 `sudo -n`)
+- 顺带消除 studio04 NAS 挂载单点(视频不再走 SFTP 中转)
+
+### 生产 e2e(4/4 通过)
+
+| # | 用例 | 结果 |
+|---|---|---|
+| ① | SFW 图反推(纯色图) | ✓ 准确描述+生成 negative |
+| ② | R18 图反推(JoyCaption 专线,不受迁移影响) | ✓ 露骨描述如实输出 |
+| ③ | R18 视频反推(spark01 直传新路径) | ✓ 30s,828 字符忠实描述无拒答 |
+| ④ | SFW 视频反推(18MB 大文件) | ✓ 48s,tracking shot 等六段式完整 |
+
+R18 无审查验证(用户本地测试诉求):spark01 Qwen3-VL-32B-Instruct-FP8 为官方对齐版,但评分/反推场景实测三次(文本探针/真实 R18 图/真实 R18 视频)均无拒答——system prompt「技术质量评审,不涉及内容审核」框架引导有效。
+
+### 文档同步
+
+AGENTS.md(设备清单 studio04 划线/Core 状态表迁移行/E-5 易错点改写)· fleet_registry.py(studio04 :9303 标注退役观察)· STATE.json(新增 studio_dependency_migration_2026_08_26)
+
+### 回滚与后续
+
+- 回滚:恢复 .env 两行+重启,30s;studio04 :9303/挂载保留不删
+- 观察一周稳定后:`launchctl unload com.dgmt.toiv-vlm-mlx`(studio04 彻底退役 ToIV 依赖)
+- 注意:spark01 现承担 评分+反推 双职责(低频反推 vs 未开灰度的评分,冲突概率低,开启视频评分器灰度后观察)
+
+---
+
 ## GPU-REBALANCE-2026-08-25 · GPU2 过载三方换卡均衡 + 后室成片交付
 
 **时间**: 2026-08-25(晚)

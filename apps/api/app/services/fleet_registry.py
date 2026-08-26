@@ -153,14 +153,15 @@ DEVICE_REGISTRY: list[dict] = [
         {
             "id": f"studio0{i}",
             "name": f"Studio0{i}",
-            "role": "EXO RDMA 推理(MiniMax-M2.7-4bit)"
-                    + (" + VLM 反推(mlx-vlm 72B)" if i == 4 else ""),
+            # 2026-08-26 ToIV 依赖迁移:VLM 反推已切 spark01 Qwen3-VL-32B,
+            # Studio 仅剩 EXO RDMA;:9303 保留探测(退役观察期,稳定后下线)。
+            "role": "EXO RDMA 推理(MiniMax-M2.7-4bit)",
             "lan_ip": lan,
             "ts_ip": ts,
             "hardware": "Mac Studio M3 Ultra 32核 512GB",
             "probe_host": lan,
             "services": [_http("EXO", 52415)]
-                       + ([_http("VLM 反推", 9303)] if i == 4 else []),
+                       + ([_http("VLM 反推(退役观察)", 9303)] if i == 4 else []),
         }
         for i, lan, ts in [
             (1, "192.168.71.109", "100.67.43.40"),

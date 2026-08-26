@@ -3,6 +3,8 @@
 POST /api/wan/animate —— 参考图角色 + 驱动视频 → 动作迁移视频(先经 /api/upload 上传
                         kind=wan_animate,提交时由后端转运到 :8197 实例 input 目录)
 POST /api/wan/vace    —— 多参考图(1-4 张,+可选首尾帧)→ 视频(kind=wan_vace 同上)
+POST /api/generate/transition —— 首尾帧转场(首帧+尾帧 → 过渡视频,kind=transition;
+                        复用 VACE 工作流,首帧兼作参考图;路由挂 /generate 前缀对齐竞品语义入口)
 
 参数约束(参考官方示例真机节点参数):
   · 时长按秒选择(duration_sec,任意值;内部经统一策略层 services/duration 换算,
@@ -262,6 +264,85 @@ async def generate_wan_vace(
     graph = build_wan_vace_graph(params)
     result = await longcat_service.submit_longcat_job(
         graph, kind="wan_vace", positive=params.positive, seed=params.seed,
+        req=req, user=user, session=session, client=client,
+        nsfw=nsfw_allowed(user),
+        prechecked=True,  # 上方 _wan_precheck_or_hold 已做显存+RAM 预检(Wan 阈值独立)
+        hold_exc=hold_exc,  # 预检失败转 hold 排队(None=预检通过,正常提交)
+    )
+    return _attach_duration_chain(result, plan, lambda: client)
+
+
+class TransitionRequest(BaseModel):
+    """首尾帧转场请求(Wan2.1-VACE,:8197)。first_frame/last_frame 为上传句柄文件名
+    (与 worker 指定的落点同机,前端互钉);VACE 链路要求至少 1 张参考图,
+    首帧兼作 ref_images 锚点(start/end 帧支路同时生效)。
+
+    时长:优先 duration_sec(秒,任意值;4k+1 网格吸附后秒差大时生成后精确裁切);
+    num_frames(帧数)为 deprecated 兼容入参,与 duration_sec 同给时忽略。
+    """
+    positive: str = Field(min_length=1, max_length=4000)
+    first_frame: str = Field(min_length=1, max_length=512)
+    last_frame: str = Field(min_length=1, max_length=512)
+    worker: str
+    negative: str = Field(default="", max_length=2000)
+    width: int = Field(default=832, ge=320, le=1280)
+    height: int = Field(default=480, ge=320, le=1280)
+    duration_sec: float | None = Field(default=None, gt=0, le=600)
+    # deprecated:兼容入参,请改用 duration_sec;同给时忽略
+    num_frames: int | None = Field(default=None, ge=17, le=241)
+    steps: int = Field(default=20, ge=1, le=50)
+    cfg: float = Field(default=5.0, ge=0.0, le=20.0)
+    shift: float = Field(default=8.0, ge=0.0, le=20.0)
+    fps: int = Field(default=16, ge=8, le=30)
+    seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
+
+    _frames_ok = field_validator("first_frame", "last_frame")(_no_traversal)
+
+    @field_validator("width", "height")
+    @classmethod
+    def _snap16(cls, v: int) -> int:
+        return v // 16 * 16
+
+    # 宽高比守卫:9:16~16:9 静默归一(训练分布;极端比例出主体被裁/文字溢出)
+    _ratio = aspect_guard(*AR_VIDEO, align=16, min_v=320, max_v=1280)
+
+
+@router.post("/generate/transition")
+async def generate_transition(
+    req: TransitionRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """首尾帧转场:首帧 + 尾帧 → 中间过渡视频(对标即梦/PixVerse 首尾帧卖点)。
+
+    两帧从上传落点 worker 转运到 :8197 实例(qwen_edit 同款服务端转存);
+    复用 VACE 工作流(首帧兼作参考图锚点);提交前 GPU2 显存互斥预检(同 vace)。
+    """
+    enforce_generation_rate_limit(user)
+    plan = _resolve_plan(req, "vace")
+    client = longcat_service.get_longcat_client()
+    source = resolve_worker(req.worker)
+    first_name = await longcat_service.transfer_ref_image(client, source, req.first_frame)
+    last_name = await longcat_service.transfer_ref_image(client, source, req.last_frame)
+    hold_exc = await _wan_precheck_or_hold(client)
+    params = WanVaceParams(
+        positive=req.positive,
+        negative=req.negative,
+        ref_images=(first_name,),  # VACE 至少 1 张参考图:首帧兼作条件锚点
+        start_image=first_name,
+        end_image=last_name,
+        width=req.width,
+        height=req.height,
+        num_frames=plan.frames,
+        steps=req.steps,
+        cfg=req.cfg,
+        shift=req.shift,
+        fps=req.fps,
+        **({"seed": req.seed} if req.seed is not None else {}),
+    )
+    graph = build_wan_vace_graph(params)
+    result = await longcat_service.submit_longcat_job(
+        graph, kind="transition", positive=params.positive, seed=params.seed,
         req=req, user=user, session=session, client=client,
         nsfw=nsfw_allowed(user),
         prechecked=True,  # 上方 _wan_precheck_or_hold 已做显存+RAM 预检(Wan 阈值独立)

@@ -28,7 +28,7 @@ from pydantic import ValidationError
 from sqlmodel import select
 
 from app.comfy.pool import WorkerPool
-from app.models import AgentSession, Job, User
+from app.models import AgentSession, Entity, Job, User
 from app.nsfw_ctx import nsfw_allowed
 
 logger = logging.getLogger(__name__)
@@ -66,6 +66,16 @@ TOOL_SCHEMAS_GEN = [
                     },
                     "positive": {"type": "string", "description": "正向提示词(英文效果最佳;ace-music 填音乐标签;wan-animate-2 留空=自动反推外观)"},
                     "negative": {"type": "string", "description": "负向提示词(可选)"},
+                    "entity_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": (
+                            "全局主体库主体 id 列表(可选,1-4 个;先 list_entities 查)."
+                            "选中后自动把主体的 prompt_hint 注入提示词;"
+                            "对需要参考图的引擎(i2v/edit 类),首个有图主体的参考图"
+                            "自动作为参考图提交(显式 image 参数优先)"
+                        ),
+                    },
                     "params": {
                         "type": "object",
                         "description": (
@@ -79,6 +89,28 @@ TOOL_SCHEMAS_GEN = [
                     },
                 },
                 "required": ["engine_id", "positive"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_entities",
+            "description": (
+                "查询用户的全局主体库(角色/场景/道具,跨项目复用的主体资产,"
+                "含参考图与提示词描述)。用户提到「我的角色/主体库/之前建的主体」"
+                "或要在生成中保持角色一致时先查;返回的 id 可传给 "
+                "submit_generation 的 entity_ids 引用主体。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "kind": {
+                        "type": "string",
+                        "enum": ["character", "scene", "prop"],
+                        "description": "按主体类别过滤(可选;缺省返回全部)",
+                    },
+                },
             },
         },
     },
@@ -362,6 +394,13 @@ async def _submit_wan_vace(pos, neg, params, pool, user, session) -> dict:
     return await wan_studio.generate_wan_vace(req, user, session)
 
 
+async def _submit_wan_transition(pos, neg, params, pool, user, session) -> dict:
+    from app.routes import wan_studio
+
+    req = wan_studio.TransitionRequest(positive=pos, negative=neg, **params)
+    return await wan_studio.generate_transition(req, user, session)
+
+
 # (分发函数, 参考媒体回填键)——回填键为空元组 = 纯文本引擎
 _DISPATCH = {
     "txt2img": (_submit_txt2img, ()),
@@ -385,6 +424,7 @@ _DISPATCH = {
     "wan-animate": (_submit_wan_animate, ("image", "worker")),
     "wan-animate-2": (_submit_wan_animate2, ("image", "worker")),
     "wan-vace": (_submit_wan_vace, ()),
+    "wan-transition": (_submit_wan_transition, ()),
 }
 
 
@@ -410,6 +450,46 @@ def _job_event(*, job_id: str, kind: str, status: str, label: str,
 # + agent_session:本会话 AgentSession 行,propose_plan 落 pending 提案用)
 # ---------------------------------------------------------------------------
 
+def _apply_entity_refs(
+    session, user: User, entity_ids: list[str], positive: str, params: dict,
+    media_keys: tuple[str, ...],
+) -> tuple[str, dict, list[str]]:
+    """全局主体库注入:prompt_hint 拼入提示词;首个有图主体的参考图补进媒体参数。
+
+    - 仅解析当前用户的主体(他人 id 静默跳过,防跨用户引用);
+    - prompt_hint 为空回退 description;注入片段统一放 positive 末尾;
+    - 参考图仅当引擎吃 image 媒体键且调用方未显式给 image 时补位(显式优先)。
+    返回 (positive, params, 命中的主体名列表)。
+    """
+    from app.services.entities import image_handle_for_injection
+
+    ids = [i for i in entity_ids if isinstance(i, str) and i.strip()][:4]
+    if not ids:
+        return positive, params, []
+    rows = session.exec(
+        select(Entity).where(Entity.user_id == user.id, Entity.id.in_(ids))  # type: ignore[attr-defined]
+    ).all()
+    order = {i: n for n, i in enumerate(ids)}
+    rows.sort(key=lambda e: order.get(e.id, len(ids)))
+
+    hints: list[str] = []
+    names: list[str] = []
+    out = dict(params)
+    for e in rows:
+        names.append(e.name)
+        hint = (e.prompt_hint or e.description or "").strip()
+        if hint:
+            hints.append(f"{e.name}: {hint}")
+        if "image" in media_keys and not out.get("image"):
+            handle = image_handle_for_injection(e)
+            if handle:
+                out["image"] = handle["filename"]
+                out["worker"] = handle["worker"]
+    if hints:
+        positive = f"{positive}\n[主体库] " + "; ".join(hints) if positive else "; ".join(hints)
+    return positive, out, names
+
+
 async def exec_submit_generation(args: dict, ctx: dict) -> tuple[str, list[dict]]:
     from app.services import engine_registry
 
@@ -422,6 +502,7 @@ async def exec_submit_generation(args: dict, ctx: dict) -> tuple[str, list[dict]
     positive = str(args.get("positive") or "").strip()
     negative = str(args.get("negative") or "")
     params = args.get("params") if isinstance(args.get("params"), dict) else {}
+    entity_ids = args.get("entity_ids") if isinstance(args.get("entity_ids"), list) else []
 
     spec = engine_registry.get_engine_spec(engine_id)
     if spec is None:
@@ -444,6 +525,13 @@ async def exec_submit_generation(args: dict, ctx: dict) -> tuple[str, list[dict]
             _err_event("引擎未接入助手提交", engine_id)
         ]
     submit_fn, media_keys = entry
+
+    # 全局主体库注入:prompt_hint 拼提示词 + 首个有图主体补参考图(显式参数优先)
+    entity_names: list[str] = []
+    if entity_ids:
+        positive, params, entity_names = _apply_entity_refs(
+            session, user, entity_ids, positive, params, media_keys,
+        )
 
     # 可用性探测(注册表唯一事实源,8s TTL 缓存;R18 引擎在 R18 上下文才在列表里)
     try:
@@ -499,11 +587,44 @@ async def exec_submit_generation(args: dict, ctx: dict) -> tuple[str, list[dict]
             + "请告知用户 job_id 与预计耗时;完成后产物会自动进作品库,"
               "用户追问进度时用 check_jobs 查询并把结果展示给用户。"
         )
+    if entity_names:
+        text += f"已引用主体库:{','.join(entity_names)}。"
     if result.get("duration_notice"):
         text += f"时长说明:{result['duration_notice']}"
     if result.get("upscale_notice"):
         text += f"超分说明:{result['upscale_notice']}"
     return text, [event]
+
+
+async def exec_list_entities(args: dict, ctx: dict) -> tuple[str, list[dict]]:
+    """全局主体库查询:当前用户的主体清单(角色/场景/道具),供 entity_ids 引用。"""
+    user: User = ctx["user"]
+    session = ctx["session"]
+
+    kind = str(args.get("kind") or "").strip()
+    stmt = select(Entity).where(Entity.user_id == user.id)
+    if kind in ("character", "scene", "prop"):
+        stmt = stmt.where(Entity.kind == kind)
+    rows = session.exec(stmt.order_by(Entity.created_at)).all()
+    if not rows:
+        return (
+            "主体库为空。引导用户到「主体库」页创建角色/场景/道具主体"
+            "(可上传参考图与三视图),创建后即可在生成中引用。",
+            [],
+        )
+    kind_label = {"character": "角色", "scene": "场景", "prop": "道具"}
+    lines = []
+    for e in rows:
+        has_img = "有图" if any(
+            (v or "").strip()
+            for v in (e.reference_front, e.ref_image, e.reference_side, e.reference_back)
+        ) else "无图"
+        hint = (e.prompt_hint or e.description or "").strip()
+        lines.append(
+            f"- {e.name}(id={e.id},{kind_label.get(e.kind, e.kind)},{has_img})"
+            + (f":{hint[:80]}" if hint else "")
+        )
+    return "主体库清单:\n" + "\n".join(lines), []
 
 
 async def exec_check_jobs(args: dict, ctx: dict) -> tuple[str, list[dict]]:

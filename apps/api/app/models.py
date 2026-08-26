@@ -469,6 +469,37 @@ class DramaAsset(SQLModel, table=True):
 
 
 # ---------------------------------------------------------------------------
+# P1 全局主体库(2026-08-26):角色/场景/道具三类主体跨项目复用(对标 Vidu RefHub)。
+# 与 DramaAsset 的区别:Entity 是全局资产(不挂任何业务线),drama/生成页/助手
+# 均可引用;DramaCharacter 旧数据由 db.py 启动迁移一次性 copy 进本表。
+# ---------------------------------------------------------------------------
+
+
+class Entity(SQLModel, table=True):
+    """全局主体:角色(可带三视图)/场景/道具。
+
+    图片四列(ref_image + reference_front/side/back)统一存两种形态:
+    ① 上传句柄 JSON 串 {"filename","worker"}(/api/upload 或 /api/assets/from-job 返回);
+    ② 纯 URL 字符串(作品库/迁移旧数据)。解析统一走 services/entities.parse_image_handle。
+    """
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    tenant_id: str = Field(index=True)
+    user_id: str = Field(index=True)
+    kind: str = Field(default="character", index=True)  # character | scene | prop
+    name: str
+    description: str = ""  # 中文描述
+    ref_image: str = ""  # 单图(句柄 JSON 或 URL)
+    # 三视图(仅 character 使用)
+    reference_front: str = ""
+    reference_side: str = ""
+    reference_back: str = ""
+    prompt_hint: str = ""  # 注入提示词用的主体描述(英文 token 优先)
+    created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
+
+
+# ---------------------------------------------------------------------------
 # Studio 创作工作室(替代 drama_studio / manju,分镜级混合生成)
 # ---------------------------------------------------------------------------
 

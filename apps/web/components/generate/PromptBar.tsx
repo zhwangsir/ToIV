@@ -7,6 +7,7 @@ import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon } from "@/components/ui/Icon";
 import { Select } from "@/components/ui/Input";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
+import { PromptWithEntities } from "@/components/ui/PromptWithEntities";
 import { ReverseButton } from "@/components/ui/ReverseButton";
 import { Ripple } from "@/components/ui/Ripple";
 import { useAutoResize } from "@/hooks/useAutoResize";
@@ -110,18 +111,22 @@ export function PromptBar({
         <ErrorBar message={submitError} onClose={onClearError} />
 
         <div className="promptbar-input-row" onClick={() => setOpenChip(null)}>
-          <textarea
-            ref={(el) => {
+          {/* @主体引用(2026-08-26):输入 @ 弹主体选择器,插入 @实体名 后预览行显示
+              图N 绑定 chip;实体库不可用时自动隐身,纯文本输入零影响。
+              受控 value/onChange 语义与原 textarea 一致;taRef 经 inputRef 透传
+              (自动增高 hook 不变) */}
+          <PromptWithEntities
+            inputRef={(el: HTMLTextAreaElement | null) => {
               taRef.current = el;
               if (inputRef) inputRef.current = el;
             }}
             className="promptbar-textarea"
             rows={1}
             value={value}
-            placeholder="描述想要生成的内容…(⌘/Ctrl + Enter 快速生成)"
+            placeholder="描述想要生成的内容…(⌘/Ctrl + Enter 快速生成;@ 引用主体)"
             disabled={disabled}
-            aria-label="提示词"
-            onChange={(e) => onChange(e.target.value)}
+            ariaLabel="提示词"
+            onChange={onChange}
             onKeyDown={(e) => {
               // ⌘/Ctrl+Enter 快速生成(Enter 保留换行:提示词常多行);与 assistant/agent-runs 的键盘提交习惯对齐
               if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && canSubmit && !submitting && !disabled) {

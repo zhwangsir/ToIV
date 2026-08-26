@@ -24,6 +24,7 @@ from app.ratelimit import enforce_generation_rate_limit
 from app.workflows.model_profiles import AR_VIDEO, aspect_guard
 from app.services import video_generators as vgen
 from app.services.duration import DurationLimitError, DurationPlan, resolve_duration
+from app.services.effect_presets import apply_effect_preset, validate_effect_key
 from app.services.video_upscale import maybe_chain_upscale
 from app.versioning import params_snapshot
 from app.workflows.video_upscale import validate_resolution_target
@@ -63,8 +64,16 @@ class WanI2VRequest(BaseModel):
     loras: list[WanLoraInput] = Field(default_factory=list, max_length=4)
     # 满血档:不挂加速 LoRA,20 步 + cfg 3.5/3.0(慢 ~4 倍换质量,成片用);默认加速档 8 步
     full_quality: bool = False
+    # 特效预设(Pikaffects 式一键物理特效;静态清单见 services/effect_presets):
+    # 选中后后端把特效英文描述确定性拼到 positive 前部,不经过 LLM;未知 key → 422
+    effect_preset: str | None = Field(default=None, max_length=64)
     # RES-2026-08-18:输出分辨率档(1080p/2k/4k);空 = 原生直出
     resolution_target: str | None = Field(default=None, max_length=8)
+
+    @field_validator("effect_preset")
+    @classmethod
+    def _v_effect_preset(cls, v: str | None) -> str | None:
+        return validate_effect_key(v)
 
     @field_validator("resolution_target")
     @classmethod
@@ -120,6 +129,11 @@ async def generate_video(
 ):
     enforce_generation_rate_limit(user)
     client = resolve_worker(req.worker)
+    # 特效预设注入层:选中后把特效描述确定性拼到 positive 前部(不经过 LLM);
+    # model_copy 覆盖使 params 构图 / Job.prompt 落库 / 参数快照全部同源
+    if req.effect_preset:
+        pos, neg = apply_effect_preset(req.positive, req.negative or "", req.effect_preset)
+        req = req.model_copy(update={"positive": pos, "negative": neg})
     # NSFW LoRA 分侧挂载:R18 上下文才生效(SFW 请求带 loras 静默剔除);
     # 注册表外的名字直接 422(防任意文件路径注入)
     high_loras: list[tuple[str, float]] = []
