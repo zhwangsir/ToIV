@@ -1,18 +1,23 @@
 """POST /api/audio/orchestrate —— 音频编排层:把已能独立运行的音频引擎(TTS/人声分离)
 统一成一条顺序执行的编排 API。纯编排,不动引擎本身。
 
-首批落地两条链(2026-08-23):
-- 多角色 TTS 对白合成:steps 里多个 tts 步骤(可选 role → 请求级 voices 音色映射)
+已落地链:
+- 多角色 TTS 对白合成(2026-08-23):steps 里多个 tts 步骤(可选 role → 请求级 voices 音色映射)
   顺序合成 → concat 步骤用 ffmpeg 拼接成一条对白 wav。
-- 人声分离:separate 步骤包装 services.audio_sep(demucs @ workstation),
+- 人声分离(2026-08-23):separate 步骤包装 services.audio_sep(demucs @ workstation),
   source_url 指向本 API 资产或白名单来源(防 SSRF,同 voice.py 纪律)。
+- 混音(2026-08-27):mix 步骤用 ffmpeg amix 把前序产物混成单轨
+  (各输入先 aresample 归一 24k,amix normalize=0 不自动衰减,duration=longest)。
+- TTS 变体(2026-08-27):variant 步骤对最近一次 tts 步骤按 duration_factors
+  语速列表逐个重跑合成,产出 N 个真实变体(仅 zh/en——IndexTTS 2.5 支持
+  duration_factor;多语言引擎不支持语速扰动,明确 422 不造相同产物)。
 
-混音/音效/变体现无现成引擎,steps 里传 mix/sfx/variant 明确返回 501 占位,不造假。
+音效(sfx)现无现成引擎,steps 里传 sfx 明确返回 501 占位,不造假。
 
 执行语义:顺序执行;任一步失败即中断,HTTPException detail 带步骤序号;
-ffmpeg 不可用时不硬拼——返回全部分段产物 + note 标注。
+ffmpeg 不可用时不硬拼——concat 返回全部分段产物 + note 标注,mix 明确 500。
 产物建档与 voice.py/audio_tools.py 同口径:Job(kind=audio_orchestrate, status=done),
-result = 产物 URL 列表(拼接产物在前),前端作品库经 /api/jobs 回读。
+result = 产物 URL 列表(最终产物在前),前端作品库经 /api/jobs 回读。
 """
 from __future__ import annotations
 
@@ -83,13 +88,35 @@ class ConcatStep(BaseModel):
     type: Literal["concat"]  # 拼接本轮此前所有 tts 分段(按步骤顺序)
 
 
-class PlaceholderStep(BaseModel):
-    """混音/音效/变体:现无引擎,明确 501 占位。"""
-    type: Literal["mix", "sfx", "variant"]
+class MixStep(BaseModel):
+    """混音:把前序步骤产出的音频产物用 ffmpeg amix 混成单轨。
+
+    inputs 显式给前序步骤序号(从 0 起;引用该步骤产出的全部产物,
+    引用 variant 步骤一次即带入其 N 个变体);缺省 = 本轮此前全部产物(按步骤顺序)。
+    """
+    type: Literal["mix"]
+    inputs: list[int] | None = Field(default=None, max_length=20)
+
+
+class VariantStep(BaseModel):
+    """TTS 变体:对最近一次 tts 步骤按 duration_factors 逐个重跑合成,产出 N 个变体。
+
+    duration_factor 是 IndexTTS 2.5 语速参数(0.5-2.0,<1 加速 >1 减速);
+    文本/音色/情感等其余参数沿用源 tts 步骤。仅 zh/en 源可用(多语言引擎不支持语速扰动)。
+    """
+    type: Literal["variant"]
+    duration_factors: list[Annotated[float, Field(ge=0.5, le=2.0)]] = Field(
+        min_length=1, max_length=5
+    )
+
+
+class SfxStep(BaseModel):
+    """音效:现无引擎,明确 501 占位。"""
+    type: Literal["sfx"]
 
 
 Step = Annotated[
-    TtsStep | SeparateStep | ConcatStep | PlaceholderStep,
+    TtsStep | SeparateStep | ConcatStep | MixStep | VariantStep | SfxStep,
     Field(discriminator="type"),
 ]
 
@@ -148,8 +175,17 @@ def _write_output(audio: bytes) -> tuple[Path, str]:
         return out, name
 
 
-async def _synth_tts(client: httpx.AsyncClient, step: TtsStep, spec: VoiceSpec) -> bytes:
-    """单段 TTS 合成(多语言路由同 voice.py:zh/en 走 tts_url,ja/ko/yue 走多语言)。"""
+async def _synth_tts(
+    client: httpx.AsyncClient,
+    step: TtsStep,
+    spec: VoiceSpec,
+    duration_factor: float | None = None,
+) -> bytes:
+    """单段 TTS 合成(多语言路由同 voice.py:zh/en 走 tts_url,ja/ko/yue 走多语言)。
+
+    duration_factor:语速扰动(variant 步骤专用),透传 IndexTTS 2.5 的
+    duration_factor(0.5-2.0);None = 不带该字段,引擎按默认语速。
+    """
     language = step.language or spec.language
     if language not in _ALLOWED_LANGUAGES:
         raise HTTPException(status_code=422, detail=f"不支持的合成语言:{language}")
@@ -169,6 +205,8 @@ async def _synth_tts(client: httpx.AsyncClient, step: TtsStep, spec: VoiceSpec) 
     if emo_text and emo_text.strip():
         data["emo_text"] = emo_text.strip()
         data["emo_alpha"] = str(emo_alpha)
+    if duration_factor is not None:
+        data["duration_factor"] = str(duration_factor)
     if language in {"ja", "ko", "yue"}:
         data["language"] = language
 
@@ -221,6 +259,31 @@ async def _concat_wav(segments: list[Path]) -> bytes:
         return out.read_bytes()
 
 
+async def _mix_wav(inputs: list[Path]) -> bytes:
+    """ffmpeg amix 混音:各输入先 aresample 归一 24k(采样率不统一也能混),
+    再 amix 合成单轨——normalize=0 不做自动衰减,duration=longest 不截断长输入。"""
+    if shutil.which("ffmpeg") is None:
+        raise HTTPException(status_code=500, detail="服务端未安装 ffmpeg")
+    with tempfile.TemporaryDirectory() as td:
+        out = Path(td) / "out.wav"
+        cmd = ["ffmpeg", "-y"]
+        for p in inputs:
+            cmd += ["-i", str(p)]
+        filters = "".join(f"[{k}:a]aresample=24000[a{k}];" for k in range(len(inputs)))
+        filters += "".join(f"[a{k}]" for k in range(len(inputs)))
+        filters += f"amix=inputs={len(inputs)}:duration=longest:normalize=0[aout]"
+        cmd += ["-filter_complex", filters, "-map", "[aout]", "-ar", "24000", str(out)]
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await proc.communicate()
+        if proc.returncode != 0 or not out.exists() or out.stat().st_size == 0:
+            tail = (stderr or b"").decode("utf-8", "replace")[-300:]
+            raise HTTPException(status_code=500, detail=f"音频混音失败:{tail}")
+        return out.read_bytes()
+
+
 # ---------- 端点 ----------
 
 @router.post("/audio/orchestrate")
@@ -232,29 +295,36 @@ async def audio_orchestrate(
     """顺序执行编排步骤,产物落盘 + Job(kind=audio_orchestrate) 建档。
 
     失败纪律:任一步失败即中断,detail 前缀「步骤 N(类型)」;引擎不可达 502,
-    服务未配置 503;mix/sfx/variant 占位 501;ffmpeg 缺失时 concat 不硬拼,
-    返回分段 + note。
+    服务未配置 503;sfx 占位 501;mix 输入不足/引用步骤无产物 422、ffmpeg 缺失 500;
+    variant 无前序 tts/多语言源 422;concat 在 ffmpeg 缺失时不硬拼,返回分段 + note。
     """
     enforce_generation_rate_limit(user)
 
     segments: list[Path] = []  # tts 分段(concat 的输入)
-    artifacts: list[dict[str, object]] = []  # 全部产物(分段/分离结果/拼接产物)
+    produced: dict[int, list[Path]] = {}  # 步骤序号 → 产物路径(mix 的输入来源)
+    last_tts: tuple[TtsStep, VoiceSpec] | None = None  # 最近一次 tts 步骤(variant 的源)
+    artifacts: list[dict[str, object]] = []  # 全部产物(分段/分离/拼接/混音/变体)
     final_url: str | None = None
     note: str | None = None
 
     async with httpx.AsyncClient(timeout=_TTS_TIMEOUT, follow_redirects=True, trust_env=False) as client:
         for i, step in enumerate(body.steps):
             try:
-                if isinstance(step, PlaceholderStep):
+                if isinstance(step, SfxStep):
                     raise HTTPException(
                         status_code=501,
-                        detail=f"步骤类型 {step.type} 暂未实现(无现成引擎,TODO 占位)",
+                        detail=(
+                            "步骤类型 sfx 暂未实现:需接入音效引擎(音效生成/音效库服务)后开放;"
+                            "当前可用步骤类型:tts/separate/concat/mix/variant"
+                        ),
                     )
                 if isinstance(step, TtsStep):
                     spec = body.voices.get(step.role or "") or VoiceSpec()
                     wav = await _synth_tts(client, step, spec)
                     path, name = _write_output(wav)
                     segments.append(path)
+                    produced.setdefault(i, []).append(path)
+                    last_tts = (step, spec)
                     artifacts.append({
                         "step": i, "type": "tts", "role": step.role,
                         "url": f"/api/audio/orch/files/{name}",
@@ -276,6 +346,7 @@ async def audio_orchestrate(
                     else:
                         wav = await separate_vocals(rr.content, filename=fn)
                     path, name = _write_output(wav)
+                    produced.setdefault(i, []).append(path)
                     artifacts.append({
                         "step": i, "type": "separate", "stem": step.stem,
                         "url": f"/api/audio/orch/files/{name}",
@@ -291,19 +362,69 @@ async def audio_orchestrate(
                         continue
                     wav = await _concat_wav(segments)
                     path, name = _write_output(wav)
+                    produced.setdefault(i, []).append(path)
                     final_url = f"/api/audio/orch/files/{name}"
                     artifacts.append({
                         "step": i, "type": "concat",
                         "url": final_url,
                         "duration_sec": _wav_duration(path),
                     })
+                elif isinstance(step, MixStep):
+                    if step.inputs is None:
+                        mix_inputs = [p for paths in produced.values() for p in paths]
+                    else:
+                        missing = [idx for idx in step.inputs if not produced.get(idx)]
+                        if missing:
+                            raise HTTPException(
+                                status_code=422, detail=f"混音输入步骤 {missing} 无产物"
+                            )
+                        mix_inputs = [p for idx in step.inputs for p in produced[idx]]
+                    if len(mix_inputs) < 2:
+                        raise HTTPException(
+                            status_code=422, detail="混音至少需要两个输入产物"
+                        )
+                    wav = await _mix_wav(mix_inputs)
+                    path, name = _write_output(wav)
+                    produced.setdefault(i, []).append(path)
+                    final_url = f"/api/audio/orch/files/{name}"
+                    artifacts.append({
+                        "step": i, "type": "mix", "inputs": len(mix_inputs),
+                        "url": final_url,
+                        "duration_sec": _wav_duration(path),
+                    })
+                elif isinstance(step, VariantStep):
+                    if last_tts is None:
+                        raise HTTPException(
+                            status_code=422, detail="没有可变体的前序 TTS 步骤"
+                        )
+                    src_step, src_spec = last_tts
+                    src_language = src_step.language or src_spec.language
+                    if src_language in {"ja", "ko", "yue"}:
+                        raise HTTPException(
+                            status_code=422,
+                            detail=(
+                                f"变体暂不支持多语言源({src_language}):"
+                                "语速扰动仅 zh/en 引擎(IndexTTS 2.5 duration_factor)支持"
+                            ),
+                        )
+                    for factor in step.duration_factors:
+                        wav = await _synth_tts(
+                            client, src_step, src_spec, duration_factor=factor
+                        )
+                        path, name = _write_output(wav)
+                        produced.setdefault(i, []).append(path)
+                        artifacts.append({
+                            "step": i, "type": "variant", "duration_factor": factor,
+                            "url": f"/api/audio/orch/files/{name}",
+                            "duration_sec": _wav_duration(path),
+                        })
             except HTTPException as e:
                 # 失败中断:标注步骤序号后原码上抛。
                 e.detail = f"步骤 {i}({step.type}) 失败:{e.detail}"
                 raise
 
     result_urls = ([final_url] if final_url else []) + [
-        str(a["url"]) for a in artifacts if a["type"] != "concat"
+        str(a["url"]) for a in artifacts if a["url"] != final_url
     ]
     prompt = (body.title or "").strip() or next(
         (s.text for s in body.steps if isinstance(s, TtsStep)), "audio orchestration"

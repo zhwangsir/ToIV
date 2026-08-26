@@ -1,4 +1,4 @@
-"""ToIV LoRA 训练 agent —— 部署在 GPU 机(.100)上，HTTP 服务监听 :9100。
+"""ToIV LoRA 训练 agent —— 部署在 GPU 机(workstation)上，HTTP 服务监听 :9100。
 
 架构: API(CPU 容器)通过 HTTP 调本 agent(同 ComfyUI/TTS/LLM 的访问模式)。
 训练后端: AI-Toolkit(ostris)支持 FLUX.2/Qwen-Image/Z-Image/SDXL。
@@ -11,8 +11,24 @@
   POST /train/{id}/stop   — 停止训练
   GET  /health            — 健康检查
 
+路径环境变量(默认值保留 Windows F:\\ 布局向后兼容;Linux 部署用环境变量注入):
+  TOIV_TRAINER_MODELS_ROOT      模型库根目录(默认 F:\\ComfyUIModel\\models)
+  TOIV_TRAINER_DATASETS_DIR     数据集目录(默认 F:\\toiv-trainer\\datasets)
+  TOIV_TRAINER_AI_TOOLKIT_DIR   ai-toolkit 仓库目录(默认 F:\\toiv-trainer\\ai-toolkit)
+  TOIV_TRAINER_VENV_PYTHON      训练 venv python(默认 F:\\toiv-trainer\\.venv\\Scripts\\python.exe)
+  TOIV_TRAINER_LORAS_DIR        LoRA 输出目录(默认 <MODELS_ROOT>/loras)
+  TOIV_TRAINER_CHECKPOINTS_DIR  底模目录(默认 <MODELS_ROOT>/checkpoints)
+
+Florence2 权重经 huggingface_hub 下载,默认直连 HuggingFace;离线/受限网络部署时
+设 HF_ENDPOINT=https://hf-mirror.com 走镜像(代码不硬编码镜像地址)。
+
 依赖: toiv-trainer venv(含 torch + ai-toolkit requirements + florence2)
-启动: F:\\toiv-trainer\\.venv\\Scripts\\python.exe toiv-trainer.py
+启动(Windows 默认): F:\\toiv-trainer\\.venv\\Scripts\\python.exe toiv-trainer.py
+启动(Linux 示例):  TOIV_TRAINER_MODELS_ROOT=/home/merlin/nas_mount/Windows/ComfyUI/ComfyUIModel/models \\
+                    TOIV_TRAINER_AI_TOOLKIT_DIR=/home/merlin/ai-toolkit \\
+                    TOIV_TRAINER_VENV_PYTHON=/home/merlin/ai-toolkit/.venv/bin/python \\
+                    HF_ENDPOINT=https://hf-mirror.com \\
+                    /home/merlin/ai-toolkit/.venv/bin/python toiv-trainer.py
 """
 from __future__ import annotations
 
@@ -32,14 +48,14 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger("toiv-trainer")
 
 # ---------------------------------------------------------------------------
-# 路径常量(本地 F: 盘,NAS SMB 恢复后可改回 NAS 路径)
+# 路径常量(默认值保留 Windows F: 盘布局向后兼容;Linux 部署用环境变量覆盖)
 # ---------------------------------------------------------------------------
-MODELS_ROOT = r"F:\ComfyUIModel\models"
-DATASETS_DIR = r"F:\toiv-trainer\datasets"
-LORAS_DIR = os.path.join(MODELS_ROOT, "loras")
-CHECKPOINTS_DIR = os.path.join(MODELS_ROOT, "checkpoints")
-AI_TOOLKIT_DIR = r"F:\toiv-trainer\ai-toolkit"
-TRAINER_VENV_PYTHON = r"F:\toiv-trainer\.venv\Scripts\python.exe"
+MODELS_ROOT = os.environ.get("TOIV_TRAINER_MODELS_ROOT", r"F:\ComfyUIModel\models")
+DATASETS_DIR = os.environ.get("TOIV_TRAINER_DATASETS_DIR", r"F:\toiv-trainer\datasets")
+AI_TOOLKIT_DIR = os.environ.get("TOIV_TRAINER_AI_TOOLKIT_DIR", r"F:\toiv-trainer\ai-toolkit")
+TRAINER_VENV_PYTHON = os.environ.get("TOIV_TRAINER_VENV_PYTHON", r"F:\toiv-trainer\.venv\Scripts\python.exe")
+LORAS_DIR = os.environ.get("TOIV_TRAINER_LORAS_DIR") or os.path.join(MODELS_ROOT, "loras")
+CHECKPOINTS_DIR = os.environ.get("TOIV_TRAINER_CHECKPOINTS_DIR") or os.path.join(MODELS_ROOT, "checkpoints")
 HOST = "0.0.0.0"
 PORT = 9100
 
@@ -60,6 +76,47 @@ def _resolve_ckpt_path(base_ckpt: str) -> str:
     return os.path.join(CHECKPOINTS_DIR, base_ckpt)
 
 
+# ---------------------------------------------------------------------------
+# 模型族支持矩阵(与 core apps/api/app/workflows/model_profiles.detect_model_family 对齐)
+# ---------------------------------------------------------------------------
+# detect_model_family 返回集合:flux2/z_image/z_image_base/qwen_image/10eros/ltx/pony/
+# flux/qwen/sdxl_anime/sdxl/sd15。AI-Toolkit 只支持以下族,其余(10eros/ltx/pony/sd15 等)
+# 明确拒绝(POST /train 400),禁止静默落进 sdxl 通用模板用错架构。
+# arch 字符串 2026-08-27 对 workstation /home/merlin/ai-toolkit 实测核验
+# (extensions_built_in/diffusion_models/*/ 各模型类 arch 属性;内置族见 toolkit ModelArch)。
+_FLUX_BUILTIN_FAMILY_ARCH = {
+    "flux1": "flux",  # FLUX.1 dev 内置 arch(ModelArch Literal 'flux')
+    "flux": "flux",   # 通用 flux 命中 FLUX.1 dev 内置模板
+}
+_EXT_FAMILY_ARCH = {
+    "flux2": "flux2",                    # Flux2Model
+    "klein": "flux2_klein_9b",           # Flux2Klein9BModel(4B 变体改 flux2_klein_4b)
+    "qwen": "qwen_image",                # QwenImageModel
+    "qwen_image": "qwen_image",          # 次世代 qwen_image 与 qwen 同路
+    "z_image": "zimage",                 # ZImageModel(无下划线,实测)
+    "z_image_base": "zimage",            # 非蒸馏底座与蒸馏档同 arch(超参由请求侧区分)
+}
+_SDXL_FAMILIES = ("sdxl", "sdxl_anime")  # sdxl_anime 允许走 sdxl 通用模板
+
+SUPPORTED_FAMILIES: tuple[str, ...] = (
+    "flux2", "flux1", "klein", "flux",
+    "qwen_image", "qwen", "z_image", "z_image_base",
+    "sdxl", "sdxl_anime",
+)
+
+
+class UnsupportedFamilyError(ValueError):
+    """不支持的模型族:拒绝训练,避免静默套错 YAML 模板。"""
+
+
+def _validate_family(family: str) -> None:
+    if family not in SUPPORTED_FAMILIES:
+        raise UnsupportedFamilyError(
+            f"模型族 '{family}' 暂不支持训练;"
+            f"当前支持: {'/'.join(SUPPORTED_FAMILIES)}"
+        )
+
+
 def _make_ai_toolkit_config(params: dict) -> str:
     """根据训练参数生成 AI-Toolkit 的 YAML 配置文件路径。
 
@@ -67,6 +124,7 @@ def _make_ai_toolkit_config(params: dict) -> str:
     这里按 family 生成最小可用配置。
     """
     family = params.get("family", "flux2")
+    _validate_family(family)  # 不支持族先拒绝,不产生任何目录/配置文件
     job_id = params["job_id"]
     lora_name = params.get("lora_name", f"lora_{job_id[:8]}")
     dataset_path = _resolve_dataset_path(params["dataset_dir"])
@@ -74,11 +132,9 @@ def _make_ai_toolkit_config(params: dict) -> str:
     output_dir = os.path.join(LORAS_DIR, lora_name)
     os.makedirs(output_dir, exist_ok=True)
 
-    # 按模型族选配置模板
-    if family in ("flux2", "flux1", "klein"):
-        model_key = "flux2-dev" if family == "flux2" else "flux1-dev"
-        if family == "klein":
-            model_key = "flux2-klein"
+    # 按模型族选配置模板(内置 flux 带 is_flux;扩展 arch 无该键,见 H3 实证模板)
+    if family in _FLUX_BUILTIN_FAMILY_ARCH:
+        model_key = _FLUX_BUILTIN_FAMILY_ARCH[family]
         config = f"""# Auto-generated by ToIV trainer for {lora_name}
 job: extension
 config:
@@ -121,8 +177,8 @@ config:
         arch: {model_key}
         quantize: false
 """
-    elif family in ("qwen", "z_image"):
-        arch = "qwen-image" if family == "qwen" else "z-image"
+    elif family in _EXT_FAMILY_ARCH:
+        arch = _EXT_FAMILY_ARCH[family]
         config = f"""# Auto-generated by ToIV trainer for {lora_name}
 job: extension
 config:
@@ -162,7 +218,7 @@ config:
         arch: {arch}
         quantize: false
 """
-    else:  # sdxl 等走通用模板
+    else:  # family in _SDXL_FAMILIES:sdxl/sdxl_anime 走通用模板(其余族已被 _validate_family 拦截)
         config = f"""# Auto-generated by ToIV trainer for {lora_name}
 job: extension
 config:
@@ -275,7 +331,12 @@ def _monitor_training(trainer_job_id: str, proc: subprocess.Popen, config_path: 
 # Florence2 打标
 # ---------------------------------------------------------------------------
 def _run_caption(dataset_path: str, cuda_device: int, trigger_words: str) -> list[dict]:
-    """用 Florence2 给数据集目录里所有图片打标,生成同名 .txt 文件。"""
+    """用 Florence2 给数据集目录里所有图片打标,生成同名 .txt 文件。
+
+    权重经 huggingface_hub 下载,走 HF_ENDPOINT 环境变量指定的端点(代码不硬编码
+    镜像地址);离线/受限网络部署时设 HF_ENDPOINT=https://hf-mirror.com。
+    ft 版下载/加载失败时回落到 base 模型。
+    """
     from transformers import AutoProcessor, AutoModelForCausalLM  # type: ignore
     import torch
 
@@ -437,14 +498,18 @@ class TrainerHandler(BaseHTTPRequestHandler):
             self._json(400, {"error": "job_id required"})
             return
         trainer_job_id = str(uuid.uuid4())[:8]
-        config_path = _make_ai_toolkit_config(body)
+        try:
+            config_path = _make_ai_toolkit_config(body)
+        except UnsupportedFamilyError as e:
+            self._json(400, {"error": str(e), "supported_families": list(SUPPORTED_FAMILIES)})
+            return
         lora_name = body.get("lora_name", f"lora_{job_id[:8]}")
 
         # 启动 AI-Toolkit 训练进程
         env = os.environ.copy()
         env["CUDA_VISIBLE_DEVICES"] = str(body.get("cuda_device", 0))
-        # AI-Toolkit 的 run.py 接 --config 参数
-        cmd = [TRAINER_VENV_PYTHON, os.path.join(AI_TOOLKIT_DIR, "run.py"), "--config", config_path]
+        # AI-Toolkit 的 run.py 配置文件是位置参数(config_file_list,2026-08-27 实测 argparse)
+        cmd = [TRAINER_VENV_PYTHON, os.path.join(AI_TOOLKIT_DIR, "run.py"), config_path]
         logger.info("[train %s] starting: %s", trainer_job_id, " ".join(cmd))
         proc = subprocess.Popen(
             cmd,

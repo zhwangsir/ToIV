@@ -1,7 +1,7 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-27T00:05:00+08:00",
+ "updated_at": "2026-08-27T01:30:00+08:00",
  "health": {
   "engine_r3_2026_08_21": {
    "status": "completed",
@@ -51,16 +51,16 @@
    ]
   },
   "B_eval_prompt_pipeline": {
-   "status": "mostly_done",
-   "evidence": "2026-08-23 best-of-n 评测管线上线(EvalBatch/EvalScore+HeuristicScorer+VLMScorer+reconcile_interrupted);2026-08-25 评委换 Qwen3-VL-32B-Instruct-FP8(molmo2 幻觉根治,video_url 修复);剩余:TOIV_VIDEO_SCORER_ENABLED 生产灰度开启"
+   "status": "done",
+   "evidence": "2026-08-23 best-of-n 评测管线上线(EvalBatch/EvalScore+HeuristicScorer+VLMScorer+reconcile_interrupted);2026-08-25 评委换 Qwen3-VL-32B-Instruct-FP8(molmo2 幻觉根治,video_url 修复);剩余:TOIV_VIDEO_SCORER_ENABLED 生产灰度开启;2026-08-27 生产灰度开启(TOIV_VIDEO_SCORER_ENABLED=true,阈值 0.65,备份 .env.bak-20260827-scorer),进入降级率观察期"
   },
   "C_audio_upgrade": {
-   "status": "partial",
-   "evidence": "2026-08-23 音频编排层 POST /api/audio/orchestrate 上线(tts/separate/concat 可用);2026-08-24 IndexTTS 2.5 升级(多语种+情感修复);剩余: mix/sfx/variant 为 501 占位"
+   "status": "mostly_done",
+   "evidence": "2026-08-23 音频编排层 POST /api/audio/orchestrate 上线(tts/separate/concat 可用);2026-08-24 IndexTTS 2.5 升级(多语种+情感修复);剩余: mix/sfx/variant 为 501 占位;2026-08-27 mix(ffmpeg aresample+amix)/variant(duration_factor 语速变体)落地,sfx 保持 501 文案改进,14/14 测试"
   },
   "D_finetune": {
-   "status": "partial",
-   "evidence": "2026-08-23 H3 LoRA 训练管线(ostris/ai-toolkit minimax_h3)冒烟实证(rank16 310MB 产出留档 NAS);剩余: trainer :9100 未部署、z_image_base 族 trainer 同步、i2L API 产品化"
+   "status": "partial_70pct",
+   "evidence": "2026-08-23 H3 LoRA 训练管线(ostris/ai-toolkit minimax_h3)冒烟实证(rank16 310MB 产出留档 NAS);剩余: trainer :9100 未部署、z_image_base 族 trainer 同步、i2L API 产品化;2026-08-27 trainer :9100 systemd 常驻(toiv-trainer.service,arch 实测核验修正,run.py 位置参数修复,core TOIV_TRAINER_URL 接通);剩余: i2L API 产品化(方案已出)"
   },
   "E_data_flywheel": {
    "status": "partial",
@@ -1679,5 +1679,15 @@
   "docs": "DEVELOPMENT.md 新增「9. 仓库结构与命名规范」(顶层布局/边界规则/deploy 约定/scripts 四分组/命名规范);TEST_LOG.md REPO-RESTRUCTURE-2026-08-27 条目",
   "commit": "8f64f3e + a06f356(e2e docstring 补提)",
   "verified_at": "2026-08-27T00:05:00+08:00"
+ },
+ "backlog_clearance_2026_08_27": {
+  "status": "completed",
+  "scope": "遗留盘点四连(用户全选):评分器灰度 + trainer 部署 + 音频 mix/variant + 快速清理包;MacStudio 全线下线不采纳,studio04 退役跳过",
+  "scorer_gray": "TOIV_VIDEO_SCORER_ENABLED=true 生产灰度开启(用户明确授权,旧硬约束变更),阈值 0.65,观察降级率;附带修复 COMFY_WORKERS pc01 死节点 .115→.116",
+  "trainer": "toiv-trainer.service active+enabled(workstation :9100);arch 实测核验(zimage/qwen_image/flux2/flux);run.py 位置参数修复;merged ckpt 视图 12 文件;core TOIV_TRAINER_URL 接通;21 例新测试",
+  "audio": "mix(ffmpeg amix)/variant(duration_factor)实现,sfx 501 文案改进;14/14 测试",
+  "cleanup": "IndexTTS2 toiv-indextts.service 替代 nohup(emo_text 行为核实一致);contentpolicy 表核实不存在核销;avatar-talk 641 全过核销",
+  "regression": "后端 2276 passed / 前端 641 passed / tsc 0",
+  "verified_at": "2026-08-27T01:30:00+08:00"
  }
 }

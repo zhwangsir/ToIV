@@ -2,6 +2,49 @@
 
 ---
 
+## BACKLOG-2026-08-27 · 遗留盘点四连:评分器灰度 + trainer 部署 + 音频 mix/variant + 快速清理包
+
+**时间**: 2026-08-27
+**类型**: 用户诉求「推送后找未完成/低完成度内容继续推进」(四项全选;MacStudio 全线已下线不采纳,studio04 退役项跳过)
+
+### ① 视频评分器生产灰度开启(B_eval 90%→100%)
+
+- core `TOIV_VIDEO_SCORER_ENABLED=false→true`(阈值 0.65 不变),备份 `.env.bak-20260827-scorer`,toiv-api 重启 active,/api/health ok
+- ⚠️ 旧硬约束「生产必须 false」经用户本轮明确授权变更(灰度观察降级率,异常秒回滚)
+- **附带发现修复**:COMFY_WORKERS pc01 死节点 `192.168.71.115:8188`(DHCP 漂移残留,curl 000)→ `.116:8188`(200),重启后 workers 三活
+
+### ② LoRA trainer :9100 常驻部署(D_finetune 40%→70%)
+
+- `deploy/toiv-trainer.py` 移植 Linux:路径常量 env 化(Windows 默认值向后兼容)+ family 映射修正 + 不支持族 400 拒绝(禁静默套 sdxl 模板)
+- **arch 字符串实测核验**(workstation ai-toolkit `extensions_built_in/diffusion_models/*/`,此前代码全错):
+  flux2→`flux2` / klein→`flux2_klein_9b` / qwen*→`qwen_image` / z_image*→`zimage`(无下划线) / flux,flux1→内置 `flux`(is_flux) / sdxl*→`sdxl`
+- **run.py 调用修复**:配置文件是位置参数(config_file_list),原 `--config` 会被当文件名解析
+- 部署:`toiv-trainer.service` active+enabled(workstation);merged ckpt 视图 `/home/merlin/toiv-trainer/checkpoints/`(NAS checkpoints+diffusion_models 符号链接 12 文件);LoRA 产出落 NAS loras(ComfyUI 自动发现);`HF_ENDPOINT=hf-mirror`
+- core `TOIV_TRAINER_URL=http://192.168.71.127:9100` 接通,/health `{"ok":true,"jobs":0}`
+- 测试:`test_toiv_trainer_agent.py` 21 例(family→arch 参数化/400 拒绝/env 覆盖/Windows 默认兼容)
+- **i2L 产品化评估**(下轮实施):需常驻 DiffSynth-Studio ZImage-i2L-v2 服务(3.6G,GPU2 余量 ~41G 可承载)+ 风格图上传流转 + LoRA 注册进资产库
+
+### ③ 音频编排 mix/variant 落地(C_audio partial→mostly_done)
+
+- **mix**:ffmpeg `aresample=24000` 归一 + `amix normalize=0 duration=longest` 真实混音;`inputs` 显式引用前序步骤产物,空输入/单输入/引用无产物 422,ffmpeg 失败 500 带 stderr
+- **variant**:对最近 tts 步骤按 `duration_factors`(0.5-2.0,1-5 个)重跑真实合成(IndexTTS 2.5 支持语速扰动);无前序 tts 422、多语言源(ja/ko/yue 不支持语速)422 拒绝,不产相同文件冒充
+- **sfx**:保持 501,文案改为明确引导(需音效引擎;列出当前可用 tts/separate/concat/mix/variant)
+- 测试:`test_audio_orchestrate.py` 14/14(新增 8 例,真 ffmpeg 验证混音时长)
+
+### ⑤+P2 快速清理包
+
+- **IndexTTS2 systemd 化**:`toiv-indextts.service` active+enabled(替代 uv run nohup 裸进程,pid 396467/396471→539708),health ok(model_loaded=true,cuda:0);核实 emo_text=true 与旧进程一致(2.5 已稳定,STATE 2.0 时代 issue 核销)
+- **contentpolicy 孤儿表**:核实 toiv 库 public schema 不存在(下线时零残留),核销
+- **avatar-talk 瑕疵核销**:前端 641 全过(enginesAvatarTalk 用例在列),8-23 abort 修复有效,STATE known_issue 关闭
+
+### 回归验证
+
+- 后端 `pytest tests -q`:**2276 passed**(139s,较上轮 +28:trainer 21 + audio 7 净增)
+- 前端 `tsc --noEmit` 0 错误 + `npm test` **641 passed**
+- 生产:core toiv-api active、workstation toiv-indextts/toiv-trainer 双 service active
+
+---
+
 ## REPO-RESTRUCTURE-2026-08-27 · 仓库结构系统性重组
 
 **时间**: 2026-08-27

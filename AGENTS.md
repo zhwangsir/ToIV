@@ -104,11 +104,15 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 |------|------|
 | toiv-api :8090 / toiv-web :3100 | ✅ systemd 常驻,deploy/deploy.sh 部署 |
 | PostgreSQL 18 / Redis | ✅ 真机运行 |
-| **内容限制管控**(2026-08-23) | ❌ **已下线**(同日午后用户拍板自行重做,全量移除零残留);nsfw_allowed 回退为未成年硬阻断+X-NSFW 头历史语义;生产库 contentpolicy 孤儿表可手动 DROP |
+| **内容限制管控**(2026-08-23) | ❌ **已下线**(同日午后用户拍板自行重做,全量移除零残留);nsfw_allowed 回退为未成年硬阻断+X-NSFW 头历史语义;contentpolicy 表 2026-08-27 核实不存在(零残留核销) |
+| **视频评分器灰度**(2026-08-27) | ✅ `TOIV_VIDEO_SCORER_ENABLED=true`(用户授权,阈值 0.65);评委 spark01 Qwen3-VL-32B;观察降级率,异常回滚备份 `.env.bak-20260827-scorer` |
+| **LoRA trainer :9100**(2026-08-27) | ✅ `toiv-trainer.service` active+enabled(workstation);core `TOIV_TRAINER_URL=http://192.168.71.127:9100`;⚠️ arch 字符串以 workstation ai-toolkit 实测为准(zimage 无下划线/qwen_image/flux2/内置 flux),run.py 配置为**位置参数**;不支持族(10eros/ltx/pony/sd15/h3)400 拒绝 |
+| **IndexTTS2 守护**(2026-08-27) | ✅ `toiv-indextts.service` 替代 nohup 裸进程(active+enabled,health cuda:0);emo_text=true 为 2.5 正常默认(2.0 卡死 issue 已核销) |
+| **音频编排**(2026-08-27) | mix(ffmpeg amix)/variant(duration_factor 语速变体)落地;sfx 仍 501(需音效引擎);可用步骤 tts/separate/concat/mix/variant |
 | **LLM 引擎矩阵**(2026-08-23 更新) | R18=**H3 主力(10Eros-Max 嫁接版 TURBO 为 NSFW 默认 UNET,`TOIV_H3_NSFW_UNET`)+Wan2.2 生态兜底**;SFW 视频=MiniMax H3 全面替代 LTX2.5(质量优先);spark02 已换 **Qwen3.8-27B-Uncensored-FP8**(abliterated 无审查,别名保留 core .env 零改动,旧 NVFP4 在盘可回滚) |
 | web_search 出站代理 | `TOIV_WEB_SEARCH_PROXY=http://192.168.71.123:7897`(MateBook Clash);⚠️ 依赖 Mac 在线,离线时自动降级不炸链路;Tailscale 备选 100.74.15.34:7897(慢 4×) |
 | 域名双入口 | toiv.dgmt.top(香港 cloud,frp-kcp) + toiv.wineryz.top(北京,frpc-bj);openresty proxy_pass 经 frp 本地端口 127.0.0.1:18090/13100 |
-| **Studio 依赖迁移**(2026-08-26) | ✅ 反推 VLM studio04:9303 → **spark01 Qwen3-VL-32B**(`TOIV_REVERSE_VLM_BASE_URL=http://192.168.71.82:8000/v1`,`TOIV_REVERSE_VIDEO_MAC_PREFIX` 清空,base64 video_url 直传无 NAS 中转);L2/L3 此前已在 spark02;core 对 Studio 集群零依赖;备份 `.env.bak-20260826-studio-migration`;studio04 :9303/NAS 挂载保留观察,稳定后 launchctl unload |
+| **Studio 依赖迁移**(2026-08-26) | ✅ 反推 VLM studio04:9303 → **spark01 Qwen3-VL-32B**(`TOIV_REVERSE_VLM_BASE_URL=http://192.168.71.82:8000/v1`,`TOIV_REVERSE_VIDEO_MAC_PREFIX` 清空,base64 video_url 直传无 NAS 中转);L2/L3 此前已在 spark02;core 对 Studio 集群零依赖;备份 `.env.bak-20260826-studio-migration`;studio04 :9303/NAS 挂载保留观察;**2026-08-27 用户确认 MacStudio 全线已下线**,退役 unload 待设备回线执行 |
 
 ---
 
@@ -200,7 +204,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - 后室 Level-1 成片同日交付:12 段无损 concat 94.6s/18.3MB,NAS toiv/films/backrooms_level1_final.mp4,DB 回填
 
 ### 2026-08-25（P0 服务替换双落地:Qwen3-VL-32B + Hunyuan3D 2.1 纹理管线）
-- **P0-a spark01 molmo2→Qwen3-VL-32B-Instruct-FP8**:容器 qwen3vl32b(vLLM),别名 qwen3-vl-32b/molmo2-8b/omni-captioner 三在线 core 零改动;scoring.py/eval_scorers.py `video`→`video_url` 修复(vLLM Qwen3-VL 只认 OpenAI 标准);core→spark01 双模态 e2e(白图→White、红视频→Red)无幻觉;`TOIV_VIDEO_SCORER_ENABLED` 生产仍 false(灰度就绪未开)
+- **P0-a spark01 molmo2→Qwen3-VL-32B-Instruct-FP8**:容器 qwen3vl32b(vLLM),别名 qwen3-vl-32b/molmo2-8b/omni-captioner 三在线 core 零改动;scoring.py/eval_scorers.py `video`→`video_url` 修复(vLLM Qwen3-VL 只认 OpenAI 标准);core→spark01 双模态 e2e(白图→White、红视频→Red)无幻觉;`TOIV_VIDEO_SCORER_ENABLED` ~~生产仍 false~~ **2026-08-27 已开灰度**(用户明确授权,阈值 0.65,观察降级率,备份 .env.bak-20260827-scorer)
 - **P0-b toiv-hy3dtex :9404(workstation GPU0,systemd enabled)**:原生 hy3dpaint v2-1(多视图扩散+DINOv2-giant+RealESRGAN+PBR 烘焙)补「3D 无贴图」缺口;core `POST /api/3d/texture`(job_id|source,参考图三优先级:显式>原作业回填>纯白+文本引导)产物建 Job(kind=threed_texture);adjust_3d op=texture + 灯箱「AI 纹理贴图」折叠区(960s 超时);生产 e2e 47.5s 出 3.4MB PBR GLB 实证
 - **环境攻坚(sm_120 Blackwell)**:torch 2.7.1+cu126 无 sm_120 内核→2.13.0+cu130;custom_rasterizer 源码重建(CUDA_HOME 借 ComfyUI-hunyuan3d venv nvidia/cu13);basicsr/realesrgan 须 `--no-build-isolation --no-deps`(tb-nightly 不存在)+torchvision functional_tensor 补丁;diffusers 0.40 自定义管线须 trust_remote_code 补丁;trimesh 5.x `simplify_quadric_decimation` 首位参数变 percent 须 `face_count=` 关键字;官方 obj→glb 依赖 Blender(bpy) 静默失败→server 内 trimesh PBRMaterial 自转
 - 回归:后端 2077 / 前端 546 / tsc 0;已部署 core(deploy.sh core-ts,Mac 离 LAN 走 Tailscale)
