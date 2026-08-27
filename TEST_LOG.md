@@ -8,6 +8,30 @@
 
 ---
 
+## NAS-FIX-2026-08-27 · pc01/pc02 NAS 挂载根治（模型枚举 0→恢复）
+
+**时间**: 2026-08-27
+**类型**: 设备运维（Phase 2 前置：worker 可用性修复）
+
+### 故障链（两台同病）
+
+- 现象：Z: 映射存在但 `Unavailable`，ComfyUI object_info 的 checkpoints/UNET 枚举全 0，ckpt 类任务实际全落 workstation（ACE-Step 升级时实证）
+- 根因三层：①**cmdkey 无任何已存凭据**——凭据从未持久化，会话过期即断；②`start_comfyui.bat` 的 `net use Z: ... 2>nul` **盲吞错误**——持久化 Unavailable 占位致 85 冲突，映射静默失败；③`\MountNAS` 计划任务仅登录触发且参数单反斜杠疑似无效
+- 加深一层：Windows 盘符映射是**会话级**——SSH 每次登录新会话、计划任务各自独立会话，用户态映射对服务进程天然不可靠；cmdkey 又被安全策略拦截（`Credentials cannot be saved from this logon session`，网络登录会话禁写持久凭据）
+
+### 修复（两台同法，备份 .bak-20260827）
+
+1. `extra_model_paths.yaml` 盘符路径改 **UNC**：`Z:/Windows/...` → `//192.168.71.7/NAS/Windows/...`、`Z:/toiv/...` → `//192.168.71.7/NAS/toiv/...`（ComfyUI 不再依赖盘符）
+2. 启动 bat 自愈化：`net use Z: /delete`（清占位防 85）→ **无盘符 net use 建 SMB 会话**（UNC 访问的凭据基础，与 ComfyUI 进程同会话生效）→ Z: 映射（仅便于人工）→ 错误落 `nas-mount.log`（不再盲吞）；pc01×1 bat、pc02×3 bat（:8193/:8194/辅助）
+3. 队列空闲确认（running=0/pending=0）后重启实例
+
+### 验证
+
+- pc01 :8188：ckpt **30** / UNET **49** / LoRA **162**（修复前全 0）；nas-mount.log 双成功
+- pc02 :8193 + :8194：各 ckpt **30**；双实例 ready
+- **ace_step_1.5_turbo_aio.safetensors 三 worker 全部可见**（F 线遗留项闭环）
+- 教训固化（已入设备指南）：**Windows 服务化场景禁依赖盘符映射，一律 UNC + 启动脚本建会话**
+
 ## HOTFIX-2026-08-27 · 灯箱关闭钮遮挡 + 助手 422「回复失败:[object Object]」（commit 3856bb1）
 
 **时间**: 2026-08-27（用户报障，紧急处理）
