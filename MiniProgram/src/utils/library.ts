@@ -1,6 +1,7 @@
 /**
  * 作品库过滤/布局工具（移植自 Mobile features/library/library-utils.ts + library-screen.tsx，逐值对齐）
  * 纯逻辑独立成文件：vitest 直测，页面只做渲染
+ * 分桶/短名与 apps/web/lib/libraryQuery.ts 对齐（Job.kind 下划线，非引擎 id）
  */
 import type { JobItem } from '@/types/api';
 
@@ -32,6 +33,11 @@ export const FILTERS: FilterDef[] = [
       'inpaint',
       'removebg',
       'raw',
+      // Qwen-Image-Edit 语义编辑 / 3D 相机(360° 环绕序列成员 kind)
+      'qwen_edit',
+      // 短剧 studio 图像类产物
+      'drama_grid_storyboard',
+      'drama_scene_layout',
     ],
   },
   {
@@ -48,6 +54,8 @@ export const FILTERS: FilterDef[] = [
       'hunyuan_i2v',
       'h3_t2v',
       'h3_i2v',
+      // H3 多镜头单次生成(单段内切镜)
+      'h3_multishot',
       'ltx_t2v',
       'ltx_i2v',
       'ltx_lipsync',
@@ -57,24 +65,46 @@ export const FILTERS: FilterDef[] = [
       'dub_lipsync_long',
       'manju_lipsync',
       'anime_lipsync',
+      // 视频超分(M6 fleet 帧级 4K 管线)
+      'video_upscale',
       'longcat_t2v',
       'longcat_i2v',
       'longcat_continue',
       'avatar_talk',
+      // Wan2.1-VACE 首尾帧转场
+      'transition',
+      // VACE 视频到视频编辑
+      'video_edit',
+      // 关键帧链式转场(合并成片;段产物 kind=transition 已在上)
+      'keyframe_chain',
+      // 短剧 studio 视频类产物
+      'drama_shot_video',
+      'drama_shot_video_i2v',
+      'drama_shot_video_v2',
+      'drama_shot_lipsync',
     ],
   },
   {
     key: 'audio',
     label: '音频',
-    kinds: ['audio', 'ace_audio', 'audio_sep', 'transcribe', 'voice_track'],
+    kinds: ['audio', 'ace_audio', 'audio_sep', 'transcribe', 'voice_track', 'manju_voice'],
   },
-  { key: '3d', label: '3D', kinds: ['3d', 'model3d', 'hunyuan3d'] },
+  { key: '3d', label: '3D', kinds: ['3d', 'model3d', 'hunyuan3d', 'threed_material', 'threed_render', 'threed_texture'] },
+];
+
+/** 动态前缀规则(后端按 preset/视角拼 kind):cad_* → 3D;drama_char_reference_* → 图像。 */
+export const KIND_PREFIX_RULES: [string, FilterKey][] = [
+  ['cad_', '3d'],
+  ['drama_char_reference_', 'image'],
 ];
 
 /** kind → 筛选桶；未识别返回 null，只在「全部」出现 */
 export function kindToFilter(kind: string): FilterKey | null {
   for (const f of FILTERS) {
     if (f.kinds.includes(kind)) return f.key;
+  }
+  for (const [prefix, key] of KIND_PREFIX_RULES) {
+    if (kind.startsWith(prefix)) return key;
   }
   return null;
 }
@@ -90,6 +120,7 @@ export function kindLabel(kind: string): string {
     inpaint: '局部重绘',
     removebg: '抠图',
     raw: '原图',
+    qwen_edit: '智能编辑',
     video: '视频',
     txt2video: '文生视频',
     img2video: '图生视频',
@@ -100,12 +131,14 @@ export function kindLabel(kind: string): string {
     hunyuan_i2v: '图生视频',
     h3_t2v: '文生视频',
     h3_i2v: '图生视频',
+    h3_multishot: '多镜头',
     ltx_t2v: '文生视频',
     ltx_i2v: '图生视频',
     ltx_lipsync: '对口型',
     ltx2_t2v: '文生视频',
     ltx2_i2v: '图生视频',
     frame_interpolate: '补帧',
+    video_upscale: '视频超分',
     dub_lipsync_long: '长对口型',
     manju_lipsync: '对口型',
     anime_lipsync: '动漫对口型',
@@ -113,16 +146,32 @@ export function kindLabel(kind: string): string {
     longcat_i2v: '长视频',
     longcat_continue: '长视频续写',
     avatar_talk: '数字人',
+    transition: '首尾帧转场',
+    video_edit: '视频编辑',
+    keyframe_chain: '关键帧链',
     audio: '音频',
     ace_audio: '音乐',
     audio_sep: '人声分离',
     transcribe: '听写',
     voice_track: '配音轨',
+    manju_voice: '配音',
     '3d': '3D',
     model3d: '3D',
     hunyuan3d: '图生3D',
+    threed_material: '3D 材质',
+    threed_render: '3D 渲染',
+    threed_texture: '3D 纹理',
+    drama_grid_storyboard: '分镜',
+    drama_scene_layout: '场景布局',
+    drama_shot_video: '镜头视频',
+    drama_shot_video_i2v: '镜头视频',
+    drama_shot_video_v2: '镜头视频',
+    drama_shot_lipsync: '镜头对口型',
   };
-  return map[kind] ?? '其他';
+  if (map[kind]) return map[kind];
+  if (kind.startsWith('cad_')) return 'CAD';
+  if (kind.startsWith('drama_char_reference_')) return '角色参考';
+  return '其他';
 }
 
 /** 作品库只收藏完成且有产物的作业 */

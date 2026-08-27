@@ -44,6 +44,60 @@ describe('kindToFilter', () => {
   });
 });
 
+describe('kindToFilter 追上网页 libraryQuery', () => {
+  it('图像桶：qwen_edit + 短剧图像产物', () => {
+    expect(kindToFilter('qwen_edit')).toBe('image');
+    expect(kindToFilter('drama_grid_storyboard')).toBe('image');
+    expect(kindToFilter('drama_scene_layout')).toBe('image');
+  });
+
+  it('视频桶：多镜头/转场/编辑/关键帧链/超分/短剧视频/通用对口型', () => {
+    expect(kindToFilter('h3_multishot')).toBe('video');
+    expect(kindToFilter('video_upscale')).toBe('video');
+    expect(kindToFilter('transition')).toBe('video');
+    expect(kindToFilter('video_edit')).toBe('video');
+    expect(kindToFilter('keyframe_chain')).toBe('video');
+    expect(kindToFilter('drama_shot_video')).toBe('video');
+    expect(kindToFilter('drama_shot_video_i2v')).toBe('video');
+    expect(kindToFilter('drama_shot_video_v2')).toBe('video');
+    expect(kindToFilter('drama_shot_lipsync')).toBe('video');
+    expect(kindToFilter('lipsync')).toBe('video');
+  });
+
+  it('音频桶：manju_voice', () => {
+    expect(kindToFilter('manju_voice')).toBe('audio');
+  });
+
+  it('3D 桶：threed_*', () => {
+    expect(kindToFilter('threed_material')).toBe('3d');
+    expect(kindToFilter('threed_render')).toBe('3d');
+    expect(kindToFilter('threed_texture')).toBe('3d');
+  });
+
+  it('前缀规则：cad_* → 3d，drama_char_reference_* → image', () => {
+    expect(kindToFilter('cad_front')).toBe('3d');
+    expect(kindToFilter('drama_char_reference_hero')).toBe('image');
+  });
+
+  it('引擎 id（连字符）不是 Job.kind，保持未识别', () => {
+    expect(kindToFilter('qwen-image-edit')).toBeNull();
+    expect(kindToFilter('h3-multishot')).toBeNull();
+    expect(kindToFilter('wan-transition')).toBeNull();
+    expect(kindToFilter('keyframe-chain')).toBeNull();
+    expect(kindToFilter('vace-edit')).toBeNull();
+    expect(kindToFilter('wan-animate-2')).toBeNull();
+    expect(kindToFilter('wan-nsfw-i2v')).toBeNull();
+  });
+
+  it('网页 libraryQuery 未收录的 kind 仍为 null', () => {
+    expect(kindToFilter('chromakey')).toBeNull();
+    expect(kindToFilter('i2l')).toBeNull();
+    expect(kindToFilter('motion_brush')).toBeNull();
+    expect(kindToFilter('wan_animate')).toBeNull();
+    expect(kindToFilter('wan_animate2')).toBeNull();
+  });
+});
+
 describe('kindLabel', () => {
   it('已知 kind 中文标签', () => {
     expect(kindLabel('txt2img')).toBe('文生图');
@@ -52,6 +106,27 @@ describe('kindLabel', () => {
 
   it('未知兜底「其他」', () => {
     expect(kindLabel('xyz')).toBe('其他');
+  });
+
+  it('新 kind 中文短名对齐网页', () => {
+    expect(kindLabel('qwen_edit')).toBe('智能编辑');
+    expect(kindLabel('h3_multishot')).toBe('多镜头');
+    expect(kindLabel('transition')).toBe('首尾帧转场');
+    expect(kindLabel('video_edit')).toBe('视频编辑');
+    expect(kindLabel('keyframe_chain')).toBe('关键帧链');
+    expect(kindLabel('video_upscale')).toBe('视频超分');
+    expect(kindLabel('manju_voice')).toBe('配音');
+    expect(kindLabel('threed_material')).toBe('3D 材质');
+    expect(kindLabel('threed_render')).toBe('3D 渲染');
+    expect(kindLabel('threed_texture')).toBe('3D 纹理');
+    expect(kindLabel('drama_grid_storyboard')).toBe('分镜');
+    expect(kindLabel('drama_scene_layout')).toBe('场景布局');
+    expect(kindLabel('drama_shot_video')).toBe('镜头视频');
+    expect(kindLabel('drama_shot_video_i2v')).toBe('镜头视频');
+    expect(kindLabel('drama_shot_video_v2')).toBe('镜头视频');
+    expect(kindLabel('drama_shot_lipsync')).toBe('镜头对口型');
+    expect(kindLabel('cad_front')).toBe('CAD');
+    expect(kindLabel('drama_char_reference_hero')).toBe('角色参考');
   });
 });
 
@@ -86,6 +161,24 @@ describe('countByFilter', () => {
       video: 1,
       audio: 0,
       '3d': 0,
+    });
+  });
+
+  it('新 kind 计入对应桶，未知仍只进 all', () => {
+    const artifacts = [
+      job({ id: 'a', kind: 'qwen_edit' }),
+      job({ id: 'b', kind: 'h3_multishot' }),
+      job({ id: 'c', kind: 'manju_voice' }),
+      job({ id: 'd', kind: 'threed_texture' }),
+      job({ id: 'e', kind: 'cad_front' }),
+      job({ id: 'f', kind: 'chromakey' }),
+    ];
+    expect(countByFilter(artifacts)).toEqual({
+      all: 6,
+      image: 1,
+      video: 1,
+      audio: 1,
+      '3d': 2,
     });
   });
 });

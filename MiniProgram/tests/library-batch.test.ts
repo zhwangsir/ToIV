@@ -83,6 +83,19 @@ describe('splitSavable', () => {
     expect(savable).toEqual([]);
     expect(skipped).toHaveLength(2);
   });
+
+  it('新图像/视频 kind 可保存，音频/3D 新 kind 跳过', () => {
+    const items = [
+      job({ id: 'qe', kind: 'qwen_edit' }),
+      job({ id: 'ms', kind: 'h3_multishot' }),
+      job({ id: 'tr', kind: 'transition' }),
+      job({ id: 'mv', kind: 'manju_voice' }),
+      job({ id: 'tm', kind: 'threed_material' }),
+    ];
+    const { savable, skipped } = splitSavable(items);
+    expect(savable.map((j) => j.id)).toEqual(['qe', 'ms', 'tr']);
+    expect(skipped.map((j) => j.id)).toEqual(['mv', 'tm']);
+  });
 });
 
 function resultOf(jobs: JobItem[], failIds: string[] = []): BatchItemResult<JobItem>[] {
