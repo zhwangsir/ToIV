@@ -7,7 +7,7 @@ import uuid
 import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session
 
 from app.capabilities import required_nodes
@@ -429,6 +429,18 @@ class Txt2VideoRequest(BaseModel):
     length: int = Field(default=49, ge=9, le=121)  # 帧数,4n+1
     fps: int = Field(default=16, ge=4, le=30)
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
+    # 加速档(2026-08-27 Phase 2):off=满血(默认,20 步) / turbo=草稿 4 步 Seko 双 LoRA /
+    # turbo_cache=成片 8 步 Seko + EasyCache;缺省 None=满血(现状)
+    accel: str | None = Field(default=None, max_length=16)
+
+    @field_validator("accel")
+    @classmethod
+    def _v_accel(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        if v not in ("off", "turbo", "turbo_cache"):
+            raise ValueError("Wan 加速档须为 off / turbo / turbo_cache")
+        return v
 
 
 @router.post("/generate/txt2video")
@@ -451,6 +463,7 @@ async def generate_txt2video(
          height=_snap16(req.height),
          length=_snap_length(req.length),
          fps=req.fps,
+         accel=req.accel,
          **({"seed": req.seed} if req.seed is not None else {}),
     )
     graph = build_wan_t2v_graph(params)

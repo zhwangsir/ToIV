@@ -13,9 +13,14 @@ Wan 2.2 双专家(high/low noise)。本构造器经 2026 调研重做,修掉旧�
   KSamplerAdvanced(high, 0→boundary, cfg=high_cfg) → KSamplerAdvanced(low, boundary→steps, cfg=low_cfg)
   → VAEDecode → VHS_VideoCombine(h264-mp4)
 
-两档(由 use_accel_lora 切换):
-  · 加速档(默认,use_accel_lora=True):8 步 + lightx2v LoRA,high_cfg≈3 / low_cfg=1,平衡快与质。
-  · 满血档(use_accel_lora=False):不挂加速 LoRA,steps≈20-30,high_cfg≈3.5 / low_cfg≈3,漫剧成片首选。
+加速档(2026-08-27 Phase 2,accel 参数;None=旧行为由 use_accel_lora 开关):
+  · off         —— 满血(现状):不挂加速 LoRA,steps≈20,high_cfg≈3.5 / low_cfg≈3,漫剧成片首选。
+  · turbo       —— 草稿高速:LightX2V Seko 4 步蒸馏 LoRA 成对挂(高噪 UNET→high_noise、
+                  低噪 UNET→low_noise),steps=4,cfg=1.0(蒸馏无 CFG)。
+  · turbo_cache —— 成片平衡:同 turbo 双 LoRA,steps=8,cfg=1.0 + EasyCache×2
+                  (ComfyUI 原生,串在 ModelSamplingSD3 之后、KSamplerAdvanced 之前,
+                  reuse_threshold 0.15 保守起步 + 0.15/0.95 首尾区段保护)。
+旧两档(accel=None):use_accel_lora=True→8 步加速;False→满血(同 off)。
 """
 from __future__ import annotations
 
@@ -35,6 +40,11 @@ DEFAULT_NEGATIVE = (
 
 def _random_seed() -> int:
     return secrets.randbelow(MAX_SEED)
+
+
+# ── LightX2V Seko 加速 LoRA 资产(2026-08-27 已就位,三 worker 共享可见)──
+SEKO_I2V_HIGH_LORA = "lightx2v/Wan2.2-I2V-A14B-4steps-lora-rank64-Seko-V1/high_noise_model.safetensors"
+SEKO_I2V_LOW_LORA = "lightx2v/Wan2.2-I2V-A14B-4steps-lora-rank64-Seko-V1/low_noise_model.safetensors"
 
 
 # ── NSFW LoRA 注册表(2026-08-16 Civitai 爆款配方逆向)──
@@ -118,8 +128,8 @@ class WanI2VParams:
     negative: str = DEFAULT_NEGATIVE
     high_unet: str = "wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors"
     low_unet: str = "wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors"
-    high_lora: str = "wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors"
-    low_lora: str = "wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors"
+    high_lora: str = SEKO_I2V_HIGH_LORA  # 高噪模型挂 high_noise LoRA(成对,挂错侧=无效)
+    low_lora: str = SEKO_I2V_LOW_LORA
     # NSFW LoRA 叠加链(2026-08-16):[(文件名, 强度)],由路由层按 WAN_I2V_NSFW_LORAS 分侧;
     # 串联在加速 LoRA 之后、ModelSamplingSD3 之前(加速贴底模,概念/动作后挂)
     high_loras: tuple[tuple[str, float], ...] = ()
@@ -133,21 +143,74 @@ class WanI2VParams:
     fps: int = 16
     # Wan 原生硬要求:ModelSamplingSD3 的 sigma shift(缺则动作/质量崩)
     shift: float = 5.0
-    # 加速档默认:8 步双专家 + lightx2v LoRA(修掉 4 步的 bad motion)
-    use_accel_lora: bool = True
-    steps: int = 8
-    high_cfg: float = 3.0  # high 段拉回引导换动作幅度(满血档约 3.5)
-    low_cfg: float = 1.0  # low 段细化,加速档可低;满血档约 3.0
+    # 加速档(2026-08-27 Phase 2):off=满血 / turbo=草稿 4 步 / turbo_cache=成片 8 步+EasyCache;
+    # None=旧行为(use_accel_lora 开关,默认 True→8 步加速)
+    accel: str | None = None
+    use_accel_lora: bool = True  # 旧开关;accel 显式给定时被忽略
+    steps: int | None = None  # None=按档默认(off 20 / turbo 4 / turbo_cache 8;旧默认 8)
+    high_cfg: float | None = None  # None=按档默认(蒸馏档 1.0;满血 3.5;旧默认 3.0)
+    low_cfg: float | None = None  # None=按档默认(蒸馏/旧加速 1.0;满血 3.0)
     high_lora_strength: float = 0.8  # high LoRA 降到 0.6~0.8 换回运动(官方建议)
     low_lora_strength: float = 1.0
+    # EasyCache 参数(仅 turbo_cache 档启用;ComfyUI 原生节点,全实例可用)
+    cache_threshold: float = 0.15  # reuse_threshold,保守起步
+    cache_start: float = 0.15  # start_percent,首段保护(构图)
+    cache_end: float = 0.95  # end_percent,尾段保护(细节)
     sampler: str = "euler"
     scheduler: str = "simple"  # 官方:换 scheduler 常破坏运动,别动
     seed: int = field(default_factory=_random_seed)
     filename_prefix: str = "ToIV_vid"
 
 
+def _resolve_sampling(p: WanI2VParams) -> tuple[bool, int, float, float, bool]:
+    """把加速档解析为具体采样参数。
+
+    返回 (use_lora, steps, high_cfg, low_cfg, use_cache):
+    - accel="off"         → (False, 20, 3.5, 3.0, False)  满血,不挂加速 LoRA
+    - accel="turbo"       → (True, 4, 1.0, 1.0, False)    草稿高速,Seko 双 LoRA
+    - accel="turbo_cache" → (True, 8, 1.0, 1.0, True)     成片平衡,Seko 双 LoRA + EasyCache
+    - accel=None          → 旧行为(use_accel_lora 开关;True→8 步 cfg 3.0/1.0,False→满血)
+    显式 steps/high_cfg/low_cfg 覆盖档位默认(与 AceStep15Params 的 quality 同风格)。
+    """
+    if p.accel is None:
+        use = p.use_accel_lora
+        return (
+            use,
+            p.steps if p.steps is not None else (8 if use else 20),
+            p.high_cfg if p.high_cfg is not None else (3.0 if use else 3.5),
+            p.low_cfg if p.low_cfg is not None else (1.0 if use else 3.0),
+            False,
+        )
+    if p.accel == "off":
+        return (
+            False,
+            p.steps if p.steps is not None else 20,
+            p.high_cfg if p.high_cfg is not None else 3.5,
+            p.low_cfg if p.low_cfg is not None else 3.0,
+            False,
+        )
+    if p.accel == "turbo":
+        return (
+            True,
+            p.steps if p.steps is not None else 4,
+            p.high_cfg if p.high_cfg is not None else 1.0,
+            p.low_cfg if p.low_cfg is not None else 1.0,
+            False,
+        )
+    if p.accel == "turbo_cache":
+        return (
+            True,
+            p.steps if p.steps is not None else 8,
+            p.high_cfg if p.high_cfg is not None else 1.0,
+            p.low_cfg if p.low_cfg is not None else 1.0,
+            True,
+        )
+    raise ValueError(f"未知 Wan 加速档: {p.accel!r}(可选 off/turbo/turbo_cache)")
+
+
 def build_wan_i2v_graph(p: WanI2VParams) -> dict:
-    boundary = max(1, p.steps // 2)
+    use_lora, steps, high_cfg, low_cfg, use_cache = _resolve_sampling(p)
+    boundary = max(1, steps // 2)
     g: dict = {
         "1": {"class_type": "UNETLoader", "inputs": {"unet_name": p.high_unet, "weight_dtype": "default"}},
         "2": {"class_type": "UNETLoader", "inputs": {"unet_name": p.low_unet, "weight_dtype": "default"}},
@@ -171,18 +234,19 @@ def build_wan_i2v_graph(p: WanI2VParams) -> dict:
         },
     }
 
-    # 模型链:UNET →(可选 lightx2v 加速 LoRA)→(NSFW LoRA 叠加链)→ ModelSamplingSD3(shift)
-    # v1030 加速 LoRA(高噪链选中时)替代默认 v1,不叠加避免双重加速;满血档(不挂加速)忽略 v1030
+    # 模型链:UNET →(可选 Seko 加速 LoRA)→(NSFW LoRA 叠加链)→ ModelSamplingSD3(shift)
+    # v1030 加速 LoRA(高噪链选中时)仅旧行为下替代默认 Seko,不叠加避免双重加速;
+    # 显式 accel 档已含 Seko 蒸馏 LoRA,v1030 静默忽略;满血档(不挂加速)同样忽略
     high_extras = list(p.high_loras)
     v1030 = "Wan_2_2_I2V_A14B_HIGH_lightx2v_4step_lora_v1030_rank_64_bf16.safetensors"
-    use_v1030 = p.use_accel_lora and any(n == v1030 for n, _ in high_extras)
+    use_v1030 = p.accel is None and use_lora and any(n == v1030 for n, _ in high_extras)
     high_extras = [(n, s) for n, s in high_extras if n != v1030]
 
     high_src: list = ["1", 0]
     low_src: list = ["2", 0]
-    node_id = 20  # 动态 LoRA 链节点起始 id(避开静态 1-16)
-    if p.use_accel_lora:
-        # 加速档:v1030 选中则替代默认 v1 加速 LoRA(贴底模位)
+    node_id = 20  # 动态 LoRA 链节点起始 id(避开静态 1-18)
+    if use_lora:
+        # 加速档:v1030 选中则替代默认 Seko 加速 LoRA(贴底模位)
         g["3"] = {"class_type": "LoraLoaderModelOnly", "inputs": {"model": high_src, "lora_name": v1030 if use_v1030 else p.high_lora, "strength_model": p.high_lora_strength}}
         g["4"] = {"class_type": "LoraLoaderModelOnly", "inputs": {"model": low_src, "lora_name": p.low_lora, "strength_model": p.low_lora_strength}}
         high_src, low_src = ["3", 0], ["4", 0]
@@ -199,14 +263,40 @@ def build_wan_i2v_graph(p: WanI2VParams) -> dict:
     g["15"] = {"class_type": "ModelSamplingSD3", "inputs": {"model": high_src, "shift": p.shift}}
     g["16"] = {"class_type": "ModelSamplingSD3", "inputs": {"model": low_src, "shift": p.shift}}
 
+    high_model_ref: list = ["15", 0]
+    low_model_ref: list = ["16", 0]
+    if use_cache:
+        g["17"] = {
+            "class_type": "EasyCache",
+            "inputs": {
+                "model": ["15", 0],
+                "reuse_threshold": p.cache_threshold,
+                "start_percent": p.cache_start,
+                "end_percent": p.cache_end,
+                "verbose": False,
+            },
+        }
+        g["18"] = {
+            "class_type": "EasyCache",
+            "inputs": {
+                "model": ["16", 0],
+                "reuse_threshold": p.cache_threshold,
+                "start_percent": p.cache_start,
+                "end_percent": p.cache_end,
+                "verbose": False,
+            },
+        }
+        high_model_ref = ["17", 0]
+        low_model_ref = ["18", 0]
+
     g["11"] = {
         "class_type": "KSamplerAdvanced",
         "inputs": {
-            "model": ["15", 0],
+            "model": high_model_ref,
             "add_noise": "enable",
             "noise_seed": p.seed,
-            "steps": p.steps,
-            "cfg": p.high_cfg,
+            "steps": steps,
+            "cfg": high_cfg,
             "sampler_name": p.sampler,
             "scheduler": p.scheduler,
             "positive": ["10", 0],
@@ -220,18 +310,18 @@ def build_wan_i2v_graph(p: WanI2VParams) -> dict:
     g["12"] = {
         "class_type": "KSamplerAdvanced",
         "inputs": {
-            "model": ["16", 0],
+            "model": low_model_ref,
             "add_noise": "disable",
             "noise_seed": p.seed,
-            "steps": p.steps,
-            "cfg": p.low_cfg,
+            "steps": steps,
+            "cfg": low_cfg,
             "sampler_name": p.sampler,
             "scheduler": p.scheduler,
             "positive": ["10", 0],
             "negative": ["10", 1],
             "latent_image": ["11", 0],
             "start_at_step": boundary,
-            "end_at_step": p.steps,
+            "end_at_step": steps,
             "return_with_leftover_noise": "disable",
         },
     }

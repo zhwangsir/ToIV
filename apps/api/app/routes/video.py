@@ -64,11 +64,24 @@ class WanI2VRequest(BaseModel):
     loras: list[WanLoraInput] = Field(default_factory=list, max_length=4)
     # 满血档:不挂加速 LoRA,20 步 + cfg 3.5/3.0(慢 ~4 倍换质量,成片用);默认加速档 8 步
     full_quality: bool = False
+    # 加速档(2026-08-27 Phase 2):off=满血 / turbo=草稿 4 步 Seko 双 LoRA /
+    # turbo_cache=成片 8 步 Seko + EasyCache;缺省 None → 按 full_quality 映射
+    # (True→off,False→turbo_cache);显式给定时优先于 full_quality
+    accel: str | None = Field(default=None, max_length=16)
     # 特效预设(Pikaffects 式一键物理特效;静态清单见 services/effect_presets):
     # 选中后后端把特效英文描述确定性拼到 positive 前部,不经过 LLM;未知 key → 422
     effect_preset: str | None = Field(default=None, max_length=64)
     # RES-2026-08-18:输出分辨率档(1080p/2k/4k);空 = 原生直出
     resolution_target: str | None = Field(default=None, max_length=8)
+
+    @field_validator("accel")
+    @classmethod
+    def _v_accel(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        if v not in ("off", "turbo", "turbo_cache"):
+            raise ValueError("Wan 加速档须为 off / turbo / turbo_cache")
+        return v
 
     @field_validator("effect_preset")
     @classmethod
@@ -145,6 +158,9 @@ async def generate_video(
                 raise HTTPException(status_code=422, detail=f"未知 Wan NSFW LoRA: {l.name}")
             (high_loras if entry.side == "high" else low_loras).append(
                 (l.name, l.strength if l.strength is not None else entry.default_strength))
+    # 加速档映射(2026-08-27 Phase 2):显式 accel 优先;缺省按 full_quality 兼容映射
+    # (True→off 满血 20 步 3.5/3.0;False→turbo_cache 成片 8 步 Seko + EasyCache)
+    accel = req.accel if req.accel is not None else ("off" if req.full_quality else "turbo_cache")
     params = WanI2VParams(
         positive=req.positive,
         image=req.image,
@@ -154,11 +170,7 @@ async def generate_video(
         fps=req.fps,
         high_loras=tuple(high_loras),
         low_loras=tuple(low_loras),
-        # 满血档:不挂加速 LoRA(含 v1030),20 步 + cfg 3.5/3.0;加速档保持 8 步 3.0/1.0
-        use_accel_lora=not req.full_quality,
-        steps=20 if req.full_quality else 8,
-        high_cfg=3.5 if req.full_quality else 3.0,
-        low_cfg=3.0 if req.full_quality else 1.0,
+        accel=accel,
         **({"negative": req.negative} if req.negative else {}),
         **({"seed": req.seed} if req.seed is not None else {}),
     )

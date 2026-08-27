@@ -563,8 +563,15 @@ def _wan_nsfw_i2v_params() -> list[dict]:
             "options": [{"value": v, "label": label} for v, label in _WAN_NSFW_DURATIONS],
             "hint": "固定 16fps;单段上限 121 帧(7.5s),更长用作品库末帧续写",
         },
-        {"key": "full_quality", "label": "满血档(成片)", "type": "switch", "default": False,
-         "hint": "不挂加速 LoRA,20 步 + cfg 3.5/3.0;质量更高但慢约 4 倍"},
+        {
+            "key": "accel", "label": "加速档位", "type": "select", "default": "turbo_cache",
+            "options": [
+                {"value": "turbo", "label": "草稿高速(4 步 LightX2V Seko 双 LoRA,最快)"},
+                {"value": "turbo_cache", "label": "成片平衡(8 步 Seko + EasyCache)"},
+                {"value": "off", "label": "满血(20 步无加速,质量优先,最慢)"},
+            ],
+            "hint": "草稿档约为满血 1/5 耗时,预览构图用;成片档 EasyCache 再省步时;off 等同旧满血档",
+        },
         _seed(),
         _wan_nsfw_loras_select(),
         _resolution_target_select(),

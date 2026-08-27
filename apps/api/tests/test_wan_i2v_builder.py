@@ -1,4 +1,4 @@
-from app.workflows.wan_i2v import WanI2VParams, build_wan_i2v_graph
+from app.workflows.wan_i2v import SEKO_I2V_LOW_LORA, WanI2VParams, build_wan_i2v_graph
 
 
 def test_dual_model_loaders_with_lightx2v_loras():
@@ -130,7 +130,7 @@ def test_v1030_replaces_default_accel_lora_not_stacked():
     # v1030 不再出现在叠加链(节点 ≥20);低噪加速 LoRA 不变
     extra = [n["inputs"]["lora_name"] for nid, n in _lora_nodes(g).items() if int(nid) >= 20]
     assert _V1030 not in extra
-    assert g["4"]["inputs"]["lora_name"] == "wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors"
+    assert g["4"]["inputs"]["lora_name"] == SEKO_I2V_LOW_LORA
     # 高噪链无其他叠加:15 直接接 3
     assert g["15"]["inputs"]["model"] == ["3", 0]
 
