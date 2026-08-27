@@ -6,11 +6,61 @@
  */
 import { apiFetch, authHeaders } from "@/lib/api";
 import type { AgentEvent } from "@/lib/api";
+import type { IconName } from "@/components/ui/Icon";
+
+/**
+ * 全格式文件识别(2026-08-28):与后端 services/docs.py 的 _KINDS 对齐。
+ * 图片走 VLM 反推描述;csv/json 结构化预览;office 转 markdown;代码/文本直读。
+ */
+export const DOC_IMAGE_EXTS = ["jpg", "jpeg", "png", "webp", "gif", "bmp", "tiff", "tif"];
+export const DOC_OFFICE_EXTS = ["pdf", "docx", "xlsx", "pptx"];
+export const DOC_DATA_EXTS = ["csv", "json"];
+export const DOC_TEXT_EXTS = [
+  "txt", "md", "markdown", "log",
+  "py", "js", "jsx", "ts", "tsx", "mjs", "cjs", "vue", "svelte",
+  "html", "htm", "css", "scss", "less", "xml", "svg",
+  "yaml", "yml", "toml", "ini", "cfg", "env",
+  "sh", "bash", "zsh", "sql", "graphql",
+  "java", "c", "h", "cpp", "hpp", "cc", "go", "rs", "rb", "php",
+  "swift", "kt", "kts", "lua", "r", "scala", "pl", "ipynb",
+];
+export const DOC_ALL_EXTS = [
+  ...DOC_OFFICE_EXTS,
+  ...DOC_DATA_EXTS,
+  ...DOC_TEXT_EXTS,
+  ...DOC_IMAGE_EXTS,
+];
+
+/** 文件选择器 accept 串(扩展名形式,浏览器过滤灰掉不支持项) */
+export const DOC_ACCEPT = DOC_ALL_EXTS.map((e) => `.${e}`).join(",");
+
+/** 上传按钮旁的格式提示文案 */
+export const DOC_FORMAT_HINT = "文档 / 表格 / 演示 / 数据 / 代码 / 图片,≤50MB";
+
+/** 文件名 → 扩展名 kind(历史消息 chip 只存 filename,按扩展名推图标用) */
+export function docKindFromFilename(filename: string): string {
+  const idx = filename.lastIndexOf(".");
+  return idx >= 0 ? filename.slice(idx + 1).toLowerCase() : "";
+}
+
+/** 文档类型 → 图标(未知类型回退通用文件图标) */
+export function docKindIcon(kind: string): IconName {
+  const k = kind.toLowerCase();
+  if (DOC_IMAGE_EXTS.includes(k)) return "fileimage";
+  if (k === "xlsx" || k === "csv") return "sheet";
+  if (k === "pptx") return "slides";
+  if (k === "json" || k === "ipynb") return "filejson";
+  if (k === "pdf" || k === "docx" || k === "txt" || k === "md" || k === "markdown" || k === "log") {
+    return "file";
+  }
+  // 代码/标记文本;白名单外的未知类型回退通用文件图标
+  return DOC_ALL_EXTS.includes(k) ? "filecode" : "file";
+}
 
 export interface DocItem {
   id: string;
   filename: string;
-  kind: string; // pdf | docx | txt | md
+  kind: string; // pdf | docx | xlsx | pptx | txt | md | csv | json | 代码扩展 | 图片扩展
   size: number;
   chunk_count: number;
   status: "ready" | "partial" | "no_embed" | string;

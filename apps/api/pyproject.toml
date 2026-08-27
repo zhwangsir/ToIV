@@ -15,9 +15,11 @@ dependencies = [
     "python-multipart>=0.0.12",
     "paramiko>=3.4",
     "pillow>=12.3.0",
-    # 文档上传与长文本理解:pdf/docx 解析(txt/md 直读无需依赖);惰性导入于 services/docs.py
+    # 文档上传与长文本理解:pdf/office 解析(文本/代码直读无需依赖);惰性导入于 services/docs.py
     "pypdf>=5.1",
     "python-docx>=1.1",
+    "openpyxl>=3.1",
+    "python-pptx>=1.0",
     # Redis(限流/画布事件/worker 健康缓存共享状态):不可达时自动降级进程内存,
     # 见 app/services/redis_client.py。生产 core 仅监听 localhost 无密码。
     "redis>=5.2",

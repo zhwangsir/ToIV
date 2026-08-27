@@ -40,7 +40,11 @@ import { useR18Mode } from "@/lib/r18";
 import type { JobItem } from "@/lib/types";
 import {
   deleteDoc,
+  DOC_ACCEPT,
+  DOC_FORMAT_HINT,
   DocItem,
+  docKindFromFilename,
+  docKindIcon,
   docStatusLabel,
   formatDocSize,
   listDocs,
@@ -1392,7 +1396,7 @@ export function AssistantView(props?: AssistantViewProps) {
         <div className="doc-chips doc-chips--composer">
           {attachedDocs.map((d) => (
             <span key={d.id} className="doc-chip doc-chip--removable">
-              <Icon name="file" size={11} strokeWidth={1.8} />
+              <Icon name={docKindIcon(d.kind)} size={11} strokeWidth={1.8} />
               {d.filename}
               <button
                 type="button"
@@ -1799,7 +1803,7 @@ export function AssistantView(props?: AssistantViewProps) {
                           <span className="doc-chips doc-chips--msg">
                             {msg.docs.map((d) => (
                               <span key={d.id} className="doc-chip">
-                                <Icon name="file" size={11} strokeWidth={1.8} />
+                                <Icon name={docKindIcon(docKindFromFilename(d.filename))} size={11} strokeWidth={1.8} />
                                 {d.filename}
                               </span>
                             ))}
@@ -2037,7 +2041,7 @@ export function AssistantView(props?: AssistantViewProps) {
             disabled={docUploading}
           >
             <Icon name={docUploading ? "loading" : "upload"} size={13} strokeWidth={1.8} />
-            {docUploading ? "上传中…" : "上传文档(pdf / docx / txt / md,≤50MB)"}
+            {docUploading ? "上传中…" : `上传文件(${DOC_FORMAT_HINT})`}
           </button>
           {docList.length === 0 ? (
             <div className="av-panel-empty">
@@ -2058,7 +2062,7 @@ export function AssistantView(props?: AssistantViewProps) {
                     >
                       <div className="doc-item-info">
                         <span className="doc-item-name">
-                          <Icon name="file" size={12} strokeWidth={1.8} />
+                          <Icon name={docKindIcon(doc.kind)} size={12} strokeWidth={1.8} />
                           {doc.filename}
                         </span>
                         <span className="doc-item-meta">
@@ -2091,7 +2095,7 @@ export function AssistantView(props?: AssistantViewProps) {
       <input
         ref={docFileRef}
         type="file"
-        accept=".pdf,.docx,.txt,.md"
+        accept={DOC_ACCEPT}
         className="doc-file-input"
         onChange={onPickDocFile}
         aria-hidden="true"

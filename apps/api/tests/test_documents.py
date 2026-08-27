@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import io
+import json
 
 import pytest
 from fastapi.testclient import TestClient
@@ -337,3 +338,244 @@ async def test_retrieve_degrades_when_embedding_down(ctx, monkeypatch):
         monkeypatch.setattr(rag, "_embed", down_embed)
         hits = await docsvc.retrieve([doc], "内容")
         assert hits == []
+
+
+# --------------------------------------------------------------------------- #
+# 全格式扩展(2026-08-28):office/csv/json/代码/图片
+# --------------------------------------------------------------------------- #
+def test_kind_from_filename_full_formats():
+    # office
+    assert docsvc.kind_from_filename("报表.XLSX") == "xlsx"
+    assert docsvc.kind_from_filename("路演.pptx") == "pptx"
+    # 数据
+    assert docsvc.kind_from_filename("数据.csv") == "csv"
+    assert docsvc.kind_from_filename("配置.json") == "json"
+    # 代码/文本
+    assert docsvc.kind_from_filename("main.py") == "py"
+    assert docsvc.kind_from_filename("app.tsx") == "tsx"
+    assert docsvc.kind_from_filename("query.sql") == "sql"
+    # 图片(文档通道走 VLM 反推)
+    assert docsvc.kind_from_filename("照片.JPG") == "jpg"
+    assert docsvc.kind_from_filename("a.png") == "png"
+    assert docsvc.kind_from_filename("扫描.tiff") == "tiff"
+    assert docsvc.kind_from_filename("a.bmp") == "bmp"
+    # 仍然拒绝
+    assert docsvc.kind_from_filename("a.exe") is None
+    assert docsvc.kind_from_filename("a.zip") is None
+    assert docsvc.is_image_kind("png") is True
+    assert docsvc.is_image_kind("pdf") is False
+
+
+def test_parse_text_csv_structured_preview():
+    csv_body = "姓名,年龄,城市\n阿澈,27,杭州\n小满,31,上海\n"
+    text = docsvc.parse_text("csv", csv_body.encode())
+    assert "共 2 行数据、3 列" in text
+    assert "列名:姓名, 年龄, 城市" in text
+    assert "| 姓名 | 年龄 | 城市 |" in text
+    assert "阿澈" in text
+
+
+def test_parse_text_csv_long_table_truncates_sample():
+    lines = ["id,value"] + [f"{i},v{i}" for i in range(docsvc._CSV_SAMPLE_ROWS + 10)]
+    text = docsvc.parse_text("csv", "\n".join(lines).encode())
+    assert f"共 {docsvc._CSV_SAMPLE_ROWS + 10} 行数据" in text
+    assert "其余 10 行略" in text
+
+
+def test_parse_text_json_object_summary_and_pretty():
+    payload = {"name": "阿澈", "skills": ["剑", "酒"], "level": 9}
+    text = docsvc.parse_text("json", json.dumps(payload).encode())
+    assert "JSON 对象:共 3 个键" in text
+    assert "name" in text and '"阿澈"' in text
+
+
+def test_parse_text_json_array_summary():
+    text = docsvc.parse_text("json", json.dumps([1, 2, 3]).encode())
+    assert "JSON 数组:共 3 个元素" in text
+
+
+def test_parse_text_json_invalid_raises():
+    with pytest.raises(ValueError):
+        docsvc.parse_text("json", b"{not json")
+
+
+def test_parse_text_code_direct_read():
+    src = "def hello():\n    return '世界'\n"
+    assert docsvc.parse_text("py", src.encode()) == src
+
+
+def test_parse_text_docx_with_table():
+    import docx
+
+    buf = io.BytesIO()
+    d = docx.Document()
+    d.add_paragraph("合同正文")
+    table = d.add_table(rows=2, cols=2)
+    table.cell(0, 0).text = "条款"
+    table.cell(0, 1).text = "金额"
+    table.cell(1, 0).text = "首付"
+    table.cell(1, 1).text = "5000"
+    d.save(buf)
+    text = docsvc.parse_text("docx", buf.getvalue())
+    assert "合同正文" in text
+    assert "| 条款 | 金额 |" in text and "首付" in text
+
+
+def test_parse_text_xlsx_multi_sheet():
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws1 = wb.active
+    ws1.title = "收入"
+    ws1.append(["月份", "金额"])
+    ws1.append(["一月", 100])
+    ws2 = wb.create_sheet("支出")
+    ws2.append(["项目", "金额"])
+    ws2.append(["房租", 50])
+    buf = io.BytesIO()
+    wb.save(buf)
+    text = docsvc.parse_text("xlsx", buf.getvalue())
+    assert "## Sheet:收入" in text and "| 月份 | 金额 |" in text and "一月" in text
+    assert "## Sheet:支出" in text and "房租" in text
+
+
+def test_parse_text_pptx_slides_and_notes():
+    from pptx import Presentation
+
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[5])
+    slide.shapes.title.text = "发布计划"
+    slide.notes_slide.notes_text_frame.text = "内部口径"
+    slide2 = prs.slides.add_slide(prs.slide_layouts[5])
+    slide2.shapes.title.text = "预算"
+    buf = io.BytesIO()
+    prs.save(buf)
+    text = docsvc.parse_text("pptx", buf.getvalue())
+    assert "## 第 1 页" in text and "发布计划" in text
+    assert "备注:内部口径" in text
+    assert "## 第 2 页" in text and "预算" in text
+
+
+def test_parse_text_pdf_scanned_marker():
+    """无文本空白 PDF(扫描件语义)→ 返回标注占位而不是空串(路由不再 422)。"""
+    from pypdf import PdfWriter
+
+    writer = PdfWriter()
+    writer.add_blank_page(width=72, height=72)
+    buf = io.BytesIO()
+    writer.write(buf)
+    text = docsvc.parse_text("pdf", buf.getvalue())
+    assert text == docsvc.PDF_SCANNED_MARKER
+
+
+def test_image_to_vlm_bytes_passthrough_and_convert():
+    # jpg 原样直传
+    raw = b"\xff\xd8\xff\xe0 fake"
+    payload, mime = docsvc._image_to_vlm_bytes("jpg", raw)
+    assert payload == raw and mime == "image/jpeg"
+    # bmp → PNG 转码(PIL 真实往返)
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (4, 4), (255, 0, 0)).save(buf, format="BMP")
+    payload, mime = docsvc._image_to_vlm_bytes("bmp", buf.getvalue())
+    assert mime == "image/png" and payload.startswith(b"\x89PNG")
+
+
+async def test_parse_document_routes_image_to_vlm(monkeypatch):
+    called = {}
+
+    async def fake_describe(kind, raw, filename):
+        called["kind"] = kind
+        return "【图片反推描述】一只橘猫"
+
+    monkeypatch.setattr(docsvc, "describe_image", fake_describe)
+    text = await docsvc.parse_document("png", b"\x89PNG fake", "猫.png")
+    assert text == "【图片反推描述】一只橘猫"
+    assert called["kind"] == "png"
+
+
+async def test_parse_document_text_goes_local():
+    text = await docsvc.parse_document("txt", "本地内容".encode(), "a.txt")
+    assert text == "本地内容"
+
+
+def test_upload_code_file_via_endpoint(ctx):
+    c, alice_token, _, _, _ = ctx
+    r = c.post(
+        "/api/docs/upload",
+        files={"file": ("脚本.py", "print('你好')\n".encode(), "text/x-python")},
+        headers=_auth(alice_token),
+    )
+    assert r.status_code == 201, r.text
+    doc = r.json()
+    assert doc["kind"] == "py" and doc["status"] == "ready"
+
+
+def test_upload_xlsx_via_endpoint(ctx):
+    import openpyxl
+
+    c, alice_token, _, _, _ = ctx
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["指标", "数值"])
+    ws.append(["销量", 42])
+    buf = io.BytesIO()
+    wb.save(buf)
+    r = c.post(
+        "/api/docs/upload",
+        files={"file": ("报表.xlsx", buf.getvalue(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=_auth(alice_token),
+    )
+    assert r.status_code == 201, r.text
+    assert r.json()["kind"] == "xlsx"
+    # 切块内容含 markdown 表(经索引文件验证)
+    doc_id = r.json()["id"]
+    _, _, _, _, (alice_id, _) = ctx
+    index = docsvc._index_path(alice_id, doc_id)
+    data = json.loads(index.read_text(encoding="utf-8"))
+    assert any("销量" in chunk for chunk in data["chunks"])
+
+
+def test_upload_image_via_endpoint_uses_vlm(ctx, monkeypatch):
+    c, alice_token, _, _, _ = ctx
+
+    async def fake_describe(kind, raw, filename):
+        return "【图片反推描述】海报上写着「夏日大促」"
+
+    monkeypatch.setattr(docsvc, "describe_image", fake_describe)
+    r = c.post(
+        "/api/docs/upload",
+        files={"file": ("海报.png", b"\x89PNG\r\n\x1a\n fake", "image/png")},
+        headers=_auth(alice_token),
+    )
+    assert r.status_code == 201, r.text
+    doc = r.json()
+    assert doc["kind"] == "png" and doc["status"] == "ready"
+
+
+def test_upload_image_vlm_failure_passthrough_502(ctx, monkeypatch):
+    from fastapi import HTTPException
+
+    c, alice_token, _, _, _ = ctx
+
+    async def down_describe(kind, raw, filename):
+        raise HTTPException(502, "VLM 反推服务不可达")
+
+    monkeypatch.setattr(docsvc, "describe_image", down_describe)
+    r = c.post(
+        "/api/docs/upload",
+        files={"file": ("图.png", b"\x89PNG fake", "image/png")},
+        headers=_auth(alice_token),
+    )
+    assert r.status_code == 502  # 引擎不可达原码上抛,不伪装成 422 文件损坏
+
+
+def test_upload_rejects_still_unsupported(ctx):
+    c, alice_token, _, _, _ = ctx
+    r = c.post(
+        "/api/docs/upload",
+        files={"file": ("压缩包.zip", b"PK\x03\x04", "application/zip")},
+        headers=_auth(alice_token),
+    )
+    assert r.status_code == 400

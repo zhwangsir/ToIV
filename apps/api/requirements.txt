@@ -133,11 +133,13 @@ websockets==16.0
 # 2026-08-14 R3.2:升 3.3.4 并加 pool extra(langgraph-checkpoint-postgres 依赖 psycopg_pool)。
 psycopg[binary,pool]==3.3.4
 
-# —— 文档上传与长文本理解(2026-08-08) ——
-# pdf/docx 解析(txt/md 直读);services/docs.py 惰性导入。
+# —— 文档上传与长文本理解(2026-08-08;2026-08-28 扩展全格式) ——
+# pdf/office 解析(文本/代码直读,图片走 VLM 反推链);services/docs.py 惰性导入。
 # 已加入 pyproject dependencies,uv export 会自动带上;此处显式列出便于 core 直接 pip install。
 pypdf==6.15.0
 python-docx==1.2.0
+openpyxl==3.1.5
+python-pptx==1.0.2
 
 # —— R3.2 Agent Team 编排:LangGraph StateGraph + checkpoint 断点续跑(2026-08-14) ——
 # 图定义见 app/services/agent_team_graph.py;生产 core 用 PostgresSaver(复用 PG18),

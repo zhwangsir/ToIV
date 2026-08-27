@@ -1,13 +1,13 @@
-"""/api/docs —— 用户文档上传与管理(供智能体对话挂载做长文本理解)。
+"""/api/docs —— 用户文件上传与管理(供智能体对话挂载做长文本/全格式理解)。
 
-- POST /docs/upload:multipart 单文件 ≤50MB,pdf/docx/txt/md;解析→切块→embedding 索引。
+- POST /docs/upload:multipart 单文件 ≤50MB,全格式(office/pdf/文本/代码/csv/json/图片);
+  按扩展名路由解析(图片走 VLM 反推描述)→ 切块 → embedding 索引,详见 services/docs.py。
 - GET  /docs:当前用户文档列表(新→旧)。
 - DELETE /docs/{id}:删除元数据 + 落盘的原文/索引文件。
 原文与向量索引按用户隔离落盘(content_dir/docs/<user_id>/),见 services/docs.py。
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
@@ -44,14 +44,20 @@ async def upload_doc(
     filename = (file.filename or "").strip() or "document"
     kind = docsvc.kind_from_filename(filename)
     if kind is None:
-        raise HTTPException(400, "仅支持 pdf / docx / txt / md 文件")
+        raise HTTPException(
+            400,
+            "不支持的文件格式(支持 pdf / docx / xlsx / pptx / txt / md / csv / json /"
+            " 常见代码文件 / jpg / png / webp / gif / bmp / tiff)",
+        )
     raw = await file.read(docsvc.MAX_FILE_BYTES + 1)
     if len(raw) > docsvc.MAX_FILE_BYTES:
         raise HTTPException(413, "文件超过 50MB 上限")
 
-    # 解析(CPU 密集,大 PDF 可达秒级)放线程池,避免阻塞事件循环
+    # 统一解析入口:图片走 VLM 反推(网络),其余本地解析(内部 to_thread 不阻塞事件循环)
     try:
-        text = await asyncio.to_thread(docsvc.parse_text, kind, raw)
+        text = await docsvc.parse_document(kind, raw, filename)
+    except HTTPException:
+        raise  # VLM 反推失败(502)等原码上抛,不包装成 422
     except Exception as exc:
         logger.warning("文档解析失败 %s: %s", filename, exc)
         raise HTTPException(422, "文件解析失败,请确认文件未损坏") from exc
