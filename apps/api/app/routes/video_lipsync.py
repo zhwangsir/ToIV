@@ -82,7 +82,7 @@ class VideoLipsyncRequest(BaseModel):
 
     video_url: str = Field(min_length=1, max_length=2048)
     audio_url: str = Field(min_length=1, max_length=2048)
-    inference_steps: int = Field(default=25, ge=1, le=200)
+    inference_steps: int = Field(default=10, ge=1, le=200)  # 服务端已切 DPM-Solver++,10 步即达原 40 步质量(P1.1)
     guidance_scale: float = Field(default=1.5, ge=0.0, le=10.0)
 
 
@@ -463,9 +463,10 @@ async def video_lipsync_submit(
     enforce_generation_rate_limit(user)
     video_url = body.video_url.strip()
     audio_url = body.audio_url.strip()
-    nsfw = _resolve_video_source(session, user, video_url) or _resolve_audio_source(
-        session, user, audio_url
-    )
+    # 两源校验必须各自执行(or 短路会在 video 继承 nsfw=True 时跳过 audio 白名单校验)
+    v_nsfw = _resolve_video_source(session, user, video_url)
+    a_nsfw = _resolve_audio_source(session, user, audio_url)
+    nsfw = v_nsfw or a_nsfw
 
     name = f"lipsync-{uuid.uuid4().hex}.mp4"
     with tempfile.TemporaryDirectory() as td:

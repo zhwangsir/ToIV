@@ -433,7 +433,8 @@ def test_submit_creates_processing_job(ctx, tmp_path):
     with Session(engine) as s:
         job = s.exec(select(Job).where(Job.kind == "lipsync")).first()
     assert job is not None and job.status == "processing"
-    assert job.user_id == uid and job.nsfw is False
+    # 视频源为无登记源 Job 的超分产物 URL → 按 nsfw 继承纪律保守置 True(2026-08-27 T0)
+    assert job.user_id == uid and job.nsfw is True
     params = json.loads(job.params)
     assert params["video_url"] == v_url and params["audio_url"] == a_url
     assert params["task_id"] == "task-1"

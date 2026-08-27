@@ -265,7 +265,7 @@ class LipsyncLongRequest(BaseModel):
     seg_seconds: float = Field(default=12.0, ge=2.0, le=60.0)  # 无 segments 时的等分长度
     max_segments: int = Field(default=8, ge=1, le=_MAX_SEGMENTS)  # 单次跑多少段(控本)
     lips_expression: float = Field(default=1.5, ge=1.0, le=3.0)
-    inference_steps: int = Field(default=20, ge=1, le=50)
+    inference_steps: int = Field(default=10, ge=1, le=50)  # LatentSync DPM-Solver++ 10 步(P1.1)
 
 
 def _segments_from(body: LipsyncLongRequest, duration: float) -> list[tuple[float, float]]:

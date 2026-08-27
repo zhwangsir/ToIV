@@ -344,7 +344,7 @@ class LipsyncRequest(BaseModel):
     """M3: 分镜对口型请求。复用 manju lipsync 同款参数。"""
 
     lips_expression: float = Field(default=1.5, ge=1.0, le=3.0)
-    inference_steps: int = Field(default=20, ge=1, le=50)
+    inference_steps: int = Field(default=10, ge=1, le=50)  # LatentSync DPM-Solver++ 10 步(P1.1)
     # 采样种子:缺省随机;rerun keep 锁 seed 时精确复现口型采样
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
 
