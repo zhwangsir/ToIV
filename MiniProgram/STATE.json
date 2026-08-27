@@ -13,6 +13,13 @@
   "build": "npm run build:mp-weixin"
  },
  "updated_at": "2026-08-27",
+ "library_buckets_2026_08_27": {
+  "commit": "a95e174",
+  "remotes": "origin and github main both a95e174",
+  "tests": "590 passed / 26 files; typecheck pass",
+  "still_other": ["chromakey", "i2l", "motion_brush", "wan_animate", "wan_animate2"],
+  "note": "Job.kind buckets. Mobile archived. ACE-Step not on remote main."
+ },
  "engines_sync_2026_08_27": {
   "commit": "f261f45",
   "added": ["qwen-image-edit", "h3-multishot", "wan-transition", "keyframe-chain", "vace-edit", "wan-animate-2", "wan-nsfw-i2v"],

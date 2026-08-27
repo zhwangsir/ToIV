@@ -11,6 +11,13 @@
   "archived": ".archive/mobile-expo-20260827/",
   "note": "Do not treat Mobile/ as a live subproject. Merged to main and dual-pushed 2026-08-27."
  },
+ "miniprogram_library_buckets_2026_08_27": {
+  "commit": "a95e174",
+  "remotes": "origin and github main both a95e174",
+  "tests": "590 passed / 26 files; typecheck pass",
+  "still_other": ["chromakey", "i2l", "motion_brush", "wan_animate", "wan_animate2"],
+  "note": "Job.kind buckets. Mobile archived. Local ACE-Step 41ea514 not on remote main."
+ },
  "miniprogram_engines_2026_08_27": {
   "commit": "f261f45",
   "added": ["qwen-image-edit", "h3-multishot", "wan-transition", "keyframe-chain", "vace-edit", "wan-animate-2", "wan-nsfw-i2v"],
