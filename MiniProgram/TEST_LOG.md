@@ -1,5 +1,7 @@
 # TEST_LOG.md — MiniProgram
 
+- 2026-08-27 创作页引擎追上现役注册表（main `f261f45`）：新增 qwen-image-edit / h3-multishot / wan-transition / keyframe-chain / vace-edit / wan-animate-2 / wan-nsfw-i2v；移除 ltx25-*。vitest 580 passed。作品库新 kind 仍进「其他」。Expo Mobile 仍是归档，不是在维护的客户端。
+
 - 2026-08-27 移动端合并：本目录成为 ToIV 唯一客户端；Expo Mobile 归档到 `../.archive/mobile-expo-20260827/`。能力以现有 MP1–MP32 为准，未宣称微信真机走查完成。
 
 - 2026-08-27 项目管家文档治理：根目录收敛为 5 件套。

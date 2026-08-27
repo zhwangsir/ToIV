@@ -9,6 +9,7 @@ ToIV **唯一移动端**（uni-app）。微信为主，必要时再出 App。路
 UniApp 3（Vite 5）+ Vue 3 + Pinia + 自研 UI（Lucide 白名单图标）。页面见 `src/pages.json`：创作、作业、作品库、我的、登录、参考资产库、助手、Agent 团队。作品详情在分包 `pages-sub/artifact`。
 
 STATE.json：MP1–MP32 均已标记 done（更新于 2026-08-16）。交付收口后仍待微信真机人工走查（相册 / 摄像头 / 文件权限）。不要把里程碑 done 写成已经上架微信。
+创作页引擎 2026-08-27 已追上现役注册表（`f261f45`）：含 qwen-image-edit、h3-multishot、wan-transition、keyframe-chain、vace-edit、wan-animate-2、wan-nsfw-i2v；已去掉 ltx25-*。作品库里这些新 kind 暂时仍归「其他」。
 
 | 页面 | 路径 |
 |------|------|

@@ -11,6 +11,13 @@
   "archived": ".archive/mobile-expo-20260827/",
   "note": "Do not treat Mobile/ as a live subproject. Merged to main and dual-pushed 2026-08-27."
  },
+ "miniprogram_engines_2026_08_27": {
+  "commit": "f261f45",
+  "added": ["qwen-image-edit", "h3-multishot", "wan-transition", "keyframe-chain", "vace-edit", "wan-animate-2", "wan-nsfw-i2v"],
+  "removed": ["ltx25-*"],
+  "tests": "580 passed",
+  "known": "library new kinds still bucket to 其他"
+ },
  "health": {
   "engine_r3_2026_08_21": {
    "status": "completed",
