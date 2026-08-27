@@ -43,8 +43,9 @@ def _random_seed() -> int:
 
 
 # ── LightX2V Seko 加速 LoRA 资产(2026-08-27 已就位,三 worker 共享可见)──
-SEKO_I2V_HIGH_LORA = "lightx2v/Wan2.2-I2V-A14B-4steps-lora-rank64-Seko-V1/high_noise_model.safetensors"
-SEKO_I2V_LOW_LORA = "lightx2v/Wan2.2-I2V-A14B-4steps-lora-rank64-Seko-V1/low_noise_model.safetensors"
+# Seko LoRA 平铺 loras/ 根目录(NAS SMB 对新建子目录不继承授权,pc 端不可见——勿入子目录)
+SEKO_I2V_HIGH_LORA = "wan2.2_i2v_seko_v1_high_noise.safetensors"
+SEKO_I2V_LOW_LORA = "wan2.2_i2v_seko_v1_low_noise.safetensors"
 
 
 # ── NSFW LoRA 注册表(2026-08-16 Civitai 爆款配方逆向)──

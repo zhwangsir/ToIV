@@ -77,10 +77,10 @@ def test_i2v_accel_turbo_dual_seko_lora_4_steps():
     assert g["3"]["class_type"] == "LoraLoaderModelOnly"
     assert g["3"]["inputs"]["model"] == ["1", 0]  # 高噪模型 → high_noise LoRA
     assert g["3"]["inputs"]["lora_name"] == SEKO_I2V_HIGH_LORA
-    assert "high_noise_model" in g["3"]["inputs"]["lora_name"]
+    assert "high_noise" in g["3"]["inputs"]["lora_name"]
     assert g["4"]["inputs"]["model"] == ["2", 0]  # 低噪模型 → low_noise LoRA
     assert g["4"]["inputs"]["lora_name"] == SEKO_I2V_LOW_LORA
-    assert "low_noise_model" in g["4"]["inputs"]["lora_name"]
+    assert "low_noise" in g["4"]["inputs"]["lora_name"]
     hi, lo = g["11"]["inputs"], g["12"]["inputs"]
     assert hi["steps"] == 4 and lo["steps"] == 4
     assert hi["cfg"] == 1.0 and lo["cfg"] == 1.0  # 蒸馏无 CFG
@@ -155,7 +155,7 @@ def test_t2v_accel_turbo_dual_seko_lora_4_steps():
     g = build_wan_t2v_graph(WanT2VParams(positive="x", accel="turbo"))
     assert g["3"]["inputs"]["model"] == ["1", 0]
     assert g["3"]["inputs"]["lora_name"] == SEKO_T2V_HIGH_LORA
-    assert "Wan2.2-T2V-A14B" in g["3"]["inputs"]["lora_name"]
+    assert "seko_v20_high_noise" in g["3"]["inputs"]["lora_name"]
     assert g["4"]["inputs"]["model"] == ["2", 0]
     assert g["4"]["inputs"]["lora_name"] == SEKO_T2V_LOW_LORA
     assert g["11"]["inputs"]["steps"] == 4

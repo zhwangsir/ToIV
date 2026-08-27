@@ -29,8 +29,9 @@ from app.workflows.wan_i2v import DEFAULT_NEGATIVE
 MAX_SEED = 2**63 - 1
 
 # LightX2V Seko 加速 LoRA 资产(2026-08-27 已就位,三 worker 共享可见)
-SEKO_T2V_HIGH_LORA = "lightx2v/Wan2.2-T2V-A14B-4steps-lora-rank64-Seko-V2.0/high_noise_model.safetensors"
-SEKO_T2V_LOW_LORA = "lightx2v/Wan2.2-T2V-A14B-4steps-lora-rank64-Seko-V2.0/low_noise_model.safetensors"
+# Seko LoRA 平铺 loras/ 根目录(NAS SMB 对新建子目录不继承授权,pc 端不可见——勿入子目录)
+SEKO_T2V_HIGH_LORA = "wan2.2_t2v_seko_v20_high_noise.safetensors"
+SEKO_T2V_LOW_LORA = "wan2.2_t2v_seko_v20_low_noise.safetensors"
 
 
 def _random_seed() -> int:
