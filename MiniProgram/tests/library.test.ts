@@ -89,12 +89,12 @@ describe('kindToFilter 追上网页 libraryQuery', () => {
     expect(kindToFilter('wan-nsfw-i2v')).toBeNull();
   });
 
-  it('网页 libraryQuery 未收录的 kind 仍为 null', () => {
-    expect(kindToFilter('chromakey')).toBeNull();
-    expect(kindToFilter('i2l')).toBeNull();
-    expect(kindToFilter('motion_brush')).toBeNull();
-    expect(kindToFilter('wan_animate')).toBeNull();
-    expect(kindToFilter('wan_animate2')).toBeNull();
+  it('本批补齐：chromakey/i2l/motion_brush/wan_animate*', () => {
+    expect(kindToFilter('chromakey')).toBe('video');
+    expect(kindToFilter('i2l')).toBe('image');
+    expect(kindToFilter('motion_brush')).toBe('image');
+    expect(kindToFilter('wan_animate')).toBe('video');
+    expect(kindToFilter('wan_animate2')).toBe('video');
   });
 });
 
@@ -127,6 +127,11 @@ describe('kindLabel', () => {
     expect(kindLabel('drama_shot_lipsync')).toBe('镜头对口型');
     expect(kindLabel('cad_front')).toBe('CAD');
     expect(kindLabel('drama_char_reference_hero')).toBe('角色参考');
+    expect(kindLabel('chromakey')).toBe('扣像');
+    expect(kindLabel('i2l')).toBe('风格LoRA');
+    expect(kindLabel('motion_brush')).toBe('局部动效');
+    expect(kindLabel('wan_animate')).toBe('动作迁移');
+    expect(kindLabel('wan_animate2')).toBe('动作迁移2');
   });
 });
 
@@ -176,7 +181,7 @@ describe('countByFilter', () => {
     expect(countByFilter(artifacts)).toEqual({
       all: 6,
       image: 1,
-      video: 1,
+      video: 2,
       audio: 1,
       '3d': 2,
     });

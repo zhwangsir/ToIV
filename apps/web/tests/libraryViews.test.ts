@@ -23,6 +23,7 @@ import {
   countByFilter,
   DEFAULT_LIBRARY_QUERY,
   deleteJobsBatch,
+  kindLabel,
   kindToFilter,
   LIBRARY_DENSITY_KEY,
   loadDensity,
@@ -107,6 +108,22 @@ test("类型筛选:kind 精确映射 + 前缀规则,未识别 kind 只在「全�
   // 未识别 kind:不进任何分类桶,但「全部」保留
   assert.equal(applyLibraryQuery(jobs, query({ filter: "all" })).length, 5);
   assert.equal(kindToFilter("some_future_kind"), null);
+});
+
+test("libraryQuery:chromakey/i2l/motion_brush/wan_animate* 分桶与短名", () => {
+  assert.equal(kindToFilter("chromakey"), "video");
+  assert.equal(kindToFilter("i2l"), "image");
+  assert.equal(kindToFilter("motion_brush"), "image");
+  assert.equal(kindToFilter("wan_animate"), "video");
+  assert.equal(kindToFilter("wan_animate2"), "video");
+  assert.equal(kindLabel("chromakey"), "扣像");
+  assert.equal(kindLabel("i2l"), "风格LoRA");
+  assert.equal(kindLabel("motion_brush"), "局部动效");
+  assert.equal(kindLabel("wan_animate"), "动作迁移");
+  assert.equal(kindLabel("wan_animate2"), "动作迁移2");
+  // 引擎 id(连字符)不是 Job.kind
+  assert.equal(kindToFilter("wan-animate"), null);
+  assert.equal(kindToFilter("wan-animate-2"), null);
 });
 
 test("搜索:按 prompt 过滤,大小写不敏感,首尾空白忽略,空词不过滤", () => {

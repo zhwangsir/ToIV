@@ -35,6 +35,8 @@ export const FILTERS: FilterDef[] = [
       "qwen_edit",
       // 短剧 studio 图像类产物
       "drama_grid_storyboard", "drama_scene_layout",
+      // i2L 风格 LoRA(图像参考导出) / Motion Brush mask PNG
+      "i2l", "motion_brush",
     ],
   },
   {
@@ -61,6 +63,8 @@ export const FILTERS: FilterDef[] = [
       "keyframe_chain",
       // 短剧 studio 视频类产物
       "drama_shot_video", "drama_shot_video_i2v", "drama_shot_video_v2", "drama_shot_lipsync",
+      // 绿幕抠像 / Wan 动作迁移
+      "chromakey", "wan_animate", "wan_animate2",
     ],
   },
   {
@@ -143,6 +147,11 @@ export function kindLabel(kind: string): string {
     threed_material: "3D 材质",
     threed_render: "3D 渲染",
     threed_texture: "3D 纹理",
+    chromakey: "扣像",
+    i2l: "风格LoRA",
+    motion_brush: "局部动效",
+    wan_animate: "动作迁移",
+    wan_animate2: "动作迁移2",
     drama_grid_storyboard: "分镜",
     drama_scene_layout: "场景布局",
     drama_shot_video: "镜头视频",

@@ -96,6 +96,19 @@ describe('splitSavable', () => {
     expect(savable.map((j) => j.id)).toEqual(['qe', 'ms', 'tr']);
     expect(skipped.map((j) => j.id)).toEqual(['mv', 'tm']);
   });
+
+  it('本批图像/视频 kind 可保存', () => {
+    const items = [
+      job({ id: 'ck', kind: 'chromakey' }),
+      job({ id: 'i2l', kind: 'i2l' }),
+      job({ id: 'mb', kind: 'motion_brush' }),
+      job({ id: 'wa', kind: 'wan_animate' }),
+      job({ id: 'wa2', kind: 'wan_animate2' }),
+    ];
+    const { savable, skipped } = splitSavable(items);
+    expect(savable.map((j) => j.id)).toEqual(['ck', 'i2l', 'mb', 'wa', 'wa2']);
+    expect(skipped).toEqual([]);
+  });
 });
 
 function resultOf(jobs: JobItem[], failIds: string[] = []): BatchItemResult<JobItem>[] {
