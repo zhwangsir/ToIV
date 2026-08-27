@@ -31,6 +31,13 @@ import {
   SPEED_MIN,
   type AvatarDriveMode,
 } from "@/lib/avatarTalk";
+import {
+  BLEND_DEFAULT,
+  KEY_COLOR_DEFAULT,
+  SIMILARITY_DEFAULT,
+  chromakeyCompose,
+  workerViewUrl,
+} from "@/lib/chromakey";
 import { fetchEngines, type EngineInfo } from "@/lib/engines";
 import { friendlyError } from "@/lib/friendlyError";
 import { useGeneration } from "@/lib/useGeneration";
@@ -135,6 +142,21 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
   // 作品库选取(二次创作):非 null 即打开对应类型的 AssetPicker
   const [pickerFor, setPickerFor] = useState<"image" | "audio" | null>(null);
 
+  // ── 绿幕合成(M6):有产物视频时出现在结果区;形象模板绿幕标记默认展开 ──
+  const [ckOpen, setCkOpen] = useState(false);
+  const [ckBgType, setCkBgType] = useState<"color" | "image">("color");
+  const [ckColorPreset, setCkColorPreset] = useState<"black" | "white" | "custom">("black");
+  const [ckColorHex, setCkColorHex] = useState("#202040");
+  const [ckBgImage, setCkBgImage] = useState<UploadedFile | null>(null);
+  const [ckBgUploading, setCkBgUploading] = useState(false);
+  const [ckKeyColor, setCkKeyColor] = useState(KEY_COLOR_DEFAULT);
+  const [ckSimilarity, setCkSimilarity] = useState(SIMILARITY_DEFAULT);
+  const [ckBlend, setCkBlend] = useState(BLEND_DEFAULT);
+  const [ckSubmitting, setCkSubmitting] = useState(false);
+  const [ckError, setCkError] = useState<string | null>(null);
+  const [ckResultUrl, setCkResultUrl] = useState<string | null>(null);
+  const ckBgInputRef = useRef<HTMLInputElement | null>(null);
+
   // 引擎可用性:进入即拉取 + 30s 轮询(同 GenerateView;avatar-talk 不可用时禁提交)
   usePoll(
     async () => {
@@ -155,6 +177,21 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
       invalidateJobs(); // 产物已落库,作品库缓存失效
     },
   });
+
+  /** 产物视频相对路径(签名 URL,直接作 chromakey foreground_url,后端白名单认 /api/images?)。 */
+  const resultUrl = gen.status === "done" && gen.resultPaths.length > 0 ? gen.resultPaths[0] : null;
+  /** 当前选中形象模板是绿幕标记:折叠区默认展开并提示。 */
+  const greenTpl = useMemo(
+    () => templates.find((t) => t.id === selectedTemplateId)?.green_screen ?? false,
+    [templates, selectedTemplateId],
+  );
+  useEffect(() => {
+    if (greenTpl) setCkOpen(true);
+  }, [greenTpl]);
+  // 产物更换(重新生成)后清掉上次合成结果,避免播错片
+  useEffect(() => {
+    setCkResultUrl(null);
+  }, [resultUrl]);
 
   // 形象模板列表:进入即拉取一次(失败不阻断主流程,保存成功后本地追加)
   useEffect(() => {
@@ -383,6 +420,68 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
     setDurationSec(secs);
   }
 
+  // ── 绿幕合成(M6) ──
+  /** 背景色字面值:预设颜色名直传;自定义 hex(#RRGGBB)转后端契约 0xRRGGBB。 */
+  const ckBgColor = ckColorPreset === "custom" ? "0x" + ckColorHex.slice(1).toUpperCase() : ckColorPreset;
+
+  /** 上传背景图(走 /api/upload,句柄转 worker /view 直链,后端白名单认 worker host)。 */
+  async function onCkBgFile(file: File | undefined) {
+    if (!file) return;
+    setCkError(null);
+    if (!IMAGE_EXT_OK.includes(fileExt(file.name))) {
+      setCkError("背景图仅支持 jpg / png / webp");
+      return;
+    }
+    if (file.size > MAX_BYTES) {
+      setCkError("背景图超过 20MB 上限");
+      return;
+    }
+    setCkBgUploading(true);
+    try {
+      const r = await uploadImage(file, "avatar", false);
+      setCkBgImage({
+        filename: r.filename,
+        worker: r.worker,
+        name: file.name,
+        previewUrl: URL.createObjectURL(file),
+      });
+    } catch (e) {
+      setCkError(e instanceof Error ? e.message : "背景图上传失败");
+    } finally {
+      setCkBgUploading(false);
+      if (ckBgInputRef.current) ckBgInputRef.current.value = "";
+    }
+  }
+
+  async function onChromakey() {
+    if (!resultUrl || ckSubmitting) return;
+    if (ckBgType === "image" && !ckBgImage) {
+      setCkError("请先上传背景图");
+      return;
+    }
+    setCkError(null);
+    setCkSubmitting(true);
+    try {
+      const r = await chromakeyCompose({
+        foreground_url: resultUrl,
+        background:
+          ckBgType === "image"
+            ? { mode: "image", url: workerViewUrl(ckBgImage!) }
+            : { mode: "color", color: ckBgColor },
+        key_color: ckKeyColor,
+        similarity: ckSimilarity,
+        blend: ckBlend,
+      });
+      setCkResultUrl(r.url);
+      invalidateJobs(); // 产物建档 kind=chromakey,作品库缓存失效
+    } catch (e) {
+      const raw = e instanceof Error ? e.message : "绿幕合成失败";
+      setCkError(friendlyError(raw).message);
+    } finally {
+      setCkSubmitting(false);
+    }
+  }
+
   const statusLabel = !engineChecked
     ? "检测中"
     : engineReady
@@ -449,6 +548,201 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
               />
             )}
           </div>
+        )}
+
+        {/* 绿幕合成(M6):有产物视频时出现;形象模板绿幕标记默认展开提示 */}
+        {resultUrl && (
+          <section className={`at-ck${ckOpen ? " is-open" : ""}`} aria-label="绿幕合成">
+            <button
+              type="button"
+              className="at-ck-head"
+              aria-expanded={ckOpen}
+              onClick={() => setCkOpen((v) => !v)}
+            >
+              <span className="at-ck-title">
+                <Icon name="layers" size={14} />
+                绿幕合成
+              </span>
+              {greenTpl && (
+                <Badge tone="ok" dot={false}>
+                  绿幕形象,可直接合成
+                </Badge>
+              )}
+              <span className="at-ck-chevron">
+                <Icon name={ckOpen ? "chevron-down" : "chevron-up"} size={13} />
+              </span>
+            </button>
+            {ckOpen && (
+              <div className="at-ck-body">
+                <Field label="背景类型">
+                  <div className="at-seg" role="tablist" aria-label="背景类型">
+                    {(
+                      [
+                        { key: "color", label: "纯色" },
+                        { key: "image", label: "背景图" },
+                      ] as const
+                    ).map((t) => (
+                      <button
+                        key={t.key}
+                        type="button"
+                        role="tab"
+                        aria-selected={ckBgType === t.key}
+                        className={`at-seg-btn${ckBgType === t.key ? " is-active" : ""}`}
+                        disabled={ckSubmitting}
+                        onClick={() => setCkBgType(t.key)}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </Field>
+
+                {ckBgType === "color" ? (
+                  <Field label="背景色">
+                    <div className="at-gen-inline">
+                      <div className="at-seg" role="tablist" aria-label="背景色">
+                        {(
+                          [
+                            { key: "black", label: "黑色" },
+                            { key: "white", label: "白色" },
+                            { key: "custom", label: "自定义" },
+                          ] as const
+                        ).map((c) => (
+                          <button
+                            key={c.key}
+                            type="button"
+                            role="tab"
+                            aria-selected={ckColorPreset === c.key}
+                            className={`at-seg-btn${ckColorPreset === c.key ? " is-active" : ""}`}
+                            disabled={ckSubmitting}
+                            onClick={() => setCkColorPreset(c.key)}
+                          >
+                            {c.label}
+                          </button>
+                        ))}
+                      </div>
+                      {ckColorPreset === "custom" && (
+                        <input
+                          type="color"
+                          value={ckColorHex}
+                          aria-label="自定义背景色"
+                          disabled={ckSubmitting}
+                          className="at-ck-colorwell"
+                          onChange={(e) => setCkColorHex(e.target.value)}
+                        />
+                      )}
+                    </div>
+                  </Field>
+                ) : (
+                  <Field label="背景图" hint="jpg / png / webp,≤ 20MB">
+                    {ckBgImage ? (
+                      <div className="at-gen-file">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={ckBgImage.previewUrl}
+                          alt={ckBgImage.name}
+                          className="at-gen-file-thumb"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                        <span className="at-gen-file-name" title={ckBgImage.name}>
+                          {ckBgImage.name}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          icon={<Icon name="close" size={13} />}
+                          aria-label="移除背景图"
+                          disabled={ckSubmitting}
+                          onClick={() => setCkBgImage(null)}
+                        />
+                      </div>
+                    ) : (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        loading={ckBgUploading}
+                        icon={<Icon name="upload" size={14} />}
+                        disabled={ckSubmitting}
+                        onClick={() => ckBgInputRef.current?.click()}
+                      >
+                        {ckBgUploading ? "上传中…" : "上传背景图"}
+                      </Button>
+                    )}
+                    <input
+                      ref={ckBgInputRef}
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.webp"
+                      style={{ display: "none" }}
+                      onChange={(e) => void onCkBgFile(e.target.files?.[0])}
+                    />
+                  </Field>
+                )}
+
+                <Field label="抠像色" hint="ffmpeg chromakey 颜色,默认 0x00FF00(纯绿)">
+                  <Input
+                    type="text"
+                    value={ckKeyColor}
+                    maxLength={8}
+                    placeholder="0x00FF00"
+                    disabled={ckSubmitting}
+                    onChange={(e) => setCkKeyColor(e.target.value)}
+                  />
+                </Field>
+                <Field label={`相似度 ${ckSimilarity.toFixed(2)}`} hint="越大抠得越宽,默认 0.18">
+                  <input
+                    type="range"
+                    min={0.01}
+                    max={1}
+                    step={0.01}
+                    value={ckSimilarity}
+                    disabled={ckSubmitting}
+                    aria-label="相似度"
+                    onChange={(e) => setCkSimilarity(Number(e.target.value))}
+                  />
+                </Field>
+                <Field label={`边缘柔化 ${ckBlend.toFixed(2)}`} hint="边缘过渡,默认 0.08">
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={ckBlend}
+                    disabled={ckSubmitting}
+                    aria-label="边缘柔化"
+                    onChange={(e) => setCkBlend(Number(e.target.value))}
+                  />
+                </Field>
+
+                {ckError && (
+                  <p className="at-gen-warn" role="alert">
+                    {ckError}
+                  </p>
+                )}
+                <Button
+                  variant="primary"
+                  size="sm"
+                  loading={ckSubmitting}
+                  icon={<Icon name="scissors" size={14} />}
+                  disabled={ckBgType === "image" && !ckBgImage}
+                  onClick={() => void onChromakey()}
+                >
+                  {ckSubmitting ? "合成中…" : "开始合成"}
+                </Button>
+
+                {ckResultUrl && (
+                  /* eslint-disable-next-line jsx-a11y/media-has-caption */
+                  <video
+                    className="at-ck-result"
+                    src={imageUrl(ckResultUrl)}
+                    controls
+                    playsInline
+                    aria-label="绿幕合成结果"
+                  />
+                )}
+              </div>
+            )}
+          </section>
         )}
 
         <Badge

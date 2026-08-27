@@ -1,7 +1,7 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-27T05:20:00+08:00",
+ "updated_at": "2026-08-27T09:45:00+08:00",
  "health": {
   "engine_r3_2026_08_21": {
    "status": "completed",
@@ -1735,5 +1735,14 @@
   "m4_backlog": "通用对口型模型矩阵(MuseTalk/LatentSync/Wav2Lip)评估 —— 后续",
   "regression": "后端 2368 passed(+29) / 前端 647 passed(+6) / tsc 0;已全量部署",
   "verified_at": "2026-08-27T05:20:00+08:00"
+ },
+ "digihuman_deep_2026_08_27": {
+  "status": "completed",
+  "scope": "数字人深度完善:M5 直播助手融合 + M6 绿幕抠像 + M4 通用对口型(aigcpanel 对标收官)",
+  "m5": "直播助手(知识库/违禁词/互动事件/OpenTalking 播报):LiveKB/LiveEvent/LiveBannedWord 三表;ingest 流水线(违禁词双向→KB 优先级→LLM 兜底→播报);AvatarTalkView 第三模式;生产实证 KB 匹配命中",
+  "m6": "POST /api/video/chromakey(ffmpeg chromakey+overlay,真 ffmpeg e2e 绿抠红);前端结果区折叠区;green_screen 标记真启用",
+  "m4": "toiv-lipsync.service(GPU0 :9103,torch 2.8+cu128 sm_120,7 坑攻坚);POST /api/video/lipsync(degraded→error 不造假);生产 e2e 出 1.27MB 产物;submit 字段名 video/audio 实证修正",
+  "regression": "后端 2425 passed(+57) / 前端 659 passed(+12) / tsc 0;已全量部署",
+  "verified_at": "2026-08-27T09:45:00+08:00"
  }
 }

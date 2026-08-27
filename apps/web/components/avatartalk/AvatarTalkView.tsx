@@ -13,6 +13,7 @@ import { useAutoResize } from "@/hooks/useAutoResize";
 import { getToken } from "@/lib/api";
 import { genId } from "@/lib/id";
 import { AvatarGenPanel } from "./AvatarGenPanel";
+import { LiveAssistantPanel } from "./LiveAssistantPanel";
 import "@/app/styles/avatartalk.css";
 import {
   otGetModels,
@@ -131,8 +132,8 @@ function pickAudioMime(): string | undefined {
 }
 
 export function AvatarTalkView({ onNavigate }: { onNavigate?: (target: string) => void }) {
-  // 模式:live=OpenTalking 实时对话;gen=LongCat-Avatar 视频生成工作台
-  const [mode, setMode] = useState<"live" | "gen">("live");
+  // 模式:live=OpenTalking 实时对话;gen=LongCat-Avatar 视频生成工作台;assistant=直播助手(M5)
+  const [mode, setMode] = useState<"live" | "gen" | "assistant">("live");
   const toast = useToast();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionState, setSessionState] = useState<SessionState>("created");
@@ -516,6 +517,7 @@ export function AvatarTalkView({ onNavigate }: { onNavigate?: (target: string) =
         [
           { key: "live", label: "实时对话" },
           { key: "gen", label: "视频生成" },
+          { key: "assistant", label: "直播助手" },
         ] as const
       ).map((t) => (
         <button
@@ -542,7 +544,9 @@ export function AvatarTalkView({ onNavigate }: { onNavigate?: (target: string) =
       desc={
         mode === "live"
           ? "选择形象与模型,与数字人实时对话"
-          : "上传人像,用音频或文本驱动生成对口型视频"
+          : mode === "gen"
+            ? "上传人像,用音频或文本驱动生成对口型视频"
+            : "知识库问答 + 违禁词拦截,数字人口播互动回复"
       }
       actions={
         <>
@@ -568,6 +572,17 @@ export function AvatarTalkView({ onNavigate }: { onNavigate?: (target: string) =
         {pageHeader}
         <div className="at-body">
           <AvatarGenPanel onNavigate={onNavigate} />
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === "assistant") {
+    return (
+      <div className="at-view">
+        {pageHeader}
+        <div className="at-body at-body-live">
+          <LiveAssistantPanel />
         </div>
       </div>
     );

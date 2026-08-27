@@ -27,6 +27,7 @@ from app.routes import (
     avatar_studio,
     backlot,
     cad,
+    chromakey,
     drama_analytics,
     dub,
     dub_anime,
@@ -47,6 +48,7 @@ from app.routes import (
     images,
     jobs,
     lipsync,
+    live_assistant,
     longcat_studio,
     ltx_studio,
     manju,
@@ -69,6 +71,7 @@ from app.routes import (
     upload,
     video,
     video_edit,
+    video_lipsync,
     video_upscale,
     voice,
     wan_studio,
@@ -153,6 +156,10 @@ async def lifespan(app: FastAPI):
     from app.routes import scope as scope_routes
 
     scope_routes.reconcile_interrupted()
+    # 通用对口型作业收口:未终态 lipsync 作业按 params 快照(task_id)重挂轮询
+    from app.routes import video_lipsync as video_lipsync_routes
+
+    video_lipsync_routes.reconcile_interrupted()
     # 关键帧链合并作业收口:拼接链是进程内任务,api 重启后 queued 的合并作业
     # 按 params 快照(段 prompt_id + 总时长)重挂拼接链(幂等;params 损坏标 error)
     from app.services import keyframe_chain as keyframe_chain_svc
@@ -341,6 +348,8 @@ def create_app() -> FastAPI:
         video,
         video_edit,
         video_upscale,
+        chromakey,
+        video_lipsync,
         threed,
         threed_ops,
         threed_texture,
@@ -385,6 +394,7 @@ def create_app() -> FastAPI:
         backlot,
         workflows,
         opentalking,
+        live_assistant,
         ltx_studio,
         h3_studio,
         longcat_studio,

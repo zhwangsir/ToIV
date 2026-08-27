@@ -175,6 +175,11 @@ class Settings(BaseSettings):
     # 空 = 未部署,端点 503;生产 http://192.168.71.127:9101。
     i2l_url: str = ""
 
+    # 通用对口型 agent(LatentSync,workstation systemd toiv-lipsync :9103):
+    # 视频 + 音频 → 口型同步成片(上传/submit/轮询/取结果四步契约,见 routes/video_lipsync.py)。
+    # 空 = 未部署,端点 503;生产 http://192.168.71.127:9103。
+    lipsync_url: str = ""
+
     # 可观测性 —— Sentry 错误追踪 DSN。空 = 不启用(本地开发默认关);
     # 配置真实 DSN 后,app 启动时初始化 sentry-sdk 自动上报未捕获异常 + 10% 性能采样。
     sentry_dsn: str = ""

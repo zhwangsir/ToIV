@@ -6,6 +6,60 @@
 
 ---
 
+## LIPSYNC-2026-08-27 · M4 通用对口型(LatentSync 裸机复活 + core 链路 + 生产 e2e)
+
+**时间**: 2026-08-27
+**类型**: 深度完善「M4 通用对口型模型矩阵」(aigcpanel 对标项收官)
+
+### 服务复活(7 坑攻坚,workstation 7-25 Docker 遗产裸机化)
+
+- 遗产:`/home/merlin/deploys/latentsync`(serve_api.py + checkpoints 4.8G + LatentSync 仓库)
+- 坑:①torch 2.5.1 无 sm_120 内核 → **torch 2.8.0+cu128**(flash_attn 轮放弃,零引用无损)②serve_api 与 predict.py 签名不匹配(video/audio 形参)③cog Input() 默认值 FieldInfo 须显式 seed=0 ④predict 调 `python -m scripts.inference` 须 `sys.executable` ⑤checkpoints 软链 + insightface buffalo_l 手动归子目录 ⑥漏 ffmpeg-python ⑦pkill 误杀 root Docker 旧容器(:8600 遗留,未处置)
+- 落位:`toiv-lipsync.service` active+enabled(GPU0 :9103,Restart=always,MemoryMax=48G);推理峰值 ~6G,子进程退出显存回落零泄漏
+
+### core 链路
+
+- `POST /api/video/lipsync {video_url,audio_url,inference_steps,guidance_scale}`:来源白名单+归属+R18 门控复用 video_upscale;上传 agent→submit→Job(processing)→5s 轮询→succeeded 且 degraded=false 落产物 done;**degraded=true → error「推理降级,产物为原视频副本」零产物不造假**;reconcile_interrupted 重启重挂
+- **契约修正**:submit 字段名是 `video`/`audio`(非 video_filename,生产 400 实证);音频白名单补 `/api/manju/voice/`、`/api/audio/orch/files/`、`/api/audio/files/`
+- ⚠️ 测试基建发现:starlette TestClient 每请求建毁事件循环,多轮轮询后台任务测试假死——`blocking_portal` fixture 解法(仓库通用)
+
+### 生产 e2e(全链实证)
+
+- t2v_00146_.mp4(H3 产物,有人脸)+ drive.wav(IndexTTS 合成)→ `job done` → 产物 `lipsync-9b951580….mp4` **1.27MB MP4 下载复核**(200)
+- R18 门控实证:SFW 上下文访问 R18 源 403「R18 产物需在专区内操作」,X-NSFW 头放行
+
+### 测试/回归
+
+- 新增 22 例;全量后端 **2425 passed**;LatentSync 服务冒烟:25 步 ~80s,产物 h264+aac 音轨(degraded=false 判真:降级副本无音轨)
+
+---
+
+## DIGIHUMAN2-2026-08-27 · 直播助手融合(M5)+ 绿幕抠像(M6)
+
+**时间**: 2026-08-27
+**类型**: 用户诉求「产品方向不同但功能可以融合,继续更深度完善」
+
+### M5 直播助手(融合 aigcpanel 智能直播的知识库/违禁词/互动记录,不做平台弹幕抓取)
+
+- **数据模型**(新表 create_all):LiveKB(触发词/回复 text|video/优先级/enabled)、LiveEvent(摄入事件+播报状态)、LiveBannedWord
+- **摄入流水线** `POST /api/live/ingest`:违禁词双向拦截(输入+回复)→ KB 优先级匹配(大小写不敏感子串)→ LLM 兜底(≤80 字口语化+KB 摘要,异常固定文案不 5xx)→ 落库 → 活跃会话则 speak 播报
+- **播报状态机**:banned|replied(video 回复)|no_session|spoken|speak_failed;会话用户级单例(重启即清回落 no_session 语义安全);OpenTalking 不可达 502 明确文案
+- **端点**:KB CRUD / banned CRUD / ingest / session start|stop|status / events?limit(全部属主隔离,他人 404 防枚举)
+- **前端**:AvatarTalkView 第三模式「直播助手」(不动全局导航)——控制台(形象复用 M1 模板库+开始/结束+状态点+弹幕摄入+事件流 4s 轮询+五色状态徽标)/ 知识库管理(enabled 即时开关+新建+删除确认)/ 违禁词标签增删
+
+### M6 绿幕抠像合成(M1 green_screen 标记真启用)
+
+- `POST /api/video/chromakey`:ffmpeg `chromakey=<key_color>:<similarity>:<blend>` + overlay(纯色 lavfi color|背景图 loop 充满裁边,音轨透传前景);key_color 严格 `0xRRGGBB` 防 filtergraph 注入;来源白名单+归属校验复用 video_upscale;产物 Job(kind=chromakey,params 溯源,nsfw 继承源)可再入链(二次抠像/超分)
+- **真 ffmpeg e2e**:绿视频抠到红底,出片 ffprobe 64×64 实证
+- **前端**:AvatarGenPanel 结果区「绿幕合成」折叠区(纯色/背景图互斥、similarity/blend 滑块、选中绿幕模板自动展开提示、结果就地播放)
+
+### 测试/回归
+
+- 后端:M6×18 + M5×17;全量 **2403 passed**(M6 树)/ **2385 passed**(M5 树,并行基线)
+- 前端:+12(659 passed + tsc 0)
+
+---
+
 ## DIGIHUMAN-2026-08-27 · aigcpanel 调研 + 数字人完善 M1-M3 落地
 
 **时间**: 2026-08-27

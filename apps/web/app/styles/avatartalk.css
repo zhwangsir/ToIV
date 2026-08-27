@@ -877,6 +877,331 @@
 }
 
 /* ════════════════════════════════════════════════════════════════
+   LiveAssistantPanel:直播助手(M5,2026-08-27)
+   - 左栏控制台(会话控制 / 手动摄入 / 事件流),右栏复用 .at-panel
+   ════════════════════════════════════════════════════════════════ */
+
+/* 直播助手主体:左控制台弹性宽 + 右管理栏 420px;窄屏上下两区堆叠 */
+.at-body-live {
+  grid-template-columns: minmax(0, 1fr) 420px;
+}
+@media (max-width: 1023px) {
+  .at-body-live {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) 360px;
+  }
+}
+
+.at-live {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 会话控制卡(玻璃材质行,与 .at-switch-row 同语言) */
+.at-live-control {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--glass-highlight);
+  flex-shrink: 0;
+}
+.at-live-control-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.at-live-avatar-select {
+  flex: 1;
+  min-width: 0;
+}
+.at-live-control-meta {
+  padding-top: var(--space-1);
+}
+.at-live-avatar-thumb {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-surface-3);
+  flex-shrink: 0;
+}
+.at-live-avatar-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.at-live-control-hint {
+  font-size: var(--text-aux);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 手动摄入行:昵称窄 + 弹幕宽 + 摄入按钮 */
+.at-live-ingest {
+  flex-shrink: 0;
+}
+.at-live-ingest-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.at-live-ingest-row .at-live-ingest-author {
+  width: 140px;
+  flex-shrink: 0;
+}
+.at-live-ingest-row .input:not(.at-live-ingest-author) {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 事件流(滚动区,新→旧) */
+.at-live-events {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.at-live-events-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+}
+.at-live-events-empty p {
+  margin: 0;
+  font-size: var(--text-aux);
+}
+.at-live-event {
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-sm);
+  animation: at-msg-in var(--duration-base) var(--ease-standard);
+}
+.at-live-event-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.at-live-event-author {
+  font-size: var(--text-aux);
+  font-weight: var(--font-semibold);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.at-live-event-text {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-body);
+  color: var(--text-primary);
+  line-height: 1.6;
+  word-break: break-word;
+}
+.at-live-event-reply {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-aux);
+  color: var(--accent);
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+/* 知识库列表行 */
+.at-kb-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.at-kb-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-sm);
+}
+.at-kb-row.is-disabled {
+  opacity: 0.55;
+}
+.at-kb-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.at-kb-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.at-kb-word {
+  padding: 0 var(--space-1);
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: var(--radius-full);
+  font-size: var(--text-label);
+  font-weight: var(--font-medium);
+}
+.at-kb-reply {
+  margin: 0;
+  font-size: var(--text-aux);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.at-kb-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.at-kb-priority {
+  font-size: var(--text-label);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.at-kb-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+/* 违禁词标签 */
+.at-banned-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.at-banned-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  background: var(--bg-surface-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  font-size: var(--text-aux);
+  color: var(--text-secondary);
+}
+.at-banned-tag-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-full);
+}
+.at-banned-tag-x:hover {
+  color: var(--err);
+}
+.at-banned-tag-x:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 1px;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   绿幕合成折叠区(M6,2026-08-27):结果舞台底部玻璃浮层
+   ════════════════════════════════════════════════════════════════ */
+.at-ck {
+  position: absolute;
+  left: var(--space-4);
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: var(--z-at-overlay);
+  display: flex;
+  flex-direction: column;
+  max-height: 70%;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--glass-highlight), var(--shadow-lg);
+  overflow: hidden;
+}
+.at-ck-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+.at-ck-head:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: -1px;
+}
+.at-ck-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-aux);
+  font-weight: var(--font-semibold);
+  flex: 1;
+  min-width: 0;
+}
+.at-ck-chevron {
+  color: var(--text-muted);
+  display: inline-flex;
+}
+.at-ck-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: 0 var(--space-3) var(--space-3);
+  overflow-y: auto;
+  min-height: 0;
+}
+.at-ck-colorwell {
+  width: 36px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: none;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.at-ck-result {
+  width: 100%;
+  max-height: 240px;
+  border-radius: var(--radius-control);
+  background: #000;
+}
+
+/* ════════════════════════════════════════════════════════════════
    移动端(≤767px):触控目标 ≥44px
    ════════════════════════════════════════════════════════════════ */
 @media (max-width: 767px) {

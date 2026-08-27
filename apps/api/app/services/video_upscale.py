@@ -396,6 +396,22 @@ def resolve_source_ownership(session, user: User, video_url: str) -> bool:
         if not (product_root() / name).is_file():
             raise HTTPException(status_code=404, detail="源视频文件不存在")
         return False
+    if url.startswith("/api/video/chromakey/output/"):
+        # 抠像产物(M6)可再入链(二次抠像/超分);regex 与 routes/chromakey 保持一致
+        name = url.rsplit("/", 1)[-1]
+        if not re.fullmatch(r"chromakey-[0-9a-f]{32}\.mp4", name):
+            raise HTTPException(status_code=422, detail="非法的抠像产物文件名")
+        if not (content_subdir("chromakey") / name).is_file():
+            raise HTTPException(status_code=404, detail="源视频文件不存在")
+        return False
+    if url.startswith("/api/video/lipsync/output/"):
+        # 对口型产物可再入链(超分/二次对口型);regex 与 routes/video_lipsync 保持一致
+        name = url.rsplit("/", 1)[-1]
+        if not re.fullmatch(r"lipsync-[0-9a-f]{32}\.mp4", name):
+            raise HTTPException(status_code=422, detail="非法的对口型产物文件名")
+        if not (content_subdir("lipsync") / name).is_file():
+            raise HTTPException(status_code=404, detail="源视频文件不存在")
+        return False
     raise HTTPException(
         status_code=422,
         detail="不支持的视频来源(需作品库产物 /api/images、短剧成片或工作室文件 URL)",
@@ -437,6 +453,10 @@ async def _fetch_source_local(video_url: str, dest: Path) -> None:
         src = drama_output_root() / "studio" / video_url.rsplit("/", 1)[-1]
     elif video_url.startswith("/api/video/upscale/output/"):
         src = product_root() / video_url.rsplit("/", 1)[-1]
+    elif video_url.startswith("/api/video/chromakey/output/"):
+        src = content_subdir("chromakey") / video_url.rsplit("/", 1)[-1]
+    elif video_url.startswith("/api/video/lipsync/output/"):
+        src = content_subdir("lipsync") / video_url.rsplit("/", 1)[-1]
     else:
         raise HTTPException(status_code=422, detail="不支持的视频来源")
     if not src.is_file():

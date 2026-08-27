@@ -773,3 +773,61 @@ class EvalDatasetExport(SQLModel, table=True):
     file_path: str = ""  # 写入的 JSONL 路径;不合格批次为空
     skip_reason: str = ""  # insufficient_valid_variants | gap_below_threshold;合格为空
     created_at: datetime = Field(default_factory=_now)
+
+
+# ---------------------------------------------------------------------------
+# 直播助手(数字人 M5,2026-08-27):知识库问答 / 违禁词 / 互动事件
+# 通用互动网关(不做平台弹幕抓取):手动/webhook 摄入 → 违禁词拦截 →
+# KB 触发词匹配 → LLM 兜底 → OpenTalking 播报状态机。
+# ---------------------------------------------------------------------------
+
+
+class LiveKB(SQLModel, table=True):
+    """直播知识库条目:触发词命中 → 固定文本回复 / 视频回复。
+
+    trigger_words 存 JSON 数组字符串(与 EvalBatch.seeds 同约定,避免关联表)。
+    priority 小值优先(首个 enabled 命中即返,不叠加)。
+    """
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    user_id: str = Field(foreign_key="user.id", index=True)  # 属主隔离
+    trigger_words: str = "[]"  # JSON 数组:list[str]
+    reply_type: str = "text"  # text | video
+    reply_text: str = ""  # text 回复正文
+    reply_asset_url: str = ""  # video 回复的产物 URL(reply_type=video 时必填)
+    priority: int = 100  # 小优先
+    enabled: bool = True
+    created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
+
+
+class LiveEvent(SQLModel, table=True):
+    """直播互动事件(append-only):摄入 → 回复 → 播报结果全留痕。
+
+    status 状态机:
+    - banned:输入或回复文本命中违禁词(不播报)
+    - replied:已回复但未播报(reply_type=video,文本之外的回复不送 speak)
+    - no_session:文本回复但用户无活跃 OpenTalking 会话
+    - spoken:已送 OpenTalking speak 且上游接受
+    - speak_failed:有会话但 speak 调用失败(上游错误/不可达)
+    """
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    user_id: str = Field(foreign_key="user.id", index=True)  # 属主隔离
+    source: str = "manual"  # manual | webhook
+    author: str = ""  # 观众昵称(可空)
+    text: str = ""  # 摄入原文
+    matched_kb_id: Optional[str] = Field(default=None)  # 命中的 KB id;LLM/违禁词拦截为 None
+    reply_text: str = ""  # 最终回复文本(video 回复时为产物 URL)
+    reply_type: str = "text"  # text | video
+    status: str = "replied"
+    created_at: datetime = Field(default_factory=_now, index=True)
+
+
+class LiveBannedWord(SQLModel, table=True):
+    """违禁词:输入与回复文本双向拦截(大小写不敏感子串匹配)。"""
+
+    id: str = Field(default_factory=_uid, primary_key=True)
+    user_id: str = Field(foreign_key="user.id", index=True)  # 属主隔离
+    word: str
+    created_at: datetime = Field(default_factory=_now)
