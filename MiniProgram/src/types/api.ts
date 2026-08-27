@@ -225,7 +225,7 @@ export interface RerunResponse extends GenerateResponse {
   root_id?: string;
 }
 
-// ── SFW 视频引擎（POST /api/ltx25/* 与 /api/wan/*，契约见 routes/ltx25_studio.py / wan_studio.py）──
+// ── SFW 视频引擎（POST /api/wan/* 等，契约见 routes/wan_studio.py；LTX-2.5 已于 2026-08-23 退役）──
 
 /**
  * 已上传驱动视频句柄：服务端 filename/worker + 本地预览
@@ -239,46 +239,6 @@ export interface UploadedRefVideo {
   name: string;
   /** 时长（秒，chooseVideo 返回；可能缺失） */
   duration?: number;
-}
-
-/**
- * 对应 routes/ltx25_studio.py Ltx25T2VRequest（POST /api/ltx25/t2v）
- * width 默认 960（256-1920，step32）/ height 默认 544（256-1088，step32）
- * duration_sec 时长秒（0.5-60，内部 8k+1 网格/超 25s 自动分段续写）/ fps 默认 24（8-60）/ steps 默认 8（1-50）
- */
-export interface Ltx25T2VRequest {
-  positive: string;
-  negative?: string;
-  width?: number;
-  height?: number;
-  /** 时长（秒），直传由后端统一策略层换算（注册表 duration 参数映射） */
-  duration_sec?: number;
-  /** deprecated：兼容入参，请改用 duration_sec */
-  length?: number;
-  fps?: number;
-  steps?: number;
-  seed?: number | null;
-}
-
-/**
- * 对应 routes/ltx25_studio.py Ltx25I2VRequest（POST /api/ltx25/i2v）
- * image/worker 必填（上传落点同机）；strength 首帧强度默认 0.7（0-1，step0.05）
- */
-export interface Ltx25I2VRequest {
-  positive: string;
-  image: string;
-  worker: string;
-  strength?: number;
-  negative?: string;
-  width?: number;
-  height?: number;
-  /** 时长（秒），直传由后端统一策略层换算 */
-  duration_sec?: number;
-  /** deprecated：兼容入参，请改用 duration_sec */
-  length?: number;
-  fps?: number;
-  steps?: number;
-  seed?: number | null;
 }
 
 /**
@@ -515,6 +475,152 @@ export interface AvatarTalkRequest {
   cfg?: number;
   dmd_lora_strength?: number;
   seed?: number | null;
+}
+
+// ── 引擎补齐（qwen-image-edit / h3-multishot / wan-transition / keyframe-chain / vace-edit / wan-animate-2 / wan-nsfw-i2v）──
+
+/**
+ * 对应 routes/generate.py QwenEditRequest（POST /api/generate/qwen-edit）
+ * image/worker 必填（源图落点；后端转存到 Qwen 专用实例 :8194）
+ * positive 可空（纯相机操作）；camera 与 azimuth/elevation/distance 互斥
+ * fast 默认 true=Lightning 8 步；false=20 步标准档
+ */
+export interface QwenEditRequest {
+  image: string;
+  worker: string;
+  positive?: string;
+  camera?: string;
+  azimuth?: number;
+  elevation?: number;
+  distance?: string;
+  fast?: boolean;
+  seed?: number | null;
+}
+
+/**
+ * 对应 routes/h3_studio.py H3ShotInput（多镜头单条）
+ * duration_sec 全空时由 total_duration 均分；camera_hint/transition_hint 可选白名单
+ */
+export interface H3ShotInput {
+  prompt: string;
+  duration_sec?: number;
+  camera_hint?: string;
+  transition_hint?: string;
+}
+
+/**
+ * 对应 routes/h3_studio.py H3MultiShotRequest（POST /api/h3/multishot）
+ * shots 2-4 个；总长 ≤15s H3 单段上限；无 fps/cfg（模板内锁定 24fps）
+ */
+export interface H3MultiShotRequest {
+  shots: H3ShotInput[];
+  total_duration?: number;
+  negative?: string;
+  loras?: LoraValue[];
+  width?: number;
+  height?: number;
+  steps?: number;
+  seed?: number | null;
+  effect_preset?: string;
+  resolution_target?: string;
+}
+
+/**
+ * 对应 routes/wan_studio.py TransitionRequest（POST /api/generate/transition）
+ * first_frame/last_frame 为上传句柄文件名（互钉同 worker）；时长走 duration_sec
+ */
+export interface WanTransitionRequest {
+  positive: string;
+  first_frame: string;
+  last_frame: string;
+  worker: string;
+  negative?: string;
+  width?: number;
+  height?: number;
+  duration_sec?: number;
+  steps?: number;
+  cfg?: number;
+  fps?: number;
+  seed?: number | null;
+}
+
+/**
+ * 对应 routes/wan_studio.py KeyframeChainRequest（POST /api/generate/keyframe-chain）
+ * keyframes 2-5 张（链序，互钉同 worker）；prompts 单 string 全段共用
+ * durations 缺省每段 5s；响应额外带 segments/total_duration（client_id 可能缺省）
+ */
+export interface KeyframeChainRequest {
+  keyframes: string[];
+  prompts: string | string[];
+  worker: string;
+  durations?: number[];
+  negative?: string;
+  width?: number;
+  height?: number;
+  steps?: number;
+  cfg?: number;
+  fps?: number;
+  seed?: number | null;
+}
+
+/**
+ * 对应 routes/wan_studio.py WanVaceEditRequest（POST /api/generate/video-edit）
+ * source_video 源视频句柄；edit_prompt 英文编辑指令；edit_mode 五选一
+ * 时长上限 10s；关键帧锚点/区域 mask 本端一期不传（Web 走专用编辑器）
+ */
+export interface VaceEditRequest {
+  source_video: string;
+  edit_prompt: string;
+  edit_mode?: string;
+  worker: string;
+  negative?: string;
+  width?: number;
+  height?: number;
+  duration_sec?: number;
+  steps?: number;
+  cfg?: number;
+  fps?: number;
+  seed?: number | null;
+}
+
+/**
+ * 对应 routes/wan_studio.py WanAnimate2Request（POST /api/wan/animate2）
+ * image=参考图 / video=驱动视频 / worker=参考图落点（上传时已互钉）
+ * positive 可空：后端 VLM 自动反推外观 caption；steps 默认 10
+ */
+export interface WanAnimate2Request {
+  positive?: string;
+  image: string;
+  video: string;
+  worker: string;
+  negative?: string;
+  width?: number;
+  height?: number;
+  duration_sec?: number;
+  steps?: number;
+  fps?: number;
+  seed?: number | null;
+}
+
+/**
+ * 对应 routes/video.py WanI2VRequest（POST /api/generate/video，R18 wan-nsfw-i2v）
+ * length 为 4n+1 帧（固定 16fps：3s→49 / 5s→81 / 7.5s→121）；loras 最多 4 个
+ * 满血档 full_quality 不挂加速 LoRA
+ */
+export interface WanNsfwI2VRequest {
+  positive: string;
+  image: string;
+  worker: string;
+  negative?: string;
+  width?: number;
+  height?: number;
+  length?: number;
+  fps?: number;
+  seed?: number | null;
+  loras?: LoraValue[];
+  full_quality?: boolean;
+  effect_preset?: string;
+  resolution_target?: string;
 }
 
 // ── 参考资产库（MP13，契约见 apps/api routes/reference_assets.py）──

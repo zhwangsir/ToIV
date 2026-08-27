@@ -2,13 +2,10 @@
  * 生成请求构建器（语义对齐 Mobile generate-screen / buildImg2ImgRequest）
  * - 引擎 params 的 key 即后端请求字段名，白名单透传防脏字段
  * - img2img 无 width/height/batch_size（输出尺寸随参考图，后端契约）
- * - 视频引擎（ltx25-t2v/ltx25-i2v/wan-animate/wan-vace）按引擎 id 显式路由，
- *   其余未接入引擎在 UI 层禁用（SUPPORTED_ENGINE_IDS），杜绝错误路由 txt2img
- * - MP11 接入 h3-t2v/h3-i2v（含 loras 叠加）/longcat-t2v/longcat-i2v/longcat-continue/ace-music
- * - MP12 接入 5 个 R18 引擎（ltx-nsfw-t2v/ltx-nsfw-i2v/ltx-nsfw-lipsync/h3-nsfw-t2v/h3-nsfw-i2v），
- *   与主站工作台引擎全景对齐
- * - MP14 接入 avatar-talk（LongCat-Avatar 数字人）：注册表 audio 为 text 占位（Web 走独立面板），
- *   本端按引擎 id 特判渲染上传字段，抽屉内剔除该键（engineSheetParams）
+ * - 视频引擎按引擎 id 显式路由，其余未接入引擎在 UI 层禁用（SUPPORTED_ENGINE_IDS）
+ * - LTX-2.5（ltx25-*）已退役移除；ltx-nsfw-*（LTX2.3 R18）仍活
+ * - 本切片补齐：qwen-image-edit / h3-multishot / wan-transition / keyframe-chain /
+ *   vace-edit / wan-animate-2 / wan-nsfw-i2v（跳过 ace-music-legacy）
  */
 import type {
   AceMusicRequest,
@@ -16,42 +13,46 @@ import type {
   EngineInfo,
   EngineParam,
   H3I2VRequest,
+  H3MultiShotRequest,
   H3T2VRequest,
   Img2ImgRequest,
+  KeyframeChainRequest,
   LongCatContinueRequest,
   LongCatI2VRequest,
   LongCatT2VRequest,
   LoraValue,
-  Ltx25I2VRequest,
-  Ltx25T2VRequest,
   LtxNsfwI2VRequest,
   LtxNsfwLipsyncRequest,
   LtxNsfwT2VRequest,
+  QwenEditRequest,
   Txt2ImgRequest,
   UploadedRefAudio,
   UploadedRefImage,
   UploadedRefVideo,
+  VaceEditRequest,
+  WanAnimate2Request,
   WanAnimateRequest,
+  WanNsfwI2VRequest,
+  WanTransitionRequest,
   WanVaceRequest,
 } from '@/types/api';
 
 /**
  * 已接入提交链路的引擎 id 白名单（创作页只放行这些，其余显示「即将支持」禁用态）
  * 图像四件套与后端注册表 id 一致；nsfw-* 图像引擎与 SFW 同一提交链路（隐式既有支持，不破坏）
- * MP11 新增 H3（含 LoRA 叠加）/ LongCat 三件套 / ACE 音乐；MP12 接入 5 个 R18 引擎
- * （R18 可见性由后端按 X-NSFW 头过滤，前端不做门控）；MP14 接入 avatar-talk 数字人，全引擎在册
+ * R18 可见性由后端按 X-NSFW 头过滤，前端不做门控。跳过 ace-music-legacy。
  */
 export const SUPPORTED_ENGINE_IDS: readonly string[] = [
   'txt2img',
   'img2img',
   'nsfw-txt2img',
   'nsfw-img2img',
-  'ltx25-t2v',
-  'ltx25-i2v',
+  'qwen-image-edit',
   'wan-animate',
   'wan-vace',
   'h3-t2v',
   'h3-i2v',
+  'h3-multishot',
   'longcat-t2v',
   'longcat-i2v',
   'longcat-continue',
@@ -61,7 +62,12 @@ export const SUPPORTED_ENGINE_IDS: readonly string[] = [
   'ltx-nsfw-lipsync',
   'h3-nsfw-t2v',
   'h3-nsfw-i2v',
+  'wan-nsfw-i2v',
   'avatar-talk',
+  'wan-transition',
+  'keyframe-chain',
+  'vace-edit',
+  'wan-animate-2',
 ];
 
 export function isEngineSupported(engine: EngineInfo | null | undefined): boolean {
@@ -119,14 +125,19 @@ export function engineNeedsMultiImage(engine: EngineInfo | null | undefined): bo
 const UPLOAD_KIND_BY_ENGINE: Record<string, string> = {
   img2img: 'img2img',
   'nsfw-img2img': 'img2img',
-  'ltx25-i2v': 'ltx_i2v',
+  'qwen-image-edit': 'img2img',
   'wan-animate': 'wan_animate',
+  'wan-animate-2': 'wan_animate2',
   'wan-vace': 'wan_vace',
+  'wan-transition': 'wan_vace',
+  'keyframe-chain': 'wan_vace',
+  'vace-edit': 'wan_vace',
   'h3-i2v': 'h3_i2v',
   'longcat-i2v': 'ltx_i2v',
   'ltx-nsfw-i2v': 'ltx_i2v',
   'ltx-nsfw-lipsync': 'ltx_lipsync',
   'h3-nsfw-i2v': 'h3_i2v',
+  'wan-nsfw-i2v': 'video',
   'avatar-talk': 'avatar',
 };
 
@@ -176,6 +187,13 @@ function pickStrings(
   return out;
 }
 
+function pickOptionalString(values: Record<string, unknown>, key: string): string | undefined {
+  const raw = values[key];
+  if (typeof raw !== 'string') return undefined;
+  const s = raw.trim();
+  return s.length > 0 ? s : undefined;
+}
+
 function pickSeed(values: Record<string, unknown>): { seed?: number | null } {
   const raw = values.seed;
   if (raw === null) return { seed: null };
@@ -185,7 +203,7 @@ function pickSeed(values: Record<string, unknown>): { seed?: number | null } {
 }
 
 /**
- * 注册表 duration（秒）→ 路由契约 duration_sec（h3/ltx25/longcat/wan/avatar 统一）。
+ * 注册表 duration（秒）→ 路由契约 duration_sec（h3/longcat/wan/avatar 统一）。
  * 键名直抄 length/num_frames 会被后端 pydantic 静默忽略（未知字段），
  * 用户时长落默认值（2026-08-17 断链修复）；网格/裁切/续写由后端统一策略层负责。
  */
@@ -257,43 +275,11 @@ export function validateRefVideo(filePath: string, sizeBytes?: number): string |
   return null;
 }
 
-// ── SFW 视频引擎请求构建（白名单键透传，与 routes/ltx25_studio.py / wan_studio.py 同范围）──
+// ── SFW 视频引擎请求构建（白名单键透传，与 routes/wan_studio.py 同范围）──
 // 时长统一走 pickDurationSec（注册表 duration 秒 → duration_sec）
 
-const LTX25_NUMBER_KEYS = ['width', 'height', 'fps', 'steps'] as const;
 const WAN_NUMBER_KEYS = ['width', 'height', 'steps', 'fps'] as const;
 const VIDEO_STRING_KEYS = ['negative'] as const;
-
-/** ltx25-t2v：纯参数文生视频，无参考媒体 */
-export function buildLtx25T2VRequest(
-  positive: string,
-  values: Record<string, unknown>,
-): Ltx25T2VRequest {
-  return {
-    positive: positive.trim(),
-    ...pickStrings(values, VIDEO_STRING_KEYS),
-    ...pickNumbers(values, LTX25_NUMBER_KEYS),
-    ...pickDurationSec(values),
-    ...pickSeed(values),
-  };
-}
-
-/** ltx25-i2v：参考图首帧 + strength 重绘强度 */
-export function buildLtx25I2VRequest(
-  positive: string,
-  ref: UploadedRefImage,
-  values: Record<string, unknown>,
-): Ltx25I2VRequest {
-  return {
-    positive: positive.trim(),
-    image: ref.filename,
-    worker: ref.worker,
-    ...pickStrings(values, VIDEO_STRING_KEYS),
-    ...pickNumbers(values, [...LTX25_NUMBER_KEYS, 'strength']),
-    ...pickDurationSec(values),
-    ...pickSeed(values),
-  };
-}
 
 /** wan-animate：参考图 + 驱动视频（上传时已互钉同 worker，worker 取参考图落点） */
 export function buildWanAnimateRequest(
@@ -612,5 +598,193 @@ export function buildAvatarTalkRequest(
     ...pickNumbers(values, AVATAR_TALK_NUMBER_KEYS),
     ...pickDurationSec(values),
     ...pickSeed(values),
+  };
+}
+
+// ── 引擎补齐请求构建（契约已读 routes/generate.py / h3_studio.py / wan_studio.py / video.py）──
+
+const WAN_CFG_NUMBER_KEYS = ['width', 'height', 'steps', 'fps', 'cfg'] as const;
+const VACE_EDIT_NUMBER_KEYS = ['width', 'height', 'steps', 'fps', 'cfg'] as const;
+/** Wan NSFW LoRA：不套 H3 0.5-1.0 钳位（WanLoraInput ge=0 le=2；缺省 0.6） */
+export function parseWanLoraValues(raw: unknown): LoraValue[] {
+  if (!Array.isArray(raw)) return [];
+  const out: LoraValue[] = [];
+  for (const item of raw) {
+    if (!item || typeof (item as LoraValue).name !== 'string') continue;
+    const strength = (item as LoraValue).strength;
+    const num =
+      typeof strength === 'number' && Number.isFinite(strength) ? strength : LORA_DEFAULT_STRENGTH;
+    out.push({ name: (item as LoraValue).name, strength: num });
+  }
+  return out;
+}
+
+/**
+ * 注册表 duration 秒 → Wan I2V length（4n+1 帧，固定 16fps）
+ * 3s→49 / 5s→81 / 7.5s→121（单段上限）；对齐 Web _wanNsfwI2vPayload
+ */
+export function wanNsfwLength(raw: unknown, fallbackSec = 5): number {
+  const sec = nsfwDurationSec(raw, fallbackSec);
+  const frames = Math.min(121, Math.max(9, Math.round(sec * 16)));
+  return Math.round((frames - 1) / 4) * 4 + 1;
+}
+
+/**
+ * 主提示词拆成 2-4 个镜头：优先「镜头一/二…」前缀，其次空行分段。
+ * 单段原样返回（UI 层拦截不足 2 个）；超过 4 个截到前 4。
+ */
+export function parseMultiShotPrompts(text: string): string[] {
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+  const byLabel = trimmed.split(/(?=镜头[一二三四1-4][：:、.])/);
+  const labeled = byLabel
+    .map((s) => s.replace(/^镜头[一二三四1-4][：:、.]\s*/, '').trim())
+    .filter((s) => s.length > 0);
+  if (labeled.length >= 2) return labeled.slice(0, 4);
+  const byBlank = trimmed.split(/\n\s*\n/).map((s) => s.trim()).filter((s) => s.length > 0);
+  if (byBlank.length >= 2) return byBlank.slice(0, 4);
+  return [trimmed];
+}
+
+/** qwen-image-edit：参考图 + 编辑指令/相机角度；fast 缺省 true */
+export function buildQwenEditRequest(
+  positive: string,
+  ref: UploadedRefImage,
+  values: Record<string, unknown>,
+): QwenEditRequest {
+  const camera = pickOptionalString(values, 'camera');
+  const distance = pickOptionalString(values, 'distance');
+  const azimuth = pickNumbers(values, ['azimuth']).azimuth;
+  const elevation = pickNumbers(values, ['elevation']).elevation;
+  return {
+    image: ref.filename,
+    worker: ref.worker,
+    positive: positive.trim(),
+    ...(camera ? { camera } : {}),
+    ...(distance ? { distance } : {}),
+    ...(azimuth !== undefined ? { azimuth } : {}),
+    ...(elevation !== undefined ? { elevation } : {}),
+    fast: values.fast !== false,
+    ...pickSeed(values),
+  };
+}
+
+/** h3-multishot：镜头由主提示词拆分；duration 全空 + total_duration 交后端均分（默认 8s） */
+export function buildH3MultiShotRequest(
+  positive: string,
+  values: Record<string, unknown>,
+): H3MultiShotRequest {
+  const prompts = parseMultiShotPrompts(positive);
+  const total = pickNumbers(values, ['total_duration']).total_duration;
+  const effect = pickOptionalString(values, 'effect_preset');
+  const target = pickOptionalString(values, 'resolution_target');
+  return {
+    shots: prompts.map((prompt) => ({ prompt })),
+    total_duration: total ?? 8,
+    ...pickStrings(values, VIDEO_STRING_KEYS),
+    ...pickNumbers(values, H3_NUMBER_KEYS),
+    ...pickSeed(values),
+    loras: parseLoraValues(values.loras),
+    ...(effect ? { effect_preset: effect } : {}),
+    ...(target ? { resolution_target: target } : {}),
+  };
+}
+
+/** wan-transition：恰好 2 张，第 1 张=首帧，第 2 张=尾帧 */
+export function buildWanTransitionRequest(
+  positive: string,
+  refs: UploadedRefImage[],
+  values: Record<string, unknown>,
+): WanTransitionRequest {
+  return {
+    positive: positive.trim(),
+    first_frame: refs[0]?.filename ?? '',
+    last_frame: refs[1]?.filename ?? '',
+    worker: refs[0]?.worker ?? '',
+    ...pickStrings(values, VIDEO_STRING_KEYS),
+    ...pickNumbers(values, WAN_CFG_NUMBER_KEYS),
+    ...pickDurationSec(values),
+    ...pickSeed(values),
+  };
+}
+
+/** keyframe-chain：2-5 张关键帧，prompts 单 string 全段共用；durations 缺省后端每段 5s */
+export function buildKeyframeChainRequest(
+  positive: string,
+  refs: UploadedRefImage[],
+  values: Record<string, unknown>,
+): KeyframeChainRequest {
+  return {
+    keyframes: refs.map((r) => r.filename),
+    prompts: positive.trim(),
+    worker: refs[0]?.worker ?? '',
+    ...pickStrings(values, VIDEO_STRING_KEYS),
+    ...pickNumbers(values, ['width', 'height', 'steps', 'cfg', 'fps']),
+    ...pickSeed(values),
+  };
+}
+
+/** vace-edit：源视频 + 编辑指令（positive → edit_prompt）；edit_mode 缺省 style_transfer */
+export function buildVaceEditRequest(
+  positive: string,
+  refVideo: UploadedRefVideo,
+  values: Record<string, unknown>,
+): VaceEditRequest {
+  const mode = pickOptionalString(values, 'edit_mode') ?? 'style_transfer';
+  return {
+    source_video: refVideo.filename,
+    edit_prompt: positive.trim(),
+    edit_mode: mode,
+    worker: refVideo.worker,
+    ...pickStrings(values, VIDEO_STRING_KEYS),
+    ...pickNumbers(values, VACE_EDIT_NUMBER_KEYS),
+    ...pickDurationSec(values),
+    ...pickSeed(values),
+  };
+}
+
+/** wan-animate-2：与 v1 同形（image+video 互钉）；positive 可空 */
+export function buildWanAnimate2Request(
+  positive: string,
+  refImage: UploadedRefImage,
+  refVideo: UploadedRefVideo,
+  values: Record<string, unknown>,
+): WanAnimate2Request {
+  return {
+    positive: positive.trim(),
+    image: refImage.filename,
+    video: refVideo.filename,
+    worker: refImage.worker,
+    ...pickStrings(values, VIDEO_STRING_KEYS),
+    ...pickNumbers(values, WAN_NUMBER_KEYS),
+    ...pickDurationSec(values),
+    ...pickSeed(values),
+  };
+}
+
+/** wan-nsfw-i2v：resolution 预设换算 + duration 秒→4n+1 帧；kind=video 上传同机生成 */
+export function buildWanNsfwI2VRequest(
+  positive: string,
+  ref: UploadedRefImage,
+  values: Record<string, unknown>,
+): WanNsfwI2VRequest {
+  const resolution = typeof values.resolution === 'string' ? values.resolution : '832x480';
+  const { width, height } = parseResolution(resolution, '832x480');
+  const effect = pickOptionalString(values, 'effect_preset');
+  const target = pickOptionalString(values, 'resolution_target');
+  return {
+    positive: positive.trim(),
+    image: ref.filename,
+    worker: ref.worker,
+    width,
+    height,
+    length: wanNsfwLength(values.duration, 5),
+    fps: 16,
+    ...pickStrings(values, VIDEO_STRING_KEYS),
+    ...pickSeed(values),
+    loras: parseWanLoraValues(values.loras),
+    full_quality: values.full_quality === true,
+    ...(effect ? { effect_preset: effect } : {}),
+    ...(target ? { resolution_target: target } : {}),
   };
 }

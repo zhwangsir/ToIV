@@ -144,11 +144,11 @@ try {
   const sfwBadges = await page.locator('.engine-item__badge').count();
   check('C8.2 SFW 上下文无 R18 引擎（X-NSFW 过滤生效）', sfwBadges === 0, `${sfwBadges} 枚徽标`);
 
-  // ---------- C9 ltx25-t2v：无参考媒体字段 → 提交成功（MP10） ----------
-  await clickEngine(page, 'LTX 2.5 文生视频');
+  // ---------- C9 longcat-t2v：无参考媒体字段 → 提交成功（原 ltx25-t2v，LTX-2.5 已退役） ----------
+  await clickEngine(page, 'LongCat 文生视频');
   await page.waitForTimeout(600);
   const refFieldCount = await page.locator('.ref-image, .ref-video').count();
-  check('C9.1 ltx25-t2v 参数区渲染（无参考图/视频字段）', refFieldCount === 0);
+  check('C9.1 longcat-t2v 参数区渲染（无参考图/视频字段）', refFieldCount === 0);
   await page.locator('.ui-btn:has-text("生成")').first().click();
   let videoNavOk = true;
   try {
@@ -156,8 +156,8 @@ try {
   } catch {
     videoNavOk = false;
   }
-  check('C9.2 ltx25-t2v 提交成功 → 跳作业页', videoNavOk, page.url());
-  await shot(page, '09-ltx25-t2v-submitted');
+  check('C9.2 longcat-t2v 提交成功 → 跳作业页', videoNavOk, page.url());
+  await shot(page, '09-longcat-t2v-submitted');
 
   // ---------- C10 wan-vace：多参考图字段渲染（MP10） ----------
   await page.goto(`${H5}/#/`, { waitUntil: 'networkidle' });

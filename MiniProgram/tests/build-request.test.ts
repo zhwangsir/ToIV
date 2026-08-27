@@ -7,18 +7,23 @@ import {
   buildH3I2VRequest,
   buildH3NsfwI2VRequest,
   buildH3NsfwT2VRequest,
+  buildH3MultiShotRequest,
   buildH3T2VRequest,
   buildImg2ImgRequest,
+  buildKeyframeChainRequest,
   buildLongCatContinueRequest,
   buildLongCatI2VRequest,
   buildLongCatT2VRequest,
-  buildLtx25I2VRequest,
-  buildLtx25T2VRequest,
   buildLtxNsfwI2VRequest,
   buildLtxNsfwLipsyncRequest,
   buildLtxNsfwT2VRequest,
+  buildQwenEditRequest,
   buildTxt2ImgRequest,
+  buildVaceEditRequest,
+  buildWanAnimate2Request,
   buildWanAnimateRequest,
+  buildWanNsfwI2VRequest,
+  buildWanTransitionRequest,
   buildWanVaceRequest,
   defaultParamValues,
   engineImagesMax,
@@ -30,7 +35,9 @@ import {
   isEngineSupported,
   nsfwDurationSec,
   parseLoraValues,
+  parseMultiShotPrompts,
   parseResolution,
+  parseWanLoraValues,
   REF_AUDIO_MAX_BYTES,
   REF_IMAGE_MAX_BYTES,
   REF_VIDEO_MAX_BYTES,
@@ -39,6 +46,7 @@ import {
   validateRefAudio,
   validateRefImage,
   validateRefVideo,
+  wanNsfwLength,
 } from '@/utils/build-request';
 
 const txt2imgEngine: EngineInfo = {
@@ -187,33 +195,6 @@ describe('validateRefImage', () => {
 
 // ── MP10 SFW 视频引擎 ──
 
-const ltx25T2VEngine: EngineInfo = {
-  id: 'ltx25-t2v',
-  label: 'LTX 2.5 文生视频',
-  kind: 'video',
-  available: true,
-  nsfw: false,
-  params: [
-    { key: 'negative', label: '负面', type: 'textarea', default: '' },
-    { key: 'width', label: '宽度', type: 'number', default: 960, min: 256, max: 1920, step: 32 },
-    { key: 'height', label: '高度', type: 'number', default: 544, min: 256, max: 1088, step: 32 },
-    { key: 'duration', label: '时长(秒)', type: 'number', default: 5, min: 0.5, max: 60, step: 0.5 },
-    { key: 'fps', label: '帧率', type: 'number', default: 24, min: 8, max: 60 },
-    { key: 'steps', label: '步数', type: 'number', default: 8, min: 1, max: 50 },
-    { key: 'seed', label: '种子', type: 'number', default: null },
-  ],
-};
-
-const ltx25I2VEngine: EngineInfo = {
-  ...ltx25T2VEngine,
-  id: 'ltx25-i2v',
-  params: [
-    { key: 'images', label: '参考图', type: 'images', max: 1, default: null },
-    ...ltx25T2VEngine.params,
-    { key: 'strength', label: '首帧强度', type: 'number', default: 0.7, min: 0, max: 1 },
-  ],
-};
-
 const wanAnimateEngine: EngineInfo = {
   id: 'wan-animate',
   label: 'Wan2.2 动作迁移',
@@ -243,44 +224,46 @@ const wanVaceEngine: EngineInfo = {
 };
 
 describe('SUPPORTED_ENGINE_IDS / isEngineSupported', () => {
-  it('图像四件套 + 视频四引擎 + MP11 六引擎 + MP12 五引擎 + MP14 数字人在册', () => {
+  it('现役注册表引擎在册（不含退役 ltx25-* 与跳过的 ace-music-legacy）', () => {
     for (const id of ['txt2img', 'img2img', 'nsfw-txt2img', 'nsfw-img2img',
-      'ltx25-t2v', 'ltx25-i2v', 'wan-animate', 'wan-vace',
-      'h3-t2v', 'h3-i2v', 'longcat-t2v', 'longcat-i2v', 'longcat-continue', 'ace-music',
-      'ltx-nsfw-t2v', 'ltx-nsfw-i2v', 'ltx-nsfw-lipsync', 'h3-nsfw-t2v', 'h3-nsfw-i2v',
-      'avatar-talk']) {
+      'qwen-image-edit', 'wan-animate', 'wan-vace',
+      'h3-t2v', 'h3-i2v', 'h3-multishot', 'longcat-t2v', 'longcat-i2v', 'longcat-continue', 'ace-music',
+      'ltx-nsfw-t2v', 'ltx-nsfw-i2v', 'ltx-nsfw-lipsync', 'h3-nsfw-t2v', 'h3-nsfw-i2v', 'wan-nsfw-i2v',
+      'avatar-talk', 'wan-transition', 'keyframe-chain', 'vace-edit', 'wan-animate-2']) {
       expect(SUPPORTED_ENGINE_IDS).toContain(id);
     }
+    expect(SUPPORTED_ENGINE_IDS).not.toContain('ltx25-t2v');
+    expect(SUPPORTED_ENGINE_IDS).not.toContain('ltx25-i2v');
+    expect(SUPPORTED_ENGINE_IDS).not.toContain('ace-music-legacy');
   });
 
   it('未知/空引擎不支持', () => {
-    expect(isEngineSupported({ ...ltx25T2VEngine, id: 'future-engine' })).toBe(false);
+    expect(isEngineSupported({ ...wanAnimateEngine, id: 'future-engine' })).toBe(false);
     expect(isEngineSupported(null)).toBe(false);
   });
 
   it('MP12 起 5 个 R18 引擎已放行（可见性由后端按 X-NSFW 头过滤）', () => {
     for (const id of ['ltx-nsfw-t2v', 'ltx-nsfw-i2v', 'ltx-nsfw-lipsync', 'h3-nsfw-t2v', 'h3-nsfw-i2v']) {
-      expect(isEngineSupported({ ...ltx25T2VEngine, id })).toBe(true);
+      expect(isEngineSupported({ ...wanAnimateEngine, id })).toBe(true);
     }
   });
 
   it('MP14 起 avatar-talk 数字人已放行（SFW 引擎，主站上下文可见）', () => {
-    expect(isEngineSupported({ ...ltx25T2VEngine, id: 'avatar-talk' })).toBe(true);
+    expect(isEngineSupported({ ...wanAnimateEngine, id: 'avatar-talk' })).toBe(true);
   });
 });
 
 describe('engineNeedsVideo / engineImagesMax / engineNeedsMultiImage', () => {
   it('wan-animate 需要驱动视频', () => {
     expect(engineNeedsVideo(wanAnimateEngine)).toBe(true);
-    expect(engineNeedsVideo(ltx25T2VEngine)).toBe(false);
+    expect(engineNeedsVideo(txt2imgEngine)).toBe(false);
     expect(engineNeedsVideo(null)).toBe(false);
   });
 
   it('images max 解析：vace=4 / animate=1 / 无参数=0', () => {
     expect(engineImagesMax(wanVaceEngine)).toBe(4);
     expect(engineImagesMax(wanAnimateEngine)).toBe(1);
-    expect(engineImagesMax(ltx25I2VEngine)).toBe(1);
-    expect(engineImagesMax(ltx25T2VEngine)).toBe(0);
+    expect(engineImagesMax(txt2imgEngine)).toBe(0);
   });
 
   it('images 缺省 max 按 1', () => {
@@ -299,12 +282,17 @@ describe('engineNeedsVideo / engineImagesMax / engineNeedsMultiImage', () => {
 
 describe('uploadKindForEngine', () => {
   it('按引擎映射 upload kind', () => {
-    expect(uploadKindForEngine('ltx25-i2v')).toBe('ltx_i2v');
+    expect(uploadKindForEngine('qwen-image-edit')).toBe('img2img');
     expect(uploadKindForEngine('wan-animate')).toBe('wan_animate');
+    expect(uploadKindForEngine('wan-animate-2')).toBe('wan_animate2');
     expect(uploadKindForEngine('wan-vace')).toBe('wan_vace');
+    expect(uploadKindForEngine('wan-transition')).toBe('wan_vace');
+    expect(uploadKindForEngine('keyframe-chain')).toBe('wan_vace');
+    expect(uploadKindForEngine('vace-edit')).toBe('wan_vace');
     expect(uploadKindForEngine('h3-i2v')).toBe('h3_i2v');
     // capabilities.py 无 longcat 专用 kind，对齐 Web GenerateView fallback
     expect(uploadKindForEngine('longcat-i2v')).toBe('ltx_i2v');
+    expect(uploadKindForEngine('wan-nsfw-i2v')).toBe('video');
     expect(uploadKindForEngine('img2img')).toBe('img2img');
     expect(uploadKindForEngine('unknown')).toBe('img2img');
   });
@@ -327,61 +315,6 @@ describe('defaultParamValues（视频引擎）', () => {
     expect(values.video).toBeUndefined();
     expect(values.width).toBe(832);
     expect(values.duration).toBe(7.5);
-  });
-});
-
-describe('buildLtx25T2VRequest', () => {
-  it('白名单透传 + 数字强转 + 空串剔除 + duration 映射 duration_sec', () => {
-    const req = buildLtx25T2VRequest('  a cat  ', {
-      width: '960',
-      height: 544,
-      duration: 7.5,
-      fps: 24,
-      steps: 8,
-      negative: '  blur ',
-      seed: null,
-      evil: 'drop',
-    });
-    expect(req).toEqual({
-      positive: 'a cat',
-      negative: 'blur',
-      width: 960,
-      height: 544,
-      duration_sec: 7.5,
-      fps: 24,
-      steps: 8,
-      seed: null,
-    });
-    expect('evil' in req).toBe(false);
-  });
-
-  it('不带 cfg/sampler 等图像键；duration 缺省省略(后端默认 5s)', () => {
-    const req = buildLtx25T2VRequest('x', { cfg: 7, sampler: 'euler' });
-    expect('cfg' in req).toBe(false);
-    expect('sampler' in req).toBe(false);
-    expect('duration_sec' in req).toBe(false);
-  });
-});
-
-describe('buildLtx25I2VRequest', () => {
-  const ref: UploadedRefImage = {
-    filename: 'f.png',
-    worker: 'w-ltx',
-    previewUri: '/tmp/f.png',
-    name: 'f.png',
-  };
-
-  it('带 image/worker/strength', () => {
-    const req = buildLtx25I2VRequest('a dog', ref, { strength: 0.8, steps: 10 });
-    expect(req.image).toBe('f.png');
-    expect(req.worker).toBe('w-ltx');
-    expect(req.strength).toBe(0.8);
-    expect(req.steps).toBe(10);
-  });
-
-  it('strength 缺省不出现', () => {
-    const req = buildLtx25I2VRequest('a dog', ref, {});
-    expect('strength' in req).toBe(false);
   });
 });
 
@@ -1008,5 +941,183 @@ describe('buildAvatarTalkRequest', () => {
     const req = buildAvatarTalkRequest('x', refImage, refAudio, { duration: '100', fps: '30' });
     expect(req.duration_sec).toBe(100);
     expect(req.fps).toBe(30);
+  });
+});
+
+// ── 引擎补齐 builders ──
+
+const ref: UploadedRefImage = {
+  filename: 'f.png',
+  worker: 'w1',
+  previewUri: '/tmp/f.png',
+  name: 'f.png',
+};
+const drive: UploadedRefVideo = {
+  filename: 'drive.mp4',
+  worker: 'w1',
+  previewUri: '/tmp/drive.mp4',
+  name: 'drive.mp4',
+  duration: 6,
+};
+
+describe('parseMultiShotPrompts', () => {
+  it('空行分段成 2-4 镜头', () => {
+    expect(parseMultiShotPrompts('海边日落\n\n城市夜景')).toEqual(['海边日落', '城市夜景']);
+  });
+
+  it('镜头一/二 前缀拆分并去掉标签', () => {
+    expect(parseMultiShotPrompts('镜头一：推近人脸\n镜头二：拉远全景')).toEqual(['推近人脸', '拉远全景']);
+  });
+
+  it('单段原样返回（UI 拦截不足 2 个）', () => {
+    expect(parseMultiShotPrompts('  只有一段  ')).toEqual(['只有一段']);
+    expect(parseMultiShotPrompts('')).toEqual([]);
+  });
+
+  it('超过 4 段截到前 4', () => {
+    const text = ['a', 'b', 'c', 'd', 'e'].join('\n\n');
+    expect(parseMultiShotPrompts(text)).toEqual(['a', 'b', 'c', 'd']);
+  });
+});
+
+describe('buildQwenEditRequest', () => {
+  it('image/worker + camera 透传；fast 缺省 true；空 camera 省略', () => {
+    const req = buildQwenEditRequest('  把衣服换成红色  ', ref, { camera: 'left', seed: 7 });
+    expect(req).toEqual({
+      image: 'f.png',
+      worker: 'w1',
+      positive: '把衣服换成红色',
+      camera: 'left',
+      fast: true,
+      seed: 7,
+    });
+  });
+
+  it('fast=false 透传；正片可空（纯相机）', () => {
+    const req = buildQwenEditRequest('  ', ref, { camera: 'wide', fast: false });
+    expect(req.positive).toBe('');
+    expect(req.fast).toBe(false);
+    expect(req.camera).toBe('wide');
+  });
+});
+
+describe('buildH3MultiShotRequest', () => {
+  it('空行拆镜头 + total_duration 缺省 8 + loras', () => {
+    const req = buildH3MultiShotRequest('镜头一：海边\n镜头二：城市', {
+      width: 1344,
+      loras: [{ name: 'h3_detail.safetensors', strength: 0.7 }],
+    });
+    expect(req.shots).toEqual([{ prompt: '海边' }, { prompt: '城市' }]);
+    expect(req.total_duration).toBe(8);
+    expect(req.width).toBe(1344);
+    expect(req.loras).toEqual([{ name: 'h3_detail.safetensors', strength: 0.7 }]);
+  });
+});
+
+describe('buildWanTransitionRequest', () => {
+  const refs: UploadedRefImage[] = [
+    { filename: 'a.png', worker: 'w1', previewUri: '/tmp/a.png', name: 'a.png' },
+    { filename: 'b.png', worker: 'w1', previewUri: '/tmp/b.png', name: 'b.png' },
+  ];
+
+  it('第 1 张=首帧 第 2 张=尾帧；cfg/duration_sec 透传', () => {
+    const req = buildWanTransitionRequest('平滑过渡', refs, { duration: 5, cfg: 5, steps: 20 });
+    expect(req).toMatchObject({
+      positive: '平滑过渡',
+      first_frame: 'a.png',
+      last_frame: 'b.png',
+      worker: 'w1',
+      duration_sec: 5,
+      cfg: 5,
+      steps: 20,
+    });
+  });
+});
+
+describe('buildKeyframeChainRequest', () => {
+  const refs: UploadedRefImage[] = [
+    { filename: 'k1.png', worker: 'w1', previewUri: '/tmp/k1.png', name: 'k1.png' },
+    { filename: 'k2.png', worker: 'w1', previewUri: '/tmp/k2.png', name: 'k2.png' },
+    { filename: 'k3.png', worker: 'w1', previewUri: '/tmp/k3.png', name: 'k3.png' },
+  ];
+
+  it('keyframes 数组 + prompts 单 string 全段共用', () => {
+    const req = buildKeyframeChainRequest('电影感转场', refs, { width: 832, cfg: 5 });
+    expect(req.keyframes).toEqual(['k1.png', 'k2.png', 'k3.png']);
+    expect(req.prompts).toBe('电影感转场');
+    expect(req.worker).toBe('w1');
+    expect(req.width).toBe(832);
+    expect(req.cfg).toBe(5);
+    expect('durations' in req).toBe(false);
+  });
+});
+
+describe('buildVaceEditRequest', () => {
+  it('source_video + edit_prompt + edit_mode 缺省 style_transfer', () => {
+    const req = buildVaceEditRequest('turn into watercolor', drive, { duration: 5, steps: 20 });
+    expect(req).toMatchObject({
+      source_video: 'drive.mp4',
+      edit_prompt: 'turn into watercolor',
+      edit_mode: 'style_transfer',
+      worker: 'w1',
+      duration_sec: 5,
+      steps: 20,
+    });
+  });
+
+  it('edit_mode 透传', () => {
+    const req = buildVaceEditRequest('x', drive, { edit_mode: 'relight' });
+    expect(req.edit_mode).toBe('relight');
+  });
+});
+
+describe('buildWanAnimate2Request', () => {
+  it('image/video/worker 齐；positive 可空', () => {
+    const req = buildWanAnimate2Request('', ref, drive, { duration: 7.5, steps: 10 });
+    expect(req).toMatchObject({
+      positive: '',
+      image: 'f.png',
+      video: 'drive.mp4',
+      worker: 'w1',
+      duration_sec: 7.5,
+      steps: 10,
+    });
+  });
+});
+
+describe('wanNsfwLength / parseWanLoraValues / buildWanNsfwI2VRequest', () => {
+  it('秒→4n+1 帧（3s→49 / 5s→81 / 7.5s→121）', () => {
+    expect(wanNsfwLength('3')).toBe(49);
+    expect(wanNsfwLength('5')).toBe(81);
+    expect(wanNsfwLength('7.5')).toBe(121);
+  });
+
+  it('Wan LoRA 不套 H3 0.5-1.0 钳位', () => {
+    expect(parseWanLoraValues([{ name: 'a.safetensors', strength: 0.3 }])).toEqual([
+      { name: 'a.safetensors', strength: 0.3 },
+    ]);
+    expect(parseWanLoraValues([{ name: 'a.safetensors' }])[0].strength).toBe(0.6);
+  });
+
+  it('resolution 预设 + length 换算 + full_quality', () => {
+    const req = buildWanNsfwI2VRequest('  动起来  ', ref, {
+      resolution: '1280x704',
+      duration: '5',
+      full_quality: true,
+      loras: [{ name: 'NSFW-22-H-e8.safetensors', strength: 0.7 }],
+    });
+    expect(req).toMatchObject({
+      positive: '动起来',
+      image: 'f.png',
+      worker: 'w1',
+      width: 1280,
+      height: 704,
+      length: 81,
+      fps: 16,
+      full_quality: true,
+      loras: [{ name: 'NSFW-22-H-e8.safetensors', strength: 0.7 }],
+    });
+    expect('resolution' in req).toBe(false);
+    expect('duration' in req).toBe(false);
   });
 });

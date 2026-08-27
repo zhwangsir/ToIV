@@ -14,18 +14,23 @@ import {
   submitAceMusic,
   submitAvatarTalk,
   submitH3I2V,
+  submitH3MultiShot,
   submitH3T2V,
   submitImg2Img,
+  submitKeyframeChain,
   submitLongCatContinue,
   submitLongCatI2V,
   submitLongCatT2V,
-  submitLtx25I2V,
-  submitLtx25T2V,
   submitLtxNsfwI2V,
   submitLtxNsfwLipsync,
   submitLtxNsfwT2V,
+  submitQwenEdit,
   submitTxt2Img,
+  submitVaceEdit,
   submitWanAnimate,
+  submitWanAnimate2,
+  submitWanNsfwI2V,
+  submitWanTransition,
   submitWanVace,
 } from '@/api';
 import ParamSheet from '@/components/business/param-sheet.vue';
@@ -52,20 +57,25 @@ import {
   buildAceMusicRequest,
   buildAvatarTalkRequest,
   buildH3I2VRequest,
+  buildH3MultiShotRequest,
   buildH3NsfwI2VRequest,
   buildH3NsfwT2VRequest,
   buildH3T2VRequest,
   buildImg2ImgRequest,
+  buildKeyframeChainRequest,
   buildLongCatContinueRequest,
   buildLongCatI2VRequest,
   buildLongCatT2VRequest,
-  buildLtx25I2VRequest,
-  buildLtx25T2VRequest,
   buildLtxNsfwI2VRequest,
   buildLtxNsfwLipsyncRequest,
   buildLtxNsfwT2VRequest,
+  buildQwenEditRequest,
   buildTxt2ImgRequest,
+  buildVaceEditRequest,
+  buildWanAnimate2Request,
   buildWanAnimateRequest,
+  buildWanNsfwI2VRequest,
+  buildWanTransitionRequest,
   buildWanVaceRequest,
   defaultParamValues,
   engineImagesMax,
@@ -75,6 +85,7 @@ import {
   engineNeedsVideo,
   engineSheetParams,
   isEngineSupported,
+  parseMultiShotPrompts,
   uploadKindForEngine,
 } from '@/utils/build-request';
 
@@ -104,6 +115,14 @@ const uploadKind = computed(() => uploadKindForEngine(engine.value?.id ?? ''));
 /** 单图字段标签取注册表 images 参数 label（avatar-talk 为「人像首帧」，缺省「参考图」） */
 const refImageLabel = computed(
   () => engine.value?.params?.find((p) => p.type === 'images')?.label ?? '参考图',
+);
+/** 多图字段标签（wan-transition 首尾帧 / keyframe-chain 关键帧 / wan-vace 参考图） */
+const multiImageLabel = computed(
+  () => engine.value?.params?.find((p) => p.type === 'images')?.label ?? '参考图（1-4 张）',
+);
+/** 视频字段标签（vace-edit 为「源视频」，缺省「驱动视频」） */
+const refVideoLabel = computed(
+  () => engine.value?.params?.find((p) => p.type === 'video')?.label ?? '驱动视频',
 );
 /** 抽屉参数（avatar-talk 的 text 占位 audio 键由音频上传字段承担，剔除） */
 const sheetParams = computed(() => engineSheetParams(engine.value));
@@ -297,10 +316,24 @@ async function handleOptimize() {
 
 const canSubmit = computed(() => {
   if (submitting.value) return false;
-  if (prompt.value.trim().length === 0) return false;
   if (!engine.value) return false;
+  const id = engine.value.id;
+  // wan-animate-2 提示词可空（后端自动反推外观）；qwen-image-edit 指令与相机角度至少一项
+  const camera = typeof paramValues.camera === 'string' ? paramValues.camera.trim() : '';
+  const promptOk =
+    id === 'wan-animate-2' ||
+    (id === 'qwen-image-edit' && (prompt.value.trim().length > 0 || camera.length > 0)) ||
+    (id !== 'qwen-image-edit' && prompt.value.trim().length > 0);
+  if (!promptOk) return false;
   if (needsRefImage.value && !refImage.value) return false;
-  if (needsMultiImage.value && refImages.value.length === 0) return false;
+  if (id === 'wan-transition') {
+    if (refImages.value.length !== 2) return false;
+  } else if (id === 'keyframe-chain') {
+    if (refImages.value.length < 2) return false;
+  } else if (needsMultiImage.value && refImages.value.length === 0) {
+    return false;
+  }
+  if (id === 'h3-multishot' && parseMultiShotPrompts(prompt.value).length < 2) return false;
   if (needsVideo.value && !refVideo.value) return false;
   if (needsAudio.value && !refAudio.value) return false;
   return true;
@@ -308,12 +341,18 @@ const canSubmit = computed(() => {
 
 async function handleSubmit() {
   formError.value = '';
-  if (prompt.value.trim().length === 0) {
-    formError.value = '请先描述你想生成的画面';
-    return;
-  }
   if (!engine.value) {
     formError.value = '请选择一个生成引擎';
+    return;
+  }
+  const engineIdPre = engine.value.id;
+  const cameraPre = typeof paramValues.camera === 'string' ? paramValues.camera.trim() : '';
+  if (
+    engineIdPre !== 'wan-animate-2' &&
+    !(engineIdPre === 'qwen-image-edit' && cameraPre.length > 0) &&
+    prompt.value.trim().length === 0
+  ) {
+    formError.value = '请先描述你想生成的画面';
     return;
   }
 
@@ -327,16 +366,76 @@ async function handleSubmit() {
     let submitted: GenerateResponse | null = null;
     // 按引擎 id 显式路由（未接入引擎在栅格层已禁用，到不了这里）
     switch (engineId) {
-      case 'ltx25-t2v':
-        submitted = await submitLtx25T2V(buildLtx25T2VRequest(prompt.value, values));
-        break;
-      case 'ltx25-i2v':
+      case 'qwen-image-edit':
         if (!refImage.value) {
           formError.value = '请先上传参考图';
           submitting.value = false;
           return;
         }
-        submitted = await submitLtx25I2V(buildLtx25I2VRequest(prompt.value, refImage.value, values));
+        submitted = await submitQwenEdit(buildQwenEditRequest(prompt.value, refImage.value, values));
+        break;
+      case 'h3-multishot': {
+        const shots = parseMultiShotPrompts(prompt.value);
+        if (shots.length < 2) {
+          formError.value = '请用空行或「镜头一/镜头二」分隔 2-4 个镜头描述';
+          submitting.value = false;
+          return;
+        }
+        submitted = await submitH3MultiShot(buildH3MultiShotRequest(prompt.value, values));
+        break;
+      }
+      case 'wan-transition':
+        if (refImages.value.length !== 2) {
+          formError.value = '请按顺序上传首帧与尾帧（共 2 张）';
+          submitting.value = false;
+          return;
+        }
+        submitted = await submitWanTransition(
+          buildWanTransitionRequest(prompt.value, refImages.value, values),
+        );
+        break;
+      case 'keyframe-chain':
+        if (refImages.value.length < 2) {
+          formError.value = '请按链序上传 2-5 张关键帧';
+          submitting.value = false;
+          return;
+        }
+        submitted = await submitKeyframeChain(
+          buildKeyframeChainRequest(prompt.value, refImages.value, values),
+        );
+        break;
+      case 'vace-edit':
+        if (!refVideo.value) {
+          formError.value = '请先上传源视频';
+          submitting.value = false;
+          return;
+        }
+        submitted = await submitVaceEdit(buildVaceEditRequest(prompt.value, refVideo.value, values));
+        break;
+      case 'wan-animate-2':
+        if (!refImage.value) {
+          formError.value = '请先上传参考图';
+          submitting.value = false;
+          return;
+        }
+        if (!refVideo.value) {
+          formError.value = '请先上传驱动视频';
+          submitting.value = false;
+          return;
+        }
+        submitted = await submitWanAnimate2(
+          buildWanAnimate2Request(prompt.value, refImage.value, refVideo.value, values),
+        );
+        break;
+      case 'wan-nsfw-i2v':
+        if (!refImage.value) {
+          formError.value = '请先上传参考图';
+          submitting.value = false;
+          return;
+        }
+        submitted = await submitWanNsfwI2V(
+          buildWanNsfwI2VRequest(prompt.value, refImage.value, values),
+        );
         break;
       case 'wan-animate':
         if (!refImage.value) {
@@ -628,7 +727,7 @@ onShow(() => {
           />
         </view>
 
-        <!-- 单参考图（img2img / ltx25-i2v / wan-animate / avatar-talk 人像首帧） -->
+        <!-- 单参考图（img2img / qwen-image-edit / wan-animate / avatar-talk 人像首帧） -->
         <RefImageField
           v-if="needsRefImage"
           :key="selectedEngineId"
@@ -641,17 +740,17 @@ onShow(() => {
         <RefImageField
           v-if="needsMultiImage"
           :key="selectedEngineId"
-          label="参考图（1-4 张）"
+          :label="multiImageLabel"
           :kind="uploadKind"
           :max="imagesMax"
           @change="onMultiImagesChange"
         />
 
-        <!-- 驱动视频（wan-animate，与参考图互钉同 worker；参考图变更后重建强制重传） -->
+        <!-- 驱动视频（wan-animate / wan-animate-2 / vace-edit 源视频） -->
         <RefVideoField
           v-if="needsVideo"
           :key="`${selectedEngineId}:${refImage?.filename ?? ''}`"
-          label="驱动视频"
+          :label="refVideoLabel"
           :kind="uploadKind"
           :pin-worker="refImage?.worker"
           @change="(v) => (refVideo = v)"

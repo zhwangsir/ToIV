@@ -16,18 +16,23 @@ import {
   submitAceMusic,
   submitAvatarTalk,
   submitH3I2V,
+  submitH3MultiShot,
   submitH3T2V,
   submitImg2Img,
+  submitKeyframeChain,
   submitLongCatContinue,
   submitLongCatI2V,
   submitLongCatT2V,
-  submitLtx25I2V,
-  submitLtx25T2V,
   submitLtxNsfwI2V,
   submitLtxNsfwLipsync,
   submitLtxNsfwT2V,
+  submitQwenEdit,
   submitTxt2Img,
+  submitVaceEdit,
   submitWanAnimate,
+  submitWanAnimate2,
+  submitWanNsfwI2V,
+  submitWanTransition,
   submitWanVace,
   uploadAudio,
   uploadDoc,
@@ -269,23 +274,6 @@ describe('uploadAudio（MP12）', () => {
 });
 
 describe('SFW 视频引擎提交', () => {
-  it('submitLtx25T2V POST /api/ltx25/t2v，LONG 超时', async () => {
-    enqueueResponse(200, { prompt_id: 'p1', client_id: 'c1', worker: 'w1', seed: 42 });
-    const res = await submitLtx25T2V({ positive: 'a cat', width: 960, length: 121 });
-    expect(res.prompt_id).toBe('p1');
-    expect(lastRequest().url).toContain('/api/ltx25/t2v');
-    expect(lastRequest().data).toEqual({ positive: 'a cat', width: 960, length: 121 });
-    expect(lastRequest().timeout).toBe(LONG_TIMEOUT_MS);
-  });
-
-  it('submitLtx25I2V POST /api/ltx25/i2v 带 image/worker/strength', async () => {
-    enqueueResponse(200, { prompt_id: 'p2', client_id: 'c1', worker: 'w1', seed: 1 });
-    await submitLtx25I2V({ positive: 'x', image: 'f.png', worker: 'w1', strength: 0.7 });
-    expect(lastRequest().url).toContain('/api/ltx25/i2v');
-    expect(lastRequest().data).toMatchObject({ image: 'f.png', worker: 'w1', strength: 0.7 });
-    expect(lastRequest().timeout).toBe(LONG_TIMEOUT_MS);
-  });
-
   it('submitWanAnimate POST /api/wan/animate 带 image/video/worker', async () => {
     enqueueResponse(200, { prompt_id: 'p3', client_id: 'c1', worker: 'w1', seed: 2 });
     await submitWanAnimate({ positive: 'x', image: 'a.png', video: 'v.mp4', worker: 'w1' });
@@ -309,7 +297,9 @@ describe('SFW 视频引擎提交', () => {
         { loc: ['body', 'fps'], msg: 'second error', type: 'x' },
       ],
     });
-    await expect(submitLtx25T2V({ positive: 'x', width: 100 })).rejects.toMatchObject({
+    await expect(
+      submitWanAnimate({ positive: 'x', image: 'a.png', video: 'v.mp4', worker: 'w1', width: 100 }),
+    ).rejects.toMatchObject({
       status: 422,
       message: 'Input should be greater than or equal to 256',
     });
@@ -485,6 +475,84 @@ describe('LongCat-Avatar 数字人提交（MP14）', () => {
     enqueueResponse(200, { prompt_id: 'pt2', client_id: 'c1', worker: 'w1', seed: 1 });
     await submitAvatarTalk({ positive: 'x', image: 'p.png', audio: 'a.wav', worker: 'w1' });
     expect(lastRequest().header?.['X-NSFW']).toBeUndefined();
+  });
+});
+
+describe('引擎补齐提交', () => {
+  it('submitQwenEdit POST /api/generate/qwen-edit 带 image/worker/camera', async () => {
+    enqueueResponse(200, { prompt_id: 'pq', client_id: 'c1', worker: 'w1', seed: 1 });
+    await submitQwenEdit({ image: 'f.png', worker: 'w1', positive: '换成红色', camera: 'left', fast: true });
+    expect(lastRequest().url).toContain('/api/generate/qwen-edit');
+    expect(lastRequest().data).toMatchObject({ image: 'f.png', worker: 'w1', camera: 'left' });
+    expect(lastRequest().timeout).toBe(LONG_TIMEOUT_MS);
+  });
+
+  it('submitH3MultiShot POST /api/h3/multishot 带 shots', async () => {
+    enqueueResponse(200, { prompt_id: 'pm', client_id: 'c1', worker: 'w-h3', seed: 2 });
+    await submitH3MultiShot({
+      shots: [{ prompt: '海边' }, { prompt: '城市' }],
+      total_duration: 8,
+    });
+    expect(lastRequest().url).toContain('/api/h3/multishot');
+    expect(lastRequest().data).toMatchObject({ total_duration: 8 });
+    expect(lastRequest().timeout).toBe(LONG_TIMEOUT_MS);
+  });
+
+  it('submitWanTransition POST /api/generate/transition 带 first/last_frame', async () => {
+    enqueueResponse(200, { prompt_id: 'pt', client_id: 'c1', worker: 'w1', seed: 3 });
+    await submitWanTransition({
+      positive: '过渡',
+      first_frame: 'a.png',
+      last_frame: 'b.png',
+      worker: 'w1',
+    });
+    expect(lastRequest().url).toContain('/api/generate/transition');
+    expect(lastRequest().data).toMatchObject({ first_frame: 'a.png', last_frame: 'b.png' });
+  });
+
+  it('submitKeyframeChain POST /api/generate/keyframe-chain；缺 client_id 归一为空串', async () => {
+    enqueueResponse(200, { prompt_id: 'pk', worker: 'w1', seed: 4, segments: ['s1'] });
+    const res = await submitKeyframeChain({
+      keyframes: ['a.png', 'b.png'],
+      prompts: '转场',
+      worker: 'w1',
+    });
+    expect(lastRequest().url).toContain('/api/generate/keyframe-chain');
+    expect(res.prompt_id).toBe('pk');
+    expect(res.client_id).toBe('');
+  });
+
+  it('submitVaceEdit POST /api/generate/video-edit 带 source_video/edit_prompt', async () => {
+    enqueueResponse(200, { prompt_id: 'pe', client_id: 'c1', worker: 'w1', seed: 5 });
+    await submitVaceEdit({
+      source_video: 'v.mp4',
+      edit_prompt: 'watercolor',
+      edit_mode: 'style_transfer',
+      worker: 'w1',
+    });
+    expect(lastRequest().url).toContain('/api/generate/video-edit');
+    expect(lastRequest().data).toMatchObject({ source_video: 'v.mp4', edit_mode: 'style_transfer' });
+  });
+
+  it('submitWanAnimate2 POST /api/wan/animate2 带 image/video', async () => {
+    enqueueResponse(200, { prompt_id: 'pa2', client_id: 'c1', worker: 'w1', seed: 6 });
+    await submitWanAnimate2({ positive: '', image: 'a.png', video: 'v.mp4', worker: 'w1' });
+    expect(lastRequest().url).toContain('/api/wan/animate2');
+    expect(lastRequest().data).toMatchObject({ image: 'a.png', video: 'v.mp4' });
+  });
+
+  it('submitWanNsfwI2V POST /api/generate/video 带 image/length/loras', async () => {
+    enqueueResponse(200, { prompt_id: 'pw', client_id: 'c1', worker: 'w1', seed: 7 });
+    await submitWanNsfwI2V({
+      positive: 'x',
+      image: 'f.png',
+      worker: 'w1',
+      length: 81,
+      loras: [{ name: 'a.safetensors', strength: 0.7 }],
+    });
+    expect(lastRequest().url).toContain('/api/generate/video');
+    expect(lastRequest().data).toMatchObject({ image: 'f.png', length: 81 });
+    expect(lastRequest().timeout).toBe(LONG_TIMEOUT_MS);
   });
 });
 

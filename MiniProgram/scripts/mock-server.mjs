@@ -29,35 +29,6 @@ const engine = {
 };
 
 // MP10：SFW 视频引擎（参数 schema 精简但形状与后端注册表一致）
-const ltx25T2V = {
-  id: 'ltx25-t2v',
-  label: 'LTX 2.5 文生视频',
-  kind: 'video',
-  available: true,
-  nsfw: false,
-  description: 'LTX-2.5 音画同出短视频（mock）',
-  params: [
-    { key: 'negative', label: '负面提示词', type: 'textarea', default: '' },
-    { key: 'width', label: '宽度', type: 'number', default: 960, min: 256, max: 1920, step: 32 },
-    { key: 'height', label: '高度', type: 'number', default: 544, min: 256, max: 1088, step: 32 },
-    { key: 'duration', label: '时长(秒)', type: 'number', default: 5, min: 0.5, max: 60, step: 0.5 },
-    { key: 'fps', label: '帧率', type: 'number', default: 24, min: 8, max: 60 },
-    { key: 'steps', label: '采样步数', type: 'number', default: 8, min: 1, max: 50 },
-    { key: 'seed', label: '种子', type: 'number', default: null },
-  ],
-};
-
-const ltx25I2V = {
-  ...ltx25T2V,
-  id: 'ltx25-i2v',
-  label: 'LTX 2.5 图生视频',
-  params: [
-    { key: 'images', label: '参考图', type: 'images', max: 1, default: null },
-    ...ltx25T2V.params,
-    { key: 'strength', label: '首帧强度', type: 'number', default: 0.7, min: 0, max: 1, step: 0.05 },
-  ],
-};
-
 const wanAnimate = {
   id: 'wan-animate',
   label: 'Wan2.2 动作迁移',
@@ -83,7 +54,7 @@ const wanVace = {
   id: 'wan-vace',
   label: 'VACE 多参考视频',
   params: [
-    { key: 'images', label: '参考图(1-4 张)', type: 'images', max: 4, default: null },
+    { key: 'images', label: '参考图（1-4 张）', type: 'images', max: 4, default: null },
     ...wanAnimate.params.filter((p) => p.key !== 'images' && p.key !== 'video'),
   ],
 };
@@ -327,10 +298,106 @@ const avatarTalk = {
   ],
 };
 
+
+const qwenImageEdit = {
+  id: 'qwen-image-edit',
+  label: '智能编辑(Qwen)',
+  kind: 'image',
+  available: true,
+  nsfw: false,
+  description: 'Qwen-Image-Edit 语义编辑（mock）',
+  params: [
+    { key: 'images', label: '参考图', type: 'images', max: 1, default: null },
+    { key: 'camera', label: '相机角度', type: 'select', default: '', options: [{ value: '', label: '无' }, { value: 'left', label: '镜头左移' }] },
+    { key: 'fast', label: '快速档', type: 'switch', default: true },
+    { key: 'seed', label: '种子', type: 'text', default: '' },
+  ],
+};
+
+const h3MultiShot = {
+  id: 'h3-multishot',
+  label: 'H3 多镜头',
+  kind: 'video',
+  available: true,
+  nsfw: false,
+  description: 'H3 多镜头单次生成（mock）',
+  params: h3Params.filter((p) => p.key !== 'duration'),
+};
+
+const wanTransition = {
+  id: 'wan-transition',
+  label: '首尾帧转场',
+  kind: 'video',
+  available: true,
+  nsfw: false,
+  description: '首尾帧转场（mock）',
+  params: [
+    { key: 'images', label: '首尾帧(首帧→尾帧)', type: 'images', max: 2, default: null },
+    { key: 'negative', label: '负面提示词', type: 'textarea', default: '' },
+    { key: 'width', label: '宽度', type: 'number', default: 832, min: 320, max: 1280, step: 16 },
+    { key: 'height', label: '高度', type: 'number', default: 480, min: 320, max: 1280, step: 16 },
+    { key: 'duration', label: '时长(秒)', type: 'number', default: 5, min: 0.5, max: 15, step: 0.5 },
+    { key: 'steps', label: '采样步数', type: 'number', default: 20, min: 1, max: 50 },
+    { key: 'cfg', label: 'CFG', type: 'number', default: 5, min: 0, max: 20, step: 0.5 },
+    { key: 'fps', label: '帧率', type: 'number', default: 16, min: 8, max: 30 },
+    { key: 'seed', label: '种子', type: 'number', default: null },
+  ],
+};
+
+const keyframeChain = {
+  ...wanTransition,
+  id: 'keyframe-chain',
+  label: '关键帧链',
+  params: [
+    { key: 'images', label: '关键帧(链序)', type: 'images', max: 5, default: null },
+    ...wanTransition.params.filter((p) => p.key !== 'images' && p.key !== 'duration' && p.key !== 'fps'),
+  ],
+};
+
+const vaceEdit = {
+  id: 'vace-edit',
+  label: 'VACE 视频编辑',
+  kind: 'video',
+  available: true,
+  nsfw: false,
+  description: 'VACE 视频到视频编辑（mock）',
+  params: [
+    { key: 'video', label: '源视频', type: 'video', default: null },
+    { key: 'edit_mode', label: '编辑模式', type: 'select', default: 'style_transfer', options: [{ value: 'style_transfer', label: '风格迁移' }] },
+    { key: 'negative', label: '负面提示词', type: 'textarea', default: '' },
+    { key: 'width', label: '宽度', type: 'number', default: 832 },
+    { key: 'duration', label: '时长(秒)', type: 'number', default: 5 },
+    { key: 'seed', label: '种子', type: 'number', default: null },
+  ],
+};
+
+const wanAnimate2 = {
+  ...wanAnimate,
+  id: 'wan-animate-2',
+  label: 'Wan Animate 2 换人',
+  description: 'Wan-Animate-2（mock）',
+};
+
+const wanNsfwI2V = {
+  id: 'wan-nsfw-i2v',
+  label: 'Wan2.2 图生视频(R18)',
+  kind: 'video',
+  available: true,
+  nsfw: true,
+  description: 'Wan2.2 I2V NSFW（mock）',
+  params: [
+    { key: 'images', label: '参考图', type: 'images', max: 1, default: null },
+    { key: 'resolution', label: '分辨率', type: 'select', default: '832x480', options: [{ value: '832x480', label: '480p 横版' }] },
+    { key: 'duration', label: '时长', type: 'select', default: '5', options: [{ value: '5', label: '5 秒' }] },
+    { key: 'full_quality', label: '满血档', type: 'switch', default: false },
+    { key: 'seed', label: '种子', type: 'number', default: null },
+  ],
+};
+
 const engines = [
-  engine, ltx25T2V, ltx25I2V, wanAnimate, wanVace,
-  h3T2V, h3I2V, longcatT2V, longcatI2V, longcatContinue, aceMusic,
-  ltxNsfwT2V, ltxNsfwI2V, ltxNsfwLipsync, h3NsfwT2V, h3NsfwI2V,
+  engine, qwenImageEdit, wanAnimate, wanVace, wanAnimate2, wanTransition, keyframeChain, vaceEdit,
+  h3T2V, h3I2V, h3MultiShot, longcatT2V, longcatI2V, longcatContinue, aceMusic,
+  ltxNsfwT2V, ltxNsfwI2V, ltxNsfwLipsync, h3NsfwT2V, h3NsfwI2V, wanNsfwI2V,
   avatarTalk,
 ];
 
@@ -594,7 +661,7 @@ const server = createServer((req, res) => {
   }
   // MP10：SFW 视频引擎提交端点（GenerateResponse 形状）
   if (
-    ['/api/ltx25/t2v', '/api/ltx25/i2v', '/api/wan/animate', '/api/wan/vace'].includes(path) &&
+    ['/api/wan/animate', '/api/wan/vace', '/api/wan/animate2'].includes(path) &&
     req.method === 'POST'
   ) {
     return json(res, 200, { prompt_id: 'p-video-1', client_id: 'c1', worker: 'w1', seed: 42 });
@@ -604,6 +671,7 @@ const server = createServer((req, res) => {
     [
       '/api/h3/t2v',
       '/api/h3/i2v',
+      '/api/h3/multishot',
       '/api/longcat/t2v',
       '/api/longcat/i2v',
       '/api/longcat/continue',
@@ -623,6 +691,18 @@ const server = createServer((req, res) => {
   // MP14：LongCat-Avatar 数字人提交端点（GenerateResponse 形状；SFW 引擎主站上下文可见）
   if (path === '/api/avatar/talk' && req.method === 'POST') {
     return json(res, 200, { prompt_id: 'p-avatar-1', client_id: 'c1', worker: 'w1', seed: 42 });
+  }
+  if (
+    [
+      '/api/generate/qwen-edit',
+      '/api/generate/transition',
+      '/api/generate/keyframe-chain',
+      '/api/generate/video-edit',
+      '/api/generate/video',
+    ].includes(path) &&
+    req.method === 'POST'
+  ) {
+    return json(res, 200, { prompt_id: 'p-catchup-1', client_id: 'c1', worker: 'w1', seed: 42 });
   }
   // MP10：上传（图/视频/音频同字段名 image；worker 互钉透传回显）
   // MP12：从 multipart 头回显真实文件名（kind=ltx_lipsync 图/音互钉需区分句柄）

@@ -41,26 +41,31 @@ import type {
   EngineInfo,
   GenerateResponse,
   H3I2VRequest,
+  H3MultiShotRequest,
   H3T2VRequest,
   Img2ImgRequest,
   JobItem,
   JobSseEvent,
+  KeyframeChainRequest,
   LongCatContinueRequest,
   LongCatI2VRequest,
   LongCatT2VRequest,
-  Ltx25I2VRequest,
-  Ltx25T2VRequest,
   LtxNsfwI2VRequest,
   LtxNsfwLipsyncRequest,
   LtxNsfwT2VRequest,
   MeResult,
   OptimizeResult,
+  QwenEditRequest,
   RerunRequest,
   RerunResponse,
   ReverseResult,
   Txt2ImgRequest,
   UploadImageResult,
+  VaceEditRequest,
+  WanAnimate2Request,
   WanAnimateRequest,
+  WanNsfwI2VRequest,
+  WanTransitionRequest,
   WanVaceRequest,
   WechatLoginRequest,
 } from '@/types/api';
@@ -225,24 +230,6 @@ export async function submitImg2Img(params: Img2ImgRequest): Promise<GenerateRes
 
 // ── SFW 视频引擎链路（视频生成慢，统一走 LONG 180s 超时档）──
 
-/** LTX 2.5 文生视频：POST /api/ltx25/t2v（422 detail 数组由 client 展开首条 msg） */
-export async function submitLtx25T2V(params: Ltx25T2VRequest): Promise<GenerateResponse> {
-  return apiFetch<GenerateResponse>('/api/ltx25/t2v', {
-    method: 'POST',
-    body: params,
-    long: true,
-  });
-}
-
-/** LTX 2.5 图生视频：POST /api/ltx25/i2v（image/worker 来自 uploadImage kind=ltx_i2v） */
-export async function submitLtx25I2V(params: Ltx25I2VRequest): Promise<GenerateResponse> {
-  return apiFetch<GenerateResponse>('/api/ltx25/i2v', {
-    method: 'POST',
-    body: params,
-    long: true,
-  });
-}
-
 /** Wan2.2 动作迁移：POST /api/wan/animate（image+video 互钉同 worker） */
 export async function submitWanAnimate(params: WanAnimateRequest): Promise<GenerateResponse> {
   return apiFetch<GenerateResponse>('/api/wan/animate', {
@@ -358,6 +345,75 @@ export async function submitLtxNsfwLipsync(params: LtxNsfwLipsyncRequest): Promi
  */
 export async function submitAvatarTalk(params: AvatarTalkRequest): Promise<GenerateResponse> {
   return apiFetch<GenerateResponse>('/api/avatar/talk', {
+    method: 'POST',
+    body: params,
+    long: true,
+  });
+}
+
+// ── 引擎补齐提交链路（契约已读 apps/api 源码验证；统一 LONG 180s）──
+
+/** Qwen-Image-Edit：POST /api/generate/qwen-edit（image/worker 来自 uploadImage kind=img2img，后端转存 :8194） */
+export async function submitQwenEdit(params: QwenEditRequest): Promise<GenerateResponse> {
+  return apiFetch<GenerateResponse>('/api/generate/qwen-edit', {
+    method: 'POST',
+    body: params,
+    long: true,
+  });
+}
+
+/** H3 多镜头：POST /api/h3/multishot（shots 2-4；复用 t2v 提交链路） */
+export async function submitH3MultiShot(params: H3MultiShotRequest): Promise<GenerateResponse> {
+  return apiFetch<GenerateResponse>('/api/h3/multishot', {
+    method: 'POST',
+    body: params,
+    long: true,
+  });
+}
+
+/** 首尾帧转场：POST /api/generate/transition（first_frame/last_frame 互钉同 worker） */
+export async function submitWanTransition(params: WanTransitionRequest): Promise<GenerateResponse> {
+  return apiFetch<GenerateResponse>('/api/generate/transition', {
+    method: 'POST',
+    body: params,
+    long: true,
+  });
+}
+
+/** 关键帧链：POST /api/generate/keyframe-chain（client_id 后端可能缺省，归一为空串走轮询） */
+export async function submitKeyframeChain(params: KeyframeChainRequest): Promise<GenerateResponse> {
+  const data = await apiFetch<GenerateResponse & { client_id?: string }>(
+    '/api/generate/keyframe-chain',
+    {
+      method: 'POST',
+      body: params,
+      long: true,
+    },
+  );
+  return { ...data, client_id: data.client_id ?? '' };
+}
+
+/** VACE 视频编辑：POST /api/generate/video-edit（source_video + edit_prompt） */
+export async function submitVaceEdit(params: VaceEditRequest): Promise<GenerateResponse> {
+  return apiFetch<GenerateResponse>('/api/generate/video-edit', {
+    method: 'POST',
+    body: params,
+    long: true,
+  });
+}
+
+/** Wan-Animate-2：POST /api/wan/animate2（image+video 互钉；positive 可空自动反推 caption） */
+export async function submitWanAnimate2(params: WanAnimate2Request): Promise<GenerateResponse> {
+  return apiFetch<GenerateResponse>('/api/wan/animate2', {
+    method: 'POST',
+    body: params,
+    long: true,
+  });
+}
+
+/** Wan2.2 图生视频（R18）：POST /api/generate/video（image/worker 来自 uploadImage kind=video） */
+export async function submitWanNsfwI2V(params: WanNsfwI2VRequest): Promise<GenerateResponse> {
+  return apiFetch<GenerateResponse>('/api/generate/video', {
     method: 'POST',
     body: params,
     long: true,
