@@ -6,6 +6,27 @@
 
 ---
 
+## HOTFIX-2026-08-27 · 灯箱关闭钮遮挡 + 助手 422「回复失败:[object Object]」（commit 3856bb1）
+
+**时间**: 2026-08-27（用户报障，紧急处理）
+**类型**: 前端双 hotfix
+
+### 问题一：作品库预览关闭钮被账户按钮盖住
+
+- **根因（层叠上下文陷阱）**：`.view-stage { view-transition-name: main-stage }`（motion.css:64）强制创建层叠上下文且自身层级 auto≈0；`.lib-lightbox`（fixed, z-modal 300）直接渲染于其中被"困住"，对外只算 0；根层级的 `.accountbtn`（fixed, z-sticky 100）反压灯箱，右上角关闭钮（位置与账户头像重叠）被遮挡，仅 Esc 可关
+- **修复**：LibraryLightbox 改 `createPortal(..., document.body)`，逃脱祖先层叠上下文，z-modal(300) 在根级生效压住账户按钮(100)
+- **测试**：portal 源码断言（react-dom import/createPortal/document.body 三锚点）
+
+### 问题二：AI 助手长会话 422，错误显示 [object Object]
+
+- **根因（两层）**：①前端把全部会话历史**无截断**上送，超后端契约（messages≤40 条 / 单条 content≤8000 字符，agent.py:118-127）即整体 422——长会话必现；②agentChat/agentChatStream/agentChatResume 三处错误处理 `new Error(detail?.detail ?? …)` 把 FastAPI 422 的 detail **数组**直接字符串化 → `[object Object]`
+- **修复**：
+  - `buildApiMessages` 纯函数（AssistantView）：过滤 error 卡/非对话角色、保留最近 30 条（MAX_API_MESSAGES）、单条超 7900 截断带标记（MAX_API_MESSAGE_CHARS）
+  - `apiErrorMessage`（lib/api.ts 导出）：422 detail 数组逐项「字段路径(去 body 前缀): 消息」拼接，空/非法回退「兜底 (status)」，三处 SSE 调用点接入
+- **测试**：新增 9 例（apiErrorMessage 5 + buildApiMessages 3 + portal 1）；前端 **668 全绿**、tsc 0 错误、构建通过
+- **部署**：已 deploy.sh 上 core（api 200 / web 200，BUILD_ID 20260827-114415 含本修复）
+- **注意**：终端并行会话串扰（chromakey 会话）两度截断 heredoc commit——教训：多会话同仓工作时用 `git commit -F 文件` 替代 heredoc
+
 ## OPT-P0P1-2026-08-27 · 全模型优化 Phase 0+1+T0（六线并行）
 
 **时间**: 2026-08-27
