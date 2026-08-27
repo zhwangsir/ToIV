@@ -41,13 +41,14 @@ from app.workflows.lora import LoraSpec, parse_lora_tags
 from app.workflows.model_profiles import (
     AR_IMAGE,
     aspect_guard,
+    detect_model_family,
     fit_resolution,
     is_nsfw,
     is_nextgen,
     nextgen_recipe,
     profile_for,
 )
-from app.workflows.nextgen import NextgenImg2ImgParams, NextgenParams, build_nextgen_graph, build_nextgen_img2img_graph
+from app.workflows.nextgen import NextgenImg2ImgParams, NextgenParams, build_nextgen_graph, build_nextgen_img2img_graph, resolve_qwen_accel
 from app.workflows.removebg import REMBG_MODES, RemoveBgParams, build_removebg_graph
 from app.workflows.qwen_edit import (
     CAMERA_PRESETS,
@@ -126,9 +127,21 @@ class Txt2ImgRequest(BaseModel):
     loras: list[LoraInput] = Field(default_factory=list, max_length=_MAX_LORAS)
     # 出图引擎:comfyui(默认,异步工作流)| forge(reForge sdapi 同步出图)
     engine: str = Field(default="comfyui")
+    # Qwen-Image 加速档(2026-08-28 Phase 3A):off=满血(默认)/ turbo=4 步 Lightning 草稿 /
+    # turbo_cache=8 步 Lightning + CacheDiT;仅 qwen_image 底模生效,其他底模显式给非 off → 422
+    accel: str | None = Field(default=None, max_length=16)
 
     # 宽高比守卫:1:2~2:1 静默归一(SD 系训练分布;极端比例出主体被裁/文字溢出)
     _ratio = aspect_guard(*AR_IMAGE, align=8, min_v=64, max_v=2048)
+
+    @field_validator("accel")
+    @classmethod
+    def _v_accel(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        if v not in ("off", "turbo", "turbo_cache"):
+            raise ValueError("Qwen-Image 加速档须为 off / turbo / turbo_cache")
+        return v
 
 
 router = APIRouter()
@@ -225,9 +238,13 @@ async def _submit_txt2img(
     # R18 硬门槛:成人底模须已开 R18,否则 403;并据此给作品打 nsfw 标。
     job_nsfw = False if sfw_preset else _gate_nsfw_ckpt(ckpt_name, user)
 
+    # 加速档门槛:仅 qwen_image 底模;其他底模显式请求加速档 → 422(不静默忽略)
+    if req.accel not in (None, "off") and detect_model_family(ckpt_name) != "qwen_image":
+        raise HTTPException(status_code=422, detail="加速档(Lightning/CacheDiT)仅 Qwen-Image 底模支持")
+
     # 引擎分流:Forge 走 sdapi 同步出图(包装成异步 Job),ComfyUI 走既有工作流。
     if req.engine == "forge":
-         return await _submit_forge_txt2img(req, ckpt_name, job_nsfw, user, session)
+        return await _submit_forge_txt2img(req, ckpt_name, job_nsfw, user, session)
 
     # 次世代族(flux2/qwen_image/z_image)走 UNET 图 + 服务端**强制**正确采样(cfg≈1、
     # euler/res_multistep+simple、负向失效族清空负向);传统族走既有 checkpoint 图。
@@ -258,6 +275,7 @@ async def _submit_txt2img(
               loras=_to_lora_specs(req.loras),
               **({"seed": req.seed} if req.seed is not None else {}),
               clip_name=clip_override,
+              accel=req.accel,
          )
          graph = build_nextgen_graph(ng)
          seed_used = ng.seed
@@ -266,6 +284,10 @@ async def _submit_txt2img(
          required = {ckpt_name, effective_clip, recipe.vae_name} if recipe else {ckpt_name}
          # LoRA 文件也须在目标 worker 上(与传统族一致,避免派到缺模型的机)
          required |= {l.name for l in ng.loras}
+         # 加速档 Lightning LoRA 同样须在(worker 共享 NAS,常态全集;防御异构)
+         accel_spec = resolve_qwen_accel(req.accel)
+         if accel_spec.lora_name:
+              required |= {accel_spec.lora_name}
     else:
          params = Txt2ImgParams(
               positive=req.positive,
@@ -577,6 +599,17 @@ class Img2ImgRequest(BaseModel):
     scheduler: str = Field(default="normal", max_length=64)
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
     loras: list[LoraInput] = Field(default_factory=list, max_length=_MAX_LORAS)
+    # Qwen-Image 加速档(与 txt2img 同一套):off=满血(默认)/ turbo / turbo_cache;仅 qwen_image 底模
+    accel: str | None = Field(default=None, max_length=16)
+
+    @field_validator("accel")
+    @classmethod
+    def _v_accel(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        if v not in ("off", "turbo", "turbo_cache"):
+            raise ValueError("Qwen-Image 加速档须为 off / turbo / turbo_cache")
+        return v
 
 
 @router.post("/generate/img2img")
@@ -626,6 +659,10 @@ async def generate_img2img(
     # R18 硬门槛:成人底模须已开 R18,否则 403;并据此给作品打 nsfw 标。
     job_nsfw = False if sfw_preset else _gate_nsfw_ckpt(ckpt_name, user)
 
+    # 加速档门槛:仅 qwen_image 底模(与 txt2img 同一套)
+    if req.accel not in (None, "off") and detect_model_family(ckpt_name) != "qwen_image":
+        raise HTTPException(status_code=422, detail="加速档(Lightning/CacheDiT)仅 Qwen-Image 底模支持")
+
     if is_nextgen(ckpt_name):
          prof = profile_for(ckpt_name)
          recipe = nextgen_recipe(ckpt_name)
@@ -648,6 +685,7 @@ async def generate_img2img(
               height=i2i_h,
               loras=_to_lora_specs(req.loras),
               **({"seed": req.seed} if req.seed is not None else {}),
+              accel=req.accel,
          )
          graph = build_nextgen_img2img_graph(ng)
          seed_used = ng.seed

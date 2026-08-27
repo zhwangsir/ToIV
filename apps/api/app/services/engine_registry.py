@@ -791,6 +791,15 @@ def _image_sampling_params() -> list[dict]:
         _num("steps", "采样步数", 20, min_=1, max_=150),
         _num("cfg", "CFG", 7.0, min_=0, max_=30, step=0.5,
              hint="次世代底模(flux2/qwen_image/z_image)由服务端强制正确采样,此处不生效"),
+        {
+            "key": "accel", "label": "加速档位", "type": "select", "default": "off",
+            "options": [
+                {"value": "off", "label": "满血(20 步无加速,质量优先)"},
+                {"value": "turbo", "label": "草稿高速(4 步 Lightning,最快)"},
+                {"value": "turbo_cache", "label": "成片平衡(8 步 Lightning + CacheDiT)"},
+            ],
+            "hint": "仅 Qwen-Image 底模生效(其他底模选非满血档会被 422);草稿档约为满血 1/5 耗时,成片档缓存再省步时",
+        },
         _seed(),
     ]
 

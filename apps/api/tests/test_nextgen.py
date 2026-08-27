@@ -137,9 +137,9 @@ def test_qwen_graph_clip_override_wins():
     )
     clip = _by_type(g, "CLIPLoader")
     assert clip["clip_name"] == "qwen_2.5_vl_7b_fp8_scaled.safetensors"
-    # 不传覆盖时用配方默认(候选列表第一个,worker 实测存在的 Qwen3-VL 单文件)
+    # 不传覆盖时用配方默认(候选列表第一个;库内基座为 Qwen-Image 1.0,须配 3584 维 Qwen2.5-VL)
     g2 = build_nextgen_graph(NextgenParams(model_name=QWEN, positive="a fox"))
-    assert _by_type(g2, "CLIPLoader")["clip_name"] == "qwen3vl_4b_fp8_scaled.safetensors"
+    assert _by_type(g2, "CLIPLoader")["clip_name"] == "qwen_2.5_vl_7b_fp8_scaled.safetensors"
 
 
 def test_flux2_graph_has_fluxguidance_and_flux2latent():
@@ -321,3 +321,111 @@ def test_img2img_loras_insert_loraloader_chain():
     assert _by_type(g, "ModelSamplingFlux")["model"] == ["100", 0]
     encs = [n for n in g.values() if n["class_type"] == "CLIPTextEncode"]
     assert encs and all(e["inputs"]["clip"] == ["100", 1] for e in encs)
+
+
+# ---------------------------------------------------------------------------
+# Qwen-Image 加速档(2026-08-28 Phase 3A:Lightning LoRA + CacheDiT)
+# off=满血 / turbo=4 步 Lightning 草稿 / turbo_cache=8 步 Lightning + CacheDiT
+# ---------------------------------------------------------------------------
+
+def _id_of(graph: dict, ctype: str) -> str:
+    for nid, node in graph.items():
+        if node["class_type"] == ctype:
+            return nid
+    raise KeyError(ctype)
+
+
+def test_qwen_accel_off_keeps_full_quality_graph():
+    """accel="off":满血——不挂加速 LoRA、无 CacheDiT,步数/CFG 保持传入值。"""
+    g = build_nextgen_graph(NextgenParams(model_name=QWEN, positive="一只狐狸",
+                                          steps=20, cfg=3.5, accel="off"))
+    types = {n["class_type"] for n in g.values()}
+    assert "LoraLoaderModelOnly" not in types
+    assert "CacheDiT_Model_Optimizer" not in types
+    ks = _by_type(g, "KSampler")
+    assert ks["steps"] == 20 and ks["cfg"] == 3.5
+
+
+def test_qwen_accel_default_none_is_full_quality():
+    """accel=None(旧调用方):与 off 完全一致,向后兼容。"""
+    g = build_nextgen_graph(NextgenParams(model_name=QWEN, positive="一只狐狸",
+                                          steps=20, cfg=3.5))
+    types = {n["class_type"] for n in g.values()}
+    assert "LoraLoaderModelOnly" not in types
+    assert "CacheDiT_Model_Optimizer" not in types
+    ks = _by_type(g, "KSampler")
+    assert ks["steps"] == 20 and ks["cfg"] == 3.5
+
+
+def test_qwen_accel_turbo_adds_4step_lightning_lora():
+    """accel="turbo":4 步 Lightning LoRA 直挂 UNET 之后,steps=4 cfg=1.0,无 CacheDiT。"""
+    g = build_nextgen_graph(NextgenParams(model_name=QWEN, positive="一只狐狸",
+                                          steps=20, cfg=3.5, accel="turbo"))
+    lora = _by_type(g, "LoraLoaderModelOnly")
+    assert lora["lora_name"] == "Qwen-Image-Lightning-4steps-V2.0-bf16.safetensors"
+    assert lora["model"] == ["1", 0]
+    assert "CacheDiT_Model_Optimizer" not in {n["class_type"] for n in g.values()}
+    # ModelSamplingAuraFlow 消费 Lightning LoRA 输出
+    lora_id = _id_of(g, "LoraLoaderModelOnly")
+    assert _by_type(g, "ModelSamplingAuraFlow")["model"] == [lora_id, 0]
+    ks = _by_type(g, "KSampler")
+    assert ks["steps"] == 4 and ks["cfg"] == 1.0
+
+
+def test_qwen_accel_turbo_cache_adds_8step_lora_and_cachedit():
+    """accel="turbo_cache":8 步 Lightning LoRA + CacheDiT 串在 model-sampling 与 KSampler 之间。"""
+    g = build_nextgen_graph(NextgenParams(model_name=QWEN, positive="一只狐狸",
+                                          steps=20, cfg=3.5, accel="turbo_cache"))
+    lora = _by_type(g, "LoraLoaderModelOnly")
+    assert lora["lora_name"] == "Qwen-Image-Lightning-8steps-V2.0-bf16.safetensors"
+    cache = _by_type(g, "CacheDiT_Model_Optimizer")
+    assert cache["enable"] is True
+    assert cache["model_type"] == "Qwen-Image"
+    # CacheDiT 消费 model-sampling(AuraFlow)输出,KSampler 消费 CacheDiT 输出
+    ms_id = _id_of(g, "ModelSamplingAuraFlow")
+    assert cache["model"] == [ms_id, 0]
+    cache_id = _id_of(g, "CacheDiT_Model_Optimizer")
+    ks = _by_type(g, "KSampler")
+    assert ks["model"] == [cache_id, 0]
+    assert ks["steps"] == 8 and ks["cfg"] == 1.0
+
+
+def test_qwen_accel_user_lora_chain_stacks_after_lightning():
+    """用户 LoRA 链与加速 LoRA 叠加:加速 LoRA 在前(UNET 直出),用户链串其后。"""
+    g = build_nextgen_graph(NextgenParams(
+        model_name=QWEN, positive="一只狐狸", accel="turbo",
+        loras=(LoraSpec("style_a.safetensors", 0.8),),
+    ))
+    lora_id = _id_of(g, "LoraLoaderModelOnly")
+    assert g["100"]["class_type"] == "LoraLoader"
+    assert g["100"]["inputs"]["model"] == [lora_id, 0]
+    assert _by_type(g, "ModelSamplingAuraFlow")["model"] == ["100", 0]
+
+
+def test_qwen_accel_unknown_tier_rejected():
+    with pytest.raises(ValueError, match="加速档"):
+        build_nextgen_graph(NextgenParams(model_name=QWEN, positive="x", accel="ludicrous"))
+
+
+def test_qwen_accel_rejected_for_non_qwen_family():
+    """加速档仅 qwen_image 族(z_image 已是蒸馏 8 步,flux2 未适配)。"""
+    with pytest.raises(NextgenError, match="qwen_image"):
+        build_nextgen_graph(NextgenParams(model_name=ZIMG, positive="x", accel="turbo"))
+    with pytest.raises(NextgenError, match="qwen_image"):
+        build_nextgen_graph(NextgenParams(model_name=FLUX2, positive="x", accel="turbo_cache"))
+
+
+def test_qwen_img2img_accel_turbo_cache():
+    """img2img 对称支持加速档:8 步 Lightning + CacheDiT,denoise 保持传入值。"""
+    g = build_nextgen_img2img_graph(NextgenImg2ImgParams(
+        model_name=QWEN, image="input.png", positive="一只狐狸",
+        denoise=0.75, accel="turbo_cache",
+    ))
+    lora = _by_type(g, "LoraLoaderModelOnly")
+    assert "8steps" in lora["lora_name"]
+    cache = _by_type(g, "CacheDiT_Model_Optimizer")
+    cache_id = _id_of(g, "CacheDiT_Model_Optimizer")
+    ks = _by_type(g, "KSampler")
+    assert ks["model"] == [cache_id, 0]
+    assert ks["steps"] == 8 and ks["cfg"] == 1.0
+    assert ks["denoise"] == 0.75

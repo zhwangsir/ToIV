@@ -436,29 +436,28 @@ _PROFILES: dict[str, GenProfile] = {
 }
 
 # ╔══════════════════════════════════════════════════════════════════════════╗
-# ║  QWEN-IMAGE 编码器版本说明(2026-07-29 更新)                              ║
+# ║  QWEN-IMAGE 编码器版本说明(2026-08-28 真机实证修正)                      ║
 # ║                                                                          ║
-# ║  Qwen-Image 1.0 (2025-08) → Qwen2.5-VL 文本编码器                       ║
+# ║  Qwen-Image 1.0 (2025-08) → Qwen2.5-VL 文本编码器(3584 维)              ║
 # ║    文件名: qwen_2.5_vl_7b_fp8_scaled.safetensors (当前 worker 实测存在)  ║
 # ║                                                                          ║
-# ║  Qwen-Image 2.0 (2026-02/05) → Qwen3-VL 文本编码器(架构升级)            ║
-# ║    已下载 Qwen3-VL-8B-Instruct 满血;目录加载或单文件转换后使用           ║
-# ║    单文件转换后命名: qwen_3_vl_7b.safetensors / qwen_3_vl_8b.safetensors ║
-# ║    目录加载路径: text_encoders/qwen_3_vl_8b_instruct/                   ║
+# ║  Qwen-Image 2.0/2512 → Qwen3-VL 文本编码器(架构升级,2560 维)            ║
+# ║    单文件: qwen3vl_4b_fp8_scaled.safetensors (worker 已部署,备用)        ║
+# ║    ⚠️ 2512 基座未入库(2026-08-28 缺口,见 AGENTS 待办),入库后须把        ║
+# ║    该候选提回首位,否则 2512 会静默落到 3584 编码器报维度错。             ║
 # ║                                                                          ║
-# ║  Qwen-Image 3.0 (2026-07-21 发布预览) → 权重尚未开源,暂不支持            ║
-# ║                                                                          ║
+# ║  实证(2026-08-28 Phase 3A e2e):库内 qwen_image_fp8_e4m3fn.safetensors   ║
+# ║  为 1.0 基座——KSampler 报 normalized_shape=[3584] vs got [1,44,2560],   ║
+# ║  即 transformer 期望 Qwen2.5-VL(3584),而 qwen3vl_4b 输出 2560 维。      ║
 # ║  第一个候选为当前默认(必须已部署);其余为降级/兼容选项。                 ║
 # ╚══════════════════════════════════════════════════════════════════════════╝
 # 次世代图配方(worker :8002 /object_info 实测:节点存在、类型枚举含 qwen_image/flux2)。
 #    Z-Image 三件套(z_image_turbo/qwen_3_4b/ae)已在;FLUX.2 dev 用 mistral_3_small,Klein 用 qwen_3_4b。
 _QWEN_IMAGE_CLIP_CANDIDATES: tuple[str, ...] = (
-    # 当前默认: Qwen3-VL 4B 单文件 fp8(worker 实测存在,匹配 Qwen-Image 2.0 的 Qwen3-VL 架构)
-    # (2026-08-23 修正:原首选目录名 "qwen_3_vl_8b_instruct" 在 worker 上只以分片文件
-    #  model-0000X-of-00004 形式出现,first_available 永远命不中 → 静默落到 1.0 编码器)
-    "qwen3vl_4b_fp8_scaled.safetensors",
-    # Qwen-Image 1.0 兼容兜底
+    # 当前默认: Qwen2.5-VL 7B 单文件 fp8(3584 维,匹配库内 Qwen-Image 1.0 基座)
     "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+    # Qwen-Image 2.0/2512 兼容候选(2560 维;2512 基座入库后提回首位)
+    "qwen3vl_4b_fp8_scaled.safetensors",
 )
 _NEXTGEN_RECIPES: dict[str, NextgenRecipe] = {
     "qwen_image": NextgenRecipe(
