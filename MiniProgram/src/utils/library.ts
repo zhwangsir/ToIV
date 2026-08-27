@@ -168,7 +168,7 @@ export function kindLabel(kind: string): string {
     threed_material: '3D 材质',
     threed_render: '3D 渲染',
     threed_texture: '3D 纹理',
-    chromakey: '扣像',
+    chromakey: '抠像',
     i2l: '风格LoRA',
     motion_brush: '局部动效',
     wan_animate: '动作迁移',

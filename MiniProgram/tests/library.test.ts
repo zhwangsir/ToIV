@@ -127,7 +127,7 @@ describe('kindLabel', () => {
     expect(kindLabel('drama_shot_lipsync')).toBe('镜头对口型');
     expect(kindLabel('cad_front')).toBe('CAD');
     expect(kindLabel('drama_char_reference_hero')).toBe('角色参考');
-    expect(kindLabel('chromakey')).toBe('扣像');
+    expect(kindLabel('chromakey')).toBe('抠像');
     expect(kindLabel('i2l')).toBe('风格LoRA');
     expect(kindLabel('motion_brush')).toBe('局部动效');
     expect(kindLabel('wan_animate')).toBe('动作迁移');

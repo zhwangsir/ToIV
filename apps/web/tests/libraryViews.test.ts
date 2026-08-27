@@ -116,7 +116,7 @@ test("libraryQuery:chromakey/i2l/motion_brush/wan_animate* 分桶与短名", () 
   assert.equal(kindToFilter("motion_brush"), "image");
   assert.equal(kindToFilter("wan_animate"), "video");
   assert.equal(kindToFilter("wan_animate2"), "video");
-  assert.equal(kindLabel("chromakey"), "扣像");
+  assert.equal(kindLabel("chromakey"), "抠像");
   assert.equal(kindLabel("i2l"), "风格LoRA");
   assert.equal(kindLabel("motion_brush"), "局部动效");
   assert.equal(kindLabel("wan_animate"), "动作迁移");
