@@ -8,6 +8,45 @@
 
 ---
 
+## P2B-P3A-2026-08-28 · Phase 2B + Phase 3A + 助手全格式 + cache 调优（四线并行）
+
+**时间**: 2026-08-28（跨 08-27 深夜启动）
+**类型**: 全模型优化第三波（四线并行）
+
+### Phase 2B-1 VACE MagCache（commit 5de709f）
+
+- 兼容修复：ComfyUI-MagCache/TeaCache 与 ComfyUI 0.33 的 `precompute_freqs_cis` 死导入（0.33 改名实例方法 `_precompute_freqs_cis`）→ try/except 守卫补丁（符号仅 import 行使用），MagCache 节点三 worker 恢复加载
+- 链路事实：VACE 走 WanVideoWrapper（:8197），用 wrapper 内置 WanVideoMagCache（官方 14B 校准数组一致）；builder 加 accel=off/magcache（cache_thresh 0.06/k=2 官方 Wan2.1 校准），路由 /api/wan/vace、/api/generate/video-edit 透传
+- e2e（832×480/17 帧/20 步同 seed）：**采样段 69s→30s = 2.30x**（论文 2.68x@50 步口径）；SSIM All=0.9648、PSNR 36.2dB，抽帧无差异
+- 测试 11 例新，全量 2615 绿
+
+### Phase 2B-2 LongCat Avatar 8 NFE（commit be38e42）
+
+- 摸底更正：v1.5 早已上线（08-08，whisper-large-v3 + DMD2 rank128 LoRA + GGUF Q8_0 19GB——INT8/FP8 均 diffusers-quanto 格式 ComfyUI 不认，GGUF 已是唯一 8bit 形态，零资产下载）
+- 真实缺口：默认 steps=12 未对齐官方 DMD2 **8 NFE** → 四处同步改 8（builder/路由/注册表/前端 AvatarGenPanel）；回退=显式 steps=12
+- e2e（同图同音同 seed，93 帧单段）：**181.0s vs 224.0s = -19.2%**（采样段恰 1.5×，固定开销 ~95s）；抽帧口型/牙齿/身份无差
+- 测试 34 例绿，全量 2627 绿
+
+### Phase 3A Qwen Lightning + CacheDiT（commit 1433ba7）
+
+- 资产：Lightning 4/8 步 LoRA V2.0 bf16（平铺 loras/ 根目录）；CacheDiT v2.0.0 三 worker 装（ComfyUI 0.27/0.28/0.33 核心 API WrappersMP 兼容实证，无需补丁）
+- builder（workflows/nextgen.py）：accel 三档 off/turbo(4步)/turbo_cache(8步+CacheDiT warmup2 skip2)；非 qwen_image 显式请求加速档 422；**附带根治存量 P0：文本编码器候选 qwen3vl_4b(2560 维)→qwen_2.5_vl_7b(3584 维)——修复前 qwen_image txt2img 必然维度错失败**
+- e2e（「新年快乐」海报同 seed）：off 30.9s / turbo 6.3s（**7.0x**）/ turbo_cache 6.3s（**7.6x**，8 步质量还比 4 步快）；文字渲染三档全保留，底部小字加速档退化（蒸馏固有，hint 已引导）
+- 测试 20 例新，全量 2627 绿
+
+### AI 助手全格式文件识别（commit 441fac0）
+
+- 原仅 pdf/docx/txt/md → 扩展：xlsx（openpyxl 逐 sheet markdown 表）/ pptx（逐页提取）/ csv（摘要+30 行样本）/ json（结构摘要）/ 40+ 代码文本直读 / **图片经 reverse 链 Qwen3-VL 中文反推**（tiff/bmp PIL 转 PNG；VLM 失败 502 透传不伪装）；扫描件 PDF 标注「不可提取文本」不再 422
+- 统一 parse_document 入口 → 既有 split_chunks→Qwen3-Embedding-4B→余弦 top-6 RAG 注入体系零契约改动；新依赖 openpyxl/python-pptx（pyproject+requirements 双登记，core 已装）
+- 前端：DOC_ACCEPT 全格式 + lucide 类型图标（fileimage/filecode/sheet/filejson/slides，无 emoji）
+- 测试：后端 39 绿（+19）、前端 674 绿（+6）、tsc 0
+
+### cache 调优（commit 26b8f28）
+
+- cache_threshold 路由透出（video.py+generate.py，0.05-0.40 可选；空=默认 0.15）
+- 网格实验（高动态 i2v turbo_cache 热态）：0.15=50.5s / 0.20=45s / 0.25=45s——**短链（8 步）收益饱和，默认 0.15 维持**；交付=参数场景化可调（高动态 0.10 保守/静态 0.20+ 激进）
+- 四线全部部署生产（deploy.sh 全量 + core pip 装新依赖）
+
 ## PHASE2-2026-08-27 · Wan 系加速矩阵（基线→资产→builder→e2e 验收→三 worker 打通）
 
 **时间**: 2026-08-27

@@ -1492,6 +1492,11 @@
   "status": "done",
   "summary": "基线基建 scripts/bench/（lane 串行/热身独立 prompt 防执行缓存/held 换名追踪；longcat 136.1s、h3-t2v 186.6s、h3-i2v 205.2s 对照分母）；资产：Seko Lightning LoRA 4 枚（T2V V2.0/I2V V1，sha 校验）+ Wan2.2 FP8 底模四枚在库 + SageAttention 2.2 全 venv（sm_120 源码编译/woct0rdho win 轮，vs SDPA err 0.0165）+ KJNodes/EasyCache 原生全实例；builder：accel 三档（off/turbo/turbo_cache，Seko 成对挂+EasyCache×2，commits f0afb3d+4b0ce32）；e2e 18/18 全 done：turbo 草稿档 t2v 7.46×/i2v 7.81×、turbo_cache 成片档 t2v 4.88×/i2v 4.53×，VLM 评分与满血档区间重叠（0 degraded），双档验收通过投产；三 worker 打通：Seko 平铺 loras/ 根目录（NAS SMB 子目录 ACL 不继承教训）+ VHS/imageio-ffmpeg 补装 pc01/pc02，pc01 turbo i2v 生产实证 done；遗留：TeaCache/MagCache 独立节点与 ComfyUI 0.33 LTX API 不兼容（KJ 版顶替）、:8199 节点未装、flux2_dev_fp8mixed 在 toiv 库 pc 端不可见（LB 分发会 400，待迁主库）、cache_threshold 0.15→0.20-0.25 调优空间、mihomo 代理不可达（已走 ghfast.top，待网络负责人核查）"
  },
+ "phase2b_phase3a_2026_08_28": {
+  "name": "Phase 2B + Phase 3A + 助手全格式文件识别 + cache 调优（四线并行）",
+  "status": "done",
+  "summary": "VACE MagCache（5de709f）：修 0.33 兼容（precompute_freqs_cis 死导入守卫补丁），WanVideoMagCache 接入，off 69s→30s=2.30x，SSIM 0.9648/PSNR 36.2dB；LongCat Avatar（be38e42）：v1.5 早已上线（whisper-large-v3+DMD2 rank128+GGUF Q8 实证），对齐官方 8 NFE（steps 12→8）总提速 19.2%（采样段恰 1.5×），口型质量无差；Qwen Lightning+CacheDiT（1433ba7）：turbo 7.0x/turbo_cache 7.6x（墙钟 4.9x），「新年快乐」文字渲染三档全保留，附带根治存量 P0（TE 候选顺序错误致 qwen_image txt2img 必然维度错失败）；助手全格式文件识别（441fac0）：xlsx/pptx/csv/json/40+代码文本/图片 VLM 反推（复用 reverse 链）统一进 RAG 注入体系，新依赖 openpyxl/python-pptx 已装 core，39+674 测试全绿；cache 调优（26b8f28）：cache_threshold 路由透出（0.05-0.40 场景化可调），调优实验 0.15/0.20/0.25 高动态热态 45-50s 无显著差异（短链收益饱和），默认 0.15 维持；全部已部署生产"
+ },
  "canvas_ts_2026_08_23": {
   "name": "画布去标题 + 浏览器侧 Tailscale 化",
   "status": "done",
