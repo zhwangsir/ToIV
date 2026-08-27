@@ -171,6 +171,32 @@ async function raiseApiError(res: Response, fallback: string): Promise<never> {
   );
 }
 
+/**
+ * FastAPI 错误 detail 归一为可读字符串:字符串原样;422 形态数组([{loc,msg,type}])
+ * 逐项「字段路径: 消息」拼接——直接 new Error(数组) 只会得到 [object Object]
+ * (2026-08-27 助手「回复失败:[object Object]」根因之一)。
+ */
+export function apiErrorMessage(detail: unknown, fallback: string, status: number): string {
+  if (typeof detail === "string" && detail) return detail;
+  if (Array.isArray(detail) && detail.length > 0) {
+    const parts = detail
+      .map((d) => {
+        if (d && typeof d === "object") {
+          const rec = d as { loc?: unknown; msg?: unknown };
+          const loc = Array.isArray(rec.loc)
+            ? rec.loc.filter((p) => p !== "body").join(".")
+            : "";
+          const msg = typeof rec.msg === "string" ? rec.msg : "";
+          return loc ? `${loc}: ${msg}` : msg;
+        }
+        return String(d);
+      })
+      .filter(Boolean);
+    if (parts.length > 0) return parts.join("；");
+  }
+  return `${fallback} (${status})`;
+}
+
 /** 后端图片路径是相对的，拼成可访问 URL 并附带令牌（<img> 无法带请求头）。
  * 兼容：绝对 http(s) URL、以 / 开头的相对路径、缺少 / 的相对路径、空路径。
  */
@@ -1548,7 +1574,7 @@ export async function agentChat(
   }, { timeoutMs: 0 });
   if (!res.ok || !res.body) {
     const detail = await res.json().catch(() => null);
-    throw new Error(detail?.detail ?? `对话失败 (${res.status})`);
+    throw new Error(apiErrorMessage(detail?.detail, "对话失败", res.status));
   }
   const reader = res.body.getReader();
   const dec = new TextDecoder();
@@ -1696,7 +1722,7 @@ export async function agentChatStream(
   if (!res.ok || !res.body) {
     const detail = await res.json().catch(() => null);
     // 附带 HTTP status:前端据此区分「会话不存在(404,可降级新会话重试)」与真断连
-    const err = new Error(detail?.detail ?? `对话失败 (${res.status})`) as Error & { status?: number };
+    const err = new Error(apiErrorMessage(detail?.detail, "对话失败", res.status)) as Error & { status?: number };
     err.status = res.status;
     throw err;
   }
@@ -1736,7 +1762,7 @@ export async function agentChatResume(
   );
   if (!res.ok || !res.body) {
     const detail = await res.json().catch(() => null);
-    const err = new Error(detail?.detail ?? `提案回执失败 (${res.status})`) as Error & { status?: number };
+    const err = new Error(apiErrorMessage(detail?.detail, "提案回执失败", res.status)) as Error & { status?: number };
     err.status = res.status;
     throw err;
   }

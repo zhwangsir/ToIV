@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { deleteJob, fetchJobsPage, fetchTrash, getVideoUpscaleStatus, imageUrl, invalidateJobs, JOBS_PAGE_LIMIT, listJobs, permanentDeleteJob, purgeTrash, restoreJob, threeDOps, threeDTexture, undoDelete, upscaleVideo } from "@/lib/api";
 import { ENGINE_DRAFT_KEY } from "@/lib/engine";
@@ -1406,8 +1407,11 @@ export function LibraryView(props?: LibraryViewProps) {
       )}
 
       {/* 沉浸查看器:Frame.io 式左舞台 + 右元信息面板;←/→ 穿梭 + 快捷操作;
-          文件夹下钻内点开成员时穿梭范围限定为该组成员(lightboxScope) */}
-      {lightboxIdx !== null && lightboxJobs[lightboxIdx] && (
+          文件夹下钻内点开成员时穿梭范围限定为该组成员(lightboxScope)。
+          portal 到 body:.view-stage 的 view-transition-name 会创建层叠上下文
+          (自身层级 auto≈0),fixed 灯箱困于其中时被根层级的账户按钮(z-100)反压
+          盖住右上角关闭钮(2026-08-27 实证);portal 逃脱后 z-modal(300) 在根级生效 */}
+      {lightboxIdx !== null && lightboxJobs[lightboxIdx] && createPortal(
         <LibraryLightbox
           jobs={lightboxJobs as JobItem[]}
           index={lightboxIdx}
@@ -1418,7 +1422,8 @@ export function LibraryView(props?: LibraryViewProps) {
           onDelete={handleDelete}
           deletingId={deletingId}
           dialogsOpen={!!styleTarget || !!confirmDelete || !!confirmDeleteStyle || confirmBatchDelete || !!confirmUpscale}
-        />
+        />,
+        document.body,
       )}
 
       {/* 存为风格 Popover(WS4):锚定到触发按钮,命名后写入 toiv_style_cards */}

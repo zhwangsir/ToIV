@@ -39,6 +39,9 @@ const {
   isJobCardActive,
   jobCardStatusLabel,
   mediaTypeForJob,
+  buildApiMessages,
+  MAX_API_MESSAGES,
+  MAX_API_MESSAGE_CHARS,
 } = await import("../components/assistant/AssistantView");
 
 type ChatMessage = import("../components/assistant/AssistantView").ChatMessage;
@@ -253,6 +256,51 @@ test("markProposalResolved:落锤写入选择,卡片只读", () => {
   assert.equal(msgs[0].proposals?.[0].resolution, "modify");
   assert.equal(msgs[0].proposals?.[0].note, "改成夜景");
   assert.equal(msgs[0].proposals?.[1].resolution, undefined, "其他提案不受影响");
+});
+
+/* ── ⑤.5 buildApiMessages:2026-08-27 长会话 422「回复失败:[object Object]」根因修复 ── */
+test("buildApiMessages:总数超 MAX_API_MESSAGES 保留最近 N 条(尾部优先)", () => {
+  const msgs: ChatMessage[] = Array.from({ length: MAX_API_MESSAGES + 15 }, (_, i) =>
+    makeMsg(`m${i}`, i % 2 === 0 ? "user" : "assistant", { content: `第${i}条` }),
+  );
+  const out = buildApiMessages(msgs);
+  assert.equal(out.length, MAX_API_MESSAGES);
+  assert.equal(out[0].content, `第15条`, "应丢弃最旧 15 条");
+  assert.equal(out[out.length - 1].content, `第${MAX_API_MESSAGES + 14}条`);
+});
+
+test("buildApiMessages:单条超 MAX_API_MESSAGE_CHARS 截断并带标记;error 卡与非对话角色过滤", () => {
+  const longContent = "长".repeat(MAX_API_MESSAGE_CHARS + 500);
+  const sysMsg = { ...makeMsg("s1", "user", { content: "系统角色" }), role: "system" } as unknown as ChatMessage;
+  const msgs: ChatMessage[] = [
+    makeMsg("u1", "user", { content: "正常" }),
+    makeMsg("e1", "assistant", { content: "报错卡", kind: "error" }),
+    sysMsg,
+    makeMsg("u2", "user", { content: longContent }),
+  ];
+  const out = buildApiMessages(msgs);
+  assert.equal(out.length, 2, "error 卡与 system 角色应被过滤");
+  assert.equal(out[0].content, "正常");
+  assert.ok(out[1].content.length <= MAX_API_MESSAGE_CHARS + 6, "截断后长度应在上限+标记内");
+  assert.ok(out[1].content.endsWith("…(已截断)"), out[1].content.slice(-12));
+});
+
+test("buildApiMessages:正常会话原样通过(role/content 对)", () => {
+  const msgs: ChatMessage[] = [
+    makeMsg("u1", "user", { content: "你好" }),
+    makeMsg("a1", "assistant", { content: "你好,有什么可以帮你" }),
+  ];
+  assert.deepEqual(buildApiMessages(msgs), [
+    { role: "user", content: "你好" },
+    { role: "assistant", content: "你好,有什么可以帮你" },
+  ]);
+});
+
+test("LibraryView 灯箱:createPortal 到 document.body(逃脱 view-stage 层叠上下文,防账户按钮反压)", () => {
+  const src = readSrc("components/library/LibraryView.tsx");
+  assert.ok(src.includes('from "react-dom"'), "缺 react-dom import");
+  assert.ok(src.includes("createPortal("), "灯箱未走 createPortal");
+  assert.ok(src.includes("document.body"), "portal 目标不是 document.body");
 });
 
 test("jobCardStatusLabel / isJobCardActive / mediaTypeForJob", () => {

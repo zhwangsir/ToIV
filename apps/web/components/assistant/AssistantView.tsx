@@ -297,6 +297,27 @@ export function mediaTypeForJob(kind: string, url = ""): string {
   return mediaKindOf(url, kind);
 }
 
+/** 上送 API 的消息构造上限:后端契约 messages≤40 条、单条 content≤8000 字符,
+ *  前端留余量取下值——超限时整体 422(2026-08-27 长会话「回复失败:[object Object]」根因)。 */
+export const MAX_API_MESSAGES = 30;
+export const MAX_API_MESSAGE_CHARS = 7900;
+
+/** 上送 API 的消息列表构造(纯函数,单测锚点):过滤 error 卡;单条超长截断;
+ *  总数超限保留最近 N 条(会话开头是系统/首轮上下文,尾部才是近期语义)。 */
+export function buildApiMessages(msgs: ChatMessage[]): { role: string; content: string }[] {
+  const usable = msgs.filter(
+    (m) => (m.role === "user" || m.role === "assistant") && m.kind !== "error",
+  );
+  const tail = usable.length > MAX_API_MESSAGES ? usable.slice(-MAX_API_MESSAGES) : usable;
+  return tail.map((m) => ({
+    role: m.role,
+    content:
+      m.content.length > MAX_API_MESSAGE_CHARS
+        ? `${m.content.slice(0, MAX_API_MESSAGE_CHARS)}…(已截断)`
+        : m.content,
+  }));
+}
+
 /** 作业卡轮询快照回写(纯函数,单测锚点):进行中卡片按 job id / prompt_id 匹配
  *  列表行,推进状态;done 时灌入产物 URL(经 imageUrl 归一签名/相对路径)。
  *  无变化时原样返回(引用不变,避免轮询空转触发重渲染)。 */
@@ -1019,12 +1040,7 @@ export function AssistantView(props?: AssistantViewProps) {
       // 必须显式识别为失败;同理,流正常结束但零内容也按失败处理
       let streamError = false;
       try {
-        const apiMessages = baseMsgs
-          .filter(
-            (m) =>
-              (m.role === "user" || m.role === "assistant") && m.kind !== "error"
-          )
-          .map((m) => ({ role: m.role, content: m.content }));
+        const apiMessages = buildApiMessages(baseMsgs);
 
         let assistantMsg: ChatMessage | null = null;
 
