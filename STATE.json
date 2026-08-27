@@ -1481,6 +1481,11 @@
   "per_model_logic": "一律进 model_profiles.py，端点禁止硬编码 per-model 分支",
   "nsfw_access": "仅 /nsfw 路径 + X-NSFW: 1 请求头，无导航入口",
   "deploy": "不自动部署生产，deploy.sh 人工执行"
+},
+ "opt_p0_p1_2026_08_27": {
+  "name": "全模型优化 Phase 0+1+T0（硬件核实/零风险加速/安全红线）",
+  "status": "done",
+  "summary": "Phase0 硬件全核实（infra 六段纠偏，spark01=Qwen3-VL-32B-FP8 悬案定论：llama-3.3-70b 已下、权重留盘可回滚）；T0 安全八项（score SSRF 白名单/去 127 通配+重定向复验 11 点/raw 门控全模型键扫描+10eros 词表/studio files+opentalking status 认证/XFF 可信代理 TOIV_TRUSTED_PROXY_IPS/train 限流/二次加工 nsfw 继承；commits 0cde7f6+a2b1462）；P1 五项零风险加速——LatentSync DPM-Solver++ 10 步（71.2s→48.4s，-32%；core 步数默认贯通 74dd896）+IndexTTS BigVGAN CUDA kernel 首次生效（声码器段 -67~78%）+spark01 VLM max-num-seqs 16/chunked-prefill/async-scheduling（KV 池+25%）+spark02 FP8 KV+max-num-seqs 24（KV 池+48%）+ACE-Step 1.5（热态 10s 歌 0.93s vs 1.0 26.4s≈28x，turbo/quality/legacy 三档+长音乐上限 600s，41ea514 已部署生产）；修复 or 短路致 audio SSRF 白名单跳过真 bug（74dd896）；后端 2558 测试全绿"
  },
  "canvas_ts_2026_08_23": {
   "name": "画布去标题 + 浏览器侧 Tailscale 化",

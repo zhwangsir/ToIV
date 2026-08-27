@@ -6,6 +6,42 @@
 
 ---
 
+## OPT-P0P1-2026-08-27 · 全模型优化 Phase 0+1+T0（六线并行）
+
+**时间**: 2026-08-27
+**类型**: 全模型矩阵优化第一波（硬件核实 + 零风险加速 + 安全红线）
+
+### Phase 0 硬件实况核实（设备管家）
+
+- 全设备 SSH 只读核实；**spark01 悬案定论**：:8000 = Qwen3-VL-32B-Instruct-FP8（vLLM 容器 qwen3vl32b），llama-3.3-70b-abliterated 已于 08-08 下线（权重留盘 spark-models 可回滚）；设备指南过时、项目记录正确
+- workstation 9 个 ComfyUI 实例全活（:8188LB/8189/8195H3/8197LongCat→实绑GPU0/8199Animate2/8200Hunyuan3D/8261-8263超分）；29 个 toiv-*/comfyui-* systemd 全 active；GPU3 仅剩 7G 空闲（FlashTalk 50.7G+i2l+animate2）
+- STATE.json infra 六段纠偏（vlm_server/llm_brain/llm_nsfw_routing/trainer/tts/comfyui_cluster+pc01/pc02）
+
+### T0 安全红线（commits 0cde7f6 + a2b1462，八项）
+
+- **SSRF**：/api/score 两 endpoint 接入白名单；7 处白名单副本去 127.0.0.1 全端口通配（仅放行 api_base 自身端口）；11 个下载点加重定向复验 `_check_redirect`
+- **门控**：generate/raw 递归扫描全部 inputs 中模型扩展名字符串过 is_nsfw（堵 unet_name/lora_name 绕过）；model_profiles NSFW hints 补 `10eros`（10Eros R18 UNET 文件名此前任何门控命不中——绕过根因）
+- **认证**：studio/files、opentalking/status 补 get_current_user
+- **限流**：XFF 仅可信代理采纳（新配置 TOIV_TRUSTED_PROXY_IPS，默认空=不信任）；train 5 写端点限流（start/i2l count=3）
+- **nsfw 继承**：二次加工链五分支反查源 Job 继承 nsfw，查不到保守置 True
+- 新测 127+89 例全绿；**生产部署提醒**：core .env 须配 TOIV_TRUSTED_PROXY_IPS=127.0.0.1,::1
+
+### P1 零风险加速（五项，全部量化实证）
+
+| 项 | 改动 | 收益 |
+|---|---|---|
+| P1.1 LatentSync | DDIM 40 步 → DPM-Solver++ 10 步（steps_offset 清零+帧批重置两坑修复）；core 默认步数贯通（74dd896） | 10s 视频 71.2s→48.4s（**-32%**），抽帧目检质量一致 |
+| P1.4 IndexTTS | BigVGAN CUDA kernel 首次编译生效（nvcc-shim gcc-14 + CUDA_HOME，此前生产一直静默 fallback torch） | 声码器段 0.06-0.09s→0.02s（**-67~78%**） |
+| P1.2 spark01 VLM | max-num-seqs 8→16 + gpu-util 0.70→0.80 + chunked-prefill + async-scheduling（新容器 qwen3vl32b-v2，旧容器保留可 30s 回滚） | KV 池 49.95→62.25GiB（**+25%**），core 反推 e2e 过 |
+| P1.5 spark02 LLM | +kv-cache-dtype fp8 + max-num-seqs 16→24（vllm_node-v2；MTP 投机/双 parser 全保留） | KV 池同显存 638K→944K tok（**+48%**）；工具调用冒烟逐字一致、长上下文 12.4K tok 正常 |
+| P1.3 ACE-Step 1.5 | turbo AIO 8 步草稿 / base split 50 步成品 / legacy 1.0 三档；秒数上限 240→600；三 worker 节点原生具备 | 热态 10s 歌 **0.93s vs 26.4s ≈ 28x**；60s 长音乐 4.42s；41ea514 合回 main（997a387）并已 deploy.sh 上生产 |
+
+### 主控收尾（commit 74dd896）
+
+- **真 bug**：video_lipsync 端点 `_resolve_video_source(...) or _resolve_audio_source(...)` 的 or 短路——video 源继承 nsfw=True 时 audio 白名单校验被整段跳过（SSRF 绕过），两源校验改为各自执行；test_submit 断言对齐保守置 True 新语义
+- 教训：F 线 agent stash 工作区切分支致主控修改入 stash（wip-lipsync-dub），已 pop 恢复；**并行 agent 禁止 stash 含他人改动的工作区**
+- 全量回归：**2558 passed / 0 failed**（96.83s）
+
 ## MOBILE-MERGE-2026-08-27 · 移动端合并为 MiniProgram
 
 **时间**: 2026-08-27
