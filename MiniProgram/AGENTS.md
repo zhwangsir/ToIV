@@ -1,6 +1,6 @@
 # AGENTS.md — MiniProgram
 
-> **最后更新**：2026-08-27（项目管家文档治理）
+> **最后更新**：2026-08-27（作品库分桶 25cdc6a; 不要把 Mobile 写成现役）
 > **集群真相源**：`../AGENTS.md`（禁止把设备清单/凭据复制进本文件）
 > **文档五件套**：README.md / AGENTS.md / DEVELOPMENT.md / STATE.json / TEST_LOG.md
 

@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-08-27 evening Gitee main 25cdc6a; GitHub still a8ac995 (push blocked). ACE-Step 41ea514+997a387 on remote. lipsync 74dd896. library df09aee+25cdc6a buckets. MiniProgram 591; web 660. Do not treat Mobile as live.
+
 - 2026-08-27 项目管家文档治理：根目录收敛为 5 件套。
 
 # ToIV · 测试日志（TEST_LOG）

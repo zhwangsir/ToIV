@@ -98,3 +98,5 @@ Web 端（`apps/web`）当前真实模块（见 `app/page.tsx` 的 `VIEW_META`�
 - github：GitHub，https://github.com/zhwangsir/ToIV.git
 
 两边都推。未要求不要提交。模型与产物放 NAS，不入库。
+
+2026-08-27 晚：Gitee main 25cdc6a；GitHub 仍 a8ac995（推送被拦，不强推）。ACE-Step 1.5（41ea514 / 997a387）已在 Gitee main，生产此前已部署过。作品库 Job.kind：chromakey 视频/抠像；wan_animate 视频/动作迁移；wan_animate2 视频/动作迁移2；i2l 图像/风格LoRA（POST /api/train/i2l 目前不建 Job）；motion_brush 图像/局部动效（目前只出 mask 文件名）。引擎 id wan-animate / wan-animate-2 仍进其他。不要把 Mobile/ 写成现役。

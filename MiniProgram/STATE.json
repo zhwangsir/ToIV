@@ -14,11 +14,11 @@
  },
  "updated_at": "2026-08-27",
  "library_buckets_2026_08_27": {
-  "commit": "a95e174",
-  "remotes": "origin and github main both a95e174",
-  "tests": "590 passed / 26 files; typecheck pass",
-  "still_other": ["chromakey", "i2l", "motion_brush", "wan_animate", "wan_animate2"],
-  "note": "Job.kind buckets. Mobile archived. ACE-Step not on remote main."
+  "commit": "25cdc6a",
+  "remotes": "Gitee 25cdc6a; GitHub still a8ac995 push blocked",
+  "tests": "591 passed; typecheck green",
+  "still_other_engine_ids": ["wan-animate", "wan-animate-2"], "now_bucketed": "chromakey video, wan_animate video, wan_animate2 video, i2l image no Job, motion_brush image mask",
+  "note": "Job.kind buckets. Do not treat Mobile as live. five kinds now bucketed; engine ids wan-animate wan-animate-2 still other; no create pages."
  },
  "engines_sync_2026_08_27": {
   "commit": "f261f45",

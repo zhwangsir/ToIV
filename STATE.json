@@ -1,7 +1,7 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-27T18:30:00+08:00",
+ "updated_at": "2026-08-27T19:42:00+08:00",
  "mobile_merge_2026_08_27": {
   "status": "pushed_main",
   "branch": "main",
@@ -12,11 +12,11 @@
   "note": "Do not treat Mobile/ as a live subproject. Merged to main and dual-pushed 2026-08-27."
  },
  "miniprogram_library_buckets_2026_08_27": {
-  "commit": "a95e174",
-  "remotes": "origin and github main both a95e174",
-  "tests": "590 passed / 26 files; typecheck pass",
-  "still_other": ["chromakey", "i2l", "motion_brush", "wan_animate", "wan_animate2"],
-  "note": "Job.kind buckets. Mobile archived. Local ACE-Step 41ea514 not on remote main."
+  "commit": "25cdc6a",
+  "remotes": "Gitee 25cdc6a; GitHub still a8ac995 push blocked",
+  "tests": "MiniProgram 591; web 660; typecheck green",
+  "still_other_engine_ids": ["wan-animate", "wan-animate-2"], "now_bucketed": "chromakey video, wan_animate video, wan_animate2 video, i2l image no Job, motion_brush image mask",
+  "note": "Job.kind buckets. Do not treat Mobile as live. ACE-Step 41ea514+997a387 on Gitee main. lipsync 74dd896. five kinds now bucketed; no create pages."
  },
  "miniprogram_engines_2026_08_27": {
   "commit": "f261f45",

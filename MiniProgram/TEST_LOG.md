@@ -1,12 +1,12 @@
 # TEST_LOG.md — MiniProgram
 
-- 2026-08-27 library buckets a95e174
+- 2026-08-27 library buckets 25cdc6a
 - image: qwen_edit drama_grid_storyboard drama_scene_layout drama_char_reference_*
 - video: h3_multishot video_upscale transition video_edit keyframe_chain drama_shot_video* drama_shot_lipsync
 - audio: manju_voice
 - 3d: threed_material threed_render threed_texture cad_*
-- still other: chromakey i2l motion_brush wan_animate wan_animate2
-- tests 590 passed, typecheck pass; Mobile archived; ACE-Step not on remote
+- bucketed: chromakey video, wan_animate video, wan_animate2 video, i2l image no Job, motion_brush image mask; engine ids wan-animate wan-animate-2 still other
+- tests 591 passed, typecheck green; Mobile archived; ACE-Step 41ea514 on Gitee main
 
 - 2026-08-27 创作页引擎追上现役注册表（main `f261f45`）：新增 qwen-image-edit / h3-multishot / wan-transition / keyframe-chain / vace-edit / wan-animate-2 / wan-nsfw-i2v；移除 ltx25-*。vitest 580 passed。作品库新 kind 仍进「其他」。Expo Mobile 仍是归档，不是在维护的客户端。
 
