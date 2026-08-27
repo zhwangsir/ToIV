@@ -110,6 +110,13 @@ class Settings(BaseSettings):
     jwt_secret: str = "dev-insecure-change-me-in-production-please-set-TOIV_JWT_SECRET"
     jwt_expire_minutes: int = 10080  # 7 天
 
+    # 可信反向代理网段(逗号分隔 CIDR 或单 IP):仅当请求的直连对端(request.client.host)
+    # 属于该清单时,登录限流才采纳 X-Forwarded-For 首跳作为真实客户端 IP。
+    # 默认空 = 不信任任何 XFF,直接用直连 IP——防攻击者伪造 XFF 换 IP 绕过登录限流。
+    # 生产 core 前置 OpenResty/frp 反代,必须把反代出口 IP 配进来(如 127.0.0.1,::1
+    # 或 LAN 反代 IP),否则限流主体退化为反代 IP(同反代后所有用户共享配额)。
+    trusted_proxy_ips: str = ""
+
     # 启动时引导管理员账号(密码经环境变量/.env 提供，不入仓库)。
     # 二者皆非空时：不存在则创建该 admin；存在则提升为 admin。
     admin_email: str = ""

@@ -181,11 +181,11 @@ def _shape_response(rest: str, r: httpx.Response) -> Response | None:
     return None
 
 
-# ---------- 状态探活(无需鉴权, 供前端首屏判断是否降级) ----------
+# ---------- 状态探活(需鉴权:返回内部引擎模型/tts_provider 指纹,不对外匿名暴露) ----------
 
 
 @router.get("/opentalking/status")
-async def ot_status() -> dict[str, Any]:
+async def ot_status(user: User = Depends(get_current_user)) -> dict[str, Any]:
     settings = get_settings()
     if not settings.opentalking_enabled:
         return {"enabled": False, "reachable": False}

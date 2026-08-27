@@ -368,6 +368,24 @@ def _verify_images_ownership(session, user: User, qs: dict[str, list[str]]) -> b
     return src_nsfw
 
 
+def _inherit_nsfw_by_filename(session, user: User, name: str) -> bool:
+    """按产物文件名反查源 Job 继承其 nsfw 标记(二次加工链 R18 打标继承)。
+
+    查询口径与 /api/images 分支一致(result LIKE 文件名、本人/同租户、最新优先);
+    查不到源 Job 时保守置 True——宁严勿宽:R18 源片经超分/抠像/对口型后以
+    SFW 标记进主站作品库是内容红线,反向误伤(查不到归属的旧产物标 R18)可接受。
+    """
+    from sqlmodel import select
+
+    src_job = session.exec(
+        select(Job)
+        .where(Job.result.like(f"%{name}%"))
+        .where((Job.user_id == user.id) | (Job.tenant_id == user.tenant_id))
+        .order_by(Job.created_at.desc())  # type: ignore[attr-defined]
+    ).first()
+    return bool(src_job.nsfw) if src_job else True
+
+
 def resolve_source_ownership(session, user: User, video_url: str) -> bool:
     """入站校验:URL 形态白名单 + 归属;返回新作业应继承的 nsfw 标记。"""
     from fastapi import HTTPException
@@ -381,21 +399,21 @@ def resolve_source_ownership(session, user: User, video_url: str) -> bool:
             raise HTTPException(status_code=422, detail="非法的成片文件名")
         if not (drama_output_root() / name).is_file():
             raise HTTPException(status_code=404, detail="源视频文件不存在")
-        return False
+        return _inherit_nsfw_by_filename(session, user, name)
     if url.startswith("/api/studio/files/"):
         name = url.rsplit("/", 1)[-1]
         if not re.fullmatch(r"[\w.-]{1,128}", name) or ".." in name:
             raise HTTPException(status_code=422, detail="非法的工作室文件名")
         if not (drama_output_root() / "studio" / name).is_file():
             raise HTTPException(status_code=404, detail="源视频文件不存在")
-        return False
+        return _inherit_nsfw_by_filename(session, user, name)
     if url.startswith("/api/video/upscale/output/"):
         name = url.rsplit("/", 1)[-1]
         if not OUTPUT_NAME_RE.fullmatch(name):
             raise HTTPException(status_code=422, detail="非法的超分产物文件名")
         if not (product_root() / name).is_file():
             raise HTTPException(status_code=404, detail="源视频文件不存在")
-        return False
+        return _inherit_nsfw_by_filename(session, user, name)
     if url.startswith("/api/video/chromakey/output/"):
         # 抠像产物(M6)可再入链(二次抠像/超分);regex 与 routes/chromakey 保持一致
         name = url.rsplit("/", 1)[-1]
@@ -403,7 +421,7 @@ def resolve_source_ownership(session, user: User, video_url: str) -> bool:
             raise HTTPException(status_code=422, detail="非法的抠像产物文件名")
         if not (content_subdir("chromakey") / name).is_file():
             raise HTTPException(status_code=404, detail="源视频文件不存在")
-        return False
+        return _inherit_nsfw_by_filename(session, user, name)
     if url.startswith("/api/video/lipsync/output/"):
         # 对口型产物可再入链(超分/二次对口型);regex 与 routes/video_lipsync 保持一致
         name = url.rsplit("/", 1)[-1]
@@ -411,7 +429,7 @@ def resolve_source_ownership(session, user: User, video_url: str) -> bool:
             raise HTTPException(status_code=422, detail="非法的对口型产物文件名")
         if not (content_subdir("lipsync") / name).is_file():
             raise HTTPException(status_code=404, detail="源视频文件不存在")
-        return False
+        return _inherit_nsfw_by_filename(session, user, name)
     raise HTTPException(
         status_code=422,
         detail="不支持的视频来源(需作品库产物 /api/images、短剧成片或工作室文件 URL)",

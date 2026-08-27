@@ -585,7 +585,10 @@ _MEDIA_TYPES = {
 
 
 @router.get("/studio/files/{name}", response_model=None)
-def studio_file(name: str) -> FileResponse:
+def studio_file(
+    name: str,
+    user: User = Depends(get_current_user),
+) -> FileResponse:
     """Studio 产出静图/片段/配音文件(渲染器落盘目录,NAS 优先降级本地)。
 
     路径穿越防护:仅允许纯文件名(拒绝任何含路径分隔的输入)。

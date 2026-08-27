@@ -150,3 +150,64 @@ def test_speak_audio_engine_disabled_503(client_token, monkeypatch):
         files={"file": ("speech.webm", b"x", "audio/webm")},
     )
     assert r.status_code == 503
+
+
+# ---------- /opentalking/status 探活(T0 红线修复:需鉴权,防内部服务指纹外泄) ----------
+
+
+def test_status_requires_auth(client_token):
+    """未认证 → 401(修复前匿名可达,暴露引擎模型/tts_provider 指纹)。"""
+    client, _ = client_token
+    assert client.get("/api/opentalking/status").status_code == 401
+
+
+def test_status_engine_disabled(client_token, monkeypatch):
+    """认证后:引擎未启用 → enabled=False,不触达上游。"""
+    monkeypatch.setattr(
+        "app.routes.opentalking.get_settings",
+        lambda: SimpleNamespace(opentalking_enabled=False, opentalking_base_url=""),
+    )
+    client, token = client_token
+    r = client.get(
+        "/api/opentalking/status",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 200
+    assert r.json() == {"enabled": False, "reachable": False}
+
+
+def test_status_reachable_includes_fingerprint(client_token, monkeypatch):
+    """认证后:引擎可达 → reachable=True 并透出 model/tts_provider(仅登录用户可见)。"""
+
+    class _HealthResp:
+        status_code = 200
+
+        def json(self):
+            return {"llm_model": "qwen-x", "tts_provider": "indextts"}
+
+    class _GetClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def get(self, url):
+            assert url == "http://ot.test/health"
+            return _HealthResp()
+
+    _enable_engine(monkeypatch)
+    monkeypatch.setattr(
+        "app.routes.opentalking.httpx.AsyncClient",
+        lambda *a, **k: _GetClient(),
+    )
+    client, token = client_token
+    r = client.get(
+        "/api/opentalking/status",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["reachable"] is True
+    assert body["model"] == "qwen-x"
+    assert body["tts_provider"] == "indextts"

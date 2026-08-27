@@ -106,24 +106,114 @@ def test_login_rate_limit_isolated_by_account(client):
     _hits.clear()
 
 
-def test_login_rate_limit_honors_x_forwarded_for(client):
-    """反代场景:X-Forwarded-For 首跳作为限流主体;不同来源 IP 互不影响。"""
-    from app.ratelimit import _hits
+def test_login_rate_limit_honors_x_forwarded_for(client, monkeypatch):
+    """反代场景:直连对端属可信代理网段(TOIV_TRUSTED_PROXY_IPS)时,
+    X-Forwarded-For 首跳作为限流主体;不同来源 IP 互不影响。"""
+    from types import SimpleNamespace
 
+    from app.ratelimit import _hits
+    from app.routes import auth as auth_mod
+
+    monkeypatch.setattr(
+        auth_mod, "get_settings",
+        lambda: SimpleNamespace(trusted_proxy_ips="10.0.0.0/8"),
+    )
     _hits.clear()
+    # 反代出口 10.0.0.2(在可信网段内):XFF 生效
+    proxy = TestClient(app, client=("10.0.0.2", 50000))
     for _ in range(6):
-        client.post(
+        proxy.post(
             "/api/auth/login",
             json={"email": "brute", "password": "x"},
             headers={"X-Forwarded-For": "203.0.113.9"},
         )
-    r = client.post(
+    r = proxy.post(
         "/api/auth/login",
         json={"email": "brute", "password": "x"},
         headers={"X-Forwarded-For": "203.0.113.10"},
     )
     assert r.status_code == 401  # 新 IP 不受旧 IP 限制影响(401=凭据错,非 429)
     _hits.clear()
+
+
+def test_login_rate_limit_ignores_xff_without_trusted_proxy(client, monkeypatch):
+    """未配置可信代理(默认):XFF 被忽略,限流主体为直连 IP——伪造 XFF 换 IP 绕过限流无效。"""
+    from types import SimpleNamespace
+
+    from app.ratelimit import _hits
+    from app.routes import auth as auth_mod
+
+    monkeypatch.setattr(
+        auth_mod, "get_settings",
+        lambda: SimpleNamespace(trusted_proxy_ips=""),
+    )
+    _hits.clear()
+    for _ in range(5):
+        r = client.post(
+            "/api/auth/login",
+            json={"email": "brute", "password": "x"},
+            headers={"X-Forwarded-For": "203.0.113.9"},
+        )
+        assert r.status_code == 401
+    # 换 XFF 也逃不掉:主体仍是直连对端(TestClient 默认 "testclient"),第 6 次 429
+    r = client.post(
+        "/api/auth/login",
+        json={"email": "brute", "password": "x"},
+        headers={"X-Forwarded-For": "203.0.113.10"},
+    )
+    assert r.status_code == 429
+    _hits.clear()
+
+
+def test_login_rate_limit_ignores_xff_from_untrusted_direct(client, monkeypatch):
+    """配置了可信代理,但直连对端不在清单内(绕过反代直连):XFF 仍被忽略。"""
+    from types import SimpleNamespace
+
+    from app.ratelimit import _hits
+    from app.routes import auth as auth_mod
+
+    monkeypatch.setattr(
+        auth_mod, "get_settings",
+        lambda: SimpleNamespace(trusted_proxy_ips="10.0.0.0/8"),
+    )
+    _hits.clear()
+    direct = TestClient(app, client=("192.0.2.1", 50000))  # 不在 10.0.0.0/8
+    for _ in range(5):
+        r = direct.post(
+            "/api/auth/login",
+            json={"email": "brute", "password": "x"},
+            headers={"X-Forwarded-For": "203.0.113.9"},
+        )
+        assert r.status_code == 401
+    r = direct.post(
+        "/api/auth/login",
+        json={"email": "brute", "password": "x"},
+        headers={"X-Forwarded-For": "203.0.113.10"},
+    )
+    assert r.status_code == 429  # 主体恒为直连 192.0.2.1
+    _hits.clear()
+
+
+def test_is_trusted_proxy_parsing(monkeypatch):
+    """_is_trusted_proxy:单 IP / CIDR / 非法配置项 / 非 IP 对端 / 空清单各分支。"""
+    from types import SimpleNamespace
+
+    from app.routes import auth as auth_mod
+
+    monkeypatch.setattr(
+        auth_mod, "get_settings",
+        lambda: SimpleNamespace(trusted_proxy_ips="127.0.0.1, 10.0.0.0/8,bad-entry"),
+    )
+    assert auth_mod._is_trusted_proxy("127.0.0.1") is True
+    assert auth_mod._is_trusted_proxy("10.1.2.3") is True
+    assert auth_mod._is_trusted_proxy("192.168.1.1") is False
+    assert auth_mod._is_trusted_proxy("not-an-ip") is False  # TestClient 默认对端
+    assert auth_mod._is_trusted_proxy("") is False
+    # 空清单 = 不信任任何对端
+    monkeypatch.setattr(
+        auth_mod, "get_settings", lambda: SimpleNamespace(trusted_proxy_ips="")
+    )
+    assert auth_mod._is_trusted_proxy("127.0.0.1") is False
 
 
 def test_login_account_case_insensitive(client):
@@ -180,7 +270,10 @@ def testkey_client(monkeypatch):
         )
         s.commit()
     # 仅替换 auth 路由模块内的 get_settings(测试通道开关),不影响全局配置
-    fake = SimpleNamespace(test_key="secret-test-key", admin_email="admin")
+    # trusted_proxy_ips 一并配置:XFF 相关用例(按来源 IP 隔离限流)才有生效前提
+    fake = SimpleNamespace(
+        test_key="secret-test-key", admin_email="admin", trusted_proxy_ips="10.0.0.0/8"
+    )
     monkeypatch.setattr("app.routes.auth.get_settings", lambda: fake)
     yield TestClient(app)
     app.dependency_overrides.clear()
@@ -217,14 +310,18 @@ def test_test_login_wrong_key_rate_limited(testkey_client):
 
 
 def test_test_login_rate_limit_isolated_by_ip(testkey_client):
-    """限流主体为 IP+端点:换来源 IP 后正确密钥仍可 200(不受上个用例/本用例旧计数影响)。"""
+    """限流主体为 IP+端点:换来源 IP 后正确密钥仍可 200(不受上个用例/本用例旧计数影响)。
+
+    XFF 仅在直连对端属可信代理网段时生效(testkey fixture 已配 10.0.0.0/8)。
+    """
+    proxy = TestClient(app, client=("10.0.0.2", 50000))
     for _ in range(6):
-        testkey_client.post(
+        proxy.post(
             "/api/auth/test-login",
             json={"key": "wrong"},
             headers={"X-Forwarded-For": "203.0.113.9"},
         )
-    r = testkey_client.post(
+    r = proxy.post(
         "/api/auth/test-login",
         json={"key": "secret-test-key"},
         headers={"X-Forwarded-For": "203.0.113.10"},

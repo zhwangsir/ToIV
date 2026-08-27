@@ -339,6 +339,86 @@ def test_rerun_registry_includes_video_upscale():
 
 
 # ---------------------------------------------------------------------------
+# 二次加工链 NSFW 标记继承(T0 红线:R18 源片经超分/抠像/对口型不得以 SFW 进主站)
+# ---------------------------------------------------------------------------
+
+
+def _mk_result_job(engine, uid: str, prompt_id: str, urls: list[str], nsfw: bool) -> None:
+    with Session(engine) as s:
+        user = s.get(User, uid)
+        s.add(Job(
+            tenant_id=user.tenant_id, user_id=uid, prompt_id=prompt_id,
+            worker="http://w", kind="ltx_i2v", status="done", seed=1, nsfw=nsfw,
+            result=json.dumps(urls),
+        ))
+        s.commit()
+
+
+def test_resolve_drama_source_inherits_nsfw(ctx, monkeypatch):
+    """drama 成片源:源 Job nsfw=True → 继承 True;nsfw=False → 保持 False。"""
+    _, _, engine, uid, tmp_path = ctx
+    monkeypatch.setattr(svc, "drama_output_root", lambda: tmp_path)
+    r18_name = "drama-" + "a" * 32 + ".mp4"
+    sfw_name = "drama-" + "b" * 32 + ".mp4"
+    (tmp_path / r18_name).write_bytes(_MP4)
+    (tmp_path / sfw_name).write_bytes(_MP4)
+    _mk_result_job(engine, uid, "p-r18", [f"/api/drama/output/{r18_name}"], True)
+    _mk_result_job(engine, uid, "p-sfw", [f"/api/drama/output/{sfw_name}"], False)
+    with Session(engine) as s:
+        user = s.get(User, uid)
+        assert svc.resolve_source_ownership(s, user, f"/api/drama/output/{r18_name}") is True
+        assert svc.resolve_source_ownership(s, user, f"/api/drama/output/{sfw_name}") is False
+
+
+def test_resolve_source_unknown_job_conservative_true(ctx, monkeypatch):
+    """文件存在但查不到源 Job(旧产物/跨租户):保守置 True(宁严勿宽)。"""
+    _, _, engine, uid, tmp_path = ctx
+    monkeypatch.setattr(svc, "drama_output_root", lambda: tmp_path)
+    name = "drama-" + "c" * 32 + ".mp4"
+    (tmp_path / name).write_bytes(_MP4)
+    with Session(engine) as s:
+        user = s.get(User, uid)
+        assert svc.resolve_source_ownership(s, user, f"/api/drama/output/{name}") is True
+
+
+def test_resolve_chain_branches_inherit_nsfw(ctx, monkeypatch):
+    """studio/upscale/chromakey/lipsync 四分支同样按文件名反查源 Job 继承 nsfw。"""
+    _, _, engine, uid, tmp_path = ctx
+    (tmp_path / "studio").mkdir()
+    (tmp_path / "chromakey").mkdir()
+    (tmp_path / "lipsync").mkdir()
+    names = {
+        "studio": "shot-clip1.mp4",
+        "upscale": "upscale-" + "d" * 32 + ".mp4",
+        "chromakey": "chromakey-" + "e" * 32 + ".mp4",
+        "lipsync": "lipsync-" + "f" * 32 + ".mp4",
+    }
+    (tmp_path / "studio" / names["studio"]).write_bytes(_MP4)
+    (tmp_path / names["upscale"]).write_bytes(_MP4)
+    (tmp_path / "chromakey" / names["chromakey"]).write_bytes(_MP4)
+    (tmp_path / "lipsync" / names["lipsync"]).write_bytes(_MP4)
+    monkeypatch.setattr(svc, "drama_output_root", lambda: tmp_path)
+    monkeypatch.setattr(svc, "product_root", lambda: tmp_path)
+    monkeypatch.setattr(svc, "content_subdir", lambda n: tmp_path / n)
+    _mk_result_job(
+        engine, uid, "p-chain",
+        [
+            f"/api/studio/files/{names['studio']}",
+            f"/api/video/upscale/output/{names['upscale']}",
+            f"/api/video/chromakey/output/{names['chromakey']}",
+            f"/api/video/lipsync/output/{names['lipsync']}",
+        ],
+        True,
+    )
+    with Session(engine) as s:
+        user = s.get(User, uid)
+        assert svc.resolve_source_ownership(s, user, f"/api/studio/files/{names['studio']}") is True
+        assert svc.resolve_source_ownership(s, user, f"/api/video/upscale/output/{names['upscale']}") is True
+        assert svc.resolve_source_ownership(s, user, f"/api/video/chromakey/output/{names['chromakey']}") is True
+        assert svc.resolve_source_ownership(s, user, f"/api/video/lipsync/output/{names['lipsync']}") is True
+
+
+# ---------------------------------------------------------------------------
 # Job 流程(mock fleet + mock ffmpeg,直连 run_pipeline)
 # ---------------------------------------------------------------------------
 

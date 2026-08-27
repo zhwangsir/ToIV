@@ -381,10 +381,13 @@ def test_studio_file_serving(ctx, monkeypatch, tmp_path):
     (out / "x.mp4").write_bytes(b"fake-mp4")
     monkeypatch.setattr(storage, "drama_output_root", lambda: tmp_path)
 
-    client, _ = ctx
-    r = client.get("/api/studio/files/x.mp4")
+    client, token = ctx
+    H = _h(token)
+    # 未认证 → 401(T0 红线修复:此前是 13 个同类文件端点中唯一无鉴权的)
+    assert client.get("/api/studio/files/x.mp4").status_code == 401
+    r = client.get("/api/studio/files/x.mp4", headers=H)
     assert r.status_code == 200 and r.content == b"fake-mp4"
     assert r.headers["content-type"] == "video/mp4"
     # 不存在 → 404;路径穿越 → 400(或路由不匹配 404/405,绝不放行)
-    assert client.get("/api/studio/files/none.mp4").status_code == 404
-    assert client.get("/api/studio/files/..%2F..%2Fsecret").status_code in (400, 404, 405)
+    assert client.get("/api/studio/files/none.mp4", headers=H).status_code == 404
+    assert client.get("/api/studio/files/..%2F..%2Fsecret", headers=H).status_code in (400, 404, 405)

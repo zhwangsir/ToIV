@@ -23,6 +23,7 @@ from app.config import get_settings
 from app.db import engine, get_session
 from app.deps import get_current_user, get_pool
 from app.models import TrainJob, User
+from app.ratelimit import enforce_generation_rate_limit
 from app.workflows.model_profiles import detect_model_family
 
 logger = logging.getLogger(__name__)
@@ -76,6 +77,8 @@ async def upload_dataset(
     session: Session = Depends(get_session),
 ) -> DatasetUploadResponse:
     """上传训练数据集图片(10-30 张)。通过 HTTP 转发给 trainer agent 存本地。"""
+    # 训练链写操作统一限流(generation 档):数据集上传是训练链入口
+    enforce_generation_rate_limit(user)
     if not files:
         raise HTTPException(status_code=400, detail="请至少上传一张图片")
     if len(files) > 50:
@@ -151,6 +154,8 @@ async def caption_dataset(
     session: Session = Depends(get_session),
 ) -> CaptionResponse:
     """调 trainer agent 用 Florence2 给数据集自动打标(生成 .txt 标签文件)。"""
+    # 打标占 trainer GPU(Florence2 推理):generation 档限流
+    enforce_generation_rate_limit(user)
     job = session.exec(
         select(TrainJob).where(TrainJob.id == body.job_id, TrainJob.user_id == user.id)
     ).first()
@@ -224,6 +229,9 @@ async def start_training(
     pool: WorkerPool = Depends(get_pool),
 ) -> TrainStartResponse:
     """启动 LoRA 训练:调 trainer agent + 摘流该卡出图。"""
+    # LoRA 训练是平台最贵 GPU 操作(独占一卡数小时):按 3 倍生成配额计数,
+    # 60s 窗口内最多 6 次启动,防批量提交打爆 trainer(与 drama 角色三视图同档)
+    enforce_generation_rate_limit(user, count=3)
     job = session.exec(
         select(TrainJob).where(TrainJob.id == body.job_id, TrainJob.user_id == user.id)
     ).first()
@@ -418,6 +426,7 @@ def register_lora(
     实际注册逻辑:LoRA 文件落 NAS loras/ 后 ComfyUI 自动发现(已有 LoraLoader 节点)。
     此端点仅更新 TrainJob 状态 + 返回 LoRA 文件名供前端使用。
     """
+    enforce_generation_rate_limit(user)
     job = session.exec(
         select(TrainJob).where(TrainJob.id == job_id, TrainJob.user_id == user.id)
     ).first()
@@ -510,6 +519,9 @@ async def i2l_style_lora(
     转发对它不适用。LoRA 产物由 agent 直落 NAS loras/(ComfyUI
     LoraLoaderModelOnly 自动发现),返回字段与 register_lora 端点风格对齐。
     """
+    # i2L 单次前向即出 LoRA(独占 GPU3 ~26G 常驻服务):与 /train/start 同档,
+    # 按 3 倍生成配额计数,防批量提交打爆 i2l agent
+    enforce_generation_rate_limit(user, count=3)
     base = _i2l_base()
 
     name = lora_name.strip()

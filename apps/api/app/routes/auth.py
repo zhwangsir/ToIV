@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import hmac
+import ipaddress
 import secrets
 
 import httpx
@@ -54,14 +55,48 @@ def _user_dict(user: User) -> dict:
     }
 
 
+def _is_trusted_proxy(host: str) -> bool:
+    """直连对端是否属于可信反代网段(TOIV_TRUSTED_PROXY_IPS,逗号分隔 CIDR/IP)。
+
+    默认空清单 = 不信任任何对端;非法配置项静默跳过(防配置笔误锁死登录)。
+    """
+    # getattr 兜底:测试常用 SimpleNamespace 替身替换 get_settings(不含本字段)
+    raw = getattr(get_settings(), "trusted_proxy_ips", "") or ""
+    if not raw.strip() or not host:
+        return False
+    try:
+        addr = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    for item in raw.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        try:
+            if "/" in item:
+                if addr in ipaddress.ip_network(item, strict=False):
+                    return True
+            elif addr == ipaddress.ip_address(item):
+                return True
+        except ValueError:
+            continue
+    return False
+
+
 def _client_ip(request: Request) -> str:
-    """取真实客户端 IP:经反代(OpenResty/Nginx)时取 X-Forwarded-For 首跳。"""
+    """取真实客户端 IP:仅当直连对端属于可信反代网段时才采纳 X-Forwarded-For 首跳。
+
+    默认(未配置可信网段)忽略 XFF 直接用 request.client.host——防攻击者伪造
+    XFF 换 IP 绕过登录限流;生产前置反代(OpenResty/frp)需在 .env 配置
+    TOIV_TRUSTED_PROXY_IPS 指向反代出口 IP 后 XFF 才生效。
+    """
+    direct = request.client.host if request.client else ""
     xff = request.headers.get("x-forwarded-for")
-    if xff:
+    if xff and _is_trusted_proxy(direct):
         first = xff.split(",")[0].strip()
         if first:
             return first
-    return request.client.host if request.client else "unknown"
+    return direct or "unknown"
 
 
 @router.post("/auth/login")

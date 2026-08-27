@@ -148,3 +148,82 @@ def test_nas_download_rate_limited_429(ctx, monkeypatch):
         headers=_auth(token),
     )
     assert r.status_code == 429
+
+
+# ── /api/train 写端点(T0 红线修复:LoRA 训练是平台最贵 GPU 操作,此前全部无限流) ──
+
+
+def test_train_write_endpoints_call_limiter(ctx, monkeypatch):
+    """train 五个写端点均接限流;/train/start 与 /train/i2l 按 3 倍配额计数。"""
+    from types import SimpleNamespace
+
+    from app.routes import train
+
+    calls: list[int] = []
+    monkeypatch.setattr(
+        train,
+        "enforce_generation_rate_limit",
+        lambda user, count=1: calls.append(count),
+    )
+    # trainer/i2l 置未部署:限流放行后走 503/404 短路,不触达外部服务
+    monkeypatch.setattr(
+        train, "get_settings", lambda: SimpleNamespace(trainer_url="", i2l_url="")
+    )
+    client, token, _ = ctx
+    r = client.post(
+        "/api/train/dataset",
+        headers=_auth(token),
+        files=[("files", ("a.png", _PNG, "image/png"))],
+    )
+    assert r.status_code == 503  # 限流放行 → trainer 未部署
+    r = client.post("/api/train/caption", json={"job_id": "nope"}, headers=_auth(token))
+    assert r.status_code == 404  # 限流放行 → 作业不存在
+    r = client.post(
+        "/api/train/start",
+        json={"job_id": "nope", "base_ckpt": "x.safetensors"},
+        headers=_auth(token),
+    )
+    assert r.status_code == 404
+    r = client.post("/api/train/nope/register", headers=_auth(token))
+    assert r.status_code == 404
+    r = client.post(
+        "/api/train/i2l",
+        headers=_auth(token),
+        files=[("files", ("a.png", _PNG, "image/png"))],
+        data={"lora_name": "x"},
+    )
+    assert r.status_code == 503  # 限流放行 → i2l 未部署
+    # dataset/caption/register 用 generation 档(count=1);start/i2l 3 倍计数
+    assert calls == [1, 1, 3, 1, 3]
+
+
+def test_train_write_endpoints_rate_limited_429(ctx):
+    """generation 桶占满 → train 全部写端点 429 不触达下游;读端点(状态查询)不限流。"""
+    client, token, uid = ctx
+    _fill_quota(uid, "generation")
+    r = client.post(
+        "/api/train/dataset",
+        headers=_auth(token),
+        files=[("files", ("a.png", _PNG, "image/png"))],
+    )
+    assert r.status_code == 429
+    r = client.post("/api/train/caption", json={"job_id": "x"}, headers=_auth(token))
+    assert r.status_code == 429
+    r = client.post(
+        "/api/train/start",
+        json={"job_id": "x", "base_ckpt": "y"},
+        headers=_auth(token),
+    )
+    assert r.status_code == 429
+    r = client.post("/api/train/x/register", headers=_auth(token))
+    assert r.status_code == 429
+    r = client.post(
+        "/api/train/i2l",
+        headers=_auth(token),
+        files=[("files", ("a.png", _PNG, "image/png"))],
+        data={"lora_name": "x"},
+    )
+    assert r.status_code == 429
+    # 读端点(状态查询)不加限流
+    r = client.get("/api/train/jobs", headers=_auth(token))
+    assert r.status_code == 200
