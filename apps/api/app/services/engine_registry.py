@@ -610,7 +610,8 @@ def _avatar_talk_params() -> list[dict]:
         _num("duration", "时长(秒)", 3.7, min_=0.5, max_=100, step=0.1,
              hint="默认 25fps;>3.7s 自动按 93 帧窗口续段,上限 2500 帧(25fps≈100s)"),
         _num("fps", "帧率", 25, min_=8, max_=30, hint="Whisper 特征帧率与打包帧率同源"),
-        _num("steps", "采样步数", 12, min_=1, max_=50, hint="dmd 蒸馏 LoRA 低步数,默认 12"),
+        _num("steps", "采样步数", 8, min_=1, max_=50,
+             hint="DMD2 蒸馏官方 8 NFE;旧默认 12 可显式回退"),
         _seed(),
     ]
 

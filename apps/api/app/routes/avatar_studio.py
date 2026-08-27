@@ -15,8 +15,8 @@ POST /api/avatar/talk —— 数字人说话视频(LongCat-Avatar v1.5,专用实
     多 3 帧;2500 帧@25fps≈100s。续段链路 2026-08-08 真机验证:186 帧
     3 段链式出片 189 帧/7.56s,缝口无跳帧)
   · 宽/高 320-1280,16 对齐(非对齐自动向下取整);默认 480×832
-  · steps 1-50(默认 12,dmd 蒸馏 LoRA 低步数);fps 8-30(默认 25,
-    WhisperEmbeds 特征帧率与成片打包帧率同源)
+  · steps 1-50(默认 8,DMD2 蒸馏官方 8 NFE;显式 steps=12 回退旧默认);
+    fps 8-30(默认 25,WhisperEmbeds 特征帧率与成片打包帧率同源)
   · cfg 默认 1.0(蒸馏链路);shift 默认 12.0
   · 音频时长与 num_frames 不一致时以 num_frames 为准:音频超长部分截断,
     不足时 ExtendEmbeds 按 if_not_enough_audio=pad_with_start 以首帧音频填充
@@ -79,7 +79,7 @@ class AvatarTalkRequest(BaseModel):
     # deprecated:兼容入参,请改用 duration_sec;同给时忽略
     num_frames: int | None = Field(default=None, ge=17, le=2500)
     fps: int = Field(default=25, ge=8, le=30)
-    steps: int = Field(default=12, ge=1, le=50)
+    steps: int = Field(default=8, ge=1, le=50)  # DMD2 官方 8 NFE;显式 12 回退旧默认
     shift: float = Field(default=12.0, ge=1.0, le=30.0)
     cfg: float = Field(default=1.0, ge=0.0, le=10.0)
     dmd_lora_strength: float = Field(default=1.0, ge=0.0, le=2.0)

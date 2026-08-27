@@ -15,7 +15,8 @@
   · WanVideoModelLoader 用 GGUF Q8_0(diffusion_models/LongCat-Avatar/),
     base_precision="bf16"、load_device="offload_device"、attention_mode="sdpa",
     块交换固定 25(冒烟 480×832/93 帧峰值 ~20GB,可与 GPU2 ASR/demucs 共存);
-  · dmd 蒸馏 LoRA 低步数出片(steps 默认 12);cfg 默认 1.0(蒸馏链路);
+  · DMD2 蒸馏 LoRA 低步数出片(steps 默认 8,官方 8 NFE 规格;旧默认 12 可经
+    请求参数显式回退);cfg 默认 1.0(蒸馏链路);
   · 长音频自动续段:num_frames > WINDOW_FRAMES(93)时按官方示例
     LongCatAvatar_audio_image_to_video_example_01.json 的链式形态自动切多段——
     第 N 段 ExtendEmbeds(prev_latents=上一段采样器输出,ref_latent=首帧 latents,
@@ -75,7 +76,7 @@ class LongCatAvatarParams:
     height: int = 832
     num_frames: int = 93  # 93 帧@25fps≈3.7s(冒烟验证值)
     fps: int = 25         # WhisperEmbeds 特征帧率与 VHS 打包帧率同源
-    steps: int = 12       # dmd 蒸馏 LoRA 低步数
+    steps: int = 8        # DMD2 蒸馏 LoRA 官方 8 NFE(旧默认 12,请求参数可回退)
     shift: float = 12.0
     cfg: float = 1.0      # 蒸馏链路
     dmd_lora_strength: float = 1.0

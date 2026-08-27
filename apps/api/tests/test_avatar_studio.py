@@ -233,20 +233,33 @@ def test_builder_injects_params():
 
 
 def test_builder_defaults_match_smoke():
-    """缺省参数与冒烟脚本一致:480×832/93 帧/25fps/steps=12/shift=12/cfg=1.0。"""
+    """缺省参数:480×832/93 帧/25fps/steps=8(DMD2 官方 8 NFE)/shift=12/cfg=1.0。"""
     g = build_longcat_avatar_graph(LongCatAvatarParams(
         positive="x", image="f.png", audio="a.wav", seed=1,
     ))
     assert g["2"]["inputs"]["width"] == 480 and g["2"]["inputs"]["height"] == 832
     assert g["7"]["inputs"]["num_frames"] == 93
     assert g["7"]["inputs"]["fps"] == 25.0
-    assert g["13"]["inputs"]["steps"] == 12
+    assert g["13"]["inputs"]["steps"] == 8
     assert g["13"]["inputs"]["shift"] == 12.0
     assert g["17"]["inputs"]["cfg"] == 1.0
     assert g["9"]["inputs"]["strength"] == 1.0
     assert g["12"]["inputs"]["negative_prompt"] == DEFAULT_NEGATIVE
     assert g["19"]["inputs"]["frame_rate"] == 25
     assert g["19"]["inputs"]["filename_prefix"] == "ToIV_avatar/talk"
+
+
+def test_builder_dmd2_8_nfe_default_and_explicit_rollback():
+    """DMD2 蒸馏默认 8 NFE(官方规格);显式 steps=12 即回退旧默认行为(参数级回退)。"""
+    g8 = build_longcat_avatar_graph(LongCatAvatarParams(
+        positive="x", image="f.png", audio="a.wav", seed=1,
+    ))
+    assert g8["13"]["inputs"]["steps"] == 8
+    assert g8["13"]["inputs"]["scheduler"] == "longcat_distill_euler"
+    g12 = build_longcat_avatar_graph(LongCatAvatarParams(
+        positive="x", image="f.png", audio="a.wav", seed=1, steps=12,
+    ))
+    assert g12["13"]["inputs"]["steps"] == 12
 
 
 def test_builder_two_builds_independent():
@@ -495,6 +508,21 @@ def test_talk_ok_transfers_inputs_and_submits(client, monkeypatch):
         assert job.nsfw is False
         assert job.seed == 7
         assert job.worker == "http://fake-longcat"
+
+
+def test_talk_default_steps_8_and_explicit_rollback(client, monkeypatch):
+    """端点缺省 steps=8(DMD2 8 NFE);显式 steps=12 回退旧默认。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "avsteps")
+    fake = _FakeLongCatClient()
+    _install_longcat(monkeypatch, fake)
+    r = _post(c, uid)
+    assert r.status_code == 200, r.text
+    assert fake.graphs[0]["13"]["inputs"]["steps"] == 8
+    r2 = _post(c, uid, steps=12)
+    assert r2.status_code == 200, r2.text
+    assert fake.graphs[1]["13"]["inputs"]["steps"] == 12
 
 
 def test_talk_requires_auth(client):

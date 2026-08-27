@@ -125,7 +125,7 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
   const [resPreset, setResPreset] = useState<string>("480x832");
   const [durationSec, setDurationSec] = useState(3.7);
   const [fps, setFps] = useState(25);
-  const [steps, setSteps] = useState(12);
+  const [steps, setSteps] = useState(8);
   const [seedText, setSeedText] = useState("");
   // 高级参数(默认与后端一致)
   const [shift, setShift] = useState(12);
@@ -1130,7 +1130,7 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
               />
             </Field>
 
-            <Field label="采样步数" hint="dmd 蒸馏 LoRA 低步数,默认 12">
+            <Field label="采样步数" hint="DMD2 蒸馏官方 8 步;画质不足可回调 12">
               <Input
                 type="number"
                 min={1}
