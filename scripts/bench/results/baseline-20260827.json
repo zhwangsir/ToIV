@@ -1,0 +1,625 @@
+{
+  "tag": "baseline-20260827",
+  "generated_at": "2026-08-27T13:19:27.692904+00:00",
+  "base": "http://192.168.71.47:8090",
+  "runs": [
+    {
+      "tag": "baseline-20260827",
+      "engine": "longcat-t2v",
+      "lane": "longcat",
+      "mode": "t2v",
+      "scenario": "closeup_static",
+      "scenario_name": "热身",
+      "prompt": "静态画面:一个红苹果放在白色桌面上,柔和自然光,固定机位",
+      "seed": 42,
+      "warmup": true,
+      "submit_ts": 1787834961.26863,
+      "done_ts": 1787835258.731787,
+      "wall_seconds": 297.5,
+      "status": "done",
+      "prompt_id": "cceed881-ca7c-4b06-b2af-2349ec0f3528",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.1,
+        "done": 297.5
+      },
+      "job_id": "fea1d5f3254444f18a25371d6bf89dc5",
+      "hold_reason": "",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=t2v_00011.mp4&subfolder=ToIV_longcat&type=output&worker=http%3A%2F%2F192.168.71.127%3A8197&sig=c139b69cc2a84e5cc115ab76",
+          "bytes": 391028,
+          "duration_sec": 7.312,
+          "width": 832,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0
+        }
+      ]
+    },
+    {
+      "tag": "baseline-20260827",
+      "engine": "h3-t2v",
+      "lane": "h3",
+      "mode": "t2v",
+      "scenario": "closeup_static",
+      "scenario_name": "热身",
+      "prompt": "静态画面:一个红苹果放在白色桌面上,柔和自然光,固定机位",
+      "seed": 42,
+      "warmup": true,
+      "submit_ts": 1787834961.2689412,
+      "done_ts": 1787835379.525816,
+      "wall_seconds": 418.3,
+      "status": "done",
+      "prompt_id": "b98752d3-85b0-469c-9d4d-14392dfcdcc5",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.1,
+        "done": 418.3
+      },
+      "job_id": "f0a30bc4e8364a58ab13164a4b41ee79",
+      "hold_reason": "",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=t2v_00150_.mp4&subfolder=ToIV_h3&type=output&worker=http%3A%2F%2F192.168.71.127%3A8195&sig=2e7fcb8f7cae997c208b0cf5",
+          "bytes": 547107,
+          "duration_sec": 5.167,
+          "width": 1344,
+          "height": 768,
+          "codec": "h264",
+          "fps": 24.0
+        }
+      ]
+    },
+    {
+      "tag": "baseline-20260827",
+      "engine": "longcat-t2v",
+      "lane": "longcat",
+      "mode": "t2v",
+      "scenario": "closeup_static",
+      "scenario_name": "近景静态",
+      "prompt": "特写:一位年轻女性的面部,自然柔光,静态凝视镜头,表情平静",
+      "seed": 42,
+      "warmup": false,
+      "submit_ts": 1787835258.7959669,
+      "done_ts": 1787835394.93754,
+      "wall_seconds": 136.1,
+      "status": "done",
+      "prompt_id": "ee024757-3e75-4149-8da9-f69fb127ec6d",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.1,
+        "done": 136.1
+      },
+      "job_id": "1a542b4fda314ac9a08cd9953441dc94",
+      "hold_reason": "",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=t2v_00012.mp4&subfolder=ToIV_longcat&type=output&worker=http%3A%2F%2F192.168.71.127%3A8197&sig=cd4258a08f26e0b28d9712ac",
+          "bytes": 865991,
+          "duration_sec": 7.312,
+          "width": 832,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0
+        }
+      ]
+    },
+    {
+      "tag": "baseline-20260827",
+      "engine": "longcat-t2v",
+      "lane": "longcat",
+      "mode": "t2v",
+      "scenario": "mid_cafe",
+      "scenario_name": "中远景人脸",
+      "prompt": "中景:一位男士坐在咖啡厅靠窗位置与朋友交谈,面部清晰,背景轻微虚化",
+      "seed": 42,
+      "warmup": false,
+      "submit_ts": 1787835395.012627,
+      "done_ts": 1787835531.139961,
+      "wall_seconds": 136.1,
+      "status": "done",
+      "prompt_id": "6fa567db-2645-4a0d-a2b2-6184e6272324",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.1,
+        "done": 136.1
+      },
+      "job_id": "626aa7b7f0034289bfbdb35372b6c700",
+      "hold_reason": "",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=t2v_00013.mp4&subfolder=ToIV_longcat&type=output&worker=http%3A%2F%2F192.168.71.127%3A8197&sig=ea9ee38442504b2a78b9c4f2",
+          "bytes": 796722,
+          "duration_sec": 7.312,
+          "width": 832,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0
+        }
+      ]
+    },
+    {
+      "tag": "baseline-20260827",
+      "engine": "h3-t2v",
+      "lane": "h3",
+      "mode": "t2v",
+      "scenario": "closeup_static",
+      "scenario_name": "近景静态",
+      "prompt": "特写:一位年轻女性的面部,自然柔光,静态凝视镜头,表情平静",
+      "seed": 42,
+      "warmup": false,
+      "submit_ts": 1787835379.588932,
+      "done_ts": 1787835566.142637,
+      "wall_seconds": 186.6,
+      "status": "done",
+      "prompt_id": "74ba2dd8-fd10-46ce-8ed3-d19566d34767",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.1,
+        "done": 186.6
+      },
+      "job_id": "31892ba53ada4411833fd6d81ccfde93",
+      "hold_reason": "",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=t2v_00151_.mp4&subfolder=ToIV_h3&type=output&worker=http%3A%2F%2F192.168.71.127%3A8195&sig=ea67c9fb634317a82ab30296",
+          "bytes": 499719,
+          "duration_sec": 5.167,
+          "width": 1344,
+          "height": 768,
+          "codec": "h264",
+          "fps": 24.0
+        }
+      ]
+    },
+    {
+      "tag": "baseline-20260827",
+      "engine": "longcat-t2v",
+      "lane": "longcat",
+      "mode": "t2v",
+      "scenario": "high_motion",
+      "scenario_name": "高动态",
+      "prompt": "快速运镜:一辆红色跑车在夜晚城市街道疾驰,镜头跟随车尾,霓虹灯光拖影",
+      "seed": 42,
+      "warmup": false,
+      "submit_ts": 1787835531.2184,
+      "done_ts": 1787835667.441386,
+      "wall_seconds": 136.2,
+      "status": "done",
+      "prompt_id": "11ad75f2-d9de-4026-a49d-edf0301bff4a",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.1,
+        "done": 136.2
+      },
+      "job_id": "8604f021f4a74d25b72783f0fbeac44b",
+      "hold_reason": "",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=t2v_00014.mp4&subfolder=ToIV_longcat&type=output&worker=http%3A%2F%2F192.168.71.127%3A8197&sig=e3bdc508b3c91e7475d1160a",
+          "bytes": 3049356,
+          "duration_sec": 7.312,
+          "width": 832,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0
+        }
+      ]
+    },
+    {
+      "tag": "baseline-20260827",
+      "engine": "h3-t2v",
+      "lane": "h3",
+      "mode": "t2v",
+      "scenario": "mid_cafe",
+      "scenario_name": "中远景人脸",
+      "prompt": "中景:一位男士坐在咖啡厅靠窗位置与朋友交谈,面部清晰,背景轻微虚化",
+      "seed": 42,
+      "warmup": false,
+      "submit_ts": 1787835566.215776,
+      "done_ts": 1787835752.810217,
+      "wall_seconds": 186.6,
+      "status": "done",
+      "prompt_id": "3c1c6735-1c0b-4fb7-af9b-93919e63426c",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.1,
+        "done": 186.6
+      },
+      "job_id": "d9155e1e769f4096a7680c2273298e55",
+      "hold_reason": "",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=t2v_00152_.mp4&subfolder=ToIV_h3&type=output&worker=http%3A%2F%2F192.168.71.127%3A8195&sig=7746f79ad91e4d4a289c71c6",
+          "bytes": 777117,
+          "duration_sec": 5.167,
+          "width": 1344,
+          "height": 768,
+          "codec": "h264",
+          "fps": 24.0
+        }
+      ]
+    },
+    {
+      "tag": "baseline-20260827",
+      "engine": "longcat-i2v",
+      "lane": "longcat",
+      "mode": "i2v",
+      "scenario": "closeup_static",
+      "scenario_name": "热身",
+      "prompt": "静态画面:一个红苹果放在白色桌面上,柔和自然光,固定机位",
+      "seed": 42,
+      "warmup": true,
+      "submit_ts": 1787835667.549731,
+      "done_ts": 1787835803.781014,
+      "wall_seconds": 136.2,
+      "status": "done",
+      "prompt_id": "22b2541e-52c2-4b1a-b964-c09734e70f23",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.1,
+        "done": 136.2
+      },
+      "job_id": "3da42155fe814fa787e59ecdfa5a0bcf",
+      "hold_reason": "",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=i2v_00006.mp4&subfolder=ToIV_longcat&type=output&worker=http%3A%2F%2F192.168.71.127%3A8197&sig=4050d7cb7371fb90a749440f",
+          "bytes": 405882,
+          "duration_sec": 7.312,
+          "width": 832,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0
+        }
+      ]
+    },
+    {
+      "tag": "baseline-20260827",
+      "engine": "h3-t2v",
+      "lane": "h3",
+      "mode": "t2v",
+      "scenario": "high_motion",
+      "scenario_name": "高动态",
+      "prompt": "快速运镜:一辆红色跑车在夜晚城市街道疾驰,镜头跟随车尾,霓虹灯光拖影",
+      "seed": 42,
+      "warmup": false,
+      "submit_ts": 1787835752.8869371,
+      "done_ts": 1787835939.556522,
+      "wall_seconds": 186.7,
+      "status": "done",
+      "prompt_id": "72242944-5307-4fb6-8484-c21b47d2526f",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.1,
+        "done": 186.7
+      },
+      "job_id": "68982d0f0a40442e8bc44c56c12fc525",
+      "hold_reason": "",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=t2v_00153_.mp4&subfolder=ToIV_h3&type=output&worker=http%3A%2F%2F192.168.71.127%3A8195&sig=8228e81e769bc923cf4a7a77",
+          "bytes": 2223568,
+          "duration_sec": 5.167,
+          "width": 1344,
+          "height": 768,
+          "codec": "h264",
+          "fps": 24.0
+        }
+      ]
+    },
+    {
+      "tag": "baseline-20260827",
+      "engine": "longcat-i2v",
+      "lane": "longcat",
+      "mode": "i2v",
+      "scenario": "closeup_static",
+      "scenario_name": "近景静态",
+      "prompt": "特写:一位年轻女性的面部,自然柔光,静态凝视镜头,表情平静",
+      "seed": 42,
+      "warmup": false,
+      "submit_ts": 1787835803.85203,
+      "done_ts": 1787835940.105203,
+      "wall_seconds": 136.3,
+      "status": "done",
+      "prompt_id": "a1588178-4599-4289-8916-f32e6f41f903",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.1,
+        "done": 136.3
+      },
+      "job_id": "87df39c338ef40b4812fadecba30d452",
+      "hold_reason": "",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=i2v_00007.mp4&subfolder=ToIV_longcat&type=output&worker=http%3A%2F%2F192.168.71.127%3A8197&sig=bf4ce2b9525606c208732a7e",
+          "bytes": 1074542,
+          "duration_sec": 7.312,
+          "width": 832,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0
+        }
+      ]
+    },
+    {
+      "tag": "baseline-20260827",
+      "engine": "longcat-i2v",
+      "lane": "longcat",
+      "mode": "i2v",
+      "scenario": "mid_cafe",
+      "scenario_name": "中远景人脸",
+      "prompt": "中景:一位男士坐在咖啡厅靠窗位置与朋友交谈,面部清晰,背景轻微虚化",
+      "seed": 42,
+      "warmup": false,
+      "submit_ts": 1787835940.191743,
+      "done_ts": 1787836076.817834,
+      "wall_seconds": 136.6,
+      "status": "done",
+      "prompt_id": "41890462-ad30-42bf-b01a-9041d9e3b6c8",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.5,
+        "done": 136.6
+      },
+      "job_id": "7be0c66db9014195b19c3311cb9cb238",
+      "hold_reason": "",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=i2v_00008.mp4&subfolder=ToIV_longcat&type=output&worker=http%3A%2F%2F192.168.71.127%3A8197&sig=ec138edbbe0a3bb7c0ff1cc3",
+          "bytes": 1249938,
+          "duration_sec": 7.312,
+          "width": 832,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0
+        }
+      ]
+    },
+    {
+      "tag": "baseline-20260827",
+      "engine": "h3-i2v",
+      "lane": "h3",
+      "mode": "i2v",
+      "scenario": "closeup_static",
+      "scenario_name": "热身",
+      "prompt": "静态画面:一个红苹果放在白色桌面上,柔和自然光,固定机位",
+      "seed": 42,
+      "warmup": true,
+      "submit_ts": 1787835939.658085,
+      "done_ts": 1787836151.695462,
+      "wall_seconds": 212.0,
+      "status": "done",
+      "prompt_id": "f01105dd-b038-4adb-9183-97d44e0c9ab8",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.1,
+        "done": 212.0
+      },
+      "job_id": "8712e4baec60439b81af6977903d1690",
+      "hold_reason": "",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=i2v_00054_.mp4&subfolder=ToIV_h3&type=output&worker=http%3A%2F%2F192.168.71.127%3A8195&sig=005f184671f72dedb8501c32",
+          "bytes": 522180,
+          "duration_sec": 5.167,
+          "width": 1344,
+          "height": 768,
+          "codec": "h264",
+          "fps": 24.0
+        }
+      ]
+    },
+    {
+      "tag": "baseline-20260827",
+      "engine": "longcat-i2v",
+      "lane": "longcat",
+      "mode": "i2v",
+      "scenario": "high_motion",
+      "scenario_name": "高动态",
+      "prompt": "快速运镜:一辆红色跑车在夜晚城市街道疾驰,镜头跟随车尾,霓虹灯光拖影",
+      "seed": 42,
+      "warmup": false,
+      "submit_ts": 1787836076.900033,
+      "done_ts": 1787836213.2167182,
+      "wall_seconds": 136.3,
+      "status": "done",
+      "prompt_id": "33b9cc9f-a9dc-4069-acf0-4a9edfe705dd",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.1,
+        "done": 136.3
+      },
+      "job_id": "c5fffdfd64f74fd495084631b6e5b5bd",
+      "hold_reason": "",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=i2v_00009.mp4&subfolder=ToIV_longcat&type=output&worker=http%3A%2F%2F192.168.71.127%3A8197&sig=2424935b782268eb8f93418e",
+          "bytes": 4024956,
+          "duration_sec": 7.312,
+          "width": 832,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0
+        }
+      ]
+    },
+    {
+      "tag": "baseline-20260827",
+      "engine": "h3-i2v",
+      "lane": "h3",
+      "mode": "i2v",
+      "scenario": "closeup_static",
+      "scenario_name": "近景静态",
+      "prompt": "特写:一位年轻女性的面部,自然柔光,静态凝视镜头,表情平静",
+      "seed": 42,
+      "warmup": false,
+      "submit_ts": 1787836151.8341818,
+      "done_ts": 1787836353.734866,
+      "wall_seconds": 201.9,
+      "status": "done",
+      "prompt_id": "4e039e9b-9131-4daa-93ea-ac615173a845",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.1,
+        "done": 201.9
+      },
+      "job_id": "e7816d891639462189004b42a82fae8e",
+      "hold_reason": "",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=i2v_00055_.mp4&subfolder=ToIV_h3&type=output&worker=http%3A%2F%2F192.168.71.127%3A8195&sig=c7199e9cfc9f4bc88c7a82fe",
+          "bytes": 644834,
+          "duration_sec": 5.167,
+          "width": 1344,
+          "height": 768,
+          "codec": "h264",
+          "fps": 24.0
+        }
+      ]
+    },
+    {
+      "tag": "baseline-20260827",
+      "engine": "h3-i2v",
+      "lane": "h3",
+      "mode": "i2v",
+      "scenario": "mid_cafe",
+      "scenario_name": "中远景人脸",
+      "prompt": "中景:一位男士坐在咖啡厅靠窗位置与朋友交谈,面部清晰,背景轻微虚化",
+      "seed": 42,
+      "warmup": false,
+      "submit_ts": 1787836353.811029,
+      "done_ts": 1787836555.608911,
+      "wall_seconds": 201.8,
+      "status": "done",
+      "prompt_id": "79dcbcf6-1839-40f6-86c3-f4121e7571bf",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.1,
+        "done": 201.8
+      },
+      "job_id": "e21d10666de64040beecce21067977f1",
+      "hold_reason": "",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=i2v_00056_.mp4&subfolder=ToIV_h3&type=output&worker=http%3A%2F%2F192.168.71.127%3A8195&sig=6475d327ec1c94d0e0cdfd27",
+          "bytes": 538984,
+          "duration_sec": 5.167,
+          "width": 1344,
+          "height": 768,
+          "codec": "h264",
+          "fps": 24.0
+        }
+      ]
+    },
+    {
+      "tag": "baseline-20260827",
+      "engine": "h3-i2v",
+      "lane": "h3",
+      "mode": "i2v",
+      "scenario": "high_motion",
+      "scenario_name": "高动态",
+      "prompt": "快速运镜:一辆红色跑车在夜晚城市街道疾驰,镜头跟随车尾,霓虹灯光拖影",
+      "seed": 42,
+      "warmup": false,
+      "submit_ts": 1787836555.6842291,
+      "done_ts": 1787836767.6066828,
+      "wall_seconds": 211.9,
+      "status": "done",
+      "prompt_id": "aa4d32fc-db87-4431-84b7-6e8ab4a91c64",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.1,
+        "done": 211.9
+      },
+      "job_id": "f1190f0d6e2d47d3b12c44b78708bcc5",
+      "hold_reason": "",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=i2v_00057_.mp4&subfolder=ToIV_h3&type=output&worker=http%3A%2F%2F192.168.71.127%3A8195&sig=83e54b7e8be82fa6650add22",
+          "bytes": 2087320,
+          "duration_sec": 5.167,
+          "width": 1344,
+          "height": 768,
+          "codec": "h264",
+          "fps": 24.0
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "longcat-t2v": {
+      "closeup_static": {
+        "status": "done",
+        "wall_seconds": 136.1,
+        "queue_seconds": null
+      },
+      "mid_cafe": {
+        "status": "done",
+        "wall_seconds": 136.1,
+        "queue_seconds": null
+      },
+      "high_motion": {
+        "status": "done",
+        "wall_seconds": 136.2,
+        "queue_seconds": null
+      },
+      "_mean_wall_done": 136.1
+    },
+    "h3-t2v": {
+      "closeup_static": {
+        "status": "done",
+        "wall_seconds": 186.6,
+        "queue_seconds": null
+      },
+      "mid_cafe": {
+        "status": "done",
+        "wall_seconds": 186.6,
+        "queue_seconds": null
+      },
+      "high_motion": {
+        "status": "done",
+        "wall_seconds": 186.7,
+        "queue_seconds": null
+      },
+      "_mean_wall_done": 186.6
+    },
+    "longcat-i2v": {
+      "closeup_static": {
+        "status": "done",
+        "wall_seconds": 136.3,
+        "queue_seconds": null
+      },
+      "mid_cafe": {
+        "status": "done",
+        "wall_seconds": 136.6,
+        "queue_seconds": null
+      },
+      "high_motion": {
+        "status": "done",
+        "wall_seconds": 136.3,
+        "queue_seconds": null
+      },
+      "_mean_wall_done": 136.4
+    },
+    "h3-i2v": {
+      "closeup_static": {
+        "status": "done",
+        "wall_seconds": 201.9,
+        "queue_seconds": null
+      },
+      "mid_cafe": {
+        "status": "done",
+        "wall_seconds": 201.8,
+        "queue_seconds": null
+      },
+      "high_motion": {
+        "status": "done",
+        "wall_seconds": 211.9,
+        "queue_seconds": null
+      },
+      "_mean_wall_done": 205.2
+    }
+  }
+}

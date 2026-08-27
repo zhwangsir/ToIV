@@ -1,0 +1,23 @@
+{
+  "closeup_static": {
+    "filename": "bench_closeup_static.png",
+    "worker": "http://192.168.71.114:8193",
+    "txt2img_prompt_id": "b2d2e7b3-3312-434f-b34b-649888ab67bd",
+    "image_url": "/api/images?filename=ToIV_00130_.png&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.116%3A8188&sig=86d47ddabbe824a2b5bacd1a",
+    "prepared_at": "2026-08-27T12:27:14.053237+00:00"
+  },
+  "mid_cafe": {
+    "filename": "bench_mid_cafe.png",
+    "worker": "http://192.168.71.116:8188",
+    "txt2img_prompt_id": "21849cbd-0008-4443-a431-b9e0218f838e",
+    "image_url": "/api/images?filename=ToIV_00201_.png&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.127%3A8189&sig=d64c9a67ef8443ce6a219454",
+    "prepared_at": "2026-08-27T12:31:21.624808+00:00"
+  },
+  "high_motion": {
+    "filename": "bench_high_motion.png",
+    "worker": "http://192.168.71.127:8189",
+    "txt2img_prompt_id": "e032dbe1-53ed-4a84-b6e9-bb34c8a2946a",
+    "image_url": "/api/images?filename=ToIV_00033_.png&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.114%3A8193&sig=5912558eefa0df1f62fefb42",
+    "prepared_at": "2026-08-27T12:35:39.191985+00:00"
+  }
+}

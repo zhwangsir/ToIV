@@ -1,0 +1,66 @@
+{
+  "meta": {
+    "name": "toiv-video-engine-baseline",
+    "version": 1,
+    "created": "2026-08-27",
+    "purpose": "Phase 2 加速改造的对照分母:目标视频引擎现状基线(端到端墙钟/产物规格/Job 状态)",
+    "seed": 42,
+    "resolution_policy": "引擎默认(H3=1344x768, LongCat=832x480)",
+    "duration_policy": "引擎默认最短档(H3=5.0s@24fps=124帧, LongCat=7.5s@16fps=121帧)",
+    "steps_policy": "引擎默认(H3=20, LongCat=10 蒸馏)"
+  },
+  "scenarios": [
+    {
+      "id": "closeup_static",
+      "name": "近景静态",
+      "prompt": "特写:一位年轻女性的面部,自然柔光,静态凝视镜头,表情平静",
+      "image_prompt": "特写:一位年轻女性的面部,自然柔光,静态凝视镜头,表情平静,照片级写实"
+    },
+    {
+      "id": "mid_cafe",
+      "name": "中远景人脸",
+      "prompt": "中景:一位男士坐在咖啡厅靠窗位置与朋友交谈,面部清晰,背景轻微虚化",
+      "image_prompt": "中景:一位男士坐在咖啡厅靠窗位置与朋友交谈,面部清晰,背景轻微虚化,照片级写实"
+    },
+    {
+      "id": "high_motion",
+      "name": "高动态",
+      "prompt": "快速运镜:一辆红色跑车在夜晚城市街道疾驰,镜头跟随车尾,霓虹灯光拖影",
+      "image_prompt": "一辆红色跑车在夜晚城市街道疾驰的车尾视角,霓虹灯光拖影,电影感光效"
+    }
+  ],
+  "engines": [
+    {
+      "id": "longcat-t2v",
+      "lane": "longcat",
+      "mode": "t2v",
+      "endpoint": "/api/longcat/t2v",
+      "kind": "longcat_t2v",
+      "params": {}
+    },
+    {
+      "id": "longcat-i2v",
+      "lane": "longcat",
+      "mode": "i2v",
+      "endpoint": "/api/longcat/i2v",
+      "kind": "longcat_i2v",
+      "params": {}
+    },
+    {
+      "id": "h3-t2v",
+      "lane": "h3",
+      "mode": "t2v",
+      "endpoint": "/api/h3/t2v",
+      "kind": "h3_t2v",
+      "params": {}
+    },
+    {
+      "id": "h3-i2v",
+      "lane": "h3",
+      "mode": "i2v",
+      "endpoint": "/api/h3/i2v",
+      "kind": "h3_i2v",
+      "params": {}
+    }
+  ]
+}
