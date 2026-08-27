@@ -299,6 +299,14 @@ async def _submit_ace_music(pos, neg, params, pool, user, session) -> dict:
     return await audio_route.generate_audio(req, pool, user, session)
 
 
+async def _submit_ace_music_legacy(pos, neg, params, pool, user, session) -> dict:
+    from app.routes import audio as audio_route
+
+    # 旧版引擎固定 legacy 档(防 LLM 把 quality 改回 1.5)
+    req = audio_route.AudioRequest(tags=pos, **{**params, "quality": "legacy"})
+    return await audio_route.generate_audio(req, pool, user, session)
+
+
 async def _submit_h3_t2v(pos, neg, params, pool, user, session) -> dict:
     from app.routes import h3_studio
 
@@ -438,6 +446,7 @@ _DISPATCH = {
     "nsfw-img2img": (_submit_img2img, ("image", "worker")),
     "qwen-image-edit": (_submit_qwen_edit, ("image", "worker")),
     "ace-music": (_submit_ace_music, ()),
+    "ace-music-legacy": (_submit_ace_music_legacy, ()),
     "h3-t2v": (_submit_h3_t2v, ()),
     "h3-nsfw-t2v": (_submit_h3_t2v, ()),
     "h3-i2v": (_submit_h3_i2v, ("image", "worker")),

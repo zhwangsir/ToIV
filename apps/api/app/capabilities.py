@@ -4,7 +4,7 @@
 """
 from __future__ import annotations
 
-from app.workflows.ace_step import AceStepParams
+from app.workflows.ace_step import AceStep15Params
 from app.workflows.hunyuan3d import Hunyuan3DParams
 from app.workflows.hunyuan_i2v import HunyuanI2VParams
 from app.workflows.ltx_video import LtxI2VParams, LtxLipdubParams, LtxLipsyncParams, LtxT2VParams
@@ -24,7 +24,7 @@ def required_models(kind: str) -> set[str]:
     if kind == "img2img":
         return {Txt2ImgParams(positive="").ckpt_name}
     if kind == "audio":
-        return {AceStepParams(tags="").ckpt_name}
+        return {AceStep15Params(tags="").ckpt_name}
     if kind in ("ltx_video", "ltx_t2v", "ltx_i2v"):
         p = LtxT2VParams(positive="")
         models = {p.unet_name, p.gemma_name, p.vae_name}

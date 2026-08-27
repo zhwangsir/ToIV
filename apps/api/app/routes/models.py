@@ -20,7 +20,7 @@ from app.models import ModelCard, User
 from app.nsfw_ctx import nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
 from app.services.engine_registry import list_engines, reset_avail_cache
-from app.workflows.ace_step import AceStepParams
+from app.workflows.ace_step import AceStep15Params
 from app.workflows.hunyuan3d import Hunyuan3DParams
 from app.workflows.llm_router import list_content_types, list_llm_endpoints
 from app.workflows.model_profiles import (
@@ -170,7 +170,7 @@ async def list_models(
         },
         "video": {"models": _video_models(), "editable": False},
         "model3d": {"models": [Hunyuan3DParams(image="").ckpt_name], "editable": False},
-        "audio": {"models": [AceStepParams(tags="").ckpt_name], "editable": False},
+        "audio": {"models": [AceStep15Params(tags="").ckpt_name], "editable": False},
     }
 
     return {

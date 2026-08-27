@@ -48,7 +48,8 @@ ToIV 的“文生视频”一般先文生底图，再用 Wan 驱动其运动；W
 
 | 模型 | 说明 |
 |------|------|
-| `ace_step_v1_3.5b.safetensors` | 文生音乐，输入风格标签（可选歌词），输出 mp3（44.1kHz 立体声）。 |
+| `ace_step_1.5_turbo_aio.safetensors` | ACE-Step 1.5 文生音乐（默认，Turbo 8 步草稿档），输入风格标签（可选歌词），输出 mp3（44.1kHz 立体声，10 秒-10 分钟）；quality 成品档用分离权重 `acestep_v1.5_base` + `qwen_0.6b_ace15`/`qwen_1.7b_ace15` + `ace_1.5_vae`（50 步）。 |
+| `ace_step_v1_3.5b.safetensors` | ACE-Step 1.0 旧版文生音乐（legacy 回退档，quality=legacy，≤240 秒）。 |
 | `mmaudio_large_44k_nsfw_gold_8.5k_final_fp16.safetensors` | MMAudio 音频生成。 |
 
 ## Diffusion Models / UNET

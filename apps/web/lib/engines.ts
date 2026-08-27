@@ -416,11 +416,27 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
       });
 
     case "ace-music":
-      // ACE-Step 文生音乐:positive 即风格标签(tags);歌词/时长等走动态参数
+      // ACE-Step 1.5 文生音乐:positive 即风格标签(tags);歌词/时长/档位等走动态参数
+      // steps/cfg 默认 0=按档位默认(turbo 8 步 cfg1 / quality 50 步 cfg5)
       return generateAudio({
         tags: positive,
         lyrics: _str(values, "lyrics"),
         seconds: _num(values, "seconds", 30),
+        quality: (_str(values, "quality") || "turbo") as AudioGenParams["quality"],
+        steps: _num(values, "steps", 0),
+        cfg: _num(values, "cfg", 0),
+        bpm: _num(values, "bpm", 120),
+        language: _str(values, "language") || "en",
+        seed,
+      } satisfies AudioGenParams);
+
+    case "ace-music-legacy":
+      // ACE-Step 1.0 旧版(回退):固定 legacy 档,50 步 cfg5,≤240s
+      return generateAudio({
+        tags: positive,
+        lyrics: _str(values, "lyrics"),
+        seconds: _num(values, "seconds", 30),
+        quality: "legacy",
         steps: _num(values, "steps", 50),
         cfg: _num(values, "cfg", 5),
         seed,
