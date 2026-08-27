@@ -3,12 +3,13 @@
  "repo": "https://github.com/zhwangsir/ToIV",
  "updated_at": "2026-08-27T18:30:00+08:00",
  "mobile_merge_2026_08_27": {
-  "status": "done_local_branch",
-  "branch": "chore/mobile-uniapp-only",
-  "commit": "90881ad",
+  "status": "pushed_main",
+  "branch": "main",
+  "commit": "7653dd6",
+  "remotes": "origin Gitee and github both 7653dd6 (ahead 0/0)",
   "client": "MiniProgram (uni-app, WeChat first; native App later if needed)",
   "archived": ".archive/mobile-expo-20260827/",
-  "note": "Do not treat Mobile/ as a live subproject. Branch not pushed as of 2026-08-27."
+  "note": "Do not treat Mobile/ as a live subproject. Merged to main and dual-pushed 2026-08-27."
  },
  "health": {
   "engine_r3_2026_08_21": {
