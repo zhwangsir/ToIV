@@ -1,7 +1,15 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-27T09:45:00+08:00",
+ "updated_at": "2026-08-27T18:30:00+08:00",
+ "mobile_merge_2026_08_27": {
+  "status": "done_local_branch",
+  "branch": "chore/mobile-uniapp-only",
+  "commit": "90881ad",
+  "client": "MiniProgram (uni-app, WeChat first; native App later if needed)",
+  "archived": ".archive/mobile-expo-20260827/",
+  "note": "Do not treat Mobile/ as a live subproject. Branch not pushed as of 2026-08-27."
+ },
  "health": {
   "engine_r3_2026_08_21": {
    "status": "completed",
@@ -113,26 +121,26 @@
    },
    "verified_at": "2026-07-28T17:05:00+08:00"
   },
-  "comfyui_cluster": "workstation 4×ComfyUI (8189-8192,2026-08-05 GPU3 回归,Nemotron 已停) + LB 代理 8188 + pc01:8188 + pc02:8193 共6后端配置(pc01/pc02 未开机时 UNHEALTHY,实际 4 可用)；workstation LAN IP 192.168.71.127（主网卡DOWN副网卡在用），Tailscale 100.68.100.90（旧100.99.181.103已失效）",
-  "llm_brain": "双 LLM 路由(2026-08-05 切流)：默认 qwen3.6-uncensored(spark02 vLLM :8000,Qwen3.5-MoE-35B-A3B-uncensored-heretic FP8,32K ctx,别名不变下游零改动) + NSFW llama-3.3-70b-abliterated(spark01 vLLM :8000, X-NSFW:1 时切换)。agent/llm.py chat() 按 nsfw_allowed() 自动路由，NSFW LLM 失败 fallback 到主 LLM(均 uncensored)。workstation 不再跑任何文本/VLM 推理,4 卡纯生成",
+  "comfyui_cluster": "2026-08-27 Phase0 真机核实：LB :8188 后端三活 = workstation :8189(GPU0,cache-lru 8,v0.27.0) + pc01 192.168.71.116:8188(v0.33.0,RTX5090) + pc02 192.168.71.114:8193(v0.28.0,RTX5090)；专用实例(不入池)：H3 :8195(GPU2,v0.30.0) / LongCat :8197(GPU0,cache-lru 3,v0.30.0) / Wan-Animate2 :8199(GPU3,v0.33.0) / Hunyuan3D :8200(GPU1,v0.33.0) / 超分 :8261-8263(GPU1-3,v0.27.0) / pc02 编辑 :8194；:8198 ltx25 已退役不存在；workstation torch 2.13.0+cu130 sm_120；LAN 192.168.71.127 / Tailscale 100.68.100.90",
+  "llm_brain": "单 LLM 路由(2026-08-27 Phase0 真机核实)：默认+NSFW 统一走 spark02 vLLM :8000 Qwen3.8-27B-Uncensored-FP8(2026-08-23 替换,abliterated 无审查,别名 qwen3.8-27b/qwen3.6-uncensored 均有效,32K ctx,MTP 投机 5 token + qwen3_coder tool parser + prefix caching + chunked prefill,gpu-util 0.80)。llama-3.3-70b-abliterated 已于 2026-08-08 下掉(spark01 让位 VLM,文件留盘 spark01 /home/dgmt-spark/spark-models/)。workstation 不跑文本/VLM 推理,4 卡纯生成",
   "llm_nsfw_routing": {
    "default": {
     "model": "qwen3.6-uncensored",
     "endpoint": "http://192.168.71.84:8000/v1",
-    "engine": "vLLM (spark02, Qwen3.5-MoE-35B-A3B FP8)",
-    "verified": "2026-08-05"
+    "engine": "vLLM (spark02, Qwen3.8-27B-Uncensored-FP8)",
+    "verified": "2026-08-27"
    },
    "nsfw": {
-    "model": "llama-3.3-70b-abliterated",
-    "endpoint": "http://192.168.71.82:8000/v1",
-    "engine": "vLLM (spark01 单机)",
-    "verified": "2026-08-05"
+    "model": "qwen3.6-uncensored",
+    "endpoint": "http://192.168.71.84:8000/v1",
+    "engine": "vLLM (spark02, 与默认同模型,uncensored 天然兜底 NSFW)",
+    "verified": "2026-08-27"
    },
-   "fallback": "NSFW LLM 不可用时自动切主 LLM(均 uncensored,可兜底)"
+   "fallback": "单模型双别名,NSFW 失败即主 LLM 失败(同一实例)"
   },
   "tts": {
    "status": "deployed",
-   "engine": "IndexTTS2 (Bilibili 开源,自部署)",
+   "engine": "IndexTTS 2.5 (2026-08-24 由 2.0 升级,checkpoints/ 布局,2.0 留 checkpoints_2/ 可回滚)",
    "endpoint": "http://192.168.71.127:9200",
    "port_note": "9000 端口被 MinIO 占用,TTS 用 9200",
    "languages": [
@@ -144,7 +152,7 @@
    ],
    "contract": "POST /tts (multipart form: text/emo_text/emo_alpha/language + optional ref_audio) → WAV 22.05kHz/16bit/mono",
    "voice_cloning": "支持(ref_audio 上传 → spk_audio_prompt);无 ref_audio 时用 checkpoints/default_ref.wav 兜底",
-   "emo_support": "use_emo_text 默认禁用(Qwen3 情感推理在当前环境会触发 max_length 卡死);emo_text 仅日志记录;emo_alpha 透传但不影响输出。可设 TOIV_TTS_ENABLE_EMO_TEXT=true 启用(需先调试 Qwen3)",
+   "emo_support": "2026-08-24 起 TOIV_TTS_ENABLE_EMO_TEXT 默认 true(2.5 已修 2.0 的 Qwen3 情感推理卡死;生产实证 emo_text 经 QwenEmotion 出情感向量);infer 新增必选 lang(ZH/EN/JA/ES/AR)与可选 duration_factor(0.5-2.0 语速)",
    "performance": {
     "model_load_s": 113.8,
     "infer_typical_s": "1.2-2.3",
@@ -156,20 +164,19 @@
    "venv": "~/index-tts/.venv (uv 管理, Python 3.11.13, torch 2.8.0+cu128)",
    "fallback": "edge-tts 源码保留 deploy/tts-service/app.py;IndexTTS2 挂时手动拉起 edge-tts 占 9200 即可降级",
    "limitations": [
-    "Qwen3 情感文本推理卡死(超 32768 max_length),use_emo_text 默认禁用",
-    "nohup 裸进程,未做 systemd/docker 守护,重启后需手动拉起",
     "GPU 单卡串行推理(_infer_lock),并发请求排队"
    ],
+   "service_note": "2026-08-27 Phase0 核实:toiv-indextts.service + toiv-tts.service 双 systemd active+enabled(GPU0 :9200),nohup 裸进程已成历史",
    "verified_at": "2026-07-19T02:55:00+08:00"
   },
   "trainer": {
-   "status": "not_deployed",
-   "note": "训练服务 :9100 未部署，训练端点按设计返回 503"
+   "status": "deployed",
+   "note": "2026-08-27 Phase0 核实:toiv-trainer.service active+enabled(workstation :9100,ai-toolkit);core TOIV_TRAINER_URL=http://192.168.71.127:9100 已接通;支持 arch=zimage/qwen_image/flux2/flux/minimax_h3"
   },
-  "vlm_server": "Qwen3-VL @ workstation:8200（OpenAI 兼容，video scorer 用，TOIV_VIDEO_SCORER_ENABLED 默认关闭）",
+  "vlm_server": "Qwen3-VL-32B-Instruct-FP8 @ spark01 192.168.71.82:8000(OpenAI 兼容 vLLM,别名 qwen3-vl-32b/molmo2-8b/omni-captioner;gpu-util 0.70,32K ctx,max-num-seqs 8,prefix caching;承担反推+视频评分+宫格 grounding);TOIV_VIDEO_SCORER_ENABLED=true(2026-08-27 灰度,阈值 0.65) —— 2026-08-27 Phase0 真机核实",
   "network": "纯 IPv6 直连（240e:b8f:1d22:e700::/64），cloud 保留 IPv4 仅鉴权",
-  "pc01_comfyui": "已启动（2026-07-24 项目管家拉起，v0.25.0 HTTP 200，计划任务开机自启；extra_model_paths.yaml 临时禁用因 NAS SMB 错误67，用本地 models 启动）",
-  "pc02": "在线（192.168.71.114:8193，2026-07-24 项目管家实测 HTTP 200；RTX 5090，Windows 11；Tailscale 100.107.94.26）",
+  "pc01_comfyui": "在线（2026-08-27 Phase0 实测 192.168.71.116:8188 HTTP 200,ComfyUI v0.33.0,torch 2.13.0+cu130,RTX 5090 32GB 空闲,LB 池内在册;IP 已静态固化 .116）",
+  "pc02": "在线（2026-08-27 Phase0 实测 192.168.71.114:8193 HTTP 200 v0.28.0 + :8194 专用编辑实例 HTTP 200,torch 2.13.0+cu130,RTX 5090;LB 池内在册;Tailscale 100.107.94.26 离线走 LAN）",
   "mac_studio_openclaw_cleaned_2026_07_24": "Mac Studio 4台 OpenClaw 已彻底清理（launchd/plist/npm包/工作目录全删），Mac Studio 专职 EXO RDMA 内存池；OpenClaw 唯一正式部署在 Mac Mini openclaw01-04",
   "aicg_four_layer_pipeline_2026_07_24": {
    "status": "all_four_layers_connected",

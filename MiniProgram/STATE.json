@@ -3,8 +3,8 @@
  "stack": "UniApp 3.0 (vite5) + Vue3 <script setup lang=\"ts\"> + TypeScript strict + Pinia 持久化 + 自研 UI 组件层（Lucide 白名单图标）",
  "standards": {
   "techSpec": "docs/mini-program-tech-spec.md",
-  "mobileDesign": "../Mobile/docs/ui-ux-design-guidelines.md",
-  "mobileStandards": "../Mobile/docs/development-standards.md"
+  "mobileDesign": "(unpacked archive has no docs/; see ../.archive/mobile-expo-20260827/README.md)",
+  "mobileStandards": "(unpacked archive has no docs/; see ../.archive/mobile-expo-20260827/DEVELOPMENT.md)"
  },
  "qualityGate": {
   "typecheck": "npm run typecheck (vue-tsc --noEmit)",
@@ -12,8 +12,8 @@
   "test": "npm run test (vitest run)",
   "build": "npm run build:mp-weixin"
  },
- "updated_at": "2026-08-16",
- "next": "交付完成（MP1-MP32 全量收口）。剩余外部依赖：MP9 Round 2 微信真机人工走查（相册/摄像头/文件权限链路）· M18 Android 真机走查（APK: https://expo.dev/artifacts/eas/hNld96BNysKQDuE548C4-Hl7hdw2yJU4yMPOKF9DQlk.apk）· iOS 真机（需 Apple Developer 账号 + 设备 UDID，见 CLOSEOUT.md 指引）",
+ "updated_at": "2026-08-27",
+ "next": "ToIV 唯一移动端（uni-app，微信为主）。MP1-MP32 已收口。剩余：MP9 Round 2 微信真机人工走查（相册/摄像头/文件权限）。Expo Android/iOS 真机项随 Mobile 归档，不再作为本目录 next。",
  "milestones": [
   {
    "id": "MP32",

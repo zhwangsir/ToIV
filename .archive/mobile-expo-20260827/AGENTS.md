@@ -1,14 +1,14 @@
 # AGENTS.md — Mobile
 
 > **最后更新**：2026-08-27（项目管家文档治理）
-> **集群真相源**：`../../ToIV/AGENTS.md`（禁止把设备清单/凭据复制进本文件）
+> **集群真相源**：`../../AGENTS.md`（禁止把设备清单/凭据复制进本文件）
 > **文档五件套**：README.md / AGENTS.md / DEVELOPMENT.md / STATE.json / TEST_LOG.md
 
 ## 本项目
 
-ToIV 移动端（Expo/RN）。
+已归档的 Expo 客户端，不是在维护的子项目。
 
-路径：`ALLProject/Mobile`
+历史路径：`ALLProject/ToIV/Mobile/`。现：`ALLProject/ToIV/.archive/mobile-expo-20260827/`。唯一移动端：`ALLProject/ToIV/MiniProgram`。
 
 ## 硬性规则
 

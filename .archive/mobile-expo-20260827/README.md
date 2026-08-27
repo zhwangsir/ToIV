@@ -1,6 +1,9 @@
 # ToIV Mobile
 
-ToIV 的 iOS / Android 客户端。路径是 `ALLProject/ToIV/Mobile/`（在 ToIV 主仓内，没有独立远程）。对接同一套 ToIV API。
+> **已归档（2026-08-27）**：这不是在维护的子项目。原 Expo `ToIV/Mobile/` 已 `git mv` 到本目录。ToIV 唯一移动端是 [`../../MiniProgram/`](../../MiniProgram/)（uni-app，微信为主）。不要在此树继续开发。集群仍只看 [`../../AGENTS.md`](../../AGENTS.md)。
+
+
+ToIV 的 iOS / Android 客户端。历史路径曾是 `ALLProject/ToIV/Mobile/`，现已归档到 `ALLProject/ToIV/.archive/mobile-expo-20260827/`（在 ToIV 主仓内，没有独立远程）。对接同一套 ToIV API。
 
 最后更新：2026-08-27。
 
@@ -27,7 +30,7 @@ Expo SDK 57 + React Native 0.86 + expo-router + TypeScript。底栏四个 Tab：
 
 默认 API：`http://192.168.71.47:8090`（core 生产，见 `src/lib/config.ts`）。设置页可以覆盖基址。生产 web 是 core `:3100`，本 App 不自己起 Next。
 
-集群、GPU、引擎端口只在 [`../AGENTS.md`](../AGENTS.md)。
+集群、GPU、引擎端口只在 [`../../AGENTS.md`](../../AGENTS.md)。
 
 ## 技术栈与布局
 
