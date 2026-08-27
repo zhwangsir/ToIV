@@ -20,7 +20,7 @@ from app.comfy.pool import WorkerPool
 from app.config import get_settings
 from app.harness.ctx import get_ctx
 from app.models import Job, User
-from app.workflows.ace_step import AceStepParams, build_ace_step_graph
+from app.workflows.ace_step import AceStep15Params, ace_step_15_required_models, build_ace_step_15_graph
 from app.workflows.hunyuan3d import Hunyuan3DParams, build_hunyuan3d_graph
 from app.workflows.img2img import Img2ImgParams, build_img2img_graph
 from app.workflows.txt2img import Txt2ImgParams, build_txt2img_graph
@@ -307,14 +307,16 @@ async def exec_generate_image(args: dict, pool: WorkerPool, user: User, session,
 
 
 async def exec_generate_music(args: dict, pool: WorkerPool, user: User, session, attachment: dict | None = None) -> tuple[str, list[dict]]:
-    p = AceStepParams(
+    # ACE-Step 1.5 Turbo(8 步,助手场景优先速度);时长上限对齐 1.5 的 10 分钟
+    seconds = max(5.0, min(600.0, float(args.get("seconds") or 30)))
+    p = AceStep15Params(
         tags=args["tags"],
         lyrics=(args.get("lyrics") or ""),
-        seconds=float(args.get("seconds") or 30),
+        seconds=seconds,
     )
-    graph = build_ace_step_graph(p)
+    graph = build_ace_step_15_graph(p)
     try:
-        client = await pool.pick(required={p.ckpt_name})
+        client = await pool.pick(required=ace_step_15_required_models(p))
     except ComfyUIError as e:
         return f"暂无可用的音频 worker: {e}", []
     try:

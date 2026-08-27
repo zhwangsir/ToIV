@@ -76,20 +76,20 @@ def user() -> User:
 async def test_populate_registry_fills_entries(live_pool, user):
     """EnginePlugin bootstrap 填充后 list_engines 返回全部引擎条目。
 
-    SFW 上下文 17 条(8 条 NSFW 引擎被过滤);R18 上下文 25 条全量(2026-08-26 +vace-edit/h3-multishot)。
+    SFW 上下文 18 条(8 条 NSFW 引擎被过滤);R18 上下文 26 条全量(2026-08-27 +ace-music-legacy)。
     """
     populate_registry()
     # SFW 上下文:NSFW 引擎(8 条)被过滤
     engines_sfw = await list_engines(live_pool, user)
-    assert len(engines_sfw) == 17, f"SFW 引擎条目数应为 17,实得 {len(engines_sfw)}"
+    assert len(engines_sfw) == 18, f"SFW 引擎条目数应为 18,实得 {len(engines_sfw)}"
 
-    # R18 上下文:全量 25 条
+    # R18 上下文:全量 26 条
     token = nsfw_intent_var.set(True)
     try:
         engines_r18 = await list_engines(live_pool, user)
     finally:
         nsfw_intent_var.reset(token)
-    assert len(engines_r18) == 25, f"R18 引擎条目数应为 25,实得 {len(engines_r18)}"
+    assert len(engines_r18) == 26, f"R18 引擎条目数应为 26,实得 {len(engines_r18)}"
 
     # 含 submit 绑定(每条引擎都有)
     for e in engines_r18:
@@ -111,14 +111,14 @@ async def test_lazy_ensure_registry_no_double_fill(live_pool, user):
         engines = await list_engines(live_pool, user)
     finally:
         nsfw_intent_var.reset(token)
-    assert len(engines) == 25
+    assert len(engines) == 26
     populate_registry()  # 再次调用不应重复
     token = nsfw_intent_var.set(True)
     try:
         engines2 = await list_engines(live_pool, user)
     finally:
         nsfw_intent_var.reset(token)
-    assert len(engines2) == 25
+    assert len(engines2) == 26
 
 
 # ---------------------------------------------------------------------------
@@ -160,8 +160,8 @@ async def test_disabled_engines_skip_probe(live_pool, user, monkeypatch):
     monkeypatch.setattr(er, "_probe_pool", _counting)
     populate_registry(disabled={"txt2img", "img2img"})
     await list_engines(live_pool, user)
-    # 仅 ace-music 走 _probe_pool 探测;txt2img/img2img 被停用不探
-    assert calls == 1, f"停用引擎不应触发探测,实得 {calls} 次"
+    # 仅 ace-music/ace-music-legacy 走 _probe_pool 探测;txt2img/img2img 被停用不探
+    assert calls == 2, f"停用引擎不应触发探测,实得 {calls} 次"
 
 
 # ---------------------------------------------------------------------------

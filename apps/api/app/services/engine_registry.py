@@ -280,12 +280,18 @@ def _qwen_edit_params() -> list[dict]:
     ]
 
 
-# ACE-Step 文生音乐底模(与 workflows/ace_step.py AceStepParams.ckpt_name 一致)
+# ACE-Step 文生音乐底模(与 workflows/ace_step.py 一致:1.5 Turbo AIO / 1.0 legacy)
 _ACE_STEP_CKPT = "ace_step_v1_3.5b.safetensors"
+_ACE_STEP_15_AIO = "ace_step_1.5_turbo_aio.safetensors"
 
 
 async def _probe_ace(pool: WorkerPool) -> tuple[bool, str | None]:
-    """ACE-Step 音乐链路:任一 worker 有底模即可(节点为 ComfyUI 内置,不额外校验)。"""
+    """ACE-Step 1.5 音乐链路:任一 worker 有 Turbo AIO 底模即可(节点为 ComfyUI 内置,不额外校验)。"""
+    return await _probe_pool(pool, {_ACE_STEP_15_AIO}, set())
+
+
+async def _probe_ace_legacy(pool: WorkerPool) -> tuple[bool, str | None]:
+    """ACE-Step 1.0(legacy)音乐链路:任一 worker 有旧版底模即可。"""
     return await _probe_pool(pool, {_ACE_STEP_CKPT}, set())
 
 
@@ -728,11 +734,43 @@ def _wan_vace_edit_params() -> list[dict]:
     ]
 
 
-# ACE-Step 文生音乐参数(与 routes/audio.py AudioRequest 同一套范围)
+# ACE-Step 1.5 文生音乐参数(与 routes/audio.py AudioRequest 同一套范围)
 def _ace_audio_params() -> list[dict]:
     return [
         {"key": "lyrics", "label": "歌词", "type": "textarea", "default": "",
          "hint": "留空=纯音乐;支持 [verse]/[chorus] 结构标签"},
+        {"key": "quality", "label": "档位", "type": "select", "default": "turbo",
+         "options": [
+             {"value": "turbo", "label": "Turbo 草稿(8 步,快约 6 倍)"},
+             {"value": "quality", "label": "高质成品(base 50 步)"},
+         ],
+         "hint": "ACE-Step 1.5 双档;turbo 用 AIO 单模型,quality 用 base 分离权重"},
+        _num("seconds", "时长(秒)", 30, min_=5, max_=600, step=1,
+             hint="1.5 支持 10 秒-10 分钟长音乐"),
+        _num("bpm", "BPM", 120, min_=10, max_=300,
+             hint="节拍速度;模型按标签自动规划,一般留默认"),
+        {"key": "language", "label": "歌词语言", "type": "select", "default": "en",
+         "options": [{"value": v, "label": lbl} for v, lbl in [
+             ("en", "英语"), ("zh", "中文"), ("yue", "粤语"), ("ja", "日语"), ("ko", "韩语"),
+             ("es", "西班牙语"), ("de", "德语"), ("fr", "法语"), ("pt", "葡萄牙语"),
+             ("it", "意大利语"), ("ru", "俄语"), ("unknown", "自动/未知"),
+         ]]},
+        _num("steps", "采样步数", 0, min_=0, max_=150,
+             hint="0=按档位默认(turbo 8 步/quality 50 步)"),
+        _num("cfg", "CFG", 0, min_=0, max_=20, step=0.5,
+             hint="0=按档位默认(turbo 1.0/quality 5.0)"),
+        _seed(),
+    ]
+
+
+# ACE-Step 1.0(legacy)文生音乐参数(旧范围,可回退)
+def _ace_audio_legacy_params() -> list[dict]:
+    return [
+        {"key": "lyrics", "label": "歌词", "type": "textarea", "default": "",
+         "hint": "留空=纯音乐;支持 [verse]/[chorus] 结构标签"},
+        {"key": "quality", "label": "版本", "type": "select", "default": "legacy",
+         "options": [{"value": "legacy", "label": "ACE-Step 1.0(旧版)"}],
+         "hint": "固定旧版工作流;新版请用「ACE 文生音乐」引擎"},
         _num("seconds", "时长(秒)", 30, min_=5, max_=240, step=1),
         _num("steps", "采样步数", 50, min_=10, max_=150),
         _num("cfg", "CFG", 5.0, min_=0, max_=20, step=0.5),
@@ -1475,15 +1513,32 @@ def _default_registry() -> list[dict[str, Any]]:
         "kind": "audio",
         "nsfw": False,
         "submit": {"route": "/api/generate/audio", "kind": "audio"},
-        "description": "ACE-Step 1.5:风格标签 + 歌词 → MP3(≤240s);提示词可经 AI 优化为音乐标签",
+        "description": "ACE-Step 1.5:风格标签 + 歌词 → MP3(10s-10min);Turbo 8 步草稿 / base 50 步成品双档;提示词可经 AI 优化为音乐标签",
         "source": {
-            "name": "ACE-Step v1.5 3.5B",
+            "name": "ACE-Step v1.5",
+            "url": "https://huggingface.co/ACE-Step/Ace-Step1.5",
+            "author": "ACE Studio × 阶跃星辰(StepFun)",
+            "note": "开源权重音乐生成模型;本地自部署,Turbo 底模 ace_step_1.5_turbo_aio.safetensors(ComfyUI 原生节点)",
+        },
+        "params": _ace_audio_params(),
+        "probe": _probe_ace,
+    },
+    # ACE-Step 1.0(legacy):旧版工作流保留可回退(同一路由 quality=legacy)
+    {
+        "id": "ace-music-legacy",
+        "label": "ACE 文生音乐(1.0 旧版)",
+        "kind": "audio",
+        "nsfw": False,
+        "submit": {"route": "/api/generate/audio", "kind": "audio"},
+        "description": "ACE-Step 1.0(旧版,回退用):风格标签 + 歌词 → MP3(≤240s,50 步)",
+        "source": {
+            "name": "ACE-Step v1 3.5B",
             "url": "https://huggingface.co/ACE-Step",
             "author": "ACE Studio × 阶跃星辰(StepFun)",
             "note": "开源权重音乐生成模型;本地自部署,底模 ace_step_v1_3.5b.safetensors",
         },
-        "params": _ace_audio_params(),
-        "probe": _probe_ace,
+        "params": _ace_audio_legacy_params(),
+        "probe": _probe_ace_legacy,
     },
     ]
 

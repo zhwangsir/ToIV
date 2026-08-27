@@ -1485,8 +1485,12 @@ export interface AudioGenParams {
   tags: string;
   lyrics: string;
   seconds: number;
+  /** ACE-Step 档位:turbo=1.5 草稿(8 步) / quality=1.5 成品(50 步) / legacy=1.0 旧版 */
+  quality?: "turbo" | "quality" | "legacy";
   steps: number;
   cfg: number;
+  bpm?: number;
+  language?: string;
   seed?: number | null;
 }
 
