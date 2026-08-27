@@ -437,6 +437,62 @@ def test_vace_frames_snap_4k1():
     assert g["10"]["inputs"]["num_frames"] == 81
 
 
+def test_vace_accel_off_default_no_cache_node():
+    """默认 off:不建 cache 节点,采样器不接 cache_args(旧行为零变化)。"""
+    g = build_wan_vace_graph(WanVaceParams(positive="x", ref_images=("r1.png",), seed=1))
+    assert "17" not in g
+    assert "cache_args" not in g["13"]["inputs"]
+
+
+def test_vace_accel_magcache_wires_cache_node():
+    """magcache 档:WanVideoMagCache 串在 model loader 与采样器之间(cache_args 口)。
+
+    官方 Wan2.1 校准默认 thresh=0.06/K=2;retention_ratio 0.2(前 20% 步不缓存)
+    按步数映射 start_step(默认 20 步 → 4);VACE 为 Wan2.1 非 MoE 单模型,只串一个
+    cache 节点(与 wan_i2v 双专家 EasyCache×2 分流)。
+    """
+    g = build_wan_vace_graph(WanVaceParams(
+        positive="x", ref_images=("r1.png",), accel="magcache", seed=1,
+    ))
+    cache = g["17"]
+    assert cache["class_type"] == "WanVideoMagCache"
+    assert cache["inputs"]["magcache_thresh"] == 0.06
+    assert cache["inputs"]["magcache_K"] == 2
+    assert cache["inputs"]["start_step"] == 4  # retention 0.2 × 20 步
+    assert cache["inputs"]["end_step"] == -1
+    assert cache["inputs"]["cache_device"] == "offload_device"
+    assert g["13"]["inputs"]["cache_args"] == ["17", 0]
+
+
+def test_vace_accel_magcache_start_step_scales_with_steps():
+    """start_step 按 retention 0.2 随步数缩放(30 步→6),下限 1(首步永不缓存)。"""
+    g = build_wan_vace_graph(WanVaceParams(
+        positive="x", ref_images=("r1.png",), accel="magcache", steps=30, seed=1,
+    ))
+    assert g["17"]["inputs"]["start_step"] == 6
+    g = build_wan_vace_graph(WanVaceParams(
+        positive="x", ref_images=("r1.png",), accel="magcache", steps=4, seed=1,
+    ))
+    assert g["17"]["inputs"]["start_step"] == 1
+
+
+def test_vace_accel_magcache_threshold_overridable():
+    """cache_thresh/cache_k 显式覆盖档位默认(与 wan_i2v 显式 steps/cfg 覆盖同风格)。"""
+    g = build_wan_vace_graph(WanVaceParams(
+        positive="x", ref_images=("r1.png",), accel="magcache",
+        cache_thresh=0.12, cache_k=4, seed=1,
+    ))
+    assert g["17"]["inputs"]["magcache_thresh"] == 0.12
+    assert g["17"]["inputs"]["magcache_K"] == 4
+
+
+def test_vace_accel_unknown_rejected():
+    with pytest.raises(ValueError, match="未知 VACE 加速档"):
+        build_wan_vace_graph(WanVaceParams(
+            positive="x", ref_images=("r1.png",), accel="turbo", seed=1,
+        ))
+
+
 # --------------------------------------------------------------------------- #
 # 请求校验(422 / 对齐取整)
 # --------------------------------------------------------------------------- #
@@ -761,6 +817,50 @@ def test_vace_without_start_end_has_no_s2e_branch(client, monkeypatch):
     # 单参考图不 concat
     assert "30" not in graph
     assert [name for _, name in fake.uploads] == ["r.png"]
+
+
+def test_vace_route_rejects_unknown_accel(client):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "wvaccelbad")
+    r = c.post(
+        "/api/wan/vace",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={"positive": "a", "images": ["r.png"], "worker": "http://fake-worker",
+              "accel": "turbo"},
+    )
+    assert r.status_code == 422
+
+
+def test_vace_route_accel_passthrough(client, monkeypatch):
+    """accel=magcache 透传到图(cache 节点+cache_args);缺省 off 零变化。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "wvaccel")
+    fake = _FakeWanClient()
+    _install_wan(monkeypatch, fake)
+    _stub_wan_settings(monkeypatch)
+    r = c.post(
+        "/api/wan/vace",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={"positive": "a", "images": ["r.png"], "worker": "http://fake-worker",
+              "accel": "magcache"},
+    )
+    assert r.status_code == 200, r.text
+    graph = fake.graphs[0]
+    assert graph["17"]["class_type"] == "WanVideoMagCache"
+    assert graph["17"]["inputs"]["magcache_thresh"] == 0.06
+    assert graph["13"]["inputs"]["cache_args"] == ["17", 0]
+
+    r = c.post(
+        "/api/wan/vace",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={"positive": "a", "images": ["r.png"], "worker": "http://fake-worker"},
+    )
+    assert r.status_code == 200, r.text
+    graph = fake.graphs[1]
+    assert "17" not in graph
+    assert "cache_args" not in graph["13"]["inputs"]
 
 
 def test_vace_instance_unreachable_503(client, monkeypatch):

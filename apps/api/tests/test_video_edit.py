@@ -312,6 +312,31 @@ def test_edit_builder_edit_prompt_falls_back_to_positive():
     assert g["5"]["inputs"]["positive_prompt"] == "make it anime style"
 
 
+def test_edit_builder_accel_off_default_no_cache_node():
+    """默认 off:不建 cache 节点,采样器不接 cache_args(旧行为零变化)。"""
+    g = build_wan_vace_edit_graph(_edit_params())
+    assert "17" not in g
+    assert "cache_args" not in g["13"]["inputs"]
+
+
+def test_edit_builder_accel_magcache_wires_cache_node():
+    """magcache 档:WanVideoMagCache 串在 model loader 与采样器之间(cache_args 口);
+    官方 Wan2.1 校准默认 thresh=0.06/K=2,retention 0.2 × 20 步 → start_step=4。"""
+    g = build_wan_vace_edit_graph(_edit_params(accel="magcache"))
+    cache = g["17"]
+    assert cache["class_type"] == "WanVideoMagCache"
+    assert cache["inputs"]["magcache_thresh"] == 0.06
+    assert cache["inputs"]["magcache_K"] == 2
+    assert cache["inputs"]["start_step"] == 4
+    assert cache["inputs"]["end_step"] == -1
+    assert g["13"]["inputs"]["cache_args"] == ["17", 0]
+
+
+def test_edit_builder_accel_unknown_rejected():
+    with pytest.raises(ValueError, match="未知 VACE 加速档"):
+        build_wan_vace_edit_graph(_edit_params(accel="turbo"))
+
+
 def test_edit_builder_requires_source_video():
     with pytest.raises(ValueError, match="源视频"):
         build_wan_vace_edit_graph(_edit_params(source_video=""))
@@ -556,6 +581,48 @@ def test_edit_without_masks_has_no_mask_branch(client, monkeypatch):
     graph = fake.graphs[0]
     assert "input_masks" not in graph["10"]["inputs"]
     assert "90" not in graph
+
+
+def test_edit_route_rejects_unknown_accel(client):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "veaccelbad")
+    r = c.post(
+        "/api/generate/video-edit",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json=_edit_payload(accel="turbo"),
+    )
+    assert r.status_code == 422
+
+
+def test_edit_route_accel_passthrough(client, monkeypatch):
+    """accel=magcache 透传到编辑图(cache 节点+cache_args);缺省 off 零变化。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "veaccel")
+    fake = _FakeWanClient()
+    _install_wan(monkeypatch, fake)
+    _stub_wan_settings(monkeypatch)
+    r = c.post(
+        "/api/generate/video-edit",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json=_edit_payload(accel="magcache"),
+    )
+    assert r.status_code == 200, r.text
+    graph = fake.graphs[0]
+    assert graph["17"]["class_type"] == "WanVideoMagCache"
+    assert graph["17"]["inputs"]["magcache_thresh"] == 0.06
+    assert graph["13"]["inputs"]["cache_args"] == ["17", 0]
+
+    r = c.post(
+        "/api/generate/video-edit",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json=_edit_payload(),
+    )
+    assert r.status_code == 200, r.text
+    graph = fake.graphs[1]
+    assert "17" not in graph
+    assert "cache_args" not in graph["13"]["inputs"]
 
 
 def test_edit_instance_unreachable_503(client, monkeypatch):

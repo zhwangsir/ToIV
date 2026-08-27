@@ -50,6 +50,7 @@ from app.workflows.wan_animate import (
 )
 from app.workflows.wan_animate2 import WanAnimate2Params, build_wan_animate2_graph
 from app.workflows.wan_vace import (
+    ACCEL_MODES,
     EDIT_MODES,
     MAX_KEYFRAMES,
     MAX_REF_IMAGES,
@@ -182,6 +183,15 @@ class WanVaceRequest(BaseModel):
     shift: float = Field(default=8.0, ge=0.0, le=20.0)
     fps: int = Field(default=16, ge=8, le=30)
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
+    # 加速档(2026-08-28 Phase 2B):off=满血(默认) / magcache=MagCache 缓存加速
+    accel: str = Field(default="off", max_length=16)
+
+    @field_validator("accel")
+    @classmethod
+    def _accel_ok(cls, v: str) -> str:
+        if v not in ACCEL_MODES:
+            raise ValueError(f"accel 仅支持 {'/'.join(ACCEL_MODES)}")
+        return v
 
     _imgs_ok = field_validator("images", "start_image", "end_image", "motion_mask", mode="before")(
         lambda v: [_no_traversal(x) for x in v] if isinstance(v, list) else _no_traversal(v))
@@ -284,6 +294,7 @@ async def generate_wan_vace(
         cfg=req.cfg,
         shift=req.shift,
         fps=req.fps,
+        accel=req.accel,
         **({"seed": req.seed} if req.seed is not None else {}),
     )
     graph = build_wan_vace_graph(params)
@@ -568,6 +579,15 @@ class WanVaceEditRequest(BaseModel):
     shift: float = Field(default=8.0, ge=0.0, le=20.0)
     fps: int = Field(default=16, ge=8, le=30)
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
+    # 加速档(2026-08-28 Phase 2B):off=满血(默认) / magcache=MagCache 缓存加速
+    accel: str = Field(default="off", max_length=16)
+
+    @field_validator("accel")
+    @classmethod
+    def _accel_ok(cls, v: str) -> str:
+        if v not in ACCEL_MODES:
+            raise ValueError(f"accel 仅支持 {'/'.join(ACCEL_MODES)}")
+        return v
 
     _media_ok = field_validator("source_video", "preserve_mask")(_no_traversal)
 
@@ -647,6 +667,7 @@ async def generate_video_edit(
         edit_mode=req.edit_mode,
         keyframe_indices=kfs,
         preserve_mask=mask_name,
+        accel=req.accel,
         **({"seed": req.seed} if req.seed is not None else {}),
     )
     graph = build_wan_vace_edit_graph(params)

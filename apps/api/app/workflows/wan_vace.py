@@ -34,6 +34,16 @@ MAX_REF_IMAGES = 4  # 多参考图上限(拼接 batch 喂 VACEEncode)
 EDIT_MODES = ("object_replace", "object_remove", "style_transfer", "relight", "camera_change")
 MAX_KEYFRAMES = 5  # 关键帧锚点上限(对标 Aleph 2.0 ≤5 关键帧)
 
+# ── MagCache 加速档(2026-08-28 Phase 2B;NeurIPS 2025,Wan2.1-VACE 官方校准)──
+# 节点用 WanVideoWrapper 内置 WanVideoMagCache(:8197 object_info 实证可用)——VACE 链路
+# 是 wrapper 链(WanVideoModelLoader→WanVideoSampler),原生 ComfyUI-MagCache 节点只认
+# 原生 MODEL 对象不通用;calibration mag_ratios 由 wrapper 按 model_variant 自动选
+# (14B 数组与官方 wan2.1_vace_14B 完全一致,nodes_model_loading.py:1367)。
+ACCEL_MODES = ("off", "magcache")
+MAGCACHE_THRESH = 0.06   # 官方节点默认阈值(ComfyUI-MagCache INPUT_TYPES;纸面 2.68x 即此校准)
+MAGCACHE_K = 2           # 官方默认最大连跳步数
+MAGCACHE_RETENTION = 0.2  # 官方 retention_ratio:前 20% 步不缓存(构图保护)
+
 
 def _random_seed() -> int:
     return secrets.randbelow(MAX_SEED)
@@ -69,6 +79,11 @@ class WanVaceParams:
     shift: float = 8.0      # 官方示例值
     strength: float = 1.0   # VACE 条件强度(官方示例 1.0)
     fps: int = 16
+    # 加速档(2026-08-28 Phase 2B,沿用 wan_i2v accel 风格):off=满血(默认,零行为变化)
+    # / magcache=MagCache 缓存加速(WanVideoMagCache 串在 model loader 与采样器之间)
+    accel: str = "off"
+    cache_thresh: float = MAGCACHE_THRESH  # 仅 magcache 档启用;官方 Wan2.1 校准默认
+    cache_k: int = MAGCACHE_K
     seed: int = field(default_factory=_random_seed)
     model_name: str = DEFAULT_MODEL
     t5_name: str = DEFAULT_T5
@@ -101,6 +116,25 @@ def _ref_image_branch(graph: dict, p: WanVaceParams) -> list:
         concat_inputs[f"image_{i}"] = [rid, 0]
     graph["30"] = {"class_type": "ImageConcatMulti", "inputs": concat_inputs}
     return ["30", 0]
+
+
+def _apply_accel(graph: dict, p: WanVaceParams) -> None:
+    """加速档接线:magcache 时建 WanVideoMagCache 节点,输出 CACHEARGS 接采样器 cache_args。
+
+    节点语义(:8197 object_info 2026-08-28 实证):VACE 为 Wan2.1 非 MoE 单模型,只串一个
+    cache 节点(与 wan_i2v 双专家 EasyCache×2 分流);start_step 是绝对步号,官方
+    retention_ratio=0.2(前 20% 步不缓存,构图保护)按实际步数映射,下限 1(首步永不缓存);
+    end_step=-1 到尾;cache_device=offload_device(与 block_swap 共卡策略一致)。
+    """
+    if p.accel == "off":
+        return
+    if p.accel != "magcache":
+        raise ValueError(f"未知 VACE 加速档: {p.accel!r}(可选 {'/'.join(ACCEL_MODES)})")
+    graph["17"] = {"class_type": "WanVideoMagCache", "inputs": {
+        "magcache_thresh": p.cache_thresh, "magcache_K": p.cache_k,
+        "start_step": max(1, round(p.steps * MAGCACHE_RETENTION)), "end_step": -1,
+        "cache_device": "offload_device"}}
+    graph["13"]["inputs"]["cache_args"] = ["17", 0]
 
 
 def build_wan_vace_graph(p: WanVaceParams) -> dict:
@@ -195,6 +229,7 @@ def build_wan_vace_graph(p: WanVaceParams) -> dict:
             vace_inputs["input_masks"] = ["51", 0]
 
     graph["10"] = {"class_type": "WanVideoVACEEncode", "inputs": vace_inputs}
+    _apply_accel(graph, p)
     return graph
 
 
@@ -392,4 +427,5 @@ def build_wan_vace_edit_graph(p: WanVaceEditParams) -> dict:
         vace_inputs["input_masks"] = _edit_mask_branch(graph, p)
 
     graph["10"] = {"class_type": "WanVideoVACEEncode", "inputs": vace_inputs}
+    _apply_accel(graph, p)
     return graph
