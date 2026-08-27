@@ -1,0 +1,17 @@
+{
+  "closeup_static": {
+    "filename": "bench_wan_closeup_static.png",
+    "worker": "http://192.168.71.127:8189",
+    "origin": "/api/images?filename=ToIV_00130_.png&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.116%3A8188&sig=86d47ddabbe824a2b5bacd1a"
+  },
+  "mid_cafe": {
+    "filename": "bench_wan_mid_cafe.png",
+    "worker": "http://192.168.71.127:8189",
+    "origin": "/api/images?filename=ToIV_00201_.png&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.127%3A8189&sig=d64c9a67ef8443ce6a219454"
+  },
+  "high_motion": {
+    "filename": "bench_wan_high_motion.png",
+    "worker": "http://192.168.71.127:8189",
+    "origin": "/api/images?filename=ToIV_00033_.png&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.114%3A8193&sig=5912558eefa0df1f62fefb42"
+  }
+}

@@ -68,6 +68,9 @@ class WanI2VRequest(BaseModel):
     # turbo_cache=成片 8 步 Seko + EasyCache;缺省 None → 按 full_quality 映射
     # (True→off,False→turbo_cache);显式给定时优先于 full_quality
     accel: str | None = Field(default=None, max_length=16)
+    # EasyCache 复用阈值(仅 turbo_cache 档生效;空=builder 默认 0.15。
+    # 高动态场景建议 0.10 保守,静态场景可 0.20-0.25 换更大加速)
+    cache_threshold: float | None = Field(default=None, ge=0.05, le=0.40)
     # 特效预设(Pikaffects 式一键物理特效;静态清单见 services/effect_presets):
     # 选中后后端把特效英文描述确定性拼到 positive 前部,不经过 LLM;未知 key → 422
     effect_preset: str | None = Field(default=None, max_length=64)
@@ -171,6 +174,7 @@ async def generate_video(
         high_loras=tuple(high_loras),
         low_loras=tuple(low_loras),
         accel=accel,
+        **({"cache_threshold": req.cache_threshold} if req.cache_threshold is not None else {}),
         **({"negative": req.negative} if req.negative else {}),
         **({"seed": req.seed} if req.seed is not None else {}),
     )

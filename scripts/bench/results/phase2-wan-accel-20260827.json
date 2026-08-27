@@ -1,0 +1,1411 @@
+{
+  "tag": "phase2-wan-accel-20260827",
+  "generated_at": "2026-08-27T15:11:20.233710+00:00",
+  "base": "http://192.168.71.47:8090",
+  "method_notes": [
+    "全部作业钉 ws :8189(唯一具备 Seko LoRA+VHS_VideoCombine 的 worker,真机 object_info 实证)",
+    "严格串行(单 ComfyUI 实例单执行槽,并发会污染墙钟);评分 SSE 触发与下一作业重叠",
+    "每档开跑前 POST /free(unload_models+free_memory)+ 双模式独立 prompt 热身",
+    "t2v 走 /api/generate/txt2video 端点默认 480x480@49f/16fps;i2v 走 /api/generate/video 默认 832x480@81f/16fps",
+    "seed=42;质量分由灰度评分器(spark01 Qwen3-VL-32B)产出,落库后单独收割"
+  ],
+  "runs": [
+    {
+      "tag": "phase2-wan-accel-20260827",
+      "engine": "wan-t2v",
+      "lane": "wan",
+      "mode": "t2v",
+      "accel": "off",
+      "scenario": "closeup_static",
+      "scenario_name": "热身",
+      "prompt": "静态画面:一个红苹果放在白色桌面上,柔和自然光,固定机位(off 档 t2v 预热#222736,非正测)",
+      "seed": 42,
+      "warmup": true,
+      "worker": "http://192.168.71.127:8189",
+      "submit_ts": 1787840856.7916312,
+      "done_ts": 1787840978.038062,
+      "wall_seconds": 121.2,
+      "status": "done",
+      "prompt_id": "d0423dc3-f225-4b80-91c3-1d3feab56598",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.0,
+        "done": 120.9
+      },
+      "job_id": "130100f8e1344deb8b9969360408c816",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=ToIV_t2v_00002.mp4&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.127%3A8189&sig=f0fd049b52d585ea3c19081b",
+          "bytes": 78403,
+          "duration_sec": 3.062,
+          "width": 480,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0,
+          "local_path": "/var/folders/ll/8xsnjk852_b4lmbckw77s2fm0000gn/T/tmpkpc8mi_x.mp4"
+        }
+      ],
+      "score_trigger": {
+        "ok": true,
+        "sec": 14.7
+      }
+    },
+    {
+      "tag": "phase2-wan-accel-20260827",
+      "engine": "wan-t2v",
+      "lane": "wan",
+      "mode": "t2v",
+      "accel": "off",
+      "scenario": "closeup_static",
+      "scenario_name": "近景静态",
+      "prompt": "特写:一位年轻女性的面部,自然柔光,静态凝视镜头,表情平静",
+      "seed": 42,
+      "warmup": false,
+      "worker": "http://192.168.71.127:8189",
+      "submit_ts": 1787840978.1070669,
+      "done_ts": 1787841028.791732,
+      "wall_seconds": 50.7,
+      "status": "done",
+      "prompt_id": "6b4de600-fc18-4827-ba7f-afad4dfe4f64",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.0,
+        "done": 50.4
+      },
+      "job_id": "dc85dd5b49434c2488b62a3928e12529",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=ToIV_t2v_00003.mp4&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.127%3A8189&sig=4773e909980e40e302b8bbc9",
+          "bytes": 173554,
+          "duration_sec": 3.062,
+          "width": 480,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0,
+          "local_path": "/tmp/wan_accel_products/phase2-wan-accel-20260827_t2v_off_closeup_static.mp4"
+        }
+      ],
+      "score_trigger": {
+        "ok": true,
+        "sec": 19.1
+      },
+      "quality": {
+        "quality_total": 0.9500000000000001,
+        "quality_degraded": false,
+        "quality_issues": "[\"轻微皮肤平滑过度导致部分区域缺乏自然纹理\", \"耳饰反光略显过亮，可能因高光控制稍强\"]"
+      }
+    },
+    {
+      "tag": "phase2-wan-accel-20260827",
+      "engine": "wan-t2v",
+      "lane": "wan",
+      "mode": "t2v",
+      "accel": "off",
+      "scenario": "mid_cafe",
+      "scenario_name": "中远景人脸",
+      "prompt": "中景:一位男士坐在咖啡厅靠窗位置与朋友交谈,面部清晰,背景轻微虚化",
+      "seed": 42,
+      "warmup": false,
+      "worker": "http://192.168.71.127:8189",
+      "submit_ts": 1787841028.8505569,
+      "done_ts": 1787841079.552414,
+      "wall_seconds": 50.7,
+      "status": "done",
+      "prompt_id": "fb573972-862a-48f1-a7cb-4f7958996e56",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.0,
+        "done": 50.4
+      },
+      "job_id": "18a3603aa6a347acbed83f7eb070a16d",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=ToIV_t2v_00004.mp4&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.127%3A8189&sig=0d5c9b6e34de05f7da7c4896",
+          "bytes": 130898,
+          "duration_sec": 3.062,
+          "width": 480,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0,
+          "local_path": "/tmp/wan_accel_products/phase2-wan-accel-20260827_t2v_off_mid_cafe.mp4"
+        }
+      ],
+      "score_trigger": {
+        "ok": true,
+        "sec": 21.8
+      },
+      "quality": {
+        "quality_total": 0.9666666666666667,
+        "quality_degraded": false,
+        "quality_issues": "[\"无明显模糊或伪影，画面稳定无闪烁，构图合理，光线自然均匀，背景虚化程度适中，符合中景拍摄要求\"]"
+      }
+    },
+    {
+      "tag": "phase2-wan-accel-20260827",
+      "engine": "wan-t2v",
+      "lane": "wan",
+      "mode": "t2v",
+      "accel": "off",
+      "scenario": "high_motion",
+      "scenario_name": "高动态",
+      "prompt": "快速运镜:一辆红色跑车在夜晚城市街道疾驰,镜头跟随车尾,霓虹灯光拖影",
+      "seed": 42,
+      "warmup": false,
+      "worker": "http://192.168.71.127:8189",
+      "submit_ts": 1787841079.610143,
+      "done_ts": 1787841130.175736,
+      "wall_seconds": 50.6,
+      "status": "done",
+      "prompt_id": "c40350cb-19f4-4029-848a-9c8eb48c4c1e",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.0,
+        "done": 50.5
+      },
+      "job_id": "297d79b9a48b48819911d3441167672b",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=ToIV_t2v_00005.mp4&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.127%3A8189&sig=fea4b0df974f8dbf4279666e",
+          "bytes": 619315,
+          "duration_sec": 3.062,
+          "width": 480,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0,
+          "local_path": "/tmp/wan_accel_products/phase2-wan-accel-20260827_t2v_off_high_motion.mp4"
+        }
+      ],
+      "score_trigger": {
+        "ok": true,
+        "sec": 26.7
+      },
+      "quality": {
+        "quality_total": 0.8166666666666665,
+        "quality_degraded": false,
+        "quality_issues": "[\"运动模糊程度较高，导致背景细节丢失严重，部分区域出现轻微重影伪影\", \"车体边缘在高速运动中存在轻微锯齿，可能源于分辨率不足或抗锯齿处理不足\", \"光线拖影效果虽符合提示词，但部分霓虹光带出现色溢和轻微光晕，影响真实感\"]"
+      }
+    },
+    {
+      "tag": "phase2-wan-accel-20260827",
+      "engine": "wan-i2v",
+      "lane": "wan",
+      "mode": "i2v",
+      "accel": "off",
+      "scenario": "closeup_static",
+      "scenario_name": "热身",
+      "prompt": "静态画面:一个红苹果放在白色桌面上,柔和自然光,固定机位(off 档 i2v 预热#222736,非正测)",
+      "seed": 42,
+      "warmup": true,
+      "worker": "http://192.168.71.127:8189",
+      "submit_ts": 1787841130.317556,
+      "done_ts": 1787841407.321996,
+      "wall_seconds": 277.0,
+      "status": "done",
+      "prompt_id": "26a7bd16-0408-46a7-a3f8-7c073cd08dbf",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.0,
+        "done": 277.0
+      },
+      "job_id": "e6e0857ff1294fd6a1e0eb5ddc34993d",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=ToIV_vid_00016.mp4&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.127%3A8189&sig=2885d082eae6307c6d0be817",
+          "bytes": 355523,
+          "duration_sec": 5.062,
+          "width": 832,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0,
+          "local_path": "/var/folders/ll/8xsnjk852_b4lmbckw77s2fm0000gn/T/tmpr9rfstoq.mp4"
+        }
+      ],
+      "score_trigger": {
+        "ok": true,
+        "sec": 35.7
+      }
+    },
+    {
+      "tag": "phase2-wan-accel-20260827",
+      "engine": "wan-i2v",
+      "lane": "wan",
+      "mode": "i2v",
+      "accel": "off",
+      "scenario": "closeup_static",
+      "scenario_name": "近景静态",
+      "prompt": "特写:一位年轻女性的面部,自然柔光,静态凝视镜头,表情平静",
+      "seed": 42,
+      "warmup": false,
+      "worker": "http://192.168.71.127:8189",
+      "submit_ts": 1787841407.3826811,
+      "done_ts": 1787841619.197419,
+      "wall_seconds": 211.8,
+      "status": "done",
+      "prompt_id": "29abbe1f-ec99-4876-a416-2cb4a6b7da55",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.0,
+        "done": 211.8
+      },
+      "job_id": "c431064cf709471ba01c4853767ce16f",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=ToIV_vid_00017.mp4&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.127%3A8189&sig=4d7fcdd118d42516437d1a64",
+          "bytes": 332081,
+          "duration_sec": 5.062,
+          "width": 832,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0,
+          "local_path": "/tmp/wan_accel_products/phase2-wan-accel-20260827_i2v_off_closeup_static.mp4"
+        }
+      ],
+      "score_trigger": {
+        "ok": true,
+        "sec": 23.2
+      },
+      "quality": {
+        "quality_total": 0.9666666666666667,
+        "quality_degraded": false,
+        "quality_issues": "[\"无明显模糊或伪影，画面稳定无闪烁，构图居中对称，光线柔和均匀，皮肤纹理细腻，眼部细节清晰，整体呈现高保真静态肖像质量\"]"
+      }
+    },
+    {
+      "tag": "phase2-wan-accel-20260827",
+      "engine": "wan-i2v",
+      "lane": "wan",
+      "mode": "i2v",
+      "accel": "off",
+      "scenario": "mid_cafe",
+      "scenario_name": "中远景人脸",
+      "prompt": "中景:一位男士坐在咖啡厅靠窗位置与朋友交谈,面部清晰,背景轻微虚化",
+      "seed": 42,
+      "warmup": false,
+      "worker": "http://192.168.71.127:8189",
+      "submit_ts": 1787841619.258143,
+      "done_ts": 1787841810.658933,
+      "wall_seconds": 191.4,
+      "status": "done",
+      "prompt_id": "8e20b08f-3491-4a51-844d-8aa4dc562033",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.0,
+        "done": 191.4
+      },
+      "job_id": "c0d46f1594d843be9ae9a17fa9570fce",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=ToIV_vid_00018.mp4&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.127%3A8189&sig=f8899194a8df7bb458ccdcdc",
+          "bytes": 629710,
+          "duration_sec": 5.062,
+          "width": 832,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0,
+          "local_path": "/tmp/wan_accel_products/phase2-wan-accel-20260827_i2v_off_mid_cafe.mp4"
+        }
+      ],
+      "score_trigger": {
+        "ok": true,
+        "sec": 20.1
+      },
+      "quality": {
+        "quality_total": 0.9666666666666667,
+        "quality_degraded": false,
+        "quality_issues": "[\"无明显技术缺陷，画面清晰度高，无伪影或闪烁，构图稳定，光线自然均匀\"]"
+      }
+    },
+    {
+      "tag": "phase2-wan-accel-20260827",
+      "engine": "wan-i2v",
+      "lane": "wan",
+      "mode": "i2v",
+      "accel": "off",
+      "scenario": "high_motion",
+      "scenario_name": "高动态",
+      "prompt": "快速运镜:一辆红色跑车在夜晚城市街道疾驰,镜头跟随车尾,霓虹灯光拖影",
+      "seed": 42,
+      "warmup": false,
+      "worker": "http://192.168.71.127:8189",
+      "submit_ts": 1787841810.727953,
+      "done_ts": 1787842002.444948,
+      "wall_seconds": 191.7,
+      "status": "done",
+      "prompt_id": "afd50998-3540-48a6-b738-4fee62338ede",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.1,
+        "done": 191.7
+      },
+      "job_id": "aa6f660593f34b4eb9784997927811e0",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=ToIV_vid_00019.mp4&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.127%3A8189&sig=359e2fc931cfa8637e6a04b1",
+          "bytes": 2235198,
+          "duration_sec": 5.062,
+          "width": 832,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0,
+          "local_path": "/tmp/wan_accel_products/phase2-wan-accel-20260827_i2v_off_high_motion.mp4"
+        }
+      ],
+      "score_trigger": {
+        "ok": true,
+        "sec": 27.5
+      },
+      "quality": {
+        "quality_total": 0.9166666666666666,
+        "quality_degraded": false,
+        "quality_issues": "[\"背景动态模糊存在轻微拖影不均，部分霓虹灯带出现轻微色带伪影\", \"车尾细节在高光区域有轻微过曝，导致部分纹理丢失\", \"路面反射光带与车体阴影衔接处存在轻微边缘不自然\"]"
+      }
+    },
+    {
+      "tag": "phase2-wan-accel-20260827",
+      "engine": "wan-t2v",
+      "lane": "wan",
+      "mode": "t2v",
+      "accel": "turbo",
+      "scenario": "closeup_static",
+      "scenario_name": "热身",
+      "prompt": "静态画面:一个红苹果放在白色桌面上,柔和自然光,固定机位(turbo 档 t2v 预热#222736,非正测)",
+      "seed": 42,
+      "warmup": true,
+      "worker": "http://192.168.71.127:8189",
+      "submit_ts": 1787842002.555058,
+      "done_ts": 1787842138.647101,
+      "wall_seconds": 136.1,
+      "status": "done",
+      "prompt_id": "b8a34976-fd8a-4ed6-91c2-b9c886597ff6",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.0,
+        "done": 136.0
+      },
+      "job_id": "d383cd2aca89409ea46ae3ed17ceb82b",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=ToIV_t2v_00006.mp4&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.127%3A8189&sig=c5107f0250dc74c81473ef5d",
+          "bytes": 118777,
+          "duration_sec": 3.062,
+          "width": 480,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0,
+          "local_path": "/var/folders/ll/8xsnjk852_b4lmbckw77s2fm0000gn/T/tmpox02fh05.mp4"
+        }
+      ],
+      "score_trigger": {
+        "ok": true,
+        "sec": 15.1
+      }
+    },
+    {
+      "tag": "phase2-wan-accel-20260827",
+      "engine": "wan-t2v",
+      "lane": "wan",
+      "mode": "t2v",
+      "accel": "turbo",
+      "scenario": "closeup_static",
+      "scenario_name": "近景静态",
+      "prompt": "特写:一位年轻女性的面部,自然柔光,静态凝视镜头,表情平静",
+      "seed": 42,
+      "warmup": false,
+      "worker": "http://192.168.71.127:8189",
+      "submit_ts": 1787842138.696848,
+      "done_ts": 1787842143.838856,
+      "wall_seconds": 5.1,
+      "status": "done",
+      "prompt_id": "e344bcc7-585f-4973-82ad-742a10b42df2",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.0,
+        "done": 5.1
+      },
+      "job_id": "6e376838ce514490b9917677c3c07b72",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=ToIV_t2v_00007.mp4&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.127%3A8189&sig=5e9526512f645ca305314a62",
+          "bytes": 278540,
+          "duration_sec": 3.062,
+          "width": 480,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0,
+          "local_path": "/tmp/wan_accel_products/phase2-wan-accel-20260827_t2v_turbo_closeup_static.mp4"
+        }
+      ],
+      "score_trigger": {
+        "ok": true,
+        "sec": 22.5
+      },
+      "quality": {
+        "quality_total": 0.9133333333333332,
+        "quality_degraded": false,
+        "quality_issues": "[\"轻微的皮肤过度平滑导致部分区域缺乏自然纹理\", \"眼睛高光区域存在轻微过曝\", \"背景虚化过渡略显不自然，边缘有轻微晕影\"]"
+      }
+    },
+    {
+      "tag": "phase2-wan-accel-20260827",
+      "engine": "wan-t2v",
+      "lane": "wan",
+      "mode": "t2v",
+      "accel": "turbo",
+      "scenario": "mid_cafe",
+      "scenario_name": "中远景人脸",
+      "prompt": "中景:一位男士坐在咖啡厅靠窗位置与朋友交谈,面部清晰,背景轻微虚化",
+      "seed": 42,
+      "warmup": false,
+      "worker": "http://192.168.71.127:8189",
+      "submit_ts": 1787842143.893864,
+      "done_ts": 1787842149.021132,
+      "wall_seconds": 5.1,
+      "status": "done",
+      "prompt_id": "32b41000-209f-468c-a46c-36325f580479",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.0,
+        "done": 5.1
+      },
+      "job_id": "fdae10f3a6084619b3d0b2d065c45ee6",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=ToIV_t2v_00008.mp4&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.127%3A8189&sig=0920d5e94c3fca4e9f3f1bc2",
+          "bytes": 238582,
+          "duration_sec": 3.062,
+          "width": 480,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0,
+          "local_path": "/tmp/wan_accel_products/phase2-wan-accel-20260827_t2v_turbo_mid_cafe.mp4"
+        }
+      ],
+      "score_trigger": {
+        "ok": true,
+        "sec": 24.0
+      },
+      "quality": {
+        "quality_total": 0.9633333333333333,
+        "quality_degraded": false,
+        "quality_issues": "[\"无明显技术缺陷，画面清晰度高，无伪影或闪烁，构图稳定，光线自然均匀\"]"
+      }
+    },
+    {
+      "tag": "phase2-wan-accel-20260827",
+      "engine": "wan-t2v",
+      "lane": "wan",
+      "mode": "t2v",
+      "accel": "turbo",
+      "scenario": "high_motion",
+      "scenario_name": "高动态",
+      "prompt": "快速运镜:一辆红色跑车在夜晚城市街道疾驰,镜头跟随车尾,霓虹灯光拖影",
+      "seed": 42,
+      "warmup": false,
+      "worker": "http://192.168.71.127:8189",
+      "submit_ts": 1787842149.0835981,
+      "done_ts": 1787842159.301915,
+      "wall_seconds": 10.2,
+      "status": "done",
+      "prompt_id": "ec7f45f2-ae3f-4770-b37f-5bba01b2d3f6",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.0,
+        "done": 10.2
+      },
+      "job_id": "ce1599e09a6940cab6514bf36441d061",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=ToIV_t2v_00009.mp4&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.127%3A8189&sig=d0dfa50b1ee1e26cc34ec231",
+          "bytes": 706267,
+          "duration_sec": 3.062,
+          "width": 480,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0,
+          "local_path": "/tmp/wan_accel_products/phase2-wan-accel-20260827_t2v_turbo_high_motion.mp4"
+        }
+      ],
+      "score_trigger": {
+        "ok": true,
+        "sec": 21.2
+      },
+      "quality": {
+        "quality_total": 0.8833333333333333,
+        "quality_degraded": false,
+        "quality_issues": "[\"轻微运动模糊导致车尾细节略失真\", \"背景建筑边缘存在轻微伪影\", \"路灯拖影过度拉伸导致部分区域过曝\"]"
+      }
+    },
+    {
+      "tag": "phase2-wan-accel-20260827",
+      "engine": "wan-i2v",
+      "lane": "wan",
+      "mode": "i2v",
+      "accel": "turbo",
+      "scenario": "closeup_static",
+      "scenario_name": "热身",
+      "prompt": "静态画面:一个红苹果放在白色桌面上,柔和自然光,固定机位(turbo 档 i2v 预热#222736,非正测)",
+      "seed": 42,
+      "warmup": true,
+      "worker": "http://192.168.71.127:8189",
+      "submit_ts": 1787842159.401737,
+      "done_ts": 1787842356.302397,
+      "wall_seconds": 196.9,
+      "status": "done",
+      "prompt_id": "4aee3e51-5938-4880-b029-1dadf3457860",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.0,
+        "done": 196.8
+      },
+      "job_id": "e92dd328d5884edc8a51d79ef839d078",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=ToIV_vid_00020.mp4&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.127%3A8189&sig=c17c766a365fd578b06f23d4",
+          "bytes": 431263,
+          "duration_sec": 5.062,
+          "width": 832,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0,
+          "local_path": "/var/folders/ll/8xsnjk852_b4lmbckw77s2fm0000gn/T/tmp5r_ox8mj.mp4"
+        }
+      ],
+      "score_trigger": {
+        "ok": true,
+        "sec": 34.7
+      }
+    },
+    {
+      "tag": "phase2-wan-accel-20260827",
+      "engine": "wan-i2v",
+      "lane": "wan",
+      "mode": "i2v",
+      "accel": "turbo",
+      "scenario": "closeup_static",
+      "scenario_name": "近景静态",
+      "prompt": "特写:一位年轻女性的面部,自然柔光,静态凝视镜头,表情平静",
+      "seed": 42,
+      "warmup": false,
+      "worker": "http://192.168.71.127:8189",
+      "submit_ts": 1787842356.43682,
+      "done_ts": 1787842381.90429,
+      "wall_seconds": 25.5,
+      "status": "done",
+      "prompt_id": "bfd20b95-345f-4385-8c42-0ef52b1711c7",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.0,
+        "done": 25.4
+      },
+      "job_id": "4e2fd7926afe4e6ca5dec950c62cd159",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=ToIV_vid_00021.mp4&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.127%3A8189&sig=78368d999f2295aaf54cabfc",
+          "bytes": 369994,
+          "duration_sec": 5.062,
+          "width": 832,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0,
+          "local_path": "/tmp/wan_accel_products/phase2-wan-accel-20260827_i2v_turbo_closeup_static.mp4"
+        }
+      ],
+      "score_trigger": {
+        "ok": true,
+        "sec": 21.2
+      },
+      "quality": {
+        "quality_total": 0.9666666666666667,
+        "quality_degraded": false,
+        "quality_issues": "[\"无明显模糊或伪影，画面稳定无闪烁，构图居中对称，光线柔和均匀，皮肤纹理细腻，细节保留良好\"]"
+      }
+    },
+    {
+      "tag": "phase2-wan-accel-20260827",
+      "engine": "wan-i2v",
+      "lane": "wan",
+      "mode": "i2v",
+      "accel": "turbo",
+      "scenario": "mid_cafe",
+      "scenario_name": "中远景人脸",
+      "prompt": "中景:一位男士坐在咖啡厅靠窗位置与朋友交谈,面部清晰,背景轻微虚化",
+      "seed": 42,
+      "warmup": false,
+      "worker": "http://192.168.71.127:8189",
+      "submit_ts": 1787842381.97101,
+      "done_ts": 1787842407.278641,
+      "wall_seconds": 25.3,
+      "status": "done",
+      "prompt_id": "c1ac3fb3-2da6-48b0-adae-1e945262ac36",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.0,
+        "done": 25.2
+      },
+      "job_id": "a53f1e7275b141739dc5aa81087d5e8d",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=ToIV_vid_00022.mp4&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.127%3A8189&sig=805f2cc61163025291746b80",
+          "bytes": 563784,
+          "duration_sec": 5.062,
+          "width": 832,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0,
+          "local_path": "/tmp/wan_accel_products/phase2-wan-accel-20260827_i2v_turbo_mid_cafe.mp4"
+        }
+      ],
+      "score_trigger": {
+        "ok": true,
+        "sec": 24.4
+      },
+      "quality": {
+        "quality_total": 0.9633333333333333,
+        "quality_degraded": false,
+        "quality_issues": "[\"无明显技术缺陷，画面清晰度高，无模糊、伪影或闪烁；光线自然，构图平衡，背景虚化符合中景拍摄要求\"]"
+      }
+    },
+    {
+      "tag": "phase2-wan-accel-20260827",
+      "engine": "wan-i2v",
+      "lane": "wan",
+      "mode": "i2v",
+      "accel": "turbo",
+      "scenario": "high_motion",
+      "scenario_name": "高动态",
+      "prompt": "快速运镜:一辆红色跑车在夜晚城市街道疾驰,镜头跟随车尾,霓虹灯光拖影",
+      "seed": 42,
+      "warmup": false,
+      "worker": "http://192.168.71.127:8189",
+      "submit_ts": 1787842407.424039,
+      "done_ts": 1787842432.750483,
+      "wall_seconds": 25.3,
+      "status": "done",
+      "prompt_id": "c53b1ccc-a0a1-4bb0-9db4-f3ea39457b0d",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.0,
+        "done": 25.3
+      },
+      "job_id": "955a3bb942c244b69065f8cc75c3f54e",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=ToIV_vid_00023.mp4&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.127%3A8189&sig=7a4e47640484e866167a73d7",
+          "bytes": 1934826,
+          "duration_sec": 5.062,
+          "width": 832,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0,
+          "local_path": "/tmp/wan_accel_products/phase2-wan-accel-20260827_i2v_turbo_high_motion.mp4"
+        }
+      ],
+      "score_trigger": {
+        "ok": true,
+        "sec": 27.9
+      },
+      "quality": {
+        "quality_total": 0.9166666666666666,
+        "quality_degraded": false,
+        "quality_issues": "[\"运动模糊处理略显过度，导致背景细节丢失较多\", \"车尾部分存在轻微边缘伪影，尤其在尾灯与车身交界处\", \"路面反光与车体反射存在轻微色偏，红蓝光混合区域出现轻微色溢\"]"
+      }
+    },
+    {
+      "tag": "phase2-wan-accel-20260827",
+      "engine": "wan-t2v",
+      "lane": "wan",
+      "mode": "t2v",
+      "accel": "turbo_cache",
+      "scenario": "closeup_static",
+      "scenario_name": "热身",
+      "prompt": "静态画面:一个红苹果放在白色桌面上,柔和自然光,固定机位(turbo_cache 档 t2v 预热#222736,非正测)",
+      "seed": 42,
+      "warmup": true,
+      "worker": "http://192.168.71.127:8189",
+      "submit_ts": 1787842432.852586,
+      "done_ts": 1787842595.2885451,
+      "wall_seconds": 162.4,
+      "status": "done",
+      "prompt_id": "3e21503a-5fca-4a35-8415-fa2e06b55d53",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.0,
+        "done": 161.2
+      },
+      "job_id": "821565991d964bdd85bd9339e465bd75",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=ToIV_t2v_00010.mp4&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.127%3A8189&sig=2c23453b9a8ab3c340daeed2",
+          "bytes": 125761,
+          "duration_sec": 3.062,
+          "width": 480,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0,
+          "local_path": "/var/folders/ll/8xsnjk852_b4lmbckw77s2fm0000gn/T/tmp726fd9nc.mp4"
+        }
+      ],
+      "score_trigger": {
+        "ok": true,
+        "sec": 20.9
+      }
+    },
+    {
+      "tag": "phase2-wan-accel-20260827",
+      "engine": "wan-t2v",
+      "lane": "wan",
+      "mode": "t2v",
+      "accel": "turbo_cache",
+      "scenario": "closeup_static",
+      "scenario_name": "近景静态",
+      "prompt": "特写:一位年轻女性的面部,自然柔光,静态凝视镜头,表情平静",
+      "seed": 42,
+      "warmup": false,
+      "worker": "http://192.168.71.127:8189",
+      "submit_ts": 1787842595.3470001,
+      "done_ts": 1787842606.0961258,
+      "wall_seconds": 10.7,
+      "status": "done",
+      "prompt_id": "72158103-0b97-4ff1-8025-57e7ab6f614e",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.0,
+        "done": 10.2
+      },
+      "job_id": "ba5436b5c79244c8b811b3759db9590f",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=ToIV_t2v_00011.mp4&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.127%3A8189&sig=3886fe98d4d5faeb9efa5221",
+          "bytes": 269966,
+          "duration_sec": 3.062,
+          "width": 480,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0,
+          "local_path": "/tmp/wan_accel_products/phase2-wan-accel-20260827_t2v_turbo_cache_closeup_static.mp4"
+        }
+      ],
+      "score_trigger": {
+        "ok": true,
+        "sec": 19.4
+      },
+      "quality": {
+        "quality_total": 0.9466666666666667,
+        "quality_degraded": false,
+        "quality_issues": "[\"轻微皮肤过度平滑导致部分区域缺乏自然纹理\", \"瞳孔高光反射略显不自然，可能为后期增强过强\"]"
+      }
+    },
+    {
+      "tag": "phase2-wan-accel-20260827",
+      "engine": "wan-t2v",
+      "lane": "wan",
+      "mode": "t2v",
+      "accel": "turbo_cache",
+      "scenario": "mid_cafe",
+      "scenario_name": "中远景人脸",
+      "prompt": "中景:一位男士坐在咖啡厅靠窗位置与朋友交谈,面部清晰,背景轻微虚化",
+      "seed": 42,
+      "warmup": false,
+      "worker": "http://192.168.71.127:8189",
+      "submit_ts": 1787842606.163717,
+      "done_ts": 1787842616.3732648,
+      "wall_seconds": 10.2,
+      "status": "done",
+      "prompt_id": "d114976a-8a83-45d8-95e0-c50d4d1a72a2",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.0,
+        "done": 10.1
+      },
+      "job_id": "a331793a1caa4c1293d9b71bcea430cf",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=ToIV_t2v_00012.mp4&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.127%3A8189&sig=bb0c522296d5835e1dd7e3f0",
+          "bytes": 239278,
+          "duration_sec": 3.062,
+          "width": 480,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0,
+          "local_path": "/tmp/wan_accel_products/phase2-wan-accel-20260827_t2v_turbo_cache_mid_cafe.mp4"
+        }
+      ],
+      "score_trigger": {
+        "ok": true,
+        "sec": 30.5
+      },
+      "quality": {
+        "quality_total": 0.89,
+        "quality_degraded": false,
+        "quality_issues": "[\"背景虚化程度略高于提示词要求，窗户外景物细节保留较多，轻微影响主体突出性\", \"人物面部清晰度高，但存在轻微皮肤纹理过度锐化现象，可能由后期增强导致\", \"画面右侧背景女性存在轻微模糊与边缘伪影，可能是景深过渡不自然所致\"]"
+      }
+    },
+    {
+      "tag": "phase2-wan-accel-20260827",
+      "engine": "wan-t2v",
+      "lane": "wan",
+      "mode": "t2v",
+      "accel": "turbo_cache",
+      "scenario": "high_motion",
+      "scenario_name": "高动态",
+      "prompt": "快速运镜:一辆红色跑车在夜晚城市街道疾驰,镜头跟随车尾,霓虹灯光拖影",
+      "seed": 42,
+      "warmup": false,
+      "worker": "http://192.168.71.127:8189",
+      "submit_ts": 1787842616.443619,
+      "done_ts": 1787842626.649655,
+      "wall_seconds": 10.2,
+      "status": "done",
+      "prompt_id": "cd845e8d-6d5e-41ab-bc9a-438061a0d0e0",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.0,
+        "done": 10.1
+      },
+      "job_id": "54dfee2ee20d4b0bbda26388072e2882",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=ToIV_t2v_00013.mp4&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.127%3A8189&sig=804a20cabcaa5ff543d78834",
+          "bytes": 792710,
+          "duration_sec": 3.062,
+          "width": 480,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0,
+          "local_path": "/tmp/wan_accel_products/phase2-wan-accel-20260827_t2v_turbo_cache_high_motion.mp4"
+        }
+      ],
+      "score_trigger": {
+        "ok": true,
+        "sec": 23.7
+      },
+      "quality": {
+        "quality_total": 0.8833333333333333,
+        "quality_degraded": false,
+        "quality_issues": "[\"运动模糊处理略显过度，导致部分建筑细节丢失\", \"车底蓝色光效与路面反射存在轻微色偏不一致\", \"背景霓虹灯光拖影方向不完全平行，存在轻微透视畸变\"]"
+      }
+    },
+    {
+      "tag": "phase2-wan-accel-20260827",
+      "engine": "wan-i2v",
+      "lane": "wan",
+      "mode": "i2v",
+      "accel": "turbo_cache",
+      "scenario": "closeup_static",
+      "scenario_name": "热身",
+      "prompt": "静态画面:一个红苹果放在白色桌面上,柔和自然光,固定机位(turbo_cache 档 i2v 预热#222736,非正测)",
+      "seed": 42,
+      "warmup": true,
+      "worker": "http://192.168.71.127:8189",
+      "submit_ts": 1787842626.7262669,
+      "done_ts": 1787842793.157568,
+      "wall_seconds": 166.4,
+      "status": "done",
+      "prompt_id": "6fa4b814-5a33-4182-8b3b-af56e12b325a",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.0,
+        "done": 166.4
+      },
+      "job_id": "6514e170b0484ed481a43c73a625ca9e",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=ToIV_vid_00024.mp4&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.127%3A8189&sig=cbac9bcdb73d22cdde41375c",
+          "bytes": 471690,
+          "duration_sec": 5.062,
+          "width": 832,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0,
+          "local_path": "/var/folders/ll/8xsnjk852_b4lmbckw77s2fm0000gn/T/tmpd3a21wxn.mp4"
+        }
+      ],
+      "score_trigger": {
+        "ok": true,
+        "sec": 32.9
+      }
+    },
+    {
+      "tag": "phase2-wan-accel-20260827",
+      "engine": "wan-i2v",
+      "lane": "wan",
+      "mode": "i2v",
+      "accel": "turbo_cache",
+      "scenario": "closeup_static",
+      "scenario_name": "近景静态",
+      "prompt": "特写:一位年轻女性的面部,自然柔光,静态凝视镜头,表情平静",
+      "seed": 42,
+      "warmup": false,
+      "worker": "http://192.168.71.127:8189",
+      "submit_ts": 1787842793.2268229,
+      "done_ts": 1787842833.6376362,
+      "wall_seconds": 40.4,
+      "status": "done",
+      "prompt_id": "3294f844-2d3c-4ea4-8c10-84dfbc1c5b2e",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.0,
+        "done": 40.3
+      },
+      "job_id": "f9cef9e0408f439fa2fe622f4fdb8d88",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=ToIV_vid_00025.mp4&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.127%3A8189&sig=ca4561bb07781b5540d008ee",
+          "bytes": 407810,
+          "duration_sec": 5.062,
+          "width": 832,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0,
+          "local_path": "/tmp/wan_accel_products/phase2-wan-accel-20260827_i2v_turbo_cache_closeup_static.mp4"
+        }
+      ],
+      "score_trigger": {
+        "ok": true,
+        "sec": 22.6
+      },
+      "quality": {
+        "quality_total": 0.9466666666666667,
+        "quality_degraded": false,
+        "quality_issues": "[\"无明显模糊或伪影，画面稳定无闪烁，构图居中对称，光线柔和均匀，皮肤纹理细腻，细节保留良好，整体呈现高保真静态肖像效果\"]"
+      }
+    },
+    {
+      "tag": "phase2-wan-accel-20260827",
+      "engine": "wan-i2v",
+      "lane": "wan",
+      "mode": "i2v",
+      "accel": "turbo_cache",
+      "scenario": "mid_cafe",
+      "scenario_name": "中远景人脸",
+      "prompt": "中景:一位男士坐在咖啡厅靠窗位置与朋友交谈,面部清晰,背景轻微虚化",
+      "seed": 42,
+      "warmup": false,
+      "worker": "http://192.168.71.127:8189",
+      "submit_ts": 1787842833.7039309,
+      "done_ts": 1787842874.106692,
+      "wall_seconds": 40.4,
+      "status": "done",
+      "prompt_id": "b26e90d6-5e44-48dd-af93-30fdda592cd2",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.0,
+        "done": 40.3
+      },
+      "job_id": "c11b250a83c8429aa97aab5e2d5a63a7",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=ToIV_vid_00026.mp4&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.127%3A8189&sig=61176cbde3094f14628c45b7",
+          "bytes": 590394,
+          "duration_sec": 5.062,
+          "width": 832,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0,
+          "local_path": "/tmp/wan_accel_products/phase2-wan-accel-20260827_i2v_turbo_cache_mid_cafe.mp4"
+        }
+      ],
+      "score_trigger": {
+        "ok": true,
+        "sec": 25.7
+      },
+      "quality": {
+        "quality_total": 0.9666666666666667,
+        "quality_degraded": false,
+        "quality_issues": "[\"无明显技术缺陷，画面清晰度高，细节丰富，无伪影或闪烁，构图稳定，光线自然均匀，背景虚化符合中景拍摄要求\"]"
+      }
+    },
+    {
+      "tag": "phase2-wan-accel-20260827",
+      "engine": "wan-i2v",
+      "lane": "wan",
+      "mode": "i2v",
+      "accel": "turbo_cache",
+      "scenario": "high_motion",
+      "scenario_name": "高动态",
+      "prompt": "快速运镜:一辆红色跑车在夜晚城市街道疾驰,镜头跟随车尾,霓虹灯光拖影",
+      "seed": 42,
+      "warmup": false,
+      "worker": "http://192.168.71.127:8189",
+      "submit_ts": 1787842874.177598,
+      "done_ts": 1787842924.6515222,
+      "wall_seconds": 50.5,
+      "status": "done",
+      "prompt_id": "fc6fc7b8-94f9-4a7b-b1dd-94a39bebe620",
+      "error": null,
+      "status_timeline": {
+        "queued": 0.1,
+        "done": 50.4
+      },
+      "job_id": "d02698a74ed0456ea6e8203c7ed354c3",
+      "artifacts": [
+        {
+          "url": "/api/images?filename=ToIV_vid_00027.mp4&subfolder=&type=output&worker=http%3A%2F%2F192.168.71.127%3A8189&sig=fb2952b4a945857336ba362d",
+          "bytes": 1934812,
+          "duration_sec": 5.062,
+          "width": 832,
+          "height": 480,
+          "codec": "h264",
+          "fps": 16.0,
+          "local_path": "/tmp/wan_accel_products/phase2-wan-accel-20260827_i2v_turbo_cache_high_motion.mp4"
+        }
+      ],
+      "score_trigger": {
+        "ok": true,
+        "sec": 30.9
+      },
+      "quality": {
+        "quality_total": 0.9166666666666666,
+        "quality_degraded": false,
+        "quality_issues": "[\"运动模糊效果在背景中呈现为长条状光轨，但车辆主体边缘存在轻微锯齿，可能源于后期合成或渲染分辨率不足；车尾反光区域出现轻微色偏，红色反射在路面呈现不自然的饱和度提升；部分霓虹灯牌边缘有轻微光晕溢出，影响细节清晰度\"]"
+      }
+    }
+  ],
+  "summary": {
+    "wan-t2v": {
+      "off": {
+        "closeup_static": {
+          "status": "done",
+          "wall_seconds": 50.7,
+          "bytes": 173554,
+          "duration_sec": 3.062,
+          "resolution": "480x480@16.0fps",
+          "quality_total": 0.9500000000000001,
+          "quality_degraded": false,
+          "job_id": "dc85dd5b49434c2488b62a3928e12529",
+          "prompt_id": "6b4de600-fc18-4827-ba7f-afad4dfe4f64"
+        },
+        "mid_cafe": {
+          "status": "done",
+          "wall_seconds": 50.7,
+          "bytes": 130898,
+          "duration_sec": 3.062,
+          "resolution": "480x480@16.0fps",
+          "quality_total": 0.9666666666666667,
+          "quality_degraded": false,
+          "job_id": "18a3603aa6a347acbed83f7eb070a16d",
+          "prompt_id": "fb573972-862a-48f1-a7cb-4f7958996e56"
+        },
+        "high_motion": {
+          "status": "done",
+          "wall_seconds": 50.6,
+          "bytes": 619315,
+          "duration_sec": 3.062,
+          "resolution": "480x480@16.0fps",
+          "quality_total": 0.8166666666666665,
+          "quality_degraded": false,
+          "job_id": "297d79b9a48b48819911d3441167672b",
+          "prompt_id": "c40350cb-19f4-4029-848a-9c8eb48c4c1e"
+        }
+      },
+      "turbo": {
+        "closeup_static": {
+          "status": "done",
+          "wall_seconds": 5.1,
+          "bytes": 278540,
+          "duration_sec": 3.062,
+          "resolution": "480x480@16.0fps",
+          "quality_total": 0.9133333333333332,
+          "quality_degraded": false,
+          "job_id": "6e376838ce514490b9917677c3c07b72",
+          "prompt_id": "e344bcc7-585f-4973-82ad-742a10b42df2"
+        },
+        "mid_cafe": {
+          "status": "done",
+          "wall_seconds": 5.1,
+          "bytes": 238582,
+          "duration_sec": 3.062,
+          "resolution": "480x480@16.0fps",
+          "quality_total": 0.9633333333333333,
+          "quality_degraded": false,
+          "job_id": "fdae10f3a6084619b3d0b2d065c45ee6",
+          "prompt_id": "32b41000-209f-468c-a46c-36325f580479"
+        },
+        "high_motion": {
+          "status": "done",
+          "wall_seconds": 10.2,
+          "bytes": 706267,
+          "duration_sec": 3.062,
+          "resolution": "480x480@16.0fps",
+          "quality_total": 0.8833333333333333,
+          "quality_degraded": false,
+          "job_id": "ce1599e09a6940cab6514bf36441d061",
+          "prompt_id": "ec7f45f2-ae3f-4770-b37f-5bba01b2d3f6"
+        }
+      },
+      "turbo_cache": {
+        "closeup_static": {
+          "status": "done",
+          "wall_seconds": 10.7,
+          "bytes": 269966,
+          "duration_sec": 3.062,
+          "resolution": "480x480@16.0fps",
+          "quality_total": 0.9466666666666667,
+          "quality_degraded": false,
+          "job_id": "ba5436b5c79244c8b811b3759db9590f",
+          "prompt_id": "72158103-0b97-4ff1-8025-57e7ab6f614e"
+        },
+        "mid_cafe": {
+          "status": "done",
+          "wall_seconds": 10.2,
+          "bytes": 239278,
+          "duration_sec": 3.062,
+          "resolution": "480x480@16.0fps",
+          "quality_total": 0.89,
+          "quality_degraded": false,
+          "job_id": "a331793a1caa4c1293d9b71bcea430cf",
+          "prompt_id": "d114976a-8a83-45d8-95e0-c50d4d1a72a2"
+        },
+        "high_motion": {
+          "status": "done",
+          "wall_seconds": 10.2,
+          "bytes": 792710,
+          "duration_sec": 3.062,
+          "resolution": "480x480@16.0fps",
+          "quality_total": 0.8833333333333333,
+          "quality_degraded": false,
+          "job_id": "54dfee2ee20d4b0bbda26388072e2882",
+          "prompt_id": "cd845e8d-6d5e-41ab-bc9a-438061a0d0e0"
+        }
+      }
+    },
+    "wan-i2v": {
+      "off": {
+        "closeup_static": {
+          "status": "done",
+          "wall_seconds": 211.8,
+          "bytes": 332081,
+          "duration_sec": 5.062,
+          "resolution": "832x480@16.0fps",
+          "quality_total": 0.9666666666666667,
+          "quality_degraded": false,
+          "job_id": "c431064cf709471ba01c4853767ce16f",
+          "prompt_id": "29abbe1f-ec99-4876-a416-2cb4a6b7da55"
+        },
+        "mid_cafe": {
+          "status": "done",
+          "wall_seconds": 191.4,
+          "bytes": 629710,
+          "duration_sec": 5.062,
+          "resolution": "832x480@16.0fps",
+          "quality_total": 0.9666666666666667,
+          "quality_degraded": false,
+          "job_id": "c0d46f1594d843be9ae9a17fa9570fce",
+          "prompt_id": "8e20b08f-3491-4a51-844d-8aa4dc562033"
+        },
+        "high_motion": {
+          "status": "done",
+          "wall_seconds": 191.7,
+          "bytes": 2235198,
+          "duration_sec": 5.062,
+          "resolution": "832x480@16.0fps",
+          "quality_total": 0.9166666666666666,
+          "quality_degraded": false,
+          "job_id": "aa6f660593f34b4eb9784997927811e0",
+          "prompt_id": "afd50998-3540-48a6-b738-4fee62338ede"
+        }
+      },
+      "turbo": {
+        "closeup_static": {
+          "status": "done",
+          "wall_seconds": 25.5,
+          "bytes": 369994,
+          "duration_sec": 5.062,
+          "resolution": "832x480@16.0fps",
+          "quality_total": 0.9666666666666667,
+          "quality_degraded": false,
+          "job_id": "4e2fd7926afe4e6ca5dec950c62cd159",
+          "prompt_id": "bfd20b95-345f-4385-8c42-0ef52b1711c7"
+        },
+        "mid_cafe": {
+          "status": "done",
+          "wall_seconds": 25.3,
+          "bytes": 563784,
+          "duration_sec": 5.062,
+          "resolution": "832x480@16.0fps",
+          "quality_total": 0.9633333333333333,
+          "quality_degraded": false,
+          "job_id": "a53f1e7275b141739dc5aa81087d5e8d",
+          "prompt_id": "c1ac3fb3-2da6-48b0-adae-1e945262ac36"
+        },
+        "high_motion": {
+          "status": "done",
+          "wall_seconds": 25.3,
+          "bytes": 1934826,
+          "duration_sec": 5.062,
+          "resolution": "832x480@16.0fps",
+          "quality_total": 0.9166666666666666,
+          "quality_degraded": false,
+          "job_id": "955a3bb942c244b69065f8cc75c3f54e",
+          "prompt_id": "c53b1ccc-a0a1-4bb0-9db4-f3ea39457b0d"
+        }
+      },
+      "turbo_cache": {
+        "closeup_static": {
+          "status": "done",
+          "wall_seconds": 40.4,
+          "bytes": 407810,
+          "duration_sec": 5.062,
+          "resolution": "832x480@16.0fps",
+          "quality_total": 0.9466666666666667,
+          "quality_degraded": false,
+          "job_id": "f9cef9e0408f439fa2fe622f4fdb8d88",
+          "prompt_id": "3294f844-2d3c-4ea4-8c10-84dfbc1c5b2e"
+        },
+        "mid_cafe": {
+          "status": "done",
+          "wall_seconds": 40.4,
+          "bytes": 590394,
+          "duration_sec": 5.062,
+          "resolution": "832x480@16.0fps",
+          "quality_total": 0.9666666666666667,
+          "quality_degraded": false,
+          "job_id": "c11b250a83c8429aa97aab5e2d5a63a7",
+          "prompt_id": "b26e90d6-5e44-48dd-af93-30fdda592cd2"
+        },
+        "high_motion": {
+          "status": "done",
+          "wall_seconds": 50.5,
+          "bytes": 1934812,
+          "duration_sec": 5.062,
+          "resolution": "832x480@16.0fps",
+          "quality_total": 0.9166666666666666,
+          "quality_degraded": false,
+          "job_id": "d02698a74ed0456ea6e8203c7ed354c3",
+          "prompt_id": "fc6fc7b8-94f9-4a7b-b1dd-94a39bebe620"
+        }
+      }
+    }
+  },
+  "speedup": {
+    "wan-t2v": {
+      "off": {
+        "mean_wall": 50.7,
+        "speedup_vs_off": 1.0
+      },
+      "turbo": {
+        "mean_wall": 6.8,
+        "speedup_vs_off": 7.46
+      },
+      "turbo_cache": {
+        "mean_wall": 10.4,
+        "speedup_vs_off": 4.88
+      }
+    },
+    "wan-i2v": {
+      "off": {
+        "mean_wall": 198.3,
+        "speedup_vs_off": 1.0
+      },
+      "turbo": {
+        "mean_wall": 25.4,
+        "speedup_vs_off": 7.81
+      },
+      "turbo_cache": {
+        "mean_wall": 43.8,
+        "speedup_vs_off": 4.53
+      }
+    }
+  },
+  "quality_aggregate": {
+    "wan-t2v": {
+      "off": {
+        "mean_quality_total": 0.9111,
+        "min_quality_total": 0.8167,
+        "degraded_count": 0,
+        "below_threshold_0.65": 0
+      },
+      "turbo": {
+        "mean_quality_total": 0.92,
+        "min_quality_total": 0.8833,
+        "degraded_count": 0,
+        "below_threshold_0.65": 0
+      },
+      "turbo_cache": {
+        "mean_quality_total": 0.9067,
+        "min_quality_total": 0.8833,
+        "degraded_count": 0,
+        "below_threshold_0.65": 0
+      }
+    },
+    "wan-i2v": {
+      "off": {
+        "mean_quality_total": 0.95,
+        "min_quality_total": 0.9167,
+        "degraded_count": 0,
+        "below_threshold_0.65": 0
+      },
+      "turbo": {
+        "mean_quality_total": 0.9489,
+        "min_quality_total": 0.9167,
+        "degraded_count": 0,
+        "below_threshold_0.65": 0
+      },
+      "turbo_cache": {
+        "mean_quality_total": 0.9433,
+        "min_quality_total": 0.9167,
+        "degraded_count": 0,
+        "below_threshold_0.65": 0
+      }
+    }
+  },
+  "warmup_wall": [
+    {
+      "engine": "wan-t2v",
+      "accel": "off",
+      "wall_seconds": 121.2
+    },
+    {
+      "engine": "wan-i2v",
+      "accel": "off",
+      "wall_seconds": 277.0
+    },
+    {
+      "engine": "wan-t2v",
+      "accel": "turbo",
+      "wall_seconds": 136.1
+    },
+    {
+      "engine": "wan-i2v",
+      "accel": "turbo",
+      "wall_seconds": 196.9
+    },
+    {
+      "engine": "wan-t2v",
+      "accel": "turbo_cache",
+      "wall_seconds": 162.4
+    },
+    {
+      "engine": "wan-i2v",
+      "accel": "turbo_cache",
+      "wall_seconds": 166.4
+    }
+  ],
+  "visual_inspection": {
+    "method": "Read 视频理解 2 条(off/turbo mid_cafe 全片) + ffmpeg 首/中/末帧条图 12 张人工目检",
+    "turbo_draft_tier": {
+      "verdict": "达标(草稿用途)",
+      "evidence": [
+        "i2v mid_cafe:面部五官稳定无崩坏,发型/着装/身份与源图一致,交谈手势自然,无严重伪影/闪烁",
+        "i2v high_motion:红色跑车车体完整不融化,霓虹拖影保留,背景流动显示跟随运镜,运动幅度充足无衰减",
+        "t2v closeup:表情从平静到大笑过渡自然,五官无错位,皮肤轻微 AI 塑料感(草稿档可接受)",
+        "t2v high_motion:尾灯/街道后退清晰,运动幅度充足,车体锐利"
+      ]
+    },
+    "turbo_cache_final_tier": {
+      "verdict": "达标(成片用途)",
+      "evidence": [
+        "i2v mid_cafe:人脸保真度高且首/中/末帧身份零漂移,背景虚化自然,轮廓边缘稳定",
+        "i2v high_motion:与 turbo 档条图级不可区分,无 EasyCache 残影/软化迹象",
+        "t2v closeup:微笑+抬手(红指甲)动作连贯,手部结构完整,与 turbo 档画质相当",
+        "条图帧间未见闪烁;VLM 全片评估 6 条 mid_cafe 均报『无伪影或闪烁』"
+      ],
+      "easycache_extra_softening": "未观察到(与 turbo 档条图对比无可见差异)"
+    },
+    "notes": [
+      "同 seed=42 下 off 与 turbo/turbo_cache 产出不同身份/构图——加速 LoRA 改变模型函数,属预期,非缺陷;seed 可复现性是档内性质",
+      "t2v off high_motion 运动模糊最重(VLM 分给三档中最低 0.817),turbo/turbo_cache 反而更锐利——高动态场景满血档不必然更优",
+      "闪烁/时序稳定性以 3 帧条图+VLM 全片评估交叉确认,未做逐帧光流分析(残留不确定性低)"
+    ]
+  }
+}

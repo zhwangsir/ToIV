@@ -454,6 +454,8 @@ class Txt2VideoRequest(BaseModel):
     # 加速档(2026-08-27 Phase 2):off=满血(默认,20 步) / turbo=草稿 4 步 Seko 双 LoRA /
     # turbo_cache=成片 8 步 Seko + EasyCache;缺省 None=满血(现状)
     accel: str | None = Field(default=None, max_length=16)
+    # EasyCache 复用阈值(仅 turbo_cache 档生效;空=builder 默认 0.15)
+    cache_threshold: float | None = Field(default=None, ge=0.05, le=0.40)
 
     @field_validator("accel")
     @classmethod
@@ -486,6 +488,7 @@ async def generate_txt2video(
          length=_snap_length(req.length),
          fps=req.fps,
          accel=req.accel,
+         **({"cache_threshold": req.cache_threshold} if req.cache_threshold is not None else {}),
          **({"seed": req.seed} if req.seed is not None else {}),
     )
     graph = build_wan_t2v_graph(params)
