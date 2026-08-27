@@ -8,6 +8,46 @@
 
 ---
 
+## PHASE2-2026-08-27 · Wan 系加速矩阵（基线→资产→builder→e2e 验收→三 worker 打通）
+
+**时间**: 2026-08-27
+**类型**: 全模型优化第二波（Phase 2）
+
+### 基线（P0.2/0.3，scripts/bench/）
+
+- 基建：prompts.json（3 场景×4 引擎）+ run_bench.py（lane 双泳道串行、热身独立 prompt 防执行缓存假加速、held 换名追踪、ffprobe 规格、JSONL 断点续跑）
+- 对照分母（12 正测全 done，seed=42）：longcat-t2v **136.1s** / longcat-i2v **136.4s** / h3-t2v **186.6s** / h3-i2v **205.2s**；抖动 ±0.5% 适合作分母
+- 坑位：执行缓存污染（热身须独立 prompt + /free）、GPU0 flux2 驻留触发 held、held 放行换名致轮询丢失
+
+### 资产（LightX2V/SageAttention/节点）
+
+- Seko Lightning LoRA 4 枚（T2V V2.0 + I2V V1 高低噪，各 1.14GiB，sha256 与 HF LFS 一致）；Wan2.2 FP8 scaled 底模四枚已在库（无缺口）
+- SageAttention 2.2 全 venv：workstation 源码编译（sm_120 官方 main 已恢复支持；vs SDPA max_err=0.0165，FP8 PV 后端同过）+ pc01/pc02 woct0rdho Windows 轮 + triton-windows；**PyPI 无 2.2.0**（最新 1.0.6）须源码/社区轮
+- KJNodes + EasyCache/LazyCache（原生）全实例加载；TeaCache/MagCache 独立节点与 ComfyUI 0.33 LTX API 不兼容（precompute_freqs_cis ImportError，KJ 版顶替，遗留修兼容）
+
+### builder 三档（commits f0afb3d + 4b0ce32，测试 20 例新/全量 2578）
+
+- `accel`: off（满血 20 步）/ turbo（Seko 成对挂+4 步+cfg1.0 草稿档）/ turbo_cache（8 步+EasyCache×2 成片档，threshold 0.15/start 0.15/end 0.95）
+- 路由映射：显式 accel 优先；/api/generate/video 缺省 full_quality=True→off/False→turbo_cache；t2v 缺省满血；wan_t2v 默认 UNET 切真 t2v 双专家权重（修 i2v 错配）
+
+### e2e 验收（18/18 全 done，0 degraded）
+
+| 档 | t2v 墙钟（加速比） | i2v 墙钟（加速比） | VLM 评分 |
+|---|---|---|---|
+| off | 50.7s（1×） | 198.3s（1×） | 0.911/0.950 |
+| turbo（草稿） | 6.8s（**7.46×**） | 25.4s（**7.81×**） | 0.920/0.949 |
+| turbo_cache（成片） | 10.4s（**4.88×**） | 43.8s（**4.53×**） | 0.907/0.943 |
+
+- 目检：turbo 档人脸稳定/ID 一致/运动幅度充足；turbo_cache 首中末帧零 ID 漂移、无 EasyCache 软化——**双档验收通过投产**
+- 意外发现：t2v 高动态 off 档评分最低（0.817，满血 cfg3.5 运动模糊过重），蒸馏 cfg1.0 反而更锐利
+
+### 三 worker 打通（Seko/VHS/ffmpeg）
+
+- **Seko LoRA 仅 :8189 可见**：NAS SMB 对新建子目录（loras/lightx2v/）不继承授权（绿联子树级 ACL，POSIX chmod 无效）→ **平铺 loras/ 根目录改简名**（builder 常量同步，教训入注释：NAS 新模型勿入新建子目录）
+- pc01/pc02 补装 VideoHelperSuite + imageio-ffmpeg（VHS 视频合成依赖；**运行中进程会缓存 imageio_ffmpeg 导入失败，装包后必须重启实例**）
+- 最终验证：pc01 turbo i2v 生产 done（产物 ToIV_vid_00003.mp4）；三 worker（:8189/pc01:8188/pc02:8193）Seko+VHS+Sage+EasyCache 全就位
+- **遗留**：flux2_dev_fp8mixed 在 toiv 库 pc 端不可见（同 ACL 问题，LB 分发 flux2 到 pc 会 400——待迁主库 checkpoints/）；mihomo 代理不可达（已走 ghfast.top，待网络负责人核查）；cache_threshold 0.15→0.20-0.25 调优空间；:8199 animate2 节点未装
+
 ## NAS-FIX-2026-08-27 · pc01/pc02 NAS 挂载根治（模型枚举 0→恢复）
 
 **时间**: 2026-08-27

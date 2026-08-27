@@ -1487,6 +1487,11 @@
   "status": "done",
   "summary": "Phase0 硬件全核实（infra 六段纠偏，spark01=Qwen3-VL-32B-FP8 悬案定论：llama-3.3-70b 已下、权重留盘可回滚）；T0 安全八项（score SSRF 白名单/去 127 通配+重定向复验 11 点/raw 门控全模型键扫描+10eros 词表/studio files+opentalking status 认证/XFF 可信代理 TOIV_TRUSTED_PROXY_IPS/train 限流/二次加工 nsfw 继承；commits 0cde7f6+a2b1462）；P1 五项零风险加速——LatentSync DPM-Solver++ 10 步（71.2s→48.4s，-32%；core 步数默认贯通 74dd896）+IndexTTS BigVGAN CUDA kernel 首次生效（声码器段 -67~78%）+spark01 VLM max-num-seqs 16/chunked-prefill/async-scheduling（KV 池+25%）+spark02 FP8 KV+max-num-seqs 24（KV 池+48%）+ACE-Step 1.5（热态 10s 歌 0.93s vs 1.0 26.4s≈28x，turbo/quality/legacy 三档+长音乐上限 600s，41ea514 已部署生产）；修复 or 短路致 audio SSRF 白名单跳过真 bug（74dd896）；后端 2558 测试全绿"
  },
+ "phase2_wan_accel_2026_08_27": {
+  "name": "Phase 2 Wan 系加速矩阵（基线+资产+builder+e2e 验收）",
+  "status": "done",
+  "summary": "基线基建 scripts/bench/（lane 串行/热身独立 prompt 防执行缓存/held 换名追踪；longcat 136.1s、h3-t2v 186.6s、h3-i2v 205.2s 对照分母）；资产：Seko Lightning LoRA 4 枚（T2V V2.0/I2V V1，sha 校验）+ Wan2.2 FP8 底模四枚在库 + SageAttention 2.2 全 venv（sm_120 源码编译/woct0rdho win 轮，vs SDPA err 0.0165）+ KJNodes/EasyCache 原生全实例；builder：accel 三档（off/turbo/turbo_cache，Seko 成对挂+EasyCache×2，commits f0afb3d+4b0ce32）；e2e 18/18 全 done：turbo 草稿档 t2v 7.46×/i2v 7.81×、turbo_cache 成片档 t2v 4.88×/i2v 4.53×，VLM 评分与满血档区间重叠（0 degraded），双档验收通过投产；三 worker 打通：Seko 平铺 loras/ 根目录（NAS SMB 子目录 ACL 不继承教训）+ VHS/imageio-ffmpeg 补装 pc01/pc02，pc01 turbo i2v 生产实证 done；遗留：TeaCache/MagCache 独立节点与 ComfyUI 0.33 LTX API 不兼容（KJ 版顶替）、:8199 节点未装、flux2_dev_fp8mixed 在 toiv 库 pc 端不可见（LB 分发会 400，待迁主库）、cache_threshold 0.15→0.20-0.25 调优空间、mihomo 代理不可达（已走 ghfast.top，待网络负责人核查）"
+ },
  "canvas_ts_2026_08_23": {
   "name": "画布去标题 + 浏览器侧 Tailscale 化",
   "status": "done",
