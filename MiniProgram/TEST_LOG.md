@@ -1,5 +1,7 @@
 # TEST_LOG.md — MiniProgram
 
+- 2026-08-27 移动端合并：本目录成为 ToIV 唯一客户端；Expo Mobile 归档到 `../.archive/mobile-expo-20260827/`。能力以现有 MP1–MP32 为准，未宣称微信真机走查完成。
+
 - 2026-08-27 项目管家文档治理：根目录收敛为 5 件套。
 
 # ToIV MiniProgram 测试日志

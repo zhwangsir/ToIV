@@ -28,10 +28,7 @@ Web 端（`apps/web`）当前真实模块（见 `app/page.tsx` 的 `VIEW_META`�
 
 数字人实时链路会调用兄弟目录的 OpenTalking 进程（默认 `http://127.0.0.1:4403`；生产在 Workstation `:4403`）。**`opentalking/` 已从本仓移出**，现位于 `ALLProject/opentalking`，禁止再 vendor 进 ToIV。
 
-移动端与小程序是本仓内的自治子树，不是独立 git 仓：
-
-- [`Mobile/`](Mobile/) — Expo / React Native
-- [`MiniProgram/`](MiniProgram/) — uni-app 微信小程序
+移动端只留一套：[`MiniProgram/`](MiniProgram/)（uni-app，微信为主；必要时再出 App）。原先的 Expo `Mobile/` 已于 2026-08-27 归档到 [`.archive/mobile-expo-20260827/`](.archive/mobile-expo-20260827/)，不再双轨维护。
 
 ## 生产与访问
 
@@ -61,10 +58,9 @@ Web 端（`apps/web`）当前真实模块（见 `app/page.tsx` 的 `VIEW_META`�
 | 前端 | Next.js 15 / React 19 / TypeScript |
 | 数据 | PostgreSQL 18、Redis 7+（生产在 core） |
 | 工作流 | ComfyUI + MiniMax H3 + LongCat/VACE 等专用实例 |
-| 移动 | Expo SDK 57 / RN 0.86（Mobile/） |
-| 小程序 | uni-app 3 + Vue 3 + Pinia + Vite 5（MiniProgram/） |
+| 移动 | uni-app 3 + Vue 3 + Pinia + Vite 5（MiniProgram/，微信；App 必要时再出） |
 
-顶层目录：apps/api、apps/web、Mobile、MiniProgram、deploy、scripts、drama，以及五件套。opentalking 在兄弟目录，不在本仓。
+顶层目录：apps/api、apps/web、MiniProgram、deploy、scripts、drama、.archive，以及五件套。opentalking 在兄弟目录，不在本仓。
 
 ## 本地开发
 
@@ -82,7 +78,7 @@ Web 端（`apps/web`）当前真实模块（见 `app/page.tsx` 的 `VIEW_META`�
 
 在 `apps/web` 复制环境示例，安装依赖后启动开发服务器。浏览器打开 http://localhost:3100。
 
-没有本机引擎时生成会失败，这是预期。Mobile / MiniProgram 见各自 README。
+没有本机引擎时生成会失败，这是预期。移动端见 MiniProgram/README.md。
 
 ## 文档五件套
 

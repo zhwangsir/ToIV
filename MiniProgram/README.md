@@ -1,6 +1,6 @@
 # ToIV MiniProgram
 
-ToIV 微信小程序端（uni-app）。路径是 `ALLProject/ToIV/MiniProgram/`（在 ToIV 主仓内，没有独立远程）。对接同一套 ToIV API。
+ToIV **唯一移动端**（uni-app）。微信为主，必要时再出 App。路径是 `ALLProject/ToIV/MiniProgram/`（在 ToIV 主仓内，没有独立远程）。对接同一套 ToIV API。原 Expo `Mobile/` 已归档到 `../.archive/mobile-expo-20260827/`。
 
 最后更新：2026-08-27。
 

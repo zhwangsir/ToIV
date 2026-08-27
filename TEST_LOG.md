@@ -6,6 +6,17 @@
 
 ---
 
+## MOBILE-MERGE-2026-08-27 · 移动端合并为 MiniProgram
+
+**时间**: 2026-08-27
+**类型**: 仓库治理（用户拍板只留 uni-app）
+
+- 原 `Mobile/`（Expo/RN）`git mv` 至 `.archive/mobile-expo-20260827/`
+- `MiniProgram/` 为唯一移动端（微信为主，App 必要时再出）
+- 能力审计：两边页面集合一致（创作/作业/作品库/我的/登录/资产/助手/Agent）；小程序已有微信登录、助手附图、资产预填。本期不移植 Expo 专有原生模块，不宣称真机走查完成。
+- 根 README / DEVELOPMENT §9 已改身份；未改 AGENTS.md 集群清单
+
+
 ## LIPSYNC-2026-08-27 · M4 通用对口型(LatentSync 裸机复活 + core 链路 + 生产 e2e)
 
 **时间**: 2026-08-27

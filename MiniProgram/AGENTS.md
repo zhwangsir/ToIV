@@ -1,14 +1,14 @@
 # AGENTS.md — MiniProgram
 
 > **最后更新**：2026-08-27（项目管家文档治理）
-> **集群真相源**：`../../ToIV/AGENTS.md`（禁止把设备清单/凭据复制进本文件）
+> **集群真相源**：`../AGENTS.md`（禁止把设备清单/凭据复制进本文件）
 > **文档五件套**：README.md / AGENTS.md / DEVELOPMENT.md / STATE.json / TEST_LOG.md
 
 ## 本项目
 
-ToIV 小程序（uni-app）。
+ToIV 唯一移动端（uni-app，微信为主）。
 
-路径：`ALLProject/MiniProgram`
+路径：`ALLProject/ToIV/MiniProgram`（ToIV 唯一移动端；Expo 已归档到 `ToIV/.archive/mobile-expo-20260827/`）
 
 ## 硬性规则
 

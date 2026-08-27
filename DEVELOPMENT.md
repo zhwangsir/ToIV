@@ -547,8 +547,8 @@ ToIV/
 ├── apps/
 │   ├── api/            # FastAPI 后端(app/ 源码、tests/ pytest、migrations/)
 │   └── web/            # Next.js 前端(app/ 路由、components/、lib/、tests/ 单测、e2e/ Playwright)
-├── MiniProgram/        # uni-app 小程序(自治子项目,自带 STATE.json/TEST_LOG.md)
-├── Mobile/             # Expo React Native(自治子项目,自带 AGENTS.md/STATE.json/TEST_LOG.md)
+├── MiniProgram/        # 唯一移动端(uni-app 微信;必要时再出 App;自带五件套)
+├── .archive/           # 已归档代码(含 mobile-expo-20260827, 原 Expo Mobile)
 ├── deploy/             # 生产部署与运维(见 9.2)
 ├── scripts/            # 仓库级脚本,按职能四分(见 9.3)
 ├── drama/              # 短剧运行时数据(assets/ 素材、output/ 产物,被代码+生产挂载引用,勿移动)
@@ -589,7 +589,7 @@ ToIV/
 
 - 目录全小写,多词用连字符(`motion-brush`)或下划线(服务源码沿用 `snake_case`,新目录优先连字符)。
 - 脚本名带职能前缀:e2e 检查 `e2e_*_check.py`,评估 `*_eval.py`,一次性调试脚本**不入仓**(本地用完即删)。
-- 子项目(MiniProgram/Mobile)自治:各自维护文档与测试,顶层文档不重复其内容。
+- 子项目 MiniProgram 自治:自维护文档与测试,顶层文档不重复其内容。Expo Mobile 已归档,禁止再加第二套移动端。
 
 ---
 
