@@ -33,6 +33,7 @@ class _FakeHttpClient:
         resp = MagicMock()
         resp.status_code = 200
         resp.content = content
+        resp.url = url  # 模拟无重定向:最终 URL 即请求 URL
         resp.raise_for_status = lambda: None
         return resp
 

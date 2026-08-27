@@ -3,6 +3,7 @@ import sys
 from unittest.mock import MagicMock
 
 import pytest
+from fastapi import HTTPException
 
 from app.models import User
 from app.routes.score import BestOfRequest, ScoreRequest, score_best, score_health, score_image
@@ -45,6 +46,20 @@ class VariableScorer(Scorer):
 @pytest.fixture
 def user():
     return User(id="u-1", email="u", hashed_password="x", tenant_id="t-1")
+
+
+class _Settings:
+    """score 路由 SSRF 白名单(复用 audio_orchestrate._allowed_source)的配置替身。"""
+
+    api_base_url = "http://127.0.0.1:8090"
+    worker_urls = ["http://worker1:8188"]
+
+
+@pytest.fixture
+def _score_settings(monkeypatch):
+    monkeypatch.setattr(
+        "app.routes.audio_orchestrate.get_settings", lambda: _Settings()
+    )
 
 
 async def test_composite_scorer_weights_sub_scores():
@@ -107,21 +122,61 @@ async def test_image_reward_scorer_normalizes_score(monkeypatch):
     mock_ir.get_score.assert_called_once_with("model", "pil_image", "prompt")
 
 
-async def test_score_image_endpoint(user):
+async def test_score_image_endpoint(user, _score_settings):
     service = ScoringService(MockScorer())
-    req = ScoreRequest(image_url="http://example.com/a.png", prompt="cat")
+    req = ScoreRequest(image_url="/api/images/a.png", prompt="cat")
     response = await score_image(req, service, user)
     assert response.total == 0.75
 
 
-async def test_score_best_endpoint(user):
+async def test_score_best_endpoint(user, _score_settings):
     service = ScoringService(CompositeScorer([(VariableScorer(), 1.0)]))
     req = BestOfRequest(
-        images=["http://example.com/a.png", "http://example.com/b.png"],
+        images=["/api/images/a.png", "/api/images/b.png"],
         prompt="cat",
     )
     response = await score_best(req, service, user)
-    assert response.best == "http://example.com/b.png"
+    # 相对路径经 _resolve_url 解析为本 API 绝对 URL 后再下发评分
+    assert response.best == "http://127.0.0.1:8090/api/images/b.png"
+
+
+# ── SSRF 白名单(T0 安全红线):用户直控 image_url 不得打到内网 ──────────
+
+
+async def test_score_rejects_intranet_urls(user, _score_settings):
+    """内网服务地址(trainer :9100 / Redis :6379)不在白名单 → 400,不进 scoring 层。"""
+    service = ScoringService(MockScorer())
+    for bad in ("http://192.168.71.127:9100/x", "http://127.0.0.1:6379/"):
+        with pytest.raises(HTTPException) as ei:
+            await score_image(ScoreRequest(image_url=bad), service, user)
+        assert ei.value.status_code == 400
+        assert "白名单" in ei.value.detail
+
+
+async def test_score_best_rejects_intranet_url(user, _score_settings):
+    service = ScoringService(CompositeScorer([(MockScorer(), 1.0)]))
+    req = BestOfRequest(
+        images=["/api/images/a.png", "http://169.254.169.254/latest/meta-data"],
+    )
+    with pytest.raises(HTTPException) as ei:
+        await score_best(req, service, user)
+    assert ei.value.status_code == 400
+
+
+async def test_score_allows_worker_and_api_loopback(user, _score_settings):
+    """白名单 worker host 与本机 API 端口(同源绝对 URL)放行;外网任址拒绝。"""
+    service = ScoringService(MockScorer())
+    r = await score_image(
+        ScoreRequest(image_url="http://worker1:8188/view?filename=a.png"), service, user
+    )
+    assert r.total == 0.75
+    r2 = await score_image(
+        ScoreRequest(image_url="http://127.0.0.1:8090/api/images/a.png"), service, user
+    )
+    assert r2.total == 0.75
+    with pytest.raises(HTTPException) as ei:
+        await score_image(ScoreRequest(image_url="http://evil.example.com/a.png"), service, user)
+    assert ei.value.status_code == 400
 
 
 async def test_score_health_endpoint(user):

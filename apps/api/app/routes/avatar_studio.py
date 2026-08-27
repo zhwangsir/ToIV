@@ -38,7 +38,7 @@ from app.deps import get_current_user, resolve_worker
 from app.models import User
 from app.nsfw_ctx import nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
-from app.routes.audio_orchestrate import _allowed_source, _resolve_url, _TTS_TIMEOUT
+from app.routes.audio_orchestrate import _allowed_source, _check_redirect, _resolve_url, _TTS_TIMEOUT
 from app.workflows.model_profiles import AR_VIDEO, aspect_guard
 from app.services import longcat as longcat_service
 from app.services import video_generators as vgen
@@ -127,8 +127,10 @@ async def _synth_drive_audio(text: str, voice: str, speed: float) -> bytes:
         if voice:
             if not _allowed_source(voice):
                 raise HTTPException(status_code=400, detail="音色参考音来源不在白名单内")
+            voice_resolved = _resolve_url(voice)
             try:
-                rr = await client.get(_resolve_url(voice))
+                rr = await client.get(voice_resolved)
+                _check_redirect(rr, voice_resolved)
                 rr.raise_for_status()
             except httpx.HTTPError as e:
                 raise HTTPException(status_code=502, detail=f"音色参考音下载失败:{e}") from e

@@ -38,7 +38,7 @@ from app.models import Job, User
 from app.ratelimit import enforce_generation_rate_limit
 from app.versioning import params_snapshot
 # 复用:LatentSync 建图(纯函数)+ assembly 的拼接/来源校验(单一真相,不重复造)
-from app.routes.assembly import _concat_parts, _is_allowed_clip, _resolve_clip_url
+from app.routes.assembly import _concat_parts, _check_redirect, _is_allowed_clip, _resolve_clip_url
 from app.workflows.lipsync import LatentSyncParams, build_latentsync_graph
 
 logger = logging.getLogger(__name__)
@@ -412,8 +412,10 @@ async def _run_lipsync_long(
         elif body.audio_url:
             try:
                 audio_src = tmp_dir / "dub.audio"
+                audio_resolved = _resolve_clip_url(body.audio_url)
                 async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as http:
-                    r = await http.get(_resolve_clip_url(body.audio_url))
+                    r = await http.get(audio_resolved)
+                    _check_redirect(r, audio_resolved)
                     r.raise_for_status()
                 audio_src.write_bytes(r.content)
             except Exception as e:  # noqa: BLE001

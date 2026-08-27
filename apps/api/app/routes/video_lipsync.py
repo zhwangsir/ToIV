@@ -51,7 +51,7 @@ from app.db import get_session
 from app.deps import get_current_user
 from app.models import Job, User
 from app.ratelimit import enforce_generation_rate_limit
-from app.routes.audio_orchestrate import _allowed_source
+from app.routes.audio_orchestrate import _allowed_source, _check_redirect
 from app.routes.images import _ranged_response
 from app.services import video_upscale as upscale_svc
 from app.storage import audio_output_root, content_subdir
@@ -162,6 +162,7 @@ async def _download_external(url: str, dest: Path, max_bytes: int, label: str) -
             timeout=_DOWNLOAD_TIMEOUT, follow_redirects=True, trust_env=False
         ) as client:
             r = await client.get(url)
+            _check_redirect(r, url)
             r.raise_for_status()
     except httpx.HTTPError as e:
         raise HTTPException(status_code=400, detail=f"{label}下载失败:{e}") from e

@@ -916,10 +916,43 @@ async def generate_facedetailer(
     }
 
 
-def _gate_raw_graph_nsfw(graph: dict, user: User) -> bool:
-    """扫描任意工作流图中的底模(ckpt_name),对 R18 底模套用与其它端点一致的硬门槛。
+# raw 工作流 R18 门控:模型引用字段远不止 ckpt_name(UNETLoader.unet_name /
+# LoraLoader.lora_name / VAELoader.vae_name / LTXVGemmaCLIPModelLoader.ltxv_path …),
+# 逐字段列举必漏(10Eros 系即经 unet_name 加载)。统一递归遍历 inputs 内全部
+# 字符串,凡以模型扩展名结尾的一律过 R18 判定。
+_MODEL_REF_EXTS = (".safetensors", ".ckpt", ".pt", ".pth", ".gguf", ".bin")
 
-    返回该图是否含成人向底模(供建档打标 Job.nsfw)。
+
+def _iter_input_strings(value: object):
+    """递归展开 inputs 值中的所有字符串(嵌套 dict/list 一并遍历)。"""
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for v in value.values():
+            yield from _iter_input_strings(v)
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            yield from _iter_input_strings(item)
+
+
+def _is_nsfw_model_ref(name: str) -> bool:
+    """模型引用字符串的 R18 判定:is_nsfw 子串 + H3 已知 NSFW LoRA 名单。
+
+    H3 名单内 LoRA(如 riding_pose_H3_i2v_v1.0.safetensors)文件名不含通用
+    NSFW 子串,is_nsfw 漏判,须复用 services.h3 的 curated 判定(与
+    h3_studio._gate_h3_nsfw_loras 同一事实源)。延迟导入避免 routes↔services 环。"""
+    if is_nsfw(name):
+        return True
+    from app.services.h3 import is_h3_nsfw_lora
+
+    return is_h3_nsfw_lora(name)
+
+
+def _gate_raw_graph_nsfw(graph: dict, user: User) -> bool:
+    """扫描任意工作流图中的模型引用(ckpt/unet/lora/vae 等全部 inputs 字符串),
+    对 R18 模型套用与其它端点一致的硬门槛。
+
+    返回该图是否含成人向模型(供建档打标 Job.nsfw)。
     """
     any_nsfw = False
     for node in graph.values():
@@ -928,9 +961,10 @@ def _gate_raw_graph_nsfw(graph: dict, user: User) -> bool:
          inputs = node.get("inputs")
          if not isinstance(inputs, dict):
               continue
-         ckpt = inputs.get("ckpt_name")
-         if isinstance(ckpt, str) and is_nsfw(ckpt):
-              any_nsfw = True
+         for value in inputs.values():
+              for s in _iter_input_strings(value):
+                   if s.lower().endswith(_MODEL_REF_EXTS) and _is_nsfw_model_ref(s):
+                        any_nsfw = True
     # header-only R18 语义:与 _gate_nsfw_ckpt 同一信号(X-NSFW 头),账户开关不再放行
     if any_nsfw and not nsfw_allowed(user):
          raise HTTPException(

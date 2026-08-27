@@ -278,6 +278,8 @@ _DEFAULT_NSFW_HINTS: tuple[str, ...] = (
     "stoiqo",          # STOIQO NewReality(FLUX.1 NSFW 写实)
     "lazymix",         # LazyMix(素人写实 NSFW)
     "wai",             # WAI 系列(WAI-illustrious / WAI-RealMix 等动漫 NSFW)
+    "10eros",          # 10Eros 系(H3/LTX 嫁接)R18 UNET(经 UNETLoader 加载;
+                       # raw 工作流门控扫描 unet_name 必须命中,见 generate._gate_raw_graph_nsfw)
     # 显式关键词
     "nsfw",
     "r18",

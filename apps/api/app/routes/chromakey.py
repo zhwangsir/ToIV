@@ -36,7 +36,7 @@ from app.db import get_session
 from app.deps import get_current_user
 from app.models import Job, User
 from app.ratelimit import enforce_generation_rate_limit
-from app.routes.audio_orchestrate import _allowed_source, _resolve_url
+from app.routes.audio_orchestrate import _allowed_source, _check_redirect, _resolve_url
 from app.routes.images import _ranged_response
 from app.services import video_upscale as upscale_svc
 from app.services.studio.ffmpeg_ops import FFmpegError, ensure_ffmpeg, run_ffmpeg
@@ -178,8 +178,10 @@ def build_chromakey_cmd(
 
 async def _download_background(client: httpx.AsyncClient, url: str, dest: Path) -> None:
     """下载背景图(白名单已校验):失败/超大/非图 → 400。"""
+    resolved = _resolve_url(url)
     try:
-        rr = await client.get(_resolve_url(url))
+        rr = await client.get(resolved)
+        _check_redirect(rr, resolved)
         rr.raise_for_status()
     except httpx.HTTPError as e:
         raise HTTPException(status_code=400, detail=f"背景图下载失败:{e}") from e

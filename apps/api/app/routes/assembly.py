@@ -136,7 +136,9 @@ class AssembleResponse(BaseModel):
 
 
 def _is_allowed_clip(url: str) -> bool:
-    """clip 来源白名单:相对路径(本 API)或同源 / 白名单 worker host,防 SSRF。"""
+    """clip 来源白名单:相对路径(本 API)或同源 / 白名单 worker host,防 SSRF。
+
+    回环仅放行本 API 自身端口,不再全端口通配(语义详见 lipsync._allowed)。"""
     if url.startswith("/"):
         return True
     parts = urlsplit(url)
@@ -148,7 +150,30 @@ def _is_allowed_clip(url: str) -> bool:
         urlsplit(w).hostname for w in settings.worker_urls if urlsplit(w).hostname
     }
     # 同源(经反代回到本 API)也允许:本 API 的图片代理 /api/images 会带 host。
-    return host in allowed_hosts or host in {"127.0.0.1", "localhost"}
+    if host in allowed_hosts:
+        return True
+    if host in {"127.0.0.1", "localhost"}:
+        api = urlsplit(settings.api_base_url)
+        api_port = api.port or (443 if api.scheme == "https" else 80)
+        try:
+            port = parts.port or (443 if parts.scheme == "https" else 80)
+        except ValueError:  # 非法端口
+            return False
+        return port == api_port
+    return False
+
+
+def _check_redirect(resp: httpx.Response, initial_url: str) -> None:
+    """重定向复验(follow_redirects 下载):最终落点须仍过白名单或与初始
+    (已验)URL 同源,否则 400——防白名单内地址开放重定向绕过 SSRF 检查。"""
+    final = str(resp.url)
+    if final == initial_url:
+        return
+    f, i = urlsplit(final), urlsplit(initial_url)
+    if f.scheme == i.scheme and f.netloc.lower() == i.netloc.lower():
+        return
+    if not _is_allowed_clip(final):
+        raise HTTPException(status_code=400, detail="重定向目标不在白名单内")
 
 
 def _resolve_clip_url(url: str) -> str:
@@ -181,8 +206,10 @@ async def _download_clip(client: httpx.AsyncClient, url: str, dest: Path) -> Non
             if local.is_file():
                 await asyncio.to_thread(shutil.copyfile, local, dest)
                 return
+    resolved = _resolve_clip_url(url)
     try:
-        resp = await client.get(_resolve_clip_url(url))
+        resp = await client.get(resolved)
+        _check_redirect(resp, resolved)
         resp.raise_for_status()
     except httpx.HTTPError as e:
         raise HTTPException(

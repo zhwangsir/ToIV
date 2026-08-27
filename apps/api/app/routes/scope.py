@@ -65,7 +65,9 @@ def _check_enabled() -> None:
 
 
 def _allowed(url: str) -> bool:
-    """来源白名单:相对路径 / 白名单 worker / 本机,防 SSRF(同 lipsync.py)。"""
+    """来源白名单:相对路径 / 白名单 worker / 本机 API 端口,防 SSRF(同 lipsync.py)。
+
+    回环仅放行本 API 自身端口,不再全端口通配(语义详见 lipsync._allowed)。"""
     if url.startswith("/"):
         return True
     parts = urlsplit(url)
@@ -74,7 +76,30 @@ def _allowed(url: str) -> bool:
     host = parts.hostname or ""
     s = get_settings()
     allowed = {urlsplit(w).hostname for w in s.worker_urls if urlsplit(w).hostname}
-    return host in allowed or host in {"127.0.0.1", "localhost"}
+    if host in allowed:
+        return True
+    if host in {"127.0.0.1", "localhost"}:
+        api = urlsplit(s.api_base_url)
+        api_port = api.port or (443 if api.scheme == "https" else 80)
+        try:
+            port = parts.port or (443 if parts.scheme == "https" else 80)
+        except ValueError:  # 非法端口
+            return False
+        return port == api_port
+    return False
+
+
+def _check_redirect(resp: httpx.Response, initial_url: str) -> None:
+    """重定向复验(follow_redirects 下载):最终落点须仍过白名单或与初始
+    (已验)URL 同源,否则 400——防白名单内地址开放重定向绕过 SSRF 检查。"""
+    final = str(resp.url)
+    if final == initial_url:
+        return
+    f, i = urlsplit(final), urlsplit(initial_url)
+    if f.scheme == i.scheme and f.netloc.lower() == i.netloc.lower():
+        return
+    if not _allowed(final):
+        raise HTTPException(status_code=400, detail="重定向目标不在白名单内")
 
 
 def _resolve(url: str) -> str:
@@ -102,11 +127,13 @@ async def _fetch_image_b64(req: ScopeGenerateRequest) -> str:
     if req.image_url:
         if not _allowed(req.image_url):
             raise HTTPException(status_code=400, detail="首帧图来源不在白名单内")
+        resolved = _resolve(req.image_url)
         try:
             async with httpx.AsyncClient(
                 timeout=_DOWNLOAD_TIMEOUT, follow_redirects=True, trust_env=False
             ) as client:
-                resp = await client.get(_resolve(req.image_url))
+                resp = await client.get(resolved)
+                _check_redirect(resp, resolved)
                 resp.raise_for_status()
         except httpx.HTTPError as e:
             raise HTTPException(status_code=502, detail=f"首帧图下载失败:{e}") from e

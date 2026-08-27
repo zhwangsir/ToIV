@@ -817,13 +817,17 @@ def test_shot_lipsync_success(ctx):
         "lipsync-pid": ["/api/images?filename=lipsync.mp4&worker=http://worker"]
     }
 
-    mock_resp = MagicMock()
-    mock_resp.content = b"fake"
-    mock_resp.raise_for_status = MagicMock()
+    async def _get(url):
+        resp = MagicMock()
+        resp.content = b"fake"
+        resp.url = url  # 模拟无重定向:最终 URL 即请求 URL
+        resp.raise_for_status = MagicMock()
+        return resp
+
     mock_client = AsyncMock()
     mock_client.__aenter__ = AsyncMock(return_value=mock_client)
     mock_client.__aexit__ = AsyncMock(return_value=None)
-    mock_client.get = AsyncMock(return_value=mock_resp)
+    mock_client.get = AsyncMock(side_effect=_get)
 
     try:
         with patch("app.routes.drama_studio.httpx.AsyncClient", return_value=mock_client), \
@@ -1989,11 +1993,15 @@ def _fake_liveact_generator(task_id: str = "task-abc"):
 
 def _mock_ref_download():
     """mock drama_studio 内的 httpx.AsyncClient,参考图下载返回固定字节。"""
-    resp = MagicMock()
-    resp.content = b"fake-png"
+    async def _get(url):
+        resp = MagicMock()
+        resp.content = b"fake-png"
+        resp.url = url  # 模拟无重定向:最终 URL 即请求 URL
+        return resp
+
     http = AsyncMock()
     http.__aenter__.return_value = http
-    http.get = AsyncMock(return_value=resp)
+    http.get = AsyncMock(side_effect=_get)
     return http
 
 
