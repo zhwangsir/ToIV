@@ -30,7 +30,10 @@ from app.main import app
 from app.models import Job, Tenant, User
 from app.security import create_token, hash_password
 from app.workflows.video_upscale import (
+    SEEDVR2_VAE,
+    SEEDVR2_VARIANTS,
     TARGET_CHOICES,
+    UPSCALE_ENGINES,
     FrameUpscaleParams,
     assert_orientation_compatible,
     build_frame_upscale_graph,
@@ -152,6 +155,74 @@ def test_orientation_guard():
 
 
 # ---------------------------------------------------------------------------
+# SeedVR2 引擎(保守保真档:一步扩散修复;官方模板 utility_seedvr2_* 同构)
+# ---------------------------------------------------------------------------
+
+
+def test_build_frame_upscale_graph_seedvr2_chain():
+    """seedvr2_3b:UNET+VAE+Preprocess+Conditioning+一步 KSampler+PostProcess 全链。"""
+    g = build_frame_upscale_graph(
+        FrameUpscaleParams(image="f.png", engine="seedvr2_3b", target_w=3840, target_h=2160)
+    )
+    assert g["10"]["class_type"] == "UNETLoader"
+    assert g["10"]["inputs"]["unet_name"] == SEEDVR2_VARIANTS["seedvr2_3b"]
+    assert g["11"]["class_type"] == "VAELoader"
+    assert g["11"]["inputs"]["vae_name"] == SEEDVR2_VAE
+    assert g["12"]["class_type"] == "LoadImage"
+    assert g["12"]["inputs"]["image"] == "f.png"
+    # 先 ImageScale 到精确目标宽高(沿用 classic 画幅语义)
+    assert g["13"]["class_type"] == "ImageScale"
+    assert g["13"]["inputs"]["width"] == 3840
+    assert g["13"]["inputs"]["height"] == 2160
+    assert g["13"]["inputs"]["crop"] == "disabled"
+    assert g["14"]["class_type"] == "SeedVR2Preprocess"
+    assert g["14"]["inputs"]["resized_images"] == ["13", 0]
+    assert g["15"]["class_type"] == "VAEEncodeTiled"
+    assert g["15"]["inputs"]["pixels"] == ["14", 0]
+    assert g["15"]["inputs"]["vae"] == ["11", 0]
+    assert g["16"]["class_type"] == "SeedVR2Conditioning"
+    assert g["16"]["inputs"]["model"] == ["10", 0]
+    assert g["16"]["inputs"]["vae_conditioning"] == ["15", 0]
+    # 一步扩散:steps=1/cfg=1/euler/simple/denoise=1(官方模板参数)
+    assert g["17"]["class_type"] == "KSampler"
+    assert g["17"]["inputs"]["steps"] == 1
+    assert g["17"]["inputs"]["cfg"] == 1.0
+    assert g["17"]["inputs"]["sampler_name"] == "euler"
+    assert g["17"]["inputs"]["scheduler"] == "simple"
+    assert g["17"]["inputs"]["denoise"] == 1.0
+    assert g["17"]["inputs"]["positive"] == ["16", 0]
+    assert g["17"]["inputs"]["negative"] == ["16", 1]
+    assert g["17"]["inputs"]["latent_image"] == ["15", 0]
+    assert g["18"]["class_type"] == "VAEDecodeTiled"
+    assert g["18"]["inputs"]["samples"] == ["17", 0]
+    assert g["19"]["class_type"] == "SeedVR2PostProcessing"
+    assert g["19"]["inputs"]["images"] == ["18", 0]
+    assert g["19"]["inputs"]["original_resized_images"] == ["13", 0]
+    assert g["9"]["class_type"] == "SaveImage"
+    assert g["9"]["inputs"]["images"] == ["19", 0]
+
+
+def test_build_frame_upscale_graph_seedvr2_7b_variant():
+    """seedvr2_7b 高质档:UNETLoader 文件名切换到 7B 权重。"""
+    g = build_frame_upscale_graph(
+        FrameUpscaleParams(image="f.png", engine="seedvr2_7b")
+    )
+    assert g["10"]["inputs"]["unet_name"] == SEEDVR2_VARIANTS["seedvr2_7b"]
+    assert "7b" in g["10"]["inputs"]["unet_name"]
+
+
+def test_build_frame_upscale_graph_invalid_engine():
+    with pytest.raises(ValueError, match="不支持的超分引擎"):
+        build_frame_upscale_graph(FrameUpscaleParams(image="f.png", engine="bogus"))
+
+
+def test_upscale_engines_registry():
+    """引擎注册表:classic 默认 + 两个 SeedVR2 档位,与 VARIANTS 同步。"""
+    assert UPSCALE_ENGINES == ("classic", "seedvr2_3b", "seedvr2_7b")
+    assert set(SEEDVR2_VARIANTS) == {"seedvr2_3b", "seedvr2_7b"}
+
+
+# ---------------------------------------------------------------------------
 # 端点校验
 # ---------------------------------------------------------------------------
 
@@ -252,7 +323,7 @@ def test_endpoint_submit_ok(ctx, monkeypatch):
 
     spawned: list[tuple] = []
 
-    def fake_spawn(*args):
+    def fake_spawn(*args, **kwargs):
         spawned.append(args)
         return None
 
@@ -275,6 +346,79 @@ def test_endpoint_submit_ok(ctx, monkeypatch):
         assert job is not None
         assert job.worker == ""  # 不进 ComfyUI tracker(reconcile 跳过空 worker)
         assert json.loads(job.params)["video_url"] == url
+
+
+def test_endpoint_rejects_bad_engine(ctx):
+    """非法引擎名 → 422(与非法档位同级校验)。"""
+    client, token, *_ = ctx
+    r = client.post(
+        "/api/video/upscale",
+        headers=_h(token),
+        json={"video_url": "/api/drama/output/x.mp4", "engine": "bogus"},
+    )
+    assert r.status_code == 422
+
+
+def test_endpoint_submit_seedvr2_engine_ok(ctx, monkeypatch):
+    """engine=seedvr2_7b:200 建档、params 快照带 engine、spawn 收到 engine 参数。"""
+    client, token, engine, uid, tmp_path = ctx
+
+    async def healthy(_urls=None):
+        return ["http://w1"]
+
+    spawned: list[tuple] = []
+
+    def fake_spawn(*args, **kwargs):
+        spawned.append((args, kwargs))
+        return None
+
+    monkeypatch.setattr(svc, "healthy_upscale_workers", healthy)
+    monkeypatch.setattr(svc, "spawn_upscale", fake_spawn)
+    monkeypatch.setattr(svc, "product_root", lambda: tmp_path)
+    name = "upscale-" + "e" * 32 + ".mp4"
+    (tmp_path / name).write_bytes(_MP4)
+    url = f"/api/video/upscale/output/{name}"
+
+    r = client.post(
+        "/api/video/upscale", headers=_h(token),
+        json={"video_url": url, "engine": "seedvr2_7b"},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["engine"] == "seedvr2_7b"
+    assert len(spawned) == 1
+    _, kwargs = spawned[0]
+    assert kwargs.get("engine") == "seedvr2_7b"
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.prompt_id == body["prompt_id"])).first()
+        assert json.loads(job.params)["engine"] == "seedvr2_7b"
+
+
+def test_endpoint_default_engine_classic(ctx, monkeypatch):
+    """不传 engine → 默认 classic(向后兼容),spawn engine=classic。"""
+    client, token, engine, uid, tmp_path = ctx
+
+    async def healthy(_urls=None):
+        return ["http://w1"]
+
+    spawned: list[tuple] = []
+
+    def fake_spawn(*args, **kwargs):
+        spawned.append((args, kwargs))
+        return None
+
+    monkeypatch.setattr(svc, "healthy_upscale_workers", healthy)
+    monkeypatch.setattr(svc, "spawn_upscale", fake_spawn)
+    monkeypatch.setattr(svc, "product_root", lambda: tmp_path)
+    name = "upscale-" + "f" * 32 + ".mp4"
+    (tmp_path / name).write_bytes(_MP4)
+    url = f"/api/video/upscale/output/{name}"
+
+    r = client.post("/api/video/upscale", headers=_h(token), json={"video_url": url})
+    assert r.status_code == 200, r.text
+    assert r.json()["engine"] == "classic"
+    _, kwargs = spawned[0]
+    assert kwargs.get("engine") == "classic"
 
 
 def test_status_endpoint_progress_and_owner(ctx):
@@ -456,8 +600,9 @@ def _mock_pipeline(monkeypatch, tmp_path: Path, rec: _Rec, *,
         audio_path.write_bytes(b"AAC")
         return True
 
-    async def remote(client, frame_path, upload_name, model_name, target_w, target_h, timeout=600.0):
-        rec.remote_calls.append((client.base_url, frame_path.name, target_w, target_h))
+    async def remote(client, frame_path, upload_name, model_name, target_w, target_h,
+                     timeout=600.0, engine="classic"):
+        rec.remote_calls.append((client.base_url, frame_path.name, target_w, target_h, engine))
         idx = int(frame_path.stem.split("_")[1])
         if fail_frames and idx in fail_frames:
             raise RuntimeError("fleet boom")
@@ -500,7 +645,7 @@ def test_pipeline_success_done_and_cleanup(ctx, monkeypatch):
     assert urls == [f"/api/video/upscale/output/upscale-{job_id}.mp4"]
     assert (tmp_path / f"upscale-{job_id}.mp4").is_file()
     # 目标推导进 remote 调用(横屏 → 3840×2160)
-    assert all(w == 3840 and h == 2160 for _, _, w, h in rec.remote_calls)
+    assert all(w == 3840 and h == 2160 for _, _, w, h, _ in rec.remote_calls)
     # round-robin:两个实例都分到帧
     workers_hit = {c[0] for c in rec.remote_calls}
     assert workers_hit == {"http://w1", "http://w2"}
@@ -529,9 +674,28 @@ def test_pipeline_portrait_target(ctx, monkeypatch):
     ))
     job = _read_job(engine, prompt_id)
     assert job.status == "done"
-    assert all(w == 2160 and h == 3840 for _, _, w, h in rec.remote_calls)
+    assert all(w == 2160 and h == 3840 for _, _, w, h, _ in rec.remote_calls)
     # 无音轨 → 补静音轨(encode 仍带 audio 映射,audio_path=None)
     assert rec.encoded == [(24.0, False)]
+
+
+def test_pipeline_seedvr2_engine_passthrough(ctx, monkeypatch):
+    """engine=seedvr2_3b:穿透到每帧 remote 调用;prompt 带引擎标签。"""
+    _, _, engine, uid, tmp_path = ctx
+    rec = _Rec()
+    _mock_pipeline(monkeypatch, tmp_path, rec)
+    job_id, prompt_id = _mk_job(engine, uid, id_suffix="sv1")
+
+    asyncio.run(svc.run_pipeline(
+        job_id, prompt_id, "/api/drama/output/drama-" + "0" * 32 + ".mp4", "4k",
+        ["http://w1"], engine="seedvr2_3b",
+    ))
+    job = _read_job(engine, prompt_id)
+    assert job.status == "done"
+    assert len(rec.remote_calls) == 6
+    assert all(eng == "seedvr2_3b" for *_, eng in rec.remote_calls)
+    assert "seedvr2_3b" in job.prompt
+    svc._PROGRESS.pop(job_id, None)
 
 
 def test_pipeline_missing_frame_error_keeps_frames(ctx, monkeypatch):

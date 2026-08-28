@@ -288,6 +288,7 @@ async def upscale_frame_remote(
     target_w: int,
     target_h: int,
     timeout: float = _FRAME_TIMEOUT,
+    engine: str = "classic",
 ) -> bytes:
     """单帧在 fleet 实例上超分:上传 → 提交 → 轮询 history → /view 取回 PNG 字节。"""
     content = await asyncio.to_thread(frame_path.read_bytes)
@@ -296,6 +297,7 @@ async def upscale_frame_remote(
         FrameUpscaleParams(
             image=image_name,
             model_name=model_name,
+            engine=engine,
             target_w=target_w,
             target_h=target_h,
         )
@@ -491,6 +493,7 @@ def spawn_upscale(
     video_url: str,
     target: str,
     workers: list[str] | None = None,
+    engine: str = "classic",
 ) -> asyncio.Task:
     """fire-and-forget 启动超分管线(持强引用防 GC;同 prompt_id 幂等)。"""
     key = f"video-upscale:{job_id}"
@@ -498,7 +501,8 @@ def spawn_upscale(
         if t.get_name() == key and not t.done():
             return t
     task = asyncio.create_task(
-        run_pipeline(job_id, prompt_id, video_url, target, workers), name=key
+        run_pipeline(job_id, prompt_id, video_url, target, workers, engine=engine),
+        name=key,
     )
     _BG_TASKS.add(task)
     task.add_done_callback(_BG_TASKS.discard)
@@ -515,6 +519,7 @@ async def _upscale_shard(
     target_h: int,
     deadline: float,
     counters: dict[str, Any],
+    engine: str = "classic",
 ) -> None:
     """单实例分片处理:最多 _PER_WORKER_CONCURRENCY 帧在飞;失败帧换实例重试 1 次。"""
 
@@ -531,7 +536,7 @@ async def _upscale_shard(
             try:
                 data = await upscale_frame_remote(
                     cli, frame_path, upload_name, model_name, target_w, target_h,
-                    timeout=min(_FRAME_TIMEOUT, remaining),
+                    timeout=min(_FRAME_TIMEOUT, remaining), engine=engine,
                 )
                 await asyncio.to_thread(out_path.write_bytes, data)
                 counters["done"] += 1
@@ -569,6 +574,7 @@ async def run_pipeline(
     workers: list[str] | None = None,
     *,
     fused: bool = False,
+    engine: str = "classic",
 ) -> None:
     """超分管线主体(后台):probe → 推导 → 抽帧 → fleet 并行 → 合并 → 回写。
 
@@ -610,10 +616,11 @@ async def run_pipeline(
         if total <= 0:
             raise VideoUpscaleError("抽帧结果为空(源视频可能损坏)")
         if not fused:
+            engine_tag = f" · {engine}" if engine != "classic" else ""
             _set_job_prompt(
                 prompt_id,
                 f"视频超分 {target.upper()} · {meta['width']}×{meta['height']} → "
-                f"{target_w}×{target_h} · {total}帧@{meta['fps']:g}fps",
+                f"{target_w}×{target_h} · {total}帧@{meta['fps']:g}fps{engine_tag}",
             )
         if meta["has_audio"] and not audio_path.exists():
             await extract_audio(source_video, audio_path)
@@ -654,7 +661,7 @@ async def run_pipeline(
                     _upscale_shard(
                         client, [c for c in clients if c is not client], shard,
                         out_dir, DEFAULT_UPSCALE_MODEL, target_w, target_h,
-                        deadline, counters,
+                        deadline, counters, engine=engine,
                     )
                     for client, shard in zip(clients, shards) if shard
                 ),
@@ -826,11 +833,12 @@ def reconcile_interrupted() -> int:
             )
         ).all()
         for job in rows:
-            video_url, target = "", "4k"
+            video_url, target, engine = "", "4k", "classic"
             try:
                 params = json.loads(job.params) if job.params else {}
                 video_url = str(params.get("video_url") or "")
                 target = str(params.get("target") or "4k")
+                engine = str(params.get("engine") or "classic")
             except ValueError:
                 pass
             if not video_url:
@@ -838,7 +846,7 @@ def reconcile_interrupted() -> int:
                 s.add(job)
                 s.commit()
                 continue
-            spawn_upscale(job.id, job.prompt_id, video_url, target)
+            spawn_upscale(job.id, job.prompt_id, video_url, target, engine=engine)
             rehang += 1
     if rehang:
         logger.info("reconcile: 重挂 %d 个未终态视频超分作业(断点续跑)", rehang)

@@ -23,17 +23,20 @@ from app.models import Job, User
 from app.ratelimit import enforce_generation_rate_limit
 from app.services import video_upscale as svc
 from app.versioning import params_snapshot
-from app.workflows.video_upscale import TARGET_CHOICES
+from app.workflows.video_upscale import TARGET_CHOICES, UPSCALE_ENGINES
 
 router = APIRouter()
 
 
 class VideoUpscaleRequest(BaseModel):
     """video_url:作品库产物签名 URL(/api/images?…)或短剧成片/工作室文件相对路径;
-    本地文件先经 /api/upload 上传再用产物 URL。target 预留档位(当前仅 4k)。"""
+    本地文件先经 /api/upload 上传再用产物 URL。target 预留档位(当前仅 4k)。
+    engine:超分引擎——classic=4x-UltraSharp 传统锐化(默认);
+    seedvr2_3b/seedvr2_7b=SeedVR2 一步扩散修复(保守保真档,保结构不偏创意)。"""
 
     video_url: str = Field(min_length=1, max_length=2048)
     target: str = Field(default="4k", max_length=8)
+    engine: str = Field(default="classic", max_length=16)
 
 
 @router.post("/video/upscale")
@@ -48,6 +51,11 @@ async def upscale_video(
         raise HTTPException(
             status_code=422,
             detail=f"不支持的超分档位:{req.target!r};可选 {list(TARGET_CHOICES)}",
+        )
+    if req.engine not in UPSCALE_ENGINES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"不支持的超分引擎:{req.engine!r};可选 {list(UPSCALE_ENGINES)}",
         )
     video_url = req.video_url.strip()
     # 源 URL 形态 + 归属校验(/api/images 防 IDOR;R18 产物须专区上下文),继承 nsfw 标记
@@ -76,13 +84,14 @@ async def upscale_video(
     session.commit()
     session.refresh(job)
 
-    svc.spawn_upscale(job.id, prompt_id, video_url, req.target, workers)
+    svc.spawn_upscale(job.id, prompt_id, video_url, req.target, workers, engine=req.engine)
     return {
         "job_id": job.id,
         "prompt_id": prompt_id,
         "kind": "video_upscale",
         "status": "queued",
         "target": req.target,
+        "engine": req.engine,
     }
 
 
