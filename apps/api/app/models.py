@@ -75,6 +75,10 @@ class Job(SQLModel, table=True):
     # 资源预算二期(hold 排队):status=held 时为 hold 原因(预检 503 detail);
     # 放行/正常作业为空;hold 超时标 error 时改写为超时说明(前端列表直接可读)。
     hold_reason: str = ""
+    # 生成进度快照(2026-08-29 全量进度体系):JSON {pct,step,total,queue_pos,updated_at};
+    # tracker 查 /queue 写排队位置(无观众也有粗进度),SSE progress 事件节流写
+    # step/total(有观众时精确);空串=无进度信息。任务中心 GET /api/jobs/active 消费。
+    progress: str = ""
     # —— 视频评分器灰度观察(2026-08-27):点火结果落库,降级率/低分率可回溯 ——
     # quality_total=None = 未点火(开关关/非视频/无 URL);degraded=True = 评估降级
     # (VLM 不可达/解析失败/全 0 对齐降级),此时 total 无信息,统计时应单列。
@@ -485,7 +489,7 @@ class DramaAsset(SQLModel, table=True):
 
 
 class Entity(SQLModel, table=True):
-    """全局主体:角色(可带三视图)/场景/道具。
+    """全局主体:角色(可带三视图)/场景/道具/数字人形象(avatar,2026-08-29 归并 ReferenceAsset)。
 
     图片四列(ref_image + reference_front/side/back)统一存两种形态:
     ① 上传句柄 JSON 串 {"filename","worker"}(/api/upload 或 /api/assets/from-job 返回);
@@ -495,15 +499,22 @@ class Entity(SQLModel, table=True):
     id: str = Field(default_factory=_uid, primary_key=True)
     tenant_id: str = Field(index=True)
     user_id: str = Field(index=True)
-    kind: str = Field(default="character", index=True)  # character | scene | prop
+    kind: str = Field(default="character", index=True)  # character | scene | prop | avatar
     name: str
     description: str = ""  # 中文描述
     ref_image: str = ""  # 单图(句柄 JSON 或 URL)
-    # 三视图(仅 character 使用)
+    # 三视图(仅 character/avatar 使用)
     reference_front: str = ""
     reference_side: str = ""
     reference_back: str = ""
     prompt_hint: str = ""  # 注入提示词用的主体描述(英文 token 优先)
+    # 数字人形象(kind=avatar)扩展(归并自 ReferenceAsset,2026-08-29):
+    green_screen: bool = False  # 绿幕素材标记(抠像/合成工作流用)
+    ref_audio: str = ""  # 形象默认音色参考音频 URL(可空)
+    nsfw: bool = False  # R18 主体:SFW 上下文(无 X-NSFW 头)查询过滤(预留,消费侧下轮)
+    # 三视图生成状态(异步回写,同 DramaCharacter 模式):"" / generating / done / error
+    reference_status: str = ""
+    reference_error: str = ""
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)
 

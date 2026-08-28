@@ -101,7 +101,7 @@ async def submit_h3_best_of_n(
             height=req.height,
             length=plan.frames,
             steps=req.steps,
-            loras=tuple(LoraSpec(name=l.name, weight=l.strength) for l in req.loras),
+            loras=tuple(LoraSpec(name=l.name, weight=l.strength) for l in (req.loras or [])),
             seed=seed,
         )
         graph = build_h3_t2v_graph(params)

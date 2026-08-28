@@ -15,6 +15,7 @@ import { useToast } from "@/components/ui/Toast";
 import {
   createEntity,
   deleteEntity,
+  generateEntityReference,
   imageUrl,
   listEntities,
   updateEntity,
@@ -29,6 +30,8 @@ import {
  * P1 全局主体库(2026-08-26,对标 Vidu Q3 My References):
  * 角色/场景/道具三类主体跨项目复用——三 tab + 卡片网格 + 新建/编辑/删除。
  * 图片上传走 /api/upload 句柄(也可从作品库转运),预览走后端 /api/entities/{id}/images/{slot}。
+ * 2026-08-29 重做:kind 域扩 avatar(数字人形象,双轨归并);卡片「AI 三视图」
+ * 异步补图(reference_status 轮询);avatar 绿幕徽标。
  * ⚠️ 多组件文件:styled-jsx 作用域类只打在主组件 JSX 上,子组件拿不到 →
  *    一律 <style jsx global> + ent- 前缀(生产事故教训,P-2b)。
  */
@@ -37,6 +40,7 @@ const KIND_LABEL: Record<EntityKind, string> = {
   character: "角色",
   scene: "场景",
   prop: "道具",
+  avatar: "数字人",
 };
 
 const IMAGE_MAX_BYTES = 20 * 1024 * 1024;
@@ -72,6 +76,9 @@ interface FormState {
   slots: Record<SlotKey, SlotState>;
   /** 编辑时原有的字符串形态(URL)图片:未动则原样保留(不进 slots) */
   kept: Record<SlotKey, string>;
+  /** avatar 扩展(数字人形象):绿幕标记 / 默认音色 URL */
+  green_screen: boolean;
+  ref_audio: string;
 }
 
 function formFromEntity(e?: EntityItem): FormState {
@@ -103,6 +110,8 @@ function formFromEntity(e?: EntityItem): FormState {
     prompt_hint: e?.prompt_hint ?? "",
     slots,
     kept,
+    green_screen: e?.green_screen ?? false,
+    ref_audio: e?.ref_audio ?? "",
   };
 }
 
@@ -241,7 +250,7 @@ function EntityFormModal({ open, editing, defaultKind, onClose, onSaved }: Entit
     }
   }, [open, editing, defaultKind]);
 
-  const isCharacter = form.kind === "character";
+  const isCharacter = form.kind === "character" || form.kind === "avatar";
 
   async function save() {
     if (!form.name.trim()) {
@@ -269,6 +278,10 @@ function EntityFormModal({ open, editing, defaultKind, onClose, onSaved }: Entit
         description: form.description.trim(),
         prompt_hint: form.prompt_hint.trim(),
       };
+      if (form.kind === "avatar") {
+        body.green_screen = form.green_screen;
+        body.ref_audio = form.ref_audio.trim();
+      }
       for (const { key, value } of [
         ...imagePayload("ref"),
         ...imagePayload("front"),
@@ -369,6 +382,29 @@ function EntityFormModal({ open, editing, defaultKind, onClose, onSaved }: Entit
             onChange={(v) => setForm((f) => ({ ...f, slots: { ...f.slots, ref: v } }))}
           />
         </Field>
+        {form.kind === "avatar" && (
+          <>
+            <Field label="绿幕素材" hint="绿幕背景的形象素材,后续抠像/合成工作流使用">
+              <label className="ent-check">
+                <input
+                  type="checkbox"
+                  checked={form.green_screen}
+                  disabled={saving}
+                  onChange={(e) => setForm((f) => ({ ...f, green_screen: e.target.checked }))}
+                />
+                <span>这是绿幕形象</span>
+              </label>
+            </Field>
+            <Field label="默认音色参考" hint="可空;填入参考音频 URL,数字人合成时优先克隆该音色">
+              <Input
+                value={form.ref_audio}
+                maxLength={2000}
+                placeholder="/api/drama/voice/voice-xxx.wav"
+                onChange={(e) => setForm((f) => ({ ...f, ref_audio: e.target.value }))}
+              />
+            </Field>
+          </>
+        )}
         {error && <p className="ent-form-error">{error}</p>}
       </div>
     </Modal>
@@ -405,9 +441,40 @@ export function EntitiesView() {
     void load();
   }, [load]);
 
+  // AI 三视图补图:有主体 generating 时 3.5s 轮询直到全部终态
+  const [genBusy, setGenBusy] = useState<string | null>(null);
+  const generating = useMemo(
+    () => items.some((e) => e.reference_status === "generating"),
+    [items],
+  );
+  useEffect(() => {
+    if (!generating) return;
+    const t = setInterval(async () => {
+      try {
+        setItems(await listEntities());
+      } catch {
+        /* 下轮自愈 */
+      }
+    }, 3500);
+    return () => clearInterval(t);
+  }, [generating]);
+
+  async function startGenerateReference(e: EntityItem) {
+    setGenBusy(e.id);
+    try {
+      const updated = await generateEntityReference(e.id);
+      upsert(updated);
+      toast.info(`「${e.name}」三视图生成中,完成后自动回填…`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "提交三视图生成失败");
+    } finally {
+      setGenBusy(null);
+    }
+  }
+
   const filtered = useMemo(() => items.filter((e) => e.kind === kind), [items, kind]);
   const counts = useMemo(() => {
-    const c: Record<EntityKind, number> = { character: 0, scene: 0, prop: 0 };
+    const c: Record<EntityKind, number> = { character: 0, scene: 0, prop: 0, avatar: 0 };
     for (const e of items) c[e.kind] = (c[e.kind] ?? 0) + 1;
     return c;
   }, [items]);
@@ -500,12 +567,18 @@ export function EntitiesView() {
                   {cover ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={imageUrl(cover)} alt={e.name} loading="lazy" decoding="async" />
+                  ) : e.reference_status === "generating" ? (
+                    <span className="ent-card-noimg ent-card-gen">
+                      <Icon name="refresh" size={22} className="ent-spin" />
+                      <em>生成中…</em>
+                    </span>
                   ) : (
                     <span className="ent-card-noimg">
-                      <Icon name={e.kind === "character" ? "user" : e.kind === "scene" ? "image" : "box"} size={28} />
+                      <Icon name={e.kind === "character" || e.kind === "avatar" ? "user" : e.kind === "scene" ? "image" : "box"} size={28} />
                     </span>
                   )}
                   <span className="ent-card-kind">{KIND_LABEL[e.kind]}</span>
+                  {e.green_screen && <span className="ent-card-gs">绿幕</span>}
                 </div>
                 <div className="ent-card-body">
                   <h3 className="ent-card-name" title={e.name}>{e.name}</h3>
@@ -514,7 +587,28 @@ export function EntitiesView() {
                       {e.description || e.prompt_hint}
                     </p>
                   )}
+                  {e.reference_status === "error" && e.reference_error && (
+                    <p className="ent-card-err" title={e.reference_error}>
+                      三视图生成失败:{e.reference_error}
+                    </p>
+                  )}
                   <div className="ent-card-actions">
+                    {(e.kind === "character" || e.kind === "avatar") && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        icon={<Icon name="sparkles" size={13} />}
+                        loading={genBusy === e.id}
+                        disabled={e.reference_status === "generating"}
+                        onClick={() => void startGenerateReference(e)}
+                      >
+                        {e.reference_status === "generating"
+                          ? "生成中…"
+                          : (e.imageCount ?? 0) > 0
+                            ? "重新生成三视图"
+                            : "AI 三视图"}
+                      </Button>
+                    )}
                     <Button
                       variant="secondary"
                       size="sm"
@@ -644,8 +738,54 @@ export function EntitiesView() {
         }
         .ent-card-actions {
           display: flex;
+          flex-wrap: wrap;
           gap: 6px;
           margin-top: 2px;
+        }
+        .ent-card-gen {
+          flex-direction: column;
+          gap: 6px;
+          color: var(--accent);
+        }
+        .ent-card-gen em {
+          font-style: normal;
+          font-size: 11px;
+        }
+        .ent-spin {
+          animation: ent-rotate 1.4s linear infinite;
+        }
+        @keyframes ent-rotate {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .ent-spin { animation: none; }
+        }
+        .ent-card-gs {
+          position: absolute;
+          top: 6px;
+          right: 6px;
+          padding: 2px 8px;
+          border-radius: 999px;
+          font-size: 10px;
+          background: var(--ok, #16a34a);
+          color: #fff;
+        }
+        .ent-card-err {
+          margin: 0;
+          font-size: 11px;
+          color: var(--err);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .ent-check {
+          display: flex;
+          align-items: center;
+          gap: var(--space-2, 8px);
+          font-size: 13px;
+          color: var(--text-primary);
+          cursor: pointer;
         }
         .ent-form {
           display: flex;

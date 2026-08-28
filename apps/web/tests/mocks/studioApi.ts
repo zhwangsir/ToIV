@@ -697,6 +697,7 @@ export const entityCalls = {
   createEntity: 0,
   updateEntity: 0,
   deleteEntity: 0,
+  generateEntityReference: 0,
 };
 
 export function makeEntity(id: string, over: Partial<EntityItem> = {}): EntityItem {
@@ -725,6 +726,8 @@ export const entityImpl = {
   updateEntity: async (id: string, body: Partial<EntityInput>): Promise<EntityItem> =>
     makeEntity(id, { name: body.name ?? `主体${id}` }),
   deleteEntity: async (_id: string): Promise<void> => {},
+  generateEntityReference: async (id: string): Promise<EntityItem> =>
+    makeEntity(id, { reference_status: "generating" }),
 };
 
 /** 恢复默认实现并清零调用计数(每个用例前调用)。 */
@@ -735,6 +738,8 @@ export function resetEntityImpl(): void {
   entityImpl.updateEntity = async (id: string, body: Partial<EntityInput>) =>
     makeEntity(id, { name: body.name ?? `主体${id}` });
   entityImpl.deleteEntity = async () => {};
+  entityImpl.generateEntityReference = async (id: string) =>
+    makeEntity(id, { reference_status: "generating" });
   for (const k of Object.keys(entityCalls) as (keyof typeof entityCalls)[]) entityCalls[k] = 0;
 }
 
@@ -753,6 +758,10 @@ export const updateEntity = (id: string, body: Partial<EntityInput>): Promise<En
 export const deleteEntity = (id: string): Promise<void> => {
   entityCalls.deleteEntity++;
   return entityImpl.deleteEntity(id);
+};
+export const generateEntityReference = (id: string): Promise<EntityItem> => {
+  entityCalls.generateEntityReference++;
+  return entityImpl.generateEntityReference(id);
 };
 export const uploadImage = async (
   _file: File,

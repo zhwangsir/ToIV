@@ -72,10 +72,19 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     # ⚠️ BOOLEAN 默认值必须 FALSE 而非 0:PG 不认 DEFAULT 0(2026-08-27 部署启动失败实证)
     ("job", "quality_degraded", "quality_degraded BOOLEAN NOT NULL DEFAULT FALSE"),
     ("job", "quality_issues", "quality_issues VARCHAR NOT NULL DEFAULT ''"),
+    # 全量进度体系(2026-08-29):生成进度快照 JSON(pct/step/total/queue_pos)
+    ("job", "progress", "progress VARCHAR NOT NULL DEFAULT ''"),
     # 数字人形象库(2026-08-27):reference_assets 支持 kind=avatar 的两列扩展
     # (绿幕素材标记 / 形象默认音色参考音频 URL)。BOOLEAN 默认值必须 FALSE(PG 不认 0)。
     ("reference_assets", "green_screen", "green_screen BOOLEAN NOT NULL DEFAULT FALSE"),
     ("reference_assets", "ref_audio", "ref_audio VARCHAR NOT NULL DEFAULT ''"),
+    # 主体库双轨归并(2026-08-29):Entity 吸收 ReferenceAsset avatar 能力的五列扩展
+    # (BOOLEAN 默认值必须 FALSE,PG 不认 0);reference_status/error 供三视图异步生成回写
+    ("entity", "green_screen", "green_screen BOOLEAN NOT NULL DEFAULT FALSE"),
+    ("entity", "ref_audio", "ref_audio VARCHAR NOT NULL DEFAULT ''"),
+    ("entity", "nsfw", "nsfw BOOLEAN NOT NULL DEFAULT FALSE"),
+    ("entity", "reference_status", "reference_status VARCHAR NOT NULL DEFAULT ''"),
+    ("entity", "reference_error", "reference_error VARCHAR NOT NULL DEFAULT ''"),
 )
 
 # 整段 SQL 幂等迁移(CREATE TABLE IF NOT EXISTS 等,非 ADD COLUMN 场景)。
@@ -609,6 +618,67 @@ def _migrate_drama_characters_to_entities() -> None:
         logger.warning("DramaCharacter→Entity 迁移跳过: %s", exc)
 
 
+def _migrate_reference_assets_to_entities() -> None:
+    """双轨归并(2026-08-29):ReferenceAsset → Entity 一次性迁移(copy 语义)。
+
+    幂等:按 (user_id, kind, name) 判重(实体表全 kind 查,不只 avatar——
+    同名 character 主体已存在时不再重复建档);ReferenceAsset 表原样保留,
+    数字人链路(M1-M6)继续可读,新 UI/消费侧逐步切到 Entity。
+    图片:ReferenceAsset.images 是句柄 list[{filename,worker}] → Entity
+    ref_image 取首图句柄 JSON(与 entities._store_image 同形态)。
+    """
+    import json as _json
+
+    from sqlmodel import Session, select
+
+    from app.models import Entity, ReferenceAsset, User
+
+    try:
+        with Session(engine) as s:
+            assets = s.exec(select(ReferenceAsset)).all()
+            if not assets:
+                return
+            existing = {
+                (e.user_id, e.kind, e.name) for e in s.exec(select(Entity)).all()
+            }
+            users = {u.id: u for u in s.exec(select(User)).all()}
+            added = 0
+            for a in assets:
+                owner = users.get(a.user_id)
+                if owner is None:
+                    continue  # 孤儿资产(属主已删)跳过
+                key = (a.user_id, a.kind, a.name)
+                if key in existing:
+                    continue
+                first_img = ""
+                if a.images and isinstance(a.images[0], dict):
+                    h = a.images[0]
+                    if h.get("filename") and h.get("worker"):
+                        first_img = _json.dumps(
+                            {"filename": h["filename"], "worker": h["worker"]}
+                        )
+                s.add(
+                    Entity(
+                        tenant_id=owner.tenant_id,
+                        user_id=a.user_id,
+                        kind=a.kind,
+                        name=a.name,
+                        description=a.description,
+                        ref_image=first_img,
+                        green_screen=a.green_screen,
+                        ref_audio=a.ref_audio,
+                        nsfw=a.nsfw,
+                    )
+                )
+                existing.add(key)
+                added += 1
+            if added:
+                s.commit()
+                logger.info("ReferenceAsset→Entity 迁移完成:新增 %d 条全局主体", added)
+    except SQLAlchemyError as exc:
+        logger.warning("ReferenceAsset→Entity 迁移跳过: %s", exc)
+
+
 def init_db() -> None:
     import app.models  # noqa: F401  确保模型已注册到元数据
     SQLModel.metadata.create_all(engine)
@@ -617,6 +687,7 @@ def init_db() -> None:
     _run_column_migrations()
     _clear_stale_post_status()
     _migrate_drama_characters_to_entities()
+    _migrate_reference_assets_to_entities()
 
 
 def bootstrap_admin() -> None:

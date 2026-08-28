@@ -308,3 +308,182 @@ def test_resolve_shot_characters_cross_user_not_leaked(ctx):
         refs = resolve_shot_characters(s, project_id=proj.id, names=["阿明"])
         assert refs[0].ref_image == "/img/drama_aming.png"
         assert refs[0].reference_front == ""
+
+
+# --------------------------------------------------------------------------- #
+# 双轨归并(2026-08-29):avatar 扩展字段 + ReferenceAsset→Entity 迁移
+# --------------------------------------------------------------------------- #
+def test_avatar_fields_crud(ctx):
+    """kind=avatar 主体:green_screen/ref_audio/nsfw 创建回显 + PUT 更新。"""
+    c, alice, _, _ = ctx
+    e = _create(
+        c, alice,
+        kind="avatar", name="数字人小晚",
+        green_screen=True, ref_audio="/api/drama/voice/voice-x.wav", nsfw=True,
+    )
+    assert e["kind"] == "avatar"
+    assert e["green_screen"] is True
+    assert e["ref_audio"] == "/api/drama/voice/voice-x.wav"
+    assert e["nsfw"] is True
+    assert e["reference_status"] == ""
+
+    r = c.put(
+        f"/api/entities/{e['id']}", headers=_auth(alice),
+        json={"green_screen": False, "ref_audio": "", "nsfw": False},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["green_screen"] is False
+    assert r.json()["ref_audio"] == ""
+
+
+def test_avatar_kind_filter(ctx):
+    """kind=avatar 查询过滤生效。"""
+    c, alice, _, _ = ctx
+    _create(c, alice, kind="avatar", name="形象A")
+    _create(c, alice, kind="character", name="角色B")
+    r = c.get("/api/entities?kind=avatar", headers=_auth(alice))
+    assert [e["name"] for e in r.json()] == ["形象A"]
+
+
+def test_reference_assets_migration(ctx):
+    """ReferenceAsset→Entity 迁移:字段映射正确 + 幂等(二次执行不重复)。"""
+    _, _, _, engine = ctx
+    from app.db import _migrate_reference_assets_to_entities
+    from app.models import ReferenceAsset
+    from unittest.mock import patch
+
+    with Session(engine) as s:
+        alice = s.exec(select(User).where(User.email == "alice@toiv.ai")).one()
+        s.add(ReferenceAsset(
+            user_id=alice.id, kind="avatar", name="迁移形象",
+            description="绿幕形象", images=[{"filename": "a.png", "worker": "http://w"}],
+            green_screen=True, ref_audio="/voice/x.wav", nsfw=False,
+        ))
+        s.add(ReferenceAsset(
+            user_id=alice.id, kind="character", name="迁移角色", images=[],
+        ))
+        s.commit()
+
+    # db.engine 是全局单例:迁移函数内部用它,测试期临时指到内存库
+    with patch("app.db.engine", engine):
+        _migrate_reference_assets_to_entities()
+        _migrate_reference_assets_to_entities()  # 幂等:二次执行不重复建档
+
+    with Session(engine) as s:
+        rows = s.exec(select(Entity).where(Entity.user_id.in_(
+            select(User.id).where(User.email == "alice@toiv.ai")  # type: ignore[attr-defined]
+        ))).all()
+        by_name = {e.name: e for e in rows}
+        assert set(by_name) == {"迁移形象", "迁移角色"}
+        av = by_name["迁移形象"]
+        assert av.kind == "avatar"
+        assert av.green_screen is True
+        assert av.ref_audio == "/voice/x.wav"
+        import json as _json
+
+        assert _json.loads(av.ref_image)["filename"] == "a.png"
+        assert by_name["迁移角色"].ref_image == ""
+
+
+# --------------------------------------------------------------------------- #
+# 补图(2026-08-29):POST /api/entities/{id}/generate-reference 异步三视图
+# --------------------------------------------------------------------------- #
+def _fake_pool(queue_side_effect):
+    """mock WorkerPool + mock ComfyUIClient(与 test_drama_studio 同款)。"""
+    from unittest.mock import AsyncMock, MagicMock
+
+    pool = MagicMock()
+    cli = AsyncMock()
+    cli.base_url = "http://worker"
+    cli.queue_prompt = AsyncMock(side_effect=queue_side_effect)
+    pool.pick = AsyncMock(return_value=cli)
+    return pool, cli
+
+
+def test_generate_reference_flow(ctx):
+    """三视图生成:提交即返回 generating,后台回写四图槽(front 回填空 ref_image)。"""
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    c, alice, _, engine = ctx
+    e = _create(c, alice, name="无图角色", prompt_hint="1girl, red dress")
+
+    pool, _cli = _fake_pool(["pf", "ps", "pb"])
+    from app.deps import get_pool
+
+    app.dependency_overrides[get_pool] = lambda: pool
+    fake_results = {
+        "pf": ["/api/images?filename=front.png"],
+        "ps": ["/api/images?filename=side.png"],
+        "pb": ["/api/images?filename=back.png"],
+    }
+    try:
+        with patch("app.comfy.tracker.spawn", lambda client, pid: None), \
+             patch("app.comfy.tracker.wait_for_jobs", AsyncMock(return_value=fake_results)), \
+             patch.object(__import__("app.db", fromlist=["engine"]), "engine", engine):
+            r = c.post(
+                f"/api/entities/{e['id']}/generate-reference",
+                headers=_auth(alice), json={},
+            )
+            assert r.status_code == 200, r.text
+            assert r.json()["reference_status"] == "generating"
+
+            # 后台回写已完成(mock 立即返回)
+            r2 = c.get("/api/entities", headers=_auth(alice))
+            ent = next(x for x in r2.json() if x["id"] == e["id"])
+            assert ent["reference_status"] == "done"
+            assert ent["reference_front"] == "/api/images?filename=front.png"
+            assert ent["reference_side"] == "/api/images?filename=side.png"
+            assert ent["reference_back"] == "/api/images?filename=back.png"
+            assert ent["ref_image"] == "/api/images?filename=front.png"  # 空 ref_image 被回填
+    finally:
+        app.dependency_overrides.pop(get_pool, None)
+
+
+def test_generate_reference_conflict_and_422(ctx):
+    """generating 中重复提交 → 409;无描述无提示词 → 422。"""
+    from unittest.mock import AsyncMock, patch
+
+    c, alice, _, engine = ctx
+    e1 = _create(c, alice, name="生成中角色", prompt_hint="1boy")
+    e2 = _create(c, alice, name="空角色")  # 无 prompt_hint/description
+
+    pool, _cli = _fake_pool(["x1", "x2", "x3"])
+    from app.deps import get_pool
+
+    app.dependency_overrides[get_pool] = lambda: pool
+    try:
+        # e2:无描述 → 422(无需 mock 提交)
+        r = c.post(
+            f"/api/entities/{e2['id']}/generate-reference",
+            headers=_auth(alice), json={},
+        )
+        assert r.status_code == 422
+
+        with patch("app.comfy.tracker.spawn", lambda client, pid: None), \
+             patch("app.comfy.tracker.wait_for_jobs", AsyncMock(side_effect=RuntimeError("超时"))), \
+             patch.object(__import__("app.db", fromlist=["engine"]), "engine", engine):
+            r = c.post(
+                f"/api/entities/{e1['id']}/generate-reference",
+                headers=_auth(alice), json={},
+            )
+            assert r.status_code == 200, r.text
+            assert r.json()["reference_status"] == "generating"
+            # 等待超时但作业仍 queued → 超时豁免保持 generating
+            r = c.post(
+                f"/api/entities/{e1['id']}/generate-reference",
+                headers=_auth(alice), json={},
+            )
+            assert r.status_code == 409
+    finally:
+        app.dependency_overrides.pop(get_pool, None)
+
+
+def test_generate_reference_other_user_404(ctx):
+    """他人主体触发生成 → 404(防枚举)。"""
+    c, alice, bob, _ = ctx
+    e = _create(c, alice, name="阿明的角色", prompt_hint="1boy")
+    r = c.post(
+        f"/api/entities/{e['id']}/generate-reference",
+        headers=_auth(bob), json={},
+    )
+    assert r.status_code == 404

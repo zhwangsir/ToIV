@@ -541,11 +541,14 @@ def _apply_entity_refs(
     session, user: User, entity_ids: list[str], positive: str, params: dict,
     media_keys: tuple[str, ...],
 ) -> tuple[str, dict, list[str]]:
-    """全局主体库注入:prompt_hint 拼入提示词;首个有图主体的参考图补进媒体参数。
+    """全局主体库注入:prompt_hint 拼入提示词;参考图按引擎媒体键形态注入。
 
     - 仅解析当前用户的主体(他人 id 静默跳过,防跨用户引用);
     - prompt_hint 为空回退 description;注入片段统一放 positive 末尾;
-    - 参考图仅当引擎吃 image 媒体键且调用方未显式给 image 时补位(显式优先)。
+    - 单图引擎(image 键):首个有图主体补位(显式参数优先);
+    - 多图引擎(images 键,phantom-s2v):entity_ids 直接透传进参数,
+      由 phantom 路由自行解析(404 防枚举/422 无句柄,合计上限 4 张),
+      避免此处重复实现一套句柄解析(2026-08-29 多主体注入修复)。
     返回 (positive, params, 命中的主体名列表)。
     """
     from app.services.entities import image_handle_for_injection
@@ -572,6 +575,9 @@ def _apply_entity_refs(
             if handle:
                 out["image"] = handle["filename"]
                 out["worker"] = handle["worker"]
+    # 多图引擎:显式 images/entity_ids 已给则不补,否则透传主体 id(phantom 路由解析)
+    if "images" in media_keys and not out.get("images") and not out.get("entity_ids"):
+        out["entity_ids"] = [e.id for e in rows]
     if hints:
         positive = f"{positive}\n[主体库] " + "; ".join(hints) if positive else "; ".join(hints)
     return positive, out, names

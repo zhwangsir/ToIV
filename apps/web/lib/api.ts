@@ -373,6 +373,46 @@ export async function fetchJobsPage(offset: number, limit = 200): Promise<JobIte
 /** 首页大小:与后端单页上限一致;返回满页即可能还有下一页。 */
 export const JOBS_PAGE_LIMIT = 200;
 
+// ---------- 任务中心(全量进度体系,2026-08-29):在跑作业轮询 ----------
+
+/** 单个在跑作业的进度快照。 */
+export interface ActiveJobProgress {
+  pct: number | null;       // 0-100;null=无 step 进度(排队/无观众)
+  step: number | null;
+  total: number | null;
+  queue_pos: number | null; // 0=生成中;N=排队第 N 位;null=未知
+  updated_at: number | null;
+}
+
+/** 在跑作业条目(任务中心面板消费)。 */
+export interface ActiveJobItem {
+  id: string;
+  prompt_id: string;
+  kind: string;
+  status: string;           // queued / running / held
+  prompt: string;           // 后端已截 200 字
+  worker: string;
+  created_at: string;
+  wait_sec: number;         // 已等待秒数
+  eta_sec: number | null;   // ETA 粗估;held 为 null
+  progress: ActiveJobProgress;
+  hold_reason: string;
+  nsfw: boolean;
+}
+
+export interface ActiveJobsResponse {
+  items: ActiveJobItem[];
+  server_time: string;
+}
+
+/** 拉取当前租户全部非终态作业(任务中心 5s 轮询;不走 SWR,进度强时效)。 */
+export async function fetchActiveJobs(): Promise<ActiveJobsResponse> {
+  const res = await apiFetch(`/api/jobs/active`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(`加载在跑任务失败 (${res.status})`);
+  return res.json();
+}
+
+
 async function fetchJobsRaw(): Promise<JobItem[]> {
   return fetchJobsPage(0, JOBS_PAGE_LIMIT);
 }
@@ -645,7 +685,7 @@ export async function getNsfwRecommendations(): Promise<NsfwRecommendation[]> {
 // P1 全局主体库(2026-08-26):角色/场景/道具三类主体跨项目复用
 // ---------------------------------------------------------------------------
 
-export type EntityKind = "character" | "scene" | "prop";
+export type EntityKind = "character" | "scene" | "prop" | "avatar";
 
 /** 上传句柄形态的图片引用(/api/upload 或 /api/assets/from-job 返回)。 */
 export interface EntityImageHandle {
@@ -663,6 +703,16 @@ export interface EntityItem {
   reference_front: string;
   reference_side: string;
   reference_back: string;
+  /** avatar 扩展(2026-08-29 双轨归并):绿幕标记 / 默认音色 / R18 标记 */
+  green_screen?: boolean;
+  ref_audio?: string;
+  nsfw?: boolean;
+  /** 三视图生成状态:""/generating/done/error(AI 补图轮询用) */
+  reference_status?: string;
+  reference_error?: string;
+  /** @主体引用前台化契约:最优图预览(无图空串)/ 非空图槽数(后端恒返回) */
+  thumbUrl?: string;
+  imageCount?: number;
   /** 已解析的上传句柄(注入参考图链直接用;URL 形态或空则无该槽) */
   handles: Partial<Record<"ref" | "front" | "side" | "back", EntityImageHandle>>;
   /** 预览 URL(/api/entities/{id}/images/{slot},过 imageUrl 带 token) */
@@ -683,6 +733,21 @@ export interface EntityInput {
   reference_front?: EntityImageInput;
   reference_side?: EntityImageInput;
   reference_back?: EntityImageInput;
+  green_screen?: boolean;
+  ref_audio?: string;
+  nsfw?: boolean;
+}
+
+/** AI 生成三视图(2026-08-29 主体库补图):提交即返回(reference_status=generating),
+ *  后台回写 reference_front/side/back(+空 ref_image 回填正面);前端轮询 listEntities。 */
+export async function generateEntityReference(id: string): Promise<EntityItem> {
+  const res = await apiFetch(`/api/entities/${id}/generate-reference`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: "{}",
+  });
+  if (!res.ok) await raiseApiError(res, "生成三视图失败");
+  return res.json();
 }
 
 export async function listEntities(kind?: EntityKind): Promise<EntityItem[]> {

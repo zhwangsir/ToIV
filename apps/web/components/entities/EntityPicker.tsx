@@ -17,6 +17,7 @@ const KIND_LABEL: Record<EntityKind, string> = {
   character: "角色",
   scene: "场景",
   prop: "道具",
+  avatar: "数字人",
 };
 
 /** 主体封面图槽位优先级(与后端 best_image_value 一致)。 */

@@ -82,6 +82,61 @@ def mark_status(prompt_id: str, status: str) -> None:
             session.commit()
 
 
+# ---------------------------------------------------------------------------
+# 全量进度体系(2026-08-29):Job.progress JSON 快照写入
+# ---------------------------------------------------------------------------
+# 形状:{"pct": 42, "step": 10, "total": 24, "queue_pos": 0, "updated_at": 1787946000}
+# 两个写入方:① tracker 查 /queue 写 queue_pos(无观众也有排队进度);
+# ② SSE job_events 的 progress 事件写 step/total(有观众时精确到步)。
+# 读方:GET /api/jobs/active(任务中心)。done/error 终态后不再更新(快照定格)。
+_PROGRESS_THROTTLE_SEC = 2.0
+_progress_last_write: dict[str, float] = {}
+
+
+def write_progress(
+    prompt_id: str,
+    *,
+    pct: int | None = None,
+    step: int | None = None,
+    total: int | None = None,
+    queue_pos: int | None = None,
+    throttle: bool = False,
+) -> None:
+    """合并式更新 Job.progress(只覆盖显式给出的键);终态作业跳过。
+
+    throttle=True(SSE 高频路径)时按 prompt_id 节流 2s;tracker 30s 低频路径直写。
+    """
+    now = time.time()
+    if throttle:
+        last = _progress_last_write.get(prompt_id, 0.0)
+        if now - last < _PROGRESS_THROTTLE_SEC:
+            return
+        _progress_last_write[prompt_id] = now
+    try:
+        with Session(engine) as session:
+            job = session.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
+            if not job or job.status in ("done", "error"):
+                return
+            try:
+                snap = json.loads(job.progress) if job.progress else {}
+            except (ValueError, TypeError):
+                snap = {}
+            if pct is not None:
+                snap["pct"] = max(0, min(100, int(pct)))
+            if step is not None:
+                snap["step"] = step
+            if total is not None:
+                snap["total"] = total
+            if queue_pos is not None:
+                snap["queue_pos"] = queue_pos
+            snap["updated_at"] = now
+            job.progress = json.dumps(snap)
+            session.add(job)
+            session.commit()
+    except Exception as e:  # noqa: BLE001 — 进度写入绝不许拖垮追踪/SSE 主链路
+        logger.warning("write_progress %s failed: %s", prompt_id, e)
+
+
 def mark_done(prompt_id: str, urls: list[str]) -> None:
     """完成时持久化状态与产物 URL;幂等(已 done 则跳过,避免重复写)。"""
     with Session(engine) as session:
@@ -161,6 +216,25 @@ async def _orphan_check(client: ComfyUIClient, prompt_id: str) -> tuple[bool, bo
     return prompt_id not in history, False
 
 
+async def _queue_progress_write(client: ComfyUIClient, prompt_id: str) -> None:
+    """全量进度体系:查 /queue 明细写排队位置(running=0 / pending=1-based 位次)。
+
+    与 _orphan_check 同节奏(30s)调用;无观众时任务中心也有排队粒度进度。
+    """
+    get_detail = getattr(client, "get_queue_detail", None)
+    if get_detail is None:
+        return
+    try:
+        running_ids, pending_pos = await get_detail()
+    except ComfyUIError:
+        return
+    if prompt_id in running_ids:
+        write_progress(prompt_id, queue_pos=0)
+        mark_status(prompt_id, "running")
+    elif prompt_id in pending_pos:
+        write_progress(prompt_id, queue_pos=pending_pos[prompt_id])
+
+
 async def _track(
     client: ComfyUIClient,
     prompt_id: str,
@@ -213,6 +287,11 @@ async def _track(
                     # (产物在盘上仅 DB 状态错)。超时只回收「worker 已不认识」
                     # 的作业,排队中的作业归 orphan/正常轮询管。
                     waited = 0.0
+                # 全量进度体系:同一节奏顺带写排队位置(独立调用,失败不影响追踪)
+                try:
+                    await _queue_progress_write(client, prompt_id)
+                except Exception as e:  # noqa: BLE001
+                    logger.warning("job tracker %s queue progress error: %s", prompt_id, e)
         await asyncio.sleep(delay)
         waited += delay
         delay = min(delay * 1.4, _POLL_MAX)

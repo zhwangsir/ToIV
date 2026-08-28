@@ -195,6 +195,23 @@ class ComfyUIClient:
                     ids.add(str(entry[1]))
         return ids
 
+    async def get_queue_detail(self) -> tuple[set[str], dict[str, int]]:
+        """队列明细:(running 集合, pending 位置映射)。
+
+        pending_pos[prompt_id] = 1 表示排第 1 位(下一个执行);running 中的作业
+        不在映射里(前端显示「生成中」而非排队位)。全量进度体系任务中心用。
+        """
+        data = await self._get_json("/queue", timeout=4.0)
+        running: set[str] = set()
+        for entry in data.get("queue_running", []):
+            if isinstance(entry, (list, tuple)) and len(entry) > 1:
+                running.add(str(entry[1]))
+        pending_pos: dict[str, int] = {}
+        for idx, entry in enumerate(data.get("queue_pending", []), start=1):
+            if isinstance(entry, (list, tuple)) and len(entry) > 1:
+                pending_pos[str(entry[1])] = idx
+        return running, pending_pos
+
     async def get_system_stats(self) -> dict:
         """实例系统信息(含 devices[].vram_free/vram_total,字节)。用于显存预检。"""
         return await self._get_json("/system_stats")

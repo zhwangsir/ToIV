@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { LandingPage } from "@/components/landing/LandingPage";
 import { CornerNav, type CornerNavItem } from "@/components/nav/CornerNav";
 import { AccountButton } from "@/components/nav/AccountButton";
+import { TaskCenter } from "@/components/nav/TaskCenter";
 import { AssistantOverlay } from "@/components/assistant/AssistantOverlay";
 import { BottomNav, type BottomNavItem } from "@/components/nav/BottomNav";
 import { fetchMe, getToken, setToken, testLogin, TOKEN_KEY } from "@/lib/api";
@@ -704,6 +705,10 @@ function HomeContent() {
           onOpenSettings={() => handleNavSelect("settings")}
         />
       )}
+
+      {/* 任务中心(2026-08-29 全量进度体系):右上第二枚,在跑任务数徽标 +
+          弹层进度明细(排队位/step/已等待/ETA),完成 toast + 作品库刷新 */}
+      {account && <TaskCenter />}
 
       {/* 启动序列(2026-08-24 重做):Shift+Enter 开启后——阶段一核点点亮(中心,
           350ms)+ 阶段二极光灯带扫边(1000ms,cyan→violet),随后弹窗降临

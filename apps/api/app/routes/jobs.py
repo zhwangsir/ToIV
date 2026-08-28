@@ -22,7 +22,7 @@ from sse_starlette.sse import EventSourceResponse
 from app import audit
 from app.comfy.client import ComfyUIClient, ComfyUIError
 from app.comfy.pool import WorkerPool
-from app.comfy.tracker import mark_status, record_result
+from app.comfy.tracker import mark_status, record_result, write_progress
 from app.config import get_settings
 from app.db import engine, get_session
 from app.deps import get_current_user, get_pool, resolve_worker
@@ -91,6 +91,107 @@ def _job_dict(j: Job) -> dict:
         # 内容分组 id(360° 环绕序列同批归组):无分组为空串;从 params 快照解析
         "batch_id": _batch_id_of(j),
     }
+
+
+# ---------------------------------------------------------------------------
+# 全量进度体系(2026-08-29):任务中心 GET /api/jobs/active
+# ---------------------------------------------------------------------------
+# 引擎典型耗时(秒,ETA 粗估;按 kind 前缀最长匹配,未命中回落 120s)。
+# 来源:生产实测经验值(H3 单段 10-15min、wan_i2v ~5-8min、t2i ~1min)。
+# 仅用于「心里有数」级 ETA,不用于任何调度决策。
+_KIND_TYPICAL_SEC: tuple[tuple[str, int], ...] = (
+    ("drama_char_reference", 120),
+    ("h3_extend", 900),
+    ("h3_", 900),
+    ("longcat", 600),
+    ("phantom", 600),
+    ("ovi_", 600),
+    ("wan_", 420),
+    ("ltx25_multishot", 600),
+    ("ltx", 300),
+    ("qwen_edit", 90),
+    ("threed", 180),
+    ("avatar", 300),
+    ("upscale", 300),
+    ("img2img", 60),
+    ("txt2img", 60),
+)
+_TYPICAL_FALLBACK_SEC = 120
+
+
+def _typical_sec(kind: str) -> int:
+    for prefix, sec in _KIND_TYPICAL_SEC:
+        if kind.startswith(prefix):
+            return sec
+    return _TYPICAL_FALLBACK_SEC
+
+
+@router.get("/jobs/active")
+def list_active_jobs(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """任务中心:当前租户全部非终态作业 + 进度快照 + ETA 粗估。
+
+    进度来源:Job.progress JSON(tracker 写 queue_pos / SSE 写 step)。
+    ETA:排队位 × 引擎均耗;生成中按 pct 折算剩余,无 pct 给均耗全量。
+    held 作业无 ETA(等资源释放,返回 hold_reason)。
+    """
+    rows = session.exec(
+        select(Job)
+        .where(
+            Job.tenant_id == user.tenant_id,
+            Job.status.in_(("queued", "running", "held")),  # type: ignore[attr-defined]
+            Job.deleted_at.is_(None),  # type: ignore[union-attr]
+        )
+        .order_by(Job.created_at)  # type: ignore[arg-type]
+    ).all()
+    now = datetime.now(timezone.utc)
+    items: list[dict] = []
+    for j in rows:
+        created = j.created_at
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        wait_sec = max(0, int((now - created).total_seconds()))
+        try:
+            snap = json.loads(j.progress) if j.progress else {}
+        except (ValueError, TypeError):
+            snap = {}
+        queue_pos = snap.get("queue_pos")
+        pct = snap.get("pct")
+        typical = _typical_sec(j.kind)
+        eta_sec: int | None
+        if j.status == "held":
+            eta_sec = None
+        elif isinstance(queue_pos, int) and queue_pos > 0:
+            eta_sec = queue_pos * typical
+        elif isinstance(pct, int) and pct > 0:
+            eta_sec = max(0, int(typical * (100 - pct) / 100))
+        else:
+            eta_sec = typical
+        items.append(
+            {
+                "id": j.id,
+                "prompt_id": j.prompt_id,
+                "kind": j.kind,
+                "status": j.status,
+                "prompt": j.prompt[:200],
+                "worker": j.worker,
+                "created_at": created.isoformat(),
+                "wait_sec": wait_sec,
+                "eta_sec": eta_sec,
+                "progress": {
+                    "pct": pct if isinstance(pct, int) else None,
+                    "step": snap.get("step"),
+                    "total": snap.get("total"),
+                    "queue_pos": queue_pos if isinstance(queue_pos, int) else None,
+                    "updated_at": snap.get("updated_at"),
+                },
+                "hold_reason": j.hold_reason or "",
+                "nsfw": bool(j.nsfw),
+            }
+        )
+    return {"items": items, "server_time": now.isoformat()}
 
 
 @router.get("/jobs")
@@ -680,6 +781,16 @@ async def job_events(
                         # 首个进度到达时把 Job 从 queued 标为 running,让作品库状态更准确
                         if job and job.status == "queued":
                             mark_status(prompt_id, "running")
+                        # 全量进度体系:step 进度节流写库(2s),任务中心无观众时也可读
+                        value, total = data.get("value"), data.get("max")
+                        if isinstance(value, (int, float)) and isinstance(total, (int, float)) and total > 0:
+                            write_progress(
+                                prompt_id,
+                                pct=int(value / total * 100),
+                                step=int(value),
+                                total=int(total),
+                                throttle=True,
+                            )
                         yield {"event": "progress", "data": json.dumps({"value": data.get("value"), "max": data.get("max")})}
                     elif mtype == "executing" and data.get("node") is None and data.get("prompt_id") == prompt_id:
                         done_event, urls = await _emit_done(client, prompt_id)

@@ -303,3 +303,168 @@
     display: block;
   }
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+   任务中心(全量进度体系,2026-08-29):右上第二枚常驻按钮(accountbtn 左邻),
+   徽标显示在跑任务数;弹层列出排队位/step 进度/已等待/ETA。
+   ──────────────────────────────────────────────────────────────────────────── */
+
+.taskcenter {
+  position: fixed;
+  top: 14px;
+  right: 62px; /* accountbtn(38px @ right:16px) 左侧 8px 间距 */
+  z-index: var(--z-sticky);
+}
+
+.taskcenter-trigger {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-full);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-highlight), var(--shadow-lg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: box-shadow var(--duration-slow) var(--ease-spring),
+              border-color var(--duration-base) var(--ease-standard),
+              color var(--duration-base) var(--ease-standard);
+}
+.taskcenter-trigger:hover,
+.taskcenter-trigger:focus-visible {
+  border-color: var(--border-strong);
+  box-shadow: var(--glass-highlight), var(--shadow-float), var(--shadow-xl);
+  color: var(--text-primary);
+}
+.taskcenter-trigger[aria-expanded="true"] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.taskcenter-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-size: 10px;
+  font-weight: var(--font-semibold);
+  line-height: 16px;
+  text-align: center;
+  box-shadow: var(--shadow-md);
+}
+
+/* 弹层内容(玻璃底由 Popover 基座提供,此处只管布局) */
+.taskcenter-pop {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.taskcenter-pop-title {
+  font-size: var(--text-label);
+  font-weight: var(--font-semibold);
+  color: var(--text-muted);
+  padding: 0 var(--space-1);
+}
+.taskcenter-empty {
+  padding: var(--space-3) var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.taskcenter-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-2);
+  border-radius: var(--radius-control);
+  background: var(--bg-surface-2);
+}
+.taskcenter-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.taskcenter-item-kind {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+}
+.taskcenter-item-wait {
+  font-size: var(--text-label);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.taskcenter-item-prompt {
+  font-size: var(--text-label);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.taskcenter-item-status {
+  font-size: var(--text-label);
+  color: var(--accent);
+  font-weight: var(--font-medium);
+}
+
+/* 进度条:确定 pct 填充 / 不确定滑动(与 global-progress 同语义) */
+.taskcenter-bar {
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--bg-surface-3, var(--border-soft));
+  overflow: hidden;
+}
+.taskcenter-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  transition: width var(--duration-slow) var(--ease-standard);
+}
+.taskcenter-bar.is-indeterminate .taskcenter-bar-fill {
+  width: 40%;
+  animation: taskcenter-slide 1.6s var(--ease-standard) infinite;
+}
+@keyframes taskcenter-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .taskcenter-bar.is-indeterminate .taskcenter-bar-fill {
+    animation: none;
+    width: 40%;
+  }
+}
+
+.taskcenter-item-eta {
+  font-size: var(--text-label);
+  color: var(--text-muted);
+}
+
+/* 窄屏:与 accountbtn 同策略隐藏(底部导航不承载,任务中心属桌面增强) */
+@media (max-width: 1023px) {
+  .taskcenter {
+    display: none;
+  }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .taskcenter {
+    display: block;
+  }
+}
+
