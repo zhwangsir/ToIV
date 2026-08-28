@@ -5,7 +5,10 @@ import { setApiBaseOverride } from '@/api/config';
 import { setNsfwIntent, setToken } from '@/api/client';
 import {
   ATTACHED_DOCS_MAX,
+  hydrateSessionMessages,
   imageStorageKey,
+  sessionHasAssistantAfterLastUser,
+  shouldRecoverFromTimeout,
   toolActivityLabel,
   useAssistantStore,
 } from '@/stores/assistant';
@@ -17,6 +20,7 @@ import {
   enqueueResponse,
   installMockUni,
   lastUpload,
+  setChunkedError,
   setUploadResult,
   uploadCallCount,
 } from './helpers/mock-uni';
@@ -144,6 +148,95 @@ describe('send 流程', () => {
     store.send('第二条');
     await new Promise((r) => setTimeout(r, 30));
     expect(store.messages.filter((m) => m.role === 'user')).toHaveLength(1);
+  });
+});
+
+describe('超时回放', () => {
+  const sessionDetail: AgentSessionDetail = {
+    id: 's0',
+    title: '剧本',
+    nsfw: false,
+    created_at: '2026-08-28T12:00:00',
+    updated_at: '2026-08-28T12:06:00',
+    message_count: 2,
+    messages: [
+      { id: 1, role: 'user', content: '写少妇白洁', tool_calls: null, media: [], created_at: '' },
+      { id: 2, role: 'assistant', content: '第一章完', tool_calls: null, media: [], created_at: '' },
+    ],
+  };
+
+  it('流超时且会话已有助手回复：回放内容，不展示超时错误', async () => {
+    const store = useAssistantStore();
+    store.sessionId = 's0';
+    setChunkedError('request:fail timeout');
+    enqueueResponse(200, sessionDetail);
+    enqueueResponse(200, []);
+    store.send('写少妇白洁');
+    await new Promise((r) => setTimeout(r, 50));
+    expect(store.sending).toBe(false);
+    expect(store.messages.some((m) => m.error)).toBe(false);
+    expect(store.messages.map((m) => m.text)).toEqual(['写少妇白洁', '第一章完']);
+    expect(allRequests().some((r) => r.url.includes('/api/agent/sessions/s0'))).toBe(true);
+  });
+
+  it('流超时但会话无助手产出：仍展示超时错误', async () => {
+    const store = useAssistantStore();
+    store.sessionId = 's0';
+    setChunkedError('request:fail timeout');
+    enqueueResponse(200, { ...sessionDetail, messages: [sessionDetail.messages[0]] });
+    store.send('写少妇白洁');
+    await new Promise((r) => setTimeout(r, 50));
+    const last = store.messages[store.messages.length - 1];
+    expect(last.role).toBe('assistant');
+    expect(last.error).toBe('请求超时，请检查网络后重试');
+  });
+
+  it('HTTP 5xx 不回放会话', async () => {
+    const store = useAssistantStore();
+    store.sessionId = 's0';
+    enqueueChunkedResponse({ statusCode: 500, chunks: [] });
+    store.send('hi');
+    await new Promise((r) => setTimeout(r, 30));
+    expect(store.messages[1].error).toBe('服务暂时不可用，请稍后重试');
+    expect(allRequests().some((r) => r.url.includes('/api/agent/sessions/'))).toBe(false);
+  });
+});
+
+describe('shouldRecoverFromTimeout / sessionHasAssistantAfterLastUser', () => {
+  it('无会话 id 或 HTTP 4xx/5xx 不回放', () => {
+    expect(shouldRecoverFromTimeout({ message: '请求超时，请检查网络后重试', status: 0 }, null)).toBe(false);
+    expect(shouldRecoverFromTimeout({ message: '对话失败 (502)', status: 502 }, 's1')).toBe(false);
+    expect(shouldRecoverFromTimeout({ message: '请求超时，请检查网络后重试', status: 0 }, 's1')).toBe(true);
+    expect(shouldRecoverFromTimeout({ name: 'AbortError', message: 'The user aborted a request' }, 's1')).toBe(true);
+  });
+
+  it('最后一条 user 之后要有助手文本或媒体', () => {
+    expect(sessionHasAssistantAfterLastUser([
+      { role: 'user', content: 'hi' },
+    ])).toBe(false);
+    expect(sessionHasAssistantAfterLastUser([
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '  ' },
+    ])).toBe(false);
+    expect(sessionHasAssistantAfterLastUser([
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '好的' },
+    ])).toBe(true);
+    expect(sessionHasAssistantAfterLastUser([
+      { role: 'user', content: 'hi' },
+      { role: 'tool', content: '{}', media: [{ type: 'image', urls: ['/a.png'] }] },
+    ])).toBe(true);
+  });
+
+  it('hydrateSessionMessages 把 tool 媒体并入 assistant', () => {
+    const msgs = hydrateSessionMessages([
+      { id: 1, role: 'user', content: '画猫', tool_calls: null, media: [], created_at: '' },
+      { id: 2, role: 'assistant', content: '好', tool_calls: null, media: [], created_at: '' },
+      { id: 3, role: 'tool', content: '{}', tool_calls: null, media: [{ type: 'image', urls: ['/c.png'] }], created_at: '' },
+    ]);
+    expect(msgs).toHaveLength(2);
+    expect(msgs[1].text).toBe('好');
+    expect(msgs[1].media).toEqual([{ type: 'image', urls: ['/c.png'] }]);
   });
 });
 

@@ -35,6 +35,7 @@ import type {
   AgentChatImage,
   AgentChatMessage,
   AgentEvent,
+  AgentSessionMessage,
   AgentSessionSummary,
   DocItem,
 } from '@/types/api';
@@ -126,6 +127,78 @@ function makeMessage(role: ChatMessage['role']): ChatMessage {
 
 /** 已停止生成的 reject 语义（api 层 abort 固定文案），停止不算错误 */
 const STOPPED_MESSAGE = '已停止生成';
+
+/** 流超时/中断且非 HTTP 4xx/5xx 时，可凭会话 id 回放服务端已落库的回复。 */
+export function shouldRecoverFromTimeout(
+  err: unknown,
+  sessionId: string | null | undefined,
+): boolean {
+  if (!sessionId) return false;
+  const status =
+    err && typeof err === 'object' && 'status' in err
+      ? (err as { status?: number }).status
+      : undefined;
+  if (typeof status === 'number' && status >= 400) return false;
+  const name =
+    err && typeof err === 'object' && 'name' in err
+      ? String((err as { name?: string }).name ?? '')
+      : '';
+  const message =
+    err instanceof Error
+      ? err.message
+      : err && typeof err === 'object' && 'message' in err
+        ? String((err as { message?: unknown }).message ?? '')
+        : '';
+  if (name === 'AbortError') return true;
+  return /timeout|timed out|超时|aborted|abort/i.test(message);
+}
+
+/** 最后一条 user 之后是否已有助手产出（文本或 tool 媒体）。空会话不可当成功。 */
+export function sessionHasAssistantAfterLastUser(
+  rows: { role: string; content?: string; media?: { urls?: string[] }[] }[],
+): boolean {
+  let lastUser = -1;
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i].role === 'user') lastUser = i;
+  }
+  if (lastUser < 0) return false;
+  for (let i = lastUser + 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (row.role === 'assistant' && (row.content ?? '').trim()) return true;
+    if ((row.media?.length ?? 0) > 0) return true;
+  }
+  return false;
+}
+
+/** 会话回放消息 → UI 气泡（openSession 与超时回放共用） */
+export function hydrateSessionMessages(rows: AgentSessionMessage[]): ChatMessage[] {
+  const messages: ChatMessage[] = [];
+  for (const row of rows) {
+    if (row.role === 'user') {
+      const msg = makeMessage('user');
+      msg.text = row.content;
+      msg.backendId = row.id;
+      messages.push(msg);
+    } else if (row.role === 'assistant') {
+      const msg = makeMessage('assistant');
+      msg.text = row.content;
+      msg.backendId = row.id;
+      messages.push(msg);
+    } else if (row.role === 'tool') {
+      if (row.media.length === 0) continue;
+      let target = [...messages].reverse().find((m) => m.role === 'assistant');
+      if (!target) {
+        target = makeMessage('assistant');
+        messages.push(target);
+      }
+      for (const media of row.media) {
+        target.media.push({ type: media.type, urls: media.urls });
+      }
+      target.backendId = row.id;
+    }
+  }
+  return messages;
+}
 
 /** 单轮挂载文档上限（agent.py ChatRequest document_ids ≤8 硬上限，客户端先验） */
 export const ATTACHED_DOCS_MAX = 8;
@@ -273,33 +346,7 @@ export const useAssistantStore = defineStore('assistant', {
         this.sessionId = detail.id;
         imageEpoch += 1; // 切换会话：旧会话进行中的上传回调丢弃（瞬态不入草稿）
         this.attachedImage = loadImageChip(detail.id); // 附图草稿按会话隔离恢复
-        const messages: ChatMessage[] = [];
-        for (const row of detail.messages) {
-          if (row.role === 'user') {
-            const msg = makeMessage('user');
-            msg.text = row.content;
-            msg.backendId = row.id;
-            messages.push(msg);
-          } else if (row.role === 'assistant') {
-            const msg = makeMessage('assistant');
-            msg.text = row.content;
-            msg.backendId = row.id;
-            messages.push(msg);
-          } else if (row.role === 'tool') {
-            if (row.media.length === 0) continue;
-            let target = [...messages].reverse().find((m) => m.role === 'assistant');
-            if (!target) {
-              target = makeMessage('assistant');
-              messages.push(target);
-            }
-            for (const media of row.media) {
-              target.media.push({ type: media.type, urls: media.urls });
-            }
-            // 气泡含该 tool 产出：分叉定位取 tool 行 id（截断含这条媒体消息）
-            target.backendId = row.id;
-          }
-        }
-        this.messages = messages;
+        this.messages = hydrateSessionMessages(detail.messages);
       } finally {
         this.historyLoading = false;
       }
@@ -393,9 +440,28 @@ export const useAssistantStore = defineStore('assistant', {
           this._finish(assistantMsg.id, null);
           void this.refreshSessions(); // 标题/时间后端已更新，静默刷新列表
         })
-        .catch((err: unknown) => {
+        .catch(async (err: unknown) => {
           const message = err instanceof Error ? err.message : '请求失败，请重试';
-          this._finish(assistantMsg.id, message === STOPPED_MESSAGE ? null : message);
+          if (message === STOPPED_MESSAGE) {
+            this._finish(assistantMsg.id, null);
+            return;
+          }
+          const sid = this.sessionId || handle.sessionId;
+          if (sid && shouldRecoverFromTimeout(err, sid)) {
+            try {
+              const detail = await getAgentSession(sid);
+              if (sessionHasAssistantAfterLastUser(detail.messages)) {
+                this.sessionId = detail.id;
+                this.messages = hydrateSessionMessages(detail.messages);
+                this._finish(assistantMsg.id, null);
+                void this.refreshSessions();
+                return;
+              }
+            } catch {
+              // 回放失败仍展示原超时错误
+            }
+          }
+          this._finish(assistantMsg.id, message);
         });
     },
 

@@ -6,9 +6,10 @@ import {
   forkAgentSession,
   getAgentSession,
   listAgentSessions,
+  STREAM_TIMEOUT_MS,
 } from '@/api';
 import { setApiBaseOverride } from '@/api/config';
-import { setNsfwIntent, setToken } from '@/api/client';
+import { LONG_TIMEOUT_MS, setNsfwIntent, setToken } from '@/api/client';
 import type { AgentEvent, AgentSessionDetail, AgentSessionSummary } from '@/types/api';
 import {
   enqueueChunkedResponse,
@@ -224,6 +225,18 @@ describe('agentChatStream 异常路径', () => {
       () => undefined,
     );
     await expect(promise).rejects.toMatchObject({ message: '请求超时，请检查网络后重试' });
+  });
+
+  it('SSE 整段超时用 10 分钟，不是 JSON 长任务 180s', async () => {
+    enqueueChunkedResponse({ statusCode: 200, chunks: ['event: done\ndata: {}\n\n'] });
+    const { promise } = agentChatStream(
+      { messages: [{ role: 'user', content: 'hi' }] },
+      () => undefined,
+    );
+    await promise;
+    expect(lastRequest().timeout).toBe(STREAM_TIMEOUT_MS);
+    expect(STREAM_TIMEOUT_MS).toBe(600_000);
+    expect(STREAM_TIMEOUT_MS).not.toBe(LONG_TIMEOUT_MS);
   });
 });
 

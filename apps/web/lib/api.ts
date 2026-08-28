@@ -1727,7 +1727,14 @@ export async function agentChatStream(
     throw err;
   }
   const sessionId = res.headers.get("X-Agent-Session-Id");
-  await consumeAgentSse(res.body, onEvent, onActivity);
+  try {
+    await consumeAgentSse(res.body, onEvent, onActivity);
+  } catch (err) {
+    if (sessionId && err && typeof err === "object") {
+      (err as { sessionId?: string }).sessionId = sessionId;
+    }
+    throw err;
+  }
   return { sessionId };
 }
 
@@ -1767,7 +1774,14 @@ export async function agentChatResume(
     throw err;
   }
   const sessionId = res.headers.get("X-Agent-Session-Id");
-  await consumeAgentSse(res.body, onEvent, onActivity);
+  try {
+    await consumeAgentSse(res.body, onEvent, onActivity);
+  } catch (err) {
+    if (sessionId && err && typeof err === "object") {
+      (err as { sessionId?: string }).sessionId = sessionId;
+    }
+    throw err;
+  }
   return { sessionId };
 }
 

@@ -189,6 +189,48 @@ export function messagesToChat(rows: AgentSessionMessage[]): ChatMessage[] {
   return out;
 }
 
+/** 流超时/中断且非 HTTP 4xx/5xx 时，可凭会话 id 回放服务端已落库的回复。 */
+export function shouldRecoverFromTimeout(
+  err: unknown,
+  sessionId: string | null | undefined,
+): boolean {
+  if (!sessionId) return false;
+  const status =
+    err && typeof err === "object" && "status" in err
+      ? (err as { status?: number }).status
+      : undefined;
+  if (typeof status === "number" && status >= 400) return false;
+  const name =
+    err && typeof err === "object" && "name" in err
+      ? String((err as { name?: string }).name ?? "")
+      : "";
+  const message =
+    err instanceof Error
+      ? err.message
+      : err && typeof err === "object" && "message" in err
+        ? String((err as { message?: unknown }).message ?? "")
+        : "";
+  if (name === "AbortError") return true;
+  return /timeout|timed out|超时|aborted|abort/i.test(message);
+}
+
+/** 最后一条 user 之后是否已有助手产出（文本或 tool 媒体）。空会话不可当成功。 */
+export function sessionHasAssistantAfterLastUser(
+  rows: { role: string; content?: string; media?: { urls?: string[] }[] }[],
+): boolean {
+  let lastUser = -1;
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i].role === "user") lastUser = i;
+  }
+  if (lastUser < 0) return false;
+  for (let i = lastUser + 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (row.role === "assistant" && (row.content ?? "").trim()) return true;
+    if ((row.media?.length ?? 0) > 0) return true;
+  }
+  return false;
+}
+
 // ───── 工具条 / 作业卡 / 提案卡(2026-08-24 助手升级协议:tool/job/proposal 三类 SSE 事件) ─────
 
 /** tool/job/proposal 事件归并到最后一条 assistant 气泡(无则补一条空气泡,
@@ -1028,6 +1070,7 @@ export function AssistantView(props?: AssistantViewProps) {
       // 不再被吞成统一「连接中断或超时」,错误气泡显示真实原因
       let errorDetail: string | null = null;
       let errorStatus: number | null = null;
+      let caughtErr: unknown = null;
 
       const controller = new AbortController();
       abortControllerRef.current = controller;
@@ -1161,10 +1204,13 @@ export function AssistantView(props?: AssistantViewProps) {
         if (sessionId) lastSessionIdRef.current = sessionId;
       } catch (e) {
         failed = true;
+        caughtErr = e;
         // 保留真实 HTTP 错误(如「会话不存在」「对话失败 (502)」)供展示与 404 判定
         if (e instanceof Error) {
           errorDetail = e.message || errorDetail;
           errorStatus = (e as Error & { status?: number }).status ?? null;
+          const sid = (e as Error & { sessionId?: string }).sessionId;
+          if (sid) lastSessionIdRef.current = sid;
         }
       } finally {
         window.clearTimeout(timeoutId);
@@ -1188,6 +1234,24 @@ export function AssistantView(props?: AssistantViewProps) {
 
       // 用户主动停止:不补错误气泡,也不重写历史(保留已流出的内容)
       if (failed && userStoppedRef.current) return;
+
+      // 流超时/中断但后端可能已落库:回放会话，有助手产出则不当失败
+      if (failed && !streamError) {
+        const sid = lastSessionIdRef.current ?? activeConvIdRef.current;
+        if (sid && shouldRecoverFromTimeout(caughtErr ?? { message: errorDetail, status: errorStatus }, sid)) {
+          try {
+            const detail = await getAgentSession(sid);
+            if (sessionHasAssistantAfterLastUser(detail.messages)) {
+              const recovered = messagesToChat(detail.messages);
+              setMessages(recovered);
+              finishTurn(recovered);
+              return;
+            }
+          } catch {
+            /* 回放失败仍走下方错误气泡 */
+          }
+        }
+      }
 
       if (failed) {
         const errMsg: ChatMessage = {

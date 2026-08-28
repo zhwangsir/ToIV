@@ -42,6 +42,8 @@ const {
   buildApiMessages,
   MAX_API_MESSAGES,
   MAX_API_MESSAGE_CHARS,
+  shouldRecoverFromTimeout,
+  sessionHasAssistantAfterLastUser,
 } = await import("../components/assistant/AssistantView");
 
 type ChatMessage = import("../components/assistant/AssistantView").ChatMessage;
@@ -218,6 +220,14 @@ test("AssistantView:404 会话失效自动降级新会话重试一次(不带 ses
   );
 });
 
+test("AssistantView:流超时非用户停止则回放会话，有助手产出不展示超时错误", () => {
+  const src = readSrc("components/assistant/AssistantView.tsx");
+  assert.ok(src.includes("shouldRecoverFromTimeout"), "缺超时回放判定");
+  assert.ok(src.includes("sessionHasAssistantAfterLastUser"), "缺会话助手产出判定");
+  assert.ok(src.includes("await getAgentSession(sid)"), "超时回放未拉会话");
+  assert.ok(src.includes("userStoppedRef.current"), "用户停止路径被破坏");
+});
+
 /* ── ⑤ 纯函数 ── */
 test("upsertToolChip:同 id 更新而非追加;无 assistant 气泡时补空气泡", () => {
   let msgs: ChatMessage[] = [makeMsg("u1", "user", { content: "hi" })];
@@ -340,4 +350,27 @@ test("applyJobSnapshots:进行中卡片按 id 过滤推进,done 灌产物,无变
   // 无变化时引用不变(轮询空转不触发重渲染)
   const same = applyJobSnapshots(done, [makeJob("j1", { status: "done" })]);
   assert.equal(same, done);
+});
+
+test("shouldRecoverFromTimeout:无会话或 HTTP 4xx/5xx 不回放;AbortError/超时可回放", () => {
+  assert.equal(shouldRecoverFromTimeout({ message: "请求超时", status: 0 }, null), false);
+  assert.equal(shouldRecoverFromTimeout({ message: "对话失败 (502)", status: 502 }, "s1"), false);
+  assert.equal(shouldRecoverFromTimeout({ message: "The user aborted a request", name: "AbortError" }, "s1"), true);
+  assert.equal(shouldRecoverFromTimeout({ message: "请求超时，请检查网络后重试", status: 0 }, "s1"), true);
+});
+
+test("sessionHasAssistantAfterLastUser:最后一条 user 之后要有助手文本或媒体", () => {
+  assert.equal(sessionHasAssistantAfterLastUser([{ role: "user", content: "hi" }]), false);
+  assert.equal(sessionHasAssistantAfterLastUser([
+    { role: "user", content: "hi" },
+    { role: "assistant", content: "  " },
+  ]), false);
+  assert.equal(sessionHasAssistantAfterLastUser([
+    { role: "user", content: "hi" },
+    { role: "assistant", content: "好的" },
+  ]), true);
+  assert.equal(sessionHasAssistantAfterLastUser([
+    { role: "user", content: "hi" },
+    { role: "tool", content: "{}", media: [{ urls: ["/a.png"] }] },
+  ]), true);
 });

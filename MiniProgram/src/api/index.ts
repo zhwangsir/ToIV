@@ -546,7 +546,17 @@ export interface AgentChatStreamHandle {
   promise: Promise<AgentChatStreamResult>;
   /** 停止生成：中断底层请求（promise 以「已停止生成」reject） */
   abort(): void;
+  /** 响应头 X-Agent-Session-Id，头到达后可读（超时后仍保留，供回放） */
+  readonly sessionId: string | null;
 }
+
+/**
+ * 对话 SSE 整段超时（10 分钟）。
+ * uni.request 的 timeout 是整段请求上限，SSE 的 `: ping` 保活不会续期；
+ * 微信端 timeout:0 会回落到默认 60s，故不用 0。
+ * 剧本/长推理常超过 180s，180s 会在后端已落库后被客户端误杀。
+ */
+export const STREAM_TIMEOUT_MS = 600_000;
 
 /** 响应头大小写不敏感取值（H5 fetch Headers 一律小写，微信端按服务端原样） */
 function headerValue(header: Record<string, unknown> | undefined, name: string): string | null {
@@ -568,7 +578,10 @@ function headerValue(header: Record<string, unknown> | undefined, name: string):
  * - image（MP30）：用户附图句柄 {filename,worker}（uploadImage kind=img2img 上传所得），
  *   runner 注入系统提示并把 attachment 传给 edit_image/generate_3d 工具；无附图不带字段
  * - 非 2xx：onHeadersReceived 标记 statusCode，success 后按人话体系 reject（与 apiFetch 同套映射）
- * - abort → 「已停止生成」；超时档走 LONG_TIMEOUT_MS（LLM 首 token 慢，对齐长任务语义）
+ * - abort → 「已停止生成」
+ * - 整段超时走 STREAM_TIMEOUT_MS（10 分钟）。uni.request timeout 是整段上限，
+ *   SSE `: ping` 保活不会续期；微信端 timeout:0 会回落到默认 60s，故不用 0。
+ *   不能用 LONG_TIMEOUT_MS（180s JSON 长任务档），长剧本生成常超过 3 分钟。
  */
 export function agentChatStream(
   params: {
@@ -616,7 +629,7 @@ export function agentChatStream(
       data: body,
       enableChunked: true,
       responseType: 'text',
-      timeout: LONG_TIMEOUT_MS,
+      timeout: STREAM_TIMEOUT_MS,
       success: () => {
         if (httpStatus !== null && (httpStatus < 200 || httpStatus >= 300)) {
           reject(new ApiError(httpStatus, friendlyMessage(httpStatus, '')));
@@ -651,6 +664,9 @@ export function agentChatStream(
   return {
     promise,
     abort: () => task?.abort(),
+    get sessionId() {
+      return sessionId;
+    },
   };
 }
 
