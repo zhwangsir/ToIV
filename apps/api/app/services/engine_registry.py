@@ -1174,7 +1174,7 @@ def _default_registry() -> list[dict[str, Any]]:
         ],
         "probe": _probe_image,
     },
-    # LTX-2.3 NSFW(R18 保留;SFW 的 LTX-2.5 已于 2026-08-23 退役移除)
+    # LTX-2.3 NSFW（仅 R18 保留 10Eros；SFW 默认不是 2.3。SFW LTX-2.5 已于 2026-08-23 退役）
     {
         "id": "ltx-nsfw-t2v",
         "label": "LTX 2.3 文生视频(R18)",
@@ -1240,10 +1240,10 @@ def _default_registry() -> list[dict[str, Any]]:
         "kind": "video",
         "nsfw": False,
         "submit": {"route": "/api/h3/t2v", "kind": "h3-t2v"},
-        "description": "MiniMax H3 新一代视频管线:原生 32kHz 音画同发,专用实例 :8195",
+        "description": "MiniMax H3（海螺 3.0）:原生 32kHz 音画同发,专用实例 :8195",
         "source": {
-            "name": "MiniMax H3(海螺视频开源权重)",
-            "url": "https://huggingface.co/MiniMaxAI",
+            "name": "MiniMax H3(海螺 3.0 开源权重)",
+            "url": "https://huggingface.co/MiniMaxAI/MiniMax-H3",
             "author": "MiniMax",
             "note": "开源权重视频模型,原生音画同发;本地自部署专用实例",
         },
@@ -1258,8 +1258,8 @@ def _default_registry() -> list[dict[str, Any]]:
         "submit": {"route": "/api/h3/i2v", "kind": "h3-i2v"},
         "description": "MiniMax H3:参考图首帧 → 音画同发短视频,剧情连续性好",
         "source": {
-            "name": "MiniMax H3(海螺视频开源权重)",
-            "url": "https://huggingface.co/MiniMaxAI",
+            "name": "MiniMax H3(海螺 3.0 开源权重)",
+            "url": "https://huggingface.co/MiniMaxAI/MiniMax-H3",
             "author": "MiniMax",
             "note": "开源权重视频模型,原生音画同发;本地自部署专用实例",
         },
@@ -1278,8 +1278,8 @@ def _default_registry() -> list[dict[str, Any]]:
         "submit": {"route": "/api/h3/multishot", "kind": "h3-multishot"},
         "description": "MiniMax H3 多镜头单次生成:2-4 个镜头单 prompt 一次成片,单段内按序自动切镜(总长 ≤15s),音画同发,专用实例 :8195",
         "source": {
-            "name": "MiniMax H3(海螺视频开源权重)",
-            "url": "https://huggingface.co/MiniMaxAI",
+            "name": "MiniMax H3(海螺 3.0 开源权重)",
+            "url": "https://huggingface.co/MiniMaxAI/MiniMax-H3",
             "author": "MiniMax",
             "note": "开源权重视频模型,原生音画同发;多镜头为单 prompt 协议组装,非多段拼接",
         },
@@ -1298,7 +1298,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "description": "MiniMax H3 成人向文生视频:原生 32kHz 音画同发,可叠 R18 LoRA,专用实例 :8195",
         "source": {
             "name": "MiniMax H3 + 社区 R18 LoRA",
-            "url": "https://huggingface.co/MiniMaxAI",
+            "url": "https://huggingface.co/MiniMaxAI/MiniMax-H3",
             "author": "MiniMax × Civitai 社区(LoRA)",
             "note": "底模为 MiniMax 开源权重;R18 能力由社区 LoRA 提供(civitai),仅 R18 上下文可选",
         },
@@ -1314,7 +1314,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "description": "MiniMax H3 成人向图生视频:参考图首帧 → 音画同发,可叠 R18 LoRA",
         "source": {
             "name": "MiniMax H3 + 社区 R18 LoRA",
-            "url": "https://huggingface.co/MiniMaxAI",
+            "url": "https://huggingface.co/MiniMaxAI/MiniMax-H3",
             "author": "MiniMax × Civitai 社区(LoRA)",
             "note": "底模为 MiniMax 开源权重;R18 能力由社区 LoRA 提供(civitai),仅 R18 上下文可选",
         },
@@ -1431,7 +1431,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "params": _wan_animate_params(),
         "probe": _probe_wan_animate,
     },
-    # Wan2.1-VACE:多参考图(1-4 张,+可选首尾帧)→ 视频;同实例(:8197)
+    # Wan2.1-VACE:编辑/转场专用（主路视频是 H3 / Wan2.2）。多参考图(1-4 张,+可选首尾帧)→ 视频;同实例(:8197)
     {
         "id": "wan-vace",
         "label": "VACE 多参考视频",
