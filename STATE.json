@@ -1,7 +1,18 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-27T19:42:00+08:00",
+ "updated_at": "2026-08-28T16:45:00+08:00",
+ "lan_ssh_verify_2026_08_28_1645": {
+  "by": "设备管家",
+  "mode": "read-only LAN SSH, no config change",
+  "openclaw": "hw.model=Mac16,10 M4 Mac mini (not M2); :18789 HTTP 200 all four",
+  "pc02_lan": "192.168.71.114 :8193/:8194 HTTP 200; TS not tested this round",
+  "studio": "SSH timeout, still fully offline",
+  "ltx": "inactive+disabled, no :8198",
+  "matebook": "LAN 192.168.71.9; ~/NAS mounted",
+  "core_ports": "ToIV :3100/:8090; :8100/:3501 not listening; AIGCPannel on MateBook Colima :8080/:8100",
+  "noted_not_changed": ["workstation swap 8Gi 100%", "toiv-tts NRestarts=6363 unstable"]
+ },
  "mobile_merge_2026_08_27": {
   "status": "pushed_main",
   "branch": "main",
@@ -191,7 +202,7 @@
   "vlm_server": "Qwen3-VL-32B-Instruct-FP8 @ spark01 192.168.71.82:8000(OpenAI 兼容 vLLM,别名 qwen3-vl-32b/molmo2-8b/omni-captioner;gpu-util 0.70,32K ctx,max-num-seqs 8,prefix caching;承担反推+视频评分+宫格 grounding);TOIV_VIDEO_SCORER_ENABLED=true(2026-08-27 灰度,阈值 0.65) —— 2026-08-27 Phase0 真机核实",
   "network": "纯 IPv6 直连（240e:b8f:1d22:e700::/64），cloud 保留 IPv4 仅鉴权",
   "pc01_comfyui": "在线（2026-08-27 Phase0 实测 192.168.71.116:8188 HTTP 200,ComfyUI v0.33.0,torch 2.13.0+cu130,RTX 5090 32GB 空闲,LB 池内在册;IP 已静态固化 .116）",
-  "pc02": "在线（2026-08-27 Phase0 实测 192.168.71.114:8193 HTTP 200 v0.28.0 + :8194 专用编辑实例 HTTP 200,torch 2.13.0+cu130,RTX 5090;LB 池内在册;Tailscale 100.107.94.26 离线走 LAN）",
+  "pc02": "在线（2026-08-28 LAN :8193/:8194 HTTP 200；08-27 Phase0 同口径。TS 这轮没测，08-27 记离线 21d）",
   "mac_studio_openclaw_cleaned_2026_07_24": "Mac Studio 4台 OpenClaw 已彻底清理（launchd/plist/npm包/工作目录全删），Mac Studio 专职 EXO RDMA 内存池；OpenClaw 唯一正式部署在 Mac Mini openclaw01-04",
   "aicg_four_layer_pipeline_2026_07_24": {
    "status": "all_four_layers_connected",
