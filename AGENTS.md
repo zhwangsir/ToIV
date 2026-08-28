@@ -199,6 +199,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 - ToIV 开发对照仓：**不换视频/图像主路**。SFW 主路 **H3=海螺 3.0**（不是 Hailuo 2.3）。**不要**写 AIGCPannel 空镜走 Wan2.2；短剧空镜/预览=LTX-2.5（`:8198` 起来再开）。Wan2.2 I2V 与 LTX-2.3+10Eros 价值主要在 NSFW，留 ToIV R18。Wan2.1-VACE 仅编辑/转场；图像默认 FLUX.2 + Qwen-Image/Z-Image。`f2885ee` 已把 VACE 注释改成「SFW 主路 H3；Wan2.2/LTX-2.3 主要在 R18」。混元视频/SkyReels 未挂。AIGCPannel 不改 ToIV。
 - 项目管家只记五件套，不改 ToIV 业务代码，不推本地 Phase4 功能叠。
+- LTX 竖版 `859b60f`（本地未推）：`LtxT2VRequest.height` 上限 1080→1920，对齐 `_LTX_NSFW_RESOLUTIONS` 竖版 720×1280；之前预设会 Pydantic 422。回归 `test_ltx_t2v_accepts_vertical_720p_preset`。只动 `video.py` + `test_video.py`。生产仍是旧 `le=1080`。空 `positive` 也会 422；缺 `X-NSFW` 是 403 不是 422。Ovi/MCP 未带上。
 
 ### 2026-08-28 16:45（设备管家 LAN SSH 核验，只读，未改配置）
 
