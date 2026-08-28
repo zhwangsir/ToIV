@@ -1,7 +1,19 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-28T16:47:00+08:00",
+ "updated_at": "2026-08-28T19:20:00+08:00",
+ "engine_map_repo_check_2026_08_28": {
+  "by": "ToIV 开发对照仓",
+  "swap_mains": false,
+  "h3": "Hailuo 3.0 main, not Hailuo 2.3",
+  "wan22": "empty shot / motion",
+  "r18": "intentional LTX-2.3 + 10Eros",
+  "vace": "Wan2.1-VACE edit/transition only",
+  "image": "FLUX.2 + Qwen-Image / Z-Image",
+  "stale": "copy (deploy comments readable as SFW default 2.3); 0f6e723 aligned",
+  "not_mounted": ["Hunyuan video", "SkyReels"],
+  "aigcpannel": "must not change ToIV code"
+ },
  "lan_ssh_verify_2026_08_28_1645": {
   "by": "设备管家",
   "mode": "read-only LAN SSH, no config change",

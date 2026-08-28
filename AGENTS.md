@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-08-28 16:47（设备管家 LAN SSH；01 profiler 实锤 M4 16GB）
+> **最后更新**：2026-08-28 晚（ToIV 对照仓：不换主路；H3=海螺 3.0）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 
 ---
@@ -115,7 +115,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 | **IndexTTS2 守护**(2026-08-27) | ✅ `toiv-indextts.service` 替代 nohup 裸进程(active+enabled,health cuda:0);emo_text=true 为 2.5 正常默认(2.0 卡死 issue 已核销) |
 | **音频编排**(2026-08-27) | mix(ffmpeg amix)/variant(duration_factor 语速变体)落地;sfx 仍 501(需音效引擎);可用步骤 tts/separate/concat/mix/variant |
 | **i2L 风格 LoRA**(2026-08-27) | ✅ `toiv-i2l.service`(workstation GPU3 :9101,惰性加载常驻显存 ~26G)+ core `POST /api/train/i2l`(1-8 风格图→LoRA 落 NAS loras 自动发现);e2e 1:59 出 476 张量 rank4 19.9MB 键名 0 坏键;⚠️ core 新端点须 deploy.sh 后才可 e2e |
-| **LLM 引擎矩阵**(2026-08-23 更新) | R18=**H3 主力(10Eros-Max 嫁接版 TURBO 为 NSFW 默认 UNET,`TOIV_H3_NSFW_UNET`)+Wan2.2 生态兜底**;SFW 视频=MiniMax H3 全面替代 LTX2.5(质量优先);spark02 已换 **Qwen3.8-27B-Uncensored-FP8**(abliterated 无审查,别名保留 core .env 零改动,旧 NVFP4 在盘可回滚) |
+| **LLM 引擎矩阵**(2026-08-28 对照仓) | SFW 视频主路 **H3=海螺 3.0**（不是 Hailuo 2.3）；空镜/动作 **Wan2.2**；R18 **故意** LTX-2.3+10Eros（不要读成 SFW 默认 2.3）；Wan2.1-VACE 仅编辑/转场；图像默认 FLUX.2 + Qwen-Image/Z-Image。混元视频/SkyReels 未挂。spark02 **Qwen3.8-27B-Uncensored-FP8**。文案对齐见 `0f6e723`。 |
 | web_search 出站代理 | `TOIV_WEB_SEARCH_PROXY=http://192.168.71.123:7897`(MateBook Clash);⚠️ 依赖 Mac 在线,离线时自动降级不炸链路;Tailscale 备选 100.74.15.34:7897(慢 4×) |
 | 域名双入口 | toiv.dgmt.top(香港 cloud,frp-kcp) + toiv.wineryz.top(北京,frpc-bj);openresty proxy_pass 经 frp 本地端口 127.0.0.1:18090/13100 |
 | **Studio 依赖迁移**(2026-08-26) | ✅ 反推 VLM studio04:9303 → **spark01 Qwen3-VL-32B**(`TOIV_REVERSE_VLM_BASE_URL=http://192.168.71.82:8000/v1`,`TOIV_REVERSE_VIDEO_MAC_PREFIX` 清空,base64 video_url 直传无 NAS 中转);L2/L3 此前已在 spark02;core 对 Studio 集群零依赖;备份 `.env.bak-20260826-studio-migration`;studio04 :9303/NAS 挂载保留观察;**2026-08-27 用户确认 MacStudio 全线已下线**,退役 unload 待设备回线执行 |
@@ -194,6 +194,11 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ## 七、近期关键变更（决策记录,替代操作历史）
 
+
+### 2026-08-28 晚（ToIV 开发对照仓，不换模）
+
+- ToIV 开发对照仓：**不换视频/图像主路**。H3=海螺 3.0 主路；Wan2.2 空镜/动作；R18 故意 LTX-2.3+10Eros；Wan2.1-VACE 仅编辑/转场；图像默认 FLUX.2 + Qwen-Image/Z-Image。过时的是文案（deploy 注释易被读成 SFW 默认 2.3；H3 应写海螺 3.0），不是换模。`0f6e723` 已把 .env.example / engine_registry 文案对齐。混元视频/SkyReels 未挂。AIGCPannel 不改 ToIV。
+- 项目管家只记五件套，不改 ToIV 业务代码，不推本地 Phase4 功能叠。
 
 ### 2026-08-28 16:45（设备管家 LAN SSH 核验，只读，未改配置）
 

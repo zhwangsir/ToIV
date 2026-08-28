@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-08-28 evening ToIV 开发 repo check: do not swap video/image mains. H3=Hailuo 3.0 main; Wan2.2 empty/motion; R18 intentional LTX-2.3+10Eros; Wan2.1-VACE edit/transition only; image default FLUX.2 + Qwen-Image/Z-Image. Stale copy not stale models (0f6e723 aligned env comments). Hunyuan video/SkyReels not mounted. AIGCPannel must not change ToIV. Five-doc only, Phase4 stack still unpushed.
+
 - 2026-08-28 cf79e39 (on 9f4f08b, not pushed): fleet_registry OpenClaw hardware Mac mini M2 → Mac mini M4 16GB. Only that file. Dirty Ovi files not included. Local main still ahead of origin by the Phase4 stack + these docs. Did not dual-push.
 
 - 2026-08-28 16:47 openclaw01 profiler: Mac mini M4 16GB 10-core (4P+6E), hw.model=Mac16,10 (02-04 same hw.model last round, RAM only verified on 01). pc02 LAN curl :8193/:8194 200 in 17/15ms. SoT table now says TS≠LAN. No serial in docs. fleet_registry was M2 then; now cf79e39 Mac mini M4 16GB (not pushed).
