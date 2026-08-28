@@ -195,6 +195,10 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ## 七、近期关键变更（决策记录,替代操作历史）
 
 
+### 2026-08-28 助手 SSE 超时回放（ToIV 开发，未推，不改设备清单）
+
+- 本地 `58cf643`（未推）：助手「答复时显示超时、刷新才有内容」——前端把还在跑的 SSE 掐了，后端已把 `AgentMessage` 落库。小程序 SSE 超时 180s→10min；Web/小程序超时后 GET 会话，若已有助手回复就展示，不再弹「回复失败:连接中断或超时」/「请求超时」。4xx/5xx、空会话、用户停止仍走旧错误。生产还没有这版。
+
 ### 2026-08-28 晚（ToIV 开发对照仓，不换模）
 
 - ToIV 开发对照仓：**不换视频/图像主路**。SFW 主路 **H3=海螺 3.0**（不是 Hailuo 2.3）。**不要**写 AIGCPannel 空镜走 Wan2.2；短剧空镜/预览=LTX-2.5（`:8198` 起来再开）。Wan2.2 I2V 与 LTX-2.3+10Eros 价值主要在 NSFW，留 ToIV R18。Wan2.1-VACE 仅编辑/转场；图像默认 FLUX.2 + Qwen-Image/Z-Image。`f2885ee` 已把 VACE 注释改成「SFW 主路 H3；Wan2.2/LTX-2.3 主要在 R18」。混元视频/SkyReels 未挂。AIGCPannel 不改 ToIV。

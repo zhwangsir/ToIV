@@ -14,6 +14,8 @@ LoRA 策划卡（本地 `93c275e`，未推）：提交时 AI 从策划卡选 LoR
 
 LTX R18 LoRA（本地 `e1f856e`，未推）：无概念卡时 auto 回退第一张 motion，不再空跑。H3/Wan 仍优先概念卡。
 
+助手超时回放（本地 `58cf643`，未推）：SSE 超时后 GET 会话回放已落库回复；小程序超时 180s→10min。生产还没有。
+
 ## 这是什么 / 能做什么
 
 Web 端（`apps/web`）当前真实模块（见 `app/page.tsx` 的 `VIEW_META`）：

@@ -1,7 +1,7 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-28T20:46:00+08:00",
+ "updated_at": "2026-08-28T21:00:00+08:00",
  "web_search_proxy_2026_08_28_2046": {
   "by": "设备管家",
   "verified": "2026-08-28 20:46 CST",
@@ -11,6 +11,21 @@
   "matebook_lan": "192.168.71.9",
   "clash": ":7897 works local and Tailscale 100.74.15.34; TS URL not in env (websearch one proxy)",
   "pushed": false
+ },
+ "assistant_sse_replay_58cf643": {
+  "commit": "58cf643",
+  "symptom": "assistant reply shows timeout until refresh; frontend aborted live SSE after backend persisted AgentMessage",
+  "miniprogram_timeout": "180s → 10min",
+  "replay": "on timeout Web/MiniProgram GET session; show persisted assistant reply instead of 回复失败:连接中断或超时 / 请求超时",
+  "still_error": ["4xx", "5xx", "empty session", "user stop"],
+  "production": "lacks this",
+  "pushed": false,
+  "files": [
+    "MiniProgram/src/api/index.ts",
+    "MiniProgram/src/stores/assistant.ts",
+    "apps/web/components/assistant/AssistantView.tsx",
+    "apps/web/lib/api.ts"
+  ]
  },
  "engine_map_repo_check_2026_08_28": {
   "by": "ToIV 开发对照仓",
