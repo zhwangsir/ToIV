@@ -18,7 +18,14 @@ import pytest
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
-from app.agent.context import _group_units, compress_history
+from app.agent.context import (
+    CONTEXT_OVERFLOW_USER_MSG,
+    TOOL_CONTENT_CAP,
+    _group_units,
+    chat_tool_schemas,
+    compress_history,
+)
+from app.agent import llm as agent_llm
 from app.agent import runner as agent_runner
 from app.models import Agent, Tenant, User
 from app.security import hash_password
@@ -45,7 +52,12 @@ def _hist() -> list[dict]:
 
 
 def test_under_budget_returns_unchanged_copy():
-    h = _hist()
+    # 短正文(低于 tool 帽)才走原样浅拷贝;超长 tool 另见 cap 测试
+    h = [
+        {"role": "system", "content": "SYS"},
+        {"role": "user", "content": "hi"},
+        {"role": "assistant", "content": "hello"},
+    ]
     out = compress_history(h, 100000)
     assert [m.get("content") for m in out] == [m.get("content") for m in h]
     assert out is not h and out[0] is not h[0]  # 浅拷贝新列表
@@ -97,6 +109,73 @@ def test_pure_function_input_untouched():
     snapshot = json.dumps(h, ensure_ascii=False)
     compress_history(h, 100)
     assert json.dumps(h, ensure_ascii=False) == snapshot
+
+
+def test_fat_first_unit_tool_capped_under_budget():
+    fat = "S" * 20000
+    h = [
+        {"role": "system", "content": "SYS"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"id": "t1", "function": {"name": "get_system_stats", "arguments": "{}"}},
+        ]},
+        {"role": "tool", "tool_call_id": "t1", "content": fat},
+        {"role": "user", "content": "然后呢"},
+    ]
+    snapshot = json.dumps(h, ensure_ascii=False)
+    out = compress_history(h, 24000)
+    assert json.dumps(h, ensure_ascii=False) == snapshot
+    tool = next(m for m in out if m.get("role") == "tool")
+    assert tool["content"].endswith("...(截断)")
+    assert len(tool["content"]) <= TOOL_CONTENT_CAP + 20
+    assert len(tool["content"]) < 20000
+    non_sys = 0
+    for m in out:
+        if m.get("role") == "system":
+            continue
+        non_sys += len(m.get("content") or "")
+        if m.get("tool_calls"):
+            non_sys += len(json.dumps(m["tool_calls"], ensure_ascii=False))
+    assert non_sys < 24000
+    for i, m in enumerate(out):
+        if m.get("role") == "tool":
+            prev = out[i - 1]
+            assert prev.get("role") == "assistant" and prev.get("tool_calls")
+
+
+def test_first_last_over_budget_truncates_inside_units():
+    h = [
+        {"role": "system", "content": "SYS"},
+        {"role": "assistant", "content": "A" * 5000, "tool_calls": [
+            {"id": "t1", "function": {"name": "x", "arguments": "{}"}},
+        ]},
+        {"role": "tool", "tool_call_id": "t1", "content": "T" * 20000},
+        {"role": "assistant", "content": "B" * 8000},
+    ]
+    out = compress_history(h, 3000)
+    assert any(m.get("role") == "tool" for m in out)
+    assert any(m.get("tool_calls") for m in out)
+    non_sys = 0
+    for m in out:
+        if m.get("role") == "system":
+            continue
+        non_sys += len(m.get("content") or "")
+        if m.get("tool_calls"):
+            non_sys += len(json.dumps(m["tool_calls"], ensure_ascii=False))
+    assert non_sys <= 3000
+    for i, m in enumerate(out):
+        if m.get("role") == "tool":
+            prev = out[i - 1]
+            assert prev.get("role") == "assistant" and prev.get("tool_calls")
+
+
+def test_chat_tool_schemas_omits_mcp_prefix():
+    schemas = [
+        {"type": "function", "function": {"name": "generate_image"}},
+        {"type": "function", "function": {"name": "mcp__get_system_stats"}},
+        {"type": "function", "function": {"name": "check_jobs"}},
+    ]
+    names = [s["function"]["name"] for s in chat_tool_schemas(schemas)]
+    assert names == ["generate_image", "check_jobs"]
 
 
 # --------------------------------------------------------------------------- #
@@ -262,3 +341,53 @@ async def test_runner_rounds_respect_settings_and_emits_round():
 
 async def _noop_rag(messages):
     return None
+
+
+class _OverflowLLM:
+    def __init__(self) -> None:
+        self.n = 0
+
+    async def chat(self, msgs, tools=None):
+        self.n += 1
+        raise agent_llm.LLMError(
+            "LLM 调用失败(400): maximum context length is 32768 tokens. "
+            "However, you requested 0 output tokens and your prompt contains at least 32769 input tokens"
+        )
+
+
+@pytest.mark.asyncio
+async def test_runner_context_overflow_yields_friendly_zh():
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as s:
+        tenant = Tenant(name="ovf")
+        s.add(tenant); s.commit(); s.refresh(tenant)
+        user = User(email="ovf@toiv.ai", hashed_password=hash_password("password1"), tenant_id=tenant.id)
+        s.add(user); s.commit(); s.refresh(user)
+
+        fake_llm = _OverflowLLM()
+        fake_tools = _FakeTools()
+        fake_ctx = type("Ctx", (), {})()
+
+        def svc(name):
+            if name == "llm":
+                return fake_llm
+            if name == "tools":
+                return fake_tools
+            raise KeyError(name)
+
+        fake_ctx.service = svc
+        fake_settings = SimpleNamespace(agent_max_rounds=5, agent_context_budget=24000, agent_skills_topk=0)
+        with patch.object(agent_runner, "get_ctx", lambda: fake_ctx), \
+             patch.object(agent_runner, "nsfw_allowed", lambda u: False), \
+             patch.object(agent_runner, "_rag_context", _noop_rag), \
+             patch.object(agent_runner, "get_settings", lambda: fake_settings):
+            events = [ev async for ev in agent_runner.run(
+                [{"role": "user", "content": "hi"}], pool=None, user=user, session=s
+            )]
+
+        assert fake_llm.n == 2
+        assert len(events) == 1 and events[0]["type"] == "error"
+        assert events[0]["content"] == CONTEXT_OVERFLOW_USER_MSG
+        assert "maximum context length" not in events[0]["content"]
+        assert "主备均不可用" not in events[0]["content"]

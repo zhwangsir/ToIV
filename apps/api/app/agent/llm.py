@@ -230,6 +230,9 @@ async def chat(
         nsfw_url = (settings.llm_nsfw_base_url or settings.llm_base_url).rstrip("/")
         nsfw_key = settings.llm_nsfw_api_key or settings.llm_api_key
         nsfw_model = settings.llm_nsfw_model.strip()
+        nsfw_same_as_primary = (
+            nsfw_url == primary_url and nsfw_model == primary_model
+        )
         try:
             return await _call_with_retry(
                 nsfw_url, nsfw_model, nsfw_key,
@@ -237,6 +240,9 @@ async def chat(
                 label=f"NSFW 模型 {nsfw_model}",
             )
         except LLMError as nsfw_err:
+            # NSFW 与主模型同一端点时再调一次只会复现同一个 400(上下文溢出等)
+            if nsfw_same_as_primary:
+                raise
             # NSFW LLM 不可用 → fallback 到主 LLM(默认模型也 uncensored,可兜底)
             try:
                 return await _call_with_retry(

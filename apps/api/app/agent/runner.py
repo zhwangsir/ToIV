@@ -18,7 +18,13 @@ from collections.abc import AsyncIterator
 from sqlmodel import Session, select
 
 from app.agent import llm
-from app.agent.context import compress_history
+from app.agent.context import (
+    CONTEXT_OVERFLOW_USER_MSG,
+    chat_tool_schemas,
+    compress_history,
+    is_context_overflow_error,
+    tighter_context_budget,
+)
 from app.agent.rag import get_kb
 from app.comfy.pool import WorkerPool
 from app.config import get_settings
@@ -227,14 +233,36 @@ async def run(
         try:
             # Harness 化:每轮请求前按预算折叠中间历史(长对话/多工具结果防溢出;
             # 压缩只作用于本次调用的 working copy,AgentMessage 日志始终全量)
-            working = compress_history(msgs, settings.agent_context_budget)
+            budget = settings.agent_context_budget
+            working = compress_history(msgs, budget)
+            schemas = chat_tool_schemas(tool_reg.schemas())
             logger.debug(
                 "agent.loop: round=%d/%d msgs=%d chars=%d budget=%d tool_calls_pending=%d",
                 rnd, settings.agent_max_rounds, len(working),
                 sum(len(m.get("content") or "") for m in working),
-                settings.agent_context_budget, len(msgs) - len(working),
+                budget, len(msgs) - len(working),
             )
-            assistant = await get_ctx().service("llm").chat(working, tools=tool_reg.schemas())
+            try:
+                assistant = await get_ctx().service("llm").chat(working, tools=schemas)
+            except llm.LLMError as overflow_err:
+                if not is_context_overflow_error(overflow_err):
+                    raise
+                tight = tighter_context_budget(budget)
+                logger.warning(
+                    "agent.loop: context overflow round=%d retry tight_budget=%d err=%s",
+                    rnd, tight, overflow_err,
+                )
+                working = compress_history(msgs, tight)
+                try:
+                    assistant = await get_ctx().service("llm").chat(working, tools=schemas)
+                except llm.LLMError as overflow_err2:
+                    if is_context_overflow_error(overflow_err2):
+                        logger.warning(
+                            "agent.loop: context overflow after retry round=%d", rnd,
+                        )
+                        yield {"type": "error", "content": CONTEXT_OVERFLOW_USER_MSG}
+                        return
+                    raise
         except llm.LLMError as e:
             logger.warning("agent.loop: llm error round=%d err=%s", rnd, e)
             yield {"type": "error", "content": str(e)}
