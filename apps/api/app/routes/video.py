@@ -249,7 +249,7 @@ class LtxT2VRequest(BaseModel):
     positive: str = Field(min_length=1, max_length=2000)
     negative: str = Field(default="", max_length=2000)
     width: int = Field(default=768, ge=256, le=1920)
-    height: int = Field(default=384, ge=256, le=1080)
+    height: int = Field(default=384, ge=256, le=1920)
     duration_sec: float | None = Field(default=None, gt=0, le=60)
     length: int = Field(default=97, ge=9, le=241)
     fps: int = Field(default=16, ge=4, le=30)

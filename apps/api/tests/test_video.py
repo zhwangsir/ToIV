@@ -330,6 +330,22 @@ def test_ltx_t2v_rejects_out_of_range_params(client):
     assert r.status_code == 422
 
 
+def test_ltx_t2v_accepts_vertical_720p_preset(client, monkeypatch):
+    """注册表竖版 720x1280 不得被 height le=1080 误杀成 422。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "ltx-vert")
+    fake = _FakeClient()
+    monkeypatch.setattr("app.deps.get_pool", lambda: _FakePool(fake))
+    _install_tracker_noop(monkeypatch)
+    r = c.post(
+        "/api/generate/ltx-t2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}", **_NSFW},
+        json={"positive": "a", "width": 720, "height": 1280},
+    )
+    assert r.status_code == 200, r.text
+
+
 def test_ltx_t2v_ok_submits_and_creates_nsfw_job(client, monkeypatch):
     c, engine = client
     with Session(engine) as s:
