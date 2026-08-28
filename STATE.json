@@ -1,7 +1,7 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-28T19:41:00+08:00",
+ "updated_at": "2026-08-28T20:16:00+08:00",
  "engine_map_repo_check_2026_08_28": {
   "by": "ToIV 开发对照仓",
   "swap_mains": false,
@@ -26,6 +26,27 @@
   "test": "test_ltx_t2v_accepts_vertical_720p_preset",
   "production": "still le=1080",
   "notes": "empty positive also 422; missing X-NSFW is 403 not 422",
+  "pushed": false,
+  "dirty_ovi_mcp": "not included"
+ },
+ "lora_catalog_picker_93c275e": {
+  "commit": "93c275e",
+  "change": "H3/LTX/Wan submit-time AI picks LoRA from catalog; no free NAS mix",
+  "protocol": {
+    "omit_or_null": "auto",
+    "empty_array": "off",
+    "nonempty": "pin; must be catalog filename else 422",
+    "frontend_blank": "omit field so blank=auto"
+  },
+  "catalog": {
+    "wan": "6 all NSFW, keep HIGH/LOW",
+    "h3": "13 R18 + some SFW; turbo accel not auto-picked",
+    "ltx": "2 motion + dolly"
+  },
+  "r18_empty_prompt": "inserts engine concept cards: H3 HMNSFW_AIO_V2, Wan NSFW-22-H-e8",
+  "wan_auto": "prepends pick_trigger_words",
+  "ltx_zero": "possible when no concept card; 10Eros UNET already NSFW",
+  "production": "still lacks this",
   "pushed": false,
   "dirty_ovi_mcp": "not included"
  },

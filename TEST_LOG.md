@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-08-28 93c275e (local, not pushed): H3/LTX/Wan submit-time AI picks LoRA from catalog, no free NAS mix. loras omit/null=auto; explicit []=off; nonempty=pin (catalog filename or 422). Empty frontend control omits field so blank=auto. Catalog: Wan 6 all NSFW keep HIGH/LOW; H3 13 R18+some SFW (turbo accel not auto-picked); LTX 2 motion+dolly. R18 empty prompt inserts engine concept cards (H3 HMNSFW_AIO_V2, Wan NSFW-22-H-e8). Wan auto prepends pick_trigger_words. LTX may pick 0 with no concept card (10Eros UNET already NSFW). Production still lacks this. Ovi/MCP not included.
+
 - 2026-08-28 859b60f (local, not pushed): LtxT2VRequest.height le 1080→1920 so 720×1280 NSFW preset no longer Pydantic 422. Regression test_ltx_t2v_accepts_vertical_720p_preset. Only video.py + test_video.py. Production still le=1080. Empty positive also 422; missing X-NSFW is 403 not 422. Ovi/MCP not included. Phase 4 stack still unpushed.
 
 - 2026-08-28 wording fix in AGENTS: do not write AIGCPannel empty-shot as Wan2.2. SFW main=H3; AIGCPannel empty/preview=LTX-2.5; Wan2.2 I2V + LTX-2.3+10Eros stay ToIV R18. f2885ee VACE comment aligned. Five-doc only, not pushed.

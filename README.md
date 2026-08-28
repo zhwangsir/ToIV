@@ -10,6 +10,8 @@
 
 LTX 竖版（本地 `859b60f`，未推）：height 上限 1080→1920，720×1280 不再 422。生产仍 le=1080。
 
+LoRA 策划卡（本地 `93c275e`，未推）：提交时 AI 从策划卡选 LoRA，禁止 NAS 自由混。省略/null=auto，`[]`=off，非空=pin。生产仍无此能力。
+
 ## 这是什么 / 能做什么
 
 Web 端（`apps/web`）当前真实模块（见 `app/page.tsx` 的 `VIEW_META`）：
