@@ -6,6 +6,7 @@
   "by": "设备管家",
   "mode": "read-only LAN SSH, no config change",
   "openclaw": "M4 16GB Mac mini hw.model=Mac16,10 (not M2); 01 profiler-verified 10-core 4P+6E 16GB; 02-04 hw.model only; :18789 HTTP 200 all four",
+  "fleet_registry": "cf79e39 hardware Mac mini M4 16GB; stacked on 9f4f08b; not pushed",
   "pc02_lan": "TS≠LAN; 192.168.71.114 :8193/:8194 HTTP 200 (17ms/15ms); TS not tested this round",
   "studio": "SSH timeout, still fully offline",
   "ltx": "inactive+disabled, no :8198",

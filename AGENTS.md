@@ -197,7 +197,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ### 2026-08-28 16:45（设备管家 LAN SSH 核验，只读，未改配置）
 
-- **OpenClaw 01-04**：全部 `hw.model=Mac16,10`（M4 Mac mini），**不是 M2**。`:18789` 均 HTTP 200。 16:47 对 **openclaw01** profiler：Chip Apple M4、10 核(4P+6E)、Memory 16 GB（未抄序列号）。02-04 这轮只确认过 hw.model。
+- **OpenClaw 01-04**：全部 `hw.model=Mac16,10`（M4 Mac mini），**不是 M2**。`:18789` 均 HTTP 200。 16:47 对 **openclaw01** profiler：Chip Apple M4、10 核(4P+6E)、Memory 16 GB（未抄序列号）。02-04 这轮只确认过 hw.model。`fleet_registry.py` 已与 SoT 对齐：`cf79e39` hardware=Mac mini M4 16GB（未抄序列号，未推）。
 - **pc02** `192.168.71.114`：**TS≠LAN**。LAN curl `--noproxy '*'` `:8193` HTTP 200（17ms）、`:8194` HTTP 200（15ms）。 Tailscale 这轮没测（08-27 离线 21d 记录仍在）。
 - **studio01-04**：仍 SSH timeout，维持全离线。
 - **LTX**：`comfyui-ltx25` 仍 inactive+disabled，无 `:8198`。
