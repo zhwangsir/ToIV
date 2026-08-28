@@ -8,6 +8,33 @@
 
 ---
 
+## P3B-P3C-2026-08-28 · Nunchaku + SeedVR2 + flux2/TeaCache 清理（三线并行）
+
+**时间**: 2026-08-28
+**类型**: 全模型优化第四波（Phase 3B/3C + 遗留清理）
+
+### Phase 3B Nunchaku（SVDQuant 4bit，技术就绪达成）
+
+- 三端插件（ComfyUI-nunchaku）+ 后端 + 权重（svdq-fp4 flux.1-dev 6.55GB / qwen-image 11.1GB，NAS 平铺）全就绪
+- **ABI 教训**：官方 release wheel 止于 torch 2.12；Linux 预编译轮在 torch 2.13 全报 `undefined symbol: c10::impl::cow::materialize_cow_storage`（2.13 改 COW 内联实现）；Windows v1.2.1 轮因 DLL 延迟绑定幸存；workstation 走源码编译（main + cutlass `set_slice3x3`→`set_slice_3x3` 拼写补丁 ×4，nvcc 借 hunyuan3d venv nvidia/cu13，**editable 安装指向 /home/merlin/nunchaku-src 勿删**）
+- e2e（5090 同 prompt/seed/20 步）：**fp4 热跑 2.1s vs fp8 3.1s（1.48x）**；显存 6.55GB vs 16.06GB=2.45x、vs BF16 23.8GB=**3.63x**；三端出图目检无黑图/伪影；Qwen svdq 同通（18.3s）
+- 整合建议（待主控决策）：**新引擎 id（flux1-nunchaku / qwen-image-nunchaku）**——专用 DiT Loader+TE Loader 与现有 graph 不共用模板；worker pinning 防与 flux2 混排反复换模（30-60s/次）
+
+### Phase 3C SeedVR2 超分（commit 0a5bb31）
+
+- **原生节点全实例可用（0.27.0 已内置 `comfy_extras.nodes_seedvr` 五节点，无需 numz 包）**；3B 6.32G+7B 15.35G fp16+VAE 落 NAS
+- core 集成：`video_upscale` 链路 engine 参数（classic 默认兼容 / seedvr2_3b / seedvr2_7b），builder 与官方模板同构（ImageScale→Preprocess→VAEEncodeTiled→Conditioning→**KSampler 1 步**→DecodeTiled→PostProcessing lab 校正）；engine 穿透 spawn→pipeline→reconcile
+- e2e 图像（1536×880 人脸→3072×1760）：classic 12.5s 偏软 / **3B 67.2s 发丝眼神细节显著增强+身份零漂移** / 7B 143.1s 精品档；视频 124 帧 1344×768→2688×1536 生产 API done（281s 含首载）
+- 测试 8 例新，test_video_upscale 36 绿，全量 **2635 passed**
+- 分层：classic=吞吐主力（批量帧）/ 3B=保真首选（人像产品 4K 化）/ 7B=精品单条（UI 标「慢」）
+
+### 清理（17）：flux2 迁库 + TeaCache 补丁 + pc01 任务重建
+
+- **flux2_dev_fp8mixed 根因**：文件在 diffusion_models/（UNETLoader 类目，33GB），旧路径走 CheckpointLoaderSimple（只扫 checkpoints/）→ pc 端 `ckpt_name not in list` 400；复制至 checkpoints/（字节一致），三端枚举 30→31，**LB 三后端各落一条全 done 零 400**；生产 flux2 实际走 UNETLoader 链（mistral_3_small+flux2-vae），checkpoints/ 副本为旧路径保险
+- **TeaCache**：0.33 同款守卫补丁（.bak-20260828 备份），:8189/pc01:8188/pc02:8193/:8194 四实例恢复加载；ltxv 克隆前向与 0.33 全面不兼容（LTX 已退役，不回滚无碍）
+- **pc01 StartComfyUI 手动 /run 失效**（LastTaskResult=1）→ `/create /f` 重建恢复（onlogon+HIGHEST）
+- **情报修正**：pc 端实际可访问 toiv 库（flux1-dev-fp8 等在枚举中）——此前「ACL 拒绝 toiv」是误报：**SSH 登录会话无 NAS 凭据（cmdkey 网络会话禁存）而 ComfyUI 进程会话有 bat net use 凭据**，dir 测试失败≠进程访问失败
+
 ## P2B-P3A-2026-08-28 · Phase 2B + Phase 3A + 助手全格式 + cache 调优（四线并行）
 
 **时间**: 2026-08-28（跨 08-27 深夜启动）

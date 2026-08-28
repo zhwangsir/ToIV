@@ -1497,6 +1497,11 @@
   "status": "done",
   "summary": "VACE MagCache（5de709f）：修 0.33 兼容（precompute_freqs_cis 死导入守卫补丁），WanVideoMagCache 接入，off 69s→30s=2.30x，SSIM 0.9648/PSNR 36.2dB；LongCat Avatar（be38e42）：v1.5 早已上线（whisper-large-v3+DMD2 rank128+GGUF Q8 实证），对齐官方 8 NFE（steps 12→8）总提速 19.2%（采样段恰 1.5×），口型质量无差；Qwen Lightning+CacheDiT（1433ba7）：turbo 7.0x/turbo_cache 7.6x（墙钟 4.9x），「新年快乐」文字渲染三档全保留，附带根治存量 P0（TE 候选顺序错误致 qwen_image txt2img 必然维度错失败）；助手全格式文件识别（441fac0）：xlsx/pptx/csv/json/40+代码文本/图片 VLM 反推（复用 reverse 链）统一进 RAG 注入体系，新依赖 openpyxl/python-pptx 已装 core，39+674 测试全绿；cache 调优（26b8f28）：cache_threshold 路由透出（0.05-0.40 场景化可调），调优实验 0.15/0.20/0.25 高动态热态 45-50s 无显著差异（短链收益饱和），默认 0.15 维持；全部已部署生产"
  },
+ "phase3bc_2026_08_28": {
+  "name": "Phase 3B Nunchaku + Phase 3C SeedVR2 + flux2/TeaCache 清理（三线并行）",
+  "status": "done",
+  "summary": "Nunchaku（3B）：三端插件+后端+权重全就绪——fp4 vs fp8 热跑 2.1s vs 3.1s（1.48x），vs BF16 3.63x 显存压缩；svdq-fp4 flux.1-dev 6.55GB+qwen-image 11.1GB 落 NAS；ABI 教训：官方 wheel 止于 torch2.12，Linux 预编译轮在 2.13 全灭（c10 cow 符号），win v1.2.1 轮幸存，workstation 源码编译（cutlass set_slice_3x3 补丁，/home/merlin/nunchaku-src 勿删）；整合建议：新引擎 id（flux1-nunchaku）+ worker pinning 防混排换模（30-60s 成本）；SeedVR2（3C，0a5bb31）：原生节点全实例（0.27 已内置），3B/7B fp16 落 NAS，engine 参数 classic/seedvr2_3b/seedvr2_7b 接入 video_upscale 链路；e2e：图像保真显著增强+身份零漂移（3B 67.2s/7B 143.1s vs classic 12.5s 分层），视频 124 帧生产 done，36+2635 测试绿；清理（17）：flux2_dev_fp8mixed 根因=在 diffusion_models/（UNETLoader 类目）而旧路径走 CheckpointLoaderSimple（只扫 checkpoints/），复制至 checkpoints/（33GB 字节一致）后三端 31 ckpt、LB 三后端全 done 零 400；TeaCache 同款守卫补丁四实例恢复；pc01 StartComfyUI 手动 /run 失效已 /create /f 重建恢复；情报修正：pc 端实际可访问 toiv 库（SSH 会话无凭据的 dir 失败是误报，ComfyUI 进程会话有 bat net use 凭据）"
+ },
  "canvas_ts_2026_08_23": {
   "name": "画布去标题 + 浏览器侧 Tailscale 化",
   "status": "done",
