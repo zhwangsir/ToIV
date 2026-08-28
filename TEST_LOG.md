@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-08-28 0f6e723 (local, no model swap, not pushed): engine_registry H3 source→MiniMaxAI/MiniMax-H3; LTX-2.3 comments R18-only; VACE comments edit/transition; apps/api + deploy .env.example aligned. H3=Hailuo 3.0, not Hailuo 2.3. Follow-up f2885ee: Wan2.2/LTX-2.3 written as R18, SFW main only H3. Dirty Ovi/MCP workspace not included. Dual-push would take Phase 4 stack, so not pushed.
+
 - 2026-08-28 evening ToIV 开发 repo check: do not swap video/image mains. H3=Hailuo 3.0 main; Wan2.2 empty/motion; R18 intentional LTX-2.3+10Eros; Wan2.1-VACE edit/transition only; image default FLUX.2 + Qwen-Image/Z-Image. Stale copy not stale models (0f6e723 aligned env comments). Hunyuan video/SkyReels not mounted. AIGCPannel must not change ToIV. Five-doc only, Phase4 stack still unpushed.
 
 - 2026-08-28 cf79e39 (on 9f4f08b, not pushed): fleet_registry OpenClaw hardware Mac mini M2 → Mac mini M4 16GB. Only that file. Dirty Ovi files not included. Local main still ahead of origin by the Phase4 stack + these docs. Did not dual-push.

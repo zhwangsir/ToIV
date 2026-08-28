@@ -1,18 +1,22 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-28T19:20:00+08:00",
+ "updated_at": "2026-08-28T19:35:00+08:00",
  "engine_map_repo_check_2026_08_28": {
   "by": "ToIV 开发对照仓",
   "swap_mains": false,
-  "h3": "Hailuo 3.0 main, not Hailuo 2.3",
-  "wan22": "empty shot / motion",
-  "r18": "intentional LTX-2.3 + 10Eros",
-  "vace": "Wan2.1-VACE edit/transition only",
+  "h3": "Hailuo 3.0 (海螺 3.0) main :8195, not Hailuo 2.3; source MiniMaxAI/MiniMax-H3",
+  "wan22": "R18 silent/motion/I2V, not SFW empty-shot default",
+  "r18": "intentional LTX-2.3 + 10Eros v14; comments say R18-only",
+  "vace": "Wan2.1-VACE edit/transition only (comments aligned)",
   "image": "FLUX.2 + Qwen-Image / Z-Image",
-  "stale": "copy (deploy comments readable as SFW default 2.3); 0f6e723 aligned",
+  "copy_commit": "0f6e723",
+  "comment_commit": "f2885ee",
+  "stale": "copy aligned in 0f6e723; SFW-default-2.3 comments cleared",
   "not_mounted": ["Hunyuan video", "SkyReels"],
-  "aigcpannel": "must not change ToIV code"
+  "aigcpannel": "must not change ToIV code",
+  "pushed": false,
+  "dirty_ovi_mcp": "not included"
  },
  "lan_ssh_verify_2026_08_28_1645": {
   "by": "设备管家",
