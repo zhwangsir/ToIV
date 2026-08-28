@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-08-28 16:47 openclaw01 profiler: Mac mini M4 16GB 10-core (4P+6E), hw.model=Mac16,10 (02-04 same hw.model last round, RAM only verified on 01). pc02 LAN curl :8193/:8194 200 in 17/15ms. SoT table now says TS≠LAN. No serial in docs. fleet_registry still M2 (code, ToIV 开发). Docs not pushed.
+
 - 2026-08-28 16:45 设备管家 LAN SSH（只读）：openclaw01-04 hw.model=Mac16,10 M4 not M2, :18789 200. pc02 .114 :8193/:8194 HTTP 200 (TS not tested). studio01-04 SSH timeout still fully offline. LTX inactive+disabled, no :8198. MateBook LAN 192.168.71.9, ~/NAS mounted. core :8100/:3501 not listening (AIGCPannel on MateBook Colima :8080/:8100). Noted not changed: workstation swap 8Gi 100%; toiv-tts NRestarts=6363 unstable. Did not push the local unpushed ToIV code stack.
 
 - 2026-08-27 evening Gitee main 25cdc6a; GitHub still a8ac995 (push blocked). ACE-Step 41ea514+997a387 on remote. lipsync 74dd896. library df09aee+25cdc6a buckets. MiniProgram 591; web 660. Do not treat Mobile as live.

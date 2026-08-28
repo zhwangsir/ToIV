@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-08-28 16:45（设备管家 LAN SSH 核验，项目管家回写）
+> **最后更新**：2026-08-28 16:47（设备管家 LAN SSH；01 profiler 实锤 M4 16GB）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 
 ---
@@ -33,12 +33,12 @@
 | 设备 | 角色 | LAN IP | Tailscale IP | 类型 | SSH 用户 |
 |---|---|---|---|---|---|
 | studio01-04 | EXO RDMA 推理 :52415(实跑 MiniMax-M2.7-4bit);~~studio04 另跑 VLM 反推 :9303~~(2026-08-26 ToIV 零依赖,退役观察期)；**2026-08-28 LAN SSH timeout，维持全离线** | .109/.111/.112/.113 | 100.67.43.40 / 100.91.0.121 / 100.115.27.68 / 100.126.182.23 | **Mac Studio M3 Ultra 32核 512GB** | dgmt-studio01-04 |
-| openclaw01-04 | OpenClaw 网关 :18789 均 200（2026-08-28） | .86/.75/.81/.85 | **100.115.23.67** / 100.76.35.7 / 100.76.140.121 / **100.125.217.11**（01/04 以 Tailscale 2026-08-27 为准，旧 100.69.0.4 / 100.91.128.30 作废） | **Mac mini M4 (hw.model=Mac16,10)**，不是 M2 | dgmt-openclaw01-04 |
+| openclaw01-04 | OpenClaw 网关 :18789 均 200（2026-08-28） | .86/.75/.81/.85 | **100.115.23.67** / 100.76.35.7 / 100.76.140.121 / **100.125.217.11**（01/04 以 Tailscale 2026-08-27 为准，旧 100.69.0.4 / 100.91.128.30 作废） | **Mac mini M4 16GB (hw.model=Mac16,10)**；01 已 profiler 实锤，02-04 同 hw.model | dgmt-openclaw01-04 |
 | spark01 | **Qwen3-VL-32B-Instruct-FP8** 评分/反推 VLM(容器 qwen3vl32b, :8000;2026-08-25 替换 molmo2-8B,幻觉实测根治;**2026-08-26 起接管图像/视频反推+宫格 grounding**,别名 molmo2-8b/omni-captioner 保留) | .82 | 100.81.235.124 | Linux GB10 | dgmt-spark |
 | spark02 | LLM L1-L4 主力(**Qwen3.8-27B-Uncensored-FP8 无审查版**,2026-08-23 替换;别名 qwen3.8-27b/qwen3.6-uncensored 均有效, :8000) | .84 | 100.86.42.89 | Linux GB10 | dgmt-spark |
 | workstation | 算力+全部后端服务 | 192.168.71.127 | **100.68.100.90** | Linux 4×RTX PRO 6000 | merlin |
 | pc01 | ComfyUI worker :8188 | **192.168.71.116**(2026-08-25 DHCP 由 .115 漂移,MAC 指纹实证;LB/SSH/代码已同步) | 100.69.134.27 | Windows RTX 5090 | home |
-| pc02 | ComfyUI worker :8193 + 编辑实例 :8194；LAN 两端口 HTTP 200（2026-08-28）；⚠️ Tailscale 2026-08-27 离线 21d（这轮没测 TS） | 192.168.71.114 | 100.107.94.26 | Windows RTX 5090 | w |
+| pc02 | ComfyUI worker :8193 + 编辑实例 :8194；**TS≠LAN**：LAN :8193/:8194 HTTP 200（2026-08-28 curl 17ms/15ms），⚠️ Tailscale 2026-08-27 离线 21d（这轮没测 TS） | 192.168.71.114 | 100.107.94.26 | Windows RTX 5090 | w |
 | NAS | SMB 存储 44T | 192.168.71.7 | 100.80.237.96 | Linux | dgmt-nas |
 | 小米路由器 | BE10000 Pro(DRT_MI),**AP/有线中继模式**(2026-08-26 由二级路由切换,原 192.168.31.1→.42),管理页 192.168.71.42 | 192.168.71.42 | — | — | — |
 | 光猫 | 主网关/拨号(192.168.71.1,MAC 7c:c9:26:ef:01:93) | 192.168.71.1 | — | — | — |
@@ -197,8 +197,8 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ### 2026-08-28 16:45（设备管家 LAN SSH 核验，只读，未改配置）
 
-- **OpenClaw 01-04**：全部 `hw.model=Mac16,10`（M4 Mac mini），**不是 M2**。`:18789` 均 HTTP 200。
-- **pc02** `192.168.71.114`：`:8193` / `:8194` 均 HTTP 200。Tailscale 这轮没测（08-27 离线 21d 记录仍在）。
+- **OpenClaw 01-04**：全部 `hw.model=Mac16,10`（M4 Mac mini），**不是 M2**。`:18789` 均 HTTP 200。 16:47 对 **openclaw01** profiler：Chip Apple M4、10 核(4P+6E)、Memory 16 GB（未抄序列号）。02-04 这轮只确认过 hw.model。
+- **pc02** `192.168.71.114`：**TS≠LAN**。LAN curl `--noproxy '*'` `:8193` HTTP 200（17ms）、`:8194` HTTP 200（15ms）。 Tailscale 这轮没测（08-27 离线 21d 记录仍在）。
 - **studio01-04**：仍 SSH timeout，维持全离线。
 - **LTX**：`comfyui-ltx25` 仍 inactive+disabled，无 `:8198`。
 - **MateBook**：当前 LAN `192.168.71.9`；`~/NAS` 已挂。

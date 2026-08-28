@@ -1,12 +1,12 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-28T16:45:00+08:00",
+ "updated_at": "2026-08-28T16:47:00+08:00",
  "lan_ssh_verify_2026_08_28_1645": {
   "by": "设备管家",
   "mode": "read-only LAN SSH, no config change",
-  "openclaw": "hw.model=Mac16,10 M4 Mac mini (not M2); :18789 HTTP 200 all four",
-  "pc02_lan": "192.168.71.114 :8193/:8194 HTTP 200; TS not tested this round",
+  "openclaw": "M4 16GB Mac mini hw.model=Mac16,10 (not M2); 01 profiler-verified 10-core 4P+6E 16GB; 02-04 hw.model only; :18789 HTTP 200 all four",
+  "pc02_lan": "TS≠LAN; 192.168.71.114 :8193/:8194 HTTP 200 (17ms/15ms); TS not tested this round",
   "studio": "SSH timeout, still fully offline",
   "ltx": "inactive+disabled, no :8198",
   "matebook": "LAN 192.168.71.9; ~/NAS mounted",
