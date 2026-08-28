@@ -6,7 +6,8 @@
   · 非空列表 → pin(文件名必须在目录内;强度缺省用卡面默认)
 
 规则:按引擎过滤;SFW 永不挂 nsfw 卡;最多 3 张;加速最多一张;同角色
-(pose/anatomy/concept/accel)不叠。R18 且提示偏空时补一张通用概念卡。
+(pose/anatomy/concept/accel)不叠。R18 且提示偏空/无概念时补通用概念卡;
+无概念卡则挂动态(motion)或任意非加速卡,避免空跑。永不自动挂 accel。
 LLM 不选文件名:只允许将来把 prompt 映到 role 枚举,再由本模块确定性映到卡。
 失败/无命中时规则路径仍返回(可能为空)。
 """
@@ -144,7 +145,8 @@ def pick_loras(
     emptyish = len(prompt.strip()) < _EMPTYISH_LEN
     has_concept = any(p.role == "concept" for p in picks)
     if nsfw and (emptyish or not has_concept):
-        concept = next((c for c in _eligible(engine, nsfw) if c.role == "concept"), None)
+        eligible = _eligible(engine, nsfw)
+        concept = next((c for c in eligible if c.role == "concept"), None)
         if concept is not None and not any(p.name == concept.name for p in picks):
             if _conflicts(concept, picks):
                 # 挤掉最后一张非概念,给通用概念让位
@@ -154,6 +156,21 @@ def pick_loras(
             if not _conflicts(concept, picks) and len(picks) < MAX_PICK:
                 reason = "r18-default-concept" if emptyish else "r18-concept"
                 picks.insert(0, _picked(concept, reason))
+                picks = picks[:MAX_PICK]
+        elif concept is None:
+            # LTX 等无概念卡:先动态增强,再任意非加速卡(永不自动挂 accel)
+            fallback = next((c for c in eligible if c.role == "motion"), None)
+            reason = "r18-default-motion"
+            if fallback is None:
+                fallback = next((c for c in eligible if c.role != "accel"), None)
+                reason = "r18-default-fallback"
+            if (
+                fallback is not None
+                and not any(p.name == fallback.name for p in picks)
+                and not _conflicts(fallback, picks)
+                and len(picks) < MAX_PICK
+            ):
+                picks.insert(0, _picked(fallback, reason))
                 picks = picks[:MAX_PICK]
     return picks
 

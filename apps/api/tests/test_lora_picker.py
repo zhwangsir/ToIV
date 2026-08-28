@@ -113,8 +113,14 @@ def test_ltx_keyword_pick_lands_on_graph():
     assert {s["name"] for s in snap} == names
 
 
-def test_ltx_generic_r18_picks_nothing():
+def test_ltx_generic_r18_picks_dynamic_motion():
+    """LTX 策划卡无 concept:R18 短提示自动挂动态增强,避免空跑。"""
+    name = "ltx_2.3_22b_distilled_1.1_lora_dynamic_fro09_avg_rank_111_bf16.safetensors"
     picks = pick_loras("ltx", "a", nsfw=True)
-    assert picks == []
+    assert picks
+    assert picks[0].name == name
+    assert picks[0].role == "motion"
+    assert picks[0].reason == "r18-default-motion"
     g = build_ltx_t2v_graph(LtxT2VParams(positive="a", loras=to_specs(picks)))
-    assert not any(n.get("class_type") == "LoraLoader" for n in g.values())
+    loaders = [n for n in g.values() if n.get("class_type") == "LoraLoader"]
+    assert loaders and loaders[0]["inputs"]["lora_name"] == name
