@@ -1431,7 +1431,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "params": _wan_animate_params(),
         "probe": _probe_wan_animate,
     },
-    # Wan2.1-VACE:编辑/转场专用（主路视频是 H3 / Wan2.2）。多参考图(1-4 张,+可选首尾帧)→ 视频;同实例(:8197)
+    # Wan2.1-VACE:编辑/转场专用（SFW 对白/锁人主路是 H3；Wan2.2 I2V 与 LTX-2.3+10Eros 主要在 R18）。多参考图(1-4 张,+可选首尾帧)→ 视频;同实例(:8197)
     {
         "id": "wan-vace",
         "label": "VACE 多参考视频",
