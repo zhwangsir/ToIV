@@ -12,6 +12,8 @@ LTX 竖版（本地 `859b60f`，未推）：height 上限 1080→1920，720×128
 
 LoRA 策划卡（本地 `93c275e`，未推）：提交时 AI 从策划卡选 LoRA，禁止 NAS 自由混。省略/null=auto，`[]`=off，非空=pin。生产仍无此能力。
 
+LTX R18 LoRA（本地 `e1f856e`，未推）：无概念卡时 auto 回退第一张 motion，不再空跑。H3/Wan 仍优先概念卡。
+
 ## 这是什么 / 能做什么
 
 Web 端（`apps/web`）当前真实模块（见 `app/page.tsx` 的 `VIEW_META`）：

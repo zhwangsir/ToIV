@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-08-28 晚（另记 93c275e LoRA 策划卡 + 859b60f，未推）
+> **最后更新**：2026-08-28 晚（另记 e1f856e LTX R18 motion 回退，未推）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 
 ---
@@ -201,6 +201,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - 项目管家只记五件套，不改 ToIV 业务代码，不推本地 Phase4 功能叠。
 - LTX 竖版 `859b60f`（本地未推）：`LtxT2VRequest.height` 上限 1080→1920，对齐 `_LTX_NSFW_RESOLUTIONS` 竖版 720×1280；之前预设会 Pydantic 422。回归 `test_ltx_t2v_accepts_vertical_720p_preset`。只动 `video.py` + `test_video.py`。生产仍是旧 `le=1080`。空 `positive` 也会 422；缺 `X-NSFW` 是 403 不是 422。Ovi/MCP 未带上。
 - LoRA 策划卡 `93c275e`（本地未推）：本地 `93c275e`（未推）：海螺/LTX/Wan 提交时 AI 从策划卡选 LoRA，禁止 NAS 自由混。协议：`loras` 省略/null = auto；显式 `[]` = off；非空 = pin（必须是策划卡文件名，否则 422）。前端空控件省略字段，故空白=auto。目录规模：Wan 6（全 NSFW，保留 HIGH/LOW）；H3 13（R18 + 部分 SFW；turbo 加速不自动选）；LTX 2（motion + dolly）。R18 空提示会插入引擎通用概念卡（H3 `HMNSFW_AIO_V2`，Wan `NSFW-22-H-e8`）。Wan auto 会按原 `pick_trigger_words` 前置触发词。LTX 无通用概念卡时可能 0 条（10Eros UNET 已承担 NSFW）。生产仍无此能力。Ovi/MCP 未带上。
+- LTX R18 LoRA `e1f856e`（本地未推）：本地 `e1f856e`（未推）：`lora_picker` 在引擎没有 concept 卡时（LTX），R18 auto 回退第一张 motion 卡。提示词 `a` 会挂 `ltx_2.3_22b_distilled_1.1_lora_dynamic_fro09_avg_rank_111_bf16.safetensors`（0.8，`r18-default-motion`）。H3/Wan 仍优先概念卡。生产仍无此能力。Ovi/MCP 未带上。
 
 ### 2026-08-28 16:45（设备管家 LAN SSH 核验，只读，未改配置）
 

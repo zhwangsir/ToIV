@@ -1,7 +1,7 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-28T20:16:00+08:00",
+ "updated_at": "2026-08-28T20:34:00+08:00",
  "engine_map_repo_check_2026_08_28": {
   "by": "ToIV 开发对照仓",
   "swap_mains": false,
@@ -45,7 +45,17 @@
   },
   "r18_empty_prompt": "inserts engine concept cards: H3 HMNSFW_AIO_V2, Wan NSFW-22-H-e8",
   "wan_auto": "prepends pick_trigger_words",
-  "ltx_zero": "possible when no concept card; 10Eros UNET already NSFW",
+  "ltx_zero": "superseded by e1f856e: R18 auto falls back to first motion card",
+  "production": "still lacks this",
+  "pushed": false,
+  "dirty_ovi_mcp": "not included"
+ },
+ "lora_ltx_r18_motion_fallback_e1f856e": {
+  "commit": "e1f856e",
+  "change": "lora_picker R18 auto falls back to first motion card when engine has no concept card (LTX)",
+  "example": "prompt a attaches ltx_2.3_22b_distilled_1.1_lora_dynamic_fro09_avg_rank_111_bf16.safetensors strength 0.8 reason r18-default-motion",
+  "h3_wan": "still prefer concept cards",
+  "files": ["apps/api/app/services/lora_picker.py", "apps/api/tests/test_lora_picker.py"],
   "production": "still lacks this",
   "pushed": false,
   "dirty_ovi_mcp": "not included"
