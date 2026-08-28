@@ -120,4 +120,12 @@ def required_nodes(kind: str) -> set[str]:
                 "ResizeImageMaskNode", "RandomNoise", "KSamplerSelect", "ManualSigmas",
                 "CFGGuider", "SamplerCustomAdvanced", "LTXVTiledVAEDecode",
                 "CreateVideo", "SaveVideo"}
+    if kind == "ltx_multishot":
+        # LTX-2.5 Multishot(0.32+ 原生节点两阶段 DFR 链;audio=False 由路由剔除音频项)
+        return {"UNETLoader", "CLIPLoader", "VAELoader", "LatentUpscaleModelLoader",
+                "CLIPTextEncode", "LTXVConditioning", "EmptyLTXVLatentVideo",
+                "LTXVEmptyLatentAudio", "LTXVConcatAVLatent", "LTXVSeparateAVLatent",
+                "LTXVDualCFGGuider", "LTXVLatentUpsampler", "LTXVAudioVAEDecode",
+                "RandomNoise", "KSamplerSelect", "ManualSigmas", "SamplerCustomAdvanced",
+                "VAEDecodeTiled", "CreateVideo", "SaveVideo"}
     return set()

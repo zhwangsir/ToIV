@@ -394,6 +394,12 @@ class Settings(BaseSettings):
     # 宿主机 RAM 预检阈值(GiB,语义同 h3_min_free_ram_gb;offload 权重驻留 RAM)。
     wan_animate2_min_free_ram_gb: float = 25.0
 
+    # —— LTX-2.5 Multishot 一键多镜头(2026-08-28 重新引入,与退役 :8198 旧链无关) ——
+    # 落点 pc01(RTX 5090 32G,ComfyUI 0.33.0 原生 LTX-2.5 节点,NVFP4 FP4 加速):
+    # 复用 LB 池 worker :8188——同进程显存统一调度,22B 加载时自动驱逐池模型缓存,
+    # 避免双实例显存争抢;权重经 extra_model_paths toiv: 段挂 NAS(平铺)。
+    ltx25_worker_url: str = "http://192.168.71.116:8188"
+
     # —— 资源预算二期:hold 排队(预检不足不直接 503,作业 held 入库等资源释放) ——
     # 预检(RAM/VRAM)仍不足时作业置 held + HeldJob 票(graph/原因/需求快照入库),
     # 调度循环周期性复查,资源够按提交时间 FIFO 自动放行(见 services/hold_queue)。
@@ -472,6 +478,11 @@ class Settings(BaseSettings):
     def wan_animate2_base(self) -> str:
         """Wan-Animate-2 专用实例基址(已去尾斜杠)。"""
         return self.wan_animate2_base_url.strip().rstrip("/")
+
+    @property
+    def ltx25_worker(self) -> str:
+        """LTX-2.5 Multishot 默认 worker 基址(已去尾斜杠)。"""
+        return self.ltx25_worker_url.strip().rstrip("/")
 
     @property
     def h3_co_worker_urls(self) -> list[str]:
