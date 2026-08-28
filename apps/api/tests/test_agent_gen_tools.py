@@ -123,10 +123,10 @@ def test_gen_tools_registered_after_builtin():
 
 
 def test_dispatch_covers_all_registry_engines():
-    """注册表 26 个引擎全部有提交分发(防新增引擎漏接)。"""
+    """注册表 31 个引擎全部有提交分发(防新增引擎漏接)。"""
     engine_registry.populate_registry()
     ids = [s["id"] for s in engine_registry._REGISTRY]
-    assert len(ids) == 26
+    assert len(ids) == 31
     missing = [eid for eid in ids if eid not in tools_gen._DISPATCH]
     assert missing == []
 
@@ -384,7 +384,7 @@ async def test_optimize_tool_reuses_route(db_env, monkeypatch):
     s, user = db_env
     seen: dict = {}
 
-    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):
         seen["system"] = messages[0]["content"]
         seen["layer"] = layer
         return {"content": '{"positive": "a fluffy cat, masterpiece", "negative": "blurry"}'}
@@ -407,7 +407,7 @@ async def test_optimize_tool_video_engine_dialect(db_env, monkeypatch):
     s, user = db_env
     seen: dict = {}
 
-    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):
         seen["system"] = messages[0]["content"]
         return {"content": '{"positive": "a cat runs", "negative": "blurry"}'}
 
@@ -465,7 +465,7 @@ def route_ctx(monkeypatch):
 def _mock_llm(monkeypatch, script: list[dict]):
     calls: list[list[dict]] = []
 
-    async def fake_chat(messages, tools=None, max_tokens=None, temperature=0.4):
+    async def fake_chat(messages, tools=None, max_tokens=None, temperature=0.4, enable_thinking=None):
         calls.append(messages)
         return script[min(len(calls) - 1, len(script) - 1)]
 

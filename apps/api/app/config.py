@@ -187,6 +187,12 @@ class Settings(BaseSettings):
     # 空 = 未部署,端点 503;生产 http://192.168.71.127:9103。
     lipsync_url: str = ""
 
+    # ComfyUI MCP 桥接(artokun/comfyui-mcp,workstation systemd toiv-comfy-mcp :9100):
+    # 让助手通过 MCP 协议调用 ComfyUI 细粒度操作(工作流创建/节点管理/队列控制等)。
+    # 空 = 未部署,MCP 工具不注册;生产 http://192.168.71.127:9100。
+    mcp_url: str = ""
+    mcp_token: str = ""
+
     # 可观测性 —— Sentry 错误追踪 DSN。空 = 不启用(本地开发默认关);
     # 配置真实 DSN 后,app 启动时初始化 sentry-sdk 自动上报未捕获异常 + 10% 性能采样。
     sentry_dsn: str = ""

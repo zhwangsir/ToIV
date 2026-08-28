@@ -53,6 +53,12 @@ _MODEL_LOADERS = [
     # 高清修复放大模型(LTX use_upscale=True 时 required_models 含 upscale_model,
     # 缺此项会误判 worker 缺模型 → /generate-video 503)
     ("UpscaleModelLoader", "model_name"),
+    # LTX-2.5 音频 VAE(从 vae 目录加载,不在标准 VAELoader 范围内,
+    # 否则 ltx25-multishot probe 误判缺模型 → available=False)
+    ("LTXVAudioVAELoader", "ckpt_name"),
+    # Nunchaku SVDQuant 4bit DiT(从 diffusion_models 目录加载,专用 loader,
+    # 否则 flux1-nunchaku probe 误判缺模型 → available=False)
+    ("NunchakuFluxDiTLoader", "model_path"),
 ]
 _MODELS_TTL = 120.0
 

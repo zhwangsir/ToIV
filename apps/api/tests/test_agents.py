@@ -388,7 +388,7 @@ def test_delete_requires_admin(ctx):
 def _patch_llm(monkeypatch) -> dict:
     captured: dict = {}
 
-    async def fake_chat(messages, tools=None, max_tokens=None, temperature=0.4):  # noqa: ANN001
+    async def fake_chat(messages, tools=None, max_tokens=None, temperature=0.4, enable_thinking=None):  # noqa: ANN001
         captured["system"] = messages[0]["content"]
         return {"content": '{"category": "portrait", "positive": "a girl", "negative": "bad"}'}
 

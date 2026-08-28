@@ -40,6 +40,7 @@ class LLMProvider(Protocol):
         layer: str = "L1",
         max_tokens: int | None = None,
         temperature: float = 0.5,
+        enable_thinking: bool | None = None,
     ) -> dict: ...
 
     async def embed(self, texts: list[str]) -> list[list[float]] | None: ...
@@ -73,9 +74,11 @@ class LayeredLLMProvider:
         layer: str = "L1",
         max_tokens: int | None = None,
         temperature: float = 0.5,
+        enable_thinking: bool | None = None,
     ) -> dict:
         return await getattr(_llm_module, "chat_layered")(
-            messages, layer=layer, max_tokens=max_tokens, temperature=temperature
+            messages, layer=layer, max_tokens=max_tokens, temperature=temperature,
+            enable_thinking=enable_thinking,
         )
 
     async def embed(self, texts: list[str]) -> list[list[float]] | None:

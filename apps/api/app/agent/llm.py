@@ -108,6 +108,10 @@ async def _call_once(
     # 顶层 enable_thinking:EXO 原生字段,关 thinking 省 reasoning token/延迟
     if enable_thinking is not None:
         payload["enable_thinking"] = enable_thinking
+        # vLLM 兼容:顶层字段 vLLM 不认,需同时走 chat_template_kwargs(实证:
+        # spark02 vLLM 0.23.1 顶层 enable_thinking=false 无效,chat_template_kwargs 1s vs 17s)
+        if enable_thinking is False and not chat_template_kwargs:
+            payload["chat_template_kwargs"] = {"enable_thinking": False}
     headers = {"Authorization": f"Bearer {api_key}"}
     timeout = httpx.Timeout(read_timeout, connect=8.0)
     async with httpx.AsyncClient(timeout=timeout) as client:
@@ -205,6 +209,7 @@ async def chat(
     tools: list[dict] | None = None,
     max_tokens: int | None = None,
     temperature: float = 0.4,
+    enable_thinking: bool | None = None,
 ) -> dict:
     """一次对话补全;返回 assistant message(可能含 tool_calls)。
 
@@ -218,6 +223,9 @@ async def chat(
         max_tokens: 最大输出 token 数;None 由模型/服务端默认。GLM-5.2-fp8 等
             思考型模型需要充足 token(建议 ≥2000)否则被 reasoning 吃光。
         temperature: 采样温度,默认 0.4(平衡多样性与一致性)。
+        enable_thinking: 思考型模型 reasoning 抑制;False 时传 enable_thinking=false
+            给服务端(EXO/vLLM 顶层字段),None 不传(默认开 thinking,零影响)。
+            optimize 等结构化输出场景应传 False 消除 reasoning 延迟(14.7x 加速实证)。
     """
     settings = get_settings()
     primary_url = settings.llm_base_url.rstrip("/")
@@ -238,6 +246,7 @@ async def chat(
                 nsfw_url, nsfw_model, nsfw_key,
                 messages, tools, max_tokens, temperature,
                 label=f"NSFW 模型 {nsfw_model}",
+                enable_thinking=enable_thinking,
             )
         except LLMError as nsfw_err:
             # NSFW 与主模型同一端点时再调一次只会复现同一个 400(上下文溢出等)
@@ -249,6 +258,7 @@ async def chat(
                     primary_url, primary_model, primary_key,
                     messages, tools, max_tokens, temperature,
                     label=f"主模型 {primary_model}(NSFW fallback)",
+                    enable_thinking=enable_thinking,
                 )
             except LLMError as primary_err:
                 raise LLMError(
@@ -261,6 +271,7 @@ async def chat(
             primary_url, primary_model, primary_key,
             messages, tools, max_tokens, temperature,
             label=f"主模型 {primary_model}",
+            enable_thinking=enable_thinking,
         )
     except LLMError as primary_err:
         # 兜底：服务端未启用 tool-call-parser 时，带 tools 的调用会 400。
@@ -279,6 +290,7 @@ async def chat(
                     primary_url, primary_model, primary_key,
                     messages, None, max_tokens, temperature,
                     label=f"主模型 {primary_model}(无工具)",
+                    enable_thinking=enable_thinking,
                 )
             except LLMError as plain_err:
                 raise LLMError(
@@ -298,6 +310,7 @@ async def chat(
                 fb_url, fb_model, fb_key,
                 messages, tools, max_tokens, temperature,
                 label=f"备用模型 {fb_model}",
+                enable_thinking=enable_thinking,
             )
         except LLMError as fb_err:
             raise LLMError(
@@ -329,6 +342,7 @@ async def chat_layered(
     layer: str = "L1",
     max_tokens: int | None = None,
     temperature: float = 0.5,
+    enable_thinking: bool | None = None,
 ) -> dict:
     """四层模型流水线调用。
 
@@ -349,7 +363,8 @@ async def chat_layered(
 
     if layer == "L4":
         # L4 NSFW: 复用现有 NSFW 路由
-        return await chat(messages, max_tokens=max_tokens, temperature=temperature)
+        return await chat(messages, max_tokens=max_tokens, temperature=temperature,
+                          enable_thinking=enable_thinking)
 
     if layer == "L2":
         ep = resolve_llm_endpoint("L2", settings)
@@ -363,7 +378,7 @@ async def chat_layered(
             return await _call_with_retry(
                 url, model, api_key, messages, None, max_tokens, temperature,
                 label=f"L2 润色 {model}",
-                enable_thinking=False,
+                enable_thinking=enable_thinking if enable_thinking is not None else False,
                 read_timeout=timeout,
             )
         except LLMError as l2_err:
@@ -372,7 +387,8 @@ async def chat_layered(
                 "L2 降级到 L1 原因=%s model=%s → 主模型",
                 l2_err, model,
             )
-            return await chat(messages, max_tokens=max_tokens, temperature=temperature)
+            return await chat(messages, max_tokens=max_tokens, temperature=temperature,
+                              enable_thinking=enable_thinking)
 
     if layer == "L3":
         ep = resolve_llm_endpoint("L3", settings)
@@ -387,7 +403,7 @@ async def chat_layered(
             return await _call_with_retry(
                 url, model, api_key, messages, None, max_tokens, temperature,
                 label=f"L3 精修 {model}",
-                enable_thinking=False,
+                enable_thinking=enable_thinking if enable_thinking is not None else False,
                 read_timeout=timeout,
             )
         except LLMError as l3_err:
@@ -403,7 +419,7 @@ async def chat_layered(
                     l2_ep.base_url, l2_ep.model_id,
                     api_key, messages, None, l2_max, temperature,
                     label=f"L3→L2 降级 {l2_ep.model_id}",
-                    enable_thinking=False,
+                    enable_thinking=enable_thinking if enable_thinking is not None else False,
                     read_timeout=l2_ep.timeout,
                 )
             except LLMError as l2_err:
@@ -412,7 +428,9 @@ async def chat_layered(
                     "L2 降级到 L1 原因=%s model=%s → 主模型",
                     l2_err, l2_ep.model_id,
                 )
-                return await chat(messages, max_tokens=max_tokens, temperature=temperature)
+                return await chat(messages, max_tokens=max_tokens, temperature=temperature,
+                                  enable_thinking=enable_thinking)
 
     # L1 默认:走标准 chat() 路由
-    return await chat(messages, max_tokens=max_tokens, temperature=temperature)
+    return await chat(messages, max_tokens=max_tokens, temperature=temperature,
+                      enable_thinking=enable_thinking)

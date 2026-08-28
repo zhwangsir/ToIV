@@ -32,10 +32,10 @@ from app.services.qwen_edit import QWEN_EDIT_NODE, get_qwen_edit_client
 from app.services.wan_animate2 import WAN_ANIMATE2_NODE, get_animate2_client
 from app.workflows.qwen_edit import CAMERA_PRESETS, QWEN_EDIT_UNET
 from app.workflows.model_profiles import is_image_ckpt, is_nextgen, is_nsfw
-from app.services.lora_catalog import catalog_options
 from app.workflows.model_wiki import card_for
 from app.workflows.style_presets import MediaType, list_presets
 from app.workflows.wan_i2v import WAN_I2V_NSFW_LORAS
+from app.services.lora_catalog import catalog_options
 
 # probe:async (pool) -> (available, reason|None);None 表示静态可用性(不做 pool 探测)
 ProbeFn = Callable[[WorkerPool], Awaitable["tuple[bool, str | None]"]]
@@ -194,6 +194,48 @@ async def _probe_wan_animate(pool: WorkerPool) -> tuple[bool, str | None]:
 
 async def _probe_wan_vace(pool: WorkerPool) -> tuple[bool, str | None]:
     return await _probe_wan_node(pool, WAN_VACE_NODE, "Wan-VACE")
+
+
+# Ovi 1.1 音画联合(同 :8197 WanVideoWrapper 实例;音频骨干节点存在即可用)
+OVI_NODE = "OviMMAudioVAELoader"
+# Phantom-Wan-14B 角色一致性 Subject-to-Video(同 :8197)
+PHANTOM_NODE = "WanVideoPhantomEmbeds"
+
+
+async def _probe_ovi(pool: WorkerPool) -> tuple[bool, str | None]:
+    return await _probe_wan_node(pool, OVI_NODE, "Ovi")
+
+
+async def _probe_phantom(pool: WorkerPool) -> tuple[bool, str | None]:
+    return await _probe_wan_node(pool, PHANTOM_NODE, "Phantom")
+
+
+async def _probe_ltx25(pool: WorkerPool) -> tuple[bool, str | None]:
+    """LTX-2.5 Multishot 探测:池内 worker(pc01 5090)具备 NVFP4 主模型+音画 VAE 即可用。"""
+    return await _probe_pool(
+        pool,
+        {
+            "ltx-2.5-22b-distilled-transformer-nvfp4.safetensors",
+            "gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors",
+            "ltx-2.5-video-vae-bf16.safetensors",
+            "ltx-2.5-audio-vae-bf16.safetensors",
+        },
+        {"UNETLoader", "LTXVConditioning", "LTXVAudioVAEDecode"},
+    )
+
+
+async def _probe_flux_nunchaku(pool: WorkerPool) -> tuple[bool, str | None]:
+    """Nunchaku fp4 FLUX.1-dev 探测:svdq 权重 + 专用 Loader 双约束(文件名+节点)。"""
+    return await _probe_pool(
+        pool,
+        {
+            "svdq-fp4_r32-flux.1-dev.safetensors",
+            "t5xxl_fp8_e4m3fn.safetensors",
+            "clip_l.safetensors",
+            "ae.safetensors",
+        },
+        {"NunchakuFluxDiTLoader", "NunchakuTextEncoderLoaderV2"},
+    )
 
 
 # Wan-Animate-2 探测超时:实例挂起时不能拖垮 /api/models/engines 端点
@@ -484,7 +526,6 @@ def _h3_nsfw_video_params() -> list[dict]:
 # 前端选中该引擎时渲染 MultiShotEditor 专用编辑器,参数仅声明契约/分组)
 def _multishot_params() -> list[dict]:
     return [p for p in _h3_video_params() if p["key"] != "duration"]
-
 
 
 def _ltx_nsfw_loras_select() -> dict:
@@ -1570,6 +1611,147 @@ def _default_registry() -> list[dict[str, Any]]:
         },
         "params": _ace_audio_legacy_params(),
         "probe": _probe_ace_legacy,
+    },
+    # ── Phase 4 新引擎(2026-08-28):Ovi 音画 / Phantom 角色一致性 / LTX-2.5 多镜头 / Nunchaku fp4 ──
+    # Ovi 1.1 音画联合生成(Apache 2.0;Wan2.2-5B 双塔 fp8,Kijai 融合权重):文本/图 →
+    # 同步音画 ≤10s@960²(语音对口型+环境音),补平台「音画直出」短板;同 :8197 WanVideoWrapper 实例
+    {
+        "id": "ovi-t2v",
+        "label": "Ovi 音画同出(文生)",
+        "kind": "video",
+        "nsfw": False,
+        "submit": {"route": "/api/ovi/t2v", "kind": "ovi-t2v"},
+        "description": "Ovi 1.1 音画联合生成:文本 → ≤10s@960×960 同步音画(语音对口型+环境音效),专用实例 :8197;台词自动包 <S>/<E>",
+        "source": {
+            "name": "Ovi 1.1 (Wan2.2-5B 双塔)",
+            "url": "https://huggingface.co/character-ai/Ovi",
+            "author": "Character AI",
+            "note": "Apache 2.0 开源权重;Kijai fp8 融合权重;中英双语语音",
+        },
+        "params": [
+            {"key": "speech", "label": "台词", "type": "textarea", "default": "",
+             "hint": "说话内容,自动包 <S>/<E>;留空只出环境音;建议 ≤20 字短句"},
+            {"key": "audio_caption", "label": "音频描述", "type": "text", "default": "",
+             "hint": "音效/氛围描述,如「切菜声, 抽油烟机」"},
+            _negative(),
+            _num("width", "宽度", 960, min_=256, max_=1024, step=32, hint="32 对齐"),
+            _num("height", "高度", 960, min_=256, max_=1024, step=32, hint="32 对齐"),
+            _num("duration", "时长(秒)", 10, min_=1, max_=10, step=1, hint="241帧@24fps=10s 训练甜点;121帧≈5s"),
+            _num("steps", "采样步数", 50, min_=1, max_=100, hint="非蒸馏满血,勿降太多"),
+            _seed(),
+        ],
+        "probe": _probe_ovi,
+    },
+    {
+        "id": "ovi-i2v",
+        "label": "Ovi 音画同出(图生)",
+        "kind": "video",
+        "nsfw": False,
+        "submit": {"route": "/api/ovi/i2v", "kind": "ovi-i2v"},
+        "description": "Ovi 1.1 图生音画:参考图 + 文本 → 同步音画(图片主体开口说话/配音效),专用实例 :8197",
+        "source": {
+            "name": "Ovi 1.1 (Wan2.2-5B 双塔)",
+            "url": "https://huggingface.co/character-ai/Ovi",
+            "author": "Character AI",
+            "note": "Apache 2.0 开源权重;Kijai fp8 融合权重;中英双语语音",
+        },
+        "params": [
+            _ref_image_required(),
+            {"key": "speech", "label": "台词", "type": "textarea", "default": "",
+             "hint": "说话内容,自动包 <S>/<E>;留空只出环境音"},
+            {"key": "audio_caption", "label": "音频描述", "type": "text", "default": "",
+             "hint": "音效/氛围描述"},
+            _negative(),
+            _num("duration", "时长(秒)", 10, min_=1, max_=10, step=1),
+            _num("steps", "采样步数", 50, min_=1, max_=100),
+            _seed(),
+        ],
+        "probe": _probe_ovi,
+    },
+    # Phantom-Wan-14B 角色一致性 Subject-to-Video(ICCV 2025,Apache 2.0):1-4 张参考图 →
+    # 跨 prompt 角色锁定(短剧工作室跨镜头一致性);同 :8197;Wan2.7 已核实闭源 API-only 的替代方案
+    {
+        "id": "phantom-s2v",
+        "label": "Phantom 角色一致性视频",
+        "kind": "video",
+        "nsfw": False,
+        "submit": {"route": "/api/phantom/s2v", "kind": "phantom_s2v"},
+        "description": "Phantom-Wan-14B 角色一致性生成:1-4 张参考图(或形象库主体)→ 跨场景角色锁定,跨镜头面部/服装/体态一致;专用实例 :8197",
+        "source": {
+            "name": "Phantom-Wan-14B (fp8)",
+            "url": "https://github.com/Phantom-video/Phantom",
+            "author": "字节跳动(ICCV 2025)",
+            "note": "Apache 2.0 开源权重;Subject-to-Video 专用模型,文本遵循与 ID 保持平衡",
+        },
+        "params": [
+            {"key": "images", "label": "角色参考图", "type": "images", "max": 4, "default": None,
+             "hint": "1-4 张角色参考图(正面特写 ID 最稳);也可在助手用 @主体 引用形象库"},
+            _negative(),
+            _num("width", "宽度", 832, min_=320, max_=1280, step=16),
+            _num("height", "高度", 480, min_=320, max_=1280, step=16),
+            _num("num_frames", "帧数", 81, min_=17, max_=241, step=4, hint="4n+1 吸附;81≈5s@16fps"),
+            {"key": "accel", "label": "加速档", "type": "select", "default": "turbo",
+             "options": [
+                 {"value": "turbo", "label": "turbo(8 步蒸馏,快速)"},
+                 {"value": "off", "label": "off(30 步满血,细节最佳)"},
+             ], "hint": "turbo 档夜景等复杂光线服装细节可能轻微漂移,成片建议 off"},
+            _seed(),
+        ],
+        "probe": _probe_phantom,
+    },
+    # LTX-2.5 Multishot 一键多镜头(Lightricks 22B NVFP4 蒸馏):单 prompt 分镜 2-4 镜
+    # 单次出片(≤20s 720p),角色/光线/嗓音跨切一致+原生音画;落点 pc01 5090(0.33 原生节点)
+    {
+        "id": "ltx25-multishot",
+        "label": "LTX-2.5 一键多镜头",
+        "kind": "video",
+        "nsfw": False,
+        "submit": {"route": "/api/ltx/multishot", "kind": "ltx_multishot"},
+        "description": "LTX-2.5 22B(NVFP4 蒸馏):单 prompt 分镜 2-4 镜单次出片(≤20s,720p),角色/光线/嗓音跨切一致,原生音画同出;热态 12s 片约 60s,落点 pc01 5090",
+        "source": {
+            "name": "LTX-2.5",
+            "url": "https://huggingface.co/Lightricks/LTX-2.5",
+            "author": "Lightricks",
+            "note": "开放权重;原生 multishot/4K/音画同出,ComfyUI 0.32+ 原生节点",
+        },
+        "params": [
+            {"key": "shots", "label": "分镜", "type": "textarea", "default": "",
+             "hint": "每行一镜:镜头描述|秒数(如「全景:车站人潮|4」);2-4 镜,总长≤20s;重复角色识别细节保一致性"},
+            {"key": "global_style", "label": "全局风格", "type": "text", "default": "",
+             "hint": "贯穿全片的风格/光线描述,如「暖色调,黄昏柔光,电影感」"},
+            _negative(),
+            _num("width", "宽度", 1280, min_=512, max_=1920, step=16),
+            _num("height", "高度", 720, min_=512, max_=1088, step=16, hint="模型 latent 网格吸附,720 实际出 704"),
+            {"key": "audio", "label": "音画同出", "type": "select", "default": "1",
+             "options": [{"value": "1", "label": "开(原生音画)"}, {"value": "0", "label": "关(静音)"}]},
+            _seed(),
+        ],
+        "probe": _probe_ltx25,
+    },
+    # Nunchaku fp4 FLUX.1-dev(SVDQuant,MIT Han Lab):5090 高速 SFW 出图(热跑 ~2.1s/张),
+    # 与 flux2 默认引擎并存;专用 DiT/TE Loader,worker 双约束(svdq 文件+节点)自然 pinning
+    {
+        "id": "flux1-nunchaku",
+        "label": "Nunchaku FLUX.1-dev fp4(高速)",
+        "kind": "image",
+        "nsfw": False,
+        "submit": {"route": "/api/generate/flux-nunchaku", "kind": "flux_nunchaku"},
+        "description": "Nunchaku SVDQuant 4bit FLUX.1-dev:5090 热跑约 2.1s/张(vs FP8 3.1s),显存压缩 3.63x;SFW 高速出图,pool 内 Nunchaku 就绪 worker 执行",
+        "source": {
+            "name": "Nunchaku FLUX.1-dev svdq-fp4",
+            "url": "https://github.com/nunchaku-ai/nunchaku",
+            "author": "MIT Han Lab",
+            "note": "SVDQuant 4bit(ICLR 2025 Spotlight);Blackwell NVFP4 专用,须 Nunchaku 专用 Loader",
+        },
+        "params": [
+            _num("width", "宽度", 1024, min_=256, max_=2048, step=64, ar=(0.5, 2.0)),
+            _num("height", "高度", 1024, min_=256, max_=2048, step=64),
+            _num("steps", "采样步数", 20, min_=1, max_=50),
+            _num("guidance", "引导强度", 3.5, min_=1, max_=10, step=0.5),
+            _num("batch_size", "批量", 1, min_=1, max_=4),
+            _seed(),
+        ],
+        "probe": _probe_flux_nunchaku,
     },
     ]
 

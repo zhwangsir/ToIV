@@ -37,7 +37,7 @@ class FakeProvider:
         self.calls.append(("chat", {"messages": messages, "tools": tools}))
         return {"content": "fake-chat", "_reasoning_tokens": 0}
 
-    async def chat_layered(self, messages, layer="L1", max_tokens=None, temperature=0.5):
+    async def chat_layered(self, messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):
         self.calls.append(("chat_layered", {"layer": layer, "messages": messages}))
         return {"content": "fake-layered", "_reasoning_tokens": 0}
 
@@ -317,7 +317,7 @@ async def test_default_provider_hits_monkeypatched_llm_chat(monkeypatch):
 async def test_default_provider_hits_monkeypatched_chat_layered(monkeypatch):
     called: list[str] = []
 
-    async def fake_layered(messages, layer="L1", max_tokens=None, temperature=0.5):
+    async def fake_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):
         called.append(layer)
         return {"content": f"mocked-{layer}"}
 
@@ -363,7 +363,7 @@ async def test_fake_provider_swap_hits_storyboard_service():
     import json as _json
 
     class _ScriptProvider(FakeProvider):
-        async def chat_layered(self, messages, layer="L1", max_tokens=None, temperature=0.5):
+        async def chat_layered(self, messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):
             self.calls.append(("chat_layered", {"layer": layer}))
             return {
                 "content": _json.dumps(

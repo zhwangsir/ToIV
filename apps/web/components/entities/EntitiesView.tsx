@@ -440,7 +440,7 @@ export function EntitiesView() {
   }
 
   return (
-    <div className="ent-view">
+    <div className="ent-view view-shell">
       <PageHeader
         kicker="ASSET LIBRARY"
         title="主体库"

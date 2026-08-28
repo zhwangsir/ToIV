@@ -93,7 +93,7 @@ def _mock_llm(monkeypatch, script: list[dict]) -> list[list[dict]]:
     """按调用顺序返回脚本草稿;记录每次调用的 messages。"""
     calls: list[list[dict]] = []
 
-    async def fake_chat(messages, tools=None, max_tokens=None, temperature=0.4):
+    async def fake_chat(messages, tools=None, max_tokens=None, temperature=0.4, enable_thinking=None):
         calls.append(messages)
         return script[min(len(calls) - 1, len(script) - 1)]
 

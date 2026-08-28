@@ -631,7 +631,7 @@ def test_classify_llm_success_uses_llm_level(ctx, monkeypatch):
     H = _h(token)
     _mock_pipeline(monkeypatch)
 
-    async def fake_chat(messages, tools=None, max_tokens=None, temperature=0.4):  # noqa: ANN001
+    async def fake_chat(messages, tools=None, max_tokens=None, temperature=0.4, enable_thinking=None):  # noqa: ANN001
         return {"content": '{"level": "L2", "reason": "多镜头叙事属于复杂项目"}'}
 
     monkeypatch.setattr(llm, "chat", fake_chat)

@@ -231,6 +231,7 @@ async def agent_chat(
         async for ev in _events_with_keepalive(runner.run(
             msgs, pool, user, session, attachment, body.document_ids,
             on_message=on_message, agent_session=sess,
+            entity_ids=body.entity_ids,
         )):
             # comment 保活帧原样下发(不是 runner 事件,不走 _sse_event 包络)
             yield ev if "comment" in ev else _sse_event(ev)

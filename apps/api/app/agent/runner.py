@@ -191,6 +191,7 @@ async def run(
     document_ids: list[str] | None = None,
     on_message=None,
     agent_session=None,
+    entity_ids: list[str] | None = None,
 ) -> AsyncIterator[dict]:
     """主循环。on_message:可选 async 回调,每条进/出 LLM 的消息调用一次
     (model-visible means logged;payload = {role, content, tool_calls, media},
@@ -240,6 +241,23 @@ async def run(
 
     tool_reg = get_ctx().service("tools")
     settings = get_settings()
+
+    # MCP 工具惰性注册:首次 run() 时从 MCP server 拉取工具并追加到注册表
+    # (activate 是同步的,MCP 工具列表需要异步拉取,故在 runner 首次执行时注册)
+    if not getattr(run, "_mcp_loaded", False):
+        try:
+            from app.agent.tools_mcp import mcp_tool_specs
+            mcp_specs = await mcp_tool_specs()
+            for spec in mcp_specs:
+                try:
+                    tool_reg.register(spec)
+                except KeyError:
+                    pass  # 重名跳过(多次 run 或测试隔离重置)
+            if mcp_specs:
+                logger.info("MCP 工具已注入注册表: %d 个", len(mcp_specs))
+        except Exception as e:
+            logger.warning("MCP 工具加载失败(不影响内建工具): %s", e)
+        run._mcp_loaded = True
 
     async def _log(role: str, content: str = "", tool_calls=None, media=None) -> None:
         if on_message is not None:
@@ -322,7 +340,8 @@ async def run(
             text, events = await tool_reg.execute(
                 name, args,
                 {"pool": pool, "user": user, "session": session,
-                 "attachment": attachment, "agent_session": agent_session},
+                 "attachment": attachment, "agent_session": agent_session,
+                 "entity_ids": entity_ids or []},
             )
             logger.info(
                 "agent.tool: name=%s round=%d took_ms=%d result_len=%d events=%d",

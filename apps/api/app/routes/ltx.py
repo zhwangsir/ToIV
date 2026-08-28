@@ -61,6 +61,23 @@ class LtxMultishotRequest(BaseModel):
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
     worker: str | None = Field(default=None, max_length=200)  # 缺省 settings.ltx25_worker
 
+    @field_validator("shots", mode="before")
+    @classmethod
+    def _shots_from_text(cls, v):
+        """前端文本域兼容:每行一镜「镜头描述|秒数」;结构化列表原样通过。"""
+        if isinstance(v, str):
+            out = []
+            for line in v.strip().splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                prompt, _, sec = line.rpartition("|")
+                if not sec.strip().isdigit():
+                    prompt, sec = line, "4"  # 无秒数默认 4s
+                out.append({"prompt": prompt.strip(), "seconds": int(sec.strip() or 4)})
+            return out
+        return v
+
     @field_validator("width", "height")
     @classmethod
     def _mult16(cls, v: int) -> int:

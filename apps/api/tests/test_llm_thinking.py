@@ -79,8 +79,8 @@ async def test_call_once_enable_thinking_false_in_payload():
         )
     payload = _FakeClient.captured["payload"]
     assert payload["enable_thinking"] is False, "顶层 enable_thinking=False 必须进 payload"
-    # 不应同时注入 chat_template_kwargs
-    assert "chat_template_kwargs" not in payload
+    # vLLM 兼容:顶层字段 vLLM 不认,自动补 chat_template_kwargs(spark02 实证 1s vs 17s)
+    assert payload.get("chat_template_kwargs", {}).get("enable_thinking") is False
 
 
 # ---------------------------------------------------------------------------

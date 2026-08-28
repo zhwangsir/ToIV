@@ -448,6 +448,7 @@ async def _llm_text(system: str, prompt: str, layer: str = "L1") -> str:
         msg = await get_ctx().service("llm").chat_layered(
             [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
             layer=layer,
+            enable_thinking=False,  # 结构化输出不需要 reasoning,抑制后 14.7x 加速
         )
     except llm.LLMError as e:
         raise HTTPException(status_code=503, detail=str(e)) from e

@@ -60,7 +60,7 @@ def client_token():
 
 
 def _patch_llm(monkeypatch, content: str) -> None:
-    async def fake_chat(messages, tools=None, max_tokens=None, temperature=0.4):  # noqa: ANN001
+    async def fake_chat(messages, tools=None, max_tokens=None, temperature=0.4, enable_thinking=None):  # noqa: ANN001
         return {"content": content}
 
     monkeypatch.setattr("app.routes.optimize.llm.chat", fake_chat)
@@ -190,7 +190,7 @@ def test_optimize_passes_model_dialect_to_llm(client_token, monkeypatch):
     # 端到端:所选模型的方言必须进入发给 LLM 的 system 提示
     captured: dict = {}
 
-    async def fake_chat(messages, tools=None, max_tokens=None, temperature=0.4):  # noqa: ANN001
+    async def fake_chat(messages, tools=None, max_tokens=None, temperature=0.4, enable_thinking=None):  # noqa: ANN001
         captured["system"] = messages[0]["content"]
         return {"content": '{"category": "anime", "positive": "1girl, masterpiece", "negative": "lowres"}'}
 
@@ -244,7 +244,7 @@ def test_optimize_with_style_preset_uses_preset_layer(client_token, monkeypatch)
     """带 style 预设(cinematic 预设 llm_layer=L3)时,走 chat_layered(layer=L3)。"""
     captured: dict = {}
 
-    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):  # noqa: ANN001
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):  # noqa: ANN001
         captured["layer"] = layer
         return {"content": '{"positive": "cinematic shot, film grain", "negative": "amateur"}'}
 
@@ -263,7 +263,7 @@ def test_optimize_without_style_stays_l1(client_token, monkeypatch):
     """不带 style 预设时,chat_layered 层参数保持 L1(现有行为不变)。"""
     captured: dict = {}
 
-    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):  # noqa: ANN001
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):  # noqa: ANN001
         captured["layer"] = layer
         return {"content": '{"positive": "a girl", "negative": "bad anatomy"}'}
 
@@ -282,7 +282,7 @@ def test_optimize_unknown_style_falls_back_l1(client_token, monkeypatch):
     """style 预设不存在时,自动回落 L1。"""
     captured: dict = {}
 
-    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):  # noqa: ANN001
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):  # noqa: ANN001
         captured["layer"] = layer
         return {"content": "a serene lake, slow pan"}
 
@@ -302,7 +302,7 @@ def test_optimize_style_hint_reaches_llm(client_token, monkeypatch):
     """style_hint 必须进入发给 LLM 的 system 提示,且带最高优先级措辞。"""
     captured: dict = {}
 
-    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):  # noqa: ANN001
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):  # noqa: ANN001
         captured["system"] = messages[0]["content"]
         return {"content": '{"positive": "cyberpunk girl, neon lights", "negative": "daylight"}'}
 
@@ -324,7 +324,7 @@ def test_optimize_style_hint_precedes_agent_prefix(client_token, monkeypatch):
 
     captured: dict = {}
 
-    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):  # noqa: ANN001
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):  # noqa: ANN001
         captured["system"] = messages[0]["content"]
         return {"content": '{"positive": "ink wash girl", "negative": "blurry"}'}
 
@@ -367,7 +367,7 @@ def test_optimize_without_style_hint_unchanged(client_token, monkeypatch):
     """不传 style_hint 时系统提示不含风格块(向后兼容)。"""
     captured: dict = {}
 
-    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):  # noqa: ANN001
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):  # noqa: ANN001
         captured["system"] = messages[0]["content"]
         return {"content": '{"positive": "a girl", "negative": "bad anatomy"}'}
 
@@ -386,7 +386,7 @@ def test_train_kind_uses_trigger_word_system(client_token, monkeypatch):
     """train kind 走专属触发词系统提示,不再落 video 兜底。"""
     captured: dict = {}
 
-    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):  # noqa: ANN001
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):  # noqa: ANN001
         captured["system"] = messages[0]["content"]
         return {"content": "zhenyu_girl"}
 
@@ -410,7 +410,7 @@ _NSFW_H = {"X-NSFW": "1"}
 
 
 def _patch_layered(monkeypatch, content: str, captured: dict) -> None:
-    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):  # noqa: ANN001
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):  # noqa: ANN001
         captured["system"] = messages[0]["content"]
         return {"content": content}
 
@@ -516,7 +516,7 @@ def test_pick_trigger_words_modes():
 
 def _patch_layered_capture_layer(monkeypatch, content: str, captured: dict) -> None:
     """同 _patch_layered,额外捕获 layer 参数(断言预设 llm_layer 路由)。"""
-    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):  # noqa: ANN001
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):  # noqa: ANN001
         captured["system"] = messages[0]["content"]
         captured["layer"] = layer
         return {"content": content}

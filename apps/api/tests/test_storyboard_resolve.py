@@ -25,7 +25,7 @@ async def test_resolve_no_pronouns_no_llm_call(monkeypatch):
     """无代词 → 不触发重写 LLM 调用。"""
     calls = []
 
-    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):
         calls.append(layer)
         return {"role": "assistant", "content": "{}"}
 
@@ -41,7 +41,7 @@ async def test_resolve_llm_rewrite_applied(monkeypatch):
     """有未消解代词 → L2 层受约束重写被采纳。"""
     layers = []
 
-    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):
         layers.append(layer)
         return {
             "role": "assistant",
@@ -60,7 +60,7 @@ async def test_resolve_llm_rewrite_applied(monkeypatch):
 @pytest.mark.asyncio
 async def test_resolve_rejects_rewrite_still_with_pronoun(monkeypatch):
     """重写后仍含代词 → 拒收,走确定性注入兜底。"""
-    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):
         return {
             "role": "assistant",
             "content": json.dumps({"rewrites": [{"index": 0, "prompt": "he runs faster"}]}),
@@ -77,7 +77,7 @@ async def test_resolve_rejects_rewrite_still_with_pronoun(monkeypatch):
 @pytest.mark.asyncio
 async def test_resolve_llm_failure_fallback_injection(monkeypatch):
     """LLM 不可用 → 确定性注入兜底,不抛异常。"""
-    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):
         raise storyboard.llm.LLMError("down")
 
     monkeypatch.setattr(storyboard.llm, "chat_layered", fake_chat_layered)
@@ -100,7 +100,7 @@ async def test_parse_script_integrates_resolve(monkeypatch):
         ],
     }
 
-    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):
         layers.append(layer)
         if layer == "L3":
             return {"role": "assistant", "content": json.dumps(payload, ensure_ascii=False)}

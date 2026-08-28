@@ -24,7 +24,7 @@ async def test_parse_script_ok(monkeypatch):
         ],
     }
 
-    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):
         assert layer == "L3"
         return {"role": "assistant", "content": json.dumps(payload, ensure_ascii=False)}
 
@@ -38,7 +38,7 @@ async def test_parse_script_ok(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_parse_script_bad_json(monkeypatch):
-    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):
         return {"role": "assistant", "content": "这不是 JSON"}
 
     monkeypatch.setattr(storyboard.llm, "chat_layered", fake_chat_layered)
@@ -54,7 +54,7 @@ async def test_parse_script_render_mode_fallback(monkeypatch):
         {"scene": "空镜", "prompt": "sky"},
     ]}
 
-    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):
         return {"role": "assistant", "content": json.dumps(payload)}
 
     monkeypatch.setattr(storyboard.llm, "chat_layered", fake_chat_layered)

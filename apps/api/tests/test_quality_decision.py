@@ -82,7 +82,7 @@ async def test_evaluate_image_scored_paths():
 
 @pytest.mark.asyncio
 async def test_text_faithfulness_scored(monkeypatch):
-    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):
         assert layer == "L2"
         return {"role": "assistant", "content": json.dumps(
             {"faithfulness": 0.5, "issues": ["遗漏了结尾要求"]})}
@@ -95,7 +95,7 @@ async def test_text_faithfulness_scored(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_text_faithfulness_llm_down_degrades_pass(monkeypatch):
-    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):
         raise decision.llm.LLMError("down")
 
     monkeypatch.setattr(decision.llm, "chat_layered", fake_chat_layered)
@@ -106,7 +106,7 @@ async def test_text_faithfulness_llm_down_degrades_pass(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_text_faithfulness_bad_json_degrades_pass(monkeypatch):
-    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):
         return {"role": "assistant", "content": "无法评判"}
 
     monkeypatch.setattr(decision.llm, "chat_layered", fake_chat_layered)
@@ -117,7 +117,7 @@ async def test_text_faithfulness_bad_json_degrades_pass(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_text_faithfulness_score_clamped(monkeypatch):
-    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):
         return {"role": "assistant", "content": json.dumps({"faithfulness": 7.0, "issues": []})}
 
     monkeypatch.setattr(decision.llm, "chat_layered", fake_chat_layered)

@@ -190,10 +190,16 @@ class WorkerPool:
         if self._is_breaker_open(state, now):
             return (False, _UNREACHABLE)
         # 缓存命中:非强制且缓存新鲜
-        if not force and now - state.last_probe_ts < _PROBE_TTL and state.last_probe_ok:
+        # 守卫:required 非空但缓存模型集为空 = 上次空要求探测未枚举模型,不能误判缺模型
+        if (not force and now - state.last_probe_ts < _PROBE_TTL and state.last_probe_ok
+                and not (required and not state.last_models)
+                and not (required_nodes and not state.last_nodes)):
             return self._cached_probe(state, required, required_nodes)
         # 本地缓存过期:先试 Redis 里其他进程共享的探测结果(命中可免一次真实探测)
-        if not force and await self._load_shared(state, now):
+        # 同样守卫:required 非空但共享缓存模型集为空 → 跳过共享缓存
+        if (not force and await self._load_shared(state, now)
+                and not (required and not state.last_models)
+                and not (required_nodes and not state.last_nodes)):
             return self._cached_probe(state, required, required_nodes)
 
         c = state.client

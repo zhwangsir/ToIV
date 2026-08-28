@@ -1226,6 +1226,8 @@ class QwenEditRequest(BaseModel):
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
     # 内容分组 id(360° 环绕序列同批 8 张归组,作品库折叠为文件夹):仅标识用,安全字符白名单
     batch_id: str | None = Field(default=None, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
+    # 主体库引用(1-4 个 Entity id):prompt_hint 注入编辑指令,首个有图主体补参考图
+    entity_ids: list[str] | None = Field(default=None, max_length=4)
 
 
 @router.post("/generate/qwen-edit")
@@ -1249,8 +1251,28 @@ async def generate_qwen_edit(
     has_cam3d = req.azimuth is not None or req.elevation is not None or req.distance is not None
     if has_cam3d and req.camera is not None:
         raise HTTPException(status_code=422, detail="3D 相机与相机角度预设只能二选一")
-    if not req.positive.strip() and req.camera is None and not has_cam3d:
+    if not req.positive.strip() and req.camera is None and not has_cam3d and not req.entity_ids:
         raise HTTPException(status_code=422, detail="编辑指令与相机角度至少填一项")
+
+    # 主体库注入:prompt_hint 拼入编辑指令末尾
+    positive = req.positive
+    if req.entity_ids:
+        from app.services.entities import image_handle_for_injection
+        from sqlmodel import select as _select
+        from app.models import Entity as _Entity
+        ids = [i for i in req.entity_ids if isinstance(i, str) and i.strip()][:4]
+        rows = session.exec(
+            _select(_Entity).where(_Entity.user_id == user.id, _Entity.id.in_(ids))  # type: ignore[attr-defined]
+        ).all() if ids else []
+        order = {i: n for n, i in enumerate(ids)}
+        rows = sorted(rows, key=lambda e: order.get(e.id, len(ids)))
+        hints = []
+        for e in rows:
+            hint = (e.prompt_hint or e.description or "").strip()
+            if hint:
+                hints.append(f"{e.name}: {hint}")
+        if hints:
+            positive = f"{positive}\n[主体库] " + "; ".join(hints) if positive else "; ".join(hints)
     src = resolve_worker(req.worker)  # 源图所在 worker(resolve_worker 防 SSRF)
     try:
         content, _ = await src.get_image_bytes(req.image, "", "input")
@@ -1264,7 +1286,7 @@ async def generate_qwen_edit(
 
     params = QwenEditParams(
         image=transferred,
-        positive=req.positive,
+        positive=positive,  # 含主体库注入的编辑指令
         camera=req.camera,
         azimuth=req.azimuth,
         elevation=req.elevation,
@@ -1291,7 +1313,7 @@ async def generate_qwen_edit(
             kind="qwen_edit",
             status="queued",
             prompt=(
-                req.positive
+                positive
                 + (f" [camera:{req.camera}]" if req.camera else "")
                 + (f" [3d:{req.azimuth}°/{req.elevation}°/{req.distance}]" if has_cam3d else "")
             ).strip(),

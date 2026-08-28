@@ -411,6 +411,47 @@ async def _submit_wan_vace(pos, neg, params, pool, user, session) -> dict:
     return await wan_studio.generate_wan_vace(req, user, session)
 
 
+# ── Phase 4 新引擎 dispatch(2026-08-28;dispatch_covers 守卫要求注册表全覆盖) ──
+
+
+async def _submit_ovi_t2v(pos, neg, params, pool, user, session) -> dict:
+    from app.routes import ovi
+
+    # 台词/音频描述在路由侧经 assemble_ovi_prompt 三段式拼装;positive 作画面描述
+    req = ovi.OviT2VRequest(positive=pos, negative=neg, **params)
+    return await ovi.generate_ovi_t2v(req, user, session)
+
+
+async def _submit_ovi_i2v(pos, neg, params, pool, user, session) -> dict:
+    from app.routes import ovi
+
+    req = ovi.OviI2VRequest(positive=pos, negative=neg, **params)
+    return await ovi.generate_ovi_i2v(req, user, session)
+
+
+async def _submit_phantom_s2v(pos, neg, params, pool, user, session) -> dict:
+    from app.routes import phantom_studio
+
+    req = phantom_studio.PhantomS2VRequest(positive=pos, negative=neg, **params)
+    return await phantom_studio.generate_phantom_s2v(req, user, session)
+
+
+async def _submit_ltx25_multishot(pos, neg, params, pool, user, session) -> dict:
+    from app.routes import ltx
+
+    # shots(2-4 镜头)由 LLM 按参数表显式给出;positive 仅作对话语境不注入
+    req = ltx.LtxMultishotRequest(negative=neg, **params)
+    return await ltx.generate_ltx_multishot(req, user, session)
+
+
+async def _submit_flux_nunchaku(pos, neg, params, pool, user, session) -> dict:
+    from app.routes import flux_nunchaku
+
+    # FLUX 官方档:负向恒空(builder 内 FLUX.1-dev 范式),不入参
+    req = flux_nunchaku.FluxNunchakuRequest(positive=pos, **params)
+    return await flux_nunchaku.generate_flux_nunchaku(req, pool, user, session)
+
+
 async def _submit_vace_edit(pos, neg, params, pool, user, session) -> dict:
     from app.routes import wan_studio
 
@@ -466,6 +507,11 @@ _DISPATCH = {
     "vace-edit": (_submit_vace_edit, ()),
     "wan-transition": (_submit_wan_transition, ()),
     "keyframe-chain": (_submit_keyframe_chain, ()),
+    "ovi-t2v": (_submit_ovi_t2v, ()),
+    "ovi-i2v": (_submit_ovi_i2v, ("image", "worker")),
+    "phantom-s2v": (_submit_phantom_s2v, ("images",)),
+    "ltx25-multishot": (_submit_ltx25_multishot, ()),
+    "flux1-nunchaku": (_submit_flux_nunchaku, ()),
 }
 
 
@@ -544,6 +590,11 @@ async def exec_submit_generation(args: dict, ctx: dict) -> tuple[str, list[dict]
     negative = str(args.get("negative") or "")
     params = args.get("params") if isinstance(args.get("params"), dict) else {}
     entity_ids = args.get("entity_ids") if isinstance(args.get("entity_ids"), list) else []
+    # 前端 @主体 引用经 chat ctx 透传:LLM 未显式传 entity_ids 时用会话级兜底
+    if not entity_ids:
+        ctx_eids = ctx.get("entity_ids") or []
+        if isinstance(ctx_eids, list):
+            entity_ids = [i for i in ctx_eids if isinstance(i, str)][:4]
 
     spec = engine_registry.get_engine_spec(engine_id)
     if spec is None:

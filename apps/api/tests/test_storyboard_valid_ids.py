@@ -525,7 +525,7 @@ async def test_chain_b_known_characters_reconcile(monkeypatch):
         ],
     }
 
-    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):
         return {"role": "assistant", "content": json.dumps(payload, ensure_ascii=False)}
 
     monkeypatch.setattr(storyboard.llm, "chat_layered", fake_chat_layered)
@@ -547,7 +547,7 @@ async def test_chain_b_no_known_characters_passthrough(monkeypatch):
                    "characters": ["楚 生"], "render_mode": "video"}],
     }
 
-    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5):
+    async def fake_chat_layered(messages, layer="L1", max_tokens=None, temperature=0.5, enable_thinking=None):
         return {"role": "assistant", "content": json.dumps(payload, ensure_ascii=False)}
 
     monkeypatch.setattr(storyboard.llm, "chat_layered", fake_chat_layered)
