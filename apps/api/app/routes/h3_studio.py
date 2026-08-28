@@ -33,6 +33,7 @@ from app.services import video_generators as vgen
 from app.services.duration import DurationLimitError, DurationPlan, resolve_duration
 from app.services.effect_presets import apply_effect_preset, validate_effect_key
 from app.services.h3 import is_h3_nsfw_lora
+from app.services.lora_picker import inject_triggers, resolve_submit_loras, snapshot_loras, to_specs
 from app.services.video_upscale import maybe_chain_upscale
 from app.workflows.h3_video import H3I2VParams, H3T2VParams, build_h3_i2v_graph, build_h3_t2v_graph
 from app.workflows.lora import LoraSpec
@@ -64,11 +65,22 @@ class H3LoraInput(BaseModel):
         return name
 
 
-def _gate_h3_nsfw_loras(loras: list[H3LoraInput], user: User) -> None:
+def _gate_h3_nsfw_loras(loras: list[H3LoraInput] | None, user: User) -> None:
     """NSFW LoRA 门槛:引用已知 H3 R18 LoRA(services/h3.H3_NSFW_LORAS)时仅
     /nsfw 专页(X-NSFW: 1 header)放行,主站调用一律 403(与 _gate_ltx_nsfw 同风格)。"""
-    if any(is_h3_nsfw_lora(lora.name) for lora in loras) and not nsfw_allowed(user):
+    if loras and any(is_h3_nsfw_lora(lora.name) for lora in loras) and not nsfw_allowed(user):
         raise HTTPException(status_code=403, detail="所选 LoRA 为 R18 内容,仅限 NSFW 专区使用")
+
+
+def _resolve_h3_loras(prompt: str, user: User, loras: list[H3LoraInput] | None):
+    """省略=auto / 空列表=off / 非空=pin。返回 (specs, picks, mode, reason, positive)。"""
+    raw = None if loras is None else [{"name": l.name, "strength": l.strength} for l in loras]
+    try:
+        picks, mode, reason = resolve_submit_loras("h3", prompt, nsfw_allowed(user), raw)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    positive = inject_triggers(prompt, picks)
+    return to_specs(picks), picks, mode, reason, positive
 
 
 class H3T2VRequest(BaseModel):
@@ -79,7 +91,8 @@ class H3T2VRequest(BaseModel):
     """
     positive: str = Field(min_length=1, max_length=4000)
     negative: str = Field(default="", max_length=2000)
-    loras: list[H3LoraInput] = Field(default_factory=list, max_length=_MAX_LORAS)
+    # None=AI 选配; []=关闭; 非空=钉选(须在策划目录内)
+    loras: list[H3LoraInput] | None = Field(default=None, max_length=_MAX_LORAS)
     width: int = Field(default=1344, ge=256, le=1344)
     height: int = Field(default=768, ge=256, le=1344)
     duration_sec: float | None = Field(default=None, gt=0, le=600)
@@ -182,7 +195,7 @@ def _route_extend_submit(
     重取 User,避免 DetachedInstanceError(同 ltx25 2026-08-19 修复)。
     """
     owner_id = user.id  # 请求期内取值(安全)
-    loras = tuple(LoraSpec(name=l.name, weight=l.strength) for l in req.loras)
+    loras = tuple(LoraSpec(name=l.name, weight=l.strength) for l in (req.loras or []))
 
     async def _submit(frame_bytes: bytes, frames: int, idx: int) -> str:
         image_name = await client.upload_image(frame_bytes, f"h3_ext_{uuid.uuid4().hex}.jpg")
@@ -240,14 +253,19 @@ async def generate_h3_t2v(
     req = _apply_effect(req)
     req = _apply_entity_refs(req, session, user)
     plan = _resolve_plan(req)
+    specs, picks, lora_mode, lora_reason, positive = _resolve_h3_loras(req.positive, user, req.loras)
+    req = req.model_copy(update={
+        "positive": positive,
+        "loras": [H3LoraInput(name=p.name, strength=max(0.5, min(1.0, p.strength))) for p in picks],
+    })
     params = H3T2VParams(
-        positive=req.positive,
+        positive=positive,
         negative=req.negative,
         width=req.width,
         height=req.height,
         length=plan.frames,
         steps=req.steps,
-        loras=tuple(LoraSpec(name=l.name, weight=l.strength) for l in req.loras),
+        loras=specs,
         **({"seed": req.seed} if req.seed is not None else {}),
     )
     graph = build_h3_t2v_graph(params)
@@ -258,7 +276,13 @@ async def generate_h3_t2v(
         # R18 上下文(X-NSFW 头)打标进 /nsfw 专区作品库;nsfw_allowed 含未成年硬阻断,
         # 与 LTX 门控同一判定来源,主站(无头)恒 False 行为不变
         nsfw=nsfw,
+        snapshot_extra={
+            "loras": snapshot_loras(picks), "lora_mode": lora_mode, "lora_reason": lora_reason,
+        },
     )
+    result["loras"] = snapshot_loras(picks)
+    result["lora_mode"] = lora_mode
+    result["lora_reason"] = lora_reason
     if plan.strategy != "direct":
         client = await h3_service.pick_h3_client()
         vgen.spawn_duration_chain(
@@ -430,18 +454,23 @@ async def generate_h3_i2v(
     req = _apply_effect(req)
     req = _apply_entity_refs(req, session, user)
     plan = _resolve_plan(req)
+    specs, picks, lora_mode, lora_reason, positive = _resolve_h3_loras(req.positive, user, req.loras)
+    req = req.model_copy(update={
+        "positive": positive,
+        "loras": [H3LoraInput(name=p.name, strength=max(0.5, min(1.0, p.strength))) for p in picks],
+    })
     client = await h3_service.pick_h3_client()
     source = resolve_worker(req.worker)
     image_name = await h3_service.transfer_ref_image(client, source, req.image)
     params = H3I2VParams(
-        positive=req.positive,
+        positive=positive,
         negative=req.negative,
         image=image_name,
         width=req.width,
         height=req.height,
         length=plan.frames,
         steps=req.steps,
-        loras=tuple(LoraSpec(name=l.name, weight=l.strength) for l in req.loras),
+        loras=specs,
         **({"seed": req.seed} if req.seed is not None else {}),
     )
     graph = build_h3_i2v_graph(params)
@@ -450,7 +479,13 @@ async def generate_h3_i2v(
         graph, kind="h3_i2v", positive=params.positive, seed=params.seed,
         req=req, user=user, session=session, client=client,
         nsfw=nsfw,  # R18 上下文打标(同 t2v)
+        snapshot_extra={
+            "loras": snapshot_loras(picks), "lora_mode": lora_mode, "lora_reason": lora_reason,
+        },
     )
+    result["loras"] = snapshot_loras(picks)
+    result["lora_mode"] = lora_mode
+    result["lora_reason"] = lora_reason
     if plan.strategy != "direct":
         vgen.spawn_duration_chain(
             client=client,

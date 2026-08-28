@@ -362,7 +362,7 @@ export function buildH3T2VRequest(
     ...pickNumbers(values, H3_NUMBER_KEYS),
     ...pickDurationSec(values),
     ...pickSeed(values),
-    loras: parseLoraValues(values.loras),
+    ...pickLorasPayload(values.loras),
   };
 }
 
@@ -380,7 +380,7 @@ export function buildH3I2VRequest(
     ...pickNumbers(values, H3_NUMBER_KEYS),
     ...pickDurationSec(values),
     ...pickSeed(values),
-    loras: parseLoraValues(values.loras),
+    ...pickLorasPayload(values.loras),
   };
 }
 
@@ -498,6 +498,7 @@ export function buildLtxNsfwT2VRequest(
     ...pickSeed(values),
     use_upscale: values.use_upscale === true,
     use_rife: values.use_rife === true,
+    ...pickLorasPayload(values.loras),
   };
 }
 
@@ -549,7 +550,7 @@ export function buildH3NsfwT2VRequest(
     ...pickStrings(values, VIDEO_STRING_KEYS),
     ...pickNumbers(values, H3_NSFW_NUMBER_KEYS),
     ...pickSeed(values),
-    loras: parseLoraValues(values.loras),
+    ...pickLorasPayload(values.loras),
   };
 }
 
@@ -605,6 +606,16 @@ export function buildAvatarTalkRequest(
 
 const WAN_CFG_NUMBER_KEYS = ['width', 'height', 'steps', 'fps', 'cfg'] as const;
 const VACE_EDIT_NUMBER_KEYS = ['width', 'height', 'steps', 'fps', 'cfg'] as const;
+
+/** 空列表省略 loras 字段,让后端走 AI 选配;非空才钉选。 */
+function pickLorasPayload(
+  raw: unknown,
+  parser: (raw: unknown) => LoraValue[] = parseLoraValues,
+): { loras?: LoraValue[] } {
+  const loras = parser(raw);
+  return loras.length > 0 ? { loras } : {};
+}
+
 /** Wan NSFW LoRA：不套 H3 0.5-1.0 钳位（WanLoraInput ge=0 le=2；缺省 0.6） */
 export function parseWanLoraValues(raw: unknown): LoraValue[] {
   if (!Array.isArray(raw)) return [];
@@ -684,7 +695,7 @@ export function buildH3MultiShotRequest(
     ...pickStrings(values, VIDEO_STRING_KEYS),
     ...pickNumbers(values, H3_NUMBER_KEYS),
     ...pickSeed(values),
-    loras: parseLoraValues(values.loras),
+    ...pickLorasPayload(values.loras),
     ...(effect ? { effect_preset: effect } : {}),
     ...(target ? { resolution_target: target } : {}),
   };
@@ -782,7 +793,7 @@ export function buildWanNsfwI2VRequest(
     fps: 16,
     ...pickStrings(values, VIDEO_STRING_KEYS),
     ...pickSeed(values),
-    loras: parseWanLoraValues(values.loras),
+    ...pickLorasPayload(values.loras, parseWanLoraValues),
     full_quality: values.full_quality === true,
     ...(effect ? { effect_preset: effect } : {}),
     ...(target ? { resolution_target: target } : {}),

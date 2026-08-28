@@ -89,6 +89,10 @@ export interface GenerateResponse {
   /** RES-2026-08-18:融合超分挂链提示(选了输出分辨率档时返回;
    *  生成完成后自动二次超分,结果卡先显示「超分中」) */
   upscale_notice?: string;
+  /** AI/钉选 LoRA 快照(提交时实际挂上的策划卡) */
+  loras?: { name: string; strength: number; role?: string; reason?: string }[];
+  lora_mode?: "auto" | "off" | "pin";
+  lora_reason?: string;
 }
 
 // ── LTX2.3 视频生成(NSFW 专区)──
@@ -109,6 +113,7 @@ export interface LtxT2VParams {
   use_rife: boolean;
   /** RES-2026-08-18:输出分辨率档(720p/1080p/2k/4k);缺省原生直出 */
   resolution_target?: string;
+  loras?: { name: string; strength: number }[];
 }
 
 export interface LtxI2VParams extends LtxT2VParams {

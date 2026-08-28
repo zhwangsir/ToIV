@@ -197,7 +197,7 @@ function _bool(values: Record<string, unknown>, key: string): boolean {
   return Boolean(values[key]);
 }
 
-/** LoRA 叠加参数(loras 类型):多选数组 → [{name, strength}];非数组/空 → [](后端默认不加)。 */
+/** LoRA 叠加参数(loras 类型):多选数组 → [{name, strength}];非数组/空 → []。 */
 function _loras(values: Record<string, unknown>): LoraValue[] {
   const v = values["loras"];
   if (!Array.isArray(v)) return [];
@@ -211,6 +211,12 @@ function _loras(values: Record<string, unknown>): LoraValue[] {
     });
   }
   return out;
+}
+
+/** 空列表省略字段,让后端走 AI 选配;非空才钉选。 */
+function _lorasPayload(values: Record<string, unknown>): { loras?: LoraValue[] } {
+  const loras = _loras(values);
+  return loras.length > 0 ? { loras } : {};
 }
 
 function _seed(values: Record<string, unknown>): number | null {
@@ -488,6 +494,7 @@ function _ltxNsfwPayload(values: Record<string, unknown>, positive: string, nega
     use_upscale: _bool(values, "use_upscale"),
     use_rife: _bool(values, "use_rife"),
     resolution_target: _resolutionTarget(values),
+    ..._lorasPayload(values),
   };
 }
 
@@ -560,7 +567,7 @@ function _h3Payload(values: Record<string, unknown>, positive: string, negative:
     duration_sec: _num(values, "duration", 5),
     steps: _num(values, "steps", 20),
     seed,
-    loras: _loras(values),
+    ..._lorasPayload(values),
     effect_preset: _effectPreset(values),
     resolution_target: _resolutionTarget(values),
   };
@@ -577,7 +584,7 @@ function _h3NsfwPayload(values: Record<string, unknown>, positive: string, negat
     duration_sec: _durationSec(values),
     steps: _num(values, "steps", 20),
     seed,
-    loras: _loras(values),
+    ..._lorasPayload(values),
     effect_preset: _effectPreset(values),
     resolution_target: _resolutionTarget(values),
   };
@@ -598,7 +605,7 @@ function _wanNsfwI2vPayload(values: Record<string, unknown>, positive: string, n
     length,
     fps: 16,
     seed,
-    loras: _loras(values),
+    ..._lorasPayload(values),
     full_quality: _bool(values, "full_quality"),
     effect_preset: _effectPreset(values),
     resolution_target: _resolutionTarget(values),

@@ -32,6 +32,7 @@ from app.services.qwen_edit import QWEN_EDIT_NODE, get_qwen_edit_client
 from app.services.wan_animate2 import WAN_ANIMATE2_NODE, get_animate2_client
 from app.workflows.qwen_edit import CAMERA_PRESETS, QWEN_EDIT_UNET
 from app.workflows.model_profiles import is_image_ckpt, is_nextgen, is_nsfw
+from app.services.lora_catalog import catalog_options
 from app.workflows.model_wiki import card_for
 from app.workflows.style_presets import MediaType, list_presets
 from app.workflows.wan_i2v import WAN_I2V_NSFW_LORAS
@@ -405,6 +406,7 @@ def _ltx_nsfw_video_params() -> list[dict]:
         _seed(),
         {"key": "use_upscale", "label": "高清放大(2 阶段)", "type": "switch", "default": False},
         {"key": "use_rife", "label": "RIFE 补帧", "type": "switch", "default": False},
+        _ltx_nsfw_loras_select(),
         _resolution_target_select(),
     ]
 
@@ -484,6 +486,18 @@ def _multishot_params() -> list[dict]:
     return [p for p in _h3_video_params() if p["key"] != "duration"]
 
 
+
+def _ltx_nsfw_loras_select() -> dict:
+    """LTX 2.3 R18 LoRA 叠加:选项来自策划目录(ltx 引擎卡),不枚举 NAS。"""
+    return {
+        "key": "loras", "label": "LoRA 叠加", "type": "loras",
+        "default": [],
+        "options": catalog_options("ltx"),
+        "min": 0.0, "max": 2.0, "step": 0.05,
+        "hint": "留空由 AI 选配;点选即固定(最多 3 个)。默认 UNET 已是 10eros_v14,勿把 LoRA 当底模",
+    }
+
+
 def _h3_loras_select() -> dict:
     """H3 LoRA 叠加(多选 + 单项强度):options 运行时来自 H3 实例 LoraLoaderModelOnly 枚举。
 
@@ -497,7 +511,7 @@ def _h3_loras_select() -> dict:
         "options": [],
         "options_source": "h3_loras",
         "min": 0.5, "max": 1.0, "step": 0.05,
-        "hint": "可选,最多 3 个;推荐强度 0.5-1.0(默认 0.6);R18 LoRA 仅 /nsfw 专区可选",
+        "hint": "留空由 AI 选配;点选即固定(最多 3 个)。推荐强度 0.5-1.0(默认 0.6);R18 LoRA 仅 /nsfw 专区可选",
     }
 
 
@@ -544,7 +558,7 @@ def _wan_nsfw_loras_select() -> dict:
             for name in WAN_I2V_NSFW_LORAS
         ],
         "min": 0.3, "max": 1.2, "step": 0.05,
-        "hint": "HIGH 侧管构图/动作,LOW 侧管细节/质感;触发词须写进提示词句首,推荐强度 0.6-0.8,最多 4 个",
+        "hint": "留空由 AI 选配;点选即固定。HIGH 侧管构图/动作,LOW 侧管细节/质感;触发词提交时自动置前,推荐强度 0.6-0.8,最多 3 个",
     }
 
 

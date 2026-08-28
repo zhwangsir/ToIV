@@ -462,11 +462,11 @@ describe('buildH3T2VRequest', () => {
     expect('evil' in req).toBe(false);
   });
 
-  it('不带 fps/cfg（模板内锁定）；loras 缺省归一为空数组', () => {
+  it('不带 fps/cfg（模板内锁定）；loras 缺省省略（后端 AI 选配）', () => {
     const req = buildH3T2VRequest('x', { fps: 24, cfg: 5 });
     expect('fps' in req).toBe(false);
     expect('cfg' in req).toBe(false);
-    expect(req.loras).toEqual([]);
+    expect('loras' in req).toBe(false);
   });
 });
 

@@ -419,6 +419,8 @@ export interface LtxNsfwT2VRequest {
   use_upscale?: boolean;
   /** RIFE 补帧，默认 false */
   use_rife?: boolean;
+  /** 省略=AI 选配; []=关闭; 非空=钉选 */
+  loras?: LoraValue[];
 }
 
 /**

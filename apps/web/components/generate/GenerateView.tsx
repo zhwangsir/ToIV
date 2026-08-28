@@ -652,6 +652,11 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
               ? `排队中:前方还有 ${res.queued_behind} 个作业,依次自动执行`
               : null,
             res.upscale_notice ?? null,
+            res.loras && res.loras.length > 0
+              ? `AI 已选配 LoRA: ${res.loras.map((l) => l.name.replace(/\.safetensors$/i, "")).join("、")}`
+              : res.lora_mode === "off"
+                ? "未叠加 LoRA"
+                : null,
           ]
             .filter(Boolean)
             .join(" · ") || null,
@@ -677,6 +682,12 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
       // 超分挂链提示(RES-2026-08-18):原生生成完成后自动二次超分
       if (res.upscale_notice) {
         toast.info(res.upscale_notice);
+      }
+      if (res.loras && res.loras.length > 0) {
+        toast.info(
+          `已选配 ${res.loras.length} 个 LoRA: ` +
+            res.loras.map((l) => l.name.replace(/\.safetensors$/i, "")).join("、"),
+        );
       }
       // start 永远 resolve:出错经 onError 回调更新条目状态
       await gen.start(res, { label: target.label });

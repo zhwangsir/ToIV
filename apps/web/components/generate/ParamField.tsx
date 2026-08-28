@@ -48,7 +48,7 @@ export function ParamField({ param, value, onChange, disabled }: ParamFieldProps
         <Field label={param.label} hint={param.hint}>
           <div className="lora-picker">
             {(param.options ?? []).length === 0 ? (
-              <span className="lora-picker-empty">引擎实例上暂无可用 LoRA</span>
+              <span className="lora-picker-empty">留空由 AI 选配（提交时从策划卡自动挂载）</span>
             ) : (
               (param.options ?? []).map((o) => {
                 const on = selected.some((l) => l.name === o.value);
@@ -86,6 +86,9 @@ export function ParamField({ param, value, onChange, disabled }: ParamFieldProps
                   </div>
                 );
               })
+            )}
+            {selected.length === 0 && (param.options ?? []).length > 0 && (
+              <span className="lora-picker-empty">留空由 AI 选配</span>
             )}
           </div>
         </Field>

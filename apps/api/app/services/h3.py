@@ -261,6 +261,7 @@ async def submit_h3_job(
     session: Session,
     client: ComfyUIClient | None = None,
     nsfw: bool = False,
+    snapshot_extra: dict | None = None,
 ) -> dict:
     """提交 H3 作业:开关检查 → 就绪检查 → queue_prompt → 落 Job → 后台追踪(结果落库进作品库)。
 
@@ -326,7 +327,7 @@ async def submit_h3_job(
             prompt=positive,
             seed=seed,
             nsfw=nsfw,
-            params=params_snapshot(req, seed=seed),
+            params=params_snapshot(req, seed=seed, **(snapshot_extra or {})),
         )
     )
     session.commit()

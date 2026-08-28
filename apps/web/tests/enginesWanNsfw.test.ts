@@ -3,7 +3,7 @@
  * ① 提交链路由到 /api/generate/video,参考图 filename/worker 互钉透传;
  * ② duration 秒 → 4n+1 帧就近吸附(3s→49 / 5s→81 / 7.5s→121 上限),固定 16fps;
  * ③ resolution 预设换算宽高;loras(name+strength)与 full_quality 透传;
- * ④ 未选 LoRA → 空数组(后端不加 LoRA 节点)。
+ * ④ 未选 LoRA → 省略 loras 字段(后端 AI 选配)。
  */
 import assert from "node:assert/strict";
 import { beforeEach, test } from "node:test";
@@ -118,7 +118,7 @@ test("wan-nsfw-i2v payload:3s→49 / 7.5s→121(上限),时长缺省回落 5s", 
   const body = fetchCalls[0].body as Record<string, unknown>;
   assert.equal(body.length, 81);
   assert.equal(body.width, 832); // 缺省分辨率回落 832×480
-  assert.deepEqual(body.loras, []); // 未选 LoRA → 空数组(后端不加节点)
+  assert.equal("loras" in body, false); // 未选 LoRA → 省略字段,后端 AI 选配
 });
 
 test("wan-nsfw-i2v payload:满血档开关透传 full_quality=true", async () => {

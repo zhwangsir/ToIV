@@ -957,3 +957,57 @@ def test_i2v_nsfw_lora_rejected_without_nsfw_header(client, monkeypatch):
     )
     assert r.status_code == 403
     assert fake.uploads == [] and fake.graphs == []
+
+
+
+def test_t2v_auto_picks_aio_on_r18_empty_prompt(client, monkeypatch):
+    """R18 省略 loras + 短提示:自动挂 HMNSFW_AIO_V2,lora_mode=auto。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "h3-auto-aio")
+    fake = _FakeH3Client()
+    _install_h3(monkeypatch, fake)
+    r = c.post(
+        "/api/h3/t2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}", "X-NSFW": "1"},
+        json={"positive": "a"},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["lora_mode"] == "auto"
+    assert body["loras"][0]["name"] == "HMNSFW_AIO_V2.safetensors"
+    assert fake.graphs[0]["200"]["inputs"]["lora_name"] == "HMNSFW_AIO_V2.safetensors"
+
+
+def test_t2v_empty_list_skips_auto(client, monkeypatch):
+    """显式 [] = 关闭,R18 短提示也不挂概念卡。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "h3-off-lora")
+    fake = _FakeH3Client()
+    _install_h3(monkeypatch, fake)
+    r = c.post(
+        "/api/h3/t2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}", "X-NSFW": "1"},
+        json={"positive": "a", "loras": []},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["lora_mode"] == "off"
+    assert "200" not in fake.graphs[0]
+
+
+def test_t2v_pin_unknown_catalog_422(client, monkeypatch):
+    """钉选策划目录外文件名 → 422(禁止 NAS 自由混)。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "h3-pin-unknown")
+    fake = _FakeH3Client()
+    _install_h3(monkeypatch, fake)
+    r = c.post(
+        "/api/h3/t2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={"positive": "a cat", "loras": [{"name": "random_nas_file.safetensors", "strength": 0.6}]},
+    )
+    assert r.status_code == 422
+    assert "未知 H3 LoRA" in r.json()["detail"]
+    assert fake.graphs == []

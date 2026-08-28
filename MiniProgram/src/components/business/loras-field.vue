@@ -76,7 +76,7 @@ function onStrength(name: string, e: { detail: { value: number } }) {
       v-if="options.length === 0"
       class="loras-field__empty"
     >
-      引擎实例上暂无可用 LoRA
+      留空由 AI 选配
     </text>
 
     <template v-else>
@@ -140,7 +140,16 @@ function onStrength(name: string, e: { detail: { value: number } }) {
         </view>
       </view>
 
-      <text class="loras-field__count">
+      <text
+        v-if="selected.length === 0"
+        class="loras-field__count"
+      >
+        留空由 AI 选配
+      </text>
+      <text
+        v-else
+        class="loras-field__count"
+      >
         已选 {{ selected.length }}/{{ MAX_LORAS }}
       </text>
     </template>

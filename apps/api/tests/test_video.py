@@ -284,7 +284,7 @@ def test_wan_i2v_full_quality_drops_accel_lora(client, monkeypatch):
     fake = _FakeClient()
     monkeypatch.setattr(video_route, "resolve_worker", lambda worker: fake)
     _install_tracker_noop(monkeypatch)
-    r = _post_wan(c, uid, headers=_NSFW, full_quality=True)
+    r = _post_wan(c, uid, headers=_NSFW, full_quality=True, loras=[])
     assert r.status_code == 200
     g = fake.graphs[0]
     assert "3" not in g and "4" not in g  # 加速 LoRA 节点消失
@@ -514,3 +514,70 @@ def test_ltx_lipsync_ok_submits_and_creates_nsfw_job(client, monkeypatch):
         assert job is not None
         assert job.kind == "ltx_lipsync"
         assert job.nsfw is True
+
+
+
+def test_wan_i2v_auto_picks_concept_when_loras_omitted(client, monkeypatch):
+    """R18 省略 loras:AI 选配通用 NSFW 概念卡,触发词置前,响应带回 lora_mode=auto。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "wan-auto-lora")
+    fake = _FakeClient()
+    monkeypatch.setattr(video_route, "resolve_worker", lambda worker: fake)
+    _install_tracker_noop(monkeypatch)
+    r = _post_wan(c, uid, headers=_NSFW, full_quality=True)  # 省略 loras → auto
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["lora_mode"] == "auto"
+    names = [x["name"] for x in body["loras"]]
+    assert "NSFW-22-H-e8.safetensors" in names
+    g = fake.graphs[0]
+    mounted = [n["inputs"]["lora_name"] for n in g.values()
+               if n.get("class_type") == "LoraLoaderModelOnly"]
+    assert "NSFW-22-H-e8.safetensors" in mounted
+    # 触发词置前
+    pos = g.get("6", g.get("5", {})).get("inputs", {}).get("text") or ""
+    # CLIP 正向节点因模板而异:在图里搜 nsfwsks
+    blob = str(g)
+    assert "nsfwsks" in blob
+
+
+def test_ltx_t2v_pin_lora_lands_on_graph(client, monkeypatch):
+    """LTX R18 钉选策划卡:图含 LoraLoader,响应 lora_mode=pin。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "ltx-pin-lora")
+    fake = _FakeClient()
+    monkeypatch.setattr("app.deps.get_pool", lambda: _FakePool(fake))
+    _install_tracker_noop(monkeypatch)
+    name = "ltx_2.3_22b_distilled_1.1_lora_dynamic_fro09_avg_rank_111_bf16.safetensors"
+    r = c.post(
+        "/api/generate/ltx-t2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}", **_NSFW},
+        json={"positive": "a", "loras": [{"name": name, "strength": 0.8}]},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["lora_mode"] == "pin"
+    assert body["loras"][0]["name"] == name
+    loaders = [n for n in fake.graphs[0].values() if n.get("class_type") == "LoraLoader"]
+    assert loaders and loaders[0]["inputs"]["lora_name"] == name
+
+
+def test_ltx_t2v_empty_loras_off(client, monkeypatch):
+    """显式 [] = 关闭,即使提示含 dynamic 也不挂卡。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "ltx-off-lora")
+    fake = _FakeClient()
+    monkeypatch.setattr("app.deps.get_pool", lambda: _FakePool(fake))
+    _install_tracker_noop(monkeypatch)
+    r = c.post(
+        "/api/generate/ltx-t2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}", **_NSFW},
+        json={"positive": "dynamic motion dolly", "loras": []},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["lora_mode"] == "off"
+    assert r.json()["loras"] == []
+    assert not any(n.get("class_type") == "LoraLoader" for n in fake.graphs[0].values())

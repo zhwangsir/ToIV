@@ -25,6 +25,13 @@ from app.workflows.model_profiles import AR_VIDEO, aspect_guard
 from app.services import video_generators as vgen
 from app.services.duration import DurationLimitError, DurationPlan, resolve_duration
 from app.services.effect_presets import apply_effect_preset, validate_effect_key
+from app.services.lora_picker import (
+    inject_triggers,
+    resolve_submit_loras,
+    snapshot_loras,
+    split_wan_sides,
+    to_specs,
+)
 from app.services.video_upscale import maybe_chain_upscale
 from app.versioning import params_snapshot
 from app.workflows.video_upscale import validate_resolution_target
@@ -36,7 +43,7 @@ from app.workflows.ltx_video import (
     build_ltx_lipsync_graph,
     build_ltx_t2v_graph,
 )
-from app.workflows.wan_i2v import WAN_I2V_NSFW_LORAS, WanI2VParams, build_wan_i2v_graph
+from app.workflows.wan_i2v import WanI2VParams, build_wan_i2v_graph
 
 router = APIRouter()
 
@@ -61,7 +68,8 @@ class WanI2VRequest(BaseModel):
     fps: int = Field(default=16, ge=4, le=30)
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
     # NSFW LoRA 叠加链(仅 R18 上下文生效;SFW 请求带了一律剔除,防绕过)
-    loras: list[WanLoraInput] = Field(default_factory=list, max_length=4)
+    # None=AI 选配; []=关闭; 非空=钉选(须在策划目录内)。省略与空列表语义不同。
+    loras: list[WanLoraInput] | None = Field(default=None, max_length=4)
     # 满血档:不挂加速 LoRA,20 步 + cfg 3.5/3.0(慢 ~4 倍换质量,成片用);默认加速档 8 步
     full_quality: bool = False
     # 加速档(2026-08-27 Phase 2):off=满血 / turbo=草稿 4 步 Seko 双 LoRA /
@@ -150,22 +158,22 @@ async def generate_video(
     if req.effect_preset:
         pos, neg = apply_effect_preset(req.positive, req.negative or "", req.effect_preset)
         req = req.model_copy(update={"positive": pos, "negative": neg})
-    # NSFW LoRA 分侧挂载:R18 上下文才生效(SFW 请求带 loras 静默剔除);
-    # 注册表外的名字直接 422(防任意文件路径注入)
-    high_loras: list[tuple[str, float]] = []
-    low_loras: list[tuple[str, float]] = []
-    if req.loras and nsfw_allowed(user):
-        for l in req.loras:
-            entry = WAN_I2V_NSFW_LORAS.get(l.name)
-            if entry is None:
-                raise HTTPException(status_code=422, detail=f"未知 Wan NSFW LoRA: {l.name}")
-            (high_loras if entry.side == "high" else low_loras).append(
-                (l.name, l.strength if l.strength is not None else entry.default_strength))
+    # LoRA:省略=AI 从策划卡选配;空列表=关闭;非空=钉选。SFW 静默不挂 NSFW 卡(既有行为)。
+    nsfw = nsfw_allowed(user)
+    raw = None if req.loras is None else [{"name": l.name, "strength": l.strength} for l in req.loras]
+    if not nsfw and raw:
+        raw = []  # SFW 显式列表静默剔除,不 422
+    try:
+        picks, lora_mode, lora_reason = resolve_submit_loras("wan", req.positive, nsfw, raw)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    positive = inject_triggers(req.positive, picks)
+    high_loras, low_loras = split_wan_sides(picks)
     # 加速档映射(2026-08-27 Phase 2):显式 accel 优先;缺省按 full_quality 兼容映射
     # (True→off 满血 20 步 3.5/3.0;False→turbo_cache 成片 8 步 Seko + EasyCache)
     accel = req.accel if req.accel is not None else ("off" if req.full_quality else "turbo_cache")
     params = WanI2VParams(
-        positive=req.positive,
+        positive=positive,
         image=req.image,
         width=req.width,
         height=req.height,
@@ -196,8 +204,11 @@ async def generate_video(
             prompt=params.positive,
             seed=params.seed,
             # R18 上下文(/nsfw 专区提交)产物打标进 R18 作品库;主链 SFW 请求不打标
-            nsfw=nsfw_allowed(user),
-            params=params_snapshot(req, seed=params.seed),
+            nsfw=nsfw,
+            params=params_snapshot(
+                req, seed=params.seed, positive=positive,
+                loras=snapshot_loras(picks), lora_mode=lora_mode, lora_reason=lora_reason,
+            ),
         )
     )
     session.commit()
@@ -210,6 +221,9 @@ async def generate_video(
         "client_id": client_id,
         "worker": client.base_url,
         "seed": params.seed,
+        "loras": snapshot_loras(picks),
+        "lora_mode": lora_mode,
+        "lora_reason": lora_reason,
     }
     if req.resolution_target and maybe_chain_upscale(prompt_id, req.resolution_target):
         result["upscale_notice"] = (
@@ -227,6 +241,15 @@ def _gate_ltx_nsfw(user: User) -> None:
     10Eros 默认底模属 R18,主站调用一律 403。"""
     if not nsfw_allowed(user):
         raise HTTPException(status_code=403, detail="LTX 视频生成仅限 NSFW 专区访问")
+
+
+def _resolve_video_loras(engine: str, prompt: str, nsfw: bool, loras: list[WanLoraInput] | None):
+    """省略=auto / 空列表=off / 非空=pin;未知文件名 422。"""
+    raw = None if loras is None else [{"name": l.name, "strength": l.strength} for l in loras]
+    try:
+        return resolve_submit_loras(engine, prompt, nsfw, raw)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
 
 def _raise_from_comfy_error(e: ComfyUIError) -> None:
@@ -258,6 +281,8 @@ class LtxT2VRequest(BaseModel):
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
     use_upscale: bool = False
     use_rife: bool = False
+    # None=AI 选配; []=关闭; 非空=钉选(须在策划目录,最多 3)
+    loras: list[WanLoraInput] | None = Field(default=None, max_length=3)
     # RES-2026-08-18:输出分辨率档(1080p/2k/4k);空 = 原生直出
     resolution_target: str | None = Field(default=None, max_length=8)
 
@@ -335,8 +360,10 @@ async def generate_ltx_t2v(
 
     settings = get_settings()
     plan = _resolve_ltx_plan(req)
+    picks, lora_mode, lora_reason = _resolve_video_loras("ltx", req.positive, True, req.loras)
+    positive = inject_triggers(req.positive, picks)
     params = LtxT2VParams(
-        positive=req.positive,
+        positive=positive,
         negative=req.negative,
         unet_name=settings.nsfw_default_video_ckpt,
         gemma_name=settings.nsfw_default_gemma,
@@ -350,10 +377,14 @@ async def generate_ltx_t2v(
         seed=req.seed if req.seed is not None else LtxT2VParams(positive="").seed,
         use_upscale=req.use_upscale,
         use_rife=req.use_rife,
+        loras=to_specs(picks),
     )
     graph = build_ltx_t2v_graph(params)
     return _apply_duration(
-        await _submit_ltx_job(graph, params, "ltx_t2v", user, session), plan, req.resolution_target
+        await _submit_ltx_job(
+            graph, params, "ltx_t2v", user, session, req=req,
+            lora_meta=(picks, lora_mode, lora_reason),
+        ), plan, req.resolution_target
     )
 
 
@@ -370,8 +401,10 @@ async def generate_ltx_i2v(
     settings = get_settings()
     plan = _resolve_ltx_plan(req)
     client = resolve_worker(req.worker)
+    picks, lora_mode, lora_reason = _resolve_video_loras("ltx", req.positive, True, req.loras)
+    positive = inject_triggers(req.positive, picks)
     params = LtxI2VParams(
-        positive=req.positive,
+        positive=positive,
         image=req.image,
         negative=req.negative,
         unet_name=settings.nsfw_default_video_ckpt,
@@ -386,10 +419,14 @@ async def generate_ltx_i2v(
         seed=req.seed if req.seed is not None else LtxI2VParams(positive="", image="").seed,
         use_upscale=req.use_upscale,
         use_rife=req.use_rife,
+        loras=to_specs(picks),
     )
     graph = build_ltx_i2v_graph(params)
     return _apply_duration(
-        await _submit_ltx_job(graph, params, "ltx_i2v", user, session, client=client), plan, req.resolution_target
+        await _submit_ltx_job(
+            graph, params, "ltx_i2v", user, session, client=client, req=req,
+            lora_meta=(picks, lora_mode, lora_reason),
+        ), plan, req.resolution_target
     )
 
 
@@ -439,16 +476,22 @@ async def _submit_ltx_job(
     user: User,
     session: Session,
     client=None,
+    req=None,
+    lora_meta=None,
 ):
     """提交 LTX 作业到 ComfyUI 并落库。client=None 时由 pool.pick 选 worker。"""
     from app.deps import get_pool
     from app.comfy.pool import WorkerPool
     from app.capabilities import required_nodes, required_models
 
+    lora_specs = getattr(params, "loras", ()) or ()
     if client is None:
         pool: WorkerPool = get_pool()
         node_set = required_nodes(kind)
-        model_set = required_models(kind)
+        model_set = set(required_models(kind))
+        model_set |= {l.name for l in lora_specs}
+        if lora_specs:
+            node_set = node_set | {"LoraLoader"}
         # pool.pick 无可用 worker 时抛 ComfyUIError(从不返回 None),须捕获转 503,
         # 否则冒泡成 500(2026-08-14 Team E 测试实证,对齐 generate.py 写法)
         try:
@@ -476,6 +519,15 @@ async def _submit_ltx_job(
             prompt=params.positive,
             seed=params.seed,
             nsfw=True,
+            params=(
+                params_snapshot(
+                    req, seed=params.seed, positive=params.positive,
+                    loras=snapshot_loras(lora_meta[0]),
+                    lora_mode=lora_meta[1], lora_reason=lora_meta[2],
+                ) if req is not None and lora_meta is not None else (
+                    params_snapshot(req, seed=params.seed) if req is not None else ""
+                )
+            ),
         )
     )
     session.commit()
@@ -483,9 +535,14 @@ async def _submit_ltx_job(
     # 启动服务端后台追踪:前端 SSE 断开后仍可把结果落库,避免"一直生成中"
     spawn_tracker(client, prompt_id)
 
-    return {
+    out = {
         "prompt_id": prompt_id,
         "client_id": client_id,
         "worker": client.base_url,
         "seed": params.seed,
     }
+    if lora_meta is not None:
+        out["loras"] = snapshot_loras(lora_meta[0])
+        out["lora_mode"] = lora_meta[1]
+        out["lora_reason"] = lora_meta[2]
+    return out
