@@ -666,7 +666,7 @@ function confirmRemoveDoc(doc: DocItem) {
           placeholder="描述你的想法…"
           placeholder-class="assistant__textarea-placeholder"
           auto-height
-          :maxlength="8000"
+          :maxlength="32000"
           confirm-type="send"
           :hold-keyboard="true"
           @input="onInput"

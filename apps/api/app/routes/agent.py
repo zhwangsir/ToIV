@@ -107,7 +107,8 @@ async def _events_with_keepalive(
 
 class ChatMessage(BaseModel):
     role: str
-    content: str = Field(max_length=8000)
+    # 32k 对齐 Spark02 vLLM max_model_len;续聊通常只上送本轮 user
+    content: str = Field(max_length=32768)
 
 
 class ImageRef(BaseModel):
@@ -116,7 +117,8 @@ class ImageRef(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    messages: list[ChatMessage] = Field(min_length=1, max_length=40)
+    # 续聊只需要最新 user;首轮粘贴/本地兜底仍可能带一段历史
+    messages: list[ChatMessage] = Field(min_length=1, max_length=200)
     image: ImageRef | None = None
     # 挂载的文档 id(文档上传与长文本理解;检索相关片段注入上下文,见 runner._docs_context)
     document_ids: list[str] = Field(default_factory=list, max_length=8)
@@ -200,6 +202,7 @@ async def agent_chat(
     attachment = body.image.model_dump() if body.image else None
 
     # ── 会话解析/创建(会话 id 经响应头立即返回前端,供续聊携带)──
+    # 续聊模型可见历史由 runner 按 AgentMessage 重建(含 tool),不依赖客户端 30 条窗口。
     if body.session_id:
         sess = _get_owned_session(session, user, body.session_id)
         # 续聊:历史已在库,只落本轮新输入(最后一条 user 消息)
@@ -299,21 +302,10 @@ async def agent_chat_resume(
     session.add(sess)
     session.commit()
 
-    # 从消息日志重建模型可见历史(user/assistant 原文;tool 中间结果不回放,
-    # 与前端续聊只带两类消息的口径一致),再注入对决消息
-    rows = session.exec(
-        select(AgentMessage)
-        .where(AgentMessage.session_id == sess.id)
-        .order_by(AgentMessage.id.asc())
-    ).all()
-    msgs = [
-        {"role": r.role, "content": r.content}
-        for r in rows
-        if r.role in ("user", "assistant") and r.content
-    ]
+    # 对决消息落库后,runner 按 AgentMessage 重建含 tool 的历史(与续聊同一口径)
     decision = _decision_message(prop, body.action, body.note)
-    msgs.append({"role": "user", "content": decision})
     _append_message(session, sess, "user", decision)
+    msgs = [{"role": "user", "content": decision}]
 
     async def on_message(msg: dict) -> None:
         _append_message(

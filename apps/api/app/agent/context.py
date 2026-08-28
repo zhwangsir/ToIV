@@ -24,10 +24,9 @@ _FOLD_NOTE = "\n\n(系统注:更早的部分对话已因上下文预算折叠省
 TOOL_CONTENT_CAP = 1800
 _TRUNC_SUFFIX = "\n...(截断)"
 
-# runner 在 LLM 报上下文溢出且重试仍失败时展示给用户(不要回传 vLLM JSON)
-CONTEXT_OVERFLOW_USER_MSG = (
-    "对话太长，模型上下文已满。请新开一个会话，或删掉本轮过长的附件后再试。"
-)
+# 仅当 system + 本轮最新 user + 内建工具 schema 仍溢出时展示(32k GPU 硬顶)。
+# 长会话靠折叠/半预算/只留最近 user 重试,不要叫用户新开会话。
+CONTEXT_OVERFLOW_USER_MSG = "这一条太长，请缩短本轮输入。"
 
 
 def is_context_overflow_error(err: BaseException) -> bool:
@@ -39,6 +38,58 @@ def is_context_overflow_error(err: BaseException) -> bool:
 def tighter_context_budget(budget: int) -> int:
     """溢出重试预算:原预算一半,且不低于 4000。"""
     return max(int(budget) // 2, 4000)
+
+
+def last_user_turn(msgs: list[dict]) -> list[dict]:
+    """溢出最后一档工作副本:只留 system + 最近一条 user(不改入参)。
+
+    中间历史整段丢掉;本轮用户原文不截断——截不断再报 CONTEXT_OVERFLOW_USER_MSG。
+    """
+    out = [dict(m) for m in msgs if m.get("role") == "system"]
+    last = next((dict(m) for m in reversed(msgs) if m.get("role") == "user"), None)
+    if last is not None:
+        out.append(last)
+    elif not out:
+        return [dict(m) for m in msgs]
+    return out
+
+
+def model_messages_from_rows(rows: list) -> list[dict]:
+    """AgentMessage 行(或同形 dict/对象) → 进 LLM 的 messages。
+
+    assistant.tool_calls 存工具调用数组 JSON;tool.tool_calls 存
+    {tool_call_id,name,args}。未知 role 跳过。纯函数,不改入参。
+    """
+    out: list[dict] = []
+    for r in rows:
+        if isinstance(r, dict):
+            role = r.get("role")
+            content = r.get("content") or ""
+            raw_tc = r.get("tool_calls") or ""
+        else:
+            role = getattr(r, "role", None)
+            content = getattr(r, "content", None) or ""
+            raw_tc = getattr(r, "tool_calls", None) or ""
+        if role not in ("user", "assistant", "tool"):
+            continue
+        msg: dict = {"role": role, "content": content}
+        parsed = None
+        if isinstance(raw_tc, (list, dict)):
+            parsed = raw_tc
+        elif isinstance(raw_tc, str) and raw_tc.strip():
+            try:
+                parsed = json.loads(raw_tc)
+            except (json.JSONDecodeError, TypeError):
+                parsed = None
+        if role == "assistant" and isinstance(parsed, list) and parsed:
+            msg["tool_calls"] = parsed
+        elif role == "tool":
+            tool_call_id = ""
+            if isinstance(parsed, dict):
+                tool_call_id = str(parsed.get("tool_call_id") or "")
+            msg["tool_call_id"] = tool_call_id
+        out.append(msg)
+    return out
 
 
 def chat_tool_schemas(schemas: list[dict] | None) -> list[dict]:

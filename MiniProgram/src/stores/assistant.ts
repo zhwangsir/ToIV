@@ -302,11 +302,18 @@ export const useAssistantStore = defineStore('assistant', {
   }),
 
   getters: {
-    /** 上行载荷：仅带实际文本的消息（纯媒体占位 assistant 消息 content 为空不上行） */
+    /** 上行载荷：仅带实际文本的消息（纯媒体占位 assistant 消息 content 为空不上行）。
+     *  有 sessionId 时只上送最新 user（服务端用 DB 历史），避免长会话 422。 */
     payload(state): AgentChatMessage[] {
-      return state.messages
+      const all = state.messages
         .filter((m) => m.text.trim() !== '')
         .map((m) => ({ role: m.role, content: m.text }));
+      if (state.sessionId) {
+        for (let i = all.length - 1; i >= 0; i--) {
+          if (all[i].role === 'user') return [all[i]];
+        }
+      }
+      return all;
     },
   },
 
@@ -419,7 +426,7 @@ export const useAssistantStore = defineStore('assistant', {
       this.messages = [...this.messages, assistantMsg];
       this.sending = true;
 
-      // 占位 assistant 空文本已被 payload 过滤，上行即「历史 + 本轮 user」
+      // 占位 assistant 空文本已被 payload 过滤；续聊只上送最新 user
       const params: {
         messages: AgentChatMessage[];
         sessionId?: string;

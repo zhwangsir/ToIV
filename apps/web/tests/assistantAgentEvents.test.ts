@@ -306,6 +306,17 @@ test("buildApiMessages:正常会话原样通过(role/content 对)", () => {
   ]);
 });
 
+test("buildApiMessages:有 sessionId 时只上送最新 user", () => {
+  const msgs: ChatMessage[] = [
+    makeMsg("u1", "user", { content: "上文" }),
+    makeMsg("a1", "assistant", { content: "回复" }),
+    makeMsg("u2", "user", { content: "下一句" }),
+  ];
+  assert.deepEqual(buildApiMessages(msgs, { sessionId: "sess-1" }), [
+    { role: "user", content: "下一句" },
+  ]);
+});
+
 test("LibraryView 灯箱:createPortal 到 document.body(逃脱 view-stage 层叠上下文,防账户按钮反压)", () => {
   const src = readSrc("components/library/LibraryView.tsx");
   assert.ok(src.includes('from "react-dom"'), "缺 react-dom import");

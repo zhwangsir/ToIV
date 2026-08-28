@@ -227,6 +227,21 @@ def test_chat_continue_only_appends_new_user_message(ctx, monkeypatch):
     assert [m.content for m in rows if m.role == "user"] == ["问题一", "问题二"]
 
 
+def test_chat_continue_one_item_body_uses_db_history(ctx, monkeypatch):
+    """续聊只上送最新 user 时,模型仍看到库里的上文(含 assistant)。"""
+    c, alice, _, engine, _ = ctx
+    calls = _mock_llm(monkeypatch, [{"content": "回答一"}, {"content": "回答二"}])
+    r1 = _chat(c, alice, [{"role": "user", "content": "问题一"}])
+    sid = r1.headers["x-agent-session-id"]
+    r2 = _chat(c, alice, [{"role": "user", "content": "问题二"}], session_id=sid)
+    assert r2.status_code == 200, r2.text
+    assert len(calls) >= 2
+    contents = [m.get("content") or "" for m in calls[1]]
+    assert "问题一" in contents
+    assert "回答一" in contents
+    assert "问题二" in contents
+
+
 def test_chat_with_foreign_session_id_404(ctx, monkeypatch):
     c, alice, bob, _, _ = ctx
     _mock_llm(monkeypatch, [{"content": "hi"}])

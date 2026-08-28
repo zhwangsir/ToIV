@@ -343,25 +343,35 @@ export function mediaTypeForJob(kind: string, url = ""): string {
   return mediaKindOf(url, kind);
 }
 
-/** 上送 API 的消息构造上限:后端契约 messages≤40 条、单条 content≤8000 字符,
- *  前端留余量取下值——超限时整体 422(2026-08-27 长会话「回复失败:[object Object]」根因)。 */
-export const MAX_API_MESSAGES = 30;
-export const MAX_API_MESSAGE_CHARS = 7900;
+/** 上送 API 的消息构造上限:后端 ChatRequest messages≤200、content≤32768。
+ *  有 session_id 时只上送最新 user(服务端用 DB 历史);无会话才带一段尾部防 422。 */
+export const MAX_API_MESSAGES = 200;
+export const MAX_API_MESSAGE_CHARS = 32000;
 
 /** 上送 API 的消息列表构造(纯函数,单测锚点):过滤 error 卡;单条超长截断;
- *  总数超限保留最近 N 条(会话开头是系统/首轮上下文,尾部才是近期语义)。 */
-export function buildApiMessages(msgs: ChatMessage[]): { role: string; content: string }[] {
+ *  续聊(sessionId)只带最新 user;否则总数超限保留最近 N 条。 */
+export function buildApiMessages(
+  msgs: ChatMessage[],
+  opts?: { sessionId?: string | null },
+): { role: string; content: string }[] {
   const usable = msgs.filter(
     (m) => (m.role === "user" || m.role === "assistant") && m.kind !== "error",
   );
-  const tail = usable.length > MAX_API_MESSAGES ? usable.slice(-MAX_API_MESSAGES) : usable;
-  return tail.map((m) => ({
+  const clip = (m: ChatMessage) => ({
     role: m.role,
     content:
       m.content.length > MAX_API_MESSAGE_CHARS
         ? `${m.content.slice(0, MAX_API_MESSAGE_CHARS)}…(已截断)`
         : m.content,
-  }));
+  });
+  if (opts?.sessionId) {
+    for (let i = usable.length - 1; i >= 0; i--) {
+      if (usable[i].role === "user") return [clip(usable[i])];
+    }
+    return usable.slice(-1).map(clip);
+  }
+  const tail = usable.length > MAX_API_MESSAGES ? usable.slice(-MAX_API_MESSAGES) : usable;
+  return tail.map(clip);
 }
 
 /** 作业卡轮询快照回写(纯函数,单测锚点):进行中卡片按 job id / prompt_id 匹配
@@ -1087,7 +1097,8 @@ export function AssistantView(props?: AssistantViewProps) {
       // 必须显式识别为失败;同理,流正常结束但零内容也按失败处理
       let streamError = false;
       try {
-        const apiMessages = buildApiMessages(baseMsgs);
+        const sid = convStore.serverMode ? (activeConvIdRef.current ?? null) : null;
+        const apiMessages = buildApiMessages(baseMsgs, { sessionId: sid });
 
         let assistantMsg: ChatMessage | null = null;
 

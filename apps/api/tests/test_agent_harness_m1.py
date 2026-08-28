@@ -24,10 +24,12 @@ from app.agent.context import (
     _group_units,
     chat_tool_schemas,
     compress_history,
+    last_user_turn,
+    model_messages_from_rows,
 )
 from app.agent import llm as agent_llm
 from app.agent import runner as agent_runner
-from app.models import Agent, Tenant, User
+from app.models import Agent, AgentMessage, AgentSession, Tenant, User
 from app.security import hash_password
 
 
@@ -176,6 +178,37 @@ def test_chat_tool_schemas_omits_mcp_prefix():
     ]
     names = [s["function"]["name"] for s in chat_tool_schemas(schemas)]
     assert names == ["generate_image", "check_jobs"]
+
+
+def test_last_user_turn_keeps_system_and_latest_user():
+    h = _hist()
+    snapshot = json.dumps(h, ensure_ascii=False)
+    out = last_user_turn(h)
+    assert json.dumps(h, ensure_ascii=False) == snapshot
+    assert [m["role"] for m in out] == ["system", "user"]
+    assert out[1]["content"] == "再改成蓝色"
+    assert "新开会话" not in CONTEXT_OVERFLOW_USER_MSG
+
+
+def test_model_messages_from_rows_restores_tool_pair():
+    rows = [
+        {"role": "user", "content": "有哪些模型", "tool_calls": ""},
+        {
+            "role": "assistant", "content": "",
+            "tool_calls": json.dumps([{"id": "t1", "function": {"name": "list_models", "arguments": "{}"}}]),
+        },
+        {
+            "role": "tool", "content": "ckpt: a.safetensors",
+            "tool_calls": json.dumps({"tool_call_id": "t1", "name": "list_models", "args": {}}),
+        },
+        {"role": "assistant", "content": "已列出", "tool_calls": ""},
+        {"role": "system", "content": "skip me", "tool_calls": ""},
+    ]
+    out = model_messages_from_rows(rows)
+    assert [m["role"] for m in out] == ["user", "assistant", "tool", "assistant"]
+    assert out[1]["tool_calls"][0]["id"] == "t1"
+    assert out[2]["tool_call_id"] == "t1"
+    assert out[2]["content"] == "ckpt: a.safetensors"
 
 
 # --------------------------------------------------------------------------- #
@@ -386,8 +419,160 @@ async def test_runner_context_overflow_yields_friendly_zh():
                 [{"role": "user", "content": "hi"}], pool=None, user=user, session=s
             )]
 
-        assert fake_llm.n == 2
+        assert fake_llm.n == 3  # 预算 → 半预算 → 只留最近 user
         assert len(events) == 1 and events[0]["type"] == "error"
         assert events[0]["content"] == CONTEXT_OVERFLOW_USER_MSG
+        assert "新开会话" not in events[0]["content"]
         assert "maximum context length" not in events[0]["content"]
         assert "主备均不可用" not in events[0]["content"]
+
+
+class _OverflowThenOkLLM:
+    """前 fail_times 次报上下文溢出,之后正常收尾。"""
+
+    def __init__(self, fail_times: int) -> None:
+        self.n = 0
+        self.fail_times = fail_times
+        self.calls: list[list[dict]] = []
+
+    async def chat(self, msgs, tools=None):
+        self.n += 1
+        self.calls.append([dict(m) for m in msgs])
+        if self.n <= self.fail_times:
+            raise agent_llm.LLMError(
+                "LLM 调用失败(400): maximum context length is 32768 tokens. "
+                "However, you requested 0 output tokens and your prompt contains at least 32769 input tokens"
+            )
+        return {"content": "折叠后继续", "tool_calls": []}
+
+
+@pytest.mark.asyncio
+async def test_runner_overflow_retry_last_user_no_new_session():
+    """最近 user 很短时,半预算仍溢出则只留 system+该 user 再试,成功则不提新开会话。"""
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as s:
+        tenant = Tenant(name="ovf2")
+        s.add(tenant); s.commit(); s.refresh(tenant)
+        user = User(email="ovf2@toiv.ai", hashed_password=hash_password("password1"), tenant_id=tenant.id)
+        s.add(user); s.commit(); s.refresh(user)
+
+        fake_llm = _OverflowThenOkLLM(fail_times=2)
+        fake_tools = _FakeTools()
+        fake_ctx = type("Ctx", (), {})()
+
+        def svc(name):
+            if name == "llm":
+                return fake_llm
+            if name == "tools":
+                return fake_tools
+            raise KeyError(name)
+
+        fake_ctx.service = svc
+        fake_settings = SimpleNamespace(agent_max_rounds=5, agent_context_budget=24000, agent_skills_topk=0)
+        with patch.object(agent_runner, "get_ctx", lambda: fake_ctx), \
+             patch.object(agent_runner, "nsfw_allowed", lambda u: False), \
+             patch.object(agent_runner, "_rag_context", _noop_rag), \
+             patch.object(agent_runner, "get_settings", lambda: fake_settings):
+            events = [ev async for ev in agent_runner.run(
+                [
+                    {"role": "user", "content": "很久以前的问题"},
+                    {"role": "assistant", "content": "很久以前的回答"},
+                    {"role": "user", "content": "hi"},
+                ],
+                pool=None, user=user, session=s,
+            )]
+
+        assert fake_llm.n == 3
+        assert events[-1]["type"] == "text" and events[-1]["content"] == "折叠后继续"
+        joined = "\n".join(str(e.get("content") or "") for e in events)
+        assert "新开会话" not in joined
+        third = fake_llm.calls[2]
+        assert third[0]["role"] == "system"
+        assert [m["role"] for m in third[1:]] == ["user"]
+        assert third[-1]["content"] == "hi"
+
+
+@pytest.mark.asyncio
+async def test_runner_uses_db_history_not_one_item_client_body():
+    """续聊:agent_session 在时用库里的 user/assistant/tool,忽略客户端 1 条 body。"""
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as s:
+        tenant = Tenant(name="hist")
+        s.add(tenant); s.commit(); s.refresh(tenant)
+        user = User(email="hist@toiv.ai", hashed_password=hash_password("password1"), tenant_id=tenant.id)
+        s.add(user); s.commit(); s.refresh(user)
+        sess = AgentSession(user_id=user.id, title="hist")
+        s.add(sess); s.commit(); s.refresh(sess)
+        s.add(AgentMessage(session_id=sess.id, role="user", content="历史用户"))
+        s.add(AgentMessage(
+            session_id=sess.id, role="assistant", content="",
+            tool_calls=json.dumps([
+                {"id": "t1", "function": {"name": "list_models", "arguments": "{}"}},
+            ]),
+        ))
+        s.add(AgentMessage(
+            session_id=sess.id, role="tool", content="ckpt: a.safetensors",
+            tool_calls=json.dumps({"tool_call_id": "t1", "name": "list_models", "args": {}}),
+        ))
+        s.add(AgentMessage(session_id=sess.id, role="assistant", content="已列出"))
+        s.add(AgentMessage(session_id=sess.id, role="user", content="本轮新问题"))
+        s.commit()
+
+        fake_llm = _FakeLLM(rounds_before_final=0)
+        fake_tools = _FakeTools()
+        fake_ctx = type("Ctx", (), {})()
+
+        def svc(name):
+            if name == "llm":
+                return fake_llm
+            if name == "tools":
+                return fake_tools
+            raise KeyError(name)
+
+        fake_ctx.service = svc
+        fake_settings = SimpleNamespace(agent_max_rounds=5, agent_context_budget=24000, agent_skills_topk=0)
+        with patch.object(agent_runner, "get_ctx", lambda: fake_ctx), \
+             patch.object(agent_runner, "nsfw_allowed", lambda u: False), \
+             patch.object(agent_runner, "_rag_context", _noop_rag), \
+             patch.object(agent_runner, "get_settings", lambda: fake_settings):
+            events = [ev async for ev in agent_runner.run(
+                [{"role": "user", "content": "本轮新问题"}],
+                pool=None, user=user, session=s, agent_session=sess,
+            )]
+
+        assert events[-1]["type"] == "text" and events[-1]["content"] == "完成"
+        sent = fake_llm.calls[0]
+        contents = [m.get("content") or "" for m in sent]
+        assert "历史用户" in contents
+        assert "本轮新问题" in contents
+        assert "ckpt: a.safetensors" in contents
+        assert any(m.get("tool_calls") for m in sent)
+        assert any(m.get("role") == "tool" and m.get("tool_call_id") == "t1" for m in sent)
+        assert len([m for m in sent if m.get("role") != "system"]) >= 5
+
+
+def test_chat_request_accepts_over_40_and_single_continuation():
+    from pydantic import ValidationError
+    from app.routes.agent import ChatRequest
+
+    body = ChatRequest.model_validate({
+        "messages": [{"role": "user" if i % 2 == 0 else "assistant", "content": str(i)} for i in range(50)],
+        "session_id": "s1",
+    })
+    assert len(body.messages) == 50
+    one = ChatRequest.model_validate({
+        "messages": [{"role": "user", "content": "下一句"}],
+        "session_id": "s1",
+    })
+    assert len(one.messages) == 1
+    long = ChatRequest.model_validate({
+        "messages": [{"role": "user", "content": "汉" * 20000}],
+    })
+    assert len(long.messages[0].content) == 20000
+    with pytest.raises(ValidationError):
+        ChatRequest.model_validate({
+            "messages": [{"role": "user", "content": "x"} for _ in range(201)],
+        })
+

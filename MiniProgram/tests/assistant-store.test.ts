@@ -42,7 +42,7 @@ beforeEach(() => {
 });
 
 describe('send 流程', () => {
-  it('落 user 气泡 + 流式占位；上行含历史+本轮；完成后 sessionId 回填', async () => {
+  it('落 user 气泡 + 流式占位；续聊只上送最新 user；完成后 sessionId 回填', async () => {
     const store = useAssistantStore();
     // 旧会话上下文
     store.sessionId = 's0';
@@ -68,11 +68,7 @@ describe('send 流程', () => {
     await new Promise((r) => setTimeout(r, 30));
     const chat = allRequests().find((r) => r.url.includes('/api/agent/chat'));
     expect(chat?.data).toEqual({
-      messages: [
-        { role: 'user', content: '上文' },
-        { role: 'assistant', content: '回复' },
-        { role: 'user', content: '再画一张' },
-      ],
+      messages: [{ role: 'user', content: '再画一张' }],
       session_id: 's0',
     });
     expect(store.messages[4].text).toBe('好的');

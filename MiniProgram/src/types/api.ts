@@ -705,7 +705,7 @@ export interface AgentEvent {
   worker?: string;
 }
 
-/** POST /api/agent/chat 请求消息（ChatMessage：role + content，content ≤8000） */
+/** POST /api/agent/chat 请求消息（ChatMessage：role + content，content ≤32768） */
 export interface AgentChatMessage {
   role: 'user' | 'assistant';
   content: string;

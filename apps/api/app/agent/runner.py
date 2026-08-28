@@ -23,13 +23,15 @@ from app.agent.context import (
     chat_tool_schemas,
     compress_history,
     is_context_overflow_error,
+    last_user_turn,
+    model_messages_from_rows,
     tighter_context_budget,
 )
 from app.agent.rag import get_kb
 from app.comfy.pool import WorkerPool
 from app.config import get_settings
 from app.harness.ctx import get_ctx
-from app.models import Agent, Document, User
+from app.models import Agent, AgentMessage, Document, User
 from app.nsfw_ctx import nsfw_allowed
 from app.services import docs as docsvc
 
@@ -199,7 +201,23 @@ async def run(
 
     事件契约:除既有的 text/error/tool(旧)/媒体事件外,新增
     tool_event(start/ok|error)/job/proposal 三类 dict,由路由层映射为
-    同名 SSE 事件(深度接管协议,前端按 event 名订阅)。"""
+    同名 SSE 事件(深度接管协议,前端按 event 名订阅)。
+
+    续聊:agent_session 非空时模型可见历史取自该会话 AgentMessage 行
+    (user/assistant/tool 含 tool_calls),不依赖客户端上送的短列表。"""
+    if agent_session is not None:
+        rows = session.exec(
+            select(AgentMessage)
+            .where(AgentMessage.session_id == agent_session.id)
+            .order_by(AgentMessage.id.asc())
+        ).all()
+        db_msgs = model_messages_from_rows(rows)
+        if db_msgs:
+            logger.debug(
+                "agent.history: session=%s db_msgs=%d (server history wins)",
+                getattr(agent_session, "id", ""), len(db_msgs),
+            )
+            messages = db_msgs
     # 把所有 system 内容拼到开头唯一一条 system 消息里(vLLM 要求 system 只能在消息列表开头,
     # 多条 system 会被拒绝;LM Studio 宽容但不保证)。用换行 + 分隔标记区分各段。
     sys_parts: list[str] = [system_prompt()]
@@ -234,40 +252,42 @@ async def run(
             # Harness 化:每轮请求前按预算折叠中间历史(长对话/多工具结果防溢出;
             # 压缩只作用于本次调用的 working copy,AgentMessage 日志始终全量)
             budget = settings.agent_context_budget
-            working = compress_history(msgs, budget)
             schemas = chat_tool_schemas(tool_reg.schemas())
-            logger.debug(
-                "agent.loop: round=%d/%d msgs=%d chars=%d budget=%d tool_calls_pending=%d",
-                rnd, settings.agent_max_rounds, len(working),
-                sum(len(m.get("content") or "") for m in working),
-                budget, len(msgs) - len(working),
-            )
-            try:
-                assistant = await get_ctx().service("llm").chat(working, tools=schemas)
-            except llm.LLMError as overflow_err:
-                if not is_context_overflow_error(overflow_err):
-                    raise
-                tight = tighter_context_budget(budget)
-                logger.warning(
-                    "agent.loop: context overflow round=%d retry tight_budget=%d err=%s",
-                    rnd, tight, overflow_err,
+            attempts = [
+                ("budget", compress_history(msgs, budget)),
+                ("tight", compress_history(msgs, tighter_context_budget(budget))),
+                ("last_user", last_user_turn(msgs)),
+            ]
+            assistant = None
+            for idx, (tag, working) in enumerate(attempts):
+                logger.debug(
+                    "agent.loop: round=%d/%d try=%s msgs=%d chars=%d budget=%d",
+                    rnd, settings.agent_max_rounds, tag, len(working),
+                    sum(len(m.get("content") or "") for m in working),
+                    budget,
                 )
-                working = compress_history(msgs, tight)
                 try:
                     assistant = await get_ctx().service("llm").chat(working, tools=schemas)
-                except llm.LLMError as overflow_err2:
-                    if is_context_overflow_error(overflow_err2):
-                        logger.warning(
-                            "agent.loop: context overflow after retry round=%d", rnd,
-                        )
+                    break
+                except llm.LLMError as overflow_err:
+                    if not is_context_overflow_error(overflow_err):
+                        raise
+                    last_try = idx == len(attempts) - 1
+                    logger.warning(
+                        "agent.loop: context overflow round=%d try=%s last=%s err=%s",
+                        rnd, tag, last_try, overflow_err,
+                    )
+                    if last_try:
                         yield {"type": "error", "content": CONTEXT_OVERFLOW_USER_MSG}
                         return
-                    raise
         except llm.LLMError as e:
             logger.warning("agent.loop: llm error round=%d err=%s", rnd, e)
             yield {"type": "error", "content": str(e)}
             return
 
+        if assistant is None:
+            yield {"type": "error", "content": CONTEXT_OVERFLOW_USER_MSG}
+            return
         tool_calls = assistant.get("tool_calls") or []
         content = assistant.get("content") or ""
         if content:
