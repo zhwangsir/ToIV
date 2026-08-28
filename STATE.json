@@ -1,7 +1,7 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-28T21:12:00+08:00",
+ "updated_at": "2026-08-28T21:24:00+08:00",
  "web_search_proxy_2026_08_28_2046": {
   "by": "设备管家",
   "verified": "2026-08-28 20:46 CST",
@@ -32,7 +32,7 @@
   "symptom": "NSFW LLM primary+backup unavailable / 32768 token / 0 output tokens",
   "tool_body_cap": "working copy 1800 chars",
   "mcp_schema": "chat() no longer injects 17 mcp__ schemas every round",
-  "retry": "on 400 retry once at half budget; still fail Chinese hint to new session or drop long attachments",
+  "retry": "on 400 retry once at half budget; a5e04ea copy is 这一条太长，请缩短本轮输入 (no new-session ask)",
   "nsfw_same_endpoint": "no double call when NSFW and main share endpoint",
   "persisted": "AgentMessage still full",
   "production": "lacks this",
@@ -42,6 +42,16 @@
     "apps/api/app/agent/llm.py",
     "apps/api/app/agent/runner.py"
   ]
+ },
+ "assistant_long_chat_fold_a5e04ea": {
+  "commit": "a5e04ea",
+  "change": "long-chat auto-fold; no longer requires new session",
+  "protocol": "follow-up uploads only this-turn user; runner rebuilds from AgentMessage then folds",
+  "error_copy": "这一条太长，请缩短本轮输入",
+  "hard_cap": "32k GPU still in place",
+  "supersedes": "e833f33 new-session hint",
+  "production": "lacks this",
+  "pushed": false
  },
  "engine_map_repo_check_2026_08_28": {
   "by": "ToIV 开发对照仓",
