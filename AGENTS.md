@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-08-28 晚（另记 e1f856e LTX R18 motion 回退，未推）
+> **最后更新**：2026-08-28 20:46（TOIV_WEB_SEARCH_PROXY 改为 MateBook LAN `.9:7897`，未推）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 
 ---
@@ -116,7 +116,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 | **音频编排**(2026-08-27) | mix(ffmpeg amix)/variant(duration_factor 语速变体)落地;sfx 仍 501(需音效引擎);可用步骤 tts/separate/concat/mix/variant |
 | **i2L 风格 LoRA**(2026-08-27) | ✅ `toiv-i2l.service`(workstation GPU3 :9101,惰性加载常驻显存 ~26G)+ core `POST /api/train/i2l`(1-8 风格图→LoRA 落 NAS loras 自动发现);e2e 1:59 出 476 张量 rank4 19.9MB 键名 0 坏键;⚠️ core 新端点须 deploy.sh 后才可 e2e |
 | **LLM 引擎矩阵**(2026-08-28 对照仓) | SFW 视频主路 **H3=海螺 3.0**（不是 Hailuo 2.3）。**不要**把 Wan2.2 写成 SFW/AIGCPannel 空镜。Wan2.2 I2V 与 LTX-2.3+10Eros 主要在 **R18**；AIGCPannel 空镜/预览=LTX-2.5（`:8198` 起来再开）。Wan2.1-VACE 仅编辑/转场；图像默认 FLUX.2 + Qwen-Image/Z-Image。混元视频/SkyReels 未挂。spark02 **Qwen3.8-27B-Uncensored-FP8**。文案对齐见 `0f6e723`/`f2885ee`。 |
-| web_search 出站代理 | `TOIV_WEB_SEARCH_PROXY=http://192.168.71.123:7897`(MateBook Clash);⚠️ 依赖 Mac 在线,离线时自动降级不炸链路;Tailscale 备选 100.74.15.34:7897(慢 4×) |
+| web_search 出站代理 | `TOIV_WEB_SEARCH_PROXY=http://192.168.71.9:7897`(MateBook Clash LAN；2026-08-28 20:46 core `/home/merlin/toiv/deploy/.env` 已改、`toiv-api` 已重启)。旧 `.123` 从 core 连不上。Clash `:7897` 本机和 Tailscale `100.74.15.34` 都能通，但 websearch 只收一个 proxy，TS 备选未写入 env。⚠️ 依赖 Mac 在线,离线时自动降级不炸链路 |
 | 域名双入口 | toiv.dgmt.top(香港 cloud,frp-kcp) + toiv.wineryz.top(北京,frpc-bj);openresty proxy_pass 经 frp 本地端口 127.0.0.1:18090/13100 |
 | **Studio 依赖迁移**(2026-08-26) | ✅ 反推 VLM studio04:9303 → **spark01 Qwen3-VL-32B**(`TOIV_REVERSE_VLM_BASE_URL=http://192.168.71.82:8000/v1`,`TOIV_REVERSE_VIDEO_MAC_PREFIX` 清空,base64 video_url 直传无 NAS 中转);L2/L3 此前已在 spark02;core 对 Studio 集群零依赖;备份 `.env.bak-20260826-studio-migration`;studio04 :9303/NAS 挂载保留观察;**2026-08-27 用户确认 MacStudio 全线已下线**,退役 unload 待设备回线执行 |
 
@@ -146,7 +146,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 **N-1 跨境链路波动会污染 A/B 结论(2026-08-11)**：cloud(香港)↔core 跨境晚高峰剧烈波动,单时段切换协议的「改善」可能是链路自愈假象。A/B 测试必须**同时段交替测**;「502/超时」先看是否全局链路事件(多隧道同断/SSH 断)再怀疑本地配置。frpc 加 `loginFailExit=false` 抗抖动。
 
-**N-2 HF/外网下载依赖 Mac Clash 代理(2026-08-08/23)**：core/workstation 直连 HF/civitai B2 超时;路线=Mac Clash(192.168.71.123:7897 或 TS 100.74.15.34:7897)。hf-mirror 对部分仓库 403、orcarouter 原 repo gated;chimingw 镜像仓可下(29GB FP8 实证 8MB/s)。**依赖 Mac 在线,下载大模型要提前规划**。
+**N-2 HF/外网下载依赖 Mac Clash 代理(2026-08-08/23)**：core/workstation 直连 HF/civitai B2 超时;路线=Mac Clash(192.168.71.9:7897 LAN；TS 100.74.15.34:7897 也能通，下载可走 TS；websearch env 只写了 LAN `.9`)。hf-mirror 对部分仓库 403、orcarouter 原 repo gated;chimingw 镜像仓可下(29GB FP8 实证 8MB/s)。**依赖 Mac 在线,下载大模型要提前规划**。
 
 **N-3 Tailscale 跨地区访问(2026-08-23)**：浏览器侧直连一律 Tailscale 优先(画布已改 100.68.100.90 默认+LAN 回退);workstation 服务须监听 0.0.0.0 才经 TS 可达。
 
@@ -202,6 +202,10 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - LTX 竖版 `859b60f`（本地未推）：`LtxT2VRequest.height` 上限 1080→1920，对齐 `_LTX_NSFW_RESOLUTIONS` 竖版 720×1280；之前预设会 Pydantic 422。回归 `test_ltx_t2v_accepts_vertical_720p_preset`。只动 `video.py` + `test_video.py`。生产仍是旧 `le=1080`。空 `positive` 也会 422；缺 `X-NSFW` 是 403 不是 422。Ovi/MCP 未带上。
 - LoRA 策划卡 `93c275e`（本地未推）：本地 `93c275e`（未推）：海螺/LTX/Wan 提交时 AI 从策划卡选 LoRA，禁止 NAS 自由混。协议：`loras` 省略/null = auto；显式 `[]` = off；非空 = pin（必须是策划卡文件名，否则 422）。前端空控件省略字段，故空白=auto。目录规模：Wan 6（全 NSFW，保留 HIGH/LOW）；H3 13（R18 + 部分 SFW；turbo 加速不自动选）；LTX 2（motion + dolly）。R18 空提示会插入引擎通用概念卡（H3 `HMNSFW_AIO_V2`，Wan `NSFW-22-H-e8`）。Wan auto 会按原 `pick_trigger_words` 前置触发词。LTX 无通用概念卡时可能 0 条（10Eros UNET 已承担 NSFW）。生产仍无此能力。Ovi/MCP 未带上。
 - LTX R18 LoRA `e1f856e`（本地未推）：本地 `e1f856e`（未推）：`lora_picker` 在引擎没有 concept 卡时（LTX），R18 auto 回退第一张 motion 卡。提示词 `a` 会挂 `ltx_2.3_22b_distilled_1.1_lora_dynamic_fro09_avg_rank_111_bf16.safetensors`（0.8，`r18-default-motion`）。H3/Wan 仍优先概念卡。生产仍无此能力。Ovi/MCP 未带上。
+
+### 2026-08-28 20:46（设备管家：Clash 代理 LAN `.9`，core env 已改）
+
+- `TOIV_WEB_SEARCH_PROXY` 真机：core `/home/merlin/toiv/deploy/.env` 已改为 `http://192.168.71.9:7897`，`toiv-api` 已重启。旧 `192.168.71.123:7897` 从 core 连不上。MateBook 当前 LAN 是 `.9`。Clash `:7897` 本机和 Tailscale `100.74.15.34` 都能通；TS URL 没写进 env（websearch 只收一个 proxy）。
 
 ### 2026-08-28 16:45（设备管家 LAN SSH 核验，只读，未改配置）
 

@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-08-28 20:46 CST 设备管家: core deploy/.env TOIV_WEB_SEARCH_PROXY now http://192.168.71.9:7897 (MateBook Clash LAN); toiv-api restarted. Old .123 unreachable from core. Clash :7897 works on box and Tailscale 100.74.15.34; TS URL not written to env (websearch accepts one proxy). AGENTS SoT updated, not pushed.
+
 - 2026-08-28 e1f856e (local, not pushed): lora_picker R18 auto falls back to first motion card when engine has no concept card (LTX). Prompt "a" attaches ltx_2.3_22b_distilled_1.1_lora_dynamic_fro09_avg_rank_111_bf16.safetensors (0.8, r18-default-motion). H3/Wan still prefer concept cards. Only lora_picker.py + test_lora_picker.py. Production still lacks this. Ovi/MCP not included.
 
 - 2026-08-28 93c275e (local, not pushed): H3/LTX/Wan submit-time AI picks LoRA from catalog, no free NAS mix. loras omit/null=auto; explicit []=off; nonempty=pin (catalog filename or 422). Empty frontend control omits field so blank=auto. Catalog: Wan 6 all NSFW keep HIGH/LOW; H3 13 R18+some SFW (turbo accel not auto-picked); LTX 2 motion+dolly. R18 empty prompt inserts engine concept cards (H3 HMNSFW_AIO_V2, Wan NSFW-22-H-e8). Wan auto prepends pick_trigger_words. LTX may pick 0 with no concept card (10Eros UNET already NSFW). Production still lacks this. Ovi/MCP not included.

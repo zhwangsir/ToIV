@@ -1,7 +1,17 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-28T20:34:00+08:00",
+ "updated_at": "2026-08-28T20:46:00+08:00",
+ "web_search_proxy_2026_08_28_2046": {
+  "by": "设备管家",
+  "verified": "2026-08-28 20:46 CST",
+  "env": "core /home/merlin/toiv/deploy/.env TOIV_WEB_SEARCH_PROXY=http://192.168.71.9:7897",
+  "service": "toiv-api restarted",
+  "old": "192.168.71.123:7897 unreachable from core",
+  "matebook_lan": "192.168.71.9",
+  "clash": ":7897 works local and Tailscale 100.74.15.34; TS URL not in env (websearch one proxy)",
+  "pushed": false
+ },
  "engine_map_repo_check_2026_08_28": {
   "by": "ToIV 开发对照仓",
   "swap_mains": false,
