@@ -1,7 +1,7 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-28T19:35:00+08:00",
+ "updated_at": "2026-08-28T19:41:00+08:00",
  "engine_map_repo_check_2026_08_28": {
   "by": "ToIV 开发对照仓",
   "swap_mains": false,
@@ -15,6 +15,17 @@
   "stale": "copy aligned in 0f6e723; SFW-default-2.3 comments cleared",
   "not_mounted": ["Hunyuan video", "SkyReels"],
   "aigcpannel": "must not change ToIV code",
+  "pushed": false,
+  "dirty_ovi_mcp": "not included"
+ },
+ "ltx_vertical_height_859b60f": {
+  "commit": "859b60f",
+  "change": "LtxT2VRequest.height le 1080→1920; aligns _LTX_NSFW_RESOLUTIONS 720×1280",
+  "was": "vertical preset Pydantic 422",
+  "files": ["apps/api/app/routes/video.py", "apps/api/tests/test_video.py"],
+  "test": "test_ltx_t2v_accepts_vertical_720p_preset",
+  "production": "still le=1080",
+  "notes": "empty positive also 422; missing X-NSFW is 403 not 422",
   "pushed": false,
   "dirty_ovi_mcp": "not included"
  },

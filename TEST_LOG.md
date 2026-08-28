@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-08-28 859b60f (local, not pushed): LtxT2VRequest.height le 1080→1920 so 720×1280 NSFW preset no longer Pydantic 422. Regression test_ltx_t2v_accepts_vertical_720p_preset. Only video.py + test_video.py. Production still le=1080. Empty positive also 422; missing X-NSFW is 403 not 422. Ovi/MCP not included. Phase 4 stack still unpushed.
+
 - 2026-08-28 wording fix in AGENTS: do not write AIGCPannel empty-shot as Wan2.2. SFW main=H3; AIGCPannel empty/preview=LTX-2.5; Wan2.2 I2V + LTX-2.3+10Eros stay ToIV R18. f2885ee VACE comment aligned. Five-doc only, not pushed.
 
 - 2026-08-28 0f6e723 (local, no model swap, not pushed): engine_registry H3 source→MiniMaxAI/MiniMax-H3; LTX-2.3 comments R18-only; VACE comments edit/transition; apps/api + deploy .env.example aligned. H3=Hailuo 3.0, not Hailuo 2.3. Follow-up f2885ee: Wan2.2/LTX-2.3 written as R18, SFW main only H3. Dirty Ovi/MCP workspace not included. Dual-push would take Phase 4 stack, so not pushed.

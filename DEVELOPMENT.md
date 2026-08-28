@@ -6,6 +6,8 @@
 
 **2026-08-28 引擎文案 `0f6e723`（本地未推）**：ToIV 开发 `0f6e723`（本地，没换模、没推）：`engine_registry` H3 source 名/url→`MiniMaxAI/MiniMax-H3`；LTX-2.3 注释标明仅 R18；VACE 注释标明编辑/转场专用；`apps/api` 与 `deploy` 的 `.env.example` 已对齐。**H3=海螺 3.0，不是 Hailuo 2.3。**叠上 `f2885ee`：Wan2.2 / LTX-2.3 按 R18 写，SFW 主路只标 H3。脏 Ovi/MCP 工作区没带上。推会带上 Phase 4 整叠，故不推。
 
+**2026-08-28 `859b60f`（本地未推）**：本地 `859b60f`（未推）：`LtxT2VRequest.height` 上限 1080→1920，对齐 `_LTX_NSFW_RESOLUTIONS` 竖版 720×1280；之前预设会 Pydantic 422。回归 `test_ltx_t2v_accepts_vertical_720p_preset`。只动 `video.py` + `test_video.py`。生产仍是旧 `le=1080`。空 `positive` 也会 422；缺 `X-NSFW` 是 403 不是 422。Ovi/MCP 未带上。
+
 ---
 
 ## 目录
