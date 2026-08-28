@@ -1,7 +1,7 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-28T21:00:00+08:00",
+ "updated_at": "2026-08-28T21:12:00+08:00",
  "web_search_proxy_2026_08_28_2046": {
   "by": "设备管家",
   "verified": "2026-08-28 20:46 CST",
@@ -25,6 +25,22 @@
     "MiniProgram/src/stores/assistant.ts",
     "apps/web/components/assistant/AssistantView.tsx",
     "apps/web/lib/api.ts"
+  ]
+ },
+ "assistant_context_overflow_e833f33": {
+  "commit": "e833f33",
+  "symptom": "NSFW LLM primary+backup unavailable / 32768 token / 0 output tokens",
+  "tool_body_cap": "working copy 1800 chars",
+  "mcp_schema": "chat() no longer injects 17 mcp__ schemas every round",
+  "retry": "on 400 retry once at half budget; still fail Chinese hint to new session or drop long attachments",
+  "nsfw_same_endpoint": "no double call when NSFW and main share endpoint",
+  "persisted": "AgentMessage still full",
+  "production": "lacks this",
+  "pushed": false,
+  "files": [
+    "apps/api/app/agent/context.py",
+    "apps/api/app/agent/llm.py",
+    "apps/api/app/agent/runner.py"
   ]
  },
  "engine_map_repo_check_2026_08_28": {

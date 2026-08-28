@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-08-28 e833f33 (local, not pushed): assistant context overflow. Working-copy tool body cap 1800 chars; chat() no longer injects 17 mcp__ schemas every round. On 400, retry once at half budget; still fail shows 「对话太长，模型上下文已满。请新开一个会话，或删掉本轮过长的附件后再试。」 NSFW+main same endpoint no double call. Persisted AgentMessage still full. Production lacks this.
+
 - 2026-08-28 58cf643 (local, not pushed): assistant SSE timeout replay. MiniProgram timeout 180s→10min. After timeout Web/MiniProgram GET session; if assistant AgentMessage already persisted, show it instead of 「回复失败:连接中断或超时」/「请求超时」。4xx/5xx, empty session, user-stop still use old errors. Production lacks this.
 
 - 2026-08-28 20:46 CST 设备管家: core deploy/.env TOIV_WEB_SEARCH_PROXY now http://192.168.71.9:7897 (MateBook Clash LAN); toiv-api restarted. Old .123 unreachable from core. Clash :7897 works on box and Tailscale 100.74.15.34; TS URL not written to env (websearch accepts one proxy). AGENTS SoT updated, not pushed.
