@@ -301,6 +301,9 @@ _SQLITE_RAW_MIGRATIONS: tuple[str, ...] = (
     "ALTER TABLE dramacharacter ADD COLUMN reference_front TEXT DEFAULT ''",
     "ALTER TABLE dramacharacter ADD COLUMN reference_side TEXT DEFAULT ''",
     "ALTER TABLE dramacharacter ADD COLUMN reference_back TEXT DEFAULT ''",
+    # 三视图异步生成状态(2026-08-28 同步等 600s 前端 180s 超时根治,同 lipsync 模式)
+    "ALTER TABLE dramacharacter ADD COLUMN reference_status TEXT DEFAULT ''",
+    "ALTER TABLE dramacharacter ADD COLUMN reference_error TEXT DEFAULT ''",
     "ALTER TABLE dramashot ADD COLUMN grid_image TEXT DEFAULT ''",
     "ALTER TABLE dramashot ADD COLUMN scene_layout TEXT DEFAULT ''",
     "ALTER TABLE dramashot ADD COLUMN video_model TEXT DEFAULT ''",

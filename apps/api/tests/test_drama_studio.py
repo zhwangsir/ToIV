@@ -298,7 +298,7 @@ def _fake_pool(queue_side_effect):
 
 
 def test_generate_character_reference(ctx):
-    """M1: 角色三视图生成 —— mock ComfyUI t2i,断言返回 reference_front/side/back 非空。"""
+    """M1: 角色三视图生成 —— 提交即返回 generating,后台回写 reference_front/side/back。"""
     client, token, _ = ctx
     H = _h(token)
     pid = client.post("/api/drama/projects", headers=H, json={"title": "x"}).json()["id"]
@@ -318,20 +318,27 @@ def test_generate_character_reference(ctx):
     }
     try:
         with patch("app.routes.drama_studio.spawn_tracker", lambda c, p: None), \
-             patch("app.routes.drama_studio.wait_for_jobs", AsyncMock(return_value=fake_results)):
+             patch("app.comfy.tracker.wait_for_jobs", AsyncMock(return_value=fake_results)):
             r = client.post(
                 f"/api/drama/characters/{cid}/generate-reference",
                 headers=H,
                 json={},
             )
+            assert r.status_code == 200, r.text
+            data = r.json()
+            # 异步模式:提交即返回 generating,产物由后台任务回写
+            assert data["reference_status"] == "generating"
+
+            # 后台回写已完成(wait_for_jobs 被 mock 立即返回)
+            proj = client.get(f"/api/drama/projects/{pid}", headers=H).json()
+            ch = next(c for c in proj["characters"] if c["id"] == cid)
+            assert ch["reference_status"] == "done"
+            assert ch["reference_front"] == fake_results["pid-front"][0]
+            assert ch["reference_side"] == fake_results["pid-side"][0]
+            assert ch["reference_back"] == fake_results["pid-back"][0]
     finally:
         app.dependency_overrides.pop(get_pool, None)
 
-    assert r.status_code == 200, r.text
-    data = r.json()
-    assert data["reference_front"] == fake_results["pid-front"][0]
-    assert data["reference_side"] == fake_results["pid-side"][0]
-    assert data["reference_back"] == fake_results["pid-back"][0]
     pool.pick.assert_awaited_once()
 
 
@@ -351,7 +358,7 @@ def test_generate_character_reference_override_prompt(ctx):
 
     try:
         with patch("app.routes.drama_studio.spawn_tracker", lambda c, p: None), \
-             patch("app.routes.drama_studio.wait_for_jobs", AsyncMock(return_value={
+             patch("app.comfy.tracker.wait_for_jobs", AsyncMock(return_value={
                  "p1": ["/img/front.png"], "p2": ["/img/side.png"], "p3": ["/img/back.png"],
              })):
             r = client.post(
@@ -363,6 +370,7 @@ def test_generate_character_reference_override_prompt(ctx):
         app.dependency_overrides.pop(get_pool, None)
 
     assert r.status_code == 200, r.text
+    assert r.json()["reference_status"] == "generating"
     # queue_prompt 第一次调用的 prompt 应包含 override 后的内容
     first_call_graph = cli.queue_prompt.call_args_list[0][0][0]
     # 找到 CLIPTextEncode 节点的 text 字段(正向提示词)
@@ -377,7 +385,7 @@ def test_generate_character_reference_override_prompt(ctx):
 
 
 def test_generate_character_reference_empty_prompt(ctx):
-    """M1: 角色缺少视觉描述时返回 422。"""
+    """M1: 角色缺少视觉描述时返回 422(LLM 也不可用时)。"""
     client, token, _ = ctx
     H = _h(token)
     pid = client.post("/api/drama/projects", headers=H, json={"title": "x"}).json()["id"]
@@ -387,13 +395,64 @@ def test_generate_character_reference_empty_prompt(ctx):
         json={"name": "无名", "visual_prompt": ""},
     ).json()["id"]
 
-    r = client.post(
-        f"/api/drama/characters/{cid}/generate-reference",
-        headers=H,
-        json={},
-    )
+    # mock LLM 不可用(返回空),确保走 422 路径
+    from unittest.mock import AsyncMock, MagicMock
+    svc = MagicMock()
+    svc.chat_layered = AsyncMock(side_effect=llm.LLMError("LLM 不可用"))
+    ctxmock = MagicMock()
+    ctxmock.service = MagicMock(return_value=svc)
+    with patch("app.routes.drama_studio.get_ctx", return_value=ctxmock):
+        r = client.post(
+            f"/api/drama/characters/{cid}/generate-reference",
+            headers=H,
+            json={},
+        )
     assert r.status_code == 422
     assert "视觉描述" in r.json()["detail"]
+
+
+def test_generate_character_reference_writeback_error(ctx):
+    """M1: 等待超时且作业已 error → reference_status=error(超时豁免不适用于死作业)。"""
+    client, token, _ = ctx
+    H = _h(token)
+    pid = client.post("/api/drama/projects", headers=H, json={"title": "x"}).json()["id"]
+    cid = client.post(
+        f"/api/drama/projects/{pid}/characters",
+        headers=H,
+        json={"name": "阿明", "visual_prompt": "1boy"},
+    ).json()["id"]
+
+    pool, _cli = _fake_pool(["e1", "e2", "e3"])
+    app.dependency_overrides[get_pool] = lambda: pool
+
+    from app.db import engine
+
+    async def _timeout_after_jobs_dead(s, pids, **kwargs):
+        """模拟 tracker 已回收:作业全部 error 后再抛等待超时(防与后台回写竞态)。"""
+        with Session(engine) as ss:
+            for j in ss.exec(select(Job).where(Job.prompt_id.in_(pids))).all():  # type: ignore[attr-defined]
+                j.status = "error"
+                ss.add(j)
+            ss.commit()
+        raise RuntimeError("等待超时")
+
+    try:
+        with patch("app.routes.drama_studio.spawn_tracker", lambda c, p: None), \
+             patch("app.comfy.tracker.wait_for_jobs",
+                   AsyncMock(side_effect=_timeout_after_jobs_dead)):
+            r = client.post(
+                f"/api/drama/characters/{cid}/generate-reference",
+                headers=H, json={},
+            )
+            assert r.status_code == 200, r.text
+            assert r.json()["reference_status"] == "generating"
+
+            proj = client.get(f"/api/drama/projects/{pid}", headers=H).json()
+            ch = next(c for c in proj["characters"] if c["id"] == cid)
+            assert ch["reference_status"] == "error"
+            assert ch["reference_error"]
+    finally:
+        app.dependency_overrides.pop(get_pool, None)
 
 
 def test_generate_character_reference_not_found(ctx):

@@ -57,6 +57,9 @@ import { begin as genBegin, end as genEnd, progress as genProgress } from "@/lib
 const POLL_INTERVAL = 3500;
 const POLL_MAX_ATTEMPTS = Math.floor((15 * 60 * 1000) / POLL_INTERVAL);
 
+// 三视图生成任务的全局进度条 id(poll 与提交两处共用,防串号)
+const refTaskIdOf = (cid: string) => `drama-reference-${cid}`;
+
 /**
  * M3.1:任务日志条目(持久化到 localStorage,跨刷新恢复)。
  * status 流转:running → done(activeTasks diff 检测完成态)。
@@ -566,16 +569,85 @@ export function useDramaProject(
     [showToast],
   );
 
-  // ── M1:生成角色三视图(正/侧/背)──
+  // ── M1:生成角色三视图(正/侧/背,异步提交 + 轮询,同对口型模式)──
+  const pollCharacterReference = useCallback(
+    (pid: string, cid: string, name: string) => {
+      const taskId = refTaskIdOf(cid);
+      let attempts = 0;
+      const clearBusy = () => {
+        setBusyRef(null);
+        genEnd(taskId);
+      };
+      const tick = () => {
+        if (currentIdRef.current !== pid) {
+          clearBusy();
+          return;
+        }
+        attempts++;
+        getDramaProject(pid)
+          .then((d) => {
+            if (currentIdRef.current !== pid) {
+              clearBusy();
+              return;
+            }
+            const ch = d.characters?.find((c) => c.id === cid);
+            if (!ch) {
+              clearBusy();
+              showToast("error", `角色「${name}」已被删除,轮询终止`);
+              return;
+            }
+            const st = (ch.reference_status || "").toLowerCase();
+            setCurrent(d);
+            onSummaryChange?.(pid, {
+              status: d.status,
+              updated_at: d.updated_at,
+            });
+            if (st === "done" || st === "ready" || st === "completed") {
+              clearBusy();
+              showToast("success", `角色「${name}」三视图已生成`);
+              return;
+            }
+            if (st === "error" || st === "failed") {
+              clearBusy();
+              showToast(
+                "error",
+                `角色「${name}」三视图生成失败:${ch.reference_error || st}`,
+              );
+              return;
+            }
+            if (attempts >= POLL_MAX_ATTEMPTS) {
+              clearBusy();
+              showToast(
+                "error",
+                `角色「${name}」三视图生成超时(15 分钟),请稍后重试`,
+              );
+              return;
+            }
+            safeSetTimeout(tick, POLL_INTERVAL);
+          })
+          .catch(() => {
+            clearBusy();
+            showToast("error", "轮询项目状态失败,请刷新查看");
+          });
+      };
+      safeSetTimeout(tick, POLL_INTERVAL);
+    },
+    [onSummaryChange, safeSetTimeout, showToast],
+  );
+
   const generateReference = useCallback(
     (cid: string, name: string): Promise<void> => {
+      const pid = currentIdRef.current;
+      if (!pid) return Promise.resolve();
       if (busyRef) {
         showToast("info", "已有三视图任务进行中,请稍候");
         return Promise.resolve();
       }
       setBusyRef(cid);
+      genBegin(refTaskIdOf(cid), `角色「${name}」三视图`);
       return dramaGenerateCharacterReference(cid)
         .then((updated) => {
+          // 提交即返回(generating):先就地更新一次,再轮询等待回写
           setCurrent((d) =>
             d
               ? {
@@ -586,17 +658,19 @@ export function useDramaProject(
                 }
               : d,
           );
-          showToast("success", `角色「${name}」三视图已生成`);
+          showToast("info", "三视图任务已提交,生成中…");
+          pollCharacterReference(pid, cid, name);
         })
         .catch((err) => {
+          setBusyRef(null);
+          genEnd(refTaskIdOf(cid));
           showToast(
             "error",
             err instanceof Error ? err.message : "生成三视图失败",
           );
-        })
-        .finally(() => setBusyRef(null));
+        });
     },
-    [busyRef, showToast],
+    [busyRef, pollCharacterReference, showToast],
   );
 
   // ── M2:从资产库应用角色到当前项目 ──

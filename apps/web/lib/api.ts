@@ -3015,6 +3015,9 @@ export interface DramaCharacterItem {
   reference_front: string;
   reference_side: string;
   reference_back: string;
+  // 三视图生成状态(异步回写):""=未生成 / generating / done / error
+  reference_status?: string;
+  reference_error?: string;
 }
 
 export interface DramaShotCandidate {
@@ -3535,7 +3538,8 @@ export const dramaGenerateCharacterReference = (
   cid: string,
   body?: DramaGenerateReferenceBody,
 ): Promise<DramaCharacterItem> =>
-  // 同步生成角色三视图(正/侧/背 3 张图)→ 放宽到 180s。
+  // 提交角色三视图(正/侧/背 3 张图)生成任务;异步回写 reference_*,前端轮询。
+  // LLM 翻译(空 visual_prompt 时)+ 提交 3 作业仍需数秒 → 放宽到 180s。
   dramaReq(`/drama/characters/${cid}/generate-reference`, "POST", body ?? {}, { longRequest: true });
 
 // ---------- M2:9/25 宫格分镜 ----------

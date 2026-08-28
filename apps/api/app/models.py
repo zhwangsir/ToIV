@@ -381,6 +381,9 @@ class DramaCharacter(SQLModel, table=True):
     reference_front: str = ""
     reference_side: str = ""
     reference_back: str = ""
+    # 三视图生成状态:""=未生成 / generating / done / error(异步回写,同 lipsync 模式)
+    reference_status: str = ""
+    reference_error: str = ""
     created_at: datetime = Field(default_factory=_now)
 
 

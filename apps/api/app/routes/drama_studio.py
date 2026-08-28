@@ -429,6 +429,8 @@ def _character_dict(c: DramaCharacter) -> dict:
         "reference_front": c.reference_front,
         "reference_side": c.reference_side,
         "reference_back": c.reference_back,
+        "reference_status": c.reference_status,
+        "reference_error": c.reference_error,
     }
 
 
@@ -3229,8 +3231,10 @@ async def generate_character_reference(
 ) -> dict:
     """M1: 角色三视图生成(正面/侧面/背面),锁定主体一致性,对标 LibTV。
 
-    取角色 visual_prompt,追加视角后缀后调 ComfyUI t2i 生成 3 张图,
-    同步等待结果落库到 reference_front/side/back。
+    取角色 visual_prompt,追加视角后缀后调 ComfyUI t2i 生成 3 张图。
+    异步模式(同 lipsync):提交作业后立即返回 reference_status=generating,
+    后台任务等待完成并回写 reference_front/side/back;前端轮询项目详情。
+    (旧版同步等待 ≤600s,前端 180s 超时必断;3 张图串行同一 worker 常超 3 分钟)
     """
     enforce_generation_rate_limit(user, count=3)
     c = session.get(DramaCharacter, cid)
@@ -3240,7 +3244,35 @@ async def generate_character_reference(
 
     prompt = (body.visual_prompt_override or c.visual_prompt).strip()
     if not prompt:
-        raise HTTPException(status_code=422, detail="角色缺少视觉描述")
+        # 视觉描述为空:用 LLM 把中文角色描述转成英文 visual_prompt(一次性落库,后续直接用)
+        source_desc = (c.description or c.name).strip()
+        if not source_desc:
+            raise HTTPException(status_code=422, detail="角色缺少视觉描述")
+        try:
+            msg = await get_ctx().service("llm").chat_layered(
+                [
+                    {"role": "system", "content": (
+                        "你是角色视觉描述翻译器。把中文角色描述转成一段英文视觉提示词(visual prompt),"
+                        "用于文生图模型的角色参考图生成。要求:\n"
+                        "1) 输出一段连贯英文(50-100词),描述角色的外观/服装/体态/气质;\n"
+                        "2) 忠实中文原意,不添加原描述没有的特征;\n"
+                        "3) 只输出英文提示词本身,不要解释/引号/换行。"
+                    )},
+                    {"role": "user", "content": source_desc},
+                ],
+                layer="L1",
+                # spark02 是 reasoning 模型,关 thinking 消除 15-40s 推理延迟(翻译任务无需推理)
+                enable_thinking=False,
+            )
+            prompt = (msg.get("content") or "").strip().strip('"').strip()
+        except Exception:
+            logger.warning("generate_reference: LLM 翻译 visual_prompt 失败 cid=%s", cid)
+        if not prompt:
+            raise HTTPException(status_code=422, detail="角色缺少视觉描述")
+        # 落库:后续生成/分镜直接复用,不再重复调 LLM
+        c.visual_prompt = prompt
+        session.add(c)
+        session.commit()
 
     settings = get_settings()
     ckpt_name = settings.default_ckpt
@@ -3292,29 +3324,106 @@ async def generate_character_reference(
                 params=params_snapshot(body, seed=seed_used, ckpt_name=ckpt_name),
             )
         )
+    c.reference_status = "generating"
+    c.reference_error = ""
+    session.add(c)
     session.commit()
 
     # 后台追踪结果(独立于客户端 SSE)
     for pid in prompt_ids:
         spawn_tracker(client, pid)
 
-    # 同步等待 3 个作业完成
-    try:
-        results = await wait_for_jobs(session, prompt_ids, timeout=_job_wait_timeout(600.0))
-    except RuntimeError as e:
-        raise HTTPException(status_code=504, detail=str(e)) from e
-
-    # 每个作业取第一张图 URL
-    urls = [results.get(pid, []) for pid in prompt_ids]
-    c.reference_front = urls[0][0] if urls[0] else ""
-    c.reference_side = urls[1][0] if urls[1] else ""
-    c.reference_back = urls[2][0] if urls[2] else ""
-
-    _append_process(project, "generate_reference", f"角色 {c.name} 三视图生成完成")
-    session.add(c)
-    session.commit()
+    # 后台等待 + 回写(同 _writeback_lipsync 模式),端点立即返回
+    _spawn(_writeback_character_reference(cid, project.id, prompt_ids))
     session.refresh(c)
     return _character_dict(c)
+
+
+async def _writeback_character_reference(
+    cid: str, project_id: str, prompt_ids: list[str]
+) -> None:
+    """三视图作业完成后回写 reference_front/side/back 与状态。
+
+    超时豁免(同 _writeback_lipsync):本地等待窗口(≤900s)远短于 tracker 作业
+    生命周期;超时往往只是作业还没跑完,直接标 error 会分裂为 Job=done /
+    character=error 且产物永不回写。故超时时保持 generating 待 tracker 兜底;
+    作业已 error / 不存在才标 error。
+    """
+    from app.comfy.tracker import wait_for_jobs
+    from app.db import engine
+
+    try:
+        with Session(engine) as s:
+            wait_err: RuntimeError | None = None
+            results: dict[str, list[str]] = {}
+            try:
+                results = await wait_for_jobs(
+                    s, prompt_ids, timeout=_job_wait_timeout(900.0)
+                )
+            except RuntimeError as e:
+                wait_err = e  # 先读 Job 最新状态再定性(超时豁免 or 真失败)
+            # commit 结束当前读事务快照,确保看到 tracker 其他 Session 的最新提交
+            s.commit()
+            jobs = {
+                j.prompt_id: j
+                for j in s.exec(select(Job).where(Job.prompt_id.in_(prompt_ids))).all()  # type: ignore[attr-defined]
+            }
+            # 竞态 done:wait 抛超时瞬间作业恰好完成 → 从 Job.result 补读产物
+            urls: list[list[str]] = []
+            for pid in prompt_ids:
+                pid_urls = results.get(pid, [])
+                job = jobs.get(pid)
+                if not pid_urls and job and job.status == "done" and job.result:
+                    try:
+                        pid_urls = json.loads(job.result)
+                    except (ValueError, TypeError):
+                        pid_urls = []
+                urls.append(pid_urls)
+            char_obj = s.get(DramaCharacter, cid)
+            if all(urls) and char_obj:
+                char_obj.reference_front = urls[0][0]
+                char_obj.reference_side = urls[1][0]
+                char_obj.reference_back = urls[2][0]
+                char_obj.reference_status = "done"
+                char_obj.reference_error = ""
+                s.add(char_obj)
+                proj = s.get(DramaProject, project_id)
+                if proj:
+                    _append_process(
+                        proj, "generate_reference", f"角色 {char_obj.name} 三视图生成完成"
+                    )
+                    s.add(proj)
+                s.commit()
+                return
+            if wait_err is not None:
+                alive = [
+                    j for j in jobs.values() if j.status not in ("done", "error")
+                ]
+                if alive:
+                    # 超时豁免:作业仍在 tracker 窗口内,保持 generating 待 tracker 兜底
+                    logger.warning(
+                        "character %s reference writeback: 等待超时但 %d/%d 作业仍在跑,"
+                        "保持 generating 待 tracker 兜底",
+                        cid, len(alive), len(prompt_ids),
+                    )
+                    return
+            # 作业 error / 不存在 / 缺产物 → 标 error(Job 无 error 列,原因落 hold_reason/通用文案)
+            if char_obj and char_obj.reference_status == "generating":
+                failed = [j for j in jobs.values() if j.status == "error"]
+                reason = next((j.hold_reason for j in failed if j.hold_reason), "")
+                char_obj.reference_status = "error"
+                char_obj.reference_error = (reason or "三视图生成失败或超时")[:200]
+                s.add(char_obj)
+                s.commit()
+    except Exception as e:  # noqa: BLE001
+        logger.exception("character %s reference writeback failed: %s", cid, e)
+        with Session(engine) as s:
+            char_obj = s.get(DramaCharacter, cid)
+            if char_obj and char_obj.reference_status == "generating":
+                char_obj.reference_status = "error"
+                char_obj.reference_error = str(e)[:200]
+                s.add(char_obj)
+                s.commit()
 
 
 # ===========================================================================
