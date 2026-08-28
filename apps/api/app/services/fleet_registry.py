@@ -177,7 +177,7 @@ DEVICE_REGISTRY: list[dict] = [
             "role": "OpenClaw 网关",
             "lan_ip": lan,
             "ts_ip": ts,
-            "hardware": "Mac mini M2",
+            "hardware": "Mac mini M4 16GB",
             "probe_host": lan,
             "services": [_tcp("SSH", 22)],
         }
