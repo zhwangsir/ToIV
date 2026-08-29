@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-08-30（Job.nsfw 合同 `fb78872` 本地未推，部署完成前不算上线）
+> **最后更新**：2026-08-30（Job.nsfw 合同 `fb78872` 已上线 core，远程仍未推）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 
 ---
@@ -228,12 +228,12 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - **生产实证**:core 上提交 txt2img → 任务中心可见 queued → cancel 返回 `worker_action=interrupted` → 列表消失、DB `status=canceled`、不进回收站。
 - ⚠️ 注意:`deploy/.env` 第 9 行是裸 URL(`http://localhost:3101`),`source` 时会报「没有那个文件或目录」但不中断后续行加载;systemd EnvironmentFile 也能容错。属历史遗留,不影响运行。
 
-### 2026-08-30 Job.nsfw 合同（ToIV 开发，本地 `fb78872`，未推，不改设备清单）
+### 2026-08-30 Job.nsfw 合同（ToIV 开发，`fb78872` 已上线 core，远程未推，不改设备清单）
 
-- 本地 `fb78872`（未推）：`fix(nsfw): Job.nsfw follows explicit intent, not the X-NSFW header`。`X-NSFW` 只作成人页查看/创建门禁，不再给每条作品盖 18+。`Job.nsfw` / H3 换 10Eros 仅当请求体显式 `nsfw:true`（`h3-nsfw-*` / `wan-nsfw-*`）或用户钉选 R18 LoRA。网页 `engines.ts` 已带 `nsfw:true`。
+- 本地 `fb78872`（远程未推，已上线 core）：`fix(nsfw): Job.nsfw follows explicit intent, not the X-NSFW header`。`X-NSFW` 只作成人页查看/创建门禁，不再给每条作品盖 18+。`Job.nsfw` / H3 换 10Eros 仅当请求体显式 `nsfw:true`（`h3-nsfw-*` / `wan-nsfw-*`）或用户钉选 R18 LoRA。网页 `engines.ts` 已带 `nsfw:true`。
 - `is_nsfw(ckpt)` 收成明确成人词（nsfw/r18/hentai/uncensored/porn/xxx、10eros、hassaku、lustify、shufflenoob、autismmix、pornmaster、urpm、yiffy、biglove、stoiqo）。pony / wai / illustrious / realisticvision / animagine / noobai / cyberrealistic / lazymix / nova3dcg 不再整锅 18+。
-- 生产库 3 条误标已改回 `nsfw=false`：4K 超分 `d79ca9cf…`、试穿 `t2v_00183_`/`t2v_00184_`（`e07b0cb4` / `71cf52cc`）。这是库数据修正，不等于 `fb78872` 已上线。
-- 本机 main ahead 58，未推 Gitee/GitHub。ToIV 开发正在把这一提交部署到 core（toiv-api/toiv-web）；**部署完成前不要写成已上线**。
+- 生产库 3 条误标已改回 `nsfw=false`：4K 超分 `d79ca9cf…`、试穿 `t2v_00183_`/`t2v_00184_`（`e07b0cb4` / `71cf52cc`）。库数据修正已落地；代码 `fb78872` 已部署 core。
+- 远程仍未推 Gitee/GitHub。core `toiv-api`/`toiv-web` 均为 active。公网 `https://toiv.wineryz.top/api/health` 与 LAN `:8090`/`:3100` 200。前端 BUILD_ID `20260829-185858-fb78872-dirty`。
 
 ### 2026-08-28 长会话自动折叠（ToIV 开发，未推，不改设备清单）
 

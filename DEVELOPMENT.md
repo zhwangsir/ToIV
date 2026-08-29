@@ -4,7 +4,7 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
-**2026-08-30 `fb78872`（本地未推，尚未上线）**：本地 `fb78872`（未推）：`X-NSFW` 只作成人页查看/创建门禁，不再给每条作品盖 18+。`Job.nsfw` / H3 换 10Eros 仅当请求体显式 `nsfw:true`（`h3-nsfw-*` / `wan-nsfw-*`）或钉了 R18 LoRA。`is_nsfw(ckpt)` 收成明确成人词；pony/wai/illustrious 等两用底模不再整锅 18+。网页 `engines.ts` 已带 `nsfw:true`。生产库 3 条误标已改回 `nsfw=false`（4K 超分 `d79ca9cf…`、试穿 `t2v_00183_`/`t2v_00184_` = `e07b0cb4`/`71cf52cc`）。本机 main ahead 58，未推。正在部署 core，**尚未上线**。
+**2026-08-30 `fb78872`（远程未推，已上线 core）**：本地 `fb78872`（远程未推，已上线 core）：`X-NSFW` 只作成人页查看/创建门禁，不再给每条作品盖 18+。`Job.nsfw` / H3 换 10Eros 仅当请求体显式 `nsfw:true`（`h3-nsfw-*` / `wan-nsfw-*`）或钉了 R18 LoRA。`is_nsfw(ckpt)` 收成明确成人词；pony/wai/illustrious 等两用底模不再整锅 18+。网页 `engines.ts` 已带 `nsfw:true`。生产库 3 条误标已改回 `nsfw=false`（4K 超分 `d79ca9cf…`、试穿 `t2v_00183_`/`t2v_00184_` = `e07b0cb4`/`71cf52cc`）。远程仍未推。已部署 core（toiv-api/toiv-web active；公网 `/api/health` 与 LAN `:8090`/`:3100` 200；前端 BUILD_ID `20260829-185858-fb78872-dirty`）。
 
 **2026-08-28 20:46 `TOIV_WEB_SEARCH_PROXY`**：core env 已改为 `http://192.168.71.9:7897`（MateBook Clash LAN），`toiv-api` 已重启。旧 `.123` 从 core 连不上。TS `100.74.15.34:7897` 能通但未写入 env。
 

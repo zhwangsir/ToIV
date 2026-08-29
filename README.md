@@ -18,7 +18,7 @@ LTX R18 LoRA（本地 `e1f856e`，未推）：无概念卡时 auto 回退第一�
 
 助手上下文（本地 `e833f33`/`a5e04ea`，未推）：帽 tool 正文 1800 字、去掉每轮 MCP schema；超长 400 半预算重试。长会话自动折叠，续聊只上传本轮 user；仍失败提示「这一条太长，请缩短本轮输入」，不再要求新开会话。32k GPU 硬顶仍在。生产还没有。
 
-Job.nsfw 合同（本地 `fb78872`，未推；正在部署 core，**尚未上线**）：`X-NSFW` 只作成人页查看/创建门禁，不再给每条作品盖 18+。`Job.nsfw` / H3 换 10Eros 仅当请求体显式 `nsfw:true`（`h3-nsfw-*` / `wan-nsfw-*`）或钉了 R18 LoRA。pony/wai/illustrious 等两用底模不再整锅 18+。网页 `engines.ts` 已带 `nsfw:true`。生产库 3 条误标已改回 `nsfw=false`（4K 超分 `d79ca9cf…`、试穿 `t2v_00183_`/`t2v_00184_`）。本机 main ahead 58，未推。
+Job.nsfw 合同（本地 `fb78872`，远程未推，**已上线 core**）：`X-NSFW` 只作成人页查看/创建门禁，不再给每条作品盖 18+。`Job.nsfw` / H3 换 10Eros 仅当请求体显式 `nsfw:true`（`h3-nsfw-*` / `wan-nsfw-*`）或钉了 R18 LoRA。pony/wai/illustrious 等两用底模不再整锅 18+。网页 `engines.ts` 已带 `nsfw:true`。生产库 3 条误标已改回 `nsfw=false`（4K 超分 `d79ca9cf…`、试穿 `t2v_00183_`/`t2v_00184_`）。本机远程未推。前端 BUILD_ID `20260829-185858-fb78872-dirty`。公网 `/api/health` 与 LAN `:8090`/`:3100` 200。
 
 ## 这是什么 / 能做什么
 
