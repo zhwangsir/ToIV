@@ -39,8 +39,13 @@ function newShot(): ShotDraft {
   return { prompt: "", durationSec: MULTISHOT_DEFAULT_SHOT_SEC, cameraHint: "", transitionHint: "" };
 }
 
-/** 作业轮询终态(running 继续轮询;held 展示排队文案)。 */
-type RunStatus = "running" | "done" | "error" | "held";
+/** 作业轮询状态(running/held 继续轮询;done/error/canceled 为终态)。 */
+type RunStatus = "running" | "done" | "error" | "held" | "canceled";
+
+/** 轮询总超时(2026-08-30 P0-4:超时判终态解锁,不再永久锁死)。 */
+const RUN_TIMEOUT_MS = 35 * 60_000;
+/** 连续查不到(404)多少次判「作业已消失」:12 × 5s ≈ 60s,覆盖提交后可见性瞬抖。 */
+const RUN_MISS_LIMIT = 12;
 
 export function MultiShotEditor({ loras }: { loras?: unknown } = {}) {
   const toast = useToast();
@@ -59,31 +64,70 @@ export function MultiShotEditor({ loras }: { loras?: unknown } = {}) {
   const [runId, setRunId] = useState<string | null>(null);
   const [runStatus, setRunStatus] = useState<RunStatus>("running");
   const [resultUrl, setResultUrl] = useState<string | null>(null);
+  /** 轮询终态失败原因(Wave-1:透出落库 job.error;超时/消失为本地文案)。 */
+  const [runError, setRunError] = useState<string | null>(null);
   // 主体引用(2026-08-29 补齐:多镜头与 t2v 同语义,后端注入 @图片N 引用行)
   const [entityPickerOpen, setEntityPickerOpen] = useState(false);
   const [pickedEntities, setPickedEntities] = useState<EntityItem[]>([]);
 
   const totalDuration = multishotTotalDuration(shots.map((s) => s.durationSec));
   const overTotal = totalDuration > MULTISHOT_MAX_TOTAL_SEC;
-  const busy = submitting || (runId !== null && runStatus !== "done" && runStatus !== "error");
+  // 2026-08-30 P0-4:done/error/canceled 均为终态解锁(此前 canceled 不落终态 → 永久锁死)
+  const busy =
+    submitting ||
+    (runId !== null && runStatus !== "done" && runStatus !== "error" && runStatus !== "canceled");
   const canSubmit = multishotSubmittable({ shots, busy });
 
   // 作业轮询:提交后每 5s 精确查单条(2026-08-29:替代全量 200 条过滤,降负载)
+  // 2026-08-30 P0-4 锁死根治:① canceled = 终态;② 连续 404(≈60s)判作业消失;
+  // ③ 总超时 35min 兜底;④ 终态即停轮询;⑤ 「停止跟踪」出口(setRunId(null) 卸载轮询)
   useEffect(() => {
     if (!runId) return;
     let cancelled = false;
-    const tick = async () => {
+    let misses = 0;
+    const startedAt = Date.now();
+    const stop = () => clearInterval(timer);
+    const tick = async (): Promise<void> => {
+      if (cancelled) return;
+      if (Date.now() - startedAt > RUN_TIMEOUT_MS) {
+        stop();
+        setRunStatus("error");
+        setRunError("跟踪超时,请在作品库查看结果");
+        return;
+      }
       try {
         const job = await lookupJob(runId);
         if (cancelled) return;
-        if (!job) return;
+        if (!job) {
+          // 404(查不到/已回收):连续确认消失才判终态,防提交后可见性瞬抖误判
+          misses += 1;
+          if (misses >= RUN_MISS_LIMIT) {
+            stop();
+            setRunStatus("error");
+            setRunError("作业已消失(可能被回收),请到作品库查看");
+          }
+          return;
+        }
+        misses = 0;
         if (job.status === "done") {
+          stop();
           setRunStatus("done");
           setResultUrl(job.results[0] ?? null);
           invalidateJobs(); // 成片已落库,作品库缓存失效
           toast.success("多镜头成片已生成");
         } else if (job.status === "error") {
+          stop();
           setRunStatus("error");
+          // Wave-1:透出落库失败原因,取代笼统「生成失败」
+          setRunError(
+            typeof job.error === "string" && job.error.trim()
+              ? job.error.trim()
+              : "生成失败,可调整镜头内容后重新提交。",
+          );
+        } else if (job.status === "canceled") {
+          stop();
+          setRunStatus("canceled");
+          toast.info("多镜头作业已中止");
         } else if (job.status === "held") {
           setRunStatus("held");
         } else {
@@ -93,14 +137,21 @@ export function MultiShotEditor({ loras }: { loras?: unknown } = {}) {
         /* 网络抖动下轮再试 */
       }
     };
-    void tick();
     const timer = setInterval(() => void tick(), 5000);
+    void tick();
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runId]);
+
+  /** 停止跟踪(P0-4 逃生口):后端作业继续跑,编辑器立即解锁,结果可去作品库看。 */
+  function stopTracking() {
+    setRunId(null);
+    setRunError(null);
+    toast.info("已停止跟踪,作业仍在后端继续,完成后可在作品库查看");
+  }
 
   const patchShot = (idx: number, patch: Partial<ShotDraft>) =>
     setShots((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
@@ -126,6 +177,7 @@ export function MultiShotEditor({ loras }: { loras?: unknown } = {}) {
       });
       setRunId(res.prompt_id);
       setRunStatus("running");
+      setRunError(null);
       setResultUrl(null);
       if (typeof res.queued_behind === "number" && res.queued_behind > 0) {
         toast.info(`已加入 H3 队列:前方还有 ${res.queued_behind} 个作业(排队等待,非故障)`);
@@ -517,7 +569,7 @@ export function MultiShotEditor({ loras }: { loras?: unknown } = {}) {
           font-variant-numeric: tabular-nums;
         }
         .ms-total-text.is-over {
-          color: var(--danger, #e5484d);
+          color: var(--err);
           font-weight: 600;
         }
         .ms-adv summary {
@@ -579,7 +631,7 @@ export function MultiShotEditor({ loras }: { loras?: unknown } = {}) {
         .ms-error-text {
           margin: 0;
           font-size: 12px;
-          color: var(--danger, #e5484d);
+          color: var(--err);
         }
         .ms-result-video {
           width: 100%;

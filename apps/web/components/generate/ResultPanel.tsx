@@ -55,19 +55,51 @@ const STATUS_META: Record<HistoryEntry["status"], { tone: "run" | "ok" | "err" |
 /** 音频产物扩展名:结果路径以此结尾时渲染 <audio> 播放器(而非 img/video)。 */
 const AUDIO_PATH_RE = /\.(mp3|wav|flac|ogg)$/i;
 
-/** 媒体加载失败占位(签名 URL 过期/代理 404 时兜底,不给用户看浏览器破图)。 */
-function MediaFailPlaceholder({ kind }: { kind: "video" | "image" | "audio" }) {
+/** 媒体加载失败占位(签名 URL 过期/代理 404 时兜底,不给用户看浏览器破图);
+ *  带「重新加载」动作(2026-08-30:签名过期不必整页刷新)。 */
+function MediaFailPlaceholder({
+  kind,
+  onReload,
+}: {
+  kind: "video" | "image" | "audio";
+  onReload?: () => void;
+}) {
   return (
     <div className="media-fail" role="status">
       <Icon name={kind === "audio" ? "audio" : kind === "video" ? "video" : "image"} size={28} />
       <span>{kind === "audio" ? "音频加载失败" : "内容加载失败"}</span>
-      <span className="media-fail-hint">链接可能已过期,可刷新页面重试</span>
+      <span className="media-fail-hint">链接可能已过期,可重新加载</span>
+      {onReload && (
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={<Icon name="refresh" size={13} />}
+          onClick={onReload}
+        >
+          重新加载
+        </Button>
+      )}
     </div>
   );
 }
 
 function MediaView({ entry, className }: { entry: HistoryEntry; className?: string }) {
   const [failed, setFailed] = useState<Set<string>>(new Set());
+  /** 重载计数:>0 时给 URL 追加 _r 参数强制浏览器重取(绕过签名过期缓存)。 */
+  const [reloadNonce, setReloadNonce] = useState(0);
+  const srcOf = (p: string): string => {
+    const url = imageUrl(p);
+    return reloadNonce > 0 ? `${url}${url.includes("?") ? "&" : "?"}_r=${reloadNonce}` : url;
+  };
+  /** 重新加载指定产物:清失败标记 +  bump nonce 强刷 URL。 */
+  const reload = (p: string) => {
+    setFailed((prev) => {
+      const next = new Set(prev);
+      next.delete(p);
+      return next;
+    });
+    setReloadNonce((n) => n + 1);
+  };
   const first = entry.paths[0];
   if (!first) return null;
   if (AUDIO_PATH_RE.test(first)) {
@@ -75,11 +107,11 @@ function MediaView({ entry, className }: { entry: HistoryEntry; className?: stri
       <>
         {entry.paths.map((p) =>
           failed.has(p) ? (
-            <MediaFailPlaceholder key={p} kind="audio" />
+            <MediaFailPlaceholder key={p} kind="audio" onReload={() => reload(p)} />
           ) : (
             <audio
               key={p}
-              src={imageUrl(p)}
+              src={srcOf(p)}
               controls
               preload="metadata"
               className="media-audio"
@@ -90,12 +122,11 @@ function MediaView({ entry, className }: { entry: HistoryEntry; className?: stri
       </>
     );
   }
-  const url = imageUrl(first);
   if (entry.kind === "video") {
-    if (failed.has(first)) return <MediaFailPlaceholder kind="video" />;
+    if (failed.has(first)) return <MediaFailPlaceholder kind="video" onReload={() => reload(first)} />;
     return (
       <video
-        src={url}
+        src={srcOf(first)}
         controls
         playsInline
         preload="metadata"
@@ -108,12 +139,12 @@ function MediaView({ entry, className }: { entry: HistoryEntry; className?: stri
     <>
       {entry.paths.map((p) =>
         failed.has(p) ? (
-          <MediaFailPlaceholder key={p} kind="image" />
+          <MediaFailPlaceholder key={p} kind="image" onReload={() => reload(p)} />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             key={p}
-            src={imageUrl(p)}
+            src={srcOf(p)}
             alt={entry.prompt}
             className={className}
             /* CLS 防护:优先用提交时快照的真实目标尺寸;缺省回退 1:1 设计基准
@@ -172,6 +203,32 @@ function QualityBar({ label, value }: { label: string; value: number }) {
       <span className="quality-bar-val">{pct}</span>
     </div>
   );
+}
+
+/** 产物下载文件名(2026-08-30):优先取 /api/images?filename= 参数;裸路径取末段;兜底按 kind 给扩展名。 */
+function downloadName(path: string, kind: EngineKind): string {
+  const m = /[?&]filename=([^&]+)/.exec(path);
+  if (m) {
+    try {
+      return decodeURIComponent(m[1]);
+    } catch {
+      return m[1];
+    }
+  }
+  const tail = path.split("?")[0].split("/").pop() ?? "";
+  if (tail.includes(".")) return tail;
+  return `toiv-${Date.now()}.${kind === "video" ? "mp4" : kind === "audio" ? "mp3" : "png"}`;
+}
+
+/** 下载条目全部产物(同源相对路径 + token 已由 imageUrl 注入;多产物间隔触发防浏览器拦截)。 */
+function downloadEntry(entry: HistoryEntry): void {
+  entry.paths.forEach((p, i) => {
+    const a = document.createElement("a");
+    a.href = imageUrl(p);
+    a.download = downloadName(p, entry.kind);
+    a.rel = "noopener";
+    setTimeout(() => a.click(), i * 300);
+  });
 }
 
 /** 生成已耗时(active 时每秒跳动):长作业等待期给「没卡死」的时间感知。 */
@@ -310,6 +367,19 @@ export function ResultPanel({ entries, selectedId, onSelect, liveProgress, quali
                     停止
                   </Button>
                 )}
+                {/* 下载(2026-08-30):完成且有产物时显示;多产物逐一下载 */}
+                {current.status === "done" && !current.postProcessing && current.paths.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon={<Icon name="download" size={13} />}
+                    onClick={() => downloadEntry(current)}
+                    title={current.paths.length > 1 ? `下载全部 ${current.paths.length} 个产物` : "下载产物"}
+                    aria-label="下载当前产物"
+                  >
+                    下载
+                  </Button>
+                )}
                 {compareSwitch}
               </div>
 
@@ -435,9 +505,32 @@ export function ResultPanel({ entries, selectedId, onSelect, liveProgress, quali
                   </p>
                 </div>
               )}
-              {current.status === "done" && !current.postProcessing && (
+              {current.status === "done" && !current.postProcessing && current.paths.length > 0 && (
                 <div className={`stage-media-wrap${current.paths.length > 1 ? " is-multi" : ""}`}>
                   <MediaView entry={current} className="media-main" />
+                </div>
+              )}
+              {/* done 但零产物(配后端 Wave-1「完成无产物标 error」的历史/边界兜底):
+                  显示失败占位而非空白舞台;可一键重试 */}
+              {current.status === "done" && !current.postProcessing && current.paths.length === 0 && (
+                <div className="stage-error-card" role="alert">
+                  <div className="stage-error-head">
+                    <Icon name="error" size={16} />
+                    <span className="stage-error-title">未返回产物</span>
+                  </div>
+                  <p className="stage-error-desc">
+                    作业已完成但未返回产物,请到作品库核对;也可直接重试。
+                  </p>
+                  {onRetry && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      icon={<Icon name="refresh" size={13} />}
+                      onClick={() => onRetry(current)}
+                    >
+                      重试
+                    </Button>
+                  )}
                 </div>
               )}
 

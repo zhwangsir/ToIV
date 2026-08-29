@@ -40,6 +40,8 @@ export function RefVideoUpload({ param, value, onChange, uploadKind, pinWorker, 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const toast = useToast();
   const [uploading, setUploading] = useState(false);
+  /** 上传进度 0-100(XHR upload.onprogress;2026-08-30 P1-4);null=未在上传。 */
+  const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -55,8 +57,12 @@ export function RefVideoUpload({ param, value, onChange, uploadKind, pinWorker, 
       return;
     }
     setUploading(true);
+    setProgress(0);
     try {
-      const r = await uploadImage(file, uploadKind, false, pinWorker ?? undefined);
+      // 长超时按文件大小估算(api.uploadTimeoutMs:视频 ≥10min)+ 真实上传进度
+      const r = await uploadImage(file, uploadKind, false, pinWorker ?? undefined, {
+        onProgress: (pct) => setProgress(pct),
+      });
       onChange({ filename: r.filename, worker: r.worker, name: file.name });
       // 成功显式反馈(原静默入列);失败仍走内联 setError
       toast.success("驱动视频已上传");
@@ -64,6 +70,7 @@ export function RefVideoUpload({ param, value, onChange, uploadKind, pinWorker, 
       setError(e instanceof Error ? e.message : "上传失败");
     } finally {
       setUploading(false);
+      setProgress(null);
       if (inputRef.current) inputRef.current.value = "";
     }
   }
@@ -108,6 +115,20 @@ export function RefVideoUpload({ param, value, onChange, uploadKind, pinWorker, 
           </Button>
         </div>
       )}
+      {/* 上传进度条(2026-08-30 P1-4):XHR upload.onprogress 真实进度,大视频不再盲等 */}
+      {uploading && progress !== null && (
+        <div
+          className="ref-video-progress"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={progress}
+          aria-label="上传进度"
+        >
+          <div className="ref-video-progress-fill" style={{ width: `${progress}%` }} />
+          <span className="ref-video-progress-text">上传中 {progress}%</span>
+        </div>
+      )}
       <AssetPicker
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
@@ -150,6 +171,30 @@ export function RefVideoUpload({ param, value, onChange, uploadKind, pinWorker, 
           display: flex;
           gap: var(--space-2);
           flex-wrap: wrap;
+        }
+        /* 上传进度条:accent 软底填充 + 居中百分比(与任务中心条同语言) */
+        .ref-video-progress {
+          position: relative;
+          height: 22px;
+          border-radius: var(--radius-control);
+          background: var(--bg-surface-3);
+          overflow: hidden;
+        }
+        .ref-video-progress-fill {
+          height: 100%;
+          background: var(--accent);
+          opacity: 0.35;
+          transition: width var(--duration-fast) var(--ease-standard);
+        }
+        .ref-video-progress-text {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 11px;
+          color: var(--text-secondary);
+          font-variant-numeric: tabular-nums;
         }
       `}</style>
     </Field>

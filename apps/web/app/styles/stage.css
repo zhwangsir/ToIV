@@ -987,6 +987,17 @@
   font-size: var(--text-aux);
   color: var(--err);
 }
+/* 舞台区引擎错误条(2026-08-30 P1-6):引擎列表失败从参数浮板提升到舞台区,
+   窄屏(浮板默认收起为 FAB)也能感知;错误条 + 重试按钮同行 */
+.generate-engines-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.generate-engines-error .ui-error-bar {
+  flex: 1;
+  min-width: 0;
+}
 
 /* ========== 引擎说明卡(T2,2026-08-17):引擎行 ⓘ 按钮 + Popover 实底卡 ========== */
 
@@ -1355,6 +1366,25 @@
   margin: 0;
   font-size: var(--text-aux);
   color: var(--text-muted);
+}
+/* 引擎 chip 失败态(2026-08-30 P1-6):点击 = 重试加载 */
+.promptbar-chip.is-error {
+  color: var(--err);
+  border-color: var(--err);
+}
+.promptbar-chip.is-error:hover {
+  color: var(--err);
+  border-color: var(--err);
+  background: var(--err-soft);
+}
+/* 生成按钮禁用原因内联提示(2026-08-30 P1-7):窄屏/触屏 title 不可见的兜底 */
+.promptbar-block-reason {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  font-size: var(--text-aux);
+  color: var(--warn);
 }
 
 /* 引擎 chip 的玻璃 select:去原生外观 + 装饰 chevron(与浮板玻璃材质统一) */

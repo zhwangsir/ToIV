@@ -39,6 +39,8 @@ export function RefImageUpload({ param, value, onChange, uploadKind, disabled }:
   const inputRef = useRef<HTMLInputElement | null>(null);
   const toast = useToast();
   const [uploading, setUploading] = useState(false);
+  /** 上传进度 0-100(XHR upload.onprogress;2026-08-30 P1-4);null=未在上传。 */
+  const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -54,8 +56,11 @@ export function RefImageUpload({ param, value, onChange, uploadKind, disabled }:
       return;
     }
     setUploading(true);
+    setProgress(0);
     try {
-      const r = await uploadImage(file, uploadKind);
+      const r = await uploadImage(file, uploadKind, false, undefined, {
+        onProgress: (pct) => setProgress(pct),
+      });
       onChange({
         filename: r.filename,
         worker: r.worker,
@@ -68,6 +73,7 @@ export function RefImageUpload({ param, value, onChange, uploadKind, disabled }:
       setError(e instanceof Error ? e.message : "上传失败");
     } finally {
       setUploading(false);
+      setProgress(null);
       if (inputRef.current) inputRef.current.value = "";
     }
   }
@@ -119,6 +125,20 @@ export function RefImageUpload({ param, value, onChange, uploadKind, disabled }:
           </Button>
         </div>
       )}
+      {/* 上传进度条(2026-08-30 P1-4):XHR upload.onprogress 真实进度,大图不再盲等 */}
+      {uploading && progress !== null && (
+        <div
+          className="ref-image-progress"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={progress}
+          aria-label="上传进度"
+        >
+          <div className="ref-image-progress-fill" style={{ width: `${progress}%` }} />
+          <span className="ref-image-progress-text">上传中 {progress}%</span>
+        </div>
+      )}
       <AssetPicker
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
@@ -166,6 +186,30 @@ export function RefImageUpload({ param, value, onChange, uploadKind, disabled }:
           display: flex;
           gap: var(--space-2);
           flex-wrap: wrap;
+        }
+        /* 上传进度条:accent 软底填充 + 居中百分比(与任务中心条同语言) */
+        .ref-image-progress {
+          position: relative;
+          height: 22px;
+          border-radius: var(--radius-control);
+          background: var(--bg-surface-3);
+          overflow: hidden;
+        }
+        .ref-image-progress-fill {
+          height: 100%;
+          background: var(--accent);
+          opacity: 0.35;
+          transition: width var(--duration-fast) var(--ease-standard);
+        }
+        .ref-image-progress-text {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 11px;
+          color: var(--text-secondary);
+          font-variant-numeric: tabular-nums;
         }
       `}</style>
     </Field>

@@ -110,12 +110,38 @@ describe("任务中止接线", () => {
     assert.ok(view.includes("taskcenter-item-cancel"), "缺中止按钮类名");
     assert.ok(view.includes("prevRef.current?.delete(item.prompt_id)"), "中止成功须从完成检测基准摘掉,防双 toast");
     assert.ok(view.includes("key={item.id}"), "条目 key 须用 job id(prompt_id 可能空/重复)");
-    assert.ok(view.includes("window.confirm"), "中止前须二次确认");
     assert.ok(view.includes("cancelingIds"), "缺中止中防连点状态");
     assert.ok(
       view.includes("aria-label={`中止任务:${item.prompt || item.kind}`}"),
       "中止按钮缺无障碍标签",
     );
+  });
+
+  it("中止确认走 ui/Modal 确认门(2026-08-30 收敛,不再用原生 window.confirm)", () => {
+    const view = readSrc("components/nav/TaskCenter.tsx");
+    assert.ok(!view.includes("window.confirm"), "原生 window.confirm 应已被 Modal 确认门替代");
+    assert.ok(view.includes('import { Modal } from "@/components/ui/Modal"'), "未引入 ui/Modal");
+    assert.ok(view.includes('title="中止任务"'), "缺中止确认 Modal");
+    assert.ok(view.includes("确认中止"), "缺确认中止按钮");
+    assert.ok(view.includes("danger"), "中止确认门应为危险态(danger)");
+  });
+
+  it("作业从在跑清单消失时先 lookup 查终态,按 done/error/canceled 分别通知", () => {
+    const view = readSrc("components/nav/TaskCenter.tsx");
+    assert.ok(view.includes("lookupJob"), "消失条目须 lookup 查终态再通知");
+    assert.ok(view.includes("Promise.allSettled"), "多条 lookup 须 allSettled(单条抖动不误报)");
+    assert.ok(view.includes('job?.status === "done"'), "缺 done 终态分支");
+    assert.ok(view.includes('job?.status === "error"'), "缺 error 终态分支");
+    assert.ok(view.includes('job?.status === "canceled"'), "缺 canceled 终态分支");
+    assert.ok(view.includes("toast.error("), "失败须用错误色 toast(不再一律绿色成功)");
+    assert.ok(view.includes("job.error"), "失败原因须透出落库 job.error");
+  });
+
+  it("失败条目带「重试」入口(rerun 精确重生)", () => {
+    const view = readSrc("components/nav/TaskCenter.tsx");
+    assert.ok(view.includes("rerunJob"), "失败重试须走 rerunJob");
+    assert.ok(view.includes("taskcenter-item-retry"), "缺重试按钮类名");
+    assert.ok(view.includes("最近失败"), "缺失败条目小节");
   });
 
   it("GenerateView Stop wires cancelJob then gen.reset", () => {

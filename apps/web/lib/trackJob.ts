@@ -4,13 +4,14 @@ import {
   authHeaders,
   emitSessionExpired,
   jobEventsUrl,
+  lookupJob,
 } from "./api";
 import {
   begin as busBegin,
   end as busEnd,
   progress as busProgress,
 } from "./generationBus";
-import type { GenerateResponse, JobItem } from "./types";
+import type { GenerateResponse } from "./types";
 
 /** SSE 透传的采样进度(value/max 来自 ComfyUI,pct 为派生百分比)。 */
 export interface JobProgress {
@@ -105,7 +106,7 @@ type TrackState =
   | "connecting" // 连接已发起,尚未收到 open
   | "streaming" // SSE 已 open,正常接收事件
   | "reconnecting" // 断线后的退避等待 / 重连进行中
-  | "polling" // 连续重连失败,降级 GET /api/jobs 轮询对账
+  | "polling" // 连续重连失败,降级 GET /api/jobs/lookup 单查对账
   | "done" // 终态:拿到产物路径,resolve
   | "error" // 终态:业务错误 / 轮询确认失败 / 冷启动鉴权失败 / 总超时,reject
   | "aborted"; // 终态:会话失效(全局 401/登出广播)/ 外部 signal 中止,显式关流 reject
@@ -151,7 +152,8 @@ const COLD_START_PROBE_AFTER = 2;
  *     reconnecting --网络 error / 看门狗-------------> reconnecting(退避升级)
  *                                                  | polling(连续失败达上限)
  *     polling      --查到 done-----------------------> done
- *     polling      --查到 error----------------------> error
+ *     polling      --查到 error----------------------> error(透出 job.error 失败原因)
+ *     polling      --查到 canceled-------------------> error(作业已中止,终态不空转)
  *     polling      --401(apiFetch 全局处理广播)------> aborted
  *     any          --SESSION_EXPIRED_EVENT-----------> aborted(显式关流)
  *     any          --opts.signal.abort---------------> aborted(用户取消/卸载显式关流)
@@ -369,28 +371,32 @@ export function trackJob(
       reconnectTimer = setTimeout(connect, wait);
     };
 
-    /** 降级轮询:经作品列表端点按 prompt_id 对账作业终态。 */
+    /** 降级轮询:按 prompt_id 精确单查(2026-08-30:替代全量 200 条扫描,降负载)。 */
     const pollTick = async (): Promise<void> => {
       if (settled) return;
       try {
         // authHeaders 在 R18 上下文自动携带 X-NSFW,与 /api/jobs 的
-        // nsfw 过滤语义一致;查不到该 prompt_id 一律视为"仍在跑",继续轮询。
+        // nsfw 过滤语义一致(lookupJob 内部注入);404(查不到/回收站)
+        // 一律视为"仍在跑",继续轮询,由总超时兜底。
         // 注:此处 401 会触发 apiFetch 全局处理 → 广播 SESSION_EXPIRED_EVENT
         // → onSessionExpired 关流终止,无需在此特判。
-        const listRes = await apiFetch(`/api/jobs?limit=200`, { headers: authHeaders() });
-        if (listRes.ok) {
-          const jobs = (await listRes.json()) as JobItem[];
-          const job = jobs.find((j) => j.prompt_id === res.prompt_id);
-          if (job?.status === "done") {
-            // 轮询对账同样可能撞上裁切链窗口期(post_status 由 /api/jobs 透出)
-            if (job.post_status === "processing") opts.onPostProcessing?.();
-            finishOk(job.results ?? []);
-            return;
-          }
-          if (job?.status === "error") {
-            finishErr(new Error("生成出错"));
-            return;
-          }
+        const job = await lookupJob(res.prompt_id);
+        if (job?.status === "done") {
+          // 轮询对账同样可能撞上裁切链窗口期(post_status 由 /api/jobs 透出)
+          if (job.post_status === "processing") opts.onPostProcessing?.();
+          finishOk(job.results ?? []);
+          return;
+        }
+        if (job?.status === "error") {
+          // Wave-1:失败原因落库,透出 job.error 取代笼统「生成出错」
+          const reason = typeof job.error === "string" && job.error.trim() ? job.error.trim() : "生成出错";
+          finishErr(new Error(reason));
+          return;
+        }
+        if (job?.status === "canceled") {
+          // canceled 是终态(Wave-1 起 mark_done 不复活):明确收尾,不再空转到超时
+          finishErr(new Error("作业已中止"));
+          return;
         }
       } catch {
         /* 轮询抖动,下轮再试 */

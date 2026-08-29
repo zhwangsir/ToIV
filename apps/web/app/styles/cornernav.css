@@ -490,6 +490,68 @@
   margin-left: 0;
 }
 
+/* 最近失败条目(2026-08-30 Wave-1:按终态分流通知 + 重试入口) */
+.taskcenter-item.is-failed {
+  border: 1px solid var(--err-soft);
+}
+.taskcenter-item-error {
+  font-size: var(--text-label);
+  color: var(--err);
+  /* 失败原因可能较长:两行截断,完整文本经 title 由 prompt 行承载语义 */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.taskcenter-item-retry {
+  margin-left: auto;
+  padding: 1px 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--accent);
+  font-size: var(--text-label);
+  line-height: 1.6;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+.taskcenter-item-retry:hover:not(:disabled),
+.taskcenter-item-retry:focus-visible {
+  background: var(--accent-soft);
+}
+.taskcenter-item-retry:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.taskcenter-item-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+.taskcenter-item-dismiss:hover,
+.taskcenter-item-dismiss:focus-visible {
+  color: var(--text-primary);
+}
+
+/* 中止确认门正文(Modal body) */
+.taskcenter-confirm-text {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
 /* 窄屏:与 accountbtn 同策略隐藏(底部导航不承载,任务中心属桌面增强) */
 @media (max-width: 1023px) {
   .taskcenter {

@@ -26,6 +26,9 @@ const PATTERNS: { re: RegExp; message: string }[] = [
 
 export function friendlyError(raw: string): FriendlyError {
   const text = raw.trim();
+  // 已含明确后续指引的文案原样透传,不改写(2026-08-30 Wave-1:跟踪超时
+  // 「请在作品库查看结果」若被超时模式改写为「请重试」,会误导用户重复提交)
+  if (text.includes("请在作品库查看")) return { message: text, detail: null };
   for (const { re, message } of PATTERNS) {
     if (re.test(text)) {
       return { message, detail: text || null };

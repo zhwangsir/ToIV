@@ -2,8 +2,10 @@
  * trackJob 断线容错状态机(FSM 2.0)单测(node:test,无需 DOM):
  * ① 网络 error → 自动重连并最终收到 done resolve
  * ② 业务 error 带 data → 立即 reject 不重连
- * ③ 重连全败 → 轮询查到 done → resolve
- * ④ 轮询到 error → reject
+ * ③ 重连全败 → 轮询(lookup 单查)查到 done → resolve
+ * ④ 轮询到 error → reject(无落库原因兜底「生成出错」)
+ * ④+ 轮询到 error 且落库 job.error → reject 透出失败原因
+ * ④++ 轮询到 canceled → reject「作业已中止」(终态不空转)
  * ⑤ 超时 → reject 且 register(null)
  * ⑥ 看门狗:streaming 静默超阈值 → 假死软重连(不计失败、不报"重连中")
  * ⑦ 看门狗:事件持续到达刷新计时,不误判假死
@@ -101,7 +103,18 @@ beforeEach(() => {
     FakeEventSource as unknown as typeof EventSource;
   (globalThis as { window?: unknown }).window = realWindow;
   globalThis.fetch = (async (input: RequestInfo | URL): Promise<Response> => {
-    fetchCalls.push(String(input));
+    const url = String(input);
+    fetchCalls.push(url);
+    // 降级轮询走 /api/jobs/lookup?prompt_id= 单查:命中返回单条,查不到 404(=仍在跑)
+    if (url.includes("/api/jobs/lookup")) {
+      const pid = new URL(url, "http://t").searchParams.get("prompt_id") ?? "";
+      const job = jobsResponse.find((j) => j.prompt_id === pid) ?? null;
+      if (!job) return new Response("{}", { status: 404 });
+      return new Response(JSON.stringify(job), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
     return new Response(JSON.stringify(jobsResponse), {
       status: 200,
       headers: { "Content-Type": "application/json" },
@@ -188,12 +201,16 @@ test("③ 重连连续全败 → 降级轮询查到 done → resolve 其 results
 
   assert.deepEqual(await p, ["out/poll-1.mp4"]);
   assert.ok(
-    fetchCalls.some((u) => u.includes("/api/jobs?limit=200")),
-    "降级后按作品列表端点轮询",
+    fetchCalls.some((u) => u.includes("/api/jobs/lookup?prompt_id=pid-1")),
+    "降级后按 lookup 单查轮询(不再全量扫描 200 条)",
+  );
+  assert.ok(
+    fetchCalls.every((u) => !u.includes("/api/jobs?limit=200")),
+    "降级轮询不得再扫全量作品列表(冷启动探针的 limit=1 除外)",
   );
 });
 
-test("④ 降级轮询查到 error → reject(生成出错)", async () => {
+test("④ 降级轮询查到 error(无落库原因)→ reject 兜底「生成出错」", async () => {
   jobsResponse = [
     {
       id: "j1",
@@ -220,6 +237,68 @@ test("④ 降级轮询查到 error → reject(生成出错)", async () => {
   await sleep(10); // 连续失败超限 → 轮询
 
   await rejection;
+});
+
+test("④+ 降级轮询查到 error 且落库 job.error → reject 透出失败原因(Wave-1)", async () => {
+  jobsResponse = [
+    {
+      id: "j1",
+      prompt_id: "pid-1",
+      kind: "h3_t2v",
+      status: "error",
+      prompt: "",
+      seed: 1,
+      created_at: "",
+      results: [],
+      error: "采样器崩溃:CUDA out of memory",
+    },
+  ];
+  const p = trackJob(RES, {
+    reconnectBaseMs: 1,
+    maxReconnectAttempts: 1,
+    pollIntervalMs: 1,
+    timeoutMs: 5_000,
+  });
+  const rejection = assert.rejects(p, /采样器崩溃:CUDA out of memory/);
+
+  FakeEventSource.instances[0].emit("error");
+  await sleep(10);
+  FakeEventSource.instances[1].emit("error");
+  await sleep(10); // 进入轮询
+
+  await rejection;
+});
+
+test("④++ 降级轮询查到 canceled → reject「作业已中止」(终态不空转)", async () => {
+  jobsResponse = [
+    {
+      id: "j1",
+      prompt_id: "pid-1",
+      kind: "h3_t2v",
+      status: "canceled",
+      prompt: "",
+      seed: 1,
+      created_at: "",
+      results: [],
+    },
+  ];
+  const p = trackJob(RES, {
+    reconnectBaseMs: 1,
+    maxReconnectAttempts: 1,
+    pollIntervalMs: 1,
+    timeoutMs: 5_000,
+  });
+  const rejection = assert.rejects(p, /作业已中止/);
+
+  FakeEventSource.instances[0].emit("error");
+  await sleep(10);
+  FakeEventSource.instances[1].emit("error");
+  await sleep(10);
+
+  await rejection;
+  const callsAtSettle = fetchCalls.length;
+  await sleep(10);
+  assert.equal(fetchCalls.length, callsAtSettle, "canceled 收尾后轮询定时器已清");
 });
 
 test("④a SSE done 带 post_status=processing → onPostProcessing 先于 resolve 触发", async () => {

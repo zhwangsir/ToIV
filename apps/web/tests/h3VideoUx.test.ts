@@ -121,5 +121,6 @@ test("GenerateView wires toast, i2v presentation, parent prompt_id poll", () => 
   assert.ok(src.includes("h3PayloadWentI2v"));
   assert.ok(src.includes("overlayOrdinaryH3DurationParams"));
   assert.ok(src.includes("h3TrackerParentPromptId"));
-  assert.ok(src.includes("jobs.find((j) => j.prompt_id === promptId)"));
+  // 2026-08-30 Wave-2:裁切链轮询从全量 200 条过滤改为 lookupJob 单查(降负载)
+  assert.ok(src.includes("lookupJob(promptId)"));
 });

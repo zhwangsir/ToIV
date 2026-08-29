@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 import { Field, Input, Select, Textarea } from "@/components/ui/Input";
 import { Switch } from "@/components/ui/Switch";
@@ -17,13 +17,66 @@ interface ParamFieldProps {
 /**
  * 动态参数渲染器:由引擎 params schema 驱动,把 text/textarea/number/select/switch/loras
  * 映射到 W0 ui 基座组件(images 类型由 RefImageUpload 单独承载,不在此渲染)。
- * 数值参数以原始字符串保存,提交时才 parse(允许输入中间态,如 "10.")。
+ * 数值参数以原始字符串保存,提交时才 parse(允许输入中间态,如 "10.");
+ * 失焦按 min/max/step 钳位 + 红字提示(2026-08-30,此前非法输入静默回落)。
  */
 export function ParamField({ param, value, onChange, disabled }: ParamFieldProps) {
   const set = (v: unknown) => onChange(param.key, v);
+  // 数值参数失焦校验提示(Field error 槽,红字)
+  const [numError, setNumError] = useState<string | null>(null);
   // 引擎 textarea 参数自动增高(无上限;非 textarea 类型 ref 为空,hook 自动空转)
   const taRef = useRef<HTMLTextAreaElement | null>(null);
   useAutoResize(taRef, param.type === "textarea" ? String(value ?? "") : "");
+
+  /** 数值失焦:按 min/max/step 钳位并红字提示;seed 须非负整数(留空随机)。 */
+  const onNumberBlur = () => {
+    const raw = String(value ?? "").trim();
+    if (!raw) {
+      // 空值:seed 留空 = 随机(合法);其余回退默认,防提交时静默回落
+      setNumError(null);
+      if (param.key !== "seed" && typeof param.default === "number") set(param.default);
+      return;
+    }
+    const n = Number(raw);
+    if (param.key === "seed") {
+      if (!Number.isInteger(n) || n < 0) {
+        set(typeof param.default === "number" ? param.default : null);
+        setNumError("随机种子须为非负整数(留空则随机),已重置");
+      } else {
+        setNumError(null);
+        if (String(n) !== raw) set(n); // "042"/"42.0" 归一
+      }
+      return;
+    }
+    if (!Number.isFinite(n)) {
+      set(typeof param.default === "number" ? param.default : "");
+      setNumError("请输入有效数字,已重置为默认值");
+      return;
+    }
+    let clamped = n;
+    const notes: string[] = [];
+    if (typeof param.min === "number" && clamped < param.min) {
+      clamped = param.min;
+      notes.push(`已按下限 ${param.min} 调整`);
+    }
+    if (typeof param.max === "number" && clamped > param.max) {
+      clamped = param.max;
+      notes.push(`已按上限 ${param.max} 调整`);
+    }
+    const step = typeof param.step === "number" && param.step > 0 ? param.step : null;
+    if (step) {
+      const base = typeof param.min === "number" ? param.min : 0;
+      // toFixed(6) 消除浮点噪声(0.1 步长等)
+      const snapped = Number((base + Math.round((clamped - base) / step) * step).toFixed(6));
+      if (snapped !== clamped) {
+        clamped = snapped;
+        notes.push(`已按步长 ${step} 对齐`);
+      }
+    }
+    if (clamped !== n) set(clamped);
+    else if (String(n) !== raw) set(n); // "10.0" → 10 归一
+    setNumError(notes.length > 0 ? notes.join(";") : null);
+  };
 
   switch (param.type) {
     case "loras": {
@@ -150,7 +203,7 @@ export function ParamField({ param, value, onChange, disabled }: ParamFieldProps
       );
     case "number":
       return (
-        <Field label={param.label} hint={param.hint}>
+        <Field label={param.label} hint={param.hint} error={numError ?? undefined}>
           <Input
             type="number"
             min={param.min}
@@ -158,7 +211,11 @@ export function ParamField({ param, value, onChange, disabled }: ParamFieldProps
             step={param.step ?? 1}
             value={String(value ?? "")}
             disabled={disabled}
-            onChange={(e) => set(e.target.value)}
+            onBlur={onNumberBlur}
+            onChange={(e) => {
+              setNumError(null);
+              set(e.target.value);
+            }}
           />
         </Field>
       );

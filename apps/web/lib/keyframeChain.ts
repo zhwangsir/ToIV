@@ -151,8 +151,9 @@ export interface ChainProgressInfo {
   /** 已完成段数(段作业 status=done 计数)。 */
   segDone: number;
   segTotal: number;
-  /** held=资源排队;running=生成/拼接中;done=成片就绪;error=任一段或合并失败。 */
-  status: "running" | "done" | "error" | "held";
+  /** held=资源排队;running=生成/拼接中;done=成片就绪;error=任一段或合并失败;
+   *  canceled=任一段或合并被中止(2026-08-30 P0-4:终态,编辑器须解锁)。 */
+  status: "running" | "done" | "error" | "held" | "canceled";
   resultUrl: string | null;
 }
 
@@ -178,6 +179,10 @@ export function chainProgress(
   }
   if (merged?.status === "error" || segJobs.some((j) => j.status === "error")) {
     return { segDone, segTotal: segmentIds.length, status: "error", resultUrl: null };
+  }
+  // canceled 同为终态(2026-08-30 P0-4):此前落入 running 分支 → 编辑器永久锁死
+  if (merged?.status === "canceled" || segJobs.some((j) => j.status === "canceled")) {
+    return { segDone, segTotal: segmentIds.length, status: "canceled", resultUrl: null };
   }
   if (merged?.status === "held" || segJobs.some((j) => j.status === "held")) {
     return { segDone, segTotal: segmentIds.length, status: "held", resultUrl: null };

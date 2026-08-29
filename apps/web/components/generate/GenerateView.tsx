@@ -14,8 +14,8 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { usePoll } from "@/hooks/usePoll";
 import { useAutoResize } from "@/hooks/useAutoResize";
-import { cancelJob, invalidateJobs, apiFetch, authHeaders, imageUrl, listRecipes, listStylePresets, resolveEntityRefs, type CommunityRecipe, type EntityItem } from "@/lib/api";
-import type { JobItem, StylePreset } from "@/lib/types";
+import { cancelJob, fetchActiveJobs, invalidateJobs, imageUrl, listRecipes, listStylePresets, lookupJob, resolveEntityRefs, type CommunityRecipe, type EntityItem } from "@/lib/api";
+import type { StylePreset } from "@/lib/types";
 import { consumeEngineDraft, type EngineDraft } from "@/lib/engine";
 import { resolveEntityIds, useEntities } from "@/lib/entities";
 import { presetParamPatch } from "@/lib/presetApply";
@@ -33,6 +33,7 @@ import {
   type EngineKind,
 } from "@/lib/engines";
 import { R18_CHANGED_EVENT } from "@/lib/r18";
+import { loadJSON, saveJSON } from "@/lib/storage";
 import { useGeneration } from "@/lib/useGeneration";
 import { BREAKPOINTS } from "@/lib/useBreakpoint";
 import { friendlyError } from "@/lib/friendlyError";
@@ -109,6 +110,11 @@ const GROUP_LABEL: Record<EngineKind, { gen: string; edit: string }> = {
 /** 尺寸参数 key(两项都存在时吸附到提示词条的尺寸 chip,浮板「画幅与时长」组不再重复渲染)。 */
 const SIZE_PARAM_KEYS: ReadonlySet<string> = new Set(["width", "height"]);
 
+/** 会话历史 localStorage 键(2026-08-30 Wave-2 持久化);v1:结构变更时升版本防脏数据。 */
+const HISTORY_KEY = "toiv_gen_history_v1";
+/** 持久化条数上限(防 localStorage 膨胀)。 */
+const HISTORY_CAP = 20;
+
 /** Motion Brush 局部动效支持的引擎(VACE 链路,:8197 input_masks);其余引擎不开放入口。 */
 const MOTION_BRUSH_ENGINES: ReadonlySet<string> = new Set(["wan-vace", "wan-transition"]);
 
@@ -168,6 +174,10 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
   const [engines, setEngines] = useState<EngineInfo[] | null>(null);
   const [enginesError, setEnginesError] = useState<string | null>(null);
   const [refreshingEngines, setRefreshingEngines] = useState(false);
+  /** 引擎未就绪本地草稿(P0-1,2026-08-30):engines 接口慢/失败时提示词先进草稿,
+   *  引擎就绪后一次性回填(不覆盖已有输入),绝不丢用户输入。 */
+  const [promptDraft, setPromptDraft] = useState("");
+  const promptDraftRefilledRef = useRef(false);
 
   // 引擎列表加载:30s 轮询与 R18 切换事件共用同一拉取函数
   const loadEngines = useCallback(async () => {
@@ -296,7 +306,8 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
     () => (engine ? { ...engineDefaults(engine), ...(valuesByEngine[engine.id] ?? {}) } : {}),
     [engine, valuesByEngine],
   );
-  const positive = engine ? promptByEngine[engine.id] ?? "" : "";
+  // 引擎未就绪时提示词展示本地草稿(P0-1:此前 onChange 直接丢弃输入,提示词框打不进字)
+  const positive = engine ? promptByEngine[engine.id] ?? "" : promptDraft;
   // 负向提示词自动增高(无上限,resize:vertical 兜底;closed <details> 内 hook 自动跳过)
   useAutoResize(negativeRef, String(values["negative"] ?? ""));
   const refImage = engine ? refByEngine[engine.id] ?? null : null;
@@ -432,6 +443,16 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
     }));
   };
 
+  // 引擎就绪回填:未就绪期间的草稿提示词一次性落入该引擎分槽(已有内容不覆盖)
+  useEffect(() => {
+    if (promptDraftRefilledRef.current || !engine) return;
+    promptDraftRefilledRef.current = true;
+    if (!promptDraft) return;
+    setPromptByEngine((prev) =>
+      (prev[engine.id] ?? "").trim() ? prev : { ...prev, [engine.id]: promptDraft },
+    );
+  }, [engine, promptDraft]);
+
   // 草稿预填:引擎列表异步加载,待目标引擎解析后一次性回填 prompt/参考图(仅 image/video 草稿)
   const draftAppliedRef = useRef(false);
   useEffect(() => {
@@ -446,30 +467,47 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
     }
   }, [engine, draft]);
 
-  // 会话历史(不落库,刷新清空)
+  // 会话历史(2026-08-30 Wave-2:持久化 localStorage,刷新不丢;挂载时按 /api/jobs/active
+  // 恢复在跑条目,见组件尾部恢复 effect)
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const runningIdRef = useRef<string | null>(null);
   const runningPromptIdRef = useRef<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  /** 组件卸载标记:裁切链轮询/恢复跟踪等后台协程据此停止,不再 setState。 */
+  const mountedRef = useRef(true);
+  /** 会话恢复跟踪(lookup 轮询)的定时器集合:卸载统一清理。 */
+  const resumeTimersRef = useRef<Set<ReturnType<typeof setInterval>>>(new Set());
+  useEffect(() => {
+    mountedRef.current = true;
+    const timers = resumeTimersRef.current;
+    return () => {
+      mountedRef.current = false;
+      timers.forEach((t) => clearInterval(t));
+      timers.clear();
+    };
+  }, []);
 
   /**
    * 裁切链轮询:done 时 post_status=processing(trim/extend 后台裁切中),
-   * 当前 paths 是未裁原片;10s 间隔轮询 /api/jobs,post_status 清零后写回终产物。
-   * 30min 封顶(extend 多段长链);超时/失败清标记回落原片展示(诚实降级)。
+   * 当前 paths 是未裁原片;10s 间隔 lookupJob 单查(2026-08-30:替代全量 200 条扫描),
+   * post_status 清零后写回终产物。30min 封顶(extend 多段长链);
+   * 超时/失败清标记回落原片展示(诚实降级)+ toast 告知;组件卸载即停。
    */
   async function pollFinalResult(entryId: string, promptId: string): Promise<void> {
     const deadline = Date.now() + 30 * 60_000;
+    let degraded = false;
     for (;;) {
       await new Promise((r) => setTimeout(r, 10_000));
-      if (Date.now() > deadline) break;
+      if (!mountedRef.current) return; // 卸载即停,不再 setState
+      if (Date.now() > deadline) {
+        degraded = true;
+        break;
+      }
       try {
-        const res = await apiFetch("/api/jobs?limit=200", { headers: authHeaders() });
-        if (!res.ok) continue;
-        const jobs = (await res.json()) as JobItem[];
-        const job = jobs.find((j) => j.prompt_id === promptId);
-        if (!job) continue;
+        const job = await lookupJob(promptId);
+        if (!job) continue; // 404:作业暂不可见,下轮再试
         if (job.status === "done" && job.post_status !== "processing") {
           setEntries((prev) =>
             prev.map((e) =>
@@ -481,11 +519,95 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
           invalidateJobs(); // 终产物已回写,作品库刷新
           return;
         }
+        if (job.status === "error" || job.status === "canceled") {
+          degraded = true;
+          break;
+        }
       } catch {
         /* 网络抖动下轮再试 */
       }
     }
+    if (!mountedRef.current) return;
     setEntries((prev) => prev.map((e) => (e.id === entryId ? { ...e, postProcessing: false } : e)));
+    if (degraded) toast.info("精确裁切未完成,已保留原始时长版本");
+  }
+
+  /** lookup 到终态作业 → 应用到历史条目(done 回写产物/裁切中续轮;error 透出落库原因;
+   *  canceled 标已取消);返回 true 表示已落终态。 */
+  function applyTerminalJob(
+    entryId: string,
+    promptId: string,
+    job: { status: string; results?: string[]; post_status?: string; error?: string | null },
+  ): boolean {
+    if (job.status === "done") {
+      const processing = job.post_status === "processing";
+      setEntries((prev) =>
+        prev.map((e) =>
+          e.id === entryId
+            ? { ...e, status: "done", paths: job.results?.length ? job.results : e.paths, postProcessing: processing }
+            : e,
+        ),
+      );
+      invalidateJobs();
+      if (processing) void pollFinalResult(entryId, promptId);
+      return true;
+    }
+    if (job.status === "error" || job.status === "canceled") {
+      setEntries((prev) =>
+        prev.map((e) =>
+          e.id === entryId
+            ? job.status === "error"
+              ? {
+                  ...e,
+                  status: "error",
+                  error: typeof job.error === "string" && job.error.trim() ? job.error.trim() : "生成出错",
+                  errorDetail: null,
+                }
+              : { ...e, status: "cancelled" }
+            : e,
+        ),
+      );
+      invalidateJobs();
+      return true;
+    }
+    return false;
+  }
+
+  /** 会话恢复的在跑条目(无 SSE 句柄可续接):退化为 lookup 轮询直至终态;
+   *  连续 12 次(≈60s)查不到 → 标失败「请到作品库查看」,防「永久生成中」假象。 */
+  function resumeTracking(entryId: string, promptId: string): void {
+    let misses = 0;
+    const tick = async (): Promise<void> => {
+      if (!mountedRef.current) return;
+      try {
+        const job = await lookupJob(promptId);
+        if (!job) {
+          misses += 1;
+          if (misses >= 12) {
+            clearInterval(timer);
+            resumeTimersRef.current.delete(timer);
+            setEntries((prev) =>
+              prev.map((e) =>
+                e.id === entryId
+                  ? { ...e, status: "error", error: "作业已结束,请到作品库查看结果", errorDetail: null }
+                  : e,
+              ),
+            );
+          }
+          return;
+        }
+        misses = 0;
+        if (applyTerminalJob(entryId, promptId, job)) {
+          clearInterval(timer);
+          resumeTimersRef.current.delete(timer);
+        }
+      } catch {
+        misses = 0; // 网络抖动不计 miss(与「查不到」区分)
+      }
+    };
+    const timer = setInterval(() => void tick(), 5_000);
+    resumeTimersRef.current.add(timer);
+    void tick();
   }
 
   const gen = useGeneration({
@@ -516,6 +638,68 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
     },
   });
 
+  // 挂载恢复守卫:恢复完成前禁止持久化——否则挂载首拍 entries=[] 会先清掉
+  // localStorage 里待恢复的历史(effect 按声明序执行,恢复在其后)
+  const historyRestoredRef = useRef(false);
+
+  // 会话历史持久化(2026-08-30 Wave-2):entries 变更即落盘,刷新不丢
+  // (storage.saveJSON 静默降级:隐私模式/配额超限不阻断)
+  useEffect(() => {
+    if (!historyRestoredRef.current) return;
+    saveJSON(HISTORY_KEY, entries.slice(0, HISTORY_CAP));
+  }, [entries]);
+
+  // 挂载恢复(一次性):读回持久化历史;在跑条目按 /api/jobs/active 对账——
+  // 仍在跑 → resumeTracking 轮询至终态;已终态 → 立即回填结果/失败原因;
+  // 查不到(404,已回收)→ 直接标失败,不空等
+  useEffect(() => {
+    if (historyRestoredRef.current) return;
+    historyRestoredRef.current = true;
+    const saved = loadJSON<HistoryEntry[]>(HISTORY_KEY, []);
+    if (saved.length === 0) return;
+    setEntries(saved);
+    setSelectedId((cur) => cur ?? saved[0]?.id ?? null);
+    const running = saved.filter((e) => e.status === "running" && e.promptId);
+    if (running.length === 0) return;
+    void (async () => {
+      let activeIds = new Set<string>();
+      try {
+        const active = await fetchActiveJobs();
+        activeIds = new Set(active.items.map((i) => i.prompt_id));
+      } catch {
+        /* 在跑清单拉取失败:全部按「可能仍在跑」起 resumeTracking(其自带 miss 兜底) */
+      }
+      if (!mountedRef.current) return;
+      for (const entry of running) {
+        const pid = entry.promptId as string;
+        if (activeIds.has(pid)) {
+          resumeTracking(entry.id, pid);
+          continue;
+        }
+        try {
+          const job = await lookupJob(pid);
+          if (!mountedRef.current) return;
+          if (job === null) {
+            // 已不在在跑清单也查不到:作业被回收,标失败防「永久生成中」假象
+            setEntries((prev) =>
+              prev.map((e) =>
+                e.id === entry.id
+                  ? { ...e, status: "error", error: "作业已结束,请到作品库查看结果", errorDetail: null }
+                  : e,
+              ),
+            );
+          } else if (!applyTerminalJob(entry.id, pid, job)) {
+            resumeTracking(entry.id, pid); // 非终态(抖动间隙等):起轮询
+          }
+        } catch {
+          resumeTracking(entry.id, pid); // 查询失败(网络抖动):起轮询兜底
+        }
+      }
+    })();
+    // 仅挂载时执行一次;pollFinalResult/resumeTracking/applyTerminalJob 为组件内稳定函数
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const canSubmit =
     !!engine &&
     engine.available &&
@@ -532,6 +716,44 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
     (engine.id !== "wan-transition" || refImages.length === 2) &&
     (!audioParam || !!refAudio) &&
     (!videoParam || !!refVideo);
+
+  /**
+   * 生成按钮禁用原因(2026-08-30 P1-7):按 canSubmit 缺失项给首个原因,
+   * 经 PromptBar 内联一行 + 主按钮 title 透出(缺参考图/音频时用户不再不知缺什么)。
+   * 运行中/提交中不提示(按钮文案已表达「生成中…」)。
+   */
+  const submitBlockReason = useMemo<string | null>(() => {
+    if (gen.isRunning || submitting) return null;
+    if (!engine) return enginesError ? "引擎列表加载失败,请点击错误条重试" : "引擎加载中…";
+    if (customEditor) return null; // 专用编辑器(链/多镜头/视频编辑)自承载提交门控
+    if (!engine.available) return `引擎不可用:${engine.unavailable_reason ?? "未知原因"}`;
+    if (engine.id !== "wan-animate-2" && positive.trim().length === 0) return "请先填写提示词";
+    if (imageParam && !(multiImage ? refImages.length > 0 : !!refImage)) {
+      return `请先上传${imageParam.label || "参考图"}`;
+    }
+    if (engine.id === "wan-transition" && refImages.length !== 2) {
+      return "首尾帧转场需恰好 2 张参考图(第 1 张首帧,第 2 张尾帧)";
+    }
+    if (audioParam && !refAudio) return `请先上传${audioParam.label || "参考音频"}`;
+    if (videoParam && !refVideo) return `请先上传${videoParam.label || "驱动视频"}`;
+    return null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    gen.isRunning,
+    submitting,
+    engine,
+    enginesError,
+    customEditor,
+    positive,
+    imageParam,
+    multiImage,
+    refImage,
+    refImages,
+    audioParam,
+    refAudio,
+    videoParam,
+    refVideo,
+  ]);
 
   /** 取数值参数(仅有限 number 有效,其余视为未设置)。 */
   const numVal = (v: unknown): number | undefined =>
@@ -912,6 +1134,25 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
         {/* 舞台列(2026-08-17 停靠布局):结果面板 + 提示词条同列纵排,与参数列并排成行,
             互不遮挡——替代「全出血舞台 + 浮板叠加」 */}
         <div className="generate-stage-col">
+        {/* 引擎列表失败提升到舞台区(P1-6,2026-08-30):窄屏参数浮板默认收起为 FAB,
+            错误藏浮板内用户零感知;此处常驻可见 + 重试按钮 */}
+        {enginesError && (
+          <div className="generate-engines-error">
+            <ErrorBar
+              message={`引擎列表加载失败:${enginesError}`}
+              onClose={() => setEnginesError(null)}
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Icon name="refresh" size={13} />}
+              onClick={() => void loadEngines()}
+              title="重新拉取引擎列表"
+            >
+              重试
+            </Button>
+          </div>
+        )}
         <section
           className="generate-results"
           aria-label="生成结果"
@@ -952,7 +1193,11 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
         <PromptBar
           value={positive}
           onChange={(v) => {
-            if (!engine) return;
+            // P0-1(2026-08-30):引擎未就绪不再吞输入——先进本地草稿,引擎就绪后回填
+            if (!engine) {
+              setPromptDraft(v);
+              return;
+            }
             setPromptByEngine((prev) => ({ ...prev, [engine.id]: v }));
           }}
           disabled={gen.isRunning}
@@ -977,6 +1222,9 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
             }
           }}
           canSubmit={canSubmit}
+          submitBlockReason={submitBlockReason}
+          enginesState={enginesError ? "error" : engines === null ? "loading" : null}
+          onEnginesRetry={() => void loadEngines()}
           isRunning={gen.isRunning}
           submitting={submitting}
           submitError={submitError}
@@ -1020,8 +1268,9 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
                 <Skeleton height={32} />
               </>
             ) : enginesError ? (
-              /* P1-2 收编:引擎列表异步加载错误走共享 ErrorBar(原自写 generate-error 文本) */
-              <ErrorBar message={enginesError} onClose={() => setEnginesError(null)} />
+              /* P1-6(2026-08-30):引擎列表错误已提升到舞台区 ErrorBar + 重试;
+                 浮板内只留占位行,不重复渲染错误条 */
+              <p className="generate-error">引擎列表加载失败,请在舞台区错误条中重试</p>
             ) : kindEngines.length === 0 ? (
               <p className="generate-error">当前上下文没有可用的{KIND_LABEL[mode]}引擎</p>
             ) : (

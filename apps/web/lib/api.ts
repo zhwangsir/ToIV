@@ -840,23 +840,69 @@ export async function resolveEntityRefs(params: {
   return res.json();
 }
 
-export async function uploadImage(
+/**
+ * 上传超时估算(2026-08-30 P1-4):按保守 2MB/s 估算传输时长;
+ * 下限 60s(图片),视频类(扩展名/MIME/体积 >50MB)下限 10 分钟,上限 20 分钟。
+ * 此前走 apiFetch 默认 30s 超时,200MB 驱动视频几乎必败。
+ */
+export function uploadTimeoutMs(file: File): number {
+  const isVideo =
+    /\.(mp4|mov|webm|mkv|avi)$/i.test(file.name) || file.type.startsWith("video/");
+  const floor = isVideo || file.size > 50 * 1024 * 1024 ? 600_000 : 60_000;
+  const bySize = Math.ceil(file.size / (2 * 1024 * 1024)) * 1000;
+  return Math.min(20 * 60_000, Math.max(floor, bySize));
+}
+
+/**
+ * 统一上传(/api/upload,multipart 字段名 image)。
+ * 用 XHR 而非 fetch(2026-08-30 P1-4):① 拿真实上传进度(fetch 无法报上传进度),
+ * onProgress 回传 0-100;② 超时按文件大小估算(uploadTimeoutMs),视频 ≥10min。
+ * 错误语义与 raiseApiError 对齐(优先后端 detail);401 走全局统一处理。
+ */
+export function uploadImage(
   file: File,
   kind: string = "img2img",
   allWorkers = false, // true=分发到所有 worker(角色参考图,供带参考图的分镜跨机并行出图)
   worker?: string, // 指定目标 worker,确保音频/参考图与后续生成同机
+  opts?: { onProgress?: (pct: number) => void },
 ): Promise<{ filename: string; worker: string; workers?: string[]; all_workers?: boolean }> {
-  const fd = new FormData();
-  fd.append("image", file);
-  let qs = `kind=${encodeURIComponent(kind)}${allWorkers ? "&all_workers=true" : ""}`;
-  if (worker) qs += `&worker=${encodeURIComponent(worker)}`;
-  const res = await apiFetch(`/api/upload?${qs}`, {
-    method: "POST",
-    headers: authHeaders(), // 不要手动设 Content-Type，让浏览器带 boundary
-    body: fd,
+  return new Promise((resolve, reject) => {
+    let qs = `kind=${encodeURIComponent(kind)}${allWorkers ? "&all_workers=true" : ""}`;
+    if (worker) qs += `&worker=${encodeURIComponent(worker)}`;
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_BASE}/api/upload?${qs}`);
+    xhr.timeout = uploadTimeoutMs(file);
+    // 不要手动设 Content-Type,让浏览器带 boundary;鉴权/R18 头与 apiFetch 同源
+    for (const [k, v] of Object.entries(authHeaders())) xhr.setRequestHeader(k, v);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) opts?.onProgress?.(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () => {
+      if (xhr.status === 401) handleUnauthorized();
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText));
+        } catch {
+          reject(new Error("上传响应解析失败"));
+        }
+      } else {
+        let msg = `上传失败 (${xhr.status})`;
+        try {
+          const detail = JSON.parse(xhr.responseText)?.detail;
+          if (typeof detail === "string" && detail) msg = detail;
+        } catch {
+          /* 非 JSON 响应用默认文案 */
+        }
+        reject(new Error(msg));
+      }
+    };
+    xhr.onerror = () => reject(new Error("上传网络错误"));
+    xhr.ontimeout = () =>
+      reject(new Error(`上传超时(${Math.round(xhr.timeout / 1000)}s),请检查网络后重试`));
+    const fd = new FormData();
+    fd.append("image", file);
+    xhr.send(fd);
   });
-  if (!res.ok) await raiseApiError(res, "上传失败");
-  return res.json();
 }
 
 /**

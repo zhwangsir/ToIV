@@ -846,7 +846,7 @@ export function AiVideoEditView() {
         .veai-error-text {
           margin: 0;
           font-size: 12px;
-          color: var(--danger, #e5484d);
+          color: var(--err);
         }
         .veai-compare {
           display: grid;

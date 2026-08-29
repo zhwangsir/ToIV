@@ -211,6 +211,23 @@ test("⑤ MultiShotEditor:镜头卡/拖拽排序/增删/时长滑块/运镜与�
   assert.ok(src.includes("entity_ids"), "提交未带 entity_ids");
 });
 
+test("⑤ MultiShotEditor:P0-4 锁死根治(canceled 终态 / 404 连击 / 总超时 / 停止跟踪 / job.error 透出)", () => {
+  const src = readSrc("components/generate/MultiShotEditor.tsx");
+  assert.ok(src.includes('job.status === "canceled"'), "轮询缺 canceled 终态分支");
+  assert.ok(src.includes('runStatus !== "canceled"'), "busy 门控缺 canceled 终态");
+  assert.ok(src.includes("RUN_MISS_LIMIT"), "缺 404 连击判消失");
+  assert.ok(src.includes("RUN_TIMEOUT_MS"), "缺轮询总超时兜底");
+  assert.ok(src.includes("stopTracking"), "缺「停止跟踪」逃生口");
+  assert.ok(src.includes("job.error"), "失败原因须透出落库 job.error");
+  assert.ok(src.includes("跟踪超时,请在作品库查看结果"), "超时文案缺「作品库」指引");
+});
+
+test("⑤ MultiShotEditor:伪 token var(--danger) 已清剿(2026-08-30)", () => {
+  const src = readSrc("components/generate/MultiShotEditor.tsx");
+  assert.ok(!src.includes("--danger"), "伪 token --danger 残留");
+  assert.ok(!src.includes("#e5484d"), "硬编码 hex #e5484d 残留");
+});
+
 test("⑤ GenerateView 接线:h3-multishot 引擎渲染 MultiShotEditor", () => {
   const src = readSrc("components/generate/GenerateView.tsx");
   assert.ok(src.includes('"h3-multishot"'), "GenerateView 缺 h3-multishot 引擎特判");

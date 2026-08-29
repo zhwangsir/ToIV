@@ -40,6 +40,14 @@ interface PromptBarProps {
   /** 三层联动:预设推荐的内置 skill id(OptimizeButton 智能预选,轻量可改) */
   recommendedSkill?: string;
   canSubmit: boolean;
+  /** 生成按钮禁用原因(2026-08-30 P1-7):按 canSubmit 首个缺失项给出人话提示
+   *  (内联一行 + 主按钮 title);null = 无须提示。 */
+  submitBlockReason?: string | null;
+  /** 引擎列表状态(2026-08-30 P1-6):loading=加载中;error=加载失败(引擎 chip 点击=重试);
+   *  null/省略 = 就绪。仅 engine 为 null 时改变 chip 行为与文案。 */
+  enginesState?: "loading" | "error" | null;
+  /** 引擎列表加载失败时 chip 的重试回调。 */
+  onEnginesRetry?: () => void;
   isRunning: boolean;
   submitting: boolean;
   submitError: string | null;
@@ -73,6 +81,9 @@ export function PromptBar({
   stylePreset,
   recommendedSkill,
   canSubmit,
+  submitBlockReason = null,
+  enginesState = null,
+  onEnginesRetry,
   isRunning,
   submitting,
   submitError,
@@ -163,13 +174,14 @@ export function PromptBar({
               </Button>
             )}
             {/* 生成主按钮(UI-A 动效原语):Ripple 纯叠加包裹,按钮既有样式/行为不变,
-                reduced-motion 下自动退化为无波纹 */}
+                reduced-motion 下自动退化为无波纹;禁用时 title 透出首个缺失原因(P1-7) */}
             <Ripple>
               <Button
                 variant="primary"
                 className={isRunning ? "promptbar-submit generate-run" : "promptbar-submit"}
                 loading={submitting}
                 disabled={!canSubmit}
+                title={!canSubmit && submitBlockReason ? submitBlockReason : undefined}
                 icon={isRunning ? <Icon name="loading" size={14} /> : <Icon name="sparkles" size={14} />}
                 onClick={onGenerate}
               >
@@ -179,18 +191,56 @@ export function PromptBar({
           </div>
         </div>
 
+        {/* 禁用原因内联提示(P1-7):title 在窄屏/触屏不可见,内联一行兜底 */}
+        {!canSubmit && !isRunning && submitBlockReason && (
+          <p className="promptbar-block-reason" role="status">
+            <Icon name="info" size={12} />
+            {submitBlockReason}
+          </p>
+        )}
+
         <div className="promptbar-chips">
           <button
             type="button"
-            className={`promptbar-chip${openChip === "engine" ? " is-open" : ""}`}
-            onClick={() => toggleChip("engine")}
+            className={`promptbar-chip${openChip === "engine" ? " is-open" : ""}${!engine && enginesState === "error" ? " is-error" : ""}`}
+            onClick={() => {
+              // 引擎列表加载失败且无引擎可用:chip 点击 = 重试加载(而非打开空面板)
+              if (!engine && enginesState === "error") {
+                onEnginesRetry?.();
+                return;
+              }
+              toggleChip("engine");
+            }}
             aria-expanded={openChip === "engine"}
-            aria-label="切换引擎"
-            title="切换引擎"
+            aria-label={
+              !engine && enginesState === "error"
+                ? "引擎列表加载失败,点击重试"
+                : "切换引擎"
+            }
+            title={
+              !engine && enginesState === "error"
+                ? "引擎列表加载失败,点击重试"
+                : "切换引擎"
+            }
           >
-            <Icon name="cpu" size={12} />
-            {engine ? engine.label : "选择引擎"}
-            <Icon name="chevron-down" size={12} />
+            <Icon
+              name={
+                !engine && enginesState === "error"
+                  ? "warning"
+                  : !engine && enginesState === "loading"
+                    ? "loading"
+                    : "cpu"
+              }
+              size={12}
+            />
+            {engine
+              ? engine.label
+              : enginesState === "error"
+                ? "引擎加载失败,点击重试"
+                : enginesState === "loading"
+                  ? "引擎加载中…"
+                  : "选择引擎"}
+            {!(enginesState && !engine) && <Icon name="chevron-down" size={12} />}
           </button>
           {sizeLabel && (
             <button
@@ -211,7 +261,9 @@ export function PromptBar({
         {openChip === "engine" && (
           <div className="promptbar-chip-panel">
             {engines.length === 0 ? (
-              <p className="promptbar-chip-hint">引擎列表加载中…</p>
+              <p className="promptbar-chip-hint">
+                {enginesState === "error" ? "引擎列表加载失败" : "引擎列表加载中…"}
+              </p>
             ) : (
               /* 玻璃包壳:去掉原生 select 外观,与玻璃剧场风格统一(chevron 纯装饰) */
               <div className="chip-select-wrap">

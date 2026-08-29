@@ -18,6 +18,7 @@ import { Icon } from "@/components/ui/Icon";
 import { Field, Input, Textarea } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
 import { imageUrl, invalidateJobs, lookupJob, uploadImage } from "@/lib/api";
+import type { JobItem } from "@/lib/types";
 import {
   CHAIN_DEFAULT_SEG_SEC,
   CHAIN_MAX_FRAMES,
@@ -40,6 +41,11 @@ import type { UploadedRef } from "./RefImageUpload";
 // 上传校验:后端 /api/upload 上限 20MB;扩展名白名单与单图上传一致
 const IMAGE_MAX_BYTES = 20 * 1024 * 1024;
 const IMAGE_EXT_OK = ["jpg", "jpeg", "png", "webp"];
+
+/** 轮询总超时(2026-08-30 P0-4:超时判终态解锁,不再永久锁死)。 */
+const RUN_TIMEOUT_MS = 35 * 60_000;
+/** 合并作业连续查不到(404)多少次判「链已消失」:12 × 5s ≈ 60s,覆盖提交后可见性瞬抖。 */
+const RUN_MISS_LIMIT = 12;
 
 type Slot = UploadedRef | null;
 
@@ -94,9 +100,13 @@ export function KeyframeChainEditor() {
 
   const totalDuration = chainTotalDuration(segDurations.slice(0, segCount));
   const overTotal = totalDuration > CHAIN_MAX_TOTAL_SEC;
+  // 2026-08-30 P0-4:done/error/canceled 均为终态解锁(此前 canceled 不落终态 → 永久锁死)
   const busy =
     submitting ||
-    (runIds !== null && progress?.status !== "done" && progress?.status !== "error");
+    (runIds !== null &&
+      progress?.status !== "done" &&
+      progress?.status !== "error" &&
+      progress?.status !== "canceled");
   const canSubmit = chainSubmittable({
     frames: frames.length,
     sharedPrompt,
@@ -106,33 +116,72 @@ export function KeyframeChainEditor() {
   });
 
   // 段进度轮询:提交后每 5s 精确查各段/合并作业(2026-08-29:替代全量 200 条过滤,降负载)
+  // 2026-08-30 P0-4 锁死根治:① allSettled 防单点静默(一段查询失败不再吞掉整轮);
+  // ② canceled = 终态(chainProgress);③ 合并作业连续 404(≈60s)判消失;
+  // ④ 总超时 35min 兜底;⑤ 终态即停轮询;⑥ 「停止跟踪」出口(setRunIds(null))
   useEffect(() => {
     if (!runIds) return;
     let cancelled = false;
+    let mergedMisses = 0;
+    const startedAt = Date.now();
     const ids = [...runIds.segmentIds, runIds.mergedId];
-    const tick = async () => {
-      try {
-        const found = await Promise.all(ids.map((id) => lookupJob(id)));
-        if (cancelled) return;
-        const jobs = found.filter((j): j is NonNullable<typeof j> => j !== null);
-        const p = chainProgress(jobs, runIds.segmentIds, runIds.mergedId);
-        setProgress(p);
-        if (p.status === "done") {
-          invalidateJobs(); // 成片已落库,作品库缓存失效
-          toast.success("关键帧链成片已生成");
-        }
-      } catch {
-        /* 网络抖动下轮再试 */
+    const stop = () => clearInterval(timer);
+    const tick = async (): Promise<void> => {
+      if (cancelled) return;
+      if (Date.now() - startedAt > RUN_TIMEOUT_MS) {
+        stop();
+        setProgress((prev) =>
+          prev ? { ...prev, status: "error" } : { segDone: 0, segTotal: runIds.segmentIds.length, status: "error", resultUrl: null },
+        );
+        setError("跟踪超时,请在作品库查看结果");
+        return;
+      }
+      const settled = await Promise.allSettled(ids.map((id) => lookupJob(id)));
+      if (cancelled) return;
+      const jobs = settled
+        .filter((r): r is PromiseFulfilledResult<JobItem | null> => r.status === "fulfilled")
+        .map((r) => r.value)
+        .filter((j): j is JobItem => j !== null);
+      // 合并作业是成片终态的唯一权威:它连续查不到(404)说明链已消失/被回收
+      const last = settled[settled.length - 1];
+      const mergedFound = last?.status === "fulfilled" && last.value !== null;
+      mergedMisses = mergedFound ? 0 : mergedMisses + 1;
+      if (mergedMisses >= RUN_MISS_LIMIT) {
+        stop();
+        setProgress((prev) =>
+          prev ? { ...prev, status: "error" } : { segDone: 0, segTotal: runIds.segmentIds.length, status: "error", resultUrl: null },
+        );
+        setError("合并作业已消失(可能被回收),各段产物可到作品库查看");
+        return;
+      }
+      const p = chainProgress(jobs, runIds.segmentIds, runIds.mergedId);
+      setProgress(p);
+      if (p.status === "done") {
+        stop();
+        invalidateJobs(); // 成片已落库,作品库缓存失效
+        toast.success("关键帧链成片已生成");
+      } else if (p.status === "error") {
+        stop();
+      } else if (p.status === "canceled") {
+        stop();
+        toast.info("关键帧链作业已中止");
       }
     };
-    void tick();
     const timer = setInterval(() => void tick(), 5000);
+    void tick();
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runIds]);
+
+  /** 停止跟踪(P0-4 逃生口):后端作业继续跑,编辑器立即解锁,结果可去作品库看。 */
+  function stopTracking() {
+    setRunIds(null);
+    setProgress(null);
+    toast.info("已停止跟踪,作业仍在后端继续,完成后可在作品库查看");
+  }
 
   /** 上传关键帧到指定槽位(钉首个已填帧所在 worker,与 VACE 同实例 kind)。 */
   async function onFile(file: File | undefined) {
@@ -461,14 +510,23 @@ export function KeyframeChainEditor() {
         >
           {busy ? busyLabel : "生成关键帧链"}
         </Button>
-        {runIds && progress?.status === "error" && (
-          <Button variant="ghost" size="sm" onClick={() => { setRunIds(null); setProgress(null); }}>
+        {busy && runIds && (
+          /* P0-4 逃生口:轮询异常(消失/卡 held)时用户可主动停跟踪解锁 */
+          <Button variant="ghost" size="sm" onClick={stopTracking}>
+            停止跟踪
+          </Button>
+        )}
+        {runIds && (progress?.status === "error" || progress?.status === "canceled") && (
+          <Button variant="ghost" size="sm" onClick={() => { setRunIds(null); setProgress(null); setError(null); }}>
             重新编辑
           </Button>
         )}
       </div>
       {runIds && progress?.status === "error" && (
         <p className="kf-error-text">有转场段失败或拼接失败,各段产物可在作品库查看;可调整后重新提交。</p>
+      )}
+      {runIds && progress?.status === "canceled" && (
+        <p className="kf-slot-hint">作业已中止,可调整后重新提交。</p>
       )}
       {progress?.status === "done" && progress.resultUrl && (
         <div className="kf-result">
@@ -669,7 +727,7 @@ export function KeyframeChainEditor() {
           font-variant-numeric: tabular-nums;
         }
         .kf-total-text.is-over {
-          color: var(--danger, #e5484d);
+          color: var(--err);
           font-weight: 600;
         }
         .kf-adv summary {
@@ -702,7 +760,7 @@ export function KeyframeChainEditor() {
         .kf-error-text {
           margin: 0;
           font-size: 12px;
-          color: var(--danger, #e5484d);
+          color: var(--err);
         }
         .kf-result-video {
           width: 100%;

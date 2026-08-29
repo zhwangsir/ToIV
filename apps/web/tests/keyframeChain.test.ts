@@ -283,6 +283,23 @@ test("⑦ KeyframeChainEditor:槽位/拖拽排序/作品库/总时长预览/提�
   assert.ok(src.includes("chainProgress"), "busy 态段进度未走 chainProgress 轮询");
 });
 
+test("⑦ KeyframeChainEditor:P0-4 锁死根治(allSettled / canceled 终态 / 404 连击 / 总超时 / 停止跟踪)", () => {
+  const src = readSrc("components/generate/KeyframeChainEditor.tsx");
+  assert.ok(src.includes("Promise.allSettled"), "段查询须 allSettled(单点失败不吞整轮)");
+  assert.ok(!src.includes("await Promise.all(ids.map"), "Promise.all 单点静默残留");
+  assert.ok(src.includes('progress?.status !== "canceled"'), "busy 门控缺 canceled 终态");
+  assert.ok(src.includes("RUN_MISS_LIMIT"), "缺 404 连击判消失");
+  assert.ok(src.includes("RUN_TIMEOUT_MS"), "缺轮询总超时兜底");
+  assert.ok(src.includes("stopTracking"), "缺「停止跟踪」逃生口");
+  assert.ok(src.includes("已停止跟踪"), "停止跟踪缺提示");
+});
+
+test("⑦ KeyframeChainEditor:伪 token var(--danger) 已清剿(2026-08-30)", () => {
+  const src = readSrc("components/generate/KeyframeChainEditor.tsx");
+  assert.ok(!src.includes("--danger"), "伪 token --danger 残留");
+  assert.ok(!src.includes("#e5484d"), "硬编码 hex #e5484d 残留");
+});
+
 test("⑦ GenerateView 接线:keyframe-chain 引擎渲染 KeyframeChainEditor", () => {
   const src = readSrc("components/generate/GenerateView.tsx");
   assert.ok(
