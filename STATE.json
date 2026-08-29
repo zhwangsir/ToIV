@@ -1,7 +1,16 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-28T21:24:00+08:00",
+ "updated_at": "2026-08-29T15:00:00+08:00",
+ "video_path_lock_and_b3_42dba0c": {
+  "commit": "42dba0c",
+  "deployed": "core 2026-08-29 (toiv-api/toiv-web 健康通过)",
+  "path_lock": "R18 LTX-2.3 t2v 无首帧塌色块(生产事故) → ltx-t2v 路由+生成器双层 422/拒绝,引导 i2v 上传首帧;SFW LTX t2v 不受影响",
+  "registry": "H3 t2v ordinary_default=true;LTX/Wan R18 全系 advanced=true;web/小程序进阶沉底+徽标",
+  "b3": "agent submit_generation 对 H3 透传 entity_ids;h3-multishot 补 entity_ids+引用注入;engines.ts 补 phantom-s2v 提交分支",
+  "regression": "后端 pytest 2765 全过;web tsc 0 错误/测试 690 全过",
+  "prod_verified": "SFW h3-t2v ordinary_default=true;R18 ltx-nsfw-*/wan-nsfw-i2v advanced=true;R18 ltx-t2v 422 含「请上传一张首帧」"
+ },
  "web_search_proxy_2026_08_28_2046": {
   "by": "设备管家",
   "verified": "2026-08-28 20:46 CST",

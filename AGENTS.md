@@ -203,6 +203,12 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - **生产实证**:部署后启动 reconcile 自动把「补图冒烟0829」标 error → 重提 → 3 作业 done → 四图槽回写 done(2MB 正面图可访问);任务中心 running/queue_pos/ETA 透出正常。
 - ⚠️ 教训(E 类新增):**回写协程生命周期不得超过 tracker 作业生命周期**——worker 停机维护可超 2h,一次性等待必死;所有「等待作业完成再落库」的后台任务都要按多轮等待+启动 reconcile 双保险写。
 
+### 2026-08-29 下午（视频路径锁 + B3 多主体注入,已部署 core）
+
+- **路径锁(42dba0c)**:R18 LTX-2.3 t2v 无首帧即 10Eros 也塌色块(生产事故)——`/api/generate/ltx-t2v` 与 `/api/ltx2/t2v`(选 10eros)一律 422 引导改 i2v 上传首帧;`LtxVideoGenerator` NSFW 支路无 image_url 直接拒绝;SFW LTX t2v(distilled/dev)不受锁。注册表 H3 t2v 标 `ordinary_default`,LTX/Wan R18 全系标 `advanced`;web/小程序进阶沉底+「进阶」徽标,默认引擎不落 LTX/Wan。
+- **B3 多主体注入(同 commit)**:agent `submit_generation` 对 H3 透传 `entity_ids`(此前丢弃,@图片N 对助手完全失效);`h3-multishot` 补 `entity_ids` 字段并与 t2v 同层同序注入引用行;前端 `engines.ts` 补 phantom-s2v 提交分支+entity_ids 透传。
+- **生产实证**:SFW 列表 h3-t2v `ordinary_default=true`;R18 列表 h3-nsfw-t2v 默认、ltx-nsfw-*/wan-nsfw-i2v 全 `advanced=true`;R18 `/api/generate/ltx-t2v` 实测 422 文案含「请上传一张首帧」。
+
 ### 2026-08-28 长会话自动折叠（ToIV 开发，未推，不改设备清单）
 
 - 本地 `a5e04ea`（未推）：长会话自动折叠，不再要求新开。续聊只上传本轮 user；runner 从 `AgentMessage` 重建再折叠。错误文案改为「这一条太长，请缩短本轮输入」。32k GPU 硬顶仍在。生产还没有。

@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-08-29 42dba0c (deployed to core): 视频路径锁 + B3 多主体注入。R18 LTX-2.3 t2v 无首帧塌色块(生产事故)→ `/api/generate/ltx-t2v` 与 `/api/ltx2/t2v`(10eros)一律 422 引导 i2v 上传首帧;LtxVideoGenerator NSFW 无 image_url 直拒;SFW LTX t2v 不受影响。注册表 H3 标 ordinary_default,LTX/Wan R18 标 advanced;web/小程序进阶沉底+徽标。B3:agent 对 H3 透传 entity_ids(此前丢弃);h3-multishot 补 entity_ids+引用注入;engines.ts 补 phantom-s2v 分支。回归:后端 pytest 2765 全过,web tsc 0/测试 690 全过。生产实证:SFW h3-t2v ordinary_default=true;R18 ltx-nsfw-*/wan-nsfw-i2v advanced=true;R18 ltx-t2v 422 含「请上传一张首帧」。
+
 - 2026-08-28 a5e04ea (local, not pushed): long-chat auto-fold, no new-session required. Follow-up uploads only this-turn user; runner rebuilds from AgentMessage then folds. Error copy 「这一条太长，请缩短本轮输入」. 32k GPU hard cap remains. Production lacks this.
 
 - 2026-08-28 e833f33 (local, not pushed): assistant context overflow. Working-copy tool body cap 1800 chars; chat() no longer injects 17 mcp__ schemas every round. On 400, retry once at half budget; still-fail copy later changed by a5e04ea to 「这一条太长，请缩短本轮输入」 (no new-session ask) NSFW+main same endpoint no double call. Persisted AgentMessage still full. Production lacks this.
