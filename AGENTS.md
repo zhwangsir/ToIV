@@ -195,6 +195,14 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 ## 七、近期关键变更（决策记录,替代操作历史）
 
 
+### 2026-08-29（三视图卡死根治 + 任务中心进度体系,已部署 core）
+
+- **事故**:worker(ComfyUI :8189)驱动级挂死整机重启 ~2h,主体库/短剧角色三视图的回写协程一次性超时退出,主体永久卡 generating(生产实证:主体「补图冒烟0829」3 作业 error、状态无人收口)。
+- **根治(e4bb0b3)**:①回写任务改**多轮等待**(单轮 900s,超时但作业 alive 不标 error,小睡 30s 进下一轮,总预算 7200s);②Job params 快照注入 entity_id/character_id,api 启动 reconcile 按此反查作业——作业齐且 alive/全 done 重挂回写,有 error/找不回(旧数据无快照)标 error 允许重试;③main.py 启动序列接入 `entities.reconcile_entity_references`。
+- **同批上线**:全量进度体系(Job.progress 列+tracker 排队位置+SSE 节流)+ GET /api/jobs/active(引擎均耗 ETA)+ 前端任务中心(导航栏面板轮询+完成通知);主体库重做(Entity 扩 avatar 字段+ReferenceAsset 双轨归并迁移+异步 generate-reference);h3 negative 折进 prompt「Avoid:」。
+- **生产实证**:部署后启动 reconcile 自动把「补图冒烟0829」标 error → 重提 → 3 作业 done → 四图槽回写 done(2MB 正面图可访问);任务中心 running/queue_pos/ETA 透出正常。
+- ⚠️ 教训(E 类新增):**回写协程生命周期不得超过 tracker 作业生命周期**——worker 停机维护可超 2h,一次性等待必死;所有「等待作业完成再落库」的后台任务都要按多轮等待+启动 reconcile 双保险写。
+
 ### 2026-08-28 长会话自动折叠（ToIV 开发，未推，不改设备清单）
 
 - 本地 `a5e04ea`（未推）：长会话自动折叠，不再要求新开。续聊只上传本轮 user；runner 从 `AgentMessage` 重建再折叠。错误文案改为「这一条太长，请缩短本轮输入」。32k GPU 硬顶仍在。生产还没有。
