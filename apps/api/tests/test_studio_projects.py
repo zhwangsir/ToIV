@@ -146,7 +146,7 @@ def test_render_single_shot(ctx, monkeypatch):
     pid = _mk_project(client, H)
     shots = _mk_shots(client, H, pid)
 
-    async def fake_render_shot(session, shot, pool=None):
+    async def fake_render_shot(session, shot, pool=None, request=None):
         shot.status = "rendered"
         shot.video_url = "/api/studio/files/fake.mp4"
         shot.final_clip_url = shot.video_url
@@ -167,7 +167,7 @@ def test_render_single_shot_error(ctx, monkeypatch):
     pid = _mk_project(client, H)
     shots = _mk_shots(client, H, pid)
 
-    async def fake_render_shot(session, shot, pool=None):
+    async def fake_render_shot(session, shot, pool=None, request=None):
         raise RenderError("worker 全忙")
 
     monkeypatch.setattr(orch, "render_shot", fake_render_shot)
@@ -183,7 +183,7 @@ def test_render_batch_skips_terminal(ctx, monkeypatch):
     shots = _mk_shots(client, H, pid)
 
     # 先把 shot A 渲染到终态(commit 落库,批量时才能被跳过)
-    async def ok_render(session, shot, pool=None):
+    async def ok_render(session, shot, pool=None, request=None):
         shot.status = "rendered"
         session.add(shot)
         session.commit()
@@ -195,7 +195,7 @@ def test_render_batch_skips_terminal(ctx, monkeypatch):
     # 批量:仅应渲染仍处于 draft 的 shot B
     rendered: list[str] = []
 
-    async def recording_render(session, shot, pool=None):
+    async def recording_render(session, shot, pool=None, request=None):
         rendered.append(shot.id)
         shot.status = "rendered"
         return shot
@@ -215,7 +215,7 @@ def test_render_batch_failure_not_blocking(ctx, monkeypatch):
     pid = _mk_project(client, H)
     _mk_shots(client, H, pid)
 
-    async def failing_render(session, shot, pool=None):
+    async def failing_render(session, shot, pool=None, request=None):
         raise RenderError("出图失败")
 
     monkeypatch.setattr(orch, "render_shot", failing_render)

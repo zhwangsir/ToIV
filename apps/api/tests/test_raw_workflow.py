@@ -105,10 +105,13 @@ def test_lora_name_nsfw_hint_blocked():
 
 
 def test_vae_and_model_name_scanned():
-    """vae_name / model_name 等其余模型引用字段同样扫描。"""
+    """vae_name / model_name 等其余模型引用字段同样扫描。
+
+    门控样本须用显式成人向文件名:fb78872 后 pony/wai/illustrious 等两用底模
+    不再归为 R18(不再触发 403),故改用 10Eros 系 R18 UNET 验证扫描覆盖。"""
     user = SimpleNamespace(nsfw_enabled=False)
     for key in ("vae_name", "model_name"):
-        g = {"1": {"class_type": "AnyLoader", "inputs": {key: "ponyDiffusionV6XL.safetensors"}}}
+        g = {"1": {"class_type": "AnyLoader", "inputs": {key: "10Eros_v1.safetensors"}}}
         with pytest.raises(HTTPException) as ei:
             _gate_raw_graph_nsfw(g, user)
         assert ei.value.status_code == 403

@@ -551,7 +551,7 @@ def test_chain_per_segment_prompts(client, monkeypatch):
 
 
 def test_chain_marks_all_jobs_nsfw_with_x_nsfw_header(client, monkeypatch):
-    """R18 上下文(X-NSFW: 1):段 Job 与合并 Job 全部打 nsfw 标。"""
+    """X-NSFW 头只做门控,不再单独打 nsfw 标(fb78872):段 Job 与合并 Job 均 nsfw=False。"""
     c, engine = client
     with Session(engine) as s:
         uid = _seed_user(s, "kc-nsfw")
@@ -566,7 +566,7 @@ def test_chain_marks_all_jobs_nsfw_with_x_nsfw_header(client, monkeypatch):
     with Session(engine) as s:
         jobs = s.exec(select(Job).where(Job.user_id == uid)).all()
         assert len(jobs) == 3
-        assert all(j.nsfw is True for j in jobs)
+        assert all(j.nsfw is False for j in jobs)
 
 
 def test_chain_spawns_merge_with_segment_ids(client, monkeypatch):
