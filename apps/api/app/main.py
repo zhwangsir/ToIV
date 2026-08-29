@@ -147,6 +147,10 @@ async def lifespan(app: FastAPI):
     trash_task = asyncio.create_task(_audit.trash_purge_loop(engine))
     # 短剧后台任务收口:generating 分镜重挂/标 error、中断的 autorun/批量精修标 interrupted
     drama_studio.reconcile_interrupted()
+    # Studio 剧本拆接收口:进程内协程随重启消失,queued/running 标 error 允许重试
+    from app.routes import studio as studio_routes
+
+    studio_routes.reconcile_parse_jobs()
     # 主体库三视图收口:generating 主体按 params 快照 entity_id 反查作业重挂回写/标 error
     from app.routes import entities as entities_routes
 

@@ -101,6 +101,7 @@ def _job_dict(j: Job) -> dict:
 # 仅用于「心里有数」级 ETA,不用于任何调度决策。
 _KIND_TYPICAL_SEC: tuple[tuple[str, int], ...] = (
     ("drama_char_reference", 120),
+    ("studio_script_parse", 180),
     ("h3_extend", 900),
     ("h3_", 900),
     ("longcat", 600),
@@ -220,6 +221,26 @@ def list_jobs(
         stmt.order_by(Job.created_at.desc()).offset(offset).limit(limit)
     ).all()
     return [_job_dict(j) for j in rows]
+
+
+@router.get("/jobs/lookup")
+def lookup_job(
+    prompt_id: str = Query(min_length=1),
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """按 prompt_id 精确查单条作业(2026-08-29 性能:编辑器轮询从全量 200 条降到 1 条)。
+
+    仅本人可见(404 不泄露存在性);R18 门控与 /jobs 列表同口径。
+    路由顺序:本端点注册先于 /jobs/{prompt_id}/events 等参数化路由,
+    静态段 lookup 优先命中,无遮蔽。
+    """
+    job = session.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
+    if not job or job.user_id != user.id or job.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="作业不存在")
+    if job.nsfw and not nsfw_allowed(user):
+        raise HTTPException(status_code=404, detail="作业不存在")
+    return _job_dict(job)
 
 
 @router.delete("/jobs/{job_id}")

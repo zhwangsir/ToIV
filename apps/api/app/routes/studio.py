@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -31,6 +32,7 @@ from app.services.studio.schemas import (
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 # ── 工具 ──────────────────────────────────────────────────────────────────
@@ -269,6 +271,90 @@ def save_shots(
 
 # ── 剧本拆解 ───────────────────────────────────────────────────────────────
 
+# 2026-08-29 异步化(生产实证:长文本同步拆解必然撞前端 120s fetch 墙):
+# POST 提交即建档 Job(kind=studio_script_parse)+ 进程内后台任务跑 LLM,
+# 前端 2s 轮询 GET parse-status 拉结果;任务中心可见/可中止(取消 → error 态返回)。
+_PARSE_KIND = "studio_script_parse"
+
+
+async def _run_script_parse(job_id: str, pid: str, body: ScriptParseRequest) -> None:
+    """后台跑 LLM 拆解,结果写 Job.result;取消/终态不回写(与 tracker canceled 语义一致)。"""
+    from app.db import engine as _engine
+    from app.models import Job
+
+    def _finish(status: str, result: dict) -> None:
+        with Session(_engine) as s:
+            job = s.get(Job, job_id)
+            # 用户中止/异常回收的终态不覆盖
+            if not job or job.status in ("done", "error", "canceled"):
+                return
+            job.status = status
+            job.result = json.dumps(result, ensure_ascii=False)
+            s.add(job)
+            s.commit()
+
+    try:
+        # 启动自检:已被用户中止(cancel 端点直写库)直接退出,否则标记 running
+        with Session(_engine) as s:
+            job0 = s.get(Job, job_id)
+            if not job0 or job0.status == "canceled":
+                return
+            job0.status = "running"
+            s.add(job0)
+            s.commit()
+        # 合法角色名集合注入校验上下文(与原同步路径同语义)
+        with Session(_engine) as s:
+            known = [
+                c.name
+                for c in s.exec(
+                    select(StudioCharacter).where(StudioCharacter.project_id == pid)
+                ).all()
+            ]
+        characters, shots = await storyboard.parse_script(
+            body.premise,
+            num_shots=body.num_shots,
+            style=body.style,
+            known_characters=known or None,
+        )
+        _finish("done", {
+            "characters": [c.model_dump() for c in characters],
+            "shots": [s.model_dump() for s in shots],
+        })
+    except storyboard.StoryboardError as e:
+        _finish("error", {"error": str(e)})
+    except Exception as e:  # noqa: BLE001 — 后台任务绝不静默死掉
+        logger.exception("script parse job %s 意外失败", job_id)
+        _finish("error", {"error": f"拆解失败:{e}"})
+
+
+def reconcile_parse_jobs() -> int:
+    """api 重启后收口在跑拆解作业(进程内协程随重启消失):标 error 允许重试。
+
+    参照 drama_studio.reconcile_interrupted;tracker.reconcile_pending 按空 worker
+    跳过此类作业,收口责任在本函数。返回收口数量。
+    """
+    from app.db import engine as _engine
+    from app.models import Job
+
+    n = 0
+    with Session(_engine) as s:
+        rows = s.exec(
+            select(Job).where(
+                Job.kind == _PARSE_KIND,
+                Job.status.in_(("queued", "running")),  # type: ignore[attr-defined]
+            )
+        ).all()
+        for job in rows:
+            job.status = "error"
+            job.result = json.dumps({"error": "服务重启,拆解中断,请重新提交"}, ensure_ascii=False)
+            s.add(job)
+            n += 1
+        if n:
+            s.commit()
+    if n:
+        logger.info("reconcile_parse_jobs: 收口 %d 个中断的拆解作业为 error", n)
+    return n
+
 
 @router.post("/studio/projects/{pid}/script/parse")
 async def parse_script_endpoint(
@@ -277,29 +363,61 @@ async def parse_script_endpoint(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    """LLM 拆解 premise → 角色+分镜草稿(不落库,前端确认后走 CRUD 保存)。"""
+    """提交剧本拆解(异步):建档 Job + 后台跑 LLM,前端轮询 parse-status 取结果。
+
+    返回 {job_id, status: "queued"};拆解结果不落项目库,前端确认后走 CRUD 保存。
+    """
+    import asyncio as _asyncio
+
+    from app.models import Job
+    from app.versioning import params_snapshot
+
+    p = _get_project(session, pid, user)
+    job = Job(
+        tenant_id=user.tenant_id,
+        user_id=user.id,
+        prompt_id="",  # 回填 job.id(占位;非 ComfyUI 作业,tracker reconcile 按空 worker 跳过)
+        worker="",
+        kind=_PARSE_KIND,
+        status="queued",
+        prompt=body.premise[:200],
+        params=params_snapshot(body, pid=pid),
+    )
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    job.prompt_id = f"parse-{job.id}"
+    session.add(job)
+    session.commit()
+    _asyncio.create_task(_run_script_parse(job.id, p.id, body))
+    return {"job_id": job.id, "status": "queued"}
+
+
+@router.get("/studio/projects/{pid}/script/parse/{job_id}")
+def get_script_parse_status(
+    pid: str,
+    job_id: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """轮询拆解结果:done → {characters, shots};error → {error};进行中 → {status}。"""
+    from app.models import Job
+
     _get_project(session, pid, user)
-    # 合法角色名集合注入校验上下文:LLM 输出中既有角色名的大小写/空白变体
-    # 自动纠正为库内名(防同名双角色),全新名放行由前端确认后建行
-    known = [
-        c.name
-        for c in session.exec(
-            select(StudioCharacter).where(StudioCharacter.project_id == pid)
-        ).all()
-    ]
-    try:
-        characters, shots = await storyboard.parse_script(
-            body.premise,
-            num_shots=body.num_shots,
-            style=body.style,
-            known_characters=known or None,
-        )
-    except storyboard.StoryboardError as e:
-        raise HTTPException(status_code=502, detail=str(e)) from e
-    return {
-        "characters": [c.model_dump() for c in characters],
-        "shots": [s.model_dump() for s in shots],
-    }
+    job = session.get(Job, job_id)
+    if not job or job.user_id != user.id or job.kind != _PARSE_KIND:
+        raise HTTPException(status_code=404, detail="拆解任务不存在")
+    out: dict = {"status": job.status}
+    if job.status == "done":
+        out.update(json.loads(job.result or "{}"))
+    elif job.status == "error":
+        try:
+            out["error"] = json.loads(job.result or "{}").get("error") or "拆解失败"
+        except (ValueError, TypeError):
+            out["error"] = "拆解失败"
+    elif job.status == "canceled":
+        out["error"] = "已中止"
+    return out
 
 
 # ── 分镜 AI 扩写(Skill 化剧本优化,2026-08-18)─────────────────────────────

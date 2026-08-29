@@ -17,6 +17,7 @@ const KIND_LABELS: Record<string, string> = {
   drama_char_reference_side: "角色三视图·侧",
   drama_char_reference_back: "角色三视图·背",
   ltx25_multishot: "LTX 多镜头",
+  studio_script_parse: "剧本拆解",
 };
 
 const KIND_PREFIX_LABELS: Array<[string, string]> = [

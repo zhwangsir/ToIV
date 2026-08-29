@@ -370,6 +370,17 @@ export async function fetchJobsPage(offset: number, limit = 200): Promise<JobIte
   return res.json();
 }
 
+/** 按 prompt_id 精确查单条作业(2026-08-29 性能:编辑器轮询专用,替代全量 200 条过滤)。
+ *  404(不存在/他人/回收站)→ 返回 null,调用方保持当前状态下轮再试。 */
+export async function lookupJob(promptId: string): Promise<JobItem | null> {
+  const res = await apiFetch(`/api/jobs/lookup?prompt_id=${encodeURIComponent(promptId)}`, {
+    headers: authHeaders(),
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`查询作业失败 (${res.status})`);
+  return res.json();
+}
+
 /** 首页大小:与后端单页上限一致;返回满页即可能还有下一页。 */
 export const JOBS_PAGE_LIMIT = 200;
 
@@ -4155,14 +4166,38 @@ export const patchStudioProject = (
 export const deleteStudioProject = (pid: string): Promise<{ ok: boolean }> =>
   studioReq(`/studio/projects/${pid}`, "DELETE");
 
-/** LLM 剧本拆解(不落库,前端确认后走 CRUD 保存);整段一次生成 → 放宽到 120s。 */
-export const parseStudioScript = (
+/** LLM 剧本拆解(2026-08-29 异步化:提交→Job→2s 轮询,根治长文本撞 120s fetch 墙);
+ *  拆解结果不落库,前端确认后走 CRUD 保存;轮询上限 8 分钟(覆盖 L3 长输出)。 */
+export const parseStudioScript = async (
   pid: string,
   body: { premise: string; num_shots?: number; style?: string },
-): Promise<StudioParseResult> =>
-  studioReq(`/studio/projects/${pid}/script/parse`, "POST", body, {
-    timeoutMs: 120_000,
-  });
+): Promise<StudioParseResult> => {
+  const submitted = await studioReq<{ job_id: string; status: string }>(
+    `/studio/projects/${pid}/script/parse`,
+    "POST",
+    body,
+  );
+  const deadline = Date.now() + 8 * 60_000;
+  // 首轮立即查(短剧本可能秒回),后续 2s 间隔
+  for (;;) {
+    const st = await studioReq<{
+      status: string;
+      characters?: StudioParseResult["characters"];
+      shots?: StudioParseResult["shots"];
+      error?: string;
+    }>(`/studio/projects/${pid}/script/parse/${submitted.job_id}`, "GET");
+    if (st.status === "done") {
+      return { characters: st.characters ?? [], shots: st.shots ?? [] };
+    }
+    if (st.status === "error" || st.status === "canceled") {
+      throw new Error(st.error || "拆解失败,请重试");
+    }
+    if (Date.now() >= deadline) {
+      throw new Error("拆解超时(8 分钟),请重试或缩短剧本");
+    }
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+};
 
 export const addStudioCharacter = (
   pid: string,
