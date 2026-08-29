@@ -32,7 +32,7 @@
 
 | 设备 | 角色 | LAN IP | Tailscale IP | 类型 | SSH 用户 |
 |---|---|---|---|---|---|
-| studio01-04 | EXO RDMA 推理 :52415(实跑 MiniMax-M2.7-4bit);~~studio04 另跑 VLM 反推 :9303~~(2026-08-26 ToIV 零依赖,退役观察期)；**2026-08-28 LAN SSH timeout，维持全离线** | .109/.111/.112/.113 | 100.67.43.40 / 100.91.0.121 / 100.115.27.68 / 100.126.182.23 | **Mac Studio M3 Ultra 32核 512GB** | dgmt-studio01-04 |
+| ~~studio01-04~~ | **2026-08-29 全线下线退役**：EXO RDMA :52415 四台真机 curl 全超时，已从 fleet_registry 移除；原承担的 L2/L3 LLM 层（Kimi-K3/GLM-5.2）收拢 spark02 | .109/.111/.112/.113 | 100.67.43.40 / 100.91.0.121 / 100.115.27.68 / 100.126.182.23 | **Mac Studio M3 Ultra 32核 512GB** | dgmt-studio01-04 |
 | openclaw01-04 | OpenClaw 网关 :18789 均 200（2026-08-28） | .86/.75/.81/.85 | **100.115.23.67** / 100.76.35.7 / 100.76.140.121 / **100.125.217.11**（01/04 以 Tailscale 2026-08-27 为准，旧 100.69.0.4 / 100.91.128.30 作废） | **Mac mini M4 16GB (hw.model=Mac16,10)**；01 已 profiler 实锤，02-04 同 hw.model | dgmt-openclaw01-04 |
 | spark01 | **Qwen3-VL-32B-Instruct-FP8** 评分/反推 VLM(容器 qwen3vl32b, :8000;2026-08-25 替换 molmo2-8B,幻觉实测根治;**2026-08-26 起接管图像/视频反推+宫格 grounding**,别名 molmo2-8b/omni-captioner 保留) | .82 | 100.81.235.124 | Linux GB10 | dgmt-spark |
 | spark02 | LLM L1-L4 主力(**Qwen3.8-27B-Uncensored-FP8 无审查版**,2026-08-23 替换;别名 qwen3.8-27b/qwen3.6-uncensored 均有效, :8000) | .84 | 100.86.42.89 | Linux GB10 | dgmt-spark |

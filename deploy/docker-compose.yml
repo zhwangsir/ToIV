@@ -45,13 +45,12 @@ services:
       # 两者必须同时设置,否则校验通过但 ComfyUI 运行时报 VAE not found
       TOIV_LTX_VAE: "${TOIV_LTX_VAE:-LTX23_video_vae_bf16.safetensors}"
       TOIV_NSFW_DEFAULT_VAE: "${TOIV_NSFW_DEFAULT_VAE:-LTX23_video_vae_bf16.safetensors}"
-      # AICG 四层模型流水线 L2/L3（2026-07-24 接入）:Mac Studio EXO RDMA 集群
-      # L2 主力润色:Kimi-K2.7-Code-4bit,6.6s/句,timeout 120s
-      TOIV_LLM_L2_BASE_URL: "${TOIV_LLM_L2_BASE_URL:-http://192.168.71.109:52415/v1}"
-      TOIV_LLM_L2_MODEL: "${TOIV_LLM_L2_MODEL:-mlx-community/Kimi-K2.7-Code-4bit}"
-      # L3 终稿精修:GLM-5.2-fp8,关 thinking 3.4s/句(开 thinking 50s),timeout 300s(EXO 顶层 enable_thinking=false)
-      TOIV_LLM_L3_BASE_URL: "${TOIV_LLM_L3_BASE_URL:-http://192.168.71.109:52415/v1}"
-      TOIV_LLM_L3_MODEL: "${TOIV_LLM_L3_MODEL:-mlx-community/GLM-5.2-fp8}"
+      # AICG 四层模型流水线 L2/L3（2026-07-24 接入;原 Mac Studio EXO RDMA 集群 2026-08-29 全线下线）
+      # L2/L3(2026-08-29 Studio EXO 全线下线后收拢 spark02 主模型;层间仅超时/预算差异)
+      TOIV_LLM_L2_BASE_URL: "${TOIV_LLM_L2_BASE_URL:-http://192.168.71.84:8000/v1}"
+      TOIV_LLM_L2_MODEL: "${TOIV_LLM_L2_MODEL:-qwen3.6-uncensored}"
+      TOIV_LLM_L3_BASE_URL: "${TOIV_LLM_L3_BASE_URL:-http://192.168.71.84:8000/v1}"
+      TOIV_LLM_L3_MODEL: "${TOIV_LLM_L3_MODEL:-qwen3.6-uncensored}"
       # VLM 视频质量评估(2026-07-27):workstation Nemotron-3-Nano-Omni 全模态,OpenAI 兼容 API
       # 启用后:视频作业 done 前异步调 VLM 评估,低分推 SSE quality_warning;失败/超时/全 0 一律降级不阻塞
       TOIV_VLM_SERVER_URL: "${TOIV_VLM_SERVER_URL:-http://192.168.71.127:8000}"

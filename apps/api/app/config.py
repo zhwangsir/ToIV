@@ -158,13 +158,14 @@ class Settings(BaseSettings):
     # —— AICG 四层模型流水线（2026-07-24 项目管家确认）——
     # L1 初稿 = llm_base_url/llm_model（上面已配，qwen3.6-uncensored @ spark02:8000）
     # L4 NSFW = llm_nsfw_base_url/llm_nsfw_model（生产同上 spark02,.env 覆盖）
-    # L2 主力润色: Mac Studio EXO RDMA, Kimi-K3(EXO 已上架;2026-07-30 实测无运行实例时自动降级 L1)
-    llm_l2_base_url: str = "http://192.168.71.109:52415/v1"
-    llm_l2_model: str = "moonshotai/Kimi-K3"
+    # L2 主力润色 / L3 终稿精修:2026-08-29 Studio01-04(EXO RDMA :52415)全线下线,
+    # 两层收拢到 spark02 主模型(同 L1;qwen3.6-uncensored = Qwen3.8-27B-Uncensored FP8)。
+    # 层间差异只剩超时/预算语义,模型同一——Studio 恢复上架后再分开指。
+    llm_l2_base_url: str = "http://192.168.71.84:8000/v1"
+    llm_l2_model: str = "qwen3.6-uncensored"
     llm_l2_timeout: float = 120.0
-    # L3 终稿精修: Mac Studio EXO, GLM-5.2-DQ4plus-q8(同上的实例状态边界)
-    llm_l3_base_url: str = "http://192.168.71.109:52415/v1"
-    llm_l3_model: str = "mlx-community/GLM-5.2-DQ4plus-q8"
+    llm_l3_base_url: str = "http://192.168.71.84:8000/v1"
+    llm_l3_model: str = "qwen3.6-uncensored"
     llm_l3_timeout: float = 300.0
 
     # 向量 RAG 的 embedding 模型(同一 OpenAI 兼容端点;留空则复用 llm_base_url)

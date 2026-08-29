@@ -142,34 +142,17 @@ DEVICE_REGISTRY: list[dict] = [
     {
         "id": "spark02",
         "name": "Spark02",
-        "role": "LLM L1-L4 主力(Qwen3.8-27B-Uncensored-FP8)",
+        # 2026-08-29 Studio01-04 全线下线:L2/L3 层(Kimi-K3/GLM-5.2 @ EXO :52415)
+        # 一并退役,全部 LLM 层收拢到本机(见 config.llm_l2/l3_base_url 默认值)。
+        "role": "LLM L1-L4 全部层(Qwen3.8-27B-Uncensored-FP8)",
         "lan_ip": "192.168.71.84",
         "ts_ip": "100.86.42.89",
         "hardware": "Linux GB10",
         "probe_host": "192.168.71.84",
         "services": [_http("vLLM", 8000, path="/v1/models", kind="vllm")],
     },
-    *[
-        {
-            "id": f"studio0{i}",
-            "name": f"Studio0{i}",
-            # 2026-08-26 ToIV 依赖迁移:VLM 反推已切 spark01 Qwen3-VL-32B,
-            # Studio 仅剩 EXO RDMA;:9303 保留探测(退役观察期,稳定后下线)。
-            "role": "EXO RDMA 推理(MiniMax-M2.7-4bit)",
-            "lan_ip": lan,
-            "ts_ip": ts,
-            "hardware": "Mac Studio M3 Ultra 32核 512GB",
-            "probe_host": lan,
-            "services": [_http("EXO", 52415)]
-                       + ([_http("VLM 反推(退役观察)", 9303)] if i == 4 else []),
-        }
-        for i, lan, ts in [
-            (1, "192.168.71.109", "100.67.43.40"),
-            (2, "192.168.71.111", "100.91.0.121"),
-            (3, "192.168.71.112", "100.115.27.68"),
-            (4, "192.168.71.113", "100.126.182.23"),
-        ]
-    ],
+    # Studio01-04 已于 2026-08-29 全线下线(四台 EXO :52415 真机 curl 全超时),
+    # 从舰队注册表移除;历史规格见 git 历史。
     *[
         {
             "id": f"openclaw0{i}",
