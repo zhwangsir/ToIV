@@ -1416,6 +1416,8 @@ def _default_registry() -> list[dict[str, Any]]:
         "label": "LongCat 文生视频",
         "kind": "video",
         "nsfw": False,
+        # 2026-08-29 H3 主路收敛:通用文生视频 H3 全覆盖,本引擎进阶沉底
+        "advanced": True,
         "submit": {"route": "/api/longcat/t2v", "kind": "longcat-t2v"},
         "description": "LongCat-Video 长视频引擎:蒸馏 LoRA 低步数出片,专用实例 :8197",
         "source": {
@@ -1432,6 +1434,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "label": "LongCat 图生视频",
         "kind": "video",
         "nsfw": False,
+        "advanced": True,
         "submit": {"route": "/api/longcat/i2v", "kind": "longcat-i2v"},
         "description": "LongCat-Video 长视频引擎:首帧参考图 → 长镜头,专用实例 :8197",
         "source": {
@@ -1448,6 +1451,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "label": "LongCat 视频续写",
         "kind": "video",
         "nsfw": False,
+        "advanced": True,
         "submit": {"route": "/api/longcat/continue", "kind": "longcat-continue"},
         "description": "LongCat-Video:取已有视频末帧续写下一段长镜头(API 缺省宽高/帧率时自动向源视频实测值对齐)",
         "source": {
@@ -1470,6 +1474,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "label": "LongCat-Avatar 数字人",
         "kind": "video",
         "nsfw": False,
+        "advanced": True,
         "submit": {"route": "/api/avatar/talk", "kind": "avatar-talk"},
         "description": "LongCat-Avatar 音频驱动数字人:人像首帧 + 说话音频 → 口型同步视频,专用实例 :8197",
         "source": {
@@ -1488,6 +1493,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "label": "Wan2.2 动作迁移",
         "kind": "video",
         "nsfw": False,
+        "advanced": True,
         "submit": {"route": "/api/wan/animate", "kind": "wan-animate"},
         "description": "Wan2.2-Animate 14B:参考图角色按驱动视频动作表演(双轨骨骼+表情迁移),专用实例 :8197",
         "source": {
@@ -1505,6 +1511,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "label": "VACE 多参考视频",
         "kind": "video",
         "nsfw": False,
+        "advanced": True,
         "submit": {"route": "/api/wan/vace", "kind": "wan-vace"},
         "description": "Wan2.1-VACE 14B:多参考图(角色/物体/场景)+ 可选首尾帧 → 一致性视频,专用实例 :8197",
         "source": {
@@ -1523,6 +1530,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "label": "首尾帧转场",
         "kind": "video",
         "nsfw": False,
+        "advanced": True,
         "submit": {"route": "/api/generate/transition", "kind": "wan-transition"},
         "description": "Wan2.1-VACE 14B 首尾帧转场:给定首帧与尾帧,生成中间平滑过渡视频,专用实例 :8197",
         "source": {
@@ -1542,6 +1550,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "label": "关键帧链",
         "kind": "video",
         "nsfw": False,
+        "advanced": True,
         "submit": {"route": "/api/generate/keyframe-chain", "kind": "keyframe-chain"},
         "description": "关键帧链式转场:按链序给 2-5 张关键帧,相邻两帧各生成一段平滑转场并拼接为整条视频(单段 1-10s,总长 ≤25s),Wan2.1-VACE 专用实例 :8197",
         "source": {
@@ -1562,6 +1571,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "label": "VACE 视频编辑",
         "kind": "video",
         "nsfw": False,
+        "advanced": True,
         "submit": {"route": "/api/generate/video-edit", "kind": "vace-edit"},
         "description": "Wan2.1-VACE 14B 视频到视频编辑(对标 Runway Aleph in-context):源视频 + 英文编辑指令 → 对象替换/移除/风格迁移/重打光/相机变换,可锚定 ≤5 关键帧与区域保留 mask(≤10s),专用实例 :8197",
         "source": {
@@ -1580,6 +1590,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "label": "Wan Animate 2 换人",
         "kind": "video",
         "nsfw": False,
+        "advanced": True,
         "submit": {"route": "/api/wan/animate2", "kind": "wan-animate-2"},
         "description": "Wan-Animate-2 14B(蒸馏版 10 步):参考图角色按驱动视频动作/表情表演,专用实例 :8199;提示词留空自动反推外观描述",
         "source": {
@@ -1633,6 +1644,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "label": "Ovi 音画同出(文生)",
         "kind": "video",
         "nsfw": False,
+        "advanced": True,
         "submit": {"route": "/api/ovi/t2v", "kind": "ovi-t2v"},
         "description": "Ovi 1.1 音画联合生成:文本 → ≤10s@960×960 同步音画(语音对口型+环境音效),专用实例 :8197;台词自动包 <S>/<E>",
         "source": {
@@ -1660,6 +1672,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "label": "Ovi 音画同出(图生)",
         "kind": "video",
         "nsfw": False,
+        "advanced": True,
         "submit": {"route": "/api/ovi/i2v", "kind": "ovi-i2v"},
         "description": "Ovi 1.1 图生音画:参考图 + 文本 → 同步音画(图片主体开口说话/配音效),专用实例 :8197",
         "source": {
@@ -1688,6 +1701,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "label": "Phantom 角色一致性视频",
         "kind": "video",
         "nsfw": False,
+        "advanced": True,
         "submit": {"route": "/api/phantom/s2v", "kind": "phantom_s2v"},
         "description": "Phantom-Wan-14B 角色一致性生成:1-4 张参考图(或形象库主体)→ 跨场景角色锁定,跨镜头面部/服装/体态一致;专用实例 :8197",
         "source": {
@@ -1719,6 +1733,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "label": "LTX-2.5 一键多镜头",
         "kind": "video",
         "nsfw": False,
+        "advanced": True,
         "submit": {"route": "/api/ltx/multishot", "kind": "ltx_multishot"},
         "description": "LTX-2.5 22B(NVFP4 蒸馏):单 prompt 分镜 2-4 镜单次出片(≤20s,720p),角色/光线/嗓音跨切一致,原生音画同出;热态 12s 片约 60s,落点 pc01 5090",
         "source": {

@@ -105,7 +105,7 @@ class H3T2VRequest(BaseModel):
     effect_preset: str | None = Field(default=None, max_length=64)
     # 主体引用(@主体前台化):全局主体库 Entity id 列表,选中后注入 @图片N 引用行
     # 到 prompt 绝对开头(与 drama 线 h3_refs 同规则);空列表 = 显式清空
-    entity_ids: list[str] | None = Field(default=None, max_length=16)
+    entity_ids: list[str] | None = Field(default=None, max_length=9)  # H3 官方全能参考(Ref2VA)上限 9 图
     # RES-2026-08-18:输出分辨率档(1080p/2k/4k)。宽高始终按原生上限(H3≤1344×768)
     # 生成,选档后由超分集群二次放大;空 = 原生直出
     resolution_target: str | None = Field(default=None, max_length=8)
@@ -338,7 +338,7 @@ class H3MultiShotRequest(BaseModel):
     resolution_target: str | None = Field(default=None, max_length=8)
     # 主体引用(@主体前台化):与 t2v 同一语义,组装后的单 prompt 绝对开头注入
     # @图片N 引用行;空列表 = 显式清空(2026-08-29 B3 补齐:此前 multishot 无此字段)
-    entity_ids: list[str] | None = Field(default=None, max_length=16)
+    entity_ids: list[str] | None = Field(default=None, max_length=9)  # H3 官方全能参考(Ref2VA)上限 9 图
 
     @field_validator("effect_preset")
     @classmethod
