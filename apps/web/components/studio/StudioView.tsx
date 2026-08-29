@@ -58,7 +58,7 @@ const PROJECT_PROGRESS_STEP: Record<string, number> = {
  * Studio 创作工作室(替代旧 短剧/漫剧 双模块)。
  * 四阶段流水线:剧本 → 角色 → 分镜(分镜级 视频/图像运镜 混合)→ 合成。
  */
-export function StudioView() {
+export function StudioView({ onBack }: { onBack?: () => void }) {
   const [projects, setProjects] = useState<StudioProjectSummary[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [stage, setStage] = useState<StageKey>("script");
@@ -114,6 +114,8 @@ export function StudioView() {
           desc="剧本 → 角色 → 分镜混合生成 → 合成,四步完成一部短剧"
           icon="clapperboard"
           kicker="FILM STUDIO"
+          onBack={onBack}
+          backLabel="返回融合"
           actions={
             /* btn-primary 类保留:e2e(authed-studio)锚点;视觉走 .at-btn--primary 墨丸 */
             <button

@@ -60,15 +60,10 @@ test.describe("LibTV 短剧工作台", () => {
     }
   }
 
-  /** 真实用户链路:R18 首页 → cornernav → 「短剧」tab 进短剧视图 */
+  /** 真实用户链路(2026-08-29 更新):灵动岛已收「短剧」项(融合页创作工作室承载),
+   *  R18 用户经直链进入短剧视图 */
   async function enterDramaViaNav(page: Page) {
-    await gotoR18(page, "/");
-    await page.locator(".cornernav-trigger").click();
-    const dramaTab = page.locator('.cornernav-items [role="tab"]', {
-      hasText: "短剧",
-    });
-    await expect(dramaTab).toBeVisible({ timeout: 10000 });
-    await dramaTab.click();
+    await gotoR18(page, "/?view=drama");
     await expect(page.locator(".nsfw-drama")).toBeVisible({ timeout: 10000 });
   }
 

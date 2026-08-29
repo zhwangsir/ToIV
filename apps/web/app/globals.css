@@ -659,6 +659,24 @@ img, video {
   margin-bottom: var(--space-4);
   flex-wrap: wrap;
 }
+/* 返回上一级(2026-08-29 融合二级页):kicker 上方的低调文字钮 */
+.page-header-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0;
+  margin: 0 0 var(--space-1) 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--text-label);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+.page-header-back:hover,
+.page-header-back:focus-visible {
+  color: var(--text-primary);
+}
 .page-header-title {
   font-size: var(--text-title);
   font-weight: var(--font-bold);

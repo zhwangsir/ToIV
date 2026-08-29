@@ -118,7 +118,7 @@ function probeMediaDuration(url: string, kind: MediaKind): Promise<number | null
   });
 }
 
-export function VideoEditView() {
+export function VideoEditView({ onBack }: { onBack?: () => void }) {
   const [mediaFiles, setMediaFiles] = useState<MediaItem[]>([]);
   const [clips, setClips] = useState<ClipItem[]>([]);
   const [audios, setAudios] = useState<AudioItem[]>([]);
@@ -389,7 +389,13 @@ export function VideoEditView() {
 
   return (
     <div className="single-view ve-view">
-      {/* 2026-08-18 页头移除(灵动岛已指示当前板块):分辨率/帧率收进顶部工具行 */}
+      {/* 2026-08-18 页头移除(灵动岛已指示当前板块):分辨率/帧率收进顶部工具行;
+          2026-08-29 融合二级页补「返回融合」低调文字钮 */}
+      {onBack && (
+        <button type="button" className="page-header-back" onClick={onBack}>
+          <Icon name="chevron-left" size={13} /> 返回融合
+        </button>
+      )}
       <div className="ve-toolbar">
         <div className="ve-settings">
           <label className="ve-setting">

@@ -275,21 +275,22 @@ test.describe("R18 全局内容模式", () => {
     },
   );
 
-  // ─── 用例 6:R18 模式导航出现短剧项,点击进入短剧工作台 ───
+  // ─── 用例 6:R18 模式短剧工作台仍可达(2026-08-29 导航项已移除,改直链进入) ───
   test(
-    "authed-r18: 短剧导航项可见并进入短剧工作台",
+    "authed-r18: 短剧导航项已收(融合创作工作室承载),直链仍进短剧工作台",
     { tag: "@authed" },
     async ({ page }) => {
       await gotoR18(page, "/");
 
+      // 灵动岛不再有「短剧」项(融合页「创作工作室」承载同职责)
       await page.locator(".cornernav-trigger").click();
-      const dramaTab = page.locator('.cornernav-items [role="tab"]', {
-        hasText: "短剧",
-      });
-      await expect(dramaTab).toBeVisible({ timeout: 10000 });
-      await dramaTab.click();
+      await expect(
+        page.locator('.cornernav-items [role="tab"]', { hasText: "短剧" }),
+      ).toHaveCount(0);
+      await page.keyboard.press("Escape");
 
-      // 短剧工作台壳渲染(项目侧栏 + 空态提示)
+      // 直链进短剧工作台(R18 门控放行)
+      await gotoR18(page, "/?view=drama");
       await expect(page.locator(".nsfw-drama")).toBeVisible({ timeout: 10000 });
       await expect(page.locator(".nsfw-drama-side")).toBeVisible();
       await expect(page.getByText("选择或新建一个短剧项目")).toBeVisible();

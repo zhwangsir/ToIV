@@ -574,7 +574,7 @@ function ProgressBar({ progress }: { progress: JobProgress }) {
 // 主组件
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function ImageEditView() {
+export function ImageEditView({ onBack }: { onBack?: () => void }) {
   const [source, setSource] = useState<UploadedImage | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -917,7 +917,13 @@ export function ImageEditView() {
 
   return (
     <div className="single-view ie-view">
-      {/* 2026-08-18 页头移除(灵动岛已指示当前板块):「重新上传」收进工作区顶部窄行 */}
+      {/* 2026-08-18 页头移除(灵动岛已指示当前板块):「重新上传」收进工作区顶部窄行;
+          2026-08-29 融合二级页补「返回融合」低调文字钮(不占页头) */}
+      {onBack && (
+        <button type="button" className="page-header-back" onClick={onBack}>
+          <Icon name="chevron-left" size={13} /> 返回融合
+        </button>
+      )}
       {!source ? (
         <DropZone
           onUpload={handleUpload}

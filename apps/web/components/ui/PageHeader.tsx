@@ -17,6 +17,10 @@ interface PageHeaderProps {
   /** 紧凑模式(2026-08-18):工具化页头——只留标题与 actions 单行居中,
    *  隐藏 kicker/desc/编辑双线,留白收紧。工作台类视图(生成/编辑)把首屏还给内容。 */
   compact?: boolean;
+  /** 返回上一级(2026-08-29:融合二级页统一「‹ 返回融合」);渲染在 kicker 上方 */
+  onBack?: () => void;
+  /** 返回按钮文案(默认「返回」) */
+  backLabel?: string;
   className?: string;
 }
 
@@ -25,7 +29,7 @@ interface PageHeaderProps {
  * 版型 = 左标题+副标题 / 右操作槽,对齐 globals.css 页头类。
  * kicker 传入时在标题上方渲染小型大写铭牌(Film Atelier masthead)。
  */
-export function PageHeader({ title, desc, icon, kicker, actions, compact, className }: PageHeaderProps) {
+export function PageHeader({ title, desc, icon, kicker, actions, compact, onBack, backLabel = "返回", className }: PageHeaderProps) {
   return (
     <header
       className={["page-header", compact ? "is-compact" : "", className]
@@ -33,6 +37,11 @@ export function PageHeader({ title, desc, icon, kicker, actions, compact, classN
         .join(" ")}
     >
       <div className="page-header-text">
+        {onBack && (
+          <button type="button" className="page-header-back" onClick={onBack}>
+            <Icon name="chevron-left" size={13} /> {backLabel}
+          </button>
+        )}
         {!compact && kicker && <span className="page-header-kicker">{kicker}</span>}
         <h1 className="page-header-title">
           {icon && <Icon name={icon} size={compact ? 16 : 20} className="ui-page-header-icon" />}

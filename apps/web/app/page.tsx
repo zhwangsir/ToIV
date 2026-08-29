@@ -647,21 +647,11 @@ function HomeContent() {
   const isAdmin = account === "admin";
   const meta = VIEW_META[view];
 
-  // M9:R18 模式追加「短剧」导航项 —— 灵动岛插到「融合」后,底部「更多」插到「创作」后
-  let islandItems: CornerNavItem[] = r18
-    ? [
-        ...ISLAND_ITEMS.slice(0, 5),
-        { key: "drama", label: "短剧", icon: "clapperboard" },
-        ...ISLAND_ITEMS.slice(5),
-      ]
-    : ISLAND_ITEMS;
-  let bottomNavMoreItems: BottomNavItem[] = r18
-    ? [
-        ...BOTTOM_NAV_MORE_ITEMS.slice(0, 5),
-        { key: "drama", label: "短剧", icon: "clapperboard" },
-        ...BOTTOM_NAV_MORE_ITEMS.slice(5),
-      ]
-    : BOTTOM_NAV_MORE_ITEMS;
+  // 2026-08-29:灵动岛/底部抽屉不再追加「短剧」(drama 旧管线)——融合页已有
+  // 「创作工作室」(studio)旗舰卡承载同一职责,双入口造成认知分叉。
+  // drama 视图本体与 R18 URL 门控保留(旧项目数据仍可达),仅收导航入口。
+  let islandItems: CornerNavItem[] = ISLAND_ITEMS;
+  let bottomNavMoreItems: BottomNavItem[] = BOTTOM_NAV_MORE_ITEMS;
   // 观测面板仅管理员可见(端点 admin-only,普通用户加入口只会 403)
   const observabilityItem: BottomNavItem = {
     key: "observability",
@@ -739,13 +729,14 @@ function HomeContent() {
               {view === "video" && <GenerateView lockedKind="video" />}
               {view === "audio" && <AudioView />}
               {view === "fusion" && <FusionView onNavigate={handleFusionNavigate} />}
-              {view === "imageEdit" && <ImageEditView />}
-              {view === "videoEdit" && <VideoEditView />}
+              {/* 融合二级页(2026-08-29):统一补「返回融合」入口(onBack) */}
+              {view === "imageEdit" && <ImageEditView onBack={() => handleFusionNavigate("fusion")} />}
+              {view === "videoEdit" && <VideoEditView onBack={() => handleFusionNavigate("fusion")} />}
               {view === "canvas" && <CanvasView />}
-              {view === "studio" && <StudioView />}
+              {view === "studio" && <StudioView onBack={() => handleFusionNavigate("fusion")} />}
               {/* M9:短剧(drama 旧管线)仅 R18 模式渲染;SFW 直输 URL 由门控 effect 弹回 */}
               {view === "drama" && r18 && <DramaView />}
-              {view === "dub" && <DubView />}
+              {view === "dub" && <DubView onBack={() => handleFusionNavigate("fusion")} />}
               {view === "animatic" && (
                 // 动态分镜全端统一:AnimaticView 为唯一实现(旧桌面端 FROZEN 视图已物理删除)
                 <AnimaticView onOpenDramaProject={handleOpenDramaProject} />

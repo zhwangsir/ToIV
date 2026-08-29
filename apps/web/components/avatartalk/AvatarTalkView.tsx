@@ -541,6 +541,8 @@ export function AvatarTalkView({ onNavigate }: { onNavigate?: (target: string) =
     <PageHeader
       kicker="DIGITAL HUMAN"
       title="数字人"
+      onBack={onNavigate ? () => onNavigate("fusion") : undefined}
+      backLabel="返回融合"
       desc={
         mode === "live"
           ? "选择形象与模型,与数字人实时对话"

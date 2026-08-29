@@ -106,7 +106,7 @@ function fileExt(name: string): string {
 /** 对口型模式:LatentSync 长视频 / 动漫对口型 / AI 精剪。 */
 type LipsyncMode = "latent" | "anime" | "highlights";
 
-export function DubView() {
+export function DubView({ onBack }: { onBack?: () => void }) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
 
   // ── Step 1: 上传 ──
@@ -454,6 +454,8 @@ export function DubView() {
         title="译制"
         desc="视频译制 · 听写 · 翻译 · 配音 · 口型同步"
         icon="dub"
+        onBack={onBack}
+        backLabel="返回融合"
         actions={
           <div className="dub-meta">
             {video && (
