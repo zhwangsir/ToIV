@@ -73,10 +73,10 @@ def image_url(worker: str, image: dict) -> str:
 
 
 def mark_status(prompt_id: str, status: str) -> None:
-    """更新状态(独立短会话);已完成的作业不回退。"""
+    """更新状态(独立短会话);已完成/已取消的作业不回退。"""
     with Session(engine) as session:
         job = session.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
-        if job and job.status != "done":
+        if job and job.status not in ("done", "canceled"):
             job.status = status
             session.add(job)
             session.commit()
@@ -115,7 +115,7 @@ def write_progress(
     try:
         with Session(engine) as session:
             job = session.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
-            if not job or job.status in ("done", "error"):
+            if not job or job.status in ("done", "error", "canceled"):
                 return
             try:
                 snap = json.loads(job.progress) if job.progress else {}
@@ -192,6 +192,16 @@ async def _poll_once(client: ComfyUIClient, prompt_id: str) -> str | None:
     return None
 
 
+def _is_canceled(prompt_id: str) -> bool:
+    """作业是否已被用户取消(cancel 端点直写库,追踪循环据此早退)。"""
+    try:
+        with Session(engine) as session:
+            job = session.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
+            return bool(job and job.status == "canceled")
+    except Exception:  # noqa: BLE001 — 探测失败不误杀,按未取消继续追踪
+        return False
+
+
 async def _orphan_check(client: ComfyUIClient, prompt_id: str) -> tuple[bool, bool]:
     """孤儿检测:返回 (orphan, in_queue)。
 
@@ -244,7 +254,9 @@ async def _track(
 
     - 孤儿回收:worker 重启会丢队列作业,连续 _ORPHAN_STRIKES 次确认后标 error 终态;
     - 超时(默认 settings.job_track_timeout,2h 覆盖 LongCat 65min 作业)到达时
-      同样标 error 终态回收,不再让作业永远停在 queued 空转。
+      同样标 error 终态回收,不再让作业永远停在 queued 空转;
+    - 用户取消(POST /api/jobs/{id}/cancel,2026-08-29)后直接退出,canceled 是
+      终态,追踪不再回写任何状态。
     """
     if timeout is None:
         timeout = get_settings().job_track_timeout
@@ -253,6 +265,9 @@ async def _track(
     # 首次孤儿检测推迟一个间隔:刚提交的作业可能尚未进入 worker /queue,避免误记 strike
     last_queue_check = time.monotonic()
     while waited < timeout:
+        if _is_canceled(prompt_id):
+            logger.info("job tracker %s: 用户已取消,退出追踪", prompt_id)
+            return
         try:
             outcome = await _poll_once(client, prompt_id)
             if outcome is not None:
@@ -440,6 +455,8 @@ async def wait_for_jobs(
                 done.add(pid)
             elif job.status == "error":
                 raise RuntimeError(f"作业 {pid} 执行失败")
+            elif job.status == "canceled":
+                raise RuntimeError(f"作业 {pid} 已被用户取消")
         pending -= done
         if not pending:
             break

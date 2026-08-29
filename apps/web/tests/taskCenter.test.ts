@@ -1,6 +1,9 @@
 // 任务中心(全量进度体系,2026-08-29):纯函数呈现逻辑
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   fmtDuration,
@@ -9,6 +12,13 @@ import {
   statusLineOf,
 } from "../components/nav/taskCenterUtils";
 import type { ActiveJobItem } from "../lib/api";
+
+const testDir = dirname(fileURLToPath(import.meta.url));
+const webRoot = join(testDir, "..");
+
+function readSrc(rel: string): string {
+  return readFileSync(join(webRoot, rel), "utf-8");
+}
 
 function mkItem(overrides: Partial<ActiveJobItem> = {}): ActiveJobItem {
   return {
@@ -85,5 +95,32 @@ describe("statusLineOf", () => {
   });
   it("无进度回落生成中", () => {
     assert.equal(statusLineOf(mkItem()), "生成中");
+  });
+});
+
+/* ── 中止按钮(2026-08-29):源码断言 ── */
+
+describe("任务中止接线", () => {
+  it("TaskCenter 条目渲染中止按钮并经 cancelJob 调后端", () => {
+    const view = readSrc("components/nav/TaskCenter.tsx");
+    assert.ok(view.includes("cancelJob"), "TaskCenter 未导入 cancelJob");
+    assert.ok(view.includes("taskcenter-item-cancel"), "缺中止按钮类名");
+    assert.ok(view.includes("window.confirm"), "中止前须二次确认");
+    assert.ok(view.includes("cancelingIds"), "缺中止中防连点状态");
+    assert.ok(
+      view.includes("aria-label={`中止任务:${item.prompt || item.kind}`}"),
+      "中止按钮缺无障碍标签",
+    );
+  });
+  it("api.ts cancelJob 走 POST /api/jobs/{id}/cancel 并透出后端 detail", () => {
+    const api = readSrc("lib/api.ts");
+    assert.ok(api.includes("export async function cancelJob"), "api.ts 缺 cancelJob");
+    assert.ok(api.includes("/cancel`"), "cancelJob 未命中 /cancel 端点");
+    assert.ok(api.includes('method: "POST"'), "cancelJob 应为 POST");
+  });
+  it("中止按钮样式挂 --err 令牌", () => {
+    const css = readSrc("app/styles/cornernav.css");
+    assert.ok(css.includes(".taskcenter-item-cancel"), "缺中止按钮样式");
+    assert.ok(css.includes("var(--err)"), "中止按钮应使用 --err 危险色令牌");
   });
 });

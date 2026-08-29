@@ -6,6 +6,7 @@ import { Icon } from "@/components/ui/Icon";
 import { Popover } from "@/components/ui/Popover";
 import { useToast } from "@/components/ui/Toast";
 import {
+  cancelJob,
   fetchActiveJobs,
   invalidateJobs,
   type ActiveJobItem,
@@ -17,13 +18,33 @@ const POLL_MS = 5_000;
 
 export { fmtDuration, fmtEta, kindLabel, statusLineOf };
 
-/** 单条目(纯展示,供单测)。 */
-export function TaskCenterItem({ item }: { item: ActiveJobItem }) {
+/** 单条目(展示 + 中止入口;onCancel 由容器注入,缺省纯展示供单测)。 */
+export function TaskCenterItem({
+  item,
+  onCancel,
+  canceling = false,
+}: {
+  item: ActiveJobItem;
+  onCancel?: (item: ActiveJobItem) => void;
+  canceling?: boolean;
+}) {
   const pct = item.progress.pct;
   return (
     <div className="taskcenter-item">
       <div className="taskcenter-item-head">
         <span className="taskcenter-item-kind">{kindLabel(item.kind)}</span>
+        {onCancel && (
+          <button
+            type="button"
+            className="taskcenter-item-cancel"
+            disabled={canceling}
+            onClick={() => onCancel(item)}
+            aria-label={`中止任务:${item.prompt || item.kind}`}
+            title="中止该任务"
+          >
+            {canceling ? "中止中…" : "中止"}
+          </button>
+        )}
         <span className="taskcenter-item-wait">已等待 {fmtDuration(item.wait_sec)}</span>
       </div>
       <div className="taskcenter-item-prompt" title={item.prompt}>
@@ -52,14 +73,17 @@ export function TaskCenterItem({ item }: { item: ActiveJobItem }) {
 /**
  * 右上角任务中心(全量进度体系,2026-08-29):
  * 常驻触发器(layers 图标 + 在跑数徽标),点击弹层列出全部在跑作业
- * (排队位/step 进度/已等待/ETA);5s 轮询;任务从清单消失(完成/失败)
+ * (排队位/step 进度/已等待/ETA);5s 轮询;任务从清单消失(完成/失败/中止)
  * → toast 通知 + 失效作品库缓存;浏览器通知仅在已授权时追加(不主动打扰)。
+ * 每条目带「中止」按钮(2026-08-29):确认后调 POST /api/jobs/{id}/cancel。
  */
 export function TaskCenter() {
   const btnRef = useRef<HTMLButtonElement | null>(null);
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<ActiveJobItem[]>([]);
   const [loadErr, setLoadErr] = useState(false);
+  /** 正在中止中的作业 id(防连点;按钮显示「中止中…」)。 */
+  const [cancelingIds, setCancelingIds] = useState<ReadonlySet<string>>(new Set());
   const toast = useToast();
   /** 上一轮在跑的 prompt_id → 状态行(完成检测基准;首轮不通知,避免进页误报)。 */
   const prevRef = useRef<Map<string, string> | null>(null);
@@ -98,6 +122,33 @@ export function TaskCenter() {
     const t = setInterval(() => void tick(), POLL_MS);
     return () => clearInterval(t);
   }, [tick]);
+
+  /** 中止在跑作业:确认 → POST cancel → 立刻刷新面板与作品库。 */
+  const onCancelItem = useCallback(
+    (item: ActiveJobItem) => {
+      const label = kindLabel(item.kind);
+      if (!window.confirm(`确认中止「${label}」任务吗?已产生的进度不会保留。`)) return;
+      setCancelingIds((prev) => new Set(prev).add(item.id));
+      void (async () => {
+        try {
+          await cancelJob(item.id);
+          toast.success(`已中止:${label}`);
+          invalidateJobs();
+          await tick();
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : "中止失败");
+          await tick(); // 409 等场景同步最新状态
+        } finally {
+          setCancelingIds((prev) => {
+            const next = new Set(prev);
+            next.delete(item.id);
+            return next;
+          });
+        }
+      })();
+    },
+    [tick, toast],
+  );
 
   // 首次打开面板时礼貌申请浏览器通知权限(一次性;拒绝/已授权不再弹)
   useEffect(() => {
@@ -148,7 +199,12 @@ export function TaskCenter() {
             <div className="taskcenter-empty">当前没有在跑的任务</div>
           )}
           {items.map((item) => (
-            <TaskCenterItem key={item.prompt_id} item={item} />
+            <TaskCenterItem
+              key={item.prompt_id}
+              item={item}
+              onCancel={onCancelItem}
+              canceling={cancelingIds.has(item.id)}
+            />
           ))}
         </div>
       </Popover>

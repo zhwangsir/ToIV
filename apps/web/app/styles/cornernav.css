@@ -456,6 +456,33 @@
   color: var(--text-muted);
 }
 
+/* 中止按钮(2026-08-29):kind 与等待时长之间的小号危险按钮(沿用 --err 令牌) */
+.taskcenter-item-cancel {
+  margin-left: auto;
+  padding: 1px 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--err);
+  font-size: var(--text-label);
+  line-height: 1.6;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+.taskcenter-item-cancel:hover:not(:disabled),
+.taskcenter-item-cancel:focus-visible {
+  background: var(--err-soft);
+}
+.taskcenter-item-cancel:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+/* 中止按钮占据 head 行右侧,等待时长顺延 */
+.taskcenter-item-cancel + .taskcenter-item-wait {
+  margin-left: 0;
+}
+
 /* 窄屏:与 accountbtn 同策略隐藏(底部导航不承载,任务中心属桌面增强) */
 @media (max-width: 1023px) {
   .taskcenter {

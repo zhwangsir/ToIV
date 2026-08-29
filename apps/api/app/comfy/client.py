@@ -212,6 +212,34 @@ class ComfyUIClient:
                 pending_pos[str(entry[1])] = idx
         return running, pending_pos
 
+    # ---------- 取消(任务中心中止按钮,2026-08-29) ----------
+    async def delete_from_queue(self, prompt_ids: list[str]) -> None:
+        """从 pending 队列删除指定作业(POST /queue {"delete": [...]})。仅对未开跑的生效。"""
+        await self._post("/queue", {"delete": prompt_ids})
+
+    async def interrupt(self) -> None:
+        """中断当前正在执行的作业(POST /interrupt)。
+
+        ComfyUI 单实例串行执行,/interrupt 无 prompt 定向能力——调用方须先确认
+        目标 prompt_id 在 queue_running 里,否则会误中断同实例的他人作业。
+        """
+        await self._post("/interrupt", {})
+
+    async def cancel_prompt(self, prompt_id: str) -> str:
+        """尽力取消指定作业:pending → 从队列删除;running → 中断。返回去向描述。
+
+        worker 不可达/已不在队列(已完成或丢失)时返回说明,不抛错——取消的
+        DB 终态由调用方负责,本函数只负责 worker 侧清场。
+        """
+        running, pending = await self.get_queue_detail()
+        if prompt_id in pending:
+            await self.delete_from_queue([prompt_id])
+            return "dequeued"
+        if prompt_id in running:
+            await self.interrupt()
+            return "interrupted"
+        return "not_on_worker"
+
     async def get_system_stats(self) -> dict:
         """实例系统信息(含 devices[].vram_free/vram_total,字节)。用于显存预检。"""
         return await self._get_json("/system_stats")

@@ -202,3 +202,134 @@ def test_jobs_active_tenant_isolation(ctx):
     r = client.get("/api/jobs/active", headers=_h(token2))
     assert r.status_code == 200
     assert r.json()["items"] == []
+
+
+# ---------------------------------------------------------------------------
+# POST /api/jobs/{id}/cancel(2026-08-29 任务中心「中止」按钮)
+# ---------------------------------------------------------------------------
+def test_cancel_job_marks_canceled_and_skips_worker_for_hold(ctx):
+    """held 占位作业(hold-* 从未提交 worker):落 canceled,worker_action=skipped。"""
+    client, token, _, engine = ctx
+    with Session(engine) as s:
+        j = _mk_job(s, "alice@toiv.ai", "hold-x1", status="held")
+
+    r = client.post(f"/api/jobs/{j.id}/cancel", headers=_h(token))
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["status"] == "canceled"
+    assert body["worker_action"] == "skipped"
+
+    with Session(engine) as s:
+        assert s.get(Job, j.id).status == "canceled"
+
+    # 取消后不再出现在任务中心
+    r2 = client.get("/api/jobs/active", headers=_h(token))
+    assert r2.json()["items"] == []
+
+
+def test_cancel_job_terminal_409(ctx):
+    """已终态(done/error/canceled)的作业:409,不重复取消。"""
+    client, token, _, engine = ctx
+    with Session(engine) as s:
+        j = _mk_job(s, "alice@toiv.ai", "t1", status="done")
+    r = client.post(f"/api/jobs/{j.id}/cancel", headers=_h(token))
+    assert r.status_code == 409
+    assert "终态" in r.json()["detail"]
+
+
+def test_cancel_job_owner_only_404(ctx):
+    """非本人作业 404(不泄露存在性)。"""
+    client, token, token2, engine = ctx
+    with Session(engine) as s:
+        j = _mk_job(s, "alice@toiv.ai", "other1", status="running")
+    r = client.post(f"/api/jobs/{j.id}/cancel", headers=_h(token2))
+    assert r.status_code == 404
+    with Session(engine) as s:
+        assert s.get(Job, j.id).status == "running"  # 未被改动
+
+
+def test_cancel_job_worker_dequeued(ctx, monkeypatch):
+    """queued 作业:DB 落 canceled + 尽力清场走 ComfyUIClient.cancel_prompt。"""
+    import app.routes.jobs as jobs_route
+
+    calls: list[str] = []
+
+    class _FakeClient:
+        def __init__(self, base_url: str, timeout: float = 0.0):
+            self.base_url = base_url
+
+        async def cancel_prompt(self, prompt_id: str) -> str:
+            calls.append(prompt_id)
+            return "dequeued"
+
+    monkeypatch.setattr(jobs_route, "ComfyUIClient", _FakeClient)
+
+    client, token, _, engine = ctx
+    with Session(engine) as s:
+        j = _mk_job(s, "alice@toiv.ai", "w1", status="queued")
+
+    r = client.post(f"/api/jobs/{j.id}/cancel", headers=_h(token))
+    assert r.status_code == 200, r.text
+    assert r.json()["worker_action"] == "dequeued"
+    assert calls == ["w1"]
+    with Session(engine) as s:
+        assert s.get(Job, j.id).status == "canceled"
+
+
+def test_cancel_job_worker_unreachable_still_canceled(ctx, monkeypatch):
+    """worker 不可达:清场失败不回滚,DB 仍落 canceled(worker_action=worker_unreachable)。"""
+    import app.routes.jobs as jobs_route
+
+    class _DeadClient:
+        def __init__(self, base_url: str, timeout: float = 0.0):
+            pass
+
+        async def cancel_prompt(self, prompt_id: str) -> str:
+            raise TimeoutError("worker 不可达")
+
+    monkeypatch.setattr(jobs_route, "ComfyUIClient", _DeadClient)
+
+    client, token, _, engine = ctx
+    with Session(engine) as s:
+        j = _mk_job(s, "alice@toiv.ai", "w2", status="running")
+
+    r = client.post(f"/api/jobs/{j.id}/cancel", headers=_h(token))
+    assert r.status_code == 200, r.text
+    assert r.json()["worker_action"] == "worker_unreachable"
+    with Session(engine) as s:
+        assert s.get(Job, j.id).status == "canceled"
+
+
+def test_tracker_respects_canceled(ctx):
+    """canceled 是终态:mark_status 不回退、write_progress 不再写入。"""
+    from app.comfy.tracker import mark_status
+
+    _, _, _, engine = ctx
+    with Session(engine) as s:
+        _mk_job(s, "alice@toiv.ai", "c1", status="running")
+
+    mark_status("c1", "canceled")
+    mark_status("c1", "running")  # 不应回退
+    write_progress("c1", pct=42)  # 不应写入
+    with Session(engine) as s:
+        j = s.exec(select(Job).where(Job.prompt_id == "c1")).first()
+        assert j.status == "canceled"
+        assert j.progress == ""
+
+
+@pytest.mark.asyncio
+async def test_wait_for_jobs_raises_on_canceled(ctx):
+    """wait_for_jobs:作业被取消立即抛「已被用户取消」(三视图回写据此标 error 允许重试)。"""
+    from app.comfy.tracker import wait_for_jobs
+
+    _, _, _, engine = ctx
+    with Session(engine) as s:
+        _mk_job(s, "alice@toiv.ai", "c2", status="queued")
+
+    # 先取消再等待:第一轮查询即抛
+    from app.comfy.tracker import mark_status
+
+    mark_status("c2", "canceled")
+    with Session(engine) as s3:
+        with pytest.raises(RuntimeError, match="已被用户取消"):
+            await wait_for_jobs(s3, ["c2"], timeout=5, poll_interval=0.1)

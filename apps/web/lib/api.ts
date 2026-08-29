@@ -412,6 +412,24 @@ export async function fetchActiveJobs(): Promise<ActiveJobsResponse> {
   return res.json();
 }
 
+/** 中止在跑/排队中的作业(2026-08-29 任务中心「中止」按钮)。
+ *  404=非本人/不存在;409=已终态;成功返回 worker_action(dequeued/interrupted/…)。 */
+export async function cancelJob(jobId: string): Promise<{ ok: boolean; status: string; worker_action: string }> {
+  const res = await apiFetch(`/api/jobs/${encodeURIComponent(jobId)}/cancel`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    let detail = `中止失败 (${res.status})`;
+    try {
+      const body = await res.json();
+      if (typeof body?.detail === "string" && body.detail) detail = body.detail;
+    } catch { /* 非 JSON 响应用默认文案 */ }
+    throw new Error(detail);
+  }
+  return res.json();
+}
+
 
 async function fetchJobsRaw(): Promise<JobItem[]> {
   return fetchJobsPage(0, JOBS_PAGE_LIMIT);

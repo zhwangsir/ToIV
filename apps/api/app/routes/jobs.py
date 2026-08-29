@@ -258,6 +258,54 @@ def delete_job(
     }
 
 
+@router.post("/jobs/{job_id}/cancel")
+async def cancel_job(
+    job_id: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """中止一个在跑/排队中的作业(2026-08-29 任务中心「中止」按钮)。
+
+    语义:
+    - 仅本人可取消(非本人/不存在一律 404,不泄露存在性);终态 409;
+    - DB 先落 canceled 终态(tracker 视 canceled 为终态:不再回写状态/进度,
+      追踪协程下轮自检退出;wait_for_jobs 抛「已被用户取消」→ 三视图回写标 error
+      允许重试);
+    - worker 侧尽力清场:pending 从 ComfyUI 队列删除,running 发 /interrupt;
+      held/占位 prompt_id(hold-*/chain-*)从未提交,跳过;worker 不可达不阻塞
+      取消本身(DB 终态已落,残留由 tracker 孤儿回收兜底)。
+    """
+    job = session.exec(select(Job).where(Job.id == job_id)).first()
+    if not job or job.user_id != user.id:
+        raise HTTPException(status_code=404, detail="作业不存在")
+    if job.status in ("done", "error", "canceled"):
+        raise HTTPException(status_code=409, detail=f"作业已终态({job.status}),无需取消")
+
+    prev_status = job.status
+    job.status = "canceled"
+    session.add(job)
+    audit.record(
+        session, user=user, action="job.cancel", target_type="job", target_id=job.id,
+        summary=f"中止作业:{(job.prompt or '')[:40]}",
+        detail={"kind": job.kind, "prev_status": prev_status, "prompt_id": job.prompt_id},
+    )
+    session.commit()
+
+    worker_action = "skipped"
+    if (
+        job.worker
+        and job.prompt_id
+        and not job.prompt_id.startswith(("hold-", "chain-"))
+    ):
+        try:
+            client = ComfyUIClient(job.worker, timeout=8.0)
+            worker_action = await client.cancel_prompt(job.prompt_id)
+        except Exception as e:  # noqa: BLE001 — worker 清场失败不回滚 DB 终态
+            logger.warning("cancel job %s: worker 侧清场失败(%s),DB 已落 canceled", job.id, e)
+            worker_action = "worker_unreachable"
+    return {"ok": True, "id": job_id, "status": "canceled", "worker_action": worker_action}
+
+
 # ---------------------------------------------------------------------------
 # 回收站(2026-08-23):软删作品在保留期(audit.UNDO_TTL_SECONDS,72h)内可浏览/恢复/
 # 彻底删除;过期行由 audit.trash_purge_loop 物理删除,不再出现在列表。
