@@ -46,3 +46,17 @@ def nsfw_allowed(user: User | None = None) -> bool:
     if is_underage(user):
         return False
     return nsfw_intent_var.get()
+
+
+def job_nsfw_from_intent(user: User | None, explicit: bool) -> bool:
+    """作品是否打 R18 标:只跟作品意图走,不跟「人在不在 /nsfw 专页」走。
+
+    专页 X-NSFW 头只做门控(explicit=True 时须放行,否则 403),不能单独把
+    试衣/超分/普通二次元打进成人库。
+    """
+    if not explicit:
+        return False
+    if not nsfw_allowed(user):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="该操作为 R18 内容,仅限 NSFW 专区使用")
+    return True

@@ -32,7 +32,7 @@ from app.comfy.client import ComfyUIError
 from app.db import get_session
 from app.deps import get_current_user, resolve_worker
 from app.models import Job, User
-from app.nsfw_ctx import nsfw_allowed
+from app.nsfw_ctx import job_nsfw_from_intent
 from app.ratelimit import enforce_generation_rate_limit
 from app.workflows.model_profiles import AR_VIDEO, aspect_guard
 from app.services import keyframe_chain as keychain_service
@@ -242,7 +242,7 @@ async def generate_wan_animate(
     result = await longcat_service.submit_longcat_job(
         graph, kind="wan_animate", positive=params.positive, seed=params.seed,
         req=req, user=user, session=session, client=client,
-        nsfw=nsfw_allowed(user),
+        nsfw=job_nsfw_from_intent(user, bool(getattr(req, "nsfw", False))),
         prechecked=True,  # 上方 _wan_precheck_or_hold 已做显存+RAM 预检(Wan 阈值独立)
         hold_exc=hold_exc,  # 预检失败转 hold 排队(None=预检通过,正常提交)
     )
@@ -301,7 +301,7 @@ async def generate_wan_vace(
     result = await longcat_service.submit_longcat_job(
         graph, kind="wan_vace", positive=params.positive, seed=params.seed,
         req=req, user=user, session=session, client=client,
-        nsfw=nsfw_allowed(user),
+        nsfw=job_nsfw_from_intent(user, bool(getattr(req, "nsfw", False))),
         prechecked=True,  # 上方 _wan_precheck_or_hold 已做显存+RAM 预检(Wan 阈值独立)
         hold_exc=hold_exc,  # 预检失败转 hold 排队(None=预检通过,正常提交)
     )
@@ -388,7 +388,7 @@ async def generate_transition(
     result = await longcat_service.submit_longcat_job(
         graph, kind="transition", positive=params.positive, seed=params.seed,
         req=req, user=user, session=session, client=client,
-        nsfw=nsfw_allowed(user),
+        nsfw=job_nsfw_from_intent(user, bool(getattr(req, "nsfw", False))),
         prechecked=True,  # 上方 _wan_precheck_or_hold 已做显存+RAM 预检(Wan 阈值独立)
         hold_exc=hold_exc,  # 预检失败转 hold 排队(None=预检通过,正常提交)
     )
@@ -465,7 +465,7 @@ async def generate_keyframe_chain(
         if req.motion_mask else ""
     )
     hold_exc = await _wan_precheck_or_hold(client)
-    nsfw = nsfw_allowed(user)
+    nsfw = job_nsfw_from_intent(user, bool(getattr(req, "nsfw", False)))
     seg_prompt_ids: list[str] = []
     for i, seg in enumerate(plan.segments):
         params = WanVaceParams(
@@ -674,7 +674,7 @@ async def generate_video_edit(
     result = await longcat_service.submit_longcat_job(
         graph, kind="video_edit", positive=params.positive, seed=params.seed,
         req=req, user=user, session=session, client=client,
-        nsfw=nsfw_allowed(user),
+        nsfw=job_nsfw_from_intent(user, bool(getattr(req, "nsfw", False))),
         prechecked=True,  # 上方 _wan_precheck_or_hold 已做显存+RAM 预检(Wan 阈值独立)
         hold_exc=hold_exc,  # 预检失败转 hold 排队(None=预检通过,正常提交)
     )
@@ -782,7 +782,7 @@ async def generate_wan_animate2(
     result = await animate2_service.submit_animate2_job(
         graph, kind="wan_animate2", positive=params.positive, seed=params.seed,
         req=req, user=user, session=session, client=client,
-        nsfw=nsfw_allowed(user),
+        nsfw=job_nsfw_from_intent(user, bool(getattr(req, "nsfw", False))),
         prechecked=True,  # 上方 _animate2_precheck_or_hold 已做显存+RAM 预检
         hold_exc=hold_exc,  # 预检失败转 hold 排队(None=预检通过,正常提交)
     )

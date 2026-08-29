@@ -23,7 +23,7 @@ from app.comfy.client import ComfyUIError
 from app.db import get_session
 from app.deps import get_current_user, resolve_worker
 from app.models import Entity, User
-from app.nsfw_ctx import nsfw_allowed
+from app.nsfw_ctx import job_nsfw_from_intent
 from app.ratelimit import enforce_generation_rate_limit
 from app.services import longcat as longcat_service
 from app.services.entities import best_image_value, parse_image_handle
@@ -171,6 +171,6 @@ async def generate_phantom_s2v(
     return await longcat_service.submit_longcat_job(
         graph, kind="phantom_s2v", positive=params.positive, seed=params.seed,
         req=req, user=user, session=session, client=client,
-        # R18 上下文(X-NSFW 头)打标进 /nsfw 专区作品库,与 longcat 同一判定来源
-        nsfw=nsfw_allowed(user),
+        # 普通 Phantom 不因专页头打 R18 标;显式 body.nsfw 才走 job_nsfw_from_intent
+        nsfw=job_nsfw_from_intent(user, bool(getattr(req, "nsfw", False))),
     )

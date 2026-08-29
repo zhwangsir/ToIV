@@ -982,8 +982,9 @@ def _scheduler_select() -> dict:
 def _style_preset_select() -> dict:
     """风格预设(静态清单,与 routes/generate.py 的 style_preset 字段同源)。
 
-    预设指向 R18 底模的项(如 NSFW写真人像)附 nsfw 标,SFW 上下文剔除;
-    sfw_intent=True 的预设(底模命中 hints 但定位主站通用风格)不打标、不剔除。
+    真 NSFW 意图预设(id 以 nsfw_ 开头,或底模 is_nsfw)附 nsfw 标,SFW 上下文剔除;
+    双用途底模家族(pony/wai 等)不再整锅打 18+,但 nsfw_pony 等显式 R18 预设仍隐藏;
+    sfw_intent=True 的预设不打标、不剔除。
     """
     return {
         "key": "style_preset", "label": "风格预设", "type": "select",
@@ -991,7 +992,9 @@ def _style_preset_select() -> dict:
         "options": [{"value": "", "label": "不使用"}]
         + [
             {"value": p["id"], "label": p["label"],
-             **({"nsfw": True} if is_nsfw(p["ckpt_name"]) and not p["sfw_intent"] else {})}
+             **({"nsfw": True} if (not p["sfw_intent"] and (
+                 is_nsfw(p["ckpt_name"]) or str(p["id"]).startswith("nsfw_")
+             )) else {})}
             for p in list_presets(MediaType.IMAGE)
         ],
         "hint": "选择后由后端自动套用底模/采样参数(显式选的底模优先)",

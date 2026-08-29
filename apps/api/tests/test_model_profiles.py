@@ -72,11 +72,6 @@ def test_vpred_sampling_profile():
 @pytest.mark.parametrize(
     "name",
     [
-        "ponyDiffusionV6XL.safetensors",
-        "noobaiXL_vpred.safetensors",
-        "animagineXL_v3.safetensors",
-        "illustriousXL_v01.safetensors",
-        "realisticVisionV6.safetensors",
         "some_nsfw_model.safetensors",
         "Model_R18.safetensors",
         "hentai_diffusion.safetensors",
@@ -96,6 +91,12 @@ def test_is_nsfw_true(name: str):
         "sd_xl_base_1.0.safetensors",
         "majicMIX.safetensors",
         "epicRealism.safetensors",
+        "ponyDiffusionV6XL.safetensors",
+        "noobaiXL_vpred.safetensors",
+        "animagineXL_v3.safetensors",
+        "illustriousXL_v01.safetensors",
+        "realisticVisionV6.safetensors",
+        "waiIllustriousSDXL_v170.safetensors",
     ],
 )
 def test_is_nsfw_false(name: str):
@@ -104,7 +105,8 @@ def test_is_nsfw_false(name: str):
 
 def test_nsfw_hints_default_nonempty():
     hints = nsfw_hints()
-    assert "pony" in hints and "noobai" in hints and "nsfw" in hints
+    assert "nsfw" in hints and "10eros" in hints
+    assert "pony" not in hints
 
 
 def test_nsfw_env_override_replaces(monkeypatch: pytest.MonkeyPatch):
@@ -118,7 +120,7 @@ def test_nsfw_env_override_replaces(monkeypatch: pytest.MonkeyPatch):
 def test_nsfw_env_extra_appends(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("TOIV_NSFW_EXTRA", "studioX")
     # 追加:默认仍命中,新子串也命中
-    assert is_nsfw("ponyDiffusion.safetensors") is True
+    assert is_nsfw("hassakuXL.safetensors") is True
     assert is_nsfw("studioX_pack.safetensors") is True
 
 
@@ -336,15 +338,10 @@ from app.workflows.model_profiles import detect_model_family, is_nextgen  # noqa
 @pytest.mark.parametrize(
     "name",
     [
-        "waiIllustriousSDXL_v170.safetensors",
         "hassakuXLIllustrious_v34.safetensors",
         "waiSHUFFLENOOB_vPred04.safetensors",
-        "cyberrealisticPony_v180Coreshift.safetensors",
         "autismmixSDXL_autismmixPony.safetensors",
-        "ponyRealism_V22.safetensors",
         "lustifySDXLNSFW_zenithV9.safetensors",
-        "cyberrealistic_v120.safetensors",  # CyberIllustrious(文件名无 illustrious)
-        "nova3DCGXL_ilV90.safetensors",
     ],
 )
 def test_new_nsfw_checkpoints_tagged(name: str):

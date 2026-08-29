@@ -72,7 +72,7 @@ async def submit_h3_best_of_n(
     异常原样抛出。
     """
     # 延迟 import 避免 services → routes 的模块级反向依赖
-    from app.routes.h3_studio import _gate_h3_nsfw_loras, _resolve_plan
+    from app.routes.h3_studio import _gate_h3_nsfw_loras, _h3_job_nsfw, _resolve_plan
 
     _gate_h3_nsfw_loras(req.loras, user)
     plan = _resolve_plan(req)
@@ -88,7 +88,7 @@ async def submit_h3_best_of_n(
         )
 
     base_seed = req.seed if req.seed is not None else secrets.randbelow(2**62)
-    nsfw = nsfw_allowed(user)
+    nsfw = _h3_job_nsfw(req, user)
     job_ids: list[str] = []
     seeds: list[int] = []
     submissions: list[dict] = []

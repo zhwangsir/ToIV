@@ -28,9 +28,9 @@ _VAE = "LTX23_video_vae_bf16.safetensors"
 _DISTILLED = "ltx-2.3-22b-distilled-1.1.safetensors"
 _EROS = "10eros_v14.safetensors"
 
-# 图像表单动态选项测试用底模:SFW 写实 + NSFW 动漫(pony 族)+ 次世代(UNETLoader)
+# 图像表单动态选项测试用底模:SFW 写实 + 显式成人动漫(autismmix)+ 次世代(UNETLoader)
 _SFW_CKPT = "majicMIX realistic 麦橘写实_v7.safetensors"
-_NSFW_CKPT = "ponyDiffusionV6XL_v6StartWithThisOne.safetensors"
+_NSFW_CKPT = "autismmixSDXL_autismmixPony.safetensors"
 _NEXTGEN_UNET = "z_image_turbo_bf16.safetensors"
 _SAMPLERS = ["euler", "euler_ancestral", "dpmpp_2m"]
 _SCHEDULERS = ["normal", "simple", "karras"]
@@ -522,10 +522,11 @@ async def test_sfw_context_keeps_sfw_intent_presets(live_pool, user):
     for pid in ("anime", "anime_soft", "fantasy", "campus", "history_war",
                 "anime_high_quality"):
         assert pid in values, f"SFW 意图预设 {pid} 被 hints 误伤隐藏"
-    # 真 NSFW 意图预设仍隐藏;hints 认定成人向底模的预设也不放出
-    for pid in ("nsfw_realistic", "nsfw_anime", "nsfw_pony",
-                "chibi", "portrait"):
+    # 真 NSFW 意图预设仍隐藏;双用途 chibi/portrait 主站可见
+    for pid in ("nsfw_realistic", "nsfw_anime", "nsfw_pony"):
         assert pid not in values, f"{pid} 不应在主站可见"
+    for pid in ("chibi", "portrait"):
+        assert pid in values, f"双用途预设 {pid} 不应因底模家族被打成 18+"
 
 
 async def test_r18_context_keeps_all_style_presets(live_pool, user):

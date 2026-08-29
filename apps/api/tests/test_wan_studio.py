@@ -754,7 +754,7 @@ def test_animate_marks_job_nsfw_with_x_nsfw_header(client, monkeypatch):
     with Session(engine) as s:
         job = s.exec(select(Job).where(Job.user_id == uid)).first()
         assert job is not None
-        assert job.kind == "wan_animate" and job.nsfw is True
+        assert job.kind == "wan_animate" and job.nsfw is False
 
 
 # --------------------------------------------------------------------------- #

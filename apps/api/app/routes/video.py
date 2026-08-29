@@ -19,7 +19,7 @@ from app.config import get_settings
 from app.db import get_session
 from app.deps import get_current_user, resolve_worker
 from app.models import Job, User
-from app.nsfw_ctx import nsfw_allowed
+from app.nsfw_ctx import job_nsfw_from_intent, nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
 from app.workflows.model_profiles import AR_VIDEO, aspect_guard
 from app.services import video_generators as vgen
@@ -85,6 +85,8 @@ class WanI2VRequest(BaseModel):
     effect_preset: str | None = Field(default=None, max_length=64)
     # RES-2026-08-18:输出分辨率档(1080p/2k/4k);空 = 原生直出
     resolution_target: str | None = Field(default=None, max_length=8)
+    # 显式 R18 意图(wan-nsfw-i2v)。专页头不能单独把 SFW i2v 打进成人库。
+    nsfw: bool = False
 
     @field_validator("accel")
     @classmethod
@@ -160,7 +162,7 @@ async def generate_video(
         pos, neg = apply_effect_preset(req.positive, req.negative or "", req.effect_preset)
         req = req.model_copy(update={"positive": pos, "negative": neg})
     # LoRA:省略=AI 从策划卡选配;空列表=关闭;非空=钉选。SFW 静默不挂 NSFW 卡(既有行为)。
-    nsfw = nsfw_allowed(user)
+    nsfw = job_nsfw_from_intent(user, bool(req.nsfw))
     raw = None if req.loras is None else [{"name": l.name, "strength": l.strength} for l in req.loras]
     if not nsfw and raw:
         raw = []  # SFW 显式列表静默剔除,不 422

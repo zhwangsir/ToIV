@@ -647,7 +647,7 @@ def test_t2v_marks_job_nsfw_with_x_nsfw_header(client, monkeypatch):
     with Session(engine) as s:
         job = s.exec(select(Job).where(Job.user_id == uid)).first()
         assert job is not None
-        assert job.kind == "longcat_t2v" and job.nsfw is True
+        assert job.kind == "longcat_t2v" and job.nsfw is False
 
 
 def test_continue_marks_job_nsfw_with_x_nsfw_header(client, monkeypatch):
@@ -672,7 +672,7 @@ def test_continue_marks_job_nsfw_with_x_nsfw_header(client, monkeypatch):
     with Session(engine) as s:
         job = s.exec(select(Job).where(Job.user_id == uid)).first()
         assert job is not None
-        assert job.kind == "longcat_continue" and job.nsfw is True
+        assert job.kind == "longcat_continue" and job.nsfw is False
 
 
 def test_t2v_main_site_job_not_nsfw(client, monkeypatch):

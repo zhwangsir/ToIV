@@ -23,7 +23,7 @@ from app.db import engine as db_engine
 from app.db import get_session
 from app.deps import get_current_user, resolve_worker
 from app.models import User
-from app.nsfw_ctx import nsfw_allowed
+from app.nsfw_ctx import job_nsfw_from_intent, nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
 from app.workflows.model_profiles import AR_VIDEO, aspect_guard
 from app.workflows.video_upscale import validate_resolution_target
@@ -72,11 +72,36 @@ def _gate_h3_nsfw_loras(loras: list[H3LoraInput] | None, user: User) -> None:
         raise HTTPException(status_code=403, detail="所选 LoRA 为 R18 内容,仅限 NSFW 专区使用")
 
 
-def _resolve_h3_loras(prompt: str, user: User, loras: list[H3LoraInput] | None):
-    """省略=auto / 空列表=off / 非空=pin。返回 (specs, picks, mode, reason, positive)。"""
+def _h3_explicit_nsfw(req, user: User) -> bool:
+    """显式 R18 意图: body.nsfw=true, 或用户钉选了已知 R18 LoRA(非 auto 目录补卡)。
+
+    X-NSFW 头只做门控,不能单独把 Job 打进成人库。user 参与门控由 _h3_job_nsfw 处理。
+    """
+    if bool(getattr(req, "nsfw", False)):
+        return True
+    # 仅显式请求的 loras(pin); None=auto / []=off 都不算钉选
+    loras = getattr(req, "loras", None)
+    if loras:
+        return any(is_h3_nsfw_lora(lora.name) for lora in loras)
+    return False
+
+
+def _h3_job_nsfw(req, user: User) -> bool:
+    """Job.nsfw / 10Eros 换底:仅显式意图,经 job_nsfw_from_intent(门控+未成年硬阻断)。"""
+    return job_nsfw_from_intent(user, _h3_explicit_nsfw(req, user))
+
+
+def _resolve_h3_loras(
+    prompt: str, user: User, loras: list[H3LoraInput] | None, nsfw_intent: bool = False,
+):
+    """省略=auto / 空列表=off / 非空=pin。返回 (specs, picks, mode, reason, positive)。
+
+    nsfw_intent 必须跟作品意图走(body.nsfw 或钉选 R18 LoRA),禁止用 nsfw_allowed(user):
+    人在 /nsfw 专页写普通提示词时不得自动挂 HMNSFW_AIO_V2。
+    """
     raw = None if loras is None else [{"name": l.name, "strength": l.strength} for l in loras]
     try:
-        picks, mode, reason = resolve_submit_loras("h3", prompt, nsfw_allowed(user), raw)
+        picks, mode, reason = resolve_submit_loras("h3", prompt, nsfw_intent, raw)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     positive = inject_triggers(prompt, picks)
@@ -109,6 +134,8 @@ class H3T2VRequest(BaseModel):
     # RES-2026-08-18:输出分辨率档(1080p/2k/4k)。宽高始终按原生上限(H3≤1344×768)
     # 生成,选档后由超分集群二次放大;空 = 原生直出
     resolution_target: str | None = Field(default=None, max_length=8)
+    # 显式 R18 意图(h3-nsfw-t2v / h3-nsfw-i2v)。专页头不能单独把普通 H3 打进成人库。
+    nsfw: bool = False
 
     @field_validator("effect_preset")
     @classmethod
@@ -253,7 +280,11 @@ async def generate_h3_t2v(
     req = _apply_effect(req)
     req = _apply_entity_refs(req, session, user)
     plan = _resolve_plan(req)
-    specs, picks, lora_mode, lora_reason, positive = _resolve_h3_loras(req.positive, user, req.loras)
+    nsfw_intent = _h3_explicit_nsfw(req, user)
+    nsfw = _h3_job_nsfw(req, user)
+    specs, picks, lora_mode, lora_reason, positive = _resolve_h3_loras(
+        req.positive, user, req.loras, nsfw_intent=nsfw_intent,
+    )
     req = req.model_copy(update={
         "positive": positive,
         "loras": [H3LoraInput(name=p.name, strength=max(0.5, min(1.0, p.strength))) for p in picks],
@@ -269,12 +300,10 @@ async def generate_h3_t2v(
         **({"seed": req.seed} if req.seed is not None else {}),
     )
     graph = build_h3_t2v_graph(params)
-    nsfw = nsfw_allowed(user)
     result = await h3_service.submit_h3_job(
         graph, kind="h3_t2v", positive=params.positive, seed=params.seed,
         req=req, user=user, session=session,
-        # R18 上下文(X-NSFW 头)打标进 /nsfw 专区作品库;nsfw_allowed 含未成年硬阻断,
-        # 与 LTX 门控同一判定来源,主站(无头)恒 False 行为不变
+        # 仅显式 body.nsfw / 钉选 R18 LoRA 打标;X-NSFW 头只做门控
         nsfw=nsfw,
         snapshot_extra={
             "loras": snapshot_loras(picks), "lora_mode": lora_mode, "lora_reason": lora_reason,
@@ -339,6 +368,8 @@ class H3MultiShotRequest(BaseModel):
     # 主体引用(@主体前台化):与 t2v 同一语义,组装后的单 prompt 绝对开头注入
     # @图片N 引用行;空列表 = 显式清空(2026-08-29 B3 补齐:此前 multishot 无此字段)
     entity_ids: list[str] | None = Field(default=None, max_length=9)  # H3 官方全能参考(Ref2VA)上限 9 图
+    # 显式 R18 意图。专页头不能单独把多镜头打进成人库;组装 inner t2v 时原样拷贝。
+    nsfw: bool = False
 
     @field_validator("effect_preset")
     @classmethod
@@ -370,7 +401,7 @@ async def generate_h3_multishot(
     """H3 多镜头单次生成:「镜头一…镜头二…」协议组装单 prompt,单段内自动切镜。
 
     与 drama_studio 分镜线独立(单 prompt 协议 vs 分镜表驱动);与关键帧链正交
-    (单段内切镜 vs 多段独立转场拼接)。R18 上下文(X-NSFW 头)打标进 /nsfw 专区。
+    (单段内切镜 vs 多段独立转场拼接)。仅显式 body.nsfw / 钉选 R18 LoRA 打标。
     """
     enforce_generation_rate_limit(user)
     _gate_h3_nsfw_loras(req.loras, user)
@@ -407,6 +438,7 @@ async def generate_h3_multishot(
         effect_preset=req.effect_preset,
         resolution_target=req.resolution_target,
         entity_ids=req.entity_ids,
+        nsfw=req.nsfw,
     )
     t2v_req = _apply_effect(t2v_req)
     # 主体引用注入(与 t2v 同层同序:effect 之后,@图片N 恒在绝对开头)
@@ -423,12 +455,12 @@ async def generate_h3_multishot(
         **({"seed": t2v_req.seed} if t2v_req.seed is not None else {}),
     )
     graph = build_h3_t2v_graph(params)
-    nsfw = nsfw_allowed(user)
+    nsfw = _h3_job_nsfw(req, user)
     result = await h3_service.submit_h3_job(
         graph, kind="h3_multishot", positive=params.positive, seed=params.seed,
         # params 快照存多镜头计划(shots + total_duration,精确重生的事实源)
         req=req, user=user, session=session,
-        nsfw=nsfw,  # R18 上下文打标(同 t2v)
+        nsfw=nsfw,  # 仅显式意图打标(同 t2v)
     )
     # 多镜头总长 ≤15s 单段上限,策略仅 direct/trim(不触发 extend,无需续段回调)
     if plan.strategy != "direct":
@@ -460,7 +492,11 @@ async def generate_h3_i2v(
     req = _apply_effect(req)
     req = _apply_entity_refs(req, session, user)
     plan = _resolve_plan(req)
-    specs, picks, lora_mode, lora_reason, positive = _resolve_h3_loras(req.positive, user, req.loras)
+    nsfw_intent = _h3_explicit_nsfw(req, user)
+    nsfw = _h3_job_nsfw(req, user)
+    specs, picks, lora_mode, lora_reason, positive = _resolve_h3_loras(
+        req.positive, user, req.loras, nsfw_intent=nsfw_intent,
+    )
     req = req.model_copy(update={
         "positive": positive,
         "loras": [H3LoraInput(name=p.name, strength=max(0.5, min(1.0, p.strength))) for p in picks],
@@ -480,11 +516,10 @@ async def generate_h3_i2v(
         **({"seed": req.seed} if req.seed is not None else {}),
     )
     graph = build_h3_i2v_graph(params)
-    nsfw = nsfw_allowed(user)
     result = await h3_service.submit_h3_job(
         graph, kind="h3_i2v", positive=params.positive, seed=params.seed,
         req=req, user=user, session=session, client=client,
-        nsfw=nsfw,  # R18 上下文打标(同 t2v)
+        nsfw=nsfw,  # 仅显式意图打标(同 t2v)
         snapshot_extra={
             "loras": snapshot_loras(picks), "lora_mode": lora_mode, "lora_reason": lora_reason,
         },

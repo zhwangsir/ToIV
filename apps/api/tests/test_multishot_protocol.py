@@ -489,7 +489,8 @@ def test_multishot_marks_job_nsfw_and_swaps_unet(client, monkeypatch):
             "shots": [
                 {"prompt": "卧室暖光,女人侧卧看书", "duration_sec": 5},
                 {"prompt": "她放下书看向镜头微笑", "duration_sec": 5},
-            ]
+            ],
+            "nsfw": True
         },
     )
     assert r.status_code == 200, r.text

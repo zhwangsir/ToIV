@@ -402,7 +402,7 @@ def test_t2v_marks_job_nsfw_with_x_nsfw_header(client, monkeypatch):
     with Session(engine) as s:
         job = s.exec(select(Job).where(Job.user_id == uid)).first()
         assert job is not None
-        assert job.kind == "ovi_t2v" and job.nsfw is True
+        assert job.kind == "ovi_t2v" and job.nsfw is False
 
 
 # --------------------------------------------------------------------------- #

@@ -250,36 +250,22 @@ def vpred_sampling() -> SamplingProfile:
 # NSFW / R18 分类(仅打标,不封锁)
 # ---------------------------------------------------------------------------
 
-# 文件名命中以下任一子串(大小写不敏感)即归为 NSFW 档。包含两类:
-#   - 倾向 NSFW 的底模家族(pony / noobai / animagine / illustrious / realisticvision …)
-#   - 显式 NSFW 关键词(nsfw / r18 / hentai / uncensored / porn / xxx …)
-# 仅用于前端「NSFW 档」筛选与提示,**不据此过滤任何模型**。
+# 文件名命中以下任一子串(大小写不敏感)即归为 NSFW 档。
+# 只保留**显式成人向**关键词/专项底模,不再把 pony / wai / illustrious /
+# realisticvision 等通用二次元/写实家族整锅打成 18+(2026-08-30 误判修复)。
+# 仅用于前端「NSFW 档」筛选与 Job 打标,**不据此过滤任何模型**。
 _DEFAULT_NSFW_HINTS: tuple[str, ...] = (
-    # 底模家族
-    "pony",
-    "noobai",
-    "animagine",
-    "illustrious",
-    "realisticvision",
-    # civitai 调研批(2026-07)新增 NSFW 底模家族:文件名不含通用族词、需显式登记,
-    # 否则泄漏到主站(is_nsfw 决定 /nsfw 门槛)。均为成人向底模,打标即隐藏于主站。
-    "cyberrealistic",  # CyberRealistic Pony / CyberIllustrious
-    "shufflenoob",     # WAI-SHUFFLE-NOOB(vpred)
-    "nova3dcg",        # Nova 3DCG XL(2.5D 手办 CG)
     "lustify",         # LUSTIFY(纯 SDXL 写实 NSFW)
     "hassaku",         # Hassaku XL(浓烈 hentai)
-    "autismmix",       # AutismMix(Pony 动漫基座)
-    # civitai 调研补充批(2026-07):热门 NSFW 底模,文件名无通用族词兜底,需显式登记
-    "pornmaster",      # PornMaster 系列(SDXL 写实/动漫 NSFW 专项)
-    "urpm",            # Uber Realistic Porn Merge(SD1.5 纯色情写实合并)
+    "autismmix",       # AutismMix(Pony 浓向成人基座)
+    "shufflenoob",     # WAI-SHUFFLE-NOOB(vpred 成人向变体)
+    "pornmaster",      # PornMaster 系列
+    "urpm",            # Uber Realistic Porn Merge
     "yiffy",           # YiffyMix(furry / hentai 向)
-    "biglove",         # Big Love(FLUX.2 Klein NSFW)
-    "big_love",        # Big Love 变体文件名用下划线分隔
+    "biglove",         # Big Love(FLUX NSFW)
+    "big_love",
     "stoiqo",          # STOIQO NewReality(FLUX.1 NSFW 写实)
-    "lazymix",         # LazyMix(素人写实 NSFW)
-    "wai",             # WAI 系列(WAI-illustrious / WAI-RealMix 等动漫 NSFW)
-    "10eros",          # 10Eros 系(H3/LTX 嫁接)R18 UNET(经 UNETLoader 加载;
-                       # raw 工作流门控扫描 unet_name 必须命中,见 generate._gate_raw_graph_nsfw)
+    "10eros",          # 10Eros 系 R18 UNET
     # 显式关键词
     "nsfw",
     "r18",

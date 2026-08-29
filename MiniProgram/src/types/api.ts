@@ -321,6 +321,8 @@ export interface H3T2VRequest {
   length?: number;
   steps?: number;
   seed?: number | null;
+  /** 显式 R18 意图；h3-nsfw-* 提交时为 true */
+  nsfw?: boolean;
 }
 
 /** 对应 routes/h3_studio.py H3I2VRequest（POST /api/h3/i2v）：image/worker 必填（上传落 pool worker，后端转运 H3 实例） */
@@ -454,7 +456,7 @@ export interface LtxNsfwLipsyncRequest extends LtxNsfwI2VRequest {
 }
 
 // h3-nsfw-t2v / h3-nsfw-i2v 复用 H3T2VRequest / H3I2VRequest（与 SFW 同一 POST /api/h3/* 提交链路，
-// 专区内自带 X-NSFW 头，后端据此打标进 R18 作品库并放行 R18 LoRA 门控）
+// body.nsfw=true 才打标/换 10Eros；X-NSFW 头仅门控并放行 R18 LoRA）
 
 // ── LongCat-Avatar 数字人（MP14，契约见 routes/avatar_studio.py AvatarTalkRequest）──
 
@@ -629,6 +631,8 @@ export interface WanNsfwI2VRequest {
   full_quality?: boolean;
   effect_preset?: string;
   resolution_target?: string;
+  /** 显式 R18 意图；wan-nsfw-i2v 提交时为 true */
+  nsfw?: boolean;
 }
 
 // ── 参考资产库（MP13，契约见 apps/api routes/reference_assets.py）──

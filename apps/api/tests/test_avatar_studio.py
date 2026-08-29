@@ -580,7 +580,7 @@ def test_talk_marks_job_nsfw_with_x_nsfw_header(client, monkeypatch):
     with Session(engine) as s:
         job = s.exec(select(Job).where(Job.user_id == uid)).first()
         assert job is not None
-        assert job.kind == "avatar_talk" and job.nsfw is True
+        assert job.kind == "avatar_talk" and job.nsfw is False
 
 
 def test_talk_main_site_job_not_nsfw(client, monkeypatch):

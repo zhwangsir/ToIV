@@ -79,7 +79,7 @@ class _FakeClient:
     async def object_info(self, node: str) -> dict:
         if node == "CheckpointLoaderSimple":
             field = "ckpt_name"
-            names = ["DreamShaper_8.safetensors", "ponyRealism.safetensors"]
+            names = ["DreamShaper_8.safetensors", "ponyRealism.safetensors", "autismmixSDXL_autismmixPony.safetensors"]
         elif node == "LoraLoader":
             field = "lora_name"
             names = ["detail_tweaker.safetensors", "nsfw_boost.safetensors"]
@@ -234,11 +234,11 @@ def test_models_filtered_when_nsfw_disabled(client):
     r = c.get("/api/models", headers={"Authorization": f"Bearer {token}"})
     assert r.status_code == 200
     body = r.json()
-    # 成人底模 ponyRealism 被剔除,只剩 SFW 的 DreamShaper
-    assert body["checkpoints"] == ["DreamShaper_8.safetensors"]
+    # pony 是双用途家族,主站可见;autismmix 仍为成人底模被剔除
+    assert body["checkpoints"] == ["DreamShaper_8.safetensors", "ponyRealism.safetensors"]
     assert all(not it["nsfw"] for it in body["checkpoints_tagged"])
     assert body["nsfw_models"] == []
-    assert body["modes"]["image"]["models"] == ["DreamShaper_8.safetensors"]
+    assert body["modes"]["image"]["models"] == ["DreamShaper_8.safetensors", "ponyRealism.safetensors"]
 
 
 def test_models_nsfw_only_when_nsfw_enabled(client):
@@ -252,10 +252,10 @@ def test_models_nsfw_only_when_nsfw_enabled(client):
     r = c.get("/api/models", headers={"Authorization": f"Bearer {token}", "X-NSFW": "1"})
     assert r.status_code == 200
     body = r.json()
-    # NSFW 专页:仅保留 NSFW 底模,SFW 的 DreamShaper_8 被剔除
-    assert body["checkpoints"] == ["ponyRealism.safetensors"]
-    assert body["modes"]["image"]["models"] == ["ponyRealism.safetensors"]
-    assert "ponyRealism.safetensors" in body["nsfw_models"]
+    # NSFW 专页:仅保留显式成人底模;pony 不再当 18+
+    assert body["checkpoints"] == ["autismmixSDXL_autismmixPony.safetensors"]
+    assert body["modes"]["image"]["models"] == ["autismmixSDXL_autismmixPony.safetensors"]
+    assert "autismmixSDXL_autismmixPony.safetensors" in body["nsfw_models"]
 
 
 def test_local_models_filters_nsfw_loras(client):
@@ -268,8 +268,8 @@ def test_local_models_filters_nsfw_loras(client):
     off = c.get(
         "/api/models/local", headers={"Authorization": f"Bearer {create_token(uid_off)}"}
     ).json()
-    # 成人底模 + 成人 LoRA 均被剔除
-    assert off["checkpoints"] == ["DreamShaper_8.safetensors"]
+    # 显式成人底模 + 成人 LoRA 均被剔除;pony 是双用途,主站可见
+    assert off["checkpoints"] == ["DreamShaper_8.safetensors", "ponyRealism.safetensors"]
     assert off["loras"] == ["detail_tweaker.safetensors"]
     assert off["nsfw_models"] == []
 
@@ -277,7 +277,7 @@ def test_local_models_filters_nsfw_loras(client):
         "/api/models/local",
         headers={"Authorization": f"Bearer {create_token(uid_on)}", "X-NSFW": "1"},
     ).json()
-    assert "ponyRealism.safetensors" in on["checkpoints"]
+    assert "autismmixSDXL_autismmixPony.safetensors" in on["checkpoints"]
     assert "nsfw_boost.safetensors" in on["loras"]
 
 
@@ -417,35 +417,54 @@ def test_jobs_full_when_nsfw_enabled(client):
 # --------------------------------------------------------------------------- #
 
 
-def test_generate_nsfw_ckpt_blocked_when_disabled(client):
+def test_generate_explicit_ckpt_pony_is_not_nsfw(client, monkeypatch):
+    """pony 是双用途家族:主站显式选 ckpt 放行且不打 nsfw 标。"""
     c, engine = client
     with Session(engine) as s:
         uid = _seed_user(s, "genoff", nsfw_enabled=False)
     app.dependency_overrides[get_pool] = lambda: _FakePool()
+    monkeypatch.setattr(generate_route, "spawn_tracker", lambda client, prompt_id: None)
     token = create_token(uid)
     r = c.post(
         "/api/generate/txt2img",
         headers={"Authorization": f"Bearer {token}"},
         json={"positive": "a cat", "ckpt_name": "ponyRealism.safetensors"},
     )
+    assert r.status_code == 200, r.text
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        assert job is not None and job.nsfw is False
+
+
+def test_generate_nsfw_ckpt_blocked_when_disabled(client):
+    """显式成人底模(autismmix)主站无头 403。"""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "genoff2", nsfw_enabled=False)
+    app.dependency_overrides[get_pool] = lambda: _FakePool()
+    token = create_token(uid)
+    r = c.post(
+        "/api/generate/txt2img",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"positive": "a cat", "ckpt_name": "autismmixSDXL_autismmixPony.safetensors"},
+    )
     assert r.status_code == 403
 
 
 def test_generate_nsfw_ckpt_allowed_when_enabled(client, monkeypatch):
+    """显式成人底模 + X-NSFW:放行并打 nsfw 标。"""
     c, engine = client
     with Session(engine) as s:
         uid = _seed_user(s, "genon", nsfw_enabled=True)
     app.dependency_overrides[get_pool] = lambda: _FakePool()
-    # 不触发真实后台追踪
     monkeypatch.setattr(generate_route, "spawn_tracker", lambda client, prompt_id: None)
     token = create_token(uid)
     r = c.post(
         "/api/generate/txt2img",
         headers={"Authorization": f"Bearer {token}", "X-NSFW": "1"},
-        json={"positive": "a cat", "ckpt_name": "ponyRealism.safetensors"},
+        json={"positive": "a cat", "ckpt_name": "autismmixSDXL_autismmixPony.safetensors"},
     )
     assert r.status_code == 200, r.text
-    # 作品已建档并打 nsfw 标
     with Session(engine) as s:
         job = s.exec(select(Job).where(Job.user_id == uid)).first()
         assert job is not None and job.nsfw is True
@@ -494,7 +513,7 @@ def test_generate_sfw_intent_preset_bypasses_hints_gate(client, monkeypatch):
 
 
 def test_generate_sfw_intent_preset_does_not_shield_explicit_ckpt(client, monkeypatch):
-    """显式 ckpt 优先于预设:style_preset=anime + 显式 R18 底模仍走硬门槛 403。"""
+    """显式 ckpt 优先于预设:pony 不再是 R18,主站放行且不打标。"""
     c, engine = client
     with Session(engine) as s:
         uid = _seed_user(s, "genshield", nsfw_enabled=False)
@@ -510,7 +529,10 @@ def test_generate_sfw_intent_preset_does_not_shield_explicit_ckpt(client, monkey
             "ckpt_name": "ponyRealism.safetensors",
         },
     )
-    assert r.status_code == 403, r.text
+    assert r.status_code == 200, r.text
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        assert job is not None and job.nsfw is False
 
 
 def test_generate_nsfw_preset_still_gated_on_main_site(client, monkeypatch):
@@ -576,7 +598,7 @@ def test_manju_shot_nsfw_ckpt_gated_and_tagged(client, monkeypatch):
     app.dependency_overrides[get_pool] = lambda: _FakePool()
     monkeypatch.setattr(manju_route, "spawn_tracker", lambda *a, **k: None)
     token = create_token(uid)
-    body = {"positive": "a cat", "ckpt_name": "ponyRealism.safetensors"}
+    body = {"positive": "a cat", "ckpt_name": "autismmixSDXL_autismmixPony.safetensors"}
 
     r = c.post("/api/manju/shot", headers={"Authorization": f"Bearer {token}"}, json=body)
     assert r.status_code == 403  # 主站无 X-NSFW 头 → 拒
@@ -601,7 +623,7 @@ def test_raw_gate_uses_header_not_account_flag(client, monkeypatch):
     monkeypatch.setattr(generate_route, "spawn_tracker", lambda *a, **k: None)
     token = create_token(uid)
     graph = {
-        "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "ponyRealism.safetensors"}},
+        "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "autismmixSDXL_autismmixPony.safetensors"}},
         "2": {"class_type": "SaveImage", "inputs": {}},
     }
 

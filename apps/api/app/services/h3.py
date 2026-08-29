@@ -265,16 +265,17 @@ async def submit_h3_job(
 ) -> dict:
     """提交 H3 作业:开关检查 → 就绪检查 → queue_prompt → 落 Job → 后台追踪(结果落库进作品库)。
 
-    nsfw=True 时 Job 打 R18 标(进 /nsfw 专区作品库);调用方须先过 R18 门控
-    (routes 层用 nsfw_allowed(user) 判定,含未成年硬阻断),此处不重复校验。
+    nsfw=True 时 Job 打 R18 标(进 /nsfw 专区作品库)并换 10Eros UNET;调用方须先过
+    显式意图判定(body nsfw=true 或钉选 R18 LoRA,经 job_nsfw_from_intent),
+    此处不重复校验。X-NSFW 头不能单独把 nsfw 置 True。
     """
     ensure_h3_enabled()
     client = client or await pick_h3_client()
     await ensure_h3_ready(client)
 
-    # NSFW 场景(X-NSFW 专区)默认换 10Eros-Max H3 嫁接版 UNET(TOIV_H3_NSFW_UNET);
-    # SFW 保持模板底模不动。在预检/hold 分支之前完成替换:hold 时 graph 直接入库,
-    # 放行由 hold_queue 原样提交,不再经过本函数。
+    # 仅当调用方传入 nsfw=True(显式 body 或钉选 R18 LoRA)才换 10Eros-Max UNET;
+    # 专页头单独不能换底。SFW 保持模板底模不动。在预检/hold 分支之前完成替换:
+    # hold 时 graph 直接入库,放行由 hold_queue 原样提交,不再经过本函数。
     if nsfw:
         nsfw_unet = getattr(get_settings(), "h3_nsfw_unet", "")
         if nsfw_unet:

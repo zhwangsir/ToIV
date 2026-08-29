@@ -536,7 +536,7 @@ async function handleSubmit() {
         );
         break;
       case 'h3-nsfw-t2v':
-        // 与 SFW H3 同一 POST /api/h3/t2v 链路（专区内自带 X-NSFW 头，后端打标进 R18 库）
+        // 与 SFW H3 同一 POST /api/h3/t2v；body.nsfw=true 才打标/换 10Eros
         submitted = await submitH3T2V(buildH3NsfwT2VRequest(prompt.value, values));
         break;
       case 'h3-nsfw-i2v':

@@ -315,7 +315,7 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
       });
 
     case "h3-nsfw-t2v":
-      // R18 版与 SFW 同一提交链路:专区内自带 X-NSFW 头,后端据此打标/放行 R18 LoRA
+      // R18 版与 SFW 同一提交链路:body.nsfw=true 才打标/换 10Eros;X-NSFW 头仅门控
       return _postH3("/api/h3/t2v", {
         ..._h3NsfwPayload(values, positive, negative, seed),
         ..._entityIdsPayload(entityIds),
@@ -377,8 +377,8 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
       });
 
     case "wan-nsfw-i2v":
-      // R18 Wan2.2 主链:与 /api/generate/video 同一提交;专区内自带 X-NSFW 头
-      // → 后端 loras 入参生效 + Job 打标进 R18 作品库
+      // R18 Wan2.2 主链:与 /api/generate/video 同一提交;body.nsfw=true 才打标
+      // (X-NSFW 头仅门控,不能单独把 SFW i2v 打进成人库)
       return generateVideo({
         ..._wanNsfwI2vPayload(values, positive, negative, seed),
         image: refImage!.filename,
@@ -615,7 +615,8 @@ function _h3Payload(values: Record<string, unknown>, positive: string, negative:
   };
 }
 
-/** R18 H3 提交负载:resolution 预设换算为 32 对齐宽高;duration 预设即秒数直传。 */
+/** R18 H3 提交负载:resolution 预设换算为 32 对齐宽高;duration 预设即秒数直传;
+ *  nsfw:true 显式打标(专页头不能单独换 10Eros / 进成人库)。 */
 function _h3NsfwPayload(values: Record<string, unknown>, positive: string, negative: string, seed: number | null) {
   const { width, height } = _resolution(values, "1280x736");
   return {
@@ -629,11 +630,13 @@ function _h3NsfwPayload(values: Record<string, unknown>, positive: string, negat
     ..._lorasPayload(values),
     effect_preset: _effectPreset(values),
     resolution_target: _resolutionTarget(values),
+    nsfw: true,
   };
 }
 
 /** R18 Wan2.2 I2V 提交负载:resolution 预设换算宽高;duration 秒 → 4n+1 帧
- *  (固定 16fps Wan 甜点帧率,就近吸附 4n+1 网格:3s→49 / 5s→81 / 7.5s→121 上限)。 */
+ *  (固定 16fps Wan 甜点帧率,就近吸附 4n+1 网格:3s→49 / 5s→81 / 7.5s→121 上限);
+ *  nsfw:true 显式打标(专页头不能单独把 Job 打进成人库)。 */
 function _wanNsfwI2vPayload(values: Record<string, unknown>, positive: string, negative: string, seed: number | null) {
   const { width, height } = _resolution(values, "832x480");
   const sec = _durationSec(values, 5);
@@ -651,6 +654,7 @@ function _wanNsfwI2vPayload(values: Record<string, unknown>, positive: string, n
     full_quality: _bool(values, "full_quality"),
     effect_preset: _effectPreset(values),
     resolution_target: _resolutionTarget(values),
+    nsfw: true,
   };
 }
 

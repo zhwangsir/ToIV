@@ -245,7 +245,7 @@ def test_wan_i2v_loras_unknown_name_422_in_r18(client, monkeypatch):
     fake = _FakeClient()
     monkeypatch.setattr(video_route, "resolve_worker", lambda worker: fake)
     _install_tracker_noop(monkeypatch)
-    r = _post_wan(c, uid, headers=_NSFW,
+    r = _post_wan(c, uid, headers=_NSFW, nsfw=True,
                   loras=[{"name": "../../etc/passwd.safetensors"}])
     assert r.status_code == 422
     assert "未知 Wan NSFW LoRA" in r.json()["detail"]
@@ -260,7 +260,7 @@ def test_wan_i2v_loras_mounted_by_side_and_job_marked(client, monkeypatch):
     fake = _FakeClient()
     monkeypatch.setattr(video_route, "resolve_worker", lambda worker: fake)
     _install_tracker_noop(monkeypatch)
-    r = _post_wan(c, uid, headers=_NSFW, loras=[
+    r = _post_wan(c, uid, headers=_NSFW, nsfw=True, loras=[
         {"name": "NSFW-22-H-e8.safetensors"},                            # high,注册表默认 0.8
         {"name": "DR34ML4Y_I2V_14B_LOW_V2.safetensors", "strength": 0.7},  # low,显式 0.7
     ])
@@ -525,7 +525,7 @@ def test_wan_i2v_auto_picks_concept_when_loras_omitted(client, monkeypatch):
     fake = _FakeClient()
     monkeypatch.setattr(video_route, "resolve_worker", lambda worker: fake)
     _install_tracker_noop(monkeypatch)
-    r = _post_wan(c, uid, headers=_NSFW, full_quality=True)  # 省略 loras → auto
+    r = _post_wan(c, uid, headers=_NSFW, nsfw=True, full_quality=True)  # 省略 loras → auto
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["lora_mode"] == "auto"

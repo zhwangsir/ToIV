@@ -24,7 +24,7 @@ from sqlmodel import Session
 from app.db import get_session
 from app.deps import get_current_user, resolve_worker
 from app.models import User
-from app.nsfw_ctx import nsfw_allowed
+from app.nsfw_ctx import job_nsfw_from_intent
 from app.ratelimit import enforce_generation_rate_limit
 from app.workflows.model_profiles import AR_VIDEO, aspect_guard
 from app.services import longcat as longcat_service
@@ -204,9 +204,8 @@ async def generate_longcat_t2v(
     result = await longcat_service.submit_longcat_job(
         graph, kind="longcat_t2v", positive=params.positive, seed=params.seed,
         req=req, user=user, session=session,
-        # R18 上下文(X-NSFW 头)打标进 /nsfw 专区作品库;nsfw_allowed 含未成年硬阻断,
-        # 与 LTX 门控同一判定来源,主站(无头)恒 False 行为不变
-        nsfw=nsfw_allowed(user),
+        # 普通 LongCat 不因专页头打 R18 标;显式 body.nsfw 才走 job_nsfw_from_intent
+        nsfw=job_nsfw_from_intent(user, bool(getattr(req, "nsfw", False))),
     )
     return _attach_duration_chain(
         result, plan, longcat_service.get_longcat_client, req.resolution_target
@@ -240,7 +239,7 @@ async def generate_longcat_i2v(
     result = await longcat_service.submit_longcat_job(
         graph, kind="longcat_i2v", positive=params.positive, seed=params.seed,
         req=req, user=user, session=session, client=client,
-        nsfw=nsfw_allowed(user),  # R18 上下文打标(同 t2v)
+        nsfw=job_nsfw_from_intent(user, bool(getattr(req, "nsfw", False))),  # R18 上下文打标(同 t2v)
     )
     return _attach_duration_chain(
         result, plan, lambda: client, req.resolution_target
@@ -280,7 +279,7 @@ async def generate_longcat_continue(
     result = await longcat_service.submit_longcat_job(
         graph, kind="longcat_continue", positive=params.positive, seed=params.seed,
         req=req, user=user, session=session, client=client,
-        nsfw=nsfw_allowed(user),  # R18 上下文打标(同 t2v)
+        nsfw=job_nsfw_from_intent(user, bool(getattr(req, "nsfw", False))),  # R18 上下文打标(同 t2v)
     )
     return _attach_duration_chain(
         result, plan, lambda: client, req.resolution_target

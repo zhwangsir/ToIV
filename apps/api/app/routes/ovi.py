@@ -22,7 +22,7 @@ from sqlmodel import Session
 from app.db import get_session
 from app.deps import get_current_user, resolve_worker
 from app.models import User
-from app.nsfw_ctx import nsfw_allowed
+from app.nsfw_ctx import job_nsfw_from_intent
 from app.ratelimit import enforce_generation_rate_limit
 from app.services import longcat as longcat_service
 from app.workflows.ovi import (
@@ -114,7 +114,7 @@ async def generate_ovi_t2v(
     result = await longcat_service.submit_longcat_job(
         graph, kind="ovi_t2v", positive=params.positive, seed=params.seed,
         req=req, user=user, session=session,
-        nsfw=nsfw_allowed(user),  # R18 上下文打标(同 longcat 门控语义)
+        nsfw=job_nsfw_from_intent(user, bool(getattr(req, "nsfw", False))),  # R18 上下文打标(同 longcat 门控语义)
     )
     return result
 
@@ -135,6 +135,6 @@ async def generate_ovi_i2v(
     result = await longcat_service.submit_longcat_job(
         graph, kind="ovi_i2v", positive=params.positive, seed=params.seed,
         req=req, user=user, session=session, client=client,
-        nsfw=nsfw_allowed(user),
+        nsfw=job_nsfw_from_intent(user, bool(getattr(req, "nsfw", False))),
     )
     return result

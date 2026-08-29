@@ -551,6 +551,7 @@ export function buildH3NsfwT2VRequest(
     ...pickNumbers(values, H3_NSFW_NUMBER_KEYS),
     ...pickSeed(values),
     ...pickLorasPayload(values.loras),
+    nsfw: true,
   };
 }
 
@@ -797,5 +798,6 @@ export function buildWanNsfwI2VRequest(
     full_quality: values.full_quality === true,
     ...(effect ? { effect_preset: effect } : {}),
     ...(target ? { resolution_target: target } : {}),
+    nsfw: true,
   };
 }

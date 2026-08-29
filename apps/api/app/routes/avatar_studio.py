@@ -36,7 +36,7 @@ from app.config import get_settings
 from app.db import get_session
 from app.deps import get_current_user, resolve_worker
 from app.models import User
-from app.nsfw_ctx import nsfw_allowed
+from app.nsfw_ctx import job_nsfw_from_intent
 from app.ratelimit import enforce_generation_rate_limit
 from app.routes.audio_orchestrate import _allowed_source, _check_redirect, _resolve_url, _TTS_TIMEOUT
 from app.workflows.model_profiles import AR_VIDEO, aspect_guard
@@ -234,9 +234,8 @@ async def generate_avatar_talk(
     result = await longcat_service.submit_longcat_job(
         graph, kind="avatar_talk", positive=params.positive, seed=params.seed,
         req=req, user=user, session=session, client=client,
-        # R18 上下文(X-NSFW 头)打标进 /nsfw 专区作品库;nsfw_allowed 含未成年硬阻断,
-        # 与 longcat_studio 同一判定来源,主站(无头)恒 False 行为不变
-        nsfw=nsfw_allowed(user),
+        # 普通数字人不因专页头打 R18 标;显式 body.nsfw 才走 job_nsfw_from_intent
+        nsfw=job_nsfw_from_intent(user, bool(getattr(req, "nsfw", False))),
     )
     if plan.strategy != "direct":
         vgen.spawn_duration_chain(
