@@ -17,7 +17,7 @@ import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon } from "@/components/ui/Icon";
 import { Field, Input, Textarea } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
-import { fetchJobsPage, imageUrl, invalidateJobs, uploadImage } from "@/lib/api";
+import { imageUrl, invalidateJobs, lookupJob, uploadImage } from "@/lib/api";
 import {
   CHAIN_DEFAULT_SEG_SEC,
   CHAIN_MAX_FRAMES,
@@ -105,14 +105,16 @@ export function KeyframeChainEditor() {
     busy,
   });
 
-  // 段进度轮询:提交后每 5s 拉作业列表,chainProgress 推导段计数/成片/失败
+  // 段进度轮询:提交后每 5s 精确查各段/合并作业(2026-08-29:替代全量 200 条过滤,降负载)
   useEffect(() => {
     if (!runIds) return;
     let cancelled = false;
+    const ids = [...runIds.segmentIds, runIds.mergedId];
     const tick = async () => {
       try {
-        const jobs = await fetchJobsPage(0, 200);
+        const found = await Promise.all(ids.map((id) => lookupJob(id)));
         if (cancelled) return;
+        const jobs = found.filter((j): j is NonNullable<typeof j> => j !== null);
         const p = chainProgress(jobs, runIds.segmentIds, runIds.mergedId);
         setProgress(p);
         if (p.status === "done") {

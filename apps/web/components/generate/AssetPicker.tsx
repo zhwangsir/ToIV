@@ -5,7 +5,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
-import { assetFromJob, fetchJobsPage, imageUrl } from "@/lib/api";
+import { assetFromJob, fetchJobsPage, imageUrl, resolveEntityRefs } from "@/lib/api";
+import { entityKindLabel, entityThumbUrl, useEntities, type EntityInfo } from "@/lib/entities";
 import type { JobItem } from "@/lib/types";
 
 /**
@@ -14,6 +15,10 @@ import type { JobItem } from "@/lib/types";
  * 目标 worker 的 input 目录,返回与上传句柄同构的 {filename, worker}。
  * 分页(2026-08-22):首页满页可「加载更多」,offset=已加载条数,按 Job id 去重
  * (拉取间隙新作业插入顶部会导致页间位置漂移重叠,与作品库同一去重口径)。
+ * 主体库合并(2026-08-29):assetType=image 时提供「作品库 | 主体库」双源 Tab,
+ * 主体图经 /api/entities/resolve-refs 钉定转运,返回同构句柄(图片类输入
+ * 从此两库通吃;视频/音频仅作品库——主体库暂无视频资产,ref_audio 为裸 URL
+ * 无转运链,后续有消费方再补)。
  */
 
 export type AssetType = "image" | "video" | "audio";
@@ -80,7 +85,14 @@ export function AssetPicker({ open, onClose, assetType, kind, pinWorker, onPick 
   // 首页满页 = 服务端可能还有更早的作品(老作品资产也可选,不再被首页截断)
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [transferring, setTransferring] = useState<string | null>(null); // 正在转运的 "jobId:filename"
+  const [transferring, setTransferring] = useState<string | null>(null); // 正在转运的 "jobId:filename" 或 entity id
+  // 双源(2026-08-29):作品库 | 主体库(仅图片类有主体库 Tab)
+  const [source, setSource] = useState<"jobs" | "entities">("jobs");
+  const entities = useEntities();
+  const entityItems = useMemo(
+    () => entities.filter((e) => e.thumbUrl), // 无图主体无可选资产,不展示
+    [entities],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -161,9 +173,84 @@ export function AssetPicker({ open, onClose, assetType, kind, pinWorker, onPick 
     }
   }
 
+  /** 主体库选取:resolve-refs 把主体最优图钉定/转运到目标 worker,返回同构句柄。 */
+  async function pickEntity(e: EntityInfo) {
+    if (transferring) return;
+    setTransferring(`entity:${e.id}`);
+    setError(null);
+    try {
+      const r = await resolveEntityRefs({
+        entity_ids: [e.id],
+        kind,
+        ...(pinWorker ? { worker: pinWorker } : {}),
+      });
+      const ref = r.refs[0];
+      if (!ref) {
+        throw new Error(r.skipped[0]?.reason ?? "该主体暂无可用参考图");
+      }
+      onPick({
+        filename: ref.filename,
+        worker: ref.worker,
+        previewUrl: entityThumbUrl(e),
+        name: e.name,
+      });
+      toast.success(`已引用主体「${e.name}」`);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "主体图转运失败");
+    } finally {
+      setTransferring(null);
+    }
+  }
+
   return (
-    <Modal open={open} onClose={onClose} title={`从作品库选择${TYPE_LABEL[assetType]}`} width={640}>
-      {loading ? (
+    <Modal open={open} onClose={onClose} title={`选择${TYPE_LABEL[assetType]}资产`} width={640}>
+      {assetType === "image" && (
+        <div className="asset-picker-tabs" role="tablist" aria-label="资产来源">
+          {(["jobs", "entities"] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              role="tab"
+              aria-selected={source === s}
+              className={`asset-picker-tab${source === s ? " is-active" : ""}`}
+              onClick={() => setSource(s)}
+            >
+              {s === "jobs" ? "作品库" : "主体库"}
+            </button>
+          ))}
+        </div>
+      )}
+      {assetType === "image" && source === "entities" ? (
+        entityItems.length === 0 ? (
+          <p className="asset-picker-empty">主体库中还没有带图的主体(先去主体库建主体或生成三视图)</p>
+        ) : (
+          <div className="asset-picker-grid">
+            {entityItems.map((e) => {
+              const busy = transferring === `entity:${e.id}`;
+              return (
+                <button
+                  type="button"
+                  key={e.id}
+                  className="asset-picker-item"
+                  disabled={Boolean(transferring)}
+                  title={`${e.name}(${entityKindLabel(e.kind)})`}
+                  onClick={() => void pickEntity(e)}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={entityThumbUrl(e)} alt={e.name} loading="lazy" decoding="async" width={128} height={128} />
+                  <span className="asset-picker-name">{e.name}</span>
+                  {busy && (
+                    <span className="asset-picker-busy">
+                      <Icon name="loading" size={16} />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )
+      ) : loading ? (
         <p className="asset-picker-empty">加载中…</p>
       ) : items.length === 0 ? (
         <p className="asset-picker-empty">作品库中还没有可用的{TYPE_LABEL[assetType]}产物</p>
@@ -211,6 +298,30 @@ export function AssetPicker({ open, onClose, assetType, kind, pinWorker, onPick 
       )}
       {error && <p className="asset-picker-error">{error}</p>}
       <style jsx>{`
+        .asset-picker-tabs {
+          display: flex;
+          gap: 4px;
+          margin-bottom: var(--space-2, 8px);
+          padding: 3px;
+          border-radius: var(--radius-full, 999px);
+          background: var(--bg-surface-3, rgba(127, 127, 127, 0.12));
+        }
+        .asset-picker-tab {
+          flex: 1;
+          padding: 5px 0;
+          border: none;
+          border-radius: var(--radius-full, 999px);
+          background: transparent;
+          color: var(--text-muted);
+          font-size: 12px;
+          cursor: pointer;
+        }
+        .asset-picker-tab.is-active {
+          background: var(--bg-surface-1, #fff);
+          color: var(--text-primary);
+          font-weight: 600;
+          box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.08));
+        }
         .asset-picker-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));

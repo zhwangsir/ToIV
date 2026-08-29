@@ -205,7 +205,10 @@ test("⑤ MultiShotEditor:镜头卡/拖拽排序/增删/时长滑块/运镜与�
   assert.ok(src.includes("multishotTotalDuration"), "缺总时长实时计算");
   assert.ok(src.includes("multishotSubmittable"), "提交门控未走 multishotSubmittable");
   assert.ok(src.includes("submitMultiShot"), "提交未走 submitMultiShot");
-  assert.ok(src.includes("fetchJobsPage"), "busy 态缺作业轮询(fetchJobsPage)");
+  // 2026-08-29:轮询从全量 200 条过滤改为 lookupJob 精确查询(降负载)
+  assert.ok(src.includes("lookupJob"), "busy 态缺作业轮询(lookupJob)");
+  assert.ok(src.includes("EntityPicker"), "缺主体引用(EntityPicker)");
+  assert.ok(src.includes("entity_ids"), "提交未带 entity_ids");
 });
 
 test("⑤ GenerateView 接线:h3-multishot 引擎渲染 MultiShotEditor", () => {

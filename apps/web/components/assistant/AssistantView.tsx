@@ -758,6 +758,10 @@ export function AssistantView(props?: AssistantViewProps) {
   const popup = props?.variant === "popup";
   const toast = useToast();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // 渲染窗口(2026-08-29 性能:长会话全量渲染 DOM 节点线性膨胀致卡顿/闪退;
+  // 默认只渲染最近 80 条,顶部「加载更早消息」展开;数据层 messages 不动,
+  // 上传给 API 的历史截断仍由 MAX_API_MESSAGES/MAX_API_MESSAGE_CHARS 承载)
+  const [showAllHistory, setShowAllHistory] = useState(false);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   // pending = 已发送、等待首个响应块(打字指示器),出错即替换为错误气泡
@@ -1848,7 +1852,22 @@ export function AssistantView(props?: AssistantViewProps) {
           )
         ) : (
           <div className="av-msg-list">
-            {messages.map((msg) => (
+            {(() => {
+              const MSG_RENDER_WINDOW = 80;
+              const hiddenCount = showAllHistory ? 0 : Math.max(0, messages.length - MSG_RENDER_WINDOW);
+              const visible = hiddenCount > 0 ? messages.slice(-MSG_RENDER_WINDOW) : messages;
+              return (
+                <>
+                  {hiddenCount > 0 && (
+                    <button
+                      type="button"
+                      className="av-msg-history-more"
+                      onClick={() => setShowAllHistory(true)}
+                    >
+                      加载更早的 {hiddenCount} 条消息(默认只渲染最近 {MSG_RENDER_WINDOW} 条,防长会话卡顿)
+                    </button>
+                  )}
+                  {visible.map((msg) => (
               <div
                 key={msg.id}
                 className={`av-msg${msg.role === "user" ? " is-user" : " is-assistant"}`}
@@ -2025,7 +2044,10 @@ export function AssistantView(props?: AssistantViewProps) {
                   <span className="av-msg-time">{formatTime(msg.timestamp)}</span>
                 </div>
               </div>
-            ))}
+                  ))}
+                </>
+              );
+            })()}
             {pending && (
               <div className="av-msg is-assistant" aria-live="polite">
                 <div className="av-msg-avatar">
@@ -2497,6 +2519,21 @@ export function AssistantView(props?: AssistantViewProps) {
           padding: var(--space-12) var(--space-6) var(--space-8);
           max-width: 720px;
           margin: 0 auto;
+        }
+        /* 长会话渲染窗口(2026-08-29):「加载更早消息」低调按钮 */
+        .av-msg-history-more {
+          align-self: center;
+          padding: 6px 14px;
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-full, 999px);
+          background: var(--bg-surface-2, transparent);
+          color: var(--text-muted);
+          font-size: 12px;
+          cursor: pointer;
+        }
+        .av-msg-history-more:hover {
+          color: var(--text-primary);
+          border-color: var(--accent);
         }
         /* popup 形态(2026-08-18):弹窗居中卡内无灵动岛让位,顶部收敛;
            气泡列同步收窄到 640px——视觉焦点更集中,AI/用户两侧层次更分明 */

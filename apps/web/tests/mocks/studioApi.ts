@@ -772,3 +772,17 @@ export const uploadImage = async (
   filename: "uploaded.png",
   worker: "http://w:8189",
 });
+
+/** 主体参考图解析替身(AssetPicker 主体库 Tab 链接期需要,2026-08-29)。 */
+export const resolveEntityRefs = async (_params: {
+  entity_ids: string[];
+  kind: string;
+  worker?: string;
+}): Promise<{
+  refs: { entity_id: string; name: string; prompt_hint: string; filename: string; worker: string }[];
+  skipped: { entity_id: string; reason: string }[];
+  worker: string;
+}> => ({ refs: [], skipped: [], worker: "http://w:8189" });
+
+/** 单作业精确查询替身(编辑器轮询 2026-08-29 链接期需要;默认查无,各编辑器轮询空转)。 */
+export const lookupJob = async (_promptId: string): Promise<JobItem | null> => null;

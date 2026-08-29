@@ -17,7 +17,8 @@ import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon } from "@/components/ui/Icon";
 import { Field, Input, Select, Textarea } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
-import { fetchJobsPage, imageUrl, invalidateJobs } from "@/lib/api";
+import { EntityPicker } from "@/components/entities/EntityPicker";
+import { imageUrl, invalidateJobs, lookupJob, type EntityItem } from "@/lib/api";
 import {
   MULTISHOT_CAMERA_OPTIONS,
   MULTISHOT_DEFAULT_SHOT_SEC,
@@ -58,21 +59,23 @@ export function MultiShotEditor() {
   const [runId, setRunId] = useState<string | null>(null);
   const [runStatus, setRunStatus] = useState<RunStatus>("running");
   const [resultUrl, setResultUrl] = useState<string | null>(null);
+  // 主体引用(2026-08-29 补齐:多镜头与 t2v 同语义,后端注入 @图片N 引用行)
+  const [entityPickerOpen, setEntityPickerOpen] = useState(false);
+  const [pickedEntities, setPickedEntities] = useState<EntityItem[]>([]);
 
   const totalDuration = multishotTotalDuration(shots.map((s) => s.durationSec));
   const overTotal = totalDuration > MULTISHOT_MAX_TOTAL_SEC;
   const busy = submitting || (runId !== null && runStatus !== "done" && runStatus !== "error");
   const canSubmit = multishotSubmittable({ shots, busy });
 
-  // 作业轮询:提交后每 5s 拉作业列表,按 prompt_id 跟进 done/error/held
+  // 作业轮询:提交后每 5s 精确查单条(2026-08-29:替代全量 200 条过滤,降负载)
   useEffect(() => {
     if (!runId) return;
     let cancelled = false;
     const tick = async () => {
       try {
-        const jobs = await fetchJobsPage(0, 200);
+        const job = await lookupJob(runId);
         if (cancelled) return;
-        const job = jobs.find((j) => j.prompt_id === runId);
         if (!job) return;
         if (job.status === "done") {
           setRunStatus("done");
@@ -117,6 +120,7 @@ export function MultiShotEditor() {
         width,
         height,
         steps,
+        ...(pickedEntities.length > 0 ? { entity_ids: pickedEntities.map((e) => e.id) } : {}),
         ...(seed !== null && Number.isInteger(seed) && seed >= 0 ? { seed } : {}),
       });
       setRunId(res.prompt_id);
@@ -326,6 +330,32 @@ export function MultiShotEditor() {
 
       {error && <ErrorBar message={error} onClose={() => setError(null)} />}
 
+      {/* 主体引用(2026-08-29):H3 全能参考(@图片N),与 t2v 同语义;上限 9 个(官方 Ref2VA) */}
+      <div className="ms-entity-row">
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={<Icon name="users" size={13} />}
+          disabled={busy}
+          onClick={() => setEntityPickerOpen(true)}
+        >
+          引用主体{pickedEntities.length > 0 ? `(${pickedEntities.length}/9)` : ""}
+        </Button>
+        {pickedEntities.map((e) => (
+          <span key={e.id} className="ms-entity-chip">
+            {e.name}
+            <button
+              type="button"
+              aria-label={`移除主体 ${e.name}`}
+              disabled={busy}
+              onClick={() => setPickedEntities((prev) => prev.filter((x) => x.id !== e.id))}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
+
       {/* 提交 + busy 态 / 成片 */}
       <div className="ms-submit-row">
         <Button variant="primary" loading={busy} disabled={!canSubmit} onClick={() => void onSubmit()}>
@@ -358,6 +388,18 @@ export function MultiShotEditor() {
           />
         </div>
       )}
+
+      <EntityPicker
+        open={entityPickerOpen}
+        onClose={() => setEntityPickerOpen(false)}
+        selectedIds={pickedEntities.map((e) => e.id)}
+        onConfirm={(list) => {
+          // H3 官方全能参考上限 9 图(2026-08-29 调研对齐);超出截断并提示
+          const capped = list.slice(0, 9);
+          if (list.length > 9) toast.info("主体引用最多 9 个,已按勾选顺序取前 9 个");
+          setPickedEntities(capped);
+        }}
+      />
 
       <style jsx>{`
         .ms-editor {
@@ -503,6 +545,35 @@ export function MultiShotEditor() {
           display: flex;
           align-items: center;
           gap: var(--space-2);
+        }
+        .ms-entity-row {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: var(--space-2);
+        }
+        .ms-entity-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 2px 4px 2px 10px;
+          border-radius: var(--radius-full, 999px);
+          border: 1px solid var(--border-subtle);
+          background: var(--bg-surface-2, transparent);
+          font-size: 12px;
+          color: var(--text-secondary);
+        }
+        .ms-entity-chip button {
+          border: none;
+          background: none;
+          color: var(--text-muted);
+          cursor: pointer;
+          font-size: 14px;
+          line-height: 1;
+          padding: 2px 4px;
+        }
+        .ms-entity-chip button:hover:not(:disabled) {
+          color: var(--err);
         }
         .ms-error-text {
           margin: 0;

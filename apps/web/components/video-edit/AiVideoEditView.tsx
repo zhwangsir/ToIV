@@ -23,7 +23,7 @@ import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon } from "@/components/ui/Icon";
 import { Field, Input, Select, Textarea } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
-import { fetchJobsPage, imageUrl, invalidateJobs, uploadImage } from "@/lib/api";
+import { imageUrl, invalidateJobs, lookupJob, uploadImage } from "@/lib/api";
 import {
   EDIT_MAX_DURATION_SEC,
   EDIT_MAX_KEYFRAMES,
@@ -129,9 +129,9 @@ export function AiVideoEditView() {
     let cancelled = false;
     const tick = async () => {
       try {
-        const jobs = await fetchJobsPage(0, 200);
+        const job = await lookupJob(runId);
         if (cancelled) return;
-        const p = editJobProgress(jobs, runId);
+        const p = editJobProgress(job ? [job] : [], runId);
         setProgress(p);
         if (p.status === "done") {
           invalidateJobs(); // 成片已落库,作品库缓存失效
