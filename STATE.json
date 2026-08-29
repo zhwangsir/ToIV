@@ -1,7 +1,19 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-30T05:40:00+08:00",
+ "updated_at": "2026-08-30T05:55:00+08:00",
+ "ux_overhaul_2026_08_30": {
+  "status": "W0-W4_all_done_deployed_pushed",
+  "commits": ["1a9b912", "7c35c1a", "d50de47", "84314d9", "b5541af"],
+  "report": "docs/2026-08-30-ux-research-report.md（四路调研：视频链路/23视图/生产实测/遗留盘点）",
+  "w1_backend": "engines 探测 2s 硬上限（生产 34.2s→实测 2.29s）；SSE 网络异常只断流不 mark error；canceled 终态化+续写链中断+cancel 传播子段；Job.error 列落库；completed 无产物标 error；generate 13 处错误码统一",
+  "w1w2_frontend": "引擎未就绪提示词落草稿不吞输入；enginesError 提升舞台 ErrorBar；按钮禁用给原因；会话历史持久化+在跑恢复；终态分色 toast+失败重试；子编辑器 canceled/404/超时终态；上传 XHR 进度条+长超时；ParamField 失焦钳位",
+  "w3": "23 视图精修：假空态收敛/取消确认门补齐/PageHeader 收敛/图表 --chart-1..5 token 化/admin 门控/animatic→studio projectId 断链修复/BottomNav Esc+焦点陷阱/版本号走 version.json",
+  "w4": "画布 /api/canvas/proxy 服务端反代（公网混合内容根治，SSRF 白名单，去内网 IP；WS 未透传为已知边界）；6 例 HEAD 既有测试失败归零",
+  "ops": "生产 admin 弱口令已改（core .env 备份 .env.bak-20260830-adminpw）；LAN 入口更正为 100.77.80.100（192.168.71.127 是 workstation）；双远程推至 b5541af",
+  "regression": "pytest 2827 0 failed / npm test 834 / tsc 0 / 干净 build / 生产验证 engines 2.29s+canvas proxy 200+新密登录 200",
+  "next": "应用市场 M1-M6（方案已定稿）+ 按需资源分配 R1-R5（冷层 scale-to-zero）"
+ },
  "ui_standard_2026_08_30": {
   "status": "page1_done_rest_pending",
   "spec": "docs/UI_STANDARD.md v1.0 新建(全站唯一权威规范:Film Atelier 方向/token 强制/lucide 唯一图标/动效≤320ms/§10 十项验收/14 页优化顺序表)",
