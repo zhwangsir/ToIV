@@ -209,6 +209,14 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - **B3 多主体注入(同 commit)**:agent `submit_generation` 对 H3 透传 `entity_ids`(此前丢弃,@图片N 对助手完全失效);`h3-multishot` 补 `entity_ids` 字段并与 t2v 同层同序注入引用行;前端 `engines.ts` 补 phantom-s2v 提交分支+entity_ids 透传。
 - **生产实证**:SFW 列表 h3-t2v `ordinary_default=true`;R18 列表 h3-nsfw-t2v 默认、ltx-nsfw-*/wan-nsfw-i2v 全 `advanced=true`;R18 `/api/generate/ltx-t2v` 实测 422 文案含「请上传一张首帧」。
 
+### 2026-08-29 晚（任务中心中止按钮 + hidden 引擎,已部署 core）
+
+- **中止(35b8b87)**:`POST /api/jobs/{id}/cancel`——仅本人(404 防枚举)、终态 409、审计 `job.cancel`;DB 先落 `canceled` 再尽力清场 worker(ComfyUI pending→`POST /queue {"delete":[...]}`、running→`POST /interrupt`;`hold-*`/`chain-*` 占位跳过;worker 不可达不阻塞,DB 终态不回滚)。tracker 视 `canceled` 为终态:`mark_status`/`write_progress` 跳过、`_track` 每轮自检早退;`wait_for_jobs` 抛「已被用户取消」→ 三视图回写标 error 允许重试。`ComfyUIClient` 新增 `delete_from_queue`/`interrupt`/`cancel_prompt`(/interrupt 无定向,先查 `queue_running` 防误中断同实例他人)。
+- **hidden 引擎(60d6168)**:`ltx-nsfw-t2v` 标 `hidden`(API 422 仍在,选择器不再展示);`GenerateView`/小程序 hidden 不进列表;R18 上下文默认优先 `ordinary_default + nsfw` 的 H3(带 R18 LoRA 预设)。
+- **前端**:任务中心每条目「中止」按钮(confirm 确认 + 中止中防连点 + toast + 即时刷新,样式挂 `--err` 令牌)。
+- **生产实证**:core 上提交 txt2img → 任务中心可见 queued → cancel 返回 `worker_action=interrupted` → 列表消失、DB `status=canceled`、不进回收站。
+- ⚠️ 注意:`deploy/.env` 第 9 行是裸 URL(`http://localhost:3101`),`source` 时会报「没有那个文件或目录」但不中断后续行加载;systemd EnvironmentFile 也能容错。属历史遗留,不影响运行。
+
 ### 2026-08-28 长会话自动折叠（ToIV 开发，未推，不改设备清单）
 
 - 本地 `a5e04ea`（未推）：长会话自动折叠，不再要求新开。续聊只上传本轮 user；runner 从 `AgentMessage` 重建再折叠。错误文案改为「这一条太长，请缩短本轮输入」。32k GPU 硬顶仍在。生产还没有。

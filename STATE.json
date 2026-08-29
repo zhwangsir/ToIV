@@ -1,7 +1,18 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-29T15:00:00+08:00",
+ "updated_at": "2026-08-29T15:55:00+08:00",
+ "job_cancel_35b8b87": {
+  "commit": "35b8b87",
+  "deployed": "core 2026-08-29 (toiv-api/toiv-web 健康通过)",
+  "endpoint": "POST /api/jobs/{id}/cancel — 仅本人(404)/终态 409/审计 job.cancel;DB 先落 canceled 再尽力清场 worker",
+  "worker": "ComfyUI pending→POST /queue delete;running→POST /interrupt;hold-*/chain-* 占位跳过;不可达不阻塞",
+  "tracker": "canceled 为终态:mark_status/write_progress 跳过、_track 自检早退;wait_for_jobs 抛「已被用户取消」",
+  "frontend": "任务中心每条目「中止」按钮(confirm+防连点+toast+即时刷新),样式挂 --err",
+  "hidden_engine": "60d6168: ltx-nsfw-t2v 标 hidden(选择器不展示,API 422 仍在);R18 默认优先 nsfw H3",
+  "regression": "后端 pytest 2772,web 693,小程序 598 全过",
+  "prod_verified": "txt2img 提交→任务中心可见→cancel worker_action=interrupted→列表消失→DB canceled"
+ },
  "video_path_lock_and_b3_42dba0c": {
   "commit": "42dba0c",
   "deployed": "core 2026-08-29 (toiv-api/toiv-web 健康通过)",
