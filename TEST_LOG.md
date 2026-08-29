@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-08-30 f480ead (already on core, remotes not pushed, no redeploy): fill UploadedRef previewUrl/name on entity-cover submit. Two type lines missed at production-pack time; uncommitted then, went up with rsync. Only GenerateView.tsx.
+
 - 2026-08-30 eb51c86 (deployed to core, remotes not pushed): UX pack — stop actually cancelJob/aborts the request; identity covers via i2v/img2img; duration 4–15s plus segmented continue switch; library includes h3_extend_i2v and cad_/drama_char_reference_ prefixes. core toiv-api/toiv-web active; public /api/health and LAN :8090/:3100 200. Frontend BUILD_ID 20260829-213739-72a9c0f-dirty (web built at docs 72a9c0f; UX code eb51c86).
 
 - 2026-08-30 fb78872 (deployed to core, remotes not pushed): Job.nsfw follows explicit intent, not X-NSFW. X-NSFW is adult-page view/create gate only; Job.nsfw / H3 10Eros only when body nsfw:true (h3-nsfw-*/wan-nsfw-*) or pinned R18 LoRA. is_nsfw(ckpt) explicit adult tokens only; pony/wai/illustrious/realisticvision/animagine/noobai/cyberrealistic/lazymix/nova3dcg no longer auto 18+. engines.ts sends nsfw:true. Prod DB 3 mislabels set nsfw=false (4K upscale d79ca9cf…, try-on t2v_00183_/t2v_00184_ = e07b0cb4/71cf52cc). Remotes still not pushed. core toiv-api/toiv-web active; public /api/health and LAN :8090/:3100 200. Frontend BUILD_ID 20260829-185858-fb78872-dirty.

@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-08-30（UX 包 `eb51c86` 已上线 core，远程仍未推）
+> **最后更新**：2026-08-30（补 `f480ead` UploadedRef 已在 core，不必重部署）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 
 ---
@@ -232,6 +232,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 - 本地 `eb51c86`（远程未推，已上线 core）：`fix(ux): stop actually cancels, identity uses covers, library filters honestly`。停止会 `cancelJob`/中止请求；主体封面走 i2v/img2img；时长 4–15s 加分段续写开关；作品库含 `h3_extend_i2v` 和 `cad_`/`drama_char_reference_` 前缀。
 - 远程仍未推 Gitee/GitHub。core `toiv-api`/`toiv-web` 均为 active。公网/LAN health 200。前端 BUILD_ID `20260829-213739-72a9c0f-dirty`（编网页时 HEAD 已是 docs `72a9c0f`；UX 代码仍是 `eb51c86`）。
+- 补本地 `f480ead`（远程未推，已在 core，不必重部署）：编生产包时漏的两行类型 `UploadedRef.previewUrl`/`name`（entity-cover 提交），当时未提交跟着 rsync 上去了。只动 `GenerateView.tsx`。
 
 ### 2026-08-30 Job.nsfw 合同（ToIV 开发，`fb78872` 已上线 core，远程未推，不改设备清单）
 

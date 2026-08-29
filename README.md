@@ -22,6 +22,8 @@ Job.nsfw 合同（本地 `fb78872`，远程未推，**已上线 core**）：`X-N
 
 UX 体验包（本地 `eb51c86`，远程未推，**已上线 core**）：停止会 `cancelJob`/中止请求；主体封面走 i2v/img2img；时长 4–15s 加分段续写开关；作品库含 `h3_extend_i2v` 和 `cad_`/`drama_char_reference_` 前缀。远程未推。前端 BUILD_ID `20260829-213739-72a9c0f-dirty`（编网页时 HEAD 已是 docs `72a9c0f`；UX 代码仍是 `eb51c86`）。公网 `/api/health` 与 LAN `:8090`/`:3100` 200。
 
+补 SHA `f480ead`（远程未推，**已在 core**，不必重部署）：`fix(generate): fill UploadedRef previewUrl/name on entity-cover submit`。编生产包时漏的两行类型，当时未提交跟着 rsync 上去了。只动 `GenerateView.tsx`。
+
 ## 这是什么 / 能做什么
 
 Web 端（`apps/web`）当前真实模块（见 `app/page.tsx` 的 `VIEW_META`）：

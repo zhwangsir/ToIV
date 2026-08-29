@@ -1,7 +1,15 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-30T05:39:00+08:00",
+ "updated_at": "2026-08-30T05:40:00+08:00",
+ "uploaded_ref_f480ead": {
+  "commit": "f480ead",
+  "message": "fix(generate): fill UploadedRef previewUrl/name on entity-cover submit",
+  "pushed": false,
+  "deployed": "already on core via rsync before commit; no redeploy",
+  "files": "apps/web/components/generate/GenerateView.tsx (2 lines)",
+  "note": "two type fields missed when building the production pack; followed the rsync uncommitted"
+ },
  "ux_pack_eb51c86": {
   "commit": "eb51c86",
   "message": "fix(ux): stop actually cancels, identity uses covers, library filters honestly",
