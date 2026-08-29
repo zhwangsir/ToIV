@@ -1333,6 +1333,7 @@ def _default_registry() -> list[dict[str, Any]]:
         "kind": "video",
         "nsfw": True,
         "advanced": True,
+        "hidden": True,
         "submit": {"route": "/api/generate/ltx-t2v", "kind": "ltx-t2v"},
         "description": "【进阶】10Eros 文生视频无首帧会塌成色块,R18 必须上传首帧改走「LTX 2.3 图生视频」;不是默认引擎",
         "source": {
@@ -1876,6 +1877,8 @@ async def list_engines(pool: WorkerPool, user: User | None = None) -> list[dict[
             entry["advanced"] = True
         if spec.get("ordinary_default"):
             entry["ordinary_default"] = True
+        if spec.get("hidden"):
+            entry["hidden"] = True
         if "source" in spec:
             entry["source"] = spec["source"]
         if "submit" in spec:

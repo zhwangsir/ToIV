@@ -82,6 +82,8 @@ export interface EngineInfo {
   advanced?: boolean;
   /** 普通用户视频默认(H3) */
   ordinary_default?: boolean;
+  /** 选择器隐藏(API 仍在,如 R18 LTX t2v) */
+  hidden?: boolean;
 }
 
 /**

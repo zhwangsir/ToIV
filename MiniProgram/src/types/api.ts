@@ -108,6 +108,8 @@ export interface EngineInfo {
   advanced?: boolean;
   /** 普通用户视频默认(H3) */
   ordinary_default?: boolean;
+  /** 选择器隐藏 */
+  hidden?: boolean;
 }
 
 // ── 文生图提交（POST /api/generate/txt2img → GenerateResponse）──

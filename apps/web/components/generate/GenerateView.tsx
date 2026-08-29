@@ -193,7 +193,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
   }
 
   const kindEngines = useMemo(
-    () => (engines ?? []).filter((e) => e.kind === mode),
+    () => (engines ?? []).filter((e) => e.kind === mode && !e.hidden),
     [engines, mode],
   );
 
@@ -222,8 +222,10 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
     const sel = engineIdByKind[mode];
     return (
       visibleEngines.find((e) => e.id === sel && e.available) ??
-      // 2026-08-29:普通用户默认 H3(ordinary_default),不得静默落到 LTX/Wan 进阶引擎
-      visibleEngines.find((e) => e.available && (e.ordinary_default || !e.advanced)) ??
+      // R18:优先 nsfw 的 H3 默认(h3-nsfw-t2v,带 R18 LoRA 预设);否则 SFW H3;再否则非进阶
+      visibleEngines.find((e) => e.available && e.ordinary_default && e.nsfw) ??
+      visibleEngines.find((e) => e.available && e.ordinary_default) ??
+      visibleEngines.find((e) => e.available && !e.advanced) ??
       visibleEngines.find((e) => e.available) ??
       visibleEngines[0] ??
       null

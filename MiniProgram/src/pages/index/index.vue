@@ -104,13 +104,13 @@ const engine = computed<EngineInfo | null>(
 );
 // 自动选择只在「可用 + 已接入」集合内进行，未接入引擎永远不进表单
 const selectableEngines = computed(() =>
-  engines.value.filter((e) => e.available && isEngineSupported(e)),
+  engines.value.filter((e) => e.available && isEngineSupported(e) && !e.hidden),
 );
 // 进阶引擎(LTX/Wan)沉底,普通用户先看到 H3
 const listedEngines = computed(() => {
   const rows = engines.value.slice();
   rows.sort((a, b) => Number(Boolean(a.advanced)) - Number(Boolean(b.advanced)));
-  return rows;
+  return rows.filter((e) => !e.hidden);
 });
 const needsMultiImage = computed(() => engineNeedsMultiImage(engine.value));
 const needsRefImage = computed(() => engineNeedsRefImage(engine.value) && !needsMultiImage.value);
@@ -139,8 +139,10 @@ async function loadEngines() {
   try {
     engines.value = await fetchEngines();
     if (!engine.value && selectableEngines.value.length > 0) {
-      // 不要落到 LTX/Wan 进阶引擎;图像默认仍是第一项非进阶(文生图)
+      // 优先 ordinary_default(R18 则 H3 nsfw,否则 H3);不要落到进阶/隐藏引擎
       const preferred =
+        selectableEngines.value.find((e) => e.ordinary_default && e.nsfw) ??
+        selectableEngines.value.find((e) => e.ordinary_default) ??
         selectableEngines.value.find((e) => !e.advanced) ??
         selectableEngines.value[0];
       selectEngine(preferred.id);

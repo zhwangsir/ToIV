@@ -284,6 +284,8 @@ async def test_ordinary_video_default_is_h3_not_ltx_or_wan(live_pool, user):
     ids = _by_id(engines)
     for eid in ("ltx-nsfw-t2v", "ltx-nsfw-i2v", "ltx-nsfw-lipsync", "wan-nsfw-i2v"):
         assert ids[eid].get("advanced") is True
+    assert ids["ltx-nsfw-t2v"].get("hidden") is True
+    assert ids["h3-nsfw-t2v"].get("ordinary_default") is True
     h3_idx = next(i for i, e in enumerate(videos) if e["id"] == "h3-t2v")
     ltx_idx = next(i for i, e in enumerate(videos) if e["id"] == "ltx-nsfw-t2v")
     wan_idx = next(i for i, e in enumerate(videos) if e["id"] == "wan-nsfw-i2v")
