@@ -1,13 +1,14 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-30T05:34:00+08:00",
+ "updated_at": "2026-08-30T05:39:00+08:00",
  "ux_pack_eb51c86": {
   "commit": "eb51c86",
   "message": "fix(ux): stop actually cancels, identity uses covers, library filters honestly",
   "pushed": false,
-  "deployed": false,
-  "note": "deploying to core (toiv-api/toiv-web); do not write as live until ToIV 开发 reports done",
+  "deployed": "core 2026-08-30 (toiv-api/toiv-web active; public /api/health + LAN :8090/:3100 200)",
+  "build_id": "20260829-213739-72a9c0f-dirty",
+  "note": "live on core; UX code eb51c86; BUILD_ID is docs 72a9c0f because web was built after the docs commit; Gitee/GitHub remotes still not pushed",
   "stop": "cancelJob / abort in-flight request",
   "identity": "covers via i2v/img2img",
   "duration": "4-15s plus segmented continue switch",

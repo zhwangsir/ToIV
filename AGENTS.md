@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-08-30（UX 包 `eb51c86` 本地未推，部署完成前不算上线）
+> **最后更新**：2026-08-30（UX 包 `eb51c86` 已上线 core，远程仍未推）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 
 ---
@@ -228,10 +228,10 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - **生产实证**:core 上提交 txt2img → 任务中心可见 queued → cancel 返回 `worker_action=interrupted` → 列表消失、DB `status=canceled`、不进回收站。
 - ⚠️ 注意:`deploy/.env` 第 9 行是裸 URL(`http://localhost:3101`),`source` 时会报「没有那个文件或目录」但不中断后续行加载;systemd EnvironmentFile 也能容错。属历史遗留,不影响运行。
 
-### 2026-08-30 UX 体验包（ToIV 开发，本地 `eb51c86`，未推，不改设备清单）
+### 2026-08-30 UX 体验包（ToIV 开发，`eb51c86` 已上线 core，远程未推，不改设备清单）
 
-- 本地 `eb51c86`（未推）：`fix(ux): stop actually cancels, identity uses covers, library filters honestly`。停止会 `cancelJob`/中止请求；主体封面走 i2v/img2img；时长 4–15s 加分段续写开关；作品库含 `h3_extend_i2v` 和 `cad_`/`drama_char_reference_` 前缀。
-- 正在部署 core（toiv-api/toiv-web）。**部署完成前不要写成已上线**。远程未推。
+- 本地 `eb51c86`（远程未推，已上线 core）：`fix(ux): stop actually cancels, identity uses covers, library filters honestly`。停止会 `cancelJob`/中止请求；主体封面走 i2v/img2img；时长 4–15s 加分段续写开关；作品库含 `h3_extend_i2v` 和 `cad_`/`drama_char_reference_` 前缀。
+- 远程仍未推 Gitee/GitHub。core `toiv-api`/`toiv-web` 均为 active。公网/LAN health 200。前端 BUILD_ID `20260829-213739-72a9c0f-dirty`（编网页时 HEAD 已是 docs `72a9c0f`；UX 代码仍是 `eb51c86`）。
 
 ### 2026-08-30 Job.nsfw 合同（ToIV 开发，`fb78872` 已上线 core，远程未推，不改设备清单）
 
