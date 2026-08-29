@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-08-29 晚二 七项体验治理包 (5 commits, deployed to core): 86a94e8 Studio01-04 退役出 fleet + L2/L3 收拢 spark02;6c69b6f 灵动岛收短剧 + 融合五子页「返回融合」;fae48dc 剧本拆解异步化(Job+轮询,根治 120s 前端墙,生产实证真实剧本 4 镜 done);05f7703 14 个非 H3 视频引擎 advanced 沉底(SFW 只剩 H3 三件套)+entity_ids 上限对齐官方 9;aefea45 AssetPicker 双源(作品库|主体库)+MultiShotEditor 主体引用+三编辑器轮询改 /api/jobs/lookup+AssistantView 渲染窗口 80。回归:后端 2777、web 694、tsc 0 全过。注意:会话中用户 IDE 缓冲区多次回滚编辑,已记 AGENTS 教训。
+
 - 2026-08-29 35b8b87 + 60d6168 (deployed to core): 任务中心中止按钮 + hidden 引擎。`POST /api/jobs/{id}/cancel` 仅本人/终态 409/审计;DB 先落 canceled 再尽力清场 worker(pending 删队列/running interrupt/占位跳过/不可达不阻塞)。tracker 视 canceled 为终态不回退;wait_for_jobs 抛「已被用户取消」。ltx-nsfw-t2v 标 hidden,选择器不展示但 API 422 仍在;R18 默认优先 nsfw H3。回归:后端 pytest 2772,web 693,小程序 598 全过。生产实证:txt2img 提交→任务中心可见→cancel `worker_action=interrupted`→列表消失→DB canceled。
 
 - 2026-08-29 42dba0c (deployed to core): 视频路径锁 + B3 多主体注入。R18 LTX-2.3 t2v 无首帧塌色块(生产事故)→ `/api/generate/ltx-t2v` 与 `/api/ltx2/t2v`(10eros)一律 422 引导 i2v 上传首帧;LtxVideoGenerator NSFW 无 image_url 直拒;SFW LTX t2v 不受影响。注册表 H3 标 ordinary_default,LTX/Wan R18 标 advanced;web/小程序进阶沉底+徽标。B3:agent 对 H3 透传 entity_ids(此前丢弃);h3-multishot 补 entity_ids+引用注入;engines.ts 补 phantom-s2v 分支。回归:后端 pytest 2765 全过,web tsc 0/测试 690 全过。生产实证:SFW h3-t2v ordinary_default=true;R18 ltx-nsfw-*/wan-nsfw-i2v advanced=true;R18 ltx-t2v 422 含「请上传一张首帧」。

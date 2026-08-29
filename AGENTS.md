@@ -209,6 +209,17 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - **B3 多主体注入(同 commit)**:agent `submit_generation` 对 H3 透传 `entity_ids`(此前丢弃,@图片N 对助手完全失效);`h3-multishot` 补 `entity_ids` 字段并与 t2v 同层同序注入引用行;前端 `engines.ts` 补 phantom-s2v 提交分支+entity_ids 透传。
 - **生产实证**:SFW 列表 h3-t2v `ordinary_default=true`;R18 列表 h3-nsfw-t2v 默认、ltx-nsfw-*/wan-nsfw-i2v 全 `advanced=true`;R18 `/api/generate/ltx-t2v` 实测 422 文案含「请上传一张首帧」。
 
+### 2026-08-29 晚二（七项体验治理包,已部署 core）
+
+- **背景**:用户报 7 项体验问题(功能臃肿/导航冗余/拆解超时/资产割裂/引擎混乱/卡顿/观测失真),五项 commit 一次部署。
+- **#7 观测与 LLM(86a94e8)**:Studio01-04(EXO :52415)真机全超时 → fleet_registry 移除,观测面板不再显示;L2/L3 LLM 默认收拢 spark02 qwen3.6-uncensored(生产 .env 已是此口径)。
+- **#2 导航(6c69b6f)**:灵动岛/底部抽屉收「短剧」(融合页创作工作室承载);PageHeader 加 onBack,创作工作室/数字人/译制/图片编辑/视频编辑五页统一「‹ 返回融合」;drama 视图本体与 R18 门控保留。
+- **#3 拆解异步化(fae48dc)**:`POST /studio/projects/{pid}/script/parse` 改提交制(Job studio_script_parse + 进程内后台 LLM),`GET …/parse/{job_id}` 轮询;前端 120s 墙 → 8min 轮询;api 启动 reconcile_parse_jobs 收口重启中断;任务中心可见可中止。**生产实证:真实剧本 4 镜拆解 done(2 角色),无超时**。
+- **#5 H3 主路收敛(05f7703)**:14 个非 H3 视频引擎(LongCat/Ovi/Phantom/LTX2.5 多镜头/Wan 系/keyframe-chain/vace-edit/avatar-talk)标 advanced 沉底,API 全保留;SFW 视频选择器只剩 H3 三件套。H3 entity_ids 上限 16→9(对齐官方 Ref2VA 全能参考上限;调研确认 4-15s/24fps/32kHz 立体声/9 图+3 视频+3 音频)。
+- **#4+#6 资产合并与性能(aefea45)**:AssetPicker 图片类加「作品库|主体库」双源 Tab(主体图经 resolve-refs 钉定转运);MultiShotEditor 补主体引用(≤9);三处编辑器轮询 fetchJobsPage(0,200) → 新增 `GET /api/jobs/lookup` 单条精确查;AssistantView 长会话渲染窗口 80 条 +「加载更早」。
+- ⚠️ 过程教训:用户 IDE 缓冲区多次覆盖本会话编辑(page.tsx/tracker.py/cornernav.css/multishot.ts 等被部分回滚),**改动后必须立即 tsc+测试+commit 锁定**,commit 前 git diff 全量复核。
+- 回归:后端 pytest 2777 全过(+5),web 694 全过,tsc 0;deploy.sh 双服务健康通过。
+
 ### 2026-08-29 晚（任务中心中止按钮 + hidden 引擎,已部署 core）
 
 - **中止(35b8b87)**:`POST /api/jobs/{id}/cancel`——仅本人(404 防枚举)、终态 409、审计 `job.cancel`;DB 先落 `canceled` 再尽力清场 worker(ComfyUI pending→`POST /queue {"delete":[...]}`、running→`POST /interrupt`;`hold-*`/`chain-*` 占位跳过;worker 不可达不阻塞,DB 终态不回滚)。tracker 视 `canceled` 为终态:`mark_status`/`write_progress` 跳过、`_track` 每轮自检早退;`wait_for_jobs` 抛「已被用户取消」→ 三视图回写标 error 允许重试。`ComfyUIClient` 新增 `delete_from_queue`/`interrupt`/`cancel_prompt`(/interrupt 无定向,先查 `queue_running` 防误中断同实例他人)。

@@ -1,7 +1,18 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-29T15:55:00+08:00",
+ "updated_at": "2026-08-29T16:30:00+08:00",
+ "ux_governance_pack_2026_08_29": {
+  "commits": ["86a94e8", "6c69b6f", "fae48dc", "05f7703", "aefea45"],
+  "deployed": "core 2026-08-29 (toiv-api/toiv-web 健康通过)",
+  "fleet": "Studio01-04 退役出注册表;L2/L3 LLM 默认收拢 spark02(qwen3.6-uncensored)",
+  "nav": "灵动岛收短剧;融合五子页统一「返回融合」(PageHeader onBack)",
+  "parse_async": "剧本拆解提交制+2s 轮询 8min 上限;reconcile_parse_jobs 启动收口;生产实证真实剧本 4 镜 done",
+  "h3_focus": "14 个非 H3 视频引擎 advanced 沉底,SFW 选择器仅 H3 三件套;entity_ids 上限 16→9(官方 Ref2VA)",
+  "assets_perf": "AssetPicker 双源(作品库|主体库);MultiShotEditor 主体引用≤9;三编辑器轮询改 GET /api/jobs/lookup;AssistantView 渲染窗口 80",
+  "regression": "后端 pytest 2777,web 694,tsc 0 全过",
+  "caveat": "会话中用户 IDE 缓冲区多次回滚编辑(page.tsx/tracker.py/cornernav.css/multishot.ts),改动后须立即 tsc+测试+commit 锁定"
+ },
  "job_cancel_35b8b87": {
   "commit": "35b8b87",
   "deployed": "core 2026-08-29 (toiv-api/toiv-web 健康通过)",
