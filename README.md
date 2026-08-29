@@ -20,6 +20,8 @@ LTX R18 LoRA（本地 `e1f856e`，未推）：无概念卡时 auto 回退第一�
 
 Job.nsfw 合同（本地 `fb78872`，远程未推，**已上线 core**）：`X-NSFW` 只作成人页查看/创建门禁，不再给每条作品盖 18+。`Job.nsfw` / H3 换 10Eros 仅当请求体显式 `nsfw:true`（`h3-nsfw-*` / `wan-nsfw-*`）或钉了 R18 LoRA。pony/wai/illustrious 等两用底模不再整锅 18+。网页 `engines.ts` 已带 `nsfw:true`。生产库 3 条误标已改回 `nsfw=false`（4K 超分 `d79ca9cf…`、试穿 `t2v_00183_`/`t2v_00184_`）。本机远程未推。前端 BUILD_ID `20260829-185858-fb78872-dirty`。公网 `/api/health` 与 LAN `:8090`/`:3100` 200。
 
+UX 体验包（本地 `eb51c86`，未推；正在部署 core，**尚未上线**）：停止会 `cancelJob`/中止请求；主体封面走 i2v/img2img；时长 4–15s 加分段续写开关；作品库含 `h3_extend_i2v` 和 `cad_`/`drama_char_reference_` 前缀。远程未推。
+
 ## 这是什么 / 能做什么
 
 Web 端（`apps/web`）当前真实模块（见 `app/page.tsx` 的 `VIEW_META`）：

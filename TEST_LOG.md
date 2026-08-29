@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-08-30 eb51c86 (local, not pushed, not live): UX pack — stop actually cancelJob/aborts the request; identity covers via i2v/img2img; duration 4–15s plus segmented continue switch; library includes h3_extend_i2v and cad_/drama_char_reference_ prefixes. Deploying to core; do not write as live until ToIV 开发 reports done.
+
 - 2026-08-30 fb78872 (deployed to core, remotes not pushed): Job.nsfw follows explicit intent, not X-NSFW. X-NSFW is adult-page view/create gate only; Job.nsfw / H3 10Eros only when body nsfw:true (h3-nsfw-*/wan-nsfw-*) or pinned R18 LoRA. is_nsfw(ckpt) explicit adult tokens only; pony/wai/illustrious/realisticvision/animagine/noobai/cyberrealistic/lazymix/nova3dcg no longer auto 18+. engines.ts sends nsfw:true. Prod DB 3 mislabels set nsfw=false (4K upscale d79ca9cf…, try-on t2v_00183_/t2v_00184_ = e07b0cb4/71cf52cc). Remotes still not pushed. core toiv-api/toiv-web active; public /api/health and LAN :8090/:3100 200. Frontend BUILD_ID 20260829-185858-fb78872-dirty.
 
 - 2026-08-29 晚二 七项体验治理包 (5 commits, deployed to core): 86a94e8 Studio01-04 退役出 fleet + L2/L3 收拢 spark02;6c69b6f 灵动岛收短剧 + 融合五子页「返回融合」;fae48dc 剧本拆解异步化(Job+轮询,根治 120s 前端墙,生产实证真实剧本 4 镜 done);05f7703 14 个非 H3 视频引擎 advanced 沉底(SFW 只剩 H3 三件套)+entity_ids 上限对齐官方 9;aefea45 AssetPicker 双源(作品库|主体库)+MultiShotEditor 主体引用+三编辑器轮询改 /api/jobs/lookup+AssistantView 渲染窗口 80。回归:后端 2777、web 694、tsc 0 全过。注意:会话中用户 IDE 缓冲区多次回滚编辑,已记 AGENTS 教训。

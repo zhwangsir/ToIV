@@ -1,7 +1,18 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-30T03:02:00+08:00",
+ "updated_at": "2026-08-30T05:34:00+08:00",
+ "ux_pack_eb51c86": {
+  "commit": "eb51c86",
+  "message": "fix(ux): stop actually cancels, identity uses covers, library filters honestly",
+  "pushed": false,
+  "deployed": false,
+  "note": "deploying to core (toiv-api/toiv-web); do not write as live until ToIV 开发 reports done",
+  "stop": "cancelJob / abort in-flight request",
+  "identity": "covers via i2v/img2img",
+  "duration": "4-15s plus segmented continue switch",
+  "library": "includes h3_extend_i2v and cad_/drama_char_reference_ prefixes"
+ },
  "job_nsfw_intent_fb78872": {
   "commit": "fb78872",
   "message": "fix(nsfw): Job.nsfw follows explicit intent, not the X-NSFW header",
