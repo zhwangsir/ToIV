@@ -101,14 +101,16 @@ test("StudioView:initialProjectId 仅作 activeId 初值透传", () => {
 });
 
 /* ── ③ CanvasView 自绘 SVG 收编 ── */
-test("CanvasView:三处警告三角收编 ui/Icon,无自绘 SVG 残留", () => {
+test("CanvasView:警告三角收编 ui/Icon,无自绘 SVG 残留", () => {
   const src = readSrc("components/canvas/CanvasView.tsx");
   assert.ok(
     !src.includes('d="M12 3 2.5 20h19L12 3Z"'),
     "自绘三角 path 应清除(UI_STANDARD §6 禁自定义 SVG)",
   );
+  // 2026-08-30 公网混合内容根治:ready 态的混合内容指引分支随 planCanvasSrc 代理
+  // 决策成为死代码被移除,警告位由 3 处收敛为 2 处(连接失败卡 + iframe 加载失败遮罩)
   const iconCount = (src.match(/name="warning" size=\{28\}/g) ?? []).length;
-  assert.equal(iconCount, 3, "三处警告位都应使用 Icon warning(原三处内联 SVG)");
+  assert.equal(iconCount, 2, "两处警告位都应使用 Icon warning(原内联 SVG)");
   assert.ok(src.includes("canvas-fallback-icon"), "fallback 图标类名保留(尺寸钩子)");
   assert.ok(src.includes("canvas-error-icon"), "error 图标类名保留(尺寸钩子)");
 });

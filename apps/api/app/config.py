@@ -282,6 +282,11 @@ class Settings(BaseSettings):
     # 配音阶段:IndexTTS2 单卡,并发太高只会排队,默认 2。
     drama_autorun_voice_concurrency: int = 2
 
+    # —— 画布(ComfyUI)同源反向代理(2026-08-30 画布公网不可用根治) ——
+    # /api/canvas/proxy 的反代目标:与前端 CanvasView 直连回退地址同机(LAN :8188)。
+    # SSRF 防线:目标地址只允许取本配置,路由不接受任何请求传入的地址。
+    canvas_comfy_url: str = "http://192.168.71.127:8188"
+
     # —— OpenTalking 数字人引擎(unified 模式, 单进程) ——
     # 本地 dev: http://127.0.0.1:4403 (兄弟目录运行的 opentalking-unified 进程)
     # Docker prod: http://opentalking:8000 (容器服务名, HTTP 不暴露到 host)

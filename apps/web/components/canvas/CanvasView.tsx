@@ -4,16 +4,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon } from "@/components/ui/Icon";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
+import { getToken } from "@/lib/api";
+import {
+  buildCandidates,
+  planCanvasSrc,
+  withToken,
+} from "./canvasUrl";
 
 /**
- * ComfyUI 画布地址(2026-08-23 跨地区访问改造):
- * 默认走 Tailscale IP(设备不在同一物理网络时唯一可靠路径);同地局域网地址作回退候选。
- * 覆盖方式:NEXT_PUBLIC_COMFYUI_WEB_URL 或 localStorage(STORAGE_KEY)。
+ * 画布地址决策已收编到 ./canvasUrl(2026-08-30 公网混合内容根治):
+ * - HTTP 页面:Tailscale → LAN 直连探测(顺序不变);
+ * - HTTPS 页面:http:// 候选必被混合内容拦截,自动改走同源 /api/canvas/proxy
+ *   (后端反代 ComfyUI;iframe 无法带 Authorization 头,鉴权走 ?token= 查询参数)。
+ * 覆盖方式不变:NEXT_PUBLIC_COMFYUI_WEB_URL 或 localStorage(STORAGE_KEY)。
  */
-const COMFYUI_URL =
-  process.env.NEXT_PUBLIC_COMFYUI_WEB_URL || "http://100.68.100.90:8188";
-/** 同地局域网回退候选(仅默认地址未显式覆盖时参与探测) */
-const COMFYUI_URL_LAN = "http://192.168.71.127:8188";
 const STORAGE_KEY = "toiv_comfyui_web_url";
 const PROBE_TIMEOUT_MS = 4000;
 /** iframe 渲染后的加载兜底时限:超时未完成加载视为失败 */
@@ -24,14 +28,29 @@ const STATIC_PROBE_PATH = "/materialdesignicons.min.css";
 type Status =
   | { phase: "probing" }
   | { phase: "ready"; src: string }
-  | { phase: "failed"; tried: string[]; httpsBlock: boolean };
+  | { phase: "failed" };
 
 /** iframe 内部加载状态:onLoad 与后续探测都通过才算 loaded */
 type LoadState = "loading" | "loaded" | "error";
 
-/** no-cors 探测:任意 HTTP 响应(含 4xx)都算在线,只有网络层失败才 reject */
+/**
+ * 服务在线探测:
+ * - 同源代理路径(/api/canvas/proxy):可读取真实状态码,5xx(上游不可达)才算失败,
+ *   401(令牌问题)仍视为服务在线;探测带 ?token= 以触达上游;
+ * - 直连地址:no-cors,任意 HTTP 响应(含 4xx)都算在线,只有网络层失败才 reject。
+ */
 async function reachable(url: string): Promise<boolean> {
   try {
+    if (url.startsWith("/")) {
+      const resp = await fetch(
+        withToken(`${url.replace(/\/$/, "")}/system_stats`, getToken()),
+        {
+          cache: "no-store",
+          signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+        },
+      );
+      return resp.status < 500;
+    }
     await fetch(`${url.replace(/\/$/, "")}/system_stats`, {
       mode: "no-cors",
       cache: "no-store",
@@ -46,6 +65,7 @@ async function reachable(url: string): Promise<boolean> {
 /**
  * 静态资源探测:跨域无法读响应状态,但 <script> 标签的 onload/onerror
  * 能区分 HTTP 成功与 4xx/网络失败,可感知 /assets/* 403 导致的 splash 卡死。
+ * 同源代理路径带 ?token= 鉴权(否则 401 → onerror 误报)。
  */
 function probeStaticAsset(url: string): Promise<boolean> {
   return new Promise((resolve) => {
@@ -63,7 +83,10 @@ function probeStaticAsset(url: string): Promise<boolean> {
     const timer = setTimeout(() => done(false), PROBE_TIMEOUT_MS);
     el.onload = () => done(true);
     el.onerror = () => done(false);
-    el.src = `${url.replace(/\/$/, "")}${STATIC_PROBE_PATH}?probe=${Date.now()}`;
+    el.src = withToken(
+      `${url.replace(/\/$/, "")}${STATIC_PROBE_PATH}?probe=${Date.now()}`,
+      getToken(),
+    );
     document.head.appendChild(el);
   });
 }
@@ -87,32 +110,25 @@ export function CanvasView() {
   const loadGenRef = useRef(0);
 
   const candidates = useMemo(() => {
-    if (typeof window === "undefined") return [COMFYUI_URL];
-    const custom = window.localStorage.getItem(STORAGE_KEY);
+    if (typeof window === "undefined") return buildCandidates(null);
     // Tailscale 优先,局域网回退(设备同地时 TS 也可达,仍先 TS 保持行为一致)
-    const base = [COMFYUI_URL, COMFYUI_URL_LAN];
-    const list = custom && !base.includes(custom)
-      ? [custom, ...base]
-      : base;
-    return list;
+    return buildCandidates(window.localStorage.getItem(STORAGE_KEY));
   }, [retryTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     let cancelled = false;
     setStatus({ phase: "probing" });
-    const httpsBlock =
-      window.location.protocol === "https:" &&
-      candidates.every((u) => u.startsWith("http://"));
+    // HTTPS 页面:http:// 候选必被混合内容拦截,直接切同源代理,不做无效探测
+    const plan = planCanvasSrc(window.location.protocol, candidates);
+    const probeList = plan.mode === "proxy" ? [plan.src] : plan.candidates;
     (async () => {
-      const tried: string[] = [];
-      for (const url of candidates) {
-        tried.push(url);
+      for (const url of probeList) {
         if (await reachable(url)) {
           if (!cancelled) setStatus({ phase: "ready", src: url });
           return;
         }
       }
-      if (!cancelled) setStatus({ phase: "failed", tried, httpsBlock });
+      if (!cancelled) setStatus({ phase: "failed" });
     })();
     return () => {
       cancelled = true;
@@ -171,13 +187,17 @@ export function CanvasView() {
       <div className="canvas-bar">
         {phase === "ready" && src ? (
           <>
-            <span className="canvas-status canvas-status--ok" title={src}>
+            {/* 代理模式不展示内网地址(根治前错误页泄露内网 IP);同源通道统一显示"代理" */}
+            <span
+              className="canvas-status canvas-status--ok"
+              title={src.startsWith("/") ? "同源代理通道" : src}
+            >
               <span className="canvas-status-dot" aria-hidden="true" />
-              已连接 · {src.replace(/^https?:\/\//, "")}
+              已连接 · {src.startsWith("/") ? "代理通道" : src.replace(/^https?:\/\//, "")}
             </span>
             <a
               className="canvas-open-external"
-              href={src}
+              href={withToken(src, getToken())}
               target="_blank"
               rel="noreferrer"
             >
@@ -202,36 +222,7 @@ export function CanvasView() {
   );
 
   if (status.phase === "ready") {
-    const httpsBlock =
-      typeof window !== "undefined" &&
-      window.location.protocol === "https:" &&
-      status.src.startsWith("http://");
-    if (httpsBlock) {
-      // HTTPS 页面嵌 HTTP iframe 会被浏览器混合内容拦截,直接给指引而不是白屏
-      return (
-        <div className="canvas-view">
-          {renderHeader("failed")}
-          {renderHeaderError("当前页面为 HTTPS,浏览器已拦截 HTTP 画布(混合内容),请改用局域网 HTTP 访问")}
-          <div className="canvas-stage canvas-stage--center">
-            <div className="canvas-fallback">
-              <div className="canvas-fallback-badge canvas-fallback-badge--warn">
-                {/* 批 D:自绘 SVG 三角收编为 ui/Icon(lucide warning);配色由徽章容器 token 继承 */}
-                <Icon name="warning" size={28} className="canvas-fallback-icon" />
-              </div>
-              <h2>画布需要通过 HTTP 访问</h2>
-              <p>
-                当前页面为 HTTPS,浏览器会拦截 HTTP 的 ComfyUI
-                页面(混合内容)。请改用 Tailscale 或局域网 HTTP 地址访问本站:
-              </p>
-              <p className="canvas-fallback-url">
-                {`http://${typeof window !== "undefined" ? window.location.host : "100.77.80.100:3100"}/?view=canvas`}
-              </p>
-            </div>
-          </div>
-          <style jsx>{styles}</style>
-        </div>
-      );
-    }
+    // HTTPS 页面下 http:// 候选已在 planCanvasSrc 被剔除/转代理,此处不会出现混合内容 ready 态
     return (
       <div className="canvas-view">
         {renderHeader("ready", status.src)}
@@ -244,7 +235,7 @@ export function CanvasView() {
           <div className="canvas-frame">
             <iframe
               key={iframeKey}
-              src={status.src}
+              src={withToken(status.src, getToken())}
               title="ComfyUI"
               className="canvas-iframe"
               onLoad={handleIframeLoad}
@@ -291,7 +282,7 @@ export function CanvasView() {
     <div className="canvas-view">
       {renderHeader(status.phase === "probing" ? "probing" : "failed")}
       {status.phase === "failed" &&
-        renderHeaderError("ComfyUI 连接失败:以下地址均未连通,请确认画布服务状态后重试")}
+        renderHeaderError("画布服务连接失败,请确认服务状态后重试")}
       <div className="canvas-stage canvas-stage--center">
         {status.phase === "probing" ? (
           <div className="canvas-fallback canvas-fallback--plain">
@@ -307,21 +298,12 @@ export function CanvasView() {
             <div className="canvas-fallback-badge">
               <Icon name="warning" size={28} className="canvas-fallback-icon" />
             </div>
-            <h2>ComfyUI 连接失败</h2>
-            <p className="canvas-fallback-label">以下地址均未连通:</p>
-            <ul>
-              {status.tried.map((u) => (
-                <li key={u}>
-                  <code>{u}</code>
-                </li>
-              ))}
-            </ul>
-            {status.httpsBlock && (
-              <p className="canvas-fallback-note">
-                注意:当前页面为 HTTPS,HTTP 的 ComfyUI 会被浏览器混合内容拦截,请改用局域网
-                HTTP 访问。
-              </p>
-            )}
+            {/* 失败态只给通用文案 + 重试,不再展示直连地址(避免泄露内网 IP) */}
+            <h2>画布服务连接失败</h2>
+            <p>
+              无法连接到画布服务,可能是服务未启动或网络不可达。
+              请确认服务状态后重试。
+            </p>
             <div className="canvas-fallback-actions">
               <button
                 type="button"
