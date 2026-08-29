@@ -614,7 +614,8 @@ async def generate_entity_reference(
                 status="queued",
                 prompt=view_prompt,
                 seed=seed_used,
-                params=params_snapshot(body, seed=seed_used, ckpt_name=ckpt_name),
+                # entity_id 入快照:api 重启后 reconcile 按此反查作业重挂回写
+                params=params_snapshot(body, seed=seed_used, ckpt_name=ckpt_name, entity_id=entity_id),
             )
         )
     e.reference_status = "generating"
@@ -628,61 +629,77 @@ async def generate_entity_reference(
     return _to_out(e)
 
 
+# 回写任务多轮等待的总预算:tracker 作业生命周期远大于单轮窗口;worker 停机维护
+# (如 2026-08-29 :8189 驱动级挂死、整机重启 ~2h)期间一次性超时退出会把主体永久
+# 卡在 generating(生产实证),改为小睡后进入下一轮,直到作业全部终态或超出总预算。
+_WRITEBACK_ROUND_SEC = 900.0
+_WRITEBACK_MAX_WAIT_SEC = 7200.0
+_WRITEBACK_RETRY_GAP_SEC = 30.0
+
+
 async def _writeback_entity_reference(entity_id: str, prompt_ids: list[str]) -> None:
-    """三视图作业完成后回写四图槽 + 状态(超时豁免同 drama:作业仍在跑不标 error)。"""
+    """三视图作业完成后回写四图槽 + 状态(多轮等待;作业仍在跑不标 error)。"""
+    import asyncio as _asyncio
+    import time as _time
+
     from app.comfy.tracker import wait_for_jobs
     from app.db import engine as _engine
     from app.models import Job
 
+    deadline = _time.monotonic() + _WRITEBACK_MAX_WAIT_SEC
     try:
-        with Session(_engine) as s:
-            wait_err: RuntimeError | None = None
-            results: dict[str, list[str]] = {}
-            try:
-                results = await wait_for_jobs(s, prompt_ids, timeout=900.0)
-            except RuntimeError as exc:
-                wait_err = exc
-            s.commit()  # 结束读事务快照,看到 tracker 最新提交
-            jobs = {
-                j.prompt_id: j
-                for j in s.exec(select(Job).where(Job.prompt_id.in_(prompt_ids))).all()  # type: ignore[attr-defined]
-            }
-            urls: list[list[str]] = []
-            for pid in prompt_ids:
-                pid_urls = results.get(pid, [])
-                job = jobs.get(pid)
-                if not pid_urls and job and job.status == "done" and job.result:
-                    try:
-                        pid_urls = json.loads(job.result)
-                    except (ValueError, TypeError):
-                        pid_urls = []
-                urls.append(pid_urls)
-            ent = s.get(Entity, entity_id)
-            if all(urls) and ent:
-                ent.reference_front = urls[0][0]
-                ent.reference_side = urls[1][0]
-                ent.reference_back = urls[2][0]
-                if not ent.ref_image.strip():
-                    ent.ref_image = urls[0][0]  # 无单图时正面回填,不覆盖已有
-                ent.reference_status = "done"
-                ent.reference_error = ""
-                ent.updated_at = _now()
-                s.add(ent)
-                s.commit()
-                return
-            if wait_err is not None:
-                alive = [j for j in jobs.values() if j.status not in ("done", "error")]
-                if alive:
-                    logger.warning(
-                        "entity %s reference writeback: 等待超时但 %d/%d 作业仍在跑,保持 generating",
-                        entity_id, len(alive), len(prompt_ids),
-                    )
+        while True:
+            with Session(_engine) as s:
+                wait_err: RuntimeError | None = None
+                results: dict[str, list[str]] = {}
+                try:
+                    results = await wait_for_jobs(s, prompt_ids, timeout=_WRITEBACK_ROUND_SEC)
+                except RuntimeError as exc:
+                    wait_err = exc
+                s.commit()  # 结束读事务快照,看到 tracker 最新提交
+                jobs = {
+                    j.prompt_id: j
+                    for j in s.exec(select(Job).where(Job.prompt_id.in_(prompt_ids))).all()  # type: ignore[attr-defined]
+                }
+                urls: list[list[str]] = []
+                for pid in prompt_ids:
+                    pid_urls = results.get(pid, [])
+                    job = jobs.get(pid)
+                    if not pid_urls and job and job.status == "done" and job.result:
+                        try:
+                            pid_urls = json.loads(job.result)
+                        except (ValueError, TypeError):
+                            pid_urls = []
+                    urls.append(pid_urls)
+                ent = s.get(Entity, entity_id)
+                if all(urls) and ent:
+                    ent.reference_front = urls[0][0]
+                    ent.reference_side = urls[1][0]
+                    ent.reference_back = urls[2][0]
+                    if not ent.ref_image.strip():
+                        ent.ref_image = urls[0][0]  # 无单图时正面回填,不覆盖已有
+                    ent.reference_status = "done"
+                    ent.reference_error = ""
+                    ent.updated_at = _now()
+                    s.add(ent)
+                    s.commit()
                     return
-            if ent and ent.reference_status == "generating":
-                ent.reference_status = "error"
-                ent.reference_error = "三视图生成失败或超时"
-                s.add(ent)
-                s.commit()
+                alive = [j for j in jobs.values() if j.status not in ("done", "error")]
+                if alive and _time.monotonic() < deadline:
+                    logger.info(
+                        "entity %s reference writeback: %d/%d 作业仍在跑,%.0fs 后下一轮等待",
+                        entity_id, len(alive), len(prompt_ids), _WRITEBACK_RETRY_GAP_SEC,
+                    )
+                else:
+                    if ent and ent.reference_status == "generating":
+                        failed = [j for j in jobs.values() if j.status == "error"]
+                        reason = next((j.hold_reason for j in failed if j.hold_reason), "")
+                        ent.reference_status = "error"
+                        ent.reference_error = (reason or "三视图生成失败或超时")[:200]
+                        s.add(ent)
+                        s.commit()
+                    return
+            await _asyncio.sleep(_WRITEBACK_RETRY_GAP_SEC)
     except Exception as exc:  # noqa: BLE001
         logger.exception("entity %s reference writeback failed: %s", entity_id, exc)
         with Session(_engine) as s:
@@ -692,3 +709,58 @@ async def _writeback_entity_reference(entity_id: str, prompt_ids: list[str]) -> 
                 ent.reference_error = str(exc)[:200]
                 s.add(ent)
                 s.commit()
+
+
+def reconcile_entity_references() -> dict:
+    """api 启动时收口 reference_status=generating 的主体(参照 drama_studio.reconcile_interrupted)。
+
+    回写任务是进程内协程,api 重启即消失;按 params 快照里的 entity_id 反查该主体
+    最近一次三视图作业(kind=entity_reference_{front,side,back} 按 created_at 最新):
+    - 三视图作业齐且全 alive / 全 done → 重挂回写任务(后者即时收尾写图槽)
+    - 有 error / 作业找不回(旧数据无 entity_id、回收站清理)→ 标 error 允许重试
+    需在已有事件循环的上下文调用(_spawn 内用 create_task)。返回处置计数。
+    """
+    from app.db import engine as _engine
+    from app.models import Job
+
+    stats = {"rehang": 0, "error": 0}
+    with Session(_engine) as s:
+        ents = s.exec(select(Entity).where(Entity.reference_status == "generating")).all()
+        for ent in ents:
+            candidates = s.exec(
+                select(Job)
+                .where(Job.user_id == ent.user_id)
+                .where(Job.kind.like("entity_reference_%"))  # type: ignore[union-attr]
+                .order_by(Job.created_at.desc())  # type: ignore[attr-defined]
+            ).all()
+            pids_by_view: dict[str, str] = {}
+            for j in candidates:
+                view = j.kind.removeprefix("entity_reference_")
+                if view not in ("front", "side", "back") or view in pids_by_view:
+                    continue
+                try:
+                    p = json.loads(j.params or "{}")
+                except (ValueError, TypeError):
+                    p = {}
+                if p.get("entity_id") == ent.id:
+                    pids_by_view[view] = j.prompt_id
+            prompt_ids = [pids_by_view.get(v) for v in ("front", "side", "back")]
+            jobs: list[Job] = []
+            if all(prompt_ids):
+                jobs = list(
+                    s.exec(select(Job).where(Job.prompt_id.in_(prompt_ids))).all()  # type: ignore[attr-defined]
+                )
+            if len(jobs) < 3 or any(j.status == "error" for j in jobs):
+                ent.reference_status = "error"
+                ent.reference_error = "生成中断或失败,请重新发起"
+                ent.updated_at = _now()
+                s.add(ent)
+                stats["error"] += 1
+                continue
+            # alive(tracker 会继续推进)或全 done(回写即时收尾)→ 重挂回写任务
+            _spawn(_writeback_entity_reference(ent.id, [p for p in prompt_ids if p]))
+            stats["rehang"] += 1
+        if stats["rehang"] or stats["error"]:
+            s.commit()
+            logger.info("entity reference reconcile: %s", stats)
+    return stats

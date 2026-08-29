@@ -196,10 +196,17 @@ def test_builder_t2v_injects_params():
     assert g["92"]["inputs"]["filename_prefix"] == "ToIV_h3/t2v"
 
 
-def test_builder_t2v_negative_not_injected():
-    """H3 节点无独立负向输入(评测实测):negative 不进图,仅保留在参数快照。"""
+def test_builder_t2v_negative_folded_into_prompt():
+    """H3 无独立负向口:不伪造节点字段,把 negative 折进 prompt「Avoid:」。"""
     g = build_h3_t2v_graph(H3T2VParams(positive="x", negative="模糊,水印"))
     assert "negative_prompt" not in g["104"]["inputs"]
+    assert g["104"]["inputs"]["prompt"].startswith("x")
+    assert "Avoid: 模糊,水印" in g["104"]["inputs"]["prompt"]
+
+
+def test_builder_t2v_empty_negative_unchanged():
+    g = build_h3_t2v_graph(H3T2VParams(positive="一只猫", negative=""))
+    assert g["104"]["inputs"]["prompt"] == "一只猫"
 
 
 def test_builder_i2v_injects_first_frame():

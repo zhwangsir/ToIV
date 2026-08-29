@@ -487,3 +487,165 @@ def test_generate_reference_other_user_404(ctx):
         headers=_auth(bob), json={},
     )
     assert r.status_code == 404
+
+
+# --------------------------------------------------------------------------- #
+# 三视图回写多轮等待 + 启动 reconcile(2026-08-29 worker 挂死/整机重启根治:
+# 一次性超时退出曾把主体永久卡在 generating)
+# --------------------------------------------------------------------------- #
+def _seed_generating_entity_with_jobs(
+    engine,
+    *,
+    job_statuses: tuple[str, ...] = ("queued", "queued", "queued"),
+    with_entity_id: bool = True,
+) -> tuple[str, list[str]]:
+    """落库 1 个 generating 主体 + 3 条 entity_reference_{front,side,back} 作业。"""
+    import json as _json
+
+    from app.models import Job
+
+    with Session(engine) as s:
+        alice = s.exec(select(User).where(User.email == "alice@toiv.ai")).one()
+        ent = Entity(
+            tenant_id=alice.tenant_id, user_id=alice.id, kind="character",
+            name="等待中角色", prompt_hint="1girl", reference_status="generating",
+        )
+        s.add(ent)
+        s.commit()
+        s.refresh(ent)
+        pids: list[str] = []
+        for view, status in zip(("front", "side", "back"), job_statuses):
+            pid = f"pid-{view}"
+            pids.append(pid)
+            params = _json.dumps({"entity_id": ent.id}) if with_entity_id else "{}"
+            s.add(Job(
+                tenant_id=alice.tenant_id, user_id=alice.id, prompt_id=pid,
+                worker="http://w:8189", kind=f"entity_reference_{view}",
+                status=status, prompt="p", seed=1, params=params,
+                result=_json.dumps([f"/api/images?filename={view}.png"]) if status == "done" else "",
+            ))
+        s.commit()
+        return ent.id, pids
+
+
+async def test_writeback_entity_reference_multi_round(ctx):
+    """单轮 wait 超时但作业仍 alive → 不标 error,小睡后进入下一轮直到结果齐回写 done。"""
+    from unittest.mock import AsyncMock, patch
+
+    from app.routes import entities as ent_mod
+
+    _, _, _, engine = ctx
+    eid, pids = _seed_generating_entity_with_jobs(engine)
+    fake_results = {
+        p: [f"/api/images?filename={v}.png"]
+        for p, v in zip(pids, ("front", "side", "back"))
+    }
+
+    with patch.object(__import__("app.db", fromlist=["engine"]), "engine", engine), \
+         patch.object(ent_mod, "_WRITEBACK_RETRY_GAP_SEC", 0), \
+         patch("app.comfy.tracker.wait_for_jobs",
+               AsyncMock(side_effect=[RuntimeError("单轮超时"), fake_results])):
+        await ent_mod._writeback_entity_reference(eid, pids)
+
+    with Session(engine) as s:
+        ent = s.get(Entity, eid)
+        assert ent.reference_status == "done"
+        assert ent.reference_front == "/api/images?filename=front.png"
+        assert ent.reference_side == "/api/images?filename=side.png"
+        assert ent.reference_back == "/api/images?filename=back.png"
+        assert ent.ref_image == "/api/images?filename=front.png"  # 空 ref_image 回填
+
+
+async def test_writeback_entity_reference_gives_up_after_max_wait(ctx):
+    """作业始终不终态且超总预算 → 标 error(不永久卡 generating)。"""
+    from unittest.mock import AsyncMock, patch
+
+    from app.routes import entities as ent_mod
+
+    _, _, _, engine = ctx
+    eid, pids = _seed_generating_entity_with_jobs(engine)
+
+    with patch.object(__import__("app.db", fromlist=["engine"]), "engine", engine), \
+         patch.object(ent_mod, "_WRITEBACK_MAX_WAIT_SEC", 0), \
+         patch.object(ent_mod, "_WRITEBACK_RETRY_GAP_SEC", 0), \
+         patch("app.comfy.tracker.wait_for_jobs",
+               AsyncMock(side_effect=RuntimeError("单轮超时"))):
+        await ent_mod._writeback_entity_reference(eid, pids)
+
+    with Session(engine) as s:
+        ent = s.get(Entity, eid)
+        assert ent.reference_status == "error"
+        assert ent.reference_error
+
+
+def test_reconcile_entity_references_rehangs_alive_jobs(ctx):
+    """generating 主体 + 三视图作业齐且 alive → 重挂回写任务,不标 error。"""
+    from unittest.mock import patch
+
+    from app.routes import entities as ent_mod
+
+    _, _, _, engine = ctx
+    eid, _pids = _seed_generating_entity_with_jobs(engine)
+    spawned: list = []
+
+    def _fake_spawn(coro):
+        spawned.append(coro)
+        coro.close()  # 不真正执行,关闭防 RuntimeWarning
+
+    with patch.object(__import__("app.db", fromlist=["engine"]), "engine", engine), \
+         patch.object(ent_mod, "_spawn", _fake_spawn):
+        stats = ent_mod.reconcile_entity_references()
+
+    assert stats == {"rehang": 1, "error": 0}
+    assert len(spawned) == 1
+    with Session(engine) as s:
+        assert s.get(Entity, eid).reference_status == "generating"  # 等重挂收口
+
+
+def test_reconcile_entity_references_marks_error_on_failed_or_legacy(ctx):
+    """作业有 error 或旧数据 params 无 entity_id 找不回 → 标 error 允许重试。"""
+    from unittest.mock import patch
+
+    from app.routes import entities as ent_mod
+
+    _, _, _, engine = ctx
+    eid_failed, _ = _seed_generating_entity_with_jobs(
+        engine, job_statuses=("done", "error", "queued")
+    )
+    eid_legacy, _ = _seed_generating_entity_with_jobs(engine, with_entity_id=False)
+
+    with patch.object(__import__("app.db", fromlist=["engine"]), "engine", engine):
+        stats = ent_mod.reconcile_entity_references()
+
+    assert stats == {"rehang": 0, "error": 2}
+    with Session(engine) as s:
+        for eid in (eid_failed, eid_legacy):
+            ent = s.get(Entity, eid)
+            assert ent.reference_status == "error"
+            assert "重新发起" in ent.reference_error
+
+
+async def test_reconcile_entity_references_done_jobs_writeback(ctx):
+    """重启间隙作业已全 done → 重挂的回写任务从 Job.result 补读产物即时收尾。"""
+    from unittest.mock import AsyncMock, patch
+
+    from app.routes import entities as ent_mod
+
+    _, _, _, engine = ctx
+    eid, _pids = _seed_generating_entity_with_jobs(
+        engine, job_statuses=("done", "done", "done")
+    )
+    spawned: list = []
+
+    with patch.object(__import__("app.db", fromlist=["engine"]), "engine", engine), \
+         patch.object(ent_mod, "_spawn", lambda coro: spawned.append(coro)), \
+         patch("app.comfy.tracker.wait_for_jobs", AsyncMock(return_value={})):
+        stats = ent_mod.reconcile_entity_references()
+        assert stats == {"rehang": 1, "error": 0}
+        await spawned[0]  # 重挂回写:wait 无结果时竞态 done 分支读 Job.result
+
+    with Session(engine) as s:
+        ent = s.get(Entity, eid)
+        assert ent.reference_status == "done"
+        assert ent.reference_front == "/api/images?filename=front.png"
+        assert ent.reference_back == "/api/images?filename=back.png"

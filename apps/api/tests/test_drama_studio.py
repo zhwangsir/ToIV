@@ -3012,3 +3012,170 @@ def test_generate_video_v2_no_matchcut_seam_no_modifier(ctx):
         ).first().id
     sent_prompt = _post_v2_and_get_prompt(client, H, sid1, "ltx")
     assert sent_prompt == "1boy, walking"
+
+
+# ---------------------------------------------------------------------------
+# 角色三视图回写多轮等待 + reconcile 角色段(2026-08-29 worker 挂死/整机重启根治:
+# 一次性超时退出曾把角色永久卡在 generating)
+# ---------------------------------------------------------------------------
+def _seed_generating_character_with_jobs(
+    *,
+    job_statuses: tuple[str, ...] = ("queued", "queued", "queued"),
+    with_character_id: bool = True,
+    tag: str = "a",
+) -> tuple[str, str, list[str]]:
+    """落库:项目 + 角色(generating)+ 3 条 drama_char_reference 作业(ctx 已 patch engine)。
+
+    tag 区分同测试内多次落库(user.email 有唯一约束)。
+    """
+    from app.db import engine
+
+    with Session(engine) as s:
+        tenant = Tenant(name=f"cref-{tag}")
+        s.add(tenant)
+        s.commit()
+        s.refresh(tenant)
+        user = User(
+            email=f"cref-{tag}@toiv.ai", hashed_password=hash_password("p"),
+            tenant_id=tenant.id,
+        )
+        s.add(user)
+        s.commit()
+        s.refresh(user)
+        proj = DramaProject(tenant_id=tenant.id, user_id=user.id, title="t")
+        s.add(proj)
+        s.commit()
+        s.refresh(proj)
+        c = DramaCharacter(
+            project_id=proj.id, name="阿明", visual_prompt="1boy",
+            reference_status="generating",
+        )
+        s.add(c)
+        s.commit()
+        s.refresh(c)
+        pids: list[str] = []
+        for view, status in zip(("front", "side", "back"), job_statuses):
+            pid2 = f"cref-{view}-{c.id[:6]}"
+            pids.append(pid2)
+            params = json.dumps({"character_id": c.id}) if with_character_id else "{}"
+            s.add(Job(
+                tenant_id=tenant.id, user_id=user.id, prompt_id=pid2,
+                worker="http://w:8189", kind=f"drama_char_reference_{view}",
+                status=status, prompt="p", seed=1, params=params,
+                result=json.dumps([f"/api/images?filename={view}.png"]) if status == "done" else "",
+            ))
+        s.commit()
+        return c.id, proj.id, pids
+
+
+@pytest.mark.asyncio
+async def test_writeback_character_reference_multi_round(ctx):
+    """单轮 wait 超时但作业仍 alive → 不标 error,下一轮结果齐回写 done(含过程记录)。"""
+    import app.routes.drama_studio as ds
+    from app.db import engine
+
+    cid, pid, pids = _seed_generating_character_with_jobs()
+    fake_results = {
+        p: [f"/api/images?filename={v}.png"]
+        for p, v in zip(pids, ("front", "side", "back"))
+    }
+    with patch.object(ds, "_REF_WRITEBACK_RETRY_GAP_SEC", 0), \
+         patch("app.comfy.tracker.wait_for_jobs",
+               AsyncMock(side_effect=[RuntimeError("单轮超时"), fake_results])):
+        await ds._writeback_character_reference(cid, pid, pids)
+
+    with Session(engine) as s:
+        c = s.get(DramaCharacter, cid)
+        assert c.reference_status == "done"
+        assert c.reference_front == "/api/images?filename=front.png"
+        assert c.reference_back == "/api/images?filename=back.png"
+        proj = s.get(DramaProject, pid)
+        assert "三视图生成完成" in proj.process_data
+
+
+@pytest.mark.asyncio
+async def test_writeback_character_reference_gives_up_after_max_wait(ctx):
+    """作业始终不终态且超总预算 → 标 error(不永久卡 generating)。"""
+    import app.routes.drama_studio as ds
+    from app.db import engine
+
+    cid, pid, pids = _seed_generating_character_with_jobs()
+    with patch.object(ds, "_REF_WRITEBACK_MAX_WAIT_SEC", 0), \
+         patch.object(ds, "_REF_WRITEBACK_RETRY_GAP_SEC", 0), \
+         patch("app.comfy.tracker.wait_for_jobs",
+               AsyncMock(side_effect=RuntimeError("单轮超时"))):
+        await ds._writeback_character_reference(cid, pid, pids)
+
+    with Session(engine) as s:
+        c = s.get(DramaCharacter, cid)
+        assert c.reference_status == "error"
+        assert c.reference_error
+
+
+def test_reconcile_rehangs_character_reference_alive_jobs(ctx):
+    """角色三视图:reference_status=generating + 作业齐且 alive → 重挂回写,不标 error。"""
+    import app.routes.drama_studio as ds
+    from app.db import engine
+
+    cid, _, _ = _seed_generating_character_with_jobs()
+    spawned: list = []
+
+    def _fake_spawn(coro):
+        spawned.append(coro)
+        coro.close()  # 不真正执行,关闭防 RuntimeWarning
+        return MagicMock()
+
+    with patch.object(ds, "_spawn", _fake_spawn):
+        stats = ds.reconcile_interrupted()
+
+    assert stats["rehang"] == 1
+    assert len(spawned) == 1
+    with Session(engine) as s:
+        assert s.get(DramaCharacter, cid).reference_status == "generating"  # 等重挂收口
+
+
+def test_reconcile_marks_character_reference_error_on_failed_or_legacy(ctx):
+    """作业有 error / 旧数据 params 无 character_id 找不回 → 标 error 允许重试。"""
+    import app.routes.drama_studio as ds
+    from app.db import engine
+
+    cid_failed, _, _ = _seed_generating_character_with_jobs(
+        job_statuses=("done", "error", "queued"), tag="failed"
+    )
+    cid_legacy, _, _ = _seed_generating_character_with_jobs(
+        with_character_id=False, tag="legacy"
+    )
+
+    stats = ds.reconcile_interrupted()
+
+    assert stats["error"] == 2
+    with Session(engine) as s:
+        for cid in (cid_failed, cid_legacy):
+            c = s.get(DramaCharacter, cid)
+            assert c.reference_status == "error"
+            assert "重新发起" in c.reference_error
+
+
+@pytest.mark.asyncio
+async def test_reconcile_character_reference_done_jobs_writeback(ctx):
+    """重启间隙作业已全 done → 重挂的回写任务从 Job.result 补读产物即时收尾。"""
+    import app.routes.drama_studio as ds
+    from app.db import engine
+
+    cid, pid, _ = _seed_generating_character_with_jobs(
+        job_statuses=("done", "done", "done")
+    )
+    spawned: list = []
+
+    with patch.object(ds, "_spawn", lambda coro: spawned.append(coro)), \
+         patch("app.comfy.tracker.wait_for_jobs", AsyncMock(return_value={})):
+        stats = ds.reconcile_interrupted()
+        assert stats["rehang"] == 1
+        await spawned[0]  # 重挂回写:wait 无结果时竞态 done 分支读 Job.result
+
+    with Session(engine) as s:
+        c = s.get(DramaCharacter, cid)
+        assert c.reference_status == "done"
+        assert c.reference_front == "/api/images?filename=front.png"
+        proj = s.get(DramaProject, pid)
+        assert "三视图生成完成" in proj.process_data

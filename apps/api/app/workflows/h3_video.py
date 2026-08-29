@@ -10,8 +10,10 @@
   · 帧数 17k+5 网格 @24fps(124≈5.2s,上限 362≈15s)
   · 采样 20 steps,res_multistep/simple(模板内固定)
   · MiniMaxH3ImageToVideo 输入仅 clip/vae/prompt/width/height/length
-    + 可选 first_frame/last_frame —— **无独立负向提示词输入**,negative 仅在
-    未来模板/节点版本支持 negative_prompt 时注入(见 _inject_common)
+    + 可选 first_frame/last_frame —— **无独立负向提示词输入**。
+    调用方仍传 negative:节点没有该字段时折进 prompt 末尾「Avoid: …」
+    (H3 单条件模型,这是唯一能起作用的路径);模板若已有 negative_prompt
+    则写入节点、不再折进 prompt(见 _inject_common / _fold_negative)
 """
 from __future__ import annotations
 
@@ -78,16 +80,41 @@ def _load_template(name: str) -> dict:
     return data["prompt"]
 
 
+# 与 H3T2VRequest.positive max_length 对齐;超长时截 negative 不截场景
+_H3_PROMPT_MAX = 4000
+_AVOID_MARK = "Avoid: "
+
+
+def _fold_negative(positive: str, negative: str, h3_inputs: dict) -> str:
+    """节点无负向口时把 negative 折进 prompt;已有 negative_prompt/negative 字段则不折。"""
+    neg = (negative or "").strip()
+    if not neg:
+        return positive
+    if "negative_prompt" in h3_inputs or "negative" in h3_inputs:
+        return positive
+    if _AVOID_MARK in positive:
+        return positive
+    suffix = "\n\n" + _AVOID_MARK + neg
+    room = _H3_PROMPT_MAX - len(positive)
+    if room <= len("\n\n" + _AVOID_MARK):
+        return positive
+    if len(suffix) > room:
+        suffix = suffix[:room]
+    return positive + suffix
+
+
 def _inject_common(graph: dict, params: H3T2VParams) -> None:
     """注入两模式共用参数:提示词/宽高/帧数/steps/seed/产物前缀。"""
     h3 = graph[_NODE_H3]["inputs"]
-    h3["prompt"] = params.positive
+    h3["prompt"] = _fold_negative(params.positive, params.negative, h3)
     h3["width"] = params.width
     h3["height"] = params.height
     h3["length"] = params.length
-    # H3 节点当前无负向输入(见模块 docstring);仅当模板/节点版本提供该输入时注入
+    # 未来模板若出现负向口,写入节点(此时 _fold_negative 已跳过,不会双写)
     if params.negative and "negative_prompt" in h3:
         h3["negative_prompt"] = params.negative
+    elif params.negative and "negative" in h3:
+        h3["negative"] = params.negative
     graph[_NODE_NOISE]["inputs"]["noise_seed"] = params.seed
     graph[_NODE_SCHED]["inputs"]["steps"] = params.steps
     graph[_NODE_SAVE]["inputs"]["filename_prefix"] = params.filename_prefix

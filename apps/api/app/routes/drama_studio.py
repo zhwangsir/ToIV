@@ -3321,7 +3321,8 @@ async def generate_character_reference(
                 status="queued",
                 prompt=view_prompt,
                 seed=seed_used,
-                params=params_snapshot(body, seed=seed_used, ckpt_name=ckpt_name),
+                # character_id 入快照:api 重启后 reconcile 按此反查作业重挂回写
+                params=params_snapshot(body, seed=seed_used, ckpt_name=ckpt_name, character_id=cid),
             )
         )
     c.reference_status = "generating"
@@ -3339,82 +3340,92 @@ async def generate_character_reference(
     return _character_dict(c)
 
 
+# 三视图回写多轮等待的总预算(与 entities._WRITEBACK_MAX_WAIT_SEC 同语义)
+_REF_WRITEBACK_MAX_WAIT_SEC = 7200.0
+_REF_WRITEBACK_RETRY_GAP_SEC = 30.0
+
+
 async def _writeback_character_reference(
     cid: str, project_id: str, prompt_ids: list[str]
 ) -> None:
     """三视图作业完成后回写 reference_front/side/back 与状态。
 
-    超时豁免(同 _writeback_lipsync):本地等待窗口(≤900s)远短于 tracker 作业
-    生命周期;超时往往只是作业还没跑完,直接标 error 会分裂为 Job=done /
-    character=error 且产物永不回写。故超时时保持 generating 待 tracker 兜底;
-    作业已 error / 不存在才标 error。
+    多轮等待:单轮窗口(≤900s)远短于 tracker 作业生命周期;超时往往只是作业还没
+    跑完,直接标 error 会分裂为 Job=done / character=error 且产物永不回写。故超时
+    且作业仍在跑时小睡后进入下一轮,直到全部终态或超出总预算(2h)——一次性等待在
+    worker 停机场景会把角色永久卡在 generating(2026-08-29 生产实证,同 entities)。
     """
+    import asyncio as _asyncio
+    import time as _time
+
     from app.comfy.tracker import wait_for_jobs
     from app.db import engine
 
+    deadline = _time.monotonic() + _REF_WRITEBACK_MAX_WAIT_SEC
     try:
-        with Session(engine) as s:
-            wait_err: RuntimeError | None = None
-            results: dict[str, list[str]] = {}
-            try:
-                results = await wait_for_jobs(
-                    s, prompt_ids, timeout=_job_wait_timeout(900.0)
-                )
-            except RuntimeError as e:
-                wait_err = e  # 先读 Job 最新状态再定性(超时豁免 or 真失败)
-            # commit 结束当前读事务快照,确保看到 tracker 其他 Session 的最新提交
-            s.commit()
-            jobs = {
-                j.prompt_id: j
-                for j in s.exec(select(Job).where(Job.prompt_id.in_(prompt_ids))).all()  # type: ignore[attr-defined]
-            }
-            # 竞态 done:wait 抛超时瞬间作业恰好完成 → 从 Job.result 补读产物
-            urls: list[list[str]] = []
-            for pid in prompt_ids:
-                pid_urls = results.get(pid, [])
-                job = jobs.get(pid)
-                if not pid_urls and job and job.status == "done" and job.result:
-                    try:
-                        pid_urls = json.loads(job.result)
-                    except (ValueError, TypeError):
-                        pid_urls = []
-                urls.append(pid_urls)
-            char_obj = s.get(DramaCharacter, cid)
-            if all(urls) and char_obj:
-                char_obj.reference_front = urls[0][0]
-                char_obj.reference_side = urls[1][0]
-                char_obj.reference_back = urls[2][0]
-                char_obj.reference_status = "done"
-                char_obj.reference_error = ""
-                s.add(char_obj)
-                proj = s.get(DramaProject, project_id)
-                if proj:
-                    _append_process(
-                        proj, "generate_reference", f"角色 {char_obj.name} 三视图生成完成"
+        while True:
+            with Session(engine) as s:
+                wait_err: RuntimeError | None = None
+                results: dict[str, list[str]] = {}
+                try:
+                    results = await wait_for_jobs(
+                        s, prompt_ids, timeout=_job_wait_timeout(900.0)
                     )
-                    s.add(proj)
+                except RuntimeError as e:
+                    wait_err = e  # 先读 Job 最新状态再定性(再等一轮 or 真失败)
+                # commit 结束当前读事务快照,确保看到 tracker 其他 Session 的最新提交
                 s.commit()
-                return
-            if wait_err is not None:
+                jobs = {
+                    j.prompt_id: j
+                    for j in s.exec(select(Job).where(Job.prompt_id.in_(prompt_ids))).all()  # type: ignore[attr-defined]
+                }
+                # 竞态 done:wait 抛超时瞬间作业恰好完成 → 从 Job.result 补读产物
+                urls: list[list[str]] = []
+                for pid in prompt_ids:
+                    pid_urls = results.get(pid, [])
+                    job = jobs.get(pid)
+                    if not pid_urls and job and job.status == "done" and job.result:
+                        try:
+                            pid_urls = json.loads(job.result)
+                        except (ValueError, TypeError):
+                            pid_urls = []
+                    urls.append(pid_urls)
+                char_obj = s.get(DramaCharacter, cid)
+                if all(urls) and char_obj:
+                    char_obj.reference_front = urls[0][0]
+                    char_obj.reference_side = urls[1][0]
+                    char_obj.reference_back = urls[2][0]
+                    char_obj.reference_status = "done"
+                    char_obj.reference_error = ""
+                    s.add(char_obj)
+                    proj = s.get(DramaProject, project_id)
+                    if proj:
+                        _append_process(
+                            proj, "generate_reference", f"角色 {char_obj.name} 三视图生成完成"
+                        )
+                        s.add(proj)
+                    s.commit()
+                    return
                 alive = [
                     j for j in jobs.values() if j.status not in ("done", "error")
                 ]
-                if alive:
-                    # 超时豁免:作业仍在 tracker 窗口内,保持 generating 待 tracker 兜底
-                    logger.warning(
-                        "character %s reference writeback: 等待超时但 %d/%d 作业仍在跑,"
-                        "保持 generating 待 tracker 兜底",
-                        cid, len(alive), len(prompt_ids),
+                if alive and _time.monotonic() < deadline:
+                    # 作业仍在 tracker 窗口内:小睡后进入下一轮等待
+                    logger.info(
+                        "character %s reference writeback: %d/%d 作业仍在跑,%.0fs 后下一轮等待",
+                        cid, len(alive), len(prompt_ids), _REF_WRITEBACK_RETRY_GAP_SEC,
                     )
+                else:
+                    # 作业 error / 不存在 / 缺产物 / 超总预算 → 标 error(Job 无 error 列,原因落 hold_reason/通用文案)
+                    if char_obj and char_obj.reference_status == "generating":
+                        failed = [j for j in jobs.values() if j.status == "error"]
+                        reason = next((j.hold_reason for j in failed if j.hold_reason), "")
+                        char_obj.reference_status = "error"
+                        char_obj.reference_error = (reason or "三视图生成失败或超时")[:200]
+                        s.add(char_obj)
+                        s.commit()
                     return
-            # 作业 error / 不存在 / 缺产物 → 标 error(Job 无 error 列,原因落 hold_reason/通用文案)
-            if char_obj and char_obj.reference_status == "generating":
-                failed = [j for j in jobs.values() if j.status == "error"]
-                reason = next((j.hold_reason for j in failed if j.hold_reason), "")
-                char_obj.reference_status = "error"
-                char_obj.reference_error = (reason or "三视图生成失败或超时")[:200]
-                s.add(char_obj)
-                s.commit()
+            await _asyncio.sleep(_REF_WRITEBACK_RETRY_GAP_SEC)
     except Exception as e:  # noqa: BLE001
         logger.exception("character %s reference writeback failed: %s", cid, e)
         with Session(engine) as s:
@@ -5378,6 +5389,7 @@ def reconcile_interrupted() -> dict:
 
     stats = {"rehang": 0, "writeback": 0, "error": 0, "task_interrupted": 0}
     rehang: list[tuple[str, str]] = []  # (shot_id, prompt_id)
+    char_rehang: list[tuple[str, str, list[str]]] = []  # (character_id, project_id, prompt_ids)
     with Session(engine) as s:
         shots = s.exec(
             select(DramaShot).where(DramaShot.video_status == "generating")
@@ -5460,10 +5472,57 @@ def reconcile_interrupted() -> dict:
             if changed:
                 p.process_data = json.dumps(steps, ensure_ascii=False)
                 s.add(p)
+
+        # 角色三视图:reference_status=generating 的回写任务是进程内协程,重启即消失;
+        # 按 params 快照 character_id 反查最近三视图作业(每视图取最新一条):
+        # 作业齐且 alive/全 done → 重挂回写(后者即时收尾);有 error/找不回 → 标 error
+        for c in s.exec(
+            select(DramaCharacter).where(DramaCharacter.reference_status == "generating")
+        ).all():
+            proj = s.get(DramaProject, c.project_id)
+            if proj is None:
+                c.reference_status = "error"
+                c.reference_error = "服务重启中断,请重新发起"
+                s.add(c)
+                stats["error"] += 1
+                continue
+            candidates = s.exec(
+                select(Job)
+                .where(Job.user_id == proj.user_id)
+                .where(Job.kind.like("drama_char_reference_%"))  # type: ignore[union-attr]
+                .order_by(Job.created_at.desc())  # type: ignore[attr-defined]
+            ).all()
+            pids_by_view: dict[str, str] = {}
+            for j in candidates:
+                view = j.kind.removeprefix("drama_char_reference_")
+                if view not in ("front", "side", "back") or view in pids_by_view:
+                    continue
+                try:
+                    pj = json.loads(j.params or "{}")
+                except (ValueError, TypeError):
+                    pj = {}
+                if pj.get("character_id") == c.id:
+                    pids_by_view[view] = j.prompt_id
+            prompt_ids = [pids_by_view.get(v) for v in ("front", "side", "back")]
+            jobs: list[Job] = []
+            if all(prompt_ids):
+                jobs = list(
+                    s.exec(select(Job).where(Job.prompt_id.in_(prompt_ids))).all()  # type: ignore[attr-defined]
+                )
+            if len(jobs) < 3 or any(j.status == "error" for j in jobs):
+                c.reference_status = "error"
+                c.reference_error = "生成中断或失败,请重新发起"
+                s.add(c)
+                stats["error"] += 1
+                continue
+            char_rehang.append((c.id, c.project_id, [p for p in prompt_ids if p]))
+            stats["rehang"] += 1
         s.commit()
 
     for sid, prompt_id in rehang:
         _spawn(_await_shot_video_writeback(sid, prompt_id))
+    for cid, pid, pids in char_rehang:
+        _spawn(_writeback_character_reference(cid, pid, pids))
     if any(stats.values()):
         logger.info("drama reconcile: %s", stats)
     return stats
