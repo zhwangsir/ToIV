@@ -27,7 +27,7 @@ from app.db import get_session
 from app.deps import get_current_user, get_pool, resolve_worker
 from app.models import Job, User
 from app.ratelimit import enforce_generation_rate_limit
-from app.routes.video import _gate_ltx_nsfw, _raise_from_comfy_error
+from app.routes.video import _gate_ltx_nsfw, _raise_from_comfy_error, reject_nsfw_ltx_t2v
 from app.versioning import params_snapshot
 from app.workflows.lora import LoraSpec
 from app.workflows.ltx_video import (
@@ -184,10 +184,15 @@ async def generate_ltx2_t2v(
     session: Session = Depends(get_session),
     pool: WorkerPool = Depends(get_pool),
 ):
-    """LTX-2.3 工作室文生视频。SFW 底模无门槛;选 10eros 走 NSFW 门槛。"""
+    """LTX-2.3 工作室文生视频。SFW 底模无门槛;选 10eros 走 NSFW 门槛。
+
+    2026-08-29 锁:10eros/R18 t2v 无首帧会塌成色块 → 422,引导改 POST /api/ltx2/i2v。
+    SFW distilled/dev t2v 不受此锁。
+    """
     enforce_generation_rate_limit(user)
     if req.unet_name in _NSFW_UNETS:
         _gate_ltx_nsfw(user)
+        reject_nsfw_ltx_t2v()
 
     settings = get_settings()
     params = LtxT2VParams(

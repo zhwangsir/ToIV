@@ -232,11 +232,15 @@ def test_t2v_10eros_gated_without_nsfw_header(client):
     assert r.status_code == 403
 
 
-def test_t2v_10eros_allowed_with_header_and_tagged(client, monkeypatch):
+def test_t2v_10eros_rejected_even_with_header(client, monkeypatch):
+    """2026-08-29:R18 LTX t2v 无首帧塌成色块 → 422,引导改 i2v;不提交作业。"""
+    from app.workflows.ltx_video import NSFW_LTX_T2V_BLOCKED
+
     c, engine = client
     with Session(engine) as s:
         uid = _seed_user(s, "ltx2nsfwok")
-    _install_pool(_FakePool(_FakeClient(_ltx_models("10eros_v14.safetensors"))))
+    fake = _FakeClient(_ltx_models("10eros_v14.safetensors"))
+    _install_pool(_FakePool(fake))
     monkeypatch.setattr(ltx_studio_route, "spawn_tracker", lambda client, prompt_id: None)
     token = create_token(uid)
     r = c.post(
@@ -244,12 +248,13 @@ def test_t2v_10eros_allowed_with_header_and_tagged(client, monkeypatch):
         headers={"Authorization": f"Bearer {token}", "X-NSFW": "1"},
         json={"positive": "a cat", "unet_name": "10eros_v14.safetensors"},
     )
-    assert r.status_code == 200, r.text
+    assert r.status_code == 422, r.text
+    assert "首帧" in r.json()["detail"]
+    assert "i2v" in r.json()["detail"]
+    assert r.json()["detail"] == NSFW_LTX_T2V_BLOCKED
+    assert fake.graphs == []
     with Session(engine) as s:
-        job = s.exec(select(Job).where(Job.user_id == uid)).first()
-        assert job is not None
-        assert job.nsfw is True
-        assert job.kind == "ltx2_t2v"
+        assert s.exec(select(Job).where(Job.user_id == uid)).first() is None
 
 
 def test_t2v_sfw_unet_no_gate_and_not_tagged(client, monkeypatch):

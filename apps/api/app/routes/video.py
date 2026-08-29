@@ -36,6 +36,7 @@ from app.services.video_upscale import maybe_chain_upscale
 from app.versioning import params_snapshot
 from app.workflows.video_upscale import validate_resolution_target
 from app.workflows.ltx_video import (
+    NSFW_LTX_T2V_BLOCKED,
     LtxI2VParams,
     LtxLipsyncParams,
     LtxT2VParams,
@@ -243,6 +244,11 @@ def _gate_ltx_nsfw(user: User) -> None:
         raise HTTPException(status_code=403, detail="LTX 视频生成仅限 NSFW 专区访问")
 
 
+def reject_nsfw_ltx_t2v() -> None:
+    """2026-08-29:R18 LTX t2v 无首帧会塌成色块,普通用户禁止走此路径,改 i2v。"""
+    raise HTTPException(status_code=422, detail=NSFW_LTX_T2V_BLOCKED)
+
+
 def _resolve_video_loras(engine: str, prompt: str, nsfw: bool, loras: list[WanLoraInput] | None):
     """省略=auto / 空列表=off / 非空=pin;未知文件名 422。"""
     raw = None if loras is None else [{"name": l.name, "strength": l.strength} for l in loras]
@@ -354,9 +360,13 @@ async def generate_ltx_t2v(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    """LTX2.3 文生视频(NSFW 专区)。默认 10Eros 底模 + 720p 2 阶段采样。"""
+    """LTX2.3 文生视频(NSFW 专区)。默认 10Eros 底模 + 720p 2 阶段采样。
+
+    2026-08-29 锁:R18 t2v 无首帧会塌成色块,本端点一律 422,引导改 i2v。
+    """
     enforce_generation_rate_limit(user)
     _gate_ltx_nsfw(user)
+    reject_nsfw_ltx_t2v()
 
     settings = get_settings()
     plan = _resolve_ltx_plan(req)

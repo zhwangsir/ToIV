@@ -27,6 +27,9 @@ from app.security import create_token, hash_password
 from app.workflows.h3_video import (
     H3I2VParams,
     H3T2VParams,
+    _H3_PROMPT_MAX,
+    _inject_common,
+    _load_template,
     build_h3_i2v_graph,
     build_h3_t2v_graph,
 )
@@ -207,6 +210,28 @@ def test_builder_t2v_negative_folded_into_prompt():
 def test_builder_t2v_empty_negative_unchanged():
     g = build_h3_t2v_graph(H3T2VParams(positive="一只猫", negative=""))
     assert g["104"]["inputs"]["prompt"] == "一只猫"
+
+
+def test_builder_t2v_negative_field_not_folded_when_template_has_it():
+    """模板已有 negative_prompt:写入字段,不折进 prompt,不双写。"""
+    import copy
+
+    graph = copy.deepcopy(_load_template("t2v_prompt.json"))
+    graph["104"]["inputs"]["negative_prompt"] = ""
+    _inject_common(graph, H3T2VParams(positive="一只猫", negative="模糊,水印", seed=1))
+    assert graph["104"]["inputs"]["prompt"] == "一只猫"
+    assert graph["104"]["inputs"]["negative_prompt"] == "模糊,水印"
+    assert "Avoid:" not in graph["104"]["inputs"]["prompt"]
+
+
+def test_builder_t2v_negative_fold_caps_4000_trims_suffix_not_scene():
+    """超长时截 Avoid 后缀,不截场景;总长 ≤ 4000。"""
+    scene = "猫" * 3900
+    g = build_h3_t2v_graph(H3T2VParams(positive=scene, negative="模糊水印" * 80, seed=1))
+    prompt = g["104"]["inputs"]["prompt"]
+    assert prompt.startswith(scene)
+    assert len(prompt) <= _H3_PROMPT_MAX
+    assert "Avoid:" in prompt
 
 
 def test_builder_i2v_injects_first_frame():

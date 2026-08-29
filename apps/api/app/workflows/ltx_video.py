@@ -31,6 +31,13 @@ from app.workflows.lora import LoraSpec, lora_chain
 
 MAX_SEED = 2**63 - 1
 
+# 2026-08-29 生产事故:R18 LTX-2.3 t2v 无首帧即使用 10eros_v14 也会塌成色块。
+# 普通用户禁止走此路径,必须上传首帧改 i2v。SFW LTX t2v(工作室 distilled/dev)不受此锁。
+NSFW_LTX_T2V_BLOCKED = (
+    "R18 LTX 文生视频无首帧会塌成色块。请上传一张首帧，改走图生视频："
+    "POST /api/ltx2/i2v（或 POST /api/generate/ltx-i2v）。"
+)
+
 # RIFE 模型文件名:worker 原生节点(detect_rife_config)要求 5 blocks + encode.cnn3 键结构,
 # 原版 rife47/49.pth(hzwer 4 blocks + 2 层 encode)不被识别;使用 Comfy-Org 官方转换版 rife_v4.26.safetensors。
 # 保留环境变量覆盖能力。

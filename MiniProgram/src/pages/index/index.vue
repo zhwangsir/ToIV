@@ -106,6 +106,12 @@ const engine = computed<EngineInfo | null>(
 const selectableEngines = computed(() =>
   engines.value.filter((e) => e.available && isEngineSupported(e)),
 );
+// 进阶引擎(LTX/Wan)沉底,普通用户先看到 H3
+const listedEngines = computed(() => {
+  const rows = engines.value.slice();
+  rows.sort((a, b) => Number(Boolean(a.advanced)) - Number(Boolean(b.advanced)));
+  return rows;
+});
 const needsMultiImage = computed(() => engineNeedsMultiImage(engine.value));
 const needsRefImage = computed(() => engineNeedsRefImage(engine.value) && !needsMultiImage.value);
 const imagesMax = computed(() => Math.max(engineImagesMax(engine.value), 1));
@@ -133,7 +139,11 @@ async function loadEngines() {
   try {
     engines.value = await fetchEngines();
     if (!engine.value && selectableEngines.value.length > 0) {
-      selectEngine(selectableEngines.value[0].id);
+      // 不要落到 LTX/Wan 进阶引擎;图像默认仍是第一项非进阶(文生图)
+      const preferred =
+        selectableEngines.value.find((e) => !e.advanced) ??
+        selectableEngines.value[0];
+      selectEngine(preferred.id);
     }
   } catch (err) {
     enginesError.value = err instanceof Error ? err.message : '引擎加载失败';
@@ -858,7 +868,7 @@ onShow(() => {
     >
       <view class="engine-list">
         <view
-          v-for="item in engines"
+          v-for="item in listedEngines"
           :key="item.id"
           class="engine-item"
           :class="{
@@ -882,6 +892,12 @@ onShow(() => {
                 class="engine-item__badge"
               >
                 R18
+              </text>
+              <text
+                v-if="item.advanced"
+                class="engine-item__badge"
+              >
+                进阶
               </text>
             </view>
             <text

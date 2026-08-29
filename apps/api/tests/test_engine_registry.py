@@ -269,6 +269,27 @@ async def test_r18_context_exposes_nsfw_engines_and_options(live_pool, user):
     assert "ltx-nsfw-lipsync" in ids
 
 
+async def test_ordinary_video_default_is_h3_not_ltx_or_wan(live_pool, user):
+    """2026-08-29:普通用户视频默认是 H3;LTX/Wan 标 advanced,且排在 H3 之后。"""
+    token = nsfw_intent_var.set(True)
+    try:
+        engines = await list_engines(live_pool, user)
+    finally:
+        nsfw_intent_var.reset(token)
+    videos = [e for e in engines if e["kind"] == "video"]
+    ordinary = [e for e in videos if not e.get("advanced")]
+    assert ordinary, "R18 上下文应有非进阶视频引擎"
+    assert ordinary[0]["id"].startswith("h3-"), ordinary[0]["id"]
+    assert ordinary[0].get("ordinary_default") is True
+    ids = _by_id(engines)
+    for eid in ("ltx-nsfw-t2v", "ltx-nsfw-i2v", "ltx-nsfw-lipsync", "wan-nsfw-i2v"):
+        assert ids[eid].get("advanced") is True
+    h3_idx = next(i for i, e in enumerate(videos) if e["id"] == "h3-t2v")
+    ltx_idx = next(i for i, e in enumerate(videos) if e["id"] == "ltx-nsfw-t2v")
+    wan_idx = next(i for i, e in enumerate(videos) if e["id"] == "wan-nsfw-i2v")
+    assert h3_idx < ltx_idx < wan_idx
+
+
 async def test_available_when_pool_has_ltx_assets(live_pool, user):
     engines = await list_engines(live_pool, user)
     ids = _by_id(engines)

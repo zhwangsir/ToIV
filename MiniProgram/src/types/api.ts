@@ -104,6 +104,10 @@ export interface EngineInfo {
   description?: string;
   source?: EngineSource;
   params: EngineParam[];
+  /** 进阶引擎(LTX/Wan):非普通用户默认;R18 LTX t2v 须改 i2v 上传首帧 */
+  advanced?: boolean;
+  /** 普通用户视频默认(H3) */
+  ordinary_default?: boolean;
 }
 
 // ── 文生图提交（POST /api/generate/txt2img → GenerateResponse）──

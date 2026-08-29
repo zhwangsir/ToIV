@@ -293,7 +293,10 @@ test("ResultPanel 空态接 QuickStartGrid;GenerateView onQuickStart 切组+聚�
     "快速开始未处理文生/图生跨组切换",
   );
   assert.ok(view.includes("promptInputRef.current?.focus()"), "快速开始未聚焦提示词框");
-  assert.ok(view.includes("quickStartEngines={kindEngines}"), "卡可用性数据源应为 kindEngines(不按组过滤)");
+  assert.ok(
+    view.includes("quickStartEngines={[...kindEngines].sort("),
+    "卡可用性数据源应为 kindEngines(不按组过滤,仅进阶沉底排序)",
+  );
 
   const bar = readSrc("components/generate/PromptBar.tsx");
   assert.ok(bar.includes("inputRef"), "PromptBar 缺 inputRef 外部聚焦句柄");

@@ -343,10 +343,15 @@ def test_ltx_t2v_accepts_vertical_720p_preset(client, monkeypatch):
         headers={"Authorization": f"Bearer {create_token(uid)}", **_NSFW},
         json={"positive": "a", "width": 720, "height": 1280},
     )
-    assert r.status_code == 200, r.text
+    # 720x1280 过 pydantic;R18 t2v 无首帧锁在其后 422
+    assert r.status_code == 422, r.text
+    assert "首帧" in r.json()["detail"]
 
 
-def test_ltx_t2v_ok_submits_and_creates_nsfw_job(client, monkeypatch):
+def test_ltx_t2v_nsfw_without_first_frame_422(client, monkeypatch):
+    """2026-08-29:R18 LTX t2v 无首帧 → 422 中文引导改 i2v,不提交。"""
+    from app.workflows.ltx_video import NSFW_LTX_T2V_BLOCKED
+
     c, engine = client
     with Session(engine) as s:
         uid = _seed_user(s, "ltx-ok")
@@ -358,20 +363,15 @@ def test_ltx_t2v_ok_submits_and_creates_nsfw_job(client, monkeypatch):
         headers={"Authorization": f"Bearer {create_token(uid)}", **_NSFW},
         json={"positive": "月光下的独舞", "seed": 11},
     )
-    assert r.status_code == 200, r.text
-    body = r.json()
-    assert body["prompt_id"] == "prompt-video-1"
-    assert body["seed"] == 11
-
+    assert r.status_code == 422, r.text
+    assert r.json()["detail"] == NSFW_LTX_T2V_BLOCKED
+    assert fake.graphs == []
     with Session(engine) as s:
-        job = s.exec(select(Job).where(Job.user_id == uid)).first()
-        assert job is not None
-        assert job.kind == "ltx_t2v"
-        assert job.nsfw is True  # LTX 视频建档一律打 R18 标
+        assert s.exec(select(Job).where(Job.user_id == uid)).first() is None
 
 
-def test_ltx_t2v_no_capable_worker_503(client, monkeypatch):
-    """能力门控:pool 里无具备 LTX 模型/节点的 worker(pick 返回 None)→ 503。"""
+def test_ltx_t2v_no_capable_worker_still_422_lock(client, monkeypatch):
+    """无首帧锁优先于 worker 能力门控:不再走到 pick/503。"""
     c, engine = client
     with Session(engine) as s:
         uid = _seed_user(s, "ltx-503")
@@ -382,8 +382,8 @@ def test_ltx_t2v_no_capable_worker_503(client, monkeypatch):
         headers={"Authorization": f"Bearer {create_token(uid)}", **_NSFW},
         json={"positive": "a"},
     )
-    assert r.status_code == 503
-    assert "无可用 worker" in r.json()["detail"]
+    assert r.status_code == 422
+    assert "首帧" in r.json()["detail"]
 
 
 # --------------------------------------------------------------------------- #
@@ -556,12 +556,9 @@ def test_ltx_t2v_pin_lora_lands_on_graph(client, monkeypatch):
         headers={"Authorization": f"Bearer {create_token(uid)}", **_NSFW},
         json={"positive": "a", "loras": [{"name": name, "strength": 0.8}]},
     )
-    assert r.status_code == 200, r.text
-    body = r.json()
-    assert body["lora_mode"] == "pin"
-    assert body["loras"][0]["name"] == name
-    loaders = [n for n in fake.graphs[0].values() if n.get("class_type") == "LoraLoader"]
-    assert loaders and loaders[0]["inputs"]["lora_name"] == name
+    assert r.status_code == 422, r.text
+    assert "首帧" in r.json()["detail"]
+    assert fake.graphs == []
 
 
 def test_ltx_t2v_empty_loras_off(client, monkeypatch):
@@ -577,7 +574,6 @@ def test_ltx_t2v_empty_loras_off(client, monkeypatch):
         headers={"Authorization": f"Bearer {create_token(uid)}", **_NSFW},
         json={"positive": "dynamic motion dolly", "loras": []},
     )
-    assert r.status_code == 200, r.text
-    assert r.json()["lora_mode"] == "off"
-    assert r.json()["loras"] == []
-    assert not any(n.get("class_type") == "LoraLoader" for n in fake.graphs[0].values())
+    assert r.status_code == 422, r.text
+    assert "首帧" in r.json()["detail"]
+    assert fake.graphs == []

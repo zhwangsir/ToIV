@@ -211,14 +211,19 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
   const showGroupTabs = genGroup.length > 0 && editGroup.length > 0;
   const [groupByKind, setGroupByKind] = useState<Partial<Record<EngineKind, "gen" | "edit">>>({});
   const group = groupByKind[mode] ?? "gen";
-  const visibleEngines = showGroupTabs ? (group === "gen" ? genGroup : editGroup) : kindEngines;
+  const visibleEngines = useMemo(() => {
+    const rows = showGroupTabs ? (group === "gen" ? genGroup : editGroup) : kindEngines;
+    // 2026-08-29:LTX/Wan 进阶沉底,H3 等普通引擎排前
+    return [...rows].sort((a, b) => Number(Boolean(a.advanced)) - Number(Boolean(b.advanced)));
+  }, [showGroupTabs, group, genGroup, editGroup, kindEngines]);
 
   const [engineIdByKind, setEngineIdByKind] = useState<Partial<Record<EngineKind, string>>>({});
   const engine = useMemo(() => {
     const sel = engineIdByKind[mode];
     return (
       visibleEngines.find((e) => e.id === sel && e.available) ??
-      // 切组/切 kind 后,选择自动落到该组第一个可用引擎
+      // 2026-08-29:普通用户默认 H3(ordinary_default),不得静默落到 LTX/Wan 进阶引擎
+      visibleEngines.find((e) => e.available && (e.ordinary_default || !e.advanced)) ??
       visibleEngines.find((e) => e.available) ??
       visibleEngines[0] ??
       null
@@ -806,7 +811,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
             onCancel={onCancel}
             onRetry={onRetry}
             kind={mode}
-            quickStartEngines={kindEngines}
+            quickStartEngines={[...kindEngines].sort((a, b) => Number(Boolean(a.advanced)) - Number(Boolean(b.advanced)))}
             onQuickStart={onQuickStart}
           />
         </section>
@@ -945,6 +950,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
                             title={e.available ? undefined : e.unavailable_reason}
                           >
                             {e.label}
+                            {e.advanced ? "（进阶）" : ""}
                             {e.available ? "" : ` — 不可用:${e.unavailable_reason ?? "未知原因"}`}
                           </option>
                         ))}

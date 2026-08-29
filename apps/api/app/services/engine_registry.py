@@ -1116,7 +1116,13 @@ def get_disabled_engines() -> set[str]:
 
 
 def _default_registry() -> list[dict[str, Any]]:
-    """构建默认引擎注册表(20 条,含 submit 绑定)。由 EnginePlugin 或惰性调用填充。"""
+    """构建默认引擎注册表(含 submit 绑定)。由 EnginePlugin 或惰性调用填充。
+
+    2026-08-29 普通用户视频路径锁:
+      · 默认视频引擎是 MiniMax H3(h3-t2v / h3-nsfw-t2v),条目排在 LTX/Wan 之前;
+      · LTX-2.3 R18(尤其 t2v 无首帧)与 Wan2.2 i2v 标 advanced,不得当未选默认;
+      · 不删除 LTX/Wan API,只降权。R18 LTX t2v 无首帧由路由 422 拦住。
+    """
     return [
     {
         "id": "txt2img",
@@ -1229,64 +1235,6 @@ def _default_registry() -> list[dict[str, Any]]:
         ],
         "probe": _probe_image,
     },
-    # LTX-2.3 NSFW（仅 R18 保留 10Eros；SFW 默认不是 2.3。SFW LTX-2.5 已于 2026-08-23 退役）
-    {
-        "id": "ltx-nsfw-t2v",
-        "label": "LTX 2.3 文生视频(R18)",
-        "kind": "video",
-        "nsfw": True,
-        "submit": {"route": "/api/generate/ltx-t2v", "kind": "ltx-t2v"},
-        "description": "10Eros 底模成人向文生视频,仅 R18 上下文可见",
-        "source": {
-            "name": "LTX-Video 2.3 + 10Eros v14",
-            "url": "https://civitai.com/models/2447875",
-            "author": "Lightricks × Civitai 社区(10Eros)",
-            "note": "10Eros 为社区训练的 LTX2.3 NSFW 专用底模,已内置为默认视频 UNET",
-        },
-        "params": _ltx_nsfw_video_params(),
-        "probe": _probe_ltx_nsfw("ltx_t2v"),
-    },
-    {
-        "id": "ltx-nsfw-i2v",
-        "label": "LTX 2.3 图生视频(R18)",
-        "kind": "video",
-        "nsfw": True,
-        "submit": {"route": "/api/generate/ltx-i2v", "kind": "ltx-i2v"},
-        "description": "10Eros 底模成人向图生视频,仅 R18 上下文可见",
-        "source": {
-            "name": "LTX-Video 2.3 + 10Eros v14",
-            "url": "https://civitai.com/models/2447875",
-            "author": "Lightricks × Civitai 社区(10Eros)",
-            "note": "10Eros 为社区训练的 LTX2.3 NSFW 专用底模,已内置为默认视频 UNET",
-        },
-        "params": [_ref_image_required(), *_ltx_nsfw_video_params()],
-        "probe": _probe_ltx_nsfw("ltx_i2v"),
-    },
-    {
-        "id": "ltx-nsfw-lipsync",
-        "label": "LTX 2.3 对口型(R18)",
-        "kind": "video",
-        "nsfw": True,
-        "submit": {"route": "/api/generate/ltx-lipsync", "kind": "ltx-lipsync"},
-        "description": "10Eros 底模成人向口型同步:人物参考图 + 驱动音频 → 对口型视频",
-        "source": {
-            "name": "LTX-Video 2.3 + 10Eros v14",
-            "url": "https://civitai.com/models/2447875",
-            "author": "Lightricks × Civitai 社区(10Eros)",
-            "note": "10Eros 为社区训练的 LTX2.3 NSFW 专用底模;ID LoRA 可选(身份保持)",
-        },
-        "params": [
-            _images(label="人物参考图"),
-            _audio(),
-            *_ltx_nsfw_video_params(),
-            {
-                "key": "id_lora", "label": "ID LoRA(可选)", "type": "text", "default": "",
-                "hint": "worker loras 目录内的身份保持 LoRA 文件名,留空不用",
-            },
-            _num("id_lora_strength", "ID LoRA 强度", 0.8, min_=0, max_=2, step=0.1),
-        ],
-        "probe": _probe_ltx_nsfw("ltx_lipsync"),
-    },
     # MiniMax H3:专用 ComfyUI ≥ 0.30 实例(TOIV_H3_BASE_URL,默认 workstation :8195),
     # 原生 32kHz 音画同发;probe 探测实例 /object_info 是否含 MiniMaxH3 节点
     {
@@ -1294,8 +1242,9 @@ def _default_registry() -> list[dict[str, Any]]:
         "label": "MiniMax H3 文生视频",
         "kind": "video",
         "nsfw": False,
+        "ordinary_default": True,
         "submit": {"route": "/api/h3/t2v", "kind": "h3-t2v"},
-        "description": "MiniMax H3（海螺 3.0）:原生 32kHz 音画同发,专用实例 :8195",
+        "description": "【默认视频引擎】MiniMax H3（海螺 3.0）:原生 32kHz 音画同发,专用实例 :8195",
         "source": {
             "name": "MiniMax H3(海螺 3.0 开源权重)",
             "url": "https://huggingface.co/MiniMaxAI/MiniMax-H3",
@@ -1349,8 +1298,9 @@ def _default_registry() -> list[dict[str, Any]]:
         "label": "MiniMax H3 文生视频(R18)",
         "kind": "video",
         "nsfw": True,
+        "ordinary_default": True,
         "submit": {"route": "/api/h3/t2v", "kind": "h3-t2v"},
-        "description": "MiniMax H3 成人向文生视频:原生 32kHz 音画同发,可叠 R18 LoRA,专用实例 :8195",
+        "description": "【R18 默认视频引擎】MiniMax H3 成人向文生视频:原生 32kHz 音画同发,可叠 R18 LoRA,专用实例 :8195",
         "source": {
             "name": "MiniMax H3 + 社区 R18 LoRA",
             "url": "https://huggingface.co/MiniMaxAI/MiniMax-H3",
@@ -1376,6 +1326,67 @@ def _default_registry() -> list[dict[str, Any]]:
         "params": [_ref_image_required(), *_h3_nsfw_video_params()],
         "probe": _probe_h3,
     },
+    # LTX-2.3 NSFW（仅 R18 保留 10Eros；SFW 默认不是 2.3。SFW LTX-2.5 已于 2026-08-23 退役）
+    {
+        "id": "ltx-nsfw-t2v",
+        "label": "LTX 2.3 文生视频(R18)",
+        "kind": "video",
+        "nsfw": True,
+        "advanced": True,
+        "submit": {"route": "/api/generate/ltx-t2v", "kind": "ltx-t2v"},
+        "description": "【进阶】10Eros 文生视频无首帧会塌成色块,R18 必须上传首帧改走「LTX 2.3 图生视频」;不是默认引擎",
+        "source": {
+            "name": "LTX-Video 2.3 + 10Eros v14",
+            "url": "https://civitai.com/models/2447875",
+            "author": "Lightricks × Civitai 社区(10Eros)",
+            "note": "10Eros 为社区训练的 LTX2.3 NSFW 专用底模,已内置为默认视频 UNET",
+        },
+        "params": _ltx_nsfw_video_params(),
+        "probe": _probe_ltx_nsfw("ltx_t2v"),
+    },
+    {
+        "id": "ltx-nsfw-i2v",
+        "label": "LTX 2.3 图生视频(R18)",
+        "kind": "video",
+        "nsfw": True,
+        "advanced": True,
+        "submit": {"route": "/api/generate/ltx-i2v", "kind": "ltx-i2v"},
+        "description": "【进阶】10Eros 底模成人向图生视频,须上传首帧;不是默认引擎(默认请用 H3)",
+        "source": {
+            "name": "LTX-Video 2.3 + 10Eros v14",
+            "url": "https://civitai.com/models/2447875",
+            "author": "Lightricks × Civitai 社区(10Eros)",
+            "note": "10Eros 为社区训练的 LTX2.3 NSFW 专用底模,已内置为默认视频 UNET",
+        },
+        "params": [_ref_image_required(), *_ltx_nsfw_video_params()],
+        "probe": _probe_ltx_nsfw("ltx_i2v"),
+    },
+    {
+        "id": "ltx-nsfw-lipsync",
+        "label": "LTX 2.3 对口型(R18)",
+        "kind": "video",
+        "nsfw": True,
+        "advanced": True,
+        "submit": {"route": "/api/generate/ltx-lipsync", "kind": "ltx-lipsync"},
+        "description": "【进阶】10Eros 底模成人向口型同步:人物参考图 + 驱动音频 → 对口型视频",
+        "source": {
+            "name": "LTX-Video 2.3 + 10Eros v14",
+            "url": "https://civitai.com/models/2447875",
+            "author": "Lightricks × Civitai 社区(10Eros)",
+            "note": "10Eros 为社区训练的 LTX2.3 NSFW 专用底模;ID LoRA 可选(身份保持)",
+        },
+        "params": [
+            _images(label="人物参考图"),
+            _audio(),
+            *_ltx_nsfw_video_params(),
+            {
+                "key": "id_lora", "label": "ID LoRA(可选)", "type": "text", "default": "",
+                "hint": "worker loras 目录内的身份保持 LoRA 文件名,留空不用",
+            },
+            _num("id_lora_strength", "ID LoRA 强度", 0.8, min_=0, max_=2, step=0.1),
+        ],
+        "probe": _probe_ltx_nsfw("ltx_lipsync"),
+    },
     # Wan2.2 I2V NSFW(2026-08-17 Civitai 爆款配方复刻):与 SFW 主链同一路由
     # (POST /api/generate/video),pool worker 执行;专区内自带 X-NSFW 头 →
     # 产物打标进 R18 作品库、loras 入参生效(SFW 请求带 loras 一律静默剔除)。
@@ -1385,8 +1396,9 @@ def _default_registry() -> list[dict[str, Any]]:
         "label": "Wan2.2 图生视频(R18)",
         "kind": "video",
         "nsfw": True,
+        "advanced": True,
         "submit": {"route": "/api/generate/video", "kind": "wan_i2v"},
-        "description": "Wan2.2 双专家 14B 成人向图生视频:Civitai 爆款配方复刻(通用概念 + 体位/物理 LoRA 双专家分侧叠加)",
+        "description": "【进阶】Wan2.2 双专家 14B 图生视频(无 NSFW UNET,须首帧,单段最多约 7.5s);不是 R18 默认(默认请用 H3)",
         "source": {
             "name": "Wan2.2 I2V-A14B + Civitai 社区 NSFW LoRA 配方",
             "url": "https://civitai.com/models/2073605",
@@ -1860,6 +1872,10 @@ async def list_engines(pool: WorkerPool, user: User | None = None) -> list[dict[
             "description": spec["description"],
             "params": params,
         }
+        if spec.get("advanced"):
+            entry["advanced"] = True
+        if spec.get("ordinary_default"):
+            entry["ordinary_default"] = True
         if "source" in spec:
             entry["source"] = spec["source"]
         if "submit" in spec:

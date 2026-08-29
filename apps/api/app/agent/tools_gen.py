@@ -539,7 +539,7 @@ def _job_event(*, job_id: str, kind: str, status: str, label: str,
 
 def _apply_entity_refs(
     session, user: User, entity_ids: list[str], positive: str, params: dict,
-    media_keys: tuple[str, ...],
+    media_keys: tuple[str, ...], engine_id: str = "",
 ) -> tuple[str, dict, list[str]]:
     """全局主体库注入:prompt_hint 拼入提示词;参考图按引擎媒体键形态注入。
 
@@ -548,7 +548,10 @@ def _apply_entity_refs(
     - 单图引擎(image 键):首个有图主体补位(显式参数优先);
     - 多图引擎(images 键,phantom-s2v):entity_ids 直接透传进参数,
       由 phantom 路由自行解析(404 防枚举/422 无句柄,合计上限 4 张),
-      避免此处重复实现一套句柄解析(2026-08-29 多主体注入修复)。
+      避免此处重复实现一套句柄解析(2026-08-29 多主体注入修复);
+    - H3 引擎(h3-t2v/i2v):entity_ids 同样透传,由 h3_studio 路由在 prompt
+      绝对开头注入 @图片N 引用行(2026-08-29 B3 修复:此前 agent 路径丢弃
+      entity_ids,只有文本 hint,@图片N 机制对助手完全失效)。
     返回 (positive, params, 命中的主体名列表)。
     """
     from app.services.entities import image_handle_for_injection
@@ -577,6 +580,9 @@ def _apply_entity_refs(
                 out["worker"] = handle["worker"]
     # 多图引擎:显式 images/entity_ids 已给则不补,否则透传主体 id(phantom 路由解析)
     if "images" in media_keys and not out.get("images") and not out.get("entity_ids"):
+        out["entity_ids"] = [e.id for e in rows]
+    # H3 引擎:@图片N 引用行由路由层注入,需透传主体 id(显式 entity_ids 优先)
+    if engine_id.startswith("h3-") and not out.get("entity_ids"):
         out["entity_ids"] = [e.id for e in rows]
     if hints:
         positive = f"{positive}\n[主体库] " + "; ".join(hints) if positive else "; ".join(hints)
@@ -628,7 +634,7 @@ async def exec_submit_generation(args: dict, ctx: dict) -> tuple[str, list[dict]
     entity_names: list[str] = []
     if entity_ids:
         positive, params, entity_names = _apply_entity_refs(
-            session, user, entity_ids, positive, params, media_keys,
+            session, user, entity_ids, positive, params, media_keys, engine_id,
         )
 
     # 可用性探测(注册表唯一事实源,8s TTL 缓存;R18 引擎在 R18 上下文才在列表里)

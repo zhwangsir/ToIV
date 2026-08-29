@@ -336,6 +336,9 @@ class H3MultiShotRequest(BaseModel):
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
     effect_preset: str | None = Field(default=None, max_length=64)
     resolution_target: str | None = Field(default=None, max_length=8)
+    # 主体引用(@主体前台化):与 t2v 同一语义,组装后的单 prompt 绝对开头注入
+    # @图片N 引用行;空列表 = 显式清空(2026-08-29 B3 补齐:此前 multishot 无此字段)
+    entity_ids: list[str] | None = Field(default=None, max_length=16)
 
     @field_validator("effect_preset")
     @classmethod
@@ -403,8 +406,11 @@ async def generate_h3_multishot(
         seed=req.seed,
         effect_preset=req.effect_preset,
         resolution_target=req.resolution_target,
+        entity_ids=req.entity_ids,
     )
     t2v_req = _apply_effect(t2v_req)
+    # 主体引用注入(与 t2v 同层同序:effect 之后,@图片N 恒在绝对开头)
+    t2v_req = _apply_entity_refs(t2v_req, session, user)
     plan = _resolve_plan(t2v_req)
     params = H3T2VParams(
         positive=t2v_req.positive,

@@ -78,6 +78,10 @@ export interface EngineInfo {
   params: EngineParam[];
   /** 模型介绍与出处(M9 起由后端注册表透传) */
   source?: EngineSource;
+  /** 进阶引擎(LTX/Wan):非普通用户默认;R18 LTX t2v 须改 i2v 上传首帧 */
+  advanced?: boolean;
+  /** 普通用户视频默认(H3) */
+  ordinary_default?: boolean;
 }
 
 /**
@@ -176,8 +180,9 @@ export interface EngineSubmitInput {
   motionMask?: string;
   /**
    * @主体引用(2026-08-26):prompt 内 @实体名 解析出的主体库 id(提及首现序)。
-   * 仅 H3 链路提交(entity_ids 字段);后端据此在绝对开头注入 @图片N 引用行
-   * (services/h3_refs,编号顺序=此数组序);空/未给 = 不携带,后端行为不变。
+   * H3 链路(entity_ids 字段)后端据此在绝对开头注入 @图片N 引用行
+   * (services/h3_refs,编号顺序=此数组序);phantom-s2v 由路由解析进参考图链
+   * (与显式上传合并 ≤4);其余引擎不携带,后端行为不变。
    */
   entityIds?: string[];
 }
@@ -421,6 +426,21 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
         ...(motionMask ? { motion_mask: motionMask } : {}),
       });
 
+    case "phantom-s2v":
+      // Phantom 角色一致性视频(1-4 张参考图):「引用主体」选择器已把主体图解析进
+      // 参考图链;prompt 内 @主体 entity_ids 由后端并入参考图链(与显式上传合计 ≤4)
+      return _postPhantom("/api/phantom/s2v", {
+        positive,
+        ...(negative ? { negative } : {}),
+        images: refImages!.map((r) => ({ filename: r.filename, worker: r.worker })),
+        ..._entityIdsPayload(entityIds),
+        width: _num(values, "width", 832),
+        height: _num(values, "height", 480),
+        num_frames: _num(values, "num_frames", 81),
+        accel: _str(values, "accel", "turbo") || "turbo",
+        seed,
+      });
+
     case "ace-music":
       // ACE-Step 1.5 文生音乐:positive 即风格标签(tags);歌词/时长/档位等走动态参数
       // steps/cfg 默认 0=按档位默认(turbo 8 步 cfg1 / quality 50 步 cfg5)
@@ -552,7 +572,27 @@ async function _postWan(path: string, body: object): Promise<GenerateResponse> {
   return res.json();
 }
 
-/** @主体引用负载(2026-08-26):仅 H3 链路携带 entity_ids;空/未给 → 不带字段,后端行为不变。 */
+/** Phantom 提交(POST /api/phantom/*):与 _postWan 同模式,422 展开首条校验信息。 */
+async function _postPhantom(path: string, body: object): Promise<GenerateResponse> {
+  const res = await apiFetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const detail = (await res.json().catch(() => null)) as { detail?: unknown } | null;
+    const msg = Array.isArray(detail?.detail)
+      ? ((detail.detail[0] as { msg?: string } | undefined)?.msg ?? "Phantom 请求参数校验失败")
+      : typeof detail?.detail === "string"
+        ? detail.detail
+        : `Phantom 角色一致性视频请求失败 (${res.status})`;
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
+/** @主体引用负载(2026-08-26):H3 链路(@图片N 引用行)与 phantom-s2v(路由解析进
+ *  参考图链)携带 entity_ids;空/未给 → 不带字段,后端行为不变。 */
 function _entityIdsPayload(entityIds?: string[]): { entity_ids: string[] } | Record<string, never> {
   return entityIds && entityIds.length > 0 ? { entity_ids: entityIds } : {};
 }

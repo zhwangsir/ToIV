@@ -40,7 +40,7 @@ from app.services.duration import (
     DurationPlan,
     resolve_duration,
 )
-from app.workflows.ltx_video import LtxT2VParams, build_ltx_t2v_graph
+from app.workflows.ltx_video import NSFW_LTX_T2V_BLOCKED, LtxT2VParams, build_ltx_t2v_graph
 
 logger = logging.getLogger(__name__)
 
@@ -416,6 +416,12 @@ class LtxVideoGenerator(VideoGenerator):
         if not prompt.strip():
             return VideoGenResult(success=False, model=self.name, error="提示词为空")
         if bool(kwargs.get("nsfw", False)):
+            # 2026-08-29:R18 LTX t2v 无首帧塌成色块;本生成器 NSFW 支路只走 t2v,
+            # 无首帧一律拒绝(有图请走 POST /api/ltx2/i2v / /api/generate/ltx-i2v)。
+            if not (image_url or "").strip():
+                return VideoGenResult(
+                    success=False, model=self.name, error=NSFW_LTX_T2V_BLOCKED,
+                )
             return await self._generate_nsfw_pool(
                 prompt, negative=negative, width=width, height=height,
                 duration_sec=duration_sec, fps=fps, seed=seed, worker=worker, **kwargs,

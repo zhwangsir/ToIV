@@ -283,7 +283,7 @@ async def test_ltx_nsfw_over_limit_returns_failure():
         result = await gen.generate("a boy walking", duration_sec=15, fps=30, nsfw=True)
 
     assert result.success is False
-    assert "单段上限" in result.error
+    assert "首帧" in result.error
     client.queue_prompt.assert_not_called()
 
 
@@ -306,11 +306,10 @@ async def test_ltx_nsfw_trim_plan_spawns_chain():
          patch("app.services.video_generators.spawn_duration_chain") as spawn_mock:
         result = await gen.generate("a boy walking", duration_sec=4.6, fps=16, nsfw=True)
 
-    assert result.success is True
-    g = client.queue_prompt.call_args[0][0]
-    assert g["10"]["inputs"]["length"] == 81  # 74 → 向上吸附 8k+1=81
-    assert spawn_mock.call_args.kwargs["plan"].strategy == "trim"
-    assert "精确裁至 4.6 秒" in result.duration_notice
+    assert result.success is False
+    assert "首帧" in result.error
+    client.queue_prompt.assert_not_called()
+    spawn_mock.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -331,9 +330,9 @@ async def test_ltx_nsfw_routes_to_pool_10eros():
     with patch("app.services.video_generators.get_settings", return_value=fake_settings):
         r_nsfw = await gen.generate("a boy walking", nsfw=True)
 
-    assert r_nsfw.success
-    g_nsfw = client.queue_prompt.call_args[0][0]
-    assert g_nsfw["1"]["inputs"]["unet_name"] == "10eros_v14.safetensors"
+    assert r_nsfw.success is False
+    assert "首帧" in r_nsfw.error
+    client.queue_prompt.assert_not_called()
 
 
 def test_get_generator_liveact():

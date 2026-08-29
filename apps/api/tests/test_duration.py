@@ -744,7 +744,7 @@ _NSFW = {"X-NSFW": "1"}
 
 
 def test_ltx_nsfw_route_duration_sec_direct(client, monkeypatch):
-    """R18 LTX duration_sec=6@16fps:96→97 帧 direct,无 notice,不挂链。"""
+    """R18 LTX t2v 无首帧锁优先于时长计划:duration_sec 合法也 422,不提交。"""
     c, eng = client
     with Session(eng) as s:
         uid = _seed_user(s, "dur-ltx-nsfw")
@@ -757,13 +757,13 @@ def test_ltx_nsfw_route_duration_sec_direct(client, monkeypatch):
         headers={"Authorization": f"Bearer {create_token(uid)}", **_NSFW},
         json={"positive": "a", "duration_sec": 6},
     )
-    assert r.status_code == 200, r.text
-    assert "duration_notice" not in r.json()
+    assert r.status_code == 422, r.text
+    assert "首帧" in r.json()["detail"]
     assert spawns == []
 
 
 def test_ltx_nsfw_route_duration_sec_over_limit_422(client, monkeypatch):
-    """R18 LTX 不支持 extend:duration_sec=16@16fps=256>241 → 422 + 单段上限提示。"""
+    """R18 LTX t2v 无首帧锁优先:超限 duration 也先 422 首帧提示(单段上限改测 i2v)。"""
     c, eng = client
     with Session(eng) as s:
         uid = _seed_user(s, "dur-ltx-nsfw-max")
@@ -776,7 +776,7 @@ def test_ltx_nsfw_route_duration_sec_over_limit_422(client, monkeypatch):
         json={"positive": "a", "duration_sec": 16},
     )
     assert r.status_code == 422
-    assert "单段上限" in r.json()["detail"]
+    assert "首帧" in r.json()["detail"]
 
 
 # ---------------------------------------------------------------------------
