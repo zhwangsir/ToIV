@@ -40,6 +40,12 @@ from app.services.lora_catalog import catalog_options
 # probe:async (pool) -> (available, reason|None);None 表示静态可用性(不做 pool 探测)
 ProbeFn = Callable[[WorkerPool], Awaitable["tuple[bool, str | None]"]]
 
+# 单路可用性探测/动态选项拉取的硬上限(秒):worker 驱动级挂死/掉线时,TCP 连接
+# 与读超时叠加曾把 /api/models/engines 拖到 34.2s(2026-08-30 P0)。所有 probe 与
+# 选项拉取都在 asyncio.wait_for 下运行且三路并发,整接口探测耗时硬上限 ≈ 本值;
+# 超时即降级为「不可用 + 原因」,绝不拖垮端点。
+_PROBE_HARD_TIMEOUT = 2.0
+
 # 引擎可用性短 TTL 缓存:可用性取决于 worker 状态,与请求用户无关,可跨请求共享。
 # /api/models/engines 是工作台首屏必调接口,QA-FULL-2026-08-11 实测串行探测
 # 0.55-3.37s 波动;并行 gather + 8s TTL 缓存后命中时零探测开销。
@@ -265,7 +271,7 @@ async def _probe_wan_animate2(pool: WorkerPool) -> tuple[bool, str | None]:
 
 
 # Qwen-Image-Edit 探测超时:实例挂起时不能拖垮 /api/models/engines 端点
-_QWEN_EDIT_PROBE_TIMEOUT = 8.0
+_QWEN_EDIT_PROBE_TIMEOUT = _PROBE_HARD_TIMEOUT
 
 
 async def _fetch_qwen_edit_meta() -> tuple[set[str], set[str]]:
@@ -1859,43 +1865,93 @@ def _inject_h3_lora_options(p: dict, loras: list[str] | None) -> dict:
     return p
 
 
+async def _probe_timed(spec_id: str, probe: ProbeFn, pool: WorkerPool) -> tuple[str, bool, str | None]:
+    """单路可用性探测(≤_PROBE_HARD_TIMEOUT 硬上限);超时/意外异常降级为不可用 + 原因。
+
+    probe 内部已有自己的降级语义;本层是兜底硬上限——worker 驱动级挂死时
+    pool.pick 内部的 model_names/node_names 用 30s 读超时,绝不能让它穿透到端点。
+    """
+    try:
+        available, reason = await asyncio.wait_for(probe(pool), timeout=_PROBE_HARD_TIMEOUT)
+        return spec_id, available, reason
+    except TimeoutError:
+        return spec_id, False, f"可用性探测超时(>{_PROBE_HARD_TIMEOUT:.0f}s,worker 可能挂死/掉线)"
+    except Exception as e:  # noqa: BLE001 — 探测绝不能拖垮端点
+        return spec_id, False, f"可用性探测失败: {e}"
+
+
+async def _timed_or_none(coro: Awaitable[Any]) -> Any:
+    """动态选项拉取的硬上限包装:超时/异常 → None(调用方回退声明态兜底)。"""
+    try:
+        return await asyncio.wait_for(coro, timeout=_PROBE_HARD_TIMEOUT)
+    except Exception:  # noqa: BLE001 — 含 TimeoutError;选项缺失不拖垮端点
+        return None
+
+
 async def list_engines(pool: WorkerPool, user: User | None = None) -> list[dict[str, Any]]:
     """返回引擎数组(按请求的 R18 上下文过滤 nsfw 引擎与 nsfw 选项)。
 
     每项:{ id, label, kind, available, unavailable_reason?, nsfw, description?, params, submit? }
     params 元素:{ key, label, type, options?, min?, max?, step?, default, hint? }
     profile 停用的引擎:available=False, unavailable_reason="disabled by profile"。
+
+    性能(2026-08-30 P0 根治):动态选项拉取、H3 LoRA 枚举、可用性探测三路并发发起,
+    每路 ≤_PROBE_HARD_TIMEOUT(2s)硬上限——此前 worker 挂死时探测串行叠加 TCP/读
+    超时,端点实测 34.2s。8s TTL 缓存命中时零探测。
     """
     _ensure_registry()
     r18 = nsfw_allowed(user)
-    # 动态选项(底模/采样器/调度器)惰性拉取:仅当引擎声明了 options_source 且
-    # 本次响应包含图像引擎时才访问 worker object_info,全失败回退声明态兜底。
-    dyn: dict[str, list[str]] | None = None
-    dyn_fetched = False
-    # H3 LoRA 选项走 H3 专用实例(非 pool),同样惰性一次拉取
-    h3_loras: list[str] | None = None
-    h3_loras_fetched = False
-    engines: list[dict[str, Any]] = []
-    pending: list[tuple[dict[str, Any], ProbeFn]] = []
+    specs = [s for s in _REGISTRY if not (s["nsfw"] and not r18)]
+
     now = time.monotonic()
     cache_fresh = (now - _avail_cache_at) < _AVAIL_TTL
-    for spec in _REGISTRY:
-        if spec["nsfw"] and not r18:
+
+    # 三路 IO 并发:① 图像表单动态选项(底模/采样器/调度器,来自 worker object_info);
+    # ② H3 LoRA 枚举(H3 专用实例);③ 各引擎可用性探测。全部带硬上限,失败各自
+    # 回退(声明态兜底 / 标不可用 + 原因),互不拖累。
+    need_dyn = any(
+        p.get("options_source") not in (None, "h3_loras")
+        for s in specs for p in s["params"]
+    )
+    need_h3_loras = any(
+        p.get("options_source") == "h3_loras"
+        for s in specs for p in s["params"]
+    )
+    dyn_task = (
+        asyncio.create_task(_timed_or_none(_image_form_options(pool))) if need_dyn else None
+    )
+    lora_task = (
+        asyncio.create_task(_timed_or_none(_fetch_h3_loras())) if need_h3_loras else None
+    )
+    probe_tasks: dict[str, asyncio.Task] = {}
+    for spec in specs:
+        if spec["id"] in _disabled_engines:
             continue
+        probe = spec.get("probe")
+        if probe is None:
+            continue
+        if cache_fresh and spec["id"] in _avail_cache:
+            continue
+        probe_tasks[spec["id"]] = asyncio.create_task(_probe_timed(spec["id"], probe, pool))
+
+    dyn = await dyn_task if dyn_task is not None else None
+    h3_loras = await lora_task if lora_task is not None else None
+    if probe_tasks:
+        for spec_id, task in probe_tasks.items():
+            _, available, reason = await task
+            _avail_cache[spec_id] = (available, reason)
+        _mark_avail_probed()
+
+    engines: list[dict[str, Any]] = []
+    for spec in specs:
         # 参数 schema:SFW 上下文剔除 nsfw 选项(如 ltx2 白名单里的 10eros)
         params: list[dict] = []
         for p in spec["params"]:
             p = dict(p)
             src = p.get("options_source")
             if src == "h3_loras":
-                if not h3_loras_fetched:
-                    h3_loras_fetched = True
-                    h3_loras = await _fetch_h3_loras()
                 p = _inject_h3_lora_options(p, h3_loras)
             elif src:
-                if not dyn_fetched:
-                    dyn_fetched = True
-                    dyn = await _image_form_options(pool)
                 p = _inject_dynamic_options(p, dyn)
             if p.get("options"):
                 p["options"] = [o for o in p["options"] if r18 or not o.get("nsfw")]
@@ -1924,31 +1980,15 @@ async def list_engines(pool: WorkerPool, user: User | None = None) -> list[dict[
         if spec["id"] in _disabled_engines:
             entry["available"] = False
             entry["unavailable_reason"] = "disabled by profile"
-            engines.append(entry)
-            continue
-
-        probe = spec.get("probe")
-        if probe is None:
+        elif spec.get("probe") is None:
             entry["available"] = bool(spec.get("static_available", False))
             if not entry["available"] and spec.get("static_reason"):
                 entry["unavailable_reason"] = spec["static_reason"]
-        elif cache_fresh and spec["id"] in _avail_cache:
+        else:
+            # 探测阶段已保证:缓存命中(新鲜)或刚探测完,_avail_cache 必有该 id
             available, reason = _avail_cache[spec["id"]]
             entry["available"] = available
             if not available and reason:
                 entry["unavailable_reason"] = reason
-        else:
-            pending.append((entry, probe))
         engines.append(entry)
-
-    # 可用性探测并行化:串行 await 16 个引擎 probe 曾使端点 0.55-3.37s 波动
-    # (QA-FULL-2026-08-11 P1);gather 后总耗时≈最慢单个 probe,结果写短 TTL 缓存。
-    if pending:
-        results = await asyncio.gather(*(probe(pool) for _, probe in pending))
-        for (entry, _), (available, reason) in zip(pending, results):
-            _avail_cache[entry["id"]] = (available, reason)
-            entry["available"] = available
-            if not available and reason:
-                entry["unavailable_reason"] = reason
-        _mark_avail_probed()
     return engines

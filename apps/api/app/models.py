@@ -61,6 +61,10 @@ class Job(SQLModel, table=True):
     seed: int = Field(default=0, sa_type=BigInteger)  # PG 须 BIGINT:种子上限 2**63-1(见 workflows/txt2img)
     nsfw: bool = False  # 该作品是否成人向(建档时由 checkpoint 是否 NSFW 决定)
     result: str = ""  # 完成后的产物 URL 列表(JSON)
+    # 失败原因(2026-08-30 P1-1):status=error 时的真实原因(tracker 孤儿/超时回收、
+    # ComfyUI execution_error、hold 超时、取消备注等);可空,空=无记录/非失败作业。
+    # 可空列(非 NOT NULL DEFAULT '')——历史行无需回填,jobs 列表/lookup API 透出。
+    error: Optional[str] = Field(default=None)
     # 时长后处理(trim/extend)标记:""=无/完成,processing=后台裁切链进行中
     # (此时 result 是未裁原片,前端结果区应显示「精确裁切中」而非直接播放)
     post_status: str = ""

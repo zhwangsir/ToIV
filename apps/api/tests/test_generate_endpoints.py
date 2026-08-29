@@ -169,6 +169,51 @@ def test_txt2img_rate_limited_429(client):
 
 
 # --------------------------------------------------------------------------- #
+# P2-7(2026-08-30):ComfyUI 错误码统一 —— worker 4xx 透传、5xx/无状态 → 502
+# (与 routes/video.py 的 _raise_from_comfy_error 同一语义,消除同场景 4xx/502 漂移)
+# --------------------------------------------------------------------------- #
+
+
+class _ErrClient(_FakeClient):
+    """queue_prompt 抛带状态码的 ComfyUIError 的替身。"""
+
+    def __init__(self, status_code: int | None) -> None:
+        super().__init__()
+        self._status = status_code
+
+    async def queue_prompt(self, graph: dict, client_id: str) -> str:
+        from app.comfy.client import ComfyUIError
+
+        raise ComfyUIError("worker 拒绝", status_code=self._status, detail="bad prompt")
+
+
+@pytest.mark.parametrize(
+    "worker_status, want",
+    [
+        (400, 400),   # worker 4xx(参数/图非法)透传,前端据此区分「用户输入问题」
+        (422, 422),
+        (500, 502),   # worker 内部错误不外泄,统一 502
+        (503, 503),   # 网关类状态码透传
+        (None, 502),  # 网络错误(无响应)→ 502
+    ],
+)
+def test_txt2img_comfy_error_status_unified(client, monkeypatch, worker_status, want):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, f"gen-err-{worker_status}")
+    _install_pool(_ErrClient(worker_status))
+    _install_tracker_noop(monkeypatch)
+    r = c.post(
+        "/api/generate/txt2img",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={"positive": "一只猫", "ckpt_name": _SFW_CKPT, "seed": 42},
+    )
+    assert r.status_code == want, r.text
+    # 失败不建档
+    assert _job_of(engine, uid) is None
+
+
+# --------------------------------------------------------------------------- #
 # txt2img 正常建档
 # --------------------------------------------------------------------------- #
 

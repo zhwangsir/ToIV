@@ -72,12 +72,18 @@ def image_url(worker: str, image: dict) -> str:
     return f"/api/images?{urlencode(params)}"
 
 
-def mark_status(prompt_id: str, status: str) -> None:
-    """更新状态(独立短会话);已完成/已取消的作业不回退。"""
+def mark_status(prompt_id: str, status: str, error: str | None = None) -> None:
+    """更新状态(独立短会话);已完成/已取消的作业不回退。
+
+    status="error" 时应尽量带 error 真实原因落库(2026-08-30 P1-1,
+    任务中心/作品库据此展示失败原因而非裸状态)。
+    """
     with Session(engine) as session:
         job = session.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
         if job and job.status not in ("done", "canceled"):
             job.status = status
+            if error is not None:
+                job.error = error
             session.add(job)
             session.commit()
 
@@ -138,10 +144,15 @@ def write_progress(
 
 
 def mark_done(prompt_id: str, urls: list[str]) -> None:
-    """完成时持久化状态与产物 URL;幂等(已 done 则跳过,避免重复写)。"""
+    """完成时持久化状态与产物 URL;幂等(done/canceled 终态跳过)。
+
+    canceled 同样是终态(2026-08-30 P0-3):用户取消后 tracker/SSE 迟到回写
+    不得把 canceled 复活成 done;error → done 的回写保留(2026-08-21 H-4 教训:
+    超时误标 error 但产物真实在盘时,回写才是修复)。
+    """
     with Session(engine) as session:
         job = session.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
-        if job and job.status != "done":
+        if job and job.status not in ("done", "canceled"):
             job.status = "done"
             job.result = json.dumps(urls)
             session.add(job)
@@ -154,6 +165,22 @@ async def record_result(client: ComfyUIClient, prompt_id: str) -> list[str]:
     urls = [image_url(client.base_url, f) for f in files]
     mark_done(prompt_id, urls)
     return urls
+
+
+def _history_error_reason(entry: dict) -> str:
+    """从 history 条目提取真实失败原因(execution_error 消息的 exception_message)。
+
+    ComfyUI status.messages 是 [事件类型, data] 列表;取最后一条 execution_error。
+    拿不到则给通用文案(失败原因列不允许空着落库,2026-08-30 P1-1)。
+    """
+    messages = (entry.get("status") or {}).get("messages") or []
+    for m in reversed(messages):
+        if isinstance(m, (list, tuple)) and len(m) > 1 and m[0] == "execution_error":
+            data = m[1] if isinstance(m[1], dict) else {}
+            msg = data.get("exception_message") or data.get("exception_type")
+            if msg:
+                return str(msg)
+    return "ComfyUI 执行失败(status_str=error,无明细)"
 
 
 async def _poll_once(client: ComfyUIClient, prompt_id: str) -> str | None:
@@ -184,11 +211,13 @@ async def _poll_once(client: ComfyUIClient, prompt_id: str) -> str | None:
         mark_done(prompt_id, [image_url(client.base_url, f) for f in files])
         return "done"
     if status.get("status_str") == "error":
-        mark_status(prompt_id, "error")
+        mark_status(prompt_id, "error", _history_error_reason(entry))
         return "error"
     if status.get("completed"):
-        mark_done(prompt_id, [])  # 完成但无产物(罕见)
-        return "done"
+        # 完成但无产物(2026-08-30 P2):mark_done([]) 会把「空结果」当成功展示,
+        # 比报错更难排查;标 error 并落原因,产物缺失由用户重试/排查。
+        mark_status(prompt_id, "error", "ComfyUI 报告完成但无任何产物文件")
+        return "error"
     return None
 
 
@@ -291,7 +320,10 @@ async def _track(
                         prompt_id,
                         strikes,
                     )
-                    mark_status(prompt_id, "error")
+                    mark_status(
+                        prompt_id, "error",
+                        "作业在 worker 队列与历史中均不存在(疑似 worker 重启丢失),已回收",
+                    )
                     return
             else:
                 strikes = 0
@@ -313,7 +345,7 @@ async def _track(
     logger.warning(
         "job tracker %s timed out after %.0fs, 标记 error 终态回收", prompt_id, timeout
     )
-    mark_status(prompt_id, "error")
+    mark_status(prompt_id, "error", f"追踪超时({timeout:.0f}s 无结果),已终态回收")
 
 
 def spawn(client: ComfyUIClient, prompt_id: str) -> None:
@@ -377,7 +409,10 @@ def reconcile_pending() -> int:
                 continue
             pending.append((j.prompt_id, j.worker))
     for prompt_id in stale:
-        mark_status(prompt_id, "error")
+        mark_status(
+            prompt_id, "error",
+            f"作业超龄(>{max_age:.0f}s)未终态,启动 reconcile 回收",
+        )
     if stale:
         logger.info(
             "reconcile: 回收 %d 个超龄(>%.0fs)未终态作业为 error", len(stale), max_age
@@ -454,7 +489,8 @@ async def wait_for_jobs(
                 results[pid] = json.loads(job.result) if job.result else []
                 done.add(pid)
             elif job.status == "error":
-                raise RuntimeError(f"作业 {pid} 执行失败")
+                detail = f": {job.error}" if job.error else ""
+                raise RuntimeError(f"作业 {pid} 执行失败{detail}")
             elif job.status == "canceled":
                 raise RuntimeError(f"作业 {pid} 已被用户取消")
         pending -= done

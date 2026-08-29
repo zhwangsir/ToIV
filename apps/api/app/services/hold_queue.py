@@ -152,6 +152,7 @@ def _fail_job(ticket_id: str, job_id: str, message: str) -> None:
         if job is not None and job.status == "held":
             job.status = "error"
             job.hold_reason = message
+            job.error = message  # 失败原因落库(2026-08-30 P1-1,与 hold_reason 同源)
             session.add(job)
         ticket = session.get(HeldJob, ticket_id)
         if ticket is not None:

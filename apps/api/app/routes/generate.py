@@ -21,6 +21,9 @@ from app.deps import get_current_user, get_pool, resolve_worker
 from app.models import Job, User
 from app.nsfw_ctx import nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
+# ComfyUI 错误码统一语义(2026-08-30 P2-7):worker 4xx 透传、5xx/无状态 → 502,
+# 消除与 routes/video.py 同场景 4xx/502 不一致;pool.pick 无可用 worker 仍 503。
+from app.routes.video import _raise_from_comfy_error
 from app.scoring import BestOfResult, ScorerUnavailable, ScoringService, get_scoring_service
 from app.versioning import params_snapshot
 from app.workflows.controlnet import (
@@ -315,7 +318,7 @@ async def _submit_txt2img(
     try:
          prompt_id = await client.queue_prompt(graph, client_id)
     except ComfyUIError as e:
-         raise HTTPException(status_code=502, detail=str(e)) from e
+         _raise_from_comfy_error(e)
 
     # 按租户记录作业(隔离 / 历史;P2 只隔离不计费)
     job = Job(
@@ -500,7 +503,7 @@ async def generate_txt2video(
     try:
          prompt_id = await client.queue_prompt(graph, client_id)
     except ComfyUIError as e:
-         raise HTTPException(status_code=502, detail=str(e)) from e
+         _raise_from_comfy_error(e)
 
     session.add(
          Job(
@@ -561,7 +564,7 @@ async def generate_hunyuan_video_i2v(
     try:
         prompt_id = await client.queue_prompt(graph, client_id)
     except ComfyUIError as e:
-        raise HTTPException(status_code=502, detail=str(e)) from e
+        _raise_from_comfy_error(e)
 
     session.add(
         Job(
@@ -713,7 +716,7 @@ async def generate_img2img(
     try:
          prompt_id = await client.queue_prompt(graph, client_id)
     except ComfyUIError as e:
-         raise HTTPException(status_code=502, detail=str(e)) from e
+         _raise_from_comfy_error(e)
 
     session.add(
          Job(
@@ -805,7 +808,7 @@ async def generate_controlnet(
     try:
          prompt_id = await client.queue_prompt(graph, client_id)
     except ComfyUIError as e:
-         raise HTTPException(status_code=502, detail=str(e)) from e
+         _raise_from_comfy_error(e)
 
     session.add(
          Job(
@@ -869,7 +872,7 @@ async def generate_upscale(
     try:
          prompt_id = await client.queue_prompt(graph, client_id)
     except ComfyUIError as e:
-         raise HTTPException(status_code=502, detail=str(e)) from e
+         _raise_from_comfy_error(e)
 
     session.add(
          Job(
@@ -942,7 +945,7 @@ async def generate_facedetailer(
     try:
          prompt_id = await client.queue_prompt(graph, client_id)
     except ComfyUIError as e:
-         raise HTTPException(status_code=502, detail=str(e)) from e
+         _raise_from_comfy_error(e)
 
     session.add(
          Job(
@@ -1054,12 +1057,12 @@ async def generate_raw(
     try:
          client = resolve_worker(req.worker) if req.worker else await pool.pick()
     except ComfyUIError as e:
-         raise HTTPException(status_code=502, detail=str(e)) from e
+         _raise_from_comfy_error(e)
     client_id = uuid.uuid4().hex
     try:
          prompt_id = await client.queue_prompt(req.graph, client_id)
     except ComfyUIError as e:
-         raise HTTPException(status_code=502, detail=str(e)) from e
+         _raise_from_comfy_error(e)
 
     session.add(
          Job(
@@ -1115,7 +1118,7 @@ async def generate_removebg(
     try:
          prompt_id = await client.queue_prompt(graph, client_id)
     except ComfyUIError as e:
-         raise HTTPException(status_code=502, detail=str(e)) from e
+         _raise_from_comfy_error(e)
 
     session.add(
          Job(
@@ -1185,7 +1188,7 @@ async def generate_inpaint(
     try:
          prompt_id = await client.queue_prompt(graph, client_id)
     except ComfyUIError as e:
-         raise HTTPException(status_code=502, detail=str(e)) from e
+         _raise_from_comfy_error(e)
 
     session.add(
          Job(
@@ -1302,7 +1305,7 @@ async def generate_qwen_edit(
     try:
         prompt_id = await client.queue_prompt(graph, client_id)
     except ComfyUIError as e:
-        raise HTTPException(status_code=502, detail=str(e)) from e
+        _raise_from_comfy_error(e)
 
     session.add(
         Job(
@@ -1367,7 +1370,7 @@ async def generate_frame_interpolate(
     try:
          prompt_id = await client.queue_prompt(graph, client_id)
     except ComfyUIError as e:
-         raise HTTPException(status_code=502, detail=str(e)) from e
+         _raise_from_comfy_error(e)
 
     session.add(
          Job(

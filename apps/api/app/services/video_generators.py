@@ -130,6 +130,20 @@ def _history_files(entry: dict) -> list[dict]:
     return files
 
 
+def _lookup_job_for_wait(hold_job_id: str | None, prompt_id: str) -> Job | None:
+    """等待循环的 DB 跟进查询(独立函数,测试可替身)。
+
+    查不到返回 None——调用方区分:hold-* 占位查不到是异常(抛「不存在」),
+    生成器版续段不建档(查不到属正常,跳过 held/cancel 检测,纯轮询 history)。
+    """
+    from app.db import engine as db_engine
+
+    with Session(db_engine) as s:
+        if hold_job_id:
+            return s.get(Job, hold_job_id)
+        return s.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
+
+
 async def _wait_files(
     client: Any,
     prompt_id: str,
@@ -137,7 +151,7 @@ async def _wait_files(
     timeout: float = _POST_WAIT_TIMEOUT,
     poll: float = _POST_POLL_INTERVAL,
 ) -> list[dict]:
-    """轮询 worker history 直到出现产物文件;执行报错/超时抛 RuntimeError。
+    """轮询 worker history 直到出现产物文件;执行报错/取消/超时抛 RuntimeError。
 
     超时按挂钟计(2026-08-20 修复):此前以 poll 累加计数,get_history 本身耗时
     (大 history 响应秒级)不计入,实际等待可达名义值的 ~1.4×(3600s 名义 →
@@ -147,29 +161,28 @@ async def _wait_files(
     永远不会出现在 worker history;每轮先从 DB 跟进:仍 held → 等待(豁免超时,
     同 tracker 排队豁免——排队是正常调度不是故障);放行 → 换真实 prompt_id
     继续等产物;error → 抛错让链回落原始产物。
+
+    取消传播(2026-08-30 P0-3):每轮检测 canceled 并抛错中断——续写链据此
+    停止提交后续段,取消后不再白烧 GPU。
     """
     deadline = time.monotonic() + timeout
-    hold_job_id: str | None = None  # 首次见到 held 作业后记 id,放行换名仍按 id 跟踪
+    hold_job_id: str | None = None  # 首次见到在库作业后记 id,放行/换名仍按 id 跟踪
     while time.monotonic() < deadline:
-        if hold_job_id is not None or prompt_id.startswith("hold-"):
-            from app.db import engine as db_engine
-
-            with Session(db_engine) as s:
-                job = (
-                    s.get(Job, hold_job_id)
-                    if hold_job_id
-                    else s.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
-                )
-            if job is None:
-                raise RuntimeError(f"作业 {prompt_id} 不存在")
+        job = _lookup_job_for_wait(hold_job_id, prompt_id)
+        if job is None and (hold_job_id is not None or prompt_id.startswith("hold-")):
+            raise RuntimeError(f"作业 {prompt_id} 不存在")
+        if job is not None:
             hold_job_id = job.id
+            if job.status == "canceled":
+                raise RuntimeError(f"作业 {prompt_id} 已被用户取消")
             if job.status == "held":
                 deadline = time.monotonic() + timeout  # hold 等待不计入超时窗口
                 await asyncio.sleep(poll)
                 continue
             if job.status == "error":
-                raise RuntimeError(f"作业 {prompt_id} 执行失败")
-            prompt_id = job.prompt_id  # 已放行:换成 worker 真实 prompt_id
+                detail = f": {job.error}" if job.error else ""
+                raise RuntimeError(f"作业 {prompt_id} 执行失败{detail}")
+            prompt_id = job.prompt_id  # held 已放行:换成 worker 真实 prompt_id
         try:
             history = await client.get_history(prompt_id)
         except ComfyUIError:
@@ -233,6 +246,7 @@ def rewrite_job_result(prompt_id: str, urls: list[str]) -> None:
 
     同一 commit 内清零 post_status:终产物与「裁切完成」状态原子生效,
     前端不会出现「已裁产物 + 仍显示裁切中」的中间态。
+    canceled 是终态(2026-08-30 P0-3):用户取消后迟到的链回写不得复活成 done。
     """
     from app.db import engine as db_engine
 
@@ -241,11 +255,45 @@ def rewrite_job_result(prompt_id: str, urls: list[str]) -> None:
         if job is None:
             logger.warning("时长后处理:Job %s 不存在,跳过产物回写", prompt_id)
             return
+        if job.status == "canceled":
+            logger.info("时长后处理:Job %s 已被用户取消,跳过产物回写", prompt_id)
+            return
         job.status = "done"
         job.result = json.dumps(urls)
         job.post_status = ""
         s.add(job)
         s.commit()
+
+
+def _register_chain_segment(first_prompt_id: str, seg_prompt_id: str) -> None:
+    """把续段 prompt_id 追加登记到首段 Job.params.extend_segment_ids。
+
+    用途单一:取消传播——cancel 端点对链式作业把已登记的成员段一并落 canceled
+    (见 routes/jobs._chain_segment_ids),否则取消首段后续段仍白烧 GPU。
+    失败仅记日志(登记缺失的最坏后果是传播不到,段自身仍会被 tracker 终态化)。
+    """
+    from app.db import engine as db_engine
+
+    try:
+        with Session(db_engine) as s:
+            job = s.exec(select(Job).where(Job.prompt_id == first_prompt_id)).first()
+            if job is None:
+                return  # 生成器版续段不建档,无登记对象
+            try:
+                snap = json.loads(job.params) if job.params else {}
+            except ValueError:
+                snap = {}
+            ids = snap.get("extend_segment_ids")
+            if not isinstance(ids, list):
+                ids = []
+            ids.append(seg_prompt_id)
+            snap["extend_segment_ids"] = ids
+            job.params = json.dumps(snap, ensure_ascii=False)
+            s.add(job)
+            s.commit()
+    except Exception as e:  # noqa: BLE001 — 登记失败不阻断续写链
+        logger.warning("续段登记 %s→%s 失败(取消传播将覆盖不到该段): %s",
+                       first_prompt_id, seg_prompt_id, e)
 
 
 async def run_duration_chain(
@@ -298,9 +346,10 @@ async def run_duration_chain(
                 frame_bytes = await asyncio.to_thread(frame_path.read_bytes)
                 if not frame_bytes:
                     raise RuntimeError("末帧抽取失败(ffmpeg 产物为空)")
-                seg_ids.append(
-                    await submit_next(frame_bytes, plan.segment_frames[i + 1], i + 1)  # type: ignore[misc]
-                )
+                seg_id = await submit_next(frame_bytes, plan.segment_frames[i + 1], i + 1)  # type: ignore[misc]
+                seg_ids.append(seg_id)
+                # 取消传播登记:cancel 首段时把已提交的续段一并落 canceled(P0-3)
+                _register_chain_segment(first_prompt_id, seg_id)
 
         final_path = tmp_dir / "final.mp4"
         await _concat_trim(seg_paths, final_path, trim_to, ffmpeg=ff)

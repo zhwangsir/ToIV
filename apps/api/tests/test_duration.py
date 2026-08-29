@@ -351,6 +351,121 @@ def test_wait_files_unreachable_then_ok():
     assert files[0]["filename"] == "a.mp4"
 
 
+# ---------------------------------------------------------------------------
+# P0-3(2026-08-30):取消是终态 —— 续写链检测 canceled 中断,回写不复活
+# ---------------------------------------------------------------------------
+
+
+def _mk_engine_with_job(monkeypatch, prompt_id: str, status: str):
+    """内存库 + 一条 Job;_wait_files/rewrite 的 app.db.engine 指过来。"""
+    eng = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+    SQLModel.metadata.create_all(eng)
+    monkeypatch.setattr("app.db.engine", eng)
+    with Session(eng) as s:
+        s.add(Job(tenant_id="t", user_id="u", prompt_id=prompt_id, worker="http://w",
+                  kind="h3_t2v", status=status, prompt="x", seed=1))
+        s.commit()
+    return eng
+
+
+def test_wait_files_canceled_raises(monkeypatch):
+    """_wait_files 每轮查库:作业已 canceled → 立即抛「已被用户取消」,不等产物。"""
+    _mk_engine_with_job(monkeypatch, "pid-c", "canceled")
+
+    class _NeverClient:
+        base_url = "http://w"
+
+        async def get_history(self, prompt_id: str) -> dict:
+            return {}  # 永无产物:若检测失效会一直轮询到超时
+
+    with pytest.raises(RuntimeError, match="已被用户取消"):
+        asyncio.run(vgen._wait_files(_NeverClient(), "pid-c", timeout=5, poll=0.01))
+
+
+def test_wait_files_error_carries_job_reason(monkeypatch):
+    """P1-1:作业 error 且 error 列有原因时,抛出信息带上真实原因。"""
+    eng = _mk_engine_with_job(monkeypatch, "pid-e", "error")
+    with Session(eng) as s:
+        job = s.exec(select(Job).where(Job.prompt_id == "pid-e")).first()
+        job.error = "显存不足"
+        s.add(job)
+        s.commit()
+
+    class _AnyClient:
+        base_url = "http://w"
+
+        async def get_history(self, prompt_id: str) -> dict:
+            return {}
+
+    with pytest.raises(RuntimeError, match="显存不足"):
+        asyncio.run(vgen._wait_files(_AnyClient(), "pid-e", timeout=5, poll=0.01))
+
+
+def test_chain_extend_stops_submitting_after_cancel(monkeypatch):
+    """续写链检测首段 canceled → 中断退出,后续段零提交(不白烧 GPU)。"""
+    _mk_engine_with_job(monkeypatch, "pid-first", "canceled")
+    plan = resolve_duration("h3", 20, 24)  # extend: [362, 124] 两段
+    assert plan.strategy == "extend"
+    submitted: list = []
+
+    class _NeverClient:
+        base_url = "http://w"
+
+        async def get_history(self, prompt_id: str) -> dict:
+            return {}
+
+    async def _submit_next(frame_bytes: bytes, frames: int, idx: int) -> str:
+        submitted.append(idx)
+        return "pid-next"
+
+    with pytest.raises(RuntimeError, match="已被用户取消"):
+        asyncio.run(
+            vgen.run_duration_chain(
+                client=_NeverClient(), plan=plan, first_prompt_id="pid-first",
+                submit_next=_submit_next, ffmpeg=_fake_ffmpeg_factory([]),
+            )
+        )
+    assert submitted == [], "取消后不得再提交续段"
+
+
+def test_chain_extend_registers_segment_ids_for_cancel_propagation(monkeypatch):
+    """续段提交后登记进首段 params.extend_segment_ids(cancel 端点传播依据)。"""
+    eng = _mk_engine_with_job(monkeypatch, "pid-1", "running")
+    client = _FakeChainClient()
+    plan = resolve_duration("h3", 20, 24)  # [362, 124]
+    finals: list = []
+
+    async def _submit_next(frame_bytes: bytes, frames: int, idx: int) -> str:
+        return "pid-2"
+
+    async def _on_final(urls):
+        finals.append(urls)
+
+    asyncio.run(
+        vgen.run_duration_chain(
+            client=client, plan=plan, first_prompt_id="pid-1",
+            submit_next=_submit_next, on_final=_on_final,
+            ffmpeg=_fake_ffmpeg_factory([]),
+        )
+    )
+    with Session(eng) as s:
+        job = s.exec(select(Job).where(Job.prompt_id == "pid-1")).first()
+        snap = json.loads(job.params)
+    assert snap["extend_segment_ids"] == ["pid-2"]
+
+
+def test_rewrite_job_result_skips_canceled(monkeypatch):
+    """P0-3:作业已 canceled 时 rewrite_job_result 不复活成 done、不改写产物。"""
+    eng = _mk_engine_with_job(monkeypatch, "pid-c2", "canceled")
+    vgen.rewrite_job_result("pid-c2", ["/final"])
+    with Session(eng) as s:
+        job = s.exec(select(Job).where(Job.prompt_id == "pid-c2")).first()
+        assert job.status == "canceled"
+        assert job.result == ""
+
+
 def test_rewrite_job_result(monkeypatch):
     """rewrite_job_result:Job 存在 → status/result 改写;不存在 → 仅日志不炸。"""
     eng = create_engine(

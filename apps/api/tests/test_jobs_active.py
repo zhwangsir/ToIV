@@ -346,3 +346,105 @@ def test_cancel_job_accepts_prompt_id(ctx):
     assert r.json()["status"] == "canceled"
     with Session(engine) as s:
         assert s.get(Job, jid).status == "canceled"
+
+
+# ---------------------------------------------------------------------------
+# P0-3/P1-1(2026-08-30):取消落 reason + 链式作业传播取消 + error 字段透出
+# ---------------------------------------------------------------------------
+def test_cancel_job_writes_reason_and_api_exposes_error(ctx):
+    """cancel 落「已被用户取消」原因;/jobs/lookup 与 /jobs 列表透出 error 字段。"""
+    client, token, _, engine = ctx
+    with Session(engine) as s:
+        j = _mk_job(s, "alice@toiv.ai", "cancel-reason-1", status="queued")
+
+    r = client.post(f"/api/jobs/{j.id}/cancel", headers=_h(token))
+    assert r.status_code == 200, r.text
+    with Session(engine) as s:
+        assert s.get(Job, j.id).error == "已被用户取消"
+
+    r2 = client.get("/api/jobs/lookup?prompt_id=cancel-reason-1", headers=_h(token))
+    assert r2.status_code == 200, r2.text
+    assert r2.json()["status"] == "canceled"
+    assert r2.json()["error"] == "已被用户取消"
+
+    r3 = client.get("/api/jobs?status=canceled", headers=_h(token))
+    hit = [x for x in r3.json() if x["prompt_id"] == "cancel-reason-1"]
+    assert hit and hit[0]["error"] == "已被用户取消"
+
+
+def test_cancel_chain_job_propagates_to_segments(ctx, monkeypatch):
+    """chain-* 合并作业取消:params.segment_prompt_ids 的成员段一并落 canceled +
+    尽力 worker 清场;已终态段不动;响应带 canceled_segments。"""
+    import app.routes.jobs as jobs_route
+
+    calls: list[str] = []
+
+    class _FakeClient:
+        def __init__(self, base_url: str, timeout: float = 0.0):
+            self.base_url = base_url
+
+        async def cancel_prompt(self, prompt_id: str) -> str:
+            calls.append(prompt_id)
+            return "dequeued"
+
+    monkeypatch.setattr(jobs_route, "ComfyUIClient", _FakeClient)
+
+    client, token, _, engine = ctx
+    with Session(engine) as s:
+        seg1 = _mk_job(s, "alice@toiv.ai", "seg-1", kind="transition", status="queued")
+        seg2 = _mk_job(s, "alice@toiv.ai", "seg-2", kind="transition", status="running")
+        done_seg = _mk_job(s, "alice@toiv.ai", "seg-0", kind="transition", status="done")
+        seg1_id, seg2_id, done_seg_id = seg1.id, seg2.id, done_seg.id
+        merged = _mk_job(
+            s, "alice@toiv.ai", "chain-abc123", kind="keyframe_chain", status="queued",
+        )
+        merged.params = json.dumps(
+            {"segment_prompt_ids": ["seg-0", "seg-1", "seg-2"], "total_duration": 10}
+        )
+        s.add(merged)
+        s.commit()
+        s.refresh(merged)
+        merged_id = merged.id  # commit 后实例过期,取值须在会话内
+
+    r = client.post(f"/api/jobs/{merged_id}/cancel", headers=_h(token))
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["worker_action"] == "skipped"  # chain-* 占位从未提交 worker
+    assert body["canceled_segments"] == 2  # done 段不动
+    assert sorted(calls) == ["seg-1", "seg-2"]  # 段各自尽力清场
+    with Session(engine) as s:
+        for jid, want in ((seg1_id, "canceled"), (seg2_id, "canceled"), (done_seg_id, "done")):
+            j2 = s.get(Job, jid)
+            assert j2.status == want, f"{j2.prompt_id} 应 {want}"
+        assert s.get(Job, seg1_id).error == "链式作业已被用户取消"
+
+
+def test_cancel_first_segment_propagates_to_extend_segments(ctx, monkeypatch):
+    """extend 续写链:首段 params.extend_segment_ids 登记的续段随取消一并落 canceled。"""
+    import app.routes.jobs as jobs_route
+
+    class _FakeClient:
+        def __init__(self, base_url: str, timeout: float = 0.0):
+            self.base_url = base_url
+
+        async def cancel_prompt(self, prompt_id: str) -> str:
+            return "interrupted"
+
+    monkeypatch.setattr(jobs_route, "ComfyUIClient", _FakeClient)
+
+    client, token, _, engine = ctx
+    with Session(engine) as s:
+        first = _mk_job(s, "alice@toiv.ai", "h3-first", kind="h3_t2v", status="running")
+        first.params = json.dumps({"extend_segment_ids": ["h3-ext-1"]})
+        s.add(first)
+        _mk_job(s, "alice@toiv.ai", "h3-ext-1", kind="h3_extend_i2v", status="queued")
+        s.commit()
+        s.refresh(first)
+        first_id = first.id  # commit 后实例过期,取值须在会话内
+
+    r = client.post(f"/api/jobs/{first_id}/cancel", headers=_h(token))
+    assert r.status_code == 200, r.text
+    assert r.json()["canceled_segments"] == 1
+    with Session(engine) as s:
+        seg = s.exec(select(Job).where(Job.prompt_id == "h3-ext-1")).first()
+        assert seg.status == "canceled"

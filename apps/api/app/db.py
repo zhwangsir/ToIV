@@ -74,6 +74,8 @@ _SQLITE_MIGRATIONS: tuple[tuple[str, str, str], ...] = (
     ("job", "quality_issues", "quality_issues VARCHAR NOT NULL DEFAULT ''"),
     # 全量进度体系(2026-08-29):生成进度快照 JSON(pct/step/total/queue_pos)
     ("job", "progress", "progress VARCHAR NOT NULL DEFAULT ''"),
+    # 失败原因落库(2026-08-30 P1-1):可空列,SQLite/PG 两侧 ADD COLUMN 均不需 DEFAULT
+    ("job", "error", "error VARCHAR"),
     # 数字人形象库(2026-08-27):reference_assets 支持 kind=avatar 的两列扩展
     # (绿幕素材标记 / 形象默认音色参考音频 URL)。BOOLEAN 默认值必须 FALSE(PG 不认 0)。
     ("reference_assets", "green_screen", "green_screen BOOLEAN NOT NULL DEFAULT FALSE"),

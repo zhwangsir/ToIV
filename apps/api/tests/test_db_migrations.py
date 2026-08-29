@@ -72,6 +72,25 @@ def test_successful_migrations_no_warning(_mem_engine, monkeypatch, caplog):
     assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
 
 
+def test_job_error_column_migration_present_and_idempotent(_mem_engine):
+    """P1-1(2026-08-30):job.error 可空列迁移存在、幂等(两次执行不炸)、可写可读。"""
+    assert ("job", "error", "error VARCHAR") in db._SQLITE_MIGRATIONS
+    with _mem_engine.begin() as conn:
+        conn.exec_driver_sql(
+            "CREATE TABLE IF NOT EXISTS job (id TEXT PRIMARY KEY, prompt_id TEXT, status TEXT)"
+        )
+    for _ in range(2):  # 跑两遍验证幂等(第二遍探测命中,直接跳过)
+        db._run_column_migrations()
+    with _mem_engine.begin() as conn:
+        cols = {r[1] for r in conn.exec_driver_sql('PRAGMA table_info("job")').fetchall()}
+        assert "error" in cols
+        # 可空:历史行不回填(NULL);新写入正常
+        conn.exec_driver_sql("INSERT INTO job (id, prompt_id, status) VALUES ('j1', 'p1', 'error')")
+        conn.exec_driver_sql("UPDATE job SET error='CUDA OOM' WHERE id='j1'")
+        row = conn.exec_driver_sql("SELECT error FROM job WHERE id='j1'").fetchone()
+        assert row[0] == "CUDA OOM"
+
+
 def test_job_index_migrations_present_and_idempotent(_mem_engine):
     """P1-9:Job 表 4 条索引迁移在 raw 迁移列表中,且对既有库可重复执行。"""
     raw = " ".join(db._SQLITE_RAW_MIGRATIONS)

@@ -17,7 +17,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, select
 
 import app.routes.jobs as jobs_route
 from app.db import get_session
@@ -224,7 +224,8 @@ def test_events_execution_error_pushes_error(client, monkeypatch):
 
     marked: list[tuple[str, str]] = []
     monkeypatch.setattr(
-        jobs_route, "mark_status", lambda pid, status: marked.append((pid, status))
+        jobs_route, "mark_status",
+        lambda pid, status, error=None: marked.append((pid, status)),
     )
     _install_no_warning(monkeypatch)
 
@@ -236,3 +237,83 @@ def test_events_execution_error_pushes_error(client, monkeypatch):
     assert "event: error" in r.text
     assert "boom" in r.text  # 上游异常信息透传给前端
     assert marked == [("p-err", "error")]  # 作业状态同步标记为 error
+
+
+def test_events_execution_error_persists_reason_to_db(client, monkeypatch):
+    """P1-1:execution_error 的真实原因除推 SSE 外还要落 Job.error 列。"""
+    import app.comfy.tracker as tracker_mod
+
+    c, engine = client
+    monkeypatch.setattr(jobs_route, "engine", engine)
+    # 真实 mark_status 走 tracker 模块级 engine,一并指向内存库
+    monkeypatch.setattr(tracker_mod, "engine", engine)
+    with Session(engine) as s:
+        uid, tid = _seed_user(s, "evt-err-db")
+        _seed_job(s, tenant_id=tid, user_id=uid, prompt_id="p-err-db")
+
+    fake = _FakeClient(files=[])
+    monkeypatch.setattr(jobs_route, "resolve_worker", lambda worker: fake)
+    frames = [
+        json.dumps(
+            {
+                "type": "execution_error",
+                "data": {"prompt_id": "p-err-db", "exception_message": "CUDA OOM"},
+            }
+        )
+    ]
+    monkeypatch.setattr(
+        jobs_route.websockets, "connect", lambda url, **kw: _FakeWSConn(frames)
+    )
+    _install_no_warning(monkeypatch)
+
+    r = c.get(
+        "/api/jobs/p-err-db/events?client_id=c1&worker=http://fake-worker",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+    )
+    assert r.status_code == 200, r.text
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.prompt_id == "p-err-db")).first()
+        assert job.status == "error"
+        assert job.error == "CUDA OOM"
+
+
+# --------------------------------------------------------------------------- #
+# P0-2(2026-08-30):传输层断线不误判业务失败 —— 不标 error,终态交 tracker 回收
+# --------------------------------------------------------------------------- #
+
+
+def test_events_ws_disconnect_does_not_mark_error(client, monkeypatch):
+    """WS 连接/传输异常:流以 network_error 事件结束,DB 状态保持 queued(不标 error)。"""
+    c, engine = client
+    monkeypatch.setattr(jobs_route, "engine", engine)
+    with Session(engine) as s:
+        uid, tid = _seed_user(s, "evt-net")
+        _seed_job(s, tenant_id=tid, user_id=uid, prompt_id="p-net")
+
+    fake = _FakeClient(files=[])
+    monkeypatch.setattr(jobs_route, "resolve_worker", lambda worker: fake)
+
+    def _boom_connect(url, **kw):  # noqa: ANN001
+        raise ConnectionError("worker 连接被重置")
+
+    monkeypatch.setattr(jobs_route.websockets, "connect", _boom_connect)
+
+    marked: list[tuple] = []
+
+    def _spy_mark(*args):  # noqa: ANN002
+        marked.append(args)
+
+    monkeypatch.setattr(jobs_route, "mark_status", _spy_mark)
+    _install_no_warning(monkeypatch)
+
+    r = c.get(
+        "/api/jobs/p-net/events?client_id=c1&worker=http://fake-worker",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+    )
+    assert r.status_code == 200, r.text
+    assert "event: network_error" in r.text
+    assert "event: error" not in r.text  # 传输断线不推业务 error 事件
+    assert marked == [], "传输层断线绝不允许 mark_status"
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.prompt_id == "p-net")).first()
+        assert job.status == "queued"  # 终态交回 tracker 孤儿/超时回收

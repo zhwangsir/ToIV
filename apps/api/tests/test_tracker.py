@@ -74,6 +74,95 @@ def test_mark_status_does_not_downgrade_done(db):
     assert _job(db).status == "done"
 
 
+# ────────────────────────────────
+# P0-3(2026-08-30):canceled 是终态,mark_done 不得复活
+# ────────────────────────────────
+
+def test_mark_done_does_not_revive_canceled(db):
+    """取消后 tracker/SSE 迟到的 mark_done 不得把 canceled 复活成 done。"""
+    tracker.mark_status("p1", "canceled")
+    tracker.mark_done("p1", ["/api/images?filename=late.png"])
+    j = _job(db)
+    assert j.status == "canceled"
+    assert j.result == ""  # 产物不回写
+
+
+def test_mark_done_still_recovers_error(db):
+    """error → done 的回写保留(H-4:超时误标 error 但产物真实在盘时,回写才是修复)。"""
+    tracker.mark_status("p1", "error", "追踪超时")
+    tracker.mark_done("p1", ["/api/images?filename=a.png"])
+    assert _job(db).status == "done"
+
+
+# ────────────────────────────────
+# P1-1(2026-08-30):失败原因落库
+# ────────────────────────────────
+
+def test_mark_status_error_persists_reason(db):
+    tracker.mark_status("p1", "error", "显存不足")
+    j = _job(db)
+    assert j.status == "error"
+    assert j.error == "显存不足"
+
+
+def test_poll_once_error_persists_history_reason(db):
+    """status_str=error 时从 status.messages 提取 execution_error 真实原因落库。"""
+    hist = {
+        "p1": {
+            "outputs": {},
+            "status": {
+                "completed": False,
+                "status_str": "error",
+                "messages": [
+                    ["execution_start", {"prompt_id": "p1"}],
+                    ["execution_error", {"prompt_id": "p1", "exception_message": "CUDA out of memory"}],
+                ],
+            },
+        }
+    }
+    out = asyncio.run(tracker._poll_once(_FakeClient(hist), "p1"))
+    assert out == "error"
+    assert _job(db).error == "CUDA out of memory"
+
+
+def test_poll_once_error_without_messages_has_fallback_reason(db):
+    """messages 缺失时落通用文案(失败原因列不允许空着)。"""
+    hist = {"p1": {"outputs": {}, "status": {"completed": False, "status_str": "error"}}}
+    asyncio.run(tracker._poll_once(_FakeClient(hist), "p1"))
+    assert _job(db).error  # 非空
+
+
+# ────────────────────────────────
+# P2(2026-08-30):完成但无产物 → error(不再 mark_done([]) 冒充成功)
+# ────────────────────────────────
+
+def test_poll_once_completed_without_files_marks_error(db):
+    hist = {"p1": {"outputs": {}, "status": {"completed": True, "status_str": "success"}}}
+    out = asyncio.run(tracker._poll_once(_FakeClient(hist), "p1"))
+    assert out == "error"
+    j = _job(db)
+    assert j.status == "error"
+    assert "无产物" in j.error or "无任何产物" in j.error
+
+
+def test_track_timeout_writes_error_reason(db, monkeypatch):
+    """超时回收落 error + 原因(P1-1)。"""
+    _fast_track(monkeypatch, queue_check_interval=1e9)
+    asyncio.run(tracker._track(_FakeClient({}), "p1", timeout=0.05))
+    j = _job(db)
+    assert j.status == "error"
+    assert "超时" in (j.error or "")
+
+
+def test_track_orphan_writes_error_reason(db, monkeypatch):
+    """孤儿回收落 error + 原因(P1-1)。"""
+    _fast_track(monkeypatch)
+    asyncio.run(tracker._track(_FakeQueueClient({}, queue=set()), "p1", timeout=30.0))
+    j = _job(db)
+    assert j.status == "error"
+    assert "重启丢失" in (j.error or "") or "不存在" in (j.error or "")
+
+
 def test_poll_once_done_with_files(db):
     hist = {
         "p1": {

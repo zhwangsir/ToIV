@@ -1026,6 +1026,78 @@ async def test_wan_engines_unavailable_when_instance_down(live_pool, user, longc
 
 
 # --------------------------------------------------------------------------- #
+# P0-1(2026-08-30):worker 挂死/掉线时端点硬上限 —— 探测全并发 + 单路 ≤2s
+# --------------------------------------------------------------------------- #
+
+class _HungClient:
+    """worker 替身:所有调用永久挂起(模拟驱动级挂死,TCP 连着但永不响应)。"""
+
+    base_url = "http://hung-worker"
+
+    async def queue_len(self) -> int:
+        await asyncio.sleep(60)
+        return 0
+
+    async def model_names(self) -> set[str]:
+        await asyncio.sleep(60)
+        return set()
+
+    async def node_names(self) -> set[str]:
+        await asyncio.sleep(60)
+        return set()
+
+    async def object_info(self, node: str) -> dict:
+        await asyncio.sleep(60)
+        return {}
+
+
+async def test_engines_endpoint_hard_cap_when_workers_hung(
+    user, monkeypatch, h3_stub, longcat_stub, qwen_edit_stub, wan_animate2_stub
+):
+    """pool worker 挂死 + 全部专用实例挂起:/api/models/engines 必须在 <3s 内响应
+    (此前串行探测 + 30s 读超时叠加实测 34.2s);挂死引擎标不可用且带原因。"""
+    # 全部专用实例探测一并挂起(h3 loras 由 h3_lora_stub 替身,默认即刻返回;
+    # 覆盖三路 IO:dyn 选项 / 专用实例探测 / pool probes)
+    monkeypatch.setattr(engine_registry, "_fetch_h3_nodes", lambda: asyncio.sleep(60))
+    monkeypatch.setattr(engine_registry, "_fetch_longcat_nodes", lambda: asyncio.sleep(60))
+    monkeypatch.setattr(engine_registry, "_fetch_animate2_nodes", lambda: asyncio.sleep(60))
+    monkeypatch.setattr(
+        engine_registry,
+        "_fetch_qwen_edit_meta",
+        lambda: asyncio.sleep(60),
+    )
+    pool = WorkerPool([_HungClient(), _HungClient()])
+
+    t0 = time.monotonic()
+    engines = await list_engines(pool, user)
+    elapsed = time.monotonic() - t0
+    assert elapsed < 3.0, f"worker 挂死时端点 {elapsed:.1f}s,超 3s 硬上限"
+
+    ids = _by_id(engines)
+    # 挂死的 pool/实例探测全部降级为不可用 + 原因,而非拖垮或漏标
+    assert ids["txt2img"]["available"] is False
+    assert "超时" in ids["txt2img"]["unavailable_reason"]
+    assert ids["h3-t2v"]["available"] is False
+    # 探测结果进 8s TTL 缓存:二次调用不再重复探测可用性(动态选项拉取不走该缓存,
+    # worker 挂死时仍有 2s 硬上限兜底——断言的是「永不回到 34s」,不是瞬时)
+    t1 = time.monotonic()
+    await list_engines(pool, user)
+    assert time.monotonic() - t1 < 3.0, "TTL 命中 + 硬上限下二次调用也必须 <3s"
+
+
+async def test_probe_timed_converts_timeout_to_unavailable(user):
+    """单路探测超 _PROBE_HARD_TIMEOUT → (False, 超时原因),不向上抛。"""
+
+    async def _hung(pool):
+        await asyncio.sleep(60)
+        return True, None
+
+    spec_id, ok, reason = await engine_registry._probe_timed("x", _hung, None)
+    assert spec_id == "x" and ok is False
+    assert "超时" in reason
+
+
+# --------------------------------------------------------------------------- #
 # Wan-Animate-2 引擎(原生节点 :8199,独立实例探测,与 v1 wrapper 路线无关)
 # --------------------------------------------------------------------------- #
 

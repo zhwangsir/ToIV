@@ -88,6 +88,9 @@ def _job_dict(j: Job) -> dict:
         # 资源预算二期:held 作业的排队原因(资源不足说明/超时说明);非 held 为空串。
         # 纯增量键,旧前端忽略;status=held 属未知状态,前端按排队态展示不炸。
         "hold_reason": j.hold_reason or "",
+        # 失败原因(2026-08-30 P1-1):status=error 时的真实原因(tracker/SSE 落库);
+        # 纯增量键,空串=无记录/非失败作业,旧前端忽略
+        "error": j.error or "",
         # 内容分组 id(360° 环绕序列同批归组):无分组为空串;从 params 快照解析
         "batch_id": _batch_id_of(j),
     }
@@ -300,6 +303,23 @@ def delete_job(
     }
 
 
+def _chain_segment_ids(job: Job) -> list[str]:
+    """链式作业的成员段 prompt_id 列表(取消传播对象)。
+
+    两个来源(均为 params 快照内的登记,不新增列):
+    - keyframe_chain 合并作业:params.segment_prompt_ids(建档时写入,routes/wan_studio);
+    - 时长续写链(trim/extend)首段:params.extend_segment_ids(后台链提交续段时追加,
+      见 services/video_generators._register_chain_segment)。
+    params 损坏/缺失 → 空列表(只取消作业本身)。
+    """
+    try:
+        snap = json.loads(job.params) if job.params else {}
+    except ValueError:
+        return []
+    ids = snap.get("segment_prompt_ids") or snap.get("extend_segment_ids") or []
+    return [p for p in ids if isinstance(p, str)]
+
+
 @router.post("/jobs/{job_id}/cancel")
 async def cancel_job(
     job_id: str,
@@ -314,6 +334,8 @@ async def cancel_job(
     - DB 先落 canceled 终态(tracker 视 canceled 为终态:不再回写状态/进度,
       追踪协程下轮自检退出;wait_for_jobs 抛「已被用户取消」→ 三视图回写标 error
       允许重试);
+    - 链式作业传播(2026-08-30 P0-3):chain-* 合并作业/extend 首段被取消时,
+      成员段(已在 params 登记)一并落 canceled 并尽力清场——否则段继续白烧 GPU;
     - worker 侧尽力清场:pending 从 ComfyUI 队列删除,running 发 /interrupt;
       held/占位 prompt_id(hold-*/chain-*)从未提交,跳过;worker 不可达不阻塞
       取消本身(DB 终态已落,残留由 tracker 孤儿回收兜底)。
@@ -328,27 +350,53 @@ async def cancel_job(
 
     prev_status = job.status
     job.status = "canceled"
+    job.error = "已被用户取消"
     session.add(job)
     audit.record(
         session, user=user, action="job.cancel", target_type="job", target_id=job.id,
         summary=f"中止作业:{(job.prompt or '')[:40]}",
         detail={"kind": job.kind, "prev_status": prev_status, "prompt_id": job.prompt_id},
     )
+
+    # 链式作业取消传播:成员段落同一终态(已终态的段不动)
+    segments: list[Job] = []
+    for seg_pid in _chain_segment_ids(job):
+        seg = session.exec(
+            select(Job).where(Job.prompt_id == seg_pid, Job.user_id == user.id)
+        ).first()
+        if seg is None or seg.status in ("done", "error", "canceled"):
+            continue
+        seg.status = "canceled"
+        seg.error = "链式作业已被用户取消"
+        session.add(seg)
+        segments.append(seg)
     session.commit()
 
-    worker_action = "skipped"
-    if (
-        job.worker
-        and job.prompt_id
-        and not job.prompt_id.startswith(("hold-", "chain-"))
-    ):
+    async def _worker_cancel(target: Job) -> str:
+        if (
+            not target.worker
+            or not target.prompt_id
+            or target.prompt_id.startswith(("hold-", "chain-"))
+        ):
+            return "skipped"
         try:
-            client = ComfyUIClient(job.worker, timeout=8.0)
-            worker_action = await client.cancel_prompt(job.prompt_id)
+            client = ComfyUIClient(target.worker, timeout=8.0)
+            return await client.cancel_prompt(target.prompt_id)
         except Exception as e:  # noqa: BLE001 — worker 清场失败不回滚 DB 终态
-            logger.warning("cancel job %s: worker 侧清场失败(%s),DB 已落 canceled", job.id, e)
-            worker_action = "worker_unreachable"
-    return {"ok": True, "id": job_id, "status": "canceled", "worker_action": worker_action}
+            logger.warning("cancel job %s: worker 侧清场失败(%s),DB 已落 canceled", target.id, e)
+            return "worker_unreachable"
+
+    worker_action = await _worker_cancel(job)
+    for seg in segments:
+        await _worker_cancel(seg)
+    return {
+        "ok": True,
+        "id": job_id,
+        "status": "canceled",
+        "worker_action": worker_action,
+        # 传播取消的成员段数量(纯增量键,旧前端忽略)
+        "canceled_segments": len(segments),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -894,11 +942,16 @@ async def job_events(
                         yield done_event
                         break
                     elif mtype == "execution_error" and data.get("prompt_id") == prompt_id:
-                        mark_status(prompt_id, "error")
-                        yield {"event": "error", "data": json.dumps({"message": data.get("exception_message", "执行失败")})}
+                        # 业务失败(worker 执行报错):标 error 并把真实原因落库
+                        message = data.get("exception_message", "执行失败")
+                        mark_status(prompt_id, "error", str(message))
+                        yield {"event": "error", "data": json.dumps({"message": message})}
                         break
         except (OSError, ComfyUIError, websockets.WebSocketException) as e:
-            mark_status(prompt_id, "error")
-            yield {"event": "error", "data": json.dumps({"message": str(e)})}
+            # 传输层断线 ≠ 业务失败(2026-08-30 P0-2):WS 中断/网络抖动只结束流,
+            # 绝不 mark_status error——作业终态交回 tracker 的孤儿/超时回收判定。
+            # 此前这里直接标 error,worker 重启瞬间会把「其实能跑完」的作业误杀。
+            logger.warning("job %s SSE 传输层断开(不改作业状态,终态交 tracker 回收): %s", prompt_id, e)
+            yield {"event": "network_error", "data": ""}
 
     return EventSourceResponse(stream())

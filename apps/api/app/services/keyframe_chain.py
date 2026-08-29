@@ -258,8 +258,12 @@ async def run_keyframe_chain_merge(
 _merge_tasks: set[asyncio.Task] = set()
 
 
-def _mark_chain_error(prompt_id: str) -> None:
-    """合并失败:合并作业标 error 终态(段作业产物各自保留,不空转 queued)。"""
+def _mark_chain_error(prompt_id: str, reason: str = "") -> None:
+    """合并失败:合并作业标 error 终态(段作业产物各自保留,不空转 queued)。
+
+    canceled 是终态(2026-08-30 P0-3):用户取消传播后,合并链因段被取消而中断,
+    不得把 canceled 覆盖成 error。
+    """
     from app.db import engine as db_engine
     from sqlmodel import Session, select
 
@@ -270,7 +274,12 @@ def _mark_chain_error(prompt_id: str) -> None:
         if job is None:
             logger.warning("关键帧链合并:Job %s 不存在,跳过 error 标记", prompt_id)
             return
+        if job.status == "canceled":
+            logger.info("关键帧链合并:Job %s 已被用户取消,跳过 error 标记", prompt_id)
+            return
         job.status = "error"
+        if reason:
+            job.error = reason  # 失败原因落库(2026-08-30 P1-1)
         s.add(job)
         s.commit()
 
@@ -300,7 +309,7 @@ def spawn_keyframe_chain_merge(
         except Exception as e:  # noqa: BLE001 — 后台链绝不能冒泡;段产物各自保留
             logger.warning("关键帧链合并 %s 失败(段产物仍各自保留): %s", merged_prompt_id, e)
             vgen.mark_post_processing(merged_prompt_id, "")
-            _mark_chain_error(merged_prompt_id)
+            _mark_chain_error(merged_prompt_id, str(e)[:500])
 
     task = asyncio.create_task(_runner())
     _merge_tasks.add(task)
