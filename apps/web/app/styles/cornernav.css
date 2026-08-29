@@ -371,6 +371,11 @@
   padding: var(--space-3);
   max-height: 60vh;
   overflow-y: auto;
+  /* 2026-08-29 修复:长 prompt(nowrap)会把 auto 宽度面板撑出视口右缘,
+     中止按钮/等待时长被裁掉;固定内容宽度 + 视口上限,prompt 走 ellipsis */
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  overflow-x: hidden;
 }
 .taskcenter-pop-title {
   font-size: var(--text-label);
@@ -392,6 +397,8 @@
   padding: var(--space-2);
   border-radius: var(--radius-control);
   background: var(--bg-surface-2);
+  /* flex 子项 min-width:auto 会按 min-content 撑破父宽,置 0 让 prompt ellipsis 生效 */
+  min-width: 0;
 }
 .taskcenter-item-head {
   display: flex;
