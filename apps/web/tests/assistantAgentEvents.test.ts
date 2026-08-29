@@ -36,6 +36,7 @@ const {
   upsertProposalCard,
   markProposalResolved,
   applyJobSnapshots,
+  markJobCanceled,
   isJobCardActive,
   jobCardStatusLabel,
   mediaTypeForJob,
@@ -153,6 +154,9 @@ test("AssistantView:作业卡 8s 轮询(列表+id 过滤)+ done 复用媒体渲�
   assert.ok(src.includes('j.status === "done" && j.results?.length'), "done 未渲染产物");
   assert.ok(src.includes("renderAvMedia"), "done 未复用 renderAvMedia");
   assert.ok(src.includes("mediaTypeForJob(j.kind, u)"), "done 产物未按 kind 分流媒体类型");
+  assert.ok(src.includes("onJobCancel"), "作业卡缺停止");
+  assert.ok(src.includes("cancelJob(jobId)"), "作业卡停止未 cancelJob");
+  assert.ok(src.includes("已中止"), "缺已中止徽章文案");
 });
 
 /* ── ④ 保活与不活跃超时(2026-08-24「回复失败:服务暂时不可用」修复) ── */
@@ -330,8 +334,9 @@ test("jobCardStatusLabel / isJobCardActive / mediaTypeForJob", () => {
   assert.equal(jobCardStatusLabel("running"), "运行中");
   assert.equal(jobCardStatusLabel("done"), "完成");
   assert.equal(jobCardStatusLabel("error"), "失败");
+  assert.equal(jobCardStatusLabel("canceled"), "已中止");
   assert.ok(isJobCardActive("queued") && isJobCardActive("held") && isJobCardActive("running"));
-  assert.ok(!isJobCardActive("done") && !isJobCardActive("error"));
+  assert.ok(!isJobCardActive("done") && !isJobCardActive("error") && !isJobCardActive("canceled"));
   // kind 映射优先,未知 kind 按扩展名兜底
   assert.equal(mediaTypeForJob("txt2img", "x.png"), "image");
   assert.equal(mediaTypeForJob("h3_t2v", "x"), "video");
@@ -384,4 +389,28 @@ test("sessionHasAssistantAfterLastUser:最后一条 user 之后要有助手文�
     { role: "user", content: "hi" },
     { role: "tool", content: "{}", media: [{ urls: ["/a.png"] }] },
   ]), true);
+});
+
+test("markJobCanceled:进行中卡片落 canceled,已终态不动", () => {
+  const running = makeMsg("a1", "assistant", {
+    jobs: [{ jobId: "j1", kind: "txt2img", status: "running", label: "x" }],
+  });
+  const next = markJobCanceled([running], "j1");
+  assert.equal(next[0].jobs?.[0].status, "canceled");
+  const done = makeMsg("a2", "assistant", {
+    jobs: [{ jobId: "j2", kind: "txt2img", status: "done", label: "x" }],
+  });
+  const doneArr = [done];
+  assert.equal(markJobCanceled(doneArr, "j2"), doneArr, "终态卡片引用不变");
+});
+
+
+test("AssistantView composer Stop:abort SSE 且 cancelJob 本轮进行中作业", () => {
+  const src = readSrc("components/assistant/AssistantView.tsx");
+  assert.ok(src.includes("const onStop = useCallback"), "缺 onStop");
+  const fn = src.slice(src.indexOf("const onStop = useCallback"));
+  assert.ok(fn.includes("abortControllerRef.current?.abort()"), "Stop 未 abort SSE");
+  assert.ok(fn.includes("isJobCardActive"), "Stop 未扫进行中作业卡");
+  assert.ok(fn.includes("cancelJob(id)"), "Stop 未 cancelJob 已提交作业");
+  assert.ok(src.includes("停止本轮回复并中止已提交的生成作业"), "Stop 按钮未标明会中止作业");
 });

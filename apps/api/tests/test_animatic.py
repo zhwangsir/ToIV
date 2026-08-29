@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 import re
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -72,19 +71,21 @@ def ctx(tmp_path, monkeypatch):
 
 def _fake_run_ok(out_dir: Path, captured: list):
     """模拟 ssh ffmpeg 成功:在 core 侧 outputs 造出同名成片(NAS 双向可见)。"""
-    def fake_run(cmd, **kwargs):
-        captured.append(cmd)
-        remote = cmd[-1]
-        name = Path(remote.rsplit(" ", 1)[-1]).name
+    def fake_ffmpeg(remote_cmd: str, job_id: str = "") -> None:
+        captured.append([
+            "ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
+            "merlin@192.168.71.127", remote_cmd,
+        ])
+        name = Path(remote_cmd.rsplit(" ", 1)[-1]).name
         out_dir.mkdir(parents=True, exist_ok=True)
         (out_dir / name).write_bytes(b"\x00\x00\x00\x18ftypmp42")
-        return subprocess.CompletedProcess(cmd, 0, "", "")
 
-    return fake_run
+    return fake_ffmpeg
 
 
-def _fake_run_fail(cmd, **kwargs):
-    return subprocess.CompletedProcess(cmd, 1, "", "x" * 600 + "boom-tail")
+def _fake_run_fail(remote_cmd: str, job_id: str = "") -> None:
+    from fastapi import HTTPException
+    raise HTTPException(status_code=502, detail="x" * 600 + "boom-tail")
 
 
 def _post(client, auth, files, data):
@@ -220,7 +221,7 @@ def test_unauthenticated_401(ctx):
 def test_create_success(ctx, monkeypatch):
     client, auth, imp, out = ctx
     captured: list = []
-    monkeypatch.setattr("subprocess.run", _fake_run_ok(out, captured))
+    monkeypatch.setattr("app.routes.animatic._run_ffmpeg", _fake_run_ok(out, captured))
 
     files = [
         ("images", ("b.png", _PNG, "image/png")),
@@ -258,7 +259,7 @@ def test_create_success(ctx, monkeypatch):
 def test_odd_dimensions_snapped_even(ctx, monkeypatch):
     client, auth, _, out = ctx
     captured: list = []
-    monkeypatch.setattr("subprocess.run", _fake_run_ok(out, captured))
+    monkeypatch.setattr("app.routes.animatic._run_ffmpeg", _fake_run_ok(out, captured))
     files = [("images", ("a.jpg", _JPG, "image/jpeg"))]
     r = _post(
         client, auth, files,
@@ -270,7 +271,7 @@ def test_odd_dimensions_snapped_even(ctx, monkeypatch):
 
 def test_ffmpeg_failure_502_and_cleanup(ctx, monkeypatch):
     client, auth, imp, out = ctx
-    monkeypatch.setattr("subprocess.run", _fake_run_fail)
+    monkeypatch.setattr("app.routes.animatic._run_ffmpeg", _fake_run_fail)
     files = [("images", ("a.jpg", _JPG, "image/jpeg"))]
     r = _post(client, auth, files, {"durations": json.dumps([3.0])})
     assert r.status_code == 502
@@ -284,10 +285,11 @@ def test_ffmpeg_failure_502_and_cleanup(ctx, monkeypatch):
 def test_ffmpeg_timeout_502(ctx, monkeypatch):
     client, auth, _, _ = ctx
 
-    def _timeout(cmd, **kwargs):
-        raise subprocess.TimeoutExpired(cmd, 300)
+    def _timeout(remote_cmd: str, job_id: str = "") -> None:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=502, detail="ffmpeg 执行超时(300s)")
 
-    monkeypatch.setattr("subprocess.run", _timeout)
+    monkeypatch.setattr("app.routes.animatic._run_ffmpeg", _timeout)
     files = [("images", ("a.jpg", _JPG, "image/jpeg"))]
     r = _post(client, auth, files, {"durations": json.dumps([3.0])})
     assert r.status_code == 502
@@ -319,3 +321,27 @@ def test_output_served(ctx):
     assert r.status_code == 200
     assert r.headers["content-type"] == "video/mp4"
     assert r.content == b"\x00\x00\x00\x18ftypmp42"
+
+
+def test_kill_animatic_ffmpeg_kills_popen():
+    from app.routes import animatic as m
+
+    class FakeProc:
+        def __init__(self):
+            self.killed = False
+
+        def poll(self):
+            return None
+
+        def kill(self):
+            self.killed = True
+
+    proc = FakeProc()
+    m._active_ffmpeg["jobkill1"] = proc  # type: ignore[assignment]
+    try:
+        m.kill_animatic_ffmpeg("jobkill1")
+        assert "jobkill1" in m._killed_ffmpeg
+        assert proc.killed
+    finally:
+        m._active_ffmpeg.pop("jobkill1", None)
+        m._killed_ffmpeg.discard("jobkill1")

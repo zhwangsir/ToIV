@@ -25,8 +25,10 @@ import {
   deleteJobsBatch,
   kindLabel,
   kindToFilter,
+  kindsQueryForFilter,
   LIBRARY_DENSITY_KEY,
   loadDensity,
+  makeSeqGate,
   persistDensity,
   type LibraryQuery,
 } from "../lib/libraryQuery";
@@ -116,14 +118,44 @@ test("libraryQuery:chromakey/i2l/motion_brush/wan_animate* 分桶与短名", () 
   assert.equal(kindToFilter("motion_brush"), "image");
   assert.equal(kindToFilter("wan_animate"), "video");
   assert.equal(kindToFilter("wan_animate2"), "video");
+  assert.equal(kindToFilter("h3_extend_i2v"), "video");
   assert.equal(kindLabel("chromakey"), "抠像");
   assert.equal(kindLabel("i2l"), "风格LoRA");
   assert.equal(kindLabel("motion_brush"), "局部动效");
   assert.equal(kindLabel("wan_animate"), "动作迁移");
   assert.equal(kindLabel("wan_animate2"), "动作迁移2");
+  assert.equal(kindLabel("h3_extend_i2v"), "长视频续写");
   // 引擎 id(连字符)不是 Job.kind
   assert.equal(kindToFilter("wan-animate"), null);
   assert.equal(kindToFilter("wan-animate-2"), null);
+});
+
+test("kindsQueryForFilter:全部空串,类型桶逗号多值含 h3_extend_i2v", () => {
+  assert.equal(kindsQueryForFilter("all"), "");
+  const video = kindsQueryForFilter("video");
+  assert.ok(video.includes("h3_t2v") && video.includes("h3_extend_i2v"), "视频桶须含 H3 文生/续写 kind");
+  assert.ok(kindsQueryForFilter("image").includes("txt2img"));
+});
+
+test("kindsQueryForFilter:3D/图像桶带 cad_/drama_char_reference_ 前缀给服务端", () => {
+  const d3 = kindsQueryForFilter("3d").split(",");
+  const image = kindsQueryForFilter("image").split(",");
+  assert.ok(d3.includes("cad_"), "3D 桶须带 cad_ 前缀 token");
+  assert.ok(d3.includes("hunyuan3d"), "3D 桶仍含精确 kind");
+  assert.ok(image.includes("drama_char_reference_"), "图像桶须带 drama_char_reference_ 前缀 token");
+  assert.equal(kindsQueryForFilter("video").includes("cad_"), false);
+  assert.equal(kindsQueryForFilter("all"), "");
+});
+
+test("makeSeqGate:next 递增,旧序号在 next 后失效;peek 不递增", () => {
+  const g = makeSeqGate();
+  assert.equal(g.peek(), 0);
+  const a = g.next();
+  const b = g.next();
+  assert.equal(g.isLive(a), false);
+  assert.equal(g.isLive(b), true);
+  assert.equal(g.peek(), b);
+  assert.equal(g.isLive(g.peek()), true);
 });
 
 test("搜索:按 prompt 过滤,大小写不敏感,首尾空白忽略,空词不过滤", () => {
@@ -277,6 +309,7 @@ test("api.ts:fetchJobsPage 带 limit/offset;首页走 JOBS_PAGE_LIMIT", () => {
   const src = readSrc("lib/api.ts");
   assert.ok(src.includes("export async function fetchJobsPage"), "fetchJobsPage 未导出");
   assert.ok(src.includes("offset=${offset}"), "分页未带 offset");
+  assert.ok(src.includes("&kind="), "fetchJobsPage 须可带 kind 过滤");
   assert.ok(src.includes("export const JOBS_PAGE_LIMIT = 200"), "首页档应为 200(后端上限)");
   // fetchJobsRaw 必须走分页函数(首页),不允许裸调 /api/jobs(默认 50 截断)
   const raw = src.slice(src.indexOf("async function fetchJobsRaw"));
@@ -324,6 +357,12 @@ test("LibraryView 新结构类名锚点 + library.css 16/9 与 token 收编", ()
   assert.ok(src.includes("persistDensity"), "密度未持久化");
   assert.ok(src.includes("deleteJobsBatch"), "批量删除未走批量 helper");
   assert.ok(src.includes("applyLibraryQuery"), "查询未走统一管线");
+  assert.ok(src.includes("kindsQueryForFilter"), "类型 chip 未走服务端 kind 过滤");
+  assert.ok(src.includes("makeSeqGate"), "chip 连点未接序号门闩");
+  assert.ok(src.includes("jobsFetchGate.isLive"), "过期 fetchJobsPage 响应未丢弃");
+  assert.ok(src.includes('className="lib-nsfw-badge"'), "缺 18+ chip");
+  assert.ok(src.includes("else if (isBlurred) toggleReveal"), "模糊卡须先揭示再进灯箱");
+  assert.ok(!src.includes("else if (isNsfw) toggleReveal"), "已揭示 R18 卡不得再拦截打开");
 
   const css = readSrc("app/styles/library.css");
   assert.ok(css.includes("aspect-ratio: 16 / 9"), "缩略图未固定 16/9");

@@ -95,6 +95,19 @@ test("LibraryTrashView:恢复/彻底删除走 api 导出,彻底删除 Modal 二�
   assert.ok(trash.includes("formatRetention(job.restore_remaining_seconds)"), "卡片未显示剩余保留期");
 });
 
+test("LibraryTrashView:缩略图点击进灯箱,NSFW 先揭示;恢复/彻底删除仍在卡片脚部", () => {
+  const src = readSrc("components/library/LibraryView.tsx");
+  const trash = src.slice(src.indexOf("export function LibraryTrashView"));
+  assert.ok(trash.includes("LibraryLightbox"), "回收站未接灯箱");
+  assert.ok(trash.includes("previewOnly"), "回收站灯箱须 previewOnly,避免误删/误恢复");
+  assert.ok(trash.includes("lib-thumb-hit"), "回收站缩略图未做成可点预览");
+  assert.ok(trash.includes("if (isBlurred) toggleReveal"), "NSFW 须先揭示再进灯箱");
+  assert.ok(trash.includes("lib-trash-actions"), "恢复/彻底删除入口须留在卡片脚部");
+  assert.ok(trash.includes("permanentDeleteJob("), "彻底删除未走 permanentDeleteJob");
+  assert.ok(trash.includes("restoreJob("), "恢复未走 restoreJob");
+  assert.equal(trash.includes("onDelete={"), false, "灯箱不得挂删除,以免加厚删除路径");
+});
+
 /* ── ⑤ api.ts 契约 ── */
 test("api.ts:fetchTrash/restoreJob/permanentDeleteJob 路径与方法", () => {
   const src = readSrc("lib/api.ts");

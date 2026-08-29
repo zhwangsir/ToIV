@@ -94,11 +94,17 @@ export const saveStudioShots = (
   calls.saveStudioShots++;
   return impl.saveStudioShots(pid, shots);
 };
-export const renderStudioShot = (sid: string): Promise<StudioShot> => {
+export const renderStudioShot = (
+  sid: string,
+  _opts?: { signal?: AbortSignal },
+): Promise<StudioShot> => {
   calls.renderStudioShot++;
   return impl.renderStudioShot(sid);
 };
-export const renderStudioAll = (pid: string): Promise<{ rendered: number; failed: number }> => {
+export const renderStudioAll = (
+  pid: string,
+  _opts?: { signal?: AbortSignal },
+): Promise<{ rendered: number; failed: number }> => {
   calls.renderStudioAll++;
   return impl.renderStudioAll(pid);
 };
@@ -428,6 +434,9 @@ export const assetFromJob = async (_body: {
   worker?: string;
 }): Promise<{ filename: string; worker: string }> => ({ filename: "mock.wav", worker: "mock-worker" });
 export const deleteJob = async (_jobId: string): Promise<{ undo_token?: string }> => ({});
+export const cancelJob = async (_jobId: string): Promise<{ ok: boolean; status: string; worker_action: string }> => ({
+  ok: true, status: "canceled", worker_action: "skipped",
+});
 export const undoDelete = async (_undoToken: string): Promise<void> => {};
 export const invalidateJobs = (): void => undefined;
 /** 回收站替身(2026-08-23,LibraryTrashView 链接期需要):默认空桶,用例按需覆盖 impl。 */

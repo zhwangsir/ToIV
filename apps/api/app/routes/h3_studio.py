@@ -289,20 +289,46 @@ async def generate_h3_t2v(
         "positive": positive,
         "loras": [H3LoraInput(name=p.name, strength=max(0.5, min(1.0, p.strength))) for p in picks],
     })
-    params = H3T2VParams(
-        positive=positive,
-        negative=req.negative,
-        width=req.width,
-        height=req.height,
-        length=plan.frames,
-        steps=req.steps,
-        loras=specs,
-        **({"seed": req.seed} if req.seed is not None else {}),
-    )
-    graph = build_h3_t2v_graph(params)
+    seed_kw = {"seed": req.seed} if req.seed is not None else {}
+    handle = None
+    if req.entity_ids:
+        from app.services.h3_refs import first_frame_handle_from_entities
+        handle = first_frame_handle_from_entities(session, req.entity_ids, owner_id=user.id)
+    h3_client = None
+    if handle:
+        # 有主体封面:转运 1 张作 i2v first_frame(本 pass 不做 9-ref)
+        h3_client = await h3_service.pick_h3_client()
+        source = resolve_worker(handle["worker"])
+        image_name = await h3_service.transfer_ref_image(h3_client, source, handle["filename"])
+        params = H3I2VParams(
+            positive=positive,
+            negative=req.negative,
+            image=image_name,
+            width=req.width,
+            height=req.height,
+            length=plan.frames,
+            steps=req.steps,
+            loras=specs,
+            **seed_kw,
+        )
+        graph = build_h3_i2v_graph(params)
+        kind = "h3_i2v"
+    else:
+        params = H3T2VParams(
+            positive=positive,
+            negative=req.negative,
+            width=req.width,
+            height=req.height,
+            length=plan.frames,
+            steps=req.steps,
+            loras=specs,
+            **seed_kw,
+        )
+        graph = build_h3_t2v_graph(params)
+        kind = "h3_t2v"
     result = await h3_service.submit_h3_job(
-        graph, kind="h3_t2v", positive=params.positive, seed=params.seed,
-        req=req, user=user, session=session,
+        graph, kind=kind, positive=params.positive, seed=params.seed,
+        req=req, user=user, session=session, client=h3_client,
         # 仅显式 body.nsfw / 钉选 R18 LoRA 打标;X-NSFW 头只做门控
         nsfw=nsfw,
         snapshot_extra={
@@ -358,7 +384,7 @@ class H3MultiShotRequest(BaseModel):
     # 均分模式:全部镜头 duration_sec 留空时必填;自定义模式忽略(总长=各镜头之和)
     total_duration: float | None = Field(default=None, gt=0, le=multishot.MAX_TOTAL_SEC)
     negative: str = Field(default="", max_length=2000)
-    loras: list[H3LoraInput] = Field(default_factory=list, max_length=_MAX_LORAS)
+    loras: list[H3LoraInput] | None = Field(default=None, max_length=_MAX_LORAS)
     width: int = Field(default=1344, ge=256, le=1344)
     height: int = Field(default=768, ge=256, le=1344)
     steps: int = Field(default=20, ge=1, le=50)
@@ -444,24 +470,38 @@ async def generate_h3_multishot(
     # 主体引用注入(与 t2v 同层同序:effect 之后,@图片N 恒在绝对开头)
     t2v_req = _apply_entity_refs(t2v_req, session, user)
     plan = _resolve_plan(t2v_req)
+    nsfw_intent = _h3_explicit_nsfw(req, user)
+    nsfw = _h3_job_nsfw(req, user)
+    specs, picks, lora_mode, lora_reason, positive = _resolve_h3_loras(
+        t2v_req.positive, user, req.loras, nsfw_intent=nsfw_intent,
+    )
+    t2v_req = t2v_req.model_copy(update={
+        "positive": positive,
+        "loras": [H3LoraInput(name=p.name, strength=max(0.5, min(1.0, p.strength))) for p in picks],
+    })
     params = H3T2VParams(
-        positive=t2v_req.positive,
+        positive=positive,
         negative=t2v_req.negative,
         width=t2v_req.width,
         height=t2v_req.height,
         length=plan.frames,
         steps=t2v_req.steps,
-        loras=tuple(LoraSpec(name=l.name, weight=l.strength) for l in t2v_req.loras),
+        loras=specs,
         **({"seed": t2v_req.seed} if t2v_req.seed is not None else {}),
     )
     graph = build_h3_t2v_graph(params)
-    nsfw = _h3_job_nsfw(req, user)
     result = await h3_service.submit_h3_job(
         graph, kind="h3_multishot", positive=params.positive, seed=params.seed,
         # params 快照存多镜头计划(shots + total_duration,精确重生的事实源)
         req=req, user=user, session=session,
-        nsfw=nsfw,  # 仅显式意图打标(同 t2v)
+        nsfw=nsfw,  # 仅显式意图打标(同 t2v);nsfw 已拷进 inner t2v_req
+        snapshot_extra={
+            "loras": snapshot_loras(picks), "lora_mode": lora_mode, "lora_reason": lora_reason,
+        },
     )
+    result["loras"] = snapshot_loras(picks)
+    result["lora_mode"] = lora_mode
+    result["lora_reason"] = lora_reason
     # 多镜头总长 ≤15s 单段上限,策略仅 direct/trim(不触发 extend,无需续段回调)
     if plan.strategy != "direct":
         client = await h3_service.pick_h3_client()

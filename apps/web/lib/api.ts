@@ -1,4 +1,5 @@
 import { CACHE_KEYS, TTL, invalidate, swr } from "./swr-cache";
+import { isParseAbortError, studioParsePollDecision, STUDIO_PARSE_POLL_MS } from "./studioParseUx";
 import type {
   AdminUser,
   GenerateResponse,
@@ -364,8 +365,9 @@ export async function generateTxt2img(
 
 /** 单页拉取(作品库服务端分页,2026-08-16):limit ≤200(后端上限),offset 位置偏移。
     首页走 swr 缓存(fetchJobsRaw),后续页直连网络不进缓存(防 localStorage 膨胀)。 */
-export async function fetchJobsPage(offset: number, limit = 200): Promise<JobItem[]> {
-  const res = await apiFetch(`/api/jobs?limit=${limit}&offset=${offset}`, { headers: authHeaders() });
+export async function fetchJobsPage(offset: number, limit = 200, kind = ""): Promise<JobItem[]> {
+  const kindQ = kind ? `&kind=${encodeURIComponent(kind)}` : "";
+  const res = await apiFetch(`/api/jobs?limit=${limit}&offset=${offset}${kindQ}`, { headers: authHeaders() });
   if (!res.ok) throw new Error(`加载作品失败 (${res.status})`);
   return res.json();
 }
@@ -1455,7 +1457,7 @@ export async function nasDownload(params: {
 
 export interface NasDownloadStatus {
   id: string;
-  status: "running" | "done" | "error";
+  status: "running" | "done" | "error" | "canceled";
   stage: string;
   progress: number;
   downloaded_mb: number;
@@ -2041,7 +2043,7 @@ async function manjuReq<T>(
   path: string,
   method: string,
   body?: unknown,
-  opts?: ApiFetchOptions,
+  opts?: ApiFetchOptions & { signal?: AbortSignal },
 ): Promise<T> {
   const res = await apiFetch(
     `/api${path}`,
@@ -2049,6 +2051,7 @@ async function manjuReq<T>(
       method,
       headers: { "Content-Type": "application/json", ...authHeaders() },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      ...(opts?.signal ? { signal: opts.signal } : {}),
     },
     opts,
   );
@@ -2102,12 +2105,16 @@ export interface ManjuVoiceResult {
  *   → { url: "/api/manju/voice/voice-xxx.wav", name, duration_sec }
  * ref_audio_url 传角色定妆音色(本 API 资产/白名单 worker)则克隆该音色,否则用兜底音。
  */
-export const synthManjuVoice = (body: {
-  text: string;
-  emo_text?: string;
-  emo_alpha?: number;
-  ref_audio_url?: string;
-}): Promise<ManjuVoiceResult> => manjuReq("/manju/voice", "POST", body);
+export const synthManjuVoice = (
+  body: {
+    text: string;
+    emo_text?: string;
+    emo_alpha?: number;
+    ref_audio_url?: string;
+  },
+  opts?: { signal?: AbortSignal },
+): Promise<ManjuVoiceResult> =>
+  manjuReq("/manju/voice", "POST", body, { longRequest: true, signal: opts?.signal });
 
 /**
  * 上传角色定妆音色参考音(任意音频 → 后端 ffmpeg 归一为 wav 存档)。
@@ -2486,7 +2493,7 @@ export async function importSrtDub(file: File): Promise<{ segments: DubTextSegme
 
 interface TranscribeStatus {
   id: string;
-  status: "running" | "done" | "error";
+  status: "running" | "done" | "error" | "canceled";
   stage: string;
   count: number;
   segments: DubTextSegment[];
@@ -2510,26 +2517,68 @@ export interface JobProgress {
 export async function transcribeDub(
   name: string,
   onProgress?: (p: JobProgress) => void,
+  signal?: AbortSignal,
 ): Promise<{ segments: DubTextSegment[]; count: number }> {
   const startRes = await apiFetch(`/api/dub/transcribe`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ name }),
+    signal,
   });
   if (!startRes.ok) await raiseApiError(startRes, "听写启动失败");
   const { job_id: jobId } = (await startRes.json()) as { job_id: string };
 
-  // 轮询至终态(2s/次,上限 ~12 分钟)
-  for (let i = 0; i < 360; i++) {
-    await new Promise((r) => setTimeout(r, 2000));
-    const res = await apiFetch(`/api/dub/transcribe/${jobId}`, { headers: authHeaders() });
-    if (!res.ok) continue; // 抖动,下次再试
-    const s = (await res.json()) as TranscribeStatus;
-    onProgress?.({ stage: s.stage, progress: s.progress, elapsed: s.elapsed });
-    if (s.status === "done") return { segments: s.segments, count: s.count };
-    if (s.status === "error") throw new Error(s.error ?? "听写失败");
+  const cancelOnce = async (): Promise<void> => {
+    try {
+      await cancelJob(jobId);
+    } catch {
+      /* 409 已终态 / 网络失败:本地已停 */
+    }
+  };
+
+  try {
+    // 轮询至终态(2s/次,上限 ~12 分钟)
+    for (let i = 0; i < 360; i++) {
+      if (signal?.aborted) {
+        await cancelOnce();
+        throw new DOMException("已中止", "AbortError");
+      }
+      await new Promise<void>((resolve, reject) => {
+        const onAbort = (): void => {
+          clearTimeout(timer);
+          reject(new DOMException("已中止", "AbortError"));
+        };
+        const timer = setTimeout(() => {
+          signal?.removeEventListener("abort", onAbort);
+          resolve();
+        }, 2000);
+        if (!signal) return;
+        if (signal.aborted) onAbort();
+        else signal.addEventListener("abort", onAbort);
+      });
+      const res = await apiFetch(`/api/dub/transcribe/${jobId}`, {
+        headers: authHeaders(),
+        signal,
+      });
+      if (!res.ok) continue; // 抖动,下次再试
+      const s = (await res.json()) as TranscribeStatus;
+      onProgress?.({ stage: s.stage, progress: s.progress, elapsed: s.elapsed });
+      if (s.status === "done") return { segments: s.segments, count: s.count };
+      if (s.status === "canceled") {
+        await cancelOnce();
+        throw new DOMException("已中止", "AbortError");
+      }
+      if (s.status === "error") throw new Error(s.error ?? "听写失败");
+    }
+    throw new Error("听写超时");
+  } catch (e) {
+    if (signal?.aborted || isParseAbortError(e)) {
+      await cancelOnce();
+      if (isParseAbortError(e)) throw e;
+      throw new DOMException("已中止", "AbortError");
+    }
+    throw e;
   }
-  throw new Error("听写超时");
 }
 
 /** 批量翻译到目标语(口语自然、贴近朗读时长)。契约:POST /api/dub/translate。 */
@@ -3896,6 +3945,7 @@ export async function createDramaProjectFromImage(params: {
   height?: number;
   fps?: number;
   auto?: boolean;
+  signal?: AbortSignal;
 }): Promise<DramaFromImageResult> {
   const fd = new FormData();
   for (const f of params.images) fd.append("images", f);
@@ -3913,6 +3963,7 @@ export async function createDramaProjectFromImage(params: {
       method: "POST",
       headers: authHeaders(), // 不要手动设 Content-Type,让浏览器带 boundary
       body: fd,
+      signal: params.signal,
     },
     { longRequest: true },
   );
@@ -3934,7 +3985,10 @@ export interface AudioSeparateResult {
  * 分离服务未配置/不可达时后端返回 503/502 带清晰原因,detail 原样抛出展示。
  * 同步管线:大文件分离耗时长 → 放宽到 180s。
  */
-export async function separateAudio(file: File): Promise<AudioSeparateResult> {
+export async function separateAudio(
+  file: File,
+  opts?: { signal?: AbortSignal },
+): Promise<AudioSeparateResult> {
   const fd = new FormData();
   fd.append("file", file);
   const res = await apiFetch(
@@ -3943,6 +3997,7 @@ export async function separateAudio(file: File): Promise<AudioSeparateResult> {
       method: "POST",
       headers: authHeaders(), // 不要手动设 Content-Type,让浏览器带 boundary
       body: fd,
+      signal: opts?.signal,
     },
     { longRequest: true },
   );
@@ -4119,7 +4174,7 @@ async function studioReq<T>(
   path: string,
   method: string,
   body?: unknown,
-  opts?: ApiFetchOptions,
+  opts?: ApiFetchOptions & { signal?: AbortSignal },
   fallback = "创作工作室请求失败",
 ): Promise<T> {
   const res = await apiFetch(
@@ -4128,6 +4183,7 @@ async function studioReq<T>(
       method,
       headers: { "Content-Type": "application/json", ...authHeaders() },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      ...(opts?.signal ? { signal: opts.signal } : {}),
     },
     opts,
   );
@@ -4167,35 +4223,76 @@ export const deleteStudioProject = (pid: string): Promise<{ ok: boolean }> =>
   studioReq(`/studio/projects/${pid}`, "DELETE");
 
 /** LLM 剧本拆解(2026-08-29 异步化:提交→Job→2s 轮询,根治长文本撞 120s fetch 墙);
- *  拆解结果不落库,前端确认后走 CRUD 保存;轮询上限 8 分钟(覆盖 L3 长输出)。 */
+ *  拆解结果不落库,前端确认后走 CRUD 保存;轮询上限 8 分钟(覆盖 L3 长输出)。
+ *  2026-08-30:超时/用户中止都 cancelJob,避免「前端报超时、后台还在跑」。 */
 export const parseStudioScript = async (
   pid: string,
   body: { premise: string; num_shots?: number; style?: string },
+  opts?: { signal?: AbortSignal },
 ): Promise<StudioParseResult> => {
   const submitted = await studioReq<{ job_id: string; status: string }>(
     `/studio/projects/${pid}/script/parse`,
     "POST",
     body,
+    { signal: opts?.signal },
   );
-  const deadline = Date.now() + 8 * 60_000;
-  // 首轮立即查(短剧本可能秒回),后续 2s 间隔
-  for (;;) {
-    const st = await studioReq<{
-      status: string;
-      characters?: StudioParseResult["characters"];
-      shots?: StudioParseResult["shots"];
-      error?: string;
-    }>(`/studio/projects/${pid}/script/parse/${submitted.job_id}`, "GET");
-    if (st.status === "done") {
-      return { characters: st.characters ?? [], shots: st.shots ?? [] };
+  const started = Date.now();
+  let canceled = false;
+  const cancelOnce = async (): Promise<void> => {
+    if (canceled) return;
+    canceled = true;
+    try {
+      await cancelJob(submitted.job_id);
+    } catch {
+      /* 409 已终态 / 网络失败:本地已停,任务中心可再中止 */
     }
-    if (st.status === "error" || st.status === "canceled") {
-      throw new Error(st.error || "拆解失败,请重试");
+  };
+  try {
+    for (;;) {
+      if (opts?.signal?.aborted) {
+        await cancelOnce();
+        throw new DOMException("已中止", "AbortError");
+      }
+      const st = await studioReq<{
+        status: string;
+        characters?: StudioParseResult["characters"];
+        shots?: StudioParseResult["shots"];
+        error?: string;
+      }>(`/studio/projects/${pid}/script/parse/${submitted.job_id}`, "GET", undefined, {
+        signal: opts?.signal,
+      });
+      const decision = studioParsePollDecision(st.status, Date.now() - started);
+      if (decision === "done") {
+        return { characters: st.characters ?? [], shots: st.shots ?? [] };
+      }
+      if (decision === "fail") {
+        throw new Error(st.error || "拆解失败,请重试");
+      }
+      if (decision === "timeout") {
+        await cancelOnce();
+        throw new Error("拆解超时(8 分钟),作业已中止,请缩短剧本后重试");
+      }
+      await new Promise<void>((resolve, reject) => {
+        const onAbort = (): void => {
+          clearTimeout(timer);
+          reject(new DOMException("已中止", "AbortError"));
+        };
+        const timer = setTimeout(() => {
+          opts?.signal?.removeEventListener("abort", onAbort);
+          resolve();
+        }, STUDIO_PARSE_POLL_MS);
+        if (!opts?.signal) return;
+        if (opts.signal.aborted) onAbort();
+        else opts.signal.addEventListener("abort", onAbort);
+      });
     }
-    if (Date.now() >= deadline) {
-      throw new Error("拆解超时(8 分钟),请重试或缩短剧本");
+  } catch (e) {
+    if (opts?.signal?.aborted || isParseAbortError(e)) {
+      await cancelOnce();
+      if (isParseAbortError(e)) throw e;
+      throw new DOMException("已中止", "AbortError");
     }
-    await new Promise((r) => setTimeout(r, 2000));
+    throw e;
   }
 };
 
@@ -4219,15 +4316,23 @@ export const saveStudioShots = (
   studioReq(`/studio/projects/${pid}/shots`, "PUT", { shots });
 
 /** 渲染单镜(同步等待 ComfyUI 产出,视频链可达数分钟)→ 放宽到 600s。 */
-export const renderStudioShot = (sid: string): Promise<StudioShot> =>
-  studioReq(`/studio/shots/${sid}/render`, "POST", undefined, { timeoutMs: 600_000 });
+export const renderStudioShot = (
+  sid: string,
+  opts?: { signal?: AbortSignal },
+): Promise<StudioShot> =>
+  studioReq(`/studio/shots/${sid}/render`, "POST", undefined, {
+    timeoutMs: 600_000,
+    signal: opts?.signal,
+  });
 
 /** 批量渲染(逐镜同步,跳过终态;N 镜可达数十分钟)→ 放宽到 1800s。 */
 export const renderStudioAll = (
   pid: string,
+  opts?: { signal?: AbortSignal },
 ): Promise<{ rendered: number; failed: number }> =>
   studioReq(`/studio/projects/${pid}/render`, "POST", undefined, {
     timeoutMs: 1_800_000,
+    signal: opts?.signal,
   });
 
 /** 聚合状态(轮询用):各状态计数。 */

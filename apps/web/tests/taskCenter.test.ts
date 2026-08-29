@@ -44,8 +44,11 @@ describe("kindLabel", () => {
     assert.equal(kindLabel("drama_char_reference_front"), "角色三视图·正");
   });
   it("前缀归类", () => {
-    assert.equal(kindLabel("h3_t2v"), "H3 视频");
-    assert.equal(kindLabel("h3_extend_i2v"), "H3 续写");
+    assert.equal(kindLabel("h3_t2v"), "文生视频");
+    assert.equal(kindLabel("h3_i2v"), "图生视频");
+    assert.equal(kindLabel("h3_extend_i2v"), "长视频续写");
+    assert.equal(kindLabel("controlnet"), "ControlNet");
+    assert.equal(kindLabel("inpaint"), "局部重绘");
     assert.equal(kindLabel("wan_i2v"), "Wan 视频");
   });
   it("未命中回落原样", () => {
@@ -105,12 +108,26 @@ describe("任务中止接线", () => {
     const view = readSrc("components/nav/TaskCenter.tsx");
     assert.ok(view.includes("cancelJob"), "TaskCenter 未导入 cancelJob");
     assert.ok(view.includes("taskcenter-item-cancel"), "缺中止按钮类名");
+    assert.ok(view.includes("prevRef.current?.delete(item.prompt_id)"), "中止成功须从完成检测基准摘掉,防双 toast");
+    assert.ok(view.includes("key={item.id}"), "条目 key 须用 job id(prompt_id 可能空/重复)");
     assert.ok(view.includes("window.confirm"), "中止前须二次确认");
     assert.ok(view.includes("cancelingIds"), "缺中止中防连点状态");
     assert.ok(
       view.includes("aria-label={`中止任务:${item.prompt || item.kind}`}"),
       "中止按钮缺无障碍标签",
     );
+  });
+
+  it("GenerateView Stop wires cancelJob then gen.reset", () => {
+    const view = readSrc("components/generate/GenerateView.tsx");
+    assert.ok(view.includes("cancelJob"), "GenerateView must import/call cancelJob");
+    assert.ok(view.includes("runningPromptIdRef"), "cancel uses promptId");
+    const bar = readSrc("components/generate/PromptBar.tsx");
+    assert.ok(bar.includes("停止"), "PromptBar Stop label");
+    assert.equal(bar.includes("停止跟踪"), false);
+    const panel = readSrc("components/generate/ResultPanel.tsx");
+    assert.ok(panel.includes("已中止该作业"), "取消态文案须同步为真中止");
+    assert.equal(panel.includes("已停止前端跟踪"), false);
   });
   it("api.ts cancelJob 走 POST /api/jobs/{id}/cancel 并透出后端 detail", () => {
     const api = readSrc("lib/api.ts");

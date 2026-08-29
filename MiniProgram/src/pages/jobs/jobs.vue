@@ -10,7 +10,7 @@
 import { ref } from 'vue';
 import { onHide, onPullDownRefresh, onShow, onUnload } from '@dcloudio/uni-app';
 
-import { deleteJob, listJobs, submitTxt2Img } from '@/api';
+import { cancelJob, deleteJob, listJobs, submitTxt2Img } from '@/api';
 import JobCard from '@/components/business/job-card.vue';
 import TabBar from '@/components/business/tab-bar.vue';
 import Empty from '@/components/ui/empty.vue';
@@ -42,6 +42,7 @@ const jobs = ref<JobItem[]>([]);
 const loading = ref(true);
 const error = ref('');
 const retryingId = ref<string | null>(null);
+const cancelingId = ref<string | null>(null);
 
 let pollHandle: PollHandle | undefined;
 
@@ -181,6 +182,43 @@ async function handleRemove(job: JobItem) {
       title: err instanceof Error ? err.message : '删除失败',
       icon: 'none',
     });
+  }
+}
+
+async function handleCancel(job: JobItem) {
+  if (cancelingId.value) return;
+  const ok = await new Promise<boolean>((resolve) => {
+    uni.showModal({
+      title: '中止作业',
+      content: '确认中止？已产生的进度不会保留。',
+      confirmText: '中止',
+      cancelText: '取消',
+      success: (res) => resolve(!!res.confirm),
+      fail: () => resolve(false),
+    });
+  });
+  if (!ok) return;
+  cancelingId.value = job.id;
+  try {
+    await cancelJob(job.id);
+    if (job.prompt_id) {
+      const handle = trackers.get(job.prompt_id);
+      if (handle) {
+        handle.abort();
+        trackers.delete(job.prompt_id);
+      }
+      unregisterJobSseCredentials(job.prompt_id);
+      dropSseState(job.prompt_id);
+    }
+    uni.showToast({ title: '已中止', icon: 'none' });
+    void refreshAndPoll();
+  } catch (err) {
+    uni.showToast({
+      title: err instanceof Error ? err.message : '中止失败',
+      icon: 'none',
+    });
+  } finally {
+    cancelingId.value = null;
   }
 }
 
@@ -330,11 +368,13 @@ function goAgentRuns() {
         :key="job.id"
         :job="job"
         :retrying="retryingId === job.id"
+        :canceling="cancelingId === job.id"
         :progress-pct="ssePct[job.prompt_id] ?? null"
         :quality-warning="sseWarned[job.prompt_id] === true"
         @click="handleTap"
         @remove="handleRemove"
         @retry="handleRetry"
+        @cancel="handleCancel"
       />
     </view>
 

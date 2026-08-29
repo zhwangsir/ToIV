@@ -221,6 +221,21 @@ async def test_structure_four_engines_plus_h3(live_pool, user):
     assert ids["h3-i2v"]["kind"] == "video"
 
 
+async def test_h3_ordinary_duration_native_presets_not_silent_60(live_pool, user):
+    """Ordinary H3 duration presets stay 4-15s plus a stitch switch."""
+    ids = _by_id(await list_engines(live_pool, user))
+    for eid in ("h3-t2v", "h3-i2v"):
+        dur = _param(ids[eid], "duration")
+        ext = _param(ids[eid], "segment_extend")
+        assert dur["type"] == "select" and dur["default"] == "5"
+        assert [o["value"] for o in dur["options"]] == ["4", "5", "6", "8", "10", "15"]
+        assert all(float(o["value"]) <= 15 for o in dur["options"])
+        assert ext["type"] == "switch" and ext["default"] is False
+        assert "15" in ext["hint"]
+        keys = [p["key"] for p in ids[eid]["params"]]
+        assert keys.index("segment_extend") < keys.index("duration")
+
+
 async def test_qwen_image_edit_engine_registered(live_pool, user, qwen_edit_stub):
     """qwen-image-edit 引擎注册:kind=image、stub 在线时可用、含 camera/fast 参数。"""
     ids = _by_id(await list_engines(live_pool, user))
@@ -614,13 +629,16 @@ _NSFW_H3_LORA = "h3_musubi_v4-000040.safetensors"
 
 
 async def test_h3_loras_param_schema(live_pool, user, h3_lora_stub):
-    """h3-t2v/h3-i2v 带 loras 参数:类型 loras、强度范围 0.5-1.0、默认空、不泄漏 options_source。"""
+    """h3-t2v/h3-i2v 带 loras 参数:类型 loras、强度范围 0.5-1.0、default None=AI 选配、不泄漏 options_source。
+
+    契约: omit/null=auto, []=off, 勾选上限 3(前端 LORA_CAP)。
+    """
     h3_lora_stub.loras = [_SFW_H3_LORA]
     ids = _by_id(await list_engines(live_pool, user))
     for eid in ("h3-t2v", "h3-i2v"):
         p = _param(ids[eid], "loras")
         assert p["type"] == "loras"
-        assert p["default"] == []
+        assert p["default"] is None
         assert (p["min"], p["max"]) == (0.5, 1.0)
         assert "options_source" not in p
 

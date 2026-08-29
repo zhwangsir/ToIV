@@ -36,6 +36,7 @@ const STATUS_META: Record<JobStatus, JobStatusMeta> = {
   running: { label: '生成中', tone: 'warning' },
   done: { label: '已完成', tone: 'success' },
   error: { label: '失败', tone: 'danger' },
+  canceled: { label: '已中止', tone: 'neutral' },
 };
 
 /** 作业状态 → 中文标签 + 语义色 */
@@ -45,7 +46,7 @@ export function jobStatusMeta(status: JobStatus): JobStatusMeta {
 
 /** 是否为终态（终态停止轮询） */
 export function isTerminalStatus(status: JobStatus): boolean {
-  return status === 'done' || status === 'error';
+  return status === 'done' || status === 'error' || status === 'canceled';
 }
 
 /** 是否为活跃态（queued/running 驱动列表轮询，对齐 Mobile hasActiveJobs） */

@@ -21,6 +21,7 @@ from app.models import DramaCharacter, DramaProject, DramaShot, Entity
 from app.services.h3_refs import (
     RefImage,
     build_ref_prefix,
+    first_frame_handle_from_entities,
     ref_prefix_for_shot,
     refs_from_characters,
     refs_from_entities,
@@ -286,3 +287,35 @@ def test_ref_prefix_for_shot_entity_ids_non_h3_engine_returns_empty(session):
     asset = _asset(session, "牛仔")
     shot = _shot(session, [])
     assert ref_prefix_for_shot(shot, session, engine="wan", entity_ids=[asset.id]) == ""
+
+
+def test_first_frame_handle_json_and_url_and_skip():
+    """JSON handle wins; /api/images URL restores; external URL / no image -> None."""
+    engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as s:
+        e1 = Entity(
+            tenant_id="t1", user_id="u1", kind="character", name="ming",
+            ref_image='{"filename":"aming.png","worker":"http://w:8189"}',
+        )
+        e2 = Entity(
+            tenant_id="t1", user_id="u1", kind="scene", name="warehouse",
+            ref_image="/api/images?filename=wh.png&worker=http://w:8189",
+        )
+        e3 = Entity(tenant_id="t1", user_id="u1", kind="prop", name="none")
+        e4 = Entity(
+            tenant_id="t1", user_id="u2", kind="character", name="other",
+            ref_image='{"filename":"x.png","worker":"http://w:8189"}',
+        )
+        s.add(e1); s.add(e2); s.add(e3); s.add(e4)
+        s.commit()
+        s.refresh(e1); s.refresh(e2); s.refresh(e3); s.refresh(e4)
+        h = first_frame_handle_from_entities(s, [e3.id, e1.id], owner_id="u1")
+        assert h == {"filename": "aming.png", "worker": "http://w:8189"}
+        h2 = first_frame_handle_from_entities(s, [e2.id], owner_id="u1")
+        assert h2 == {"filename": "wh.png", "worker": "http://w:8189"}
+        assert first_frame_handle_from_entities(s, [e3.id], owner_id="u1") is None
+        assert first_frame_handle_from_entities(s, [e4.id], owner_id="u1") is None
+        assert first_frame_handle_from_entities(s, [], owner_id="u1") is None

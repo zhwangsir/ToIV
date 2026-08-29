@@ -220,10 +220,11 @@ function _loras(values: Record<string, unknown>): LoraValue[] {
   return out;
 }
 
-/** 空列表省略字段,让后端走 AI 选配;非空才钉选。 */
+/** LoRA 提交契约:省略/null = AI 选配; [] = 关闭; 非空 = 钉选。 */
 function _lorasPayload(values: Record<string, unknown>): { loras?: LoraValue[] } {
-  const loras = _loras(values);
-  return loras.length > 0 ? { loras } : {};
+  const v = values["loras"];
+  if (v == null || !Array.isArray(v)) return {};
+  return { loras: _loras(values) };
 }
 
 function _seed(values: Record<string, unknown>): number | null {
@@ -308,18 +309,25 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
         id_lora_strength: _num(values, "id_lora_strength", 0.8),
       });
 
-    case "h3-t2v":
-      return _postH3("/api/h3/t2v", {
+    case "h3-t2v": {
+      // 文生 + 主体封面/参考图 → 走 i2v first_frame(1 张);无图保持 t2v
+      const h3Body = {
         ..._h3Payload(values, positive, negative, seed),
         ..._entityIdsPayload(entityIds),
-      });
+        ...(refImage ? { image: refImage.filename, worker: refImage.worker } : {}),
+      };
+      return _postH3(refImage ? "/api/h3/i2v" : "/api/h3/t2v", h3Body);
+    }
 
-    case "h3-nsfw-t2v":
+    case "h3-nsfw-t2v": {
       // R18 版与 SFW 同一提交链路:body.nsfw=true 才打标/换 10Eros;X-NSFW 头仅门控
-      return _postH3("/api/h3/t2v", {
+      const h3Body = {
         ..._h3NsfwPayload(values, positive, negative, seed),
         ..._entityIdsPayload(entityIds),
-      });
+        ...(refImage ? { image: refImage.filename, worker: refImage.worker } : {}),
+      };
+      return _postH3(refImage ? "/api/h3/i2v" : "/api/h3/t2v", h3Body);
+    }
 
     case "longcat-t2v":
       return generateLongcatT2V(_longcatPayload(values, positive, negative, seed));

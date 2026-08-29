@@ -27,15 +27,20 @@ export function ParamField({ param, value, onChange, disabled }: ParamFieldProps
 
   switch (param.type) {
     case "loras": {
-      // LoRA 多选 + 单项强度滑杆:值为 LoraValue[](未选 = 空数组,后端不加 LoRA)
-      const selected: LoraValue[] = Array.isArray(value) ? (value as LoraValue[]) : [];
+      // LoRA:null/省略 = AI 选配; [] = 关闭; 非空 = 钉选。勾选上限 3。
+      const LORA_CAP = 3;
+      const isOff = Array.isArray(value) && (value as LoraValue[]).length === 0;
+      const selected: LoraValue[] = Array.isArray(value) && !isOff ? (value as LoraValue[]) : [];
+      const isAuto = !isOff && selected.length === 0;
       const strengthOf = (name: string) =>
         selected.find((l) => l.name === name)?.strength ?? 0.6;
       const toggle = (name: string, on: boolean) => {
         if (on) {
+          if (selected.length >= LORA_CAP) return;
           set([...selected, { name, strength: 0.6 }]);
         } else {
-          set(selected.filter((l) => l.name !== name));
+          const next = selected.filter((l) => l.name !== name);
+          set(next.length > 0 ? next : null); // 取消最后一项回到 AI 选配
         }
       };
       const setStrength = (name: string, strength: number) => {
@@ -44,11 +49,32 @@ export function ParamField({ param, value, onChange, disabled }: ParamFieldProps
       const min = param.min ?? 0.5;
       const max = param.max ?? 1.0;
       const step = param.step ?? 0.05;
+      const atCap = selected.length >= LORA_CAP;
       return (
         <Field label={param.label} hint={param.hint}>
           <div className="lora-picker">
+            <div className="lora-picker-mode" role="group" aria-label="LoRA 模式">
+              <button
+                type="button"
+                className={isAuto ? "is-on" : ""}
+                disabled={disabled}
+                onClick={() => set(null)}
+              >
+                AI 选配
+              </button>
+              <button
+                type="button"
+                className={isOff ? "is-on" : ""}
+                disabled={disabled}
+                onClick={() => set([])}
+              >
+                关闭
+              </button>
+            </div>
             {(param.options ?? []).length === 0 ? (
-              <span className="lora-picker-empty">留空由 AI 选配（提交时从策划卡自动挂载）</span>
+              <span className="lora-picker-empty">
+                {isOff ? "不叠加 LoRA" : "当前无 LoRA 可选,提交时由 AI 选配"}
+              </span>
             ) : (
               (param.options ?? []).map((o) => {
                 const on = selected.some((l) => l.name === o.value);
@@ -58,7 +84,7 @@ export function ParamField({ param, value, onChange, disabled }: ParamFieldProps
                       <input
                         type="checkbox"
                         checked={on}
-                        disabled={disabled}
+                        disabled={disabled || (!on && atCap)}
                         onChange={(e) => toggle(o.value, e.target.checked)}
                       />
                       <span className="lora-picker-name" title={o.value}>
@@ -87,8 +113,11 @@ export function ParamField({ param, value, onChange, disabled }: ParamFieldProps
                 );
               })
             )}
-            {selected.length === 0 && (param.options ?? []).length > 0 && (
-              <span className="lora-picker-empty">留空由 AI 选配</span>
+            {isAuto && (param.options ?? []).length > 0 && (
+              <span className="lora-picker-empty">AI 选配(提交时从策划卡自动挂载);点选最多 3 个即固定</span>
+            )}
+            {isOff && (param.options ?? []).length > 0 && (
+              <span className="lora-picker-empty">已关闭,不叠加 LoRA</span>
             )}
           </div>
         </Field>

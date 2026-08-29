@@ -20,10 +20,11 @@ import logging
 import re
 
 import httpx
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 
 from app.config import get_settings
 from app.jsonutil import parse_json_obj
+from app.request_cancel import ClientAborted, abort_http_exception, await_or_disconnect
 
 logger = logging.getLogger(__name__)
 
@@ -220,13 +221,17 @@ def _build_payload(
     }
 
 
-async def _request_vlm(payload: dict, headers: dict) -> str:
+async def _request_vlm(payload: dict, headers: dict, request: Request | None = None) -> str:
     """调 VLM chat/completions 并取回文本内容;网络/非 200/空内容一律抛 502。"""
     settings = get_settings()
     endpoint = f"{settings.vlm_server_url.rstrip('/')}/v1/chat/completions"
     try:
         async with httpx.AsyncClient(timeout=_VLM_TIMEOUT, trust_env=False) as client:
-            resp = await client.post(endpoint, json=payload, headers=headers)
+            resp = await await_or_disconnect(
+                request, client.post(endpoint, json=payload, headers=headers)
+            )
+    except ClientAborted:
+        raise abort_http_exception() from None
     except httpx.HTTPError as e:
         raise HTTPException(status_code=502, detail=f"VLM 服务不可达:{e}") from e
 
@@ -268,7 +273,8 @@ _RETRY_FIX_HINT = (
 
 
 async def analyze_storyboard_images(
-    images: list[tuple[bytes, str]], hint: str, style: str, num_shots: int
+    images: list[tuple[bytes, str]], hint: str, style: str, num_shots: int,
+    request: Request | None = None,
 ) -> dict:
     """把参考图发给 VLM 解析并扩写为短剧 JSON,返回 {title, premise, script, shots, warnings}。
 
@@ -280,7 +286,7 @@ async def analyze_storyboard_images(
     payload = _build_payload(images, hint, style, num_shots)
     headers = {"Authorization": f"Bearer {settings.llm_api_key}"}
 
-    raw = await _request_vlm(payload, headers)
+    raw = await _request_vlm(payload, headers, request=request)
     obj, shots, warnings = _parse_and_validate(raw)
     if obj is None or not (obj.get("shots") if obj else None):
         logger.warning(
@@ -302,7 +308,7 @@ async def analyze_storyboard_images(
         retry_messages[1]["content"] = user_content
         retry["messages"] = retry_messages
 
-        raw = await _request_vlm(retry, headers)
+        raw = await _request_vlm(retry, headers, request=request)
         obj, shots, retry_warnings = _parse_and_validate(raw)
         warnings = warnings + retry_warnings
         if not shots:

@@ -9,6 +9,7 @@ import {
   isVideoPath,
   kindLabel,
   kindToFilter,
+  kindsQueryForFilter,
   LIBRARY_PAGE_SIZE,
 } from '@/utils/library';
 
@@ -53,6 +54,7 @@ describe('kindToFilter 追上网页 libraryQuery', () => {
 
   it('视频桶：多镜头/转场/编辑/关键帧链/超分/短剧视频/通用对口型', () => {
     expect(kindToFilter('h3_multishot')).toBe('video');
+    expect(kindToFilter('h3_extend_i2v')).toBe('video');
     expect(kindToFilter('video_upscale')).toBe('video');
     expect(kindToFilter('transition')).toBe('video');
     expect(kindToFilter('video_edit')).toBe('video');
@@ -98,6 +100,32 @@ describe('kindToFilter 追上网页 libraryQuery', () => {
   });
 });
 
+describe('kindsQueryForFilter', () => {
+  it('全部空串不过滤', () => {
+    expect(kindsQueryForFilter('all')).toBe('');
+  });
+
+  it('3D/图像桶带 cad_/drama_char_reference_ 前缀 token 给服务端', () => {
+    const d3 = kindsQueryForFilter('3d').split(',');
+    const image = kindsQueryForFilter('image').split(',');
+    expect(d3).toContain('cad_');
+    expect(d3).toContain('hunyuan3d');
+    expect(image).toContain('drama_char_reference_');
+    expect(image).toContain('txt2img');
+    expect(kindsQueryForFilter('video').includes('cad_')).toBe(false);
+    expect(kindsQueryForFilter('audio').includes('drama_char_reference_')).toBe(false);
+    expect(kindsQueryForFilter('all')).toBe('');
+  });
+
+  it('精确 kind 仍在逗号串里，前缀 token 以 _ 结尾', () => {
+    const d3 = kindsQueryForFilter('3d').split(',');
+    expect(d3.every((t) => t.length > 0)).toBe(true);
+    expect(d3.filter((t) => t.endsWith('_'))).toEqual(['cad_']);
+    const image = kindsQueryForFilter('image').split(',');
+    expect(image.filter((t) => t.endsWith('_'))).toEqual(['drama_char_reference_']);
+  });
+});
+
 describe('kindLabel', () => {
   it('已知 kind 中文标签', () => {
     expect(kindLabel('txt2img')).toBe('文生图');
@@ -111,6 +139,7 @@ describe('kindLabel', () => {
   it('新 kind 中文短名对齐网页', () => {
     expect(kindLabel('qwen_edit')).toBe('智能编辑');
     expect(kindLabel('h3_multishot')).toBe('多镜头');
+    expect(kindLabel('h3_extend_i2v')).toBe('长视频续写');
     expect(kindLabel('transition')).toBe('首尾帧转场');
     expect(kindLabel('video_edit')).toBe('视频编辑');
     expect(kindLabel('keyframe_chain')).toBe('关键帧链');

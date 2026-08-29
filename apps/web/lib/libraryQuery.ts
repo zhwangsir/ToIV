@@ -47,6 +47,8 @@ export const FILTERS: FilterDef[] = [
       "wan_t2v", "wan_i2v", "hunyuan_i2v", "h3_t2v", "h3_i2v",
       // H3 多镜头单次生成(单段内切镜)
       "h3_multishot",
+      // H3 超 15s 分段续写(末帧 i2v,kind=h3_extend_i2v)
+      "h3_extend_i2v",
       "ltx_t2v", "ltx_i2v", "ltx_lipsync", "ltx2_t2v", "ltx2_i2v",
       "frame_interpolate", "dub_lipsync_long", "manju_lipsync", "anime_lipsync",
       // 视频超分(M6 fleet 帧级 4K 管线)
@@ -85,6 +87,36 @@ export const KIND_PREFIX_RULES: [string, FilterKey][] = [
  * kind → 筛选桶。未识别的 kind 返回 null:只在「全部」出现,
  * 不硬塞进「图像」(修复 transcribe/voice_track 等被错算成图像的问题)。
  */
+/** 类型 chip → 后端 GET /api/jobs?kind= 多值(逗号分隔);「全部」空串不过滤。
+ *  前缀 token(以 _ 结尾,如 cad_ / drama_char_reference_)一并送给服务端:
+ *  GET /api/jobs 把这类 token 当 startswith,精确值仍 in_(...)。 */
+export function kindsQueryForFilter(filter: FilterKey): string {
+  if (filter === "all") return "";
+  const f = FILTERS.find((x) => x.key === filter);
+  const kinds = [...(f?.kinds ?? [])];
+  for (const [prefix, key] of KIND_PREFIX_RULES) {
+    if (key === filter && !kinds.includes(prefix)) kinds.push(prefix);
+  }
+  return kinds.length > 0 ? kinds.join(",") : "";
+}
+
+/** 忽略过期分页响应(类型 chip 连点竞态):每次 next() 作废更早序号。 */
+export function makeSeqGate(): { next(): number; peek(): number; isLive(n: number): boolean } {
+  let seq = 0;
+  return {
+    next() {
+      seq += 1;
+      return seq;
+    },
+    peek() {
+      return seq;
+    },
+    isLive(n: number) {
+      return n === seq;
+    },
+  };
+}
+
 export function kindToFilter(kind: string): FilterKey | null {
   for (const f of FILTERS) {
     if (f.kinds.includes(kind)) return f.key;
@@ -118,6 +150,7 @@ export function kindLabel(kind: string): string {
     h3_t2v: "文生视频",
     h3_i2v: "图生视频",
     h3_multishot: "多镜头",
+    h3_extend_i2v: "长视频续写",
     ltx_t2v: "文生视频",
     ltx_i2v: "图生视频",
     ltx_lipsync: "对口型",
@@ -158,6 +191,7 @@ export function kindLabel(kind: string): string {
     drama_shot_video_i2v: "镜头视频",
     drama_shot_video_v2: "镜头视频",
     drama_shot_lipsync: "镜头对口型",
+    studio_script_parse: "剧本拆解",
   };
   if (map[kind]) return map[kind];
   if (kind.startsWith("cad_")) return "CAD";

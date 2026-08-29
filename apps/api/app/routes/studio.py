@@ -8,7 +8,7 @@ import json
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
@@ -571,11 +571,12 @@ async def render_one(
     sid: str,
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
+    request: Request = None  # FastAPI 注入;勿标 Optional 否则当 Pydantic 字段,
 ):
     """渲染单镜(同步等待)。render_mode 决定走视频链还是图像运镜链。"""
     shot = _get_shot(session, sid, user)
     try:
-        return _shot_out(await orchestrator.render_shot(session, shot))
+        return _shot_out(await orchestrator.render_shot(session, shot, request=request))
     except RenderError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
 
@@ -585,6 +586,7 @@ async def render_batch(
     pid: str,
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
+    request: Request = None  # FastAPI 注入;勿标 Optional 否则当 Pydantic 字段,
 ):
     """批量渲染:跳过已 rendered/voiced/lipsynced/done 的分镜;单镜失败不阻塞其余。"""
     _get_project(session, pid, user)
@@ -593,10 +595,12 @@ async def render_batch(
     ).all()
     done, failed = 0, 0
     for shot in shots:
+        if request is not None and await request.is_disconnected():
+            break
         if shot.status in orchestrator.terminal_states():
             continue
         try:
-            await orchestrator.render_shot(session, shot)
+            await orchestrator.render_shot(session, shot, request=request)
             done += 1
         except RenderError:
             failed += 1

@@ -81,6 +81,8 @@ export interface GenerateResponse {
   client_id: string;
   worker: string;
   seed: number;
+  /** 后端作业 kind(H3 封面切 i2v 后为 h3_i2v;历史卡按此显示图生而非文生) */
+  kind?: string;
   /** 时长策略提示(网格裁切/分段续写时后端给的人话说明;结果区 muted 展示) */
   duration_notice?: string;
   /** QUEUE-2026-08-18:提交时实例队列前方的作业数(>0 = 已排队等待,非故障);

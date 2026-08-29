@@ -13,11 +13,19 @@ const KIND_LABELS: Record<string, string> = {
   img2img: "图生图",
   qwen_edit: "智能编辑",
   upscale: "图像超分",
+  controlnet: "ControlNet",
+  inpaint: "局部重绘",
+  facedetailer: "脸部修复",
+  removebg: "抠图",
   drama_char_reference_front: "角色三视图·正",
   drama_char_reference_side: "角色三视图·侧",
   drama_char_reference_back: "角色三视图·背",
   ltx25_multishot: "LTX 多镜头",
   studio_script_parse: "剧本拆解",
+  h3_t2v: "文生视频",
+  h3_i2v: "图生视频",
+  h3_multishot: "多镜头",
+  h3_extend_i2v: "长视频续写",
 };
 
 const KIND_PREFIX_LABELS: Array<[string, string]> = [

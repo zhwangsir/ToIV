@@ -43,6 +43,8 @@ def persist_job_to_db(
             db_job = s.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
             if not db_job:
                 return  # 迁移前老作业无 DB 记录,跳过
+            if db_job.status == "canceled":
+                return  # 用户中止不覆盖(管线收尾的 done/error 不得把 canceled 写回)
             db_job.status = status
             db_job.result = json.dumps(result, ensure_ascii=False)
             if params is not None:
@@ -51,3 +53,14 @@ def persist_job_to_db(
             s.commit()
     except Exception as e:  # noqa: BLE001 — DB 写失败不毁内存终态
         logger.warning("%s DB 持久化失败:%s", kind, e)
+
+
+def db_job_is_canceled(prompt_id: str) -> bool:
+    """后台管线段间自检:用户已 cancelJob 则提前退出,不再开下一段 GPU。"""
+    try:
+        with Session(engine) as s:
+            db_job = s.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
+            return bool(db_job and db_job.status == "canceled")
+    except Exception as e:  # noqa: BLE001 — 自检失败不阻断管线
+        logger.warning("db_job_is_canceled %s 失败:%s", prompt_id, e)
+        return False

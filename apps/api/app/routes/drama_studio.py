@@ -36,7 +36,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import (
     BaseModel,
@@ -5541,6 +5541,7 @@ async def create_project_from_image(
     user: User = Depends(get_current_user),
     pool: WorkerPool = Depends(get_pool),
     session: Session = Depends(get_session),
+    request: Request = None  # FastAPI 注入;勿标 Optional 否则当 Pydantic 字段,
 ) -> dict:
     """上传参考图 → VLM 解析 → 自动建短剧项目+分镜 → 后台自动管线(autorun)。
 
@@ -5582,7 +5583,7 @@ async def create_project_from_image(
     height -= height % 2
 
     # —— VLM 解析图片 → 短剧 JSON ——
-    obj = await analyze_storyboard_images(payloads, hint, style, num_shots)
+    obj = await analyze_storyboard_images(payloads, hint, style, num_shots, request=request)
     coerced = [_coerce_shot(s, i) for i, s in enumerate(obj["shots"][:num_shots])]
     if not any(s["prompt"] for s in coerced):
         raise HTTPException(status_code=502, detail="图片解析失败(无有效提示词),请重试")

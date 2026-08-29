@@ -31,7 +31,7 @@ from sqlmodel import Session, select
 from app.comfy.client import ComfyUIError
 from app.comfy.pool import WorkerPool
 from app.db import get_session
-from app.jobs_persist import persist_job_to_db
+from app.jobs_persist import db_job_is_canceled, persist_job_to_db
 from app.storage import content_subdir
 from app.deps import get_current_user, get_pool
 from app.models import Job, User
@@ -426,6 +426,10 @@ async def _run_lipsync_long(
 
         synced: list[Path] = []
         for i, (a, b) in enumerate(segments):
+            if db_job_is_canceled(job["id"]):
+                job["status"] = "canceled"
+                job["error"] = "已中止"
+                return
             dur = max(0.1, b - a)
             job["stage"] = f"对口型 {i + 1}/{len(segments)}"
             seg_v = tmp_dir / f"v{i:03d}.mp4"

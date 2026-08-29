@@ -274,7 +274,8 @@ test("GenerateView:提交时 resolveEntityIds → submitEngineGeneration entityI
   const src = readSrc("components/generate/GenerateView.tsx");
   assert.ok(src.includes('from "@/lib/entities"'), "未引入 entities lib");
   assert.ok(src.includes("useEntities()"), "未共享主体清单");
-  assert.ok(src.includes("entityIds: resolveEntityIds(promptText, subjectEntities)"), "提交未解析 entity_ids");
+  assert.ok(src.includes("resolveEntityIds(promptText, subjectEntities)"), "提交未解析 @提及 entity_ids");
+  assert.ok(src.includes("entityIds,"), "submitEngineGeneration 未传 entityIds");
 });
 
 test("engines.ts:EngineSubmitInput.entityIds + H3 四案携带 entity_ids,空则不携带", () => {

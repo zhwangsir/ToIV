@@ -208,3 +208,13 @@ test("⑥ AvatarGenPanel:形象模板区 + 驱动源段控互斥 + 文本模式�
   assert.ok(src.includes('mode: "text"'), "文本模式未走 text 分支");
   assert.ok(src.includes("buildAvatarTalkPayload("), "提交未统一走 payload 构建器");
 });
+
+test("⑥ AvatarGenPanel:停止调用 cancelJob,不再只 gen.reset", () => {
+  const src = readSrc("components/avatartalk/AvatarGenPanel.tsx");
+  assert.ok(src.includes("cancelJob"), "停止未 import cancelJob");
+  assert.ok(src.includes("onCancelWait"), "缺 onCancelWait");
+  assert.ok(src.includes("runningPromptIdRef"), "未记下 prompt_id");
+  assert.ok(src.includes("await cancelJob(promptId)"), "停止未真正 cancelJob");
+  assert.ok(src.includes('title="中止后端作业并停止本页跟踪"'), "停止按钮未标明会中止后端");
+  assert.ok(!src.includes("onClick={gen.reset}"), "「取消等待」仍只 gen.reset");
+});

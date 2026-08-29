@@ -158,9 +158,8 @@ export function PromptBar({
           )}
           <div className="promptbar-actions">
             {isRunning && (
-              /* 语义澄清:仅停止前端跟踪,后端作业继续(真取消需在结果面板作业卡操作) */
-              <Button variant="ghost" onClick={onCancel} title="停止在当前页面跟踪进度,后端作业继续执行">
-                停止跟踪
+              <Button variant="ghost" onClick={onCancel} title="中止后端作业并停止本页跟踪">
+                停止
               </Button>
             )}
             {/* 生成主按钮(UI-A 动效原语):Ripple 纯叠加包裹,按钮既有样式/行为不变,

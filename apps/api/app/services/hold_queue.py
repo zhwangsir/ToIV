@@ -113,6 +113,7 @@ def place_hold(
         "queued_behind": 0,
         "held": True,
         "hold_reason": reason,
+        "kind": kind,
     }
 
 

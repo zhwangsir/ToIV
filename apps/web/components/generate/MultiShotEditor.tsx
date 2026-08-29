@@ -42,7 +42,7 @@ function newShot(): ShotDraft {
 /** 作业轮询终态(running 继续轮询;held 展示排队文案)。 */
 type RunStatus = "running" | "done" | "error" | "held";
 
-export function MultiShotEditor() {
+export function MultiShotEditor({ loras }: { loras?: unknown } = {}) {
   const toast = useToast();
   const [shots, setShots] = useState<ShotDraft[]>([newShot(), newShot()]);
   // 高级参数(尺寸/采样/种子;与 h3-t2v 同一套范围)
@@ -122,6 +122,7 @@ export function MultiShotEditor() {
         steps,
         ...(pickedEntities.length > 0 ? { entity_ids: pickedEntities.map((e) => e.id) } : {}),
         ...(seed !== null && Number.isInteger(seed) && seed >= 0 ? { seed } : {}),
+        ...(Array.isArray(loras) ? { loras: loras as { name: string; strength: number }[] } : {}),
       });
       setRunId(res.prompt_id);
       setRunStatus("running");

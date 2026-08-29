@@ -221,3 +221,22 @@ test("⑤ libraryQuery:h3_multishot 归视频桶,短名「多镜头」", () => {
   assert.equal(kindToFilter("h3_multishot"), "video");
   assert.equal(kindLabel("h3_multishot"), "多镜头");
 });
+
+test("submitMultiShot: omit loras = auto; [] = off; pins pass through", async () => {
+  await submitMultiShot({ shots: [shot("a", 3), shot("b", 3)] });
+  let body = fetchCalls[0].body as Record<string, unknown>;
+  assert.equal("loras" in body, false, "omit = auto");
+
+  fetchCalls = [];
+  await submitMultiShot({ shots: [shot("a", 3), shot("b", 3)], loras: [] });
+  body = fetchCalls[0].body as Record<string, unknown>;
+  assert.deepEqual(body.loras, [], "[] = off");
+
+  fetchCalls = [];
+  await submitMultiShot({
+    shots: [shot("a", 3), shot("b", 3)],
+    loras: [{ name: "x.safetensors", strength: 0.6 }],
+  });
+  body = fetchCalls[0].body as Record<string, unknown>;
+  assert.deepEqual(body.loras, [{ name: "x.safetensors", strength: 0.6 }]);
+});

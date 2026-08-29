@@ -47,6 +47,7 @@ export interface ShotCardProps {
   onModeChange: (mode: StudioRenderMode) => void;
   onPatch: (fields: Partial<StudioShotInput>) => void;
   onRender: () => void;
+  onCancelRender?: () => void;
   onVoice: () => void;
   onLipsync: () => void;
   onDelete: () => void;
@@ -68,6 +69,7 @@ export function ShotCard({
   onModeChange,
   onPatch,
   onRender,
+  onCancelRender,
   onVoice,
   onLipsync,
   onDelete,
@@ -388,9 +390,15 @@ export function ShotCard({
         {/* ── 操作 ── */}
         <div className="studio-shot-actions">
           <Ripple>
-            <button type="button" className="btn btn-sm btn-primary" disabled={busy} onClick={onRender}>
-              <Icon name={busyRender ? "loading" : "playing"} size={12} />
-              {busyRender ? "生成中" : "生成"}
+            <button
+              type="button"
+              className={busyRender ? "btn btn-sm btn-danger" : "btn btn-sm btn-primary"}
+              disabled={busy && !busyRender}
+              title={busyRender ? "中止本镜渲染(断开请求并尝试中断 GPU)" : undefined}
+              onClick={busyRender && onCancelRender ? onCancelRender : onRender}
+            >
+              <Icon name={busyRender ? "close" : "playing"} size={12} />
+              {busyRender ? "中止" : "生成"}
             </button>
           </Ripple>
           <Ripple>

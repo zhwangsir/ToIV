@@ -198,8 +198,8 @@ export async function submitVideoEdit(
 }
 
 export interface EditProgressInfo {
-  /** held=资源排队;running=生成中;done=成片就绪;error=失败;pending=作业未入列表。 */
-  status: "pending" | "running" | "done" | "error" | "held";
+  /** held=资源排队;running=生成中;done=成片就绪;error=失败;canceled=已中止;pending=作业未入列表。 */
+  status: "pending" | "running" | "done" | "error" | "held" | "canceled";
   resultUrl: string | null;
 }
 
@@ -211,6 +211,7 @@ export function editJobProgress(jobs: JobItem[], promptId: string): EditProgress
     return { status: "done", resultUrl: job.results[0] ?? null };
   }
   if (job.status === "error") return { status: "error", resultUrl: null };
+  if (job.status === "canceled") return { status: "canceled", resultUrl: null };
   if (job.status === "held") return { status: "held", resultUrl: null };
   return { status: "running", resultUrl: null };
 }

@@ -13,7 +13,9 @@
 from __future__ import annotations
 
 import httpx
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
+
+from app.request_cancel import ClientAborted, abort_http_exception, await_or_disconnect
 
 from app.config import get_settings
 
@@ -21,7 +23,8 @@ _AUDIO_SEP_TIMEOUT = 300.0  # 服务端串行排队 + Demucs 推理,留足
 
 
 async def _separate(
-    audio: bytes, filename: str, base_url: str | None, path: str
+    audio: bytes, filename: str, base_url: str | None, path: str,
+    request: Request | None = None,
 ) -> bytes:
     raw = base_url if base_url is not None else get_settings().audio_sep_url
     base = raw.strip().rstrip("/")
@@ -33,10 +36,15 @@ async def _separate(
         async with httpx.AsyncClient(
             timeout=_AUDIO_SEP_TIMEOUT, follow_redirects=True
         ) as client:
-            resp = await client.post(
-                base + path,
-                files={"file": (filename, audio, "audio/wav")},
+            resp = await await_or_disconnect(
+                request,
+                client.post(
+                    base + path,
+                    files={"file": (filename, audio, "audio/wav")},
+                ),
             )
+    except ClientAborted:
+        raise abort_http_exception() from None
     except httpx.TimeoutException as e:
         raise HTTPException(status_code=502, detail=f"人声分离服务超时:{e}") from e
     except httpx.HTTPError as e:
@@ -51,7 +59,8 @@ async def _separate(
 
 
 async def separate_vocals(
-    audio: bytes, filename: str = "audio", base_url: str | None = None
+    audio: bytes, filename: str = "audio", base_url: str | None = None,
+    request: Request | None = None,
 ) -> bytes:
     """调人声分离服务提取干净人声,返回 vocals wav 字节。
 
@@ -64,15 +73,16 @@ async def separate_vocals(
         HTTPException(503): 人声分离服务未配置(TOIV_AUDIO_SEP_URL 为空)。
         HTTPException(502): 服务不可达/超时/返回错误或非 wav 内容。
     """
-    return await _separate(audio, filename, base_url, "/separate")
+    return await _separate(audio, filename, base_url, "/separate", request=request)
 
 
 async def separate_accompaniment(
-    audio: bytes, filename: str = "audio", base_url: str | None = None
+    audio: bytes, filename: str = "audio", base_url: str | None = None,
+    request: Request | None = None,
 ) -> bytes:
     """调人声分离服务提取伴奏/背景音乐(no_vocals),返回 wav 字节。
 
     反推音乐链路专用(2026-08-08):伴奏送 Omni-Captioner 生成音乐描述。
     异常契约同 separate_vocals(503 未配置 / 502 不可达或失败)。
     """
-    return await _separate(audio, filename, base_url, "/separate_accompaniment")
+    return await _separate(audio, filename, base_url, "/separate_accompaniment", request=request)

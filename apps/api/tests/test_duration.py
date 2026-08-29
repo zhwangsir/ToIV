@@ -664,6 +664,7 @@ def test_h3_route_duration_sec_extend(client, monkeypatch):
     assert r.status_code == 200, r.text
     body = r.json()
     assert "分 2 段续写" in body["duration_notice"]
+    assert body["kind"] == "h3_t2v"
     assert fake.graphs[0]["104"]["inputs"]["length"] == 362
     assert len(spawns) == 1
     plan = spawns[0]["plan"]

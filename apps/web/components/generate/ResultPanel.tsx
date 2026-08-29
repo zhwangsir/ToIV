@@ -305,9 +305,9 @@ export function ResultPanel({ entries, selectedId, onSelect, liveProgress, quali
                     size="sm"
                     icon={<Icon name="close" size={13} />}
                     onClick={onCancel}
-                    title="停止在当前页面跟踪进度,后端作业继续执行"
+                    title="中止后端作业并停止本页跟踪"
                   >
-                    停止跟踪
+                    停止
                   </Button>
                 )}
                 {compareSwitch}
@@ -416,7 +416,7 @@ export function ResultPanel({ entries, selectedId, onSelect, liveProgress, quali
                 </div>
               )}
               {current.status === "cancelled" && (
-                <p className="stage-message">已停止前端跟踪;后端作业完成后仍可在作品库查看。</p>
+                <p className="stage-message">已中止该作业。</p>
               )}
               {current.status === "done" && current.postProcessing && (
                 <div className="stage-loading" role="status" aria-live="polite">

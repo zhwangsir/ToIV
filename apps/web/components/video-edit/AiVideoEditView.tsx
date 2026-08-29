@@ -23,7 +23,7 @@ import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon } from "@/components/ui/Icon";
 import { Field, Input, Select, Textarea } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
-import { imageUrl, invalidateJobs, lookupJob, uploadImage } from "@/lib/api";
+import { cancelJob, imageUrl, invalidateJobs, lookupJob, uploadImage } from "@/lib/api";
 import {
   EDIT_MAX_DURATION_SEC,
   EDIT_MAX_KEYFRAMES,
@@ -113,7 +113,10 @@ export function AiVideoEditView() {
 
   const busy =
     submitting ||
-    (runId !== null && progress?.status !== "done" && progress?.status !== "error");
+    (runId !== null &&
+      progress?.status !== "done" &&
+      progress?.status !== "error" &&
+      progress?.status !== "canceled");
   const canSubmit = editSubmittable({
     hasVideo: video !== null,
     editPrompt: prompt,
@@ -271,6 +274,16 @@ export function AiVideoEditView() {
     } catch (e) {
       setKfError(e instanceof Error ? e.message : "帧索引格式错误");
     }
+  }
+
+  async function onCancelRun() {
+    if (!runId) return;
+    try {
+      await cancelJob(runId);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "中止失败");
+    }
+    setProgress({ status: "canceled", resultUrl: null });
   }
 
   async function onSubmit() {
@@ -564,7 +577,12 @@ export function AiVideoEditView() {
         >
           {busy ? busyLabel : "生成编辑视频"}
         </Button>
-        {runId && progress?.status === "error" && (
+        {busy && runId && (
+          <Button variant="ghost" size="sm" onClick={() => void onCancelRun()} title="中止后端作业并停止本页跟踪">
+            停止
+          </Button>
+        )}
+        {runId && (progress?.status === "error" || progress?.status === "canceled") && (
           <Button variant="ghost" size="sm" onClick={() => { setRunId(null); setProgress(null); }}>
             重新编辑
           </Button>
@@ -572,6 +590,9 @@ export function AiVideoEditView() {
       </div>
       {runId && progress?.status === "error" && (
         <p className="veai-error-text">编辑作业失败,可调整指令或参数后重新提交。</p>
+      )}
+      {runId && progress?.status === "canceled" && (
+        <p className="veai-error-text">已中止该作业。</p>
       )}
       {progress?.status === "done" && progress.resultUrl && video && (
         <div className="veai-compare">

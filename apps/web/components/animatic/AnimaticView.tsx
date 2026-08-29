@@ -17,6 +17,7 @@ import {
   createDramaProjectFromImage,
   type DramaFromImageResult,
 } from "@/lib/api";
+import { isParseAbortError } from "@/lib/studioParseUx";
 import { begin as genBegin, end as genEnd } from "@/lib/generationBus";
 import "@/app/styles/animatic.css";
 
@@ -72,6 +73,7 @@ export function AnimaticView({
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AnimaticResult | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const runAbortRef = useRef<AbortController | null>(null);
   const { show: showToast } = useToast();
 
   // AI 解析模式参数与结果
@@ -174,12 +176,18 @@ export function AnimaticView({
     );
   }, []);
 
+  const abortRun = useCallback(() => {
+    runAbortRef.current?.abort();
+  }, []);
+
   const submit = useCallback(async () => {
     if (items.length === 0 || busy) return;
     setBusy(true);
     setError(null);
     setResult(null);
     genBegin("animatic-render", "生成动态分镜");
+    const ac = new AbortController();
+    runAbortRef.current = ac;
     const res = RESOLUTIONS[resIdx];
     try {
       const data = await createAnimatic({
@@ -188,11 +196,15 @@ export function AnimaticView({
         fps,
         width: res.width,
         height: res.height,
+        signal: ac.signal,
       });
       setResult(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "生成失败");
+      if (!isParseAbortError(e)) {
+        setError(e instanceof Error ? e.message : "生成失败");
+      }
     } finally {
+      if (runAbortRef.current === ac) runAbortRef.current = null;
       setBusy(false);
       genEnd("animatic-render");
     }
@@ -204,6 +216,8 @@ export function AnimaticView({
     setError(null);
     setAiResult(null);
     genBegin("animatic-ai", "AI 解析分镜");
+    const ac = new AbortController();
+    runAbortRef.current = ac;
     const res = RESOLUTIONS[resIdx];
     try {
       const data = await createDramaProjectFromImage({
@@ -214,11 +228,15 @@ export function AnimaticView({
         height: res.height,
         fps: 16, // 短剧管线固定 16fps(LTX 原生帧率,与 DramaProject 默认一致)
         auto: true, // 后台自动跑完整管线(分镜视频 → 配音 → 合成)
+        signal: ac.signal,
       });
       setAiResult(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "解析失败");
+      if (!isParseAbortError(e)) {
+        setError(e instanceof Error ? e.message : "解析失败");
+      }
     } finally {
+      if (runAbortRef.current === ac) runAbortRef.current = null;
       setBusy(false);
       genEnd("animatic-ai");
     }
@@ -420,14 +438,15 @@ export function AnimaticView({
           </label>
           <button
             type="button"
-            className="at-btn at-btn--primary anim-submit"
-            disabled={busy || items.length === 0}
-            onClick={submitAi}
+            className={busy ? "at-btn anim-submit" : "at-btn at-btn--primary anim-submit"}
+            disabled={!busy && items.length === 0}
+            title={busy ? "中止解析请求(断开到 VLM 的连接;已创建的短剧项目需在工作室停管线)" : undefined}
+            onClick={busy ? abortRun : submitAi}
           >
             {busy ? (
               <>
-                <Icon name="loading" size={16} />
-                VLM 解析图片中…(可能需要 1-2 分钟)
+                <Icon name="close" size={16} />
+                中止解析
               </>
             ) : (
               <>
@@ -501,14 +520,15 @@ export function AnimaticView({
           <div className="anim-params-spacer" />
           <button
             type="button"
-            className="at-btn at-btn--primary anim-submit"
-            disabled={busy || items.length === 0}
-            onClick={submit}
+            className={busy ? "at-btn anim-submit" : "at-btn at-btn--primary anim-submit"}
+            disabled={!busy && items.length === 0}
+            title={busy ? "中止请求并尝试杀掉远端 ffmpeg" : undefined}
+            onClick={busy ? abortRun : submit}
           >
             {busy ? (
               <>
-                <Icon name="loading" size={16} />
-                上传并生成中…
+                <Icon name="close" size={16} />
+                中止生成
               </>
             ) : (
               <>

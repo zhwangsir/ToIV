@@ -462,7 +462,18 @@ def _image_size_params(default: int = 1024) -> list[dict]:
 
 
 # H3 视频参数(与 routes/h3_studio.py 请求模型同一套范围;32 对齐、时长按秒,
-# 内部 17k+5 网格 @24fps,超 15s 单段上限自动分段续写并精确裁切)
+# 内部 17k+5 网格 @24fps)。普通路径原生单段约 15s;15–60s 是末帧 i2v 分段续写,
+# 须显式打开「分段续写」(前端叠 20/30/45/60),不得把 60s 当一镜能力。
+_H3_NATIVE_DURATIONS = [
+    ("4", "4 秒"),
+    ("5", "5 秒"),
+    ("6", "6 秒"),
+    ("8", "8 秒"),
+    ("10", "10 秒"),
+    ("15", "15 秒"),
+]
+
+
 def _h3_video_params() -> list[dict]:
     return [
         _negative(),
@@ -470,8 +481,15 @@ def _h3_video_params() -> list[dict]:
         _num("width", "宽度", 1344, min_=256, max_=1344, step=32,
              hint="32 对齐,上限 1344×768;比例限 9:16~16:9", ar=AR_VIDEO),
         _num("height", "高度", 768, min_=256, max_=1344, step=32, hint="32 对齐"),
-        _num("duration", "时长(秒)", 5, min_=0.5, max_=60, step=0.5,
-             hint="支持任意时长;超 15s 单段上限自动分段续写并精确裁切"),
+        {
+            "key": "segment_extend", "label": "分段续写", "type": "switch", "default": False,
+            "hint": "H3 原生单段约 15 秒;开启后可选 20–60 秒(末帧图生视频拼接,非一镜到底)",
+        },
+        {
+            "key": "duration", "label": "时长", "type": "select", "default": "5",
+            "options": [{"value": v, "label": label} for v, label in _H3_NATIVE_DURATIONS],
+            "hint": "H3 原生单段约 15 秒(24fps);超过须开启「分段续写」",
+        },
         _num("steps", "采样步数", 20, min_=1, max_=50),
         _seed(),
         _h3_loras_select(),
@@ -525,17 +543,17 @@ def _h3_nsfw_video_params() -> list[dict]:
 # H3MultiShotRequest 同一套范围;时长由逐镜头时长决定,故比 _h3_video_params 少 duration;
 # 前端选中该引擎时渲染 MultiShotEditor 专用编辑器,参数仅声明契约/分组)
 def _multishot_params() -> list[dict]:
-    return [p for p in _h3_video_params() if p["key"] != "duration"]
+    return [p for p in _h3_video_params() if p["key"] not in ("duration", "segment_extend")]
 
 
 def _ltx_nsfw_loras_select() -> dict:
     """LTX 2.3 R18 LoRA 叠加:选项来自策划目录(ltx 引擎卡),不枚举 NAS。"""
     return {
         "key": "loras", "label": "LoRA 叠加", "type": "loras",
-        "default": [],
+        "default": None,  # null=AI 选配;前端 Off 发送 []
         "options": catalog_options("ltx"),
         "min": 0.0, "max": 2.0, "step": 0.05,
-        "hint": "留空由 AI 选配;点选即固定(最多 3 个)。默认 UNET 已是 10eros_v14,勿把 LoRA 当底模",
+        "hint": "默认 AI 选配;点「关闭」不叠加;点选即固定(最多 3 个)。默认 UNET 已是 10eros_v14,勿把 LoRA 当底模",
     }
 
 
@@ -548,11 +566,11 @@ def _h3_loras_select() -> dict:
     """
     return {
         "key": "loras", "label": "LoRA 叠加", "type": "loras",
-        "default": [],
+        "default": None,  # null=AI 选配;前端 Off 发送 []
         "options": [],
         "options_source": "h3_loras",
         "min": 0.5, "max": 1.0, "step": 0.05,
-        "hint": "留空由 AI 选配;点选即固定(最多 3 个)。推荐强度 0.5-1.0(默认 0.6);R18 LoRA 仅 /nsfw 专区可选",
+        "hint": "默认 AI 选配;点「关闭」不叠加;点选即固定(最多 3 个)。推荐强度 0.5-1.0(默认 0.6);R18 LoRA 仅 /nsfw 专区可选",
     }
 
 
@@ -593,13 +611,13 @@ def _wan_nsfw_loras_select() -> dict:
     """
     return {
         "key": "loras", "label": "NSFW LoRA 叠加", "type": "loras",
-        "default": [],
+        "default": None,  # null=AI 选配;前端 Off 发送 []
         "options": [
             {"value": name, "label": _WAN_NSFW_LORA_LABELS.get(name, name), "nsfw": True}
             for name in WAN_I2V_NSFW_LORAS
         ],
         "min": 0.3, "max": 1.2, "step": 0.05,
-        "hint": "留空由 AI 选配;点选即固定。HIGH 侧管构图/动作,LOW 侧管细节/质感;触发词提交时自动置前,推荐强度 0.6-0.8,最多 3 个",
+        "hint": "默认 AI 选配;点「关闭」不叠加;点选即固定。HIGH 侧管构图/动作,LOW 侧管细节/质感;触发词提交时自动置前,推荐强度 0.6-0.8,最多 3 个",
     }
 
 

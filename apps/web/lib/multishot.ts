@@ -82,6 +82,8 @@ export interface MultiShotSubmitInput {
   seed?: number | null;
   /** 主体引用(2026-08-29):Entity id 列表,后端在组装 prompt 绝对开头注入 @图片N 引用行 */
   entity_ids?: string[];
+  /** LoRA: omit/null = auto; [] = off; nonempty = pin. Same as t2v. */
+  loras?: { name: string; strength: number }[] | null;
 }
 
 /** 提交多镜头生成:POST /api/h3/multishot(与 _postH3 同模式,422 展开首条校验信息)。 */
@@ -109,6 +111,9 @@ export async function submitMultiShot(input: MultiShotSubmitInput): Promise<Gene
   }
   if (input.entity_ids && input.entity_ids.length > 0) {
     body.entity_ids = input.entity_ids;
+  }
+  if (Array.isArray(input.loras)) {
+    body.loras = input.loras;
   }
   const res = await apiFetch("/api/h3/multishot", {
     method: "POST",

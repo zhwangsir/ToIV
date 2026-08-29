@@ -334,3 +334,33 @@ async def test_image_motion_render_project_spec(monkeypatch):
     }
     assert (720, 1280) in dims
     assert captured["kenburns"] == (720, 1280, 24)
+
+
+
+@pytest.mark.asyncio
+async def test_wait_video_url_disconnect_cancels_prompt(monkeypatch):
+    """客户端断开:cancel_prompt + Job canceled,不再轮询产物。"""
+
+    class Req:
+        async def is_disconnected(self):
+            return True
+
+    canceled: dict[str, str] = {}
+
+    class FakeClient:
+        def __init__(self, worker):
+            pass
+
+        async def cancel_prompt(self, pid):
+            canceled["pid"] = pid
+
+        async def get_result_files(self, pid):
+            raise AssertionError("断开后不应继续轮询")
+
+    monkeypatch.setattr(video_mod, "ComfyUIClient", FakeClient)
+    marked: dict[str, str] = {}
+    monkeypatch.setattr(video_mod, "mark_prompt_canceled", lambda pid: marked.update(pid=pid))
+    with pytest.raises(base.RenderError, match="已中止"):
+        await video_mod._wait_video_url("http://w", "p1", request=Req())
+    assert canceled["pid"] == "p1"
+    assert marked["pid"] == "p1"

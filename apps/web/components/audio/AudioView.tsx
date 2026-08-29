@@ -20,6 +20,7 @@ import {
   type AudioSeparateResult,
   type ManjuVoiceResult,
 } from "@/lib/api";
+import { isParseAbortError } from "@/lib/studioParseUx";
 import { begin as genBegin, end as genEnd } from "@/lib/generationBus";
 
 type AudioTab = "gen" | "edit";
@@ -112,6 +113,7 @@ function TtsCard() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ManjuVoiceResult | null>(null);
   const refInputRef = useRef<HTMLInputElement | null>(null);
+  const synthAbortRef = useRef<AbortController | null>(null);
 
   async function onRefFile(file: File | undefined) {
     if (!file) return;
@@ -129,25 +131,34 @@ function TtsCard() {
     }
   }
 
+  function onStopSynth() {
+    synthAbortRef.current?.abort();
+  }
+
   async function onSynth() {
     if (!text.trim() || synthing) return;
     setError(null);
     setResult(null);
     setSynthing(true);
     genBegin("audio-tts", "TTS 配音合成");
+    const ac = new AbortController();
+    synthAbortRef.current = ac;
     try {
       const r = await synthManjuVoice({
         text: text.trim(),
         ...(emo.trim() ? { emo_text: emo.trim() } : {}),
         ...(refUrl ? { ref_audio_url: refUrl } : {}),
-      });
+      }, { signal: ac.signal });
       setResult(r);
       // 配音产物经后端 Job 建档(kind=manju_voice)后作品库可见;
       // 失效缓存让下次进作品库立即拉到最新(与图像/视频生成同口径)
       invalidateJobs();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "配音合成失败");
+      if (!isParseAbortError(e)) {
+        setError(e instanceof Error ? e.message : "配音合成失败");
+      }
     } finally {
+      if (synthAbortRef.current === ac) synthAbortRef.current = null;
       setSynthing(false);
       genEnd("audio-tts");
     }
@@ -225,15 +236,25 @@ function TtsCard() {
       {result && <AudioResult url={result.url} name={result.name} durationSec={result.duration_sec} />}
 
       <div className="audio-actions">
-        <Button
-          variant="primary"
-          loading={synthing}
-          disabled={!text.trim() || uploading}
-          icon={<Icon name="audio" size={14} />}
-          onClick={() => void onSynth()}
-        >
-          {synthing ? "合成中…" : "合成配音"}
-        </Button>
+        {synthing ? (
+          <Button
+            variant="danger"
+            icon={<Icon name="close" size={14} />}
+            title="中止合成请求(断开到 IndexTTS 的连接)"
+            onClick={onStopSynth}
+          >
+            中止合成
+          </Button>
+        ) : (
+          <Button
+            variant="primary"
+            disabled={!text.trim() || uploading}
+            icon={<Icon name="audio" size={14} />}
+            onClick={() => void onSynth()}
+          >
+            合成配音
+          </Button>
+        )}
       </div>
     </ToolCard>
   );
@@ -252,8 +273,13 @@ function AsrCard() {
   const [segments, setSegments] = useState<{ index: number; start: number; end: number; text: string }[]>([]);
   const [copied, setCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const asrAbortRef = useRef<AbortController | null>(null);
 
   const transcript = segments.map((s) => s.text).join("\n");
+
+  function onStopAsr() {
+    asrAbortRef.current?.abort();
+  }
 
   async function onTranscribe() {
     if (!file || busy) return;
@@ -264,20 +290,26 @@ function AsrCard() {
     setStage("上传文件");
     setPct(0);
     genBegin("audio-asr", "ASR 听写");
+    const ac = new AbortController();
+    asrAbortRef.current = ac;
     try {
       const up = await uploadDubVideo(file, (p) => setPct(p));
+      if (ac.signal.aborted) throw new DOMException("已中止", "AbortError");
       setStage("启动 Whisper");
       setPct(0);
       const r = await transcribeDub(up.name, (p) => {
         setStage(p.stage || "听写中");
         setPct(p.progress ?? 0);
-      });
+      }, ac.signal);
       setSegments(r.segments);
       setPct(100);
       setStage("完成");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "听写失败");
+      if (!isParseAbortError(e)) {
+        setError(e instanceof Error ? e.message : "听写失败");
+      }
     } finally {
+      if (asrAbortRef.current === ac) asrAbortRef.current = null;
       setBusy(false);
       genEnd("audio-asr");
     }
@@ -341,15 +373,25 @@ function AsrCard() {
       )}
 
       <div className="audio-actions">
-        <Button
-          variant="primary"
-          loading={busy}
-          disabled={!file}
-          icon={<Icon name="sparkles" size={14} />}
-          onClick={() => void onTranscribe()}
-        >
-          {busy ? "听写中…" : "开始听写"}
-        </Button>
+        {busy ? (
+          <Button
+            variant="danger"
+            icon={<Icon name="close" size={14} />}
+            title="中止听写作业(cancelJob;本地 Whisper 本段可能跑完但结果丢弃)"
+            onClick={onStopAsr}
+          >
+            中止听写
+          </Button>
+        ) : (
+          <Button
+            variant="primary"
+            disabled={!file}
+            icon={<Icon name="sparkles" size={14} />}
+            onClick={() => void onTranscribe()}
+          >
+            开始听写
+          </Button>
+        )}
       </div>
     </ToolCard>
   );
@@ -364,6 +406,7 @@ function SeparateCard() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AudioSeparateResult | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const sepAbortRef = useRef<AbortController | null>(null);
 
   function onPick(f: File | undefined) {
     setError(null);
@@ -385,17 +428,26 @@ function SeparateCard() {
     setFile(f);
   }
 
+  function onStopSeparate() {
+    sepAbortRef.current?.abort();
+  }
+
   async function onSeparate() {
     if (!file || busy) return;
     setError(null);
     setResult(null);
     setBusy(true);
     genBegin("audio-separate", "人声分离");
+    const ac = new AbortController();
+    sepAbortRef.current = ac;
     try {
-      setResult(await separateAudio(file));
+      setResult(await separateAudio(file, { signal: ac.signal }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "人声分离失败");
+      if (!isParseAbortError(e)) {
+        setError(e instanceof Error ? e.message : "人声分离失败");
+      }
     } finally {
+      if (sepAbortRef.current === ac) sepAbortRef.current = null;
       setBusy(false);
       genEnd("audio-separate");
     }
@@ -440,15 +492,25 @@ function SeparateCard() {
       )}
 
       <div className="audio-actions">
-        <Button
-          variant="primary"
-          loading={busy}
-          disabled={!file}
-          icon={<Icon name="audio" size={14} />}
-          onClick={() => void onSeparate()}
-        >
-          {busy ? "分离中…" : "开始分离"}
-        </Button>
+        {busy ? (
+          <Button
+            variant="danger"
+            icon={<Icon name="close" size={14} />}
+            title="中止分离请求(断开到 Demucs 的连接)"
+            onClick={onStopSeparate}
+          >
+            中止分离
+          </Button>
+        ) : (
+          <Button
+            variant="primary"
+            disabled={!file}
+            icon={<Icon name="audio" size={14} />}
+            onClick={() => void onSeparate()}
+          >
+            开始分离
+          </Button>
+        )}
       </div>
     </ToolCard>
   );

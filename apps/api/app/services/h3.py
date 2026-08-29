@@ -342,4 +342,5 @@ async def submit_h3_job(
         "worker": client.base_url,
         "seed": seed,
         "queued_behind": queued_behind,
+        "kind": kind,  # h3_t2v / h3_i2v / h3_multishot;封面切 i2v 后前端据此改历史标签
     }

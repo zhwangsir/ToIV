@@ -132,6 +132,31 @@ def refs_from_entities(entities: list[Any]) -> list[RefImage]:
     return refs
 
 
+def first_frame_handle_from_entities(
+    session: Session, entity_ids: list[str], *, owner_id: str | None = None
+) -> dict | None:
+    """entity_ids 顺序下首个有封面句柄的主体 → {filename, worker}。
+
+    无图/外部 URL/他人主体跳过;全无 → None(调用方保持 t2v,不改 SFW 无主体路径)。
+    本 pass 只取 1 张作 i2v first_frame,不组装 9-ref 图。
+    """
+    from app.services.entities import image_handle_for_injection
+
+    ids = [i for i in entity_ids if isinstance(i, str) and i.strip()]
+    if not ids:
+        return None
+    rows = list(session.exec(select(Entity).where(Entity.id.in_(ids))).all())
+    if owner_id:
+        rows = [r for r in rows if r.user_id == owner_id]
+    order = {i: n for n, i in enumerate(ids)}
+    rows.sort(key=lambda r: order.get(r.id, len(ids)))
+    for r in rows:
+        handle = image_handle_for_injection(r)
+        if handle:
+            return handle
+    return None
+
+
 def resolve_entity_refs(
     session: Session, entity_ids: list[str], *, owner_id: str | None = None
 ) -> list[RefImage]:

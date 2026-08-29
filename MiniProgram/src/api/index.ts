@@ -425,7 +425,7 @@ export async function submitWanNsfwI2V(params: WanNsfwI2VRequest): Promise<Gener
  * 轮询载体（小程序无 EventSource，且后端已做服务端追踪，轮询不丢结果）
  * offset（MP15）：作品库无限分页游标，0/缺省不序列化（既有调用方零感知）；
  * hasMore 启发式：本页返回数 === limit 即可能还有下一页，越界返回 []
- * kind（MP16）：服务端媒体类型过滤，逗号分隔多值（如 "txt2img,wan_t2v"），空=全部
+ * kind（MP16）：服务端媒体类型过滤，逗号分隔多值（精确 kind + 以 _ 结尾的前缀 token 如 cad_ / drama_char_reference_），空=全部
  */
 export async function listJobs(
   options: { limit?: number; offset?: number; status?: string; kind?: string } = {},
@@ -442,6 +442,13 @@ export async function listJobs(
 /** 删除作业：DELETE /api/jobs/{id}（仅本人；产物文件由后端另行清理） */
 export async function deleteJob(jobId: string): Promise<void> {
   await apiFetch(`/api/jobs/${encodeURIComponent(jobId)}`, { method: 'DELETE' });
+}
+
+/** Cancel running/queued job: POST /api/jobs/{id}/cancel (id or prompt_id). */
+export async function cancelJob(
+  jobId: string,
+): Promise<{ ok: boolean; status: string; worker_action: string }> {
+  return apiFetch(`/api/jobs/${encodeURIComponent(jobId)}/cancel`, { method: 'POST' });
 }
 
 /**

@@ -134,6 +134,8 @@ export function TaskCenter() {
           await cancelJob(item.id);
           toast.success(`已中止:${label}`);
           invalidateJobs();
+          // 从完成检测基准摘掉,避免下一轮 tick 再报「任务已结束」
+          prevRef.current?.delete(item.prompt_id);
           await tick();
         } catch (e) {
           toast.error(e instanceof Error ? e.message : "中止失败");
@@ -200,7 +202,7 @@ export function TaskCenter() {
           )}
           {items.map((item) => (
             <TaskCenterItem
-              key={item.prompt_id}
+              key={item.id}
               item={item}
               onCancel={onCancelItem}
               canceling={cancelingIds.has(item.id)}

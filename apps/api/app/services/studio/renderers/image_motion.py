@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 from app.comfy.client import ComfyUIError
 from app.services.studio.ffmpeg_ops import FFmpegError, ensure_ffmpeg, run_ffmpeg
 from app.services.studio.renderers.base import RenderError, RenderResult
+from app.request_cancel import mark_prompt_canceled
 
 if TYPE_CHECKING:
     from app.comfy.client import ComfyUIClient
@@ -60,10 +61,19 @@ def _save_output(data: bytes, ext: str) -> str:
     return f"/api/studio/files/{name}"
 
 
-async def _wait_images(client: "ComfyUIClient", prompt_id: str) -> list[dict]:
+async def _wait_images(
+    client: "ComfyUIClient", prompt_id: str, request: Any = None
+) -> list[dict]:
     """轮询 ComfyUI history 直到出图;超时/出错抛 RenderError。"""
     waited = 0.0
     while waited < _POLL_TIMEOUT:
+        if request is not None and await request.is_disconnected():
+            try:
+                await client.cancel_prompt(prompt_id)
+            except Exception:  # noqa: BLE001
+                logger.warning("studio image 中止: cancel_prompt 失败 prompt=%s", prompt_id)
+            mark_prompt_canceled(prompt_id)
+            raise RenderError("已中止")
         try:
             images = await client.get_images(prompt_id)
         except ComfyUIError:
@@ -134,7 +144,7 @@ class ImageMotionRenderer:
             prompt_id = await client.queue_prompt(graph, client_id=uuid.uuid4().hex)
         except ComfyUIError as e:
             raise RenderError(f"出图提交失败:{e}") from e
-        images = await _wait_images(client, prompt_id)
+        images = await _wait_images(client, prompt_id, request=kw.get("request"))
         img = images[0]
         try:
             data, _ = await client.get_image_bytes(

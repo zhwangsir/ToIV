@@ -19,7 +19,9 @@ import {
   isVideoKind,
   kindLabel,
   kindToFilter,
+  kindsQueryForFilter,
   loadDensity,
+  makeSeqGate,
   persistDensity,
   splitCardTitle,
   statusLabel,
@@ -229,27 +231,42 @@ export function LibraryView(props?: LibraryViewProps) {
   const styleAnchorRef = useRef<HTMLButtonElement | null>(null);
   // 回收站(2026-08-23):组件内条件渲染切换,不动路由
   const [showTrash, setShowTrash] = useState(false);
+  // 类型 chip 连点:忽略过期 fetchJobsPage 响应
+  const jobsFetchGate = useRef(makeSeqGate()).current;
 
   const load = useCallback(() => {
+    const seq = jobsFetchGate.next();
     setLoading(true);
+    setLoadingMore(false);
     setError(null);
-    listJobs()
+    const kind = kindsQueryForFilter(filter);
+    const req = kind ? fetchJobsPage(0, JOBS_PAGE_LIMIT, kind) : listJobs();
+    req
       .then((page1) => {
+        if (!jobsFetchGate.isLive(seq)) return;
         setJobs(page1);
         // 首页满页 → 服务端可能还有更早的作品(老作品不再被 50 条截断)
         setServerHasMore(page1.length >= JOBS_PAGE_LIMIT);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "加载作品失败"))
-      .finally(() => setLoading(false));
-  }, []);
+      .catch((err) => {
+        if (!jobsFetchGate.isLive(seq)) return;
+        setError(err instanceof Error ? err.message : "加载作品失败");
+      })
+      .finally(() => {
+        if (!jobsFetchGate.isLive(seq)) return;
+        setLoading(false);
+      });
+  }, [filter]);
 
   // 服务端下一页:offset=已加载条数;按 id 去重(首页缓存 stale 期间新作业插入顶部
   // 会导致页间位置漂移重叠,去重兜底)
   const loadMoreServer = useCallback(() => {
     if (loadingMore || !serverHasMore) return;
+    const seq = jobsFetchGate.peek();
     setLoadingMore(true);
-    fetchJobsPage(jobs?.length ?? 0)
+    fetchJobsPage(jobs?.length ?? 0, JOBS_PAGE_LIMIT, kindsQueryForFilter(filter))
       .then((page) => {
+        if (!jobsFetchGate.isLive(seq)) return;
         setServerHasMore(page.length >= JOBS_PAGE_LIMIT);
         if (page.length > 0) {
           setJobs((prev) => {
@@ -258,9 +275,15 @@ export function LibraryView(props?: LibraryViewProps) {
           });
         }
       })
-      .catch((err) => toast.error(err instanceof Error ? err.message : "加载更多失败"))
-      .finally(() => setLoadingMore(false));
-  }, [jobs?.length, loadingMore, serverHasMore, toast]);
+      .catch((err) => {
+        if (!jobsFetchGate.isLive(seq)) return;
+        toast.error(err instanceof Error ? err.message : "加载更多失败");
+      })
+      .finally(() => {
+        if (!jobsFetchGate.isLive(seq)) return;
+        setLoadingMore(false);
+      });
+  }, [jobs?.length, loadingMore, serverHasMore, toast, filter]);
 
   useEffect(() => {
     load();
@@ -960,6 +983,10 @@ export function LibraryView(props?: LibraryViewProps) {
             >
               清空筛选与搜索
             </Button>
+            {/* 筛选空结果仍可能只是当前页没命中:服务端还有时继续拉,避免 chip 卡死空态 */}
+            {serverHasMore && (
+              <div ref={sentinelRef} className="lib-load-sentinel" aria-hidden="true" />
+            )}
           </div>
         )}
 
@@ -991,6 +1018,8 @@ export function LibraryView(props?: LibraryViewProps) {
                 // 3D 产物:网格不尝试 <img> 加载,图标占位(预览进灯箱)
                 const is3d =
                   hasResult && mediaKindOf(job.results[0], job.kind) === "model3d";
+                const isNsfw = !!job.nsfw;
+                const isBlurred = isNsfw && !revealedIds.has(job.id);
                 const cardText = splitCardTitle(job);
                 return (
                   <article
@@ -1001,21 +1030,48 @@ export function LibraryView(props?: LibraryViewProps) {
                       <button
                         type="button"
                         className="lib-thumb-hit"
-                        aria-label={`预览作品: ${job.prompt || "无提示词"}`}
-                        onClick={() => openLightbox(job, openFolder.members)}
+                        aria-label={
+                          isBlurred
+                            ? "点击显示 R18 作品内容"
+                            : `预览作品: ${job.prompt || "无提示词"}`
+                        }
+                        onClick={() => {
+                          if (isBlurred) toggleReveal(job.id);
+                          else openLightbox(job, openFolder.members);
+                        }}
                       >
                         {hasResult ? (
                           is3d ? (
                             <ThumbPlaceholder job={job} />
                           ) : isVideo ? (
-                            <LazyVideo src={imageUrl(job.results[0])} muted loop playsInline />
+                            <LazyVideo
+                              src={imageUrl(job.results[0])}
+                              muted
+                              loop
+                              playsInline
+                              style={isBlurred ? { filter: "blur(18px)" } : undefined}
+                            />
                           ) : (
-                            <ImageThumb job={job} />
+                            <ImageThumb job={job} blurred={isBlurred} />
                           )
                         ) : (
                           <ThumbPlaceholder job={job} />
                         )}
                       </button>
+                      {isNsfw && (
+                        <button
+                          type="button"
+                          className="lib-nsfw-badge"
+                          aria-label={isBlurred ? "显示 R18 作品内容" : "恢复模糊"}
+                          title={isBlurred ? "显示内容" : "恢复模糊"}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleReveal(job.id);
+                          }}
+                        >
+                          18+
+                        </button>
+                      )}
                       {/* 快捷操作浮层:查看大图(组内穿梭)/ 单独删除 */}
                       <div className="lib-actions" onClick={(e) => e.stopPropagation()}>
                         <button
@@ -1146,14 +1202,12 @@ export function LibraryView(props?: LibraryViewProps) {
                             : `选择作品: ${job.prompt || "无提示词"}`
                           : isBlurred
                             ? "点击显示 R18 作品内容"
-                            : isNsfw
-                              ? "恢复模糊(R18 作品)"
-                              : `预览作品: ${job.prompt || "无提示词"}`
+                            : `预览作品: ${job.prompt || "无提示词"}`
                       }
                       aria-pressed={batchMode ? isSelected : undefined}
                       onClick={() => {
                         if (batchMode) toggleSelect(job.id);
-                        else if (isNsfw) toggleReveal(job.id);
+                        else if (isBlurred) toggleReveal(job.id);
                         else openLightbox(job);
                       }}
                       onMouseEnter={() => {
@@ -1314,11 +1368,20 @@ export function LibraryView(props?: LibraryViewProps) {
                       </div>
                     )}
 
-                    {/* R18 徽标(M9):缩略图右下角(避开左上状态与右上操作组),仅 nsfw 作品渲染 */}
+                    {/* R18 徽标:右下角可点,切换本卡模糊/揭示;缩略图点击揭示后进灯箱 */}
                     {isNsfw && (
-                      <span className="lib-nsfw-badge" aria-hidden="true">
+                      <button
+                        type="button"
+                        className="lib-nsfw-badge"
+                        aria-label={isBlurred ? "显示 R18 作品内容" : "恢复模糊"}
+                        title={isBlurred ? "显示内容" : "恢复模糊"}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleReveal(job.id);
+                        }}
+                      >
                         18+
-                      </span>
+                      </button>
                     )}
                   </div>
 
@@ -1893,14 +1956,16 @@ interface LibraryLightboxProps {
   onClose: () => void;
   onIndex: (idx: number) => void;
   /** 存为风格:复用 LibraryView.openStylePopover(锚定到灯箱面板按钮) */
-  onSaveStyle: (job: JobItem, anchor: HTMLButtonElement) => void;
+  onSaveStyle?: (job: JobItem, anchor: HTMLButtonElement) => void;
   /** 复用提示词:复用 LibraryView.reusePromptAsDraft(写草稿 + 跳工作台) */
-  onReuse: (job: JobItem) => void;
+  onReuse?: (job: JobItem) => void;
   /** 删除:复用 LibraryView.handleDelete(打开既有确认 Modal) */
-  onDelete: (job: JobItem) => void;
-  deletingId: string | null;
+  onDelete?: (job: JobItem) => void;
+  deletingId?: string | null;
   /** 存风格 Popover / 删除 Modal 打开时,灯箱让出 Esc/方向键(避免一按两关) */
   dialogsOpen: boolean;
+  /** 回收站预览:只看不改,隐藏复用/存风格/删除/3D 操作,避免误恢复或加厚删除 */
+  previewOnly?: boolean;
 }
 
 function LibraryLightbox({
@@ -1911,8 +1976,9 @@ function LibraryLightbox({
   onSaveStyle,
   onReuse,
   onDelete,
-  deletingId,
+  deletingId = null,
   dialogsOpen,
+  previewOnly = false,
 }: LibraryLightboxProps) {
   const job = jobs[index];
   const hasResult = job.status === "done" && job.results?.length > 0;
@@ -2074,7 +2140,7 @@ function LibraryLightbox({
           </div>
 
           {/* 3D 产物:材质烘焙成新模型(默认)+ 快照/旋转视频(折叠,产物作为新作业进作品库) */}
-          {mediaKind === "model3d" && <ThreeDOpsBar job={job} />}
+          {!previewOnly && mediaKind === "model3d" && <ThreeDOpsBar job={job} />}
 
           <div className="lib-lb-side-actions">
             {hasResult && (
@@ -2088,6 +2154,7 @@ function LibraryLightbox({
                 下载
               </a>
             )}
+            {!previewOnly && onReuse && (
             <button
               type="button"
               className="lib-lb-action"
@@ -2096,6 +2163,8 @@ function LibraryLightbox({
               <Icon name="link" size={14} />
               复用提示词
             </button>
+            )}
+            {!previewOnly && onSaveStyle && (
             <button
               type="button"
               className="lib-lb-action"
@@ -2104,6 +2173,8 @@ function LibraryLightbox({
               <Icon name="palette" size={14} />
               存为风格
             </button>
+            )}
+            {!previewOnly && onDelete && (
             <button
               type="button"
               className="lib-lb-action lib-lb-action--danger"
@@ -2113,6 +2184,7 @@ function LibraryLightbox({
               <Icon name={deletingId === job.id ? "loading" : "delete"} size={14} />
               删除作品
             </button>
+            )}
           </div>
         </aside>
       </div>
@@ -2144,6 +2216,29 @@ export function LibraryTrashView({ onBack, onRestored }: LibraryTrashViewProps) 
   const [purgeError, setPurgeError] = useState<string | null>(null);
   // 一键清空:独立确认态与进行中态(复用 busyId 语义,"__all__" 表示整桶操作)
   const [confirmPurgeAll, setConfirmPurgeAll] = useState(false);
+  const [revealedIds, setRevealedIds] = useState<ReadonlySet<string>>(new Set());
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
+
+  const toggleReveal = (id: string) => {
+    setRevealedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const trashJobs = items ?? [];
+  const openLightbox = (job: JobItem) => {
+    const idx = trashJobs.findIndex((j) => j.id === job.id);
+    if (idx >= 0) setLightboxIdx(idx);
+  };
+
+  useEffect(() => {
+    if (lightboxIdx === null) return;
+    if (trashJobs.length === 0) setLightboxIdx(null);
+    else if (lightboxIdx >= trashJobs.length) setLightboxIdx(trashJobs.length - 1);
+  }, [trashJobs.length, lightboxIdx]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -2289,10 +2384,25 @@ export function LibraryTrashView({ onBack, onRestored }: LibraryTrashViewProps) 
               // 3D 产物:不尝试 <img> 加载,图标占位
               const is3d =
                 hasResult && mediaKindOf(job.results[0], job.kind) === "model3d";
+              const isNsfw = !!job.nsfw;
+              const isBlurred = isNsfw && !revealedIds.has(job.id);
               const cardText = splitCardTitle(job);
               return (
                 <article key={job.id} className="lib-card">
                   <div className="lib-thumb">
+                    <button
+                      type="button"
+                      className="lib-thumb-hit"
+                      aria-label={
+                        isBlurred
+                          ? "点击显示 R18 作品内容"
+                          : `预览作品: ${job.prompt || "无提示词"}`
+                      }
+                      onClick={() => {
+                        if (isBlurred) toggleReveal(job.id);
+                        else openLightbox(job);
+                      }}
+                    >
                     {hasResult ? (
                       is3d ? (
                         <ThumbPlaceholder job={job} />
@@ -2302,12 +2412,28 @@ export function LibraryTrashView({ onBack, onRestored }: LibraryTrashViewProps) 
                           muted
                           loop
                           playsInline
+                          style={isBlurred ? { filter: "blur(18px)" } : undefined}
                         />
                       ) : (
-                        <ImageThumb job={job} />
+                        <ImageThumb job={job} blurred={isBlurred} />
                       )
                     ) : (
                       <ThumbPlaceholder job={job} />
+                    )}
+                    </button>
+                    {isNsfw && (
+                      <button
+                        type="button"
+                        className="lib-nsfw-badge"
+                        aria-label={isBlurred ? "显示 R18 作品内容" : "恢复模糊"}
+                        title={isBlurred ? "显示内容" : "恢复模糊"}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleReveal(job.id);
+                        }}
+                      >
+                        18+
+                      </button>
                     )}
                     {isVideo && hasResult && (
                       <div className="lib-video-badge" aria-hidden="true">
@@ -2362,6 +2488,18 @@ export function LibraryTrashView({ onBack, onRestored }: LibraryTrashViewProps) 
           </div>
         )}
       </div>
+
+      {lightboxIdx !== null && trashJobs[lightboxIdx] && createPortal(
+        <LibraryLightbox
+          jobs={trashJobs}
+          index={lightboxIdx}
+          onClose={() => setLightboxIdx(null)}
+          onIndex={setLightboxIdx}
+          dialogsOpen={!!confirmPurge || confirmPurgeAll}
+          previewOnly
+        />,
+        document.body,
+      )}
 
       {/* 彻底删除确认对话框(与删除作品同一 Modal danger 基座;后果文案明示不可恢复) */}
       <Modal

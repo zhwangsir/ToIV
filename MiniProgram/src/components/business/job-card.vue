@@ -18,12 +18,14 @@ const props = withDefaults(
     job: JobItem;
     /** 重试提交中（防重复点按） */
     retrying?: boolean;
+    /** cancel in flight */
+    canceling?: boolean;
     /** SSE 实时进度（0-100，MP29）；null = 无实时进度源，不渲染进度条 */
     progressPct?: number | null;
     /** 已收到质量预警（MP29）：状态行预警图标 */
     qualityWarning?: boolean;
   }>(),
-  { retrying: false, progressPct: null, qualityWarning: false },
+  { retrying: false, canceling: false, progressPct: null, qualityWarning: false },
 );
 
 const emit = defineEmits<{
@@ -31,6 +33,7 @@ const emit = defineEmits<{
   click: [job: JobItem];
   remove: [job: JobItem];
   retry: [job: JobItem];
+  cancel: [job: JobItem];
 }>();
 
 const meta = computed(() => jobStatusMeta(props.job.status));
@@ -41,6 +44,9 @@ const isVideo = computed(() => props.job.kind.includes('video') || /\.(mp4|webm|
 const time = computed(() => formatRelative(props.job.created_at));
 const deletable = computed(() => isTerminalStatus(props.job.status));
 const retryable = computed(() => props.job.status === 'error');
+const cancelable = computed(
+  () => props.job.status === 'running' || props.job.status === 'queued',
+);
 /** 进度条仅活跃态渲染（终态 stale pct 防御性不展示） */
 const showProgress = computed(
   () =>
@@ -144,6 +150,15 @@ function confirmRemove() {
         </view>
       </view>
 
+      <view
+        v-if="cancelable"
+        class="job-card__action"
+        :class="{ 'job-card__action--spinning': canceling }"
+        hover-class="job-card__action--pressed"
+        @tap.stop="!canceling && emit('cancel', job)"
+      >
+        <text class="job-card__cancel-text">{{ canceling ? '中止中' : '中止' }}</text>
+      </view>
       <view
         v-if="retryable"
         class="job-card__action"
@@ -270,6 +285,12 @@ function confirmRemove() {
     font-variant-numeric: tabular-nums;
     min-width: 64rpx;
     text-align: right;
+  }
+
+  &__cancel-text {
+    font-size: var(--font-caption);
+    color: #c44;
+    font-weight: 500;
   }
 
   &__time {

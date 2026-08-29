@@ -7,6 +7,7 @@ import {
   parseStudioScript,
   patchStudioProject,
 } from "@/lib/api";
+import { isParseAbortError } from "@/lib/studioParseUx";
 import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
@@ -53,6 +54,7 @@ export function ScriptStage({
   // 剧情概要自动增高(长原文不再 rows=10 截断出内滚条)
   const premiseRef = useRef<HTMLTextAreaElement | null>(null);
   useAutoResize(premiseRef, premise);
+  const parseAbortRef = useRef<AbortController | null>(null);
 
   if (!d) return null;
 
@@ -77,7 +79,14 @@ export function ScriptStage({
     void runParse();
   };
 
+  const abortParse = () => {
+    parseAbortRef.current?.abort();
+  };
+
   const runParse = async () => {
+    parseAbortRef.current?.abort();
+    const ac = new AbortController();
+    parseAbortRef.current = ac;
     setParsing(true);
     setError(null);
     try {
@@ -89,7 +98,7 @@ export function ScriptStage({
         height: p.h,
         fps,
       });
-      const r = await parseStudioScript(d.id, { premise, num_shots: numShots, style });
+      const r = await parseStudioScript(d.id, { premise, num_shots: numShots, style }, { signal: ac.signal });
       // 全量替换角色:先删旧,再逐个建
       for (const c of d.characters) await deleteStudioCharacter(c.id);
       for (const c of r.characters) {
@@ -106,8 +115,14 @@ export function ScriptStage({
       setConfirmParse(false);
       onDone();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "拆解失败,请重试");
+      if (isParseAbortError(e)) {
+        setError(null);
+        setConfirmParse(false);
+      } else {
+        setError(e instanceof Error ? e.message : "拆解失败,请重试");
+      }
     } finally {
+      if (parseAbortRef.current === ac) parseAbortRef.current = null;
       setParsing(false);
     }
   };
@@ -190,12 +205,12 @@ export function ScriptStage({
         </label>
         <button
           type="button"
-          className="btn btn-primary"
-          disabled={parsing || !premise.trim()}
-          onClick={parse}
+          className={parsing ? "btn btn-ghost" : "btn btn-primary"}
+          disabled={!parsing && !premise.trim()}
+          onClick={parsing ? abortParse : parse}
         >
-          <Icon name={parsing ? "loading" : "sparkles"} size={14} />
-          {parsing ? "AI 拆解中…" : hasExisting ? "重新拆解" : "AI 拆解"}
+          <Icon name={parsing ? "close" : "sparkles"} size={14} />
+          {parsing ? "中止拆解" : hasExisting ? "重新拆解" : "AI 拆解"}
         </button>
       </div>
       {error && <p className="studio-error">{error}</p>}
@@ -211,10 +226,12 @@ export function ScriptStage({
           <>
             <Button
               variant="secondary"
-              disabled={parsing}
-              onClick={() => setConfirmParse(false)}
+              onClick={() => {
+                if (parsing) abortParse();
+                else setConfirmParse(false);
+              }}
             >
-              取消
+              {parsing ? "中止" : "取消"}
             </Button>
             <Button
               variant="danger"

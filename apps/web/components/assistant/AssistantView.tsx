@@ -14,6 +14,7 @@ import {
   AgentEvent,
   AgentSessionMessage,
   AgentSessionSummary,
+  cancelJob,
   deleteAgentSession,
   fetchJobsPage,
   getAgentSession,
@@ -332,6 +333,8 @@ export function jobCardStatusLabel(status: string): string {
       return "完成";
     case "error":
       return "失败";
+    case "canceled":
+      return "已中止";
     default:
       return status || "排队中";
   }
@@ -399,6 +402,20 @@ export function applyJobSnapshots(msgs: ChatMessage[], rows: JobItem[]): ChatMes
     if (!mChanged) return m;
     changed = true;
     return { ...m, jobs };
+  });
+  return changed ? next : msgs;
+}
+
+/** 作业卡用户中止:本地先落 canceled,轮询不再跟进(纯函数,单测锚点)。 */
+export function markJobCanceled(msgs: ChatMessage[], jobId: string): ChatMessage[] {
+  let changed = false;
+  const next = msgs.map((m) => {
+    if (!m.jobs?.some((j) => j.jobId === jobId && isJobCardActive(j.status))) return m;
+    changed = true;
+    return {
+      ...m,
+      jobs: m.jobs.map((j) => (j.jobId === jobId ? { ...j, status: "canceled" } : j)),
+    };
   });
   return changed ? next : msgs;
 }
@@ -1353,6 +1370,14 @@ export function AssistantView(props?: AssistantViewProps) {
     };
   }, [activeJobKey]);
 
+  /** 作业卡「停止」:cancelJob 中止后端,卡片立即转已中止。 */
+  const onJobCancel = useCallback((jobId: string) => {
+    setMessages((prev) => markJobCanceled(prev, jobId));
+    void cancelJob(jobId).catch((e) => {
+      toast.error(e instanceof Error ? e.message : "中止失败");
+    });
+  }, [toast]);
+
   const send = useCallback(
     async (presetPrompt?: string) => {
       const text = (presetPrompt ?? input).trim();
@@ -1396,7 +1421,20 @@ export function AssistantView(props?: AssistantViewProps) {
     abortControllerRef.current?.abort();
     setBusy(false);
     setPending(false);
-  }, []);
+    // 本轮已提交的生成作业:abort SSE 只停对话,GPU 作业要 cancelJob。
+    const ids: string[] = [];
+    for (const m of messagesRef.current) {
+      for (const j of m.jobs ?? []) {
+        if (isJobCardActive(j.status)) ids.push(j.jobId);
+      }
+    }
+    for (const id of ids) {
+      setMessages((prev) => markJobCanceled(prev, id));
+      void cancelJob(id).catch((e) => {
+        toast.error(e instanceof Error ? e.message : "中止失败");
+      });
+    }
+  }, [toast]);
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1586,7 +1624,7 @@ export function AssistantView(props?: AssistantViewProps) {
         <div className="av-composer-box">
           <div className="av-composer-actions av-composer-actions--left">
             {busy ? (
-              <button type="button" className="av-composer-btn av-composer-stop" onClick={onStop} title="停止生成">
+              <button type="button" className="av-composer-btn av-composer-stop" onClick={onStop} title="停止本轮回复并中止已提交的生成作业">
                 <Icon name="minus" size={12} strokeWidth={2.2} />
               </button>
             ) : !popup ? (
@@ -1930,8 +1968,20 @@ export function AssistantView(props?: AssistantViewProps) {
                                 <Icon name={isVideoKind(j.kind) ? "video" : kindToFilter(j.kind) === "audio" ? "audio" : kindToFilter(j.kind) === "3d" ? "box" : "image"} size={12} strokeWidth={1.8} />
                                 {kindLabel(j.kind)}
                               </span>
-                              <span className={`av-job-badge is-${j.status}`}>
-                                {jobCardStatusLabel(j.status)}
+                              <span className="av-job-card-actions">
+                                <span className={`av-job-badge is-${j.status}`}>
+                                  {jobCardStatusLabel(j.status)}
+                                </span>
+                                {isJobCardActive(j.status) ? (
+                                  <button
+                                    type="button"
+                                    className="av-job-cancel"
+                                    title="中止后端作业并停止本页跟踪"
+                                    onClick={() => onJobCancel(j.jobId)}
+                                  >
+                                    停止
+                                  </button>
+                                ) : null}
                               </span>
                             </div>
                             {j.label ? <div className="av-job-card-label">{j.label}</div> : null}
@@ -2866,6 +2916,28 @@ export function AssistantView(props?: AssistantViewProps) {
           color: var(--err);
           border-color: color-mix(in oklab, var(--err) 40%, transparent);
           background: var(--err-soft);
+        }
+        .av-job-badge.is-canceled {
+          color: var(--text-muted);
+        }
+        .av-job-card-actions {
+          display: inline-flex;
+          align-items: center;
+          gap: var(--space-2);
+          flex-shrink: 0;
+        }
+        .av-job-cancel {
+          padding: 1px var(--space-2);
+          border-radius: var(--radius-full);
+          border: 1px solid var(--border-subtle);
+          background: transparent;
+          color: var(--text-secondary);
+          font-size: var(--text-label);
+          cursor: pointer;
+        }
+        .av-job-cancel:hover {
+          color: var(--err);
+          border-color: color-mix(in oklab, var(--err) 40%, transparent);
         }
         .av-job-card-label {
           font-size: var(--text-aux);

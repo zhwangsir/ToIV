@@ -80,16 +80,21 @@ export function StoryboardStage({
           </button>
           <button
             type="button"
-            className="btn btn-primary btn-sm"
-            disabled={renderingAll || shots.length === 0}
-            onClick={() =>
+            className={renderingAll ? "btn btn-danger btn-sm" : "btn btn-primary btn-sm"}
+            disabled={!renderingAll && shots.length === 0}
+            title={renderingAll ? "中止批量渲染(断开请求并尝试中断当前镜 GPU)" : undefined}
+            onClick={() => {
+              if (renderingAll) {
+                project.cancelRenderAll();
+                return;
+              }
               void project.renderAll().catch(() => {
                 /* 错误已由 hook error 提示条透出 */
-              })
-            }
+              });
+            }}
           >
-            <Icon name={renderingAll ? "loading" : "playing"} size={13} />
-            {renderingAll ? `批量生成中 ${renderedCount}/${shots.length}` : "全部生成"}
+            <Icon name={renderingAll ? "close" : "playing"} size={13} />
+            {renderingAll ? "中止批量" : "全部生成"}
           </button>
         </div>
       </div>
@@ -122,6 +127,7 @@ export function StoryboardStage({
                   /* 错误已由 hook error 提示条透出 */
                 })
               }
+              onCancelRender={() => project.cancelRenderShot(s.id)}
               onVoice={() =>
                 void project.voiceShot(s.id).catch(() => {
                   /* 错误已由 hook error 提示条透出 */

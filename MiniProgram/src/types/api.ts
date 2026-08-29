@@ -30,7 +30,7 @@ export interface MeResult {
 // ── 作业（GET /api/jobs，list_jobs 原样返回数组，最新在前）──
 
 /** 后端 Job.status：queued | running | done | error（jobs.py list_jobs docstring） */
-export type JobStatus = 'queued' | 'running' | 'done' | 'error';
+export type JobStatus = 'queued' | 'running' | 'done' | 'error' | 'canceled';
 
 /** 对应 routes/jobs.py `_job_dict` 输出形状 */
 export interface JobItem {

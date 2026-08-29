@@ -59,6 +59,8 @@ export const FILTERS: FilterDef[] = [
       'h3_i2v',
       // H3 多镜头单次生成(单段内切镜)
       'h3_multishot',
+      // H3 超 15s 分段续写(末帧 i2v)
+      'h3_extend_i2v',
       'ltx_t2v',
       'ltx_i2v',
       'ltx_lipsync',
@@ -105,6 +107,22 @@ export const KIND_PREFIX_RULES: [string, FilterKey][] = [
   ['drama_char_reference_', 'image'],
 ];
 
+/**
+ * 类型 chip → 后端 GET /api/jobs?kind= 多值(逗号分隔)；「全部」空串不过滤。
+ * 前缀 token(以 _ 结尾,如 cad_ / drama_char_reference_)一并送给服务端:
+ * GET /api/jobs 把这类 token 当 startswith,精确值仍 in_(...)。
+ * 对齐 apps/web/lib/libraryQuery.ts kindsQueryForFilter。
+ */
+export function kindsQueryForFilter(filter: FilterKey): string {
+  if (filter === 'all') return '';
+  const f = FILTERS.find((x) => x.key === filter);
+  const kinds = [...(f?.kinds ?? [])];
+  for (const [prefix, key] of KIND_PREFIX_RULES) {
+    if (key === filter && !kinds.includes(prefix)) kinds.push(prefix);
+  }
+  return kinds.length > 0 ? kinds.join(',') : '';
+}
+
 /** kind → 筛选桶；未识别返回 null，只在「全部」出现 */
 export function kindToFilter(kind: string): FilterKey | null {
   for (const f of FILTERS) {
@@ -139,6 +157,7 @@ export function kindLabel(kind: string): string {
     h3_t2v: '文生视频',
     h3_i2v: '图生视频',
     h3_multishot: '多镜头',
+    h3_extend_i2v: '长视频续写',
     ltx_t2v: '文生视频',
     ltx_i2v: '图生视频',
     ltx_lipsync: '对口型',

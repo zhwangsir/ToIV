@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { usePoll } from "@/hooks/usePoll";
 import { useAutoResize } from "@/hooks/useAutoResize";
-import { invalidateJobs, apiFetch, authHeaders, imageUrl, listRecipes, listStylePresets, resolveEntityRefs, type CommunityRecipe, type EntityItem } from "@/lib/api";
+import { cancelJob, invalidateJobs, apiFetch, authHeaders, imageUrl, listRecipes, listStylePresets, resolveEntityRefs, type CommunityRecipe, type EntityItem } from "@/lib/api";
 import type { JobItem, StylePreset } from "@/lib/types";
 import { consumeEngineDraft, type EngineDraft } from "@/lib/engine";
 import { resolveEntityIds, useEntities } from "@/lib/entities";
@@ -52,6 +52,19 @@ import { RefImageUpload, type UploadedRef } from "./RefImageUpload";
 import { RefImagesUpload } from "./RefImagesUpload";
 import { RefVideoUpload, type UploadedVideo } from "./RefVideoUpload";
 import { ResultPanel, type HistoryEntry } from "./ResultPanel";
+import {
+  clampH3ValuesOnExtendToggle,
+  h3HistoryPresentation,
+  h3PayloadWentI2v,
+  h3TrackerParentPromptId,
+  isOrdinaryH3Video,
+  overlayOrdinaryH3DurationParams,
+} from "@/lib/h3VideoUx";
+import {
+  img2imgPartnerId,
+  txt2imgHistoryPresentation,
+  txt2imgPayloadWentImg2img,
+} from "@/lib/txt2imgCoverUx";
 
 function newEntryId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -322,9 +335,13 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
     [engine],
   );
   const showSizeChip = sizeParams.length === 2;
+  const displayParams = useMemo(
+    () => (engine ? overlayOrdinaryH3DurationParams(engine, values) : []),
+    [engine, values],
+  );
   const paramGroups = useMemo(
-    () => (engine ? groupEngineParams(engine.params, { sizeChip: showSizeChip }) : null),
-    [engine, showSizeChip],
+    () => (engine ? groupEngineParams(displayParams, { sizeChip: showSizeChip }) : null),
+    [displayParams, showSizeChip, engine],
   );
   // 高级组:negative 由下方 Textarea 特判渲染(自动增高 + 优化回填联动),其余走 ParamField
   const advancedParams = useMemo(
@@ -379,6 +396,14 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
   // 后端同规则静默归一兜底(lib/aspectPair ↔ workflows/model_profiles.clamp_aspect_ratio)
   const handleParamChange = (key: string, v: unknown) => {
     if (!engine) return;
+    if (key === "segment_extend" && isOrdinaryH3Video(engine.id)) {
+      const patch = clampH3ValuesOnExtendToggle(values, Boolean(v));
+      setValuesByEngine((prev) => ({
+        ...prev,
+        [engine.id]: { ...(prev[engine.id] ?? {}), ...patch },
+      }));
+      return;
+    }
     // 三层联动:选中风格预设时即时回显推荐参数(所见即所得,后可继续微调);
     // 切回「不使用」不回滚参数(避免误清用户已调好的值)
     if (key === "style_preset" && typeof v === "string" && v) {
@@ -524,7 +549,8 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
   const [entityRefFiles, setEntityRefFiles] = useState<Record<string, string[]>>({});
   const [entityResolving, setEntityResolving] = useState(false);
 
-  /** 引用主体确认:提示词注入 prompt_hint;有图引擎把主体图注入参考图链(钉同机 worker)。 */
+  /** 引用主体确认:提示词注入 prompt_hint;有图引擎把主体图注入参考图链(钉同机 worker)。
+   *  txt2img 无 images 槽:有封面且未上传图时解析封面后切到对应 img2img(对齐 H3 t2v→i2v)。 */
   async function applyPickedEntities(selected: EntityItem[]) {
     if (!engine || selected.length === 0) return;
     const merged = [...pickedEntities];
@@ -547,23 +573,43 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
       });
     }
 
-    // ② 主体图注入参考图链(仅有图主体 + 引擎吃 images 参数时)
+    // ② 主体图注入参考图链。txt2img 无槽:有封面且未上传图 → 解析成功后再切 img2img。
     const withImage = selected.filter((e) => entityCover(e));
-    if (!imageParam || withImage.length === 0) {
+    const hasUploaded = multiImage ? refImages.length > 0 : !!refImage;
+    const partnerId = img2imgPartnerId(engine.id);
+    const partner =
+      partnerId && !hasUploaded && withImage.length > 0
+        ? ((engines ?? []).find((e) => e.id === partnerId && e.available) ?? null)
+        : null;
+    const injectEngine = partner ?? engine;
+    const injectImageParam = engineNeedsImage(injectEngine);
+    const injectMulti = engineMaxImages(injectEngine) > 1;
+    if (!injectImageParam || withImage.length === 0) {
       if (withImage.length === 0) toast.info(`已引用 ${merged.length} 个主体(无参考图,仅注入提示词)`);
       return;
     }
     setEntityResolving(true);
     try {
-      const pin = multiImage
-        ? (refsByEngine[engine.id] ?? [])[0]?.worker
-        : refByEngine[engine.id]?.worker;
+      const pin = injectMulti
+        ? (refsByEngine[injectEngine.id] ?? [])[0]?.worker
+        : refByEngine[injectEngine.id]?.worker;
       const r = await resolveEntityRefs({
         entity_ids: withImage.map((e) => e.id),
-        kind: uploadKind,
+        kind: partner ? "img2img" : uploadKind,
         ...(pin ? { worker: pin } : {}),
       });
-      const max = engineMaxImages(engine);
+      if (partner && r.refs.length > 0) {
+        // 封面解析成功才切引擎,失败/无图仍停在 txt2img(普通文生不破)
+        setGroupByKind((prev) => ({ ...prev, [mode]: "edit" }));
+        setEngineIdByKind((prev) => ({ ...prev, [mode]: partner.id }));
+        setValuesByEngine((prev) => (prev[partner.id] ? prev : { ...prev, [partner.id]: prev[engine.id] ?? {} }));
+        setPromptByEngine((prev) => {
+          const dest = prev[partner.id] ?? "";
+          const src = prev[engine.id] ?? "";
+          return dest.trim() ? prev : { ...prev, [partner.id]: src };
+        });
+      }
+      const max = engineMaxImages(injectEngine);
       const filesByEntity: Record<string, string[]> = {};
       const newRefs: UploadedRef[] = r.refs.map((h) => {
         filesByEntity[h.entity_id] = [...(filesByEntity[h.entity_id] ?? []), h.filename];
@@ -575,16 +621,16 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
           name: h.name,
         };
       });
-      if (multiImage) {
+      if (injectMulti) {
         setRefsByEngine((prev) => {
-          const cur = prev[engine.id] ?? [];
+          const cur = prev[injectEngine.id] ?? [];
           const seen = new Set(cur.map((v) => v.filename));
           const add = newRefs.filter((v) => !seen.has(v.filename));
-          return { ...prev, [engine.id]: [...cur, ...add].slice(0, max) };
+          return { ...prev, [injectEngine.id]: [...cur, ...add].slice(0, max) };
         });
       } else {
         setRefByEngine((prev) =>
-          prev[engine.id] ? prev : { ...prev, [engine.id]: newRefs[0] ?? null },
+          prev[injectEngine.id] ? prev : { ...prev, [injectEngine.id]: newRefs[0] ?? null },
         );
       }
       setEntityRefFiles((prev) => {
@@ -630,21 +676,78 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
     setSubmitting(true);
     const targetValues = { ...engineDefaults(target), ...(valuesByEngine[target.id] ?? {}) };
     try {
+      const pickedIds = pickedEntities.map((e) => e.id);
+      const mentionIds = resolveEntityIds(promptText, subjectEntities);
+      const entityIds =
+        pickedIds.length > 0
+          ? [...pickedIds, ...mentionIds.filter((id) => !pickedIds.includes(id))]
+          : mentionIds;
+      let submitRef = refByEngine[target.id] ?? null;
+      let submitEngine = target;
+      let submitValues = targetValues;
+      const isH3T2V = target.id === "h3-t2v" || target.id === "h3-nsfw-t2v";
+      if (isH3T2V && !submitRef) {
+        const cover = pickedEntities.find((e) => entityCover(e));
+        if (cover) {
+          try {
+            const r = await resolveEntityRefs({ entity_ids: [cover.id], kind: "h3_i2v" });
+            if (r.refs[0]) {
+              submitRef = { filename: r.refs[0].filename, worker: r.refs[0].worker };
+            }
+          } catch {
+            /* 解析失败不阻塞:后端 t2v+entity_ids 仍会尝试转 i2v */
+          }
+        }
+      }
+      const imgPartner = img2imgPartnerId(target.id);
+      if (imgPartner && !submitRef) {
+        const cover = pickedEntities.find((e) => entityCover(e));
+        if (cover) {
+          try {
+            const r = await resolveEntityRefs({ entity_ids: [cover.id], kind: "img2img" });
+            if (r.refs[0]) {
+              submitRef = { filename: r.refs[0].filename, worker: r.refs[0].worker };
+              const partner = (engines ?? []).find((e) => e.id === imgPartner);
+              submitEngine = partner ?? { ...target, id: imgPartner };
+              submitValues = {
+                ...engineDefaults(submitEngine),
+                ...(valuesByEngine[target.id] ?? {}),
+                ...(valuesByEngine[submitEngine.id] ?? {}),
+              };
+            }
+          } catch {
+            /* 解析失败不阻塞:保持 txt2img */
+          }
+        }
+      }
       const res = await submitEngineGeneration({
-        engine: target,
+        engine: submitEngine,
         positive: promptText,
-        values: targetValues,
-        refImage: refByEngine[target.id] ?? null,
+        values: submitValues,
+        refImage: submitRef,
         refImages: refsByEngine[target.id] ?? [],
         refAudio: audioByEngine[target.id] ?? null,
         refVideo: videoByEngine[target.id] ?? null,
         motionMask: motionMaskByEngine[target.id] || undefined,
-        entityIds: resolveEntityIds(promptText, subjectEntities),
+        entityIds,
       });
+      const wentI2v = h3PayloadWentI2v({
+        engineId: target.id,
+        backendKind: res.kind,
+        hasRefImage: Boolean(submitRef),
+      });
+      const wentImg2img = txt2imgPayloadWentImg2img({
+        engineId: target.id,
+        submittedEngineId: submitEngine.id,
+        hasRefImage: Boolean(submitRef),
+      });
+      const shown = wentImg2img
+        ? txt2imgHistoryPresentation(target, { wentImg2img: true })
+        : h3HistoryPresentation(target, { wentI2v });
       const entry: HistoryEntry = {
         id: newEntryId(),
-        engineId: target.id,
-        engineLabel: target.label,
+        engineId: shown.engineId,
+        engineLabel: shown.engineLabel,
         kind: target.kind,
         prompt: promptText,
         status: "running",
@@ -678,7 +781,11 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
       setEntries((prev) => [entry, ...prev]);
       setSelectedId(entry.id);
       runningIdRef.current = entry.id;
-      runningPromptIdRef.current = res.prompt_id ?? null;
+      runningPromptIdRef.current = res.prompt_id ? h3TrackerParentPromptId(res.prompt_id, res.kind) : null;
+      // 分段续写/网格裁切:后端 duration_notice 必须 toast,不得只写 muted 结果行
+      if (res.duration_notice) {
+        toast.info(res.duration_notice);
+      }
       // 排队提示(QUEUE-2026-08-18):入队成功即刻告知「这是排队,不是故障」
       if (typeof res.queued_behind === "number" && res.queued_behind > 0) {
         toast.info(
@@ -697,7 +804,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
         );
       }
       // start 永远 resolve:出错经 onError 回调更新条目状态
-      await gen.start(res, { label: target.label });
+      await gen.start(res, { label: shown.engineLabel });
     } catch (e) {
       // 提交阶段失败(参数校验/网络/上传缺失):不入历史,直接显示错误(已知模式包装为友好文案)
       const raw = e instanceof Error ? e.message : "生成请求失败";
@@ -728,11 +835,22 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
 
   function onCancel() {
     const id = runningIdRef.current;
+    const promptId = runningPromptIdRef.current;
     runningIdRef.current = null;
-    gen.reset(); // 关闭 SSE;后端作业仍继续,完成后可在作品库查看
-    if (id) {
-      setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, status: "cancelled" } : e)));
-    }
+    runningPromptIdRef.current = null;
+    void (async () => {
+      if (promptId) {
+        try {
+          await cancelJob(promptId);
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : "中止失败");
+        }
+      }
+      gen.reset();
+      if (id) {
+        setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, status: "cancelled" } : e)));
+      }
+    })();
   }
 
   /**
@@ -825,7 +943,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
         ) : isMultiShot ? (
           /* H3 多镜头引擎:舞台列渲染专用编辑器(镜头卡/逐镜头时长/总时长护栏自承载),
              PromptBar 让位(多镜头有逐镜头提示词,单条输入框不适用) */
-          <MultiShotEditor />
+          <MultiShotEditor loras={values.loras} />
         ) : isVaceEdit ? (
           /* VACE 视频编辑引擎:舞台列渲染专用编辑器(源视频/模式/指令/关键帧锚点/并排对比
              自承载),PromptBar 让位(编辑指令随模式切换示例,通用提示词条不适用) */

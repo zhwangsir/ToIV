@@ -1061,3 +1061,59 @@ def test_t2v_pin_unknown_catalog_422(client, monkeypatch):
     assert r.status_code == 422
     assert "未知 H3 LoRA" in r.json()["detail"]
     assert fake.graphs == []
+
+
+def test_t2v_entity_ids_with_cover_runs_i2v(client, monkeypatch):
+    """t2v + entity_ids with cover handle -> transfer 1 image and i2v first_frame."""
+    from app.models import Entity
+
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "h3ent-i2v")
+        user = s.exec(select(User).where(User.id == uid)).first()
+        e = Entity(
+            tenant_id=user.tenant_id, user_id=user.id, kind="character", name="ming",
+            ref_image='{"filename":"aming.png","worker":"http://fake-worker"}',
+        )
+        s.add(e)
+        s.commit()
+        s.refresh(e)
+        eid = e.id
+    fake = _FakeH3Client()
+    _install_h3(monkeypatch, fake)
+    source = _FakeSourceWorker()
+    monkeypatch.setattr(h3_route, "resolve_worker", lambda worker: source)
+    r = c.post(
+        "/api/h3/t2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={"positive": "walk in rain", "entity_ids": [eid], "seed": 7, "loras": []},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["kind"] == "h3_i2v"
+    assert fake.uploads == [(b"img-bytes", "aming.png")]
+    graph = fake.graphs[0]
+    assert graph["100"]["inputs"]["image"] == "h3-aming.png"
+    assert graph["104"]["inputs"]["first_frame"] == ["100", 0]
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        assert job is not None and job.kind == "h3_i2v"
+
+
+def test_t2v_no_entities_stays_t2v(client, monkeypatch):
+    """SFW t2v with no entity_ids must not grow a LoadImage node."""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "h3t2v-noent")
+    fake = _FakeH3Client()
+    _install_h3(monkeypatch, fake)
+    r = c.post(
+        "/api/h3/t2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={"positive": "a cat", "seed": 1, "loras": []},
+    )
+    assert r.status_code == 200, r.text
+    graph = fake.graphs[0]
+    assert "100" not in graph or graph.get("100", {}).get("class_type") != "LoadImage"
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        assert job is not None and job.kind == "h3_t2v"

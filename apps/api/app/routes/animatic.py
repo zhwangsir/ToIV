@@ -22,7 +22,7 @@ import subprocess
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 
 from app.deps import get_current_user
@@ -95,28 +95,56 @@ def _build_ffmpeg_cmd(
     return " ".join(parts)
 
 
-def _run_ffmpeg(remote_cmd: str) -> None:
+_active_ffmpeg: dict[str, subprocess.Popen] = {}
+_killed_ffmpeg: set[str] = set()
+
+
+def kill_animatic_ffmpeg(job_id: str) -> None:
+    """断开客户端时杀掉 ssh/ffmpeg(Popen 句柄)。"""
+    if job_id:
+        _killed_ffmpeg.add(job_id)
+    proc = _active_ffmpeg.get(job_id)
+    if proc is not None and proc.poll() is None:
+        proc.kill()
+
+
+def _run_ffmpeg(remote_cmd: str, job_id: str = "") -> None:
     """ssh 到 workstation 执行 ffmpeg(core 禁跑算力负载,AGENTS.md 第七节)。
 
     失败抛 HTTPException(502),stderr 尾 500 字符随 detail 返回,便于排障。
+    job_id 非空时登记 Popen,供客户端断开时 kill。
     """
     try:
-        proc = subprocess.run(
+        proc = subprocess.Popen(
             [
                 "ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
                 _SSH_TARGET, remote_cmd,
             ],
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=_FFMPEG_TIMEOUT,
+            start_new_session=True,
         )
-    except subprocess.TimeoutExpired as e:
-        raise HTTPException(
-            status_code=502, detail=f"ffmpeg 执行超时({_FFMPEG_TIMEOUT}s)"
-        ) from e
-    if proc.returncode != 0:
-        tail = (proc.stderr or "")[-500:]
-        raise HTTPException(status_code=502, detail=f"ffmpeg 执行失败:{tail}")
+    except OSError as e:
+        raise HTTPException(status_code=502, detail=f"ffmpeg 执行失败:{e}") from e
+    if job_id:
+        _active_ffmpeg[job_id] = proc
+    try:
+        try:
+            _stdout, stderr = proc.communicate(timeout=_FFMPEG_TIMEOUT)
+        except subprocess.TimeoutExpired as e:
+            proc.kill()
+            raise HTTPException(
+                status_code=502, detail=f"ffmpeg 执行超时({_FFMPEG_TIMEOUT}s)"
+            ) from e
+        if job_id in _killed_ffmpeg:
+            raise HTTPException(status_code=400, detail="已中止")
+        if proc.returncode != 0:
+            tail = (stderr or "")[-500:]
+            raise HTTPException(status_code=502, detail=f"ffmpeg 执行失败:{tail}")
+    finally:
+        _active_ffmpeg.pop(job_id, None)
+        _killed_ffmpeg.discard(job_id)
 
 
 # ────────────────────────────────
@@ -181,6 +209,7 @@ async def create_animatic(
     width: int = Form(1920),
     height: int = Form(1080),
     user: User = Depends(get_current_user),
+    request: Request = None  # FastAPI 注入;勿标 Optional 否则当 Pydantic 字段,
 ) -> dict[str, object]:
     enforce_generation_rate_limit(user)
 
@@ -236,7 +265,25 @@ async def create_animatic(
         + _build_ffmpeg_cmd(ws_inputs, durs, fps, width, height, ws_out)
     )
     try:
-        await asyncio.to_thread(_run_ffmpeg, remote_cmd)
+        task = asyncio.create_task(asyncio.to_thread(_run_ffmpeg, remote_cmd, job_id))
+
+        async def _watch_disconnect() -> None:
+            if request is None:
+                return
+            try:
+                while not task.done():
+                    if await request.is_disconnected():
+                        kill_animatic_ffmpeg(job_id)
+                        return
+                    await asyncio.sleep(0.25)
+            except asyncio.CancelledError:
+                return
+
+        watcher = asyncio.create_task(_watch_disconnect())
+        try:
+            await task
+        finally:
+            watcher.cancel()
     except HTTPException:
         shutil.rmtree(job_dir, ignore_errors=True)
         (_OUTPUT_DIR / f"{job_id}.mp4").unlink(missing_ok=True)

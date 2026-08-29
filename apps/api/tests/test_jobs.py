@@ -353,6 +353,78 @@ def test_jobs_kind_with_status(ctx_kind):
     assert r.json() == []
 
 
+@pytest.fixture
+def ctx_kind_prefix():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+
+    def override() -> Session:
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = override
+
+    with Session(engine) as s:
+        tenant = Tenant(name="t-prefix")
+        s.add(tenant)
+        s.commit()
+        s.refresh(tenant)
+        user = User(
+            email="kind-prefix@toiv.ai",
+            hashed_password=hash_password("password1"),
+            tenant_id=tenant.id,
+        )
+        s.add(user)
+        s.commit()
+        s.refresh(user)
+        for i, (prompt, kind) in enumerate(
+            [
+                ("img-job", "txt2img"),
+                ("cad-job", "cad_front"),
+                ("ref-job", "drama_char_reference_hero"),
+                ("3d-job", "hunyuan3d"),
+            ],
+            start=1,
+        ):
+            s.add(
+                Job(
+                    tenant_id=tenant.id,
+                    user_id=user.id,
+                    prompt_id=f"pk{i}",
+                    worker="http://w",
+                    prompt=prompt,
+                    seed=i,
+                    kind=kind,
+                )
+            )
+        s.commit()
+        uid = user.id
+
+    yield TestClient(app), create_token(uid)
+    app.dependency_overrides.clear()
+
+
+def test_jobs_kind_prefix_matches_cad_and_drama_ref(ctx_kind_prefix):
+    """cad_ / drama_char_reference_ 前缀命中动态 kind;精确值不受影响。"""
+    client, token = ctx_kind_prefix
+    H = {"Authorization": f"Bearer {token}"}
+    assert len(client.get("/api/jobs", headers=H).json()) == 4
+    cad = client.get("/api/jobs?kind=cad_", headers=H).json()
+    assert [j["prompt"] for j in cad] == ["cad-job"]
+    refs = client.get("/api/jobs?kind=drama_char_reference_", headers=H).json()
+    assert [j["prompt"] for j in refs] == ["ref-job"]
+    d3 = client.get("/api/jobs?kind=hunyuan3d,cad_", headers=H).json()
+    assert sorted(j["prompt"] for j in d3) == ["3d-job", "cad-job"]
+    img = client.get("/api/jobs?kind=txt2img,drama_char_reference_", headers=H).json()
+    assert sorted(j["prompt"] for j in img) == ["img-job", "ref-job"]
+    exact = client.get("/api/jobs?kind=hunyuan3d", headers=H).json()
+    assert [j["prompt"] for j in exact] == ["3d-job"]
+
+
 def test_delete_requires_auth(ctx):
     client, _ = ctx
     assert client.delete("/api/jobs/whatever").status_code == 401

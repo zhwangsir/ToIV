@@ -93,6 +93,7 @@ async def audio_separate(
     file: UploadFile,
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
+    request: Request = None  # FastAPI 注入;勿标 Optional 否则当 Pydantic 字段,
 ) -> dict[str, object]:
     """上传音频 → 人声分离 → vocals wav。同步返回产物 URL,并建 Job(kind=audio_sep)入作品库。
 
@@ -107,7 +108,7 @@ async def audio_separate(
     if len(content) > _MAX_BYTES:
         raise HTTPException(status_code=413, detail="音频过大(上限 50MB)")
 
-    vocals = await separate_vocals(content, filename=src_name)
+    vocals = await separate_vocals(content, filename=src_name, request=request)
     out, out_name = _write_output(vocals)
     url = f"/api/audio/files/{out_name}"
 

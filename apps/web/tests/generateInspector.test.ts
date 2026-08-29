@@ -66,6 +66,7 @@ test("groupEngineParam:命名 key 各归其组", () => {
   for (const k of ["width", "height", "resolution", "resolution_target", "duration", "fps", "denoise", "strength"]) {
     assert.equal(groupEngineParam(param(k, k === "resolution" || k === "resolution_target" ? "select" : "number")), "frame", k);
   }
+  assert.equal(groupEngineParam(param("segment_extend", "switch")), "frame", "segment_extend");
   for (const k of ["steps", "cfg", "seed", "batch_size", "use_upscale", "use_rife", "full_quality"]) {
     assert.equal(groupEngineParam(param(k, k.startsWith("use_") || k === "full_quality" ? "switch" : "number")), "sampling", k);
   }
@@ -339,4 +340,12 @@ test("stage.css:全文件零 font-weight 数字字面值、零 hex 色值(token 
   const css = readSrc("app/styles/stage.css");
   assert.ok(!/font-weight:\s*[0-9]/.test(css), "font-weight 必须走 var(--font-*)");
   assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(css), "stage.css 不得出现 hex 色值");
+});
+
+test("ParamField LoRA: Off sends empty array, cap 3, auto is null", () => {
+  const src = readFileSync(join(webRoot, "components/generate/ParamField.tsx"), "utf-8");
+  assert.ok(src.includes("LORA_CAP"), "must cap checkbox picker");
+  assert.ok(src.includes("set([])"), "Off must set empty array");
+  assert.ok(src.includes("set(null)"), "Auto must set null");
+  assert.ok(src.includes("关闭"), "explicit Off control");
 });

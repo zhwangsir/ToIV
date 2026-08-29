@@ -599,12 +599,15 @@
   padding: 2px var(--space-2);
   background: var(--err);
   color: var(--text-on-accent);
+  border: 0;
   border-radius: var(--radius-badge);
   font-size: var(--text-label);
   font-weight: var(--font-semibold);
+  font-family: inherit;
   line-height: 1.3;
   letter-spacing: 0.03em;
-  pointer-events: none;
+  cursor: pointer;
+  pointer-events: auto;
   z-index: var(--z-lib-badge);
 }
 

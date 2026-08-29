@@ -195,12 +195,33 @@ def list_active_jobs(
     return {"items": items, "server_time": now.isoformat()}
 
 
+
+def _kind_filter_clause(kind_q: str):
+    """GET /api/jobs?kind= 匹配:逗号多值;token 以 _ 结尾视为前缀(cad_ → cad_front)。
+
+    精确值走 IN;前缀走 startswith。二者可混用(图像桶 txt2img + drama_char_reference_)。
+    """
+    kinds = [k.strip() for k in kind_q.split(",") if k.strip()]
+    if not kinds:
+        return None
+    exact = [k for k in kinds if not k.endswith("_")]
+    prefixes = [k for k in kinds if k.endswith("_")]
+    clauses = []
+    if exact:
+        clauses.append(Job.kind.in_(exact))
+    for prefix in prefixes:
+        clauses.append(Job.kind.startswith(prefix))
+    if not clauses:
+        return None
+    return clauses[0] if len(clauses) == 1 else or_(*clauses)
+
+
 @router.get("/jobs")
 def list_jobs(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0, description="分页偏移(作品库无限滚动;返回数==limit 即可能还有下一页)"),
     status: str = Query(default="", description="按状态过滤:queued/held/running/done/error,空=全部"),
-    kind: str = Query(default="", description="按媒体类型过滤:txt2img/img2img/video/txt2video/audio/3d 等,逗号分隔多值,空=全部"),
+    kind: str = Query(default="", description="按媒体类型过滤:逗号分隔多值;精确匹配,或以 _ 结尾的 token 为前缀(cad_ 匹配 cad_front)。空=全部"),
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> list[dict]:
@@ -214,9 +235,9 @@ def list_jobs(
     if status:
         stmt = stmt.where(Job.status == status)
     if kind:
-        kinds = [k.strip() for k in kind.split(",") if k.strip()]
-        if kinds:
-            stmt = stmt.where(Job.kind.in_(kinds))
+        clause = _kind_filter_clause(kind)
+        if clause is not None:
+            stmt = stmt.where(clause)
     rows = session.exec(
         stmt.order_by(Job.created_at.desc()).offset(offset).limit(limit)
     ).all()
@@ -287,6 +308,7 @@ async def cancel_job(
 ) -> dict:
     """中止一个在跑/排队中的作业(2026-08-29 任务中心「中止」按钮)。
 
+    寻址同时接受 Job.id 与 prompt_id(生成页结果卡只拿得到 prompt_id)。
     语义:
     - 仅本人可取消(非本人/不存在一律 404,不泄露存在性);终态 409;
     - DB 先落 canceled 终态(tracker 视 canceled 为终态:不再回写状态/进度,
@@ -297,6 +319,8 @@ async def cancel_job(
       取消本身(DB 终态已落,残留由 tracker 孤儿回收兜底)。
     """
     job = session.exec(select(Job).where(Job.id == job_id)).first()
+    if job is None:
+        job = session.exec(select(Job).where(Job.prompt_id == job_id)).first()
     if not job or job.user_id != user.id:
         raise HTTPException(status_code=404, detail="作业不存在")
     if job.status in ("done", "error", "canceled"):

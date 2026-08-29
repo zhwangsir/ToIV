@@ -29,7 +29,7 @@ from app.harness.ctx import get_ctx
 from app.config import get_settings
 from app.db import get_session
 from app.deps import get_current_user
-from app.jobs_persist import persist_job_to_db
+from app.jobs_persist import db_job_is_canceled, persist_job_to_db
 from app.models import Job, User
 from app.ratelimit import enforce_generation_rate_limit
 from app.routes.dub import _DUB_DIR, _NAME_RE
@@ -150,7 +150,7 @@ def _prune_transcribe_jobs() -> None:
     if len(_transcribe_jobs) <= _JOBS_KEEP:
         return
     term = sorted(
-        (j for j in _transcribe_jobs.values() if j["status"] in ("done", "error")),
+        (j for j in _transcribe_jobs.values() if j["status"] in ("done", "error", "canceled")),
         key=lambda j: j["started"],
     )
     for j in term[: len(_transcribe_jobs) - _JOBS_KEEP]:
@@ -205,53 +205,93 @@ def _whisper_transcribe_sync(model, path: str, job: dict) -> list[dict]:
     dur = float(getattr(info, "duration", 0) or 0)
     out: list[dict] = []
     for seg in segments:
+        if db_job_is_canceled(job["id"]):
+            job["status"] = "canceled"
+            job["error"] = "已中止"
+            return out
         txt = (seg.text or "").strip()
         if txt:
             out.append({"start": float(seg.start), "end": float(seg.end), "text": txt})
         if dur > 0:
             job["progress"] = min(99, int(float(seg.end) / dur * 100))
         job["elapsed"] = round(time.monotonic() - job["started"], 1)
+    if db_job_is_canceled(job["id"]):
+        job["status"] = "canceled"
+        job["error"] = "已中止"
+        return out
     job["progress"] = 100
     return out
 
 
-async def _transcribe_external(base: str, src_path, name: str) -> list[dict]:
+async def _transcribe_external(base: str, src_path, name: str, job_id: str = "") -> list[dict]:
     """外部 ASR。优先私有契约 POST {base}/asr;404 时回退 OpenAI 兼容
     /v1/audio/transcriptions(response_format=verbose_json,segments 结构相同),
-    如 AI-Omni ASR(faster-whisper large-v3 @ workstation:9210)。"""
+    如 AI-Omni ASR(faster-whisper large-v3 @ workstation:9210)。
+    job_id 非空时轮询 cancelJob,用户中止则 aclose 出站连接。"""
     async with httpx.AsyncClient(timeout=_TRANSCRIBE_TIMEOUT) as client:
-        with src_path.open("rb") as f:
-            resp = await client.post(f"{base}/asr", files={"file": (name, f, "video/mp4")})
-        if resp.status_code == 404:
+        async def _watch_cancel() -> None:
+            if not job_id:
+                return
+            try:
+                while True:
+                    if db_job_is_canceled(job_id):
+                        await client.aclose()
+                        return
+                    await asyncio.sleep(0.4)
+            except asyncio.CancelledError:
+                return
+            except Exception:  # noqa: BLE001
+                return
+
+        watcher = asyncio.create_task(_watch_cancel())
+        try:
             with src_path.open("rb") as f:
-                resp = await client.post(
-                    f"{base}/v1/audio/transcriptions",
-                    files={"file": (name, f, "video/mp4")},
-                    data={"response_format": "verbose_json"},
-                )
+                resp = await client.post(f"{base}/asr", files={"file": (name, f, "video/mp4")})
+            if resp.status_code == 404:
+                with src_path.open("rb") as f:
+                    resp = await client.post(
+                        f"{base}/v1/audio/transcriptions",
+                        files={"file": (name, f, "video/mp4")},
+                        data={"response_format": "verbose_json"},
+                    )
+        finally:
+            watcher.cancel()
+    if job_id and db_job_is_canceled(job_id):
+        raise asyncio.CancelledError
     resp.raise_for_status()
     return _normalize_segments(resp.json().get("segments") or [])
 
 
 async def _run_transcribe(job: dict, src_path, name: str) -> None:
     """后台听写:外部 whisper_url 优先,否则内置 faster-whisper(线程跑)。异常落 job.error。"""
+    if db_job_is_canceled(job["id"]):
+        job["status"], job["error"] = "canceled", "已中止"
+        return
     try:
         s = get_settings()
         if s.whisper_url.strip():
             job["stage"] = "外部听写中"
-            segs = await _transcribe_external(s.whisper_url.strip().rstrip("/"), src_path, name)
+            segs = await _transcribe_external(
+                s.whisper_url.strip().rstrip("/"), src_path, name, job_id=job["id"]
+            )
         else:
             job["stage"] = "加载模型"
             model = await _get_whisper_model()
             job["stage"] = "听写中"
             raw = await asyncio.to_thread(_whisper_transcribe_sync, model, str(src_path), job)
             segs = _normalize_segments(raw)
+    except asyncio.CancelledError:
+        job["status"], job["error"] = "canceled", "已中止"
+        return
     except ImportError as e:
         job["status"], job["error"] = "error", f"听写依赖缺失(api 镜像需重建):{e}"
         return
     except Exception as e:  # noqa: BLE001 — 后台任务异常一律落 job,不冒泡
         logger.warning("transcribe %s 失败:%s", job["id"], e)
         job["status"], job["error"] = "error", f"听写失败:{e}"
+        return
+    if job.get("status") == "canceled" or db_job_is_canceled(job["id"]):
+        job["status"], job["error"] = "canceled", "已中止"
         return
     if not segs:
         job["status"], job["error"] = "error", "听写未得到有效片段(可能无语音/无音轨)"
@@ -331,6 +371,11 @@ def _resolve_transcribe_job(job_id: str, session: Session) -> dict:
     db_job = session.exec(select(Job).where(Job.prompt_id == job_id)).first()
     if db_job:
         mem = _transcribe_jobs.get(job_id)
+        if db_job.status == "canceled":
+            if mem:
+                mem["status"] = "canceled"
+                mem["error"] = mem.get("error") or "已中止"
+                return mem
         if db_job.status == "running" and mem:
             return mem
         try:

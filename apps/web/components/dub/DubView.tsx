@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   autocutDub,
+  cancelJob,
   getAnimeLipsyncStatus,
   getLipsyncLongStatus,
   highlightsDub,
@@ -378,6 +379,20 @@ export function DubView({ onBack }: { onBack?: () => void }) {
       setLipsyncBusy(false);
     }
   }, [video, lipsyncMode, segments, highlightsTarget, useDubVoice, voice, mouthGain, smooth, cutMode, threshold, minSeg, segSeconds, maxSegments, lipsExpression, inferenceSteps]);
+
+  const doCancelLipsync = useCallback(async () => {
+    const id = lipsyncStart?.job_id ?? animeStart?.job_id;
+    if (id) {
+      try {
+        await cancelJob(id);
+      } catch {
+        /* 409 已终态:本地仍停跟踪 */
+      }
+    }
+    setLipsyncBusy(false);
+    setLipsyncStart(null);
+    setAnimeStart(null);
+  }, [lipsyncStart, animeStart]);
 
   // 轮询对口型状态(LatentSync + 动漫对口型共用)
   // usePoll:页面隐藏自动暂停;单次网络错误指数退避(×1.5,上限 30s)容错;
@@ -1140,6 +1155,16 @@ export function DubView({ onBack }: { onBack?: () => void }) {
                   ? "重新提交"
                   : "提交对口型任务"}
               </button>
+              {lipsyncBusy && (
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => void doCancelLipsync()}
+                  title="中止后端作业并停止本页跟踪"
+                >
+                  停止
+                </button>
+              )}
             </div>
             {lipsyncError && (
               <ErrorBar message={lipsyncError} onClose={() => setLipsyncError(null)} />

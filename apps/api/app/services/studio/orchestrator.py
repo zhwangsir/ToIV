@@ -41,7 +41,8 @@ def _cast_for(session: Session, shot: StudioShot) -> list[StudioCharacter]:
 
 
 async def render_shot(
-    session: Session, shot: StudioShot, pool: "WorkerPool | None" = None
+    session: Session, shot: StudioShot, pool: "WorkerPool | None" = None,
+    request: Any = None,
 ) -> StudioShot:
     """渲染单镜:按 render_mode 分发;状态与媒体 URL 落库。"""
     if pool is None:
@@ -63,6 +64,8 @@ async def render_shot(
             "fps": project.fps,
         }
     try:
+        if request is not None:
+            render_kw["request"] = request
         result = await get_renderer(shot).render(
             shot, _cast_for(session, shot), pool, **render_kw
         )

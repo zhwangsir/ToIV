@@ -16,6 +16,7 @@ from app.comfy.client import ComfyUIClient, ComfyUIError
 from app.services.studio.renderers.base import RenderError, RenderResult
 from app.services.studio.renderers.image_motion import _save_output
 from app.services.video_generators import get_generator
+from app.request_cancel import mark_prompt_canceled
 
 if TYPE_CHECKING:
     from app.comfy.pool import WorkerPool
@@ -27,7 +28,7 @@ _POLL_INTERVAL = 3.0  # 视频轮询间隔(秒);测试可 monkeypatch
 _POLL_TIMEOUT = 1800.0  # 视频最长等待(秒);H3 单段(含排队)实测可达 15min+,900s 会误杀
 
 
-async def _wait_video_url(worker: str, prompt_id: str) -> str:
+async def _wait_video_url(worker: str, prompt_id: str, request: Any = None) -> str:
     """轮询 worker history,产物下载落盘 Studio 目录,返回 /api/studio/files URL。
 
     落盘而非 /api/images 代理 URL(2026-08-22 修复):assemble 仅认 Studio 产出
@@ -37,6 +38,13 @@ async def _wait_video_url(worker: str, prompt_id: str) -> str:
     client = ComfyUIClient(worker)
     waited = 0.0
     while waited < _POLL_TIMEOUT:
+        if request is not None and await request.is_disconnected():
+            try:
+                await client.cancel_prompt(prompt_id)
+            except Exception:  # noqa: BLE001
+                logger.warning("studio video 中止: cancel_prompt 失败 prompt=%s", prompt_id)
+            mark_prompt_canceled(prompt_id)
+            raise RenderError("已中止")
         try:
             files = await client.get_result_files(prompt_id)
         except ComfyUIError:
@@ -90,4 +98,7 @@ class VideoRenderer:
         worker = (result.raw or {}).get("worker", "")
         if not result.job_id or not worker:
             raise RenderError("视频生成失败:无产出 URL")
-        return RenderResult(kind="video", url=await _wait_video_url(worker, result.job_id))
+        return RenderResult(
+            kind="video",
+            url=await _wait_video_url(worker, result.job_id, request=kw.get("request")),
+        )

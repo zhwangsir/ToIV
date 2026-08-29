@@ -14,6 +14,7 @@ import { usePoll } from "@/hooks/usePoll";
 import {
   avatarAssetImageUrl,
   createAvatarAsset,
+  cancelJob,
   generateAvatarTalk,
   imageUrl,
   invalidateJobs,
@@ -172,8 +173,11 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
     { intervalMs: 30_000, enabled: true, backoff: true },
   );
 
+  // 提交返回的 prompt_id:「取消等待」必须 cancelJob,不能只 gen.reset(作业继续跑)
+  const runningPromptIdRef = useRef<string | null>(null);
   const gen = useGeneration({
     onDone: () => {
+      runningPromptIdRef.current = null;
       invalidateJobs(); // 产物已落库,作品库缓存失效
     },
   });
@@ -375,6 +379,19 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
     !imgUploading &&
     !audUploading;
 
+  async function onCancelWait() {
+    const promptId = runningPromptIdRef.current;
+    runningPromptIdRef.current = null;
+    if (promptId) {
+      try {
+        await cancelJob(promptId);
+      } catch (e) {
+        setSubmitError(e instanceof Error ? e.message : "中止失败");
+      }
+    }
+    gen.reset();
+  }
+
   async function onGenerate() {
     if (!image || !canSubmit) return;
     if (driveMode === "audio" && !audio) return;
@@ -403,6 +420,7 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
             : { mode: "text", driveText, voice, speed },
         ),
       );
+      runningPromptIdRef.current = res.prompt_id;
       // start 永远 resolve:出错经 onError → gen.error 展示
       await gen.start(res, { label: engine?.label ?? "对口型视频" });
     } catch (e) {
@@ -535,8 +553,8 @@ export function AvatarGenPanel({ onNavigate }: AvatarGenPanelProps) {
                 ) : (
                   <span className="at-gen-progress-text">排队 / 准备中…</span>
                 )}
-                <Button variant="ghost" size="sm" onClick={gen.reset}>
-                  取消等待
+                <Button variant="ghost" size="sm" onClick={() => void onCancelWait()} title="中止后端作业并停止本页跟踪">
+                  停止
                 </Button>
               </div>
             )}

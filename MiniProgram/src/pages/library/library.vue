@@ -28,6 +28,7 @@ import {
   FILTERS,
   isVideoPath,
   kindToFilter,
+  kindsQueryForFilter,
   LIBRARY_PAGE_SIZE,
   type FilterKey,
 } from '@/utils/library';
@@ -65,13 +66,6 @@ let generation = 0;
 
 const artifacts = computed(() => collectArtifacts(jobs.value));
 const counts = computed(() => countByFilter(artifacts.value));
-
-/** 过滤桶 → 服务端 kind 参数（逗号分隔多值） */
-function filterToKind(f: FilterKey): string {
-  if (f === 'all') return '';
-  const def = FILTERS.find((d) => d.key === f);
-  return def ? def.kinds.join(',') : '';
-}
 
 /**
  * 空态语义：流为空 = 该过滤条件下真的无作品（服务端已过滤，无需客户端再过滤）
@@ -112,7 +106,7 @@ async function refresh() {
     const page = await listJobs({
       limit: LIBRARY_PAGE_SIZE,
       offset: 0,
-      kind: filterToKind(filter.value),
+      kind: kindsQueryForFilter(filter.value),
     });
     jobs.value = page;
     const cursor = cursorAfterFirst(page, LIBRARY_PAGE_SIZE);
@@ -135,7 +129,7 @@ async function loadMore() {
     const page = await listJobs({
       limit: LIBRARY_PAGE_SIZE,
       offset: offset.value,
-      kind: filterToKind(filter.value),
+      kind: kindsQueryForFilter(filter.value),
     });
     if (gen !== generation) return;
     jobs.value = appendPage(jobs.value, page);

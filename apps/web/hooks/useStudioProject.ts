@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   getStudioProject,
   saveStudioShots,
@@ -14,6 +14,7 @@ import {
   type StudioShotInput,
 } from "@/lib/api";
 import { begin as genBegin, end as genEnd } from "@/lib/generationBus";
+import { isParseAbortError } from "@/lib/studioParseUx";
 
 /**
  * Studio 创作工作室项目状态管理。
@@ -33,6 +34,7 @@ export function useStudioProject(pid: string | null) {
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [saveState, setSaveState] = useState<StudioSaveState>("idle");
   const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const abortByKey = useRef<Record<string, AbortController>>({});
 
   const refresh = useCallback(async () => {
     if (!pid) return;
@@ -64,11 +66,13 @@ export function useStudioProject(pid: string | null) {
     try {
       await fn();
     } catch (e) {
+      if (isParseAbortError(e)) return;
       setError(`${label}失败:${e instanceof Error ? e.message : "未知错误"}`);
       throw e;
     } finally {
       setBusy((b) => ({ ...b, [key]: false }));
       genEnd(taskId);
+      delete abortByKey.current[key];
     }
   }, []);
 
@@ -99,23 +103,37 @@ export function useStudioProject(pid: string | null) {
   );
 
   const renderShot = useCallback(
-    (sid: string) =>
-      withBusy(`render:${sid}`, "生成分镜", async () =>
-        patchShotLocal(await renderStudioShot(sid)),
-      ),
+    (sid: string) => {
+      const ac = new AbortController();
+      abortByKey.current[`render:${sid}`] = ac;
+      return withBusy(`render:${sid}`, "生成分镜", async () =>
+        patchShotLocal(await renderStudioShot(sid, { signal: ac.signal })),
+      );
+    },
     [withBusy, patchShotLocal],
   );
 
+  const cancelRenderShot = useCallback((sid: string) => {
+    abortByKey.current[`render:${sid}`]?.abort();
+  }, []);
+
   const renderAll = useCallback(
-    () =>
-      withBusy("render:all", "批量生成分镜", async () => {
+    () => {
+      const ac = new AbortController();
+      abortByKey.current["render:all"] = ac;
+      return withBusy("render:all", "批量生成分镜", async () => {
         if (pid) {
-          await renderStudioAll(pid);
+          await renderStudioAll(pid, { signal: ac.signal });
           await refresh();
         }
-      }),
+      });
+    },
     [withBusy, pid, refresh],
   );
+
+  const cancelRenderAll = useCallback(() => {
+    abortByKey.current["render:all"]?.abort();
+  }, []);
 
   const voiceShot = useCallback(
     (sid: string) =>
@@ -155,7 +173,9 @@ export function useStudioProject(pid: string | null) {
     refresh,
     saveShots,
     renderShot,
+    cancelRenderShot,
     renderAll,
+    cancelRenderAll,
     voiceShot,
     lipsyncShot,
     assemble,

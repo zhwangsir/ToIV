@@ -264,11 +264,12 @@ function job(promptId: string, status: string, results: string[] = []): JobItem 
   };
 }
 
-test("⑥ editJobProgress:done 出片/error/held/running/pending", () => {
+test("⑥ editJobProgress:done 出片/error/canceled/held/running/pending", () => {
   const done = editJobProgress([job("p1", "done", ["/api/images?filename=e.mp4&sig=s"])], "p1");
   assert.equal(done.status, "done");
   assert.equal(done.resultUrl, "/api/images?filename=e.mp4&sig=s");
   assert.equal(editJobProgress([job("p1", "error")], "p1").status, "error");
+  assert.equal(editJobProgress([job("p1", "canceled")], "p1").status, "canceled");
   assert.equal(editJobProgress([job("p1", "held")], "p1").status, "held");
   assert.equal(editJobProgress([job("p1", "running")], "p1").status, "running");
   assert.equal(editJobProgress([], "p1").status, "pending", "作业未入列表");
@@ -289,6 +290,9 @@ test("⑦ AiVideoEditView:模式下拉/标记当前帧/作品库/区域 mask/并
   assert.ok(src.includes("veai-compare"), "缺源视频 vs 编辑后并排对比区");
   assert.ok(src.includes("editJobProgress"), "busy 态进度未走 editJobProgress 轮询");
   assert.ok(src.includes("submitVideoEdit"), "提交未走 submitVideoEdit");
+  assert.ok(src.includes("cancelJob"), "busy 态停止未走 cancelJob");
+  assert.ok(src.includes("onCancelRun"), "缺中止处理");
+  assert.ok(src.includes("已中止该作业"), "缺中止后文案");
 });
 
 test("⑦ GenerateView 接线:vace-edit 引擎渲染 AiVideoEditView 并让位标准链路", () => {

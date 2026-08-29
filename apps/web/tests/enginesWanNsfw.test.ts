@@ -145,3 +145,24 @@ test("wan-nsfw-i2v 无参考图 → 本地报错不发请求", async () => {
   );
   assert.equal(fetchCalls.length, 0);
 });
+
+test("wan-nsfw-i2v payload: loras [] sends off; omit/null stays auto", async () => {
+  await submitEngineGeneration({
+    engine: _engine(),
+    positive: "x",
+    values: { seed: "", loras: [] },
+    refImage: { filename: "ref.png", worker: "http://w" },
+  });
+  let body = fetchCalls[0].body as Record<string, unknown>;
+  assert.deepEqual(body.loras, [], "explicit [] is off");
+
+  fetchCalls = [];
+  await submitEngineGeneration({
+    engine: _engine(),
+    positive: "x",
+    values: { seed: "", loras: null },
+    refImage: { filename: "ref.png", worker: "http://w" },
+  });
+  body = fetchCalls[0].body as Record<string, unknown>;
+  assert.equal("loras" in body, false, "null omits field = auto");
+});

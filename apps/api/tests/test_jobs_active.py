@@ -333,3 +333,16 @@ async def test_wait_for_jobs_raises_on_canceled(ctx):
     with Session(engine) as s3:
         with pytest.raises(RuntimeError, match="已被用户取消"):
             await wait_for_jobs(s3, ["c2"], timeout=5, poll_interval=0.1)
+
+
+def test_cancel_job_accepts_prompt_id(ctx):
+    """Generate page only has prompt_id: cancel lookup accepts Job.id or prompt_id."""
+    client, token, _, engine = ctx
+    with Session(engine) as s:
+        j = _mk_job(s, "alice@toiv.ai", "hold-pid-gen", status="held")
+        jid = j.id
+    r = client.post("/api/jobs/hold-pid-gen/cancel", headers=_h(token))
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "canceled"
+    with Session(engine) as s:
+        assert s.get(Job, jid).status == "canceled"

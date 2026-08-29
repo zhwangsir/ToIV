@@ -22,7 +22,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlmodel import Session
@@ -33,6 +33,7 @@ from app.deps import get_current_user
 from app.models import Job, User
 from app.storage import content_subdir
 from app.ratelimit import enforce_generation_rate_limit
+from app.request_cancel import ClientAborted, abort_http_exception, await_or_disconnect
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +119,7 @@ async def synth_voice(
     body: VoiceRequest,
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
+    request: Request = None  # FastAPI 注入;勿标 Optional 否则当 Pydantic 字段,
 ) -> VoiceResponse:
     enforce_generation_rate_limit(user)
     settings = get_settings()
@@ -158,9 +160,11 @@ async def synth_voice(
             files = {"ref_audio": ("ref.wav", rr.content, "audio/wav")}
 
         try:
-            resp = await client.post(
-                tts_target + "/tts", data=data, files=files
+            resp = await await_or_disconnect(
+                request, client.post(tts_target + "/tts", data=data, files=files)
             )
+        except ClientAborted:
+            raise abort_http_exception() from None
         except httpx.HTTPError as e:
             raise HTTPException(status_code=502, detail=f"TTS 服务不可达:{e}") from e
 

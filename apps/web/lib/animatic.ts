@@ -1,6 +1,6 @@
 "use client";
 
-import { API_BASE, authHeaders, getToken } from "./api";
+import { API_BASE, apiFetch, authHeaders, getToken } from "./api";
 
 // 动态分镜(animatic):N 张分镜图 + 每张时长 → 后端 ssh workstation 跑 ffmpeg 串成 MP4。
 // 契约:
@@ -24,6 +24,7 @@ export async function createAnimatic(params: {
   fps: number;
   width: number;
   height: number;
+  signal?: AbortSignal;
 }): Promise<AnimaticResult> {
   const fd = new FormData();
   for (const f of params.images) fd.append("images", f);
@@ -31,11 +32,16 @@ export async function createAnimatic(params: {
   fd.append("fps", String(params.fps));
   fd.append("width", String(params.width));
   fd.append("height", String(params.height));
-  const res = await fetch(`${API_BASE}/api/animatic`, {
-    method: "POST",
-    headers: authHeaders(), // 不要手动设 Content-Type,让浏览器带 boundary
-    body: fd,
-  });
+  const res = await apiFetch(
+    `/api/animatic`,
+    {
+      method: "POST",
+      headers: authHeaders(), // 不要手动设 Content-Type,让浏览器带 boundary
+      body: fd,
+      signal: params.signal,
+    },
+    { timeoutMs: 300_000 },
+  );
   if (!res.ok) {
     const detail = await res.json().catch(() => null);
     throw new Error(detail?.detail ?? `生成失败 (${res.status})`);

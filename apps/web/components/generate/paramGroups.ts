@@ -43,6 +43,7 @@ const FRAME_KEYS: ReadonlySet<string> = new Set([
   "resolution",
   "resolution_target",
   "duration",
+  "segment_extend",
   "fps",
   "denoise",
   "strength",

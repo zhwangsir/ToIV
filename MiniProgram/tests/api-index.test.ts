@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
   deleteDoc,
+  cancelJob,
   deleteJob,
   fetchEngines,
   fetchMe,
@@ -643,6 +644,14 @@ describe('jobs', () => {
     await deleteJob('j1');
     expect(lastRequest().method).toBe('DELETE');
     expect(lastRequest().url).toContain('/api/jobs/j1');
+  });
+
+  it('cancelJob POST /api/jobs/{id}/cancel', async () => {
+    enqueueResponse(200, { ok: true, status: 'canceled', worker_action: 'skipped' });
+    const res = await cancelJob('j1');
+    expect(res.status).toBe('canceled');
+    expect(lastRequest().method).toBe('POST');
+    expect(lastRequest().url).toContain('/api/jobs/j1/cancel');
   });
 
   it('rerunJob POST body', async () => {

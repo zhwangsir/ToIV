@@ -97,7 +97,7 @@ def _post_sep(client: TestClient, token: str, filename: str = "song.mp3", data: 
 def test_separate_success(ctx, monkeypatch):
     client, token, engine, out_dir = ctx
 
-    async def _fake_sep(audio: bytes, filename: str = "audio") -> bytes:
+    async def _fake_sep(audio: bytes, filename: str = "audio", request=None) -> bytes:
         assert audio == b"fake-mp3-bytes"
         assert filename == "song.mp3"
         return _MIN_WAV

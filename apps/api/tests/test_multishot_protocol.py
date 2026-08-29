@@ -556,3 +556,38 @@ def test_engine_registry_has_multishot_entry():
     assert "duration" not in keys  # 时长由逐镜头决定
     assert "width" in keys and "steps" in keys and "seed" in keys
     er._reset_registry_for_tests()
+
+
+def test_multishot_loras_omitted_is_auto(client, monkeypatch):
+    """Omit loras -> None=auto (same as t2v); result exposes lora_mode=auto."""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "ms-lora-auto")
+    fake = _FakeH3Client()
+    _install_h3(monkeypatch, fake)
+    r = c.post(
+        "/api/h3/multishot",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json=_TWO_SHOTS,
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["lora_mode"] == "auto"
+
+
+def test_multishot_loras_empty_list_is_off(client, monkeypatch):
+    """Explicit loras=[] -> off; no LoRA nodes in graph."""
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "ms-lora-off")
+    fake = _FakeH3Client()
+    _install_h3(monkeypatch, fake)
+    body = dict(_TWO_SHOTS)
+    body["loras"] = []
+    r = c.post(
+        "/api/h3/multishot",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json=body,
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["lora_mode"] == "off"
+    assert "200" not in fake.graphs[0]
