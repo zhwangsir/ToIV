@@ -692,7 +692,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
           try {
             const r = await resolveEntityRefs({ entity_ids: [cover.id], kind: "h3_i2v" });
             if (r.refs[0]) {
-              submitRef = { filename: r.refs[0].filename, worker: r.refs[0].worker };
+              submitRef = { filename: r.refs[0].filename, worker: r.refs[0].worker, previewUrl: entityCover(cover), name: r.refs[0].name };
             }
           } catch {
             /* 解析失败不阻塞:后端 t2v+entity_ids 仍会尝试转 i2v */
@@ -706,7 +706,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
           try {
             const r = await resolveEntityRefs({ entity_ids: [cover.id], kind: "img2img" });
             if (r.refs[0]) {
-              submitRef = { filename: r.refs[0].filename, worker: r.refs[0].worker };
+              submitRef = { filename: r.refs[0].filename, worker: r.refs[0].worker, previewUrl: entityCover(cover), name: r.refs[0].name };
               const partner = (engines ?? []).find((e) => e.id === imgPartner);
               submitEngine = partner ?? { ...target, id: imgPartner };
               submitValues = {
