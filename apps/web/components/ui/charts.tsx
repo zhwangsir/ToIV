@@ -10,22 +10,23 @@
  */
 import { useMemo, useState } from "react";
 
-/** 图表系列色(设计规范):cyan → violet → amber → green → red → blue */
+/** 图表系列色(设计规范):引用 globals.css --chart-1..5(cyan → violet → amber → green → rose),
+ * 亮/暗双模式由 token 承载;SVG fill/stroke 属性与 style 内联均可消费 var()
+ * (CHART_GRID 同款手法,2026-08-24 舰队视图已实证)。 */
 export const CHART_COLORS = [
-  "#22d3ee",
-  "#a78bfa",
-  "#fbbf24",
-  "#34d399",
-  "#f87171",
-  "#60a5fa",
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
 ] as const;
 
-/** 语义色:ok/warn/hot/off */
+/** 语义色:ok/warn/hot/off → 全局状态/文字 token(不再硬编码 hex,2026-08-30 批 D) */
 export const CHART_SEMANTIC = {
-  ok: "#34d399",
-  warn: "#fbbf24",
-  hot: "#f87171",
-  off: "#64748b",
+  ok: "var(--ok)",
+  warn: "var(--warn)",
+  hot: "var(--err)",
+  off: "var(--text-muted)",
 } as const;
 
 /** 网格/十字线颜色走 CSS 变量:浅色主题(默认)深灰细线,[data-mode="dark"] 白细线;

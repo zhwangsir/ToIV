@@ -730,22 +730,22 @@ function ObsStyles() {
           width: 8px;
           height: 8px;
           border-radius: 50%;
-          background: #34d399;
+          background: var(--ok);
           animation: obs-live-pulse 1.2s ease-out 1;
-          box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.5);
+          box-shadow: 0 0 0 0 color-mix(in oklab, var(--ok) 50%, transparent);
         }
         @keyframes obs-live-pulse {
-          0% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.55); }
-          100% { box-shadow: 0 0 0 10px rgba(52, 211, 153, 0); }
+          0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--ok) 55%, transparent); }
+          100% { box-shadow: 0 0 0 10px transparent; }
         }
         .obs-live-text {
           font-size: 12px;
-          color: #34d399;
+          color: var(--ok);
           font-weight: 600;
         }
         .obs-updated {
           font-size: 12px;
-          color: var(--text-muted, #888);
+          color: var(--text-muted);
           font-variant-numeric: tabular-nums;
         }
         .obs-body {
@@ -761,14 +761,14 @@ function ObsStyles() {
           gap: var(--space-3, 12px);
         }
         .obs-kpi {
-          border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-md, 10px);
           padding: var(--space-2, 8px) var(--space-3, 12px);
-          background: var(--surface-1, rgba(255, 255, 255, 0.02));
+          background: var(--bg-surface-1);
           transition: border-color 600ms ease;
         }
         .obs-kpi:hover {
-          border-color: rgba(34, 211, 238, 0.35);
+          border-color: color-mix(in oklab, var(--accent) 35%, transparent);
         }
         .obs-kpi-num {
           display: block;
@@ -779,16 +779,16 @@ function ObsStyles() {
         }
         .obs-kpi-rate .obs-kpi-num {
           font-size: 30px;
-          background: linear-gradient(90deg, #22d3ee, #a78bfa);
+          background: linear-gradient(90deg, var(--chart-1), var(--chart-2));
           -webkit-background-clip: text;
           background-clip: text;
           color: transparent;
         }
         .obs-kpi-held .obs-kpi-num {
-          color: #fbbf24;
+          color: var(--warn);
         }
         .obs-kpi-running .obs-kpi-num {
-          color: #22d3ee;
+          color: var(--run);
         }
         @keyframes obs-kpi-in {
           from { opacity: 0.2; transform: translateY(4px); }
@@ -797,24 +797,24 @@ function ObsStyles() {
         .obs-kpi-label {
           margin-top: 2px;
           font-size: 12px;
-          color: var(--text-muted, #888);
+          color: var(--text-muted);
         }
         /* ── 卡片/图表 ── */
         .obs-card {
-          border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-lg, 14px);
           padding: var(--space-3, 12px);
-          background: var(--surface-1, rgba(255, 255, 255, 0.02));
+          background: var(--bg-surface-1);
           transition: border-color 600ms ease;
         }
         .obs-card:hover {
-          border-color: rgba(167, 139, 250, 0.3);
+          border-color: color-mix(in oklab, var(--accent) 30%, transparent);
         }
         .obs-card-title {
           margin: 0 0 var(--space-2, 8px);
           font-size: 13px;
           font-weight: 600;
-          color: var(--text-muted, #888);
+          color: var(--text-muted);
           letter-spacing: 0.04em;
         }
         .obs-charts-row {
@@ -828,17 +828,17 @@ function ObsStyles() {
           justify-content: center;
           min-height: 200px;
           font-size: 12px;
-          color: var(--text-muted, #888);
-          border: 1px dashed var(--border, rgba(255, 255, 255, 0.08));
+          color: var(--text-muted);
+          border: 1px dashed var(--border-subtle);
           border-radius: var(--radius-md, 10px);
         }
         .obs-held-reasons {
           list-style: none;
           margin: 0;
           padding: var(--space-2, 8px) var(--space-3, 12px);
-          border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-md, 10px);
-          background: var(--surface-1, rgba(255, 255, 255, 0.02));
+          background: var(--bg-surface-1);
           display: flex;
           flex-direction: column;
           gap: 6px;
@@ -851,11 +851,11 @@ function ObsStyles() {
         }
         .obs-held-count {
           flex-shrink: 0;
-          color: #fbbf24;
+          color: var(--warn);
           font-weight: 600;
         }
         .obs-held-reason {
-          color: var(--text-muted, #888);
+          color: var(--text-muted);
           word-break: break-all;
         }
         /* ── GPU 卡 ── */
@@ -865,7 +865,7 @@ function ObsStyles() {
           gap: var(--space-3, 12px);
         }
         .obs-gpu {
-          border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-md, 10px);
           padding: var(--space-3, 12px);
           display: flex;
@@ -874,7 +874,7 @@ function ObsStyles() {
           transition: border-color 600ms ease;
         }
         .obs-gpu:hover {
-          border-color: rgba(34, 211, 238, 0.35);
+          border-color: color-mix(in oklab, var(--accent) 35%, transparent);
         }
         .obs-gpu.is-offline {
           opacity: 0.55;
@@ -889,17 +889,17 @@ function ObsStyles() {
           width: 8px;
           height: 8px;
           border-radius: 50%;
-          background: #64748b;
+          background: var(--text-muted);
           flex-shrink: 0;
         }
         .obs-dot.is-on {
-          background: #34d399;
+          background: var(--ok);
         }
         .obs-dot.is-down {
-          background: #f87171;
+          background: var(--err);
         }
         .obs-dot.is-unknown {
-          background: #64748b;
+          background: var(--text-muted);
         }
         /* ── 设备舰队(一级网格) ── */
         .obs-fleet-grid {
@@ -908,10 +908,10 @@ function ObsStyles() {
           gap: var(--space-3, 12px);
         }
         .obs-fleet-card {
-          border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-md, 10px);
           padding: var(--space-3, 12px);
-          background: var(--surface-1, rgba(255, 255, 255, 0.02));
+          background: var(--bg-surface-1);
           display: flex;
           flex-direction: column;
           gap: 4px;
@@ -922,7 +922,7 @@ function ObsStyles() {
           transition: border-color 600ms ease, transform 200ms ease;
         }
         .obs-fleet-card:hover {
-          border-color: rgba(34, 211, 238, 0.45);
+          border-color: color-mix(in oklab, var(--accent) 45%, transparent);
           transform: translateY(-1px);
         }
         .obs-fleet-card.is-offline {
@@ -940,19 +940,19 @@ function ObsStyles() {
         .obs-fleet-xy {
           margin-left: auto;
           font-size: 12px;
-          color: var(--text-muted, #888);
+          color: var(--text-muted);
           font-variant-numeric: tabular-nums;
         }
         .obs-fleet-role {
           font-size: 11px;
-          color: var(--text-muted, #888);
+          color: var(--text-muted);
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
         .obs-fleet-headline {
           font-size: 12px;
-          color: #22d3ee;
+          color: var(--accent);
           font-variant-numeric: tabular-nums;
         }
         /* ── 二级详情页 ── */
@@ -963,9 +963,9 @@ function ObsStyles() {
           flex-wrap: wrap;
         }
         .obs-back {
-          border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-md, 10px);
-          background: var(--surface-1, rgba(255, 255, 255, 0.02));
+          background: var(--bg-surface-1);
           padding: 6px 12px;
           font: inherit;
           font-size: 13px;
@@ -974,7 +974,7 @@ function ObsStyles() {
           transition: border-color 300ms ease;
         }
         .obs-back:hover {
-          border-color: rgba(34, 211, 238, 0.45);
+          border-color: color-mix(in oklab, var(--accent) 45%, transparent);
         }
         .obs-detail-title {
           margin: 0;
@@ -983,14 +983,14 @@ function ObsStyles() {
         }
         .obs-detail-headline {
           font-size: 12px;
-          color: #22d3ee;
+          color: var(--accent);
         }
         .obs-detail-meta {
           display: flex;
           flex-wrap: wrap;
           gap: 6px 18px;
           font-size: 12px;
-          color: var(--text-muted, #888);
+          color: var(--text-muted);
           font-variant-numeric: tabular-nums;
         }
         .obs-svc-table {
@@ -1001,23 +1001,23 @@ function ObsStyles() {
         .obs-svc-table th {
           text-align: left;
           font-weight: 600;
-          color: var(--text-muted, #888);
+          color: var(--text-muted);
           padding: 4px 8px;
-          border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+          border-bottom: 1px solid var(--border-subtle);
         }
         .obs-svc-table td {
           padding: 5px 8px;
-          border-bottom: 1px dashed var(--border, rgba(255, 255, 255, 0.08));
+          border-bottom: 1px dashed var(--border-subtle);
           font-variant-numeric: tabular-nums;
         }
         .obs-svc-table tr.is-degraded td {
-          color: var(--text-muted, #888);
+          color: var(--text-muted);
         }
         .obs-svc-name {
           font-weight: 600;
         }
         .obs-svc-note {
-          color: var(--text-muted, #888);
+          color: var(--text-muted);
         }
         .obs-usage-row {
           display: flex;
@@ -1034,11 +1034,11 @@ function ObsStyles() {
         .obs-usage-title {
           font-size: 12px;
           font-weight: 600;
-          color: var(--text-muted, #888);
+          color: var(--text-muted);
         }
         .obs-nas-down {
           justify-content: center;
-          color: #f87171;
+          color: var(--err);
           font-size: 13px;
           font-weight: 600;
           min-width: 140px;
@@ -1046,7 +1046,7 @@ function ObsStyles() {
         .obs-sys-cpu {
           margin-top: var(--space-3, 12px);
           font-size: 12px;
-          color: var(--text-muted, #888);
+          color: var(--text-muted);
           font-variant-numeric: tabular-nums;
         }
         .obs-sys-gpus {
@@ -1056,7 +1056,7 @@ function ObsStyles() {
           gap: var(--space-3, 12px);
         }
         .obs-sys-gpu {
-          border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-md, 10px);
           padding: var(--space-3, 12px);
           display: flex;
@@ -1067,7 +1067,7 @@ function ObsStyles() {
           font-weight: 700;
         }
         .obs-gpu-host {
-          color: var(--text-muted, #888);
+          color: var(--text-muted);
           font-size: 12px;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -1076,7 +1076,7 @@ function ObsStyles() {
         .obs-gpu-queue {
           margin-left: auto;
           font-size: 12px;
-          color: #22d3ee;
+          color: var(--run);
           flex-shrink: 0;
           font-variant-numeric: tabular-nums;
         }
@@ -1089,7 +1089,7 @@ function ObsStyles() {
           flex: 1;
           height: 8px;
           border-radius: 4px;
-          background: var(--surface-2, rgba(255, 255, 255, 0.06));
+          background: var(--bg-surface-2);
           overflow: hidden;
         }
         .obs-vram-fill {
@@ -1098,28 +1098,28 @@ function ObsStyles() {
           transition: width 600ms ease, background 600ms ease;
         }
         .obs-vram-fill.is-ok {
-          background: linear-gradient(90deg, #22d3ee, #a78bfa);
+          background: linear-gradient(90deg, var(--chart-1), var(--chart-2));
         }
         .obs-vram-fill.is-warm {
-          background: linear-gradient(90deg, #fbbf24, #f59e0b);
+          background: linear-gradient(90deg, var(--chart-3), var(--warn));
         }
         .obs-vram-fill.is-hot {
-          background: linear-gradient(90deg, #f87171, #ef4444);
+          background: linear-gradient(90deg, var(--chart-5), var(--err));
         }
         .obs-vram-fill.is-off {
-          background: #64748b;
+          background: var(--text-muted);
         }
         .obs-vram-text {
           margin-top: 4px;
           font-size: 12px;
-          color: var(--text-muted, #888);
+          color: var(--text-muted);
           font-variant-numeric: tabular-nums;
         }
         .obs-instances {
           list-style: none;
           margin: 0;
           padding: var(--space-2, 8px) 0 0;
-          border-top: 1px dashed var(--border, rgba(255, 255, 255, 0.08));
+          border-top: 1px dashed var(--border-subtle);
           display: flex;
           flex-direction: column;
           gap: 4px;
@@ -1131,18 +1131,18 @@ function ObsStyles() {
           align-items: baseline;
         }
         .obs-instances li.is-offline {
-          color: var(--text-muted, #888);
+          color: var(--text-muted);
         }
         .obs-inst-name {
           font-weight: 600;
         }
         .obs-inst-vram {
-          color: var(--text-muted, #888);
+          color: var(--text-muted);
           font-variant-numeric: tabular-nums;
         }
         .obs-inst-queue {
           margin-left: auto;
-          color: #22d3ee;
+          color: var(--run);
         }
         .obs-skel {
           border-radius: var(--radius-md, 10px);

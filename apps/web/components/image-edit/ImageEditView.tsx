@@ -8,7 +8,6 @@ import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Field, Input, Select } from "@/components/ui/Input";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { PromptWithEntities } from "@/components/ui/PromptWithEntities";
 import { AssetPicker, type PickedAsset } from "@/components/generate/AssetPicker";
 import { OrbitViewer } from "@/components/image-edit/OrbitViewer";
@@ -641,6 +640,13 @@ export function ImageEditView({ onBack }: { onBack?: () => void }) {
     esRef.current = null;
   }, []);
 
+  /** 用户主动取消运行(2026-08-30 UX 批 C):断开 SSE/轮询跟踪并复位到 idle;
+      360° 环绕已落地的方位保留(胶片条仍可看),未生成的方位不再提交。 */
+  const cancelRun = useCallback(() => {
+    stopTracking();
+    setProc((prev) => ({ ...prev, status: "idle", progress: null }));
+  }, [stopTracking]);
+
   const resetSource = useCallback(() => {
     // 只 revoke 本地上传的 blob: URL;作品库选取的 previewUrl 是签名 HTTP URL,revoke 无意义
     if (source?.previewUrl.startsWith("blob:")) URL.revokeObjectURL(source.previewUrl);
@@ -1188,17 +1194,35 @@ export function ImageEditView({ onBack }: { onBack?: () => void }) {
                   )}
 
                   <div className="ie-tool-run">
-                    <Button
-                      variant="primary"
-                      loading={isRunning && proc.tool === t.key}
-                      disabled={isRunning}
-                      icon={isRunning && proc.tool === t.key ? undefined : <Icon name="wand" size={14} />}
-                      onClick={() => void runTool()}
-                    >
-                      {isRunning && proc.tool === t.key ? "处理中…" : t.runLabel}
-                    </Button>
+                    {/* 运行中主按钮换成「取消处理」(2026-08-30 UX 批 C,AnimaticView 中止范式):
+                        stopTracking 断开 SSE/轮询并复位;360° 环绕已落地张数保留 */}
+                    {isRunning && proc.tool === t.key ? (
+                      <Button
+                        variant="danger"
+                        icon={<Icon name="close" size={14} />}
+                        onClick={cancelRun}
+                        title="取消处理(断开进度跟踪;已生成的结果保留在作品库)"
+                      >
+                        取消处理
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="primary"
+                        disabled={isRunning}
+                        icon={<Icon name="wand" size={14} />}
+                        onClick={() => void runTool()}
+                      >
+                        {t.runLabel}
+                      </Button>
+                    )}
                     {isRunning && proc.tool === t.key && proc.progress && (
                       <ProgressBar progress={proc.progress} />
+                    )}
+                    {/* 360° 环绕无单作业进度事件:按已落地张数提示进度 */}
+                    {isRunning && proc.tool === t.key && t.key === "camera3d" && cam3dOrbit && (
+                      <span className="ie-progress-text" role="status">
+                        环绕序列生成中 {proc.resultPaths.length}/{CAM3D_AZIMUTHS.length}…
+                      </span>
                     )}
                     {proc.status === "error" && proc.tool === t.key && (
                       <ErrorBar

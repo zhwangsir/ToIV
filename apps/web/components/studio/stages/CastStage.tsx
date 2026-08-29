@@ -10,6 +10,8 @@ import {
 import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
+import { ErrorBar } from "@/components/ui/ErrorBar";
+import { Input, Textarea } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
 import { useAutoResize } from "@/hooks/useAutoResize";
 import type { useStudioProject } from "@/hooks/useStudioProject";
@@ -22,11 +24,12 @@ import type { useStudioProject } from "@/hooks/useStudioProject";
 /**
  * 角色卡描述框(非受控 defaultValue + onBlur 落库):自动增高包装,
  * 初始按已有内容撑开,键入由 hook 的 input 监听即时重算。
+ * 基座走 ui/Textarea(统一 .input 样式与 ref 透传)。
  */
 function CastTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   const ref = useRef<HTMLTextAreaElement | null>(null);
   useAutoResize(ref, String(props.defaultValue ?? ""));
-  return <textarea ref={ref} {...props} />;
+  return <Textarea {...props} ref={ref} />;
 }
 
 export function CastStage({
@@ -94,8 +97,8 @@ export function CastStage({
           <article key={c.id} className="studio-char">
             <div className="studio-char-head">
               <Icon name="user" size={16} />
-              <input
-                className="input studio-char-name"
+              <Input
+                className="studio-char-name"
                 defaultValue={c.name}
                 key={`n-${c.id}-${c.name}`}
                 onBlur={(e) =>
@@ -125,7 +128,6 @@ export function CastStage({
             />
             <label className="studio-label">视觉提示词(英文)</label>
             <CastTextarea
-              className="input"
               rows={2}
               defaultValue={c.visual_prompt}
               key={`v-${c.id}-${c.visual_prompt}`}
@@ -145,8 +147,7 @@ export function CastStage({
 
         {/* 新建角色卡 */}
         <article className="studio-char studio-char-new">
-          <input
-            className="input"
+          <Input
             value={newName}
             placeholder="新角色名…"
             onChange={(e) => setNewName(e.target.value)}
@@ -163,7 +164,7 @@ export function CastStage({
         </article>
       </div>
 
-      {error && <p className="studio-error">{error}</p>}
+      <ErrorBar message={error} onClose={() => setError(null)} />
 
       <div className="studio-stage-actions">
         <button

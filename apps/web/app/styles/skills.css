@@ -300,8 +300,9 @@
   .skill-card {
     padding: var(--space-2);
   }
+  /* 移动端触达目标 ≥44px(2026-08-30 UX 批 C,WCAG 2.5.5 / --touch-target) */
   .skill-card-act {
-    width: 24px;
-    height: 24px;
+    width: var(--touch-target);
+    height: var(--touch-target);
   }
 }

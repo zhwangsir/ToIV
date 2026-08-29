@@ -11,6 +11,8 @@ import type {
   BacklotStage,
 } from "@/lib/api";
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { Button } from "@/components/ui/Button";
+import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -182,7 +184,12 @@ function ShotRow({ shot }: { shot: BacklotShot }) {
 }
 
 // ── 主组件 ──
-export function BacklotView() {
+export function BacklotView({
+  onCreateProject,
+}: {
+  /** 空态 CTA:跳转工作室创建项目(2026-08-30 批 D,空态不再死胡同) */
+  onCreateProject?: () => void;
+} = {}) {
   const [cards, setCards] = useState<BacklotCard[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -337,15 +344,24 @@ export function BacklotView() {
         )}
 
         {!error && !loading && isEmpty && (
-          <div className="empty-state bl-empty">
-            <div className="empty-state-icon">
-              <Icon name="backlot" size={48} strokeWidth={1.2} />
-            </div>
-            <div className="empty-state-title">还没有项目</div>
-            <div className="empty-state-desc">
-              项目仪表盘为空 · 创建第一个项目开始创作
-            </div>
-          </div>
+          /* 批 D:私造空态收编 ui/Empty + 补「前往工作室创建」CTA(原空态死胡同) */
+          <Empty
+            icon="backlot"
+            title="还没有项目"
+            desc="项目仪表盘为空 · 创建第一个项目开始创作"
+            action={
+              onCreateProject ? (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<Icon name="plus" size={14} />}
+                  onClick={onCreateProject}
+                >
+                  前往工作室创建
+                </Button>
+              ) : undefined
+            }
+          />
         )}
 
         {!error && !loading && cards && cards.length > 0 && (
@@ -1122,11 +1138,6 @@ export function BacklotView() {
           .bl-spin {
             animation: none;
           }
-        }
-
-        /* ── 空态内边距 ── */
-        .bl-empty {
-          padding: var(--space-7) var(--space-4);
         }
 
         /* ── 移动端 ── */

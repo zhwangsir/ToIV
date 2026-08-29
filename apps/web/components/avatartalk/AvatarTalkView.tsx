@@ -6,6 +6,7 @@ import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Field, Input, Textarea } from "@/components/ui/Input";
+import { Modal } from "@/components/ui/Modal";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Switch } from "@/components/ui/Switch";
 import { useToast } from "@/components/ui/Toast";
@@ -143,6 +144,11 @@ export function AvatarTalkView({ onNavigate }: { onNavigate?: (target: string) =
   const [loadingModels, setLoadingModels] = useState(true);
   const [loadingAvatars, setLoadingAvatars] = useState(true);
   const [modelsUnreachable, setModelsUnreachable] = useState(false);
+  // 形象列表接口失败(2026-08-30 UX 批 C):与 modelsUnreachable 同标准显示不可达提示,
+  // 不再静默降级成空网格(区分「无形象」与「接口挂了」)
+  const [avatarsUnreachable, setAvatarsUnreachable] = useState(false);
+  // 「结束对话」确认门(红色按钮防误触)
+  const [confirmEnd, setConfirmEnd] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState<string>("");
   const [selectedModel, setSelectedModel] = useState<string>("");
   const [ttsVoice, setTtsVoice] = useState("");
@@ -232,7 +238,8 @@ export function AvatarTalkView({ onNavigate }: { onNavigate?: (target: string) =
         if (list.length > 0) setSelectedAvatar(list[0].id);
       })
       .catch(() => {
-        // 静默失败:用户可手动选或留空走默认
+        // 接口失败 ≠ 无形象:标记不可达,SetupPanel 形象区显示提示(与模型区同标准)
+        if (!cancelled) setAvatarsUnreachable(true);
       })
       .finally(() => {
         if (!cancelled) setLoadingAvatars(false);
@@ -685,6 +692,7 @@ export function AvatarTalkView({ onNavigate }: { onNavigate?: (target: string) =
               loadingAvatars={loadingAvatars}
               loadingModels={loadingModels}
               modelsUnreachable={modelsUnreachable}
+              avatarsUnreachable={avatarsUnreachable}
               selectedAvatar={selectedAvatar}
               selectedModel={selectedModel}
               onSelectAvatar={setSelectedAvatar}
@@ -711,7 +719,7 @@ export function AvatarTalkView({ onNavigate }: { onNavigate?: (target: string) =
               onInputChange={setInput}
               onSend={handleSend}
               onInterrupt={handleInterrupt}
-              onEnd={handleEnd}
+              onEnd={() => setConfirmEnd(true)}
               isRecording={isRecording}
               isTranscribing={isTranscribing}
               onMicToggle={handleMicToggle}
@@ -721,6 +729,34 @@ export function AvatarTalkView({ onNavigate }: { onNavigate?: (target: string) =
         </div>
       </div>
 
+      {/* 「结束对话」确认门(2026-08-30 UX 批 C):红色按钮防误触,确认后才断开会话 */}
+      <Modal
+        open={confirmEnd}
+        onClose={() => setConfirmEnd(false)}
+        title="结束对话"
+        danger
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmEnd(false)}>
+              取消
+            </Button>
+            <Button
+              variant="danger"
+              icon={<Icon name="phone-off" size={14} />}
+              onClick={() => {
+                setConfirmEnd(false);
+                handleEnd();
+              }}
+            >
+              结束对话
+            </Button>
+          </>
+        }
+      >
+        <p style={{ margin: 0, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+          结束当前对话?实时音视频连接将关闭,本轮对话内容不会被保留。
+        </p>
+      </Modal>
       </div>
     </div>
   );
@@ -737,6 +773,8 @@ interface SetupPanelProps {
   loadingModels: boolean;
   /** 模型接口请求失败(引擎不可达),区别于「引擎在线但无可用模型」。 */
   modelsUnreachable: boolean;
+  /** 形象接口请求失败,区别于「引擎在线但无形象」。 */
+  avatarsUnreachable: boolean;
   selectedAvatar: string;
   selectedModel: string;
   onSelectAvatar: (id: string) => void;
@@ -761,6 +799,7 @@ function SetupPanel({
   loadingAvatars,
   loadingModels,
   modelsUnreachable,
+  avatarsUnreachable,
   selectedAvatar,
   selectedModel,
   onSelectAvatar,
@@ -790,7 +829,11 @@ function SetupPanel({
         <div className="at-section-head">
           <h3 className="at-section-title">形象</h3>
           <span className="at-section-count">
-            {loadingAvatars ? "加载中" : `${avatars.length} 个可用`}
+            {loadingAvatars
+              ? "加载中"
+              : avatarsUnreachable
+                ? "不可用"
+                : `${avatars.length} 个可用`}
           </span>
         </div>
         <div className="at-avatar-grid">
@@ -815,6 +858,12 @@ function SetupPanel({
                 </button>
               ))}
         </div>
+        {/* 形象接口失败(与下方模型区 modelsUnreachable 同标准):明确「挂了」而非假空 */}
+        {!loadingAvatars && avatarsUnreachable && (
+          <p className="at-models-empty" role="alert">
+            形象列表加载失败(引擎不可达或接口异常),请检查引擎状态后刷新重试
+          </p>
+        )}
       </section>
 
       {/* Model 胶囊选择器 */}

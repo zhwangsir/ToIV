@@ -58,20 +58,37 @@ const PROJECT_PROGRESS_STEP: Record<string, number> = {
  * Studio 创作工作室(替代旧 短剧/漫剧 双模块)。
  * 四阶段流水线:剧本 → 角色 → 分镜(分镜级 视频/图像运镜 混合)→ 合成。
  */
-export function StudioView({ onBack }: { onBack?: () => void }) {
+export function StudioView({
+  onBack,
+  initialProjectId,
+}: {
+  onBack?: () => void;
+  /** 外部指定直开的项目 id(2026-08-30 批 D 透传:动态分镜「前往工作室」携带),
+      仅作 activeId 初值,项目内部逻辑不变 */
+  initialProjectId?: string | null;
+}) {
   const [projects, setProjects] = useState<StudioProjectSummary[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(initialProjectId ?? null);
   const [stage, setStage] = useState<StageKey>("script");
   const [error, setError] = useState<string | null>(null);
+  // 项目列表三态(2026-08-30 UX 批 C):加载中骨架 / 失败 ErrorBar+重试 / 真空态,
+  // 失败不再静默降级成空列表(区分「空」与「挂了」)
+  const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<StudioProjectSummary | null>(null);
   const [deleting, setDeleting] = useState(false);
   const toast = useToast();
   const project = useStudioProject(activeId);
 
   const reload = useCallback(() => {
+    setListLoading(true);
+    setListError(null);
     listStudioProjects()
       .then(setProjects)
-      .catch(() => setProjects([]));
+      .catch((e) =>
+        setListError(e instanceof Error ? e.message : "项目列表加载失败"),
+      )
+      .finally(() => setListLoading(false));
   }, []);
 
   useEffect(reload, [reload]);
@@ -128,7 +145,23 @@ export function StudioView({ onBack }: { onBack?: () => void }) {
           }
         />
         <ErrorBar message={error} onClose={() => setError(null)} />
-        {projects.length === 0 ? (
+        {listLoading ? (
+          /* 加载态:骨架卡片(grid 形态与项目卡列表一致) */
+          <LoadingBlock variant="grid" count={3} />
+        ) : listError ? (
+          /* 失败态(TrainView 范式):ErrorBar + 条外重试,不再静默显示为空列表 */
+          <div className="studio-list-error">
+            <ErrorBar message={listError} onClose={() => setListError(null)} />
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Icon name="refresh" size={13} />}
+              onClick={reload}
+            >
+              重试
+            </Button>
+          </div>
+        ) : projects.length === 0 ? (
           /* empty-state 类保留:e2e(authed-studio)空态计数锚点;视觉走 .at-empty */
           <div className="at-empty empty-state">
             <span className="at-empty-kicker">Film Studio</span>

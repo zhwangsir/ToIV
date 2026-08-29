@@ -21,6 +21,7 @@ import { NsfwRecsPanel } from "@/components/models/NsfwRecsPanel";
 import { useR18Mode } from "@/lib/r18";
 import { usePoll } from "@/hooks/usePoll";
 import { ErrorBar } from "@/components/ui/ErrorBar";
+import { Empty } from "@/components/ui/Empty";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { PageHeader } from "@/components/ui/PageHeader";
 
@@ -525,19 +526,16 @@ export function ModelsView() {
               </button>
             </div>
           ) : filteredGroups.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state-icon">
-                <Icon name="models" size={44} strokeWidth={1.2} />
-              </div>
-              <div className="empty-state-title">
-                {localQuery ? "未匹配到本地模型" : "本地暂无已安装模型"}
-              </div>
-              <div className="empty-state-desc">
-                {localQuery
+            /* 批 D:私造空态收编 ui/Empty */
+            <Empty
+              icon="models"
+              title={localQuery ? "未匹配到本地模型" : "本地暂无已安装模型"}
+              desc={
+                localQuery
                   ? "尝试更换关键词，或清空过滤查看全部"
-                  : "前往「在线市场」搜索并安装模型"}
-              </div>
-            </div>
+                  : "前往「在线市场」搜索并安装模型"
+              }
+            />
           ) : (
             <div className="mv-groups">
               {filteredGroups.map((g) => (

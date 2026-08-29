@@ -1,7 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import type { StudioRenderMode, StudioShot, StudioShotInput } from "@/lib/api";
 import { Icon } from "@/components/ui/Icon";
+import { Modal } from "@/components/ui/Modal";
+import { Button } from "@/components/ui/Button";
 import type { useStudioProject } from "@/hooks/useStudioProject";
 import { usePoll } from "@/hooks/usePoll";
 import { ShotCard } from "../ShotCard";
@@ -33,6 +36,8 @@ export function StoryboardStage({
 }) {
   const d = project.detail;
   const renderingAll = Boolean(project.busy["render:all"]);
+  // 删除分镜确认门(2026-08-30 UX 批 C):直接删改全量列表不可逆,先 Modal 确认
+  const [confirmDeleteShot, setConfirmDeleteShot] = useState<StudioShot | null>(null);
 
   // 批量生成是长任务:期间 5s 轮询刷新(页面隐藏暂停,失败指数退避),分镜状态/媒体实时可见
   usePoll(() => project.refresh(), {
@@ -138,11 +143,43 @@ export function StoryboardStage({
                   /* 错误已由 hook error 提示条透出 */
                 })
               }
-              onDelete={() => deleteShot(s.id)}
+              onDelete={() => setConfirmDeleteShot(s)}
             />
           ))}
         </div>
       )}
+
+      {/* 删除分镜确认(ui/Modal,替代零确认直接删) */}
+      <Modal
+        open={!!confirmDeleteShot}
+        onClose={() => setConfirmDeleteShot(null)}
+        title="删除分镜"
+        danger
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmDeleteShot(null)}>
+              取消
+            </Button>
+            <Button
+              variant="danger"
+              icon={<Icon name="delete" size={14} />}
+              onClick={() => {
+                if (!confirmDeleteShot) return;
+                deleteShot(confirmDeleteShot.id);
+                setConfirmDeleteShot(null);
+              }}
+            >
+              确认删除
+            </Button>
+          </>
+        }
+      >
+        <p style={{ margin: 0, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+          删除分镜 #{confirmDeleteShot ? confirmDeleteShot.idx + 1 : ""}
+          {confirmDeleteShot?.scene ? `「${confirmDeleteShot.scene}」` : ""}
+          ?其已生成的媒体与配音将一并移除,此操作不可撤销。
+        </p>
+      </Modal>
     </section>
   );
 }

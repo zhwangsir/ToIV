@@ -6,6 +6,7 @@ import { Icon } from "@/components/ui/Icon";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { Modal } from "@/components/ui/Modal";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import { useAutoResize } from "@/hooks/useAutoResize";
@@ -44,12 +45,17 @@ export function DramaView() {
   useAutoResize(newPremiseRef, newPremise, { maxVh: 40 });
 
   // ── 项目列表 ──
+  // 批 D:失败不再只 toast —— 列表区给持久错误态 + 重试(假空态通病 P1-8 同类)
+  const [listError, setListError] = useState<string | null>(null);
   const reloadProjects = useCallback(() => {
+    setListError(null);
     listDramaProjects()
       .then((list) => setProjects(list))
-      .catch((err) =>
-        showToast("error", err instanceof Error ? err.message : "加载项目失败"),
-      );
+      .catch((err) => {
+        const msg = err instanceof Error ? err.message : "加载项目失败";
+        setListError(msg);
+        showToast("error", msg);
+      });
   }, [showToast]);
 
   useEffect(() => {
@@ -120,16 +126,12 @@ export function DramaView() {
 
   return (
     <div className={`nsfw-drama-root${wbOpen ? " wb-open" : ""}`}>
-      {/* ── 统一页头(批 4 .page-header 体系);工作台打开时让位全高 ── */}
+      {/* ── 统一页头(批 D 收编为 PageHeader 组件);工作台打开时让位全高 ── */}
       {!wbOpen && (
-        <header className="page-header">
-          <div>
-            <h2 className="page-header-title">短剧工作台</h2>
-            <p className="page-header-desc">
-              剧本 → 分镜 → 视频 → 配音 → 成片,一站式短剧管线;产物按全局内容模式打标
-            </p>
-          </div>
-        </header>
+        <PageHeader
+          title="短剧工作台"
+          desc="剧本 → 分镜 → 视频 → 配音 → 成片,一站式短剧管线;产物按全局内容模式打标"
+        />
       )}
 
       <div className="nsfw-drama">
@@ -147,7 +149,8 @@ export function DramaView() {
           <button
             type="button"
             className="nsfw-drama-rail-btn"
-            title="新建项目"
+            /* 批 D 修正误导 title:按钮并不直接建项目,而是回列表页(新建表单在列表页) */
+            title="回列表页新建项目"
             onClick={() => setActiveId(null)}
           >
             <Icon name="plus" size={16} />
@@ -186,8 +189,18 @@ export function DramaView() {
           </button>
         </div>
         <div className="nsfw-drama-list">
-          {projects === null && <LoadingBlock variant="line" count={3} />}
-          {projects !== null && projects.length === 0 && (
+          {projects === null && !listError && <LoadingBlock variant="line" count={3} />}
+          {/* 列表加载失败:持久错误条 + 重试(复用既有 .nsfw-drama-error 样式),
+              toast 仍有(工作台打开时列表不可见,需瞬时信号) */}
+          {listError && (
+            <div className="nsfw-drama-error" role="alert">
+              <span>{listError}</span>
+              <button type="button" onClick={reloadProjects}>
+                重试
+              </button>
+            </div>
+          )}
+          {!listError && projects !== null && projects.length === 0 && (
             <div className="nsfw-drama-hint">暂无项目,先新建一个</div>
           )}
           {projects?.map((p) => (
@@ -217,7 +230,7 @@ export function DramaView() {
                   void handleDelete(p);
                 }}
               >
-                <Icon name="error" size={13} />
+                <Icon name="delete" size={13} />
               </button>
             </div>
           ))}

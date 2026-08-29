@@ -67,6 +67,17 @@
   background: var(--bg-surface-2);
 }
 
+/* 项目列表加载失败(2026-08-30 UX 批 C):ErrorBar + 重试按钮横排(TrainView tv-error-row 范式) */
+.studio-list-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.studio-list-error .ui-error-bar {
+  flex: 1;
+  min-width: 0;
+}
+
 /* ── 项目列表:Atelier 卡片流(.at-card 壳 + .at-card-in 错落入场),删除钮收入卡内 hover 显现 ── */
 .studio-project-list {
   display: flex;

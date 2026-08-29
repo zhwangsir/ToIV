@@ -85,7 +85,17 @@ test("ObservabilityView:接入图表库四件套 + 新版式区块", () => {
   assert.match(src, /obs-live-dot/, "实时脉冲点");
   assert.match(src, /@media \(max-width: 860px\)/, "860px 响应式断点");
   assert.match(src, /prefers-reduced-motion/, "reduced-motion 关闭动效");
-  assert.match(src, /linear-gradient\(90deg, #22d3ee, #a78bfa\)/, "VRAM 条品牌渐变");
+  // 批 D:品牌渐变色值收编为图表 token(--chart-1/--chart-2,亮暗双模式)
+  assert.match(
+    src,
+    /linear-gradient\(90deg, var\(--chart-1\), var\(--chart-2\)\)/,
+    "VRAM 条品牌渐变应走 chart token",
+  );
+  // 批 D:硬编码 hex/rgba 与失效伪 token(--border/--surface-*)清零
+  assert.doesNotMatch(src, /#[0-9a-fA-F]{6}\b/, "不应再有硬编码 hex 色值");
+  assert.doesNotMatch(src, /rgba?\(\d/, "不应再有 rgba 字面量");
+  assert.doesNotMatch(src, /var\(--border,/, "失效伪 token --border 应清除");
+  assert.doesNotMatch(src, /var\(--surface-1,/, "失效伪 token --surface-1 应清除");
   assert.match(src, /data\.series\.vram_pct/, "每卡 VRAM 历史 sparkline 数据");
   assert.match(src, /data\.hourly/, "24h 逐小时分桶数据");
 });

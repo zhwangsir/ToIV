@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { MagnetFollow } from "@/components/ui/MagnetFollow";
 import { Ripple } from "@/components/ui/Ripple";
 import { ThemePicker } from "@/components/ui/ThemePicker";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 export interface BottomNavItem {
   key: string;
@@ -30,6 +31,9 @@ interface BottomNavProps {
  */
 export function BottomNav({ items, moreItems = [], current, onSelect, ctaAction }: BottomNavProps) {
   const [moreOpen, setMoreOpen] = useState(false);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  // 「更多」抽屉 a11y(2026-08-30 UX 批 C):Esc 关闭 + Tab 焦点陷阱 + 关闭后焦点回位
+  useFocusTrap(sheetRef, moreOpen, () => setMoreOpen(false));
 
   const select = (key: string) => {
     setMoreOpen(false);
@@ -94,9 +98,11 @@ export function BottomNav({ items, moreItems = [], current, onSelect, ctaAction 
       {/* bottom-nav-sheet:桌面 ≥1024px 整体 display:none(globals.css 断点门控);
           闭合态 visibility:hidden,视口外按钮不再进 tab 序(2026-08-16 审计修复) */}
       <div
+        ref={sheetRef}
         className={`sheet bottom-nav-sheet${moreOpen ? " is-open" : ""}`}
         role="dialog"
         aria-label="更多入口"
+        aria-modal={moreOpen || undefined}
         aria-hidden={!moreOpen}
       >
         <div className="sheet-handle" aria-hidden="true" />

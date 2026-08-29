@@ -14,6 +14,7 @@ import { fetchMe, getToken, setToken, testLogin, TOKEN_KEY } from "@/lib/api";
 import { useCrossTabSync } from "@/lib/crossTab";
 import { initR18Mode, isR18Mode, useR18Mode } from "@/lib/r18";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { Empty } from "@/components/ui/Empty";
 import { Icon } from "@/components/ui/Icon";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { useToast } from "@/components/ui/Toast";
@@ -305,7 +306,8 @@ const BOTTOM_NAV_MORE_ITEMS: BottomNavItem[] = [
   { key: "entities", label: "主体库", icon: "users" },
   { key: "avatartalk", label: "数字人", icon: "user" },
   { key: "dub", label: "译制", icon: "dub" },
-  { key: "animatic", label: "动态分镜", icon: "clapperboard" },
+  // 2026-08-30 批 D:animatic 原与 studio 同用 clapperboard,换 film(胶片条)提辨识度
+  { key: "animatic", label: "动态分镜", icon: "film" },
   { key: "resources", label: "资源", icon: "models" },
   { key: "settings", label: "设置", icon: "settings" },
 ];
@@ -598,8 +600,12 @@ function HomeContent() {
   );
 
   // 2026-08-18:导航位改为 Skill 市场(SPA 视图);/agent-runs 路由保留直达
+  // 2026-08-30 批 D:动态分镜「前往工作室」携带的待开项目 id;
+  // 导航/融合直进 studio 时复位(null = 落项目列表),避免陈旧 id 误开旧项目
+  const [studioInitialProjectId, setStudioInitialProjectId] = useState<string | null>(null);
   const handleNavSelect = useCallback(
     (key: string) => {
+      if (key === "studio") setStudioInitialProjectId(null);
       changeView(key as View);
     },
     [changeView],
@@ -620,16 +626,22 @@ function HomeContent() {
     }
   }, [view, account, changeView]);
 
-  // 动态分镜 AI 模式:解析成功后跳 studio 创作工作室(旧 drama 工作台已退役)
-  const handleOpenDramaProject = useCallback(() => {
-    changeView("studio");
-  }, [changeView]);
+  // 动态分镜 AI 模式:解析成功后跳 studio 创作工作室并直开该项目
+  // (2026-08-30 批 D:此前丢弃 project.id,落项目列表找不到刚建的项目)
+  const handleOpenDramaProject = useCallback(
+    (projectId: string) => {
+      setStudioInitialProjectId(projectId);
+      changeView("studio");
+    },
+    [changeView],
+  );
 
   // 融合聚合页跳转:target 可带查询串(如 dramaStudio?mode=manju 进漫剧模式)
   const handleFusionNavigate = useCallback(
     (target: string) => {
       const [key, query] = target.split("?", 2);
       const next = resolveView(key) ?? "fusion";
+      if (next === "studio") setStudioInitialProjectId(null);
       preloadView(next);
       withViewTransition(() => {
         setView(next);
@@ -658,12 +670,18 @@ function HomeContent() {
     label: "观测",
     icon: "monitor",
   };
+  // 管理面板入口(2026-08-30 批 D):此前无导航入口只能直输 URL;admin 专属,与观测同槽追加
+  const adminItem: BottomNavItem = {
+    key: "admin",
+    label: "管理",
+    icon: "shield-check",
+  };
   // 注意:ISLAND_ITEMS / BOTTOM_NAV_MORE_ITEMS 是模块级常量,r18 分支的 slice 拼接
   // 产生新数组,非 r18 分支是同一引用——必须再复制一层才能 push,否则每次渲染
   // 都往共享常量里追加,菜单重复(2026-08-24「观测」×7 实证)。
   if (isAdmin) {
-    islandItems = [...islandItems, observabilityItem];
-    bottomNavMoreItems = [...bottomNavMoreItems, observabilityItem];
+    islandItems = [...islandItems, observabilityItem, adminItem];
+    bottomNavMoreItems = [...bottomNavMoreItems, observabilityItem, adminItem];
   }
 
   if (auth === "loading") {
@@ -733,7 +751,12 @@ function HomeContent() {
               {view === "imageEdit" && <ImageEditView onBack={() => handleFusionNavigate("fusion")} />}
               {view === "videoEdit" && <VideoEditView onBack={() => handleFusionNavigate("fusion")} />}
               {view === "canvas" && <CanvasView />}
-              {view === "studio" && <StudioView onBack={() => handleFusionNavigate("fusion")} />}
+              {view === "studio" && (
+                <StudioView
+                  onBack={() => handleFusionNavigate("fusion")}
+                  initialProjectId={studioInitialProjectId}
+                />
+              )}
               {/* M9:短剧(drama 旧管线)仅 R18 模式渲染;SFW 直输 URL 由门控 effect 弹回 */}
               {view === "drama" && r18 && <DramaView />}
               {view === "dub" && <DubView onBack={() => handleFusionNavigate("fusion")} />}
@@ -745,12 +768,25 @@ function HomeContent() {
               {view === "train" && <TrainView />}
               {view === "library" && <LibraryView onNavigate={handleFusionNavigate} />}
               {view === "entities" && <EntitiesView />}
-              {view === "backlot" && <BacklotView />}
+              {view === "backlot" && (
+                <BacklotView onCreateProject={() => handleNavSelect("studio")} />
+              )}
               {view === "models" && <ModelsView />}
               {view === "resources" && <ResourcesView showAdmin={isAdmin} />}
               {view === "skills" && <SkillMarketView />}
               {view === "settings" && <SettingsView account={account} onLogout={onLogout} />}
-              {view === "admin" && <AdminView />}
+              {view === "admin" &&
+                // 2026-08-30 批 D:admin 门控对齐观测面板(:754 isAdmin 渲染门控);
+                // 非管理员直输 ?view=admin 给无权限提示,不再裸挂 AdminView(其接口 admin-only)
+                (isAdmin ? (
+                  <AdminView />
+                ) : (
+                  <Empty
+                    icon="lock"
+                    title="无权限访问"
+                    desc="管理面板仅管理员账号可见"
+                  />
+                ))}
               {view === "observability" && isAdmin && <ObservabilityView />}
             </Suspense>
           </ErrorBoundary>

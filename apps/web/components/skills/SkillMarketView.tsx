@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Field, Input, Textarea } from "@/components/ui/Input";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { Modal } from "@/components/ui/Modal";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { Switch } from "@/components/ui/Switch";
 import { useToast } from "@/components/ui/Toast";
 import {
@@ -85,6 +85,8 @@ export function SkillMarketView() {
   const toast = useToast();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
+  // 列表加载失败(2026-08-30 UX 批 C:listAgents 改抛错):错误态 + 重试,区分「空」与「挂了」
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // ── 检索(2026-08-18):搜索词 + 适用范围 + R18,三区共用 ──
   const [query, setQuery] = useState("");
@@ -93,9 +95,15 @@ export function SkillMarketView() {
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    // listAgents 失败静默返回 [](优雅降级,与 OptimizeButton 同款);空列表走分区空态
-    setAgents(await listAgents());
-    setLoading(false);
+    setLoadError(null);
+    try {
+      setAgents(await listAgents());
+    } catch (e) {
+      setAgents([]);
+      setLoadError(e instanceof Error ? e.message : "技能列表加载失败");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -209,13 +217,18 @@ export function SkillMarketView() {
     }
   }
 
+  // 分享复制失败兜底(2026-08-30 UX 批 C):剪贴板不可用(非安全上下文/权限拒绝)时
+  // 弹 Modal 展示 JSON 供手动全选复制,替代原生 prompt 弹窗
+  const [shareFallback, setShareFallback] = useState<{ name: string; json: string } | null>(null);
+
   async function share(a: Agent) {
     const json = JSON.stringify(serializeSkillShare(a), null, 2);
     try {
       await navigator.clipboard.writeText(json);
       toast.success("技能 JSON 已复制,发给他人即可导入");
     } catch {
-      window.prompt("复制以下 JSON 分享技能:", json);
+      setShareFallback({ name: a.name, json });
+      toast.info("自动复制失败,请在弹窗中手动全选复制");
     }
   }
 
@@ -246,6 +259,19 @@ export function SkillMarketView() {
       {/* 2026-08-18 页头移除(灵动岛已指示当前板块):导入按钮收进首区头行右侧 */}
       {loading ? (
         <LoadingBlock variant="grid" count={6} />
+      ) : loadError ? (
+        /* 加载失败:ErrorBar + 条外重试,不再静默显示空市场 */
+        <div className="skill-load-error">
+          <ErrorBar message={loadError} onClose={() => setLoadError(null)} />
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<Icon name="refresh" size={13} />}
+            onClick={() => void refresh()}
+          >
+            重试
+          </Button>
+        </div>
       ) : (
         <>
           {/* 检索工具栏:搜索 + 适用范围 chips + R18(客户端即时过滤,三区共用) */}
@@ -497,17 +523,34 @@ export function SkillMarketView() {
         </div>
       </Modal>
 
-      {/* 删除确认 */}
+      {/* 删除确认(danger 确认键,与删除语义一致) */}
       <Modal open={Boolean(deleting)} onClose={() => setDeleting(null)} title="删除技能" danger>
         <p className="skill-delete-text">确定删除技能「{deleting?.name}」?此操作不可撤销。</p>
         <div className="skill-form-actions">
           <Button variant="ghost" size="sm" onClick={() => setDeleting(null)} disabled={deleteBusy}>
             取消
           </Button>
-          <Button variant="primary" size="sm" loading={deleteBusy} onClick={() => void confirmDelete()}>
+          <Button variant="danger" size="sm" loading={deleteBusy} onClick={() => void confirmDelete()}>
             删除
           </Button>
         </div>
+      </Modal>
+
+      {/* 分享复制失败兜底:剪贴板不可用时手动全选复制 */}
+      <Modal
+        open={Boolean(shareFallback)}
+        onClose={() => setShareFallback(null)}
+        title={shareFallback ? `分享技能 · ${shareFallback.name}` : ""}
+        width={560}
+      >
+        <Field label="技能 JSON" hint="点击文本框后 Ctrl/Cmd+A 全选,Ctrl/Cmd+C 复制">
+          <Textarea
+            rows={12}
+            readOnly
+            value={shareFallback?.json ?? ""}
+            onFocus={(e) => e.target.select()}
+          />
+        </Field>
       </Modal>
 
       {/* 提示词查看 */}
@@ -716,9 +759,10 @@ export function SkillMarketView() {
           .skill-card {
             padding: var(--space-2);
           }
+          /* 移动端触达 ≥44px(与 app/styles/skills.css 同款覆盖保持一致) */
           .skill-card-act {
-            width: 24px;
-            height: 24px;
+            width: var(--touch-target);
+            height: var(--touch-target);
           }
         }
       `}</style>
@@ -752,7 +796,10 @@ function Section({
       </div>
       <div className="skill-grid">
         {agents.length === 0 ? (
-          <p className="skill-empty">{empty}</p>
+          /* empty 文案为空(如内置技能区)时不渲染空 <p> 占位 */
+          empty ? (
+            <p className="skill-empty">{empty}</p>
+          ) : null
         ) : (
           agents.map((a) => (
             <article key={a.id} className="skill-card">

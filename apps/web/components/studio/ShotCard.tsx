@@ -10,6 +10,7 @@ import {
   type StudioShotInput,
 } from "@/lib/api";
 import { Icon } from "@/components/ui/Icon";
+import { Input, Select, Textarea } from "@/components/ui/Input";
 import { Ripple } from "@/components/ui/Ripple";
 import { useAutoResize } from "@/hooks/useAutoResize";
 import type { StudioSaveState } from "@/hooks/useStudioProject";
@@ -221,8 +222,8 @@ export function ShotCard({
         </div>
 
         {/* 场景描述(内联编辑) */}
-        <input
-          className="input studio-shot-scene-input"
+        <Input
+          className="studio-shot-scene-input"
           value={scene}
           placeholder="场景描述(中文)"
           onChange={(e) => setScene(e.target.value)}
@@ -231,15 +232,14 @@ export function ShotCard({
 
         {/* 台词 + 说话人 */}
         <div className="studio-shot-line">
-          <input
-            className="input"
+          <Input
             value={dialogue}
             placeholder="台词(空 = 无配音)"
             onChange={(e) => setDialogue(e.target.value)}
             onBlur={() => dialogue !== shot.dialogue && onPatch({ dialogue })}
           />
-          <select
-            className="input studio-shot-speaker"
+          <Select
+            className="studio-shot-speaker"
             value={shot.speaker}
             onChange={(e) => onPatch({ speaker: e.target.value })}
           >
@@ -249,7 +249,7 @@ export function ShotCard({
                 {c.name}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
 
         {/* 高级:提示词/运镜/时长 */}
@@ -265,8 +265,7 @@ export function ShotCard({
           <div className="studio-shot-adv">
             {/* AI 扩写:一句简短中文描述 → 场景/运镜/提示词/负向/角色全回填 */}
             <div className="studio-shot-ai">
-              <textarea
-                className="input"
+              <Textarea
                 rows={2}
                 value={brief}
                 placeholder="AI 扩写:一句话描述画面(如「阿豪在雨夜天台点烟」)"
@@ -274,8 +273,8 @@ export function ShotCard({
                 disabled={optimizing}
               />
               <div className="studio-shot-ai-row">
-                <select
-                  className="input studio-shot-skill"
+                <Select
+                  className="studio-shot-skill"
                   value={skillId}
                   onChange={(e) => setSkillId(e.target.value)}
                   disabled={optimizing}
@@ -288,9 +287,8 @@ export function ShotCard({
                       {s.is_mine ? "(我的)" : ""}
                     </option>
                   ))}
-                </select>
-                <input
-                  className="input"
+                </Select>
+                <Input
                   value={styleHint}
                   placeholder="补充风格(可选,如「王家卫式霓虹」)"
                   onChange={(e) => setStyleHint(e.target.value)}
@@ -308,17 +306,15 @@ export function ShotCard({
               </div>
               {aiError && <p className="studio-shot-ai-error">{aiError}</p>}
             </div>
-            <textarea
+            <Textarea
               ref={promptRef}
-              className="input"
               rows={3}
               value={prompt}
               placeholder="英文生成提示词"
               onChange={(e) => setPrompt(e.target.value)}
               onBlur={() => prompt !== shot.prompt && onPatch({ prompt })}
             />
-            <textarea
-              className="input"
+            <Textarea
               rows={2}
               defaultValue={shot.negative}
               key={`neg-${shot.id}-${shot.negative}`}
@@ -355,8 +351,7 @@ export function ShotCard({
             <div className="studio-shot-adv-row">
               <label>
                 运镜
-                <input
-                  className="input"
+                <Input
                   defaultValue={shot.camera}
                   key={`cam-${shot.id}-${shot.camera}`}
                   placeholder="推/拉/摇/移"
@@ -367,8 +362,7 @@ export function ShotCard({
               </label>
               <label>
                 时长(秒)
-                <input
-                  className="input"
+                <Input
                   type="number"
                   min={1}
                   max={60}

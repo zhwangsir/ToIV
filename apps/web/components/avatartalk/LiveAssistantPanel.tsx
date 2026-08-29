@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon } from "@/components/ui/Icon";
 import { Field, Input, Select, Textarea } from "@/components/ui/Input";
+import { Modal } from "@/components/ui/Modal";
 import { Switch } from "@/components/ui/Switch";
 import { usePoll } from "@/hooks/usePoll";
 import { avatarAssetImageUrl, listAvatarAssets, type AvatarAsset } from "@/lib/api";
@@ -48,6 +49,8 @@ export function LiveAssistantPanel() {
   const [session, setSession] = useState<LiveSessionStatus>({ active: false, session_id: null });
   const [sessionBusy, setSessionBusy] = useState(false);
   const [consoleError, setConsoleError] = useState<string | null>(null);
+  // 初始四路加载失败(2026-08-30 UX 批 C):列出失败的板块,不再静默吞掉
+  const [initError, setInitError] = useState<string | null>(null);
 
   // ── 手动摄入(模拟弹幕) ──
   const [ingestText, setIngestText] = useState("");
@@ -75,15 +78,22 @@ export function LiveAssistantPanel() {
   const [bannedLoaded, setBannedLoaded] = useState(false);
   const [bannedInput, setBannedInput] = useState("");
   const [bannedBusy, setBannedBusy] = useState(false);
+  // 删除确认门(2026-08-30 UX 批 C):单个违禁词删除先 Modal 确认,不再点了就删
+  const [confirmDeleteBanned, setConfirmDeleteBanned] = useState<LiveBannedWord | null>(null);
 
   const selectedTemplate = useMemo(
     () => templates.find((t) => t.id === selectedTemplateId) ?? null,
     [templates, selectedTemplateId],
   );
 
-  // 初始加载:形象模板 / 会话状态 / KB / 违禁词(各自失败互不影响)
-  useEffect(() => {
+  // 初始加载:形象模板 / 会话状态 / KB / 违禁词(各自失败互不影响,失败板块名透出 + 重试)
+  const loadInitial = useCallback(() => {
     let cancelled = false;
+    setInitError(null);
+    /** 失败板块累计进 initError(「、」拼接),四路互不影响 */
+    const markFailed = (label: string) => {
+      if (!cancelled) setInitError((prev) => (prev ? `${prev}、${label}` : label));
+    };
     listAvatarAssets()
       .then((list) => {
         if (cancelled) return;
@@ -91,23 +101,25 @@ export function LiveAssistantPanel() {
         setTemplates(arr);
         if (arr.length > 0) setSelectedTemplateId((prev) => prev || arr[0].id);
       })
-      .catch(() => {})
+      .catch(() => markFailed("形象模板"))
       .finally(() => !cancelled && setTemplatesLoaded(true));
     getLiveSessionStatus()
       .then((s) => !cancelled && setSession(s))
-      .catch(() => {});
+      .catch(() => markFailed("会话状态"));
     listLiveKB()
       .then((list) => !cancelled && setKbList(Array.isArray(list) ? list : []))
-      .catch(() => {})
+      .catch(() => markFailed("知识库"))
       .finally(() => !cancelled && setKbLoaded(true));
     listLiveBanned()
       .then((list) => !cancelled && setBanned(Array.isArray(list) ? list : []))
-      .catch(() => {})
+      .catch(() => markFailed("违禁词"))
       .finally(() => !cancelled && setBannedLoaded(true));
     return () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => loadInitial(), [loadInitial]);
 
   // 事件流轮询(4s;失败保持旧列表,不打扰)
   usePoll(
@@ -254,6 +266,23 @@ export function LiveAssistantPanel() {
     <>
       {/* ── 左:播报控制台 ── */}
       <div className="at-live">
+        {/* 初始加载失败(形象模板/会话状态/知识库/违禁词):ErrorBar + 条外重试 */}
+        {initError && (
+          <div className="at-live-init-error">
+            <ErrorBar
+              message={`${initError}加载失败,部分功能不可用`}
+              onClose={() => setInitError(null)}
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Icon name="refresh" size={13} />}
+              onClick={() => loadInitial()}
+            >
+              重试
+            </Button>
+          </div>
+        )}
         {/* 会话控制行 */}
         <section className="at-live-control">
           <div className="at-live-control-row">
@@ -541,7 +570,7 @@ export function LiveAssistantPanel() {
                         type="button"
                         className="at-banned-tag-x"
                         aria-label={`删除违禁词 ${w.word}`}
-                        onClick={() => void handleBannedDelete(w.id)}
+                        onClick={() => setConfirmDeleteBanned(w)}
                       >
                         <Icon name="close" size={11} />
                       </button>
@@ -578,6 +607,32 @@ export function LiveAssistantPanel() {
           </div>
         </div>
       </div>
+
+      {/* 删除违禁词确认(ui/Modal,与 KB 两步确认同语义,防误删拦截规则) */}
+      <Modal
+        open={!!confirmDeleteBanned}
+        onClose={() => setConfirmDeleteBanned(null)}
+        title="删除违禁词"
+        danger
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmDeleteBanned(null)}>
+              取消
+            </Button>
+            <Button
+              variant="danger"
+              icon={<Icon name="delete" size={14} />}
+              onClick={() => confirmDeleteBanned && void handleBannedDelete(confirmDeleteBanned.id)}
+            >
+              确认删除
+            </Button>
+          </>
+        }
+      >
+        <p style={{ margin: 0, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+          删除违禁词「{confirmDeleteBanned?.word}」?之后包含该词的弹幕与回复将不再被拦截。
+        </p>
+      </Modal>
     </>
   );
 }

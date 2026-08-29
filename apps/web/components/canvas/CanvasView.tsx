@@ -215,26 +215,8 @@ export function CanvasView() {
           <div className="canvas-stage canvas-stage--center">
             <div className="canvas-fallback">
               <div className="canvas-fallback-badge canvas-fallback-badge--warn">
-                <svg
-                  className="canvas-fallback-icon"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M12 3 2.5 20h19L12 3Z"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M12 9.5v4.5"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                  />
-                  <circle cx="12" cy="16.8" r="0.9" fill="currentColor" />
-                </svg>
+                {/* 批 D:自绘 SVG 三角收编为 ui/Icon(lucide warning);配色由徽章容器 token 继承 */}
+                <Icon name="warning" size={28} className="canvas-fallback-icon" />
               </div>
               <h2>画布需要通过 HTTP 访问</h2>
               <p>
@@ -273,26 +255,7 @@ export function CanvasView() {
               <div className="canvas-load-overlay">
                 <div className="canvas-error-card">
                   <div className="canvas-error-badge">
-                    <svg
-                      className="canvas-error-icon"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      aria-hidden="true"
-                    >
-                      <path
-                        d="M12 3 2.5 20h19L12 3Z"
-                        stroke="currentColor"
-                        strokeWidth="1.6"
-                        strokeLinejoin="round"
-                      />
-                      <path
-                        d="M12 9.5v4.5"
-                        stroke="currentColor"
-                        strokeWidth="1.6"
-                        strokeLinecap="round"
-                      />
-                      <circle cx="12" cy="16.8" r="0.9" fill="currentColor" />
-                    </svg>
+                    <Icon name="warning" size={28} className="canvas-error-icon" />
                   </div>
                   <h2>画布服务加载失败</h2>
                   <p>
@@ -342,26 +305,7 @@ export function CanvasView() {
         ) : (
           <div className="canvas-fallback">
             <div className="canvas-fallback-badge">
-              <svg
-                className="canvas-fallback-icon"
-                viewBox="0 0 24 24"
-                fill="none"
-                aria-hidden="true"
-              >
-                <path
-                  d="M12 3 2.5 20h19L12 3Z"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M12 9.5v4.5"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                />
-                <circle cx="12" cy="16.8" r="0.9" fill="currentColor" />
-              </svg>
+              <Icon name="warning" size={28} className="canvas-fallback-icon" />
             </div>
             <h2>ComfyUI 连接失败</h2>
             <p className="canvas-fallback-label">以下地址均未连通:</p>

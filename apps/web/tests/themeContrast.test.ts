@@ -167,6 +167,27 @@ test("基座新 token 存在:--content-max / --content-wide / --leading-loose", 
   assert.match(globals, /--leading-loose:\s*1\.7/);
 });
 
+/* ── ③b 图表色板 --chart-1..5(2026-08-30 批 D):
+   5 色板 × 亮/暗双模式全量卡控(textThemes 覆盖 5 浅色板 + 暗 + 纯黑;
+   浅色板不覆盖 chart token → 继承 :root,暗色继承 [data-mode="dark"] 块)。
+   图表色承载数据系列(非文本图形),WCAG 非文本对比度门槛 ≥3:1。 ── */
+for (const t of textThemes) {
+  const vars = mergedVars(...t.selectors);
+  for (const k of ["chart-1", "chart-2", "chart-3", "chart-4", "chart-5"] as const) {
+    test(`${t.name} --${k} 在 canvas/surface-1/2/3 上 ≥3:1(图表非文本)`, () => {
+      const fg = colorOf(vars, k);
+      for (const s of SURFACES) {
+        const bg = colorOf(vars, s);
+        const ratio = contrast(fg, bg);
+        assert.ok(
+          ratio >= 3,
+          `${t.name} ${k} on ${s} = ${ratio.toFixed(2)} < 3`,
+        );
+      }
+    });
+  }
+}
+
 test("页面槽 token 存在且双壳统一消费:--page-gutter(2026-08-24 密度优化)", () => {
   assert.match(globals, /--page-gutter:\s*clamp\(12px, 2vw, 24px\)/);
   const single = globals.match(/\.single-view\s*\{([^}]*)\}/);

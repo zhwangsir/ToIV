@@ -91,7 +91,10 @@ test("page.tsx:灵动岛导航不突变模块级常量(观测重复 bug 回归)"
   const src = readSrc("app/page.tsx");
   assert.ok(!src.includes("islandItems.push("), "islandItems 不得 push 突变(2026-08-24 观测×7)");
   assert.ok(!src.includes("bottomNavMoreItems.push("), "bottomNavMoreItems 不得 push 突变");
-  assert.ok(src.includes("[...islandItems, observabilityItem]"), "admin 观测项应复制后追加");
+  assert.ok(
+    src.includes("[...islandItems, observabilityItem, adminItem]"),
+    "admin 观测+管理项应复制后追加",
+  );
 });
 
 /* ── ⑤ 3D 相机(2511,2026-08-24) ── */

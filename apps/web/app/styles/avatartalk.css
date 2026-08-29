@@ -902,6 +902,17 @@
   overflow: hidden;
 }
 
+/* 初始加载失败行(2026-08-30 UX 批 C):ErrorBar + 重试按钮横排 */
+.at-live-init-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.at-live-init-error .ui-error-bar {
+  flex: 1;
+  min-width: 0;
+}
+
 /* 会话控制卡(玻璃材质行,与 .at-switch-row 同语言) */
 .at-live-control {
   display: flex;

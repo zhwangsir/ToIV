@@ -66,6 +66,17 @@
   --err-soft: rgba(180, 25, 25, 0.10);
   --run-soft: var(--accent-soft);
 
+  /* ── 图表系列色板(2026-08-30 批 D 新增;收编观测面板/ui charts 硬编码 hex):
+     数据可视化专用 5 色序列(cyan/violet/amber/green/rose),与状态色分轨——
+     状态色表状态语义,图表色表数据系列。五套色板共用(同 --ok/--warn/--err 策略,
+     色板个性仅 accent 系),亮/暗双模式各自取值;浅色档压深,保证在最浅面板
+     (canvas/surface-1)上 ≥3:1(WCAG 非文本对比度),themeContrast.test.ts 卡控。 */
+  --chart-1: #0E7490;
+  --chart-2: #7C3AED;
+  --chart-3: #B45309;
+  --chart-4: #15803D;
+  --chart-5: #DC2626;
+
   /* ── 叠加与模糊(五套共用;overlay 恒深色:模态背板/图片视频 scrim 不随主题变浅) ── */
   --overlay-strong: rgba(24, 20, 16, 0.45);
   --overlay-light: rgba(24, 20, 16, 0.55);
@@ -333,6 +344,13 @@
   --ok-soft: rgba(70, 190, 126, 0.14);
   --warn-soft: rgba(229, 163, 75, 0.14);
   --err-soft: rgba(245, 132, 132, 0.14);
+
+  /* 图表色板暗色档:向亮提(与状态色同策略),深面板/纯黑上 ≥3:1 */
+  --chart-1: #22D3EE;
+  --chart-2: #A78BFA;
+  --chart-3: #FBBF24;
+  --chart-4: #34D399;
+  --chart-5: #F87171;
 
   /* 叠加层:恒深色基调不变,暗色下压更纯更沉 */
   --overlay-strong: rgba(0, 0, 0, 0.50);

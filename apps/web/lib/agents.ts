@@ -76,25 +76,26 @@ async function parseErr(res: Response, fallback: string): Promise<Error> {
 /**
  * 拉智能体列表。
  * @param kind 可选,按 applies_to 过滤(后端按用户 R18 状态自动过滤 NSFW)
- * @returns 失败时返回 [] 而非抛错(优雅降级,避免阻断 UI)
+ * @throws HTTP 非 2xx / 网络异常时抛错(调用方决定展示错误态还是降级)
  */
 export async function listAgents(kind?: string): Promise<Agent[]> {
+  const qs = kind ? `?kind=${encodeURIComponent(kind)}` : "";
+  let res: Response;
   try {
-    const qs = kind ? `?kind=${encodeURIComponent(kind)}` : "";
-    const res = await fetch(`${API_BASE}/api/agents${qs}`, {
+    res = await fetch(`${API_BASE}/api/agents${qs}`, {
       headers: authHeaders(),
     });
-    if (!res.ok) return [];
-    const data = (await res.json()) as unknown;
-    const list = Array.isArray(data)
-      ? data
-      : Array.isArray((data as { items?: unknown[] })?.items)
-        ? (data as { items: unknown[] }).items
-        : [];
-    return list.map(normalizeAgent);
   } catch {
-    return [];
+    throw new Error("技能列表加载失败(网络异常,请检查连接后重试)");
   }
+  if (!res.ok) throw await parseErr(res, "加载技能列表失败");
+  const data = (await res.json()) as unknown;
+  const list = Array.isArray(data)
+    ? data
+    : Array.isArray((data as { items?: unknown[] })?.items)
+      ? (data as { items: unknown[] }).items
+      : [];
+  return list.map(normalizeAgent);
 }
 
 /** 智能体详情;NSFW 智能体需 R18 鉴权,失败抛错。 */

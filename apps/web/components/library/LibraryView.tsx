@@ -39,6 +39,7 @@ import { ModelViewer } from "@/components/ui/ModelViewer";
 import { Button } from "@/components/ui/Button";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Modal } from "@/components/ui/Modal";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Popover } from "@/components/ui/Popover";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
@@ -749,14 +750,13 @@ export function LibraryView(props?: LibraryViewProps) {
     <div
       className={`single-view library-view${density === "compact" ? " is-compact" : ""}${batchMode ? " is-batch" : ""}`}
     >
-      <header className="page-header lib-header">
-        <div className="page-header-text">
-          <h1 className="page-header-title">作品库</h1>
-          <p className="page-header-desc">
-            全部生成产物统一收录,支持检索、复用提示词与批量管理
-          </p>
-        </div>
-        <div className="page-header-actions">
+      {/* 页头走共享 PageHeader(批 D 收编手写结构);.lib-header 视图级覆盖与
+          MEDIA ATELIER kicker(library.css ::before)保持不变 */}
+      <PageHeader
+        className="lib-header"
+        title="作品库"
+        desc="全部生成产物统一收录,支持检索、复用提示词与批量管理"
+        actions={
           <span className="lib-count-pill">
             {loading
               ? "加载中…"
@@ -764,8 +764,8 @@ export function LibraryView(props?: LibraryViewProps) {
                 ? "加载失败"
                 : `${filtered.length} 件作品`}
           </span>
-        </div>
-      </header>
+        }
+      />
 
       {/* 工具条(sticky):搜索 / 类型 chips / 内容分级 / 排序 / 密度 / 批量管理;
           文件夹下钻视图隐藏(返回主网格即恢复) */}
@@ -1851,90 +1851,91 @@ function ThreeDOpsBar({ job }: { job: JobItem }) {
           </button>
         </div>
       </details>
-      {/* global + t3dops- 前缀(P-2b):子组件样式不进主组件 styled-jsx 作用域 */}
+      {/* global + t3dops- 前缀(P-2b):子组件样式不进主组件 styled-jsx 作用域;
+          批 D:伪 token 回退值(白玻璃 hex/7px 野值)清零,全量走基座 token */}
       <style jsx global>{`
         .t3dops-bar {
           display: flex;
           flex-direction: column;
-          gap: var(--space-2, 8px);
-          padding: var(--space-3, 12px);
-          border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
-          border-radius: var(--radius-card, 10px);
-          background: var(--bg-surface-1, rgba(255, 255, 255, 0.03));
+          gap: var(--space-2);
+          padding: var(--space-3);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-panel);
+          background: var(--bg-surface-1);
         }
         .t3dops-label {
-          font-size: var(--text-label, 11px);
-          font-weight: var(--font-medium, 500);
+          font-size: var(--text-label);
+          font-weight: var(--font-medium);
           text-transform: uppercase;
           letter-spacing: 0.06em;
-          color: var(--text-muted, #888);
+          color: var(--text-muted);
         }
         .t3dops-select {
           width: 100%;
-          padding: 6px 8px;
-          font-size: var(--text-aux, 13px);
-          color: var(--text-primary, #eee);
-          background: var(--bg-surface-2, rgba(255, 255, 255, 0.06));
-          border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
-          border-radius: var(--radius-btn, 8px);
+          padding: var(--space-1) var(--space-2);
+          font-size: var(--text-aux);
+          color: var(--text-primary);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
         }
         .t3dops-texture {
           display: flex;
           flex-direction: column;
-          gap: var(--space-2, 8px);
-          margin-top: var(--space-2, 8px);
+          gap: var(--space-2);
+          margin-top: var(--space-2);
         }
         .t3dops-input {
           width: 100%;
-          padding: 6px 8px;
-          font-size: var(--text-aux, 13px);
-          color: var(--text-primary, #eee);
-          background: var(--bg-surface-2, rgba(255, 255, 255, 0.06));
-          border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
-          border-radius: var(--radius-btn, 8px);
+          padding: var(--space-1) var(--space-2);
+          font-size: var(--text-aux);
+          color: var(--text-primary);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
         }
         .t3dops-input::placeholder {
-          color: var(--text-muted, #888);
+          color: var(--text-muted);
         }
         .t3dops-actions {
           display: flex;
-          gap: var(--space-2, 8px);
+          gap: var(--space-2);
         }
         .t3dops-btn {
           flex: 1;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          gap: 6px;
-          padding: 7px 8px;
-          font-size: var(--text-aux, 13px);
-          color: var(--text-primary, #eee);
-          background: var(--bg-surface-2, rgba(255, 255, 255, 0.06));
-          border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
-          border-radius: 8px;
+          gap: var(--space-1);
+          padding: var(--space-2);
+          font-size: var(--text-aux);
+          color: var(--text-primary);
+          background: var(--bg-surface-2);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-control);
           cursor: pointer;
         }
         .t3dops-btn:hover:not(:disabled) {
-          border-color: var(--accent, #7c6cff);
-          color: var(--accent, #7c6cff);
+          border-color: var(--accent);
+          color: var(--accent);
         }
         .t3dops-btn:disabled {
           opacity: 0.6;
           cursor: wait;
         }
         .t3dops-btn--primary {
-          border-color: var(--accent, #7c6cff);
-          color: var(--accent, #7c6cff);
-          font-weight: var(--font-medium, 500);
+          border-color: var(--accent);
+          color: var(--accent);
+          font-weight: var(--font-medium);
         }
         .t3dops-more summary {
           cursor: pointer;
-          font-size: var(--text-label, 11px);
-          color: var(--text-muted, #888);
+          font-size: var(--text-label);
+          color: var(--text-muted);
           user-select: none;
         }
         .t3dops-more[open] summary {
-          margin-bottom: var(--space-2, 8px);
+          margin-bottom: var(--space-2);
         }
       `}</style>
     </div>
@@ -2306,39 +2307,39 @@ export function LibraryTrashView({ onBack, onRestored }: LibraryTrashViewProps) 
 
   return (
     <div className="single-view library-view">
-      <header className="page-header lib-header">
-        <div className="page-header-text">
-          <h1 className="page-header-title">回收站</h1>
-          <p className="page-header-desc">
-            删除的作品在此保留 72 小时,期间可恢复;到期自动彻底删除
-          </p>
-        </div>
-        <div className="page-header-actions">
-          {(items?.length ?? 0) > 0 && (
+      {/* 回收站页头同款收编为 PageHeader(批 D);操作槽类名 lib-trash-* 保留(e2e 锚点) */}
+      <PageHeader
+        className="lib-header"
+        title="回收站"
+        desc="删除的作品在此保留 72 小时,期间可恢复;到期自动彻底删除"
+        actions={
+          <>
+            {(items?.length ?? 0) > 0 && (
+              <Button
+                size="sm"
+                variant="danger"
+                className="lib-trash-purge-all"
+                icon={<Icon name="delete" size={14} />}
+                onClick={() => {
+                  setPurgeError(null);
+                  setConfirmPurgeAll(true);
+                }}
+              >
+                清空回收站
+              </Button>
+            )}
             <Button
               size="sm"
-              variant="danger"
-              className="lib-trash-purge-all"
-              icon={<Icon name="delete" size={14} />}
-              onClick={() => {
-                setPurgeError(null);
-                setConfirmPurgeAll(true);
-              }}
+              variant="secondary"
+              className="lib-trash-back"
+              icon={<Icon name="chevron-left" size={14} />}
+              onClick={onBack}
             >
-              清空回收站
+              返回作品库
             </Button>
-          )}
-          <Button
-            size="sm"
-            variant="secondary"
-            className="lib-trash-back"
-            icon={<Icon name="chevron-left" size={14} />}
-            onClick={onBack}
-          >
-            返回作品库
-          </Button>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       <div className="lib-body">
         {error && !loading && (

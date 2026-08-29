@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon } from "@/components/ui/Icon";
-import { PageHeader } from "@/components/ui/PageHeader";
+import { Modal } from "@/components/ui/Modal";
 import { genId } from "@/lib/id";
 import {
   renderVideoEdit,
@@ -130,6 +130,13 @@ export function VideoEditView({ onBack }: { onBack?: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<VideoEditResult | null>(null);
+  // 「清空重来」确认门(2026-08-30 UX 批 C):素材/轨道全清不可逆,先 Modal 确认
+  const [confirmClear, setConfirmClear] = useState(false);
+  // 导出中止:renderVideoEdit 是单次长 POST(lib/api 不带 signal),前端中止=置标志位,
+  // UI 立即复位,迟到的结果/错误直接丢弃(后端若已出片,产物仍在作品库)
+  const renderAbortedRef = useRef(false);
+  // 导出耗时秒数(busy 期间每秒滴答,给用户「还在跑」的确定感)
+  const [elapsedSec, setElapsedSec] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   // 卸载时回收全部 objectURL(ref 镜像避免闭包过期)
   const mediaRef = useRef<MediaItem[]>([]);
@@ -343,11 +350,33 @@ export function VideoEditView({ onBack }: { onBack?: () => void }) {
             ? `成片总时长 ${totalSec.toFixed(1)}s 超过 ${MAX_TOTAL_SEC}s 上限,请缩减片段`
             : null;
 
+  // busy 期间每秒推进耗时显示;结束/中止即清零
+  useEffect(() => {
+    if (!busy) {
+      setElapsedSec(0);
+      return;
+    }
+    const t0 = Date.now();
+    const timer = window.setInterval(
+      () => setElapsedSec(Math.floor((Date.now() - t0) / 1000)),
+      1000,
+    );
+    return () => window.clearInterval(timer);
+  }, [busy]);
+
+  /** 中止导出:UI 立即复位(busy=false + 摘全局进度),迟到的渲染响应在 submit 内被丢弃。 */
+  const abortRender = useCallback(() => {
+    renderAbortedRef.current = true;
+    setBusy(false);
+    genEnd("video-edit-export");
+  }, []);
+
   const submit = useCallback(async () => {
     if (busy || exportBlock) return;
     setBusy(true);
     setError(null);
     setResult(null);
+    renderAbortedRef.current = false;
     genBegin("video-edit-export", "导出视频");
     const res = RESOLUTIONS[resIdx];
     try {
@@ -378,12 +407,18 @@ export function VideoEditView({ onBack }: { onBack?: () => void }) {
         })),
       };
       const data = await renderVideoEdit(plan, mediaFiles.map((m) => m.file));
+      // 用户已中止:迟到结果直接丢弃(后端产物仍会进作品库,不在这里展示)
+      if (renderAbortedRef.current) return;
       setResult(data);
     } catch (e) {
+      if (renderAbortedRef.current) return;
       setError(e instanceof Error ? e.message : "视频渲染失败");
     } finally {
-      setBusy(false);
-      genEnd("video-edit-export");
+      // 中止路径已在 abortRender 复位,避免重复 genEnd
+      if (!renderAbortedRef.current) {
+        setBusy(false);
+        genEnd("video-edit-export");
+      }
     }
   }, [busy, exportBlock, resIdx, fps, clips, audios, texts, mediaFiles]);
 
@@ -496,7 +531,7 @@ export function VideoEditView({ onBack }: { onBack?: () => void }) {
                     audios.length === 0 &&
                     texts.length === 0)
                 }
-                onClick={clearAll}
+                onClick={() => setConfirmClear(true)}
               >
                 <Icon name="refresh" size={13} />
                 清空重来
@@ -997,7 +1032,13 @@ export function VideoEditView({ onBack }: { onBack?: () => void }) {
       {/* ── 导出 ── */}
       <footer className="ve-footer">
         <div className="ve-footer-info">
-          {exportBlock ? (
+          {busy ? (
+            /* 渲染中:进度提示增强(已用时秒数 + 时长预期),不再只有干等 spinner */
+            <span className="ve-footer-hint" role="status">
+              <Icon name="loading" size={13} />
+              渲染中,已用时 {elapsedSec}s · 大文件可能需要几分钟,可随时中止
+            </span>
+          ) : exportBlock ? (
             <span className="ve-footer-hint">
               <Icon name="info" size={13} />
               {exportBlock}
@@ -1009,25 +1050,63 @@ export function VideoEditView({ onBack }: { onBack?: () => void }) {
             </span>
           )}
         </div>
-        <button
-          type="button"
-          className="at-btn at-btn--primary ve-export-btn"
-          disabled={busy || exportBlock != null}
-          onClick={submit}
-        >
-          {busy ? (
-            <>
-              <Icon name="loading" size={16} />
-              渲染中,请稍候…
-            </>
-          ) : (
-            <>
-              <Icon name="scissors" size={16} />
-              导出视频
-            </>
-          )}
-        </button>
+        {busy ? (
+          <button
+            type="button"
+            className="at-btn at-btn--danger ve-export-btn"
+            onClick={abortRender}
+            title="中止等待并复位(若后端已出片,产物可在作品库找到)"
+          >
+            <Icon name="close" size={16} />
+            中止导出
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="at-btn at-btn--primary ve-export-btn"
+            disabled={exportBlock != null}
+            onClick={submit}
+          >
+            <Icon name="scissors" size={16} />
+            导出视频
+          </button>
+        )}
       </footer>
+
+      {/* 「清空重来」确认(ui/Modal,素材/轨道/文字全清不可逆) */}
+      <Modal
+        open={confirmClear}
+        onClose={() => setConfirmClear(false)}
+        title="清空重来"
+        danger
+        footer={
+          <>
+            <button
+              type="button"
+              className="at-btn at-btn--ghost"
+              onClick={() => setConfirmClear(false)}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              className="at-btn at-btn--danger"
+              onClick={() => {
+                setConfirmClear(false);
+                clearAll();
+              }}
+            >
+              <Icon name="refresh" size={14} />
+              确认清空
+            </button>
+          </>
+        }
+      >
+        <p style={{ margin: 0, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+          将移除全部 {mediaFiles.length} 个素材、{clips.length} 段视频轨、{audios.length}{" "}
+          段音频与 {texts.length} 条文字,此操作不可撤销。
+        </p>
+      </Modal>
 
       {result && (
         <section className="card at-card ve-result">

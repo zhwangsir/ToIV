@@ -18,6 +18,7 @@ import {
   BarChart,
   barLayout,
   CHART_COLORS,
+  CHART_SEMANTIC,
   DonutChart,
   donutSlicePath,
   formatClock,
@@ -124,9 +125,25 @@ test("LineChart:渲染 svg/网格/图例;系列色与名称落位", () => {
   assert.match(html, /uichart-legend/);
   assert.match(html, /排队/);
   assert.match(html, /运行/);
-  assert.match(html, /stroke:#22d3ee|stroke="#22d3ee"/);
+  // 批 D:系列色引用 --chart-N token(globals.css 亮/暗双模式承载色值)
+  assert.match(html, /stroke="var\(--chart-1\)"/, "系列色应引用 --chart-1 token");
   // null 断点:第二系列单点退化为 circle
   assert.match(html, /<circle/);
+});
+
+/* ── ⑧b 色板 token 化(2026-08-30 批 D):无硬编码 hex,语义色映射全局状态 token ── */
+test("CHART_COLORS:5 色板全部引用 --chart-N token,无硬编码 hex", () => {
+  assert.equal(CHART_COLORS.length, 5, "色板固定 5 色(--chart-1..5)");
+  for (const c of CHART_COLORS) {
+    assert.match(c, /^var\(--chart-\d\)$/, `系列色应为 token 引用: ${c}`);
+  }
+});
+
+test("CHART_SEMANTIC:ok/warn/hot/off 映射全局状态/文字 token", () => {
+  assert.equal(CHART_SEMANTIC.ok, "var(--ok)");
+  assert.equal(CHART_SEMANTIC.warn, "var(--warn)");
+  assert.equal(CHART_SEMANTIC.hot, "var(--err)");
+  assert.equal(CHART_SEMANTIC.off, "var(--text-muted)");
 });
 
 test("BarChart:堆叠柱渲染,零值不画 rect,稀疏标签", () => {

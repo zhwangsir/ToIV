@@ -21,8 +21,27 @@ const KIND_LABEL: Record<EngineKind, string> = {
   audio: "音频",
 };
 
-/** 产品版本(与 apps/web/package.json 同步;package.json 不在 tsconfig include 内,无法直接 import)。 */
-const APP_VERSION = "0.0.1";
+/** 版本行数据源:/version.json(运行时读 .next/BUILD_ID 的部署指纹,
+ *  格式 YYYYMMDD-HHmmss-<git短sha>;2026-08-30 批 D 替换硬编码 APP_VERSION,
+ *  与部署侧实际构建一致,回滚后指纹同步回滚不撒谎)。拉取失败显示 —。 */
+function useBuildVersion(): string | null {
+  const [buildId, setBuildId] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch("/version.json", { cache: "no-store" })
+      .then((r) => (r.ok ? (r.json() as Promise<{ buildId?: string | null }>) : null))
+      .then((d) => {
+        if (live) setBuildId(d?.buildId ?? null);
+      })
+      .catch(() => {
+        if (live) setBuildId(null);
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
+  return buildId;
+}
 
 interface SettingsViewProps {
   account?: string | null;
@@ -41,6 +60,7 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
   // R18 全局内容模式(M9 F4):开关状态 + 18+ 年龄确认弹层显隐
   const [r18, setR18Mode] = useR18Mode();
   const [ageGateOpen, setAgeGateOpen] = useState(false);
+  const buildId = useBuildVersion();
 
   const loadEngines = useCallback(() => {
     setEnginesError(null);
@@ -260,7 +280,7 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
             </div>
             <div className="settings-row">
               <span className="settings-row-label">版本</span>
-              <span className="settings-row-value">v{APP_VERSION}</span>
+              <span className="settings-row-value">{buildId ?? "—"}</span>
             </div>
             <div className="settings-row">
               <span className="settings-row-label">部署环境</span>

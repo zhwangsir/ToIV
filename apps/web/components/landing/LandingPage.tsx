@@ -47,7 +47,17 @@ export function LandingPage() {
         window.location.reload();
       }
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "邮箱或密码错误,请重试");
+      // 批 D:网络/超时故障与凭据错误分流——断网时报「账号或密码错误」是误导
+      const msg = err instanceof Error ? err.message : "";
+      const isNetwork =
+        err instanceof TypeError || msg.includes("请求超时") || msg.includes("网络");
+      if (isNetwork) {
+        setFormError("网络连接异常或请求超时,请检查网络后重试");
+      } else if (msg.includes("账号或密码") || msg.includes("401")) {
+        setFormError("账号或密码错误,请重试");
+      } else {
+        setFormError(msg || "登录失败,请重试");
+      }
     } finally {
       setLoading(false);
     }
@@ -98,7 +108,7 @@ export function LandingPage() {
           <form className="landing-form" onSubmit={onSubmit} noValidate>
             <div className="landing-field">
               <input
-                type="text"
+                type="email"
                 className="input"
                 placeholder="邮箱"
                 value={email}

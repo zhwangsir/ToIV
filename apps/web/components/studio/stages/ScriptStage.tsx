@@ -11,6 +11,8 @@ import { isParseAbortError } from "@/lib/studioParseUx";
 import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
+import { ErrorBar } from "@/components/ui/ErrorBar";
+import { Input, Select, Textarea } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
 import { useAutoResize } from "@/hooks/useAutoResize";
 import type { useStudioProject } from "@/hooks/useStudioProject";
@@ -147,9 +149,8 @@ export function ScriptStage({
         <label className="studio-label" htmlFor="studio-style">
           整体画风(可选)
         </label>
-        <input
+        <Input
           id="studio-style"
-          className="input"
           value={style}
           onChange={(e) => setStyle(e.target.value)}
           placeholder="如:电影感、冷色调、浅景深…"
@@ -158,8 +159,7 @@ export function ScriptStage({
       <div className="studio-stage-actions">
         <label className="studio-inline-field">
           分辨率
-          <select
-            className="input"
+          <Select
             value={resIdx}
             onChange={(e) => {
               const i = Number(e.target.value);
@@ -172,12 +172,11 @@ export function ScriptStage({
                 {p.label}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="studio-inline-field">
           帧率
-          <select
-            className="input"
+          <Select
             value={fps}
             onChange={(e) => {
               const f = Number(e.target.value);
@@ -190,12 +189,11 @@ export function ScriptStage({
                 {f} fps
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="studio-inline-field">
           分镜数
-          <input
-            className="input"
+          <Input
             type="number"
             min={1}
             max={50}
@@ -213,7 +211,7 @@ export function ScriptStage({
           {parsing ? "中止拆解" : hasExisting ? "重新拆解" : "AI 拆解"}
         </button>
       </div>
-      {error && <p className="studio-error">{error}</p>}
+      <ErrorBar message={error} onClose={() => setError(null)} />
 
       {/* 重新拆解确认(替代原生 window.confirm) */}
       <Modal
