@@ -1,7 +1,20 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-29T16:30:00+08:00",
+ "updated_at": "2026-08-30T02:58:00+08:00",
+ "job_nsfw_intent_fb78872": {
+  "commit": "fb78872",
+  "message": "fix(nsfw): Job.nsfw follows explicit intent, not the X-NSFW header",
+  "pushed": false,
+  "ahead": 58,
+  "deployed": false,
+  "note": "deploying to core (toiv-api/toiv-web); do not write as live until ToIV 开发 reports done",
+  "x_nsfw": "adult-page view/create gate only; does not stamp Job.nsfw",
+  "job_nsfw": "true only when body nsfw:true (h3-nsfw-*/wan-nsfw-*) or pinned R18 LoRA",
+  "ckpt": "is_nsfw explicit adult tokens only; dual-use bases (pony/wai/illustrious/etc) not auto 18+",
+  "web": "apps/web/lib/engines.ts sends nsfw:true",
+  "db_fix": "3 mislabels set nsfw=false: 4K upscale d79ca9cf…, try-on t2v_00183_/t2v_00184_ (e07b0cb4 / 71cf52cc)"
+ },
  "ux_governance_pack_2026_08_29": {
   "commits": ["86a94e8", "6c69b6f", "fae48dc", "05f7703", "aefea45"],
   "deployed": "core 2026-08-29 (toiv-api/toiv-web 健康通过)",

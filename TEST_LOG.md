@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-08-30 fb78872 (local, not pushed, not live): Job.nsfw follows explicit intent, not X-NSFW. X-NSFW is adult-page view/create gate only; Job.nsfw / H3 10Eros only when body nsfw:true (h3-nsfw-*/wan-nsfw-*) or pinned R18 LoRA. is_nsfw(ckpt) explicit adult tokens only; pony/wai/illustrious/realisticvision/animagine/noobai/cyberrealistic/lazymix/nova3dcg no longer auto 18+. engines.ts sends nsfw:true. Prod DB 3 mislabels set nsfw=false (4K upscale d79ca9cf…, try-on t2v_00183_/t2v_00184_ = e07b0cb4/71cf52cc). Local main ahead 58, not pushed. Deploying to core; do not write as live until ToIV 开发 reports done.
+
 - 2026-08-29 晚二 七项体验治理包 (5 commits, deployed to core): 86a94e8 Studio01-04 退役出 fleet + L2/L3 收拢 spark02;6c69b6f 灵动岛收短剧 + 融合五子页「返回融合」;fae48dc 剧本拆解异步化(Job+轮询,根治 120s 前端墙,生产实证真实剧本 4 镜 done);05f7703 14 个非 H3 视频引擎 advanced 沉底(SFW 只剩 H3 三件套)+entity_ids 上限对齐官方 9;aefea45 AssetPicker 双源(作品库|主体库)+MultiShotEditor 主体引用+三编辑器轮询改 /api/jobs/lookup+AssistantView 渲染窗口 80。回归:后端 2777、web 694、tsc 0 全过。注意:会话中用户 IDE 缓冲区多次回滚编辑,已记 AGENTS 教训。
 
 - 2026-08-29 35b8b87 + 60d6168 (deployed to core): 任务中心中止按钮 + hidden 引擎。`POST /api/jobs/{id}/cancel` 仅本人/终态 409/审计;DB 先落 canceled 再尽力清场 worker(pending 删队列/running interrupt/占位跳过/不可达不阻塞)。tracker 视 canceled 为终态不回退;wait_for_jobs 抛「已被用户取消」。ltx-nsfw-t2v 标 hidden,选择器不展示但 API 422 仍在;R18 默认优先 nsfw H3。回归:后端 pytest 2772,web 693,小程序 598 全过。生产实证:txt2img 提交→任务中心可见→cancel `worker_action=interrupted`→列表消失→DB canceled。

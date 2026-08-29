@@ -4,6 +4,8 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
+**2026-08-30 `fb78872`（本地未推，尚未上线）**：本地 `fb78872`（未推）：`X-NSFW` 只作成人页查看/创建门禁，不再给每条作品盖 18+。`Job.nsfw` / H3 换 10Eros 仅当请求体显式 `nsfw:true`（`h3-nsfw-*` / `wan-nsfw-*`）或钉了 R18 LoRA。`is_nsfw(ckpt)` 收成明确成人词；pony/wai/illustrious 等两用底模不再整锅 18+。网页 `engines.ts` 已带 `nsfw:true`。生产库 3 条误标已改回 `nsfw=false`（4K 超分 `d79ca9cf…`、试穿 `t2v_00183_`/`t2v_00184_` = `e07b0cb4`/`71cf52cc`）。本机 main ahead 58，未推。正在部署 core，**尚未上线**。
+
 **2026-08-28 20:46 `TOIV_WEB_SEARCH_PROXY`**：core env 已改为 `http://192.168.71.9:7897`（MateBook Clash LAN），`toiv-api` 已重启。旧 `.123` 从 core 连不上。TS `100.74.15.34:7897` 能通但未写入 env。
 
 **2026-08-28 `58cf643`（本地未推）**：本地 `58cf643`（未推）：助手「答复时显示超时、刷新才有内容」——前端把还在跑的 SSE 掐了，后端已把 `AgentMessage` 落库。小程序 SSE 超时 180s→10min；Web/小程序超时后 GET 会话，若已有助手回复就展示，不再弹「回复失败:连接中断或超时」/「请求超时」。4xx/5xx、空会话、用户停止仍走旧错误。生产还没有这版。
