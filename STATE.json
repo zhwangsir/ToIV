@@ -2,6 +2,15 @@
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
  "updated_at": "2026-08-30T05:40:00+08:00",
+ "ui_standard_2026_08_30": {
+  "status": "page1_done_rest_pending",
+  "spec": "docs/UI_STANDARD.md v1.0 新建(全站唯一权威规范:Film Atelier 方向/token 强制/lucide 唯一图标/动效≤320ms/§10 十项验收/14 页优化顺序表)",
+  "git": "main 双推 Gitee+GitHub 完成(d0721d1,此前 60 commit 积压清零)",
+  "page1_fusion": "审计基本合规,修 PageHeader 死引用;§10 增 CornerNav 板块指示时页头可省略例外;tsc 0 + web 694 全过 + 干净 build 成功",
+  "test_cmd_note": "web 测试用 npm test(node --test tests/*.test.ts),vitest 会误收 e2e/*.spec.ts 全挂,勿用",
+  "next": "页 2 GenerateView(1381 行,创作最高频,参数区密度+引擎选择器)",
+  "not_committed": "按规范用户未明确指示不 commit"
+ },
  "uploaded_ref_f480ead": {
   "commit": "f480ead",
   "message": "fix(generate): fill UploadedRef previewUrl/name on entity-cover submit",

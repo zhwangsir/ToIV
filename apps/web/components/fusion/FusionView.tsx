@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 
 import { Card } from "@/components/ui/Card";
 import { Icon, type IconName } from "@/components/ui/Icon";
-import { PageHeader } from "@/components/ui/PageHeader";
 import "@/app/styles/fusion.css";
 
 interface FusionApp {

@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-08-30 UI 规范化启动（未 commit）:新建 docs/UI_STANDARD.md v1.0——全站唯一权威 UI 规范(设计原则/色彩 token/排版/间距圆角/布局/图标/动效/组件复用/样式工程/§10 验收清单/14 页逐页优化顺序),固化 globals.css v7 既有体系。页 1 融合门户审计:基本全合规(Film Atelier v6.1 已 token 化/reduced-motion/响应式/键盘焦点环),唯一缺口=PageHeader 死引用,已删除并给 §10 补「CornerNav 已指示板块时可省略页头」例外条款。验证:tsc 0、npm test(node --test)694 全过、rm -rf .next 干净 build 成功。git:main 双推 Gitee/GitHub 完成(d0721d1,60 commit 补推)。
+
 - 2026-08-30 f480ead (already on core, remotes not pushed, no redeploy): fill UploadedRef previewUrl/name on entity-cover submit. Two type lines missed at production-pack time; uncommitted then, went up with rsync. Only GenerateView.tsx.
 
 - 2026-08-30 eb51c86 (deployed to core, remotes not pushed): UX pack — stop actually cancelJob/aborts the request; identity covers via i2v/img2img; duration 4–15s plus segmented continue switch; library includes h3_extend_i2v and cad_/drama_char_reference_ prefixes. core toiv-api/toiv-web active; public /api/health and LAN :8090/:3100 200. Frontend BUILD_ID 20260829-213739-72a9c0f-dirty (web built at docs 72a9c0f; UX code eb51c86).
