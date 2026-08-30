@@ -88,6 +88,7 @@ import {
   SlidersHorizontal,
   Square,
   Sparkles,
+  Store,
   Sun,
   ThumbsDown,
   ThumbsUp,
@@ -251,6 +252,8 @@ const ICON_MAP = {
   "shield-check": ShieldCheck,
   "badge-check": BadgeCheck,
   "layout-grid": LayoutGrid,
+  // 应用市场(M3)入口图标
+  store: Store,
 } as const;
 
 export type IconName = keyof typeof ICON_MAP;

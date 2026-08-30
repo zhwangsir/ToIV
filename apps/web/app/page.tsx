@@ -83,6 +83,7 @@ type View =
   | "models"
   | "resources"
   | "skills"
+  | "apps"
   | "settings"
   | "drama"
   | "observability"
@@ -131,6 +132,7 @@ const viewImporters = {
   models: () => import("@/components/models/ModelsView"),
   resources: () => import("@/components/resources/ResourcesView"),
   skills: () => import("@/components/skills/SkillMarketView"),
+  apps: () => import("@/components/apps/AppMarketView"),
   settings: () => import("@/components/settings/SettingsView"),
   drama: () => import("@/components/drama/DramaView"),
   observability: () => import("@/components/observability/ObservabilityView"),
@@ -195,6 +197,9 @@ const ResourcesView = lazy(() =>
 const SkillMarketView = lazy(() =>
   viewImporters.skills().then((m) => ({ default: m.SkillMarketView })),
 );
+const AppMarketView = lazy(() =>
+  viewImporters.apps().then((m) => ({ default: m.AppMarketView })),
+);
 const SettingsView = lazy(() =>
   viewImporters.settings().then((m) => ({ default: m.SettingsView })),
 );
@@ -239,6 +244,7 @@ const VALID_VIEWS = new Set<View>([
   "models",
   "resources",
   "skills",
+  "apps",
   "settings",
   "drama",
   "observability",
@@ -265,6 +271,7 @@ const VIEW_META: Record<View, { label: string }> = {
   models:     { label: "模型" },
   resources:  { label: "资源" },
   skills:     { label: "Skill 市场" },
+  apps:       { label: "应用市场" },
   settings:   { label: "设置" },
   drama:     { label: "短剧" },
   observability: { label: "观测" },
@@ -277,6 +284,7 @@ const VIEW_META: Record<View, { label: string }> = {
  *  桌面端由左上角悬停展开导航(CornerNav)承载,窄屏由底部导航承载。 */
 const ISLAND_ITEMS: CornerNavItem[] = [
   { key: "skills", label: "Skill 市场", icon: "package" },
+  { key: "apps", label: "应用市场", icon: "store" },
   { key: "image", label: "图片", icon: "image" },
   { key: "video", label: "视频", icon: "video" },
   { key: "audio", label: "音频", icon: "audio" },
@@ -298,6 +306,7 @@ const BOTTOM_NAV_ITEMS: BottomNavItem[] = [
 
 const BOTTOM_NAV_MORE_ITEMS: BottomNavItem[] = [
   { key: "skills", label: "Skill 市场", icon: "package" },
+  { key: "apps", label: "应用市场", icon: "store" },
   { key: "audio", label: "音频", icon: "audio" },
   { key: "imageEdit", label: "图片编辑", icon: "wand" },
   { key: "videoEdit", label: "视频剪辑", icon: "scissors" },
@@ -774,6 +783,7 @@ function HomeContent() {
               {view === "models" && <ModelsView />}
               {view === "resources" && <ResourcesView showAdmin={isAdmin} />}
               {view === "skills" && <SkillMarketView />}
+              {view === "apps" && <AppMarketView />}
               {view === "settings" && <SettingsView account={account} onLogout={onLogout} />}
               {view === "admin" &&
                 // 2026-08-30 批 D:admin 门控对齐观测面板(:754 isAdmin 渲染门控);
