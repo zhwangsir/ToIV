@@ -286,6 +286,45 @@ class Agent(SQLModel, table=True):
 
 
 # ---------------------------------------------------------------------------
+# 应用市场(App Market,2026-08-30)—— 把一张 ComfyUI API 工作流图包装成表单应用
+# (对标 RunningHub):params_schema 声明表单字段,bindings 把字段值映射到图内
+# 指定节点的 inputs/widgets_values 叶子,运行时校验表单 → 写图 → 提交。
+# 可见性同 Agent 三区:内置(is_builtin)/ 公共(user_id 空,admin 建)/ 个人
+# (fork 自市场,user_id=属主);is_nsfw 应用仅 R18 上下文可见/可运行。
+# ---------------------------------------------------------------------------
+
+
+class App(SQLModel, table=True):
+    """应用市场应用:ComfyUI 工作流图 + 表单 schema + 字段绑定的包装。"""
+
+    id: str = Field(primary_key=True)  # slug,如 'txt2img-basic'
+    name: str
+    description: str = ""  # 一句话简介
+    icon: str = "app-window"  # lucide-react 图标名
+    category: str = "other"  # image | video | audio | edit | 3d | other
+    # ComfyUI API 格式 prompt 图({节点id: {class_type, inputs}});运行期深拷贝后按
+    # bindings 写叶子值,库内原件永不被改写。JSON 列(同 ReferenceAsset.images 模式)。
+    workflow_json: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    # 表单字段 schema(与 engine_registry params 同款):
+    # [{key,label,type,default,options?,min/max/step?,hint?,max?,required?}]
+    params_schema: list[dict] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    # 字段 → 图叶子映射:{表单key: {"node": "3", "field": "inputs.text"}}
+    bindings: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    # 运行所需自定义节点 class_type 列表;空 = 运行时从图自动提取
+    required_nodes: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    output_kind: str = "image"  # image | video | audio(产物类型,前端展示用)
+    submit_kind: str = "app_run"  # 运行时 Job.kind(默认 app_run,可归类统计)
+    is_builtin: bool = False  # 内置:改/删一律 403(见 routes/apps)
+    is_nsfw: bool = False
+    is_public: bool = True  # 公共市场可见(个人 fork 默认 False;属主可上架分享)
+    user_id: str = Field(default="", index=True)  # 空=公共(admin 建/内置);非空=个人应用属主
+    usage_count: int = 0  # 运行次数(每次 run +1)
+    sort: int = 100
+    created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
+
+
+# ---------------------------------------------------------------------------
 # 用户文档(文档上传与长文本理解)—— 原文/向量索引落盘(content_dir/docs/),
 # 表内只存元数据;chunk+向量按文档存 JSON(services/docs.py)。
 # ---------------------------------------------------------------------------

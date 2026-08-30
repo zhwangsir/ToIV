@@ -503,6 +503,33 @@ _SQLITE_RAW_MIGRATIONS: tuple[str, ...] = (
     """,
     "CREATE INDEX IF NOT EXISTS idx_entity_user ON entity(tenant_id, user_id)",
     "CREATE INDEX IF NOT EXISTS idx_entity_kind ON entity(kind)",
+    # ── 应用市场(2026-08-30):app 表 ──
+    # 新库由 SQLModel create_all 建立;此处保 prod 既有库幂等补建(与 entity 同双轨写法)。
+    # JSON 列 PG/SQLite 两侧均以 '{}' / '[]' 字面量默认(BOOLEAN 默认必须 TRUE/FALSE,PG 不认 0)。
+    """
+    CREATE TABLE IF NOT EXISTS app (
+        id             TEXT PRIMARY KEY,
+        name           TEXT NOT NULL,
+        description    TEXT DEFAULT '',
+        icon           TEXT DEFAULT 'app-window',
+        category       TEXT DEFAULT 'other',
+        workflow_json  JSON NOT NULL DEFAULT '{}',
+        params_schema  JSON NOT NULL DEFAULT '[]',
+        bindings       JSON NOT NULL DEFAULT '{}',
+        required_nodes JSON NOT NULL DEFAULT '[]',
+        output_kind    TEXT DEFAULT 'image',
+        submit_kind    TEXT DEFAULT 'app_run',
+        is_builtin     BOOLEAN NOT NULL DEFAULT FALSE,
+        is_nsfw        BOOLEAN NOT NULL DEFAULT FALSE,
+        is_public      BOOLEAN NOT NULL DEFAULT TRUE,
+        user_id        TEXT NOT NULL DEFAULT '',
+        usage_count    INTEGER NOT NULL DEFAULT 0,
+        sort           INTEGER DEFAULT 100,
+        created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_app_user ON app(user_id)",
 )
 
 
