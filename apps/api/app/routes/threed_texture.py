@@ -51,6 +51,7 @@ from app.routes.threed_ops import (
     _glb_locator_from_job,
     _read_local_glb,
 )
+from app.services import service_orchestrator as orch_svc
 from app.storage import content_subdir
 
 logger = logging.getLogger(__name__)
@@ -164,6 +165,14 @@ async def threed_texture(
     data: dict[str, str] = {"texture_size": str(body.texture_size)}
     if body.prompt and body.prompt.strip():
         data["prompt"] = body.prompt.strip()[:500]
+
+    # ---- R2 冷层接线:全部 4xx 校验过后,委托前先唤醒 hy3dtex ----
+    # 同步等健康(端点保持 pending,与分钟级生成同一同步契约);唤醒失败 503
+    # 不触达纹理服务、不落盘不建档(不造假产物)。开关关/条目禁用时直通。
+    await orch_svc.ensure_awake(
+        "hy3dtex",
+        enabled=bool(getattr(settings, "orch_wake_on_call", False)),
+    )
 
     # ---- 委托 toiv-hy3dtex(分钟级长超时) ----
     try:

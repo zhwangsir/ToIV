@@ -53,6 +53,7 @@ from app.models import Job, User
 from app.ratelimit import enforce_generation_rate_limit
 from app.routes.audio_orchestrate import _allowed_source, _check_redirect
 from app.routes.images import _ranged_response
+from app.services import service_orchestrator as orch_svc
 from app.services import video_upscale as upscale_svc
 from app.storage import audio_output_root, content_subdir
 from app.versioning import params_snapshot
@@ -467,6 +468,15 @@ async def video_lipsync_submit(
     v_nsfw = _resolve_video_source(session, user, video_url)
     a_nsfw = _resolve_audio_source(session, user, audio_url)
     nsfw = v_nsfw or a_nsfw
+
+    # R2 冷层接线:来源校验过后再唤醒 lipsync(校验失败不白唤醒 GPU;唤醒失败 503
+    # 不下载不建档)。唤醒在建 Job 之前同步完成——Job 落库时服务已 running,无
+    # 「作业在跑而服务被回收」窗口;且 lipsync 作业走自有 task_id 轮询(非 comfy
+    # tracker 的 prompt_id 孤儿检测),唤醒期不会被误杀。开关关/条目禁用时直通。
+    await orch_svc.ensure_awake(
+        "lipsync",
+        enabled=bool(getattr(get_settings(), "orch_wake_on_call", False)),
+    )
 
     name = f"lipsync-{uuid.uuid4().hex}.mp4"
     with tempfile.TemporaryDirectory() as td:

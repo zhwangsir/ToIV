@@ -24,6 +24,7 @@ from app.db import engine, get_session
 from app.deps import get_current_user, get_pool
 from app.models import TrainJob, User
 from app.ratelimit import enforce_generation_rate_limit
+from app.services import service_orchestrator as orch_svc
 from app.workflows.model_profiles import detect_model_family
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,16 @@ def _trainer_base() -> str:
     if not url:
         raise HTTPException(status_code=503, detail="训练服务未部署(TOIV_TRAINER_URL 未配置)")
     return url
+
+
+async def _wake_trainer() -> None:
+    """R2 冷层接线:打点 + 非 running 态唤醒 trainer(唤醒失败 503,不造假);
+    开关关/条目禁用/未注册时直通(零行为变化)。getattr 兜底:测试替身 settings
+    缺该字段时安全直通。"""
+    await orch_svc.ensure_awake(
+        "trainer",
+        enabled=bool(getattr(get_settings(), "orch_wake_on_call", False)),
+    )
 
 
 def _trainjob_dict(j: TrainJob) -> dict:
@@ -84,6 +95,10 @@ async def upload_dataset(
     if len(files) > 50:
         raise HTTPException(status_code=400, detail="单次上限 50 张")
 
+    # R2:先唤醒冷层 trainer 再建档转发(唤醒失败 503,不留孤儿 TrainJob)
+    base = _trainer_base()
+    await _wake_trainer()
+
     # 先建档拿 job_id
     job = TrainJob(
         tenant_id=user.tenant_id,
@@ -95,7 +110,6 @@ async def upload_dataset(
     session.refresh(job)
 
     # 通过 HTTP multipart 转发给 trainer agent
-    base = _trainer_base()
     try:
         async with httpx.AsyncClient(timeout=120.0) as client:
             mp_files = []
@@ -162,11 +176,14 @@ async def caption_dataset(
     if not job:
         raise HTTPException(status_code=404, detail="训练作业不存在")
 
+    # R2:先唤醒冷层 trainer 再改状态转发(唤醒失败 503,作业状态不被污染)
+    base = _trainer_base()
+    await _wake_trainer()
+
     job.status = "captioning"
     session.add(job)
     session.commit()
 
-    base = _trainer_base()
     try:
         async with httpx.AsyncClient(timeout=300.0) as client:
             resp = await client.post(
@@ -238,6 +255,10 @@ async def start_training(
     if not job:
         raise HTTPException(status_code=404, detail="训练作业不存在")
 
+    # R2:先唤醒冷层 trainer(唤醒失败 503:不改作业状态、不摘流出图卡)
+    base = _trainer_base()
+    await _wake_trainer()
+
     # 确定训练用 worker URL(cuda_device → ComfyUI 端口映射)
     settings = get_settings()
     worker_urls = settings.worker_urls
@@ -265,7 +286,6 @@ async def start_training(
     pool.mark_busy(worker_url)
 
     # 调 trainer agent 启动训练
-    base = _trainer_base()
     family = detect_model_family(body.base_ckpt)
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -328,6 +348,8 @@ async def train_events(
         raise HTTPException(status_code=400, detail="训练尚未启动")
 
     base = _trainer_base()
+    # R2:SSE 进度转发同样依赖 trainer agent,冷层睡眠时先唤醒(失败 503)
+    await _wake_trainer()
     trainer_url = f"{base}/train/{job.trainer_job_id}/events"
 
     async def stream():
@@ -546,6 +568,13 @@ async def i2l_style_lora(
     data = {"lora_name": name}
     if demo_prompt.strip():
         data["demo_prompt"] = demo_prompt.strip()
+
+    # R2 冷层接线:打点 + 非 running 态唤醒 i2l(同步等待健康,本端点保持 pending;
+    # 唤醒失败 503 不触达 agent)。开关关/条目禁用时直通,原逻辑零变化。
+    await orch_svc.ensure_awake(
+        "i2l",
+        enabled=bool(getattr(get_settings(), "orch_wake_on_call", False)),
+    )
 
     try:
         async with httpx.AsyncClient(timeout=600.0) as client:

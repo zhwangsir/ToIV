@@ -433,6 +433,10 @@ class Settings(BaseSettings):
     orch_ssh_target: str = "workstation"
     # 唤醒健康检查总超时(秒):服务级 wake_timeout_sec 未配时用本全局值。
     orch_wake_timeout_sec: float = 120.0
+    # R2 冷层路由接线:冷层业务端点收到请求时打点(mark_request)并按需唤醒
+    # (状态非 running → ensure_running,失败 503 不造假)。False = 全部直通,
+    # 原逻辑零行为变化;单服务可经 orch_services 条目 wake_on_call=false 单独禁用。
+    orch_wake_on_call: bool = True
     # 闲置扫描循环开关与间隔(秒)。默认开但注册表全部 safe_idle=false → 空转零回收;
     # 只有经 orch_services 显式声明 safe_idle=true 的服务才会被自动停(保守策略)。
     orch_sweep_enabled: bool = True

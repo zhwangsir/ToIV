@@ -239,12 +239,12 @@
         {
           "name": "vae",
           "type": "VAE",
-          "link": 12
+          "link": 6
         },
         {
           "name": "image",
           "type": "IMAGE",
-          "link": 13
+          "link": 7
         }
       ],
       "outputs": [
@@ -304,17 +304,17 @@
         {
           "name": "positive",
           "type": "CONDITIONING",
-          "link": 14
+          "link": 8
         },
         {
           "name": "negative",
           "type": "CONDITIONING",
-          "link": 15
+          "link": 9
         },
         {
           "name": "latent_image",
           "type": "LATENT",
-          "link": 16
+          "link": 10
         }
       ],
       "outputs": [
@@ -357,12 +357,12 @@
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 17
+          "link": 11
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 18
+          "link": 12
         }
       ],
       "outputs": [
@@ -397,7 +397,7 @@
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 19
+          "link": 13
         }
       ],
       "outputs": [

@@ -131,6 +131,10 @@ async def lifespan(app: FastAPI):
 
     with Session(engine) as session:
         seed_builtin_agents(session)
+        # 应用市场 M4:存量工作流包装为内置应用幂等播种(已存在 id 跳过)
+        from app.services.app_seed import seed_builtin_apps
+
+        seed_builtin_apps(session)
     # 重启后重挂未终态作业的追踪(防长视频作业孤儿化停在 queued)+ 周期性自愈
     from app.comfy.tracker import reconcile_loop, reconcile_pending
 

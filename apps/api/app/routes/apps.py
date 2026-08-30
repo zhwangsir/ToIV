@@ -23,7 +23,9 @@ from __future__ import annotations
 
 import copy
 import json
+import logging
 import re
+import time
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -31,6 +33,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session, select
 
 from app import audit
+from app.agent.llm import LLMError
 from app.agent.tools import _extract_required
 from app.comfy.client import ComfyUIError
 from app.comfy.pool import WorkerPool
@@ -42,6 +45,10 @@ from app.nsfw_ctx import nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
 from app.routes.agents import _slugify
 from app.routes.video import _raise_from_comfy_error
+from app.services.app_packager import ICON_WHITELIST, package_with_llm
+from app.services.workflow_analyzer import analyze_workflow
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/apps", tags=["apps"])
 
@@ -367,6 +374,41 @@ def _validate_params(schema: list[dict], values: dict) -> dict:
     return out
 
 
+def _coerce_for_leaf(key: str, existing: object, value: object) -> object | None:
+    """按目标叶子的既有类型窄化表单值;返回 None 表示「不写,保留图内原值」。
+
+    背景:seed 等 text 参数允许填数字字符串(engine_registry._seed 同款表单习惯),
+    而 ComfyUI 对 INT/FLOAT 输入做 isinstance 校验,文本直写会被 worker 拒绝:
+    - 空串 → 不写(语义=留空用模板默认,与 `v is None` 的跳过一致);
+    - int 叶子 ← 数字串 / 整值 float → int(非整值/不可解析 422);
+    - float 叶子 ← 数字串 → float;
+    - 其他组合原样透传(同类型直写;文本叶子的值 _validate_params 已保 str)。
+    """
+    if isinstance(existing, bool) or not isinstance(existing, (int, float)):
+        return value
+    if isinstance(value, str):
+        if not value.strip():
+            return None
+        try:
+            num = float(value.strip())
+        except ValueError:
+            raise HTTPException(
+                status_code=422, detail=f"参数 {key} 须为数字(绑定目标是数值叶子)"
+            ) from None
+        if isinstance(existing, int):
+            if num != int(num):
+                raise HTTPException(status_code=422, detail=f"参数 {key} 须为整数")
+            return int(num)
+        return num
+    if isinstance(value, bool):
+        raise HTTPException(status_code=422, detail=f"参数 {key} 须为数字")
+    if isinstance(existing, int) and isinstance(value, float):
+        if value != int(value):
+            raise HTTPException(status_code=422, detail=f"参数 {key} 须为整数")
+        return int(value)
+    return value
+
+
 def _write_leaf(graph: dict, key: str, target: dict, value: object) -> None:
     """把一个标量值写进图的指定叶子;任何拓扑改动企图(新键/连线/复合值)抛 422。"""
     if isinstance(value, (dict, list)):
@@ -389,7 +431,10 @@ def _write_leaf(graph: dict, key: str, target: dict, value: object) -> None:
                 status_code=422,
                 detail=f"绑定 {key} 目标 {target['node']}.inputs.{leaf} 是连线/复合结构,禁改拓扑",
             )
-        container[leaf] = value
+        coerced = _coerce_for_leaf(key, container[leaf], value)
+        if coerced is None:
+            return  # 空串写数值叶子 = 留空,保留图内模板值
+        container[leaf] = coerced
     else:  # widgets_values
         container = node.get("widgets_values")
         if not isinstance(container, list) or not leaf.isdigit() or int(leaf) >= len(container):
@@ -400,7 +445,10 @@ def _write_leaf(graph: dict, key: str, target: dict, value: object) -> None:
             raise HTTPException(
                 status_code=422, detail=f"绑定 {key} 目标 widgets_values[{leaf}] 非叶子"
             )
-        container[int(leaf)] = value
+        coerced = _coerce_for_leaf(key, container[int(leaf)], value)
+        if coerced is None:
+            return
+        container[int(leaf)] = coerced
 
 
 def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
@@ -667,3 +715,185 @@ async def run_app(
         "app_id": a.id,
         "usage_count": a.usage_count,
     }
+
+
+# ---------------------------------------------------------------------------
+# 路由:M5 智能导入(分析 → LLM 包装 → 草稿 → 确认落库)
+# ---------------------------------------------------------------------------
+# 草稿暂存:进程内存 dict,TTL 10min,不落库(确认才落 App 行)。
+# 单进程语义:api 重启草稿全丢(前端提示重新导入即可),多进程部署需各自会话内完成。
+_IMPORT_DRAFT_TTL_SEC = 600.0
+_IMPORT_DRAFTS: dict[str, dict] = {}
+
+_LLM_503_DETAIL = "智能包装服务暂不可用,请稍后重试;也可以手动创建应用"
+
+
+def _purge_drafts() -> None:
+    """顺手清理过期草稿(每次 stash/take 调用,免后台任务)。"""
+    now = time.monotonic()
+    stale = [k for k, d in _IMPORT_DRAFTS.items() if now - d["created_at"] > _IMPORT_DRAFT_TTL_SEC]
+    for k in stale:
+        _IMPORT_DRAFTS.pop(k, None)
+
+
+def _stash_draft(user_id: str, analysis_graph: dict, packaged: object, warnings: list[str]) -> str:
+    _purge_drafts()
+    draft_id = uuid.uuid4().hex
+    _IMPORT_DRAFTS[draft_id] = {
+        "created_at": time.monotonic(),
+        "user_id": user_id,
+        "workflow": copy.deepcopy(analysis_graph),
+        "packaged": packaged,
+        "warnings": list(warnings),
+    }
+    return draft_id
+
+
+def _peek_draft(draft_id: str, user_id: str) -> dict | None:
+    """窥视草稿(不消费);不存在/过期/非本人一律 None(404 不泄露)。"""
+    _purge_drafts()
+    draft = _IMPORT_DRAFTS.get(draft_id)
+    if not draft or draft["user_id"] != user_id:
+        return None
+    if time.monotonic() - draft["created_at"] > _IMPORT_DRAFT_TTL_SEC:
+        _IMPORT_DRAFTS.pop(draft_id, None)
+        return None
+    return draft
+
+
+class AppImportRequest(BaseModel):
+    workflow: dict
+
+
+class AppImportConfirmRequest(BaseModel):
+    draft_id: str = Field(min_length=1, max_length=64)
+    # 确认前可覆盖的展示字段(图/schema/bindings 不可在 confirm 改,保持草稿=落库一致)
+    overrides: dict = Field(default_factory=dict)
+
+
+class AppImportDraftOut(BaseModel):
+    draft_id: str
+    name: str
+    description: str
+    icon: str
+    category: str
+    output_kind: str
+    is_nsfw_guess: bool
+    params_schema: list[dict]
+    bindings: dict
+    warnings: list[str]
+
+
+@router.post("/import", response_model=AppImportDraftOut)
+async def import_app(
+    body: AppImportRequest,
+    user: User = Depends(get_current_user),
+) -> AppImportDraftOut:
+    """智能导入第一步:工作流 JSON → 结构分析 + LLM 包装 → 草稿(10min 有效,不落库)。"""
+    enforce_generation_rate_limit(user)
+    try:
+        analysis = analyze_workflow(body.workflow)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    if len(analysis.graph) > 400:
+        raise HTTPException(status_code=422, detail="工作流节点过多(>400)")
+    try:
+        packaged, warnings = await package_with_llm(analysis)
+    except LLMError as e:
+        logger.warning("智能导入 LLM 包装失败: %s", e)
+        raise HTTPException(status_code=503, detail=_LLM_503_DETAIL) from e
+    draft_id = _stash_draft(user.id, analysis.graph, packaged, warnings)
+    return AppImportDraftOut(
+        draft_id=draft_id,
+        name=packaged.name,
+        description=packaged.description,
+        icon=packaged.icon,
+        category=packaged.category,
+        output_kind=packaged.output_kind,
+        is_nsfw_guess=packaged.is_nsfw_guess,
+        params_schema=packaged.params_schema,
+        bindings=packaged.bindings,
+        warnings=warnings,
+    )
+
+
+def _apply_confirm_overrides(packaged: object, overrides: dict) -> None:
+    """confirm 的覆盖字段逐个校验;非法一律 422(不给脏数据落库)。"""
+    if not isinstance(overrides, dict):
+        raise HTTPException(status_code=422, detail="overrides 必须是对象")
+    allowed = {"name", "description", "icon", "category", "output_kind", "is_nsfw"}
+    unknown = set(overrides) - allowed
+    if unknown:
+        raise HTTPException(status_code=422, detail=f"不支持的覆盖字段: {sorted(unknown)}")
+    if "name" in overrides:
+        v = overrides["name"]
+        if not isinstance(v, str) or not v.strip() or len(v) > 120:
+            raise HTTPException(status_code=422, detail="name 须为 1-120 字符")
+        packaged.name = v.strip()
+    if "description" in overrides:
+        v = overrides["description"]
+        if not isinstance(v, str) or len(v) > 500:
+            raise HTTPException(status_code=422, detail="description 须为 ≤500 字符")
+        packaged.description = v
+    if "icon" in overrides:
+        v = overrides["icon"]
+        if not isinstance(v, str) or v not in ICON_WHITELIST:
+            raise HTTPException(status_code=422, detail=f"icon 须为白名单之一(收到 {v!r})")
+        packaged.icon = v
+    if "category" in overrides:
+        v = overrides["category"]
+        if v not in _CATEGORIES:
+            raise HTTPException(status_code=422, detail=f"category 须为 {sorted(_CATEGORIES)} 之一")
+        packaged.category = v
+    if "output_kind" in overrides:
+        v = overrides["output_kind"]
+        if v not in _OUTPUT_KINDS:
+            raise HTTPException(status_code=422, detail=f"output_kind 须为 {sorted(_OUTPUT_KINDS)} 之一")
+        packaged.output_kind = v
+    if "is_nsfw" in overrides:
+        v = overrides["is_nsfw"]
+        if not isinstance(v, bool):
+            raise HTTPException(status_code=422, detail="is_nsfw 须为布尔值")
+        packaged.is_nsfw_guess = v
+
+
+@router.post("/import/confirm", response_model=AppOut)
+def confirm_import_app(
+    body: AppImportConfirmRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> AppOut:
+    """智能导入第二步:确认草稿(可覆盖展示字段)→ 落库为个人应用(is_public=False)。"""
+    draft = _peek_draft(body.draft_id, user.id)
+    if draft is None:
+        raise HTTPException(status_code=404, detail="草稿不存在或已过期,请重新导入")
+    # 先在校验副本上应用覆盖:非法覆盖 422 不吞草稿,用户改完可重提
+    packaged = copy.deepcopy(draft["packaged"])
+    _apply_confirm_overrides(packaged, body.overrides)
+    _IMPORT_DRAFTS.pop(body.draft_id, None)  # 校验通过才消费(一次性)
+    new_id = f"{_slugify(packaged.name)[:40]}-{uuid.uuid4().hex[:6]}"
+    while session.get(App, new_id):  # slug 撞车兜底(同 fork)
+        new_id = f"{_slugify(packaged.name)[:40]}-{uuid.uuid4().hex[:6]}"
+    a = App(
+        id=new_id,
+        name=packaged.name,
+        description=packaged.description,
+        icon=packaged.icon,
+        category=packaged.category,
+        workflow_json=copy.deepcopy(draft["workflow"]),
+        params_schema=copy.deepcopy(packaged.params_schema),
+        bindings=copy.deepcopy(packaged.bindings),
+        required_nodes=[],  # 运行时从图自动取
+        output_kind=packaged.output_kind,
+        submit_kind="app_run",
+        is_builtin=False,
+        is_nsfw=packaged.is_nsfw_guess,
+        is_public=False,
+        user_id=user.id,
+        usage_count=0,
+        sort=100,
+    )
+    session.add(a)
+    session.commit()
+    session.refresh(a)
+    return _to_out(a, user, with_workflow=True)

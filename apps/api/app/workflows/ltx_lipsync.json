@@ -291,22 +291,22 @@
         {
           "name": "positive",
           "type": "CONDITIONING",
-          "link": 3
+          "link": 4
         },
         {
           "name": "negative",
           "type": "CONDITIONING",
-          "link": 4
+          "link": 5
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 13
+          "link": 6
         },
         {
           "name": "image",
           "type": "IMAGE",
-          "link": 14
+          "link": 7
         }
       ],
       "outputs": [
@@ -361,27 +361,27 @@
         {
           "name": "model",
           "type": "MODEL",
-          "link": 5
+          "link": 3
         },
         {
           "name": "positive",
           "type": "CONDITIONING",
-          "link": 20
+          "link": 8
         },
         {
           "name": "negative",
           "type": "CONDITIONING",
-          "link": 21
+          "link": 9
         },
         {
           "name": "reference_audio",
           "type": "AUDIO",
-          "link": 15
+          "link": 10
         },
         {
           "name": "audio_vae",
           "type": "AUDIO_VAE",
-          "link": 16
+          "link": 11
         }
       ],
       "outputs": [
@@ -434,22 +434,22 @@
         {
           "name": "model",
           "type": "MODEL",
-          "link": 22
+          "link": 13
         },
         {
           "name": "positive",
           "type": "CONDITIONING",
-          "link": 23
+          "link": 14
         },
         {
           "name": "negative",
           "type": "CONDITIONING",
-          "link": 24
+          "link": 15
         },
         {
           "name": "latent_image",
           "type": "LATENT",
-          "link": 25
+          "link": 12
         }
       ],
       "outputs": [
@@ -492,12 +492,12 @@
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 26
+          "link": 17
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 27
+          "link": 16
         }
       ],
       "outputs": [
@@ -532,7 +532,7 @@
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 28
+          "link": 18
         }
       ],
       "outputs": [

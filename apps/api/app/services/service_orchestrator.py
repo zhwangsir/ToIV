@@ -17,6 +17,8 @@ trainer :9100 / lipsync :9103 / hy3dtex :9404,均在 workstation 192.168.71.127)
     health_path 空串退化为 TCP 连通探测;总超时默认 120s)→ running;
     失败 → error + 审计 orch.wake_failed + 502/504。并发唤醒经 per-service
     锁串行化(后到者等前者唤醒完再复查状态)。
+  · ensure_awake(name, enabled=...):R2 业务路由接线(打点 + 非 running 唤醒,
+    失败转 503);开关/注册表条目禁用时直通(零行为变化)。
   · idle_sweep()/idle_sweep_loop():每 60s 扫 cold 层,闲置超阈值 →
     `sudo -n systemctl stop` → sleeping + 审计 orch.sleep。
     默认保守不回收:仅当服务显式声明 safe_idle=true 才自动停;有关联活跃
@@ -79,6 +81,7 @@ class ServiceSpec:
     wake_timeout_sec: float = 0.0  # 0 → settings.orch_wake_timeout_sec(默认 120)
     safe_idle: bool = False  # 显式 true 才允许 idle_sweep 自动停(保守默认)
     job_kinds: tuple[str, ...] = ()  # 关联 Job.kind(回收前查活跃作业)
+    wake_on_call: bool = True  # R2:显式 false 时业务路由不自动唤醒本服务(直通)
 
 
 @dataclass
@@ -142,6 +145,7 @@ def _build_spec(raw: dict) -> ServiceSpec | None:
         wake_timeout_sec=float(raw.get("wake_timeout_sec", 0.0)),
         safe_idle=bool(raw.get("safe_idle", False)),
         job_kinds=tuple(str(k) for k in kinds),
+        wake_on_call=bool(raw.get("wake_on_call", True)),
     )
 
 
@@ -363,6 +367,39 @@ async def ensure_running(name: str) -> dict:
         _audit("orch.wake", spec,
                f"唤醒 {spec.name}({spec.systemd_unit} @ {spec.host})")
         return _snapshot(spec, st)
+
+
+# ─────────────────────────── R2:业务路由接线 ───────────────────────────
+
+
+async def ensure_awake(name: str, *, enabled: bool) -> bool:
+    """R2 冷层路由接线:冷层业务端点收到请求时打点 + 按需唤醒。
+
+    直通(返回 False,调用方原逻辑零行为变化):
+      · enabled=False(路由侧读 settings.orch_wake_on_call,全局开关关);
+      · 服务未在注册表(未知/热层服务绝不误碰);
+      · 注册表条目 wake_on_call=false(单服务禁用自动唤醒)。
+    启用路径:mark_request 打点;状态非 running(sleeping/stopped/error,
+    及 waking 并发在途)→ ensure_running 同步等健康(超时上限 = 服务级
+    wake_timeout_sec 或全局 orch_wake_timeout_sec,默认 120s)。
+    唤醒失败(ensure_running 的 502/504)统一转 503:冷层未就绪对业务即
+    「服务不可用」,按降级硬约束返回 error,不造假产物。
+    """
+    if not enabled:
+        return False
+    spec = get_registry().get(name)
+    if spec is None or not spec.wake_on_call:
+        return False
+    mark_request(name)
+    if _state(name).status == "running":
+        return True
+    try:
+        await ensure_running(name)
+    except HTTPException as e:
+        raise HTTPException(
+            status_code=503, detail=f"冷层服务 {name} 唤醒失败:{e.detail}"
+        ) from e
+    return True
 
 
 # ─────────────────────────── 闲置回收 ───────────────────────────
