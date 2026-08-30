@@ -19,6 +19,7 @@ from app.routes import (
     agent_team,
     agents,
     animatic,
+    apps,
     assets,
     assembly,
     audio,
@@ -61,6 +62,7 @@ from app.routes import (
     motion_brush,
     observability,
     optimize,
+    orch,
     ovi,
     phantom_studio,
     reference_assets,
@@ -205,12 +207,22 @@ async def lifespan(app: FastAPI):
         if _settings.gpu_smoke_enabled
         else None
     )
+    # 冷层服务编排:闲置自动回收循环(orch_sweep_enabled;注册表 safe_idle=false 时空转)
+    from app.services import service_orchestrator as _orch_svc
+
+    orch_task = (
+        asyncio.create_task(_orch_svc.idle_sweep_loop())
+        if _settings.orch_sweep_enabled
+        else None
+    )
     try:
         yield
     finally:
         reconcile_task.cancel()
         if hold_task is not None:
             hold_task.cancel()
+        if orch_task is not None:
+            orch_task.cancel()
         trash_task.cancel()
         if smoke_task is not None:
             smoke_task.cancel()
@@ -372,6 +384,7 @@ def create_app() -> FastAPI:
         agent,
         agent_team,
         agents,
+        apps,
         optimize,
         reference_assets,
         reverse,
@@ -398,6 +411,7 @@ def create_app() -> FastAPI:
         drama_analytics,
         forge,
         observability,
+        orch,
         fleet,
         ovi,
         system,

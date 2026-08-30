@@ -423,6 +423,23 @@ class Settings(BaseSettings):
     # hold 超时上限(秒):超过仍未放行标 error(hold_reason 写超时说明),不无限等。
     hold_timeout_sec: float = 3600.0
 
+    # —— 按需资源分配 R1:冷层服务编排(services/service_orchestrator) ——
+    # 冷层(i2l :9101 / trainer :9100 / lipsync :9103 / hy3dtex :9404,均在 workstation)
+    # 闲置自动回收、按需唤醒;热层(H3/LLM/VLM/TTS)常驻不动,不在注册表内。
+    # orch_services:JSON 覆盖注册表(dict name→字段 或 list[含 name 的字段]),
+    #   同名合并覆盖内置默认,新名追加;空 = 内置默认四服务。
+    orch_services: str = ""
+    # systemctl 启停经 SSH 执行,目标为 ~/.ssh/config 的 Host 别名(默认 workstation)。
+    orch_ssh_target: str = "workstation"
+    # 唤醒健康检查总超时(秒):服务级 wake_timeout_sec 未配时用本全局值。
+    orch_wake_timeout_sec: float = 120.0
+    # 闲置扫描循环开关与间隔(秒)。默认开但注册表全部 safe_idle=false → 空转零回收;
+    # 只有经 orch_services 显式声明 safe_idle=true 的服务才会被自动停(保守策略)。
+    orch_sweep_enabled: bool = True
+    orch_sweep_interval_sec: float = 60.0
+    # 闲置阈值默认(秒):服务级 idle_timeout_sec 未配时用本全局值。
+    orch_idle_timeout_sec: int = 900
+
     # —— B 评测管线(best-of-n + 自动评分,2026-08-23) ——
     # eval_scorer: 默认评分器。auto=配了 eval_vlm_base_url 走 VLM、否则启发式;
     # heuristic=零外部依赖基线(分辨率/时长/完整性/音轨,经 ffprobe 探测,探测不到
