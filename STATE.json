@@ -1,7 +1,14 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-31T03:40:00+08:00",
+ "updated_at": "2026-08-31T04:20:00+08:00",
+ "simplify_and_orch_live_2026_08_31": {
+  "status": "done_deployed_pushed",
+  "commits": ["d39ccf8", "f06febc"],
+  "orch": "状态探活校正上线(list_services_live 并行探测 3s,TCP 兜底,重启后状态不再失真);liveact(toiv-liveact.service :9400,safe_idle=true)+flashtalk(:9000,safe_idle=false 常驻保实时数字人)入注册表;生产实证 5 服务 running 真实显示",
+  "ux_simplify": "资源页删管理 tab(用户指示,管理走菜单);双市场合一为「市场」view(应用/技能 at-seg 段控,旧 skills/apps key 重定向不 404);audio 双重入口去重;观测面板编排区打磨(状态色语义/唤醒 Modal 二次确认/即将回收高亮/tooltip/移动端)",
+  "regression": "pytest 2974 / npm test 909 / tsc 0 / build 干净;生产 orch 探活实证"
+ },
  "device_fixes_2026_08_31": {
   "status": "done_deployed",
   "commit": "d4398df",
