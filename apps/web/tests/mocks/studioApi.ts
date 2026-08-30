@@ -795,3 +795,10 @@ export const resolveEntityRefs = async (_params: {
 
 /** 单作业精确查询替身(编辑器轮询 2026-08-29 链接期需要;默认查无,各编辑器轮询空转)。 */
 export const lookupJob = async (_promptId: string): Promise<JobItem | null> => null;
+
+// ===========================================================================
+// 登录态替身(AppMarketView M5 智能导入按钮门控链接期需要,2026-08-30)
+// ===========================================================================
+export const TOKEN_KEY = "toiv_token";
+/** 测试态默认未登录:智能导入按钮门控行为由源码断言覆盖。 */
+export const getToken = (): string | null => null;

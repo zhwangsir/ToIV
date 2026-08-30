@@ -9,6 +9,12 @@ import { API_BASE, apiFetch, authHeaders, apiErrorMessage } from "./api";
  *   POST /api/apps/{id}/fork      → 个人副本(App)
  *   POST /api/apps/{id}/run       → body { values } → { job_id, prompt_id }
  *
+ * M5 智能导入契约:
+ *   POST /api/apps/import          → body { workflow } → 200 AppImportDraft
+ *                                    (限流 60s/5 → 429;LLM 失败 → 503)
+ *   POST /api/apps/import/confirm  → body { draft_id, overrides? } → 200 App(个人应用)
+ *                                    (草稿过期/不存在 → 404)
+ *
  * params_schema 与引擎注册表(engine_registry)params 同款:AppParam 是
  * EngineParam(lib/engines.ts)的子集,可直接喂给 generate/ParamField 渲染。
  *
@@ -201,6 +207,124 @@ export async function runApp(
     client_id: String(data.client_id ?? ""),
     worker: String(data.worker ?? ""),
   };
+}
+
+// ---------- M5 智能导入(workflow JSON → LLM 包装草稿 → 确认上架为我的应用) ----------
+
+/**
+ * 智能导入草稿:POST /api/apps/import 200 回包。
+ * draft_id 短时有效(confirm 凭它取服务端草稿);warnings 为包装告警(预览页黄条展示);
+ * bindings 为节点→参数绑定映射(前端预览不消费,确认时后端凭 draft_id 自取)。
+ */
+export interface AppImportDraft {
+  draft_id: string;
+  name: string;
+  description: string;
+  icon: string;
+  category: AppCategory;
+  output_kind: AppOutputKind;
+  params_schema: AppParam[];
+  bindings: Record<string, unknown>;
+  warnings: string[];
+}
+
+/** confirm 可改元数据(契约:仅名称/描述/图标/分类四个键)。 */
+export interface AppImportOverrides {
+  name?: string;
+  description?: string;
+  icon?: string;
+  category?: AppCategory;
+}
+
+/** 草稿归一:params 复用 normalizeParam;category/output_kind 同 normalizeApp 兜底;warnings 只收非空字符串。 */
+export function normalizeImportDraft(raw: unknown): AppImportDraft {
+  const d = (raw ?? {}) as Record<string, unknown>;
+  const category = CATEGORIES.includes(d.category as AppCategory)
+    ? (d.category as AppCategory)
+    : "other";
+  const outputKind = (["image", "video", "audio"] as const).includes(
+    d.output_kind as AppOutputKind,
+  )
+    ? (d.output_kind as AppOutputKind)
+    : "image";
+  return {
+    draft_id: String(d.draft_id ?? ""),
+    name: String(d.name ?? ""),
+    description: String(d.description ?? ""),
+    icon: String(d.icon ?? "package"),
+    category,
+    params_schema: Array.isArray(d.params_schema) ? d.params_schema.map(normalizeParam) : [],
+    output_kind: outputKind,
+    bindings:
+      typeof d.bindings === "object" && d.bindings !== null && !Array.isArray(d.bindings)
+        ? (d.bindings as Record<string, unknown>)
+        : {},
+    warnings: Array.isArray(d.warnings)
+      ? d.warnings.filter((w): w is string => typeof w === "string" && w.trim() !== "")
+      : [],
+  };
+}
+
+/**
+ * 智能导入第一步:提交工作流 JSON → LLM 包装草稿(限流 60s/5)。
+ * LLM 调用 10-30s,走 longRequest(180s)超时档;503(AI 包装服务不可用)/429(限流)
+ * 优先透出后端 detail,否则给固定中文文案(Modal 错误分支直接展示 + 重试)。
+ */
+export async function importWorkflow(workflow: unknown): Promise<AppImportDraft> {
+  const res = await apiFetch(
+    `${API_BASE}/api/apps/import`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ workflow }),
+    },
+    { longRequest: true },
+  );
+  if (res.status === 503 || res.status === 429) {
+    const detail = (await res.json().catch(() => null)) as { detail?: unknown } | null;
+    const fallback =
+      res.status === 503
+        ? "AI 包装服务暂不可用,请稍后重试 (503)"
+        : "操作过于频繁:智能导入每分钟限 5 次,请稍后再试 (429)";
+    throw new Error(apiErrorMessage(detail?.detail, fallback, res.status));
+  }
+  if (!res.ok) return raiseErr(res, "智能导入失败");
+  return normalizeImportDraft(await res.json());
+}
+
+/**
+ * 智能导入第二步:确认草稿上架 → 个人应用(AppItem,is_mine=true)。
+ * 草稿过期/不存在 404;overrides 为空/无键时不上送该键(契约 overrides 可选)。
+ */
+export async function confirmImport(
+  draftId: string,
+  overrides?: AppImportOverrides,
+): Promise<AppItem> {
+  const body: Record<string, unknown> = { draft_id: draftId };
+  if (overrides && Object.keys(overrides).length > 0) body.overrides = overrides;
+  const res = await apiFetch(`${API_BASE}/api/apps/import/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) return raiseErr(res, "确认上架失败");
+  return normalizeApp(await res.json());
+}
+
+/**
+ * confirm overrides 构建:仅收集与草稿值不同的可改键(名称/描述/图标/分类),
+ * 空白串视为未改(防手滑清空);无差异返回 undefined(confirm 不带 overrides 键)。
+ */
+export function buildImportOverrides(
+  draft: AppImportDraft,
+  edits: AppImportOverrides,
+): AppImportOverrides | undefined {
+  const out: Record<string, string> = {};
+  for (const k of ["name", "description", "icon", "category"] as const) {
+    const v = edits[k];
+    if (typeof v === "string" && v.trim() !== "" && v !== draft[k]) out[k] = v;
+  }
+  return Object.keys(out).length > 0 ? (out as AppImportOverrides) : undefined;
 }
 
 // ---------- 纯函数 helpers(视图与单测共用) ----------

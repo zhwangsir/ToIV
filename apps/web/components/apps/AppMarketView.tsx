@@ -18,7 +18,10 @@ import {
   type AppCategory,
   type AppItem,
 } from "@/lib/apps";
+import { getToken, TOKEN_KEY } from "@/lib/api";
+import { useCrossTabSync } from "@/lib/crossTab";
 import { useR18Mode } from "@/lib/r18";
+import { AppImportModal } from "./AppImportModal";
 import { AppRunnerView } from "./AppRunnerView";
 /* 样式在 app/styles/apps.css(文件级):Section 子组件元素不被 styled-jsx
    注入哈希类,作用域样式会静默失效(skills.css 同款教训),故迁文件样式同范式 */
@@ -64,6 +67,14 @@ export function AppMarketView() {
   const [openId, setOpenId] = useState<string | null>(null);
   // fork 进行中的应用 id(按钮 loading/防重)
   const [forkingId, setForkingId] = useState<string | null>(null);
+
+  // ── M5 智能导入:仅登录态可见(市场页整体在登录壳内,此处防会话过期残留 + 跨页退出同步) ──
+  const [loggedIn, setLoggedIn] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  useEffect(() => {
+    setLoggedIn(!!getToken());
+  }, []);
+  useCrossTabSync(TOKEN_KEY, (v) => setLoggedIn(!!v));
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -188,6 +199,16 @@ export function AppMarketView() {
                 </button>
               ))}
             </div>
+            {loggedIn && (
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<Icon name="wand" size={13} />}
+                onClick={() => setImportOpen(true)}
+              >
+                智能导入
+              </Button>
+            )}
           </div>
 
           {!filtering && builtin.length + pub.length + mine.length === 0 ? (
@@ -233,6 +254,13 @@ export function AppMarketView() {
           )}
         </>
       )}
+
+      {/* M5 智能导入:上架成功后整体刷新列表(「我的应用」区随之更新) */}
+      <AppImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImported={() => void refresh()}
+      />
     </div>
   );
 }

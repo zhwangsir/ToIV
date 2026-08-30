@@ -297,3 +297,168 @@
     height: var(--touch-target);
   }
 }
+
+/* ── M5 智能导入(AppImportModal):上传区 / 解析进度 / 草稿预览双栏 ── */
+.apps-import-input {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+/* 拖拽/点选上传区:虚线降躁,hover/拖入 accent 描边反馈(≤200ms) */
+.apps-import-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-4);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-panel);
+  background: var(--bg-surface-2);
+  color: var(--text-muted);
+  font-size: var(--text-aux);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+.apps-import-drop:hover,
+.apps-import-drop.is-over {
+  border-color: var(--accent-glow);
+  background: var(--accent-soft);
+  color: var(--text-primary);
+}
+.apps-import-drop:focus-visible {
+  outline: none;
+  border-color: var(--accent-glow);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+/* 已选文件名:mono(规范 §3:文件/参数/ID 一律 mono) */
+.apps-import-file {
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  color: var(--text-secondary);
+}
+/* JSON 粘贴域:mono + 禁自动增高(rows 固定,内容长走内滚) */
+.apps-import-json {
+  font-family: var(--font-mono);
+  font-size: var(--text-aux);
+  line-height: 1.6;
+}
+
+/* 解析进度:分步提示(解析节点 → AI 包装中),当前步高亮 */
+.apps-import-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-6) 0;
+  color: var(--text-muted);
+}
+.apps-import-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  text-align: center;
+  font-size: var(--text-aux);
+}
+.apps-import-steps li {
+  color: var(--text-muted);
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+.apps-import-steps li.is-on {
+  color: var(--text-primary);
+}
+.apps-import-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-aux);
+  color: var(--err);
+}
+.apps-import-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* 草稿预览:左参数表单 + 右信息卡(窄屏落单列) */
+.apps-import-preview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: var(--space-4);
+  align-items: start;
+}
+.apps-import-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.apps-import-noparams {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-aux);
+}
+.apps-import-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-panel);
+  background: var(--bg-surface-2);
+}
+.apps-import-icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-control);
+  background: var(--bg-surface-3);
+  color: var(--text-secondary);
+}
+.apps-import-meta {
+  display: flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+/* 包装告警黄条:warn 状态色仅表达状态(规范 §2.2) */
+.apps-import-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.apps-import-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-badge);
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: var(--text-aux);
+  line-height: 1.5;
+}
+.apps-import-warning svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+/* confirm 失败(如 404 草稿过期)页脚红字 */
+.apps-import-confirm-error {
+  margin-right: auto;
+  align-self: center;
+  font-size: var(--text-aux);
+  color: var(--err);
+}
+
+@media (max-width: 575px) {
+  .apps-import-preview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
