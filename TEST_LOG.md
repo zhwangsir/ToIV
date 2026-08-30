@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-08-31 精简二轮（已部署 core+双推）：移动端「更多」抽屉去重——fusion 卡五目标（studio/avatartalk/dub/imageEdit/videoEdit）从抽屉移除（融合页即底部 CTA 主入口，卡片一跳直达，抽屉不摆第二套，11→6 项）；保留 market/canvas/entities/animatic/resources/settings（窄屏设置唯一入口，桌面走 AccountButton）。测试：+1 去重断言（appsViews），uxBatchD studio 图标断言同步。回归：npm test 910 / tsc 0 / build 干净。
+
 - 2026-08-31 精简优化+编排探活（d39ccf8+f06febc，已部署+双推）：编排器状态探活校正（list_services_live 并行 3s 探测，重启不失真，+8 例）；liveact/flashtalk 入注册表（liveact safe_idle=true，flashtalk 常驻保实时数字人）；资源页删管理 tab、双市场合一「市场」（旧 key 重定向）、audio 双入口去重、观测面板编排区打磨（+6 例）。回归：pytest 2974 / npm test 909 / tsc 0 / build 干净；生产 orch 探活 5 服务 running 实证。
 
 - 2026-08-31 设备三问题攻坚（d4398df，已部署）：①worker 熔断根治——comfyui-gpu0 僵尸进程（线程卡 NVIDIA 驱动内核态）占死 :8189，新建 comfyui-gpu0-alt.service :8196 + LB/core 切换，生产 txt2img done 出图；workstation 重启后应回退 8189。②flux2 缺 CLIP 根治——内置图像应用改 nextgen 图（UNETLoader+CLIPLoader）+ 播种 upsert 修存量 + 媒体数组单文件窄化，生产应用 run done 出图。③LiveAct 59GB/FlashTalk 51GB 定位：属 OpenTalking 实时数字人栈非 ToIV 管辖，是否回收待用户决断。pytest 2966 全绿。

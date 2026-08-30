@@ -151,6 +151,22 @@ test("page.tsx 导航去重:底部主入口项不在「更多」抽屉重复(aud
   );
 });
 
+test("page.tsx 导航去重:fusion 卡五目标不在「更多」抽屉重复(2026-08-31 二轮精简)", () => {
+  const src = readSrc("app/page.tsx");
+  const moreBlock = src.slice(src.indexOf("BOTTOM_NAV_MORE_ITEMS"));
+  // 融合页是底部 CTA 主入口,其 bento 卡一跳直达五目标;抽屉摆第二套 = 双重入口
+  for (const key of ["studio", "avatartalk", "dub", "imageEdit", "videoEdit"]) {
+    assert.ok(
+      !moreBlock.includes(`key: "${key}"`),
+      `${key} 已由融合卡承载,「更多」抽屉不应重复`,
+    );
+  }
+  // 非 fusion 目标保留:market/canvas/entities/animatic/resources/settings
+  for (const key of ["market", "canvas", "entities", "animatic", "resources", "settings"]) {
+    assert.ok(moreBlock.includes(`key: "${key}"`), `「更多」抽屉缺 ${key} 入口`);
+  }
+});
+
 test("MarketView:at-seg 段控 + ErrorBoundary(key=tab)+ 懒加载内嵌双市场", () => {
   const src = readSrc("components/market/MarketView.tsx");
   assert.ok(src.includes("import { ErrorBoundary }"), "未导入 ErrorBoundary");

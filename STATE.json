@@ -1,7 +1,13 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-31T04:20:00+08:00",
+ "updated_at": "2026-08-31T05:10:00+08:00",
+ "simplify_round2_2026_08_31": {
+  "status": "done_deployed_pushed",
+  "ux_simplify": "移动端「更多」抽屉去重:fusion 卡五目标(studio/avatartalk/dub/imageEdit/videoEdit)从抽屉移除(融合页即底部 CTA,卡片一跳直达,抽屉不再摆第二套,11→6 项);保留 market/canvas/entities/animatic/resources/settings(窄屏设置唯一入口)",
+  "regression": "npm test 910(+1 新增去重断言,+1 uxBatchD 同步)/ tsc 0 / build 干净",
+  "deploy": "deploy.sh → core(100.77.80.100) 完成,BUILD_ID 本地=远端,web:200/api ok"
+ },
  "simplify_and_orch_live_2026_08_31": {
   "status": "done_deployed_pushed",
   "commits": ["d39ccf8", "f06febc"],

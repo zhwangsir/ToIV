@@ -303,16 +303,14 @@ const BOTTOM_NAV_ITEMS: BottomNavItem[] = [
 const BOTTOM_NAV_MORE_ITEMS: BottomNavItem[] = [
   { key: "market", label: "市场", icon: "store" },
   // 2026-08-31 精简:audio 已由底部主入口承载,「更多」抽屉不再重复(双重入口去重)
-  { key: "imageEdit", label: "图片编辑", icon: "wand" },
-  { key: "videoEdit", label: "视频剪辑", icon: "scissors" },
+  // 2026-08-31 精简二轮:fusion 卡五目标(studio/avatartalk/dub/imageEdit/videoEdit)
+  // 在抽屉去重——融合页即底部 CTA 主入口,卡片一跳直达,抽屉不再摆第二套(11→6 项)
   { key: "canvas", label: "画布", icon: "workflow" },
-  { key: "studio", label: "创作", icon: "clapperboard" },
   { key: "entities", label: "主体库", icon: "users" },
-  { key: "avatartalk", label: "数字人", icon: "user" },
-  { key: "dub", label: "译制", icon: "dub" },
   // 2026-08-30 批 D:animatic 原与 studio 同用 clapperboard,换 film(胶片条)提辨识度
   { key: "animatic", label: "动态分镜", icon: "film" },
   { key: "resources", label: "资源", icon: "models" },
+  // 窄屏设置唯一入口(桌面走右上角 AccountButton)
   { key: "settings", label: "设置", icon: "settings" },
 ];
 

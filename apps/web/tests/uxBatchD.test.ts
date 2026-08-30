@@ -28,16 +28,15 @@ function readSrc(rel: string): string {
 }
 
 /* ── ① page.tsx ── */
-test("page.tsx:animatic 导航图标与 studio 区分(film ≠ clapperboard)", () => {
+test("page.tsx:animatic 导航图标用 film(2026-08-31 二轮:studio  drawer 入口已由融合卡承载)", () => {
   const src = readSrc("app/page.tsx");
   assert.ok(
     src.includes('{ key: "animatic", label: "动态分镜", icon: "film" }'),
     "animatic 应用 film 图标(原与 studio 同用 clapperboard)",
   );
-  assert.ok(
-    src.includes('{ key: "studio", label: "创作", icon: "clapperboard" }'),
-    "studio 保持 clapperboard",
-  );
+  // studio 不再出现在「更多」抽屉(与 fusion 卡重复);clapperboard 仍由融合旗舰卡使用
+  const moreBlock = src.slice(src.indexOf("BOTTOM_NAV_MORE_ITEMS"));
+  assert.ok(!moreBlock.includes('key: "studio"'), "studio 不应留在「更多」抽屉");
 });
 
 test("page.tsx:handleOpenDramaProject 携带 projectId 并透传给 StudioView", () => {
