@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-08-31 设备三问题攻坚（d4398df，已部署）：①worker 熔断根治——comfyui-gpu0 僵尸进程（线程卡 NVIDIA 驱动内核态）占死 :8189，新建 comfyui-gpu0-alt.service :8196 + LB/core 切换，生产 txt2img done 出图；workstation 重启后应回退 8189。②flux2 缺 CLIP 根治——内置图像应用改 nextgen 图（UNETLoader+CLIPLoader）+ 播种 upsert 修存量 + 媒体数组单文件窄化，生产应用 run done 出图。③LiveAct 59GB/FlashTalk 51GB 定位：属 OpenTalking 实时数字人栈非 ToIV 管辖，是否回收待用户决断。pytest 2966 全绿。
+
 - 2026-08-30 e2e+R3/R4+safe_idle（77053c3→941cd81，已部署+双推）：生产 e2e 实证应用市场全链路+智能导入（txt2img_basic.json LLM 包装 ~25s 质量高）；修 e2e 发现 3 bug（表单卡死复位/usage_count 仅 done 计/任务中心跨用户串台收紧）。R3 唤醒遮罩 UX（+7）、R4 观测面板编排区（+11）。safe_idle 四服务全开（900s/60s 扫描/无活跃 Job 才收）；前置修复 core ssh 别名 workstation 陈旧指向（改 TOIV_ORCH_SSH_TARGET=100.68.100.90 Tailscale，免密 sudo 已验证），hy3dtex 唤醒实证 0.22s。设备级遗留：worker 熔断仅 :8195 在线、pc02:8193 flux2 ckpt 缺 CLIP（Flux2 应用失败根因，非应用层）。回归：pytest 2966 / npm test 899 / tsc 0 / build 干净。
 
 - 2026-08-30 应用市场 M1-M5 + 资源编排 R1-R2（46d57a7→dde71b1，已部署 core+生产实证）：App 表/三区 CRUD/fork/NSFW 门控/run 运行器（bindings 叶子写图+拓扑注入拒绝）；前端市场+运行页复用 ParamField；7 内置应用 seed+UI→API 转换器；智能导入（嗅探/透镜/LLM 包装/草稿确认门/限流）；前端 AppImportModal 三步流。编排器：状态机+ensure_running（SSH systemctl+健康轮询）+idle_sweep 保守回收（默认零回收）+冷层 7 端点 ensure_awake（失败 503 零造假）。回归：pytest 2963 / npm test 878 / tsc 0 / build 干净；生产实证 /api/apps 无头 4、X-NSFW 7（门控正确）、/api/orch/services 四服务在册。

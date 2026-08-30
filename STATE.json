@@ -1,7 +1,15 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-30T06:45:00+08:00",
+ "updated_at": "2026-08-31T03:40:00+08:00",
+ "device_fixes_2026_08_31": {
+  "status": "done_deployed",
+  "commit": "d4398df",
+  "d1_worker_circuit_breaker": "根治：comfyui-gpu0(:8189)僵尸进程(PID 3233,Z 态线程卡内核,NVIDIA 驱动调用未返回)占死监听端口,systemd 卡 deactivating,SSKilled 无效。处置:新建 comfyui-gpu0-alt.service(同配置,端口 8196,enabled+running),LB gpu0 后端 8189→8196(comfyui-lb.py.bak-20260831 备份),core TOIV_COMFY_WORKERS 同步 8196。生产实证 txt2img 作业 done 出图。⚠️ workstation 重启后应回退 8189 并删除 alt 单元(僵尸随重启消失)",
+  "d3_flux2_clip": "根治:内置应用 txt2img-basic/img2img-basic 从 CheckpointLoaderSimple 模板改用 nextgen 构建器(UNETLoader+CLIPLoader,flux2 fp8mixed 是 UNET-only);播种改 upsert(内置应用代码即正典,启动自动修复存量坏图);img2img 补 images 必填参数+bindings;run 媒体数组单文件窄化。生产实证应用 run done 出图",
+  "d2_liveact_gpu1": "已定位未处置:liveact worker.py 占 59GB + flashtalk 占 51GB(GPU3),属 OpenTalking 实时数字人栈(非 ToIV 服务),ToIV 编排器不管辖;是否纳入按需回收需用户决断(停则实时数字人冷启动变慢)",
+  "regression": "pytest 2966 全绿;生产 engines 2.2s"
+ },
  "e2e_r3_r4_safeidle_2026_08_30": {
   "status": "done_deployed_pushed",
   "commits": ["77053c3", "fc4597a", "941cd81"],
