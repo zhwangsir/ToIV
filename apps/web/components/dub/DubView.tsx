@@ -28,6 +28,8 @@ import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Input, Select } from "@/components/ui/Input";
+import { ServiceWakeOverlay } from "@/components/orch/ServiceWakeOverlay";
+import { isWakeError, parseWakeError } from "@/lib/orch";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useToast } from "@/components/ui/Toast";
 import { usePoll } from "@/hooks/usePoll";
@@ -154,6 +156,9 @@ export function DubView({ onBack }: { onBack?: () => void }) {
   const [lipsyncBusy, setLipsyncBusy] = useState(false);
   const [lipsyncError, setLipsyncError] = useState<string | null>(null);
   const pollFailRef = useRef(0);
+  // 冷层唤醒遮罩:LatentSync 对口型 503「冷层服务 lipsync 唤醒失败」时显示
+  const [wakeService, setWakeService] = useState<string | null>(null);
+  const wakeAbortRef = useRef<AbortController | null>(null);
   const { show: showToast } = useToast();
 
   // 对口型模式选择 + 动漫 / 精剪分支状态
@@ -334,6 +339,8 @@ export function DubView({ onBack }: { onBack?: () => void }) {
     setLipsyncStart(null);
     setAnimeStatus(null);
     setAnimeStart(null);
+    wakeAbortRef.current?.abort();
+    wakeAbortRef.current = new AbortController();
     genBegin(
       "dub-lipsync",
       lipsyncMode === "anime" ? "动漫对口型" : "LatentSync 对口型",
@@ -375,7 +382,12 @@ export function DubView({ onBack }: { onBack?: () => void }) {
         pollFailRef.current = 0;
       }
     } catch (e) {
-      setLipsyncError(e instanceof Error ? e.message : "启动对口型失败");
+      const svc = parseWakeError(e);
+      if (svc && !wakeAbortRef.current?.signal.aborted) {
+        setWakeService(svc);
+      } else {
+        setLipsyncError(e instanceof Error ? e.message : "启动对口型失败");
+      }
       setLipsyncBusy(false);
     }
   }, [video, lipsyncMode, segments, highlightsTarget, useDubVoice, voice, mouthGain, smooth, cutMode, threshold, minSeg, segSeconds, maxSegments, lipsExpression, inferenceSteps]);
@@ -1336,6 +1348,20 @@ export function DubView({ onBack }: { onBack?: () => void }) {
           </section>
         )}
       </div>
+
+      {/* 冷层唤醒遮罩:LatentSync 对口型 503「冷层服务 lipsync 唤醒失败」时显示 */}
+      {wakeService && (
+        <ServiceWakeOverlay
+          serviceName={wakeService}
+          visible={!!wakeService}
+          onCancel={() => {
+            wakeAbortRef.current?.abort();
+            setWakeService(null);
+            setLipsyncBusy(false);
+          }}
+          onClose={() => setWakeService(null)}
+        />
+      )}
 
       <style jsx>{`
         .dub-view {

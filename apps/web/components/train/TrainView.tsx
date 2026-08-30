@@ -19,6 +19,8 @@ import { ErrorBar } from "@/components/ui/ErrorBar";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { ServiceWakeOverlay } from "@/components/orch/ServiceWakeOverlay";
+import { isWakeError, parseWakeError } from "@/lib/orch";
 
 type JobStatus = TrainJob["status"];
 
@@ -93,6 +95,9 @@ export function TrainView() {
   const [submitting, setSubmitting] = useState(false);
   const [submitMsg, setSubmitMsg] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // 冷层唤醒遮罩:503「冷层服务 {name} 唤醒失败」时显示;onClose 后复用同 error 状态
+  const [wakeService, setWakeService] = useState<string | null>(null);
+  const wakeAbortRef = useRef<AbortController | null>(null);
 
   const [registeringId, setRegisteringId] = useState<string | null>(null);
   const [registeredJobs, setRegisteredJobs] = useState<Set<string>>(new Set());
@@ -254,6 +259,9 @@ export function TrainView() {
     }
 
     setSubmitting(true);
+    wakeAbortRef.current?.abort();
+    wakeAbortRef.current = new AbortController();
+    const ac = wakeAbortRef.current;
     try {
       setSubmitMsg("正在上传数据集…");
       const up = await uploadDataset(datasetFiles);
@@ -288,7 +296,12 @@ export function TrainView() {
       setDatasetFiles([]);
       setSubmitMsg(null);
     } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : "提交失败");
+      const svc = parseWakeError(e);
+      if (svc && !ac.signal.aborted) {
+        setWakeService(svc);
+      } else {
+        setSubmitError(e instanceof Error ? e.message : "提交失败");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -612,6 +625,19 @@ export function TrainView() {
           </div>
         )}
       </div>
+
+      {/* 冷层唤醒遮罩:503「冷层服务 {name} 唤醒失败」时显示;取消时中断在途请求 */}
+      {wakeService && (
+        <ServiceWakeOverlay
+          serviceName={wakeService}
+          visible={!!wakeService}
+          onCancel={() => {
+            wakeAbortRef.current?.abort();
+            setWakeService(null);
+          }}
+          onClose={() => setWakeService(null)}
+        />
+      )}
 
       <style jsx>{`
         .train-view {

@@ -35,6 +35,8 @@ import type { JobItem, TrashJobItem } from "@/lib/types";
 import { mediaKindOf } from "@/lib/mediaKind";
 import { Icon } from "@/components/ui/Icon";
 import { LazyVideo } from "@/components/ui/LazyVideo";
+import { ServiceWakeOverlay } from "@/components/orch/ServiceWakeOverlay";
+import { parseWakeError } from "@/lib/orch";
 import { ModelViewer } from "@/components/ui/ModelViewer";
 import { Button } from "@/components/ui/Button";
 import { ErrorBar } from "@/components/ui/ErrorBar";
@@ -1727,6 +1729,8 @@ function ThreeDOpsBar({ job }: { job: JobItem }) {
   const [preset, setPreset] = useState<string>("clay");
   const [busy, setBusy] = useState<"glb" | "png" | "mp4" | "texture" | null>(null);
   const [texPrompt, setTexPrompt] = useState<string>("");
+  // 冷层唤醒遮罩:3D 纹理 503「冷层服务 hy3dtex 唤醒失败」时显示
+  const [wakeService, setWakeService] = useState<string | null>(null);
 
   const run = async (out: "glb" | "png" | "mp4") => {
     if (busy) return;
@@ -1766,7 +1770,12 @@ function ThreeDOpsBar({ job }: { job: JobItem }) {
       invalidateJobs();
       toast.success("纹理贴图模型已生成,已收入作品库(3D 筛选)");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "3D 纹理生成失败");
+      const svc = parseWakeError(e);
+      if (svc) {
+        setWakeService(svc);
+      } else {
+        toast.error(e instanceof Error ? e.message : "3D 纹理生成失败");
+      }
     } finally {
       setBusy(null);
     }
@@ -1851,6 +1860,17 @@ function ThreeDOpsBar({ job }: { job: JobItem }) {
           </button>
         </div>
       </details>
+
+      {/* 冷层唤醒遮罩:3D 纹理 503「冷层服务 hy3dtex 唤醒失败」时显示 */}
+      {wakeService && (
+        <ServiceWakeOverlay
+          serviceName={wakeService}
+          visible={!!wakeService}
+          onCancel={() => setWakeService(null)}
+          onClose={() => setWakeService(null)}
+        />
+      )}
+
       {/* global + t3dops- 前缀(P-2b):子组件样式不进主组件 styled-jsx 作用域;
           批 D:伪 token 回退值(白玻璃 hex/7px 野值)清零,全量走基座 token */}
       <style jsx global>{`
