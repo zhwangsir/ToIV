@@ -467,7 +467,13 @@ def test_endpoint_list_requires_admin(ctx):
         "/api/orch/services", headers=ctx["user"]).status_code == 403
 
 
-def test_endpoint_list_admin_ok(ctx):
+def test_endpoint_list_admin_ok(ctx, monkeypatch):
+    # 读取路径会真实探活(开发机 LAN 可达时 stopped 会被校正 running);
+    # mock 探测为全不可达保持确定性:stopped/sleeping + 不可达不动。
+    async def unreachable(spec) -> bool:
+        return False
+
+    monkeypatch.setattr(orch, "_check_health", unreachable)
     res = ctx["client"].get("/api/orch/services", headers=ctx["admin"])
     assert res.status_code == 200
     body = res.json()

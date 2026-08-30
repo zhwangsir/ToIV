@@ -509,10 +509,52 @@ def _snapshot(spec: ServiceSpec, st: ServiceState) -> dict:
 
 
 def list_services() -> dict:
-    """GET /api/orch/services 载荷:状态/闲置时长/启停次数全量透出。"""
+    """GET /api/orch/services 载荷:状态/闲置时长/启停次数全量透出(纯内存快照)。"""
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "services": [
             _snapshot(spec, _state(spec.name)) for spec in get_registry().values()
         ],
     }
+
+
+# ─────────────────────────── 读取路径探活校正 ───────────────────────────
+
+
+async def probe_and_reconcile() -> None:
+    """并行健康探测 + 内存状态校正(解决 API 重启丢内存态导致观测面板失真)。
+
+    状态机全在进程内存,API 重启后所有服务回 stopped,但 systemd 侧服务可能
+    实际在跑(或相反:内存 running 而服务已宕)。读取路径对每个服务并行探测
+    (asyncio.gather,单服务超时 HEALTH_CHECK_TIMEOUT_SEC=3s,总耗时 ≈ 单服务
+    超时而非累加;health_path 空串自动走 TCP 探测,见 _check_health),按探测
+    结果校正内存状态:
+
+      · 探测存活 且 内存 stopped/sleeping → 校正 running(API 重启丢态的常见
+        情形;last_request_at 不动——它不是「最近一次请求」的证据,只是状态校正);
+      · 探测不可达 且 内存 running → 校正 error + last_error「探活失败」;
+      · waking(唤醒在途,健康轮询自己会收敛)与 error(保守,留给 ensure_running
+        显式唤醒恢复)不触碰;stopped/sleeping + 不可达 符合预期不动。
+
+    gather(return_exceptions=True):_check_health 本身吞异常,此层兜底防未来
+    回归——单个探测抛错按不可达处理,绝不让一次读请求 500。
+    """
+    specs = list(get_registry().values())
+    results = await asyncio.gather(
+        *(_check_health(spec) for spec in specs), return_exceptions=True
+    )
+    for spec, res in zip(specs, results):
+        alive = res is True  # Exception/False 都按不可达
+        st = _state(spec.name)
+        if alive and st.status in ("stopped", "sleeping"):
+            logger.info("orch %s 探活存活,校正内存状态 %s → running", spec.name, st.status)
+            _set_status(st, "running")
+        elif not alive and st.status == "running":
+            logger.warning("orch %s 探活不可达,校正内存状态 running → error", spec.name)
+            _set_status(st, "error", "探活失败:健康检查不可达")
+
+
+async def list_services_live() -> dict:
+    """GET /api/orch/services 读取入口:先并行探活校正,再返回快照。"""
+    await probe_and_reconcile()
+    return list_services()

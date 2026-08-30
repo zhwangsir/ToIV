@@ -17,8 +17,12 @@ router = APIRouter(tags=["orch"])
 
 @router.get("/orch/services")
 async def orch_services(_: User = Depends(get_current_admin)) -> dict:
-    """冷层服务清单:状态机状态 / 闲置时长 / 启停次数 / 最后错误。"""
-    return orch.list_services()
+    """冷层服务清单:状态机状态 / 闲置时长 / 启停次数 / 最后错误。
+
+    读取路径先并行探活校正(3s 超时/服务,见 orch.probe_and_reconcile):
+    API 重启丢内存态后,实际在跑的服务不会再错误显示 stopped。
+    """
+    return await orch.list_services_live()
 
 
 @router.post("/orch/services/{name}/wake")
