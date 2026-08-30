@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-08-30 应用市场 M1-M5 + 资源编排 R1-R2（46d57a7→dde71b1，已部署 core+生产实证）：App 表/三区 CRUD/fork/NSFW 门控/run 运行器（bindings 叶子写图+拓扑注入拒绝）；前端市场+运行页复用 ParamField；7 内置应用 seed+UI→API 转换器；智能导入（嗅探/透镜/LLM 包装/草稿确认门/限流）；前端 AppImportModal 三步流。编排器：状态机+ensure_running（SSH systemctl+健康轮询）+idle_sweep 保守回收（默认零回收）+冷层 7 端点 ensure_awake（失败 503 零造假）。回归：pytest 2963 / npm test 878 / tsc 0 / build 干净；生产实证 /api/apps 无头 4、X-NSFW 7（门控正确）、/api/orch/services 四服务在册。
+
 - 2026-08-30 全站实用性 overhaul（1a9b912→b5541af，已部署 core + 双推）：调研报告 docs/2026-08-30-ux-research-report.md → 五波次修复全落地。W1 后端(+26)：engines 2s 硬上限（34.2s→2.29s 实测）/SSE 不误杀/canceled 终态+链式取消传播/Job.error 落库/无产物标 error/错误码统一。W1+W2 前端(+15)：吞输入根治/终态分色 toast+重试/子编辑器解锁/上传进度条/会话历史持久化。W3(+28+6 既有归零)：假空态收敛/确认门/图表色板 token 化/admin 门控/animatic 断链。W4(+16)：画布 /api/canvas/proxy 反代。运维：生产 admin 弱口令已改。终态：pytest 2827 / npm test 834 / tsc 0 / build 干净 / 生产 engines 2.29s+canvas proxy 200+新密登录 200。
 
 - 2026-08-30 UI 规范化启动（未 commit）:新建 docs/UI_STANDARD.md v1.0——全站唯一权威 UI 规范(设计原则/色彩 token/排版/间距圆角/布局/图标/动效/组件复用/样式工程/§10 验收清单/14 页逐页优化顺序),固化 globals.css v7 既有体系。页 1 融合门户审计:基本全合规(Film Atelier v6.1 已 token 化/reduced-motion/响应式/键盘焦点环),唯一缺口=PageHeader 死引用,已删除并给 §10 补「CornerNav 已指示板块时可省略页头」例外条款。验证:tsc 0、npm test(node --test)694 全过、rm -rf .next 干净 build 成功。git:main 双推 Gitee/GitHub 完成(d0721d1,60 commit 补推)。

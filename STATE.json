@@ -1,7 +1,16 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-30T05:55:00+08:00",
+ "updated_at": "2026-08-30T06:15:00+08:00",
+ "app_market_and_orch_2026_08_30": {
+  "status": "deployed_verified_pushed",
+  "commits": ["46d57a7", "4cf1567", "b9a0b57", "16e3f9d", "dde71b1"],
+  "app_market": "M1-M5 全落地：App 表+三区 CRUD+fork+NSFW 门控（46d57a7，+50 例）；run 运行器 bindings 叶子写图+拓扑注入拒绝+usage 计数；前端市场/运行页/ParamField 复用（4cf1567，+24 例）；7 内置应用 seed（h3-t2v/h3-i2v/txt2img/img2img/LTX R18 三件套）+UI→API 转换器 workflow_convert；智能导入管线（workflow_analyzer 嗅探透镜 + app_packager LLM 包装 L1 + 草稿 TTL 10min + 确认门 + 限流，+42 例）；前端 AppImportModal 三步流（dde71b1，+20 例）。生产实证：无头 4 应用/X-NSFW 头 7 应用，门控正确",
+  "orch_r1_r2": "service_orchestrator 状态机（running/waking/sleeping/stopped/error）+ ensure_running（SSH systemctl+健康轮询）+ idle_sweep 保守回收（默认 safe_idle=false 零回收）（b9a0b57，+28 例）；R2 冷层 7 端点接 ensure_awake（train×4/i2l/lipsync/3d texture，失败 503 零造假，热路径直通兜底，+16 例）。生产实证 /api/orch/services 四服务注册在册",
+  "notes": "icon 白名单是 Icon.tsx 快照（app_packager.ICON_WHITELIST，前端扩 ICON_MAP 需人工同步）；ltx_img2video/ltx_lipsync 存量模板悬空 link 已修；画布代理 WS /ws 未透传仍为已知边界",
+  "regression": "pytest 2963 0 failed / npm test 878 / tsc 0 / 干净 build / 生产 apps+orch 端点实测",
+  "next": "R3 前端「唤醒中」UX；R4 观测面板编排状态；应用市场真实工作流 e2e（生产跑通一个 run）；icon 白名单自动同步"
+ },
  "ux_overhaul_2026_08_30": {
   "status": "W0-W4_all_done_deployed_pushed",
   "commits": ["1a9b912", "7c35c1a", "d50de47", "84314d9", "b5541af"],
