@@ -66,26 +66,31 @@ def test_specs_binding_targets_are_scalar_leaves():
 def test_specs_default_values_build_runnable_graph():
     """每个内置应用:必填项给值 + 其余默认,能无错写进深拷贝图,且库内原件不被改写。"""
     for spec in _build_specs():
-        values = _validate_params(spec["params_schema"], {"positive": "测试提示词"})
+        # 必填项:positive 文本 + images(img2img)按需给值
+        required_values = {"positive": "测试提示词"}
+        if any(p["key"] == "images" and p.get("required") for p in spec["params_schema"]):
+            required_values["images"] = ["ref.png"]
+        values = _validate_params(spec["params_schema"], required_values)
         graph = _build_graph(spec["workflow_json"], spec["bindings"], values)
         assert graph  # 非空
         # seed 默认 "" → 不写,图内保留模板原值(以 KSampler/RandomNoise 为例抽查)
         assert graph is not spec["workflow_json"]
 
 
-def test_seed_idempotent_and_preserves_edits():
+def test_seed_idempotent_and_builtin_upsert():
     engine = _engine()
     with Session(engine) as s:
         assert seed_builtin_apps(s) == len(_EXPECTED_IDS)
         assert seed_builtin_apps(s) == 0  # 幂等:重复启动不重复建
-        # 人工改过的内置应用不被播种回滚(与 agents_seed 同一纪律)
+        # 内置应用代码即正典(禁止 PUT):人工改动会被播种修复回规格值
+        # (2026-08-31 起,用于修复存量坏图/规格漂移;个人应用行仍不动)
         a = s.get(App, "h3-t2v")
         a.name = "人工改名"
         s.add(a)
         s.commit()
         assert seed_builtin_apps(s) == 0
-        assert s.get(App, "h3-t2v").name == "人工改名"
-        # 删掉的内置应用下次播种会补回(与 agents_seed 同语义:按 id 判缺)
+        assert s.get(App, "h3-t2v").name == "海螺 H3 文生视频"
+        # 删掉的内置应用下次播种会补回(按 id 判缺)
         s.delete(s.get(App, "h3-i2v"))
         s.commit()
         assert seed_builtin_apps(s) == 1
@@ -206,8 +211,12 @@ def test_builtin_txt2img_run_and_nsfw_gate(ctx):
     )
     assert r.status_code == 200, r.text
     graph = fake.graphs[0]
-    assert graph["2"]["inputs"]["text"] == "a cat"
-    assert graph["3"]["inputs"]["text"] == "blurry"
+    # 次世代图节点:4=正向/5=负向 CLIPTextEncode(2026-08-31 从 CheckpointLoaderSimple 模板迁入)
+    assert graph["4"]["inputs"]["text"] == "a cat"
+    assert graph["5"]["inputs"]["text"] == "blurry"
+    # CLIP 必须由独立 CLIPLoader 提供(flux2 fp8mixed 是 UNET-only,CheckpointLoaderSimple 必炸)
+    assert graph["3"]["class_type"] == "CLIPLoader"
+    assert graph["1"]["class_type"] == "UNETLoader"
     # NSFW 内置应用无 X-NSFW 头 403
     r2 = c.post(
         "/api/apps/ltx-txt2video/run",

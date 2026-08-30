@@ -412,7 +412,17 @@ def _coerce_for_leaf(key: str, existing: object, value: object) -> object | None
 
 def _write_leaf(graph: dict, key: str, target: dict, value: object) -> None:
     """把一个标量值写进图的指定叶子;任何拓扑改动企图(新键/连线/复合值)抛 422。"""
-    if isinstance(value, (dict, list)):
+    # 媒体参数(images/audio/video)表单值是文件名数组;绑定目标是字符串叶子
+    # (LoadImage/LoadVideo/LoadAudio 的 inputs.image/video/audio)时取首个文件名
+    if isinstance(value, list):
+        if len(value) == 1 and isinstance(value[0], str):
+            value = value[0]
+        else:
+            raise HTTPException(
+                status_code=422,
+                detail=f"参数 {key} 为复合值,不能写入图叶子(媒体数组仅支持单文件绑定)",
+            )
+    if isinstance(value, dict):
         raise HTTPException(status_code=422, detail=f"参数 {key} 为复合值,不能写入图叶子")
     node = graph.get(target["node"])
     if not isinstance(node, dict):

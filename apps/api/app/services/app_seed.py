@@ -23,10 +23,21 @@ from sqlmodel import Session, select
 
 from app.models import App, _now
 from app.services.workflow_convert import ui_to_api
+from app.workflows.nextgen import (
+    NextgenImg2ImgParams,
+    NextgenParams,
+    build_nextgen_graph,
+    build_nextgen_img2img_graph,
+)
 
 logger = logging.getLogger(__name__)
 
 _WORKFLOWS_DIR = Path(__file__).resolve().parents[1] / "workflows"
+
+# 图像内置应用的底模(与 engine_registry 默认 flux2_dev 同族;fp8mixed 是 UNET-only,
+# 必须走 UNETLoader+CLIPLoader 的次世代图——2026-08-31 生产事故:经 CheckpointLoaderSimple
+# 模板转换的图缺 CLIP 必然 clip input is invalid)
+_T2I_MODEL = "flux2_dev_fp8mixed.safetensors"
 
 
 @lru_cache
@@ -187,17 +198,20 @@ def _build_specs() -> list[dict]:
             "name": "Flux2 文生图",
             "description": "一句话出图:Flux2 基础文生图,正向/负向/尺寸/步数全可调",
             "icon": "image", "category": "image", "output_kind": "image",
-            "workflow_json": _load_ui_template("txt2img_basic.json"),
+            # 次世代图(UNETLoader+CLIPLoader+VAELoader):4=正/5=负 CLIPTextEncode,
+            # 7=空 latent(width/height), 8=KSampler(seed/steps/cfg)
+            "workflow_json": build_nextgen_graph(NextgenParams(
+                model_name=_T2I_MODEL, positive="", width=1024, height=1024,
+            )),
             "params_schema": _t2i_params(),
-            # txt2img_basic.json:2/3=CLIPTextEncode, 4=EmptyLatentImage, 5=KSampler
             "bindings": {
-                "positive": _b("2", "inputs.text"),
-                "negative": _b("3", "inputs.text"),
-                "width": _b("4", "inputs.width"),
-                "height": _b("4", "inputs.height"),
-                "steps": _b("5", "inputs.steps"),
-                "cfg": _b("5", "inputs.cfg"),
-                "seed": _b("5", "inputs.seed"),
+                "positive": _b("4", "inputs.text"),
+                "negative": _b("5", "inputs.text"),
+                "width": _b("7", "inputs.width"),
+                "height": _b("7", "inputs.height"),
+                "steps": _b("8", "inputs.steps"),
+                "cfg": _b("8", "inputs.cfg"),
+                "seed": _b("8", "inputs.seed"),
             },
             "is_nsfw": False, "sort": 30,
         },
@@ -206,8 +220,14 @@ def _build_specs() -> list[dict]:
             "name": "Flux2 图生图",
             "description": "参考图重绘:调 denoise 控制改动幅度,适合风格迁移/精修",
             "icon": "wand", "category": "edit", "output_kind": "image",
-            "workflow_json": _load_ui_template("img2img_basic.json"),
+            # 次世代 img2img 图:4=正/5=负, 7=LoadImage(image), 10=KSampler(denoise/steps/seed)
+            "workflow_json": build_nextgen_img2img_graph(NextgenImg2ImgParams(
+                model_name=_T2I_MODEL, image="", positive="",
+            )),
             "params_schema": [
+                {"key": "images", "label": "参考图", "type": "images", "max": 1,
+                 "default": None, "required": True,
+                 "hint": "jpg / png / webp,单张 ≤ 20MB"},
                 _positive("描述目标画面(在参考图基础上的改动方向)"),
                 _negative(),
                 _num("denoise", "重绘幅度", 0.75, min_=0.05, max_=1.0, step=0.05,
@@ -215,13 +235,13 @@ def _build_specs() -> list[dict]:
                 _num("steps", "采样步数", 20, min_=1, max_=50),
                 _seed(),
             ],
-            # img2img_basic.json:3/4=CLIPTextEncode, 6=KSampler
             "bindings": {
-                "positive": _b("3", "inputs.text"),
-                "negative": _b("4", "inputs.text"),
-                "denoise": _b("6", "inputs.denoise"),
-                "steps": _b("6", "inputs.steps"),
-                "seed": _b("6", "inputs.seed"),
+                "images": _b("7", "inputs.image"),
+                "positive": _b("4", "inputs.text"),
+                "negative": _b("5", "inputs.text"),
+                "denoise": _b("10", "inputs.denoise"),
+                "steps": _b("10", "inputs.steps"),
+                "seed": _b("10", "inputs.seed"),
             },
             "is_nsfw": False, "sort": 40,
         },
@@ -285,12 +305,28 @@ def _validate_spec(spec: dict) -> None:
 
 
 def seed_builtin_apps(session: Session) -> int:
-    """幂等播种内置应用:已存在 id 跳过,返回新建数量(与 seed_builtin_agents 同一纪律)。"""
-    existing_ids = set(session.exec(select(App.id)).all())
+    """播种内置应用。新建幂等;已存在的内置应用按代码规格**更新**图/schema/bindings
+    (内置应用禁止 PUT 编辑,代码即正典——2026-08-31 起用于修复存量坏图),
+    个人/公共应用行不动。返回新建数量。"""
+    rows = {a.id: a for a in session.exec(select(App)).all()}
     created = 0
     now = _now()
     for spec in _build_specs():
-        if spec["id"] in existing_ids:
+        row = rows.get(spec["id"])
+        if row is not None:
+            if row.is_builtin:  # 内置规格漂移修复
+                row.workflow_json = spec["workflow_json"]
+                row.params_schema = spec["params_schema"]
+                row.bindings = spec["bindings"]
+                row.name = spec["name"]
+                row.description = spec["description"]
+                row.icon = spec["icon"]
+                row.category = spec["category"]
+                row.output_kind = spec["output_kind"]
+                row.is_nsfw = spec["is_nsfw"]
+                row.sort = spec["sort"]
+                row.updated_at = now
+                session.add(row)
             continue
         session.add(
             App(
@@ -316,7 +352,7 @@ def seed_builtin_apps(session: Session) -> int:
             )
         )
         created += 1
+    session.commit()  # 更新路径也可能有写(内置规格漂移修复),统一提交
     if created:
-        session.commit()
         logger.info("内置应用播种完成:新增 %d 个", created)
     return created

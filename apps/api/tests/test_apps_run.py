@@ -255,7 +255,8 @@ def test_run_binding_to_missing_leaf_rejected(ctx):
 
 
 def test_run_composite_value_rejected(ctx):
-    """复合值(list/dict)不能写入图叶子。"""
+    """复合值不能写入图叶子:多元素 list/dict 422;单元素媒体文件名数组允许窄化为字符串
+    (LoadImage/LoadVideo 单文件绑定,2026-08-31 起)。"""
     c, tokens, _, engine, _, _ = ctx
     with Session(engine) as s:
         _seed_app(
@@ -263,7 +264,11 @@ def test_run_composite_value_rejected(ctx):
             params_schema=[{"key": "x", "label": "x", "type": "loras", "default": None}],
             bindings={"x": {"node": "3", "field": "inputs.text"}},
         )
-    r = c.post("/api/apps/evil4/run", headers=_h(tokens), json={"values": {"x": ["a"]}})
+    # 多元素 list 仍拒绝
+    r = c.post("/api/apps/evil4/run", headers=_h(tokens), json={"values": {"x": ["a", "b"]}})
+    assert r.status_code == 422
+    # dict 拒绝
+    r = c.post("/api/apps/evil4/run", headers=_h(tokens), json={"values": {"x": {"a": 1}}})
     assert r.status_code == 422
 
 
