@@ -30,6 +30,20 @@ import {
   makeFleetDeviceDetail,
   makeObservabilitySnapshot,
 } from "./mocks/studioApi";
+import {
+  OrchPanel,
+  orchStatusTone,
+  orchStatusLabel,
+  formatRelTime,
+  formatIdle,
+  truncateError,
+  orchSummary,
+} from "../components/observability/OrchPanel";
+import {
+  makeOrchPayload,
+  makeOrchService,
+  orchImpl,
+} from "./mocks/studioApi";
 
 const h = React.createElement;
 const testDir = dirname(fileURLToPath(import.meta.url));
@@ -250,4 +264,133 @@ test("charts.tsx:网格/十字线走 CSS 变量,浅色默认深灰细线", () =>
   assert.match(src, /var\(--uichart-grid, rgba\(15,23,42,\.10\)\)/, "浅色默认网格线");
   assert.match(src, /\[data-mode="dark"\] \.uichart/, "暗色覆盖块");
   assert.match(src, /var\(--uichart-crosshair/, "十字线同步变量化");
+});
+
+/* ── ⑦ 编排状态区(OrchPanel) ── */
+test("orchStatusTone:状态映射正确", () => {
+  assert.equal(orchStatusTone("running"), "ok");
+  assert.equal(orchStatusTone("waking"), "warn");
+  assert.equal(orchStatusTone("sleeping"), "neutral");
+  assert.equal(orchStatusTone("stopped"), "neutral");
+  assert.equal(orchStatusTone("error"), "err");
+});
+
+test("orchStatusLabel:中文标签", () => {
+  assert.equal(orchStatusLabel("running"), "运行中");
+  assert.equal(orchStatusLabel("waking"), "唤醒中");
+  assert.equal(orchStatusLabel("sleeping"), "休眠");
+  assert.equal(orchStatusLabel("stopped"), "已停止");
+  assert.equal(orchStatusLabel("error"), "错误");
+});
+
+test("formatRelTime:相对时间分档", () => {
+  const now = Date.now();
+  const iso = (msAgo: number) => new Date(now - msAgo).toISOString();
+  assert.match(formatRelTime(iso(5_000)), /秒前/);
+  assert.match(formatRelTime(iso(120_000)), /分钟前/);
+  assert.match(formatRelTime(iso(7_200_000)), /小时前/);
+  assert.match(formatRelTime(iso(172_800_000)), /天前/);
+  assert.equal(formatRelTime(null), "—");
+});
+
+test("formatIdle:闲置时长分档", () => {
+  assert.equal(formatIdle(null), "—");
+  assert.equal(formatIdle(30), "30 秒");
+  assert.equal(formatIdle(300), "5 分钟");
+  assert.equal(formatIdle(7200), "2 小时");
+  assert.equal(formatIdle(172800), "2 天");
+});
+
+test("truncateError:截断与完整", () => {
+  const long = "a".repeat(100);
+  assert.equal(truncateError(long).length, 65);
+  assert.ok(truncateError(long).endsWith("…"));
+  assert.equal(truncateError("短错误"), "短错误");
+});
+
+test("orchSummary:running/waking/total 计数", () => {
+  const payload = makeOrchPayload();
+  const s = orchSummary(payload.services);
+  assert.equal(s.running, 1);
+  assert.equal(s.waking, 1);
+  assert.equal(s.total, 4);
+});
+
+/* ── ⑦b OrchPanel SSR 渲染 ── */
+test("OrchPanel:初始渲染骨架屏 + 汇总占位", () => {
+  const html = renderToStaticMarkup(h(OrchPanel, { isAdmin: true }));
+  assert.match(html, /编排服务加载中/);
+  assert.match(html, /ui-skeleton-pulse/);
+  assert.match(html, /obs-orch-summary/);
+});
+
+test("OrchPanel:非 admin 渲染唤醒权限提示", () => {
+  const html = renderToStaticMarkup(h(OrchPanel, { isAdmin: false }));
+  // SSR 时 services 为 null,先断言骨架;权限提示在数据加载后出现,源码断言覆盖
+  assert.match(html, /编排服务加载中/);
+  const src = readSrc("components/observability/OrchPanel.tsx");
+  assert.match(src, /唤醒需管理员/);
+  assert.match(src, /lock/);
+});
+
+/* ── ⑦c OrchPanel 源码断言 ── */
+test("OrchPanel:轮询 12s + 手动唤醒 + 空态/错误/加载三态", () => {
+  const src = readSrc("components/observability/OrchPanel.tsx");
+  assert.match(src, /12_000/, "轮询周期与观测面板一致");
+  assert.match(src, /fetchOrchServices/, "GET 数据");
+  assert.match(src, /wakeOrchService/, "POST 唤醒");
+  assert.match(src, /<Empty/, "空态组件");
+  assert.match(src, /<ErrorBar/, "错误条");
+  assert.match(src, /Skeleton/, "骨架屏");
+  assert.match(src, /aria-label="编排状态"/, "语义标签");
+});
+
+/* ── ⑦d ObservabilityView 接入源码断言 ── */
+test("ObservabilityView:编排状态折叠区接入", () => {
+  const src = readSrc("components/observability/ObservabilityView.tsx");
+  assert.match(src, /OrchPanel/, "引入编排面板");
+  assert.match(src, /obs-orch-details/, "折叠区 class");
+  assert.match(src, /<details[^>]*open>/, "默认展开");
+  assert.match(src, /编排状态/, "标题");
+});
+
+/* ── ⑦e api.ts 契约:orch 端点 ── */
+test("api.ts:fetchOrchServices / wakeOrchService 路径与鉴权", () => {
+  const src = readSrc("lib/api.ts");
+  assert.match(src, /export async function fetchOrchServices/);
+  assert.match(src, /apiFetch\(`\/api\/orch\/services`, \{/);
+  assert.match(src, /export async function wakeOrchService/);
+  assert.match(src, /apiFetch\(`\/api\/orch\/services\/\$\{encodeURIComponent\(name\)\}\/wake`, \{/);
+  assert.match(src, /method: "POST"/);
+  assert.match(src, /export interface OrchService/);
+  assert.match(src, /systemd_unit: string;/);
+});
+
+/* ── ⑦f observability.css 样式断言 ── */
+test("observability.css:obs-orch-* 前缀 + 状态色 token + 零 hex", () => {
+  const src = readSrc("app/styles/observability.css");
+  assert.match(src, /\.obs-orch-card/);
+  assert.match(src, /\.obs-orch-summary/);
+  assert.match(src, /\.obs-orch-details/);
+  assert.match(src, /var\(--ok\)/, "running 绿走 token");
+  assert.match(src, /var\(--warn\)/, "waking 黄走 token");
+  assert.match(src, /var\(--err\)/, "error 红走 token");
+  assert.match(src, /var\(--text-muted\)/, "sleeping/stopped 灰走 token");
+  assert.doesNotMatch(src, /#[0-9a-fA-F]{3,8}\b/, "零 hex");
+  assert.doesNotMatch(src, /rgba?\(\d/, "零 rgba 字面量");
+  assert.match(src, /prefers-reduced-motion/, "reduced-motion 降级");
+});
+
+/* ── ⑦g mock 替身形状 ── */
+test("mocks/studioApi:makeOrchPayload 四服务形状完整", async () => {
+  const payload = await orchImpl.fetchOrchServices();
+  assert.equal(payload.services.length, 4);
+  const names = payload.services.map((s) => s.name).sort();
+  assert.deepEqual(names, ["hy3dtex", "i2l", "lipsync", "trainer"]);
+  const lipsync = payload.services.find((s) => s.name === "lipsync");
+  assert.equal(lipsync?.status, "error");
+  assert.ok(lipsync?.last_error);
+  const woken = await orchImpl.wakeOrchService("i2l");
+  assert.equal(woken.status, "running");
+  assert.equal(woken.name, "i2l");
 });

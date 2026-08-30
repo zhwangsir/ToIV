@@ -2953,6 +2953,57 @@ export async function fetchFleetDevice(
 }
 
 // ===========================================================================
+// 冷层服务编排(orch)—— GET /api/orch/services + POST /api/orch/services/{name}/wake
+// ===========================================================================
+
+/** 冷层服务状态机状态(与后端 service_orchestrator.STATES 一致)。 */
+export type OrchServiceStatus = "running" | "waking" | "sleeping" | "stopped" | "error";
+
+export interface OrchService {
+  name: string;
+  systemd_unit: string;
+  host: string;
+  port: number;
+  health_path: string;
+  tier: string;
+  safe_idle: boolean;
+  idle_timeout_sec: number;
+  status: OrchServiceStatus;
+  /** 距上次请求的秒数;从未打点为 null */
+  idle_sec: number | null;
+  last_request_at: string | null;
+  wake_count: number;
+  stop_count: number;
+  last_error: string;
+  status_changed_at: string;
+}
+
+export interface OrchServicesPayload {
+  generated_at: string;
+  services: OrchService[];
+}
+
+/** 冷层服务清单(仅管理员)。 */
+export async function fetchOrchServices(signal?: AbortSignal): Promise<OrchServicesPayload> {
+  const res = await apiFetch(`/api/orch/services`, {
+    headers: authHeaders(),
+    signal,
+  });
+  if (!res.ok) await raiseApiError(res, "加载编排服务失败");
+  return res.json();
+}
+
+/** 手动唤醒冷服务(登录用户即可):sleeping/stopped/error → waking → running。 */
+export async function wakeOrchService(name: string): Promise<OrchService> {
+  const res = await apiFetch(`/api/orch/services/${encodeURIComponent(name)}/wake`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!res.ok) await raiseApiError(res, "唤醒服务失败");
+  return res.json();
+}
+
+// ===========================================================================
 // LoRA 训练(D 期)—— 上传数据集 → Florence2 打标 → AI-Toolkit 训练 → 注册
 // ===========================================================================
 

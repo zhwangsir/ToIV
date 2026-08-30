@@ -802,3 +802,79 @@ export const lookupJob = async (_promptId: string): Promise<JobItem | null> => n
 export const TOKEN_KEY = "toiv_token";
 /** 测试态默认未登录:智能导入按钮门控行为由源码断言覆盖。 */
 export const getToken = (): string | null => null;
+
+// ===========================================================================
+// 冷层服务编排(OrchPanel 经 loader 映射到这里)
+// ===========================================================================
+import type { OrchService, OrchServicesPayload } from "../../lib/api";
+
+export function makeOrchService(over: Partial<OrchService> = {}): OrchService {
+  return {
+    name: "i2l",
+    systemd_unit: "toiv-i2l.service",
+    host: "192.168.71.127",
+    port: 9101,
+    health_path: "/health",
+    tier: "cold",
+    safe_idle: true,
+    idle_timeout_sec: 600,
+    status: "sleeping",
+    idle_sec: 320,
+    last_request_at: "2026-08-30T08:55:00+00:00",
+    wake_count: 3,
+    stop_count: 2,
+    last_error: "",
+    status_changed_at: "2026-08-30T08:50:00+00:00",
+    ...over,
+  };
+}
+
+export function makeOrchPayload(): OrchServicesPayload {
+  return {
+    generated_at: "2026-08-30T09:00:00+00:00",
+    services: [
+      makeOrchService(),
+      makeOrchService({
+        name: "trainer",
+        systemd_unit: "toiv-trainer.service",
+        status: "running",
+        idle_sec: null,
+        last_request_at: "2026-08-30T08:58:00+00:00",
+        wake_count: 1,
+        stop_count: 0,
+      }),
+      makeOrchService({
+        name: "lipsync",
+        systemd_unit: "toiv-lipsync.service",
+        status: "error",
+        last_error: "systemctl start 返回 rc=1:Job failed",
+        last_request_at: null,
+        idle_sec: null,
+      }),
+      makeOrchService({
+        name: "hy3dtex",
+        systemd_unit: "toiv-hy3dtex.service",
+        status: "waking",
+        idle_sec: null,
+        last_request_at: "2026-08-30T08:59:30+00:00",
+        wake_count: 2,
+        stop_count: 1,
+      }),
+    ],
+  };
+}
+
+export const orchCalls = { fetchOrchServices: 0, wakeOrchService: 0 };
+export const orchImpl = {
+  fetchOrchServices: async (): Promise<OrchServicesPayload> => makeOrchPayload(),
+  wakeOrchService: async (name: string): Promise<OrchService> =>
+    makeOrchService({ name, status: "running" }),
+};
+export const fetchOrchServices = (_signal?: AbortSignal): Promise<OrchServicesPayload> => {
+  orchCalls.fetchOrchServices += 1;
+  return orchImpl.fetchOrchServices();
+};
+export const wakeOrchService = (name: string): Promise<OrchService> => {
+  orchCalls.wakeOrchService += 1;
+  return orchImpl.wakeOrchService(name);
+};

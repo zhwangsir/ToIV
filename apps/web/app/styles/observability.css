@@ -1,0 +1,228 @@
+/* ════════════════════════════════════════════════════════════════════
+   编排状态区(OrchPanel)样式
+   - 前缀 obs-orch-*;状态色走 token(--ok/--warn/--err/--text-muted)
+   - 卡片网格 / 汇总条 / 徽标 / 错误截断 / 唤醒按钮 / 折叠区箭头
+   - 遵守 prefers-reduced-motion;零 hex/rgb 字面量
+   ════════════════════════════════════════════════════════════════════ */
+
+.obs-orch {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* ── 汇总条 ── */
+.obs-orch-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-panel);
+  font-size: var(--text-12);
+  color: var(--text-muted);
+}
+
+.obs-orch-summary-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.obs-orch-summary-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.obs-orch-summary-dot.is-ok { background: var(--ok); }
+.obs-orch-summary-dot.is-warn { background: var(--warn); }
+.obs-orch-summary-dot.is-muted { background: var(--text-muted); }
+
+/* ── 卡片网格 ── */
+.obs-orch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-3);
+}
+
+.obs-orch-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-panel);
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+
+.obs-orch-card:hover {
+  border-color: color-mix(in oklab, var(--accent) 35%, transparent);
+}
+
+.obs-orch-card--running { border-left: 3px solid var(--ok); }
+.obs-orch-card--waking { border-left: 3px solid var(--warn); }
+.obs-orch-card--error { border-left: 3px solid var(--err); }
+.obs-orch-card--sleeping,
+.obs-orch-card--stopped { border-left: 3px solid var(--text-muted); }
+
+.obs-orch-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.obs-orch-name {
+  margin: 0;
+  font-size: var(--text-14);
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.obs-orch-unit {
+  margin: 0;
+  font-size: var(--text-11);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.obs-orch-meta {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.obs-orch-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.obs-orch-meta-item dt {
+  font-size: var(--text-11);
+  color: var(--text-muted);
+}
+
+.obs-orch-meta-item dd {
+  margin: 0;
+  font-size: var(--text-12);
+  color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.obs-orch-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  background: var(--err-soft);
+  border-radius: var(--radius-control);
+  font-size: var(--text-11);
+  color: var(--err);
+  overflow: hidden;
+}
+
+.obs-orch-error svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.obs-orch-error span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.obs-orch-actions {
+  margin-top: auto;
+  padding-top: var(--space-2);
+}
+
+.obs-orch-perm-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-11);
+  color: var(--text-muted);
+}
+
+/* ── 折叠区(summary) ── */
+.obs-orch-details {
+  display: block;
+}
+
+.obs-orch-details[open] > .obs-orch-summary-toggle {
+  margin-bottom: var(--space-3);
+}
+
+.obs-orch-summary-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  list-style: none;
+  padding: var(--space-3);
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-panel);
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+
+.obs-orch-summary-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.obs-orch-summary-toggle:hover {
+  border-color: color-mix(in oklab, var(--accent) 35%, transparent);
+}
+
+.obs-orch-summary-arrow {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid var(--text-muted);
+  border-bottom: 2px solid var(--text-muted);
+  transform: rotate(45deg);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.obs-orch-details:not([open]) .obs-orch-summary-arrow {
+  transform: rotate(-45deg);
+}
+
+/* ── 骨架/响应式 ── */
+.obs-orch-skel {
+  border-radius: var(--radius-panel);
+}
+
+@media (max-width: 640px) {
+  .obs-orch-grid {
+    grid-template-columns: 1fr;
+  }
+  .obs-orch-summary {
+    gap: var(--space-3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .obs-orch-card,
+  .obs-orch-summary-toggle,
+  .obs-orch-summary-arrow {
+    transition: none !important;
+  }
+}

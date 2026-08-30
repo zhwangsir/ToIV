@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { OrchPanel } from "./OrchPanel";
 import {
   fetchFleet,
   fetchFleetDevice,
@@ -701,6 +702,13 @@ export function ObservabilityView() {
               ))}
             </div>
           </section>
+          <details className="obs-orch-details" open>
+            <summary className="obs-card obs-orch-summary-toggle">
+              <span className="obs-card-title">编排状态</span>
+              <span className="obs-orch-summary-arrow" aria-hidden="true" />
+            </summary>
+            <OrchPanel />
+          </details>
         </div>
       ) : null}
       <ObsStyles />
