@@ -82,15 +82,15 @@ type View =
   | "backlot"
   | "models"
   | "resources"
-  | "skills"
-  | "apps"
+  | "market"
   | "settings"
   | "drama"
   | "observability"
   | "admin";
 
 /** M1 三大板块拆分:generate 退役拆为 图片/视频/音频,旧链接按 kind 重定向(不 404)。
- *  M4 studio 替代短剧/漫剧:旧 key 一律重定向到 studio。 */
+ *  M4 studio 替代短剧/漫剧:旧 key 一律重定向到 studio。
+ *  2026-08-31 精简:Skill 市场/应用市场合并为「市场」(market),旧 key 重定向。 */
 const LEGACY_VIEW_REDIRECTS: Record<string, View> = {
   create: "image",
   generate: "image",
@@ -99,6 +99,8 @@ const LEGACY_VIEW_REDIRECTS: Record<string, View> = {
   manju: "studio",
   "video-edit": "videoEdit",
   "image-edit": "imageEdit",
+  skills: "market",
+  apps: "market",
 };
 
 /** 解析 ?view= 参数:旧 key 走重定向,非法 key 返回 null(落默认视图)。 */
@@ -131,8 +133,7 @@ const viewImporters = {
   backlot: () => import("@/components/backlot/BacklotView"),
   models: () => import("@/components/models/ModelsView"),
   resources: () => import("@/components/resources/ResourcesView"),
-  skills: () => import("@/components/skills/SkillMarketView"),
-  apps: () => import("@/components/apps/AppMarketView"),
+  market: () => import("@/components/market/MarketView"),
   settings: () => import("@/components/settings/SettingsView"),
   drama: () => import("@/components/drama/DramaView"),
   observability: () => import("@/components/observability/ObservabilityView"),
@@ -194,11 +195,8 @@ const ModelsView = lazy(() =>
 const ResourcesView = lazy(() =>
   viewImporters.resources().then((m) => ({ default: m.ResourcesView })),
 );
-const SkillMarketView = lazy(() =>
-  viewImporters.skills().then((m) => ({ default: m.SkillMarketView })),
-);
-const AppMarketView = lazy(() =>
-  viewImporters.apps().then((m) => ({ default: m.AppMarketView })),
+const MarketView = lazy(() =>
+  viewImporters.market().then((m) => ({ default: m.MarketView })),
 );
 const SettingsView = lazy(() =>
   viewImporters.settings().then((m) => ({ default: m.SettingsView })),
@@ -223,7 +221,7 @@ function ViewFallback({ label }: { label: string }) {
 }
 
 // 旧视图 key(models/train/backlot/admin)保留兼容,旧链接不 404;
-// create/generate/ltxstudio/dramaStudio/manju 不在此列——经 LEGACY_VIEW_REDIRECTS 重定向;
+// create/generate/ltxstudio/dramaStudio/manju/skills/apps 不在此列——经 LEGACY_VIEW_REDIRECTS 重定向;
 // assistant 已底层化(2026-08-17):移出 VALID_VIEWS,URL ?view=assistant 在挂载 effect 中重定向 fusion
 const VALID_VIEWS = new Set<View>([
   "image",
@@ -243,8 +241,7 @@ const VALID_VIEWS = new Set<View>([
   "backlot",
   "models",
   "resources",
-  "skills",
-  "apps",
+  "market",
   "settings",
   "drama",
   "observability",
@@ -270,8 +267,7 @@ const VIEW_META: Record<View, { label: string }> = {
   backlot:    { label: "看板" },
   models:     { label: "模型" },
   resources:  { label: "资源" },
-  skills:     { label: "Skill 市场" },
-  apps:       { label: "应用市场" },
+  market:     { label: "市场" },
   settings:   { label: "设置" },
   drama:     { label: "短剧" },
   observability: { label: "观测" },
@@ -280,11 +276,11 @@ const VIEW_META: Record<View, { label: string }> = {
 
 /** M3 新 IA 一级入口:三大板块 + 融合聚合页;短剧/数字人/译制移入融合,视图保留(旧链接不 404)。
  *  2026-08-17 底层化:AI 助手移出导航,由 Shift+Enter 全局浮层(AssistantOverlay)唤起。
- *  2026-08-18:Agent 团队入口改为 Skill 市场(/agent-runs 路由保留,直达 URL 仍可访问)。
+ *  2026-08-31 精简:「Skill 市场」+「应用市场」两个同构入口合并为单一「市场」(market,
+ *  页内 at-seg 段控切 应用/技能,旧 key 经 LEGACY_VIEW_REDIRECTS 跳转)。
  *  桌面端由左上角悬停展开导航(CornerNav)承载,窄屏由底部导航承载。 */
 const ISLAND_ITEMS: CornerNavItem[] = [
-  { key: "skills", label: "Skill 市场", icon: "package" },
-  { key: "apps", label: "应用市场", icon: "store" },
+  { key: "market", label: "市场", icon: "store" },
   { key: "image", label: "图片", icon: "image" },
   { key: "video", label: "视频", icon: "video" },
   { key: "audio", label: "音频", icon: "audio" },
@@ -305,9 +301,8 @@ const BOTTOM_NAV_ITEMS: BottomNavItem[] = [
 ];
 
 const BOTTOM_NAV_MORE_ITEMS: BottomNavItem[] = [
-  { key: "skills", label: "Skill 市场", icon: "package" },
-  { key: "apps", label: "应用市场", icon: "store" },
-  { key: "audio", label: "音频", icon: "audio" },
+  { key: "market", label: "市场", icon: "store" },
+  // 2026-08-31 精简:audio 已由底部主入口承载,「更多」抽屉不再重复(双重入口去重)
   { key: "imageEdit", label: "图片编辑", icon: "wand" },
   { key: "videoEdit", label: "视频剪辑", icon: "scissors" },
   { key: "canvas", label: "画布", icon: "workflow" },
@@ -608,7 +603,7 @@ function HomeContent() {
     [router],
   );
 
-  // 2026-08-18:导航位改为 Skill 市场(SPA 视图);/agent-runs 路由保留直达
+  // 2026-08-31 精简:市场入口合并为 market 聚合视图;/agent-runs 路由保留直达
   // 2026-08-30 批 D:动态分镜「前往工作室」携带的待开项目 id;
   // 导航/融合直进 studio 时复位(null = 落项目列表),避免陈旧 id 误开旧项目
   const [studioInitialProjectId, setStudioInitialProjectId] = useState<string | null>(null);
@@ -781,9 +776,8 @@ function HomeContent() {
                 <BacklotView onCreateProject={() => handleNavSelect("studio")} />
               )}
               {view === "models" && <ModelsView />}
-              {view === "resources" && <ResourcesView showAdmin={isAdmin} />}
-              {view === "skills" && <SkillMarketView />}
-              {view === "apps" && <AppMarketView />}
+              {view === "resources" && <ResourcesView />}
+              {view === "market" && <MarketView />}
               {view === "settings" && <SettingsView account={account} onLogout={onLogout} />}
               {view === "admin" &&
                 // 2026-08-30 批 D:admin 门控对齐观测面板(:754 isAdmin 渲染门控);

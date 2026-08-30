@@ -34,8 +34,11 @@ import {
   OrchPanel,
   orchStatusTone,
   orchStatusLabel,
+  orchStatusColor,
+  formatAbsTime,
   formatRelTime,
   formatIdle,
+  isReclaimSoon,
   truncateError,
   orchSummary,
 } from "../components/observability/OrchPanel";
@@ -393,4 +396,97 @@ test("mocks/studioApi:makeOrchPayload 四服务形状完整", async () => {
   const woken = await orchImpl.wakeOrchService("i2l");
   assert.equal(woken.status, "running");
   assert.equal(woken.name, "i2l");
+});
+
+/* ── ⑦h 状态徽标配色 token 对齐(UI_STANDARD §10) ── */
+test("orchStatusColor:running=--ok / waking=--warn / sleeping=--text-muted / stopped=--text-3 / error=--err", () => {
+  assert.equal(orchStatusColor("running"), "var(--ok)");
+  assert.equal(orchStatusColor("waking"), "var(--warn)");
+  assert.equal(orchStatusColor("sleeping"), "var(--text-muted)");
+  assert.equal(orchStatusColor("stopped"), "var(--text-3)");
+  assert.equal(orchStatusColor("error"), "var(--err)");
+  // 消费端:stopped 与 sleeping 徽标必须可区分
+  assert.notEqual(orchStatusColor("stopped"), orchStatusColor("sleeping"));
+});
+
+test("formatAbsTime:null/非法占位,合法 ISO 本地化无 AM/PM", () => {
+  assert.equal(formatAbsTime(null), "—");
+  assert.equal(formatAbsTime("not-a-date"), "—");
+  const s = formatAbsTime("2026-08-30T08:55:00+00:00");
+  assert.ok(s.length > 0 && s !== "—");
+  assert.doesNotMatch(s, /AM|PM/i, "hour12:false 24 小时制");
+});
+
+/* ── ⑦i 即将回收判定 ── */
+test("isReclaimSoon:running + safe_idle + 闲置超阈值才高亮", () => {
+  const base = makeOrchService({
+    status: "running",
+    safe_idle: true,
+    idle_timeout_sec: 900,
+    idle_sec: 901,
+  });
+  assert.equal(isReclaimSoon(base), true, "超阈值 1s 即高亮");
+  assert.equal(isReclaimSoon({ ...base, idle_sec: 899 }), false, "未达阈值不高亮");
+  assert.equal(isReclaimSoon({ ...base, idle_sec: null }), false, "从未打点不高亮");
+  assert.equal(isReclaimSoon({ ...base, status: "sleeping" }), false, "非 running 不高亮");
+  assert.equal(
+    isReclaimSoon({ ...base, safe_idle: false }),
+    false,
+    "safe_idle=false 后端绝不回收,不误报",
+  );
+});
+
+/* ── ⑦j OrchPanel 源码:二次确认 / 脉动 / 回收高亮 / tooltip ── */
+test("OrchPanel:wake 二次确认 Modal + waking 禁用 + 回收高亮 + 最近唤醒/停止 tooltip", () => {
+  const src = readSrc("components/observability/OrchPanel.tsx");
+  // 二次确认:点按钮只开弹窗,确认按钮才调 onWake
+  assert.match(src, /from "@\/components\/ui\/Modal"/, "引入 ui/Modal");
+  assert.match(src, /确认唤醒/, "确认按钮文案");
+  assert.match(src, /onClick=\{\(\) => setConfirming\(true\)\}/, "主按钮仅开确认弹窗");
+  assert.match(src, /onClick=\{confirmWake\}/, "确认按钮才真正唤醒");
+  assert.match(src, /preventClose=\{waking\}/, "唤醒途中禁关弹窗");
+  // waking 进行中禁用(本卡 waking 本地态 + 服务端 waking 态)
+  assert.match(src, /disabled=\{!canWake \|\| waking \|\| service\.status === "waking"\}/);
+  // 脉动仅 waking(running 稳定态不脉动)
+  assert.match(src, /dotPulse=\{service\.status === "waking"\}/);
+  // 回收高亮行 + 提示文案
+  assert.match(src, /obs-orch-card--reclaim/, "回收高亮 class");
+  assert.match(src, /即将回收休眠/, "回收提示文案");
+  assert.match(src, /isReclaimSoon\(service\)/, "回收判定消费");
+  // 最近唤醒/停止时间 tooltip(徽标 + 启停计数)
+  assert.match(src, /最近唤醒\/停止:/, "tooltip 文案");
+  assert.match(src, /formatAbsTime\(service\.status_changed_at\)/, "tooltip 数据源");
+  // 零 hex(§10)
+  assert.doesNotMatch(src, /#[0-9a-fA-F]{6}\b/, "OrchPanel 零硬编码 hex");
+});
+
+/* ── ⑦k 样式:回收高亮 + --text-3 token + 伪 token 清零 ── */
+test("observability.css/globals.css:回收高亮 + stopped=--text-3 + --text-1 伪 token 清零", () => {
+  const css = readSrc("app/styles/observability.css");
+  assert.match(css, /\.obs-orch-card--reclaim/, "回收高亮样式");
+  assert.match(css, /\.obs-orch-reclaim/, "回收提示行样式");
+  assert.match(css, /\.obs-orch-card--stopped \{ border-left: 3px solid var\(--text-3\); \}/);
+  assert.match(css, /\.obs-orch-card--sleeping \{ border-left: 3px solid var\(--text-muted\); \}/);
+  assert.match(css, /var\(--warn-soft\)/, "回收高亮走 warn-soft token");
+  assert.doesNotMatch(css, /var\(--text-1\)/, "失效伪 token --text-1 应清除");
+  assert.doesNotMatch(css, /#[0-9a-fA-F]{3,8}\b/, "零 hex 保持");
+  // globals.css 新增 --text-3 token(带注释理由)
+  const globals = readSrc("app/globals.css");
+  assert.match(globals, /--text-3:\s*var\(--text-secondary\)/, "--text-3 token 存在");
+});
+
+/* ── ⑦l ObservabilityView:isAdmin 接线 + 空态 + 移动端 ── */
+test("ObservabilityView:OrchPanel isAdmin 接线 + GPU/舰队空态 + 移动端断点补强", () => {
+  const src = readSrc("components/observability/ObservabilityView.tsx");
+  // 页面整体 admin 门控,编排面板唤醒按钮应直接放行(不再误显示「唤醒需管理员」)
+  assert.match(src, /<OrchPanel isAdmin \/>/, "OrchPanel 接 isAdmin");
+  // §10 空态:GPU / 舰队
+  assert.match(src, /data\.gpus\.length === 0/, "GPU 空态分支");
+  assert.match(src, /暂无 GPU 数据/, "GPU 空态文案");
+  assert.match(src, /fleet\.devices\.length === 0/, "舰队空态分支");
+  assert.match(src, /暂无设备/, "舰队空态文案");
+  // §10 移动端:服务清单表横向滚动 + 返回按钮 44px 触达
+  assert.match(src, /obs-svc-wrap/, "表格滚动容器");
+  assert.match(src, /min-height: 44px/, "返回按钮触达 ≥44px");
+  assert.match(src, /@media \(max-width: 860px\)/, "860px 断点保留");
 });

@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/Button";
 import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon } from "@/components/ui/Icon";
+import { Modal } from "@/components/ui/Modal";
 import { Skeleton } from "@/components/ui/Skeleton";
 
 /** 与观测面板同一轮询节奏(12s)。 */
@@ -54,6 +55,44 @@ export function orchStatusLabel(status: OrchService["status"]): string {
     default:
       return status;
   }
+}
+
+/** 状态 → 语义色 token(UI_STANDARD §10:running=--ok / waking=--warn /
+ * sleeping=--text-muted / stopped=--text-3 / error=--err)。 */
+export function orchStatusColor(status: OrchService["status"]): string {
+  switch (status) {
+    case "running":
+      return "var(--ok)";
+    case "waking":
+      return "var(--warn)";
+    case "sleeping":
+      return "var(--text-muted)";
+    case "stopped":
+      return "var(--text-3)";
+    case "error":
+      return "var(--err)";
+    default:
+      return "var(--text-muted)";
+  }
+}
+
+/** 绝对时间 tooltip:「2026-08-30 17:55:00」;null/非法 → 「—」。 */
+export function formatAbsTime(iso: string | null): string {
+  if (!iso) return "—";
+  const t = new Date(iso);
+  if (Number.isNaN(t.getTime())) return "—";
+  return t.toLocaleString("zh-CN", { hour12: false });
+}
+
+/** 即将回收:running 且服务声明 safe_idle 且闲置时长已达回收阈值。
+ * safe_idle=false 的服务后端绝不自动回收,不高亮(避免误报)。 */
+export function isReclaimSoon(s: OrchService): boolean {
+  return (
+    s.status === "running" &&
+    s.safe_idle &&
+    s.idle_sec !== null &&
+    s.idle_sec >= s.idle_timeout_sec
+  );
 }
 
 /** 相对时间:「2 分钟前」「1 小时前」;null → 「—」。 */
@@ -112,25 +151,36 @@ function OrchCard({
   onWake: (name: string) => Promise<void>;
 }) {
   const [waking, setWaking] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const tone = orchStatusTone(service.status);
+  const statusColor = orchStatusColor(service.status);
   const canWake = isAdmin && (service.status === "sleeping" || service.status === "stopped" || service.status === "error");
+  const reclaim = isReclaimSoon(service);
+  const lastChange = formatAbsTime(service.status_changed_at);
 
-  const handleWake = async () => {
+  const confirmWake = async () => {
     setWaking(true);
     try {
       await onWake(service.name);
     } finally {
       setWaking(false);
+      setConfirming(false);
     }
   };
 
   return (
-    <article className={`obs-orch-card obs-orch-card--${service.status}`} aria-label={`${service.name} 服务卡片`}>
+    <article
+      className={`obs-orch-card obs-orch-card--${service.status}${reclaim ? " obs-orch-card--reclaim" : ""}`}
+      aria-label={`${service.name} 服务卡片`}
+    >
       <header className="obs-orch-card-head">
         <Badge
           tone={tone}
           dot
-          dotPulse={service.status === "running" || service.status === "waking"}
+          dotColor={statusColor}
+          dotPulse={service.status === "waking"}
+          title={`${orchStatusLabel(service.status)} · 最近唤醒/停止:${lastChange}`}
+          style={tone === "neutral" ? { color: statusColor } : undefined}
           className={`obs-orch-badge obs-orch-badge--${service.status}`}
         >
           {orchStatusLabel(service.status)}
@@ -143,19 +193,29 @@ function OrchCard({
       <dl className="obs-orch-meta">
         <div className="obs-orch-meta-item">
           <dt>最近请求</dt>
-          <dd>{formatRelTime(service.last_request_at)}</dd>
+          <dd title={service.last_request_at ? `最近请求:${formatAbsTime(service.last_request_at)}` : undefined}>
+            {formatRelTime(service.last_request_at)}
+          </dd>
         </div>
         <div className="obs-orch-meta-item">
           <dt>闲置</dt>
-          <dd>{formatIdle(service.idle_sec)}</dd>
+          <dd title={`回收阈值:${formatIdle(service.idle_timeout_sec)}`}>
+            {formatIdle(service.idle_sec)}
+          </dd>
         </div>
         <div className="obs-orch-meta-item">
           <dt>启 / 停</dt>
-          <dd>
+          <dd title={`最近唤醒/停止:${lastChange}`}>
             {service.wake_count} / {service.stop_count}
           </dd>
         </div>
       </dl>
+      {reclaim && (
+        <p className="obs-orch-reclaim" role="note">
+          <Icon name="clock" size={14} aria-hidden="true" />
+          <span>闲置超阈值,即将回收休眠</span>
+        </p>
+      )}
       {service.last_error && (
         <p className="obs-orch-error" title={service.last_error}>
           <Icon name="alert" size={14} aria-hidden="true" />
@@ -167,10 +227,10 @@ function OrchCard({
           <Button
             size="sm"
             variant={canWake ? "primary" : "ghost"}
-            disabled={!canWake || waking}
+            disabled={!canWake || waking || service.status === "waking"}
             loading={waking}
             icon={<Icon name="zap" size={14} />}
-            onClick={handleWake}
+            onClick={() => setConfirming(true)}
             aria-label={`唤醒 ${service.name}`}
           >
             手动唤醒
@@ -182,6 +242,34 @@ function OrchCard({
           </span>
         )}
       </footer>
+      {/* 二次确认防误触:唤醒会真实拉起 systemd 服务(占显存) */}
+      <Modal
+        open={confirming}
+        onClose={() => setConfirming(false)}
+        title={`确认唤醒 ${service.name}?`}
+        preventClose={waking}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setConfirming(false)} disabled={waking}>
+              取消
+            </Button>
+            <Button
+              variant="primary"
+              loading={waking}
+              icon={<Icon name="zap" size={14} />}
+              onClick={confirmWake}
+              aria-label={`确认唤醒 ${service.name}`}
+            >
+              确认唤醒
+            </Button>
+          </>
+        }
+      >
+        <p className="obs-orch-wake-confirm">
+          将在 {service.host} 上执行 systemctl start {service.systemd_unit}
+          ,首次就绪约需数秒至两分钟,期间服务显示「唤醒中」。
+        </p>
+      </Modal>
     </article>
   );
 }

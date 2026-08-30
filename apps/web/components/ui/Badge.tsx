@@ -10,6 +10,8 @@ interface BadgeProps {
   dot?: boolean;
   /** 状态点脉冲动画(连接中/排队中等过渡态) */
   dotPulse?: boolean;
+  /** 状态点颜色覆盖(默认取 tone 色;用于同 tone 下区分语义,如 sleeping/stopped) */
+  dotColor?: string;
   title?: string;
   style?: CSSProperties;
   children?: ReactNode;
@@ -35,7 +37,7 @@ const TONE_BG: Record<BadgeTone, string> = {
 };
 
 /** 状态徽章:状态点 + 文案,radius-badge(6px),仅状态用语使用彩色。 */
-export function Badge({ tone = "neutral", dot = true, dotPulse = false, title, style, children, className }: BadgeProps) {
+export function Badge({ tone = "neutral", dot = true, dotPulse = false, dotColor, title, style, children, className }: BadgeProps) {
   return (
     <span
       className={className}
@@ -62,7 +64,7 @@ export function Badge({ tone = "neutral", dot = true, dotPulse = false, title, s
             width: 6,
             height: 6,
             borderRadius: "50%",
-            background: TONE_COLOR[tone],
+            background: dotColor ?? TONE_COLOR[tone],
             flexShrink: 0,
             animation: dotPulse ? "badge-dot-pulse 1.2s ease-in-out infinite" : undefined,
           }}

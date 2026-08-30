@@ -46,6 +46,10 @@
   --text-primary: #17181A;
   --text-secondary: #54565C;
   --text-muted: #64666C;
+  /* --text-3(2026-08-31 新增):第三级文字,编排面板「已停止」徽标等弱化文本专用。
+     别名 secondary 而非更浅新值——更浅会跌破 AA 对比度门禁(themeContrast.test.ts);
+     各主题/暗色只覆盖 secondary,text-3 经 var 引用随主题解析,无需逐主题重复定义。 */
+  --text-3: var(--text-secondary);
 
   /* ── 强调色(T1 素白:近黑 CTA) ── */
   --accent: #17181A;

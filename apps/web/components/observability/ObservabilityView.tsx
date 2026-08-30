@@ -12,6 +12,7 @@ import {
   type FleetSummary,
   type ObservabilitySnapshot,
 } from "@/lib/api";
+import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -119,11 +120,15 @@ function FleetSection({
       <h2 className="obs-card-title">
         设备舰队({online}/{fleet.devices.length} 在线)
       </h2>
-      <div className="obs-fleet-grid">
-        {fleet.devices.map((d) => (
-          <FleetCard key={d.id} device={d} onSelect={onSelect} />
-        ))}
-      </div>
+      {fleet.devices.length === 0 ? (
+        <Empty icon="box" title="暂无设备" desc="舰队注册表为空,请检查 fleet 配置" />
+      ) : (
+        <div className="obs-fleet-grid">
+          {fleet.devices.map((d) => (
+            <FleetCard key={d.id} device={d} onSelect={onSelect} />
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -262,6 +267,7 @@ function ServiceTable({ detail }: { detail: FleetDeviceDetail }) {
       <h2 className="obs-card-title">
         服务清单({detail.services_up}/{detail.services_total} 正常)
       </h2>
+      <div className="obs-svc-wrap">
       <table className="obs-svc-table">
         <thead>
           <tr>
@@ -304,6 +310,7 @@ function ServiceTable({ detail }: { detail: FleetDeviceDetail }) {
           ))}
         </tbody>
       </table>
+      </div>
     </section>
   );
 }
@@ -692,22 +699,27 @@ export function ObservabilityView() {
           <HourlyCard data={data} />
           <section className="obs-card" aria-label="GPU 负载">
             <h2 className="obs-card-title">GPU 负载(VRAM)</h2>
-            <div className="obs-gpus">
-              {data.gpus.map((gpu) => (
-                <GpuCard
-                  key={gpu.id}
-                  gpu={gpu}
-                  history={data.series.vram_pct[gpu.id] ?? []}
-                />
-              ))}
-            </div>
+            {data.gpus.length === 0 ? (
+              <Empty icon="box" title="暂无 GPU 数据" desc="舰队节点未上报 GPU 指标" />
+            ) : (
+              <div className="obs-gpus">
+                {data.gpus.map((gpu) => (
+                  <GpuCard
+                    key={gpu.id}
+                    gpu={gpu}
+                    history={data.series.vram_pct[gpu.id] ?? []}
+                  />
+                ))}
+              </div>
+            )}
           </section>
           <details className="obs-orch-details" open>
             <summary className="obs-card obs-orch-summary-toggle">
               <span className="obs-card-title">编排状态</span>
               <span className="obs-orch-summary-arrow" aria-hidden="true" />
             </summary>
-            <OrchPanel />
+            {/* 本视图整体仅管理员可见(page.tsx 门控),唤醒按钮直接放行 */}
+            <OrchPanel isAdmin />
           </details>
         </div>
       ) : null}
@@ -975,6 +987,10 @@ function ObsStyles() {
           border-radius: var(--radius-md, 10px);
           background: var(--bg-surface-1);
           padding: 6px 12px;
+          /* §10 触达 ≥44px(移动端点按) */
+          min-height: 44px;
+          display: inline-flex;
+          align-items: center;
           font: inherit;
           font-size: 13px;
           color: inherit;
@@ -1001,8 +1017,13 @@ function ObsStyles() {
           color: var(--text-muted);
           font-variant-numeric: tabular-nums;
         }
+        /* 窄屏表格横向滚动,不挤压列 */
+        .obs-svc-wrap {
+          overflow-x: auto;
+        }
         .obs-svc-table {
           width: 100%;
+          min-width: 480px;
           border-collapse: collapse;
           font-size: 12px;
         }

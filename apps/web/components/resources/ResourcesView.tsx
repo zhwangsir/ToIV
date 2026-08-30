@@ -15,20 +15,12 @@ const TrainView = lazy(() =>
 const BacklotView = lazy(() =>
   import("@/components/backlot/BacklotView").then((m) => ({ default: m.BacklotView })),
 );
-const AdminView = lazy(() =>
-  import("@/components/admin/AdminView").then((m) => ({ default: m.AdminView })),
-);
 
-type ResourceTab = "models" | "train" | "backlot" | "admin";
-
-interface ResourcesViewProps {
-  /** 管理员可见「管理」tab */
-  showAdmin?: boolean;
-}
+type ResourceTab = "models" | "train" | "backlot";
 
 /**
- * 资源聚合页(W0):模型库 / 训练 / 看板 / 管理 四个二级 tab,
- * 直接嵌入既有视图。
+ * 资源聚合页(W0):模型库 / 训练 / 看板 三个二级 tab,直接嵌入既有视图。
+ * 2026-08-31 精简:「管理」tab 移除(管理面板已有管理员专属导航入口,双入口去重)。
  * Film Atelier(2026-08-15):
  * - 根容器接入 .view-shell 版心(原 scoped .resources-head  padding 因子组件边界失效,
  *   页头贴左缘 = P0-1;此处页头样式一律走 :global 修正);
@@ -36,14 +28,13 @@ interface ResourcesViewProps {
  * - P2-3 去双重容器:内嵌视图根 .single-view 的版心/左右内边距在本页失效,
  *   由 .view-shell 统一供节奏,不再包第二层容器。
  */
-export function ResourcesView({ showAdmin = false }: ResourcesViewProps) {
+export function ResourcesView() {
   const [tab, setTab] = useState<ResourceTab>("models");
 
   const items = [
     { key: "models", label: "模型库" },
     { key: "train", label: "训练" },
     { key: "backlot", label: "看板" },
-    ...(showAdmin ? [{ key: "admin", label: "管理" }] : []),
   ];
 
   return (
@@ -85,7 +76,6 @@ export function ResourcesView({ showAdmin = false }: ResourcesViewProps) {
             {tab === "models" && <ModelsView />}
             {tab === "train" && <TrainView />}
             {tab === "backlot" && <BacklotView />}
-            {tab === "admin" && showAdmin && <AdminView />}
           </Suspense>
         </ErrorBoundary>
       </div>

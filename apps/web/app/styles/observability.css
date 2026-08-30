@@ -68,8 +68,40 @@
 .obs-orch-card--running { border-left: 3px solid var(--ok); }
 .obs-orch-card--waking { border-left: 3px solid var(--warn); }
 .obs-orch-card--error { border-left: 3px solid var(--err); }
-.obs-orch-card--sleeping,
-.obs-orch-card--stopped { border-left: 3px solid var(--text-muted); }
+.obs-orch-card--sleeping { border-left: 3px solid var(--text-muted); }
+.obs-orch-card--stopped { border-left: 3px solid var(--text-3); }
+
+/* 闲置超阈值(running + safe_idle):整卡 warn 高亮,提示下一轮扫描将自动回收 */
+.obs-orch-card--reclaim {
+  border-color: var(--warn);
+  background: var(--warn-soft);
+}
+
+.obs-orch-reclaim {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  background: var(--warn-soft);
+  border: 1px solid var(--warn);
+  border-radius: var(--radius-control);
+  font-size: var(--text-11);
+  color: var(--warn);
+}
+
+.obs-orch-reclaim svg {
+  flex-shrink: 0;
+}
+
+/* 唤醒二次确认弹窗正文 */
+.obs-orch-wake-confirm {
+  margin: 0;
+  font-size: var(--text-12);
+  color: var(--text-secondary);
+  line-height: 1.6;
+  word-break: break-all;
+}
 
 .obs-orch-card-head {
   display: flex;
@@ -82,7 +114,7 @@
   margin: 0;
   font-size: var(--text-14);
   font-weight: 600;
-  color: var(--text-1);
+  color: var(--text-primary);
 }
 
 .obs-orch-unit {
@@ -117,7 +149,7 @@
 .obs-orch-meta-item dd {
   margin: 0;
   font-size: var(--text-12);
-  color: var(--text-1);
+  color: var(--text-primary);
   font-variant-numeric: tabular-nums;
   overflow: hidden;
   text-overflow: ellipsis;

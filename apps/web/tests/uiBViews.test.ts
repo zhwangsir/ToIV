@@ -2,7 +2,8 @@
  * UI-B 视图组件单测(node:test + react-dom/server 静态渲染):
  * ① ModelsView:响应式两档类名/媒体查询、ErrorBar/LoadingBlock 接入断言
  * ② Ripple 在 PromptBar(生成主按钮)与 GenerateView(参数 FAB)的包裹断言
- * ③ ResourcesView:ErrorBoundary 内层包裹(key=tab 自动复位)断言
+ * ③ ResourcesView:ErrorBoundary 内层包裹(key=tab 自动复位)断言;
+ *    2026-08-31 精简:管理 tab 移除(showAdmin/AdminView 残留清零)断言
  * ④ FusionView:bento 卡入场态(is-mounted/--delay)+ fusion.css focus-visible 断言
  * ⑤ LibraryView:空态结构类名 + library.css display/字重/scrim 色 token 收编断言
  * ⑥ stage.css:z-index 裸值清零(语义档)、display/字重/时长 token 收编断言
@@ -108,6 +109,17 @@ test("ResourcesView 内容区被 ErrorBoundary 包裹(key=tab 自动复位)", ()
   assert.ok(src.includes("import { ErrorBoundary }"), "ResourcesView 未导入 ErrorBoundary");
   assert.ok(src.includes("key={tab}"), "ErrorBoundary 未绑定 tab key(切换不重置)");
   assert.ok(src.includes("viewName"), "ErrorBoundary 未传 viewName");
+});
+
+test("ResourcesView 精简(2026-08-31):管理 tab 移除,无 showAdmin/AdminView 残留", () => {
+  const src = readSrc("components/resources/ResourcesView.tsx");
+  assert.ok(!src.includes("showAdmin"), "showAdmin prop 应移除(管理走独立导航入口)");
+  assert.ok(!src.includes("AdminView"), "AdminView 懒加载/渲染分支应移除");
+  assert.ok(!src.includes('"admin"'), "ResourceTab 不应再含 admin");
+  // page.tsx 侧同步:不再传 showAdmin
+  const page = readSrc("app/page.tsx");
+  assert.ok(page.includes("{view === \"resources\" && <ResourcesView />}"), "应裸挂 ResourcesView");
+  assert.ok(!page.includes("showAdmin"), "page.tsx 不应再传 showAdmin");
 });
 
 /* ── ④ FusionView 入场 + focus-visible ── */

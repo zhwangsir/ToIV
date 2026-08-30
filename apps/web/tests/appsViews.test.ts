@@ -2,7 +2,8 @@
  * 应用市场(M3)视图单测(node:test + react-dom/server 静态渲染 + 源码断言):
  * ① AppMarketView:加载态 grid 骨架渲染;三区/fork 门控/NSFW 过滤/三态接线源码断言
  * ② AppRunnerView:加载态 line 骨架渲染;ParamField 复用/trackJob/runApp/下载源码断言
- * ③ page.tsx 入口注册(importer/VALID_VIEWS/VIEW_META/灵动岛/BottomNav 更多/渲染分支)
+ * ③ page.tsx 入口注册(2026-08-31 精简:skills/apps 合并为 market 聚合视图——
+ *    importer/VALID_VIEWS/VIEW_META/渲染分支/旧 key 重定向/灵动岛/BottomNav 更多)
  * ④ Icon.tsx store 图标;apps.css token 纪律(零 hex、断点 -1 约定、触达 44px)
  */
 import assert from "node:assert/strict";
@@ -111,23 +112,59 @@ test("AppRunnerView 结果区:按 output_kind 渲染 + 下载按钮(源码)", ()
   assert.ok(src.includes("download"), "缺下载按钮");
 });
 
-/* ── ③ page.tsx 入口注册 ── */
+/* ── ③ page.tsx 入口注册(2026-08-31 精简:skills/apps 合并为 market) ── */
 
-test("page.tsx 注册 apps 视图:importer/VALID_VIEWS/VIEW_META/渲染分支", () => {
+test("page.tsx 注册 market 视图:importer/VALID_VIEWS/VIEW_META/渲染分支", () => {
   const src = readSrc("app/page.tsx");
   assert.ok(
-    src.includes('apps: () => import("@/components/apps/AppMarketView")'),
-    "viewImporters 缺 apps 懒加载",
+    src.includes('market: () => import("@/components/market/MarketView")'),
+    "viewImporters 缺 market 懒加载",
   );
-  assert.match(src, /"apps"/, "VALID_VIEWS / View 联合类型缺 apps");
-  assert.ok(src.includes('apps:       { label: "应用市场" }'), "VIEW_META 缺中文名");
-  assert.ok(src.includes('{view === "apps" && <AppMarketView />}'), "缺渲染分支");
+  assert.match(src, /\| "market"/, "View 联合类型缺 market");
+  assert.ok(src.includes('market:     { label: "市场" }'), "VIEW_META 缺中文名");
+  assert.ok(src.includes('{view === "market" && <MarketView />}'), "缺渲染分支");
 });
 
-test("page.tsx 导航入口:灵动岛 + BottomNav 更多均含应用市场(store 图标)", () => {
+test("page.tsx 旧 key 兼容:skills/apps 经 LEGACY_VIEW_REDIRECTS 跳 market(不 404)", () => {
   const src = readSrc("app/page.tsx");
-  const entries = src.match(/\{ key: "apps", label: "应用市场", icon: "store" \}/g) ?? [];
-  assert.equal(entries.length, 2, "灵动岛 ISLAND_ITEMS 与 BOTTOM_NAV_MORE_ITEMS 应各一条 apps 入口");
+  assert.match(src, /skills: "market",/, "LEGACY_VIEW_REDIRECTS 缺 skills → market");
+  assert.match(src, /apps: "market",/, "LEGACY_VIEW_REDIRECTS 缺 apps → market");
+  // 旧独立视图分支/导航入口应清除
+  assert.ok(!src.includes('{view === "apps" && <AppMarketView />}'), "旧 apps 渲染分支应移除");
+  assert.ok(!src.includes('{view === "skills" && <SkillMarketView />}'), "旧 skills 渲染分支应移除");
+  assert.ok(!src.includes('key: "skills"'), "导航不应再含 skills 独立入口");
+  assert.ok(!src.includes('key: "apps"'), "导航不应再含 apps 独立入口");
+});
+
+test("page.tsx 导航入口:灵动岛 + BottomNav 更多均含单一市场入口(store 图标)", () => {
+  const src = readSrc("app/page.tsx");
+  const entries = src.match(/\{ key: "market", label: "市场", icon: "store" \}/g) ?? [];
+  assert.equal(entries.length, 2, "灵动岛 ISLAND_ITEMS 与 BOTTOM_NAV_MORE_ITEMS 应各一条 market 入口");
+});
+
+test("page.tsx 导航去重:底部主入口项不在「更多」抽屉重复(audio 回归)", () => {
+  const src = readSrc("app/page.tsx");
+  const moreBlock = src.slice(src.indexOf("BOTTOM_NAV_MORE_ITEMS"));
+  assert.ok(
+    !moreBlock.includes('key: "audio"'),
+    "audio 已由底部主入口承载,「更多」抽屉不应重复",
+  );
+});
+
+test("MarketView:at-seg 段控 + ErrorBoundary(key=tab)+ 懒加载内嵌双市场", () => {
+  const src = readSrc("components/market/MarketView.tsx");
+  assert.ok(src.includes("import { ErrorBoundary }"), "未导入 ErrorBoundary");
+  assert.ok(src.includes("key={tab}"), "ErrorBoundary 未绑定 tab key(切换不重置)");
+  assert.ok(src.includes("at-seg"), "缺 at-seg 段控");
+  assert.ok(src.includes('role="tablist"'), "段控缺 tablist 语义");
+  assert.ok(
+    src.includes('import("@/components/apps/AppMarketView")'),
+    "缺 AppMarketView 懒加载",
+  );
+  assert.ok(
+    src.includes('import("@/components/skills/SkillMarketView")'),
+    "缺 SkillMarketView 懒加载",
+  );
 });
 
 /* ── ④ Icon / apps.css ── */
