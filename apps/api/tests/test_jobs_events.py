@@ -31,21 +31,25 @@ from app.security import create_token, hash_password
 # --------------------------------------------------------------------------- #
 
 
-def _seed_user(session: Session, email: str) -> tuple[str, str]:
-    """建租户+用户,返回 (user_id, tenant_id)。"""
-    tenant = Tenant(name=email)
-    session.add(tenant)
-    session.commit()
-    session.refresh(tenant)
+def _seed_user(
+    session: Session, email: str, tenant_id: str | None = None
+) -> tuple[str, str]:
+    """建租户+用户(可并入既有租户),返回 (user_id, tenant_id)。"""
+    if tenant_id is None:
+        tenant = Tenant(name=email)
+        session.add(tenant)
+        session.commit()
+        session.refresh(tenant)
+        tenant_id = tenant.id
     user = User(
         email=email,
         hashed_password=hash_password("password1"),
-        tenant_id=tenant.id,
+        tenant_id=tenant_id,
     )
     session.add(user)
     session.commit()
     session.refresh(user)
-    return user.id, tenant.id
+    return user.id, tenant_id
 
 
 def _seed_job(session: Session, *, tenant_id: str, user_id: str, prompt_id: str) -> None:
@@ -137,7 +141,7 @@ def _install_no_warning(monkeypatch) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# 认证与租户隔离
+# 认证与归属隔离
 # --------------------------------------------------------------------------- #
 
 
@@ -147,18 +151,22 @@ def test_events_requires_auth(client):
     assert r.status_code == 401
 
 
-def test_events_other_tenant_403(client):
-    """作业存在但属他人租户 → 403(在 resolve_worker/WS 之前拦截,无需任何替身)。"""
+def test_events_other_user_404(client):
+    """作业存在但非本人 → 404(在 resolve_worker/WS 之前拦截,无需任何替身)。
+
+    2026-08-30 P2:由「他人租户 403」收紧为「非属主 404」——同租户不同账号
+    也不再可订阅他人作业进度流(任务中心串台同源修复)。
+    """
     c, engine = client
     with Session(engine) as s:
-        uid_a, _ = _seed_user(s, "evt-a")
-        uid_b, tid_b = _seed_user(s, "evt-b")
-        _seed_job(s, tenant_id=tid_b, user_id=uid_b, prompt_id="p-other")
+        uid_a, tid = _seed_user(s, "evt-a")
+        uid_b, _ = _seed_user(s, "evt-b", tenant_id=tid)  # 同租户另一账号
+        _seed_job(s, tenant_id=tid, user_id=uid_b, prompt_id="p-other")
     r = c.get(
         "/api/jobs/p-other/events?client_id=c1&worker=http://fake-worker",
         headers={"Authorization": f"Bearer {create_token(uid_a)}"},
     )
-    assert r.status_code == 403
+    assert r.status_code == 404
 
 
 # --------------------------------------------------------------------------- #

@@ -89,6 +89,19 @@ test("AppRunnerView 提交链:buildRunValues 载荷 → runApp → trackJob(禁�
   assert.ok(src.includes('backLabel="返回市场"'), "缺返回市场入口");
 });
 
+test("AppRunnerView 失败复位:trackJob 终态后表单不卡「正在提交」(P1 回归)", () => {
+  const src = readSrc("components/apps/AppRunnerView.tsx");
+  const runBody = src.slice(src.indexOf("async function run()"), src.indexOf("if (loading)"));
+  // 提交与跟踪两段式:runApp 完成后 submitting 即复位,跟踪期只由 running 卡控
+  assert.ok(runBody.includes("setSubmitting(false);\n    setRunning(true);"), "提交成功后应立即复位 submitting 再进入跟踪");
+  assert.ok(!runBody.includes("finally {\n      setSubmitting(false);"), "trackJob 终态不应依赖跨 await 的 finally 才复位 submitting");
+  // 跟踪段收尾:无论 resolve/reject(含非 Error 抛出)都复位 running/progress,表单可再改可再提交
+  assert.ok(
+    runBody.includes("} finally {\n      setRunning(false);\n      setProgress(null);"),
+    "跟踪段 finally 应复位 running/progress",
+  );
+});
+
 test("AppRunnerView 结果区:按 output_kind 渲染 + 下载按钮(源码)", () => {
   const src = readSrc("components/apps/AppRunnerView.tsx");
   assert.ok(src.includes("mediaKindOf(p, app.output_kind)"), "产物应按 output_kind 分流渲染");

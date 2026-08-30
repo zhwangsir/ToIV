@@ -132,24 +132,25 @@ def _typical_sec(kind: str) -> int:
 
 @router.get("/jobs/active")
 def list_active_jobs(
+    all_users: bool = Query(default=False, alias="all", description="admin 专属:查看全租户全部用户的在跑作业"),
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> dict:
-    """任务中心:当前租户全部非终态作业 + 进度快照 + ETA 粗估。
+    """任务中心:当前用户全部非终态作业 + 进度快照 + ETA 粗估。
 
-    进度来源:Job.progress JSON(tracker 写 queue_pos / SSE 写 step)。
-    ETA:排队位 × 引擎均耗;生成中按 pct 折算剩余,无 pct 给均耗全量。
-    held 作业无 ETA(等资源释放,返回 hold_reason)。
+    默认仅本人作业(2026-08-30 P2 修复:此前按 tenant_id 过滤,同租户多账号
+    会互相看到对方任务,生产实测 admin 看到另一 admin 的作业);
+    admin 可带 ?all=1 查看全局。进度来源:Job.progress JSON(tracker 写
+    queue_pos / SSE 写 step)。ETA:排队位 × 引擎均耗;生成中按 pct 折算剩余,
+    无 pct 给均耗全量。held 作业无 ETA(等资源释放,返回 hold_reason)。
     """
-    rows = session.exec(
-        select(Job)
-        .where(
-            Job.tenant_id == user.tenant_id,
-            Job.status.in_(("queued", "running", "held")),  # type: ignore[attr-defined]
-            Job.deleted_at.is_(None),  # type: ignore[union-attr]
-        )
-        .order_by(Job.created_at)  # type: ignore[arg-type]
-    ).all()
+    stmt = select(Job).where(
+        Job.status.in_(("queued", "running", "held")),  # type: ignore[attr-defined]
+        Job.deleted_at.is_(None),  # type: ignore[union-attr]
+    )
+    if not (all_users and user.role == "admin"):
+        stmt = stmt.where(Job.user_id == user.id)
+    rows = session.exec(stmt.order_by(Job.created_at)).all()  # type: ignore[arg-type]
     now = datetime.now(timezone.utc)
     items: list[dict] = []
     for j in rows:
@@ -225,11 +226,17 @@ def list_jobs(
     offset: int = Query(default=0, ge=0, description="分页偏移(作品库无限滚动;返回数==limit 即可能还有下一页)"),
     status: str = Query(default="", description="按状态过滤:queued/held/running/done/error,空=全部"),
     kind: str = Query(default="", description="按媒体类型过滤:逗号分隔多值;精确匹配,或以 _ 结尾的 token 为前缀(cad_ 匹配 cad_front)。空=全部"),
+    all_users: bool = Query(default=False, alias="all", description="admin 专属:查看全部用户的作业"),
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> list[dict]:
-    """当前用户的作业历史(最新在前)。limit 可调,默认 50,上限 200;offset 分页;kind/status 过滤叠加。"""
-    stmt = select(Job).where(Job.user_id == user.id)
+    """当前用户的作业历史(最新在前)。limit 可调,默认 50,上限 200;offset 分页;kind/status 过滤叠加。
+
+    仅本人作业;admin 可带 ?all=1 查看全部用户(2026-08-30 P2 统一与 /jobs/active 同口径)。
+    """
+    stmt = select(Job)
+    if not (all_users and user.role == "admin"):
+        stmt = stmt.where(Job.user_id == user.id)
     # 软删除(SAFETY):撤销窗口内已移除的作品不进列表;undo 恢复后自动回归
     stmt = stmt.where(Job.deleted_at == None)  # noqa: E712
     # R18 门槛:仅 /nsfw 专页(带 X-NSFW header)才返回成人向作品;主站一律剔除。
@@ -856,10 +863,10 @@ async def job_events(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    # 租户隔离:本作业必须属于当前用户的租户
+    # 归属隔离(2026-08-30 P2):仅作业属主/admin 可订阅进度;非本人一律 404(不泄露存在性)
     job = session.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
-    if job and job.tenant_id != user.tenant_id:
-        raise HTTPException(status_code=403, detail="无权访问该作业")
+    if job and job.user_id != user.id and user.role != "admin":
+        raise HTTPException(status_code=404, detail="作业不存在")
 
     # Forge 引擎作业:无 ComfyUI WS,改轮询 sdapi 进度 + 进程内作业态。
     settings = get_settings()

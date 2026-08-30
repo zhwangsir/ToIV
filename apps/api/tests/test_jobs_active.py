@@ -39,24 +39,40 @@ def ctx():
         tracker_mod, "engine", engine
     ):
         with Session(engine) as s:
-            alice_id = _make_user(s, "alice@toiv.ai")
-            bob_id = _make_user(s, "bob@toiv.ai")
-        yield TestClient(app), create_token(alice_id), create_token(bob_id), engine
+            # alice/bob 为同租户两账号(回归 2026-08-30 P2:任务中心按租户过滤
+            # 导致同租户互相串台);eve 是另一租户的 admin(跨租户边界验证)
+            tenant = Tenant(name="acme", slug="t-acme")
+            s.add(tenant)
+            s.commit()
+            s.refresh(tenant)
+            alice_id = _make_user(s, "alice@toiv.ai", tenant=tenant, role="admin")
+            bob_id = _make_user(s, "bob@toiv.ai", tenant=tenant, role="user")
+            eve_id = _make_user(s, "eve@toiv.ai", role="admin")
+        yield (
+            TestClient(app),
+            create_token(alice_id),
+            create_token(bob_id),
+            create_token(eve_id),
+            engine,
+        )
     app.dependency_overrides.clear()
 
 
-def _make_user(s: Session, email: str) -> str:
+def _make_user(
+    s: Session, email: str, tenant: Tenant | None = None, role: str = "admin"
+) -> str:
     import uuid as _uuid
 
-    tenant = Tenant(name=email.split("@")[0], slug=f"t-{_uuid.uuid4().hex[:8]}")
-    s.add(tenant)
-    s.commit()
-    s.refresh(tenant)
+    if tenant is None:
+        tenant = Tenant(name=email.split("@")[0], slug=f"t-{_uuid.uuid4().hex[:8]}")
+        s.add(tenant)
+        s.commit()
+        s.refresh(tenant)
     user = User(
         tenant_id=tenant.id,
         email=email,
         hashed_password=hash_password("x"),
-        role="admin",
+        role=role,
     )
     s.add(user)
     s.commit()
@@ -97,7 +113,7 @@ def _mk_job(
 # ---------------------------------------------------------------------------
 def test_write_progress_merge_and_terminal_skip(ctx):
     """write_progress:合并更新指定键;终态(done)后不再写入。"""
-    _, _, _, engine = ctx
+    *_, engine = ctx
     with Session(engine) as s:
         _mk_job(s, "alice@toiv.ai", "p1")
 
@@ -122,7 +138,7 @@ def test_write_progress_merge_and_terminal_skip(ctx):
 
 def test_write_progress_throttle(ctx):
     """throttle=True:2s 内重复写同一 prompt_id 被丢弃。"""
-    _, _, _, engine = ctx
+    *_, engine = ctx
     with Session(engine) as s:
         _mk_job(s, "alice@toiv.ai", "p2")
 
@@ -138,7 +154,8 @@ def test_write_progress_throttle(ctx):
 # ---------------------------------------------------------------------------
 def test_jobs_active_returns_progress_and_eta(ctx):
     """active 端点:返回非终态作业 + 进度快照 + ETA;终态/回收站排除。"""
-    client, token, _, engine = ctx
+    client, token, *_rest = ctx
+    engine = ctx[-1]
     with Session(engine) as s:
         _mk_job(s, "alice@toiv.ai", "a1", kind="h3_t2v", status="running")
         _mk_job(s, "alice@toiv.ai", "a2", kind="txt2img", status="queued")
@@ -166,7 +183,8 @@ def test_jobs_active_returns_progress_and_eta(ctx):
 
 def test_jobs_active_queue_pos_eta(ctx):
     """排队位 ETA:queue_pos=2 × h3 均耗 900 = 1800s。"""
-    client, token, _, engine = ctx
+    client, token, *_rest = ctx
+    engine = ctx[-1]
     with Session(engine) as s:
         _mk_job(s, "alice@toiv.ai", "q1", kind="h3_i2v", status="queued")
     write_progress("q1", queue_pos=2)
@@ -179,7 +197,8 @@ def test_jobs_active_queue_pos_eta(ctx):
 
 def test_jobs_active_held_no_eta(ctx):
     """held 作业:ETA 为 None,带 hold_reason。"""
-    client, token, _, engine = ctx
+    client, token, *_rest = ctx
+    engine = ctx[-1]
     with Session(engine) as s:
         j = _mk_job(s, "alice@toiv.ai", "h1", status="held")
         j.hold_reason = "显存不足,排队等资源释放"
@@ -193,15 +212,71 @@ def test_jobs_active_held_no_eta(ctx):
     assert "显存" in item["hold_reason"]
 
 
-def test_jobs_active_tenant_isolation(ctx):
-    """他人作业不可见。"""
-    client, token, token2, engine = ctx
+def test_jobs_active_user_isolation_same_tenant(ctx):
+    """2026-08-30 P2 回归:同租户他人作业不可见(此前按 tenant_id 过滤,
+    admin 能看到另一 admin 的任务——生产串台);admin ?all=1 显式看全部。"""
+    client, token_alice, token_bob, token_eve, engine = ctx
     with Session(engine) as s:
-        _mk_job(s, "alice@toiv.ai", "mine")
+        _mk_job(s, "alice@toiv.ai", "alice-job")  # 同租户另一账号
+        _mk_job(s, "bob@toiv.ai", "bob-job")
+        _mk_job(s, "eve@toiv.ai", "eve-job")  # 另一租户
 
-    r = client.get("/api/jobs/active", headers=_h(token2))
+    # 同租户普通用户:仅见自己
+    r = client.get("/api/jobs/active", headers=_h(token_bob))
     assert r.status_code == 200
-    assert r.json()["items"] == []
+    assert [i["prompt_id"] for i in r.json()["items"]] == ["bob-job"]
+
+    # 同租户 admin(默认):同样仅见自己 —— 这是本次修复的核心回归断言
+    r = client.get("/api/jobs/active", headers=_h(token_alice))
+    assert [i["prompt_id"] for i in r.json()["items"]] == ["alice-job"]
+
+    # admin 显式 ?all=1:可见全局(含其他租户,观测用途)
+    r = client.get("/api/jobs/active?all=1", headers=_h(token_alice))
+    assert sorted(i["prompt_id"] for i in r.json()["items"]) == [
+        "alice-job", "bob-job", "eve-job",
+    ]
+
+    # 普通用户带 all=1 无效:仍仅见自己(不越权)
+    r = client.get("/api/jobs/active?all=1", headers=_h(token_bob))
+    assert [i["prompt_id"] for i in r.json()["items"]] == ["bob-job"]
+
+
+def test_jobs_list_user_isolation_and_admin_all(ctx):
+    """GET /api/jobs 同口径:默认仅本人;admin ?all=1 看全部,普通用户 all=1 不越权。"""
+    client, token_alice, token_bob, _, engine = ctx
+    with Session(engine) as s:
+        _mk_job(s, "alice@toiv.ai", "alice-done", status="done")
+        _mk_job(s, "bob@toiv.ai", "bob-done", status="done")
+
+    r = client.get("/api/jobs", headers=_h(token_bob))
+    assert [i["prompt_id"] for i in r.json()] == ["bob-done"]
+
+    r = client.get("/api/jobs", headers=_h(token_alice))
+    assert [i["prompt_id"] for i in r.json()] == ["alice-done"]
+
+    r = client.get("/api/jobs?all=1", headers=_h(token_alice))
+    assert sorted(i["prompt_id"] for i in r.json()) == ["alice-done", "bob-done"]
+
+    r = client.get("/api/jobs?all=1", headers=_h(token_bob))
+    assert [i["prompt_id"] for i in r.json()] == ["bob-done"]
+
+
+def test_job_events_owner_or_admin_only(ctx):
+    """SSE 进度端点:非属主 404(不泄露存在性);admin 可旁观他人作业。"""
+    client, token_alice, token_bob, _, engine = ctx
+    with Session(engine) as s:
+        _mk_job(s, "alice@toiv.ai", "evt-job", status="running")
+
+    # 同租户非属主:404(此前仅按 tenant 校验 → 同租户可订阅他人进度流)
+    r = client.get(
+        "/api/jobs/evt-job/events?client_id=c&worker=w", headers=_h(token_bob)
+    )
+    assert r.status_code == 404
+    # 不存在的作业:不拦截(SSE 端容忍,等作业建档/放行)
+    r = client.get(
+        "/api/jobs/ghost-job/events?client_id=c&worker=w", headers=_h(token_bob)
+    )
+    assert r.status_code != 404
 
 
 # ---------------------------------------------------------------------------
@@ -209,7 +284,8 @@ def test_jobs_active_tenant_isolation(ctx):
 # ---------------------------------------------------------------------------
 def test_cancel_job_marks_canceled_and_skips_worker_for_hold(ctx):
     """held 占位作业(hold-* 从未提交 worker):落 canceled,worker_action=skipped。"""
-    client, token, _, engine = ctx
+    client, token, *_rest = ctx
+    engine = ctx[-1]
     with Session(engine) as s:
         j = _mk_job(s, "alice@toiv.ai", "hold-x1", status="held")
 
@@ -229,7 +305,8 @@ def test_cancel_job_marks_canceled_and_skips_worker_for_hold(ctx):
 
 def test_cancel_job_terminal_409(ctx):
     """已终态(done/error/canceled)的作业:409,不重复取消。"""
-    client, token, _, engine = ctx
+    client, token, *_rest = ctx
+    engine = ctx[-1]
     with Session(engine) as s:
         j = _mk_job(s, "alice@toiv.ai", "t1", status="done")
     r = client.post(f"/api/jobs/{j.id}/cancel", headers=_h(token))
@@ -239,7 +316,7 @@ def test_cancel_job_terminal_409(ctx):
 
 def test_cancel_job_owner_only_404(ctx):
     """非本人作业 404(不泄露存在性)。"""
-    client, token, token2, engine = ctx
+    client, token, token2, _token_eve, engine = ctx
     with Session(engine) as s:
         j = _mk_job(s, "alice@toiv.ai", "other1", status="running")
     r = client.post(f"/api/jobs/{j.id}/cancel", headers=_h(token2))
@@ -264,7 +341,8 @@ def test_cancel_job_worker_dequeued(ctx, monkeypatch):
 
     monkeypatch.setattr(jobs_route, "ComfyUIClient", _FakeClient)
 
-    client, token, _, engine = ctx
+    client, token, *_rest = ctx
+    engine = ctx[-1]
     with Session(engine) as s:
         j = _mk_job(s, "alice@toiv.ai", "w1", status="queued")
 
@@ -289,7 +367,8 @@ def test_cancel_job_worker_unreachable_still_canceled(ctx, monkeypatch):
 
     monkeypatch.setattr(jobs_route, "ComfyUIClient", _DeadClient)
 
-    client, token, _, engine = ctx
+    client, token, *_rest = ctx
+    engine = ctx[-1]
     with Session(engine) as s:
         j = _mk_job(s, "alice@toiv.ai", "w2", status="running")
 
@@ -304,7 +383,7 @@ def test_tracker_respects_canceled(ctx):
     """canceled 是终态:mark_status 不回退、write_progress 不再写入。"""
     from app.comfy.tracker import mark_status
 
-    _, _, _, engine = ctx
+    *_, engine = ctx
     with Session(engine) as s:
         _mk_job(s, "alice@toiv.ai", "c1", status="running")
 
@@ -322,7 +401,7 @@ async def test_wait_for_jobs_raises_on_canceled(ctx):
     """wait_for_jobs:作业被取消立即抛「已被用户取消」(三视图回写据此标 error 允许重试)。"""
     from app.comfy.tracker import wait_for_jobs
 
-    _, _, _, engine = ctx
+    *_, engine = ctx
     with Session(engine) as s:
         _mk_job(s, "alice@toiv.ai", "c2", status="queued")
 
@@ -337,7 +416,8 @@ async def test_wait_for_jobs_raises_on_canceled(ctx):
 
 def test_cancel_job_accepts_prompt_id(ctx):
     """Generate page only has prompt_id: cancel lookup accepts Job.id or prompt_id."""
-    client, token, _, engine = ctx
+    client, token, *_rest = ctx
+    engine = ctx[-1]
     with Session(engine) as s:
         j = _mk_job(s, "alice@toiv.ai", "hold-pid-gen", status="held")
         jid = j.id
@@ -353,7 +433,8 @@ def test_cancel_job_accepts_prompt_id(ctx):
 # ---------------------------------------------------------------------------
 def test_cancel_job_writes_reason_and_api_exposes_error(ctx):
     """cancel 落「已被用户取消」原因;/jobs/lookup 与 /jobs 列表透出 error 字段。"""
-    client, token, _, engine = ctx
+    client, token, *_rest = ctx
+    engine = ctx[-1]
     with Session(engine) as s:
         j = _mk_job(s, "alice@toiv.ai", "cancel-reason-1", status="queued")
 
@@ -389,7 +470,8 @@ def test_cancel_chain_job_propagates_to_segments(ctx, monkeypatch):
 
     monkeypatch.setattr(jobs_route, "ComfyUIClient", _FakeClient)
 
-    client, token, _, engine = ctx
+    client, token, *_rest = ctx
+    engine = ctx[-1]
     with Session(engine) as s:
         seg1 = _mk_job(s, "alice@toiv.ai", "seg-1", kind="transition", status="queued")
         seg2 = _mk_job(s, "alice@toiv.ai", "seg-2", kind="transition", status="running")
@@ -432,7 +514,8 @@ def test_cancel_first_segment_propagates_to_extend_segments(ctx, monkeypatch):
 
     monkeypatch.setattr(jobs_route, "ComfyUIClient", _FakeClient)
 
-    client, token, _, engine = ctx
+    client, token, *_rest = ctx
+    engine = ctx[-1]
     with Session(engine) as s:
         first = _mk_job(s, "alice@toiv.ai", "h3-first", kind="h3_t2v", status="running")
         first.params = json.dumps({"extend_segment_ids": ["h3-ext-1"]})

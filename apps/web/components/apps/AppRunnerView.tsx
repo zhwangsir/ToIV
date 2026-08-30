@@ -110,9 +110,19 @@ export function AppRunnerView({ appId, onBack }: AppRunnerViewProps) {
     setProgress(null);
     const ctrl = new AbortController();
     abortRef.current = ctrl;
+    let receipt: Awaited<ReturnType<typeof runApp>>;
     try {
-      const receipt = await runApp(app.id, buildRunValues(app.params_schema, values));
-      setRunning(true);
+      receipt = await runApp(app.id, buildRunValues(app.params_schema, values));
+    } catch (e) {
+      setRunError(e instanceof Error ? e.message : "提交失败");
+      setSubmitting(false);
+      return;
+    }
+    // 提交完成即复位 submitting:后续跟踪期只由 running 卡控;
+    // 任何异常(含非 Error 抛出)都不得把表单永久留在「正在提交」禁用态
+    setSubmitting(false);
+    setRunning(true);
+    try {
       // trackJob 复用统一作业跟踪(SSE 进度 + 断线重连 + lookupJob 轮询兜底);
       // client_id/worker 契约未保证,空串时 SSE 连不上会自动降级轮询,产物不丢
       const genRes: GenerateResponse = {
@@ -135,7 +145,6 @@ export function AppRunnerView({ appId, onBack }: AppRunnerViewProps) {
         setRunError(e instanceof Error ? e.message : "运行失败");
       }
     } finally {
-      setSubmitting(false);
       setRunning(false);
       setProgress(null);
     }

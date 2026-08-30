@@ -16,8 +16,9 @@ M2 运行器:
   (只允许已存在的标量叶子:节点不存在/字段不存在/目标是 dict|list(拓扑连线)/
   写入复合值一律 422 —— 禁改拓扑)→ 模型依赖 _extract_required(取材于写值后的图)
   + required_nodes(空则从图自动取 class_type 集)→ pool.pick + queue_prompt
-  → 建 Job(kind=submit_kind,params 存 app_id+表单快照) → usage_count+1 + 审计 app.run
-  → tracker 后台追踪落库。is_nsfw 应用无 X-NSFW 头 403。
+  → 建 Job(kind=submit_kind,params 存 app_id+表单快照) + 审计 app.run
+  → tracker 后台追踪落库;usage_count 只在 Job 到 done 时 +1
+  (tracker.mark_done 检测 params.app_id,失败/取消不计)。is_nsfw 应用无 X-NSFW 头 403。
 """
 from __future__ import annotations
 
@@ -655,7 +656,11 @@ async def run_app(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> dict:
-    """运行应用:校验表单 → 写图 → 提交 worker → 建档 Job + usage_count+1 + 审计。"""
+    """运行应用:校验表单 → 写图 → 提交 worker → 建档 Job + 审计。
+
+    usage_count 不在提交时 +1(失败/取消也计数是误计,2026-08-30 P2):
+    只在 Job 到 done 时由 tracker.mark_done 按 params.app_id +1。
+    """
     a = session.get(App, aid)
     if not a or not _visible(a, user):
         raise HTTPException(status_code=404, detail="应用不存在")
@@ -694,14 +699,11 @@ async def run_app(
         nsfw=a.is_nsfw,
         params=json.dumps({"app_id": a.id, "values": values}, ensure_ascii=False),
     )
-    a.usage_count += 1
-    a.updated_at = _now()
     session.add(job)
-    session.add(a)
     audit.record(
         session, user=user, action="app.run", target_type="app", target_id=a.id,
         summary=f"运行应用:{a.name}",
-        detail={"app_id": a.id, "prompt_id": prompt_id, "usage_count": a.usage_count},
+        detail={"app_id": a.id, "prompt_id": prompt_id},
     )
     session.commit()
 

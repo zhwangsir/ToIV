@@ -318,7 +318,7 @@ class App(SQLModel, table=True):
     is_nsfw: bool = False
     is_public: bool = True  # 公共市场可见(个人 fork 默认 False;属主可上架分享)
     user_id: str = Field(default="", index=True)  # 空=公共(admin 建/内置);非空=个人应用属主
-    usage_count: int = 0  # 运行次数(每次 run +1)
+    usage_count: int = 0  # 运行次数(Job 到 done 才 +1,见 comfy/tracker.mark_done)
     sort: int = 100
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)

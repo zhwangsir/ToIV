@@ -6,7 +6,8 @@
   - binding 写图正确(inputs 叶子替换;库内原图不被改写;缺省值补默认)
   - 拓扑注入拒绝:绑定指向连线(list)/不存在节点/写入复合值 一律 422
   - widgets_values 叶子写入
-  - 提交建档:Job(kind=app_run, params 存 app_id+表单快照)+ usage_count+1 + 审计 app.run
+  - 提交建档:Job(kind=app_run, params 存 app_id+表单快照)+ 审计 app.run;
+    usage_count 提交时不变,仅 Job 到 done 时 +1(tracker.mark_done,2026-08-30 P2)
   - pool.pick 收到 _extract_required 模型依赖 + 图自动派生的 class_type 集
   - worker 不可达 503
   - NSFW 门控:is_nsfw 应用无 X-NSFW 头 403,带头放行且 Job.nsfw 打标
@@ -314,20 +315,77 @@ def test_run_defaults_applied(ctx):
     assert fake.graphs[0]["8"]["inputs"]["steps"] == 20
 
 
-def test_run_usage_count_and_audit(ctx):
+def test_run_usage_count_not_incremented_on_submit(ctx):
+    """2026-08-30 P2:提交即 +1 是误计(失败也计)——run 不再动 usage_count,仅审计。"""
     c, tokens, _, engine, _, _ = ctx
     for _ in range(2):
         r = c.post(
             "/api/apps/t2i-basic/run", headers=_h(tokens), json={"values": {"prompt": "x"}}
         )
         assert r.status_code == 200
-    assert r.json()["usage_count"] == 2
+    assert r.json()["usage_count"] == 0  # 提交后未 done,不计数
     with Session(engine) as s:
         a = s.get(App, "t2i-basic")
-        assert a.usage_count == 2
+        assert a.usage_count == 0
         logs = s.exec(select(AuditLog).where(AuditLog.action == "app.run")).all()
         assert len(logs) == 2
         assert logs[0].target_type == "app" and logs[0].target_id == "t2i-basic"
+
+
+def test_run_usage_count_incremented_on_done(ctx):
+    """Job 到 done 时 tracker.mark_done 按 params.app_id +1;幂等不重复计;
+    失败/取消不 +1;应用被删时 done 不炸。"""
+    from unittest.mock import patch
+
+    import app.comfy.tracker as tracker_mod
+
+    c, tokens, _, engine, _, _ = ctx
+    r = c.post(
+        "/api/apps/t2i-basic/run", headers=_h(tokens), json={"values": {"prompt": "x"}}
+    )
+    assert r.status_code == 200
+    with Session(engine) as s:
+        assert s.get(App, "t2i-basic").usage_count == 0
+
+    with patch.object(tracker_mod, "engine", engine):
+        tracker_mod.mark_done("prompt-app-1", ["/api/images?filename=a.png"])
+    with Session(engine) as s:
+        assert s.get(App, "t2i-basic").usage_count == 1
+        job = s.exec(select(Job).where(Job.prompt_id == "prompt-app-1")).first()
+        assert job.status == "done"
+
+        # 幂等:重复 mark_done 不重复计数
+    with patch.object(tracker_mod, "engine", engine):
+        tracker_mod.mark_done("prompt-app-1", ["/api/images?filename=a.png"])
+    with Session(engine) as s:
+        assert s.get(App, "t2i-basic").usage_count == 1
+
+    # 失败作业不计数(第二条作业直接落库,prompt_id 与第一条不同)
+    with Session(engine) as s:
+        s.add(Job(
+            tenant_id=job.tenant_id, user_id=job.user_id, prompt_id="prompt-app-2",
+            worker="http://fake-worker", kind="app_run", status="queued",
+            prompt="y", params=json.dumps({"app_id": "t2i-basic", "values": {}}),
+        ))
+        s.commit()
+    with patch.object(tracker_mod, "engine", engine):
+        tracker_mod.mark_status("prompt-app-2", "error", "worker 执行失败")
+    with Session(engine) as s:
+        assert s.get(App, "t2i-basic").usage_count == 1
+
+    # 应用已删除:done 回写不炸、不阻塞落库
+    with Session(engine) as s:
+        s.add(Job(
+            tenant_id=job.tenant_id, user_id=job.user_id, prompt_id="prompt-app-3",
+            worker="http://fake-worker", kind="app_run", status="queued",
+            prompt="z", params=json.dumps({"app_id": "deleted-app", "values": {}}),
+        ))
+        s.commit()
+    with patch.object(tracker_mod, "engine", engine):
+        tracker_mod.mark_done("prompt-app-3", ["/api/images?filename=b.png"])
+    with Session(engine) as s:
+        job3 = s.exec(select(Job).where(Job.prompt_id == "prompt-app-3")).first()
+        assert job3.status == "done"
 
 
 def test_run_pick_receives_models_and_nodes(ctx):

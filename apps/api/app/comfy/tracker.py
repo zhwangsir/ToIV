@@ -25,7 +25,7 @@ from sqlmodel import Session, or_, select
 from app.comfy.client import ComfyUIClient, ComfyUIError
 from app.config import get_settings
 from app.db import engine
-from app.models import Job
+from app.models import App, Job
 
 logger = logging.getLogger(__name__)
 
@@ -143,12 +143,26 @@ def write_progress(
         logger.warning("write_progress %s failed: %s", prompt_id, e)
 
 
+def increment_app_usage(session: Session, app_id: str) -> None:
+    """应用用量 +1(仅在 Job 到 done 时由 mark_done 调用;失败/取消不计)。
+
+    2026-08-30 P2:POST /api/apps/{id}/run 提交即 +1 会虚增(失败也计)。
+    计数口径改为「成功出产物才算使用」;应用已被删除时静默跳过。
+    """
+    app = session.get(App, app_id)
+    if app is None:
+        return
+    app.usage_count = (app.usage_count or 0) + 1
+    session.add(app)
+
+
 def mark_done(prompt_id: str, urls: list[str]) -> None:
     """完成时持久化状态与产物 URL;幂等(done/canceled 终态跳过)。
 
     canceled 同样是终态(2026-08-30 P0-3):用户取消后 tracker/SSE 迟到回写
     不得把 canceled 复活成 done;error → done 的回写保留(2026-08-21 H-4 教训:
     超时误标 error 但产物真实在盘时,回写才是修复)。
+    幂等保证天然成立:只有非 done/canceled 才执行 +1,重复 mark_done 不会重复计数。
     """
     with Session(engine) as session:
         job = session.exec(select(Job).where(Job.prompt_id == prompt_id)).first()
@@ -156,6 +170,13 @@ def mark_done(prompt_id: str, urls: list[str]) -> None:
             job.status = "done"
             job.result = json.dumps(urls)
             session.add(job)
+            # 应用运行作业(params 快照带 app_id):done 时才计 usage_count(2026-08-30 P2)
+            try:
+                app_id = (json.loads(job.params) if job.params else {}).get("app_id")
+            except (ValueError, TypeError):
+                app_id = None
+            if isinstance(app_id, str) and app_id:
+                increment_app_usage(session, app_id)
             session.commit()
 
 
