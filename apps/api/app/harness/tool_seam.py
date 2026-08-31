@@ -205,6 +205,13 @@ def builtin_tool_specs() -> list[ToolSpec]:
                  "大需求提案(视频/批量/多步/整集类先出方案等用户确认再执行)", rate_scope=""),
         ToolSpec("adjust_3d", gen_schema("adjust_3d"), tools_gen.exec_adjust_3d,
                  "3D 模型材质/渲染调整(材质烘焙成新 GLB 模型/染色;旋转视频、快照为可选查看产物;立即出产物)", rate_scope=""),
+        # ── W3 UI 驱动工具(零服务端副作用的界面指令;open_asset 仅做归属校验)──
+        ToolSpec("navigate_view", gen_schema("navigate_view"), tools_gen.exec_navigate_view,
+                 "切换前端界面到指定功能页(「去/打开 X」类意图)", rate_scope=""),
+        ToolSpec("prefill_generate", gen_schema("prefill_generate"), tools_gen.exec_prefill_generate,
+                 "预填生成工作台提示词并跳转(用户想微调参数再手动提交时)", rate_scope=""),
+        ToolSpec("open_asset", gen_schema("open_asset"), tools_gen.exec_open_asset,
+                 "在作品库打开一个已有产物(需 job_id,限本人)", rate_scope=""),
     ]
 
 

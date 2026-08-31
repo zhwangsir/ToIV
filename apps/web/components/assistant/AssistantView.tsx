@@ -1167,6 +1167,23 @@ export function AssistantView(props?: AssistantViewProps) {
               ];
               return [...prev.slice(0, -1), { ...last, media }];
             });
+          } else if (ev.type === "ui_action") {
+            // W3(2026-08-31):助手 UI 驱动指令——跳转/预填/开产物,即收即执行
+            const act = ev.action;
+            if (act === "navigate_view" && ev.view) {
+              goView(ev.view);
+            } else if (act === "prefill_generate" && ev.prompt && ev.kind) {
+              // 经引擎草稿机制回填工作台(lib/engine,GenerateView 挂载时消费)
+              try {
+                window.localStorage.setItem(
+                  "toiv_engine_draft",
+                  JSON.stringify({ prompt: ev.prompt, target: ev.kind }),
+                );
+              } catch { /* 存储不可用时仅跳转 */ }
+              goView(ev.kind);
+            } else if (act === "open_asset") {
+              goView("library");
+            }
           } else if (ev.type === "tool" || ev.type === "job" || ev.type === "proposal") {
             // 工具条/作业卡/提案卡:upsert 归并到最后一条 assistant 气泡(同 id 更新);
             // 本轮尚无文本气泡且事件新建了气泡时,后续 text 增量续到该气泡(避免碎片化)

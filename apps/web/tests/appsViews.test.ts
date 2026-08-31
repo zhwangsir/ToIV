@@ -260,6 +260,23 @@ test("W2:默认落地为对话首页(fusion 退为场景入口)", () => {
   );
 });
 
+/* ── 2026-08-31 W3 助手 UI 驱动工具 ── */
+test("W3:AssistantView 处理 ui_action 三指令(navigate/prefill/open_asset)", () => {
+  const src = readSrc("components/assistant/AssistantView.tsx");
+  assert.ok(src.includes('ev.type === "ui_action"'), "缺 ui_action 分支");
+  assert.ok(src.includes('act === "navigate_view"'), "缺 navigate_view 处理");
+  assert.ok(src.includes('act === "prefill_generate"'), "缺 prefill_generate 处理");
+  assert.ok(src.includes('act === "open_asset"'), "缺 open_asset 处理");
+  // prefill 经引擎草稿回填后跳转
+  assert.ok(src.includes("toiv_engine_draft"), "prefill 应写引擎草稿");
+});
+
+test("W3:AgentEvent 类型含 ui_action 字段", () => {
+  const src = readSrc("lib/api.ts");
+  assert.ok(src.includes("action?: string"), "AgentEvent 缺 action 字段");
+  assert.ok(src.includes("view?: string"), "AgentEvent 缺 view 字段");
+});
+
 test("MarketView:at-seg 段控 + ErrorBoundary(key=tab)+ 懒加载内嵌双市场", () => {
   const src = readSrc("components/market/MarketView.tsx");
   assert.ok(src.includes("import { ErrorBoundary }"), "未导入 ErrorBoundary");

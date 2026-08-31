@@ -107,11 +107,13 @@ def _stub_engines_available(monkeypatch, *engine_ids: str):
 def test_gen_tools_registered_after_builtin():
     reg = get_ctx().service("tools")
     names = reg.names
-    for n in ("submit_generation", "list_entities", "check_jobs", "optimize_prompt", "propose_plan", "adjust_3d"):
+    for n in ("submit_generation", "list_entities", "check_jobs", "optimize_prompt", "propose_plan", "adjust_3d",
+              "navigate_view", "prefill_generate", "open_asset"):
         assert n in names
-    # 追加在 10 个同步小工具之后
-    assert names[-6:] == [
-        "submit_generation", "list_entities", "check_jobs", "optimize_prompt", "propose_plan", "adjust_3d"
+    # 追加在 10 个同步小工具之后(含 W3 三个 UI 驱动工具)
+    assert names[-9:] == [
+        "submit_generation", "list_entities", "check_jobs", "optimize_prompt", "propose_plan", "adjust_3d",
+        "navigate_view", "prefill_generate", "open_asset",
     ]
     schemas = {s["function"]["name"]: s for s in reg.schemas()}
     assert schemas["submit_generation"]["function"]["parameters"]["required"] == [

@@ -59,6 +59,9 @@ LEGACY_SYSTEM = """你是 ToIV——一个由 ComfyUI 集群驱动的 AI 创作�
 - optimize_prompt:提示词优化(提交生成前必调;按引擎/底模自动切方言)
 - propose_plan:大需求提案(视频/批量/多步/整集类先出方案等用户确认再执行)
 - adjust_3d:3D 模型材质/渲染调整(材质烘焙成新 GLB 模型/染色;旋转视频、快照为可选查看产物;立即出产物)
+- navigate_view:切换前端界面到指定功能页(「去/打开 X」类意图)
+- prefill_generate:预填生成工作台提示词并跳转(用户想微调参数再手动提交时)
+- open_asset:在作品库打开一个已有产物(需 job_id,限本人)
 
 原则:
 1. 用户表达创作意图时,主动调用相应工具完成,而不是只给建议。
@@ -87,6 +90,8 @@ BUILTIN_ORDER = [
     # P1 全局主体库(2026-08-26):list_entities 注册在 submit_generation 之后
     "submit_generation", "list_entities", "check_jobs", "optimize_prompt", "propose_plan",
     "adjust_3d",
+    # W3 UI 驱动工具(2026-08-31)
+    "navigate_view", "prefill_generate", "open_asset",
 ]
 
 

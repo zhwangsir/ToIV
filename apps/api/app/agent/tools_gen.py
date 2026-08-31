@@ -250,6 +250,70 @@ TOOL_SCHEMAS_GEN = [
             },
         },
     },
+    # ── W3 UI 驱动工具(2026-08-31):助手可驱动前端界面(跳转/预填/开产物) ──
+    {
+        "type": "function",
+        "function": {
+            "name": "navigate_view",
+            "description": (
+                "把前端界面切换到指定功能页(用户说「去/打开/切到 X」或任务需要在特定页面继续时用)。"
+                "例如「帮我把这个视频送去译制」→ navigate_view(dub);「我要做数字人」→ avatartalk;"
+                "「看看我的作品」→ library;「进工作室做短剧」→ studio。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "view": {
+                        "type": "string",
+                        "description": (
+                            "目标页:home(对话首页)|image(图片)|video(视频)|audio(音频)|"
+                            "fusion(场景门户)|studio(短剧工作室)|avatartalk(数字人)|dub(译制)|"
+                            "imageEdit(图片编辑)|videoEdit(视频剪辑)|animatic(动态分镜)|"
+                            "canvas(画布)|library(作品库)|entities(主体库)|market(市场)|"
+                            "resources(资源中心)|settings(设置)"
+                        ),
+                    },
+                    "reason": {"type": "string", "description": "一句话说明跳转原因(展示给用户)"},
+                },
+                "required": ["view"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "prefill_generate",
+            "description": (
+                "预填生成工作台的提示词并跳过去(用户想自己微调参数再手动提交时用;"
+                "若用户意图是「直接生成」,仍用 submit_generation)。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "kind": {"type": "string", "enum": ["image", "video"], "description": "目标板块"},
+                    "prompt": {"type": "string", "description": "预填的正向提示词"},
+                },
+                "required": ["kind", "prompt"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "open_asset",
+            "description": (
+                "在作品库打开一个已有产物(用户说「打开/找到那个作品」时;"
+                "先用 check_jobs 或对话上下文拿到 job_id)。job 必须属于当前用户。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "job_id": {"type": "string", "description": "作品库作业 id"},
+                },
+                "required": ["job_id"],
+            },
+        },
+    },
 ]
 
 
@@ -944,3 +1008,62 @@ async def exec_adjust_3d(args: dict, ctx: dict) -> tuple[str, list[dict]]:
         "如需继续调整(换材质/出旋转视频/染色/重新生成纹理),直接说即可。"
     )
     return text, [event]
+
+
+# ---------------------------------------------------------------------------
+# W3 UI 驱动工具(2026-08-31):助手驱动前端界面——跳转/预填/开产物
+# 事件一律走 msg 包络(不进 _STREAM_EVENT_NAMES),前端 AssistantView 识别
+# type="ui_action" 并执行。零服务端副作用(open_asset 只做归属校验)。
+# ---------------------------------------------------------------------------
+
+# 前端可跳转视图白名单(与 page.tsx VALID_VIEWS 对齐;observability/admin 排除——门控页)
+_UI_VIEWS = {
+    "home", "image", "video", "audio", "fusion", "imageEdit", "videoEdit",
+    "animatic", "avatartalk", "canvas", "studio", "dub", "library",
+    "entities", "resources", "market", "settings",
+}
+
+
+def _ui_action(action: str, **fields) -> dict:
+    return {"type": "ui_action", "action": action, **fields}
+
+
+async def exec_navigate_view(args: dict, ctx: dict) -> tuple[str, list[dict]]:
+    view = str(args.get("view") or "").strip()
+    reason = str(args.get("reason") or "").strip()[:200]
+    if view not in _UI_VIEWS:
+        return f"目标页面不存在:{view}(可用:{', '.join(sorted(_UI_VIEWS))})。", [
+            _err_event("页面不存在", view)
+        ]
+    text = f"已为你打开目标页面。" + (f"({reason})" if reason else "")
+    return text, [_ui_action("navigate_view", view=view, reason=reason)]
+
+
+async def exec_prefill_generate(args: dict, ctx: dict) -> tuple[str, list[dict]]:
+    kind = str(args.get("kind") or "").strip()
+    prompt = str(args.get("prompt") or "").strip()[:4000]
+    if kind not in ("image", "video"):
+        return "kind 仅支持 image|video。", [_err_event("kind 不合法", kind)]
+    if not prompt:
+        return "预填提示词不能为空。", [_err_event("提示词为空")]
+    return f"已把提示词填入{'图片' if kind == 'image' else '视频'}工作台,可微调后提交。", [
+        _ui_action("prefill_generate", kind=kind, prompt=prompt)
+    ]
+
+
+async def exec_open_asset(args: dict, ctx: dict) -> tuple[str, list[dict]]:
+    session = ctx["session"]
+    user: User = ctx["user"]
+    job_id = str(args.get("job_id") or "").strip()
+    if not job_id:
+        return "job_id 不能为空。", [_err_event("缺 job_id")]
+    job = session.get(Job, job_id)
+    if job is None or (
+        user.role != "admin"
+        and job.user_id != user.id
+        and job.tenant_id != user.tenant_id
+    ):
+        return "未找到该作品(或不属于当前账号)。", [_err_event("作品不存在", job_id)]
+    return f"已在作品库定位该作品({job.kind or '产物'})。", [
+        _ui_action("open_asset", job_id=job.id, kind=job.kind or "")
+    ]

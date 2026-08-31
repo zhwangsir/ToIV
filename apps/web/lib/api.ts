@@ -1694,6 +1694,10 @@ export interface AgentEvent {
   title?: string;
   body?: string;
   estimate?: string;
+  /** W3 ui_action 事件(2026-08-31):助手 UI 驱动指令(navigate_view/prefill_generate/open_asset) */
+  action?: string;
+  view?: string;
+  prompt?: string;
 }
 
 export interface AgentImageRef {
