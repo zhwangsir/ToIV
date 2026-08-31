@@ -22,6 +22,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import re
 from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -34,7 +35,7 @@ from app.agent import llm, runner
 from app.comfy.pool import WorkerPool
 from app.db import get_session
 from app.deps import get_current_user, get_pool
-from app.models import AgentMessage, AgentSession, User, _now
+from app.models import AgentMessage, AgentSession, Job, User, _now
 from app.nsfw_ctx import nsfw_allowed
 from app.ratelimit import enforce_generation_rate_limit
 
@@ -355,14 +356,61 @@ async def get_agent_session(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> dict:
-    """会话详情:全消息回放(id 升序即对话顺序)。"""
+    """会话详情:全消息回放(id 升序即对话顺序)。
+
+    W4 回放补强(2026-08-31):submit_generation 的 tool 消息按 job_id 回填 Job 表
+    最新产物媒体——异步作业常在对话结束后才完成(前端轮询收敛),对话期间无 done
+    事件落库,不回补则历史会话永远看不到这批产物。仅回填 media 为空的工具消息,
+    check_jobs 已落库媒体的天然跳过;Job 限本人,防越权。
+    """
     sess = _get_owned_session(session, user, sid)
     rows = session.exec(
         select(AgentMessage)
         .where(AgentMessage.session_id == sid)
         .order_by(AgentMessage.id.asc())
     ).all()
-    return {**_session_dict(sess, len(rows)), "messages": [_message_dict(r) for r in rows]}
+
+    # 收集「提交类工具消息(无媒体) → job_id」映射
+    job_ids: list[str] = []
+    msg_job: dict[int, str] = {}
+    for r in rows:
+        if r.role != "tool" or r.media or not r.tool_calls or not r.content:
+            continue
+        try:
+            tc = json.loads(r.tool_calls)
+        except (ValueError, TypeError):
+            continue
+        if (tc or {}).get("name") != "submit_generation":
+            continue
+        m = re.search(r"job_id=([0-9a-f]{32})", r.content)
+        if m:
+            job_ids.append(m.group(1))
+            msg_job[r.id] = m.group(1)
+
+    media_by_msg: dict[int, list[dict]] = {}
+    if job_ids:
+        jobs = session.exec(
+            select(Job).where(Job.id.in_(job_ids), Job.user_id == user.id)  # type: ignore[attr-defined]
+        ).all()
+        result_by_id = {
+            j.id: (json.loads(j.result) if j.result else [])
+            for j in jobs
+            if j.status == "done" and j.result
+        }
+        for mid, jid in msg_job.items():
+            urls = [u for u in result_by_id.get(jid, []) if isinstance(u, str) and u]
+            if urls:
+                media_by_msg[mid] = [
+                    {"type": runner._media_type_for_urls(urls), "urls": urls}
+                ]
+
+    out: list[dict] = []
+    for r in rows:
+        d = _message_dict(r)
+        if r.id in media_by_msg:
+            d["media"] = media_by_msg[r.id]
+        out.append(d)
+    return {**_session_dict(sess, len(rows)), "messages": out}
 
 
 class ForkRequest(BaseModel):

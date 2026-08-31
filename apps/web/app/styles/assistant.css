@@ -27,15 +27,90 @@
   padding-top: var(--space-6);
   padding-bottom: var(--space-12);
 }
-/* 门户内既有元素宽度归位:建议卡网格从 560px 放开到门户列宽 */
-.av-portal .av-quick-grid {
-  max-width: none;
+
+/* ── W4(2026-08-31)微粒场分层:canvas z-0 压底,径向暗角 z-1,内容 z-2 浮其上。
+   粒子永不覆盖文字;canvas 自身不接收指针事件(交互由容器转发坐标)。 ── */
+.av-particle-field {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
 }
-.av-portal .av-empty-desc {
-  margin-bottom: 0; /* 门户节奏由容器 gap 承担 */
+.av-portal-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  /* 径向暗角:视线聚向中央工作台,粒子向边缘退潮 */
+  background: radial-gradient(
+    120% 85% at 50% 40%,
+    transparent 52%,
+    color-mix(in oklab, var(--text-primary) 5%, transparent) 100%
+  );
+}
+.av-portal > *:not(.av-particle-field):not(.av-portal-vignette) {
+  position: relative;
+  z-index: 2;
 }
 .av-portal-composer {
   width: 100%;
+}
+
+/* ── W4(2026-08-31)场景入口 chip 行:替代原 2×N 大卡片(去描述文案,紧凑高端) ── */
+.av-scene-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+}
+.av-scene-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 34px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-full, 999px);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface-1);
+  color: var(--text-primary);
+  font-size: var(--text-aux);
+  font-weight: var(--font-medium);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
+}
+.av-scene-chip:hover {
+  border-color: var(--accent-glow);
+  background: var(--accent-soft);
+  transform: translateY(-1px);
+}
+
+/* ── W5(2026-08-31)助手离线降级:提示条 + 全量工作台导航 ── */
+.av-offline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-5);
+  border: 1px solid color-mix(in oklab, var(--warn) 35%, transparent);
+  border-radius: var(--radius-control);
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+.av-offline-title {
+  font-size: var(--text-body);
+  font-weight: var(--font-semibold);
+}
+.av-offline-desc {
+  font-size: var(--text-aux);
+  color: var(--text-secondary);
+}
+.av-scene-row--offline {
+  max-width: 560px;
+  margin: 0 auto;
 }
 
 /* 门户态对话框:褪去底部固定档的渐变底与内边距,融入门户流(双类提权覆盖 styled-jsx 基座) */
@@ -191,51 +266,6 @@
   text-overflow: ellipsis;
 }
 
-/* ── 场景胶囊(对话框下方;横版大卡:左文右 Lucide 图标,2×2) ── */
-.av-scene-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-3);
-  width: 100%;
-}
-.av-scene-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-4) var(--space-5);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.av-scene-text {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
-}
-.av-scene-title {
-  font-size: var(--text-body);
-  font-weight: var(--font-semibold);
-  color: var(--text-primary);
-}
-.av-scene-desc {
-  font-size: var(--text-aux);
-  color: var(--text-secondary);
-  line-height: 1.45;
-}
-.av-scene-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-control);
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
 /* ── 最近作品(门户垫底,复用作品库 listJobs 数据源) ── */
 .av-works {
   display: flex;
@@ -317,11 +347,8 @@
   }
 }
 
-/* 移动端:场景胶囊单列,作品网格两列 */
+/* 移动端:作品网格两列(chip 行自身 wrap,无需覆盖) */
 @media (max-width: 767px) {
-  .av-scene-grid {
-    grid-template-columns: 1fr;
-  }
   .av-works-grid {
     grid-template-columns: repeat(2, 1fr);
   }

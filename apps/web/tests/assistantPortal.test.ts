@@ -96,9 +96,14 @@ test("③ filterPortalEntries:drama 仅 R18;video 仅 SFW 补位;通用入口双
   assert.ok(!r18Views.includes("video"));
   assert.ok(!sfwViews.includes("drama"));
   assert.ok(sfwViews.includes("video"));
-  for (const v of ["image", "avatartalk", "library"]) {
-    assert.ok(r18Views.includes(v) && sfwViews.includes(v));
+  // W4(2026-08-31 紧凑化):通用入口 = 图像/音频/数字人/译制;作品库移出(与最近作品区重复)
+  for (const v of ["image", "audio", "avatartalk", "dub"]) {
+    assert.ok(r18Views.includes(v) && sfwViews.includes(v), `${v} 应双模式可见`);
   }
+  assert.ok(!r18Views.includes("library") && !sfwViews.includes("library"), "作品库不再占场景 chip");
+  // 双模式各 5 枚,视觉对称
+  assert.equal(r18Views.length, 5);
+  assert.equal(sfwViews.length, 5);
   // @ 技能面板:SFW 模式不含短剧工作台入口
   const sfwSkills = filterPortalEntries(SKILL_ENTRIES, false).map((e) => e.view);
   assert.ok(!sfwSkills.includes("drama"));

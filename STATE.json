@@ -1,7 +1,23 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-31T14:30:00+08:00",
+ "updated_at": "2026-08-31T17:40:00+08:00",
+ "fe_redesign_w4w5_2026_08_31": {
+  "status": "done_deployed_verified",
+  "scope": "W4 视觉焕新+紧凑化:页头去标题/描述纯图标化;场景/快捷入口 chip 单行化(去作品库去重、双模式各5枚对称);MODEL_DESC 陈旧文案退役;ParticleField 微粒场(160/80粒,0.45px/帧,三档景深软斑,呼吸/指针缓随/点击水波/chip汇聚,暗角,reduced-motion+隐藏暂停);产物胶片条(≥2视觉帧横排打孔+帧号,同消息多done作业聚合);runner 推理碎片抑制(tool_calls 轮伴生文本不下发不落库)。W5 降级路径:助手探活失败→门户隐藏对话框,展 OFFLINE_ENTRIES 12 工作台导航+warn 提示条",
+  "prod_fixes": "实测抓获四修:①对话产物破图(renderAvMedia/renderAvFrames 渲染时 imageUrl 补 token,/api/images 强制登录态);②页形态三面板 Esc 关闭+桌面端顶让位 56px(关闭钮曾与账户头像重叠);③runner 落库 job done 的 data.results 为 tool 媒体(此前异步产物回放全丢);④会话详情端点按 submit_generation job_id 回填 Job 表产物(对话结束后完成的回放可见,限本人/仅done/空media才补)+messagesToChat 跳空工具轮空气泡+URL去重",
+  "model_badge": "core .env TOIV_LLM_DISPLAY_NAME 修正为 Qwen3.8-Flash-Next (Spark×2 · 262K)(备份 .env.bak-20260831-displayname,toiv-api 已重启)",
+  "prod_verify": "浏览器实测:紧凑空态+微粒场在线;4图作业聚合胶片条 01-04 帧号;历史会话回放 2 图胶片条无破图无空气泡;navigate_view 音频页跳转;控制台零真实 JS 错误",
+  "regression": "pytest 2983(+3) / npm test 934(+15) / tsc 0 / 干净 build / 已部署 core",
+  "notes": "图像同步生成首轮超时系 worker 冷启动瞬时,engines 复查全 OK;旧标签页需硬刷新拿新 bundle"
+ },
+ "fe_redesign_w3_2026_08_31": {
+  "status": "done_deployed_verified",
+  "commits": ["c93cc58"],
+  "scope": "W3 助手 UI 驱动:navigate_view/prefill_generate/open_asset 三工具注册 tool_seam;前端 ui_action 即收即执行;prefill 经引擎草稿回填;open_asset 限本人",
+  "prod_verify": "「带我去译制页面」「打开作品库」3 秒内跳转生效;早前失效系旧标签页缓存,硬刷新恢复",
+  "regression": "pytest 49(W3 相关) / npm test 919"
+ },
  "fe_redesign_w2_2026_08_31": {
   "status": "done_deployed_verified",
   "commits": ["48e8475"],

@@ -81,6 +81,15 @@
   --chart-4: #15803D;
   --chart-5: #DC2626;
 
+  /* ── W4 对话胶片条 + 首页微粒场(2026-08-31):尺寸/材质 token 化,主题联动 ── */
+  --film-frame-w: 172px;
+  --film-frame-h: 120px;
+  --film-rail-bg: var(--bg-surface-1);
+  --film-perf-color: var(--border-strong);
+  /* 微粒双色:主=accent(随五套色板/暗色联动),次=muted;ParticleField JS 经 getComputedStyle 读取 */
+  --particle-primary: var(--accent);
+  --particle-secondary: var(--text-muted);
+
   /* ── 叠加与模糊(五套共用;overlay 恒深色:模态背板/图片视频 scrim 不随主题变浅) ── */
   --overlay-strong: rgba(24, 20, 16, 0.45);
   --overlay-light: rgba(24, 20, 16, 0.55);

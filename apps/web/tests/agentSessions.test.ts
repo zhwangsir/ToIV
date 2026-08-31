@@ -186,6 +186,7 @@ test("messagesToChat 纯函数:无媒体的 tool 消息不产生气泡", () => {
     { id: 3, role: "tool", content: "当前可用图像大模型: a.safetensors", tool_calls: { name: "list_models" }, media: [], created_at: "2026-08-14T00:00:02Z" },
     { id: 4, role: "assistant", content: "目前有 a", tool_calls: null, media: [], created_at: "2026-08-14T00:00:03Z" },
   ]);
-  assert.equal(out.length, 3, "无媒体 tool 消息只服务 LLM,不出气泡");
-  assert.deepEqual(out.map((m) => m.role), ["user", "assistant", "assistant"]);
+  // W4(2026-08-31):纯工具轮 assistant(空 content)同样不出气泡——空内容气泡会渲染成常驻打字点
+  assert.equal(out.length, 2, "无媒体 tool 消息与空工具轮 assistant 均不出气泡");
+  assert.deepEqual(out.map((m) => m.role), ["user", "assistant"]);
 });

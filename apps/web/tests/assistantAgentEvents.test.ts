@@ -150,10 +150,11 @@ test("AssistantView:作业卡 8s 轮询(列表+id 过滤)+ done 复用媒体渲�
     assert.ok(src.includes(t), `缺状态徽章「${t}」`);
   }
   assert.ok(src.includes('j.status === "held" && j.holdReason'), "held 未展示 hold_reason");
-  // done 产物复用现有媒体渲染分支
+  // done 产物复用现有媒体渲染分支(W4:多产物经 AvJobResults 胶片条化,单产物仍 renderAvMedia)
   assert.ok(src.includes('j.status === "done" && j.results?.length'), "done 未渲染产物");
-  assert.ok(src.includes("renderAvMedia"), "done 未复用 renderAvMedia");
-  assert.ok(src.includes("mediaTypeForJob(j.kind, u)"), "done 产物未按 kind 分流媒体类型");
+  assert.ok(src.includes("AvJobResults"), "done 产物未走 AvJobResults 胶片条分流");
+  assert.ok(src.includes("renderAvMedia"), "单产物/audio/3d 未保留 renderAvMedia");
+  assert.ok(src.includes("mediaTypeForJob"), "done 产物未按 kind 分流媒体类型");
   assert.ok(src.includes("onJobCancel"), "作业卡缺停止");
   assert.ok(src.includes("cancelJob(jobId)"), "作业卡停止未 cancelJob");
   assert.ok(src.includes("已中止"), "缺已中止徽章文案");

@@ -22,7 +22,7 @@ from app.agent import llm
 from app.db import get_session
 from app.deps import get_pool
 from app.main import app
-from app.models import AgentMessage, AgentSession, Tenant, User
+from app.models import AgentMessage, AgentSession, Job, Tenant, User
 from app.security import create_token, hash_password
 
 
@@ -287,6 +287,64 @@ def test_session_replay_and_ownership(ctx, monkeypatch):
 
     assert c.get(f"/api/agent/sessions/{sid}", headers=_auth(bob)).status_code == 404
     assert c.get("/api/agent/sessions/ghost", headers=_auth(alice)).status_code == 404
+
+
+def test_session_detail_backfills_submit_generation_results(ctx):
+    """W4(2026-08-31):submit_generation 工具消息(无媒体)回放时按 job_id 回填 Job 表
+    最新产物——异步作业对话结束后完成的场景也能看到;仅 done 回填,他人 Job 不回填。"""
+    c, alice, _, engine, ids = ctx
+    alice_id = ids[0]
+    jid = "a" * 32
+    with Session(engine) as s:
+        user = s.get(User, alice_id)
+        sess = AgentSession(user_id=alice_id, title="回填")
+        s.add(sess)
+        s.commit()
+        s.refresh(sess)
+        s.add(AgentMessage(session_id=sess.id, role="user", content="画两张"))
+        s.add(AgentMessage(
+            session_id=sess.id, role="assistant", content="",
+            tool_calls=json.dumps([{"id": "t1", "function": {"name": "submit_generation", "arguments": "{}"}}]),
+        ))
+        # submit_generation 的工具回执:文本内含 job_id,media 为空(对话期间作业未完成)
+        s.add(AgentMessage(
+            session_id=sess.id, role="tool",
+            content=f"作业已提交(job_id={jid},引擎 文生图),后台生成中。",
+            tool_calls=json.dumps({"tool_call_id": "t1", "name": "submit_generation", "args": {}}),
+        ))
+        s.add(AgentMessage(session_id=sess.id, role="assistant", content="已提交,约 1 分钟"))
+        s.commit()
+        sid = sess.id
+        # 作业在对话结束后完成
+        s.add(Job(
+            id=jid, tenant_id=user.tenant_id, user_id=alice_id, prompt_id="p1",
+            worker="http://w1:8188", kind="txt2img", status="done", prompt="cat",
+            result=json.dumps(["/api/images?filename=a.png&sig=x"]),
+        ))
+        # 他人同名 job(不应泄漏)
+        bob_row = s.exec(select(User).where(User.email == "bob@toiv.ai")).first()
+        s.add(Job(
+            id="b" * 32, tenant_id=bob_row.tenant_id, user_id=bob_row.id, prompt_id="p2",
+            worker="http://w1:8188", kind="txt2img", status="done", prompt="other",
+            result=json.dumps(["/api/images?filename=secret.png&sig=y"]),
+        ))
+        s.commit()
+
+    body = c.get(f"/api/agent/sessions/{sid}", headers=_auth(alice)).json()
+    tool_msg = next(m for m in body["messages"] if m["role"] == "tool")
+    assert tool_msg["media"] == [{"type": "image", "urls": ["/api/images?filename=a.png&sig=x"]}]
+    assert "secret" not in json.dumps(body)
+
+    # 作业未完成 → 不回填
+    with Session(engine) as s:
+        job = s.get(Job, jid)
+        job.status = "running"
+        job.result = ""
+        s.add(job)
+        s.commit()
+    body2 = c.get(f"/api/agent/sessions/{sid}", headers=_auth(alice)).json()
+    tool_msg2 = next(m for m in body2["messages"] if m["role"] == "tool")
+    assert tool_msg2["media"] == []
 
 
 # --------------------------------------------------------------------------- #

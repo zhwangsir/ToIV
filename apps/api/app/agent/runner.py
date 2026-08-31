@@ -185,6 +185,19 @@ def _skills_context(messages: list[dict], user: User, session: Session) -> str |
     )
 
 
+# 产物 URL 扩展名 → 媒体类型(job done 事件落库媒体用;与前端 mediaKindOf 口径一致)
+_MEDIA_TYPE_BY_EXT = {
+    "mp4": "video", "webm": "video", "mov": "video",
+    "mp3": "audio", "wav": "audio", "flac": "audio", "ogg": "audio",
+    "glb": "model3d",
+}
+
+
+def _media_type_for_urls(urls: list[str]) -> str:
+    ext = urls[0].split("?")[0].rsplit(".", 1)[-1].lower() if urls else ""
+    return _MEDIA_TYPE_BY_EXT.get(ext, "image")
+
+
 async def run(
     messages: list[dict], pool: WorkerPool, user: User, session,
     attachment: dict | None = None,
@@ -308,16 +321,18 @@ async def run(
             return
         tool_calls = assistant.get("tool_calls") or []
         content = assistant.get("content") or ""
-        if content:
-            yield {"type": "text", "content": content}
+        # 2026-08-31 W4:带工具调用的轮次,伴生文本多为模型推理碎片(英文自述/思考过程),
+        # 既不下发也不落库——用户可见的是工具状态条与最终回答,会话回放不重演推理;
+        # working copy(msgs)仍保留原文,维持模型多轮上下文连贯。
         if not tool_calls:
             # 最终回答:本轮未再进 LLM,但会随前端历史进入下一轮上下文 → 落库
             if content:
+                yield {"type": "text", "content": content}
                 await _log("assistant", content)
             return
 
         msgs.append({"role": "assistant", "content": content, "tool_calls": tool_calls})
-        await _log("assistant", content, tool_calls=tool_calls)
+        await _log("assistant", "", tool_calls=tool_calls)
         for tc in tool_calls:
             fn = tc.get("function", {})
             name = fn.get("name", "")
@@ -360,6 +375,13 @@ async def run(
                 yield ev
                 if isinstance(ev, dict) and ev.get("urls"):
                     media.append({"type": ev.get("type", ""), "urls": ev["urls"]})
+                elif isinstance(ev, dict) and ev.get("type") == "job":
+                    # W4 修复(2026-08-31):job done 事件的产物在 data.results(无顶层 urls),
+                    # 此前不落库 → 会话回放丢全部异步作业产物。媒体类型按扩展名归一。
+                    _d = ev.get("data") or {}
+                    _res = [u for u in (_d.get("results") or []) if isinstance(u, str) and u]
+                    if _d.get("status") == "done" and _res:
+                        media.append({"type": _media_type_for_urls(_res), "urls": _res})
             if not has_status_event:
                 yield {"type": "tool_event", "data": {
                     "id": tc_id, "name": name,

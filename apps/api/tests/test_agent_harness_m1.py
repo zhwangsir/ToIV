@@ -372,6 +372,127 @@ async def test_runner_rounds_respect_settings_and_emits_round():
         assert events[-1]["type"] == "text" and events[-1]["content"] == "完成"
 
 
+@pytest.mark.asyncio
+async def test_runner_tool_call_turn_suppresses_reasoning_chatter():
+    """W4(2026-08-31):带 tool_calls 的助手轮次伴生文本(模型推理碎片,如英文自述)
+    既不下发也不落库;最终回答照常;working copy 保留原文维持模型上下文。"""
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as s:
+        tenant = Tenant(name="w4")
+        s.add(tenant); s.commit(); s.refresh(tenant)
+        user = User(email="w4@toiv.ai", hashed_password=hash_password("password1"), tenant_id=tenant.id)
+        s.add(user); s.commit(); s.refresh(user)
+
+        # 第 1 轮:「调用中」伴生文本 + 工具调用;第 2 轮纯文本「完成」
+        fake_llm = _FakeLLM(rounds_before_final=1)
+        fake_tools = _FakeTools()
+        fake_ctx = type("Ctx", (), {})()
+
+        def svc(name):
+            if name == "llm":
+                return fake_llm
+            if name == "tools":
+                return fake_tools
+            raise KeyError(name)
+
+        fake_ctx.service = svc
+        fake_settings = SimpleNamespace(agent_max_rounds=5, agent_context_budget=24000, agent_skills_topk=0)
+        logged: list[dict] = []
+
+        async def _on_message(m):
+            logged.append(m)
+
+        with patch.object(agent_runner, "get_ctx", lambda: fake_ctx), \
+             patch.object(agent_runner, "nsfw_allowed", lambda u: False), \
+             patch.object(agent_runner, "_rag_context", _noop_rag), \
+             patch.object(agent_runner, "get_settings", lambda: fake_settings):
+            events = [ev async for ev in agent_runner.run(
+                [{"role": "user", "content": "调用个工具"}],
+                pool=None, user=user, session=s, on_message=_on_message,
+            )]
+
+        # ① 下发:只有最终回答,推理碎片「调用中」不出现在 text 事件里
+        text_evs = [e for e in events if e.get("type") == "text"]
+        assert [e["content"] for e in text_evs] == ["完成"]
+        # ② 模型上下文:第 2 轮请求仍带原文(多轮连贯不破坏)
+        second = fake_llm.calls[1]
+        assert any(
+            m.get("role") == "assistant" and m.get("content") == "调用中" for m in second
+        )
+        # ③ 落库:工具轮 content 置空(tool_calls 记录保留),最终回答原样落库
+        assistant_logs = [m for m in logged if m["role"] == "assistant"]
+        assert [m["content"] for m in assistant_logs] == ["", "完成"]
+        assert assistant_logs[0]["tool_calls"]
+
+
+class _JobDoneTools(_FakeTools):
+    """工具事件流携带 job done 事件(data.results,无顶层 urls)。"""
+
+    async def execute(self, name, args, ctx):
+        return "作业完成", [{
+            "type": "job",
+            "data": {
+                "job_id": "j1", "kind": "txt2img", "status": "done", "label": "文生图",
+                "results": ["/api/images?filename=a.png&sig=x", "/api/images?filename=b.png&sig=y"],
+            },
+        }]
+
+
+@pytest.mark.asyncio
+async def test_runner_logs_job_done_results_as_media():
+    """W4(2026-08-31):job done 事件的 data.results 落库为 tool 媒体(此前只认顶层 urls,
+    异步作业产物在会话回放中全丢);媒体类型按扩展名归一。"""
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as s:
+        tenant = Tenant(name="w4m")
+        s.add(tenant); s.commit(); s.refresh(tenant)
+        user = User(email="w4m@toiv.ai", hashed_password=hash_password("password1"), tenant_id=tenant.id)
+        s.add(user); s.commit(); s.refresh(user)
+
+        fake_llm = _FakeLLM(rounds_before_final=1)
+        fake_tools = _JobDoneTools()
+        fake_ctx = type("Ctx", (), {})()
+
+        def svc(name):
+            if name == "llm":
+                return fake_llm
+            if name == "tools":
+                return fake_tools
+            raise KeyError(name)
+
+        fake_ctx.service = svc
+        fake_settings = SimpleNamespace(agent_max_rounds=5, agent_context_budget=24000, agent_skills_topk=0)
+        logged: list[dict] = []
+
+        async def _on_message(m):
+            logged.append(m)
+
+        with patch.object(agent_runner, "get_ctx", lambda: fake_ctx), \
+             patch.object(agent_runner, "nsfw_allowed", lambda u: False), \
+             patch.object(agent_runner, "_rag_context", _noop_rag), \
+             patch.object(agent_runner, "get_settings", lambda: fake_settings):
+            events = [ev async for ev in agent_runner.run(
+                [{"role": "user", "content": "看图"}], pool=None, user=user, session=s,
+                on_message=_on_message,
+            )]
+
+        # job 事件照常下发(前端作业卡)
+        assert any(e.get("type") == "job" for e in events)
+        # 落库 tool 消息带媒体:image 类型(png),双 url 全保留
+        tool_logs = [m for m in logged if m["role"] == "tool"]
+        assert len(tool_logs) == 1
+        assert tool_logs[0]["media"] == [{
+            "type": "image",
+            "urls": ["/api/images?filename=a.png&sig=x", "/api/images?filename=b.png&sig=y"],
+        }]
+        # 扩展名归一
+        assert agent_runner._media_type_for_urls(["/x.mp4?sig=1"]) == "video"
+        assert agent_runner._media_type_for_urls(["/x.glb"]) == "model3d"
+        assert agent_runner._media_type_for_urls(["/x.png"]) == "image"
+
+
 async def _noop_rag(messages):
     return None
 
