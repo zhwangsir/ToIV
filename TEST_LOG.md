@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-08-31 前端改造 W1 IA 骨架(本地验证,未部署):models/train/backlot 双轨容器收编资源中心(?view=train → /?view=resources&tab=train 直达);drama 旧管线退役重定向 studio;CornerNav 九项平铺改五组(门户/创作/资产/探索/系统);agent-runs 孤儿路由收口「更多」抽屉;BacklotView 空态 CTA 改经 ResourcesView 透传。IDE 缓冲区回滚多次复发,逐项 grep 复核落盘。回归:npm test 915(+5 新断言)/ tsc 0 / 干净 build。
+
 - 2026-08-31 主脑换代:双 Spark TP=2 + Qwen3.8-Flash-Next-Uncensored NVFP4(已上线生产)。权重 dealignai 版 126GB 双节点(QSFP rsync 434MB/s),SGLang arm64 day-0 镜像。攻坚三个上游/部署 bug:①SGLang QSA `_resolve_trtllm_sparse_decode` 的 `is_sm100_supported()` 误排 sm_121(GB10)→ 挂载补丁跳过;②flash-attn-4 sm120/121 cute 内核崩溃(GH#2453)→ 手动应用未合并的 PR#2484 补丁挂载;③vLLM 路线废弃(day-0 镜像无 Ray 且不认 dealignai 的 PLE-FP8)。验收:9/9 全绿(中文/工具调用/needle 10K+42K+141K/无审查/22.9tok/s/并发 8 路/视觉);957,811 token needle 通过(prefill 21.6min)。**否决项**:YaRN 1M(中段 42K/141K 输入输出 `!!!` 乱码,QSA 索引损坏,factor4 质量回归不通过)→ 生产定版原生 262K(8× 旧 32K);fp8 KV 不可用(QSA chunk-prefill triton 内核 tl.dot 不支持 fp8e4nv)。接入:core .env LLM×4 切 spark01:8000(备份 .env.bak-20260831-qwen38),SGLang 接受任意 model 名,旧别名零风险;生产 /api/agent/chat e2e 实测正常;pytest 2974 全绿。回滚预案:vllm_node-v2 + qwen3vl32b-v2 容器保留。运维手册+补丁+验收脚本固化于 deploy/spark-llm/。
 
 - 2026-08-31 精简二轮（已部署 core+双推）：移动端「更多」抽屉去重——fusion 卡五目标（studio/avatartalk/dub/imageEdit/videoEdit）从抽屉移除（融合页即底部 CTA 主入口，卡片一跳直达，抽屉不摆第二套，11→6 项）；保留 market/canvas/entities/animatic/resources/settings（窄屏设置唯一入口，桌面走 AccountButton）。测试：+1 去重断言（appsViews），uxBatchD studio 图标断言同步。回归：npm test 910 / tsc 0 / build 干净。

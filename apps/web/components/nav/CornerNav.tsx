@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 
 import { Icon, type IconName } from "@/components/ui/Icon";
 
@@ -8,6 +8,8 @@ export interface CornerNavItem {
   key: string;
   label: string;
   icon: IconName;
+  /** 2026-08-31 W1 分组:相同 group 的连续项渲染为一个分组,组间有分隔标签 */
+  group?: string;
 }
 
 interface CornerNavProps {
@@ -54,29 +56,38 @@ export function CornerNav({ items, current, onSelect, onItemIntent }: CornerNavP
       <nav className="cornernav-panel" aria-label="主导航">
         <div className="cornernav-panel-inner">
           <div className="cornernav-items" role="tablist" aria-label="切换模块">
-            {items.map((item) => {
+            {items.map((item, idx) => {
               const active = item.key === current;
+              // W1 分组:group 变化时插入组标签(首项或有 group 且与前不同)
+              const showGroup =
+                item.group !== undefined && (idx === 0 || items[idx - 1].group !== item.group);
               return (
-                <button
-                  key={item.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  className={`cornernav-item${active ? " is-active" : ""}`}
-                  onClick={(e) => {
-                    e.currentTarget.blur(); /* 点击后释放焦点,避免 focus-within 钉住面板 */
-                    setPinned(false);
-                    onSelect(item.key);
-                  }}
-                  onMouseEnter={() => onItemIntent?.(item.key)}
-                  onFocus={() => onItemIntent?.(item.key)}
-                >
-                  <span className="cornernav-item-icon">
-                    <Icon name={item.icon} size={16} />
-                  </span>
-                  <span className="cornernav-item-label">{item.label}</span>
-                  {active && <span className="cornernav-item-dot" aria-hidden="true" />}
-                </button>
+                <Fragment key={item.key}>
+                  {showGroup && (
+                    <div className="cornernav-group" aria-hidden="true">
+                      {item.group}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    className={`cornernav-item${active ? " is-active" : ""}`}
+                    onClick={(e) => {
+                      e.currentTarget.blur(); /* 点击后释放焦点,避免 focus-within 钉住面板 */
+                      setPinned(false);
+                      onSelect(item.key);
+                    }}
+                    onMouseEnter={() => onItemIntent?.(item.key)}
+                    onFocus={() => onItemIntent?.(item.key)}
+                  >
+                    <span className="cornernav-item-icon">
+                      <Icon name={item.icon} size={16} />
+                    </span>
+                    <span className="cornernav-item-label">{item.label}</span>
+                    {active && <span className="cornernav-item-dot" aria-hidden="true" />}
+                  </button>
+                </Fragment>
               );
             })}
           </div>

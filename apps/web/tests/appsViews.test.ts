@@ -138,7 +138,8 @@ test("page.tsx 旧 key 兼容:skills/apps 经 LEGACY_VIEW_REDIRECTS 跳 market(�
 
 test("page.tsx 导航入口:灵动岛 + BottomNav 更多均含单一市场入口(store 图标)", () => {
   const src = readSrc("app/page.tsx");
-  const entries = src.match(/\{ key: "market", label: "市场", icon: "store" \}/g) ?? [];
+  // W1 分组后灵动岛项带 group 字段,断言允许尾部扩展属性
+  const entries = src.match(/\{ key: "market", label: "市场", icon: "store"[^}]*\}/g) ?? [];
   assert.equal(entries.length, 2, "灵动岛 ISLAND_ITEMS 与 BOTTOM_NAV_MORE_ITEMS 应各一条 market 入口");
 });
 
@@ -165,6 +166,62 @@ test("page.tsx 导航去重:fusion 卡五目标不在「更多」抽屉重复(20
   for (const key of ["market", "canvas", "entities", "animatic", "resources", "settings"]) {
     assert.ok(moreBlock.includes(`key: "${key}"`), `「更多」抽屉缺 ${key} 入口`);
   }
+});
+
+/* ── 2026-08-31 W1 IA 骨架治理 ── */
+test("W1:models/train/backlot/drama 移出独立视图,旧 key 走重定向", () => {
+  const src = readSrc("app/page.tsx");
+  const redirectBlock = src.slice(src.indexOf("LEGACY_VIEW_REDIRECTS"), src.indexOf("resolveView"));
+  for (const key of ["models", "train", "backlot"]) {
+    assert.match(redirectBlock, new RegExp(`${key}: "resources"`), `${key} 应重定向进资源中心`);
+  }
+  assert.match(redirectBlock, /drama: "studio"/, "drama 旧管线应重定向到 studio");
+  // 不再作为独立视图渲染
+  assert.ok(!src.includes('view === "train"'), "train 不应有独立渲染分支");
+  assert.ok(!src.includes('view === "models"'), "models 不应有独立渲染分支");
+  assert.ok(!src.includes('view === "backlot"'), "backlot 不应有独立渲染分支");
+  assert.ok(!src.includes('view === "drama"'), "drama 不应有独立渲染分支");
+  const validBlock = src.slice(src.indexOf("VALID_VIEWS"), src.indexOf("VIEW_META"));
+  for (const key of ["models", "train", "backlot", "drama"]) {
+    assert.ok(!validBlock.includes(`"${key}"`), `VALID_VIEWS 不应再含 ${key}`);
+  }
+});
+
+test("W1:models/train/backlot 重定向携带 tab 直达资源中心二级页", () => {
+  const src = readSrc("app/page.tsx");
+  assert.ok(
+    src.includes('LEGACY_RESOURCE_TAB_KEYS = new Set(["models", "train", "backlot"])'),
+    "缺资源 tab 旧 key 集合",
+  );
+  assert.ok(src.includes('`&tab=${raw}`'), "重定向 URL 应携带 tab 参数");
+});
+
+test("W1:ResourcesView 支持 ?tab= 初始直达(白名单校验)", () => {
+  const src = readSrc("components/resources/ResourcesView.tsx");
+  assert.ok(src.includes("useSearchParams"), "应读 URL 查询参数");
+  assert.ok(src.includes('RESOURCE_TABS = new Set'), "缺 tab 白名单");
+  assert.ok(src.includes('searchParams.get("tab")'), "应解析 tab 参数");
+});
+
+test("W1:CornerNav 一级导航分组(门户/创作/资产/探索/系统)", () => {
+  const src = readSrc("app/page.tsx");
+  const islandBlock = src.slice(src.indexOf("ISLAND_ITEMS"), src.indexOf("BOTTOM_NAV_ITEMS"));
+  for (const g of ["门户", "创作", "资产", "探索", "系统"]) {
+    assert.ok(islandBlock.includes(`group: "${g}"`), `灵动岛缺分组 ${g}`);
+  }
+  const navSrc = readSrc("components/nav/CornerNav.tsx");
+  assert.ok(navSrc.includes("cornernav-group"), "CornerNav 应渲染组标签");
+  assert.ok(navSrc.includes("group?: string"), "CornerNavItem 缺 group 字段");
+});
+
+test("W1:agent-runs 孤儿路由收口进「更多」抽屉(特判跳独立路由)", () => {
+  const src = readSrc("app/page.tsx");
+  const moreBlock = src.slice(src.indexOf("BOTTOM_NAV_MORE_ITEMS"));
+  assert.ok(moreBlock.includes('key: "agent-runs"'), "「更多」抽屉缺智能体入口");
+  assert.ok(
+    src.includes('router.push("/agent-runs")'),
+    "agent-runs 应特判跳独立 Next 路由",
+  );
 });
 
 test("MarketView:at-seg 段控 + ErrorBoundary(key=tab)+ 懒加载内嵌双市场", () => {

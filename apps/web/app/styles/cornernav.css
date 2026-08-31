@@ -120,6 +120,21 @@
   flex-direction: column;
   gap: var(--space-1);
 }
+/* W1 分组标签(2026-08-31):小字大写弱色,组间上分隔 */
+.cornernav-group {
+  padding: var(--space-2) var(--space-3) var(--space-1);
+  font-size: 10px;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  user-select: none;
+}
+.cornernav-group:not(:first-child) {
+  margin-top: var(--space-2);
+  border-top: 1px solid var(--glass-border);
+  padding-top: var(--space-3);
+}
 .cornernav-item {
   display: flex;
   align-items: center;

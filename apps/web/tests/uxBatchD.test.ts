@@ -78,7 +78,8 @@ test("page.tsx:admin 视图 isAdmin 门控 + 非管理员无权限提示", () =>
 
 test("page.tsx:admin 导航入口仅管理员可见(灵动岛 + 底部更多)", () => {
   const src = readSrc("app/page.tsx");
-  assert.match(src, /const adminItem: BottomNavItem = \{[\s\S]*?key: "admin"/, "缺 adminItem 定义");
+  // W1:admin/观测归入「系统」组,类型升级为 CornerNavItem(带 group 字段)
+  assert.match(src, /const adminItem: CornerNavItem = \{[\s\S]*?key: "admin"/, "缺 adminItem 定义");
   assert.ok(
     src.includes("[...islandItems, observabilityItem, adminItem]"),
     "灵动岛应追加 adminItem",
@@ -177,12 +178,19 @@ test("BacklotView:空态收编 ui/Empty + 前往工作室创建 CTA", () => {
   assert.ok(!src.includes("bl-empty"), "私造 bl-empty 空态应清除(含死样式)");
 });
 
-test("BacklotView:page.tsx 为空态 CTA 接线跳 studio", () => {
-  const src = readSrc("app/page.tsx");
+test("BacklotView:空态 CTA 经资源中心透传接线跳 studio", () => {
+  // W1:backlot 收编进 ResourcesView tab,CTA 经 page.tsx → ResourcesView → BacklotView 透传
+  const pageSrc = readSrc("app/page.tsx");
   assert.match(
-    src,
-    /<BacklotView onCreateProject=\{\(\) => handleNavSelect\("studio"\)\} \/>/,
-    "CTA 应跳工作室(handleNavSelect 顺带复位待开项目 id)",
+    pageSrc,
+    /<ResourcesView onCreateProject=\{\(\) => handleNavSelect\("studio"\)\} \/>/,
+    "page.tsx 应把 onCreateProject 传给 ResourcesView(handleNavSelect 顺带复位待开项目 id)",
+  );
+  const resSrc = readSrc("components/resources/ResourcesView.tsx");
+  assert.match(
+    resSrc,
+    /<BacklotView onCreateProject=\{onCreateProject\} \/>/,
+    "ResourcesView 应把 onCreateProject 透传给 BacklotView",
   );
 });
 

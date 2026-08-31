@@ -116,9 +116,10 @@ test("ResourcesView 精简(2026-08-31):管理 tab 移除,无 showAdmin/AdminView
   assert.ok(!src.includes("showAdmin"), "showAdmin prop 应移除(管理走独立导航入口)");
   assert.ok(!src.includes("AdminView"), "AdminView 懒加载/渲染分支应移除");
   assert.ok(!src.includes('"admin"'), "ResourceTab 不应再含 admin");
-  // page.tsx 侧同步:不再传 showAdmin
+  // page.tsx 侧同步:不再传 showAdmin;W1 起传 onCreateProject(BacklotView 空态 CTA 透传)
   const page = readSrc("app/page.tsx");
-  assert.ok(page.includes("{view === \"resources\" && <ResourcesView />}"), "应裸挂 ResourcesView");
+  assert.match(page, /\{view === "resources" && \(/, "ResourcesView 经资源视图渲染");
+  assert.ok(page.includes("onCreateProject"), "page.tsx 应向 ResourcesView 传 onCreateProject");
   assert.ok(!page.includes("showAdmin"), "page.tsx 不应再传 showAdmin");
 });
 

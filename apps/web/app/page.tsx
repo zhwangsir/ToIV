@@ -76,21 +76,19 @@ type View =
   | "canvas"
   | "studio"
   | "dub"
-  | "train"
   | "library"
   | "entities"
-  | "backlot"
-  | "models"
   | "resources"
   | "market"
   | "settings"
-  | "drama"
   | "observability"
   | "admin";
 
 /** M1 三大板块拆分:generate 退役拆为 图片/视频/音频,旧链接按 kind 重定向(不 404)。
  *  M4 studio 替代短剧/漫剧:旧 key 一律重定向到 studio。
- *  2026-08-31 精简:Skill 市场/应用市场合并为「市场」(market),旧 key 重定向。 */
+ *  2026-08-31 精简:Skill 市场/应用市场合并为「市场」(market),旧 key 重定向。
+ *  2026-08-31 W1 IA 治理:models/train/backlot 双轨容器收编进资源中心(带 tab);
+ *  drama 旧管线退役,重定向 studio(实体数据仍由 /drama/[id] 播放器承载)。 */
 const LEGACY_VIEW_REDIRECTS: Record<string, View> = {
   create: "image",
   generate: "image",
@@ -101,7 +99,14 @@ const LEGACY_VIEW_REDIRECTS: Record<string, View> = {
   "image-edit": "imageEdit",
   skills: "market",
   apps: "market",
+  models: "resources",
+  train: "resources",
+  backlot: "resources",
+  drama: "studio",
 };
+
+/** W1:这三个旧 key 重定向进资源中心时需带上目标 tab(?view=train → /?view=resources&tab=train) */
+const LEGACY_RESOURCE_TAB_KEYS = new Set(["models", "train", "backlot"]);
 
 /** 解析 ?view= 参数:旧 key 走重定向,非法 key 返回 null(落默认视图)。 */
 function resolveView(raw: string | null): View | null {
@@ -127,15 +132,11 @@ const viewImporters = {
   canvas: () => import("@/components/canvas/CanvasView"),
   studio: () => import("@/components/studio/StudioView"),
   dub: () => import("@/components/dub/DubView"),
-  train: () => import("@/components/train/TrainView"),
   library: () => import("@/components/library/LibraryView"),
   entities: () => import("@/components/entities/EntitiesView"),
-  backlot: () => import("@/components/backlot/BacklotView"),
-  models: () => import("@/components/models/ModelsView"),
   resources: () => import("@/components/resources/ResourcesView"),
   market: () => import("@/components/market/MarketView"),
   settings: () => import("@/components/settings/SettingsView"),
-  drama: () => import("@/components/drama/DramaView"),
   observability: () => import("@/components/observability/ObservabilityView"),
   admin: () => import("@/components/admin/AdminView"),
 } as const;
@@ -177,20 +178,11 @@ const StudioView = lazy(() =>
 const DubView = lazy(() =>
   viewImporters.dub().then((m) => ({ default: m.DubView })),
 );
-const TrainView = lazy(() =>
-  viewImporters.train().then((m) => ({ default: m.TrainView })),
-);
 const LibraryView = lazy(() =>
   viewImporters.library().then((m) => ({ default: m.LibraryView })),
 );
 const EntitiesView = lazy(() =>
   viewImporters.entities().then((m) => ({ default: m.EntitiesView })),
-);
-const BacklotView = lazy(() =>
-  viewImporters.backlot().then((m) => ({ default: m.BacklotView })),
-);
-const ModelsView = lazy(() =>
-  viewImporters.models().then((m) => ({ default: m.ModelsView })),
 );
 const ResourcesView = lazy(() =>
   viewImporters.resources().then((m) => ({ default: m.ResourcesView })),
@@ -200,9 +192,6 @@ const MarketView = lazy(() =>
 );
 const SettingsView = lazy(() =>
   viewImporters.settings().then((m) => ({ default: m.SettingsView })),
-);
-const DramaView = lazy(() =>
-  viewImporters.drama().then((m) => ({ default: m.DramaView })),
 );
 const AdminView = lazy(() =>
   viewImporters.admin().then((m) => ({ default: m.AdminView })),
@@ -220,8 +209,9 @@ function ViewFallback({ label }: { label: string }) {
   );
 }
 
-// 旧视图 key(models/train/backlot/admin)保留兼容,旧链接不 404;
-// create/generate/ltxstudio/dramaStudio/manju/skills/apps 不在此列——经 LEGACY_VIEW_REDIRECTS 重定向;
+// 2026-08-31 W1:models/train/backlot/drama 移出 VALID_VIEWS,经 LEGACY_VIEW_REDIRECTS
+// 分别收编进资源中心(带 tab)/studio,旧链接不 404;
+// create/generate/ltxstudio/dramaStudio/manju/skills/apps 同走重定向;
 // assistant 已底层化(2026-08-17):移出 VALID_VIEWS,URL ?view=assistant 在挂载 effect 中重定向 fusion
 const VALID_VIEWS = new Set<View>([
   "image",
@@ -235,15 +225,11 @@ const VALID_VIEWS = new Set<View>([
   "canvas",
   "studio",
   "dub",
-  "train",
   "library",
   "entities",
-  "backlot",
-  "models",
   "resources",
   "market",
   "settings",
-  "drama",
   "observability",
   "admin",
 ]);
@@ -261,15 +247,11 @@ const VIEW_META: Record<View, { label: string }> = {
   canvas:    { label: "画布" },
   studio:    { label: "创作" },
   dub:       { label: "译制" },
-  train:     { label: "训练" },
   library:    { label: "作品库" },
   entities:   { label: "主体库" },
-  backlot:    { label: "看板" },
-  models:     { label: "模型" },
   resources:  { label: "资源" },
   market:     { label: "市场" },
   settings:   { label: "设置" },
-  drama:     { label: "短剧" },
   observability: { label: "观测" },
   admin:     { label: "管理" },
 };
@@ -278,17 +260,18 @@ const VIEW_META: Record<View, { label: string }> = {
  *  2026-08-17 底层化:AI 助手移出导航,由 Shift+Enter 全局浮层(AssistantOverlay)唤起。
  *  2026-08-31 精简:「Skill 市场」+「应用市场」两个同构入口合并为单一「市场」(market,
  *  页内 at-seg 段控切 应用/技能,旧 key 经 LEGACY_VIEW_REDIRECTS 跳转)。
+ *  2026-08-31 W1:平铺九项改为分组(门户/创作/资产/探索/系统),CornerNav 按组渲染分隔标签。
  *  桌面端由左上角悬停展开导航(CornerNav)承载,窄屏由底部导航承载。 */
 const ISLAND_ITEMS: CornerNavItem[] = [
-  { key: "market", label: "市场", icon: "store" },
-  { key: "image", label: "图片", icon: "image" },
-  { key: "video", label: "视频", icon: "video" },
-  { key: "audio", label: "音频", icon: "audio" },
-  { key: "fusion", label: "融合", icon: "sparkles" },
-  { key: "canvas", label: "画布", icon: "workflow" },
-  { key: "library", label: "作品库", icon: "library" },
-  { key: "entities", label: "主体库", icon: "users" },
-  { key: "resources", label: "资源", icon: "models" },
+  { key: "fusion", label: "融合", icon: "sparkles", group: "门户" },
+  { key: "image", label: "图片", icon: "image", group: "创作" },
+  { key: "video", label: "视频", icon: "video", group: "创作" },
+  { key: "audio", label: "音频", icon: "audio", group: "创作" },
+  { key: "library", label: "作品库", icon: "library", group: "资产" },
+  { key: "entities", label: "主体库", icon: "users", group: "资产" },
+  { key: "market", label: "市场", icon: "store", group: "探索" },
+  { key: "canvas", label: "画布", icon: "workflow", group: "探索" },
+  { key: "resources", label: "资源", icon: "models", group: "系统" },
 ];
 
 /** 窄屏底部导航:主入口 5 个(含 CTA)+「更多」抽屉承载其余 */
@@ -310,6 +293,8 @@ const BOTTOM_NAV_MORE_ITEMS: BottomNavItem[] = [
   // 2026-08-30 批 D:animatic 原与 studio 同用 clapperboard,换 film(胶片条)提辨识度
   { key: "animatic", label: "动态分镜", icon: "film" },
   { key: "resources", label: "资源", icon: "models" },
+  // W1:agent-runs 孤儿路由收口——智能体团队运行记录进抽屉(独立路由,handleNavSelect 特判跳转)
+  { key: "agent-runs", label: "智能体", icon: "bot" },
   // 窄屏设置唯一入口(桌面走右上角 AccountButton)
   { key: "settings", label: "设置", icon: "settings" },
 ];
@@ -490,9 +475,11 @@ function HomeContent() {
     if (resolved && resolved !== view) {
       setView(resolved);
     }
-    // 旧 key(create/generate/ltxstudio)重定向后把 URL 规整为新 key,刷新/分享保持一致
+    // 旧 key(create/generate/ltxstudio 等)重定向后把 URL 规整为新 key,刷新/分享保持一致;
+    // W1:models/train/backlot 进资源中心时带上 tab,直达对应二级页
     if (raw && LEGACY_VIEW_REDIRECTS[raw]) {
-      router.replace(`/?view=${resolved ?? "fusion"}`);
+      const tab = LEGACY_RESOURCE_TAB_KEYS.has(raw) ? `&tab=${raw}` : "";
+      router.replace(`/?view=${resolved ?? "fusion"}${tab}`);
     }
   }, [searchParams, view, router]);
 
@@ -607,18 +594,16 @@ function HomeContent() {
   const [studioInitialProjectId, setStudioInitialProjectId] = useState<string | null>(null);
   const handleNavSelect = useCallback(
     (key: string) => {
+      // W1:agent-runs 是独立 Next 路由(非 view),抽屉入口特判跳转
+      if (key === "agent-runs") {
+        router.push("/agent-runs");
+        return;
+      }
       if (key === "studio") setStudioInitialProjectId(null);
       changeView(key as View);
     },
-    [changeView],
+    [changeView, router],
   );
-
-  // M9 门控:短剧视图仅 R18 模式可达,SFW 模式直输 ?view=drama 一律回落融合页。
-  // 判定直接读 localStorage(isR18Mode):useR18Mode 首帧恒 false、effect 中才纠正,
-  // 用 hook 态会把已开 R18 的用户误弹走;r18 仅作依赖,驱动模式关闭瞬间的复检。
-  useEffect(() => {
-    if (view === "drama" && !isR18Mode()) changeView("fusion");
-  }, [view, r18, changeView]);
 
   // 观测面板仅管理员(端点 admin-only):非管理员直输 ?view=observability 弹回融合页;
   // 等会话探测完成(account 非 null)再判,避免登录中误弹。
@@ -661,22 +646,23 @@ function HomeContent() {
   const isAdmin = account === "admin";
   const meta = VIEW_META[view];
 
-  // 2026-08-29:灵动岛/底部抽屉不再追加「短剧」(drama 旧管线)——融合页已有
-  // 「创作工作室」(studio)旗舰卡承载同一职责,双入口造成认知分叉。
-  // drama 视图本体与 R18 URL 门控保留(旧项目数据仍可达),仅收导航入口。
+  // W1:drama 旧管线已退役重定向 studio,门控与渲染分支一并移除。
   let islandItems: CornerNavItem[] = ISLAND_ITEMS;
   let bottomNavMoreItems: BottomNavItem[] = BOTTOM_NAV_MORE_ITEMS;
   // 观测面板仅管理员可见(端点 admin-only,普通用户加入口只会 403)
-  const observabilityItem: BottomNavItem = {
+  // W1 分组:admin 两项归入「系统」组(CornerNav 按 group 渲染分隔)
+  const observabilityItem: CornerNavItem = {
     key: "observability",
     label: "观测",
     icon: "monitor",
+    group: "系统",
   };
   // 管理面板入口(2026-08-30 批 D):此前无导航入口只能直输 URL;admin 专属,与观测同槽追加
-  const adminItem: BottomNavItem = {
+  const adminItem: CornerNavItem = {
     key: "admin",
     label: "管理",
     icon: "shield-check",
+    group: "系统",
   };
   // 注意:ISLAND_ITEMS / BOTTOM_NAV_MORE_ITEMS 是模块级常量,r18 分支的 slice 拼接
   // 产生新数组,非 r18 分支是同一引用——必须再复制一层才能 push,否则每次渲染
@@ -759,22 +745,20 @@ function HomeContent() {
                   initialProjectId={studioInitialProjectId}
                 />
               )}
-              {/* M9:短剧(drama 旧管线)仅 R18 模式渲染;SFW 直输 URL 由门控 effect 弹回 */}
-              {view === "drama" && r18 && <DramaView />}
+              {/* W1:drama 旧管线退役(?view=drama → studio),渲染分支移除 */}
               {view === "dub" && <DubView onBack={() => handleFusionNavigate("fusion")} />}
               {view === "animatic" && (
                 // 动态分镜全端统一:AnimaticView 为唯一实现(旧桌面端 FROZEN 视图已物理删除)
                 <AnimaticView onOpenDramaProject={handleOpenDramaProject} />
               )}
               {view === "avatartalk" && <AvatarTalkView onNavigate={handleFusionNavigate} />}
-              {view === "train" && <TrainView />}
               {view === "library" && <LibraryView onNavigate={handleFusionNavigate} />}
               {view === "entities" && <EntitiesView />}
-              {view === "backlot" && (
-                <BacklotView onCreateProject={() => handleNavSelect("studio")} />
+              {/* W1:train/backlot/models 不再独立渲染,统一经 ResourcesView tab 容器;
+                  BacklotView 空态 CTA 经 onCreateProject 透传保持可跳工作室 */}
+              {view === "resources" && (
+                <ResourcesView onCreateProject={() => handleNavSelect("studio")} />
               )}
-              {view === "models" && <ModelsView />}
-              {view === "resources" && <ResourcesView />}
               {view === "market" && <MarketView />}
               {view === "settings" && <SettingsView account={account} onLogout={onLogout} />}
               {view === "admin" &&

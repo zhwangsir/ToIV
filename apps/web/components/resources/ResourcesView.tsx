@@ -1,6 +1,7 @@
 "use client";
 
 import { lazy, Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
@@ -18,9 +19,12 @@ const BacklotView = lazy(() =>
 
 type ResourceTab = "models" | "train" | "backlot";
 
+const RESOURCE_TABS = new Set<string>(["models", "train", "backlot"]);
+
 /**
  * 资源聚合页(W0):模型库 / 训练 / 看板 三个二级 tab,直接嵌入既有视图。
  * 2026-08-31 精简:「管理」tab 移除(管理面板已有管理员专属导航入口,双入口去重)。
+ * 2026-08-31 W1:支持 ?tab= 直达(models/train/backlot 旧视图 key 重定向进来时携带)。
  * Film Atelier(2026-08-15):
  * - 根容器接入 .view-shell 版心(原 scoped .resources-head  padding 因子组件边界失效,
  *   页头贴左缘 = P0-1;此处页头样式一律走 :global 修正);
@@ -28,8 +32,12 @@ type ResourceTab = "models" | "train" | "backlot";
  * - P2-3 去双重容器:内嵌视图根 .single-view 的版心/左右内边距在本页失效,
  *   由 .view-shell 统一供节奏,不再包第二层容器。
  */
-export function ResourcesView() {
-  const [tab, setTab] = useState<ResourceTab>("models");
+export function ResourcesView({ onCreateProject }: { onCreateProject?: () => void }) {
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState<ResourceTab>(() => {
+    const raw = searchParams.get("tab");
+    return raw && RESOURCE_TABS.has(raw) ? (raw as ResourceTab) : "models";
+  });
 
   const items = [
     { key: "models", label: "模型库" },
@@ -75,7 +83,7 @@ export function ResourcesView() {
           >
             {tab === "models" && <ModelsView />}
             {tab === "train" && <TrainView />}
-            {tab === "backlot" && <BacklotView />}
+            {tab === "backlot" && <BacklotView onCreateProject={onCreateProject} />}
           </Suspense>
         </ErrorBoundary>
       </div>

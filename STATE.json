@@ -1,7 +1,13 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-31T12:00:00+08:00",
+ "updated_at": "2026-08-31T13:30:00+08:00",
+ "fe_redesign_w1_2026_08_31": {
+  "status": "done_verified",
+  "scope": "前端改造 W1 IA 骨架:①models/train/backlot 双轨容器收编进资源中心(?tab= 直达,旧 key 重定向);②drama 旧管线退役(重定向 studio,渲染分支+R18 门控移除,/drama/[id] 播放器不受影响);③CornerNav 一级导航分组(门户/创作/资产/探索/系统,组标签+分隔线,admin 项归系统组);④agent-runs 孤儿路由收口进「更多」抽屉(特判跳独立路由);⑤BacklotView 空态 CTA 改经 ResourcesView onCreateProject 透传",
+  "regression": "npm test 915(+5 新 W1 断言)/ tsc 0 / rm -rf .next 干净 build",
+  "notes": "IDE 缓冲区回滚问题重现多次,编辑后已逐一 grep 验证落盘"
+ },
  "llm_brain_flashnext_2026_08_31": {
   "status": "done_deployed_verified",
   "what": "主脑换代:spark02 单机 Qwen3.8-27B(32K)→ 双 Spark QSFP TP=2 跑 dealignai/Qwen3.8-Flash-Next-UNCENSORED-NVFP4(125B+51B Ngram MoE,6B 激活,无审查,原生多模态),SGLang day-0 arm64 镜像,API 在 spark01:8000",
