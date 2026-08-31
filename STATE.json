@@ -1,7 +1,15 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-31T13:30:00+08:00",
+ "updated_at": "2026-08-31T14:30:00+08:00",
+ "fe_redesign_w2_2026_08_31": {
+  "status": "done_deployed_verified",
+  "commits": ["48e8475"],
+  "scope": "W2 对话为家:home 视图(复用 AssistantView page 形态:门户空态 DIALOGUE ATELIER/场景卡/快捷动作卡/最近作品/引擎状态条)升格默认落地页;?view=assistant 旧链接落 home;CornerNav 门户组=对话+融合;窄屏 CTA 融合→对话,融合下沉抽屉;观测门控弹回点改 home",
+  "prod_verify": "浏览器实测:落地即对话首页(元素全)、分组导航五组齐全、对话↔融合互跳正常、控制台零 JS 错误",
+  "regression": "npm test 917(+2 W2 断言,含门户组对话入口防遗漏)/ tsc 0 / 干净 build / 已部署 core",
+  "notes": "IDE 回滚致 home 灵动岛项一度丢失,生产实测抓获后补回并加断言"
+ },
  "fe_redesign_w1_2026_08_31": {
   "status": "done_verified",
   "scope": "前端改造 W1 IA 骨架:①models/train/backlot 双轨容器收编进资源中心(?tab= 直达,旧 key 重定向);②drama 旧管线退役(重定向 studio,渲染分支+R18 门控移除,/drama/[id] 播放器不受影响);③CornerNav 一级导航分组(门户/创作/资产/探索/系统,组标签+分隔线,admin 项归系统组);④agent-runs 孤儿路由收口进「更多」抽屉(特判跳独立路由);⑤BacklotView 空态 CTA 改经 ResourcesView onCreateProject 透传",

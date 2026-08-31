@@ -252,6 +252,12 @@ test("W2:默认落地为对话首页(fusion 退为场景入口)", () => {
   assert.ok(navBlock.includes('{ key: "home", label: "对话", icon: "chat", isCta: true }'), "CTA 应为对话");
   const moreBlock = src.slice(src.indexOf("BOTTOM_NAV_MORE_ITEMS"));
   assert.ok(moreBlock.includes('key: "fusion"'), "融合应在「更多」抽屉");
+  // 桌面 CornerNav:门户组须有 对话(home)+ 融合,否则离开首页后无回程入口(生产实测发现遗漏)
+  const islandBlock = src.slice(src.indexOf("ISLAND_ITEMS"), src.indexOf("BOTTOM_NAV_ITEMS"));
+  assert.ok(
+    islandBlock.includes('{ key: "home", label: "对话", icon: "chat", group: "门户" }'),
+    "灵动岛门户组缺「对话」入口",
+  );
 });
 
 test("MarketView:at-seg 段控 + ErrorBoundary(key=tab)+ 懒加载内嵌双市场", () => {

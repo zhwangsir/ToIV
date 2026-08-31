@@ -272,6 +272,8 @@ const VIEW_META: Record<View, { label: string }> = {
  *  2026-08-31 W1:平铺九项改为分组(门户/创作/资产/探索/系统),CornerNav 按组渲染分隔标签。
  *  桌面端由左上角悬停展开导航(CornerNav)承载,窄屏由底部导航承载。 */
 const ISLAND_ITEMS: CornerNavItem[] = [
+  // W2:对话为家——助手整页化为默认落地页,融合门户退为场景卡入口
+  { key: "home", label: "对话", icon: "chat", group: "门户" },
   { key: "fusion", label: "融合", icon: "sparkles", group: "门户" },
   { key: "image", label: "图片", icon: "image", group: "创作" },
   { key: "video", label: "视频", icon: "video", group: "创作" },
