@@ -1,7 +1,18 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-31T05:10:00+08:00",
+ "updated_at": "2026-08-31T12:00:00+08:00",
+ "llm_brain_flashnext_2026_08_31": {
+  "status": "done_deployed_verified",
+  "what": "主脑换代:spark02 单机 Qwen3.8-27B(32K)→ 双 Spark QSFP TP=2 跑 dealignai/Qwen3.8-Flash-Next-UNCENSORED-NVFP4(125B+51B Ngram MoE,6B 激活,无审查,原生多模态),SGLang day-0 arm64 镜像,API 在 spark01:8000",
+  "context": "生产定版原生 262144(8× 旧 32K)。YaRN 1M 质量回归否决(中段输入输出乱码 !!!,QSA 索引损坏);fp8 KV 不可用(QSA chunk-prefill triton 内核不支持 fp8e4nv)。mem 0.92+mamba96+running12 下 token 池 148 万",
+  "upstream_patches": "两个容器挂载补丁(deploy/spark-llm/):①QSA backend is_sm100_supported 排除 sm_121→跳过;②flash-attn4 sm120 崩溃(GH#2453)手动应用 PR#2484",
+  "acceptance": "9/9:中文/工具调用/needle 10K+42K+141K/无审查/23tok/s/并发8/视觉;957,811 token needle 通过(21.6min prefill);生产 /api/agent/chat e2e 实测应答正常",
+  "core_env": "LLM×4(L1/NSFW/L2/L3) .84→.82 模型名 qwen3.8-flash-next;VLM 系原就指 .82 不动;SGLang 接受任意 model 名故旧别名零风险;备份 .env.bak-20260831-qwen38",
+  "rollback": "spark02 docker start vllm_node-v2(27B 容器保留)+ spark01 docker start qwen3vl32b-v2 + core env 还原",
+  "side_effect": "spark01 原 Qwen3-VL-32B(qwen3vl32b-v2)已停,反推/评分/grounding 全部由 Flash-Next 原生视觉承接;spark02 27B 已停;drt-livekit 三容器仍在 spark02(待迁 core)",
+  "regression": "pytest 2974 全绿"
+ },
  "simplify_round2_2026_08_31": {
   "status": "done_deployed_pushed",
   "ux_simplify": "移动端「更多」抽屉去重:fusion 卡五目标(studio/avatartalk/dub/imageEdit/videoEdit)从抽屉移除(融合页即底部 CTA,卡片一跳直达,抽屉不再摆第二套,11→6 项);保留 market/canvas/entities/animatic/resources/settings(窄屏设置唯一入口)",
