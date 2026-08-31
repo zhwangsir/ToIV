@@ -65,6 +65,7 @@ const NEON_PANEL_LEAD_MS = 300; // 阶段三:弹窗相对灯带收尾的提前�
 
 type View =
   | "assistant"
+  | "home"
   | "image"
   | "video"
   | "audio"
@@ -120,6 +121,8 @@ function resolveView(raw: string | null): View | null {
 const viewImporters = {
   // assistant 已底层化为 Shift+Enter 浮层(非视图),importer 保留仅维持 View 类型索引完整性
   assistant: () => import("@/components/assistant/AssistantView"),
+  // W2:对话首页与助手同 chunk(AssistantView variant="page")
+  home: () => import("@/components/assistant/AssistantView"),
   // 图片/视频共用 GenerateView chunk;音频走 AudioView(内嵌 GenerateView,webpack 共享 chunk)
   image: () => import("@/components/generate/GenerateView"),
   video: () => import("@/components/generate/GenerateView"),
@@ -150,6 +153,10 @@ function preloadView(key: View) {
 
 const GenerateView = lazy(() =>
   viewImporters.image().then((m) => ({ default: m.GenerateView })),
+);
+// W2:对话首页 = AssistantView 整页形态(与 Shift+Enter 浮层同 chunk)
+const HomeView = lazy(() =>
+  viewImporters.home().then((m) => ({ default: m.AssistantView })),
 );
 const AudioView = lazy(() =>
   viewImporters.audio().then((m) => ({ default: m.AudioView })),
@@ -214,6 +221,7 @@ function ViewFallback({ label }: { label: string }) {
 // create/generate/ltxstudio/dramaStudio/manju/skills/apps 同走重定向;
 // assistant 已底层化(2026-08-17):移出 VALID_VIEWS,URL ?view=assistant 在挂载 effect 中重定向 fusion
 const VALID_VIEWS = new Set<View>([
+  "home",
   "image",
   "video",
   "audio",
@@ -236,6 +244,7 @@ const VALID_VIEWS = new Set<View>([
 
 const VIEW_META: Record<View, { label: string }> = {
   assistant: { label: "对话" },
+  home:      { label: "对话" },
   image:     { label: "图片" },
   video:     { label: "视频" },
   audio:     { label: "音频" },
@@ -274,16 +283,19 @@ const ISLAND_ITEMS: CornerNavItem[] = [
   { key: "resources", label: "资源", icon: "models", group: "系统" },
 ];
 
-/** 窄屏底部导航:主入口 5 个(含 CTA)+「更多」抽屉承载其余 */
+/** 窄屏底部导航:主入口 5 个(含 CTA)+「更多」抽屉承载其余
+ *  W2:CTA 由融合改为对话(首页即助手);融合场景卡入口下沉「更多」抽屉首位 */
 const BOTTOM_NAV_ITEMS: BottomNavItem[] = [
   { key: "image", label: "图片", icon: "image" },
   { key: "video", label: "视频", icon: "video" },
   { key: "audio", label: "音频", icon: "audio" },
-  { key: "fusion", label: "融合", icon: "sparkles", isCta: true },
+  { key: "home", label: "对话", icon: "chat", isCta: true },
   { key: "library", label: "作品", icon: "library" },
 ];
 
 const BOTTOM_NAV_MORE_ITEMS: BottomNavItem[] = [
+  // W2:融合门户(场景五卡)下沉抽屉首位
+  { key: "fusion", label: "融合", icon: "sparkles" },
   { key: "market", label: "市场", icon: "store" },
   // 2026-08-31 精简:audio 已由底部主入口承载,「更多」抽屉不再重复(双重入口去重)
   // 2026-08-31 精简二轮:fusion 卡五目标(studio/avatartalk/dub/imageEdit/videoEdit)
@@ -336,11 +348,11 @@ function HomeContent() {
   // 旧链接 ?view=assistant 兼容:落到 fusion 并自动唤起助手浮层
   const [view, setView] = useState<View>(() => {
     const raw = searchParams.get("view");
-    if (raw === "assistant") return "fusion";
-    return resolveView(raw) ?? "fusion";
+    if (raw === "assistant") return "home"; // W2:旧助手链接落到对话首页(页即助手,无需再开浮层)
+    return resolveView(raw) ?? "home";
   });
-  // AI 助手全局浮层(Shift+Enter 唤起;旧链接 ?view=assistant 首入自动开)
-  const [assistantOpen, setAssistantOpen] = useState(() => searchParams.get("view") === "assistant");
+  // AI 助手全局浮层(Shift+Enter 唤起;W2 起 ?view=assistant 落 home 不再自动开浮层)
+  const [assistantOpen, setAssistantOpen] = useState(false);
   // 开闭态 ref 镜像:快捷键 handler 读当前值,避免在 setState updater 内做副作用
   const assistantOpenRef = useRef(assistantOpen);
   assistantOpenRef.current = assistantOpen;
@@ -465,10 +477,10 @@ function HomeContent() {
 
   useEffect(() => {
     const raw = searchParams.get("view");
-    // assistant 已底层化:URL 不再承载该视图,旧链接重定向 fusion
+    // assistant 已底层化(W2:落对话首页,页即助手不再自动开浮层)
     if (raw === "assistant") {
-      if (view !== "fusion") setView("fusion");
-      router.replace("/?view=fusion");
+      if (view !== "home") setView("home");
+      router.replace("/?view=home");
       return;
     }
     const resolved = resolveView(raw);
@@ -479,7 +491,7 @@ function HomeContent() {
     // W1:models/train/backlot 进资源中心时带上 tab,直达对应二级页
     if (raw && LEGACY_VIEW_REDIRECTS[raw]) {
       const tab = LEGACY_RESOURCE_TAB_KEYS.has(raw) ? `&tab=${raw}` : "";
-      router.replace(`/?view=${resolved ?? "fusion"}${tab}`);
+      router.replace(`/?view=${resolved ?? "home"}${tab}`);
     }
   }, [searchParams, view, router]);
 
@@ -731,6 +743,8 @@ function HomeContent() {
         <div className="view-root view-stage">
           <ErrorBoundary key={view} viewName={meta.label}>
             <Suspense fallback={<ViewFallback label={meta.label} />}>
+              {/* W2:对话为家——AssistantView 整页形态(门户空态/场景卡/快捷动作/最近作品) */}
+              {view === "home" && <HomeView variant="page" onNavigate={(v) => handleNavSelect(v)} />}
               {view === "image" && <GenerateView lockedKind="image" />}
               {view === "video" && <GenerateView lockedKind="video" />}
               {view === "audio" && <AudioView />}

@@ -224,6 +224,36 @@ test("W1:agent-runs 孤儿路由收口进「更多」抽屉(特判跳独立路�
   );
 });
 
+/* ── 2026-08-31 W2 对话为家 ── */
+test("W2:home 视图注册全链路(union/VALID/META/importer/渲染分支)", () => {
+  const src = readSrc("app/page.tsx");
+  assert.ok(src.includes('| "home"'), "View union 缺 home");
+  const validBlock = src.slice(src.indexOf("VALID_VIEWS"), src.indexOf("VIEW_META"));
+  assert.ok(validBlock.includes('"home"'), "VALID_VIEWS 缺 home");
+  assert.ok(src.includes('home:      { label: "对话" }'), "VIEW_META 缺 home");
+  assert.ok(
+    src.includes('home: () => import("@/components/assistant/AssistantView")'),
+    "home 应与助手同 chunk",
+  );
+  assert.match(
+    src,
+    /\{view === "home" && <HomeView variant="page"/,
+    "home 渲染分支应为 AssistantView 整页形态",
+  );
+});
+
+test("W2:默认落地为对话首页(fusion 退为场景入口)", () => {
+  const src = readSrc("app/page.tsx");
+  assert.ok(src.includes('resolveView(raw) ?? "home"'), "默认视图应为 home");
+  assert.ok(src.includes('if (raw === "assistant") return "home"'), "?view=assistant 应落 home");
+  assert.ok(src.includes('router.replace("/?view=home")'), "assistant 旧链接 URL 应规整为 home");
+  // 底部 CTA 由 fusion 改为 home;融合下沉抽屉
+  const navBlock = src.slice(src.indexOf("BOTTOM_NAV_ITEMS"), src.indexOf("BOTTOM_NAV_MORE_ITEMS"));
+  assert.ok(navBlock.includes('{ key: "home", label: "对话", icon: "chat", isCta: true }'), "CTA 应为对话");
+  const moreBlock = src.slice(src.indexOf("BOTTOM_NAV_MORE_ITEMS"));
+  assert.ok(moreBlock.includes('key: "fusion"'), "融合应在「更多」抽屉");
+});
+
 test("MarketView:at-seg 段控 + ErrorBoundary(key=tab)+ 懒加载内嵌双市场", () => {
   const src = readSrc("components/market/MarketView.tsx");
   assert.ok(src.includes("import { ErrorBoundary }"), "未导入 ErrorBoundary");
