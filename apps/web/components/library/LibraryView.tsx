@@ -145,7 +145,7 @@ function ImageThumb({ job, blurred = false }: { job: JobItem; blurred?: boolean 
   );
 }
 
-/** 作品库空态(库本身为空):细线框图标 + 引导文案 + 去创作 CTA。 */
+/** 作品库空态(库本身为空):细线框图标 + 一行引导 + 去创作 CTA(Studio Console v1:长描述退役)。 */
 export function LibraryEmptyState({ onCreate }: { onCreate?: () => void }) {
   return (
     <div className="lib-empty">
@@ -153,9 +153,6 @@ export function LibraryEmptyState({ onCreate }: { onCreate?: () => void }) {
         <Icon name="image" size={26} strokeWidth={1.2} />
       </div>
       <h2 className="lib-empty-display">暂无作品</h2>
-      <p className="lib-empty-desc">
-        每一次生成都会自动收录到这里。先去工作台创作第一件作品,随时回来复用提示词、沉淀风格。
-      </p>
       {onCreate && (
         <Button
           variant="primary"
@@ -752,8 +749,8 @@ export function LibraryView(props?: LibraryViewProps) {
     <div
       className={`single-view library-view${density === "compact" ? " is-compact" : ""}${batchMode ? " is-batch" : ""}`}
     >
-      {/* 页头走共享 PageHeader(批 D 收编手写结构);.lib-header 视图级覆盖与
-          MEDIA ATELIER kicker(library.css ::before)保持不变 */}
+      {/* 页头走共享 PageHeader(批 D 收编手写结构);
+          Studio Console v1(2026-08-31):MEDIA ATELIER kicker 与 masthead 覆盖已退役 */}
       <PageHeader
         className="lib-header"
         title="作品库"

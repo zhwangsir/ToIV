@@ -345,7 +345,6 @@ export function TrainView() {
         title="训练"
         desc="LoRA 训练 · 数据集打标 → 微调 → 注册"
         icon="train"
-        kicker="TRAINING"
         actions={
           <>
             <button

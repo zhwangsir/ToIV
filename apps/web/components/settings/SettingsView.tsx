@@ -100,7 +100,6 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
         title="设置"
         desc="账户、界面主题与推理引擎状态总览"
         icon="settings"
-        kicker="SETTINGS"
         actions={
           <Button
             variant="secondary"

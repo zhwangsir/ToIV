@@ -3,7 +3,7 @@
    方向:暗房/剪辑台隐喻 —— UI 退后、作品为主角;浅色编辑排版(masthead
    双线细规、小型大写字标、Fraunces 衬线数字),克制的物理动效(卡片错落入场、
    hover 呼吸抬升、chip 中心水波慢扩散)。
-   - 页头:拉丁 kicker + Fraunces 展示标题 + 编辑双线 hairline
+   - 页头:全局 .page-header 体系(Studio Console v1 起 masthead 退役)
    - 工具条:悬浮玻璃命令条;激活 chip 墨丸填充;按压缩放水波纹(中心向外、慢而大)
    - 卡片:媒体优先(圆角发夹线 + 软阴影),卡脚去分隔线,错落入场一次编排
    - 灯箱:舞台恒深,计数 Fraunces 衬线数字,检查器小型大写标签
@@ -42,65 +42,8 @@
   pointer-events: none;
 }
 
-/* ── 页头:编辑 masthead ───────────────────────────────────────────── */
-.library-view .page-header {
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--space-3) var(--space-5);
-  flex-wrap: wrap;
-  padding-bottom: var(--space-2);
-  /* 编辑双线细规:hairline + 其上 3px 处更淡的一线 */
-  border-bottom: 1px solid var(--border-strong);
-}
-.library-view .page-header::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 3px;
-  height: 1px;
-  background: var(--border-subtle);
-  pointer-events: none;
-}
-.library-view .page-header-text {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
-}
-/* 拉丁小型大写 kicker:放映厅铭牌 */
-.library-view .page-header-text::before {
-  content: "MEDIA ATELIER";
-  font-size: var(--text-label);
-  font-weight: var(--font-medium);
-  letter-spacing: 0.22em;
-  color: var(--text-muted);
-  text-transform: uppercase;
-}
-.library-view .page-header-title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--text-display-md);
-  font-weight: var(--font-semibold);
-  letter-spacing: -0.01em;
-  color: var(--text-primary);
-  line-height: var(--leading-display);
-}
-.library-view .page-header-desc {
-  margin: 0;
-  font-size: var(--text-aux);
-  color: var(--text-muted);
-  line-height: 1.6;
-  max-width: 52em;
-}
-.library-view .page-header-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-shrink: 0;
-}
+/* ── 页头:masthead 覆盖(拉丁 kicker「MEDIA ATELIER」::before + Fraunces 展示标题
+   + 编辑双线)已随 Studio Console v1(2026-08-31)退役,统一走全局 .page-header* ── */
 /* 作品计数:去填充,衬线数字 + hairline 围合,编辑页码感 */
 .lib-count-pill {
   display: inline-flex;
@@ -977,11 +920,10 @@
 }
 .lib-empty-display {
   margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--text-display-md);
+  /* Studio Console v1(2026-08-31):空态标题从 Fraunces 展示档(32px)收为正文字号,
+     大标题+长描述的空态英雄区已退役 */
+  font-size: var(--text-title);
   font-weight: var(--font-semibold);
-  letter-spacing: -0.01em;
-  line-height: var(--leading-display);
   color: var(--text-primary);
 }
 .lib-empty-desc {
@@ -1522,20 +1464,17 @@
 /* ── 响应式 ────────────────────────────────────────────────────────── */
 @media (max-width: 767px) {
   /* 页头紧凑(2026-08-16 移动专项,审计实测页头+间距占首屏约 40%):
-     副标题隐藏、标题降档 display-md→title、行距/间距收紧,首屏还给作品网格 */
+     副标题隐藏、行距/间距收紧,首屏还给作品网格(标题档已随 Studio Console v1
+     全局收敛为 --text-title,此处不再重复降档) */
   .library-view {
     gap: var(--space-4);
   }
-  /* 选择器对齐基座 .library-view .page-header(同权重靠后序赢),单列压行 */
   .library-view .page-header {
     flex-direction: row;
     align-items: flex-end;
     gap: var(--space-2) var(--space-3);
     padding-bottom: var(--space-2);
     margin-bottom: 0;
-  }
-  .library-view .page-header-title {
-    font-size: var(--text-title);
   }
   .library-view .page-header-desc {
     display: none;
@@ -1583,10 +1522,6 @@
   .lib-seg-btn {
     min-height: var(--touch-target);
     min-width: var(--touch-target);
-  }
-  /* 空态展示标题随屏宽收敛,避免小屏过冲 */
-  .lib-empty-display {
-    font-size: var(--text-display-sm);
   }
   /* 灯箱:上下结构,面板下沉为底部检查器 */
   .lib-lightbox {

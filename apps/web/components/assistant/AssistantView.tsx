@@ -1880,9 +1880,9 @@ export function AssistantView(props?: AssistantViewProps) {
 
         {isEmpty ? (
           popup ? (
-            /* 弹窗极简空态(2026-08-18):品牌提示 + Shift+Enter 唤起提示,输入框由底部 renderComposer 承担 */
+            /* 弹窗极简空态:标题 + 操作提示,输入框由底部 renderComposer 承担
+               (Studio Console v1 起拉丁 kicker 铭牌退役,用户:文字太多) */
             <div className="av-empty av-popup-empty">
-              <div className="av-empty-kicker">AI ASSISTANT</div>
               <div className="av-empty-title">有什么可以帮你?</div>
               <div className="av-empty-desc">输入内容开始对话 · Esc 或点击遮罩关闭</div>
               <div className="av-popup-empty-hint">Shift+Enter 随时唤起/关闭</div>
@@ -2363,22 +2363,13 @@ export function AssistantView(props?: AssistantViewProps) {
           min-height: 100%;
           text-align: center;
         }
-        /* 空态 kicker:Film Atelier 拉丁铭牌(.at-empty-kicker 语言,去 accent 药丸填充) */
-        .av-empty-kicker {
-          font-size: var(--text-label);
-          font-weight: var(--font-medium);
-          letter-spacing: 0.22em;
-          text-transform: uppercase;
-          color: var(--text-muted);
-        }
-        /* 空态大标题:Fraunces 展示位衬线(中文回退 PingFang SC),替代系统黑体 */
+        /* 空态标题(Studio Console v1:去 Fraunces 展示位衬线,收敛为无衬线标题档;
+           拉丁 kicker 铭牌 .av-empty-kicker 已退役) */
         .av-empty-title {
-          font-family: var(--font-display);
-          font-size: var(--text-display-md);
+          font-size: var(--text-title);
           font-weight: var(--font-semibold);
           color: var(--text-primary);
           letter-spacing: -0.01em;
-          line-height: var(--leading-display);
         }
         .av-empty-desc {
           font-size: var(--text-body);
@@ -3413,9 +3404,6 @@ export function AssistantView(props?: AssistantViewProps) {
           }
           .av-msg-list {
             padding: var(--space-6) var(--space-4) var(--space-5);
-          }
-          .av-empty-title {
-            font-size: var(--text-display-sm);
           }
           .av-scene-row {
             gap: var(--space-1);

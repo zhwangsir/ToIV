@@ -168,12 +168,11 @@ test("PageHeader 标题/副标题/操作槽渲染", () => {
   assert.match(html, /新建/);
 });
 
-test("PageHeader kicker 铭牌:传入渲染,缺省不渲染", () => {
-  const withKicker = renderToStaticMarkup(
-    h(PageHeader, { title: "作品库", kicker: "MEDIA ATELIER" }),
-  );
-  assert.match(withKicker, /page-header-kicker/);
-  assert.match(withKicker, /MEDIA ATELIER/);
-  const without = renderToStaticMarkup(h(PageHeader, { title: "作品库" }));
-  assert.doesNotMatch(without, /page-header-kicker/);
+test("PageHeader kicker 铭牌已退役(Studio Console v1):输出不含 page-header-kicker", () => {
+  const html = renderToStaticMarkup(h(PageHeader, { title: "作品库" }));
+  assert.doesNotMatch(html, /page-header-kicker/);
+  // 返回钮:传 onBack 渲染,缺省不渲染
+  const withBack = renderToStaticMarkup(h(PageHeader, { title: "译制", onBack: () => {} }));
+  assert.match(withBack, /page-header-back/);
+  assert.doesNotMatch(html, /page-header-back/);
 });

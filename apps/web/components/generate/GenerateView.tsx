@@ -1075,23 +1075,6 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
     })();
   }
 
-  /**
-   * 空态快速开始卡(T3):选中对应引擎并聚焦提示词框。
-   * 目标引擎在另一分组(文生/图生)时先切组,否则选择经 visibleEngines 解析会
-   * 落回当前组第一个可用引擎(点了 LongCat 却选中别人的歧义)。
-   */
-  function onQuickStart(engineId: string) {
-    const target = kindEngines.find((e) => e.id === engineId);
-    if (target) {
-      const targetGroup = engineNeedsImage(target) === null ? "gen" : "edit";
-      if (showGroupTabs && group !== targetGroup) {
-        setGroupByKind((prev) => ({ ...prev, [mode]: targetGroup }));
-      }
-      setEngineIdByKind((prev) => ({ ...prev, [mode]: engineId }));
-    }
-    promptInputRef.current?.focus();
-  }
-
   // 舞台容器 ←/→ 方向键:在会话条目间切换选中(输入控件内的按键不拦截)
   function onResultsKeyDown(e: React.KeyboardEvent<HTMLElement>) {
     if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
@@ -1171,9 +1154,6 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
             }}
             onCancel={onCancel}
             onRetry={onRetry}
-            kind={mode}
-            quickStartEngines={[...kindEngines].sort((a, b) => Number(Boolean(a.advanced)) - Number(Boolean(b.advanced)))}
-            onQuickStart={onQuickStart}
           />
         </section>
 

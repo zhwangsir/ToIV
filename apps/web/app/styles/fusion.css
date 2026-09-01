@@ -29,7 +29,7 @@
   padding: var(--space-3) var(--page-gutter) var(--space-6);
 }
 
-/* ── 页头:masthead 外观由全局 .page-header*(v6.1:kicker/Fraunces/编辑双线)接管,
+/* ── 页头:外观由全局 .page-header* 接管(Studio Console v1 起 masthead 退役),
    此处只做容器对齐与布局兜底 ── */
 .fusion-view .page-header {
   display: flex;

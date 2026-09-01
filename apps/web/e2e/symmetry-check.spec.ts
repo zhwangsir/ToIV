@@ -24,7 +24,7 @@ async function measure(page: import("@playwright/test").Page) {
       vw, viewportCx: vw / 2,
       headerTitle: m(".generate-header .page-header-main"),
       results: m(".generate-results"),
-      empty: m(".empty-editorial"),
+      empty: m(".result-panel-empty"),
       promptbar: m(".promptbar"),
       params: m(".generate-params"),
       paramsOpen: !!document.querySelector(".generate-view.is-params-open"),

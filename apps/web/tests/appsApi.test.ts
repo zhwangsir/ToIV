@@ -22,6 +22,7 @@ import {
   type AppItem,
   type AppParam,
 } from "../lib/apps";
+import { CACHE_KEYS, invalidatePrefix } from "../lib/swr-cache";
 
 interface FetchCall {
   url: string;
@@ -40,6 +41,8 @@ const realWindow = (globalThis as { window?: unknown }).window;
 beforeEach(() => {
   fetchCalls = [];
   responds = [];
+  // listApps 走 swr 缓存(2026-09-01 L1):用例间须失效,防上一用例缓存污染断言
+  invalidatePrefix(CACHE_KEYS.apps);
   (globalThis as { window?: unknown }).window = {
     localStorage: {
       getItem: (k: string) => (k === "toiv_token" ? "tok-test" : null),

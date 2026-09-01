@@ -39,7 +39,6 @@ export function MarketView() {
       {/* 页头:UI-A PageHeader;market-head 经 className 透传,样式走 :global(见下) */}
       <PageHeader
         className="market-head"
-        kicker="MARKET"
         title="市场"
         desc="应用 · 技能 一站式发现与管理工作台"
         actions={

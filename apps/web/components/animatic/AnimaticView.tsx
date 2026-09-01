@@ -245,7 +245,6 @@ export function AnimaticView({
   return (
     <div className="single-view animatic-view">
       <PageHeader
-        kicker="ANIMATIC"
         title="动态分镜"
         desc={
           isAi

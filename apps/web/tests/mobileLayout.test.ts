@@ -109,15 +109,12 @@ test("library ≤767:过滤行横滑 overflow-x:auto + 两端渐隐 mask 指示"
   );
 });
 
-test("library ≤767:页头紧凑——副标题隐藏、标题降档、间距收紧", () => {
+test("library ≤767:页头紧凑——副标题隐藏、间距收紧", () => {
   assert.ok(
     ruleBody(libMobile, ".library-view .page-header-desc {").includes("display: none"),
     "副标题移动端隐藏",
   );
-  assert.ok(
-    ruleBody(libMobile, ".library-view .page-header-title {").includes("font-size: var(--text-title)"),
-    "标题 display-md 降档 title",
-  );
+  // 标题档已随 Studio Console v1 全局收敛为 --text-title,视图级不再重复降档
   const head = ruleBody(libMobile, ".library-view .page-header {");
   assert.ok(head.includes("margin-bottom: 0") && head.includes("padding-bottom: var(--space-2)"), "页头间距收紧");
 });

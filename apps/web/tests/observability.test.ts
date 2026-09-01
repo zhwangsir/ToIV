@@ -85,7 +85,8 @@ test("formatGb:null 占位 / 整数去小数 / 非整数 1 位", () => {
 test("ObservabilityView:页头标题 + 骨架屏加载态", () => {
   const html = renderToStaticMarkup(h(ObservabilityView));
   assert.match(html, /观测面板/);
-  assert.match(html, /OBSERVABILITY/);
+  // Studio Console v1(2026-08-31):OBSERVABILITY 拉丁 kicker 铭牌已退役
+  assert.doesNotMatch(html, /OBSERVABILITY/);
   assert.match(html, /aria-label="观测数据加载中"/);
   assert.match(html, /ui-skeleton-pulse/, "首屏应为骨架屏样式");
 });

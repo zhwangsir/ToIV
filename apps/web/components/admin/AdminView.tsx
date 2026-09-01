@@ -179,7 +179,6 @@ export function AdminView() {
       <PageHeader
         title="用户管理"
         desc="账户与权限 · 创建、查看与删除平台用户"
-        kicker="ADMIN"
         actions={
           <>
             <span className="admin-count">

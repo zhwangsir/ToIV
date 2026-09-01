@@ -655,7 +655,6 @@ export function ObservabilityView() {
     <div className="obs-view view-shell">
       <ChartStyles />
       <PageHeader
-        kicker="OBSERVABILITY"
         title="观测面板"
         desc="设备舰队 · 队列 · 成功率 · GPU 负载 实时聚合(12s 自动刷新)"
         actions={

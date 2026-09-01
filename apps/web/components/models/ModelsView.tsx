@@ -388,7 +388,6 @@ export function ModelsView() {
         title="模型库"
         desc="管理本地已安装模型 · 探索 Civitai 在线市场"
         icon="models"
-        kicker="MODELS"
         actions={
           <div className="at-seg" role="tablist" aria-label="模型库视图切换">
             {tabItems.map((i) => (

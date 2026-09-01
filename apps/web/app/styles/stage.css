@@ -67,8 +67,7 @@
   padding: var(--space-4) var(--space-5) var(--space-5);
 }
 
-/* Film Atelier(2026-08-15):页头排版交由 globals v6.1 masthead 体系
-   (编辑双线 + Fraunces 展示标题 + kicker 铭牌),本处只保留舞台间距节奏 */
+/* 页头排版走全局 .page-header 体系(Studio Console v1 起 masthead 退役),本处只保留舞台间距节奏 */
 .generate-header {
   flex-shrink: 0;
   margin-bottom: var(--space-3);
@@ -595,141 +594,21 @@
   display: block;
 }
 
-/* ========== 空态(编排式,沿用原文案) ========== */
+/* ========== 空态(Studio Console v1,2026-08-31:编排式英雄区退役,只余一行提示) ========== */
 
 .result-panel-empty {
   height: 100%;
   align-items: center;
   justify-content: center;
-  /* 内容超高时可滚动(移动端三步卡竖排);margin:auto 居中避免顶部裁切 */
   overflow-y: auto;
 }
-.empty-editorial {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  /* 2026-08-24 排版统一:空态区块间距消费 --section-gap */
-  gap: var(--section-gap);
-  max-width: 640px;
-  margin: auto 0;
-  padding: var(--space-4);
-}
-/* 2026-08-17 停靠列重构:原「浮板展开避让」padding-right/动态宽度补丁整组删除——
-   参数台已是真实网格列,舞台列自成居中参照系,空态/词条无需任何避让计算 */
-/* 空态 kicker 已换共享类 .at-empty-kicker(globals v6.1,Film Atelier) */
-/* 空态主标题(2026-08-16 视图批 1 降权):display 档 → 标题档 --text-title/semibold,
-   视觉权重让位功能引导与输入区;衬线展示字型保留(Film Atelier 语言) */
-.empty-display {
-  font-family: var(--font-display);
-  font-size: var(--text-title);
-  font-weight: var(--font-semibold);
-  line-height: var(--leading-display);
-  letter-spacing: -0.01em;
-  color: var(--text-primary);
-  margin: 0;
-}
-.empty-tips {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-3);
-  width: 100%;
-}
-/* 引导步骤卡:材质由 .at-card 承担(发夹线 + 软阴影,P2-1 去灰框玻璃),
-   本类只保留布局;hover 升浮走 .at-card--lift */
-.empty-tip {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-4);
-}
-/* 编号(2026-08-16 视图批 1 提权):Fraunces 衬线数字 + 墨丸(accent 墨底白字),
-   引导卡视觉权重压过降权后的主标题,成为空态视觉锚点 */
-.empty-tip-num {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  align-self: flex-start;
-  min-width: 24px;
-  height: 24px;
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-full);
-  background: var(--accent);
-  color: var(--text-on-accent);
-  font-family: var(--font-display);
+/* 单行居中提示:muted 小字,无铭牌/大标题/步骤卡/快速开始卡 */
+.empty-console-hint {
+  margin: auto;
   font-size: var(--text-aux);
-  font-weight: var(--font-semibold);
-  font-variant-numeric: tabular-nums;
-}
-.empty-tip-title {
-  font-size: var(--text-sm);
-  font-weight: var(--font-semibold);
-  color: var(--text-primary);
-}
-/* 步骤卡正文(2026-08-16 审计 P2 对比不足):升一档到正文档 + secondary 色,
-   行高走 Team A 新 token(--leading-loose,未落地前兜底 1.7) */
-.empty-tip-desc {
-  font-size: var(--text-body);
-  color: var(--text-secondary);
-  line-height: var(--leading-loose, 1.7);
-}
-
-/* ========== 空态快速开始卡(T3,2026-08-17):推荐起点,点击选引擎+聚焦提示词 ========== */
-
-.quick-start {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  width: 100%;
-}
-/* 区标题:与 params-section-title 同档位(11px/500/大写/muted) */
-.quick-start-title {
-  margin: 0;
-  font-size: var(--text-label);
-  font-weight: var(--font-medium);
-  text-transform: uppercase;
+  color: var(--text-muted);
   letter-spacing: 0.04em;
-  color: var(--text-muted);
-}
-/* 卡栅格:auto-fit 适配 1-3 张卡(视频 3 / 图像 2 / 音频 1),≤767px 单列见断点块 */
-.quick-start-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: var(--space-3);
-  width: 100%;
-}
-/* 卡本体:材质由 .at-card 承担(发夹线 + 软阴影),本类只保留布局与文字档;
-   hover 升浮走 .at-card--lift;禁用态不透 hover 位移 */
-.quick-start-card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-2);
-  padding: var(--space-4);
-  text-align: left;
-  cursor: pointer;
-}
-.quick-start-card:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.quick-start-card:disabled:hover {
-  transform: none;
-  border-color: var(--border-subtle);
-  box-shadow: var(--shadow-sm);
-}
-.quick-start-icon {
-  display: inline-flex;
-  color: var(--text-secondary);
-}
-.quick-start-name {
-  font-size: var(--text-sm);
-  font-weight: var(--font-semibold);
-  color: var(--text-primary);
-}
-.quick-start-desc {
-  font-size: var(--text-aux);
-  color: var(--text-muted);
-  line-height: 1.6;
+  user-select: none;
 }
 
 /* ========== 参数列(2026-08-17 停靠化:原浮板改为真实网格列) ========== */
@@ -1446,14 +1325,8 @@
     flex-shrink: 0;
     border-radius: var(--radius-panel) var(--radius-panel) 0 0;
   }
-  /* 空态例外(2026-08-17 实测:empty 内容 871px > 72vh≈608px 被 overflow:hidden 裁尾):
-     空态(含步骤卡+快速开始卡)改为内容自适应高度,页面流式滚动即可达全部内容;
-     有产物时(无 .empty-editorial)仍保持 72vh 剧场 */
-  .generate-results:has(.empty-editorial) {
-    height: auto;
-    min-height: 60vh;
-    overflow: visible;
-  }
+  /* 空态例外已随 Studio Console v1 退役:空态只余一行 muted 提示(.empty-console-hint),
+     不再溢出 72vh 剧场,无需内容自适应例外 */
   .promptbar-dock {
     position: sticky;
     order: 2;
@@ -1523,20 +1396,6 @@
   /* 辅助说明让位:小屏头部只留模式段控/板块标题 */
   .generate-header-note {
     display: none;
-  }
-  .empty-tips {
-    grid-template-columns: 1fr;
-  }
-  /* T3 快速开始卡:移动端单列 */
-  .quick-start-grid {
-    grid-template-columns: 1fr;
-  }
-  .empty-display {
-    font-size: var(--text-display-md);
-  }
-  .empty-editorial {
-    padding: var(--space-4);
-    gap: var(--space-4);
   }
 }
 

@@ -541,12 +541,11 @@ export function AvatarTalkView({ onNavigate }: { onNavigate?: (target: string) =
     </div>
   );
 
-  // 统一页头(UI-A PageHeader,全局 .page-header 体系):kicker 铭牌 + 大标题 + 辅助描述 + 右侧模式切换
+  // 统一页头(UI-A PageHeader,全局 .page-header 体系):标题 + 辅助描述 + 右侧模式切换
   // 连接状态 pill(2026-08-16 批 2):自舞台右上浮层移入页头操作区(小字 badge),
   // 不再悬浮压画面;仅实时对话模式展示
   const pageHeader = (
     <PageHeader
-      kicker="DIGITAL HUMAN"
       title="数字人"
       onBack={onNavigate ? () => onNavigate("fusion") : undefined}
       backLabel="返回融合"

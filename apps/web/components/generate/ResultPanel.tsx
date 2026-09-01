@@ -13,8 +13,6 @@ import { imageUrl } from "@/lib/api";
 import type { EngineInfo, EngineKind } from "@/lib/engines";
 import type { QualityWarning } from "@/lib/trackJob";
 
-import { QuickStartGrid } from "./QuickStartGrid";
-
 /** 会话内生成历史条目(不落库,刷新即清空)。 */
 export interface HistoryEntry {
   id: string;
@@ -182,12 +180,6 @@ interface ResultPanelProps {
   onCancel: () => void;
   /** 失败条目重试(沿用该条目的引擎/提示词/参数快照);不传则不渲染重试按钮。 */
   onRetry?: (entry: HistoryEntry) => void;
-  /** 空态「快速开始」卡(T3):当前板块 kind(决定渲染哪组策划卡)。 */
-  kind?: EngineKind;
-  /** 快速开始卡可用性数据源(当前 kind 全部引擎;null=加载中,卡区不渲染)。 */
-  quickStartEngines?: EngineInfo[] | null;
-  /** 点击快速开始卡:选中引擎 + 聚焦提示词框(GenerateView 承载);不传则空态不渲染卡区。 */
-  onQuickStart?: (engineId: string) => void;
 }
 
 /** 质量维度条:label + 横向条 + 百分比,颜色按值分段(对齐后端评估语义)。 */
@@ -254,7 +246,7 @@ function useElapsed(active: boolean, since: number | undefined): string {
  * 失败态为舞台中央错误卡:友好说明 + 可折叠技术详情(底层原文)+ 重试。
  * 全部样式在 app/styles/stage.css;生成中骨架用全局 skeleton-shimmer(WS5 motion.css)。
  */
-export function ResultPanel({ entries, selectedId, onSelect, liveProgress, qualityWarning, onApplyPrompt, onCancel, onRetry, kind, quickStartEngines, onQuickStart }: ResultPanelProps) {
+export function ResultPanel({ entries, selectedId, onSelect, liveProgress, qualityWarning, onApplyPrompt, onCancel, onRetry }: ResultPanelProps) {
   const [compare, setCompare] = useState(false);
   const [compareA, setCompareA] = useState<string>("");
   const [compareB, setCompareB] = useState<string>("");
@@ -268,43 +260,12 @@ export function ResultPanel({ entries, selectedId, onSelect, liveProgress, quali
     doneEntries.find((e) => e.id === compareB) ?? doneEntries.find((e) => e.id !== entryA?.id) ?? null;
 
   if (entries.length === 0) {
+    // Studio Console v1(2026-08-31):空态只有一行 muted 提示——
+    // 旧「PROMPT ATELIER 铭牌 + 大标题 + 步骤卡 + 快速开始卡」整套退役(用户:文字太多)
     // tabIndex=0:空态容器 overflow-y:auto 可滚动,axe scrollable-region-focusable 要求键盘可达
     return (
       <div className="result-panel result-panel-empty" tabIndex={0}>
-        {/* Film Atelier 空态(P0-3):拉丁 kicker + Fraunces 展示标题;
-            引导步骤卡升级为 .at-card 发夹线语言(去灰框),编号走 Fraunces 衬线(stage.css) */}
-        <div className="empty-editorial">
-          <span className="at-empty-kicker">PROMPT ATELIER</span>
-          <h2 className="empty-display">你的作品
-            <br />
-            将在这里呈现
-          </h2>
-          <div className="empty-tips">
-            <div className="empty-tip at-card at-card--lift">
-              <span className="empty-tip-num">01</span>
-              <span className="empty-tip-title">选择引擎</span>
-              <span className="empty-tip-desc">左侧挑选图片 / 视频 / 音频引擎与模型</span>
-            </div>
-            <div className="empty-tip at-card at-card--lift">
-              <span className="empty-tip-num">02</span>
-              <span className="empty-tip-title">描述画面</span>
-              <span className="empty-tip-desc">填写提示词,可用「优化」让 AI 二次润色</span>
-            </div>
-            <div className="empty-tip at-card at-card--lift">
-              <span className="empty-tip-num">03</span>
-              <span className="empty-tip-title">生成与对比</span>
-              <span className="empty-tip-desc">点击生成,完成后可开启 A/B 对比</span>
-            </div>
-          </div>
-          {/* T3 快速开始:推荐起点卡,点击 = 选引擎 + 聚焦提示词(engines 为 null 时不渲染) */}
-          {onQuickStart && (
-            <QuickStartGrid
-              kind={kind ?? "video"}
-              engines={quickStartEngines ?? null}
-              onPick={onQuickStart}
-            />
-          )}
-        </div>
+        <span className="empty-console-hint">产物将在这里呈现</span>
       </div>
     );
   }

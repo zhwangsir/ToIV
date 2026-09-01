@@ -12,6 +12,7 @@ import { TaskCenter } from "@/components/nav/TaskCenter";
 import { AssistantOverlay } from "@/components/assistant/AssistantOverlay";
 import { BottomNav, type BottomNavItem } from "@/components/nav/BottomNav";
 import { fetchMe, getToken, setToken, testLogin, TOKEN_KEY } from "@/lib/api";
+import { idlePrefetch, prefetchView } from "@/lib/prefetch";
 import { useCrossTabSync } from "@/lib/crossTab";
 import { initR18Mode, isR18Mode, useR18Mode } from "@/lib/r18";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
@@ -662,10 +663,18 @@ function HomeContent() {
     [router],
   );
 
-  // 灵动岛项悬停/聚焦:按操作意向精确预热目标视图
+  // 灵动岛项悬停/聚焦:按操作意向精确预热目标视图(chunk + 首屏数据,L3)
   const handleViewIntent = useCallback((key: string) => {
     if (VALID_VIEWS.has(key as View)) preloadView(key as View);
+    prefetchView(key);
   }, []);
+
+  // L3 首屏空闲预热(2026-09-01):登录落地后闲时预热高频视图数据,
+  // 全部经 swr-cache——TTL 内零网络,过期后台静默刷新
+  useEffect(() => {
+    if (auth !== "in") return;
+    idlePrefetch(["image", "video", "library", "market"]);
+  }, [auth]);
 
   const isAdmin = account === "admin";
   const meta = VIEW_META[view];

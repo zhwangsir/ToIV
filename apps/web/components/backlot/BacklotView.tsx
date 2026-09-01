@@ -296,7 +296,6 @@ export function BacklotView({
       <PageHeader
         className="bl-header"
         title="看板"
-        kicker="BACKLOT"
         desc={
           <>
             项目仪表盘 · 全流程进度一览 ·{" "}
@@ -548,8 +547,8 @@ export function BacklotView({
           gap: var(--section-gap);
         }
 
-        /* ── 统一页头:版型/masthead 走全局 .page-header*(2026-08-15 v6.1,编辑双线+Fraunces
-             标题+kicker),本视图不再覆盖标题字体/边框;此处只保留计数等特有样式 ── */
+        /* ── 统一页头:版型走全局 .page-header*(Studio Console v1 起 masthead 退役),
+             本视图不再覆盖标题字体/边框;此处只保留计数等特有样式 ── */
         .bl-header {
           flex-wrap: wrap;
         }

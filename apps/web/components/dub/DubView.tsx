@@ -474,10 +474,9 @@ export function DubView({ onBack }: { onBack?: () => void }) {
   // ── 渲染 ──
   return (
     <div className="single-view dub-view">
-      {/* 统一页头(UI-A PageHeader):kicker 铭牌 + dub-header/dub-meta 类经 className/包裹透传,scoped 样式保持生效 */}
+      {/* 统一页头(UI-A PageHeader):dub-header/dub-meta 类经 className/包裹透传,scoped 样式保持生效 */}
       <PageHeader
         className="dub-header"
-        kicker="DUB STUDIO"
         title="译制"
         desc="视频译制 · 听写 · 翻译 · 配音 · 口型同步"
         icon="dub"

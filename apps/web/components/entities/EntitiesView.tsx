@@ -509,7 +509,6 @@ export function EntitiesView() {
   return (
     <div className="ent-view view-shell">
       <PageHeader
-        kicker="ASSET LIBRARY"
         title="主体库"
         desc="角色 / 场景 / 道具三类主体跨项目复用:生成页「引用主体」、助手 entity_ids、短剧角色一致性共用此库。"
         actions={

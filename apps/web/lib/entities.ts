@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { apiFetch, authHeaders, imageUrl } from "./api";
+import { CACHE_KEYS, TTL, swr } from "./swr-cache";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 全局主体库(@主体引用前台化):实体清单 + prompt 内 @提及的解析/插入/移除。
@@ -121,22 +122,20 @@ export async function fetchEntities(signal?: AbortSignal): Promise<EntityInfo[]>
   }
 }
 
-// ── 模块级共享缓存(三处消费方 GenerateView/ImageEditView/助手共用一次拉取) ──
+// ── 共享缓存(2026-09-01 L1:接手写模块级缓存,换 SWR——mem+localStorage 双层,
+//    刷新页面后也秒开;CRUD 经 api.ts createEntity/updateEntity/deleteEntity 显式失效) ──
 let _cache: EntityInfo[] | null = null;
-let _inflight: Promise<EntityInfo[]> | null = null;
 
 function loadEntitiesShared(): Promise<EntityInfo[]> {
-  if (_cache) return Promise.resolve(_cache);
-  if (_inflight) return _inflight;
-  _inflight = fetchEntities()
-    .then((rows) => {
-      _cache = rows;
-      return rows;
-    })
-    .finally(() => {
-      _inflight = null;
-    });
-  return _inflight;
+  return swr(CACHE_KEYS.entities, fetchEntities, TTL.entities).then((rows) => {
+    _cache = rows; // 保持 hook 同步初始值新鲜
+    return rows;
+  });
+}
+
+/** 预取主体库清单(L3 预取用):命中 TTL 内缓存则零网络。 */
+export function preloadEntities(): void {
+  void loadEntitiesShared().catch(() => undefined);
 }
 
 /** 主体库清单 hook:模块级缓存 + 单飞去重;失败静默为空(@ 功能自动隐身)。 */

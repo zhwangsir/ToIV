@@ -14,9 +14,11 @@ import {
   generateLtxT2V,
   generateTxt2img,
   generateVideo,
+  isNsfwIntent,
   type AudioGenParams,
   type LongcatT2VParams,
 } from "./api";
+import { CACHE_KEYS, TTL, invalidate, prime, swr } from "./swr-cache";
 import type { GenerateResponse, Img2ImgGenParams, Txt2ImgParams } from "./types";
 
 // ── 统一生成工作台:引擎注册表(GET /api/models/engines)──
@@ -103,11 +105,20 @@ function normalizeEngine(engine: EngineInfo): EngineInfo {
 }
 
 /** 拉取引擎注册表(NSFW 引擎由后端按 R18 上下文过滤,前端不再判断)。 */
-export async function fetchEngines(): Promise<EngineInfo[]> {
+async function fetchEnginesRaw(): Promise<EngineInfo[]> {
   const res = await apiFetch(`/api/models/engines`, { headers: authHeaders() });
   if (!res.ok) throw new Error(`加载引擎列表失败 (${res.status})`);
   const data = (await res.json()) as { engines?: EngineInfo[] };
   return (data.engines ?? []).map(normalizeEngine);
+}
+
+/**
+ * 引擎注册表走本机 SWR 缓存(2026-09-01 L1):生成页/融合页反复进秒开。
+ * /nsfw 用独立缓存键(同 models/jobs 范式),防 R18 引擎污染主站缓存;
+ * 可用性随 worker 上下线变化,TTL 60s 兜底,「重新检测」经 prime 立即回种。
+ */
+export function fetchEngines(): Promise<EngineInfo[]> {
+  return swr(isNsfwIntent() ? `${CACHE_KEYS.engines}:nsfw` : CACHE_KEYS.engines, fetchEnginesRaw, TTL.engines);
 }
 
 /** 强制重新探测引擎可用性(清后端缓存后重查;「重新检测」按钮用)。 */
@@ -118,7 +129,11 @@ export async function refreshEngines(): Promise<EngineInfo[]> {
   });
   if (!res.ok) throw new Error(`重新检测引擎失败 (${res.status})`);
   const data = (await res.json()) as { engines?: EngineInfo[] };
-  return (data.engines ?? []).map(normalizeEngine);
+  const list = (data.engines ?? []).map(normalizeEngine);
+  // 回种当前上下文缓存;另一上下文作废(其注册表同样已过时)
+  prime(isNsfwIntent() ? `${CACHE_KEYS.engines}:nsfw` : CACHE_KEYS.engines, list);
+  invalidate(isNsfwIntent() ? CACHE_KEYS.engines : `${CACHE_KEYS.engines}:nsfw`);
+  return list;
 }
 
 /** 引擎参数默认值表(动态参数区初始值;images/audio/video 由上传组件承载,不进 values)。 */

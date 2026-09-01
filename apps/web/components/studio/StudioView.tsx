@@ -130,7 +130,6 @@ export function StudioView({
           title="创作工作室"
           desc="剧本 → 角色 → 分镜混合生成 → 合成,四步完成一部短剧"
           icon="clapperboard"
-          kicker="FILM STUDIO"
           onBack={onBack}
           backLabel="返回融合"
           actions={
@@ -162,13 +161,10 @@ export function StudioView({
             </Button>
           </div>
         ) : projects.length === 0 ? (
-          /* empty-state 类保留:e2e(authed-studio)空态计数锚点;视觉走 .at-empty */
+          /* empty-state 类保留:e2e(authed-studio)空态计数锚点;
+             Studio Console v1(2026-08-31):kicker/长描述退役,只留一行引导 */
           <div className="at-empty empty-state">
-            <span className="at-empty-kicker">Film Studio</span>
             <h3 className="at-empty-title">从一段剧情开始</h3>
-            <p className="at-empty-desc">
-              输入剧情概要,AI 自动拆解角色与分镜;每个分镜可独立选择「视频生成」或「图像运镜」。
-            </p>
           </div>
         ) : (
           <ul className="studio-project-list">

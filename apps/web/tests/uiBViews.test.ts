@@ -144,12 +144,13 @@ test("LibraryView 空态结构类名 + library.css token 收编", () => {
   assert.ok(src.includes('"lib-actions"'), "hover 快捷操作组类名缺失");
   assert.ok(src.includes('"lib-card-title"'), "卡片提示词标题类名缺失");
 
-  // library.css:32px → var(--text-display-md);650 → var(--font-semibold);#FFFFFF → var(--text-on-accent)
+  // library.css:32px → var(--text-title)(Studio Console v1);650 → var(--font-semibold);#FFFFFF → var(--text-on-accent)
   const css = readSrc("app/styles/library.css");
   assert.ok(!css.includes("font-size: 32px"), "空态 32px 硬编码未收编");
   assert.ok(!css.includes("font-weight: 650"), "650 字重硬编码未收编");
   assert.ok(!css.includes("color: #FFFFFF"), "scrim #FFFFFF 硬编码未收编");
-  assert.ok(css.includes("var(--text-display-md)"), "空态 display token 未接入");
+  assert.ok(css.includes("var(--text-title)"), "空态标题档 token 未接入");
+  assert.ok(!css.includes("var(--text-display-md)"), "空态不应再用 display 档大标题");
   assert.ok(css.includes("var(--font-semibold)"), "semibold 字重 token 未接入");
   assert.ok(css.includes("var(--text-on-accent)"), "scrim 文字色 token 未接入");
 });
@@ -166,9 +167,7 @@ test("stage.css z-index 裸值收编为语义档位、display/字重 token 化",
   // 40px → var(--text-display-lg);650 → var(--font-semibold);1.2s → var(--duration-loop)
   assert.ok(!css.includes("font-size: 40px"), "40px display 硬编码未收编");
   assert.ok(!css.includes("font-weight: 650"), "650 字重硬编码未收编");
-  // 2026-08-16 视图批 1:空态主标题 display 档降为标题档(var(--text-title));
-  // display 档仅剩移动档覆盖(@media ≤767px,Team D 移动区)
-  assert.ok(css.includes("var(--text-title)"), "空态标题档 token 未接入");
+  // 2026-08-31 Studio Console v1:空态英雄区(大标题/步骤卡)整套退役,display/title 档断言移除
   assert.ok(css.includes("var(--font-semibold)"), "semibold 字重 token 未接入");
   assert.ok(css.includes("var(--duration-loop)"), "loop 时长 token 未接入");
 });

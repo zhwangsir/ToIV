@@ -366,7 +366,9 @@ test("LibraryView 新结构类名锚点 + library.css 16/9 与 token 收编", ()
 
   const css = readSrc("app/styles/library.css");
   assert.ok(css.includes("aspect-ratio: 16 / 9"), "缩略图未固定 16/9");
-  assert.ok(css.includes("var(--text-display-md)"), "空态 display token 未接入");
+  // Studio Console v1(2026-08-31):空态标题自 display 档收为标题档
+  assert.ok(css.includes("var(--text-title)"), "空态标题档 token 未接入");
+  assert.ok(!css.includes("var(--text-display-md)"), "空态不应再用 display 档大标题");
   assert.ok(css.includes("var(--font-semibold)"), "semibold 字重 token 未接入");
   assert.ok(css.includes("var(--text-on-accent)"), "scrim 文字色 token 未接入");
   assert.ok(css.includes("position: sticky"), "工具条未 sticky");

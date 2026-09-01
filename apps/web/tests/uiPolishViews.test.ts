@@ -1,7 +1,7 @@
 /**
  * 视图批 1 UI 排版优化单测(2026-08-16,Team B:工作台+首页+融合+作品库):
- * ① stage.css 空态降权:主标题 display 档 → --text-title,描述行 --text-body + --leading-loose,
- *    引导卡序号墨丸化(accent 墨底白字),段控轨道下沉
+ * ① stage.css 空态(2026-08-31 Studio Console v1):编排式英雄区(大标题/步骤卡/
+ *    快速开始卡)退役,只余一行 muted 提示(.empty-console-hint)
  * ② GenerateView 引擎说明(2026-08-17 T2 重构):描述/出处收进 ⓘ 说明卡(Popover+EngineInfoCard),
  *    面板首屏不再平铺;卡内渲染断言见 generateInspector.test.ts
  * ③ AudioView 页头一致:页头已移除,生成/编辑段控独立窄行并带图标
@@ -32,26 +32,16 @@ function cssBlock(css: string, selector: string): string {
   return m[0];
 }
 
-/* ── ① 工作台空态降权(stage.css) ── */
-test("stage.css 空态:主标题降标题档(无 display 档残留),描述行升正文档", () => {
+/* ── ① 工作台空态(2026-08-31 Studio Console v1:编排式英雄区退役) ── */
+test("stage.css 空态:英雄区(大标题/步骤卡/快速开始卡)退役,只余单行 muted 提示", () => {
   const css = readSrc("app/styles/stage.css");
-  const display = cssBlock(css, ".empty-display");
-  assert.ok(display.includes("font-size: var(--text-title)"), "空态主标题未降到 --text-title");
-  assert.ok(!display.includes("--text-display"), "空态主标题仍有 display 档残留");
-  assert.ok(display.includes("var(--font-semibold)"), "空态主标题字重须 semibold");
-
-  const desc = cssBlock(css, ".empty-tip-desc");
-  assert.ok(desc.includes("font-size: var(--text-body)"), "步骤卡正文未升到 --text-body");
-  assert.ok(desc.includes("var(--leading-loose, 1.7)"), "步骤卡正文行高未走 --leading-loose 兜底写法");
-  assert.ok(desc.includes("var(--text-secondary)"), "步骤卡正文色未提到 secondary(对比不足)");
-});
-
-test("stage.css 空态:引导卡序号墨丸化(accent 墨底白字圆丸)", () => {
-  const css = readSrc("app/styles/stage.css");
-  const num = cssBlock(css, ".empty-tip-num");
-  assert.ok(num.includes("background: var(--accent)"), "序号未上墨丸(accent 底)");
-  assert.ok(num.includes("color: var(--text-on-accent)"), "序号未用 on-accent 白字");
-  assert.ok(num.includes("border-radius: var(--radius-full)"), "序号未圆丸化");
+  assert.ok(!css.includes(".empty-editorial"), "空态英雄区容器应已退役");
+  assert.ok(!css.includes(".empty-display"), "空态大标题应已退役");
+  assert.ok(!css.includes(".empty-tip"), "步骤卡样式应已退役");
+  assert.ok(!css.includes(".quick-start"), "快速开始卡样式应已退役");
+  const hint = cssBlock(css, ".empty-console-hint");
+  assert.ok(hint.includes("color: var(--text-muted)"), "空态提示须 muted 降权");
+  assert.ok(hint.includes("font-size: var(--text-aux)"), "空态提示须辅助档小字");
 });
 
 test("stage.css 参数浮板段控:轨道下沉一档(canvas 底 + 强描边,未选中项层级拉开)", () => {

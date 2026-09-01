@@ -97,8 +97,8 @@ test("删除会话:二次确认 Modal → deleteConversation → DELETE API", ()
   const del = api.slice(api.indexOf("export async function deleteAgentSession"));
   assert.ok(del.includes('method: "DELETE"'), "删除 API 非 DELETE");
   assert.ok(del.includes("/api/agent/sessions/"), "删除 API 路径错误");
-  // 列表/回放 API 沿用既有契约
-  assert.ok(api.includes("export async function listAgentSessions"), "列表 API 缺失");
+  // 列表/回放 API 沿用既有契约(2026-09-01:列表走 swr 缓存,导出改非 async 函数)
+  assert.ok(api.includes("export function listAgentSessions"), "列表 API 缺失");
   assert.ok(api.includes("export async function getAgentSession"), "回放 API 缺失");
 });
 

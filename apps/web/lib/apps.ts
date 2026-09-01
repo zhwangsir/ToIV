@@ -1,4 +1,5 @@
 import { API_BASE, apiFetch, authHeaders, apiErrorMessage } from "./api";
+import { CACHE_KEYS, TTL, invalidatePrefix, swr } from "./swr-cache";
 
 /**
  * 应用市场(M3)前端 API client + 类型。
@@ -150,12 +151,26 @@ async function raiseErr(res: Response, fallback: string): Promise<never> {
   throw new Error(apiErrorMessage(detail?.detail, `${fallback} (${res.status})`, res.status));
 }
 
-/** 应用列表;category/q 非空才上 query(契约:?category=&q=)。非 2xx 抛错。 */
+/** 应用列表;category/q 非空才上 query(契约:?category=&q=)。非 2xx 抛错。
+ *  走本机 SWR 缓存(2026-09-01 L1):市场/融合二访秒开;fork/导入/运行后显式失效。 */
 export async function listApps(filter?: { category?: string; q?: string }): Promise<AppItem[]> {
   const qs = new URLSearchParams();
   if (filter?.category && filter.category !== "all") qs.set("category", filter.category);
   if (filter?.q?.trim()) qs.set("q", filter.q.trim());
   const suffix = qs.toString();
+  return swr(
+    suffix ? `${CACHE_KEYS.apps}:${suffix}` : CACHE_KEYS.apps,
+    () => fetchAppsRaw(suffix),
+    TTL.apps,
+  );
+}
+
+/** 应用列表变更(fork/导入/运行)后调用:失效全部过滤档缓存。 */
+export function invalidateApps(): void {
+  invalidatePrefix(CACHE_KEYS.apps);
+}
+
+async function fetchAppsRaw(suffix: string): Promise<AppItem[]> {
   const res = await apiFetch(`${API_BASE}/api/apps${suffix ? `?${suffix}` : ""}`, {
     headers: authHeaders(),
   });
@@ -200,6 +215,8 @@ export async function runApp(
     body: JSON.stringify({ values }),
   });
   if (!res.ok) return raiseErr(res, "运行失败");
+  // usage_count 已变,失效列表缓存(排序/计数下次拉新)
+  invalidateApps();
   const data = (await res.json()) as Record<string, unknown>;
   return {
     job_id: String(data.job_id ?? ""),
@@ -308,6 +325,7 @@ export async function confirmImport(
     body: JSON.stringify(body),
   });
   if (!res.ok) return raiseErr(res, "确认上架失败");
+  invalidateApps();
   return normalizeApp(await res.json());
 }
 

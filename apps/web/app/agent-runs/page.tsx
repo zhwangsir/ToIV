@@ -7,7 +7,7 @@
  *
  * Film Atelier 重塑(2026-08-15,P0-2):
  * - 直接 import agent-runs.css(此前仅详情页 AgentRunView 引入,列表页无样式 = 贴边裸排根因);
- * - 版心 .view-shell;页头 masthead(kicker AGENT TEAM + Fraunces 标题 + 编辑双线);
+ * - 版心 .view-shell;页头(返回链 + 标题 + 辅助描述,Studio Console v1 起 kicker 铭牌退役);
  * - 历史任务 → .at-card 卡片流(.at-card-in 错落入场):标题行 + 状态点/文字 + Fraunces n/N 进度
  *   + tabular-nums 日期分行;空态 .at-empty;需求输入区 → 玻璃命令条;主钮 .at-btn--primary;
  * - 图标统一 ui/Icon。
@@ -63,7 +63,6 @@ export default function AgentRunsPage() {
             <Link href="/" className="agent-back" aria-label="返回首页">
               <Icon name="chevron-left" size={14} /> 首页
             </Link>
-            <span className="page-header-kicker">Agent Team</span>
             <h1 className="page-header-title agent-page-title">
               <Icon name="bot" size={22} /> Agent 团队
             </h1>
@@ -126,11 +125,7 @@ export default function AgentRunsPage() {
           <LoadingBlock variant="line" count={3} />
         ) : list.runs.length === 0 ? (
           <div className="at-empty">
-            <span className="at-empty-kicker">Agent Team</span>
             <h3 className="at-empty-title">还没有 Agent 任务</h3>
-            <p className="at-empty-desc">
-              在上方输入一句话需求,Agent 团队会自动拆解计划并逐步执行。
-            </p>
           </div>
         ) : (
           <ul className="agent-run-list">

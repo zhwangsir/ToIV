@@ -1,4 +1,4 @@
-import { CACHE_KEYS, TTL, invalidate, swr } from "./swr-cache";
+import { CACHE_KEYS, TTL, invalidate, invalidatePrefix, swr } from "./swr-cache";
 import { isParseAbortError, studioParsePollDecision, STUDIO_PARSE_POLL_MS } from "./studioParseUx";
 import type {
   AdminUser,
@@ -60,6 +60,10 @@ export function setToken(token: string | null): void {
 let _nsfwIntent = false;
 export function setNsfwIntent(on: boolean): void {
   _nsfwIntent = on;
+}
+/** 当前请求上下文是否为 /nsfw 专区(缓存键分轨用,防 R18 数据污染主站缓存)。 */
+export function isNsfwIntent(): boolean {
+  return _nsfwIntent;
 }
 
 export function authHeaders(): Record<string, string> {
@@ -795,6 +799,7 @@ export async function createEntity(body: EntityInput): Promise<EntityItem> {
     body: JSON.stringify(body),
   });
   if (!res.ok) await raiseApiError(res, "创建主体失败");
+  invalidate(CACHE_KEYS.entities);
   return res.json();
 }
 
@@ -805,6 +810,7 @@ export async function updateEntity(id: string, body: Partial<EntityInput>): Prom
     body: JSON.stringify(body),
   });
   if (!res.ok) await raiseApiError(res, "更新主体失败");
+  invalidate(CACHE_KEYS.entities);
   return res.json();
 }
 
@@ -814,6 +820,7 @@ export async function deleteEntity(id: string): Promise<void> {
     headers: authHeaders(),
   });
   if (!res.ok) await raiseApiError(res, "删除主体失败");
+  invalidate(CACHE_KEYS.entities);
 }
 
 /** 主体参考图句柄(resolve-refs 返回,已钉到目标 worker,可直接灌入引擎参考图)。 */
@@ -1739,7 +1746,11 @@ export async function agentChat(
         if (line.startsWith("event:")) event = line.slice(6).trim();
         else if (line.startsWith("data:")) data += line.slice(5).trim();
       }
-      if (event === "done") return;
+      if (event === "done") {
+        // 会话列表(标题/更新时间)已变,失效缓存
+        invalidate(CACHE_KEYS.sessions);
+        return;
+      }
       if (data) {
         try {
           onEvent(JSON.parse(data) as AgentEvent);
@@ -1881,6 +1892,8 @@ export async function agentChatStream(
     }
     throw err;
   }
+  // 一轮对话落库完成:会话列表(标题/更新时间/消息数)已变,失效缓存
+  invalidate(CACHE_KEYS.sessions);
   return { sessionId };
 }
 
@@ -1928,19 +1941,28 @@ export async function agentChatResume(
     }
     throw err;
   }
+  // 一轮对话落库完成:会话列表(标题/更新时间/消息数)已变,失效缓存
+  invalidate(CACHE_KEYS.sessions);
   return { sessionId };
 }
 
 /** 当前用户的会话列表(updated_at 倒序,含消息数;R18 会话由后端按上下文过滤)。 */
-export async function listAgentSessions(
-  signal?: AbortSignal,
-): Promise<AgentSessionSummary[]> {
+async function fetchAgentSessionsRaw(signal?: AbortSignal): Promise<AgentSessionSummary[]> {
   const res = await apiFetch(`/api/agent/sessions`, {
     headers: authHeaders(),
     signal,
   });
   if (!res.ok) await raiseApiError(res, "获取会话列表失败");
   return res.json();
+}
+
+/**
+ * 会话列表走本机 SWR 缓存(2026-09-01 L1+L2):历史面板/⌘K 秒开,后台静默刷新;
+ * 大负载走 IndexedDB(large),不挤 localStorage;发消息/删除/分叉后显式失效。
+ * signal 仅无缓存首取有意义——命中缓存立即返回,网络回包用于暖缓存,无需中止。
+ */
+export function listAgentSessions(signal?: AbortSignal): Promise<AgentSessionSummary[]> {
+  return swr(CACHE_KEYS.sessions, () => fetchAgentSessionsRaw(signal), TTL.sessions, { large: true });
 }
 
 /** 会话详情:全消息回放(id 升序即对话顺序)。 */
@@ -1952,7 +1974,8 @@ export async function getAgentSession(
     headers: authHeaders(),
     signal,
   });
-  if (!res.ok) await raiseApiError(res, "获取会话失败");
+  if (!res.ok) await raiseApiError(res, "分叉会话失败");
+  invalidate(CACHE_KEYS.sessions);
   return res.json();
 }
 
@@ -1967,6 +1990,7 @@ export async function forkAgentSession(
     body: JSON.stringify(atMessageId != null ? { at_message_id: atMessageId } : {}),
   });
   if (!res.ok) await raiseApiError(res, "分叉会话失败");
+  invalidate(CACHE_KEYS.sessions);
   return res.json();
 }
 
@@ -1976,6 +2000,7 @@ export async function deleteAgentSession(id: string): Promise<void> {
     headers: authHeaders(),
   });
   if (!res.ok) await raiseApiError(res, "删除会话失败");
+  invalidate(CACHE_KEYS.sessions);
 }
 
 // ---------- 漫剧工作室 ----------
@@ -4292,8 +4317,13 @@ async function studioReq<T>(
   return res.json();
 }
 
+/** Studio 项目列表走本机 SWR 缓存(2026-09-01 L1):工作室首页二访秒开;增删改显式失效。 */
 export const listStudioProjects = (): Promise<StudioProjectSummary[]> =>
-  studioReq("/studio/projects", "GET");
+  swr(
+    CACHE_KEYS.studioProjects,
+    () => studioReq<StudioProjectSummary[]>("/studio/projects", "GET"),
+    TTL.studioProjects,
+  );
 export const createStudioProject = (body: {
   title?: string;
   premise?: string;
@@ -4303,7 +4333,11 @@ export const createStudioProject = (body: {
   width?: number;
   height?: number;
   fps?: number;
-}): Promise<StudioProjectSummary> => studioReq("/studio/projects", "POST", body);
+}): Promise<StudioProjectSummary> =>
+  studioReq<StudioProjectSummary>("/studio/projects", "POST", body).then((p) => {
+    invalidate(CACHE_KEYS.studioProjects);
+    return p;
+  });
 export const getStudioProject = (pid: string): Promise<StudioProjectDetail> =>
   studioReq(`/studio/projects/${pid}`, "GET");
 export const patchStudioProject = (
@@ -4319,9 +4353,16 @@ export const patchStudioProject = (
     height: number;
     fps: number;
   }>,
-): Promise<StudioProjectSummary> => studioReq(`/studio/projects/${pid}`, "PATCH", body);
+): Promise<StudioProjectSummary> =>
+  studioReq<StudioProjectSummary>(`/studio/projects/${pid}`, "PATCH", body).then((p) => {
+    invalidate(CACHE_KEYS.studioProjects);
+    return p;
+  });
 export const deleteStudioProject = (pid: string): Promise<{ ok: boolean }> =>
-  studioReq(`/studio/projects/${pid}`, "DELETE");
+  studioReq<{ ok: boolean }>(`/studio/projects/${pid}`, "DELETE").then((r) => {
+    invalidate(CACHE_KEYS.studioProjects);
+    return r;
+  });
 
 /** LLM 剧本拆解(2026-08-29 异步化:提交→Job→2s 轮询,根治长文本撞 120s fetch 墙);
  *  拆解结果不落库,前端确认后走 CRUD 保存;轮询上限 8 分钟(覆盖 L3 长输出)。
@@ -4633,9 +4674,13 @@ export const createAgentRun = (body: {
   goal: string;
   level?: string;
   opts?: Record<string, unknown>;
-}): Promise<AgentRunCreateResult> => agentRunReq("/agent-runs", "POST", body, "创建任务失败");
+}): Promise<AgentRunCreateResult> =>
+  agentRunReq<AgentRunCreateResult>("/agent-runs", "POST", body, "创建任务失败").then((r) => {
+    invalidatePrefix(CACHE_KEYS.agentRuns);
+    return r;
+  });
 
-/** 历史 run 列表(按状态/时间过滤)。 */
+/** 历史 run 列表(按状态/时间过滤);走本机 SWR 缓存(2026-09-01 L1,15s 仅去重连击)。 */
 export const listAgentRuns = (params?: {
   limit?: number;
   status?: string;
@@ -4644,11 +4689,16 @@ export const listAgentRuns = (params?: {
   if (params?.limit != null) qs.set("limit", String(params.limit));
   if (params?.status) qs.set("status", params.status);
   const suffix = qs.toString();
-  return agentRunReq(
-    `/agent-runs${suffix ? `?${suffix}` : ""}`,
-    "GET",
-    undefined,
-    "加载任务列表失败",
+  return swr(
+    suffix ? `${CACHE_KEYS.agentRuns}:${suffix}` : CACHE_KEYS.agentRuns,
+    () =>
+      agentRunReq(
+        `/agent-runs${suffix ? `?${suffix}` : ""}`,
+        "GET",
+        undefined,
+        "加载任务列表失败",
+      ),
+    TTL.agentRuns,
   );
 };
 
@@ -4726,7 +4776,10 @@ export const cancelAgentRun = (runId: string): Promise<{ ok: boolean }> =>
     "POST",
     undefined,
     "取消任务失败",
-  );
+  ).then((r) => {
+    invalidatePrefix(CACHE_KEYS.agentRuns);
+    return r as { ok: boolean };
+  });
 
 /** 成片与产物清单(合成后)。 */
 export const getAgentRunResult = (runId: string): Promise<AgentRunResult> =>

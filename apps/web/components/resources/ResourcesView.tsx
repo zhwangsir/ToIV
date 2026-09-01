@@ -28,7 +28,7 @@ const RESOURCE_TABS = new Set<string>(["models", "train", "backlot"]);
  * Film Atelier(2026-08-15):
  * - 根容器接入 .view-shell 版心(原 scoped .resources-head  padding 因子组件边界失效,
  *   页头贴左缘 = P0-1;此处页头样式一律走 :global 修正);
- * - tab 换墨丸段控 .at-seg(P1-1);页头加 kicker RESOURCES;
+ * - tab 换墨丸段控 .at-seg(P1-1);
  * - P2-3 去双重容器:内嵌视图根 .single-view 的版心/左右内边距在本页失效,
  *   由 .view-shell 统一供节奏,不再包第二层容器。
  */
@@ -50,7 +50,6 @@ export function ResourcesView({ onCreateProject }: { onCreateProject?: () => voi
       {/* 页头:UI-A PageHeader;resources-head 经 className 透传,样式走 :global(见下) */}
       <PageHeader
         className="resources-head"
-        kicker="RESOURCES"
         title="资源中心"
         desc="模型库 · 训练 · 看板 一站式管理工作台"
         actions={
@@ -109,20 +108,14 @@ export function ResourcesView({ onCreateProject }: { onCreateProject?: () => voi
           padding-left: 0;
           padding-right: 0;
         }
-        /* 双页头修复(2026-08-16 审计 P1):内嵌视图(ModelsView 等)的完整 masthead
-           与「资源中心」页头堆叠——降级为分区小节:隐 kicker、标题收到 section 档
-           (无衬线/15px/600)、去编辑双线底框与呼吸,视觉层级 = 页头 → 小节;
+        /* 双页头修复(2026-08-16 审计 P1):内嵌视图(ModelsView 等)的完整页头
+           与「资源中心」页头堆叠——降级为分区小节:标题收到 section 档
+           (无衬线/15px/600)、去底部分隔线与呼吸,视觉层级 = 页头 → 小节;
            页头操作槽(段控 tab)保留可用 */
         .resources-body :global(.page-header) {
           padding-bottom: 0;
           margin-bottom: var(--space-4);
           border-bottom: none;
-        }
-        .resources-body :global(.page-header)::after {
-          display: none;
-        }
-        .resources-body :global(.page-header-kicker) {
-          display: none;
         }
         .resources-body :global(.page-header-title) {
           font-family: var(--font-sans);

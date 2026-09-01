@@ -34,29 +34,136 @@ function hasWindow(): boolean {
   return typeof window !== "undefined";
 }
 
-/** 从内存优先、localStorage 兜底读出缓存条目;损坏 / 缺失返回 null。 */
-function readEntry<T>(key: string): CacheEntry<T> | null {
+/* ── IndexedDB 大容量层(L2) ─────────────────────────────────────────── */
+
+const IDB_NAME = "toiv-cache";
+const IDB_STORE = "kv";
+
+let _idbPromise: Promise<IDBDatabase | null> | null = null;
+
+/** 打开(并复用)IDB 连接;不可用/失败一律 resolve(null),调用方降级仅内存。 */
+function idbOpen(): Promise<IDBDatabase | null> {
+  if (!hasWindow() || typeof window.indexedDB === "undefined") return Promise.resolve(null);
+  if (!_idbPromise) {
+    _idbPromise = new Promise((resolve) => {
+      try {
+        const req = window.indexedDB.open(IDB_NAME, 1);
+        req.onupgradeneeded = () => {
+          if (!req.result.objectStoreNames.contains(IDB_STORE)) {
+            req.result.createObjectStore(IDB_STORE);
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(null);
+        req.onblocked = () => resolve(null);
+      } catch {
+        resolve(null);
+      }
+    });
+  }
+  return _idbPromise;
+}
+
+async function idbGet<T>(key: string): Promise<CacheEntry<T> | null> {
+  const db = await idbOpen();
+  if (!db) return null;
+  return new Promise((resolve) => {
+    try {
+      const req = db.transaction(IDB_STORE, "readonly").objectStore(IDB_STORE).get(key);
+      req.onsuccess = () => {
+        const v = req.result as CacheEntry<T> | undefined;
+        resolve(v && typeof v.ts === "number" ? v : null);
+      };
+      req.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+/** fire-and-forget 写入;失败静默(内存层仍有效)。 */
+function idbSet(key: string, entry: CacheEntry<unknown>): void {
+  void idbOpen().then((db) => {
+    if (!db) return;
+    try {
+      db.transaction(IDB_STORE, "readwrite").objectStore(IDB_STORE).put(entry, key);
+    } catch {
+      /* 忽略 */
+    }
+  });
+}
+
+function idbDel(key: string): void {
+  void idbOpen().then((db) => {
+    if (!db) return;
+    try {
+      db.transaction(IDB_STORE, "readwrite").objectStore(IDB_STORE).delete(key);
+    } catch {
+      /* 忽略 */
+    }
+  });
+}
+
+function idbDelPrefix(prefix: string): void {
+  void idbOpen().then((db) => {
+    if (!db) return;
+    try {
+      const store = db.transaction(IDB_STORE, "readwrite").objectStore(IDB_STORE);
+      const req = store.getAllKeys();
+      req.onsuccess = () => {
+        for (const k of req.result) {
+          if (typeof k === "string" && k.startsWith(prefix)) store.delete(k);
+        }
+      };
+    } catch {
+      /* 忽略 */
+    }
+  });
+}
+
+/** 读缓存条目:内存 → localStorage →(large 键)IndexedDB;损坏 / 缺失返回 null。 */
+async function readEntry<T>(key: string, large?: boolean): Promise<CacheEntry<T> | null> {
   const m = mem.get(key);
   if (m) return m as CacheEntry<T>;
   if (!hasWindow()) return null;
   try {
     const raw = window.localStorage.getItem(STORE_PREFIX + key);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as CacheEntry<T>;
-    if (typeof parsed?.ts !== "number") return null;
-    // 回填内存层,后续命中走内存。
-    mem.set(key, parsed as CacheEntry<unknown>);
-    return parsed;
+    if (raw) {
+      const parsed = JSON.parse(raw) as CacheEntry<T>;
+      if (typeof parsed?.ts === "number") {
+        // 回填内存层,后续命中走内存。
+        mem.set(key, parsed as CacheEntry<unknown>);
+        return parsed;
+      }
+    }
   } catch {
-    return null;
+    /* 损坏当缺失,继续探 IDB */
   }
+  if (large) {
+    const fromIdb = await idbGet<T>(key);
+    if (fromIdb) {
+      mem.set(key, fromIdb as CacheEntry<unknown>);
+      return fromIdb;
+    }
+  }
+  return null;
 }
 
-/** 不可变写入:新建条目对象,同步进内存与 localStorage(后者失败静默)。 */
-function writeEntry<T>(key: string, value: T): void {
+/** 不可变写入:新建条目对象,同步进内存与持久层(large→IDB,否则 LS;失败静默)。 */
+function writeEntry<T>(key: string, value: T, large?: boolean): void {
   const entry: CacheEntry<T> = { value, ts: Date.now() };
   mem.set(key, entry as CacheEntry<unknown>);
   if (!hasWindow()) return;
+  if (large) {
+    // 大负载进 IDB;清掉可能存在的旧 LS 副本(升级迁移)
+    idbSet(key, entry as CacheEntry<unknown>);
+    try {
+      window.localStorage.removeItem(STORE_PREFIX + key);
+    } catch {
+      /* 忽略 */
+    }
+    return;
+  }
   try {
     window.localStorage.setItem(STORE_PREFIX + key, JSON.stringify(entry));
   } catch {
@@ -70,14 +177,16 @@ function writeEntry<T>(key: string, value: T): void {
  * @param key      缓存键(同一资源全局唯一)。
  * @param fetcher  实际网络取数函数(缓存未命中 / 后台刷新时调用)。
  * @param ttlMs    新鲜窗口;在此窗口内的缓存视为 fresh,不触发后台刷新。
+ * @param opts.large 大负载走 IndexedDB(会话/作品库全量等),不挤 localStorage。
  * @returns        命中即返缓存值(可能 stale),否则等待网络。
  */
 export async function swr<T>(
   key: string,
   fetcher: () => Promise<T>,
   ttlMs: number,
+  opts?: { large?: boolean },
 ): Promise<T> {
-  const entry = readEntry<T>(key);
+  const entry = await readEntry<T>(key, opts?.large);
   const now = Date.now();
 
   // 后台刷新:并发去重,成功落盘,失败不影响已返回的缓存值。
@@ -86,7 +195,7 @@ export async function swr<T>(
     if (existing) return existing;
     const p = fetcher()
       .then((fresh) => {
-        writeEntry(key, fresh);
+        writeEntry(key, fresh, opts?.large);
         return fresh;
       })
       .finally(() => {
@@ -107,10 +216,16 @@ export async function swr<T>(
   return revalidate();
 }
 
-/** 主动失效单个键:删内存 + 删盘,下次 swr 强制走网络。 */
+/** 直接写入缓存(强制刷新流程回种,如「重新检测引擎」):下次 swr 命中新鲜值。 */
+export function prime<T>(key: string, value: T, opts?: { large?: boolean }): void {
+  writeEntry(key, value, opts?.large);
+}
+
+/** 主动失效单个键:删内存 + 删盘(LS+IDB),下次 swr 强制走网络。 */
 export function invalidate(key: string): void {
   mem.delete(key);
   inflight.delete(key);
+  idbDel(key);
   if (!hasWindow()) return;
   try {
     window.localStorage.removeItem(STORE_PREFIX + key);
@@ -127,6 +242,7 @@ export function invalidatePrefix(prefix: string): void {
       inflight.delete(k);
     }
   }
+  idbDelPrefix(prefix);
   if (!hasWindow()) return;
   try {
     const full = STORE_PREFIX + prefix;
@@ -148,6 +264,18 @@ export const CACHE_KEYS = {
   me: "me",
   jobs: "jobs",
   trainJobs: "train-jobs",
+  /** 引擎注册表(含可用性) */
+  engines: "engines",
+  /** 助手会话列表(大负载:走 IDB) */
+  sessions: "agent-sessions",
+  /** 主体库清单(@ 提及数据源) */
+  entities: "entities",
+  /** 应用市场/融合列表(带过滤后缀,如 apps:category=video) */
+  apps: "apps",
+  /** Agent Team 历史 run 列表 */
+  agentRuns: "agent-runs",
+  /** Studio 项目列表 */
+  studioProjects: "studio-projects",
 } as const;
 
 /** 默认 TTL(ms):按资源更新频率分档。 */
@@ -162,4 +290,16 @@ export const TTL = {
   jobs: 30 * 1000,
   /** 训练作业:训练中频繁变,完成后稳定。 */
   trainJobs: 10 * 1000,
+  /** 引擎注册表:可用性随 worker 上下线变,短缓存 + 「重新检测」prime 回种。 */
+  engines: 60 * 1000,
+  /** 会话列表:发消息/删除即变,短缓存 + 写路径显式失效。 */
+  sessions: 30 * 1000,
+  /** 主体库:偶有增删改,中长缓存 + CRUD 显式失效。 */
+  entities: 5 * 60 * 1000,
+  /** 应用市场:偶有 fork/导入,中长缓存 + 写路径显式失效。 */
+  apps: 5 * 60 * 1000,
+  /** Agent run 列表:运行中状态流转快,极短缓存仅去重连击。 */
+  agentRuns: 15 * 1000,
+  /** Studio 项目列表:短缓存 + 增删改显式失效。 */
+  studioProjects: 30 * 1000,
 } as const;

@@ -552,7 +552,7 @@ img, video {
   margin-bottom: var(--space-4);
   flex-wrap: wrap;
 }
-/* 返回上一级(2026-08-29 融合二级页):kicker 上方的低调文字钮 */
+/* 返回上一级(2026-08-29 融合二级页):标题上方的低调文字钮 */
 .page-header-back {
   display: inline-flex;
   align-items: center;
@@ -571,9 +571,12 @@ img, video {
   color: var(--text-primary);
 }
 .page-header-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   font-size: var(--text-title);
-  font-weight: var(--font-bold);
-  letter-spacing: -0.015em;
+  font-weight: var(--font-semibold);
+  letter-spacing: -0.01em;
   line-height: var(--leading-xl);
   margin: 0;
 }
@@ -581,11 +584,14 @@ img, video {
   font-size: var(--text-aux);
   color: var(--text-muted);
   margin-top: var(--space-1);
+  max-width: 52em;
+  line-height: 1.6;
 }
 .page-header-actions {
   display: flex;
   gap: var(--space-2);
   align-items: center;
+  flex-shrink: 0;
 }
 
 /* ========== Bottom Navigation(<1024px) ========== */
@@ -1230,25 +1236,15 @@ select.input {
   position: relative;
 }
 
-/* 页头优化:更强的视觉锚点(Film Atelier masthead,2026-08-15 v6.1)
-   编辑双线细规 + Fraunces 展示标题 + 可选拉丁 kicker 铭牌(.page-header-kicker);
-   14 个 PageHeader 视图自动获得,视图级覆盖(如 library)仍优先。 */
+/* 页头(Studio Console v1,2026-08-31):Film Atelier masthead 退役——
+   拉丁 kicker 铭牌(.page-header-kicker)、Fraunces 展示大标题、编辑双线细规全部移除
+   (用户:文字太多,要简洁专业工作台)。只余:无衬线标题 + muted 辅助描述 + 细分隔线。 */
 .page-header {
   position: relative;
   padding-bottom: var(--space-2);
   /* 2026-08-24 密度优化:页头下距 24→16 */
   margin-bottom: var(--space-4);
-  border-bottom: 1px solid var(--border-strong);
-}
-.page-header::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 3px;
-  height: 1px;
-  background: var(--border-subtle);
-  pointer-events: none;
+  border-bottom: 1px solid var(--border-subtle);
 }
 .page-header-text {
   display: flex;
@@ -1256,93 +1252,22 @@ select.input {
   gap: var(--space-1);
   min-width: 0;
 }
-.page-header-kicker {
-  font-size: var(--text-label);
-  font-weight: var(--font-medium);
-  letter-spacing: 0.22em;
-  color: var(--text-muted);
-  text-transform: uppercase;
-}
-.page-header-title {
-  font-family: var(--font-display);
-  font-size: var(--text-display-md);
-  font-weight: var(--font-semibold);
-  letter-spacing: -0.01em;
-  line-height: var(--leading-display);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-.page-header-desc {
-  margin-top: 0;
-  max-width: 52em;
-  line-height: 1.6;
-}
-@media (max-width: 767px) {
-  .page-header-title {
-    font-size: var(--text-display-sm);
-  }
-}
 
 /* 紧凑页头(2026-08-18):工作台类视图工具化——单行 标题+操作,垂直预算 ~44px;
-   隐藏 kicker/desc 由组件侧控制,此处收敛盒模型与标题档位、去编辑双线 */
+   隐藏 desc 由组件侧控制,此处收敛盒模型与标题档位、去底部分隔线 */
 .page-header.is-compact {
   align-items: center;
   padding-bottom: 0;
   margin-bottom: var(--space-3);
   border-bottom: none;
 }
-.page-header.is-compact::after {
-  display: none;
-}
 .page-header.is-compact .page-header-title {
-  font-family: var(--font-sans);
   font-size: var(--text-title);
   letter-spacing: 0;
   gap: var(--space-1);
 }
 
-/* 空状态增强：视觉聚焦 */
-.empty-editorial {
-  position: relative;
-}
-
-.empty-editorial::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 320px;
-  height: 320px;
-  background: radial-gradient(ellipse at center, var(--accent-soft) 0%, transparent 70%);
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.empty-display {
-  position: relative;
-  z-index: 1;
-  letter-spacing: -0.03em;
-  /* 2026-08-14 UI-A:空态大标题走 Display 展示位衬线(中文回退 PingFang SC) */
-  font-family: var(--font-display);
-  font-size: var(--text-display-lg);
-  line-height: var(--leading-display);
-  font-weight: var(--font-bold);
-}
-
-/* 步骤卡片：增强层次感 */
-.empty-tip {
-  position: relative;
-  transition: transform var(--duration-base) var(--ease-standard),
-              box-shadow var(--duration-base) var(--ease-standard);
-}
-
-.empty-tip:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-}
+/* 空态英雄区(.empty-editorial/.empty-display/.empty-tip)已随 Studio Console v1 退役 */
 
 /* 参数面板：增强边界感 */
 .params-panel,
@@ -1397,25 +1322,9 @@ select.input {
 
 /* 响应式优化 */
 @media (max-width: 1023px) {
-  .empty-editorial::before {
-    width: 240px;
-    height: 240px;
-  }
-  
   .page-header {
     padding-bottom: var(--space-2);
     margin-bottom: var(--space-3);
-  }
-}
-
-@media (max-width: 767px) {
-  .empty-editorial::before {
-    width: 200px;
-    height: 200px;
-  }
-  
-  .empty-display {
-    font-size: var(--text-display-sm);
   }
 }
 
@@ -1661,20 +1570,12 @@ select.input {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-panel);
 }
-.at-empty-kicker {
-  font-size: var(--text-label);
-  font-weight: var(--font-medium);
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
+/* at-empty-kicker(拉丁铭牌)已随 Studio Console v1 退役 */
 .at-empty-title {
   margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--text-display-md);
+  /* Studio Console v1:空态标题从 Fraunces 展示档(32px)收为标题档(20px) */
+  font-size: var(--text-title);
   font-weight: var(--font-semibold);
-  letter-spacing: -0.01em;
-  line-height: var(--leading-display);
   color: var(--text-primary);
 }
 .at-empty-desc {
