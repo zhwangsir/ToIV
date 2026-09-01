@@ -4005,47 +4005,8 @@ export const applyDramaAssetToProject = (
   dramaReq(`/drama/assets/${aid}/apply-to-project?pid=${encodeURIComponent(pid)}`, "POST");
 
 // ---------- M5:播放数据反哺创作 ----------
-
-export interface ProjectPlaybackInsight {
-  sessions: number;
-  plays: number;
-  completed: number;
-  completion_rate: number;
-  avg_watch_sec: number;
-  engagement_rate: number;
-}
-
-export interface ShotPlaybackInsight {
-  shot_id: string;
-  idx: number;
-  scene: string;
-  start_sec: number;
-  duration_sec: number;
-  enters: number;
-  drop_offs: number;
-  avg_watch_sec: number;
-  completion_rate: number;
-  retention: number;
-  replay_count: number;
-  like_count: number;
-  mark_good_count: number;
-  mark_boring_count: number;
-  share_count: number;
-  heat_score: number;
-  suggestions: string[];
-}
-
-export interface PlaybackInsightsResponse {
-  project: ProjectPlaybackInsight;
-  shots: ShotPlaybackInsight[];
-  generated_at: string;
-}
-
-/** 获取项目播放洞察(分镜热度 + 创作建议)。契约:GET /api/drama/projects/{pid}/playback-insights。 */
-export const getDramaPlaybackInsights = (
-  pid: string,
-): Promise<PlaybackInsightsResponse> =>
-  dramaReq(`/drama/projects/${pid}/playback-insights`, "GET");
+// (2026-09-01 W4:唯一消费方 usePlaybackInsights 零调用已删,接口与类型一并移除;
+//  后端 /api/drama/projects/{pid}/playback-insights 端点保留,需要时再加回)
 
 // ---------- 图片解析生成短剧(动态分镜页 AI 模式) ----------
 

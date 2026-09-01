@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-01T21:30:00+08:00",
+  "updated_at": "2026-09-01T22:00:00+08:00",
   "studio_console_v1_2026_08_31": {
     "status": "W1_done_deployed_verified",
     "plan": "用户定稿 Studio Console 方案(讨论于 docs 外对话):极简专业工作台,单色中性系,界面退后内容上前",
@@ -2146,23 +2146,27 @@
     "verified_at": "2026-08-27T09:45:00+08:00"
   },
   "masthead_retirement_2026_09_01": {
-    "status": "done_local_verified_not_deployed",
+    "status": "done_deployed_verified",
     "scope": "用户指令:把其他页面中类似生成页旧空态(PROMPT ATELIER 铭牌+大标题+步骤卡+快速开始卡)的文字和样式也删掉",
     "kickers_removed": "13 视图 PageHeader kicker prop 全删(Admin/Animatic/Backlot/AvatarTalk/Studio/Resources/Train/Entities/Market/Settings/Dub/Observability/Models);agent-runs 手写 page-header-kicker span 删除;library.css 「MEDIA ATELIER」::before 删除;AssistantView 弹窗空态 av-empty-kicker「AI ASSISTANT」删除",
     "masthead_retired": "globals.css v6.1 masthead 退役:page-header-kicker 样式块删除、标题 Fraunces display-md→无衬线 --text-title/semibold(基础块补 flex 图标对齐)、编辑双线 ::after 删除改单根 subtle hairline;library.css 页头覆盖整段删除走全局;移动端重复降档规则清除;at-placeholder-title/av-empty-title 去 Fraunces 收敛标题档",
     "dead_code": "stage.css .generate-results:has(.empty-editorial) 空态例外删除(空态已单行化);ResourcesView 内嵌页头 kicker 隐藏覆盖删除(全局已无 kicker)",
     "tests": "uiPrimitives kicker 测试改写为退役断言+onBack;uiPolishViews ①改写为英雄区退役断言(empty-console-hint);generateInspector T3 QuickStartGrid 四测试删除(组件已删)改退役断言,⑩类名表去 quick-start 加 empty-console-hint;mobileLayout 页头标题降档断言移除;observability OBSERVABILITY 断言改 doesNotMatch;symmetry-check e2e 选择器 .empty-editorial→.result-panel-empty",
     "incident": "IDE 缓冲区回滚 3 次复发(generateInspector 两段/agent-runs+AssistantView/stage.css),逐项 grep 复核补回——AGENTS 已载教训再验证",
-    "regression": "npm test 918 全绿 / tsc 0 / 干净 build;后端零改动未跑 pytest;未 commit 未部署(等用户指令)"
+    "regression": "npm test 918 全绿 / tsc 0 / 干净 build;后端零改动未跑 pytest;未 commit 未部署(等用户指令)",
+    "deploy": "commit 4baeea7,双推 origin(gitee)+github,deploy.sh → core,toiv-api/toiv-web 健康 200",
+    "prod_verify": "生产 CSS 实证:page-header-kicker 计数 0"
   },
   "client_cache_l123_2026_09_01": {
-    "status": "done_local_verified_not_deployed",
+    "status": "done_deployed_verified",
     "scope": "用户目标「增强流畅性,缓存保留在用户电脑」→ 定稿三层方案:L1 扩 SWR 覆盖 + L2 IndexedDB 大容量层 + L3 预取",
     "l0_infra": "swr-cache.ts 升级三层:内存 Map → localStorage(小负载)→ IndexedDB(opts.large,大负载 50MB+,不可用静默降级仅内存);新增 prime() 回种;invalidate/invalidatePrefix 同步清 IDB;新键 engines/sessions/entities/apps/agentRuns/studioProjects + TTL 分档(15s~5min)",
     "l1_coverage": "engines(60s,nsfw 分轨,refreshEngines prime 回种+作废另一档)/agent-sessions(30s,large→IDB)/entities(5min,手写模块缓存替换为 swr)/apps(5min,过滤后缀分键)/agent-runs(15s)/studio-projects(30s);失效钩子:会话删除/分叉/对话完成(agentChat+stream+resume),实体 CRUD 三处,apps fork/run/confirmImport,agent-runs create/cancel,studio create/patch/delete",
     "l3_prefetch": "新建 lib/prefetch.ts:视图→首屏数据预热映射(home/image/video/audio/library/entities/market/fusion/resources/agent-runs/studio);page.tsx SideRail onItemIntent 在 chunk 预热外挂数据预热;登录落地后 requestIdleCallback 空闲预热 image/video/library/market",
     "tests": "+cacheExtend.test.ts 11 例(swr 行为:prime 命中/invalidate 重取/in-flight 去重/stale 后台刷新;L1 接线源码断言;L2 node 降级;L3 接线);appsApi beforeEach 失效防缓存污染;assistantPopupSessions 断言随非 async 导出更新",
     "incident": "IDE 缓冲区回滚 6+ 次(api.ts 四段反复/appsApi import/page.tsx import/swr-cache prime 段),逐项 grep 复核补回;期间发现并修复回滚造成的 getAgentSession 误植 fork 代码错乱",
-    "regression": "npm test 929 全绿(+11) / tsc 0 / 干净 build;后端零改动未跑 pytest;未 commit 未部署(等用户指令)"
+    "regression": "npm test 929 全绿(+11) / tsc 0 / 干净 build;后端零改动未跑 pytest;未 commit 未部署(等用户指令)",
+    "deploy": "commit 4baeea7,双推 origin(gitee)+github,deploy.sh → core,toiv-api/toiv-web 健康 200",
+    "prod_verify": "生产 CSS 实证:empty-console-hint 在位;双服务健康 200"
   }
 }

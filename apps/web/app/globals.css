@@ -512,8 +512,9 @@ img, video {
   background: var(--bg-canvas);
 }
 
-/* 导航样式已迁移:左栏 app/styles/siderail.css(2026-08-31 Studio Console v1);
-   旧 CornerNav 悬停面板样式保留在 cornernav.css 至 W4 清理 */
+/* 导航样式:左栏 app/styles/siderail.css(2026-08-31 Studio Console v1);
+   CornerNav 悬停面板段已于 2026-09-01 W4 从 cornernav.css 删除(该文件现存
+   AccountButton + TaskCenter 两节) */
 
 /* ========== Main Content ========== */
 
