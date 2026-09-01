@@ -22,7 +22,7 @@ async function measure(page: import("@playwright/test").Page) {
     };
     return {
       vw, viewportCx: vw / 2,
-      headerTitle: m(".generate-header .page-header-main"),
+      headerTitle: m(".generate-params-heading"),
       results: m(".generate-results"),
       empty: m(".result-panel-empty"),
       promptbar: m(".promptbar"),
