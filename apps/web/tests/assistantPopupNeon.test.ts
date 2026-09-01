@@ -20,8 +20,8 @@ test("AssistantView:variant prop 定义且 popup 隐藏页头/面板/文档按�
   const src = readSrc("components/assistant/AssistantView.tsx");
   assert.ok(src.includes(`variant?: "page" | "popup"`), "variant prop 缺失");
   assert.ok(src.includes(`props?.variant === "popup"`), "popup 派生缺");
-  // 页头隐藏
-  assert.ok(src.includes("{!popup && (\n      <header"), "页头未按 popup 隐藏");
+  // Studio Console v1:页头已整体退役(两种形态均无 av-header)
+  assert.ok(!src.includes("<header"), "页头已退役,不应再渲染 header");
   // 三个侧面板整体隐藏(fragment 包裹)
   assert.ok(src.includes("{!popup && (\n        <>"), "侧面板未按 popup 隐藏");
   // 文档入口按钮隐藏

@@ -8,55 +8,42 @@
    性能红线:只动 transform/opacity/filter;--neon-angle/--core-sweep 走 rAF 内联;
    prefers-reduced-motion 一切直开(JS 侧不渲染 neon 节点,CSS 侧动画全停) */
 
-/* ── 首页门户(2026-08-16 堆友范式重构):Agent 对话框 C 位 ──────────────
-   范围:AssistantView 空态门户新增区块(引擎胶囊条 / @技能面板 / 场景胶囊 / 最近作品)。
-   视觉延续 Film Atelier v6.1:材质由 .at-card/.at-badge 等共享类承担,本文件只补布局;
-   token 全覆盖、零 hex、字重与时长走设计变量。 */
+/* ── 首页空态(Studio Console v1,2026-08-31):极简居中——铭牌 + 输入框 + 模型行;
+   旧门户区块(引擎胶囊/场景 chip/快捷 chip/最近作品/微粒场)已全部退役 ── */
 
-/* 门户容器:在既有 .av-empty 基础上从「居中 hero」改为「顶对齐长页」(内容可滚动);
-   2026-08-16 视图批 1 垂直节奏收紧(审计 P2):区隔 24→20,顶距 48→--space-6
-   (原沿用 .av-empty 的 space-12 顶距,页头与内容间空白偏大,首屏内容整体被压到
-   视口下缘、提示词建议卡被裁);底部保留 space-12 呼吸,长页滚至末段不贴视口裁边 */
+/* 门户容器:内容极简后回归垂直居中(基座 .av-empty 即居中,此处只给列宽);
+   min-height:100% 撑满对话区,否则居中失效内容贴顶(生产实测抓获) */
 .av-empty.av-portal {
-  justify-content: flex-start;
-  gap: var(--space-5);
   width: 100%;
   max-width: 880px;
   margin: 0 auto;
-  min-height: 0;
-  padding-top: var(--space-6);
-  padding-bottom: var(--space-12);
+  min-height: 100%;
 }
 
-/* ── W4(2026-08-31)微粒场分层:canvas z-0 压底,径向暗角 z-1,内容 z-2 浮其上。
-   粒子永不覆盖文字;canvas 自身不接收指针事件(交互由容器转发坐标)。 ── */
-.av-particle-field {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-}
-.av-portal-vignette {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  /* 径向暗角:视线聚向中央工作台,粒子向边缘退潮 */
-  background: radial-gradient(
-    120% 85% at 50% 40%,
-    transparent 52%,
-    color-mix(in oklab, var(--text-primary) 5%, transparent) 100%
-  );
-}
-.av-portal > *:not(.av-particle-field):not(.av-portal-vignette) {
-  position: relative;
-  z-index: 2;
-}
 .av-portal-composer {
   width: 100%;
 }
 
-/* ── W4(2026-08-31)场景入口 chip 行:替代原 2×N 大卡片(去描述文案,紧凑高端) ── */
+/* ── W5(2026-08-31)助手离线降级:提示条 + 全量工作台导航(chip 行仅离线态使用) ── */
+.av-offline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-5);
+  border: 1px solid color-mix(in oklab, var(--warn) 35%, transparent);
+  border-radius: var(--radius-control);
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+.av-offline-title {
+  font-size: var(--text-body);
+  font-weight: var(--font-semibold);
+}
+.av-offline-desc {
+  font-size: var(--text-aux);
+  color: var(--text-secondary);
+}
 .av-scene-row {
   display: flex;
   flex-wrap: wrap;
@@ -79,34 +66,11 @@
   font-family: var(--font-sans);
   cursor: pointer;
   transition: border-color var(--duration-fast) var(--ease-standard),
-    background-color var(--duration-fast) var(--ease-standard),
-    transform var(--duration-fast) var(--ease-standard);
+    background-color var(--duration-fast) var(--ease-standard);
 }
 .av-scene-chip:hover {
-  border-color: var(--accent-glow);
-  background: var(--accent-soft);
-  transform: translateY(-1px);
-}
-
-/* ── W5(2026-08-31)助手离线降级:提示条 + 全量工作台导航 ── */
-.av-offline {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-3) var(--space-5);
-  border: 1px solid color-mix(in oklab, var(--warn) 35%, transparent);
-  border-radius: var(--radius-control);
-  background: var(--warn-soft);
-  color: var(--warn);
-}
-.av-offline-title {
-  font-size: var(--text-body);
-  font-weight: var(--font-semibold);
-}
-.av-offline-desc {
-  font-size: var(--text-aux);
-  color: var(--text-secondary);
+  border-color: var(--border-strong);
+  background: var(--bg-surface-2);
 }
 .av-scene-row--offline {
   max-width: 560px;
@@ -117,54 +81,6 @@
 .av-composer.av-composer--portal {
   padding: 0;
   background: none;
-}
-
-/* ── 引擎状态胶囊条(门户顶部;接口失败时整条不渲染) ── */
-/* 2026-08-16 视图批 1:胶囊行外包一层语义块,补「引擎状态」label 档小标题
-   (拉丁铭牌语言,与 kicker 同源),孤立徽章行不再语义不明 */
-.av-eng-block {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-}
-.av-eng-label {
-  font-size: var(--text-label);
-  font-weight: var(--font-medium);
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-.av-eng-strip {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--space-2);
-}
-.av-eng-pill {
-  /* at-badge 基座之上的状态变体:绿 = 可用,红 = 离线;内容为产品名,取消全大写 */
-  gap: var(--space-1);
-  text-transform: none;
-  letter-spacing: 0.02em;
-}
-.av-eng-pill.is-ok {
-  border-color: color-mix(in oklab, var(--ok) 40%, transparent);
-}
-.av-eng-pill.is-err {
-  border-color: color-mix(in oklab, var(--err) 40%, transparent);
-}
-.av-eng-dot {
-  flex-shrink: 0;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
-.av-eng-dot.is-ok {
-  background: var(--ok);
-  box-shadow: 0 0 6px color-mix(in oklab, var(--ok) 60%, transparent);
-}
-.av-eng-dot.is-err {
-  background: var(--err);
 }
 
 /* ── @ 技能面板(一期 = 工作台快捷入口;at-card 同构,锚于输入框上方) ── */
@@ -266,115 +182,10 @@
   text-overflow: ellipsis;
 }
 
-/* ── 最近作品(门户垫底,复用作品库 listJobs 数据源) ── */
-.av-works {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  width: 100%;
-  text-align: left;
-}
-.av-works-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-.av-works-title {
-  font-size: var(--text-body);
-  font-weight: var(--font-semibold);
-  color: var(--text-primary);
-}
-.av-works-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-3);
-  width: 100%;
-}
-.av-work-card {
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-  overflow: hidden;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.av-work-thumb {
-  display: block;
-  aspect-ratio: 16 / 9;
-  background: var(--bg-surface-2);
-  overflow: hidden;
-}
-.av-work-thumb img,
-.av-work-thumb video {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.av-work-thumb-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  color: var(--text-muted);
-}
-.av-work-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  padding: var(--space-2) var(--space-3);
-}
-.av-work-kind {
-  font-size: var(--text-label);
-  color: var(--text-muted);
-  letter-spacing: 0.04em;
-}
-.av-work-prompt {
-  font-size: var(--text-label);
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 /* 减弱动效(新增区块;at-* 共享类由 globals.css 统一覆盖) */
 @media (prefers-reduced-motion: reduce) {
   .av-skill-panel {
     animation: none;
-  }
-}
-
-/* 移动端:作品网格两列(chip 行自身 wrap,无需覆盖) */
-@media (max-width: 767px) {
-  .av-works-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  /* 顶栏徽章行(2026-08-16 移动专项):长模型名(如 QWEN3.5-MOE-35B)在 390 宽
-     被 max-width 硬裁无省略号(审计实测截成「QWEN3.5-MOE-35E」残字)。
-     修法:徽章让位 flex 收缩 + 文本节点收进 .av-model-name 真省略截断;
-     选择器带 .av-view 前缀 (0,2,0),压过 AssistantView styled-jsx 同名单类规则。
-     三个操作钮保持 44px 不收缩,行内总宽恒 ≤ 视口,无需横滑 */
-  .av-view .av-header-actions {
-    flex-wrap: nowrap;
-    min-width: 0;
-    max-width: 100%;
-  }
-  .av-view .av-model-pill {
-    flex-shrink: 1;
-    min-width: 0;
-    max-width: 46vw;
-  }
-  .av-view .av-model-name {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .av-view .av-tb-btn {
-    flex-shrink: 0;
   }
 }
 

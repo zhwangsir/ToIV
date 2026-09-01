@@ -1,7 +1,17 @@
 {
  "project": "ToIV",
  "repo": "https://github.com/zhwangsir/ToIV",
- "updated_at": "2026-08-31T17:40:00+08:00",
+ "updated_at": "2026-08-31T18:30:00+08:00",
+ "studio_console_v1_2026_08_31": {
+  "status": "W1_done_deployed_verified",
+  "plan": "用户定稿 Studio Console 方案(讨论于 docs 外对话):极简专业工作台,单色中性系,界面退后内容上前",
+  "w1_shell": "SideRail 52px 左栏(8 高频项+admin 分隔+底部任务/账户槽,grid 流内)+⌘K 命令面板(动作/页面/会话/作品,EV_NEW_CHAT/EV_OPEN_SESSION/PENDING_SESSION_KEY 跨组件)+Popover 自动上翻;CornerNav/灵动岛/顶部账户钮/任务中心全退役(CornerNav.tsx 删除)",
+  "w1_home": "首页空态极简:TOIV 铭牌+无边框输入框+模型行(引擎胶囊/场景chip/快捷chip/最近作品/微粒场/点阵/页头全退役,ParticleField 删除);消息流文档式(无头像无气泡,用户右对齐灰字);历史/新对话收进输入框工具行;模型设置面板退役",
+  "w1_theme": "主题系统 v8 单色中性系:五色板+自定义 accent 退役,:root+dark+pureBlack;lib/theme.ts 重写(旧 key 迁移清除);ThemePicker 只剩明暗+纯黑;layout.tsx FOUC 脚本精简",
+  "prod_verify": "生产实测 7/7(空态/左栏/⌘K/新对话/文档流/弹层上翻/零JS错误);复核抓获两小修(指示条 -8→-6px、空态 min-height:100% 居中)已部署复验通过",
+  "regression": "pytest 2983 / npm test 923(+5 新骨架,全量旧契约改写) / tsc 0 / 干净 build / 已部署 core",
+  "next": "W2 创作工作台三页(图像/视频/音频)专业范式(左参数列+中央画布);W3 其余视图套版;W4 旧样式资产清理(cornernav.css 残留类/glass/effects)"
+ },
  "fe_redesign_w4w5_2026_08_31": {
   "status": "done_deployed_verified",
   "scope": "W4 视觉焕新+紧凑化:页头去标题/描述纯图标化;场景/快捷入口 chip 单行化(去作品库去重、双模式各5枚对称);MODEL_DESC 陈旧文案退役;ParticleField 微粒场(160/80粒,0.45px/帧,三档景深软斑,呼吸/指针缓随/点击水波/chip汇聚,暗角,reduced-motion+隐藏暂停);产物胶片条(≥2视觉帧横排打孔+帧号,同消息多done作业聚合);runner 推理碎片抑制(tool_calls 轮伴生文本不下发不落库)。W5 降级路径:助手探活失败→门户隐藏对话框,展 OFFLINE_ENTRIES 12 工作台导航+warn 提示条",

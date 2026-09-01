@@ -84,7 +84,7 @@ g.dispatchEvent = (e: Event): boolean => {
 };
 
 const { renderInlineMarkdown } = await import("../components/assistant/AssistantView");
-const { applyCustom, applyMode, applyTheme, THEME_CHANGED_EVENT } = await import("../lib/theme");
+const { applyCustom, applyMode, THEME_CHANGED_EVENT } = await import("../lib/theme");
 
 /** renderInlineMarkdown 输出 → 静态 HTML(Fragment 包裹,与气泡渲染同形态)。 */
 function md(text: string): string {
@@ -172,11 +172,10 @@ test("同页总线:apply* 广播 toiv:theme-changed,两个订阅实例状态一�
   store.clear();
   // 模拟同页两个 ThemePicker 实例:各自维护本地选中态,订阅同一事件
   const makeInstance = () => {
-    const state: { theme?: string; mode?: string; custom?: unknown } = {};
+    const state: { mode?: string; custom?: unknown } = {};
     const onChanged = (e: Event) => {
       const d = (e as CustomEvent<ThemeChangedDetail>).detail;
       if (!d) return;
-      if (d.theme) state.theme = d.theme;
       if (d.mode) state.mode = d.mode;
       if (d.custom) state.custom = d.custom;
     };
@@ -186,18 +185,17 @@ test("同页总线:apply* 广播 toiv:theme-changed,两个订阅实例状态一�
   const instA = makeInstance();
   const instB = makeInstance();
 
-  applyTheme("mint");
+  // v8:只剩模式 + 纯黑子档两个维度
   applyMode("dark");
-  applyCustom({ accent: "#4C86D9" });
+  applyCustom({ pureBlack: true });
 
   for (const [name, inst] of [["实例A", instA], ["实例B", instB]] as const) {
-    assert.equal(inst.theme, "mint", `${name} 色板未同步`);
     assert.equal(inst.mode, "dark", `${name} 模式未同步`);
-    assert.deepEqual(inst.custom, { accent: "#4C86D9" }, `${name} 自定义未同步`);
+    assert.deepEqual(inst.custom, { pureBlack: true }, `${name} 纯黑子档未同步`);
   }
 
-  // 非法 accent 在广播前已按 applyCustom 契约清洗
-  applyCustom({ accent: "123456" });
+  // 关闭纯黑:广播空对象(清洗后契约)
+  applyCustom({});
   assert.deepEqual(instA.custom, {}, "广播值必须是清洗后的 custom");
 });
 
@@ -210,15 +208,15 @@ test("同页总线:ThemePicker 订阅 THEME_CHANGED_EVENT;跨页 storage 通道�
   );
   assert.equal(
     (picker.match(/useCrossTabSync\(/g) ?? []).length,
-    3,
-    "跨标签页 storage 同步三通道不得删",
+    2, // v8:色板通道退役,只剩 mode + custom 两通道
+    "跨标签页 storage 同步两通道不得删",
   );
 
   const theme = readSrc("lib/theme.ts");
   assert.ok(theme.includes('THEME_CHANGED_EVENT = "toiv:theme-changed"'));
-  assert.ok(theme.includes("broadcastThemeChanged({ theme: def.id })"), "applyTheme 缺广播");
+  // v8:applyTheme/applyCustom accent 退役,只剩 applyMode + applyCustom(pureBlack) 两条广播
   assert.ok(theme.includes("broadcastThemeChanged({ mode })"), "applyMode 缺广播");
-  assert.ok(theme.includes("broadcastThemeChanged({ custom: clean })"), "applyCustom 缺广播");
+  assert.ok(theme.includes("broadcastThemeChanged({ custom: c })"), "applyCustom 缺广播");
 });
 
 /* ── ⑤ BottomNav 桌面退场 ── */
@@ -293,19 +291,6 @@ test("设置页账户卡:补说明行填充大片空白(源码断言)", () => {
   assert.ok(view.includes("settings-account-desc"), "账户卡缺说明行");
   const css = readSrc("app/styles/settings.css");
   assert.ok(css.includes(".settings-account-desc"), "说明行样式缺失");
-});
-
-test("ThemePicker:自由取色圈与预设色丸同盒(20px + flex-shrink + shadow-sm,源码断言)", () => {
-  const src = readSrc("components/ui/ThemePicker.tsx");
-  const iDot = src.indexOf(".theme-custom-dot {");
-  const dotBlock = src.slice(iDot, src.indexOf("\n        }", iDot));
-  const iColor = src.indexOf(".theme-custom-color {");
-  const colorBlock = src.slice(iColor, src.indexOf("\n        }", iColor));
-  for (const [name, block] of [["预设色丸", dotBlock], ["取色圈", colorBlock]] as const) {
-    assert.ok(block.includes("width: 20px;") && block.includes("height: 20px;"), `${name} 尺寸须 20px`);
-    assert.ok(block.includes("flex-shrink: 0;"), `${name} 不得被 flex 行压缩`);
-    assert.ok(block.includes("box-shadow: var(--shadow-sm);"), `${name} 须同款投影`);
-  }
 });
 
 test("参数浮板分节:params-section/params-section-title 必须有 CSS 定义(源码断言)", () => {

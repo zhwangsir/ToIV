@@ -4,9 +4,9 @@
  *   / 抽屉可滚 / 提示词条 sticky / 抽屉收起钮·chips·高级参数头 44px 触控目标
  * ② library.css ≤767:过滤行横滑 + 两端渐隐 mask / 页头紧凑(副标题隐藏·标题降档)
  *   / chips·段控·搜索框 44px / 勾选圈·操作钮 ::before 命中域外扩
- * ③ assistant.css ≤767 + AssistantView:模型徽章文本收进 .av-model-name 真省略截断,
- *   徽章收缩让位、操作钮不缩(替代 132px 硬裁残字)
- * ④ 桌面规则守护:本次全部改动封在移动断点块内,桌面基座规则零改动
+ * ③ assistant:Studio Console v1(2026-08-31)顶栏/模型徽章整体退役——assistant.css
+ *   移动断点块已移除,空态/消息流无移动专属例外;模型名只剩空态等宽小字行
+ * ④ 桌面规则守护:改动全部封在移动断点块内,桌面基座规则零改动
  * ⑤ 移动断点块内零 hex(铁律;mask 渐隐只用 black 关键字,alpha 通道生效)
  */
 import assert from "node:assert/strict";
@@ -54,7 +54,6 @@ const assistantView = readSrc("components/assistant/AssistantView.tsx");
 
 const stageNarrow = mediaBlock(stage, "(max-width: 1023px)");
 const libMobile = mediaBlock(library, "(max-width: 767px)");
-const avMobile = mediaBlock(assistant, "(max-width: 767px)");
 
 /* ── ① stage.css:参数面板抽屉化 ── */
 
@@ -139,29 +138,25 @@ test("library ≤767:勾选圈/卡片操作钮 ::before 透明命中域外扩至
   assert.ok(ruleBody(libMobile, ".lib-action-btn {").includes("width: 32px"), "操作钮视觉 32px 不变");
 });
 
-/* ── ③ assistant:顶栏模型徽章省略截断 ── */
+/* ── ③ assistant:Studio Console v1 顶栏/徽章退役 ── */
 
-test("assistant ≤767:徽章收缩让位 + .av-model-name 真省略截断,操作钮不缩", () => {
-  const pill = ruleBody(avMobile, ".av-view .av-model-pill {");
-  assert.ok(pill.includes("min-width: 0") && pill.includes("flex-shrink: 1"), "徽章可收缩");
-  assert.ok(pill.includes("max-width: 46vw"), "徽章上限 46vw(行内三钮 3×44 恒放得下)");
-  const name = ruleBody(avMobile, ".av-view .av-model-name {");
-  assert.ok(name.includes("text-overflow: ellipsis") && name.includes("overflow: hidden"), "长模型名省略号截断");
-  assert.ok(ruleBody(avMobile, ".av-view .av-tb-btn {").includes("flex-shrink: 0"), "操作钮 44px 不缩");
+test("assistant:Studio Console v1 后 assistant.css 无徽章/页头规则(随顶栏退役)", () => {
+  // v1 移除了顶栏(模型徽章/操作钮);≤767 断点块只剩浮层全幅规则(av-overlay-panel),保留
+  assert.ok(!assistant.includes("av-model-pill"), "模型徽章规则应退役");
+  assert.ok(!assistant.includes("av-model-name"), "模型名截断规则应退役");
+  assert.ok(!assistant.includes(".av-header"), "页头规则应退役");
+  // 空态模型行:等宽小字,无截断需求(后端 display_model 短名)
+  assert.ok(assistantView.includes("av-console-model"), "空态缺模型行");
 });
 
-test("AssistantView:模型名包进 .av-model-name 元素(flex 匿名文本节点无法省略截断)", () => {
-  const count = (assistantView.match(/av-model-name/g) ?? []).length;
-  assert.ok(count >= 3, `顶栏+设置面板两处徽章均须包 span(class 引用 ≥3,实测 ${count})`);
-  assert.ok(
-    assistantView.includes('<span className="av-model-name">{modelName}</span>'),
-    "模型名须收进 .av-model-name span",
-  );
+test("AssistantView:文档式消息流(无头像节点,用户右对齐灰字)", () => {
+  assert.ok(!assistantView.includes("av-msg-avatar"), "消息头像节点应移除");
+  assert.ok(assistantView.includes(".av-msg.is-user .av-msg-bubble"), "缺用户消息右对齐规则");
 });
 
 /* ── ④ 桌面规则守护:改动全部封在移动断点内 ── */
 
-test("桌面基座零改动:stage FAB 基座仍 absolute、library 工具条基座无 mask、assistant 徽章无移动规则", () => {
+test("桌面基座零改动:stage FAB 基座仍 absolute、library 工具条基座无 mask、assistant 无徽章规则", () => {
   const stageDesktop = stage.slice(0, stage.indexOf("@media (max-width: 1023px)"));
   assert.ok(
     ruleBody(stageDesktop, ".generate-params-fab {").includes("position: absolute"),
@@ -169,17 +164,15 @@ test("桌面基座零改动:stage FAB 基座仍 absolute、library 工具条基�
   );
   const libDesktop = library.slice(0, library.indexOf("@media (max-width: 767px)"));
   assert.ok(!ruleBody(libDesktop, ".lib-toolbar {").includes("mask-image"), "桌面工具条不得有渐隐 mask");
-  const avDesktop = assistant.slice(0, assistant.indexOf("@media (max-width: 767px)"));
-  assert.ok(!avDesktop.includes("av-model-name"), "assistant 桌面区不得出现移动徽章规则");
+  assert.ok(!assistant.includes("av-model-name"), "assistant 不得出现徽章规则");
 });
 
 /* ── ⑤ 移动断点块内零 hex(铁律)── */
 
-test("三个移动断点块内零 hex 色值(mask 渐隐走 black 关键字)", () => {
+test("移动断点块内零 hex 色值(mask 渐隐走 black 关键字)", () => {
   for (const [name, block] of [
     ["stage ≤1023", stageNarrow],
     ["library ≤767", libMobile],
-    ["assistant ≤767", avMobile],
   ] as const) {
     assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(block), `${name} 断点块内不得出现 hex 色值`);
   }

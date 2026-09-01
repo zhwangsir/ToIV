@@ -76,17 +76,19 @@ test("page.tsx:admin 视图 isAdmin 门控 + 非管理员无权限提示", () =>
   assert.ok(src.includes("管理面板仅管理员账号可见"), "无权限提示副文案缺失");
 });
 
-test("page.tsx:admin 导航入口仅管理员可见(灵动岛 + 底部更多)", () => {
+test("page.tsx:admin 导航入口仅管理员可见(左栏 adminItems + 底部更多)", () => {
   const src = readSrc("app/page.tsx");
-  // W1:admin/观测归入「系统」组,类型升级为 CornerNavItem(带 group 字段)
-  assert.match(src, /const adminItem: CornerNavItem = \{[\s\S]*?key: "admin"/, "缺 adminItem 定义");
+  // Studio Console v1:左栏 admin 项经 isAdmin 三元注入 SideRail adminItems;
+  // 底部「更多」抽屉复制后追加(不突变模块级常量)
+  assert.ok(src.includes("const railAdminItems: RailItem[] = isAdmin"), "admin 项须经 isAdmin 门控");
+  assert.ok(src.includes('adminItems={railAdminItems}'), "左栏未接 adminItems");
   assert.ok(
-    src.includes("[...islandItems, observabilityItem, adminItem]"),
-    "灵动岛应追加 adminItem",
+    src.includes('key: "admin", label: "管理", icon: "shield-check"'),
+    "缺 admin 管理入口",
   );
   assert.ok(
-    src.includes("[...bottomNavMoreItems, observabilityItem, adminItem]"),
-    "底部「更多」应追加 adminItem",
+    src.includes("bottomNavMoreItems = ["),
+    "底部「更多」应复制后追加 admin 项",
   );
 });
 

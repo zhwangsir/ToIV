@@ -87,14 +87,13 @@ test("AvatarGenPanel:正向提示词接 OptimizeButton(kind=video, engine=avatar
   assert.ok(src.includes("setNegative(neg)"), "negative 未回填高级参数负向");
 });
 
-test("page.tsx:灵动岛导航不突变模块级常量(观测重复 bug 回归)", () => {
+test("page.tsx:导航数据不突变模块级常量(观测重复 bug 回归)", () => {
   const src = readSrc("app/page.tsx");
-  assert.ok(!src.includes("islandItems.push("), "islandItems 不得 push 突变(2026-08-24 观测×7)");
+  assert.ok(!src.includes("islandItems.push("), "导航数组不得 push 突变(2026-08-24 观测×7)");
   assert.ok(!src.includes("bottomNavMoreItems.push("), "bottomNavMoreItems 不得 push 突变");
-  assert.ok(
-    src.includes("[...islandItems, observabilityItem, adminItem]"),
-    "admin 观测+管理项应复制后追加",
-  );
+  assert.ok(!src.includes("RAIL_ITEMS.push("), "RAIL_ITEMS 不得 push 突变");
+  // Studio Console v1:admin 项经 isAdmin 三元生成新数组(非共享常量追加)
+  assert.ok(src.includes("railAdminItems"), "缺 railAdminItems");
 });
 
 /* ── ⑤ 3D 相机(2511,2026-08-24) ── */

@@ -203,15 +203,20 @@ test("W1:ResourcesView 支持 ?tab= 初始直达(白名单校验)", () => {
   assert.ok(src.includes('searchParams.get("tab")'), "应解析 tab 参数");
 });
 
-test("W1:CornerNav 一级导航分组(门户/创作/资产/探索/系统)", () => {
+test("Studio Console v1:SideRail 左栏注册(8 高频项)+ ⌘K 面板挂载", () => {
   const src = readSrc("app/page.tsx");
-  const islandBlock = src.slice(src.indexOf("ISLAND_ITEMS"), src.indexOf("BOTTOM_NAV_ITEMS"));
-  for (const g of ["门户", "创作", "资产", "探索", "系统"]) {
-    assert.ok(islandBlock.includes(`group: "${g}"`), `灵动岛缺分组 ${g}`);
+  // 左栏组件与数据源
+  assert.ok(src.includes('import { SideRail'), "缺 SideRail 引入");
+  assert.ok(src.includes("RAIL_ITEMS"), "缺 RAIL_ITEMS");
+  const railBlock = src.slice(src.indexOf("const RAIL_ITEMS"), src.indexOf("const BOTTOM_NAV_ITEMS"));
+  for (const key of ['"home"', '"image"', '"video"', '"audio"', '"studio"', '"library"', '"market"', '"resources"']) {
+    assert.ok(railBlock.includes(`key: ${key}`), `左栏缺 ${key}`);
   }
-  const navSrc = readSrc("components/nav/CornerNav.tsx");
-  assert.ok(navSrc.includes("cornernav-group"), "CornerNav 应渲染组标签");
-  assert.ok(navSrc.includes("group?: string"), "CornerNavItem 缺 group 字段");
+  // ⌘K 命令面板
+  assert.ok(src.includes("CommandPalette"), "缺 CommandPalette");
+  assert.ok(src.includes('e.key.toLowerCase() === "k"'), "缺 ⌘K 快捷键监听");
+  // 旧灵动岛退役
+  assert.ok(!src.includes("CornerNav"), "CornerNav 应退役");
 });
 
 test("W1:agent-runs 孤儿路由收口进「更多」抽屉(特判跳独立路由)", () => {
@@ -252,11 +257,11 @@ test("W2:默认落地为对话首页(fusion 退为场景入口)", () => {
   assert.ok(navBlock.includes('{ key: "home", label: "对话", icon: "chat", isCta: true }'), "CTA 应为对话");
   const moreBlock = src.slice(src.indexOf("BOTTOM_NAV_MORE_ITEMS"));
   assert.ok(moreBlock.includes('key: "fusion"'), "融合应在「更多」抽屉");
-  // 桌面 CornerNav:门户组须有 对话(home)+ 融合,否则离开首页后无回程入口(生产实测发现遗漏)
-  const islandBlock = src.slice(src.indexOf("ISLAND_ITEMS"), src.indexOf("BOTTOM_NAV_ITEMS"));
+  // Studio Console v1:左栏首项即对话(home),离开首页后永远有回程入口
+  const railBlock = src.slice(src.indexOf("const RAIL_ITEMS"), src.indexOf("const BOTTOM_NAV_ITEMS"));
   assert.ok(
-    islandBlock.includes('{ key: "home", label: "对话", icon: "chat", group: "门户" }'),
-    "灵动岛门户组缺「对话」入口",
+    railBlock.includes('{ key: "home", label: "对话", icon: "chat" }'),
+    "左栏首项缺「对话」入口",
   );
 });
 

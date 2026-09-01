@@ -88,26 +88,20 @@ test("AudioView 无页头:生成/编辑段控独立窄行且带图标(2026-08-18
   assert.ok(!src.includes("hideHeader"), "hideHeader prop 已退役,不应再传");
 });
 
-/* ── ④ 首页门户(AssistantView + assistant.css) ── */
-test("首页门户:引擎胶囊行补「引擎状态」语义化小标题(labelledby 关联)", () => {
+/* ── ④ 首页门户(Studio Console v1,2026-08-31)── */
+test("首页空态:极简 console 形态(铭牌+输入框+模型行),门户区块全退役", () => {
   const src = readSrc("components/assistant/AssistantView.tsx");
-  assert.ok(src.includes('className="av-eng-block"'), "引擎胶囊行缺语义块容器");
-  assert.ok(src.includes('className="av-eng-label"'), "缺「引擎状态」可见小标题");
-  assert.ok(src.includes('aria-labelledby="av-eng-label"'), "胶囊行未关联可见标签");
-  assert.ok(!src.includes('aria-label="引擎状态"'), "旧 aria-label 残留(与可见标签重复播报)");
+  assert.ok(src.includes("av-console-wordmark"), "缺 TOIV 铭牌");
+  assert.ok(src.includes("av-console-model"), "缺模型行");
+  assert.ok(!src.includes("av-eng-block"), "引擎胶囊条应退役");
+  assert.ok(!src.includes("av-works"), "最近作品区应退役");
 
   const css = readSrc("app/styles/assistant.css");
-  const label = cssBlock(css, ".av-eng-label");
-  assert.ok(label.includes("font-size: var(--text-label)"), "引擎状态小标题未走 label 档");
-  assert.ok(label.includes("var(--text-muted)"), "引擎状态小标题未走 muted");
-});
-
-test("首页门户:垂直节奏收紧(顶距 --space-6),底部呼吸保留(提示词卡不被裁)", () => {
-  const css = readSrc("app/styles/assistant.css");
+  // 门户容器回归垂直居中(基座 .av-empty 承载,override 不再压 flex-start)
   const portal = cssBlock(css, ".av-empty.av-portal");
-  assert.ok(portal.includes("padding-top: var(--space-6)"), "门户顶距未收到 --space-6");
-  assert.ok(portal.includes("padding-bottom: var(--space-12)"), "门户底部呼吸被误删");
-  assert.ok(portal.includes("gap: var(--space-5)"), "门户区隔未收紧到 --space-5");
+  assert.ok(!portal.includes("flex-start"), "空态应居中而非顶对齐");
+  assert.ok(portal.includes("min-height: 100%"), "空态须撑满对话区才能垂直居中(生产实测贴顶回归)");
+  assert.ok(!css.includes(".av-eng-label"), "引擎状态小标题样式应退役");
 });
 
 /* ── ⑤ 融合(FusionView + fusion.css) ── */

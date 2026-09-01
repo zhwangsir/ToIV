@@ -5,7 +5,6 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { Button } from "@/components/ui/Button";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
-import { LazyVideo } from "@/components/ui/LazyVideo";
 import { useToast } from "@/components/ui/Toast";
 import {
   agentChatResume,
@@ -22,9 +21,7 @@ import {
   imageUrl,
   JOBS_PAGE_LIMIT,
   listAgentSessions,
-  listJobs,
 } from "@/lib/api";
-import { fetchEngines, type EngineInfo } from "@/lib/engines";
 import {
   filterEntities,
   resolveEntityIds,
@@ -37,7 +34,11 @@ import { EntityRefsPreview } from "@/components/ui/PromptWithEntities";
 import { isVideoKind, kindLabel, kindToFilter } from "@/lib/libraryQuery";
 import { mediaKindOf } from "@/lib/mediaKind";
 import { ModelViewer } from "@/components/ui/ModelViewer";
-import { ParticleField, type ParticleFieldHandle } from "@/components/assistant/ParticleField";
+import {
+  EV_NEW_CHAT,
+  EV_OPEN_SESSION,
+  PENDING_SESSION_KEY,
+} from "@/components/nav/CommandPalette";
 import { useR18Mode } from "@/lib/r18";
 import type { JobItem } from "@/lib/types";
 import {
@@ -601,14 +602,6 @@ export function useAgentConversations(): AgentConversationStore {
   };
 }
 
-/* W4(2026-08-31 紧凑化):提示词快捷 chip 只留 icon+短语标签,不再展示长 prompt 预览 */
-const QUICK_ACTIONS = [
-  { icon: "sparkles" as const, label: "写提示词", prompt: "帮我写一段高质量的文生图提示词，主题是：赛博朋克风格的未来城市夜景，要求细节丰富、光影逼真" },
-  { icon: "file" as const, label: "剧本大纲", prompt: "帮我生成一个1分钟短剧的剧本大纲，主题：职场逆袭，要求有反转" },
-  { icon: "image" as const, label: "图生图", prompt: "我想做图生图，请告诉我需要准备什么，以及如何写参考图的描述提示词" },
-  { icon: "clapperboard" as const, label: "分镜脚本", prompt: "帮我写一个产品广告的分镜脚本，要求5-8个镜头，节奏紧凑" },
-];
-
 function getPreview(text: string, max = 28) {
   const t = text.replace(/\s+/g, " ").trim();
   return t.length > max ? t.slice(0, max) + "…" : t;
@@ -854,45 +847,8 @@ export function AvJobCards({
   );
 }
 
-// ───── 首页门户(2026-08-16 堆友范式):引擎胶囊 / 场景胶囊 / @ 技能面板 / 最近作品 ─────
-
-/** 引擎状态胶囊分组:按注册表 id 前缀归类;组内任一引擎可用即绿灯,组在注册表缺席则不渲染。 */
-const ENGINE_CAPSULE_GROUPS: { key: string; label: string; match: (id: string) => boolean }[] = [
-  { key: "h3", label: "H3", match: (id) => id.startsWith("h3-") },
-  { key: "longcat", label: "LongCat", match: (id) => id.startsWith("longcat-") },
-  { key: "wan", label: "Wan", match: (id) => id.startsWith("wan-") },
-  { key: "image", label: "图像", match: (id) => id === "txt2img" || id === "img2img" },
-  { key: "audio", label: "音乐", match: (id) => id.startsWith("ace-") },
-];
-
-export interface EngineCapsule {
-  key: string;
-  label: string;
-  available: boolean;
-}
-
-/** 引擎注册表 → 胶囊条数据(纯函数,单测锚点)。 */
-export function buildEngineCapsules(engines: readonly EngineInfo[]): EngineCapsule[] {
-  return ENGINE_CAPSULE_GROUPS.filter((g) =>
-    engines.some((e) => g.match(e.id)),
-  ).map((g) => ({
-    key: g.key,
-    label: g.label,
-    available: engines.some((e) => g.match(e.id) && e.available),
-  }));
-}
-
-/** 门户「最近作品」挑选(纯函数,单测锚点):完成态有产物、排除 R18、按创建时间倒序、截取前 N 件。 */
-export function pickRecentWorks(jobs: readonly JobItem[], limit = 12): JobItem[] {
-  return jobs
-    .filter(
-      (j) =>
-        !j.nsfw && j.status === "done" && Array.isArray(j.results) && j.results.length > 0,
-    )
-    .slice()
-    .sort((a, b) => (Date.parse(b.created_at) || 0) - (Date.parse(a.created_at) || 0))
-    .slice(0, limit);
-}
+// ───── @ 技能面板 / 离线降级入口(Studio Console v1:首页空态只剩输入框,
+//        旧「引擎胶囊/场景 chip/快捷 chip/最近作品」门户区块已全部退役) ─────
 
 interface PortalEntry {
   view: string;
@@ -903,18 +859,6 @@ interface PortalEntry {
   r18?: boolean;
   sfwOnly?: boolean;
 }
-
-/** 场景胶囊(对话框下方,紧凑 chip 行):R18 模式首位=短剧工作台,SFW 由视频补位。
- *  W4(2026-08-31 紧凑化):去掉「作品库」(与下方最近作品区功能重复),补音频/译制,
- *  双模式各 5 枚对称;desc 保留给 @ 面板(list 形态),chip 不渲染。 */
-export const SCENE_CAPSULES: PortalEntry[] = [
-  { view: "drama", icon: "clapperboard", label: "短剧", desc: "剧本 · 资产 · 分镜 · 成片", r18: true },
-  { view: "video", icon: "video", label: "视频", desc: "H3 · LongCat 长视频", sfwOnly: true },
-  { view: "image", icon: "image", label: "图像", desc: "文生图 · 图生图 · 风格预设" },
-  { view: "audio", icon: "audio", label: "音频", desc: "音乐 · 配音 · 人声分离" },
-  { view: "avatartalk", icon: "user", label: "数字人", desc: "照片开口说话 · 对口型" },
-  { view: "dub", icon: "mic", label: "译制", desc: "听写 · 翻译 · 克隆配音" },
-];
 
 /** @ 技能面板一期内容 = 工作台快捷入口(二期接 Skills 广场)。 */
 export const SKILL_ENTRIES: PortalEntry[] = [
@@ -983,7 +927,6 @@ export function AssistantView(props?: AssistantViewProps) {
   const conversations = convStore.conversations;
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [contextOpen, setContextOpen] = useState(false);
   const [modelName, setModelName] = useState("探测中");
   // W5:助手离线降级(门户空态探活失败 → 隐藏对话框,展开全量工作台导航)
   const [llmOffline, setLlmOffline] = useState(false);
@@ -1010,39 +953,11 @@ export function AssistantView(props?: AssistantViewProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   // popup 会话抽屉根节点(点外部关闭判定用)
   const convDrawerRef = useRef<HTMLDivElement>(null);
-  // W4 首页微粒场:门户容器 + 粒子场句柄(点击水波/悬停汇聚)
-  const portalRef = useRef<HTMLDivElement>(null);
-  const particleFieldRef = useRef<ParticleFieldHandle>(null);
-
-  /** W4:门户任意点击激起水波(容器坐标系);按钮/输入交互照常,波纹只是背景反馈 */
-  const onPortalClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    const box = portalRef.current?.getBoundingClientRect();
-    if (!box) return;
-    particleFieldRef.current?.ripple(e.clientX - box.left, e.clientY - box.top);
-  }, []);
-
-  /** W4:场景/快捷 chip 悬停时以其中心为锚点汇聚微粒,离开清除 */
-  const chipAttractorHandlers = useMemo(() => ({
-    onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
-      const box = portalRef.current?.getBoundingClientRect();
-      if (!box) return;
-      const r = e.currentTarget.getBoundingClientRect();
-      particleFieldRef.current?.setAttractor(
-        r.left - box.left + r.width / 2,
-        r.top - box.top + r.height / 2,
-      );
-    },
-    onMouseLeave: () => particleFieldRef.current?.clearAttractor(),
-  }), []);
 
   const isEmpty = messages.length === 0;
 
-  // ───── 门户状态(2026-08-16):引擎胶囊 / 最近作品 / @ 面板 / R18 模式 ─────
+  // ───── @ 面板 / R18 模式(Studio Console v1:引擎胶囊与最近作品门户区块已退役) ─────
   const [r18] = useR18Mode();
-  // 引擎状态胶囊:失败兜底 = 整条隐藏,不报错穿帮
-  const [engines, setEngines] = useState<EngineInfo[] | null>(null);
-  // 最近作品:仅门户空态加载(listJobs 走 SWR 缓存,二访秒开)
-  const [recentJobs, setRecentJobs] = useState<JobItem[] | null>(null);
   // @ 技能面板:Esc/选定后关闭;输入再变化时重新允许弹出
   const [skillDismissed, setSkillDismissed] = useState(false);
 
@@ -1055,41 +970,6 @@ export function AssistantView(props?: AssistantViewProps) {
     [onNavigate],
   );
 
-  useEffect(() => {
-    let cancelled = false;
-    fetchEngines()
-      .then((rows) => {
-        if (!cancelled) setEngines(rows);
-      })
-      .catch(() => {
-        /* 接口挂了就隐藏胶囊条(engines 保持 null) */
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!isEmpty) return;
-    let cancelled = false;
-    listJobs()
-      .then((rows) => {
-        if (!cancelled) setRecentJobs(rows);
-      })
-      .catch(() => {
-        /* 失败隐藏作品流,不阻塞对话 */
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [isEmpty]);
-
-  const engineCapsules = useMemo(
-    () => (engines ? buildEngineCapsules(engines) : []),
-    [engines],
-  );
-  const recentWorks = useMemo(() => pickRecentWorks(recentJobs ?? []), [recentJobs]);
-  const sceneCapsules = useMemo(() => filterPortalEntries(SCENE_CAPSULES, r18), [r18]);
   // @ 触发:取最后一个 @ 之后的文本作过滤词(空词=全量入口)
   const skillEntries = useMemo(() => {
     const idx = input.lastIndexOf("@");
@@ -1211,6 +1091,35 @@ export function AssistantView(props?: AssistantViewProps) {
     [convStore],
   );
 
+  // Studio Console v1:⌘K 命令面板指令——「新对话」与「打开会话」(跨组件 CustomEvent;
+  // 跨视图时 page.tsx 先切 home,本组件未挂载,经 PENDING_SESSION_KEY 暂存后消费)
+  useEffect(() => {
+    const onNew = () => onNewChat();
+    const onOpen = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      if (!id) return;
+      const conv = conversations.find((c) => c.id === id);
+      if (conv) loadConversation(conv);
+    };
+    window.addEventListener(EV_NEW_CHAT, onNew);
+    window.addEventListener(EV_OPEN_SESSION, onOpen);
+    return () => {
+      window.removeEventListener(EV_NEW_CHAT, onNew);
+      window.removeEventListener(EV_OPEN_SESSION, onOpen);
+    };
+  }, [conversations, loadConversation, onNewChat]);
+
+  // 跨视图暂存消费:会话列表就绪后若有待开会话,打开并清除
+  useEffect(() => {
+    const pending = (window as unknown as Record<string, unknown>)[PENDING_SESSION_KEY];
+    if (typeof pending !== "string" || !pending) return;
+    const conv = conversations.find((c) => c.id === pending);
+    if (conv) {
+      (window as unknown as Record<string, unknown>)[PENDING_SESSION_KEY] = undefined;
+      loadConversation(conv);
+    }
+  }, [conversations, loadConversation]);
+
   const deleteConversation = useCallback(
     (id: string) => {
       void convStore.remove(id);
@@ -1235,17 +1144,16 @@ export function AssistantView(props?: AssistantViewProps) {
   // 页形态三面板(历史/设置/文档):Esc 统一关闭(W4 修复:此前仅 popup 抽屉响应 Esc,
   // 页形态面板只能靠遮罩点击/关闭钮,键盘用户无出口)
   useEffect(() => {
-    if (popup || (!historyOpen && !contextOpen && !docsOpen)) return;
+    if (popup || (!historyOpen && !docsOpen)) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setHistoryOpen(false);
-        setContextOpen(false);
         setDocsOpen(false);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [popup, historyOpen, contextOpen, docsOpen]);
+  }, [popup, historyOpen, docsOpen]);
 
   // popup 会话抽屉:点外部关闭(抽屉本体/触发按钮之外的 mousedown 即收敛)
   useEffect(() => {
@@ -1883,6 +1791,7 @@ export function AssistantView(props?: AssistantViewProps) {
                 <Icon name="minus" size={12} strokeWidth={2.2} />
               </button>
             ) : !popup ? (
+              <>
               <button
                 type="button"
                 className={`av-composer-btn av-composer-btn-ghost av-composer-tool${docsOpen || attachedDocs.length ? " is-active" : ""}`}
@@ -1892,6 +1801,26 @@ export function AssistantView(props?: AssistantViewProps) {
               >
                 <Icon name="plus" size={14} strokeWidth={1.8} />
               </button>
+              {/* Studio Console v1:历史/新对话从已退役页头收进输入框工具行 */}
+              <button
+                type="button"
+                className={`av-composer-btn av-composer-btn-ghost av-composer-tool${historyOpen ? " is-active" : ""}`}
+                title="对话历史"
+                aria-label="对话历史"
+                onClick={() => setHistoryOpen((v) => !v)}
+              >
+                <Icon name="history" size={14} strokeWidth={1.8} />
+              </button>
+              <button
+                type="button"
+                className="av-composer-btn av-composer-btn-ghost av-composer-tool"
+                title="新对话"
+                aria-label="新对话"
+                onClick={onNewChat}
+              >
+                <Icon name="create" size={14} strokeWidth={1.8} />
+              </button>
+              </>
             ) : (
               /* popup:文档入口让位于「会话」按钮(历史/新建/删除抽屉) */
               <button
@@ -1940,56 +1869,14 @@ export function AssistantView(props?: AssistantViewProps) {
   return (
     <div className={`av-view${popup ? " av-view--popup" : ""}`}>
       <h1 className="sr-only">对话流</h1>
-      {/* W4(2026-08-31 紧凑化):页头砍掉标题+描述(CornerNav 已指示当前板块,
-          UI_STANDARD §10 豁免),只留一条细操作条:模型胶囊 + 三枚纯图标按钮 */}
-      {!popup && (
-      <header className="page-header av-header">
-        <div className="page-header-actions av-header-actions">
-          {/* 模型胶囊:Film Atelier 编辑徽章语言(.at-badge hairline,去灰底填充);
-              模型名单独成元素——flex 容器内的匿名文本节点无法 text-overflow 省略,
-              移动端长模型名靠 .av-model-name 真省略截断(assistant.css ≤767) */}
-          <div className="av-model-pill at-badge">
-            <span className="av-model-dot" />
-            <Icon name="braincircuit" size={12} strokeWidth={1.8} />
-            <span className="av-model-name">{modelName}</span>
-          </div>
-          <button
-            type="button"
-            className={`av-tb-btn av-tb-btn--icon${historyOpen ? " is-active" : ""}`}
-            onClick={() => setHistoryOpen((v) => !v)}
-            title="对话历史"
-            aria-label="对话历史"
-          >
-            <Icon name="history" size={14} strokeWidth={1.8} />
-          </button>
-          <button
-            type="button"
-            className="av-tb-btn av-tb-btn--icon av-tb-btn-ghost"
-            onClick={onNewChat}
-            title="新对话"
-            aria-label="新对话"
-          >
-            <Icon name="create" size={14} strokeWidth={1.8} />
-          </button>
-          <button
-            type="button"
-            className={`av-tb-btn av-tb-btn--icon${contextOpen ? " is-active" : ""}`}
-            onClick={() => setContextOpen((v) => !v)}
-            title="上下文设置"
-            aria-label="上下文设置"
-          >
-            <Icon name="admin" size={14} strokeWidth={1.8} />
-          </button>
-        </div>
-      </header>
-      )}
+      {/* Studio Console v1(2026-08-31):页头整体移除——顶部无 chrome;
+          历史/新收进输入框工具行,模型名在空态输入框下方,模型设置面板退役 */}
 
       {convStore.listError && (
         <ErrorBar message={convStore.listError} onClose={convStore.clearListError} />
       )}
 
       <div className="av-chat-wrap" ref={scrollRef}>
-        <div className="av-dot-grid" aria-hidden="true" />
 
         {isEmpty ? (
           popup ? (
@@ -2001,41 +1888,12 @@ export function AssistantView(props?: AssistantViewProps) {
               <div className="av-popup-empty-hint">Shift+Enter 随时唤起/关闭</div>
             </div>
           ) : (
-          /* 首页门户(2026-08-16 堆友范式):引擎胶囊条 → kicker/标题 → 对话框 C 位
-             → 场景 chip 行 → 提示词 chip 行 → 最近作品瀑布流;
-             保留 v6.1 空态美学(DIALOGUE ATELIER kicker / Fraunces 标题);
-             W4(2026-08-31):微粒场背景层(点击水波/悬停汇聚/呼吸景深)+ 径向暗角,
-             内容层经 z-index 浮于粒子上方,文字永远不被粒子覆盖 */
-          <div className="av-empty av-portal" ref={portalRef} onClick={onPortalClick}>
-            <ParticleField ref={particleFieldRef} />
-            <div className="av-portal-vignette" aria-hidden="true" />
-            {engineCapsules.length > 0 && (
-              /* 2026-08-16 视图批 1:胶囊行补语义化小标题「引擎状态」(label 档),
-                 孤立悬浮的徽章行锚定语境;aria-labelledby 关联可见标签,不重复播报 */
-              <div className="av-eng-block">
-                <span className="av-eng-label" id="av-eng-label">引擎状态</span>
-                <div className="av-eng-strip" role="status" aria-labelledby="av-eng-label">
-                  {engineCapsules.map((c) => (
-                    <span
-                      key={c.key}
-                      className={`at-badge av-eng-pill${c.available ? " is-ok" : " is-err"}`}
-                      title={c.available ? `${c.label} 引擎可用` : `${c.label} 引擎离线`}
-                    >
-                      <span
-                        className={`av-eng-dot${c.available ? " is-ok" : " is-err"}`}
-                        aria-hidden="true"
-                      />
-                      {c.label}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            <div className="av-empty-kicker">DIALOGUE ATELIER</div>
-            <div className="av-empty-title">今天想创作什么?</div>
+          /* Studio Console v1(2026-08-31)极简空态:品牌铭牌 + 无边框输入框 + 模型行,
+             仅此而已——没有胶囊/chip/推荐卡/最近作品/粒子;功能由对话、⌘K、左栏驱动 */
+          <div className="av-empty av-portal av-portal--console">
+            <div className="av-console-wordmark" aria-hidden="true">TOIV</div>
             {llmOffline ? (
-              /* W5 助手离线降级:对话框让位「离线提示 + 全量工作台导航」(提示词快捷
-                 chip 依赖 LLM,同步隐藏);作品区/引擎条不受影响,继续可用 */
+              /* W5 助手离线降级:对话框让位「离线提示 + 全量工作台导航」 */
               <>
                 <div className="av-offline" role="alert">
                   <Icon name="warning" size={16} strokeWidth={1.8} />
@@ -2050,7 +1908,6 @@ export function AssistantView(props?: AssistantViewProps) {
                       className="av-scene-chip"
                       title={c.desc}
                       onClick={() => goView(c.view)}
-                      {...chipAttractorHandlers}
                     >
                       <Icon name={c.icon} size={14} strokeWidth={1.8} />
                       <span>{c.label}</span>
@@ -2060,110 +1917,9 @@ export function AssistantView(props?: AssistantViewProps) {
               </>
             ) : (
               <>
-            <div className="av-portal-composer">{renderComposer(true)}</div>
-            {/* W4 紧凑化:场景入口降为单行 chip(icon+短语),不再铺大卡片+描述;
-                悬停驱动微粒向 chip 汇聚(attractor),点击照旧跳视图 */}
-            <div className="av-scene-row">
-              {sceneCapsules.map((c) => (
-                <button
-                  key={c.view}
-                  type="button"
-                  className="av-scene-chip"
-                  title={c.desc}
-                  onClick={() => goView(c.view)}
-                  {...chipAttractorHandlers}
-                >
-                  <Icon name={c.icon} size={14} strokeWidth={1.8} />
-                  <span>{c.label}</span>
-                </button>
-              ))}
-            </div>
-            {/* 提示词快捷 chip:一键注入完整 prompt 发送;文案只留短语标签 */}
-            <div className="av-quick-row">
-              {QUICK_ACTIONS.map((a) => (
-                <button
-                  key={a.label}
-                  type="button"
-                  className="av-quick-chip"
-                  title={a.prompt}
-                  onClick={() => send(a.prompt)}
-                  {...chipAttractorHandlers}
-                >
-                  <Icon name={a.icon} size={13} strokeWidth={1.8} />
-                  <span>{a.label}</span>
-                </button>
-              ))}
-            </div>
+                <div className="av-portal-composer">{renderComposer(true)}</div>
+                <div className="av-console-model">{modelName}</div>
               </>
-            )}
-            {recentWorks.length > 0 && (
-              <section className="av-works" aria-label="最近作品">
-                <div className="av-works-head">
-                  <span className="av-works-title">最近作品</span>
-                  <button
-                    type="button"
-                    className="at-btn at-btn--ghost av-works-more"
-                    onClick={() => goView("library")}
-                  >
-                    查看全部
-                  </button>
-                </div>
-                <div className="av-works-grid">
-                  {recentWorks.map((job) => {
-                    const filterKey = kindToFilter(job.kind);
-                    return (
-                      <button
-                        key={job.id}
-                        type="button"
-                        className="av-work-card at-card at-card--lift at-card-in"
-                        onClick={() => goView("library")}
-                        aria-label={`在作品库查看: ${job.prompt || "未命名作品"}`}
-                      >
-                        <span className="av-work-thumb">
-                          {isVideoKind(job.kind) ? (
-                            <LazyVideo
-                              src={imageUrl(job.results[0])}
-                              muted
-                              loop
-                              playsInline
-                            />
-                          ) : filterKey === "image" ? (
-                            <img
-                              src={imageUrl(job.results[0])}
-                              alt={job.prompt || "作品缩略图"}
-                              /* 属性仅作加载前纵横比提示(16:9),CSS object-fit 裁切填满 */
-                              width={480}
-                              height={270}
-                              loading="lazy"
-                              decoding="async"
-                            />
-                          ) : (
-                            <span className="av-work-thumb-icon" aria-hidden="true">
-                              <Icon
-                                name={
-                                  filterKey === "audio"
-                                    ? "audio"
-                                    : filterKey === "3d"
-                                      ? "box"
-                                      : "file"
-                                }
-                                size={20}
-                                strokeWidth={1.4}
-                              />
-                            </span>
-                          )}
-                        </span>
-                        <span className="av-work-meta">
-                          <span className="av-work-kind">{kindLabel(job.kind)}</span>
-                          <span className="av-work-prompt">
-                            {getPreview(job.prompt || "", 40)}
-                          </span>
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
             )}
           </div>
           )
@@ -2189,9 +1945,6 @@ export function AssistantView(props?: AssistantViewProps) {
                 key={msg.id}
                 className={`av-msg${msg.role === "user" ? " is-user" : " is-assistant"}`}
               >
-                <div className="av-msg-avatar">
-                  <Icon name={msg.role === "user" ? "user" : "braincircuit"} size={13} strokeWidth={1.8} />
-                </div>
                 <div className="av-msg-body">
                   <div className={`av-msg-bubble${msg.kind === "error" ? " av-msg-bubble--error" : ""}`}>
                     {msg.kind === "error" ? (
@@ -2346,9 +2099,6 @@ export function AssistantView(props?: AssistantViewProps) {
             })()}
             {pending && (
               <div className="av-msg is-assistant" aria-live="polite">
-                <div className="av-msg-avatar">
-                  <Icon name="braincircuit" size={13} strokeWidth={1.8} />
-                </div>
                 <div className="av-msg-body">
                   <div className="av-msg-bubble">
                     <span className="av-typing">
@@ -2379,39 +2129,6 @@ export function AssistantView(props?: AssistantViewProps) {
         </div>
         <div className="av-panel-body">
           {renderConvList()}
-        </div>
-      </div>
-
-      <div className={`av-panel av-panel--right${contextOpen ? " is-open" : ""}`}>
-        <div className="av-panel-head">
-          <span className="av-panel-title">模型设置</span>
-          <button type="button" className="av-panel-close" onClick={() => setContextOpen(false)} aria-label="关闭模型设置面板" title="关闭">
-            <Icon name="close" size={12} strokeWidth={1.8} />
-          </button>
-        </div>
-        <div className="av-panel-body" tabIndex={0}>
-          <div className="av-prop-group">
-            <div className="av-prop-label">当前模型</div>
-            <div className="av-prop-value">
-              <div className="av-model-pill av-model-pill--sm">
-                <span className="av-model-dot" />
-                <span className="av-model-name">{modelName}</span>
-              </div>
-            </div>
-          </div>
-          <div className="av-prop-group">
-            <div className="av-prop-label">对话统计</div>
-            <div className="av-stats-row">
-              <div className="av-stat">
-                <span className="av-stat-value">{messages.length}</span>
-                <span className="av-stat-label">消息</span>
-              </div>
-              <div className="av-stat">
-                <span className="av-stat-value">{conversations.length}</span>
-                <span className="av-stat-label">会话</span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -2491,10 +2208,10 @@ export function AssistantView(props?: AssistantViewProps) {
         tabIndex={-1}
       />
 
-      {!popup && (historyOpen || contextOpen || docsOpen) && (
+      {!popup && (historyOpen || docsOpen) && (
         <div
           className="av-panel-overlay"
-          onClick={() => { setHistoryOpen(false); setContextOpen(false); setDocsOpen(false); }}
+          onClick={() => { setHistoryOpen(false); setDocsOpen(false); }}
         />
       )}
 
@@ -2573,25 +2290,8 @@ export function AssistantView(props?: AssistantViewProps) {
           overflow: hidden;
         }
 
-        /* ───── 页头(W4 2026-08-31 紧凑化:去标题/描述,单条右对齐操作细条) ───── */
-        .av-header {
-          flex-shrink: 0;
-          display: flex;
-          align-items: center;
-          justify-content: flex-end;
-          gap: var(--space-4);
-          padding: var(--space-2) var(--space-6); /* 壳层 app-main padding-top:56px 已垂直让开 CornerNav 触发器,左右对称 */
-          background: var(--bg-surface-1);
-          border-bottom: 1px solid var(--border-subtle);
-          /* 悬浮 chrome 档:压过聊天内容层(0/1),让位于抽屉面板(var(--z-drawer)) */
-          z-index: var(--z-sticky);
-        }
-        .av-header-actions {
-          flex-shrink: 0;
-          display: flex;
-          align-items: center;
-          gap: var(--space-2);
-        }
+        /* Studio Console v1:页头整体退役(顶部零 chrome);
+           .av-tb-btn 基座保留——popup 会话抽屉「新会话」按钮仍在用 */
 
         .av-tb-btn {
           display: inline-flex;
@@ -2610,12 +2310,6 @@ export function AssistantView(props?: AssistantViewProps) {
           transition: color var(--duration-fast) var(--ease-standard),
             background-color var(--duration-fast) var(--ease-standard),
             border-color var(--duration-fast) var(--ease-standard);
-        }
-        /* W4 纯图标档:正方形触达,视觉更轻 */
-        .av-tb-btn--icon {
-          width: 30px;
-          padding: 0;
-          justify-content: center;
         }
         .av-tb-btn:hover:not(:disabled) {
           color: var(--text-primary);
@@ -2636,43 +2330,6 @@ export function AssistantView(props?: AssistantViewProps) {
           background: transparent;
         }
 
-        .av-model-pill {
-          display: inline-flex;
-          align-items: center;
-          gap: var(--space-2);
-          height: 26px;
-          padding: 0 var(--space-3);
-          /* Film Atelier:去灰底填充,编辑徽章 hairline(顶栏实例再叠 .at-badge) */
-          background: transparent;
-          border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-full);
-          color: var(--text-secondary);
-          font-size: var(--text-label);
-          font-weight: var(--font-medium);
-          font-family: var(--font-mono);
-          letter-spacing: 0.04em;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .av-model-pill--sm {
-          height: 22px;
-          padding: 0 var(--space-2);
-        }
-        .av-model-dot {
-          flex-shrink: 0;
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: var(--ok);
-          box-shadow: 0 0 6px color-mix(in oklab, var(--ok) 60%, transparent);
-          animation: av-dot-pulse 2s ease-in-out infinite;
-        }
-        @keyframes av-dot-pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }
-
         /* ───── 聊天主区域 ───── */
         .av-chat-wrap {
           position: relative;
@@ -2691,18 +2348,6 @@ export function AssistantView(props?: AssistantViewProps) {
         .av-chat-wrap::-webkit-scrollbar-thumb {
           background: var(--bg-surface-3);
           border-radius: 3px;
-        }
-
-        /* 点阵网格背景(Film Atelier 收敛:0.32→0.16,仅余极淡画布质感,空态 Fraunces 标题为主角) */
-        .av-dot-grid {
-          position: absolute;
-          inset: 0;
-          background-image: radial-gradient(circle, var(--border-strong) 1px, transparent 1px);
-          background-size: 20px 20px;
-          background-position: 0 0;
-          opacity: 0.16;
-          pointer-events: none;
-          z-index: 0; /* 层内微调:点阵质感压底,内容层(1)浮其上 */
         }
 
         /* ───── 空态(欢迎页:hero 式舒展排版) ───── */
@@ -2742,48 +2387,36 @@ export function AssistantView(props?: AssistantViewProps) {
           max-width: 440px;
           margin-bottom: var(--space-5);
         }
-        /* W4(2026-08-31 紧凑化):提示词建议从 2×2 大卡片降为单行 ghost chip 流;
-           文案只留短语标签,完整 prompt 藏在 title 提示,点击整段注入发送 */
-        .av-quick-row {
-          display: flex;
-          flex-wrap: wrap;
+        /* Studio Console v1(2026-08-31)极简空态:铭牌 + 输入框 + 模型行 */
+        .av-portal--console {
           justify-content: center;
-          gap: var(--space-2);
-          width: 100%;
+          gap: var(--space-6);
         }
-        .av-quick-chip {
-          display: inline-flex;
-          align-items: center;
-          gap: var(--space-1);
-          height: 30px;
-          padding: 0 var(--space-3);
-          border-radius: var(--radius-full, 999px);
-          border: 1px dashed var(--border-strong);
-          background: transparent;
-          color: var(--text-secondary);
-          font-size: var(--text-aux);
+        .av-console-wordmark {
+          font-family: var(--font-mono);
+          font-size: var(--text-label);
           font-weight: var(--font-medium);
-          font-family: var(--font-sans);
-          cursor: pointer;
-          transition: color var(--duration-fast) var(--ease-standard),
-            border-color var(--duration-fast) var(--ease-standard),
-            background-color var(--duration-fast) var(--ease-standard);
+          letter-spacing: 0.42em;
+          text-indent: 0.42em; /* 补偿末字符 letter-spacing,视觉真正居中 */
+          color: var(--text-muted);
+          user-select: none;
         }
-        .av-quick-chip:hover {
-          color: var(--accent);
-          border-color: var(--accent-glow);
-          background: var(--accent-soft);
+        .av-console-model {
+          font-family: var(--font-mono);
+          font-size: var(--text-label);
+          color: var(--text-muted);
+          letter-spacing: 0.02em;
         }
 
-        /* ───── 消息列表(720px 居中列,气泡尾角+圆形头像) ───── */
+        /* ───── 消息列表(720px 居中列;Studio Console v1 文档式,无气泡/头像) ───── */
         .av-msg-list {
           position: relative;
-          z-index: 1; /* 层内微调:内容压过点阵背景(0) */
+          z-index: 1;
           display: flex;
           flex-direction: column;
           gap: var(--space-6);
-          /* 顶部让位灵动岛,首条气泡不贴岛 */
-          padding: var(--space-12) var(--space-6) var(--space-8);
+          /* 顶部 chrome 带已随左栏骨架退役,首条消息自视口顶自然呼吸 */
+          padding: var(--space-6) var(--space-6) var(--space-8);
           max-width: 720px;
           margin: 0 auto;
         }
@@ -2884,65 +2517,44 @@ export function AssistantView(props?: AssistantViewProps) {
           overflow-y: auto;
           padding: var(--space-2);
         }
+        /* Studio Console v1(2026-08-31)文档式消息流:无头像、无气泡底色;
+           助手回复全文宽文档排版,用户消息右对齐灰字——节奏差即角色区分 */
         .av-msg {
           display: flex;
-          gap: var(--space-3);
-          align-items: flex-start;
-        }
-        .av-msg.is-user {
-          flex-direction: row-reverse;
-        }
-        .av-msg-avatar {
-          flex-shrink: 0;
-          width: 32px;
-          height: 32px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: var(--radius-full);
-          background: var(--bg-surface-2);
-          border: 1px solid var(--border-subtle);
-          color: var(--text-secondary);
-        }
-        .av-msg.is-user .av-msg-avatar {
-          background: var(--accent-soft);
-          border-color: var(--accent-glow);
-          color: var(--accent);
+          flex-direction: column;
         }
         .av-msg-body {
           display: flex;
           flex-direction: column;
           gap: var(--space-2);
-          max-width: calc(100% - 48px);
           min-width: 0;
+          max-width: 100%;
         }
         .av-msg.is-user .av-msg-body {
           align-items: flex-end;
         }
         .av-msg-bubble {
-          padding: var(--space-3) var(--space-5);
-          background: var(--bg-surface-1);
-          border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-xl) var(--radius-xl) var(--radius-xl) var(--radius-xs); /* 助手气泡:左下尾角指向头像 */
-          box-shadow: var(--shadow-sm);
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-2);
           font-size: var(--text-body);
           color: var(--text-primary);
-          line-height: 1.65;
+          line-height: 1.75;
           word-break: break-word;
           white-space: pre-wrap;
         }
         .av-msg.is-user .av-msg-bubble {
-          background: var(--accent);
-          border-color: transparent;
-          border-radius: var(--radius-xl) var(--radius-xl) var(--radius-xs) var(--radius-xl); /* 用户气泡:右下尾角 */
-          box-shadow: 0 2px 10px color-mix(in oklab, var(--accent) 18%, transparent);
-          color: var(--text-on-accent);
+          max-width: 80%;
+          color: var(--text-secondary);
+          text-align: right;
         }
         .av-msg-time {
           font-size: var(--text-label);
           color: var(--text-muted);
           font-family: var(--font-mono);
-          padding: 0 var(--space-2);
+        }
+        .av-msg.is-user .av-msg-time {
+          text-align: right;
         }
 
         /* 失败态错误气泡(替换打字指示器) */
@@ -2951,8 +2563,10 @@ export function AssistantView(props?: AssistantViewProps) {
           flex-direction: column;
           align-items: flex-start;
           gap: var(--space-2);
+          padding: var(--space-3) var(--space-4);
+          border-radius: var(--radius-control);
           background: var(--err-soft);
-          border-color: color-mix(in oklab, var(--err) 45%, transparent);
+          border: 1px solid color-mix(in oklab, var(--err) 45%, transparent);
         }
         .av-msg-error-text {
           color: var(--err);
@@ -3396,8 +3010,9 @@ export function AssistantView(props?: AssistantViewProps) {
         .av-composer {
           flex-shrink: 0;
           padding: var(--space-4) var(--space-6) var(--space-5);
-          background: linear-gradient(180deg, transparent 0%, var(--bg-surface-1) 24%);
-          /* 悬浮 chrome 档:与页头同级,让位于抽屉面板(var(--z-drawer)) */
+          /* Studio Console v1:去渐变底色,输入区与画布同底 */
+          background: transparent;
+          /* 悬浮 chrome 档:让位于抽屉面板(var(--z-drawer)) */
           z-index: var(--z-sticky);
         }
         .av-composer-box {
@@ -3409,50 +3024,19 @@ export function AssistantView(props?: AssistantViewProps) {
           max-width: 720px;
           margin: 0 auto;
           padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
-          background: linear-gradient(145deg, var(--bg-surface-2), var(--bg-surface-3));
+          background: var(--bg-surface-1);
           border: 1px solid var(--border-subtle);
-          border-radius: calc(var(--radius-panel) * 2); /* 24px 大圆角,区别于普通面板 */
-          box-shadow:
-            inset 0 1px 1px color-mix(in oklab, var(--text-primary) 4%, transparent),
-            var(--shadow-md);
-          transition: border-color var(--duration-fast) var(--ease-standard),
-            box-shadow var(--duration-fast) var(--ease-standard),
-            transform var(--duration-fast) var(--ease-standard);
+          border-radius: var(--radius-panel);
+          /* Studio Console v1:hairline 描边代替渐变底/光晕/大圆角 */
+          box-shadow: none;
+          transition: border-color var(--duration-fast) var(--ease-standard);
           overflow: hidden;
-        }
-        .av-composer-box::before {
-          content: "";
-          position: absolute;
-          inset: 0;
-          border-radius: inherit;
-          padding: 1px;
-          background: linear-gradient(160deg, color-mix(in oklab, var(--accent) 10%, transparent), transparent 60%);
-          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-          -webkit-mask-composite: xor;
-          mask-composite: exclude;
-          opacity: 0;
-          transition: opacity var(--duration-fast) var(--ease-standard);
-          pointer-events: none;
         }
         .av-composer-box:hover {
           border-color: var(--border-strong);
-          transform: translateY(-1px);
-          box-shadow:
-            inset 0 1px 1px color-mix(in oklab, var(--text-primary) 5%, transparent),
-            var(--shadow-lg);
-        }
-        .av-composer-box:hover::before {
-          opacity: 1;
         }
         .av-composer-box:focus-within {
-          border-color: var(--accent-glow);
-          transform: translateY(-2px);
-          /* Film Atelier:聚焦态补 accent 软晕(accent-soft 外环 + accent 投影) */
-          box-shadow:
-            0 0 0 1px var(--accent-glow),
-            0 0 0 5px var(--accent-soft),
-            0 12px 32px color-mix(in oklab, var(--accent) 16%, transparent),
-            inset 0 1px 1px color-mix(in oklab, var(--text-primary) 5%, transparent);
+          border-color: var(--accent);
         }
         .av-composer-actions {
           position: relative;
@@ -3811,7 +3395,6 @@ export function AssistantView(props?: AssistantViewProps) {
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .av-model-dot { animation: none; }
           .av-typing-dot { animation: none; }
           .av-composer-stop { animation: none; }
           .av-composer-input::placeholder { animation: none; }
@@ -3821,16 +3404,6 @@ export function AssistantView(props?: AssistantViewProps) {
 
         /* 移动端 */
         @media (max-width: 767px) {
-          .av-header {
-            gap: var(--space-2);
-            padding: var(--space-2) var(--space-4);
-          }
-          .av-header-actions {
-            margin-left: auto;
-          }
-          .av-model-pill {
-            max-width: 132px;
-          }
           /* 纯图标按钮:触控目标提到 ≥44px */
           .av-tb-btn {
             width: 44px;
@@ -3839,13 +3412,12 @@ export function AssistantView(props?: AssistantViewProps) {
             justify-content: center;
           }
           .av-msg-list {
-            padding: var(--space-8) var(--space-4) var(--space-5);
+            padding: var(--space-6) var(--space-4) var(--space-5);
           }
           .av-empty-title {
             font-size: var(--text-display-sm);
           }
-          .av-scene-row,
-          .av-quick-row {
+          .av-scene-row {
             gap: var(--space-1);
           }
           /* 窄屏胶片帧收窄,保证至少露出下一帧边缘(可横滑暗示) */

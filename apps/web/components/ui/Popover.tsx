@@ -57,8 +57,32 @@ export function Popover({
     if (left + width > window.innerWidth - 16) {
       left = Math.max(16, rect.right - width);
     }
+    // Studio Console(2026-08-31):锚点位于视口下半部时向上展开(左栏底部槽位);
+    // 面板高度先按估值,挂载后用真实高度校正一次(见下方 useEffect)
+    const panelH = panelRef.current?.offsetHeight || 260;
+    const spaceBelow = window.innerHeight - rect.bottom - gap;
+    if (spaceBelow < panelH && rect.top > panelH) {
+      setPos({ top: Math.max(8, rect.top - gap - panelH), left });
+      return;
+    }
     setPos({ top: rect.bottom + gap, left });
   }, [anchorRef, width, gap]);
+
+  // 首次定位后面板才挂载——内容异步加载导致高度变化时按真实高度校正一次
+  useEffect(() => {
+    if (!open || !pos || !panelRef.current) return;
+    const panel = panelRef.current;
+    const anchor = anchorRef.current;
+    if (!anchor) return;
+    const rect = anchor.getBoundingClientRect();
+    const realH = panel.offsetHeight;
+    const spaceBelow = window.innerHeight - rect.bottom - 6;
+    if (spaceBelow < realH && rect.top > realH) {
+      const top = Math.max(8, rect.top - 6 - realH);
+      if (Math.abs(top - pos.top) > 1) setPos({ top, left: pos.left });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, pos]);
 
   useEffect(() => {
     if (!open) return;

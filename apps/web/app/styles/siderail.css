@@ -1,0 +1,137 @@
+/* ── Studio Console v1(2026-08-31)左侧 52px 常驻图标栏 ──
+   极简专业工作台骨架:仅图标 + hover tooltip,当前项 2px 指示条;
+   hairline 右缘分隔,无阴影无玻璃;窄屏 <1024px 隐藏(底部导航接管)。 */
+
+.siderail {
+  /* 壳层 grid 流内成员(grid-area: rail,见 globals.css .app-shell),非 fixed——
+     主内容天然从栏右缘开始,不与任何绝对定位视图叠层 */
+  grid-area: rail;
+  width: 52px;
+  z-index: var(--z-sticky);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-2) 0;
+  background: var(--bg-canvas);
+  border-right: 1px solid var(--border-subtle);
+}
+
+.siderail-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-top: var(--space-2);
+}
+
+/* 管理项与主导航之间一条短 hairline 分隔 */
+.siderail-group--admin {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.siderail-item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
+}
+.siderail-item:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface-2);
+}
+.siderail-item.is-active {
+  color: var(--accent);
+}
+/* 当前项:左侧 2px 指示条(栏内 2px 呼吸,不贴死屏幕缘) */
+.siderail-item.is-active::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+}
+
+/* 搜索钮与主导航间距略大,视觉分组 */
+.siderail-search {
+  margin-bottom: var(--space-2);
+}
+
+/* hover tooltip:右向弹出,深色底反色文字(双色即收,亮暗模式通用) */
+.siderail-tip {
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--text-primary);
+  color: var(--bg-canvas);
+  font-size: var(--text-label);
+  font-weight: var(--font-medium);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-standard);
+  z-index: 10;
+}
+.siderail-item:hover .siderail-tip,
+.siderail-item:focus-visible .siderail-tip {
+  opacity: 1;
+}
+
+/* 底部槽位:任务中心/设置/账户;两者原是 fixed 顶栏组件,栏内归位为静态流 */
+.siderail-bottom {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+  width: 100%;
+}
+.siderail-bottom .taskcenter,
+.siderail-bottom .accountbtn {
+  position: static;
+}
+/* 栏内触发钮与导航项同尺寸同形态 */
+.siderail-bottom .taskcenter-trigger,
+.siderail-bottom .accountbtn-trigger {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-control);
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+}
+.siderail-bottom .taskcenter-trigger:hover,
+.siderail-bottom .accountbtn-trigger:hover {
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+}
+/* 任务中心徽标在 36px 钮内的相对位置微调 */
+.siderail-bottom .taskcenter-badge {
+  top: 2px;
+  right: 2px;
+}
+
+@media (max-width: 1023px) {
+  .siderail {
+    display: none;
+  }
+}

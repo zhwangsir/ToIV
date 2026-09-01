@@ -5,7 +5,8 @@ import { flushSync } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { LandingPage } from "@/components/landing/LandingPage";
-import { CornerNav, type CornerNavItem } from "@/components/nav/CornerNav";
+import { SideRail, type RailItem } from "@/components/nav/SideRail";
+import { CommandPalette } from "@/components/nav/CommandPalette";
 import { AccountButton } from "@/components/nav/AccountButton";
 import { TaskCenter } from "@/components/nav/TaskCenter";
 import { AssistantOverlay } from "@/components/assistant/AssistantOverlay";
@@ -265,24 +266,18 @@ const VIEW_META: Record<View, { label: string }> = {
   admin:     { label: "管理" },
 };
 
-/** M3 新 IA 一级入口:三大板块 + 融合聚合页;短剧/数字人/译制移入融合,视图保留(旧链接不 404)。
- *  2026-08-17 底层化:AI 助手移出导航,由 Shift+Enter 全局浮层(AssistantOverlay)唤起。
- *  2026-08-31 精简:「Skill 市场」+「应用市场」两个同构入口合并为单一「市场」(market,
- *  页内 at-seg 段控切 应用/技能,旧 key 经 LEGACY_VIEW_REDIRECTS 跳转)。
- *  2026-08-31 W1:平铺九项改为分组(门户/创作/资产/探索/系统),CornerNav 按组渲染分隔标签。
- *  桌面端由左上角悬停展开导航(CornerNav)承载,窄屏由底部导航承载。 */
-const ISLAND_ITEMS: CornerNavItem[] = [
-  // W2:对话为家——助手整页化为默认落地页,融合门户退为场景卡入口
-  { key: "home", label: "对话", icon: "chat", group: "门户" },
-  { key: "fusion", label: "融合", icon: "sparkles", group: "门户" },
-  { key: "image", label: "图片", icon: "image", group: "创作" },
-  { key: "video", label: "视频", icon: "video", group: "创作" },
-  { key: "audio", label: "音频", icon: "audio", group: "创作" },
-  { key: "library", label: "作品库", icon: "library", group: "资产" },
-  { key: "entities", label: "主体库", icon: "users", group: "资产" },
-  { key: "market", label: "市场", icon: "store", group: "探索" },
-  { key: "canvas", label: "画布", icon: "workflow", group: "探索" },
-  { key: "resources", label: "资源", icon: "models", group: "系统" },
+/** Studio Console v1(2026-08-31):左侧 52px 图标栏主项——只保留高频页,
+ *  融合/画布/主体库/译制/数字人/编辑器等经 ⌘K 命令面板或页面内入口到达。
+ *  窄屏由底部导航承载(BOTTOM_NAV_ITEMS + 「更多」抽屉)。 */
+const RAIL_ITEMS: RailItem[] = [
+  { key: "home", label: "对话", icon: "chat" },
+  { key: "image", label: "图片", icon: "image" },
+  { key: "video", label: "视频", icon: "video" },
+  { key: "audio", label: "音频", icon: "audio" },
+  { key: "studio", label: "工作室", icon: "clapperboard" },
+  { key: "library", label: "作品库", icon: "library" },
+  { key: "market", label: "市场", icon: "store" },
+  { key: "resources", label: "资源", icon: "models" },
 ];
 
 /** 窄屏底部导航:主入口 5 个(含 CTA)+「更多」抽屉承载其余
@@ -355,6 +350,8 @@ function HomeContent() {
   });
   // AI 助手全局浮层(Shift+Enter 唤起;W2 起 ?view=assistant 落 home 不再自动开浮层)
   const [assistantOpen, setAssistantOpen] = useState(false);
+  // Studio Console v1:⌘K 命令面板(全局键盘主导航)
+  const [paletteOpen, setPaletteOpen] = useState(false);
   // 开闭态 ref 镜像:快捷键 handler 读当前值,避免在 setState updater 内做副作用
   const assistantOpenRef = useRef(assistantOpen);
   assistantOpenRef.current = assistantOpen;
@@ -434,6 +431,19 @@ function HomeContent() {
       window.removeEventListener("keydown", onKey);
       clearTimers();
     };
+  }, []);
+
+  // Studio Console v1:⌘K / Ctrl+K 全局唤起命令面板(输入框内也可用——
+  // 与 Shift+Enter 不同,⌘K 不与文本输入冲突,无需焦点守卫)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   // 霓虹扫描驱动(2026-08-23 重写):JS rAF 逐帧写 --neon-angle/opacity 内联值。
@@ -660,30 +670,21 @@ function HomeContent() {
   const isAdmin = account === "admin";
   const meta = VIEW_META[view];
 
-  // W1:drama 旧管线已退役重定向 studio,门控与渲染分支一并移除。
-  let islandItems: CornerNavItem[] = ISLAND_ITEMS;
+  // 观测/管理仅管理员可见(端点 admin-only,普通用户加入口只会 403)
+  // 注意:RAIL_ITEMS 是模块级常量,admin 注入必须复制新数组,不能 push 共享常量
+  const railAdminItems: RailItem[] = isAdmin
+    ? [
+        { key: "observability", label: "观测", icon: "monitor" },
+        { key: "admin", label: "管理", icon: "shield-check" },
+      ]
+    : [];
   let bottomNavMoreItems: BottomNavItem[] = BOTTOM_NAV_MORE_ITEMS;
-  // 观测面板仅管理员可见(端点 admin-only,普通用户加入口只会 403)
-  // W1 分组:admin 两项归入「系统」组(CornerNav 按 group 渲染分隔)
-  const observabilityItem: CornerNavItem = {
-    key: "observability",
-    label: "观测",
-    icon: "monitor",
-    group: "系统",
-  };
-  // 管理面板入口(2026-08-30 批 D):此前无导航入口只能直输 URL;admin 专属,与观测同槽追加
-  const adminItem: CornerNavItem = {
-    key: "admin",
-    label: "管理",
-    icon: "shield-check",
-    group: "系统",
-  };
-  // 注意:ISLAND_ITEMS / BOTTOM_NAV_MORE_ITEMS 是模块级常量,r18 分支的 slice 拼接
-  // 产生新数组,非 r18 分支是同一引用——必须再复制一层才能 push,否则每次渲染
-  // 都往共享常量里追加,菜单重复(2026-08-24「观测」×7 实证)。
   if (isAdmin) {
-    islandItems = [...islandItems, observabilityItem, adminItem];
-    bottomNavMoreItems = [...bottomNavMoreItems, observabilityItem, adminItem];
+    bottomNavMoreItems = [
+      ...bottomNavMoreItems,
+      { key: "observability", label: "观测", icon: "monitor" },
+      { key: "admin", label: "管理", icon: "shield-check" },
+    ];
   }
 
   if (auth === "loading") {
@@ -700,25 +701,36 @@ function HomeContent() {
 
   return (
     <div className="app-shell">
-      <CornerNav
-        items={islandItems}
+      {/* Studio Console v1:左侧 52px 图标栏(高频页 + admin 项 + 底部任务/账户槽);
+          顶部不再有任何常驻 chrome(灵动岛/账户钮/任务中心全部收编进栏) */}
+      <SideRail
+        items={RAIL_ITEMS}
         current={view}
         onSelect={handleNavSelect}
         onItemIntent={handleViewIntent}
+        adminItems={railAdminItems}
+        onOpenPalette={() => setPaletteOpen(true)}
+        bottom={
+          <>
+            {account && <TaskCenter />}
+            {account && (
+              <AccountButton
+                account={account}
+                onLogout={onLogout}
+                onOpenSettings={() => handleNavSelect("settings")}
+              />
+            )}
+          </>
+        }
       />
 
-      {/* 右上角账户(2026-08-17 拆分):一跳直达主题/设置/退出,与左上灵动岛对角呼应 */}
-      {account && (
-        <AccountButton
-          account={account}
-          onLogout={onLogout}
-          onOpenSettings={() => handleNavSelect("settings")}
-        />
-      )}
-
-      {/* 任务中心(2026-08-29 全量进度体系):右上第二枚,在跑任务数徽标 +
-          弹层进度明细(排队位/step/已等待/ETA),完成 toast + 作品库刷新 */}
-      {account && <TaskCenter />}
+      {/* ⌘K 命令面板(Studio Console v1 主导航):全功能/会话/作品检索 */}
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        onNavigate={(v) => handleNavSelect(v)}
+        isAdmin={isAdmin}
+      />
 
       {/* 启动序列(2026-08-24 重做):Shift+Enter 开启后——阶段一核点点亮(中心,
           350ms)+ 阶段二极光灯带扫边(1000ms,cyan→violet),随后弹窗降临
