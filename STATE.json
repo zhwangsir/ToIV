@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-01T22:00:00+08:00",
+  "updated_at": "2026-09-01T22:40:00+08:00",
   "studio_console_v1_2026_08_31": {
     "status": "W1_done_deployed_verified",
     "plan": "用户定稿 Studio Console 方案(讨论于 docs 外对话):极简专业工作台,单色中性系,界面退后内容上前",
@@ -2168,5 +2168,14 @@
     "regression": "npm test 929 全绿(+11) / tsc 0 / 干净 build;后端零改动未跑 pytest;未 commit 未部署(等用户指令)",
     "deploy": "commit 4baeea7,双推 origin(gitee)+github,deploy.sh → core,toiv-api/toiv-web 健康 200",
     "prod_verify": "生产 CSS 实证:empty-console-hint 在位;双服务健康 200"
+  },
+  "w4_deadcode_and_w2_audit_2026_09_01": {
+    "status": "done_deployed_verified",
+    "w4_deadcode": "删 lib/utils.ts / lib/workflows.ts / usePlaybackInsights.ts(+api.ts getDramaPlaybackInsights 及类型)/ cornernav.css .cornernav* 207 行(现存 AccountButton+TaskCenter)/ cornernav 诊断 e2e+截图;globals.css --text-display-lg 零消费删除;Fraunces 保留(7 处在用:落地页标语/衬线数字装饰)",
+    "w2_fix": "stage.css 死样式删(nsfw-workbench/nsfw-library/generate-header/generate-header-note/promptbar-error);补缺 .stage-skeleton-lines/.stage-skeleton-line(生成中骨架行此前无样式=真 bug);GenerateView 死 import PageHeader 删;symmetry-check e2e 死选择器更新",
+    "w2_findings_next": "音频页编辑 tab 卡片表单范式与舞台范式分裂(页级段控+双层 padding 覆盖);参数面板说明文字残留(配方/主体引用/MotionBrush);参数面板开合不持久化、380px 不可调宽——留待用户决策",
+    "regression": "npm test 929 全绿 / tsc 0 / 干净 build",
+    "deploy": "commits 4baeea7(masthead+缓存)+ 1a74243(W4 死代码)+ 7804c2a(W2 修);deploy.sh → core 两轮,toiv-api/toiv-web 健康 200;生产 CSS 实证 page-header-kicker=0、cornernav-trigger=0、empty-console-hint 在位",
+    "pending": "github 推送失败(网络超时,ls-remote 无法连接)——origin(gitee)已是 7804c2a,github 待网络恢复后补推 1a74243+7804c2a"
   }
 }
