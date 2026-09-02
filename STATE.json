@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-02T07:00:00+08:00",
+  "updated_at": "2026-09-02T08:10:00+08:00",
   "studio_console_v1_2026_08_31": {
     "status": "W1_done_deployed_verified",
     "plan": "用户定稿 Studio Console 方案(讨论于 docs 外对话):极简专业工作台,单色中性系,界面退后内容上前",
@@ -2204,5 +2204,13 @@
     "work": "新建 knowledge/platform-capabilities.md:18 页导航总览/任务食谱(用户说法→行动映射)/23 引擎速查/内置应用/助手行动规矩;84 块中新增 8 块",
     "prod_verify": "生产实测 2/2:「视频翻译成英文配音」→ navigate_view(dub)+四步流程解答;「训练自己画风的模型」→ search_knowledge 命中+list_models 查证;embedding 服务在线",
     "deploy": "commit 7e4d491,双推,deploy.sh --skip-web → core(知识文件随 api rsync,索引按内容 hash 首用重建)"
+  },
+  "workflow_canvas_2026_09_02": {
+    "status": "done_deployed_verified",
+    "scope": "用户:工作流要直接展示 ComfyUI 每个节点,类 RunningHub 节点图效果",
+    "work": "AppWorkflowGraph 重写为画布——workflow_json 是 API 格式无坐标,前端自动布局(最长路径分层成列+父子重心两轮迭代减交叉);SVG 贝塞尔连线层+HTML 节点层同 transform;拖空白平移/滚轮指针缩放/适配全图;绑定参数节点内联编辑(accent 描边+可调徽标),连线落绑定输入时高亮",
+    "prod_verify": "生产实测(Flux2 文生图 11 节点):左→右流向正确、无重叠、连线清晰、平移/缩放/复位/跨模式值保留全过,控制台零 JS 错误",
+    "regression": "npm test 939(+2:layoutWorkflow 分层/端口/环兜底,画布渲染断言改写)/ tsc 0 / 干净 build",
+    "deploy": "commit 2cd7dbb,双推(gitee+github 均成),deploy.sh → core 健康"
   }
 }
