@@ -1,7 +1,73 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-03T00:49:48+08:00",
+  "updated_at": "2026-09-03T01:21:00+08:00",
+  "app_seed_36_2026_09_03": {
+    "status": "uncommitted_undeployed",
+    "files": [
+      "apps/api/app/services/app_seed.py",
+      "apps/api/tests/test_app_seed.py"
+    ],
+    "count": "7→36",
+    "tests": "pytest 65 passed",
+    "original_7_patched": [
+      "h3-t2v",
+      "h3-i2v (LoadImage node 100 / inputs.image + length/steps)",
+      "txt2img-basic",
+      "img2img-basic",
+      "ltx-txt2video",
+      "ltx-img2video (image)",
+      "ltx-lipsync (image+audio)"
+    ],
+    "new_29": [
+      "h3-multishot",
+      "h3-nsfw-t2v",
+      "h3-nsfw-i2v",
+      "nsfw-txt2img",
+      "nsfw-img2img",
+      "qwen-image-edit",
+      "flux1-nunchaku",
+      "ltx25-multishot",
+      "wan-nsfw-i2v",
+      "wan-animate",
+      "wan-animate-2",
+      "wan-vace",
+      "longcat-t2v",
+      "longcat-i2v",
+      "avatar-talk",
+      "ovi-t2v",
+      "ovi-i2v",
+      "phantom-s2v",
+      "ace-music",
+      "ace-music-legacy",
+      "inpaint",
+      "upscale",
+      "removebg",
+      "controlnet",
+      "ipadapter",
+      "pulid",
+      "facedetailer",
+      "hunyuan-i2v",
+      "latentsync"
+    ],
+    "aliases": {
+      "txt2img": "txt2img-basic",
+      "img2img": "img2img-basic",
+      "ltx-nsfw-*": "existing ltx-* trio"
+    },
+    "not_listed": [
+      "H3 Ref2VA 9-ref",
+      "H3 first-last frame",
+      "H3 voice clone",
+      "longcat-continue",
+      "wan-transition",
+      "keyframe-chain",
+      "vace-edit",
+      "hunyuan3d (output_kind has no glb)"
+    ],
+    "prod": "toiv.db needs API restart for seed_builtin_apps to write new cards",
+    "agents_md": "untouched"
+  },
   "studio_console_v1_2026_08_31": {
     "status": "W1_done_deployed_verified",
     "plan": "用户定稿 Studio Console 方案(讨论于 docs 外对话):极简专业工作台,单色中性系,界面退后内容上前",

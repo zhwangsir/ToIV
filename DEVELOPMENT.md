@@ -4,6 +4,8 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
+**2026-09-03 应用市场播种 7→36（未提交未部署）**：应用市场内置播种从 7 扩到 36（**未提交、未部署**）。改动在 `apps/api/app/services/app_seed.py` + `tests/test_app_seed.py`，pytest 65 过。原 7 张保留并修洞：`h3-t2v`、`h3-i2v`（补 LoadImage 节点 100 / `inputs.image`，以及 length/steps）、`txt2img-basic`、`img2img-basic`、`ltx-txt2video`、`ltx-img2video`（补图）、`ltx-lipsync`（补图+音频）。新 29：`h3-multishot`、`h3-nsfw-t2v`、`h3-nsfw-i2v`、`nsfw-txt2img`、`nsfw-img2img`、`qwen-image-edit`、`flux1-nunchaku`、`ltx25-multishot`、`wan-nsfw-i2v`、`wan-animate`、`wan-animate-2`、`wan-vace`、`longcat-t2v`、`longcat-i2v`、`avatar-talk`、`ovi-t2v`、`ovi-i2v`、`phantom-s2v`、`ace-music`、`ace-music-legacy`、`inpaint`、`upscale`、`removebg`、`controlnet`、`ipadapter`、`pulid`、`facedetailer`、`hunyuan-i2v`、`latentsync`。引擎别名：`txt2img`/`img2img` → `*-basic`；`ltx-nsfw-*` → 已有 `ltx-*` 三张。未上架（无诚实单表单图）：H3 Ref2VA 9 参考、H3 首尾帧、H3 声音克隆、`longcat-continue`、`wan-transition`、`keyframe-chain`、`vace-edit`。`hunyuan3d` 因 `output_kind` 无 glb 也未进。生产 `toiv.db` 需重启 API 才会 `seed_builtin_apps` 写入新卡。AGENTS.md / 设备清单未动。
+
 **2026-08-30 `f480ead`（远程未推，已在 core，不必重部署）**：补 SHA `f480ead`（远程未推，**已在 core**，不必重部署）：`fix(generate): fill UploadedRef previewUrl/name on entity-cover submit`。编生产包时漏的两行类型，当时未提交跟着 rsync 上去了。只动 `GenerateView.tsx`。
 
 **2026-08-30 `eb51c86`（远程未推，已上线 core）**：本地 `eb51c86`（远程未推，已上线 core）：停止会 `cancelJob`/中止请求；主体封面走 i2v/img2img；时长 4–15s 加分段续写开关；作品库含 `h3_extend_i2v` 和 `cad_`/`drama_char_reference_` 前缀。远程仍未推。已部署 core（toiv-api/toiv-web active；公网 `/api/health` 与 LAN `:8090`/`:3100` 200；前端 BUILD_ID `20260829-213739-72a9c0f-dirty`，UX 代码 `eb51c86`）。
