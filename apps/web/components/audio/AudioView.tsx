@@ -1,9 +1,8 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Field, Textarea } from "@/components/ui/Input";
@@ -24,41 +23,21 @@ import { isParseAbortError } from "@/lib/studioParseUx";
 import { begin as genBegin, end as genEnd } from "@/lib/generationBus";
 
 type AudioTab = "gen" | "edit";
+type EditTool = "tts" | "asr" | "separate";
 
 const AUDIO_EXTS = ["mp3", "wav", "flac", "ogg", "m4a"];
 const SEP_MAX_BYTES = 50 * 1024 * 1024; // 与后端 /api/audio/separate 上限一致
 
+/** 编辑工具注册表(2026-09-02 舞台化:左列切换 + 中央舞台,替代旧三卡堆叠)。 */
+const EDIT_TOOLS: { key: EditTool; icon: IconName; name: string; desc: string; stageEmpty: string }[] = [
+  { key: "tts", icon: "mic", name: "TTS 配音", desc: "文本转语音(IndexTTS2),可上传参考音克隆音色。", stageEmpty: "配音产物将在这里呈现" },
+  { key: "asr", icon: "file", name: "ASR 听写", desc: "上传音视频文件,faster-whisper 转写为带时间轴的文本。", stageEmpty: "转写结果将在这里呈现" },
+  { key: "separate", icon: "audio", name: "人声分离", desc: "Demucs 从音频中分离人声,输出干声 wav(去 BGM 参考音)。", stageEmpty: "分离产物将在这里呈现" },
+];
+
 function fileExt(name: string): string {
   const i = name.lastIndexOf(".");
   return i >= 0 ? name.slice(i + 1).toLowerCase() : "";
-}
-
-/** 工具卡基座:图标 + 标题 + 简述 + 表单/结果区,三张工具卡共用。 */
-function ToolCard({
-  icon,
-  title,
-  desc,
-  children,
-}: {
-  icon: IconName;
-  title: string;
-  desc: string;
-  children: ReactNode;
-}) {
-  return (
-    <Card className="audio-tool-card">
-      <div className="audio-tool-head">
-        <span className="audio-tool-icon">
-          <Icon name={icon} size={18} />
-        </span>
-        <div className="audio-tool-headtext">
-          <span className="audio-tool-title">{title}</span>
-          <span className="audio-tool-desc">{desc}</span>
-        </div>
-      </div>
-      <div className="audio-tool-body">{children}</div>
-    </Card>
-  );
 }
 
 /** 任务进度条(与译制台同款:渐变条 + 百分比/阶段文案)。 */
@@ -95,10 +74,20 @@ function AudioResult({ url, name, durationSec }: { url: string; name: string; du
   );
 }
 
-// ── TTS 配音卡 ──────────────────────────────────────────────
+/** 舞台中央进行中状态(无百分比工具用:spinner + 一句状态)。 */
+function StageBusy({ label }: { label: string }) {
+  return (
+    <div className="audio-stage-busy">
+      <span className="loading-spinner" aria-hidden="true" />
+      <span className="audio-stage-busy-text">{label}</span>
+    </div>
+  );
+}
+
+// ── TTS 配音 ──────────────────────────────────────────────
 // 契约:POST /api/manju/voice { text, emo_text?, ref_audio_url? } → { url, name, duration_sec }(同步);
 // 参考音先经 POST /api/manju/voice-ref multipart 上传,返回的 url 作 ref_audio_url 克隆音色。
-function TtsCard() {
+function useTtsTool() {
   const [text, setText] = useState("");
   const [emo, setEmo] = useState("");
   // 台词/情感描述自动增高(长台词不再 rows=3 截断;情感描述保留 36px 单行下限)
@@ -164,34 +153,43 @@ function TtsCard() {
     }
   }
 
+  return {
+    text, setText, emo, setEmo, textRef, emoRef,
+    refUrl, setRefUrl, refName, setRefName, uploading, synthing, error, setError, result,
+    refInputRef, onRefFile, onSynth, onStopSynth,
+  };
+}
+type TtsTool = ReturnType<typeof useTtsTool>;
+
+function TtsForm({ t }: { t: TtsTool }) {
   return (
-    <ToolCard icon="mic" title="TTS 配音" desc="文本转语音(IndexTTS2),可上传参考音克隆音色。">
+    <>
       <div className="audio-prompt-field">
         <div className="audio-prompt-head">
           <span className="audio-prompt-label">台词文本</span>
           {/* 台词是要念出来的内容,不接提示词优化(会被改写成英文标签串,内容损毁) */}
         </div>
         <Textarea
-          ref={textRef}
+          ref={t.textRef}
           rows={3}
-          value={text}
+          value={t.text}
           placeholder="输入要配音的文本(600 字以内)…"
-          disabled={synthing}
+          disabled={t.synthing}
           aria-label="台词文本"
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => t.setText(e.target.value)}
         />
       </div>
 
       <Field label="情感描述(可选)" hint="如:平静叙述 / 激动 / 低声耳语">
         <Textarea
-          ref={emoRef}
+          ref={t.emoRef}
           rows={1}
           className="audio-oneline-input"
-          value={emo}
+          value={t.emo}
           placeholder="留空则默认语气"
-          disabled={synthing}
+          disabled={t.synthing}
           aria-label="情感描述"
-          onChange={(e) => setEmo(e.target.value)}
+          onChange={(e) => t.setEmo(e.target.value)}
         />
       </Field>
 
@@ -199,24 +197,24 @@ function TtsCard() {
         <Button
           variant="secondary"
           size="sm"
-          loading={uploading}
+          loading={t.uploading}
           icon={<Icon name="upload" size={14} />}
-          disabled={synthing}
-          onClick={() => refInputRef.current?.click()}
+          disabled={t.synthing}
+          onClick={() => t.refInputRef.current?.click()}
         >
-          {uploading ? "上传中…" : "上传参考音色(可选)"}
+          {t.uploading ? "上传中…" : "上传参考音色(可选)"}
         </Button>
-        {refName && (
-          <span className="audio-ref-name" title={refName}>
+        {t.refName && (
+          <span className="audio-ref-name" title={t.refName}>
             <Icon name="check" size={13} />
-            <span className="audio-ref-label">{refName}</span>
+            <span className="audio-ref-label">{t.refName}</span>
             <button
               type="button"
               className="audio-ref-clear"
               aria-label="移除参考音"
               onClick={() => {
-                setRefUrl("");
-                setRefName("");
+                t.setRefUrl("");
+                t.setRefName("");
               }}
             >
               <Icon name="close" size={12} />
@@ -224,47 +222,63 @@ function TtsCard() {
           </span>
         )}
         <input
-          ref={refInputRef}
+          ref={t.refInputRef}
           type="file"
           accept=".mp3,.wav,.flac,.ogg,.m4a"
           style={{ display: "none" }}
-          onChange={(e) => void onRefFile(e.target.files?.[0])}
+          onChange={(e) => void t.onRefFile(e.target.files?.[0])}
         />
       </div>
-
-      {error && <ErrorBar message={error} onClose={() => setError(null)} />}
-      {result && <AudioResult url={result.url} name={result.name} durationSec={result.duration_sec} />}
-
-      <div className="audio-actions">
-        {synthing ? (
-          <Button
-            variant="danger"
-            icon={<Icon name="close" size={14} />}
-            title="中止合成请求(断开到 IndexTTS 的连接)"
-            onClick={onStopSynth}
-          >
-            中止合成
-          </Button>
-        ) : (
-          <Button
-            variant="primary"
-            disabled={!text.trim() || uploading}
-            icon={<Icon name="audio" size={14} />}
-            onClick={() => void onSynth()}
-          >
-            合成配音
-          </Button>
-        )}
-      </div>
-    </ToolCard>
+    </>
   );
 }
 
-// ── ASR 听写卡 ──────────────────────────────────────────────
+function TtsActions({ t }: { t: TtsTool }) {
+  return t.synthing ? (
+    <Button
+      variant="danger"
+      icon={<Icon name="close" size={14} />}
+      title="中止合成请求(断开到 IndexTTS 的连接)"
+      onClick={t.onStopSynth}
+    >
+      中止合成
+    </Button>
+  ) : (
+    <Button
+      variant="primary"
+      disabled={!t.text.trim() || t.uploading}
+      icon={<Icon name="audio" size={14} />}
+      onClick={() => void t.onSynth()}
+    >
+      合成配音
+    </Button>
+  );
+}
+
+function TtsStage({ t }: { t: TtsTool }) {
+  return (
+    <>
+      {t.error && <ErrorBar message={t.error} onClose={() => t.setError(null)} />}
+      {t.result ? (
+        <div className="audio-stage-scroll">
+          <div className="audio-stage-content">
+            <AudioResult url={t.result.url} name={t.result.name} durationSec={t.result.duration_sec} />
+          </div>
+        </div>
+      ) : t.synthing ? (
+        <StageBusy label="IndexTTS 合成中…" />
+      ) : (
+        <span className="empty-console-hint">配音产物将在这里呈现</span>
+      )}
+    </>
+  );
+}
+
+// ── ASR 听写 ──────────────────────────────────────────────
 // 契约:POST /api/dub/upload multipart(video) → { name };POST /api/dub/transcribe { name } → { job_id };
 // GET /api/dub/transcribe/{job_id} 轮询 → segments(复用 lib/api transcribeDub 内置轮询)。
 // 注:后端 dub/upload 当前仅放行 mp4/mov/webm/mkv;音频文件会收到后端 400 原因,原样展示。
-function AsrCard() {
+function useAsrTool() {
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState("");
@@ -326,81 +340,100 @@ function AsrCard() {
     }
   }
 
+  return {
+    file, setFile, busy, stage, pct, error, setError,
+    segments, setSegments, copied, transcript, inputRef,
+    onTranscribe, onStopAsr, onCopy,
+  };
+}
+type AsrTool = ReturnType<typeof useAsrTool>;
+
+function AsrForm({ t }: { t: AsrTool }) {
   return (
-    <ToolCard icon="file" title="ASR 听写" desc="上传音视频文件,faster-whisper 转写为带时间轴的文本。">
-      <div className="audio-ref-row">
-        <Button
-          variant="secondary"
-          size="sm"
-          icon={<Icon name="upload" size={14} />}
-          disabled={busy}
-          onClick={() => inputRef.current?.click()}
-        >
-          选择文件
-        </Button>
-        {file && (
-          <span className="audio-ref-name" title={file.name}>
-            <span className="audio-ref-label">{file.name}</span>
-          </span>
-        )}
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".mp3,.wav,.flac,.ogg,.m4a,.mp4,.mov,.webm,.mkv"
-          style={{ display: "none" }}
-          onChange={(e) => {
-            setFile(e.target.files?.[0] ?? null);
-            setError(null);
-            setSegments([]);
-            if (inputRef.current) inputRef.current.value = "";
-          }}
-        />
-      </div>
-
-      {busy && <ToolProgress pct={pct} label={stage} />}
-      {error && <ErrorBar message={error} onClose={() => setError(null)} />}
-
-      {segments.length > 0 && (
-        <div className="audio-transcript">
-          <div className="audio-transcript-head">
-            <span className="audio-result-info">{segments.length} 个片段</span>
-            <Button variant="ghost" size="sm" icon={<Icon name={copied ? "check" : "file"} size={13} />} onClick={() => void onCopy()}>
-              {copied ? "已复制" : "复制全文"}
-            </Button>
-          </div>
-          <Textarea rows={8} readOnly value={transcript} aria-label="转写结果" />
-        </div>
+    <div className="audio-ref-row">
+      <Button
+        variant="secondary"
+        size="sm"
+        icon={<Icon name="upload" size={14} />}
+        disabled={t.busy}
+        onClick={() => t.inputRef.current?.click()}
+      >
+        选择文件
+      </Button>
+      {t.file && (
+        <span className="audio-ref-name" title={t.file.name}>
+          <span className="audio-ref-label">{t.file.name}</span>
+        </span>
       )}
-
-      <div className="audio-actions">
-        {busy ? (
-          <Button
-            variant="danger"
-            icon={<Icon name="close" size={14} />}
-            title="中止听写作业(cancelJob;本地 Whisper 本段可能跑完但结果丢弃)"
-            onClick={onStopAsr}
-          >
-            中止听写
-          </Button>
-        ) : (
-          <Button
-            variant="primary"
-            disabled={!file}
-            icon={<Icon name="sparkles" size={14} />}
-            onClick={() => void onTranscribe()}
-          >
-            开始听写
-          </Button>
-        )}
-      </div>
-    </ToolCard>
+      <input
+        ref={t.inputRef}
+        type="file"
+        accept=".mp3,.wav,.flac,.ogg,.m4a,.mp4,.mov,.webm,.mkv"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          t.setFile(e.target.files?.[0] ?? null);
+          t.setError(null);
+          t.setSegments([]);
+          if (t.inputRef.current) t.inputRef.current.value = "";
+        }}
+      />
+    </div>
   );
 }
 
-// ── 人声分离卡 ──────────────────────────────────────────────
+function AsrActions({ t }: { t: AsrTool }) {
+  return t.busy ? (
+    <Button
+      variant="danger"
+      icon={<Icon name="close" size={14} />}
+      title="中止听写作业(cancelJob;本地 Whisper 本段可能跑完但结果丢弃)"
+      onClick={t.onStopAsr}
+    >
+      中止听写
+    </Button>
+  ) : (
+    <Button
+      variant="primary"
+      disabled={!t.file}
+      icon={<Icon name="sparkles" size={14} />}
+      onClick={() => void t.onTranscribe()}
+    >
+      开始听写
+    </Button>
+  );
+}
+
+function AsrStage({ t }: { t: AsrTool }) {
+  return (
+    <>
+      {t.error && <ErrorBar message={t.error} onClose={() => t.setError(null)} />}
+      {t.segments.length > 0 ? (
+        <div className="audio-stage-scroll">
+          <div className="audio-stage-content audio-transcript">
+            <div className="audio-transcript-head">
+              <span className="audio-result-info">{t.segments.length} 个片段</span>
+              <Button variant="ghost" size="sm" icon={<Icon name={t.copied ? "check" : "file"} size={13} />} onClick={() => void t.onCopy()}>
+                {t.copied ? "已复制" : "复制全文"}
+              </Button>
+            </div>
+            <Textarea rows={12} readOnly value={t.transcript} aria-label="转写结果" />
+          </div>
+        </div>
+      ) : t.busy ? (
+        <div className="audio-stage-busy-col">
+          <ToolProgress pct={t.pct} label={t.stage} />
+        </div>
+      ) : (
+        <span className="empty-console-hint">转写结果将在这里呈现</span>
+      )}
+    </>
+  );
+}
+
+// ── 人声分离 ──────────────────────────────────────────────
 // 契约:POST /api/audio/separate multipart(file) → { url, duration_sec }(同步);
 // 产物经 GET /api/audio/files/{name} 回读;分离服务 503/502 的 detail 原样展示。
-function SeparateCard() {
+function useSeparateTool() {
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -453,76 +486,104 @@ function SeparateCard() {
     }
   }
 
+  return {
+    file, busy, error, setError, result, inputRef,
+    onPick, onSeparate, onStopSeparate,
+  };
+}
+type SeparateTool = ReturnType<typeof useSeparateTool>;
+
+function SeparateForm({ t }: { t: SeparateTool }) {
   return (
-    <ToolCard icon="audio" title="人声分离" desc="Demucs 从音频中分离人声,输出干声 wav(去 BGM 参考音)。">
-      <div className="audio-ref-row">
-        <Button
-          variant="secondary"
-          size="sm"
-          icon={<Icon name="upload" size={14} />}
-          disabled={busy}
-          onClick={() => inputRef.current?.click()}
-        >
-          选择音频
-        </Button>
-        {file && (
-          <span className="audio-ref-name" title={file.name}>
-            <span className="audio-ref-label">{file.name}</span>
-          </span>
-        )}
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".mp3,.wav,.flac,.ogg,.m4a"
-          style={{ display: "none" }}
-          onChange={(e) => {
-            onPick(e.target.files?.[0]);
-            if (inputRef.current) inputRef.current.value = "";
-          }}
-        />
-      </div>
-
-      {error && <ErrorBar message={error} onClose={() => setError(null)} />}
-      {result && (
-        <AudioResult
-          url={result.url}
-          name={result.url.split("/").pop() ?? "vocals.wav"}
-          durationSec={result.duration_sec}
-        />
+    <div className="audio-ref-row">
+      <Button
+        variant="secondary"
+        size="sm"
+        icon={<Icon name="upload" size={14} />}
+        disabled={t.busy}
+        onClick={() => t.inputRef.current?.click()}
+      >
+        选择音频
+      </Button>
+      {t.file && (
+        <span className="audio-ref-name" title={t.file.name}>
+          <span className="audio-ref-label">{t.file.name}</span>
+        </span>
       )}
+      <input
+        ref={t.inputRef}
+        type="file"
+        accept=".mp3,.wav,.flac,.ogg,.m4a"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          t.onPick(e.target.files?.[0]);
+          if (t.inputRef.current) t.inputRef.current.value = "";
+        }}
+      />
+    </div>
+  );
+}
 
-      <div className="audio-actions">
-        {busy ? (
-          <Button
-            variant="danger"
-            icon={<Icon name="close" size={14} />}
-            title="中止分离请求(断开到 Demucs 的连接)"
-            onClick={onStopSeparate}
-          >
-            中止分离
-          </Button>
-        ) : (
-          <Button
-            variant="primary"
-            disabled={!file}
-            icon={<Icon name="audio" size={14} />}
-            onClick={() => void onSeparate()}
-          >
-            开始分离
-          </Button>
-        )}
-      </div>
-    </ToolCard>
+function SeparateActions({ t }: { t: SeparateTool }) {
+  return t.busy ? (
+    <Button
+      variant="danger"
+      icon={<Icon name="close" size={14} />}
+      title="中止分离请求(断开到 Demucs 的连接)"
+      onClick={t.onStopSeparate}
+    >
+      中止分离
+    </Button>
+  ) : (
+    <Button
+      variant="primary"
+      disabled={!t.file}
+      icon={<Icon name="audio" size={14} />}
+      onClick={() => void t.onSeparate()}
+    >
+      开始分离
+    </Button>
+  );
+}
+
+function SeparateStage({ t }: { t: SeparateTool }) {
+  return (
+    <>
+      {t.error && <ErrorBar message={t.error} onClose={() => t.setError(null)} />}
+      {t.result ? (
+        <div className="audio-stage-scroll">
+          <div className="audio-stage-content">
+            <AudioResult
+              url={t.result.url}
+              name={t.result.url.split("/").pop() ?? "vocals.wav"}
+              durationSec={t.result.duration_sec}
+            />
+          </div>
+        </div>
+      ) : t.busy ? (
+        <StageBusy label="Demucs 分离中…" />
+      ) : (
+        <span className="empty-console-hint">分离产物将在这里呈现</span>
+      )}
+    </>
   );
 }
 
 /**
  * 音频板块(M2):「生成 | 编辑」双页签。
  * - 生成:ACE 文生音乐(统一工作台 lockedKind=audio),舞台独占全高
- * - 编辑:TTS 配音 + ASR 听写 + 人声分离 工具卡(滚动列)
+ * - 编辑:TTS 配音 + ASR 听写 + 人声分离
+ *   2026-09-02 舞台化:旧三卡堆叠 → 左参数列(工具切换+表单+钉底操作)+ 中央舞台
+ *   (空态一行提示 / 进行中进度 / 结果),与图像/视频工作台同一范式;
+ *   三工具状态经 hooks 驻留本层,切换工具不丢草稿。
  */
 export function AudioView() {
   const [tab, setTab] = useState<AudioTab>("gen");
+  const [tool, setTool] = useState<EditTool>("tts");
+  const tts = useTtsTool();
+  const asr = useAsrTool();
+  const sep = useSeparateTool();
+  const activeMeta = EDIT_TOOLS.find((t) => t.key === tool) ?? EDIT_TOOLS[0];
 
   return (
     /* Film Atelier(P0-1):根容器补 .view-shell 节奏,页头不再贴左边缘 */
@@ -553,10 +614,44 @@ export function AudioView() {
           </div>
         </div>
       ) : (
-        <div className="audio-tab-edit">
-          <TtsCard />
-          <AsrCard />
-          <SeparateCard />
+        <div className="audio-edit-body">
+          {/* 左参数列:工具切换 + 当前工具表单(滚动)+ 钉底主操作 */}
+          <aside className="audio-edit-params">
+            <nav className="audio-edit-tools" role="tablist" aria-label="编辑工具">
+              {EDIT_TOOLS.map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={tool === t.key}
+                  title={t.desc}
+                  className={`audio-edit-tool${tool === t.key ? " is-active" : ""}`}
+                  onClick={() => setTool(t.key)}
+                >
+                  <Icon name={t.icon} size={15} />
+                  <span className="audio-edit-tool-name">{t.name}</span>
+                </button>
+              ))}
+            </nav>
+            <div className="audio-edit-form">
+              <p className="audio-edit-tooldesc">{activeMeta.desc}</p>
+              {tool === "tts" && <TtsForm t={tts} />}
+              {tool === "asr" && <AsrForm t={asr} />}
+              {tool === "separate" && <SeparateForm t={sep} />}
+            </div>
+            <div className="audio-edit-actions">
+              {tool === "tts" && <TtsActions t={tts} />}
+              {tool === "asr" && <AsrActions t={asr} />}
+              {tool === "separate" && <SeparateActions t={sep} />}
+            </div>
+          </aside>
+
+          {/* 中央舞台:空态一行提示 / 进行中进度 / 结果;错误条置顶 */}
+          <div className="audio-edit-stage">
+            {tool === "tts" && <TtsStage t={tts} />}
+            {tool === "asr" && <AsrStage t={asr} />}
+            {tool === "separate" && <SeparateStage t={sep} />}
+          </div>
         </div>
       )}
 
@@ -596,77 +691,146 @@ export function AudioView() {
         .audio-workbench :global(.ui-field:has(textarea) .ui-field-hint) {
           display: none;
         }
-        .audio-tab-edit {
+
+        /* ── 编辑 tab 舞台化(2026-09-02):左参数列 + 中央舞台 ──
+           与 GenerateView 同一范式:参数列真实网格位(非浮板),舞台面板岛;
+           工具切换行内 2px 左指示条沿用 SideRail 当前项语言 */
+        .audio-edit-body {
+          flex: 1;
+          min-height: 0;
+          display: flex;
+          gap: var(--space-3);
+          align-items: stretch;
+        }
+        .audio-edit-params {
+          width: 340px;
+          flex-shrink: 0;
+          display: flex;
+          flex-direction: column;
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-panel);
+          overflow: hidden;
+        }
+        /* 工具切换(列顶,hairline 与表单分层) */
+        .audio-edit-tools {
+          flex-shrink: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          padding: var(--space-2);
+          border-bottom: 1px solid var(--border-subtle);
+        }
+        .audio-edit-tool {
+          position: relative;
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+          height: 34px;
+          padding: 0 var(--space-3);
+          border: none;
+          border-radius: var(--radius-control);
+          background: transparent;
+          color: var(--text-muted);
+          font-size: var(--text-label);
+          font-weight: var(--font-medium);
+          cursor: pointer;
+          transition: color var(--duration-fast) var(--ease-standard),
+                      background-color var(--duration-fast) var(--ease-standard);
+        }
+        .audio-edit-tool:hover {
+          color: var(--text-primary);
+          background: var(--bg-surface-2);
+        }
+        .audio-edit-tool.is-active {
+          color: var(--accent);
+          background: var(--accent-soft);
+        }
+        /* 当前工具:左侧 2px 指示条(落入列 padding 缝,不压行内容) */
+        .audio-edit-tool.is-active::before {
+          content: "";
+          position: absolute;
+          left: -4px;
+          top: 8px;
+          bottom: 8px;
+          width: 2px;
+          border-radius: 1px;
+          background: var(--accent);
+        }
+        .audio-edit-form {
           flex: 1;
           min-height: 0;
           overflow-y: auto;
-          /* 水平留白由 .view-shell 承担(与页头同节奏),此处只保留纵向间距 */
-          padding: var(--space-4) 0 var(--space-6);
-          display: flex;
-          flex-direction: column;
-          /* 2026-08-24 排版统一:卡片间距回 16 档(--section-gap) */
-          gap: var(--section-gap);
-          width: 100%;
-          max-width: 880px; /* 内容列 760→880,配合更宽松的卡内留白 */
-          margin: 0 auto; /* 宽屏下内容列居中,不再贴左侧 */
-        }
-
-        /* 工具卡(头部/表单/结果均由子组件渲染,styled-jsx 作用域不跨组件,统一走 :global) */
-        .audio-view :global(.audio-tool-card) {
+          scrollbar-width: thin;
           display: flex;
           flex-direction: column;
           gap: var(--space-4);
-          /* 2026-08-24 排版统一:卡内留白回 16 档 */
           padding: var(--space-4);
-          transition: transform var(--duration-base) var(--ease-standard),
-                      border-color var(--duration-fast) var(--ease-standard),
-                      box-shadow var(--duration-fast) var(--ease-standard);
         }
-        /* hover 升浮反馈:描边加强 + 浮起投影 + 轻微上移 */
-        .audio-view :global(.audio-tool-card:hover) {
-          transform: translateY(-2px);
-          border-color: var(--border-strong);
-          box-shadow: var(--shadow-lift);
-        }
-        .audio-view :global(.audio-tool-head) {
-          display: flex;
-          align-items: center;
-          gap: var(--space-3);
-          padding-bottom: var(--space-4);
-          border-bottom: 1px solid var(--border-subtle); /* 卡头/卡体分层线 */
-        }
-        .audio-view :global(.audio-tool-icon) {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 36px; /* 28→36,与加大后的卡头层级匹配 */
-          height: 36px;
-          border-radius: var(--radius-panel);
-          background: var(--accent-soft);
-          color: var(--accent);
-          flex-shrink: 0;
-        }
-        .audio-view :global(.audio-tool-headtext) {
-          display: flex;
-          flex-direction: column;
-          gap: var(--space-1);
-          min-width: 0;
-        }
-        .audio-view :global(.audio-tool-title) {
-          font-size: var(--text-section); /* 区块标题档位 15px/600 */
-          font-weight: var(--font-semibold);
-          line-height: 1.35;
-          color: var(--text-primary);
-        }
-        .audio-view :global(.audio-tool-desc) {
+        .audio-edit-tooldesc {
+          margin: 0;
           font-size: var(--text-aux);
           color: var(--text-muted);
           line-height: 1.5;
         }
-        .audio-view :global(.audio-tool-body) {
+        /* 主操作钉列底,hairline 与表单分层 */
+        .audio-edit-actions {
+          flex-shrink: 0;
+          display: flex;
+          padding: var(--space-3) var(--space-4);
+          border-top: 1px solid var(--border-subtle);
+        }
+        .audio-edit-actions :global(.btn) {
+          width: 100%;
+        }
+
+        /* 中央舞台:与 generate-results 同款面板岛 */
+        .audio-edit-stage {
+          flex: 1;
+          min-width: 0;
+          min-height: 0;
           display: flex;
           flex-direction: column;
-          gap: var(--space-4); /* 表单分组间距 12→16 */
+          gap: var(--space-3);
+          padding: var(--space-4);
+          background: var(--bg-surface-1);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-panel);
+          overflow: hidden;
+        }
+        /* 结果滚动区:内容限宽居中(播放器/转写不铺满大舞台) */
+        .audio-stage-scroll {
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+          scrollbar-width: thin;
+          display: flex;
+          flex-direction: column;
+        }
+        .audio-stage-content {
+          width: 100%;
+          max-width: 640px;
+          margin: 0 auto;
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-3);
+        }
+        /* 进行中(无百分比):居中 spinner + 状态行 */
+        .audio-stage-busy {
+          margin: auto;
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+          color: var(--text-muted);
+          font-size: var(--text-aux);
+        }
+        /* 进行中(有百分比):居中限宽进度条 */
+        .audio-stage-busy-col {
+          margin: auto;
+          width: min(420px, 80%);
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-2);
         }
 
         /* 提示词区(与 GenerateView prompt-field 同款头部排布) */
@@ -716,7 +880,7 @@ export function AudioView() {
           align-items: center;
           gap: var(--space-1);
           min-width: 0;
-          max-width: 100%; /* 长文件名不顶破卡片 */
+          max-width: 100%; /* 长文件名不顶破面板 */
           padding: 2px var(--space-2);
           background: var(--bg-surface-2);
           border-radius: var(--radius-badge);
@@ -777,15 +941,15 @@ export function AudioView() {
           font-variant-numeric: tabular-nums;
         }
 
-        /* 结果区:嵌套面板加大留白与圆角,与卡体拉开层级 */
+        /* 结果区:嵌套面板加大留白与圆角,与舞台拉开层级 */
         .audio-view :global(.audio-result) {
           display: flex;
           flex-direction: column;
           gap: var(--space-3);
-          padding: var(--space-4); /* 12→16 */
-          background: var(--bg-surface-2); /* 卡内嵌面板只降一档,不跳到 surface-3 */
+          padding: var(--space-4);
+          background: var(--bg-surface-2);
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-panel); /* 8→12,与外层卡片同族 */
+          border-radius: var(--radius-panel);
         }
         .audio-view :global(.audio-player) {
           width: 100%;
@@ -834,18 +998,34 @@ export function AudioView() {
           gap: var(--space-2);
         }
 
-        .audio-view :global(.audio-actions) {
-          display: flex;
-          align-items: center;
-          gap: var(--space-2);
-        }
-
         @media (max-width: 1023px) {
-          /* 生成 tab:滚动由 GenerateView 内部承载(stage.css <1024px 纵向堆叠),
-             此处保持 flex 定高链,舞台不再被工具卡挤压、页面可滚动 */
-          .audio-tab-edit {
-            max-width: none;
-            padding: var(--space-4) 0 var(--space-6);
+          /* 窄屏:参数列/舞台纵向堆叠,页面滚动;工具切换横排 */
+          .audio-edit-body {
+            flex-direction: column;
+            overflow-y: auto;
+          }
+          .audio-edit-params {
+            width: 100%;
+            flex-shrink: 0;
+            overflow: visible;
+          }
+          .audio-edit-tools {
+            flex-direction: row;
+            gap: var(--space-1);
+          }
+          .audio-edit-tool {
+            flex: 1;
+            justify-content: center;
+          }
+          .audio-edit-tool.is-active::before {
+            display: none;
+          }
+          .audio-edit-form {
+            overflow: visible;
+          }
+          .audio-edit-stage {
+            flex-shrink: 0;
+            min-height: 320px;
           }
         }
 
@@ -854,15 +1034,7 @@ export function AudioView() {
           .audio-view {
             padding: var(--space-3) var(--space-3) var(--space-3);
           }
-          .audio-tab-edit {
-            padding: var(--space-4) 0 var(--space-6);
-            gap: var(--space-4);
-          }
-          .audio-view :global(.audio-tool-card) {
-            padding: var(--space-4);
-          }
-          .audio-view :global(.audio-actions .btn) {
-            width: 100%;
+          .audio-edit-actions :global(.btn) {
             min-height: 44px;
           }
           .audio-view :global(.audio-ref-row .btn) {
