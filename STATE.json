@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-01T22:40:00+08:00",
+  "updated_at": "2026-09-02T05:40:00+08:00",
   "studio_console_v1_2026_08_31": {
     "status": "W1_done_deployed_verified",
     "plan": "用户定稿 Studio Console 方案(讨论于 docs 外对话):极简专业工作台,单色中性系,界面退后内容上前",
@@ -2177,5 +2177,15 @@
     "regression": "npm test 929 全绿 / tsc 0 / 干净 build",
     "deploy": "commits 4baeea7(masthead+缓存)+ 1a74243(W4 死代码)+ 7804c2a(W2 修);deploy.sh → core 两轮,toiv-api/toiv-web 健康 200;生产 CSS 实证 page-header-kicker=0、cornernav-trigger=0、empty-console-hint 在位",
     "pending": "github 推送失败(网络超时,ls-remote 无法连接)——origin(gitee)已是 7804c2a,github 待网络恢复后补推 1a74243+7804c2a"
+  },
+  "component_polish_2026_09_02": {
+    "status": "done_deployed_verified",
+    "scope": "用户:全站输入框太丑,组件整体精修(美观+细节)",
+    "changes": "globals.css:.input 弃灰填充(surface-3 无边框)改抬底 surface-1+hairline+新 --shadow-xs whisper 投影,focus 墨线+3px accent-glow 柔光环,caret 跟 accent,新增 disabled/aria-invalid 错误态;select.input 去原生箭头挂 Lucide chevron-down data-URI(亮暗双色);.btn 抬底+xs 投影、primary 叠 md→lg;.at-seg 激活墨丸补 sm 投影浮起;AssistantView 主页对话框补 xs 投影+focus 光环",
+    "bugfix": "生产实测抓获:.generate-params .input 覆盖块 background 简写冲掉 select chevron(background-image 被重置)——整块删除(与全局同构);补回上轮 IDE 回滚吞掉的 promptbar-error 删除+stage-skeleton-lines 骨架行样式",
+    "prod_verify": "浏览器实测(新签 admin token):登录页/首页对话框 focus 光环/作品库搜索框/图片页参数面板全部命中预期;控制台零 JS 错误;生产 CSS 实证 bad-override=0、chevron 在位",
+    "regression": "npm test 929 全绿 / tsc 0 / 干净 build",
+    "deploy": "commits 249b92b(精修)+2a124fe(chevron 修复),双推 gitee+github,deploy.sh → core 健康 200",
+    "note": "遗留观察(非本次范围):作品库视频 URL query 携带 JWT(进浏览器历史/日志),建议改短时效签名 URL;github 推送曾两轮超时后恢复"
   }
 }
