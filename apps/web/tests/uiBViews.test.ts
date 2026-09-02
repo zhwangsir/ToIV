@@ -123,35 +123,43 @@ test("ResourcesView 精简(2026-08-31):管理 tab 移除,无 showAdmin/AdminView
   assert.ok(!page.includes("showAdmin"), "page.tsx 不应再传 showAdmin");
 });
 
-/* ── ④ FusionView 入场 + focus-visible ── */
-test("FusionView bento 卡入场态 + fusion.css hover/focus-visible 同档", () => {
+/* ── ④ FusionView hairline 列表(2026-09-02 W3:bento 卡退役) ── */
+test("FusionView hairline 分行列表 + fusion.css hover/focus-visible 同档", () => {
   const src = readSrc("components/fusion/FusionView.tsx");
-  assert.ok(src.includes("is-mounted"), "缺少 is-mounted 入场类名");
-  assert.ok(src.includes("--delay"), "缺少 --delay 入场错峰样式");
+  assert.ok(src.includes("fusion-list"), "缺分行列表容器");
+  assert.ok(src.includes("fusion-row"), "缺列表行");
+  assert.ok(src.includes('type="button"'), "行应为原生 button(键盘可达)");
+  // bento 装饰语言退役
+  for (const dead of ["fusion-card", "is-mounted", "--delay", "fusion-card-deco", "at-card--lift"]) {
+    assert.ok(!src.includes(dead), `bento 残留:${dead}`);
+  }
 
   const css = readSrc("app/styles/fusion.css");
   assert.ok(css.includes(":focus-visible"), "fusion.css 缺少 focus-visible 态");
   assert.ok(css.includes(":hover"), "fusion.css 缺少 hover 态");
   assert.ok(css.includes("--duration-fast"), "fusion.css 动效未走 token");
   assert.ok(!/font-weight:\s*\d+;/.test(css), "fusion.css 字重硬编码未收编");
+  // 无阴影无位移
+  assert.ok(!css.includes("shadow-lift"), "hover 升浮阴影残留");
+  assert.ok(!css.includes("translateY"), "位移动效残留");
 });
 
 /* ── ⑤ LibraryView 空态 / 操作条 / scrim token ── */
-test("LibraryView 空态结构类名 + library.css token 收编", () => {
+test("LibraryView 空态单行化(2026-09-02 W3)+ library.css token 收编", () => {
   const src = readSrc("components/library/LibraryView.tsx");
-  assert.ok(src.includes('"lib-empty-display"'), "空态标题类名缺失");
-  assert.ok(src.includes('"lib-empty-icon"'), "空态图标类名缺失");
+  // 大图标空态面板退役:lib-empty-display/lib-empty-icon/lib-empty-desc 不再出现
+  assert.ok(!src.includes("lib-empty-display"), "空态大标题残留");
+  assert.ok(!src.includes("lib-empty-icon"), "空态大图标残留");
+  assert.ok(src.includes('"lib-empty-hint"'), "缺单行空态提示");
   assert.ok(src.includes('"lib-actions"'), "hover 快捷操作组类名缺失");
   assert.ok(src.includes('"lib-card-title"'), "卡片提示词标题类名缺失");
 
-  // library.css:32px → var(--text-title)(Studio Console v1);650 → var(--font-semibold);#FFFFFF → var(--text-on-accent)
+  // library.css:32px → 已随空态单行化退役;650 → 无;#FFFFFF → var(--text-on-accent)
   const css = readSrc("app/styles/library.css");
   assert.ok(!css.includes("font-size: 32px"), "空态 32px 硬编码未收编");
   assert.ok(!css.includes("font-weight: 650"), "650 字重硬编码未收编");
   assert.ok(!css.includes("color: #FFFFFF"), "scrim #FFFFFF 硬编码未收编");
-  assert.ok(css.includes("var(--text-title)"), "空态标题档 token 未接入");
   assert.ok(!css.includes("var(--text-display-md)"), "空态不应再用 display 档大标题");
-  assert.ok(css.includes("var(--font-semibold)"), "semibold 字重 token 未接入");
   assert.ok(css.includes("var(--text-on-accent)"), "scrim 文字色 token 未接入");
 });
 

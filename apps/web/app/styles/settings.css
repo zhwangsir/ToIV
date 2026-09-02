@@ -1,58 +1,71 @@
 /* ════════════════════════════════════════════════════════════════════
-   设置视图(第二轮排版重构)
-   页头统一走全局 .page-header*(globals.css 供给:大标题 + 描述 + 右侧操作区,
-   桌面端自动避让左上角导航);本文件只负责分区卡片栅格与卡片内部排版。
-   全部色值走 token;卡片用白玻璃材质(与 cornernav/library 同款 --glass-*)。
+   设置视图(Studio Console W3,2026-09-02 套版)
+   页头移除(2026-08-18 起全站);分区卡去 at-card 阴影/lift,改 hairline 文档流:
+   各区顶 hairline 分隔 + 标题行(小图标 inline,无底托)+ 内容,全色值走 token。
    ════════════════════════════════════════════════════════════════════ */
 
 .settings-view {
   display: flex;
   flex-direction: column;
-  /* 2026-08-24 密度优化:区间距 24→16 */
   gap: var(--space-4);
 }
 
-/* ── 卡片栅格:桌面双列,宽卡通栏,区间距 16px ── */
+/* ── 分区栅格:桌面双列,宽卡通栏;区间距由 hairline + 内边距承担 ── */
 .settings-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-4);
+  column-gap: var(--space-6);
+  row-gap: 0;
 }
 .settings-card--wide {
   grid-column: 1 / -1;
 }
 
-/* 卡片壳:发夹线 + 软阴影 + hover 呼吸由全局 .at-card/.at-card--lift 供给(2026-08-15 Atelier);
-   本类只保留布局(原白玻璃材质收编) */
+/* 分区壳:hairline 文档流(2026-09-02 W3)——无盒无阴影,顶线分隔 */
 .settings-card {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding: var(--space-4);
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--border-subtle);
 }
 
 .settings-card-title {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
   margin: 0;
-  padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--border-subtle);
-  font-size: var(--text-section);
+  font-size: var(--text-body);
   font-weight: var(--font-semibold);
   color: var(--text-primary);
 }
-/* 图标底托:accent-soft 圆角方块,让分区标题从文字行升级为带标识的标题栏 */
+/* 标题小图标:inline muted,无底托(2026-09-02 W3 去 accent-soft 方块) */
 .settings-card-icon {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  color: var(--text-muted);
+}
+/* 标题行尾操作(引擎状态刷新钮):ghost 小图标 */
+.settings-title-action {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
   border-radius: var(--radius-control);
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-standard),
+              background-color var(--duration-fast) var(--ease-standard);
+}
+.settings-title-action:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface-2);
 }
 
 /* ── 键值行(账户/关于):标签升级为 11px 加宽字距的弱层级 ── */
@@ -163,20 +176,17 @@
   }
 }
 
-/* 空态:虚线框 + 图标 + 文案 */
+/* 空态(2026-09-02 W3):虚线框面板 → 单行 muted 提示(empty-console-hint 语言) */
 .settings-engines-empty {
   display: flex;
-  flex-direction: column;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-4);
+  padding: var(--space-2) 0;
   color: var(--text-muted);
-  border: 1px dashed var(--border-subtle);
-  border-radius: var(--radius-control);
 }
 .settings-engines-empty p {
   margin: 0;
-  font-size: var(--text-body);
+  font-size: var(--text-aux);
 }
 
 .settings-engines-error {
@@ -262,11 +272,9 @@
 }
 .settings-engine-dot.is-ok {
   background: var(--ok);
-  box-shadow: 0 0 6px color-mix(in oklab, var(--ok) 50%, transparent);
 }
 .settings-engine-dot.is-err {
   background: var(--err);
-  box-shadow: 0 0 6px color-mix(in oklab, var(--err) 50%, transparent);
 }
 .settings-engine-label {
   color: var(--text-primary);
@@ -307,16 +315,16 @@
 }
 
 /* ── 内容偏好(R18 全局模式,M9 F4) ── */
-/* 18+ 徽标:err 底白字小胶囊,与开关同行收拢(见 .settings-r18-side) */
+/* 18+ 徽标(2026-09-02 W3):红底填充 → err 描边发丝胶囊(警示语义保留,去彩色填充) */
 .settings-r18-badge {
   flex-shrink: 0;
   padding: 1px var(--space-2);
+  border: 1px solid color-mix(in oklab, var(--err) 55%, transparent);
   border-radius: var(--radius-full);
   font-size: var(--text-aux);
   font-weight: var(--font-semibold);
   line-height: 1.5;
-  color: var(--text-on-accent);
-  background: var(--err);
+  color: var(--err);
 }
 /* 说明在左、开关在右,与卡片内既有键值行同节奏 */
 .settings-r18-row {
@@ -365,14 +373,6 @@
   }
   .settings-grid {
     grid-template-columns: 1fr;
-    gap: var(--space-4);
-  }
-  .settings-card {
-    padding: var(--space-4);
-  }
-  /* 触屏无悬停,升浮反馈关闭避免偶发残留位移 */
-  .settings-card:hover {
-    transform: none;
   }
   .settings-about-grid {
     grid-template-columns: 1fr;
@@ -384,12 +384,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .settings-card {
-    transition: none;
-  }
-  .settings-card:hover {
-    transform: none;
-  }
   .settings-engine-skeleton-bar {
     animation: none;
   }

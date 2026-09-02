@@ -31,9 +31,11 @@ function readSrc(rel: string): string {
 }
 
 /* ── ① EntitiesView 初始渲染(SSR 首帧 = 加载骨架) ── */
-test("EntitiesView:页头/新建主体入口/三类 tab/加载骨架渲染", () => {
+test("EntitiesView:工具条(无页头)/新建主体入口/三类 tab/加载骨架渲染", () => {
   const html = renderToStaticMarkup(h(ToastProvider, null, h(EntitiesView, null)));
-  assert.match(html, /主体库/, "缺少页头标题");
+  // 2026-09-02 W3:PageHeader 退役,类别 Tabs + 新建钮合成一行工具条
+  assert.match(html, /ent-toolbar/, "缺少工具条");
+  assert.doesNotMatch(html, /page-header/, "页头应已移除");
   assert.match(html, /新建主体/, "缺少新建入口按钮");
   assert.match(html, /角色 \(0\)/, "缺少角色 tab");
   assert.match(html, /场景 \(0\)/, "缺少场景 tab");

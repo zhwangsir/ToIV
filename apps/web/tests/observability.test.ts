@@ -1,7 +1,7 @@
 /**
  * 观测面板(2026-08-23)单测(node:test,无 DOM):
  * ① 纯函数:formatRate / vramTone / formatGb 分档与边界
- * ② ObservabilityView 初始渲染(SSR 首帧):页头标题 + 加载骨架(useEffect 不跑 → loading)
+ * ② ObservabilityView 初始渲染(SSR 首帧):无页头(W3)+ 加载骨架(useEffect 不跑 → loading)
  * ③ 挂载源码断言:page.tsx 视图注册(importer/VALID_VIEWS/VIEW_META/渲染分支/管理员门控)
  * ④ api.ts 契约:fetchObservability 路径 /api/observability + authHeaders
  * ⑤ mocks/studioApi.ts 替身可调用且快照形状完整(链接期)
@@ -82,9 +82,11 @@ test("formatGb:null 占位 / 整数去小数 / 非整数 1 位", () => {
 });
 
 /* ── ② 初始渲染(SSR 首帧 = 骨架屏) ── */
-test("ObservabilityView:页头标题 + 骨架屏加载态", () => {
+test("ObservabilityView:无页头(2026-09-02 W3)+ 骨架屏加载态", () => {
   const html = renderToStaticMarkup(h(ObservabilityView));
-  assert.match(html, /观测面板/);
+  // 2026-09-02 W3:PageHeader 整段退役(标题/描述/铭牌),细工具条仅数据就绪后出现
+  assert.doesNotMatch(html, /page-header/, "页头应已移除");
+  assert.doesNotMatch(html, /观测面板/, "大标题应已移除");
   // Studio Console v1(2026-08-31):OBSERVABILITY 拉丁 kicker 铭牌已退役
   assert.doesNotMatch(html, /OBSERVABILITY/);
   assert.match(html, /aria-label="观测数据加载中"/);
@@ -100,15 +102,9 @@ test("ObservabilityView:接入图表库四件套 + 新版式区块", () => {
   }
   assert.match(src, /obs-kpis/, "KPI 条");
   assert.match(src, /obs-charts-row/, "图表区第一行");
-  assert.match(src, /obs-live-dot/, "实时脉冲点");
+  assert.match(src, /obs-live-dot/, "实时小圆点");
   assert.match(src, /@media \(max-width: 860px\)/, "860px 响应式断点");
   assert.match(src, /prefers-reduced-motion/, "reduced-motion 关闭动效");
-  // 批 D:品牌渐变色值收编为图表 token(--chart-1/--chart-2,亮暗双模式)
-  assert.match(
-    src,
-    /linear-gradient\(90deg, var\(--chart-1\), var\(--chart-2\)\)/,
-    "VRAM 条品牌渐变应走 chart token",
-  );
   // 批 D:硬编码 hex/rgba 与失效伪 token(--border/--surface-*)清零
   assert.doesNotMatch(src, /#[0-9a-fA-F]{6}\b/, "不应再有硬编码 hex 色值");
   assert.doesNotMatch(src, /rgba?\(\d/, "不应再有 rgba 字面量");
@@ -116,6 +112,44 @@ test("ObservabilityView:接入图表库四件套 + 新版式区块", () => {
   assert.doesNotMatch(src, /var\(--surface-1,/, "失效伪 token --surface-1 应清除");
   assert.match(src, /data\.series\.vram_pct/, "每卡 VRAM 历史 sparkline 数据");
   assert.match(src, /data\.hourly/, "24h 逐小时分桶数据");
+});
+
+/* ── ②b2 Studio Console W3 套版(2026-09-02):页头/渐变/彩色图表色/长动效全退役 ── */
+test("ObservabilityView:W3 单色套版(新类名在 + 旧装饰清零)", () => {
+  const src = readSrc("components/observability/ObservabilityView.tsx");
+  // 页头退役 → 细工具条(实时小圆点 + 更新时间,无标题)
+  assert.doesNotMatch(src, /PageHeader/, "PageHeader 应退役");
+  assert.match(src, /obs-toolbar/, "细工具条");
+  // 空态:共享 Empty(48px 图标 + 标题 + desc)退役 → 单行 muted 提示
+  assert.doesNotMatch(src, /<Empty/, "共享 Empty 组件在本视图退役");
+  assert.match(src, /obs-empty-line/, "空态单行 muted 提示类");
+  assert.match(
+    src,
+    /\.obs-empty-line \{[^}]*font-size: var\(--text-aux\)[^}]*color: var\(--text-muted\)/,
+    "空态提示走 aux/muted",
+  );
+  // 渐变清零:KPI 渐变文字 + VRAM 三档渐变条
+  assert.doesNotMatch(src, /linear-gradient/, "渐变色条/渐变文字应清零");
+  assert.doesNotMatch(src, /background-clip/, "渐变文字 background-clip 应清零");
+  assert.match(src, /\.obs-vram-fill\.is-ok \{\s*background: var\(--accent\);/, "VRAM 正常档=accent 实心");
+  // 图表色板:观测作用域覆盖为中性派生,globals --chart-1..5 不动
+  assert.match(src, /\.obs-view \{[^}]*--chart-1: var\(--accent\)/, "chart-1 收编为 accent");
+  assert.match(src, /\.obs-view \{[^}]*--chart-2: var\(--text-secondary\)/, "chart-2 收编为灰阶");
+  // hover 无 accent 发光,只留 border-strong
+  assert.doesNotMatch(src, /color-mix\(in oklab, var\(--accent\)/, "accent hover 发光应退役");
+  assert.match(src, /border-color: var\(--border-strong\)/, "hover 收敛为 border-strong");
+  // 动效:>200ms 入场/脉冲全删,过渡走 fast/base token
+  assert.doesNotMatch(src, /600ms/, "长动效应清零");
+  assert.doesNotMatch(src, /@keyframes/, "关键帧动画应清零");
+  assert.doesNotMatch(src, /translateY/, "hover 位移动效应清零");
+  // 二级详情大标题收敛为 13px/600 细顶条
+  assert.match(
+    src,
+    /\.obs-detail-title \{\s*margin: 0;\s*font-size: var\(--text-body\);\s*font-weight: 600;/,
+    "详情标题收敛为 body/600",
+  );
+  // 硬编码字阶清零(13/12/11 → token)
+  assert.doesNotMatch(src, /font-size: 1[123]px/, "硬编码 13/12/11px 应清零");
 });
 
 /* ── ②c api.ts 契约:series/hourly 类型 ── */
@@ -343,7 +377,9 @@ test("OrchPanel:轮询 12s + 手动唤醒 + 空态/错误/加载三态", () => {
   assert.match(src, /12_000/, "轮询周期与观测面板一致");
   assert.match(src, /fetchOrchServices/, "GET 数据");
   assert.match(src, /wakeOrchService/, "POST 唤醒");
-  assert.match(src, /<Empty/, "空态组件");
+  // 2026-09-02 W3:共享 Empty 退役 → 单行 muted 提示(obs-empty-line)
+  assert.doesNotMatch(src, /<Empty/, "共享 Empty 组件应退役");
+  assert.match(src, /obs-empty-line/, "空态单行 muted 提示");
   assert.match(src, /<ErrorBar/, "错误条");
   assert.match(src, /Skeleton/, "骨架屏");
   assert.match(src, /aria-label="编排状态"/, "语义标签");
@@ -383,6 +419,13 @@ test("observability.css:obs-orch-* 前缀 + 状态色 token + 零 hex", () => {
   assert.doesNotMatch(src, /#[0-9a-fA-F]{3,8}\b/, "零 hex");
   assert.doesNotMatch(src, /rgba?\(\d/, "零 rgba 字面量");
   assert.match(src, /prefers-reduced-motion/, "reduced-motion 降级");
+  // 2026-09-02 W3:hover 无 accent 发光,只留 border-strong
+  assert.doesNotMatch(src, /color-mix\(in oklab, var\(--accent\)/, "accent hover 发光应退役");
+  assert.match(src, /border-color: var\(--border-strong\)/, "hover 收敛为 border-strong");
+  // 伪字号 token(--text-11/12/14 未定义)清零,走 W3 字阶
+  assert.doesNotMatch(src, /var\(--text-1[124]\)/, "伪字号 token 应清除");
+  assert.match(src, /var\(--text-body\)/, "正文档 token");
+  assert.match(src, /var\(--text-aux\)/, "辅助档 token");
 });
 
 /* ── ⑦g mock 替身形状 ── */
@@ -481,11 +524,12 @@ test("ObservabilityView:OrchPanel isAdmin 接线 + GPU/舰队空态 + 移动端�
   const src = readSrc("components/observability/ObservabilityView.tsx");
   // 页面整体 admin 门控,编排面板唤醒按钮应直接放行(不再误显示「唤醒需管理员」)
   assert.match(src, /<OrchPanel isAdmin \/>/, "OrchPanel 接 isAdmin");
-  // §10 空态:GPU / 舰队
+  // §10 空态:GPU / 舰队(2026-09-02 W3:共享 Empty 退役 → obs-empty-line 单行提示)
   assert.match(src, /data\.gpus\.length === 0/, "GPU 空态分支");
   assert.match(src, /暂无 GPU 数据/, "GPU 空态文案");
   assert.match(src, /fleet\.devices\.length === 0/, "舰队空态分支");
   assert.match(src, /暂无设备/, "舰队空态文案");
+  assert.match(src, /className="obs-empty-line"/, "空态单行 muted 提示");
   // §10 移动端:服务清单表横向滚动 + 返回按钮 44px 触达
   assert.match(src, /obs-svc-wrap/, "表格滚动容器");
   assert.match(src, /min-height: 44px/, "返回按钮触达 ≥44px");

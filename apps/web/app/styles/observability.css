@@ -2,6 +2,7 @@
    编排状态区(OrchPanel)样式
    - 前缀 obs-orch-*;状态色走 token(--ok/--warn/--err/--text-muted)
    - 卡片网格 / 汇总条 / 徽标 / 错误截断 / 唤醒按钮 / 折叠区箭头
+   - 2026-09-02 W3:hover 仅 border-strong,无 accent 发光;字号走 W3 字阶 token
    - 遵守 prefers-reduced-motion;零 hex/rgb 字面量
    ════════════════════════════════════════════════════════════════════ */
 
@@ -21,7 +22,7 @@
   background: var(--bg-surface-1);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-panel);
-  font-size: var(--text-12);
+  font-size: var(--text-body);
   color: var(--text-muted);
 }
 
@@ -58,11 +59,11 @@
   background: var(--bg-surface-1);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-panel);
-  transition: border-color var(--duration-fast) var(--ease-out);
+  transition: border-color var(--duration-fast) var(--ease-standard);
 }
 
 .obs-orch-card:hover {
-  border-color: color-mix(in oklab, var(--accent) 35%, transparent);
+  border-color: var(--border-strong);
 }
 
 .obs-orch-card--running { border-left: 3px solid var(--ok); }
@@ -86,7 +87,7 @@
   background: var(--warn-soft);
   border: 1px solid var(--warn);
   border-radius: var(--radius-control);
-  font-size: var(--text-11);
+  font-size: var(--text-aux);
   color: var(--warn);
 }
 
@@ -97,7 +98,7 @@
 /* 唤醒二次确认弹窗正文 */
 .obs-orch-wake-confirm {
   margin: 0;
-  font-size: var(--text-12);
+  font-size: var(--text-body);
   color: var(--text-secondary);
   line-height: 1.6;
   word-break: break-all;
@@ -112,14 +113,14 @@
 
 .obs-orch-name {
   margin: 0;
-  font-size: var(--text-14);
+  font-size: var(--text-body);
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .obs-orch-unit {
   margin: 0;
-  font-size: var(--text-11);
+  font-size: var(--text-aux);
   color: var(--text-muted);
   font-family: var(--font-mono);
   overflow: hidden;
@@ -142,13 +143,13 @@
 }
 
 .obs-orch-meta-item dt {
-  font-size: var(--text-11);
+  font-size: var(--text-label);
   color: var(--text-muted);
 }
 
 .obs-orch-meta-item dd {
   margin: 0;
-  font-size: var(--text-12);
+  font-size: var(--text-body);
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
   overflow: hidden;
@@ -164,7 +165,7 @@
   padding: var(--space-1) var(--space-2);
   background: var(--err-soft);
   border-radius: var(--radius-control);
-  font-size: var(--text-11);
+  font-size: var(--text-aux);
   color: var(--err);
   overflow: hidden;
 }
@@ -189,7 +190,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  font-size: var(--text-11);
+  font-size: var(--text-aux);
   color: var(--text-muted);
 }
 
@@ -212,7 +213,7 @@
   background: var(--bg-surface-1);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-panel);
-  transition: border-color var(--duration-fast) var(--ease-out);
+  transition: border-color var(--duration-fast) var(--ease-standard);
 }
 
 .obs-orch-summary-toggle::-webkit-details-marker {
@@ -220,7 +221,7 @@
 }
 
 .obs-orch-summary-toggle:hover {
-  border-color: color-mix(in oklab, var(--accent) 35%, transparent);
+  border-color: var(--border-strong);
 }
 
 .obs-orch-summary-arrow {
@@ -230,7 +231,7 @@
   border-right: 2px solid var(--text-muted);
   border-bottom: 2px solid var(--text-muted);
   transform: rotate(45deg);
-  transition: transform var(--duration-fast) var(--ease-out);
+  transition: transform var(--duration-fast) var(--ease-standard);
 }
 
 .obs-orch-details:not([open]) .obs-orch-summary-arrow {

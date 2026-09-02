@@ -295,12 +295,12 @@ test("LibraryView 工具条:搜索 / 类型 chips / 排序 / 密度切换 / 批�
   assert.match(html, /lib-thumb-skel/, "缺少加载骨架");
 });
 
-/* ── ⑥ 空态渲染 ── */
-test("LibraryEmptyState:细线框图标 + 暂无作品 + 去创作 CTA", () => {
+/* ── ⑥ 空态渲染(2026-09-02 W3:单行化) ── */
+test("LibraryEmptyState:单行 muted 提示 + 行内去创作 CTA", () => {
   const html = renderToStaticMarkup(h(LibraryEmptyState, { onCreate: () => {} }));
-  assert.match(html, /lib-empty-icon/, "空态图标类名缺失");
-  assert.match(html, /lib-empty-display/, "空态标题类名缺失");
-  assert.match(html, /暂无作品/, "空态标题文案缺失");
+  assert.match(html, /lib-empty-hint/, "单行提示类名缺失");
+  assert.doesNotMatch(html, /lib-empty-icon|lib-empty-display/, "大图标/大标题应退役");
+  assert.match(html, /暂无作品/, "空态文案缺失");
   assert.match(html, /去创作/, "缺少去创作 CTA");
 });
 
@@ -366,12 +366,15 @@ test("LibraryView 新结构类名锚点 + library.css 16/9 与 token 收编", ()
 
   const css = readSrc("app/styles/library.css");
   assert.ok(css.includes("aspect-ratio: 16 / 9"), "缩略图未固定 16/9");
-  // Studio Console v1(2026-08-31):空态标题自 display 档收为标题档
-  assert.ok(css.includes("var(--text-title)"), "空态标题档 token 未接入");
+  // 2026-09-02 W3:空态面板/页头退役,计数入工具条;工具条去玻璃改实底+hairline
   assert.ok(!css.includes("var(--text-display-md)"), "空态不应再用 display 档大标题");
-  assert.ok(css.includes("var(--font-semibold)"), "semibold 字重 token 未接入");
   assert.ok(css.includes("var(--text-on-accent)"), "scrim 文字色 token 未接入");
   assert.ok(css.includes("position: sticky"), "工具条未 sticky");
+  // 工具条块级检查(灯箱/NSFW 遮罩等处 backdrop-filter 仍合法,不能全文断言)
+  const toolbar = css.slice(css.indexOf(".lib-toolbar {"), css.indexOf(".lib-toolbar {") + 400);
+  assert.ok(!toolbar.includes("backdrop-filter"), "工具条玻璃材质应已退役");
+  assert.ok(toolbar.includes("background: var(--bg-canvas)"), "工具条应为实底");
+  assert.ok(!css.includes("lib-card-in"), "卡片错落入场动画应已退役");
   assert.ok(!css.includes("font-size: 32px"), "空态 32px 硬编码未收编");
   assert.ok(!css.includes("font-weight: 650"), "650 字重硬编码未收编");
   assert.ok(!css.includes("color: #FFFFFF"), "scrim #FFFFFF 硬编码未收编");

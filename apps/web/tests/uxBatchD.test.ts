@@ -144,15 +144,11 @@ test("DramaView:项目列表失败给持久错误态 + 重试(不再只 toast)",
 });
 
 /* ── ⑤ LibraryView ── */
-test("LibraryView:主列表 + 回收站双页头收编 PageHeader", () => {
+test("LibraryView:双 PageHeader 已退役(2026-09-02 W3),计数入工具条 + 回收站细顶条", () => {
   const src = readSrc("components/library/LibraryView.tsx");
-  assert.match(src, /import \{ PageHeader \} from "@\/components\/ui\/PageHeader"/);
-  const count = (src.match(/<PageHeader[\s\S]{0,80}className="lib-header"/g) ?? []).length;
-  assert.equal(count, 2, "作品库与回收站两处页头都应走 PageHeader");
-  assert.ok(
-    !src.includes('<header className="page-header lib-header">'),
-    "手写 header 结构应清除",
-  );
+  assert.ok(!/import \{ PageHeader \}|<PageHeader/.test(src), "PageHeader 应已整体退役(主列表 + 回收站)");
+  assert.ok(src.includes("lib-trash-head"), "回收站细顶条缺失");
+  assert.ok(src.includes("lib-count-pill"), "作品计数应并入工具条尾");
 });
 
 test("LibraryView:灯箱 3D 操作条伪 token 回退与野值清零", () => {

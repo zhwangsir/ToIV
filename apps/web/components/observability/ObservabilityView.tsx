@@ -12,9 +12,7 @@ import {
   type FleetSummary,
   type ObservabilitySnapshot,
 } from "@/lib/api";
-import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { Skeleton } from "@/components/ui/Skeleton";
 import {
   BarChart,
@@ -121,7 +119,7 @@ function FleetSection({
         设备舰队({online}/{fleet.devices.length} 在线)
       </h2>
       {fleet.devices.length === 0 ? (
-        <Empty icon="box" title="暂无设备" desc="舰队注册表为空,请检查 fleet 配置" />
+        <p className="obs-empty-line">暂无设备 · 舰队注册表为空,请检查 fleet 配置</p>
       ) : (
         <div className="obs-fleet-grid">
           {fleet.devices.map((d) => (
@@ -379,7 +377,7 @@ function DeviceDetailView({
   );
 }
 
-/** KPI 数字:key 变更触发 600ms 淡入上移(reduced-motion 下由全局 CSS 关闭)。 */
+/** KPI 数字:tabular-nums 等宽数字;key 随值变更触发重挂载(2026-09-02 W3:长入场动画已删)。 */
 function KpiNumber({ value, className }: { value: string; className?: string }) {
   return (
     <span key={value} className={`obs-kpi-num${className ? ` ${className}` : ""}`}>
@@ -566,7 +564,7 @@ function ObsSkeleton() {
 }
 
 /**
- * 观测面板(2026-08-24 重做):深色科技风数据大屏(仅管理员)。
+ * 观测面板(2026-09-02 W3 套版):Studio Console 单色中性数据页(仅管理员)。
  * 层级:KPI 数字 > 趋势图(队列时序/构成 donut/逐小时堆叠柱)> GPU 细节。
  * 数据来自 GET /api/observability 聚合快照(含 series 时序 + hourly 分桶),12s 轮询;
  * 静默刷新不清空旧数据,图表/CSS 过渡接管重绘,不闪屏。
@@ -654,21 +652,18 @@ export function ObservabilityView() {
   return (
     <div className="obs-view view-shell">
       <ChartStyles />
-      <PageHeader
-        title="观测面板"
-        desc="设备舰队 · 队列 · 成功率 · GPU 负载 实时聚合(12s 自动刷新)"
-        actions={
-          data ? (
-            <span className="obs-live">
-              <span key={data.generated_at} className="obs-live-dot" aria-hidden="true" />
-              <span className="obs-live-text">实时</span>
-              <span className="obs-updated">
-                更新于 {new Date(data.generated_at).toLocaleTimeString("zh-CN")}
-              </span>
+      {/* 细工具条(2026-09-02 W3 页头移除):无标题,右侧实时小圆点 + 更新时间 */}
+      {data && (
+        <div className="obs-toolbar">
+          <span className="obs-live">
+            <span key={data.generated_at} className="obs-live-dot" aria-hidden="true" />
+            <span className="obs-live-text">实时</span>
+            <span className="obs-updated">
+              更新于 {new Date(data.generated_at).toLocaleTimeString("zh-CN")}
             </span>
-          ) : undefined
-        }
-      />
+          </span>
+        </div>
+      )}
       {error && <ErrorBar message={error} onClose={() => setError(null)} />}
       {loading && !data ? (
         <div role="status" aria-label="观测数据加载中">
@@ -699,7 +694,7 @@ export function ObservabilityView() {
           <section className="obs-card" aria-label="GPU 负载">
             <h2 className="obs-card-title">GPU 负载(VRAM)</h2>
             {data.gpus.length === 0 ? (
-              <Empty icon="box" title="暂无 GPU 数据" desc="舰队节点未上报 GPU 指标" />
+              <p className="obs-empty-line">暂无 GPU 数据 · 舰队节点未上报 GPU 指标</p>
             ) : (
               <div className="obs-gpus">
                 {data.gpus.map((gpu) => (
@@ -739,6 +734,18 @@ function ObsStyles() {
           flex-direction: column;
           height: 100%;
           overflow-y: auto;
+          /* W3 单色:图表色板在本视图作用域收编为中性派生(globals --chart-1..5 不动) */
+          --chart-1: var(--accent);
+          --chart-2: var(--text-secondary);
+          --chart-3: var(--text-muted);
+          --chart-4: var(--border-strong);
+          --chart-5: var(--text-3);
+        }
+        /* 细工具条(2026-09-02 W3 页头移除):仅右侧实时指示 */
+        .obs-toolbar {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
         }
         .obs-live {
           display: inline-flex;
@@ -750,22 +757,24 @@ function ObsStyles() {
           height: 8px;
           border-radius: 50%;
           background: var(--ok);
-          animation: obs-live-pulse 1.2s ease-out 1;
-          box-shadow: 0 0 0 0 color-mix(in oklab, var(--ok) 50%, transparent);
-        }
-        @keyframes obs-live-pulse {
-          0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--ok) 55%, transparent); }
-          100% { box-shadow: 0 0 0 10px transparent; }
+          flex-shrink: 0;
         }
         .obs-live-text {
-          font-size: 12px;
-          color: var(--ok);
-          font-weight: 600;
+          font-size: var(--text-aux);
+          color: var(--text-muted);
         }
         .obs-updated {
-          font-size: 12px;
+          font-size: var(--text-aux);
           color: var(--text-muted);
           font-variant-numeric: tabular-nums;
+        }
+        /* 空态单行 muted 提示(empty-console-hint 语言;共享 Empty 组件在本视图退役) */
+        .obs-empty-line {
+          margin: 0;
+          padding: var(--space-4) 0;
+          font-size: var(--text-aux);
+          color: var(--text-muted);
+          text-align: center;
         }
         .obs-body {
           display: flex;
@@ -781,27 +790,23 @@ function ObsStyles() {
         }
         .obs-kpi {
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-md, 10px);
+          border-radius: var(--radius-control);
           padding: var(--space-2, 8px) var(--space-3, 12px);
           background: var(--bg-surface-1);
-          transition: border-color 600ms ease;
+          transition: border-color var(--duration-fast) var(--ease-standard);
         }
         .obs-kpi:hover {
-          border-color: color-mix(in oklab, var(--accent) 35%, transparent);
+          border-color: var(--border-strong);
         }
         .obs-kpi-num {
           display: block;
           font-size: 24px;
           font-weight: 700;
           font-variant-numeric: tabular-nums;
-          animation: obs-kpi-in 600ms ease;
         }
         .obs-kpi-rate .obs-kpi-num {
           font-size: 30px;
-          background: linear-gradient(90deg, var(--chart-1), var(--chart-2));
-          -webkit-background-clip: text;
-          background-clip: text;
-          color: transparent;
+          color: var(--text-primary);
         }
         .obs-kpi-held .obs-kpi-num {
           color: var(--warn);
@@ -809,29 +814,25 @@ function ObsStyles() {
         .obs-kpi-running .obs-kpi-num {
           color: var(--run);
         }
-        @keyframes obs-kpi-in {
-          from { opacity: 0.2; transform: translateY(4px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
         .obs-kpi-label {
           margin-top: 2px;
-          font-size: 12px;
+          font-size: var(--text-aux);
           color: var(--text-muted);
         }
         /* ── 卡片/图表 ── */
         .obs-card {
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-lg, 14px);
+          border-radius: var(--radius-panel);
           padding: var(--space-3, 12px);
           background: var(--bg-surface-1);
-          transition: border-color 600ms ease;
+          transition: border-color var(--duration-fast) var(--ease-standard);
         }
         .obs-card:hover {
-          border-color: color-mix(in oklab, var(--accent) 30%, transparent);
+          border-color: var(--border-strong);
         }
         .obs-card-title {
           margin: 0 0 var(--space-2, 8px);
-          font-size: 13px;
+          font-size: var(--text-body);
           font-weight: 600;
           color: var(--text-muted);
           letter-spacing: 0.04em;
@@ -846,22 +847,22 @@ function ObsStyles() {
           align-items: center;
           justify-content: center;
           min-height: 200px;
-          font-size: 12px;
+          font-size: var(--text-aux);
           color: var(--text-muted);
           border: 1px dashed var(--border-subtle);
-          border-radius: var(--radius-md, 10px);
+          border-radius: var(--radius-control);
         }
         .obs-held-reasons {
           list-style: none;
           margin: 0;
           padding: var(--space-2, 8px) var(--space-3, 12px);
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-md, 10px);
+          border-radius: var(--radius-control);
           background: var(--bg-surface-1);
           display: flex;
           flex-direction: column;
           gap: 6px;
-          font-size: 12px;
+          font-size: var(--text-aux);
         }
         .obs-held-reasons li {
           display: flex;
@@ -885,15 +886,15 @@ function ObsStyles() {
         }
         .obs-gpu {
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-md, 10px);
+          border-radius: var(--radius-control);
           padding: var(--space-3, 12px);
           display: flex;
           flex-direction: column;
           gap: var(--space-2, 8px);
-          transition: border-color 600ms ease;
+          transition: border-color var(--duration-fast) var(--ease-standard);
         }
         .obs-gpu:hover {
-          border-color: color-mix(in oklab, var(--accent) 35%, transparent);
+          border-color: var(--border-strong);
         }
         .obs-gpu.is-offline {
           opacity: 0.55;
@@ -902,7 +903,7 @@ function ObsStyles() {
           display: flex;
           align-items: center;
           gap: 8px;
-          font-size: 13px;
+          font-size: var(--text-body);
         }
         .obs-dot {
           width: 8px;
@@ -928,7 +929,7 @@ function ObsStyles() {
         }
         .obs-fleet-card {
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-md, 10px);
+          border-radius: var(--radius-control);
           padding: var(--space-3, 12px);
           background: var(--bg-surface-1);
           display: flex;
@@ -938,11 +939,10 @@ function ObsStyles() {
           font: inherit;
           color: inherit;
           cursor: pointer;
-          transition: border-color 600ms ease, transform 200ms ease;
+          transition: border-color var(--duration-fast) var(--ease-standard);
         }
         .obs-fleet-card:hover {
-          border-color: color-mix(in oklab, var(--accent) 45%, transparent);
-          transform: translateY(-1px);
+          border-color: var(--border-strong);
         }
         .obs-fleet-card.is-offline {
           opacity: 0.6;
@@ -953,24 +953,24 @@ function ObsStyles() {
           gap: 8px;
         }
         .obs-fleet-name {
-          font-size: 13px;
-          font-weight: 700;
+          font-size: var(--text-body);
+          font-weight: 600;
         }
         .obs-fleet-xy {
           margin-left: auto;
-          font-size: 12px;
+          font-size: var(--text-aux);
           color: var(--text-muted);
           font-variant-numeric: tabular-nums;
         }
         .obs-fleet-role {
-          font-size: 11px;
+          font-size: var(--text-aux);
           color: var(--text-muted);
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
         .obs-fleet-headline {
-          font-size: 12px;
+          font-size: var(--text-aux);
           color: var(--accent);
           font-variant-numeric: tabular-nums;
         }
@@ -983,7 +983,7 @@ function ObsStyles() {
         }
         .obs-back {
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-md, 10px);
+          border-radius: var(--radius-control);
           background: var(--bg-surface-1);
           padding: 6px 12px;
           /* §10 触达 ≥44px(移动端点按) */
@@ -991,28 +991,29 @@ function ObsStyles() {
           display: inline-flex;
           align-items: center;
           font: inherit;
-          font-size: 13px;
+          font-size: var(--text-body);
           color: inherit;
           cursor: pointer;
-          transition: border-color 300ms ease;
+          transition: border-color var(--duration-fast) var(--ease-standard);
         }
         .obs-back:hover {
-          border-color: color-mix(in oklab, var(--accent) 45%, transparent);
+          border-color: var(--border-strong);
         }
+        /* 细顶条:返回钮 + 设备名同行,标题收敛为正文档(2026-09-02 W3) */
         .obs-detail-title {
           margin: 0;
-          font-size: 18px;
-          font-weight: 700;
+          font-size: var(--text-body);
+          font-weight: 600;
         }
         .obs-detail-headline {
-          font-size: 12px;
+          font-size: var(--text-aux);
           color: var(--accent);
         }
         .obs-detail-meta {
           display: flex;
           flex-wrap: wrap;
           gap: 6px 18px;
-          font-size: 12px;
+          font-size: var(--text-aux);
           color: var(--text-muted);
           font-variant-numeric: tabular-nums;
         }
@@ -1024,7 +1025,7 @@ function ObsStyles() {
           width: 100%;
           min-width: 480px;
           border-collapse: collapse;
-          font-size: 12px;
+          font-size: var(--text-aux);
         }
         .obs-svc-table th {
           text-align: left;
@@ -1060,20 +1061,20 @@ function ObsStyles() {
           gap: 4px;
         }
         .obs-usage-title {
-          font-size: 12px;
+          font-size: var(--text-aux);
           font-weight: 600;
           color: var(--text-muted);
         }
         .obs-nas-down {
           justify-content: center;
           color: var(--err);
-          font-size: 13px;
+          font-size: var(--text-body);
           font-weight: 600;
           min-width: 140px;
         }
         .obs-sys-cpu {
           margin-top: var(--space-3, 12px);
-          font-size: 12px;
+          font-size: var(--text-aux);
           color: var(--text-muted);
           font-variant-numeric: tabular-nums;
         }
@@ -1085,25 +1086,25 @@ function ObsStyles() {
         }
         .obs-sys-gpu {
           border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-md, 10px);
+          border-radius: var(--radius-control);
           padding: var(--space-3, 12px);
           display: flex;
           flex-direction: column;
           gap: 6px;
         }
         .obs-gpu-id {
-          font-weight: 700;
+          font-weight: 600;
         }
         .obs-gpu-host {
           color: var(--text-muted);
-          font-size: 12px;
+          font-size: var(--text-aux);
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
         .obs-gpu-queue {
           margin-left: auto;
-          font-size: 12px;
+          font-size: var(--text-aux);
           color: var(--run);
           flex-shrink: 0;
           font-variant-numeric: tabular-nums;
@@ -1116,30 +1117,32 @@ function ObsStyles() {
         .obs-vram-bar {
           flex: 1;
           height: 8px;
-          border-radius: 4px;
+          border-radius: var(--radius-xs);
           background: var(--bg-surface-2);
           overflow: hidden;
         }
         .obs-vram-fill {
           height: 100%;
-          border-radius: 4px;
-          transition: width 600ms ease, background 600ms ease;
+          border-radius: var(--radius-xs);
+          transition: width var(--duration-base) var(--ease-standard),
+            background var(--duration-base) var(--ease-standard);
         }
+        /* 容量语义保留,去彩色渐变(2026-09-02 W3):正常=accent 实心,偏高/危险=语义色 */
         .obs-vram-fill.is-ok {
-          background: linear-gradient(90deg, var(--chart-1), var(--chart-2));
+          background: var(--accent);
         }
         .obs-vram-fill.is-warm {
-          background: linear-gradient(90deg, var(--chart-3), var(--warn));
+          background: var(--warn);
         }
         .obs-vram-fill.is-hot {
-          background: linear-gradient(90deg, var(--chart-5), var(--err));
+          background: var(--err);
         }
         .obs-vram-fill.is-off {
           background: var(--text-muted);
         }
         .obs-vram-text {
           margin-top: 4px;
-          font-size: 12px;
+          font-size: var(--text-aux);
           color: var(--text-muted);
           font-variant-numeric: tabular-nums;
         }
@@ -1151,7 +1154,7 @@ function ObsStyles() {
           display: flex;
           flex-direction: column;
           gap: 4px;
-          font-size: 12px;
+          font-size: var(--text-aux);
         }
         .obs-instances li {
           display: flex;
@@ -1173,7 +1176,7 @@ function ObsStyles() {
           color: var(--run);
         }
         .obs-skel {
-          border-radius: var(--radius-md, 10px);
+          border-radius: var(--radius-control);
         }
         /* ── 响应式:<860px 单列 ── */
         @media (max-width: 860px) {
@@ -1188,13 +1191,11 @@ function ObsStyles() {
           }
         }
         @media (prefers-reduced-motion: reduce) {
-          .obs-kpi-num,
-          .obs-live-dot {
-            animation: none !important;
-          }
           .obs-kpi,
           .obs-card,
           .obs-gpu,
+          .obs-fleet-card,
+          .obs-back,
           .obs-vram-fill {
             transition: none !important;
           }

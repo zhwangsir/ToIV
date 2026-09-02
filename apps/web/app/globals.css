@@ -95,8 +95,10 @@
   /* ── 排版档位(定调文档:20/700 标题 · 15/600 区块 · 14/400 正文 · 12/400 辅助 · 11/500 标签) ── */
   --text-title: 20px;
   --text-section: 15px;
-  --text-body: 14px;
-  --text-aux: 12px;
+  /* Studio Console 字阶(2026-09-02 W3):正文 13 / 辅助 11(用户定稿规格),
+     全局 token 收敛,各视图不再局部硬编码 */
+  --text-body: 13px;
+  --text-aux: 11px;
   --text-label: 11px;
 
   /* ── Display 展示档(2026-08-14 UI-A 新增;落地页/空态大标题,收编 24/32/40 硬编码) ── */

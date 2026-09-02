@@ -148,15 +148,11 @@
   padding: var(--space-3) var(--space-3) var(--space-2);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-card);
-  background: var(--bg-surface-2);
-  transition: border-color var(--duration-fast) var(--ease-standard),
-    transform var(--duration-fast) var(--ease-standard),
-    box-shadow var(--duration-fast) var(--ease-standard);
+  background: var(--bg-surface-1);
+  transition: border-color var(--duration-fast) var(--ease-standard);
 }
 .skill-card:hover {
-  border-color: var(--accent-glow);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-lift);
+  border-color: var(--border-strong);
 }
 .skill-card-head {
   display: flex;

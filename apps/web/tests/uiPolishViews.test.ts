@@ -94,27 +94,28 @@ test("首页空态:极简 console 形态(铭牌+输入框+模型行),门户区�
   assert.ok(!css.includes(".av-eng-label"), "引擎状态小标题样式应退役");
 });
 
-/* ── ⑤ 融合(FusionView + fusion.css) ── */
-test("融合:旗舰卡补流程步骤行辅助信息(数据驱动 flow)", () => {
+/* ── ⑤ 融合(FusionView + fusion.css,2026-09-02 W3 hairline 列表) ── */
+test("融合:五行数据齐全,行结构为 图标+名称/描述+标签+箭头", () => {
   const src = readSrc("components/fusion/FusionView.tsx");
-  assert.ok(src.includes("flow?: string[]"), "FusionApp 缺 flow 辅助信息字段");
-  assert.ok(/flow:\s*\[/.test(src), "旗舰卡数据缺 flow 步骤");
-  assert.ok(src.includes('className="fusion-card-flow"'), "流程步骤行未渲染");
-  assert.ok(src.includes("fusion-card-flow-num"), "流程步骤缺衬线序号");
-
-  const css = readSrc("app/styles/fusion.css");
-  const flow = cssBlock(css, ".fusion-card-flow");
-  assert.ok(flow.includes("border-top: 1px solid var(--border-subtle)"), "流程行缺 hairline 顶分隔");
+  // 五个融合应用入口保留
+  for (const name of ["创作工作室", "数字人", "译制", "图片编辑", "视频剪辑"]) {
+    assert.ok(src.includes(`name: "${name}"`), `缺融合入口:${name}`);
+  }
+  assert.ok(src.includes("fusion-row-icon"), "缺行图标槽");
+  assert.ok(src.includes("fusion-row-main"), "缺名称/描述主列");
+  assert.ok(src.includes("fusion-row-tags"), "缺标签行尾");
+  assert.ok(src.includes('tags.join(" · ")'), "标签应以 · 分隔弱展示");
 });
 
-test("融合:线稿水印转向 text-primary 混色(亮色可辨),pills 描边提强", () => {
+test("融合:行 hairline 分隔 + 无卡片装饰(渐变/水印/徽标/CTA 全退役)", () => {
   const css = readSrc("app/styles/fusion.css");
-  const deco = cssBlock(css, ".fusion-card-deco");
-  assert.ok(deco.includes("var(--text-primary)"), "线稿水印未转向 text-primary 混色");
-  assert.ok(!deco.includes("var(--accent) 15%"), "旧 accent 15% 隐形线稿残留");
-
-  const tag = cssBlock(css, ".fusion-tag");
-  assert.ok(tag.includes("border-color: var(--border-strong)"), "pills 描边未提强到 border-strong");
+  const row = cssBlock(css, ".fusion-row");
+  assert.ok(row.includes("border-bottom: 1px solid var(--border-subtle)"), "行缺 hairline 底分隔");
+  // bento 装饰类全部退役
+  for (const dead of ["fusion-card-deco", "fusion-card-flow", "fusion-card-cta", "fusion-tag", "is-flagship"]) {
+    assert.ok(!css.includes(dead), `bento 装饰残留:${dead}`);
+  }
+  assert.ok(!css.includes("radial-gradient"), "渐变洗光残留");
 });
 
 /* ── ⑥ 作品库(splitCardTitle + 卡脚结构 + 工具行) ── */

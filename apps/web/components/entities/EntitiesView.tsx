@@ -4,12 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AssetPicker } from "@/components/generate/AssetPicker";
 import { Button } from "@/components/ui/Button";
-import { Empty } from "@/components/ui/Empty";
 import { Icon } from "@/components/ui/Icon";
 import { Field, Input, Textarea } from "@/components/ui/Input";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { Modal } from "@/components/ui/Modal";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { Tabs } from "@/components/ui/Tabs";
 import { useToast } from "@/components/ui/Toast";
 import {
@@ -508,54 +506,55 @@ export function EntitiesView() {
 
   return (
     <div className="ent-view view-shell">
-      <PageHeader
-        title="主体库"
-        desc="角色 / 场景 / 道具三类主体跨项目复用:生成页「引用主体」、助手 entity_ids、短剧角色一致性共用此库。"
-        actions={
+      {/* 页头移除(2026-09-02 W3):类别 Tabs + 新建钮合成一行工具条;
+          用途说明收进新建钮 title */}
+      <div className="ent-toolbar">
+        <Tabs
+          items={(Object.keys(KIND_LABEL) as EntityKind[]).map((k) => ({
+            key: k,
+            label: `${KIND_LABEL[k]} (${counts[k] ?? 0})`,
+          }))}
+          current={kind}
+          onChange={(k) => setKind(k as EntityKind)}
+          ariaLabel="主体类别"
+        />
+        <Button
+          variant="primary"
+          size="sm"
+          icon={<Icon name="upload" size={14} />}
+          title="主体跨项目复用:生成页「引用主体」、助手 entity_ids、短剧角色一致性共用此库"
+          onClick={() => {
+            setEditing(null);
+            setFormOpen(true);
+          }}
+        >
+          新建主体
+        </Button>
+      </div>
+      {loading ? (
+        <LoadingBlock variant="grid" count={6} />
+      ) : error ? (
+        /* 空态/错误态(2026-09-02 W3):大图标 Empty → 单行 muted 提示 + 行内操作 */
+        <div className="ent-empty-row">
+          <span className="ent-empty-text">加载失败:{error}</span>
+          <Button variant="ghost" size="sm" onClick={() => void load()}>重试</Button>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="ent-empty-row">
+          <span className="ent-empty-text">
+            还没有{KIND_LABEL[kind]}主体——创建后可在生成页「引用主体」与助手中复用
+          </span>
           <Button
-            variant="primary"
-            icon={<Icon name="upload" size={14} />}
+            variant="ghost"
+            size="sm"
             onClick={() => {
               setEditing(null);
               setFormOpen(true);
             }}
           >
-            新建主体
+            新建{KIND_LABEL[kind]}主体
           </Button>
-        }
-      />
-      <Tabs
-        items={(Object.keys(KIND_LABEL) as EntityKind[]).map((k) => ({
-          key: k,
-          label: `${KIND_LABEL[k]} (${counts[k] ?? 0})`,
-        }))}
-        current={kind}
-        onChange={(k) => setKind(k as EntityKind)}
-        ariaLabel="主体类别"
-      />
-      {loading ? (
-        <LoadingBlock variant="grid" count={6} />
-      ) : error ? (
-        <Empty icon="error" title="加载失败" desc={error} action={
-          <Button variant="secondary" onClick={() => void load()}>重试</Button>
-        } />
-      ) : filtered.length === 0 ? (
-        <Empty
-          icon="users"
-          title={`还没有${KIND_LABEL[kind]}主体`}
-          desc="创建后可在生成页「引用主体」与助手中复用,角色支持三视图锁定一致性。"
-          action={
-            <Button
-              variant="primary"
-              onClick={() => {
-                setEditing(null);
-                setFormOpen(true);
-              }}
-            >
-              新建{KIND_LABEL[kind]}主体
-            </Button>
-          }
-        />
+        </div>
       ) : (
         <div className="ent-grid">
           {filtered.map((e) => {
@@ -668,6 +667,26 @@ export function EntitiesView() {
           display: flex;
           flex-direction: column;
           gap: var(--section-gap, 16px);
+        }
+        /* 工具条(2026-09-02 W3 页头移除):类别 Tabs 在左,新建钮在右 */
+        .ent-toolbar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: var(--space-3, 12px);
+          flex-wrap: wrap;
+        }
+        /* 空态/错误态:单行 muted 提示 + 行内 ghost 操作(empty-console-hint 语言) */
+        .ent-empty-row {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: var(--space-2, 8px);
+          padding: var(--space-6, 24px) 0;
+        }
+        .ent-empty-text {
+          font-size: var(--text-aux, 11px);
+          color: var(--text-muted);
         }
         .ent-grid {
           display: grid;

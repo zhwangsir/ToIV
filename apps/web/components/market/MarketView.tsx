@@ -4,7 +4,6 @@ import { lazy, Suspense, useState } from "react";
 
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
-import { PageHeader } from "@/components/ui/PageHeader";
 
 const AppMarketView = lazy(() =>
   import("@/components/apps/AppMarketView").then((m) => ({ default: m.AppMarketView })),
@@ -36,28 +35,23 @@ export function MarketView() {
 
   return (
     <div className="market-view view-shell">
-      {/* 页头:UI-A PageHeader;market-head 经 className 透传,样式走 :global(见下) */}
-      <PageHeader
-        className="market-head"
-        title="市场"
-        desc="应用 · 技能 一站式发现与管理工作台"
-        actions={
-          <div className="at-seg" role="tablist" aria-label="市场">
-            {items.map((i) => (
-              <button
-                key={i.key}
-                type="button"
-                role="tab"
-                aria-selected={tab === i.key}
-                className={`at-seg-btn${tab === i.key ? " is-active" : ""}`}
-                onClick={() => setTab(i.key as MarketTab)}
-              >
-                {i.label}
-              </button>
-            ))}
-          </div>
-        }
-      />
+      {/* 页头移除(2026-09-02 W3):段控独立窄行,与音频页 audio-mode-row 同款 */}
+      <div className="market-mode-row">
+        <div className="at-seg" role="tablist" aria-label="市场">
+          {items.map((i) => (
+            <button
+              key={i.key}
+              type="button"
+              role="tab"
+              aria-selected={tab === i.key}
+              className={`at-seg-btn${tab === i.key ? " is-active" : ""}`}
+              onClick={() => setTab(i.key as MarketTab)}
+            >
+              {i.label}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="market-body">
         {/* 内层错误边界(UI-B):子视图渲染/chunk 加载异常时只降级内容区,
             页头 tab 条保持可用,切换 tab(key 变更)即自动复位边界 */}
@@ -80,9 +74,11 @@ export function MarketView() {
           flex-direction: column;
           height: 100%;
         }
-        /* 页头元素在 PageHeader 组件内渲染,scoped 选择器跨不过组件边界,须 :global */
-        .market-view :global(.market-head) {
+        /* 段控窄行(页头已移除):首屏全给内容 */
+        .market-mode-row {
           flex-shrink: 0;
+          display: flex;
+          padding: 0 0 var(--space-3);
         }
         .market-body {
           flex: 1;

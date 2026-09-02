@@ -41,7 +41,6 @@ import { ModelViewer } from "@/components/ui/ModelViewer";
 import { Button } from "@/components/ui/Button";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Modal } from "@/components/ui/Modal";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { Popover } from "@/components/ui/Popover";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
@@ -145,17 +144,14 @@ function ImageThumb({ job, blurred = false }: { job: JobItem; blurred?: boolean 
   );
 }
 
-/** 作品库空态(库本身为空):细线框图标 + 一行引导 + 去创作 CTA(Studio Console v1:长描述退役)。 */
+/** 作品库空态(库本身为空):单行 muted 提示 + 行内「去创作」(2026-09-02 W3 大图标面板退役)。 */
 export function LibraryEmptyState({ onCreate }: { onCreate?: () => void }) {
   return (
     <div className="lib-empty">
-      <div className="lib-empty-icon" aria-hidden="true">
-        <Icon name="image" size={26} strokeWidth={1.2} />
-      </div>
-      <h2 className="lib-empty-display">暂无作品</h2>
+      <span className="lib-empty-hint">暂无作品</span>
       {onCreate && (
         <Button
-          variant="primary"
+          variant="ghost"
           size="sm"
           icon={<Icon name="create" size={14} />}
           onClick={onCreate}
@@ -749,24 +745,9 @@ export function LibraryView(props?: LibraryViewProps) {
     <div
       className={`single-view library-view${density === "compact" ? " is-compact" : ""}${batchMode ? " is-batch" : ""}`}
     >
-      {/* 页头走共享 PageHeader(批 D 收编手写结构);
-          Studio Console v1(2026-08-31):MEDIA ATELIER kicker 与 masthead 覆盖已退役 */}
-      <PageHeader
-        className="lib-header"
-        title="作品库"
-        desc="全部生成产物统一收录,支持检索、复用提示词与批量管理"
-        actions={
-          <span className="lib-count-pill">
-            {loading
-              ? "加载中…"
-              : error
-                ? "加载失败"
-                : `${filtered.length} 件作品`}
-          </span>
-        }
-      />
+      {/* 页头移除(2026-09-02 W3):计数胶囊并入工具条尾部 */}
 
-      {/* 工具条(sticky):搜索 / 类型 chips / 内容分级 / 排序 / 密度 / 批量管理;
+      {/* 工具条(sticky):搜索 / 类型 chips / 内容分级 / 排序 / 密度 / 批量管理 / 计数;
           文件夹下钻视图隐藏(返回主网格即恢复) */}
       {!openFolder && (
       <div className="lib-toolbar">
@@ -918,6 +899,15 @@ export function LibraryView(props?: LibraryViewProps) {
           >
             回收站
           </Button>
+
+          {/* 作品计数(2026-09-02 W3:页头移除,计数并入工具条尾) */}
+          <span className="lib-count-pill">
+            {loading
+              ? "加载中…"
+              : error
+                ? "加载失败"
+                : `${filtered.length} 件作品`}
+          </span>
         </div>
       </div>
       )}
@@ -961,21 +951,21 @@ export function LibraryView(props?: LibraryViewProps) {
         )}
 
         {!error && !loading && resultEmpty && (
+          /* 结果空态(2026-09-02 W3):大图标面板 → 单行 muted 提示 + 行内清空;
+             搜索范围注释收进 title 悬浮 */
           <div className="lib-empty lib-empty--result">
-            <div className="lib-empty-icon" aria-hidden="true">
-              <Icon name="search" size={26} strokeWidth={1.2} />
-            </div>
-            <h2 className="lib-empty-display">没有匹配的作品</h2>
-            <p className="lib-empty-desc">
-              当前筛选 / 搜索条件下没有结果,试试调整关键词或清空全部条件。
-            </p>
-            {/* 搜索范围明示:客户端过滤只覆盖已加载分页,避免「搜不到=不存在」的误导 */}
-            {search.trim() && (jobs?.length ?? 0) > 0 && (
-              <p className="lib-empty-scope">
-                注:搜索仅覆盖已加载的 {jobs?.length ?? 0} 件作品,更早的作品需向下滚动加载后可搜。
-              </p>
-            )}
+            <span
+              className="lib-empty-hint"
+              title={
+                search.trim() && (jobs?.length ?? 0) > 0
+                  ? `搜索仅覆盖已加载的 ${jobs?.length ?? 0} 件作品,更早的作品需向下滚动加载后可搜`
+                  : undefined
+              }
+            >
+              没有匹配的作品——试试调整关键词或清空全部条件
+            </span>
             <Button
+              variant="ghost"
               size="sm"
               icon={<Icon name="close" size={14} />}
               onClick={clearQuery}
@@ -2324,39 +2314,35 @@ export function LibraryTrashView({ onBack, onRestored }: LibraryTrashViewProps) 
 
   return (
     <div className="single-view library-view">
-      {/* 回收站页头同款收编为 PageHeader(批 D);操作槽类名 lib-trash-* 保留(e2e 锚点) */}
-      <PageHeader
-        className="lib-header"
-        title="回收站"
-        desc="删除的作品在此保留 72 小时,期间可恢复;到期自动彻底删除"
-        actions={
-          <>
-            {(items?.length ?? 0) > 0 && (
-              <Button
-                size="sm"
-                variant="danger"
-                className="lib-trash-purge-all"
-                icon={<Icon name="delete" size={14} />}
-                onClick={() => {
-                  setPurgeError(null);
-                  setConfirmPurgeAll(true);
-                }}
-              >
-                清空回收站
-              </Button>
-            )}
-            <Button
-              size="sm"
-              variant="secondary"
-              className="lib-trash-back"
-              icon={<Icon name="chevron-left" size={14} />}
-              onClick={onBack}
-            >
-              返回作品库
-            </Button>
-          </>
-        }
-      />
+      {/* 回收站细顶条(2026-09-02 W3 PageHeader 退役):返回 + 标题 + 说明 + 清空;
+          操作槽类名 lib-trash-* 保留(e2e 锚点) */}
+      <header className="lib-trash-head">
+        <Button
+          size="sm"
+          variant="ghost"
+          className="lib-trash-back"
+          icon={<Icon name="chevron-left" size={14} />}
+          onClick={onBack}
+        >
+          返回作品库
+        </Button>
+        <span className="lib-trash-title">回收站</span>
+        <span className="lib-trash-desc">删除的作品保留 72 小时,到期自动彻底删除</span>
+        {(items?.length ?? 0) > 0 && (
+          <Button
+            size="sm"
+            variant="danger"
+            className="lib-trash-purge-all"
+            icon={<Icon name="delete" size={14} />}
+            onClick={() => {
+              setPurgeError(null);
+              setConfirmPurgeAll(true);
+            }}
+          >
+            清空回收站
+          </Button>
+        )}
+      </header>
 
       <div className="lib-body">
         {error && !loading && (
@@ -2383,14 +2369,9 @@ export function LibraryTrashView({ onBack, onRestored }: LibraryTrashViewProps) 
         )}
 
         {!error && !loading && trashEmpty && (
+          /* 回收站空态(2026-09-02 W3):单行 muted 提示,72h 说明已在细顶条 */
           <div className="lib-empty">
-            <div className="lib-empty-icon" aria-hidden="true">
-              <Icon name="delete" size={26} strokeWidth={1.2} />
-            </div>
-            <h2 className="lib-empty-display">回收站是空的</h2>
-            <p className="lib-empty-desc">
-              删除的作品会在这里保留 72 小时,期间随时可以恢复到作品库。
-            </p>
+            <span className="lib-empty-hint">回收站是空的</span>
           </div>
         )}
 

@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
-import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
@@ -212,21 +211,18 @@ export function AppMarketView() {
           </div>
 
           {!filtering && builtin.length + pub.length + mine.length === 0 ? (
-            <Empty
-              icon="store"
-              title="应用市场暂无应用"
-              desc="内置应用由后端注册表提供,稍后可点「重试」刷新"
-              action={
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  icon={<Icon name="refresh" size={13} />}
-                  onClick={() => void refresh()}
-                >
-                  重试
-                </Button>
-              }
-            />
+            /* 整库空态(2026-09-02 W3):大图标 Empty → 单行 muted 提示 + 行内重试 */
+            <p className="apps-filter-empty apps-empty-all">
+              应用市场暂无应用——内置应用由后端注册表提供
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={<Icon name="refresh" size={13} />}
+                onClick={() => void refresh()}
+              >
+                重试
+              </Button>
+            </p>
           ) : (
             <>
               {filtering && mine.length + builtin.length + pub.length === 0 && (

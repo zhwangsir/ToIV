@@ -44,40 +44,57 @@
 
 /* ── 页头:masthead 覆盖(拉丁 kicker「MEDIA ATELIER」::before + Fraunces 展示标题
    + 编辑双线)已随 Studio Console v1(2026-08-31)退役,统一走全局 .page-header* ── */
-/* 作品计数:去填充,衬线数字 + hairline 围合,编辑页码感 */
+/* 作品计数(2026-09-02 W3):页头移除后并入工具条尾,去衬线/围合,纯 muted 小字 */
 .lib-count-pill {
   display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-3);
-  background: transparent;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-full);
-  font-family: var(--font-display);
+  align-items: center;
   font-size: var(--text-aux);
-  color: var(--text-secondary);
+  color: var(--text-muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  min-width: 5em;
-  justify-content: center;
 }
 
-/* ── 工具条:悬浮玻璃命令条 ────────────────────────────────────────── */
+/* ── 工具条:sticky 实底 + 底部 hairline(2026-09-02 W3 去玻璃丸) ─────── */
 .lib-toolbar {
   position: sticky;
-  top: var(--space-2);
+  top: 0;
   z-index: var(--z-sticky);
   display: flex;
   align-items: center;
   gap: var(--space-2);
   flex-wrap: wrap;
-  padding: var(--space-2);
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-panel);
-  box-shadow: var(--glass-highlight), var(--shadow-md);
+  padding: var(--space-2) 0;
+  /* 2026-09-02 W3 去玻璃:悬浮玻璃丸 → 实底 + 底部 hairline(滚动内容压线而过) */
+  background: var(--bg-canvas);
+  border-bottom: 1px solid var(--border-subtle);
+}
+/* 回收站细顶条(2026-09-02 W3):与 apps-runner-head 同款语言 */
+.lib-trash-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 36px;
+  padding: var(--space-1) 0 var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.lib-trash-title {
+  font-size: var(--text-body);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+.lib-trash-desc {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-aux);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lib-trash-head .lib-trash-purge-all {
+  margin-left: auto;
+  flex-shrink: 0;
 }
 /* 全局 toast(fixed 右上角,z-toast)会盖住 sticky 工具条右侧控件;
    右侧控件组抬层,toast 出现时仍可看可点 */
@@ -337,7 +354,7 @@
   margin-top: var(--space-3);
 }
 
-/* ── 卡片:媒体优先,错落入场(一次编排的页面亮相) ───────────────────── */
+/* ── 卡片:媒体优先(2026-09-02 W3:错落入场动画退役,超 200ms 动效预算) ── */
 .lib-card {
   position: relative;
   background: transparent;
@@ -348,66 +365,27 @@
      估算高度防滚动条跳动(16/9 缩略图 + 双行卡脚 ≈ 240,auto 记住实测值) */
   content-visibility: auto;
   contain-intrinsic-size: auto 240px;
-  animation: lib-card-in var(--duration-slow) var(--ease-emphasized) both;
-}
-/* 错落入场:前 16 张逐级延迟,其后同拍(大数据量下不拖尾) */
-.lib-card:nth-child(1) { animation-delay: 0ms; }
-.lib-card:nth-child(2) { animation-delay: 30ms; }
-.lib-card:nth-child(3) { animation-delay: 60ms; }
-.lib-card:nth-child(4) { animation-delay: 90ms; }
-.lib-card:nth-child(5) { animation-delay: 120ms; }
-.lib-card:nth-child(6) { animation-delay: 150ms; }
-.lib-card:nth-child(7) { animation-delay: 180ms; }
-.lib-card:nth-child(8) { animation-delay: 210ms; }
-.lib-card:nth-child(9) { animation-delay: 240ms; }
-.lib-card:nth-child(10) { animation-delay: 270ms; }
-.lib-card:nth-child(11) { animation-delay: 300ms; }
-.lib-card:nth-child(12) { animation-delay: 330ms; }
-.lib-card:nth-child(13) { animation-delay: 360ms; }
-.lib-card:nth-child(14) { animation-delay: 390ms; }
-.lib-card:nth-child(15) { animation-delay: 420ms; }
-.lib-card:nth-child(n+16) { animation-delay: 450ms; }
-@keyframes lib-card-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
 }
 .lib-card:focus-visible {
   outline: var(--focus-ring);
   outline-offset: 2px;
 }
-/* hover 呼吸:缩略图整体轻抬 + 媒体慢速放大,卡身不位移 */
-.lib-thumb img,
-.lib-thumb video {
-  transition: transform var(--duration-slow) var(--ease-emphasized);
-}
-.lib-thumb {
-  transition: box-shadow var(--duration-slow) var(--ease-emphasized),
-    border-color var(--duration-slow) var(--ease-emphasized),
-    transform var(--duration-slow) var(--ease-emphasized);
-}
+/* hover/focus(2026-09-02 W3):阴影/浮起/媒体放大全退役,仅描边提强 */
 .lib-card:hover .lib-thumb,
 .lib-card:focus-visible .lib-thumb {
   border-color: var(--border-strong);
-  box-shadow: var(--shadow-lift);
-  transform: translateY(-2px);
-}
-.lib-card:hover .lib-thumb img,
-.lib-card:hover .lib-thumb video,
-.lib-card:focus-visible .lib-thumb img,
-.lib-card:focus-visible .lib-thumb video {
-  transform: scale(1.04);
 }
 .lib-card.is-deleting {
   opacity: 0.4;
   pointer-events: none;
 }
-/* 批量选中:accent 描边环(作用于缩略图外轮廓) */
+/* 批量选中:accent 描边环(作用于缩略图外轮廓);阴影收敛为单根发夹环 */
 .lib-card.is-selected .lib-thumb {
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent), var(--shadow-md);
+  box-shadow: 0 0 0 1px var(--accent);
 }
 
-/* ── 缩略图视口:固定 16/9,媒体 cover,发夹线 + 软阴影 ──────────────── */
+/* ── 缩略图视口:固定 16/9,媒体 cover,发夹线(阴影已随 W3 退役) ─────── */
 .lib-thumb {
   position: relative;
   aspect-ratio: 16 / 9;
@@ -415,7 +393,7 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-control);
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
+  transition: border-color var(--duration-fast) var(--ease-standard);
 }
 .lib-thumb-hit {
   position: relative;
@@ -441,24 +419,9 @@
   object-fit: cover;
   display: block;
 }
-/* running:缩略图微光 shimmer(微光扫过,周期走 token) */
-.lib-thumb.is-running::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    100deg,
-    transparent 20%,
-    var(--glass-bg) 50%,
-    transparent 80%
-  );
-  background-size: 200% 100%;
-  animation: lib-thumb-shimmer var(--duration-loop) linear infinite;
-  pointer-events: none;
-}
-@keyframes lib-thumb-shimmer {
-  0% { background-position: 150% 0; }
-  100% { background-position: -150% 0; }
+/* running(2026-09-02 W3):微光扫光退役(禁 light sweep/呼吸)——静态 accent 发夹环 + 状态 chip 表达「生成中」 */
+.lib-thumb.is-running {
+  border-color: var(--accent);
 }
 
 /* ── 占位卡(生成中/失败/无预览产物) ───────────────────────────────── */
@@ -895,54 +858,20 @@
 .skel-w-1 { width: 60%; }
 .skel-w-2 { width: 40%; }
 
-/* ── 空态(库空 / 查询无结果):细线框面板 + 线框图标 + 引导 + CTA ─────── */
+/* ── 空态(2026-09-02 W3):细线框面板 + 图标 + 大标题全部退役,
+   改单行 muted 提示 + 行内 ghost 操作(empty-console-hint 语言) ─────── */
 .lib-empty {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: var(--space-3);
-  padding: var(--space-12) var(--space-6);
-  background: var(--bg-surface-1);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-panel);
-}
-.lib-empty-icon {
-  display: flex;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  width: 56px;
-  height: 56px;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--border-strong);
-  color: var(--text-muted);
-  margin-bottom: var(--space-1);
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-8) var(--space-4);
 }
-.lib-empty-display {
-  margin: 0;
-  /* Studio Console v1(2026-08-31):空态标题从 Fraunces 展示档(32px)收为正文字号,
-     大标题+长描述的空态英雄区已退役 */
-  font-size: var(--text-title);
-  font-weight: var(--font-semibold);
-  color: var(--text-primary);
-}
-.lib-empty-desc {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-  max-width: 460px;
-  line-height: 1.6;
-}
-/* 搜索范围明示(2026-08-17):客户端过滤只覆盖已加载分页,空态时防「搜不到=不存在」误导 */
-.lib-empty-scope {
-  margin: 0;
+.lib-empty-hint {
   font-size: var(--text-aux);
   color: var(--text-muted);
-  max-width: 460px;
-  line-height: 1.6;
-  padding: var(--space-1) var(--space-3);
-  background: var(--bg-surface-2);
-  border-radius: var(--radius-xs);
 }
 
 .lib-error {
@@ -954,7 +883,7 @@
   color: var(--text-muted);
 }
 
-/* ── 批量浮动操作条:底部居中玻璃丸 ─────────────────────────────────── */
+/* ── 批量浮动操作条:底部居中实底丸(2026-09-02 W3 去玻璃:实底+发夹线+单档投影) ── */
 .lib-batchbar {
   position: fixed;
   left: 50%;
@@ -965,12 +894,10 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-4);
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-full);
-  box-shadow: var(--glass-highlight), var(--shadow-float);
+  box-shadow: var(--shadow-md);
 }
 .lib-batchbar-count {
   font-size: var(--text-aux);

@@ -11,7 +11,6 @@ import {
 } from "@/lib/api";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
@@ -350,11 +349,7 @@ export function OrchPanel({ isAdmin = false }: { isAdmin?: boolean }) {
           ))}
         </div>
       ) : services && services.length === 0 ? (
-        <Empty
-          icon="box"
-          title="暂无编排服务"
-          desc="冷层服务未注册或已全部退役"
-        />
+        <p className="obs-empty-line">暂无编排服务 · 冷层服务未注册或已全部退役</p>
       ) : services ? (
         <div className="obs-orch-grid">
           {services.map((s) => (

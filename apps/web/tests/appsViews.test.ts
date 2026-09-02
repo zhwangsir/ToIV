@@ -48,9 +48,11 @@ test("AppMarketView 三区(内置/公共/我的)+ fork 门控 + 打开按钮(源
   assert.ok(src.includes("打开"), "缺「打开」按钮");
 });
 
-test("AppMarketView 三态接线:Empty/ErrorBar/LoadingBlock + NSFW 客户端过滤(源码)", () => {
+test("AppMarketView 三态接线:空态单行化/ErrorBar/LoadingBlock + NSFW 客户端过滤(源码)", () => {
   const src = readSrc("components/apps/AppMarketView.tsx");
-  assert.ok(src.includes('import { Empty }'), "未导入 Empty(空态)");
+  // 2026-09-02 W3:整库大图标 Empty 退役,改单行 muted 提示 + 行内重试
+  assert.ok(!src.includes('import { Empty }'), "Empty 大图标空态应已退役");
+  assert.ok(src.includes("apps-empty-all"), "缺整库单行空态");
   assert.ok(src.includes('import { ErrorBar }'), "未导入 ErrorBar(错误态)");
   assert.ok(src.includes('import { LoadingBlock }'), "未导入 LoadingBlock(加载态)");
   assert.ok(src.includes("useR18Mode"), "NSFW 过滤应读 R18 模式");
@@ -87,7 +89,9 @@ test("AppRunnerView 提交链:buildRunValues 载荷 → runApp → trackJob(禁�
   assert.ok(src.includes("trackJob("), "应复用 lib/trackJob 跟踪作业");
   assert.ok(src.includes("requiredParamLabel"), "必填缺口应卡控提交");
   assert.ok(src.includes("disabledReason"), "禁用原因提示缺失");
-  assert.ok(src.includes('backLabel="返回市场"'), "缺返回市场入口");
+  // 2026-09-02 W3:PageHeader 退役,返回入口收进细顶条
+  assert.ok(src.includes("返回市场"), "缺返回市场入口");
+  assert.ok(src.includes("apps-runner-head"), "缺工作台细顶条");
 });
 
 test("AppRunnerView 失败复位:trackJob 终态后表单不卡「正在提交」(P1 回归)", () => {

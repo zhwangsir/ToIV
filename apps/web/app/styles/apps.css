@@ -125,7 +125,7 @@
   padding: var(--space-2) 0 var(--space-1);
 }
 
-/* ── 应用卡:同行等高(foot 压底),hover 升浮 ── */
+/* ── 应用卡:同行等高(foot 压底);hover 仅描边提强(2026-09-02 W3 去阴影/位移) ── */
 .apps-card {
   display: flex;
   flex-direction: column;
@@ -133,15 +133,17 @@
   padding: var(--space-3) var(--space-3) var(--space-2);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-panel);
-  background: var(--bg-surface-2);
-  transition: border-color var(--duration-fast) var(--ease-standard),
-    transform var(--duration-fast) var(--ease-standard),
-    box-shadow var(--duration-fast) var(--ease-standard);
+  background: var(--bg-surface-1);
+  transition: border-color var(--duration-fast) var(--ease-standard);
 }
 .apps-card:hover {
-  border-color: var(--accent-glow);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-lift);
+  border-color: var(--border-strong);
+}
+/* 整库空态(单行 muted + 行内重试钮) */
+.apps-empty-all {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 .apps-card-head {
   display: flex;
@@ -231,14 +233,63 @@
   gap: var(--section-gap);
   min-height: 0;
 }
-/* 页头 sticky(2026-09-02 生产实测修复):工作流模式节点流很长,段控不能滚出视口;
-   画布底色实底压盖滚动内容 */
-.apps-runner .page-header {
+/* 工作台细顶条(2026-09-02 W3):PageHeader 大标题/描述退役,改 36px 细条——
+   返回 + 图标 + 名称 + 描述截断 + 右侧段控/用量;sticky 保留(长工作流段控不能滚出视口) */
+.apps-runner-head {
   position: sticky;
   top: 0;
   z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 36px;
+  padding: var(--space-1) 0 var(--space-2);
   background: var(--bg-canvas);
-  padding-top: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.apps-runner-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px var(--space-2);
+  margin-left: calc(-1 * var(--space-2));
+  border: none;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-aux);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+.apps-runner-back:hover {
+  color: var(--text-primary);
+}
+.apps-runner-appicon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-muted);
+}
+.apps-runner-title {
+  font-size: var(--text-body);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+.apps-runner-desc {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-aux);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.apps-runner-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: auto;
+  flex-shrink: 0;
 }
 /* 简洁模式表单(2026-09-02 美化):抬底面板卡,参数行距放宽,提交区 hairline 分隔 */
 .apps-runner-form {

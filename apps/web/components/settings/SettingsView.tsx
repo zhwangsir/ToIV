@@ -8,7 +8,6 @@ import { Icon } from "@/components/ui/Icon";
 import { Button } from "@/components/ui/Button";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { Switch } from "@/components/ui/Switch";
 import { AgeGateModal } from "@/components/ui/AgeGateModal";
 import { ThemePicker } from "@/components/ui/ThemePicker";
@@ -96,25 +95,9 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
 
   return (
     <div className="single-view settings-view">
-      <PageHeader
-        title="设置"
-        desc="账户、界面主题与推理引擎状态总览"
-        icon="settings"
-        actions={
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={<Icon name="refresh" size={13} />}
-            onClick={loadEngines}
-          >
-            刷新状态
-          </Button>
-        }
-      />
-
       <div className="settings-grid">
         {/* ── 账户 ── */}
-        <section className="settings-card at-card at-card--lift" aria-labelledby="settings-account">
+        <section className="settings-card" aria-labelledby="settings-account">
           <h2 className="settings-card-title" id="settings-account">
             <span className="settings-card-icon" aria-hidden="true">
               <Icon name="user" size={14} strokeWidth={1.8} />
@@ -147,7 +130,7 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
         </section>
 
         {/* ── 界面 ── */}
-        <section className="settings-card at-card at-card--lift" aria-labelledby="settings-ui">
+        <section className="settings-card" aria-labelledby="settings-ui">
           <h2 className="settings-card-title" id="settings-ui">
             <span className="settings-card-icon" aria-hidden="true">
               <Icon name="palette" size={14} strokeWidth={1.8} />
@@ -188,7 +171,7 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
 
         {/* ── 引擎状态(只读) ── */}
         <section
-          className="settings-card settings-card--wide at-card at-card--lift"
+          className="settings-card settings-card--wide"
           aria-labelledby="settings-engines"
         >
           <h2 className="settings-card-title" id="settings-engines">
@@ -196,6 +179,16 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
               <Icon name="cpu" size={14} strokeWidth={1.8} />
             </span>
             引擎状态
+            {/* 页头「刷新状态」收编至此(2026-09-02 W3 页头移除):标题行尾 ghost 图标钮 */}
+            <button
+              type="button"
+              className="settings-title-action"
+              aria-label="刷新引擎状态"
+              title="刷新引擎状态"
+              onClick={loadEngines}
+            >
+              <Icon name="refresh" size={13} />
+            </button>
           </h2>
           {enginesError ? (
             <div className="settings-engines-error">
@@ -263,7 +256,7 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
 
         {/* ── 关于 ── */}
         <section
-          className="settings-card settings-card--wide at-card at-card--lift"
+          className="settings-card settings-card--wide"
           aria-labelledby="settings-about"
         >
           <h2 className="settings-card-title" id="settings-about">

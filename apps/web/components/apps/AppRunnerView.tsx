@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/Button";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { useToast } from "@/components/ui/Toast";
 import {
   buildRunValues,
@@ -186,40 +185,47 @@ export function AppRunnerView({ appId, onBack }: AppRunnerViewProps) {
 
   return (
     <div className="single-view apps-runner">
-      <PageHeader
-        icon={(app.icon || "package") as IconName}
-        title={app.name}
-        desc={app.description}
-        onBack={onBack}
-        backLabel="返回市场"
-        actions={
-          <>
-            {/* 简洁/工作流 双模式段控(2026-09-02):工作流把全图展现给用户,最可控 */}
-            <div className="at-seg" role="tablist" aria-label="显示模式">
-              {(
-                [
-                  ["simple", "简洁"],
-                  ["workflow", "工作流"],
-                ] as const
-              ).map(([m, label]) => (
-                <button
-                  key={m}
-                  type="button"
-                  role="tab"
-                  aria-selected={mode === m}
-                  className={`at-seg-btn${mode === m ? " is-active" : ""}`}
-                  onClick={() => setMode(m)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <span className="apps-usage" title="累计使用次数">
-              {app.usage_count} 次使用
-            </span>
-          </>
-        }
-      />
+      {/* 工作台细顶条(2026-09-02 W3 页头移除):返回 + 应用名 + 描述(截断) + 右側段控/用量;
+          sticky 保留——长工作流下段控不能滚出视口 */}
+      <header className="apps-runner-head">
+        <button type="button" className="apps-runner-back" onClick={onBack}>
+          <Icon name="chevron-left" size={13} /> 返回市场
+        </button>
+        <span className="apps-runner-appicon" aria-hidden="true">
+          <Icon name={(app.icon || "package") as IconName} size={14} />
+        </span>
+        <span className="apps-runner-title">{app.name}</span>
+        {app.description && (
+          <span className="apps-runner-desc" title={app.description}>
+            {app.description}
+          </span>
+        )}
+        <span className="apps-runner-head-actions">
+          {/* 简洁/工作流 双模式段控(2026-09-02):工作流把全图展现给用户,最可控 */}
+          <div className="at-seg" role="tablist" aria-label="显示模式">
+            {(
+              [
+                ["simple", "简洁"],
+                ["workflow", "工作流"],
+              ] as const
+            ).map(([m, label]) => (
+              <button
+                key={m}
+                type="button"
+                role="tab"
+                aria-selected={mode === m}
+                className={`at-seg-btn${mode === m ? " is-active" : ""}`}
+                onClick={() => setMode(m)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <span className="apps-usage" title="累计使用次数">
+            {app.usage_count} 次使用
+          </span>
+        </span>
+      </header>
 
       <ErrorBar message={runError} onClose={() => setRunError(null)} />
 
