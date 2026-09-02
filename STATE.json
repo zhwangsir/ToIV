@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-03T01:21:00+08:00",
+  "updated_at": "2026-09-03T01:49:33+08:00",
   "app_seed_36_2026_09_03": {
     "status": "uncommitted_undeployed",
     "files": [
@@ -2314,5 +2314,17 @@
     "prod_verify": "生产实测两轮:六视图 8/8(设置五区 hairline 一致/引擎标签灰系/18+ 描边徽章;市场段控窄行+Runner 细顶条;主体库工具条+单行空态;融合五行列表;作品库实底 sticky 工具条+回收站细顶条);观测台 admin 邮箱 token 复验全过(KPI 纯色/VRAM 实心/无发光 hover)",
     "deploy": "gitee+github 全推(github 首轮超时后补推成功);deploy.sh → core ×3 健康",
     "notes": "观测台门控按 email==='admin' 判定(role=admin 的其他账户也弹回);VRAM 条保留 ok/warm/hot/off 四档语义纯色(平坦非渐变);W4 待清:drama-workbench.css 1919 行死链+6 测试文件戏剧断言、cornernav.css 语义错位、train/backlot 死 .page-header 规则"
+  },
+  "studio_console_w4_deadcode_2026_09_03": {
+    "status": "done_deployed_verified",
+    "commits": [
+      "4922bca"
+    ],
+    "scope": "W4 死代码大扫除(用户批准执行)",
+    "work": "①drama 全链退役:components/drama/(11 文件)+drama-workbench.css(1919 行)+useDramaProject+dramaWorkbench.test.ts,合计 -9329 行;六测试文件断言清理(uiCViews 两例改基座断言保留价值,autoResizeInputs 清单 17→14)②cornernav.css→nav-account.css 更名:剥除 fixed 右上角定位/玻璃触发钮/窄屏媒体规则等死样式(SideRail 底槽覆盖块已承载),375→约 230 行;layout.tsx/taskCenter.test.ts 同步③PageHeader 组件保留(studio/avatartalk/animatic/admin×2/dub 六处活消费方,转版属未来 W3 扩展非死码)",
+    "regression": "npm test 891(drama 专用测试随删,净 -55)/ tsc 0 / 干净 build",
+    "prod_verify": "生产实测 6/6(Playwright 1440×900 桌面会话):侧栏底槽任务中心+账户钮 36px 同形态无玻璃;账户/任务弹层上翻正常;资源中心三 tab 无大标题;控制台零真实错误;drama 入口零残留",
+    "deploy": "gitee+github 双推;deploy.sh → core 健康",
+    "notes": "至此 Studio Console W1-W4 全部收官;后续可选:六个 PageHeader 活消费视图(studio/avatartalk/animatic/dub/admin)的范式统一"
   }
 }
