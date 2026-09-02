@@ -158,16 +158,28 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
   // 引擎说明卡(T2):ⓘ 按钮为 Popover 锚点,卡片内容见 EngineInfoCard
   const [engineInfoOpen, setEngineInfoOpen] = useState(false);
   const engineInfoBtnRef = useRef<HTMLButtonElement | null>(null);
-  // 参数浮板开关:收起时为右下角悬浮球(会话级);窄屏(≤1023px,与 stage.css 浮板底部抽屉档一致)默认收起为 FAB,舞台优先
-  // hydration 安全:首渲(SSR 与客户端水合)恒为展开,挂载后按实际视口校正,
-  // 避免 useState 初始化读 matchMedia 导致服务端/客户端首渲不一致。
+  // 参数浮板开关:收起时为右下角悬浮球;用户显式选择持久化(localStorage toiv_params_open,
+  // 2026-09-02),未选择时按视口默认(宽开窄收)。
+  // hydration 安全:首渲(SSR 与客户端水合)恒为展开,挂载后按存储/视口校正。
   const [paramsOpen, setParamsOpen] = useState(true);
   useEffect(() => {
-    if (
-      typeof window !== "undefined" &&
-      window.matchMedia(`(max-width: ${BREAKPOINTS.lg - 1}px)`).matches
-    ) {
+    if (typeof window === "undefined") return;
+    const stored = localStorage.getItem("toiv_params_open");
+    if (stored === "0" || stored === "1") {
+      setParamsOpen(stored === "1");
+      return;
+    }
+    if (window.matchMedia(`(max-width: ${BREAKPOINTS.lg - 1}px)`).matches) {
       setParamsOpen(false);
+    }
+  }, []);
+  /** 显式开合:写回 localStorage 记忆用户选择。 */
+  const toggleParams = useCallback((open: boolean) => {
+    setParamsOpen(open);
+    try {
+      localStorage.setItem("toiv_params_open", open ? "1" : "0");
+    } catch {
+      /* 隐私模式等写失败静默 */
     }
   }, []);
   const [engines, setEngines] = useState<EngineInfo[] | null>(null);
@@ -1230,7 +1242,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
               <button
                 type="button"
                 className="generate-params-close"
-                onClick={() => setParamsOpen(false)}
+                onClick={() => toggleParams(false)}
                 aria-expanded={true}
                 aria-label="收起参数面板"
                 title="收起参数面板"
@@ -1343,10 +1355,13 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
 
                   {engine && recipes.length > 0 && (
                     <div className="recipes-section">
-                      <h3 className="params-section-title">社区精选配方</h3>
-                      <p className="recipes-hint">
-                        来自社区作品的成熟参数组合(CivitAI 逆向),点击一键回填提示词与 LoRA,可再修改。
-                      </p>
+                      {/* 说明文字收进 title 悬浮(2026-09-02 W2:说明段退役,界面只留功能) */}
+                      <h3
+                        className="params-section-title"
+                        title="来自社区作品的成熟参数组合(CivitAI 逆向),点击一键回填提示词与 LoRA"
+                      >
+                        社区精选配方
+                      </h3>
                       <div className="recipes-list">
                         {recipes.map((r) => (
                           <button
@@ -1395,6 +1410,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
                           size="sm"
                           icon={<Icon name="brush" size={14} />}
                           disabled={gen.isRunning}
+                          title="涂抹指定画面中要动的区域与方向,其余保持静止(可选)"
                           onClick={() => setMotionBrushOpen(true)}
                         >
                           Motion Brush
@@ -1416,9 +1432,6 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
                             </button>
                           </span>
                         )}
-                        <p className="motion-brush-hint">
-                          涂抹指定画面中要动的区域与方向,其余保持静止(可选)。
-                        </p>
                       </div>
                     )}
                     {imageParam && !multiImage && (
@@ -1495,13 +1508,11 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
                         icon={<Icon name="users" size={14} />}
                         disabled={gen.isRunning}
                         onClick={() => setEntityPickerOpen(true)}
+                        title="选中后主体图自动加入参考图,主体的提示词描述注入正向提示词"
                       >
                         引用主体
                       </Button>
                     </div>
-                    <p className="entity-ref-hint">
-                      选中后主体图自动加入参考图(钉定同机 worker),主体的提示词描述注入正向提示词。
-                    </p>
                   </div>
                 )}
 
@@ -1589,7 +1600,7 @@ export function GenerateView({ initialDraft, lockedKind }: GenerateViewProps) {
             <button
               type="button"
               className="generate-params-fab-btn"
-              onClick={() => setParamsOpen(true)}
+              onClick={() => toggleParams(true)}
               aria-expanded={false}
               aria-label="展开参数面板"
               title="展开参数面板"

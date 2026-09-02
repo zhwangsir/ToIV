@@ -788,12 +788,7 @@
   border-top: 1px solid var(--border-subtle);
   padding-top: var(--space-3);
 }
-.recipes-hint {
-  margin: 0;
-  font-size: var(--text-aux);
-  color: var(--text-muted);
-  line-height: 1.5;
-}
+/* recipes-hint/motion-brush-hint/entity-ref-hint 说明段已于 2026-09-02 退役(收进 title) */
 .recipes-list {
   display: flex;
   flex-wrap: wrap;
