@@ -9,7 +9,7 @@
  * 交互:拖空白平移、滚轮缩放(指针为中心)、工具栏 +/-/适配。
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { ParamField } from "@/components/generate/ParamField";
 import { Icon } from "@/components/ui/Icon";
@@ -189,12 +189,18 @@ interface AppWorkflowGraphProps {
   values: Record<string, unknown>;
   onParamChange: (key: string, value: unknown) => void;
   disabled?: boolean;
+  /** 运行操作槽(2026-09-02):浮动在画布右下,改完参数就地跑,不用滚出画布 */
+  runSlot?: ReactNode;
 }
 
 const ZOOM_MIN = 0.2;
 const ZOOM_MAX = 2;
 
-export function AppWorkflowGraph({ app, values, onParamChange, disabled }: AppWorkflowGraphProps) {
+/** 输出类节点(Save 系/Preview 系/合成器):画布上标「出口」徽标,一眼找到产物落点。 */
+const OUTPUT_TYPE_RE =
+  /^(SaveImage|SaveVideo|SaveAudio|SaveAnimatedWEBP|SaveAnimatedPNG|PreviewImage|VHS_VideoCombine|SaveWEBP|ExportAudio|SaveAudioMP3)/i;
+
+export function AppWorkflowGraph({ app, values, onParamChange, disabled, runSlot }: AppWorkflowGraphProps) {
   const wf = app.workflow_json;
   const layout = useMemo(
     () => (wf && Object.keys(wf).length ? layoutWorkflow(wf, app.bindings) : null),
@@ -205,6 +211,13 @@ export function AppWorkflowGraph({ app, values, onParamChange, disabled }: AppWo
   /** 视图变换:scale + translate(屏幕系) */
   const [view, setView] = useState({ s: 1, x: 0, y: 0 });
   const dragRef = useRef<{ px: number; py: number; vx: number; vy: number } | null>(null);
+  /** hover 节点 id(高亮上下游连线) */
+  const [hoverId, setHoverId] = useState<string | null>(null);
+  /** 脉冲高亮节点 id(聚焦导航时) */
+  const [pulseId, setPulseId] = useState<string | null>(null);
+  /** 「可调 n」循环聚焦游标 */
+  const focusIdxRef = useRef(-1);
+  const pulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /** 适配全图(首次挂载 + 图变化时) */
   const fit = useCallback(() => {
@@ -251,8 +264,8 @@ export function AppWorkflowGraph({ app, values, onParamChange, disabled }: AppWo
   );
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
-    /* 只响应空白背景拖拽(节点/表单交互不抢) */
-    if ((e.target as HTMLElement).closest(".wf-node, .wf-canvas-toolbar")) return;
+    /* 只响应空白背景拖拽(节点/工具栏/浮动运行条不抢) */
+    if ((e.target as HTMLElement).closest(".wf-node, .wf-canvas-toolbar, .wf-run-float")) return;
     dragRef.current = { px: e.clientX, py: e.clientY, vx: view.x, vy: view.y };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -268,17 +281,57 @@ export function AppWorkflowGraph({ app, values, onParamChange, disabled }: AppWo
     dragRef.current = null;
   }, []);
 
+  /** 聚焦节点:缩放到 ≥100% 并居中 + 脉冲 1.6s(双击节点头 / 「可调」导航用)。 */
+  const focusNode = useCallback(
+    (id: string) => {
+      const el = containerRef.current;
+      const box = layout?.boxes.find((b) => b.id === id);
+      if (!el || !box) return;
+      setView((v) => {
+        const s = Math.max(v.s, 1);
+        return {
+          s,
+          x: el.clientWidth / 2 - (box.x + box.w / 2) * s,
+          y: el.clientHeight / 2 - (box.y + box.h / 2) * s,
+        };
+      });
+      if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current);
+      setPulseId(id);
+      pulseTimerRef.current = setTimeout(() => setPulseId(null), 1600);
+    },
+    [layout],
+  );
+
   if (!wf || !layout) {
     return <p className="wf-empty">该应用未提供工作流细节</p>;
   }
 
   const boxById = new Map(layout.boxes.map((b) => [b.id, b]));
+  /** 可调节点(按布局序):「可调 n」按钮循环聚焦 */
+  const boundNodeIds = layout.boxes
+    .filter((b) => Object.values(app.bindings).some((bb) => bb.node === b.id))
+    .map((b) => b.id);
+  const focusNextBound = () => {
+    if (!boundNodeIds.length) return;
+    focusIdxRef.current = (focusIdxRef.current + 1) % boundNodeIds.length;
+    focusNode(boundNodeIds[focusIdxRef.current]);
+  };
   /** 输出端口 y:头部中心按 slot 微错开 */
   const outPortY = (slot: number) => HEAD_H / 2 + Math.min(slot, 4) * 5 - 10;
 
   return (
     <div className="wf-canvas-wrap">
       <div className="wf-canvas-toolbar">
+        {boundNodeIds.length > 0 && (
+          <button
+            type="button"
+            className="wf-toolbar-focus"
+            onClick={focusNextBound}
+            title="逐个定位可调节点(自动缩放居中)"
+          >
+            <Icon name="sliders" size={12} /> 可调 {boundNodeIds.length}
+          </button>
+        )}
         <button type="button" aria-label="缩小" onClick={() => zoomBy(0.8)}>
           <Icon name="minus" size={13} />
         </button>
@@ -288,7 +341,9 @@ export function AppWorkflowGraph({ app, values, onParamChange, disabled }: AppWo
         <button type="button" aria-label="适配全图" onClick={fit}>
           <Icon name="maximize" size={13} />
         </button>
-        <span className="wf-canvas-hint">拖动空白平移 · 滚轮缩放 · {layout.boxes.length} 节点</span>
+        <span className="wf-canvas-hint">
+          拖动空白平移 · 滚轮缩放 · 双击节点聚焦 · {layout.boxes.length} 节点
+        </span>
       </div>
       <div
         ref={containerRef}
@@ -318,10 +373,11 @@ export function AppWorkflowGraph({ app, values, onParamChange, disabled }: AppWo
               const bound = Object.values(app.bindings).some(
                 (bb) => bb.node === e.to && bb.field === `inputs.${e.toInput}`,
               );
+              const hot = hoverId !== null && (e.from === hoverId || e.to === hoverId);
               return (
                 <path
                   key={i}
-                  className={`wf-edge${bound ? " is-bound" : ""}`}
+                  className={`wf-edge${bound ? " is-bound" : ""}${hot ? " is-hot" : ""}`}
                   d={edgePath(a.x + a.w, a.y + outPortY(e.fromSlot), b.x, b.y + (b.inPortY[e.toInput] ?? HEAD_H / 2))}
                 />
               );
@@ -339,16 +395,24 @@ export function AppWorkflowGraph({ app, values, onParamChange, disabled }: AppWo
               bound.filter((b) => b.field.startsWith("inputs.")).map((b) => b.field.slice(7)),
             );
             const ioRows = Object.entries(node.inputs ?? {}).filter(([n]) => !boundInputs.has(n));
+            const isOutput = OUTPUT_TYPE_RE.test(node.class_type);
             return (
               <section
                 key={box.id}
-                className={`wf-node${bound.length ? " is-bound" : ""}`}
+                className={`wf-node${bound.length ? " is-bound" : ""}${pulseId === box.id ? " is-pulse" : ""}${hoverId === box.id ? " is-hot" : ""}`}
                 style={{ left: box.x, top: box.y, width: box.w, minHeight: box.h }}
                 aria-label={`节点 ${box.id}`}
+                onMouseEnter={() => setHoverId(box.id)}
+                onMouseLeave={() => setHoverId(null)}
               >
-                <header className="wf-node-head">
+                <header
+                  className="wf-node-head"
+                  title="双击聚焦"
+                  onDoubleClick={() => focusNode(box.id)}
+                >
                   <span className="wf-node-id">#{box.id}</span>
                   <span className="wf-node-type">{node.class_type}</span>
+                  {isOutput && <span className="wf-node-out">出口</span>}
                   {bound.length > 0 && (
                     <span className="wf-node-flag">
                       <Icon name="sliders" size={10} /> 可调
@@ -390,6 +454,8 @@ export function AppWorkflowGraph({ app, values, onParamChange, disabled }: AppWo
             );
           })}
         </div>
+        {/* 浮动运行条(改完参数就地跑,不用滚出画布) */}
+        {runSlot && <div className="wf-run-float">{runSlot}</div>}
       </div>
     </div>
   );

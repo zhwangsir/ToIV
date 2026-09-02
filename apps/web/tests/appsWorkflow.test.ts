@@ -158,3 +158,37 @@ test("AppWorkflowGraph:无工作流兜底文案", () => {
   );
   assert.ok(html.includes("wf-empty"), "缺空态兜底");
 });
+
+test("AppWorkflowGraph:可用性优化——可调导航 + 出口徽标 + 浮动运行条(2026-09-02)", () => {
+  const app = normalizeApp({
+    id: "a3",
+    name: "文生图完整",
+    params_schema: [{ key: "prompt", label: "提示词", type: "textarea" }],
+    bindings: { prompt: { node: "2", field: "inputs.text" } },
+    workflow_json: { ...WF, "9": { class_type: "SaveImage", inputs: { images: ["3", 0] } } },
+  }) satisfies AppItem;
+  const html = renderToStaticMarkup(
+    h(AppWorkflowGraph, {
+      app,
+      values: {},
+      onParamChange: () => {},
+      runSlot: h("button", { className: "run-btn" }, "运行应用"),
+    }),
+  );
+  // 「可调 n」聚焦导航按钮(1 个绑定节点 → 可调 1)
+  assert.ok(html.includes("可调 1"), "缺可调聚焦导航按钮");
+  // 出口徽标(SaveImage 命中 OUTPUT_TYPE_RE)
+  assert.ok(html.includes("wf-node-out") && html.includes("出口"), "出口节点未标记");
+  // 浮动运行条(runSlot 落进 wf-run-float)
+  assert.ok(html.includes("wf-run-float") && html.includes("run-btn"), "浮动运行条未渲染");
+  // 双击聚焦提示
+  assert.ok(html.includes("双击聚焦"), "缺聚焦交互提示");
+});
+
+test("AppWorkflowGraph:无绑定节点时不渲染可调导航", () => {
+  const app = normalizeApp({ id: "a4", name: "纯展示", workflow_json: WF });
+  const html = renderToStaticMarkup(
+    h(AppWorkflowGraph, { app, values: {}, onParamChange: () => {} }),
+  );
+  assert.ok(!html.includes("wf-toolbar-focus"), "无绑定节点不应出现可调导航");
+});

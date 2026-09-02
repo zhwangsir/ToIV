@@ -241,21 +241,38 @@ export function AppRunnerView({ appId, onBack }: AppRunnerViewProps) {
           values={values}
           onParamChange={onParamChange}
           disabled={submitting || running}
+          runSlot={
+            <>
+              <Button
+                variant="primary"
+                icon={<Icon name="zap" size={14} />}
+                loading={submitting || running}
+                disabled={disabledReason != null}
+                onClick={() => void run()}
+              >
+                运行应用
+              </Button>
+              {disabledReason && <span className="apps-disabled-reason">{disabledReason}</span>}
+            </>
+          }
         />
       )}
 
-      <div className="apps-runner-submit">
-        <Button
-          variant="primary"
-          icon={<Icon name="zap" size={14} />}
-          loading={submitting || running}
-          disabled={disabledReason != null}
-          onClick={() => void run()}
-        >
-          运行应用
-        </Button>
-        {disabledReason && <span className="apps-disabled-reason">{disabledReason}</span>}
-      </div>
+      {/* 简洁模式提交条(工作流模式的运行条浮动在画布右下) */}
+      {mode === "simple" && (
+        <div className="apps-runner-submit">
+          <Button
+            variant="primary"
+            icon={<Icon name="zap" size={14} />}
+            loading={submitting || running}
+            disabled={disabledReason != null}
+            onClick={() => void run()}
+          >
+            运行应用
+          </Button>
+          {disabledReason && <span className="apps-disabled-reason">{disabledReason}</span>}
+        </div>
+      )}
 
       {running && (
         <p className="apps-run-status" role="status">
