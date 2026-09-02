@@ -2,7 +2,7 @@
 
 > **目的**：避免 AI 助手反复犯同样的错误，每次会话必须先读本文件
 > **维护者**：设备管家（AI Assistant）
-> **最后更新**：2026-08-30（补 `f480ead` UploadedRef 已在 core，不必重部署）
+> **最后更新**：2026-09-03（workstation :8195 ComfyUI 0.34.0 + 原生 MiniMaxH3AddGuide）
 > **读取规则**：每次会话开始时必须完整阅读本文件，尤其注意「⚠️ 易错点」和「🔒 硬性规则」
 
 ---
@@ -81,7 +81,7 @@
 
 **超分 fleet**：:8261/:8262/:8263 三卡并行 4x-UltraSharp 帧超分,由融合超分链/`scripts/ops/video_4k_upscale_parallel.py` 调用。
 
-**关键服务路径**：ComfyUI=/opt/ComfyUI(venv) · IndexTTS2=/home/merlin/index-tts · H3 实例=/home/merlin/ComfyUI-h3-eval · LongCat=/home/merlin/ComfyUI-longcat · LTX2.5=/home/merlin/ComfyUI-ltx25 · JoyCaption=/opt/toiv-joycaption(transformers 直跑,勿用 vLLM) · pynvml 锁扇用 /opt/nemotron-venv/bin/python(系统 python3 无该库) · **hy3dtex 纹理=/home/merlin/toiv-hy3dtex(原生 hy3dpaint v2-1,torch 2.13+cu130)** · Hunyuan3D Kijai 实例=/home/merlin/ComfyUI-hunyuan3d(:8200 GPU1)
+**关键服务路径**：ComfyUI=/opt/ComfyUI(venv) · IndexTTS2=/home/merlin/index-tts · H3 实例=/home/merlin/ComfyUI-h3-eval（2026-09-03 ComfyUI 0.34.0 git a87667f，含 #15439 MiniMaxH3AddGuide；ImageToVideo/ReferenceToVideo 仍在；INT8/Turbo 未重下） · LongCat=/home/merlin/ComfyUI-longcat · LTX2.5=/home/merlin/ComfyUI-ltx25 · JoyCaption=/opt/toiv-joycaption(transformers 直跑,勿用 vLLM) · pynvml 锁扇用 /opt/nemotron-venv/bin/python(系统 python3 无该库) · **hy3dtex 纹理=/home/merlin/toiv-hy3dtex(原生 hy3dpaint v2-1,torch 2.13+cu130)** · Hunyuan3D Kijai 实例=/home/merlin/ComfyUI-hunyuan3d(:8200 GPU1)
 
 **散热政策(2026-08-16 用户拍板)**：🔒 **无软件温度熔断**——温度高属正常,GPU 自降频即保护,生产禁止以温度为由中止任务;锁扇(NVML SetFanSpeed_v2,fan_guard.py 常驻 /tmp,⚠️ /tmp 是 tmpfs 重启即清,须重传)是吞吐优化;仅持续 ≥95°C 才人工介入。BIOS 机箱风扇曲线已由用户调满速(2026-08-23)。
 
@@ -227,6 +227,12 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - **前端**:任务中心每条目「中止」按钮(confirm 确认 + 中止中防连点 + toast + 即时刷新,样式挂 `--err` 令牌)。
 - **生产实证**:core 上提交 txt2img → 任务中心可见 queued → cancel 返回 `worker_action=interrupted` → 列表消失、DB `status=canceled`、不进回收站。
 - ⚠️ 注意:`deploy/.env` 第 9 行是裸 URL(`http://localhost:3101`),`source` 时会报「没有那个文件或目录」但不中断后续行加载;systemd EnvironmentFile 也能容错。属历史遗留,不影响运行。
+
+### 2026-09-03（设备管家：workstation :8195 ComfyUI 0.30.0→0.34.0）
+
+- **toiv-comfyui-h3** `:8195`（`/home/merlin/ComfyUI-h3-eval`）ComfyUI **0.30.0 → 0.34.0**（git `a87667f`，含 Comfy-Org #15439 `MiniMaxH3AddGuide`）。
+- 原生 `MiniMaxH3AddGuide` 已出现；`ImageToVideo` / `ReferenceToVideo` 仍在。
+- 模型 INT8 / Turbo 未重下。未拉 spark02。
 
 ### 2026-08-30 UX 体验包（ToIV 开发，`eb51c86` 已上线 core，远程未推，不改设备清单）
 

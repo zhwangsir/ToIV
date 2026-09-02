@@ -1,7 +1,24 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-03T03:05:00+08:00",
+  "updated_at": "2026-09-03T03:10:00+08:00",
+  "comfyui_h3_034_2026_09_03": {
+    "source": "设备管家",
+    "host": "workstation :8195 /home/merlin/ComfyUI-h3-eval",
+    "systemd": "toiv-comfyui-h3",
+    "from": "0.30.0",
+    "to": "0.34.0",
+    "git": "a87667f",
+    "includes": "Comfy-Org #15439 MiniMaxH3AddGuide",
+    "nodes_now": [
+      "MiniMaxH3AddGuide",
+      "ImageToVideo",
+      "ReferenceToVideo"
+    ],
+    "weights": "INT8/Turbo not re-downloaded",
+    "spark02": "not pulled",
+    "agents_md": "updated"
+  },
   "h3_app_run_list_binding_2026_09_03": {
     "status": "uncommitted_undeployed",
     "corrects": "h3_phase2_fl2v_r2v_2026_09_03 marketplace_r2v image1-only",
