@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-03T03:48:00+08:00",
+  "updated_at": "2026-09-03T03:56:00+08:00",
   "rh_h3_apps_presets_intent_2026_09_03": {
     "status": "local_landed_uncommitted_no_sha",
     "not": "another engine wrapper layer",
@@ -10,7 +10,9 @@
     "in_progress": "landed locally uncommitted (no SHA): video-entry apps first (advanced engines kept); assistant list_apps/run_app; H3 preset seeding",
     "agents_md": "untouched",
     "local_code": "landed_uncommitted_no_sha",
-    "awaiting": "commit SHA or deploy before thickening"
+    "awaiting": "commit SHA or deploy before thickening",
+    "wrap_up": "complete locally uncommitted no SHA",
+    "tests": "API focused 219, web npm test 910"
   },
   "market_ui_multiupload_2026_09_03": {
     "status": "uncommitted_undeployed",
