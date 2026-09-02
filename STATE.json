@@ -1,7 +1,23 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-03T02:55:00+08:00",
+  "updated_at": "2026-09-03T03:05:00+08:00",
+  "h3_app_run_list_binding_2026_09_03": {
+    "status": "uncommitted_undeployed",
+    "corrects": "h3_phase2_fl2v_r2v_2026_09_03 marketplace_r2v image1-only",
+    "r2v": "images→LoadImage 110–118; video→120/122/124; audio→130–132; extra slots stripped",
+    "fl2v": "still images+last_frame→100/101",
+    "tests": "pytest test_app_seed/test_apps_run/test_apps 75 passed",
+    "marketplace_ui": "ParamField still text; no multi-image upload",
+    "generate_page": "images.max=9 unchanged",
+    "files": [
+      "apps.py",
+      "app_seed.py",
+      "apps/web/lib/apps.ts",
+      "tests"
+    ],
+    "agents_md": "untouched"
+  },
   "h3_phase2_fl2v_r2v_2026_09_03": {
     "status": "uncommitted_undeployed",
     "engines": {
@@ -12,7 +28,7 @@
     },
     "sfw_ref2va_unet": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
     "tests": "pytest test_h3_studio + test_app_seed + test_engine_registry 136 passed",
-    "marketplace_r2v": "binds image1 only (app-run single leaf)",
+    "marketplace_r2v": "list binding fan-out: images LoadImage 110–118, video 120/122/124, audio 130–132; extra slots stripped",
     "generate_page": "images.max=9",
     "fail_closed": "H3 worker without ReferenceToVideo node → 503",
     "files": [
@@ -24,7 +40,10 @@
       "engines.ts",
       "corresponding tests"
     ],
-    "agents_md": "untouched"
+    "agents_md": "untouched",
+    "marketplace_ui": "no multi-image upload yet; ParamField falls back to text",
+    "fl2v_binding": "still images+last_frame → 100/101",
+    "app_run_tests": "pytest test_app_seed/test_apps_run/test_apps 75 passed"
   },
   "app_seed_36_2026_09_03": {
     "status": "uncommitted_undeployed",
