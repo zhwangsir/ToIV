@@ -3018,9 +3018,10 @@ export function AssistantView(props?: AssistantViewProps) {
           background: var(--bg-surface-1);
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-panel);
-          /* Studio Console v1:hairline 描边代替渐变底/光晕/大圆角 */
-          box-shadow: none;
-          transition: border-color var(--duration-fast) var(--ease-standard);
+          /* 2026-09-01 组件精修:whisper 投影 + focus 柔光环,与全局 .input 同语言 */
+          box-shadow: var(--shadow-xs);
+          transition: border-color var(--duration-fast) var(--ease-standard),
+            box-shadow var(--duration-fast) var(--ease-standard);
           overflow: hidden;
         }
         .av-composer-box:hover {
@@ -3028,6 +3029,7 @@ export function AssistantView(props?: AssistantViewProps) {
         }
         .av-composer-box:focus-within {
           border-color: var(--accent);
+          box-shadow: var(--shadow-xs), 0 0 0 3px var(--accent-glow);
         }
         .av-composer-actions {
           position: relative;

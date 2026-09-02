@@ -156,6 +156,8 @@
 
   /* ── 阴影:不用彩色阴影,浮层统一中性灰(浅色主题全面调软) ── */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  /* 控件 whisper 投影(2026-09-01 组件精修):输入框/按钮的纸感微浮,比 sm 更轻 */
+  --shadow-xs: 0 1px 1.5px rgba(0, 0, 0, 0.04);
   --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.07);
   --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.09);
   --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.10);
@@ -669,28 +671,32 @@ img, video {
 /* ========== Common Components(类名兼容旧视图,样式走新 token) ========== */
 
 /* 按钮 */
+/* 按钮(2026-09-01 组件精修:抬底+whisper 投影, hover 描边提强,焦点环统一) */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
-  background: var(--bg-surface-2);
+  background: var(--bg-surface-1);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-control);
+  box-shadow: var(--shadow-xs);
   color: var(--text-primary);
   font-size: var(--text-sm);
   font-weight: var(--font-medium);
   cursor: pointer;
   transition: background-color var(--duration-fast) var(--ease-standard),
               border-color var(--duration-fast) var(--ease-standard),
+              box-shadow var(--duration-fast) var(--ease-standard),
               color var(--duration-fast) var(--ease-standard),
               transform var(--duration-fast) var(--ease-standard);
   white-space: nowrap;
 }
 .btn:hover {
-  background: var(--bg-surface-3);
+  background: var(--bg-surface-2);
   border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
 }
 .btn:disabled {
   opacity: 0.4;
@@ -702,10 +708,12 @@ img, video {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--text-on-accent);
+  box-shadow: var(--shadow-md);
 }
 .btn-primary:hover:not(:disabled) {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
+  box-shadow: var(--shadow-lg);
 }
 
 .btn-ghost {
@@ -754,25 +762,42 @@ img, video {
   }
 }
 
-/* 输入框 */
+/* 输入框(2026-09-01 组件精修:弃灰填充电镀——抬底 surface-1 + hairline 描边 +
+   whisper 投影;focus 墨线 + 柔光环;错误态红边红环;caret 跟 accent) */
 .input {
   width: 100%;
   padding: var(--space-2) var(--space-3);
-  background: var(--bg-surface-3);
-  border: 1px solid transparent;
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-control);
+  box-shadow: var(--shadow-xs);
   color: var(--text-primary);
   font-size: var(--text-base);
+  caret-color: var(--accent);
   transition: border-color var(--duration-fast) var(--ease-standard),
-              background-color var(--duration-fast) var(--ease-standard);
+              background-color var(--duration-fast) var(--ease-standard),
+              box-shadow var(--duration-fast) var(--ease-standard);
 }
 .input:hover {
-  border-color: var(--border-subtle);
+  border-color: var(--border-strong);
 }
 .input:focus {
   outline: none;
   border-color: var(--accent);
-  background: var(--bg-surface-2);
+  box-shadow: var(--shadow-xs), 0 0 0 3px var(--accent-glow);
+}
+.input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* 错误态(aria-invalid 优先,兼容 .is-error 挂钩类) */
+.input[aria-invalid="true"],
+.input.is-error {
+  border-color: var(--err);
+}
+.input[aria-invalid="true"]:focus,
+.input.is-error:focus {
+  box-shadow: var(--shadow-xs), 0 0 0 3px var(--err-soft);
 }
 .input::placeholder {
   color: var(--text-muted);
@@ -783,8 +808,18 @@ textarea.input {
   font-family: inherit;
   line-height: var(--leading-md);
 }
+/* 下拉:去原生箭头,挂 Lucide chevron-down(data-URI 内联,亮暗双色) */
 select.input {
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: var(--space-8);
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364666C' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--space-3) center;
+}
+[data-mode="dark"] select.input {
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239A9EA6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 
 /* 卡片/面板(2026-08-24 密度优化:padding 20→16,hover 阴影升一档 + 轻微升浮) */

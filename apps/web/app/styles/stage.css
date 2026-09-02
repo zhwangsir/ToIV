@@ -227,6 +227,24 @@
   border-radius: var(--radius-panel);
   background: var(--bg-surface-1);
 }
+/* 骨架下两条假文行(2026-09-01 补缺:类名在 ResultPanel 使用但此前无样式定义) */
+.stage-skeleton-lines {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+}
+.stage-skeleton-line {
+  display: block;
+  width: 62%;
+  height: 10px;
+  border-radius: var(--radius-full);
+  background: var(--bg-surface-2);
+}
+.stage-skeleton-line.is-short {
+  width: 38%;
+}
 .stage-progress {
   display: flex;
   align-items: center;
@@ -1145,12 +1163,6 @@
   background: var(--run);
   border-color: var(--run);
   color: var(--text-on-accent);
-}
-
-.promptbar-error {
-  margin: 0;
-  font-size: var(--text-aux);
-  color: var(--err);
 }
 
 /* 可拆卸 chips:只读展示当前值,点击展开原有选择控件 */
