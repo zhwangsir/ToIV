@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-02T06:20:00+08:00",
+  "updated_at": "2026-09-02T07:00:00+08:00",
   "studio_console_v1_2026_08_31": {
     "status": "W1_done_deployed_verified",
     "plan": "用户定稿 Studio Console 方案(讨论于 docs 外对话):极简专业工作台,单色中性系,界面退后内容上前",
@@ -2196,5 +2196,13 @@
     "prod_verify": "生产浏览器实测:Flux2 文生图 11 节点工作流全渲染(绑定节点 accent 左缘+可调徽标+内联表单),跨模式值共享正常,控制台零 JS 错误",
     "regression": "pytest 2983 / npm test 937(+8) / tsc 0 / 干净 build",
     "deploy": "commits 15c0d47(双模式)+022a5af(sticky),双推,deploy.sh → core 健康 200"
+  },
+  "platform_rag_2026_09_02": {
+    "status": "done_deployed_verified",
+    "scope": "用户:把项目所有情况/功能/页面/调用方法做成 RAG 交给 AI 助手,用户自然语言能找到功能并办成",
+    "finding": "RAG 基建已存在(rag.py 知识库 + Qwen3-Embedding-4B @workstation:9302 + 每轮 _rag_context 注入 + search_knowledge 工具),缺的是能力语料",
+    "work": "新建 knowledge/platform-capabilities.md:18 页导航总览/任务食谱(用户说法→行动映射)/23 引擎速查/内置应用/助手行动规矩;84 块中新增 8 块",
+    "prod_verify": "生产实测 2/2:「视频翻译成英文配音」→ navigate_view(dub)+四步流程解答;「训练自己画风的模型」→ search_knowledge 命中+list_models 查证;embedding 服务在线",
+    "deploy": "commit 7e4d491,双推,deploy.sh --skip-web → core(知识文件随 api rsync,索引按内容 hash 首用重建)"
   }
 }
