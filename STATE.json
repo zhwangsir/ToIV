@@ -1,7 +1,31 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-03T01:49:33+08:00",
+  "updated_at": "2026-09-03T02:55:00+08:00",
+  "h3_phase2_fl2v_r2v_2026_09_03": {
+    "status": "uncommitted_undeployed",
+    "engines": {
+      "h3-fl2v": "POST /api/h3/fl2v first/last frame; LoadImage 100/101 → node 104 first_frame/last_frame",
+      "h3-nsfw-fl2v": "same FL2V path, nsfw",
+      "h3-r2v": "POST /api/h3/r2v MiniMaxH3ReferenceToVideo; max 9 images / 3 videos / 3 audio",
+      "h3-nsfw-r2v": "same R2V path, nsfw"
+    },
+    "sfw_ref2va_unet": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+    "tests": "pytest test_h3_studio + test_app_seed + test_engine_registry 136 passed",
+    "marketplace_r2v": "binds image1 only (app-run single leaf)",
+    "generate_page": "images.max=9",
+    "fail_closed": "H3 worker without ReferenceToVideo node → 503",
+    "files": [
+      "h3_video.py",
+      "h3_studio.py",
+      "h3.py",
+      "engine_registry.py",
+      "app_seed.py",
+      "engines.ts",
+      "corresponding tests"
+    ],
+    "agents_md": "untouched"
+  },
   "app_seed_36_2026_09_03": {
     "status": "uncommitted_undeployed",
     "files": [
