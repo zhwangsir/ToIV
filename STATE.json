@@ -1,7 +1,15 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-03T03:18:00+08:00",
+  "updated_at": "2026-09-03T03:32:00+08:00",
+  "rh_h3_apps_presets_intent_2026_09_03": {
+    "status": "intent_only_code_not_landed",
+    "not": "another engine wrapper layer",
+    "yes": "RunningHub H3 workflows → ToIV apps/presets; generate page selects apps; assistant list_apps/run_app",
+    "community_cards": "1262 not 1:1 graphs; group by capability families 文生/图生/首尾帧/全能参考/加速/声音参考 as apps+presets",
+    "in_progress": "video-entry apps first (advanced engines kept); assistant list_apps/run_app; H3 preset seeding",
+    "agents_md": "untouched"
+  },
   "market_ui_multiupload_2026_09_03": {
     "status": "uncommitted_undeployed",
     "corrects": "h3_app_run_list_binding_2026_09_03 marketplace_ui text fallback",

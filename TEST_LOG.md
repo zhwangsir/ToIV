@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-03 INTENT ONLY (code not landed): RunningHub H3 workflows → ToIV apps/presets, not another engine wrapper. Generate page selects apps; assistant list_apps/run_app. 1262 community cards not 1:1 graphs — capability families (txt2v/img2v/first-last/omni-ref/turbo/voice-ref) as apps+presets. In progress: video-entry apps first (advanced engines kept), assistant list_apps/run_app, H3 preset seeding. AGENTS.md untouched. Wait for SHA before STATE details.
+
 - 2026-09-03 marketplace UI multi-upload wired (UNCOMMITTED, UNDEPLOYED): lib/apps.ts had forced images/video/audio to text. AppParam now keeps upload types; ParamField reuses Generate RefImages/Image/Video/AudioUpload; buildRunValues submits string[]. fl2v last_frame pinned to first-frame worker. web npm test 901 passed. Generate page max=9 and list-binding fan-out unchanged. AGENTS.md untouched.
 
 - 2026-09-03 workstation :8195 ComfyUI 0.30.0→0.34.0 (via 设备管家): git a87667f includes Comfy-Org #15439 MiniMaxH3AddGuide. Native MiniMaxH3AddGuide present; ImageToVideo/ReferenceToVideo still present. INT8/Turbo weights not re-downloaded. spark02 not pulled. SoT: AGENTS.md.
