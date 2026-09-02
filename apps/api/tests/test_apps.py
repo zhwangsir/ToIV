@@ -6,7 +6,7 @@
         / 绑定悬空(节点不在图内)422 / 绑定 key 不在 schema 422
   - 三区可见性:公共(admin 建)全员可见;个人应用仅属主(他人列表不见、详情 404)
   - NSFW 门控:无 X-NSFW 列表不见/详情 404,带 X-NSFW 可见
-  - 详情 workflow_json 仅属主/admin 透出(普通用户为 None)
+  - 详情 workflow_json 对所有可见用户透出(2026-09-02 产品决策:工作流模式展现给用户)
   - 更新:内置 403 / 公共非 admin 403 / 个人属主可改 / is_builtin 不可变
   - 删除:内置 403 / 个人属主可删 / 公共非 admin 403
   - fork:复制为个人应用(is_public=False、usage_count=0、is_builtin=False、深拷贝独立)
@@ -272,17 +272,17 @@ def test_list_sorted_by_sort(ctx):
 
 
 # --------------------------------------------------------------------------- #
-# 详情:workflow_json 属主/admin 透出
+# 详情:workflow_json 对所有可见用户透出(2026-09-02 产品决策:工作流模式展现给用户)
 # --------------------------------------------------------------------------- #
 def test_detail_workflow_json_visibility(ctx):
     c, tokens, _, _ = ctx
     c.post("/api/apps", headers=_h(tokens, "admin"), json=_create_body())
-    # 普通用户(非属主):workflow_json 不透出
+    # 普通用户(非属主):workflow_json 也透出(产品决策:最可控)
     r = c.get("/api/apps/t2i-basic", headers=_h(tokens, "user"))
     assert r.status_code == 200
-    assert r.json()["workflow_json"] is None
+    assert r.json()["workflow_json"]["3"]["inputs"]["text"] == "default prompt"
     assert r.json()["params_schema"][0]["key"] == "prompt"
-    # admin:透出
+    # admin:同样透出
     r2 = c.get("/api/apps/t2i-basic", headers=_h(tokens, "admin"))
     assert r2.json()["workflow_json"]["3"]["inputs"]["text"] == "default prompt"
 

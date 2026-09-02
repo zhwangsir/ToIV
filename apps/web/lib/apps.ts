@@ -48,6 +48,23 @@ export interface AppParam {
   hint?: string;
 }
 
+/** 工作流节点(ComfyUI API 格式,2026-09-02 工作流模式):class_type + inputs/widgets。 */
+export interface AppWorkflowNode {
+  class_type: string;
+  /** 节点显示名(_meta.title,可空) */
+  title?: string;
+  /** 原始 _meta(归一时读 title;测试夹具可直接携带) */
+  _meta?: { title?: string };
+  inputs?: Record<string, unknown>;
+  widgets_values?: unknown[];
+}
+
+/** 绑定:param.key → 节点字段(inputs.<名> / widgets_values.<序号>)。 */
+export interface AppBinding {
+  node: string;
+  field: string;
+}
+
 export interface AppItem {
   id: string;
   name: string;
@@ -56,6 +73,10 @@ export interface AppItem {
   icon: string;
   category: AppCategory;
   params_schema: AppParam[];
+  /** 参数 → 节点字段绑定(详情接口对所有可见用户透出) */
+  bindings: Record<string, AppBinding>;
+  /** 原始工作流图(2026-09-02 起详情对所有可见用户透出;列表恒 null) */
+  workflow_json: Record<string, AppWorkflowNode> | null;
   output_kind: AppOutputKind;
   is_builtin: boolean;
   is_nsfw: boolean;
@@ -136,6 +157,8 @@ export function normalizeApp(raw: unknown): AppItem {
     icon: String(a.icon ?? "package"),
     category,
     params_schema: Array.isArray(a.params_schema) ? a.params_schema.map(normalizeParam) : [],
+    bindings: normalizeBindings(a.bindings),
+    workflow_json: normalizeWorkflow(a.workflow_json),
     output_kind: outputKind,
     is_builtin: boolOf(a.is_builtin),
     is_nsfw: boolOf(a.is_nsfw),
@@ -144,6 +167,80 @@ export function normalizeApp(raw: unknown): AppItem {
     usage_count: numOf(a.usage_count, 0),
     sort: numOf(a.sort, 100),
   };
+}
+
+/** bindings 归一:非法项(缺 node/field 或非串)剔除。 */
+function normalizeBindings(raw: unknown): Record<string, AppBinding> {
+  const out: Record<string, AppBinding> = {};
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out;
+  for (const [key, v] of Object.entries(raw as Record<string, unknown>)) {
+    const b = (v ?? {}) as Record<string, unknown>;
+    if (typeof b.node === "string" && b.node && typeof b.field === "string" && b.field) {
+      out[key] = { node: b.node, field: b.field };
+    }
+  }
+  return out;
+}
+
+/** workflow_json 归一:只收 {class_type:string} 的节点;其余剔除;非对象 → null。 */
+function normalizeWorkflow(raw: unknown): Record<string, AppWorkflowNode> | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const out: Record<string, AppWorkflowNode> = {};
+  for (const [id, v] of Object.entries(raw as Record<string, unknown>)) {
+    const n = (v ?? {}) as Record<string, unknown>;
+    if (typeof n.class_type !== "string" || !n.class_type) continue;
+    const node: AppWorkflowNode = { class_type: n.class_type };
+    const meta = n._meta as Record<string, unknown> | undefined;
+    if (typeof meta?.title === "string" && meta.title) node.title = meta.title;
+    if (n.inputs && typeof n.inputs === "object" && !Array.isArray(n.inputs)) {
+      node.inputs = n.inputs as Record<string, unknown>;
+    }
+    if (Array.isArray(n.widgets_values)) node.widgets_values = n.widgets_values;
+    out[id] = node;
+  }
+  return out;
+}
+
+/** 节点拓扑排序(Kahn;inputs 内 [nodeId, idx] 连线为边;有环/异常回退原 key 序)。 */
+export function orderWorkflowNodes(wf: Record<string, AppWorkflowNode>): string[] {
+  const ids = Object.keys(wf);
+  const idSet = new Set(ids);
+  const indeg = new Map<string, number>(ids.map((id) => [id, 0]));
+  const adj = new Map<string, string[]>(ids.map((id) => [id, []]));
+  for (const id of ids) {
+    for (const v of Object.values(wf[id].inputs ?? {})) {
+      if (Array.isArray(v) && typeof v[0] === "string" && idSet.has(v[0])) {
+        adj.get(v[0])!.push(id);
+        indeg.set(id, (indeg.get(id) ?? 0) + 1);
+      }
+    }
+  }
+  const queue = ids.filter((id) => (indeg.get(id) ?? 0) === 0);
+  const order: string[] = [];
+  while (queue.length) {
+    const id = queue.shift()!;
+    order.push(id);
+    for (const next of adj.get(id) ?? []) {
+      const d = (indeg.get(next) ?? 1) - 1;
+      indeg.set(next, d);
+      if (d === 0) queue.push(next);
+    }
+  }
+  // 有环(孤岛残留):按原 key 序补齐,保证节点不丢
+  return order.length === ids.length ? order : ids;
+}
+
+/** 按节点分组绑定:nodeId → [{ key, field }](工作流模式高亮/内联编辑用)。 */
+export function bindingsByNode(
+  bindings: Record<string, AppBinding>,
+): Map<string, { key: string; field: string }[]> {
+  const out = new Map<string, { key: string; field: string }[]>();
+  for (const [key, b] of Object.entries(bindings)) {
+    const list = out.get(b.node) ?? [];
+    list.push({ key, field: b.field });
+    out.set(b.node, list);
+  }
+  return out;
 }
 
 async function raiseErr(res: Response, fallback: string): Promise<never> {

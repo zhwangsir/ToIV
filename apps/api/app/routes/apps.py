@@ -3,8 +3,8 @@
 M1 CRUD(可见性三区同 routes/agents 范式):
 - GET /api/apps?category=&q=:列表,公共(user_id 空)+ 本人 + 属主上架(is_public)的
   个人应用;NSFW 应用仅 R18 上下文可见(nsfw_ctx.nsfw_allowed 门控);按 sort/name 排序。
-- GET /api/apps/{id}:详情;workflow_json 仅属主/admin 透出(原始图是实现细节,
-  非属主只见表单 schema/bindings/元数据)。
+- GET /api/apps/{id}:详情;workflow_json 对所有可见用户透出(2026-09-02 产品决策:
+  运行页「工作流」模式把流程图展现给用户,最可控;可见性/NSFW 门控不变)。
 - POST /api/apps:创建公共应用(user_id 空),仅 admin。
 - PUT /api/apps/{id}:内置一律 403;个人应用仅属主可改;公共应用(user_id 空)需 admin。
 - DELETE /api/apps/{id}:同上(内置 403;个人属主可删;公共需 admin)。
@@ -526,10 +526,10 @@ def get_app(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> AppOut:
-    """详情;workflow_json 仅属主/admin 透出。"""
+    """详情;workflow_json 对所有可见用户透出(2026-09-02 产品决策:运行页「工作流」
+    模式把流程图展现给用户,最可控;可见性/NSFW 门控仍由 _get_visible 卡死)。"""
     a = _get_visible(session, aid, user)
-    privileged = a.user_id == user.id or user.role == "admin"
-    return _to_out(a, user, with_workflow=privileged)
+    return _to_out(a, user, with_workflow=True)
 
 
 @router.post("", response_model=AppOut)

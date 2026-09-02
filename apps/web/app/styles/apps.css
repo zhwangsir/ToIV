@@ -231,16 +231,24 @@
   gap: var(--section-gap);
   min-height: 0;
 }
+/* 简洁模式表单(2026-09-02 美化):抬底面板卡,参数行距放宽,提交区 hairline 分隔 */
 .apps-runner-form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
   max-width: var(--content-max);
+  padding: var(--space-5);
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-xs);
 }
 .apps-runner-submit {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  max-width: var(--content-max);
+  padding-top: var(--space-1);
 }
 .apps-disabled-reason {
   font-size: var(--text-aux);
@@ -255,6 +263,118 @@
 }
 .apps-run-status .apps-usage {
   font-size: var(--text-aux);
+}
+
+/* ── 工作流模式(2026-09-02):节点拓扑序纵向成流,绑定参数内联编辑 ── */
+.wf-flow {
+  display: flex;
+  flex-direction: column;
+  max-width: var(--content-max);
+}
+.wf-flow-item {
+  display: flex;
+  flex-direction: column;
+}
+/* 节点间连接:居中细线下箭头(流动方向暗示,克制) */
+.wf-join {
+  display: flex;
+  justify-content: center;
+  padding: 1px 0;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+.wf-node {
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-panel);
+  padding: var(--space-3) var(--space-4);
+  box-shadow: var(--shadow-xs);
+}
+/* 绑定节点:accent 左缘标记 + 头部淡底,一眼认出可调处 */
+.wf-node.is-bound {
+  border-left: 2px solid var(--accent);
+}
+.wf-node-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.wf-node-id {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.wf-node-type {
+  font-family: var(--font-mono);
+  font-size: var(--text-aux);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+}
+.wf-node-title {
+  font-size: var(--text-aux);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-node-flag {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--text-label);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+/* 绑定参数区:与只读输入虚线分隔 */
+.wf-bound {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+/* 只读输入行:mono 小字,连线 accent */
+.wf-node-ios {
+  margin: var(--space-2) 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.wf-io {
+  display: flex;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  color: var(--text-muted);
+  min-width: 0;
+}
+.wf-io-name {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.wf-io-name::after {
+  content: ":";
+}
+.wf-io-val {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-io-link {
+  color: var(--accent);
+}
+.wf-io-widgets {
+  margin-top: var(--space-2);
+}
+.wf-empty {
+  font-size: var(--text-aux);
+  color: var(--text-muted);
 }
 
 /* 结果区:产物按 output_kind 渲染(图/视频/音频),下载锚按钮 */

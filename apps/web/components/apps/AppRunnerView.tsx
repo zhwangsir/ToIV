@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { AppWorkflowGraph } from "@/components/apps/AppWorkflowGraph";
 import { ParamField } from "@/components/generate/ParamField";
 import { Button } from "@/components/ui/Button";
 import { ErrorBar } from "@/components/ui/ErrorBar";
@@ -54,6 +55,8 @@ export function AppRunnerView({ appId, onBack }: AppRunnerViewProps) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, unknown>>({});
+  /** 双模式(2026-09-02):简洁 = 表单;工作流 = 全图展现 + 节点内联调参 */
+  const [mode, setMode] = useState<"simple" | "workflow">("simple");
 
   const [submitting, setSubmitting] = useState(false);
   const [running, setRunning] = useState(false);
@@ -190,36 +193,68 @@ export function AppRunnerView({ appId, onBack }: AppRunnerViewProps) {
         onBack={onBack}
         backLabel="返回市场"
         actions={
-          <span className="apps-usage" title="累计使用次数">
-            {app.usage_count} 次使用
-          </span>
+          <>
+            {/* 简洁/工作流 双模式段控(2026-09-02):工作流把全图展现给用户,最可控 */}
+            <div className="at-seg" role="tablist" aria-label="显示模式">
+              {(
+                [
+                  ["simple", "简洁"],
+                  ["workflow", "工作流"],
+                ] as const
+              ).map(([m, label]) => (
+                <button
+                  key={m}
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === m}
+                  className={`at-seg-btn${mode === m ? " is-active" : ""}`}
+                  onClick={() => setMode(m)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <span className="apps-usage" title="累计使用次数">
+              {app.usage_count} 次使用
+            </span>
+          </>
         }
       />
 
       <ErrorBar message={runError} onClose={() => setRunError(null)} />
 
-      <div className="apps-runner-form">
-        {app.params_schema.map((p) => (
-          <ParamField
-            key={p.key}
-            param={p}
-            value={values[p.key]}
-            onChange={onParamChange}
-            disabled={submitting || running}
-          />
-        ))}
-        <div className="apps-runner-submit">
-          <Button
-            variant="primary"
-            icon={<Icon name="zap" size={14} />}
-            loading={submitting || running}
-            disabled={disabledReason != null}
-            onClick={() => void run()}
-          >
-            运行应用
-          </Button>
-          {disabledReason && <span className="apps-disabled-reason">{disabledReason}</span>}
+      {mode === "simple" ? (
+        <div className="apps-runner-form">
+          {app.params_schema.map((p) => (
+            <ParamField
+              key={p.key}
+              param={p}
+              value={values[p.key]}
+              onChange={onParamChange}
+              disabled={submitting || running}
+            />
+          ))}
         </div>
+      ) : (
+        <AppWorkflowGraph
+          app={app}
+          values={values}
+          onParamChange={onParamChange}
+          disabled={submitting || running}
+        />
+      )}
+
+      <div className="apps-runner-submit">
+        <Button
+          variant="primary"
+          icon={<Icon name="zap" size={14} />}
+          loading={submitting || running}
+          disabled={disabledReason != null}
+          onClick={() => void run()}
+        >
+          运行应用
+        </Button>
+        {disabledReason && <span className="apps-disabled-reason">{disabledReason}</span>}
       </div>
 
       {running && (
