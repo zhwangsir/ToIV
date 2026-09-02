@@ -21,7 +21,7 @@ import {
   type AppItem,
   type AppWorkflowNode,
 } from "../lib/apps";
-import { AppWorkflowGraph } from "../components/apps/AppWorkflowGraph";
+import { AppWorkflowGraph, layoutWorkflow } from "../components/apps/AppWorkflowGraph";
 
 const h = React.createElement;
 const testDir = dirname(fileURLToPath(import.meta.url));
@@ -93,7 +93,34 @@ test("AppRunnerView:双模式段控 + 工作流组件接线(源码断言)", () =
   assert.ok(src.includes('role="tablist"'), "段控缺 tablist 语义");
 });
 
-test("AppWorkflowGraph:节点卡拓扑渲染 + 绑定内联 + 连线行", () => {
+test("layoutWorkflow:分层成列 + 连线提取 + 端口坐标", () => {
+  const layout = layoutWorkflow(WF, { prompt: { node: "2", field: "inputs.text" } });
+  const box = (id: string) => layout.boxes.find((b) => b.id === id)!;
+  // 分层:4(无依赖)与 1 在第 0 列;3(依赖 4/2)列序严格大于二者
+  assert.equal(box("4").x, 0);
+  assert.equal(box("1").x, 0);
+  assert.ok(box("3").x > box("4").x, "KSampler 应在依赖列右侧");
+  assert.ok(box("3").x > box("2").x, "KSampler 应在提示词列右侧");
+  // 连线:model←4、positive←2 两条
+  assert.equal(layout.edges.length, 2);
+  assert.ok(layout.edges.some((e) => e.from === "4" && e.to === "3" && e.toInput === "model"));
+  // 端口:绑定行(text)汇入头部;只读行(image)有行内 y
+  assert.ok(box("2").inPortY.text < 30, "绑定输入端口汇入头部");
+  assert.ok(box("1").inPortY.image >= 30, "只读输入端口在头部之下");
+  // 画布尺寸为正
+  assert.ok(layout.width > 0 && layout.height > 0);
+});
+
+test("layoutWorkflow:环不炸,节点不丢", () => {
+  const cyc: Record<string, AppWorkflowNode> = {
+    a: { class_type: "X", inputs: { i: ["b", 0] } },
+    b: { class_type: "Y", inputs: { i: ["a", 0] } },
+  };
+  const layout = layoutWorkflow(cyc, {});
+  assert.equal(layout.boxes.length, 2);
+});
+
+test("AppWorkflowGraph:画布渲染——节点卡 + SVG 连线 + 工具栏 + 绑定内联", () => {
   const app = normalizeApp({
     id: "a1",
     name: "文生图",
@@ -104,16 +131,23 @@ test("AppWorkflowGraph:节点卡拓扑渲染 + 绑定内联 + 连线行", () => 
   const html = renderToStaticMarkup(
     h(AppWorkflowGraph, { app, values: { prompt: "猫" }, onParamChange: () => {} }),
   );
-  // 四节点全渲染,拓扑序:#4 在 #3 前
-  assert.ok((html.match(/wf-node-id/g) ?? []).length === 4, "节点数不符");
-  assert.ok(html.indexOf("#4") < html.indexOf("#3"), "拓扑序不符");
-  // 绑定节点:is-bound + 可调徽标 + 内联 ParamField(textarea)
+  // 画布骨架
+  assert.ok(html.includes("wf-canvas"), "缺画布容器");
+  assert.ok(html.includes("wf-canvas-edges"), "缺 SVG 连线层");
+  assert.ok(html.includes("适配全图"), "缺工具栏");
+  // 四节点全渲染,绝对定位(left/top style)
+  assert.equal((html.match(/wf-node-id/g) ?? []).length, 4, "节点数不符");
+  assert.ok(html.includes("left:"), "节点未绝对定位");
+  // 连线:两条 wf-edge(图标 SVG 的 <path> 不计)
+  // 注:is-bound 连线仅当「链接落到绑定输入」(reroute 形态)才出现,本夹具绑定标量输入故不断言
+  assert.equal((html.match(/class="wf-edge/g) ?? []).length, 2, "连线数不符");
+  // 绑定节点:is-bound + 可调徽标 + 内联 textarea
   assert.ok(html.includes("is-bound"), "绑定节点未高亮");
   assert.ok(html.includes("可调"), "缺可调徽标");
   assert.ok(html.includes("<textarea"), "绑定参数未内联渲染 ParamField");
-  // 连线行:KSampler 的 model ← #4
-  assert.ok(html.includes("← #4"), "连线未渲染");
-  // 绑定叶子不在只读区重复(节点2 的 text 被绑定,只读区不应再出现 text:)
+  // 连线行文本
+  assert.ok(html.includes("← #4"), "连线来源标注缺失");
+  // 绑定叶子不在只读区重复
   assert.ok(!/wf-io-name">text</.test(html), "绑定叶子在只读区重复展示");
 });
 

@@ -274,40 +274,108 @@
   font-size: var(--text-aux);
 }
 
-/* ── 工作流模式(2026-09-02):节点拓扑序纵向成流,绑定参数内联编辑 ── */
-.wf-flow {
+/* ── 工作流模式 v2(2026-09-02):节点图画布(类 RunningHub)──
+   结构:wf-canvas-wrap(工具栏+画布)→ wf-canvas(平移缩放容器)→ wf-canvas-inner(transform)
+   → wf-canvas-edges(SVG 连线层,在下)+ wf-node(HTML 节点层,在上,表单可交互) */
+.wf-canvas-wrap {
   display: flex;
   flex-direction: column;
-  max-width: var(--content-max);
+  gap: var(--space-2);
+  /* 画布吃满视图宽(内容栏 720px 对图太窄) */
+  width: 100%;
 }
-.wf-flow-item {
+.wf-canvas-toolbar {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  align-self: flex-end;
 }
-/* 节点间连接:居中细线下箭头(流动方向暗示,克制) */
-.wf-join {
-  display: flex;
+.wf-canvas-toolbar button {
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
-  padding: 1px 0;
-  color: var(--text-muted);
-  opacity: 0.7;
-}
-.wf-node {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
   background: var(--bg-surface-1);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color var(--duration-fast), color var(--duration-fast);
+}
+.wf-canvas-toolbar button:hover {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+.wf-canvas-hint {
+  margin-left: var(--space-2);
+  font-size: var(--text-label);
+  color: var(--text-muted);
+  user-select: none;
+}
+/* 画布:点阵底纹暗示无限平面,触屏/鼠标拖拽平移 */
+.wf-canvas {
+  position: relative;
+  height: min(62vh, 560px);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-panel);
-  padding: var(--space-3) var(--space-4);
-  box-shadow: var(--shadow-xs);
+  background: var(--bg-surface-2);
+  background-image: radial-gradient(circle, var(--border-strong) 1px, transparent 1px);
+  background-size: 24px 24px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
 }
-/* 绑定节点:accent 左缘标记 + 头部淡底,一眼认出可调处 */
+.wf-canvas:active {
+  cursor: grabbing;
+}
+.wf-canvas-inner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+.wf-canvas-edges {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.wf-edge {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+}
+.wf-edge.is-bound {
+  stroke: var(--accent);
+}
+/* 节点卡(绝对定位于图空间) */
+.wf-node {
+  position: absolute;
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-sm);
+  padding: 0 var(--space-3) var(--space-2);
+  cursor: default;
+  user-select: text;
+  font-size: var(--text-label);
+}
+/* 绑定节点:accent 顶条 + 「可调」徽标 */
 .wf-node.is-bound {
-  border-left: 2px solid var(--accent);
+  border-color: var(--accent);
+  box-shadow: var(--shadow-xs), 0 0 0 1px var(--accent-soft);
 }
 .wf-node-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-2);
-  flex-wrap: wrap;
+  height: 30px;
+  border-bottom: 1px solid var(--border-subtle);
+  margin: 0 calc(var(--space-3) * -1);
+  padding: 0 var(--space-3);
   min-width: 0;
 }
 .wf-node-id {
@@ -318,13 +386,9 @@
 }
 .wf-node-type {
   font-family: var(--font-mono);
-  font-size: var(--text-aux);
+  font-size: var(--text-label);
   font-weight: var(--font-semibold);
   color: var(--text-primary);
-}
-.wf-node-title {
-  font-size: var(--text-aux);
-  color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -334,31 +398,35 @@
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-size: var(--text-label);
+  font-size: 10px;
   color: var(--accent);
   flex-shrink: 0;
 }
-/* 绑定参数区:与只读输入虚线分隔 */
+/* 绑定参数区(内联编辑,紧凑) */
 .wf-bound {
-  margin-top: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px dashed var(--border-subtle);
+  padding: var(--space-2) 0;
+  border-bottom: 1px dashed var(--border-subtle);
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
-/* 只读输入行:mono 小字,连线 accent */
+.wf-bound .ui-field-label {
+  font-size: 10px;
+}
+/* 只读输入行 */
 .wf-node-ios {
-  margin: var(--space-2) 0 0;
+  margin: 0;
+  padding-top: var(--space-1);
   display: flex;
   flex-direction: column;
-  gap: 2px;
 }
 .wf-io {
   display: flex;
   gap: var(--space-2);
+  height: 18px;
+  align-items: center;
   font-family: var(--font-mono);
-  font-size: var(--text-label);
+  font-size: 10px;
   color: var(--text-muted);
   min-width: 0;
 }
@@ -377,9 +445,6 @@
 }
 .wf-io-link {
   color: var(--accent);
-}
-.wf-io-widgets {
-  margin-top: var(--space-2);
 }
 .wf-empty {
   font-size: var(--text-aux);
