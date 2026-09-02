@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-02T22:17:37+08:00",
+  "updated_at": "2026-09-03T00:49:48+08:00",
   "studio_console_v1_2026_08_31": {
     "status": "W1_done_deployed_verified",
     "plan": "用户定稿 Studio Console 方案(讨论于 docs 外对话):极简专业工作台,单色中性系,界面退后内容上前",
@@ -2233,5 +2233,20 @@
     ],
     "prod_verify": "生产实测 8/8(浏览器):340px 参数列/三工具行+2px 指示条/钉底主操作/三空态文案切换/表单随工具切换/草稿驻留(TTS 输入切 ASR 再切回保留)/控制台零真实 JS 错误",
     "deploy": "gitee+github 双推(github 补前账);deploy.sh → core 两服务健康;签发 token 时抓获坑:create_token sub 必须是 user.id 且需 source 生产 deploy/.env(裸跑用默认密钥签发必 401)"
+  },
+  "studio_console_w3_2026_09_03": {
+    "status": "done_deployed_verified",
+    "commits": [
+      "92a8bba",
+      "892fa95",
+      "3a27ca7"
+    ],
+    "scope": "W3 其余视图套版:设置/市场/主体库/融合/作品库/观测 + 资源中心(实测抓获补扫)",
+    "work": "①字阶 token 全局落地 13/11(globals)②页头全灭:settings/market 聚合+Runner/entities/library×2/observability/resources 聚合+models/train/backlot 内嵌,功能动作收进窄工具行或细顶条(apps-runner-head/lib-trash-head sticky 保留)③空态单行化:库空/结果空/回收站/市场整库/主体库/观测×3,共享 Empty 组件在这些视图退役④fusion bento 版型废弃改 hairline 分行列表(原生 button 键盘可达)⑤去玻璃:lib-toolbar/lib-batchbar 实底化;卡片阴影/lift/媒体放大/错落入场/shimmer 全退役⑥观测单色化:KPI 渐变文字/VRAM 渐变条/青紫 chart 色收敛(作用域覆盖不动 globals),伪 token(--text-11/12/14、--ease-out)修正",
+    "fixes": "复核抓获:settings 内容偏好区 at-card 残留+引擎标签色值被 IDE 缓冲区回滚(补打);非管理员撞观测台门控 changeView→router.replace 引发 RSC 重试风暴 97+,改 history.replaceState 客户端弹回",
+    "regression": "npm test 946(+1 obs W3 断言,多文件契约改写)/ tsc 0 / 干净 build ×3;后端零改动",
+    "prod_verify": "生产实测两轮:六视图 8/8(设置五区 hairline 一致/引擎标签灰系/18+ 描边徽章;市场段控窄行+Runner 细顶条;主体库工具条+单行空态;融合五行列表;作品库实底 sticky 工具条+回收站细顶条);观测台 admin 邮箱 token 复验全过(KPI 纯色/VRAM 实心/无发光 hover)",
+    "deploy": "gitee+github 全推(github 首轮超时后补推成功);deploy.sh → core ×3 健康",
+    "notes": "观测台门控按 email==='admin' 判定(role=admin 的其他账户也弹回);VRAM 条保留 ok/warm/hot/off 四档语义纯色(平坦非渐变);W4 待清:drama-workbench.css 1919 行死链+6 测试文件戏剧断言、cornernav.css 语义错位、train/backlot 死 .page-header 规则"
   }
 }
