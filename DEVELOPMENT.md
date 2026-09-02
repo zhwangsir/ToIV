@@ -4,7 +4,9 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
-**2026-09-03 产品意图：RunningHub H3 工作流→应用/预制（尚未落地）**：用户要的不是引擎再包一层，而是 RunningHub H3 工作流变成 ToIV 应用/预制；生成页改成选应用；助手能 `list_apps`/`run_app`。1262 张社区卡不 1:1 搬图，按能力族（文生/图生/首尾帧/全能参考/加速/声音参考）做应用+预制。正在改：视频入口应用优先（高级引擎仍保留）、助手 list_apps/run_app、H3 预制播种。细节等代码落地再写 STATE。AGENTS.md 未动。
+**2026-09-03 H3 应用/预制三块已落本机（未提交未部署、无 SHA）**：三块已落本机（**仍未提交、未部署**，无 SHA）。1) 图片/视频 `KindCreateView` 应用优先，高级引擎保留 `GenerateView`；H3 卡排前。2) 预制 `h3-t2v-15s-fast` / `h3-i2v-15s-fast` / `h3-r2v-voice` 及 nsfw 孪生；不做假 20s。3) 助手工具 `list_apps`、`get_app`、`run_app`；`submit_generation` 改为应用优先；`h3-fl2v`/`h3-r2v` 进 `_DISPATCH`；技能 `h3-app-catalog`。测试：预制 24、应用视图 54、助手相关 63。STATE 仍不加厚，等 commit SHA 或部署。AGENTS.md 未动。
+
+**2026-09-03 产品意图：RunningHub H3 工作流→应用/预制（当时尚未落地，三块已落本机但仍未提交）**：用户要的不是引擎再包一层，而是 RunningHub H3 工作流变成 ToIV 应用/预制；生成页改成选应用；助手能 `list_apps`/`run_app`。1262 张社区卡不 1:1 搬图，按能力族（文生/图生/首尾帧/全能参考/加速/声音参考）做应用+预制。正在改：视频入口应用优先（高级引擎仍保留）、助手 list_apps/run_app、H3 预制播种。细节等代码落地再写 STATE。AGENTS.md 未动。
 
 **2026-09-03 市场 UI 多图上传（未提交未部署）**：文档更正（**仍未提交、未部署**）：应用市场 UI 多图上传已接上。根因是 `lib/apps.ts` 把 images/video/audio 强制收成 text。现 `AppParam` 保留上传类型，`ParamField` 复用 Generate 的 `RefImages`/`Image`/`Video`/`AudioUpload`，`buildRunValues` 提交 `string[]`。fl2v `last_frame` 钉到首帧 worker。web `npm test` 901 过。生成页 `max=9` 与 list binding 扇出不变。AGENTS.md / 设备清单未动。
 
