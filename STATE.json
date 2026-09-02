@@ -1,7 +1,17 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-03T03:10:00+08:00",
+  "updated_at": "2026-09-03T03:18:00+08:00",
+  "market_ui_multiupload_2026_09_03": {
+    "status": "uncommitted_undeployed",
+    "corrects": "h3_app_run_list_binding_2026_09_03 marketplace_ui text fallback",
+    "cause": "lib/apps.ts forced images/video/audio to text",
+    "now": "AppParam keeps upload types; ParamField reuses Generate RefImages/Image/Video/AudioUpload; buildRunValues submits string[]",
+    "fl2v_last_frame": "pinned to first-frame worker",
+    "tests": "web npm test 901 passed",
+    "unchanged": "generate page images.max=9; list binding fan-out",
+    "agents_md": "untouched"
+  },
   "comfyui_h3_034_2026_09_03": {
     "source": "设备管家",
     "host": "workstation :8195 /home/merlin/ComfyUI-h3-eval",
@@ -25,7 +35,7 @@
     "r2v": "images→LoadImage 110–118; video→120/122/124; audio→130–132; extra slots stripped",
     "fl2v": "still images+last_frame→100/101",
     "tests": "pytest test_app_seed/test_apps_run/test_apps 75 passed",
-    "marketplace_ui": "ParamField still text; no multi-image upload",
+    "marketplace_ui": "multi-upload wired (supersedes ParamField text fallback)",
     "generate_page": "images.max=9 unchanged",
     "files": [
       "apps.py",
@@ -58,9 +68,10 @@
       "corresponding tests"
     ],
     "agents_md": "untouched",
-    "marketplace_ui": "no multi-image upload yet; ParamField falls back to text",
+    "marketplace_ui": "multi-upload wired; ParamField reuses Generate upload widgets",
     "fl2v_binding": "still images+last_frame → 100/101",
-    "app_run_tests": "pytest test_app_seed/test_apps_run/test_apps 75 passed"
+    "app_run_tests": "pytest test_app_seed/test_apps_run/test_apps 75 passed",
+    "fl2v_last_frame": "pinned to first-frame worker"
   },
   "app_seed_36_2026_09_03": {
     "status": "uncommitted_undeployed",

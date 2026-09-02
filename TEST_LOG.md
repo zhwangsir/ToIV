@@ -1,8 +1,10 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-03 marketplace UI multi-upload wired (UNCOMMITTED, UNDEPLOYED): lib/apps.ts had forced images/video/audio to text. AppParam now keeps upload types; ParamField reuses Generate RefImages/Image/Video/AudioUpload; buildRunValues submits string[]. fl2v last_frame pinned to first-frame worker. web npm test 901 passed. Generate page max=9 and list-binding fan-out unchanged. AGENTS.md untouched.
+
 - 2026-09-03 workstation :8195 ComfyUI 0.30.0→0.34.0 (via 设备管家): git a87667f includes Comfy-Org #15439 MiniMaxH3AddGuide. Native MiniMaxH3AddGuide present; ImageToVideo/ReferenceToVideo still present. INT8/Turbo weights not re-downloaded. spark02 not pulled. SoT: AGENTS.md.
 
-- 2026-09-03 app-run list binding correction (UNCOMMITTED, UNDEPLOYED): h3-r2v/h3-nsfw-r2v images→LoadImage 110–118, video→120/122/124, audio→130–132; extra slots stripped from graph. h3-fl2v still images+last_frame→100/101. pytest test_app_seed/test_apps_run/test_apps 75 passed. Marketplace UI still has no multi-image upload (ParamField falls back to text); generate page images.max=9 unchanged. Files: apps.py, app_seed.py, apps/web/lib/apps.ts + tests. AGENTS.md untouched.
+- 2026-09-03 app-run list binding correction (UNCOMMITTED, UNDEPLOYED): h3-r2v/h3-nsfw-r2v images→LoadImage 110–118, video→120/122/124, audio→130–132; extra slots stripped from graph. h3-fl2v still images+last_frame→100/101. pytest test_app_seed/test_apps_run/test_apps 75 passed. Marketplace UI then had no multi-image upload (superseded: upload wired); generate page images.max=9 unchanged. Files: apps.py, app_seed.py, apps/web/lib/apps.ts + tests. AGENTS.md untouched.
 
 - 2026-09-03 Phase 2 H3 graphs (UNCOMMITTED, UNDEPLOYED): engines h3-fl2v / h3-nsfw-fl2v → POST /api/h3/fl2v (first/last frame, LoadImage 100/101 → node 104 first_frame/last_frame); h3-r2v / h3-nsfw-r2v → POST /api/h3/r2v (MiniMaxH3ReferenceToVideo, max 9 images / 3 videos / 3 audio). SFW Ref2VA UNET: minimax_h3_ref2va_pruned_int8_convrot.safetensors. pytest test_h3_studio + test_app_seed + test_engine_registry 136 passed. Marketplace r2v then bound image1 only (superseded by list binding); generate page images.max=9. H3 worker without ReferenceToVideo node → 503. Files: h3_video.py, h3_studio.py, h3.py, engine_registry.py, app_seed.py, engines.ts + tests. AGENTS.md untouched.
 

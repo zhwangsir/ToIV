@@ -4,9 +4,11 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
+**2026-09-03 市场 UI 多图上传（未提交未部署）**：文档更正（**仍未提交、未部署**）：应用市场 UI 多图上传已接上。根因是 `lib/apps.ts` 把 images/video/audio 强制收成 text。现 `AppParam` 保留上传类型，`ParamField` 复用 Generate 的 `RefImages`/`Image`/`Video`/`AudioUpload`，`buildRunValues` 提交 `string[]`。fl2v `last_frame` 钉到首帧 worker。web `npm test` 901 过。生成页 `max=9` 与 list binding 扇出不变。AGENTS.md / 设备清单未动。
+
 **2026-09-03 `:8195` ComfyUI 0.34.0（设备管家）**：设备管家回写：workstation `:8195` ComfyUI **0.30.0 → 0.34.0**（git `a87667f`，含 #15439 `MiniMaxH3AddGuide`）。原生 `MiniMaxH3AddGuide` 已出现；`ImageToVideo` / `ReferenceToVideo` 仍在。INT8/Turbo 未重下。未拉 spark02。集群账以 `AGENTS.md` 为准。
 
-**2026-09-03 app-run list binding（未提交未部署）**：文档更正（**仍未提交、未部署**）：app-run 已改成 list binding 扇出。`h3-r2v`/`h3-nsfw-r2v` 的 images→LoadImage 110–118，video→120/122/124，audio→130–132；多余槽位从图里摘掉。`h3-fl2v` 仍是 images+last_frame→100/101。pytest `test_app_seed`/`test_apps_run`/`test_apps` 75 过。应用市场 UI 还没有多图上传（ParamField 退回文本框），生成页 `images.max=9` 不受影响。改动：`apps.py`、`app_seed.py`、`apps/web/lib/apps.ts` 及测试。AGENTS.md / 设备清单未动。
+**2026-09-03 app-run list binding（未提交未部署）**：文档更正（**仍未提交、未部署**）：app-run 已改成 list binding 扇出。`h3-r2v`/`h3-nsfw-r2v` 的 images→LoadImage 110–118，video→120/122/124，audio→130–132；多余槽位从图里摘掉。`h3-fl2v` 仍是 images+last_frame→100/101。pytest `test_app_seed`/`test_apps_run`/`test_apps` 75 过。应用市场 UI 当时没有多图上传（已接上），生成页 `images.max=9` 不受影响。改动：`apps.py`、`app_seed.py`、`apps/web/lib/apps.ts` 及测试。AGENTS.md / 设备清单未动。
 
 **2026-09-03 Phase 2 H3 fl2v/r2v（未提交未部署）**：Phase 2 H3 图已落本机（**未提交、未部署**）。新引擎 `h3-fl2v` / `h3-nsfw-fl2v` → POST `/api/h3/fl2v`（首尾帧，LoadImage 100/101 → 节点 104 `first_frame`/`last_frame`）；`h3-r2v` / `h3-nsfw-r2v` → POST `/api/h3/r2v`（`MiniMaxH3ReferenceToVideo`，最多 9 图 3 视频 3 音频）。SFW Ref2VA UNET：`minimax_h3_ref2va_pruned_int8_convrot.safetensors`。pytest `test_h3_studio` + `test_app_seed` + `test_engine_registry` 共 136 过。应用市场 r2v 当时只绑 `image1`（已由 list binding 覆盖），生成页 `images.max=9`。H3 worker 若无 `ReferenceToVideo` 节点会 503。改动：`h3_video.py`、`h3_studio.py`、`h3.py`、`engine_registry.py`、`app_seed.py`、`engines.ts` 及对应测试。AGENTS.md / 设备清单未动。
 
