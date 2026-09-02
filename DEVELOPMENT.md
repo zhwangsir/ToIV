@@ -4,6 +4,8 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
+**2026-09-03 RunningHub H3 搜索卡预制播种（未提交未上 core、无产品 SHA）**：RunningHub H3 搜索卡已作为内置应用预制播种进本地树（**未提交、未上 core**，无产品 SHA）。去重 1166 个 `rh-*` id，挂在已有 family 图上（不是 1166 张独立 Comfy JSON）。分类大约：场景 246、全能参考 r2v 268、首尾帧 139、图生 125、图生加速 100、口播 98、文生 73、洗视频/v2v 48、换人 wan-animate-2 13、时间静止 2（i2v 提示词前缀）。NSFW 约 110。假 20s/一分钟卡映射到 15s 加速并在简介写明单段上限 15s。原生分辨率仍是约 1344×768，不是 928P。落地：`apps/api/app/data/rh_h3_presets.json`、`services/rh_h3_preset_seed.py`、`_build_specs` 末尾 extend。FEATURED 视频应用未加入 `rh-*`。生产库要 API 重启跑 `seed_builtin_apps` 才看得见。不要写成已上线。AGENTS.md 未动。
+
 **2026-09-03 H3 应用/预制收口（未提交未部署、无产品 SHA）**：收口完成（**仍未提交、未部署**，无产品 SHA）。视频 featured 已含 `15s-fast` / `r2v-voice` 及 nsfw 孪生。H3 worker `object_info` 确认有 `MiniMaxH3ReferenceToVideo`。API 聚焦测 219 过，web `npm test` 910 过。小程序仍引擎优先（无 apps API 客户端，未新开架构）。1262 社区 JSON 未导入、无场景卡、无假 20s。STATE 仍不加厚，等 commit SHA 或部署。AGENTS.md 未动。
 
 **2026-09-03 H3 应用/预制三块已落本机（未提交未部署、无 SHA）**：三块已落本机（**仍未提交、未部署**，无 SHA）。1) 图片/视频 `KindCreateView` 应用优先，高级引擎保留 `GenerateView`；H3 卡排前。2) 预制 `h3-t2v-15s-fast` / `h3-i2v-15s-fast` / `h3-r2v-voice` 及 nsfw 孪生；不做假 20s。3) 助手工具 `list_apps`、`get_app`、`run_app`；`submit_generation` 改为应用优先；`h3-fl2v`/`h3-r2v` 进 `_DISPATCH`；技能 `h3-app-catalog`。测试：预制 24、应用视图 54、助手相关 63。STATE 仍不加厚，等 commit SHA 或部署。AGENTS.md 未动。

@@ -1,15 +1,47 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-03T03:56:00+08:00",
+  "updated_at": "2026-09-03T04:13:00+08:00",
+  "rh_h3_preset_seed_2026_09_03": {
+    "status": "uncommitted_undeployed",
+    "live": false,
+    "on_core": false,
+    "product_sha": null,
+    "what": "RunningHub H3 search cards seeded as builtin app presets in the local tree (UNCOMMITTED, NOT on core, not live, no product SHA)",
+    "ids": "deduped 1166 rh-* ids hung on EXISTING family graphs (NOT 1166 independent Comfy JSON)",
+    "categories_approx": {
+      "场景": 246,
+      "全能参考 r2v": 268,
+      "首尾帧": 139,
+      "图生": 125,
+      "图生加速": 100,
+      "口播": 98,
+      "文生": 73,
+      "洗视频/v2v": 48,
+      "换人 wan-animate-2": 13,
+      "时间静止": 2
+    },
+    "time_freeze_note": "i2v prompt prefix",
+    "nsfw_approx": 110,
+    "fake_20s_1min": "mapped to 15s turbo; description states single-segment max 15s",
+    "native_resolution": "~1344×768, NOT 928P",
+    "files": [
+      "apps/api/app/data/rh_h3_presets.json",
+      "services/rh_h3_preset_seed.py",
+      "_build_specs end extend"
+    ],
+    "featured_video_apps": "did NOT add rh-*",
+    "prod": "production DB needs API restart to run seed_builtin_apps before they are visible",
+    "agents_md": "untouched"
+  },
   "rh_h3_apps_presets_intent_2026_09_03": {
     "status": "local_landed_uncommitted_no_sha",
     "not": "another engine wrapper layer",
     "yes": "RunningHub H3 workflows → ToIV apps/presets; generate page selects apps; assistant list_apps/run_app",
     "community_cards": "1262 not 1:1 graphs; group by capability families 文生/图生/首尾帧/全能参考/加速/声音参考 as apps+presets",
-    "in_progress": "landed locally uncommitted (no SHA): video-entry apps first (advanced engines kept); assistant list_apps/run_app; H3 preset seeding",
+    "in_progress": "1166 rh-* presets seeded locally uncommitted (not on core, no product SHA); video-entry apps first (advanced engines kept); assistant list_apps/run_app",
     "agents_md": "untouched",
-    "local_code": "landed_uncommitted_no_sha",
+    "local_code": "1166 rh-* presets seeded locally uncommitted, not on core, no product SHA",
     "awaiting": "commit SHA or deploy before thickening",
     "wrap_up": "complete locally uncommitted no SHA",
     "tests": "API focused 219, web npm test 910"
