@@ -2223,11 +2223,15 @@
     "deploy": "commit 90fcb94,gitee 已推;github 当夜持续超时(镜像,待补);deploy.sh → core 健康"
   },
   "audio_edit_stage_2026_09_02": {
-    "status": "done_pending_deploy",
+    "status": "done_deployed_verified",
     "scope": "音频页编辑 tab 与舞台范式分裂修复(W2 收尾):旧三卡堆叠(ToolCard)→ 左参数列+中央舞台",
     "work": "①三工具状态上提 hooks(useTtsTool/useAsrTool/useSeparateTool)驻留 AudioView 层,切换工具不丢草稿 ②左参数列 340px:工具切换列表(icon+名称,激活 2px 左指示条沿用 SideRail 语言)+表单滚动区+钉底主操作 ③中央舞台面板岛:空态复用 empty-console-hint 单行提示/进行中 StageBusy(spinner)或 ToolProgress(百分比)/结果限宽 640px 居中滚动 ④错误条置舞台顶 ⑤窄屏<1024px 纵向堆叠、工具横排、舞台 min-height 320px;移动端触控≥44px",
     "removed": "ToolCard 基座/audio-tool-card/audio-tab-edit 880px 居中单列卡片范式全退役",
     "regression": "pytest 2983(2 例 lipsync/drama 偶发,单跑即过,与前端无关)/ npm test 945(+4)/ tsc 0 / 干净 build",
-    "next": "待部署 core 生产实测"
+    "commits": [
+      "ec02660"
+    ],
+    "prod_verify": "生产实测 8/8(浏览器):340px 参数列/三工具行+2px 指示条/钉底主操作/三空态文案切换/表单随工具切换/草稿驻留(TTS 输入切 ASR 再切回保留)/控制台零真实 JS 错误",
+    "deploy": "gitee+github 双推(github 补前账);deploy.sh → core 两服务健康;签发 token 时抓获坑:create_token sub 必须是 user.id 且需 source 生产 deploy/.env(裸跑用默认密钥签发必 401)"
   }
 }
