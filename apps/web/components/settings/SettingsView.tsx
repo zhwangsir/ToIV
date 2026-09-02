@@ -144,7 +144,7 @@ export function SettingsView({ account, onLogout }: SettingsViewProps) {
         </section>
 
         {/* ── 内容偏好(R18 全局模式,M9 F4) ── */}
-        <section className="settings-card at-card at-card--lift" aria-labelledby="settings-content-pref">
+        <section className="settings-card" aria-labelledby="settings-content-pref">
           <h2 className="settings-card-title" id="settings-content-pref">
             <span className="settings-card-icon" aria-hidden="true">
               <Icon name="eye" size={14} strokeWidth={1.8} />

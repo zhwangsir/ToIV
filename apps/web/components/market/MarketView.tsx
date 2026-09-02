@@ -20,10 +20,9 @@ type MarketTab = "apps" | "skills";
  * 页头 at-seg 段控切换;旧 view key skills/apps 经 page.tsx LEGACY_VIEW_REDIRECTS
  * 跳本页(不 404)。
  *
- * 双页头说明(改动最小方案):两个内嵌视图自 2026-08-18 起即已省略 PageHeader
- * (检索工具栏即首行,见各自文件头注释),内嵌不存在双页头,无需 compact 降级;
- * 仅需 .single-view 去嵌套——版心/左右内边距由本页 .view-shell 统一供给
- * (同 ResourcesView P2-3 模式);ErrorBoundary+Suspense 内层包裹同 ResourcesView。
+ * 页头说明(2026-09-02 W3):聚合层 PageHeader 已移除,段控独立窄行;
+ * 内嵌视图(应用/技能)检索工具栏即首行;.single-view 去嵌套——
+ * 版心/左右内边距由本页 .view-shell 统一供给;ErrorBoundary+Suspense 内层包裹。
  */
 export function MarketView() {
   const [tab, setTab] = useState<MarketTab>("apps");

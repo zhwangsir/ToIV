@@ -226,9 +226,8 @@
 .settings-engine-kind {
   font-size: var(--text-label);
   font-weight: var(--font-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--accent);
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
 }
 /* 数量小徽章 */
 .settings-engine-count {
