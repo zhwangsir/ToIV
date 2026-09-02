@@ -5,8 +5,7 @@
  * ③ agent-runs:进度计数降档(--text-aux 副标位)+ 容器宽 token + 标题两行截断
  * ④ studio:项目副标行(#短id+更新时间+进度)+ 行边框 --border-strong + hover accent
  * ⑤ avatartalk:主区空态三步式(图标→标题→CTA)+ 状态 pill 移页头 + 缩略图统一 3:4
- * ⑥ drama-workbench(桌面区):进度双显去重 + 折叠卡默认收起 + 长文行高 loose +
- *   左栏导航字号升档
+ * (⑥ drama-workbench 四例已随 2026-09-03 W4 drama 死链删除退役)
  * 说明:渲染断言仅用于可在 node 静态渲染的组件(SettingsView 等,effect 不执行);
  * 结构性变更以源码断言钉死(与 uiBViews/uiFixes 同手法)。
  */
@@ -202,44 +201,3 @@ test("avatartalk:形象缩略图统一 aspect-ratio 3:4(骨架同步)", () => {
   assert.ok(skeleton.includes("aspect-ratio: 2 / 3;"), "骨架比例须与真实卡同步");
 });
 
-/* ── ⑥ drama-workbench(桌面区):去重 + 折叠 + 行高 + 导航 ── */
-
-test("drama-workbench:进度双显去重(胶片条汇总撤,顶栏保留)", () => {
-  const film = readSrc("components/drama/workbench/FilmStrip.tsx");
-  assert.ok(!film.includes("wb-filmstrip-summary"), "FilmStrip 不得再渲染汇总");
-  const shell = readSrc("components/drama/workbench/WorkbenchShell.tsx");
-  assert.ok(shell.includes("wb-progress"), "顶栏 .wb-progress 保留");
-  const css = readSrc("app/styles/drama-workbench.css");
-  assert.ok(!css.includes(".wb-filmstrip-summary"), "汇总死样式应清除");
-});
-
-test("drama-workbench:中栏关联资产折叠卡默认收起(原生 details)", () => {
-  const src = readSrc("components/drama/workbench/StageProduce.tsx");
-  assert.ok(src.includes('<details className="wb-fold">'), "折叠卡须为默认收起的 details");
-  assert.ok(!src.includes("<details open"), "折叠卡不得默认展开");
-  assert.ok(src.includes("wb-fold-head"), "折叠头缺失");
-  const css = readSrc("app/styles/drama-workbench.css");
-  assert.ok(css.includes(".wb-fold-head"), "折叠头样式缺失");
-  const chevron = cssBlock(css, ".wb-fold-chevron {");
-  assert.ok(chevron.includes("var(--duration-fast)"), "chevron 旋转须走时长 token");
-});
-
-test("drama-workbench:英文长文行高走 var(--leading-loose, 1.7)", () => {
-  const css = readSrc("app/styles/drama-workbench.css");
-  for (const sel of [".wb-pdetail-prompt {", ".wb-seg-text {", ".wb-inspect-desc {"]) {
-    const block = cssBlock(css, sel);
-    assert.ok(
-      block.includes("line-height: var(--leading-loose, 1.7);"),
-      `${sel} 长文行高须走 loose token(fallback 兜底)`,
-    );
-  }
-});
-
-test("drama-workbench:左栏导航字号升一档 + 对比加强(桌面区)", () => {
-  const css = readSrc("app/styles/drama-workbench.css");
-  const item = cssBlock(css, ".wb-side-item {");
-  assert.ok(item.includes("font-size: var(--text-body);"), `导航字号须升一档: ${item}`);
-  assert.ok(item.includes("color: var(--wb-text);"), `导航对比须加强: ${item}`);
-  const link = cssBlock(css, ".wb-root .wb-side-link {");
-  assert.ok(link.includes("font-size: var(--text-body);"), "侧栏链接字号同步升档");
-});

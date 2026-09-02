@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono, Fraunces } from "next/font/google";
 import "./globals.css";
 import "./styles/glass.css";
-import "./styles/cornernav.css";
+import "./styles/nav-account.css";
 /* V2 CSS 按视图分割(2026-08-14):library/settings/animatic/avatartalk/landing/fusion/docs
    已迁移到各视图入口 tsx 随 lazy chunk 分割;studio.css/agent-runs.css 此前已分割。
    stage.css 保持全局:① 被 generate/audio/avatartalk 三视图消费;② 与 motion.css 存在

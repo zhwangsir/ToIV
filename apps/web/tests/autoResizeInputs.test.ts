@@ -135,9 +135,6 @@ const WIRED_FILES = [
   "components/generate/GenerateView.tsx",
   "components/generate/ParamField.tsx",
   "components/generate/PromptBar.tsx",
-  "components/drama/workbench/ShotTableRow.tsx",
-  "components/drama/workbench/StageAssets.tsx",
-  "components/drama/DramaView.tsx",
   "components/studio/stages/ScriptStage.tsx",
   "components/studio/stages/CastStage.tsx",
   "components/studio/ShotCard.tsx",
@@ -205,11 +202,7 @@ test("PromptBar 遮盖舞台修复:hook 40vh + stage.css max-height:40vh", () =>
   assert.ok(!block[0].includes("max-height: none"), ".promptbar-textarea 仍无限高(遮盖舞台)");
 });
 
-test("布局受困处宽松上限:DramaView 侧栏 40vh、AgentsAdminView System Prompt 60vh", () => {
-  assert.ok(
-    readSrc("components/drama/DramaView.tsx").includes("{ maxVh: 40 }"),
-    "DramaView 梗概未设 40vh(侧栏 100vh 定高链裁切风险)",
-  );
+test("布局受困处宽松上限:AgentsAdminView System Prompt 60vh(DramaView 已随 W4 死链删除)", () => {
   assert.ok(
     readSrc("components/admin/AgentsAdminView.tsx").includes("{ maxVh: 60 }"),
     "AgentsAdminView System Prompt 未设 60vh",

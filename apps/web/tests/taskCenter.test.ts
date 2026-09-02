@@ -162,12 +162,12 @@ describe("任务中止接线", () => {
     assert.ok(api.includes('method: "POST"'), "cancelJob 应为 POST");
   });
   it("中止按钮样式挂 --err 令牌", () => {
-    const css = readSrc("app/styles/cornernav.css");
+    const css = readSrc("app/styles/nav-account.css");
     assert.ok(css.includes(".taskcenter-item-cancel"), "缺中止按钮样式");
     assert.ok(css.includes("var(--err)"), "中止按钮应使用 --err 危险色令牌");
   });
   it("弹层宽度有硬上限(防 nowrap prompt 撑出视口裁掉中止按钮)", () => {
-    const css = readSrc("app/styles/cornernav.css");
+    const css = readSrc("app/styles/nav-account.css");
     const pop = css.slice(css.indexOf(".taskcenter-pop {"));
     assert.ok(pop.includes("width: 320px"), "弹层须固定 320 宽");
     assert.ok(pop.includes("max-width: calc(100vw - 32px)"), "弹层须限视口上限");

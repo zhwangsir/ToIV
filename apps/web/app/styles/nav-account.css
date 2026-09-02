@@ -1,37 +1,23 @@
-/* ========== 导航槽位样式(原 cornernav.css;2026-09-01 W4:CornerNav 组件已退役,
-   .cornernav* 段全删,本文件现存两节:AccountButton + TaskCenter) ========== */
+/* ========== 侧栏底部槽位样式(2026-09-03 W4:原 cornernav.css 更名 + 死规则清理) ==========
+   现存两节:AccountButton(账户弹层)+ TaskCenter(任务中心弹层)。
+   触发钮外观(尺寸/底色/hover)由 siderail.css 的 .siderail-bottom 覆盖块供给;
+   本文件只保留弹层内容与徽标等栏外样式。旧 fixed 右上角定位/玻璃触发钮已死,全删。 */
 
-/* ========== 右上角账户按钮(2026-08-17 AccountButton,自灵动岛拆分,桌面 ≥1024px) ========== */
-/* 独立常驻头像:一跳直达主题/设置/退出;
-   通知 Toast 同在右上(z-toast 更高),出现时短暂覆盖头像属预期(通知优先)。 */
-
-.accountbtn {
-  position: fixed;
-  top: 14px;
-  right: 16px;
-  z-index: var(--z-sticky);
-}
-
-.accountbtn-trigger {
+/* 触发钮公共基座:flex 居中 + 指针(尺寸/底色/hover 由 siderail.css 栏内覆盖块供给) */
+.accountbtn-trigger,
+.taskcenter-trigger {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
-  border-radius: var(--radius-full);
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-highlight), var(--shadow-lg);
   cursor: pointer;
-  transition: box-shadow var(--duration-slow) var(--ease-spring),
-              border-color var(--duration-base) var(--ease-standard);
 }
-.accountbtn-trigger:hover,
-.accountbtn-trigger:focus-visible {
-  border-color: var(--border-strong);
-  box-shadow: var(--glass-highlight), var(--shadow-float), var(--shadow-xl);
+
+/* ── 账户弹层(底/描边/阴影由 Popover 基座提供,此处只管布局) ── */
+.accountbtn-pop {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
 }
 .accountbtn-avatar {
   display: flex;
@@ -44,14 +30,6 @@
   color: var(--accent);
   font-size: var(--text-sm);
   font-weight: var(--font-semibold);
-}
-
-/* 账户菜单(内容挂在 Popover 玻璃基座内,底/描边/阴影由基座提供,此处只管布局) */
-.accountbtn-pop {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3);
 }
 .accountbtn-pop-email {
   font-size: var(--text-sm);
@@ -102,58 +80,17 @@
   color: var(--err);
 }
 
-/* 窄屏 <1024px:隐藏,由底部导航「更多 → 设置」承载;横屏低高度恢复 */
-@media (max-width: 1023px) {
-  .accountbtn {
-    display: none;
-  }
-}
-@media (max-height: 500px) and (orientation: landscape) {
-  .accountbtn {
-    display: block;
-  }
-}
+/* ── 任务中心 ──
+   弹层列出排队位/step 进度/已等待/ETA;徽标显示在跑任务数。 */
 
-/* ────────────────────────────────────────────────────────────────────────────
-   任务中心(全量进度体系,2026-08-29):右上第二枚常驻按钮(accountbtn 左邻),
-   徽标显示在跑任务数;弹层列出排队位/step 进度/已等待/ETA。
-   ──────────────────────────────────────────────────────────────────────────── */
-
-.taskcenter {
-  position: fixed;
-  top: 14px;
-  right: 62px; /* accountbtn(38px @ right:16px) 左侧 8px 间距 */
-  z-index: var(--z-sticky);
-}
-
+/* 触发钮展开态(accent 着色;基础外观在 siderail.css 覆盖块) */
 .taskcenter-trigger {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  border-radius: var(--radius-full);
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-highlight), var(--shadow-lg);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: box-shadow var(--duration-slow) var(--ease-spring),
-              border-color var(--duration-base) var(--ease-standard),
-              color var(--duration-base) var(--ease-standard);
-}
-.taskcenter-trigger:hover,
-.taskcenter-trigger:focus-visible {
-  border-color: var(--border-strong);
-  box-shadow: var(--glass-highlight), var(--shadow-float), var(--shadow-xl);
-  color: var(--text-primary);
+  position: relative; /* 徽标绝对定位锚点 */
+  transition: color var(--duration-fast) var(--ease-standard),
+              background-color var(--duration-fast) var(--ease-standard);
 }
 .taskcenter-trigger[aria-expanded="true"] {
   color: var(--accent);
-  border-color: var(--accent);
 }
 
 .taskcenter-badge {
@@ -173,7 +110,7 @@
   box-shadow: var(--shadow-md);
 }
 
-/* 弹层内容(玻璃底由 Popover 基座提供,此处只管布局) */
+/* 弹层内容(底/描边由 Popover 基座提供,此处只管布局) */
 .taskcenter-pop {
   display: flex;
   flex-direction: column;
@@ -360,16 +297,4 @@
   font-size: var(--text-sm);
   color: var(--text-secondary);
   line-height: 1.6;
-}
-
-/* 窄屏:与 accountbtn 同策略隐藏(底部导航不承载,任务中心属桌面增强) */
-@media (max-width: 1023px) {
-  .taskcenter {
-    display: none;
-  }
-}
-@media (max-height: 500px) and (orientation: landscape) {
-  .taskcenter {
-    display: block;
-  }
 }

@@ -6,7 +6,7 @@
  * ③ 状态色 ok/warn/err × 自身 soft 合成底(soft = 状态色 α 叠加在四层面板上取最坏值)≥4.5
  * ④ 基座 token 存在性源码断言:--content-max/--content-wide/--leading-loose、
  *    .single-view/.view-shell 消费 var(--content-wide)、.view-root 底 nav 让位
- * ⑤ 断点纪律:drama-workbench 1024→1023 / 1280→1279,全 app css 无 1024/1280 媒体查询残留
+ * ⑤ 断点纪律:全 app css 无 1024/1280 媒体查询残留(统一 -1 约定 1023/1279)
  */
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync } from "node:fs";
@@ -221,12 +221,6 @@ function walkCss(dir: string, out: string[] = []): string[] {
   }
   return out;
 }
-
-test("drama-workbench 断点已对齐 -1 约定(1023/1279)", () => {
-  const wb = readSrc("app/styles/drama-workbench.css");
-  assert.match(wb, /@media \(max-width: 1023px\)/);
-  assert.match(wb, /@media \(max-width: 1279px\)/);
-});
 
 test("全 app css 无 @media max-width 1024/1280 残留", () => {
   const cssFiles = walkCss(join(webRoot, "app"));

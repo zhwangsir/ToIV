@@ -1,12 +1,11 @@
 /**
  * 全局进度条接线源码断言(THEME-INPUT-PROGRESS 二期遗留清零)。
  *
- * 覆盖两处新接线:
+ * 覆盖接线:
  * 1. DubView.doLipsync:三模式 begin(AI 精剪 indeterminate / LatentSync·动漫
  *    determinate)+ 轮询真实进度(latent completed/total、anime progress 0-100)
  *    + lipsyncBusy 落 false 单一收口 genEnd(对治终态分散 6 处)。
- * 2. useDramaProject autorun 后台管线:running 期 begin(determinate)+ done/total
- *    报进度 + 终态/切项目 cleanup 双收口。
+ * (useDramaProject autorun 接线断言已随 2026-09-03 W4 drama 死链删除退役)
  *
  * 行为本体(generationBus begin 幂等/progress 夹取/end no-op)由
  * generationBus.test.ts 18 例覆盖;本文件锁定「接线存在且语义正确」防回归。
@@ -16,7 +15,6 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 const dubViewSrc = readFileSync("components/dub/DubView.tsx", "utf8");
-const dramaProjectSrc = readFileSync("hooks/useDramaProject.ts", "utf8");
 
 // ── DubView.doLipsync ────────────────────────────────────────
 test("DubView:进度条三模式 begin 接线", () => {
@@ -46,21 +44,3 @@ test("DubView:lipsyncBusy 落 false 单一收口 genEnd", () => {
   assert.ok(!lipsyncFinally.includes('genEnd("dub-lipsync")'), "finally 内不应直接 genEnd(由 useEffect 收口)");
 });
 
-// ── useDramaProject autorun ──────────────────────────────────
-test("autorun:running 期 begin(determinate)+ done/total 报进度", () => {
-  assert.match(dramaProjectSrc, /genBegin\(\s*id,\s*\n?\s*autorun\.current/);
-  assert.match(dramaProjectSrc, /determinate: autorun\.total > 0/);
-  assert.match(
-    dramaProjectSrc,
-    /genProgress\(id, \(autorun\.done \/ autorun\.total\) \* 100\)/,
-  );
-});
-
-test("autorun:终态收口 + 切项目 cleanup 双收口", () => {
-  // 终态(!running)收口
-  assert.match(dramaProjectSrc, /if \(!autorun\.running\) \{\s*\n?\s*genEnd\(id\)/);
-  // cleanup 收口(切项目/卸载)
-  assert.match(dramaProjectSrc, /return \(\) => genEnd\(id\)/);
-  // 任务 id 带项目隔离
-  assert.match(dramaProjectSrc, /`drama-autorun-\$\{autorunPid\}`/);
-});

@@ -5,8 +5,7 @@
  *    admin 视图 isAdmin 门控(非管理员给无权限提示)+ admin 导航入口
  * ② StudioView:initialProjectId prop 仅透传为 activeId 初值(不改内部)
  * ③ CanvasView:三处自绘 SVG 警告三角收编 ui/Icon(warning)
- * ④ DramaView:页头 PageHeader 收编 / 删除按钮 error→delete 图标 /
- *    项目列表失败持久错误态+重试(不再只 toast)/ rail 按钮 title 去误导
+ * ④ (DramaView 两例已随 2026-09-03 W4 drama 死链删除退役)
  * ⑤ LibraryView:主列表+回收站双页头收编 PageHeader;灯箱 3D 操作条
  *    伪 token 回退(hex/白玻璃)与 7px/6px 野值清零
  * ⑥ BacklotView/ModelsView:私造空态收编 ui/Empty;backlot 空态补
@@ -117,31 +116,7 @@ test("CanvasView:警告三角收编 ui/Icon,无自绘 SVG 残留", () => {
   assert.ok(src.includes("canvas-error-icon"), "error 图标类名保留(尺寸钩子)");
 });
 
-/* ── ④ DramaView ── */
-test("DramaView:页头收编 PageHeader + 删除图标 delete + rail title 去误导", () => {
-  const src = readSrc("components/drama/DramaView.tsx");
-  assert.match(src, /import \{ PageHeader \} from "@\/components\/ui\/PageHeader"/);
-  assert.match(src, /<PageHeader[\s\S]{0,200}title="短剧工作台"/, "页头应走 PageHeader 组件");
-  assert.ok(!src.includes('name="error" size={13}'), "删除按钮不得用 error 图标");
-  assert.ok(src.includes('name="delete" size={13}'), "删除按钮应用 delete(trash)图标");
-  assert.ok(src.includes('title="回列表页新建项目"'), "rail 按钮 title 应如实描述行为");
-  assert.ok(!src.includes('title="新建项目"'), "误导性 title 应清除");
-});
-
-test("DramaView:项目列表失败给持久错误态 + 重试(不再只 toast)", () => {
-  const src = readSrc("components/drama/DramaView.tsx");
-  assert.ok(src.includes("listError"), "缺 listError 状态");
-  assert.ok(src.includes("setListError(msg)"), "失败应落 listError");
-  assert.match(
-    src,
-    /listError && \([\s\S]{0,300}nsfw-drama-error[\s\S]{0,300}重试/,
-    "列表区应渲染错误条 + 重试按钮",
-  );
-  assert.ok(
-    src.includes('projects === null && !listError && <LoadingBlock'),
-    "失败时不得再卡在骨架屏(假空态)",
-  );
-});
+/* (④ DramaView 两例已随 2026-09-03 W4 drama 死链删除退役) */
 
 /* ── ⑤ LibraryView ── */
 test("LibraryView:双 PageHeader 已退役(2026-09-02 W3),计数入工具条 + 回收站细顶条", () => {

@@ -2,8 +2,8 @@
  * UI-C 里程碑视图组件单测(node:test + react-dom/server 静态渲染):
  * ① Agent-runs TaskCard:状态徽章类名与结构(agent-status is-*)
  * ② Agent-runs TaskCard:干预按钮已接 Ripple(ui-ripple 包裹)
- * ③ DramaView:项目列表加载态使用 LoadingBlock(ui-loading)
- * ④ DramaView:项目详情错误态使用 ErrorBar(ui-error-bar)
+ * ③ LoadingBlock 基座:line 变体渲染(原 DramaView 用例,W4 后改基座断言)
+ * ④ ErrorBar 基座:role=alert 渲染(同③)
  * ⑤ CanvasView:移动端提示条结构(canvas-mobile-note)
  * ⑥ Studio ShotCard:操作按钮已接 Ripple(ui-ripple 包裹)
  * ⑦ Studio ShotCard:渲染中脉冲类(is-rendering)
@@ -75,17 +75,16 @@ test("TaskCard 干预按钮被 Ripple 包裹", async () => {
   assert.ok(rippleCount >= 5, `期望 ≥5 个 ui-ripple,实际 ${rippleCount}`);
 });
 
-/* ── ③ DramaView LoadingBlock 存在 ── */
-test("DramaView 项目列表加载态渲染 LoadingBlock", async () => {
-  // 直接验证 LoadingBlock 组件渲染( DramaView 内部使用)
+/* ── ③ LoadingBlock 基座渲染(原 DramaView 用例,W4 drama 删除后改为基座断言) ── */
+test("LoadingBlock 基座:line 变体渲染 N 条骨架", async () => {
   const html = renderToStaticMarkup(h(LoadingBlock, { variant: "line", count: 3 }));
   assert.match(html, /ui-loading/);
   assert.match(html, /ui-loading--line/);
   assert.equal((html.match(/ui-loading-block/g) ?? []).length, 3);
 });
 
-/* ── ④ DramaView ErrorBar 存在 ── */
-test("DramaView 错误态渲染 ErrorBar(role=alert)", async () => {
+/* ── ④ ErrorBar 基座渲染(原 DramaView 用例,同改基座断言) ── */
+test("ErrorBar 基座:role=alert + 文案渲染", async () => {
   const html = renderToStaticMarkup(
     h(ErrorBar, { message: "加载项目详情失败", onClose: () => {} }),
   );

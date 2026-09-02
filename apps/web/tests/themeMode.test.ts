@@ -6,7 +6,7 @@
  * ③ ThemePicker 静态渲染:只剩模式段控(+暗色下纯黑开关);色板/自定义强调色退役
  * ④ layout.tsx 防 FOUC 脚本源码断言:两 key + 旧 key 清除
  * ⑤ globals.css 源码断言:dark 块完整、五色板/dark accent 变体块已移除、pure-black 保留
- * ⑥ drama-workbench.css 源码断言:暗色 .wb-root 覆盖块(ink 恒黑 + darkroom 更沉一档)
+ * ⑥ (drama-workbench 断言已随 2026-09-03 W4 drama 死链删除退役)
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -200,19 +200,5 @@ test("globals.css:pure-black 块压纯黑画布 + 噪点/压角暗色装饰变�
   assert.ok(css.includes('[data-mode="dark"] body::after'), "缺压角暗色变体");
 });
 
-/* ── ⑥ drama-workbench.css 源码断言 ── */
+/* (⑥ drama-workbench.css 暗色断言已随 2026-09-03 W4 drama 死链删除退役) */
 
-test("drama-workbench.css:暗色 light 区 ink 恒黑修正 + darkroom 比全局更沉一档", () => {
-  const css = readSrc("app/styles/drama-workbench.css");
-  const iLight = css.indexOf("[data-mode=\"dark\"] .wb-root {");
-  assert.ok(iLight > 0, "缺暗色 .wb-root 覆盖块");
-  const lightBlock = css.slice(iLight, css.indexOf("\n}", iLight));
-  assert.match(lightBlock, /--wb-ink: var\(--abs-black\);/);
-
-  const iDark = css.indexOf('[data-mode="dark"] .wb-root[data-zone="darkroom"] {');
-  assert.ok(iDark > 0, "缺暗色 darkroom 覆盖块");
-  const darkBlock = css.slice(iDark, css.indexOf("\n}", iDark));
-  assert.match(darkBlock, /--wb-canvas: color-mix\(in oklab, var\(--bg-canvas\) 58%, var\(--abs-black\)\);/);
-  assert.match(darkBlock, /--wb-accent: var\(--warn\);/);
-  assert.match(darkBlock, /--wb-text: color-mix\(in oklab, var\(--abs-white\)/);
-});
