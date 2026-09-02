@@ -619,18 +619,9 @@
   border-radius: var(--radius-panel);
   animation: params-panel-in var(--duration-slow) var(--ease-spring);
 }
-/* 浮板内 select/输入控件:统一圆角 hairline(实底卡片上不再用 surface-3 灰阱) */
-.generate-params .input {
-  background: var(--bg-surface-1);
-  border-color: var(--border-subtle);
-}
-.generate-params .input:hover {
-  border-color: var(--border-strong);
-}
-.generate-params .input:focus {
-  border-color: var(--accent);
-  background: var(--bg-surface-1);
-}
+/* 浮板内 select/输入控件(2026-09-01):统一走全局 .input(surface-1 抬底 + 细边 +
+   focus 光环)。旧 .generate-params .input 覆盖块已删——与全局同构,且其 background
+   简写会把 select 的 chevron background-image 冲掉(生产实测抓获)。 */
 /* 文生/图生段控(.at-seg 共享类):fill 撑满参数栏宽度,替换旧 Tabs fill;
    2026-08-16 审计 P2(未选中项对比不足):轨道下沉一档(canvas 底 + 强描边),
    未选中文字与激活墨丸的层级在实底浮板上拉开 */
