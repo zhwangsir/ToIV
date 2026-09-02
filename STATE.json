@@ -1,7 +1,7 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-02T05:40:00+08:00",
+  "updated_at": "2026-09-02T06:20:00+08:00",
   "studio_console_v1_2026_08_31": {
     "status": "W1_done_deployed_verified",
     "plan": "用户定稿 Studio Console 方案(讨论于 docs 外对话):极简专业工作台,单色中性系,界面退后内容上前",
@@ -2187,5 +2187,14 @@
     "regression": "npm test 929 全绿 / tsc 0 / 干净 build",
     "deploy": "commits 249b92b(精修)+2a124fe(chevron 修复),双推 gitee+github,deploy.sh → core 健康 200",
     "note": "遗留观察(非本次范围):作品库视频 URL query 携带 JWT(进浏览器历史/日志),建议改短时效签名 URL;github 推送曾两轮超时后恢复"
+  },
+  "app_dual_mode_2026_09_02": {
+    "status": "done_deployed_verified",
+    "scope": "用户:市场应用打开分简洁/工作流双模式,工作流展现给用户最可控;简洁模式美化;全链路检查+测试",
+    "backend": "GET /api/apps/{id} workflow_json 对所有可见用户透出(原仅属主/admin);可见性/NSFW 门控不变;test_apps 契约改写",
+    "frontend": "lib/apps 增 AppWorkflowNode/AppBinding + 归一 + orderWorkflowNodes(Kahn)+bindingsByNode;新组件 AppWorkflowGraph(节点拓扑成流/绑定内联编辑共享 values/只读叶子/连线 ← #id/可调徽标);AppRunnerView 页头段控双模式;简洁模式表单升抬底面板卡;生产实测抓获修复:页头 sticky(长工作流段控常驻)",
+    "prod_verify": "生产浏览器实测:Flux2 文生图 11 节点工作流全渲染(绑定节点 accent 左缘+可调徽标+内联表单),跨模式值共享正常,控制台零 JS 错误",
+    "regression": "pytest 2983 / npm test 937(+8) / tsc 0 / 干净 build",
+    "deploy": "commits 15c0d47(双模式)+022a5af(sticky),双推,deploy.sh → core 健康 200"
   }
 }
