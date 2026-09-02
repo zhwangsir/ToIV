@@ -18,7 +18,6 @@ import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { OptimizeButton } from "@/components/ui/OptimizeButton";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { ServiceWakeOverlay } from "@/components/orch/ServiceWakeOverlay";
 import { isWakeError, parseWakeError } from "@/lib/orch";
 
@@ -340,34 +339,27 @@ export function TrainView() {
 
   return (
     <div className="single-view train-view">
-      {/* 页头:UI-A PageHeader(全局 .page-header 体系,本视图 scoped 衔接见下方样式) */}
-      <PageHeader
-        title="训练"
-        desc="LoRA 训练 · 数据集打标 → 微调 → 注册"
-        icon="train"
-        actions={
-          <>
-            <button
-              type="button"
-              className="at-btn at-btn--ghost"
-              onClick={() => void load()}
-              disabled={loading}
-            >
-              <Icon name="refresh" size={14} />
-              刷新
-            </button>
-            <button
-              type="button"
-              className="at-btn at-btn--primary"
-              onClick={() => setShowForm((v) => !v)}
-              disabled={submitting}
-            >
-              <Icon name="upload" size={14} />
-              新建训练
-            </button>
-          </>
-        }
-      />
+      {/* 页头移除(2026-09-02 W3):操作收进窄工具行(右对齐) */}
+      <div className="tv-mode-row">
+        <button
+          type="button"
+          className="at-btn at-btn--ghost"
+          onClick={() => void load()}
+          disabled={loading}
+        >
+          <Icon name="refresh" size={14} />
+          刷新
+        </button>
+        <button
+          type="button"
+          className="at-btn at-btn--primary"
+          onClick={() => setShowForm((v) => !v)}
+          disabled={submitting}
+        >
+          <Icon name="upload" size={14} />
+          新建训练
+        </button>
+      </div>
 
       {showForm && (
         <section className="at-card tv-form-card">
@@ -645,17 +637,12 @@ export function TrainView() {
           padding-bottom: var(--space-2);
         }
 
-        /* ── Header ── */
-        /* 页头版式统一走全局 .page-header*(标题/描述/右侧操作区/桌面端避让导航),
-           此处只保留本视图与全局页头之间的间距衔接。 */
-        .train-view .page-header {
-          margin-bottom: var(--space-4);
-        }
-        .train-view .page-header-actions {
-          display: inline-flex;
-          align-items: center;
+        /* ── 工具行(2026-09-02 W3 页头移除:刷新/新建训练右对齐窄行) ── */
+        .tv-mode-row {
+          display: flex;
+          justify-content: flex-end;
           gap: var(--space-2);
-          flex-shrink: 0;
+          padding: 0 0 var(--space-3);
         }
 
         /* ── Form ── */

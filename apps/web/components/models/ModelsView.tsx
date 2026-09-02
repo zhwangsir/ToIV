@@ -23,7 +23,6 @@ import { usePoll } from "@/hooks/usePoll";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { Empty } from "@/components/ui/Empty";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
-import { PageHeader } from "@/components/ui/PageHeader";
 
 type Tab = "local" | "market" | "r18";
 
@@ -384,31 +383,27 @@ export function ModelsView() {
 
   return (
     <div className="single-view models-view">
-      <PageHeader
-        title="模型库"
-        desc="管理本地已安装模型 · 探索 Civitai 在线市场"
-        icon="models"
-        actions={
-          <div className="at-seg" role="tablist" aria-label="模型库视图切换">
-            {tabItems.map((i) => (
-              <button
-                key={i.key}
-                type="button"
-                role="tab"
-                aria-selected={tab === i.key}
-                className={`at-seg-btn${tab === i.key ? " is-active" : ""}`}
-                onClick={() => setTab(i.key)}
-              >
-                <Icon name={i.icon} size={14} />
-                <span>
-                  {i.label}
-                  {i.key === "r18" && <span className="mv-tab-r18-badge">18+</span>}
-                </span>
-              </button>
-            ))}
-          </div>
-        }
-      />
+      {/* 页头移除(2026-09-02 W3):视图切换段控独立窄行 */}
+      <div className="mv-mode-row">
+        <div className="at-seg" role="tablist" aria-label="模型库视图切换">
+          {tabItems.map((i) => (
+            <button
+              key={i.key}
+              type="button"
+              role="tab"
+              aria-selected={tab === i.key}
+              className={`at-seg-btn${tab === i.key ? " is-active" : ""}`}
+              onClick={() => setTab(i.key)}
+            >
+              <Icon name={i.icon} size={14} />
+              <span>
+                {i.label}
+                {i.key === "r18" && <span className="mv-tab-r18-badge">18+</span>}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
 
       {tab === "local" ? (
         <section className="mv-panel">
@@ -859,6 +854,12 @@ export function ModelsView() {
       <style jsx>{`
         .models-view {
           padding-top: var(--space-4);
+        }
+
+        /* 段控窄行(2026-09-02 W3 页头移除) */
+        .mv-mode-row {
+          display: flex;
+          padding: 0 0 var(--space-3);
         }
 
         /* ── 问 AI 区(WIKI-2026-08-18) ─────────────────────────── */

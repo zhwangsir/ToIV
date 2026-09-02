@@ -632,11 +632,14 @@ function HomeContent() {
 
   // 观测面板仅管理员(端点 admin-only):非管理员直输 ?view=observability 弹回融合页;
   // 等会话探测完成(account 非 null)再判,避免登录中误弹。
+  // 2026-09-02:弹回走 history.replaceState 而非 changeView(router.replace 会触发 RSC
+  // 服务端往返;生产实测非管理员撞此门控时 RSC 请求重试风暴 97+ 次)
   useEffect(() => {
     if (view === "observability" && account !== null && account !== "admin") {
-      changeView("fusion");
+      setView("fusion");
+      window.history.replaceState({}, "", "/?view=fusion");
     }
-  }, [view, account, changeView]);
+  }, [view, account]);
 
   // 动态分镜 AI 模式:解析成功后跳 studio 创作工作室并直开该项目
   // (2026-08-30 批 D:此前丢弃 project.id,落项目列表找不到刚建的项目)

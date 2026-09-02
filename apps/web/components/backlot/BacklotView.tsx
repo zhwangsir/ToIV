@@ -15,7 +15,6 @@ import { Button } from "@/components/ui/Button";
 import { Empty } from "@/components/ui/Empty";
 import { ErrorBar } from "@/components/ui/ErrorBar";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
-import { PageHeader } from "@/components/ui/PageHeader";
 
 // ── 阶段元数据:徽章色调由 CSS data-stage → canonical 状态色映射 ──
 const STAGE_META: Record<
@@ -292,35 +291,25 @@ export function BacklotView({
 
   return (
     <div className="single-view backlot-view">
-      {/* 页头:UI-A PageHeader(本文件样式为 jsx global,page-header* 选择器照常命中) */}
-      <PageHeader
-        className="bl-header"
-        title="看板"
-        desc={
-          <>
-            项目仪表盘 · 全流程进度一览 ·{" "}
-            <span className="bl-count" aria-live="polite">
-              {loading ? "加载中" : error ? "—" : `${count} 个项目`}
-            </span>
-          </>
-        }
-        icon="backlot"
-        actions={
-          <button
-            type="button"
-            className="at-btn at-btn--ghost bl-refresh"
-            onClick={load}
-            disabled={loading}
-          >
-            <Icon
-              name="refresh"
-              size={14}
-              className={loading ? "bl-spin" : undefined}
-            />
-            刷新
-          </button>
-        }
-      />
+      {/* 页头移除(2026-09-02 W3):项目计数 + 刷新收进窄工具行 */}
+      <div className="bl-mode-row">
+        <span className="bl-count" aria-live="polite">
+          {loading ? "加载中" : error ? "—" : `${count} 个项目`}
+        </span>
+        <button
+          type="button"
+          className="at-btn at-btn--ghost bl-refresh"
+          onClick={load}
+          disabled={loading}
+        >
+          <Icon
+            name="refresh"
+            size={14}
+            className={loading ? "bl-spin" : undefined}
+          />
+          刷新
+        </button>
+      </div>
 
       <div className="bl-body">
         {error && !loading && (
@@ -547,10 +536,13 @@ export function BacklotView({
           gap: var(--section-gap);
         }
 
-        /* ── 统一页头:版型走全局 .page-header*(Studio Console v1 起 masthead 退役),
-             本视图不再覆盖标题字体/边框;此处只保留计数等特有样式 ── */
-        .bl-header {
-          flex-wrap: wrap;
+        /* ── 工具行(2026-09-02 W3 页头移除):项目计数在左,刷新在右 ── */
+        .bl-mode-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: var(--space-2);
+          padding: 0 0 var(--space-3);
         }
         .bl-count {
           font-family: var(--font-mono);

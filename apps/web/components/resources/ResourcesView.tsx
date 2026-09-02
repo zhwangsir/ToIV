@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
-import { PageHeader } from "@/components/ui/PageHeader";
 
 const ModelsView = lazy(() =>
   import("@/components/models/ModelsView").then((m) => ({ default: m.ModelsView })),
@@ -47,28 +46,23 @@ export function ResourcesView({ onCreateProject }: { onCreateProject?: () => voi
 
   return (
     <div className="resources-view view-shell">
-      {/* 页头:UI-A PageHeader;resources-head 经 className 透传,样式走 :global(见下) */}
-      <PageHeader
-        className="resources-head"
-        title="资源中心"
-        desc="模型库 · 训练 · 看板 一站式管理工作台"
-        actions={
-          <div className="at-seg" role="tablist" aria-label="资源">
-            {items.map((i) => (
-              <button
-                key={i.key}
-                type="button"
-                role="tab"
-                aria-selected={tab === i.key}
-                className={`at-seg-btn${tab === i.key ? " is-active" : ""}`}
-                onClick={() => setTab(i.key as ResourceTab)}
-              >
-                {i.label}
-              </button>
-            ))}
-          </div>
-        }
-      />
+      {/* 页头移除(2026-09-02 W3):段控独立窄行,与市场 market-mode-row 同款 */}
+      <div className="resources-mode-row">
+        <div className="at-seg" role="tablist" aria-label="资源">
+          {items.map((i) => (
+            <button
+              key={i.key}
+              type="button"
+              role="tab"
+              aria-selected={tab === i.key}
+              className={`at-seg-btn${tab === i.key ? " is-active" : ""}`}
+              onClick={() => setTab(i.key as ResourceTab)}
+            >
+              {i.label}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="resources-body">
         {/* 内层错误边界(UI-B):子视图渲染/chunk 加载异常时只降级内容区,
             页头 tab 条保持可用,切换 tab(key 变更)即自动复位边界 */}
@@ -92,9 +86,11 @@ export function ResourcesView({ onCreateProject }: { onCreateProject?: () => voi
           flex-direction: column;
           height: 100%;
         }
-        /* 页头元素在 PageHeader 组件内渲染,scoped 选择器跨不过组件边界,须 :global */
-        .resources-view :global(.resources-head) {
+        /* 段控窄行(页头已移除):首屏全给内容 */
+        .resources-mode-row {
           flex-shrink: 0;
+          display: flex;
+          padding: 0 0 var(--space-3);
         }
         .resources-body {
           flex: 1;
@@ -107,22 +103,6 @@ export function ResourcesView({ onCreateProject }: { onCreateProject?: () => voi
           max-width: none;
           padding-left: 0;
           padding-right: 0;
-        }
-        /* 双页头修复(2026-08-16 审计 P1):内嵌视图(ModelsView 等)的完整页头
-           与「资源中心」页头堆叠——降级为分区小节:标题收到 section 档
-           (无衬线/15px/600)、去底部分隔线与呼吸,视觉层级 = 页头 → 小节;
-           页头操作槽(段控 tab)保留可用 */
-        .resources-body :global(.page-header) {
-          padding-bottom: 0;
-          margin-bottom: var(--space-4);
-          border-bottom: none;
-        }
-        .resources-body :global(.page-header-title) {
-          font-family: var(--font-sans);
-          font-size: var(--text-section);
-          font-weight: var(--font-semibold);
-          letter-spacing: -0.01em;
-          line-height: var(--leading-base);
         }
         @media (max-width: 767px) {
           /* 移动端触控目标 ≥44px */
