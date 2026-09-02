@@ -231,6 +231,15 @@
   gap: var(--section-gap);
   min-height: 0;
 }
+/* 页头 sticky(2026-09-02 生产实测修复):工作流模式节点流很长,段控不能滚出视口;
+   画布底色实底压盖滚动内容 */
+.apps-runner .page-header {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  background: var(--bg-canvas);
+  padding-top: var(--space-2);
+}
 /* 简洁模式表单(2026-09-02 美化):抬底面板卡,参数行距放宽,提交区 hairline 分隔 */
 .apps-runner-form {
   display: flex;
