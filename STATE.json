@@ -1,7 +1,30 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-03T18:17:00+08:00",
+  "updated_at": "2026-09-03T19:01:00+08:00",
+  "lb_gpu0_alt_2026_09_03": {
+    "date": "2026-09-03",
+    "source": "本会话 SSH 真机核验（状态同步）",
+    "finding": "ComfyUI-LB 本地池后端口径漂移：文档写 :8189，真机 core env 已切 :8196",
+    "gpu0_8189": {
+      "unit": "comfyui-gpu0",
+      "status": "deactivating / start-failing",
+      "cause": "Port 8189 is already in use（LISTEN 残留，归属进程对 merlin 不可见，无免密 sudo 未查实，疑似 root/孤儿）",
+      "note": "事发时另一会话正在 workstation 操作（journal 18:57），按 P-5 只记录不动手；占用者清理与回切待处置方收口"
+    },
+    "gpu0_alt_8196": {
+      "unit": "comfyui-gpu0-alt",
+      "status": "active + enabled",
+      "cmd": "/opt/ComfyUI main.py --port 8196, GPU0, cache-lru 8（同原 8189 配置）"
+    },
+    "core_env": "TOIV_COMFY_WORKERS=http://192.168.71.127:8196,http://192.168.71.116:8188,http://192.168.71.114:8193",
+    "core_health": "/api/health 200, workers 三后端在线",
+    "core_web_build_id": "20260903-020621-262bb5a-dirty（与 product_262bb5a 记录一致）",
+    "git": "HEAD 113e73b, Gitee+GitHub 均 0 未推",
+    "gpu_snapshot_mib_used_of_97887": {"GPU0": 27275, "GPU1": 94125, "GPU2": 38159, "GPU3": 84997},
+    "gpu0_reset": "still open（独立未修事项）",
+    "agents_md": "已修正 GPU0 行/LB 段 + 新增 H-7 + 近期关键变更条目"
+  },
   "h3_gpu_pin_2026_09_03": {
     "date": "2026-09-03",
     "source": "设备管家 SSH-verified; ToIV 开发 did the pin; 设备管家 did not edit docs",
@@ -40,7 +63,7 @@
       "apps.py",
       "test_apps_run.py"
     ],
-    "agents_md": "dirty uncommitted"
+    "agents_md": "updated+committed 2026-09-03（应用市场条目已补入近期关键变更）"
   },
   "product_262bb5a": {
     "commit": "262bb5a",
