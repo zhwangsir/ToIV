@@ -1,13 +1,22 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-03T04:13:00+08:00",
+  "updated_at": "2026-09-03T10:06:00+08:00",
+  "product_262bb5a": {
+    "commit": "262bb5a",
+    "message": "feat(apps): RunningHub H3 应用市场与 1166 社区预制",
+    "local": true,
+    "pushed": false,
+    "on_core": false,
+    "live": false,
+    "seed_builtin_apps": "needs API restart after deploy"
+  },
   "rh_h3_preset_seed_2026_09_03": {
-    "status": "uncommitted_undeployed",
+    "status": "local_committed_unpushed_not_on_core",
     "live": false,
     "on_core": false,
-    "product_sha": null,
-    "what": "RunningHub H3 search cards seeded as builtin app presets in the local tree (UNCOMMITTED, NOT on core, not live, no product SHA)",
+    "product_sha": "262bb5a",
+    "what": "RunningHub H3 search cards seeded as builtin app presets in the local tree (local committed 262bb5a, remotes not pushed, NOT on core, not live)",
     "ids": "deduped 1166 rh-* ids hung on EXISTING family graphs (NOT 1166 independent Comfy JSON)",
     "categories_approx": {
       "场景": 246,
@@ -32,19 +41,22 @@
     ],
     "featured_video_apps": "did NOT add rh-*",
     "prod": "production DB needs API restart to run seed_builtin_apps before they are visible",
-    "agents_md": "untouched"
+    "agents_md": "untouched",
+    "remotes": "not pushed",
+    "awaiting": "core health check before live口径"
   },
   "rh_h3_apps_presets_intent_2026_09_03": {
-    "status": "local_landed_uncommitted_no_sha",
+    "status": "local_committed_unpushed_not_on_core",
     "not": "another engine wrapper layer",
     "yes": "RunningHub H3 workflows → ToIV apps/presets; generate page selects apps; assistant list_apps/run_app",
     "community_cards": "1262 not 1:1 graphs; group by capability families 文生/图生/首尾帧/全能参考/加速/声音参考 as apps+presets",
-    "in_progress": "1166 rh-* presets seeded locally uncommitted (not on core, no product SHA); video-entry apps first (advanced engines kept); assistant list_apps/run_app",
+    "in_progress": "1166 rh-* presets committed locally as 262bb5a (not pushed, not on core); video-entry apps first (advanced engines kept); assistant list_apps/run_app",
     "agents_md": "untouched",
-    "local_code": "1166 rh-* presets seeded locally uncommitted, not on core, no product SHA",
-    "awaiting": "commit SHA or deploy before thickening",
-    "wrap_up": "complete locally uncommitted no SHA",
-    "tests": "API focused 219, web npm test 910"
+    "local_code": "committed as 262bb5a unpushed (not on core, not live)",
+    "awaiting": "core health check before live口径",
+    "wrap_up": "complete locally as 262bb5a unpushed, not on core, live口径 not written",
+    "tests": "API focused 219, web npm test 910",
+    "product_sha": "262bb5a"
   },
   "market_ui_multiupload_2026_09_03": {
     "status": "uncommitted_undeployed",
