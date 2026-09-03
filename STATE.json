@@ -1,7 +1,30 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-03T15:08:00+08:00",
+  "updated_at": "2026-09-03T18:17:00+08:00",
+  "h3_gpu_pin_2026_09_03": {
+    "date": "2026-09-03",
+    "source": "设备管家 SSH-verified; ToIV 开发 did the pin; 设备管家 did not edit docs",
+    "unit": "toiv-comfyui-h3",
+    "drop_in": "/etc/systemd/system/toiv-comfyui-h3.service.d/gpu-pin.conf",
+    "cuda_device_order": "PCI_BUS_ID",
+    "cuda_visible_devices": "GPU-0e6e9149-a5af-1474-c18b-2d6d2cf7a401",
+    "pci": "C1:00.0",
+    "physical_gpu": "GPU2",
+    "not": "numeric CUDA_VISIBLE_DEVICES=2",
+    "pid_on": "GPU2",
+    "vram_free": "~58GiB",
+    "threshold_36gib": "can_pass",
+    "cause": "GPU0 requires reset scrambled CUDA ordinals; old CVD=2 landed on GPU3",
+    "gpu0_reset": {
+      "status": "still_open",
+      "done": false,
+      "note": "NOT done this round; separate open item; do not write as fixed"
+    },
+    "flash_talk": "untouched",
+    "fish_speech": "untouched",
+    "agents_md": "updated"
+  },
   "product_133f15a": {
     "commit": "133f15a",
     "message": "海螺市场应用走 H3 专用实例而不是通用池",

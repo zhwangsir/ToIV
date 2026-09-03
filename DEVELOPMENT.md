@@ -4,6 +4,8 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
+**2026-09-03 H3 GPU 钉卡（设备管家 SSH 核实；ToIV 开发做钉卡，设备管家未改文档）**：toiv-comfyui-h3 drop-in `/etc/systemd/system/toiv-comfyui-h3.service.d/gpu-pin.conf`，`CUDA_DEVICE_ORDER=PCI_BUS_ID` + `CUDA_VISIBLE_DEVICES=GPU-0e6e9149-a5af-1474-c18b-2d6d2cf7a401`（PCI C1:00.0，物理 GPU2，非数字 CVD=2）。现 PID 在 GPU2，Comfy vram_free ≈58GiB（门槛 36GiB 可通过）。根因：GPU0 “requires reset” 打乱 CUDA 序号，原先 CVD=2 落到 GPU3。未动 GPU0 reset，未杀 FlashTalk/fish-speech。⚠️ **GPU0 复位仍是独立未修事项，不要写成已修**。集群 SoT `AGENTS.md`。
+
 **2026-09-03 `133f15a`（已双推，已上线 core）**：`133f15a` `fix(apps): 海螺市场应用走 H3 专用实例而不是通用池` 已双推 Gitee+GitHub 并上线 core。海螺市场应用跑 H3 图走专用 `:8195`，不再 `pool.pick`。LongCat 走 apps 仍走通用池。含此前 docs `3fc9d45`。toiv-api/toiv-web 健康 200。改 `apps.py` + `test_apps_run.py`。AGENTS.md 本地脏文件仍未提交未推。
 
 **2026-09-03 `8f6665f`（已双推，已上线 core）**：docs `8f6665f` 已双推 Gitee `Winery_z/ToIV` + GitHub `zhwangsir/ToIV`（含产品 `262bb5a`）。core 此前已上该产品。AGENTS.md 本地脏文件未提交未推。现已叠 `133f15a`。

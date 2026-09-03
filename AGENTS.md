@@ -34,8 +34,8 @@
 |---|---|---|---|---|---|
 | ~~studio01-04~~ | **2026-08-29 全线下线退役**：EXO RDMA :52415 四台真机 curl 全超时，已从 fleet_registry 移除；原承担的 L2/L3 LLM 层（Kimi-K3/GLM-5.2）收拢 spark02 | .109/.111/.112/.113 | 100.67.43.40 / 100.91.0.121 / 100.115.27.68 / 100.126.182.23 | **Mac Studio M3 Ultra 32核 512GB** | dgmt-studio01-04 |
 | openclaw01-04 | OpenClaw 网关 :18789 均 200（2026-08-28） | .86/.75/.81/.85 | **100.115.23.67** / 100.76.35.7 / 100.76.140.121 / **100.125.217.11**（01/04 以 Tailscale 2026-08-27 为准，旧 100.69.0.4 / 100.91.128.30 作废） | **Mac mini M4 16GB (hw.model=Mac16,10)**；01 已 profiler 实锤，02-04 同 hw.model | dgmt-openclaw01-04 |
-| spark01 | **Qwen3-VL-32B-Instruct-FP8** 评分/反推 VLM(容器 qwen3vl32b, :8000;2026-08-25 替换 molmo2-8B,幻觉实测根治;**2026-08-26 起接管图像/视频反推+宫格 grounding**,别名 molmo2-8b/omni-captioner 保留) | .82 | 100.81.235.124 | Linux GB10 | dgmt-spark |
-| spark02 | LLM L1-L4 主力(**Qwen3.8-27B-Uncensored-FP8 无审查版**,2026-08-23 替换;别名 qwen3.8-27b/qwen3.6-uncensored 均有效, :8000) | .84 | 100.86.42.89 | Linux GB10 | dgmt-spark |
+| spark01 | **SGLang 双机集群入口**：qwen3.8-flash-next（NVFP4，容器 qwen38sg，:8000 OpenAI 兼容，max_model_len 262144，支持视觉，无审查；2026-09-03 真机实测出文/识图/成人向均通过。旧记录 Qwen3-VL-32B/molmo2 已下线） | .82 | 100.81.235.124 | Linux GB10 | dgmt-spark |
+| spark02 | 同一集群 node-rank 1 计算节点（`--tp 2 --nnodes 2`，模型 /models/qwen38-flash-next-nvfp4，dist-init 192.168.201.13:5000；**API 入口在 spark01，本机 :8000 无监听**）。另跑 LiveKit 栈（drt-livekit/egress/redis:6380）。旧记录 Qwen3.8-27B-Uncensored 已下线 | .84 | 100.86.42.89 | Linux GB10 | dgmt-spark |
 | workstation | 算力+全部后端服务 | 192.168.71.127 | **100.68.100.90** | Linux 4×RTX PRO 6000 | merlin |
 | pc01 | ComfyUI worker :8188 | **192.168.71.116**(2026-08-25 DHCP 由 .115 漂移,MAC 指纹实证;LB/SSH/代码已同步) | 100.69.134.27 | Windows RTX 5090 | home |
 | pc02 | ComfyUI worker :8193 + 编辑实例 :8194；**TS≠LAN**：LAN :8193/:8194 HTTP 200（2026-08-28 curl 17ms/15ms），⚠️ Tailscale 2026-08-27 离线 21d（这轮没测 TS） | 192.168.71.114 | 100.107.94.26 | Windows RTX 5090 | w |
@@ -74,8 +74,9 @@
 |-----|------|------|------|---------|
 | GPU0(~69G) | ComfyUI #1(cache-lru 8) / IndexTTS2 / CosyVoice2 / **hy3dtex 纹理管线** / **JoyCaption :9304(~17G)** / **LongCat :8197(cache-lru 3,作业完自动驱逐)** | :8189 / :9200 / :9201 / :9404 / :9304 / :8197 | 08-25 换卡后快照 | comfyui-gpu0 / toiv-tts / (cosyvoice) / toiv-hy3dtex / toiv-joycaption / comfyui-longcat |
 | GPU1(69.4G) | Qwen3-Embedding-4B / LiveAct / 超分实例 | :9302 / :9400 / :8261 | ~20+59+0.75G | qwen3-embedding / toiv-liveact / comfyui-upscale-gpu1 |
-| GPU2(~56G) | **MiniMax H3(主力视频引擎)** :8195(~41G) / ASR :9210 / FireRedASR :8300 / CosyVoice3 :9202 / Qwen3-TTS :9203 / demucs :9220 / SenseVoice :9211 / 超分 :8262(四小音频服务 08-25 自 GPU0 迁入) | — | — | toiv-comfyui-h3 等;H3 峰值~78G 安全,新增常驻服务前必查 |
+| GPU2(~56G) | **MiniMax H3(主力视频引擎)** :8195(~41G；toiv-comfyui-h3 经 gpu-pin.conf UUID 钉物理 GPU2，非数字 CVD=2；现 PID 在 GPU2，vram_free ≈58GiB) / ASR :9210 / FireRedASR :8300 / CosyVoice3 :9202 / Qwen3-TTS :9203 / demucs :9220 / SenseVoice :9211 / 超分 :8262(四小音频服务 08-25 自 GPU0 迁入) | — | — | toiv-comfyui-h3 等(UUID 钉 GPU2 via gpu-pin.conf，不是 CVD=2);H3 峰值~78G 安全,新增常驻服务前必查 |
 | GPU3(54.1G) | FlashTalk :9004(~51G) / OpenTalking / 超分 :8263 | — | — | ~~LTX-2.5 :8198~~ **已彻底退役**(2026-08-23 用户授权自主决断:`disable --now` 已执行,enabled→disabled,GPU3 释放 36G、RAM 54→90G;NVFP4 模型文件留盘可回滚) |
+| GPU2 追加(2026-09-03) | **comfyui-infinitetalk :8201**(InfiniteTalk 音频驱动数字人,WanVideoWrapper) + **toiv-fishs2 :9212**(Fish Audio S2 Pro TTS,常驻~20G) | :8201 / :9212 | 09-03 快照 GPU2 37G/97G | comfyui-infinitetalk / toiv-fishs2(均 UUID 锁物理 GPU2,见 H-6) |
 
 **ComfyUI-LB 后端**（3 后端）：本地 :8189(GPU0) + pc01 :8188 + pc02 :8193。GPU1/2/3 不入 LB 池（专用实例 :8197/:8195/:8198/:8261-8263 均为专用,不入池;每新增同机专用实例必须补 `deps.resolve_worker()` 精确匹配,见 E-3）。
 
@@ -135,6 +136,8 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 **H-4 「DB 标 error」≠「生成失败」(2026-08-21 P0)**：tracker 曾把「仍在 /queue 排队」误标超时 error,真机 ComfyUI history 显示实际全部 success、产物在盘。批量失败第一反应查 `/history/{pid}`,产物在就回写,禁止盲目重提浪费 GPU。超时/回收逻辑必须区分「排队等待」与「丢失」(tracker 已修复:在 /queue 时重置超时窗口)。
 
 **H-5 温度政策(2026-08-16 用户拍板)**：无软件熔断(详见第三节散热政策);但注意风扇曲线懒惰会让 400W 负载时风扇仅 37%——锁扇 100% 是提速手段。
+
+**H-6 CUDA_VISIBLE_DEVICES 数字索引≠nvidia-smi 索引(2026-09-03 实证)**：workstation CUDA 运行时枚举只有 3 个设备且顺序偏移——实测 CVD=1→物理 GPU2(PCI C1,UUID GPU-0e6e9149)、CVD=2→物理 GPU3(PCI F1,UUID GPU-91a1da03)、CVD=3 无设备;物理 GPU0(PCI 01,27G 占用)不进 CUDA 数字枚举,其占用进程对 merlin 的 nvidia-smi 显示 [N/A](疑似 root/MPS 上下文),勿把 GPU0 空闲当可用。🔒 新服务锁卡一律用 **GPU UUID**(`Environment=CUDA_VISIBLE_DEVICES=GPU-xxxx`),起服后用 `nvidia-smi --query-compute-apps=pid,gpu_uuid` 复核落卡。 **toiv-comfyui-h3 现已加 drop-in** `/etc/systemd/system/toiv-comfyui-h3.service.d/gpu-pin.conf`：`CUDA_DEVICE_ORDER=PCI_BUS_ID` + `CUDA_VISIBLE_DEVICES=GPU-0e6e9149-a5af-1474-c18b-2d6d2cf7a401`（PCI C1:00.0，物理 GPU2）。原先数字 `CUDA_VISIBLE_DEVICES=2` 因 GPU0 “requires reset” 打乱 CUDA 序号而落到 GPU3。本轮 **未做 GPU0 reset**（仍是独立未修事项），未杀 FlashTalk/fish-speech。
 
 ### D. 退役/迁移记录类
 
@@ -233,6 +236,22 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - **toiv-comfyui-h3** `:8195`（`/home/merlin/ComfyUI-h3-eval`）ComfyUI **0.30.0 → 0.34.0**（git `a87667f`，含 Comfy-Org #15439 `MiniMaxH3AddGuide`）。
 - 原生 `MiniMaxH3AddGuide` 已出现；`ImageToVideo` / `ReferenceToVideo` 仍在。
 - 模型 INT8 / Turbo 未重下。未拉 spark02。
+
+### 2026-09-03（设备管家：H3 GPU 钉卡）
+
+- toiv-comfyui-h3 drop-in `/etc/systemd/system/toiv-comfyui-h3.service.d/gpu-pin.conf`
+- CUDA_DEVICE_ORDER=PCI_BUS_ID；CUDA_VISIBLE_DEVICES=GPU-0e6e9149-a5af-1474-c18b-2d6d2cf7a401（PCI C1:00.0，物理 GPU2）
+- 现 PID 在 GPU2，Comfy vram_free ≈58GiB（门槛 36GiB 可通过）
+- 根因：GPU0 “requires reset” 打乱 CUDA 序号，原先 CUDA_VISIBLE_DEVICES=2 落到 GPU3
+- 未动 GPU0 reset，未杀 FlashTalk/fish-speech
+- ⚠️ GPU0 复位仍是独立事项，这次不要写成已修
+
+### 2026-09-03（设备管家：算力补装 Wan2.2 Remix + InfiniteTalk :8201 + Fish S2 :9212）
+
+- **Wan2.2 Remix v3.0（NSFW I2V 去审查微调）入库 NAS 主库**（`Windows/ComfyUI/ComfyUIModel/models`，/opt/ComfyUI 软链可见）：源 **FX-FeiHou/wan2.2-Remix**（原作者仓，v0.6→v3.0 版本链完整，nextdiffusion 教程同源），`diffusion_models/Wan2.2_Remix_NSFW_i2v_14b_{high,low}_lighting_fp8_e4m3fn_v3.0.safetensors`（各 14.3GB）+ `text_encoders/nsfw_wan_umt5-xxl_fp8_scaled.safetensors`（6.7GB，Osrivers 仓，文件名与作者官方工作流引用一致）；VAE 复用现有 wan_2.1_vae，lightx2v 4-step I2V LoRA 库中已有。hf-mirror 直连 + aria2c -x16，safetensors 头校验通过。
+- **comfyui-infinitetalk :8201（active+enabled，物理 GPU2）**：复用 `/home/merlin/ComfyUI-longcat` 代码 + `/opt/ComfyUI/venv`，独立 `extra_model_paths_infinitetalk.yaml`（NAS 主库 + toiv 库双 base，增 wav2vec2 类目），`--cache-lru 3`。新增模型（Kijai 路线，均入 NAS 主库）：`diffusion_models/Wan2_1-I2V-14B-480p_fp8_e4m3fn_scaled_KJ.safetensors`（16.6GB）、`diffusion_models/Wan2_1-InfiniTetalk-Single_fp16.safetensors`（5.1GB，官方文件名拼写就是 InfiniTetalk）、`diffusion_models/Wan2_1-InfiniteTalk-Multi_fp16.safetensors`（5.1GB）、`wav2vec2/wav2vec2-chinese-base_fp16.safetensors`（190MB）；umt5-xxl-enc-bf16 复用 toiv 库。e2e 实证：33 帧 480×480 单人（avatar_face.png + avatar_audio.wav），POST /prompt → 180s 完成，产物 `/home/merlin/ComfyUI-longcat/output/infinitetalk_smoke_00001.mp4`（98KB，h264，1.32s）。⚠️ 坑：①MultiTalkModelLoader 只扫 diffusion_models（不是 model_patches）②Wav2VecModelLoader 扫 wav2vec2 目录（不是 audio_encoders）③WanVideoTextEncodeCached 不支持 fp8 scaled umt5（报 Invalid T5），用 umt5-xxl-enc-bf16 ④sampler rope_function 必须 comfy。⚠️ 接入 core 前须按 E-1 补 `deps.resolve_worker()` 精确匹配（本轮未做）。
+- **toiv-fishs2 :9212（active+enabled，物理 GPU2，常驻 ~20G）**：fishaudio/fish-speech v2.0.0（S2 Pro 4B），`/home/merlin/fish-speech`，uv venv（torch 2.8.0+cu128，sm_120 可用），权重 `checkpoints/s2-pro`（11G，hf-mirror；⚠️ hf CLI 走 xet 会 401，用 aria2c resolve URL）。启动：`tools/api_server.py --llama-checkpoint-path checkpoints/s2-pro --decoder-checkpoint-path checkpoints/s2-pro/codec.pth --listen 0.0.0.0:9212 --half`。实测：POST /v1/tts 中文含 `[laugh]`/`[whisper]` → 200，10.7s/942KB wav 44.1kHz；同文本去标记对照 6.2s/545KB，情感标记生效。未开 --compile（可提速，暂不需要）。
+- **锁卡方式**：两服务均 `Environment=CUDA_VISIBLE_DEVICES=GPU-0e6e9149-a5af-1474-c18b-2d6d2cf7a401`（物理 GPU2 UUID），原因见 H-6。
 
 ### 2026-08-30 UX 体验包（ToIV 开发，`eb51c86` 已上线 core，远程未推，不改设备清单）
 

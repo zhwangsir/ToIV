@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-03 H3 GPU pin (SSH-verified by 设备管家; ToIV 开发 did the pin, 设备管家 did not edit docs): toiv-comfyui-h3 drop-in `/etc/systemd/system/toiv-comfyui-h3.service.d/gpu-pin.conf`; CUDA_DEVICE_ORDER=PCI_BUS_ID; CUDA_VISIBLE_DEVICES=GPU-0e6e9149-a5af-1474-c18b-2d6d2cf7a401 (PCI C1:00.0, physical GPU2, not numeric CVD=2). Current PID on GPU2; Comfy vram_free ≈58GiB (36GiB threshold can pass). Root cause: GPU0 “requires reset” scrambled CUDA ordinals so old CVD=2 landed on GPU3. Did NOT reset GPU0; did NOT kill FlashTalk/fish-speech. **UNFIXED: GPU0 reset remains a separate open item — do not write as fixed.** Cluster SoT AGENTS.md.
+
 - 2026-09-03 133f15a dual-pushed Gitee+GitHub and ON CORE: H3 marketplace apps send H3 graphs to dedicated :8195, not pool.pick. LongCat via apps still generic pool. Includes docs 3fc9d45. toiv-api/toiv-web health 200. Files: apps.py, test_apps_run.py. AGENTS.md local dirty not committed.
 
 - 2026-09-03 8f6665f dual-pushed Gitee+GitHub (includes product 262bb5a already on core). origin Winery_z/ToIV, github zhwangsir/ToIV. AGENTS.md local dirty not committed not pushed.
