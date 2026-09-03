@@ -4,7 +4,9 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
-**2026-09-03 `262bb5a`（本地已提交，远程未推，未上 core）**：产品 SHA `262bb5a` `feat(apps): RunningHub H3 应用市场与 1166 社区预制`（**本地已提交，远程未推，未上 core**）。覆盖此前未提交的应用市场/H3 预制/1166 `rh-*` 播种栈。生产库仍要 API 重启 `seed_builtin_apps` 才写得进 rh-*。上线口径等 core 健康检查。AGENTS.md 未动。
+**2026-09-03 `262bb5a`（已上线 core，远程未推）**：产品 SHA `262bb5a` 已上线 core（**远程未推**）。toiv-api/toiv-web 健康 200；前端 BUILD_ID `20260903-020621-262bb5a-dirty`；启动日志「内置应用播种完成:新增 1206 个」（核心内置 + 1166 `rh-*`）。覆盖此前未提交的应用市场/H3 预制/1166 搜索卡栈。AGENTS.md 未动。
+
+**2026-09-03 `262bb5a`（当时未上 core；现已上线 core，远程仍未推）**：产品 SHA `262bb5a` `feat(apps): RunningHub H3 应用市场与 1166 社区预制`（**本地已提交，远程未推，未上 core**）。覆盖此前未提交的应用市场/H3 预制/1166 `rh-*` 播种栈。生产库仍要 API 重启 `seed_builtin_apps` 才写得进 rh-*。上线口径等 core 健康检查。AGENTS.md 未动。
 
 **2026-09-03 RunningHub H3 搜索卡预制播种（当时未提交；现已由 `262bb5a` 提交，仍未上 core）**：RunningHub H3 搜索卡已作为内置应用预制播种进本地树（**未提交、未上 core**，无产品 SHA）。去重 1166 个 `rh-*` id，挂在已有 family 图上（不是 1166 张独立 Comfy JSON）。分类大约：场景 246、全能参考 r2v 268、首尾帧 139、图生 125、图生加速 100、口播 98、文生 73、洗视频/v2v 48、换人 wan-animate-2 13、时间静止 2（i2v 提示词前缀）。NSFW 约 110。假 20s/一分钟卡映射到 15s 加速并在简介写明单段上限 15s。原生分辨率仍是约 1344×768，不是 928P。落地：`apps/api/app/data/rh_h3_presets.json`、`services/rh_h3_preset_seed.py`、`_build_specs` 末尾 extend。FEATURED 视频应用未加入 `rh-*`。生产库要 API 重启跑 `seed_builtin_apps` 才看得见。不要写成已上线。AGENTS.md 未动。
 

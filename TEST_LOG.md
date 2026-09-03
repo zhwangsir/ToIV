@@ -1,6 +1,8 @@
 # TEST_LOG.md — ToIV
 
-- 2026-09-03 262bb5a local commit (NOT pushed, NOT on core, not live): feat(apps): RunningHub H3 应用市场与 1166 社区预制. Retags prior uncommitted H3 apps/presets/1166 rh-* stack to this SHA. Prod DB still needs API restart seed_builtin_apps after deploy. Wait for core health before live口径. AGENTS.md untouched.
+- 2026-09-03 262bb5a ON CORE (remotes NOT pushed): toiv-api/toiv-web health 200. frontend BUILD_ID 20260903-020621-262bb5a-dirty. seed log: 内置应用播种完成:新增 1206 个 (core builtins + 1166 rh-*). AGENTS.md untouched.
+
+- 2026-09-03 262bb5a local commit (NOT pushed, NOT on core, not live) (superseded: now on core, remotes still unpushed): feat(apps): RunningHub H3 应用市场与 1166 社区预制. Retags prior uncommitted H3 apps/presets/1166 rh-* stack to this SHA. Prod DB still needs API restart seed_builtin_apps after deploy. Wait for core health before live口径. AGENTS.md untouched.
 
 - 2026-09-03 RunningHub H3 search-card presets seeded locally (UNCOMMITTED, NOT on core, no product SHA) (superseded locally: 262bb5a committed, still not on core): 1166 rh-* ids hung on existing family graphs (not 1166 independent Comfy JSON). Approx: scene 246, omni-ref r2v 268, first-last 139, i2v 125, i2v-turbo 100, talking-head 98, t2v 73, v2v 48, wan-animate-2 swap 13, time-freeze 2 (i2v prompt prefix). NSFW ~110. Fake 20s/1min cards mapped to 15s turbo; blurb says single-segment max 15s. Native res still ~1344×768 not 928P. Files: apps/api/app/data/rh_h3_presets.json, services/rh_h3_preset_seed.py, _build_specs extend. FEATURED video apps did not add rh-*. Prod DB needs API restart seed_builtin_apps. Not live. AGENTS.md untouched.
 

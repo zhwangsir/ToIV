@@ -1,22 +1,26 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-03T10:06:00+08:00",
+  "updated_at": "2026-09-03T10:09:00+08:00",
   "product_262bb5a": {
     "commit": "262bb5a",
     "message": "feat(apps): RunningHub H3 应用市场与 1166 社区预制",
     "local": true,
     "pushed": false,
-    "on_core": false,
-    "live": false,
-    "seed_builtin_apps": "needs API restart after deploy"
+    "on_core": true,
+    "live": true,
+    "status": "on_core_unpushed",
+    "product_sha": "262bb5a",
+    "health": "toiv-api/toiv-web 200",
+    "build_id": "20260903-020621-262bb5a-dirty",
+    "seed_added": "1206 (core builtins + 1166 rh-*)"
   },
   "rh_h3_preset_seed_2026_09_03": {
-    "status": "local_committed_unpushed_not_on_core",
-    "live": false,
-    "on_core": false,
+    "status": "on_core_unpushed",
+    "live": true,
+    "on_core": true,
     "product_sha": "262bb5a",
-    "what": "RunningHub H3 search cards seeded as builtin app presets in the local tree (local committed 262bb5a, remotes not pushed, NOT on core, not live)",
+    "what": "RunningHub H3 search cards seeded as builtin app presets (local committed 262bb5a; now ON CORE, remotes not pushed, live)",
     "ids": "deduped 1166 rh-* ids hung on EXISTING family graphs (NOT 1166 independent Comfy JSON)",
     "categories_approx": {
       "场景": 246,
@@ -40,23 +44,33 @@
       "_build_specs end extend"
     ],
     "featured_video_apps": "did NOT add rh-*",
-    "prod": "production DB needs API restart to run seed_builtin_apps before they are visible",
+    "prod": "seed ran on core: 内置应用播种完成:新增 1206 个 (core builtins + 1166 rh-*)",
     "agents_md": "untouched",
     "remotes": "not pushed",
-    "awaiting": "core health check before live口径"
+    "awaiting": "remotes still not pushed",
+    "pushed": false,
+    "health": "toiv-api/toiv-web 200",
+    "build_id": "20260903-020621-262bb5a-dirty",
+    "seed_added": "1206 (core builtins + 1166 rh-*)"
   },
   "rh_h3_apps_presets_intent_2026_09_03": {
-    "status": "local_committed_unpushed_not_on_core",
+    "status": "on_core_unpushed",
     "not": "another engine wrapper layer",
     "yes": "RunningHub H3 workflows → ToIV apps/presets; generate page selects apps; assistant list_apps/run_app",
     "community_cards": "1262 not 1:1 graphs; group by capability families 文生/图生/首尾帧/全能参考/加速/声音参考 as apps+presets",
-    "in_progress": "1166 rh-* presets committed locally as 262bb5a (not pushed, not on core); video-entry apps first (advanced engines kept); assistant list_apps/run_app",
+    "in_progress": "1166 rh-* presets on core as 262bb5a (remotes not pushed); video-entry apps first (advanced engines kept); assistant list_apps/run_app",
     "agents_md": "untouched",
-    "local_code": "committed as 262bb5a unpushed (not on core, not live)",
-    "awaiting": "core health check before live口径",
-    "wrap_up": "complete locally as 262bb5a unpushed, not on core, live口径 not written",
+    "local_code": "on core as 262bb5a (remotes not pushed, live)",
+    "awaiting": "remotes still not pushed",
+    "wrap_up": "on core as 262bb5a, remotes not pushed",
     "tests": "API focused 219, web npm test 910",
-    "product_sha": "262bb5a"
+    "product_sha": "262bb5a",
+    "live": true,
+    "on_core": true,
+    "pushed": false,
+    "health": "toiv-api/toiv-web 200",
+    "build_id": "20260903-020621-262bb5a-dirty",
+    "seed_added": "1206 (core builtins + 1166 rh-*)"
   },
   "market_ui_multiupload_2026_09_03": {
     "status": "uncommitted_undeployed",
