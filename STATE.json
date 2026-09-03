@@ -23,7 +23,8 @@
     "git": "HEAD 113e73b, Gitee+GitHub 均 0 未推",
     "gpu_snapshot_mib_used_of_97887": {"GPU0": 27275, "GPU1": 94125, "GPU2": 38159, "GPU3": 84997},
     "gpu0_reset": "still open（独立未修事项）",
-    "agents_md": "已修正 GPU0 行/LB 段 + 新增 H-7 + 近期关键变更条目"
+    "operator_identified": "AIGCPannel 项目会话（证据：start-aigcpannel.py:112 硬连 :8189 池、gpu0-alt unit 建于 2026-08-31 03:21、AIGCPannel/AGENTS.md 自述 09-03 :8195 升级与 P0–P6 同期）；LoRelay 无集群操作证据。⚠️ AIGCPannel 侧 start-aigcpannel.py 仍硬连 :8189（其文档自称禁止直连 8189，属其内部漂移）",
+    "agents_md": "已修正 GPU0 行/LB 段 + 新增 H-7 + 近期关键变更条目；2026-09-03 晚精简重构 469→209 行，全史归档 .archive/AGENTS-full-20260903.md"
   },
   "h3_gpu_pin_2026_09_03": {
     "date": "2026-09-03",
