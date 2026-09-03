@@ -1,6 +1,8 @@
 # TEST_LOG.md — ToIV
 
-- 2026-09-03 262bb5a ON CORE (remotes NOT pushed): toiv-api/toiv-web health 200. frontend BUILD_ID 20260903-020621-262bb5a-dirty. seed log: 内置应用播种完成:新增 1206 个 (core builtins + 1166 rh-*). AGENTS.md untouched.
+- 2026-09-03 8f6665f dual-pushed Gitee+GitHub (includes product 262bb5a already on core). origin Winery_z/ToIV, github zhwangsir/ToIV. AGENTS.md local dirty not committed not pushed.
+
+- 2026-09-03 262bb5a ON CORE (remotes NOT pushed) (superseded: now dual-pushed): toiv-api/toiv-web health 200. frontend BUILD_ID 20260903-020621-262bb5a-dirty. seed log: 内置应用播种完成:新增 1206 个 (core builtins + 1166 rh-*). AGENTS.md untouched.
 
 - 2026-09-03 262bb5a local commit (NOT pushed, NOT on core, not live) (superseded: now on core, remotes still unpushed): feat(apps): RunningHub H3 应用市场与 1166 社区预制. Retags prior uncommitted H3 apps/presets/1166 rh-* stack to this SHA. Prod DB still needs API restart seed_builtin_apps after deploy. Wait for core health before live口径. AGENTS.md untouched.
 

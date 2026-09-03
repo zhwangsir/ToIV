@@ -1,22 +1,24 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-03T10:09:00+08:00",
+  "updated_at": "2026-09-03T14:54:00+08:00",
   "product_262bb5a": {
     "commit": "262bb5a",
     "message": "feat(apps): RunningHub H3 应用市场与 1166 社区预制",
     "local": true,
-    "pushed": false,
+    "pushed": true,
     "on_core": true,
     "live": true,
-    "status": "on_core_unpushed",
+    "status": "on_core_dual_pushed",
     "product_sha": "262bb5a",
     "health": "toiv-api/toiv-web 200",
     "build_id": "20260903-020621-262bb5a-dirty",
-    "seed_added": "1206 (core builtins + 1166 rh-*)"
+    "seed_added": "1206 (core builtins + 1166 rh-*)",
+    "remotes": "Gitee+GitHub",
+    "docs_head": "8f6665f"
   },
   "rh_h3_preset_seed_2026_09_03": {
-    "status": "on_core_unpushed",
+    "status": "on_core_dual_pushed",
     "live": true,
     "on_core": true,
     "product_sha": "262bb5a",
@@ -46,15 +48,15 @@
     "featured_video_apps": "did NOT add rh-*",
     "prod": "seed ran on core: 内置应用播种完成:新增 1206 个 (core builtins + 1166 rh-*)",
     "agents_md": "untouched",
-    "remotes": "not pushed",
+    "remotes": "Gitee+GitHub",
     "awaiting": "remotes still not pushed",
-    "pushed": false,
+    "pushed": true,
     "health": "toiv-api/toiv-web 200",
     "build_id": "20260903-020621-262bb5a-dirty",
     "seed_added": "1206 (core builtins + 1166 rh-*)"
   },
   "rh_h3_apps_presets_intent_2026_09_03": {
-    "status": "on_core_unpushed",
+    "status": "on_core_dual_pushed",
     "not": "another engine wrapper layer",
     "yes": "RunningHub H3 workflows → ToIV apps/presets; generate page selects apps; assistant list_apps/run_app",
     "community_cards": "1262 not 1:1 graphs; group by capability families 文生/图生/首尾帧/全能参考/加速/声音参考 as apps+presets",
@@ -67,10 +69,11 @@
     "product_sha": "262bb5a",
     "live": true,
     "on_core": true,
-    "pushed": false,
+    "pushed": true,
     "health": "toiv-api/toiv-web 200",
     "build_id": "20260903-020621-262bb5a-dirty",
-    "seed_added": "1206 (core builtins + 1166 rh-*)"
+    "seed_added": "1206 (core builtins + 1166 rh-*)",
+    "remotes": "Gitee+GitHub"
   },
   "market_ui_multiupload_2026_09_03": {
     "status": "uncommitted_undeployed",

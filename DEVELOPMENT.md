@@ -4,7 +4,9 @@
 > **适用读者**: 开发人员 / 运维人员
 > **核心文档**: [AGENTS.md](AGENTS.md) / [STATE.json](STATE.json) / [TEST_LOG.md](TEST_LOG.md) / [README.md](README.md)
 
-**2026-09-03 `262bb5a`（已上线 core，远程未推）**：产品 SHA `262bb5a` 已上线 core（**远程未推**）。toiv-api/toiv-web 健康 200；前端 BUILD_ID `20260903-020621-262bb5a-dirty`；启动日志「内置应用播种完成:新增 1206 个」（核心内置 + 1166 `rh-*`）。覆盖此前未提交的应用市场/H3 预制/1166 搜索卡栈。AGENTS.md 未动。
+**2026-09-03 `8f6665f`（已双推，已上线 core）**：docs `8f6665f` 已双推 Gitee `Winery_z/ToIV` + GitHub `zhwangsir/ToIV`（含产品 `262bb5a`）。core 此前已上该产品。AGENTS.md 本地脏文件未提交未推。
+
+**2026-09-03 `262bb5a`（当时远程未推；现已双推）**：产品 SHA `262bb5a` 已上线 core（**远程未推**）。toiv-api/toiv-web 健康 200；前端 BUILD_ID `20260903-020621-262bb5a-dirty`；启动日志「内置应用播种完成:新增 1206 个」（核心内置 + 1166 `rh-*`）。覆盖此前未提交的应用市场/H3 预制/1166 搜索卡栈。AGENTS.md 未动。
 
 **2026-09-03 `262bb5a`（当时未上 core；现已上线 core，远程仍未推）**：产品 SHA `262bb5a` `feat(apps): RunningHub H3 应用市场与 1166 社区预制`（**本地已提交，远程未推，未上 core**）。覆盖此前未提交的应用市场/H3 预制/1166 `rh-*` 播种栈。生产库仍要 API 重启 `seed_builtin_apps` 才写得进 rh-*。上线口径等 core 健康检查。AGENTS.md 未动。
 
