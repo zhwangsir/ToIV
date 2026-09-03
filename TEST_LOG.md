@@ -1,5 +1,7 @@
 # TEST_LOG.md — ToIV
 
+- 2026-09-03 133f15a dual-pushed Gitee+GitHub and ON CORE: H3 marketplace apps send H3 graphs to dedicated :8195, not pool.pick. LongCat via apps still generic pool. Includes docs 3fc9d45. toiv-api/toiv-web health 200. Files: apps.py, test_apps_run.py. AGENTS.md local dirty not committed.
+
 - 2026-09-03 8f6665f dual-pushed Gitee+GitHub (includes product 262bb5a already on core). origin Winery_z/ToIV, github zhwangsir/ToIV. AGENTS.md local dirty not committed not pushed.
 
 - 2026-09-03 262bb5a ON CORE (remotes NOT pushed) (superseded: now dual-pushed): toiv-api/toiv-web health 200. frontend BUILD_ID 20260903-020621-262bb5a-dirty. seed log: 内置应用播种完成:新增 1206 个 (core builtins + 1166 rh-*). AGENTS.md untouched.

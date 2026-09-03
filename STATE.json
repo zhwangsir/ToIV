@@ -1,7 +1,24 @@
 {
   "project": "ToIV",
   "repo": "https://github.com/zhwangsir/ToIV",
-  "updated_at": "2026-09-03T14:54:00+08:00",
+  "updated_at": "2026-09-03T15:08:00+08:00",
+  "product_133f15a": {
+    "commit": "133f15a",
+    "message": "海螺市场应用走 H3 专用实例而不是通用池",
+    "pushed": true,
+    "remotes": "Gitee+GitHub",
+    "on_core": true,
+    "live": true,
+    "health": "toiv-api/toiv-web 200",
+    "h3_apps_route": "dedicated :8195 not pool.pick",
+    "longcat_apps_route": "still generic pool",
+    "includes_docs": "3fc9d45",
+    "files": [
+      "apps.py",
+      "test_apps_run.py"
+    ],
+    "agents_md": "dirty uncommitted"
+  },
   "product_262bb5a": {
     "commit": "262bb5a",
     "message": "feat(apps): RunningHub H3 应用市场与 1166 社区预制",
