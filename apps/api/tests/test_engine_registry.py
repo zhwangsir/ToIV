@@ -1136,3 +1136,45 @@ async def test_wan_animate2_unavailable_when_instance_down(live_pool, user, wan_
     assert ids["wan-animate-2"]["available"] is False
     assert "不可达" in ids["wan-animate-2"]["unavailable_reason"]
     assert ids["wan-animate"]["available"] is True
+
+
+
+async def test_h3_fl2v_and_r2v_engines_registered(live_pool, user):
+    """h3-fl2v 是首尾帧(max=2);h3-r2v 是 1-9 图 + 视频 + 音频,不是 last-frame。"""
+    ids = _by_id(await list_engines(live_pool, user))
+    assert "h3-fl2v" in ids and "h3-r2v" in ids
+    fl = ids["h3-fl2v"]
+    assert fl["kind"] == "video" and fl["nsfw"] is False
+    assert fl["submit"]["route"] == "/api/h3/fl2v"
+    assert _param(fl, "images")["max"] == 2
+    assert "首尾" in fl["description"] or "首帧" in fl["description"]
+    assert "9" not in fl["description"] or "不是 9" in fl["description"]
+    r2v = ids["h3-r2v"]
+    assert r2v["submit"]["route"] == "/api/h3/r2v"
+    assert _param(r2v, "images")["max"] == 9
+    assert _param(r2v, "video")["type"] == "video"
+    assert _param(r2v, "audio")["type"] == "audio"
+    assert "Ref2VA" in r2v["description"] or "参考" in r2v["description"]
+    assert "不是 Director" in r2v["description"]
+
+
+async def test_h3_nsfw_fl2v_r2v_hidden_in_sfw(live_pool, user):
+    token = nsfw_intent_var.set(False)
+    try:
+        ids = _by_id(await list_engines(live_pool, user))
+    finally:
+        nsfw_intent_var.reset(token)
+    assert "h3-nsfw-fl2v" not in ids
+    assert "h3-nsfw-r2v" not in ids
+
+
+async def test_h3_nsfw_fl2v_r2v_exposed_in_r18(live_pool, user):
+    token = nsfw_intent_var.set(True)
+    try:
+        ids = _by_id(await list_engines(live_pool, user))
+    finally:
+        nsfw_intent_var.reset(token)
+    for eid in ("h3-nsfw-fl2v", "h3-nsfw-r2v"):
+        assert eid in ids
+        assert ids[eid]["nsfw"] is True
+        assert ids[eid]["available"] is True

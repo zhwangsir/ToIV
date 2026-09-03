@@ -74,7 +74,14 @@ def test_render_slots(tmp_path):
 
 def test_singleton_loads_canon():
     """模块级单例扫描 app/skills/,正典技能必须在册且契约字段齐备。"""
-    assert "h3-prompt-writer" in [s.name for s in skills_registry.list()]
+    names = [s.name for s in skills_registry.list()]
+    assert "h3-prompt-writer" in names
+    assert "h3-app-catalog" in names
     skill = skills_registry.get("h3-prompt-writer")
     assert skill.kind == "prompt-writer"
     assert "{{duration}}" in skill.body
+    catalog = skills_registry.get("h3-app-catalog")
+    assert "h3-fl2v" in catalog.body and "h3-r2v" in catalog.body
+    assert "h3-t2v-15s-fast" in catalog.body
+    assert "h3-i2v-15s-fast" in catalog.body
+    assert "h3-r2v-voice" in catalog.body

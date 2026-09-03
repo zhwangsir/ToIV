@@ -10,14 +10,25 @@
 import assert from "node:assert/strict";
 import { after, beforeEach, test } from "node:test";
 import {
+  appUploadKind,
   buildRunValues,
+  COMMUNITY_PAGE_SIZE,
+  COMMUNITY_SEARCH_CAP,
+  FEATURED_VIDEO_APP_IDS,
+  featuredAppIdsForKind,
   filterApps,
+  firstPinWorker,
   forkApp,
   getApp,
   listApps,
+  mediaFilenames,
   normalizeApp,
   requiredParamLabel,
+  rhFamilyChips,
+  rhFamilyOf,
   runApp,
+  sliceCommunityApps,
+  sortFeaturedApps,
   splitAppSections,
   type AppItem,
   type AppParam,
@@ -236,6 +247,84 @@ test("buildRunValues:number 字符串 parse、空 number 省略、switch 布尔�
   assert.ok(!("cfg" in out), "空 number 不进载荷");
 });
 
+test("buildRunValues:images 文件名数组原样透传,不 String 化", () => {
+  const schema: AppParam[] = [
+    ...SCHEMA,
+    { key: "images", label: "参考图", type: "images", default: null, max: 9 },
+  ];
+  const out = buildRunValues(schema, {
+    prompt: "x",
+    images: ["a.png", "b.png"],
+  });
+  assert.deepEqual(out.images, ["a.png", "b.png"]);
+  assert.equal(Array.isArray(out.images), true);
+});
+
+test("buildRunValues:images 句柄对象抽 filename,不把复合对象塞进载荷", () => {
+  const schema: AppParam[] = [
+    { key: "images", label: "参考图", type: "images", default: null, max: 9 },
+    { key: "last_frame", label: "尾帧图", type: "images", default: null, max: 1 },
+    { key: "video", label: "参考视频", type: "video", default: null, max: 3, required: false },
+  ];
+  const out = buildRunValues(schema, {
+    images: [
+      { filename: "a.png", worker: "http://w", previewUrl: "blob:1", name: "a.png" },
+      { filename: "b.png", worker: "http://w", previewUrl: "blob:2", name: "b.png" },
+    ],
+    last_frame: [{ filename: "tail.png", worker: "http://w", name: "tail.png" }],
+    video: [],
+  });
+  assert.deepEqual(out.images, ["a.png", "b.png"]);
+  assert.deepEqual(out.last_frame, ["tail.png"]);
+  assert.deepEqual(out.video, []);
+});
+
+test("normalizeApp:images/audio/video 类型保留,不再兜底成 text", () => {
+  const app = normalizeApp(
+    makeApp("h3-r2v", {
+      params_schema: [
+        { key: "images", label: "参考图", type: "images", max: 9, required: true },
+        { key: "video", label: "参考视频", type: "video", max: 3, required: false },
+        { key: "audio", label: "参考音频", type: "audio", max: 3, required: false },
+        { key: "last_frame", label: "尾帧图", type: "images", max: 1 },
+      ],
+    }),
+  );
+  assert.equal(app.params_schema[0].type, "images");
+  assert.equal(app.params_schema[0].max, 9);
+  assert.equal(app.params_schema[0].required, true);
+  assert.equal(app.params_schema[1].type, "video");
+  assert.equal(app.params_schema[1].required, false);
+  assert.equal(app.params_schema[2].type, "audio");
+  assert.equal(app.params_schema[3].type, "images");
+  assert.equal(app.params_schema[3].max, 1);
+});
+
+test("requiredParamLabel:必填 images 空数组卡住;可选 video 空不卡", () => {
+  const schema: AppParam[] = [
+    { key: "images", label: "参考图", type: "images", default: null, max: 9, required: true },
+    { key: "video", label: "参考视频", type: "video", default: null, max: 3, required: false },
+  ];
+  assert.equal(requiredParamLabel(schema, { images: [], video: [] }), "参考图");
+  assert.equal(
+    requiredParamLabel(schema, { images: [{ filename: "a.png" }], video: [] }),
+    null,
+  );
+});
+
+test("mediaFilenames / appUploadKind / firstPinWorker 辅助", () => {
+  assert.deepEqual(mediaFilenames([" a.png ", { filename: "b.png" }, ""]), ["a.png", "b.png"]);
+  assert.equal(appUploadKind("h3-r2v"), "h3_i2v");
+  assert.equal(appUploadKind("h3-fl2v"), "h3_i2v");
+  assert.equal(appUploadKind("img2img-basic"), "img2img");
+  assert.equal(appUploadKind("wan-animate"), "wan_animate");
+  assert.equal(
+    firstPinWorker({ images: [{ filename: "a.png", worker: "http://w:8189" }] }),
+    "http://w:8189",
+  );
+  assert.equal(firstPinWorker({ images: [] }), null);
+});
+
 test("requiredParamLabel:default=null 且值为空 → 返回该参数 label;填齐 → null", () => {
   assert.equal(
     requiredParamLabel(SCHEMA, { prompt: "  " }),
@@ -281,4 +370,120 @@ test("splitAppSections:内置/公共/我的三区,is_mine 优先于 is_builtin",
   assert.deepEqual(s.builtin.map((a) => a.id), ["b1"]);
   assert.deepEqual(s.pub.map((a) => a.id), ["p1"]);
   assert.deepEqual(s.mine.map((a) => a.id), ["m1", "m2"]);
+  assert.deepEqual(s.community.map((a) => a.id), []);
+});
+
+test("splitAppSections:rh-* 进社区,核心 H3 仍在内置", () => {
+  const apps = [
+    appItem("h3-t2v", { is_builtin: true }),
+    appItem("h3-i2v", { is_builtin: true }),
+    appItem("rh-scene-1", { is_builtin: true, description: "场景预设 · 作者A · 填写提示词即可" }),
+    appItem("rh-i2v-2", { is_builtin: true, description: "图生视频 · 作者B · 上传首帧图" }),
+    appItem("p1", { is_public: true }),
+    appItem("rh-mine", { is_mine: true, is_builtin: true }),
+  ];
+  const s = splitAppSections(apps);
+  assert.deepEqual(s.builtin.map((a) => a.id), ["h3-t2v", "h3-i2v"]);
+  assert.deepEqual(s.community.map((a) => a.id), ["rh-scene-1", "rh-i2v-2"]);
+  assert.deepEqual(s.mine.map((a) => a.id), ["rh-mine"]);
+  assert.deepEqual(s.pub.map((a) => a.id), ["p1"]);
+});
+
+test("rhFamilyOf/rhFamilyChips:取 description 第一个「 · 」前缀,正典序", () => {
+  const apps = [
+    appItem("rh-1", { description: "图生视频 · 作者 · 上传首帧图" }),
+    appItem("rh-2", { description: "场景预设 · 作者 · 填写提示词即可" }),
+    appItem("rh-3", { description: "图生视频 · 另一作者 · 上传首帧图" }),
+    appItem("rh-4", { description: "未知门类 · 作者" }),
+  ];
+  assert.equal(rhFamilyOf(apps[0]), "图生视频");
+  assert.deepEqual(rhFamilyChips(apps), ["场景预设", "图生视频", "未知门类"]);
+});
+
+test("sliceCommunityApps:空查询先 24 张+hasMore;搜索/family 上限 120", () => {
+  const many = Array.from({ length: 50 }, (_, i) =>
+    appItem(`rh-${i}`, { is_builtin: true, description: `${i < 30 ? "文生视频" : "图生视频"} · a · x` }),
+  );
+  const idle = sliceCommunityApps(many, { q: "", shown: COMMUNITY_PAGE_SIZE });
+  assert.equal(idle.items.length, 24);
+  assert.equal(idle.hasMore, true);
+  assert.equal(idle.truncated, false);
+  const more = sliceCommunityApps(many, { q: "", shown: 48 });
+  assert.equal(more.items.length, 48);
+  assert.equal(more.hasMore, true);
+  const fam = sliceCommunityApps(many, { q: "", family: "文生视频", shown: 24 });
+  assert.equal(fam.items.length, 30);
+  assert.equal(fam.hasMore, false);
+  const huge = Array.from({ length: 130 }, (_, i) => appItem(`rh-x-${i}`, { description: "场景预设 · a" }));
+  const capped = sliceCommunityApps(huge, { q: "场景", shown: 24 });
+  assert.equal(capped.items.length, COMMUNITY_SEARCH_CAP);
+  assert.equal(capped.truncated, true);
+  assert.equal(capped.hasMore, false);
+});
+
+test("filterApps:outputKind 按产物类型收窄(编辑类视频仍入视频页)", () => {
+  const apps = [
+    appItem("v", { output_kind: "video", category: "video" }),
+    appItem("i", { output_kind: "image", category: "image" }),
+    appItem("e", { output_kind: "video", category: "edit" }),
+  ];
+  assert.deepEqual(filterApps(apps, { outputKind: "video" }).map((a) => a.id), ["v", "e"]);
+  assert.deepEqual(filterApps(apps, { outputKind: "image" }).map((a) => a.id), ["i"]);
+  assert.equal(filterApps(apps, { outputKind: "all" }).length, 3);
+});
+
+test("filterApps:outputKind + NSFW 同时生效(r18 off 仍藏 is_nsfw)", () => {
+  const apps = [
+    appItem("h3-t2v", { output_kind: "video" }),
+    appItem("h3-nsfw-t2v", { output_kind: "video", is_nsfw: true }),
+  ];
+  assert.deepEqual(filterApps(apps, { outputKind: "video", r18: false }).map((a) => a.id), ["h3-t2v"]);
+  assert.deepEqual(filterApps(apps, { outputKind: "video", r18: true }).map((a) => a.id), ["h3-t2v", "h3-nsfw-t2v"]);
+});
+
+test("FEATURED_VIDEO_APP_IDS:核心模式先于 15s/声音,NSFW 孪生同序", () => {
+  assert.ok(FEATURED_VIDEO_APP_IDS.every((id) => !id.startsWith("rh-")), "精选不得含 rh-* 社区卡");
+  assert.deepEqual([...FEATURED_VIDEO_APP_IDS], [
+    "h3-t2v",
+    "h3-i2v",
+    "h3-fl2v",
+    "h3-r2v",
+    "h3-t2v-15s-fast",
+    "h3-i2v-15s-fast",
+    "h3-r2v-voice",
+    "h3-nsfw-t2v",
+    "h3-nsfw-i2v",
+    "h3-nsfw-fl2v",
+    "h3-nsfw-r2v",
+    "h3-nsfw-t2v-15s-fast",
+    "h3-nsfw-i2v-15s-fast",
+    "h3-nsfw-r2v-voice",
+  ]);
+});
+
+test("sortFeaturedApps:H3 四件套(+ NSFW 孪生)置顶,其余保序", () => {
+  const apps = [
+    appItem("other-video", { sort: 1 }),
+    appItem("h3-i2v", { sort: 20 }),
+    appItem("h3-t2v", { sort: 10 }),
+    appItem("h3-nsfw-t2v", { is_nsfw: true, sort: 26 }),
+    appItem("h3-fl2v", { sort: 21 }),
+    appItem("h3-r2v-voice", { sort: 5 }),
+    appItem("h3-t2v-15s-fast", { sort: 6 }),
+  ];
+  assert.deepEqual(
+    sortFeaturedApps(apps, FEATURED_VIDEO_APP_IDS).map((a) => a.id),
+    ["h3-t2v", "h3-i2v", "h3-fl2v", "h3-t2v-15s-fast", "h3-r2v-voice", "h3-nsfw-t2v", "other-video"],
+  );
+  assert.deepEqual(
+    sortFeaturedApps(apps).map((a) => a.id),
+    apps.map((a) => a.id),
+    "无 featuredIds 应原样返回",
+  );
+});
+
+test("featuredAppIdsForKind:仅视频有 H3 精选", () => {
+  assert.equal(featuredAppIdsForKind("video"), FEATURED_VIDEO_APP_IDS);
+  assert.equal(featuredAppIdsForKind("image"), undefined);
+  assert.equal(featuredAppIdsForKind("audio"), undefined);
 });

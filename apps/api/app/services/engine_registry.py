@@ -386,9 +386,9 @@ def _negative() -> dict:
     }
 
 
-def _images(label: str = "参考图", hint: str = "jpg / png / webp,单张 ≤ 20MB") -> dict:
+def _images(label: str = "参考图", hint: str = "jpg / png / webp,单张 ≤ 20MB", *, max_: int = 1) -> dict:
     # max 对 images 类型表示数量上限
-    return {"key": "images", "label": label, "type": "images", "max": 1, "default": None, "hint": hint}
+    return {"key": "images", "label": label, "type": "images", "max": max_, "default": None, "hint": hint}
 
 
 def _ref_image_required() -> dict:
@@ -550,6 +550,30 @@ def _h3_nsfw_video_params() -> list[dict]:
 # 前端选中该引擎时渲染 MultiShotEditor 专用编辑器,参数仅声明契约/分组)
 def _multishot_params() -> list[dict]:
     return [p for p in _h3_video_params() if p["key"] not in ("duration", "segment_extend")]
+
+
+def _h3_fl2v_image_param() -> dict:
+    """首尾帧:第 1 张=首帧,第 2 张=尾帧(同一 MiniMaxH3ImageToVideo,不是 9-ref)。"""
+    return _images(
+        label="首尾帧(首帧→尾帧)",
+        hint="按顺序上传 2 张:第 1 张为首帧,第 2 张为尾帧;jpg / png / webp,单张 ≤ 20MB。不是多参考 Ref2VA。",
+        max_=2,
+    )
+
+
+def _h3_r2v_media_params() -> list[dict]:
+    """Ref2VA 媒体槽:1-9 图 + 可选 0-3 视频 + 可选 0-3 音频;提示词用 1-based 标签。"""
+    return [
+        _images(
+            label="参考图(1-9 张)",
+            hint="jpg / png / webp,单张 ≤ 20MB;提示词用 1-based 标签(<Picture 1>…)。可与视频/音频组合,至少一种参考。",
+            max_=9,
+        ),
+        {"key": "video", "label": "参考视频(最多 3 段)", "type": "video", "max": 3, "default": None,
+         "hint": "可选;mp4 / webm / mov,≤200MB,须 ≥5 帧;提示词 <Video 1>…。不是源视频时间线编辑。"},
+        {"key": "audio", "label": "参考音频(最多 3 段)", "type": "audio", "max": 3, "default": None,
+         "hint": "可选;wav / mp3 / m4a,单个 ≤ 20MB;提示词 <Audio 1>…。音色克隆走此槽,不是独立引擎。"},
+    ]
 
 
 def _ltx_nsfw_loras_select() -> dict:
@@ -1297,6 +1321,38 @@ def _default_registry() -> list[dict[str, Any]]:
         "params": [_ref_image_required(), *_h3_video_params()],
         "probe": _probe_h3,
     },
+    {
+        "id": "h3-fl2v",
+        "label": "MiniMax H3 首尾帧",
+        "kind": "video",
+        "nsfw": False,
+        "submit": {"route": "/api/h3/fl2v", "kind": "h3-fl2v"},
+        "description": "MiniMax H3 首尾帧(FL2VA):必填首帧+尾帧,同一 ImageToVideo 节点插值过渡,音画同发。不是 9 参考 Ref2VA。",
+        "source": {
+            "name": "MiniMax H3(海螺 3.0 开源权重)",
+            "url": "https://huggingface.co/MiniMaxAI/MiniMax-H3",
+            "author": "MiniMax",
+            "note": "first_frame+last_frame 接到 MiniMaxH3ImageToVideo;FL2VA UNET",
+        },
+        "params": [_h3_fl2v_image_param(), *_h3_video_params()],
+        "probe": _probe_h3,
+    },
+    {
+        "id": "h3-r2v",
+        "label": "MiniMax H3 多参考",
+        "kind": "video",
+        "nsfw": False,
+        "submit": {"route": "/api/h3/r2v", "kind": "h3-r2v"},
+        "description": "MiniMax H3 Ref2VA:1-9 张参考图、0-3 段参考视频、0-3 段参考音频;提示词用 1-based 标签。不是首尾帧,不是 Director 时间线。",
+        "source": {
+            "name": "MiniMax H3(海螺 3.0 开源权重)",
+            "url": "https://huggingface.co/MiniMaxAI/MiniMax-H3",
+            "author": "MiniMax",
+            "note": "MiniMaxH3ReferenceToVideo + SFW Ref2VA UNET;参考视频须 ≥5 帧",
+        },
+        "params": [*_h3_r2v_media_params(), *_h3_video_params()],
+        "probe": _probe_h3,
+    },
     # H3 多镜头单次生成(对标 Vidu Q3 单 prompt 多镜头 / PixVerse MultiShot):
     # 2-4 个镜头按「镜头一…镜头二…」协议组装单 prompt,单段视频内按序自动切镜
     # (总长 ≤15s H3 单段上限,复用 t2v 提交链路,同实例 :8195);
@@ -1351,6 +1407,38 @@ def _default_registry() -> list[dict[str, Any]]:
             "note": "底模为 MiniMax 开源权重;R18 能力由社区 LoRA 提供(civitai),仅 R18 上下文可选",
         },
         "params": [_ref_image_required(), *_h3_nsfw_video_params()],
+        "probe": _probe_h3,
+    },
+    {
+        "id": "h3-nsfw-fl2v",
+        "label": "MiniMax H3 首尾帧(R18)",
+        "kind": "video",
+        "nsfw": True,
+        "submit": {"route": "/api/h3/fl2v", "kind": "h3-fl2v"},
+        "description": "MiniMax H3 成人向首尾帧:必填首帧+尾帧,同一 ImageToVideo 节点,可叠 R18 LoRA。不是 9 参考。",
+        "source": {
+            "name": "MiniMax H3 + 社区 R18 LoRA",
+            "url": "https://huggingface.co/MiniMaxAI/MiniMax-H3",
+            "author": "MiniMax × Civitai 社区(LoRA)",
+            "note": "NSFW 换 10Eros-Max Ref2VA 命名底模;图仍是 first+last,不是多参考",
+        },
+        "params": [_h3_fl2v_image_param(), *_h3_nsfw_video_params()],
+        "probe": _probe_h3,
+    },
+    {
+        "id": "h3-nsfw-r2v",
+        "label": "MiniMax H3 多参考(R18)",
+        "kind": "video",
+        "nsfw": True,
+        "submit": {"route": "/api/h3/r2v", "kind": "h3-r2v"},
+        "description": "MiniMax H3 成人向 Ref2VA:1-9 图、0-3 视频、0-3 音频;提示词用 1-based 标签。不是首尾帧,不是 Director 时间线。",
+        "source": {
+            "name": "MiniMax H3 + 社区 R18 LoRA",
+            "url": "https://huggingface.co/MiniMaxAI/MiniMax-H3",
+            "author": "MiniMax × Civitai 社区(LoRA)",
+            "note": "NSFW 换已有 h3_nsfw_unet(10Eros-Max TURBO ref2va);图是多参考不是 last-frame",
+        },
+        "params": [*_h3_r2v_media_params(), *_h3_nsfw_video_params()],
         "probe": _probe_h3,
     },
     # LTX-2.3 NSFW（仅 R18 保留 10Eros；SFW 默认不是 2.3。SFW LTX-2.5 已于 2026-08-23 退役）

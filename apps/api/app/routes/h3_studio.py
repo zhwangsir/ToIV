@@ -1,8 +1,9 @@
 """MiniMax H3 工作室 —— H3 视频生成(t2v / i2v),专用 ComfyUI 实例(TOIV_H3_BASE_URL)。
 
 POST /api/h3/t2v —— 文生视频(原生 32kHz 立体声音轨,音画同发)
-POST /api/h3/i2v —— 图生视频(首帧参考图;先经 /api/upload 上传到 pool worker,
-                    提交时由后端转运到 H3 实例 input 目录)
+POST /api/h3/i2v —— 图生视频(必填首帧;可选 last_frame 接到同一 ImageToVideo)
+POST /api/h3/fl2v —— 首尾帧(last_frame 必填,复用 i2v 图构建器)
+POST /api/h3/r2v —— Ref2VA 多参考(1-9 图 / 0-3 视频 / 0-3 音频,至少一种)
 
 与 LTX2 工作室的区别:H3 走独立 ComfyUI ≥ 0.30 实例(默认 workstation :8195,
 不走 WorkerPool 集群);产物链路(tracker 落库 + /api/images 代理进作品库)与 ltx2 同路。
@@ -16,7 +17,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlmodel import Session
 
 from app.db import engine as db_engine
@@ -32,10 +33,17 @@ from app.services import multishot_protocol as multishot
 from app.services import video_generators as vgen
 from app.services.duration import DurationLimitError, DurationPlan, resolve_duration
 from app.services.effect_presets import apply_effect_preset, validate_effect_key
-from app.services.h3 import is_h3_nsfw_lora
+from app.services.h3 import H3_R2V_NODE, is_h3_nsfw_lora
 from app.services.lora_picker import inject_triggers, resolve_submit_loras, snapshot_loras, to_specs
 from app.services.video_upscale import maybe_chain_upscale
-from app.workflows.h3_video import H3I2VParams, H3T2VParams, build_h3_i2v_graph, build_h3_t2v_graph
+from app.workflows.h3_video import (
+    H3I2VParams,
+    H3R2VParams,
+    H3T2VParams,
+    build_h3_i2v_graph,
+    build_h3_r2v_graph,
+    build_h3_t2v_graph,
+)
 from app.workflows.lora import LoraSpec
 
 router = APIRouter()
@@ -250,18 +258,64 @@ def _route_extend_submit(
     return _submit
 
 
+def _safe_media_name(v: str) -> str:
+    name = v.strip().replace("\\", "/")
+    if ".." in name or name.startswith("/"):
+        raise ValueError("文件名不允许路径穿越")
+    return name
+
+
 class H3I2VRequest(H3T2VRequest):
-    """H3 图生视频请求:image 为上传句柄文件名,worker 为其落点的 pool worker(防 SSRF)。"""
+    """H3 图生视频请求:image 为首帧上传句柄;last_frame 可选尾帧(同一 worker)。"""
     image: str = Field(min_length=1, max_length=512)
     worker: str
+    last_frame: str | None = Field(default=None, max_length=512)
 
     @field_validator("image")
     @classmethod
     def _no_traversal(cls, v: str) -> str:
-        name = v.strip().replace("\\", "/")
-        if ".." in name or name.startswith("/"):
-            raise ValueError("文件名不允许路径穿越")
-        return name
+        return _safe_media_name(v)
+
+    @field_validator("last_frame")
+    @classmethod
+    def _last_frame_safe(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        name = _safe_media_name(v)
+        return name or None
+
+
+class H3FL2VRequest(H3I2VRequest):
+    """H3 首尾帧:last_frame 必填(同一 MiniMaxH3ImageToVideo 图)。"""
+    last_frame: str = Field(min_length=1, max_length=512)
+
+
+class H3R2VRequest(H3T2VRequest):
+    """H3 Ref2VA 多参考:images[] 最多 9,videos[]/audios[] 最多 3;至少一种参考。"""
+    images: list[str] = Field(default_factory=list, max_length=9)
+    videos: list[str] = Field(default_factory=list, max_length=3)
+    audios: list[str] = Field(default_factory=list, max_length=3)
+    worker: str
+    ref_image_size: str = Field(default="match", max_length=8)
+
+    @field_validator("images", "videos", "audios")
+    @classmethod
+    def _safe_list(cls, v: list[str]) -> list[str]:
+        return [_safe_media_name(name) for name in v]
+
+    @field_validator("ref_image_size")
+    @classmethod
+    def _ref_size(cls, v: str) -> str:
+        size = (v or "match").strip()
+        if size not in ("match", "max"):
+            raise ValueError("ref_image_size 只允许 match 或 max")
+        return size
+
+    @model_validator(mode="after")
+    def _at_least_one_ref(self) -> "H3R2VRequest":
+        if not (self.images or self.videos or self.audios):
+            raise ValueError("r2v 至少需要一张参考图、一段参考视频或一段参考音频")
+        return self
 
 
 # ──────────────────────────────────────────────────────────────
@@ -544,20 +598,26 @@ async def generate_h3_i2v(
     client = await h3_service.pick_h3_client()
     source = resolve_worker(req.worker)
     image_name = await h3_service.transfer_ref_image(client, source, req.image)
+    last_name = ""
+    if getattr(req, "last_frame", None):
+        last_name = await h3_service.transfer_ref_image(client, source, req.last_frame)
     params = H3I2VParams(
         positive=positive,
         negative=req.negative,
         image=image_name,
+        last_frame=last_name,
         width=req.width,
         height=req.height,
         length=plan.frames,
         steps=req.steps,
         loras=specs,
+        filename_prefix="ToIV_h3/fl2v" if last_name else "ToIV_h3/i2v",
         **({"seed": req.seed} if req.seed is not None else {}),
     )
     graph = build_h3_i2v_graph(params)
+    kind = "h3_fl2v" if last_name else "h3_i2v"
     result = await h3_service.submit_h3_job(
-        graph, kind="h3_i2v", positive=params.positive, seed=params.seed,
+        graph, kind=kind, positive=params.positive, seed=params.seed,
         req=req, user=user, session=session, client=client,
         nsfw=nsfw,  # 仅显式意图打标(同 t2v)
         snapshot_extra={
@@ -583,3 +643,88 @@ async def generate_h3_i2v(
             f"按原生上限生成完成后将自动二次超分至 {req.resolution_target.upper()}"
         )
     return result
+
+
+@router.post("/h3/fl2v")
+async def generate_h3_fl2v(
+    req: H3FL2VRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """H3 首尾帧:复用 i2v 图构建器,last_frame 必填。"""
+    return await generate_h3_i2v(req, user, session)
+
+
+@router.post("/h3/r2v")
+async def generate_h3_r2v(
+    req: H3R2VRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """H3 Ref2VA 多参考:1-9 图 / 0-3 视频 / 0-3 音频,至少一种;转运后提交 MiniMaxH3ReferenceToVideo。"""
+    enforce_generation_rate_limit(user)
+    _gate_h3_nsfw_loras(req.loras, user)
+    req = _apply_effect(req)
+    req = _apply_entity_refs(req, session, user)
+    plan = _resolve_plan(req)
+    nsfw_intent = _h3_explicit_nsfw(req, user)
+    nsfw = _h3_job_nsfw(req, user)
+    specs, picks, lora_mode, lora_reason, positive = _resolve_h3_loras(
+        req.positive, user, req.loras, nsfw_intent=nsfw_intent,
+    )
+    req = req.model_copy(update={
+        "positive": positive,
+        "loras": [H3LoraInput(name=p.name, strength=max(0.5, min(1.0, p.strength))) for p in picks],
+    })
+    client = await h3_service.pick_h3_client()
+    source = resolve_worker(req.worker)
+    image_names = [await h3_service.transfer_ref_image(client, source, n) for n in req.images]
+    video_names = [await h3_service.transfer_ref_image(client, source, n) for n in req.videos]
+    audio_names = [await h3_service.transfer_ref_image(client, source, n) for n in req.audios]
+    try:
+        params = H3R2VParams(
+            positive=positive,
+            negative=req.negative,
+            images=tuple(image_names),
+            videos=tuple(video_names),
+            audios=tuple(audio_names),
+            ref_image_size=req.ref_image_size,
+            width=req.width,
+            height=req.height,
+            length=plan.frames,
+            steps=req.steps,
+            loras=specs,
+            **({"seed": req.seed} if req.seed is not None else {}),
+        )
+        graph = build_h3_r2v_graph(params)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    result = await h3_service.submit_h3_job(
+        graph, kind="h3_r2v", positive=params.positive, seed=params.seed,
+        req=req, user=user, session=session, client=client,
+        nsfw=nsfw,
+        snapshot_extra={
+            "loras": snapshot_loras(picks), "lora_mode": lora_mode, "lora_reason": lora_reason,
+        },
+        h3_node=H3_R2V_NODE,
+    )
+    result["loras"] = snapshot_loras(picks)
+    result["lora_mode"] = lora_mode
+    result["lora_reason"] = lora_reason
+    if plan.strategy != "direct":
+        vgen.spawn_duration_chain(
+            client=client,
+            plan=plan,
+            first_prompt_id=result["prompt_id"],
+            submit_next=_route_extend_submit(
+                client=client, req=req, user=user, seed0=params.seed, nsfw=nsfw,
+            ),
+        )
+    if plan.notice:
+        result["duration_notice"] = plan.notice
+    if req.resolution_target and maybe_chain_upscale(result["prompt_id"], req.resolution_target):
+        result["upscale_notice"] = (
+            f"按原生上限生成完成后将自动二次超分至 {req.resolution_target.upper()}"
+        )
+    return result
+

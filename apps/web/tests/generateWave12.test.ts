@@ -164,6 +164,16 @@ test("⑦ ParamField:数值失焦按 min/max/step 钳位并红字提示;seed 非
   assert.ok(src.includes("error={numError ?? undefined}"), "红字提示未接 Field error 槽");
 });
 
+test("⑦b ParamField: images max>1 复用 RefImagesUpload(应用运行页多图上传)", () => {
+  const src = readSrc("components/generate/ParamField.tsx");
+  assert.ok(src.includes("case \"images\""), "缺 images 分支");
+  assert.ok(src.includes("<RefImagesUpload"), "max>1 未复用 RefImagesUpload");
+  assert.ok(src.includes("<RefImageUpload"), "max=1 未复用 RefImageUpload");
+  assert.ok(src.includes("<RefVideoUpload"), "video 未复用 RefVideoUpload");
+  assert.ok(src.includes("<RefAudioUpload"), "audio 未复用 RefAudioUpload");
+  assert.ok(src.includes("uploadKind"), "缺 uploadKind(走 /api/upload)");
+});
+
 /* ── ⑧ 参考输入上传进度条 ── */
 
 test("⑧ RefImageUpload/RefVideoUpload:XHR onProgress + progressbar 进度条(源码断言)", () => {

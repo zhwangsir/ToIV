@@ -55,6 +55,24 @@ test("normalizeApp:bindings/workflow_json 归一,非法项剔除", () => {
   assert.equal(app.workflow_json["2"].title, "正向提示词", "_meta.title 透出");
 });
 
+test("normalizeApp:列表绑定取首个合法槽(images 扇出)", () => {
+  const app = normalizeApp({
+    id: "r2v",
+    name: "多参考",
+    bindings: {
+      images: [
+        { node: "110", field: "inputs.image" },
+        { node: "111", field: "inputs.image" },
+      ],
+      bad: [{ node: 1 }, { node: "112", field: "inputs.image" }],
+    },
+  });
+  assert.deepEqual(app.bindings, {
+    images: { node: "110", field: "inputs.image" },
+    bad: { node: "112", field: "inputs.image" },
+  });
+});
+
 test("normalizeApp:无 workflow_json → null(列表形态兼容)", () => {
   assert.equal(normalizeApp({ id: "x" }).workflow_json, null);
   assert.deepEqual(normalizeApp({ id: "x" }).bindings, {});

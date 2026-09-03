@@ -25,12 +25,15 @@ from app.main import app
 from app.models import Job, Tenant, User
 from app.security import create_token, hash_password
 from app.workflows.h3_video import (
+    H3_R2V_UNET,
     H3I2VParams,
+    H3R2VParams,
     H3T2VParams,
     _H3_PROMPT_MAX,
     _inject_common,
     _load_template,
     build_h3_i2v_graph,
+    build_h3_r2v_graph,
     build_h3_t2v_graph,
 )
 
@@ -241,6 +244,59 @@ def test_builder_i2v_injects_first_frame():
     assert g["104"]["inputs"]["first_frame"] == ["100", 0]  # 模板连接保留
     assert g["15"]["inputs"]["noise_seed"] == 7
     assert g["92"]["inputs"]["filename_prefix"] == "ToIV_h3/i2v"
+    assert "last_frame" not in g["104"]["inputs"]
+    assert "101" not in g
+
+
+def test_builder_i2v_omits_last_frame_when_empty():
+    g = build_h3_i2v_graph(H3I2VParams(positive="x", image="h3-in.png", last_frame="", seed=7))
+    assert "101" not in g
+    assert "last_frame" not in g["104"]["inputs"]
+
+
+def test_builder_i2v_wires_last_frame_when_set():
+    g = build_h3_i2v_graph(H3I2VParams(positive="x", image="first.png", last_frame="last.png", seed=7))
+    assert g["101"]["class_type"] == "LoadImage"
+    assert g["101"]["inputs"]["image"] == "last.png"
+    assert g["104"]["inputs"]["first_frame"] == ["100", 0]
+    assert g["104"]["inputs"]["last_frame"] == ["101", 0]
+    assert g["100"]["inputs"]["image"] == "first.png"
+
+
+def test_builder_r2v_requires_at_least_one_ref():
+    import pytest
+    with pytest.raises(ValueError, match="至少"):
+        build_h3_r2v_graph(H3R2VParams(positive="x"))
+
+
+def test_builder_r2v_wires_images_videos_audios_and_ref2va_unet():
+    g = build_h3_r2v_graph(H3R2VParams(
+        positive="x", seed=3,
+        images=("a.png", "b.png"),
+        videos=("cam.mp4",),
+        audios=("voice.wav",),
+    ))
+    assert g["104"]["class_type"] == "MiniMaxH3ReferenceToVideo"
+    assert g["104"]["inputs"]["audio_vae"] == ["24", 0]
+    assert g["104"]["inputs"]["ref_image_size"] == "match"
+    assert g["104"]["inputs"]["ref_image_1"] == ["110", 0]
+    assert g["104"]["inputs"]["ref_image_2"] == ["111", 0]
+    assert "ref_image_3" not in g["104"]["inputs"]
+    assert g["110"]["inputs"]["image"] == "a.png"
+    assert g["111"]["inputs"]["image"] == "b.png"
+    assert g["120"]["class_type"] == "LoadVideo"
+    assert g["120"]["inputs"]["file"] == "cam.mp4"
+    assert g["121"]["class_type"] == "GetVideoComponents"
+    assert g["104"]["inputs"]["ref_video_1"] == ["121", 0]
+    assert g["104"]["inputs"]["ref_video_audio_1"] == ["121", 1]
+    assert g["130"]["class_type"] == "LoadAudio"
+    assert g["130"]["inputs"]["audio"] == "voice.wav"
+    assert g["104"]["inputs"]["ref_audio_1"] == ["130", 0]
+    assert "100" not in g  # i2v 首帧加载器已替换
+    assert "first_frame" not in g["104"]["inputs"]
+    assert g["6"]["inputs"]["unet_name"] == H3_R2V_UNET
+    assert g["92"]["inputs"]["filename_prefix"] == "ToIV_h3/r2v"
+    assert g["15"]["inputs"]["noise_seed"] == 3
 
 
 def test_builder_does_not_pollute_template_cache():
@@ -1117,3 +1173,114 @@ def test_t2v_no_entities_stays_t2v(client, monkeypatch):
     with Session(engine) as s:
         job = s.exec(select(Job).where(Job.user_id == uid)).first()
         assert job is not None and job.kind == "h3_t2v"
+
+
+
+def test_fl2v_missing_last_frame_422(client):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "h3fl2v-miss")
+    r = c.post(
+        "/api/h3/fl2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={"positive": "x", "image": "first.png", "worker": "http://fake-worker"},
+    )
+    assert r.status_code == 422
+
+
+def test_i2v_with_last_frame_transfers_both(client, monkeypatch):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "h3i2v-fl")
+    fake = _FakeH3Client()
+    _install_h3(monkeypatch, fake)
+    monkeypatch.setattr(h3_route, "resolve_worker", lambda worker: _FakeSourceWorker())
+    r = c.post(
+        "/api/h3/i2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={
+            "positive": "过场",
+            "image": "first.png",
+            "last_frame": "last.png",
+            "worker": "http://fake-worker",
+            "seed": 9,
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert fake.uploads == [(b"img-bytes", "first.png"), (b"img-bytes", "last.png")]
+    graph = fake.graphs[0]
+    assert graph["100"]["inputs"]["image"] == "h3-first.png"
+    assert graph["101"]["inputs"]["image"] == "h3-last.png"
+    assert graph["104"]["inputs"]["first_frame"] == ["100", 0]
+    assert graph["104"]["inputs"]["last_frame"] == ["101", 0]
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        assert job is not None and job.kind == "h3_fl2v"
+
+
+def test_r2v_ok_transfers_refs_and_submits(client, monkeypatch):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "h3r2vok")
+    fake = _FakeH3Client()
+    _install_h3(monkeypatch, fake)
+    monkeypatch.setattr(h3_route, "resolve_worker", lambda worker: _FakeSourceWorker())
+    r = c.post(
+        "/api/h3/r2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={
+            "positive": "<Picture 1> 在厨房洗碗",
+            "images": ["a.png", "b.png"],
+            "videos": ["cam.mp4"],
+            "audios": ["voice.wav"],
+            "worker": "http://fake-worker",
+            "seed": 4,
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert [u[1] for u in fake.uploads] == ["a.png", "b.png", "cam.mp4", "voice.wav"]
+    graph = fake.graphs[0]
+    assert graph["104"]["class_type"] == "MiniMaxH3ReferenceToVideo"
+    assert graph["110"]["inputs"]["image"] == "h3-a.png"
+    assert graph["111"]["inputs"]["image"] == "h3-b.png"
+    assert graph["120"]["inputs"]["file"] == "h3-cam.mp4"
+    assert graph["130"]["inputs"]["audio"] == "h3-voice.wav"
+    assert graph["6"]["inputs"]["unet_name"] == H3_R2V_UNET
+    with Session(engine) as s:
+        job = s.exec(select(Job).where(Job.user_id == uid)).first()
+        assert job is not None and job.kind == "h3_r2v" and job.nsfw is False
+
+
+def test_r2v_missing_all_refs_422(client):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "h3r2v-empty")
+    r = c.post(
+        "/api/h3/r2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}"},
+        json={"positive": "x", "worker": "http://fake-worker"},
+    )
+    assert r.status_code == 422
+
+
+def test_r2v_nsfw_swaps_unet_to_10eros(client, monkeypatch):
+    c, engine = client
+    with Session(engine) as s:
+        uid = _seed_user(s, "h3r2v-nsfw")
+    fake = _FakeH3Client()
+    _install_h3(monkeypatch, fake)
+    monkeypatch.setattr(h3_route, "resolve_worker", lambda worker: _FakeSourceWorker())
+    r = c.post(
+        "/api/h3/r2v",
+        headers={"Authorization": f"Bearer {create_token(uid)}", "X-NSFW": "1"},
+        json={
+            "positive": "x",
+            "images": ["a.png"],
+            "worker": "http://fake-worker",
+            "nsfw": True,
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert fake.graphs[0]["6"]["inputs"]["unet_name"] == (
+        "10Eros_Max_h3_TURBO_ref2va_beta2_int8_convrot.safetensors"
+    )

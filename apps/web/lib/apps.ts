@@ -5,8 +5,8 @@ import { CACHE_KEYS, TTL, invalidatePrefix, swr } from "./swr-cache";
  * 应用市场(M3)前端 API client + 类型。
  *
  * 后端契约(并行开发中,以此为准):
- *   GET  /api/apps?category=&q=   → { items: App[] }
- *   GET  /api/apps/{id}           → App(含 params_schema;workflow_json 仅属主/admin)
+ *   GET  /api/apps?category=&q=   → { items: App[] }(slim:params_schema=[] bindings={} required_nodes=[])
+ *   GET  /api/apps/{id}           → App(完整 params_schema/bindings/workflow_json;运行页必须走详情)
  *   POST /api/apps/{id}/fork      → 个人副本(App)
  *   POST /api/apps/{id}/run       → body { values } → { job_id, prompt_id }
  *
@@ -24,8 +24,8 @@ import { CACHE_KEYS, TTL, invalidatePrefix, swr } from "./swr-cache";
 
 export type AppCategory = "image" | "video" | "audio" | "edit" | "3d" | "other";
 export type AppOutputKind = "image" | "video" | "audio";
-/** 与 engine_registry params 同款的应用参数类型(应用市场不支持上传类 images/audio/video)。 */
-export type AppParamType = "text" | "textarea" | "number" | "select" | "switch";
+/** 与 engine_registry params 同款的应用参数类型(含上传类 images/audio/video,由 ParamField 复用 Ref*Upload)。 */
+export type AppParamType = "text" | "textarea" | "number" | "select" | "switch" | "images" | "audio" | "video";
 
 export interface AppParamOption {
   value: string;
@@ -46,6 +46,8 @@ export interface AppParam {
   max?: number;
   step?: number;
   hint?: string;
+  /** 后端 params_schema.required;未下发时仍用 default==null 作必填启发式。 */
+  required?: boolean;
 }
 
 /** 工作流节点(ComfyUI API 格式,2026-09-02 工作流模式):class_type + inputs/widgets。 */
@@ -95,7 +97,7 @@ export interface AppRunReceipt {
 }
 
 const CATEGORIES: readonly AppCategory[] = ["image", "video", "audio", "edit", "3d", "other"];
-const PARAM_TYPES: readonly AppParamType[] = ["text", "textarea", "number", "select", "switch"];
+const PARAM_TYPES: readonly AppParamType[] = ["text", "textarea", "number", "select", "switch", "images", "audio", "video"];
 
 function boolOf(v: unknown): boolean {
   return v === true || v === 1;
@@ -136,6 +138,8 @@ function normalizeParam(raw: unknown): AppParam {
     if (Number.isFinite(n)) out[k] = n;
   }
   if (typeof p.hint === "string" && p.hint) out.hint = p.hint;
+  if (p.required === true) out.required = true;
+  else if (p.required === false) out.required = false;
   return out;
 }
 
@@ -174,9 +178,14 @@ function normalizeBindings(raw: unknown): Record<string, AppBinding> {
   const out: Record<string, AppBinding> = {};
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out;
   for (const [key, v] of Object.entries(raw as Record<string, unknown>)) {
-    const b = (v ?? {}) as Record<string, unknown>;
-    if (typeof b.node === "string" && b.node && typeof b.field === "string" && b.field) {
-      out[key] = { node: b.node, field: b.field };
+    // 列表绑定(images 扇出到 LoadImage 110-118):工作流高亮取首个合法槽
+    const items = Array.isArray(v) ? v : [v];
+    for (const item of items) {
+      const b = (item ?? {}) as Record<string, unknown>;
+      if (typeof b.node === "string" && b.node && typeof b.field === "string" && b.field) {
+        out[key] = { node: b.node, field: b.field };
+        break;
+      }
     }
   }
   return out;
@@ -444,10 +453,61 @@ export function buildImportOverrides(
 
 // ---------- 纯函数 helpers(视图与单测共用) ----------
 
+/** 上传类参数(images/audio/video):表单存句柄对象,提交抽 filename 数组。 */
+const MEDIA_PARAM_TYPES: ReadonlySet<AppParamType> = new Set(["images", "audio", "video"]);
+
+/**
+ * 媒体表单值 → 非空文件名数组。兼容 string / string[] / {filename}[](ParamField 句柄)。
+ * 复合对象不得原样进载荷(后端 _as_filenames 会 422)。
+ */
+export function mediaFilenames(value: unknown): string[] {
+  if (value == null || value === "") return [];
+  const items = Array.isArray(value) ? value : [value];
+  const out: string[] = [];
+  for (const item of items) {
+    if (typeof item === "string") {
+      if (item.trim()) out.push(item.trim());
+    } else if (item && typeof item === "object" && "filename" in item) {
+      const f = String((item as { filename: unknown }).filename ?? "").trim();
+      if (f) out.push(f);
+    }
+  }
+  return out;
+}
+
+/**
+ * 应用运行页上传 kind:与 GenerateView 同口径,走 POST /api/upload?kind=。
+ * h3 先落 pool worker(required_models 空);img2img 落到文生图机。
+ */
+export function appUploadKind(appId: string): string {
+  if (appId.startsWith("h3-")) return "h3_i2v";
+  if (appId.startsWith("wan-animate-2")) return "wan_animate2";
+  if (appId.startsWith("wan-animate")) return "wan_animate";
+  if (appId === "wan-vace" || appId === "vace-edit" || appId === "wan-transition") return "wan_vace";
+  if (appId.startsWith("avatar")) return "avatar";
+  if (appId.startsWith("ltx")) return appId.includes("lipsync") ? "ltx_lipsync" : "ltx_i2v";
+  return "img2img";
+}
+
+/** 已上传句柄里的首个非空 worker(多槽互钉)。 */
+export function firstPinWorker(values: Record<string, unknown>): string | null {
+  for (const v of Object.values(values)) {
+    const items = Array.isArray(v) ? v : v != null ? [v] : [];
+    for (const item of items) {
+      if (item && typeof item === "object" && typeof (item as { worker?: unknown }).worker === "string") {
+        const w = (item as { worker: string }).worker.trim();
+        if (w) return w;
+      }
+    }
+  }
+  return null;
+}
+
 /**
  * 提交载荷构建:按参数类型归一 values。
  * - number:原始字符串(允许中间态)在此 parse;空串/非法 → 省略该键(后端落 default);
  * - switch:Boolean 归一;
+ * - images/audio/video:抽 filename 数组原样透传(勿 String 化成 "a,b",勿把句柄对象塞进去);
  * - 其余(text/textarea/select):String 归一。
  */
 export function buildRunValues(
@@ -472,6 +532,15 @@ export function buildRunValues(
       out[p.key] = Boolean(v);
       continue;
     }
+    if (MEDIA_PARAM_TYPES.has(p.type)) {
+      out[p.key] = mediaFilenames(v);
+      continue;
+    }
+    // 其它数组(历史兼容)原样透传,勿 String 化成 "a,b"
+    if (Array.isArray(v)) {
+      out[p.key] = v;
+      continue;
+    }
     out[p.key] = String(v ?? "");
   }
   return out;
@@ -488,8 +557,13 @@ export function requiredParamLabel(
 ): string | null {
   for (const p of schema) {
     if (p.type === "switch") continue;
+    if (p.required === false) continue; // 可选参考视频/音频
     if (p.default != null) continue;
     const v = values[p.key];
+    if (MEDIA_PARAM_TYPES.has(p.type)) {
+      if (mediaFilenames(v).length === 0) return p.label;
+      continue;
+    }
     if (v == null || String(v).trim() === "") return p.label;
   }
   return null;
@@ -502,32 +576,120 @@ export interface AppFilterOpts {
   category?: string;
   /** R18 模式:on 才放行 is_nsfw 应用(NSFW 客户端过滤) */
   r18?: boolean;
+  /** 产物类型;"all"/空 = 不过滤(图片/视频创作页按 output_kind 收窄) */
+  outputKind?: string;
 }
 
-/** 客户端过滤:搜索 + 分类 + NSFW(r18 off 时 is_nsfw 应用整卡隐藏)。 */
+/** 客户端过滤:搜索 + 分类 + 产物类型 + NSFW(r18 off 时 is_nsfw 应用整卡隐藏)。 */
 export function filterApps(apps: AppItem[], opts: AppFilterOpts = {}): AppItem[] {
   const q = (opts.q ?? "").trim().toLowerCase();
   const category = opts.category ?? "all";
+  const outputKind = opts.outputKind ?? "all";
   return apps.filter((a) => {
     if (a.is_nsfw && !opts.r18) return false;
     if (category !== "all" && a.category !== category) return false;
+    if (outputKind !== "all" && a.output_kind !== outputKind) return false;
     if (q && !`${a.name}\n${a.description}`.toLowerCase().includes(q)) return false;
     return true;
   });
 }
 
 export interface AppSections {
+  /** 内置核心(is_builtin 且非本人且 id 不以 rh- 开头) */
   builtin: AppItem[];
+  /** RunningHub 社区卡(id 以 rh- 开头,非本人) */
+  community: AppItem[];
   pub: AppItem[];
   mine: AppItem[];
 }
 
-/** 三区划分:内置(is_builtin 且非本人)/ 公共(is_public 非内置非本人)/ 我的(is_mine 优先)。 */
+export function isRhCommunityId(id: string): boolean {
+  return id.startsWith("rh-");
+}
+
+/** 四区划分:核心内置 / RunningHub 社区(rh-*) / 公共 / 我的(is_mine 优先)。 */
 export function splitAppSections(apps: AppItem[]): AppSections {
   const mine = apps.filter((a) => a.is_mine);
-  const builtin = apps.filter((a) => a.is_builtin && !a.is_mine);
-  const pub = apps.filter((a) => a.is_public && !a.is_builtin && !a.is_mine);
-  return { builtin, pub, mine };
+  const community = apps.filter((a) => !a.is_mine && isRhCommunityId(a.id));
+  const builtin = apps.filter((a) => a.is_builtin && !a.is_mine && !isRhCommunityId(a.id));
+  const pub = apps.filter((a) => a.is_public && !a.is_builtin && !a.is_mine && !isRhCommunityId(a.id));
+  return { builtin, community, pub, mine };
+}
+
+/** RunningHub 社区卡 description 前缀(第一个「 · 」之前)对应的 family 铭牌。 */
+export const RH_FAMILY_LABELS = [
+  "场景预设",
+  "全能参考",
+  "首尾帧",
+  "图生视频",
+  "文生视频",
+  "声音参考",
+  "角色替换",
+  "参考视频",
+  "时间静止",
+  "画质放大",
+  "多镜头",
+  "图像编辑",
+  "图生加速",
+  "文生加速",
+] as const;
+
+export function rhFamilyOf(app: AppItem): string {
+  const desc = app.description ?? "";
+  const i = desc.indexOf(" · ");
+  return (i >= 0 ? desc.slice(0, i) : desc).trim();
+}
+
+/** 社区卡 family chips:正典顺序优先,未见过的前缀按字母序垫后。 */
+export function rhFamilyChips(apps: AppItem[]): string[] {
+  const present = new Set<string>();
+  for (const a of apps) {
+    const f = rhFamilyOf(a);
+    if (f) present.add(f);
+  }
+  const canon = RH_FAMILY_LABELS.filter((l) => present.has(l));
+  const extras = [...present].filter((l) => !(RH_FAMILY_LABELS as readonly string[]).includes(l)).sort();
+  return [...canon, ...extras];
+}
+
+export const COMMUNITY_PAGE_SIZE = 24;
+export const COMMUNITY_SEARCH_CAP = 120;
+
+export interface CommunitySlice {
+  items: AppItem[];
+  matched: number;
+  truncated: boolean;
+  hasMore: boolean;
+}
+
+/**
+ * 社区卡分页:
+ * - 无搜索且无 family:先展示 shown 张(默认 24),hasMore 供「显示更多」+24;
+ * - 有搜索或选了 family:展示匹配(上限 120),超出 truncated。
+ */
+export function sliceCommunityApps(
+  apps: AppItem[],
+  opts: { q?: string; family?: string; shown: number },
+): CommunitySlice {
+  const q = (opts.q ?? "").trim();
+  const family = (opts.family ?? "").trim();
+  const filtered = family ? apps.filter((a) => rhFamilyOf(a) === family) : apps;
+  const narrowed = q !== "" || family !== "";
+  if (narrowed) {
+    return {
+      items: filtered.slice(0, COMMUNITY_SEARCH_CAP),
+      matched: filtered.length,
+      truncated: filtered.length > COMMUNITY_SEARCH_CAP,
+      hasMore: false,
+    };
+  }
+  const shown = Math.max(COMMUNITY_PAGE_SIZE, opts.shown);
+  return {
+    items: filtered.slice(0, shown),
+    matched: filtered.length,
+    truncated: false,
+    hasMore: shown < filtered.length,
+  };
 }
 
 /** 分类中文短名(卡片徽标 / 筛选 chips 共用)。 */
@@ -542,4 +704,42 @@ export const APP_CATEGORY_LABEL: Record<AppCategory, string> = {
 
 export function appCategoryLabel(c: AppCategory): string {
   return APP_CATEGORY_LABEL[c] ?? c;
+}
+
+/** 视频创作页精选:H3 核心四件套置顶,其后 15s 加速/声音参考;NSFW 孪生在 r18 on 时由 filterApps 放行后同样置顶。
+ *  不含 rh-* 社区卡(社区区单独分页,不进精选)。 */
+export const FEATURED_VIDEO_APP_IDS: readonly string[] = [
+  "h3-t2v",
+  "h3-i2v",
+  "h3-fl2v",
+  "h3-r2v",
+  "h3-t2v-15s-fast",
+  "h3-i2v-15s-fast",
+  "h3-r2v-voice",
+  "h3-nsfw-t2v",
+  "h3-nsfw-i2v",
+  "h3-nsfw-fl2v",
+  "h3-nsfw-r2v",
+  "h3-nsfw-t2v-15s-fast",
+  "h3-nsfw-i2v-15s-fast",
+  "h3-nsfw-r2v-voice",
+];
+
+/** 创作页按产物类型取精选 id;非视频暂无精选(保持后端 sort)。 */
+export function featuredAppIdsForKind(kind: AppOutputKind): readonly string[] | undefined {
+  return kind === "video" ? FEATURED_VIDEO_APP_IDS : undefined;
+}
+
+/** 精选 id 按给定顺序置顶;其余保持相对顺序(稳定排序)。无 featuredIds 原样返回。 */
+export function sortFeaturedApps(apps: AppItem[], featuredIds?: readonly string[]): AppItem[] {
+  if (!featuredIds?.length) return apps;
+  const rank = new Map(featuredIds.map((id, i) => [id, i]));
+  return [...apps].sort((a, b) => {
+    const ra = rank.get(a.id);
+    const rb = rank.get(b.id);
+    if (ra !== undefined && rb !== undefined) return ra - rb;
+    if (ra !== undefined) return -1;
+    if (rb !== undefined) return 1;
+    return 0;
+  });
 }

@@ -10,7 +10,9 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { useToast } from "@/components/ui/Toast";
 import {
+  appUploadKind,
   buildRunValues,
+  firstPinWorker,
   getApp,
   requiredParamLabel,
   runApp,
@@ -37,18 +39,21 @@ interface AppRunnerViewProps {
   appId: string;
   /** 返回应用市场(AppMarketView 视图内切换,非路由跳转) */
   onBack: () => void;
+  /** 返回按钮文案;默认「返回市场」(创作页传入「返回应用」) */
+  backLabel?: string;
 }
 
-/** 参数初值:schema default 优先;switch 兜底 false,其余兜底空串(必填缺口由 requiredParamLabel 卡控)。 */
+/** 参数初值:schema default 优先;images/audio/video 兜底 [];switch 兜底 false,其余兜底空串。 */
 function initialValues(app: AppItem): Record<string, unknown> {
   const v: Record<string, unknown> = {};
   for (const p of app.params_schema) {
-    v[p.key] = p.default ?? (p.type === "switch" ? false : "");
+    if (p.type === "images" || p.type === "audio" || p.type === "video") v[p.key] = [];
+    else v[p.key] = p.default ?? (p.type === "switch" ? false : "");
   }
   return v;
 }
 
-export function AppRunnerView({ appId, onBack }: AppRunnerViewProps) {
+export function AppRunnerView({ appId, onBack, backLabel = "返回市场" }: AppRunnerViewProps) {
   const toast = useToast();
   const [app, setApp] = useState<AppItem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -175,7 +180,7 @@ export function AppRunnerView({ appId, onBack }: AppRunnerViewProps) {
               重试
             </Button>
             <Button variant="ghost" size="sm" onClick={onBack}>
-              返回市场
+              {backLabel}
             </Button>
           </div>
         </div>
@@ -189,7 +194,7 @@ export function AppRunnerView({ appId, onBack }: AppRunnerViewProps) {
           sticky 保留——长工作流下段控不能滚出视口 */}
       <header className="apps-runner-head">
         <button type="button" className="apps-runner-back" onClick={onBack}>
-          <Icon name="chevron-left" size={13} /> 返回市场
+          <Icon name="chevron-left" size={13} /> {backLabel}
         </button>
         <span className="apps-runner-appicon" aria-hidden="true">
           <Icon name={(app.icon || "package") as IconName} size={14} />
@@ -238,6 +243,8 @@ export function AppRunnerView({ appId, onBack }: AppRunnerViewProps) {
               value={values[p.key]}
               onChange={onParamChange}
               disabled={submitting || running}
+              uploadKind={appUploadKind(app.id)}
+              pinWorker={firstPinWorker(values)}
             />
           ))}
         </div>
@@ -247,6 +254,8 @@ export function AppRunnerView({ appId, onBack }: AppRunnerViewProps) {
           values={values}
           onParamChange={onParamChange}
           disabled={submitting || running}
+          uploadKind={appUploadKind(app.id)}
+          pinWorker={firstPinWorker(values)}
           runSlot={
             <>
               <Button

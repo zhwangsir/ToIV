@@ -260,10 +260,11 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
   const id = engine.id;
   const imageParam = engineNeedsImage(engine);
   const multiImage = imageParam !== null && (imageParam.max ?? 1) > 1;
+  const isH3R2V = id === "h3-r2v" || id === "h3-nsfw-r2v";
   if (imageParam && !multiImage && !refImage) throw new Error("请先上传参考图");
-  if (multiImage && !(refImages && refImages.length > 0)) throw new Error("请先上传参考图(至少 1 张)");
-  if (engineNeedsAudio(engine) !== null && !refAudio) throw new Error("请先上传驱动音频");
-  if (engineNeedsVideo(engine) !== null && !refVideo) throw new Error("请先上传驱动视频");
+  if (!isH3R2V && multiImage && !(refImages && refImages.length > 0)) throw new Error("请先上传参考图(至少 1 张)");
+  if (!isH3R2V && engineNeedsAudio(engine) !== null && !refAudio) throw new Error("请先上传驱动音频");
+  if (!isH3R2V && engineNeedsVideo(engine) !== null && !refVideo) throw new Error("请先上传驱动视频");
   const seed = _seed(values);
   const negative = _str(values, "negative");
 
@@ -398,6 +399,43 @@ export async function submitEngineGeneration(input: EngineSubmitInput): Promise<
         image: refImage!.filename,
         worker: refImage!.worker,
       });
+
+    case "h3-fl2v":
+    case "h3-nsfw-fl2v": {
+      if (!refImages || refImages.length !== 2) {
+        throw new Error("请按顺序上传首帧与尾帧(共 2 张)");
+      }
+      const flPayload = id === "h3-nsfw-fl2v"
+        ? _h3NsfwPayload(values, positive, negative, seed)
+        : _h3Payload(values, positive, negative, seed);
+      return _postH3("/api/h3/fl2v", {
+        ...flPayload,
+        ..._entityIdsPayload(entityIds),
+        image: refImages[0].filename,
+        last_frame: refImages[1].filename,
+        worker: refImages[0].worker,
+      });
+    }
+
+    case "h3-r2v":
+    case "h3-nsfw-r2v": {
+      if (!(refImages && refImages.length > 0) && !refVideo && !refAudio) {
+        throw new Error("请至少上传一张参考图、一段参考视频或一段参考音频");
+      }
+      const worker = refImages?.[0]?.worker || refVideo?.worker || refAudio?.worker;
+      if (!worker) throw new Error("缺少上传落点 worker");
+      const r2vPayload = id === "h3-nsfw-r2v"
+        ? _h3NsfwPayload(values, positive, negative, seed)
+        : _h3Payload(values, positive, negative, seed);
+      return _postH3("/api/h3/r2v", {
+        ...r2vPayload,
+        ..._entityIdsPayload(entityIds),
+        worker,
+        ...(refImages && refImages.length > 0 ? { images: refImages.map((r) => r.filename) } : {}),
+        ...(refVideo ? { videos: [refVideo.filename] } : {}),
+        ...(refAudio ? { audios: [refAudio.filename] } : {}),
+      });
+    }
 
     case "wan-nsfw-i2v":
       // R18 Wan2.2 主链:与 /api/generate/video 同一提交;body.nsfw=true 才打标

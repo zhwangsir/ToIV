@@ -28,7 +28,7 @@ from app.db import get_session
 from app.deps import get_pool
 from app.harness.ctx import get_ctx, reset_ctx
 from app.main import app
-from app.models import AgentMessage, AgentSession, Job, Tenant, User
+from app.models import AgentMessage, AgentSession, App, Job, Tenant, User
 from app.nsfw_ctx import nsfw_intent_var
 from app.security import create_token, hash_password
 from app.services import engine_registry
@@ -107,12 +107,14 @@ def _stub_engines_available(monkeypatch, *engine_ids: str):
 def test_gen_tools_registered_after_builtin():
     reg = get_ctx().service("tools")
     names = reg.names
-    for n in ("submit_generation", "list_entities", "check_jobs", "optimize_prompt", "propose_plan", "adjust_3d",
+    for n in ("submit_generation", "list_entities", "list_apps", "get_app", "run_app",
+              "check_jobs", "optimize_prompt", "propose_plan", "adjust_3d",
               "navigate_view", "prefill_generate", "open_asset"):
         assert n in names
-    # 追加在 10 个同步小工具之后(含 W3 三个 UI 驱动工具)
-    assert names[-9:] == [
-        "submit_generation", "list_entities", "check_jobs", "optimize_prompt", "propose_plan", "adjust_3d",
+    # 追加在 10 个同步小工具之后(含市场应用工具 + W3 三个 UI 驱动工具)
+    assert names[-12:] == [
+        "submit_generation", "list_entities", "list_apps", "get_app", "run_app",
+        "check_jobs", "optimize_prompt", "propose_plan", "adjust_3d",
         "navigate_view", "prefill_generate", "open_asset",
     ]
     schemas = {s["function"]["name"]: s for s in reg.schemas()}
@@ -125,12 +127,14 @@ def test_gen_tools_registered_after_builtin():
 
 
 def test_dispatch_covers_all_registry_engines():
-    """注册表 31 个引擎全部有提交分发(防新增引擎漏接)。"""
+    """注册表引擎全部有提交分发(防新增引擎漏接;含 h3-fl2v/h3-r2v 及 NSFW 孪生)。"""
     engine_registry.populate_registry()
     ids = [s["id"] for s in engine_registry._REGISTRY]
-    assert len(ids) == 31
+    assert len(ids) == 35
     missing = [eid for eid in ids if eid not in tools_gen._DISPATCH]
     assert missing == []
+    for eid in ("h3-fl2v", "h3-r2v", "h3-nsfw-fl2v", "h3-nsfw-r2v"):
+        assert eid in tools_gen._DISPATCH
 
 
 # --------------------------------------------------------------------------- #
@@ -630,3 +634,104 @@ def test_resume_requires_auth(route_ctx):
     assert c.post("/api/agent/chat/resume", json={
         "conversation_id": "s", "proposal_id": "p", "action": "approve",
     }).status_code == 401
+
+
+
+# --------------------------------------------------------------------------- #
+# 应用市场工具:list_apps / get_app / run_app
+# --------------------------------------------------------------------------- #
+def _seed_market_apps(session, user):
+    """最小市场:SFW 内置 h3-t2v + NSFW 孪生,走真实 params_schema/bindings。"""
+    from app.services.app_seed import _build_specs
+
+    spec = next(s for s in _build_specs() if s["id"] == "h3-t2v")
+    sfw = App(
+        id="h3-t2v", name=spec["name"], description=spec["description"],
+        icon=spec.get("icon", "film"), category=spec["category"],
+        workflow_json=spec["workflow_json"], params_schema=spec["params_schema"],
+        bindings=spec["bindings"], output_kind=spec["output_kind"],
+        is_builtin=True, is_nsfw=False, is_public=True, user_id="",
+        sort=10,
+    )
+    nsfw = App(
+        id="h3-nsfw-t2v", name="海螺 H3 文生视频(R18)", description="R18",
+        icon="film", category="video",
+        workflow_json=spec["workflow_json"], params_schema=spec["params_schema"],
+        bindings=spec["bindings"], output_kind="video",
+        is_builtin=True, is_nsfw=True, is_public=True, user_id="",
+        sort=26,
+    )
+    session.add(sfw)
+    session.add(nsfw)
+    session.commit()
+    return sfw, nsfw
+
+
+async def test_list_apps_hides_nsfw_when_not_allowed(db_env):
+    s, user = db_env
+    _seed_market_apps(s, user)
+    reg = get_ctx().service("tools")
+    text, _ = await reg.execute("list_apps", {}, _ctx(_FakePool(_FakeClient()), user, s))
+    assert "h3-t2v" in text and "海螺 H3 文生视频" in text
+    assert "h3-nsfw-t2v" not in text
+    # R18 上下文可见 NSFW
+    token = nsfw_intent_var.set(True)
+    try:
+        text2, _ = await reg.execute("list_apps", {"category": "video"}, _ctx(_FakePool(_FakeClient()), user, s))
+    finally:
+        nsfw_intent_var.reset(token)
+    assert "h3-nsfw-t2v" in text2 and "h3-t2v" in text2
+
+
+async def test_get_app_returns_params_schema(db_env):
+    s, user = db_env
+    _seed_market_apps(s, user)
+    reg = get_ctx().service("tools")
+    text, _ = await reg.execute("get_app", {"id": "h3-t2v"}, _ctx(_FakePool(_FakeClient()), user, s))
+    assert "id=h3-t2v" in text
+    assert "positive" in text and "必填" in text
+    # NSFW 应用无 R18 标记时 404 不泄露
+    text404, events = await reg.execute(
+        "get_app", {"id": "h3-nsfw-t2v"}, _ctx(_FakePool(_FakeClient()), user, s)
+    )
+    assert "不存在" in text404
+    assert events[0]["data"]["status"] == "error"
+
+
+async def test_run_app_h3_t2v_mocked_submit_returns_job(db_env, monkeypatch):
+    """builtin h3-t2v:委托 routes/apps.run_app,fake pool + stub tracker → job 事件。"""
+    import app.routes.apps as apps_route
+
+    s, user = db_env
+    _seed_market_apps(s, user)
+    monkeypatch.setattr(apps_route, "spawn_tracker", lambda client, prompt_id: None)
+    client = _FakeClient()
+    reg = get_ctx().service("tools")
+    text, events = await reg.execute(
+        "run_app",
+        {"app_id": "h3-t2v", "values": {"positive": "一只猫在窗台晒太阳"}},
+        _ctx(_FakePool(client), user, s),
+    )
+    assert "作业已提交" in text and "job_id=" in text
+    assert len(client.queued) == 1
+    job = s.exec(select(Job).where(Job.user_id == user.id)).first()
+    assert job is not None and job.status == "queued"
+    job_events = [e for e in events if e.get("type") == "job"]
+    assert len(job_events) == 1
+    assert job_events[0]["data"]["job_id"] == job.id
+
+
+async def test_run_app_unknown_app_404(db_env, monkeypatch):
+    import app.routes.apps as apps_route
+
+    s, user = db_env
+    monkeypatch.setattr(apps_route, "spawn_tracker", lambda client, prompt_id: None)
+    reg = get_ctx().service("tools")
+    text, events = await reg.execute(
+        "run_app",
+        {"app_id": "ghost-app", "values": {"positive": "x"}},
+        _ctx(_FakePool(_FakeClient()), user, s),
+    )
+    assert "404" in text or "不存在" in text
+    assert events[0]["data"]["status"] == "error"
+    assert s.exec(select(Job)).all() == []

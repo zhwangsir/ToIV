@@ -38,6 +38,7 @@ _VRAM_SETTLE_SEC = 5.0
 
 # H3 管线核心节点(评测 /object_info 实测);实例缺此节点 = ComfyUI 版本不支持 H3
 H3_NODE = "MiniMaxH3ImageToVideo"
+H3_R2V_NODE = "MiniMaxH3ReferenceToVideo"
 
 # 已知 H3 NSFW LoRA 文件名(civitai 调研,base 均 MiniMax H3;详见 routes/models.py
 # NSFW_RECOMMENDATIONS 的 h3 分类)。请求引用其中任一 → 须过 R18 门控(nsfw_allowed),
@@ -123,15 +124,18 @@ def ensure_h3_enabled() -> None:
         raise HTTPException(status_code=503, detail="H3 视频生成引擎已禁用(TOIV_H3_ENABLED=false)")
 
 
-async def ensure_h3_ready(client: ComfyUIClient) -> None:
-    """确认实例在线且装有 H3 节点;不可达/缺节点一律 503 + 清晰原因。"""
+async def ensure_h3_ready(client: ComfyUIClient, node: str = H3_NODE) -> None:
+    """确认实例在线且装有 H3 节点;不可达/缺节点一律 503 + 清晰原因。
+
+    r2v 提交传 MiniMaxH3ReferenceToVideo;其余模式默认 ImageToVideo。
+    """
     try:
-        await client.object_info(H3_NODE)
+        await client.object_info(node)
     except ComfyUIError as e:
         if e.status_code is not None:  # 实例在线但无该节点(ComfyUI < 0.30 等)
             raise HTTPException(
                 status_code=503,
-                detail=f"H3 实例 {client.base_url} 缺少 {H3_NODE} 节点(需 ComfyUI ≥ 0.30 的 H3 实例)",
+                detail=f"H3 实例 {client.base_url} 缺少 {node} 节点(需 ComfyUI ≥ 0.30 的 H3 实例)",
             ) from e
         raise HTTPException(status_code=503, detail=f"H3 实例不可达({client.base_url}): {e}") from e
 
@@ -262,6 +266,7 @@ async def submit_h3_job(
     client: ComfyUIClient | None = None,
     nsfw: bool = False,
     snapshot_extra: dict | None = None,
+    h3_node: str = H3_NODE,
 ) -> dict:
     """提交 H3 作业:开关检查 → 就绪检查 → queue_prompt → 落 Job → 后台追踪(结果落库进作品库)。
 
@@ -271,7 +276,7 @@ async def submit_h3_job(
     """
     ensure_h3_enabled()
     client = client or await pick_h3_client()
-    await ensure_h3_ready(client)
+    await ensure_h3_ready(client, node=h3_node)
 
     # 仅当调用方传入 nsfw=True(显式 body 或钉选 R18 LoRA)才换 10Eros-Max UNET;
     # 专页头单独不能换底。SFW 保持模板底模不动。在预检/hold 分支之前完成替换:

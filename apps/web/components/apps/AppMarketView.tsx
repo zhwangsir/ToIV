@@ -10,12 +10,17 @@ import { useToast } from "@/components/ui/Toast";
 import {
   APP_CATEGORY_LABEL,
   appCategoryLabel,
+  COMMUNITY_PAGE_SIZE,
   filterApps,
   forkApp,
   listApps,
+  rhFamilyChips,
+  sliceCommunityApps,
+  sortFeaturedApps,
   splitAppSections,
   type AppCategory,
   type AppItem,
+  type AppOutputKind,
 } from "@/lib/apps";
 import { getToken, TOKEN_KEY } from "@/lib/api";
 import { useCrossTabSync } from "@/lib/crossTab";
@@ -27,11 +32,13 @@ import { AppRunnerView } from "./AppRunnerView";
 import "@/app/styles/apps.css";
 
 /**
- * 应用市场(M3,2026-08-30):内置/公共/我的三区卡片网格 + 分类 chips + 搜索
- * + NSFW 客户端过滤(r18 off 时 is_nsfw 整卡隐藏,三区共用同一过滤条件)。
+ * 应用市场(M3,2026-08-30):核心内置 / RunningHub 社区 / 公共 / 我的 四区卡片网格
+ * + 分类 chips + 搜索 + NSFW 客户端过滤(r18 off 时 is_nsfw 整卡隐藏)。
+ * 内置区 = id 不以 rh- 开头的 is_builtin(featuredIds 仍置顶 H3 四件套/15s/voice);
+ * 社区区 = rh-* ,空查询先 24 张+「显示更多」,搜索/family 匹配上限 120。
  * 卡片 = 图标 + 名称 + 描述 + 类别徽标 + 用量计数 +「打开」;
  * fork 按钮仅非内置且非本人应用显示。
- * 「打开」进入运行页(AppRunnerView,视图内切换,不占路由)。
+ * 「打开」进入运行页(AppRunnerView,视图内切换,不占路由;运行页 GET /api/apps/{id} 拉完整 schema)。
  *
  * 页头省略(同 SkillMarketView):灵动岛/BottomNav 已明确指示当前板块,
  * 检索工具栏即首行,符合 UI_STANDARD §5 例外条款。
@@ -50,7 +57,16 @@ function iconOf(a: AppItem): IconName {
   return (a.icon || "package") as IconName;
 }
 
-export function AppMarketView() {
+export interface AppMarketViewProps {
+  /** 按产物类型收窄(图片/视频创作页);不传 = 市场全量 */
+  outputKind?: AppOutputKind;
+  /** 置顶 id(视频页 H3 精选);过滤后再排 */
+  featuredIds?: readonly string[];
+  /** 运行页返回按钮文案,默认「返回市场」 */
+  runnerBackLabel?: string;
+}
+
+export function AppMarketView({ outputKind, featuredIds, runnerBackLabel }: AppMarketViewProps = {}) {
   const toast = useToast();
   const [apps, setApps] = useState<AppItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,6 +75,10 @@ export function AppMarketView() {
   // ── 检索:搜索词 + 分类 chips,三区共用(客户端即时过滤) ──
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
+  /** RunningHub 社区 family chip;空串 = 未选 */
+  const [family, setFamily] = useState("");
+  /** 空查询社区卡已展示数量(「显示更多」+24) */
+  const [communityShown, setCommunityShown] = useState(COMMUNITY_PAGE_SIZE);
   // NSFW 客户端过滤:R18 模式 off 时隐藏 is_nsfw 应用
   const [r18] = useR18Mode();
 
@@ -92,12 +112,26 @@ export function AppMarketView() {
     void refresh();
   }, [refresh]);
 
-  const filtered = useMemo(
-    () => filterApps(apps, { q: query, category, r18 }),
-    [apps, query, category, r18],
+  const filtered = useMemo(() => {
+    const list = filterApps(apps, { q: query, category, r18, outputKind });
+    return sortFeaturedApps(list, featuredIds);
+  }, [apps, query, category, r18, outputKind, featuredIds]);
+  const { builtin, community, pub, mine } = useMemo(() => splitAppSections(filtered), [filtered]);
+  const families = useMemo(() => rhFamilyChips(community), [community]);
+  const communitySlice = useMemo(
+    () => sliceCommunityApps(community, { q: query, family, shown: communityShown }),
+    [community, query, family, communityShown],
   );
-  const { builtin, pub, mine } = useMemo(() => splitAppSections(filtered), [filtered]);
   const filtering = query.trim() !== "" || category !== "all";
+  const visibleCount = builtin.length + community.length + pub.length + mine.length;
+
+  useEffect(() => {
+    setCommunityShown(COMMUNITY_PAGE_SIZE);
+  }, [query, family, category, outputKind]);
+
+  useEffect(() => {
+    if (family && !families.includes(family)) setFamily("");
+  }, [family, families]);
 
   async function fork(a: AppItem) {
     setForkingId(a.id);
@@ -113,7 +147,13 @@ export function AppMarketView() {
   }
 
   if (openId) {
-    return <AppRunnerView appId={openId} onBack={() => setOpenId(null)} />;
+    return (
+      <AppRunnerView
+        appId={openId}
+        onBack={() => setOpenId(null)}
+        backLabel={runnerBackLabel}
+      />
+    );
   }
 
   const renderCard = (a: AppItem, showFork: boolean) => (
@@ -185,19 +225,21 @@ export function AppMarketView() {
                 aria-label="搜索应用"
               />
             </div>
-            <div className="apps-toolbar-chips" role="group" aria-label="按分类筛选">
-              {CATEGORY_CHIPS.map((c) => (
-                <button
-                  key={c.value}
-                  type="button"
-                  className={`apps-chip${category === c.value ? " is-on" : ""}`}
-                  aria-pressed={category === c.value}
-                  onClick={() => setCategory(c.value)}
-                >
-                  {c.label}
-                </button>
-              ))}
-            </div>
+            {!outputKind && (
+              <div className="apps-toolbar-chips" role="group" aria-label="按分类筛选">
+                {CATEGORY_CHIPS.map((c) => (
+                  <button
+                    key={c.value}
+                    type="button"
+                    className={`apps-chip${category === c.value ? " is-on" : ""}`}
+                    aria-pressed={category === c.value}
+                    onClick={() => setCategory(c.value)}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            )}
             {loggedIn && (
               <Button
                 variant="secondary"
@@ -210,7 +252,7 @@ export function AppMarketView() {
             )}
           </div>
 
-          {!filtering && builtin.length + pub.length + mine.length === 0 ? (
+          {!filtering && visibleCount === 0 ? (
             /* 整库空态(2026-09-02 W3):大图标 Empty → 单行 muted 提示 + 行内重试 */
             <p className="apps-filter-empty apps-empty-all">
               应用市场暂无应用——内置应用由后端注册表提供
@@ -225,7 +267,7 @@ export function AppMarketView() {
             </p>
           ) : (
             <>
-              {filtering && mine.length + builtin.length + pub.length === 0 && (
+              {filtering && visibleCount === 0 && (
                 <p className="apps-filter-empty">
                   没有匹配的应用——换个关键词,或清除筛选条件
                 </p>
@@ -234,6 +276,53 @@ export function AppMarketView() {
               <Section title="内置应用" count={builtin.length} empty="">
                 {builtin.map((a) => renderCard(a, false))}
               </Section>
+
+              {community.length > 0 && (
+                <section className="apps-section">
+                  <div className="apps-section-head">
+                    <h2 className="apps-section-title">RunningHub 社区</h2>
+                    <span className="apps-section-count" aria-label={`${communitySlice.matched} 个`}>
+                      {communitySlice.matched}
+                    </span>
+                  </div>
+                  {families.length > 0 && (
+                    <div className="apps-family-chips" role="group" aria-label="按 RunningHub 类型筛选">
+                      {families.map((f) => (
+                        <button
+                          key={f}
+                          type="button"
+                          className={`apps-chip${family === f ? " is-on" : ""}`}
+                          aria-pressed={family === f}
+                          onClick={() => setFamily((cur) => (cur === f ? "" : f))}
+                        >
+                          {f}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {communitySlice.items.length === 0 ? (
+                    <p className="apps-empty">没有匹配的社区应用</p>
+                  ) : (
+                    <div className="apps-grid">
+                      {communitySlice.items.map((a) => renderCard(a, !a.is_builtin && !a.is_mine))}
+                    </div>
+                  )}
+                  {communitySlice.hasMore && (
+                    <div className="apps-community-more">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setCommunityShown((n) => n + COMMUNITY_PAGE_SIZE)}
+                      >
+                        显示更多
+                      </Button>
+                    </div>
+                  )}
+                  {communitySlice.truncated && (
+                    <p className="apps-truncated">结果已截断,请再缩小关键词</p>
+                  )}
+                </section>
+              )}
 
               <Section title="公共应用" count={pub.length} empty="暂无公共应用">
                 {pub.map((a) => renderCard(a, !a.is_builtin && !a.is_mine))}

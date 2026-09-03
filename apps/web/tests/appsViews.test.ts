@@ -16,6 +16,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { AppMarketView } from "../components/apps/AppMarketView";
 import { AppRunnerView } from "../components/apps/AppRunnerView";
+import { KindCreateView } from "../components/apps/KindCreateView";
+import { ParamField } from "../components/generate/ParamField";
 import { ToastProvider } from "../components/ui/Toast";
 
 const h = React.createElement;
@@ -46,6 +48,24 @@ test("AppMarketView 三区(内置/公共/我的)+ fork 门控 + 打开按钮(源
   assert.ok(src.includes("apps-tag"), "缺类别徽标");
   assert.ok(src.includes("apps-usage"), "缺用量计数");
   assert.ok(src.includes("打开"), "缺「打开」按钮");
+});
+
+test("AppMarketView RunningHub 社区区:核心内置不含 rh- + 分页/截断(源码)", () => {
+  const src = readSrc("components/apps/AppMarketView.tsx");
+  const lib = readSrc("lib/apps.ts");
+  assert.ok(src.includes("RunningHub 社区"), "缺社区区");
+  assert.ok(src.includes("内置应用"), "核心 H3 仍在内置区");
+  assert.ok(src.includes("sliceCommunityApps"), "社区分页应复用 helper");
+  assert.ok(src.includes("rhFamilyChips"), "family chips 应复用 helper");
+  assert.ok(src.includes("显示更多"), "空查询应有显示更多");
+  assert.ok(src.includes("结果已截断,请再缩小关键词"), "搜索超 cap 应提示截断");
+  assert.ok(src.includes("COMMUNITY_PAGE_SIZE"), "分页步长应走常量");
+  assert.match(lib, /COMMUNITY_PAGE_SIZE = 24/, "空查询社区卡上限 24");
+  assert.match(lib, /COMMUNITY_SEARCH_CAP = 120/, "搜索匹配上限 120");
+  assert.ok(lib.includes("isRhCommunityId"), "rh-* 应划入社区而非内置");
+  // 核心 H3 精选仍钉在内置,不把 rh-* 塞进 FEATURED
+  assert.ok(lib.includes('"h3-t2v"'), "核心 H3 仍在精选");
+  assert.ok(!/FEATURED_VIDEO_APP_IDS[\s\S]*?"rh-/.test(lib), "FEATURED 不得含 rh-*");
 });
 
 test("AppMarketView 三态接线:空态单行化/ErrorBar/LoadingBlock + NSFW 客户端过滤(源码)", () => {
@@ -80,6 +100,67 @@ test("AppRunnerView 复用 ParamField 渲染 params_schema(不私造 AppParamFie
   );
   assert.ok(src.includes("<ParamField"), "params_schema 应经 ParamField 渲染");
   assert.ok(!/function AppParamField|const AppParamField/.test(src), "不应私造 AppParamField");
+});
+
+test("AppRunnerView 打开时 GET /api/apps/{id} 拉完整 schema(不信任列表 slim 项)", () => {
+  const src = readSrc("components/apps/AppRunnerView.tsx");
+  assert.ok(src.includes("getApp(appId)"), "运行页须 getApp 拉详情");
+  assert.ok(!src.includes("listApps("), "运行页不得用列表项的 params_schema");
+});
+
+test("AppRunnerView 上传走 generate 同款 /api/upload(appUploadKind + pinWorker)", () => {
+  const src = readSrc("components/apps/AppRunnerView.tsx");
+  assert.ok(src.includes("appUploadKind(app.id)"), "缺 appUploadKind(与 Generate 同口径 kind)");
+  assert.ok(src.includes("firstPinWorker(values)"), "缺 firstPinWorker(多槽互钉)");
+  assert.ok(src.includes("uploadKind={appUploadKind(app.id)}"), "ParamField 未接 uploadKind");
+});
+
+test("ParamField: type===images && max>1 渲染 RefImagesUpload,不是文本框", () => {
+  const src = readSrc("components/generate/ParamField.tsx");
+  assert.ok(src.includes("case \"images\""), "ParamField 缺 images 分支");
+  assert.ok(src.includes("RefImagesUpload"), "max>1 应复用 RefImagesUpload");
+  assert.ok(src.includes("max > 1"), "多图条件缺失");
+  const html = renderToStaticMarkup(
+    h(ToastProvider, null, h(ParamField, {
+      param: { key: "images", label: "参考图", type: "images", default: null, max: 9, hint: "最多 9 张" },
+      value: [],
+      onChange: () => undefined,
+      uploadKind: "h3_i2v",
+    })),
+  );
+  assert.match(html, /上传参考图/, "多图槽应渲染上传按钮");
+  assert.doesNotMatch(html, /type="text"/, "images max>1 不得回落文本框");
+});
+
+test("ParamField: last_frame images max=1 渲染单图上传;video/audio 渲染既有上传件", () => {
+  const last = renderToStaticMarkup(
+    h(ToastProvider, null, h(ParamField, {
+      param: { key: "last_frame", label: "尾帧图", type: "images", default: null, max: 1 },
+      value: [],
+      onChange: () => undefined,
+      uploadKind: "h3_i2v",
+    })),
+  );
+  assert.match(last, /上传参考图/, "尾帧单图应走 RefImageUpload");
+  assert.doesNotMatch(last, /type="text"/, "尾帧不得回落文本框");
+  const vid = renderToStaticMarkup(
+    h(ToastProvider, null, h(ParamField, {
+      param: { key: "video", label: "参考视频", type: "video", default: null, max: 3 },
+      value: [],
+      onChange: () => undefined,
+      uploadKind: "h3_i2v",
+    })),
+  );
+  assert.match(vid, /上传视频/);
+  const aud = renderToStaticMarkup(
+    h(ToastProvider, null, h(ParamField, {
+      param: { key: "audio", label: "参考音频", type: "audio", default: null, max: 3 },
+      value: [],
+      onChange: () => undefined,
+      uploadKind: "h3_i2v",
+    })),
+  );
+  assert.match(aud, /上传音频/);
 });
 
 test("AppRunnerView 提交链:buildRunValues 载荷 → runApp → trackJob(禁用原因提示)", () => {
@@ -302,6 +383,63 @@ test("MarketView:at-seg 段控 + ErrorBoundary(key=tab)+ 懒加载内嵌双市�
   );
 });
 
+/* ── ⑤ 图片/视频创作壳:默认应用目录,高级引擎仍挂 GenerateView ── */
+
+test("KindCreateView 段控:应用默认 + 高级引擎(源码)", () => {
+  const src = readSrc("components/apps/KindCreateView.tsx");
+  assert.ok(src.includes('useState<CreateTab>("apps")'), "默认 tab 应为应用,不是引擎");
+  assert.ok(src.includes('"应用"'), "缺「应用」段");
+  assert.ok(src.includes('"高级引擎"'), "缺「高级引擎」段");
+  assert.ok(src.includes("at-seg"), "段控应复用 at-seg(与 MarketView 同款)");
+  assert.ok(src.includes('role="tablist"'), "段控缺 tablist 语义");
+  assert.ok(src.includes("AppMarketView"), "应用 tab 应挂 AppMarketView");
+  assert.ok(src.includes("outputKind={kind}"), "目录应按 output_kind 过滤");
+  assert.ok(src.includes("featuredAppIdsForKind"), "视频精选应走 featured helper");
+  assert.ok(src.includes('tab === "engine" && <GenerateView lockedKind={kind} />'), "高级引擎应挂 GenerateView");
+  assert.ok(src.includes('import "@/app/styles/apps.css"'), "应复用 apps.css,不另起 CSS 语言");
+});
+
+test("KindCreateView 初始渲染应用段控为选中(静态)", () => {
+  const html = renderToStaticMarkup(h(ToastProvider, null, h(KindCreateView, { kind: "video" })));
+  assert.match(html, />应用</, "缺应用段按钮");
+  assert.match(html, />高级引擎</, "缺高级引擎段按钮");
+  assert.match(html, /aria-selected="true"[^>]*>应用</, "默认选中应为应用");
+  assert.match(html, /aria-selected="false"[^>]*>高级引擎</, "高级引擎默认未选");
+});
+
+test("page.tsx:image/video 默认 KindCreateView,不再直接挂 GenerateView", () => {
+  const src = readSrc("app/page.tsx");
+  assert.ok(
+    src.includes('image: () => import("@/components/apps/KindCreateView")'),
+    "image importer 应指向 KindCreateView",
+  );
+  assert.ok(
+    src.includes('video: () => import("@/components/apps/KindCreateView")'),
+    "video importer 应指向 KindCreateView",
+  );
+  assert.ok(src.includes('{view === "image" && <KindCreateView kind="image" />}'), "image 渲染分支缺 KindCreateView");
+  assert.ok(src.includes('{view === "video" && <KindCreateView kind="video" />}'), "video 渲染分支缺 KindCreateView");
+  assert.ok(
+    !src.includes('{view === "image" && <GenerateView lockedKind="image" />}'),
+    "image 不应再直接挂 GenerateView",
+  );
+  assert.ok(
+    !src.includes('{view === "video" && <GenerateView lockedKind="video" />}'),
+    "video 不应再直接挂 GenerateView",
+  );
+  // 音频维持原状
+  assert.ok(src.includes('{view === "audio" && <AudioView />}'), "audio 不应被这次改动波及");
+});
+
+test("AppMarketView 创作页过滤:outputKind + featuredIds + runnerBackLabel(源码)", () => {
+  const src = readSrc("components/apps/AppMarketView.tsx");
+  assert.ok(src.includes("outputKind"), "缺 outputKind prop");
+  assert.ok(src.includes("sortFeaturedApps"), "精选排序应复用 lib/apps helper");
+  assert.ok(src.includes("featuredIds"), "缺 featuredIds prop");
+  assert.ok(src.includes("runnerBackLabel"), "创作页返回文案应可覆盖");
+  assert.ok(src.includes("!outputKind &&"), "产物类型锁定时应隐藏分类 chips");
+});
+
 /* ── ④ Icon / apps.css ── */
 
 test("Icon.tsx:store 图标已注册(lucide Store)", () => {
@@ -324,6 +462,12 @@ test("apps.css:类名齐全 + token 纪律(零 hex / 无违规断点 / 触达 44
     ".apps-disabled-reason",
     ".apps-results",
     ".apps-result-card",
+    ".apps-kind-create",
+    ".apps-kind-mode-row",
+    ".apps-kind-body",
+    ".apps-family-chips",
+    ".apps-community-more",
+    ".apps-truncated",
   ]) {
     assert.ok(css.includes(cls), `apps.css 缺 ${cls} 定义`);
   }

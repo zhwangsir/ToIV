@@ -25,8 +25,8 @@ import { preloadEntities } from "./entities";
 const WARMERS: Record<string, ReadonlyArray<() => unknown>> = {
   home: [() => getMe(), () => listAgentSessions()],
   assistant: [() => getMe(), () => listAgentSessions()],
-  image: [() => fetchEngines(), () => listModels()],
-  video: [() => fetchEngines(), () => listModels()],
+  image: [() => listApps(), () => fetchEngines(), () => listModels()],
+  video: [() => listApps(), () => fetchEngines(), () => listModels()],
   audio: [() => fetchEngines(), () => listModels()],
   library: [() => listJobs()],
   entities: [() => preloadEntities()],

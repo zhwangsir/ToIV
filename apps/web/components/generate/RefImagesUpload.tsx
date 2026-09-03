@@ -27,6 +27,8 @@ interface RefImagesUploadProps {
   onChange: (v: UploadedRef[]) => void;
   /** 上传路由 kind(wan_vace 等,决定后端接收校验与落点)。 */
   uploadKind: string;
+  /** 外部钉点(如尾帧跟随首帧 worker);缺省用已上传首张。 */
+  pinWorker?: string | null;
   disabled?: boolean;
 }
 
@@ -35,7 +37,7 @@ interface RefImagesUploadProps {
  * 客户端校验(20MB / 扩展名)→ /api/upload;首张自由落点,后续钉首张所在 worker
  * (提交时后端从同一 worker 转运到专用实例,跨机取不到文件)。
  */
-export function RefImagesUpload({ param, values, onChange, uploadKind, disabled }: RefImagesUploadProps) {
+export function RefImagesUpload({ param, values, onChange, uploadKind, pinWorker: pinWorkerProp, disabled }: RefImagesUploadProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const toast = useToast();
   const [uploading, setUploading] = useState(false);
@@ -43,7 +45,7 @@ export function RefImagesUpload({ param, values, onChange, uploadKind, disabled 
   const [pickerOpen, setPickerOpen] = useState(false);
   const max = param.max ?? 4;
   // 首张已上传图的 worker 为后续图的钉点;全部移除后恢复自由落点
-  const pinWorker = values[0]?.worker ?? null;
+  const pinWorker = values[0]?.worker ?? pinWorkerProp ?? null;
 
   async function onFile(file: File | undefined) {
     if (!file) return;

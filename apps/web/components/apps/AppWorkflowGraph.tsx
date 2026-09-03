@@ -189,6 +189,8 @@ interface AppWorkflowGraphProps {
   values: Record<string, unknown>;
   onParamChange: (key: string, value: unknown) => void;
   disabled?: boolean;
+  uploadKind?: string;
+  pinWorker?: string | null;
   /** 运行操作槽(2026-09-02):浮动在画布右下,改完参数就地跑,不用滚出画布 */
   runSlot?: ReactNode;
 }
@@ -200,7 +202,7 @@ const ZOOM_MAX = 2;
 const OUTPUT_TYPE_RE =
   /^(SaveImage|SaveVideo|SaveAudio|SaveAnimatedWEBP|SaveAnimatedPNG|PreviewImage|VHS_VideoCombine|SaveWEBP|ExportAudio|SaveAudioMP3)/i;
 
-export function AppWorkflowGraph({ app, values, onParamChange, disabled, runSlot }: AppWorkflowGraphProps) {
+export function AppWorkflowGraph({ app, values, onParamChange, disabled, runSlot, uploadKind, pinWorker }: AppWorkflowGraphProps) {
   const wf = app.workflow_json;
   const layout = useMemo(
     () => (wf && Object.keys(wf).length ? layoutWorkflow(wf, app.bindings) : null),
@@ -432,6 +434,8 @@ export function AppWorkflowGraph({ app, values, onParamChange, disabled, runSlot
                           value={values[b.key]}
                           onChange={onParamChange}
                           disabled={disabled}
+                          uploadKind={uploadKind}
+                          pinWorker={pinWorker}
                         />
                       );
                     })}

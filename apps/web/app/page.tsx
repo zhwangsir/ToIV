@@ -125,9 +125,9 @@ const viewImporters = {
   assistant: () => import("@/components/assistant/AssistantView"),
   // W2:对话首页与助手同 chunk(AssistantView variant="page")
   home: () => import("@/components/assistant/AssistantView"),
-  // 图片/视频共用 GenerateView chunk;音频走 AudioView(内嵌 GenerateView,webpack 共享 chunk)
-  image: () => import("@/components/generate/GenerateView"),
-  video: () => import("@/components/generate/GenerateView"),
+  // 图片/视频默认应用目录(KindCreateView);高级引擎仍走 GenerateView(组件内懒加载)
+  image: () => import("@/components/apps/KindCreateView"),
+  video: () => import("@/components/apps/KindCreateView"),
   audio: () => import("@/components/audio/AudioView"),
   fusion: () => import("@/components/fusion/FusionView"),
   imageEdit: () => import("@/components/image-edit/ImageEditView"),
@@ -153,8 +153,8 @@ function preloadView(key: View) {
   });
 }
 
-const GenerateView = lazy(() =>
-  viewImporters.image().then((m) => ({ default: m.GenerateView })),
+const KindCreateView = lazy(() =>
+  viewImporters.image().then((m) => ({ default: m.KindCreateView })),
 );
 // W2:对话首页 = AssistantView 整页形态(与 Shift+Enter 浮层同 chunk)
 const HomeView = lazy(() =>
@@ -771,8 +771,8 @@ function HomeContent() {
             <Suspense fallback={<ViewFallback label={meta.label} />}>
               {/* W2:对话为家——AssistantView 整页形态(门户空态/场景卡/快捷动作/最近作品) */}
               {view === "home" && <HomeView variant="page" onNavigate={(v) => handleNavSelect(v)} />}
-              {view === "image" && <GenerateView lockedKind="image" />}
-              {view === "video" && <GenerateView lockedKind="video" />}
+              {view === "image" && <KindCreateView kind="image" />}
+              {view === "video" && <KindCreateView kind="video" />}
               {view === "audio" && <AudioView />}
               {view === "fusion" && <FusionView onNavigate={handleFusionNavigate} />}
               {/* 融合二级页(2026-08-29):统一补「返回融合」入口(onBack) */}

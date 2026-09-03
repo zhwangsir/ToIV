@@ -3,8 +3,10 @@
 M1 CRUD(可见性三区同 routes/agents 范式):
 - GET /api/apps?category=&q=:列表,公共(user_id 空)+ 本人 + 属主上架(is_public)的
   个人应用;NSFW 应用仅 R18 上下文可见(nsfw_ctx.nsfw_allowed 门控);按 sort/name 排序。
-- GET /api/apps/{id}:详情;workflow_json 对所有可见用户透出(2026-09-02 产品决策:
-  运行页「工作流」模式把流程图展现给用户,最可控;可见性/NSFW 门控不变)。
+  列表 slim:params_schema=[] / bindings={} / required_nodes=[] / workflow_json=None
+  (1166 张 rh-* H3 社区卡的图 schema 否则会撑成数 MB)。运行页走详情拿完整 schema。
+- GET /api/apps/{id}:详情;workflow_json+params_schema+bindings 对所有可见用户透出
+  (2026-09-02 产品决策:运行页「工作流」模式把流程图展现给用户,最可控;可见性/NSFW 门控不变)。
 - POST /api/apps:创建公共应用(user_id 空),仅 admin。
 - PUT /api/apps/{id}:内置一律 403;个人应用仅属主可改;公共应用(user_id 空)需 admin。
 - DELETE /api/apps/{id}:同上(内置 403;个人属主可删;公共需 admin)。
@@ -14,7 +16,9 @@ M2 运行器:
 - POST /api/apps/{id}/run:按 params_schema 校验表单值(类型/min/max/枚举/required)
   → 按 bindings 写进 workflow_json 深拷贝的指定节点 inputs/widgets_values 叶子
   (只允许已存在的标量叶子:节点不存在/字段不存在/目标是 dict|list(拓扑连线)/
-  写入复合值一律 422 —— 禁改拓扑)→ 模型依赖 _extract_required(取材于写值后的图)
+  写入复合值一律 422 —— 禁改拓扑。images/audio/video 文件名数组可绑列表:
+  按序写入 N 个叶子,未占用的预置 Load* 节点从提交图省略)→ 模型依赖
+  _extract_required(取材于写值后的图)
   + required_nodes(空则从图自动取 class_type 集)→ pool.pick + queue_prompt
   → 建 Job(kind=submit_kind,params 存 app_id+表单快照) + 审计 app.run
   → tracker 后台追踪落库;usage_count 只在 Job 到 done 时 +1
@@ -104,20 +108,44 @@ def _check_params_schema(schema: list) -> list:
     return schema
 
 
+def _check_one_binding(key: str, target: object) -> dict:
+    """单个 {node, field} 绑定校验。"""
+    if not isinstance(target, dict):
+        raise ValueError(f"绑定 {key} 必须是 {{node, field}} 对象")
+    node, field = target.get("node"), target.get("field")
+    if not isinstance(node, str) or not node:
+        raise ValueError(f"绑定 {key} 缺少 node")
+    if not isinstance(field, str) or not _BINDING_FIELD_RE.match(field):
+        raise ValueError(f"绑定 {key} 的 field 必须是 inputs.<名> 或 widgets_values.<序号>")
+    return target
+
+
+def _binding_targets(target: object) -> list[dict]:
+    """绑定值归一成 [{node, field}, ...];单对象视为长度 1 的列表。"""
+    if isinstance(target, list):
+        return [t for t in target if isinstance(t, dict)]
+    if isinstance(target, dict):
+        return [target]
+    return []
+
+
 def _check_bindings(bindings: dict) -> dict:
-    """绑定映射校验:{表单key: {"node": 节点id, "field": "inputs.x"|"widgets_values.N"}}。"""
+    """绑定映射校验:{表单key: {node,field} 或 [{node,field}, ...]}。
+
+    列表形态给 images/audio/video 多文件扇出(按序写入预置 Load* 叶子)。
+    """
     if not isinstance(bindings, dict):
         raise ValueError("bindings 必须是对象")
     for key, target in bindings.items():
         if not isinstance(key, str) or not key:
             raise ValueError("bindings 的键必须是非空字符串")
-        if not isinstance(target, dict):
-            raise ValueError(f"绑定 {key} 必须是 {{node, field}} 对象")
-        node, field = target.get("node"), target.get("field")
-        if not isinstance(node, str) or not node:
-            raise ValueError(f"绑定 {key} 缺少 node")
-        if not isinstance(field, str) or not _BINDING_FIELD_RE.match(field):
-            raise ValueError(f"绑定 {key} 的 field 必须是 inputs.<名> 或 widgets_values.<序号>")
+        if isinstance(target, list):
+            if not target:
+                raise ValueError(f"绑定 {key} 的列表不能为空")
+            for i, t in enumerate(target):
+                _check_one_binding(f"{key}[{i}]", t)
+        else:
+            _check_one_binding(key, target)
     return bindings
 
 
@@ -126,10 +154,11 @@ def _cross_check(workflow: dict, schema: list, bindings: dict) -> None:
     node_ids = set(workflow)
     keys = {p["key"] for p in schema}
     for key, target in bindings.items():
-        if target["node"] not in node_ids:
-            raise ValueError(f"绑定 {key} 指向不存在的节点 {target['node']}")
         if key not in keys:
             raise ValueError(f"绑定 {key} 在 params_schema 中无对应参数")
+        for t in _binding_targets(target):
+            if t.get("node") not in node_ids:
+                raise ValueError(f"绑定 {key} 指向不存在的节点 {t.get('node')}")
 
 
 class AppCreate(BaseModel):
@@ -296,16 +325,18 @@ def _get_visible(session: Session, aid: str, user: User) -> App:
     return a
 
 
-def _to_out(a: App, viewer: User, *, with_workflow: bool = False) -> AppOut:
+def _to_out(a: App, viewer: User, *, with_workflow: bool = False, slim: bool = False) -> AppOut:
+    """slim=True 给列表:不下发 params_schema/bindings/required_nodes(H3 社区卡 1000+ 份图 schema 会撑爆 payload)。
+    运行页走 GET /api/apps/{id}(with_workflow=True)拿完整 schema。"""
     return AppOut(
         id=a.id,
         name=a.name,
         description=a.description,
         icon=a.icon,
         category=a.category,
-        params_schema=a.params_schema or [],
-        bindings=a.bindings or {},
-        required_nodes=a.required_nodes or [],
+        params_schema=[] if slim else (a.params_schema or []),
+        bindings={} if slim else (a.bindings or {}),
+        required_nodes=[] if slim else (a.required_nodes or []),
         output_kind=a.output_kind,
         submit_kind=a.submit_kind,
         is_builtin=a.is_builtin,
@@ -344,7 +375,7 @@ def _validate_params(schema: list[dict], values: dict) -> dict:
     for p in schema:
         key, ptype = p["key"], p.get("type", "text")
         v = values.get(key, p.get("default"))
-        if p.get("required") and (v is None or v == ""):
+        if p.get("required") and _is_missing_value(v):
             raise HTTPException(status_code=422, detail=f"缺少必填参数: {key}")
         if v is None:
             out[key] = None
@@ -370,8 +401,53 @@ def _validate_params(schema: list[dict], values: dict) -> dict:
         elif ptype == "switch":
             if not isinstance(v, bool):
                 raise HTTPException(status_code=422, detail=f"参数 {key} 须为布尔值")
-        # images/audio/video/loras 等媒体/复合类型宽松透传(不绑图叶子,由上传链路消化)
+        elif ptype in ("images", "audio", "video"):
+            files = _as_filenames(key, v)
+            mx = p.get("max")
+            if mx is not None:
+                try:
+                    cap = int(mx)
+                except (TypeError, ValueError):
+                    cap = None
+                else:
+                    if len(files) > cap:
+                        raise HTTPException(
+                            status_code=422, detail=f"参数 {key} 最多 {cap} 个文件"
+                        )
+        # loras 等其余复合类型宽松透传
         out[key] = v
+    return out
+
+
+def _is_missing_value(v: object) -> bool:
+    """必填缺口:None/空串/全空媒体数组都算没填。"""
+    if v is None or v == "":
+        return True
+    if isinstance(v, list):
+        return not any(isinstance(x, str) and x.strip() for x in v)
+    return False
+
+
+def _as_filenames(key: str, value: object) -> list[str]:
+    """images/audio/video 表单值 → 非空文件名列表(空串槽位跳过,紧凑填)。"""
+    if value is None or value == "":
+        return []
+    if isinstance(value, str):
+        return [value] if value.strip() else []
+    if isinstance(value, dict):
+        raise HTTPException(status_code=422, detail=f"参数 {key} 为复合值,不能写入图叶子")
+    if not isinstance(value, list):
+        raise HTTPException(status_code=422, detail=f"参数 {key} 须为文件名或文件名数组")
+    out: list[str] = []
+    for i, item in enumerate(value):
+        if item is None or item == "":
+            continue
+        if not isinstance(item, str):
+            raise HTTPException(
+                status_code=422, detail=f"参数 {key}[{i}] 须为文件名字符串"
+            )
+        if item.strip():
+            out.append(item)
     return out
 
 
@@ -412,15 +488,14 @@ def _coerce_for_leaf(key: str, existing: object, value: object) -> object | None
 
 def _write_leaf(graph: dict, key: str, target: dict, value: object) -> None:
     """把一个标量值写进图的指定叶子;任何拓扑改动企图(新键/连线/复合值)抛 422。"""
-    # 媒体参数(images/audio/video)表单值是文件名数组;绑定目标是字符串叶子
-    # (LoadImage/LoadVideo/LoadAudio 的 inputs.image/video/audio)时取首个文件名
+    # 单绑定 + 单元素媒体数组:窄化为字符串再写叶子。多文件扇出走 _build_graph。
     if isinstance(value, list):
         if len(value) == 1 and isinstance(value[0], str):
             value = value[0]
         else:
             raise HTTPException(
                 status_code=422,
-                detail=f"参数 {key} 为复合值,不能写入图叶子(媒体数组仅支持单文件绑定)",
+                detail=f"参数 {key} 为复合值,不能写入图叶子(多文件请用列表绑定扇出)",
             )
     if isinstance(value, dict):
         raise HTTPException(status_code=422, detail=f"参数 {key} 为复合值,不能写入图叶子")
@@ -462,10 +537,58 @@ def _write_leaf(graph: dict, key: str, target: dict, value: object) -> None:
         container[int(leaf)] = coerced
 
 
+def _omit_media_slot(graph: dict, node_id: object) -> None:
+    """去掉未使用的媒体加载节点及其连线(含 LoadVideo 配对的 GetVideoComponents)。
+
+    内置 r2v 图预置 9 图 + 3 视频对 + 3 音频槽;提交时只保留有文件名的槽,
+    避免 dummy 文件名被 worker 当真去加载。
+    """
+    nid = str(node_id or "")
+    if not nid or nid not in graph:
+        return
+    drop = {nid}
+    for other_id, node in graph.items():
+        if not isinstance(node, dict):
+            continue
+        if node.get("class_type") != "GetVideoComponents":
+            continue
+        video = (node.get("inputs") or {}).get("video")
+        if isinstance(video, list) and video and str(video[0]) == nid:
+            drop.add(str(other_id))
+    for _oid, node in list(graph.items()):
+        if not isinstance(node, dict):
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        for k, v in list(inputs.items()):
+            if isinstance(v, list) and v and str(v[0]) in drop:
+                del inputs[k]
+    for d in drop:
+        graph.pop(d, None)
+
+
 def _build_graph(workflow: dict, bindings: dict, values: dict) -> dict:
-    """深拷贝工作流图并按 bindings 写入表单值(库内原件永不被改写)。"""
+    """深拷贝工作流图并按 bindings 写入表单值(库内原件永不被改写)。
+
+    列表绑定:images/audio/video 文件名数组按序写入各叶子;多出的文件 422;
+    未占用的预置 Load* 槽从提交图省略(连同指向它们的 ref_* 连线)。
+    """
     graph = copy.deepcopy(workflow)
     for key, target in (bindings or {}).items():
+        if isinstance(target, list):
+            files = _as_filenames(key, values.get(key))
+            if len(files) > len(target):
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"参数 {key} 最多 {len(target)} 个文件",
+                )
+            for i, slot in enumerate(target):
+                if i < len(files):
+                    _write_leaf(graph, key, slot, files[i])
+                else:
+                    _omit_media_slot(graph, slot.get("node") if isinstance(slot, dict) else None)
+            continue
         v = values.get(key)
         if v is None:
             continue  # 未提供且无默认:保留图内原值
@@ -502,7 +625,9 @@ def list_apps(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> list[AppOut]:
-    """列表:公共 + 本人(+ 属主上架的个人应用),NSFW 仅 R18 可见,按 sort/name 排序。"""
+    """列表:公共 + 本人(+ 属主上架的个人应用),NSFW 仅 R18 可见,按 sort/name 排序。
+    每行 slim(_to_out slim=True):params_schema/bindings/required_nodes 清空,workflow_json 已是 None。
+    运行器必须 GET /api/apps/{id} 拿完整 schema。"""
     allow_nsfw = nsfw_allowed(user)
     rows = session.exec(select(App).order_by(App.sort, App.name)).all()
     out: list[AppOut] = []
@@ -516,7 +641,7 @@ def list_apps(
             continue
         if needle and needle not in a.name.lower() and needle not in (a.description or "").lower():
             continue
-        out.append(_to_out(a, user))
+        out.append(_to_out(a, user, slim=True))
     return out
 
 

@@ -272,6 +272,51 @@ def test_run_composite_value_rejected(ctx):
     assert r.status_code == 422
 
 
+def test_run_images_list_binding_fan_out(ctx):
+    """images 列表绑定:两张图写入 110/111,未占用的 112 从提交图省略。"""
+    c, tokens, _, engine, fake, _ = ctx
+    graph = {
+        "110": {"class_type": "LoadImage", "inputs": {"image": "d1.png"}},
+        "111": {"class_type": "LoadImage", "inputs": {"image": "d2.png"}},
+        "112": {"class_type": "LoadImage", "inputs": {"image": "d3.png"}},
+        "4": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "a.safetensors"}},
+        "9": {"class_type": "SaveImage", "inputs": {"images": ["8", 0]}},
+        "104": {
+            "class_type": "FakeRef",
+            "inputs": {
+                "ref_image_1": ["110", 0],
+                "ref_image_2": ["111", 0],
+                "ref_image_3": ["112", 0],
+            },
+        },
+    }
+    with Session(engine) as s:
+        _seed_app(
+            s, id="multi-ref",
+            workflow_json=graph,
+            params_schema=[
+                {"key": "images", "label": "参考图", "type": "images", "max": 3, "required": True},
+            ],
+            bindings={"images": [
+                {"node": "110", "field": "inputs.image"},
+                {"node": "111", "field": "inputs.image"},
+                {"node": "112", "field": "inputs.image"},
+            ]},
+        )
+    r = c.post(
+        "/api/apps/multi-ref/run", headers=_h(tokens),
+        json={"values": {"images": ["a.png", "b.png"]}},
+    )
+    assert r.status_code == 200, r.text
+    submitted = fake.graphs[0]
+    assert submitted["110"]["inputs"]["image"] == "a.png"
+    assert submitted["111"]["inputs"]["image"] == "b.png"
+    assert "112" not in submitted
+    assert submitted["104"]["inputs"]["ref_image_1"] == ["110", 0]
+    assert submitted["104"]["inputs"]["ref_image_2"] == ["111", 0]
+    assert "ref_image_3" not in submitted["104"]["inputs"]
+
+
 # --------------------------------------------------------------------------- #
 # 写图正确性 + 提交建档
 # --------------------------------------------------------------------------- #

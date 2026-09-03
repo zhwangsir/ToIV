@@ -31,11 +31,13 @@ interface RefImageUploadProps {
   onChange: (v: UploadedRef | null) => void;
   /** 上传路由 kind(img2img / ltx_i2v),决定后端把图放到哪类 worker。 */
   uploadKind: string;
+  /** 钉到指定 worker(与首帧/其它参考同机,提交时后端从该 worker 转运)。 */
+  pinWorker?: string | null;
   disabled?: boolean;
 }
 
 /** 参考图上传:客户端校验(20MB / 扩展名)→ /api/upload → 缩略预览,可移除重传。 */
-export function RefImageUpload({ param, value, onChange, uploadKind, disabled }: RefImageUploadProps) {
+export function RefImageUpload({ param, value, onChange, uploadKind, pinWorker, disabled }: RefImageUploadProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const toast = useToast();
   const [uploading, setUploading] = useState(false);
@@ -58,7 +60,7 @@ export function RefImageUpload({ param, value, onChange, uploadKind, disabled }:
     setUploading(true);
     setProgress(0);
     try {
-      const r = await uploadImage(file, uploadKind, false, undefined, {
+      const r = await uploadImage(file, uploadKind, false, pinWorker ?? undefined, {
         onProgress: (pct) => setProgress(pct),
       });
       onChange({
@@ -144,6 +146,7 @@ export function RefImageUpload({ param, value, onChange, uploadKind, disabled }:
         onClose={() => setPickerOpen(false)}
         assetType="image"
         kind={uploadKind}
+        pinWorker={pinWorker}
         onPick={(a) => onChange({ ...a })}
       />
       <input

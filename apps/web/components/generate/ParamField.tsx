@@ -7,20 +7,52 @@ import { Switch } from "@/components/ui/Switch";
 import { useAutoResize } from "@/hooks/useAutoResize";
 import type { EngineParam, LoraValue } from "@/lib/engines";
 
+import { RefAudioUpload, type UploadedAudio } from "./RefAudioUpload";
+import { RefImageUpload, type UploadedRef } from "./RefImageUpload";
+import { RefImagesUpload } from "./RefImagesUpload";
+import { RefVideoUpload, type UploadedVideo } from "./RefVideoUpload";
+
 interface ParamFieldProps {
   param: EngineParam;
   value: unknown;
   onChange: (key: string, value: unknown) => void;
   disabled?: boolean;
+  /** 上传路由 kind(应用运行页传入;生成页 images 仍由 GenerateView 独立承载)。 */
+  uploadKind?: string;
+  /** 钉到已上传媒体所在 worker(多槽互钉,避免跨机取不到文件)。 */
+  pinWorker?: string | null;
+}
+
+type MediaHandle = { filename: string; worker?: string; name?: string; previewUrl?: string };
+
+/** 表单值 → 已上传句柄列表(兼容 string / string[] / 句柄对象,提交前由 buildRunValues 抽 filename)。 */
+function asMediaList<T extends MediaHandle>(value: unknown): T[] {
+  if (value == null || value === "") return [];
+  const items = Array.isArray(value) ? value : [value];
+  const out: T[] = [];
+  for (const item of items) {
+    if (typeof item === "string" && item.trim()) {
+      out.push({ filename: item.trim(), worker: "", name: item.trim(), previewUrl: "" } as T);
+    } else if (item && typeof item === "object" && typeof (item as MediaHandle).filename === "string") {
+      const h = item as MediaHandle;
+      out.push({ ...h, name: h.name || h.filename, previewUrl: h.previewUrl || "" } as T);
+    }
+  }
+  return out;
+}
+
+function asImageRefs(value: unknown): UploadedRef[] {
+  return asMediaList<UploadedRef>(value);
 }
 
 /**
  * 动态参数渲染器:由引擎 params schema 驱动,把 text/textarea/number/select/switch/loras
- * 映射到 W0 ui 基座组件(images 类型由 RefImageUpload 单独承载,不在此渲染)。
+ * 以及 images/audio/video 映射到 W0 基座 / 既有 Ref*Upload。
+ * 生成页仍把 images 从分组里剔除、由 GenerateView 独立承载;应用运行页走此组件上传。
  * 数值参数以原始字符串保存,提交时才 parse(允许输入中间态,如 "10.");
  * 失焦按 min/max/step 钳位 + 红字提示(2026-08-30,此前非法输入静默回落)。
  */
-export function ParamField({ param, value, onChange, disabled }: ParamFieldProps) {
+export function ParamField({ param, value, onChange, disabled, uploadKind = "img2img", pinWorker }: ParamFieldProps) {
   const set = (v: unknown) => onChange(param.key, v);
   // 数值参数失焦校验提示(Field error 槽,红字)
   const [numError, setNumError] = useState<string | null>(null);
@@ -259,6 +291,136 @@ export function ParamField({ param, value, onChange, disabled }: ParamFieldProps
           </span>
         </Field>
       );
+    case "images": {
+      const max = param.max ?? 1;
+      const refs = asImageRefs(value);
+      if (max > 1) {
+        return (
+          <RefImagesUpload
+            param={param}
+            values={refs}
+            uploadKind={uploadKind}
+            pinWorker={pinWorker}
+            disabled={disabled}
+            onChange={(v) => set(v)}
+          />
+        );
+      }
+      return (
+        <RefImageUpload
+          param={param}
+          value={refs[0] ?? null}
+          uploadKind={uploadKind}
+          pinWorker={pinWorker}
+          disabled={disabled}
+          onChange={(v) => set(v ? [v] : [])}
+        />
+      );
+    }
+    case "video": {
+      const max = param.max ?? 1;
+      const items = asMediaList<UploadedVideo>(value);
+      const pin = pinWorker ?? items[0]?.worker ?? null;
+      if (max <= 1) {
+        return (
+          <RefVideoUpload
+            param={param}
+            value={items[0] ?? null}
+            uploadKind={uploadKind}
+            pinWorker={pin}
+            disabled={disabled}
+            onChange={(v) => set(v ? [v] : [])}
+          />
+        );
+      }
+      return (
+        <>
+          {items.map((item, i) => (
+            <RefVideoUpload
+              key={`${item.filename}-${i}`}
+              param={{ ...param, label: `${param.label} ${i + 1}` }}
+              value={item}
+              uploadKind={uploadKind}
+              pinWorker={pin}
+              disabled={disabled}
+              onChange={(v) => {
+                const next = items.slice();
+                if (v) next[i] = v;
+                else next.splice(i, 1);
+                set(next);
+              }}
+            />
+          ))}
+          {items.length < max && (
+            <RefVideoUpload
+              param={{
+                ...param,
+                label: items.length === 0 ? param.label : `${param.label} ${items.length + 1}`,
+              }}
+              value={null}
+              uploadKind={uploadKind}
+              pinWorker={pin}
+              disabled={disabled}
+              onChange={(v) => {
+                if (v) set([...items, v]);
+              }}
+            />
+          )}
+        </>
+      );
+    }
+    case "audio": {
+      const max = param.max ?? 1;
+      const items = asMediaList<UploadedAudio>(value);
+      const pin = pinWorker ?? items[0]?.worker ?? null;
+      if (max <= 1) {
+        return (
+          <RefAudioUpload
+            param={param}
+            value={items[0] ?? null}
+            uploadKind={uploadKind}
+            pinWorker={pin}
+            disabled={disabled}
+            onChange={(v) => set(v ? [v] : [])}
+          />
+        );
+      }
+      return (
+        <>
+          {items.map((item, i) => (
+            <RefAudioUpload
+              key={`${item.filename}-${i}`}
+              param={{ ...param, label: `${param.label} ${i + 1}` }}
+              value={item}
+              uploadKind={uploadKind}
+              pinWorker={pin}
+              disabled={disabled}
+              onChange={(v) => {
+                const next = items.slice();
+                if (v) next[i] = v;
+                else next.splice(i, 1);
+                set(next);
+              }}
+            />
+          ))}
+          {items.length < max && (
+            <RefAudioUpload
+              param={{
+                ...param,
+                label: items.length === 0 ? param.label : `${param.label} ${items.length + 1}`,
+              }}
+              value={null}
+              uploadKind={uploadKind}
+              pinWorker={pin}
+              disabled={disabled}
+              onChange={(v) => {
+                if (v) set([...items, v]);
+              }}
+            />
+          )}
+        </>
+      );
+    }
     default:
       return null;
   }

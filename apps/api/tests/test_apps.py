@@ -226,6 +226,10 @@ def test_list_public_visible_personal_hidden(ctx):
     assert pub["is_mine"] is False
     # 列表不透出 workflow_json
     assert pub["workflow_json"] is None
+    # 列表 slim:不下发图 schema(1166 张 rh-* 否则数 MB)
+    assert pub["params_schema"] == []
+    assert pub["bindings"] == {}
+    assert pub["required_nodes"] == []
 
     r2 = c.get("/api/apps", headers=_h(tokens, "other"))
     got2 = {a["id"] for a in r2.json()}
@@ -269,6 +273,38 @@ def test_list_sorted_by_sort(ctx):
     sorts = [a["sort"] for a in r.json()]
     assert sorts == sorted(sorts)
     assert r.json()[0]["id"] == "a2"
+
+
+def test_list_slim_omits_schema_detail_keeps_it(ctx):
+    """列表 slim:params_schema/bindings/required_nodes 清空;详情仍完整。"""
+    c, tokens, _, engine = ctx
+    with Session(engine) as s:
+        _seed_app(
+            s, id="slim-app", user_id="", is_public=True, name="种子应用",
+            description="slim 列表测", icon="sparkles", category="image",
+            output_kind="image", sort=10,
+            required_nodes=["CLIPTextEncode"],
+        )
+    listed = next(
+        a for a in c.get("/api/apps", headers=_h(tokens, "user")).json() if a["id"] == "slim-app"
+    )
+    assert listed["params_schema"] == []
+    assert listed["bindings"] == {}
+    assert listed["required_nodes"] == []
+    assert listed["workflow_json"] is None
+    assert listed["id"] == "slim-app"
+    assert listed["name"] == "种子应用"
+    assert listed["description"] == "slim 列表测"
+    assert listed["icon"] == "sparkles"
+    assert listed["category"] == "image"
+    assert listed["output_kind"] == "image"
+    assert listed["is_nsfw"] is False
+    assert listed["sort"] == 10
+    detail = c.get("/api/apps/slim-app", headers=_h(tokens, "user")).json()
+    assert detail["params_schema"][0]["key"] == "prompt"
+    assert detail["bindings"]["prompt"]["node"] == "3"
+    assert detail["required_nodes"] == ["CLIPTextEncode"]
+    assert detail["workflow_json"]["3"]["class_type"] == "CLIPTextEncode"
 
 
 # --------------------------------------------------------------------------- #

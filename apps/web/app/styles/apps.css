@@ -112,6 +112,26 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* RunningHub 社区 family chips(复用 .apps-chip,独立行以免挤进标题) */
+.apps-family-chips {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+.apps-community-more {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-3) 0 var(--space-1);
+}
+.apps-truncated {
+  margin: 0;
+  padding: var(--space-2) 0;
+  color: var(--text-muted);
+  font-size: var(--text-aux);
+  text-align: center;
+}
+
 /* ── 卡片网格:min() 根治超窄容器轨道溢出(skills.css 同范式) ── */
 .apps-grid {
   display: grid;
@@ -765,5 +785,36 @@
 @media (max-width: 575px) {
   .apps-import-preview {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+
+/* ── 图片/视频创作壳:应用目录(默认) | 高级引擎(GenerateView) ── */
+.apps-kind-create {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.apps-kind-mode-row {
+  flex-shrink: 0;
+  display: flex;
+  padding: var(--space-3) var(--page-gutter) var(--space-3);
+}
+.apps-kind-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.apps-kind-body.is-engine {
+  overflow: hidden;
+}
+.apps-kind-body .single-view {
+  padding-top: 0;
+}
+@media (max-width: 767px) {
+  .apps-kind-create .at-seg-btn {
+    min-height: var(--touch-target);
   }
 }

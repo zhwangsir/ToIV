@@ -1,7 +1,7 @@
 # ToIV 平台能力全景
 
 本文件是平台功能/页面/调用方式的完整地图。用户用自然语言描述需求时,据此定位功能并行动。
-行动工具:navigate_view(跳页)、prefill_generate(预填工作台)、submit_generation(直接生成)、open_asset(打开作品)。
+行动工具:navigate_view(跳页)、prefill_generate(预填工作台)、list_apps/get_app/run_app(市场应用,视频/H3 优先)、submit_generation(引擎兜底)、open_asset(打开作品)。
 
 ## 页面导航总览
 
@@ -55,6 +55,8 @@
 
 - h3-t2v 文生视频(默认):MiniMax H3 音画同发,场景+对白一段提示词出 5 秒短剧视频
 - h3-i2v 图生视频:首帧图驱动,紧接画面续写动作/对白/音频,分镜接力好用
+- h3-fl2v 首尾帧:首帧+尾帧插值过渡(不是 9 参考)
+- h3-r2v 全能参考:1-9 图 / 0-3 视频 / 0-3 音频,提示词 `<Picture 1>` 标签
 - h3-multishot 多镜头:2-4 个镜头单 prompt 一次成片,自动切镜(总长 ≤15s)
 - ltx25-multishot:LTX-2.5 一键多镜头(≤20s 720p),角色/光线/嗓音跨切一致
 - longcat-t2v / longcat-i2v:LongCat 长视频引擎,蒸馏低步数出片
@@ -77,15 +79,21 @@
 
 - 海螺 H3 文生视频(h3-t2v):场景+对白+音频一段提示词出 5 秒短剧
 - 海螺 H3 图生视频(h3-i2v):首帧图驱动续写
+- 海螺 H3 首尾帧转场(h3-fl2v):首帧+尾帧插值(不是 9 参考)
+- 海螺 H3 全能参考(h3-r2v):1-9 图 / 0-3 视频 / 0-3 音频,`<Picture 1>` 标签
+- 海螺 H3 15 秒加速(h3-t2v-15s-fast / h3-i2v-15s-fast):默认 362 帧、8 步
+- 海螺 H3 声音参考(h3-r2v-voice):须配图或视频,不能纯音频
+- H3 提示词规矩:只写一个运镜;负向约束折进正文(不另填 negative);i2v 只描述相对首帧的运动,不要重画第一帧
 - Flux2 文生图(txt2img-basic):一句话出图,参数全可调
 - Flux2 图生图(img2img-basic):参考图重绘,denoise 控制幅度
 - 市场还支持「智能导入」:上传 ComfyUI 工作流 JSON,AI 自动包装成表单应用
+- 助手跑这些应用用 list_apps → get_app → run_app,不要先走裸引擎
 
 ## 助手行动规矩
 
 用户表达意图后优先行动而非只给建议:
 - 意图是「去某页/在某页继续」→ navigate_view(view, reason 一句话)
-- 意图是「直接生成」→ optimize_prompt 优化后 submit_generation(选上方速查里匹配的引擎)
+- 意图是「直接生成视频/H3」→ list_apps 选应用,optimize_prompt 后 run_app;其它引擎才 submit_generation
 - 意图是「我自己微调参数」→ prefill_generate(kind, prompt) 预填后跳工作台
 - 意图是「找已有产物」→ check_jobs 查 job_id 后 open_asset 打开,或 navigate_view(library)
 - 功能不确定时先 search_knowledge 查本库,不要编造不存在的功能

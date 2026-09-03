@@ -76,20 +76,20 @@ def user() -> User:
 async def test_populate_registry_fills_entries(live_pool, user):
     """EnginePlugin bootstrap 填充后 list_engines 返回全部引擎条目。
 
-    SFW 上下文 23 条(8 条 NSFW 引擎被过滤);R18 上下文 31 条全量(2026-08-27 +ace-music-legacy + Phase 4A-D)。
+    SFW 上下文 25 条(10 条 NSFW 引擎被过滤);R18 上下文 35 条全量(+h3-fl2v/h3-r2v 及 NSFW 孪生)。
     """
     populate_registry()
-    # SFW 上下文:NSFW 引擎(8 条)被过滤
+    # SFW 上下文:NSFW 引擎(10 条)被过滤
     engines_sfw = await list_engines(live_pool, user)
-    assert len(engines_sfw) == 23, f"SFW 引擎条目数应为 23,实得 {len(engines_sfw)}"
+    assert len(engines_sfw) == 25, f"SFW 引擎条目数应为 25,实得 {len(engines_sfw)}"
 
-    # R18 上下文:全量 31 条
+    # R18 上下文:全量 35 条
     token = nsfw_intent_var.set(True)
     try:
         engines_r18 = await list_engines(live_pool, user)
     finally:
         nsfw_intent_var.reset(token)
-    assert len(engines_r18) == 31, f"R18 引擎条目数应为 31,实得 {len(engines_r18)}"
+    assert len(engines_r18) == 35, f"R18 引擎条目数应为 35,实得 {len(engines_r18)}"
 
     # 含 submit 绑定(每条引擎都有)
     for e in engines_r18:
@@ -111,14 +111,14 @@ async def test_lazy_ensure_registry_no_double_fill(live_pool, user):
         engines = await list_engines(live_pool, user)
     finally:
         nsfw_intent_var.reset(token)
-    assert len(engines) == 31
+    assert len(engines) == 35
     populate_registry()  # 再次调用不应重复
     token = nsfw_intent_var.set(True)
     try:
         engines2 = await list_engines(live_pool, user)
     finally:
         nsfw_intent_var.reset(token)
-    assert len(engines2) == 31
+    assert len(engines2) == 35
 
 
 # ---------------------------------------------------------------------------

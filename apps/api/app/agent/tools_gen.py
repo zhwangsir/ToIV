@@ -28,7 +28,7 @@ from pydantic import ValidationError
 from sqlmodel import select
 
 from app.comfy.pool import WorkerPool
-from app.models import AgentSession, Entity, Job, User
+from app.models import AgentSession, App, Entity, Job, User
 from app.nsfw_ctx import nsfw_allowed
 
 logger = logging.getLogger(__name__)
@@ -46,7 +46,10 @@ TOOL_SCHEMAS_GEN = [
             "name": "submit_generation",
             "description": (
                 "异步提交一个生成作业到指定引擎(立即返回 job_id,不等待结果)。"
-                "视频/批量/长耗时/专用实例引擎一律用它,不要用同步工具。"
+                "用户面向的视频/H3(文生视频、图生视频、首尾帧、多参考)请优先 "
+                "list_apps → get_app → run_app;engine_id 是进阶兜底"
+                "(应用不存在、参数对不上、或用户明确指定引擎时才用)。"
+                "批量/长耗时/专用实例引擎也可用它,不要用同步工具。"
                 "提交前必须先 optimize_prompt 优化提示词(除非用户输入已是详细英文);"
                 "需要参考图/驱动视频/音频的引擎(i2v/animate/avatar/edit 类)须在 params 里给 "
                 "image/video/audio 文件名与 worker(用户本轮上传了图则自动用该图)。"
@@ -58,9 +61,9 @@ TOOL_SCHEMAS_GEN = [
                         "type": "string",
                         "description": (
                             "引擎 id,可选:txt2img|img2img|qwen-image-edit|ace-music|"
-                            "h3-t2v|h3-i2v|longcat-t2v|longcat-i2v|longcat-continue|"
+                            "h3-t2v|h3-i2v|h3-fl2v|h3-r2v|longcat-t2v|longcat-i2v|longcat-continue|"
                             "avatar-talk|wan-animate|wan-animate-2|wan-vace|"
-                            "nsfw-txt2img|nsfw-img2img|h3-nsfw-t2v|h3-nsfw-i2v|"
+                            "nsfw-txt2img|nsfw-img2img|h3-nsfw-t2v|h3-nsfw-i2v|h3-nsfw-fl2v|h3-nsfw-r2v|"
                             "ltx-nsfw-t2v|ltx-nsfw-i2v|ltx-nsfw-lipsync|wan-nsfw-i2v"
                         ),
                     },
@@ -118,7 +121,8 @@ TOOL_SCHEMAS_GEN = [
         "type": "function",
         "function": {
             "name": "check_jobs",
-            "description": "查询一批生成作业的状态与产物(用户追问进度/结果时调用;done 的会把产物链接补发给用户)。",
+            "description": "查询一批生成作业的状态与产物(用户追问进度/结果时调用;done 的会把产物链接补发给用户)。"
+                "job_ids 来自 run_app 或 submit_generation。",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -314,6 +318,71 @@ TOOL_SCHEMAS_GEN = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_apps",
+            "description": (
+                "查询应用市场可用应用(内置模板+本人应用)。"
+                "用户要做视频/H3 时优先用本工具选应用,再 get_app 看参数、run_app 提交;"
+                "不要先走 submit_generation。"
+                "可选按 category(image|video|audio|edit|3d|other) 或关键词 q 过滤。"
+                "NSFW 应用仅 R18 上下文可见。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "category": {
+                        "type": "string",
+                        "enum": ["image", "video", "audio", "edit", "3d", "other"],
+                        "description": "按分类过滤(可选)",
+                    },
+                    "q": {"type": "string", "description": "名称/简介关键词(可选)"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_app",
+            "description": (
+                "查看某个应用的完整 params_schema 与填值说明。"
+                "run_app 前若不确定参数 key/必填/类型,先调本工具。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string", "description": "应用 id(list_apps 返回的 id)"},
+                },
+                "required": ["id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_app",
+            "description": (
+                "运行应用市场应用:按 params_schema 填 values 后异步提交(立即返回 job_id)。"
+                "视频/H3 用户意图优先走本工具而不是 submit_generation。"
+                "values 的 key 必须与 get_app 给出的 params_schema 一致;"
+                "媒体类参数填本轮上传文件名(用户上传了图则自动回填缺省的 images)。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "app_id": {"type": "string", "description": "应用 id"},
+                    "values": {
+                        "type": "object",
+                        "description": "表单值:{参数key: 值};必填项必须给",
+                        "additionalProperties": True,
+                    },
+                },
+                "required": ["app_id", "values"],
+            },
+        },
+    },
 ]
 
 
@@ -383,6 +452,52 @@ async def _submit_h3_i2v(pos, neg, params, pool, user, session) -> dict:
 
     req = h3_studio.H3I2VRequest(positive=pos, negative=neg, **params)
     return await h3_studio.generate_h3_i2v(req, user, session)
+
+
+def _split_fl2v_images(params: dict) -> dict:
+    """引擎表单 images[首,尾] → H3FL2VRequest.image/last_frame。"""
+    kw = dict(params)
+    images = kw.pop("images", None)
+    if isinstance(images, list):
+        if images:
+            kw.setdefault("image", images[0])
+        if len(images) >= 2:
+            kw.setdefault("last_frame", images[1])
+    return kw
+
+
+async def _submit_h3_fl2v(pos, neg, params, pool, user, session) -> dict:
+    from app.routes import h3_studio
+
+    req = h3_studio.H3FL2VRequest(positive=pos, negative=neg, **_split_fl2v_images(params))
+    return await h3_studio.generate_h3_fl2v(req, user, session)
+
+
+def _map_r2v_media(params: dict) -> dict:
+    """引擎表单 video/audio(单数) → H3R2VRequest.videos/audios;images 标量升列表。"""
+    kw = dict(params)
+    if "videos" not in kw and "video" in kw:
+        v = kw.pop("video")
+        if isinstance(v, list):
+            kw["videos"] = v
+        elif v:
+            kw["videos"] = [v]
+    if "audios" not in kw and "audio" in kw:
+        a = kw.pop("audio")
+        if isinstance(a, list):
+            kw["audios"] = a
+        elif a:
+            kw["audios"] = [a]
+    if isinstance(kw.get("images"), str):
+        kw["images"] = [kw["images"]]
+    return kw
+
+
+async def _submit_h3_r2v(pos, neg, params, pool, user, session) -> dict:
+    from app.routes import h3_studio
+
+    req = h3_studio.H3R2VRequest(positive=pos, negative=neg, **_map_r2v_media(params))
+    return await h3_studio.generate_h3_r2v(req, user, session)
 
 
 async def _submit_h3_multishot(pos, neg, params, pool, user, session) -> dict:
@@ -556,6 +671,10 @@ _DISPATCH = {
     "h3-nsfw-t2v": (_submit_h3_t2v, ()),
     "h3-i2v": (_submit_h3_i2v, ("image", "worker")),
     "h3-nsfw-i2v": (_submit_h3_i2v, ("image", "worker")),
+    "h3-fl2v": (_submit_h3_fl2v, ("image", "last_frame", "worker")),
+    "h3-nsfw-fl2v": (_submit_h3_fl2v, ("image", "last_frame", "worker")),
+    "h3-r2v": (_submit_h3_r2v, ("worker",)),
+    "h3-nsfw-r2v": (_submit_h3_r2v, ("worker",)),
     "h3-multishot": (_submit_h3_multishot, ()),
     "ltx-nsfw-t2v": (_submit_ltx_t2v, ()),
     "ltx-nsfw-i2v": (_submit_ltx_i2v, ("image", "worker")),
@@ -793,6 +912,217 @@ async def exec_list_entities(args: dict, ctx: dict) -> tuple[str, list[dict]]:
             + (f":{hint[:80]}" if hint else "")
         )
     return "主体库清单:\n" + "\n".join(lines), []
+
+
+def _required_param_keys(schema: list) -> list[str]:
+    """params_schema 里 required=True 的 key(带类型/中文名,给 LLM 清单用)。"""
+    keys: list[str] = []
+    for p in schema or []:
+        if not isinstance(p, dict) or not p.get("required"):
+            continue
+        key = str(p.get("key") or "")
+        if not key:
+            continue
+        typ = p.get("type") or "text"
+        label = p.get("label") or key
+        keys.append(f"{key}({typ}:{label})")
+    return keys
+
+
+def _format_app_line(item) -> str:
+    req = _required_param_keys(item.params_schema)
+    nsfw = "NSFW" if item.is_nsfw else "SFW"
+    desc = (item.description or "")[:80]
+    # 列表 slim 后 params_schema 为空,必填改由 get_app 给出,避免谎称「无必填」
+    extra = f" | 必填:{','.join(req)}" if req else ""
+    return (
+        f"- {item.name}(id={item.id},{item.category},{item.output_kind},{nsfw})"
+        + (f":{desc}" if desc else "")
+        + extra
+    )
+
+
+def _format_param_schema(schema: list) -> str:
+    """把 params_schema 写成「怎么填 values」的说明。"""
+    lines: list[str] = []
+    for p in schema or []:
+        if not isinstance(p, dict):
+            continue
+        key = p.get("key") or "?"
+        typ = p.get("type") or "text"
+        label = p.get("label") or key
+        req = "必填" if p.get("required") else "可选"
+        bits = [key, f"type={typ}", f"label={label}", req]
+        default = p.get("default")
+        if default not in (None, ""):
+            bits.append(f"默认={default}")
+        if p.get("min") is not None or p.get("max") is not None:
+            bits.append(f"范围={p.get('min')}~{p.get('max')}")
+        if typ in ("images", "audio", "video") and p.get("max"):
+            bits.append(f"最多{p['max']}个")
+        opts = p.get("options")
+        if isinstance(opts, list) and opts:
+            vals = []
+            for o in opts[:12]:
+                vals.append(str(o.get("value", o) if isinstance(o, dict) else o))
+            bits.append("选项=" + "|".join(vals))
+        line = "- " + ", ".join(str(b) for b in bits)
+        hint = (p.get("hint") or "").strip()
+        if hint:
+            line += f"。填法:{hint}"
+        lines.append(line)
+    return "\n".join(lines) if lines else "(无参数)"
+
+
+def _app_media_defaults(values: dict, attachment: dict | None, schema: list) -> dict:
+    """本轮上传图回填缺省 images/audio/video 槽(显式 values 优先)。"""
+    out = dict(values)
+    if not attachment or not attachment.get("filename"):
+        return out
+    fn = attachment["filename"]
+    for p in schema or []:
+        if not isinstance(p, dict):
+            continue
+        key = p.get("key")
+        if not key or out.get(key) not in (None, "", []):
+            continue
+        ptype = p.get("type")
+        if ptype == "images":
+            out[key] = [fn]
+        elif ptype in ("audio", "video"):
+            out[key] = fn
+    return out
+
+
+async def exec_list_apps(args: dict, ctx: dict) -> tuple[str, list[dict]]:
+    """应用市场列表:委托 routes/apps.list_apps(同一可见性/NSFW 门控)。"""
+    from app.routes import apps as apps_route
+
+    user: User = ctx["user"]
+    session = ctx["session"]
+    category = str(args.get("category") or "").strip() or None
+    q = str(args.get("q") or "").strip()[:120] or None
+    if category and category not in apps_route._CATEGORIES:
+        return (
+            f"未知分类:{category}。可用:{', '.join(sorted(apps_route._CATEGORIES))}。",
+            [_err_event("未知分类", category)],
+        )
+    items = apps_route.list_apps(category=category, q=q, user=user, session=session)
+    if not items:
+        return "应用市场没有匹配的应用。可换关键词,或引导用户到「市场」页浏览。", []
+    rh, core = [], []
+    for a in items:
+        (rh if str(getattr(a, "id", "")).startswith("rh-") else core).append(a)
+    footer = ""
+    if q:
+        shown = items[:40]
+        if len(items) > 40:
+            footer = f"\n仅列出前 40 条,共 {len(items)} 条匹配。换更具体的 q 或到「市场」页浏览。"
+    else:
+        shown = core
+        if rh:
+            footer = (
+                f"\n另有 {len(rh)} 张 RunningHub H3 社区预制(场景/加速/换人/口播等),"
+                "用 q 搜标题,例如「舞后小憩」「首尾帧」「全能参考」。"
+            )
+    lines = [_format_app_line(a) for a in shown]
+    return (
+        "应用市场清单(视频/H3 请优先 run_app 这些应用,不要用裸引擎):\n"
+        + "\n".join(lines)
+        + footer
+        + "\n选定后用 get_app 看参数,再用 run_app 提交。"
+    ), []
+
+
+async def exec_get_app(args: dict, ctx: dict) -> tuple[str, list[dict]]:
+    """应用详情:params_schema + 填值说明。不可见/NSFW 拦截与路由同一 404。"""
+    from app.routes import apps as apps_route
+
+    user: User = ctx["user"]
+    session = ctx["session"]
+    aid = str(args.get("id") or args.get("app_id") or "").strip()
+    if not aid:
+        return "应用 id 不能为空。先 list_apps 查询。", [_err_event("缺应用 id")]
+    try:
+        item = apps_route.get_app(aid, user, session)
+    except HTTPException as e:
+        return f"应用不存在或不可见({e.status_code}):{e.detail}", [
+            _err_event("应用不存在", aid)
+        ]
+    nsfw = "是(仅 R18)" if item.is_nsfw else "否"
+    text = (
+        f"应用 {item.name}(id={item.id})\n"
+        f"分类:{item.category} 产物:{item.output_kind} NSFW:{nsfw}\n"
+        f"简介:{item.description or '无'}\n"
+        "参数表(run_app 的 values 用这些 key):\n"
+        f"{_format_param_schema(item.params_schema)}\n"
+        "填值要点:必填项必须给;媒体类填本轮上传文件名;"
+        "H3 提示词先 optimize_prompt(kind=video,engine=对应 h3-*)。"
+        "H3 质量规则见技能 h3-prompt-writer:只写一个运镜、负向折进正文、i2v 描述相对首帧的运动。"
+    )
+    return text, []
+
+
+async def exec_run_app(args: dict, ctx: dict) -> tuple[str, list[dict]]:
+    """运行市场应用:委托 routes/apps.run_app(不复制构图/校验逻辑),返回 job_id。"""
+    from app.routes import apps as apps_route
+
+    pool: WorkerPool = ctx["pool"]
+    user: User = ctx["user"]
+    session = ctx["session"]
+    attachment = ctx.get("attachment")
+
+    app_id = str(args.get("app_id") or args.get("id") or "").strip()
+    values = args.get("values") if isinstance(args.get("values"), dict) else {}
+    if not app_id:
+        return "app_id 不能为空。先 list_apps 查询。", [_err_event("缺 app_id")]
+
+    row = session.get(App, app_id)
+    if row is not None:
+        values = _app_media_defaults(values, attachment, row.params_schema or [])
+
+    try:
+        result = await apps_route.run_app(
+            app_id, apps_route.AppRunRequest(values=values), pool, user, session,
+        )
+    except HTTPException as e:
+        return f"运行应用失败({e.status_code}):{e.detail}", [
+            _err_event("运行应用失败", str(e.detail))
+        ]
+    except ValidationError as e:
+        first = (e.errors() or [{}])[0]
+        loc = ".".join(str(x) for x in first.get("loc", []))
+        detail = f"参数 {loc or '?'} 不合法:{first.get('msg', e)}"
+        return f"应用参数不合法:{detail}。请对照 get_app 的参数表修正。", [
+            _err_event("参数不合法", detail)
+        ]
+
+    prompt_id = result.get("prompt_id", "")
+    job = session.exec(
+        select(Job).where(Job.prompt_id == prompt_id, Job.user_id == user.id)
+    ).first()
+    job_id = job.id if job else prompt_id
+    status = job.status if job else "queued"
+    hold_reason = (job.hold_reason if job else "") or ""
+    label = (row.name if row is not None else "") or app_id
+    kind = (job.kind if job else "") or (row.submit_kind if row is not None else "") or "app_run"
+    event = _job_event(
+        job_id=job_id, kind=kind, status=status, label=label, hold_reason=hold_reason,
+    )
+    if status == "held":
+        text = (
+            f"作业已提交但资源暂不足,进入排队(job_id={job_id})。原因:{hold_reason}。"
+            "资源释放后会自动放行,用户追问进度时用 check_jobs 查询。"
+        )
+    else:
+        text = (
+            f"作业已提交(job_id={job_id},应用 {label}),后台生成中。"
+            "请告知用户 job_id 与预计耗时;完成后产物会自动进作品库,"
+            "用户追问进度时用 check_jobs 查询并把结果展示给用户。"
+        )
+    return text, [event]
+
+
 
 
 async def exec_check_jobs(args: dict, ctx: dict) -> tuple[str, list[dict]]:
