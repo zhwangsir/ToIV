@@ -77,7 +77,9 @@
 | GPU2 | **MiniMax H3(主力视频引擎,~41G;gpu-pin.conf UUID 钉物理 GPU2,非数字 CVD=2)** / ASR / FireRedASR / CosyVoice3 / Qwen3-TTS / demucs / SenseVoice / 超分 / InfiniteTalk / Fish S2(常驻~20G) | :8195 / :9210 / :8300 / :9202 / :9203 / :9220 / :9211 / :8262 / :8201 / :9212 | toiv-comfyui-h3(UUID 钉卡,见 H-6) / comfyui-infinitetalk / toiv-fishs2 等;H3 峰值~78G 安全,新增常驻服务前必查 |
 | GPU3 | FlashTalk(~51G) / OpenTalking / 超分 / Wan-Animate-2 / i2L | :9004 / :4403 / :8263 / :8199 / :9101 | ~~LTX-2.5 :8198~~ **已彻底退役**(08-23 `disable --now`,模型留盘可回滚) |
 
-**ComfyUI-LB 后端**（3 后端）：本地 **:8196**(GPU0,`comfyui-gpu0-alt`——:8189 端口被占卡死后顶班,core env 已同步,见 H-7) + pc01 :8188 + pc02 :8193。GPU1/2/3 不入 LB 池（专用实例 :8197/:8195/:8199/:8201/:8261-8263 均专用;每新增同机专用实例必须补 `deps.resolve_worker()` 精确匹配,见 E-1）。
+**ComfyUI-LB 后端**（3 后端）：本地 **:8196**(GPU0,`comfyui-gpu0-alt`——:8189 端口被占卡死后顶班,见 H-7) + pc01 :8188 + pc02 :8193。GPU1/2/3 不入 LB 池（专用实例 :8197/:8195/:8199/:8201/:8261-8263 均专用;每新增同机专用实例必须补 `deps.resolve_worker()` 精确匹配,见 E-1）。
+
+**🔒 池后端变更操作口径(2026-09-03 起,动态化已上线)**：改 ComfyUI 池后端**只编辑 workstation `/opt/comfyui-lb/backends.json`**——LB 每 5s 查 mtime 热重载(零重启、不丢 prompt_map),`GET :8188/admin/backends` 返回清单+健康;ToIV api 池按 `TOIV_COMFY_WORKERS_REGISTRY_URL`(core env 已配)60s TTL 自动跟随(回环地址自动改写到注册表主机);`TOIV_COMFY_WORKERS` env 静态列表仅作 LB 挂掉时的兜底。**禁止再直接改 core env 切池成员、禁止改 LB 源码切后端**(源码内置列表仅为文件缺失时的兜底)。AIGCPannel local_gateway 上传扇出同样惰性拉取 /admin/backends。
 
 **超分 fleet**：:8261/:8262/:8263 三卡并行 4x-UltraSharp 帧超分,由融合超分链/`scripts/ops/video_4k_upscale_parallel.py` 调用。
 
@@ -144,7 +146,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ### E. 引擎/工作流类
 
-- **E-1 新专用 ComfyUI 实例必须补 `deps.resolve_worker()` 精确匹配**：否则同机实例被 hostname 回退错配,作业成功但产物 502。InfiniteTalk :8201 已补(09-03,`infinitetalk_base_url` 配置 + 精确匹配段,待提交)。
+- **E-1 新专用 ComfyUI 实例必须补 `deps.resolve_worker()` 精确匹配**：否则同机实例被 hostname 回退错配,作业成功但产物 502。InfiniteTalk :8201 已补(09-03 `3446b75`,已部署 core)。
 - **E-2 LongCat 链路坑**：TI2V i2v 用 WanVideoEncode→extra_latents;Avatar v1.5 音频必须 whisper-large-v3;WanVideoWrapper 必须 `rope_function="comfy"`。
 - **E-3 引擎探测通过≠链路可跑**：新引擎必须真机 e2e 后交付(LTX 音画链实证)。
 - **E-4 vLLM 坑**：NVML mismatch 炸平台探测(补丁 /home/merlin/patch_vllm_nvml.py);跑不了 LLaVA 架构 JoyCaption(用 transformers);vllm-node 镜像缺 vllm[audio];**served-model-name 别名机制——换模型保别名=core 零改动**。
@@ -169,6 +171,7 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 
 ### 2026-09-03（本周）
 
+- **端点统一+动态切换上线（ToIV `3446b75`+`7edabc5`,已部署 core）**：①LB（AIGCPannel 仓 `platform/deploy/comfyui-lb/comfyui-lb.py`,已部署 workstation）后端列表外置 `/opt/comfyui-lb/backends.json` mtime 热重载 + `GET /admin/backends`;②ToIV api 池 `TOIV_COMFY_WORKERS_REGISTRY_URL` 60s TTL 跟随注册表（失败沿用现状,回环地址改写到注册表主机——生产实证抓获：LB 报 127.0.0.1:8196 对 core 不可达）;③AIGCPannel 三处漂移清单收口（local_gateway 惰性拉取/start 脚本/model_library,KREA2 直连 :8189→:8196）。真机 e2e：改 JSON 加假后端 5s 内出现且 UNHEALTHY、删除即消失、零重启;txt2img 冒烟落 :8196 执行。操作口径见第三节。**⚠️ AIGCPannel 仓改动未提交**（其规则:未要求不 commit;另其 `platform/backend/.env` 含旧 `COMFYUI_LB_BACKEND_URLS` 需其会话手动改 :8196,否则 env 显式值压过动态拉取）。⚠️ ToIV 后端全量 pytest 有 **6 个预存失败**（test_agent_gen_tools/test_app_seed H3 用例,干净树复现,与本次无关,疑 09-03 应用市场批次引入,待查）。
 - **操作方查明=AIGCPannel**：workstation 上的并行操作（gpu0-alt 顶班 :8196、:8195 ComfyUI 升 0.34.0、8189 反复重启）均为 **AIGCPannel 项目会话**所为（证据:`start-aigcpannel.py:112` 硬连 :8189 池、gpu0-alt unit 建于 08-31 03:21、AIGCPannel/AGENTS.md 自述 09-03 :8195 升级与其 P0–P6 短剧 H3 改造同期）。**LoRelay 无集群操作证据**（GPU 租赁产品,仅文档提及）。ToIV 侧只记录不动其服务。
 - **LB 本地后端 :8189→:8196**（H-7）;core health 200;GPU 快照(MiB used/97887):0=27275/1=94125/2=38159/3=84997。
 - **RunningHub H3 应用市场（ToIV 开发,已双推已上 core）**：`262bb5a`(市场+1166 社区预制 rh-* 播种)+ `133f15a`(H3 市场应用走专用 :8195 非通用池);core BUILD_ID `20260903-020621-262bb5a-dirty`。
@@ -204,6 +207,6 @@ PC01/02 的 `extra_model_paths.yaml` 指向 `Z:/Windows/ComfyUI/ComfyUIModel`（
 - [ ] 项目负责人推送 DRT 到 core（备份在 workstation /var/tmp）
 - [ ] Cloud SSH banner 超时排查（HTTPS 正常）
 - [ ] comfyui-gpu0 :8189 占用者清理与回切评估（:8196 alt 顶班中;AIGCPannel 处置方收口,见 H-7）
-- [x] InfiniteTalk :8201 补 `deps.resolve_worker()` 精确匹配（E-1,09-03 遗留；代码已改待提交部署）
+- [x] InfiniteTalk :8201 补 `deps.resolve_worker()` 精确匹配（E-1,09-03 `3446b75` 已部署 core）
 - [ ] GPU0 reset（独立未修事项,勿写成已修）
 - [x] 已核销：ltx25 处置 / trackJob abort / test_duration flaky / ToIV 迁移 core / 域名双入口 / spark02 无审查替换 / `TOIV_CIVITAI_API_KEY`
